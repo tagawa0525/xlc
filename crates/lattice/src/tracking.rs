@@ -4,7 +4,39 @@
 //! 方位角を tan φ = n_x / n_y（n_x, n_y は下辺・側辺から出るトラックの本数）に補正する
 //! （cyclic tracking）。方位角は (0, π) の範囲で持ち、各トラックを順方向と逆方向の両方にスイープする。
 
+use std::f64::consts::PI;
+
 use crate::geometry::PinCell;
+
+/// 点 start から方向 direction に長さ length 進む直線を、同心円で区間に分ける。
+fn segments(cell: &PinCell, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
+    // |start + t d|² = r² の解のうち (0, length) にあるもの
+    let b = start.0 * direction.0 + start.1 * direction.1;
+    let c0 = start.0 * start.0 + start.1 * start.1;
+    let mut cuts = vec![0.0, length];
+    for &r in cell.radii() {
+        let disc = b * b - (c0 - r * r);
+        if disc > 0.0 {
+            let root = disc.sqrt();
+            cuts.extend(
+                [-b - root, -b + root]
+                    .into_iter()
+                    .filter(|&t| t > 0.0 && t < length),
+            );
+        }
+    }
+    cuts.sort_by(f64::total_cmp);
+    cuts.windows(2)
+        .filter(|w| w[1] > w[0])
+        .map(|w| {
+            let mid = 0.5 * (w[0] + w[1]);
+            Segment {
+                region: cell.region_at(start.0 + mid * direction.0, start.1 + mid * direction.1),
+                length: w[1] - w[0],
+            }
+        })
+        .collect()
+}
 
 /// トラック上の1つの領域を通る区間。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -54,12 +86,142 @@ pub struct Tracking {
 impl Tracking {
     /// `n_azimuthal` は (0, π) の方位角の数（偶数）、`spacing` は希望するトラック間隔 (cm)。
     pub fn new(cell: &PinCell, n_azimuthal: usize, spacing: f64) -> Result<Self, String> {
-        todo!()
+        if n_azimuthal == 0 || !n_azimuthal.is_multiple_of(2) {
+            return Err(format!(
+                "the number of azimuthal angles must be positive and even, got {n_azimuthal}"
+            ));
+        }
+        if !(spacing > 0.0 && spacing.is_finite()) {
+            return Err(format!("track spacing must be positive, got {spacing}"));
+        }
+        let n = n_azimuthal;
+        let width = cell.pitch();
+        // 方位角を (0, π/2) で補正し、π - φ を対にする
+        let mut azimuths = vec![
+            Azimuth {
+                phi: 0.0,
+                spacing: 0.0,
+                weight: 0.0,
+            };
+            n
+        ];
+        let mut counts = vec![(0, 0); n];
+        for a in 0..n / 2 {
+            let desired = PI / n as f64 * (a as f64 + 0.5);
+            let nx = (width / spacing * desired.sin()).floor() as usize + 1;
+            let ny = (width / spacing * desired.cos()).floor() as usize + 1;
+            let phi = (nx as f64 / ny as f64).atan();
+            // 補正後の間隔 W/√(nx² + ny²) は希望の間隔より小さい
+            let delta = width / ((nx * nx + ny * ny) as f64).sqrt();
+            azimuths[a] = Azimuth {
+                phi,
+                spacing: delta,
+                weight: 0.0,
+            };
+            azimuths[n - 1 - a] = Azimuth {
+                phi: PI - phi,
+                spacing: delta,
+                weight: 0.0,
+            };
+            counts[a] = (nx, ny);
+            counts[n - 1 - a] = (nx, ny);
+        }
+        // 重みは、隣の方位角との中点で区切った角度の幅
+        for a in 0..n {
+            let lower = if a == 0 {
+                0.0
+            } else {
+                0.5 * (azimuths[a - 1].phi + azimuths[a].phi)
+            };
+            let upper = if a == n - 1 {
+                PI
+            } else {
+                0.5 * (azimuths[a].phi + azimuths[a + 1].phi)
+            };
+            azimuths[a].weight = (upper - lower) / PI;
+        }
+
+        let half = 0.5 * width;
+        let mut tracks = Vec::new();
+        let mut first = vec![0; n + 1];
+        for a in 0..n {
+            first[a] = tracks.len();
+            let (nx, ny) = counts[a];
+            let (dx, dy) = (azimuths[a].phi.cos(), azimuths[a].phi.sin());
+            let bottom = (0..nx).map(|i| (-half + width / nx as f64 * (i as f64 + 0.5), -half));
+            // 右上向きなら左辺、左上向きなら右辺から入る
+            let side_x = if dx > 0.0 { -half } else { half };
+            let side = (0..ny).map(|j| (side_x, -half + width / ny as f64 * (j as f64 + 0.5)));
+            for start in bottom.chain(side) {
+                let to_side = if dx > 0.0 {
+                    (half - start.0) / dx
+                } else {
+                    (-half - start.0) / dx
+                };
+                let to_top = (half - start.1) / dy;
+                let t = to_side.min(to_top);
+                let end = (start.0 + t * dx, start.1 + t * dy);
+                tracks.push(Track {
+                    azimuth: a,
+                    start,
+                    end,
+                    segments: segments(cell, start, (dx, dy), t),
+                    forward_link: Link {
+                        track: 0,
+                        forward: true,
+                    },
+                    backward_link: Link {
+                        track: 0,
+                        forward: true,
+                    },
+                });
+            }
+        }
+        first[n] = tracks.len();
+
+        // 反射でつながるトラックを、補角の方位角のトラックから端点の一致で探す
+        let tolerance = 1.0e-9 * width;
+        let same = |p: (f64, f64), q: (f64, f64)| {
+            (p.0 - q.0).abs() < tolerance && (p.1 - q.1).abs() < tolerance
+        };
+        for k in 0..tracks.len() {
+            let a = tracks[k].azimuth;
+            let complement = first[n - 1 - a]..first[n - a];
+            let find = |point: (f64, f64), forward: bool| -> Result<Link, String> {
+                complement
+                    .clone()
+                    .find(|&j| {
+                        let candidate = if forward {
+                            tracks[j].start
+                        } else {
+                            tracks[j].end
+                        };
+                        same(candidate, point)
+                    })
+                    .map(|track| Link { track, forward })
+                    .ok_or_else(|| format!("no reflected track at {point:?}"))
+            };
+            // 側辺で反射すると補角の順方向、上辺・下辺で反射すると逆方向に続く
+            let end = tracks[k].end;
+            let forward_link = find(end, (end.0.abs() - half).abs() < tolerance)?;
+            let start = tracks[k].start;
+            let backward_link = find(start, (start.1 + half).abs() < tolerance)?;
+            tracks[k].forward_link = forward_link;
+            tracks[k].backward_link = backward_link;
+        }
+        Ok(Self { azimuths, tracks })
     }
 
     /// トラックから推定した領域ごとの体積。MOC の領域平均の計算と整合する。
     pub fn volumes(&self, regions: usize) -> Vec<f64> {
-        todo!()
+        let mut volumes = vec![0.0; regions];
+        for track in &self.tracks {
+            let azimuth = &self.azimuths[track.azimuth];
+            for s in &track.segments {
+                volumes[s.region] += azimuth.weight * azimuth.spacing * s.length;
+            }
+        }
+        volumes
     }
 }
 
