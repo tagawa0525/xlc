@@ -67,6 +67,16 @@ impl GroupedOutgoing {
         }
     }
 
+    /// 重心系で与えられた分布を、重心系で等方として実験室系に変換して群に振り分ける。
+    /// `awr` は標的の質量比。
+    pub fn center_of_mass(
+        groups: &GroupStructure,
+        distributions: &OutgoingDistributions,
+        awr: f64,
+    ) -> Self {
+        todo!()
+    }
+
     /// 入射エネルギー
     pub fn incident(&self) -> &[f64] {
         &self.incident
@@ -128,6 +138,35 @@ mod tests {
         assert!(
             (r[0] - 0.75).abs() < 1e-15 && (r[1] - 0.25).abs() < 1e-15,
             "{r:?}"
+        );
+    }
+
+    #[test]
+    fn center_of_mass_energy_spreads_in_laboratory() {
+        // 重心系で E'cm にほぼ単色の中性子は、実験室系で
+        // [(√E'cm - √Ec)², (√E'cm + √Ec)²] に一様に分布する（Ec = E/(A+1)²）
+        let (e, awr) = (1.6e7, 15.0);
+        let ec = e / (awr + 1.0_f64).powi(2);
+        assert_eq!(ec, 62500.0);
+        let distributions = OutgoingDistributions {
+            breaks: vec![1],
+            laws: vec![Interpolation::LinLin],
+            incident: vec![e],
+            spectra: vec![Tab1 {
+                breaks: vec![2],
+                laws: vec![Interpolation::Histogram],
+                x: vec![1.0e6 - 1.0, 1.0e6 + 1.0],
+                y: vec![0.5, 0.5],
+            }],
+        };
+        let groups = GroupStructure::new(vec![2.0e6, 1.0e6, 1.0e5]);
+        let grouped = GroupedOutgoing::center_of_mass(&groups, &distributions, awr);
+        let mut out = vec![0.0; 2];
+        grouped.accumulate(e, 1.0, &mut out);
+        // 実験室系の範囲は [562500, 1562500]
+        assert!(
+            (out[0] - 0.5625).abs() < 1e-4 && (out[1] - 0.4375).abs() < 1e-4,
+            "{out:?}"
         );
     }
 
