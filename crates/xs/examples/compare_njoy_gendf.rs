@@ -194,7 +194,7 @@ fn read_gendf_matrix(
         if ig == 0 || ig2lo == 0 {
             continue;
         }
-        for j in 0..ng2 - 1 {
+        for j in 0..ng2.saturating_sub(1) {
             matrix[ng - ig][ng - (ig2lo + j)] = list.values[nl * nz * (j + 1)];
         }
     }
@@ -230,7 +230,7 @@ fn read_gendf_chi(
             spectrum_source += list.values[0] * list.values[nlnz];
         } else {
             let flux = list.values[0];
-            for j in 0..ng2 - 1 {
+            for j in 0..ng2.saturating_sub(1) {
                 production[ng - (ig2lo + j)] += flux * list.values[nlnz * (j + 1)];
             }
         }
