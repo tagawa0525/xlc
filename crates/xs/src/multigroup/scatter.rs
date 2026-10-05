@@ -95,7 +95,7 @@ pub fn scattering_matrix(
 }
 
 /// 中性子を放出する反応（核分裂を除く）
-fn emits_neutrons(mt: u32) -> bool {
+pub fn emits_neutrons(mt: u32) -> bool {
     matches!(
         mt,
         2 | 4
