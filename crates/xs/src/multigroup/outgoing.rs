@@ -4,7 +4,11 @@ use super::GroupStructure;
 use crate::endf::{Interpolation, OutgoingDistributions, Tab1};
 use crate::pointwise::linearize;
 
-/// 出射エネルギーの確率密度の表を、群ごとに積分する（群構造の外に出る分は数えない）。
+/// 出射エネルギーの確率密度の表を、群ごとに積分する。
+///
+/// 群構造の外に出る分は端の群に入れる（NJOY GROUPR と同じ）。たとえば 10 MeV を超える
+/// 核分裂中性子は最上位の群に入る。数えずに捨てると、χ を正規化したときにその分が
+/// すべての群に比例配分され、熱群にまで配られてしまう。
 pub fn outgoing_group_integrals(groups: &GroupStructure, density: &Tab1) -> Vec<f64> {
     let linear = linearize(density, DENSITY_TOLERANCE);
     let bounds = groups.bounds();
@@ -27,9 +31,11 @@ pub fn outgoing_group_integrals(groups: &GroupStructure, density: &Tab1) -> Vec<
         cuts.sort_by(f64::total_cmp);
         for w in cuts.windows(2) {
             let (a, b) = (w[0], w[1]);
-            if let Some(g) = groups.find(0.5 * (a + b)) {
-                integrals[g] += 0.5 * (b - a) * (y(a) + y(b));
-            }
+            let mid = 0.5 * (a + b);
+            let g = groups
+                .find(mid)
+                .unwrap_or(if mid > bounds[0] { 0 } else { groups.len() - 1 });
+            integrals[g] += 0.5 * (b - a) * (y(a) + y(b));
         }
     }
     integrals
