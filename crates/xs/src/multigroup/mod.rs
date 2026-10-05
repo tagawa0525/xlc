@@ -31,7 +31,32 @@ pub fn reaction_averages(
     tables: &BTreeMap<u32, Tab1>,
     nubar: Option<&Tab1>,
 ) -> ReactionAverages {
-    todo!()
+    let flux = group_integrals(groups, weight, &[], |_| 1.0);
+    let average = |breakpoints: &[f64], f: &dyn Fn(f64) -> f64| -> Vec<f64> {
+        group_integrals(groups, weight, breakpoints, f)
+            .iter()
+            .zip(&flux)
+            .map(|(integral, phi)| integral / phi)
+            .collect()
+    };
+    let sigma = tables
+        .iter()
+        .map(|(&mt, t)| (mt, average(&t.x, &|e| t.eval(e).unwrap_or(0.0))))
+        .collect();
+    let nu_fission = match (nubar, tables.get(&18)) {
+        (Some(nu), Some(fission)) => {
+            let breakpoints: Vec<f64> = fission.x.iter().chain(&nu.x).copied().collect();
+            Some(average(&breakpoints, &|e| {
+                nu.eval(e).unwrap_or(0.0) * fission.eval(e).unwrap_or(0.0)
+            }))
+        }
+        _ => None,
+    };
+    ReactionAverages {
+        flux,
+        sigma,
+        nu_fission,
+    }
 }
 
 #[cfg(test)]

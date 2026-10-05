@@ -6,7 +6,13 @@ use super::tape::Section;
 
 /// ν(E) の表を読む。M0 では表形式（LNU=2）だけを扱う。
 pub fn parse_nubar(section: &Section<'_>) -> Result<Tab1, Error> {
-    todo!()
+    let mut r = section.reader();
+    let head = r.cont()?;
+    let lnu = head.l2;
+    if lnu != 2 {
+        return Err(Error::new(r.line(), format!("LNU={lnu} is not supported")));
+    }
+    Ok(r.tab1()?.table)
 }
 
 #[cfg(test)]

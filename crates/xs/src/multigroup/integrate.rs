@@ -12,8 +12,54 @@ pub fn group_integrals(
     breakpoints: &[f64],
     f: impl Fn(f64) -> f64,
 ) -> Vec<f64> {
-    todo!()
+    let bounds = groups.bounds();
+    let (lowest, highest) = (bounds[groups.len()], bounds[0]);
+    let mut points: Vec<f64> = breakpoints
+        .iter()
+        .chain(bounds)
+        .chain(&weight.breakpoints())
+        .copied()
+        .filter(|e| (lowest..=highest).contains(e))
+        .collect();
+    points.sort_by(f64::total_cmp);
+    points.dedup();
+
+    let mut integrals = vec![0.0; groups.len()];
+    for w in points.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let g = groups
+            .find(0.5 * (a + b))
+            .expect("points are inside the group structure");
+        let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
+        let ratio = (b / a).powf(1.0 / pieces as f64);
+        let mut lo = a;
+        for i in 0..pieces {
+            let hi = if i + 1 == pieces { b } else { lo * ratio };
+            let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
+            integrals[g] += GAUSS_LEGENDRE
+                .iter()
+                .map(|&(x, wk)| {
+                    let e = mid + half * x;
+                    wk * f(e) * weight.value(e)
+                })
+                .sum::<f64>()
+                * half;
+            lo = hi;
+        }
+    }
+    integrals
 }
+
+/// 1つの積分区間の上限と下限のエネルギー比の上限
+const MAX_RATIO: f64 = 1.05;
+
+/// 4点 Gauss-Legendre 求積の (節点, 重み)
+const GAUSS_LEGENDRE: [(f64, f64); 4] = [
+    (-0.861_136_311_594_052_6, 0.347_854_845_137_453_8),
+    (-0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
+    (0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
+    (0.861_136_311_594_052_6, 0.347_854_845_137_453_8),
+];
 
 #[cfg(test)]
 mod tests {
