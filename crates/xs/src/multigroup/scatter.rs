@@ -424,7 +424,7 @@ mod tests {
             Some(&thermal),
         )
         .unwrap();
-        assert!(m[1].iter().sum::<f64>() > 4.0, "{m:?}");
+        assert!(m[0].iter().sum::<f64>() > 4.0, "{m:?}");
     }
 
     #[test]
