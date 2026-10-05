@@ -1,13 +1,15 @@
 //! 散乱行列（P0）。
 //!
 //! 弾性散乱と離散準位の非弾性散乱は、静止した標的との重心系等方の2体反応として扱う。
+//! 熱領域の弾性散乱は、指定があれば自由ガス模型で扱う（標的の熱運動による上方散乱を含む）。
 //! 連続的な中性子放出反応（MT91, (n,2n) など）は MF6 のエネルギー分布と多重度を使う。
 
 use std::collections::BTreeMap;
 
 use super::outgoing::uniform_fractions;
 use super::{
-    FreeGas, GroupStructure, GroupedOutgoing, Weight, group_integrals, group_integrals_multi,
+    FreeGas, GroupStructure, GroupedOutgoing, Weight, free_gas_group_integrals, group_integrals,
+    group_integrals_multi,
 };
 use crate::endf::{Frame, Mf6, Tab1};
 
@@ -59,14 +61,12 @@ pub fn scattering_matrix(
         }
         let rows = if let Some(data) = mf6.get(&mt) {
             emission_rows(groups, weight, table, data)
-        } else if mt == 2 || (51..=90).contains(&mt) {
-            let q = if mt == 2 {
-                0.0
-            } else {
-                *q_values
-                    .get(&mt)
-                    .ok_or_else(|| format!("MT{mt}: missing Q value"))?
-            };
+        } else if mt == 2 {
+            elastic_rows(groups, weight, awr, table, thermal)
+        } else if (51..=90).contains(&mt) {
+            let q = *q_values
+                .get(&mt)
+                .ok_or_else(|| format!("MT{mt}: missing Q value"))?;
             two_body_rows(groups, weight, awr, q, table)
         } else {
             return Err(format!("MT{mt}: no outgoing neutron distribution"));
@@ -110,6 +110,37 @@ fn emits_neutrons(mt: u32) -> bool {
             | 198..=200
             | 875..=891
     )
+}
+
+/// 弾性散乱の ∫_g σ(E) w(E) P(E→g') dE。`thermal` の cutoff 未満では自由ガス模型、
+/// それ以上では静止標的との2体反応とする。
+fn elastic_rows(
+    groups: &GroupStructure,
+    weight: &Weight,
+    awr: f64,
+    table: &Tab1,
+    thermal: Option<&FreeGas>,
+) -> Vec<Vec<f64>> {
+    let Some(free_gas) = thermal else {
+        return two_body_rows(groups, weight, awr, 0.0, table);
+    };
+    let mut breakpoints = table.x.clone();
+    breakpoints.extend(two_body_kinks(groups, awr, 0.0));
+    breakpoints.push(free_gas.cutoff);
+    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
+        let sigma = table.eval(e).unwrap_or(0.0);
+        if sigma == 0.0 {
+            return;
+        }
+        if e < free_gas.cutoff {
+            let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
+            for (o, t) in out.iter_mut().zip(transfer) {
+                *o += sigma * t;
+            }
+        } else if let Some((lo, hi)) = two_body_range(e, awr, 0.0) {
+            uniform_fractions(groups, lo, hi, sigma, out);
+        }
+    })
 }
 
 /// 2体反応の ∫_g σ(E) w(E) P(E→g') dE。
