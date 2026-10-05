@@ -15,7 +15,17 @@ pub struct PinCell {
 impl PinCell {
     /// 半径は昇順で、セルの内接円より小さいこと。
     pub fn new(pitch: f64, radii: Vec<f64>) -> Result<Self, String> {
-        todo!()
+        if !(pitch > 0.0 && pitch.is_finite()) {
+            return Err(format!("pitch must be positive, got {pitch}"));
+        }
+        let ascending = radii.windows(2).all(|w| w[0] < w[1]);
+        let inside = radii.iter().all(|&r| r > 0.0 && r < 0.5 * pitch);
+        if !(ascending && inside) {
+            return Err(format!(
+                "radii must be ascending and between 0 and pitch/2, got {radii:?}"
+            ));
+        }
+        Ok(Self { pitch, radii })
     }
 
     pub fn pitch(&self) -> f64 {
@@ -32,12 +42,24 @@ impl PinCell {
 
     /// 点 (x, y) を含む領域。
     pub fn region_at(&self, x: f64, y: f64) -> usize {
-        todo!()
+        let r = x.hypot(y);
+        self.radii.partition_point(|&ri| ri <= r)
     }
 
     /// 領域ごとの体積（単位高さあたりの面積, cm²）の解析値。
     pub fn volumes(&self) -> Vec<f64> {
-        todo!()
+        let mut inner = 0.0;
+        let mut volumes: Vec<f64> = self
+            .radii
+            .iter()
+            .map(|&r| {
+                let v = PI * (r * r - inner * inner);
+                inner = r;
+                v
+            })
+            .collect();
+        volumes.push(self.pitch * self.pitch - PI * inner * inner);
+        volumes
     }
 }
 
