@@ -1,0 +1,7 @@
+[package]
+name = "xlc-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+lattice = { path = "../lattice" }
