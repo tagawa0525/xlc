@@ -5,8 +5,9 @@
 
 use std::collections::BTreeMap;
 
+use super::outgoing::uniform_fractions;
 use super::{GroupStructure, GroupedOutgoing, Weight, group_integrals, group_integrals_multi};
-use crate::endf::{Mf6, Tab1};
+use crate::endf::{Frame, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
 /// 出射エネルギーの範囲。出射エネルギーはこの範囲で一様に分布する。しきい値未満なら `None`。
@@ -42,10 +43,14 @@ pub fn scattering_matrix(
     let ng = groups.len();
     let flux = group_integrals(groups, weight, &[], |_| 1.0);
     let has_n2n_partials = tables.keys().any(|mt| (875..=891).contains(mt));
+    let has_inelastic_partials = tables.keys().any(|mt| (51..=91).contains(mt));
     let mut matrix = vec![vec![0.0; ng]; ng];
     for (&mt, table) in tables {
-        // MT4 と、部分反応のある MT16 は和なので、部分反応の側で数える
-        if !emits_neutrons(mt) || mt == 4 || (mt == 16 && has_n2n_partials) {
+        // 部分反応のある MT4 と MT16 は和なので、部分反応の側で数える
+        if !emits_neutrons(mt)
+            || (mt == 4 && has_inelastic_partials)
+            || (mt == 16 && has_n2n_partials)
+        {
             continue;
         }
         let rows = if let Some(data) = mf6.get(&mt) {
@@ -80,7 +85,8 @@ pub fn scattering_matrix(
 fn emits_neutrons(mt: u32) -> bool {
     matches!(
         mt,
-        2 | 5
+        2 | 4
+            | 5
             | 11
             | 16
             | 17
@@ -156,32 +162,6 @@ fn two_body_kinks(groups: &GroupStructure, awr: f64, q: f64) -> Vec<f64> {
     kinks
 }
 
-/// [lo, hi] の一様分布を群に振り分け、`scale` を掛けて `out` に足す。
-/// 群構造の外に出る分は端の群に入れる。
-fn uniform_fractions(groups: &GroupStructure, lo: f64, hi: f64, scale: f64, out: &mut [f64]) {
-    let bounds = groups.bounds();
-    let edge = |e: f64| {
-        groups
-            .find(e)
-            .unwrap_or(if e > bounds[0] { 0 } else { groups.len() - 1 })
-    };
-    if hi <= lo {
-        out[edge(lo)] += scale;
-        return;
-    }
-    let mut cuts: Vec<f64> = bounds
-        .iter()
-        .copied()
-        .filter(|&b| b > lo && b < hi)
-        .collect();
-    cuts.push(lo);
-    cuts.push(hi);
-    cuts.sort_by(f64::total_cmp);
-    for w in cuts.windows(2) {
-        out[edge(0.5 * (w[0] + w[1]))] += scale * (w[1] - w[0]) / (hi - lo);
-    }
-}
-
 /// MF6 の中性子放出の ∫_g σ(E) y(E) w(E) P(E→g') dE。
 fn emission_rows(
     groups: &GroupStructure,
@@ -192,7 +172,12 @@ fn emission_rows(
     let ng = groups.len();
     let mut rows = vec![vec![0.0; ng]; ng];
     for emission in &data.neutrons {
-        let grouped = GroupedOutgoing::new(groups, &emission.distributions);
+        let grouped = match emission.frame {
+            Frame::Laboratory => GroupedOutgoing::new(groups, &emission.distributions),
+            Frame::CenterOfMass => {
+                GroupedOutgoing::center_of_mass(groups, &emission.distributions, data.awr)
+            }
+        };
         let mut breakpoints = table.x.clone();
         breakpoints.extend(&emission.multiplicity.x);
         breakpoints.extend(grouped.incident());
