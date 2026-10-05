@@ -50,8 +50,12 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
     for spec in specs {
         let (name, path) = spec
             .split_once('=')
-            .filter(|(name, path)| !name.is_empty() && !path.is_empty())
-            .ok_or_else(|| format!("expected <NAME>=<ENDF>, found `{spec}`"))?;
+            .filter(|(name, path)| {
+                !name.is_empty() && !path.is_empty() && !name.contains(char::is_whitespace)
+            })
+            .ok_or_else(|| {
+                format!("expected <NAME>=<ENDF> without spaces in NAME, found `{spec}`")
+            })?;
         if nuclides.iter().any(|(n, _)| n == name) {
             return Err(format!("nuclide `{name}` is given twice"));
         }
