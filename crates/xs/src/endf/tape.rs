@@ -237,6 +237,11 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// セクションのレコードをすべて読み終えたかどうか。
+    pub fn at_end(&self) -> bool {
+        todo!()
+    }
+
     /// 最後に読んだ行の行番号。まだ何も読んでいなければ、セクションの先頭行の番号。
     pub fn line(&self) -> usize {
         let index = self.pos.saturating_sub(1);
@@ -385,6 +390,16 @@ pub(crate) mod tests {
             vec![Interpolation::Histogram, Interpolation::LogLog]
         );
         assert_eq!(rec.table.x, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn at_end_after_last_record() {
+        let tape = Tape::parse(&sample_tape()).unwrap();
+        let mut r = tape.section(125, 3, 1).unwrap().reader();
+        assert!(!r.at_end());
+        r.cont().unwrap();
+        r.tab1().unwrap();
+        assert!(r.at_end());
     }
 
     #[test]
