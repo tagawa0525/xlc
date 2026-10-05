@@ -67,10 +67,11 @@ pub fn scattering_matrix(
         {
             continue;
         }
-        let rows = if let Some(data) = mf6.get(&mt) {
-            emission_rows(groups, weight, table, data)
-        } else if mt == 2 {
+        // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
+        let rows = if mt == 2 {
             elastic_rows(groups, weight, awr, table, thermal)
+        } else if let Some(data) = mf6.get(&mt) {
+            emission_rows(groups, weight, table, data)
         } else if (51..=90).contains(&mt) {
             let q = *q_values
                 .get(&mt)
