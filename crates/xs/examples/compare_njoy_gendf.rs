@@ -5,11 +5,16 @@
 //! 群構造は WIMS 69群、重み関数は iwt=4（軽水炉向けの値）とする。GENDF は同じ条件で
 //! 0 K、無限希釈（σ0 = 1e10）として作っておくこと。MT452 は ν̄ を比べる。
 //! MF5 MT18 があれば、GENDF の MF6 MT18 から求めた核分裂スペクトル χ も比べる。
+//! GENDF の MF6（MT18 以外）は、散乱行列を行ごとに比べる（行の差の絶対値の和 / 行の和）。
+//! NJOY は MF4 の角度分布を使い、こちらは重心系等方を仮定するので、角度分布が前方に偏る
+//! 高エネルギーの群では一致しない。環境変数 XLC_ROWS を設定すると、全群の値を表示する。
 
 use std::collections::BTreeMap;
 
-use xs::endf::{Mf5, Tape, parse_nubar};
-use xs::multigroup::{GroupStructure, Weight, fission_spectrum, reaction_averages};
+use xs::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
+use xs::multigroup::{
+    GroupStructure, Weight, fission_spectrum, reaction_averages, scattering_matrix,
+};
 use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -106,7 +111,94 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .sum::<f64>()
         );
     }
+
+    let awr = Mf3::parse(&tape.section(mat, 3, 2).ok_or("no MT2")?)?.awr;
+    // MT18 は χ として上で比べた
+    for mt in reference.mts(mat, 6).into_iter().filter(|&mt| mt != 18) {
+        let (Some(gendf), Some(table)) = (reference.section(mat, 6, mt), tables.get(&mt)) else {
+            continue;
+        };
+        let q_values = BTreeMap::from([(
+            mt,
+            Mf3::parse(&tape.section(mat, 3, mt).ok_or("no MF3")?)?.qi,
+        )]);
+        let mut mf6 = BTreeMap::new();
+        if let Some(section) = tape.section(mat, 6, mt) {
+            match Mf6::parse(&section) {
+                Ok(data) => {
+                    mf6.insert(mt, data);
+                }
+                Err(e) => {
+                    println!("MF6 MT{mt}: skipped ({e})");
+                    continue;
+                }
+            }
+        }
+        let single = BTreeMap::from([(mt, table.clone())]);
+        let ours = match scattering_matrix(&groups, &Weight::lwr(), awr, &single, &q_values, &mf6) {
+            Ok(m) => m,
+            Err(e) => {
+                println!("MF6 MT{mt}: skipped ({e})");
+                continue;
+            }
+        };
+        let njoy = read_gendf_matrix(&gendf, ng)?;
+        let mut worst = (0.0_f64, 0);
+        for g in 0..ng {
+            // どちらか一方にだけ散乱がある群も差として数える
+            let sum = njoy[g].iter().sum::<f64>().max(ours[g].iter().sum());
+            if sum <= 0.0 {
+                continue;
+            }
+            let diff: f64 = ours[g]
+                .iter()
+                .zip(&njoy[g])
+                .map(|(a, b)| (a - b).abs())
+                .sum();
+            if diff / sum > worst.0 {
+                worst = (diff / sum, g);
+            }
+            if std::env::var("XLC_ROWS").is_ok() {
+                println!("  MT{mt} group {g:2}: {:.2e}", diff / sum);
+            }
+        }
+        let g = worst.1;
+        println!(
+            "MF6 MT{mt}: max row |diff| / row sum {:.2e} in group {g} (row sum ours {:.6e}, njoy {:.6e}; self ours {:.6e}, njoy {:.6e})",
+            worst.0,
+            ours[g].iter().sum::<f64>(),
+            njoy[g].iter().sum::<f64>(),
+            ours[g][g],
+            njoy[g][g]
+        );
+    }
     Ok(())
+}
+
+/// GENDF の MF6 の行列（P0）を [入射の群][出射の群] で返す。
+fn read_gendf_matrix(
+    section: &xs::endf::Section<'_>,
+    ng: usize,
+) -> Result<Vec<Vec<f64>>, Box<dyn std::error::Error>> {
+    let mut r = section.reader();
+    let head = r.cont()?;
+    let (nl, nz) = (usize::try_from(head.l1)?, usize::try_from(head.l2)?);
+    let mut matrix = vec![vec![0.0; ng]; ng];
+    while !r.at_end() {
+        let list = r.list()?;
+        let (ng2, ig2lo, ig) = (
+            usize::try_from(list.l1)?,
+            usize::try_from(list.l2)?,
+            usize::try_from(list.n2)?,
+        );
+        if ig == 0 || ig2lo == 0 {
+            continue;
+        }
+        for j in 0..ng2.saturating_sub(1) {
+            matrix[ng - ig][ng - (ig2lo + j)] = list.values[nl * nz * (j + 1)];
+        }
+    }
+    Ok(matrix)
 }
 
 /// GENDF の MF6 MT18 から、核分裂中性子の生成を出射の群ごとに集計し、和を 1 にして返す。
@@ -138,7 +230,7 @@ fn read_gendf_chi(
             spectrum_source += list.values[0] * list.values[nlnz];
         } else {
             let flux = list.values[0];
-            for j in 0..ng2 - 1 {
+            for j in 0..ng2.saturating_sub(1) {
                 production[ng - (ig2lo + j)] += flux * list.values[nlnz * (j + 1)];
             }
         }

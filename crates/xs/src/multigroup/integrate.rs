@@ -71,7 +71,7 @@ pub fn group_integrals_multi(
 const MAX_RATIO: f64 = 1.05;
 
 /// 4点 Gauss-Legendre 求積の (節点, 重み)
-const GAUSS_LEGENDRE: [(f64, f64); 4] = [
+pub(super) const GAUSS_LEGENDRE: [(f64, f64); 4] = [
     (-0.861_136_311_594_052_6, 0.347_854_845_137_453_8),
     (-0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
     (0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
