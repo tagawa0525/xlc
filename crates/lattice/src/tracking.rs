@@ -241,6 +241,12 @@ mod tests {
     }
 
     #[test]
+    fn coarse_spacing_that_merges_angles_is_error() {
+        // 間隔が粗いと、補正後に隣の方位角と同じ角度になり、方向が実際より少なくなる
+        assert!(Tracking::new(&cell(), 54, 0.6).is_err());
+    }
+
+    #[test]
     fn corrected_angles_are_symmetric() {
         let t = Tracking::new(&cell(), 16, 0.05).unwrap();
         assert_eq!(t.azimuths.len(), 16);
