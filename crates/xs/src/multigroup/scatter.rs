@@ -281,6 +281,23 @@ mod tests {
     }
 
     #[test]
+    fn total_inelastic_without_partials_needs_a_distribution() {
+        // MT51〜91 がなければ、MT4 自身を数える（分布がなければエラー）
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
+        let tables = BTreeMap::from([(4, constant(1.0))]);
+        let err = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            15.86,
+            &tables,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+        )
+        .unwrap_err();
+        assert!(err.contains("MT4"), "{err}");
+    }
+
+    #[test]
     fn neutron_emission_without_distribution_is_error() {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
         let tables = BTreeMap::from([(16, constant(1.0))]);
@@ -298,10 +315,11 @@ mod tests {
 
     #[test]
     fn mf6_multiplicity_scales_the_row() {
-        use crate::endf::{Interpolation, NeutronEmission, OutgoingDistributions};
+        use crate::endf::{Frame, Interpolation, NeutronEmission, OutgoingDistributions};
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]);
         let emission = NeutronEmission {
             multiplicity: constant(2.0),
+            frame: Frame::Laboratory,
             distributions: OutgoingDistributions {
                 breaks: vec![1],
                 laws: vec![Interpolation::LinLin],
@@ -312,6 +330,7 @@ mod tests {
         let mf6 = BTreeMap::from([(
             16,
             Mf6 {
+                awr: 15.86,
                 neutrons: vec![emission],
             },
         )]);

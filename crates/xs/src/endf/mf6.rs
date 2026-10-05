@@ -8,16 +8,26 @@ use super::mf5::{OutgoingDistributions, incident_laws};
 use super::tab1::{Interpolation, Tab1};
 use super::tape::{Reader, Section};
 
+/// 出射エネルギーの座標系（LCT）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Frame {
+    Laboratory,
+    CenterOfMass,
+}
+
 /// 1反応で放出される中性子の多重度と出射エネルギー分布。
 #[derive(Debug, Clone, PartialEq)]
 pub struct NeutronEmission {
     /// 多重度 y(E)
     pub multiplicity: Tab1,
     pub distributions: OutgoingDistributions,
+    pub frame: Frame,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mf6 {
+    /// 標的の質量比（重心系から実験室系への変換に使う）
+    pub awr: f64,
     pub neutrons: Vec<NeutronEmission>,
 }
 
@@ -42,12 +52,16 @@ impl Mf6 {
                 neutrons.push(NeutronEmission {
                     multiplicity: product.table,
                     distributions: read_law1(&mut r)?,
+                    frame: todo!("LCT"),
                 });
             } else {
                 skip_law(&mut r, law, start)?;
             }
         }
-        Ok(Self { neutrons })
+        Ok(Self {
+            awr: todo!(),
+            neutrons,
+        })
     }
 }
 
@@ -149,9 +163,9 @@ mod tests {
     }
 
     /// 中性子（LAW=1、2つの入射エネルギー）と、LAW=0 の別の生成粒子
-    fn section(neutron_law: &str, nd: &str) -> String {
+    fn section(lct: &str, neutron_law: &str, nd: &str) -> String {
         [
-            r(["8016.0", "15.85751", "0", "2", "2", "0"]),
+            r(["8016.0", "15.85751", "0", lct, "2", "0"]),
             // 別の生成粒子（LAW=0: 多重度だけ）
             r(["8015.0", "14.87", "0", "0", "1", "2"]),
             r(["2", "2", "", "", "", ""]),
@@ -174,10 +188,12 @@ mod tests {
 
     #[test]
     fn reads_law1_neutrons_and_skips_other_products() {
-        let tape = Tape::parse(&section("1", "0")).unwrap();
+        let tape = Tape::parse(&section("2", "1", "0")).unwrap();
         let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
         assert_eq!(mf6.neutrons.len(), 1);
+        assert_eq!(mf6.awr, 15.85751);
         let n = &mf6.neutrons[0];
+        assert_eq!(n.frame, Frame::CenterOfMass);
         assert_eq!(n.multiplicity.eval(1.8e7), Some(2.0));
         let d = &n.distributions;
         assert_eq!(d.incident, vec![1.6e7, 2.0e7]);
@@ -191,14 +207,29 @@ mod tests {
 
     #[test]
     fn other_neutron_law_is_error() {
-        let tape = Tape::parse(&section("7", "0")).unwrap();
+        let tape = Tape::parse(&section("2", "7", "0")).unwrap();
         let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
         assert_eq!(err.line, 5);
     }
 
     #[test]
+    fn laboratory_frame() {
+        let tape = Tape::parse(&section("1", "1", "0")).unwrap();
+        let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
+        assert_eq!(mf6.neutrons[0].frame, Frame::Laboratory);
+    }
+
+    #[test]
+    fn unsupported_frame_is_error() {
+        // LCT=4 は生成粒子ごとに座標系が変わる（M0 では扱わない）
+        let tape = Tape::parse(&section("4", "1", "0")).unwrap();
+        let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();
+        assert_eq!(err.line, 1);
+    }
+
+    #[test]
     fn discrete_lines_are_error() {
-        let tape = Tape::parse(&section("1", "1")).unwrap();
+        let tape = Tape::parse(&section("2", "1", "1")).unwrap();
         assert!(Mf6::parse(&tape.section(825, 6, 16).unwrap()).is_err());
     }
 }
