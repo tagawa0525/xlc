@@ -19,7 +19,14 @@ pub struct Weight {
 
 impl Weight {
     pub fn thermal_1e_fission(eb: f64, tb: f64, ec: f64, tc: f64) -> Self {
-        todo!()
+        Self {
+            eb,
+            tb,
+            ab: 1.0 / ((-eb / tb).exp() * eb * eb),
+            ec,
+            tc,
+            ac: 1.0 / ((-ec / tc).exp() * ec.powf(1.5)),
+        }
     }
 
     /// 軽水炉向けの値（eb = 0.1 eV, tb = 0.0253 eV, ec = 820.3 keV, tc = 1.4 MeV）。
@@ -28,12 +35,18 @@ impl Weight {
     }
 
     pub fn value(&self, e: f64) -> f64 {
-        todo!()
+        if e <= self.eb {
+            self.ab * e * (-e / self.tb).exp()
+        } else if e <= self.ec {
+            1.0 / e
+        } else {
+            self.ac * e.sqrt() * (-e / self.tc).exp()
+        }
     }
 
     /// 関数の形が切り替わるエネルギー（積分の区間の境界に入れる）。
     pub fn breakpoints(&self) -> [f64; 2] {
-        todo!()
+        [self.eb, self.ec]
     }
 }
 
