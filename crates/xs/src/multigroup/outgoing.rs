@@ -118,9 +118,9 @@ mod tests {
         let groups = GroupStructure::new(vec![2.0, 1.0, 0.5]);
         let density = Tab1::linear(vec![0.0, 2.0], vec![0.0, 1.0]);
         let r = outgoing_group_integrals(&groups, &density);
-        // ∫ E/2 dE
+        // ∫ E/2 dE。0.5 eV 未満の分（0.0625）は最下位の群に入る
         assert!(
-            (r[0] - 0.75).abs() < 1e-15 && (r[1] - 0.1875).abs() < 1e-15,
+            (r[0] - 0.75).abs() < 1e-15 && (r[1] - 0.25).abs() < 1e-15,
             "{r:?}"
         );
     }
