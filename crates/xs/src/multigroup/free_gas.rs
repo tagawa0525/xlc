@@ -119,8 +119,8 @@ mod tests {
                 assert!(p.iter().all(|&v| v >= 0.0));
             }
         }
-        // 重い核ではほとんど同じ群に残る
-        let e = 0.0253;
+        // 重い核ではほとんど同じ群に残る（群 [0.025, 0.03] eV の中央から入射）
+        let e = 0.0275;
         let g = groups.find(e).unwrap();
         assert!(free_gas_group_integrals(&groups, e, 236.0, KT)[g] > 0.5);
     }
