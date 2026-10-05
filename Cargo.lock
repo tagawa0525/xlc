@@ -10,5 +10,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlc-core"
+version = "0.1.0"
+dependencies = [
+ "lattice",
+]
+
+[[package]]
 name = "xs"
 version = "0.1.0"
