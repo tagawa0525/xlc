@@ -6,6 +6,7 @@
 mod mf1;
 mod mf2;
 mod mf3;
+mod mf5;
 mod number;
 mod tab1;
 mod tape;
@@ -15,8 +16,9 @@ use std::fmt;
 pub use mf1::parse_nubar;
 pub use mf2::{Mf2, RangeKind, ReichMoore, ResonanceRange, RmLValue, RmResonance};
 pub use mf3::Mf3;
+pub use mf5::{Mf5, OutgoingDistributions, parse_outgoing};
 pub use tab1::{Interpolation, Tab1};
-pub use tape::{Cont, List, Reader, Section, Tab1Record, Tape};
+pub use tape::{Cont, List, Reader, Section, Tab1Record, Tab2Record, Tape};
 
 /// ENDF の読み込みで起きたエラー。`line` はテープ上の1始まりの行番号。
 #[derive(Debug, Clone, PartialEq)]
@@ -42,5 +44,7 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+#[cfg(test)]
+pub(crate) use mf5::tests as mf5_tests;
 #[cfg(test)]
 pub(crate) use tape::tests::rec;
