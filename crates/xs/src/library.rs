@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn wrong_number_of_values_is_error() {
-        let text = sample().to_text().replace("total 11.5 ", "total ");
+        let text = sample().to_text().replace("total 1.15e1 ", "total ");
         let err = Library::parse(&text).unwrap_err();
         let line = text.lines().position(|l| l.starts_with("total")).unwrap() + 1;
         assert_eq!(err.line, line);
