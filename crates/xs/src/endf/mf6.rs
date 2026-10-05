@@ -1,7 +1,8 @@
 //! MF6（生成粒子のエネルギー・角度分布）。散乱行列に使う中性子だけを取り出す。
 //!
 //! 中性子の分布は LAW=1（連続エネルギー・角度分布）のエネルギー分布だけを扱い、角度は無視する
-//! （M0 の近似）。中性子以外の生成粒子は読み飛ばす。
+//! （M0 の近似）。重心系の分布は、群に振り分けるときに重心系で等方として実験室系に変換する。
+//! 中性子以外の生成粒子は読み飛ばす。
 
 use super::Error;
 use super::mf5::{OutgoingDistributions, incident_laws};
@@ -35,6 +36,12 @@ impl Mf6 {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
         let mut r = section.reader();
         let head = r.cont()?;
+        // LCT=3 は軽い粒子（中性子を含む）が重心系、重い粒子が実験室系
+        let frame = match head.l2 {
+            1 => Frame::Laboratory,
+            2 | 3 => Frame::CenterOfMass,
+            lct => return Err(Error::new(r.line(), format!("LCT={lct} is not supported"))),
+        };
         let nk = usize::try_from(head.n1)
             .map_err(|_| Error::new(r.line(), format!("invalid NK {}", head.n1)))?;
         let mut neutrons = Vec::new();
@@ -52,14 +59,14 @@ impl Mf6 {
                 neutrons.push(NeutronEmission {
                     multiplicity: product.table,
                     distributions: read_law1(&mut r)?,
-                    frame: todo!("LCT"),
+                    frame,
                 });
             } else {
                 skip_law(&mut r, law, start)?;
             }
         }
         Ok(Self {
-            awr: todo!(),
+            awr: head.c2,
             neutrons,
         })
     }

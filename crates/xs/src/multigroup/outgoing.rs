@@ -1,6 +1,7 @@
 //! 出射エネルギー分布の群への振り分け。
 
 use super::GroupStructure;
+use super::integrate::GAUSS_LEGENDRE;
 use crate::endf::{Interpolation, OutgoingDistributions, Tab1};
 use crate::pointwise::linearize;
 
@@ -41,6 +42,70 @@ pub fn outgoing_group_integrals(groups: &GroupStructure, density: &Tab1) -> Vec<
     integrals
 }
 
+/// 重心系の出射エネルギーの確率密度を、実験室系の群ごとに積分する。
+///
+/// 重心系でエネルギー E'cm の中性子は、重心系で等方なら、実験室系で
+/// [(√E'cm - √Ec)², (√E'cm + √Ec)²] に一様に分布する。Ec = E/(A+1)² は重心の運動による
+/// 中性子1個あたりのエネルギー。
+fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) -> Vec<f64> {
+    const PIECES: usize = 16;
+    let linear = linearize(density, DENSITY_TOLERANCE);
+    let mut integrals = vec![0.0; groups.len()];
+    for k in 0..linear.x.len().saturating_sub(1) {
+        let (x0, x1) = (linear.x[k], linear.x[k + 1]);
+        if x1 <= x0 {
+            continue;
+        }
+        let (y0, y1) = (linear.y[k], linear.y[k + 1]);
+        let width = (x1 - x0) / PIECES as f64;
+        for i in 0..PIECES {
+            let (mid, half) = (x0 + (i as f64 + 0.5) * width, 0.5 * width);
+            for &(t, wk) in &GAUSS_LEGENDRE {
+                let e = mid + half * t;
+                let density = y0 + (y1 - y0) * (e - x0) / (x1 - x0);
+                let (lo, hi) = (
+                    (e.sqrt() - ec.sqrt()).powi(2),
+                    (e.sqrt() + ec.sqrt()).powi(2),
+                );
+                uniform_fractions(groups, lo, hi, density * wk * half, &mut integrals);
+            }
+        }
+    }
+    integrals
+}
+
+/// [lo, hi] の一様分布を群に振り分け、`scale` を掛けて `out` に足す。
+/// 群構造の外に出る分は端の群に入れる。
+pub(super) fn uniform_fractions(
+    groups: &GroupStructure,
+    lo: f64,
+    hi: f64,
+    scale: f64,
+    out: &mut [f64],
+) {
+    let bounds = groups.bounds();
+    let edge = |e: f64| {
+        groups
+            .find(e)
+            .unwrap_or(if e > bounds[0] { 0 } else { groups.len() - 1 })
+    };
+    if hi <= lo {
+        out[edge(lo)] += scale;
+        return;
+    }
+    let mut cuts: Vec<f64> = bounds
+        .iter()
+        .copied()
+        .filter(|&b| b > lo && b < hi)
+        .collect();
+    cuts.push(lo);
+    cuts.push(hi);
+    cuts.sort_by(f64::total_cmp);
+    for w in cuts.windows(2) {
+        out[edge(0.5 * (w[0] + w[1]))] += scale * (w[1] - w[0]) / (hi - lo);
+    }
+}
+
 /// 出射分布を線形化するときの許容誤差
 const DENSITY_TOLERANCE: f64 = 1.0e-4;
 
@@ -74,7 +139,19 @@ impl GroupedOutgoing {
         distributions: &OutgoingDistributions,
         awr: f64,
     ) -> Self {
-        todo!()
+        Self {
+            breaks: distributions.breaks.clone(),
+            laws: distributions.laws.clone(),
+            incident: distributions.incident.clone(),
+            probabilities: distributions
+                .incident
+                .iter()
+                .zip(&distributions.spectra)
+                .map(|(&e, density)| {
+                    laboratory_group_integrals(groups, density, e / (awr + 1.0).powi(2))
+                })
+                .collect(),
+        }
     }
 
     /// 入射エネルギー
