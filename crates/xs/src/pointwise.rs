@@ -536,6 +536,33 @@ mod tests {
     }
 
     #[test]
+    fn add_does_not_duplicate_continuous_points() {
+        // 0.2 + (0.9 - 0.2) は 0.9 と 1ulp 違う。表の点の上で補間し直すと偽の不連続点ができる
+        let a = linear(&[1.0, 2.0, 3.0], &[0.2, 0.9, 0.9]);
+        let b = linear(&[1.0, 3.0], &[0.0, 0.0]);
+        let sum = add(&a, &b);
+        assert_eq!(sum.x, vec![1.0, 2.0, 3.0]);
+        assert_eq!(sum.y, vec![0.2, 0.9, 0.9]);
+    }
+
+    #[test]
+    fn n2n_is_rebuilt_from_its_partials() {
+        // ENDF-6 では MT16 は MT875〜891 の和
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(16, ["1.0+7", "2.0+7"], ["5.0", "5.0"]),
+            mf3_section(875, ["1.0+7", "2.0+7"], ["1.0", "1.0"]),
+            mf3_section(876, ["1.0+7", "2.0+7"], ["2.0", "2.0"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        assert_eq!(tables[&16].eval(1.5e7), Some(3.0));
+        assert_eq!(tables[&1].eval(1.5e7), Some(13.0));
+    }
+
+    #[test]
     fn add_without_jump_at_shared_end_has_no_duplicate() {
         let a = linear(&[1.0, 10.0], &[1.0, 1.0]);
         let b = linear(&[1.0, 5.0], &[0.0, 2.0]);
