@@ -28,6 +28,8 @@ pub enum RangeKind {
     ScatteringRadius { ap: f64 },
     /// LRU=1, LRF=3
     ReichMoore(ReichMoore),
+    /// LRU=1, LRF=2
+    Mlbw(Mlbw),
     /// LRU=2。M0 では LSSF=1（断面積は MF3 にある）のときだけ使える
     Unresolved { lssf: i64 },
 }
@@ -41,6 +43,34 @@ pub struct ReichMoore {
     /// 透過因子に使うチャネル半径の選び方（NAPS）
     pub naps: i64,
     pub l_values: Vec<RmLValue>,
+}
+
+/// 多準位 Breit-Wigner（MLBW）の共鳴パラメータ。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mlbw {
+    pub spi: f64,
+    /// 散乱半径 (10^-12 cm)
+    pub ap: f64,
+    pub naps: i64,
+    pub l_values: Vec<BwLValue>,
+}
+
+/// MLBW の1つの l に属する共鳴。競合反応の幅（LRX≠0）は扱わない。
+#[derive(Debug, Clone, PartialEq)]
+pub struct BwLValue {
+    pub awri: f64,
+    pub l: u32,
+    pub resonances: Vec<BwResonance>,
+}
+
+/// MLBW の共鳴1つ。幅は共鳴エネルギーでの値 (eV)。全幅は Γn + Γγ + Γf とする（GT は使わない）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BwResonance {
+    pub er: f64,
+    pub aj: f64,
+    pub gn: f64,
+    pub gg: f64,
+    pub gf: f64,
 }
 
 /// 1つの軌道角運動量 l に属する共鳴。
@@ -91,13 +121,14 @@ impl Mf2 {
                     let cont = r.cont()?;
                     RangeKind::ScatteringRadius { ap: cont.c2 }
                 }
-                1 if lrf != 3 => {
-                    return unsupported(format!("resolved LRF={lrf} is not supported"));
-                }
                 1 if nro != 0 => {
-                    return unsupported("energy-dependent radius (NRO≠0) with Reich-Moore".into());
+                    return unsupported(
+                        "energy-dependent radius (NRO≠0) in the resolved range".into(),
+                    );
                 }
-                1 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
+                1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
+                1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
+                1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 => {
                     // 非分離共鳴は LSSF だけを読む。続くパラメータは読まないので、最後の範囲に限る
                     if index + 1 != ner {
@@ -172,6 +203,66 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
     })
 }
 
+fn read_mlbw(r: &mut Reader<'_>, naps: i64) -> Result<Mlbw, Error> {
+    let cont = r.cont()?;
+    let spi = cont.c1;
+    let nls = usize::try_from(cont.n1)
+        .map_err(|_| Error::new(r.line(), format!("invalid NLS {}", cont.n1)))?;
+    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    for _ in 0..nls {
+        let header_line = r.line() + 1;
+        let list = r.list()?;
+        let l = u32::try_from(list.l1)
+            .ok()
+            .filter(|&l| l as usize <= MAX_L)
+            .ok_or_else(|| Error::new(header_line, format!("unsupported L={}", list.l1)))?;
+        if list.l2 != 0 {
+            return Err(Error::new(
+                header_line,
+                format!("competitive width (LRX={}) is not supported", list.l2),
+            ));
+        }
+        // 標的スピンと l から作れる J
+        let fl = f64::from(l);
+        let (ajmin, ajmax) = (((spi - fl).abs() - 0.5).abs(), spi + fl + 0.5);
+        let mut resonances = Vec::new();
+        for (i, p) in list.values.as_chunks::<6>().0.iter().enumerate() {
+            let line = header_line + 1 + i;
+            if p[0] == 0.0 {
+                return Err(Error::new(
+                    line,
+                    "resonance at zero energy (penetrability is zero)",
+                ));
+            }
+            let steps = p[1] - ajmin;
+            if p[1] > ajmax + 1e-6 || (steps - steps.round()).abs() > 1e-6 || steps < -1e-6 {
+                return Err(Error::new(
+                    line,
+                    format!("J={} is not allowed for L={l}", p[1]),
+                ));
+            }
+            resonances.push(BwResonance {
+                er: p[0],
+                aj: p[1],
+                gn: p[3],
+                gg: p[4],
+                gf: p[5],
+            });
+        }
+        l_values.push(BwLValue {
+            awri: list.c1,
+            l,
+            resonances,
+        });
+    }
+    Ok(Mlbw {
+        spi,
+        ap: cont.c2,
+        naps,
+        l_values,
+    })
+}
+
 /// 透過因子・位相シフトを実装している l の上限（NJOY と同じ）。
 pub(crate) const MAX_L: usize = 4;
 
@@ -230,6 +321,49 @@ mod tests {
     }
 
     #[test]
+    fn reads_mlbw_range() {
+        let data = mf2(&[
+            ["4.009000+4", "8.913240+1", "0", "0", "1", "0"],
+            ["4.009000+4", "1.0", "0", "0", "1", "0"],
+            ["1.0-5", "2.0+5", "1", "2", "0", "0"],
+            ["0.0", "7.16-1", "0", "0", "1", "0"],
+            // l=1: AWRI QX L LRX 6*NRS NRS、値は ER AJ GT GN GG GF
+            ["8.913240+1", "0.0", "1", "0", "6", "1"],
+            ["2.4e3", "1.5", "0.25", "0.2", "0.05", "0.0"],
+        ])
+        .unwrap();
+        let RangeKind::Mlbw(bw) = &data.ranges[0].kind else {
+            panic!("expected MLBW");
+        };
+        assert_eq!((bw.spi, bw.ap, bw.naps), (0.0, 0.716, 0));
+        assert_eq!(bw.l_values[0].l, 1);
+        assert_eq!(
+            bw.l_values[0].resonances[0],
+            BwResonance {
+                er: 2.4e3,
+                aj: 1.5,
+                gn: 0.2,
+                gg: 0.05,
+                gf: 0.0
+            }
+        );
+    }
+
+    #[test]
+    fn competitive_width_is_error() {
+        let err = mf2(&[
+            ["4.009000+4", "8.913240+1", "0", "0", "1", "0"],
+            ["4.009000+4", "1.0", "0", "0", "1", "0"],
+            ["1.0-5", "2.0+5", "1", "2", "0", "0"],
+            ["0.0", "7.16-1", "0", "0", "1", "0"],
+            ["8.913240+1", "-1.0+5", "1", "1", "6", "1"],
+            ["2.4e3", "1.5", "0.25", "0.2", "0.05", "0.0"],
+        ])
+        .unwrap_err();
+        assert_eq!(err.line, 5);
+    }
+
+    #[test]
     fn reads_scattering_radius_only_range() {
         let data = mf2(&[
             ["1.001000+3", "9.991673-1", "0", "0", "1", "0"],
@@ -246,11 +380,11 @@ mod tests {
 
     #[test]
     fn unsupported_formalism_is_error() {
-        // LRF=2 (MLBW)
+        // LRF=7 (R-matrix limited)
         let err = mf2(&[
             HEAD,
             ["9.223800+4", "1.0", "0", "0", "1", "0"],
-            ["1.0-5", "2.0+4", "1", "2", "0", "0"],
+            ["1.0-5", "2.0+4", "1", "7", "0", "0"],
         ])
         .unwrap_err();
         assert_eq!(err.line, 3);
