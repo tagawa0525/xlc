@@ -621,6 +621,41 @@ mod tests {
     }
 
     #[test]
+    fn assembly_sized_nodes_converge() {
+        // 集合体程度のノード（16.7 cm）の裸の立方体。外周の境界条件の遅れで発散していた
+        let size = [200.0; 3];
+        let b2: f64 = size.iter().map(|l| (PI / l).powi(2)).sum();
+        let expected = analytic_k(&material(), b2);
+        let p = cuboid(size, [12; 3], [Boundary::ZeroFlux; 6]);
+        let s = solve(&p, &Options::default()).unwrap();
+        assert!(
+            (s.k - expected).abs() < 1e-4 * expected,
+            "{} vs {expected}",
+            s.k
+        );
+    }
+
+    #[test]
+    fn non_fundamental_mode_is_error() {
+        // 断面 10 cm の裸の細い柱を1ノードで表すと、横方向の漏れが除去の約5倍になり、
+        // 符号が交互に変わる解に収束する。基本モードではないので誤りとして返す
+        let p = cuboid([10.0, 10.0, 100.0], [1, 1, 10], [Boundary::ZeroFlux; 6]);
+        let err = solve(&p, &Options::default()).unwrap_err();
+        assert!(err.contains("positive"), "{err}");
+    }
+
+    #[test]
+    fn changes_at_rounding_level_count_as_converged() {
+        let mut r = Remaining::default();
+        r.update(1.0e-15);
+        assert_eq!(r.update(2.0e-15), 0.0);
+        let mut r = Remaining::default();
+        assert_eq!(r.update(1.0), f64::INFINITY);
+        // 縮小率 0.5 なら、最新の変化を含めて残りは 2 倍
+        assert!((r.update(0.5) - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
     fn inconsistent_problem_is_error() {
         let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
         p.node_material.pop();
