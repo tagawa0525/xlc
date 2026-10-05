@@ -95,6 +95,13 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "positive")]
+    fn zero_lower_bound_panics() {
+        // 積分区間を対数で分割するので、0 eV の境界は扱えない
+        GroupStructure::new(vec![1.0, 0.0]);
+    }
+
+    #[test]
     #[should_panic]
     fn ascending_bounds_panic() {
         GroupStructure::new(vec![1.0, 5.0]);
