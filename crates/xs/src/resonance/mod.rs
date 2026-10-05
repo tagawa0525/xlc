@@ -1,7 +1,9 @@
 //! 共鳴パラメータからの断面積の計算。
 
+mod mlbw;
 mod reich_moore;
 
+pub use mlbw::MlbwXs;
 pub use reich_moore::ReichMooreXs;
 
 /// 共鳴領域の断面積 (barn)。

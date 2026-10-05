@@ -295,6 +295,7 @@ fn add_resonances(
                 ));
             }
             RangeKind::ReichMoore(rm) => rm,
+            RangeKind::Mlbw(_) => return Err("MLBW is not supported yet".into()),
         };
         let xs = ReichMooreXs::new(rm);
         let [_, elastic, fission, capture] =
