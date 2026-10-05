@@ -5,7 +5,7 @@
 //! 群構造は WIMS 69群、重み関数は iwt=4（軽水炉向けの値）とする。GENDF は同じ条件で
 //! 0 K、無限希釈（σ0 = 1e10）として作っておくこと。MT452 は ν̄ を比べる。
 //! MF5 MT18 があれば、GENDF の MF6 MT18 から求めた核分裂スペクトル χ も比べる。
-//! GENDF に MF6 MT2, MT51 があれば、散乱行列を行ごとに比べる（行の差の絶対値の和 / 行の和）。
+//! GENDF の MF6（MT18 以外）は、散乱行列を行ごとに比べる（行の差の絶対値の和 / 行の和）。
 //! NJOY は MF4 の角度分布を使い、こちらは重心系等方を仮定するので、角度分布が前方に偏る
 //! 高エネルギーの群では一致しない。環境変数 XLC_ROWS を設定すると、全群の値を表示する。
 
@@ -113,7 +113,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let awr = Mf3::parse(&tape.section(mat, 3, 2).ok_or("no MT2")?)?.awr;
-    for mt in [2, 51] {
+    // MT18 は χ として上で比べた
+    for mt in reference.mts(mat, 6).into_iter().filter(|&mt| mt != 18) {
         let (Some(gendf), Some(table)) = (reference.section(mat, 6, mt), tables.get(&mt)) else {
             continue;
         };
@@ -123,7 +124,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )]);
         let mut mf6 = BTreeMap::new();
         if let Some(section) = tape.section(mat, 6, mt) {
-            mf6.insert(mt, Mf6::parse(&section)?);
+            match Mf6::parse(&section) {
+                Ok(data) => {
+                    mf6.insert(mt, data);
+                }
+                Err(e) => {
+                    println!("MF6 MT{mt}: skipped ({e})");
+                    continue;
+                }
+            }
         }
         let single = BTreeMap::from([(mt, table.clone())]);
         let ours = scattering_matrix(&groups, &Weight::lwr(), awr, &single, &q_values, &mf6)?;
