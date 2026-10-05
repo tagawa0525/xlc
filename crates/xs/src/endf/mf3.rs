@@ -21,7 +21,17 @@ pub struct Mf3 {
 
 impl Mf3 {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
-        todo!()
+        let mut reader = section.reader();
+        let head = reader.cont()?;
+        let tab = reader.tab1()?;
+        Ok(Self {
+            za: head.c1,
+            awr: head.c2,
+            qm: tab.c1,
+            qi: tab.c2,
+            lr: tab.l2,
+            sigma: tab.table,
+        })
     }
 }
 
