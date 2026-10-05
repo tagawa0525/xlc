@@ -399,6 +399,35 @@ mod tests {
     }
 
     #[test]
+    fn elastic_uses_free_gas_even_with_mf6_data() {
+        // MF6 に MT2 があっても、弾性散乱は2体反応と自由ガスで扱う
+        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let tables = BTreeMap::from([(2, constant(4.0))]);
+        let mf6 = BTreeMap::from([(
+            2,
+            Mf6 {
+                awr: 1.0,
+                neutrons: vec![],
+            },
+        )]);
+        let thermal = FreeGas {
+            kt: 0.0253,
+            cutoff: 4.0,
+        };
+        let m = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            1.0,
+            &tables,
+            &BTreeMap::new(),
+            &mf6,
+            Some(&thermal),
+        )
+        .unwrap();
+        assert!(m[1].iter().sum::<f64>() > 4.0, "{m:?}");
+    }
+
+    #[test]
     fn invalid_free_gas_is_error() {
         let groups = GroupStructure::new(vec![1.0, 0.01]);
         let tables = BTreeMap::from([(2, constant(4.0))]);
