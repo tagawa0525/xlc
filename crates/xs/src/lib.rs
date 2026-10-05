@@ -5,3 +5,4 @@ pub mod multigroup;
 pub mod physics;
 pub mod pointwise;
 pub mod resonance;
+pub mod special;

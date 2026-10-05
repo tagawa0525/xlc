@@ -1,12 +1,16 @@
 //! 散乱行列（P0）。
 //!
 //! 弾性散乱と離散準位の非弾性散乱は、静止した標的との重心系等方の2体反応として扱う。
+//! 熱領域の弾性散乱は、指定があれば自由ガス模型で扱う（標的の熱運動による上方散乱を含む）。
 //! 連続的な中性子放出反応（MT91, (n,2n) など）は MF6 のエネルギー分布と多重度を使う。
 
 use std::collections::BTreeMap;
 
 use super::outgoing::uniform_fractions;
-use super::{GroupStructure, GroupedOutgoing, Weight, group_integrals, group_integrals_multi};
+use super::{
+    FreeGas, GroupStructure, GroupedOutgoing, Weight, free_gas_group_integrals, group_integrals,
+    group_integrals_multi,
+};
 use crate::endf::{Frame, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
@@ -30,6 +34,7 @@ pub fn two_body_range(e: f64, awr: f64, q: f64) -> Option<(f64, f64)> {
 /// - `tables`: ポイントワイズの断面積（キーは MT）
 /// - `q_values`: 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
 /// - `mf6`: MF6 の中性子放出データ（キーは MT）
+/// - `thermal`: 熱領域の弾性散乱を自由ガス模型で扱う条件（`None` なら全域で静止標的）
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
 pub fn scattering_matrix(
@@ -39,7 +44,16 @@ pub fn scattering_matrix(
     tables: &BTreeMap<u32, Tab1>,
     q_values: &BTreeMap<u32, f64>,
     mf6: &BTreeMap<u32, Mf6>,
+    thermal: Option<&FreeGas>,
 ) -> Result<Vec<Vec<f64>>, String> {
+    if let Some(free_gas) = thermal
+        && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
+    {
+        return Err(format!(
+            "free gas needs positive kT and a finite cutoff (kT {}, cutoff {})",
+            free_gas.kt, free_gas.cutoff
+        ));
+    }
     let ng = groups.len();
     let flux = group_integrals(groups, weight, &[], |_| 1.0);
     let has_n2n_partials = tables.keys().any(|mt| (875..=891).contains(mt));
@@ -53,16 +67,15 @@ pub fn scattering_matrix(
         {
             continue;
         }
-        let rows = if let Some(data) = mf6.get(&mt) {
+        // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
+        let rows = if mt == 2 {
+            elastic_rows(groups, weight, awr, table, thermal)
+        } else if let Some(data) = mf6.get(&mt) {
             emission_rows(groups, weight, table, data)
-        } else if mt == 2 || (51..=90).contains(&mt) {
-            let q = if mt == 2 {
-                0.0
-            } else {
-                *q_values
-                    .get(&mt)
-                    .ok_or_else(|| format!("MT{mt}: missing Q value"))?
-            };
+        } else if (51..=90).contains(&mt) {
+            let q = *q_values
+                .get(&mt)
+                .ok_or_else(|| format!("MT{mt}: missing Q value"))?;
             two_body_rows(groups, weight, awr, q, table)
         } else {
             return Err(format!("MT{mt}: no outgoing neutron distribution"));
@@ -106,6 +119,37 @@ fn emits_neutrons(mt: u32) -> bool {
             | 198..=200
             | 875..=891
     )
+}
+
+/// 弾性散乱の ∫_g σ(E) w(E) P(E→g') dE。`thermal` の cutoff 未満では自由ガス模型、
+/// それ以上では静止標的との2体反応とする。
+fn elastic_rows(
+    groups: &GroupStructure,
+    weight: &Weight,
+    awr: f64,
+    table: &Tab1,
+    thermal: Option<&FreeGas>,
+) -> Vec<Vec<f64>> {
+    let Some(free_gas) = thermal else {
+        return two_body_rows(groups, weight, awr, 0.0, table);
+    };
+    let mut breakpoints = table.x.clone();
+    breakpoints.extend(two_body_kinks(groups, awr, 0.0));
+    breakpoints.push(free_gas.cutoff);
+    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
+        let sigma = table.eval(e).unwrap_or(0.0);
+        if sigma == 0.0 {
+            return;
+        }
+        if e < free_gas.cutoff {
+            let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
+            for (o, t) in out.iter_mut().zip(transfer) {
+                *o += sigma * t;
+            }
+        } else if let Some((lo, hi)) = two_body_range(e, awr, 0.0) {
+            uniform_fractions(groups, lo, hi, sigma, out);
+        }
+    })
 }
 
 /// 2体反応の ∫_g σ(E) w(E) P(E→g') dE。
@@ -240,6 +284,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            None,
         )
         .unwrap();
         let stay = 20.0 * (1.0 - 0.9 / 10.0_f64.ln());
@@ -263,6 +308,7 @@ mod tests {
             &tables,
             &q_values,
             &BTreeMap::new(),
+            None,
         )
         .unwrap();
         // 離散準位の分は高い群から低い群へも移る。行の和は σel + σ51（しきい値より上）
@@ -282,6 +328,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            None,
         )
         .unwrap_err();
         assert!(err.contains("MT4"), "{err}");
@@ -300,9 +347,103 @@ mod tests {
                 &tables,
                 &BTreeMap::new(),
                 &BTreeMap::new(),
+                None,
             )
             .unwrap();
             assert_eq!(m[0][0], 0.0, "MT{mt}");
+        }
+    }
+
+    #[test]
+    fn free_gas_matrix_satisfies_detailed_balance() {
+        // 重み関数の熱領域（0.1 eV 以下）は kT = 0.0253 eV の Maxwell 分布なので、
+        // 同じ温度の自由ガスなら群間でも φ_g σ(g→g') = φ_g' σ(g'→g) が成り立つ
+        let groups = GroupStructure::wims69();
+        let weight = Weight::lwr();
+        let tables = BTreeMap::from([(2, constant(4.0))]);
+        let thermal = FreeGas {
+            kt: 0.0253,
+            cutoff: 4.0,
+        };
+        let m = scattering_matrix(
+            &groups,
+            &weight,
+            15.86,
+            &tables,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            Some(&thermal),
+        )
+        .unwrap();
+        let flux = group_integrals(&groups, &weight, &[], |_| 1.0);
+        // 最下位の群は除く。1e-5 eV より下へ散乱した分はこの群に入れる（中性子を失わない）が、
+        // 1e-5 eV より下から入射する中性子は積分しないので、この群だけは釣り合いが厳密でない
+        let maxwellian: Vec<usize> = (0..groups.len() - 1)
+            .filter(|&g| groups.range(g).1 <= 0.1)
+            .collect();
+        assert!(maxwellian.len() > 10);
+        for &g in &maxwellian {
+            // 標的の熱運動で、実効的な散乱断面積は自由原子の値より大きい
+            let row: f64 = m[g].iter().sum();
+            assert!(row > 4.0 && row < 6.0, "{row}");
+            for &h in &maxwellian {
+                let (forward, backward) = (flux[g] * m[g][h], flux[h] * m[h][g]);
+                assert!(
+                    (forward - backward).abs() <= 1e-6 * forward.max(backward) + 1e-12,
+                    "{g}→{h}: {forward} vs {backward}"
+                );
+            }
+        }
+        // 熱群から上方散乱がある
+        let g = groups.find(0.0253).unwrap();
+        assert!(m[g][g - 1] > 0.0);
+    }
+
+    #[test]
+    fn elastic_uses_free_gas_even_with_mf6_data() {
+        // MF6 に MT2 があっても、弾性散乱は2体反応と自由ガスで扱う
+        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let tables = BTreeMap::from([(2, constant(4.0))]);
+        let mf6 = BTreeMap::from([(
+            2,
+            Mf6 {
+                awr: 1.0,
+                neutrons: vec![],
+            },
+        )]);
+        let thermal = FreeGas {
+            kt: 0.0253,
+            cutoff: 4.0,
+        };
+        let m = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            1.0,
+            &tables,
+            &BTreeMap::new(),
+            &mf6,
+            Some(&thermal),
+        )
+        .unwrap();
+        assert!(m[0].iter().sum::<f64>() > 4.0, "{m:?}");
+    }
+
+    #[test]
+    fn invalid_free_gas_is_error() {
+        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let tables = BTreeMap::from([(2, constant(4.0))]);
+        for (kt, cutoff) in [(0.0, 4.0), (-0.01, 4.0), (0.0253, f64::NAN)] {
+            let thermal = FreeGas { kt, cutoff };
+            let result = scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                15.86,
+                &tables,
+                &BTreeMap::new(),
+                &BTreeMap::new(),
+                Some(&thermal),
+            );
+            assert!(result.is_err(), "kt {kt}, cutoff {cutoff}");
         }
     }
 
@@ -317,6 +458,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            None,
         )
         .unwrap_err();
         assert!(err.contains("MT16"), "{err}");
@@ -351,6 +493,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &mf6,
+            None,
         )
         .unwrap();
         // 多重度 2 × σ 0.5 がすべて低い群へ
