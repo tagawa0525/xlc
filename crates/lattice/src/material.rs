@@ -2,6 +2,9 @@
 
 use xs::library::Library;
 
+/// χ の和と 1 の差の許容値
+const CHI_TOLERANCE: f64 = 1.0e-6;
+
 /// 1つの核分裂性核種の寄与。核分裂源は核種ごとの χ × νΣf の和として正確に持つ。
 #[derive(Debug, Clone, PartialEq)]
 pub struct FissionTerm {
@@ -60,12 +63,43 @@ impl Material {
                 });
             }
         }
+        m.validate()?;
         Ok(m)
     }
 
     /// 配列の大きさ、χ の規格化、νΣf と核分裂の項の和の一致を検査する。
     pub fn validate(&self) -> Result<(), String> {
-        todo!()
+        let ng = self.total.len();
+        let sized = |v: &[f64]| v.len() == ng;
+        if ng == 0
+            || !sized(&self.fission)
+            || !sized(&self.nu_fission)
+            || self.scatter.len() != ng
+            || !self.scatter.iter().all(|row| sized(row))
+        {
+            return Err(format!("cross section arrays must all have {ng} groups"));
+        }
+        let mut nu_fission = vec![0.0; ng];
+        for (t, term) in self.fission_terms.iter().enumerate() {
+            if !sized(&term.chi) || !sized(&term.nu_fission) {
+                return Err(format!("fission term {t} must have {ng} groups"));
+            }
+            let sum: f64 = term.chi.iter().sum();
+            if (sum - 1.0).abs() > CHI_TOLERANCE {
+                return Err(format!("chi of fission term {t} sums to {sum}"));
+            }
+            for (n, v) in nu_fission.iter_mut().zip(&term.nu_fission) {
+                *n += v;
+            }
+        }
+        let consistent = nu_fission
+            .iter()
+            .zip(&self.nu_fission)
+            .all(|(a, b)| (a - b).abs() <= 1.0e-12 * b.abs());
+        if !consistent {
+            return Err("nu-fission does not match the sum of fission terms".into());
+        }
+        Ok(())
     }
 
     pub fn groups(&self) -> usize {
