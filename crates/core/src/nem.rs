@@ -103,16 +103,22 @@ pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, String> {
             .zip(previous.iter().flatten())
             .map(|(new, old)| relative_change(*new, *old))
             .fold(0.0, f64::max);
-        if std::env::var("NEM_TRACE").is_ok() && iteration < 40 {
-            eprintln!(
-                "it {iteration} k {new_k} flux0 {:?} c {:?}",
-                state.flux[0], state.coefficients[0][0]
-            );
-        }
         let k_remaining = k_history.update((new_k - k).abs());
         let flux_remaining = flux_history.update(change);
         k = new_k;
         if k_remaining < options.k_tolerance && flux_remaining < options.flux_tolerance {
+            // 基本モードの中性子束はどこでも正。正でないノードがあれば、別のモードに
+            // 収束している（横方向の漏れが除去に比べて非常に大きい粗いノードで起きる）
+            if let Some(n) = state
+                .flux
+                .iter()
+                .position(|phi| phi.iter().any(|&f| f <= 0.0))
+            {
+                return Err(format!(
+                    "node {n} has a non-positive flux; the iteration converged to a \
+                     non-fundamental mode (use smaller nodes)"
+                ));
+            }
             return Ok(Solution {
                 k,
                 leakage: core.leakage(&state),
@@ -291,6 +297,20 @@ impl<'a> Core<'a> {
         )
     }
 
+    /// ノード n の - 面・+ 面の入射の条件 (β, 外からの入射)。入射は β × 出ていく部分中性子流
+    /// + 外からの入射。隣のノードがある面では β = 0、外周では境界条件の β と 0。
+    fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
+        let face = |step: isize, index: usize| match self.neighbor(n, d, step) {
+            Some(m) if step < 0 => (0.0, state.out_plus[d][m][g]),
+            Some(m) => (0.0, state.out_minus[d][m][g]),
+            None => match self.problem.boundaries[2 * d + index] {
+                Boundary::Reflective => (1.0, 0.0),
+                Boundary::ZeroFlux => (-1.0, 0.0),
+            },
+        };
+        (face(-1, 0), face(1, 1))
+    }
+
     /// ノード n の方向 d の正味の漏れ (J+ - J-)/h（単位体積あたり）
     fn net_leakage(&self, state: &State, n: usize, d: usize, g: usize) -> f64 {
         let (in_minus, in_plus) = self.incoming(state, n, d, g);
@@ -348,38 +368,54 @@ impl<'a> Core<'a> {
                 let a4 = (removal * a2 / 20.0 - s[1] / 20.0 + s[3] / 700.0)
                     / (dh2 / 5.0 + removal / 700.0);
 
-                // 面の中性子束と正味の中性子流の連続から求めた、出ていく部分中性子流の
-                // φ̄ = 0 のときの値。φ̄ の係数は両面とも 6α/(1 + 12α)
-                let (in_l, in_r) = self.incoming(state, n, d, g);
-                let b_r = in_r * (1.0 - 8.0 * alpha)
-                    - 4.0 * alpha * in_l
-                    - alpha * a3 / 2.0
-                    - alpha * a4 / 5.0;
-                let b_l = in_l * (1.0 - 8.0 * alpha) - 4.0 * alpha * in_r + alpha * a3 / 2.0
-                    - alpha * a4 / 5.0;
-                let diag = 1.0 + 8.0 * alpha;
-                let det = diag * diag - 16.0 * alpha * alpha;
+                // 面の中性子束と正味の中性子流の連続から、出ていく部分中性子流 o = (o_R, o_L) は
+                //   M o = A i + c,  M = [[1+8α, 4α], [4α, 1+8α]],  A = [[1-8α, -4α], [-4α, 1-8α]]
+                // を満たす（c はノード平均と a3, a4 の項）。外周の面では入射が i = β o
+                // （反射 β = 1、中性子束ゼロ β = -1）なので、それも同時に解く
+                let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, g);
+                let (p, q) = (1.0 + 8.0 * alpha, 1.0 - 8.0 * alpha);
+                let w = 4.0 * alpha;
+                // K = M - A B（B = diag(β_R, β_L)）
+                let k = [
+                    [p - q * beta_r, w + w * beta_l],
+                    [w + w * beta_r, p - q * beta_l],
+                ];
+                let det = k[0][0] * k[1][1] - k[0][1] * k[1][0];
+                let solve2 = |r: [f64; 2]| {
+                    [
+                        (k[1][1] * r[0] - k[0][1] * r[1]) / det,
+                        (k[0][0] * r[1] - k[1][0] * r[0]) / det,
+                    ]
+                };
+                // φ̄ = 0 のときの値と、φ̄ に対する傾き
+                let base = solve2([
+                    q * ext_r - w * ext_l - alpha * a3 / 2.0 - alpha * a4 / 5.0,
+                    q * ext_l - w * ext_r + alpha * a3 / 2.0 - alpha * a4 / 5.0,
+                ]);
+                let slope = solve2([6.0 * alpha, 6.0 * alpha]);
                 *part = Direction {
-                    out_r: (diag * b_r - 4.0 * alpha * b_l) / det,
-                    out_l: (diag * b_l - 4.0 * alpha * b_r) / det,
-                    slope: 6.0 * alpha / (1.0 + 12.0 * alpha),
-                    in_r,
-                    in_l,
+                    out: base,
+                    slope,
+                    beta: [beta_r, beta_l],
+                    external: [ext_r, ext_l],
                     a3,
                     a4,
                 };
-                // 正味の漏れ (o_R + o_L - i_R - i_L)/h をバランス式に入れる
-                balance_rhs -= (part.out_r + part.out_l - in_r - in_l) / h;
-                balance_diag += 2.0 * part.slope / h;
+                // 正味の漏れ (o_R + o_L - i_R - i_L)/h（i = β o + 外からの入射）をバランス式に入れる
+                for f in 0..2 {
+                    balance_rhs -= ((1.0 - part.beta[f]) * part.out[f] - part.external[f]) / h;
+                    balance_diag += (1.0 - part.beta[f]) * part.slope[f] / h;
+                }
             }
             let average = balance_rhs / balance_diag;
             state.flux[n][g] = average;
             for (d, part) in parts.iter().enumerate() {
-                let out_r = part.out_r + part.slope * average;
-                let out_l = part.out_l + part.slope * average;
-                state.out_plus[d][n][g] = out_r;
-                state.out_minus[d][n][g] = out_l;
-                let (phi_r, phi_l) = (2.0 * (out_r + part.in_r), 2.0 * (out_l + part.in_l));
+                let out: [f64; 2] = std::array::from_fn(|f| part.out[f] + part.slope[f] * average);
+                let incoming: [f64; 2] =
+                    std::array::from_fn(|f| part.beta[f] * out[f] + part.external[f]);
+                state.out_plus[d][n][g] = out[0];
+                state.out_minus[d][n][g] = out[1];
+                let (phi_r, phi_l) = (2.0 * (out[0] + incoming[0]), 2.0 * (out[1] + incoming[1]));
                 state.coefficients[d][n][g] = [
                     phi_r - phi_l,
                     phi_r + phi_l - 2.0 * average,
@@ -470,15 +506,17 @@ fn solve3(a: [[f64; 3]; 3], b: [f64; 3]) -> [f64; 3] {
     })
 }
 
-/// ノードの1方向の途中結果。`out_r`, `out_l` は φ̄ = 0 のときの出ていく部分中性子流で、
+/// ノードの1方向の途中結果。`out` は φ̄ = 0 のときの出ていく部分中性子流で、
 /// 実際の値は `slope` × φ̄ を足したもの。
 #[derive(Debug, Clone, Copy, Default)]
 struct Direction {
-    out_r: f64,
-    out_l: f64,
-    slope: f64,
-    in_r: f64,
-    in_l: f64,
+    /// [+ 面, - 面]
+    out: [f64; 2],
+    slope: [f64; 2],
+    /// 外周の面での入射 i = β o の β（隣のノードがある面では 0）
+    beta: [f64; 2],
+    /// 隣のノードから入ってくる部分中性子流（外周の面では 0）
+    external: [f64; 2],
     a3: f64,
     a4: f64,
 }
@@ -493,8 +531,10 @@ fn relative_change(new: f64, old: f64) -> f64 {
     }
 }
 
-/// 反復の変化量の列から、収束までに残る誤差を見積もる（変化が縮小率 ρ で等比的に減るとき、
-/// 残りの誤差は 最新の変化 × ρ/(1-ρ)）。
+/// 反復の変化量の列から、収束までに残る誤差を見積もる。
+///
+/// 変化が縮小率 ρ で等比的に減るとき、最新の変化を含めた残りの誤差は 変化/(1-ρ)。
+/// 丸め誤差の水準（相対 1e-14）以下の変化は、増減が揺れても収束とみなす。
 #[derive(Debug, Default)]
 struct Remaining {
     previous: Option<f64>,
@@ -502,8 +542,9 @@ struct Remaining {
 
 impl Remaining {
     fn update(&mut self, change: f64) -> f64 {
+        const ROUNDING: f64 = 1.0e-14;
         let estimate = match self.previous {
-            _ if change == 0.0 => 0.0,
+            _ if change <= ROUNDING => 0.0,
             Some(previous) if previous > 0.0 && change < previous => {
                 let ratio = change / previous;
                 change * (1.0 + ratio / (1.0 - ratio))
