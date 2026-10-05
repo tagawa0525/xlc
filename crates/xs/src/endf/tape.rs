@@ -201,8 +201,8 @@ impl<'a> Reader<'a> {
         let head_line = self.lines[self.pos - 1].number;
         let nr = self.count(head.n1)?;
         let np = self.count(head.n2)?;
-        let ranges = self.values(2 * nr, |line, i| Ok((line.int(i)?, line.number)))?;
-        let points = self.values(2 * np, Line::real)?;
+        let ranges = self.values(self.pairs(nr)?, |line, i| Ok((line.int(i)?, line.number)))?;
+        let points = self.values(self.pairs(np)?, Line::real)?;
 
         let mut breaks = Vec::with_capacity(nr);
         let mut laws = Vec::with_capacity(nr);
@@ -256,13 +256,25 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// n 組の対に含まれる値の個数。
+    fn pairs(&self, n: usize) -> Result<usize, Error> {
+        n.checked_mul(2).ok_or_else(|| {
+            Error::new(
+                self.lines[self.pos - 1].number,
+                format!("count {n} is too large"),
+            )
+        })
+    }
+
     /// 1行6個ずつ並んだ n 個の値を読む。最終行の余りの欄は読まない。
     fn values<T>(
         &mut self,
         n: usize,
         read: impl Fn(&Line, usize) -> Result<T, Error>,
     ) -> Result<Vec<T>, Error> {
-        let mut values = Vec::with_capacity(n);
+        // 件数はテープの値なので、セクションに残っている欄の数を超えて確保しない
+        let available = (self.lines.len() - self.pos) * FIELDS_PER_LINE;
+        let mut values = Vec::with_capacity(n.min(available));
         while values.len() < n {
             let line = self.next_line()?;
             let count = (n - values.len()).min(FIELDS_PER_LINE);
