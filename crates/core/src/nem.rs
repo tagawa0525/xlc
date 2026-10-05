@@ -123,23 +123,17 @@ mod tests {
 
     #[test]
     fn bare_cuboid_matches_analytic_buckling() {
+        // 誤差は主に横方向の漏れの2次近似によるもので、ノードを細かくすると速く減る
         let size = [60.0, 80.0, 100.0];
         let b2: f64 = size.iter().map(|l| (PI / l).powi(2)).sum();
         let expected = analytic_k(&material(), b2);
-        let p = cuboid(size, [4, 4, 4], [Boundary::ZeroFlux; 6]);
-        let s = solve(&p, &Options::default()).unwrap();
-        assert!(
-            (s.k - expected).abs() < 2e-4 * expected,
-            "{} vs {expected}",
-            s.k
-        );
-        // 細かくすると解析解に近づく
-        let fine = solve(
-            &cuboid(size, [8, 8, 8], [Boundary::ZeroFlux; 6]),
-            &Options::default(),
-        )
-        .unwrap();
-        assert!((fine.k - expected).abs() < (s.k - expected).abs());
+        let error = |n: usize| {
+            let p = cuboid(size, [n; 3], [Boundary::ZeroFlux; 6]);
+            (solve(&p, &Options::default()).unwrap().k - expected).abs() / expected
+        };
+        let (coarse, fine) = (error(4), error(8));
+        assert!(fine < 2e-4, "relative error {fine}");
+        assert!(fine < coarse / 8.0, "{coarse} -> {fine}");
     }
 
     #[test]
@@ -163,9 +157,9 @@ mod tests {
         let volume = 60.0 * 80.0 * 100.0 / 60.0;
         let (mut absorption, mut production) = (0.0, 0.0);
         for phi in &s.flux {
-            for g in 0..2 {
-                absorption += volume * m.absorption[g] * phi[g];
-                production += volume * m.nu_fission[g] * phi[g];
+            for ((f, a), nf) in phi.iter().zip(&m.absorption).zip(&m.nu_fission) {
+                absorption += volume * a * f;
+                production += volume * nf * f;
             }
         }
         let leakage: f64 = s.leakage.iter().sum();
