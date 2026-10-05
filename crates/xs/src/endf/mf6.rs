@@ -4,9 +4,9 @@
 //! （M0 の近似）。中性子以外の生成粒子は読み飛ばす。
 
 use super::Error;
-use super::mf5::OutgoingDistributions;
-use super::tab1::Tab1;
-use super::tape::Section;
+use super::mf5::{OutgoingDistributions, incident_laws};
+use super::tab1::{Interpolation, Tab1};
+use super::tape::{Reader, Section};
 
 /// 1反応で放出される中性子の多重度と出射エネルギー分布。
 #[derive(Debug, Clone, PartialEq)]
@@ -23,14 +23,126 @@ pub struct Mf6 {
 
 impl Mf6 {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
-        todo!()
+        let mut r = section.reader();
+        let head = r.cont()?;
+        let nk = usize::try_from(head.n1)
+            .map_err(|_| Error::new(r.line(), format!("invalid NK {}", head.n1)))?;
+        let mut neutrons = Vec::new();
+        for _ in 0..nk {
+            let start = r.line() + 1;
+            let product = r.tab1()?;
+            let law = product.l2;
+            if product.c1 == NEUTRON {
+                if law != 1 {
+                    return Err(Error::new(
+                        start,
+                        format!("neutron LAW={law} is not supported"),
+                    ));
+                }
+                neutrons.push(NeutronEmission {
+                    multiplicity: product.table,
+                    distributions: read_law1(&mut r)?,
+                });
+            } else {
+                skip_law(&mut r, law, start)?;
+            }
+        }
+        Ok(Self { neutrons })
     }
+}
+
+/// 生成粒子の ZAP（中性子は 1）
+const NEUTRON: f64 = 1.0;
+
+/// LAW=1 のエネルギー分布（b0）を読む。離散線（ND≠0）は扱わない。
+fn read_law1(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
+    let tab2 = r.tab2()?;
+    let lep = match tab2.l2 {
+        1 => Interpolation::Histogram,
+        2 => Interpolation::LinLin,
+        other => {
+            return Err(Error::new(
+                r.line(),
+                format!("LEP={other} is not supported"),
+            ));
+        }
+    };
+    let laws = incident_laws(&tab2.codes, r.line())?;
+    let mut incident = Vec::new();
+    let mut spectra = Vec::new();
+    for _ in 0..tab2.nz {
+        let list = r.list()?;
+        let (nd, na, nep) = (list.l1, list.l2, list.n2);
+        if nd != 0 {
+            return Err(Error::new(
+                r.line(),
+                format!("ND={nd} discrete lines are not supported"),
+            ));
+        }
+        let stride = usize::try_from(na + 2)
+            .map_err(|_| Error::new(r.line(), format!("invalid NA {na}")))?;
+        if usize::try_from(nep).ok().map(|n| n * stride) != Some(list.values.len()) {
+            return Err(Error::new(r.line(), "NW does not match NEP and NA"));
+        }
+        let x: Vec<f64> = list.values.iter().step_by(stride).copied().collect();
+        let y: Vec<f64> = list
+            .values
+            .iter()
+            .skip(1)
+            .step_by(stride)
+            .copied()
+            .collect();
+        let table = Tab1 {
+            breaks: vec![x.len()],
+            laws: vec![lep],
+            x,
+            y,
+        };
+        table
+            .check()
+            .map_err(|message| Error::new(r.line(), message))?;
+        incident.push(list.c2);
+        spectra.push(table);
+    }
+    Ok(OutgoingDistributions {
+        breaks: tab2.breaks,
+        laws,
+        incident,
+        spectra,
+    })
+}
+
+/// 中性子以外の生成粒子の分布を、LAW ごとのレコード構成に従って読み飛ばす。
+fn skip_law(r: &mut Reader<'_>, law: i64, start: usize) -> Result<(), Error> {
+    match law {
+        0 | 3 | 4 => {}
+        1 | 2 | 5 => {
+            let tab2 = r.tab2()?;
+            for _ in 0..tab2.nz {
+                r.list()?;
+            }
+        }
+        6 => {
+            r.cont()?;
+        }
+        7 => {
+            let tab2 = r.tab2()?;
+            for _ in 0..tab2.nz {
+                let inner = r.tab2()?;
+                for _ in 0..inner.nz {
+                    r.tab1()?;
+                }
+            }
+        }
+        _ => return Err(Error::new(start, format!("invalid LAW={law}"))),
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::{Interpolation, Tape, rec};
+    use crate::endf::{Tape, rec};
 
     fn r(f: [&str; 6]) -> String {
         rec(f, 825, 6, 16)
