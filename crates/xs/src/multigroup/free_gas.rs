@@ -8,6 +8,8 @@
 //! 特に水素で熱中性子のスペクトルが歪む。
 
 use super::GroupStructure;
+use super::integrate::GAUSS_LEGENDRE;
+use crate::special::{erf, erfcx};
 
 /// 熱領域の弾性散乱を自由ガス模型で扱う条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,13 +23,99 @@ pub struct FreeGas {
 /// 自由原子の散乱断面積を 1 としたときの、エネルギー移行の確率密度 S(E→E') (1/eV)。
 /// `awr` は標的の質量比。
 pub fn free_gas_kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
-    todo!()
+    if e <= 0.0 || e_out <= 0.0 {
+        return 0.0;
+    }
+    let sqrt_a = awr.sqrt();
+    let theta = (awr + 1.0) / (2.0 * sqrt_a);
+    let zeta = (awr - 1.0) / (2.0 * sqrt_a);
+    let (s, s_out) = ((e / kt).sqrt(), (e_out / kt).sqrt());
+    // e^(-y²) erfcx(x) = e^(-y²+x²) erfc(x)。指数を先にまとめて桁あふれを避ける
+    let scaled = |y: f64, x: f64| (-y * y).exp() * erfcx(x);
+    let bracket = if e_out <= e {
+        // erf(θ√ε' - ζ√ε) + erf(θ√ε' + ζ√ε) + e^(ε-ε') [erfc(θ√ε + ζ√ε') - erfc(θ√ε - ζ√ε')]
+        let (x1, x2) = (theta * s + zeta * s_out, theta * s - zeta * s_out);
+        let (u, v) = (zeta * s - theta * s_out, zeta * s + theta * s_out);
+        if u > 0.0 {
+            // 遠い下方散乱: O(1) の項が打ち消し合うので、同じ指数因子をもつ項どうしをまとめる
+            (-u * u).exp() * (erfcx(u) - erfcx(x2)) + (-v * v).exp() * (erfcx(x1) - erfcx(v))
+        } else {
+            erf(-u) + erf(v) + scaled(v, x1) - scaled(u, x2)
+        }
+    } else {
+        // erf(θ√ε' - ζ√ε) - erf(θ√ε' + ζ√ε) + e^(ε-ε') [erf(θ√ε - ζ√ε') + erf(θ√ε + ζ√ε')]
+        let (p, q) = (theta * s_out - zeta * s, theta * s_out + zeta * s);
+        let (r, t) = (theta * s - zeta * s_out, theta * s + zeta * s_out);
+        if r < 0.0 {
+            // 遠い上方散乱: 同様に、同じ指数因子をもつ項どうしをまとめる
+            (-p * p).exp() * (erfcx(-r) - erfcx(p)) + (-q * q).exp() * (erfcx(q) - erfcx(t))
+        } else {
+            scaled(q, q) - scaled(p, p) + ((e - e_out) / kt).exp() * (erf(r) + erf(t))
+        }
+    };
+    // 打ち消し合いの丸めで負になった裾は 0 にする
+    (theta * theta / (2.0 * e) * bracket).max(0.0)
 }
 
 /// 入射エネルギー e での ∫_g' S(E→E') dE'（群ごと、和は N(E)）。
 pub fn free_gas_group_integrals(groups: &GroupStructure, e: f64, awr: f64, kt: f64) -> Vec<f64> {
-    todo!()
+    let bounds = groups.bounds();
+    let (lowest, highest) = (bounds[groups.len()], bounds[0]);
+    // 核の幅の目安。重い核では E の近くに集中し、軽い核では kT 程度に広がる
+    let width = 2.0 * (e * kt / awr).sqrt() + kt / awr;
+    let upper = (e + 30.0 * width + 40.0 * kt).min(highest);
+    let lower = (e - 30.0 * width).max(lowest);
+    let mut points: Vec<f64> = bounds
+        .iter()
+        .copied()
+        .chain((-60..=60).map(|k| e + 0.5 * f64::from(k) * width))
+        .chain([lower, upper, e])
+        .filter(|&x| x >= lower && x <= upper)
+        .collect();
+    points.sort_by(f64::total_cmp);
+    points.dedup();
+
+    let mut integrals = vec![0.0; groups.len()];
+    // 群構造の下限より下に散乱される分は、最下位の群に入れる（ほかの反応と同じ）
+    if lower <= lowest {
+        const PIECES: usize = 16;
+        let width = lowest / PIECES as f64;
+        integrals[groups.len() - 1] += (0..PIECES)
+            .map(|i| {
+                let (mid, half) = ((i as f64 + 0.5) * width, 0.5 * width);
+                GAUSS_LEGENDRE
+                    .iter()
+                    .map(|&(x, wk)| wk * free_gas_kernel(e, mid + half * x, awr, kt))
+                    .sum::<f64>()
+                    * half
+            })
+            .sum::<f64>();
+    }
+    for w in points.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let g = groups
+            .find(0.5 * (a + b))
+            .expect("points are inside the group structure");
+        // 対数的にも分割して、低エネルギー側の広い区間を細かくする
+        let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
+        let ratio = (b / a).powf(1.0 / pieces as f64);
+        let mut lo = a;
+        for i in 0..pieces {
+            let hi = if i + 1 == pieces { b } else { lo * ratio };
+            let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
+            integrals[g] += GAUSS_LEGENDRE
+                .iter()
+                .map(|&(x, wk)| wk * free_gas_kernel(e, mid + half * x, awr, kt))
+                .sum::<f64>()
+                * half;
+            lo = hi;
+        }
+    }
+    integrals
 }
+
+/// 1つの積分区間の上限と下限のエネルギー比の上限
+const MAX_RATIO: f64 = 1.05;
 
 #[cfg(test)]
 mod tests {
