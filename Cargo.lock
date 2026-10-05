@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "lattice"
+version = "0.1.0"
+dependencies = [
+ "xs",
+]
+
+[[package]]
 name = "xs"
 version = "0.1.0"
