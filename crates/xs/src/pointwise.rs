@@ -153,44 +153,112 @@ fn right_limit(t: &Tab1, e: f64) -> f64 {
 }
 
 /// テープ中の1核種の、全反応の 0 K のポイントワイズの断面積。キーは MT。
+///
+/// NJOY の RECONR と同じく、全断面積などの冗長な反応は MF3 の値を使わず、
+/// 部分反応の和として作り直す。全断面積と部分反応の和を一致させ、中性子の収支を保つためである。
 pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1>, Error> {
+    let available = tape.mts(mat, 3);
     let mut tables = BTreeMap::new();
-    for mt in tape.mts(mat, 3) {
+    for &mt in available.iter().filter(|&&mt| !is_dropped(mt, &available)) {
         let section = tape.section(mat, 3, mt).expect("listed by mts");
         tables.insert(mt, linearize(&Mf3::parse(&section)?.sigma, tol));
     }
-    let Some(section) = tape.section(mat, 2, 151) else {
-        return Ok(tables);
-    };
-    let mf2 = Mf2::parse(&section)?;
-    for range in &mf2.ranges {
-        match &range.kind {
-            RangeKind::ScatteringRadius { .. } => {}
-            RangeKind::Unresolved { lssf: 1 } => {}
-            RangeKind::Unresolved { lssf } => {
-                return Err(Error::new(
-                    section.reader().line(),
-                    format!("unresolved range with LSSF={lssf} is not supported"),
-                ));
-            }
-            RangeKind::ReichMoore(rm) => {
-                let nodes = resonance_nodes(rm);
-                let xs = ReichMooreXs::new(rm);
-                let contributions = resonance_tables(&xs, &nodes, range.el, range.eh, tol);
-                for (mt, contribution) in RESONANCE_MTS.into_iter().zip(contributions) {
-                    if mt == 18 && contribution.y.iter().all(|&v| v == 0.0) {
-                        continue;
-                    }
-                    let combined = match tables.get(&mt) {
-                        Some(background) => add(background, &contribution),
-                        None => contribution,
-                    };
-                    tables.insert(mt, combined);
-                }
-            }
+    if let Some(section) = tape.section(mat, 2, 151) {
+        let fission_mt = if available.contains(&19) { 19 } else { 18 };
+        add_resonances(&mut tables, &Mf2::parse(&section)?, fission_mt, tol)
+            .map_err(|message| Error::new(section.reader().line(), message))?;
+    }
+
+    let total = sum(tables
+        .iter()
+        .filter(|(mt, _)| is_part_of_total(**mt))
+        .map(|(_, t)| t));
+    for (sum_mt, is_part) in SUMS {
+        if let Some(t) = sum(tables
+            .iter()
+            .filter(|(mt, _)| is_part(**mt))
+            .map(|(_, t)| t))
+        {
+            tables.insert(sum_mt, t);
         }
     }
+    if let Some(total) = total {
+        tables.insert(1, total);
+    }
     Ok(tables)
+}
+
+/// MT がその和の部分反応かどうか。
+type IsPart = fn(u32) -> bool;
+
+/// 部分反応の和で作り直す反応と、その部分反応の判定。
+const SUMS: [(u32, IsPart); 7] = [
+    (4, |mt| (51..=91).contains(&mt)),
+    (18, |mt| matches!(mt, 19..=21 | 38)),
+    (103, |mt| (600..=649).contains(&mt)),
+    (104, |mt| (650..=699).contains(&mt)),
+    (105, |mt| (700..=749).contains(&mt)),
+    (106, |mt| (750..=799).contains(&mt)),
+    (107, |mt| (800..=849).contains(&mt)),
+];
+
+/// MF3 から読まない反応: 和で作り直す反応と、断面積でない量（NJOY reconr lunion と同じ規則）。
+fn is_dropped(mt: u32, available: &[u32]) -> bool {
+    let redundant = SUMS
+        .iter()
+        .any(|(sum_mt, is_part)| *sum_mt == mt && available.iter().any(|&m| is_part(m)));
+    redundant
+        || matches!(mt, 1 | 3 | 101 | 120 | 151 | 451..=599 | 851..=870)
+        || ((251..=300).contains(&mt) && mt != 261)
+        || mt > 891
+}
+
+/// 全断面積の和に含める反応。生成断面積（MT201〜）などは含めない。
+/// 和で作り直す反応（MT4 など）は、部分反応があれば `is_dropped` で外れているので、
+/// ここに残っているものは部分反応を持たない独立した反応である。
+fn is_part_of_total(mt: u32) -> bool {
+    !(mt == 10 || (46..=49).contains(&mt) || (201..=599).contains(&mt))
+}
+
+fn sum<'a>(tables: impl Iterator<Item = &'a Tab1>) -> Option<Tab1> {
+    tables.fold(None, |acc, t| match acc {
+        None => Some(t.clone()),
+        Some(acc) => Some(add(&acc, t)),
+    })
+}
+
+/// 分離共鳴の寄与を弾性散乱・核分裂・捕獲に足す。
+fn add_resonances(
+    tables: &mut BTreeMap<u32, Tab1>,
+    mf2: &Mf2,
+    fission_mt: u32,
+    tol: f64,
+) -> Result<(), String> {
+    for range in &mf2.ranges {
+        let rm = match &range.kind {
+            RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved { lssf: 1 } => continue,
+            RangeKind::Unresolved { lssf } => {
+                return Err(format!(
+                    "unresolved range with LSSF={lssf} is not supported"
+                ));
+            }
+            RangeKind::ReichMoore(rm) => rm,
+        };
+        let xs = ReichMooreXs::new(rm);
+        let [_, elastic, fission, capture] =
+            resonance_tables(&xs, &resonance_nodes(rm), range.el, range.eh, tol);
+        for (mt, contribution) in [(2, elastic), (fission_mt, fission), (102, capture)] {
+            if contribution.y.iter().all(|&v| v == 0.0) {
+                continue;
+            }
+            let combined = match tables.get(&mt) {
+                Some(background) => add(background, &contribution),
+                None => contribution,
+            };
+            tables.insert(mt, combined);
+        }
+    }
+    Ok(())
 }
 
 /// 共鳴のピークと、その半値幅の位置。
