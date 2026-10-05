@@ -102,26 +102,38 @@ impl Tape {
 }
 
 const FIELD_WIDTH: usize = 11;
+/// MT 欄の終わりの桁
+const CONTROL_END: usize = 75;
 
 impl Line {
     fn parse(number: usize, text: &str) -> Result<Self, Error> {
+        // ENDF の桁は文字単位なので、非 ASCII 文字を1桁の `?` に置き換えて
+        // バイト位置と桁位置をそろえる（数値欄にあれば数値の解析でエラーになる）
+        let text = if text.is_ascii() {
+            text.to_string()
+        } else {
+            text.chars()
+                .map(|c| if c.is_ascii() { c } else { '?' })
+                .collect()
+        };
+        if text.len() < CONTROL_END {
+            return Err(Error::new(number, "line is shorter than 75 columns"));
+        }
         let control = |range: std::ops::Range<usize>, name: &str| {
-            let field = text
-                .get(range)
-                .ok_or_else(|| Error::new(number, "line is shorter than 75 columns"))?;
+            let field = &text[range];
             parse_int(field)
                 .ok_or_else(|| Error::new(number, format!("invalid {name} field `{field}`")))
         };
         let mat = control(66..70, "MAT")?;
         let mf = control(70..72, "MF")?;
-        let mt = control(72..75, "MT")?;
+        let mt = control(72..CONTROL_END, "MT")?;
         let invalid = |name: &str| Error::new(number, format!("{name} out of range"));
         Ok(Self {
             number,
-            text: text.to_string(),
             mat: mat.try_into().map_err(|_| invalid("MAT"))?,
             mf: mf.try_into().map_err(|_| invalid("MF"))?,
             mt: mt.try_into().map_err(|_| invalid("MT"))?,
+            text,
         })
     }
 
@@ -129,20 +141,19 @@ impl Line {
         (self.mat, self.mf, self.mt)
     }
 
-    fn field(&self, index: usize) -> Result<&str, Error> {
-        self.text
-            .get(index * FIELD_WIDTH..(index + 1) * FIELD_WIDTH)
-            .ok_or_else(|| Error::new(self.number, "data field is not ASCII"))
+    /// 行は75桁以上の ASCII であることを `parse` で保証している。
+    fn field(&self, index: usize) -> &str {
+        &self.text[index * FIELD_WIDTH..(index + 1) * FIELD_WIDTH]
     }
 
     fn real(&self, index: usize) -> Result<f64, Error> {
-        let field = self.field(index)?;
+        let field = self.field(index);
         parse_real(field)
             .ok_or_else(|| Error::new(self.number, format!("invalid real field `{field}`")))
     }
 
     fn int(&self, index: usize) -> Result<i64, Error> {
-        let field = self.field(index)?;
+        let field = self.field(index);
         parse_int(field)
             .ok_or_else(|| Error::new(self.number, format!("invalid integer field `{field}`")))
     }
@@ -211,19 +222,18 @@ impl<'a> Reader<'a> {
             return Err(Error::new(head_line, "last NBT must equal NP"));
         }
 
-        let x: Vec<f64> = points.iter().step_by(2).copied().collect();
-        let y: Vec<f64> = points.iter().skip(1).step_by(2).copied().collect();
-        if x.windows(2)
-            .any(|w| w[0].partial_cmp(&w[1]).is_none_or(|o| o.is_gt()))
-        {
-            return Err(Error::new(head_line, "x values are not in ascending order"));
-        }
+        let x = points.iter().step_by(2).copied().collect();
+        let y = points.iter().skip(1).step_by(2).copied().collect();
+        let table = Tab1 { breaks, laws, x, y };
+        table
+            .check()
+            .map_err(|message| Error::new(head_line, message))?;
         Ok(Tab1Record {
             c1: head.c1,
             c2: head.c2,
             l1: head.l1,
             l2: head.l2,
-            table: Tab1 { breaks, laws, x, y },
+            table,
         })
     }
 

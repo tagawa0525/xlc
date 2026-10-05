@@ -28,7 +28,22 @@ impl Interpolation {
         }
     }
 
+    fn log_x(self) -> bool {
+        matches!(self, Self::LinLog | Self::LogLog)
+    }
+
+    fn log_y(self) -> bool {
+        matches!(self, Self::LogLin | Self::LogLog)
+    }
+
     fn interpolate(self, x: f64, (x0, y0): (f64, f64), (x1, y1): (f64, f64)) -> f64 {
+        if x == x0 {
+            return y0;
+        }
+        // 端点の y が 0 なら ln y → -∞ となり、区間内の値は極限として 0
+        if self.log_y() && (y0 == 0.0 || y1 == 0.0) {
+            return 0.0;
+        }
         match self {
             Self::Histogram => y0,
             Self::LinLin => y0 + (y1 - y0) * (x - x0) / (x1 - x0),
@@ -51,6 +66,34 @@ pub struct Tab1 {
 }
 
 impl Tab1 {
+    /// x が昇順であることと、各区間の値が補間則の定義域にあることを検査する。
+    /// `breaks` と `laws` の整合は呼び出し側で保証されているものとする。
+    pub(super) fn check(&self) -> Result<(), String> {
+        for k in 0..self.x.len().saturating_sub(1) {
+            let (x0, x1) = (self.x[k], self.x[k + 1]);
+            if x0.partial_cmp(&x1).is_none_or(|o| o.is_gt()) {
+                return Err(format!(
+                    "x values are not in ascending order at point {}",
+                    k + 1
+                ));
+            }
+            let law = self.laws[self.breaks.partition_point(|&b| b < k + 2)];
+            if law.log_x() && x0 <= 0.0 {
+                return Err(format!(
+                    "non-positive x {x0} with logarithmic x interpolation"
+                ));
+            }
+            let (y0, y1) = (self.y[k], self.y[k + 1]);
+            if law.log_y() && (y0 < 0.0 || y1 < 0.0) {
+                return Err(format!(
+                    "negative y with logarithmic y interpolation at point {}",
+                    k + 1
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// x における値を補間する。表の範囲外では `None` を返す。
     ///
     /// x が重複する点（不連続点）上では、右側の極限値を返す。
