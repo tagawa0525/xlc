@@ -2,8 +2,15 @@
 //!
 //! 使い方: xs [--temperature <K>] <出力ファイル> <名前>=<ENDF ファイル>...
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::Instant;
+
+use xs::endf::Tape;
+use xs::library::{Library, Nuclide};
+use xs::multigroup::{GroupStructure, Weight};
+use xs::pointwise::DEFAULT_TOLERANCE;
+use xs::process::{Settings, process_nuclide};
 
 /// コマンドライン引数を解釈した結果。
 #[derive(Debug, Clone, PartialEq)]
@@ -21,12 +28,96 @@ const USAGE: &str = "usage: xs [--temperature <K>] <output> <NAME>=<ENDF>...";
 const DEFAULT_TEMPERATURE: f64 = 293.6;
 
 fn parse_args(args: &[String]) -> Result<Command, String> {
-    todo!()
+    let mut temperature = DEFAULT_TEMPERATURE;
+    let mut rest = args;
+    if let [flag, value, tail @ ..] = rest
+        && flag == "--temperature"
+    {
+        temperature = value
+            .parse::<f64>()
+            .ok()
+            .filter(|t| *t > 0.0 && t.is_finite())
+            .ok_or_else(|| format!("invalid temperature `{value}`"))?;
+        rest = tail;
+    }
+    let [output, specs @ ..] = rest else {
+        return Err(USAGE.into());
+    };
+    if specs.is_empty() {
+        return Err(USAGE.into());
+    }
+    let mut nuclides: Vec<(String, PathBuf)> = Vec::new();
+    for spec in specs {
+        let (name, path) = spec
+            .split_once('=')
+            .filter(|(name, path)| !name.is_empty() && !path.is_empty())
+            .ok_or_else(|| format!("expected <NAME>=<ENDF>, found `{spec}`"))?;
+        if nuclides.iter().any(|(n, _)| n == name) {
+            return Err(format!("nuclide `{name}` is given twice"));
+        }
+        nuclides.push((name.to_string(), PathBuf::from(path)));
+    }
+    Ok(Command {
+        output: PathBuf::from(output),
+        nuclides,
+        temperature,
+    })
 }
 
 fn main() -> ExitCode {
-    todo!()
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match parse_args(&args).and_then(|command| run(&command)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(message) => {
+            eprintln!("error: {message}");
+            ExitCode::FAILURE
+        }
+    }
 }
+
+fn run(command: &Command) -> Result<(), String> {
+    let settings = Settings {
+        groups: GroupStructure::wims69(),
+        weight: Weight::lwr(),
+        temperature: command.temperature,
+        thermal_cutoff: THERMAL_CUTOFF,
+        tolerance: DEFAULT_TOLERANCE,
+    };
+    // 核種ごとの処理は独立なので並列に行う
+    let results: Vec<Result<Nuclide, String>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = command
+            .nuclides
+            .iter()
+            .map(|(name, path)| scope.spawn(|| process_file(name, path, &settings)))
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join()
+                    .unwrap_or_else(|_| Err("processing panicked".into()))
+            })
+            .collect()
+    });
+    let nuclides = results.into_iter().collect::<Result<Vec<_>, _>>()?;
+    let library = Library {
+        groups: settings.groups,
+        nuclides,
+    };
+    std::fs::write(&command.output, library.to_text())
+        .map_err(|e| format!("{}: {e}", command.output.display()))
+}
+
+fn process_file(name: &str, path: &Path, settings: &Settings) -> Result<Nuclide, String> {
+    let start = Instant::now();
+    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let tape = Tape::parse(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+    let nuclide = process_nuclide(&tape, name, settings).map_err(|e| format!("{name}: {e}"))?;
+    eprintln!("{name}: done in {:.1} s", start.elapsed().as_secs_f64());
+    Ok(nuclide)
+}
+
+/// この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う（WIMS 69群の熱群の上限）
+const THERMAL_CUTOFF: f64 = 4.0;
 
 #[cfg(test)]
 mod tests {
