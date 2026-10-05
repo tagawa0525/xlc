@@ -239,7 +239,7 @@ impl<'a> Reader<'a> {
 
     /// セクションのレコードをすべて読み終えたかどうか。
     pub fn at_end(&self) -> bool {
-        todo!()
+        self.pos >= self.lines.len()
     }
 
     /// 最後に読んだ行の行番号。まだ何も読んでいなければ、セクションの先頭行の番号。
