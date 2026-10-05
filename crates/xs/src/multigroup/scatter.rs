@@ -391,6 +391,25 @@ mod tests {
     }
 
     #[test]
+    fn invalid_free_gas_is_error() {
+        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let tables = BTreeMap::from([(2, constant(4.0))]);
+        for (kt, cutoff) in [(0.0, 4.0), (-0.01, 4.0), (0.0253, f64::NAN)] {
+            let thermal = FreeGas { kt, cutoff };
+            let result = scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                15.86,
+                &tables,
+                &BTreeMap::new(),
+                &BTreeMap::new(),
+                Some(&thermal),
+            );
+            assert!(result.is_err(), "kt {kt}, cutoff {cutoff}");
+        }
+    }
+
+    #[test]
     fn neutron_emission_without_distribution_is_error() {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
         let tables = BTreeMap::from([(16, constant(1.0))]);
