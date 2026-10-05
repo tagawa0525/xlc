@@ -104,11 +104,11 @@ mod tests {
         let groups = GroupStructure::new(vec![4.0, 2.0, 1.0]);
         let density = Tab1::linear(vec![1.0, 3.0], vec![0.5, 0.5]);
         assert_eq!(outgoing_group_integrals(&groups, &density), vec![0.5, 0.5]);
-        // 群構造の外に出る分は数えない
+        // 群構造の外に出る分は端の群に入れる（NJOY と同じ。中性子を失わない）
         let density = Tab1::linear(vec![0.0, 3.0, 5.0], vec![0.2, 0.2, 0.2]);
         let r = outgoing_group_integrals(&groups, &density);
         assert!(
-            (r[0] - 0.4).abs() < 1e-15 && (r[1] - 0.2).abs() < 1e-15,
+            (r[0] - 0.6).abs() < 1e-15 && (r[1] - 0.4).abs() < 1e-15,
             "{r:?}"
         );
     }
