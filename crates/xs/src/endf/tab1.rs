@@ -18,7 +18,24 @@ pub enum Interpolation {
 impl Interpolation {
     /// INT の値から変換する。荷電粒子用の INT=6 などは扱わない。
     pub fn from_code(code: i64) -> Option<Self> {
-        todo!()
+        match code {
+            1 => Some(Self::Histogram),
+            2 => Some(Self::LinLin),
+            3 => Some(Self::LinLog),
+            4 => Some(Self::LogLin),
+            5 => Some(Self::LogLog),
+            _ => None,
+        }
+    }
+
+    fn interpolate(self, x: f64, (x0, y0): (f64, f64), (x1, y1): (f64, f64)) -> f64 {
+        match self {
+            Self::Histogram => y0,
+            Self::LinLin => y0 + (y1 - y0) * (x - x0) / (x1 - x0),
+            Self::LinLog => y0 + (y1 - y0) * (x / x0).ln() / (x1 / x0).ln(),
+            Self::LogLin => y0 * (y1 / y0).powf((x - x0) / (x1 - x0)),
+            Self::LogLog => y0 * (y1 / y0).powf((x / x0).ln() / (x1 / x0).ln()),
+        }
     }
 }
 
@@ -38,7 +55,19 @@ impl Tab1 {
     ///
     /// x が重複する点（不連続点）上では、右側の極限値を返す。
     pub fn eval(&self, x: f64) -> Option<f64> {
-        todo!()
+        let (&first, &last) = (self.x.first()?, self.x.last()?);
+        if !(first..=last).contains(&x) {
+            return None;
+        }
+        // x[k] <= x を満たす最後の点。重複点では後ろの点が選ばれ、右側の極限になる
+        let k = self.x.partition_point(|&xi| xi <= x) - 1;
+        if k == self.x.len() - 1 {
+            return Some(self.y[k]);
+        }
+        // 区間 (k, k+1) の右端の点番号（1始まり）を含む範囲の補間則を使う
+        let range = self.breaks.partition_point(|&b| b < k + 2);
+        let law = self.laws[range];
+        Some(law.interpolate(x, (self.x[k], self.y[k]), (self.x[k + 1], self.y[k + 1])))
     }
 }
 

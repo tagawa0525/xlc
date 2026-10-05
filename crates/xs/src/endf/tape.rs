@@ -1,7 +1,8 @@
 //! テープ全体の行の管理と、セクション内のレコードの読み込み。
 
 use super::Error;
-use super::tab1::Tab1;
+use super::number::{parse_int, parse_real};
+use super::tab1::{Interpolation, Tab1};
 
 /// 1本の ENDF テープ。
 #[derive(Debug, Clone)]
@@ -67,37 +68,199 @@ pub struct Tab1Record {
 impl Tape {
     /// テープ全体の文字列を読み込む。各行の制御欄（MAT/MF/MT）を検査する。
     pub fn parse(text: &str) -> Result<Self, Error> {
-        todo!()
+        let lines = text
+            .lines()
+            .enumerate()
+            .map(|(i, line)| Line::parse(i + 1, line))
+            .collect::<Result<_, _>>()?;
+        Ok(Self { lines })
     }
 
     /// 指定した MAT/MF/MT のセクションを返す。
     pub fn section(&self, mat: i32, mf: u32, mt: u32) -> Option<Section<'_>> {
-        todo!()
+        let id = (mat, mf, mt);
+        let start = self.lines.iter().position(|l| l.id() == id)?;
+        let len = self.lines[start..]
+            .iter()
+            .take_while(|l| l.id() == id)
+            .count();
+        Some(Section {
+            lines: &self.lines[start..start + len],
+        })
     }
 
     /// 指定した MAT/MF に含まれる MT を、テープ上の順に返す。
     pub fn mts(&self, mat: i32, mf: u32) -> Vec<u32> {
-        todo!()
+        let mut mts = Vec::new();
+        for line in &self.lines {
+            if line.mat == mat && line.mf == mf && line.mt != 0 && mts.last() != Some(&line.mt) {
+                mts.push(line.mt);
+            }
+        }
+        mts
+    }
+}
+
+const FIELD_WIDTH: usize = 11;
+
+impl Line {
+    fn parse(number: usize, text: &str) -> Result<Self, Error> {
+        let control = |range: std::ops::Range<usize>, name: &str| {
+            let field = text
+                .get(range)
+                .ok_or_else(|| Error::new(number, "line is shorter than 75 columns"))?;
+            parse_int(field)
+                .ok_or_else(|| Error::new(number, format!("invalid {name} field `{field}`")))
+        };
+        let mat = control(66..70, "MAT")?;
+        let mf = control(70..72, "MF")?;
+        let mt = control(72..75, "MT")?;
+        let invalid = |name: &str| Error::new(number, format!("{name} out of range"));
+        Ok(Self {
+            number,
+            text: text.to_string(),
+            mat: mat.try_into().map_err(|_| invalid("MAT"))?,
+            mf: mf.try_into().map_err(|_| invalid("MF"))?,
+            mt: mt.try_into().map_err(|_| invalid("MT"))?,
+        })
+    }
+
+    fn id(&self) -> (i32, u32, u32) {
+        (self.mat, self.mf, self.mt)
+    }
+
+    fn field(&self, index: usize) -> Result<&str, Error> {
+        self.text
+            .get(index * FIELD_WIDTH..(index + 1) * FIELD_WIDTH)
+            .ok_or_else(|| Error::new(self.number, "data field is not ASCII"))
+    }
+
+    fn real(&self, index: usize) -> Result<f64, Error> {
+        let field = self.field(index)?;
+        parse_real(field)
+            .ok_or_else(|| Error::new(self.number, format!("invalid real field `{field}`")))
+    }
+
+    fn int(&self, index: usize) -> Result<i64, Error> {
+        let field = self.field(index)?;
+        parse_int(field)
+            .ok_or_else(|| Error::new(self.number, format!("invalid integer field `{field}`")))
     }
 }
 
 impl<'a> Section<'a> {
     pub fn reader(&self) -> Reader<'a> {
-        todo!()
+        Reader {
+            lines: self.lines,
+            pos: 0,
+        }
     }
 }
 
-impl Reader<'_> {
+const FIELDS_PER_LINE: usize = 6;
+
+impl<'a> Reader<'a> {
     pub fn cont(&mut self) -> Result<Cont, Error> {
-        todo!()
+        let line = self.next_line()?;
+        Ok(Cont {
+            c1: line.real(0)?,
+            c2: line.real(1)?,
+            l1: line.int(2)?,
+            l2: line.int(3)?,
+            n1: line.int(4)?,
+            n2: line.int(5)?,
+        })
     }
 
     pub fn list(&mut self) -> Result<List, Error> {
-        todo!()
+        let head = self.cont()?;
+        let npl = self.count(head.n1)?;
+        Ok(List {
+            c1: head.c1,
+            c2: head.c2,
+            l1: head.l1,
+            l2: head.l2,
+            n2: head.n2,
+            values: self.values(npl, Line::real)?,
+        })
     }
 
     pub fn tab1(&mut self) -> Result<Tab1Record, Error> {
-        todo!()
+        let head = self.cont()?;
+        let head_line = self.lines[self.pos - 1].number;
+        let nr = self.count(head.n1)?;
+        let np = self.count(head.n2)?;
+        let ranges = self.values(2 * nr, |line, i| Ok((line.int(i)?, line.number)))?;
+        let points = self.values(2 * np, Line::real)?;
+
+        let mut breaks = Vec::with_capacity(nr);
+        let mut laws = Vec::with_capacity(nr);
+        for &[(nbt, nbt_line), (code, code_line)] in ranges.as_chunks::<2>().0 {
+            let previous = breaks.last().copied().unwrap_or(0);
+            let nbt = usize::try_from(nbt)
+                .ok()
+                .filter(|&b| b > previous && b <= np)
+                .ok_or_else(|| Error::new(nbt_line, format!("invalid NBT {nbt}")))?;
+            let law = Interpolation::from_code(code).ok_or_else(|| {
+                Error::new(code_line, format!("unsupported interpolation law {code}"))
+            })?;
+            breaks.push(nbt);
+            laws.push(law);
+        }
+        if breaks.last() != Some(&np) {
+            return Err(Error::new(head_line, "last NBT must equal NP"));
+        }
+
+        let x: Vec<f64> = points.iter().step_by(2).copied().collect();
+        let y: Vec<f64> = points.iter().skip(1).step_by(2).copied().collect();
+        if x.windows(2)
+            .any(|w| w[0].partial_cmp(&w[1]).is_none_or(|o| o.is_gt()))
+        {
+            return Err(Error::new(head_line, "x values are not in ascending order"));
+        }
+        Ok(Tab1Record {
+            c1: head.c1,
+            c2: head.c2,
+            l1: head.l1,
+            l2: head.l2,
+            table: Tab1 { breaks, laws, x, y },
+        })
+    }
+
+    fn next_line(&mut self) -> Result<&'a Line, Error> {
+        let lines = self.lines;
+        let line = lines.get(self.pos).ok_or_else(|| {
+            let end = lines.last().map_or(0, |l| l.number + 1);
+            Error::new(end, "unexpected end of section")
+        })?;
+        self.pos += 1;
+        Ok(line)
+    }
+
+    fn count(&self, n: i64) -> Result<usize, Error> {
+        usize::try_from(n).map_err(|_| {
+            Error::new(
+                self.lines[self.pos - 1].number,
+                format!("negative count {n}"),
+            )
+        })
+    }
+
+    /// 1行6個ずつ並んだ n 個の値を読む。最終行の余りの欄は読まない。
+    fn values<T>(
+        &mut self,
+        n: usize,
+        read: impl Fn(&Line, usize) -> Result<T, Error>,
+    ) -> Result<Vec<T>, Error> {
+        let mut values = Vec::with_capacity(n);
+        while values.len() < n {
+            let line = self.next_line()?;
+            let count = (n - values.len()).min(FIELDS_PER_LINE);
+            for i in 0..count {
+                values.push(read(line, i)?);
+            }
+        }
+        Ok(values)
     }
 }
 
