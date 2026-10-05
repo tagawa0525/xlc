@@ -192,7 +192,7 @@ pub fn solve(
             .iter()
             .flatten()
             .zip(flux.iter().flatten())
-            .map(|(new, old)| ((new - old) / new).abs())
+            .map(|(new, old)| relative_change(*new, *old))
             .fold(0.0, f64::max);
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
         // 残りの誤差を見積もって判定する
@@ -220,7 +220,12 @@ pub fn solve(
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
 fn relative_change(new: f64, old: f64) -> f64 {
-    todo!()
+    let scale = new.abs().max(old.abs());
+    if scale == 0.0 {
+        0.0
+    } else {
+        (new - old).abs() / scale
+    }
 }
 
 /// 反復の変化量の列から、収束までに残る誤差を見積もる。
