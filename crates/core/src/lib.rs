@@ -2,4 +2,5 @@
 //!
 //! パッケージ名は `xlc-core` とする（`core` は Rust 標準のクレートと衝突するため）。
 
+pub mod input;
 pub mod nem;
