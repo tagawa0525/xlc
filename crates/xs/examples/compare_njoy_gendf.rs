@@ -145,7 +145,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let njoy = read_gendf_matrix(&gendf, ng)?;
         let mut worst = (0.0_f64, 0);
         for g in 0..ng {
-            let sum: f64 = njoy[g].iter().sum();
+            // どちらか一方にだけ散乱がある群も差として数える
+            let sum = njoy[g].iter().sum::<f64>().max(ours[g].iter().sum());
             if sum <= 0.0 {
                 continue;
             }
