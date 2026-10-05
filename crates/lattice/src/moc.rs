@@ -50,6 +50,9 @@ pub fn solve(
     if materials.iter().any(|m| m.groups() != ng) {
         return Err("all materials must have the same number of groups".into());
     }
+    for (i, m) in materials.iter().enumerate() {
+        m.validate().map_err(|e| format!("region {i}: {e}"))?;
+    }
     if materials
         .iter()
         .any(|m| m.total.iter().any(|&t| t <= 0.0 || !t.is_finite()))
