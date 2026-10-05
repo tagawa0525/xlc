@@ -116,10 +116,13 @@ fast-forward せず、必ずマージコミットを作る（GitHub での `--me
 
 ```bash
 git switch main
-git merge --no-ff [branch] -F - <<'EOF'
+git merge --no-ff [branch] -m "$(cat <<'EOF'
 [マージコミットメッセージ]
 EOF
+)"
 ```
+
+`git merge` は `-F -`（標準入力からの読み込み）に対応していないので、`-m` に渡す。
 
 ## 後片付け
 
