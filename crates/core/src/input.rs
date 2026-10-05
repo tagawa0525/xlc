@@ -14,6 +14,14 @@ use std::path::PathBuf;
 
 use crate::nem::Boundary;
 
+const KEYWORDS: [&str; 4] = ["fewgroup", "size", "nodes", "boundary"];
+
+/// 全要素を変換できたときだけ固定長の配列を返す。
+fn parse_each<T, const N: usize>(tokens: &[&str], f: impl Fn(&str) -> Option<T>) -> Option<[T; N]> {
+    let values: Vec<T> = tokens.iter().map(|t| f(t)).collect::<Option<_>>()?;
+    values.try_into().ok()
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoreInput {
     pub fewgroup: PathBuf,
@@ -25,7 +33,54 @@ pub struct CoreInput {
 impl CoreInput {
     /// エラーは「line N: ...」の形の文字列で返す。
     pub fn parse(text: &str) -> Result<Self, String> {
-        todo!()
+        let mut entries: Vec<(&str, usize, Vec<&str>)> = Vec::new();
+        for (index, raw) in text.lines().enumerate() {
+            let line = index + 1;
+            let content = raw.split('#').next().unwrap_or("");
+            let tokens: Vec<&str> = content.split_whitespace().collect();
+            let Some((&key, values)) = tokens.split_first() else {
+                continue;
+            };
+            if !KEYWORDS.contains(&key) {
+                return Err(format!("line {line}: unknown keyword `{key}`"));
+            }
+            if entries.iter().any(|(k, ..)| *k == key) {
+                return Err(format!("line {line}: `{key}` is given twice"));
+            }
+            entries.push((key, line, values.to_vec()));
+        }
+        let get = |key: &str, count: usize| -> Result<(usize, &[&str]), String> {
+            let (_, line, values) = entries
+                .iter()
+                .find(|(k, ..)| *k == key)
+                .ok_or_else(|| format!("`{key}` is missing"))?;
+            if values.len() != count {
+                return Err(format!("line {line}: `{key}` takes {count} values"));
+            }
+            Ok((*line, values.as_slice()))
+        };
+
+        let (line, size) = get("size", 3)?;
+        let size = parse_each(size, |t| {
+            t.parse::<f64>().ok().filter(|v| *v > 0.0 && v.is_finite())
+        })
+        .ok_or_else(|| format!("line {line}: sizes must be positive numbers"))?;
+        let (line, nodes) = get("nodes", 3)?;
+        let nodes = parse_each(nodes, |t| t.parse::<usize>().ok().filter(|&n| n > 0))
+            .ok_or_else(|| format!("line {line}: node counts must be positive integers"))?;
+        let (line, boundaries) = get("boundary", 6)?;
+        let boundaries = parse_each(boundaries, |t| match t {
+            "reflective" => Some(Boundary::Reflective),
+            "zero-flux" => Some(Boundary::ZeroFlux),
+            _ => None,
+        })
+        .ok_or_else(|| format!("line {line}: boundaries must be `reflective` or `zero-flux`"))?;
+        Ok(Self {
+            fewgroup: PathBuf::from(get("fewgroup", 1)?.1[0]),
+            size,
+            nodes,
+            boundaries,
+        })
     }
 }
 
