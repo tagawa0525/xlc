@@ -4,11 +4,12 @@
 //!
 //! 群構造は WIMS 69群、重み関数は iwt=4（軽水炉向けの値）とする。GENDF は同じ条件で
 //! 0 K、無限希釈（σ0 = 1e10）として作っておくこと。MT452 は ν̄ を比べる。
+//! MF5 MT18 があれば、GENDF の MF6 MT18 から求めた核分裂スペクトル χ も比べる。
 
 use std::collections::BTreeMap;
 
-use xs::endf::{Tape, parse_nubar};
-use xs::multigroup::{GroupStructure, Weight, reaction_averages};
+use xs::endf::{Mf5, Tape, parse_nubar};
+use xs::multigroup::{GroupStructure, Weight, fission_spectrum, reaction_averages};
 use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -74,7 +75,81 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             worst.0, worst.1, ours[worst.1], njoy[worst.1]
         );
     }
+
+    if let (Some(nu), Some(section), Some(gendf)) = (
+        &nubar,
+        tape.section(mat, 5, 18),
+        reference.section(mat, 6, 18),
+    ) {
+        let ours = fission_spectrum(&groups, &Weight::lwr(), &tables, nu, &Mf5::parse(&section)?);
+        let njoy = read_gendf_chi(&gendf, ng)?;
+        let mut worst = (0.0_f64, 0);
+        for (g, (&expected, &actual)) in njoy.iter().zip(&ours).enumerate() {
+            // 寄与の小さい群は相対差が大きくなるので、1e-6 以上の群だけを見る
+            if expected < 1.0e-6 {
+                continue;
+            }
+            let rel = (actual - expected).abs() / expected;
+            if rel > worst.0 {
+                worst = (rel, g);
+            }
+        }
+        println!(
+            "chi  : max rel diff {:.2e} in group {} (ours {:.6e}, njoy {:.6e}), sum of |diff| {:.2e}",
+            worst.0,
+            worst.1,
+            ours[worst.1],
+            njoy[worst.1],
+            ours.iter()
+                .zip(&njoy)
+                .map(|(a, b)| (a - b).abs())
+                .sum::<f64>()
+        );
+    }
     Ok(())
+}
+
+/// GENDF の MF6 MT18 から、核分裂中性子の生成を出射の群ごとに集計し、和を 1 にして返す。
+///
+/// 低い群は「群ごとの νσf × 共通のスペクトル（IG=0 のレコード）」、高い群は生成行列の行で
+/// 与えられる。どちらも群の中性子束を掛けて足し合わせる。
+fn read_gendf_chi(
+    section: &xs::endf::Section<'_>,
+    ng: usize,
+) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
+    let mut r = section.reader();
+    let head = r.cont()?;
+    let nlnz = usize::try_from(head.l1 * head.l2)?;
+    let mut spectrum = vec![0.0; ng];
+    let mut spectrum_source = 0.0;
+    let mut production = vec![0.0; ng];
+    while !r.at_end() {
+        let list = r.list()?;
+        let (ng2, ig2lo, ig) = (
+            usize::try_from(list.l1)?,
+            usize::try_from(list.l2)?,
+            usize::try_from(list.n2)?,
+        );
+        if ig == 0 {
+            for (j, &v) in list.values.iter().enumerate() {
+                spectrum[ng - (ig2lo + j)] = v;
+            }
+        } else if ig2lo == 0 {
+            spectrum_source += list.values[0] * list.values[nlnz];
+        } else {
+            let flux = list.values[0];
+            for j in 0..ng2 - 1 {
+                production[ng - (ig2lo + j)] += flux * list.values[nlnz * (j + 1)];
+            }
+        }
+    }
+    let chi: Vec<f64> = production
+        .iter()
+        .zip(&spectrum)
+        .map(|(p, s)| p + spectrum_source * s)
+        .collect();
+    let total: f64 = chi.iter().sum();
+    Ok(chi.iter().map(|c| c / total).collect())
 }
 
 /// GENDF の MF3 の群平均値（MT452 なら ν̄）を、高エネルギーの群から順に返す。
