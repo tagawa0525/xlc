@@ -283,6 +283,25 @@ mod tests {
     }
 
     #[test]
+    fn reactions_without_neutrons_need_no_distribution() {
+        // MT155 (z,tα) などは MT152〜200 の範囲でも中性子を出さない
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
+        for mt in [155, 182, 191, 192, 193, 197] {
+            let tables = BTreeMap::from([(mt, constant(1.0))]);
+            let m = scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                15.86,
+                &tables,
+                &BTreeMap::new(),
+                &BTreeMap::new(),
+            )
+            .unwrap();
+            assert_eq!(m[0][0], 0.0, "MT{mt}");
+        }
+    }
+
+    #[test]
     fn neutron_emission_without_distribution_is_error() {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
         let tables = BTreeMap::from([(16, constant(1.0))]);
