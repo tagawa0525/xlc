@@ -357,12 +357,13 @@ mod tests {
 
     #[test]
     fn region_without_tracks_is_error() {
-        // 粗いトラックが通らない薄い円環
-        let cell = PinCell::new(1.26, vec![0.4, 0.400_001]).unwrap();
+        // 中心の極小の円には、中心からずれたトラックが1本も通らない
+        let cell = PinCell::new(1.26, vec![1.0e-6, 0.4]).unwrap();
         let tracking = Tracking::new(&cell, 4, 0.3).unwrap();
         let m = fuel();
-        assert!(tracking.volumes(3)[1] == 0.0);
-        assert!(solve(&tracking, &[&m, &m, &m], &Options::default()).is_err());
+        assert!(tracking.volumes(3)[0] == 0.0);
+        let err = solve(&tracking, &[&m, &m, &m], &Options::default()).unwrap_err();
+        assert!(err.contains("region 0"), "{err}");
     }
 
     #[test]
