@@ -65,6 +65,19 @@ pub struct Tab1Record {
     pub table: Tab1,
 }
 
+/// TAB2 レコード（続く NZ 個のレコードの補間則を与える）。
+/// 補間則は ENDF の値のまま持つ（unit-base の 21〜25 などを使う側で解釈する）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tab2Record {
+    pub c1: f64,
+    pub c2: f64,
+    pub l1: i64,
+    pub l2: i64,
+    pub breaks: Vec<usize>,
+    pub codes: Vec<i64>,
+    pub nz: usize,
+}
+
 impl Tape {
     /// テープ全体の文字列を読み込む。各行の制御欄（MAT/MF/MT）を検査する。
     pub fn parse(text: &str) -> Result<Self, Error> {
@@ -194,6 +207,10 @@ impl<'a> Reader<'a> {
             n2: head.n2,
             values: self.values(npl, Line::real)?,
         })
+    }
+
+    pub fn tab2(&mut self) -> Result<Tab2Record, Error> {
+        todo!()
     }
 
     pub fn tab1(&mut self) -> Result<Tab1Record, Error> {
@@ -400,6 +417,31 @@ pub(crate) mod tests {
         r.cont().unwrap();
         r.tab1().unwrap();
         assert!(r.at_end());
+    }
+
+    #[test]
+    fn reads_tab2() {
+        let text = [
+            rec(["0.0", "1.5", "3", "4", "2", "5"], 1, 5, 18),
+            rec(["2", "1", "5", "22", "", ""], 1, 5, 18),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let t = tape.section(1, 5, 18).unwrap().reader().tab2().unwrap();
+        assert_eq!((t.c2, t.l1, t.l2, t.nz), (1.5, 3, 4, 5));
+        assert_eq!(t.breaks, vec![2, 5]);
+        assert_eq!(t.codes, vec![1, 22]);
+    }
+
+    #[test]
+    fn tab2_last_break_must_equal_nz() {
+        let text = [
+            rec(["0.0", "0.0", "0", "0", "1", "5"], 1, 5, 18),
+            rec(["4", "2", "", "", "", ""], 1, 5, 18),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        assert!(tape.section(1, 5, 18).unwrap().reader().tab2().is_err());
     }
 
     #[test]

@@ -50,6 +50,18 @@ pub fn group_integrals(
     integrals
 }
 
+/// `group_integrals` の多成分版。f は E と、長さ `n` の出力を受け取り、値を書き込む。
+/// 戻り値は [入射の群][成分]。
+pub fn group_integrals_multi(
+    groups: &GroupStructure,
+    weight: &Weight,
+    breakpoints: &[f64],
+    n: usize,
+    f: impl Fn(f64, &mut [f64]),
+) -> Vec<Vec<f64>> {
+    todo!()
+}
+
 /// 1つの積分区間の上限と下限のエネルギー比の上限
 const MAX_RATIO: f64 = 1.05;
 
@@ -106,6 +118,22 @@ mod tests {
             if e < 30.0 { 1.0 } else { 2.0 }
         });
         assert_close(r[0], (3.0_f64).ln() + 2.0 * (100.0_f64 / 30.0).ln());
+    }
+
+    #[test]
+    fn multi_component_matches_scalar() {
+        let groups = GroupStructure::new(vec![100.0, 10.0, 1.0]);
+        let w = Weight::lwr();
+        let r = group_integrals_multi(&groups, &w, &[30.0], 2, |e, out| {
+            out[0] = e;
+            out[1] = 1.0;
+        });
+        let e = group_integrals(&groups, &w, &[30.0], |e| e);
+        let one = group_integrals(&groups, &w, &[30.0], |_| 1.0);
+        for g in 0..2 {
+            assert_close(r[g][0], e[g]);
+            assert_close(r[g][1], one[g]);
+        }
     }
 
     #[test]

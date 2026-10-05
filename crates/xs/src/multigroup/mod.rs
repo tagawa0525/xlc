@@ -1,6 +1,8 @@
 //! ポイントワイズの断面積からの多群定数の作成（NJOY の GROUPR に相当）。
 
+mod fission;
 mod integrate;
+mod outgoing;
 mod structure;
 mod weight;
 
@@ -8,7 +10,9 @@ use std::collections::BTreeMap;
 
 use crate::endf::Tab1;
 
-pub use integrate::group_integrals;
+pub use fission::fission_spectrum;
+pub use integrate::{group_integrals, group_integrals_multi};
+pub use outgoing::{GroupedOutgoing, outgoing_group_integrals};
 pub use structure::GroupStructure;
 pub use weight::Weight;
 
