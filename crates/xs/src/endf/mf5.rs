@@ -25,14 +25,53 @@ pub struct Mf5 {
 
 impl Mf5 {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
-        todo!()
+        let mut r = section.reader();
+        let head = r.cont()?;
+        let nk = usize::try_from(head.n1)
+            .map_err(|_| Error::new(r.line(), format!("invalid NK {}", head.n1)))?;
+        let mut subsections = Vec::new();
+        for _ in 0..nk {
+            let start = r.line() + 1;
+            let probability = r.tab1()?;
+            let lf = probability.l2;
+            if lf != 1 {
+                return Err(Error::new(start, format!("LF={lf} is not supported")));
+            }
+            subsections.push((probability.table, parse_outgoing(&mut r)?));
+        }
+        Ok(Self { subsections })
     }
 }
 
 /// TAB2 と、それに続く NE 個の TAB1（C2 が入射エネルギー）を読む。
 /// MF5 の LF=1 と MF6 の出射分布で共通の形。
 pub fn parse_outgoing(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
-    todo!()
+    let tab2 = r.tab2()?;
+    let laws = tab2
+        .codes
+        .iter()
+        .map(|&code| match code {
+            1 | 21 => Ok(Interpolation::Histogram),
+            2 | 22 => Ok(Interpolation::LinLin),
+            _ => Err(Error::new(
+                r.line(),
+                format!("incident-energy interpolation INT={code} is not supported"),
+            )),
+        })
+        .collect::<Result<_, _>>()?;
+    let mut incident = Vec::new();
+    let mut spectra = Vec::new();
+    for _ in 0..tab2.nz {
+        let record = r.tab1()?;
+        incident.push(record.c2);
+        spectra.push(record.table);
+    }
+    Ok(OutgoingDistributions {
+        breaks: tab2.breaks,
+        laws,
+        incident,
+        spectra,
+    })
 }
 
 #[cfg(test)]
