@@ -210,7 +210,34 @@ impl<'a> Reader<'a> {
     }
 
     pub fn tab2(&mut self) -> Result<Tab2Record, Error> {
-        todo!()
+        let head = self.cont()?;
+        let head_line = self.line();
+        let nr = self.count(head.n1)?;
+        let nz = self.count(head.n2)?;
+        let ranges = self.values(self.pairs(nr)?, |line, i| line.int(i))?;
+        let mut breaks = Vec::with_capacity(nr);
+        let mut codes = Vec::with_capacity(nr);
+        for &[nbt, code] in ranges.as_chunks::<2>().0 {
+            let previous = breaks.last().copied().unwrap_or(0);
+            let nbt = usize::try_from(nbt)
+                .ok()
+                .filter(|&b| b > previous && b <= nz)
+                .ok_or_else(|| Error::new(head_line, format!("invalid NBT {nbt}")))?;
+            breaks.push(nbt);
+            codes.push(code);
+        }
+        if breaks.last() != Some(&nz) {
+            return Err(Error::new(head_line, "last NBT must equal NZ"));
+        }
+        Ok(Tab2Record {
+            c1: head.c1,
+            c2: head.c2,
+            l1: head.l1,
+            l2: head.l2,
+            breaks,
+            codes,
+            nz,
+        })
     }
 
     pub fn tab1(&mut self) -> Result<Tab1Record, Error> {

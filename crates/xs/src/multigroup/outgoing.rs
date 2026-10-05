@@ -2,11 +2,41 @@
 
 use super::GroupStructure;
 use crate::endf::{Interpolation, OutgoingDistributions, Tab1};
+use crate::pointwise::linearize;
 
 /// 出射エネルギーの確率密度の表を、群ごとに積分する（群構造の外に出る分は数えない）。
 pub fn outgoing_group_integrals(groups: &GroupStructure, density: &Tab1) -> Vec<f64> {
-    todo!()
+    let linear = linearize(density, DENSITY_TOLERANCE);
+    let bounds = groups.bounds();
+    let mut integrals = vec![0.0; groups.len()];
+    for k in 0..linear.x.len().saturating_sub(1) {
+        let (x0, x1) = (linear.x[k], linear.x[k + 1]);
+        if x1 <= x0 {
+            continue;
+        }
+        let (y0, y1) = (linear.y[k], linear.y[k + 1]);
+        let y = |e: f64| y0 + (y1 - y0) * (e - x0) / (x1 - x0);
+        // 区間を群境界で切り、それぞれを台形公式で積分する（区間内は線形なので厳密）
+        let mut cuts: Vec<f64> = bounds
+            .iter()
+            .copied()
+            .filter(|&b| b > x0 && b < x1)
+            .collect();
+        cuts.push(x0);
+        cuts.push(x1);
+        cuts.sort_by(f64::total_cmp);
+        for w in cuts.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            if let Some(g) = groups.find(0.5 * (a + b)) {
+                integrals[g] += 0.5 * (b - a) * (y(a) + y(b));
+            }
+        }
+    }
+    integrals
 }
+
+/// 出射分布を線形化するときの許容誤差
+const DENSITY_TOLERANCE: f64 = 1.0e-4;
 
 /// 入射エネルギーごとの出射分布を群に振り分けたもの。入射エネルギーの間は補間する。
 #[derive(Debug, Clone)]
@@ -19,7 +49,16 @@ pub struct GroupedOutgoing {
 
 impl GroupedOutgoing {
     pub fn new(groups: &GroupStructure, distributions: &OutgoingDistributions) -> Self {
-        todo!()
+        Self {
+            breaks: distributions.breaks.clone(),
+            laws: distributions.laws.clone(),
+            incident: distributions.incident.clone(),
+            probabilities: distributions
+                .spectra
+                .iter()
+                .map(|density| outgoing_group_integrals(groups, density))
+                .collect(),
+        }
     }
 
     /// 入射エネルギー
@@ -30,7 +69,29 @@ impl GroupedOutgoing {
     /// 入射エネルギー e での、出射の群ごとの確率に `scale` を掛けて `out` に足す。
     /// 入射エネルギーの範囲外では、端の分布を使う。
     pub fn accumulate(&self, e: f64, scale: f64, out: &mut [f64]) {
-        todo!()
+        let last = self.incident.len() - 1;
+        let add = |p: &[f64], factor: f64, out: &mut [f64]| {
+            for (o, v) in out.iter_mut().zip(p) {
+                *o += factor * v;
+            }
+        };
+        if e <= self.incident[0] {
+            return add(&self.probabilities[0], scale, out);
+        }
+        if e >= self.incident[last] {
+            return add(&self.probabilities[last], scale, out);
+        }
+        let k = self.incident.partition_point(|&x| x <= e) - 1;
+        let law = self.laws[self.breaks.partition_point(|&b| b < k + 2)];
+        match law {
+            Interpolation::Histogram => add(&self.probabilities[k], scale, out),
+            _ => {
+                let (x0, x1) = (self.incident[k], self.incident[k + 1]);
+                let t = (e - x0) / (x1 - x0);
+                add(&self.probabilities[k], scale * (1.0 - t), out);
+                add(&self.probabilities[k + 1], scale * t, out);
+            }
+        }
     }
 }
 
