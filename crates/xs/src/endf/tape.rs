@@ -447,6 +447,29 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn huge_count_is_error_not_abort() {
+        // 壊れたヘッダの件数で巨大な確保をせず、セクションの終わりとして報告する
+        let tab1 = [
+            rec(["0.0", "0.0", "0", "0", "1", "99999999999"], 1, 3, 1),
+            rec(["2", "2", "", "", "", ""], 1, 3, 1),
+        ]
+        .concat();
+        let tape = Tape::parse(&tab1).unwrap();
+        let err = tape.section(1, 3, 1).unwrap().reader().tab1().unwrap_err();
+        assert_eq!(err.line, 3);
+
+        let list = rec(["0.0", "0.0", "0", "0", "99999999999", "0"], 1, 2, 151);
+        let tape = Tape::parse(&list).unwrap();
+        let err = tape
+            .section(1, 2, 151)
+            .unwrap()
+            .reader()
+            .list()
+            .unwrap_err();
+        assert_eq!(err.line, 2);
+    }
+
+    #[test]
     fn non_ascii_text_counts_as_one_column_per_character() {
         // MF1/MT451 の説明文に非 ASCII 文字が入っていても、制御欄の桁はずれない
         let text = [
