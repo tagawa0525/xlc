@@ -12,6 +12,21 @@ pub fn group_integrals(
     breakpoints: &[f64],
     f: impl Fn(f64) -> f64,
 ) -> Vec<f64> {
+    group_integrals_multi(groups, weight, breakpoints, 1, |e, out| out[0] = f(e))
+        .into_iter()
+        .map(|row| row[0])
+        .collect()
+}
+
+/// `group_integrals` の多成分版。f は E と、長さ `n` の出力を受け取り、値を書き込む。
+/// 戻り値は [入射の群][成分]。
+pub fn group_integrals_multi(
+    groups: &GroupStructure,
+    weight: &Weight,
+    breakpoints: &[f64],
+    n: usize,
+    f: impl Fn(f64, &mut [f64]),
+) -> Vec<Vec<f64>> {
     let bounds = groups.bounds();
     let (lowest, highest) = (bounds[groups.len()], bounds[0]);
     let mut points: Vec<f64> = breakpoints
@@ -24,7 +39,8 @@ pub fn group_integrals(
     points.sort_by(f64::total_cmp);
     points.dedup();
 
-    let mut integrals = vec![0.0; groups.len()];
+    let mut integrals = vec![vec![0.0; n]; groups.len()];
+    let mut values = vec![0.0; n];
     for w in points.windows(2) {
         let (a, b) = (w[0], w[1]);
         let g = groups
@@ -36,30 +52,19 @@ pub fn group_integrals(
         for i in 0..pieces {
             let hi = if i + 1 == pieces { b } else { lo * ratio };
             let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
-            integrals[g] += GAUSS_LEGENDRE
-                .iter()
-                .map(|&(x, wk)| {
-                    let e = mid + half * x;
-                    wk * f(e) * weight.value(e)
-                })
-                .sum::<f64>()
-                * half;
+            for &(x, wk) in &GAUSS_LEGENDRE {
+                let e = mid + half * x;
+                values.fill(0.0);
+                f(e, &mut values);
+                let factor = wk * weight.value(e) * half;
+                for (sum, v) in integrals[g].iter_mut().zip(&values) {
+                    *sum += factor * v;
+                }
+            }
             lo = hi;
         }
     }
     integrals
-}
-
-/// `group_integrals` の多成分版。f は E と、長さ `n` の出力を受け取り、値を書き込む。
-/// 戻り値は [入射の群][成分]。
-pub fn group_integrals_multi(
-    groups: &GroupStructure,
-    weight: &Weight,
-    breakpoints: &[f64],
-    n: usize,
-    f: impl Fn(f64, &mut [f64]),
-) -> Vec<Vec<f64>> {
-    todo!()
 }
 
 /// 1つの積分区間の上限と下限のエネルギー比の上限
