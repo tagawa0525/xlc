@@ -102,6 +102,11 @@ impl Tape {
         })
     }
 
+    /// テープに含まれる物質（MAT > 0）を、テープ上の順に返す。
+    pub fn materials(&self) -> Vec<i32> {
+        todo!()
+    }
+
     /// 指定した MAT/MF に含まれる MT を、テープ上の順に返す。
     pub fn mts(&self, mat: i32, mf: u32) -> Vec<u32> {
         let mut mts = Vec::new();
@@ -391,6 +396,12 @@ pub(crate) mod tests {
         assert_eq!(r.cont().unwrap().c1, 1001.0);
         // SEND はセクションに含めない
         assert!(r.cont().is_err());
+    }
+
+    #[test]
+    fn lists_materials() {
+        let tape = Tape::parse(&sample_tape()).unwrap();
+        assert_eq!(tape.materials(), vec![125]);
     }
 
     #[test]
