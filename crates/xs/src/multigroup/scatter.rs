@@ -6,7 +6,9 @@
 use std::collections::BTreeMap;
 
 use super::outgoing::uniform_fractions;
-use super::{GroupStructure, GroupedOutgoing, Weight, group_integrals, group_integrals_multi};
+use super::{
+    FreeGas, GroupStructure, GroupedOutgoing, Weight, group_integrals, group_integrals_multi,
+};
 use crate::endf::{Frame, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
@@ -30,6 +32,7 @@ pub fn two_body_range(e: f64, awr: f64, q: f64) -> Option<(f64, f64)> {
 /// - `tables`: ポイントワイズの断面積（キーは MT）
 /// - `q_values`: 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
 /// - `mf6`: MF6 の中性子放出データ（キーは MT）
+/// - `thermal`: 熱領域の弾性散乱を自由ガス模型で扱う条件（`None` なら全域で静止標的）
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
 pub fn scattering_matrix(
@@ -39,6 +42,7 @@ pub fn scattering_matrix(
     tables: &BTreeMap<u32, Tab1>,
     q_values: &BTreeMap<u32, f64>,
     mf6: &BTreeMap<u32, Mf6>,
+    thermal: Option<&FreeGas>,
 ) -> Result<Vec<Vec<f64>>, String> {
     let ng = groups.len();
     let flux = group_integrals(groups, weight, &[], |_| 1.0);
@@ -240,6 +244,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            None,
         )
         .unwrap();
         let stay = 20.0 * (1.0 - 0.9 / 10.0_f64.ln());
@@ -263,6 +268,7 @@ mod tests {
             &tables,
             &q_values,
             &BTreeMap::new(),
+            None,
         )
         .unwrap();
         // 離散準位の分は高い群から低い群へも移る。行の和は σel + σ51（しきい値より上）
@@ -282,6 +288,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            None,
         )
         .unwrap_err();
         assert!(err.contains("MT4"), "{err}");
@@ -300,10 +307,52 @@ mod tests {
                 &tables,
                 &BTreeMap::new(),
                 &BTreeMap::new(),
+                None,
             )
             .unwrap();
             assert_eq!(m[0][0], 0.0, "MT{mt}");
         }
+    }
+
+    #[test]
+    fn free_gas_matrix_satisfies_detailed_balance() {
+        // 重み関数の熱領域（0.1 eV 以下）は kT = 0.0253 eV の Maxwell 分布なので、
+        // 同じ温度の自由ガスなら群間でも φ_g σ(g→g') = φ_g' σ(g'→g) が成り立つ
+        let groups = GroupStructure::wims69();
+        let weight = Weight::lwr();
+        let tables = BTreeMap::from([(2, constant(4.0))]);
+        let thermal = FreeGas {
+            kt: 0.0253,
+            cutoff: 4.0,
+        };
+        let m = scattering_matrix(
+            &groups,
+            &weight,
+            15.86,
+            &tables,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            Some(&thermal),
+        )
+        .unwrap();
+        let flux = group_integrals(&groups, &weight, &[], |_| 1.0);
+        let maxwellian: Vec<usize> = (0..groups.len())
+            .filter(|&g| groups.range(g).1 <= 0.1)
+            .collect();
+        assert!(maxwellian.len() > 10);
+        for &g in &maxwellian {
+            assert!((m[g].iter().sum::<f64>() - 4.0).abs() < 1e-9);
+            for &h in &maxwellian {
+                let (forward, backward) = (flux[g] * m[g][h], flux[h] * m[h][g]);
+                assert!(
+                    (forward - backward).abs() <= 1e-6 * forward.max(backward) + 1e-12,
+                    "{g}→{h}: {forward} vs {backward}"
+                );
+            }
+        }
+        // 熱群から上方散乱がある
+        let g = groups.find(0.0253).unwrap();
+        assert!(m[g][g - 1] > 0.0);
     }
 
     #[test]
@@ -317,6 +366,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            None,
         )
         .unwrap_err();
         assert!(err.contains("MT16"), "{err}");
@@ -351,6 +401,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &mf6,
+            None,
         )
         .unwrap();
         // 多重度 2 × σ 0.5 がすべて低い群へ
