@@ -237,6 +237,12 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// 最後に読んだ行の行番号。まだ何も読んでいなければ、セクションの先頭行の番号。
+    pub fn line(&self) -> usize {
+        let index = self.pos.saturating_sub(1);
+        self.lines.get(index).map_or(0, |l| l.number)
+    }
+
     fn next_line(&mut self) -> Result<&'a Line, Error> {
         let lines = self.lines;
         let line = lines.get(self.pos).ok_or_else(|| {

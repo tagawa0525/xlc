@@ -4,7 +4,7 @@
 //! 非分離共鳴（LRU=2）だけを扱う。それ以外の形式はエラーにする。
 
 use super::Error;
-use super::tape::Section;
+use super::tape::{Reader, Section};
 
 /// 1核種（同位体1つ）の共鳴パラメータ。
 #[derive(Debug, Clone, PartialEq)]
@@ -67,9 +67,104 @@ pub struct RmResonance {
 
 impl Mf2 {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
-        todo!()
+        let mut r = section.reader();
+        let head = r.cont()?;
+        if head.n1 != 1 {
+            return Err(Error::new(
+                r.line(),
+                format!("NIS={} isotopes are not supported", head.n1),
+            ));
+        }
+        let isotope = r.cont()?;
+        let ner = usize::try_from(isotope.n1)
+            .map_err(|_| Error::new(r.line(), format!("invalid NER {}", isotope.n1)))?;
+
+        let mut ranges = Vec::with_capacity(ner);
+        for index in 0..ner {
+            let range = r.cont()?;
+            let range_line = r.line();
+            let (lru, lrf, nro) = (range.l1, range.l2, range.n1);
+            let unsupported = |what: String| Err(Error::new(range_line, what));
+            let kind = match lru {
+                0 => {
+                    let cont = r.cont()?;
+                    RangeKind::ScatteringRadius { ap: cont.c2 }
+                }
+                1 if lrf != 3 => {
+                    return unsupported(format!("resolved LRF={lrf} is not supported"));
+                }
+                1 if nro != 0 => {
+                    return unsupported("energy-dependent radius (NRO≠0) with Reich-Moore".into());
+                }
+                1 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
+                2 => {
+                    // 非分離共鳴は LSSF だけを読む。続くパラメータは読まないので、最後の範囲に限る
+                    if index + 1 != ner {
+                        return unsupported("unresolved range must be the last range".into());
+                    }
+                    if nro != 0 {
+                        r.tab1()?;
+                    }
+                    RangeKind::Unresolved { lssf: r.cont()?.l1 }
+                }
+                _ => return unsupported(format!("invalid LRU={lru}")),
+            };
+            ranges.push(ResonanceRange {
+                el: range.c1,
+                eh: range.c2,
+                kind,
+            });
+        }
+        Ok(Self {
+            za: head.c1,
+            awr: head.c2,
+            ranges,
+        })
     }
 }
+
+fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> {
+    let cont = r.cont()?;
+    let nls = usize::try_from(cont.n1)
+        .map_err(|_| Error::new(r.line(), format!("invalid NLS {}", cont.n1)))?;
+    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    for _ in 0..nls {
+        let list = r.list()?;
+        let l = u32::try_from(list.l1)
+            .ok()
+            .filter(|&l| l as usize <= MAX_L)
+            .ok_or_else(|| Error::new(r.line(), format!("unsupported L={}", list.l1)))?;
+        let resonances = list
+            .values
+            .as_chunks::<6>()
+            .0
+            .iter()
+            .map(|p| RmResonance {
+                er: p[0],
+                aj: p[1],
+                gn: p[2],
+                gg: p[3],
+                gfa: p[4],
+                gfb: p[5],
+            })
+            .collect();
+        l_values.push(RmLValue {
+            awri: list.c1,
+            apl: list.c2,
+            l,
+            resonances,
+        });
+    }
+    Ok(ReichMoore {
+        spi: cont.c1,
+        ap: cont.c2,
+        naps,
+        l_values,
+    })
+}
+
+/// 透過因子・位相シフトを実装している l の上限（NJOY と同じ）。
+pub(crate) const MAX_L: usize = 4;
 
 #[cfg(test)]
 mod tests {
