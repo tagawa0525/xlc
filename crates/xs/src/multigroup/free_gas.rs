@@ -185,6 +185,18 @@ mod tests {
     }
 
     #[test]
+    fn integrates_down_to_alpha_e_when_e_is_far_above_kt() {
+        // 下方散乱は αE（α = ((A-1)/(A+1))²）まで届く。重水素 20 K、E/kT ≈ 2300
+        let (awr, kt, e) = (1.99, 20.0 * crate::physics::BK, 3.99);
+        let groups = GroupStructure::wims69();
+        let sum: f64 = free_gas_group_integrals(&groups, e, awr, kt).iter().sum();
+        let a_eps = awr * e / kt;
+        let expected = (1.0 + 1.0 / (2.0 * a_eps)) * erf(a_eps.sqrt())
+            + (-a_eps).exp() / (std::f64::consts::PI * a_eps).sqrt();
+        assert_rel(sum, expected, 1e-6);
+    }
+
+    #[test]
     fn no_overflow_far_below_incident_energy() {
         // E/kT ≈ 160 で E' がずっと低くても有限
         let s = free_gas_kernel(4.0, 0.01, 15.86, KT);
