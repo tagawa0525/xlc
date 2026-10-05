@@ -20,8 +20,13 @@ impl GroupStructure {
     /// 降順の境界から作る。
     ///
     /// # Panics
-    /// 境界が2つ未満のとき、または降順でないとき。
+    /// 境界が2つ未満のとき、降順でないとき、または正でない境界があるとき
+    /// （群積分で区間を対数的に分割するため、0 eV は扱えない）。
     pub fn new(bounds: Vec<f64>) -> Self {
+        assert!(
+            bounds.iter().all(|&b| b > 0.0),
+            "group bounds must be positive"
+        );
         assert!(
             bounds.len() >= 2,
             "a group structure needs at least two bounds"
