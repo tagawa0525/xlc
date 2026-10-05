@@ -144,6 +144,10 @@ fn left_limit(t: &Tab1, e: f64) -> f64 {
         return 0.0;
     }
     let k = t.x.partition_point(|&xi| xi < e);
+    if t.x[k] == e {
+        // 表の点の上では補間せず値をそのまま返す（丸めによる偽の不連続点を防ぐ）
+        return t.y[k];
+    }
     let (x0, x1) = (t.x[k - 1], t.x[k]);
     let (y0, y1) = (t.y[k - 1], t.y[k]);
     y0 + (y1 - y0) * (e - x0) / (x1 - x0)
@@ -203,7 +207,7 @@ struct Sum {
     trigger: fn(u32) -> bool,
 }
 
-const SUMS: [Sum; 7] = [
+const SUMS: [Sum; 8] = [
     Sum {
         mt: 4,
         is_part: |mt| (51..=91).contains(&mt),
@@ -214,6 +218,11 @@ const SUMS: [Sum; 7] = [
         mt: 18,
         is_part: |mt| matches!(mt, 19..=21 | 38),
         trigger: |mt| mt == 19,
+    },
+    Sum {
+        mt: 16,
+        is_part: |mt| (875..=891).contains(&mt),
+        trigger: |mt| (875..=891).contains(&mt),
     },
     Sum {
         mt: 103,
