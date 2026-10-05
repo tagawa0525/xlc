@@ -336,7 +336,9 @@ mod tests {
         )
         .unwrap();
         let flux = group_integrals(&groups, &weight, &[], |_| 1.0);
-        let maxwellian: Vec<usize> = (0..groups.len())
+        // 最下位の群は除く。1e-5 eV より下へ散乱した分はこの群に入れる（中性子を失わない）が、
+        // 1e-5 eV より下から入射する中性子は積分しないので、この群だけはバランスが厳密でない
+        let maxwellian: Vec<usize> = (0..groups.len() - 1)
             .filter(|&g| groups.range(g).1 <= 0.1)
             .collect();
         assert!(maxwellian.len() > 10);
