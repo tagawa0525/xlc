@@ -46,6 +46,14 @@ pub fn scattering_matrix(
     mf6: &BTreeMap<u32, Mf6>,
     thermal: Option<&FreeGas>,
 ) -> Result<Vec<Vec<f64>>, String> {
+    if let Some(free_gas) = thermal
+        && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
+    {
+        return Err(format!(
+            "free gas needs positive kT and a finite cutoff (kT {}, cutoff {})",
+            free_gas.kt, free_gas.cutoff
+        ));
+    }
     let ng = groups.len();
     let flux = group_integrals(groups, weight, &[], |_| 1.0);
     let has_n2n_partials = tables.keys().any(|mt| (875..=891).contains(mt));
