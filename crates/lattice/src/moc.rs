@@ -218,6 +218,11 @@ pub fn solve(
     ))
 }
 
+/// 中性子束の相対変化。両方 0 なら変化なし。
+fn relative_change(new: f64, old: f64) -> f64 {
+    todo!()
+}
+
 /// 反復の変化量の列から、収束までに残る誤差を見積もる。
 ///
 /// 変化が縮小率 ρ で等比的に減るとき、残りの誤差は 最新の変化 × ρ/(1-ρ)。
@@ -377,6 +382,14 @@ mod tests {
         assert!(tracking.volumes(3)[0] == 0.0);
         let err = solve(&tracking, &[&m, &m, &m], &Options::default()).unwrap_err();
         assert!(err.contains("region 0"), "{err}");
+    }
+
+    #[test]
+    fn relative_change_handles_zero_flux() {
+        assert_eq!(relative_change(0.0, 0.0), 0.0);
+        assert_eq!(relative_change(1.0, 0.0), 1.0);
+        assert_eq!(relative_change(0.0, 2.0), 1.0);
+        assert!((relative_change(1.1, 1.0) - 0.1 / 1.1).abs() < 1e-15);
     }
 
     #[test]
