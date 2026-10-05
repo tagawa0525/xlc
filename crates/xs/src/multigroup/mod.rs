@@ -3,6 +3,7 @@
 mod fission;
 mod integrate;
 mod outgoing;
+mod scatter;
 mod structure;
 mod weight;
 
@@ -13,6 +14,7 @@ use crate::endf::Tab1;
 pub use fission::fission_spectrum;
 pub use integrate::{group_integrals, group_integrals_multi};
 pub use outgoing::{GroupedOutgoing, outgoing_group_integrals};
+pub use scatter::{scattering_matrix, two_body_range};
 pub use structure::GroupStructure;
 pub use weight::Weight;
 

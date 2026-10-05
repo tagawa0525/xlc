@@ -7,6 +7,7 @@ mod mf1;
 mod mf2;
 mod mf3;
 mod mf5;
+mod mf6;
 mod number;
 mod tab1;
 mod tape;
@@ -17,6 +18,7 @@ pub use mf1::parse_nubar;
 pub use mf2::{Mf2, RangeKind, ReichMoore, ResonanceRange, RmLValue, RmResonance};
 pub use mf3::Mf3;
 pub use mf5::{Mf5, OutgoingDistributions, parse_outgoing};
+pub use mf6::{Mf6, NeutronEmission};
 pub use tab1::{Interpolation, Tab1};
 pub use tape::{Cont, List, Reader, Section, Tab1Record, Tab2Record, Tape};
 
