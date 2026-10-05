@@ -83,13 +83,18 @@ fn read_gendf_mf3(
     ng: usize,
 ) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
     let mut r = section.reader();
-    r.cont()?;
+    let head = r.cont()?;
+    // 値は NL×NZ 個の中性子束のあとに断面積が並ぶ。先頭（P0、最初の σ0）を使う
+    let (nl, nz) = (usize::try_from(head.l1)?, usize::try_from(head.l2)?);
+    if usize::try_from(head.n2)? != ng {
+        return Err(format!("GENDF has {} groups, expected {ng}", head.n2).into());
+    }
     let mut values = BTreeMap::new();
     while !r.at_end() {
         let list = r.list()?;
-        // GENDF の群番号 IG は低エネルギーから 1 始まり。値は [中性子束, 断面積(, ...)]
+        // GENDF の群番号 IG は低エネルギーから 1 始まり
         let ig = usize::try_from(list.n2)?;
-        values.insert(ng - ig, list.values[1]);
+        values.insert(ng - ig, list.values[nl * nz]);
     }
     Ok((0..ng)
         .map(|g| values.get(&g).copied().unwrap_or(0.0))
