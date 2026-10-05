@@ -325,6 +325,15 @@ mod tests {
     }
 
     #[test]
+    fn linearize_does_not_duplicate_continuous_points() {
+        // 0.2 + (0.9 - 0.2) は 0.9 と 1ulp 違う。端点の値を補間し直すと偽の不連続点ができる
+        let source = linear(&[1.0, 2.0, 3.0], &[0.2, 0.9, 0.9]);
+        let t = linearize(&source, 1.0e-3);
+        assert_eq!(t.x, vec![1.0, 2.0, 3.0]);
+        assert_eq!(t.y, vec![0.2, 0.9, 0.9]);
+    }
+
+    #[test]
     fn linearize_keeps_discontinuities() {
         let source = linear(&[1.0, 2.0, 2.0, 3.0], &[1.0, 1.0, 5.0, 5.0]);
         let t = linearize(&source, 1.0e-3);
@@ -417,6 +426,45 @@ mod tests {
         assert_eq!(at(18, 1.0), 0.25);
         assert_eq!(at(18, 6.0e6), 0.375);
         assert_eq!(at(203, 3.0e6), 3.0);
+    }
+
+    #[test]
+    fn resonance_fission_survives_rebuild_of_mt18() {
+        use crate::endf::rec;
+        let full = ["1.0-5", "2.0+7"];
+        let mf2 = [
+            rec(["9.223500+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["9.223500+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0-5", "1.0+3", "1", "3", "0", "1"], 1, 2, 151),
+            rec(["0.0", "9.48-1", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+            rec(
+                ["6.674", "0.5", "1.5-3", "2.3-2", "1.0-2", "0.0"],
+                1,
+                2,
+                151,
+            ),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat();
+        // MT19 がなく MT20 がある: MT18 は部分反応の和で作り直される
+        let text = [
+            mf2,
+            mf3_section(2, full, ["0.0", "0.0"]),
+            mf3_section(18, full, ["0.0", "0.0"]),
+            mf3_section(20, ["5.0+6", "2.0+7"], ["0.125", "0.125"]),
+            mf3_section(102, full, ["0.0", "0.0"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        let fission = tables[&18].eval(6.674).unwrap();
+        assert!(fission > 1.0, "resonance fission lost: {fission}");
+        let parts: f64 = [2, 18, 102]
+            .iter()
+            .map(|mt| tables[mt].eval(6.674).unwrap())
+            .sum();
+        assert!((tables[&1].eval(6.674).unwrap() - parts).abs() <= 1e-9 * parts);
     }
 
     #[test]
