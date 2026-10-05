@@ -5,13 +5,23 @@
 
 use std::collections::BTreeMap;
 
-use super::{GroupStructure, Weight};
+use super::{GroupStructure, GroupedOutgoing, Weight, group_integrals, group_integrals_multi};
 use crate::endf::{Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
 /// 出射エネルギーの範囲。出射エネルギーはこの範囲で一様に分布する。しきい値未満なら `None`。
 pub fn two_body_range(e: f64, awr: f64, q: f64) -> Option<(f64, f64)> {
-    todo!()
+    // E' = E/(A+1)² (1 + A²β² + 2Aβμ)、β² = 1 + (A+1)Q/(A E)、μ は重心系の散乱角の余弦
+    let beta2 = 1.0 + (awr + 1.0) * q / (awr * e);
+    if beta2 < 0.0 {
+        return None;
+    }
+    let beta = beta2.sqrt();
+    let c = e / (awr + 1.0).powi(2);
+    Some((
+        c * (1.0 - awr * beta).powi(2),
+        c * (1.0 + awr * beta).powi(2),
+    ))
 }
 
 /// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
@@ -29,7 +39,177 @@ pub fn scattering_matrix(
     q_values: &BTreeMap<u32, f64>,
     mf6: &BTreeMap<u32, Mf6>,
 ) -> Result<Vec<Vec<f64>>, String> {
-    todo!()
+    let ng = groups.len();
+    let flux = group_integrals(groups, weight, &[], |_| 1.0);
+    let has_n2n_partials = tables.keys().any(|mt| (875..=891).contains(mt));
+    let mut matrix = vec![vec![0.0; ng]; ng];
+    for (&mt, table) in tables {
+        // MT4 と、部分反応のある MT16 は和なので、部分反応の側で数える
+        if !emits_neutrons(mt) || mt == 4 || (mt == 16 && has_n2n_partials) {
+            continue;
+        }
+        let rows = if let Some(data) = mf6.get(&mt) {
+            emission_rows(groups, weight, table, data)
+        } else if mt == 2 || (51..=90).contains(&mt) {
+            let q = if mt == 2 {
+                0.0
+            } else {
+                *q_values
+                    .get(&mt)
+                    .ok_or_else(|| format!("MT{mt}: missing Q value"))?
+            };
+            two_body_rows(groups, weight, awr, q, table)
+        } else {
+            return Err(format!("MT{mt}: no outgoing neutron distribution"));
+        };
+        for (sum, row) in matrix.iter_mut().zip(rows) {
+            for (s, v) in sum.iter_mut().zip(row) {
+                *s += v;
+            }
+        }
+    }
+    for (row, phi) in matrix.iter_mut().zip(&flux) {
+        for v in row.iter_mut() {
+            *v /= phi;
+        }
+    }
+    Ok(matrix)
+}
+
+/// 中性子を放出する反応（核分裂を除く）
+fn emits_neutrons(mt: u32) -> bool {
+    matches!(
+        mt,
+        2 | 5
+            | 11
+            | 16
+            | 17
+            | 22..=25
+            | 28..=30
+            | 32..=37
+            | 41
+            | 42
+            | 44
+            | 45
+            | 51..=91
+            | 152..=200
+            | 875..=891
+    )
+}
+
+/// 2体反応の ∫_g σ(E) w(E) P(E→g') dE。
+fn two_body_rows(
+    groups: &GroupStructure,
+    weight: &Weight,
+    awr: f64,
+    q: f64,
+    table: &Tab1,
+) -> Vec<Vec<f64>> {
+    let mut breakpoints = table.x.clone();
+    breakpoints.extend(two_body_kinks(groups, awr, q));
+    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
+        let sigma = table.eval(e).unwrap_or(0.0);
+        if sigma == 0.0 {
+            return;
+        }
+        if let Some((lo, hi)) = two_body_range(e, awr, q) {
+            uniform_fractions(groups, lo, hi, sigma, out);
+        }
+    })
+}
+
+/// 出射エネルギーの範囲の端が群境界を横切る入射エネルギーと、しきい値。
+/// 被積分関数はここで折れ曲がるので、積分区間の境界に入れる。
+fn two_body_kinks(groups: &GroupStructure, awr: f64, q: f64) -> Vec<f64> {
+    let bounds = groups.bounds();
+    let (lowest, highest) = (bounds[groups.len()], bounds[0]);
+    let threshold = if q < 0.0 { -q * (awr + 1.0) / awr } else { 0.0 };
+    let start = threshold.max(lowest);
+    if start >= highest {
+        return vec![];
+    }
+    let mut kinks = vec![start];
+    // 範囲の端は E について単調とは限らない（しきい値の近く）ので、標本点で符号の変化を探す
+    const SAMPLES: usize = 400;
+    let energy = |i: usize| start * (highest / start).powf(i as f64 / SAMPLES as f64);
+    let ends = |e: f64| two_body_range(e, awr, q).unwrap_or((e, e));
+    for &b in bounds {
+        for end in [|r: (f64, f64)| r.0, |r: (f64, f64)| r.1] {
+            let f = |e: f64| end(ends(e)) - b;
+            for i in 0..SAMPLES {
+                let (mut a, mut c) = (energy(i), energy(i + 1));
+                if f(a).signum() == f(c).signum() {
+                    continue;
+                }
+                for _ in 0..60 {
+                    let m = 0.5 * (a + c);
+                    if f(m).signum() == f(a).signum() {
+                        a = m;
+                    } else {
+                        c = m;
+                    }
+                }
+                kinks.push(0.5 * (a + c));
+            }
+        }
+    }
+    kinks
+}
+
+/// [lo, hi] の一様分布を群に振り分け、`scale` を掛けて `out` に足す。
+/// 群構造の外に出る分は端の群に入れる。
+fn uniform_fractions(groups: &GroupStructure, lo: f64, hi: f64, scale: f64, out: &mut [f64]) {
+    let bounds = groups.bounds();
+    let edge = |e: f64| {
+        groups
+            .find(e)
+            .unwrap_or(if e > bounds[0] { 0 } else { groups.len() - 1 })
+    };
+    if hi <= lo {
+        out[edge(lo)] += scale;
+        return;
+    }
+    let mut cuts: Vec<f64> = bounds
+        .iter()
+        .copied()
+        .filter(|&b| b > lo && b < hi)
+        .collect();
+    cuts.push(lo);
+    cuts.push(hi);
+    cuts.sort_by(f64::total_cmp);
+    for w in cuts.windows(2) {
+        out[edge(0.5 * (w[0] + w[1]))] += scale * (w[1] - w[0]) / (hi - lo);
+    }
+}
+
+/// MF6 の中性子放出の ∫_g σ(E) y(E) w(E) P(E→g') dE。
+fn emission_rows(
+    groups: &GroupStructure,
+    weight: &Weight,
+    table: &Tab1,
+    data: &Mf6,
+) -> Vec<Vec<f64>> {
+    let ng = groups.len();
+    let mut rows = vec![vec![0.0; ng]; ng];
+    for emission in &data.neutrons {
+        let grouped = GroupedOutgoing::new(groups, &emission.distributions);
+        let mut breakpoints = table.x.clone();
+        breakpoints.extend(&emission.multiplicity.x);
+        breakpoints.extend(grouped.incident());
+        let part = group_integrals_multi(groups, weight, &breakpoints, ng, |e, out| {
+            let source =
+                table.eval(e).unwrap_or(0.0) * emission.multiplicity.eval(e).unwrap_or(0.0);
+            if source != 0.0 {
+                grouped.accumulate(e, source, out);
+            }
+        });
+        for (sum, row) in rows.iter_mut().zip(part) {
+            for (s, v) in sum.iter_mut().zip(row) {
+                *s += v;
+            }
+        }
+    }
+    rows
 }
 
 #[cfg(test)]
