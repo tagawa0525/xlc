@@ -1,2 +1,4 @@
 /target
 /references
+/examples/m0/*.lib
+/examples/m0/*.fg
