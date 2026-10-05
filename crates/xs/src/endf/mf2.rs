@@ -134,6 +134,14 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
             .ok()
             .filter(|&l| l as usize <= MAX_L)
             .ok_or_else(|| Error::new(r.line(), format!("unsupported L={}", list.l1)))?;
+        // LIST の値は1行に1共鳴（6個）ずつ並ぶ
+        let first_value_line = r.line() + 1 - list.values.len().div_ceil(6);
+        if let Some(i) = list.values.iter().step_by(6).position(|&er| er == 0.0) {
+            return Err(Error::new(
+                first_value_line + i,
+                "resonance at zero energy (penetrability is zero)",
+            ));
+        }
         let resonances = list
             .values
             .as_chunks::<6>()

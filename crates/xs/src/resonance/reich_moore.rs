@@ -13,19 +13,18 @@ use crate::physics::{AMASSN, wave_number_factor};
 #[derive(Debug, Clone)]
 pub struct ReichMooreXs {
     spi: f64,
-    ap: f64,
-    /// 透過因子に使うチャネル半径（l ごとの APL を使わない場合）
-    ra: f64,
-    naps: i64,
-    /// AWRI / (AWRI + 1)
-    arat: f64,
     l_values: Vec<LValue>,
 }
 
 #[derive(Debug, Clone)]
 struct LValue {
     l: u32,
-    apl: f64,
+    /// AWRI / (AWRI + 1)
+    arat: f64,
+    /// 透過因子に使うチャネル半径 (10^-12 cm)
+    channel_radius: f64,
+    /// 位相シフトに使う散乱半径 (10^-12 cm)
+    scattering_radius: f64,
     resonances: Vec<Resonance>,
 }
 
@@ -46,22 +45,17 @@ fn channel_radius(awri: f64) -> f64 {
 }
 
 impl ReichMooreXs {
+    /// 波数とチャネル半径は、l ごとの AWRI から求める。
+    /// （NJOY は断面積の計算に最初の l の AWRI を使うが、各 l の AWRI が同じなら結果は同じ）
     pub fn new(data: &ReichMoore) -> Self {
-        // NJOY と同じく、AWRI は最初の l のものを使う
-        let awri = data.l_values.first().map_or(1.0, |lv| lv.awri);
-        let ra = if data.naps == 1 {
-            data.ap
-        } else {
-            channel_radius(awri)
-        };
         let cwaven = wave_number_factor();
         let l_values = data
             .l_values
             .iter()
             .map(|lv| {
-                let scattering = if lv.apl != 0.0 { lv.apl } else { data.ap };
-                let radius = if data.naps == 1 {
-                    scattering
+                let scattering_radius = if lv.apl != 0.0 { lv.apl } else { data.ap };
+                let channel_radius = if data.naps == 1 {
+                    scattering_radius
                 } else {
                     channel_radius(lv.awri)
                 };
@@ -70,7 +64,7 @@ impl ReichMooreXs {
                     .resonances
                     .iter()
                     .map(|r| {
-                        let rho = cwaven * arat * r.er.abs().sqrt() * radius;
+                        let rho = cwaven * arat * r.er.abs().sqrt() * channel_radius;
                         Resonance {
                             er: r.er,
                             aj: r.aj,
@@ -83,35 +77,28 @@ impl ReichMooreXs {
                     .collect();
                 LValue {
                     l: lv.l,
-                    apl: lv.apl,
+                    arat,
+                    channel_radius,
+                    scattering_radius,
                     resonances,
                 }
             })
             .collect();
         Self {
             spi: data.spi,
-            ap: data.ap,
-            ra,
-            naps: data.naps,
-            arat: awri / (awri + 1.0),
             l_values,
         }
     }
 
     /// エネルギー e (eV) での断面積。
     pub fn cross_sections(&self, e: f64) -> Sigma {
-        let k = wave_number_factor() * self.arat * e.abs().sqrt();
         let gjd = 2.0 * (2.0 * self.spi + 1.0);
         let mut sum = Sigma::default();
         for lv in self.l_values.iter().filter(|lv| !lv.resonances.is_empty()) {
-            let rho = k * if self.naps == 1 && lv.apl != 0.0 {
-                lv.apl
-            } else {
-                self.ra
-            };
-            let rhoc = k * if lv.apl != 0.0 { lv.apl } else { self.ap };
-            let pe = penetrability(lv.l, rho);
-            let phi = phase_shift(lv.l, rhoc);
+            let k = wave_number_factor() * lv.arat * e.abs().sqrt();
+            let pifac = PI / (k * k);
+            let pe = penetrability(lv.l, k * lv.channel_radius);
+            let phi = phase_shift(lv.l, k * lv.scattering_radius);
 
             // l と標的スピンから作れる J を、チャネルスピン s = I ± 1/2 の両方について調べる
             let fl = f64::from(lv.l);
@@ -141,20 +128,14 @@ impl ReichMooreXs {
                         terms.elastic += potential;
                         terms.total += potential;
                     }
-                    sum.total += terms.total;
-                    sum.elastic += terms.elastic;
-                    sum.fission += terms.fission;
-                    sum.capture += terms.total - terms.fission - terms.elastic;
+                    sum.total += pifac * terms.total;
+                    sum.elastic += pifac * terms.elastic;
+                    sum.fission += pifac * terms.fission;
+                    sum.capture += pifac * (terms.total - terms.fission - terms.elastic);
                 }
             }
         }
-        let pifac = PI / (k * k);
-        Sigma {
-            total: pifac * sum.total,
-            elastic: pifac * sum.elastic,
-            fission: pifac * sum.fission,
-            capture: pifac * sum.capture,
-        }
+        sum
     }
 
     /// 1つの (J, チャネルスピン) に属する共鳴から R 行列を組み立てる。

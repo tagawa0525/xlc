@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::endf::{Error, Mf2, Mf3, RangeKind, ReichMoore, Tab1, Tape};
+use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, ReichMoore, Tab1, Tape};
 use crate::resonance::{ReichMooreXs, Sigma};
 
 /// 線形化・共鳴計算の打ち切り判定: 区間の中点で、線形補間と真値の差が
@@ -37,7 +37,13 @@ pub fn linearize(table: &Tab1, tol: f64) -> Tab1 {
         }
         let law = table.law_of_interval(k);
         let f = |e: f64| [law.interpolate(e, (xk, yk), (x1, table.y[k + 1]))];
-        let right = f(x1);
+        // 右端は表の値をそのまま使う（補間し直すと丸めで値がずれ、偽の不連続点になる）。
+        // ヒストグラムだけは区間内の値で終わり、次の点で段差になる
+        let right = if law == Interpolation::Histogram {
+            f(x1)
+        } else {
+            [table.y[k + 1]]
+        };
         refine(&f, (xk, [yk]), (x1, right), tol, &mut |e, v| {
             x.push(e);
             y.push(v[0]);
@@ -164,7 +170,12 @@ pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1
         tables.insert(mt, linearize(&Mf3::parse(&section)?.sigma, tol));
     }
     if let Some(section) = tape.section(mat, 2, 151) {
-        let fission_mt = if available.contains(&19) { 19 } else { 18 };
+        // MT18 を部分反応の和で作り直す場合は、共鳴の核分裂を第1チャンス核分裂に入れる
+        let fission_mt = if available.iter().any(|&mt| matches!(mt, 19..=21 | 38)) {
+            19
+        } else {
+            18
+        };
         add_resonances(&mut tables, &Mf2::parse(&section)?, fission_mt, tol)
             .map_err(|message| Error::new(section.reader().line(), message))?;
     }
@@ -288,7 +299,6 @@ impl Sigma {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::Interpolation;
     use crate::resonance::reich_moore_tests::{single_level, single_level_exact};
 
     fn linear(x: &[f64], y: &[f64]) -> Tab1 {
