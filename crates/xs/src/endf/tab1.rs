@@ -168,4 +168,15 @@ mod tests {
         assert_close(t.eval(1.5), 1.5);
         assert_close(t.eval(2.5), 7.5);
     }
+
+    #[test]
+    fn log_y_with_zero_endpoint_is_zero_inside() {
+        // ln y → -∞ の極限として、区間内は 0
+        for law in [Interpolation::LogLin, Interpolation::LogLog] {
+            let t = table(law, &[1.0, 2.0, 3.0], &[0.0, 1.0, 0.0]);
+            assert_eq!(t.eval(1.5), Some(0.0));
+            assert_eq!(t.eval(2.5), Some(0.0));
+            assert_close(t.eval(2.0), 1.0);
+        }
+    }
 }

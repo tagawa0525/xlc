@@ -435,4 +435,59 @@ pub(super) mod tests {
     fn short_line_is_error() {
         assert_eq!(Tape::parse(" 1.0 125 3  1\n").unwrap_err().line, 1);
     }
+
+    #[test]
+    fn non_ascii_text_counts_as_one_column_per_character() {
+        // MF1/MT451 の説明文に非 ASCII 文字が入っていても、制御欄の桁はずれない
+        let text = [
+            format!("{:66}{:4}{:2}{:3}\n", " 10 µs, café", 125, 1, 451),
+            rec(["1.0", "", "", "", "", ""], 125, 3, 1),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        assert_eq!(tape.mts(125, 1), vec![451]);
+        assert!(tape.section(125, 3, 1).is_some());
+    }
+
+    #[test]
+    fn non_ascii_in_numeric_field_is_error() {
+        let text = format!("{:>11}{:55}{:4}{:2}{:3}\n", "1.0µ", "", 1, 3, 1);
+        let tape = Tape::parse(&text).unwrap();
+        let err = tape.section(1, 3, 1).unwrap().reader().cont().unwrap_err();
+        assert_eq!(err.line, 1);
+    }
+
+    fn log_table(law: i64, x: [&str; 2], y: [&str; 2]) -> String {
+        let law = law.to_string();
+        [
+            rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 3, 1),
+            rec(["2", &law, "", "", "", ""], 1, 3, 1),
+            rec([x[0], y[0], x[1], y[1], "", ""], 1, 3, 1),
+        ]
+        .concat()
+    }
+
+    #[test]
+    fn negative_y_with_log_y_law_is_error() {
+        for law in [4, 5] {
+            let tape = Tape::parse(&log_table(law, ["1.0", "2.0"], ["-1.0", "1.0"])).unwrap();
+            let err = tape.section(1, 3, 1).unwrap().reader().tab1().unwrap_err();
+            assert_eq!(err.line, 1, "INT={law}");
+        }
+    }
+
+    #[test]
+    fn non_positive_x_with_log_x_law_is_error() {
+        for law in [3, 5] {
+            let tape = Tape::parse(&log_table(law, ["0.0", "2.0"], ["1.0", "1.0"])).unwrap();
+            let err = tape.section(1, 3, 1).unwrap().reader().tab1().unwrap_err();
+            assert_eq!(err.line, 1, "INT={law}");
+        }
+    }
+
+    #[test]
+    fn zero_y_with_log_y_law_is_accepted() {
+        let tape = Tape::parse(&log_table(5, ["1.0", "2.0"], ["0.0", "1.0"])).unwrap();
+        assert!(tape.section(1, 3, 1).unwrap().reader().tab1().is_ok());
+    }
 }
