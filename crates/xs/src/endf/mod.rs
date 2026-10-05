@@ -3,6 +3,7 @@
 //! 1行80桁の固定長書式で、66桁目までが11桁×6個のデータ欄、
 //! 67〜75桁目が MAT/MF/MT の制御欄である（76〜80桁目の行番号は読まない）。
 
+mod mf1;
 mod mf2;
 mod mf3;
 mod number;
@@ -11,6 +12,7 @@ mod tape;
 
 use std::fmt;
 
+pub use mf1::parse_nubar;
 pub use mf2::{Mf2, RangeKind, ReichMoore, ResonanceRange, RmLValue, RmResonance};
 pub use mf3::Mf3;
 pub use tab1::{Interpolation, Tab1};
