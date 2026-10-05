@@ -45,7 +45,215 @@ pub fn solve(
     materials: &[&Material],
     options: &Options,
 ) -> Result<Solution, String> {
-    todo!()
+    let regions = materials.len();
+    let ng = materials.first().ok_or("no regions")?.groups();
+    if materials.iter().any(|m| m.groups() != ng) {
+        return Err("all materials must have the same number of groups".into());
+    }
+    if materials
+        .iter()
+        .any(|m| m.total.iter().any(|&t| t <= 0.0 || !t.is_finite()))
+    {
+        return Err("total cross sections must be positive (void is not supported)".into());
+    }
+    let used = tracking
+        .tracks
+        .iter()
+        .flat_map(|t| &t.segments)
+        .map(|s| s.region)
+        .max()
+        .map_or(0, |r| r + 1);
+    if used != regions {
+        return Err(format!(
+            "{regions} materials given, but the tracks cross {used} regions"
+        ));
+    }
+    let volumes = tracking.volumes(regions);
+
+    let np = POLAR_SIN.len();
+    let width = np * ng;
+    // 区間ごと・極角ごと・群ごとの 1 - exp(-τ)（スイープの前に一度だけ求める）
+    let attenuation: Vec<Vec<f64>> = tracking
+        .tracks
+        .iter()
+        .map(|track| {
+            let mut values = Vec::with_capacity(track.segments.len() * width);
+            for s in &track.segments {
+                for sin in POLAR_SIN {
+                    for t in &materials[s.region].total {
+                        values.push(-(-t * s.length / sin).exp_m1());
+                    }
+                }
+            }
+            values
+        })
+        .collect();
+    // 方向ごとの重み 4π (w_a/2) ω_p sinθ_p δ_a
+    let direction_weight = |azimuth: usize, p: usize| {
+        let a = &tracking.azimuths[azimuth];
+        4.0 * PI * 0.5 * a.weight * POLAR_WEIGHT[p] * POLAR_SIN[p] * a.spacing
+    };
+    let production = |flux: &[Vec<f64>]| -> f64 {
+        flux.iter()
+            .zip(materials)
+            .zip(&volumes)
+            .map(|((phi, m), v)| {
+                v * phi
+                    .iter()
+                    .zip(&m.nu_fission)
+                    .map(|(f, n)| f * n)
+                    .sum::<f64>()
+            })
+            .sum()
+    };
+
+    let mut flux = vec![vec![1.0; ng]; regions];
+    let initial = production(&flux);
+    if initial <= 0.0 {
+        return Err("no fissile material".into());
+    }
+    for f in flux.iter_mut().flatten() {
+        *f /= initial;
+    }
+    let mut k = 1.0;
+    // 境界の角度中性子束 [トラック][向き (0: 順, 1: 逆)][極角][群]
+    let slot = |track: usize, forward: bool| (2 * track + usize::from(!forward)) * width;
+    let mut boundary = vec![0.0; 2 * tracking.tracks.len() * width];
+    let mut next_boundary = boundary.clone();
+    let mut psi = vec![0.0; width];
+    let mut k_history = Remaining::default();
+    let mut flux_history = Remaining::default();
+
+    for iteration in 1..=options.max_iterations {
+        // 等方線源を Σt で割ったもの（角度中性子束の平衡値）
+        let equilibrium: Vec<Vec<f64>> = (0..regions)
+            .map(|i| equilibrium_flux(materials[i], &flux[i], k))
+            .collect();
+
+        let mut delta = vec![vec![0.0; ng]; regions];
+        for (index, track) in tracking.tracks.iter().enumerate() {
+            let weights: Vec<f64> = (0..np)
+                .map(|p| direction_weight(track.azimuth, p))
+                .collect();
+            for forward in [true, false] {
+                psi.copy_from_slice(&boundary[slot(index, forward)..][..width]);
+                let n = track.segments.len();
+                for step in 0..n {
+                    let s = if forward { step } else { n - 1 - step };
+                    let region = track.segments[s].region;
+                    let att = &attenuation[index][s * width..][..width];
+                    let q = &equilibrium[region];
+                    let d = &mut delta[region];
+                    for (p, weight) in weights.iter().enumerate() {
+                        for g in 0..ng {
+                            let j = p * ng + g;
+                            let change = (psi[j] - q[g]) * att[j];
+                            psi[j] -= change;
+                            d[g] += weight * change;
+                        }
+                    }
+                }
+                let link = if forward {
+                    track.forward_link
+                } else {
+                    track.backward_link
+                };
+                next_boundary[slot(link.track, link.forward)..][..width].copy_from_slice(&psi);
+            }
+        }
+        std::mem::swap(&mut boundary, &mut next_boundary);
+
+        let mut new_flux: Vec<Vec<f64>> = (0..regions)
+            .map(|i| {
+                let total = &materials[i].total;
+                (0..ng)
+                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[i][g] / (total[g] * volumes[i]))
+                    .collect()
+            })
+            .collect();
+        // べき乗法: 生成率の比で k を更新し、中性子束と境界の値を生成率 1 に規格化する
+        let rate = production(&new_flux);
+        let new_k = k * rate;
+        for f in new_flux.iter_mut().flatten() {
+            *f /= rate;
+        }
+        for b in &mut boundary {
+            *b /= rate;
+        }
+        let change = new_flux
+            .iter()
+            .flatten()
+            .zip(flux.iter().flatten())
+            .map(|(new, old)| ((new - old) / new).abs())
+            .fold(0.0, f64::max);
+        // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
+        // 残りの誤差を見積もって判定する
+        let converged = k_history.update((new_k - k).abs()) < options.k_tolerance
+            && flux_history.update(change) < options.flux_tolerance;
+        flux = new_flux;
+        k = new_k;
+        if converged {
+            return Ok(Solution {
+                k,
+                flux,
+                volumes,
+                iterations: iteration,
+            });
+        }
+    }
+    Err(format!(
+        "not converged in {} iterations (k = {k})",
+        options.max_iterations
+    ))
+}
+
+/// 反復の変化量の列から、収束までに残る誤差を見積もる。
+///
+/// 変化が縮小率 ρ で等比的に減るとき、残りの誤差は 最新の変化 × ρ/(1-ρ)。
+#[derive(Debug, Default)]
+struct Remaining {
+    previous: Option<f64>,
+}
+
+impl Remaining {
+    /// 最新の変化量を受け取り、残りの誤差の見積もり（変化量そのもの以上）を返す。
+    fn update(&mut self, change: f64) -> f64 {
+        let estimate = match self.previous {
+            Some(previous) if previous > 0.0 => {
+                let ratio = change / previous;
+                if ratio < 1.0 {
+                    change * (1.0 + ratio / (1.0 - ratio))
+                } else {
+                    f64::INFINITY
+                }
+            }
+            _ => f64::INFINITY,
+        };
+        self.previous = Some(change);
+        estimate
+    }
+}
+
+/// 散乱源と核分裂源（/k）の和を 4πΣt で割った、角度中性子束の平衡値。
+fn equilibrium_flux(m: &Material, phi: &[f64], k: f64) -> Vec<f64> {
+    let ng = phi.len();
+    let mut source = vec![0.0; ng];
+    for (from, row) in m.scatter.iter().enumerate() {
+        for (to, s) in row.iter().enumerate() {
+            source[to] += s * phi[from];
+        }
+    }
+    for term in &m.fission_terms {
+        let rate: f64 = term.nu_fission.iter().zip(phi).map(|(n, f)| n * f).sum();
+        for (s, chi) in source.iter_mut().zip(&term.chi) {
+            *s += chi * rate / k;
+        }
+    }
+    source
+        .iter()
+        .zip(&m.total)
+        .map(|(q, t)| q / (4.0 * PI * t))
+        .collect()
 }
 
 #[cfg(test)]
