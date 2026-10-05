@@ -15,7 +15,9 @@ mod tape;
 use std::fmt;
 
 pub use mf1::parse_nubar;
-pub use mf2::{Mf2, RangeKind, ReichMoore, ResonanceRange, RmLValue, RmResonance};
+pub use mf2::{
+    BwLValue, BwResonance, Mf2, Mlbw, RangeKind, ReichMoore, ResonanceRange, RmLValue, RmResonance,
+};
 pub use mf3::Mf3;
 pub use mf5::{Mf5, OutgoingDistributions, parse_outgoing};
 pub use mf6::{Frame, Mf6, NeutronEmission};

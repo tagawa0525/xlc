@@ -28,6 +28,8 @@ pub enum RangeKind {
     ScatteringRadius { ap: f64 },
     /// LRU=1, LRF=3
     ReichMoore(ReichMoore),
+    /// LRU=1, LRF=2
+    Mlbw(Mlbw),
     /// LRU=2。M0 では LSSF=1（断面積は MF3 にある）のときだけ使える
     Unresolved { lssf: i64 },
 }
@@ -41,6 +43,34 @@ pub struct ReichMoore {
     /// 透過因子に使うチャネル半径の選び方（NAPS）
     pub naps: i64,
     pub l_values: Vec<RmLValue>,
+}
+
+/// 多準位 Breit-Wigner（MLBW）の共鳴パラメータ。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mlbw {
+    pub spi: f64,
+    /// 散乱半径 (10^-12 cm)
+    pub ap: f64,
+    pub naps: i64,
+    pub l_values: Vec<BwLValue>,
+}
+
+/// MLBW の1つの l に属する共鳴。競合反応の幅（LRX≠0）は扱わない。
+#[derive(Debug, Clone, PartialEq)]
+pub struct BwLValue {
+    pub awri: f64,
+    pub l: u32,
+    pub resonances: Vec<BwResonance>,
+}
+
+/// MLBW の共鳴1つ。幅は共鳴エネルギーでの値 (eV)。全幅は Γn + Γγ + Γf とする（GT は使わない）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BwResonance {
+    pub er: f64,
+    pub aj: f64,
+    pub gn: f64,
+    pub gg: f64,
+    pub gf: f64,
 }
 
 /// 1つの軌道角運動量 l に属する共鳴。
@@ -230,6 +260,49 @@ mod tests {
     }
 
     #[test]
+    fn reads_mlbw_range() {
+        let data = mf2(&[
+            ["4.009000+4", "8.913240+1", "0", "0", "1", "0"],
+            ["4.009000+4", "1.0", "0", "0", "1", "0"],
+            ["1.0-5", "2.0+5", "1", "2", "0", "0"],
+            ["0.0", "7.16-1", "0", "0", "1", "0"],
+            // l=1: AWRI QX L LRX 6*NRS NRS、値は ER AJ GT GN GG GF
+            ["8.913240+1", "0.0", "1", "0", "6", "1"],
+            ["2.4e3", "1.5", "0.25", "0.2", "0.05", "0.0"],
+        ])
+        .unwrap();
+        let RangeKind::Mlbw(bw) = &data.ranges[0].kind else {
+            panic!("expected MLBW");
+        };
+        assert_eq!((bw.spi, bw.ap, bw.naps), (0.0, 0.716, 0));
+        assert_eq!(bw.l_values[0].l, 1);
+        assert_eq!(
+            bw.l_values[0].resonances[0],
+            BwResonance {
+                er: 2.4e3,
+                aj: 1.5,
+                gn: 0.2,
+                gg: 0.05,
+                gf: 0.0
+            }
+        );
+    }
+
+    #[test]
+    fn competitive_width_is_error() {
+        let err = mf2(&[
+            ["4.009000+4", "8.913240+1", "0", "0", "1", "0"],
+            ["4.009000+4", "1.0", "0", "0", "1", "0"],
+            ["1.0-5", "2.0+5", "1", "2", "0", "0"],
+            ["0.0", "7.16-1", "0", "0", "1", "0"],
+            ["8.913240+1", "-1.0+5", "1", "1", "6", "1"],
+            ["2.4e3", "1.5", "0.25", "0.2", "0.05", "0.0"],
+        ])
+        .unwrap_err();
+        assert_eq!(err.line, 5);
+    }
+
+    #[test]
     fn reads_scattering_radius_only_range() {
         let data = mf2(&[
             ["1.001000+3", "9.991673-1", "0", "0", "1", "0"],
@@ -246,11 +319,11 @@ mod tests {
 
     #[test]
     fn unsupported_formalism_is_error() {
-        // LRF=2 (MLBW)
+        // LRF=7 (R-matrix limited)
         let err = mf2(&[
             HEAD,
             ["9.223800+4", "1.0", "0", "0", "1", "0"],
-            ["1.0-5", "2.0+4", "1", "2", "0", "0"],
+            ["1.0-5", "2.0+4", "1", "7", "0", "0"],
         ])
         .unwrap_err();
         assert_eq!(err.line, 3);
