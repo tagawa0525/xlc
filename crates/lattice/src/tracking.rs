@@ -126,6 +126,12 @@ impl Tracking {
             counts[a] = (nx, ny);
             counts[n - 1 - a] = (nx, ny);
         }
+        if azimuths.windows(2).any(|w| w[0].phi >= w[1].phi) {
+            return Err(format!(
+                "track spacing {spacing} is too coarse for {n_azimuthal} azimuthal angles \
+                 (corrected angles coincide)"
+            ));
+        }
         // 重みは、隣の方位角との中点で区切った角度の幅
         for a in 0..n {
             let lower = if a == 0 {
