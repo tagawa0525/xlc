@@ -222,6 +222,14 @@ impl<'a> Core<'a> {
             if !consistent {
                 return Err(format!("material {i} must have {groups} groups"));
             }
+            let all_finite = [&m.total, &m.diffusion, &m.nu_fission, &m.chi, &m.absorption]
+                .into_iter()
+                .chain(&m.scatter)
+                .flatten()
+                .all(|v| v.is_finite());
+            if !all_finite {
+                return Err(format!("material {i}: cross sections must be finite"));
+            }
             if m.diffusion.iter().any(|&d| d.is_nan() || d <= 0.0) {
                 return Err(format!(
                     "material {i}: diffusion coefficients must be positive"
