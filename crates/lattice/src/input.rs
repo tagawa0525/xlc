@@ -210,5 +210,14 @@ few-group-bounds 1e7 0.625 1e-5
         assert!(PinCellInput::parse(&SAMPLE.replace("fuel U235 7.0e-4", "fuel U235")).is_err());
         assert!(PinCellInput::parse(&format!("{SAMPLE}\nunknown 1")).is_err());
         assert!(PinCellInput::parse(&format!("{SAMPLE}\npitch 2.0")).is_err());
+        // 燃料の領域が1つもなくなる
+        let text = SAMPLE.replace("fuel-rings 2", "fuel-rings 0");
+        let line = text
+            .lines()
+            .position(|l| l.starts_with("fuel-rings"))
+            .unwrap()
+            + 1;
+        let err = PinCellInput::parse(&text).unwrap_err();
+        assert!(err.starts_with(&format!("line {line}:")), "{err}");
     }
 }
