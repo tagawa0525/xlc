@@ -96,7 +96,11 @@ impl Library {
         }
         let (line, ng) = lines.keyword_value("groups")?;
         let ng = usize_value(line, ng)?;
-        let (line, bounds) = lines.keyword_numbers("bounds", ng + 1)?;
+        let n_bounds = ng
+            .checked_add(1)
+            .filter(|_| ng > 0)
+            .ok_or_else(|| error(line, format!("invalid number of groups {ng}")))?;
+        let (line, bounds) = lines.keyword_numbers("bounds", n_bounds)?;
         if !(bounds.windows(2).all(|w| w[0] > w[1]) && bounds.iter().all(|&b| b > 0.0)) {
             return Err(error(line, "bounds must be positive and descending"));
         }
