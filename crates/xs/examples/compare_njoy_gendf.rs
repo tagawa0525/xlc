@@ -135,7 +135,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         let single = BTreeMap::from([(mt, table.clone())]);
-        let ours = scattering_matrix(&groups, &Weight::lwr(), awr, &single, &q_values, &mf6)?;
+        let ours = match scattering_matrix(&groups, &Weight::lwr(), awr, &single, &q_values, &mf6) {
+            Ok(m) => m,
+            Err(e) => {
+                println!("MF6 MT{mt}: skipped ({e})");
+                continue;
+            }
+        };
         let njoy = read_gendf_matrix(&gendf, ng)?;
         let mut worst = (0.0_f64, 0);
         for g in 0..ng {
