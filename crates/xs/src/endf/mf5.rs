@@ -47,18 +47,7 @@ impl Mf5 {
 /// MF5 の LF=1 と MF6 の出射分布で共通の形。
 pub fn parse_outgoing(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
     let tab2 = r.tab2()?;
-    let laws = tab2
-        .codes
-        .iter()
-        .map(|&code| match code {
-            1 | 21 => Ok(Interpolation::Histogram),
-            2 | 22 => Ok(Interpolation::LinLin),
-            _ => Err(Error::new(
-                r.line(),
-                format!("incident-energy interpolation INT={code} is not supported"),
-            )),
-        })
-        .collect::<Result<_, _>>()?;
+    let laws = incident_laws(&tab2.codes, r.line())?;
     let mut incident = Vec::new();
     let mut spectra = Vec::new();
     for _ in 0..tab2.nz {
@@ -72,6 +61,21 @@ pub fn parse_outgoing(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error
         incident,
         spectra,
     })
+}
+
+/// 入射エネルギー間の補間則。unit-base（INT=21, 22）は通常の補間として扱う（M0 の近似）。
+pub(super) fn incident_laws(codes: &[i64], line: usize) -> Result<Vec<Interpolation>, Error> {
+    codes
+        .iter()
+        .map(|&code| match code {
+            1 | 21 => Ok(Interpolation::Histogram),
+            2 | 22 => Ok(Interpolation::LinLin),
+            _ => Err(Error::new(
+                line,
+                format!("incident-energy interpolation INT={code} is not supported"),
+            )),
+        })
+        .collect()
 }
 
 #[cfg(test)]
