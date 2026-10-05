@@ -102,9 +102,16 @@ impl Tape {
         })
     }
 
-    /// テープに含まれる物質（MAT > 0）を、テープ上の順に返す。
+    /// テープに含まれる物質を、テープ上の順に返す。
     pub fn materials(&self) -> Vec<i32> {
-        todo!()
+        let mut materials = Vec::new();
+        for line in &self.lines {
+            // 先頭のテープ識別行（MF=0）は物質ではない
+            if line.mat > 0 && line.mf > 0 && !materials.contains(&line.mat) {
+                materials.push(line.mat);
+            }
+        }
+        materials
     }
 
     /// 指定した MAT/MF に含まれる MT を、テープ上の順に返す。
