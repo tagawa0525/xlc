@@ -123,7 +123,13 @@ impl PinCellInput {
             output: PathBuf::from(one("output")?.1),
             pitch: positive("pitch")?,
             fuel_radius: positive("fuel-radius")?,
-            fuel_rings: count("fuel-rings")?,
+            fuel_rings: match count("fuel-rings")? {
+                0 => {
+                    let line = get("fuel-rings")?.0;
+                    return Err(format!("line {line}: `fuel-rings` must be at least 1"));
+                }
+                n => n,
+            },
             moderator_rings: count("moderator-rings")?,
             azimuthal: count("azimuthal")?,
             spacing: positive("spacing")?,
