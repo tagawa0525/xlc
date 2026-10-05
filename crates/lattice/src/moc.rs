@@ -69,6 +69,11 @@ pub fn solve(
         ));
     }
     let volumes = tracking.volumes(regions);
+    if let Some(i) = volumes.iter().position(|&v| v <= 0.0) {
+        return Err(format!(
+            "no track crosses region {i}; use a finer track spacing"
+        ));
+    }
 
     let np = POLAR_SIN.len();
     let width = np * ng;
@@ -188,8 +193,11 @@ pub fn solve(
             .fold(0.0, f64::max);
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
         // 残りの誤差を見積もって判定する
-        let converged = k_history.update((new_k - k).abs()) < options.k_tolerance
-            && flux_history.update(change) < options.flux_tolerance;
+        // 両方の履歴を毎回更新する（短絡評価で片方が飛ぶと、縮小率を離れた反復どうしで比べてしまう）
+        let k_remaining = k_history.update((new_k - k).abs());
+        let flux_remaining = flux_history.update(change);
+        let converged =
+            k_remaining < options.k_tolerance && flux_remaining < options.flux_tolerance;
         flux = new_flux;
         k = new_k;
         if converged {
@@ -219,6 +227,8 @@ impl Remaining {
     /// 最新の変化量を受け取り、残りの誤差の見積もり（変化量そのもの以上）を返す。
     fn update(&mut self, change: f64) -> f64 {
         let estimate = match self.previous {
+            // 浮動小数点の不動点に達した
+            _ if change == 0.0 => 0.0,
             Some(previous) if previous > 0.0 => {
                 let ratio = change / previous;
                 if ratio < 1.0 {
