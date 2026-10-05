@@ -199,6 +199,15 @@ mod tests {
     }
 
     #[test]
+    fn upscatter_above_top_goes_to_first_group() {
+        // 熱群だけの群構造でも、上限より上に散乱した分を失わない
+        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let (awr, e) = (1.0, 0.9);
+        let sum: f64 = free_gas_group_integrals(&groups, e, awr, KT).iter().sum();
+        assert_rel(sum, effective_ratio(e, awr), 1e-6);
+    }
+
+    #[test]
     fn no_overflow_far_below_incident_energy() {
         // E/kT ≈ 160 で E' がずっと低くても有限
         let s = free_gas_kernel(4.0, 0.01, 15.86, KT);
