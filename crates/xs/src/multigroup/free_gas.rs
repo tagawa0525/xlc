@@ -58,62 +58,75 @@ pub fn free_gas_kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
 }
 
 /// 入射エネルギー e での ∫_g' S(E→E') dE'（群ごと、和は N(E)）。
+/// 群構造の外に散乱する分は端の群に入れる（ほかの反応と同じく、中性子を失わない）。
 pub fn free_gas_group_integrals(groups: &GroupStructure, e: f64, awr: f64, kt: f64) -> Vec<f64> {
     let bounds = groups.bounds();
-    let (lowest, highest) = (bounds[groups.len()], bounds[0]);
+    let highest = bounds[0];
     // 核の幅の目安。重い核では E の近くに集中し、軽い核では kT 程度に広がる
     let width = 2.0 * (e * kt / awr).sqrt() + kt / awr;
-    let upper = (e + 30.0 * width + 40.0 * kt).min(highest);
+    let reach = e + 30.0 * width + 40.0 * kt;
     // 下方散乱は静止標的なら αE まで届き、熱運動でさらに広がる
     let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
-    let lower = (alpha * e - 30.0 * width).max(lowest);
+    let lower = (alpha * e - 30.0 * width).max(0.0);
+    let kernel = |x: f64| free_gas_kernel(e, x, awr, kt);
+
+    // 区間の境界: 群境界、E' = E（核の折れ点）、αE、E の周りの核の幅ごとの点
     let mut points: Vec<f64> = bounds
         .iter()
         .copied()
         .chain((-60..=60).map(|k| e + 0.5 * f64::from(k) * width))
-        .chain([lower, upper, e, alpha * e])
-        .filter(|&x| x >= lower && x <= upper)
+        .chain([lower, reach, e, alpha * e])
+        .filter(|&x| x >= lower && x <= reach)
         .collect();
     points.sort_by(f64::total_cmp);
     points.dedup();
 
     let mut integrals = vec![0.0; groups.len()];
-    // 群構造の下限より下に散乱される分は、最下位の群に入れる（ほかの反応と同じ）
-    if lower <= lowest {
-        const PIECES: usize = 16;
-        let width = lowest / PIECES as f64;
-        integrals[groups.len() - 1] += (0..PIECES)
-            .map(|i| {
-                let (mid, half) = ((i as f64 + 0.5) * width, 0.5 * width);
-                GAUSS_LEGENDRE
-                    .iter()
-                    .map(|&(x, wk)| wk * free_gas_kernel(e, mid + half * x, awr, kt))
-                    .sum::<f64>()
-                    * half
-            })
-            .sum::<f64>();
-    }
     for w in points.windows(2) {
         let (a, b) = (w[0], w[1]);
+        let mid = 0.5 * (a + b);
         let g = groups
-            .find(0.5 * (a + b))
-            .expect("points are inside the group structure");
-        // 対数的にも分割して、低エネルギー側の広い区間を細かくする
-        let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
-        let ratio = (b / a).powf(1.0 / pieces as f64);
-        let mut lo = a;
-        for i in 0..pieces {
-            let hi = if i + 1 == pieces { b } else { lo * ratio };
-            let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
-            integrals[g] += GAUSS_LEGENDRE
-                .iter()
-                .map(|&(x, wk)| wk * free_gas_kernel(e, mid + half * x, awr, kt))
-                .sum::<f64>()
-                * half;
-            lo = hi;
-        }
+            .find(mid)
+            .unwrap_or(if mid > highest { 0 } else { groups.len() - 1 });
+        integrals[g] += if a > 0.0 {
+            integrate_log(&kernel, a, b)
+        } else {
+            integrate_linear(&kernel, a, b)
+        };
     }
     integrals
+}
+
+/// [a, b]（a > 0）をエネルギー比が一定以下になるよう対数的に分割して積分する。
+fn integrate_log(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+    let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
+    let ratio = (b / a).powf(1.0 / pieces as f64);
+    let mut lo = a;
+    let mut sum = 0.0;
+    for i in 0..pieces {
+        let hi = if i + 1 == pieces { b } else { lo * ratio };
+        sum += gauss_legendre(f, lo, hi);
+        lo = hi;
+    }
+    sum
+}
+
+/// 0 を含む区間 [a, b] を等分して積分する。
+fn integrate_linear(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+    const PIECES: usize = 16;
+    let width = (b - a) / PIECES as f64;
+    (0..PIECES)
+        .map(|i| gauss_legendre(f, a + i as f64 * width, a + (i + 1) as f64 * width))
+        .sum()
+}
+
+fn gauss_legendre(f: &impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64 {
+    let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
+    GAUSS_LEGENDRE
+        .iter()
+        .map(|&(x, wk)| wk * f(mid + half * x))
+        .sum::<f64>()
+        * half
 }
 
 /// 1つの積分区間の上限と下限のエネルギー比の上限
