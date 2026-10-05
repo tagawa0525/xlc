@@ -155,5 +155,7 @@ mod tests {
         assert!(parse_args(&args(&["lib.txt", "=h.endf"])).is_err());
         assert!(parse_args(&args(&["--temperature", "-1", "lib.txt", "H1=h"])).is_err());
         assert!(parse_args(&args(&["lib.txt", "H1=a", "H1=b"])).is_err());
+        // ライブラリでは名前を空白で区切るので、空白を含む名前は書けても読めない
+        assert!(parse_args(&args(&["lib.txt", "U 235=u.endf"])).is_err());
     }
 }

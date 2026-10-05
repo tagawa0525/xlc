@@ -307,6 +307,15 @@ mod tests {
     }
 
     #[test]
+    fn invalid_group_count_is_error() {
+        for groups in ["0", "18446744073709551615"] {
+            let text = format!("xlc-multigroup 1\ngroups {groups}\nbounds 1e0\n");
+            let err = Library::parse(&text).unwrap_err();
+            assert_eq!(err.line, 2, "groups {groups}");
+        }
+    }
+
+    #[test]
     fn missing_end_is_error() {
         let text = sample().to_text();
         let truncated = text.trim_end().strip_suffix("end").unwrap();
