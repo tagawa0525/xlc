@@ -121,13 +121,14 @@ impl Mf2 {
                     let cont = r.cont()?;
                     RangeKind::ScatteringRadius { ap: cont.c2 }
                 }
-                1 if lrf != 3 => {
-                    return unsupported(format!("resolved LRF={lrf} is not supported"));
-                }
                 1 if nro != 0 => {
-                    return unsupported("energy-dependent radius (NRO≠0) with Reich-Moore".into());
+                    return unsupported(
+                        "energy-dependent radius (NRO≠0) in the resolved range".into(),
+                    );
                 }
-                1 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
+                1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
+                1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
+                1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 => {
                     // 非分離共鳴は LSSF だけを読む。続くパラメータは読まないので、最後の範囲に限る
                     if index + 1 != ner {
@@ -196,6 +197,66 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
     }
     Ok(ReichMoore {
         spi: cont.c1,
+        ap: cont.c2,
+        naps,
+        l_values,
+    })
+}
+
+fn read_mlbw(r: &mut Reader<'_>, naps: i64) -> Result<Mlbw, Error> {
+    let cont = r.cont()?;
+    let spi = cont.c1;
+    let nls = usize::try_from(cont.n1)
+        .map_err(|_| Error::new(r.line(), format!("invalid NLS {}", cont.n1)))?;
+    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    for _ in 0..nls {
+        let header_line = r.line() + 1;
+        let list = r.list()?;
+        let l = u32::try_from(list.l1)
+            .ok()
+            .filter(|&l| l as usize <= MAX_L)
+            .ok_or_else(|| Error::new(header_line, format!("unsupported L={}", list.l1)))?;
+        if list.l2 != 0 {
+            return Err(Error::new(
+                header_line,
+                format!("competitive width (LRX={}) is not supported", list.l2),
+            ));
+        }
+        // 標的スピンと l から作れる J
+        let fl = f64::from(l);
+        let (ajmin, ajmax) = (((spi - fl).abs() - 0.5).abs(), spi + fl + 0.5);
+        let mut resonances = Vec::new();
+        for (i, p) in list.values.as_chunks::<6>().0.iter().enumerate() {
+            let line = header_line + 1 + i;
+            if p[0] == 0.0 {
+                return Err(Error::new(
+                    line,
+                    "resonance at zero energy (penetrability is zero)",
+                ));
+            }
+            let steps = p[1] - ajmin;
+            if p[1] > ajmax + 1e-6 || (steps - steps.round()).abs() > 1e-6 || steps < -1e-6 {
+                return Err(Error::new(
+                    line,
+                    format!("J={} is not allowed for L={l}", p[1]),
+                ));
+            }
+            resonances.push(BwResonance {
+                er: p[0],
+                aj: p[1],
+                gn: p[3],
+                gg: p[4],
+                gf: p[5],
+            });
+        }
+        l_values.push(BwLValue {
+            awri: list.c1,
+            l,
+            resonances,
+        });
+    }
+    Ok(Mlbw {
+        spi,
         ap: cont.c2,
         naps,
         l_values,

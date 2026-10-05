@@ -5,8 +5,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, ReichMoore, Tab1, Tape};
-use crate::resonance::{ReichMooreXs, Sigma};
+use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape};
+use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma};
 
 /// 線形化・共鳴計算の打ち切り判定: 区間の中点で、線形補間と真値の差が
 /// `tol × |真値|` 以下になるまで区間を二分する。
@@ -86,7 +86,13 @@ fn refine<const N: usize>(
 
 /// [el, eh] での共鳴の寄与を、反応ごとに lin-lin の表にする。
 /// `nodes` は必ず格子に入れるエネルギー（共鳴のピークと半値幅の位置など）。
-pub fn resonance_tables(xs: &ReichMooreXs, nodes: &[f64], el: f64, eh: f64, tol: f64) -> [Tab1; 4] {
+pub fn resonance_tables(
+    xs: &impl CrossSections,
+    nodes: &[f64],
+    el: f64,
+    eh: f64,
+    tol: f64,
+) -> [Tab1; 4] {
     let f = |e: f64| {
         let s = xs.cross_sections(e);
         RESONANCE_MTS.map(|mt| s.component(mt))
@@ -287,19 +293,32 @@ fn add_resonances(
     tol: f64,
 ) -> Result<(), String> {
     for range in &mf2.ranges {
-        let rm = match &range.kind {
+        let [_, elastic, fission, capture] = match &range.kind {
             RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved { lssf: 1 } => continue,
             RangeKind::Unresolved { lssf } => {
                 return Err(format!(
                     "unresolved range with LSSF={lssf} is not supported"
                 ));
             }
-            RangeKind::ReichMoore(rm) => rm,
-            RangeKind::Mlbw(_) => return Err("MLBW is not supported yet".into()),
+            RangeKind::ReichMoore(rm) => {
+                let peaks = rm
+                    .l_values
+                    .iter()
+                    .flat_map(|lv| &lv.resonances)
+                    .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gfa.abs() + r.gfb.abs())));
+                let nodes = resonance_nodes(peaks);
+                resonance_tables(&ReichMooreXs::new(rm), &nodes, range.el, range.eh, tol)
+            }
+            RangeKind::Mlbw(bw) => {
+                let peaks = bw
+                    .l_values
+                    .iter()
+                    .flat_map(|lv| &lv.resonances)
+                    .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gf)));
+                let nodes = resonance_nodes(peaks);
+                resonance_tables(&MlbwXs::new(bw), &nodes, range.el, range.eh, tol)
+            }
         };
-        let xs = ReichMooreXs::new(rm);
-        let [_, elastic, fission, capture] =
-            resonance_tables(&xs, &resonance_nodes(rm), range.el, range.eh, tol);
         for (mt, contribution) in [(2, elastic), (fission_mt, fission), (102, capture)] {
             if contribution.y.iter().all(|&v| v == 0.0) {
                 continue;
@@ -314,15 +333,10 @@ fn add_resonances(
     Ok(())
 }
 
-/// 共鳴のピークと、その半値幅の位置。
-fn resonance_nodes(rm: &ReichMoore) -> Vec<f64> {
-    rm.l_values
-        .iter()
-        .flat_map(|lv| &lv.resonances)
-        .flat_map(|r| {
-            let half_width = 0.5 * (r.gn + r.gg + r.gfa.abs() + r.gfb.abs());
-            [r.er - half_width, r.er, r.er + half_width]
-        })
+/// 共鳴のピークと、その半値幅の位置。`peaks` は (共鳴エネルギー, 半値幅)。
+fn resonance_nodes(peaks: impl Iterator<Item = (f64, f64)>) -> Vec<f64> {
+    peaks
+        .flat_map(|(er, half_width)| [er - half_width, er, er + half_width])
         .collect()
 }
 
