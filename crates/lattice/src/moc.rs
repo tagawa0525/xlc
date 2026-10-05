@@ -356,6 +356,31 @@ mod tests {
     }
 
     #[test]
+    fn region_without_tracks_is_error() {
+        // 粗いトラックが通らない薄い円環
+        let cell = PinCell::new(1.26, vec![0.4, 0.400_001]).unwrap();
+        let tracking = Tracking::new(&cell, 4, 0.3).unwrap();
+        let m = fuel();
+        assert!(tracking.volumes(3)[1] == 0.0);
+        assert!(solve(&tracking, &[&m, &m, &m], &Options::default()).is_err());
+    }
+
+    #[test]
+    fn remaining_error_estimate() {
+        let mut r = Remaining::default();
+        assert_eq!(r.update(1.0), f64::INFINITY);
+        // 縮小率 0.5 なら、残りは最新の変化と同じだけ
+        assert!((r.update(0.5) - 1.0).abs() < 1e-15);
+        // 変化が 0 になれば収束
+        let mut r = Remaining::default();
+        r.update(1.0e-16);
+        assert_eq!(r.update(0.0), 0.0);
+        let mut r = Remaining::default();
+        r.update(0.0);
+        assert_eq!(r.update(0.0), 0.0);
+    }
+
+    #[test]
     fn region_count_must_match() {
         let cell = PinCell::new(1.26, vec![0.4]).unwrap();
         let tracking = Tracking::new(&cell, 8, 0.1).unwrap();
