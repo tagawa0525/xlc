@@ -63,6 +63,11 @@ impl Material {
         Ok(m)
     }
 
+    /// 配列の大きさ、χ の規格化、νΣf と核分裂の項の和の一致を検査する。
+    pub fn validate(&self) -> Result<(), String> {
+        todo!()
+    }
+
     pub fn groups(&self) -> usize {
         self.total.len()
     }
@@ -124,6 +129,28 @@ mod tests {
         assert!((m.fission_terms[0].nu_fission[0] - 0.025).abs() < 1e-15);
         let a = m.absorption();
         assert!((a[0] - (0.4 - 0.32)).abs() < 1e-15);
+    }
+
+    #[test]
+    fn fissile_nuclide_needs_normalized_chi() {
+        let mut lib = library();
+        lib.nuclides[0].chi = vec![0.0, 0.0];
+        assert!(Material::mix(&lib, &[("F".into(), 0.01)]).is_err());
+    }
+
+    #[test]
+    fn validate_detects_inconsistent_data() {
+        let good = Material::mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
+        assert!(good.validate().is_ok());
+        let mut short_row = good.clone();
+        short_row.scatter[0].pop();
+        assert!(short_row.validate().is_err());
+        let mut missing_term = good.clone();
+        missing_term.fission_terms.clear();
+        assert!(missing_term.validate().is_err());
+        let mut bad_chi = good.clone();
+        bad_chi.fission_terms[0].chi = vec![0.5, 0.0];
+        assert!(bad_chi.validate().is_err());
     }
 
     #[test]
