@@ -707,5 +707,17 @@ mod tests {
         let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
         p.mesh.dx[0] = 0.0;
         assert!(solve(&p, &Options::default()).is_err());
+        // 有限でない断面積は、反復に入る前にエラーにする
+        let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
+        p.materials[0].nu_fission[1] = f64::NAN;
+        let err = solve(&p, &Options::default()).unwrap_err();
+        assert!(err.contains("finite"), "{err}");
+        let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
+        p.materials[0].diffusion[0] = f64::INFINITY;
+        assert!(
+            solve(&p, &Options::default())
+                .unwrap_err()
+                .contains("finite")
+        );
     }
 }
