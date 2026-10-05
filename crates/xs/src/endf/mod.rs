@@ -1,0 +1,39 @@
+//! ENDF-6 形式のテープの読み込み。
+//!
+//! 1行80桁の固定長書式で、66桁目までが11桁×6個のデータ欄、
+//! 67〜75桁目が MAT/MF/MT の制御欄である（76〜80桁目の行番号は読まない）。
+
+mod mf3;
+mod number;
+mod tab1;
+mod tape;
+
+use std::fmt;
+
+pub use mf3::Mf3;
+pub use tab1::{Interpolation, Tab1};
+pub use tape::{Cont, List, Reader, Section, Tab1Record, Tape};
+
+/// ENDF の読み込みで起きたエラー。`line` はテープ上の1始まりの行番号。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Error {
+    pub line: usize,
+    pub message: String,
+}
+
+impl Error {
+    fn new(line: usize, message: impl Into<String>) -> Self {
+        Self {
+            line,
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "line {}: {}", self.line, self.message)
+    }
+}
+
+impl std::error::Error for Error {}
