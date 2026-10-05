@@ -36,7 +36,7 @@ impl Interpolation {
         matches!(self, Self::LogLin | Self::LogLog)
     }
 
-    fn interpolate(self, x: f64, (x0, y0): (f64, f64), (x1, y1): (f64, f64)) -> f64 {
+    pub fn interpolate(self, x: f64, (x0, y0): (f64, f64), (x1, y1): (f64, f64)) -> f64 {
         if x == x0 {
             return y0;
         }
@@ -66,6 +66,21 @@ pub struct Tab1 {
 }
 
 impl Tab1 {
+    /// 全区間を lin-lin で補間する表。
+    pub fn linear(x: Vec<f64>, y: Vec<f64>) -> Self {
+        Self {
+            breaks: vec![x.len()],
+            laws: vec![Interpolation::LinLin],
+            x,
+            y,
+        }
+    }
+
+    /// 区間 (k, k+1)（0始まり）に適用する補間則。
+    pub fn law_of_interval(&self, k: usize) -> Interpolation {
+        self.laws[self.breaks.partition_point(|&b| b < k + 2)]
+    }
+
     /// x が昇順であることと、各区間の値が補間則の定義域にあることを検査する。
     /// `breaks` と `laws` の整合は呼び出し側で保証されているものとする。
     pub(super) fn check(&self) -> Result<(), String> {
@@ -77,7 +92,7 @@ impl Tab1 {
                     k + 1
                 ));
             }
-            let law = self.laws[self.breaks.partition_point(|&b| b < k + 2)];
+            let law = self.law_of_interval(k);
             if law.log_x() && x0 <= 0.0 {
                 return Err(format!(
                     "non-positive x {x0} with logarithmic x interpolation"
@@ -108,8 +123,7 @@ impl Tab1 {
             return Some(self.y[k]);
         }
         // 区間 (k, k+1) の右端の点番号（1始まり）を含む範囲の補間則を使う
-        let range = self.breaks.partition_point(|&b| b < k + 2);
-        let law = self.laws[range];
+        let law = self.law_of_interval(k);
         Some(law.interpolate(x, (self.x[k], self.y[k]), (self.x[k + 1], self.y[k + 1])))
     }
 }

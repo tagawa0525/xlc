@@ -24,7 +24,7 @@ pub struct Error {
 }
 
 impl Error {
-    fn new(line: usize, message: impl Into<String>) -> Self {
+    pub(crate) fn new(line: usize, message: impl Into<String>) -> Self {
         Self {
             line,
             message: message.into(),
