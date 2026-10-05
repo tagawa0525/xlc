@@ -341,7 +341,9 @@ mod tests {
             .collect();
         assert!(maxwellian.len() > 10);
         for &g in &maxwellian {
-            assert!((m[g].iter().sum::<f64>() - 4.0).abs() < 1e-9);
+            // 標的の熱運動で、実効的な散乱断面積は自由原子の値より大きい
+            let row: f64 = m[g].iter().sum();
+            assert!(row > 4.0 && row < 6.0, "{row}");
             for &h in &maxwellian {
                 let (forward, backward) = (flux[g] * m[g][h], flux[h] * m[h][g]);
                 assert!(

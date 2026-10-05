@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use crate::endf::Tab1;
 
 pub use fission::fission_spectrum;
-pub use free_gas::{FreeGas, free_gas_kernel, free_gas_probabilities};
+pub use free_gas::{FreeGas, free_gas_group_integrals, free_gas_kernel};
 pub use integrate::{group_integrals, group_integrals_multi};
 pub use outgoing::{GroupedOutgoing, outgoing_group_integrals};
 pub use scatter::{scattering_matrix, two_body_range};
