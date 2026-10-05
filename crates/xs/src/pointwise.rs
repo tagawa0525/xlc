@@ -305,6 +305,52 @@ mod tests {
         assert_eq!(sum.y, vec![2.0, 2.0, 3.0, 3.0]);
     }
 
+    /// MF3 の1反応（2点の lin-lin の表）
+    fn mf3_section(mt: u32, x: [&str; 2], y: [&str; 2]) -> String {
+        use crate::endf::rec;
+        [
+            rec(["1.001000+3", "1.0", "0", "0", "0", "0"], 1, 3, mt),
+            rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 3, mt),
+            rec(["2", "2", "", "", "", ""], 1, 3, mt),
+            rec([x[0], y[0], x[1], y[1], "", ""], 1, 3, mt),
+            rec(["", "", "", "", "", ""], 1, 3, 0),
+        ]
+        .concat()
+    }
+
+    #[test]
+    fn redundant_reactions_are_sums_of_their_parts() {
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            // MT1, MT4, MT18 にはわざと部分反応の和と違う値を入れておく
+            mf3_section(1, full, ["100.0", "100.0"]),
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(4, ["1.0+6", "2.0+7"], ["50.0", "50.0"]),
+            mf3_section(18, full, ["70.0", "70.0"]),
+            mf3_section(19, full, ["0.25", "0.25"]),
+            mf3_section(20, ["5.0+6", "2.0+7"], ["0.125", "0.125"]),
+            mf3_section(51, ["1.0+6", "2.0+7"], ["1.0", "1.0"]),
+            mf3_section(52, ["2.0+6", "2.0+7"], ["2.0", "2.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+            // 生成断面積は全断面積に含めない
+            mf3_section(203, ["1.0+6", "2.0+7"], ["3.0", "3.0"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        let at = |mt: u32, e: f64| tables[&mt].eval(e).unwrap();
+
+        assert_eq!(at(1, 1.0), 10.0 + 0.25 + 0.5);
+        assert_eq!(at(1, 1.5e6), 10.0 + 0.25 + 1.0 + 0.5);
+        assert_eq!(at(1, 3.0e6), 10.0 + 0.25 + 1.0 + 2.0 + 0.5);
+        assert_eq!(at(1, 6.0e6), 10.0 + 0.25 + 0.125 + 1.0 + 2.0 + 0.5);
+        assert_eq!(at(4, 1.5e6), 1.0);
+        assert_eq!(at(4, 3.0e6), 3.0);
+        assert_eq!(at(18, 1.0), 0.25);
+        assert_eq!(at(18, 6.0e6), 0.375);
+        assert_eq!(at(203, 3.0e6), 3.0);
+    }
+
     #[test]
     fn add_without_jump_at_shared_end_has_no_duplicate() {
         let a = linear(&[1.0, 10.0], &[1.0, 1.0]);

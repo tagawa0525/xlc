@@ -293,7 +293,7 @@ impl<'a> Reader<'a> {
 }
 
 #[cfg(test)]
-pub(super) mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::endf::Interpolation;
 

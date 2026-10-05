@@ -39,3 +39,6 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+#[cfg(test)]
+pub(crate) use tape::tests::rec;
