@@ -24,7 +24,43 @@ pub struct Material {
 impl Material {
     /// 核種名と個数密度 (1/(barn·cm)) の組から作る。
     pub fn mix(library: &Library, composition: &[(String, f64)]) -> Result<Self, String> {
-        todo!()
+        if composition.is_empty() {
+            return Err("a material needs at least one nuclide".into());
+        }
+        let ng = library.groups.len();
+        let mut m = Self {
+            total: vec![0.0; ng],
+            scatter: vec![vec![0.0; ng]; ng],
+            fission: vec![0.0; ng],
+            nu_fission: vec![0.0; ng],
+            fission_terms: Vec::new(),
+        };
+        let add = |sum: &mut [f64], values: &[f64], n: f64| {
+            for (s, v) in sum.iter_mut().zip(values) {
+                *s += n * v;
+            }
+        };
+        for (name, density) in composition {
+            if !(*density >= 0.0 && density.is_finite()) {
+                return Err(format!("{name}: invalid number density {density}"));
+            }
+            let nuclide = library
+                .nuclide(name)
+                .ok_or_else(|| format!("nuclide {name} is not in the library"))?;
+            add(&mut m.total, &nuclide.total, *density);
+            add(&mut m.fission, &nuclide.fission, *density);
+            add(&mut m.nu_fission, &nuclide.nu_fission, *density);
+            for (row, from) in m.scatter.iter_mut().zip(&nuclide.scatter) {
+                add(row, from, *density);
+            }
+            if nuclide.nu_fission.iter().any(|&v| v > 0.0) {
+                m.fission_terms.push(FissionTerm {
+                    chi: nuclide.chi.clone(),
+                    nu_fission: nuclide.nu_fission.iter().map(|v| density * v).collect(),
+                });
+            }
+        }
+        Ok(m)
     }
 
     pub fn groups(&self) -> usize {
@@ -33,7 +69,11 @@ impl Material {
 
     /// 吸収断面積 Σt - Σ_g' Σs(g→g')（多重度のある反応では負になりうる）。
     pub fn absorption(&self) -> Vec<f64> {
-        todo!()
+        self.total
+            .iter()
+            .zip(&self.scatter)
+            .map(|(t, row)| t - row.iter().sum::<f64>())
+            .collect()
     }
 }
 
