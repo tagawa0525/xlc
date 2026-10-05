@@ -3,22 +3,396 @@
 //! NJOY2016 reconr の csrmat と同じ手順で計算する。捕獲は消去されたチャネルとして扱い、
 //! 中性子と2つの核分裂チャネルの 3×3 の R 行列を解く。レベルシフトは使わない。
 
+use std::f64::consts::PI;
+
 use super::Sigma;
 use crate::endf::ReichMoore;
+use crate::physics::{AMASSN, wave_number_factor};
 
 /// 断面積の計算に使う形に前処理した Reich-Moore パラメータ。
 #[derive(Debug, Clone)]
-pub struct ReichMooreXs {}
+pub struct ReichMooreXs {
+    spi: f64,
+    ap: f64,
+    /// 透過因子に使うチャネル半径（l ごとの APL を使わない場合）
+    ra: f64,
+    naps: i64,
+    /// AWRI / (AWRI + 1)
+    arat: f64,
+    l_values: Vec<LValue>,
+}
+
+#[derive(Debug, Clone)]
+struct LValue {
+    l: u32,
+    apl: f64,
+    resonances: Vec<Resonance>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Resonance {
+    er: f64,
+    aj: f64,
+    /// Γn / P_l(ρ(|Er|))。E での中性子幅はこれに P_l(ρ(E)) を掛けて求める
+    gn_per_penetrability: f64,
+    gg: f64,
+    gfa: f64,
+    gfb: f64,
+}
+
+/// チャネル半径の経験式 a = 0.123 (m AWRI)^(1/3) + 0.08 (10^-12 cm)
+fn channel_radius(awri: f64) -> f64 {
+    0.123 * (AMASSN * awri).cbrt() + 0.08
+}
 
 impl ReichMooreXs {
     pub fn new(data: &ReichMoore) -> Self {
-        todo!()
+        // NJOY と同じく、AWRI は最初の l のものを使う
+        let awri = data.l_values.first().map_or(1.0, |lv| lv.awri);
+        let ra = if data.naps == 1 {
+            data.ap
+        } else {
+            channel_radius(awri)
+        };
+        let cwaven = wave_number_factor();
+        let l_values = data
+            .l_values
+            .iter()
+            .map(|lv| {
+                let scattering = if lv.apl != 0.0 { lv.apl } else { data.ap };
+                let radius = if data.naps == 1 {
+                    scattering
+                } else {
+                    channel_radius(lv.awri)
+                };
+                let arat = lv.awri / (lv.awri + 1.0);
+                let resonances = lv
+                    .resonances
+                    .iter()
+                    .map(|r| {
+                        let rho = cwaven * arat * r.er.abs().sqrt() * radius;
+                        Resonance {
+                            er: r.er,
+                            aj: r.aj,
+                            gn_per_penetrability: r.gn / penetrability(lv.l, rho),
+                            gg: r.gg,
+                            gfa: r.gfa,
+                            gfb: r.gfb,
+                        }
+                    })
+                    .collect();
+                LValue {
+                    l: lv.l,
+                    apl: lv.apl,
+                    resonances,
+                }
+            })
+            .collect();
+        Self {
+            spi: data.spi,
+            ap: data.ap,
+            ra,
+            naps: data.naps,
+            arat: awri / (awri + 1.0),
+            l_values,
+        }
     }
 
     /// エネルギー e (eV) での断面積。
     pub fn cross_sections(&self, e: f64) -> Sigma {
-        todo!()
+        let k = wave_number_factor() * self.arat * e.abs().sqrt();
+        let gjd = 2.0 * (2.0 * self.spi + 1.0);
+        let mut sum = Sigma::default();
+        for lv in self.l_values.iter().filter(|lv| !lv.resonances.is_empty()) {
+            let rho = k * if self.naps == 1 && lv.apl != 0.0 {
+                lv.apl
+            } else {
+                self.ra
+            };
+            let rhoc = k * if lv.apl != 0.0 { lv.apl } else { self.ap };
+            let pe = penetrability(lv.l, rho);
+            let phi = phase_shift(lv.l, rhoc);
+
+            // l と標的スピンから作れる J を、チャネルスピン s = I ± 1/2 の両方について調べる
+            let fl = f64::from(lv.l);
+            let ajmin = ((self.spi - fl).abs() - 0.5).abs();
+            let ajmax = self.spi + fl + 0.5;
+            let numj = (ajmax - ajmin + 1.0).round() as usize;
+            let jjl = if lv.l != 0 && fl > self.spi - 0.5 && fl <= self.spi {
+                0
+            } else {
+                1
+            };
+            for jj in 1..=numj {
+                let ajc = ajmin + (jj - 1) as f64;
+                let gj = (2.0 * ajc + 1.0) / gjd;
+                let interior = jj > jjl && jj < numj;
+                for channel in [ChannelSpin::Positive, ChannelSpin::Negative] {
+                    let group = self.channel_terms(lv, e, pe, ajc, channel);
+                    let hard_sphere = match channel.contribution(group.positive, group.negative) {
+                        Contribution::None => continue,
+                        Contribution::Resonances => false,
+                        Contribution::ResonancesAndHardSphere => interior,
+                    };
+                    let mut terms = group.terms(gj, phi);
+                    if hard_sphere {
+                        // 硬球散乱 2 gJ (1 - cos 2φ)
+                        let potential = 4.0 * gj * phi.sin().powi(2);
+                        terms.elastic += potential;
+                        terms.total += potential;
+                    }
+                    sum.total += terms.total;
+                    sum.elastic += terms.elastic;
+                    sum.fission += terms.fission;
+                    sum.capture += terms.total - terms.fission - terms.elastic;
+                }
+            }
+        }
+        let pifac = PI / (k * k);
+        Sigma {
+            total: pifac * sum.total,
+            elastic: pifac * sum.elastic,
+            fission: pifac * sum.fission,
+            capture: pifac * sum.capture,
+        }
     }
+
+    /// 1つの (J, チャネルスピン) に属する共鳴から R 行列を組み立てる。
+    fn channel_terms(
+        &self,
+        lv: &LValue,
+        e: f64,
+        pe: f64,
+        ajc: f64,
+        channel: ChannelSpin,
+    ) -> ChannelGroup {
+        let mut group = ChannelGroup::default();
+        for res in &lv.resonances {
+            if (res.aj.abs() - ajc).abs() > 0.25 {
+                continue;
+            }
+            if res.aj < 0.0 {
+                group.negative += 1;
+            }
+            if res.aj > 0.0 {
+                group.positive += 1;
+            }
+            if channel.excludes(res.aj) {
+                continue;
+            }
+            // 幅の平方根に符号を付けたものが換算幅振幅
+            let amplitude = |width: f64| width.abs().sqrt().copysign(width);
+            let a = [
+                (res.gn_per_penetrability * pe).sqrt(),
+                amplitude(res.gfa),
+                amplitude(res.gfb),
+            ];
+            let diff = res.er - e;
+            let den = diff * diff + 0.25 * res.gg * res.gg;
+            let de2 = 0.5 * diff / den;
+            let gg4 = 0.25 * res.gg / den;
+            let has_fission = res.gfa != 0.0 || res.gfb != 0.0;
+            group.fission |= has_fission;
+            let n = if has_fission { 3 } else { 1 };
+            for i in 0..n {
+                for j in i..n {
+                    group.r[i][j] += gg4 * a[i] * a[j];
+                    group.s[i][j] -= de2 * a[i] * a[j];
+                }
+            }
+        }
+        group
+    }
+}
+
+/// NJOY が負の J で区別するチャネルスピン。
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ChannelSpin {
+    /// J が正（または 0）の共鳴
+    Positive,
+    /// J が負（または 0）の共鳴
+    Negative,
+}
+
+/// そのチャネルスピンの組で、断面積に足すもの。
+enum Contribution {
+    None,
+    Resonances,
+    /// 共鳴に加えて、共鳴のない側のチャネルスピンの硬球散乱も足す（J が両方のスピンで作れる場合）
+    ResonancesAndHardSphere,
+}
+
+impl ChannelSpin {
+    fn excludes(self, aj: f64) -> bool {
+        match self {
+            Self::Positive => aj < 0.0,
+            Self::Negative => aj > 0.0,
+        }
+    }
+
+    /// NJOY csrmat の kkkkkk の判定。
+    fn contribution(self, positive: usize, negative: usize) -> Contribution {
+        use Contribution::*;
+        match (self, positive > 0, negative > 0) {
+            (Self::Positive, _, false) => ResonancesAndHardSphere,
+            (Self::Positive, true, true) => Resonances,
+            (Self::Positive, false, true) => None,
+            (Self::Negative, _, false) => None,
+            (Self::Negative, true, true) => Resonances,
+            (Self::Negative, false, true) => ResonancesAndHardSphere,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct ChannelGroup {
+    /// R 行列の実部（上三角）。単位行列は `terms` で足す
+    r: [[f64; 3]; 3],
+    /// R 行列の虚部（上三角）
+    s: [[f64; 3]; 3],
+    fission: bool,
+    positive: usize,
+    negative: usize,
+}
+
+/// gJ を掛けた断面積の項（π/k² を掛ける前）。
+struct Terms {
+    total: f64,
+    elastic: f64,
+    fission: f64,
+}
+
+impl ChannelGroup {
+    /// 中性子チャネルの衝突行列 U_nn = e^{-2iφ} (2 (M^{-1})_nn - 1) から断面積の項を求める。
+    /// M = I + K（K は共鳴の寄与）。
+    ///
+    /// 1 - Re U は低エネルギーで O(ρ²) と小さく、そのまま計算すると桁落ちする。
+    /// I - M^{-1} = M^{-1} K と 1 - cos 2φ = 2 sin²φ を使って、差を取らずに計算する
+    /// （NJOY は同じ目的で近似展開を使っている）。
+    fn terms(&self, gj: f64, phi: f64) -> Terms {
+        let n = if self.fission { 3 } else { 1 };
+        // 上三角に積んだ K を対称に展開する。核分裂のないときは中性子チャネルだけを使う
+        let k: [[Complex; 3]; 3] = std::array::from_fn(|i| {
+            std::array::from_fn(|j| {
+                let (a, b) = (i.min(j), i.max(j));
+                Complex::new(self.r[a][b], self.s[a][b])
+            })
+        });
+        let m = std::array::from_fn(|i| {
+            std::array::from_fn(|j| {
+                let identity = Complex::new(if i == j { 1.0 } else { 0.0 }, 0.0);
+                if i < n && j < n {
+                    identity.add(k[i][j])
+                } else {
+                    identity
+                }
+            })
+        });
+        let inv = invert3(m);
+        // x = (I - M^{-1})_nn = (M^{-1} K)_nn
+        let x = (0..n).fold(Complex::default(), |acc, j| acc.add(inv[0][j].mul(k[j][0])));
+        let (p1, p2) = ((2.0 * phi).cos(), (2.0 * phi).sin());
+        let one_minus_u = 2.0 * phi.sin().powi(2) + 2.0 * p1 * x.re + 2.0 * p2 * x.im;
+        let u_imag = p2 * (2.0 * x.re - 1.0) - 2.0 * p1 * x.im;
+        Terms {
+            total: 2.0 * gj * one_minus_u,
+            elastic: gj * (one_minus_u * one_minus_u + u_imag * u_imag),
+            fission: 4.0 * gj * (inv[0][1].norm_sqr() + inv[0][2].norm_sqr()),
+        }
+    }
+}
+
+/// 透過因子 P_l(ρ)（NJOY facts）。
+fn penetrability(l: u32, rho: f64) -> f64 {
+    let r2 = rho * rho;
+    let r4 = r2 * r2;
+    match l {
+        0 => rho,
+        1 => r2 * rho / (1.0 + r2),
+        2 => r4 * rho / (9.0 + 3.0 * r2 + r4),
+        3 => r4 * r2 * rho / (225.0 + 45.0 * r2 + 6.0 * r4 + r4 * r2),
+        4 => r4 * r4 * rho / (11025.0 + 1575.0 * r2 + 135.0 * r4 + 10.0 * r4 * r2 + r4 * r4),
+        _ => unreachable!("L={l} is rejected when reading MF2"),
+    }
+}
+
+/// 硬球散乱の位相シフト φ_l(ρ)（NJOY facphi）。
+fn phase_shift(l: u32, rho: f64) -> f64 {
+    let r2 = rho * rho;
+    let phi = match l {
+        0 => return rho,
+        1 => return rho - rho.atan(),
+        2 => rho - (3.0 * rho / (3.0 - r2)).atan(),
+        3 => rho - ((15.0 * rho - rho * r2) / (15.0 - 6.0 * r2)).atan(),
+        _ => {
+            let top = 105.0 * rho - 10.0 * r2 * rho;
+            let bot = 105.0 - 45.0 * r2 + r2 * r2;
+            rho - (top / bot).atan()
+        }
+    };
+    if phi / rho < 1.0e-6 { 0.0 } else { phi }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct Complex {
+    re: f64,
+    im: f64,
+}
+
+impl Complex {
+    fn new(re: f64, im: f64) -> Self {
+        Self { re, im }
+    }
+    fn norm_sqr(self) -> f64 {
+        self.re * self.re + self.im * self.im
+    }
+    fn add(self, o: Self) -> Self {
+        Self::new(self.re + o.re, self.im + o.im)
+    }
+    fn mul(self, o: Self) -> Self {
+        Self::new(
+            self.re * o.re - self.im * o.im,
+            self.re * o.im + self.im * o.re,
+        )
+    }
+    fn sub(self, o: Self) -> Self {
+        Self::new(self.re - o.re, self.im - o.im)
+    }
+    fn recip(self) -> Self {
+        let n = self.norm_sqr();
+        Self::new(self.re / n, -self.im / n)
+    }
+}
+
+/// 複素 3×3 行列の逆行列（部分ピボット付き Gauss-Jordan 法）。
+/// R 行列は単位行列に正定値の実部を足したものなので、正則である。
+fn invert3(mut a: [[Complex; 3]; 3]) -> [[Complex; 3]; 3] {
+    let mut inv = [[Complex::default(); 3]; 3];
+    for (i, row) in inv.iter_mut().enumerate() {
+        row[i] = Complex::new(1.0, 0.0);
+    }
+    for col in 0..3 {
+        let pivot = (col..3)
+            .max_by(|&i, &j| a[i][col].norm_sqr().total_cmp(&a[j][col].norm_sqr()))
+            .expect("non-empty range");
+        a.swap(col, pivot);
+        inv.swap(col, pivot);
+        let p = a[col][col].recip();
+        for j in 0..3 {
+            a[col][j] = a[col][j].mul(p);
+            inv[col][j] = inv[col][j].mul(p);
+        }
+        for row in 0..3 {
+            if row != col {
+                let f = a[row][col];
+                for j in 0..3 {
+                    a[row][j] = a[row][j].sub(f.mul(a[col][j]));
+                    inv[row][j] = inv[row][j].sub(f.mul(inv[col][j]));
+                }
+            }
+        }
+    }
+    inv
 }
 
 #[cfg(test)]
