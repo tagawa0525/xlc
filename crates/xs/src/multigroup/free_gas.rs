@@ -2,6 +2,10 @@
 //!
 //! 標的核を温度 T の理想気体（Maxwell 分布で運動する自由な原子）とみなし、実験室系の
 //! 散乱を等方として、出射エネルギーの分布 S(E→E') を解析的に求める。
+//!
+//! S は規格化しない。∫S dE' = N(E) は自由ガスの実効断面積と自由原子の断面積の比で、
+//! 低エネルギーほど 1 より大きい。規格化すると N(E)/N(E') の分だけ詳細バランスが崩れ、
+//! 特に水素で熱中性子のスペクトルが歪む。
 
 use super::GroupStructure;
 
@@ -20,8 +24,8 @@ pub fn free_gas_kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
     todo!()
 }
 
-/// 入射エネルギー e の中性子が、散乱後に各群に入る確率（和は 1）。
-pub fn free_gas_probabilities(groups: &GroupStructure, e: f64, awr: f64, kt: f64) -> Vec<f64> {
+/// 入射エネルギー e での ∫_g' S(E→E') dE'（群ごと、和は N(E)）。
+pub fn free_gas_group_integrals(groups: &GroupStructure, e: f64, awr: f64, kt: f64) -> Vec<f64> {
     todo!()
 }
 
@@ -73,6 +77,7 @@ mod tests {
         // ∫ S dE' = (1 + 1/(2Aε)) erf(√(Aε)) + exp(-Aε)/√(πAε)、ε = E/kT
         for awr in [1.0, 15.86, 236.0] {
             for e in [0.005, 0.0253, 0.5, 3.0] {
+                let expected = effective_ratio(e, awr);
                 // 台形公式で積分する（核の幅に比べて十分細かい格子）
                 let width = (e * KT / awr).sqrt() + KT;
                 let (lo, hi) = ((e - 60.0 * width).max(0.0), e + 60.0 * width);
@@ -86,9 +91,6 @@ mod tests {
                     })
                     .sum::<f64>()
                     * h;
-                let a_eps = awr * e / KT;
-                let expected = (1.0 + 1.0 / (2.0 * a_eps)) * erf(a_eps.sqrt())
-                    + (-a_eps).exp() / (std::f64::consts::PI * a_eps).sqrt();
                 assert_rel(integral, expected, 1e-5);
             }
         }
@@ -101,19 +103,25 @@ mod tests {
         assert!(s.is_finite() && s >= 0.0, "{s}");
     }
 
+    fn effective_ratio(e: f64, awr: f64) -> f64 {
+        let a_eps = awr * e / KT;
+        (1.0 + 1.0 / (2.0 * a_eps)) * erf(a_eps.sqrt())
+            + (-a_eps).exp() / (std::f64::consts::PI * a_eps).sqrt()
+    }
+
     #[test]
-    fn group_probabilities_sum_to_one() {
+    fn group_integrals_sum_to_effective_ratio() {
         let groups = GroupStructure::wims69();
         for awr in [1.0, 15.86, 236.0] {
             for e in [1.0e-3, 0.0253, 0.9, 3.9] {
-                let p = free_gas_probabilities(&groups, e, awr, KT);
-                assert!((p.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+                let p = free_gas_group_integrals(&groups, e, awr, KT);
+                assert_rel(p.iter().sum::<f64>(), effective_ratio(e, awr), 1e-6);
                 assert!(p.iter().all(|&v| v >= 0.0));
             }
         }
         // 重い核ではほとんど同じ群に残る
         let e = 0.0253;
         let g = groups.find(e).unwrap();
-        assert!(free_gas_probabilities(&groups, e, 236.0, KT)[g] > 0.5);
+        assert!(free_gas_group_integrals(&groups, e, 236.0, KT)[g] > 0.5);
     }
 }
