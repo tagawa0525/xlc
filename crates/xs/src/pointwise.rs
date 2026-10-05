@@ -171,26 +171,21 @@ pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1
     }
     if let Some(section) = tape.section(mat, 2, 151) {
         // MT18 を部分反応の和で作り直す場合は、共鳴の核分裂を第1チャンス核分裂に入れる
-        let fission_mt = if available.iter().any(|&mt| matches!(mt, 19..=21 | 38)) {
-            19
-        } else {
-            18
-        };
+        let fission_mt = if is_rebuilt(18, &available) { 19 } else { 18 };
         add_resonances(&mut tables, &Mf2::parse(&section)?, fission_mt, tol)
             .map_err(|message| Error::new(section.reader().line(), message))?;
     }
 
-    let total = sum(tables
-        .iter()
-        .filter(|(mt, _)| is_part_of_total(**mt))
-        .map(|(_, t)| t));
-    for (sum_mt, is_part) in SUMS {
-        if let Some(t) = sum(tables
+    let total = add_all(
+        tables
             .iter()
-            .filter(|(mt, _)| is_part(**mt))
-            .map(|(_, t)| t))
-        {
-            tables.insert(sum_mt, t);
+            .filter(|(mt, _)| is_part_of_total(**mt))
+            .map(|(_, t)| t),
+    );
+    for sum in SUMS.iter().filter(|sum| is_rebuilt(sum.mt, &available)) {
+        let parts = tables.iter().filter(|(mt, _)| (sum.is_part)(**mt));
+        if let Some(t) = add_all(parts.map(|(_, t)| t)) {
+            tables.insert(sum.mt, t);
         }
     }
     if let Some(total) = total {
@@ -199,26 +194,63 @@ pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1
     Ok(tables)
 }
 
-/// MT がその和の部分反応かどうか。
-type IsPart = fn(u32) -> bool;
+/// 部分反応の和で作り直す反応。
+struct Sum {
+    mt: u32,
+    /// MT がこの和の部分反応かどうか
+    is_part: fn(u32) -> bool,
+    /// MF3 にこの MT があれば、和で作り直す
+    trigger: fn(u32) -> bool,
+}
 
-/// 部分反応の和で作り直す反応と、その部分反応の判定。
-const SUMS: [(u32, IsPart); 7] = [
-    (4, |mt| (51..=91).contains(&mt)),
-    (18, |mt| matches!(mt, 19..=21 | 38)),
-    (103, |mt| (600..=649).contains(&mt)),
-    (104, |mt| (650..=699).contains(&mt)),
-    (105, |mt| (700..=749).contains(&mt)),
-    (106, |mt| (750..=799).contains(&mt)),
-    (107, |mt| (800..=849).contains(&mt)),
+const SUMS: [Sum; 7] = [
+    Sum {
+        mt: 4,
+        is_part: |mt| (51..=91).contains(&mt),
+        trigger: |mt| (51..=91).contains(&mt),
+    },
+    // NJOY と同じく、MT18 は MT19 がある場合だけ作り直す
+    Sum {
+        mt: 18,
+        is_part: |mt| matches!(mt, 19..=21 | 38),
+        trigger: |mt| mt == 19,
+    },
+    Sum {
+        mt: 103,
+        is_part: |mt| (600..=649).contains(&mt),
+        trigger: |mt| (600..=649).contains(&mt),
+    },
+    Sum {
+        mt: 104,
+        is_part: |mt| (650..=699).contains(&mt),
+        trigger: |mt| (650..=699).contains(&mt),
+    },
+    Sum {
+        mt: 105,
+        is_part: |mt| (700..=749).contains(&mt),
+        trigger: |mt| (700..=749).contains(&mt),
+    },
+    Sum {
+        mt: 106,
+        is_part: |mt| (750..=799).contains(&mt),
+        trigger: |mt| (750..=799).contains(&mt),
+    },
+    Sum {
+        mt: 107,
+        is_part: |mt| (800..=849).contains(&mt),
+        trigger: |mt| (800..=849).contains(&mt),
+    },
 ];
+
+/// `mt` が、MF3 の値を使わず部分反応の和で作り直す反応かどうか。
+fn is_rebuilt(mt: u32, available: &[u32]) -> bool {
+    SUMS.iter()
+        .any(|sum| sum.mt == mt && available.iter().any(|&m| (sum.trigger)(m)))
+}
 
 /// MF3 から読まない反応: 和で作り直す反応と、断面積でない量（NJOY reconr lunion と同じ規則）。
 fn is_dropped(mt: u32, available: &[u32]) -> bool {
-    let redundant = SUMS
-        .iter()
-        .any(|(sum_mt, is_part)| *sum_mt == mt && available.iter().any(|&m| is_part(m)));
-    redundant
+    is_rebuilt(mt, available)
         || matches!(mt, 1 | 3 | 101 | 120 | 151 | 451..=599 | 851..=870)
         || ((251..=300).contains(&mt) && mt != 261)
         || mt > 891
@@ -231,7 +263,7 @@ fn is_part_of_total(mt: u32) -> bool {
     !(mt == 10 || (46..=49).contains(&mt) || (201..=599).contains(&mt))
 }
 
-fn sum<'a>(tables: impl Iterator<Item = &'a Tab1>) -> Option<Tab1> {
+fn add_all<'a>(tables: impl Iterator<Item = &'a Tab1>) -> Option<Tab1> {
     tables.fold(None, |acc, t| match acc {
         None => Some(t.clone()),
         Some(acc) => Some(add(&acc, t)),

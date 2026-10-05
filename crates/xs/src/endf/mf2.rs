@@ -79,7 +79,8 @@ impl Mf2 {
         let ner = usize::try_from(isotope.n1)
             .map_err(|_| Error::new(r.line(), format!("invalid NER {}", isotope.n1)))?;
 
-        let mut ranges = Vec::with_capacity(ner);
+        // NER はファイルの値なので、それに合わせて先に確保しない
+        let mut ranges = Vec::new();
         for index in 0..ner {
             let range = r.cont()?;
             let range_line = r.line();
