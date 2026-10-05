@@ -508,6 +508,31 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn awri_of_another_l_does_not_change_result() {
+        // NAPS=0（チャネル半径を AWRI から求める）で、共鳴のない l の AWRI が違っても、
+        // 共鳴のある l の断面積は変わらない
+        let mut alone = single_level(1.5e-3, 2.3e-2, 1.0e-2);
+        alone.naps = 0;
+        let mut with_other = alone.clone();
+        with_other.l_values.insert(
+            0,
+            RmLValue {
+                awri: 1.0,
+                apl: 0.0,
+                l: 1,
+                resonances: vec![],
+            },
+        );
+        for e in [1.0, 6.674, 100.0] {
+            assert_eq!(
+                ReichMooreXs::new(&with_other).cross_sections(e),
+                ReichMooreXs::new(&alone).cross_sections(e),
+                "at {e}"
+            );
+        }
+    }
+
+    #[test]
     fn p_wave_potential_scattering_sums_over_all_j() {
         // スピン 0 の標的の l=1 では J=1/2, 3/2 があり、gJ の和は 2l+1 = 3。
         // 共鳴から遠いエネルギーでは、どちらの J も硬球散乱 (4π/k²) gJ sin²φ1 だけになる
