@@ -18,6 +18,20 @@
 
 use std::path::PathBuf;
 
+const KEYWORDS: [&str; 11] = [
+    "library",
+    "output",
+    "pitch",
+    "fuel-radius",
+    "fuel-rings",
+    "moderator-rings",
+    "azimuthal",
+    "spacing",
+    "fuel",
+    "moderator",
+    "few-group-bounds",
+];
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinCellInput {
     pub library: PathBuf,
@@ -36,13 +50,97 @@ pub struct PinCellInput {
 impl PinCellInput {
     /// エラーは「line N: ...」の形の文字列で返す。
     pub fn parse(text: &str) -> Result<Self, String> {
-        todo!()
+        let mut entries: Vec<(&str, usize, Vec<&str>)> = Vec::new();
+        for (index, raw) in text.lines().enumerate() {
+            let line = index + 1;
+            let content = raw.split('#').next().unwrap_or("");
+            let tokens: Vec<&str> = content.split_whitespace().collect();
+            let Some((&key, values)) = tokens.split_first() else {
+                continue;
+            };
+            if !KEYWORDS.contains(&key) {
+                return Err(format!("line {line}: unknown keyword `{key}`"));
+            }
+            if entries.iter().any(|(k, ..)| *k == key) {
+                return Err(format!("line {line}: `{key}` is given twice"));
+            }
+            entries.push((key, line, values.to_vec()));
+        }
+        let get = |key: &str| -> Result<(usize, &[&str]), String> {
+            entries
+                .iter()
+                .find(|(k, ..)| *k == key)
+                .map(|(_, line, values)| (*line, values.as_slice()))
+                .ok_or_else(|| format!("`{key}` is missing"))
+        };
+        let one = |key: &str| -> Result<(usize, &str), String> {
+            match get(key)? {
+                (line, [value]) => Ok((line, *value)),
+                (line, _) => Err(format!("line {line}: `{key}` takes one value")),
+            }
+        };
+        let positive = |key: &str| -> Result<f64, String> {
+            let (line, value) = one(key)?;
+            value
+                .parse::<f64>()
+                .ok()
+                .filter(|v| *v > 0.0 && v.is_finite())
+                .ok_or_else(|| format!("line {line}: `{key}` must be a positive number"))
+        };
+        let count = |key: &str| -> Result<usize, String> {
+            let (line, value) = one(key)?;
+            value
+                .parse::<usize>()
+                .map_err(|_| format!("line {line}: `{key}` must be a non-negative integer"))
+        };
+        let composition = |key: &str| -> Result<Vec<(String, f64)>, String> {
+            let (line, values) = get(key)?;
+            if values.is_empty() || values.len() % 2 != 0 {
+                return Err(format!(
+                    "line {line}: `{key}` takes pairs of nuclide and density"
+                ));
+            }
+            values
+                .chunks(2)
+                .map(|pair| {
+                    let density = pair[1]
+                        .parse::<f64>()
+                        .ok()
+                        .filter(|v| *v >= 0.0 && v.is_finite())
+                        .ok_or_else(|| format!("line {line}: invalid density `{}`", pair[1]))?;
+                    Ok((pair[0].to_string(), density))
+                })
+                .collect()
+        };
+        let (line, bounds) = get("few-group-bounds")?;
+        let few_group_bounds = bounds
+            .iter()
+            .map(|b| b.parse::<f64>())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| format!("line {line}: invalid few-group bound"))?;
+        Ok(Self {
+            library: PathBuf::from(one("library")?.1),
+            output: PathBuf::from(one("output")?.1),
+            pitch: positive("pitch")?,
+            fuel_radius: positive("fuel-radius")?,
+            fuel_rings: count("fuel-rings")?,
+            moderator_rings: count("moderator-rings")?,
+            azimuthal: count("azimuthal")?,
+            spacing: positive("spacing")?,
+            fuel: composition("fuel")?,
+            moderator: composition("moderator")?,
+            few_group_bounds,
+        })
     }
 
     /// 領域を区切る円の半径。燃料は等体積のリング、減速材は半径方向に等間隔。
     /// 最初の `fuel_rings` 個の領域が燃料、残りが減速材。
     pub fn radii(&self) -> Vec<f64> {
-        todo!()
+        let (r, n, m) = (self.fuel_radius, self.fuel_rings, self.moderator_rings);
+        let fuel = (1..=n).map(|k| r * (k as f64 / n as f64).sqrt());
+        let half = 0.5 * self.pitch;
+        let moderator = (1..=m).map(|k| r + (half - r) * k as f64 / (m + 1) as f64);
+        fuel.chain(moderator).collect()
     }
 }
 

@@ -42,12 +42,146 @@ impl FewGroup {
     }
 
     pub fn to_text(&self) -> String {
-        todo!()
+        let mut out = format!("{FORMAT} {VERSION}\n");
+        out += &format!("groups {}\n", self.groups());
+        out += &numbers_line("bounds", &self.bounds);
+        out += &format!("k-inf {:e}\n", self.k_inf);
+        out += &numbers_line("total", &self.total);
+        out += &numbers_line("absorption", &self.absorption);
+        out += &numbers_line("nu-fission", &self.nu_fission);
+        out += &numbers_line("fission", &self.fission);
+        out += &numbers_line("chi", &self.chi);
+        out += &numbers_line("diffusion", &self.diffusion);
+        out += "scatter\n";
+        for row in &self.scatter {
+            let values: Vec<String> = row.iter().map(|v| format!("{v:e}")).collect();
+            out += &values.join(" ");
+            out += "\n";
+        }
+        out
     }
 
     /// エラーは「line N: ...」の形の文字列で返す。
     pub fn parse(text: &str) -> Result<Self, String> {
-        todo!()
+        let mut lines = Lines::new(text);
+        let (line, header) = lines.next("format header")?;
+        if header != [FORMAT, VERSION] {
+            return Err(format!("line {line}: expected `{FORMAT} {VERSION}`"));
+        }
+        let (line, groups) = lines.keyword("groups", 1)?;
+        let ng = groups[0]
+            .parse::<usize>()
+            .ok()
+            .filter(|&n| n > 0 && n < usize::MAX)
+            .ok_or_else(|| format!("line {line}: invalid number of groups `{}`", groups[0]))?;
+        let bounds = lines.numbers_after("bounds", ng + 1)?;
+        let k_inf = lines.numbers_after("k-inf", 1)?[0];
+        let total = lines.numbers_after("total", ng)?;
+        let absorption = lines.numbers_after("absorption", ng)?;
+        let nu_fission = lines.numbers_after("nu-fission", ng)?;
+        let fission = lines.numbers_after("fission", ng)?;
+        let chi = lines.numbers_after("chi", ng)?;
+        let diffusion = lines.numbers_after("diffusion", ng)?;
+        lines.keyword("scatter", 0)?;
+        let scatter = (0..ng)
+            .map(|_| {
+                let (line, tokens) = lines.next("a row of scattering cross sections")?;
+                numbers(line, &tokens, ng)
+            })
+            .collect::<Result<_, _>>()?;
+        if let Ok((line, _)) = lines.next("") {
+            return Err(format!(
+                "line {line}: unexpected data after the scattering matrix"
+            ));
+        }
+        Ok(Self {
+            bounds,
+            k_inf,
+            total,
+            absorption,
+            nu_fission,
+            fission,
+            chi,
+            diffusion,
+            scatter,
+        })
+    }
+}
+
+const FORMAT: &str = "xlc-fewgroup";
+const VERSION: &str = "1";
+
+fn numbers_line(keyword: &str, values: &[f64]) -> String {
+    let mut out = keyword.to_string();
+    for v in values {
+        out += &format!(" {v:e}");
+    }
+    out + "\n"
+}
+
+fn numbers(line: usize, tokens: &[&str], n: usize) -> Result<Vec<f64>, String> {
+    if tokens.len() != n {
+        return Err(format!(
+            "line {line}: expected {n} values, found {}",
+            tokens.len()
+        ));
+    }
+    tokens
+        .iter()
+        .map(|t| {
+            t.parse::<f64>()
+                .ok()
+                .filter(|v| v.is_finite())
+                .ok_or_else(|| format!("line {line}: invalid number `{t}`"))
+        })
+        .collect()
+}
+
+/// 空行を飛ばして、行番号つきでトークンに分けた行を順に返す。
+struct Lines<'a> {
+    lines: std::vec::IntoIter<(usize, Vec<&'a str>)>,
+    end: usize,
+}
+
+impl<'a> Lines<'a> {
+    fn new(text: &'a str) -> Self {
+        let lines: Vec<_> = text
+            .lines()
+            .enumerate()
+            .map(|(i, l)| (i + 1, l.split_whitespace().collect::<Vec<_>>()))
+            .filter(|(_, tokens)| !tokens.is_empty())
+            .collect();
+        let end = text.lines().count() + 1;
+        Self {
+            lines: lines.into_iter(),
+            end,
+        }
+    }
+
+    fn next(&mut self, expected: &str) -> Result<(usize, Vec<&'a str>), String> {
+        self.lines.next().ok_or_else(|| {
+            format!(
+                "line {}: unexpected end of file, expected {expected}",
+                self.end
+            )
+        })
+    }
+
+    /// `keyword` で始まり、続く語がちょうど n 個の行
+    fn keyword(&mut self, keyword: &str, n: usize) -> Result<(usize, Vec<&'a str>), String> {
+        let (line, tokens) = self.next(keyword)?;
+        if tokens[0] != keyword || tokens.len() != n + 1 {
+            return Err(format!("line {line}: expected `{keyword}` with {n} values"));
+        }
+        Ok((line, tokens[1..].to_vec()))
+    }
+
+    fn numbers_after(&mut self, keyword: &str, n: usize) -> Result<Vec<f64>, String> {
+        let (line, tokens) = self.next(keyword)?;
+        if tokens[0] != keyword {
+            return Err(format!("line {line}: expected `{keyword}`"));
+        }
+        numbers(line, &tokens[1..], n)
     }
 }
 
@@ -60,7 +194,91 @@ pub fn homogenize(
     fine: &GroupStructure,
     coarse_bounds: &[f64],
 ) -> Result<FewGroup, String> {
-    todo!()
+    let ng = fine.len();
+    if materials.len() != solution.flux.len() {
+        return Err(format!(
+            "{} materials for {} regions",
+            materials.len(),
+            solution.flux.len()
+        ));
+    }
+    // 少数群の境界を細かい群の境界の位置に対応させる
+    let positions = coarse_bounds
+        .iter()
+        .map(|b| fine.bounds().iter().position(|f| f == b))
+        .collect::<Option<Vec<usize>>>()
+        .ok_or("few-group bounds must be bounds of the library groups")?;
+    let covers = positions.first() == Some(&0) && positions.last() == Some(&ng);
+    if !covers || positions.windows(2).any(|w| w[0] >= w[1]) {
+        return Err("few-group bounds must be descending and span the library groups".into());
+    }
+    let coarse = positions.len() - 1;
+    let mut group_of = vec![0; ng];
+    for (big, w) in positions.windows(2).enumerate() {
+        group_of[w[0]..w[1]].fill(big);
+    }
+
+    let mut flux = vec![0.0; coarse];
+    let mut total = vec![0.0; coarse];
+    let mut nu_fission = vec![0.0; coarse];
+    let mut fission = vec![0.0; coarse];
+    let mut scatter = vec![vec![0.0; coarse]; coarse];
+    let mut chi = vec![0.0; coarse];
+    for ((m, phi), volume) in materials.iter().zip(&solution.flux).zip(&solution.volumes) {
+        for g in 0..ng {
+            let w = volume * phi[g];
+            let big = group_of[g];
+            flux[big] += w;
+            total[big] += w * m.total[g];
+            nu_fission[big] += w * m.nu_fission[g];
+            fission[big] += w * m.fission[g];
+            for (to, s) in m.scatter[g].iter().enumerate() {
+                scatter[big][group_of[to]] += w * s;
+            }
+        }
+        for term in &m.fission_terms {
+            let rate: f64 = term
+                .nu_fission
+                .iter()
+                .zip(phi)
+                .map(|(n, f)| volume * n * f)
+                .sum();
+            for (g, c) in term.chi.iter().enumerate() {
+                chi[group_of[g]] += c * rate;
+            }
+        }
+    }
+    if flux.iter().any(|&f| f <= 0.0) {
+        return Err("a few group has no flux".into());
+    }
+    let per_flux =
+        |values: Vec<f64>| -> Vec<f64> { values.iter().zip(&flux).map(|(v, f)| v / f).collect() };
+    let total = per_flux(total);
+    let scatter: Vec<Vec<f64>> = scatter
+        .into_iter()
+        .zip(&flux)
+        .map(|(row, f)| row.iter().map(|v| v / f).collect())
+        .collect();
+    let produced: f64 = chi.iter().sum();
+    Ok(FewGroup {
+        bounds: coarse_bounds.to_vec(),
+        k_inf: solution.k,
+        absorption: total
+            .iter()
+            .zip(&scatter)
+            .map(|(t, row)| t - row.iter().sum::<f64>())
+            .collect(),
+        diffusion: total.iter().map(|t| 1.0 / (3.0 * t)).collect(),
+        total,
+        nu_fission: per_flux(nu_fission),
+        fission: per_flux(fission),
+        chi: if produced > 0.0 {
+            chi.iter().map(|c| c / produced).collect()
+        } else {
+            chi
+        },
+        scatter,
+    })
 }
 
 #[cfg(test)]
