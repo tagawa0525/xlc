@@ -438,11 +438,9 @@ mod tests {
         assert_eq!(at(203, 3.0e6), 3.0);
     }
 
-    #[test]
-    fn resonance_fission_survives_rebuild_of_mt18() {
+    fn single_level_mf2() -> String {
         use crate::endf::rec;
-        let full = ["1.0-5", "2.0+7"];
-        let mf2 = [
+        [
             rec(["9.223500+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
             rec(["9.223500+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
             rec(["1.0-5", "1.0+3", "1", "3", "0", "1"], 1, 2, 151),
@@ -456,21 +454,49 @@ mod tests {
             ),
             rec(["", "", "", "", "", ""], 1, 2, 0),
         ]
-        .concat();
-        // MT19 がなく MT20 がある: MT18 は部分反応の和で作り直される
+        .concat()
+    }
+
+    #[test]
+    fn mt18_is_kept_without_mt19() {
+        // NJOY と同じく、MT18 を冗長とみなすのは MT19 がある場合だけ
+        let full = ["1.0-5", "2.0+7"];
         let text = [
-            mf2,
+            single_level_mf2(),
             mf3_section(2, full, ["0.0", "0.0"]),
-            mf3_section(18, full, ["0.0", "0.0"]),
+            mf3_section(18, full, ["1.0", "1.0"]),
             mf3_section(20, ["5.0+6", "2.0+7"], ["0.125", "0.125"]),
             mf3_section(102, full, ["0.0", "0.0"]),
         ]
         .concat();
         let tape = Tape::parse(&text).unwrap();
         let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        assert!(!tables.contains_key(&19));
+        // 分離共鳴の外では MF3 の MT18 がそのまま残る
+        assert_eq!(tables[&18].eval(1.0e4), Some(1.0));
+        // 共鳴の核分裂は MT18 に足される
+        assert!(tables[&18].eval(6.674).unwrap() > 2.0);
+    }
+
+    #[test]
+    fn resonance_fission_goes_to_mt19_when_mt18_is_rebuilt() {
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            single_level_mf2(),
+            mf3_section(2, full, ["0.0", "0.0"]),
+            mf3_section(18, full, ["70.0", "70.0"]),
+            mf3_section(19, full, ["1.0", "1.0"]),
+            mf3_section(102, full, ["0.0", "0.0"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        assert_eq!(tables[&18].eval(1.0e4), Some(1.0));
+        // MT18 は MF3 の値（70 b）ではなく、共鳴を足した MT19 の和
         let fission = tables[&18].eval(6.674).unwrap();
-        assert!(fission > 1.0, "resonance fission lost: {fission}");
-        let parts: f64 = [2, 18, 102]
+        assert!(fission > 2.0);
+        assert_eq!(Some(fission), tables[&19].eval(6.674));
+        let parts: f64 = [2, 19, 102]
             .iter()
             .map(|mt| tables[mt].eval(6.674).unwrap())
             .sum();

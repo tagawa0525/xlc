@@ -282,6 +282,12 @@ mod tests {
     }
 
     #[test]
+    fn huge_range_count_is_error_not_abort() {
+        let err = mf2(&[HEAD, ["9.223800+4", "1.0", "0", "0", "99999999999", "0"]]).unwrap_err();
+        assert_eq!(err.line, 3);
+    }
+
+    #[test]
     fn multiple_isotopes_are_error() {
         let err = mf2(&[["9.223800+4", "2.360058+2", "0", "0", "2", "0"]]).unwrap_err();
         assert_eq!(err.line, 1);
