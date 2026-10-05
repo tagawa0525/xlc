@@ -68,9 +68,12 @@ pub(crate) mod tests {
         let (qr, qi) = (-gn_e * width / 2.0 / denom, gn_e * d / denom);
         let (wr, wi) = (1.0 + qr, qi);
         let (c, s) = ((2.0 * phi).cos(), -(2.0 * phi).sin());
-        let (ur, ui) = (c * wr - s * wi, c * wi + s * wr);
-        let total = 2.0 * pifac * (1.0 - ur);
-        let elastic = pifac * ((1.0 - ur).powi(2) + ui * ui);
+        let ui = c * wi + s * wr;
+        // 1 - Re U を差を取らずに計算する（低エネルギーでの桁落ちを避ける）
+        let one_minus_ur =
+            2.0 * phi.sin().powi(2) - (2.0 * phi).cos() * qr - (2.0 * phi).sin() * qi;
+        let total = 2.0 * pifac * one_minus_ur;
+        let elastic = pifac * (one_minus_ur.powi(2) + ui * ui);
         let fission = pifac * gn_e * gf / denom;
         Sigma {
             total,
