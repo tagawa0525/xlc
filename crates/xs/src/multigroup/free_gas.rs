@@ -64,12 +64,14 @@ pub fn free_gas_group_integrals(groups: &GroupStructure, e: f64, awr: f64, kt: f
     // 核の幅の目安。重い核では E の近くに集中し、軽い核では kT 程度に広がる
     let width = 2.0 * (e * kt / awr).sqrt() + kt / awr;
     let upper = (e + 30.0 * width + 40.0 * kt).min(highest);
-    let lower = (e - 30.0 * width).max(lowest);
+    // 下方散乱は静止標的なら αE まで届き、熱運動でさらに広がる
+    let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+    let lower = (alpha * e - 30.0 * width).max(lowest);
     let mut points: Vec<f64> = bounds
         .iter()
         .copied()
         .chain((-60..=60).map(|k| e + 0.5 * f64::from(k) * width))
-        .chain([lower, upper, e])
+        .chain([lower, upper, e, alpha * e])
         .filter(|&x| x >= lower && x <= upper)
         .collect();
     points.sort_by(f64::total_cmp);
