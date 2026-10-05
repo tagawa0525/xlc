@@ -16,7 +16,7 @@ pub use fission::fission_spectrum;
 pub use free_gas::{FreeGas, free_gas_group_integrals, free_gas_kernel};
 pub use integrate::{group_integrals, group_integrals_multi};
 pub use outgoing::{GroupedOutgoing, outgoing_group_integrals};
-pub use scatter::{scattering_matrix, two_body_range};
+pub use scatter::{emits_neutrons, scattering_matrix, two_body_range};
 pub use structure::GroupStructure;
 pub use weight::Weight;
 
