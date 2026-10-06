@@ -411,7 +411,7 @@ mod tests {
             .unwrap()
             .unwrap();
         let tables = crate::pointwise::reconstruct(&tape, 1, 1.0e-3).unwrap();
-        let groups = GroupStructure::new(vec![5.0e4, 1.0e4]);
+        let groups = GroupStructure::new(vec![5.0e4, 1.0e4]).unwrap();
         let shielded = shielded_averages(
             &groups,
             &Weight::lwr(),

@@ -62,7 +62,7 @@ mod tests {
         );
         let tape = Tape::parse(&text).unwrap();
         let mf5 = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap();
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
         let weight = Weight::lwr();
         let constant = Tab1::linear(vec![1.0e-5, 2.0e7], vec![1.0, 1.0]);
         let chi = fission_spectrum(&groups, &weight, &constant, &constant, &mf5);
