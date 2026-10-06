@@ -103,16 +103,120 @@ const VERSION: &str = "2";
 
 impl Library {
     pub fn to_text(&self) -> String {
-        todo!()
+        let mut out = format!("{FORMAT} {VERSION}\n");
+        out += &format!("groups {}\n", self.groups.len());
+        out += &numbers_line("bounds", self.groups.bounds());
+        out += &numbers_line("sigma0", &self.sigma0);
+        for n in &self.nuclides {
+            out += &format!("nuclide {}\n", n.name);
+            out += &format!("za {:e}\n", n.za);
+            out += &format!("awr {:e}\n", n.awr);
+            for t in &n.temperatures {
+                out += &format!("temperature {:e}\n", t.temperature);
+                out += &numbers_line("chi", &t.chi);
+                out += "scatter\n";
+                for row in &t.scatter {
+                    let values: Vec<String> = row.iter().map(|v| format!("{v:e}")).collect();
+                    out += &values.join(" ");
+                    out += "\n";
+                }
+                for (s0, s) in self.sigma0.iter().zip(&t.shielded) {
+                    out += &format!("shielded {s0:e}\n");
+                    out += &numbers_line("total", &s.total);
+                    out += &numbers_line("elastic", &s.elastic);
+                    out += &numbers_line("fission", &s.fission);
+                    out += &numbers_line("nu-fission", &s.nu_fission);
+                }
+            }
+            out += "end\n";
+        }
+        out
     }
 
     pub fn parse(text: &str) -> Result<Self, ParseError> {
-        todo!()
+        let mut lines = Lines::new(text);
+        let (line, header) = lines.next_line("format header")?;
+        if header != [FORMAT, VERSION] {
+            return Err(error(line, format!("expected `{FORMAT} {VERSION}`")));
+        }
+        let (line, ng) = lines.keyword_value("groups")?;
+        let ng = usize_value(line, ng)?;
+        let n_bounds = ng
+            .checked_add(1)
+            .filter(|_| ng > 0)
+            .ok_or_else(|| error(line, format!("invalid number of groups {ng}")))?;
+        let (line, bounds) = lines.keyword_numbers("bounds", n_bounds)?;
+        if !(bounds.windows(2).all(|w| w[0] > w[1]) && bounds.iter().all(|&b| b > 0.0)) {
+            return Err(error(line, "bounds must be positive and descending"));
+        }
+        let groups = GroupStructure::new(bounds);
+        let (line, sigma0) = lines.keyword_list("sigma0")?;
+        if sigma0.is_empty()
+            || !(sigma0.windows(2).all(|w| w[0] > w[1]) && sigma0.iter().all(|&s| s > 0.0))
+        {
+            return Err(error(line, "sigma0 must be positive and descending"));
+        }
+        let mut nuclides = Vec::new();
+        while lines.has_more() {
+            let (line, name) = lines.keyword_value("nuclide")?;
+            if name.is_empty() {
+                return Err(error(line, "missing nuclide name"));
+            }
+            let za = lines.keyword_number("za")?;
+            let awr = lines.keyword_number("awr")?;
+            let mut temperatures = Vec::new();
+            loop {
+                let (line, tokens) = lines.next_line("`temperature` or `end`")?;
+                match tokens.as_slice() {
+                    ["end"] if !temperatures.is_empty() => break,
+                    ["temperature", value] => {
+                        let temperature = parse_numbers(line, &[value], 1)?[0];
+                        temperatures.push(lines.temperature_data(temperature, ng, &sigma0)?);
+                    }
+                    _ => return Err(error(line, "expected `temperature <K>` or `end`")),
+                }
+            }
+            nuclides.push(NuclideData {
+                name: name.to_string(),
+                za,
+                awr,
+                temperatures,
+            });
+        }
+        Ok(Self {
+            groups,
+            sigma0,
+            nuclides,
+        })
     }
 
     /// 核種 `name` の、温度 `temperature` (K) での無限希釈の群定数。温度は表にあること（補間しない）。
     pub fn nuclide(&self, name: &str, temperature: f64) -> Result<Nuclide, String> {
-        todo!()
+        let data = self
+            .nuclides
+            .iter()
+            .find(|n| n.name == name)
+            .ok_or_else(|| format!("nuclide {name} is not in the library"))?;
+        let t = data
+            .temperatures
+            .iter()
+            .find(|t| (t.temperature - temperature).abs() <= 1.0e-9 * temperature)
+            .ok_or_else(|| {
+                let available: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
+                format!("{name} has no data at {temperature} K (available: {available:?})")
+            })?;
+        let dilute = &t.shielded[0];
+        Ok(Nuclide {
+            name: data.name.clone(),
+            za: data.za,
+            awr: data.awr,
+            temperature: t.temperature,
+            total: dilute.total.clone(),
+            fission: dilute.fission.clone(),
+            nu_fission: dilute.nu_fission.clone(),
+            chi: t.chi.clone(),
+            scatter: t.scatter.clone(),
+        })
     }
 }
 
