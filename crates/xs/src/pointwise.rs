@@ -7,7 +7,10 @@ use std::collections::BTreeMap;
 
 use crate::doppler::{broaden, broadening_limit};
 use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape, Unresolved};
-use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma};
+use crate::resonance::{
+    CrossSections, MlbwXs, ReichMooreXs, Sigma, UnresolvedXs, unresolved_grid,
+    unresolved_interpolation,
+};
 
 /// 線形化・共鳴計算の打ち切り判定: 区間の中点で、線形補間と真値の差が
 /// `tol × |真値|` 以下になるまで区間を二分する。
@@ -355,6 +358,23 @@ fn add_resonances(
             RangeKind::ScatteringRadius { .. } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
             RangeKind::UnresolvedLrf1 { lssf: 1 } => continue,
+            RangeKind::Unresolved(urr) if urr.lssf == 0 => {
+                // 平均で置き換えると、重なった部分の分離共鳴が消える（NJOY は分離共鳴の上端まで分離共鳴を使う）
+                let resolved_top = mf2
+                    .ranges
+                    .iter()
+                    .filter(|r| matches!(r.kind, RangeKind::ReichMoore(_) | RangeKind::Mlbw(_)))
+                    .map(|r| r.eh)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                if range.el < resolved_top {
+                    return Err(format!(
+                        "unresolved range from {} eV overlaps the resolved range up to {resolved_top} eV",
+                        range.el
+                    ));
+                }
+                replace_with_unresolved(tables, urr, range.el, range.eh, fission_mt, tol)?;
+                continue;
+            }
             RangeKind::Unresolved(Unresolved { lssf, .. }) | RangeKind::UnresolvedLrf1 { lssf } => {
                 return Err(format!(
                     "unresolved range with LSSF={lssf} is not supported"
@@ -391,6 +411,80 @@ fn add_resonances(
         }
     }
     Ok(())
+}
+
+/// LSSF=0 の非分離共鳴の範囲 [el, eh] で、弾性散乱・核分裂・捕獲を、平均断面積と MF3 の背景断面積の和に
+/// 置き換える（NJOY RECONR と同じ）。和は格子点で求め、格子点の間は MF2 の補間則で補間してから線形化する。
+fn replace_with_unresolved(
+    tables: &mut BTreeMap<u32, Tab1>,
+    urr: &Unresolved,
+    el: f64,
+    eh: f64,
+    fission_mt: u32,
+    tol: f64,
+) -> Result<(), String> {
+    let xs = UnresolvedXs::new(urr)?;
+    let law = unresolved_interpolation(urr)?;
+    let grid = unresolved_grid(urr, el, eh);
+    let averages: Vec<Sigma> = grid.iter().map(|&e| xs.cross_sections(e)).collect();
+    for (mt, part) in [(2, 0), (fission_mt, 1), (102, 2)] {
+        let background = tables.get(&mt);
+        let values: Vec<f64> = grid
+            .iter()
+            .zip(&averages)
+            .map(|(&e, s)| {
+                // 上端では範囲の内側（左側）の値。MF3 は上端で範囲の外の値に段差で変わることがある
+                let inside = background.map_or(0.0, |t| {
+                    if e < eh {
+                        right_limit(t, e)
+                    } else {
+                        left_limit(t, e)
+                    }
+                });
+                [s.elastic, s.fission, s.capture][part] + inside
+            })
+            .collect();
+        if background.is_none() && values.iter().all(|&v| v == 0.0) {
+            continue;
+        }
+        let unresolved = linearize(
+            &Tab1 {
+                breaks: vec![grid.len()],
+                laws: vec![law],
+                x: grid.clone(),
+                y: values,
+            },
+            tol,
+        );
+        let combined = match background {
+            Some(t) => add(&outside(t, el, eh), &unresolved),
+            None => unresolved,
+        };
+        tables.insert(mt, combined);
+    }
+    Ok(())
+}
+
+/// lin-lin の表の [el, eh] の中を 0 にした表（範囲の端は不連続点になる）。
+fn outside(t: &Tab1, el: f64, eh: f64) -> Tab1 {
+    let (mut x, mut y) = (Vec::new(), Vec::new());
+    for (&e, &v) in t.x.iter().zip(&t.y).filter(|(e, _)| **e < el) {
+        x.push(e);
+        y.push(v);
+    }
+    if el > t.x[0] {
+        x.extend([el, el]);
+        y.extend([left_limit(t, el), 0.0]);
+    }
+    if eh < t.x[t.x.len() - 1] {
+        x.extend([eh, eh]);
+        y.extend([0.0, right_limit(t, eh)]);
+    }
+    for (&e, &v) in t.x.iter().zip(&t.y).filter(|(e, _)| **e > eh) {
+        x.push(e);
+        y.push(v);
+    }
+    Tab1::linear(x, y)
 }
 
 /// 共鳴のピークと、その半値幅の位置。`peaks` は (共鳴エネルギー, 半値幅)。
@@ -595,6 +689,127 @@ mod tests {
         let tape = Tape::parse(&text).unwrap();
         let hot = reconstruct_at(&tape, 1, 1.0e-3, 600.0).unwrap();
         assert!(hot[&2].x.contains(&crate::doppler::MAX_LIMIT));
+    }
+
+    /// 非分離共鳴だけの MF2（LSSF=0、s 波の1系列、パラメータは一定）
+    fn unresolved_mf2() -> String {
+        use crate::endf::rec;
+        [
+            rec(["1.001000+3", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.001000+3", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0+3", "1.0+5", "2", "2", "0", "1"], 1, 2, 151),
+            rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["0.5", "0.0", "2", "0", "18", "2"], 1, 2, 151),
+            rec(["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"], 1, 2, 151),
+            rec(["1.0+3", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["1.0+5", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat()
+    }
+
+    #[test]
+    fn unresolved_averages_replace_background_with_lssf0() {
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            unresolved_mf2(),
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        let mf2 = Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
+        let RangeKind::Unresolved(urr) = &mf2.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let xs = UnresolvedXs::new(urr).unwrap();
+        let at = |mt: u32, e: f64| tables[&mt].eval(e).unwrap();
+        // 格子点（2 keV は補助格子の点）では、平均断面積と MF3 の背景断面積の和
+        let average = xs.cross_sections(2.0e3);
+        for (mt, expected) in [(2, average.elastic + 10.0), (102, average.capture + 0.5)] {
+            assert!(
+                (at(mt, 2.0e3) - expected).abs() <= 1e-12 * expected,
+                "MT{mt}"
+            );
+        }
+        // 範囲の外は MF3 のまま
+        assert_eq!((at(2, 10.0), at(2, 2.0e5)), (10.0, 10.0));
+        assert_eq!(at(1, 2.0e3), at(2, 2.0e3) + at(102, 2.0e3));
+    }
+
+    #[test]
+    fn unresolved_background_at_top_comes_from_inside() {
+        // MF3 は非分離共鳴の範囲の中では背景だけで、上端 1e5 eV で範囲の外の値に段差で変わる。
+        // 上端の格子点の背景は、範囲の内側の値を使う
+        use crate::endf::rec;
+        let capture = [
+            rec(["1.001000+3", "1.0", "0", "0", "0", "0"], 1, 3, 102),
+            rec(["0.0", "0.0", "0", "0", "1", "4"], 1, 3, 102),
+            rec(["4", "2", "", "", "", ""], 1, 3, 102),
+            rec(["1.0-5", "0.5", "1.0+5", "0.5", "1.0+5", "7.0"], 1, 3, 102),
+            rec(["2.0+7", "7.0", "", "", "", ""], 1, 3, 102),
+            rec(["", "", "", "", "", ""], 1, 3, 0),
+        ]
+        .concat();
+        let text = [
+            unresolved_mf2(),
+            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            capture,
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        let mf2 = Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
+        let RangeKind::Unresolved(urr) = &mf2.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let average = UnresolvedXs::new(urr)
+            .unwrap()
+            .cross_sections(1.0e5)
+            .capture;
+        let t = &tables[&102];
+        assert!((left_limit(t, 1.0e5) - (average + 0.5)).abs() <= 1e-12 * average);
+        assert_eq!(right_limit(t, 1.0e5), 7.0);
+    }
+
+    #[test]
+    fn rejects_lssf0_range_overlapping_resolved_range() {
+        // 分離共鳴 [1e-5, 2e3] と、下端がその中にある LSSF=0 の非分離共鳴 [1e3, 1e5]。
+        // 重なりで分離共鳴を平均で上書きしないよう、エラーにする（NJOY は分離共鳴の上端まで分離共鳴を使う）
+        use crate::endf::rec;
+        let mf2 = [
+            rec(["9.223500+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["9.223500+4", "1.0", "0", "0", "2", "0"], 1, 2, 151),
+            rec(["1.0-5", "2.0+3", "1", "3", "0", "1"], 1, 2, 151),
+            rec(["0.0", "9.48-1", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+            rec(
+                ["6.674", "0.5", "1.5-3", "2.3-2", "1.0-2", "0.0"],
+                1,
+                2,
+                151,
+            ),
+            rec(["1.0+3", "1.0+5", "2", "2", "0", "1"], 1, 2, 151),
+            rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["0.5", "0.0", "2", "0", "18", "2"], 1, 2, 151),
+            rec(["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"], 1, 2, 151),
+            rec(["1.0+3", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["1.0+5", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat();
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            mf2,
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        assert!(reconstruct(&tape, 1, 1.0e-3).is_err());
     }
 
     fn single_level_mf2() -> String {
