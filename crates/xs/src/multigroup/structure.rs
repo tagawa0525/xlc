@@ -16,31 +16,34 @@ const WIMS69_ASCENDING: [f64; 70] = [
     3.679e6, 6.0655e6, 1.0e7,
 ];
 
+/// 群構造の境界の誤り。
+#[derive(Debug, thiserror::Error)]
+#[error(
+    "group bounds must be at least two positive, finite, strictly descending values, \
+     got {0:?}"
+)]
+pub struct GroupError(Vec<f64>);
+
 impl GroupStructure {
-    /// 降順の境界から作る。
-    ///
-    /// # Panics
-    /// 境界が2つ未満のとき、降順でないとき、または正でない境界があるとき
+    /// 降順の境界から作る。境界は2つ以上、正で有限、厳密に降順であること
     /// （群積分で区間を対数的に分割するため、0 eV は扱えない）。
-    pub fn new(bounds: Vec<f64>) -> Self {
-        assert!(
-            bounds.iter().all(|&b| b > 0.0),
-            "group bounds must be positive"
-        );
-        assert!(
-            bounds.len() >= 2,
-            "a group structure needs at least two bounds"
-        );
-        assert!(
-            bounds.windows(2).all(|w| w[0] > w[1]),
-            "group bounds must be strictly descending"
-        );
-        Self { bounds }
+    pub fn new(bounds: Vec<f64>) -> Result<Self, GroupError> {
+        let valid = bounds.len() >= 2
+            && bounds.iter().all(|&b| b > 0.0 && b.is_finite())
+            && bounds.windows(2).all(|w| w[0] > w[1]);
+        if valid {
+            Ok(Self { bounds })
+        } else {
+            Err(GroupError(bounds))
+        }
     }
 
-    /// WIMS 69群（NJOY GROUPR の ign=9 と同じ境界）。
+    /// WIMS 69群（NJOY GROUPR の ign=9 と同じ境界）。定数の表なので検査せずに作る
+    /// （検査に通ることはテストで確かめている）。
     pub fn wims69() -> Self {
-        Self::new(WIMS69_ASCENDING.iter().rev().copied().collect())
+        Self {
+            bounds: WIMS69_ASCENDING.iter().rev().copied().collect(),
+        }
     }
 
     pub fn len(&self) -> usize {
