@@ -26,6 +26,8 @@ pub struct ThermalSab<'a> {
     ln_s: Vec<f64>,
     /// 束縛原子の散乱断面積 σb (barn)
     sigma_bound: f64,
+    /// この入射エネルギー (eV) 未満で使う
+    cutoff: f64,
 }
 
 impl<'a> ThermalSab<'a> {
@@ -75,7 +77,13 @@ impl<'a> ThermalSab<'a> {
             kt_table,
             ln_s,
             sigma_bound: data.sigma_free * ratio * ratio,
+            cutoff,
         })
+    }
+
+    /// この入射エネルギー (eV) 未満で使う。
+    pub fn cutoff(&self) -> f64 {
+        self.cutoff
     }
 
     /// σ0(E→E') (barn/eV)。
@@ -178,15 +186,15 @@ impl<'a> ThermalSab<'a> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::multigroup::{free_gas_group_integrals, free_gas_kernel};
 
-    const TEMPERATURE: f64 = 293.6;
+    pub(crate) const TEMPERATURE: f64 = 293.6;
 
     /// 自由ガス（A = 1、σfree = 1 b）の対称な S(α, β) = e^(-(α²+β²)/(4α))/√(4πα) を細かい格子で表にしたもの。
     /// 小さな α では S が β について幅 √α ほどで急に変わるので、実際の表と同じく β も原点の近くを細かくとる
-    fn free_gas_table() -> Mf7Incoherent {
+    pub(crate) fn free_gas_table() -> Mf7Incoherent {
         let alpha: Vec<f64> = (0..=800)
             .map(|i| 1.0e-5 * 10f64.powf(i as f64 / 100.0))
             .collect();
