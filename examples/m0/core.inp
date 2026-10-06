@@ -1,5 +1,0 @@
-# M0 の炉心: ピンセルの2群定数による均質な裸の直方体（実機の炉心程度の大きさ）。
-fewgroup pincell-fg.msgpack
-size 340 340 366
-nodes 16 16 18
-boundary zero-flux zero-flux zero-flux zero-flux zero-flux zero-flux
