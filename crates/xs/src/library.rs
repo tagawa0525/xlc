@@ -81,8 +81,10 @@ const FORMAT: &str = "xlc-multigroup";
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
     #[error("invalid MessagePack: {0}")]
-    Decode(#[from] rmp_serde::decode::Error),
-    #[error("the file must be a MessagePack map with field names")]
+    Decode(String),
+    #[error("{0} bytes follow the library")]
+    TrailingBytes(usize),
+    #[error("structs must be MessagePack maps with field names")]
     NotMap,
     #[error("expected format {FORMAT}, found {0}")]
     Format(String),
@@ -114,17 +116,23 @@ impl Library {
 
     /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。
     pub fn from_msgpack(bytes: &[u8]) -> Result<Self, LibraryError> {
-        // 配列形式（フィールド名なし）で書かれたファイルは、最上位が map にならない
-        if !matches!(bytes.first(), Some(0x80..=0x8f | 0xde | 0xdf)) {
-            return Err(LibraryError::NotMap);
+        let mut rest = bytes;
+        let value =
+            rmpv::decode::read_value(&mut rest).map_err(|e| LibraryError::Decode(e.to_string()))?;
+        if !rest.is_empty() {
+            return Err(LibraryError::TrailingBytes(rest.len()));
         }
-        let file: LibraryFile = rmp_serde::from_slice(bytes)?;
+        // serde は構造体を配列からも読むので、フィールド名なしで書かれた構造体をここで拒否する
+        require_maps(&value)?;
+        let file: LibraryFile =
+            rmpv::ext::from_value(value).map_err(|e| LibraryError::Decode(e.to_string()))?;
         if file.format != FORMAT {
             return Err(LibraryError::Format(file.format));
         }
         let invalid = LibraryError::Invalid;
-        let descending =
-            |v: &[f64]| v.windows(2).all(|w| w[0] > w[1]) && v.iter().all(|&x| x > 0.0);
+        let descending = |v: &[f64]| {
+            v.windows(2).all(|w| w[0] > w[1]) && v.iter().all(|&x| x > 0.0 && x.is_finite())
+        };
         let bounds = file.group_bounds;
         if bounds.len() < 2 || !descending(&bounds) {
             return Err(invalid(format!(
@@ -138,7 +146,10 @@ impl Library {
             )));
         }
         let ng = bounds.len() - 1;
-        for n in &file.nuclides {
+        for (k, n) in file.nuclides.iter().enumerate() {
+            if file.nuclides[..k].iter().any(|m| m.name == n.name) {
+                return Err(invalid(format!("nuclide {} appears twice", n.name)));
+            }
             n.check(ng, file.sigma0.len()).map_err(invalid)?;
         }
         Ok(Self {
@@ -178,6 +189,30 @@ impl Library {
     }
 }
 
+/// 構造体の位置（最上位、核種、温度、遮蔽断面積）がすべて map であることを確かめる。
+/// 項目の有無と型は、そのあとの serde の変換で確かめる。
+fn require_maps(value: &rmpv::Value) -> Result<(), LibraryError> {
+    type Entries = [(rmpv::Value, rmpv::Value)];
+    fn map(v: &rmpv::Value) -> Result<&Entries, LibraryError> {
+        v.as_map().map(Vec::as_slice).ok_or(LibraryError::NotMap)
+    }
+    fn array<'a>(entries: &'a Entries, key: &str) -> &'a [rmpv::Value] {
+        entries
+            .iter()
+            .find(|(k, _)| k.as_str() == Some(key))
+            .and_then(|(_, v)| v.as_array())
+            .map_or(&[], Vec::as_slice)
+    }
+    for nuclide in array(map(value)?, "nuclides") {
+        for temperature in array(map(nuclide)?, "temperatures") {
+            for shielded in array(map(temperature)?, "shielded") {
+                map(shielded)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
     fn check(&self, ng: usize, n_sigma0: usize) -> Result<(), String> {
@@ -188,8 +223,23 @@ impl NuclideData {
         if self.temperatures.is_empty() {
             return Err(format!("{name}: no temperatures"));
         }
-        for t in &self.temperatures {
+        if !(self.za.is_finite() && self.awr.is_finite() && self.awr > 0.0) {
+            return Err(format!(
+                "{name}: invalid za {} or awr {}",
+                self.za, self.awr
+            ));
+        }
+        for (k, t) in self.temperatures.iter().enumerate() {
             let at = |what: String| format!("{name} at {} K: {what}", t.temperature);
+            if !(t.temperature > 0.0 && t.temperature.is_finite()) {
+                return Err(at("the temperature must be positive and finite".into()));
+            }
+            if self.temperatures[..k]
+                .iter()
+                .any(|u| u.temperature == t.temperature)
+            {
+                return Err(at("the temperature appears twice".into()));
+            }
             let sized = |v: &[f64]| v.len() == ng;
             if !sized(&t.chi) {
                 return Err(at(format!("chi must have {ng} groups")));
@@ -210,6 +260,15 @@ impl NuclideData {
             };
             if !t.shielded.iter().all(all_sized) {
                 return Err(at(format!("shielded cross sections must have {ng} groups")));
+            }
+            let values = t.chi.iter().chain(t.scatter.iter().flatten()).chain(
+                t.shielded
+                    .iter()
+                    .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission])
+                    .flatten(),
+            );
+            if let Some(bad) = values.copied().find(|v| !v.is_finite()) {
+                return Err(at(format!("non-finite value {bad}")));
             }
         }
         Ok(())
