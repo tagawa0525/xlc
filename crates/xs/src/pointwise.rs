@@ -359,6 +359,19 @@ fn add_resonances(
             RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
             RangeKind::UnresolvedLrf1 { lssf: 1 } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 0 => {
+                // 平均で置き換えると、重なった部分の分離共鳴が消える（NJOY は分離共鳴の上端まで分離共鳴を使う）
+                let resolved_top = mf2
+                    .ranges
+                    .iter()
+                    .filter(|r| matches!(r.kind, RangeKind::ReichMoore(_) | RangeKind::Mlbw(_)))
+                    .map(|r| r.eh)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                if range.el < resolved_top {
+                    return Err(format!(
+                        "unresolved range from {} eV overlaps the resolved range up to {resolved_top} eV",
+                        range.el
+                    ));
+                }
                 replace_with_unresolved(tables, urr, range.el, range.eh, fission_mt, tol)?;
                 continue;
             }
