@@ -198,7 +198,8 @@ mod tests {
     fn threshold_reaction_stays_zero_below_threshold() {
         let (awr, temperature, e_max) = (236.0, 600.0, 1.0e3);
         let elastic = Tab1::linear(vec![1.0e-5, 1.0e5], vec![10.0, 10.0]);
-        let inelastic = Tab1::linear(vec![100.0, 1.0e5], vec![0.0, 5.0]);
+        // 200 eV の折れ曲がりを表すには、拡げたあとも点が要る
+        let inelastic = Tab1::linear(vec![100.0, 200.0, 1.0e5], vec![0.0, 3.0, 5.0]);
         let [elastic, inelastic] = broaden(&[elastic, inelastic], awr, temperature, e_max, 1.0e-3)
             .try_into()
             .unwrap();
