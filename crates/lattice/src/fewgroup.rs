@@ -15,7 +15,7 @@
 //! <G 行 × G 個: Σ(g→g')、行が入射の群>
 //! ```
 
-use xs::multigroup::GroupStructure;
+use xlc_xs::multigroup::GroupStructure;
 
 use crate::material::Material;
 use crate::moc::Solution;
