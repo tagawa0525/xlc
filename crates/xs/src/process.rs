@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use crate::endf::{Mf2, Mf3, Mf5, Mf6, RangeKind, Tab1, Tape, parse_nubar};
 use crate::library::Nuclide;
 use crate::multigroup::{
-    FreeGas, GroupStructure, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
-    reaction_averages, scattering_matrix,
+    FreeGas, GroupStructure, Thermal, UnresolvedShielding, Weight, emits_neutrons,
+    fission_spectrum, reaction_averages, scattering_matrix,
 };
 use crate::physics::BK;
 use crate::pointwise::{DEFAULT_TOLERANCE, left_limit, linearize, reconstruct, right_limit};
@@ -187,7 +187,7 @@ pub fn process_nuclide(tape: &Tape, name: &str, settings: &Settings) -> Result<N
         &elastic_only,
         &q_values,
         &mf6,
-        Some(&thermal),
+        Some(&Thermal::FreeGas(thermal)),
     )?;
     let mut scatter = scattering_matrix(groups, weight, awr, &others, &q_values, &mf6, None)?;
     for (row, el) in scatter.iter_mut().zip(&elastic) {
