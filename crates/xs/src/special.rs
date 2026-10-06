@@ -136,12 +136,19 @@ fn lower_gamma_series(a: f64, x: f64) -> f64 {
     sum
 }
 
-/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy, y ≥ 0）。
+/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy）。
 ///
-/// Weideman (1994, SIAM J. Numer. Anal. 31) の有理近似 w(z) ≈ 2 p(Z)/(L - iz)² + 1/(√π (L - iz))、
+/// y ≥ 0 では Weideman (1994, SIAM J. Numer. Anal. 31) の有理近似 w(z) ≈ 2 p(Z)/(L - iz)² + 1/(√π (L - iz))、
 /// Z = (L + iz)/(L - iz) を使う。p は `FADDEEVA_TERMS` 次の多項式で、係数は `faddeeva_coefficients`。
+/// y < 0 では w(z) = 2 e^(-z²) - w(-z) で上半面に移す。
 pub fn faddeeva(x: f64, y: f64) -> (f64, f64) {
-    assert!(y >= 0.0, "faddeeva is implemented for Im z >= 0, got {y}");
+    if y < 0.0 {
+        let (re, im) = faddeeva(-x, -y);
+        // e^(-z²) = e^(y² - x²) (cos 2xy - i sin 2xy)
+        let scale = 2.0 * (y * y - x * x).exp();
+        let phase = 2.0 * x * y;
+        return (scale * phase.cos() - re, -scale * phase.sin() - im);
+    }
     let a = faddeeva_coefficients();
     let l = faddeeva_scale();
     // L - iz = (L + y) - ix、L + iz = (L - y) + ix
