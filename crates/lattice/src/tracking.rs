@@ -81,6 +81,8 @@ pub enum TrackingError {
     CoarseSpacing { spacing: f64, azimuthal: usize },
     #[error("no reflected track at {0:?}")]
     NoReflectedTrack((f64, f64)),
+    #[error("two tracks reflect into track {track} ({})", if *forward { "forward" } else { "backward" })]
+    DuplicateLink { track: usize, forward: bool },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -88,7 +90,13 @@ pub struct Tracking {
     /// トラックを引いた形状（区間の領域の番号はこの形状の番号）
     pub lattice: Lattice,
     pub azimuths: Vec<Azimuth>,
+    /// 方位角の順に並ぶ
     pub tracks: Vec<Track>,
+    /// [方位角] の最初のトラックの番号（最後にトラックの数）
+    first: Vec<usize>,
+    /// [トラック][向き (0: 順, 1: 逆)] のスイープの始めに入ってくる角度中性子束を出すスイープ
+    /// （反射のつながりの逆。真空境界なら `None`）
+    sources: Vec<Option<Link>>,
 }
 
 impl Tracking {
@@ -243,11 +251,42 @@ impl Tracking {
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;
         }
+        let mut sources = vec![None; 2 * tracks.len()];
+        for (index, track) in tracks.iter().enumerate() {
+            for (forward, link) in [(true, track.forward_link), (false, track.backward_link)] {
+                if let Some(link) = link {
+                    let target = &mut sources[2 * link.track + usize::from(!link.forward)];
+                    if target.is_some() {
+                        return Err(TrackingError::DuplicateLink {
+                            track: link.track,
+                            forward: link.forward,
+                        });
+                    }
+                    *target = Some(Link {
+                        track: index,
+                        forward,
+                    });
+                }
+            }
+        }
         Ok(Self {
             lattice: lattice.clone(),
             azimuths,
             tracks,
+            first,
+            sources,
         })
+    }
+
+    /// 方位角 `azimuth` のトラックの番号の範囲。
+    pub fn azimuth_tracks(&self, azimuth: usize) -> std::ops::Range<usize> {
+        self.first[azimuth]..self.first[azimuth + 1]
+    }
+
+    /// トラック `track` を向き `forward` にスイープするとき、始めに入ってくる角度中性子束を出すスイープ
+    /// （真空境界から始まるなら `None`）。
+    pub fn incoming_source(&self, track: usize, forward: bool) -> Option<Link> {
+        self.sources[2 * track + usize::from(!forward)]
     }
 
     /// トラックから推定した領域ごとの体積。MOC の領域平均の計算と整合する。
