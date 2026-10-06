@@ -75,6 +75,8 @@ pub enum MocError {
     Untracked(usize),
     #[error("no fissile material")]
     NoFission,
+    #[error("no neutron reaches group {0} (no fission spectrum or scattering into it)")]
+    GroupWithoutSource(usize),
     #[error(transparent)]
     Cmfd(#[from] CmfdError),
     #[error("not converged in {iterations} iterations (k = {k})")]
@@ -101,6 +103,9 @@ pub fn solve(
         .any(|m| m.total.iter().any(|&t| t <= 0.0 || !t.is_finite()))
     {
         return Err(MocError::NonPositiveTotal);
+    }
+    if let Some(g) = group_without_source(materials, ng) {
+        return Err(MocError::GroupWithoutSource(g));
     }
     let used = tracking
         .tracks
@@ -560,6 +565,36 @@ fn incoming_sources(tracking: &Tracking) -> Vec<Option<usize>> {
         }
     }
     sources
+}
+
+/// どの物質でも核分裂のスペクトルが 0 で、中性子の届く群からの散乱もない群（最初の1つ）。
+/// その群の中性子束は常に 0 になり、断面積の誤りを疑うべき状態なので、解く前に止める。
+fn group_without_source(materials: &[&Material], ng: usize) -> Option<usize> {
+    let mut reached = vec![false; ng];
+    for term in materials.iter().flat_map(|m| &m.fission_terms) {
+        for (r, chi) in reached.iter_mut().zip(&term.chi) {
+            *r |= *chi > 0.0;
+        }
+    }
+    // 届く群からの散乱で届く群を、増えなくなるまで広げる
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for m in materials {
+            for (from, row) in m.scatter.iter().enumerate() {
+                if !reached[from] {
+                    continue;
+                }
+                for (to, s) in row.iter().enumerate() {
+                    if *s > 0.0 && !reached[to] {
+                        reached[to] = true;
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
+    reached.iter().position(|r| !r)
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
