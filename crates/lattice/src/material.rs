@@ -1,6 +1,6 @@
 //! 物質の巨視的断面積。
 
-use xs::library::Library;
+use xlc_xs::library::Library;
 
 /// χ の和と 1 の差の許容値
 const CHI_TOLERANCE: f64 = 1.0e-6;
@@ -121,8 +121,8 @@ impl Material {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xs::library::{NuclideData, Shielded, TemperatureData};
-    use xs::multigroup::GroupStructure;
+    use xlc_xs::library::{NuclideData, Shielded, TemperatureData};
+    use xlc_xs::multigroup::GroupStructure;
 
     fn library() -> Library {
         let nuclide = |name: &str, fissile: bool| {
