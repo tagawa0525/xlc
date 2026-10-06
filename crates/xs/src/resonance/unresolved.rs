@@ -16,8 +16,14 @@ pub struct UnresolvedXs<'a> {
 }
 
 impl<'a> UnresolvedXs<'a> {
+    /// チャネル半径の選び方（NAPS）を確かめる。NAPS=2 は散乱半径の表（NRO=1）があるときだけ使える。
     pub fn new(urr: &'a Unresolved) -> Result<Self, String> {
-        Ok(Self { urr })
+        match (urr.naps, &urr.ap_energy) {
+            (0 | 1, _) | (2, Some(_)) => Ok(Self { urr }),
+            (naps, _) => Err(format!(
+                "NAPS={naps} is not allowed in the unresolved range without NRO=1"
+            )),
+        }
     }
 
     /// エネルギー e (eV) での平均断面積。パラメータは lin-lin で補間する（NJOY と同じ）。
@@ -37,6 +43,7 @@ impl<'a> UnresolvedXs<'a> {
             let aa = match urr.naps {
                 0 => channel_radius(lv.awri),
                 1 => ay,
+                // NAPS=2（散乱半径の表があることは `new` で確かめてある）
                 _ => urr.ap,
             };
             let k = wave_number_factor() * lv.awri / (lv.awri + 1.0) * e.sqrt();
