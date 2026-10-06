@@ -357,6 +357,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pin_cell_matches_a_one_cell_lattice() {
+        let cell = PinCell::with_sectors(1.26, vec![0.3, 0.4096], 4).unwrap();
+        assert_eq!(
+            Lattice::pin_cell(cell.clone()),
+            Lattice::new(vec![cell], vec![vec![0]]).unwrap()
+        );
+    }
+
+    #[test]
     fn validates_radii() {
         assert!(PinCell::new(1.26, vec![0.2, 0.4]).is_ok());
         assert!(PinCell::new(1.26, vec![0.4, 0.2]).is_err());
