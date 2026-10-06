@@ -1,15 +1,13 @@
 //! 非分離共鳴の幅のゆらぎ（平均 1 の χ² 分布）による期待値。
 //!
 //! 自由度 ν の χ² 分布の密度は k^k x^(k-1) e^(-kx) / Γ(k)（k = ν/2）。x = u² と置くと
-//! 2 k^k u^(2k-1) e^(-k u²) / Γ(k) du になり、ν = 1 でも原点で有限になるので、u について適応積分する。
+//! 2 k^k u^(2k-1) e^(-k u²) / Γ(k) du になり、ν = 1 でも原点で有限になるので、u について適応 Gauss-Kronrod 積分する。
 
+use super::quadrature::gauss_kronrod;
 use crate::special::{erfcx, exp_e1};
 
 /// u の積分の上限を k u² = TAIL とする。密度は e^(-40) ≈ 4e-18 倍になり、倍精度で無視できる
 const TAIL: f64 = 40.0;
-
-/// 適応積分で区間を分ける深さの上限（区間の幅は 2^-50 倍まで）
-const MAX_DEPTH: u32 = 50;
 
 /// これより大きい c では、閉じた式の代わりに 1/c の級数を使う。閉じた式は
 /// E[x²/(x+c)] = 1 - c E[x/(x+c)] の引き算で相対誤差が eps c² 程度になり（c = 100 で 2e-12）、
@@ -68,93 +66,37 @@ fn width_ratio_series(dof: u32, c: f64) -> [f64; 2] {
 /// 期待値を入れ子にするときは、外側の許容誤差を内側より十分大きくする。内側の結果は、分割の仕方が
 /// 切り替わるところで許容誤差の大きさだけ飛ぶので、外側が同じ精度を求めると分割が止まらない。
 pub(super) fn expectation(dof: u32, tolerance: f64, f: impl Fn(f64) -> f64) -> f64 {
+    expectation_vec(dof, tolerance, 1, |x, out| out[0] = f(x))[0]
+}
+
+/// `expectation` のベクトル版。f は x と長さ `n` の出力を受け取り、値を書き込む。
+pub(super) fn expectation_vec(
+    dof: u32,
+    tolerance: f64,
+    n: usize,
+    f: impl Fn(f64, &mut [f64]),
+) -> Vec<f64> {
     let k = f64::from(dof) / 2.0;
     // Γ(k)（k = 1/2, 1, 3/2, 2）
     let gamma = match dof {
-        0 => return f(1.0),
+        0 => {
+            let mut out = vec![0.0; n];
+            f(1.0, &mut out);
+            return out;
+        }
         1 => std::f64::consts::PI.sqrt(),
         2 | 4 => 1.0,
         3 => 0.5 * std::f64::consts::PI.sqrt(),
         _ => panic!("no χ² density for {dof} degrees of freedom"),
     };
     let scale = 2.0 * k.powf(k) / gamma;
-    let integrand = |u: f64| {
+    let integrand = |u: f64, out: &mut [f64]| {
         let x = u * u;
-        f(x) * u.powf(2.0 * k - 1.0) * (-k * x).exp()
+        f(x, out);
+        let density = scale * u.powf(2.0 * k - 1.0) * (-k * x).exp();
+        out.iter_mut().for_each(|v| *v *= density);
     };
-    scale * adaptive_simpson(integrand, 0.0, (TAIL / k).sqrt(), tolerance)
-}
-
-/// [a, b] の適応 Simpson 積分。全体の積分の `tolerance` 倍まで、区間を分ける。
-fn adaptive_simpson(f: impl Fn(f64) -> f64, a: f64, b: f64, tolerance: f64) -> f64 {
-    // 細い構造を最初の標本で見逃さないよう、はじめに区間を等分しておく
-    const START: usize = 16;
-    let h = (b - a) / START as f64;
-    let mut panels: Vec<Panel> = (0..START)
-        .map(|i| Panel::new(&f, a + h * i as f64, a + h * (i + 1) as f64, 0))
-        .collect();
-    let rough: f64 = panels.iter().map(|p| p.whole).sum();
-    let mut eps = tolerance * rough.abs() / START as f64;
-    if eps == 0.0 {
-        eps = f64::MIN_POSITIVE;
-    }
-    let mut sum = 0.0;
-    while let Some(p) = panels.pop() {
-        let (left, right) = p.split(&f);
-        let delta = left.whole + right.whole - p.whole;
-        // 誤差の目安は |delta|/15。許容誤差は区間の幅に比例して配る
-        let allowed = eps * (p.b - p.a) / h;
-        if delta.abs() <= 15.0 * allowed {
-            sum += left.whole + right.whole + delta / 15.0;
-        } else {
-            assert!(
-                p.depth < MAX_DEPTH,
-                "adaptive integration did not converge on [{}, {}]",
-                p.a,
-                p.b
-            );
-            panels.push(left);
-            panels.push(right);
-        }
-    }
-    sum
-}
-
-/// Simpson 則の1区間（両端と中点の値を持つ）。
-struct Panel {
-    a: f64,
-    b: f64,
-    fa: f64,
-    fm: f64,
-    fb: f64,
-    whole: f64,
-    depth: u32,
-}
-
-impl Panel {
-    fn new(f: &impl Fn(f64) -> f64, a: f64, b: f64, depth: u32) -> Self {
-        Self::with_ends(f, a, b, f(a), f(b), depth)
-    }
-
-    fn with_ends(f: &impl Fn(f64) -> f64, a: f64, b: f64, fa: f64, fb: f64, depth: u32) -> Self {
-        let fm = f(0.5 * (a + b));
-        Self {
-            a,
-            b,
-            fa,
-            fm,
-            fb,
-            whole: (b - a) / 6.0 * (fa + 4.0 * fm + fb),
-            depth,
-        }
-    }
-
-    fn split(&self, f: &impl Fn(f64) -> f64) -> (Self, Self) {
-        let m = 0.5 * (self.a + self.b);
-        let left = Self::with_ends(f, self.a, m, self.fa, self.fm, self.depth + 1);
-        let right = Self::with_ends(f, m, self.b, self.fm, self.fb, self.depth + 1);
-        (left, right)
-    }
+    gauss_kronrod(integrand, n, 0.0, (TAIL / k).sqrt(), tolerance)
 }
 
 #[cfg(test)]
