@@ -546,10 +546,14 @@ mod tests {
 
     /// 非分離共鳴 LRF=1 の範囲のあとに LRU=0 の範囲を置いて、パラメータを読み飛ばせたことを確かめる。
     fn assert_skips_lrf1(lfw: &str, parameters: &[[&str; 6]]) {
+        assert_skips_lrf1_with_radius(lfw, "0", parameters);
+    }
+
+    fn assert_skips_lrf1_with_radius(lfw: &str, nro: &str, parameters: &[[&str; 6]]) {
         let mut lines = vec![
             HEAD,
             ["9.423900+4", "1.0", "0", lfw, "2", "0"],
-            ["5.7+3", "4.0+4", "2", "1", "0", "0"],
+            ["5.7+3", "4.0+4", "2", "1", nro, "0"],
         ];
         lines.extend_from_slice(parameters);
         lines.push(["4.0+4", "2.0+7", "0", "0", "0", "0"]);
@@ -585,6 +589,23 @@ mod tests {
                 ["0.0", "0.0", "0", "1", "8", "0"],
                 ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
                 ["1.2-3", "1.4-3", "", "", "", ""],
+            ],
+        );
+    }
+
+    #[test]
+    fn skips_unresolved_lrf1_with_energy_dependent_radius() {
+        assert_skips_lrf1_with_radius(
+            "0",
+            "1",
+            &[
+                // AP(E) の TAB1 が先に来る
+                ["0.0", "0.0", "0", "0", "1", "2"],
+                ["2", "2", "", "", "", ""],
+                ["5.7+3", "0.89", "4.0+4", "0.88", "", ""],
+                ["0.0", "0.888", "1", "0", "1", "0"],
+                ["2.379916+2", "0.0", "0", "0", "6", "1"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
             ],
         );
     }
