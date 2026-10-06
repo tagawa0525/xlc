@@ -71,6 +71,33 @@ impl<'a> UnresolvedXs<'a> {
     }
 }
 
+/// 非分離共鳴の自己遮蔽した断面積 (barn)。`current_total` は流れで重みづけした全断面積
+/// （NJOY の MT261 に相当し、P1 の全断面積に使う）。
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct ShieldedSigma {
+    pub total: f64,
+    pub elastic: f64,
+    pub fission: f64,
+    pub capture: f64,
+    pub current_total: f64,
+}
+
+impl UnresolvedXs<'_> {
+    /// エネルギー e (eV)、温度 `temperature` (K) での、背景断面積 `sigma0` ごとの実効断面積
+    /// （NJOY UNRESR unresl と同じ ETOX 法）。`background` は MF3 の背景断面積
+    /// （LSSF=1 では MF3 が平均断面積そのものなので 0 を渡す）。
+    pub fn shielded(
+        &self,
+        e: f64,
+        temperature: f64,
+        sigma0: &[f64],
+        background: Sigma,
+    ) -> Result<Vec<ShieldedSigma>, String> {
+        let _ = (e, temperature, sigma0, background);
+        todo!()
+    }
+}
+
 /// エネルギー e でのパラメータ（lin-lin 補間）。表の外では端の区間を延長する（NJOY と同じ）。
 /// 同じエネルギーが続く段差の上では、右側の値を使う。
 fn parameters(points: &[UrrPoint], e: f64) -> UrrPoint {
@@ -363,6 +390,56 @@ mod tests {
         };
         let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(5.0e4);
         assert!(sigma.fission > 0.0 && sigma.fission.is_finite());
+    }
+
+    #[test]
+    fn shielded_cross_sections_at_infinite_dilution_match_averages() {
+        let urr = s_wave(
+            vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
+            Interpolation::LinLin,
+        );
+        let xs = UnresolvedXs::new(&urr).unwrap();
+        let e = 1.0e4;
+        let average = xs.cross_sections(e);
+        let [dilute] = xs.shielded(e, 300.0, &[1.0e10], Sigma::default()).unwrap()[..] else {
+            panic!("one σ0");
+        };
+        for (shielded, infinite) in [
+            (dilute.capture, average.capture),
+            (dilute.elastic, average.elastic),
+            (dilute.total, average.total),
+            (dilute.current_total, average.total),
+        ] {
+            assert!(
+                (shielded - infinite).abs() <= 1e-6 * infinite,
+                "{shielded} vs {infinite}"
+            );
+        }
+    }
+
+    #[test]
+    fn capture_is_shielded_more_at_small_background_and_low_temperature() {
+        let urr = s_wave(
+            vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
+            Interpolation::LinLin,
+        );
+        let xs = UnresolvedXs::new(&urr).unwrap();
+        let sigma0 = [1.0e10, 1.0e3, 10.0, 1.0];
+        let cold = xs
+            .shielded(1.0e4, 300.0, &sigma0, Sigma::default())
+            .unwrap();
+        let hot = xs
+            .shielded(1.0e4, 1200.0, &sigma0, Sigma::default())
+            .unwrap();
+        for w in cold.windows(2) {
+            assert!(
+                w[1].capture < w[0].capture,
+                "{} then {}",
+                w[0].capture,
+                w[1].capture
+            );
+        }
+        assert!(hot[2].capture > cold[2].capture);
     }
 
     #[test]

@@ -10,7 +10,9 @@ mod unresolved;
 
 pub use mlbw::MlbwXs;
 pub use reich_moore::ReichMooreXs;
-pub use unresolved::{UnresolvedXs, interpolation as unresolved_interpolation, unresolved_grid};
+pub use unresolved::{
+    ShieldedSigma, UnresolvedXs, interpolation as unresolved_interpolation, unresolved_grid,
+};
 
 /// エネルギーごとに共鳴領域の断面積を計算できるもの。
 pub trait CrossSections {
