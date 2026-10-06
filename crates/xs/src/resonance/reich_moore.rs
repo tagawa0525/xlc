@@ -6,6 +6,7 @@
 use std::f64::consts::PI;
 
 use super::Sigma;
+use super::complex::Complex;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use crate::endf::{OrbitalL, ReichMoore};
 use crate::physics::wave_number_factor;
@@ -276,37 +277,6 @@ impl ChannelGroup {
             elastic: gj * (one_minus_u * one_minus_u + u_imag * u_imag),
             fission: 4.0 * gj * (inv[0][1].norm_sqr() + inv[0][2].norm_sqr()),
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-struct Complex {
-    re: f64,
-    im: f64,
-}
-
-impl Complex {
-    fn new(re: f64, im: f64) -> Self {
-        Self { re, im }
-    }
-    fn norm_sqr(self) -> f64 {
-        self.re * self.re + self.im * self.im
-    }
-    fn add(self, o: Self) -> Self {
-        Self::new(self.re + o.re, self.im + o.im)
-    }
-    fn mul(self, o: Self) -> Self {
-        Self::new(
-            self.re * o.re - self.im * o.im,
-            self.re * o.im + self.im * o.re,
-        )
-    }
-    fn sub(self, o: Self) -> Self {
-        Self::new(self.re - o.re, self.im - o.im)
-    }
-    fn recip(self) -> Self {
-        let n = self.norm_sqr();
-        Self::new(self.re / n, -self.im / n)
     }
 }
 
