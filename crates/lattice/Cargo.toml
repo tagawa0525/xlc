@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+rayon.workspace = true
 rmp-serde.workspace = true
 rmpv.workspace = true
 serde.workspace = true
