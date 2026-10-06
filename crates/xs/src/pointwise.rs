@@ -570,6 +570,23 @@ mod tests {
         }
     }
 
+    #[test]
+    fn broadening_limit_ignores_reactions_njoy_does_not_broaden() {
+        // 共鳴パラメータがない核種で、NJOY BROADR が見ない MT4（部分反応なし）と生成断面積は
+        // 上限を下げない。上限は格子の点として出力に現れる
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(4, ["1.0+6", "2.0+7"], ["1.0", "1.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+            mf3_section(203, ["1.0+5", "2.0+7"], ["3.0", "3.0"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let hot = reconstruct_at(&tape, 1, 1.0e-3, 600.0).unwrap();
+        assert!(hot[&2].x.contains(&crate::doppler::MAX_LIMIT));
+    }
+
     fn single_level_mf2() -> String {
         use crate::endf::rec;
         [
