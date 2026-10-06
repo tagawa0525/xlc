@@ -117,7 +117,8 @@ pub fn faddeeva(x: f64, y: f64) -> (f64, f64) {
     (first.0 + second.0, first.1 + second.1)
 }
 
-/// Weideman の近似の項数 N。N = 32 で、テストの範囲の相対誤差が 1e-12 以下になる
+/// Weideman の近似の項数 N。N = 32 で、定義の数値積分と相対 1e-10、w(iy) = erfcx(y) と 1e-12、
+/// 実軸上の e^(-x²) と絶対 1e-13 で一致する（テストを参照）
 const FADDEEVA_TERMS: usize = 32;
 
 /// Weideman の近似の尺度 L = (N/√2)^(1/2)
