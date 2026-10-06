@@ -16,14 +16,39 @@ pub struct UnresolvedXs<'a> {
     urr: &'a Unresolved,
 }
 
+/// 非分離共鳴の計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum UrrError {
+    #[error("NAPS={0} is not allowed in the unresolved range without NRO=1")]
+    Naps(i64),
+    #[error("self-shielding needs a positive temperature, got {0}")]
+    Temperature(f64),
+    #[error(
+        "background {background} b at {energy} eV is not positive \
+         (potential and interference terms {terms})"
+    )]
+    Background {
+        background: f64,
+        energy: f64,
+        terms: f64,
+    },
+    #[error("β={beta:e}, θ={theta:e} is outside the J, K table")]
+    JkTable { beta: f64, theta: f64 },
+    #[error("unresolved range has no (l, J) sequences")]
+    NoSequences,
+    #[error("unresolved sequences use different interpolation laws ({first:?} and {other:?})")]
+    MixedLaws {
+        first: Interpolation,
+        other: Interpolation,
+    },
+}
+
 impl<'a> UnresolvedXs<'a> {
     /// チャネル半径の選び方（NAPS）を確かめる。NAPS=2 は散乱半径の表（NRO=1）があるときだけ使える。
-    pub fn new(urr: &'a Unresolved) -> Result<Self, String> {
+    pub fn new(urr: &'a Unresolved) -> Result<Self, UrrError> {
         match (urr.naps, &urr.ap_energy) {
             (0 | 1, _) | (2, Some(_)) => Ok(Self { urr }),
-            (naps, _) => Err(format!(
-                "NAPS={naps} is not allowed in the unresolved range without NRO=1"
-            )),
+            (naps, _) => Err(UrrError::Naps(naps)),
         }
     }
 
@@ -82,11 +107,9 @@ impl UnresolvedXs<'_> {
         temperature: f64,
         sigma0: &[f64],
         background: Sigma,
-    ) -> Result<Vec<ShieldedSigma>, String> {
+    ) -> Result<Vec<ShieldedSigma>, UrrError> {
         if temperature.is_nan() || temperature <= 0.0 {
-            return Err(format!(
-                "self-shielding needs a positive temperature, got {temperature}"
-            ));
+            return Err(UrrError::Temperature(temperature));
         }
         let urr = self.urr;
         let ay = self.scattering_radius(e);
@@ -125,10 +148,11 @@ impl UnresolvedXs<'_> {
         let sigbt = background.total + spot + sint;
         let sigm: Vec<f64> = sigma0.iter().map(|s0| sigbt + s0).collect();
         if let Some(bad) = sigm.iter().find(|s| s.is_nan() || **s <= 0.0) {
-            return Err(format!(
-                "background {bad} b at {e} eV is not positive (potential and interference terms {})",
-                spot + sint
-            ));
+            return Err(UrrError::Background {
+                background: *bad,
+                energy: e,
+                terms: spot + sint,
+            });
         }
         let integrals = sequences
             .iter()
@@ -212,7 +236,7 @@ struct Sequence<'a> {
 impl Sequence<'_> {
     /// σ0 ごとの [E[J Γf], E[J Γγ], E[J Γn], E[J Γx], E[K Γ]] / D。`sigm` は σ0 を含む背景断面積。
     /// J, K は表から補間する（`jk_interpolated`）。表の範囲を外れたら、その点を記録してエラーにする。
-    fn integrals(&self, sigm: &[f64]) -> Result<Vec<f64>, String> {
+    fn integrals(&self, sigm: &[f64]) -> Result<Vec<f64>, UrrError> {
         let n = PARTS * sigm.len();
         // 平均断面積（`fluctuation_integrals`）と同じく、Γn または Γγ が 0 以下なら 0 とする
         if self.gn <= 0.0 || self.gg <= 0.0 {
@@ -345,19 +369,15 @@ pub fn unresolved_grid(urr: &Unresolved, el: f64, eh: f64) -> Vec<f64> {
 }
 
 /// 格子点の間の断面積の補間則。系列ごとに違うと、どれを使うかの根拠がないのでエラーにする。
-pub fn interpolation(urr: &Unresolved) -> Result<Interpolation, String> {
+pub fn interpolation(urr: &Unresolved) -> Result<Interpolation, UrrError> {
     let mut laws = urr
         .l_values
         .iter()
         .flat_map(|lv| &lv.j_values)
         .map(|jv| jv.int);
-    let first = laws
-        .next()
-        .ok_or("unresolved range has no (l, J) sequences")?;
+    let first = laws.next().ok_or(UrrError::NoSequences)?;
     match laws.find(|&law| law != first) {
-        Some(other) => Err(format!(
-            "unresolved sequences use different interpolation laws ({first:?} and {other:?})"
-        )),
+        Some(other) => Err(UrrError::MixedLaws { first, other }),
         None => Ok(first),
     }
 }
@@ -635,7 +655,7 @@ mod tests {
             vec![point(1.5e3, 1.0e-3), point(1.0e5, 1.0e-3)],
             Interpolation::LogLog,
         );
-        assert_eq!(interpolation(&urr), Ok(Interpolation::LogLog));
+        assert_eq!(interpolation(&urr).unwrap(), Interpolation::LogLog);
         let mut other = urr.l_values[0].j_values[0].clone();
         other.int = Interpolation::LinLin;
         urr.l_values[0].j_values.push(other);

@@ -51,7 +51,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         node_material: vec![0; input.nodes.iter().product()],
         boundaries: input.boundaries,
     };
-    let solution = solve(&problem, &Options::default()).map_err(|e| anyhow!(e))?;
+    let solution = solve(&problem, &Options::default())?;
     let leakage: f64 = solution.leakage.iter().sum();
     println!("k-eff {:.6}", solution.k);
     println!("leakage per fission neutron {:.4}", leakage * solution.k);

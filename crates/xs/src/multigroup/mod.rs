@@ -17,11 +17,12 @@ pub use fission::fission_spectrum;
 pub use free_gas::{FreeGas, free_gas_group_integrals, free_gas_kernel};
 pub use integrate::{group_integrals, group_integrals_multi};
 pub use outgoing::{AnalyticSpectrum, GroupedLaw, GroupedOutgoing, outgoing_group_integrals};
-pub use sab::ThermalSab;
 #[cfg(test)]
 pub(crate) use sab::tests as sab_tests;
+pub use sab::{SabError, ThermalSab};
 pub use scatter::{
-    Emission, Thermal, emits_neutrons, multiplicity, scattering_matrix, two_body_range,
+    Emission, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
+    two_body_range,
 };
 pub use structure::GroupStructure;
 pub use weight::Weight;
@@ -76,22 +77,18 @@ impl UnresolvedShielding {
         law: Interpolation,
         shielded: Vec<Vec<[f64; 4]>>,
         infinite: Vec<[f64; 4]>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, ShieldingError> {
         let multiplicative = match lssf {
             0 => false,
             1 => true,
-            _ => {
-                return Err(format!(
-                    "unresolved shielding needs LSSF 0 or 1, got {lssf}"
-                ));
-            }
+            _ => return Err(ShieldingError::Lssf(lssf)),
         };
         let n = grid.len();
         if n < 2 || grid.windows(2).any(|w| w[1] <= w[0]) || el >= eh {
-            return Err("unresolved grid must have increasing energies in [el, eh]".into());
+            return Err(ShieldingError::Grid);
         }
         if infinite.len() != n || shielded.iter().any(|row| row.len() != n) {
-            return Err("unresolved values must match the grid".into());
+            return Err(ShieldingError::GridValues);
         }
         Ok(Self {
             el,
@@ -141,6 +138,23 @@ impl UnresolvedShielding {
     }
 }
 
+/// 自己遮蔽した群定数を作るときのエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum ShieldingError {
+    #[error("unresolved shielding needs LSSF 0 or 1, got {0}")]
+    Lssf(i64),
+    #[error("unresolved grid must have increasing energies in [el, eh]")]
+    Grid,
+    #[error("unresolved values must match the grid")]
+    GridValues,
+    #[error("self-shielding needs the total cross section (MT1)")]
+    NoTotal,
+    #[error("sigma zero must be positive and finite, got {0}")]
+    Sigma0(f64),
+    #[error("unresolved shielding has {found} sigma zeros, expected {expected}")]
+    UnresolvedSigma0 { found: usize, expected: usize },
+}
+
 /// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
 ///
 /// 中性子束を w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の中性子束はこれに定数
@@ -152,21 +166,18 @@ pub fn shielded_averages(
     nubar: Option<&Tab1>,
     sigma0: &[f64],
     unresolved: Option<&UnresolvedShielding>,
-) -> Result<Vec<ReactionAverages>, String> {
-    let total = tables
-        .get(&1)
-        .ok_or("self-shielding needs the total cross section (MT1)")?;
-    if let Some(bad) = sigma0.iter().find(|s| !(s.is_finite() && **s > 0.0)) {
-        return Err(format!("sigma zero must be positive and finite, got {bad}"));
+) -> Result<Vec<ReactionAverages>, ShieldingError> {
+    let total = tables.get(&1).ok_or(ShieldingError::NoTotal)?;
+    if let Some(&bad) = sigma0.iter().find(|s| !(s.is_finite() && **s > 0.0)) {
+        return Err(ShieldingError::Sigma0(bad));
     }
     if let Some(u) = unresolved
         && u.shielded.len() != sigma0.len()
     {
-        return Err(format!(
-            "unresolved shielding has {} sigma zeros, expected {}",
-            u.shielded.len(),
-            sigma0.len()
-        ));
+        return Err(ShieldingError::UnresolvedSigma0 {
+            found: u.shielded.len(),
+            expected: sigma0.len(),
+        });
     }
     let mut breakpoints = total.x.clone();
     if let Some(u) = unresolved {
