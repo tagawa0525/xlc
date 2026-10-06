@@ -2,6 +2,8 @@
 //!
 //! 中性子の分布は LAW=1（連続エネルギー・角度分布）のエネルギー分布だけを扱い、角度は無視する
 //! （M0 の近似）。重心系の分布は、群に振り分けるときに重心系で等方として実験室系に変換する。
+//! LAW=2（2体反応の角度分布）は、出射エネルギーが角度と Q 値で決まる2体反応であることだけを記録し、
+//! MF4 の離散準位と同じく重心系で等方の2体反応として扱う（角度分布は使わない）。
 //! 中性子以外の生成粒子は読み飛ばす。
 
 use super::Error;
@@ -29,7 +31,10 @@ pub struct NeutronEmission {
 pub struct Mf6 {
     /// 標的の質量比（重心系から実験室系への変換に使う）
     pub awr: f64,
+    /// 連続分布（LAW=1）で与えられた中性子
     pub neutrons: Vec<NeutronEmission>,
+    /// 中性子が2体反応（LAW=2）で与えられている
+    pub two_body: bool,
 }
 
 impl Mf6 {
@@ -45,29 +50,43 @@ impl Mf6 {
         let nk = usize::try_from(head.n1)
             .map_err(|_| Error::new(r.line(), format!("invalid NK {}", head.n1)))?;
         let mut neutrons = Vec::new();
+        let mut two_body = false;
         for _ in 0..nk {
             let start = r.line() + 1;
             let product = r.tab1()?;
             let law = product.l2;
-            if product.c1 == NEUTRON {
-                if law != 1 {
+            if product.c1 != NEUTRON {
+                skip_law(&mut r, law, start)?;
+                continue;
+            }
+            match law {
+                1 => neutrons.push(NeutronEmission {
+                    multiplicity: product.table,
+                    distributions: read_law1(&mut r)?,
+                    frame,
+                }),
+                2 => {
+                    skip_law(&mut r, law, start)?;
+                    two_body = true;
+                }
+                _ => {
                     return Err(Error::new(
                         start,
                         format!("neutron LAW={law} is not supported"),
                     ));
                 }
-                neutrons.push(NeutronEmission {
-                    multiplicity: product.table,
-                    distributions: read_law1(&mut r)?,
-                    frame,
-                });
-            } else {
-                skip_law(&mut r, law, start)?;
             }
+        }
+        if two_body && !neutrons.is_empty() {
+            return Err(Error::new(
+                r.line(),
+                "neutrons with both continuum (LAW=1) and two-body (LAW=2) laws",
+            ));
         }
         Ok(Self {
             awr: head.c2,
             neutrons,
+            two_body,
         })
     }
 }
