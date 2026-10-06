@@ -3,6 +3,7 @@
 //! 弾性散乱と離散準位の非弾性散乱は、静止した標的との重心系等方の2体反応として扱う。
 //! 熱領域の弾性散乱は、指定があれば自由ガス模型で扱う（標的の熱運動による上方散乱を含む）。
 //! 連続的な中性子放出反応（MT91, (n,2n) など）は MF6 のエネルギー分布と多重度を使う。
+//! MF6 がなく MF4/MF5 で与えられた反応は、MF5 のエネルギー分布と、反応で決まる多重度を使う。
 
 use std::collections::BTreeMap;
 
@@ -11,7 +12,7 @@ use super::{
     FreeGas, GroupStructure, GroupedOutgoing, ThermalSab, Weight, free_gas_group_integrals,
     group_integrals, group_integrals_multi,
 };
-use crate::endf::{Frame, Mf6, Tab1};
+use crate::endf::{Frame, Mf5, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
 /// 出射エネルギーの範囲。出射エネルギーはこの範囲で一様に分布する。しきい値未満なら `None`。
@@ -29,6 +30,21 @@ pub fn two_body_range(e: f64, awr: f64, q: f64) -> Option<(f64, f64)> {
     ))
 }
 
+/// 連続的な中性子放出反応の出射分布。
+#[derive(Debug, Clone)]
+pub enum Emission {
+    /// MF6（多重度と出射分布）
+    Mf6(Mf6),
+    /// MF5（出射エネルギー分布。多重度は反応で決まる）
+    Mf5(Mf5),
+}
+
+/// MF5 で与えられた反応の中性子の多重度（ENDF-6 の反応の定義による）。
+/// 定義から決まらない反応（MT5 など）は `None`。
+pub fn multiplicity(mt: u32) -> Option<f64> {
+    todo!("{mt}")
+}
+
 /// 熱領域の散乱の扱い。どちらも cutoff 未満の入射エネルギーで、弾性散乱の静止標的の2体反応を置き換える。
 #[derive(Debug, Clone)]
 pub enum Thermal<'a> {
@@ -42,7 +58,7 @@ pub enum Thermal<'a> {
 ///
 /// - `tables`: ポイントワイズの断面積（キーは MT）
 /// - `q_values`: 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
-/// - `mf6`: MF6 の中性子放出データ（キーは MT）
+/// - `emissions`: 連続的な中性子放出反応の出射分布（キーは MT）
 /// - `thermal`: 熱領域の弾性散乱の扱い（`None` なら全域で静止標的）
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
@@ -52,7 +68,7 @@ pub fn scattering_matrix(
     awr: f64,
     tables: &BTreeMap<u32, Tab1>,
     q_values: &BTreeMap<u32, f64>,
-    mf6: &BTreeMap<u32, Mf6>,
+    emissions: &BTreeMap<u32, Emission>,
     thermal: Option<&Thermal>,
 ) -> Result<Vec<Vec<f64>>, String> {
     if let Some(Thermal::FreeGas(free_gas)) = thermal
@@ -79,8 +95,10 @@ pub fn scattering_matrix(
         // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
         let rows = if mt == 2 {
             elastic_rows(groups, weight, awr, table, thermal)
-        } else if let Some(data) = mf6.get(&mt) {
+        } else if let Some(Emission::Mf6(data)) = emissions.get(&mt) {
             emission_rows(groups, weight, table, data)
+        } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
+            todo!("{data:?}")
         } else if (51..=90).contains(&mt) {
             let q = *q_values
                 .get(&mt)
@@ -482,10 +500,10 @@ mod tests {
         let tables = BTreeMap::from([(2, constant(4.0))]);
         let mf6 = BTreeMap::from([(
             2,
-            Mf6 {
+            Emission::Mf6(Mf6 {
                 awr: 1.0,
                 neutrons: vec![],
-            },
+            }),
         )]);
         let thermal = FreeGas {
             kt: 0.0253,
@@ -556,10 +574,10 @@ mod tests {
         };
         let mf6 = BTreeMap::from([(
             16,
-            Mf6 {
+            Emission::Mf6(Mf6 {
                 awr: 15.86,
                 neutrons: vec![emission],
-            },
+            }),
         )]);
         let tables = BTreeMap::from([(16, constant(0.5))]);
         let m = scattering_matrix(
@@ -577,5 +595,81 @@ mod tests {
             (m[0][1] - 1.0).abs() < 1e-6 && m[0][0].abs() < 1e-12,
             "{m:?}"
         );
+    }
+
+    /// θ = 100 keV、U = 1 MeV の蒸発スペクトルの MF5
+    fn evaporation() -> Mf5 {
+        use crate::endf::EnergyLaw;
+        Mf5 {
+            subsections: vec![(
+                constant(1.0),
+                EnergyLaw::Evaporation {
+                    restriction: 1.0e6,
+                    theta: constant(1.0e5),
+                },
+            )],
+        }
+    }
+
+    #[test]
+    fn mf5_rows_use_the_multiplicity_of_the_reaction() {
+        // (n,2n) は2個、(n,nα) は1個の中性子を出す。行の和は 多重度 × σ（しきい値より上）
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]);
+        for (mt, count) in [(16, 2.0), (22, 1.0)] {
+            let tables = BTreeMap::from([(mt, constant(0.5))]);
+            let emissions = BTreeMap::from([(mt, Emission::Mf5(evaporation()))]);
+            let m = scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                15.86,
+                &tables,
+                &BTreeMap::new(),
+                &emissions,
+                None,
+            )
+            .unwrap();
+            let row: f64 = m[0].iter().sum();
+            assert!((row - count * 0.5).abs() < 1e-9, "MT{mt}: {m:?}");
+            assert_eq!(m[1], vec![0.0, 0.0], "MT{mt}");
+        }
+    }
+
+    #[test]
+    fn multiplicities_follow_the_reaction_definitions() {
+        for (mt, count) in [
+            (11, 2.0),
+            (16, 2.0),
+            (17, 3.0),
+            (22, 1.0),
+            (24, 2.0),
+            (25, 3.0),
+            (28, 1.0),
+            (30, 2.0),
+            (37, 4.0),
+            (41, 2.0),
+            (42, 3.0),
+            (91, 1.0),
+        ] {
+            assert_eq!(multiplicity(mt), Some(count), "MT{mt}");
+        }
+        assert_eq!(multiplicity(5), None);
+    }
+
+    #[test]
+    fn mf5_without_known_multiplicity_is_error() {
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
+        let tables = BTreeMap::from([(5, constant(1.0))]);
+        let emissions = BTreeMap::from([(5, Emission::Mf5(evaporation()))]);
+        let err = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            15.86,
+            &tables,
+            &BTreeMap::new(),
+            &emissions,
+            None,
+        )
+        .unwrap_err();
+        assert!(err.contains("MT5"), "{err}");
     }
 }
