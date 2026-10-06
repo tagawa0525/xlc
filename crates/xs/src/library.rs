@@ -28,10 +28,13 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::multigroup::GroupStructure;
 
 /// 1つの σ0 での群定数 (barn)。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Shielded {
     pub total: Vec<f64>,
     pub elastic: Vec<f64>,
@@ -40,7 +43,8 @@ pub struct Shielded {
 }
 
 /// 1つの温度での群定数。`shielded` は `Library::sigma0` の順。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TemperatureData {
     /// 処理温度 (K)
     pub temperature: f64,
@@ -51,7 +55,8 @@ pub struct TemperatureData {
 }
 
 /// 1核種の、温度ごとの群定数。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NuclideData {
     pub name: String,
     pub za: f64,
@@ -101,7 +106,43 @@ impl std::error::Error for ParseError {}
 const FORMAT: &str = "xlc-multigroup";
 const VERSION: &str = "2";
 
+/// MessagePack のファイルの形式の名前
+const MSGPACK_FORMAT: &str = "xlc-multigroup";
+
+/// MessagePack のライブラリの読み込みエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum LibraryError {
+    #[error("invalid MessagePack: {0}")]
+    Decode(#[from] rmp_serde::decode::Error),
+    #[error("the file must be a MessagePack map with field names")]
+    NotMap,
+    #[error("expected format {MSGPACK_FORMAT}, found {0}")]
+    Format(String),
+    #[error("{0}")]
+    Invalid(String),
+}
+
+/// ファイルの中身（フィールド名付きの map 形式で書く）。
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LibraryFile {
+    format: String,
+    group_bounds: Vec<f64>,
+    sigma0: Vec<f64>,
+    nuclides: Vec<NuclideData>,
+}
+
 impl Library {
+    /// MessagePack（フィールド名付きの map 形式）で書く。
+    pub fn to_msgpack(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。
+    pub fn from_msgpack(bytes: &[u8]) -> Result<Self, LibraryError> {
+        todo!("{bytes:?}")
+    }
+
     pub fn to_text(&self) -> String {
         let mut out = format!("{FORMAT} {VERSION}\n");
         out += &format!("groups {}\n", self.groups.len());
@@ -371,7 +412,8 @@ pub(crate) mod tests {
 
     fn shielded(scale: f64, fissile: bool) -> Shielded {
         Shielded {
-            total: vec![11.5 * scale, 1.0 / 3.0],
+            // 1.7929089665572825e-9 は、10 進表記を経ると最下位のビットがずれやすい値
+            total: vec![11.5 * scale, 1.7929089665572825e-9],
             elastic: vec![4.0 * scale, 15.0],
             fission: if fissile {
                 vec![1.2 * scale, 580.5]
@@ -413,74 +455,161 @@ pub(crate) mod tests {
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]),
             sigma0: vec![1.0e10, 10.0],
             nuclides: vec![
-                nuclide("U235", true, &[293.6, 900.0]),
-                nuclide("H1", false, &[293.6]),
+                nuclide("U-235", true, &[293.6, 900.0]),
+                nuclide("H-1", false, &[293.6]),
             ],
         }
     }
 
     #[test]
-    fn round_trips_exactly() {
+    fn round_trips_bit_exactly() {
         let library = sample();
-        let text = library.to_text();
-        assert!(text.starts_with("xlc-multigroup 2\n"));
-        assert_eq!(Library::parse(&text).unwrap(), library);
+        assert_eq!(
+            Library::from_msgpack(&library.to_msgpack()).unwrap(),
+            library
+        );
     }
 
     #[test]
     fn gives_infinite_dilution_at_a_tabulated_temperature() {
         let library = sample();
-        let u235 = library.nuclide("U235", 900.0).unwrap();
-        assert_eq!((u235.name.as_str(), u235.temperature), ("U235", 900.0));
-        assert_eq!(u235.total, vec![11.5, 1.0 / 3.0]);
+        let u235 = library.nuclide("U-235", 900.0).unwrap();
+        assert_eq!((u235.name.as_str(), u235.temperature), ("U-235", 900.0));
+        assert_eq!(u235.total, vec![11.5, 1.7929089665572825e-9]);
         assert_eq!(u235.chi, vec![1.0, 0.0]);
-        assert!(library.nuclide("U235", 600.0).is_err());
-        assert!(library.nuclide("O16", 293.6).is_err());
+        assert!(library.nuclide("U-235", 600.0).is_err());
+        assert!(library.nuclide("O-16", 293.6).is_err());
+    }
+
+    fn sample_file() -> LibraryFile {
+        let library = sample();
+        LibraryFile {
+            format: "xlc-multigroup".into(),
+            group_bounds: library.groups.bounds().to_vec(),
+            sigma0: library.sigma0,
+            nuclides: library.nuclides,
+        }
+    }
+
+    /// サンプルを書き換え、フィールド名付きの map 形式で書いて読む。
+    fn read_modified(change: impl FnOnce(&mut LibraryFile)) -> Result<Library, LibraryError> {
+        let mut file = sample_file();
+        change(&mut file);
+        Library::from_msgpack(&rmp_serde::to_vec_named(&file).unwrap())
     }
 
     #[test]
-    fn wrong_number_of_values_is_error() {
-        let text = sample().to_text().replacen("total 1.15e1 ", "total ", 1);
-        let err = Library::parse(&text).unwrap_err();
-        let line = text.lines().position(|l| l.starts_with("total")).unwrap() + 1;
-        assert_eq!(err.line, line);
+    fn written_as_a_map_with_the_format_name() {
+        let bytes = sample().to_msgpack();
+        let value: std::collections::BTreeMap<String, rmp_serde::Raw> =
+            rmp_serde::from_slice(&bytes).unwrap();
+        let keys: Vec<&str> = value.keys().map(String::as_str).collect();
+        assert_eq!(keys, vec!["format", "group_bounds", "nuclides", "sigma0"]);
+        let format: String = rmp_serde::from_slice(value["format"].as_bytes()).unwrap();
+        assert_eq!(format, "xlc-multigroup");
     }
 
     #[test]
-    fn shielded_blocks_must_follow_sigma0() {
-        let text = sample()
-            .to_text()
-            .replacen("shielded 1e1", "shielded 3e1", 1);
-        assert!(Library::parse(&text).is_err());
+    fn array_form_is_rejected() {
+        // 既定の配列形式ではフィールド名がなく、順番の変わったファイルを黙って誤読しうる
+        let bytes = rmp_serde::to_vec(&sample_file()).unwrap();
+        assert!(matches!(
+            Library::from_msgpack(&bytes),
+            Err(LibraryError::NotMap)
+        ));
     }
 
     #[test]
-    fn sigma0_must_be_descending() {
-        let text = sample()
-            .to_text()
-            .replacen("sigma0 1e10 1e1", "sigma0 1e1 1e10", 1);
-        assert!(Library::parse(&text).is_err());
-    }
-
-    #[test]
-    fn unknown_format_is_error() {
-        let err = Library::parse("xlc-multigroup 1\n").unwrap_err();
-        assert_eq!(err.line, 1);
-    }
-
-    #[test]
-    fn invalid_group_count_is_error() {
-        for groups in ["0", "18446744073709551615"] {
-            let text = format!("xlc-multigroup 2\ngroups {groups}\nbounds 1e0\n");
-            let err = Library::parse(&text).unwrap_err();
-            assert_eq!(err.line, 2, "groups {groups}");
+    fn unknown_and_missing_fields_are_rejected() {
+        #[derive(Serialize)]
+        struct Extra {
+            format: &'static str,
+            group_bounds: Vec<f64>,
+            sigma0: Vec<f64>,
+            nuclides: Vec<NuclideData>,
+            comment: &'static str,
+        }
+        #[derive(Serialize)]
+        struct Missing {
+            format: &'static str,
+            group_bounds: Vec<f64>,
+            nuclides: Vec<NuclideData>,
+        }
+        let file = sample_file();
+        let extra = Extra {
+            format: "xlc-multigroup",
+            group_bounds: file.group_bounds.clone(),
+            sigma0: file.sigma0.clone(),
+            nuclides: file.nuclides.clone(),
+            comment: "x",
+        };
+        let missing = Missing {
+            format: "xlc-multigroup",
+            group_bounds: file.group_bounds.clone(),
+            nuclides: file.nuclides.clone(),
+        };
+        for bytes in [
+            rmp_serde::to_vec_named(&extra).unwrap(),
+            rmp_serde::to_vec_named(&missing).unwrap(),
+        ] {
+            assert!(matches!(
+                Library::from_msgpack(&bytes),
+                Err(LibraryError::Decode(_))
+            ));
         }
     }
 
     #[test]
-    fn missing_end_is_error() {
-        let text = sample().to_text();
-        let truncated = text.trim_end().strip_suffix("end").unwrap();
-        assert!(Library::parse(truncated).is_err());
+    fn other_formats_are_rejected() {
+        let err = read_modified(|f| f.format = "xlc-fewgroup".into()).unwrap_err();
+        assert!(matches!(err, LibraryError::Format(_)), "{err}");
+    }
+
+    #[test]
+    fn wrong_number_of_values_is_error() {
+        let err = read_modified(|f| {
+            f.nuclides[0].temperatures[0].shielded[0].total.pop();
+        })
+        .unwrap_err();
+        assert!(err.to_string().contains("U-235"), "{err}");
+        assert!(
+            read_modified(|f| f.nuclides[1].temperatures[0].scatter[1]
+                .pop()
+                .map(|_| ())
+                .unwrap())
+            .is_err()
+        );
+        assert!(read_modified(|f| f.nuclides[1].temperatures[0].chi.clear()).is_err());
+    }
+
+    #[test]
+    fn shielded_sets_must_match_sigma0() {
+        assert!(
+            read_modified(|f| {
+                f.nuclides[0].temperatures[0].shielded.pop();
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn bounds_and_sigma0_must_be_descending() {
+        assert!(read_modified(|f| f.sigma0 = vec![10.0, 1.0e10]).is_err());
+        assert!(read_modified(|f| f.group_bounds = vec![1.0e-5, 0.625, 1.0e7]).is_err());
+        assert!(read_modified(|f| f.group_bounds = vec![1.0e7]).is_err());
+    }
+
+    #[test]
+    fn nuclides_need_temperatures() {
+        assert!(read_modified(|f| f.nuclides[1].temperatures.clear()).is_err());
+    }
+
+    #[test]
+    fn broken_bytes_are_rejected() {
+        assert!(matches!(
+            Library::from_msgpack(&[0x81, 0xc1]),
+            Err(LibraryError::Decode(_))
+        ));
+        assert!(Library::from_msgpack(&[]).is_err());
     }
 }
