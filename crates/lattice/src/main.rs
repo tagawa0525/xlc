@@ -9,7 +9,7 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 use lattice::fewgroup::homogenize;
-use lattice::geometry::PinCell;
+use lattice::geometry::{Lattice, PinCell};
 use lattice::input::PinCellInput;
 use lattice::material::Material;
 use lattice::moc::{Options, solve};
@@ -45,7 +45,7 @@ fn run(path: &Path) -> Result<(), String> {
         .map_err(|e| format!("fuel: {e}"))?;
     let moderator = Material::mix(&library, &input.moderator, input.moderator_temperature)
         .map_err(|e| format!("moderator: {e}"))?;
-    let cell = PinCell::new(input.pitch, input.radii())?;
+    let cell = Lattice::pin_cell(PinCell::new(input.pitch, input.radii())?);
     let materials: Vec<&Material> = (0..cell.regions())
         .map(|i| {
             if i < input.fuel_rings {
