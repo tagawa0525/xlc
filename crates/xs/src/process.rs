@@ -47,8 +47,6 @@ pub enum ProcessError {
     NoIncoherent,
     #[error("more than one unresolved range")]
     MultipleUnresolved,
-    #[error("self-shielding of unresolved LRF=1 ranges is not supported")]
-    UnresolvedLrf1,
     #[error("expected one material, found {0:?}")]
     Materials(Vec<i32>),
     #[error("MF3 MT{0} not found")]
@@ -95,7 +93,6 @@ pub fn unresolved_shielding(
         match &range.kind {
             RangeKind::Unresolved(urr) if unresolved.is_none() => unresolved = Some((range, urr)),
             RangeKind::Unresolved(_) => return Err(ProcessError::MultipleUnresolved),
-            RangeKind::UnresolvedLrf1 { .. } => return Err(ProcessError::UnresolvedLrf1),
             _ => {}
         }
     }

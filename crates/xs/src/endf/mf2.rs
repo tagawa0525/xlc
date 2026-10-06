@@ -1,7 +1,7 @@
 //! MF2 MT151（共鳴パラメータ）セクション。
 //!
 //! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）と MLBW 形式（LRU=1, LRF=2）、
-//! エネルギー依存のパラメータによる非分離共鳴（LRU=2, LRF=2）を扱う。それ以外の形式はエラーにする。
+//! 非分離共鳴（LRU=2 の LRF=1, 2）を扱う。それ以外の形式はエラーにする。
 
 use super::tape::{Reader, Section};
 use super::{Error, Interpolation, Tab1};
@@ -30,10 +30,8 @@ pub enum RangeKind {
     ReichMoore(ReichMoore),
     /// LRU=1, LRF=2
     Mlbw(Mlbw),
-    /// LRU=2, LRF=2
+    /// LRU=2（LRF=1 も LRF=2 と同じ形にして持つ）
     Unresolved(Unresolved),
-    /// LRU=2, LRF=1。パラメータは読み飛ばし、LSSF だけを持つ（無限希釈の断面積が MF3 にあれば使える）
-    UnresolvedLrf1 { lssf: i64 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -75,7 +73,7 @@ pub struct BwResonance {
     pub gf: f64,
 }
 
-/// 非分離共鳴のエネルギー依存のパラメータ（LRU=2, LRF=2）。
+/// 非分離共鳴のエネルギー依存のパラメータ（LRU=2。LRF=1 も同じ形にする）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unresolved {
     /// 自己遮蔽の扱い（LSSF）。1 なら無限希釈の断面積は MF3 にある
@@ -186,13 +184,27 @@ impl Mf2 {
                         1 => Some(r.tab1()?.table),
                         _ => return unsupported(format!("invalid NRO={nro}")),
                     };
-                    if lrf == 2 {
-                        RangeKind::Unresolved(read_unresolved(&mut r, range.n2, ap_energy)?)
+                    let urr = if lrf == 2 {
+                        read_unresolved(&mut r, range.n2, ap_energy)?
                     } else {
-                        RangeKind::UnresolvedLrf1 {
-                            lssf: skip_unresolved_lrf1(&mut r, lfw)?,
-                        }
+                        read_unresolved_lrf1(
+                            &mut r,
+                            lfw,
+                            (range.c1, range.c2),
+                            range.n2,
+                            ap_energy,
+                        )?
+                    };
+                    // ENDF は非分離共鳴の l を 2 までとする。それを超える l も、分離共鳴と同じ
+                    // 剛体球の透過因子と位相シフトで扱う（NJOY は l=2 の式で計算してしまう）
+                    if let Some(lv) = urr.l_values.iter().find(|lv| lv.l.number() > 2) {
+                        tracing::warn!(
+                            "line {range_line}: unresolved range has L={} beyond the ENDF limit of 2; \
+                             using the hard-sphere factors for that L (NJOY uses those of L=2)",
+                            lv.l
+                        );
                     }
+                    RangeKind::Unresolved(urr)
                 }
                 2 => return unsupported(format!("unresolved LRF={lrf} is not supported")),
                 _ => return unsupported(format!("invalid LRU={lru}")),
@@ -296,26 +308,146 @@ fn read_unresolved(
     })
 }
 
-/// 非分離共鳴 LRF=1 のパラメータを読み飛ばし、LSSF を返す。
-fn skip_unresolved_lrf1(r: &mut Reader<'_>, lfw: i64) -> Result<i64, Error> {
-    if lfw == 0 {
-        // SPI AP LSSF 0 NLS 0 と、l ごとに J のパラメータの LIST
+/// 非分離共鳴 LRF=1 のパラメータを、LRF=2 と同じ形で読む（NJOY と同じく、競合反応の幅はなく、
+/// パラメータはエネルギーに線形に補間する）。
+///
+/// LFW=0 ではパラメータはエネルギーによらないので、範囲の両端 `el`, `eh` に同じ値を置く。
+/// LFW=1 では核分裂幅だけがエネルギーの点 ES ごとに与えられるので、ほかのパラメータを ES に並べる。
+fn read_unresolved_lrf1(
+    r: &mut Reader<'_>,
+    lfw: i64,
+    (el, eh): (f64, f64),
+    naps: i64,
+    ap_energy: Option<Tab1>,
+) -> Result<Unresolved, Error> {
+    let count = |n: i64, line: usize, what: &str| {
+        usize::try_from(n).map_err(|_| Error::new(line, format!("invalid {what} {n}")))
+    };
+    let dof = |v: f64, line: usize| {
+        WidthDof::from_rounded(v).ok_or_else(|| {
+            Error::new(
+                line,
+                format!("degrees of freedom {v} must round to an integer from 0 to 4"),
+            )
+        })
+    };
+    let point = |e: f64, p: &[f64; 5], gf: f64| UrrPoint {
+        e,
+        d: p[0],
+        gx: 0.0,
+        gno: p[3],
+        gg: p[4],
+        gf,
+    };
+    let sequence = |p: &[f64; 5], amuf: WidthDof, points: Vec<UrrPoint>, line: usize| {
+        Ok::<_, Error>(UrrJValue {
+            aj: p[1],
+            int: Interpolation::LinLin,
+            amux: WidthDof::Fixed,
+            amun: dof(p[2], line)?,
+            amuf,
+            points,
+        })
+    };
+
+    let mut l_values = Vec::new();
+    let (spi, ap, lssf) = if lfw == 0 {
+        // SPI AP LSSF 0 NLS 0 と、l ごとに AWRI 0 L 0 6*NJS NJS の LIST（J ごとに D AJ AMUN GNO GG GF）
         let cont = r.cont()?;
-        for _ in 0..cont.n1 {
-            r.list()?;
+        for _ in 0..count(cont.n1, r.line(), "NLS")? {
+            let header_line = r.line() + 1;
+            let list = r.list()?;
+            let l = OrbitalL::from_endf(list.l1)
+                .ok_or_else(|| Error::new(header_line, format!("unsupported L={}", list.l1)))?;
+            let (chunks, []) = list.values.as_chunks::<6>() else {
+                return Err(Error::new(
+                    header_line,
+                    "LRF=1 parameters must be 6 values per J",
+                ));
+            };
+            let j_values = chunks
+                .iter()
+                .map(|c| {
+                    let p = [c[0], c[1], c[2], c[3], c[4]];
+                    let points = vec![point(el, &p, 0.0), point(eh, &p, 0.0)];
+                    sequence(&p, WidthDof::Fixed, points, header_line + 1)
+                })
+                .collect::<Result<_, _>>()?;
+            l_values.push(UrrLValue {
+                awri: list.c1,
+                l,
+                j_values,
+            });
         }
-        Ok(cont.l1)
+        (cont.c1, cont.c2, cont.l1)
     } else {
-        // エネルギーの LIST（SPI AP LSSF 0 NE NLS）と、l ごとに CONT（NJS）と J ごとの LIST
+        // SPI AP LSSF 0 NE NLS と ES、l ごとに AWRI 0 L 0 NJS 0 の CONT、
+        // J ごとに 0 0 L MUF NE+6 0 の LIST（D AJ AMUN GNO GG 0 と核分裂幅 GF が NE 個）
+        let header_line = r.line() + 1;
         let energies = r.list()?;
-        for _ in 0..energies.n2 {
-            let l_cont = r.cont()?;
-            for _ in 0..l_cont.n1 {
-                r.list()?;
-            }
+        if energies.values.is_empty() || energies.values.windows(2).any(|w| w[1] < w[0]) {
+            return Err(Error::new(
+                header_line,
+                "fission width energies must be present and not decreasing",
+            ));
         }
-        Ok(energies.l1)
-    }
+        for _ in 0..count(energies.n2, r.line(), "NLS")? {
+            let l_cont = r.cont()?;
+            let l = OrbitalL::from_endf(l_cont.l1)
+                .ok_or_else(|| Error::new(r.line(), format!("unsupported L={}", l_cont.l1)))?;
+            let mut j_values = Vec::new();
+            for _ in 0..count(l_cont.n1, r.line(), "NJS")? {
+                let header_line = r.line() + 1;
+                let list = r.list()?;
+                let amuf = WidthDof::from_number(list.l2).ok_or_else(|| {
+                    Error::new(
+                        header_line,
+                        format!("degrees of freedom MUF={} must be from 0 to 4", list.l2),
+                    )
+                })?;
+                let Some((&[d, aj, amun, gno, gg, _], widths)) =
+                    list.values.split_first_chunk::<6>()
+                else {
+                    return Err(Error::new(
+                        header_line,
+                        "LRF=1 parameters need 6 values per J",
+                    ));
+                };
+                if widths.len() != energies.values.len() {
+                    return Err(Error::new(
+                        header_line,
+                        format!(
+                            "{} fission widths for {} energies",
+                            widths.len(),
+                            energies.values.len()
+                        ),
+                    ));
+                }
+                let p = [d, aj, amun, gno, gg];
+                let points = energies
+                    .values
+                    .iter()
+                    .zip(widths)
+                    .map(|(&e, &gf)| point(e, &p, gf))
+                    .collect();
+                j_values.push(sequence(&p, amuf, points, header_line + 1)?);
+            }
+            l_values.push(UrrLValue {
+                awri: l_cont.c1,
+                l,
+                j_values,
+            });
+        }
+        (energies.c1, energies.c2, energies.l1)
+    };
+    Ok(Unresolved {
+        lssf,
+        spi,
+        ap,
+        ap_energy,
+        naps,
+        l_values,
+    })
 }
 
 fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> {
@@ -478,6 +610,13 @@ impl WidthDof {
         [Self::Fixed, Self::One, Self::Two, Self::Three, Self::Four]
             .into_iter()
             .find(|dof| f64::from(dof.number()) == rounded)
+    }
+
+    /// 整数の自由度から作る（範囲外なら `None`）。
+    fn from_number(n: i64) -> Option<Self> {
+        [Self::Fixed, Self::One, Self::Two, Self::Three, Self::Four]
+            .into_iter()
+            .find(|dof| i64::from(dof.number()) == n)
     }
 
     pub fn number(self) -> u32 {

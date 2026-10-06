@@ -394,7 +394,6 @@ fn add_resonances(
         let [_, elastic, fission, capture] = match &range.kind {
             RangeKind::ScatteringRadius { .. } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
-            RangeKind::UnresolvedLrf1 { lssf: 1 } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 0 => {
                 // 平均で置き換えると、重なった部分の分離共鳴が消える（NJOY は分離共鳴の上端まで分離共鳴を使う）
                 let resolved_top = mf2
@@ -412,7 +411,7 @@ fn add_resonances(
                 replace_with_unresolved(tables, urr, range.el, range.eh, fission_mt, tol)?;
                 continue;
             }
-            RangeKind::Unresolved(Unresolved { lssf, .. }) | RangeKind::UnresolvedLrf1 { lssf } => {
+            RangeKind::Unresolved(Unresolved { lssf, .. }) => {
                 return Err(format!(
                     "unresolved range with LSSF={lssf} is not supported"
                 ));
