@@ -81,9 +81,22 @@ impl Tab1 {
         self.laws[self.breaks.partition_point(|&b| b < k + 2)]
     }
 
-    /// x が昇順であることと、各区間の値が補間則の定義域にあることを検査する。
+    /// 値がすべて有限で、x が昇順であることと、各区間の値が補間則の定義域にあることを検査する。
     /// `breaks` と `laws` の整合は呼び出し側で保証されているものとする。
     pub(super) fn check(&self) -> Result<(), String> {
+        if let Some(k) = self
+            .x
+            .iter()
+            .zip(&self.y)
+            .position(|(x, y)| !x.is_finite() || !y.is_finite())
+        {
+            return Err(format!(
+                "non-finite value at point {}: x = {}, y = {}",
+                k + 1,
+                self.x[k],
+                self.y[k]
+            ));
+        }
         for k in 0..self.x.len().saturating_sub(1) {
             let (x0, x1) = (self.x[k], self.x[k + 1]);
             if x0.partial_cmp(&x1).is_none_or(|o| o.is_gt()) {
@@ -140,9 +153,10 @@ pub struct ClampedTab1 {
 }
 
 impl ClampedTab1 {
-    /// 空の表なら `None`。
+    /// 空の表、または有限でない x がある表なら `None`（範囲の端に丸める clamp が NaN で panic するため）。
     pub fn new(table: Tab1) -> Option<Self> {
-        (!table.x.is_empty()).then_some(Self { table })
+        let valid = !table.x.is_empty() && table.x.iter().all(|x| x.is_finite());
+        valid.then_some(Self { table })
     }
 
     pub fn table(&self) -> &Tab1 {
