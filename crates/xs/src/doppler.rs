@@ -64,8 +64,11 @@ const SQRT_PI: f64 = 1.772_453_850_905_516;
 pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64) -> Vec<Tab1> {
     let alpha = awr / (BK * temperature);
     let union = Union::new(tables);
-    let first = union.energies[0];
-    let top = e_max.min(*union.energies.last().expect("tables are not empty"));
+    // 点が2つ未満なら拡げる区間がない
+    let [first, .., last] = union.energies[..] else {
+        return tables.to_vec();
+    };
+    let top = e_max.min(last);
     if top <= first {
         return tables.to_vec();
     }
@@ -144,14 +147,17 @@ fn grid(union: &Union, integral: &Integral, top: f64, tol: f64) -> Vec<(f64, Vec
     for upper in uppers {
         // stack の末尾が、lower と組む区間の上端
         let mut stack = vec![upper];
-        while let Some(next) = stack.last() {
-            match split(&lower, next, out.last(), integral, tol) {
+        while let Some(next) = stack.pop() {
+            match split(&lower, &next, out.last(), integral, tol) {
                 None => {
-                    let next = stack.pop().expect("not empty");
                     out.push((lower.e, lower.values));
                     lower = next;
                 }
-                Some(mid) => stack.push(mid),
+                // 分けるときは、上端を戻してから中点を積む
+                Some(mid) => {
+                    stack.push(next);
+                    stack.push(mid);
+                }
             }
         }
     }
@@ -250,8 +256,9 @@ fn nodes(energies: &[f64], values: &[Vec<f64>], top: f64) -> Vec<usize> {
         return nodes;
     }
     let mut direction = rising(0);
+    // 最後に選んだ節
+    let mut previous = 0;
     for k in 1..=last {
-        let previous = *nodes.last().expect("starts with the first point");
         let e = energies[k];
         if e == energies[previous] {
             continue;
@@ -267,6 +274,7 @@ fn nodes(energies: &[f64], values: &[Vec<f64>], top: f64) -> Vec<usize> {
             || here != direction
         {
             nodes.push(k);
+            previous = k;
             direction = here;
         }
     }
