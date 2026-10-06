@@ -29,6 +29,11 @@
 
 use std::path::PathBuf;
 
+use std::collections::BTreeMap;
+
+use serde::Deserialize;
+use xlc_xs::library::is_nuclide_name;
+
 use crate::geometry::{Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
 
@@ -96,9 +101,157 @@ pub enum InputError {
     Invalid(String),
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct InputFile {
+    library: Option<PathBuf>,
+    cross_sections: Option<PathBuf>,
+    /// 省略すると少数群定数を出さない
+    few_group: Option<FewGroupEntry>,
+    /// 省略するとピン出力を出さない
+    pin_powers: Option<PathBuf>,
+    pitch: f64,
+    azimuthal: usize,
+    spacing: f64,
+    /// 省略した辺は鏡面反射
+    boundary: Option<BoundaryEntry>,
+    rows: Vec<String>,
+    /// 巨視的断面積のときは書かない
+    material: Option<BTreeMap<String, MaterialEntry>>,
+    cell: BTreeMap<String, CellEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FewGroupEntry {
+    output: PathBuf,
+    bounds: Vec<f64>,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Condition {
+    Reflective,
+    Vacuum,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BoundaryEntry {
+    left: Option<Condition>,
+    right: Option<Condition>,
+    top: Option<Condition>,
+    bottom: Option<Condition>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MaterialEntry {
+    temperature: f64,
+    nuclides: BTreeMap<String, f64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CellEntry {
+    zones: Vec<ZoneEntry>,
+    /// 省略すると 1（均質なセルだけ）
+    grid: Option<usize>,
+    /// 省略すると 1
+    sectors: Option<usize>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ZoneEntry {
+    material: String,
+    /// 最後の帯だけ省略する（セルの外周まで）
+    radius: Option<f64>,
+    rings: usize,
+}
+
+fn positive(v: f64) -> bool {
+    v > 0.0 && v.is_finite()
+}
+
 impl LatticeInput {
     pub fn parse(text: &str) -> Result<Self, InputError> {
-        todo!("{text}")
+        let file: InputFile = toml::from_str(text)?;
+        let invalid = |message: String| InputError::Invalid(message);
+        let cross_sections = match (file.library, file.cross_sections) {
+            (Some(path), None) => CrossSections::Library(path),
+            (None, Some(path)) => CrossSections::Macroscopic(path),
+            _ => {
+                return Err(invalid(
+                    "give exactly one of `library` and `cross-sections`".into(),
+                ));
+            }
+        };
+        let macroscopic = matches!(cross_sections, CrossSections::Macroscopic(_));
+        if macroscopic && file.material.is_some() {
+            return Err(invalid("materials come from the cross-section file".into()));
+        }
+        if macroscopic && file.few_group.is_some() {
+            return Err(invalid(
+                "`few-group` needs a library (group energies)".into(),
+            ));
+        }
+        for (key, value) in [("pitch", file.pitch), ("spacing", file.spacing)] {
+            if !positive(value) {
+                return Err(invalid(format!("`{key}` must be positive, got {value}")));
+            }
+        }
+        if file.azimuthal == 0 {
+            return Err(invalid("`azimuthal` must be positive".into()));
+        }
+        let boundaries = match file.boundary {
+            None => Boundaries::REFLECTIVE,
+            Some(b) => {
+                let side = |c: Option<Condition>| match c {
+                    None | Some(Condition::Reflective) => Boundary::Reflective,
+                    Some(Condition::Vacuum) => Boundary::Vacuum,
+                };
+                Boundaries {
+                    left: side(b.left),
+                    right: side(b.right),
+                    top: side(b.top),
+                    bottom: side(b.bottom),
+                }
+            }
+        };
+        let materials = file
+            .material
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(name, entry)| entry.into_input(name))
+            .collect::<Result<Vec<_>, String>>()
+            .map_err(invalid)?;
+        let cells = file
+            .cell
+            .into_iter()
+            .map(|(name, entry)| entry.into_input(name))
+            .collect::<Result<Vec<_>, String>>()
+            .map_err(invalid)?;
+        let rows = file
+            .rows
+            .iter()
+            .map(|row| row.split_whitespace().map(String::from).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        if rows.is_empty() || rows.iter().any(Vec::is_empty) {
+            return Err(invalid("`rows` needs cell names in every row".into()));
+        }
+        Ok(Self {
+            cross_sections,
+            output: file.few_group.map(|f| (f.output, f.bounds)),
+            pin_powers: file.pin_powers,
+            pitch: file.pitch,
+            azimuthal: file.azimuthal,
+            spacing: file.spacing,
+            boundaries,
+            materials,
+            cells,
+            rows,
+        })
     }
 
     /// 形状と、領域ごとの物質の名前。
@@ -169,6 +322,85 @@ impl LatticeInput {
             .flat_map(|&t| region_materials[t].iter().cloned())
             .collect();
         Ok((Lattice::new(types, layout)?, materials))
+    }
+}
+
+impl MaterialEntry {
+    fn into_input(self, name: String) -> Result<MaterialInput, String> {
+        if !positive(self.temperature) {
+            return Err(format!(
+                "material `{name}`: invalid temperature {}",
+                self.temperature
+            ));
+        }
+        if self.nuclides.is_empty() {
+            return Err(format!("material `{name}` has no nuclides"));
+        }
+        for (nuclide, &density) in &self.nuclides {
+            if !is_nuclide_name(nuclide) {
+                return Err(format!(
+                    "material `{name}`: nuclide name `{nuclide}` is not of the form U-235, Am-242m"
+                ));
+            }
+            if !(density >= 0.0 && density.is_finite()) {
+                return Err(format!(
+                    "material `{name}`: invalid density {density} of {nuclide}"
+                ));
+            }
+        }
+        Ok(MaterialInput {
+            name,
+            temperature: self.temperature,
+            composition: self.nuclides.into_iter().collect(),
+        })
+    }
+}
+
+impl CellEntry {
+    fn into_input(self, name: String) -> Result<CellInput, String> {
+        let error = |message: &str| Err(format!("cell `{name}`: {message}"));
+        let Some((last, inner)) = self.zones.split_last() else {
+            return error("needs at least one zone");
+        };
+        if last.radius.is_some() {
+            return error("the last zone extends to the cell boundary (no radius)");
+        }
+        let mut previous = 0.0;
+        for zone in inner {
+            match zone.radius {
+                Some(r) if positive(r) && r > previous => previous = r,
+                Some(r) => return error(&format!("radii must increase, got {r}")),
+                None => return error("only the last zone may omit its radius"),
+            }
+        }
+        if self.zones.iter().any(|z| z.rings == 0) {
+            return error("every zone needs at least one ring");
+        }
+        let (grid, sectors) = match (self.grid, self.sectors) {
+            (Some(_), Some(_)) => return error("`grid` and `sectors` exclude each other"),
+            (Some(0), _) | (_, Some(0)) => return error("`grid` and `sectors` must be positive"),
+            (Some(m), None) => {
+                if self.zones.len() != 1 || self.zones[0].rings != 1 {
+                    return error("`grid` needs a homogeneous cell (one zone with one ring)");
+                }
+                (m, 1)
+            }
+            (None, s) => (1, s.unwrap_or(1)),
+        };
+        Ok(CellInput {
+            name,
+            zones: self
+                .zones
+                .into_iter()
+                .map(|z| Zone {
+                    material: z.material,
+                    outer: z.radius,
+                    rings: z.rings,
+                })
+                .collect(),
+            grid,
+            sectors,
+        })
     }
 }
 
