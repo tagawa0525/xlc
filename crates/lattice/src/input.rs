@@ -445,14 +445,14 @@ mod tests {
 
     const PIN_CELL: &str = "
 # pin cell
-library m1.lib
+library m1.msgpack
 output pincell.fg
 few-group-bounds 1e7 0.625 1e-5
 pitch 1.26
 azimuthal 16
 spacing 0.05
-material fuel temperature 900 U235 7.0e-4 U238 2.2e-2 O16 4.6e-2   # UO2
-material water temperature 600 H1 4.9e-2 O16 2.5e-2
+material fuel temperature 900 U-235 7.0e-4 U-238 2.2e-2 O-16 4.6e-2   # UO2
+material water temperature 600 H-1 4.9e-2 O-16 2.5e-2
 cell pin fuel 0.4 2 water - 2
 row pin
 ";
@@ -475,7 +475,7 @@ row box pin
         let input = LatticeInput::parse(PIN_CELL).unwrap();
         assert_eq!(
             input.cross_sections,
-            CrossSections::Library(PathBuf::from("m1.lib"))
+            CrossSections::Library(PathBuf::from("m1.msgpack"))
         );
         assert_eq!(
             input.output,
@@ -491,7 +491,7 @@ row box pin
         assert_eq!(input.materials[0].temperature, 900.0);
         assert_eq!(
             input.materials[0].composition[1],
-            ("U238".to_string(), 2.2e-2)
+            ("U-238".to_string(), 2.2e-2)
         );
         assert_eq!(
             input.cells[0].zones,
@@ -575,11 +575,11 @@ row box pin
         let parse = LatticeInput::parse;
         // 断面積の出どころは library と cross-sections のどちらか一方
         assert!(parse(&format!("{PIN_CELL}\ncross-sections a.xs")).is_err());
-        assert!(parse(&PIN_CELL.replace("library m1.lib", "")).is_err());
+        assert!(parse(&PIN_CELL.replace("library m1.msgpack", "")).is_err());
         // 巨視的断面積では material を書かない、少数群定数を出さない
         assert!(
             parse(&format!(
-                "{LATTICE}\nmaterial UO2 temperature 600 U235 1e-3"
+                "{LATTICE}\nmaterial UO2 temperature 600 U-235 1e-3"
             ))
             .is_err()
         );
@@ -604,7 +604,7 @@ row box pin
         assert!(parse(&format!("{LATTICE}\ncell box water - 2")).is_err());
         assert!(
             parse(&format!(
-                "{PIN_CELL}\nmaterial fuel temperature 600 U238 1e-2"
+                "{PIN_CELL}\nmaterial fuel temperature 600 U-238 1e-2"
             ))
             .is_err()
         );
