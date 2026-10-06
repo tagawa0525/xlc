@@ -34,7 +34,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use xlc_xs::library::is_nuclide_name;
 
-use crate::geometry::{Lattice, PinCell};
+use crate::geometry::{GeometryError, Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
 
 /// 断面積の出どころ。
@@ -99,6 +99,14 @@ pub enum InputError {
     Toml(#[from] toml::de::Error),
     #[error("{0}")]
     Invalid(String),
+    #[error("cell `{cell}`: material `{material}` is not defined")]
+    UndefinedMaterial { cell: String, material: String },
+    #[error("cell `{0}` is not defined")]
+    UndefinedCell(String),
+    #[error("cell `{cell}`: {source}")]
+    Cell { cell: String, source: GeometryError },
+    #[error(transparent)]
+    Geometry(#[from] GeometryError),
 }
 
 #[derive(Deserialize)]
@@ -255,7 +263,7 @@ impl LatticeInput {
     }
 
     /// 形状と、領域ごとの物質の名前。
-    pub fn geometry(&self) -> Result<(Lattice, Vec<String>), String> {
+    pub fn geometry(&self) -> Result<(Lattice, Vec<String>), InputError> {
         let half = 0.5 * self.pitch;
         let mut types = Vec::with_capacity(self.cells.len());
         let mut region_materials = Vec::with_capacity(self.cells.len());
@@ -267,10 +275,10 @@ impl LatticeInput {
                 if let CrossSections::Library(_) = self.cross_sections
                     && !self.materials.iter().any(|m| m.name == zone.material)
                 {
-                    return Err(format!(
-                        "cell `{}`: material `{}` is not defined",
-                        cell.name, zone.material
-                    ));
+                    return Err(InputError::UndefinedMaterial {
+                        cell: cell.name.clone(),
+                        material: zone.material.clone(),
+                    });
                 }
                 let n = zone.rings as f64;
                 match zone.outer {
@@ -298,7 +306,10 @@ impl LatticeInput {
                     .collect();
                 PinCell::with_sectors(self.pitch, radii, cell.sectors)
             }
-            .map_err(|e| format!("cell `{}`: {e}", cell.name))?;
+            .map_err(|source| InputError::Cell {
+                cell: cell.name.clone(),
+                source,
+            })?;
             types.push(pin);
             region_materials.push(names);
         }
@@ -311,11 +322,11 @@ impl LatticeInput {
                         self.cells
                             .iter()
                             .position(|c| &c.name == name)
-                            .ok_or_else(|| format!("cell `{name}` is not defined"))
+                            .ok_or_else(|| InputError::UndefinedCell(name.clone()))
                     })
-                    .collect::<Result<Vec<usize>, String>>()
+                    .collect::<Result<Vec<usize>, InputError>>()
             })
-            .collect::<Result<Vec<_>, String>>()?;
+            .collect::<Result<Vec<_>, InputError>>()?;
         let materials = layout
             .iter()
             .flatten()
@@ -635,11 +646,7 @@ zones = [{ material = "water", rings = 1 }]
 
     #[test]
     fn geometry_checks_names_and_layout() {
-        let geometry = |text: String| {
-            LatticeInput::parse(&text)
-                .map_err(|e| e.to_string())
-                .and_then(|i| i.geometry())
-        };
+        let geometry = |text: String| LatticeInput::parse(&text).and_then(|i| i.geometry());
         // 配置に知らないセル、行の長さが行の数と違う
         assert!(geometry(LATTICE.replace("\"box pin\"", "\"box rod\"")).is_err());
         assert!(geometry(LATTICE.replace("\"box pin\"", "\"box pin pin\"")).is_err());

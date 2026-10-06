@@ -39,7 +39,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| shown(path))?;
     let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
     let base = path.parent().unwrap_or(Path::new("."));
-    let (lattice, region_materials) = input.geometry().map_err(|e| anyhow!(e))?;
+    let (lattice, region_materials) = input.geometry().with_context(|| shown(path))?;
 
     let (named, groups) = match &input.cross_sections {
         CrossSections::Library(file) => {
@@ -78,8 +78,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .collect::<anyhow::Result<Vec<&Material>>>()?;
 
     let tracking =
-        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)
-            .map_err(|e| anyhow!(e))?;
+        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
     let solution = solve(&tracking, &materials, &Options::default()).map_err(|e| anyhow!(e))?;
     if let Some((output, bounds)) = &input.output {
         let groups = groups
