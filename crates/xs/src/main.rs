@@ -23,10 +23,13 @@
 //! `thermal` を指定した核種は、4 eV 未満の弾性散乱を S(α, β) で、ほかは自由ガス模型で扱う。
 //! 群構造は WIMS 69群、重み関数は軽水炉向けの iwt=4 とする。
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Instant;
 
+use anyhow::{Context, anyhow};
+use serde::Deserialize;
 use xs::endf::Tape;
 use xs::library::{Library, NuclideData};
 use xs::multigroup::{GroupStructure, Weight};
@@ -58,33 +61,98 @@ enum InputError {
     Invalid(String),
 }
 
+/// 入力ファイルの中身（パスは未解決）。
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct InputFile {
+    output: PathBuf,
+    endf_directory: PathBuf,
+    /// 熱中性子散乱を使う核種がなければ省略できる
+    thermal_directory: Option<PathBuf>,
+    sigma0: Vec<f64>,
+    /// 名前ごとの核種
+    nuclide: BTreeMap<String, NuclideEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NuclideEntry {
+    endf: PathBuf,
+    temperatures: Vec<f64>,
+    /// 省略すると、熱領域の弾性散乱を自由ガス模型で扱う
+    thermal: Option<PathBuf>,
+}
+
 /// 入力ファイルを読む（パスは `base` で解決する）。
 fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
-    todo!("{text} {base:?}")
+    let file: InputFile = toml::from_str(text)?;
+    let invalid = |message: String| Err(InputError::Invalid(message));
+    let positive = |v: &f64| *v > 0.0 && v.is_finite();
+    if file.sigma0.is_empty()
+        || !file.sigma0.iter().all(positive)
+        || file.sigma0.windows(2).any(|w| w[1] >= w[0])
+    {
+        return invalid(format!(
+            "sigma0 must be positive and descending, got {:?}",
+            file.sigma0
+        ));
+    }
+    if file.nuclide.is_empty() {
+        return invalid("no nuclide is given".into());
+    }
+    let endf_directory = base.join(&file.endf_directory);
+    let mut nuclides = Vec::with_capacity(file.nuclide.len());
+    for (name, entry) in file.nuclide {
+        let t = &entry.temperatures;
+        if t.is_empty() || !t.iter().all(positive) {
+            return invalid(format!("{name}: temperatures must be positive, got {t:?}"));
+        }
+        if t.iter().enumerate().any(|(i, x)| t[..i].contains(x)) {
+            return invalid(format!("{name}: a temperature is repeated in {t:?}"));
+        }
+        let thermal = match (&entry.thermal, &file.thermal_directory) {
+            (None, _) => None,
+            (Some(thermal), Some(directory)) => Some(base.join(directory).join(thermal)),
+            (Some(_), None) => {
+                return invalid(format!("{name}: `thermal` needs `thermal-directory`"));
+            }
+        };
+        nuclides.push(NuclideInput {
+            endf: endf_directory.join(&entry.endf),
+            temperatures: entry.temperatures,
+            thermal,
+            name,
+        });
+    }
+    Ok(Input {
+        output: base.join(file.output),
+        sigma0: file.sigma0,
+        nuclides,
+    })
 }
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
         [path] => read_input(Path::new(path)).and_then(|input| run(&input)),
-        _ => Err("usage: xs <input file>".into()),
+        _ => Err(anyhow!("usage: xs <input file>")),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
-        Err(message) => {
-            eprintln!("error: {message}");
+        Err(error) => {
+            eprintln!("error: {error:#}");
             ExitCode::FAILURE
         }
     }
 }
 
-fn read_input(path: &Path) -> Result<Input, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+fn read_input(path: &Path) -> anyhow::Result<Input> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("{}", path.display()))?;
     let base = path.parent().unwrap_or(Path::new("."));
-    parse_input(&text, base).map_err(|e| format!("{}: {e}", path.display()))
+    parse_input(&text, base).with_context(|| format!("{}", path.display()))
 }
 
-fn run(input: &Input) -> Result<(), String> {
+fn run(input: &Input) -> anyhow::Result<()> {
     let settings = Settings {
         groups: GroupStructure::wims69(),
         weight: Weight::lwr(),
@@ -93,7 +161,7 @@ fn run(input: &Input) -> Result<(), String> {
         tolerance: DEFAULT_TOLERANCE,
     };
     // 核種ごとの処理は独立なので並列に行う
-    let results: Vec<Result<NuclideData, String>> = std::thread::scope(|scope| {
+    let results: Vec<anyhow::Result<NuclideData>> = std::thread::scope(|scope| {
         let handles: Vec<_> = input
             .nuclides
             .iter()
@@ -103,31 +171,32 @@ fn run(input: &Input) -> Result<(), String> {
             .into_iter()
             .map(|h| {
                 h.join()
-                    .unwrap_or_else(|_| Err("processing panicked".into()))
+                    .unwrap_or_else(|_| Err(anyhow!("processing panicked")))
             })
             .collect()
     });
-    let nuclides = results.into_iter().collect::<Result<Vec<_>, _>>()?;
+    let nuclides = results.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
     let library = Library {
         groups: settings.groups,
         sigma0: settings.sigma0,
         nuclides,
     };
     std::fs::write(&input.output, library.to_msgpack())
-        .map_err(|e| format!("{}: {e}", input.output.display()))
+        .with_context(|| format!("{}", input.output.display()))
 }
 
-fn process_file(nuclide: &NuclideInput, settings: &Settings) -> Result<NuclideData, String> {
+fn process_file(nuclide: &NuclideInput, settings: &Settings) -> anyhow::Result<NuclideData> {
     let start = Instant::now();
-    let read = |path: &Path| -> Result<Tape, String> {
-        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        Tape::parse(&text).map_err(|e| format!("{}: {e}", path.display()))
+    let read = |path: &Path| -> anyhow::Result<Tape> {
+        let context = || format!("{}", path.display());
+        let text = std::fs::read_to_string(path).with_context(context)?;
+        Tape::parse(&text).with_context(context)
     };
     let name = &nuclide.name;
     let tape = read(&nuclide.endf)?;
     let thermal = match &nuclide.thermal {
         Some(path) => {
-            Some(read_thermal_scattering(&read(path)?).map_err(|e| format!("{name}: {e}"))?)
+            Some(read_thermal_scattering(&read(path)?).map_err(|e| anyhow!("{name}: {e}"))?)
         }
         None => None,
     };
@@ -138,7 +207,7 @@ fn process_file(nuclide: &NuclideInput, settings: &Settings) -> Result<NuclideDa
         thermal.as_ref(),
         settings,
     )
-    .map_err(|e| format!("{name}: {e}"))?;
+    .map_err(|e| anyhow!("{name}: {e}"))?;
     eprintln!("{name}: done in {:.1} s", start.elapsed().as_secs_f64());
     Ok(data)
 }
