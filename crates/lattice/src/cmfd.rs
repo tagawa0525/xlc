@@ -157,6 +157,7 @@ impl CoarseMesh {
 mod tests {
     use super::*;
     use crate::geometry::{Lattice, PinCell};
+    use crate::material::{FissionTerm, Material};
 
     fn two_by_two() -> Tracking {
         let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
@@ -184,6 +185,36 @@ mod tests {
         }
         assert_eq!(count.iter().filter(|&&c| c == 2).count(), 4);
         assert_eq!(count.iter().filter(|&&c| c == 1).count(), 8);
+    }
+
+    #[test]
+    fn homogeneous_cell_gives_the_infinite_medium_k() {
+        // 4辺が鏡面反射の均質なセルでは面の流れが 0 で、粗メッシュの k は無限媒質の k
+        // k∞ = νΣfᵀ (diag Σt - Σsᵀ)⁻¹ χ（χ = (1, 0)）
+        let m = Material {
+            total: vec![0.5, 1.2],
+            scatter: vec![vec![0.45, 0.02], vec![0.0, 0.9]],
+            fission: vec![0.008 / 2.5, 0.25 / 2.5],
+            nu_fission: vec![0.008, 0.25],
+            fission_terms: vec![FissionTerm {
+                chi: vec![1.0, 0.0],
+                nu_fission: vec![0.008, 0.25],
+            }],
+        };
+        let a = [[0.5 - 0.45, 0.0], [-0.02, 1.2 - 0.9]];
+        let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+        let expected = (0.008 * a[1][1] - 0.25 * a[1][0]) / det;
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let mesh = CoarseMesh::new(&tracking);
+        let volumes = tracking.volumes(2);
+        // 均質なので、領域の中性子束の形によらない
+        let flux = vec![vec![1.0, 0.3], vec![0.8, 0.5]];
+        let current = vec![0.0; mesh.faces() * 2];
+        let coarse = Coarse::homogenize(&mesh, &[&m, &m], &volumes, &flux, &current).unwrap();
+        let (k, ratio) = coarse.solve(1.0, &CmfdOptions::default()).unwrap();
+        assert!((k - expected).abs() < 1e-9, "{k} vs {expected}");
+        assert_eq!(ratio.len(), 2);
     }
 
     /// 面の外向きの重みの和（セル `cell` から出る分が正）
