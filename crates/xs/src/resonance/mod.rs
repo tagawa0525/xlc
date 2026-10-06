@@ -4,6 +4,7 @@ mod factors;
 mod fluctuation;
 mod line_shape;
 mod mlbw;
+mod quadrature;
 mod reich_moore;
 mod unresolved;
 
