@@ -3,6 +3,10 @@
 //! 使い方: lattice <入力ファイル>
 //!
 //! 入力ファイル中のライブラリと出力のパスは、入力ファイルのあるディレクトリからの相対パス。
+//!
+//! スレッド数は、環境変数 `RAYON_NUM_THREADS` があればその値、なければ物理コアの数とする。
+//! MOC のスイープはメモリの転送速度で頭打ちになり、1つのコアを2つのスレッドで分ける
+//! （SMT）とかえって遅くなるため。
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -21,7 +25,7 @@ use xlc_xs::library::Library;
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
-        [input] => run(Path::new(input)),
+        [input] => use_physical_cores().and_then(|()| run(Path::new(input))),
         _ => Err(anyhow!("usage: lattice <input>")),
     };
     match result {
@@ -31,6 +35,17 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// `RAYON_NUM_THREADS` がなければ、rayon のスレッド数を物理コアの数にする。
+fn use_physical_cores() -> anyhow::Result<()> {
+    if std::env::var_os("RAYON_NUM_THREADS").is_none() {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_cpus::get_physical())
+            .build_global()
+            .context("thread pool")?;
+    }
+    Ok(())
 }
 
 fn run(path: &Path) -> anyhow::Result<()> {
