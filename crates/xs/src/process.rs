@@ -9,7 +9,9 @@ use crate::multigroup::{
     Weight, emits_neutrons, fission_spectrum, scattering_matrix, shielded_averages,
 };
 use crate::physics::BK;
-use crate::pointwise::{DEFAULT_TOLERANCE, left_limit, linearize, reconstruct_at, right_limit};
+use crate::pointwise::{
+    DEFAULT_TOLERANCE, left_limit, linearize, reconstruct, reconstruct_at, right_limit,
+};
 use crate::resonance::{Sigma, UnresolvedXs, unresolved_grid, unresolved_interpolation};
 
 /// 処理の条件。
@@ -139,6 +141,41 @@ pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f
         .collect()
 }
 
+/// 自由ガス模型で散乱行列を作るための弾性散乱断面積。`cutoff` 未満は自由原子の（0 K の）断面積
+/// `free_atom`、以上は温度 T に拡げた断面積 `broadened` とする。
+///
+/// 自由ガスの核は規格化せず、その積分 N(E) が熱運動による実効断面積の増加を表す（詳細バランスを
+/// 保つため。`free_gas` を参照）。温度 T に拡げた断面積はすでに N(E) を含むので、核に掛けると
+/// N(E) を二重に数える。一定の断面積なら、拡げた断面積はちょうど N(E) 倍になる。
+/// NJOY THERMR は代わりに、拡げた断面積に規格化した出射分布を掛ける。
+fn free_gas_elastic(free_atom: &Tab1, broadened: &Tab1, cutoff: f64) -> Tab1 {
+    let (mut x, mut y) = (Vec::new(), Vec::new());
+    for (&e, &v) in free_atom
+        .x
+        .iter()
+        .zip(&free_atom.y)
+        .filter(|(e, _)| **e < cutoff)
+    {
+        x.push(e);
+        y.push(v);
+    }
+    x.extend([cutoff, cutoff]);
+    y.extend([
+        left_limit(free_atom, cutoff),
+        right_limit(broadened, cutoff),
+    ]);
+    for (&e, &v) in broadened
+        .x
+        .iter()
+        .zip(&broadened.y)
+        .filter(|(e, _)| **e > cutoff)
+    {
+        x.push(e);
+        y.push(v);
+    }
+    Tab1::linear(x, y)
+}
+
 /// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
 /// `thermal` があれば cutoff 未満の弾性散乱を S(α, β) で、なければ自由ガス模型で扱う。
 pub fn process_nuclide(
@@ -164,6 +201,14 @@ pub fn process_nuclide(
     let nubar = match tape.section(mat, 1, 452) {
         Some(section) => Some(parse_nubar(&section).map_err(text)?),
         None => None,
+    };
+    // 自由ガス模型は自由原子の断面積（0 K の弾性散乱）に核を掛ける（`free_gas_elastic` を参照）
+    let free_atom_elastic = match thermal {
+        Some(_) => None,
+        None => {
+            let mut tables = reconstruct(tape, mat, settings.tolerance).map_err(text)?;
+            Some(tables.remove(&2).ok_or("MF3 MT2 not found")?)
+        }
     };
     let mf5 = match tape.section(mat, 5, 18) {
         Some(section) => Some(Mf5::parse(&section).map_err(text)?),
@@ -201,6 +246,7 @@ pub fn process_nuclide(
         emissions: &emissions,
         thermal,
         settings,
+        free_atom_elastic: free_atom_elastic.as_ref(),
     };
     let temperatures = temperatures
         .iter()
@@ -225,6 +271,8 @@ struct Common<'a> {
     emissions: &'a BTreeMap<u32, Emission>,
     thermal: Option<&'a Mf7Incoherent>,
     settings: &'a Settings,
+    /// 0 K の弾性散乱断面積（自由ガス模型を使う場合）
+    free_atom_elastic: Option<&'a Tab1>,
 }
 
 impl Common<'_> {
@@ -260,7 +308,11 @@ impl Common<'_> {
             }),
         };
         let elastic_table = tables.get(&2).ok_or("MF3 MT2 not found")?;
-        let elastic_only = BTreeMap::from([(2, elastic_table.clone())]);
+        let elastic_table = match self.free_atom_elastic {
+            Some(free_atom) => free_gas_elastic(free_atom, elastic_table, settings.thermal_cutoff),
+            None => elastic_table.clone(),
+        };
+        let elastic_only = BTreeMap::from([(2, elastic_table)]);
         let others: BTreeMap<_, _> = tables
             .iter()
             .filter(|(mt, _)| **mt != 2)
