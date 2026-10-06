@@ -1,18 +1,21 @@
 //! 適応 Gauss-Kronrod 積分（ベクトル値の関数）。
 
+use crate::numeric::NumericError;
+
 /// 適応積分の区間の数の上限
 const MAX_INTERVALS: usize = 10_000;
 
 /// [a, b] でベクトル値の関数を適応 Gauss-Kronrod（7-15 点）積分する。誤差の見積もりが最も大きい
 /// 区間を順に二分し、全成分で誤差の合計が積分値の `tolerance` 倍以下になったら止める。
-pub(super) fn gauss_kronrod(
-    f: impl Fn(f64, &mut [f64]),
+/// 被積分関数のエラーはそのまま返し、区間の数が上限に達したら収束しないエラーにする。
+pub(super) fn gauss_kronrod<E: From<NumericError>>(
+    f: impl Fn(f64, &mut [f64]) -> Result<(), E>,
     n: usize,
     a: f64,
     b: f64,
     tolerance: f64,
-) -> Vec<f64> {
-    let mut intervals = vec![kronrod_interval(&f, n, a, b)];
+) -> Result<Vec<f64>, E> {
+    let mut intervals = vec![kronrod_interval(&f, n, a, b)?];
     loop {
         let mut total = vec![0.0; n];
         let mut error = vec![0.0; n];
@@ -24,27 +27,35 @@ pub(super) fn gauss_kronrod(
         }
         let converged = (0..n).all(|i| error[i] <= tolerance * total[i].abs());
         if converged {
-            return total;
+            return Ok(total);
         }
-        assert!(
-            intervals.len() < MAX_INTERVALS,
-            "Gauss-Kronrod integration did not converge"
-        );
+        if intervals.len() >= MAX_INTERVALS {
+            return Err(NumericError::NotConverged(format!(
+                "Gauss-Kronrod integration over [{a}, {b}] in {MAX_INTERVALS} intervals"
+            ))
+            .into());
+        }
         // 相対誤差が最大の区間を分ける
-        let worst = (0..intervals.len())
-            .max_by(|&p, &q| {
-                let score = |iv: &Interval| {
-                    (0..n)
-                        .map(|i| iv.error[i] / total[i].abs().max(f64::MIN_POSITIVE))
-                        .fold(0.0, f64::max)
-                };
-                score(&intervals[p]).total_cmp(&score(&intervals[q]))
-            })
-            .expect("at least one interval");
+        let score = |iv: &Interval| {
+            (0..n)
+                .map(|i| iv.error[i] / total[i].abs().max(f64::MIN_POSITIVE))
+                .fold(0.0, f64::max)
+        };
+        let (worst, _) = intervals.iter().enumerate().skip(1).fold(
+            (0, score(&intervals[0])),
+            |best, (p, iv)| {
+                let s = score(iv);
+                if s.total_cmp(&best.1).is_gt() {
+                    (p, s)
+                } else {
+                    best
+                }
+            },
+        );
         let iv = intervals.swap_remove(worst);
         let mid = 0.5 * (iv.a + iv.b);
-        intervals.push(kronrod_interval(&f, n, iv.a, mid));
-        intervals.push(kronrod_interval(&f, n, mid, iv.b));
+        intervals.push(kronrod_interval(&f, n, iv.a, mid)?);
+        intervals.push(kronrod_interval(&f, n, mid, iv.b)?);
     }
 }
 
@@ -56,7 +67,12 @@ struct Interval {
     error: Vec<f64>,
 }
 
-fn kronrod_interval(f: &impl Fn(f64, &mut [f64]), n: usize, a: f64, b: f64) -> Interval {
+fn kronrod_interval<E>(
+    f: &impl Fn(f64, &mut [f64]) -> Result<(), E>,
+    n: usize,
+    a: f64,
+    b: f64,
+) -> Result<Interval, E> {
     // Kronrod の節点（正の側）と重み、Gauss 7 点の重み（節点は奇数番目と中心）
     const XK: [f64; 8] = [
         0.991_455_371_120_812_6,
@@ -89,23 +105,24 @@ fn kronrod_interval(f: &impl Fn(f64, &mut [f64]), n: usize, a: f64, b: f64) -> I
     let mut gauss = vec![0.0; n];
     let mut buffer = vec![0.0; n];
     let mut add = |x: f64, wk: f64, wg: f64, kronrod: &mut [f64], gauss: &mut [f64]| {
-        f(x, &mut buffer);
+        f(x, &mut buffer)?;
         for i in 0..n {
             kronrod[i] += wk * buffer[i];
             gauss[i] += wg * buffer[i];
         }
+        Ok(())
     };
     for (j, (&x, &wk)) in XK.iter().zip(&WK).enumerate() {
         // 奇数番目（j = 1, 3, 5）と中心（j = 7）は Gauss の節点でもある
         let wg = if j % 2 == 1 { WG[j / 2] } else { 0.0 };
         if x == 0.0 {
-            add(center, wk, wg, &mut kronrod, &mut gauss);
+            add(center, wk, wg, &mut kronrod, &mut gauss)?;
         } else {
-            add(center - half * x, wk, wg, &mut kronrod, &mut gauss);
-            add(center + half * x, wk, wg, &mut kronrod, &mut gauss);
+            add(center - half * x, wk, wg, &mut kronrod, &mut gauss)?;
+            add(center + half * x, wk, wg, &mut kronrod, &mut gauss)?;
         }
     }
-    Interval {
+    Ok(Interval {
         a,
         b,
         value: kronrod.iter().map(|v| v * half).collect(),
@@ -114,7 +131,7 @@ fn kronrod_interval(f: &impl Fn(f64, &mut [f64]), n: usize, a: f64, b: f64) -> I
             .zip(&gauss)
             .map(|(k, g)| ((k - g) * half).abs())
             .collect(),
-    }
+    })
 }
 
 #[cfg(test)]

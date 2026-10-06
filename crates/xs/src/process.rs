@@ -147,7 +147,7 @@ pub fn unresolved_shielding(
         {
             row.push([s.total, s.elastic, s.fission, s.capture]);
         }
-        let average = xs.cross_sections(e);
+        let average = xs.cross_sections(e).map_err(UrrError::from)?;
         infinite.push([
             average.total + background.total,
             average.elastic + background.elastic,

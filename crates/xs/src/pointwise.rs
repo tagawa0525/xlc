@@ -464,7 +464,11 @@ fn replace_with_unresolved(
     let xs = UnresolvedXs::new(urr).map_err(|e| e.to_string())?;
     let law = unresolved_interpolation(urr).map_err(|e| e.to_string())?;
     let grid = unresolved_grid(urr, el, eh);
-    let averages: Vec<Sigma> = grid.iter().map(|&e| xs.cross_sections(e)).collect();
+    let averages: Vec<Sigma> = grid
+        .iter()
+        .map(|&e| xs.cross_sections(e))
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
     for (mt, part) in [(2, 0), (fission_mt, 1), (102, 2)] {
         let background = tables.get(&mt);
         let values: Vec<f64> = grid
