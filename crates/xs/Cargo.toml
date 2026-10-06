@@ -1,5 +1,5 @@
 [package]
-name = "xs"
+name = "xlc-xs"
 version.workspace = true
 edition.workspace = true
 
@@ -10,3 +10,8 @@ rmpv.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
+
+# コマンド名は段階の名前に合わせて `xs` とする
+[[bin]]
+name = "xs"
+path = "src/main.rs"

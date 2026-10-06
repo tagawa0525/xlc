@@ -30,11 +30,11 @@ use std::time::Instant;
 
 use anyhow::{Context, anyhow};
 use serde::Deserialize;
-use xs::endf::Tape;
-use xs::library::{Library, NuclideData, is_nuclide_name};
-use xs::multigroup::{GroupStructure, Weight};
-use xs::pointwise::DEFAULT_TOLERANCE;
-use xs::process::{Settings, process_nuclide, read_thermal_scattering};
+use xlc_xs::endf::Tape;
+use xlc_xs::library::{Library, NuclideData, is_nuclide_name};
+use xlc_xs::multigroup::{GroupStructure, Weight};
+use xlc_xs::pointwise::DEFAULT_TOLERANCE;
+use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering};
 
 /// 入力ファイルを解釈した結果（パスは入力ファイルのディレクトリで解決済み）。
 #[derive(Debug, Clone, PartialEq)]
