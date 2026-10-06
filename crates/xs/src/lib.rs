@@ -5,6 +5,7 @@ pub mod endf;
 pub mod library;
 pub mod msgpack;
 pub mod multigroup;
+pub mod numeric;
 pub mod physics;
 pub mod pointwise;
 pub mod process;

@@ -1,5 +1,7 @@
 //! 特殊関数（標準ライブラリにない誤差関数など）。
 
+use crate::numeric::NumericError;
+
 /// 誤差関数 erf(x)。
 pub fn erf(x: f64) -> f64 {
     if x < 0.0 {
@@ -60,8 +62,10 @@ pub fn erfcx(x: f64) -> f64 {
 ///
 /// z ≤ 1 では級数 E1 = -γ - ln z - Σ (-z)^n/(n n!)、z > 1 では連分数
 /// E1 = e^(-z) / (z + 1 - 1²/(z + 3 - 2²/(z + 5 - …)))（修正 Lentz 法）で計算する。
-pub fn exp_e1(z: f64) -> f64 {
-    assert!(z > 0.0, "E1 needs a positive argument, got {z}");
+pub fn exp_e1(z: f64) -> Result<f64, NumericError> {
+    if !(z > 0.0 && z.is_finite()) {
+        return Err(NumericError::Domain(format!("E1({z})")));
+    }
     const EULER: f64 = 0.577_215_664_901_532_9;
     const MAX_TERMS: u32 = 1000;
     if z <= 1.0 {
@@ -71,7 +75,7 @@ pub fn exp_e1(z: f64) -> f64 {
             term *= -z / n;
             sum += term / n;
             if (term / n).abs() <= f64::EPSILON * sum.abs() {
-                return (-EULER - z.ln() - sum) * z.exp();
+                return Ok((-EULER - z.ln() - sum) * z.exp());
             }
         }
     } else {
@@ -87,11 +91,11 @@ pub fn exp_e1(z: f64) -> f64 {
             let delta = c * d;
             h *= delta;
             if (delta - 1.0).abs() <= f64::EPSILON {
-                return h;
+                return Ok(h);
             }
         }
     }
-    panic!("E1({z}) did not converge");
+    Err(NumericError::NotConverged(format!("E1({z})")))
 }
 
 /// 正則化した下側不完全ガンマ関数 P(3/2, x) = γ(3/2, x)/Γ(3/2)（x ≥ 0）。

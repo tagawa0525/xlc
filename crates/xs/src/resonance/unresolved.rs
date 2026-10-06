@@ -9,6 +9,7 @@ use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, expectation_vec, width_ratios};
 use super::line_shape::jk_interpolated;
 use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof};
+use crate::numeric::NumericError;
 use crate::physics::{BK, wave_number_factor};
 
 /// 非分離共鳴のパラメータから、無限希釈の平均断面積を計算する。
@@ -36,6 +37,8 @@ pub enum UrrError {
     JkTable { beta: f64, theta: f64 },
     #[error("unresolved range has no (l, J) sequences")]
     NoSequences,
+    #[error(transparent)]
+    Numeric(#[from] NumericError),
     #[error("unresolved sequences use different interpolation laws ({first:?} and {other:?})")]
     MixedLaws {
         first: Interpolation,
@@ -55,7 +58,7 @@ impl<'a> UnresolvedXs<'a> {
     /// エネルギー e (eV) での平均断面積。パラメータは lin-lin で補間する（NJOY と同じ）。
     ///
     /// 波数は l ごとの AWRI から求める（NJOY は最初の l の AWRI を使う。全 l で同じなら一致する）。
-    pub fn cross_sections(&self, e: f64) -> Sigma {
+    pub fn cross_sections(&self, e: f64) -> Result<Sigma, NumericError> {
         let urr = self.urr;
         let ay = self.scattering_radius(e);
         let mut sigma = Sigma::default();
@@ -76,14 +79,14 @@ impl<'a> UnresolvedXs<'a> {
                 let gn =
                     p.gno * f64::from(jv.amun.number()) * penetrability(lv.l, rho) / rho * e.sqrt();
                 let scale = 2.0 * PI * pifac * gj / p.d;
-                let [f1, f2, f3] = fluctuation_integrals(gn, p.gf, p.gg, p.gx, jv);
+                let [f1, f2, f3] = fluctuation_integrals(gn, p.gf, p.gg, p.gx, jv)?;
                 sigma.elastic += scale * (gn * gn * f1 - 2.0 * gn * sin2);
                 sigma.capture += scale * gn * p.gg * f2;
                 sigma.fission += scale * gn * p.gf * f3;
             }
         }
         sigma.total = sigma.elastic + sigma.fission + sigma.capture;
-        sigma
+        Ok(sigma)
     }
 }
 
@@ -254,21 +257,14 @@ impl Sequence<'_> {
         } else {
             WidthDof::Fixed
         };
-        let failure = std::cell::RefCell::new(None);
-        let node = |x: f64, y: f64, z: f64, out: &mut [f64]| {
+        let node = |x: f64, y: f64, z: f64, out: &mut [f64]| -> Result<(), UrrError> {
             let (gn, gf, gx) = (self.gn * x, self.gf * y, self.gx * z);
             let gamma = gn + gf + self.gg + gx;
             // 共鳴のピークの断面積と、θ = Γ/Δ
             let peak = self.ab * self.gj * gn / gamma;
             let theta = gamma / self.delta;
             for (i, s) in sigm.iter().enumerate() {
-                let (j, k) = match jk_interpolated(s / peak, theta) {
-                    Ok(jk) => jk,
-                    Err(message) => {
-                        failure.borrow_mut().get_or_insert(message);
-                        (0.0, 0.0)
-                    }
-                };
+                let (j, k) = jk_interpolated(s / peak, theta)?;
                 out[PARTS * i..PARTS * (i + 1)].copy_from_slice(&[
                     j * gf,
                     j * self.gg,
@@ -277,19 +273,19 @@ impl Sequence<'_> {
                     k * gamma,
                 ]);
             }
+            Ok(())
         };
         let [tol_n, tol_f, tol_x] = SHIELDING_TOLERANCE;
-        let values = expectation_vec(dof_x, tol_x, n, |z, out| {
-            let inner = expectation_vec(dof_f, tol_f, n, |y, out| {
-                let inner = expectation_vec(self.jv.amun, tol_n, n, |x, out| node(x, y, z, out));
+        let values = expectation_vec::<UrrError>(dof_x, tol_x, n, |z, out| {
+            let inner = expectation_vec::<UrrError>(dof_f, tol_f, n, |y, out| {
+                let inner = expectation_vec(self.jv.amun, tol_n, n, |x, out| node(x, y, z, out))?;
                 out.copy_from_slice(&inner);
-            });
+                Ok(())
+            })?;
             out.copy_from_slice(&inner);
-        });
-        match failure.into_inner() {
-            Some(message) => Err(message),
-            None => Ok(values.into_iter().map(|v| v / self.d).collect()),
-        }
+            Ok(())
+        })?;
+        Ok(values.into_iter().map(|v| v / self.d).collect())
     }
 }
 
@@ -323,27 +319,34 @@ fn parameters(points: &[UrrPoint], e: f64) -> UrrPoint {
 /// 中性子幅 x の期待値は閉じた式（`width_ratios`）で、y と z は適応積分で求める。
 ///
 /// NJOY と同じく、Γn または Γγ が 0 以下なら 0 とする（共鳴がない、または分母が 0 になる）。
-fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> [f64; 3] {
+fn fluctuation_integrals(
+    gn: f64,
+    gf: f64,
+    gg: f64,
+    gx: f64,
+    jv: &UrrJValue,
+) -> Result<[f64; 3], NumericError> {
     if gn <= 0.0 || gg <= 0.0 {
-        return [0.0; 3];
+        return Ok([0.0; 3]);
     }
     let dof_f = if gf > 0.0 { jv.amuf } else { WidthDof::Fixed };
     let dof_x = if gx > 0.0 { jv.amux } else { WidthDof::Fixed };
     let ratios = |y: f64, z: f64| width_ratios(jv.amun, (gf * y + gg + gx * z) / gn);
-    let outer = |g: &dyn Fn(f64, f64) -> f64| {
-        expectation(dof_x, TOLERANCE[1], |z| {
+    let outer = |g: &dyn Fn(f64, f64) -> Result<f64, NumericError>| {
+        let value = expectation(dof_x, TOLERANCE[1], |z| {
             expectation(dof_f, TOLERANCE[0], |y| g(y, z))
-        }) / gn
+        })?;
+        Ok::<_, NumericError>(value / gn)
     };
-    [
-        outer(&|y, z| ratios(y, z)[1]),
-        outer(&|y, z| ratios(y, z)[0]),
+    Ok([
+        outer(&|y, z| Ok(ratios(y, z)?[1]))?,
+        outer(&|y, z| Ok(ratios(y, z)?[0]))?,
         if gf > 0.0 {
-            outer(&|y, z| y * ratios(y, z)[0])
+            outer(&|y, z| Ok(y * ratios(y, z)?[0]))?
         } else {
             0.0
         },
-    ]
+    ])
 }
 
 /// 幅のゆらぎの期待値の相対許容誤差（内側の核分裂幅、外側の競合幅の順）。
