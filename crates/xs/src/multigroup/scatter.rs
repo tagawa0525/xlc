@@ -60,6 +60,19 @@ pub enum Thermal<'a> {
     Sab(ThermalSab<'a>),
 }
 
+/// 散乱行列を作るときのエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum ScatterError {
+    #[error("free gas needs positive kT and a finite cutoff (kT {kt}, cutoff {cutoff})")]
+    FreeGas { kt: f64, cutoff: f64 },
+    #[error("MT{0}: unknown neutron multiplicity")]
+    Multiplicity(u32),
+    #[error("MT{0}: missing Q value")]
+    QValue(u32),
+    #[error("MT{0}: no outgoing neutron distribution")]
+    NoDistribution(u32),
+}
+
 /// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
 ///
 /// - `tables`: ポイントワイズの断面積（キーは MT）
@@ -76,14 +89,14 @@ pub fn scattering_matrix(
     q_values: &BTreeMap<u32, f64>,
     emissions: &BTreeMap<u32, Emission>,
     thermal: Option<&Thermal>,
-) -> Result<Vec<Vec<f64>>, String> {
+) -> Result<Vec<Vec<f64>>, ScatterError> {
     if let Some(Thermal::FreeGas(free_gas)) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
-        return Err(format!(
-            "free gas needs positive kT and a finite cutoff (kT {}, cutoff {})",
-            free_gas.kt, free_gas.cutoff
-        ));
+        return Err(ScatterError::FreeGas {
+            kt: free_gas.kt,
+            cutoff: free_gas.cutoff,
+        });
     }
     let ng = groups.len();
     let flux = group_integrals(groups, weight, &[], |_| 1.0);
@@ -104,16 +117,13 @@ pub fn scattering_matrix(
         } else if let Some(Emission::Mf6(data)) = emissions.get(&mt) {
             emission_rows(groups, weight, table, data)
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
-            let count =
-                multiplicity(mt).ok_or_else(|| format!("MT{mt}: unknown neutron multiplicity"))?;
+            let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
             spectrum_rows(groups, weight, table, data, count)
         } else if (51..=90).contains(&mt) {
-            let q = *q_values
-                .get(&mt)
-                .ok_or_else(|| format!("MT{mt}: missing Q value"))?;
+            let q = *q_values.get(&mt).ok_or(ScatterError::QValue(mt))?;
             two_body_rows(groups, weight, awr, q, table)
         } else {
-            return Err(format!("MT{mt}: no outgoing neutron distribution"));
+            return Err(ScatterError::NoDistribution(mt));
         };
         for (sum, row) in matrix.iter_mut().zip(rows) {
             for (s, v) in sum.iter_mut().zip(row) {
@@ -414,7 +424,7 @@ mod tests {
             None,
         )
         .unwrap_err();
-        assert!(err.contains("MT4"), "{err}");
+        assert!(matches!(err, ScatterError::NoDistribution(4)), "{err}");
     }
 
     #[test]
@@ -601,7 +611,7 @@ mod tests {
             None,
         )
         .unwrap_err();
-        assert!(err.contains("MT16"), "{err}");
+        assert!(matches!(err, ScatterError::NoDistribution(16)), "{err}");
     }
 
     #[test]
@@ -716,7 +726,7 @@ mod tests {
             None,
         )
         .unwrap_err();
-        assert!(err.contains("MT5"), "{err}");
+        assert!(matches!(err, ScatterError::Multiplicity(5)), "{err}");
     }
 
     /// 一定の自由原子の断面積 `sigma` を温度に拡げた σ N(E)。N(E) = (1 + 1/(2a²)) erf(a) + e^(-a²)/(a√π)、

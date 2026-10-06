@@ -5,12 +5,13 @@ use std::collections::BTreeMap;
 use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, parse_nubar};
 use crate::library::{NuclideData, Shielded, TemperatureData};
 use crate::multigroup::{
-    Emission, FreeGas, GroupStructure, ReactionAverages, Thermal, ThermalSab, UnresolvedShielding,
-    Weight, emits_neutrons, fission_spectrum, scattering_matrix, shielded_averages,
+    Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
+    Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
+    scattering_matrix, shielded_averages,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
-use crate::resonance::{Sigma, UnresolvedXs, unresolved_grid, unresolved_interpolation};
+use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
 
 /// 処理の条件。
 #[derive(Debug, Clone)]
@@ -25,22 +26,55 @@ pub struct Settings {
     pub tolerance: f64,
 }
 
+/// 核種の処理のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum ProcessError {
+    #[error(transparent)]
+    Endf(#[from] crate::endf::Error),
+    #[error(transparent)]
+    Unresolved(#[from] UrrError),
+    #[error(transparent)]
+    Shielding(#[from] ShieldingError),
+    #[error(transparent)]
+    Sab(#[from] SabError),
+    #[error(transparent)]
+    Scatter(#[from] ScatterError),
+    #[error("empty thermal scattering tape")]
+    EmptyThermal,
+    #[error("thermal elastic scattering (MF7 MT2) is not supported")]
+    ThermalElastic,
+    #[error("thermal scattering tape has no MF7 MT4")]
+    NoIncoherent,
+    #[error("more than one unresolved range")]
+    MultipleUnresolved,
+    #[error("self-shielding of unresolved LRF=1 ranges is not supported")]
+    UnresolvedLrf1,
+    #[error("expected one material, found {0:?}")]
+    Materials(Vec<i32>),
+    #[error("MF3 MT{0} not found")]
+    MissingMf3(u32),
+    #[error("no MF3 data")]
+    NoMf3,
+    #[error("fission needs MF1 MT452 and MF5 MT18")]
+    FissionData,
+    #[error("{temperature} K: {source}")]
+    Temperature {
+        temperature: f64,
+        source: Box<ProcessError>,
+    },
+}
+
 /// 熱中性子散乱のテープ（MF7）から、非干渉性非弾性散乱の S(α, β)（MT4）を読む。
 ///
 /// 弾性散乱（MT2）を持つデータはエラーにする。S(α, β) の散乱行列は cutoff 未満で MF3 の弾性散乱を
 /// 置き換えるので、MT2 を扱わないと弾性散乱が黙って抜け落ちる（黒鉛、ZrH など）。
-pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, String> {
-    let mat = *tape
-        .materials()
-        .first()
-        .ok_or("empty thermal scattering tape")?;
+pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, ProcessError> {
+    let mat = *tape.materials().first().ok_or(ProcessError::EmptyThermal)?;
     if tape.section(mat, 7, 2).is_some() {
-        return Err("thermal elastic scattering (MF7 MT2) is not supported".into());
+        return Err(ProcessError::ThermalElastic);
     }
-    let section = tape
-        .section(mat, 7, 4)
-        .ok_or("thermal scattering tape has no MF7 MT4")?;
-    Mf7Incoherent::parse(&section).map_err(|e| e.to_string())
+    let section = tape.section(mat, 7, 4).ok_or(ProcessError::NoIncoherent)?;
+    Ok(Mf7Incoherent::parse(&section)?)
 }
 
 /// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) と背景断面積 `sigma0` について作る
@@ -50,20 +84,17 @@ pub fn unresolved_shielding(
     mat: i32,
     temperature: f64,
     sigma0: &[f64],
-) -> Result<Option<UnresolvedShielding>, String> {
-    let text = |e: crate::endf::Error| e.to_string();
+) -> Result<Option<UnresolvedShielding>, ProcessError> {
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
     };
-    let mf2 = Mf2::parse(&section).map_err(text)?;
+    let mf2 = Mf2::parse(&section)?;
     let mut unresolved = None;
     for range in &mf2.ranges {
         match &range.kind {
             RangeKind::Unresolved(urr) if unresolved.is_none() => unresolved = Some((range, urr)),
-            RangeKind::Unresolved(_) => return Err("more than one unresolved range".into()),
-            RangeKind::UnresolvedLrf1 { .. } => {
-                return Err("self-shielding of unresolved LRF=1 ranges is not supported".into());
-            }
+            RangeKind::Unresolved(_) => return Err(ProcessError::MultipleUnresolved),
+            RangeKind::UnresolvedLrf1 { .. } => return Err(ProcessError::UnresolvedLrf1),
             _ => {}
         }
     }
@@ -75,13 +106,13 @@ pub fn unresolved_shielding(
     let grid = unresolved_grid(urr, range.el, range.eh);
 
     // MF3 の背景断面積（LSSF=0 のとき）。範囲の上端では内側（左側）の値を使う
-    let background_table = |mt: u32| -> Result<Option<Tab1>, String> {
+    let background_table = |mt: u32| -> Result<Option<Tab1>, ProcessError> {
         if urr.lssf != 0 {
             return Ok(None);
         }
         match tape.section(mat, 3, mt) {
             Some(section) => Ok(Some(linearize(
-                &Mf3::parse(&section).map_err(text)?.sigma,
+                &Mf3::parse(&section)?.sigma,
                 DEFAULT_TOLERANCE,
             ))),
             None => Ok(None),
@@ -123,7 +154,9 @@ pub fn unresolved_shielding(
             average.capture + background.capture,
         ]);
     }
-    UnresolvedShielding::new(range.el, range.eh, urr.lssf, grid, law, shielded, infinite).map(Some)
+    Ok(Some(UnresolvedShielding::new(
+        range.el, range.eh, urr.lssf, grid, law, shielded, infinite,
+    )?))
 }
 
 /// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
@@ -147,27 +180,26 @@ pub fn process_nuclide(
     temperatures: &[f64],
     thermal: Option<&Mf7Incoherent>,
     settings: &Settings,
-) -> Result<NuclideData, String> {
+) -> Result<NuclideData, ProcessError> {
     let materials = tape.materials();
     let [mat] = materials[..] else {
-        return Err(format!("expected one material, found {materials:?}"));
+        return Err(ProcessError::Materials(materials));
     };
-    let text = |e: crate::endf::Error| e.to_string();
-    let mf3 = |mt: u32| -> Result<Mf3, String> {
+    let mf3 = |mt: u32| -> Result<Mf3, ProcessError> {
         let section = tape
             .section(mat, 3, mt)
-            .ok_or_else(|| format!("MF3 MT{mt} not found"))?;
-        Mf3::parse(&section).map_err(text)
+            .ok_or(ProcessError::MissingMf3(mt))?;
+        Ok(Mf3::parse(&section)?)
     };
-    let first = *tape.mts(mat, 3).first().ok_or("no MF3 data")?;
+    let first = *tape.mts(mat, 3).first().ok_or(ProcessError::NoMf3)?;
     let head = mf3(first)?;
     let nubar = match tape.section(mat, 1, 452) {
-        Some(section) => Some(parse_nubar(&section).map_err(text)?),
+        Some(section) => Some(parse_nubar(&section)?),
         None => None,
     };
-    let cold = ColdParts::read(tape, mat, settings.tolerance).map_err(text)?;
+    let cold = ColdParts::read(tape, mat, settings.tolerance)?;
     let mf5 = match tape.section(mat, 5, 18) {
-        Some(section) => Some(Mf5::parse(&section).map_err(text)?),
+        Some(section) => Some(Mf5::parse(&section)?),
         None => None,
     };
     let mut q_values = BTreeMap::new();
@@ -182,14 +214,14 @@ pub fn process_nuclide(
     for mt in tape.mts(mat, 6) {
         if mt != 2 && emits_neutrons(mt) {
             let section = tape.section(mat, 6, mt).expect("listed by mts");
-            emissions.insert(mt, Emission::Mf6(Mf6::parse(&section).map_err(text)?));
+            emissions.insert(mt, Emission::Mf6(Mf6::parse(&section)?));
         }
     }
     // MF6 のない反応は、MF4/MF5 で与えられている（MF5 のエネルギー分布だけを使う）
     for mt in tape.mts(mat, 5) {
         if mt != 2 && emits_neutrons(mt) && !emissions.contains_key(&mt) {
             let section = tape.section(mat, 5, mt).expect("listed by mts");
-            emissions.insert(mt, Emission::Mf5(Mf5::parse(&section).map_err(text)?));
+            emissions.insert(mt, Emission::Mf5(Mf5::parse(&section)?));
         }
     }
     let common = Common {
@@ -206,7 +238,14 @@ pub fn process_nuclide(
     };
     let temperatures = temperatures
         .iter()
-        .map(|&t| common.at_temperature(t).map_err(|e| format!("{t} K: {e}")))
+        .map(|&t| {
+            common
+                .at_temperature(t)
+                .map_err(|source| ProcessError::Temperature {
+                    temperature: t,
+                    source: Box::new(source),
+                })
+        })
         .collect::<Result<_, _>>()?;
     Ok(NuclideData {
         name: name.to_string(),
@@ -232,7 +271,7 @@ struct Common<'a> {
 }
 
 impl Common<'_> {
-    fn at_temperature(&self, temperature: f64) -> Result<TemperatureData, String> {
+    fn at_temperature(&self, temperature: f64) -> Result<TemperatureData, ProcessError> {
         let settings = self.settings;
         let (groups, weight) = (&settings.groups, &settings.weight);
         let ng = groups.len();
@@ -249,7 +288,7 @@ impl Common<'_> {
         let chi = match (tables.contains_key(&18), self.nubar, self.mf5) {
             (false, ..) => vec![0.0; ng],
             (true, Some(nu), Some(mf5)) => fission_spectrum(groups, weight, &tables, nu, mf5),
-            (true, ..) => return Err("fission needs MF1 MT452 and MF5 MT18".into()),
+            (true, ..) => return Err(ProcessError::FissionData),
         };
 
         // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
@@ -262,7 +301,7 @@ impl Common<'_> {
                 cutoff: settings.thermal_cutoff,
             }),
         };
-        let elastic_table = tables.get(&2).ok_or("MF3 MT2 not found")?;
+        let elastic_table = tables.get(&2).ok_or(ProcessError::MissingMf3(2))?;
         let elastic_only = BTreeMap::from([(2, elastic_table.clone())]);
         let others: BTreeMap<_, _> = tables
             .iter()
