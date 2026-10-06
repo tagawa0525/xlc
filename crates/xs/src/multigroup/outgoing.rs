@@ -2,7 +2,9 @@
 
 use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
-use crate::endf::{ClampedTab1, EnergyLaw, Interpolation, OutgoingDistributions, Tab1};
+use crate::endf::{
+    ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
+};
 use crate::pointwise::linearize;
 use crate::special::{gamma_p_2, gamma_p_3_2};
 
@@ -111,26 +113,27 @@ pub(super) fn uniform_fractions(
 const DENSITY_TOLERANCE: f64 = 1.0e-4;
 
 /// 入射エネルギーごとの出射分布を群に振り分けたもの。入射エネルギーの間は補間する。
+///
+/// ふつうの補間則では、入射エネルギーごとに群に振り分けた値を補間する。単位基底の補間則では、
+/// 隣り合う分布を出射エネルギーの範囲で正規化して補間した分布を、入射エネルギーごとに作ってから
+/// 群に振り分ける（範囲が入射エネルギーとともに動くので、前もって群に振り分けておけない）。
 #[derive(Debug, Clone)]
 pub struct GroupedOutgoing {
+    groups: GroupStructure,
     breaks: Vec<usize>,
-    laws: Vec<Interpolation>,
+    laws: Vec<IncidentLaw>,
     incident: Vec<f64>,
+    /// [入射エネルギー] の出射分布（線形化したもの）
+    spectra: Vec<Tab1>,
+    /// [入射エネルギー][群] の出射の確率
     probabilities: Vec<Vec<f64>>,
+    /// 重心系の分布なら標的の質量比（実験室系への変換に使う）
+    center_of_mass: Option<f64>,
 }
 
 impl GroupedOutgoing {
     pub fn new(groups: &GroupStructure, distributions: &OutgoingDistributions) -> Self {
-        Self {
-            breaks: distributions.breaks.clone(),
-            laws: distributions.laws.clone(),
-            incident: distributions.incident.clone(),
-            probabilities: distributions
-                .spectra
-                .iter()
-                .map(|density| outgoing_group_integrals(groups, density))
-                .collect(),
-        }
+        Self::grouped(groups, distributions, None)
     }
 
     /// 重心系で与えられた分布を、重心系で等方として実験室系に変換して群に振り分ける。
@@ -140,18 +143,42 @@ impl GroupedOutgoing {
         distributions: &OutgoingDistributions,
         awr: f64,
     ) -> Self {
-        Self {
+        Self::grouped(groups, distributions, Some(awr))
+    }
+
+    fn grouped(
+        groups: &GroupStructure,
+        distributions: &OutgoingDistributions,
+        center_of_mass: Option<f64>,
+    ) -> Self {
+        let spectra: Vec<Tab1> = distributions
+            .spectra
+            .iter()
+            .map(|density| linearize(density, DENSITY_TOLERANCE))
+            .collect();
+        let mut grouped = Self {
+            groups: groups.clone(),
             breaks: distributions.breaks.clone(),
             laws: distributions.laws.clone(),
             incident: distributions.incident.clone(),
-            probabilities: distributions
-                .incident
-                .iter()
-                .zip(&distributions.spectra)
-                .map(|(&e, density)| {
-                    laboratory_group_integrals(groups, density, e / (awr + 1.0).powi(2))
-                })
-                .collect(),
+            spectra,
+            probabilities: Vec::new(),
+            center_of_mass,
+        };
+        grouped.probabilities = grouped
+            .incident
+            .iter()
+            .zip(&grouped.spectra)
+            .map(|(&e, density)| grouped.group_integrals(e, density))
+            .collect();
+        grouped
+    }
+
+    /// 入射エネルギー e での出射分布（線形化したもの）を群ごとに積分する。
+    fn group_integrals(&self, e: f64, density: &Tab1) -> Vec<f64> {
+        match self.center_of_mass {
+            None => outgoing_group_integrals(&self.groups, density),
+            Some(awr) => laboratory_group_integrals(&self.groups, density, e / (awr + 1.0).powi(2)),
         }
     }
 
@@ -164,28 +191,84 @@ impl GroupedOutgoing {
     /// 入射エネルギーの範囲外では、端の分布を使う。
     pub fn accumulate(&self, e: f64, scale: f64, out: &mut [f64]) {
         let last = self.incident.len() - 1;
-        let add = |p: &[f64], factor: f64, out: &mut [f64]| {
+        let add = |p: &[f64], out: &mut [f64]| {
             for (o, v) in out.iter_mut().zip(p) {
-                *o += factor * v;
+                *o += scale * v;
             }
         };
         if e <= self.incident[0] {
-            return add(&self.probabilities[0], scale, out);
+            return add(&self.probabilities[0], out);
         }
         if e >= self.incident[last] {
-            return add(&self.probabilities[last], scale, out);
+            return add(&self.probabilities[last], out);
         }
         let k = self.incident.partition_point(|&x| x <= e) - 1;
-        let law = self.laws[self.breaks.partition_point(|&b| b < k + 2)];
-        match law {
-            Interpolation::Histogram => add(&self.probabilities[k], scale, out),
-            _ => {
-                let (x0, x1) = (self.incident[k], self.incident[k + 1]);
-                let t = (e - x0) / (x1 - x0);
-                add(&self.probabilities[k], scale * (1.0 - t), out);
-                add(&self.probabilities[k + 1], scale * t, out);
-            }
+        let IncidentLaw { law, unit_base } = self.laws[self.breaks.partition_point(|&b| b < k + 2)];
+        let (x0, x1) = (self.incident[k], self.incident[k + 1]);
+        if law == Interpolation::Histogram {
+            add(&self.probabilities[k], out);
+        } else if unit_base {
+            let density =
+                unit_base_density(law, e, (x0, &self.spectra[k]), (x1, &self.spectra[k + 1]));
+            add(&self.group_integrals(e, &density), out);
+        } else {
+            let p: Vec<f64> = self.probabilities[k]
+                .iter()
+                .zip(&self.probabilities[k + 1])
+                .map(|(&p0, &p1)| law.interpolate(e, (x0, p0), (x1, p1)))
+                .collect();
+            add(&p, out);
         }
+    }
+}
+
+/// 入射エネルギー x0 と x1 の線形化した出射分布 `lo`, `hi` から、単位基底の補間則で入射エネルギー e の
+/// 分布を作る。
+///
+/// 各分布の出射エネルギーの範囲 [a, b] を 0〜1 の座標 u に移し、範囲の両端と、u での密度 ×
+/// 範囲の幅（u についての密度）を、補間則 `law` で入射エネルギーについて補間する。両方の分布の点を
+/// u で合わせた格子の上では、どちらも u について線形なので、線形の補間則なら補間した密度も線形になる。
+/// 範囲の幅が正であることは、読み込みのとき（`check_unit_base`）に確かめている。
+fn unit_base_density(
+    law: Interpolation,
+    e: f64,
+    (x0, lo): (f64, &Tab1),
+    (x1, hi): (f64, &Tab1),
+) -> Tab1 {
+    let range = |t: &Tab1| (t.x[0], t.x[t.x.len() - 1]);
+    let ((a0, b0), (a1, b1)) = (range(lo), range(hi));
+    let a = law.interpolate(e, (x0, a0), (x1, a1));
+    let b = law.interpolate(e, (x0, b0), (x1, b1));
+    let mut u: Vec<f64> =
+        lo.x.iter()
+            .map(|x| (x - a0) / (b0 - a0))
+            .chain(hi.x.iter().map(|x| (x - a1) / (b1 - a1)))
+            .map(|u| u.clamp(0.0, 1.0))
+            .collect();
+    u.sort_by(f64::total_cmp);
+    u.dedup();
+    let y: Vec<f64> = u
+        .iter()
+        .map(|&u| {
+            let p0 = linear_at(lo, a0 + u * (b0 - a0)) * (b0 - a0);
+            let p1 = linear_at(hi, a1 + u * (b1 - a1)) * (b1 - a1);
+            law.interpolate(e, (x0, p0), (x1, p1)) / (b - a)
+        })
+        .collect();
+    Tab1::linear(u.iter().map(|u| a + u * (b - a)).collect(), y)
+}
+
+/// 線形化した表の、範囲 [x の最初, x の最後] の中の値（2点以上の表）。
+fn linear_at(t: &Tab1, x: f64) -> f64 {
+    let k =
+        t.x.partition_point(|&xi| xi <= x)
+            .saturating_sub(1)
+            .min(t.x.len() - 2);
+    let (xa, xb, ya, yb) = (t.x[k], t.x[k + 1], t.y[k], t.y[k + 1]);
+    if xb == xa {
+        yb
+    } else {
+        ya + (yb - ya) * (x - xa) / (xb - xa)
     }
 }
 

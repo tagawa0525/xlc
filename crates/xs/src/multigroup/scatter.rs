@@ -351,7 +351,7 @@ fn spectrum_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::ClampedTab1;
+    use crate::endf::{ClampedTab1, IncidentLaw};
 
     fn constant(value: f64) -> Tab1 {
         Tab1::linear(vec![1.0e-5, 2.0e7], vec![value, value])
@@ -674,7 +674,10 @@ mod tests {
             frame: Frame::Laboratory,
             distributions: OutgoingDistributions {
                 breaks: vec![1],
-                laws: vec![Interpolation::LinLin],
+                laws: vec![IncidentLaw {
+                    law: Interpolation::LinLin,
+                    unit_base: false,
+                }],
                 incident: vec![1.0e-5],
                 spectra: vec![Tab1::linear(vec![1.0e-5, 1.0e6], vec![1.0e-6, 1.0e-6])],
             },
