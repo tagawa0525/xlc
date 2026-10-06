@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift, shift};
-use crate::endf::Mlbw;
+use crate::endf::{Mlbw, OrbitalL};
 use crate::physics::wave_number_factor;
 
 /// 断面積の計算に使う形に前処理した MLBW パラメータ。
@@ -16,7 +16,7 @@ pub struct MlbwXs {
 
 #[derive(Debug, Clone)]
 struct LValue {
-    l: u32,
+    l: OrbitalL,
     arat: f64,
     /// 透過因子・シフト因子に使うチャネル半径
     channel_radius: f64,
@@ -94,7 +94,7 @@ impl MlbwXs {
             let cos2p = 2.0 * phi.sin().powi(2);
             let sin2p = (2.0 * phi).sin();
 
-            let fl = f64::from(lv.l);
+            let fl = f64::from(lv.l.number());
             let ajmin = ((self.spi - fl).abs() - 0.5).abs();
             let nj = (self.spi + fl + 0.5 - ajmin + 1.0).round() as usize;
             let gj: Vec<f64> = (0..nj)
@@ -141,7 +141,7 @@ mod tests {
     use crate::resonance::reich_moore_tests::{AP, AWRI, single_level_exact};
     use std::f64::consts::PI;
 
-    fn single(l: u32, spi: f64, aj: f64, er: f64, (gn, gg, gf): (f64, f64, f64)) -> Mlbw {
+    fn single(l: OrbitalL, spi: f64, aj: f64, er: f64, (gn, gg, gf): (f64, f64, f64)) -> Mlbw {
         Mlbw {
             spi,
             ap: AP,
@@ -165,7 +165,7 @@ mod tests {
     fn single_s_wave_level_matches_exact_breit_wigner() {
         // l=0 ではレベルシフトがなく、単一準位の MLBW は厳密な Breit-Wigner 形
         let widths = (1.5e-3, 2.3e-2, 1.0e-2);
-        let xs = MlbwXs::new(&single(0, 0.0, 0.5, 6.674, widths));
+        let xs = MlbwXs::new(&single(OrbitalL::S, 0.0, 0.5, 6.674, widths));
         for e in [1.0e-3, 1.0, 6.674, 6.7, 100.0] {
             let (a, b) = (
                 xs.cross_sections(e),
@@ -182,7 +182,7 @@ mod tests {
     fn missing_spin_states_add_hard_sphere_scattering() {
         // 標的スピン 1/2・l=1 では J=1 が2つのチャネルスピンから作れるが、gJ は1回しか数えないので、
         // 足りない分 (2l+1) - ΣgJ の硬球散乱を足す。共鳴から遠ければ全体で (4π/k²)(2l+1) sin²φ1
-        let xs = MlbwXs::new(&single(1, 0.5, 2.0, 1.0e4, (1.0e-9, 1.0e-9, 0.0)));
+        let xs = MlbwXs::new(&single(OrbitalL::P, 0.5, 2.0, 1.0e4, (1.0e-9, 1.0e-9, 0.0)));
         let e: f64 = 100.0;
         let k = wave_number_factor() * AWRI / (AWRI + 1.0) * e.sqrt();
         let rho = k * AP;
@@ -200,7 +200,7 @@ mod tests {
     fn level_shift_vanishes_at_resonance_energy() {
         // E = Er ではシフトが 0 なので、捕獲のピークは π g Γn Γγ / (k² Γ²/4)
         let (er, gn, gg) = (2.0e3, 0.3, 0.05);
-        let xs = MlbwXs::new(&single(1, 0.0, 1.5, er, (gn, gg, 0.0)));
+        let xs = MlbwXs::new(&single(OrbitalL::P, 0.0, 1.5, er, (gn, gg, 0.0)));
         let k = wave_number_factor() * AWRI / (AWRI + 1.0) * er.sqrt();
         let g = 2.0;
         let width = gn + gg;
