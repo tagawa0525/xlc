@@ -162,7 +162,7 @@ mod tests {
     fn re_w_by_integration(x: f64, y: f64) -> f64 {
         // Lorentz 形の幅 y と Gauss 形の幅 1 を十分細かく分ける
         let h = y.min(1.0) / 200.0;
-        let (lo, hi) = (-9.0_f64.min(x - 60.0 * y), 9.0_f64.max(x + 60.0 * y));
+        let (lo, hi) = ((-9.0_f64).min(x - 60.0 * y), 9.0_f64.max(x + 60.0 * y));
         let n = (((hi - lo) / h).ceil() as usize).next_multiple_of(2);
         let h = (hi - lo) / n as f64;
         let f = |t: f64| (-t * t).exp() / ((x - t) * (x - t) + y * y);
