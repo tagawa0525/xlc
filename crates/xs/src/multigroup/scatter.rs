@@ -144,26 +144,31 @@ fn elastic_rows(
     };
     let cutoff = match thermal {
         Thermal::FreeGas(free_gas) => free_gas.cutoff,
-        Thermal::Sab(_) => todo!(),
+        Thermal::Sab(sab) => sab.cutoff(),
     };
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, 0.0));
     breakpoints.push(cutoff);
     group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
         let sigma = table.eval(e).unwrap_or(0.0);
-        if sigma == 0.0 {
-            return;
-        }
-        if e < cutoff {
-            let Thermal::FreeGas(free_gas) = thermal else {
-                todo!()
-            };
-            let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
-            for (o, t) in out.iter_mut().zip(transfer) {
-                *o += sigma * t;
+        match thermal {
+            // S(α, β) の核は断面積そのものなので、MF3 の弾性散乱断面積は使わない
+            Thermal::Sab(sab) if e < cutoff => {
+                for (o, t) in out.iter_mut().zip(sab.group_integrals(groups, e)) {
+                    *o += t;
+                }
             }
-        } else if let Some((lo, hi)) = two_body_range(e, awr, 0.0) {
-            uniform_fractions(groups, lo, hi, sigma, out);
+            Thermal::FreeGas(free_gas) if e < cutoff => {
+                let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
+                for (o, t) in out.iter_mut().zip(transfer) {
+                    *o += sigma * t;
+                }
+            }
+            _ => {
+                if let Some((lo, hi)) = two_body_range(e, awr, 0.0) {
+                    uniform_fractions(groups, lo, hi, sigma, out);
+                }
+            }
         }
     })
 }
