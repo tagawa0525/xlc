@@ -2,7 +2,7 @@
 //!
 //! 1行に `キーワード 値...` を書く。χ は和が 1 になるよう規格化する。`#` から行末まではコメント。`material` から次の `material` までが
 //! 1つの物質で、`scatter` は入射の群の順に群の数だけ書く。核分裂のない物質は `fission`, `nu-fission`,
-//! `chi` を省略できる。
+//! `chi` を省略できる。`nu-fission` を書くなら `fission` と `chi` も書く。
 //!
 //! ```text
 //! xlc-macroscopic 1
@@ -131,6 +131,10 @@ impl Draft {
         let zeros = vec![0.0; ng];
         let nu_fission = self.nu_fission.unwrap_or_else(|| zeros.clone());
         let fission_terms = if nu_fission.iter().any(|&v| v != 0.0) {
+            // Σf はピン出力（核分裂率）に使うので、νΣf があれば必須にする
+            if self.fission.is_none() {
+                return Err("`nu-fission` needs `fission`".into());
+            }
             // χ は確率分布なので和で割る（公表値は丸めてあり、和がちょうど 1 にならない）
             let chi = self.chi.ok_or("`nu-fission` needs `chi`")?;
             let sum: f64 = chi.iter().sum();
