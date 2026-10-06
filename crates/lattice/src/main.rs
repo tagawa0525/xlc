@@ -4,7 +4,8 @@
 //!
 //! 入力ファイル中のライブラリと出力のパスは、入力ファイルのあるディレクトリからの相対パス。
 //!
-//! スレッド数は、環境変数 `RAYON_NUM_THREADS` があればその値、なければ物理コアの数とする。
+//! スレッド数は、環境変数 `RAYON_NUM_THREADS` があればその値、なければ物理コアの数とする
+//! （`taskset` やコンテナで使える CPU が絞られていれば、その数を超えない）。
 //! MOC のスイープはメモリの転送速度で頭打ちになり、1つのコアを2つのスレッドで分ける
 //! （SMT）とかえって遅くなるため。
 
@@ -38,10 +39,12 @@ fn main() -> ExitCode {
 }
 
 /// `RAYON_NUM_THREADS` がなければ、rayon のスレッド数を物理コアの数にする。
+/// 物理コアの数はマシン全体の値なので、このプロセスに許された CPU の数（論理）で抑える。
 fn use_physical_cores() -> anyhow::Result<()> {
     if std::env::var_os("RAYON_NUM_THREADS").is_none() {
+        let allowed = std::thread::available_parallelism().context("available CPUs")?;
         rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get_physical())
+            .num_threads(num_cpus::get_physical().min(allowed.get()))
             .build_global()
             .context("thread pool")?;
     }
