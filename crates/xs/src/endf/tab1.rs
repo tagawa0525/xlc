@@ -81,9 +81,31 @@ impl Tab1 {
         self.laws[self.breaks.partition_point(|&b| b < k + 2)]
     }
 
-    /// 値がすべて有限で、x が昇順であることと、各区間の値が補間則の定義域にあることを検査する。
-    /// `breaks` と `laws` の整合は呼び出し側で保証されているものとする。
+    /// x と y の長さ、区切りと補間則の対応（区切りは狭義の昇順で、最後が点の数）、値がすべて有限で
+    /// x が昇順であること、各区間の値が補間則の定義域にあることを検査する。
     pub(super) fn check(&self) -> Result<(), String> {
+        if self.x.len() != self.y.len() {
+            return Err(format!(
+                "{} x values but {} y values",
+                self.x.len(),
+                self.y.len()
+            ));
+        }
+        if self.breaks.len() != self.laws.len() {
+            return Err(format!(
+                "{} interpolation ranges but {} laws",
+                self.breaks.len(),
+                self.laws.len()
+            ));
+        }
+        let ascending = self.breaks.windows(2).all(|w| w[0] < w[1]);
+        if !ascending || self.breaks.last() != Some(&self.x.len()) {
+            return Err(format!(
+                "interpolation ranges {:?} must ascend to the {} points",
+                self.breaks,
+                self.x.len()
+            ));
+        }
         if let Some(k) = self
             .x
             .iter()
@@ -153,9 +175,10 @@ pub struct ClampedTab1 {
 }
 
 impl ClampedTab1 {
-    /// 空の表、または有限でない x がある表なら `None`（範囲の端に丸める clamp が NaN で panic するため）。
+    /// 空の表、または検査（`Tab1::check`）に通らない表なら `None`。範囲の端に丸める `clamp` と
+    /// 補間則の参照が、昇順で有限な x と整合した区切りを前提にするため。
     pub fn new(table: Tab1) -> Option<Self> {
-        let valid = !table.x.is_empty() && table.x.iter().all(|x| x.is_finite());
+        let valid = !table.x.is_empty() && table.check().is_ok();
         valid.then_some(Self { table })
     }
 
