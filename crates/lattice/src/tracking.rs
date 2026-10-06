@@ -299,4 +299,41 @@ mod tests {
         }
         panic!("the trajectory does not close");
     }
+
+    fn two_by_two() -> Lattice {
+        let pin = PinCell::new(1.26, vec![0.3, 0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        Lattice::new(vec![pin, water], vec![vec![0, 1], vec![0, 0]]).unwrap()
+    }
+
+    #[test]
+    fn lattice_track_volumes_match_analytic() {
+        let lattice = two_by_two();
+        let t = Tracking::new(&lattice, 32, 0.005).unwrap();
+        for (estimated, exact) in t.volumes(lattice.regions()).iter().zip(lattice.volumes()) {
+            assert!(
+                (estimated - exact).abs() < 1e-3 * exact,
+                "{estimated} vs {exact}"
+            );
+        }
+    }
+
+    #[test]
+    fn lattice_tracks_reflect_at_the_outer_boundary() {
+        let t = Tracking::new(&two_by_two(), 8, 0.05).unwrap();
+        let half = 1.26;
+        for track in &t.tracks {
+            for p in [track.start, track.end] {
+                let on_edge = (p.0.abs() - half).abs() < 1e-9 || (p.1.abs() - half).abs() < 1e-9;
+                assert!(on_edge, "{p:?}");
+            }
+            let next = &t.tracks[track.forward_link.track];
+            let joined = if track.forward_link.forward {
+                next.start
+            } else {
+                next.end
+            };
+            assert!((joined.0 - track.end.0).abs() < 1e-9 && (joined.1 - track.end.1).abs() < 1e-9);
+        }
+    }
 }
