@@ -18,6 +18,7 @@
           pandas
           uncertainties
           setuptools
+          setuptools-scm
           pip
         ]
       );
