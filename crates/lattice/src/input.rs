@@ -315,7 +315,7 @@ zones = [{ material = "water", rings = 1 }]
         let input = LatticeInput::parse(&text).unwrap();
         let (lattice, _) = input.geometry().unwrap();
         assert_eq!(lattice.regions(), 3 + 9 + 9 + 3);
-        let text = LATTICE.replace("rows = ", "rows = ").replace(
+        let text = LATTICE.replace(
             "  { material = \"water\", rings = 1 },\n]",
             "  { material = \"water\", rings = 1 },\n]\nsectors = 8",
         );
