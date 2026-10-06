@@ -83,8 +83,27 @@ fn table() -> &'static JkTable {
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
 /// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), String> {
-    let _ = (beta, theta, table(), lagrange_weights(0.0, 4));
-    todo!()
+    let (lb, lt) = (beta.log10(), theta.log10());
+    if lb > LOG_BETA.1 {
+        let j = 0.5 * std::f64::consts::PI / beta;
+        return Ok((j, 2.0 * j));
+    }
+    if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
+        return Err(format!("β={beta:e}, θ={theta:e} is outside the J, K table"));
+    }
+    let tab = table();
+    let n_theta = tab.ln_j.len() / tab.n_beta;
+    let (ib, wb) = lagrange_weights((lb - LOG_BETA.0) / STEP, tab.n_beta);
+    let (it, wt) = lagrange_weights((lt - LOG_THETA.0) / STEP, n_theta);
+    let (mut ln_j, mut ln_k) = (0.0, 0.0);
+    for (a, &w_t) in wt.iter().enumerate() {
+        for (b, &w_b) in wb.iter().enumerate() {
+            let index = (it + a) * tab.n_beta + ib + b;
+            ln_j += w_t * w_b * tab.ln_j[index];
+            ln_k += w_t * w_b * tab.ln_k[index];
+        }
+    }
+    Ok((ln_j.exp(), ln_k.exp()))
 }
 
 /// 格子座標 u（0 から n-1）での 4 点の Lagrange 補間の、最初の点の番号と重み。
