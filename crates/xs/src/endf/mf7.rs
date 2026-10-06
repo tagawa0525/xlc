@@ -80,8 +80,19 @@ impl Mf7Incoherent {
             beta.push(first.c2);
             let mut rows = vec![first.table.y];
             let mut temps = vec![first.c1];
-            for _ in 0..first.l1 {
+            let lt = usize::try_from(first.l1)
+                .map_err(|_| Error::new(line, format!("invalid LT {}", first.l1)))?;
+            for _ in 0..lt {
                 let list = r.list()?;
+                if list.c2 != first.c2 {
+                    return Err(Error::new(
+                        r.line(),
+                        format!(
+                            "β {} differs from {} of its first temperature",
+                            list.c2, first.c2
+                        ),
+                    ));
+                }
                 temps.push(list.c1);
                 rows.push(list.values);
             }
