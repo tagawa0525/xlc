@@ -163,19 +163,14 @@ impl Library {
         let descending = |v: &[f64]| {
             v.windows(2).all(|w| w[0] > w[1]) && v.iter().all(|&x| x > 0.0 && x.is_finite())
         };
-        let bounds = file.group_bounds;
-        if bounds.len() < 2 || !descending(&bounds) {
-            return Err(invalid(format!(
-                "group bounds must be at least two positive descending values, got {bounds:?}"
-            )));
-        }
+        let groups = GroupStructure::new(file.group_bounds).map_err(|e| invalid(e.to_string()))?;
         if file.sigma0.is_empty() || !descending(&file.sigma0) {
             return Err(invalid(format!(
                 "sigma0 must be positive and descending, got {:?}",
                 file.sigma0
             )));
         }
-        let ng = bounds.len() - 1;
+        let ng = groups.len();
         for (k, n) in file.nuclides.iter().enumerate() {
             if file.nuclides[..k].iter().any(|m| m.name == n.name) {
                 return Err(invalid(format!("nuclide {} appears twice", n.name)));
@@ -183,7 +178,7 @@ impl Library {
             n.check(ng, file.sigma0.len()).map_err(invalid)?;
         }
         Ok(Self {
-            groups: GroupStructure::new(bounds),
+            groups,
             sigma0: file.sigma0,
             nuclides: file.nuclides,
         })
