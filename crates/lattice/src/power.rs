@@ -40,7 +40,15 @@ pub fn cell_fission_rates(
 /// 核分裂率を、フィールド名付きの map 形式の MessagePack にする: `format` ("xlc-pin-powers") と、
 /// 格子の行ごとの核分裂率 `rows`（上の行から、各行は左から）。
 pub fn to_msgpack(rates: &[f64], n: usize) -> Vec<u8> {
-    todo!("{rates:?} {n}")
+    #[derive(serde::Serialize)]
+    struct PinPowers {
+        format: &'static str,
+        rows: Vec<Vec<f64>>,
+    }
+    xlc_xs::msgpack::to_named(&PinPowers {
+        format: "xlc-pin-powers",
+        rows: rates.chunks(n).map(<[f64]>::to_vec).collect(),
+    })
 }
 
 #[cfg(test)]
