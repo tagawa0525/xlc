@@ -527,6 +527,28 @@ mod tests {
     }
 
     #[test]
+    fn result_does_not_depend_on_the_thread_count() {
+        // スイープの和を足す順がスレッドの分け方で変わると、結果が最下位のビットで揺れる
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let materials = [&f, &m, &m, &m, &f, &m];
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve(&tracking, &materials, &Options::default()).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5, 8] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
+    }
+
+    #[test]
     fn refinement_converges() {
         let coarse = heterogeneous(16, 0.05);
         let fine = heterogeneous(32, 0.02);
