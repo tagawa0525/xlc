@@ -57,7 +57,7 @@ pub enum ProcessError {
     NoMf3,
     #[error("fission needs MF1 MT452 and MF5 MT18")]
     FissionData,
-    #[error("{temperature} K: {source}")]
+    #[error("{temperature} K")]
     Temperature {
         temperature: f64,
         source: Box<ProcessError>,
