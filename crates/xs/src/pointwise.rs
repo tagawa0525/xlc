@@ -414,12 +414,7 @@ fn replace_with_unresolved(
     let law = unresolved_interpolation(urr)?;
     let grid = unresolved_grid(urr, el, eh);
     let averages: Vec<Sigma> = grid.iter().map(|&e| xs.cross_sections(e)).collect();
-    let parts: [(u32, fn(&Sigma) -> f64); 3] = [
-        (2, |s| s.elastic),
-        (fission_mt, |s| s.fission),
-        (102, |s| s.capture),
-    ];
-    for (mt, part) in parts {
+    for (mt, part) in [(2, 0), (fission_mt, 1), (102, 2)] {
         let background = tables.get(&mt);
         let values: Vec<f64> = grid
             .iter()
@@ -433,7 +428,7 @@ fn replace_with_unresolved(
                         left_limit(t, e)
                     }
                 });
-                part(s) + inside
+                [s.elastic, s.fission, s.capture][part] + inside
             })
             .collect();
         if background.is_none() && values.iter().all(|&v| v == 0.0) {
