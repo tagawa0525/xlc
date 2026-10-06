@@ -63,9 +63,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     // 上限は、指定した反応だけでなく、広げる対象の全反応のしきい値で決まる
     let mut candidates = Vec::new();
-    for mt in cold.mts(mat, 3).into_iter().filter(|&mt| is_broadened(mt)) {
-        let section = cold.section(mat, 3, mt).expect("listed by mts");
-        candidates.push(Mf3::parse(&section)?.sigma);
+    for (mt, section) in cold.sections(mat, 3) {
+        if is_broadened(mt) {
+            candidates.push(Mf3::parse(&section)?.sigma);
+        }
     }
     let e_max = broadening_limit(mf2.as_ref(), candidates.iter());
 
