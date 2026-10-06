@@ -8,7 +8,8 @@ use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, expectation_vec, width_ratios};
 use super::line_shape::jk_interpolated;
-use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint};
+use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof};
+use crate::numeric::NumericError;
 use crate::physics::{BK, wave_number_factor};
 
 /// 非分離共鳴のパラメータから、無限希釈の平均断面積を計算する。
@@ -36,6 +37,10 @@ pub enum UrrError {
     JkTable { beta: f64, theta: f64 },
     #[error("unresolved range has no (l, J) sequences")]
     NoSequences,
+    #[error("the scattering radius table does not cover {energy} eV")]
+    RadiusTable { energy: f64 },
+    #[error(transparent)]
+    Numeric(#[from] NumericError),
     #[error("unresolved sequences use different interpolation laws ({first:?} and {other:?})")]
     MixedLaws {
         first: Interpolation,
@@ -55,9 +60,9 @@ impl<'a> UnresolvedXs<'a> {
     /// エネルギー e (eV) での平均断面積。パラメータは lin-lin で補間する（NJOY と同じ）。
     ///
     /// 波数は l ごとの AWRI から求める（NJOY は最初の l の AWRI を使う。全 l で同じなら一致する）。
-    pub fn cross_sections(&self, e: f64) -> Sigma {
+    pub fn cross_sections(&self, e: f64) -> Result<Sigma, UrrError> {
         let urr = self.urr;
-        let ay = self.scattering_radius(e);
+        let ay = self.scattering_radius(e)?;
         let mut sigma = Sigma::default();
         for lv in &urr.l_values {
             let aa = self.channel_radius(lv.awri, ay);
@@ -67,22 +72,23 @@ impl<'a> UnresolvedXs<'a> {
             // 1/k² に掛ける係数
             let pifac = PI / (k * k);
             if !lv.j_values.is_empty() {
-                sigma.elastic += 4.0 * pifac * f64::from(2 * lv.l + 1) * sin2;
+                sigma.elastic += 4.0 * pifac * f64::from(2 * lv.l.number() + 1) * sin2;
             }
             for jv in &lv.j_values {
                 let p = parameters(&jv.points, e);
                 let gj = (2.0 * jv.aj + 1.0) / (4.0 * urr.spi + 2.0);
                 // 平均中性子幅（換算幅 × 自由度 × 透過因子/ρ × √E）
-                let gn = p.gno * f64::from(jv.amun) * penetrability(lv.l, rho) / rho * e.sqrt();
+                let gn =
+                    p.gno * f64::from(jv.amun.number()) * penetrability(lv.l, rho) / rho * e.sqrt();
                 let scale = 2.0 * PI * pifac * gj / p.d;
-                let [f1, f2, f3] = fluctuation_integrals(gn, p.gf, p.gg, p.gx, jv);
+                let [f1, f2, f3] = fluctuation_integrals(gn, p.gf, p.gg, p.gx, jv)?;
                 sigma.elastic += scale * (gn * gn * f1 - 2.0 * gn * sin2);
                 sigma.capture += scale * gn * p.gg * f2;
                 sigma.fission += scale * gn * p.gf * f3;
             }
         }
         sigma.total = sigma.elastic + sigma.fission + sigma.capture;
-        sigma
+        Ok(sigma)
     }
 }
 
@@ -112,7 +118,7 @@ impl UnresolvedXs<'_> {
             return Err(UrrError::Temperature(temperature));
         }
         let urr = self.urr;
-        let ay = self.scattering_radius(e);
+        let ay = self.scattering_radius(e)?;
         // ポテンシャル散乱と干渉の補正、系列ごとの平均の幅
         let (mut spot, mut sint) = (0.0, 0.0);
         let mut sequences = Vec::new();
@@ -123,14 +129,15 @@ impl UnresolvedXs<'_> {
             let sin2 = phase_shift(lv.l, rhoc).sin().powi(2);
             let ab = 4.0 * PI / (k * k);
             if !lv.j_values.is_empty() {
-                spot += ab * f64::from(2 * lv.l + 1) * sin2;
+                spot += ab * f64::from(2 * lv.l.number() + 1) * sin2;
             }
             // ドップラー幅 Δ = 2 √(E kT / A)
             let delta = 2.0 * (e * BK * temperature / lv.awri).sqrt();
             for jv in &lv.j_values {
                 let p = parameters(&jv.points, e);
                 let gj = (2.0 * jv.aj + 1.0) / (4.0 * urr.spi + 2.0);
-                let gn = p.gno * f64::from(jv.amun) * penetrability(lv.l, rho) / rho * e.sqrt();
+                let gn =
+                    p.gno * f64::from(jv.amun.number()) * penetrability(lv.l, rho) / rho * e.sqrt();
                 sint -= ab * PI * gj * gn * sin2 / p.d;
                 sequences.push(Sequence {
                     gj,
@@ -191,12 +198,10 @@ impl UnresolvedXs<'_> {
     }
 
     /// 位相シフトに使う散乱半径（NRO=1 なら表から補間する）。
-    fn scattering_radius(&self, e: f64) -> f64 {
+    fn scattering_radius(&self, e: f64) -> Result<f64, UrrError> {
         match &self.urr.ap_energy {
-            Some(table) => table
-                .eval(e)
-                .expect("radius table covers the unresolved range"),
-            None => self.urr.ap,
+            Some(table) => table.eval(e).ok_or(UrrError::RadiusTable { energy: e }),
+            None => Ok(self.urr.ap),
         }
     }
 
@@ -242,23 +247,24 @@ impl Sequence<'_> {
         if self.gn <= 0.0 || self.gg <= 0.0 {
             return Ok(vec![0.0; n]);
         }
-        let dof_f = if self.gf > 0.0 { self.jv.amuf } else { 0 };
-        let dof_x = if self.gx > 0.0 { self.jv.amux } else { 0 };
-        let failure = std::cell::RefCell::new(None);
-        let node = |x: f64, y: f64, z: f64, out: &mut [f64]| {
+        let dof_f = if self.gf > 0.0 {
+            self.jv.amuf
+        } else {
+            WidthDof::Fixed
+        };
+        let dof_x = if self.gx > 0.0 {
+            self.jv.amux
+        } else {
+            WidthDof::Fixed
+        };
+        let node = |x: f64, y: f64, z: f64, out: &mut [f64]| -> Result<(), UrrError> {
             let (gn, gf, gx) = (self.gn * x, self.gf * y, self.gx * z);
             let gamma = gn + gf + self.gg + gx;
             // 共鳴のピークの断面積と、θ = Γ/Δ
             let peak = self.ab * self.gj * gn / gamma;
             let theta = gamma / self.delta;
             for (i, s) in sigm.iter().enumerate() {
-                let (j, k) = match jk_interpolated(s / peak, theta) {
-                    Ok(jk) => jk,
-                    Err(message) => {
-                        failure.borrow_mut().get_or_insert(message);
-                        (0.0, 0.0)
-                    }
-                };
+                let (j, k) = jk_interpolated(s / peak, theta)?;
                 out[PARTS * i..PARTS * (i + 1)].copy_from_slice(&[
                     j * gf,
                     j * self.gg,
@@ -267,19 +273,19 @@ impl Sequence<'_> {
                     k * gamma,
                 ]);
             }
+            Ok(())
         };
         let [tol_n, tol_f, tol_x] = SHIELDING_TOLERANCE;
-        let values = expectation_vec(dof_x, tol_x, n, |z, out| {
-            let inner = expectation_vec(dof_f, tol_f, n, |y, out| {
-                let inner = expectation_vec(self.jv.amun, tol_n, n, |x, out| node(x, y, z, out));
+        let values = expectation_vec::<UrrError>(dof_x, tol_x, n, |z, out| {
+            let inner = expectation_vec::<UrrError>(dof_f, tol_f, n, |y, out| {
+                let inner = expectation_vec(self.jv.amun, tol_n, n, |x, out| node(x, y, z, out))?;
                 out.copy_from_slice(&inner);
-            });
+                Ok(())
+            })?;
             out.copy_from_slice(&inner);
-        });
-        match failure.into_inner() {
-            Some(message) => Err(message),
-            None => Ok(values.into_iter().map(|v| v / self.d).collect()),
-        }
+            Ok(())
+        })?;
+        Ok(values.into_iter().map(|v| v / self.d).collect())
     }
 }
 
@@ -313,27 +319,34 @@ fn parameters(points: &[UrrPoint], e: f64) -> UrrPoint {
 /// 中性子幅 x の期待値は閉じた式（`width_ratios`）で、y と z は適応積分で求める。
 ///
 /// NJOY と同じく、Γn または Γγ が 0 以下なら 0 とする（共鳴がない、または分母が 0 になる）。
-fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> [f64; 3] {
+fn fluctuation_integrals(
+    gn: f64,
+    gf: f64,
+    gg: f64,
+    gx: f64,
+    jv: &UrrJValue,
+) -> Result<[f64; 3], NumericError> {
     if gn <= 0.0 || gg <= 0.0 {
-        return [0.0; 3];
+        return Ok([0.0; 3]);
     }
-    let dof_f = if gf > 0.0 { jv.amuf } else { 0 };
-    let dof_x = if gx > 0.0 { jv.amux } else { 0 };
+    let dof_f = if gf > 0.0 { jv.amuf } else { WidthDof::Fixed };
+    let dof_x = if gx > 0.0 { jv.amux } else { WidthDof::Fixed };
     let ratios = |y: f64, z: f64| width_ratios(jv.amun, (gf * y + gg + gx * z) / gn);
-    let outer = |g: &dyn Fn(f64, f64) -> f64| {
-        expectation(dof_x, TOLERANCE[1], |z| {
+    let outer = |g: &dyn Fn(f64, f64) -> Result<f64, NumericError>| {
+        let value = expectation(dof_x, TOLERANCE[1], |z| {
             expectation(dof_f, TOLERANCE[0], |y| g(y, z))
-        }) / gn
+        })?;
+        Ok::<_, NumericError>(value / gn)
     };
-    [
-        outer(&|y, z| ratios(y, z)[1]),
-        outer(&|y, z| ratios(y, z)[0]),
+    Ok([
+        outer(&|y, z| Ok(ratios(y, z)?[1]))?,
+        outer(&|y, z| Ok(ratios(y, z)?[0]))?,
         if gf > 0.0 {
-            outer(&|y, z| y * ratios(y, z)[0])
+            outer(&|y, z| Ok(y * ratios(y, z)?[0]))?
         } else {
             0.0
         },
-    ]
+    ])
 }
 
 /// 幅のゆらぎの期待値の相対許容誤差（内側の核分裂幅、外側の競合幅の順）。
@@ -401,7 +414,7 @@ const FILL: [f64; 78] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::UrrLValue;
+    use crate::endf::{OrbitalL, Tab1, UrrLValue};
     use crate::special::erfc;
 
     const AWRI: f64 = 236.0;
@@ -427,13 +440,13 @@ mod tests {
             naps: 1,
             l_values: vec![UrrLValue {
                 awri: AWRI,
-                l: 0,
+                l: OrbitalL::S,
                 j_values: vec![UrrJValue {
                     aj: 0.5,
                     int,
-                    amux: 0,
-                    amun: 1,
-                    amuf: 0,
+                    amux: WidthDof::Fixed,
+                    amun: WidthDof::One,
+                    amuf: WidthDof::Fixed,
                     points,
                 }],
             }],
@@ -446,6 +459,21 @@ mod tests {
     }
 
     #[test]
+    fn energy_outside_the_radius_table_is_error() {
+        let mut urr = s_wave(
+            vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
+            Interpolation::LinLin,
+        );
+        urr.ap_energy = Some(Tab1::linear(vec![5.0e3, 1.0e4], vec![AP, AP]));
+        let xs = UnresolvedXs::new(&urr).unwrap();
+        assert!(xs.cross_sections(8.0e3).is_ok());
+        assert!(matches!(
+            xs.cross_sections(1.5e4),
+            Err(UrrError::RadiusTable { .. })
+        ));
+    }
+
+    #[test]
     fn s_wave_without_fission_matches_closed_form() {
         // GNO は 5e3 eV で 1e-3、2e4 eV で 4e-3 なので、1e4 eV では lin-lin で 2e-3
         let urr = s_wave(
@@ -453,7 +481,7 @@ mod tests {
             Interpolation::LinLin,
         );
         let e = 1.0e4;
-        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(e);
+        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(e).unwrap();
 
         let k = wave_number_factor() * AWRI / (AWRI + 1.0) * e.sqrt();
         let (d, gg) = (20.0, 0.023);
@@ -517,13 +545,13 @@ mod tests {
             naps: 0,
             l_values: vec![UrrLValue {
                 awri: 232.029,
-                l: 1,
+                l: OrbitalL::P,
                 j_values: vec![UrrJValue {
                     aj: 0.5,
                     int: Interpolation::LinLin,
-                    amux: 0,
-                    amun: 1,
-                    amuf: 1,
+                    amux: WidthDof::Fixed,
+                    amun: WidthDof::One,
+                    amuf: WidthDof::One,
                     points: vec![
                         point(4.0e4, 1.5872e-3, 6.7737e-4),
                         point(6.0e4, 1.4566e-3, 6.0163e-4),
@@ -531,7 +559,10 @@ mod tests {
                 }],
             }],
         };
-        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(5.0e4);
+        let sigma = UnresolvedXs::new(&urr)
+            .unwrap()
+            .cross_sections(5.0e4)
+            .unwrap();
         assert!(sigma.fission > 0.0 && sigma.fission.is_finite());
     }
 
@@ -554,13 +585,13 @@ mod tests {
             naps: 0,
             l_values: vec![UrrLValue {
                 awri: 234.0178,
-                l: 2,
+                l: OrbitalL::D,
                 j_values: vec![UrrJValue {
                     aj: 1.5,
                     int: Interpolation::LogLog,
-                    amux: 1,
-                    amun: 1,
-                    amuf: 1,
+                    amux: WidthDof::One,
+                    amun: WidthDof::One,
+                    amuf: WidthDof::One,
                     points: vec![
                         point(4.5e4, 0.0),
                         point(5.0e4, 2.03e-5),
@@ -569,7 +600,10 @@ mod tests {
                 }],
             }],
         };
-        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(5.0e4);
+        let sigma = UnresolvedXs::new(&urr)
+            .unwrap()
+            .cross_sections(5.0e4)
+            .unwrap();
         assert!(sigma.fission > 0.0 && sigma.fission.is_finite());
     }
 
@@ -581,7 +615,7 @@ mod tests {
         );
         let xs = UnresolvedXs::new(&urr).unwrap();
         let e = 1.0e4;
-        let average = xs.cross_sections(e);
+        let average = xs.cross_sections(e).unwrap();
         let [dilute] = xs.shielded(e, 300.0, &[1.0e10], Sigma::default()).unwrap()[..] else {
             panic!("one σ0");
         };
@@ -605,7 +639,7 @@ mod tests {
         zero_capture.gg = 0.0;
         let urr = s_wave(vec![zero_capture], Interpolation::LinLin);
         let xs = UnresolvedXs::new(&urr).unwrap();
-        let average = xs.cross_sections(1.0e4);
+        let average = xs.cross_sections(1.0e4).unwrap();
         let [dilute] = xs
             .shielded(1.0e4, 300.0, &[1.0e10], Sigma::default())
             .unwrap()[..]

@@ -3,6 +3,7 @@
 use crate::geometry::Lattice;
 use crate::material::Material;
 use crate::moc::Solution;
+use xlc_xs::msgpack::MsgpackError;
 
 /// 核分裂のあるセルがない。
 #[derive(Debug, thiserror::Error)]
@@ -44,7 +45,7 @@ pub fn cell_fission_rates(
 
 /// 核分裂率を、フィールド名付きの map 形式の MessagePack にする: `format` ("xlc-pin-powers") と、
 /// 格子の行ごとの核分裂率 `rows`（上の行から、各行は左から）。
-pub fn to_msgpack(rates: &[f64], n: usize) -> Vec<u8> {
+pub fn to_msgpack(rates: &[f64], n: usize) -> Result<Vec<u8>, MsgpackError> {
     #[derive(serde::Serialize)]
     struct PinPowers {
         format: &'static str,
@@ -108,7 +109,7 @@ mod tests {
             format: String,
             rows: Vec<Vec<f64>>,
         }
-        let bytes = to_msgpack(&[1.0, 0.0, 0.5, 1.5], 2);
+        let bytes = to_msgpack(&[1.0, 0.0, 0.5, 1.5], 2).unwrap();
         let value: PinPowers = rmp_serde::from_slice(&bytes).unwrap();
         assert_eq!(
             value,

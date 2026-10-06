@@ -6,6 +6,7 @@
 
 use super::quadrature::gauss_kronrod;
 use super::unresolved::UrrError;
+use crate::numeric::NumericError;
 use crate::special::faddeeva;
 
 /// J, K 積分の相対許容誤差（全成分の最大）。外側の幅のゆらぎの積分より小さくする
@@ -21,11 +22,12 @@ pub(super) fn psi(x: f64, theta: f64) -> f64 {
 ///
 /// x = tan φ と置いて [0, π/2] を適応 Gauss-Kronrod 積分する。線形状の裾は ψ ~ 1/x² なので
 /// ψ/(ψ+β) dx = ψ/(ψ+β) (1 + x²) dφ は φ → π/2 でも有限（1/β に近づく）。
-pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Vec<(f64, f64)> {
-    assert!(
-        betas.iter().all(|&b| b > 0.0),
-        "β must be positive: {betas:?}"
-    );
+pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>, NumericError> {
+    if let Some(beta) = betas.iter().find(|&&b| b <= 0.0 || b.is_nan()) {
+        return Err(NumericError::Domain(format!(
+            "J, K integrals for β = {beta}"
+        )));
+    }
     let integrand = |phi: f64, out: &mut [f64]| {
         let x = phi.tan();
         let p = psi(x, theta);
@@ -35,15 +37,16 @@ pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Vec<(f64, f64)> {
             out[2 * i] = r * jacobian;
             out[2 * i + 1] = r * (p + 2.0 * beta) / (p + beta) * jacobian;
         }
+        Ok(())
     };
-    let values = gauss_kronrod(
+    let values = gauss_kronrod::<NumericError>(
         integrand,
         2 * betas.len(),
         0.0,
         0.5 * std::f64::consts::PI,
         TOLERANCE,
-    );
-    values.chunks(2).map(|c| (c[0], c[1])).collect()
+    )?;
+    Ok(values.chunks(2).map(|c| (c[0], c[1])).collect())
 }
 
 /// J, K の表の範囲（log10 β, log10 θ）。対象核種の非分離共鳴で実際に使う範囲
@@ -61,9 +64,10 @@ struct JkTable {
     ln_k: Vec<f64>,
 }
 
-fn table() -> &'static JkTable {
-    static TABLE: std::sync::OnceLock<JkTable> = std::sync::OnceLock::new();
-    TABLE.get_or_init(|| {
+/// 表は最初に使うときに一度だけ作る（作れなかったときのエラーも保持する）。
+fn table() -> Result<&'static JkTable, NumericError> {
+    static TABLE: std::sync::OnceLock<Result<JkTable, NumericError>> = std::sync::OnceLock::new();
+    let table = TABLE.get_or_init(|| {
         let points = |(lo, hi): (f64, f64)| ((hi - lo) / STEP).round() as usize + 1;
         let (n_beta, n_theta) = (points(LOG_BETA), points(LOG_THETA));
         let betas: Vec<f64> = (0..n_beta)
@@ -72,13 +76,14 @@ fn table() -> &'static JkTable {
         let (mut ln_j, mut ln_k) = (Vec::new(), Vec::new());
         for t in 0..n_theta {
             let theta = 10f64.powf(LOG_THETA.0 + STEP * t as f64);
-            for (j, k) in jk_integrals(&betas, theta) {
+            for (j, k) in jk_integrals(&betas, theta)? {
                 ln_j.push(j.ln());
                 ln_k.push(k.ln());
             }
         }
-        JkTable { n_beta, ln_j, ln_k }
-    })
+        Ok(JkTable { n_beta, ln_j, ln_k })
+    });
+    table.as_ref().map_err(Clone::clone)
 }
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
@@ -92,7 +97,7 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
         return Err(UrrError::JkTable { beta, theta });
     }
-    let tab = table();
+    let tab = table()?;
     let n_theta = tab.ln_j.len() / tab.n_beta;
     let (ib, wb) = lagrange_weights((lb - LOG_BETA.0) / STEP, tab.n_beta);
     let (it, wt) = lagrange_weights((lt - LOG_THETA.0) / STEP, n_theta);
@@ -135,12 +140,22 @@ mod tests {
     }
 
     #[test]
+    fn jk_integrals_need_positive_beta() {
+        for beta in [0.0, -1.0, f64::NAN] {
+            assert!(matches!(
+                jk_integrals(&[1.0, beta], 1.0),
+                Err(NumericError::Domain(_))
+            ));
+        }
+    }
+
+    #[test]
     fn natural_line_shape_without_doppler() {
         // θ → ∞ で ψ = 1/(1+x²)。a² = (1+β)/β として
         // J = π/(2aβ)、K = (1/β)[π/(2a) + π(a²+1)/(4a³)]
         let theta = 1.0e5;
         let betas = [1.0e-4, 1.0e-2, 1.0, 1.0e2];
-        for (&beta, (j, k)) in betas.iter().zip(jk_integrals(&betas, theta)) {
+        for (&beta, (j, k)) in betas.iter().zip(jk_integrals(&betas, theta).unwrap()) {
             let a = ((1.0 + beta) / beta).sqrt();
             assert_rel(j, PI / (2.0 * a * beta), 1e-8);
             assert_rel(
@@ -156,7 +171,7 @@ mod tests {
     fn dilute_limit() {
         // β → ∞ で J → (1/β)∫ψ dx = π/(2β)、K → 2J
         for theta in [0.01, 0.3, 10.0] {
-            let [(j, k)] = jk_integrals(&[1.0e8], theta)[..] else {
+            let [(j, k)] = jk_integrals(&[1.0e8], theta).unwrap()[..] else {
                 panic!("one β")
             };
             assert_rel(j, PI / 2.0e8, 1e-7);
@@ -185,7 +200,7 @@ mod tests {
         // ドップラー幅が自然幅の 100 倍
         let theta = 0.01;
         let betas = [1.0e-3, 0.1];
-        for (&beta, (j, _)) in betas.iter().zip(jk_integrals(&betas, theta)) {
+        for (&beta, (j, _)) in betas.iter().zip(jk_integrals(&betas, theta).unwrap()) {
             assert_rel(j, j_by_simpson(beta, theta), 1e-6);
         }
     }
@@ -204,7 +219,7 @@ mod tests {
             let beta = 10f64.powf(LOG_BETA.0 + (LOG_BETA.1 - LOG_BETA.0) * uniform());
             let theta = 10f64.powf(LOG_THETA.0 + (LOG_THETA.1 - LOG_THETA.0) * uniform());
             let (j, k) = jk_interpolated(beta, theta).unwrap();
-            let [(jd, kd)] = jk_integrals(&[beta], theta)[..] else {
+            let [(jd, kd)] = jk_integrals(&[beta], theta).unwrap()[..] else {
                 panic!("one β")
             };
             assert_rel(j, jd, 1e-6);

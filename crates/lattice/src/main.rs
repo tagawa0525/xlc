@@ -13,6 +13,9 @@
 //! MOC のスイープはメモリの転送速度で頭打ちになり、1つのコアを2つのスレッドで分ける
 //! （SMT）とかえって遅くなるため。
 
+// テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
+#![cfg_attr(test, allow(clippy::disallowed_macros))]
+
 use std::env::VarError;
 use std::io::IsTerminal;
 use std::path::Path;
@@ -135,15 +138,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
     if let Some((output, bounds)) = &input.output {
         let groups = groups
             .as_ref()
-            .expect("the input checks that few-group output needs a library");
+            .ok_or_else(|| anyhow!("few-group output needs a library"))?;
         let few = homogenize(&solution, &materials, groups, bounds)?;
         let output = base.join(output);
-        std::fs::write(&output, few.to_msgpack()).with_context(|| shown(&output))?;
+        std::fs::write(&output, few.to_msgpack()?).with_context(|| shown(&output))?;
     }
     if let Some(file) = &input.pin_powers {
         let rates = cell_fission_rates(&solution, &lattice, &materials)?;
         let file = base.join(file);
-        std::fs::write(&file, to_msgpack(&rates, lattice.cells_per_side()))
+        std::fs::write(&file, to_msgpack(&rates, lattice.cells_per_side())?)
             .with_context(|| shown(&file))?;
     }
     println!("k {:.6}", solution.k);

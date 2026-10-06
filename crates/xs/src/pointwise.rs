@@ -97,10 +97,7 @@ pub fn resonance_tables(
     eh: f64,
     tol: f64,
 ) -> [Tab1; 4] {
-    let f = |e: f64| {
-        let s = xs.cross_sections(e);
-        RESONANCE_MTS.map(|mt| s.component(mt))
-    };
+    let f = |e: f64| xs.cross_sections(e).components();
     let mut seeds: Vec<f64> = nodes
         .iter()
         .copied()
@@ -113,12 +110,15 @@ pub fn resonance_tables(
 
     let mut x = vec![el];
     let mut values = vec![f(el)];
+    // 区間の左端の値（refine は右端を最後に積むので、次の区間の左端は今の区間の右端）
+    let mut left_value = values[0];
     for w in seeds.windows(2) {
-        let left = (w[0], *values.last().expect("starts with el"));
-        refine(&f, left, (w[1], f(w[1])), tol, &mut |e, v| {
+        let right = (w[1], f(w[1]));
+        refine(&f, (w[0], left_value), right, tol, &mut |e, v| {
             x.push(e);
             values.push(v);
         });
+        left_value = right.1;
     }
     std::array::from_fn(|i| Tab1::linear(x.clone(), values.iter().map(|v| v[i]).collect()))
 }
@@ -165,11 +165,11 @@ pub(crate) fn left_limit(t: &Tab1, e: f64) -> f64 {
 
 /// lin-lin の表の、e の右側からの極限値（定義域の外は 0）。
 pub(crate) fn right_limit(t: &Tab1, e: f64) -> f64 {
-    let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
-    if e < first || e >= last {
+    // 上端は右側からの極限なので 0。下端より下は eval が None を返す
+    if t.x.last().is_none_or(|&last| e >= last) {
         return 0.0;
     }
-    t.eval(e).expect("inside the table range")
+    t.eval(e).unwrap_or(0.0)
 }
 
 /// テープ中の1核種の、全反応の 0 K のポイントワイズの断面積。キーは MT。
@@ -208,12 +208,16 @@ impl ColdParts {
     /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
     #[tracing::instrument(name = "reconstruct", level = "debug", skip_all)]
     pub fn read(tape: &Tape, mat: i32, tol: f64) -> Result<Self, Error> {
-        let available = tape.mts(mat, 3);
+        let sections = tape.sections(mat, 3);
+        let available: Vec<u32> = sections.iter().map(|(mt, _)| *mt).collect();
         let mut tables = BTreeMap::new();
         let mut awr = None;
-        for &mt in available.iter().filter(|&&mt| !is_dropped(mt, &available)) {
-            let section = tape.section(mat, 3, mt).expect("listed by mts");
-            let mf3 = Mf3::parse(&section)?;
+        for (mt, section) in sections
+            .iter()
+            .filter(|(mt, _)| !is_dropped(*mt, &available))
+        {
+            let mt = *mt;
+            let mf3 = Mf3::parse(section)?;
             awr.get_or_insert(mf3.awr);
             tables.insert(mt, linearize(&mf3.sigma, tol));
         }
@@ -460,7 +464,11 @@ fn replace_with_unresolved(
     let xs = UnresolvedXs::new(urr).map_err(|e| e.to_string())?;
     let law = unresolved_interpolation(urr).map_err(|e| e.to_string())?;
     let grid = unresolved_grid(urr, el, eh);
-    let averages: Vec<Sigma> = grid.iter().map(|&e| xs.cross_sections(e)).collect();
+    let averages: Vec<Sigma> = grid
+        .iter()
+        .map(|&e| xs.cross_sections(e))
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
     for (mt, part) in [(2, 0), (fission_mt, 1), (102, 2)] {
         let background = tables.get(&mt);
         let values: Vec<f64> = grid
@@ -529,14 +537,9 @@ fn resonance_nodes(peaks: impl Iterator<Item = (f64, f64)>) -> Vec<f64> {
 }
 
 impl Sigma {
-    fn component(&self, mt: u32) -> f64 {
-        match mt {
-            1 => self.total,
-            2 => self.elastic,
-            18 => self.fission,
-            102 => self.capture,
-            _ => unreachable!("not a resonance reaction: MT{mt}"),
-        }
+    /// `RESONANCE_MTS` の順の成分
+    fn components(&self) -> [f64; 4] {
+        [self.total, self.elastic, self.fission, self.capture]
     }
 }
 
@@ -600,12 +603,12 @@ mod tests {
         let (gn, gg, gf) = (1.5e-3, 2.3e-2, 1.0e-2);
         let xs = ReichMooreXs::new(&single_level(gn, gg, gf));
         let tables = resonance_tables(&xs, &[6.674], 1.0e-5, 1.0e3, 1.0e-3);
-        for (t, mt) in tables.iter().zip(RESONANCE_MTS) {
+        for (i, (t, mt)) in tables.iter().zip(RESONANCE_MTS).enumerate() {
             assert_linear(t);
             assert_eq!((t.x[0], *t.x.last().unwrap()), (1.0e-5, 1.0e3));
             for w in t.x.windows(2) {
                 let mid = 0.5 * (w[0] + w[1]);
-                let exact = single_level_exact(mid, gn, gg, gf).component(mt);
+                let exact = single_level_exact(mid, gn, gg, gf).components()[i];
                 let approx = t.eval(mid).unwrap();
                 assert!(
                     (approx - exact).abs() <= 1.0e-3 * exact.abs() + 1.0e-12,
@@ -761,7 +764,7 @@ mod tests {
         let xs = UnresolvedXs::new(urr).unwrap();
         let at = |mt: u32, e: f64| tables[&mt].eval(e).unwrap();
         // 格子点（2 keV は補助格子の点）では、平均断面積と MF3 の背景断面積の和
-        let average = xs.cross_sections(2.0e3);
+        let average = xs.cross_sections(2.0e3).unwrap();
         for (mt, expected) in [(2, average.elastic + 10.0), (102, average.capture + 0.5)] {
             assert!(
                 (at(mt, 2.0e3) - expected).abs() <= 1e-12 * expected,
@@ -802,6 +805,7 @@ mod tests {
         let average = UnresolvedXs::new(urr)
             .unwrap()
             .cross_sections(1.0e5)
+            .unwrap()
             .capture;
         let t = &tables[&102];
         assert!((left_limit(t, 1.0e5) - (average + 0.5)).abs() <= 1e-12 * average);

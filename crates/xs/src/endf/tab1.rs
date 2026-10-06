@@ -81,9 +81,44 @@ impl Tab1 {
         self.laws[self.breaks.partition_point(|&b| b < k + 2)]
     }
 
-    /// x が昇順であることと、各区間の値が補間則の定義域にあることを検査する。
-    /// `breaks` と `laws` の整合は呼び出し側で保証されているものとする。
+    /// x と y の長さ、区切りと補間則の対応（区切りは狭義の昇順で、最後が点の数）、値がすべて有限で
+    /// x が昇順であること、各区間の値が補間則の定義域にあることを検査する。
     pub(super) fn check(&self) -> Result<(), String> {
+        if self.x.len() != self.y.len() {
+            return Err(format!(
+                "{} x values but {} y values",
+                self.x.len(),
+                self.y.len()
+            ));
+        }
+        if self.breaks.len() != self.laws.len() {
+            return Err(format!(
+                "{} interpolation ranges but {} laws",
+                self.breaks.len(),
+                self.laws.len()
+            ));
+        }
+        let ascending = self.breaks.windows(2).all(|w| w[0] < w[1]);
+        if !ascending || self.breaks.last() != Some(&self.x.len()) {
+            return Err(format!(
+                "interpolation ranges {:?} must ascend to the {} points",
+                self.breaks,
+                self.x.len()
+            ));
+        }
+        if let Some(k) = self
+            .x
+            .iter()
+            .zip(&self.y)
+            .position(|(x, y)| !x.is_finite() || !y.is_finite())
+        {
+            return Err(format!(
+                "non-finite value at point {}: x = {}, y = {}",
+                k + 1,
+                self.x[k],
+                self.y[k]
+            ));
+        }
         for k in 0..self.x.len().saturating_sub(1) {
             let (x0, x1) = (self.x[k], self.x[k + 1]);
             if x0.partial_cmp(&x1).is_none_or(|o| o.is_gt()) {
@@ -117,14 +152,46 @@ impl Tab1 {
         if !(first..=last).contains(&x) {
             return None;
         }
+        Some(self.value_within(x))
+    }
+
+    /// 範囲の中（first ≤ x ≤ last）の x で補間する。
+    fn value_within(&self, x: f64) -> f64 {
         // x[k] <= x を満たす最後の点。重複点では後ろの点が選ばれ、右側の極限になる
-        let k = self.x.partition_point(|&xi| xi <= x) - 1;
+        let k = self.x.partition_point(|&xi| xi <= x).saturating_sub(1);
         if k == self.x.len() - 1 {
-            return Some(self.y[k]);
+            return self.y[k];
         }
         // 区間 (k, k+1) の右端の点番号（1始まり）を含む範囲の補間則を使う
         let law = self.law_of_interval(k);
-        Some(law.interpolate(x, (self.x[k], self.y[k]), (self.x[k + 1], self.y[k + 1])))
+        law.interpolate(x, (self.x[k], self.y[k]), (self.x[k + 1], self.y[k + 1]))
+    }
+}
+
+/// 範囲の外を端の値で延長して補間する、空でない表（MF5 の θ(E) など）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClampedTab1 {
+    table: Tab1,
+}
+
+impl ClampedTab1 {
+    /// 空の表、または検査（`Tab1::check`）に通らない表なら `None`。範囲の端に丸める `clamp` と
+    /// 補間則の参照が、昇順で有限な x と整合した区切りを前提にするため。
+    pub fn new(table: Tab1) -> Option<Self> {
+        let valid = !table.x.is_empty() && table.check().is_ok();
+        valid.then_some(Self { table })
+    }
+
+    pub fn table(&self) -> &Tab1 {
+        &self.table
+    }
+
+    /// x における値。表の範囲の外では端の値。
+    pub fn eval(&self, x: f64) -> f64 {
+        let t = &self.table;
+        // 空でないことは作るときに確かめている
+        let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
+        t.value_within(x.clamp(first, last))
     }
 }
 
@@ -147,6 +214,46 @@ mod tests {
             (actual - expected).abs() <= 1e-12 * expected.abs(),
             "actual {actual}, expected {expected}"
         );
+    }
+
+    #[test]
+    fn non_finite_values_are_rejected() {
+        let one = |x: f64, y: f64| Tab1::linear(vec![x], vec![y]);
+        assert!(one(f64::NAN, 1.0).check().is_err());
+        assert!(one(1.0, f64::INFINITY).check().is_err());
+        assert!(
+            Tab1::linear(vec![1.0, f64::INFINITY], vec![1.0, 2.0])
+                .check()
+                .is_err()
+        );
+        assert!(one(1.0, 2.0).check().is_ok());
+        assert!(ClampedTab1::new(one(f64::NAN, 1.0)).is_none());
+    }
+
+    #[test]
+    fn inconsistent_tables_are_rejected() {
+        let mut short_y = Tab1::linear(vec![1.0, 2.0], vec![1.0, 1.0]);
+        short_y.y.pop();
+        assert!(short_y.check().is_err());
+        let mut wrong_break = Tab1::linear(vec![1.0, 2.0], vec![1.0, 1.0]);
+        wrong_break.breaks = vec![3];
+        assert!(wrong_break.check().is_err());
+        let mut extra_law = Tab1::linear(vec![1.0, 2.0], vec![1.0, 1.0]);
+        extra_law.laws.push(Interpolation::LinLin);
+        assert!(extra_law.check().is_err());
+        // 範囲の端に丸める表は、検査に通る表からしか作れない
+        let descending = Tab1::linear(vec![3.0, 1.0], vec![1.0, 1.0]);
+        assert!(ClampedTab1::new(descending).is_none());
+        assert!(ClampedTab1::new(wrong_break).is_none());
+    }
+
+    #[test]
+    fn clamped_table_extends_its_end_values() {
+        assert!(ClampedTab1::new(Tab1::linear(vec![], vec![])).is_none());
+        let t = ClampedTab1::new(Tab1::linear(vec![1.0, 3.0], vec![10.0, 30.0])).unwrap();
+        assert_eq!(t.eval(0.5), 10.0);
+        assert_eq!(t.eval(2.0), 20.0);
+        assert_eq!(t.eval(9.0), 30.0);
     }
 
     #[test]

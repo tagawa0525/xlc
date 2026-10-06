@@ -166,7 +166,7 @@ pub fn solve(
             .map(|i| equilibrium_flux(materials[i], &flux[i], k))
             .collect();
 
-        sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies);
+        sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies)?;
         std::mem::swap(&mut outgoing, &mut next_outgoing);
         let Sums {
             delta,
@@ -277,8 +277,6 @@ struct Sweeper<'a> {
     width: usize,
     /// [トラック] の区間ごと・極角ごと・群ごとの 1 - exp(-τ)
     attenuation: Vec<Vec<f64>>,
-    /// [トラック][向き] のスイープの始めに入ってくる角度中性子束の出どころ（`incoming_sources`）
-    sources: Vec<Option<usize>>,
     /// 方位角ごとのトラックの番号の範囲
     azimuths: Vec<std::ops::Range<usize>>,
 }
@@ -313,8 +311,9 @@ impl<'a> Sweeper<'a> {
             ng,
             width,
             attenuation,
-            sources: incoming_sources(tracking),
-            azimuths: azimuth_ranges(tracking),
+            azimuths: (0..tracking.azimuths.len())
+                .map(|a| tracking.azimuth_tracks(a))
+                .collect(),
         }
     }
 
@@ -383,7 +382,7 @@ impl<'a> Sweeper<'a> {
         incoming: &[f64],
         outgoing: &mut [f64],
         tallies: &mut [Tally],
-    ) {
+    ) -> Result<(), CmfdError> {
         let (ng, width) = (self.ng, self.width);
         let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
         // 出ていく角度中性子束の配列を、方位角ごとの範囲に分ける
@@ -398,7 +397,7 @@ impl<'a> Sweeper<'a> {
             .par_iter_mut()
             .zip(outputs)
             .zip(&self.azimuths)
-            .for_each(|((tally, outputs), range)| {
+            .try_for_each(|((tally, outputs), range)| {
                 tally.clear();
                 for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
                     let track = &self.tracking.tracks[index];
@@ -406,10 +405,10 @@ impl<'a> Sweeper<'a> {
                         std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
-                        match self.sources[slot(index, forward)] {
-                            Some(source) => {
-                                psi.copy_from_slice(&incoming[source * width..][..width])
-                            }
+                        match self.tracking.incoming_source(index, forward) {
+                            Some(source) => psi.copy_from_slice(
+                                &incoming[slot(source.track, source.forward) * width..][..width],
+                            ),
                             // 真空境界から入ってくる角度中性子束は 0
                             None => psi.fill(0.0),
                         }
@@ -436,7 +435,7 @@ impl<'a> Sweeper<'a> {
                             let next = self.mesh.cell(region);
                             if next != cell {
                                 let path = self.mesh.path(cell, next);
-                                add_current(&mut tally.current, path.faces(), psi, &weights);
+                                add_current(&mut tally.current, path?.faces(), psi, &weights);
                                 cell = next;
                             }
                             let att = &self.attenuation[index][s * width..][..width];
@@ -473,7 +472,8 @@ impl<'a> Sweeper<'a> {
                         out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
                     }
                 }
-            });
+                Ok(())
+            })
     }
 }
 
@@ -554,44 +554,6 @@ fn add_current(
             }
         }
     }
-}
-
-/// 方位角ごとのトラックの番号の範囲（トラックは方位角の順に並ぶ）。
-fn azimuth_ranges(tracking: &Tracking) -> Vec<std::ops::Range<usize>> {
-    let mut ranges = Vec::with_capacity(tracking.azimuths.len());
-    let mut start = 0;
-    for chunk in tracking.tracks.chunk_by(|a, b| a.azimuth == b.azimuth) {
-        assert_eq!(
-            chunk[0].azimuth,
-            ranges.len(),
-            "tracks are not ordered by azimuth"
-        );
-        ranges.push(start..start + chunk.len());
-        start += chunk.len();
-    }
-    ranges
-}
-
-/// [トラック][向き] のスイープの始めに入ってくる角度中性子束が、どのトラックのどの向きのスイープの
-/// 終わりから来るか（同じ並びの番号。真空境界なら `None`）。
-fn incoming_sources(tracking: &Tracking) -> Vec<Option<usize>> {
-    let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
-    let mut sources = vec![None; 2 * tracking.tracks.len()];
-    for (index, track) in tracking.tracks.iter().enumerate() {
-        for (forward, link) in [(true, track.forward_link), (false, track.backward_link)] {
-            if let Some(link) = link {
-                let target = &mut sources[slot(link.track, link.forward)];
-                assert!(
-                    target.is_none(),
-                    "two tracks reflect into track {} ({})",
-                    link.track,
-                    if link.forward { "forward" } else { "backward" }
-                );
-                *target = Some(slot(index, forward));
-            }
-        }
-    }
-    sources
 }
 
 /// どの物質でも核分裂のスペクトルが 0 で、中性子の届く群からの散乱もない群（最初の1つ）。
@@ -868,7 +830,9 @@ mod tests {
             .collect();
         let mut outgoing = vec![0.0; sweeper.outgoing_len()];
         let mut tallies = sweeper.tallies(materials.len());
-        sweeper.sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies);
+        sweeper
+            .sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies)
+            .unwrap();
         let sums = sum_tallies(&tallies, ng);
         for cell in 0..mesh.cells() {
             for g in 0..ng {

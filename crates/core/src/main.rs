@@ -7,6 +7,9 @@
 //!
 //! 入力ファイル中の少数群定数のパスは、入力ファイルのあるディレクトリからの相対パス。
 
+// テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
+#![cfg_attr(test, allow(clippy::disallowed_macros))]
+
 use std::env::VarError;
 use std::io::IsTerminal;
 use std::path::Path;
