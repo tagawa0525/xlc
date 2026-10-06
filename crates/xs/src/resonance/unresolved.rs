@@ -463,7 +463,7 @@ mod tests {
             Interpolation::LinLin,
         );
         let e = 1.0e4;
-        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(e);
+        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(e).unwrap();
 
         let k = wave_number_factor() * AWRI / (AWRI + 1.0) * e.sqrt();
         let (d, gg) = (20.0, 0.023);
@@ -541,7 +541,10 @@ mod tests {
                 }],
             }],
         };
-        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(5.0e4);
+        let sigma = UnresolvedXs::new(&urr)
+            .unwrap()
+            .cross_sections(5.0e4)
+            .unwrap();
         assert!(sigma.fission > 0.0 && sigma.fission.is_finite());
     }
 
@@ -579,7 +582,10 @@ mod tests {
                 }],
             }],
         };
-        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(5.0e4);
+        let sigma = UnresolvedXs::new(&urr)
+            .unwrap()
+            .cross_sections(5.0e4)
+            .unwrap();
         assert!(sigma.fission > 0.0 && sigma.fission.is_finite());
     }
 
@@ -591,7 +597,7 @@ mod tests {
         );
         let xs = UnresolvedXs::new(&urr).unwrap();
         let e = 1.0e4;
-        let average = xs.cross_sections(e);
+        let average = xs.cross_sections(e).unwrap();
         let [dilute] = xs.shielded(e, 300.0, &[1.0e10], Sigma::default()).unwrap()[..] else {
             panic!("one σ0");
         };
@@ -615,7 +621,7 @@ mod tests {
         zero_capture.gg = 0.0;
         let urr = s_wave(vec![zero_capture], Interpolation::LinLin);
         let xs = UnresolvedXs::new(&urr).unwrap();
-        let average = xs.cross_sections(1.0e4);
+        let average = xs.cross_sections(1.0e4).unwrap();
         let [dilute] = xs
             .shielded(1.0e4, 300.0, &[1.0e10], Sigma::default())
             .unwrap()[..]
