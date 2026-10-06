@@ -199,10 +199,10 @@ mod tests {
     fn diagonal_segments_cover_the_line() {
         let lattice = two_by_two();
         let d = std::f64::consts::FRAC_1_SQRT_2;
-        let s = lattice.segments((-2.0, -2.0), (d, d), 4.0 * 2.0_f64.sqrt());
+        let s = lattice.segments((-2.0, 2.0), (d, -d), 4.0 * 2.0_f64.sqrt());
         let length: f64 = s.iter().map(|s| s.length).sum();
         assert!((length - 4.0 * 2.0_f64.sqrt()).abs() < 1e-12);
-        // 左下と右上のピンを中心を通って横切る（直径 1.0 の区間がそれぞれある）
+        // 左上と右下のピンを中心を通って横切る（直径 1.0 の区間がそれぞれある）
         let inner: Vec<f64> = s
             .iter()
             .filter(|s| s.region == 0 || s.region == 4)
