@@ -52,11 +52,11 @@ impl Mf5 {
                 1 => EnergyLaw::Tabulated(parse_outgoing(&mut r)?),
                 7 => EnergyLaw::Maxwellian {
                     restriction,
-                    theta: r.tab1()?.table,
+                    theta: positive_theta(&mut r)?,
                 },
                 9 => EnergyLaw::Evaporation {
                     restriction,
-                    theta: r.tab1()?.table,
+                    theta: positive_theta(&mut r)?,
                 },
                 lf => return Err(Error::new(start, format!("LF={lf} is not supported"))),
             };
@@ -64,6 +64,18 @@ impl Mf5 {
         }
         Ok(Self { subsections })
     }
+}
+
+/// 解析式の分布の θ(E) を読む。θ は分布の温度なので正でなければならない。
+fn positive_theta(r: &mut Reader<'_>) -> Result<Tab1, Error> {
+    let theta = r.tab1()?.table;
+    if let Some(bad) = theta.y.iter().find(|&&t| t <= 0.0 || t.is_nan()) {
+        return Err(Error::new(
+            r.line(),
+            format!("theta must be positive, got {bad}"),
+        ));
+    }
+    Ok(theta)
 }
 
 /// TAB2 と、それに続く NE 個の TAB1（C2 が入射エネルギー）を読む。
