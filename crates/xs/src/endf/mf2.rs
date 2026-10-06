@@ -1,10 +1,10 @@
 //! MF2 MT151（共鳴パラメータ）セクション。
 //!
-//! M0 では、分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）と、無限希釈の断面積が MF3 にある
-//! 非分離共鳴（LRU=2）だけを扱う。それ以外の形式はエラーにする。
+//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）と MLBW 形式（LRU=1, LRF=2）、
+//! エネルギー依存のパラメータによる非分離共鳴（LRU=2, LRF=2）を扱う。それ以外の形式はエラーにする。
 
-use super::Error;
 use super::tape::{Reader, Section};
+use super::{Error, Interpolation, Tab1};
 
 /// 1核種（同位体1つ）の共鳴パラメータ。
 #[derive(Debug, Clone, PartialEq)]
@@ -30,8 +30,10 @@ pub enum RangeKind {
     ReichMoore(ReichMoore),
     /// LRU=1, LRF=2
     Mlbw(Mlbw),
-    /// LRU=2。M0 では LSSF=1（断面積は MF3 にある）のときだけ使える
-    Unresolved { lssf: i64 },
+    /// LRU=2, LRF=2
+    Unresolved(Unresolved),
+    /// LRU=2, LRF=1。パラメータは読み飛ばし、LSSF だけを持つ（無限希釈の断面積が MF3 にあれば使える）
+    UnresolvedLrf1 { lssf: i64 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,6 +75,53 @@ pub struct BwResonance {
     pub gf: f64,
 }
 
+/// 非分離共鳴のエネルギー依存のパラメータ（LRU=2, LRF=2）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unresolved {
+    /// 自己遮蔽の扱い（LSSF）。1 なら無限希釈の断面積は MF3 にある
+    pub lssf: i64,
+    pub spi: f64,
+    /// 散乱半径 (10^-12 cm)
+    pub ap: f64,
+    /// エネルギー依存の散乱半径（NRO=1）。あれば位相シフトにはこちらを使う
+    pub ap_energy: Option<Tab1>,
+    pub naps: i64,
+    pub l_values: Vec<UrrLValue>,
+}
+
+/// 非分離共鳴の1つの l。
+#[derive(Debug, Clone, PartialEq)]
+pub struct UrrLValue {
+    pub awri: f64,
+    pub l: u32,
+    pub j_values: Vec<UrrJValue>,
+}
+
+/// 非分離共鳴の1つの (l, J) の系列。`int` はパラメータの、エネルギーについての補間則。
+/// 幅の分布の自由度は、競合反応 `amux`・中性子 `amun`・核分裂 `amuf`（γ線の自由度 AMUG は
+/// 幅のゆらぎを無視するので読まない）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct UrrJValue {
+    pub aj: f64,
+    pub int: Interpolation,
+    pub amux: u32,
+    pub amun: u32,
+    pub amuf: u32,
+    pub points: Vec<UrrPoint>,
+}
+
+/// エネルギー `e` (eV) での平均準位間隔 `d` と平均幅（競合 `gx`、換算中性子幅 `gno`、
+/// 捕獲 `gg`、核分裂 `gf`）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct UrrPoint {
+    pub e: f64,
+    pub d: f64,
+    pub gx: f64,
+    pub gno: f64,
+    pub gg: f64,
+    pub gf: f64,
+}
+
 /// 1つの軌道角運動量 l に属する共鳴。
 #[derive(Debug, Clone, PartialEq)]
 pub struct RmLValue {
@@ -106,12 +155,14 @@ impl Mf2 {
             ));
         }
         let isotope = r.cont()?;
+        // 核分裂幅がエネルギー依存か（非分離共鳴 LRF=1 の形式を決める）
+        let lfw = isotope.l2;
         let ner = usize::try_from(isotope.n1)
             .map_err(|_| Error::new(r.line(), format!("invalid NER {}", isotope.n1)))?;
 
         // NER はファイルの値なので、それに合わせて先に確保しない
         let mut ranges = Vec::new();
-        for index in 0..ner {
+        for _ in 0..ner {
             let range = r.cont()?;
             let range_line = r.line();
             let (lru, lrf, nro) = (range.l1, range.l2, range.n1);
@@ -129,16 +180,21 @@ impl Mf2 {
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
-                2 => {
-                    // 非分離共鳴は LSSF だけを読む。続くパラメータは読まないので、最後の範囲に限る
-                    if index + 1 != ner {
-                        return unsupported("unresolved range must be the last range".into());
+                2 if lrf == 1 || lrf == 2 => {
+                    let ap_energy = match nro {
+                        0 => None,
+                        1 => Some(r.tab1()?.table),
+                        _ => return unsupported(format!("invalid NRO={nro}")),
+                    };
+                    if lrf == 2 {
+                        RangeKind::Unresolved(read_unresolved(&mut r, range.n2, ap_energy)?)
+                    } else {
+                        RangeKind::UnresolvedLrf1 {
+                            lssf: skip_unresolved_lrf1(&mut r, lfw)?,
+                        }
                     }
-                    if nro != 0 {
-                        r.tab1()?;
-                    }
-                    RangeKind::Unresolved { lssf: r.cont()?.l1 }
                 }
+                2 => return unsupported(format!("unresolved LRF={lrf} is not supported")),
                 _ => return unsupported(format!("invalid LRU={lru}")),
             };
             ranges.push(ResonanceRange {
@@ -152,6 +208,118 @@ impl Mf2 {
             awr: head.c2,
             ranges,
         })
+    }
+}
+
+fn read_unresolved(
+    r: &mut Reader<'_>,
+    naps: i64,
+    ap_energy: Option<Tab1>,
+) -> Result<Unresolved, Error> {
+    let cont = r.cont()?;
+    let count = |n: i64, line: usize, what: &str| {
+        usize::try_from(n).map_err(|_| Error::new(line, format!("invalid {what} {n}")))
+    };
+    let nls = count(cont.n1, r.line(), "NLS")?;
+    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    for _ in 0..nls {
+        let l_cont = r.cont()?;
+        let l = u32::try_from(l_cont.l1)
+            .ok()
+            .filter(|&l| l as usize <= MAX_L)
+            .ok_or_else(|| Error::new(r.line(), format!("unsupported L={}", l_cont.l1)))?;
+        let njs = count(l_cont.n1, r.line(), "NJS")?;
+        let mut j_values = Vec::with_capacity(njs.min(MAX_L + 1));
+        for _ in 0..njs {
+            let header_line = r.line() + 1;
+            let list = r.list()?;
+            let int = Interpolation::from_code(list.l1).ok_or_else(|| {
+                Error::new(
+                    header_line,
+                    format!("invalid interpolation INT={}", list.l1),
+                )
+            })?;
+            let (chunks, rest) = list.values.as_chunks::<6>();
+            let ([header, points @ ..], []) = (chunks, rest) else {
+                return Err(Error::new(
+                    header_line,
+                    "unresolved parameters must be 6 values per energy after a header",
+                ));
+            };
+            // 幅の分布の自由度は、NJOY と同じく最も近い整数に丸める。χ² 分布の求積があるのは 0〜4
+            let dof = |v: f64| {
+                let rounded = v.round();
+                if (0.0..=4.0).contains(&rounded) {
+                    Ok(rounded as u32)
+                } else {
+                    Err(Error::new(
+                        header_line + 1,
+                        format!("degrees of freedom {v} must round to an integer from 0 to 4"),
+                    ))
+                }
+            };
+            let points: Vec<UrrPoint> = points
+                .iter()
+                .map(|p| UrrPoint {
+                    e: p[0],
+                    d: p[1],
+                    gx: p[2],
+                    gno: p[3],
+                    gg: p[4],
+                    gf: p[5],
+                })
+                .collect();
+            // 同じエネルギーの繰り返しは、パラメータの段差を表す
+            if points.is_empty() || points.windows(2).any(|w| w[1].e < w[0].e) {
+                return Err(Error::new(
+                    header_line,
+                    "unresolved energies must be present and not decreasing",
+                ));
+            }
+            j_values.push(UrrJValue {
+                aj: list.c1,
+                int,
+                amux: dof(header[2])?,
+                amun: dof(header[3])?,
+                amuf: dof(header[5])?,
+                points,
+            });
+        }
+        l_values.push(UrrLValue {
+            awri: l_cont.c1,
+            l,
+            j_values,
+        });
+    }
+    Ok(Unresolved {
+        lssf: cont.l1,
+        spi: cont.c1,
+        ap: cont.c2,
+        ap_energy,
+        naps,
+        l_values,
+    })
+}
+
+/// 非分離共鳴 LRF=1 のパラメータを読み飛ばし、LSSF を返す。
+fn skip_unresolved_lrf1(r: &mut Reader<'_>, lfw: i64) -> Result<i64, Error> {
+    if lfw == 0 {
+        // SPI AP LSSF 0 NLS 0 と、l ごとに J のパラメータの LIST
+        let cont = r.cont()?;
+        for _ in 0..cont.n1 {
+            r.list()?;
+        }
+        Ok(cont.l1)
+    } else {
+        // エネルギーの LIST（SPI AP LSSF 0 NE NLS）と、l ごとに CONT（NJS）と J ごとの LIST
+        let energies = r.list()?;
+        for _ in 0..energies.n2 {
+            let l_cont = r.cont()?;
+            for _ in 0..l_cont.n1 {
+                r.list()?;
+            }
+        }
+        Ok(energies.l1)
     }
 }
 
@@ -269,8 +437,8 @@ pub(crate) const MAX_L: usize = 4;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::Tape;
     use crate::endf::tape::tests::rec;
+    use crate::endf::{Interpolation, Tape};
 
     fn mf2(lines: &[[&str; 6]]) -> Result<Mf2, Error> {
         let text: String = lines.iter().map(|f| rec(*f, 9237, 2, 151)).collect();
@@ -292,9 +460,16 @@ mod tests {
             ["2.360060+2", "9.480000-1", "0", "0", "12", "2"],
             ["-4.0", "0.5", "2.0-2", "2.3-2", "0.0", "1.0-6"],
             ["6.674", "-0.5", "1.5-3", "2.3-2", "0.0", "0.0"],
-            // URR
+            // URR: SPI AP LSSF 0 NLS 0
             ["2.0+4", "1.49+5", "2", "2", "0", "0"],
-            ["0.0", "0.948", "1", "0", "2", "0"],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+            // l=0: AWRI 0 L 0 NJS 0
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            // J: AJ 0 INT 0 6*NE+6 NE、続いて 0 0 AMUX AMUN AMUG AMUF と ES D GX GNO GG GF
+            ["0.5", "0.0", "5", "0", "18", "2"],
+            ["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"],
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
+            ["1.49+5", "18.0", "0.0", "1.8-3", "2.3-2", "0.0"],
         ])
         .unwrap();
         assert_eq!(data.za, 92238.0);
@@ -317,7 +492,160 @@ mod tests {
                 gfb: 0.0
             }
         );
-        assert_eq!(data.ranges[1].kind, RangeKind::Unresolved { lssf: 1 });
+        let RangeKind::Unresolved(urr) = &data.ranges[1].kind else {
+            panic!("expected unresolved");
+        };
+        assert_eq!((urr.lssf, urr.spi, urr.ap, urr.naps), (1, 0.0, 0.948, 0));
+        assert_eq!(urr.ap_energy, None);
+        assert_eq!(urr.l_values.len(), 1);
+        assert_eq!((urr.l_values[0].awri, urr.l_values[0].l), (236.006, 0));
+        let j = &urr.l_values[0].j_values[0];
+        assert_eq!((j.aj, j.int), (0.5, Interpolation::LogLog));
+        assert_eq!((j.amux, j.amun, j.amuf), (0, 1, 0));
+        assert_eq!(
+            j.points[1],
+            UrrPoint {
+                e: 1.49e5,
+                d: 18.0,
+                gx: 0.0,
+                gno: 1.8e-3,
+                gg: 2.3e-2,
+                gf: 0.0
+            }
+        );
+    }
+
+    #[test]
+    fn reads_energy_dependent_radius_of_unresolved_range() {
+        let data = mf2(&[
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["2.0+4", "1.49+5", "2", "2", "1", "0"],
+            // AP(E) の TAB1: 0 0 0 0 NR NP、補間の区切り、(E, AP) の組
+            ["0.0", "0.0", "0", "0", "1", "2"],
+            ["2", "2", "", "", "", ""],
+            ["2.0+4", "0.95", "1.49+5", "0.90", "", ""],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            ["0.5", "0.0", "2", "0", "12", "1"],
+            ["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"],
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
+        ])
+        .unwrap();
+        let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let radius = urr.ap_energy.as_ref().unwrap();
+        assert_eq!(
+            (radius.x.clone(), radius.y.clone()),
+            (vec![2.0e4, 1.49e5], vec![0.95, 0.90])
+        );
+        assert_eq!(urr.ap, 0.948);
+    }
+
+    /// 非分離共鳴 LRF=1 の範囲のあとに LRU=0 の範囲を置いて、パラメータを読み飛ばせたことを確かめる。
+    fn assert_skips_lrf1(lfw: &str, parameters: &[[&str; 6]]) {
+        assert_skips_lrf1_with_radius(lfw, "0", parameters);
+    }
+
+    fn assert_skips_lrf1_with_radius(lfw: &str, nro: &str, parameters: &[[&str; 6]]) {
+        let mut lines = vec![
+            HEAD,
+            ["9.423900+4", "1.0", "0", lfw, "2", "0"],
+            ["5.7+3", "4.0+4", "2", "1", nro, "0"],
+        ];
+        lines.extend_from_slice(parameters);
+        lines.push(["4.0+4", "2.0+7", "0", "0", "0", "0"]);
+        lines.push(["0.0", "0.5", "0", "0", "0", "0"]);
+        let data = mf2(&lines).unwrap();
+        assert_eq!(data.ranges[0].kind, RangeKind::UnresolvedLrf1 { lssf: 1 });
+        assert_eq!(data.ranges[1].kind, RangeKind::ScatteringRadius { ap: 0.5 });
+    }
+
+    #[test]
+    fn skips_unresolved_lrf1_without_fission_widths() {
+        assert_skips_lrf1(
+            "0",
+            &[
+                // SPI AP LSSF 0 NLS 0、l ごとに AWRI 0 L 0 6*NJS NJS と D AJ AMUN GNO GG GF
+                ["0.0", "0.888", "1", "0", "1", "0"],
+                ["2.379916+2", "0.0", "0", "0", "6", "1"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
+            ],
+        );
+    }
+
+    #[test]
+    fn skips_unresolved_lrf1_with_fission_widths() {
+        assert_skips_lrf1(
+            "1",
+            &[
+                // SPI AP LSSF 0 NE NLS と ES、l ごとに AWRI 0 L 0 NJS 0、
+                // J ごとに 0 0 L MUF NE+6 0 と D AJ AMUN GNO GG 0 GF...
+                ["0.0", "0.888", "1", "0", "2", "1"],
+                ["5.7+3", "4.0+4", "", "", "", ""],
+                ["2.379916+2", "0.0", "0", "0", "1", "0"],
+                ["0.0", "0.0", "0", "1", "8", "0"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
+                ["1.2-3", "1.4-3", "", "", "", ""],
+            ],
+        );
+    }
+
+    #[test]
+    fn skips_unresolved_lrf1_with_energy_dependent_radius() {
+        assert_skips_lrf1_with_radius(
+            "0",
+            "1",
+            &[
+                // AP(E) の TAB1 が先に来る
+                ["0.0", "0.0", "0", "0", "1", "2"],
+                ["2", "2", "", "", "", ""],
+                ["5.7+3", "0.89", "4.0+4", "0.88", "", ""],
+                ["0.0", "0.888", "1", "0", "1", "0"],
+                ["2.379916+2", "0.0", "0", "0", "6", "1"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
+            ],
+        );
+    }
+
+    #[test]
+    fn rounds_degrees_of_freedom_like_njoy() {
+        // NJOY は自由度を最も近い整数に丸めて使う（Kr-83 の AMUX=1.0123 など）
+        let data = mf2(&[
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["2.0+4", "1.49+5", "2", "2", "0", "0"],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            ["0.5", "0.0", "2", "0", "18", "2"],
+            ["0.0", "0.0", "1.0123", "0.9", "0.0", "2.4"],
+            // 同じエネルギーの繰り返しはパラメータの段差を表す（Th-229 など）
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
+            ["2.0+4", "18.0", "0.0", "1.8-3", "2.3-2", "0.0"],
+        ])
+        .unwrap();
+        let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let j = &urr.l_values[0].j_values[0];
+        assert_eq!((j.amux, j.amun, j.amuf), (1, 1, 2));
+        assert_eq!(j.points.len(), 2);
+    }
+
+    #[test]
+    fn rejects_degrees_of_freedom_beyond_quadrature() {
+        let result = mf2(&[
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["2.0+4", "1.49+5", "2", "2", "0", "0"],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            ["0.5", "0.0", "2", "0", "12", "1"],
+            ["0.0", "0.0", "0.0", "5.0", "0.0", "0.0"],
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
+        ]);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -426,18 +754,5 @@ mod tests {
     fn multiple_isotopes_are_error() {
         let err = mf2(&[["9.223800+4", "2.360058+2", "0", "0", "2", "0"]]).unwrap_err();
         assert_eq!(err.line, 1);
-    }
-
-    #[test]
-    fn unresolved_range_must_be_last() {
-        let err = mf2(&[
-            HEAD,
-            ["9.223800+4", "1.0", "0", "0", "2", "0"],
-            ["2.0+4", "1.49+5", "2", "2", "0", "0"],
-            ["0.0", "0.948", "1", "0", "2", "0"],
-            ["1.49+5", "2.0+5", "0", "0", "0", "0"],
-        ])
-        .unwrap_err();
-        assert_eq!(err.line, 3);
     }
 }
