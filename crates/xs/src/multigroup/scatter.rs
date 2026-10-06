@@ -420,46 +420,58 @@ mod tests {
         assert!(m[g][g - 1] > 0.0);
     }
 
-    #[test]
-    fn sab_matrix_matches_free_gas_matrix() {
-        // 自由ガスの S(α, β) の表（A = 1、σfree = 1 b）からの散乱行列は、自由ガス模型
-        // （同じ温度、弾性散乱 1 b）の散乱行列と、表の補間の誤差の範囲で一致する
-        use crate::multigroup::sab_tests::{TEMPERATURE, free_gas_table};
+    fn sab_matrix(elastic: f64) -> (GroupStructure, Vec<Vec<f64>>, f64) {
+        use crate::multigroup::sab_tests::coarse_free_gas_table;
         let groups = GroupStructure::wims69();
-        let weight = Weight::lwr();
-        let data = free_gas_table();
+        // 重み関数の Maxwell 分布（kT = 0.0253 eV）と同じ温度にする（自由ガスの S は α, β で書けば温度によらない）
+        let temperature = 0.0253 / crate::physics::BK;
+        let mut data = coarse_free_gas_table();
+        data.temperatures = vec![temperature];
         let cutoff = 1.0;
-        let sab = ThermalSab::new(&data, TEMPERATURE, cutoff).unwrap();
-        let free_gas = FreeGas {
-            kt: crate::physics::BK * TEMPERATURE,
-            cutoff,
-        };
-        let tables = BTreeMap::from([(2, constant(1.0))]);
-        let matrix = |thermal: &Thermal| {
-            scattering_matrix(
-                &groups,
-                &weight,
-                1.0,
-                &tables,
-                &BTreeMap::new(),
-                &BTreeMap::new(),
-                Some(thermal),
-            )
-            .unwrap()
-        };
-        let (ours, reference) = (
-            matrix(&Thermal::Sab(sab)),
-            matrix(&Thermal::FreeGas(free_gas)),
-        );
-        for g in (0..groups.len()).filter(|&g| groups.range(g).1 <= cutoff) {
-            let row: f64 = reference[g].iter().sum();
-            for h in 0..groups.len() {
-                let (o, r) = (ours[g][h], reference[g][h]);
+        let sab = ThermalSab::new(&data, temperature, cutoff).unwrap();
+        let tables = BTreeMap::from([(2, constant(elastic))]);
+        let m = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            1.0,
+            &tables,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            Some(&Thermal::Sab(sab)),
+        )
+        .unwrap();
+        (groups, m, cutoff)
+    }
+
+    #[test]
+    fn sab_matrix_satisfies_detailed_balance() {
+        // 重み関数の熱領域（0.1 eV 以下）は kT = 0.0253 eV の Maxwell 分布で、S(α, β) も同じ温度なので、
+        // 群間でも φ_g σ(g→g') = φ_g' σ(g'→g) が成り立つ（表の細かさによらない）。
+        // 自由ガスとの物理的な一致は、核と群への積分の段階で確かめている（sab のテスト）
+        let (groups, m, _) = sab_matrix(1.0);
+        let flux = group_integrals(&groups, &Weight::lwr(), &[], |_| 1.0);
+        let maxwellian: Vec<usize> = (0..groups.len() - 1)
+            .filter(|&g| groups.range(g).1 <= 0.1)
+            .collect();
+        assert!(maxwellian.len() > 10);
+        for &g in &maxwellian {
+            for &h in &maxwellian {
+                let (forward, backward) = (flux[g] * m[g][h], flux[h] * m[h][g]);
                 assert!(
-                    (o - r).abs() <= 2e-3 * r + 1e-6 * row,
-                    "{g}→{h}: {o} vs {r}"
+                    (forward - backward).abs() <= 1e-6 * forward.max(backward) + 1e-12,
+                    "{g}→{h}: {forward} vs {backward}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn sab_ignores_mf3_elastic_below_cutoff() {
+        // S(α, β) の核は断面積そのものなので、cutoff 未満の行は MF3 の弾性散乱断面積によらない
+        let (groups, one, cutoff) = sab_matrix(1.0);
+        let (_, ten, _) = sab_matrix(10.0);
+        for g in (0..groups.len()).filter(|&g| groups.range(g).1 <= cutoff) {
+            assert_eq!(one[g], ten[g], "group {g}");
         }
     }
 
