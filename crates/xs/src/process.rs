@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use crate::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
 use crate::library::Nuclide;
 use crate::multigroup::{
-    FreeGas, GroupStructure, Weight, emits_neutrons, fission_spectrum, reaction_averages,
-    scattering_matrix,
+    FreeGas, GroupStructure, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
+    reaction_averages, scattering_matrix,
 };
 use crate::physics::BK;
 use crate::pointwise::reconstruct;
@@ -22,6 +22,18 @@ pub struct Settings {
     pub thermal_cutoff: f64,
     /// ポイントワイズの断面積の許容誤差
     pub tolerance: f64,
+}
+
+/// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) と背景断面積 `sigma0` について作る
+/// （NJOY UNRESR に相当）。非分離共鳴がなければ `None`。
+pub fn unresolved_shielding(
+    tape: &Tape,
+    mat: i32,
+    temperature: f64,
+    sigma0: &[f64],
+) -> Result<Option<UnresolvedShielding>, String> {
+    let _ = (tape, mat, temperature, sigma0);
+    todo!()
 }
 
 /// 熱領域で弾性散乱の実効断面積が 0 K の値と違う分だけ、全断面積を補正する。
@@ -135,5 +147,82 @@ mod tests {
         let elastic = vec![4.0, 20.0];
         let matrix = vec![vec![3.9, 0.1], vec![2.0, 27.0]];
         assert_eq!(effective_total(&total, &elastic, &matrix), vec![10.0, 39.0]);
+    }
+
+    /// 非分離共鳴（LSSF=1、s 波の1系列）と、MF3 の一定の断面積だけのテープ。
+    fn unresolved_tape() -> Tape {
+        use crate::endf::rec;
+        let mf3 = |mt: u32, value: &str| {
+            [
+                rec(["1.001000+3", "2.360060+2", "0", "0", "0", "0"], 1, 3, mt),
+                rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 3, mt),
+                rec(["2", "2", "", "", "", ""], 1, 3, mt),
+                rec(["1.0-5", value, "2.0+7", value, "", ""], 1, 3, mt),
+                rec(["", "", "", "", "", ""], 1, 3, 0),
+            ]
+            .concat()
+        };
+        let text = [
+            rec(["1.001000+3", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.001000+3", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0+3", "1.0+5", "2", "2", "0", "1"], 1, 2, 151),
+            rec(["0.0", "0.948", "1", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["0.5", "0.0", "2", "0", "18", "2"], 1, 2, 151),
+            rec(["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"], 1, 2, 151),
+            rec(["1.0+3", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["1.0+5", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+            mf3(1, "11.0"),
+            mf3(2, "10.0"),
+            mf3(102, "1.0"),
+        ]
+        .concat();
+        Tape::parse(&text).unwrap()
+    }
+
+    #[test]
+    fn unresolved_shielding_lowers_capture_at_small_background() {
+        use crate::multigroup::shielded_averages;
+        let tape = unresolved_tape();
+        let sigma0 = [1.0e10, 1.0];
+        let shielding = unresolved_shielding(&tape, 1, 300.0, &sigma0)
+            .unwrap()
+            .unwrap();
+        let tables = crate::pointwise::reconstruct(&tape, 1, 1.0e-3).unwrap();
+        let groups = GroupStructure::new(vec![5.0e4, 1.0e4]);
+        let shielded = shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            &sigma0,
+            Some(&shielding),
+        )
+        .unwrap();
+        let plain =
+            shielded_averages(&groups, &Weight::lwr(), &tables, None, &sigma0, None).unwrap();
+        // 無限希釈では遮蔽因子は 1、σ0 = 1 b では捕獲が減る
+        let capture = |avg: &crate::multigroup::ReactionAverages| avg.sigma[&102][0];
+        assert!((capture(&shielded[0]) / capture(&plain[0]) - 1.0).abs() < 1e-5);
+        assert!(capture(&shielded[1]) < 0.99 * capture(&plain[1]));
+    }
+
+    #[test]
+    fn no_unresolved_range_gives_no_shielding() {
+        use crate::endf::rec;
+        let text = [
+            rec(["1.001000+3", "1.0", "0", "0", "0", "0"], 1, 3, 1),
+            rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 3, 1),
+            rec(["2", "2", "", "", "", ""], 1, 3, 1),
+            rec(["1.0-5", "1.0", "2.0+7", "1.0", "", ""], 1, 3, 1),
+            rec(["", "", "", "", "", ""], 1, 3, 0),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        assert_eq!(
+            unresolved_shielding(&tape, 1, 300.0, &[10.0]).unwrap(),
+            None
+        );
     }
 }
