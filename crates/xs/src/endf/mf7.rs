@@ -94,9 +94,9 @@ mod tests {
     }
 
     #[test]
-    fn converts_logarithm_of_s() {
-        let data = mf7("1", "1.0", ["0.0", "-1.0", "-2.0"]).unwrap();
-        assert_eq!(data.s[0][..3], [1.0, (-1.0_f64).exp(), (-2.0_f64).exp()]);
+    fn rejects_logarithm_of_s() {
+        // ENDF/B-VIII.0 の熱中性子散乱のデータはすべて LLN=0 なので、ln S での格納は扱わない
+        assert!(mf7("1", "1.0", ["1.0", "0.5", "0.01"]).is_err());
     }
 
     #[test]
