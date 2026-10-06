@@ -406,4 +406,18 @@ mod tests {
         }
         assert!(vacuum > 0 && reflective > 0);
     }
+
+    #[test]
+    fn sector_cell_track_volumes_match_analytic() {
+        let cell = PinCell::with_sectors(1.26, vec![0.3, 0.54, 0.58], 8).unwrap();
+        let lattice = Lattice::pin_cell(cell);
+        // 最も薄いリング（幅 0.04 cm）を 40 本のトラックが横切る間隔
+        let t = Tracking::new(&lattice, 32, 0.001).unwrap();
+        for (estimated, exact) in t.volumes(lattice.regions()).iter().zip(lattice.volumes()) {
+            assert!(
+                (estimated - exact).abs() < 1e-3 * exact,
+                "{estimated} vs {exact}"
+            );
+        }
+    }
 }
