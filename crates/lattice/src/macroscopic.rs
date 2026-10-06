@@ -16,11 +16,139 @@
 //! scatter 0.0 0.9
 //! ```
 
-use crate::material::Material;
+use crate::material::{FissionTerm, Material};
 
 /// ファイル中の物質を、名前とともにファイルの順で返す。エラーは「line N: ...」の形の文字列。
 pub fn parse(text: &str) -> Result<Vec<(String, Material)>, String> {
-    todo!("{text}")
+    let mut lines = text.lines().enumerate().filter_map(|(index, raw)| {
+        let content = raw.split('#').next().unwrap_or("");
+        let tokens: Vec<&str> = content.split_whitespace().collect();
+        (!tokens.is_empty()).then_some((index + 1, tokens))
+    });
+    match lines.next() {
+        Some((_, tokens)) if tokens == ["xlc-macroscopic", "1"] => {}
+        Some((line, _)) => return Err(format!("line {line}: expected `xlc-macroscopic 1`")),
+        None => return Err("the file is empty".into()),
+    }
+    let ng = match lines.next() {
+        Some((line, tokens)) => match tokens[..] {
+            ["groups", n] => n
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| n > 0)
+                .ok_or_else(|| format!("line {line}: invalid number of groups `{n}`"))?,
+            _ => return Err(format!("line {line}: expected `groups N`")),
+        },
+        None => return Err("`groups` is missing".into()),
+    };
+
+    let mut materials: Vec<(String, Draft)> = Vec::new();
+    for (line, tokens) in lines {
+        let (key, values) = (tokens[0], &tokens[1..]);
+        if key == "material" {
+            let [name] = values else {
+                return Err(format!("line {line}: `material` takes one name"));
+            };
+            if materials.iter().any(|(n, _)| n == name) {
+                return Err(format!("line {line}: material `{name}` is given twice"));
+            }
+            materials.push((name.to_string(), Draft::new(line)));
+            continue;
+        }
+        let (_, draft) = materials
+            .last_mut()
+            .ok_or_else(|| format!("line {line}: `{key}` comes before any `material`"))?;
+        let numbers = values
+            .iter()
+            .map(|v| v.parse::<f64>().ok().filter(|x| x.is_finite()))
+            .collect::<Option<Vec<f64>>>()
+            .filter(|v| v.len() == ng)
+            .ok_or_else(|| format!("line {line}: `{key}` takes {ng} numbers"))?;
+        let slot = match key {
+            "total" => &mut draft.total,
+            "fission" => &mut draft.fission,
+            "nu-fission" => &mut draft.nu_fission,
+            "chi" => &mut draft.chi,
+            "scatter" => {
+                draft.scatter.push(numbers);
+                if draft.scatter.len() > ng {
+                    return Err(format!("line {line}: more than {ng} `scatter` rows"));
+                }
+                continue;
+            }
+            _ => return Err(format!("line {line}: unknown keyword `{key}`")),
+        };
+        if slot.replace(numbers).is_some() {
+            return Err(format!("line {line}: `{key}` is given twice"));
+        }
+    }
+    materials
+        .into_iter()
+        .map(|(name, draft)| {
+            let line = draft.line;
+            draft
+                .finish(ng)
+                .map(|m| (name.clone(), m))
+                .map_err(|e| format!("line {line}: material `{name}`: {e}"))
+        })
+        .collect()
+}
+
+/// 読みかけの1つの物質。
+struct Draft {
+    /// `material` の行
+    line: usize,
+    total: Option<Vec<f64>>,
+    fission: Option<Vec<f64>>,
+    nu_fission: Option<Vec<f64>>,
+    chi: Option<Vec<f64>>,
+    scatter: Vec<Vec<f64>>,
+}
+
+impl Draft {
+    fn new(line: usize) -> Self {
+        Self {
+            line,
+            total: None,
+            fission: None,
+            nu_fission: None,
+            chi: None,
+            scatter: Vec::new(),
+        }
+    }
+
+    fn finish(self, ng: usize) -> Result<Material, String> {
+        let total = self.total.ok_or("`total` is missing")?;
+        if total.iter().any(|&t| t <= 0.0) {
+            return Err("total cross sections must be positive".into());
+        }
+        if self.scatter.len() != ng {
+            return Err(format!(
+                "{} `scatter` rows given, expected {ng}",
+                self.scatter.len()
+            ));
+        }
+        let zeros = vec![0.0; ng];
+        let nu_fission = self.nu_fission.unwrap_or_else(|| zeros.clone());
+        let fission_terms = if nu_fission.iter().any(|&v| v != 0.0) {
+            let chi = self.chi.ok_or("`nu-fission` needs `chi`")?;
+            vec![FissionTerm {
+                chi,
+                nu_fission: nu_fission.clone(),
+            }]
+        } else {
+            Vec::new()
+        };
+        let material = Material {
+            total,
+            scatter: self.scatter,
+            fission: self.fission.unwrap_or(zeros),
+            nu_fission,
+            fission_terms,
+        };
+        material.validate()?;
+        Ok(material)
+    }
 }
 
 #[cfg(test)]
