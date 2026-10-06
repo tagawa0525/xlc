@@ -11,12 +11,41 @@ pub fn cell_fission_rates(
     lattice: &Lattice,
     materials: &[&Material],
 ) -> Result<Vec<f64>, String> {
-    todo!("{solution:?} {lattice:?} {materials:?}")
+    let cells = lattice.cells_per_side().pow(2);
+    let rates: Vec<f64> = (0..cells)
+        .map(|cell| {
+            lattice
+                .cell_regions(cell)
+                .map(|i| {
+                    let phi = &solution.flux[i];
+                    solution.volumes[i]
+                        * materials[i]
+                            .fission
+                            .iter()
+                            .zip(phi)
+                            .map(|(f, p)| f * p)
+                            .sum::<f64>()
+                })
+                .sum()
+        })
+        .collect();
+    let fissile: Vec<f64> = rates.iter().copied().filter(|&r| r > 0.0).collect();
+    if fissile.is_empty() {
+        return Err("no cell has fission".into());
+    }
+    let mean = fissile.iter().sum::<f64>() / fissile.len() as f64;
+    Ok(rates.iter().map(|r| r / mean).collect())
 }
 
 /// 核分裂率を、格子の行ごとに1行ずつの表にする。
 pub fn to_text(rates: &[f64], n: usize) -> String {
-    todo!("{rates:?} {n}")
+    rates
+        .chunks(n)
+        .map(|row| {
+            let values: Vec<String> = row.iter().map(|r| format!("{r:.5}")).collect();
+            values.join(" ") + "\n"
+        })
+        .collect()
 }
 
 #[cfg(test)]
