@@ -276,30 +276,30 @@ mod tests {
 
     const INPUT: &str = "\
 # M1 のライブラリ
-output m1.lib
+output m1.msgpack
 endf-directory endf
 thermal-directory tsl
 sigma0 1e10 10 1
-nuclide H1 h.endf temperatures 293.6 600 thermal h2o.endf   # 水素
-nuclide U238 u.endf temperatures 293.6 900
+nuclide H-1 h.endf temperatures 293.6 600 thermal h2o.endf   # 水素
+nuclide U-238 u.endf temperatures 293.6 900
 ";
 
     #[test]
     fn parses_input_relative_to_its_directory() {
         let input = parse_input(INPUT, Path::new("work")).unwrap();
-        assert_eq!(input.output, PathBuf::from("work/m1.lib"));
+        assert_eq!(input.output, PathBuf::from("work/m1.msgpack"));
         assert_eq!(input.sigma0, vec![1.0e10, 10.0, 1.0]);
         assert_eq!(
             input.nuclides,
             vec![
                 NuclideInput {
-                    name: "H1".into(),
+                    name: "H-1".into(),
                     endf: PathBuf::from("work/endf/h.endf"),
                     temperatures: vec![293.6, 600.0],
                     thermal: Some(PathBuf::from("work/tsl/h2o.endf")),
                 },
                 NuclideInput {
-                    name: "U238".into(),
+                    name: "U-238".into(),
                     endf: PathBuf::from("work/endf/u.endf"),
                     temperatures: vec![293.6, 900.0],
                     thermal: None,
@@ -333,7 +333,7 @@ nuclide U238 u.endf temperatures 293.6 900
         assert!(replaced("temperatures 293.6 900", "temperatures -1").is_err());
         assert!(replaced("temperatures 293.6 900", "temperatures 900 900").is_err());
         // 核種名の重複、知らないキー
-        assert!(replaced("nuclide U238", "nuclide H1").is_err());
-        assert!(replaced("output m1.lib", "out m1.lib").is_err());
+        assert!(replaced("nuclide U-238", "nuclide H-1").is_err());
+        assert!(replaced("output m1.msgpack", "out m1.msgpack").is_err());
     }
 }
