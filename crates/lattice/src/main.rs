@@ -13,6 +13,9 @@
 //! MOC のスイープはメモリの転送速度で頭打ちになり、1つのコアを2つのスレッドで分ける
 //! （SMT）とかえって遅くなるため。
 
+// テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
+#![cfg_attr(test, allow(clippy::disallowed_macros))]
+
 use std::env::VarError;
 use std::io::IsTerminal;
 use std::path::Path;

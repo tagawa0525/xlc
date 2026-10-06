@@ -2,5 +2,8 @@
 //!
 //! パッケージ名は `xlc-core` とする（`core` は Rust 標準のクレートと衝突するため）。
 
+// テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
+#![cfg_attr(test, allow(clippy::disallowed_macros))]
+
 pub mod input;
 pub mod nem;

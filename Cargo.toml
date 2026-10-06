@@ -18,7 +18,8 @@ toml = "1.1.6"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
-# 本番のコードでは panic させない（エラーとして返す）。テストでは clippy.toml で許す
+# 本番のコードでは panic させない（エラーとして返す）。テストでは clippy.toml と各クレートの
+# 入口の cfg_attr(test, ...) で許す
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
@@ -26,3 +27,5 @@ panic = "deny"
 unreachable = "deny"
 todo = "deny"
 unimplemented = "deny"
+# assert! 系は clippy.toml の disallowed-macros で禁止する（lint の対象にする macro の一覧）
+disallowed_macros = "deny"
