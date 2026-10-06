@@ -578,6 +578,24 @@ mod tests {
     }
 
     #[test]
+    fn sequence_without_capture_width_is_skipped_as_in_averages() {
+        // Γγ = 0 の系列は、平均断面積と同じく 0 として扱う（x → 0 で θ = Γ/Δ が 0 に近づくため）
+        let mut zero_capture = point(5.0e3, 1.0e-3);
+        zero_capture.gg = 0.0;
+        let urr = s_wave(vec![zero_capture], Interpolation::LinLin);
+        let xs = UnresolvedXs::new(&urr).unwrap();
+        let average = xs.cross_sections(1.0e4);
+        let [dilute] = xs
+            .shielded(1.0e4, 300.0, &[1.0e10], Sigma::default())
+            .unwrap()[..]
+        else {
+            panic!("one σ0");
+        };
+        assert!((dilute.elastic - average.elastic).abs() <= 1e-12 * average.elastic);
+        assert_eq!(dilute.capture, 0.0);
+    }
+
+    #[test]
     fn capture_is_shielded_more_at_small_background_and_low_temperature() {
         let urr = s_wave(
             vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
