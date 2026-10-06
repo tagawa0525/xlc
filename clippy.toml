@@ -1,3 +1,12 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-panic-in-tests = true
+# 本番のコードでの assert! 系（テストのビルドでは各クレートの入口で許す）
+disallowed-macros = [
+    { path = "std::assert", reason = "return an error instead of panicking" },
+    { path = "std::assert_eq", reason = "return an error instead of panicking" },
+    { path = "std::assert_ne", reason = "return an error instead of panicking" },
+    { path = "std::debug_assert", reason = "return an error instead of panicking" },
+    { path = "std::debug_assert_eq", reason = "return an error instead of panicking" },
+    { path = "std::debug_assert_ne", reason = "return an error instead of panicking" },
+]
