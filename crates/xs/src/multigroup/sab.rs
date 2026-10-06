@@ -225,6 +225,26 @@ pub(crate) mod tests {
         }
     }
 
+    /// `free_gas_table` を1桁あたり 20 点に粗くした表。補間の誤差は大きいが、詳細バランスのように
+    /// 表の細かさによらない性質を、散乱行列の段階で安く確かめるのに使う。
+    pub(crate) fn coarse_free_gas_table() -> Mf7Incoherent {
+        let fine = free_gas_table();
+        let (na, nb) = (fine.alpha.len(), fine.beta.len());
+        let keep_alpha: Vec<usize> = (0..na).step_by(5).collect();
+        let keep_beta: Vec<usize> = std::iter::once(0).chain((1..nb).step_by(5)).collect();
+        let s = keep_beta
+            .iter()
+            .flat_map(|&j| keep_alpha.iter().map(move |&i| (j, i)))
+            .map(|(j, i)| fine.s[0][j * na + i])
+            .collect();
+        Mf7Incoherent {
+            alpha: keep_alpha.iter().map(|&i| fine.alpha[i]).collect(),
+            beta: keep_beta.iter().map(|&j| fine.beta[j]).collect(),
+            s: vec![s],
+            ..fine
+        }
+    }
+
     #[test]
     fn free_gas_table_reproduces_free_gas_kernel() {
         // 表の補間（ln S を α, β について線形）の誤差の範囲で、自由ガスの解析式と一致する
