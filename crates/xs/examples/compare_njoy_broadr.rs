@@ -15,7 +15,7 @@ use std::time::Instant;
 
 use xs::doppler::{broaden, broadening_limit};
 use xs::endf::{Mf2, Mf3, Tab1, Tape};
-use xs::pointwise::DEFAULT_TOLERANCE;
+use xs::pointwise::{DEFAULT_TOLERANCE, is_broadened};
 
 /// 同じ値とみなす相対差。NJOY の出力は有効数字 7 桁で、積分の打ち切り（NJOY は |x - y| ≤ 4、
 /// こちらは 5）の違いが 2e-6 程度あるので、それより一桁大きくとる。
@@ -58,7 +58,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         present.push(mt);
         tables.push(mf3.sigma);
     }
-    let e_max = broadening_limit(mf2.as_ref(), tables.iter());
+    if tables.is_empty() {
+        return Err(format!("none of MT{mts:?} is in the 0 K PENDF").into());
+    }
+    // 上限は、指定した反応だけでなく、広げる対象の全反応のしきい値で決まる
+    let mut candidates = Vec::new();
+    for mt in cold.mts(mat, 3).into_iter().filter(|&mt| is_broadened(mt)) {
+        let section = cold.section(mat, 3, mt).expect("listed by mts");
+        candidates.push(Mf3::parse(&section)?.sigma);
+    }
+    let e_max = broadening_limit(mf2.as_ref(), candidates.iter());
 
     let start = Instant::now();
     let ours = broaden(&tables, awr, temperature, e_max, DEFAULT_TOLERANCE);
