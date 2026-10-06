@@ -53,7 +53,138 @@ struct NuclideLine {
 
 /// 入力ファイルを読む。エラーは「line N: ...」の形の文字列で返す。
 fn parse_input(text: &str, base: &Path) -> Result<Input, String> {
-    todo!()
+    let (mut output, mut endf_directory, mut thermal_directory, mut sigma0) =
+        (None, None, None, None);
+    let mut nuclides: Vec<NuclideLine> = Vec::new();
+    let set_once = |slot: &mut Option<String>, line: usize, key: &str, values: &[&str]| {
+        if slot.is_some() {
+            return Err(format!("line {line}: `{key}` is given twice"));
+        }
+        match values {
+            [value] => {
+                *slot = Some(value.to_string());
+                Ok(())
+            }
+            _ => Err(format!("line {line}: `{key}` takes one value")),
+        }
+    };
+    let positive = |line: usize, token: &str| {
+        token
+            .parse::<f64>()
+            .ok()
+            .filter(|v| *v > 0.0 && v.is_finite())
+            .ok_or_else(|| format!("line {line}: `{token}` must be a positive number"))
+    };
+    for (index, raw) in text.lines().enumerate() {
+        let line = index + 1;
+        let tokens: Vec<&str> = raw
+            .split('#')
+            .next()
+            .unwrap_or("")
+            .split_whitespace()
+            .collect();
+        let Some((&key, values)) = tokens.split_first() else {
+            continue;
+        };
+        match key {
+            "output" => set_once(&mut output, line, key, values)?,
+            "endf-directory" => set_once(&mut endf_directory, line, key, values)?,
+            "thermal-directory" => set_once(&mut thermal_directory, line, key, values)?,
+            "sigma0" => {
+                if sigma0.is_some() {
+                    return Err(format!("line {line}: `sigma0` is given twice"));
+                }
+                let list = values
+                    .iter()
+                    .map(|v| positive(line, v))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if list.is_empty() || list.windows(2).any(|w| w[1] >= w[0]) {
+                    return Err(format!("line {line}: `sigma0` must be descending"));
+                }
+                sigma0 = Some(list);
+            }
+            "nuclide" => {
+                let [name, file, "temperatures", rest @ ..] = values else {
+                    return Err(format!(
+                        "line {line}: expected `nuclide <name> <file> temperatures <K>...`"
+                    ));
+                };
+                let (temperatures, thermal) = match rest.iter().position(|t| *t == "thermal") {
+                    Some(at) => match &rest[at + 1..] {
+                        [file] => (&rest[..at], Some(file.to_string())),
+                        _ => return Err(format!("line {line}: `thermal` takes one file")),
+                    },
+                    None => (rest, None),
+                };
+                let temperatures = temperatures
+                    .iter()
+                    .map(|t| positive(line, t))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if temperatures.is_empty() {
+                    return Err(format!(
+                        "line {line}: {name} needs at least one temperature"
+                    ));
+                }
+                if temperatures
+                    .iter()
+                    .enumerate()
+                    .any(|(i, t)| temperatures[..i].contains(t))
+                {
+                    return Err(format!("line {line}: {name} has a repeated temperature"));
+                }
+                if nuclides.iter().any(|n| n.name == *name) {
+                    return Err(format!("line {line}: nuclide `{name}` is given twice"));
+                }
+                nuclides.push(NuclideLine {
+                    line,
+                    name: name.to_string(),
+                    file: file.to_string(),
+                    temperatures,
+                    thermal,
+                });
+            }
+            _ => return Err(format!("line {line}: unknown keyword `{key}`")),
+        }
+    }
+    let missing = |key: &str| format!("`{key}` is missing");
+    let output = output.ok_or_else(|| missing("output"))?;
+    let endf_directory = base.join(endf_directory.ok_or_else(|| missing("endf-directory"))?);
+    let sigma0 = sigma0.ok_or_else(|| missing("sigma0"))?;
+    if nuclides.is_empty() {
+        return Err(missing("nuclide"));
+    }
+    let nuclides = nuclides
+        .into_iter()
+        .map(|n| {
+            let NuclideLine {
+                line,
+                name,
+                file,
+                temperatures,
+                thermal,
+            } = n;
+            let thermal = match thermal {
+                Some(file) => {
+                    let directory = thermal_directory.as_ref().ok_or_else(|| {
+                        format!("line {line}: `thermal` needs `thermal-directory`")
+                    })?;
+                    Some(base.join(directory).join(file))
+                }
+                None => None,
+            };
+            Ok(NuclideInput {
+                name,
+                endf: endf_directory.join(file),
+                temperatures,
+                thermal,
+            })
+        })
+        .collect::<Result<_, String>>()?;
+    Ok(Input {
+        output: base.join(output),
+        sigma0,
+        nuclides,
+    })
 }
 
 fn main() -> ExitCode {
