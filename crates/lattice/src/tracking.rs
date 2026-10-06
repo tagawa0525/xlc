@@ -81,6 +81,8 @@ pub enum TrackingError {
     CoarseSpacing { spacing: f64, azimuthal: usize },
     #[error("no reflected track at {0:?}")]
     NoReflectedTrack((f64, f64)),
+    #[error("two tracks reflect into track {track} ({})", if *forward { "forward" } else { "backward" })]
+    DuplicateLink { track: usize, forward: bool },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -88,7 +90,13 @@ pub struct Tracking {
     /// トラックを引いた形状（区間の領域の番号はこの形状の番号）
     pub lattice: Lattice,
     pub azimuths: Vec<Azimuth>,
+    /// 方位角の順に並ぶ
     pub tracks: Vec<Track>,
+    /// [方位角] の最初のトラックの番号（最後にトラックの数）
+    first: Vec<usize>,
+    /// [トラック][向き (0: 順, 1: 逆)] のスイープの始めに入ってくる角度中性子束を出すスイープ
+    /// （反射のつながりの逆。真空境界なら `None`）
+    sources: Vec<Option<Link>>,
 }
 
 impl Tracking {
@@ -243,11 +251,42 @@ impl Tracking {
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;
         }
+        let mut sources = vec![None; 2 * tracks.len()];
+        for (index, track) in tracks.iter().enumerate() {
+            for (forward, link) in [(true, track.forward_link), (false, track.backward_link)] {
+                if let Some(link) = link {
+                    let target = &mut sources[2 * link.track + usize::from(!link.forward)];
+                    if target.is_some() {
+                        return Err(TrackingError::DuplicateLink {
+                            track: link.track,
+                            forward: link.forward,
+                        });
+                    }
+                    *target = Some(Link {
+                        track: index,
+                        forward,
+                    });
+                }
+            }
+        }
         Ok(Self {
             lattice: lattice.clone(),
             azimuths,
             tracks,
+            first,
+            sources,
         })
+    }
+
+    /// 方位角 `azimuth` のトラックの番号の範囲。
+    pub fn azimuth_tracks(&self, azimuth: usize) -> std::ops::Range<usize> {
+        self.first[azimuth]..self.first[azimuth + 1]
+    }
+
+    /// トラック `track` を向き `forward` にスイープするとき、始めに入ってくる角度中性子束を出すスイープ
+    /// （真空境界から始まるなら `None`）。
+    pub fn incoming_source(&self, track: usize, forward: bool) -> Option<Link> {
+        self.sources[2 * track + usize::from(!forward)]
     }
 
     /// トラックから推定した領域ごとの体積。MOC の領域平均の計算と整合する。
@@ -338,6 +377,54 @@ mod tests {
             // 反射先は補角の方位角
             assert_eq!(next.azimuth, t.azimuths.len() - 1 - track.azimuth);
         }
+    }
+
+    #[test]
+    fn azimuth_ranges_hold_their_tracks() {
+        let t = Tracking::new(&cell(), 8, 0.05).unwrap();
+        let mut next = 0;
+        for a in 0..t.azimuths.len() {
+            let range = t.azimuth_tracks(a);
+            assert_eq!(range.start, next);
+            assert!(!range.is_empty());
+            assert!(
+                t.tracks[range.clone()]
+                    .iter()
+                    .all(|track| track.azimuth == a)
+            );
+            next = range.end;
+        }
+        assert_eq!(next, t.tracks.len());
+    }
+
+    #[test]
+    fn incoming_sources_invert_the_links() {
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let t = Tracking::with_boundaries(&two_by_two(), 8, 0.05, boundaries).unwrap();
+        let mut fed = 0;
+        for (index, track) in t.tracks.iter().enumerate() {
+            for (forward, link) in [(true, track.forward_link), (false, track.backward_link)] {
+                if let Some(link) = link {
+                    let source = Link {
+                        track: index,
+                        forward,
+                    };
+                    assert_eq!(t.incoming_source(link.track, link.forward), Some(source));
+                    fed += 1;
+                }
+            }
+        }
+        // 真空境界から始まるスイープには出どころがない
+        let empty = (0..t.tracks.len())
+            .flat_map(|i| [(i, true), (i, false)])
+            .filter(|&(i, forward)| t.incoming_source(i, forward).is_none())
+            .count();
+        assert_eq!(fed + empty, 2 * t.tracks.len());
+        assert!(empty > 0);
     }
 
     #[test]

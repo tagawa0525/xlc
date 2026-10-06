@@ -170,7 +170,7 @@ mod tests {
             }
         };
         Library {
-            groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]),
+            groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10],
             nuclides: vec![nuclide("F", true), nuclide("M", false)],
         }

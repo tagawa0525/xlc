@@ -3,6 +3,9 @@ name = "xlc-xs"
 version.workspace = true
 edition.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow.workspace = true
 rmp-serde.workspace = true

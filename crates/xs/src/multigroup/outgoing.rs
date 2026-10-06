@@ -2,7 +2,7 @@
 
 use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
-use crate::endf::{EnergyLaw, Interpolation, OutgoingDistributions, Tab1};
+use crate::endf::{ClampedTab1, EnergyLaw, Interpolation, OutgoingDistributions, Tab1};
 use crate::pointwise::linearize;
 use crate::special::{gamma_p_2, gamma_p_3_2};
 
@@ -203,7 +203,7 @@ pub struct AnalyticSpectrum {
     /// x = E'/θ 未満の出射の割合（正則化した下側不完全ガンマ関数）
     fraction: fn(f64) -> f64,
     restriction: f64,
-    theta: Tab1,
+    theta: ClampedTab1,
     bounds: Vec<f64>,
 }
 
@@ -214,11 +214,7 @@ impl AnalyticSpectrum {
             return;
         }
         // 入射エネルギーの範囲外では、端の θ を使う（表形式の分布と同じ）
-        let (first, last) = (self.theta.x[0], self.theta.x[self.theta.x.len() - 1]);
-        let theta = self
-            .theta
-            .eval(e.clamp(first, last))
-            .expect("clamped into the table");
+        let theta = self.theta.eval(e);
         let total = (self.fraction)(top / theta);
         // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
         let mut below = 0.0;
@@ -236,7 +232,7 @@ impl AnalyticSpectrum {
 
 impl GroupedLaw {
     pub fn new(groups: &GroupStructure, law: &EnergyLaw) -> Self {
-        let analytic = |fraction: fn(f64) -> f64, restriction: f64, theta: &Tab1| {
+        let analytic = |fraction: fn(f64) -> f64, restriction: f64, theta: &ClampedTab1| {
             Self::Analytic(AnalyticSpectrum {
                 fraction,
                 restriction,
@@ -264,6 +260,7 @@ impl GroupedLaw {
             // θ の表の点と、E - U が 0 や群境界を横切る点（群ごとの割合の傾きが変わる）
             Self::Analytic(spectrum) => spectrum
                 .theta
+                .table()
                 .x
                 .iter()
                 .copied()
@@ -296,10 +293,10 @@ mod tests {
     #[test]
     fn evaporation_spectrum_is_cut_at_e_minus_u() {
         // E' ≤ E - U = 2 MeV。群ごとの割合は P(2, x) の差（x = E'/θ）
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]).unwrap();
         let law = EnergyLaw::Evaporation {
             restriction: 1.0e6,
-            theta: Tab1::linear(vec![1.0e6, 2.0e7], vec![1.0e5, 1.0e5]),
+            theta: ClampedTab1::new(Tab1::linear(vec![1.0e6, 2.0e7], vec![1.0e5, 1.0e5])).unwrap(),
         };
         let grouped = GroupedLaw::new(&groups, &law);
         let mut out = vec![0.0; 3];
@@ -327,10 +324,10 @@ mod tests {
     #[test]
     fn maxwellian_interpolates_theta() {
         // θ(2 MeV) = 200 keV。E - U が群構造の上限を超える分は最上位の群に入る
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]).unwrap();
         let law = EnergyLaw::Maxwellian {
             restriction: -3.0e7,
-            theta: Tab1::linear(vec![1.0e6, 3.0e6], vec![1.0e5, 3.0e5]),
+            theta: ClampedTab1::new(Tab1::linear(vec![1.0e6, 3.0e6], vec![1.0e5, 3.0e5])).unwrap(),
         };
         let grouped = GroupedLaw::new(&groups, &law);
         let mut out = vec![0.0; 3];
@@ -342,7 +339,7 @@ mod tests {
 
     #[test]
     fn integrates_piecewise_linear_density_by_group() {
-        let groups = GroupStructure::new(vec![4.0, 2.0, 1.0]);
+        let groups = GroupStructure::new(vec![4.0, 2.0, 1.0]).unwrap();
         let density = Tab1::linear(vec![1.0, 3.0], vec![0.5, 0.5]);
         assert_eq!(outgoing_group_integrals(&groups, &density), vec![0.5, 0.5]);
         // 群構造の外に出る分は端の群に入れる（NJOY と同じ。中性子を失わない）
@@ -356,7 +353,7 @@ mod tests {
 
     #[test]
     fn linear_density_split_inside_a_segment() {
-        let groups = GroupStructure::new(vec![2.0, 1.0, 0.5]);
+        let groups = GroupStructure::new(vec![2.0, 1.0, 0.5]).unwrap();
         let density = Tab1::linear(vec![0.0, 2.0], vec![0.0, 1.0]);
         let r = outgoing_group_integrals(&groups, &density);
         // ∫ E/2 dE。0.5 eV 未満の分（0.0625）は最下位の群に入る
@@ -384,7 +381,7 @@ mod tests {
                 y: vec![0.5, 0.5],
             }],
         };
-        let groups = GroupStructure::new(vec![2.0e6, 1.0e6, 1.0e5]);
+        let groups = GroupStructure::new(vec![2.0e6, 1.0e6, 1.0e5]).unwrap();
         let grouped = GroupedOutgoing::center_of_mass(&groups, &distributions, awr);
         let mut out = vec![0.0; 2];
         grouped.accumulate(e, 1.0, &mut out);
@@ -397,7 +394,7 @@ mod tests {
 
     #[test]
     fn interpolates_between_incident_energies() {
-        let groups = GroupStructure::new(vec![4.0, 2.0, 1.0]);
+        let groups = GroupStructure::new(vec![4.0, 2.0, 1.0]).unwrap();
         let distributions = OutgoingDistributions {
             breaks: vec![2],
             laws: vec![Interpolation::LinLin],

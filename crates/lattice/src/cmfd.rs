@@ -29,6 +29,15 @@ pub struct CoarseMesh {
     ends: Vec<[(usize, f64); 2]>,
 }
 
+/// 面の両側のセル。面の正の向きは `low` から `high` へ。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FaceCells {
+    /// 内側の面
+    Inner { low: usize, high: usize },
+    /// 外周の面。`outward` は外向きが面の正の向きなら 1、逆なら -1
+    Outer { cell: usize, outward: f64 },
+}
+
 /// 隣のセルへ移るときに通る面と、その向き（面の正の向きなら 1、逆なら -1）を掛けた重み。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct FacePath {
@@ -112,26 +121,37 @@ impl CoarseMesh {
         self.ends[track]
     }
 
-    /// 面の両側のセル（面の正の向きの手前、先）。外周の面では外側が `None`。
-    pub fn face_cells(&self, face: usize) -> (Option<usize>, Option<usize>) {
+    /// 面の両側のセル。
+    pub fn face_cells(&self, face: usize) -> FaceCells {
         let n = self.n;
         let vertical = n * (n + 1);
-        let (before, after) = if face < vertical {
+        // 面が格子線 `line`（0..=n）の上にあり、線に沿った位置で決まるセルの番号を `cell(k)`
+        // （k は線の手前側のセルの行または列）で求める
+        let side = |line: usize, cell: &dyn Fn(usize) -> usize| {
+            if line == 0 {
+                FaceCells::Outer {
+                    cell: cell(0),
+                    outward: -1.0,
+                }
+            } else if line == n {
+                FaceCells::Outer {
+                    cell: cell(n - 1),
+                    outward: 1.0,
+                }
+            } else {
+                FaceCells::Inner {
+                    low: cell(line - 1),
+                    high: cell(line),
+                }
+            }
+        };
+        if face < vertical {
             let (row, line) = (face / (n + 1), face % (n + 1));
-            let cell = |column: usize| row * n + column;
-            (
-                (line > 0).then(|| cell(line - 1)),
-                (line < n).then(|| cell(line)),
-            )
+            side(line, &|column| row * n + column)
         } else {
             let (line, column) = ((face - vertical) / n, (face - vertical) % n);
-            let cell = |row: usize| row * n + column;
-            (
-                (line > 0).then(|| cell(line - 1)),
-                (line < n).then(|| cell(line)),
-            )
-        };
-        (before, after)
+            side(line, &|row| row * n + column)
+        }
     }
 
     fn vertical(&self, row: usize, line: usize) -> usize {
@@ -143,21 +163,27 @@ impl CoarseMesh {
     }
 
     /// セル `from` から隣のセル `to` へ移るときに通る面と向き。
-    pub(crate) fn path(&self, from: usize, to: usize) -> FacePath {
+    pub(crate) fn path(&self, from: usize, to: usize) -> Result<FacePath, CmfdError> {
         let (r1, c1) = (from / self.n, from % self.n);
         let (r2, c2) = (to / self.n, to % self.n);
         let sign = |a: usize, b: usize| if b > a { 1.0 } else { -1.0 };
         match (r1.abs_diff(r2), c1.abs_diff(c2)) {
-            (0, 1) => FacePath::new(&[(self.vertical(r1, c1.max(c2)), sign(c1, c2))]),
-            (1, 0) => FacePath::new(&[(self.horizontal(r1.max(r2), c1), sign(r1, r2))]),
+            (0, 1) => Ok(FacePath::new(&[(
+                self.vertical(r1, c1.max(c2)),
+                sign(c1, c2),
+            )])),
+            (1, 0) => Ok(FacePath::new(&[(
+                self.horizontal(r1.max(r2), c1),
+                sign(r1, r2),
+            )])),
             // 角を通る: (r1, c2) を経由する経路と (r2, c1) を経由する経路に半分ずつ
-            (1, 1) => FacePath::new(&[
+            (1, 1) => Ok(FacePath::new(&[
                 (self.vertical(r1, c1.max(c2)), 0.5 * sign(c1, c2)),
                 (self.horizontal(r1.max(r2), c2), 0.5 * sign(r1, r2)),
                 (self.horizontal(r1.max(r2), c1), 0.5 * sign(r1, r2)),
                 (self.vertical(r2, c1.max(c2)), 0.5 * sign(c1, c2)),
-            ]),
-            _ => panic!("consecutive segments in cells {from} and {to} that do not touch"),
+            ])),
+            _ => Err(CmfdError::NonAdjacent { from, to }),
         }
     }
 
@@ -172,10 +198,14 @@ impl CoarseMesh {
             ((point.1 - half).abs(), self.horizontal(0, c), -1.0),
             ((point.1 + half).abs(), self.horizontal(self.n, c), 1.0),
         ];
-        let (_, face, outward) = sides
-            .into_iter()
-            .min_by(|a, b| a.0.total_cmp(&b.0))
-            .expect("four sides");
+        let [first, rest @ ..] = sides;
+        let (_, face, outward) =
+            rest.into_iter().fold(
+                first,
+                |nearest, side| {
+                    if side.0 < nearest.0 { side } else { nearest }
+                },
+            );
         (face, outward)
     }
 }
@@ -218,6 +248,8 @@ pub enum CmfdError {
         group: usize,
         flux: f64,
     },
+    #[error("a track moves from cell {from} to cell {to}, which do not touch")]
+    NonAdjacent { from: usize, to: usize },
     #[error("the coarse-mesh matrix of cell {0} is singular")]
     Singular(usize),
     #[error("the coarse-mesh eigenvalue problem did not converge in {0} iterations")]
@@ -315,7 +347,7 @@ impl Coarse {
         for face in 0..mesh.faces() {
             let net = &current[face * ng..][..ng];
             match mesh.face_cells(face) {
-                (Some(low), Some(high)) => {
+                FaceCells::Inner { low, high } => {
                     // 面の正の向きの流れ J = -D̃ (φ_h - φ_l) - D̂ (φ_h + φ_l)（面の長さあたり）
                     let mut on_high = vec![0.0; ng];
                     let mut on_low = vec![0.0; ng];
@@ -334,17 +366,11 @@ impl Coarse {
                     neighbors[high].push((low, on_low));
                 }
                 // 外周の面: 外向きの流れを、すべて補正の項 D̂ φ で表す
-                (Some(cell), None) => {
+                FaceCells::Outer { cell, outward } => {
                     for g in 0..ng {
-                        diagonal[cell * ng + g] += net[g] / phi[cell * ng + g];
+                        diagonal[cell * ng + g] += outward * net[g] / phi[cell * ng + g];
                     }
                 }
-                (None, Some(cell)) => {
-                    for g in 0..ng {
-                        diagonal[cell * ng + g] -= net[g] / phi[cell * ng + g];
-                    }
-                }
-                (None, None) => unreachable!("every face touches a cell"),
             }
         }
         let blocks = (0..cells)
@@ -648,7 +674,7 @@ mod tests {
         let mesh = CoarseMesh::new(&two_by_two());
         for from in 0..4 {
             for to in (0..4).filter(|&to| to != from) {
-                let path = mesh.path(from, to);
+                let path = mesh.path(from, to).unwrap();
                 let faces = path.faces();
                 assert_eq!(outflow(&mesh, from, faces), 1.0);
                 assert_eq!(outflow(&mesh, to, faces), -1.0);
@@ -658,6 +684,43 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn cells_that_do_not_touch_have_no_path() {
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![water], vec![vec![0; 3]; 3]).unwrap();
+        let mesh = CoarseMesh::new(&Tracking::new(&lattice, 8, 0.2).unwrap());
+        assert!(matches!(
+            mesh.path(0, 2),
+            Err(CmfdError::NonAdjacent { from: 0, to: 2 })
+        ));
+    }
+
+    #[test]
+    fn faces_know_their_cells() {
+        let mesh = CoarseMesh::new(&two_by_two());
+        // 左上のセルの左の面は外周（外向きは面の負の向き）、右の面は右上のセルとの間
+        let [(left, _), (right, _), (top, _), (bottom, _)] = mesh.cell_faces(0);
+        assert_eq!(
+            mesh.face_cells(left),
+            FaceCells::Outer {
+                cell: 0,
+                outward: -1.0
+            }
+        );
+        assert_eq!(mesh.face_cells(right), FaceCells::Inner { low: 0, high: 1 });
+        assert_eq!(
+            mesh.face_cells(top),
+            FaceCells::Outer {
+                cell: 0,
+                outward: -1.0
+            }
+        );
+        assert_eq!(
+            mesh.face_cells(bottom),
+            FaceCells::Inner { low: 0, high: 2 }
+        );
     }
 
     #[test]

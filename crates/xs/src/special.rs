@@ -1,5 +1,7 @@
 //! 特殊関数（標準ライブラリにない誤差関数など）。
 
+use crate::numeric::NumericError;
+
 /// 誤差関数 erf(x)。
 pub fn erf(x: f64) -> f64 {
     if x < 0.0 {
@@ -60,8 +62,10 @@ pub fn erfcx(x: f64) -> f64 {
 ///
 /// z ≤ 1 では級数 E1 = -γ - ln z - Σ (-z)^n/(n n!)、z > 1 では連分数
 /// E1 = e^(-z) / (z + 1 - 1²/(z + 3 - 2²/(z + 5 - …)))（修正 Lentz 法）で計算する。
-pub fn exp_e1(z: f64) -> f64 {
-    assert!(z > 0.0, "E1 needs a positive argument, got {z}");
+pub fn exp_e1(z: f64) -> Result<f64, NumericError> {
+    if !(z > 0.0 && z.is_finite()) {
+        return Err(NumericError::Domain(format!("E1({z})")));
+    }
     const EULER: f64 = 0.577_215_664_901_532_9;
     const MAX_TERMS: u32 = 1000;
     if z <= 1.0 {
@@ -71,7 +75,7 @@ pub fn exp_e1(z: f64) -> f64 {
             term *= -z / n;
             sum += term / n;
             if (term / n).abs() <= f64::EPSILON * sum.abs() {
-                return (-EULER - z.ln() - sum) * z.exp();
+                return Ok((-EULER - z.ln() - sum) * z.exp());
             }
         }
     } else {
@@ -87,11 +91,11 @@ pub fn exp_e1(z: f64) -> f64 {
             let delta = c * d;
             h *= delta;
             if (delta - 1.0).abs() <= f64::EPSILON {
-                return h;
+                return Ok(h);
             }
         }
     }
-    panic!("E1({z}) did not converge");
+    Err(NumericError::NotConverged(format!("E1({z})")))
 }
 
 /// 正則化した下側不完全ガンマ関数 P(3/2, x) = γ(3/2, x)/Γ(3/2)（x ≥ 0）。
@@ -132,12 +136,19 @@ fn lower_gamma_series(a: f64, x: f64) -> f64 {
     sum
 }
 
-/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy, y ≥ 0）。
+/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy）。
 ///
-/// Weideman (1994, SIAM J. Numer. Anal. 31) の有理近似 w(z) ≈ 2 p(Z)/(L - iz)² + 1/(√π (L - iz))、
+/// y ≥ 0 では Weideman (1994, SIAM J. Numer. Anal. 31) の有理近似 w(z) ≈ 2 p(Z)/(L - iz)² + 1/(√π (L - iz))、
 /// Z = (L + iz)/(L - iz) を使う。p は `FADDEEVA_TERMS` 次の多項式で、係数は `faddeeva_coefficients`。
+/// y < 0 では w(z) = 2 e^(-z²) - w(-z) で上半面に移す。
 pub fn faddeeva(x: f64, y: f64) -> (f64, f64) {
-    assert!(y >= 0.0, "faddeeva is implemented for Im z >= 0, got {y}");
+    if y < 0.0 {
+        let (re, im) = faddeeva(-x, -y);
+        // e^(-z²) = e^(y² - x²) (cos 2xy - i sin 2xy)
+        let scale = 2.0 * (y * y - x * x).exp();
+        let phase = 2.0 * x * y;
+        return (scale * phase.cos() - re, -scale * phase.sin() - im);
+    }
     let a = faddeeva_coefficients();
     let l = faddeeva_scale();
     // L - iz = (L + y) - ix、L + iz = (L - y) + ix
@@ -210,6 +221,23 @@ mod tests {
     }
 
     #[test]
+    fn faddeeva_below_the_real_axis() {
+        // 虚軸の上では w(iy) = e^(y²) erfc(y)。y < 0 でも成り立つ
+        for y in [-0.1, -0.5, -2.0] {
+            let (re, im) = faddeeva(0.0, y);
+            assert_rel(re, (y * y).exp() * erfc(y), 1e-10);
+            assert!(im.abs() < 1e-12, "{im}");
+        }
+    }
+
+    #[test]
+    fn e1_outside_its_domain_is_error() {
+        for z in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(exp_e1(z), Err(NumericError::Domain(_))), "E1({z})");
+        }
+    }
+
+    #[test]
     fn erf_values() {
         assert_eq!(erf(0.0), 0.0);
         assert_rel(erf(0.5), 0.520_499_877_813_046_5, 1e-14);
@@ -249,11 +277,15 @@ mod tests {
             (10.0, 0.091_563_333_939_788_08),
             (30.0, 0.032_289_738_758_980_13),
         ] {
-            assert_rel(exp_e1(z), expected, 1e-13);
+            assert_rel(exp_e1(z).unwrap(), expected, 1e-13);
         }
         // 漸近形 1/z (1 - 1/z + 2/z² - ...)
         let z = 1.0e6;
-        assert_rel(exp_e1(z), (1.0 - 1.0 / z + 2.0 / (z * z)) / z, 1e-15);
+        assert_rel(
+            exp_e1(z).unwrap(),
+            (1.0 - 1.0 / z + 2.0 / (z * z)) / z,
+            1e-15,
+        );
     }
 
     #[test]

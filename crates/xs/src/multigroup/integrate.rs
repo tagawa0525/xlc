@@ -43,9 +43,13 @@ pub fn group_integrals_multi(
     let mut values = vec![0.0; n];
     for w in points.windows(2) {
         let (a, b) = (w[0], w[1]);
-        let g = groups
-            .find(0.5 * (a + b))
-            .expect("points are inside the group structure");
+        // 点は群構造の範囲にあり、群の境界をすべて含むので、区間はちょうど1つの群に入る
+        // （境界は降順。中点以上の境界の数 - 1 が群の番号。`GroupStructure::find` と同じ判定）
+        let middle = 0.5 * (a + b);
+        let g = bounds
+            .partition_point(|&bound| bound >= middle)
+            .saturating_sub(1)
+            .min(groups.len() - 1);
         let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
         let ratio = (b / a).powf(1.0 / pieces as f64);
         let mut lo = a;
@@ -91,7 +95,7 @@ mod tests {
 
     #[test]
     fn weight_only_in_one_over_e_region() {
-        let groups = GroupStructure::new(vec![1.0e5, 1.0e3, 1.0]);
+        let groups = GroupStructure::new(vec![1.0e5, 1.0e3, 1.0]).unwrap();
         let r = group_integrals(&groups, &Weight::lwr(), &[], |_| 1.0);
         assert_close(r[0], (1.0e5_f64 / 1.0e3).ln());
         assert_close(r[1], (1.0e3_f64).ln());
@@ -101,7 +105,7 @@ mod tests {
     fn weight_only_in_maxwellian_region() {
         let w = Weight::lwr();
         let (a, b, tb) = (0.01, 0.05, 0.0253);
-        let groups = GroupStructure::new(vec![b, a]);
+        let groups = GroupStructure::new(vec![b, a]).unwrap();
         let r = group_integrals(&groups, &w, &[], |_| 1.0);
         // ∫ ab E exp(-E/tb) dE = ab tb² [(1 + a/tb) e^{-a/tb} - (1 + b/tb) e^{-b/tb}]
         let ab = w.value(a) / (a * (-a / tb).exp());
@@ -111,14 +115,14 @@ mod tests {
 
     #[test]
     fn linear_function_times_one_over_e() {
-        let groups = GroupStructure::new(vec![100.0, 10.0]);
+        let groups = GroupStructure::new(vec![100.0, 10.0]).unwrap();
         let r = group_integrals(&groups, &Weight::lwr(), &[], |e| e);
         assert_close(r[0], 90.0);
     }
 
     #[test]
     fn step_at_breakpoint() {
-        let groups = GroupStructure::new(vec![100.0, 10.0]);
+        let groups = GroupStructure::new(vec![100.0, 10.0]).unwrap();
         let r = group_integrals(&groups, &Weight::lwr(), &[30.0], |e| {
             if e < 30.0 { 1.0 } else { 2.0 }
         });
@@ -127,7 +131,7 @@ mod tests {
 
     #[test]
     fn multi_component_matches_scalar() {
-        let groups = GroupStructure::new(vec![100.0, 10.0, 1.0]);
+        let groups = GroupStructure::new(vec![100.0, 10.0, 1.0]).unwrap();
         let w = Weight::lwr();
         let r = group_integrals_multi(&groups, &w, &[30.0], 2, |e, out| {
             out[0] = e;
@@ -144,7 +148,7 @@ mod tests {
     #[test]
     fn group_spanning_weight_breakpoint() {
         let w = Weight::lwr();
-        let groups = GroupStructure::new(vec![1.0, 0.05]);
+        let groups = GroupStructure::new(vec![1.0, 0.05]).unwrap();
         let r = group_integrals(&groups, &w, &[], |_| 1.0);
         let tb = 0.0253;
         let ab = w.value(0.05) / (0.05 * (-0.05_f64 / tb).exp());
