@@ -159,6 +159,7 @@ pub enum ShieldingError {
 ///
 /// 中性子束を w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の中性子束はこれに定数
 /// (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`flux` はその定数を掛けない値。
+#[tracing::instrument(level = "debug", skip_all)]
 pub fn shielded_averages(
     groups: &GroupStructure,
     weight: &Weight,
