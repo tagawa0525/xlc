@@ -26,6 +26,7 @@
 //! 群構造は WIMS 69群、重み関数は軽水炉向けの iwt=4 とする。
 
 use std::collections::BTreeMap;
+use std::env::VarError;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -161,10 +162,16 @@ fn main() -> ExitCode {
 /// ログ（tracing）を標準エラーに出す。表示する量は環境変数 `RUST_LOG` で選ぶ（なければ info）。
 /// 区間（span）が閉じるときに、その経過時間も出す。
 fn init_logging() -> anyhow::Result<()> {
-    // FromEnvError の表示は原因の文を含むので、原因の連鎖は付けない
+    // EnvFilter::from_env は UTF-8 でない値を黙って空とみなすので、自分で読む
+    let directives = match std::env::var("RUST_LOG") {
+        Ok(value) => value,
+        Err(VarError::NotPresent) => String::new(),
+        Err(error @ VarError::NotUnicode(_)) => return Err(anyhow!("RUST_LOG: {error}")),
+    };
+    // ParseError の表示は原因の文を含むので、原因の連鎖は付けない
     let filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
-        .from_env()
+        .parse(directives)
         .map_err(|error| anyhow!("RUST_LOG: {error}"))?;
     tracing_subscriber::fmt()
         .with_env_filter(filter)
