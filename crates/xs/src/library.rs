@@ -1,32 +1,18 @@
 //! 多群ライブラリ（`xs` から `lattice` に渡すファイル）。
 //!
-//! 人が読めて diff を取れるテキスト形式。数値は f64 の最短の往復可能な表記で書く。
-//! 核種ごとに温度の表を持ち、温度ごとに σ0（背景断面積）ごとの群定数を持つ。σ0 は全核種で共通で、
-//! 降順に並べ、最初の値を無限希釈とみなす。
+//! フィールド名付きの map 形式の MessagePack（全体計画の「ファイルの約束事」）。f64 は 8 バイトのまま持つので、
+//! 書いて読んだ値は最下位のビットまで一致する。核種ごとに温度の表を持ち、温度ごとに σ0（背景断面積）ごとの
+//! 群定数を持つ。σ0 は全核種で共通で、降順に並べ、最初の値を無限希釈とみなす。
 //!
 //! ```text
-//! xlc-multigroup 2
-//! groups <G>
-//! bounds <G+1 個の群境界 (eV)、降順>
-//! sigma0 <σ0 (barn)、降順>
-//! nuclide <名前>
-//! za <ZA>
-//! awr <AWR>
-//! temperature <K>
-//! chi <G 個>
-//! scatter
-//! <G 行 × G 個: 無限希釈の σ(g→g')、行が入射の群>
-//! shielded <σ0>          （σ0 の数だけ、sigma0 の順に繰り返す）
-//! total <G 個>
-//! elastic <G 個>
-//! fission <G 個>
-//! nu-fission <G 個>
-//! temperature <K>        （温度の数だけ繰り返す）
-//! ...
-//! end
+//! {format: "xlc-multigroup",
+//!  group_bounds: [群境界 (eV)、降順],
+//!  sigma0: [σ0 (barn)、降順],
+//!  nuclides: [{name: "U-235", za, awr,
+//!              temperatures: [{temperature (K), chi: [G 個],
+//!                              scatter: [[無限希釈の σ(g→g')、行が入射の群]],
+//!                              shielded: [{total, elastic, fission, nu_fission}（σ0 の順）]}]}]}
 //! ```
-
-use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
@@ -88,35 +74,17 @@ pub struct Library {
     pub nuclides: Vec<NuclideData>,
 }
 
-/// ライブラリの読み込みエラー。`line` は1始まりの行番号。
-#[derive(Debug, Clone, PartialEq)]
-pub struct ParseError {
-    pub line: usize,
-    pub message: String,
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "line {}: {}", self.line, self.message)
-    }
-}
-
-impl std::error::Error for ParseError {}
-
+/// 形式の名前
 const FORMAT: &str = "xlc-multigroup";
-const VERSION: &str = "2";
 
-/// MessagePack のファイルの形式の名前
-const MSGPACK_FORMAT: &str = "xlc-multigroup";
-
-/// MessagePack のライブラリの読み込みエラー。
+/// ライブラリの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
     #[error("invalid MessagePack: {0}")]
     Decode(#[from] rmp_serde::decode::Error),
     #[error("the file must be a MessagePack map with field names")]
     NotMap,
-    #[error("expected format {MSGPACK_FORMAT}, found {0}")]
+    #[error("expected format {FORMAT}, found {0}")]
     Format(String),
     #[error("{0}")]
     Invalid(String),
@@ -135,99 +103,48 @@ struct LibraryFile {
 impl Library {
     /// MessagePack（フィールド名付きの map 形式）で書く。
     pub fn to_msgpack(&self) -> Vec<u8> {
-        todo!()
+        let file = LibraryFile {
+            format: FORMAT.into(),
+            group_bounds: self.groups.bounds().to_vec(),
+            sigma0: self.sigma0.clone(),
+            nuclides: self.nuclides.clone(),
+        };
+        rmp_serde::to_vec_named(&file).expect("the library has only numbers and strings")
     }
 
     /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。
     pub fn from_msgpack(bytes: &[u8]) -> Result<Self, LibraryError> {
-        todo!("{bytes:?}")
-    }
-
-    pub fn to_text(&self) -> String {
-        let mut out = format!("{FORMAT} {VERSION}\n");
-        out += &format!("groups {}\n", self.groups.len());
-        out += &numbers_line("bounds", self.groups.bounds());
-        out += &numbers_line("sigma0", &self.sigma0);
-        for n in &self.nuclides {
-            out += &format!("nuclide {}\n", n.name);
-            out += &format!("za {:e}\n", n.za);
-            out += &format!("awr {:e}\n", n.awr);
-            for t in &n.temperatures {
-                out += &format!("temperature {:e}\n", t.temperature);
-                out += &numbers_line("chi", &t.chi);
-                out += "scatter\n";
-                for row in &t.scatter {
-                    let values: Vec<String> = row.iter().map(|v| format!("{v:e}")).collect();
-                    out += &values.join(" ");
-                    out += "\n";
-                }
-                for (s0, s) in self.sigma0.iter().zip(&t.shielded) {
-                    out += &format!("shielded {s0:e}\n");
-                    out += &numbers_line("total", &s.total);
-                    out += &numbers_line("elastic", &s.elastic);
-                    out += &numbers_line("fission", &s.fission);
-                    out += &numbers_line("nu-fission", &s.nu_fission);
-                }
-            }
-            out += "end\n";
+        // 配列形式（フィールド名なし）で書かれたファイルは、最上位が map にならない
+        if !matches!(bytes.first(), Some(0x80..=0x8f | 0xde | 0xdf)) {
+            return Err(LibraryError::NotMap);
         }
-        out
-    }
-
-    pub fn parse(text: &str) -> Result<Self, ParseError> {
-        let mut lines = Lines::new(text);
-        let (line, header) = lines.next_line("format header")?;
-        if header != [FORMAT, VERSION] {
-            return Err(error(line, format!("expected `{FORMAT} {VERSION}`")));
+        let file: LibraryFile = rmp_serde::from_slice(bytes)?;
+        if file.format != FORMAT {
+            return Err(LibraryError::Format(file.format));
         }
-        let (line, ng) = lines.keyword_value("groups")?;
-        let ng = usize_value(line, ng)?;
-        let n_bounds = ng
-            .checked_add(1)
-            .filter(|_| ng > 0)
-            .ok_or_else(|| error(line, format!("invalid number of groups {ng}")))?;
-        let (line, bounds) = lines.keyword_numbers("bounds", n_bounds)?;
-        if !(bounds.windows(2).all(|w| w[0] > w[1]) && bounds.iter().all(|&b| b > 0.0)) {
-            return Err(error(line, "bounds must be positive and descending"));
+        let invalid = LibraryError::Invalid;
+        let descending =
+            |v: &[f64]| v.windows(2).all(|w| w[0] > w[1]) && v.iter().all(|&x| x > 0.0);
+        let bounds = file.group_bounds;
+        if bounds.len() < 2 || !descending(&bounds) {
+            return Err(invalid(format!(
+                "group bounds must be at least two positive descending values, got {bounds:?}"
+            )));
         }
-        let groups = GroupStructure::new(bounds);
-        let (line, sigma0) = lines.keyword_list("sigma0")?;
-        if sigma0.is_empty()
-            || !(sigma0.windows(2).all(|w| w[0] > w[1]) && sigma0.iter().all(|&s| s > 0.0))
-        {
-            return Err(error(line, "sigma0 must be positive and descending"));
+        if file.sigma0.is_empty() || !descending(&file.sigma0) {
+            return Err(invalid(format!(
+                "sigma0 must be positive and descending, got {:?}",
+                file.sigma0
+            )));
         }
-        let mut nuclides = Vec::new();
-        while lines.has_more() {
-            let (line, name) = lines.keyword_value("nuclide")?;
-            if name.is_empty() {
-                return Err(error(line, "missing nuclide name"));
-            }
-            let za = lines.keyword_number("za")?;
-            let awr = lines.keyword_number("awr")?;
-            let mut temperatures = Vec::new();
-            loop {
-                let (line, tokens) = lines.next_line("`temperature` or `end`")?;
-                match tokens.as_slice() {
-                    ["end"] if !temperatures.is_empty() => break,
-                    ["temperature", value] => {
-                        let temperature = parse_numbers(line, &[value], 1)?[0];
-                        temperatures.push(lines.temperature_data(temperature, ng, &sigma0)?);
-                    }
-                    _ => return Err(error(line, "expected `temperature <K>` or `end`")),
-                }
-            }
-            nuclides.push(NuclideData {
-                name: name.to_string(),
-                za,
-                awr,
-                temperatures,
-            });
+        let ng = bounds.len() - 1;
+        for n in &file.nuclides {
+            n.check(ng, file.sigma0.len()).map_err(invalid)?;
         }
         Ok(Self {
-            groups,
-            sigma0,
-            nuclides,
+            groups: GroupStructure::new(bounds),
+            sigma0: file.sigma0,
+            nuclides: file.nuclides,
         })
     }
 
@@ -261,149 +178,42 @@ impl Library {
     }
 }
 
-fn numbers_line(keyword: &str, values: &[f64]) -> String {
-    let mut out = keyword.to_string();
-    for v in values {
-        out += &format!(" {v:e}");
-    }
-    out + "\n"
-}
-
-fn error(line: usize, message: impl Into<String>) -> ParseError {
-    ParseError {
-        line,
-        message: message.into(),
-    }
-}
-
-fn usize_value(line: usize, token: &str) -> Result<usize, ParseError> {
-    token
-        .parse()
-        .map_err(|_| error(line, format!("invalid count `{token}`")))
-}
-
-/// 空行を飛ばして、行番号付きでトークンに分けた行を順に返す。
-struct Lines<'a> {
-    lines: Vec<(usize, Vec<&'a str>)>,
-    pos: usize,
-}
-
-impl<'a> Lines<'a> {
-    fn new(text: &'a str) -> Self {
-        let lines = text
-            .lines()
-            .enumerate()
-            .map(|(i, l)| (i + 1, l.split_whitespace().collect::<Vec<_>>()))
-            .filter(|(_, tokens)| !tokens.is_empty())
-            .collect();
-        Self { lines, pos: 0 }
-    }
-
-    fn has_more(&self) -> bool {
-        self.pos < self.lines.len()
-    }
-
-    fn next_line(&mut self, expected: &str) -> Result<(usize, Vec<&'a str>), ParseError> {
-        let end = self.lines.last().map_or(1, |(n, _)| n + 1);
-        let (line, tokens) =
-            self.lines.get(self.pos).cloned().ok_or_else(|| {
-                error(end, format!("unexpected end of file, expected {expected}"))
-            })?;
-        self.pos += 1;
-        Ok((line, tokens))
-    }
-
-    /// `keyword value` の行（値は1語）
-    fn keyword_value(&mut self, keyword: &str) -> Result<(usize, &'a str), ParseError> {
-        let (line, tokens) = self.next_line(keyword)?;
-        match tokens.as_slice() {
-            [k, value] if *k == keyword => Ok((line, value)),
-            _ => Err(error(line, format!("expected `{keyword} <value>`"))),
+impl NuclideData {
+    /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
+    fn check(&self, ng: usize, n_sigma0: usize) -> Result<(), String> {
+        let name = &self.name;
+        if name.is_empty() {
+            return Err("a nuclide has no name".into());
         }
-    }
-
-    fn keyword_number(&mut self, keyword: &str) -> Result<f64, ParseError> {
-        Ok(self.keyword_numbers(keyword, 1)?.1[0])
-    }
-
-    /// `keyword v1 v2 ...` の行（数値はちょうど n 個）
-    fn keyword_numbers(
-        &mut self,
-        keyword: &str,
-        n: usize,
-    ) -> Result<(usize, Vec<f64>), ParseError> {
-        let (line, tokens) = self.next_line(keyword)?;
-        if tokens[0] != keyword {
-            return Err(error(line, format!("expected `{keyword}`")));
+        if self.temperatures.is_empty() {
+            return Err(format!("{name}: no temperatures"));
         }
-        Ok((line, parse_numbers(line, &tokens[1..], n)?))
-    }
-
-    /// `keyword v1 v2 ...` の行（数値の個数は問わない）
-    fn keyword_list(&mut self, keyword: &str) -> Result<(usize, Vec<f64>), ParseError> {
-        let (line, tokens) = self.next_line(keyword)?;
-        if tokens[0] != keyword {
-            return Err(error(line, format!("expected `{keyword}`")));
-        }
-        Ok((line, parse_numbers(line, &tokens[1..], tokens.len() - 1)?))
-    }
-
-    /// 数値だけの行（ちょうど n 個）
-    fn numbers(&mut self, n: usize) -> Result<Vec<f64>, ParseError> {
-        let (line, tokens) = self.next_line("a row of numbers")?;
-        parse_numbers(line, &tokens, n)
-    }
-
-    /// `temperature` の行に続く、1つの温度の群定数。
-    fn temperature_data(
-        &mut self,
-        temperature: f64,
-        ng: usize,
-        sigma0: &[f64],
-    ) -> Result<TemperatureData, ParseError> {
-        let chi = self.keyword_numbers("chi", ng)?.1;
-        self.keyword_numbers("scatter", 0)?;
-        let scatter = (0..ng)
-            .map(|_| self.numbers(ng))
-            .collect::<Result<_, _>>()?;
-        let mut shielded = Vec::with_capacity(sigma0.len());
-        for &s0 in sigma0 {
-            let (line, value) = self.keyword_numbers("shielded", 1)?;
-            if value[0] != s0 {
-                return Err(error(line, format!("expected `shielded {s0:e}`")));
+        for t in &self.temperatures {
+            let at = |what: String| format!("{name} at {} K: {what}", t.temperature);
+            let sized = |v: &[f64]| v.len() == ng;
+            if !sized(&t.chi) {
+                return Err(at(format!("chi must have {ng} groups")));
             }
-            shielded.push(Shielded {
-                total: self.keyword_numbers("total", ng)?.1,
-                elastic: self.keyword_numbers("elastic", ng)?.1,
-                fission: self.keyword_numbers("fission", ng)?.1,
-                nu_fission: self.keyword_numbers("nu-fission", ng)?.1,
-            });
+            if t.scatter.len() != ng || !t.scatter.iter().all(|row| sized(row)) {
+                return Err(at(format!("scatter must be {ng} x {ng}")));
+            }
+            if t.shielded.len() != n_sigma0 {
+                return Err(at(format!(
+                    "{} shielded sets for {n_sigma0} sigma0 values",
+                    t.shielded.len()
+                )));
+            }
+            let all_sized = |s: &Shielded| {
+                [&s.total, &s.elastic, &s.fission, &s.nu_fission]
+                    .iter()
+                    .all(|v| sized(v))
+            };
+            if !t.shielded.iter().all(all_sized) {
+                return Err(at(format!("shielded cross sections must have {ng} groups")));
+            }
         }
-        Ok(TemperatureData {
-            temperature,
-            chi,
-            scatter,
-            shielded,
-        })
+        Ok(())
     }
-}
-
-fn parse_numbers(line: usize, tokens: &[&str], n: usize) -> Result<Vec<f64>, ParseError> {
-    if tokens.len() != n {
-        return Err(error(
-            line,
-            format!("expected {n} values, found {}", tokens.len()),
-        ));
-    }
-    tokens
-        .iter()
-        .map(|t| {
-            t.parse::<f64>()
-                .ok()
-                .filter(|v| v.is_finite())
-                .ok_or_else(|| error(line, format!("invalid number `{t}`")))
-        })
-        .collect()
 }
 
 #[cfg(test)]

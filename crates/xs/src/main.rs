@@ -237,7 +237,7 @@ fn run(input: &Input) -> Result<(), String> {
         sigma0: settings.sigma0,
         nuclides,
     };
-    std::fs::write(&input.output, library.to_text())
+    std::fs::write(&input.output, library.to_msgpack())
         .map_err(|e| format!("{}: {e}", input.output.display()))
 }
 
