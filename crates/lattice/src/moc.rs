@@ -1,6 +1,9 @@
 //! 平坦線源の特性曲線法（MOC）による固有値計算。
 
 use std::f64::consts::PI;
+use std::sync::Mutex;
+
+use rayon::prelude::*;
 
 use crate::material::{Material, MaterialError};
 use crate::tracking::Tracking;
@@ -150,11 +153,16 @@ pub fn solve(
         *f /= initial;
     }
     let mut k = 1.0;
-    // 境界の角度中性子束 [トラック][向き (0: 順, 1: 逆)][極角][群]
-    let slot = |track: usize, forward: bool| (2 * track + usize::from(!forward)) * width;
-    let mut boundary = vec![0.0; 2 * tracking.tracks.len() * width];
-    let mut next_boundary = boundary.clone();
-    let mut psi = vec![0.0; width];
+    // スイープの終わりに出ていく角度中性子束 [トラック][向き (0: 順, 1: 逆)][極角][群]。
+    // 各トラックは自分の場所にだけ書くので、トラックごとに並列にスイープできる
+    let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
+    let sources = incoming_sources(tracking);
+    let mut outgoing = vec![0.0; 2 * tracking.tracks.len() * width];
+    let mut next_outgoing = outgoing.clone();
+    // スレッドごとの集計用の配列。反復のたびに作り直さず使い回す
+    let tallies: Vec<Mutex<Tally>> = (0..rayon::current_num_threads())
+        .map(|_| Mutex::new(Tally::new(regions * ng, ng, width)))
+        .collect();
     let mut k_history = Remaining::default();
     let mut flux_history = Remaining::default();
 
@@ -164,56 +172,67 @@ pub fn solve(
             .map(|i| equilibrium_flux(materials[i], &flux[i], k))
             .collect();
 
-        let mut delta = vec![vec![0.0; ng]; regions];
-        let mut leak = vec![0.0; ng];
-        for (index, track) in tracking.tracks.iter().enumerate() {
-            let weights: Vec<f64> = (0..np)
-                .map(|p| direction_weight(track.azimuth, p))
-                .collect();
-            for forward in [true, false] {
-                psi.copy_from_slice(&boundary[slot(index, forward)..][..width]);
-                let n = track.segments.len();
-                for step in 0..n {
-                    let s = if forward { step } else { n - 1 - step };
-                    let region = track.segments[s].region;
-                    let att = &attenuation[index][s * width..][..width];
-                    let q = &equilibrium[region];
-                    let d = &mut delta[region];
-                    for (p, weight) in weights.iter().enumerate() {
-                        for g in 0..ng {
-                            let j = p * ng + g;
-                            let change = (psi[j] - q[g]) * att[j];
-                            psi[j] -= change;
-                            d[g] += weight * change;
+        for tally in &tallies {
+            tally.lock().expect("no sweep panicked").clear();
+        }
+        next_outgoing
+            .par_chunks_mut(2 * width)
+            .zip(tracking.tracks.par_iter().enumerate())
+            .for_each(|(out, (index, track))| {
+                // 作業中のスレッドの集計用の配列（他のスレッドは触らないので、ロックは競合しない）
+                let thread = rayon::current_thread_index().expect("the sweep runs in the pool");
+                let mut tally = tallies[thread].lock().expect("no sweep panicked");
+                let tally = &mut *tally;
+                let weights: [f64; POLAR_SIN.len()] =
+                    std::array::from_fn(|p| direction_weight(track.azimuth, p));
+                for forward in [true, false] {
+                    let psi = &mut tally.psi;
+                    match sources[slot(index, forward)] {
+                        Some(source) => psi.copy_from_slice(&outgoing[source * width..][..width]),
+                        // 真空境界から入ってくる角度中性子束は 0
+                        None => psi.fill(0.0),
+                    }
+                    let n = track.segments.len();
+                    for step in 0..n {
+                        let s = if forward { step } else { n - 1 - step };
+                        let region = track.segments[s].region;
+                        let att = &attenuation[index][s * width..][..width];
+                        let q = &equilibrium[region];
+                        let d = &mut tally.delta[region * ng..][..ng];
+                        for (p, weight) in weights.iter().enumerate() {
+                            for g in 0..ng {
+                                let j = p * ng + g;
+                                let change = (psi[j] - q[g]) * att[j];
+                                psi[j] -= change;
+                                d[g] += weight * change;
+                            }
                         }
                     }
-                }
-                let link = if forward {
-                    track.forward_link
-                } else {
-                    track.backward_link
-                };
-                match link {
-                    Some(link) => next_boundary[slot(link.track, link.forward)..][..width]
-                        .copy_from_slice(&psi),
-                    // 真空境界から出た分は漏れ。入ってくる角度中性子束は 0 のまま
-                    None => {
+                    out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
+                    let link = if forward {
+                        track.forward_link
+                    } else {
+                        track.backward_link
+                    };
+                    // 真空境界から出た分は漏れ
+                    if link.is_none() {
                         for (p, weight) in weights.iter().enumerate() {
-                            for (l, value) in leak.iter_mut().zip(&psi[p * ng..][..ng]) {
+                            for (l, value) in tally.leak.iter_mut().zip(&psi[p * ng..][..ng]) {
                                 *l += weight * value;
                             }
                         }
                     }
                 }
-            }
-        }
-        std::mem::swap(&mut boundary, &mut next_boundary);
+            });
+        std::mem::swap(&mut outgoing, &mut next_outgoing);
+        let (delta, mut leak) = sum_tallies(&tallies);
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
             .map(|i| {
                 let total = &materials[i].total;
+                let delta = &delta[i * ng..][..ng];
                 (0..ng)
-                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[i][g] / (total[g] * volumes[i]))
+                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[g] / (total[g] * volumes[i]))
                     .collect()
             })
             .collect();
@@ -226,7 +245,7 @@ pub fn solve(
         for l in &mut leak {
             *l /= rate;
         }
-        for b in &mut boundary {
+        for b in &mut outgoing {
             *b /= rate;
         }
         let change = new_flux
@@ -258,6 +277,69 @@ pub fn solve(
         iterations: options.max_iterations,
         k,
     })
+}
+
+/// スイープで足し込む量（スレッドごとに持ち、スイープの後に足し合わせる）。
+struct Tally {
+    /// [領域][群] の角度中性子束の減衰の重み付き和
+    delta: Vec<f64>,
+    /// [群] の真空境界からの漏れ
+    leak: Vec<f64>,
+    /// スイープ中の角度中性子束 [極角][群]（作業用）
+    psi: Vec<f64>,
+}
+
+impl Tally {
+    fn new(deltas: usize, groups: usize, width: usize) -> Self {
+        Self {
+            delta: vec![0.0; deltas],
+            leak: vec![0.0; groups],
+            psi: vec![0.0; width],
+        }
+    }
+
+    fn clear(&mut self) {
+        self.delta.fill(0.0);
+        self.leak.fill(0.0);
+    }
+}
+
+/// スレッドごとの集計を足し合わせ、[領域][群] の減衰の和と [群] の漏れを返す。
+fn sum_tallies(tallies: &[Mutex<Tally>]) -> (Vec<f64>, Vec<f64>) {
+    let mut iter = tallies.iter().map(|t| t.lock().expect("no sweep panicked"));
+    let first = iter.next().expect("the pool has a thread");
+    let (mut delta, mut leak) = (first.delta.clone(), first.leak.clone());
+    for tally in iter {
+        for (a, b) in delta.iter_mut().zip(&tally.delta) {
+            *a += b;
+        }
+        for (a, b) in leak.iter_mut().zip(&tally.leak) {
+            *a += b;
+        }
+    }
+    (delta, leak)
+}
+
+/// [トラック][向き] のスイープの始めに入ってくる角度中性子束が、どのトラックのどの向きのスイープの
+/// 終わりから来るか（同じ並びの番号。真空境界なら `None`）。
+fn incoming_sources(tracking: &Tracking) -> Vec<Option<usize>> {
+    let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
+    let mut sources = vec![None; 2 * tracking.tracks.len()];
+    for (index, track) in tracking.tracks.iter().enumerate() {
+        for (forward, link) in [(true, track.forward_link), (false, track.backward_link)] {
+            if let Some(link) = link {
+                let target = &mut sources[slot(link.track, link.forward)];
+                assert!(
+                    target.is_none(),
+                    "two tracks reflect into track {} ({})",
+                    link.track,
+                    if link.forward { "forward" } else { "backward" }
+                );
+                *target = Some(slot(index, forward));
+            }
+        }
+    }
+    sources
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
