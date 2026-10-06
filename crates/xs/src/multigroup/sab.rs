@@ -8,41 +8,179 @@
 //!   σ0(E→E') = σb A/(4E) e^(-β/2) (kT_表/kT) ∫ S dα_表、α_表 は (√E ∓ √E')²/(A kT_表) の間。
 
 use super::GroupStructure;
-use crate::endf::Mf7Incoherent;
+use super::free_gas::{integrate_linear, integrate_log};
+use crate::endf::{Interpolation, Mf7Incoherent};
+use crate::physics::BK;
+
+/// LAT=1 の表で α, β に使う kT0 (eV)（ENDF の定義）
+const KT0: f64 = 0.0253;
 
 /// 1つの温度の S(α, β) による P0 のエネルギー移行の核。
 #[derive(Debug, Clone)]
 pub struct ThermalSab<'a> {
     data: &'a Mf7Incoherent,
+    /// 標的の温度の kT と、表を引くときの kT (eV)
+    kt: f64,
+    kt_table: f64,
+    /// [β の番号 × α の数 + α の番号] の ln S（S = 0 は -∞）
+    ln_s: Vec<f64>,
+    /// 束縛原子の散乱断面積 σb (barn)
+    sigma_bound: f64,
 }
 
 impl<'a> ThermalSab<'a> {
     /// 温度 `temperature` (K) の表で、入射エネルギー `cutoff` (eV) 未満に使う核を作る。
-    /// 温度は表にあること。表が `cutoff` までの散乱（上方散乱は表の β の上限まで）を覆わなければエラー。
+    /// 温度は表にあること（温度方向には補間しない。NJOY THERMR も同じ）。
+    ///
+    /// 表の範囲外の S は使わない。そのかわり、`cutoff` までの下方散乱と、表の β の上限までの
+    /// 上方散乱を、表の α, β が覆うことを確かめる（上方散乱の先は e^(-β/2) で無視できる）。
     pub fn new(data: &'a Mf7Incoherent, temperature: f64, cutoff: f64) -> Result<Self, String> {
-        let _ = (temperature, cutoff);
-        Ok(Self { data })
+        if data.lasym != 0 {
+            return Err("asymmetric S(α, β) (LASYM≠0) is not supported".into());
+        }
+        if data.alpha_law != Interpolation::LogLin || data.beta_law != Interpolation::LogLin {
+            return Err("S(α, β) must interpolate ln S linearly in α and β".into());
+        }
+        let t = data
+            .temperatures
+            .iter()
+            .position(|&t| (t - temperature).abs() <= 1.0e-9 * temperature)
+            .ok_or_else(|| {
+                format!(
+                    "temperature {temperature} K is not in S(α, β) {:?}",
+                    data.temperatures
+                )
+            })?;
+        let kt = BK * temperature;
+        let kt_table = if data.lat == 1 { KT0 } else { kt };
+        let (alpha_max, beta_max) = (
+            *data.alpha.last().expect("α grid"),
+            *data.beta.last().expect("β grid"),
+        );
+        let e_up = cutoff + beta_max * kt_table;
+        let alpha_needed = (cutoff.sqrt() + e_up.sqrt()).powi(2) / (data.awr * kt_table);
+        if cutoff / kt_table > beta_max || alpha_needed > alpha_max {
+            return Err(format!(
+                "S(α, β) table (α ≤ {alpha_max}, β ≤ {beta_max}) does not cover scattering below {cutoff} eV"
+            ));
+        }
+        let ln_s = data.s[t]
+            .iter()
+            .map(|&v| if v > 0.0 { v.ln() } else { f64::NEG_INFINITY })
+            .collect();
+        let ratio = (data.awr + 1.0) / data.awr;
+        Ok(Self {
+            data,
+            kt,
+            kt_table,
+            ln_s,
+            sigma_bound: data.sigma_free * ratio * ratio,
+        })
     }
 
     /// σ0(E→E') (barn/eV)。
     pub fn kernel(&self, e: f64, e_out: f64) -> f64 {
-        let _ = (self.data, e, e_out);
-        todo!()
+        if e <= 0.0 || e_out <= 0.0 {
+            return 0.0;
+        }
+        let d = self.data;
+        let b = ((e_out - e) / self.kt_table).abs();
+        let beta = &d.beta;
+        if b > beta[beta.len() - 1] {
+            return 0.0;
+        }
+        let j = beta.partition_point(|&x| x <= b).clamp(1, beta.len() - 1) - 1;
+        let u = (b - beta[j]) / (beta[j + 1] - beta[j]);
+        let na = d.alpha.len();
+        // β について ln S を線形補間した、α の格子点での ln S
+        let row = |i: usize| {
+            let (lo, hi) = (self.ln_s[j * na + i], self.ln_s[(j + 1) * na + i]);
+            if lo == f64::NEG_INFINITY || hi == f64::NEG_INFINITY {
+                f64::NEG_INFINITY
+            } else {
+                lo + u * (hi - lo)
+            }
+        };
+        let scale = d.awr * self.kt_table;
+        let (root, root_out) = (e.sqrt(), e_out.sqrt());
+        let lo = (root - root_out).powi(2) / scale;
+        let hi = ((root + root_out).powi(2) / scale).min(d.alpha[na - 1]);
+        // α の区間ごとに exp(ln S) を解析的に積分する。最初の区間の下は、その区間の補間を延ばす
+        let first = d.alpha.partition_point(|&x| x <= lo).clamp(1, na - 1) - 1;
+        let mut integral = 0.0;
+        for i in first..na - 1 {
+            let (a0, a1) = (d.alpha[i], d.alpha[i + 1]);
+            let (x0, x1) = (if i == first { lo } else { a0 }, a1.min(hi));
+            if x1 <= x0 {
+                break;
+            }
+            let (l0, l1) = (row(i), row(i + 1));
+            if l0 == f64::NEG_INFINITY || l1 == f64::NEG_INFINITY {
+                continue;
+            }
+            let slope = (l1 - l0) / (a1 - a0);
+            let start = l0 + slope * (x0 - a0);
+            let width = x1 - x0;
+            integral += if (slope * width).abs() < 1.0e-12 {
+                start.exp() * width
+            } else {
+                start.exp() * (slope * width).exp_m1() / slope
+            };
+            if a1 >= hi {
+                break;
+            }
+        }
+        let beta_actual = (e_out - e) / self.kt;
+        self.sigma_bound * d.awr / (4.0 * e) * (-0.5 * beta_actual).exp() * self.kt_table / self.kt
+            * integral
     }
 
-    /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に入れる。
+    /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に、
+    /// 上に散乱する分は最上位の群に入れる（中性子を失わない）。
+    ///
+    /// 群境界と、核が折れ曲がる E' = E ± β_j kT（表の β の格子点）で区間を分け、
+    /// 自由ガスと同じく対数的に細かく分けた区間の Gauss-Legendre 則で積分する。
     pub fn group_integrals(&self, groups: &GroupStructure, e: f64) -> Vec<f64> {
-        let _ = (groups, e);
-        todo!()
+        let bounds = groups.bounds();
+        let highest = bounds[0];
+        let reach = e + self.data.beta[self.data.beta.len() - 1] * self.kt_table;
+        let mut points: Vec<f64> = bounds
+            .iter()
+            .copied()
+            .chain(
+                self.data
+                    .beta
+                    .iter()
+                    .flat_map(|&b| [e - b * self.kt_table, e + b * self.kt_table]),
+            )
+            .chain([0.0, e, reach])
+            .filter(|&x| (0.0..=reach).contains(&x))
+            .collect();
+        points.sort_by(f64::total_cmp);
+        points.dedup();
+
+        let kernel = |x: f64| self.kernel(e, x);
+        let mut integrals = vec![0.0; groups.len()];
+        for w in points.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            let mid = 0.5 * (a + b);
+            let g = groups
+                .find(mid)
+                .unwrap_or(if mid > highest { 0 } else { groups.len() - 1 });
+            integrals[g] += if a > 0.0 {
+                integrate_log(&kernel, a, b)
+            } else {
+                integrate_linear(&kernel, a, b)
+            };
+        }
+        integrals
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::Interpolation;
     use crate::multigroup::{free_gas_group_integrals, free_gas_kernel};
-    use crate::physics::BK;
 
     const TEMPERATURE: f64 = 293.6;
 
