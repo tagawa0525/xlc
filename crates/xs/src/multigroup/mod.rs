@@ -56,6 +56,9 @@ pub fn shielded_averages(
     let total = tables
         .get(&1)
         .ok_or("self-shielding needs the total cross section (MT1)")?;
+    if let Some(bad) = sigma0.iter().find(|s| !(s.is_finite() && **s > 0.0)) {
+        return Err(format!("sigma zero must be positive and finite, got {bad}"));
+    }
     Ok(sigma0
         .iter()
         .map(|&s0| {
