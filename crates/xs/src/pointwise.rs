@@ -424,7 +424,17 @@ fn replace_with_unresolved(
         let values: Vec<f64> = grid
             .iter()
             .zip(&averages)
-            .map(|(&e, s)| part(s) + background.and_then(|t| t.eval(e)).unwrap_or(0.0))
+            .map(|(&e, s)| {
+                // 上端では範囲の内側（左側）の値。MF3 は上端で範囲の外の値に段差で変わることがある
+                let inside = background.map_or(0.0, |t| {
+                    if e < eh {
+                        right_limit(t, e)
+                    } else {
+                        left_limit(t, e)
+                    }
+                });
+                part(s) + inside
+            })
             .collect();
         if background.is_none() && values.iter().all(|&v| v == 0.0) {
             continue;
