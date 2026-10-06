@@ -26,8 +26,8 @@
 
 use std::path::PathBuf;
 
-use crate::geometry::Lattice;
-use crate::tracking::Boundaries;
+use crate::geometry::{Lattice, PinCell};
+use crate::tracking::{Boundaries, Boundary};
 
 /// 断面積の出どころ。
 #[derive(Debug, Clone, PartialEq)]
@@ -80,22 +80,333 @@ pub struct LatticeInput {
     pub rows: Vec<Vec<String>>,
 }
 
+/// 1回だけ書くキーワード
+const SINGLE: [&str; 9] = [
+    "library",
+    "cross-sections",
+    "output",
+    "few-group-bounds",
+    "pin-powers",
+    "pitch",
+    "azimuthal",
+    "spacing",
+    "boundary",
+];
+
 impl LatticeInput {
     /// エラーは「line N: ...」の形の文字列で返す。
     pub fn parse(text: &str) -> Result<Self, String> {
-        todo!("{text}")
+        let mut single: Vec<(&str, usize, Vec<&str>)> = Vec::new();
+        let mut materials = Vec::new();
+        let mut cells: Vec<CellInput> = Vec::new();
+        let mut rows = Vec::new();
+        for (index, raw) in text.lines().enumerate() {
+            let line = index + 1;
+            let content = raw.split('#').next().unwrap_or("");
+            let tokens: Vec<&str> = content.split_whitespace().collect();
+            let Some((&key, values)) = tokens.split_first() else {
+                continue;
+            };
+            let at = |e: String| format!("line {line}: {e}");
+            match key {
+                "material" => {
+                    let material = parse_material(values).map_err(at)?;
+                    if materials
+                        .iter()
+                        .any(|m: &MaterialInput| m.name == material.name)
+                    {
+                        return Err(at(format!("material `{}` is given twice", material.name)));
+                    }
+                    materials.push(material);
+                }
+                "cell" => {
+                    let cell = parse_cell(values).map_err(at)?;
+                    if cells.iter().any(|c| c.name == cell.name) {
+                        return Err(at(format!("cell `{}` is given twice", cell.name)));
+                    }
+                    cells.push(cell);
+                }
+                "row" => {
+                    if values.is_empty() {
+                        return Err(at("`row` needs cell names".into()));
+                    }
+                    rows.push(values.iter().map(|v| v.to_string()).collect());
+                }
+                _ if SINGLE.contains(&key) => {
+                    if single.iter().any(|(k, ..)| *k == key) {
+                        return Err(at(format!("`{key}` is given twice")));
+                    }
+                    single.push((key, line, values.to_vec()));
+                }
+                _ => {
+                    return Err(at(format!("unknown keyword `{key}`")));
+                }
+            }
+        }
+
+        let get = |key: &str| single.iter().find(|(k, ..)| *k == key);
+        let one = |key: &str| -> Result<Option<(usize, &str)>, String> {
+            match get(key) {
+                None => Ok(None),
+                Some((_, line, values)) => match values[..] {
+                    [value] => Ok(Some((*line, value))),
+                    _ => Err(format!("line {line}: `{key}` takes one value")),
+                },
+            }
+        };
+        let required = |key: &str| -> Result<(usize, &str), String> {
+            one(key)?.ok_or_else(|| format!("`{key}` is missing"))
+        };
+        let positive = |key: &str| -> Result<f64, String> {
+            let (line, value) = required(key)?;
+            parse_positive(value)
+                .ok_or_else(|| format!("line {line}: `{key}` must be a positive number"))
+        };
+        let cross_sections = match (one("library")?, one("cross-sections")?) {
+            (Some((_, path)), None) => CrossSections::Library(PathBuf::from(path)),
+            (None, Some((_, path))) => CrossSections::Macroscopic(PathBuf::from(path)),
+            (Some((line, _)), Some(_)) => {
+                return Err(format!(
+                    "line {line}: give either `library` or `cross-sections`, not both"
+                ));
+            }
+            (None, None) => return Err("`library` or `cross-sections` is missing".into()),
+        };
+        let macroscopic = matches!(cross_sections, CrossSections::Macroscopic(_));
+        if macroscopic && let Some(m) = materials.first() {
+            return Err(format!(
+                "material `{}`: materials come from the cross-section file",
+                m.name
+            ));
+        }
+        let output = match (one("output")?, get("few-group-bounds")) {
+            (None, None) => None,
+            (Some((line, _)), _) if macroscopic => {
+                return Err(format!(
+                    "line {line}: `output` needs a library (group energies)"
+                ));
+            }
+            (Some((_, path)), Some((_, line, bounds))) => {
+                let bounds = bounds
+                    .iter()
+                    .map(|b| b.parse::<f64>())
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|_| format!("line {line}: invalid few-group bound"))?;
+                Some((PathBuf::from(path), bounds))
+            }
+            (Some((line, _)), None) => {
+                return Err(format!("line {line}: `output` needs `few-group-bounds`"));
+            }
+            (None, Some((_, line, _))) => {
+                return Err(format!("line {line}: `few-group-bounds` needs `output`"));
+            }
+        };
+        let azimuthal = {
+            let (line, value) = required("azimuthal")?;
+            value
+                .parse::<usize>()
+                .map_err(|_| format!("line {line}: `azimuthal` must be a non-negative integer"))?
+        };
+        let boundaries = match get("boundary") {
+            None => Boundaries::REFLECTIVE,
+            Some((_, line, values)) => {
+                parse_boundaries(values).map_err(|e| format!("line {line}: {e}"))?
+            }
+        };
+        Ok(Self {
+            cross_sections,
+            output,
+            pin_powers: one("pin-powers")?.map(|(_, path)| PathBuf::from(path)),
+            pitch: positive("pitch")?,
+            azimuthal,
+            spacing: positive("spacing")?,
+            boundaries,
+            materials,
+            cells,
+            rows,
+        })
     }
 
     /// 形状と、領域ごとの物質の名前。
     pub fn geometry(&self) -> Result<(Lattice, Vec<String>), String> {
-        todo!()
+        let half = 0.5 * self.pitch;
+        let mut types = Vec::with_capacity(self.cells.len());
+        let mut region_materials = Vec::with_capacity(self.cells.len());
+        for cell in &self.cells {
+            let mut radii = Vec::new();
+            let mut names = Vec::new();
+            let mut inner = 0.0_f64;
+            for zone in &cell.zones {
+                if let CrossSections::Library(_) = self.cross_sections
+                    && !self.materials.iter().any(|m| m.name == zone.material)
+                {
+                    return Err(format!(
+                        "cell `{}`: material `{}` is not defined",
+                        cell.name, zone.material
+                    ));
+                }
+                let n = zone.rings as f64;
+                match zone.outer {
+                    // 等体積に分ける
+                    Some(r) => {
+                        radii.extend((1..=zone.rings).map(|k| {
+                            (inner * inner + (r * r - inner * inner) * k as f64 / n).sqrt()
+                        }))
+                    }
+                    // セルの内接円までを等間隔に分ける（最後の領域は内接円の外の角を含む）
+                    None => {
+                        radii.extend((1..zone.rings).map(|k| inner + (half - inner) * k as f64 / n))
+                    }
+                }
+                inner = zone.outer.unwrap_or(half);
+                names.extend(std::iter::repeat_n(zone.material.clone(), zone.rings));
+            }
+            let pin = PinCell::new(self.pitch, radii)
+                .map_err(|e| format!("cell `{}`: {e}", cell.name))?;
+            types.push(pin);
+            region_materials.push(names);
+        }
+        let layout = self
+            .rows
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|name| {
+                        self.cells
+                            .iter()
+                            .position(|c| &c.name == name)
+                            .ok_or_else(|| format!("cell `{name}` is not defined"))
+                    })
+                    .collect::<Result<Vec<usize>, String>>()
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let materials = layout
+            .iter()
+            .flatten()
+            .flat_map(|&t| region_materials[t].iter().cloned())
+            .collect();
+        Ok((Lattice::new(types, layout)?, materials))
     }
+}
+
+fn parse_positive(value: &str) -> Option<f64> {
+    value
+        .parse::<f64>()
+        .ok()
+        .filter(|v| *v > 0.0 && v.is_finite())
+}
+
+/// `NAME temperature T (NUCLIDE DENSITY)...`
+fn parse_material(values: &[&str]) -> Result<MaterialInput, String> {
+    let [name, "temperature", temperature, pairs @ ..] = values else {
+        return Err(
+            "`material` takes `NAME temperature T` and pairs of nuclide and density".into(),
+        );
+    };
+    let temperature = parse_positive(temperature)
+        .ok_or_else(|| format!("material `{name}`: invalid temperature `{temperature}`"))?;
+    if pairs.is_empty() || !pairs.len().is_multiple_of(2) {
+        return Err(format!(
+            "material `{name}`: give pairs of nuclide and density"
+        ));
+    }
+    let composition = pairs
+        .chunks(2)
+        .map(|pair| {
+            let density = pair[1]
+                .parse::<f64>()
+                .ok()
+                .filter(|v| *v >= 0.0 && v.is_finite())
+                .ok_or_else(|| format!("material `{name}`: invalid density `{}`", pair[1]))?;
+            Ok((pair[0].to_string(), density))
+        })
+        .collect::<Result<_, String>>()?;
+    Ok(MaterialInput {
+        name: name.to_string(),
+        temperature,
+        composition,
+    })
+}
+
+/// `NAME (MATERIAL OUTER RINGS)...`（最後の帯の OUTER は `-`）
+fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
+    let Some((name, triples)) = values.split_first() else {
+        return Err("`cell` needs a name".into());
+    };
+    if triples.is_empty() || !triples.len().is_multiple_of(3) {
+        return Err(format!(
+            "cell `{name}`: give zones as MATERIAL OUTER-RADIUS RINGS"
+        ));
+    }
+    let count = triples.len() / 3;
+    let mut zones = Vec::with_capacity(count);
+    let mut inner = 0.0;
+    for (k, zone) in triples.chunks(3).enumerate() {
+        let last = k + 1 == count;
+        let outer = match (zone[1], last) {
+            ("-", true) => None,
+            ("-", false) => {
+                return Err(format!(
+                    "cell `{name}`: only the last zone extends to the cell boundary"
+                ));
+            }
+            (_, true) => {
+                return Err(format!(
+                    "cell `{name}`: the last zone must extend to the cell boundary (`-`)"
+                ));
+            }
+            (r, false) => {
+                let r = parse_positive(r)
+                    .filter(|&r| r > inner)
+                    .ok_or_else(|| format!("cell `{name}`: radii must increase, got `{r}`"))?;
+                inner = r;
+                Some(r)
+            }
+        };
+        let rings = zone[2]
+            .parse::<usize>()
+            .ok()
+            .filter(|&n| n > 0)
+            .ok_or_else(|| format!("cell `{name}`: invalid number of rings `{}`", zone[2]))?;
+        zones.push(Zone {
+            material: zone[0].to_string(),
+            outer,
+            rings,
+        });
+    }
+    Ok(CellInput {
+        name: name.to_string(),
+        zones,
+    })
+}
+
+/// `(SIDE CONDITION)...`
+fn parse_boundaries(values: &[&str]) -> Result<Boundaries, String> {
+    if values.is_empty() || !values.len().is_multiple_of(2) {
+        return Err("`boundary` takes pairs of side and condition".into());
+    }
+    let mut boundaries = Boundaries::REFLECTIVE;
+    for pair in values.chunks(2) {
+        let condition = match pair[1] {
+            "reflective" => Boundary::Reflective,
+            "vacuum" => Boundary::Vacuum,
+            other => return Err(format!("unknown boundary condition `{other}`")),
+        };
+        let side = match pair[0] {
+            "left" => &mut boundaries.left,
+            "right" => &mut boundaries.right,
+            "top" => &mut boundaries.top,
+            "bottom" => &mut boundaries.bottom,
+            other => return Err(format!("unknown side `{other}`")),
+        };
+        *side = condition;
+    }
+    Ok(boundaries)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tracking::Boundary;
 
     const PIN_CELL: &str = "
 # pin cell
