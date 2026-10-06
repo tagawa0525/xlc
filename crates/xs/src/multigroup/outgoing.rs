@@ -2,7 +2,9 @@
 
 use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
-use crate::endf::{ClampedTab1, EnergyLaw, Interpolation, OutgoingDistributions, Tab1};
+use crate::endf::{
+    ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
+};
 use crate::pointwise::linearize;
 use crate::special::{gamma_p_2, gamma_p_3_2};
 
@@ -111,26 +113,27 @@ pub(super) fn uniform_fractions(
 const DENSITY_TOLERANCE: f64 = 1.0e-4;
 
 /// 入射エネルギーごとの出射分布を群に振り分けたもの。入射エネルギーの間は補間する。
+///
+/// ふつうの補間則では、入射エネルギーごとに群に振り分けた値を補間する。単位基底の補間則では、
+/// 隣り合う分布を出射エネルギーの範囲で正規化して補間した分布を、入射エネルギーごとに作ってから
+/// 群に振り分ける（範囲が入射エネルギーとともに動くので、前もって群に振り分けておけない）。
 #[derive(Debug, Clone)]
 pub struct GroupedOutgoing {
+    groups: GroupStructure,
     breaks: Vec<usize>,
-    laws: Vec<Interpolation>,
+    laws: Vec<IncidentLaw>,
     incident: Vec<f64>,
+    /// [入射エネルギー] の出射分布（線形化したもの）
+    spectra: Vec<Tab1>,
+    /// [入射エネルギー][群] の出射の確率
     probabilities: Vec<Vec<f64>>,
+    /// 重心系の分布なら標的の質量比（実験室系への変換に使う）
+    center_of_mass: Option<f64>,
 }
 
 impl GroupedOutgoing {
     pub fn new(groups: &GroupStructure, distributions: &OutgoingDistributions) -> Self {
-        Self {
-            breaks: distributions.breaks.clone(),
-            laws: distributions.laws.clone(),
-            incident: distributions.incident.clone(),
-            probabilities: distributions
-                .spectra
-                .iter()
-                .map(|density| outgoing_group_integrals(groups, density))
-                .collect(),
-        }
+        Self::grouped(groups, distributions, None)
     }
 
     /// 重心系で与えられた分布を、重心系で等方として実験室系に変換して群に振り分ける。
@@ -140,18 +143,42 @@ impl GroupedOutgoing {
         distributions: &OutgoingDistributions,
         awr: f64,
     ) -> Self {
-        Self {
+        Self::grouped(groups, distributions, Some(awr))
+    }
+
+    fn grouped(
+        groups: &GroupStructure,
+        distributions: &OutgoingDistributions,
+        center_of_mass: Option<f64>,
+    ) -> Self {
+        let spectra: Vec<Tab1> = distributions
+            .spectra
+            .iter()
+            .map(|density| linearize(density, DENSITY_TOLERANCE))
+            .collect();
+        let mut grouped = Self {
+            groups: groups.clone(),
             breaks: distributions.breaks.clone(),
             laws: distributions.laws.clone(),
             incident: distributions.incident.clone(),
-            probabilities: distributions
-                .incident
-                .iter()
-                .zip(&distributions.spectra)
-                .map(|(&e, density)| {
-                    laboratory_group_integrals(groups, density, e / (awr + 1.0).powi(2))
-                })
-                .collect(),
+            spectra,
+            probabilities: Vec::new(),
+            center_of_mass,
+        };
+        grouped.probabilities = grouped
+            .incident
+            .iter()
+            .zip(&grouped.spectra)
+            .map(|(&e, density)| grouped.group_integrals(e, density))
+            .collect();
+        grouped
+    }
+
+    /// 入射エネルギー e での出射分布（線形化したもの）を群ごとに積分する。
+    fn group_integrals(&self, e: f64, density: &Tab1) -> Vec<f64> {
+        match self.center_of_mass {
+            None => outgoing_group_integrals(&self.groups, density),
+            Some(awr) => laboratory_group_integrals(&self.groups, density, e / (awr + 1.0).powi(2)),
         }
     }
 
@@ -164,28 +191,92 @@ impl GroupedOutgoing {
     /// 入射エネルギーの範囲外では、端の分布を使う。
     pub fn accumulate(&self, e: f64, scale: f64, out: &mut [f64]) {
         let last = self.incident.len() - 1;
-        let add = |p: &[f64], factor: f64, out: &mut [f64]| {
+        let add = |p: &[f64], out: &mut [f64]| {
             for (o, v) in out.iter_mut().zip(p) {
-                *o += factor * v;
+                *o += scale * v;
             }
         };
         if e <= self.incident[0] {
-            return add(&self.probabilities[0], scale, out);
+            return add(&self.probabilities[0], out);
         }
         if e >= self.incident[last] {
-            return add(&self.probabilities[last], scale, out);
+            return add(&self.probabilities[last], out);
         }
         let k = self.incident.partition_point(|&x| x <= e) - 1;
-        let law = self.laws[self.breaks.partition_point(|&b| b < k + 2)];
-        match law {
-            Interpolation::Histogram => add(&self.probabilities[k], scale, out),
-            _ => {
-                let (x0, x1) = (self.incident[k], self.incident[k + 1]);
-                let t = (e - x0) / (x1 - x0);
-                add(&self.probabilities[k], scale * (1.0 - t), out);
-                add(&self.probabilities[k + 1], scale * t, out);
-            }
+        let IncidentLaw { law, unit_base } = self.laws[self.breaks.partition_point(|&b| b < k + 2)];
+        let (x0, x1) = (self.incident[k], self.incident[k + 1]);
+        if law == Interpolation::Histogram {
+            add(&self.probabilities[k], out);
+        } else if unit_base {
+            let density =
+                unit_base_density(law, e, (x0, &self.spectra[k]), (x1, &self.spectra[k + 1]));
+            add(&self.group_integrals(e, &density), out);
+        } else {
+            let p: Vec<f64> = self.probabilities[k]
+                .iter()
+                .zip(&self.probabilities[k + 1])
+                .map(|(&p0, &p1)| law.interpolate(e, (x0, p0), (x1, p1)))
+                .collect();
+            add(&p, out);
         }
+    }
+}
+
+/// 入射エネルギー x0 と x1 の線形化した出射分布 `lo`, `hi` から、単位基底の補間則で入射エネルギー e の
+/// 分布を作る。
+///
+/// 各分布の出射エネルギーの範囲 [a, b] を 0〜1 の座標 u に移し、範囲の両端と、u での密度 ×
+/// 範囲の幅（u についての密度）を、補間則 `law` で入射エネルギーについて補間する。両方の分布の区切りを
+/// u で合わせた区間ごとに、区間の中点を含む線分で両端の値を求めて点を出す。段差（同じ x の2点）は
+/// 区間の境目に左右の値として残る。範囲の幅が正であることは、読み込みのとき（`check_unit_base`）に
+/// 確かめている。
+fn unit_base_density(
+    law: Interpolation,
+    e: f64,
+    (x0, lo): (f64, &Tab1),
+    (x1, hi): (f64, &Tab1),
+) -> Tab1 {
+    let range = |t: &Tab1| (t.x[0], t.x[t.x.len() - 1]);
+    let ((a0, b0), (a1, b1)) = (range(lo), range(hi));
+    let a = law.interpolate(e, (x0, a0), (x1, a1));
+    let b = law.interpolate(e, (x0, b0), (x1, b1));
+    let mut cuts: Vec<f64> =
+        lo.x.iter()
+            .map(|x| (x - a0) / (b0 - a0))
+            .chain(hi.x.iter().map(|x| (x - a1) / (b1 - a1)))
+            .map(|u| u.clamp(0.0, 1.0))
+            .collect();
+    cuts.sort_by(f64::total_cmp);
+    cuts.dedup();
+    let (mut x, mut y) = (Vec::new(), Vec::new());
+    for w in cuts.windows(2) {
+        let (ua, ub) = (w[0], w[1]);
+        let middle = 0.5 * (ua + ub);
+        // u についての密度を、区間の中点を含む線分で両端について求める
+        let density = |t: &Tab1, start: f64, width: f64, u: f64| {
+            segment_value(t, start + middle * width, start + u * width) * width
+        };
+        for u in [ua, ub] {
+            let p0 = density(lo, a0, b0 - a0, u);
+            let p1 = density(hi, a1, b1 - a1, u);
+            x.push(a + u * (b - a));
+            y.push(law.interpolate(e, (x0, p0), (x1, p1)) / (b - a));
+        }
+    }
+    Tab1::linear(x, y)
+}
+
+/// 線形化した表（2点以上）の、点 `inside` を含む線分を延ばした x での値。
+fn segment_value(t: &Tab1, inside: f64, x: f64) -> f64 {
+    let k =
+        t.x.partition_point(|&xi| xi <= inside)
+            .saturating_sub(1)
+            .min(t.x.len() - 2);
+    let (xa, xb, ya, yb) = (t.x[k], t.x[k + 1], t.y[k], t.y[k + 1]);
+    if xb == xa {
+        yb
+    } else {
+        ya + (yb - ya) * (x - xa) / (xb - xa)
     }
 }
 
@@ -283,6 +374,7 @@ impl GroupedLaw {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::IncidentLaw;
 
     fn assert_close(actual: &[f64], expected: &[f64]) {
         for (a, e) in actual.iter().zip(expected) {
@@ -372,7 +464,10 @@ mod tests {
         assert_eq!(ec, 62500.0);
         let distributions = OutgoingDistributions {
             breaks: vec![1],
-            laws: vec![Interpolation::LinLin],
+            laws: vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: false,
+            }],
             incident: vec![e],
             spectra: vec![Tab1 {
                 breaks: vec![2],
@@ -392,12 +487,121 @@ mod tests {
         );
     }
 
+    /// 入射エネルギー 10 と 20 で、[0, 1] と [0, 3] の一様分布
+    fn widening(law: IncidentLaw) -> OutgoingDistributions {
+        OutgoingDistributions {
+            breaks: vec![2],
+            laws: vec![law],
+            incident: vec![10.0, 20.0],
+            spectra: vec![
+                Tab1::linear(vec![0.0, 1.0], vec![1.0, 1.0]),
+                Tab1::linear(vec![0.0, 3.0], vec![1.0 / 3.0, 1.0 / 3.0]),
+            ],
+        }
+    }
+
+    #[test]
+    fn unit_base_keeps_the_shape_between_incident_energies() {
+        // 単位基底では、中間の入射エネルギーで範囲が [0, 2] に伸びた一様分布になる
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let unit_base = IncidentLaw {
+            law: Interpolation::LinLin,
+            unit_base: true,
+        };
+        let grouped = GroupedOutgoing::new(&groups, &widening(unit_base));
+        let mut out = vec![0.0; 3];
+        grouped.accumulate(15.0, 1.0, &mut out);
+        let expected = [0.0, 0.5, 0.5];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-6, "{out:?}");
+        }
+        // ふつうの線形補間なら、2つの分布の平均（[0, 1] に 2/3、[1, 3] に 1/3）
+        let cartesian = IncidentLaw {
+            law: Interpolation::LinLin,
+            unit_base: false,
+        };
+        let grouped = GroupedOutgoing::new(&groups, &widening(cartesian));
+        let mut out = vec![0.0; 3];
+        grouped.accumulate(15.0, 1.0, &mut out);
+        let expected = [1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-6, "{out:?}");
+        }
+    }
+
+    #[test]
+    fn unit_base_keeps_histogram_steps() {
+        // 出射分布がヒストグラム（段差がある）でも、確率の合計と形を保つ。
+        // [0, 0.5] に密度 2 と [0, 1.5] に密度 2/3 の中間は、[0, 1] に密度 1
+        let step = |width: f64| Tab1 {
+            breaks: vec![3],
+            laws: vec![Interpolation::Histogram],
+            x: vec![0.0, 0.5 * width, width],
+            y: vec![2.0 / width, 0.0, 0.0],
+        };
+        let distributions = OutgoingDistributions {
+            breaks: vec![2],
+            laws: vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: true,
+            }],
+            incident: vec![10.0, 20.0],
+            spectra: vec![step(1.0), step(3.0)],
+        };
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let grouped = GroupedOutgoing::new(&groups, &distributions);
+        let mut out = vec![0.0; 3];
+        grouped.accumulate(15.0, 1.0, &mut out);
+        let expected = [0.0, 0.0, 1.0];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-9, "{out:?}");
+        }
+    }
+
+    #[test]
+    fn unit_base_in_the_center_of_mass_matches_the_laboratory_for_a_heavy_target() {
+        // 標的が十分重ければ、重心系と実験室系はほぼ同じ
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let law = IncidentLaw {
+            law: Interpolation::LinLin,
+            unit_base: true,
+        };
+        let lab = GroupedOutgoing::new(&groups, &widening(law));
+        let cm = GroupedOutgoing::center_of_mass(&groups, &widening(law), 1.0e9);
+        let (mut a, mut b) = (vec![0.0; 3], vec![0.0; 3]);
+        lab.accumulate(15.0, 1.0, &mut a);
+        cm.accumulate(15.0, 1.0, &mut b);
+        for (x, y) in a.iter().zip(&b) {
+            assert!((x - y).abs() < 1e-4, "{a:?} vs {b:?}");
+        }
+    }
+
+    #[test]
+    fn incident_interpolation_follows_its_law() {
+        // 線形・対数（LinLog）なら、入射エネルギーの対数の中点で2つの分布の平均
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let law = IncidentLaw {
+            law: Interpolation::LinLog,
+            unit_base: false,
+        };
+        let grouped = GroupedOutgoing::new(&groups, &widening(law));
+        let mut out = vec![0.0; 3];
+        grouped.accumulate((10.0_f64 * 20.0).sqrt(), 1.0, &mut out);
+        let expected = [1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-12, "{out:?}");
+        }
+    }
+
     #[test]
     fn interpolates_between_incident_energies() {
         let groups = GroupStructure::new(vec![4.0, 2.0, 1.0]).unwrap();
         let distributions = OutgoingDistributions {
             breaks: vec![2],
-            laws: vec![Interpolation::LinLin],
+            laws: vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: false,
+            }],
             incident: vec![10.0, 20.0],
             spectra: vec![
                 Tab1::linear(vec![2.0, 4.0], vec![0.5, 0.5]),
