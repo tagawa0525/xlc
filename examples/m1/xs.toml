@@ -1,0 +1,64 @@
+# M1 の多群ライブラリ: PWR の燃料・被覆管・冷却材の核種（ENDF/B-VIII.0、WIMS 69群）。
+# 温度は核種ごとに選ぶ。燃料と被覆管の核種は 293.6〜1200 K、冷却材の H と B は 293.6, 600 K
+# （H in H2O の S(α,β) は 800 K までしかない）。O は燃料と冷却材の両方に使う。
+output = "m1.msgpack"
+endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
+thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+
+[nuclide.U-234]
+endf = "n-092_U_234.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.U-235]
+endf = "n-092_U_235.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.U-236]
+endf = "n-092_U_236.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.U-238]
+endf = "n-092_U_238.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.O-16]
+endf = "n-008_O_016.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.O-17]
+endf = "n-008_O_017.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.Zr-90]
+endf = "n-040_Zr_090.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.Zr-91]
+endf = "n-040_Zr_091.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.Zr-92]
+endf = "n-040_Zr_092.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.Zr-94]
+endf = "n-040_Zr_094.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.Zr-96]
+endf = "n-040_Zr_096.endf"
+temperatures = [293.6, 600, 900, 1200]
+
+[nuclide.H-1]
+endf = "n-001_H_001.endf"
+temperatures = [293.6, 600]
+thermal = "tsl-HinH2O.endf"
+
+[nuclide.B-10]
+endf = "n-005_B_010.endf"
+temperatures = [293.6, 600]
+
+[nuclide.B-11]
+endf = "n-005_B_011.endf"
+temperatures = [293.6, 600]
