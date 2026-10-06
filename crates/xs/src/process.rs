@@ -2,14 +2,15 @@
 
 use std::collections::BTreeMap;
 
-use crate::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
+use crate::endf::{Mf2, Mf3, Mf5, Mf6, RangeKind, Tab1, Tape, parse_nubar};
 use crate::library::Nuclide;
 use crate::multigroup::{
     FreeGas, GroupStructure, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
     reaction_averages, scattering_matrix,
 };
 use crate::physics::BK;
-use crate::pointwise::reconstruct;
+use crate::pointwise::{DEFAULT_TOLERANCE, left_limit, linearize, reconstruct, right_limit};
+use crate::resonance::{Sigma, UnresolvedXs, unresolved_grid, unresolved_interpolation};
 
 /// 処理の条件。
 #[derive(Debug, Clone)]
@@ -32,8 +33,79 @@ pub fn unresolved_shielding(
     temperature: f64,
     sigma0: &[f64],
 ) -> Result<Option<UnresolvedShielding>, String> {
-    let _ = (tape, mat, temperature, sigma0);
-    todo!()
+    let text = |e: crate::endf::Error| e.to_string();
+    let Some(section) = tape.section(mat, 2, 151) else {
+        return Ok(None);
+    };
+    let mf2 = Mf2::parse(&section).map_err(text)?;
+    let mut unresolved = None;
+    for range in &mf2.ranges {
+        match &range.kind {
+            RangeKind::Unresolved(urr) if unresolved.is_none() => unresolved = Some((range, urr)),
+            RangeKind::Unresolved(_) => return Err("more than one unresolved range".into()),
+            RangeKind::UnresolvedLrf1 { .. } => {
+                return Err("self-shielding of unresolved LRF=1 ranges is not supported".into());
+            }
+            _ => {}
+        }
+    }
+    let Some((range, urr)) = unresolved else {
+        return Ok(None);
+    };
+    let xs = UnresolvedXs::new(urr)?;
+    let law = unresolved_interpolation(urr)?;
+    let grid = unresolved_grid(urr, range.el, range.eh);
+
+    // MF3 の背景断面積（LSSF=0 のとき）。範囲の上端では内側（左側）の値を使う
+    let background_table = |mt: u32| -> Result<Option<Tab1>, String> {
+        if urr.lssf != 0 {
+            return Ok(None);
+        }
+        match tape.section(mat, 3, mt) {
+            Some(section) => Ok(Some(linearize(
+                &Mf3::parse(&section).map_err(text)?.sigma,
+                DEFAULT_TOLERANCE,
+            ))),
+            None => Ok(None),
+        }
+    };
+    let tables = [1, 2, 18, 102].map(background_table);
+    let [total, elastic, fission, capture] = tables;
+    let (total, elastic, fission, capture) = (total?, elastic?, fission?, capture?);
+    let at = |t: &Option<Tab1>, e: f64| {
+        t.as_ref().map_or(0.0, |t| {
+            if e < range.eh {
+                right_limit(t, e)
+            } else {
+                left_limit(t, e)
+            }
+        })
+    };
+
+    let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
+    let mut infinite = Vec::with_capacity(grid.len());
+    for &e in &grid {
+        let background = Sigma {
+            total: at(&total, e),
+            elastic: at(&elastic, e),
+            fission: at(&fission, e),
+            capture: at(&capture, e),
+        };
+        for (row, s) in shielded
+            .iter_mut()
+            .zip(xs.shielded(e, temperature, sigma0, background)?)
+        {
+            row.push([s.total, s.elastic, s.fission, s.capture]);
+        }
+        let average = xs.cross_sections(e);
+        infinite.push([
+            average.total + background.total,
+            average.elastic + background.elastic,
+            average.fission + background.fission,
+            average.capture + background.capture,
+        ]);
+    }
+    UnresolvedShielding::new(range.el, range.eh, urr.lssf, grid, law, shielded, infinite).map(Some)
 }
 
 /// 熱領域で弾性散乱の実効断面積が 0 K の値と違う分だけ、全断面積を補正する。
