@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::doppler::{broaden, broadening_limit};
 use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape};
 use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma};
 
@@ -144,7 +145,7 @@ pub fn add(a: &Tab1, b: &Tab1) -> Tab1 {
 }
 
 /// lin-lin の表の、e の左側からの極限値（定義域の外は 0）。
-fn left_limit(t: &Tab1, e: f64) -> f64 {
+pub(crate) fn left_limit(t: &Tab1, e: f64) -> f64 {
     let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
     if e <= first || e > last {
         return 0.0;
@@ -160,7 +161,7 @@ fn left_limit(t: &Tab1, e: f64) -> f64 {
 }
 
 /// lin-lin の表の、e の右側からの極限値（定義域の外は 0）。
-fn right_limit(t: &Tab1, e: f64) -> f64 {
+pub(crate) fn right_limit(t: &Tab1, e: f64) -> f64 {
     let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
     if e < first || e >= last {
         return 0.0;
@@ -173,17 +174,39 @@ fn right_limit(t: &Tab1, e: f64) -> f64 {
 /// NJOY の RECONR と同じく、全断面積などの冗長な反応は MF3 の値を使わず、
 /// 部分反応の和として作り直す。全断面積と部分反応の和を一致させ、中性子の収支を保つためである。
 pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1>, Error> {
+    reconstruct_at(tape, mat, tol, 0.0)
+}
+
+/// テープ中の1核種の、温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
+///
+/// 0 K の部分反応をドップラー拡がりで広げてから、冗長な反応を部分反応の和で作り直す。
+/// `temperature` が 0 なら `reconstruct` と同じ。
+pub fn reconstruct_at(
+    tape: &Tape,
+    mat: i32,
+    tol: f64,
+    temperature: f64,
+) -> Result<BTreeMap<u32, Tab1>, Error> {
     let available = tape.mts(mat, 3);
     let mut tables = BTreeMap::new();
+    let mut awr = None;
     for &mt in available.iter().filter(|&&mt| !is_dropped(mt, &available)) {
         let section = tape.section(mat, 3, mt).expect("listed by mts");
-        tables.insert(mt, linearize(&Mf3::parse(&section)?.sigma, tol));
+        let mf3 = Mf3::parse(&section)?;
+        awr.get_or_insert(mf3.awr);
+        tables.insert(mt, linearize(&mf3.sigma, tol));
     }
+    let mut mf2 = None;
     if let Some(section) = tape.section(mat, 2, 151) {
         // MT18 を部分反応の和で作り直す場合は、共鳴の核分裂を第1チャンス核分裂に入れる
         let fission_mt = if is_rebuilt(18, &available) { 19 } else { 18 };
-        add_resonances(&mut tables, &Mf2::parse(&section)?, fission_mt, tol)
+        let parsed = Mf2::parse(&section)?;
+        add_resonances(&mut tables, &parsed, fission_mt, tol)
             .map_err(|message| Error::new(section.reader().line(), message))?;
+        mf2 = Some(parsed);
+    }
+    if let (true, Some(awr)) = (temperature > 0.0, awr) {
+        broaden_parts(&mut tables, mf2.as_ref(), awr, temperature, tol);
     }
 
     let total = add_all(
@@ -202,6 +225,41 @@ pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1
         tables.insert(1, total);
     }
     Ok(tables)
+}
+
+/// 上限エネルギーより下から始まる反応を、まとめてドップラー拡がりで広げる。
+fn broaden_parts(
+    tables: &mut BTreeMap<u32, Tab1>,
+    mf2: Option<&Mf2>,
+    awr: f64,
+    temperature: f64,
+    tol: f64,
+) {
+    let candidates = || tables.iter().filter(|(mt, _)| is_broadened(**mt));
+    let e_max = broadening_limit(mf2, candidates().map(|(_, t)| t));
+    let mts: Vec<u32> = candidates()
+        .filter(|(_, t)| t.x[0] < e_max)
+        .map(|(mt, _)| *mt)
+        .collect();
+    if mts.is_empty() {
+        return;
+    }
+    let cold: Vec<Tab1> = mts.iter().map(|mt| tables[mt].clone()).collect();
+    for (mt, hot) in mts
+        .into_iter()
+        .zip(broaden(&cold, awr, temperature, e_max, tol))
+    {
+        tables.insert(mt, hot);
+    }
+}
+
+/// ドップラー拡がりで広げる反応か（NJOY BROADR と同じ規則）。広げない反応は、拡げる上限の判定にも使わない。
+///
+/// 非弾性散乱の和（MT3, MT4）、MT46〜49、生成断面積など（MT201〜599）は広げない。
+/// NJOY は MT18 を広げて MT19 を広げないが、ここでは MT19 がある場合に MT18 を部分反応の和で
+/// 作り直すので、MT19 を広げる（MT18 を広げるのと同じ結果になる）。
+pub fn is_broadened(mt: u32) -> bool {
+    !matches!(mt, 3 | 4 | 46..=49 | 201..=599)
 }
 
 /// 部分反応の和で作り直す反応。
@@ -492,6 +550,49 @@ mod tests {
         assert_eq!(at(18, 1.0), 0.25);
         assert_eq!(at(18, 6.0e6), 0.375);
         assert_eq!(at(203, 3.0e6), 3.0);
+    }
+
+    #[test]
+    fn reconstruct_at_temperature_broadens_parts_and_sums_total() {
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            mf3_section(1, full, ["100.0", "100.0"]),
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let cold = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        assert_eq!(reconstruct_at(&tape, 1, 1.0e-3, 0.0).unwrap(), cold);
+
+        let hot = reconstruct_at(&tape, 1, 1.0e-3, 600.0).unwrap();
+        // 一定の断面積は、拡げると低エネルギーで大きくなる
+        let e = 1.0e-3;
+        assert!(hot[&2].eval(e).unwrap() > 1.5 * cold[&2].eval(e).unwrap());
+        for &e in &hot[&1].x {
+            let parts = hot[&2].eval(e).unwrap() + hot[&102].eval(e).unwrap();
+            assert!(
+                (hot[&1].eval(e).unwrap() - parts).abs() <= 1.0e-12 * parts,
+                "at {e}"
+            );
+        }
+    }
+
+    #[test]
+    fn broadening_limit_ignores_reactions_njoy_does_not_broaden() {
+        // 共鳴パラメータがない核種で、NJOY BROADR が見ない MT4（部分反応なし）と生成断面積は
+        // 上限を下げない。上限は格子の点として出力に現れる
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(4, ["1.0+6", "2.0+7"], ["1.0", "1.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+            mf3_section(203, ["1.0+5", "2.0+7"], ["3.0", "3.0"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let hot = reconstruct_at(&tape, 1, 1.0e-3, 600.0).unwrap();
+        assert!(hot[&2].x.contains(&crate::doppler::MAX_LIMIT));
     }
 
     fn single_level_mf2() -> String {
