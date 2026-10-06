@@ -4,6 +4,10 @@
 //! R 行列から X = (I − iK)⁻¹K（K = P^½ R P^½）を求める。衝突行列は U = e^{−i(φ+φ')} (I + 2iX)。
 //! 透過因子は剛体球のもので、シフト因子は使わない。閾値より下の非弾性散乱のチャネルは閉じているので除く
 //! （NJOY2016 samm と同じ）。
+//!
+//! 捕獲の幅がない共鳴のエネルギーちょうどでは R 行列が発散する（極）が、X は有限の極限を持つ。
+//! M = I − iK とすると X = i(I − M⁻¹) で、極の共鳴の項を K = K' + w wᵀ/d と分けると、d → 0 の極限は
+//! M⁻¹ = M'⁻¹ − (M'⁻¹w)(wᵀM'⁻¹) / (wᵀM'⁻¹w)（Sherman-Morrison の公式）。NJOY はこの点で発散する。
 
 use std::f64::consts::PI;
 
@@ -32,11 +36,8 @@ pub enum RmlError {
         er: f64,
         channel: usize,
     },
-    #[error(
-        "spin group {group}: {energy} eV is a pole of the R-matrix \
-         (a resonance without capture width)"
-    )]
-    Pole { group: usize, energy: f64 },
+    #[error("spin group {group}: several resonances without capture width at {energy} eV")]
+    Poles { group: usize, energy: f64 },
     #[error("spin group {group}: singular level matrix at {energy} eV")]
     Singular { group: usize, energy: f64 },
 }
@@ -62,6 +63,8 @@ enum Role {
 struct Group {
     /// スピンの統計因子 g_J
     g: f64,
+    /// 捕獲の幅を持つ共鳴があるか（なければ捕獲は厳密に 0）
+    captures: bool,
     /// 中性子のチャネル（ファイルの順。捕獲のチャネルは除く）
     channels: Vec<Channel>,
     resonances: Vec<Level>,
@@ -147,7 +150,7 @@ impl RMatrixLimitedXs {
                         }
                     }
                 }
-                let resonances = sg
+                let resonances: Vec<Level> = sg
                     .resonances
                     .iter()
                     .map(|r| {
@@ -164,6 +167,7 @@ impl RMatrixLimitedXs {
                     .collect::<Result<_, _>>()?;
                 Ok(Group {
                     g: (2.0 * sg.aj.abs() + 1.0) / spins,
+                    captures: resonances.iter().any(|r| r.half_capture > 0.0),
                     channels: channels.into_iter().map(|(_, c)| c).collect(),
                     resonances,
                 })
@@ -217,16 +221,25 @@ impl RMatrixLimitedXs {
                 .map(|c| phase_shift(c.l, c.wave_number(e) * c.ape))
                 .collect();
 
-            // K = P^½ R P^½、R = Σ γγ / (E_λ − E − iΓγ/2)
+            // K = P^½ R P^½、R = Σ γγ / (E_λ − E − iΓγ/2)。極の共鳴は w = P^½ γ として分ける
             let mut k = vec![Complex::default(); n * n];
+            let mut pole: Option<Vec<f64>> = None;
             for r in &g.resonances {
                 let d = r.er - e;
                 let denominator = d * d + r.half_capture * r.half_capture;
                 if denominator == 0.0 {
-                    return Err(RmlError::Pole {
-                        group: group + 1,
-                        energy: e,
-                    });
+                    if pole.is_some() {
+                        return Err(RmlError::Poles {
+                            group: group + 1,
+                            energy: e,
+                        });
+                    }
+                    pole = Some(
+                        (0..n)
+                            .map(|a| r.amplitudes[open_index[a]] * root_p[a])
+                            .collect(),
+                    );
+                    continue;
                 }
                 let shape = Complex::new(d / denominator, r.half_capture / denominator);
                 for a in 0..n {
@@ -242,13 +255,19 @@ impl RMatrixLimitedXs {
             for a in 0..n {
                 m[a * n + a] = m[a * n + a].add(Complex::new(1.0, 0.0));
             }
-            let x = solve(m, k, n).ok_or(RmlError::Singular {
+            let singular = || RmlError::Singular {
                 group: group + 1,
                 energy: e,
-            })?;
+            };
+            let x = match pole {
+                None => solve(m, k, n).ok_or_else(singular)?,
+                Some(w) => pole_limit(m, &w, n).ok_or_else(singular)?,
+            };
 
             let kn = entrance.wave_number(e);
             let pifac = g.g * PI / (kn * kn);
+            // この spin group の全断面積・弾性散乱・非弾性散乱
+            let mut part = vec![0.0; sigma.len()];
             for (a, ca) in open.iter().enumerate() {
                 if ca.role != Role::Elastic {
                     continue;
@@ -259,20 +278,26 @@ impl RMatrixLimitedXs {
                 let one_minus_re =
                     2.0 * phi[a].sin().powi(2) + 2.0 * xaa.im * c2 - 2.0 * xaa.re * s2;
                 let im = -s2 * (1.0 - 2.0 * xaa.im) + 2.0 * xaa.re * c2;
-                sigma[0] += 2.0 * pifac * one_minus_re;
-                sigma[1] += pifac * (one_minus_re * one_minus_re + im * im);
+                part[0] += 2.0 * pifac * one_minus_re;
+                part[1] += pifac * (one_minus_re * one_minus_re + im * im);
                 for (b, cb) in open.iter().enumerate() {
                     // 位相の因子は絶対値 1 なので、a ≠ b では |U_ab|² = 4|X_ab|²
                     let transfer = 4.0 * pifac * x[a * n + b].norm_sqr();
                     match cb.role {
-                        Role::Elastic if b != a => sigma[1] += transfer,
-                        Role::Level(i) => sigma[3 + i] += transfer,
+                        Role::Elastic if b != a => part[1] += transfer,
+                        Role::Level(i) => part[3 + i] += transfer,
                         _ => {}
                     }
                 }
             }
+            // 捕獲は残りの吸収。捕獲の幅がなければ、差を取らずに厳密に 0 とする（丸めの誤差を残さない）
+            if g.captures {
+                part[2] = part[0] - part[1] - part[3..].iter().sum::<f64>();
+            }
+            for (s, p) in sigma.iter_mut().zip(part) {
+                *s += p;
+            }
         }
-        sigma[2] = sigma[0] - sigma[1] - sigma[3..].iter().sum::<f64>();
         Ok(sigma)
     }
 }
@@ -333,6 +358,43 @@ fn amplitude(
         return Err(closed());
     }
     Ok(width.signum() * (width.abs() / (2.0 * p)).sqrt())
+}
+
+/// 極での X = i(I − M⁻¹) の極限。`m` は極の共鳴を除いた M' = I − iK'、`w` は極の共鳴の P^½ γ。
+fn pole_limit(m: Vec<Complex>, w: &[f64], n: usize) -> Option<Vec<Complex>> {
+    let identity: Vec<Complex> = (0..n * n)
+        .map(|i| Complex::new(if i % (n + 1) == 0 { 1.0 } else { 0.0 }, 0.0))
+        .collect();
+    let mut inverse = solve(m, identity, n)?;
+    // u = M'⁻¹ w（M' は複素対称なので wᵀ M'⁻¹ = uᵀ）
+    let u: Vec<Complex> = (0..n)
+        .map(|a| {
+            (0..n).fold(Complex::default(), |acc, b| {
+                acc.add(inverse[a * n + b].mul(Complex::new(w[b], 0.0)))
+            })
+        })
+        .collect();
+    let s = (0..n).fold(Complex::default(), |acc, a| {
+        acc.add(u[a].mul(Complex::new(w[a], 0.0)))
+    });
+    // 開いたチャネルに幅がなければ、極の共鳴は寄与しない
+    if s.norm_sqr() > 0.0 {
+        let scale = s.recip();
+        for a in 0..n {
+            for b in 0..n {
+                inverse[a * n + b] = inverse[a * n + b].sub(u[a].mul(u[b]).mul(scale));
+            }
+        }
+    }
+    Some(
+        (0..n * n)
+            .map(|i| {
+                // i(δ − M⁻¹)
+                let t = Complex::new(if i % (n + 1) == 0 { 1.0 } else { 0.0 }, 0.0).sub(inverse[i]);
+                Complex::new(-t.im, t.re)
+            })
+            .collect(),
+    )
 }
 
 /// 複素 n×n 行列の方程式 M X = B を部分ピボットつき Gauss の消去法で解く（行列は行優先）。
