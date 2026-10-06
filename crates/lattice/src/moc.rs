@@ -764,6 +764,52 @@ mod tests {
         }
     }
 
+    /// CMFD あり・なしで解き、同じ解に、より少ない反復で収束することを確かめる。
+    fn assert_cmfd_accelerates(tracking: &Tracking, materials: &[&Material]) {
+        let plain = Options {
+            acceleration: Acceleration::None,
+            ..Options::default()
+        };
+        let slow = solve(tracking, materials, &plain).unwrap();
+        let fast = solve(tracking, materials, &Options::default()).unwrap();
+        assert!((fast.k - slow.k).abs() < 1e-6, "{} vs {}", fast.k, slow.k);
+        for (a, b) in fast.flux.iter().flatten().zip(slow.flux.iter().flatten()) {
+            assert!(relative_change(*a, *b) < 1e-5, "{a} vs {b}");
+        }
+        assert!(
+            5 * fast.iterations <= slow.iterations,
+            "{} vs {} iterations",
+            fast.iterations,
+            slow.iterations
+        );
+    }
+
+    #[test]
+    fn cmfd_accelerates_a_pin_cell() {
+        let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+        let (f, m) = (fuel(), moderator());
+        assert_cmfd_accelerates(&tracking, &[&f, &f, &m, &m]);
+    }
+
+    #[test]
+    fn cmfd_accelerates_a_lattice_with_vacuum_sides() {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let layout = vec![vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 1]];
+        let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let (f, m) = (fuel(), moderator());
+        // セルの順: ピン, 水, 水 / 水, ピン, 水 / 水, 水, 水（ピンは燃料と水の2領域）
+        let materials = [&f, &m, &m, &m, &m, &f, &m, &m, &m, &m, &m];
+        assert_cmfd_accelerates(&tracking, &materials);
+    }
+
     #[test]
     fn refinement_converges() {
         let coarse = heterogeneous(16, 0.05);
