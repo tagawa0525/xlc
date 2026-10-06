@@ -20,16 +20,21 @@
 //! temperatures = [293.6, 600, 900, 1200]
 //! ```
 //!
+//! 核種ごとの処理時間はログとして標準エラーに出す（`RUST_LOG=debug` で温度・段階ごとの内訳）。
+//!
 //! `thermal` を指定した核種は、4 eV 未満の弾性散乱を S(α, β) で、ほかは自由ガス模型で扱う。
 //! 群構造は WIMS 69群、重み関数は軽水炉向けの iwt=4 とする。
 
 use std::collections::BTreeMap;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::Instant;
 
 use anyhow::{Context, anyhow};
 use serde::Deserialize;
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_xs::endf::Tape;
 use xlc_xs::library::{Library, NuclideData, is_nuclide_name};
 use xlc_xs::multigroup::{GroupStructure, Weight};
@@ -139,7 +144,9 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
-        [path] => read_input(Path::new(path)).and_then(|input| run(&input)),
+        [path] => init_logging()
+            .and_then(|()| read_input(Path::new(path)))
+            .and_then(|input| run(&input)),
         _ => Err(anyhow!("usage: xs <input file>")),
     };
     match result {
@@ -149,6 +156,23 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// ログ（tracing）を標準エラーに出す。表示する量は環境変数 `RUST_LOG` で選ぶ（なければ info）。
+/// 区間（span）が閉じるときに、その経過時間も出す。
+fn init_logging() -> anyhow::Result<()> {
+    // FromEnvError の表示は原因の文を含むので、原因の連鎖は付けない
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env()
+        .map_err(|error| anyhow!("RUST_LOG: {error}"))?;
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .with_ansi(std::io::stderr().is_terminal())
+        .with_span_events(FmtSpan::CLOSE)
+        .init();
+    Ok(())
 }
 
 fn read_input(path: &Path) -> anyhow::Result<Input> {
@@ -191,7 +215,6 @@ fn run(input: &Input) -> anyhow::Result<()> {
 }
 
 fn process_file(nuclide: &NuclideInput, settings: &Settings) -> anyhow::Result<NuclideData> {
-    let start = Instant::now();
     let read = |path: &Path| -> anyhow::Result<Tape> {
         let context = || format!("{}", path.display());
         let text = std::fs::read_to_string(path).with_context(context)?;
@@ -211,7 +234,6 @@ fn process_file(nuclide: &NuclideInput, settings: &Settings) -> anyhow::Result<N
         settings,
     )
     .with_context(|| name.clone())?;
-    eprintln!("{name}: done in {:.1} s", start.elapsed().as_secs_f64());
     Ok(data)
 }
 

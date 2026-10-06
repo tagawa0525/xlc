@@ -81,6 +81,7 @@ pub enum ScatterError {
 /// - `thermal`: 熱領域の弾性散乱の扱い（`None` なら全域で静止標的）
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
+#[tracing::instrument(level = "debug", skip_all)]
 pub fn scattering_matrix(
     groups: &GroupStructure,
     weight: &Weight,
