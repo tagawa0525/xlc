@@ -108,10 +108,10 @@ fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> 
     let dof_x = if gx > 0.0 { jv.amux } else { 0 };
     // 極に近い中性子幅の変数 x を一番内側で積分する
     let integral = |g: fn(f64, f64) -> f64| {
-        expectation(dof_x, 1.0e-10, |z| {
-            expectation(dof_f, 1.0e-10, |y| {
+        expectation(dof_x, TOLERANCE[2], |z| {
+            expectation(dof_f, TOLERANCE[1], |y| {
                 let rest = gf * y + gg + gx * z;
-                expectation(jv.amun, 1.0e-10, |x| g(x, y) / (gn * x + rest))
+                expectation(jv.amun, TOLERANCE[0], |x| g(x, y) / (gn * x + rest))
             })
         })
     };
@@ -125,6 +125,10 @@ fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> 
         },
     ]
 }
+
+/// 幅のゆらぎの期待値の相対許容誤差（内側の中性子幅、核分裂幅、外側の競合幅の順）。
+/// 外側は内側の 100 倍にする（`expectation` を参照）。群定数の許容誤差 1e-3 より十分小さい
+const TOLERANCE: [f64; 3] = [1.0e-12, 1.0e-10, 1.0e-8];
 
 /// 平均断面積を計算する格子 [el, eh]。評価者のエネルギー（全系列の和）に、隣の点との比が
 /// `WIDE` を超える区間では NJOY と同じ補助格子 `FILL` の点を加える。

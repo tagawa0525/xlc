@@ -3,18 +3,18 @@
 //! 自由度 ν の χ² 分布の密度は k^k x^(k-1) e^(-kx) / Γ(k)（k = ν/2）。x = u² と置くと
 //! 2 k^k u^(2k-1) e^(-k u²) / Γ(k) du になり、ν = 1 でも原点で有限になるので、u について適応積分する。
 
-/// 期待値の相対許容誤差。群定数の許容誤差（1e-3）より十分小さくとる
-const RELATIVE_TOLERANCE: f64 = 1.0e-10;
-
 /// u の積分の上限を k u² = TAIL とする。密度は e^(-40) ≈ 4e-18 倍になり、倍精度で無視できる
 const TAIL: f64 = 40.0;
 
 /// 適応積分で区間を分ける深さの上限（区間の幅は 2^-50 倍まで）
 const MAX_DEPTH: u32 = 50;
 
-/// 自由度 `dof` の χ² 分布での f(x) の期待値。自由度 0 は幅がゆらがない（x = 1）ことを表す。
+/// 自由度 `dof` の χ² 分布での f(x) の期待値（相対許容誤差 `tolerance`）。
+/// 自由度 0 は幅がゆらがない（x = 1）ことを表す。
+///
+/// 期待値を入れ子にするときは、外側の許容誤差を内側より十分大きくする。内側の結果は、分割の仕方が
+/// 切り替わるところで許容誤差の大きさだけ飛ぶので、外側が同じ精度を求めると分割が止まらない。
 pub(super) fn expectation(dof: u32, tolerance: f64, f: impl Fn(f64) -> f64) -> f64 {
-    let _ = tolerance;
     let k = f64::from(dof) / 2.0;
     // Γ(k)（k = 1/2, 1, 3/2, 2）
     let gamma = match dof {
@@ -29,11 +29,11 @@ pub(super) fn expectation(dof: u32, tolerance: f64, f: impl Fn(f64) -> f64) -> f
         let x = u * u;
         f(x) * u.powf(2.0 * k - 1.0) * (-k * x).exp()
     };
-    scale * adaptive_simpson(integrand, 0.0, (TAIL / k).sqrt())
+    scale * adaptive_simpson(integrand, 0.0, (TAIL / k).sqrt(), tolerance)
 }
 
-/// [a, b] の適応 Simpson 積分。全体の積分の `RELATIVE_TOLERANCE` 倍まで、区間を分ける。
-fn adaptive_simpson(f: impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+/// [a, b] の適応 Simpson 積分。全体の積分の `tolerance` 倍まで、区間を分ける。
+fn adaptive_simpson(f: impl Fn(f64) -> f64, a: f64, b: f64, tolerance: f64) -> f64 {
     // 細い構造を最初の標本で見逃さないよう、はじめに区間を等分しておく
     const START: usize = 16;
     let h = (b - a) / START as f64;
@@ -41,7 +41,7 @@ fn adaptive_simpson(f: impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
         .map(|i| Panel::new(&f, a + h * i as f64, a + h * (i + 1) as f64, 0))
         .collect();
     let rough: f64 = panels.iter().map(|p| p.whole).sum();
-    let mut eps = RELATIVE_TOLERANCE * rough.abs() / START as f64;
+    let mut eps = tolerance * rough.abs() / START as f64;
     if eps == 0.0 {
         eps = f64::MIN_POSITIVE;
     }
