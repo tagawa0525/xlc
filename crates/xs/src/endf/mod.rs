@@ -8,6 +8,7 @@ mod mf2;
 mod mf3;
 mod mf5;
 mod mf6;
+mod mf7;
 mod number;
 mod tab1;
 mod tape;
@@ -22,6 +23,7 @@ pub use mf2::{
 pub use mf3::Mf3;
 pub use mf5::{Mf5, OutgoingDistributions, parse_outgoing};
 pub use mf6::{Frame, Mf6, NeutronEmission};
+pub use mf7::Mf7Incoherent;
 pub use tab1::{Interpolation, Tab1};
 pub use tape::{Cont, List, Reader, Section, Tab1Record, Tab2Record, Tape};
 
