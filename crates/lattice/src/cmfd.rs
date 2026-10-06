@@ -1,0 +1,674 @@
+//! CMFD（粗メッシュ有限差分）による MOC の加速。
+//!
+//! 粗メッシュは格子のセルとする。スイープでセルの面を通る正味の中性子の流れを数え、
+//! 拡散の結合係数を流れに合うよう補正した粗メッシュの固有値問題を解いて、
+//! 細かい領域の中性子束をセルごとの比で更新する。
+
+use crate::material::Material;
+use crate::moc::Remaining;
+use crate::tracking::Tracking;
+
+/// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。
+///
+/// 面は、縦の面（x 方向に通る）を先に、横の面（y 方向に通る）を後に番号を付ける。
+/// 縦の面 (r, i) はセルの行 r の、左から i 番目の格子線の上（i = 0..=n）、横の面 (j, c) は
+/// セルの列 c の、上から j 番目の格子線の上（j = 0..=n）にある。面の正の向きは、
+/// 縦の面では +x（右）、横の面では -y（下、行の番号が増える向き）とする。
+///
+/// 内側の面の通過は前もって持たず、スイープで隣り合う区間のセルを比べて求める。スイープは
+/// 減衰の表の読み込みでメモリの転送速度に頭打ちになるので、読む量を増やさないため。
+#[derive(Debug, Clone, PartialEq)]
+pub struct CoarseMesh {
+    /// 1辺のセルの数
+    n: usize,
+    /// セルの一辺の長さ (cm)
+    pitch: f64,
+    /// [領域] の属するセル
+    cell_of_region: Vec<usize>,
+    /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
+    ends: Vec<[(usize, f64); 2]>,
+}
+
+/// 隣のセルへ移るときに通る面と、その向き（面の正の向きなら 1、逆なら -1）を掛けた重み。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct FacePath {
+    faces: [(usize, f64); MAX_FACES],
+    count: usize,
+}
+
+/// 1回の移動で通る面の数の上限。セルの角をちょうど通るときは、隣り合う2つのセルを経由する
+/// 2通りの経路（面を2つずつ）に 1/2 ずつ分ける
+const MAX_FACES: usize = 4;
+
+impl FacePath {
+    fn new(faces: &[(usize, f64)]) -> Self {
+        let mut array = [(0, 0.0); MAX_FACES];
+        array[..faces.len()].copy_from_slice(faces);
+        Self {
+            faces: array,
+            count: faces.len(),
+        }
+    }
+
+    pub fn faces(&self) -> &[(usize, f64)] {
+        &self.faces[..self.count]
+    }
+}
+
+impl CoarseMesh {
+    pub fn new(tracking: &Tracking) -> Self {
+        let lattice = &tracking.lattice;
+        let n = lattice.cells_per_side();
+        let mut cell_of_region = vec![0; lattice.regions()];
+        for cell in 0..n * n {
+            for region in lattice.cell_regions(cell) {
+                cell_of_region[region] = cell;
+            }
+        }
+        let half = 0.5 * lattice.width();
+        let mut mesh = Self {
+            n,
+            pitch: lattice.width() / n as f64,
+            cell_of_region,
+            ends: Vec::with_capacity(tracking.tracks.len()),
+        };
+        for track in &tracking.tracks {
+            let first = mesh.cell(track.segments[0].region);
+            let last = mesh.cell(track.segments[track.segments.len() - 1].region);
+            let start = mesh.outer_face(first, track.start, half);
+            let end = mesh.outer_face(last, track.end, half);
+            // 始点では入る（外向きの逆）、終点では出る
+            mesh.ends.push([(start.0, -start.1), end]);
+        }
+        mesh
+    }
+
+    pub fn cells(&self) -> usize {
+        self.n * self.n
+    }
+
+    pub fn faces(&self) -> usize {
+        2 * self.n * (self.n + 1)
+    }
+
+    /// 領域の属するセル
+    pub fn cell(&self, region: usize) -> usize {
+        self.cell_of_region[region]
+    }
+
+    /// セルの4つの面と、外向きが面の正の向きなら 1、逆なら -1（左、右、上、下の順）。
+    pub fn cell_faces(&self, cell: usize) -> [(usize, f64); 4] {
+        let (r, c) = (cell / self.n, cell % self.n);
+        [
+            (self.vertical(r, c), -1.0),
+            (self.vertical(r, c + 1), 1.0),
+            (self.horizontal(r, c), -1.0),
+            (self.horizontal(r + 1, c), 1.0),
+        ]
+    }
+
+    /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
+    pub(crate) fn ends(&self, track: usize) -> [(usize, f64); 2] {
+        self.ends[track]
+    }
+
+    /// 面の両側のセル（面の正の向きの手前、先）。外周の面では外側が `None`。
+    pub fn face_cells(&self, face: usize) -> (Option<usize>, Option<usize>) {
+        let n = self.n;
+        let vertical = n * (n + 1);
+        let (before, after) = if face < vertical {
+            let (row, line) = (face / (n + 1), face % (n + 1));
+            let cell = |column: usize| row * n + column;
+            (
+                (line > 0).then(|| cell(line - 1)),
+                (line < n).then(|| cell(line)),
+            )
+        } else {
+            let (line, column) = ((face - vertical) / n, (face - vertical) % n);
+            let cell = |row: usize| row * n + column;
+            (
+                (line > 0).then(|| cell(line - 1)),
+                (line < n).then(|| cell(line)),
+            )
+        };
+        (before, after)
+    }
+
+    fn vertical(&self, row: usize, line: usize) -> usize {
+        row * (self.n + 1) + line
+    }
+
+    fn horizontal(&self, line: usize, column: usize) -> usize {
+        self.n * (self.n + 1) + line * self.n + column
+    }
+
+    /// セル `from` から隣のセル `to` へ移るときに通る面と向き。
+    pub(crate) fn path(&self, from: usize, to: usize) -> FacePath {
+        let (r1, c1) = (from / self.n, from % self.n);
+        let (r2, c2) = (to / self.n, to % self.n);
+        let sign = |a: usize, b: usize| if b > a { 1.0 } else { -1.0 };
+        match (r1.abs_diff(r2), c1.abs_diff(c2)) {
+            (0, 1) => FacePath::new(&[(self.vertical(r1, c1.max(c2)), sign(c1, c2))]),
+            (1, 0) => FacePath::new(&[(self.horizontal(r1.max(r2), c1), sign(r1, r2))]),
+            // 角を通る: (r1, c2) を経由する経路と (r2, c1) を経由する経路に半分ずつ
+            (1, 1) => FacePath::new(&[
+                (self.vertical(r1, c1.max(c2)), 0.5 * sign(c1, c2)),
+                (self.horizontal(r1.max(r2), c2), 0.5 * sign(r1, r2)),
+                (self.horizontal(r1.max(r2), c1), 0.5 * sign(r1, r2)),
+                (self.vertical(r2, c1.max(c2)), 0.5 * sign(c1, c2)),
+            ]),
+            _ => panic!("consecutive segments in cells {from} and {to} that do not touch"),
+        }
+    }
+
+    /// トラックの端の点 `point`（外周の上）にある、セル `cell` の外周の面と、
+    /// 外向きが面の正の向きなら 1、逆なら -1。
+    fn outer_face(&self, cell: usize, point: (f64, f64), half: f64) -> (usize, f64) {
+        let (r, c) = (cell / self.n, cell % self.n);
+        // 外向きの向き。トラックは外周の角を通らないので、点に最も近い辺が点のある辺
+        let sides = [
+            ((point.0 + half).abs(), self.vertical(r, 0), -1.0),
+            ((point.0 - half).abs(), self.vertical(r, self.n), 1.0),
+            ((point.1 - half).abs(), self.horizontal(0, c), -1.0),
+            ((point.1 + half).abs(), self.horizontal(self.n, c), 1.0),
+        ];
+        let (_, face, outward) = sides
+            .into_iter()
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .expect("four sides");
+        (face, outward)
+    }
+}
+
+/// CMFD の固有値問題の打ち切り条件。
+///
+/// MOC の反復の判定（`moc::Options`）より十分小さくする。CMFD の打ち切りの誤差が、MOC の
+/// 反復ごとの変化に紛れて収束の判定を誤らせないため。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CmfdOptions {
+    /// 実効増倍率の変化の上限
+    pub k_tolerance: f64,
+    /// 中性子束の相対変化の上限
+    pub flux_tolerance: f64,
+    pub max_iterations: usize,
+}
+
+impl Default for CmfdOptions {
+    fn default() -> Self {
+        Self {
+            k_tolerance: 1.0e-10,
+            flux_tolerance: 1.0e-8,
+            max_iterations: 100_000,
+        }
+    }
+}
+
+/// CMFD の計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum CmfdError {
+    #[error("the MOC flux averaged over cell {cell} in group {group} is not positive ({flux})")]
+    NonPositiveFlux {
+        cell: usize,
+        group: usize,
+        flux: f64,
+    },
+    #[error("the coarse-mesh flux of cell {cell} in group {group} became {flux}")]
+    NonPositiveSolution {
+        cell: usize,
+        group: usize,
+        flux: f64,
+    },
+    #[error("the coarse-mesh matrix of cell {0} is singular")]
+    Singular(usize),
+    #[error("the coarse-mesh eigenvalue problem did not converge in {0} iterations")]
+    NotConverged(usize),
+}
+
+/// セルごとに均質化した粗メッシュの問題（流れに合わせて補正した拡散方程式）。
+#[derive(Debug, Clone)]
+pub(crate) struct Coarse {
+    groups: usize,
+    /// [セル][群] の均質化した中性子束
+    flux: Vec<f64>,
+    /// [セル][出射の群][入射の群] の体積 × 核分裂源の行列 V χ νΣf
+    fission: Vec<f64>,
+    /// [セル] の対角のブロック（群×群）の LU 分解
+    blocks: Vec<Lu>,
+    /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)。方程式は
+    /// A_c φ_c + Σ 係数 φ_隣 = V F φ_c / k
+    neighbors: Vec<Vec<(usize, Vec<f64>)>>,
+}
+
+impl Coarse {
+    /// 細かい領域の [領域][群] の中性子束 `flux` と体積から、セルごとに断面積を均質化し、
+    /// スイープで数えた [面][群] の正味の中性子流 `current` に合うよう結合係数を補正する。
+    pub fn homogenize(
+        mesh: &CoarseMesh,
+        materials: &[&Material],
+        volumes: &[f64],
+        flux: &[Vec<f64>],
+        current: &[f64],
+    ) -> Result<Self, CmfdError> {
+        let ng = materials[0].groups();
+        let cells = mesh.cells();
+        let mut volume = vec![0.0; cells];
+        let mut phi = vec![0.0; cells * ng];
+        // 反応率の和（後で中性子束で割る）
+        let mut total = vec![0.0; cells * ng];
+        let mut scatter = vec![0.0; cells * ng * ng];
+        let mut fission = vec![0.0; cells * ng * ng];
+        for (region, m) in materials.iter().enumerate() {
+            let (c, v, f) = (mesh.cell(region), volumes[region], &flux[region]);
+            volume[c] += v;
+            for g in 0..ng {
+                phi[c * ng + g] += v * f[g];
+                total[c * ng + g] += v * m.total[g] * f[g];
+                for to in 0..ng {
+                    scatter[(c * ng + to) * ng + g] += v * m.scatter[g][to] * f[g];
+                }
+            }
+            for term in &m.fission_terms {
+                for g in 0..ng {
+                    let rate = v * term.nu_fission[g] * f[g];
+                    for to in 0..ng {
+                        fission[(c * ng + to) * ng + g] += term.chi[to] * rate;
+                    }
+                }
+            }
+        }
+        for c in 0..cells {
+            for g in 0..ng {
+                let reaction = phi[c * ng + g];
+                if reaction <= 0.0 || !reaction.is_finite() {
+                    return Err(CmfdError::NonPositiveFlux {
+                        cell: c,
+                        group: g,
+                        flux: reaction,
+                    });
+                }
+                phi[c * ng + g] = reaction / volume[c];
+            }
+        }
+        // 断面積 = 反応率 / (体積 × 中性子束)。行列は φ に掛けて反応率になる形で持つので、
+        // 列（入射の群）ごとに中性子束で割る
+        let h = mesh.pitch;
+        let sigma_t = |c: usize, g: usize| total[c * ng + g] / (volume[c] * phi[c * ng + g]);
+        // 光学的に厚いセルでは従来の CMFD が不安定になるので、拡散係数に θ(Σt h) h を足す
+        // （optimally diffusive CMFD）
+        let diffusion = |c: usize, g: usize| {
+            let sigma = sigma_t(c, g);
+            1.0 / (3.0 * sigma) + artificial_diffusion(sigma * h) * h
+        };
+        for c in 0..cells {
+            for to in 0..ng {
+                for g in 0..ng {
+                    let j = (c * ng + to) * ng + g;
+                    scatter[j] /= phi[c * ng + g];
+                    fission[j] /= phi[c * ng + g];
+                }
+            }
+        }
+
+        // 対角のブロックの対角項: 全断面積 + 面からの漏れ。隣との結合
+        let mut diagonal: Vec<f64> = (0..cells * ng).map(|j| total[j] / phi[j]).collect();
+        let mut neighbors: Vec<Vec<(usize, Vec<f64>)>> = vec![Vec::new(); cells];
+        for face in 0..mesh.faces() {
+            let net = &current[face * ng..][..ng];
+            match mesh.face_cells(face) {
+                (Some(low), Some(high)) => {
+                    // 面の正の向きの流れ J = -D̃ (φ_h - φ_l) - D̂ (φ_h + φ_l)（面の長さあたり）
+                    let mut on_high = vec![0.0; ng];
+                    let mut on_low = vec![0.0; ng];
+                    for g in 0..ng {
+                        let (dl, dh) = (diffusion(low, g), diffusion(high, g));
+                        let coupling = 2.0 * dl * dh / (h * (dl + dh));
+                        let (fl, fh) = (phi[low * ng + g], phi[high * ng + g]);
+                        let correction = -(net[g] / h + coupling * (fh - fl)) / (fh + fl);
+                        // 低い側の式では J が出ていく流れ、高い側の式では入ってくる流れ
+                        diagonal[low * ng + g] += h * (coupling - correction);
+                        on_high[g] = h * (-coupling - correction);
+                        diagonal[high * ng + g] += h * (coupling + correction);
+                        on_low[g] = h * (-coupling + correction);
+                    }
+                    neighbors[low].push((high, on_high));
+                    neighbors[high].push((low, on_low));
+                }
+                // 外周の面: 外向きの流れを、すべて補正の項 D̂ φ で表す
+                (Some(cell), None) => {
+                    for g in 0..ng {
+                        diagonal[cell * ng + g] += net[g] / phi[cell * ng + g];
+                    }
+                }
+                (None, Some(cell)) => {
+                    for g in 0..ng {
+                        diagonal[cell * ng + g] -= net[g] / phi[cell * ng + g];
+                    }
+                }
+                (None, None) => unreachable!("every face touches a cell"),
+            }
+        }
+        let blocks = (0..cells)
+            .map(|c| {
+                let mut a: Vec<f64> = scatter[c * ng * ng..][..ng * ng]
+                    .iter()
+                    .map(|s| -s)
+                    .collect();
+                for g in 0..ng {
+                    a[g * ng + g] += diagonal[c * ng + g];
+                }
+                Lu::new(a, ng).ok_or(CmfdError::Singular(c))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            groups: ng,
+            flux: phi,
+            fission,
+            blocks,
+            neighbors,
+        })
+    }
+
+    /// 固有値問題を `k` から解き始め、k と [セル][群] の中性子束の比（解 / 均質化した中性子束、
+    /// どちらも生成率 1 に規格化）を返す。
+    ///
+    /// べき乗法の各反復で、ブロック Gauss-Seidel をセルの順に1回だけ行う。収束すると
+    /// Gauss-Seidel でも解が変わらないので、内側の反復を収束させなくても固有値問題の解になる。
+    pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
+        let ng = self.groups;
+        let cells = self.blocks.len();
+        let production = |phi: &[f64]| -> f64 {
+            (0..cells)
+                .map(|c| {
+                    let f = &self.fission[c * ng * ng..][..ng * ng];
+                    let p = &phi[c * ng..][..ng];
+                    f.chunks(ng)
+                        .map(|row| row.iter().zip(p).map(|(a, b)| a * b).sum::<f64>())
+                        .sum::<f64>()
+                })
+                .sum()
+        };
+        let start = production(&self.flux);
+        let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
+        let mut k = k;
+        let mut k_history = Remaining::default();
+        let mut flux_history = Remaining::default();
+        let mut rhs = vec![0.0; ng];
+        for _ in 0..options.max_iterations {
+            let previous = phi.clone();
+            for c in 0..cells {
+                let f = &self.fission[c * ng * ng..][..ng * ng];
+                for (to, r) in rhs.iter_mut().enumerate() {
+                    *r = f[to * ng..][..ng]
+                        .iter()
+                        .zip(&previous[c * ng..][..ng])
+                        .map(|(a, b)| a * b)
+                        .sum::<f64>()
+                        / k;
+                }
+                for (other, coefficients) in &self.neighbors[c] {
+                    for g in 0..ng {
+                        rhs[g] -= coefficients[g] * phi[other * ng + g];
+                    }
+                }
+                self.blocks[c].solve(&mut rhs);
+                phi[c * ng..][..ng].copy_from_slice(&rhs);
+            }
+            let rate = production(&phi);
+            let new_k = k * rate;
+            for f in &mut phi {
+                *f /= rate;
+            }
+            if let Some(j) = phi.iter().position(|&f| f <= 0.0 || !f.is_finite()) {
+                return Err(CmfdError::NonPositiveSolution {
+                    cell: j / ng,
+                    group: j % ng,
+                    flux: phi[j],
+                });
+            }
+            let change = phi
+                .iter()
+                .zip(&previous)
+                .map(|(a, b)| (a - b).abs() / a.abs().max(b.abs()))
+                .fold(0.0, f64::max);
+            let k_remaining = k_history.update((new_k - k).abs());
+            let flux_remaining = flux_history.update(change);
+            k = new_k;
+            if k_remaining < options.k_tolerance && flux_remaining < options.flux_tolerance {
+                let ratio = phi
+                    .iter()
+                    .zip(&self.flux)
+                    .map(|(new, old)| new / (old / start))
+                    .collect();
+                return Ok((k, ratio));
+            }
+        }
+        Err(CmfdError::NotConverged(options.max_iterations))
+    }
+}
+
+/// optimally diffusive CMFD の θ（拡散係数に足す θ h の係数）を、粗メッシュのセルの光学的厚さ
+/// τ = Σt h から求める。
+///
+/// A. Zhu et al., "An optimally diffusive Coarse Mesh Finite Difference method to accelerate
+/// neutron transport calculations", Ann. Nucl. Energy 95 (2016) 116–124 の式 (23) と Table 1。
+/// フーリエ解析で求めた最適値の当てはめで、τ < 1 では 0（従来の CMFD）、τ ≥ 14 では飽和値。
+/// C5G7 の反射体（熱群で τ ≈ 4）では従来の CMFD が振動して収束せず、partial current CMFD に
+/// 当たる θ = 1/4 より、細かい領域の多い場合に反復が少ない（M2 の計画を参照）
+pub(crate) fn artificial_diffusion(tau: f64) -> f64 {
+    /// 多項式を使う範囲の下限と上限
+    const THIN: f64 = 1.0;
+    const THICK: f64 = 14.0;
+    /// τ ≥ 14 での値
+    const SATURATED: f64 = 0.127;
+    /// θ = Σ a_i τ^i の係数 a_0..a_6
+    const COEFFICIENTS: [f64; 7] = [
+        -5.542780e-02,
+        8.740501e-02,
+        -2.152599e-02,
+        3.145553e-03,
+        -2.683648e-04,
+        1.222516e-05,
+        -2.284879e-07,
+    ];
+    if tau < THIN {
+        0.0
+    } else if tau >= THICK {
+        SATURATED
+    } else {
+        COEFFICIENTS.iter().rev().fold(0.0, |sum, a| sum * tau + a)
+    }
+}
+
+/// 部分ピボット選択付きの LU 分解（群×群の小さな密行列）。
+#[derive(Debug, Clone)]
+struct Lu {
+    n: usize,
+    /// 行優先の L（対角は 1、格納しない）と U
+    lu: Vec<f64>,
+    /// 行の入れ替え
+    pivot: Vec<usize>,
+}
+
+impl Lu {
+    /// 行優先の n × n 行列を分解する。特異なら `None`。
+    fn new(mut a: Vec<f64>, n: usize) -> Option<Self> {
+        let mut pivot: Vec<usize> = (0..n).collect();
+        for col in 0..n {
+            let best =
+                (col..n).max_by(|&i, &j| a[i * n + col].abs().total_cmp(&a[j * n + col].abs()))?;
+            if a[best * n + col] == 0.0 {
+                return None;
+            }
+            if best != col {
+                for j in 0..n {
+                    a.swap(best * n + j, col * n + j);
+                }
+                pivot.swap(best, col);
+            }
+            for row in col + 1..n {
+                let factor = a[row * n + col] / a[col * n + col];
+                a[row * n + col] = factor;
+                for j in col + 1..n {
+                    a[row * n + j] -= factor * a[col * n + j];
+                }
+            }
+        }
+        Some(Self { n, lu: a, pivot })
+    }
+
+    /// `b` を A x = b の解 x で置き換える。
+    fn solve(&self, b: &mut [f64]) {
+        let n = self.n;
+        let permuted: Vec<f64> = self.pivot.iter().map(|&p| b[p]).collect();
+        b.copy_from_slice(&permuted);
+        for row in 0..n {
+            for j in 0..row {
+                b[row] -= self.lu[row * n + j] * b[j];
+            }
+        }
+        for row in (0..n).rev() {
+            for j in row + 1..n {
+                b[row] -= self.lu[row * n + j] * b[j];
+            }
+            b[row] /= self.lu[row * n + row];
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::{Lattice, PinCell};
+    use crate::material::{FissionTerm, Material};
+
+    fn two_by_two() -> Tracking {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        Tracking::new(&lattice, 16, 0.05).unwrap()
+    }
+
+    #[test]
+    fn face_numbering() {
+        let mesh = CoarseMesh::new(&two_by_two());
+        assert_eq!((mesh.cells(), mesh.faces()), (4, 12));
+        // 左上のセルの右の面は、右上のセルの左の面
+        let (right, out) = mesh.cell_faces(0)[1];
+        let (left, into) = mesh.cell_faces(1)[0];
+        assert_eq!((right, out, into), (left, 1.0, -1.0));
+        // 左上のセルの下の面は、左下のセルの上の面
+        assert_eq!(mesh.cell_faces(0)[3].0, mesh.cell_faces(2)[2].0);
+        // 全セルの面を数えると、内側の面は2回、外周の面は1回
+        let mut count = vec![0; mesh.faces()];
+        for cell in 0..mesh.cells() {
+            for (face, _) in mesh.cell_faces(cell) {
+                count[face] += 1;
+            }
+        }
+        assert_eq!(count.iter().filter(|&&c| c == 2).count(), 4);
+        assert_eq!(count.iter().filter(|&&c| c == 1).count(), 8);
+    }
+
+    #[test]
+    fn homogeneous_cell_gives_the_infinite_medium_k() {
+        // 4辺が鏡面反射の均質なセルでは面の流れが 0 で、粗メッシュの k は無限媒質の k
+        // k∞ = νΣfᵀ (diag Σt - Σsᵀ)⁻¹ χ（χ = (1, 0)）
+        let m = Material {
+            total: vec![0.5, 1.2],
+            scatter: vec![vec![0.45, 0.02], vec![0.0, 0.9]],
+            fission: vec![0.008 / 2.5, 0.25 / 2.5],
+            nu_fission: vec![0.008, 0.25],
+            fission_terms: vec![FissionTerm {
+                chi: vec![1.0, 0.0],
+                nu_fission: vec![0.008, 0.25],
+            }],
+        };
+        let a = [[0.5 - 0.45, 0.0], [-0.02, 1.2 - 0.9]];
+        let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+        let expected = (0.008 * a[1][1] - 0.25 * a[1][0]) / det;
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let mesh = CoarseMesh::new(&tracking);
+        let volumes = tracking.volumes(2);
+        // 均質なので、領域の中性子束の形によらない
+        let flux = vec![vec![1.0, 0.3], vec![0.8, 0.5]];
+        let current = vec![0.0; mesh.faces() * 2];
+        let coarse = Coarse::homogenize(&mesh, &[&m, &m], &volumes, &flux, &current).unwrap();
+        let (k, ratio) = coarse.solve(1.0, &CmfdOptions::default()).unwrap();
+        assert!((k - expected).abs() < 1e-9, "{k} vs {expected}");
+        assert_eq!(ratio.len(), 2);
+    }
+
+    #[test]
+    fn artificial_diffusion_follows_the_optically_thick_fit() {
+        // Zhu ら (2016): 光学的に薄いと 0（従来の CMFD）、厚いと 0.127 に飽和し、Σt h = 4 で約 0.1
+        assert_eq!(artificial_diffusion(0.5), 0.0);
+        assert!((artificial_diffusion(4.0) - 0.1).abs() < 0.01);
+        assert_eq!(artificial_diffusion(20.0), 0.127);
+        // 多項式は飽和値に滑らかにつながる
+        assert!((artificial_diffusion(14.0 - 1e-9) - 0.127).abs() < 0.002);
+        let samples: Vec<f64> = (2..28)
+            .map(|i| artificial_diffusion(0.5 * i as f64))
+            .collect();
+        assert!(samples.windows(2).all(|w| w[1] >= w[0]), "{samples:?}");
+    }
+
+    #[test]
+    fn lu_solves_with_pivoting() {
+        // 先頭の対角が 0 なので、行の入れ替えが要る
+        let a = vec![0.0, 2.0, 1.0, 1.0, 1.0, 0.0, 3.0, 0.0, 1.0];
+        let x = [1.0, -2.0, 0.5];
+        let mut b: Vec<f64> = (0..3)
+            .map(|i| (0..3).map(|j| a[i * 3 + j] * x[j]).sum())
+            .collect();
+        Lu::new(a, 3).unwrap().solve(&mut b);
+        for (got, want) in b.iter().zip(x) {
+            assert!((got - want).abs() < 1e-14, "{b:?}");
+        }
+        assert!(Lu::new(vec![1.0, 2.0, 2.0, 4.0], 2).is_none());
+    }
+
+    /// 面の外向きの重みの和（セル `cell` から出る分が正）
+    fn outflow(mesh: &CoarseMesh, cell: usize, faces: &[(usize, f64)]) -> f64 {
+        mesh.cell_faces(cell)
+            .iter()
+            .map(|&(face, out)| {
+                faces
+                    .iter()
+                    .filter(|&&(f, _)| f == face)
+                    .map(|&(_, w)| out * w)
+                    .sum::<f64>()
+            })
+            .sum()
+    }
+
+    #[test]
+    fn paths_leave_one_cell_and_enter_the_other() {
+        let mesh = CoarseMesh::new(&two_by_two());
+        for from in 0..4 {
+            for to in (0..4).filter(|&to| to != from) {
+                let path = mesh.path(from, to);
+                let faces = path.faces();
+                assert_eq!(outflow(&mesh, from, faces), 1.0);
+                assert_eq!(outflow(&mesh, to, faces), -1.0);
+                // 角を通るときの経由するセルは、入って出るので正味 0
+                for other in (0..4).filter(|&c| c != from && c != to) {
+                    assert_eq!(outflow(&mesh, other, faces), 0.0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn track_ends_are_on_the_outer_faces_of_their_cells() {
+        let tracking = two_by_two();
+        let mesh = CoarseMesh::new(&tracking);
+        for (index, track) in tracking.tracks.iter().enumerate() {
+            let [start, end] = mesh.ends(index);
+            let first = mesh.cell(track.segments[0].region);
+            let last = mesh.cell(track.segments[track.segments.len() - 1].region);
+            assert_eq!(outflow(&mesh, first, &[start]), -1.0, "track {index}");
+            assert_eq!(outflow(&mesh, last, &[end]), 1.0, "track {index}");
+        }
+    }
+}
