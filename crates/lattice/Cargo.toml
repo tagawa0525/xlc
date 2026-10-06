@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+anyhow.workspace = true
+rmp-serde.workspace = true
+rmpv.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true
 xlc-xs = { path = "../xs" }
 
 # コマンド名は段階の名前に合わせて `lattice` とする
