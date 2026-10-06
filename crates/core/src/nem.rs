@@ -79,6 +79,7 @@ pub enum NemError {
     NotConverged { iterations: usize, k: f64 },
 }
 
+#[tracing::instrument(name = "nem", skip_all)]
 pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError> {
     let core = Core::new(problem).map_err(NemError::InvalidProblem)?;
     let ng = core.groups;
@@ -120,6 +121,12 @@ pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError>
             .zip(previous.iter().flatten())
             .map(|(new, old)| relative_change(*new, *old))
             .fold(0.0, f64::max);
+        tracing::debug!(
+            iteration,
+            k = new_k,
+            k_change = new_k - k,
+            flux_change = change
+        );
         let k_remaining = k_history.update((new_k - k).abs());
         let flux_remaining = flux_history.update(change);
         k = new_k;
