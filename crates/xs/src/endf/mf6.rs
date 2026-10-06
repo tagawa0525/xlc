@@ -7,7 +7,7 @@
 //! 中性子以外の生成粒子は読み飛ばす。
 
 use super::Error;
-use super::mf5::{OutgoingDistributions, incident_laws};
+use super::mf5::{OutgoingDistributions, check_unit_base, incident_laws};
 use super::tab1::{Interpolation, Tab1};
 use super::tape::{Reader, Section};
 
@@ -107,7 +107,7 @@ fn read_law1(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
             ));
         }
     };
-    let laws = incident_laws(&tab2.codes, r.line())?;
+    let line = r.line();
     let mut incident = Vec::new();
     let mut spectra = Vec::new();
     for _ in 0..tab2.nz {
@@ -144,6 +144,9 @@ fn read_law1(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
         incident.push(list.c2);
         spectra.push(table);
     }
+    let counts: Vec<usize> = spectra.iter().map(|t| t.x.len()).collect();
+    let laws = incident_laws(&tab2.codes, &tab2.breaks, &counts, line)?;
+    check_unit_base(&laws, &tab2.breaks, &spectra, line)?;
     Ok(OutgoingDistributions {
         breaks: tab2.breaks,
         laws,

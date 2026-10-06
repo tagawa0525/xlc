@@ -11,8 +11,8 @@ use super::tape::{Reader, Section};
 pub struct OutgoingDistributions {
     /// 入射エネルギー間の補間則の範囲（NBT）
     pub breaks: Vec<usize>,
-    /// 入射エネルギー間の補間則。unit-base（INT=21, 22）は通常の補間として扱う（M0 の近似）
-    pub laws: Vec<Interpolation>,
+    /// 入射エネルギー間の補間則
+    pub laws: Vec<IncidentLaw>,
     /// 入射エネルギー (eV)
     pub incident: Vec<f64>,
     /// 各入射エネルギーでの出射エネルギーの確率密度 (1/eV)
@@ -88,7 +88,7 @@ fn positive_theta(r: &mut Reader<'_>) -> Result<ClampedTab1, Error> {
 /// MF5 の LF=1 と MF6 の出射分布で共通の形。
 pub fn parse_outgoing(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error> {
     let tab2 = r.tab2()?;
-    let laws = incident_laws(&tab2.codes, r.line())?;
+    let line = r.line();
     let mut incident = Vec::new();
     let mut spectra = Vec::new();
     for _ in 0..tab2.nz {
@@ -96,6 +96,9 @@ pub fn parse_outgoing(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error
         incident.push(record.c2);
         spectra.push(record.table);
     }
+    let counts: Vec<usize> = spectra.iter().map(|t| t.x.len()).collect();
+    let laws = incident_laws(&tab2.codes, &tab2.breaks, &counts, line)?;
+    check_unit_base(&laws, &tab2.breaks, &spectra, line)?;
     Ok(OutgoingDistributions {
         breaks: tab2.breaks,
         laws,
@@ -104,19 +107,105 @@ pub fn parse_outgoing(r: &mut Reader<'_>) -> Result<OutgoingDistributions, Error
     })
 }
 
-/// 入射エネルギー間の補間則。unit-base（INT=21, 22）は通常の補間として扱う（M0 の近似）。
-pub(super) fn incident_laws(codes: &[i64], line: usize) -> Result<Vec<Interpolation>, Error> {
+/// 入射エネルギー間の出射分布の補間則（ENDF の INT）。
+///
+/// INT=1〜5 はふつうの補間、21〜25 は単位基底（出射エネルギーの範囲を 0〜1 に正規化して補間する）。
+/// 11〜15 は対応点の補間で、隣り合う分布の点の数が違うと定義できないので、NJOY と同じく単位基底に
+/// 切り替える。点の数が同じ対応点の補間は扱わない。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IncidentLaw {
+    /// 補間の式（単位基底では正規化した座標で使う）
+    pub law: Interpolation,
+    pub unit_base: bool,
+}
+
+/// INT の値の方式（十の位）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Scheme {
+    Cartesian,
+    CorrespondingPoint,
+    UnitBase,
+}
+
+/// 入射エネルギー間の補間則を、出射分布の点の数を見て決める。`counts` は各入射エネルギーの分布の点の数。
+pub(super) fn incident_laws(
+    codes: &[i64],
+    breaks: &[usize],
+    counts: &[usize],
+    line: usize,
+) -> Result<Vec<IncidentLaw>, Error> {
+    let unsupported = |code: i64| {
+        Error::new(
+            line,
+            format!("incident-energy interpolation INT={code} is not supported"),
+        )
+    };
     codes
         .iter()
-        .map(|&code| match code {
-            1 | 21 => Ok(Interpolation::Histogram),
-            2 | 22 => Ok(Interpolation::LinLin),
-            _ => Err(Error::new(
-                line,
-                format!("incident-energy interpolation INT={code} is not supported"),
-            )),
+        .enumerate()
+        .map(|(range, &code)| {
+            let scheme = match code / 10 {
+                0 => Scheme::Cartesian,
+                1 => Scheme::CorrespondingPoint,
+                2 => Scheme::UnitBase,
+                _ => return Err(unsupported(code)),
+            };
+            let law = Interpolation::from_code(code % 10).ok_or_else(|| unsupported(code))?;
+            // この補間則の範囲の区間（点 k と k+1 の間）
+            let first = if range == 0 { 0 } else { breaks[range - 1] - 1 };
+            let intervals = first..breaks[range].saturating_sub(1);
+            let unit_base = match scheme {
+                Scheme::Cartesian => false,
+                Scheme::UnitBase => true,
+                Scheme::CorrespondingPoint => {
+                    if intervals.clone().all(|k| counts[k] == counts[k + 1]) {
+                        return Err(Error::new(
+                            line,
+                            format!(
+                                "corresponding-point interpolation (INT={code}) with equal grids \
+                                 is not supported"
+                            ),
+                        ));
+                    }
+                    tracing::warn!(
+                        code,
+                        "corresponding-point interpolation between grids of different sizes; \
+                         using unit-base interpolation as NJOY does"
+                    );
+                    true
+                }
+            };
+            Ok(IncidentLaw { law, unit_base })
         })
         .collect()
+}
+
+/// 単位基底で補間する分布は、2点以上で、出射エネルギーの範囲の幅が正であること（範囲で正規化するため）。
+pub(super) fn check_unit_base(
+    laws: &[IncidentLaw],
+    breaks: &[usize],
+    spectra: &[Tab1],
+    line: usize,
+) -> Result<(), Error> {
+    for (range, law) in laws.iter().enumerate() {
+        if !law.unit_base {
+            continue;
+        }
+        let first = if range == 0 { 0 } else { breaks[range - 1] - 1 };
+        for spectrum in &spectra[first..breaks[range].min(spectra.len())] {
+            let width = match spectrum.x[..] {
+                [low, .., high] => high - low,
+                _ => 0.0,
+            };
+            if width <= 0.0 || width.is_nan() {
+                return Err(Error::new(
+                    line,
+                    "unit-base interpolation needs outgoing spectra of positive width",
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -137,7 +226,8 @@ pub(crate) mod tests {
             r(["2", "2", "", "", "", ""]),
             r(["1.0-5", "1.0", "2.0+7", "1.0", "", ""]),
             r(["0.0", "0.0", "0", "0", "1", "2"]),
-            r(["2", "22", "", "", "", ""]),
+            // 入射エネルギーの間はふつうの線形補間
+            r(["2", "2", "", "", "", ""]),
             r(["0.0", "1.0-5", "0", "0", "1", "2"]),
             r(["2", "1", "", "", "", ""]),
             r([first.0, first.2, first.1, "0.0", "", ""]),
@@ -163,7 +253,13 @@ pub(crate) mod tests {
         };
         assert_eq!(p.eval(1.0), Some(1.0));
         assert_eq!(d.incident, vec![1.0e-5, 2.0e7]);
-        assert_eq!(d.laws, vec![Interpolation::LinLin]);
+        assert_eq!(
+            d.laws,
+            vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: false
+            }]
+        );
         assert_eq!(d.spectra[0].x, vec![1.0e6, 2.0e7]);
         assert_eq!(d.spectra[1].y, vec![1.0e-6, 0.0]);
     }
