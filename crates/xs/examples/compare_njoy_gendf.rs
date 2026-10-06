@@ -85,12 +85,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    if let (Some(nu), Some(section), Some(gendf)) = (
+    if let (Some(fission), Some(nu), Some(section), Some(gendf)) = (
+        tables.get(&18),
         &nubar,
         tape.section(mat, 5, 18),
         reference.section(mat, 6, 18),
     ) {
-        let ours = fission_spectrum(&groups, &Weight::lwr(), &tables, nu, &Mf5::parse(&section)?);
+        let ours = fission_spectrum(&groups, &Weight::lwr(), fission, nu, &Mf5::parse(&section)?);
         let njoy = read_gendf_chi(&gendf, ng)?;
         let mut worst = (0.0_f64, 0);
         for (g, (&expected, &actual)) in njoy.iter().zip(&ours).enumerate() {

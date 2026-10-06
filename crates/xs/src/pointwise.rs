@@ -97,10 +97,7 @@ pub fn resonance_tables(
     eh: f64,
     tol: f64,
 ) -> [Tab1; 4] {
-    let f = |e: f64| {
-        let s = xs.cross_sections(e);
-        RESONANCE_MTS.map(|mt| s.component(mt))
-    };
+    let f = |e: f64| xs.cross_sections(e).components();
     let mut seeds: Vec<f64> = nodes
         .iter()
         .copied()
@@ -113,12 +110,15 @@ pub fn resonance_tables(
 
     let mut x = vec![el];
     let mut values = vec![f(el)];
+    // 区間の左端の値（refine は右端を最後に積むので、次の区間の左端は今の区間の右端）
+    let mut left_value = values[0];
     for w in seeds.windows(2) {
-        let left = (w[0], *values.last().expect("starts with el"));
-        refine(&f, left, (w[1], f(w[1])), tol, &mut |e, v| {
+        let right = (w[1], f(w[1]));
+        refine(&f, (w[0], left_value), right, tol, &mut |e, v| {
             x.push(e);
             values.push(v);
         });
+        left_value = right.1;
     }
     std::array::from_fn(|i| Tab1::linear(x.clone(), values.iter().map(|v| v[i]).collect()))
 }
@@ -165,11 +165,11 @@ pub(crate) fn left_limit(t: &Tab1, e: f64) -> f64 {
 
 /// lin-lin の表の、e の右側からの極限値（定義域の外は 0）。
 pub(crate) fn right_limit(t: &Tab1, e: f64) -> f64 {
-    let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
-    if e < first || e >= last {
+    // 上端は右側からの極限なので 0。下端より下は eval が None を返す
+    if t.x.last().is_none_or(|&last| e >= last) {
         return 0.0;
     }
-    t.eval(e).expect("inside the table range")
+    t.eval(e).unwrap_or(0.0)
 }
 
 /// テープ中の1核種の、全反応の 0 K のポイントワイズの断面積。キーは MT。
@@ -537,14 +537,9 @@ fn resonance_nodes(peaks: impl Iterator<Item = (f64, f64)>) -> Vec<f64> {
 }
 
 impl Sigma {
-    fn component(&self, mt: u32) -> f64 {
-        match mt {
-            1 => self.total,
-            2 => self.elastic,
-            18 => self.fission,
-            102 => self.capture,
-            _ => unreachable!("not a resonance reaction: MT{mt}"),
-        }
+    /// `RESONANCE_MTS` の順の成分
+    fn components(&self) -> [f64; 4] {
+        [self.total, self.elastic, self.fission, self.capture]
     }
 }
 
@@ -608,12 +603,12 @@ mod tests {
         let (gn, gg, gf) = (1.5e-3, 2.3e-2, 1.0e-2);
         let xs = ReichMooreXs::new(&single_level(gn, gg, gf));
         let tables = resonance_tables(&xs, &[6.674], 1.0e-5, 1.0e3, 1.0e-3);
-        for (t, mt) in tables.iter().zip(RESONANCE_MTS) {
+        for (i, (t, mt)) in tables.iter().zip(RESONANCE_MTS).enumerate() {
             assert_linear(t);
             assert_eq!((t.x[0], *t.x.last().unwrap()), (1.0e-5, 1.0e3));
             for w in t.x.windows(2) {
                 let mid = 0.5 * (w[0] + w[1]);
-                let exact = single_level_exact(mid, gn, gg, gf).component(mt);
+                let exact = single_level_exact(mid, gn, gg, gf).components()[i];
                 let approx = t.eval(mid).unwrap();
                 assert!(
                     (approx - exact).abs() <= 1.0e-3 * exact.abs() + 1.0e-12,

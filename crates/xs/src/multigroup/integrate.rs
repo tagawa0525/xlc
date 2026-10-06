@@ -43,9 +43,10 @@ pub fn group_integrals_multi(
     let mut values = vec![0.0; n];
     for w in points.windows(2) {
         let (a, b) = (w[0], w[1]);
-        let g = groups
-            .find(0.5 * (a + b))
-            .expect("points are inside the group structure");
+        // 点は群構造の範囲にあり、群の境界をすべて含むので、区間はちょうど1つの群に入る
+        // （境界は降順。中点より上の境界の数 - 1 が群の番号）
+        let middle = 0.5 * (a + b);
+        let g = bounds.partition_point(|&bound| bound > middle) - 1;
         let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
         let ratio = (b / a).powf(1.0 / pieces as f64);
         let mut lo = a;
