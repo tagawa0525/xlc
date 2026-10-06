@@ -1007,6 +1007,13 @@ mod tests {
         };
         let mut tables = BTreeMap::from([(2, linear(&[1.0, 5.0e3], &[1.0, 1.0]))]);
         add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
+        // 捕獲のない共鳴でも、共鳴エネルギー（格子点）で止まらない
+        let mut capture_free = mf2.clone();
+        let RangeKind::RMatrixLimited(rml) = &mut capture_free.ranges[0].kind else {
+            panic!("expected R-matrix limited");
+        };
+        *rml = inelastic_level(0.0);
+        add_resonances(&mut BTreeMap::new(), &capture_free, 18, 1.0e-3).unwrap();
         // 非弾性散乱は閾値より上でだけ値を持つ
         let threshold = 1.0e3 * (AWRI + 1.0) / AWRI;
         let level = &tables[&51];
