@@ -715,6 +715,7 @@ mod tests {
             lssf: 1,
             spi: 0.0,
             ap: 0.9,
+            ap_energy: None,
             naps: 0,
             l_values: vec![],
         })
