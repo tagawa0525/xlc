@@ -5,6 +5,7 @@ mod fluctuation;
 mod line_shape;
 mod mlbw;
 mod quadrature;
+mod r_matrix_limited;
 mod reich_moore;
 mod unresolved;
 
