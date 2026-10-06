@@ -176,12 +176,14 @@ impl Mf2 {
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
-                2 if nro != 0 => {
-                    return unsupported(
-                        "energy-dependent radius (NRO≠0) in the unresolved range".into(),
-                    );
+                2 if lrf == 2 => {
+                    let ap_energy = match nro {
+                        0 => None,
+                        1 => Some(r.tab1()?.table),
+                        _ => return unsupported(format!("invalid NRO={nro}")),
+                    };
+                    RangeKind::Unresolved(read_unresolved(&mut r, range.n2, ap_energy)?)
                 }
-                2 if lrf == 2 => RangeKind::Unresolved(read_unresolved(&mut r, range.n2)?),
                 2 => return unsupported(format!("unresolved LRF={lrf} is not supported")),
                 _ => return unsupported(format!("invalid LRU={lru}")),
             };
@@ -199,7 +201,11 @@ impl Mf2 {
     }
 }
 
-fn read_unresolved(r: &mut Reader<'_>, naps: i64) -> Result<Unresolved, Error> {
+fn read_unresolved(
+    r: &mut Reader<'_>,
+    naps: i64,
+    ap_energy: Option<Tab1>,
+) -> Result<Unresolved, Error> {
     let cont = r.cont()?;
     let count = |n: i64, line: usize, what: &str| {
         usize::try_from(n).map_err(|_| Error::new(line, format!("invalid {what} {n}")))
@@ -277,7 +283,7 @@ fn read_unresolved(r: &mut Reader<'_>, naps: i64) -> Result<Unresolved, Error> {
         lssf: cont.l1,
         spi: cont.c1,
         ap: cont.c2,
-        ap_energy: None,
+        ap_energy,
         naps,
         l_values,
     })
