@@ -16,6 +16,8 @@ pub struct PinCell {
     radii: Vec<f64>,
     /// 1辺の小さな正方形の数（同心円のあるセルでは 1）
     grid: usize,
+    /// 各リングを分ける扇形の数（1, 4, 8）
+    sectors: usize,
 }
 
 impl PinCell {
@@ -35,6 +37,7 @@ impl PinCell {
             pitch,
             radii,
             grid: 1,
+            sectors: 1,
         })
     }
 
@@ -47,13 +50,26 @@ impl PinCell {
     }
 
     pub fn regions(&self) -> usize {
-        self.radii.len() + self.grid * self.grid
+        if self.grid > 1 {
+            self.grid * self.grid
+        } else {
+            (self.radii.len() + 1) * self.sectors
+        }
     }
 
     /// 同心円で区切った各リングを、さらに x 軸から等角度の扇形 `sectors` 個（1, 4, 8）に分けたセル。
     /// 領域はリングの順に、リングの中では角度の順に番号を付ける。
     pub fn with_sectors(pitch: f64, radii: Vec<f64>, sectors: usize) -> Result<Self, String> {
-        todo!("{pitch} {radii:?} {sectors}")
+        // 正方形の対称性から、1, 4, 8 個なら外側の領域も扇形ごとに同じ面積になる
+        if ![1, 4, 8].contains(&sectors) {
+            return Err(format!(
+                "the number of sectors must be 1, 4 or 8, got {sectors}"
+            ));
+        }
+        Ok(Self {
+            sectors,
+            ..Self::new(pitch, radii)?
+        })
     }
 
     /// 同心円がなく、m × m の小さな正方形に分けたセル。
@@ -74,8 +90,10 @@ impl PinCell {
             let index = |v: f64| ((v / h).floor().max(0.0) as usize).min(m - 1);
             return index(0.5 * self.pitch - y) * m + index(x + 0.5 * self.pitch);
         }
-        let r = x.hypot(y);
-        self.radii.partition_point(|&ri| ri <= r)
+        let ring = self.radii.partition_point(|&ri| ri <= x.hypot(y));
+        let angle = y.atan2(x).rem_euclid(2.0 * PI);
+        let sector = ((angle / (2.0 * PI) * self.sectors as f64) as usize).min(self.sectors - 1);
+        ring * self.sectors + sector
     }
 
     /// セルの中心を原点とする点 start から方向 direction に長さ length 進む直線を、
@@ -92,6 +110,22 @@ impl PinCell {
                 for k in 1..self.grid {
                     let t = (-0.5 * self.pitch + k as f64 * h - origin) / d;
                     if t > 0.0 && t < length {
+                        cuts.push(t);
+                    }
+                }
+            }
+        }
+        // 扇形の境界の半直線 t u（u = (cos θk, sin θk)）: u × (start + t d) = 0
+        if self.sectors > 1 {
+            for k in 0..self.sectors {
+                let theta = 2.0 * PI * k as f64 / self.sectors as f64;
+                let u = (theta.cos(), theta.sin());
+                let cross = |v: (f64, f64)| u.0 * v.1 - u.1 * v.0;
+                let denominator = cross(direction);
+                if denominator != 0.0 {
+                    let t = -cross(start) / denominator;
+                    let point = (start.0 + t * direction.0, start.1 + t * direction.1);
+                    if t > 0.0 && t < length && u.0 * point.0 + u.1 * point.1 > 0.0 {
                         cuts.push(t);
                     }
                 }
@@ -140,6 +174,9 @@ impl PinCell {
             .collect();
         volumes.push(self.pitch * self.pitch - PI * inner * inner);
         volumes
+            .iter()
+            .flat_map(|v| std::iter::repeat_n(v / self.sectors as f64, self.sectors))
+            .collect()
     }
 }
 
