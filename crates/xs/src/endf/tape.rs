@@ -114,6 +114,18 @@ impl Tape {
         materials
     }
 
+    /// 指定した MAT/MF のセクションを、MT とともにテープ上の順に返す。
+    pub fn sections(&self, mat: i32, mf: u32) -> Vec<(u32, Section<'_>)> {
+        self.lines
+            .chunk_by(|a, b| a.id() == b.id())
+            .filter(|lines| {
+                let line = &lines[0];
+                line.mat == mat && line.mf == mf && line.mt != 0
+            })
+            .map(|lines| (lines[0].mt, Section { lines }))
+            .collect()
+    }
+
     /// 指定した MAT/MF に含まれる MT を、テープ上の順に返す。
     pub fn mts(&self, mat: i32, mf: u32) -> Vec<u32> {
         let mut mts = Vec::new();

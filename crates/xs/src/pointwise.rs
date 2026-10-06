@@ -208,12 +208,16 @@ impl ColdParts {
     /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
     #[tracing::instrument(name = "reconstruct", level = "debug", skip_all)]
     pub fn read(tape: &Tape, mat: i32, tol: f64) -> Result<Self, Error> {
-        let available = tape.mts(mat, 3);
+        let sections = tape.sections(mat, 3);
+        let available: Vec<u32> = sections.iter().map(|(mt, _)| *mt).collect();
         let mut tables = BTreeMap::new();
         let mut awr = None;
-        for &mt in available.iter().filter(|&&mt| !is_dropped(mt, &available)) {
-            let section = tape.section(mat, 3, mt).expect("listed by mts");
-            let mf3 = Mf3::parse(&section)?;
+        for (mt, section) in sections
+            .iter()
+            .filter(|(mt, _)| !is_dropped(*mt, &available))
+        {
+            let mt = *mt;
+            let mf3 = Mf3::parse(section)?;
             awr.get_or_insert(mf3.awr);
             tables.insert(mt, linearize(&mf3.sigma, tol));
         }
