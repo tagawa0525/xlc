@@ -9,9 +9,10 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use xs::endf::{Mf7Incoherent, Tape};
+use xs::endf::Tape;
 use xs::multigroup::{GroupStructure, Thermal, ThermalSab, Weight, scattering_matrix};
 use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
+use xs::process::read_thermal_scattering;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -27,9 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tables = reconstruct_at(&tape, mat, DEFAULT_TOLERANCE, temperature)?;
     let elastic = BTreeMap::from([(2, tables.get(&2).ok_or("no MT2")?.clone())]);
     let awr = xs::endf::Mf3::parse(&tape.section(mat, 3, 2).ok_or("no MF3 MT2")?)?.awr;
-    let thermal_tape = read(tsl)?;
-    let tsl_mat = *thermal_tape.materials().first().ok_or("empty TSL tape")?;
-    let data = Mf7Incoherent::parse(&thermal_tape.section(tsl_mat, 7, 4).ok_or("no MF7 MT4")?)?;
+    let data = read_thermal_scattering(&read(tsl)?)?;
     let sab = ThermalSab::new(&data, temperature, cutoff)?;
 
     let groups = GroupStructure::wims69();
