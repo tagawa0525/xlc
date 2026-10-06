@@ -852,6 +852,47 @@ mod tests {
         );
     }
 
+    /// LRF=1 の範囲 [5.7 keV, 40 keV] を読んだ結果のエラー
+    fn lrf1_error(lfw: &str, parameters: &[[&str; 6]]) -> String {
+        let mut lines = vec![
+            HEAD,
+            ["9.423900+4", "1.0", "0", lfw, "1", "0"],
+            ["5.7+3", "4.0+4", "2", "1", "0", "0"],
+        ];
+        lines.extend_from_slice(parameters);
+        mf2(&lines).unwrap_err().to_string()
+    }
+
+    #[test]
+    fn rejects_invalid_lfw() {
+        let error = lrf1_error(
+            "2",
+            &[
+                ["0.0", "0.888", "1", "0", "1", "0"],
+                ["2.379916+2", "0.0", "0", "0", "6", "1"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
+            ],
+        );
+        assert!(error.contains("LFW=2"), "{error}");
+    }
+
+    #[test]
+    fn rejects_fission_width_energies_short_of_the_range() {
+        // ES が範囲の上端 40 keV に届かない
+        let error = lrf1_error(
+            "1",
+            &[
+                ["0.0", "0.888", "1", "0", "2", "1"],
+                ["5.7+3", "3.0+4", "", "", "", ""],
+                ["2.379916+2", "0.0", "0", "0", "1", "0"],
+                ["0.0", "0.0", "0", "1", "8", "0"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
+                ["1.2-3", "1.4-3", "", "", "", ""],
+            ],
+        );
+        assert!(error.contains("cover"), "{error}");
+    }
+
     #[test]
     fn reads_unresolved_lrf1_with_energy_dependent_radius() {
         let urr = read_lrf1(
