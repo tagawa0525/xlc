@@ -217,7 +217,7 @@ fn run(input: &Input) -> anyhow::Result<()> {
         sigma0: settings.sigma0,
         nuclides,
     };
-    std::fs::write(&input.output, library.to_msgpack())
+    std::fs::write(&input.output, library.to_msgpack()?)
         .with_context(|| format!("{}", input.output.display()))
 }
 

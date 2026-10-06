@@ -73,7 +73,7 @@ impl FewGroup {
     }
 
     /// MessagePack（フィールド名付きの map 形式）で書く。
-    pub fn to_msgpack(&self) -> Vec<u8> {
+    pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         msgpack::to_named(&FewGroupFile {
             format: FORMAT.into(),
             bounds: self.bounds.clone(),
@@ -359,7 +359,10 @@ mod tests {
     #[test]
     fn round_trips_bit_exactly() {
         let fg = sample();
-        assert_eq!(FewGroup::from_msgpack(&fg.to_msgpack()).unwrap(), fg);
+        assert_eq!(
+            FewGroup::from_msgpack(&fg.to_msgpack().unwrap()).unwrap(),
+            fg
+        );
     }
 
     #[test]
@@ -386,7 +389,7 @@ mod tests {
             FewGroup::from_msgpack(&array),
             Err(FewGroupError::Msgpack(MsgpackError::NotMap))
         ));
-        let mut bytes = sample().to_msgpack();
+        let mut bytes = sample().to_msgpack().unwrap();
         bytes.push(0xc0);
         assert!(FewGroup::from_msgpack(&bytes).is_err());
     }

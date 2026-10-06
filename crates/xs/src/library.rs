@@ -115,6 +115,8 @@ pub enum LookupError {
 /// ライブラリの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
+    #[error("cannot encode as MessagePack: {0}")]
+    Encode(String),
     #[error("invalid MessagePack: {0}")]
     Decode(String),
     #[error("{0} bytes follow the library")]
@@ -139,7 +141,7 @@ struct LibraryFile {
 
 impl Library {
     /// MessagePack（フィールド名付きの map 形式）で書く。
-    pub fn to_msgpack(&self) -> Vec<u8> {
+    pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         let file = LibraryFile {
             format: FORMAT.into(),
             group_bounds: self.groups.bounds().to_vec(),
@@ -235,6 +237,7 @@ fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
 impl From<MsgpackError> for LibraryError {
     fn from(error: MsgpackError) -> Self {
         match error {
+            MsgpackError::Encode(message) => Self::Encode(message),
             MsgpackError::Decode(message) => Self::Decode(message),
             MsgpackError::TrailingBytes(n) => Self::TrailingBytes(n),
             MsgpackError::NotMap => Self::NotMap,
@@ -365,7 +368,7 @@ pub(crate) mod tests {
     fn round_trips_bit_exactly() {
         let library = sample();
         assert_eq!(
-            Library::from_msgpack(&library.to_msgpack()).unwrap(),
+            Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap(),
             library
         );
     }
@@ -400,7 +403,7 @@ pub(crate) mod tests {
 
     #[test]
     fn written_as_a_map_with_the_format_name() {
-        let bytes = sample().to_msgpack();
+        let bytes = sample().to_msgpack().unwrap();
         let value: std::collections::BTreeMap<String, serde::de::IgnoredAny> =
             rmp_serde::from_slice(&bytes).unwrap();
         let keys: Vec<&str> = value.keys().map(String::as_str).collect();
@@ -556,7 +559,7 @@ pub(crate) mod tests {
 
     #[test]
     fn trailing_bytes_are_rejected() {
-        let mut bytes = sample().to_msgpack();
+        let mut bytes = sample().to_msgpack().unwrap();
         bytes.extend([0xc1, 0xff, 0x00]);
         assert!(Library::from_msgpack(&bytes).is_err());
     }
