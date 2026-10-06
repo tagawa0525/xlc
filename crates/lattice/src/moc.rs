@@ -106,29 +106,7 @@ pub fn solve(
         return Err(MocError::Untracked(i));
     }
 
-    let np = POLAR_SIN.len();
-    let width = np * ng;
-    // 区間ごと・極角ごと・群ごとの 1 - exp(-τ)（スイープの前に一度だけ求める）
-    let attenuation: Vec<Vec<f64>> = tracking
-        .tracks
-        .iter()
-        .map(|track| {
-            let mut values = Vec::with_capacity(track.segments.len() * width);
-            for s in &track.segments {
-                for sin in POLAR_SIN {
-                    for t in &materials[s.region].total {
-                        values.push(-(-t * s.length / sin).exp_m1());
-                    }
-                }
-            }
-            values
-        })
-        .collect();
-    // 方向ごとの重み 4π (w_a/2) ω_p sinθ_p δ_a
-    let direction_weight = |azimuth: usize, p: usize| {
-        let a = &tracking.azimuths[azimuth];
-        4.0 * PI * 0.5 * a.weight * POLAR_WEIGHT[p] * POLAR_SIN[p] * a.spacing
-    };
+    let sweeper = Sweeper::new(tracking, materials, ng);
     let production = |flux: &[Vec<f64>]| -> f64 {
         flux.iter()
             .zip(materials)
@@ -152,19 +130,10 @@ pub fn solve(
         *f /= initial;
     }
     let mut k = 1.0;
-    // スイープの終わりに出ていく角度中性子束 [トラック][向き (0: 順, 1: 逆)][極角][群]。
-    // 各トラックは自分の場所にだけ書くので、トラックごとに並列にスイープできる
-    let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
-    let sources = incoming_sources(tracking);
-    let mut outgoing = vec![0.0; 2 * tracking.tracks.len() * width];
+    // スイープの終わりに出ていく角度中性子束（`Sweeper::sweep` を参照）
+    let mut outgoing = vec![0.0; sweeper.outgoing_len()];
     let mut next_outgoing = outgoing.clone();
-    // 方位角ごとの部分和。方位角ごとに順にスイープし、方位角の順に足すので、結果はスレッドの数や
-    // 仕事の分け方によらない。方位角ごとのトラックの長さの和はほぼ等しく、仕事の量も揃う
-    let azimuths = azimuth_ranges(tracking);
-    let mut tallies: Vec<Tally> = azimuths
-        .iter()
-        .map(|_| Tally::new(regions * ng, ng, width))
-        .collect();
+    let mut tallies = sweeper.tallies(regions);
     let mut k_history = Remaining::default();
     let mut flux_history = Remaining::default();
 
@@ -174,66 +143,7 @@ pub fn solve(
             .map(|i| equilibrium_flux(materials[i], &flux[i], k))
             .collect();
 
-        // 出ていく角度中性子束の配列を、方位角ごとの範囲に分ける
-        let mut rest = next_outgoing.as_mut_slice();
-        let mut outputs = Vec::with_capacity(azimuths.len());
-        for range in &azimuths {
-            let (head, tail) = rest.split_at_mut(2 * width * range.len());
-            outputs.push(head);
-            rest = tail;
-        }
-        tallies
-            .par_iter_mut()
-            .zip(outputs)
-            .zip(&azimuths)
-            .for_each(|((tally, outputs), range)| {
-                tally.clear();
-                for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
-                    let track = &tracking.tracks[index];
-                    let weights: [f64; POLAR_SIN.len()] =
-                        std::array::from_fn(|p| direction_weight(track.azimuth, p));
-                    for forward in [true, false] {
-                        let psi = &mut tally.psi;
-                        match sources[slot(index, forward)] {
-                            Some(source) => {
-                                psi.copy_from_slice(&outgoing[source * width..][..width])
-                            }
-                            // 真空境界から入ってくる角度中性子束は 0
-                            None => psi.fill(0.0),
-                        }
-                        let n = track.segments.len();
-                        for step in 0..n {
-                            let s = if forward { step } else { n - 1 - step };
-                            let region = track.segments[s].region;
-                            let att = &attenuation[index][s * width..][..width];
-                            let q = &equilibrium[region];
-                            let d = &mut tally.delta[region * ng..][..ng];
-                            for (p, weight) in weights.iter().enumerate() {
-                                for g in 0..ng {
-                                    let j = p * ng + g;
-                                    let change = (psi[j] - q[g]) * att[j];
-                                    psi[j] -= change;
-                                    d[g] += weight * change;
-                                }
-                            }
-                        }
-                        out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
-                        let link = if forward {
-                            track.forward_link
-                        } else {
-                            track.backward_link
-                        };
-                        // 真空境界から出た分は漏れ
-                        if link.is_none() {
-                            for (p, weight) in weights.iter().enumerate() {
-                                for (l, value) in tally.leak.iter_mut().zip(&psi[p * ng..][..ng]) {
-                                    *l += weight * value;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+        sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies);
         std::mem::swap(&mut outgoing, &mut next_outgoing);
         let (delta, mut leak) = sum_tallies(&tallies, ng);
 
@@ -287,6 +197,147 @@ pub fn solve(
         iterations: options.max_iterations,
         k,
     })
+}
+
+/// トラックのスイープ。トラックと物質から決まる量（減衰の表など）を、反復の前に一度だけ求めて持つ。
+struct Sweeper<'a> {
+    tracking: &'a Tracking,
+    ng: usize,
+    /// [極角][群] の数
+    width: usize,
+    /// [トラック] の区間ごと・極角ごと・群ごとの 1 - exp(-τ)
+    attenuation: Vec<Vec<f64>>,
+    /// [トラック][向き] のスイープの始めに入ってくる角度中性子束の出どころ（`incoming_sources`）
+    sources: Vec<Option<usize>>,
+    /// 方位角ごとのトラックの番号の範囲
+    azimuths: Vec<std::ops::Range<usize>>,
+}
+
+impl<'a> Sweeper<'a> {
+    fn new(tracking: &'a Tracking, materials: &[&Material], ng: usize) -> Self {
+        let width = POLAR_SIN.len() * ng;
+        let attenuation = tracking
+            .tracks
+            .iter()
+            .map(|track| {
+                let mut values = Vec::with_capacity(track.segments.len() * width);
+                for s in &track.segments {
+                    for sin in POLAR_SIN {
+                        for t in &materials[s.region].total {
+                            values.push(-(-t * s.length / sin).exp_m1());
+                        }
+                    }
+                }
+                values
+            })
+            .collect();
+        Self {
+            tracking,
+            ng,
+            width,
+            attenuation,
+            sources: incoming_sources(tracking),
+            azimuths: azimuth_ranges(tracking),
+        }
+    }
+
+    /// 出ていく角度中性子束の配列の長さ
+    fn outgoing_len(&self) -> usize {
+        2 * self.tracking.tracks.len() * self.width
+    }
+
+    /// 方位角ごとの部分和の入れ物。方位角ごとに順にスイープし、方位角の順に足すので、結果は
+    /// スレッドの数や仕事の分け方によらない。方位角ごとのトラックの長さの和はほぼ等しく、
+    /// 仕事の量も揃う
+    fn tallies(&self, regions: usize) -> Vec<Tally> {
+        self.azimuths
+            .iter()
+            .map(|_| Tally::new(regions * self.ng, self.ng, self.width))
+            .collect()
+    }
+
+    /// 方向ごとの重み 4π (w_a/2) ω_p sinθ_p δ_a
+    fn direction_weight(&self, azimuth: usize, p: usize) -> f64 {
+        let a = &self.tracking.azimuths[azimuth];
+        4.0 * PI * 0.5 * a.weight * POLAR_WEIGHT[p] * POLAR_SIN[p] * a.spacing
+    }
+
+    /// 全トラックを両方向に1回ずつスイープする。
+    ///
+    /// `equilibrium` は [領域][群] の角度中性子束の平衡値（線源 / 4πΣt）。`incoming` は前回の
+    /// スイープで出ていった角度中性子束、`outgoing` には今回出ていく分を書く。どちらも
+    /// [トラック][向き (0: 順, 1: 逆)][極角][群] の並びで、各トラックは自分の場所にだけ書くので、
+    /// トラックごとに並列にスイープできる。
+    fn sweep(
+        &self,
+        equilibrium: &[Vec<f64>],
+        incoming: &[f64],
+        outgoing: &mut [f64],
+        tallies: &mut [Tally],
+    ) {
+        let (ng, width) = (self.ng, self.width);
+        let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
+        // 出ていく角度中性子束の配列を、方位角ごとの範囲に分ける
+        let mut rest = outgoing;
+        let mut outputs = Vec::with_capacity(self.azimuths.len());
+        for range in &self.azimuths {
+            let (head, tail) = rest.split_at_mut(2 * width * range.len());
+            outputs.push(head);
+            rest = tail;
+        }
+        tallies
+            .par_iter_mut()
+            .zip(outputs)
+            .zip(&self.azimuths)
+            .for_each(|((tally, outputs), range)| {
+                tally.clear();
+                for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
+                    let track = &self.tracking.tracks[index];
+                    let weights: [f64; POLAR_SIN.len()] =
+                        std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
+                    for forward in [true, false] {
+                        let psi = &mut tally.psi;
+                        match self.sources[slot(index, forward)] {
+                            Some(source) => {
+                                psi.copy_from_slice(&incoming[source * width..][..width])
+                            }
+                            // 真空境界から入ってくる角度中性子束は 0
+                            None => psi.fill(0.0),
+                        }
+                        let n = track.segments.len();
+                        for step in 0..n {
+                            let s = if forward { step } else { n - 1 - step };
+                            let region = track.segments[s].region;
+                            let att = &self.attenuation[index][s * width..][..width];
+                            let q = &equilibrium[region];
+                            let d = &mut tally.delta[region * ng..][..ng];
+                            for (p, weight) in weights.iter().enumerate() {
+                                for g in 0..ng {
+                                    let j = p * ng + g;
+                                    let change = (psi[j] - q[g]) * att[j];
+                                    psi[j] -= change;
+                                    d[g] += weight * change;
+                                }
+                            }
+                        }
+                        out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
+                        let link = if forward {
+                            track.forward_link
+                        } else {
+                            track.backward_link
+                        };
+                        // 真空境界から出た分は漏れ
+                        if link.is_none() {
+                            for (p, weight) in weights.iter().enumerate() {
+                                for (l, value) in tally.leak.iter_mut().zip(&psi[p * ng..][..ng]) {
+                                    *l += weight * value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+    }
 }
 
 /// スイープで足し込む量（方位角ごとに持ち、スイープの後に足し合わせる）。
