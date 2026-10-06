@@ -8,7 +8,7 @@ use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, expectation_vec, width_ratios};
 use super::line_shape::jk_interpolated;
-use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint};
+use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof};
 use crate::physics::{BK, wave_number_factor};
 
 /// 非分離共鳴のパラメータから、無限希釈の平均断面積を計算する。
@@ -73,7 +73,8 @@ impl<'a> UnresolvedXs<'a> {
                 let p = parameters(&jv.points, e);
                 let gj = (2.0 * jv.aj + 1.0) / (4.0 * urr.spi + 2.0);
                 // 平均中性子幅（換算幅 × 自由度 × 透過因子/ρ × √E）
-                let gn = p.gno * f64::from(jv.amun) * penetrability(lv.l, rho) / rho * e.sqrt();
+                let gn =
+                    p.gno * f64::from(jv.amun.number()) * penetrability(lv.l, rho) / rho * e.sqrt();
                 let scale = 2.0 * PI * pifac * gj / p.d;
                 let [f1, f2, f3] = fluctuation_integrals(gn, p.gf, p.gg, p.gx, jv);
                 sigma.elastic += scale * (gn * gn * f1 - 2.0 * gn * sin2);
@@ -130,7 +131,8 @@ impl UnresolvedXs<'_> {
             for jv in &lv.j_values {
                 let p = parameters(&jv.points, e);
                 let gj = (2.0 * jv.aj + 1.0) / (4.0 * urr.spi + 2.0);
-                let gn = p.gno * f64::from(jv.amun) * penetrability(lv.l, rho) / rho * e.sqrt();
+                let gn =
+                    p.gno * f64::from(jv.amun.number()) * penetrability(lv.l, rho) / rho * e.sqrt();
                 sint -= ab * PI * gj * gn * sin2 / p.d;
                 sequences.push(Sequence {
                     gj,
@@ -242,8 +244,16 @@ impl Sequence<'_> {
         if self.gn <= 0.0 || self.gg <= 0.0 {
             return Ok(vec![0.0; n]);
         }
-        let dof_f = if self.gf > 0.0 { self.jv.amuf } else { 0 };
-        let dof_x = if self.gx > 0.0 { self.jv.amux } else { 0 };
+        let dof_f = if self.gf > 0.0 {
+            self.jv.amuf
+        } else {
+            WidthDof::Fixed
+        };
+        let dof_x = if self.gx > 0.0 {
+            self.jv.amux
+        } else {
+            WidthDof::Fixed
+        };
         let failure = std::cell::RefCell::new(None);
         let node = |x: f64, y: f64, z: f64, out: &mut [f64]| {
             let (gn, gf, gx) = (self.gn * x, self.gf * y, self.gx * z);
@@ -317,8 +327,8 @@ fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> 
     if gn <= 0.0 || gg <= 0.0 {
         return [0.0; 3];
     }
-    let dof_f = if gf > 0.0 { jv.amuf } else { 0 };
-    let dof_x = if gx > 0.0 { jv.amux } else { 0 };
+    let dof_f = if gf > 0.0 { jv.amuf } else { WidthDof::Fixed };
+    let dof_x = if gx > 0.0 { jv.amux } else { WidthDof::Fixed };
     let ratios = |y: f64, z: f64| width_ratios(jv.amun, (gf * y + gg + gx * z) / gn);
     let outer = |g: &dyn Fn(f64, f64) -> f64| {
         expectation(dof_x, TOLERANCE[1], |z| {
@@ -431,9 +441,9 @@ mod tests {
                 j_values: vec![UrrJValue {
                     aj: 0.5,
                     int,
-                    amux: 0,
-                    amun: 1,
-                    amuf: 0,
+                    amux: WidthDof::Fixed,
+                    amun: WidthDof::One,
+                    amuf: WidthDof::Fixed,
                     points,
                 }],
             }],
@@ -521,9 +531,9 @@ mod tests {
                 j_values: vec![UrrJValue {
                     aj: 0.5,
                     int: Interpolation::LinLin,
-                    amux: 0,
-                    amun: 1,
-                    amuf: 1,
+                    amux: WidthDof::Fixed,
+                    amun: WidthDof::One,
+                    amuf: WidthDof::One,
                     points: vec![
                         point(4.0e4, 1.5872e-3, 6.7737e-4),
                         point(6.0e4, 1.4566e-3, 6.0163e-4),
@@ -558,9 +568,9 @@ mod tests {
                 j_values: vec![UrrJValue {
                     aj: 1.5,
                     int: Interpolation::LogLog,
-                    amux: 1,
-                    amun: 1,
-                    amuf: 1,
+                    amux: WidthDof::One,
+                    amun: WidthDof::One,
+                    amuf: WidthDof::One,
                     points: vec![
                         point(4.5e4, 0.0),
                         point(5.0e4, 2.03e-5),
