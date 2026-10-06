@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 
 use super::outgoing::uniform_fractions;
 use super::{
-    FreeGas, GroupStructure, GroupedOutgoing, Weight, free_gas_group_integrals, group_integrals,
-    group_integrals_multi,
+    FreeGas, GroupStructure, GroupedOutgoing, ThermalSab, Weight, free_gas_group_integrals,
+    group_integrals, group_integrals_multi,
 };
 use crate::endf::{Frame, Mf6, Tab1};
 
@@ -29,12 +29,21 @@ pub fn two_body_range(e: f64, awr: f64, q: f64) -> Option<(f64, f64)> {
     ))
 }
 
+/// 熱領域の散乱の扱い。どちらも cutoff 未満の入射エネルギーで、弾性散乱の静止標的の2体反応を置き換える。
+#[derive(Debug, Clone)]
+pub enum Thermal<'a> {
+    /// 自由ガス模型（MF3 の弾性散乱断面積に、標的の熱運動によるエネルギー移行を掛ける）
+    FreeGas(FreeGas),
+    /// S(α, β)（MF3 の弾性散乱断面積は使わず、核そのものが断面積を与える）
+    Sab(ThermalSab<'a>),
+}
+
 /// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
 ///
 /// - `tables`: ポイントワイズの断面積（キーは MT）
 /// - `q_values`: 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
 /// - `mf6`: MF6 の中性子放出データ（キーは MT）
-/// - `thermal`: 熱領域の弾性散乱を自由ガス模型で扱う条件（`None` なら全域で静止標的）
+/// - `thermal`: 熱領域の弾性散乱の扱い（`None` なら全域で静止標的）
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
 pub fn scattering_matrix(
@@ -44,9 +53,9 @@ pub fn scattering_matrix(
     tables: &BTreeMap<u32, Tab1>,
     q_values: &BTreeMap<u32, f64>,
     mf6: &BTreeMap<u32, Mf6>,
-    thermal: Option<&FreeGas>,
+    thermal: Option<&Thermal>,
 ) -> Result<Vec<Vec<f64>>, String> {
-    if let Some(free_gas) = thermal
+    if let Some(Thermal::FreeGas(free_gas)) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
         return Err(format!(
@@ -121,33 +130,45 @@ pub fn emits_neutrons(mt: u32) -> bool {
     )
 }
 
-/// 弾性散乱の ∫_g σ(E) w(E) P(E→g') dE。`thermal` の cutoff 未満では自由ガス模型、
+/// 弾性散乱の ∫_g σ(E) w(E) P(E→g') dE。`thermal` の cutoff 未満では熱領域の扱い、
 /// それ以上では静止標的との2体反応とする。
 fn elastic_rows(
     groups: &GroupStructure,
     weight: &Weight,
     awr: f64,
     table: &Tab1,
-    thermal: Option<&FreeGas>,
+    thermal: Option<&Thermal>,
 ) -> Vec<Vec<f64>> {
-    let Some(free_gas) = thermal else {
+    let Some(thermal) = thermal else {
         return two_body_rows(groups, weight, awr, 0.0, table);
+    };
+    let cutoff = match thermal {
+        Thermal::FreeGas(free_gas) => free_gas.cutoff,
+        Thermal::Sab(sab) => sab.cutoff(),
     };
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, 0.0));
-    breakpoints.push(free_gas.cutoff);
+    breakpoints.push(cutoff);
     group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
         let sigma = table.eval(e).unwrap_or(0.0);
-        if sigma == 0.0 {
-            return;
-        }
-        if e < free_gas.cutoff {
-            let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
-            for (o, t) in out.iter_mut().zip(transfer) {
-                *o += sigma * t;
+        match thermal {
+            // S(α, β) の核は断面積そのものなので、MF3 の弾性散乱断面積は使わない
+            Thermal::Sab(sab) if e < cutoff => {
+                for (o, t) in out.iter_mut().zip(sab.group_integrals(groups, e)) {
+                    *o += t;
+                }
             }
-        } else if let Some((lo, hi)) = two_body_range(e, awr, 0.0) {
-            uniform_fractions(groups, lo, hi, sigma, out);
+            Thermal::FreeGas(free_gas) if e < cutoff => {
+                let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
+                for (o, t) in out.iter_mut().zip(transfer) {
+                    *o += sigma * t;
+                }
+            }
+            _ => {
+                if let Some((lo, hi)) = two_body_range(e, awr, 0.0) {
+                    uniform_fractions(groups, lo, hi, sigma, out);
+                }
+            }
         }
     })
 }
@@ -372,7 +393,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
-            Some(&thermal),
+            Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
         let flux = group_integrals(&groups, &weight, &[], |_| 1.0);
@@ -399,6 +420,61 @@ mod tests {
         assert!(m[g][g - 1] > 0.0);
     }
 
+    fn sab_matrix(elastic: f64) -> (GroupStructure, Vec<Vec<f64>>, f64) {
+        use crate::multigroup::sab_tests::coarse_free_gas_table;
+        let groups = GroupStructure::wims69();
+        // 重み関数の Maxwell 分布（kT = 0.0253 eV）と同じ温度にする（自由ガスの S は α, β で書けば温度によらない）
+        let temperature = 0.0253 / crate::physics::BK;
+        let mut data = coarse_free_gas_table();
+        data.temperatures = vec![temperature];
+        let cutoff = 1.0;
+        let sab = ThermalSab::new(&data, temperature, cutoff).unwrap();
+        let tables = BTreeMap::from([(2, constant(elastic))]);
+        let m = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            1.0,
+            &tables,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            Some(&Thermal::Sab(sab)),
+        )
+        .unwrap();
+        (groups, m, cutoff)
+    }
+
+    #[test]
+    fn sab_matrix_satisfies_detailed_balance() {
+        // 重み関数の熱領域（0.1 eV 以下）は kT = 0.0253 eV の Maxwell 分布で、S(α, β) も同じ温度なので、
+        // 群間でも φ_g σ(g→g') = φ_g' σ(g'→g) が成り立つ（表の細かさによらない）。
+        // 自由ガスとの物理的な一致は、核と群への積分の段階で確かめている（sab のテスト）
+        let (groups, m, _) = sab_matrix(1.0);
+        let flux = group_integrals(&groups, &Weight::lwr(), &[], |_| 1.0);
+        let maxwellian: Vec<usize> = (0..groups.len() - 1)
+            .filter(|&g| groups.range(g).1 <= 0.1)
+            .collect();
+        assert!(maxwellian.len() > 10);
+        for &g in &maxwellian {
+            for &h in &maxwellian {
+                let (forward, backward) = (flux[g] * m[g][h], flux[h] * m[h][g]);
+                assert!(
+                    (forward - backward).abs() <= 1e-6 * forward.max(backward) + 1e-12,
+                    "{g}→{h}: {forward} vs {backward}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sab_ignores_mf3_elastic_below_cutoff() {
+        // S(α, β) の核は断面積そのものなので、cutoff 未満の行は MF3 の弾性散乱断面積によらない
+        let (groups, one, cutoff) = sab_matrix(1.0);
+        let (_, ten, _) = sab_matrix(10.0);
+        for g in (0..groups.len()).filter(|&g| groups.range(g).1 <= cutoff) {
+            assert_eq!(one[g], ten[g], "group {g}");
+        }
+    }
+
     #[test]
     fn elastic_uses_free_gas_even_with_mf6_data() {
         // MF6 に MT2 があっても、弾性散乱は2体反応と自由ガスで扱う
@@ -422,7 +498,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &mf6,
-            Some(&thermal),
+            Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
         assert!(m[0].iter().sum::<f64>() > 4.0, "{m:?}");
@@ -441,7 +517,7 @@ mod tests {
                 &tables,
                 &BTreeMap::new(),
                 &BTreeMap::new(),
-                Some(&thermal),
+                Some(&Thermal::FreeGas(thermal)),
             );
             assert!(result.is_err(), "kt {kt}, cutoff {cutoff}");
         }
