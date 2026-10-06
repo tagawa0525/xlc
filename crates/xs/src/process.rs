@@ -139,41 +139,6 @@ pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f
         .collect()
 }
 
-/// 自由ガス模型で散乱行列を作るための弾性散乱断面積。`cutoff` 未満は自由原子の（0 K の）断面積
-/// `free_atom`、以上は温度 T に拡げた断面積 `broadened` とする。
-///
-/// 自由ガスの核は規格化せず、その積分 N(E) が熱運動による実効断面積の増加を表す（詳細バランスを
-/// 保つため。`free_gas` を参照）。温度 T に拡げた断面積はすでに N(E) を含むので、核に掛けると
-/// N(E) を二重に数える。一定の断面積なら、拡げた断面積はちょうど N(E) 倍になる。
-/// NJOY THERMR は代わりに、拡げた断面積に規格化した出射分布を掛ける。
-fn free_gas_elastic(free_atom: &Tab1, broadened: &Tab1, cutoff: f64) -> Tab1 {
-    let (mut x, mut y) = (Vec::new(), Vec::new());
-    for (&e, &v) in free_atom
-        .x
-        .iter()
-        .zip(&free_atom.y)
-        .filter(|(e, _)| **e < cutoff)
-    {
-        x.push(e);
-        y.push(v);
-    }
-    x.extend([cutoff, cutoff]);
-    y.extend([
-        left_limit(free_atom, cutoff),
-        right_limit(broadened, cutoff),
-    ]);
-    for (&e, &v) in broadened
-        .x
-        .iter()
-        .zip(&broadened.y)
-        .filter(|(e, _)| **e > cutoff)
-    {
-        x.push(e);
-        y.push(v);
-    }
-    Tab1::linear(x, y)
-}
-
 /// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
 /// `thermal` があれば cutoff 未満の弾性散乱を S(α, β) で、なければ自由ガス模型で扱う。
 pub fn process_nuclide(
@@ -298,15 +263,7 @@ impl Common<'_> {
             }),
         };
         let elastic_table = tables.get(&2).ok_or("MF3 MT2 not found")?;
-        // 自由ガス模型は自由原子の断面積（0 K の弾性散乱）に核を掛ける（`free_gas_elastic` を参照）
-        let elastic_table = match thermal {
-            Thermal::FreeGas(_) => {
-                let free_atom = self.cold.part(2).ok_or("MF3 MT2 not found")?;
-                free_gas_elastic(free_atom, elastic_table, settings.thermal_cutoff)
-            }
-            Thermal::Sab(_) => elastic_table.clone(),
-        };
-        let elastic_only = BTreeMap::from([(2, elastic_table)]);
+        let elastic_only = BTreeMap::from([(2, elastic_table.clone())]);
         let others: BTreeMap<_, _> = tables
             .iter()
             .filter(|(mt, _)| **mt != 2)

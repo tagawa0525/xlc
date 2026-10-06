@@ -234,11 +234,6 @@ impl ColdParts {
         })
     }
 
-    /// 0 K の部分反応の表（和で作り直す反応は含まない）。
-    pub fn part(&self, mt: u32) -> Option<&Tab1> {
-        self.tables.get(&mt)
-    }
-
     /// 温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
     pub fn at(&self, temperature: f64) -> BTreeMap<u32, Tab1> {
         let mut tables = self.tables.clone();
