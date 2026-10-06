@@ -476,6 +476,34 @@ mod tests {
     }
 
     #[test]
+    fn reads_energy_dependent_radius_of_unresolved_range() {
+        let data = mf2(&[
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["2.0+4", "1.49+5", "2", "2", "1", "0"],
+            // AP(E) の TAB1: 0 0 0 0 NR NP、補間の区切り、(E, AP) の組
+            ["0.0", "0.0", "0", "0", "1", "2"],
+            ["2", "2", "", "", "", ""],
+            ["2.0+4", "0.95", "1.49+5", "0.90", "", ""],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            ["0.5", "0.0", "2", "0", "12", "1"],
+            ["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"],
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
+        ])
+        .unwrap();
+        let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let radius = urr.ap_energy.as_ref().unwrap();
+        assert_eq!(
+            (radius.x.clone(), radius.y.clone()),
+            (vec![2.0e4, 1.49e5], vec![0.95, 0.90])
+        );
+        assert_eq!(urr.ap, 0.948);
+    }
+
+    #[test]
     fn rejects_unresolved_lrf1() {
         let result = mf2(&[
             HEAD,
