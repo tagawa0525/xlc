@@ -2,6 +2,8 @@
 
 use std::f64::consts::PI;
 
+use rayon::prelude::*;
+
 use crate::material::{Material, MaterialError};
 use crate::tracking::Tracking;
 
@@ -150,11 +152,19 @@ pub fn solve(
         *f /= initial;
     }
     let mut k = 1.0;
-    // 境界の角度中性子束 [トラック][向き (0: 順, 1: 逆)][極角][群]
-    let slot = |track: usize, forward: bool| (2 * track + usize::from(!forward)) * width;
-    let mut boundary = vec![0.0; 2 * tracking.tracks.len() * width];
-    let mut next_boundary = boundary.clone();
-    let mut psi = vec![0.0; width];
+    // スイープの終わりに出ていく角度中性子束 [トラック][向き (0: 順, 1: 逆)][極角][群]。
+    // 各トラックは自分の場所にだけ書くので、トラックごとに並列にスイープできる
+    let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
+    let sources = incoming_sources(tracking);
+    let mut outgoing = vec![0.0; 2 * tracking.tracks.len() * width];
+    let mut next_outgoing = outgoing.clone();
+    // 方位角ごとの部分和。方位角ごとに順にスイープし、方位角の順に足すので、結果はスレッドの数や
+    // 仕事の分け方によらない。方位角ごとのトラックの長さの和はほぼ等しく、仕事の量も揃う
+    let azimuths = azimuth_ranges(tracking);
+    let mut tallies: Vec<Tally> = azimuths
+        .iter()
+        .map(|_| Tally::new(regions * ng, ng, width))
+        .collect();
     let mut k_history = Remaining::default();
     let mut flux_history = Remaining::default();
 
@@ -164,56 +174,75 @@ pub fn solve(
             .map(|i| equilibrium_flux(materials[i], &flux[i], k))
             .collect();
 
-        let mut delta = vec![vec![0.0; ng]; regions];
-        let mut leak = vec![0.0; ng];
-        for (index, track) in tracking.tracks.iter().enumerate() {
-            let weights: Vec<f64> = (0..np)
-                .map(|p| direction_weight(track.azimuth, p))
-                .collect();
-            for forward in [true, false] {
-                psi.copy_from_slice(&boundary[slot(index, forward)..][..width]);
-                let n = track.segments.len();
-                for step in 0..n {
-                    let s = if forward { step } else { n - 1 - step };
-                    let region = track.segments[s].region;
-                    let att = &attenuation[index][s * width..][..width];
-                    let q = &equilibrium[region];
-                    let d = &mut delta[region];
-                    for (p, weight) in weights.iter().enumerate() {
-                        for g in 0..ng {
-                            let j = p * ng + g;
-                            let change = (psi[j] - q[g]) * att[j];
-                            psi[j] -= change;
-                            d[g] += weight * change;
+        // 出ていく角度中性子束の配列を、方位角ごとの範囲に分ける
+        let mut rest = next_outgoing.as_mut_slice();
+        let mut outputs = Vec::with_capacity(azimuths.len());
+        for range in &azimuths {
+            let (head, tail) = rest.split_at_mut(2 * width * range.len());
+            outputs.push(head);
+            rest = tail;
+        }
+        tallies
+            .par_iter_mut()
+            .zip(outputs)
+            .zip(&azimuths)
+            .for_each(|((tally, outputs), range)| {
+                tally.clear();
+                for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
+                    let track = &tracking.tracks[index];
+                    let weights: [f64; POLAR_SIN.len()] =
+                        std::array::from_fn(|p| direction_weight(track.azimuth, p));
+                    for forward in [true, false] {
+                        let psi = &mut tally.psi;
+                        match sources[slot(index, forward)] {
+                            Some(source) => {
+                                psi.copy_from_slice(&outgoing[source * width..][..width])
+                            }
+                            // 真空境界から入ってくる角度中性子束は 0
+                            None => psi.fill(0.0),
                         }
-                    }
-                }
-                let link = if forward {
-                    track.forward_link
-                } else {
-                    track.backward_link
-                };
-                match link {
-                    Some(link) => next_boundary[slot(link.track, link.forward)..][..width]
-                        .copy_from_slice(&psi),
-                    // 真空境界から出た分は漏れ。入ってくる角度中性子束は 0 のまま
-                    None => {
-                        for (p, weight) in weights.iter().enumerate() {
-                            for (l, value) in leak.iter_mut().zip(&psi[p * ng..][..ng]) {
-                                *l += weight * value;
+                        let n = track.segments.len();
+                        for step in 0..n {
+                            let s = if forward { step } else { n - 1 - step };
+                            let region = track.segments[s].region;
+                            let att = &attenuation[index][s * width..][..width];
+                            let q = &equilibrium[region];
+                            let d = &mut tally.delta[region * ng..][..ng];
+                            for (p, weight) in weights.iter().enumerate() {
+                                for g in 0..ng {
+                                    let j = p * ng + g;
+                                    let change = (psi[j] - q[g]) * att[j];
+                                    psi[j] -= change;
+                                    d[g] += weight * change;
+                                }
+                            }
+                        }
+                        out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
+                        let link = if forward {
+                            track.forward_link
+                        } else {
+                            track.backward_link
+                        };
+                        // 真空境界から出た分は漏れ
+                        if link.is_none() {
+                            for (p, weight) in weights.iter().enumerate() {
+                                for (l, value) in tally.leak.iter_mut().zip(&psi[p * ng..][..ng]) {
+                                    *l += weight * value;
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
-        std::mem::swap(&mut boundary, &mut next_boundary);
+            });
+        std::mem::swap(&mut outgoing, &mut next_outgoing);
+        let (delta, mut leak) = sum_tallies(&tallies, ng);
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
             .map(|i| {
                 let total = &materials[i].total;
+                let delta = &delta[i * ng..][..ng];
                 (0..ng)
-                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[i][g] / (total[g] * volumes[i]))
+                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[g] / (total[g] * volumes[i]))
                     .collect()
             })
             .collect();
@@ -226,7 +255,7 @@ pub fn solve(
         for l in &mut leak {
             *l /= rate;
         }
-        for b in &mut boundary {
+        for b in &mut outgoing {
             *b /= rate;
         }
         let change = new_flux
@@ -258,6 +287,92 @@ pub fn solve(
         iterations: options.max_iterations,
         k,
     })
+}
+
+/// スイープで足し込む量（方位角ごとに持ち、スイープの後に足し合わせる）。
+struct Tally {
+    /// [領域][群] の角度中性子束の減衰の重み付き和
+    delta: Vec<f64>,
+    /// [群] の真空境界からの漏れ
+    leak: Vec<f64>,
+    /// スイープ中の角度中性子束 [極角][群]（作業用）
+    psi: Vec<f64>,
+}
+
+impl Tally {
+    fn new(deltas: usize, groups: usize, width: usize) -> Self {
+        Self {
+            delta: vec![0.0; deltas],
+            leak: vec![0.0; groups],
+            psi: vec![0.0; width],
+        }
+    }
+
+    fn clear(&mut self) {
+        self.delta.fill(0.0);
+        self.leak.fill(0.0);
+    }
+}
+
+/// 方位角ごとの部分和を方位角の順に足し、[領域][群] の減衰の和と [群] の漏れを返す。
+fn sum_tallies(tallies: &[Tally], ng: usize) -> (Vec<f64>, Vec<f64>) {
+    let mut delta = vec![0.0; tallies[0].delta.len()];
+    // 領域ごとに並列に足す（1つの領域の中では方位角の順なので、結果は分け方によらない）
+    delta
+        .par_chunks_mut(ng)
+        .enumerate()
+        .for_each(|(region, sum)| {
+            for tally in tallies {
+                for (a, b) in sum.iter_mut().zip(&tally.delta[region * ng..][..ng]) {
+                    *a += b;
+                }
+            }
+        });
+    let mut leak = vec![0.0; ng];
+    for tally in tallies {
+        for (a, b) in leak.iter_mut().zip(&tally.leak) {
+            *a += b;
+        }
+    }
+    (delta, leak)
+}
+
+/// 方位角ごとのトラックの番号の範囲（トラックは方位角の順に並ぶ）。
+fn azimuth_ranges(tracking: &Tracking) -> Vec<std::ops::Range<usize>> {
+    let mut ranges = Vec::with_capacity(tracking.azimuths.len());
+    let mut start = 0;
+    for chunk in tracking.tracks.chunk_by(|a, b| a.azimuth == b.azimuth) {
+        assert_eq!(
+            chunk[0].azimuth,
+            ranges.len(),
+            "tracks are not ordered by azimuth"
+        );
+        ranges.push(start..start + chunk.len());
+        start += chunk.len();
+    }
+    ranges
+}
+
+/// [トラック][向き] のスイープの始めに入ってくる角度中性子束が、どのトラックのどの向きのスイープの
+/// 終わりから来るか（同じ並びの番号。真空境界なら `None`）。
+fn incoming_sources(tracking: &Tracking) -> Vec<Option<usize>> {
+    let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
+    let mut sources = vec![None; 2 * tracking.tracks.len()];
+    for (index, track) in tracking.tracks.iter().enumerate() {
+        for (forward, link) in [(true, track.forward_link), (false, track.backward_link)] {
+            if let Some(link) = link {
+                let target = &mut sources[slot(link.track, link.forward)];
+                assert!(
+                    target.is_none(),
+                    "two tracks reflect into track {} ({})",
+                    link.track,
+                    if link.forward { "forward" } else { "backward" }
+                );
+                *target = Some(slot(index, forward));
+            }
+        }
+    }
+    sources
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
@@ -442,6 +557,28 @@ mod tests {
             production / s.k
         );
         assert!(s.k < solve_with(Boundaries::REFLECTIVE).k);
+    }
+
+    #[test]
+    fn result_does_not_depend_on_the_thread_count() {
+        // スイープの和を足す順がスレッドの分け方で変わると、結果が最下位のビットで揺れる
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let materials = [&f, &m, &m, &m, &f, &m];
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve(&tracking, &materials, &Options::default()).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5, 8] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
     }
 
     #[test]
