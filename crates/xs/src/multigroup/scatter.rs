@@ -54,8 +54,7 @@ pub fn multiplicity(mt: u32) -> Option<f64> {
 /// 熱領域の散乱の扱い。どちらも cutoff 未満の入射エネルギーで、弾性散乱の静止標的の2体反応を置き換える。
 #[derive(Debug, Clone)]
 pub enum Thermal<'a> {
-    /// 自由ガス模型（MT2 の表を自由原子の断面積とみなし、標的の熱運動によるエネルギー移行を掛ける。
-    /// 核の積分が熱運動による実効断面積の増加を表すので、表は温度に拡げていない値にする）
+    /// 自由ガス模型（温度に拡げた MT2 の断面積に、標的の熱運動による出射分布を掛ける）
     FreeGas(FreeGas),
     /// S(α, β)（MF3 の弾性散乱断面積は使わず、核そのものが断面積を与える）
     Sab(ThermalSab<'a>),
@@ -185,10 +184,13 @@ fn elastic_rows(
                     *o += t;
                 }
             }
+            // 温度に拡げた断面積はすでに熱運動による実効断面積の増加 N(E) を含むので、
+            // 出射分布は和 N(E) で規格化する（NJOY THERMR と同じ）
             Thermal::FreeGas(free_gas) if e < cutoff => {
                 let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
+                let total: f64 = transfer.iter().sum();
                 for (o, t) in out.iter_mut().zip(transfer) {
-                    *o += sigma * t;
+                    *o += sigma * t / total;
                 }
             }
             _ => {
