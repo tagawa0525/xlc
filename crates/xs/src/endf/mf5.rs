@@ -46,8 +46,18 @@ impl Mf5 {
         for _ in 0..nk {
             let start = r.line() + 1;
             let probability = r.tab1()?;
+            // 解析式の分布では、p(E) の TAB1 の C1 が U で、θ(E) の TAB1 が続く
+            let restriction = probability.c1;
             let law = match probability.l2 {
                 1 => EnergyLaw::Tabulated(parse_outgoing(&mut r)?),
+                7 => EnergyLaw::Maxwellian {
+                    restriction,
+                    theta: r.tab1()?.table,
+                },
+                9 => EnergyLaw::Evaporation {
+                    restriction,
+                    theta: r.tab1()?.table,
+                },
                 lf => return Err(Error::new(start, format!("LF={lf} is not supported"))),
             };
             subsections.push((probability.table, law));
