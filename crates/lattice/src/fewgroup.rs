@@ -15,6 +15,8 @@
 //! <G 行 × G 個: Σ(g→g')、行が入射の群>
 //! ```
 
+use serde::{Deserialize, Serialize};
+use xlc_xs::msgpack::MsgpackError;
 use xlc_xs::multigroup::GroupStructure;
 
 use crate::material::Material;
@@ -36,9 +38,46 @@ pub struct FewGroup {
     pub scatter: Vec<Vec<f64>>,
 }
 
+/// 少数群定数のファイルの読み込みエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum FewGroupError {
+    #[error(transparent)]
+    Msgpack(#[from] MsgpackError),
+    #[error("expected format xlc-fewgroup, found {0}")]
+    Format(String),
+    #[error("{0}")]
+    Invalid(String),
+}
+
+/// ファイルの中身（フィールド名付きの map 形式で書く）。
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FewGroupFile {
+    format: String,
+    bounds: Vec<f64>,
+    k_inf: f64,
+    total: Vec<f64>,
+    absorption: Vec<f64>,
+    nu_fission: Vec<f64>,
+    fission: Vec<f64>,
+    chi: Vec<f64>,
+    diffusion: Vec<f64>,
+    scatter: Vec<Vec<f64>>,
+}
+
 impl FewGroup {
     pub fn groups(&self) -> usize {
         self.total.len()
+    }
+
+    /// MessagePack（フィールド名付きの map 形式）で書く。
+    pub fn to_msgpack(&self) -> Vec<u8> {
+        todo!()
+    }
+
+    /// MessagePack から読み、群境界の順序、配列の長さ、値が有限であることを確かめる。
+    pub fn from_msgpack(bytes: &[u8]) -> Result<Self, FewGroupError> {
+        todo!("{bytes:?}")
     }
 
     pub fn to_text(&self) -> String {
@@ -367,41 +406,66 @@ mod tests {
         assert!(homogenize(&solution, &refs, &fine, &[1.0e7, 0.625]).is_err());
     }
 
-    #[test]
-    fn text_round_trips() {
+    fn sample() -> FewGroup {
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        let fg = homogenize(&solution, &refs, &fine, fine.bounds()).unwrap();
-        let text = fg.to_text();
-        assert!(text.starts_with("xlc-fewgroup 1\n"));
-        assert_eq!(FewGroup::parse(&text).unwrap(), fg);
+        homogenize(&solution, &refs, &fine, fine.bounds()).unwrap()
+    }
+
+    fn sample_file() -> FewGroupFile {
+        let fg = sample();
+        FewGroupFile {
+            format: "xlc-fewgroup".into(),
+            bounds: fg.bounds,
+            k_inf: fg.k_inf,
+            total: fg.total,
+            absorption: fg.absorption,
+            nu_fission: fg.nu_fission,
+            fission: fg.fission,
+            chi: fg.chi,
+            diffusion: fg.diffusion,
+            scatter: fg.scatter,
+        }
+    }
+
+    fn read_modified(change: impl FnOnce(&mut FewGroupFile)) -> Result<FewGroup, FewGroupError> {
+        let mut file = sample_file();
+        change(&mut file);
+        FewGroup::from_msgpack(&rmp_serde::to_vec_named(&file).unwrap())
     }
 
     #[test]
-    fn parse_errors_have_line_numbers() {
-        let (solution, materials, fine) = solved();
-        let refs: Vec<&Material> = materials.iter().collect();
-        let text = homogenize(&solution, &refs, &fine, fine.bounds())
-            .unwrap()
-            .to_text();
-        let broken: String = text
-            .lines()
-            .map(|l| {
-                if l.starts_with("diffusion") {
-                    "diffusion 1.0"
-                } else {
-                    l
-                }
+    fn round_trips_bit_exactly() {
+        let fg = sample();
+        assert_eq!(FewGroup::from_msgpack(&fg.to_msgpack()).unwrap(), fg);
+    }
+
+    #[test]
+    fn invalid_files_are_rejected() {
+        assert!(read_modified(|f| f.format = "xlc-multigroup".into()).is_err());
+        assert!(
+            read_modified(|f| {
+                f.diffusion.pop();
             })
-            .collect::<Vec<_>>()
-            .join("\n");
-        let err = FewGroup::parse(&broken).unwrap_err();
-        let line = text
-            .lines()
-            .position(|l| l.starts_with("diffusion"))
-            .unwrap()
-            + 1;
-        assert!(err.starts_with(&format!("line {line}:")), "{err}");
-        assert!(FewGroup::parse("xlc-fewgroup 9\n").is_err());
+            .is_err()
+        );
+        assert!(
+            read_modified(|f| {
+                f.scatter[0].pop();
+            })
+            .is_err()
+        );
+        assert!(read_modified(|f| f.bounds.reverse()).is_err());
+        assert!(read_modified(|f| f.total[0] = f64::NAN).is_err());
+        assert!(read_modified(|f| f.k_inf = f64::INFINITY).is_err());
+        // 配列形式、末尾の余り
+        let array = rmp_serde::to_vec(&sample_file()).unwrap();
+        assert!(matches!(
+            FewGroup::from_msgpack(&array),
+            Err(FewGroupError::Msgpack(MsgpackError::NotMap))
+        ));
+        let mut bytes = sample().to_msgpack();
+        bytes.push(0xc0);
+        assert!(FewGroup::from_msgpack(&bytes).is_err());
     }
 }
