@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+num_cpus.workspace = true
 rayon.workspace = true
 rmp-serde.workspace = true
 rmpv.workspace = true
