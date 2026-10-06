@@ -166,7 +166,7 @@ pub fn solve(
             .map(|i| equilibrium_flux(materials[i], &flux[i], k))
             .collect();
 
-        sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies);
+        sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies)?;
         std::mem::swap(&mut outgoing, &mut next_outgoing);
         let Sums {
             delta,
@@ -383,7 +383,7 @@ impl<'a> Sweeper<'a> {
         incoming: &[f64],
         outgoing: &mut [f64],
         tallies: &mut [Tally],
-    ) {
+    ) -> Result<(), CmfdError> {
         let (ng, width) = (self.ng, self.width);
         let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
         // 出ていく角度中性子束の配列を、方位角ごとの範囲に分ける
@@ -398,7 +398,7 @@ impl<'a> Sweeper<'a> {
             .par_iter_mut()
             .zip(outputs)
             .zip(&self.azimuths)
-            .for_each(|((tally, outputs), range)| {
+            .try_for_each(|((tally, outputs), range)| {
                 tally.clear();
                 for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
                     let track = &self.tracking.tracks[index];
@@ -436,7 +436,7 @@ impl<'a> Sweeper<'a> {
                             let next = self.mesh.cell(region);
                             if next != cell {
                                 let path = self.mesh.path(cell, next);
-                                add_current(&mut tally.current, path.faces(), psi, &weights);
+                                add_current(&mut tally.current, path?.faces(), psi, &weights);
                                 cell = next;
                             }
                             let att = &self.attenuation[index][s * width..][..width];
@@ -473,7 +473,8 @@ impl<'a> Sweeper<'a> {
                         out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
                     }
                 }
-            });
+                Ok(())
+            })
     }
 }
 
