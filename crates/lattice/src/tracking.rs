@@ -341,6 +341,54 @@ mod tests {
     }
 
     #[test]
+    fn azimuth_ranges_hold_their_tracks() {
+        let t = Tracking::new(&cell(), 8, 0.05).unwrap();
+        let mut next = 0;
+        for a in 0..t.azimuths.len() {
+            let range = t.azimuth_tracks(a);
+            assert_eq!(range.start, next);
+            assert!(!range.is_empty());
+            assert!(
+                t.tracks[range.clone()]
+                    .iter()
+                    .all(|track| track.azimuth == a)
+            );
+            next = range.end;
+        }
+        assert_eq!(next, t.tracks.len());
+    }
+
+    #[test]
+    fn incoming_sources_invert_the_links() {
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let t = Tracking::with_boundaries(&two_by_two(), 8, 0.05, boundaries).unwrap();
+        let mut fed = 0;
+        for (index, track) in t.tracks.iter().enumerate() {
+            for (forward, link) in [(true, track.forward_link), (false, track.backward_link)] {
+                if let Some(link) = link {
+                    let source = Link {
+                        track: index,
+                        forward,
+                    };
+                    assert_eq!(t.incoming_source(link.track, link.forward), Some(source));
+                    fed += 1;
+                }
+            }
+        }
+        // 真空境界から始まるスイープには出どころがない
+        let empty = (0..t.tracks.len())
+            .flat_map(|i| [(i, true), (i, false)])
+            .filter(|&(i, forward)| t.incoming_source(i, forward).is_none())
+            .count();
+        assert_eq!(fed + empty, 2 * t.tracks.len());
+        assert!(empty > 0);
+    }
+
+    #[test]
     fn following_links_returns_to_start() {
         // 鏡面反射の軌跡は有限回で元のトラックに戻る（cyclic）
         let t = Tracking::new(&cell(), 8, 0.05).unwrap();
