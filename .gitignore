@@ -5,3 +5,4 @@
 /examples/m1/*.lib
 /examples/m1/*.fg
 /.direnv
+/.envrc
