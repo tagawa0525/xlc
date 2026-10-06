@@ -99,6 +99,19 @@ pub struct Library {
 /// 形式の名前
 const FORMAT: &str = "xlc-multigroup";
 
+/// ライブラリから核種を引くときのエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum LookupError {
+    #[error("nuclide {0} is not in the library")]
+    Nuclide(String),
+    #[error("{name} has no data at {temperature} K (available: {available:?})")]
+    Temperature {
+        name: String,
+        temperature: f64,
+        available: Vec<f64>,
+    },
+}
+
 /// ライブラリの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
@@ -175,19 +188,20 @@ impl Library {
     }
 
     /// 核種 `name` の、温度 `temperature` (K) での無限希釈の群定数。温度は表の値と完全に一致すること（補間しない）。
-    pub fn nuclide(&self, name: &str, temperature: f64) -> Result<Nuclide, String> {
+    pub fn nuclide(&self, name: &str, temperature: f64) -> Result<Nuclide, LookupError> {
         let data = self
             .nuclides
             .iter()
             .find(|n| n.name == name)
-            .ok_or_else(|| format!("nuclide {name} is not in the library"))?;
+            .ok_or_else(|| LookupError::Nuclide(name.into()))?;
         let t = data
             .temperatures
             .iter()
             .find(|t| t.temperature == temperature)
-            .ok_or_else(|| {
-                let available: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
-                format!("{name} has no data at {temperature} K (available: {available:?})")
+            .ok_or_else(|| LookupError::Temperature {
+                name: name.into(),
+                temperature,
+                available: data.temperatures.iter().map(|t| t.temperature).collect(),
             })?;
         let dilute = &t.shielded[0];
         Ok(Nuclide {

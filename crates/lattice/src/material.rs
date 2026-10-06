@@ -1,6 +1,6 @@
 //! 物質の巨視的断面積。
 
-use xlc_xs::library::Library;
+use xlc_xs::library::{Library, LookupError};
 
 /// χ の和と 1 の差の許容値
 const CHI_TOLERANCE: f64 = 1.0e-6;
@@ -24,15 +24,34 @@ pub struct Material {
     pub fission_terms: Vec<FissionTerm>,
 }
 
+/// 物質の断面積を作る・確かめるときのエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum MaterialError {
+    #[error("a material needs at least one nuclide")]
+    NoNuclides,
+    #[error("{nuclide}: invalid number density {density}")]
+    Density { nuclide: String, density: f64 },
+    #[error(transparent)]
+    Lookup(#[from] LookupError),
+    #[error("cross section arrays must all have {0} groups")]
+    Groups(usize),
+    #[error("fission term {term} must have {groups} groups")]
+    FissionTermGroups { term: usize, groups: usize },
+    #[error("chi of fission term {term} sums to {sum}")]
+    Chi { term: usize, sum: f64 },
+    #[error("nu-fission does not match the sum of fission terms")]
+    NuFission,
+}
+
 impl Material {
     /// 核種名と個数密度 (1/(barn·cm)) の組から、温度 `temperature` (K) の無限希釈の群定数で作る。
     pub fn mix(
         library: &Library,
         composition: &[(String, f64)],
         temperature: f64,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, MaterialError> {
         if composition.is_empty() {
-            return Err("a material needs at least one nuclide".into());
+            return Err(MaterialError::NoNuclides);
         }
         let ng = library.groups.len();
         let mut m = Self {
@@ -49,7 +68,10 @@ impl Material {
         };
         for (name, density) in composition {
             if !(*density >= 0.0 && density.is_finite()) {
-                return Err(format!("{name}: invalid number density {density}"));
+                return Err(MaterialError::Density {
+                    nuclide: name.clone(),
+                    density: *density,
+                });
             }
             let nuclide = library.nuclide(name, temperature)?;
             add(&mut m.total, &nuclide.total, *density);
@@ -70,7 +92,7 @@ impl Material {
     }
 
     /// 配列の大きさ、χ の規格化、νΣf と核分裂の項の和の一致を検査する。
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), MaterialError> {
         let ng = self.total.len();
         let sized = |v: &[f64]| v.len() == ng;
         if ng == 0
@@ -79,16 +101,19 @@ impl Material {
             || self.scatter.len() != ng
             || !self.scatter.iter().all(|row| sized(row))
         {
-            return Err(format!("cross section arrays must all have {ng} groups"));
+            return Err(MaterialError::Groups(ng));
         }
         let mut nu_fission = vec![0.0; ng];
         for (t, term) in self.fission_terms.iter().enumerate() {
             if !sized(&term.chi) || !sized(&term.nu_fission) {
-                return Err(format!("fission term {t} must have {ng} groups"));
+                return Err(MaterialError::FissionTermGroups {
+                    term: t,
+                    groups: ng,
+                });
             }
             let sum: f64 = term.chi.iter().sum();
             if (sum - 1.0).abs() > CHI_TOLERANCE {
-                return Err(format!("chi of fission term {t} sums to {sum}"));
+                return Err(MaterialError::Chi { term: t, sum });
             }
             for (n, v) in nu_fission.iter_mut().zip(&term.nu_fission) {
                 *n += v;
@@ -99,7 +124,7 @@ impl Material {
             .zip(&self.nu_fission)
             .all(|(a, b)| (a - b).abs() <= 1.0e-12 * b.abs());
         if !consistent {
-            return Err("nu-fission does not match the sum of fission terms".into());
+            return Err(MaterialError::NuFission);
         }
         Ok(())
     }
@@ -151,7 +176,7 @@ mod tests {
         }
     }
 
-    fn mix(library: &Library, composition: &[(String, f64)]) -> Result<Material, String> {
+    fn mix(library: &Library, composition: &[(String, f64)]) -> Result<Material, MaterialError> {
         Material::mix(library, composition, 293.6)
     }
 
