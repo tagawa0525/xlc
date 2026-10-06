@@ -10,7 +10,7 @@ mod weight;
 
 use std::collections::BTreeMap;
 
-use crate::endf::Tab1;
+use crate::endf::{Interpolation, Tab1};
 
 pub use fission::fission_spectrum;
 pub use free_gas::{FreeGas, free_gas_group_integrals, free_gas_kernel};
@@ -42,6 +42,40 @@ pub fn reaction_averages(
     averages_with_flux(groups, weight, tables, nubar, &[], |_| 1.0)
 }
 
+/// 非分離共鳴の自己遮蔽によるポイントワイズの断面積の補正（NJOY GROUPR getunr と同じ）。
+///
+/// 範囲 [el, eh] で、全断面積・弾性散乱・核分裂・捕獲（MT1, 2, 18/19, 102）を、LSSF=1 なら
+/// s(σ0)/s(∞) 倍し、LSSF=0 なら s(σ0) - s(∞) を足す。s(σ0) は σ0 ごとの実効断面積、s(∞) は
+/// 無限希釈の値で、どちらも格子点の間を `law` で補間する。
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnresolvedShielding {
+    el: f64,
+    eh: f64,
+    multiplicative: bool,
+    grid: Vec<f64>,
+    law: Interpolation,
+    /// [σ0][格子点] の [全, 弾性, 核分裂, 捕獲]
+    shielded: Vec<Vec<[f64; 4]>>,
+    /// [格子点] の無限希釈の値
+    infinite: Vec<[f64; 4]>,
+}
+
+impl UnresolvedShielding {
+    /// `shielded` は σ0 ごとに格子点の数だけ、`infinite` は格子点の数だけ値を持つこと。
+    pub fn new(
+        el: f64,
+        eh: f64,
+        lssf: i64,
+        grid: Vec<f64>,
+        law: Interpolation,
+        shielded: Vec<Vec<[f64; 4]>>,
+        infinite: Vec<[f64; 4]>,
+    ) -> Result<Self, String> {
+        let _ = (el, eh, lssf, grid, law, shielded, infinite);
+        todo!()
+    }
+}
+
 /// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
 ///
 /// 中性子束を w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の中性子束はこれに定数
@@ -52,7 +86,9 @@ pub fn shielded_averages(
     tables: &BTreeMap<u32, Tab1>,
     nubar: Option<&Tab1>,
     sigma0: &[f64],
+    unresolved: Option<&UnresolvedShielding>,
 ) -> Result<Vec<ReactionAverages>, String> {
+    let _ = unresolved;
     let total = tables
         .get(&1)
         .ok_or("self-shielding needs the total cross section (MT1)")?;
@@ -153,7 +189,7 @@ mod tests {
         let tables = BTreeMap::from([(1, constant(3.0)), (102, capture)]);
         let infinite = reaction_averages(&groups, &weight, &tables, None);
         let shielded =
-            shielded_averages(&groups, &weight, &tables, None, &[1.0e10, 10.0, 1.0]).unwrap();
+            shielded_averages(&groups, &weight, &tables, None, &[1.0e10, 10.0, 1.0], None).unwrap();
         assert_eq!(shielded.len(), 3);
         for avg in &shielded {
             for g in 0..69 {
@@ -173,7 +209,8 @@ mod tests {
         let tables = BTreeMap::from([(1, total)]);
         let (a, b) = (10.0_f64, 100.0_f64);
         for s0 in [1.0, 30.0, 1.0e3] {
-            let avg = &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0]).unwrap()[0];
+            let avg =
+                &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0], None).unwrap()[0];
             let numerator = ((c * b + s0) / (c * a + s0)).ln();
             let denominator = (b * (c * a + s0) / (a * (c * b + s0))).ln() / s0;
             let expected = numerator / denominator;
@@ -195,6 +232,7 @@ mod tests {
                 &tables,
                 None,
                 &[bad],
+                None,
             );
             assert!(result.is_err(), "σ0 = {bad}");
         }
@@ -209,6 +247,109 @@ mod tests {
             &tables,
             None,
             &[10.0],
+            None,
+        );
+        assert!(result.is_err());
+    }
+
+    /// 1群 [1e4, 1e5] eV を覆う非分離共鳴の補正。σ0 は1つで、遮蔽した値と無限希釈の値は一定
+    fn uniform_shielding(lssf: i64) -> UnresolvedShielding {
+        UnresolvedShielding::new(
+            1.0e3,
+            1.0e6,
+            lssf,
+            vec![1.0e3, 1.0e6],
+            Interpolation::LinLin,
+            vec![vec![[8.0, 7.5, 0.0, 0.5]; 2]],
+            vec![[10.0, 9.0, 0.0, 1.0]; 2],
+        )
+        .unwrap()
+    }
+
+    fn one_group_tables() -> BTreeMap<u32, Tab1> {
+        BTreeMap::from([
+            (1, constant(11.0)),
+            (2, constant(9.0)),
+            (102, constant(2.0)),
+        ])
+    }
+
+    #[test]
+    fn lssf1_scales_by_shielding_factor() {
+        let groups = GroupStructure::new(vec![1.0e5, 1.0e4]);
+        let shielding = uniform_shielding(1);
+        let avg = &shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &one_group_tables(),
+            None,
+            &[10.0],
+            Some(&shielding),
+        )
+        .unwrap()[0];
+        // 捕獲 2 × 0.5/1、全断面積 11 × 8/10（中性子束も補正した全断面積で決まるが、一定なので平均は変わらない）
+        assert!((avg.sigma[&102][0] - 1.0).abs() < 1e-12);
+        assert!((avg.sigma[&1][0] - 8.8).abs() < 1e-12);
+    }
+
+    #[test]
+    fn lssf0_adds_shielding_difference() {
+        let groups = GroupStructure::new(vec![1.0e5, 1.0e4]);
+        let shielding = uniform_shielding(0);
+        let avg = &shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &one_group_tables(),
+            None,
+            &[10.0],
+            Some(&shielding),
+        )
+        .unwrap()[0];
+        assert!((avg.sigma[&102][0] - 1.5).abs() < 1e-12);
+        assert!((avg.sigma[&2][0] - 7.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn flux_uses_shielded_total() {
+        // 群の一部だけが非分離共鳴の範囲にあると、中性子束 1/(σt + σ0) の重みが変わる
+        let groups = GroupStructure::new(vec![1.0e4, 10.0]);
+        let shielding = UnresolvedShielding::new(
+            1.0e3,
+            1.0e6,
+            1,
+            vec![1.0e3, 1.0e6],
+            Interpolation::LinLin,
+            vec![vec![[1.0, 1.0, 0.0, 0.0]; 2]],
+            vec![[10.0, 10.0, 0.0, 0.0]; 2],
+        )
+        .unwrap();
+        let tables = BTreeMap::from([(1, constant(10.0)), (2, constant(10.0))]);
+        let s0 = 1.0;
+        let avg = &shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            &[s0],
+            Some(&shielding),
+        )
+        .unwrap()[0];
+        // 1/E の重みで、[1e3, 1e4] は σt = 1（幅 ln 10）、[10, 1e3] は σt = 10（幅 2 ln 10）
+        let (inside, outside) = (1.0 / (1.0 + s0), 2.0 / (10.0 + s0));
+        let expected = (1.0 * inside + 10.0 * outside) / (inside + outside);
+        assert!((avg.sigma[&1][0] - expected).abs() < 1e-9 * expected);
+    }
+
+    #[test]
+    fn shielding_must_match_sigma0_count() {
+        let shielding = uniform_shielding(1);
+        let result = shielded_averages(
+            &GroupStructure::new(vec![1.0e5, 1.0e4]),
+            &Weight::lwr(),
+            &one_group_tables(),
+            None,
+            &[10.0, 1.0],
+            Some(&shielding),
         );
         assert!(result.is_err());
     }
