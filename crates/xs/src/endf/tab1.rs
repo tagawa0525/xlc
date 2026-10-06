@@ -117,14 +117,44 @@ impl Tab1 {
         if !(first..=last).contains(&x) {
             return None;
         }
+        Some(self.value_within(x))
+    }
+
+    /// 範囲の中（first ≤ x ≤ last）の x で補間する。
+    fn value_within(&self, x: f64) -> f64 {
         // x[k] <= x を満たす最後の点。重複点では後ろの点が選ばれ、右側の極限になる
-        let k = self.x.partition_point(|&xi| xi <= x) - 1;
+        let k = self.x.partition_point(|&xi| xi <= x).saturating_sub(1);
         if k == self.x.len() - 1 {
-            return Some(self.y[k]);
+            return self.y[k];
         }
         // 区間 (k, k+1) の右端の点番号（1始まり）を含む範囲の補間則を使う
         let law = self.law_of_interval(k);
-        Some(law.interpolate(x, (self.x[k], self.y[k]), (self.x[k + 1], self.y[k + 1])))
+        law.interpolate(x, (self.x[k], self.y[k]), (self.x[k + 1], self.y[k + 1]))
+    }
+}
+
+/// 範囲の外を端の値で延長して補間する、空でない表（MF5 の θ(E) など）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClampedTab1 {
+    table: Tab1,
+}
+
+impl ClampedTab1 {
+    /// 空の表なら `None`。
+    pub fn new(table: Tab1) -> Option<Self> {
+        (!table.x.is_empty()).then_some(Self { table })
+    }
+
+    pub fn table(&self) -> &Tab1 {
+        &self.table
+    }
+
+    /// x における値。表の範囲の外では端の値。
+    pub fn eval(&self, x: f64) -> f64 {
+        let t = &self.table;
+        // 空でないことは作るときに確かめている
+        let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
+        t.value_within(x.clamp(first, last))
     }
 }
 

@@ -2,7 +2,7 @@
 
 use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
-use crate::endf::{EnergyLaw, Interpolation, OutgoingDistributions, Tab1};
+use crate::endf::{ClampedTab1, EnergyLaw, Interpolation, OutgoingDistributions, Tab1};
 use crate::pointwise::linearize;
 use crate::special::{gamma_p_2, gamma_p_3_2};
 
@@ -203,7 +203,7 @@ pub struct AnalyticSpectrum {
     /// x = E'/θ 未満の出射の割合（正則化した下側不完全ガンマ関数）
     fraction: fn(f64) -> f64,
     restriction: f64,
-    theta: Tab1,
+    theta: ClampedTab1,
     bounds: Vec<f64>,
 }
 
@@ -214,11 +214,7 @@ impl AnalyticSpectrum {
             return;
         }
         // 入射エネルギーの範囲外では、端の θ を使う（表形式の分布と同じ）
-        let (first, last) = (self.theta.x[0], self.theta.x[self.theta.x.len() - 1]);
-        let theta = self
-            .theta
-            .eval(e.clamp(first, last))
-            .expect("clamped into the table");
+        let theta = self.theta.eval(e);
         let total = (self.fraction)(top / theta);
         // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
         let mut below = 0.0;
@@ -236,7 +232,7 @@ impl AnalyticSpectrum {
 
 impl GroupedLaw {
     pub fn new(groups: &GroupStructure, law: &EnergyLaw) -> Self {
-        let analytic = |fraction: fn(f64) -> f64, restriction: f64, theta: &Tab1| {
+        let analytic = |fraction: fn(f64) -> f64, restriction: f64, theta: &ClampedTab1| {
             Self::Analytic(AnalyticSpectrum {
                 fraction,
                 restriction,
@@ -264,6 +260,7 @@ impl GroupedLaw {
             // θ の表の点と、E - U が 0 や群境界を横切る点（群ごとの割合の傾きが変わる）
             Self::Analytic(spectrum) => spectrum
                 .theta
+                .table()
                 .x
                 .iter()
                 .copied()
