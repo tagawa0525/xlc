@@ -37,15 +37,10 @@ pub fn cell_fission_rates(
     Ok(rates.iter().map(|r| r / mean).collect())
 }
 
-/// 核分裂率を、格子の行ごとに1行ずつの表にする。
-pub fn to_text(rates: &[f64], n: usize) -> String {
-    rates
-        .chunks(n)
-        .map(|row| {
-            let values: Vec<String> = row.iter().map(|r| format!("{r:.5}")).collect();
-            values.join(" ") + "\n"
-        })
-        .collect()
+/// 核分裂率を、フィールド名付きの map 形式の MessagePack にする: `format` ("xlc-pin-powers") と、
+/// 格子の行ごとの核分裂率 `rows`（上の行から、各行は左から）。
+pub fn to_msgpack(rates: &[f64], n: usize) -> Vec<u8> {
+    todo!("{rates:?} {n}")
 }
 
 #[cfg(test)]
@@ -93,10 +88,23 @@ mod tests {
     }
 
     #[test]
-    fn text_has_one_line_per_row() {
+    fn pin_powers_are_written_by_rows() {
+        #[derive(serde::Deserialize, Debug, PartialEq)]
+        #[serde(deny_unknown_fields)]
+        struct PinPowers {
+            format: String,
+            rows: Vec<Vec<f64>>,
+        }
+        let bytes = to_msgpack(&[1.0, 0.0, 0.5, 1.5], 2);
+        let value: PinPowers = rmp_serde::from_slice(&bytes).unwrap();
         assert_eq!(
-            to_text(&[1.0, 0.0, 0.5, 1.5], 2),
-            "1.00000 0.00000\n0.50000 1.50000\n"
+            value,
+            PinPowers {
+                format: "xlc-pin-powers".into(),
+                rows: vec![vec![1.0, 0.0], vec![0.5, 1.5]],
+            }
         );
+        // フィールド名付きの map 形式
+        assert!(xlc_xs::msgpack::read_value(&bytes).is_ok());
     }
 }

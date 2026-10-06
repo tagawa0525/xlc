@@ -13,7 +13,7 @@ use xlc_lattice::input::{CrossSections, LatticeInput};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, solve};
-use xlc_lattice::power::{cell_fission_rates, to_text};
+use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::tracking::Tracking;
 use xlc_xs::library::Library;
 
@@ -90,7 +90,7 @@ fn run(path: &Path) -> Result<(), String> {
     if let Some(file) = &input.pin_powers {
         let rates = cell_fission_rates(&solution, &lattice, &materials)?;
         let file = base.join(file);
-        std::fs::write(&file, to_text(&rates, lattice.cells_per_side()))
+        std::fs::write(&file, to_msgpack(&rates, lattice.cells_per_side()))
             .map_err(|e| format!("{}: {e}", file.display()))?;
     }
     eprintln!(
