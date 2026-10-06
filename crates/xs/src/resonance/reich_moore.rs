@@ -318,8 +318,13 @@ fn invert3(mut a: [[Complex; 3]; 3]) -> [[Complex; 3]; 3] {
         row[i] = Complex::new(1.0, 0.0);
     }
     for col in 0..3 {
+        // max_by と同じく、同じ大きさなら後の行を選ぶ
         let pivot = (col + 1..3).fold(col, |best, i| {
-            if a[i][col].norm_sqr() > a[best][col].norm_sqr() {
+            if a[i][col]
+                .norm_sqr()
+                .total_cmp(&a[best][col].norm_sqr())
+                .is_ge()
+            {
                 i
             } else {
                 best

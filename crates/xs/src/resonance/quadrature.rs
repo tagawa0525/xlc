@@ -44,8 +44,9 @@ pub(super) fn gauss_kronrod<E: From<NumericError>>(
         let (worst, _) = intervals.iter().enumerate().skip(1).fold(
             (0, score(&intervals[0])),
             |best, (p, iv)| {
+                // max_by と同じく、同じ値なら後の区間を選ぶ
                 let s = score(iv);
-                if s.total_cmp(&best.1).is_gt() {
+                if s.total_cmp(&best.1).is_ge() {
                     (p, s)
                 } else {
                     best
