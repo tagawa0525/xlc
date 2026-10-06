@@ -575,7 +575,9 @@ impl Sigma {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::resonance::reich_moore_tests::{single_level, single_level_exact};
+    use crate::endf::ResonanceRange;
+    use crate::resonance::r_matrix_limited_tests::inelastic_level;
+    use crate::resonance::reich_moore_tests::{AWRI, single_level, single_level_exact};
 
     fn linear(x: &[f64], y: &[f64]) -> Tab1 {
         Tab1 {
@@ -979,5 +981,27 @@ mod tests {
         let sum = add(&a, &b);
         assert_eq!(sum.x, vec![1.0, 5.0, 5.0, 10.0]);
         assert_eq!(sum.y, vec![1.0, 3.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn r_matrix_limited_adds_level_inelastic_scattering() {
+        let mf2 = Mf2 {
+            za: 0.0,
+            awr: AWRI,
+            ranges: vec![ResonanceRange {
+                el: 1.0,
+                eh: 5.0e3,
+                kind: RangeKind::RMatrixLimited(inelastic_level(0.5)),
+            }],
+        };
+        let mut tables = BTreeMap::from([(2, linear(&[1.0, 5.0e3], &[1.0, 1.0]))]);
+        add_resonances(&mut tables, &mf2, 18, 1.0e-3).unwrap();
+        // 非弾性散乱は閾値より上でだけ値を持つ
+        let threshold = 1.0e3 * (AWRI + 1.0) / AWRI;
+        let level = &tables[&51];
+        assert_eq!(level.eval(0.9 * threshold), Some(0.0));
+        assert!(level.eval(2.0e3).unwrap() > 0.0);
+        assert!(tables[&102].eval(2.0e3).unwrap() > 0.0);
+        assert!(tables[&2].eval(2.0e3).unwrap() > 1.0);
     }
 }

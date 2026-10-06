@@ -370,7 +370,7 @@ fn solve(mut m: Vec<Complex>, mut b: Vec<Complex>, n: usize) -> Option<Vec<Compl
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::endf::{
         OrbitalL, ParticlePair, RMatrixLimited, RmlChannel, RmlResonance, SpinGroup,
@@ -454,7 +454,7 @@ mod tests {
     }
 
     /// 弾性散乱と、Q = -1 keV の準位への非弾性散乱のチャネルを持つ共鳴（捕獲なし）。
-    fn inelastic_level(gg: f64) -> RMatrixLimited {
+    pub(crate) fn inelastic_level(gg: f64) -> RMatrixLimited {
         RMatrixLimited {
             pairs: pairs(&[-1.0e3]),
             spin_groups: vec![SpinGroup {

@@ -28,4 +28,6 @@ pub struct Sigma {
 }
 
 #[cfg(test)]
+pub(crate) use r_matrix_limited::tests as r_matrix_limited_tests;
+#[cfg(test)]
 pub(crate) use reich_moore::tests as reich_moore_tests;
