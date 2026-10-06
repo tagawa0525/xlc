@@ -214,6 +214,16 @@ mod tests {
     }
 
     #[test]
+    fn faddeeva_below_the_real_axis() {
+        // 虚軸の上では w(iy) = e^(y²) erfc(y)。y < 0 でも成り立つ
+        for y in [-0.1, -0.5, -2.0] {
+            let (re, im) = faddeeva(0.0, y);
+            assert_rel(re, (y * y).exp() * erfc(y), 1e-10);
+            assert!(im.abs() < 1e-12, "{im}");
+        }
+    }
+
+    #[test]
     fn e1_outside_its_domain_is_error() {
         for z in [0.0, -1.0, f64::NAN, f64::INFINITY] {
             assert!(matches!(exp_e1(z), Err(NumericError::Domain(_))), "E1({z})");
