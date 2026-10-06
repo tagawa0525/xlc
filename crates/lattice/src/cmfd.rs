@@ -393,7 +393,7 @@ impl Coarse {
         let mut k_history = Remaining::default();
         let mut flux_history = Remaining::default();
         let mut rhs = vec![0.0; ng];
-        for _ in 0..options.max_iterations {
+        for iteration in 1..=options.max_iterations {
             let previous = phi.clone();
             for c in 0..cells {
                 let f = &self.fission[c * ng * ng..][..ng * ng];
@@ -439,6 +439,7 @@ impl Coarse {
                     .zip(&self.flux)
                     .map(|(new, old)| new / (old / start))
                     .collect();
+                tracing::debug!(iterations = iteration, k, "coarse-mesh eigenvalue");
                 return Ok((k, ratio));
             }
         }
