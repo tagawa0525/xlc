@@ -5,7 +5,8 @@
 //! 群構造は WIMS 69群、重み関数は iwt=4 とする。GENDF は同じ温度に拡げた PENDF から、
 //! 同じ群構造・重み関数で、σ0 の表を指定して作っておくこと（σ0 は GENDF の MF1 から読む）。
 //! こちらはその温度に拡げたポイントワイズの断面積を使う。反応ごと・σ0 ごとに、全群での相対差の最大値を表示する。
-//! 非分離共鳴の自己遮蔽（UNRESR）は含めない条件で比べる。
+//! 非分離共鳴があれば、その自己遮蔽（UNRESR に相当）も含める。GENDF も UNRESR を通して作っておくこと。
+//! 環境変数 XLC_URR_ONLY を設定すると、非分離共鳴の範囲にかかる群だけを比べる。
 //! GROUPR は自己遮蔽する反応（MT1, 2, 18, 19, 51, 102 など）だけを σ0 ごとに出力し、
 //! それ以外は無限希釈の値だけを出すので、その反応は最初の σ0（無限希釈）だけを比べる。
 
@@ -14,6 +15,7 @@ use std::collections::BTreeMap;
 use xs::endf::{Section, Tape, parse_nubar};
 use xs::multigroup::{GroupStructure, Weight, shielded_averages};
 use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
+use xs::process::unresolved_shielding;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -36,13 +38,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sigma0 = read_sigma0(&header)?;
     let groups = GroupStructure::wims69();
     let ng = groups.len();
+    let start = std::time::Instant::now();
+    let shielding = unresolved_shielding(&tape, mat, temperature, &sigma0)?;
+    println!(
+        "unresolved shielding in {:.1} s",
+        start.elapsed().as_secs_f64()
+    );
     let ours = shielded_averages(
         &groups,
         &Weight::lwr(),
         &tables,
         nubar.as_ref(),
         &sigma0,
-        None,
+        shielding.as_ref(),
     )?;
 
     let mts: Vec<u32> = if mts.is_empty() {
@@ -58,6 +66,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>()
             .join(" ")
     );
+    // 環境変数 XLC_URR_ONLY を設定すると、非分離共鳴の範囲にかかる群だけを比べる
+    let urr_only = std::env::var_os("XLC_URR_ONLY").is_some();
+    let in_scope = |g: usize| {
+        let (lo, hi) = (groups.bounds()[g + 1], groups.bounds()[g]);
+        !urr_only
+            || shielding
+                .as_ref()
+                .is_some_and(|u| lo < u.range().1 && hi > u.range().0)
+    };
     for mt in mts {
         let Some(section) = reference.section(mat, 3, mt) else {
             println!("MT{mt}: not in GENDF");
@@ -85,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 s.clone()
             };
             let mut worst = (0.0_f64, 0);
-            for g in 0..ng {
+            for g in (0..ng).filter(|&g| in_scope(g)) {
                 let expected = njoy[g][iz];
                 if expected == 0.0 {
                     continue;

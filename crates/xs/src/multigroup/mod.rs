@@ -98,6 +98,11 @@ impl UnresolvedShielding {
         })
     }
 
+    /// 補正する範囲 [el, eh] (eV)。
+    pub fn range(&self) -> (f64, f64) {
+        (self.el, self.eh)
+    }
+
     /// σ0 の番号 `s` で、MT `mt` のポイントワイズの断面積 `value`（エネルギー e）を補正した値。
     fn adjust(&self, s: usize, mt: u32, e: f64, value: f64) -> f64 {
         let component = match mt {
