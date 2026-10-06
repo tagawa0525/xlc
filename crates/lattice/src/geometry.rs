@@ -50,6 +50,12 @@ impl PinCell {
         self.radii.len() + self.grid * self.grid
     }
 
+    /// 同心円で区切った各リングを、さらに x 軸から等角度の扇形 `sectors` 個（1, 4, 8）に分けたセル。
+    /// 領域はリングの順に、リングの中では角度の順に番号を付ける。
+    pub fn with_sectors(pitch: f64, radii: Vec<f64>, sectors: usize) -> Result<Self, String> {
+        todo!("{pitch} {radii:?} {sectors}")
+    }
+
     /// 同心円がなく、m × m の小さな正方形に分けたセル。
     pub fn grid(pitch: f64, m: usize) -> Result<Self, String> {
         if m == 0 {
@@ -411,6 +417,51 @@ mod tests {
         assert_eq!(
             PinCell::grid(2.0, 1).unwrap(),
             PinCell::new(2.0, vec![]).unwrap()
+        );
+    }
+
+    #[test]
+    fn sector_cell_regions_and_segments() {
+        // 1, 4, 8 以外は扇形ごとの外側の面積が等しくならないので受け付けない
+        assert!(PinCell::with_sectors(2.0, vec![0.5], 3).is_err());
+        assert!(PinCell::with_sectors(2.0, vec![0.5], 0).is_err());
+        let cell = PinCell::with_sectors(2.0, vec![0.5], 4).unwrap();
+        assert_eq!(cell.regions(), 8);
+        // 内側の円の第1象限、第2象限、…、外側の第1象限、…
+        assert_eq!(cell.region_at(0.1, 0.1), 0);
+        assert_eq!(cell.region_at(-0.1, 0.1), 1);
+        assert_eq!(cell.region_at(-0.1, -0.1), 2);
+        assert_eq!(cell.region_at(0.1, -0.1), 3);
+        assert_eq!(cell.region_at(0.9, 0.9), 4);
+        assert_eq!(cell.region_at(0.9, -0.9), 7);
+        let v = cell.volumes();
+        let disk = PI * 0.25;
+        for k in 0..4 {
+            assert!((v[k] - disk / 4.0).abs() < 1e-15);
+            assert!((v[4 + k] - (4.0 - disk) / 4.0).abs() < 1e-14);
+        }
+        // y = 0.25 を左から右へ: 外側の第2象限、内側の第2、第1象限、外側の第1象限
+        let s = cell.segments((-1.0, 0.25), (1.0, 0.0), 2.0);
+        let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
+        assert_eq!(regions, vec![5, 1, 0, 4]);
+        let half_chord = (0.25_f64 - 0.0625).sqrt();
+        let lengths: Vec<f64> = s.iter().map(|s| s.length).collect();
+        for (a, b) in
+            lengths
+                .iter()
+                .zip([1.0 - half_chord, half_chord, half_chord, 1.0 - half_chord])
+        {
+            assert!((a - b).abs() < 1e-14, "{lengths:?}");
+        }
+        // 8 個の扇形は 45° ごと
+        let cell = PinCell::with_sectors(2.0, vec![], 8).unwrap();
+        assert_eq!(cell.region_at(0.9, 0.1), 0);
+        assert_eq!(cell.region_at(0.1, 0.9), 1);
+        assert_eq!(cell.volumes(), vec![0.5; 8]);
+        // 1 個なら扇形のないセルと同じ
+        assert_eq!(
+            PinCell::with_sectors(2.0, vec![0.5], 1).unwrap(),
+            PinCell::new(2.0, vec![0.5]).unwrap()
         );
     }
 }
