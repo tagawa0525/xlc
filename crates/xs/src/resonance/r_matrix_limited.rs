@@ -1,4 +1,373 @@
 //! R-matrix limited 形式（LRF=7）の Reich-Moore の断面積（0 K）。
+//!
+//! 捕獲は消去されたチャネルとして共鳴エネルギーの虚部に入れ（E_λ − iΓγ/2）、開いた中性子のチャネルの
+//! R 行列から X = (I − iK)⁻¹K（K = P^½ R P^½）を求める。衝突行列は U = e^{−i(φ+φ')} (I + 2iX)。
+//! 透過因子は剛体球のもので、シフト因子は使わない。閾値より下の非弾性散乱のチャネルは閉じているので除く
+//! （NJOY2016 samm と同じ）。
+
+use std::f64::consts::PI;
+
+use super::complex::Complex;
+use super::factors::{penetrability, phase_shift};
+use crate::endf::{OrbitalL, ParticlePair, RMatrixLimited};
+use crate::physics::wave_number_factor;
+
+/// R-matrix limited の断面積の計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum RmlError {
+    #[error("particle pair {pair}: {what} is not supported")]
+    Pair { pair: usize, what: String },
+    #[error("{0} elastic particle pairs (MT=2); exactly one is needed")]
+    ElasticPairs(usize),
+    #[error("more than one particle pair for MT{0}")]
+    DuplicateMt(u32),
+    #[error("spin group {group}: more than one capture channel")]
+    CaptureChannels { group: usize },
+    #[error(
+        "spin group {group}: the resonance at {er} eV has a width in channel {channel}, \
+         which is closed at that energy"
+    )]
+    ClosedWidth {
+        group: usize,
+        er: f64,
+        channel: usize,
+    },
+    #[error(
+        "spin group {group}: {energy} eV is a pole of the R-matrix \
+         (a resonance without capture width)"
+    )]
+    Pole { group: usize, energy: f64 },
+    #[error("spin group {group}: singular level matrix at {energy} eV")]
+    Singular { group: usize, energy: f64 },
+}
+
+/// 断面積の計算に使う形に前処理した R-matrix limited のパラメータ。
+#[derive(Debug, Clone)]
+pub struct RMatrixLimitedXs {
+    /// 非弾性散乱の準位の MT（粒子対の順）
+    levels: Vec<u32>,
+    groups: Vec<Group>,
+}
+
+/// 粒子対の役割。
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Role {
+    Capture,
+    Elastic,
+    /// `levels` の添字
+    Level(usize),
+}
+
+#[derive(Debug, Clone)]
+struct Group {
+    /// スピンの統計因子 g_J
+    g: f64,
+    /// 中性子のチャネル（ファイルの順。捕獲のチャネルは除く）
+    channels: Vec<Channel>,
+    resonances: Vec<Level>,
+}
+
+#[derive(Debug, Clone)]
+struct Channel {
+    role: Role,
+    l: OrbitalL,
+    /// 閾値（実験室系, eV）
+    threshold: f64,
+    /// 波数 k = factor × sqrt(E − threshold)（10^-12 cm 単位）
+    factor: f64,
+    /// 透過因子に使う半径 (10^-12 cm)
+    apt: f64,
+    /// 位相シフトに使う半径 (10^-12 cm)
+    ape: f64,
+}
+
+impl Channel {
+    fn wave_number(&self, e: f64) -> f64 {
+        self.factor * (e - self.threshold).sqrt()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Level {
+    er: f64,
+    /// Γγ / 2
+    half_capture: f64,
+    /// チャネルごとの換算幅の振幅 γ（`Group::channels` の順）
+    amplitudes: Vec<f64>,
+}
+
+impl RMatrixLimitedXs {
+    pub fn new(data: &RMatrixLimited) -> Result<Self, RmlError> {
+        let mut levels = Vec::new();
+        let roles = data
+            .pairs
+            .iter()
+            .enumerate()
+            .map(|(i, pair)| role(i + 1, pair, &mut levels))
+            .collect::<Result<Vec<_>, _>>()?;
+        let elastic: Vec<&ParticlePair> = (data.pairs.iter())
+            .zip(&roles)
+            .filter(|(_, r)| **r == Role::Elastic)
+            .map(|(p, _)| p)
+            .collect();
+        let [elastic] = elastic[..] else {
+            return Err(RmlError::ElasticPairs(elastic.len()));
+        };
+        // 実験室系と重心系のエネルギーの比 A/(A+1)
+        let arat = elastic.mb / (elastic.mb + elastic.ma);
+        let spins = (2.0 * elastic.ia.abs() + 1.0) * (2.0 * elastic.ib.abs() + 1.0);
+
+        let groups = data
+            .spin_groups
+            .iter()
+            .enumerate()
+            .map(|(group, sg)| {
+                let mut capture = None;
+                let mut channels = Vec::new();
+                for (k, c) in sg.channels.iter().enumerate() {
+                    let pair = &data.pairs[c.pair];
+                    match roles[c.pair] {
+                        Role::Capture if capture.is_some() => {
+                            return Err(RmlError::CaptureChannels { group: group + 1 });
+                        }
+                        Role::Capture => capture = Some(k),
+                        role => {
+                            let reduced = pair.ma * pair.mb / (pair.ma + pair.mb);
+                            channels.push((
+                                k,
+                                Channel {
+                                    role,
+                                    l: c.l,
+                                    threshold: -pair.q / arat,
+                                    factor: wave_number_factor() * (reduced * arat).sqrt(),
+                                    apt: c.apt,
+                                    ape: c.ape,
+                                },
+                            ));
+                        }
+                    }
+                }
+                let resonances = sg
+                    .resonances
+                    .iter()
+                    .map(|r| {
+                        let amplitudes = channels
+                            .iter()
+                            .map(|(k, c)| amplitude(r.er, r.widths[*k], c, group + 1, *k + 1))
+                            .collect::<Result<_, _>>()?;
+                        Ok(Level {
+                            er: r.er,
+                            half_capture: capture.map_or(0.0, |k| 0.5 * r.widths[k].abs()),
+                            amplitudes,
+                        })
+                    })
+                    .collect::<Result<_, _>>()?;
+                Ok(Group {
+                    g: (2.0 * sg.aj.abs() + 1.0) / spins,
+                    channels: channels.into_iter().map(|(_, c)| c).collect(),
+                    resonances,
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(Self { levels, groups })
+    }
+
+    /// `cross_sections` の値の反応: 全断面積（MT1）、弾性散乱（MT2）、捕獲（MT102）、準位ごとの非弾性散乱。
+    pub fn reactions(&self) -> Vec<u32> {
+        [1, 2, 102]
+            .into_iter()
+            .chain(self.levels.iter().copied())
+            .collect()
+    }
+
+    /// 共鳴の半値幅（ピークのまわりの格子点に使う）。
+    pub fn peaks(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
+        self.groups.iter().flat_map(|g| {
+            g.resonances.iter().map(|r| {
+                let neutron: f64 = (r.amplitudes.iter().zip(&g.channels))
+                    .map(|(&a, c)| {
+                        let e = (r.er - c.threshold).abs();
+                        2.0 * a * a * penetrability(c.l, c.wave_number(c.threshold + e) * c.apt)
+                    })
+                    .sum();
+                (r.er, r.half_capture + 0.5 * neutron)
+            })
+        })
+    }
+
+    /// エネルギー e (eV) での断面積 (barn)。`reactions` の順に並べる。
+    pub fn cross_sections(&self, e: f64) -> Result<Vec<f64>, RmlError> {
+        let mut sigma = vec![0.0; 3 + self.levels.len()];
+        for (group, g) in self.groups.iter().enumerate() {
+            let open: Vec<&Channel> = g.channels.iter().filter(|c| e > c.threshold).collect();
+            let Some(entrance) = open.iter().find(|c| c.role == Role::Elastic) else {
+                continue;
+            };
+            let n = open.len();
+            let open_index: Vec<usize> = (g.channels.iter().enumerate())
+                .filter(|(_, c)| e > c.threshold)
+                .map(|(i, _)| i)
+                .collect();
+            let root_p: Vec<f64> = open
+                .iter()
+                .map(|c| penetrability(c.l, c.wave_number(e) * c.apt).sqrt())
+                .collect();
+            let phi: Vec<f64> = open
+                .iter()
+                .map(|c| phase_shift(c.l, c.wave_number(e) * c.ape))
+                .collect();
+
+            // K = P^½ R P^½、R = Σ γγ / (E_λ − E − iΓγ/2)
+            let mut k = vec![Complex::default(); n * n];
+            for r in &g.resonances {
+                let d = r.er - e;
+                let denominator = d * d + r.half_capture * r.half_capture;
+                if denominator == 0.0 {
+                    return Err(RmlError::Pole {
+                        group: group + 1,
+                        energy: e,
+                    });
+                }
+                let shape = Complex::new(d / denominator, r.half_capture / denominator);
+                for a in 0..n {
+                    for b in 0..n {
+                        let gamma = r.amplitudes[open_index[a]] * r.amplitudes[open_index[b]];
+                        let term = Complex::new(gamma * root_p[a] * root_p[b], 0.0);
+                        k[a * n + b] = k[a * n + b].add(term.mul(shape));
+                    }
+                }
+            }
+            // (I − iK) X = K
+            let mut m: Vec<Complex> = k.iter().map(|&v| Complex::new(v.im, -v.re)).collect();
+            for a in 0..n {
+                m[a * n + a] = m[a * n + a].add(Complex::new(1.0, 0.0));
+            }
+            let x = solve(m, k, n).ok_or(RmlError::Singular {
+                group: group + 1,
+                energy: e,
+            })?;
+
+            let kn = entrance.wave_number(e);
+            let pifac = g.g * PI / (kn * kn);
+            for (a, ca) in open.iter().enumerate() {
+                if ca.role != Role::Elastic {
+                    continue;
+                }
+                let (s2, c2) = (2.0 * phi[a]).sin_cos();
+                let xaa = x[a * n + a];
+                // 1 − Re U_aa と Im U_aa（1 − cos 2φ を 2 sin²φ にして桁落ちを避ける）
+                let one_minus_re =
+                    2.0 * phi[a].sin().powi(2) + 2.0 * xaa.im * c2 - 2.0 * xaa.re * s2;
+                let im = -s2 * (1.0 - 2.0 * xaa.im) + 2.0 * xaa.re * c2;
+                sigma[0] += 2.0 * pifac * one_minus_re;
+                sigma[1] += pifac * (one_minus_re * one_minus_re + im * im);
+                for (b, cb) in open.iter().enumerate() {
+                    // 位相の因子は絶対値 1 なので、a ≠ b では |U_ab|² = 4|X_ab|²
+                    let transfer = 4.0 * pifac * x[a * n + b].norm_sqr();
+                    match cb.role {
+                        Role::Elastic if b != a => sigma[1] += transfer,
+                        Role::Level(i) => sigma[3 + i] += transfer,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        sigma[2] = sigma[0] - sigma[1] - sigma[3..].iter().sum::<f64>();
+        Ok(sigma)
+    }
+}
+
+/// 粒子対の役割を決める（扱えない粒子対はエラー）。非弾性散乱の準位は `levels` に MT を加える。
+fn role(index: usize, pair: &ParticlePair, levels: &mut Vec<u32>) -> Result<Role, RmlError> {
+    let unsupported = |what: String| Err(RmlError::Pair { pair: index, what });
+    if pair.za != 0.0 {
+        return unsupported(format!("a charged particle (ZA={})", pair.za));
+    }
+    if pair.shf != 0 {
+        return unsupported(format!("the shift factor (SHF={})", pair.shf));
+    }
+    match (pair.ma, pair.mt) {
+        // 光子と捕獲。透過因子は計算しない（PNT=0 は MT=102 なら計算しないこと）
+        (0.0, 102) if pair.pnt <= 0 => Ok(Role::Capture),
+        (0.0, 102) => unsupported(format!("penetrability for capture (PNT={})", pair.pnt)),
+        (1.0, mt @ (2 | 51..=90)) if pair.pnt >= 0 => {
+            if mt == 2 {
+                if pair.q != 0.0 {
+                    return unsupported(format!("elastic scattering with Q={}", pair.q));
+                }
+                Ok(Role::Elastic)
+            } else if levels.contains(&mt) {
+                Err(RmlError::DuplicateMt(mt))
+            } else {
+                levels.push(mt);
+                Ok(Role::Level(levels.len() - 1))
+            }
+        }
+        (1.0, 2 | 51..=90) => {
+            unsupported(format!("neutrons without penetrability (PNT={})", pair.pnt))
+        }
+        (ma, mt) => unsupported(format!("MA={ma} MT={mt}")),
+    }
+}
+
+/// 共鳴エネルギーでの幅 Γ から換算幅の振幅 γ = sign(Γ) √(|Γ| / 2P) を求める（ENDF の約束）。
+/// 透過因子はチャネルのエネルギー |E_λ − 閾値| で求める（負の共鳴は |E_λ|）。
+fn amplitude(
+    er: f64,
+    width: f64,
+    c: &Channel,
+    group: usize,
+    channel: usize,
+) -> Result<f64, RmlError> {
+    if width == 0.0 {
+        return Ok(0.0);
+    }
+    let closed = || RmlError::ClosedWidth { group, er, channel };
+    // 非弾性散乱のチャネルは、閾値より下では閉じていて幅を定義できない
+    if c.role != Role::Elastic && er <= c.threshold {
+        return Err(closed());
+    }
+    let e = (er - c.threshold).abs();
+    let p = penetrability(c.l, c.wave_number(c.threshold + e) * c.apt);
+    if p <= 0.0 {
+        return Err(closed());
+    }
+    Ok(width.signum() * (width.abs() / (2.0 * p)).sqrt())
+}
+
+/// 複素 n×n 行列の方程式 M X = B を部分ピボットつき Gauss の消去法で解く（行列は行優先）。
+/// 特異なら `None`。
+fn solve(mut m: Vec<Complex>, mut b: Vec<Complex>, n: usize) -> Option<Vec<Complex>> {
+    for col in 0..n {
+        let pivot = (col..n).max_by(|&i, &j| {
+            m[i * n + col]
+                .norm_sqr()
+                .total_cmp(&m[j * n + col].norm_sqr())
+        })?;
+        if m[pivot * n + col].norm_sqr() == 0.0 {
+            return None;
+        }
+        for j in 0..n {
+            m.swap(col * n + j, pivot * n + j);
+            b.swap(col * n + j, pivot * n + j);
+        }
+        let p = m[col * n + col].recip();
+        for j in 0..n {
+            m[col * n + j] = m[col * n + j].mul(p);
+            b[col * n + j] = b[col * n + j].mul(p);
+        }
+        for row in 0..n {
+            if row != col {
+                let f = m[row * n + col];
+                for j in 0..n {
+                    m[row * n + j] = m[row * n + j].sub(f.mul(m[col * n + j]));
+                    b[row * n + j] = b[row * n + j].sub(f.mul(b[col * n + j]));
+                }
+            }
+        }
+    }
+    Some(b)
+}
 
 #[cfg(test)]
 mod tests {
