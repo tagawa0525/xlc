@@ -6,11 +6,38 @@
 //!   σ̄(y) = 1/(y²√π) ∫₀^∞ x² σ(x) [exp(-(x-y)²) - exp(-(x+y)²)] dx
 //!
 //! になる。表の最初の点より下は 1/v で x = 0 まで、最後の点より上は一定値で延ばす。
+//!
+//! NJOY は区間ごとの積分を誤差関数の差で解析的に求めるが、共鳴の細かい格子では差が桁落ちする。
+//! ここでは区間ごとに Gauss-Legendre 求積する。被積分関数は区間の中で滑らかなので、
+//! 区間の幅に応じた少ない点数で倍精度に近い精度になる。
 
-use crate::endf::{Mf2, Tab1};
+use crate::endf::{Mf2, RangeKind, Tab1};
+use crate::physics::BK;
+use crate::pointwise::{left_limit, right_limit};
 
 /// 拡げる上限エネルギーの既定の最大値 (eV)。NJOY BROADR と同じ。
 pub const MAX_LIMIT: f64 = 6.5e6;
+
+/// 共鳴パラメータがない核種で、これより上から始まる反応をしきい反応とみなす (eV)。
+const LOW_THRESHOLD: f64 = 1.0;
+
+/// しきい反応があるとき、上限をしきい値のこの倍にする（NJOY と同じ）。
+const BELOW_THRESHOLD: f64 = 0.99999;
+
+/// |x - y| がこれを超える範囲は積分しない（核関数が exp(-25) ≈ 1.4e-11 以下になる）。
+const WINDOW: f64 = 5.0;
+
+/// 拡げた値を計算する最初の格子の、x での間隔の下限。拡げた断面積の構造の幅は
+/// x で 1 程度（ドップラー幅）より狭くならないので、元の格子の点をこの間隔まで間引いてから二分する。
+const SEED_SPACING: f64 = 1.0;
+
+/// 全反応の和に対する比がこれより小さい反応は、格子の収束判定に使わない（NJOY と同じ）。
+const NEGLIGIBLE: f64 = 1.0e-6;
+
+/// これより狭い区間は二分しない（エネルギーの相対幅）。
+const MIN_RELATIVE_WIDTH: f64 = 1.0e-9;
+
+const SQRT_PI: f64 = 1.772_453_850_905_516;
 
 /// 0 K の表を、温度 `temperature` (K) に拡げる。
 ///
@@ -19,8 +46,268 @@ pub const MAX_LIMIT: f64 = 6.5e6;
 /// 細かくした格子に置き、`e_max` 以上は元の表の点をそのまま使う。
 /// 最初の点が格子全体の最初の点より上にある表（しきい反応）は、しきい値より下を 0 のままにする。
 pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64) -> Vec<Tab1> {
-    let _ = (tables, awr, temperature, e_max, tol);
-    todo!()
+    let alpha = awr / (BK * temperature);
+    let union = Union::new(tables);
+    let first = union.energies[0];
+    let top = e_max.min(*union.energies.last().expect("tables are not empty"));
+    if top <= first {
+        return tables.to_vec();
+    }
+    let integral = Integral {
+        alpha,
+        x: union.energies.iter().map(|e| (alpha * e).sqrt()).collect(),
+        values: &union.values,
+    };
+
+    let mut points = Vec::new();
+    let seeds = seeds(tables, &union.energies, &integral.x, alpha, top);
+    let mut left = (seeds[0], integral.at(seeds[0]));
+    points.push(left.clone());
+    for &e in &seeds[1..] {
+        let right = (e, integral.at(e));
+        refine(&|e| integral.at(e), left, right.clone(), tol, &mut points);
+        left = right;
+    }
+
+    tables
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let start = t.x[0];
+            if start >= top {
+                return t.clone();
+            }
+            let (mut x, mut y) = (Vec::new(), Vec::new());
+            if start > first {
+                // しきい反応: しきい値より下に漏れた分は捨てる
+                x.push(start);
+                y.push(t.y[0]);
+            }
+            for (e, v) in points.iter().filter(|(e, _)| *e > start || start == first) {
+                x.push(*e);
+                y.push(v[i]);
+            }
+            // e_max から上は元の表の点。e_max に段差があれば、右側の値から使う
+            let mut k = t.x.partition_point(|&e| e < top);
+            if t.x.get(k + 1) == Some(&top) {
+                k += 1;
+            }
+            x.extend_from_slice(&t.x[k..]);
+            y.extend_from_slice(&t.y[k..]);
+            Tab1::linear(x, y)
+        })
+        .collect()
+}
+
+/// 拡げた値を最初に計算するエネルギー: 元の格子を x で `SEED_SPACING` まで間引いた点と、
+/// しきい反応の始まりと、上限 `top`。
+///
+/// 元の格子点での折れ曲がりは、拡げると x で ±1 程度の幅になまる。中点での二分だけでは
+/// 区間の端の近くのなまりを見逃すので、間隔の広いところでは各点の両側 `SEED_SPACING` にも点を置く。
+fn seeds(tables: &[Tab1], energies: &[f64], x: &[f64], alpha: f64, top: f64) -> Vec<f64> {
+    let mut thinned: Vec<(f64, f64)> = Vec::new();
+    for (&e, &xk) in energies.iter().zip(x).take_while(|(e, _)| **e < top) {
+        let starts = tables.iter().any(|t| t.x[0] == e);
+        let far = thinned
+            .last()
+            .is_none_or(|&(last, x_last)| last != e && xk >= x_last + SEED_SPACING);
+        if far || (starts && thinned.last().is_none_or(|&(last, _)| last != e)) {
+            thinned.push((e, xk));
+        }
+    }
+    thinned.push((top, (alpha * top).sqrt()));
+
+    let mut seeds = vec![thinned[0].0];
+    for w in thinned.windows(2) {
+        let ((_, x0), (e1, x1)) = (w[0], w[1]);
+        if x1 - x0 > 2.0 * SEED_SPACING {
+            for xs in [x0 + SEED_SPACING, x1 - SEED_SPACING] {
+                seeds.push(xs * xs / alpha);
+            }
+        }
+        seeds.push(e1);
+    }
+    seeds
+}
+
+/// 区間 (a, b) を、中点での線形補間の誤差が `tol` 以下になるまで二分し、
+/// 加えた点と右端の点を左から順に `points` に積む（左端は積まない）。
+fn refine(
+    f: &impl Fn(f64) -> Vec<f64>,
+    a: (f64, Vec<f64>),
+    b: (f64, Vec<f64>),
+    tol: f64,
+    points: &mut Vec<(f64, Vec<f64>)>,
+) {
+    // 右側の区間から積み、左側から取り出す
+    let mut stack = vec![b];
+    let mut left = a;
+    while let Some(right) = stack.pop() {
+        let mid = 0.5 * (left.0 + right.0);
+        if right.0 - left.0 > MIN_RELATIVE_WIDTH * mid {
+            let exact = f(mid);
+            if !converged(&left.1, &right.1, &exact, tol) {
+                stack.push(right);
+                stack.push((mid, exact));
+                continue;
+            }
+        }
+        points.push(right.clone());
+        left = right;
+    }
+}
+
+/// 中点の真値 `exact` が、両端の値の平均で `tol` の精度で表せるか。和に対して無視できる反応は見ない。
+fn converged(left: &[f64], right: &[f64], exact: &[f64], tol: f64) -> bool {
+    let total: f64 = exact.iter().map(|s| s.abs()).sum();
+    (0..exact.len()).all(|i| {
+        let linear = 0.5 * (left[i] + right[i]);
+        exact[i].abs() < NEGLIGIBLE * total || (linear - exact[i]).abs() <= tol * exact[i].abs()
+    })
+}
+
+/// 複数の lin-lin の表を、共通のエネルギー格子の上の値の組にしたもの。
+/// 不連続点はエネルギーの重複（左側の値、右側の値の順）で表し、表の定義域の外は 0 とする。
+struct Union {
+    energies: Vec<f64>,
+    values: Vec<Vec<f64>>,
+}
+
+impl Union {
+    fn new(tables: &[Tab1]) -> Self {
+        let mut breakpoints: Vec<f64> = tables.iter().flat_map(|t| t.x.iter().copied()).collect();
+        breakpoints.sort_by(f64::total_cmp);
+        breakpoints.dedup();
+        let last = breakpoints.len() - 1;
+        let mut energies = Vec::with_capacity(breakpoints.len());
+        let mut values = Vec::with_capacity(breakpoints.len());
+        for (j, &e) in breakpoints.iter().enumerate() {
+            let left: Vec<f64> = tables.iter().map(|t| left_limit(t, e)).collect();
+            let right: Vec<f64> = tables.iter().map(|t| right_limit(t, e)).collect();
+            let jump = left != right;
+            if j > 0 {
+                energies.push(e);
+                values.push(left);
+            }
+            if j == 0 || (j < last && jump) {
+                energies.push(e);
+                values.push(right);
+            }
+        }
+        Self { energies, values }
+    }
+}
+
+/// 拡がりの積分。`x[k]` = √(α E_k) の各点で、表の値の組 `values[k]` を持つ。
+struct Integral<'a> {
+    alpha: f64,
+    x: Vec<f64>,
+    values: &'a [Vec<f64>],
+}
+
+impl Integral<'_> {
+    /// エネルギー e での、拡げた断面積の組。
+    fn at(&self, e: f64) -> Vec<f64> {
+        let y = (self.alpha * e).sqrt();
+        let x = &self.x;
+        let n = self.values[0].len();
+        let mut sum = vec![0.0; n];
+        let mut add = |weight: f64, values: &[f64]| {
+            for (s, v) in sum.iter_mut().zip(values) {
+                *s += weight * v;
+            }
+        };
+        let (lo, hi) = ((y - WINDOW).max(0.0), y + WINDOW);
+
+        // 最初の点より下は 1/v: x² σ(x) = x x₀ σ₀
+        let x0 = x[0];
+        if lo < x0 {
+            let mut weights = 0.0;
+            quadrature(lo, hi.min(x0), |xi, w| {
+                weights += w * xi * x0 * kernel(xi, y)
+            });
+            add(weights, &self.values[0]);
+        }
+
+        let start = x.partition_point(|&xk| xk <= lo).saturating_sub(1);
+        for k in start..x.len() - 1 {
+            let (x0, x1) = (x[k], x[k + 1]);
+            if x0 >= hi {
+                break;
+            }
+            let (a, b) = (x0.max(lo), x1.min(hi));
+            if b <= a {
+                continue;
+            }
+            // 区間の中で σ は E（= x²/α）について線形: σ = σ₀ + t (σ₁ - σ₀)、
+            // t = (x - x₀)(x + x₀) / ((x₁ - x₀)(x₁ + x₀))。両端の重みに分けて積分する
+            let denom = (x1 - x0) * (x1 + x0);
+            let (mut w0, mut w1) = (0.0, 0.0);
+            quadrature(a, b, |xi, w| {
+                let f = w * xi * xi * kernel(xi, y);
+                let t = (xi - x0) * (xi + x0) / denom;
+                w0 += f * (1.0 - t);
+                w1 += f * t;
+            });
+            add(w0, &self.values[k]);
+            add(w1, &self.values[k + 1]);
+        }
+
+        // 最後の点より上は一定値
+        let last = x.len() - 1;
+        if hi > x[last] {
+            let mut weights = 0.0;
+            quadrature(lo.max(x[last]), hi, |xi, w| {
+                weights += w * xi * xi * kernel(xi, y)
+            });
+            add(weights, &self.values[last]);
+        }
+
+        let scale = 1.0 / (y * y * SQRT_PI);
+        sum.iter_mut().for_each(|s| *s *= scale);
+        sum
+    }
+}
+
+/// exp(-(x-y)²) - exp(-(x+y)²) を、y が小さいときにも桁落ちしない形で計算する。
+fn kernel(x: f64, y: f64) -> f64 {
+    let d = x - y;
+    (-d * d).exp() * -(-4.0 * x * y).exp_m1()
+}
+
+/// 区間 [a, b] の Gauss-Legendre 求積。各点 x と重み w で `f(x, w)` を呼ぶ。
+/// 被積分関数は x で幅 1 程度の構造（核関数）を持つので、区間の幅に応じて点数を選び、
+/// 幅 1 を超える区間は幅 1 以下の小区間に分ける。
+fn quadrature(a: f64, b: f64, mut f: impl FnMut(f64, f64)) {
+    // [-1, 1] での正の分点と重み
+    const GAUSS2: [(f64, f64); 1] = [(0.577_350_269_189_625_8, 1.0)];
+    const GAUSS4: [(f64, f64); 2] = [
+        (0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
+        (0.861_136_311_594_052_6, 0.347_854_845_137_453_9),
+    ];
+    const GAUSS8: [(f64, f64); 4] = [
+        (0.183_434_642_495_649_8, 0.362_683_783_378_362_0),
+        (0.525_532_409_916_329_0, 0.313_706_645_877_887_3),
+        (0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
+        (0.960_289_856_497_536_2, 0.101_228_536_290_376_3),
+    ];
+    let width = b - a;
+    let (rule, panels): (&[(f64, f64)], usize) = if width <= 0.005 {
+        (&GAUSS2, 1)
+    } else if width <= 0.2 {
+        (&GAUSS4, 1)
+    } else {
+        (&GAUSS8, width.ceil() as usize)
+    };
+    let h = width / panels as f64;
+    for p in 0..panels {
+        let center = a + h * (p as f64 + 0.5);
+        let half = 0.5 * h;
+        for &(node, weight) in rule {
+            f(center - half * node, half * weight);
+            f(center + half * node, half * weight);
+        }
+    }
 }
 
 /// 拡げる上限エネルギー（NJOY BROADR の既定値と同じ規則）。
@@ -29,8 +316,24 @@ pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64
 /// 共鳴パラメータがなければ `MAX_LIMIT` とし、1 eV より上から始まるしきい反応があれば、
 /// そのしきい値の手前までにする。
 pub fn broadening_limit<'a>(mf2: Option<&Mf2>, tables: impl Iterator<Item = &'a Tab1>) -> f64 {
-    let _ = (mf2, tables.count());
-    todo!()
+    let ranges = mf2.map_or(&[][..], |m| &m.ranges);
+    let resolved = ranges
+        .iter()
+        .filter(|r| matches!(r.kind, RangeKind::ReichMoore(_) | RangeKind::Mlbw(_)))
+        .map(|r| r.eh)
+        .reduce(f64::max);
+    let unresolved = ranges
+        .iter()
+        .filter(|r| matches!(r.kind, RangeKind::Unresolved { .. }))
+        .map(|r| r.el)
+        .reduce(f64::min);
+    if let Some(e) = resolved.or(unresolved) {
+        return e.min(MAX_LIMIT);
+    }
+    tables
+        .map(|t| t.x[0])
+        .filter(|&e| e > LOW_THRESHOLD)
+        .fold(MAX_LIMIT, |limit, e| limit.min(BELOW_THRESHOLD * e))
 }
 
 #[cfg(test)]
