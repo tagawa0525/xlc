@@ -16,7 +16,7 @@
 //! material fuel temperature 900 U235 7.0e-4 U238 2.2e-2 O16 4.6e-2   # 核種と個数密度 (1/(barn cm))
 //! material water temperature 600 H1 4.9e-2 O16 2.5e-2
 //! cell pin fuel 0.4096 3 water - 2       # 物質 外半径 分割数 ...（最後の帯の外半径は - でセルの外周まで）
-//! cell box water - 1
+//! cell box water - 1 grid 4             # 均質なセルは小さな正方形に分けられる（4 × 4）
 //! row pin box                            # セルの配置を上の行から
 //! row box pin
 //! ```
@@ -62,6 +62,8 @@ pub struct Zone {
 pub struct CellInput {
     pub name: String,
     pub zones: Vec<Zone>,
+    /// 均質なセルを分ける小さな正方形の1辺の数（`grid M`、書かなければ 1）
+    pub grid: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -377,6 +379,7 @@ fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
     Ok(CellInput {
         name: name.to_string(),
         zones,
+        grid: 1,
     })
 }
 
@@ -585,5 +588,28 @@ row box pin
         assert!(geometry(&PIN_CELL.replace("water - 2", "steam - 2")).is_err());
         // 帯の外半径がセルの内接円を超える
         assert!(geometry(&LATTICE.replace("clad 0.6 1", "clad 1.2 1")).is_err());
+    }
+
+    #[test]
+    fn homogeneous_cells_can_be_split_into_a_grid() {
+        let text = LATTICE.replace("cell box water - 1", "cell box water - 1 grid 3");
+        let input = LatticeInput::parse(&text).unwrap();
+        assert_eq!(input.cells[1].grid, 3);
+        assert_eq!(input.cells[0].grid, 1);
+        let (lattice, materials) = input.geometry().unwrap();
+        // ピン 3 領域 + 3 × 3 の箱が2つ + ピン 3 領域
+        assert_eq!(lattice.regions(), 24);
+        assert_eq!(materials.iter().filter(|m| *m == "water").count(), 2 + 18);
+        // grid は同心円のない均質なセル（帯が1つで分割数 1）だけ
+        let parse = LatticeInput::parse;
+        assert!(
+            parse(&LATTICE.replace("water - 1\ncell box", "water - 1 grid 2\ncell box")).is_err()
+        );
+        assert!(
+            parse(&LATTICE.replace("cell box water - 1", "cell box water - 2 grid 2")).is_err()
+        );
+        assert!(
+            parse(&LATTICE.replace("cell box water - 1", "cell box water - 1 grid 0")).is_err()
+        );
     }
 }
