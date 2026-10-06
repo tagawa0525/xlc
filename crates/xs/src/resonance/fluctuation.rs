@@ -101,6 +101,11 @@ mod tests {
     use super::*;
     use crate::special::erfc;
 
+    /// エラーにならない関数の期待値
+    fn mean(dof: WidthDof, tolerance: f64, f: impl Fn(f64) -> f64) -> f64 {
+        expectation::<NumericError>(dof, tolerance, |x| Ok(f(x))).unwrap()
+    }
+
     const SQRT_PI: f64 = 1.772_453_850_905_516;
     const INNER: f64 = 1.0e-10;
     const OUTER: f64 = 1.0e-8;
@@ -117,7 +122,7 @@ mod tests {
             let nu = f64::from(dof.number());
             let mut expected = 1.0;
             for k in 0..=6 {
-                let moment = expectation(dof, INNER, |x| x.powi(k));
+                let moment = mean(dof, INNER, |x| x.powi(k));
                 assert!(
                     (moment - expected).abs() <= 1e-9 * expected,
                     "ν={dof:?}, k={k}: {moment} vs {expected}"
@@ -138,7 +143,7 @@ mod tests {
             let gamma = 2.0 * (-z).exp() / z.sqrt() - 2.0 * SQRT_PI * erfc(z.sqrt());
             let nu3 = 1.5_f64.powf(1.5) * c.sqrt() * z.exp() * gamma;
             for (dof, exact) in [(WidthDof::One, nu1), (WidthDof::Three, nu3)] {
-                let actual = expectation(dof, INNER, |x| 1.0 / (x + c));
+                let actual = mean(dof, INNER, |x| 1.0 / (x + c));
                 assert!(
                     (actual - exact).abs() <= 1e-8 * exact,
                     "ν={dof:?}, c={c}: {actual} vs {exact}"
@@ -151,11 +156,11 @@ mod tests {
     fn nested_expectations_converge_in_either_order() {
         // 内側の期待値は許容誤差の範囲でばらつくので、外側は許容誤差を緩めないと収束しない
         let f = |x: f64, y: f64| x * y / (x + 0.3 * y + 0.01);
-        let x_inside = expectation(WidthDof::One, OUTER, |y| {
-            expectation(WidthDof::One, INNER, |x| f(x, y))
+        let x_inside = mean(WidthDof::One, OUTER, |y| {
+            mean(WidthDof::One, INNER, |x| f(x, y))
         });
-        let y_inside = expectation(WidthDof::One, OUTER, |x| {
-            expectation(WidthDof::One, INNER, |y| f(x, y))
+        let y_inside = mean(WidthDof::One, OUTER, |x| {
+            mean(WidthDof::One, INNER, |y| f(x, y))
         });
         assert!(
             (x_inside - y_inside).abs() <= 1e-7 * x_inside,
@@ -177,10 +182,10 @@ mod tests {
                 1.0e-6, 1.0e-3, 0.1, 1.0, 10.0, 99.0, 101.0, 1.0e3, 1.0e6, 1.0e9,
             ] {
                 let numeric = [
-                    expectation(dof, 1.0e-12, |x| x / (x + c)),
-                    expectation(dof, 1.0e-12, |x| x * x / (x + c)),
+                    mean(dof, 1.0e-12, |x| x / (x + c)),
+                    mean(dof, 1.0e-12, |x| x * x / (x + c)),
                 ];
-                let closed = width_ratios(dof, c);
+                let closed = width_ratios(dof, c).unwrap();
                 for i in 0..2 {
                     assert!(
                         (closed[i] - numeric[i]).abs() <= 1e-9 * numeric[i],
@@ -195,6 +200,6 @@ mod tests {
 
     #[test]
     fn zero_degrees_of_freedom_do_not_fluctuate() {
-        assert_eq!(expectation(WidthDof::Fixed, INNER, |x| 3.0 * x + 1.0), 4.0);
+        assert_eq!(mean(WidthDof::Fixed, INNER, |x| 3.0 * x + 1.0), 4.0);
     }
 }

@@ -135,12 +135,22 @@ mod tests {
     }
 
     #[test]
+    fn jk_integrals_need_positive_beta() {
+        for beta in [0.0, -1.0, f64::NAN] {
+            assert!(matches!(
+                jk_integrals(&[1.0, beta], 1.0),
+                Err(NumericError::Domain(_))
+            ));
+        }
+    }
+
+    #[test]
     fn natural_line_shape_without_doppler() {
         // θ → ∞ で ψ = 1/(1+x²)。a² = (1+β)/β として
         // J = π/(2aβ)、K = (1/β)[π/(2a) + π(a²+1)/(4a³)]
         let theta = 1.0e5;
         let betas = [1.0e-4, 1.0e-2, 1.0, 1.0e2];
-        for (&beta, (j, k)) in betas.iter().zip(jk_integrals(&betas, theta)) {
+        for (&beta, (j, k)) in betas.iter().zip(jk_integrals(&betas, theta).unwrap()) {
             let a = ((1.0 + beta) / beta).sqrt();
             assert_rel(j, PI / (2.0 * a * beta), 1e-8);
             assert_rel(
@@ -156,7 +166,7 @@ mod tests {
     fn dilute_limit() {
         // β → ∞ で J → (1/β)∫ψ dx = π/(2β)、K → 2J
         for theta in [0.01, 0.3, 10.0] {
-            let [(j, k)] = jk_integrals(&[1.0e8], theta)[..] else {
+            let [(j, k)] = jk_integrals(&[1.0e8], theta).unwrap()[..] else {
                 panic!("one β")
             };
             assert_rel(j, PI / 2.0e8, 1e-7);
@@ -185,7 +195,7 @@ mod tests {
         // ドップラー幅が自然幅の 100 倍
         let theta = 0.01;
         let betas = [1.0e-3, 0.1];
-        for (&beta, (j, _)) in betas.iter().zip(jk_integrals(&betas, theta)) {
+        for (&beta, (j, _)) in betas.iter().zip(jk_integrals(&betas, theta).unwrap()) {
             assert_rel(j, j_by_simpson(beta, theta), 1e-6);
         }
     }
@@ -204,7 +214,7 @@ mod tests {
             let beta = 10f64.powf(LOG_BETA.0 + (LOG_BETA.1 - LOG_BETA.0) * uniform());
             let theta = 10f64.powf(LOG_THETA.0 + (LOG_THETA.1 - LOG_THETA.0) * uniform());
             let (j, k) = jk_interpolated(beta, theta).unwrap();
-            let [(jd, kd)] = jk_integrals(&[beta], theta)[..] else {
+            let [(jd, kd)] = jk_integrals(&[beta], theta).unwrap()[..] else {
                 panic!("one β")
             };
             assert_rel(j, jd, 1e-6);

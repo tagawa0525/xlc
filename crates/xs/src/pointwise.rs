@@ -765,7 +765,7 @@ mod tests {
         let xs = UnresolvedXs::new(urr).unwrap();
         let at = |mt: u32, e: f64| tables[&mt].eval(e).unwrap();
         // 格子点（2 keV は補助格子の点）では、平均断面積と MF3 の背景断面積の和
-        let average = xs.cross_sections(2.0e3);
+        let average = xs.cross_sections(2.0e3).unwrap();
         for (mt, expected) in [(2, average.elastic + 10.0), (102, average.capture + 0.5)] {
             assert!(
                 (at(mt, 2.0e3) - expected).abs() <= 1e-12 * expected,
@@ -806,6 +806,7 @@ mod tests {
         let average = UnresolvedXs::new(urr)
             .unwrap()
             .cross_sections(1.0e5)
+            .unwrap()
             .capture;
         let t = &tables[&102];
         assert!((left_limit(t, 1.0e5) - (average + 0.5)).abs() <= 1e-12 * average);
