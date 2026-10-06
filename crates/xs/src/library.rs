@@ -426,4 +426,69 @@ pub(crate) mod tests {
         ));
         assert!(Library::from_msgpack(&[]).is_err());
     }
+
+    #[test]
+    fn nested_structs_in_array_form_are_rejected() {
+        // 最上位だけ map で、核種を配列形式で書いたファイル
+        #[derive(Serialize)]
+        struct Mixed {
+            format: &'static str,
+            group_bounds: Vec<f64>,
+            sigma0: Vec<f64>,
+            nuclides: embedded::Nested,
+        }
+        let file = sample_file();
+        let nested = rmp_serde::to_vec(&file.nuclides).unwrap();
+        let mixed = Mixed {
+            format: "xlc-multigroup",
+            group_bounds: file.group_bounds,
+            sigma0: file.sigma0,
+            nuclides: embedded::Nested(nested),
+        };
+        let bytes = rmp_serde::to_vec_named(&mixed).unwrap();
+        assert!(matches!(
+            Library::from_msgpack(&bytes),
+            Err(LibraryError::NotMap)
+        ));
+    }
+
+    /// 書き出し済みの MessagePack をそのまま埋め込むための型。
+    mod embedded {
+        pub struct Nested(pub Vec<u8>);
+
+        impl serde::Serialize for Nested {
+            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                let value = rmpv::decode::read_value(&mut self.0.as_slice()).unwrap();
+                value.serialize(s)
+            }
+        }
+    }
+
+    #[test]
+    fn trailing_bytes_are_rejected() {
+        let mut bytes = sample().to_msgpack();
+        bytes.extend([0xc1, 0xff, 0x00]);
+        assert!(Library::from_msgpack(&bytes).is_err());
+    }
+
+    #[test]
+    fn non_finite_values_are_rejected() {
+        assert!(read_modified(|f| f.nuclides[0].temperatures[0].temperature = f64::NAN).is_err());
+        assert!(
+            read_modified(|f| f.nuclides[0].temperatures[1].shielded[1].total[0] = f64::NAN)
+                .is_err()
+        );
+        assert!(
+            read_modified(|f| f.nuclides[1].temperatures[0].scatter[0][1] = f64::INFINITY).is_err()
+        );
+        assert!(read_modified(|f| f.nuclides[1].awr = f64::NAN).is_err());
+        assert!(read_modified(|f| f.group_bounds[0] = f64::INFINITY).is_err());
+        assert!(read_modified(|f| f.sigma0[0] = f64::INFINITY).is_err());
+    }
+
+    #[test]
+    fn duplicate_nuclides_and_temperatures_are_rejected() {
+        assert!(read_modified(|f| f.nuclides[1].name = "U-235".into()).is_err());
+        assert!(read_modified(|f| f.nuclides[0].temperatures[1].temperature = 293.6).is_err());
+    }
 }
