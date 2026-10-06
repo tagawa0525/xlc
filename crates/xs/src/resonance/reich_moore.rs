@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
-use crate::endf::ReichMoore;
+use crate::endf::{OrbitalL, ReichMoore};
 use crate::physics::wave_number_factor;
 
 /// 断面積の計算に使う形に前処理した Reich-Moore パラメータ。
@@ -19,7 +19,7 @@ pub struct ReichMooreXs {
 
 #[derive(Debug, Clone)]
 struct LValue {
-    l: u32,
+    l: OrbitalL,
     /// AWRI / (AWRI + 1)
     arat: f64,
     /// 透過因子に使うチャネル半径 (10^-12 cm)
@@ -97,11 +97,11 @@ impl ReichMooreXs {
             let phi = phase_shift(lv.l, k * lv.scattering_radius);
 
             // l と標的スピンから作れる J を、チャネルスピン s = I ± 1/2 の両方について調べる
-            let fl = f64::from(lv.l);
+            let fl = f64::from(lv.l.number());
             let ajmin = ((self.spi - fl).abs() - 0.5).abs();
             let ajmax = self.spi + fl + 0.5;
             let numj = (ajmax - ajmin + 1.0).round() as usize;
-            let jjl = if lv.l != 0 && fl > self.spi - 0.5 && fl <= self.spi {
+            let jjl = if lv.l != OrbitalL::S && fl > self.spi - 0.5 && fl <= self.spi {
                 0
             } else {
                 1
@@ -359,7 +359,7 @@ pub(crate) mod tests {
             l_values: vec![RmLValue {
                 awri: AWRI,
                 apl: 0.0,
-                l: 0,
+                l: OrbitalL::S,
                 resonances: vec![RmResonance {
                     er: 6.674,
                     aj: 0.5,
@@ -465,7 +465,7 @@ pub(crate) mod tests {
             RmLValue {
                 awri: 1.0,
                 apl: 0.0,
-                l: 1,
+                l: OrbitalL::P,
                 resonances: vec![],
             },
         );
@@ -489,7 +489,7 @@ pub(crate) mod tests {
             l_values: vec![RmLValue {
                 awri: AWRI,
                 apl: 0.0,
-                l: 1,
+                l: OrbitalL::P,
                 resonances: vec![RmResonance {
                     er: 1.0e4,
                     aj: 1.5,

@@ -17,8 +17,8 @@ use std::fmt;
 
 pub use mf1::parse_nubar;
 pub use mf2::{
-    BwLValue, BwResonance, Mf2, Mlbw, RangeKind, ReichMoore, ResonanceRange, RmLValue, RmResonance,
-    Unresolved, UrrJValue, UrrLValue, UrrPoint,
+    BwLValue, BwResonance, Mf2, Mlbw, OrbitalL, RangeKind, ReichMoore, ResonanceRange, RmLValue,
+    RmResonance, Unresolved, UrrJValue, UrrLValue, UrrPoint,
 };
 pub use mf3::Mf3;
 pub use mf5::{EnergyLaw, Mf5, OutgoingDistributions, parse_outgoing};

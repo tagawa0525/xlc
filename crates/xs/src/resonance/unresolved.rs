@@ -67,7 +67,7 @@ impl<'a> UnresolvedXs<'a> {
             // 1/k² に掛ける係数
             let pifac = PI / (k * k);
             if !lv.j_values.is_empty() {
-                sigma.elastic += 4.0 * pifac * f64::from(2 * lv.l + 1) * sin2;
+                sigma.elastic += 4.0 * pifac * f64::from(2 * lv.l.number() + 1) * sin2;
             }
             for jv in &lv.j_values {
                 let p = parameters(&jv.points, e);
@@ -123,7 +123,7 @@ impl UnresolvedXs<'_> {
             let sin2 = phase_shift(lv.l, rhoc).sin().powi(2);
             let ab = 4.0 * PI / (k * k);
             if !lv.j_values.is_empty() {
-                spot += ab * f64::from(2 * lv.l + 1) * sin2;
+                spot += ab * f64::from(2 * lv.l.number() + 1) * sin2;
             }
             // ドップラー幅 Δ = 2 √(E kT / A)
             let delta = 2.0 * (e * BK * temperature / lv.awri).sqrt();
@@ -401,7 +401,7 @@ const FILL: [f64; 78] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::UrrLValue;
+    use crate::endf::{OrbitalL, UrrLValue};
     use crate::special::erfc;
 
     const AWRI: f64 = 236.0;
@@ -427,7 +427,7 @@ mod tests {
             naps: 1,
             l_values: vec![UrrLValue {
                 awri: AWRI,
-                l: 0,
+                l: OrbitalL::S,
                 j_values: vec![UrrJValue {
                     aj: 0.5,
                     int,
@@ -517,7 +517,7 @@ mod tests {
             naps: 0,
             l_values: vec![UrrLValue {
                 awri: 232.029,
-                l: 1,
+                l: OrbitalL::P,
                 j_values: vec![UrrJValue {
                     aj: 0.5,
                     int: Interpolation::LinLin,
@@ -554,7 +554,7 @@ mod tests {
             naps: 0,
             l_values: vec![UrrLValue {
                 awri: 234.0178,
-                l: 2,
+                l: OrbitalL::D,
                 j_values: vec![UrrJValue {
                     aj: 1.5,
                     int: Interpolation::LogLog,
