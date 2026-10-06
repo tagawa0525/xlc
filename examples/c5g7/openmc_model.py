@@ -136,7 +136,8 @@ def main() -> None:
     settings.batches = batches
     settings.inactive = inactive
     settings.source = openmc.IndependentSource(
-        space=openmc.stats.Box((-width / 2, -width / 2, -1), (width / 6, width / 6, 1)),
+        # 燃料のある左上の 2 × 2 集合体（x は左から、y は上から 2/3）
+        space=openmc.stats.Box((-width / 2, -width / 6, -1), (width / 6, width / 2, 1)),
         constraints={"fissionable": True},
     )
 
