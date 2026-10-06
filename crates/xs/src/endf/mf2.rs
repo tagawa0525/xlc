@@ -155,6 +155,8 @@ impl Mf2 {
             ));
         }
         let isotope = r.cont()?;
+        // 核分裂幅がエネルギー依存か（非分離共鳴 LRF=1 の形式を決める）
+        let lfw = isotope.l2;
         let ner = usize::try_from(isotope.n1)
             .map_err(|_| Error::new(r.line(), format!("invalid NER {}", isotope.n1)))?;
 
@@ -186,7 +188,14 @@ impl Mf2 {
                     };
                     RangeKind::Unresolved(read_unresolved(&mut r, range.n2, ap_energy)?)
                 }
-                2 => return unsupported(format!("unresolved LRF={lrf} is not supported")),
+                2 if lrf == 1 && nro == 0 => RangeKind::UnresolvedLrf1 {
+                    lssf: skip_unresolved_lrf1(&mut r, lfw)?,
+                },
+                2 => {
+                    return unsupported(format!(
+                        "unresolved LRF={lrf} with NRO={nro} is not supported"
+                    ));
+                }
                 _ => return unsupported(format!("invalid LRU={lru}")),
             };
             ranges.push(ResonanceRange {
@@ -238,14 +247,15 @@ fn read_unresolved(
                     "unresolved parameters must be 6 values per energy after a header",
                 ));
             };
-            // 幅の分布の自由度は、χ² 分布の求積がある 0〜4 の整数に限る
+            // 幅の分布の自由度は、NJOY と同じく最も近い整数に丸める。χ² 分布の求積があるのは 0〜4
             let dof = |v: f64| {
-                if (0.0..=4.0).contains(&v) && v.fract() == 0.0 {
-                    Ok(v)
+                let rounded = v.round();
+                if (0.0..=4.0).contains(&rounded) {
+                    Ok(rounded as u32)
                 } else {
                     Err(Error::new(
                         header_line + 1,
-                        format!("degrees of freedom {v} must be an integer from 0 to 4"),
+                        format!("degrees of freedom {v} must round to an integer from 0 to 4"),
                     ))
                 }
             };
@@ -260,18 +270,19 @@ fn read_unresolved(
                     gf: p[5],
                 })
                 .collect();
-            if points.is_empty() || points.windows(2).any(|w| w[1].e <= w[0].e) {
+            // 同じエネルギーの繰り返しは、パラメータの段差を表す
+            if points.is_empty() || points.windows(2).any(|w| w[1].e < w[0].e) {
                 return Err(Error::new(
                     header_line,
-                    "unresolved energies must be present and increasing",
+                    "unresolved energies must be present and not decreasing",
                 ));
             }
             j_values.push(UrrJValue {
                 aj: list.c1,
                 int,
-                amux: dof(header[2])? as u32,
-                amun: dof(header[3])? as u32,
-                amuf: dof(header[5])? as u32,
+                amux: dof(header[2])?,
+                amun: dof(header[3])?,
+                amuf: dof(header[5])?,
                 points,
             });
         }
@@ -289,6 +300,28 @@ fn read_unresolved(
         naps,
         l_values,
     })
+}
+
+/// 非分離共鳴 LRF=1 のパラメータを読み飛ばし、LSSF を返す。
+fn skip_unresolved_lrf1(r: &mut Reader<'_>, lfw: i64) -> Result<i64, Error> {
+    if lfw == 0 {
+        // SPI AP LSSF 0 NLS 0 と、l ごとに J のパラメータの LIST
+        let cont = r.cont()?;
+        for _ in 0..cont.n1 {
+            r.list()?;
+        }
+        Ok(cont.l1)
+    } else {
+        // エネルギーの LIST（SPI AP LSSF 0 NE NLS）と、l ごとに CONT（NJS）と J ごとの LIST
+        let energies = r.list()?;
+        for _ in 0..energies.n2 {
+            let l_cont = r.cont()?;
+            for _ in 0..l_cont.n1 {
+                r.list()?;
+            }
+        }
+        Ok(energies.l1)
+    }
 }
 
 fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> {
