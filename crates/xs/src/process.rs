@@ -533,10 +533,21 @@ mod tests {
                 (absorption - capture).abs() <= 1e-9 * capture,
                 "{absorption} vs {capture}"
             );
-            // 自由原子の断面積が一定（10 b）なら、自由ガスの実効的な散乱断面積は 10 N(E)。
-            // N(E) = (1 + 1/(2a²)) erf(a) + e^(-a²)/(a√π)、a² = A E/kT。MF3 は温度 T に拡げてあり
-            // すでに N(E) を含むので、自由ガスの核には 0 K の断面積を掛ける（N(E) を二重に数えない）。
-            // 許容誤差は自由ガスの核の群積分の精度
+            // 自由ガスの行の和は温度に拡げた弾性散乱の群平均になり、熱領域の補正は 0 になる
+            let elastic = crate::multigroup::reaction_averages(
+                &settings.groups,
+                &settings.weight,
+                &tables,
+                None,
+            )
+            .sigma[&2][last];
+            assert!(
+                (dilute.elastic[last] - elastic).abs() <= 1e-9 * elastic,
+                "{} vs {elastic}",
+                dilute.elastic[last]
+            );
+            // 一定の 10 b を拡げると 10 N(E)（N(E) = (1 + 1/(2a²)) erf(a) + e^(-a²)/(a√π)、a² = A E/kT）。
+            // 許容誤差はポイントワイズの断面積の許容誤差 1e-3
             let (awr, kt) = (236.006, BK * t.temperature);
             let effective = |e: f64| {
                 let a = (awr * e / kt).sqrt();
@@ -549,9 +560,8 @@ mod tests {
             };
             let expected = integrate(&effective) / integrate(&|_| 1.0);
             assert!(
-                (dilute.elastic[last] - expected).abs() <= 1e-6 * expected,
-                "{} vs {expected}",
-                dilute.elastic[last]
+                (elastic - expected).abs() <= 1e-3 * expected,
+                "{elastic} vs {expected}"
             );
             // 非分離共鳴の群（[1.5e4, 2.5e4] eV）では、σ0 が小さいと吸収が自己遮蔽で減る
             let g = settings.groups.find(2.0e4).unwrap();
