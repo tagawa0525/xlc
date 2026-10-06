@@ -13,6 +13,7 @@
         p: with p; [
           numpy
           h5py
+          msgpack
           lxml
           scipy
           pandas
