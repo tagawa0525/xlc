@@ -71,6 +71,8 @@ pub enum ScatterError {
     QValue(u32),
     #[error("MT{0}: no outgoing neutron distribution")]
     NoDistribution(u32),
+    #[error("MT{0}: a two-body (LAW=2) neutron distribution outside the discrete levels MT51-90")]
+    TwoBody(u32),
 }
 
 /// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
@@ -115,8 +117,14 @@ pub fn scattering_matrix(
         // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
         let rows = if mt == 2 {
             elastic_rows(groups, weight, awr, table, thermal)
-        } else if let Some(Emission::Mf6(data)) = emissions.get(&mt) {
+        } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
+            && !data.two_body
+        {
             emission_rows(groups, weight, table, data)
+        } else if let Some(Emission::Mf6(_)) = emissions.get(&mt)
+            && !(51..=90).contains(&mt)
+        {
+            return Err(ScatterError::TwoBody(mt));
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
             let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
             spectrum_rows(groups, weight, table, data, count)
@@ -600,6 +608,7 @@ mod tests {
             Emission::Mf6(Mf6 {
                 awr: 1.0,
                 neutrons: vec![],
+                two_body: false,
             }),
         )]);
         let thermal = FreeGas {
@@ -675,6 +684,7 @@ mod tests {
             Emission::Mf6(Mf6 {
                 awr: 15.86,
                 neutrons: vec![emission],
+                two_body: false,
             }),
         )]);
         let tables = BTreeMap::from([(16, constant(0.5))]);
