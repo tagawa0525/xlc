@@ -71,6 +71,8 @@ pub enum ScatterError {
     QValue(u32),
     #[error("MT{0}: no outgoing neutron distribution")]
     NoDistribution(u32),
+    #[error("MT{0}: a two-body (LAW=2) neutron distribution outside the discrete levels MT51-90")]
+    TwoBody(u32),
 }
 
 /// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
@@ -115,8 +117,14 @@ pub fn scattering_matrix(
         // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
         let rows = if mt == 2 {
             elastic_rows(groups, weight, awr, table, thermal)
-        } else if let Some(Emission::Mf6(data)) = emissions.get(&mt) {
+        } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
+            && !data.two_body
+        {
             emission_rows(groups, weight, table, data)
+        } else if let Some(Emission::Mf6(_)) = emissions.get(&mt)
+            && !(51..=90).contains(&mt)
+        {
+            return Err(ScatterError::TwoBody(mt));
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
             let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
             spectrum_rows(groups, weight, table, data, count)
@@ -412,6 +420,46 @@ mod tests {
     }
 
     #[test]
+    fn two_body_mf6_level_uses_q_value() {
+        // MF6 の LAW=2（2体反応）で与えられた準位は、MF6 がないときと同じく Q 値の2体反応
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let (awr, q) = (118.87, -1.17e6);
+        let tables = BTreeMap::from([(2, constant(10.0)), (51, constant(1.0))]);
+        let q_values = BTreeMap::from([(51, q)]);
+        let two_body = Emission::Mf6(Mf6 {
+            awr,
+            neutrons: vec![],
+            two_body: true,
+        });
+        let matrix = |emissions: &BTreeMap<u32, Emission>| {
+            scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                awr,
+                &tables,
+                &q_values,
+                emissions,
+                None,
+            )
+        };
+        let with_mf6 = matrix(&BTreeMap::from([(51, two_body.clone())])).unwrap();
+        assert_eq!(with_mf6, matrix(&BTreeMap::new()).unwrap());
+        // 準位以外の反応が LAW=2 なら、Q 値の2体反応とは扱えない
+        let tables = BTreeMap::from([(2, constant(10.0)), (16, constant(1.0))]);
+        let err = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            awr,
+            &tables,
+            &q_values,
+            &BTreeMap::from([(16, two_body)]),
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ScatterError::TwoBody(16)), "{err}");
+    }
+
+    #[test]
     fn total_inelastic_without_partials_needs_a_distribution() {
         // MT51〜91 がなければ、MT4 自身を数える（分布がなければエラー）
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
@@ -560,6 +608,7 @@ mod tests {
             Emission::Mf6(Mf6 {
                 awr: 1.0,
                 neutrons: vec![],
+                two_body: false,
             }),
         )]);
         let thermal = FreeGas {
@@ -635,6 +684,7 @@ mod tests {
             Emission::Mf6(Mf6 {
                 awr: 15.86,
                 neutrons: vec![emission],
+                two_body: false,
             }),
         )]);
         let tables = BTreeMap::from([(16, constant(0.5))]);
