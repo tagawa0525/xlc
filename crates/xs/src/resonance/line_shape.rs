@@ -5,6 +5,7 @@
 //! J(β, θ) = ∫₀^∞ ψ/(ψ + β) dx、K(β, θ) = ∫₀^∞ ψ(ψ + 2β)/(ψ + β)² dx。
 
 use super::quadrature::gauss_kronrod;
+use super::unresolved::UrrError;
 use crate::special::faddeeva;
 
 /// J, K 積分の相対許容誤差（全成分の最大）。外側の幅のゆらぎの積分より小さくする
@@ -82,14 +83,14 @@ fn table() -> &'static JkTable {
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
 /// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
-pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), String> {
+pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
     let (lb, lt) = (beta.log10(), theta.log10());
     if lb > LOG_BETA.1 {
         let j = 0.5 * std::f64::consts::PI / beta;
         return Ok((j, 2.0 * j));
     }
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
-        return Err(format!("β={beta:e}, θ={theta:e} is outside the J, K table"));
+        return Err(UrrError::JkTable { beta, theta });
     }
     let tab = table();
     let n_theta = tab.ln_j.len() / tab.n_beta;

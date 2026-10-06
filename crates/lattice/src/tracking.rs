@@ -67,6 +67,22 @@ impl Boundaries {
     };
 }
 
+/// トラッキングの条件の誤り。
+#[derive(Debug, thiserror::Error)]
+pub enum TrackingError {
+    #[error("the number of azimuthal angles must be positive and even, got {0}")]
+    Azimuthal(usize),
+    #[error("track spacing must be positive, got {0}")]
+    Spacing(f64),
+    #[error(
+        "track spacing {spacing} is too coarse for {azimuthal} azimuthal angles \
+         (corrected angles coincide)"
+    )]
+    CoarseSpacing { spacing: f64, azimuthal: usize },
+    #[error("no reflected track at {0:?}")]
+    NoReflectedTrack((f64, f64)),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tracking {
     pub azimuths: Vec<Azimuth>,
@@ -75,7 +91,7 @@ pub struct Tracking {
 
 impl Tracking {
     /// `n_azimuthal` は (0, π) の方位角の数（偶数）、`spacing` は希望するトラック間隔 (cm)。
-    pub fn new(lattice: &Lattice, n_azimuthal: usize, spacing: f64) -> Result<Self, String> {
+    pub fn new(lattice: &Lattice, n_azimuthal: usize, spacing: f64) -> Result<Self, TrackingError> {
         Self::with_boundaries(lattice, n_azimuthal, spacing, Boundaries::REFLECTIVE)
     }
 
@@ -85,14 +101,12 @@ impl Tracking {
         n_azimuthal: usize,
         spacing: f64,
         boundaries: Boundaries,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, TrackingError> {
         if n_azimuthal == 0 || !n_azimuthal.is_multiple_of(2) {
-            return Err(format!(
-                "the number of azimuthal angles must be positive and even, got {n_azimuthal}"
-            ));
+            return Err(TrackingError::Azimuthal(n_azimuthal));
         }
         if !(spacing > 0.0 && spacing.is_finite()) {
-            return Err(format!("track spacing must be positive, got {spacing}"));
+            return Err(TrackingError::Spacing(spacing));
         }
         let n = n_azimuthal;
         let width = lattice.width();
@@ -127,10 +141,10 @@ impl Tracking {
             counts[n - 1 - a] = (nx, ny);
         }
         if azimuths.windows(2).any(|w| w[0].phi >= w[1].phi) {
-            return Err(format!(
-                "track spacing {spacing} is too coarse for {n_azimuthal} azimuthal angles \
-                 (corrected angles coincide)"
-            ));
+            return Err(TrackingError::CoarseSpacing {
+                spacing,
+                azimuthal: n_azimuthal,
+            });
         }
         // 重みは、隣の方位角との中点で区切った角度の幅
         for a in 0..n {
@@ -187,7 +201,7 @@ impl Tracking {
         for k in 0..tracks.len() {
             let a = tracks[k].azimuth;
             let complement = first[n - 1 - a]..first[n - a];
-            let find = |point: (f64, f64), forward: bool| -> Result<Link, String> {
+            let find = |point: (f64, f64), forward: bool| -> Result<Link, TrackingError> {
                 complement
                     .clone()
                     .find(|&j| {
@@ -199,7 +213,7 @@ impl Tracking {
                         same(candidate, point)
                     })
                     .map(|track| Link { track, forward })
-                    .ok_or_else(|| format!("no reflected track at {point:?}"))
+                    .ok_or(TrackingError::NoReflectedTrack(point))
             };
             // 点のある辺の境界条件（トラックは角を通らない）
             let boundary = |p: (f64, f64)| {

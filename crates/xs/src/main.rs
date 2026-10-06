@@ -55,7 +55,7 @@ struct NuclideInput {
 /// 入力ファイルの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
 enum InputError {
-    #[error("{0}")]
+    #[error(transparent)]
     Toml(#[from] toml::de::Error),
     #[error("{0}")]
     Invalid(String),
@@ -200,9 +200,7 @@ fn process_file(nuclide: &NuclideInput, settings: &Settings) -> anyhow::Result<N
     let name = &nuclide.name;
     let tape = read(&nuclide.endf)?;
     let thermal = match &nuclide.thermal {
-        Some(path) => {
-            Some(read_thermal_scattering(&read(path)?).map_err(|e| anyhow!("{name}: {e}"))?)
-        }
+        Some(path) => Some(read_thermal_scattering(&read(path)?).with_context(|| name.clone())?),
         None => None,
     };
     let data = process_nuclide(
@@ -212,7 +210,7 @@ fn process_file(nuclide: &NuclideInput, settings: &Settings) -> anyhow::Result<N
         thermal.as_ref(),
         settings,
     )
-    .map_err(|e| anyhow!("{name}: {e}"))?;
+    .with_context(|| name.clone())?;
     eprintln!("{name}: done in {:.1} s", start.elapsed().as_secs_f64());
     Ok(data)
 }

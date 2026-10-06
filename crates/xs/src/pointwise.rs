@@ -455,8 +455,9 @@ fn replace_with_unresolved(
     fission_mt: u32,
     tol: f64,
 ) -> Result<(), String> {
-    let xs = UnresolvedXs::new(urr)?;
-    let law = unresolved_interpolation(urr)?;
+    // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
+    let xs = UnresolvedXs::new(urr).map_err(|e| e.to_string())?;
+    let law = unresolved_interpolation(urr).map_err(|e| e.to_string())?;
     let grid = unresolved_grid(urr, el, eh);
     let averages: Vec<Sigma> = grid.iter().map(|&e| xs.cross_sections(e)).collect();
     for (mt, part) in [(2, 0), (fission_mt, 1), (102, 2)] {
