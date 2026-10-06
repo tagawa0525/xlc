@@ -183,6 +183,21 @@ mod tests {
     }
 
     #[test]
+    fn sigma0_must_be_positive_and_finite() {
+        let tables = BTreeMap::from([(1, constant(3.0))]);
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let result = shielded_averages(
+                &GroupStructure::wims69(),
+                &Weight::lwr(),
+                &tables,
+                None,
+                &[bad],
+            );
+            assert!(result.is_err(), "σ0 = {bad}");
+        }
+    }
+
+    #[test]
     fn shielding_needs_total_cross_section() {
         let tables = BTreeMap::from([(2, constant(3.0))]);
         let result = shielded_averages(
