@@ -1001,6 +1001,15 @@ mod tests {
     }
 
     #[test]
+    fn worst_volume_error_finds_the_largest_relative_mismatch() {
+        let exact = [1.0, 0.1, 2.0];
+        let tracked = [1.001, 0.098, 2.002];
+        let (region, error) = worst_volume_error(&exact, &tracked);
+        assert_eq!(region, 1);
+        assert!((error + 0.02).abs() < 1e-12, "{error}");
+    }
+
+    #[test]
     fn relative_change_handles_zero_flux() {
         assert_eq!(relative_change(0.0, 0.0), 0.0);
         assert_eq!(relative_change(1.0, 0.0), 1.0);
