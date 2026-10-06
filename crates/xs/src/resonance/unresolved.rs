@@ -2,8 +2,13 @@
 //!
 //! 幅のゆらぎの期待値は、NJOY の求積表ではなく適応積分で求める（`fluctuation`）。
 
+use std::f64::consts::PI;
+
 use super::Sigma;
-use crate::endf::{Interpolation, Unresolved};
+use super::factors::{channel_radius, penetrability, phase_shift};
+use super::fluctuation::expectation;
+use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint};
+use crate::physics::wave_number_factor;
 
 /// 非分離共鳴のパラメータから、無限希釈の平均断面積を計算する。
 pub struct UnresolvedXs<'a> {
@@ -15,33 +20,172 @@ impl<'a> UnresolvedXs<'a> {
         Self { urr }
     }
 
-    /// エネルギー e (eV) での平均断面積。パラメータは lin-lin で補間する。
+    /// エネルギー e (eV) での平均断面積。パラメータは lin-lin で補間する（NJOY と同じ）。
+    ///
+    /// 波数は l ごとの AWRI から求める（NJOY は最初の l の AWRI を使う。全 l で同じなら一致する）。
     pub fn cross_sections(&self, e: f64) -> Sigma {
-        let _ = (self.urr, e);
-        todo!()
+        let urr = self.urr;
+        // 位相シフトに使う散乱半径と、透過因子に使うチャネル半径
+        let ay = match &urr.ap_energy {
+            Some(table) => table
+                .eval(e)
+                .expect("radius table covers the unresolved range"),
+            None => urr.ap,
+        };
+        let mut sigma = Sigma::default();
+        for lv in &urr.l_values {
+            let aa = match urr.naps {
+                0 => channel_radius(lv.awri),
+                1 => ay,
+                _ => urr.ap,
+            };
+            let k = wave_number_factor() * lv.awri / (lv.awri + 1.0) * e.sqrt();
+            let (rho, rhoc) = (k * aa, k * ay);
+            let sin2 = phase_shift(lv.l, rhoc).sin().powi(2);
+            // 1/k² に掛ける係数
+            let pifac = PI / (k * k);
+            if !lv.j_values.is_empty() {
+                sigma.elastic += 4.0 * pifac * f64::from(2 * lv.l + 1) * sin2;
+            }
+            for jv in &lv.j_values {
+                let p = parameters(&jv.points, e);
+                let gj = (2.0 * jv.aj + 1.0) / (4.0 * urr.spi + 2.0);
+                // 平均中性子幅（換算幅 × 自由度 × 透過因子/ρ × √E）
+                let gn = p.gno * f64::from(jv.amun) * penetrability(lv.l, rho) / rho * e.sqrt();
+                let scale = 2.0 * PI * pifac * gj / p.d;
+                let [f1, f2, f3] = fluctuation_integrals(gn, p.gf, p.gg, p.gx, jv);
+                sigma.elastic += scale * (gn * gn * f1 - 2.0 * gn * sin2);
+                sigma.capture += scale * gn * p.gg * f2;
+                sigma.fission += scale * gn * p.gf * f3;
+            }
+        }
+        sigma.total = sigma.elastic + sigma.fission + sigma.capture;
+        sigma
     }
 }
 
-/// 平均断面積を計算する格子 [el, eh]。評価者のエネルギー（全系列の和）に、隣の点との比が
-/// 大きい区間では NJOY と同じ補助格子の点を加える。格子点の間の断面積は、`interpolation` で補間する。
-pub fn unresolved_grid(urr: &Unresolved, el: f64, eh: f64) -> Vec<f64> {
-    let _ = (urr, el, eh);
-    todo!()
+/// エネルギー e でのパラメータ（lin-lin 補間）。表の外では端の区間を延長する（NJOY と同じ）。
+/// 同じエネルギーが続く段差の上では、右側の値を使う。
+fn parameters(points: &[UrrPoint], e: f64) -> UrrPoint {
+    if points.len() == 1 {
+        return points[0];
+    }
+    let k = points
+        .partition_point(|p| p.e <= e)
+        .clamp(1, points.len() - 1);
+    let (a, b) = (points[k - 1], points[k]);
+    if b.e == a.e {
+        return b;
+    }
+    let t = (e - a.e) / (b.e - a.e);
+    let lerp = |x: f64, y: f64| x + t * (y - x);
+    UrrPoint {
+        e,
+        d: lerp(a.d, b.d),
+        gx: lerp(a.gx, b.gx),
+        gno: lerp(a.gno, b.gno),
+        gg: lerp(a.gg, b.gg),
+        gf: lerp(a.gf, b.gf),
+    }
 }
 
-/// 格子点の間の断面積の補間則（全系列で同じであること）。
-pub fn interpolation(urr: &Unresolved) -> Result<Interpolation, String> {
-    let _ = urr;
-    todo!()
+/// 幅のゆらぎの積分 [E[x²/D], E[x/D], E[xy/D]]、D = Γn x + Γf y + Γγ + Γx z。
+/// x, y, z は自由度 AMUN, AMUF, AMUX の χ² 分布に従う（幅が 0 ならその変数はゆらがない）。
+///
+/// NJOY と同じく、Γn または Γγ が 0 以下なら 0 とする（共鳴がない、または分母が 0 になる）。
+fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> [f64; 3] {
+    if gn <= 0.0 || gg <= 0.0 {
+        return [0.0; 3];
+    }
+    let dof_f = if gf > 0.0 { jv.amuf } else { 0 };
+    let dof_x = if gx > 0.0 { jv.amux } else { 0 };
+    // 極に近い中性子幅の変数 x を一番内側で積分する
+    let integral = |g: fn(f64, f64) -> f64| {
+        expectation(dof_x, |z| {
+            expectation(dof_f, |y| {
+                let rest = gf * y + gg + gx * z;
+                expectation(jv.amun, |x| g(x, y) / (gn * x + rest))
+            })
+        })
+    };
+    [
+        integral(|x, _| x * x),
+        integral(|x, _| x),
+        if gf > 0.0 {
+            integral(|x, y| x * y)
+        } else {
+            0.0
+        },
+    ]
 }
+
+/// 平均断面積を計算する格子 [el, eh]。評価者のエネルギー（全系列の和）に、隣の点との比が
+/// `WIDE` を超える区間では NJOY と同じ補助格子 `FILL` の点を加える。
+/// NJOY は最初の系列のエネルギーだけを使うが、系列ごとに違う場合もパラメータの折れ点を落とさないよう和をとる。
+pub fn unresolved_grid(urr: &Unresolved, el: f64, eh: f64) -> Vec<f64> {
+    let mut energies: Vec<f64> = urr
+        .l_values
+        .iter()
+        .flat_map(|lv| &lv.j_values)
+        .flat_map(|jv| jv.points.iter().map(|p| p.e))
+        .filter(|&e| e > el && e < eh)
+        .chain([el, eh])
+        .collect();
+    energies.sort_by(f64::total_cmp);
+    energies.dedup();
+    let mut grid = vec![energies[0]];
+    for w in energies.windows(2) {
+        let (lo, hi) = (w[0], w[1]);
+        if hi > WIDE * lo {
+            grid.extend(
+                FILL.iter()
+                    .filter(|&&g| g > lo * (1.0 + FILL_MARGIN) && g < hi),
+            );
+        }
+        grid.push(hi);
+    }
+    grid
+}
+
+/// 格子点の間の断面積の補間則。系列ごとに違うと、どれを使うかの根拠がないのでエラーにする。
+pub fn interpolation(urr: &Unresolved) -> Result<Interpolation, String> {
+    let mut laws = urr
+        .l_values
+        .iter()
+        .flat_map(|lv| &lv.j_values)
+        .map(|jv| jv.int);
+    let first = laws
+        .next()
+        .ok_or("unresolved range has no (l, J) sequences")?;
+    match laws.find(|&law| law != first) {
+        Some(other) => Err(format!(
+            "unresolved sequences use different interpolation laws ({first:?} and {other:?})"
+        )),
+        None => Ok(first),
+    }
+}
+
+/// 隣り合う格子点のエネルギー比がこれを超えると、補助格子の点を加える（NJOY と同じ）
+const WIDE: f64 = 1.26;
+
+/// 補助格子の点は、区間の下端からこの割合以上離れたものだけを使う（NJOY と同じ）
+const FILL_MARGIN: f64 = 1.0e-3;
+
+/// NJOY RECONR の補助格子 (eV)
+const FILL: [f64; 78] = [
+    1.0e1, 1.25e1, 1.5e1, 1.7e1, 2.0e1, 2.5e1, 3.0e1, 3.5e1, 4.0e1, 5.0e1, 6.0e1, 7.2e1, 8.5e1,
+    1.0e2, 1.25e2, 1.5e2, 1.7e2, 2.0e2, 2.5e2, 3.0e2, 3.5e2, 4.0e2, 5.0e2, 6.0e2, 7.2e2, 8.5e2,
+    1.0e3, 1.25e3, 1.5e3, 1.7e3, 2.0e3, 2.5e3, 3.0e3, 3.5e3, 4.0e3, 5.0e3, 6.0e3, 7.2e3, 8.5e3,
+    1.0e4, 1.25e4, 1.5e4, 1.7e4, 2.0e4, 2.5e4, 3.0e4, 3.5e4, 4.0e4, 5.0e4, 6.0e4, 7.2e4, 8.5e4,
+    1.0e5, 1.25e5, 1.5e5, 1.7e5, 2.0e5, 2.5e5, 3.0e5, 3.5e5, 4.0e5, 5.0e5, 6.0e5, 7.2e5, 8.5e5,
+    1.0e6, 1.25e6, 1.5e6, 1.7e6, 2.0e6, 2.5e6, 3.0e6, 3.5e6, 4.0e6, 5.0e6, 6.0e6, 7.2e6, 8.5e6,
+];
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::{UrrJValue, UrrLValue, UrrPoint};
-    use crate::physics::wave_number_factor;
+    use crate::endf::UrrLValue;
     use crate::special::erfc;
-    use std::f64::consts::PI;
 
     const AWRI: f64 = 236.0;
     const AP: f64 = 0.948;
