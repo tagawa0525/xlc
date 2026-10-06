@@ -487,8 +487,26 @@ mod tests {
                 (absorption - capture).abs() <= 1e-9 * capture,
                 "{absorption} vs {capture}"
             );
-            // 自由ガスの実効的な散乱断面積は、自由原子の値（10 b）より大きい
-            assert!(dilute.elastic[last] > 10.0);
+            // 自由原子の断面積が一定（10 b）なら、自由ガスの実効的な散乱断面積は 10 N(E)。
+            // N(E) = (1 + 1/(2a²)) erf(a) + e^(-a²)/(a√π)、a² = A E/kT。MF3 は温度 T に拡げてあり
+            // すでに N(E) を含むので、自由ガスの核には 0 K の断面積を掛ける（N(E) を二重に数えない）。
+            // 許容誤差は自由ガスの核の群積分の精度
+            let (awr, kt) = (236.006, BK * t.temperature);
+            let effective = |e: f64| {
+                let a = (awr * e / kt).sqrt();
+                let n = (1.0 + 0.5 / (a * a)) * crate::special::erf(a)
+                    + (-a * a).exp() / (a * std::f64::consts::PI.sqrt());
+                10.0 * n
+            };
+            let integrate = |f: &dyn Fn(f64) -> f64| {
+                crate::multigroup::group_integrals(&settings.groups, &settings.weight, &[], f)[last]
+            };
+            let expected = integrate(&effective) / integrate(&|_| 1.0);
+            assert!(
+                (dilute.elastic[last] - expected).abs() <= 1e-6 * expected,
+                "{} vs {expected}",
+                dilute.elastic[last]
+            );
             // 非分離共鳴の群（[1.5e4, 2.5e4] eV）では、σ0 が小さいと吸収が自己遮蔽で減る
             let g = settings.groups.find(2.0e4).unwrap();
             let absorption = |s: &Shielded| s.total[g] - s.elastic[g];
