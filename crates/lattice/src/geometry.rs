@@ -166,6 +166,11 @@ impl Lattice {
         self.types[0].pitch()
     }
 
+    /// 1辺のセルの数
+    pub fn cells_per_side(&self) -> usize {
+        self.n
+    }
+
     /// 一辺の長さ (cm)
     pub fn width(&self) -> f64 {
         self.n as f64 * self.pitch()
