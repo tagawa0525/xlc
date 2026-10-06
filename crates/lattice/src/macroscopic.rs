@@ -27,7 +27,7 @@ use crate::material::{FissionTerm, Material};
 /// 巨視的断面積のファイルの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum MacroscopicError {
-    #[error("{0}")]
+    #[error(transparent)]
     Toml(#[from] toml::de::Error),
     #[error("material `{material}`: {message}")]
     Invalid { material: String, message: String },
