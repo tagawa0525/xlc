@@ -214,6 +214,8 @@ fn run(input: &Input) -> anyhow::Result<()> {
         .with_context(|| format!("{}", input.output.display()))
 }
 
+/// 核種のファイルを読んで処理する（読み込みを含めた時間をログに出す）。
+#[tracing::instrument(name = "nuclide", skip_all, fields(name = %nuclide.name))]
 fn process_file(nuclide: &NuclideInput, settings: &Settings) -> anyhow::Result<NuclideData> {
     let read = |path: &Path| -> anyhow::Result<Tape> {
         let context = || format!("{}", path.display());

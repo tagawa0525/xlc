@@ -175,7 +175,7 @@ pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f
 
 /// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
 /// `thermal` があれば cutoff 未満の弾性散乱を S(α, β) で、なければ自由ガス模型で扱う。
-#[tracing::instrument(name = "nuclide", skip_all, fields(name = %name))]
+#[tracing::instrument(name = "process", level = "debug", skip_all)]
 pub fn process_nuclide(
     tape: &Tape,
     name: &str,
