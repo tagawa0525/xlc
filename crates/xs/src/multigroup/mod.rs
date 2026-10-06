@@ -39,7 +39,7 @@ pub fn reaction_averages(
     tables: &BTreeMap<u32, Tab1>,
     nubar: Option<&Tab1>,
 ) -> ReactionAverages {
-    averages_with_flux(groups, weight, tables, nubar, &[], |_| 1.0)
+    averages_with_flux(groups, weight, tables, nubar, &[], |_| 1.0, |_, _, v| v)
 }
 
 /// 非分離共鳴の自己遮蔽によるポイントワイズの断面積の補正（NJOY GROUPR getunr と同じ）。
@@ -71,8 +71,62 @@ impl UnresolvedShielding {
         shielded: Vec<Vec<[f64; 4]>>,
         infinite: Vec<[f64; 4]>,
     ) -> Result<Self, String> {
-        let _ = (el, eh, lssf, grid, law, shielded, infinite);
-        todo!()
+        let multiplicative = match lssf {
+            0 => false,
+            1 => true,
+            _ => {
+                return Err(format!(
+                    "unresolved shielding needs LSSF 0 or 1, got {lssf}"
+                ));
+            }
+        };
+        let n = grid.len();
+        if n < 2 || grid.windows(2).any(|w| w[1] <= w[0]) || el >= eh {
+            return Err("unresolved grid must have increasing energies in [el, eh]".into());
+        }
+        if infinite.len() != n || shielded.iter().any(|row| row.len() != n) {
+            return Err("unresolved values must match the grid".into());
+        }
+        Ok(Self {
+            el,
+            eh,
+            multiplicative,
+            grid,
+            law,
+            shielded,
+            infinite,
+        })
+    }
+
+    /// σ0 の番号 `s` で、MT `mt` のポイントワイズの断面積 `value`（エネルギー e）を補正した値。
+    fn adjust(&self, s: usize, mt: u32, e: f64, value: f64) -> f64 {
+        let component = match mt {
+            1 => 0,
+            2 => 1,
+            18 | 19 => 2,
+            102 => 3,
+            _ => return value,
+        };
+        if e < self.el || e > self.eh {
+            return value;
+        }
+        let grid = &self.grid;
+        let k = grid.partition_point(|&g| g <= e).clamp(1, grid.len() - 1);
+        let interpolate = |v: &[[f64; 4]]| {
+            self.law.interpolate(
+                e,
+                (grid[k - 1], v[k - 1][component]),
+                (grid[k], v[k][component]),
+            )
+        };
+        let (shielded, infinite) = (interpolate(&self.shielded[s]), interpolate(&self.infinite));
+        if !self.multiplicative {
+            value + shielded - infinite
+        } else if infinite != 0.0 {
+            value * shielded / infinite
+        } else {
+            value
+        }
     }
 }
 
@@ -88,24 +142,41 @@ pub fn shielded_averages(
     sigma0: &[f64],
     unresolved: Option<&UnresolvedShielding>,
 ) -> Result<Vec<ReactionAverages>, String> {
-    let _ = unresolved;
     let total = tables
         .get(&1)
         .ok_or("self-shielding needs the total cross section (MT1)")?;
     if let Some(bad) = sigma0.iter().find(|s| !(s.is_finite() && **s > 0.0)) {
         return Err(format!("sigma zero must be positive and finite, got {bad}"));
     }
+    if let Some(u) = unresolved
+        && u.shielded.len() != sigma0.len()
+    {
+        return Err(format!(
+            "unresolved shielding has {} sigma zeros, expected {}",
+            u.shielded.len(),
+            sigma0.len()
+        ));
+    }
+    let mut breakpoints = total.x.clone();
+    if let Some(u) = unresolved {
+        breakpoints.extend(&u.grid);
+    }
     Ok(sigma0
         .iter()
-        .map(|&s0| {
-            averages_with_flux(groups, weight, tables, nubar, &total.x, |e| {
-                1.0 / (total.eval(e).unwrap_or(0.0) + s0)
-            })
+        .enumerate()
+        .map(|(s, &s0)| {
+            let adjust = |mt: u32, e: f64, value: f64| match unresolved {
+                Some(u) => u.adjust(s, mt, e, value),
+                None => value,
+            };
+            let flux = |e: f64| 1.0 / (adjust(1, e, total.eval(e).unwrap_or(0.0)) + s0);
+            averages_with_flux(groups, weight, tables, nubar, &breakpoints, flux, adjust)
         })
         .collect())
 }
 
 /// 中性子束 w(E)·`shape`(E) による群平均。`shape` は `breakpoints` の間で滑らかであること。
+/// 断面積は `adjust`(MT, E, ポイントワイズの断面積) で補正した値を使う。
 fn averages_with_flux(
     groups: &GroupStructure,
     weight: &Weight,
@@ -113,6 +184,7 @@ fn averages_with_flux(
     nubar: Option<&Tab1>,
     breakpoints: &[f64],
     shape: impl Fn(f64) -> f64,
+    adjust: impl Fn(u32, f64, f64) -> f64,
 ) -> ReactionAverages {
     let flux = group_integrals(groups, weight, breakpoints, &shape);
     let average = |points: &[f64], f: &dyn Fn(f64) -> f64| -> Vec<f64> {
@@ -125,13 +197,18 @@ fn averages_with_flux(
     };
     let sigma = tables
         .iter()
-        .map(|(&mt, t)| (mt, average(&t.x, &|e| t.eval(e).unwrap_or(0.0))))
+        .map(|(&mt, t)| {
+            (
+                mt,
+                average(&t.x, &|e| adjust(mt, e, t.eval(e).unwrap_or(0.0))),
+            )
+        })
         .collect();
     let nu_fission = match (nubar, tables.get(&18)) {
         (Some(nu), Some(fission)) => {
             let points: Vec<f64> = fission.x.iter().chain(&nu.x).copied().collect();
             Some(average(&points, &|e| {
-                nu.eval(e).unwrap_or(0.0) * fission.eval(e).unwrap_or(0.0)
+                nu.eval(e).unwrap_or(0.0) * adjust(18, e, fission.eval(e).unwrap_or(0.0))
             }))
         }
         _ => None,
