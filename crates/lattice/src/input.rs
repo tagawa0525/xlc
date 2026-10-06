@@ -270,7 +270,11 @@ impl LatticeInput {
                 names = vec![names[0].clone(); cell.grid * cell.grid];
                 PinCell::grid(self.pitch, cell.grid)
             } else {
-                PinCell::new(self.pitch, radii)
+                names = names
+                    .into_iter()
+                    .flat_map(|n| std::iter::repeat_n(n, cell.sectors))
+                    .collect();
+                PinCell::with_sectors(self.pitch, radii, cell.sectors)
             }
             .map_err(|e| format!("cell `{}`: {e}", cell.name))?;
             types.push(pin);
@@ -343,21 +347,24 @@ fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
     let Some((name, rest)) = values.split_first() else {
         return Err("`cell` needs a name".into());
     };
-    let (triples, grid) = match rest {
+    let count = |key: &str, value: &str| {
+        value
+            .parse::<usize>()
+            .ok()
+            .filter(|&m| m > 0)
+            .ok_or_else(|| format!("cell `{name}`: invalid {key} `{value}`"))
+    };
+    let (triples, grid, sectors) = match rest {
         [zones @ .., "grid", m] => {
-            let m = m
-                .parse::<usize>()
-                .ok()
-                .filter(|&m| m > 0)
-                .ok_or_else(|| format!("cell `{name}`: invalid grid `{m}`"))?;
             if !matches!(zones, [_, "-", "1"]) {
                 return Err(format!(
                     "cell `{name}`: `grid` needs a homogeneous cell (`MATERIAL - 1`)"
                 ));
             }
-            (zones, m)
+            (zones, count("grid", m)?, 1)
         }
-        _ => (rest, 1),
+        [zones @ .., "sectors", s] => (zones, 1, count("sectors", s)?),
+        _ => (rest, 1, 1),
     };
     if triples.is_empty() || !triples.len().is_multiple_of(3) {
         return Err(format!(
@@ -404,7 +411,7 @@ fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
         name: name.to_string(),
         zones,
         grid,
-        sectors: 1,
+        sectors,
     })
 }
 
