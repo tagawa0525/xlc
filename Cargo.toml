@@ -17,3 +17,12 @@ thiserror = "2.0.21"
 toml = "1.1.6"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+# 本番のコードでは panic させない（エラーとして返す）。テストでは clippy.toml で許す
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+unreachable = "deny"
+todo = "deny"
+unimplemented = "deny"

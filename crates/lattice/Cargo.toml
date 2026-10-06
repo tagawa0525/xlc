@@ -3,6 +3,9 @@ name = "xlc-lattice"
 version.workspace = true
 edition.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow.workspace = true
 num_cpus.workspace = true
