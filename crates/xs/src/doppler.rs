@@ -442,7 +442,7 @@ pub fn broadening_limit<'a>(mf2: Option<&Mf2>, tables: impl Iterator<Item = &'a 
         .reduce(f64::max);
     let unresolved = ranges
         .iter()
-        .filter(|r| matches!(r.kind, RangeKind::Unresolved { .. }))
+        .filter(|r| matches!(r.kind, RangeKind::Unresolved(_)))
         .map(|r| r.el)
         .reduce(f64::min);
     if let Some(e) = resolved.or(unresolved) {
@@ -710,6 +710,16 @@ mod tests {
         }
     }
 
+    fn unresolved() -> RangeKind {
+        RangeKind::Unresolved(crate::endf::Unresolved {
+            lssf: 1,
+            spi: 0.0,
+            ap: 0.9,
+            naps: 0,
+            l_values: vec![],
+        })
+    }
+
     fn mlbw() -> RangeKind {
         RangeKind::Mlbw(crate::endf::Mlbw {
             spi: 0.0,
@@ -724,7 +734,7 @@ mod tests {
         let tables = [Tab1::linear(vec![1.0e-5, 2.0e7], vec![1.0, 1.0])];
         let resolved = mf2(vec![
             range(1.0e-5, 2.0e4, mlbw()),
-            range(2.0e4, 1.5e5, RangeKind::Unresolved { lssf: 1 }),
+            range(2.0e4, 1.5e5, unresolved()),
         ]);
         assert_eq!(broadening_limit(Some(&resolved), tables.iter()), 2.0e4);
         let wide = mf2(vec![range(1.0e-5, 2.0e7, mlbw())]);
@@ -734,7 +744,7 @@ mod tests {
     #[test]
     fn limit_is_bottom_of_unresolved_range_without_resolved_range() {
         let tables = [Tab1::linear(vec![1.0e-5, 2.0e7], vec![1.0, 1.0])];
-        let unresolved = mf2(vec![range(3.0e4, 1.0e5, RangeKind::Unresolved { lssf: 1 })]);
+        let unresolved = mf2(vec![range(3.0e4, 1.0e5, unresolved())]);
         assert_eq!(broadening_limit(Some(&unresolved), tables.iter()), 3.0e4);
     }
 

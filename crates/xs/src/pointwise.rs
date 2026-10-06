@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use crate::doppler::{broaden, broadening_limit};
-use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape};
+use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape, Unresolved};
 use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma};
 
 /// 線形化・共鳴計算の打ち切り判定: 区間の中点で、線形補間と真値の差が
@@ -352,8 +352,9 @@ fn add_resonances(
 ) -> Result<(), String> {
     for range in &mf2.ranges {
         let [_, elastic, fission, capture] = match &range.kind {
-            RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved { lssf: 1 } => continue,
-            RangeKind::Unresolved { lssf } => {
+            RangeKind::ScatteringRadius { .. } => continue,
+            RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
+            RangeKind::Unresolved(Unresolved { lssf, .. }) => {
                 return Err(format!(
                     "unresolved range with LSSF={lssf} is not supported"
                 ));

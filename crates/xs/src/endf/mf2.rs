@@ -3,8 +3,8 @@
 //! M0 では、分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）と、無限希釈の断面積が MF3 にある
 //! 非分離共鳴（LRU=2）だけを扱う。それ以外の形式はエラーにする。
 
-use super::Error;
 use super::tape::{Reader, Section};
+use super::{Error, Interpolation};
 
 /// 1核種（同位体1つ）の共鳴パラメータ。
 #[derive(Debug, Clone, PartialEq)]
@@ -30,8 +30,8 @@ pub enum RangeKind {
     ReichMoore(ReichMoore),
     /// LRU=1, LRF=2
     Mlbw(Mlbw),
-    /// LRU=2。M0 では LSSF=1（断面積は MF3 にある）のときだけ使える
-    Unresolved { lssf: i64 },
+    /// LRU=2, LRF=2
+    Unresolved(Unresolved),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -69,6 +69,51 @@ pub struct BwResonance {
     pub er: f64,
     pub aj: f64,
     pub gn: f64,
+    pub gg: f64,
+    pub gf: f64,
+}
+
+/// 非分離共鳴のエネルギー依存のパラメータ（LRU=2, LRF=2）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unresolved {
+    /// 自己遮蔽の扱い（LSSF）。1 なら無限希釈の断面積は MF3 にある
+    pub lssf: i64,
+    pub spi: f64,
+    /// 散乱半径 (10^-12 cm)
+    pub ap: f64,
+    pub naps: i64,
+    pub l_values: Vec<UrrLValue>,
+}
+
+/// 非分離共鳴の1つの l。
+#[derive(Debug, Clone, PartialEq)]
+pub struct UrrLValue {
+    pub awri: f64,
+    pub l: u32,
+    pub j_values: Vec<UrrJValue>,
+}
+
+/// 非分離共鳴の1つの (l, J) の系列。`int` はパラメータの、エネルギーについての補間則。
+/// 幅の分布の自由度は、競合反応 `amux`・中性子 `amun`・核分裂 `amuf`（γ線の自由度 AMUG は
+/// 幅のゆらぎを無視するので読まない）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct UrrJValue {
+    pub aj: f64,
+    pub int: Interpolation,
+    pub amux: f64,
+    pub amun: f64,
+    pub amuf: f64,
+    pub points: Vec<UrrPoint>,
+}
+
+/// エネルギー `e` (eV) での平均準位間隔 `d` と平均幅（競合 `gx`、換算中性子幅 `gno`、
+/// 捕獲 `gg`、核分裂 `gf`）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct UrrPoint {
+    pub e: f64,
+    pub d: f64,
+    pub gx: f64,
+    pub gno: f64,
     pub gg: f64,
     pub gf: f64,
 }
@@ -111,7 +156,7 @@ impl Mf2 {
 
         // NER はファイルの値なので、それに合わせて先に確保しない
         let mut ranges = Vec::new();
-        for index in 0..ner {
+        for _ in 0..ner {
             let range = r.cont()?;
             let range_line = r.line();
             let (lru, lrf, nro) = (range.l1, range.l2, range.n1);
@@ -129,16 +174,7 @@ impl Mf2 {
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
-                2 => {
-                    // 非分離共鳴は LSSF だけを読む。続くパラメータは読まないので、最後の範囲に限る
-                    if index + 1 != ner {
-                        return unsupported("unresolved range must be the last range".into());
-                    }
-                    if nro != 0 {
-                        r.tab1()?;
-                    }
-                    RangeKind::Unresolved { lssf: r.cont()?.l1 }
-                }
+                2 => RangeKind::Unresolved(read_unresolved(&mut r, range.n2)?),
                 _ => return unsupported(format!("invalid LRU={lru}")),
             };
             ranges.push(ResonanceRange {
@@ -153,6 +189,11 @@ impl Mf2 {
             ranges,
         })
     }
+}
+
+fn read_unresolved(r: &mut Reader<'_>, naps: i64) -> Result<Unresolved, Error> {
+    let _ = (r, naps);
+    todo!()
 }
 
 fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> {
@@ -269,8 +310,8 @@ pub(crate) const MAX_L: usize = 4;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::Tape;
     use crate::endf::tape::tests::rec;
+    use crate::endf::{Interpolation, Tape};
 
     fn mf2(lines: &[[&str; 6]]) -> Result<Mf2, Error> {
         let text: String = lines.iter().map(|f| rec(*f, 9237, 2, 151)).collect();
@@ -292,9 +333,16 @@ mod tests {
             ["2.360060+2", "9.480000-1", "0", "0", "12", "2"],
             ["-4.0", "0.5", "2.0-2", "2.3-2", "0.0", "1.0-6"],
             ["6.674", "-0.5", "1.5-3", "2.3-2", "0.0", "0.0"],
-            // URR
+            // URR: SPI AP LSSF 0 NLS 0
             ["2.0+4", "1.49+5", "2", "2", "0", "0"],
-            ["0.0", "0.948", "1", "0", "2", "0"],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+            // l=0: AWRI 0 L 0 NJS 0
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            // J: AJ 0 INT 0 6*NE+6 NE、続いて 0 0 AMUX AMUN AMUG AMUF と ES D GX GNO GG GF
+            ["0.5", "0.0", "5", "0", "18", "2"],
+            ["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"],
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
+            ["1.49+5", "18.0", "0.0", "1.8-3", "2.3-2", "0.0"],
         ])
         .unwrap();
         assert_eq!(data.za, 92238.0);
@@ -317,7 +365,37 @@ mod tests {
                 gfb: 0.0
             }
         );
-        assert_eq!(data.ranges[1].kind, RangeKind::Unresolved { lssf: 1 });
+        let RangeKind::Unresolved(urr) = &data.ranges[1].kind else {
+            panic!("expected unresolved");
+        };
+        assert_eq!((urr.lssf, urr.spi, urr.ap, urr.naps), (1, 0.0, 0.948, 0));
+        assert_eq!(urr.l_values.len(), 1);
+        assert_eq!((urr.l_values[0].awri, urr.l_values[0].l), (236.006, 0));
+        let j = &urr.l_values[0].j_values[0];
+        assert_eq!((j.aj, j.int), (0.5, Interpolation::LogLog));
+        assert_eq!((j.amux, j.amun, j.amuf), (0.0, 1.0, 0.0));
+        assert_eq!(
+            j.points[1],
+            UrrPoint {
+                e: 1.49e5,
+                d: 18.0,
+                gx: 0.0,
+                gno: 1.8e-3,
+                gg: 2.3e-2,
+                gf: 0.0
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_unresolved_lrf1() {
+        let result = mf2(&[
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["2.0+4", "1.49+5", "2", "1", "0", "0"],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+        ]);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -426,18 +504,5 @@ mod tests {
     fn multiple_isotopes_are_error() {
         let err = mf2(&[["9.223800+4", "2.360058+2", "0", "0", "2", "0"]]).unwrap_err();
         assert_eq!(err.line, 1);
-    }
-
-    #[test]
-    fn unresolved_range_must_be_last() {
-        let err = mf2(&[
-            HEAD,
-            ["9.223800+4", "1.0", "0", "0", "2", "0"],
-            ["2.0+4", "1.49+5", "2", "2", "0", "0"],
-            ["0.0", "0.948", "1", "0", "2", "0"],
-            ["1.49+5", "2.0+5", "0", "0", "0", "0"],
-        ])
-        .unwrap_err();
-        assert_eq!(err.line, 3);
     }
 }
