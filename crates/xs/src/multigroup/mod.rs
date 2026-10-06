@@ -67,6 +67,18 @@ pub fn reaction_averages(
     }
 }
 
+/// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
+pub fn shielded_averages(
+    groups: &GroupStructure,
+    weight: &Weight,
+    tables: &BTreeMap<u32, Tab1>,
+    nubar: Option<&Tab1>,
+    sigma0: &[f64],
+) -> Result<Vec<ReactionAverages>, String> {
+    let _ = (groups, weight, tables, nubar, sigma0);
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,5 +116,57 @@ mod tests {
         let avg = reaction_averages(&groups, &Weight::lwr(), &tables, None);
         assert_eq!(avg.sigma[&16][1], 0.0);
         assert!(avg.sigma[&16][0] > 0.0 && avg.sigma[&16][0] < 1.0);
+    }
+    #[test]
+    fn constant_total_gives_infinite_dilution_for_every_sigma0() {
+        let groups = GroupStructure::wims69();
+        let weight = Weight::lwr();
+        let capture = Tab1::linear(vec![1.0e-5, 1.0, 2.0e7], vec![5.0, 1.0, 0.1]);
+        let tables = BTreeMap::from([(1, constant(3.0)), (102, capture)]);
+        let infinite = reaction_averages(&groups, &weight, &tables, None);
+        let shielded =
+            shielded_averages(&groups, &weight, &tables, None, &[1.0e10, 10.0, 1.0]).unwrap();
+        assert_eq!(shielded.len(), 3);
+        for avg in &shielded {
+            for g in 0..69 {
+                let (a, b) = (avg.sigma[&102][g], infinite.sigma[&102][g]);
+                assert!((a - b).abs() <= 1e-12 * b, "group {g}: {a} vs {b}");
+            }
+        }
+    }
+
+    #[test]
+    fn narrow_resonance_flux_matches_analytic_average() {
+        // 1/E の重みの群で σx = σt = cE のとき
+        //   σ_g = ln((c b + σ0)/(c a + σ0)) / [(1/σ0) ln(b (c a + σ0) / (a (c b + σ0)))]
+        let groups = GroupStructure::new(vec![100.0, 10.0]);
+        let c = 2.0;
+        let total = Tab1::linear(vec![10.0, 100.0], vec![10.0 * c, 100.0 * c]);
+        let tables = BTreeMap::from([(1, total)]);
+        let (a, b) = (10.0_f64, 100.0_f64);
+        for s0 in [1.0, 30.0, 1.0e3] {
+            let avg = &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0]).unwrap()[0];
+            let numerator = ((c * b + s0) / (c * a + s0)).ln();
+            let denominator = (b * (c * a + s0) / (a * (c * b + s0))).ln() / s0;
+            let expected = numerator / denominator;
+            let actual = avg.sigma[&1][0];
+            assert!(
+                (actual - expected).abs() <= 1e-10 * expected,
+                "σ0 {s0}: {actual} vs {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn shielding_needs_total_cross_section() {
+        let tables = BTreeMap::from([(2, constant(3.0))]);
+        let result = shielded_averages(
+            &GroupStructure::wims69(),
+            &Weight::lwr(),
+            &tables,
+            None,
+            &[10.0],
+        );
+        assert!(result.is_err());
     }
 }
