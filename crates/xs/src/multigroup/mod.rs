@@ -20,12 +20,12 @@ pub use scatter::{emits_neutrons, scattering_matrix, two_body_range};
 pub use structure::GroupStructure;
 pub use weight::Weight;
 
-/// 無限希釈の群平均断面積。配列は群の順（高エネルギーから）。
+/// 群平均断面積。配列は群の順（高エネルギーから）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReactionAverages {
-    /// 群ごとの重み関数の積分 ∫_g w dE
+    /// 群ごとの中性子束の積分 ∫_g φ dE（無限希釈なら φ は重み関数 w）
     pub flux: Vec<f64>,
-    /// MT ごとの σ_g = ∫_g σ w dE / ∫_g w dE (barn)
+    /// MT ごとの σ_g = ∫_g σ φ dE / ∫_g φ dE (barn)
     pub sigma: BTreeMap<u32, Vec<f64>>,
     /// νσf の群平均（核分裂がなければ `None`）
     pub nu_fission: Option<Vec<f64>>,
@@ -39,9 +39,49 @@ pub fn reaction_averages(
     tables: &BTreeMap<u32, Tab1>,
     nubar: Option<&Tab1>,
 ) -> ReactionAverages {
-    let flux = group_integrals(groups, weight, &[], |_| 1.0);
-    let average = |breakpoints: &[f64], f: &dyn Fn(f64) -> f64| -> Vec<f64> {
-        group_integrals(groups, weight, breakpoints, f)
+    averages_with_flux(groups, weight, tables, nubar, &[], |_| 1.0)
+}
+
+/// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
+///
+/// 中性子束を w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の中性子束はこれに定数
+/// (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`flux` はその定数を掛けない値。
+pub fn shielded_averages(
+    groups: &GroupStructure,
+    weight: &Weight,
+    tables: &BTreeMap<u32, Tab1>,
+    nubar: Option<&Tab1>,
+    sigma0: &[f64],
+) -> Result<Vec<ReactionAverages>, String> {
+    let total = tables
+        .get(&1)
+        .ok_or("self-shielding needs the total cross section (MT1)")?;
+    if let Some(bad) = sigma0.iter().find(|s| !(s.is_finite() && **s > 0.0)) {
+        return Err(format!("sigma zero must be positive and finite, got {bad}"));
+    }
+    Ok(sigma0
+        .iter()
+        .map(|&s0| {
+            averages_with_flux(groups, weight, tables, nubar, &total.x, |e| {
+                1.0 / (total.eval(e).unwrap_or(0.0) + s0)
+            })
+        })
+        .collect())
+}
+
+/// 中性子束 w(E)·`shape`(E) による群平均。`shape` は `breakpoints` の間で滑らかであること。
+fn averages_with_flux(
+    groups: &GroupStructure,
+    weight: &Weight,
+    tables: &BTreeMap<u32, Tab1>,
+    nubar: Option<&Tab1>,
+    breakpoints: &[f64],
+    shape: impl Fn(f64) -> f64,
+) -> ReactionAverages {
+    let flux = group_integrals(groups, weight, breakpoints, &shape);
+    let average = |points: &[f64], f: &dyn Fn(f64) -> f64| -> Vec<f64> {
+        let points: Vec<f64> = points.iter().chain(breakpoints).copied().collect();
+        group_integrals(groups, weight, &points, |e| f(e) * shape(e))
             .iter()
             .zip(&flux)
             .map(|(integral, phi)| integral / phi)
@@ -53,8 +93,8 @@ pub fn reaction_averages(
         .collect();
     let nu_fission = match (nubar, tables.get(&18)) {
         (Some(nu), Some(fission)) => {
-            let breakpoints: Vec<f64> = fission.x.iter().chain(&nu.x).copied().collect();
-            Some(average(&breakpoints, &|e| {
+            let points: Vec<f64> = fission.x.iter().chain(&nu.x).copied().collect();
+            Some(average(&points, &|e| {
                 nu.eval(e).unwrap_or(0.0) * fission.eval(e).unwrap_or(0.0)
             }))
         }
@@ -104,5 +144,72 @@ mod tests {
         let avg = reaction_averages(&groups, &Weight::lwr(), &tables, None);
         assert_eq!(avg.sigma[&16][1], 0.0);
         assert!(avg.sigma[&16][0] > 0.0 && avg.sigma[&16][0] < 1.0);
+    }
+    #[test]
+    fn constant_total_gives_infinite_dilution_for_every_sigma0() {
+        let groups = GroupStructure::wims69();
+        let weight = Weight::lwr();
+        let capture = Tab1::linear(vec![1.0e-5, 1.0, 2.0e7], vec![5.0, 1.0, 0.1]);
+        let tables = BTreeMap::from([(1, constant(3.0)), (102, capture)]);
+        let infinite = reaction_averages(&groups, &weight, &tables, None);
+        let shielded =
+            shielded_averages(&groups, &weight, &tables, None, &[1.0e10, 10.0, 1.0]).unwrap();
+        assert_eq!(shielded.len(), 3);
+        for avg in &shielded {
+            for g in 0..69 {
+                let (a, b) = (avg.sigma[&102][g], infinite.sigma[&102][g]);
+                assert!((a - b).abs() <= 1e-12 * b, "group {g}: {a} vs {b}");
+            }
+        }
+    }
+
+    #[test]
+    fn narrow_resonance_flux_matches_analytic_average() {
+        // 1/E の重みの群で σx = σt = cE のとき
+        //   σ_g = ln((c b + σ0)/(c a + σ0)) / [(1/σ0) ln(b (c a + σ0) / (a (c b + σ0)))]
+        let groups = GroupStructure::new(vec![100.0, 10.0]);
+        let c = 2.0;
+        let total = Tab1::linear(vec![10.0, 100.0], vec![10.0 * c, 100.0 * c]);
+        let tables = BTreeMap::from([(1, total)]);
+        let (a, b) = (10.0_f64, 100.0_f64);
+        for s0 in [1.0, 30.0, 1.0e3] {
+            let avg = &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0]).unwrap()[0];
+            let numerator = ((c * b + s0) / (c * a + s0)).ln();
+            let denominator = (b * (c * a + s0) / (a * (c * b + s0))).ln() / s0;
+            let expected = numerator / denominator;
+            let actual = avg.sigma[&1][0];
+            assert!(
+                (actual - expected).abs() <= 1e-10 * expected,
+                "σ0 {s0}: {actual} vs {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn sigma0_must_be_positive_and_finite() {
+        let tables = BTreeMap::from([(1, constant(3.0))]);
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let result = shielded_averages(
+                &GroupStructure::wims69(),
+                &Weight::lwr(),
+                &tables,
+                None,
+                &[bad],
+            );
+            assert!(result.is_err(), "σ0 = {bad}");
+        }
+    }
+
+    #[test]
+    fn shielding_needs_total_cross_section() {
+        let tables = BTreeMap::from([(2, constant(3.0))]);
+        let result = shielded_averages(
+            &GroupStructure::wims69(),
+            &Weight::lwr(),
+            &tables,
+            None,
+            &[10.0],
+        );
+        assert!(result.is_err());
     }
 }
