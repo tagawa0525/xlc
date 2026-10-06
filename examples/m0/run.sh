@@ -19,4 +19,4 @@ echo "== lattice: pin cell MOC -> 2-group constants"
 "$bin/lattice" "$here/pincell.toml"
 
 echo "== core: 3D NEM"
-"$bin/core" "$here/core.inp"
+"$bin/core" "$here/core.toml"
