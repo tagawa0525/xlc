@@ -37,6 +37,9 @@
             ruff
             poppler-utils
           ];
+          # nixpkgs の rustc は標準ライブラリのソースを含まない。rust-analyzer が core と std を
+          # 解析できるよう、場所を教える（ないと matches! などが展開できず、誤ったエラーを出す）
+          RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
         };
         # 参照用の道具（NJOY, OpenMC）のビルド（docs/verification.md）。
         # OpenMC 0.15.2 が同梱する fmt は GCC 16 でコンパイルできないので GCC 13 を使う
