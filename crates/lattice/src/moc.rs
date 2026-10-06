@@ -925,6 +925,43 @@ mod tests {
     }
 
     #[test]
+    fn group_without_neutrons_is_error() {
+        // 3群目は χ = 0 で、どの群からも散乱で入らないので、中性子束が常に 0 になる
+        let three_group = |nu_fission: [f64; 3]| {
+            let chi = vec![1.0, 0.0, 0.0];
+            Material {
+                total: vec![0.5, 1.2, 0.8],
+                scatter: vec![
+                    vec![0.45, 0.02, 0.0],
+                    vec![0.0, 0.9, 0.0],
+                    vec![0.0, 0.0, 0.7],
+                ],
+                fission: nu_fission.iter().map(|v| v / 2.5).collect(),
+                nu_fission: nu_fission.to_vec(),
+                fission_terms: if nu_fission.iter().any(|&v| v > 0.0) {
+                    vec![FissionTerm {
+                        chi,
+                        nu_fission: nu_fission.to_vec(),
+                    }]
+                } else {
+                    vec![]
+                },
+            }
+        };
+        let (f, m) = (three_group([0.008, 0.25, 0.0]), three_group([0.0; 3]));
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        for acceleration in [Acceleration::None, Options::default().acceleration] {
+            let options = Options {
+                acceleration,
+                ..Options::default()
+            };
+            let err = solve(&tracking, &[&f, &m], &options).unwrap_err();
+            assert!(matches!(err, MocError::GroupWithoutSource(2)), "{err}");
+        }
+    }
+
+    #[test]
     fn region_without_tracks_is_error() {
         // 中心の極小の円には、中心からずれたトラックが1本も通らない
         let cell = PinCell::new(1.26, vec![1.0e-6, 0.4]).unwrap();
