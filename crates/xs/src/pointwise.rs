@@ -206,6 +206,7 @@ pub struct ColdParts {
 
 impl ColdParts {
     /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
+    #[tracing::instrument(name = "reconstruct", level = "debug", skip_all)]
     pub fn read(tape: &Tape, mat: i32, tol: f64) -> Result<Self, Error> {
         let available = tape.mts(mat, 3);
         let mut tables = BTreeMap::new();
