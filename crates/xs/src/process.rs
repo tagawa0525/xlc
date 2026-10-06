@@ -79,6 +79,7 @@ pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, ProcessErro
 
 /// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) と背景断面積 `sigma0` について作る
 /// （NJOY UNRESR に相当）。非分離共鳴がなければ `None`。
+#[tracing::instrument(level = "debug", skip_all)]
 pub fn unresolved_shielding(
     tape: &Tape,
     mat: i32,
@@ -174,6 +175,7 @@ pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f
 
 /// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
 /// `thermal` があれば cutoff 未満の弾性散乱を S(α, β) で、なければ自由ガス模型で扱う。
+#[tracing::instrument(name = "nuclide", skip_all, fields(name = %name))]
 pub fn process_nuclide(
     tape: &Tape,
     name: &str,
@@ -271,6 +273,7 @@ struct Common<'a> {
 }
 
 impl Common<'_> {
+    #[tracing::instrument(level = "debug", skip(self))]
     fn at_temperature(&self, temperature: f64) -> Result<TemperatureData, ProcessError> {
         let settings = self.settings;
         let (groups, weight) = (&settings.groups, &settings.weight);
