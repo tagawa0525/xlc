@@ -79,17 +79,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
 
     let tracking =
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
-    let solution = solve(&tracking, &materials, &Options::default()).map_err(|e| anyhow!(e))?;
+    let solution = solve(&tracking, &materials, &Options::default())?;
     if let Some((output, bounds)) = &input.output {
         let groups = groups
             .as_ref()
             .expect("the input checks that few-group output needs a library");
-        let few = homogenize(&solution, &materials, groups, bounds).map_err(|e| anyhow!(e))?;
+        let few = homogenize(&solution, &materials, groups, bounds)?;
         let output = base.join(output);
         std::fs::write(&output, few.to_msgpack()).with_context(|| shown(&output))?;
     }
     if let Some(file) = &input.pin_powers {
-        let rates = cell_fission_rates(&solution, &lattice, &materials).map_err(|e| anyhow!(e))?;
+        let rates = cell_fission_rates(&solution, &lattice, &materials)?;
         let file = base.join(file);
         std::fs::write(&file, to_msgpack(&rates, lattice.cells_per_side()))
             .with_context(|| shown(&file))?;

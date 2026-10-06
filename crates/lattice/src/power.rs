@@ -4,13 +4,18 @@ use crate::geometry::Lattice;
 use crate::material::Material;
 use crate::moc::Solution;
 
+/// 核分裂のあるセルがない。
+#[derive(Debug, thiserror::Error)]
+#[error("no cell has fission")]
+pub struct NoFission;
+
 /// セルごとの核分裂率 Σ_領域 Σ_g Σf φ V を、核分裂のあるセルの平均が 1 になるよう規格化する。
 /// セルの順は `Lattice` と同じ（上の行から、各行は左から）。
 pub fn cell_fission_rates(
     solution: &Solution,
     lattice: &Lattice,
     materials: &[&Material],
-) -> Result<Vec<f64>, String> {
+) -> Result<Vec<f64>, NoFission> {
     let cells = lattice.cells_per_side().pow(2);
     let rates: Vec<f64> = (0..cells)
         .map(|cell| {
@@ -31,7 +36,7 @@ pub fn cell_fission_rates(
         .collect();
     let fissile: Vec<f64> = rates.iter().copied().filter(|&r| r > 0.0).collect();
     if fissile.is_empty() {
-        return Err("no cell has fission".into());
+        return Err(NoFission);
     }
     let mean = fissile.iter().sum::<f64>() / fissile.len() as f64;
     Ok(rates.iter().map(|r| r / mean).collect())

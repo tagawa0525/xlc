@@ -38,6 +38,19 @@ pub enum FewGroupError {
     Invalid(String),
 }
 
+/// 少数群への縮約のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum HomogenizeError {
+    #[error("{materials} materials for {regions} regions")]
+    RegionCount { materials: usize, regions: usize },
+    #[error("few-group bounds must be bounds of the library groups")]
+    NotLibraryBounds,
+    #[error("few-group bounds must be descending and span the library groups")]
+    Span,
+    #[error("a few group has no flux")]
+    NoFlux,
+}
+
 /// ファイルの中身（フィールド名付きの map 形式で書く）。
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -142,24 +155,23 @@ pub fn homogenize(
     materials: &[&Material],
     fine: &GroupStructure,
     coarse_bounds: &[f64],
-) -> Result<FewGroup, String> {
+) -> Result<FewGroup, HomogenizeError> {
     let ng = fine.len();
     if materials.len() != solution.flux.len() {
-        return Err(format!(
-            "{} materials for {} regions",
-            materials.len(),
-            solution.flux.len()
-        ));
+        return Err(HomogenizeError::RegionCount {
+            materials: materials.len(),
+            regions: solution.flux.len(),
+        });
     }
     // 少数群の境界を細かい群の境界の位置に対応させる
     let positions = coarse_bounds
         .iter()
         .map(|b| fine.bounds().iter().position(|f| f == b))
         .collect::<Option<Vec<usize>>>()
-        .ok_or("few-group bounds must be bounds of the library groups")?;
+        .ok_or(HomogenizeError::NotLibraryBounds)?;
     let covers = positions.first() == Some(&0) && positions.last() == Some(&ng);
     if !covers || positions.windows(2).any(|w| w[0] >= w[1]) {
-        return Err("few-group bounds must be descending and span the library groups".into());
+        return Err(HomogenizeError::Span);
     }
     let coarse = positions.len() - 1;
     let mut group_of = vec![0; ng];
@@ -198,7 +210,7 @@ pub fn homogenize(
         }
     }
     if flux.iter().any(|&f| f <= 0.0) {
-        return Err("a few group has no flux".into());
+        return Err(HomogenizeError::NoFlux);
     }
     let per_flux =
         |values: Vec<f64>| -> Vec<f64> { values.iter().zip(&flux).map(|(v, f)| v / f).collect() };
