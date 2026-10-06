@@ -811,6 +811,37 @@ mod tests {
     }
 
     #[test]
+    fn cmfd_converges_with_an_optically_thick_reflector() {
+        // C5G7 の反射体と同じく、熱群で光学的に厚い（Σt h ≈ 4）水のセルが真空境界まで続く。
+        // 従来の CMFD はこのような粗メッシュで振動して収束しない
+        let pin = PinCell::new(1.26, vec![0.54]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let mut layout = vec![vec![1; 6]; 6];
+        for row in layout.iter_mut().take(3) {
+            row[..3].fill(0);
+        }
+        let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 8, 0.1, boundaries).unwrap();
+        let f = fuel();
+        let reflector = two_group([0.6, 3.2], [[0.5, 0.098], [0.002, 3.18]], [0.0, 0.0]);
+        let mut materials = Vec::new();
+        for cell in 0..36 {
+            let (row, column) = (cell / 6, cell % 6);
+            if row < 3 && column < 3 {
+                materials.extend([&f, &reflector]);
+            } else {
+                materials.push(&reflector);
+            }
+        }
+        assert_cmfd_accelerates(&tracking, &materials);
+    }
+
+    #[test]
     fn refinement_converges() {
         let coarse = heterogeneous(16, 0.05);
         let fine = heterogeneous(32, 0.02);
