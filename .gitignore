@@ -6,3 +6,4 @@
 /examples/m1/*.fg
 /.direnv
 /.envrc
+/examples/c5g7/*.msgpack
