@@ -664,6 +664,118 @@ mod tests {
 
     const HEAD: [&str; 6] = ["9.223800+4", "2.360058+2", "0", "0", "1", "0"];
 
+    /// R-matrix limited（LRF=7）の範囲。`control` は IFG KRM NJS KRL の CONT
+    fn rml_lines(control: [&'static str; 6]) -> Vec<[&'static str; 6]> {
+        vec![
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["1.0-5", "1.9+5", "1", "7", "0", "0"],
+            control,
+            // 粒子対: MA MB ZA ZB IA IB / Q PNT SHF MT PA PB（光子と捕獲、中性子と標的）
+            ["0.0", "0.0", "2", "0", "24", "4"],
+            ["0.0", "5.743560+1", "0.0", "2.6+1", "1.0", "0.0"],
+            ["0.0", "0.0", "0.0", "1.02+2", "0.0", "0.0"],
+            ["1.0", "5.644629+1", "0.0", "2.6+1", "0.5", "-0.5"],
+            ["0.0", "1.0", "0.0", "2.0", "0.0", "0.0"],
+            // spin group: AJ PJ KBK KPS 6*NCH NCH と、チャネルごとに PPI L SCH BND APE APT
+            ["1.0", "0.0", "0", "0", "12", "2"],
+            ["1.0", "0.0", "0.0", "0.0", "0.0", "0.0"],
+            ["2.0", "1.0", "1.0", "0.0", "0.63", "0.64"],
+            // 共鳴: 0 0 0 NRS 6*NX NX と、共鳴ごとに ER とチャネルの幅
+            ["0.0", "0.0", "0", "2", "12", "2"],
+            ["-2.33+3", "1.0", "2.0", "0.0", "0.0", "0.0"],
+            ["1.5+3", "0.5", "-3.0", "0.0", "0.0", "0.0"],
+        ]
+    }
+
+    #[test]
+    fn reads_r_matrix_limited_range() {
+        let data = mf2(&rml_lines(["0.0", "0.0", "0", "3", "1", "0"])).unwrap();
+        let RangeKind::RMatrixLimited(rml) = &data.ranges[0].kind else {
+            panic!("expected R-matrix limited");
+        };
+        assert_eq!(
+            rml.pairs,
+            vec![
+                ParticlePair {
+                    ma: 0.0,
+                    mb: 57.4356,
+                    za: 0.0,
+                    zb: 26.0,
+                    ia: 1.0,
+                    ib: 0.0,
+                    q: 0.0,
+                    pnt: 0,
+                    shf: 0,
+                    mt: 102,
+                },
+                ParticlePair {
+                    ma: 1.0,
+                    mb: 56.44629,
+                    za: 0.0,
+                    zb: 26.0,
+                    ia: 0.5,
+                    ib: -0.5,
+                    q: 0.0,
+                    pnt: 1,
+                    shf: 0,
+                    mt: 2,
+                },
+            ]
+        );
+        assert_eq!(
+            rml.spin_groups,
+            vec![SpinGroup {
+                aj: 1.0,
+                pj: 0.0,
+                channels: vec![
+                    RmlChannel {
+                        pair: 0,
+                        l: OrbitalL::S,
+                        sch: 0.0,
+                        bnd: 0.0,
+                        ape: 0.0,
+                        apt: 0.0,
+                    },
+                    RmlChannel {
+                        pair: 1,
+                        l: OrbitalL::P,
+                        sch: 1.0,
+                        bnd: 0.0,
+                        ape: 0.63,
+                        apt: 0.64,
+                    },
+                ],
+                resonances: vec![
+                    RmlResonance {
+                        er: -2330.0,
+                        widths: vec![1.0, 2.0],
+                    },
+                    RmlResonance {
+                        er: 1500.0,
+                        widths: vec![0.5, -3.0],
+                    },
+                ],
+            }]
+        );
+    }
+
+    #[test]
+    fn rejects_r_matrix_limited_other_than_reich_moore() {
+        let error = mf2(&rml_lines(["0.0", "0.0", "0", "2", "1", "0"]))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("KRM=2"), "{error}");
+    }
+
+    #[test]
+    fn rejects_r_matrix_limited_with_reduced_amplitudes() {
+        let error = mf2(&rml_lines(["0.0", "0.0", "1", "3", "1", "0"]))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("IFG=1"), "{error}");
+    }
+
     #[test]
     fn reads_reich_moore_and_unresolved_ranges() {
         let data = mf2(&[
