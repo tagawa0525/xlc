@@ -648,7 +648,7 @@ mod tests {
         let mesh = CoarseMesh::new(&two_by_two());
         for from in 0..4 {
             for to in (0..4).filter(|&to| to != from) {
-                let path = mesh.path(from, to);
+                let path = mesh.path(from, to).unwrap();
                 let faces = path.faces();
                 assert_eq!(outflow(&mesh, from, faces), 1.0);
                 assert_eq!(outflow(&mesh, to, faces), -1.0);
@@ -658,6 +658,43 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn cells_that_do_not_touch_have_no_path() {
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![water], vec![vec![0; 3]; 3]).unwrap();
+        let mesh = CoarseMesh::new(&Tracking::new(&lattice, 8, 0.2).unwrap());
+        assert!(matches!(
+            mesh.path(0, 2),
+            Err(CmfdError::NonAdjacent { from: 0, to: 2 })
+        ));
+    }
+
+    #[test]
+    fn faces_know_their_cells() {
+        let mesh = CoarseMesh::new(&two_by_two());
+        // 左上のセルの左の面は外周（外向きは面の負の向き）、右の面は右上のセルとの間
+        let [(left, _), (right, _), (top, _), (bottom, _)] = mesh.cell_faces(0);
+        assert_eq!(
+            mesh.face_cells(left),
+            FaceCells::Outer {
+                cell: 0,
+                outward: -1.0
+            }
+        );
+        assert_eq!(mesh.face_cells(right), FaceCells::Inner { low: 0, high: 1 });
+        assert_eq!(
+            mesh.face_cells(top),
+            FaceCells::Outer {
+                cell: 0,
+                outward: -1.0
+            }
+        );
+        assert_eq!(
+            mesh.face_cells(bottom),
+            FaceCells::Inner { low: 0, high: 2 }
+        );
     }
 
     #[test]
