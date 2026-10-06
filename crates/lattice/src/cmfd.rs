@@ -4,6 +4,8 @@
 //! 拡散の結合係数を流れに合うよう補正した粗メッシュの固有値問題を解いて、
 //! 細かい領域の中性子束をセルごとの比で更新する。
 
+use crate::material::Material;
+use crate::moc::Remaining;
 use crate::tracking::Tracking;
 
 /// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。
@@ -19,6 +21,8 @@ use crate::tracking::Tracking;
 pub struct CoarseMesh {
     /// 1辺のセルの数
     n: usize,
+    /// セルの一辺の長さ (cm)
+    pitch: f64,
     /// [領域] の属するセル
     cell_of_region: Vec<usize>,
     /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
@@ -64,6 +68,7 @@ impl CoarseMesh {
         let half = 0.5 * lattice.width();
         let mut mesh = Self {
             n,
+            pitch: lattice.width() / n as f64,
             cell_of_region,
             ends: Vec::with_capacity(tracking.tracks.len()),
         };
@@ -105,6 +110,28 @@ impl CoarseMesh {
     /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
     pub(crate) fn ends(&self, track: usize) -> [(usize, f64); 2] {
         self.ends[track]
+    }
+
+    /// 面の両側のセル（面の正の向きの手前、先）。外周の面では外側が `None`。
+    pub fn face_cells(&self, face: usize) -> (Option<usize>, Option<usize>) {
+        let n = self.n;
+        let vertical = n * (n + 1);
+        let (before, after) = if face < vertical {
+            let (row, line) = (face / (n + 1), face % (n + 1));
+            let cell = |column: usize| row * n + column;
+            (
+                (line > 0).then(|| cell(line - 1)),
+                (line < n).then(|| cell(line)),
+            )
+        } else {
+            let (line, column) = ((face - vertical) / n, (face - vertical) % n);
+            let cell = |row: usize| row * n + column;
+            (
+                (line > 0).then(|| cell(line - 1)),
+                (line < n).then(|| cell(line)),
+            )
+        };
+        (before, after)
     }
 
     fn vertical(&self, row: usize, line: usize) -> usize {
@@ -150,6 +177,361 @@ impl CoarseMesh {
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .expect("four sides");
         (face, outward)
+    }
+}
+
+/// CMFD の固有値問題の打ち切り条件。
+///
+/// MOC の反復の判定（`moc::Options`）より十分小さくする。CMFD の打ち切りの誤差が、MOC の
+/// 反復ごとの変化に紛れて収束の判定を誤らせないため。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CmfdOptions {
+    /// 実効増倍率の変化の上限
+    pub k_tolerance: f64,
+    /// 中性子束の相対変化の上限
+    pub flux_tolerance: f64,
+    pub max_iterations: usize,
+}
+
+impl Default for CmfdOptions {
+    fn default() -> Self {
+        Self {
+            k_tolerance: 1.0e-10,
+            flux_tolerance: 1.0e-8,
+            max_iterations: 100_000,
+        }
+    }
+}
+
+/// CMFD の計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum CmfdError {
+    #[error("the MOC flux averaged over cell {cell} in group {group} is not positive ({flux})")]
+    NonPositiveFlux {
+        cell: usize,
+        group: usize,
+        flux: f64,
+    },
+    #[error("the coarse-mesh flux of cell {cell} in group {group} became {flux}")]
+    NonPositiveSolution {
+        cell: usize,
+        group: usize,
+        flux: f64,
+    },
+    #[error("the coarse-mesh matrix of cell {0} is singular")]
+    Singular(usize),
+    #[error("the coarse-mesh eigenvalue problem did not converge in {0} iterations")]
+    NotConverged(usize),
+}
+
+/// セルごとに均質化した粗メッシュの問題（流れに合わせて補正した拡散方程式）。
+#[derive(Debug, Clone)]
+pub(crate) struct Coarse {
+    groups: usize,
+    /// [セル][群] の均質化した中性子束
+    flux: Vec<f64>,
+    /// [セル][出射の群][入射の群] の体積 × 核分裂源の行列 V χ νΣf
+    fission: Vec<f64>,
+    /// [セル] の対角のブロック（群×群）の LU 分解
+    blocks: Vec<Lu>,
+    /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)。方程式は
+    /// A_c φ_c + Σ 係数 φ_隣 = V F φ_c / k
+    neighbors: Vec<Vec<(usize, Vec<f64>)>>,
+}
+
+impl Coarse {
+    /// 細かい領域の [領域][群] の中性子束 `flux` と体積から、セルごとに断面積を均質化し、
+    /// スイープで数えた [面][群] の正味の中性子流 `current` に合うよう結合係数を補正する。
+    pub fn homogenize(
+        mesh: &CoarseMesh,
+        materials: &[&Material],
+        volumes: &[f64],
+        flux: &[Vec<f64>],
+        current: &[f64],
+    ) -> Result<Self, CmfdError> {
+        let ng = materials[0].groups();
+        let cells = mesh.cells();
+        let mut volume = vec![0.0; cells];
+        let mut phi = vec![0.0; cells * ng];
+        // 反応率の和（後で中性子束で割る）
+        let mut total = vec![0.0; cells * ng];
+        let mut scatter = vec![0.0; cells * ng * ng];
+        let mut fission = vec![0.0; cells * ng * ng];
+        for (region, m) in materials.iter().enumerate() {
+            let (c, v, f) = (mesh.cell(region), volumes[region], &flux[region]);
+            volume[c] += v;
+            for g in 0..ng {
+                phi[c * ng + g] += v * f[g];
+                total[c * ng + g] += v * m.total[g] * f[g];
+                for to in 0..ng {
+                    scatter[(c * ng + to) * ng + g] += v * m.scatter[g][to] * f[g];
+                }
+            }
+            for term in &m.fission_terms {
+                for g in 0..ng {
+                    let rate = v * term.nu_fission[g] * f[g];
+                    for to in 0..ng {
+                        fission[(c * ng + to) * ng + g] += term.chi[to] * rate;
+                    }
+                }
+            }
+        }
+        for c in 0..cells {
+            for g in 0..ng {
+                let reaction = phi[c * ng + g];
+                if reaction <= 0.0 || !reaction.is_finite() {
+                    return Err(CmfdError::NonPositiveFlux {
+                        cell: c,
+                        group: g,
+                        flux: reaction,
+                    });
+                }
+                phi[c * ng + g] = reaction / volume[c];
+            }
+        }
+        // 断面積 = 反応率 / (体積 × 中性子束)。行列は φ に掛けて反応率になる形で持つので、
+        // 列（入射の群）ごとに中性子束で割る
+        let h = mesh.pitch;
+        let sigma_t = |c: usize, g: usize| total[c * ng + g] / (volume[c] * phi[c * ng + g]);
+        // 光学的に厚いセルでは従来の CMFD が不安定になるので、拡散係数に θ(Σt h) h を足す
+        // （optimally diffusive CMFD）
+        let diffusion = |c: usize, g: usize| {
+            let sigma = sigma_t(c, g);
+            1.0 / (3.0 * sigma) + artificial_diffusion(sigma * h) * h
+        };
+        for c in 0..cells {
+            for to in 0..ng {
+                for g in 0..ng {
+                    let j = (c * ng + to) * ng + g;
+                    scatter[j] /= phi[c * ng + g];
+                    fission[j] /= phi[c * ng + g];
+                }
+            }
+        }
+
+        // 対角のブロックの対角項: 全断面積 + 面からの漏れ。隣との結合
+        let mut diagonal: Vec<f64> = (0..cells * ng).map(|j| total[j] / phi[j]).collect();
+        let mut neighbors: Vec<Vec<(usize, Vec<f64>)>> = vec![Vec::new(); cells];
+        for face in 0..mesh.faces() {
+            let net = &current[face * ng..][..ng];
+            match mesh.face_cells(face) {
+                (Some(low), Some(high)) => {
+                    // 面の正の向きの流れ J = -D̃ (φ_h - φ_l) - D̂ (φ_h + φ_l)（面の長さあたり）
+                    let mut on_high = vec![0.0; ng];
+                    let mut on_low = vec![0.0; ng];
+                    for g in 0..ng {
+                        let (dl, dh) = (diffusion(low, g), diffusion(high, g));
+                        let coupling = 2.0 * dl * dh / (h * (dl + dh));
+                        let (fl, fh) = (phi[low * ng + g], phi[high * ng + g]);
+                        let correction = -(net[g] / h + coupling * (fh - fl)) / (fh + fl);
+                        // 低い側の式では J が出ていく流れ、高い側の式では入ってくる流れ
+                        diagonal[low * ng + g] += h * (coupling - correction);
+                        on_high[g] = h * (-coupling - correction);
+                        diagonal[high * ng + g] += h * (coupling + correction);
+                        on_low[g] = h * (-coupling + correction);
+                    }
+                    neighbors[low].push((high, on_high));
+                    neighbors[high].push((low, on_low));
+                }
+                // 外周の面: 外向きの流れを、すべて補正の項 D̂ φ で表す
+                (Some(cell), None) => {
+                    for g in 0..ng {
+                        diagonal[cell * ng + g] += net[g] / phi[cell * ng + g];
+                    }
+                }
+                (None, Some(cell)) => {
+                    for g in 0..ng {
+                        diagonal[cell * ng + g] -= net[g] / phi[cell * ng + g];
+                    }
+                }
+                (None, None) => unreachable!("every face touches a cell"),
+            }
+        }
+        let blocks = (0..cells)
+            .map(|c| {
+                let mut a: Vec<f64> = scatter[c * ng * ng..][..ng * ng]
+                    .iter()
+                    .map(|s| -s)
+                    .collect();
+                for g in 0..ng {
+                    a[g * ng + g] += diagonal[c * ng + g];
+                }
+                Lu::new(a, ng).ok_or(CmfdError::Singular(c))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            groups: ng,
+            flux: phi,
+            fission,
+            blocks,
+            neighbors,
+        })
+    }
+
+    /// 固有値問題を `k` から解き始め、k と [セル][群] の中性子束の比（解 / 均質化した中性子束、
+    /// どちらも生成率 1 に規格化）を返す。
+    ///
+    /// べき乗法の各反復で、ブロック Gauss-Seidel をセルの順に1回だけ行う。収束すると
+    /// Gauss-Seidel でも解が変わらないので、内側の反復を収束させなくても固有値問題の解になる。
+    pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
+        let ng = self.groups;
+        let cells = self.blocks.len();
+        let production = |phi: &[f64]| -> f64 {
+            (0..cells)
+                .map(|c| {
+                    let f = &self.fission[c * ng * ng..][..ng * ng];
+                    let p = &phi[c * ng..][..ng];
+                    f.chunks(ng)
+                        .map(|row| row.iter().zip(p).map(|(a, b)| a * b).sum::<f64>())
+                        .sum::<f64>()
+                })
+                .sum()
+        };
+        let start = production(&self.flux);
+        let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
+        let mut k = k;
+        let mut k_history = Remaining::default();
+        let mut flux_history = Remaining::default();
+        let mut rhs = vec![0.0; ng];
+        for _ in 0..options.max_iterations {
+            let previous = phi.clone();
+            for c in 0..cells {
+                let f = &self.fission[c * ng * ng..][..ng * ng];
+                for (to, r) in rhs.iter_mut().enumerate() {
+                    *r = f[to * ng..][..ng]
+                        .iter()
+                        .zip(&previous[c * ng..][..ng])
+                        .map(|(a, b)| a * b)
+                        .sum::<f64>()
+                        / k;
+                }
+                for (other, coefficients) in &self.neighbors[c] {
+                    for g in 0..ng {
+                        rhs[g] -= coefficients[g] * phi[other * ng + g];
+                    }
+                }
+                self.blocks[c].solve(&mut rhs);
+                phi[c * ng..][..ng].copy_from_slice(&rhs);
+            }
+            let rate = production(&phi);
+            let new_k = k * rate;
+            for f in &mut phi {
+                *f /= rate;
+            }
+            if let Some(j) = phi.iter().position(|&f| f <= 0.0 || !f.is_finite()) {
+                return Err(CmfdError::NonPositiveSolution {
+                    cell: j / ng,
+                    group: j % ng,
+                    flux: phi[j],
+                });
+            }
+            let change = phi
+                .iter()
+                .zip(&previous)
+                .map(|(a, b)| (a - b).abs() / a.abs().max(b.abs()))
+                .fold(0.0, f64::max);
+            let k_remaining = k_history.update((new_k - k).abs());
+            let flux_remaining = flux_history.update(change);
+            k = new_k;
+            if k_remaining < options.k_tolerance && flux_remaining < options.flux_tolerance {
+                let ratio = phi
+                    .iter()
+                    .zip(&self.flux)
+                    .map(|(new, old)| new / (old / start))
+                    .collect();
+                return Ok((k, ratio));
+            }
+        }
+        Err(CmfdError::NotConverged(options.max_iterations))
+    }
+}
+
+/// optimally diffusive CMFD の θ（拡散係数に足す θ h の係数）を、粗メッシュのセルの光学的厚さ
+/// τ = Σt h から求める。
+///
+/// A. Zhu et al., "An optimally diffusive Coarse Mesh Finite Difference method to accelerate
+/// neutron transport calculations", Ann. Nucl. Energy 95 (2016) 116–124 の式 (23) と Table 1。
+/// フーリエ解析で求めた最適値の当てはめで、τ < 1 では 0（従来の CMFD）、τ ≥ 14 では飽和値。
+/// C5G7 の反射体（熱群で τ ≈ 4）では従来の CMFD が振動して収束せず、partial current CMFD に
+/// 当たる θ = 1/4 より、細かい領域の多い場合に反復が少ない（M2 の計画を参照）
+pub(crate) fn artificial_diffusion(tau: f64) -> f64 {
+    /// 多項式を使う範囲の下限と上限
+    const THIN: f64 = 1.0;
+    const THICK: f64 = 14.0;
+    /// τ ≥ 14 での値
+    const SATURATED: f64 = 0.127;
+    /// θ = Σ a_i τ^i の係数 a_0..a_6
+    const COEFFICIENTS: [f64; 7] = [
+        -5.542780e-02,
+        8.740501e-02,
+        -2.152599e-02,
+        3.145553e-03,
+        -2.683648e-04,
+        1.222516e-05,
+        -2.284879e-07,
+    ];
+    if tau < THIN {
+        0.0
+    } else if tau >= THICK {
+        SATURATED
+    } else {
+        COEFFICIENTS.iter().rev().fold(0.0, |sum, a| sum * tau + a)
+    }
+}
+
+/// 部分ピボット選択付きの LU 分解（群×群の小さな密行列）。
+#[derive(Debug, Clone)]
+struct Lu {
+    n: usize,
+    /// 行優先の L（対角は 1、格納しない）と U
+    lu: Vec<f64>,
+    /// 行の入れ替え
+    pivot: Vec<usize>,
+}
+
+impl Lu {
+    /// 行優先の n × n 行列を分解する。特異なら `None`。
+    fn new(mut a: Vec<f64>, n: usize) -> Option<Self> {
+        let mut pivot: Vec<usize> = (0..n).collect();
+        for col in 0..n {
+            let best =
+                (col..n).max_by(|&i, &j| a[i * n + col].abs().total_cmp(&a[j * n + col].abs()))?;
+            if a[best * n + col] == 0.0 {
+                return None;
+            }
+            if best != col {
+                for j in 0..n {
+                    a.swap(best * n + j, col * n + j);
+                }
+                pivot.swap(best, col);
+            }
+            for row in col + 1..n {
+                let factor = a[row * n + col] / a[col * n + col];
+                a[row * n + col] = factor;
+                for j in col + 1..n {
+                    a[row * n + j] -= factor * a[col * n + j];
+                }
+            }
+        }
+        Some(Self { n, lu: a, pivot })
+    }
+
+    /// `b` を A x = b の解 x で置き換える。
+    fn solve(&self, b: &mut [f64]) {
+        let n = self.n;
+        let permuted: Vec<f64> = self.pivot.iter().map(|&p| b[p]).collect();
+        b.copy_from_slice(&permuted);
+        for row in 0..n {
+            for j in 0..row {
+                b[row] -= self.lu[row * n + j] * b[j];
+            }
+        }
+        for row in (0..n).rev() {
+            for j in row + 1..n {
+                b[row] -= self.lu[row * n + j] * b[j];
+            }
+            b[row] /= self.lu[row * n + row];
+        }
     }
 }
 
@@ -229,6 +611,21 @@ mod tests {
             .map(|i| artificial_diffusion(0.5 * i as f64))
             .collect();
         assert!(samples.windows(2).all(|w| w[1] >= w[0]), "{samples:?}");
+    }
+
+    #[test]
+    fn lu_solves_with_pivoting() {
+        // 先頭の対角が 0 なので、行の入れ替えが要る
+        let a = vec![0.0, 2.0, 1.0, 1.0, 1.0, 0.0, 3.0, 0.0, 1.0];
+        let x = [1.0, -2.0, 0.5];
+        let mut b: Vec<f64> = (0..3)
+            .map(|i| (0..3).map(|j| a[i * 3 + j] * x[j]).sum())
+            .collect();
+        Lu::new(a, 3).unwrap().solve(&mut b);
+        for (got, want) in b.iter().zip(x) {
+            assert!((got - want).abs() < 1e-14, "{b:?}");
+        }
+        assert!(Lu::new(vec![1.0, 2.0, 2.0, 4.0], 2).is_none());
     }
 
     /// 面の外向きの重みの和（セル `cell` から出る分が正）

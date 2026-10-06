@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 
 use rayon::prelude::*;
 
-use crate::cmfd::CoarseMesh;
+use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
 use crate::tracking::Tracking;
 
@@ -20,6 +20,7 @@ pub struct Options {
     /// 中性子束の相対変化の上限
     pub flux_tolerance: f64,
     pub max_iterations: usize,
+    pub acceleration: Acceleration,
 }
 
 impl Default for Options {
@@ -28,8 +29,18 @@ impl Default for Options {
             k_tolerance: 1.0e-7,
             flux_tolerance: 1.0e-6,
             max_iterations: 20_000,
+            acceleration: Acceleration::Cmfd(CmfdOptions::default()),
         }
     }
+}
+
+/// べき乗法の加速。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Acceleration {
+    /// 加速しない（スイープごとに生成率の比で k を更新する）
+    None,
+    /// スイープごとにピンセル単位の CMFD を解き、k と中性子束を更新する
+    Cmfd(CmfdOptions),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -64,6 +75,8 @@ pub enum MocError {
     Untracked(usize),
     #[error("no fissile material")]
     NoFission,
+    #[error(transparent)]
+    Cmfd(#[from] CmfdError),
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
 }
@@ -132,8 +145,10 @@ pub fn solve(
         *f /= initial;
     }
     let mut k = 1.0;
-    // スイープの終わりに出ていく角度中性子束（`Sweeper::sweep` を参照）
-    let mut outgoing = vec![0.0; sweeper.outgoing_len()];
+    // スイープの終わりに出ていく角度中性子束（`Sweeper::sweep` を参照）。最初は端の領域の中性子束の
+    // 等方な分布とする（0 から始めると、鏡面反射の辺でも外向きの流れがあるように見え、CMFD が
+    // 漏れの大きな問題として解いてしまう）
+    let mut outgoing = sweeper.isotropic_outgoing(&flux);
     let mut next_outgoing = outgoing.clone();
     let mut tallies = sweeper.tallies(regions);
     let mut k_history = Remaining::default();
@@ -150,7 +165,7 @@ pub fn solve(
         let Sums {
             delta,
             mut leak,
-            current: _,
+            mut current,
         } = sum_tallies(&tallies, ng);
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
@@ -164,15 +179,31 @@ pub fn solve(
             .collect();
         // べき乗法: 生成率の比で k を更新し、中性子束と境界の値を生成率 1 に規格化する
         let rate = production(&new_flux);
-        let new_k = k * rate;
+        let mut new_k = k * rate;
         for f in new_flux.iter_mut().flatten() {
             *f /= rate;
         }
-        for l in &mut leak {
+        for l in leak.iter_mut().chain(&mut current) {
             *l /= rate;
         }
         for b in &mut outgoing {
             *b /= rate;
+        }
+        // CMFD: 粗メッシュの固有値問題の解で、k と、セルごと・群ごとの中性子束の比を更新する。
+        // 粗メッシュの解は生成率 1 に規格化されているので、更新後も生成率は 1 のまま
+        if let Acceleration::Cmfd(cmfd) = &options.acceleration {
+            let coarse = Coarse::homogenize(&mesh, materials, &volumes, &new_flux, &current)?;
+            let (coarse_k, ratio) = coarse.solve(new_k, cmfd)?;
+            new_k = coarse_k;
+            for (region, f) in new_flux.iter_mut().enumerate() {
+                let cell = mesh.cell(region);
+                for (g, value) in f.iter_mut().enumerate() {
+                    *value *= ratio[cell * ng + g];
+                }
+            }
+            // トラックの端の角度中性子束も、端のあるセルの比で更新する（領域の中性子束だけを
+            // 更新すると、次のスイープで入ってくる流れと食い違う）
+            sweeper.scale_outgoing(&mut outgoing, |region, g| ratio[mesh.cell(region) * ng + g]);
         }
         let change = new_flux
             .iter()
@@ -258,6 +289,38 @@ impl<'a> Sweeper<'a> {
     /// 出ていく角度中性子束の配列の長さ
     fn outgoing_len(&self) -> usize {
         2 * self.tracking.tracks.len() * self.width
+    }
+
+    /// トラックのスイープの終わりの区間の領域
+    fn exit_region(&self, track: usize, forward: bool) -> usize {
+        let segments = &self.tracking.tracks[track].segments;
+        if forward {
+            segments[segments.len() - 1].region
+        } else {
+            segments[0].region
+        }
+    }
+
+    /// スイープの終わりの領域の [領域][群] の中性子束 `flux` が等方に出ていくときの角度中性子束
+    fn isotropic_outgoing(&self, flux: &[Vec<f64>]) -> Vec<f64> {
+        let mut outgoing = vec![0.0; self.outgoing_len()];
+        for (j, out) in outgoing.chunks_mut(self.width).enumerate() {
+            let region = self.exit_region(j / 2, j % 2 == 0);
+            for (o, f) in out.iter_mut().zip(flux[region].iter().cycle()) {
+                *o = f / (4.0 * PI);
+            }
+        }
+        outgoing
+    }
+
+    /// 出ていく角度中性子束に、スイープの終わりの領域と群ごとの係数 `factor` を掛ける
+    fn scale_outgoing(&self, outgoing: &mut [f64], factor: impl Fn(usize, usize) -> f64) {
+        for (j, out) in outgoing.chunks_mut(self.width).enumerate() {
+            let region = self.exit_region(j / 2, j % 2 == 0);
+            for (i, o) in out.iter_mut().enumerate() {
+                *o *= factor(region, i % self.ng);
+            }
+        }
     }
 
     /// 方位角ごとの部分和の入れ物。方位角ごとに順にスイープし、方位角の順に足すので、結果は
@@ -513,13 +576,13 @@ fn relative_change(new: f64, old: f64) -> f64 {
 ///
 /// 変化が縮小率 ρ で等比的に減るとき、残りの誤差は 最新の変化 × ρ/(1-ρ)。
 #[derive(Debug, Default)]
-struct Remaining {
+pub(crate) struct Remaining {
     previous: Option<f64>,
 }
 
 impl Remaining {
     /// 最新の変化量を受け取り、残りの誤差の見積もり（変化量そのもの以上）を返す。
-    fn update(&mut self, change: f64) -> f64 {
+    pub(crate) fn update(&mut self, change: f64) -> f64 {
         let estimate = match self.previous {
             // 浮動小数点の不動点に達した
             _ if change == 0.0 => 0.0,
