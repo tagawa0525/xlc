@@ -612,12 +612,9 @@ mod tests {
         assert_eq!(urr.ap, 0.948);
     }
 
-    /// 非分離共鳴 LRF=1 の範囲のあとに LRU=0 の範囲を置いて、パラメータを読み飛ばせたことを確かめる。
-    fn assert_skips_lrf1(lfw: &str, parameters: &[[&str; 6]]) {
-        assert_skips_lrf1_with_radius(lfw, "0", parameters);
-    }
-
-    fn assert_skips_lrf1_with_radius(lfw: &str, nro: &str, parameters: &[[&str; 6]]) {
+    /// 非分離共鳴 LRF=1 の範囲のあとに LRU=0 の範囲を置いて読み、LRF=1 の範囲と、
+    /// そのあとの範囲を正しく読めたこと（レコードの位置がずれないこと）を確かめる。
+    fn read_lrf1(lfw: &str, nro: &str, parameters: &[[&str; 6]]) -> Unresolved {
         let mut lines = vec![
             HEAD,
             ["9.423900+4", "1.0", "0", lfw, "2", "0"],
@@ -627,13 +624,44 @@ mod tests {
         lines.push(["4.0+4", "2.0+7", "0", "0", "0", "0"]);
         lines.push(["0.0", "0.5", "0", "0", "0", "0"]);
         let data = mf2(&lines).unwrap();
-        assert_eq!(data.ranges[0].kind, RangeKind::UnresolvedLrf1 { lssf: 1 });
         assert_eq!(data.ranges[1].kind, RangeKind::ScatteringRadius { ap: 0.5 });
+        let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        urr.clone()
+    }
+
+    /// LRF=1 の (l, J) の系列。競合反応の幅はなく、補間は NJOY と同じく線形
+    fn lrf1_sequence(amuf: WidthDof, points: Vec<UrrPoint>) -> UrrLValue {
+        UrrLValue {
+            awri: 237.9916,
+            l: OrbitalL::S,
+            j_values: vec![UrrJValue {
+                aj: 0.5,
+                int: Interpolation::LinLin,
+                amux: WidthDof::Fixed,
+                amun: WidthDof::One,
+                amuf,
+                points,
+            }],
+        }
+    }
+
+    fn lrf1_point(e: f64, gf: f64) -> UrrPoint {
+        UrrPoint {
+            e,
+            d: 13.1,
+            gx: 0.0,
+            gno: 1.5e-3,
+            gg: 3.1e-2,
+            gf,
+        }
     }
 
     #[test]
-    fn skips_unresolved_lrf1_without_fission_widths() {
-        assert_skips_lrf1(
+    fn reads_unresolved_lrf1_without_fission_widths() {
+        let urr = read_lrf1(
+            "0",
             "0",
             &[
                 // SPI AP LSSF 0 NLS 0、l ごとに AWRI 0 L 0 6*NJS NJS と D AJ AMUN GNO GG GF
@@ -642,12 +670,28 @@ mod tests {
                 ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
             ],
         );
+        // エネルギーによらないパラメータは、範囲の両端で同じ値とする
+        assert_eq!(
+            urr,
+            Unresolved {
+                lssf: 1,
+                spi: 0.0,
+                ap: 0.888,
+                ap_energy: None,
+                naps: 0,
+                l_values: vec![lrf1_sequence(
+                    WidthDof::Fixed,
+                    vec![lrf1_point(5.7e3, 0.0), lrf1_point(4.0e4, 0.0)],
+                )],
+            }
+        );
     }
 
     #[test]
-    fn skips_unresolved_lrf1_with_fission_widths() {
-        assert_skips_lrf1(
+    fn reads_unresolved_lrf1_with_fission_widths() {
+        let urr = read_lrf1(
             "1",
+            "0",
             &[
                 // SPI AP LSSF 0 NE NLS と ES、l ごとに AWRI 0 L 0 NJS 0、
                 // J ごとに 0 0 L MUF NE+6 0 と D AJ AMUN GNO GG 0 GF...
@@ -659,11 +703,19 @@ mod tests {
                 ["1.2-3", "1.4-3", "", "", "", ""],
             ],
         );
+        // 核分裂幅のエネルギーの点に、ほかのパラメータを並べる
+        assert_eq!(
+            urr.l_values,
+            vec![lrf1_sequence(
+                WidthDof::One,
+                vec![lrf1_point(5.7e3, 1.2e-3), lrf1_point(4.0e4, 1.4e-3)],
+            )]
+        );
     }
 
     #[test]
-    fn skips_unresolved_lrf1_with_energy_dependent_radius() {
-        assert_skips_lrf1_with_radius(
+    fn reads_unresolved_lrf1_with_energy_dependent_radius() {
+        let urr = read_lrf1(
             "0",
             "1",
             &[
@@ -676,6 +728,8 @@ mod tests {
                 ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
             ],
         );
+        let radius = urr.ap_energy.unwrap();
+        assert_eq!((radius.x, radius.y), (vec![5.7e3, 4.0e4], vec![0.89, 0.88]));
     }
 
     #[test]
