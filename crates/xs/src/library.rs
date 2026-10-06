@@ -16,6 +16,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::msgpack::{self, MsgpackError};
 use crate::multigroup::GroupStructure;
 
 /// 核種名が約束事（全体計画の「ファイルの約束事」）の形か: `U-235`, `H-1`, `Am-242m`, `Hf-178m2`。
@@ -132,21 +133,14 @@ impl Library {
             sigma0: self.sigma0.clone(),
             nuclides: self.nuclides.clone(),
         };
-        rmp_serde::to_vec_named(&file).expect("the library has only numbers and strings")
+        msgpack::to_named(&file)
     }
 
     /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。
     pub fn from_msgpack(bytes: &[u8]) -> Result<Self, LibraryError> {
-        let mut rest = bytes;
-        let value =
-            rmpv::decode::read_value(&mut rest).map_err(|e| LibraryError::Decode(e.to_string()))?;
-        if !rest.is_empty() {
-            return Err(LibraryError::TrailingBytes(rest.len()));
-        }
-        // serde は構造体を配列からも読むので、フィールド名なしで書かれた構造体をここで拒否する
+        let value = msgpack::read_value(bytes)?;
         require_maps(&value)?;
-        let file: LibraryFile =
-            rmpv::ext::from_value(value).map_err(|e| LibraryError::Decode(e.to_string()))?;
+        let file: LibraryFile = msgpack::from_value(value)?;
         if file.format != FORMAT {
             return Err(LibraryError::Format(file.format));
         }
@@ -212,22 +206,8 @@ impl Library {
 
 /// 構造体の位置（最上位、核種、温度、遮蔽断面積）がすべて map であることを確かめる。
 /// 項目の有無と型は、そのあとの serde の変換で確かめる。
-fn require_maps(value: &rmpv::Value) -> Result<(), LibraryError> {
-    type Entries = [(rmpv::Value, rmpv::Value)];
-    // キーは文字列だけを認める（serde はバイナリのキーもフィールド名として受け付けるため）
-    fn map(v: &rmpv::Value) -> Result<&Entries, LibraryError> {
-        v.as_map()
-            .filter(|entries| entries.iter().all(|(k, _)| k.is_str()))
-            .map(Vec::as_slice)
-            .ok_or(LibraryError::NotMap)
-    }
-    fn array<'a>(entries: &'a Entries, key: &str) -> &'a [rmpv::Value] {
-        entries
-            .iter()
-            .find(|(k, _)| k.as_str() == Some(key))
-            .and_then(|(_, v)| v.as_array())
-            .map_or(&[], Vec::as_slice)
-    }
+fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
+    use msgpack::{array, map};
     for nuclide in array(map(value)?, "nuclides") {
         for temperature in array(map(nuclide)?, "temperatures") {
             for shielded in array(map(temperature)?, "shielded") {
@@ -236,6 +216,16 @@ fn require_maps(value: &rmpv::Value) -> Result<(), LibraryError> {
         }
     }
     Ok(())
+}
+
+impl From<MsgpackError> for LibraryError {
+    fn from(error: MsgpackError) -> Self {
+        match error {
+            MsgpackError::Decode(message) => Self::Decode(message),
+            MsgpackError::TrailingBytes(n) => Self::TrailingBytes(n),
+            MsgpackError::NotMap => Self::NotMap,
+        }
+    }
 }
 
 impl NuclideData {
