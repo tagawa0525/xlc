@@ -45,6 +45,63 @@ pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Vec<(f64, f64)> {
     values.chunks(2).map(|c| (c[0], c[1])).collect()
 }
 
+/// J, K の表の範囲（log10 β, log10 θ）。対象核種の非分離共鳴で実際に使う範囲
+/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む
+const LOG_BETA: (f64, f64) = (-6.0, 10.0);
+const LOG_THETA: (f64, f64) = (-3.0, 4.0);
+
+/// 表の点の間隔（log10）
+const STEP: f64 = 0.025;
+
+/// ln J, ln K を (log10 β, log10 θ) の等間隔の格子で持つ表。
+struct JkTable {
+    n_beta: usize,
+    ln_j: Vec<f64>,
+    ln_k: Vec<f64>,
+}
+
+fn table() -> &'static JkTable {
+    static TABLE: std::sync::OnceLock<JkTable> = std::sync::OnceLock::new();
+    TABLE.get_or_init(|| {
+        let points = |(lo, hi): (f64, f64)| ((hi - lo) / STEP).round() as usize + 1;
+        let (n_beta, n_theta) = (points(LOG_BETA), points(LOG_THETA));
+        let betas: Vec<f64> = (0..n_beta)
+            .map(|i| 10f64.powf(LOG_BETA.0 + STEP * i as f64))
+            .collect();
+        let (mut ln_j, mut ln_k) = (Vec::new(), Vec::new());
+        for t in 0..n_theta {
+            let theta = 10f64.powf(LOG_THETA.0 + STEP * t as f64);
+            for (j, k) in jk_integrals(&betas, theta) {
+                ln_j.push(j.ln());
+                ln_k.push(k.ln());
+            }
+        }
+        JkTable { n_beta, ln_j, ln_k }
+    })
+}
+
+/// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
+/// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
+pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), String> {
+    let _ = (beta, theta, table(), lagrange_weights(0.0, 4));
+    todo!()
+}
+
+/// 格子座標 u（0 から n-1）での 4 点の Lagrange 補間の、最初の点の番号と重み。
+fn lagrange_weights(u: f64, n: usize) -> (usize, [f64; 4]) {
+    let first = (u.floor() as usize).saturating_sub(1).min(n - 4);
+    let t = u - first as f64;
+    (
+        first,
+        [
+            -(t - 1.0) * (t - 2.0) * (t - 3.0) / 6.0,
+            t * (t - 2.0) * (t - 3.0) / 2.0,
+            -t * (t - 1.0) * (t - 3.0) / 2.0,
+            t * (t - 1.0) * (t - 2.0) / 6.0,
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -111,5 +168,41 @@ mod tests {
         for (&beta, (j, _)) in betas.iter().zip(jk_integrals(&betas, theta)) {
             assert_rel(j, j_by_simpson(beta, theta), 1e-6);
         }
+    }
+
+    #[test]
+    fn table_matches_direct_integration() {
+        // 表の範囲から決まった疑似乱数で選んだ点で、補間と直接の積分の相対差が 1e-6 以下
+        let mut seed: u64 = 12345;
+        let mut uniform = || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (seed >> 11) as f64 / (1u64 << 53) as f64
+        };
+        for _ in 0..400 {
+            let beta = 10f64.powf(LOG_BETA.0 + (LOG_BETA.1 - LOG_BETA.0) * uniform());
+            let theta = 10f64.powf(LOG_THETA.0 + (LOG_THETA.1 - LOG_THETA.0) * uniform());
+            let (j, k) = jk_interpolated(beta, theta).unwrap();
+            let [(jd, kd)] = jk_integrals(&[beta], theta)[..] else {
+                panic!("one β")
+            };
+            assert_rel(j, jd, 1e-6);
+            assert_rel(k, kd, 1e-6);
+        }
+    }
+
+    #[test]
+    fn table_uses_dilute_limit_above_its_range() {
+        let (j, k) = jk_interpolated(1.0e12, 0.5).unwrap();
+        assert_rel(j, PI / 2.0e12, 1e-12);
+        assert_rel(k, PI / 1.0e12, 1e-12);
+    }
+
+    #[test]
+    fn table_rejects_points_outside_its_range() {
+        assert!(jk_interpolated(1.0e-8, 1.0).is_err());
+        assert!(jk_interpolated(1.0, 1.0e-5).is_err());
+        assert!(jk_interpolated(1.0, 1.0e6).is_err());
     }
 }
