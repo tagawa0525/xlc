@@ -208,6 +208,23 @@ mod tests {
     }
 
     #[test]
+    fn inconsistent_tables_are_rejected() {
+        let mut short_y = Tab1::linear(vec![1.0, 2.0], vec![1.0, 1.0]);
+        short_y.y.pop();
+        assert!(short_y.check().is_err());
+        let mut wrong_break = Tab1::linear(vec![1.0, 2.0], vec![1.0, 1.0]);
+        wrong_break.breaks = vec![3];
+        assert!(wrong_break.check().is_err());
+        let mut extra_law = Tab1::linear(vec![1.0, 2.0], vec![1.0, 1.0]);
+        extra_law.laws.push(Interpolation::LinLin);
+        assert!(extra_law.check().is_err());
+        // 範囲の端に丸める表は、検査に通る表からしか作れない
+        let descending = Tab1::linear(vec![3.0, 1.0], vec![1.0, 1.0]);
+        assert!(ClampedTab1::new(descending).is_none());
+        assert!(ClampedTab1::new(wrong_break).is_none());
+    }
+
+    #[test]
     fn clamped_table_extends_its_end_values() {
         assert!(ClampedTab1::new(Tab1::linear(vec![], vec![])).is_none());
         let t = ClampedTab1::new(Tab1::linear(vec![1.0, 3.0], vec![10.0, 30.0])).unwrap();
