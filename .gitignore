@@ -2,3 +2,5 @@
 /references
 /examples/m0/*.lib
 /examples/m0/*.fg
+/examples/m1/*.lib
+/examples/m1/*.fg
