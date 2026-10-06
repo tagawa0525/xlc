@@ -24,7 +24,7 @@ pub use scatter::{
     Emission, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
     two_body_range,
 };
-pub use structure::GroupStructure;
+pub use structure::{GroupError, GroupStructure};
 pub use weight::Weight;
 
 /// 群平均断面積。配列は群の順（高エネルギーから）。
