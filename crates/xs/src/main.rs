@@ -2,15 +2,22 @@
 //!
 //! 使い方: xs <入力ファイル>
 //!
-//! 入力ファイルの書式（`#` から行末まではコメント。パスは入力ファイルのディレクトリからの相対パス）:
+//! 入力ファイルは TOML（パスは入力ファイルのディレクトリからの相対パス）:
 //!
-//! ```text
-//! output m1.msgpack                                   # 出力するライブラリ
-//! endf-directory ../endf/neutrons                 # 核種の ENDF ファイルのディレクトリ
-//! thermal-directory ../endf/thermal_scatt         # 熱中性子散乱のファイルのディレクトリ
-//! sigma0 1e10 1e5 1e4 1e3 300 100 30 10 1         # 背景断面積 (barn)、降順（最初が無限希釈）
-//! nuclide H-1 n-001_H_001.endf temperatures 293.6 600 thermal tsl-HinH2O.endf
-//! nuclide U-238 n-092_U_238.endf temperatures 293.6 600 900 1200
+//! ```toml
+//! output = "m1.msgpack"                       # 出力するライブラリ
+//! endf-directory = "../endf/neutrons"         # 核種の ENDF ファイルのディレクトリ
+//! thermal-directory = "../endf/thermal_scatt" # 熱中性子散乱のファイルのディレクトリ（thermal を使うとき）
+//! sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]   # 背景断面積 (barn)、降順（最初が無限希釈）
+//!
+//! [nuclide.H-1]
+//! endf = "n-001_H_001.endf"
+//! temperatures = [293.6, 600]
+//! thermal = "tsl-HinH2O.endf"
+//!
+//! [nuclide.U-238]
+//! endf = "n-092_U_238.endf"
+//! temperatures = [293.6, 600, 900, 1200]
 //! ```
 //!
 //! `thermal` を指定した核種は、4 eV 未満の弾性散乱を S(α, β) で、ほかは自由ガス模型で扱う。
@@ -42,149 +49,18 @@ struct NuclideInput {
     thermal: Option<PathBuf>,
 }
 
-/// 入力ファイルの `nuclide` の行（パスは未解決）。
-struct NuclideLine {
-    line: usize,
-    name: String,
-    file: String,
-    temperatures: Vec<f64>,
-    thermal: Option<String>,
+/// 入力ファイルの読み込みエラー。
+#[derive(Debug, thiserror::Error)]
+enum InputError {
+    #[error("{0}")]
+    Toml(#[from] toml::de::Error),
+    #[error("{0}")]
+    Invalid(String),
 }
 
-/// 入力ファイルを読む。エラーは「line N: ...」の形の文字列で返す。
-fn parse_input(text: &str, base: &Path) -> Result<Input, String> {
-    let (mut output, mut endf_directory, mut thermal_directory, mut sigma0) =
-        (None, None, None, None);
-    let mut nuclides: Vec<NuclideLine> = Vec::new();
-    let set_once = |slot: &mut Option<String>, line: usize, key: &str, values: &[&str]| {
-        if slot.is_some() {
-            return Err(format!("line {line}: `{key}` is given twice"));
-        }
-        match values {
-            [value] => {
-                *slot = Some(value.to_string());
-                Ok(())
-            }
-            _ => Err(format!("line {line}: `{key}` takes one value")),
-        }
-    };
-    let positive = |line: usize, token: &str| {
-        token
-            .parse::<f64>()
-            .ok()
-            .filter(|v| *v > 0.0 && v.is_finite())
-            .ok_or_else(|| format!("line {line}: `{token}` must be a positive number"))
-    };
-    for (index, raw) in text.lines().enumerate() {
-        let line = index + 1;
-        let tokens: Vec<&str> = raw
-            .split('#')
-            .next()
-            .unwrap_or("")
-            .split_whitespace()
-            .collect();
-        let Some((&key, values)) = tokens.split_first() else {
-            continue;
-        };
-        match key {
-            "output" => set_once(&mut output, line, key, values)?,
-            "endf-directory" => set_once(&mut endf_directory, line, key, values)?,
-            "thermal-directory" => set_once(&mut thermal_directory, line, key, values)?,
-            "sigma0" => {
-                if sigma0.is_some() {
-                    return Err(format!("line {line}: `sigma0` is given twice"));
-                }
-                let list = values
-                    .iter()
-                    .map(|v| positive(line, v))
-                    .collect::<Result<Vec<_>, _>>()?;
-                if list.is_empty() || list.windows(2).any(|w| w[1] >= w[0]) {
-                    return Err(format!("line {line}: `sigma0` must be descending"));
-                }
-                sigma0 = Some(list);
-            }
-            "nuclide" => {
-                let [name, file, "temperatures", rest @ ..] = values else {
-                    return Err(format!(
-                        "line {line}: expected `nuclide <name> <file> temperatures <K>...`"
-                    ));
-                };
-                let (temperatures, thermal) = match rest.iter().position(|t| *t == "thermal") {
-                    Some(at) => match &rest[at + 1..] {
-                        [file] => (&rest[..at], Some(file.to_string())),
-                        _ => return Err(format!("line {line}: `thermal` takes one file")),
-                    },
-                    None => (rest, None),
-                };
-                let temperatures = temperatures
-                    .iter()
-                    .map(|t| positive(line, t))
-                    .collect::<Result<Vec<_>, _>>()?;
-                if temperatures.is_empty() {
-                    return Err(format!(
-                        "line {line}: {name} needs at least one temperature"
-                    ));
-                }
-                if temperatures
-                    .iter()
-                    .enumerate()
-                    .any(|(i, t)| temperatures[..i].contains(t))
-                {
-                    return Err(format!("line {line}: {name} has a repeated temperature"));
-                }
-                if nuclides.iter().any(|n| n.name == *name) {
-                    return Err(format!("line {line}: nuclide `{name}` is given twice"));
-                }
-                nuclides.push(NuclideLine {
-                    line,
-                    name: name.to_string(),
-                    file: file.to_string(),
-                    temperatures,
-                    thermal,
-                });
-            }
-            _ => return Err(format!("line {line}: unknown keyword `{key}`")),
-        }
-    }
-    let missing = |key: &str| format!("`{key}` is missing");
-    let output = output.ok_or_else(|| missing("output"))?;
-    let endf_directory = base.join(endf_directory.ok_or_else(|| missing("endf-directory"))?);
-    let sigma0 = sigma0.ok_or_else(|| missing("sigma0"))?;
-    if nuclides.is_empty() {
-        return Err(missing("nuclide"));
-    }
-    let nuclides = nuclides
-        .into_iter()
-        .map(|n| {
-            let NuclideLine {
-                line,
-                name,
-                file,
-                temperatures,
-                thermal,
-            } = n;
-            let thermal = match thermal {
-                Some(file) => {
-                    let directory = thermal_directory.as_ref().ok_or_else(|| {
-                        format!("line {line}: `thermal` needs `thermal-directory`")
-                    })?;
-                    Some(base.join(directory).join(file))
-                }
-                None => None,
-            };
-            Ok(NuclideInput {
-                name,
-                endf: endf_directory.join(file),
-                temperatures,
-                thermal,
-            })
-        })
-        .collect::<Result<_, String>>()?;
-    Ok(Input {
-        output: base.join(output),
-        sigma0,
-        nuclides,
-    })
+/// 入力ファイルを読む（パスは `base` で解決する）。
+fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
+    todo!("{text} {base:?}")
 }
 
 fn main() -> ExitCode {
@@ -274,15 +150,22 @@ const THERMAL_CUTOFF: f64 = 4.0;
 mod tests {
     use super::*;
 
-    const INPUT: &str = "\
+    const INPUT: &str = r#"
 # M1 のライブラリ
-output m1.msgpack
-endf-directory endf
-thermal-directory tsl
-sigma0 1e10 10 1
-nuclide H-1 h.endf temperatures 293.6 600 thermal h2o.endf   # 水素
-nuclide U-238 u.endf temperatures 293.6 900
-";
+output = "m1.msgpack"
+endf-directory = "endf"
+thermal-directory = "tsl"
+sigma0 = [1e10, 10, 1]
+
+[nuclide.H-1]          # 水素
+endf = "h.endf"
+temperatures = [293.6, 600]
+thermal = "h2o.endf"
+
+[nuclide.U-238]
+endf = "u.endf"
+temperatures = [293.6, 900]
+"#;
 
     #[test]
     fn parses_input_relative_to_its_directory() {
@@ -311,29 +194,35 @@ nuclide U-238 u.endf temperatures 293.6 900
     #[test]
     fn rejects_bad_input() {
         let base = Path::new(".");
-        let without = |key: &str| {
-            INPUT
-                .lines()
-                .filter(|l| !l.starts_with(key))
-                .collect::<Vec<_>>()
-                .join("\n")
+        let replaced = |from: &str, to: &str| {
+            assert!(INPUT.contains(from), "{from}");
+            parse_input(&INPUT.replace(from, to), base)
         };
-        // 必須の行がない
-        for key in ["output", "endf-directory", "sigma0", "nuclide"] {
-            assert!(parse_input(&without(key), base).is_err(), "without {key}");
+        // 必須のキーがない、知らないキー
+        for line in [
+            "output = \"m1.msgpack\"\n",
+            "endf-directory = \"endf\"\n",
+            "sigma0 = [1e10, 10, 1]\n",
+        ] {
+            assert!(replaced(line, "").is_err(), "without {line}");
         }
+        assert!(replaced("output", "out").is_err());
+        assert!(replaced("endf = \"u.endf\"", "endf = \"u.endf\"\nlibrary = \"x\"").is_err());
+        // 核種がない、同じ名前の核種（TOML の重複キー）
+        let header = INPUT.split("[nuclide.H-1]").next().unwrap();
+        assert!(parse_input(header, base).is_err());
+        assert!(replaced("[nuclide.U-238]", "[nuclide.H-1]").is_err());
         // thermal を使うのに thermal-directory がない
-        assert!(parse_input(&without("thermal-directory"), base).is_err());
-        let replaced = |from: &str, to: &str| parse_input(&INPUT.replace(from, to), base);
+        assert!(replaced("thermal-directory = \"tsl\"\n", "").is_err());
         // σ0 が降順でない、正でない
-        assert!(replaced("sigma0 1e10 10 1", "sigma0 1 10").is_err());
-        assert!(replaced("sigma0 1e10 10 1", "sigma0 1e10 0").is_err());
+        assert!(replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1, 10]").is_err());
+        assert!(replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1e10, 0]").is_err());
         // 温度がない、正でない、重複している
-        assert!(replaced("temperatures 293.6 900", "temperatures").is_err());
-        assert!(replaced("temperatures 293.6 900", "temperatures -1").is_err());
-        assert!(replaced("temperatures 293.6 900", "temperatures 900 900").is_err());
-        // 核種名の重複、知らないキー
-        assert!(replaced("nuclide U-238", "nuclide H-1").is_err());
-        assert!(replaced("output m1.msgpack", "out m1.msgpack").is_err());
+        assert!(replaced("temperatures = [293.6, 900]", "temperatures = []").is_err());
+        assert!(replaced("temperatures = [293.6, 900]", "temperatures = [-1]").is_err());
+        assert!(replaced("temperatures = [293.6, 900]", "temperatures = [900, 900]").is_err());
+        // TOML の文法の誤りは位置つきで報告する
+        let err = replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1e10, 10").unwrap_err();
+        assert!(err.to_string().contains("line"), "{err}");
     }
 }
