@@ -210,6 +210,13 @@ mod tests {
     }
 
     #[test]
+    fn e1_outside_its_domain_is_error() {
+        for z in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(exp_e1(z), Err(NumericError::Domain(_))), "E1({z})");
+        }
+    }
+
+    #[test]
     fn erf_values() {
         assert_eq!(erf(0.0), 0.0);
         assert_rel(erf(0.5), 0.520_499_877_813_046_5, 1e-14);
@@ -249,11 +256,15 @@ mod tests {
             (10.0, 0.091_563_333_939_788_08),
             (30.0, 0.032_289_738_758_980_13),
         ] {
-            assert_rel(exp_e1(z), expected, 1e-13);
+            assert_rel(exp_e1(z).unwrap(), expected, 1e-13);
         }
         // 漸近形 1/z (1 - 1/z + 2/z² - ...)
         let z = 1.0e6;
-        assert_rel(exp_e1(z), (1.0 - 1.0 / z + 2.0 / (z * z)) / z, 1e-15);
+        assert_rel(
+            exp_e1(z).unwrap(),
+            (1.0 - 1.0 / z + 2.0 / (z * z)) / z,
+            1e-15,
+        );
     }
 
     #[test]
