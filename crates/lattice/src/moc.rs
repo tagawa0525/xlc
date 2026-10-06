@@ -48,7 +48,7 @@ pub enum MocError {
     NoRegions,
     #[error("all materials must have the same number of groups")]
     MixedGroups,
-    #[error("region {region}: {source}")]
+    #[error("region {region}")]
     Material {
         region: usize,
         source: MaterialError,
