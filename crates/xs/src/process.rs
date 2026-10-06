@@ -184,6 +184,13 @@ pub fn process_nuclide(
             emissions.insert(mt, Emission::Mf6(Mf6::parse(&section).map_err(text)?));
         }
     }
+    // MF6 のない反応は、MF4/MF5 で与えられている（MF5 のエネルギー分布だけを使う）
+    for mt in tape.mts(mat, 5) {
+        if mt != 2 && emits_neutrons(mt) && !emissions.contains_key(&mt) {
+            let section = tape.section(mat, 5, mt).expect("listed by mts");
+            emissions.insert(mt, Emission::Mf5(Mf5::parse(&section).map_err(text)?));
+        }
+    }
     let common = Common {
         tape,
         mat,

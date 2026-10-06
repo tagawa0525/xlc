@@ -4,6 +4,7 @@ use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
 use crate::endf::{EnergyLaw, Interpolation, OutgoingDistributions, Tab1};
 use crate::pointwise::linearize;
+use crate::special::{gamma_p_2, gamma_p_3_2};
 
 /// 出射エネルギーの確率密度の表を、群ごとに積分する。
 ///
@@ -195,30 +196,96 @@ pub enum GroupedLaw {
     Analytic(AnalyticSpectrum),
 }
 
-/// 解析式の出射分布（LF=7, 9）。
+/// 解析式の出射分布（LF=7, 9）。入射エネルギーごとに、群ごとの割合を不完全ガンマ関数の差で
+/// 厳密に求める（NJOY GROUPR の anased と同じ）。
 #[derive(Debug, Clone)]
-pub struct AnalyticSpectrum {}
+pub struct AnalyticSpectrum {
+    /// x = E'/θ 未満の出射の割合（正則化した下側不完全ガンマ関数）
+    fraction: fn(f64) -> f64,
+    restriction: f64,
+    theta: Tab1,
+    bounds: Vec<f64>,
+}
+
+impl AnalyticSpectrum {
+    fn accumulate(&self, e: f64, scale: f64, out: &mut [f64]) {
+        let top = e - self.restriction;
+        if top <= 0.0 {
+            return;
+        }
+        // 入射エネルギーの範囲外では、端の θ を使う（表形式の分布と同じ）
+        let (first, last) = (self.theta.x[0], self.theta.x[self.theta.x.len() - 1]);
+        let theta = self
+            .theta
+            .eval(e.clamp(first, last))
+            .expect("clamped into the table");
+        let total = (self.fraction)(top / theta);
+        // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
+        let mut below = 0.0;
+        for g in (0..out.len()).rev() {
+            let upper = if g == 0 { top } else { self.bounds[g].min(top) };
+            let cumulative = (self.fraction)(upper / theta);
+            out[g] += scale * (cumulative - below) / total;
+            below = cumulative;
+            if upper >= top {
+                break;
+            }
+        }
+    }
+}
 
 impl GroupedLaw {
     pub fn new(groups: &GroupStructure, law: &EnergyLaw) -> Self {
-        todo!("{groups:?} {law:?}")
+        let analytic = |fraction: fn(f64) -> f64, restriction: f64, theta: &Tab1| {
+            Self::Analytic(AnalyticSpectrum {
+                fraction,
+                restriction,
+                theta: theta.clone(),
+                bounds: groups.bounds().to_vec(),
+            })
+        };
+        match law {
+            EnergyLaw::Tabulated(distributions) => {
+                Self::Table(GroupedOutgoing::new(groups, distributions))
+            }
+            EnergyLaw::Maxwellian { restriction, theta } => {
+                analytic(gamma_p_3_2, *restriction, theta)
+            }
+            EnergyLaw::Evaporation { restriction, theta } => {
+                analytic(gamma_p_2, *restriction, theta)
+            }
+        }
     }
 
     /// 入射エネルギーについての積分で区間を分ける点
     pub fn breakpoints(&self) -> Vec<f64> {
-        todo!()
+        match self {
+            Self::Table(grouped) => grouped.incident().to_vec(),
+            // θ の表の点と、E - U が 0 や群境界を横切る点（群ごとの割合の傾きが変わる）
+            Self::Analytic(spectrum) => spectrum
+                .theta
+                .x
+                .iter()
+                .copied()
+                .chain(std::iter::once(spectrum.restriction))
+                .chain(spectrum.bounds.iter().map(|b| b + spectrum.restriction))
+                .filter(|&e| e > 0.0)
+                .collect(),
+        }
     }
 
     /// 入射エネルギー e での、出射の群ごとの確率に `scale` を掛けて `out` に足す。
     pub fn accumulate(&self, e: f64, scale: f64, out: &mut [f64]) {
-        todo!("{e} {scale} {out:?}")
+        match self {
+            Self::Table(grouped) => grouped.accumulate(e, scale, out),
+            Self::Analytic(spectrum) => spectrum.accumulate(e, scale, out),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::special::{gamma_p_2, gamma_p_3_2};
 
     fn assert_close(actual: &[f64], expected: &[f64]) {
         for (a, e) in actual.iter().zip(expected) {
