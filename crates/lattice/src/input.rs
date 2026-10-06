@@ -668,4 +668,13 @@ zones = [{ material = "water", rings = 1 }]
             .is_err()
         );
     }
+
+    #[test]
+    fn cell_errors_keep_the_cause_in_the_chain_only() {
+        // 原因の文は連鎖（source）にだけ置く。自分の文にも埋め込むと、連鎖を表示するときに2回出る
+        let text = LATTICE.replace("radius = 0.6", "radius = 1.2");
+        let err = LatticeInput::parse(&text).unwrap().geometry().unwrap_err();
+        let cause = std::error::Error::source(&err).expect("the geometry error is the cause");
+        assert!(!err.to_string().contains(&cause.to_string()), "{err}");
+    }
 }
