@@ -84,7 +84,8 @@ fn run(path: &Path) -> Result<(), String> {
             .expect("the input checks that output needs a library");
         let few = homogenize(&solution, &materials, groups, bounds)?;
         let output = base.join(output);
-        std::fs::write(&output, few.to_text()).map_err(|e| format!("{}: {e}", output.display()))?;
+        std::fs::write(&output, few.to_msgpack())
+            .map_err(|e| format!("{}: {e}", output.display()))?;
     }
     if let Some(file) = &input.pin_powers {
         let rates = cell_fission_rates(&solution, &lattice, &materials)?;

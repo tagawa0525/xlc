@@ -35,8 +35,10 @@ fn run(path: &Path) -> Result<(), String> {
         .parent()
         .unwrap_or(Path::new("."))
         .join(&input.fewgroup);
-    let fewgroup = FewGroup::parse(&read(&fewgroup_path)?)
-        .map_err(|e| format!("{}: {e}", fewgroup_path.display()))?;
+    let bytes =
+        std::fs::read(&fewgroup_path).map_err(|e| format!("{}: {e}", fewgroup_path.display()))?;
+    let fewgroup =
+        FewGroup::from_msgpack(&bytes).map_err(|e| format!("{}: {e}", fewgroup_path.display()))?;
 
     let split = |axis: usize| vec![input.size[axis] / input.nodes[axis] as f64; input.nodes[axis]];
     let problem = Problem {
