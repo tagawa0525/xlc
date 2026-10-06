@@ -343,6 +343,7 @@ fn spectrum_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::ClampedTab1;
 
     fn constant(value: f64) -> Tab1 {
         Tab1::linear(vec![1.0e-5, 2.0e7], vec![value, value])
@@ -662,7 +663,7 @@ mod tests {
                 constant(1.0),
                 EnergyLaw::Evaporation {
                     restriction: 1.0e6,
-                    theta: constant(1.0e5),
+                    theta: ClampedTab1::new(constant(1.0e5)).unwrap(),
                 },
             )],
         }
