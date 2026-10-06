@@ -85,6 +85,8 @@ pub enum TrackingError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tracking {
+    /// トラックを引いた形状（区間の領域の番号はこの形状の番号）
+    pub lattice: Lattice,
     pub azimuths: Vec<Azimuth>,
     pub tracks: Vec<Track>,
 }
@@ -241,7 +243,11 @@ impl Tracking {
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;
         }
-        Ok(Self { azimuths, tracks })
+        Ok(Self {
+            lattice: lattice.clone(),
+            azimuths,
+            tracks,
+        })
     }
 
     /// トラックから推定した領域ごとの体積。MOC の領域平均の計算と整合する。
