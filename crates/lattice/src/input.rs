@@ -142,8 +142,8 @@ impl PinCellInput {
             spacing: positive("spacing")?,
             fuel: composition("fuel")?,
             moderator: composition("moderator")?,
-            fuel_temperature: todo!(),
-            moderator_temperature: todo!(),
+            fuel_temperature: positive("fuel-temperature")?,
+            moderator_temperature: positive("moderator-temperature")?,
             few_group_bounds,
         })
     }
