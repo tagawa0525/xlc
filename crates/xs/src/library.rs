@@ -501,12 +501,16 @@ pub(crate) mod tests {
     #[test]
     fn written_as_a_map_with_the_format_name() {
         let bytes = sample().to_msgpack();
-        let value: std::collections::BTreeMap<String, rmp_serde::Raw> =
+        let value: std::collections::BTreeMap<String, serde::de::IgnoredAny> =
             rmp_serde::from_slice(&bytes).unwrap();
         let keys: Vec<&str> = value.keys().map(String::as_str).collect();
         assert_eq!(keys, vec!["format", "group_bounds", "nuclides", "sigma0"]);
-        let format: String = rmp_serde::from_slice(value["format"].as_bytes()).unwrap();
-        assert_eq!(format, "xlc-multigroup");
+        #[derive(Deserialize)]
+        struct Head {
+            format: String,
+        }
+        let head: Head = rmp_serde::from_slice(&bytes).unwrap();
+        assert_eq!(head.format, "xlc-multigroup");
     }
 
     #[test]
