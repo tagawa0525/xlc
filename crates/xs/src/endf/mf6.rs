@@ -213,6 +213,29 @@ mod tests {
     }
 
     #[test]
+    fn two_body_neutron_law_is_marked() {
+        // 中性子が LAW=2（2体反応の角度分布、入射エネルギー2点）で与えられた準位の非弾性散乱
+        let text = [
+            r(["50120.0", "118.872", "0", "2", "1", "0"]),
+            r(["1.0", "1.0", "0", "2", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["1.2e6", "1.0", "2.0e7", "1.0", "", ""]),
+            r(["0.0", "0.0", "0", "0", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            // E, LANG=0（Legendre 係数）, NW=1, NL=1
+            r(["0.0", "1.2e6", "0", "0", "1", "1"]),
+            r(["0.1", "", "", "", "", ""]),
+            r(["0.0", "2.0e7", "0", "0", "1", "1"]),
+            r(["0.3", "", "", "", "", ""]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
+        assert!(mf6.two_body);
+        assert!(mf6.neutrons.is_empty());
+    }
+
+    #[test]
     fn other_neutron_law_is_error() {
         let tape = Tape::parse(&section("2", "7", "0")).unwrap();
         let err = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap_err();

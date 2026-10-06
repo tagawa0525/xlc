@@ -412,6 +412,46 @@ mod tests {
     }
 
     #[test]
+    fn two_body_mf6_level_uses_q_value() {
+        // MF6 の LAW=2（2体反応）で与えられた準位は、MF6 がないときと同じく Q 値の2体反応
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let (awr, q) = (118.87, -1.17e6);
+        let tables = BTreeMap::from([(2, constant(10.0)), (51, constant(1.0))]);
+        let q_values = BTreeMap::from([(51, q)]);
+        let two_body = Emission::Mf6(Mf6 {
+            awr,
+            neutrons: vec![],
+            two_body: true,
+        });
+        let matrix = |emissions: &BTreeMap<u32, Emission>| {
+            scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                awr,
+                &tables,
+                &q_values,
+                emissions,
+                None,
+            )
+        };
+        let with_mf6 = matrix(&BTreeMap::from([(51, two_body.clone())])).unwrap();
+        assert_eq!(with_mf6, matrix(&BTreeMap::new()).unwrap());
+        // 準位以外の反応が LAW=2 なら、Q 値の2体反応とは扱えない
+        let tables = BTreeMap::from([(2, constant(10.0)), (16, constant(1.0))]);
+        let err = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            awr,
+            &tables,
+            &q_values,
+            &BTreeMap::from([(16, two_body)]),
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ScatterError::TwoBody(16)), "{err}");
+    }
+
+    #[test]
     fn total_inelastic_without_partials_needs_a_distribution() {
         // MT51〜91 がなければ、MT4 自身を数える（分布がなければエラー）
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
