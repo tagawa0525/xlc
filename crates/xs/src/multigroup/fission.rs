@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use super::{GroupStructure, GroupedOutgoing, Weight, group_integrals_multi};
+use super::{GroupStructure, GroupedLaw, Weight, group_integrals_multi};
 use crate::endf::{Mf5, Tab1};
 
 /// 核分裂源 ν(E)σf(E)w(E) で重み付けした核分裂スペクトル χ_g（和は 1）。
@@ -15,15 +15,15 @@ pub fn fission_spectrum(
     mf5: &Mf5,
 ) -> Vec<f64> {
     let fission = tables.get(&18).expect("fission_spectrum needs MT18");
-    let parts: Vec<(&Tab1, GroupedOutgoing)> = mf5
+    let parts: Vec<(&Tab1, GroupedLaw)> = mf5
         .subsections
         .iter()
-        .map(|(p, d)| (p, GroupedOutgoing::new(groups, d)))
+        .map(|(p, law)| (p, GroupedLaw::new(groups, law)))
         .collect();
     let mut breakpoints: Vec<f64> = fission.x.iter().chain(&nubar.x).copied().collect();
     for (p, grouped) in &parts {
         breakpoints.extend(&p.x);
-        breakpoints.extend(grouped.incident());
+        breakpoints.extend(grouped.breakpoints());
     }
     let ng = groups.len();
     let rows = group_integrals_multi(groups, weight, &breakpoints, ng, |e, out| {

@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, parse_nubar};
 use crate::library::{NuclideData, Shielded, TemperatureData};
 use crate::multigroup::{
-    FreeGas, GroupStructure, ReactionAverages, Thermal, ThermalSab, UnresolvedShielding, Weight,
-    emits_neutrons, fission_spectrum, scattering_matrix, shielded_averages,
+    Emission, FreeGas, GroupStructure, ReactionAverages, Thermal, ThermalSab, UnresolvedShielding,
+    Weight, emits_neutrons, fission_spectrum, scattering_matrix, shielded_averages,
 };
 use crate::physics::BK;
 use crate::pointwise::{DEFAULT_TOLERANCE, left_limit, linearize, reconstruct_at, right_limit};
@@ -177,11 +177,11 @@ pub fn process_nuclide(
     {
         q_values.insert(mt, mf3(mt)?.qi);
     }
-    let mut mf6 = BTreeMap::new();
+    let mut emissions = BTreeMap::new();
     for mt in tape.mts(mat, 6) {
         if mt != 2 && emits_neutrons(mt) {
             let section = tape.section(mat, 6, mt).expect("listed by mts");
-            mf6.insert(mt, Mf6::parse(&section).map_err(text)?);
+            emissions.insert(mt, Emission::Mf6(Mf6::parse(&section).map_err(text)?));
         }
     }
     let common = Common {
@@ -191,7 +191,7 @@ pub fn process_nuclide(
         nubar: nubar.as_ref(),
         mf5: mf5.as_ref(),
         q_values: &q_values,
-        mf6: &mf6,
+        emissions: &emissions,
         thermal,
         settings,
     };
@@ -215,7 +215,7 @@ struct Common<'a> {
     nubar: Option<&'a Tab1>,
     mf5: Option<&'a Mf5>,
     q_values: &'a BTreeMap<u32, f64>,
-    mf6: &'a BTreeMap<u32, Mf6>,
+    emissions: &'a BTreeMap<u32, Emission>,
     thermal: Option<&'a Mf7Incoherent>,
     settings: &'a Settings,
 }
@@ -265,7 +265,7 @@ impl Common<'_> {
             self.awr,
             &elastic_only,
             self.q_values,
-            self.mf6,
+            self.emissions,
             Some(&thermal),
         )?;
         let mut scatter = scattering_matrix(
@@ -274,7 +274,7 @@ impl Common<'_> {
             self.awr,
             &others,
             self.q_values,
-            self.mf6,
+            self.emissions,
             None,
         )?;
         for (row, el) in scatter.iter_mut().zip(&elastic) {
