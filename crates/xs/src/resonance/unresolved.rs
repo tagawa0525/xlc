@@ -16,8 +16,8 @@ pub struct UnresolvedXs<'a> {
 }
 
 impl<'a> UnresolvedXs<'a> {
-    pub fn new(urr: &'a Unresolved) -> Self {
-        Self { urr }
+    pub fn new(urr: &'a Unresolved) -> Result<Self, String> {
+        Ok(Self { urr })
     }
 
     /// エネルギー e (eV) での平均断面積。パラメータは lin-lin で補間する（NJOY と同じ）。
@@ -236,7 +236,7 @@ mod tests {
             Interpolation::LinLin,
         );
         let e = 1.0e4;
-        let sigma = UnresolvedXs::new(&urr).cross_sections(e);
+        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(e);
 
         let k = wave_number_factor() * AWRI / (AWRI + 1.0) * e.sqrt();
         let (d, gg) = (20.0, 0.023);
@@ -278,6 +278,14 @@ mod tests {
             1.0e5,
         ];
         assert_eq!(unresolved_grid(&urr, 1.5e3, 1.0e5), expected);
+    }
+
+    #[test]
+    fn naps_two_needs_radius_table() {
+        // NAPS=2 は、散乱半径の表（NRO=1）とは別に AP をチャネル半径に使う指定
+        let mut urr = s_wave(vec![point(1.5e3, 1.0e-3)], Interpolation::LinLin);
+        urr.naps = 2;
+        assert!(UnresolvedXs::new(&urr).is_err());
     }
 
     #[test]

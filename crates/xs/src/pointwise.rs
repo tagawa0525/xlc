@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use crate::doppler::{broaden, broadening_limit};
 use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape, Unresolved};
-use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma};
+use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma, UnresolvedXs};
 
 /// 線形化・共鳴計算の打ち切り判定: 区間の中点で、線形補間と真値の差が
 /// `tol × |真値|` 以下になるまで区間を二分する。
@@ -595,6 +595,54 @@ mod tests {
         let tape = Tape::parse(&text).unwrap();
         let hot = reconstruct_at(&tape, 1, 1.0e-3, 600.0).unwrap();
         assert!(hot[&2].x.contains(&crate::doppler::MAX_LIMIT));
+    }
+
+    /// 非分離共鳴だけの MF2（LSSF=0、s 波の1系列、パラメータは一定）
+    fn unresolved_mf2() -> String {
+        use crate::endf::rec;
+        [
+            rec(["1.001000+3", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.001000+3", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0+3", "1.0+5", "2", "2", "0", "1"], 1, 2, 151),
+            rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["0.5", "0.0", "2", "0", "18", "2"], 1, 2, 151),
+            rec(["0.0", "0.0", "0.0", "1.0", "0.0", "0.0"], 1, 2, 151),
+            rec(["1.0+3", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["1.0+5", "20.0", "0.0", "1.0-3", "2.3-2", "0.0"], 1, 2, 151),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat()
+    }
+
+    #[test]
+    fn unresolved_averages_replace_background_with_lssf0() {
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            unresolved_mf2(),
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        let mf2 = Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
+        let RangeKind::Unresolved(urr) = &mf2.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let xs = UnresolvedXs::new(urr).unwrap();
+        let at = |mt: u32, e: f64| tables[&mt].eval(e).unwrap();
+        // 格子点（2 keV は補助格子の点）では、平均断面積と MF3 の背景断面積の和
+        let average = xs.cross_sections(2.0e3);
+        for (mt, expected) in [(2, average.elastic + 10.0), (102, average.capture + 0.5)] {
+            assert!(
+                (at(mt, 2.0e3) - expected).abs() <= 1e-12 * expected,
+                "MT{mt}"
+            );
+        }
+        // 範囲の外は MF3 のまま
+        assert_eq!((at(2, 10.0), at(2, 2.0e5)), (10.0, 10.0));
+        assert_eq!(at(1, 2.0e3), at(2, 2.0e3) + at(102, 2.0e3));
     }
 
     fn single_level_mf2() -> String {
