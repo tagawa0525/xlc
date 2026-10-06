@@ -32,7 +32,7 @@ NJOY の入力と出力は `references/njoy-runs/` に置き、`crates/xs/exampl
 ## OpenMC（0.15.2）
 
 ```sh
-cd references/openmc
+mkdir -p references/openmc && cd references/openmc
 git clone --depth 1 --branch v0.15.2 --recurse-submodules --shallow-submodules \
   https://github.com/openmc-dev/openmc.git src
 nix develop ../..#references -c sh -c \
