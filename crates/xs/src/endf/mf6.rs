@@ -182,7 +182,7 @@ fn skip_law(r: &mut Reader<'_>, law: i64, start: usize) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::{Tape, rec};
+    use crate::endf::{IncidentLaw, Tape, rec};
 
     fn r(f: [&str; 6]) -> String {
         rec(f, 825, 6, 16)
@@ -190,6 +190,11 @@ mod tests {
 
     /// 中性子（LAW=1、2つの入射エネルギー）と、LAW=0 の別の生成粒子
     fn section(lct: &str, neutron_law: &str, nd: &str) -> String {
+        section_with_int(lct, neutron_law, nd, "22")
+    }
+
+    /// `section` の、入射エネルギーの補間則を `int` にしたもの（出射の点は 2 点と 3 点）
+    fn section_with_int(lct: &str, neutron_law: &str, nd: &str, int: &str) -> String {
         [
             r(["8016.0", "15.85751", "0", lct, "2", "0"]),
             // 別の生成粒子（LAW=0: 多重度だけ）
@@ -201,7 +206,7 @@ mod tests {
             r(["2", "2", "", "", "", ""]),
             r(["1.6e7", "2.0", "2.0e7", "2.0", "", ""]),
             r(["0.0", "0.0", "1", "2", "1", "2"]),
-            r(["2", "22", "", "", "", ""]),
+            r(["2", int, "", "", "", ""]),
             r(["0.0", "1.6e7", nd, "0", "4", "2"]),
             r(["0.0", "2.0e-6", "1.0e6", "0.0", "", ""]),
             r(["0.0", "2.0e7", "0", "1", "9", "3"]),
@@ -223,7 +228,14 @@ mod tests {
         assert_eq!(n.multiplicity.eval(1.8e7), Some(2.0));
         let d = &n.distributions;
         assert_eq!(d.incident, vec![1.6e7, 2.0e7]);
-        assert_eq!(d.laws, vec![Interpolation::LinLin]);
+        // INT=22 は単位基底の線形補間
+        assert_eq!(
+            d.laws,
+            vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: true
+            }]
+        );
         assert_eq!(d.spectra[0].x, vec![0.0, 1.0e6]);
         assert_eq!(d.spectra[0].y, vec![2.0e-6, 0.0]);
         // NA=1 なので1点あたり3個の値。b0 だけを取る
@@ -252,6 +264,52 @@ mod tests {
         let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
         assert!(mf6.two_body);
         assert!(mf6.neutrons.is_empty());
+    }
+
+    #[test]
+    fn incident_interpolation_schemes() {
+        let law = |int: &str| {
+            let tape = Tape::parse(&section_with_int("2", "1", "0", int)).unwrap();
+            Mf6::parse(&tape.section(825, 6, 16).unwrap())
+                .map(|mf6| mf6.neutrons[0].distributions.laws[0])
+        };
+        // ふつうの補間（ENDF のとおり、単位基底にはしない）
+        assert_eq!(
+            law("2").unwrap(),
+            IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: false
+            }
+        );
+        // 対応点（INT=12）で隣の分布と点の数が違えば、NJOY と同じく単位基底に切り替える
+        assert_eq!(
+            law("12").unwrap(),
+            IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: true
+            }
+        );
+        assert!(law("6").is_err());
+    }
+
+    #[test]
+    fn corresponding_points_with_equal_grids_are_not_supported() {
+        // 2つの入射エネルギーの出射分布がどちらも 2 点
+        let text = [
+            r(["8016.0", "15.85751", "0", "2", "1", "0"]),
+            r(["1.0", "1.0", "0", "1", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["1.6e7", "2.0", "2.0e7", "2.0", "", ""]),
+            r(["0.0", "0.0", "1", "2", "1", "2"]),
+            r(["2", "12", "", "", "", ""]),
+            r(["0.0", "1.6e7", "0", "0", "4", "2"]),
+            r(["0.0", "1.0e-6", "1.0e6", "1.0e-6", "", ""]),
+            r(["0.0", "2.0e7", "0", "0", "4", "2"]),
+            r(["0.0", "5.0e-7", "2.0e6", "5.0e-7", "", ""]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        assert!(Mf6::parse(&tape.section(825, 6, 16).unwrap()).is_err());
     }
 
     #[test]
