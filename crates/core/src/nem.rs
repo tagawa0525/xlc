@@ -62,8 +62,25 @@ pub struct Solution {
     pub iterations: usize,
 }
 
-pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, String> {
-    let core = Core::new(problem)?;
+/// NEM の固有値計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum NemError {
+    /// 問題の設定（メッシュ、物質の配置、断面積）の誤り
+    #[error("{0}")]
+    InvalidProblem(String),
+    #[error("no fissile material")]
+    NoFission,
+    #[error(
+        "node {node} has a non-positive flux; the iteration converged to a \
+         non-fundamental mode (use smaller nodes)"
+    )]
+    NonFundamentalMode { node: usize },
+    #[error("not converged in {iterations} iterations (k = {k})")]
+    NotConverged { iterations: usize, k: f64 },
+}
+
+pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError> {
+    let core = Core::new(problem).map_err(NemError::InvalidProblem)?;
     let ng = core.groups;
     let nodes = core.nodes();
     let mut state = State::new(nodes, ng);
@@ -81,7 +98,7 @@ pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, String> {
     };
     let initial = production(&state);
     if initial <= 0.0 {
-        return Err("no fissile material".into());
+        return Err(NemError::NoFission);
     }
     state.scale(1.0 / initial);
     let mut k_history = Remaining::default();
@@ -114,10 +131,7 @@ pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, String> {
                 .iter()
                 .position(|phi| phi.iter().any(|&f| f <= 0.0))
             {
-                return Err(format!(
-                    "node {n} has a non-positive flux; the iteration converged to a \
-                     non-fundamental mode (use smaller nodes)"
-                ));
+                return Err(NemError::NonFundamentalMode { node: n });
             }
             return Ok(Solution {
                 k,
@@ -127,10 +141,10 @@ pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, String> {
             });
         }
     }
-    Err(format!(
-        "not converged in {} iterations (k = {k})",
-        options.max_iterations
-    ))
+    Err(NemError::NotConverged {
+        iterations: options.max_iterations,
+        k,
+    })
 }
 
 /// 検査済みの問題と、ノードの位置の計算。
@@ -689,7 +703,7 @@ mod tests {
         // 断面 10 cm の裸の細い柱を1ノードで表すと、横方向の漏れが除去の約5倍になり、
         // 符号が交互に変わる解に収束する。基本モードではないので誤りとして返す
         let p = cuboid([10.0, 10.0, 100.0], [1, 1, 10], [Boundary::ZeroFlux; 6]);
-        let err = solve(&p, &Options::default()).unwrap_err();
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
         assert!(err.contains("positive"), "{err}");
     }
 
@@ -718,13 +732,14 @@ mod tests {
         // 有限でない断面積は、反復に入る前にエラーにする
         let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
         p.materials[0].nu_fission[1] = f64::NAN;
-        let err = solve(&p, &Options::default()).unwrap_err();
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
         assert!(err.contains("finite"), "{err}");
         let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
         p.materials[0].diffusion[0] = f64::INFINITY;
         assert!(
             solve(&p, &Options::default())
                 .unwrap_err()
+                .to_string()
                 .contains("finite")
         );
     }
