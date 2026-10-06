@@ -10,6 +10,7 @@ import sys
 
 REFERENCE_K = 1.186550
 REFERENCE_MAX = 2.498
+# Table 4 の値は有効数字2桁なので、最小ピン出力の差には ±2% の丸めが含まれる
 REFERENCE_MIN = 0.23
 # 集合体ごとのピン出力の和（内側の UO2、MOX、外側の UO2）
 REFERENCE_ASSEMBLIES = {"inner UO2": 492.8, "MOX": 211.7, "outer UO2": 139.8}
