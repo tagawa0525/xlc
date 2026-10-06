@@ -5,7 +5,8 @@ use std::f64::consts::PI;
 /// 中心が原点の正方形のセル（一辺 `pitch` cm）と、中心を共有する同心円。
 ///
 /// 領域 i（0 始まり）は半径 radii[i-1] と radii[i] の間の円環で、最後の領域は
-/// 最も外側の円より外のセルの残り。
+/// 最も外側の円より外のセルの残り。内接円より大きい円はセルの外周で切り取る
+/// （ピンセルの四隅の減速材を半径方向に分けるため）。
 ///
 /// 同心円のないセルは、m × m の小さな正方形に分けられる（`grid`）。領域は上の行から、各行は左から
 /// 番号を付ける。真空境界に接する反射体のように中性子束が大きく変わる均質な領域を、
@@ -25,7 +26,7 @@ pub struct PinCell {
 pub enum GeometryError {
     #[error("pitch must be positive, got {0}")]
     Pitch(f64),
-    #[error("radii must be ascending and between 0 and pitch/2, got {0:?}")]
+    #[error("radii must be ascending and between 0 and pitch/√2, got {0:?}")]
     Radii(Vec<f64>),
     #[error("the number of sectors must be 1, 4 or 8, got {0}")]
     Sectors(usize),
@@ -48,13 +49,14 @@ pub enum GeometryError {
 }
 
 impl PinCell {
-    /// 半径は昇順で、セルの内接円より小さいこと。
+    /// 半径は昇順で、セルの外接円より小さいこと（外接円以上の円の外側は空になる）。
     pub fn new(pitch: f64, radii: Vec<f64>) -> Result<Self, GeometryError> {
         if !(pitch > 0.0 && pitch.is_finite()) {
             return Err(GeometryError::Pitch(pitch));
         }
         let ascending = radii.windows(2).all(|w| w[0] < w[1]);
-        let inside = radii.iter().all(|&r| r > 0.0 && r < 0.5 * pitch);
+        let circumscribed = 0.5 * pitch * std::f64::consts::SQRT_2;
+        let inside = radii.iter().all(|&r| r > 0.0 && r < circumscribed);
         if !(ascending && inside) {
             return Err(GeometryError::Radii(radii));
         }
@@ -190,22 +192,35 @@ impl PinCell {
             let h = self.pitch / self.grid as f64;
             return vec![h * h; self.grid * self.grid];
         }
+        let disk = |r: f64| clipped_disk_area(r, 0.5 * self.pitch);
         let mut inner = 0.0;
         let mut volumes: Vec<f64> = self
             .radii
             .iter()
             .map(|&r| {
-                let v = PI * (r * r - inner * inner);
+                let v = disk(r) - disk(inner);
                 inner = r;
                 v
             })
             .collect();
-        volumes.push(self.pitch * self.pitch - PI * inner * inner);
+        volumes.push(self.pitch * self.pitch - disk(inner));
         volumes
             .iter()
             .flat_map(|v| std::iter::repeat_n(v / self.sectors as f64, self.sectors))
             .collect()
     }
+}
+
+/// 半径 r の円と、中心を共有する半辺 h の正方形の共通部分の面積（r < h√2）。
+///
+/// r > h では、8 つの合同な 45° の扇形それぞれで、x = h の辺の外を切り取る。扇形の中で円が辺と
+/// 交わる角を θc（cos θc = h/r）とすると、扇形の面積は (h² tan θc + r² (π/4 - θc)) / 2。
+fn clipped_disk_area(r: f64, h: f64) -> f64 {
+    if r <= h {
+        return PI * r * r;
+    }
+    let theta = (h / r).acos();
+    4.0 * (h * h * theta.tan() + r * r * (0.25 * PI - theta))
 }
 
 /// トラック上の1つの領域を通る区間。
