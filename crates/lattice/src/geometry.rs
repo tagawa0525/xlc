@@ -6,10 +6,18 @@ use std::f64::consts::PI;
 ///
 /// 領域 i（0 始まり）は半径 radii[i-1] と radii[i] の間の円環で、最後の領域は
 /// 最も外側の円より外のセルの残り。
+///
+/// 同心円のないセルは、m × m の小さな正方形に分けられる（`grid`）。領域は上の行から、各行は左から
+/// 番号を付ける。真空境界に接する反射体のように中性子束が大きく変わる均質な領域を、
+/// 平坦線源の近似で表せる大きさに分けるため。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinCell {
     pitch: f64,
     radii: Vec<f64>,
+    /// 1辺の小さな正方形の数（同心円のあるセルでは 1）
+    grid: usize,
+    /// 各リングを分ける扇形の数（1, 4, 8）
+    sectors: usize,
 }
 
 impl PinCell {
@@ -25,7 +33,12 @@ impl PinCell {
                 "radii must be ascending and between 0 and pitch/2, got {radii:?}"
             ));
         }
-        Ok(Self { pitch, radii })
+        Ok(Self {
+            pitch,
+            radii,
+            grid: 1,
+            sectors: 1,
+        })
     }
 
     pub fn pitch(&self) -> f64 {
@@ -37,13 +50,50 @@ impl PinCell {
     }
 
     pub fn regions(&self) -> usize {
-        self.radii.len() + 1
+        if self.grid > 1 {
+            self.grid * self.grid
+        } else {
+            (self.radii.len() + 1) * self.sectors
+        }
+    }
+
+    /// 同心円で区切った各リングを、さらに x 軸から等角度の扇形 `sectors` 個（1, 4, 8）に分けたセル。
+    /// 領域はリングの順に、リングの中では角度の順に番号を付ける。
+    pub fn with_sectors(pitch: f64, radii: Vec<f64>, sectors: usize) -> Result<Self, String> {
+        // 正方形の対称性から、1, 4, 8 個なら外側の領域も扇形ごとに同じ面積になる
+        if ![1, 4, 8].contains(&sectors) {
+            return Err(format!(
+                "the number of sectors must be 1, 4 or 8, got {sectors}"
+            ));
+        }
+        Ok(Self {
+            sectors,
+            ..Self::new(pitch, radii)?
+        })
+    }
+
+    /// 同心円がなく、m × m の小さな正方形に分けたセル。
+    pub fn grid(pitch: f64, m: usize) -> Result<Self, String> {
+        if m == 0 {
+            return Err("a grid needs at least one square per side".into());
+        }
+        Ok(Self {
+            grid: m,
+            ..Self::new(pitch, Vec::new())?
+        })
     }
 
     /// 点 (x, y) を含む領域。
     pub fn region_at(&self, x: f64, y: f64) -> usize {
-        let r = x.hypot(y);
-        self.radii.partition_point(|&ri| ri <= r)
+        if self.grid > 1 {
+            let (m, h) = (self.grid, self.pitch / self.grid as f64);
+            let index = |v: f64| ((v / h).floor().max(0.0) as usize).min(m - 1);
+            return index(0.5 * self.pitch - y) * m + index(x + 0.5 * self.pitch);
+        }
+        let ring = self.radii.partition_point(|&ri| ri <= x.hypot(y));
+        let angle = y.atan2(x).rem_euclid(2.0 * PI);
+        let sector = ((angle / (2.0 * PI) * self.sectors as f64) as usize).min(self.sectors - 1);
+        ring * self.sectors + sector
     }
 
     /// セルの中心を原点とする点 start から方向 direction に長さ length 進む直線を、
@@ -53,6 +103,35 @@ impl PinCell {
         let b = start.0 * direction.0 + start.1 * direction.1;
         let c0 = start.0 * start.0 + start.1 * start.1;
         let mut cuts = vec![0.0, length];
+        // 小さな正方形の境界の線 x, y = -p/2 + k p/m
+        let h = self.pitch / self.grid as f64;
+        for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
+            if d != 0.0 {
+                for k in 1..self.grid {
+                    let t = (-0.5 * self.pitch + k as f64 * h - origin) / d;
+                    if t > 0.0 && t < length {
+                        cuts.push(t);
+                    }
+                }
+            }
+        }
+        // 扇形の境界の半直線 t u（u = (cos θk, sin θk)）: u × (start + t d) = 0
+        if self.sectors > 1 {
+            for k in 0..self.sectors {
+                let theta = 2.0 * PI * k as f64 / self.sectors as f64;
+                let u = (theta.cos(), theta.sin());
+                let cross = |v: (f64, f64)| u.0 * v.1 - u.1 * v.0;
+                let denominator = cross(direction);
+                if denominator != 0.0 {
+                    let t = -cross(start) / denominator;
+                    let point = (start.0 + t * direction.0, start.1 + t * direction.1);
+                    // 中心を通る直線では交点が中心そのもの（u·point = 0）になるので、等号も含める
+                    if t > 0.0 && t < length && u.0 * point.0 + u.1 * point.1 >= 0.0 {
+                        cuts.push(t);
+                    }
+                }
+            }
+        }
         for &r in &self.radii {
             let disc = b * b - (c0 - r * r);
             if disc > 0.0 {
@@ -80,6 +159,10 @@ impl PinCell {
 
     /// 領域ごとの体積（単位高さあたりの面積, cm²）の解析値。
     pub fn volumes(&self) -> Vec<f64> {
+        if self.grid > 1 {
+            let h = self.pitch / self.grid as f64;
+            return vec![h * h; self.grid * self.grid];
+        }
         let mut inner = 0.0;
         let mut volumes: Vec<f64> = self
             .radii
@@ -92,6 +175,9 @@ impl PinCell {
             .collect();
         volumes.push(self.pitch * self.pitch - PI * inner * inner);
         volumes
+            .iter()
+            .flat_map(|v| std::iter::repeat_n(v / self.sectors as f64, self.sectors))
+            .collect()
     }
 }
 
@@ -164,6 +250,11 @@ impl Lattice {
 
     fn pitch(&self) -> f64 {
         self.types[0].pitch()
+    }
+
+    /// 1辺のセルの数
+    pub fn cells_per_side(&self) -> usize {
+        self.n
     }
 
     /// 一辺の長さ (cm)
@@ -332,5 +423,101 @@ mod tests {
         assert_eq!(lattice.width(), 1.26);
         assert_eq!(lattice.regions(), 2);
         assert_eq!(lattice.volumes(), cell.volumes());
+    }
+
+    #[test]
+    fn grid_cell_regions_and_segments() {
+        assert!(PinCell::grid(2.0, 0).is_err());
+        let cell = PinCell::grid(2.0, 2).unwrap();
+        assert_eq!(cell.regions(), 4);
+        assert_eq!(cell.volumes(), vec![1.0; 4]);
+        // 左上、右上、左下、右下の順
+        assert_eq!(cell.region_at(-0.5, 0.5), 0);
+        assert_eq!(cell.region_at(0.5, 0.5), 1);
+        assert_eq!(cell.region_at(-0.5, -0.5), 2);
+        assert_eq!(cell.region_at(0.5, -0.5), 3);
+        // 下の行を左から右へ
+        let s = cell.segments((-1.0, -0.5), (1.0, 0.0), 2.0);
+        assert_eq!(
+            s,
+            vec![
+                Segment {
+                    region: 2,
+                    length: 1.0
+                },
+                Segment {
+                    region: 3,
+                    length: 1.0
+                }
+            ]
+        );
+        // 1 × 1 なら同心円のないセルと同じ
+        assert_eq!(
+            PinCell::grid(2.0, 1).unwrap(),
+            PinCell::new(2.0, vec![]).unwrap()
+        );
+    }
+
+    #[test]
+    fn sector_cell_regions_and_segments() {
+        // 1, 4, 8 以外は扇形ごとの外側の面積が等しくならないので受け付けない
+        assert!(PinCell::with_sectors(2.0, vec![0.5], 3).is_err());
+        assert!(PinCell::with_sectors(2.0, vec![0.5], 0).is_err());
+        let cell = PinCell::with_sectors(2.0, vec![0.5], 4).unwrap();
+        assert_eq!(cell.regions(), 8);
+        // 内側の円の第1象限、第2象限、…、外側の第1象限、…
+        assert_eq!(cell.region_at(0.1, 0.1), 0);
+        assert_eq!(cell.region_at(-0.1, 0.1), 1);
+        assert_eq!(cell.region_at(-0.1, -0.1), 2);
+        assert_eq!(cell.region_at(0.1, -0.1), 3);
+        assert_eq!(cell.region_at(0.9, 0.9), 4);
+        assert_eq!(cell.region_at(0.9, -0.9), 7);
+        let v = cell.volumes();
+        let disk = PI * 0.25;
+        for k in 0..4 {
+            assert!((v[k] - disk / 4.0).abs() < 1e-15);
+            assert!((v[4 + k] - (4.0 - disk) / 4.0).abs() < 1e-14);
+        }
+        // y = 0.25 を左から右へ: 外側の第2象限、内側の第2、第1象限、外側の第1象限
+        let s = cell.segments((-1.0, 0.25), (1.0, 0.0), 2.0);
+        let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
+        assert_eq!(regions, vec![5, 1, 0, 4]);
+        let half_chord = (0.25_f64 - 0.0625).sqrt();
+        let lengths: Vec<f64> = s.iter().map(|s| s.length).collect();
+        for (a, b) in
+            lengths
+                .iter()
+                .zip([1.0 - half_chord, half_chord, half_chord, 1.0 - half_chord])
+        {
+            assert!((a - b).abs() < 1e-14, "{lengths:?}");
+        }
+        // 8 個の扇形は 45° ごと
+        let cell = PinCell::with_sectors(2.0, vec![], 8).unwrap();
+        assert_eq!(cell.region_at(0.9, 0.1), 0);
+        assert_eq!(cell.region_at(0.1, 0.9), 1);
+        assert_eq!(cell.volumes(), vec![0.5; 8]);
+        // 1 個なら扇形のないセルと同じ
+        assert_eq!(
+            PinCell::with_sectors(2.0, vec![0.5], 1).unwrap(),
+            PinCell::new(2.0, vec![0.5]).unwrap()
+        );
+    }
+
+    #[test]
+    fn line_through_the_center_is_cut_at_sector_boundaries() {
+        // 中心を通る直線では、どの扇形の境界との交点も中心になる
+        let cell = PinCell::with_sectors(2.0, vec![0.5], 4).unwrap();
+        let s = cell.segments((-0.6, -0.8), (0.6, 0.8), 2.0);
+        let inner: Vec<(usize, f64)> = s
+            .iter()
+            .filter(|s| s.region < 4)
+            .map(|s| (s.region, s.length))
+            .collect();
+        assert_eq!(inner.len(), 2, "{s:?}");
+        assert_eq!((inner[0].0, inner[1].0), (2, 0));
+        assert!(
+            inner.iter().all(|(_, l)| (l - 0.5).abs() < 1e-14),
+            "{inner:?}"
+        );
     }
 }
