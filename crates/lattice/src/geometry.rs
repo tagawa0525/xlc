@@ -125,7 +125,8 @@ impl PinCell {
                 if denominator != 0.0 {
                     let t = -cross(start) / denominator;
                     let point = (start.0 + t * direction.0, start.1 + t * direction.1);
-                    if t > 0.0 && t < length && u.0 * point.0 + u.1 * point.1 > 0.0 {
+                    // 中心を通る直線では交点が中心そのもの（u·point = 0）になるので、等号も含める
+                    if t > 0.0 && t < length && u.0 * point.0 + u.1 * point.1 >= 0.0 {
                         cuts.push(t);
                     }
                 }
