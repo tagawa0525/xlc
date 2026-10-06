@@ -43,8 +43,9 @@ fn run(path: &Path) -> Result<(), String> {
     let (named, groups) = match &input.cross_sections {
         CrossSections::Library(file) => {
             let file = base.join(file);
+            let bytes = std::fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))?;
             let library =
-                Library::parse(&read(&file)?).map_err(|e| format!("{}: {e}", file.display()))?;
+                Library::from_msgpack(&bytes).map_err(|e| format!("{}: {e}", file.display()))?;
             let named = input
                 .materials
                 .iter()
