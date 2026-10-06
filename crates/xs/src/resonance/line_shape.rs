@@ -7,8 +7,8 @@
 use super::quadrature::gauss_kronrod;
 use crate::special::faddeeva;
 
-/// J, K 積分の相対許容誤差（全成分の最大）
-const TOLERANCE: f64 = 1.0e-10;
+/// J, K 積分の相対許容誤差（全成分の最大）。外側の幅のゆらぎの積分より小さくする
+const TOLERANCE: f64 = 1.0e-12;
 
 /// 線形状 ψ(x, θ)。
 pub(super) fn psi(x: f64, theta: f64) -> f64 {
