@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::doppler::{broaden, broadening_limit};
 use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape};
 use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma};
 
@@ -144,7 +145,7 @@ pub fn add(a: &Tab1, b: &Tab1) -> Tab1 {
 }
 
 /// lin-lin の表の、e の左側からの極限値（定義域の外は 0）。
-fn left_limit(t: &Tab1, e: f64) -> f64 {
+pub(crate) fn left_limit(t: &Tab1, e: f64) -> f64 {
     let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
     if e <= first || e > last {
         return 0.0;
@@ -160,7 +161,7 @@ fn left_limit(t: &Tab1, e: f64) -> f64 {
 }
 
 /// lin-lin の表の、e の右側からの極限値（定義域の外は 0）。
-fn right_limit(t: &Tab1, e: f64) -> f64 {
+pub(crate) fn right_limit(t: &Tab1, e: f64) -> f64 {
     let (first, last) = (t.x[0], t.x[t.x.len() - 1]);
     if e < first || e >= last {
         return 0.0;
@@ -173,17 +174,39 @@ fn right_limit(t: &Tab1, e: f64) -> f64 {
 /// NJOY の RECONR と同じく、全断面積などの冗長な反応は MF3 の値を使わず、
 /// 部分反応の和として作り直す。全断面積と部分反応の和を一致させ、中性子の収支を保つためである。
 pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1>, Error> {
+    reconstruct_at(tape, mat, tol, 0.0)
+}
+
+/// テープ中の1核種の、温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
+///
+/// 0 K の部分反応をドップラー拡がりで広げてから、冗長な反応を部分反応の和で作り直す。
+/// `temperature` が 0 なら `reconstruct` と同じ。
+pub fn reconstruct_at(
+    tape: &Tape,
+    mat: i32,
+    tol: f64,
+    temperature: f64,
+) -> Result<BTreeMap<u32, Tab1>, Error> {
     let available = tape.mts(mat, 3);
     let mut tables = BTreeMap::new();
+    let mut awr = None;
     for &mt in available.iter().filter(|&&mt| !is_dropped(mt, &available)) {
         let section = tape.section(mat, 3, mt).expect("listed by mts");
-        tables.insert(mt, linearize(&Mf3::parse(&section)?.sigma, tol));
+        let mf3 = Mf3::parse(&section)?;
+        awr.get_or_insert(mf3.awr);
+        tables.insert(mt, linearize(&mf3.sigma, tol));
     }
+    let mut mf2 = None;
     if let Some(section) = tape.section(mat, 2, 151) {
         // MT18 を部分反応の和で作り直す場合は、共鳴の核分裂を第1チャンス核分裂に入れる
         let fission_mt = if is_rebuilt(18, &available) { 19 } else { 18 };
-        add_resonances(&mut tables, &Mf2::parse(&section)?, fission_mt, tol)
+        let parsed = Mf2::parse(&section)?;
+        add_resonances(&mut tables, &parsed, fission_mt, tol)
             .map_err(|message| Error::new(section.reader().line(), message))?;
+        mf2 = Some(parsed);
+    }
+    if let (true, Some(awr)) = (temperature > 0.0, awr) {
+        broaden_parts(&mut tables, mf2.as_ref(), awr, temperature, tol);
     }
 
     let total = add_all(
@@ -204,18 +227,31 @@ pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1
     Ok(tables)
 }
 
-/// テープ中の1核種の、温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
-///
-/// 0 K の部分反応をドップラー拡がりで広げてから、冗長な反応を部分反応の和で作り直す。
-/// `temperature` が 0 なら `reconstruct` と同じ。
-pub fn reconstruct_at(
-    tape: &Tape,
-    mat: i32,
-    tol: f64,
+/// 上限エネルギーより下から始まる反応を、まとめてドップラー拡がりで広げる。
+/// NJOY BROADR と同じく、生成断面積など（MT201〜599）は広げない。
+fn broaden_parts(
+    tables: &mut BTreeMap<u32, Tab1>,
+    mf2: Option<&Mf2>,
+    awr: f64,
     temperature: f64,
-) -> Result<BTreeMap<u32, Tab1>, Error> {
-    let _ = (tape, mat, tol, temperature);
-    todo!()
+    tol: f64,
+) {
+    let e_max = broadening_limit(mf2, tables.values());
+    let mts: Vec<u32> = tables
+        .iter()
+        .filter(|(mt, t)| !(201..=599).contains(*mt) && t.x[0] < e_max)
+        .map(|(mt, _)| *mt)
+        .collect();
+    if mts.is_empty() {
+        return;
+    }
+    let cold: Vec<Tab1> = mts.iter().map(|mt| tables[mt].clone()).collect();
+    for (mt, hot) in mts
+        .into_iter()
+        .zip(broaden(&cold, awr, temperature, e_max, tol))
+    {
+        tables.insert(mt, hot);
+    }
 }
 
 /// 部分反応の和で作り直す反応。
