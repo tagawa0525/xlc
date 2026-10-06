@@ -24,7 +24,7 @@ pub use scatter::{
     Emission, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
     two_body_range,
 };
-pub use structure::GroupStructure;
+pub use structure::{GroupError, GroupStructure};
 pub use weight::Weight;
 
 /// 群平均断面積。配列は群の順（高エネルギーから）。
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn threshold_reaction_is_zero_below_threshold() {
-        let groups = GroupStructure::new(vec![2.0e6, 1.0e6, 5.0e5]);
+        let groups = GroupStructure::new(vec![2.0e6, 1.0e6, 5.0e5]).unwrap();
         let tables = BTreeMap::from([(16, Tab1::linear(vec![1.5e6, 2.0e6], vec![1.0, 1.0]))]);
         let avg = reaction_averages(&groups, &Weight::lwr(), &tables, None);
         assert_eq!(avg.sigma[&16][1], 0.0);
@@ -303,7 +303,7 @@ mod tests {
     fn narrow_resonance_flux_matches_analytic_average() {
         // 1/E の重みの群で σx = σt = cE のとき
         //   σ_g = ln((c b + σ0)/(c a + σ0)) / [(1/σ0) ln(b (c a + σ0) / (a (c b + σ0)))]
-        let groups = GroupStructure::new(vec![100.0, 10.0]);
+        let groups = GroupStructure::new(vec![100.0, 10.0]).unwrap();
         let c = 2.0;
         let total = Tab1::linear(vec![10.0, 100.0], vec![10.0 * c, 100.0 * c]);
         let tables = BTreeMap::from([(1, total)]);
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn lssf1_scales_by_shielding_factor() {
-        let groups = GroupStructure::new(vec![1.0e5, 1.0e4]);
+        let groups = GroupStructure::new(vec![1.0e5, 1.0e4]).unwrap();
         let shielding = uniform_shielding(1);
         let avg = &shielded_averages(
             &groups,
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn lssf0_adds_shielding_difference() {
-        let groups = GroupStructure::new(vec![1.0e5, 1.0e4]);
+        let groups = GroupStructure::new(vec![1.0e5, 1.0e4]).unwrap();
         let shielding = uniform_shielding(0);
         let avg = &shielded_averages(
             &groups,
@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn flux_uses_shielded_total() {
         // 群の一部だけが非分離共鳴の範囲にあると、中性子束 1/(σt + σ0) の重みが変わる
-        let groups = GroupStructure::new(vec![1.0e4, 10.0]);
+        let groups = GroupStructure::new(vec![1.0e4, 10.0]).unwrap();
         let shielding = UnresolvedShielding::new(
             1.0e3,
             1.0e6,
@@ -444,7 +444,7 @@ mod tests {
     fn shielding_must_match_sigma0_count() {
         let shielding = uniform_shielding(1);
         let result = shielded_averages(
-            &GroupStructure::new(vec![1.0e5, 1.0e4]),
+            &GroupStructure::new(vec![1.0e5, 1.0e4]).unwrap(),
             &Weight::lwr(),
             &one_group_tables(),
             None,

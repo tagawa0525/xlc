@@ -3,7 +3,7 @@
 //! 対象核種で必要になるまで追加しない。
 
 use super::Error;
-use super::tab1::{Interpolation, Tab1};
+use super::tab1::{ClampedTab1, Interpolation, Tab1};
 use super::tape::{Reader, Section};
 
 /// 入射エネルギーごとに与えられた、出射エネルギーの確率密度の表。
@@ -25,9 +25,15 @@ pub enum EnergyLaw {
     /// LF=1: 入射エネルギーごとの表
     Tabulated(OutgoingDistributions),
     /// LF=7: 単純な核分裂スペクトル f(E') ∝ √E' exp(-E'/θ(E))
-    Maxwellian { restriction: f64, theta: Tab1 },
+    Maxwellian {
+        restriction: f64,
+        theta: ClampedTab1,
+    },
     /// LF=9: 蒸発スペクトル f(E') ∝ E' exp(-E'/θ(E))
-    Evaporation { restriction: f64, theta: Tab1 },
+    Evaporation {
+        restriction: f64,
+        theta: ClampedTab1,
+    },
 }
 
 /// MF5 の1反応。部分分布の確率 p_k(E) と、その分布の組。
@@ -67,7 +73,7 @@ impl Mf5 {
 }
 
 /// 解析式の分布の θ(E) を読む。θ は分布の温度なので正でなければならない。
-fn positive_theta(r: &mut Reader<'_>) -> Result<Tab1, Error> {
+fn positive_theta(r: &mut Reader<'_>) -> Result<ClampedTab1, Error> {
     let theta = r.tab1()?.table;
     if let Some(bad) = theta.y.iter().find(|&&t| t <= 0.0 || t.is_nan()) {
         return Err(Error::new(
@@ -75,7 +81,7 @@ fn positive_theta(r: &mut Reader<'_>) -> Result<Tab1, Error> {
             format!("theta must be positive, got {bad}"),
         ));
     }
-    Ok(theta)
+    ClampedTab1::new(theta).ok_or_else(|| Error::new(r.line(), "theta table is empty"))
 }
 
 /// TAB2 と、それに続く NE 個の TAB1（C2 が入射エネルギー）を読む。
@@ -191,7 +197,7 @@ pub(crate) mod tests {
             else {
                 panic!("{law:?}");
             };
-            assert_eq!(theta.eval(1.2e7), Some(4.0e5));
+            assert_eq!(theta.eval(1.2e7), 4.0e5);
             match lf {
                 "7" => {
                     assert!(matches!(law, EnergyLaw::Maxwellian { .. }) && *restriction == -3.0e7)

@@ -147,7 +147,7 @@ pub fn unresolved_shielding(
         {
             row.push([s.total, s.elastic, s.fission, s.capture]);
         }
-        let average = xs.cross_sections(e);
+        let average = xs.cross_sections(e)?;
         infinite.push([
             average.total + background.total,
             average.elastic + background.elastic,
@@ -213,16 +213,14 @@ pub fn process_nuclide(
         q_values.insert(mt, mf3(mt)?.qi);
     }
     let mut emissions = BTreeMap::new();
-    for mt in tape.mts(mat, 6) {
+    for (mt, section) in tape.sections(mat, 6) {
         if mt != 2 && emits_neutrons(mt) {
-            let section = tape.section(mat, 6, mt).expect("listed by mts");
             emissions.insert(mt, Emission::Mf6(Mf6::parse(&section)?));
         }
     }
     // MF6 のない反応は、MF4/MF5 で与えられている（MF5 のエネルギー分布だけを使う）
-    for mt in tape.mts(mat, 5) {
+    for (mt, section) in tape.sections(mat, 5) {
         if mt != 2 && emits_neutrons(mt) && !emissions.contains_key(&mt) {
-            let section = tape.section(mat, 5, mt).expect("listed by mts");
             emissions.insert(mt, Emission::Mf5(Mf5::parse(&section)?));
         }
     }
@@ -288,10 +286,12 @@ impl Common<'_> {
             &settings.sigma0,
             shielding.as_ref(),
         )?;
-        let chi = match (tables.contains_key(&18), self.nubar, self.mf5) {
-            (false, ..) => vec![0.0; ng],
-            (true, Some(nu), Some(mf5)) => fission_spectrum(groups, weight, &tables, nu, mf5),
-            (true, ..) => return Err(ProcessError::FissionData),
+        let chi = match (tables.get(&18), self.nubar, self.mf5) {
+            (None, ..) => vec![0.0; ng],
+            (Some(fission), Some(nu), Some(mf5)) => {
+                fission_spectrum(groups, weight, fission, nu, mf5)
+            }
+            (Some(_), ..) => return Err(ProcessError::FissionData),
         };
 
         // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
@@ -411,7 +411,7 @@ mod tests {
             .unwrap()
             .unwrap();
         let tables = crate::pointwise::reconstruct(&tape, 1, 1.0e-3).unwrap();
-        let groups = GroupStructure::new(vec![5.0e4, 1.0e4]);
+        let groups = GroupStructure::new(vec![5.0e4, 1.0e4]).unwrap();
         let shielded = shielded_averages(
             &groups,
             &Weight::lwr(),
@@ -512,7 +512,7 @@ mod tests {
         for t in &data.temperatures {
             assert_eq!(t.shielded.len(), 2);
             let [dilute, shielded] = &t.shielded[..] else {
-                unreachable!()
+                panic!("two σ0 values")
             };
             let last = dilute.total.len() - 1;
             // 熱群の補正は全断面積と弾性散乱の両方に入るので、差は同じ温度に拡げた捕獲の群平均に等しい

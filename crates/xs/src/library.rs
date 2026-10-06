@@ -115,6 +115,8 @@ pub enum LookupError {
 /// ライブラリの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
+    #[error("cannot encode as MessagePack: {0}")]
+    Encode(String),
     #[error("invalid MessagePack: {0}")]
     Decode(String),
     #[error("{0} bytes follow the library")]
@@ -139,7 +141,7 @@ struct LibraryFile {
 
 impl Library {
     /// MessagePack（フィールド名付きの map 形式）で書く。
-    pub fn to_msgpack(&self) -> Vec<u8> {
+    pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         let file = LibraryFile {
             format: FORMAT.into(),
             group_bounds: self.groups.bounds().to_vec(),
@@ -161,19 +163,14 @@ impl Library {
         let descending = |v: &[f64]| {
             v.windows(2).all(|w| w[0] > w[1]) && v.iter().all(|&x| x > 0.0 && x.is_finite())
         };
-        let bounds = file.group_bounds;
-        if bounds.len() < 2 || !descending(&bounds) {
-            return Err(invalid(format!(
-                "group bounds must be at least two positive descending values, got {bounds:?}"
-            )));
-        }
+        let groups = GroupStructure::new(file.group_bounds).map_err(|e| invalid(e.to_string()))?;
         if file.sigma0.is_empty() || !descending(&file.sigma0) {
             return Err(invalid(format!(
                 "sigma0 must be positive and descending, got {:?}",
                 file.sigma0
             )));
         }
-        let ng = bounds.len() - 1;
+        let ng = groups.len();
         for (k, n) in file.nuclides.iter().enumerate() {
             if file.nuclides[..k].iter().any(|m| m.name == n.name) {
                 return Err(invalid(format!("nuclide {} appears twice", n.name)));
@@ -181,7 +178,7 @@ impl Library {
             n.check(ng, file.sigma0.len()).map_err(invalid)?;
         }
         Ok(Self {
-            groups: GroupStructure::new(bounds),
+            groups,
             sigma0: file.sigma0,
             nuclides: file.nuclides,
         })
@@ -235,6 +232,7 @@ fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
 impl From<MsgpackError> for LibraryError {
     fn from(error: MsgpackError) -> Self {
         match error {
+            MsgpackError::Encode(message) => Self::Encode(message),
             MsgpackError::Decode(message) => Self::Decode(message),
             MsgpackError::TrailingBytes(n) => Self::TrailingBytes(n),
             MsgpackError::NotMap => Self::NotMap,
@@ -352,7 +350,7 @@ pub(crate) mod tests {
                 .collect(),
         };
         Library {
-            groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]),
+            groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 10.0],
             nuclides: vec![
                 nuclide("U-235", true, &[293.6, 900.0]),
@@ -365,7 +363,7 @@ pub(crate) mod tests {
     fn round_trips_bit_exactly() {
         let library = sample();
         assert_eq!(
-            Library::from_msgpack(&library.to_msgpack()).unwrap(),
+            Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap(),
             library
         );
     }
@@ -400,7 +398,7 @@ pub(crate) mod tests {
 
     #[test]
     fn written_as_a_map_with_the_format_name() {
-        let bytes = sample().to_msgpack();
+        let bytes = sample().to_msgpack().unwrap();
         let value: std::collections::BTreeMap<String, serde::de::IgnoredAny> =
             rmp_serde::from_slice(&bytes).unwrap();
         let keys: Vec<&str> = value.keys().map(String::as_str).collect();
@@ -556,7 +554,7 @@ pub(crate) mod tests {
 
     #[test]
     fn trailing_bytes_are_rejected() {
-        let mut bytes = sample().to_msgpack();
+        let mut bytes = sample().to_msgpack().unwrap();
         bytes.extend([0xc1, 0xff, 0x00]);
         assert!(Library::from_msgpack(&bytes).is_err());
     }

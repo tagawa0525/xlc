@@ -33,6 +33,8 @@ pub struct ThermalSab<'a> {
 /// S(α, β) の表を散乱に使えないときのエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum SabError {
+    #[error("S(α, β) has an empty α or β grid")]
+    EmptyGrid,
     #[error("asymmetric S(α, β) (LASYM≠0) is not supported")]
     Asymmetric,
     #[error("S(α, β) must interpolate ln S linearly in α and β")]
@@ -75,10 +77,9 @@ impl<'a> ThermalSab<'a> {
             })?;
         let kt = BK * temperature;
         let kt_table = if data.lat == 1 { KT0 } else { kt };
-        let (alpha_max, beta_max) = (
-            *data.alpha.last().expect("α grid"),
-            *data.beta.last().expect("β grid"),
-        );
+        let (Some(&alpha_max), Some(&beta_max)) = (data.alpha.last(), data.beta.last()) else {
+            return Err(SabError::EmptyGrid);
+        };
         let e_up = cutoff + beta_max * kt_table;
         let alpha_needed = (cutoff.sqrt() + e_up.sqrt()).powi(2) / (data.awr * kt_table);
         if cutoff / kt_table > beta_max || alpha_needed > alpha_max {
@@ -309,6 +310,16 @@ pub(crate) mod tests {
                 "{forward} vs {backward}"
             );
         }
+    }
+
+    #[test]
+    fn empty_grid_is_error() {
+        let mut data = free_gas_table();
+        data.beta.clear();
+        assert!(matches!(
+            ThermalSab::new(&data, TEMPERATURE, 1.0),
+            Err(SabError::EmptyGrid)
+        ));
     }
 
     #[test]

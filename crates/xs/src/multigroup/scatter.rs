@@ -343,6 +343,7 @@ fn spectrum_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::ClampedTab1;
 
     fn constant(value: f64) -> Tab1 {
         Tab1::linear(vec![1.0e-5, 2.0e7], vec![value, value])
@@ -369,7 +370,7 @@ mod tests {
     #[test]
     fn hydrogen_elastic_matrix() {
         // A=1 では出射エネルギーは [0, E] で一様。重み 1/E のもとで群内に残る割合は解析的に求まる
-        let groups = GroupStructure::new(vec![1.0e4, 1.0e3, 1.0e2]);
+        let groups = GroupStructure::new(vec![1.0e4, 1.0e3, 1.0e2]).unwrap();
         let tables = BTreeMap::from([(2, constant(20.0))]);
         let m = scattering_matrix(
             &groups,
@@ -391,7 +392,7 @@ mod tests {
 
     #[test]
     fn discrete_inelastic_uses_q_value() {
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
         let (awr, q) = (236.0, -4.49e4);
         let tables = BTreeMap::from([(2, constant(10.0)), (51, constant(1.0))]);
         let q_values = BTreeMap::from([(51, q)]);
@@ -413,7 +414,7 @@ mod tests {
     #[test]
     fn total_inelastic_without_partials_needs_a_distribution() {
         // MT51〜91 がなければ、MT4 自身を数える（分布がなければエラー）
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
         let tables = BTreeMap::from([(4, constant(1.0))]);
         let err = scattering_matrix(
             &groups,
@@ -431,7 +432,7 @@ mod tests {
     #[test]
     fn reactions_without_neutrons_need_no_distribution() {
         // MT155 (z,tα) などは MT152〜200 の範囲でも中性子を出さない
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
         for mt in [155, 182, 191, 192, 193, 197] {
             let tables = BTreeMap::from([(mt, constant(1.0))]);
             let m = scattering_matrix(
@@ -552,7 +553,7 @@ mod tests {
     #[test]
     fn elastic_uses_free_gas_even_with_mf6_data() {
         // MF6 に MT2 があっても、弾性散乱は2体反応と自由ガスで扱う
-        let groups = GroupStructure::new(vec![1.0, 0.01, 1.0e-4]);
+        let groups = GroupStructure::new(vec![1.0, 0.01, 1.0e-4]).unwrap();
         let tables = BTreeMap::from([(2, constant(4.0))]);
         let mf6 = BTreeMap::from([(
             2,
@@ -581,7 +582,7 @@ mod tests {
 
     #[test]
     fn invalid_free_gas_is_error() {
-        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let groups = GroupStructure::new(vec![1.0, 0.01]).unwrap();
         let tables = BTreeMap::from([(2, constant(4.0))]);
         for (kt, cutoff) in [(0.0, 4.0), (-0.01, 4.0), (0.0253, f64::NAN)] {
             let thermal = FreeGas { kt, cutoff };
@@ -600,7 +601,7 @@ mod tests {
 
     #[test]
     fn neutron_emission_without_distribution_is_error() {
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
         let tables = BTreeMap::from([(16, constant(1.0))]);
         let err = scattering_matrix(
             &groups,
@@ -618,7 +619,7 @@ mod tests {
     #[test]
     fn mf6_multiplicity_scales_the_row() {
         use crate::endf::{Frame, Interpolation, NeutronEmission, OutgoingDistributions};
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
         let emission = NeutronEmission {
             multiplicity: constant(2.0),
             frame: Frame::Laboratory,
@@ -662,7 +663,7 @@ mod tests {
                 constant(1.0),
                 EnergyLaw::Evaporation {
                     restriction: 1.0e6,
-                    theta: constant(1.0e5),
+                    theta: ClampedTab1::new(constant(1.0e5)).unwrap(),
                 },
             )],
         }
@@ -671,7 +672,7 @@ mod tests {
     #[test]
     fn mf5_rows_use_the_multiplicity_of_the_reaction() {
         // (n,2n) は2個、(n,nα) は1個の中性子を出す。行の和は 多重度 × σ（しきい値より上）
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
         for (mt, count) in [(16, 2.0), (22, 1.0)] {
             let tables = BTreeMap::from([(mt, constant(0.5))]);
             let emissions = BTreeMap::from([(mt, Emission::Mf5(evaporation()))]);
@@ -714,7 +715,7 @@ mod tests {
 
     #[test]
     fn mf5_without_known_multiplicity_is_error() {
-        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]);
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
         let tables = BTreeMap::from([(5, constant(1.0))]);
         let emissions = BTreeMap::from([(5, Emission::Mf5(evaporation()))]);
         let err = scattering_matrix(

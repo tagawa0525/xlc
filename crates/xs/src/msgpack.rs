@@ -8,9 +8,11 @@ use rmpv::Value;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-/// MessagePack の読み込みエラー。
+/// MessagePack の読み書きのエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum MsgpackError {
+    #[error("cannot encode as MessagePack: {0}")]
+    Encode(String),
     #[error("invalid MessagePack: {0}")]
     Decode(String),
     #[error("{0} bytes follow the value")]
@@ -20,8 +22,8 @@ pub enum MsgpackError {
 }
 
 /// フィールド名付きの map 形式で書く。
-pub fn to_named<T: Serialize>(value: &T) -> Vec<u8> {
-    rmp_serde::to_vec_named(value).expect("data files hold only numbers, strings and arrays")
+pub fn to_named<T: Serialize>(value: &T) -> Result<Vec<u8>, MsgpackError> {
+    rmp_serde::to_vec_named(value).map_err(|e| MsgpackError::Encode(e.to_string()))
 }
 
 /// バイト列全体を1つの値として読み、最上位が文字列キーの map であることを確かめる。

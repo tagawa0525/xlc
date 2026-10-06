@@ -3,6 +3,9 @@ name = "xlc-core"
 version.workspace = true
 edition.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow.workspace = true
 serde.workspace = true

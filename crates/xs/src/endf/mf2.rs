@@ -61,7 +61,7 @@ pub struct Mlbw {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BwLValue {
     pub awri: f64,
-    pub l: u32,
+    pub l: OrbitalL,
     pub resonances: Vec<BwResonance>,
 }
 
@@ -93,7 +93,7 @@ pub struct Unresolved {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UrrLValue {
     pub awri: f64,
-    pub l: u32,
+    pub l: OrbitalL,
     pub j_values: Vec<UrrJValue>,
 }
 
@@ -104,9 +104,9 @@ pub struct UrrLValue {
 pub struct UrrJValue {
     pub aj: f64,
     pub int: Interpolation,
-    pub amux: u32,
-    pub amun: u32,
-    pub amuf: u32,
+    pub amux: WidthDof,
+    pub amun: WidthDof,
+    pub amuf: WidthDof,
     pub points: Vec<UrrPoint>,
 }
 
@@ -128,7 +128,7 @@ pub struct RmLValue {
     pub awri: f64,
     /// l ごとの散乱半径。0 なら `ReichMoore::ap` を使う
     pub apl: f64,
-    pub l: u32,
+    pub l: OrbitalL,
     pub resonances: Vec<RmResonance>,
 }
 
@@ -221,15 +221,13 @@ fn read_unresolved(
         usize::try_from(n).map_err(|_| Error::new(line, format!("invalid {what} {n}")))
     };
     let nls = count(cont.n1, r.line(), "NLS")?;
-    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    let mut l_values = Vec::with_capacity(nls.min(OrbitalL::COUNT));
     for _ in 0..nls {
         let l_cont = r.cont()?;
-        let l = u32::try_from(l_cont.l1)
-            .ok()
-            .filter(|&l| l as usize <= MAX_L)
+        let l = OrbitalL::from_endf(l_cont.l1)
             .ok_or_else(|| Error::new(r.line(), format!("unsupported L={}", l_cont.l1)))?;
         let njs = count(l_cont.n1, r.line(), "NJS")?;
-        let mut j_values = Vec::with_capacity(njs.min(MAX_L + 1));
+        let mut j_values = Vec::with_capacity(njs.min(OrbitalL::COUNT));
         for _ in 0..njs {
             let header_line = r.line() + 1;
             let list = r.list()?;
@@ -248,15 +246,12 @@ fn read_unresolved(
             };
             // 幅の分布の自由度は、NJOY と同じく最も近い整数に丸める。χ² 分布の求積があるのは 0〜4
             let dof = |v: f64| {
-                let rounded = v.round();
-                if (0.0..=4.0).contains(&rounded) {
-                    Ok(rounded as u32)
-                } else {
-                    Err(Error::new(
+                WidthDof::from_rounded(v).ok_or_else(|| {
+                    Error::new(
                         header_line + 1,
                         format!("degrees of freedom {v} must round to an integer from 0 to 4"),
-                    ))
-                }
+                    )
+                })
             };
             let points: Vec<UrrPoint> = points
                 .iter()
@@ -327,12 +322,10 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
     let cont = r.cont()?;
     let nls = usize::try_from(cont.n1)
         .map_err(|_| Error::new(r.line(), format!("invalid NLS {}", cont.n1)))?;
-    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    let mut l_values = Vec::with_capacity(nls.min(OrbitalL::COUNT));
     for _ in 0..nls {
         let list = r.list()?;
-        let l = u32::try_from(list.l1)
-            .ok()
-            .filter(|&l| l as usize <= MAX_L)
+        let l = OrbitalL::from_endf(list.l1)
             .ok_or_else(|| Error::new(r.line(), format!("unsupported L={}", list.l1)))?;
         // LIST の値は1行に1共鳴（6個）ずつ並ぶ
         let first_value_line = r.line() + 1 - list.values.len().div_ceil(6);
@@ -376,13 +369,11 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64) -> Result<Mlbw, Error> {
     let spi = cont.c1;
     let nls = usize::try_from(cont.n1)
         .map_err(|_| Error::new(r.line(), format!("invalid NLS {}", cont.n1)))?;
-    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    let mut l_values = Vec::with_capacity(nls.min(OrbitalL::COUNT));
     for _ in 0..nls {
         let header_line = r.line() + 1;
         let list = r.list()?;
-        let l = u32::try_from(list.l1)
-            .ok()
-            .filter(|&l| l as usize <= MAX_L)
+        let l = OrbitalL::from_endf(list.l1)
             .ok_or_else(|| Error::new(header_line, format!("unsupported L={}", list.l1)))?;
         if list.l2 != 0 {
             return Err(Error::new(
@@ -391,7 +382,7 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64) -> Result<Mlbw, Error> {
             ));
         }
         // 標的スピンと l から作れる J
-        let fl = f64::from(l);
+        let fl = f64::from(l.number());
         let (ajmin, ajmax) = (((spi - fl).abs() - 0.5).abs(), spi + fl + 0.5);
         let mut resonances = Vec::new();
         for (i, p) in list.values.as_chunks::<6>().0.iter().enumerate() {
@@ -431,8 +422,80 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64) -> Result<Mlbw, Error> {
     })
 }
 
-/// 透過因子・位相シフトを実装している l の上限（NJOY と同じ）。
-pub(crate) const MAX_L: usize = 4;
+/// 軌道角運動量の量子数 L。透過因子・位相シフトを実装している 0〜4 だけを扱う（NJOY と同じ）。
+/// MF2 を読むときにこの範囲を確かめ、型で持つので、共鳴の計算で範囲外を考えなくてよい。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrbitalL {
+    S,
+    P,
+    D,
+    F,
+    G,
+}
+
+impl OrbitalL {
+    /// 扱える L の数
+    const COUNT: usize = 5;
+
+    /// ENDF の L の値から作る（範囲外なら `None`）。
+    fn from_endf(l: i64) -> Option<Self> {
+        match l {
+            0 => Some(Self::S),
+            1 => Some(Self::P),
+            2 => Some(Self::D),
+            3 => Some(Self::F),
+            4 => Some(Self::G),
+            _ => None,
+        }
+    }
+
+    pub fn number(self) -> u32 {
+        match self {
+            Self::S => 0,
+            Self::P => 1,
+            Self::D => 2,
+            Self::F => 3,
+            Self::G => 4,
+        }
+    }
+}
+
+/// 非分離共鳴の幅の分布（平均 1 の χ² 分布）の自由度。`Fixed`（0）は幅がゆらがないことを表す。
+/// χ² 分布の期待値を求められる 0〜4 だけを扱い（NJOY と同じ）、MF2 を読むときに確かめる。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WidthDof {
+    Fixed,
+    One,
+    Two,
+    Three,
+    Four,
+}
+
+impl WidthDof {
+    /// ENDF の自由度（実数）を、NJOY と同じく最も近い整数に丸めて作る（範囲外なら `None`）。
+    fn from_rounded(v: f64) -> Option<Self> {
+        let rounded = v.round();
+        [Self::Fixed, Self::One, Self::Two, Self::Three, Self::Four]
+            .into_iter()
+            .find(|dof| f64::from(dof.number()) == rounded)
+    }
+
+    pub fn number(self) -> u32 {
+        match self {
+            Self::Fixed => 0,
+            Self::One => 1,
+            Self::Two => 2,
+            Self::Three => 3,
+            Self::Four => 4,
+        }
+    }
+}
+
+impl std::fmt::Display for OrbitalL {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.number())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -498,10 +561,16 @@ mod tests {
         assert_eq!((urr.lssf, urr.spi, urr.ap, urr.naps), (1, 0.0, 0.948, 0));
         assert_eq!(urr.ap_energy, None);
         assert_eq!(urr.l_values.len(), 1);
-        assert_eq!((urr.l_values[0].awri, urr.l_values[0].l), (236.006, 0));
+        assert_eq!(
+            (urr.l_values[0].awri, urr.l_values[0].l),
+            (236.006, OrbitalL::S)
+        );
         let j = &urr.l_values[0].j_values[0];
         assert_eq!((j.aj, j.int), (0.5, Interpolation::LogLog));
-        assert_eq!((j.amux, j.amun, j.amuf), (0, 1, 0));
+        assert_eq!(
+            (j.amux, j.amun, j.amuf),
+            (WidthDof::Fixed, WidthDof::One, WidthDof::Fixed)
+        );
         assert_eq!(
             j.points[1],
             UrrPoint {
@@ -629,7 +698,10 @@ mod tests {
             panic!("expected unresolved");
         };
         let j = &urr.l_values[0].j_values[0];
-        assert_eq!((j.amux, j.amun, j.amuf), (1, 1, 2));
+        assert_eq!(
+            (j.amux, j.amun, j.amuf),
+            (WidthDof::One, WidthDof::One, WidthDof::Two)
+        );
         assert_eq!(j.points.len(), 2);
     }
 
@@ -664,7 +736,7 @@ mod tests {
             panic!("expected MLBW");
         };
         assert_eq!((bw.spi, bw.ap, bw.naps), (0.0, 0.716, 0));
-        assert_eq!(bw.l_values[0].l, 1);
+        assert_eq!(bw.l_values[0].l, OrbitalL::P);
         assert_eq!(
             bw.l_values[0].resonances[0],
             BwResonance {
