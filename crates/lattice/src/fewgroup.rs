@@ -278,7 +278,7 @@ mod tests {
         (
             solution,
             materials,
-            GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]),
+            GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
         )
     }
 

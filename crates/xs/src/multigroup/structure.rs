@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn find_group() {
-        let g = GroupStructure::new(vec![10.0, 5.0, 1.0]);
+        let g = GroupStructure::new(vec![10.0, 5.0, 1.0]).unwrap();
         assert_eq!(g.find(7.0), Some(0));
         assert_eq!(g.find(5.0), Some(1));
         assert_eq!(g.find(10.0), Some(0));
@@ -100,15 +100,22 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "positive")]
-    fn zero_lower_bound_panics() {
+    fn invalid_bounds_are_errors() {
         // 積分区間を対数で分割するので、0 eV の境界は扱えない
-        GroupStructure::new(vec![1.0, 0.0]);
+        for bounds in [
+            vec![1.0, 0.0],
+            vec![1.0, 5.0],
+            vec![1.0],
+            vec![f64::INFINITY, 1.0],
+            vec![1.0, f64::NAN],
+        ] {
+            assert!(GroupStructure::new(bounds.clone()).is_err(), "{bounds:?}");
+        }
     }
 
     #[test]
-    #[should_panic]
-    fn ascending_bounds_panic() {
-        GroupStructure::new(vec![1.0, 5.0]);
+    fn wims69_passes_the_checks() {
+        let bounds = GroupStructure::wims69().bounds().to_vec();
+        assert!(GroupStructure::new(bounds).is_ok());
     }
 }

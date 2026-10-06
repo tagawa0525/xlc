@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn upscatter_above_top_goes_to_first_group() {
         // 熱群だけの群構造でも、上限より上に散乱した分を失わない
-        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let groups = GroupStructure::new(vec![1.0, 0.01]).unwrap();
         let (awr, e) = (1.0, 0.9);
         let sum: f64 = free_gas_group_integrals(&groups, e, awr, KT).iter().sum();
         assert_rel(sum, effective_ratio(e, awr), 1e-6);

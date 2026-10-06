@@ -355,7 +355,7 @@ pub(crate) mod tests {
                 .collect(),
         };
         Library {
-            groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]),
+            groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 10.0],
             nuclides: vec![
                 nuclide("U-235", true, &[293.6, 900.0]),
