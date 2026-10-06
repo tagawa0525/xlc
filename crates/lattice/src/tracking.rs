@@ -6,45 +6,7 @@
 
 use std::f64::consts::PI;
 
-use crate::geometry::PinCell;
-
-/// 点 start から方向 direction に長さ length 進む直線を、同心円で区間に分ける。
-fn segments(cell: &PinCell, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
-    // |start + t d|² = r² の解のうち (0, length) にあるもの
-    let b = start.0 * direction.0 + start.1 * direction.1;
-    let c0 = start.0 * start.0 + start.1 * start.1;
-    let mut cuts = vec![0.0, length];
-    for &r in cell.radii() {
-        let disc = b * b - (c0 - r * r);
-        if disc > 0.0 {
-            let root = disc.sqrt();
-            cuts.extend(
-                [-b - root, -b + root]
-                    .into_iter()
-                    .filter(|&t| t > 0.0 && t < length),
-            );
-        }
-    }
-    cuts.sort_by(f64::total_cmp);
-    cuts.windows(2)
-        .filter(|w| w[1] > w[0])
-        .map(|w| {
-            let mid = 0.5 * (w[0] + w[1]);
-            Segment {
-                region: cell.region_at(start.0 + mid * direction.0, start.1 + mid * direction.1),
-                length: w[1] - w[0],
-            }
-        })
-        .collect()
-}
-
-/// トラック上の1つの領域を通る区間。
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Segment {
-    pub region: usize,
-    /// 平面に射影した長さ (cm)
-    pub length: f64,
-}
+use crate::geometry::{Lattice, Segment};
 
 /// トラックの端から出た角度中性子束の行き先（反射後に続くトラックと、そのスイープの向き）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,7 +47,7 @@ pub struct Tracking {
 
 impl Tracking {
     /// `n_azimuthal` は (0, π) の方位角の数（偶数）、`spacing` は希望するトラック間隔 (cm)。
-    pub fn new(cell: &PinCell, n_azimuthal: usize, spacing: f64) -> Result<Self, String> {
+    pub fn new(lattice: &Lattice, n_azimuthal: usize, spacing: f64) -> Result<Self, String> {
         if n_azimuthal == 0 || !n_azimuthal.is_multiple_of(2) {
             return Err(format!(
                 "the number of azimuthal angles must be positive and even, got {n_azimuthal}"
@@ -95,7 +57,7 @@ impl Tracking {
             return Err(format!("track spacing must be positive, got {spacing}"));
         }
         let n = n_azimuthal;
-        let width = cell.pitch();
+        let width = lattice.width();
         // 方位角を (0, π/2) で補正し、π - φ を対にする
         let mut azimuths = vec![
             Azimuth {
@@ -171,7 +133,7 @@ impl Tracking {
                     azimuth: a,
                     start,
                     end,
-                    segments: segments(cell, start, (dx, dy), t),
+                    segments: lattice.segments(start, (dx, dy), t),
                     forward_link: Link {
                         track: 0,
                         forward: true,
@@ -235,8 +197,10 @@ impl Tracking {
 mod tests {
     use super::*;
 
-    fn cell() -> PinCell {
-        PinCell::new(1.26, vec![0.2, 0.3, 0.4096, 0.55]).unwrap()
+    use crate::geometry::PinCell;
+
+    fn cell() -> Lattice {
+        Lattice::pin_cell(PinCell::new(1.26, vec![0.2, 0.3, 0.4096, 0.55]).unwrap())
     }
 
     #[test]
