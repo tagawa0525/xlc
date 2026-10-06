@@ -150,6 +150,15 @@ mod tests {
     }
 
     #[test]
+    fn clamped_table_extends_its_end_values() {
+        assert!(ClampedTab1::new(Tab1::linear(vec![], vec![])).is_none());
+        let t = ClampedTab1::new(Tab1::linear(vec![1.0, 3.0], vec![10.0, 30.0])).unwrap();
+        assert_eq!(t.eval(0.5), 10.0);
+        assert_eq!(t.eval(2.0), 20.0);
+        assert_eq!(t.eval(9.0), 30.0);
+    }
+
+    #[test]
     fn interpolation_codes() {
         assert_eq!(Interpolation::from_code(1), Some(Interpolation::Histogram));
         assert_eq!(Interpolation::from_code(5), Some(Interpolation::LogLog));

@@ -191,7 +191,7 @@ pub(crate) mod tests {
             else {
                 panic!("{law:?}");
             };
-            assert_eq!(theta.eval(1.2e7), Some(4.0e5));
+            assert_eq!(theta.eval(1.2e7), 4.0e5);
             match lf {
                 "7" => {
                     assert!(matches!(law, EnergyLaw::Maxwellian { .. }) && *restriction == -3.0e7)

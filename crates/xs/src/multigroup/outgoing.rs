@@ -299,7 +299,7 @@ mod tests {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]);
         let law = EnergyLaw::Evaporation {
             restriction: 1.0e6,
-            theta: Tab1::linear(vec![1.0e6, 2.0e7], vec![1.0e5, 1.0e5]),
+            theta: ClampedTab1::new(Tab1::linear(vec![1.0e6, 2.0e7], vec![1.0e5, 1.0e5])).unwrap(),
         };
         let grouped = GroupedLaw::new(&groups, &law);
         let mut out = vec![0.0; 3];
@@ -330,7 +330,7 @@ mod tests {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]);
         let law = EnergyLaw::Maxwellian {
             restriction: -3.0e7,
-            theta: Tab1::linear(vec![1.0e6, 3.0e6], vec![1.0e5, 3.0e5]),
+            theta: ClampedTab1::new(Tab1::linear(vec![1.0e6, 3.0e6], vec![1.0e5, 3.0e5])).unwrap(),
         };
         let grouped = GroupedLaw::new(&groups, &law);
         let mut out = vec![0.0; 3];
