@@ -501,4 +501,22 @@ mod tests {
             PinCell::new(2.0, vec![0.5]).unwrap()
         );
     }
+
+    #[test]
+    fn line_through_the_center_is_cut_at_sector_boundaries() {
+        // 中心を通る直線では、どの扇形の境界との交点も中心になる
+        let cell = PinCell::with_sectors(2.0, vec![0.5], 4).unwrap();
+        let s = cell.segments((-0.6, -0.8), (0.6, 0.8), 2.0);
+        let inner: Vec<(usize, f64)> = s
+            .iter()
+            .filter(|s| s.region < 4)
+            .map(|s| (s.region, s.length))
+            .collect();
+        assert_eq!(inner.len(), 2, "{s:?}");
+        assert_eq!((inner[0].0, inner[1].0), (2, 0));
+        assert!(
+            inner.iter().all(|(_, l)| (l - 0.5).abs() < 1e-14),
+            "{inner:?}"
+        );
+    }
 }
