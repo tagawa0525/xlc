@@ -211,6 +211,8 @@ scatter 0.002 1.97
         // 散乱の行が足りない、χ がないのに νΣf がある、同じ名前の物質、知らないキーワード
         assert!(parse(&SAMPLE.replace("scatter 0.002 1.97\n", "")).is_err());
         assert!(parse(&SAMPLE.replace("chi 1.0 0.0\n", "")).is_err());
+        // νΣf があるのに Σf がない（ピン出力が黙って 0 になる）
+        assert!(parse(&SAMPLE.replace("fission 0.003 0.1\n", "")).is_err());
         assert!(parse(&SAMPLE.replace("material water", "material fuel")).is_err());
         assert!(parse(&format!("{SAMPLE}\nalbedo 1")).is_err());
         // 形式の版と群の数がない
