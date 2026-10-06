@@ -142,6 +142,17 @@ mod tests {
     use crate::endf::tape::tests::rec;
 
     fn mf7(lln: &str, second_alpha: &str, s: [&str; 3]) -> Result<Mf7Incoherent, Error> {
+        mf7_with(lln, second_alpha, s, "0.0", "1")
+    }
+
+    /// `list_beta` は β = 0 の2つ目の温度の LIST の β、`lt` は β = 0 の TAB1 の LT。
+    fn mf7_with(
+        lln: &str,
+        second_alpha: &str,
+        s: [&str; 3],
+        list_beta: &str,
+        lt: &str,
+    ) -> Result<Mf7Incoherent, Error> {
         let lines: Vec<[&str; 6]> = vec![
             ["1.001000+3", "9.991673-1", "0", "1", "0", "0"],
             // LIST: 0 0 LLN 0 NI NS、B = σfree M0, εmax, A0, Emax, 0, M0
@@ -151,10 +162,10 @@ mod tests {
             ["0.0", "0.0", "0", "0", "1", "2"],
             ["2", "4", "", "", "", ""],
             // β = 0: TAB1（T0 β LT 0 NR NP）と、2つ目の温度の LIST（T β LI 0 NP 0）
-            ["2.936000+2", "0.0", "1", "0", "1", "3"],
+            ["2.936000+2", "0.0", lt, "0", "1", "3"],
             ["3", "4", "", "", "", ""],
             ["0.1", s[0], "1.0", s[1], "10.0", s[2]],
-            ["6.000000+2", "0.0", "4", "0", "3", "0"],
+            ["6.000000+2", list_beta, "4", "0", "3", "0"],
             ["0.9", "0.6", "0.02", "", "", ""],
             // β = 2
             ["2.936000+2", "2.0", "1", "0", "1", "3"],
@@ -198,5 +209,15 @@ mod tests {
     #[test]
     fn alpha_grid_must_be_shared_by_all_beta() {
         assert!(mf7("0", "1.5", ["1.0", "0.5", "0.01"]).is_err());
+    }
+
+    #[test]
+    fn temperature_records_must_have_the_same_beta() {
+        assert!(mf7_with("0", "1.0", ["1.0", "0.5", "0.01"], "0.5", "1").is_err());
+    }
+
+    #[test]
+    fn number_of_temperatures_must_not_be_negative() {
+        assert!(mf7_with("0", "1.0", ["1.0", "0.5", "0.01"], "0.0", "-1").is_err());
     }
 }
