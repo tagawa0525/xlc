@@ -180,22 +180,21 @@ impl Mf2 {
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
-                2 if lrf == 2 => {
+                2 if lrf == 1 || lrf == 2 => {
                     let ap_energy = match nro {
                         0 => None,
                         1 => Some(r.tab1()?.table),
                         _ => return unsupported(format!("invalid NRO={nro}")),
                     };
-                    RangeKind::Unresolved(read_unresolved(&mut r, range.n2, ap_energy)?)
+                    if lrf == 2 {
+                        RangeKind::Unresolved(read_unresolved(&mut r, range.n2, ap_energy)?)
+                    } else {
+                        RangeKind::UnresolvedLrf1 {
+                            lssf: skip_unresolved_lrf1(&mut r, lfw)?,
+                        }
+                    }
                 }
-                2 if lrf == 1 && nro == 0 => RangeKind::UnresolvedLrf1 {
-                    lssf: skip_unresolved_lrf1(&mut r, lfw)?,
-                },
-                2 => {
-                    return unsupported(format!(
-                        "unresolved LRF={lrf} with NRO={nro} is not supported"
-                    ));
-                }
+                2 => return unsupported(format!("unresolved LRF={lrf} is not supported")),
                 _ => return unsupported(format!("invalid LRU={lru}")),
             };
             ranges.push(ResonanceRange {
