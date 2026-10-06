@@ -1,9 +1,0 @@
-# M0 の多群ライブラリ: H-1, O-16, U-235, U-238 を 293.6 K で。
-# M0 では自己遮蔽を使わないので、σ0 は無限希釈だけにする。
-output wims69.msgpack
-endf-directory ../../references/endf/ENDF-B-VIII.0_neutrons
-sigma0 1e10
-nuclide H-1 n-001_H_001.endf temperatures 293.6
-nuclide O-16 n-008_O_016.endf temperatures 293.6
-nuclide U-235 n-092_U_235.endf temperatures 293.6
-nuclide U-238 n-092_U_238.endf temperatures 293.6
