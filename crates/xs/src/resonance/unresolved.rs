@@ -83,7 +83,7 @@ impl UnresolvedXs<'_> {
         sigma0: &[f64],
         background: Sigma,
     ) -> Result<Vec<ShieldedSigma>, String> {
-        if !(temperature > 0.0) {
+        if temperature.is_nan() || temperature <= 0.0 {
             return Err(format!(
                 "self-shielding needs a positive temperature, got {temperature}"
             ));
@@ -124,7 +124,7 @@ impl UnresolvedXs<'_> {
         }
         let sigbt = background.total + spot + sint;
         let sigm: Vec<f64> = sigma0.iter().map(|s0| sigbt + s0).collect();
-        if let Some(bad) = sigm.iter().find(|s| !(**s > 0.0)) {
+        if let Some(bad) = sigm.iter().find(|s| s.is_nan() || **s <= 0.0) {
             return Err(format!(
                 "background {bad} b at {e} eV is not positive (potential and interference terms {})",
                 spot + sint
