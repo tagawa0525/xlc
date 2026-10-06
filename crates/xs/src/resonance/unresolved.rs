@@ -37,6 +37,8 @@ pub enum UrrError {
     JkTable { beta: f64, theta: f64 },
     #[error("unresolved range has no (l, J) sequences")]
     NoSequences,
+    #[error("the scattering radius table does not cover {energy} eV")]
+    RadiusTable { energy: f64 },
     #[error(transparent)]
     Numeric(#[from] NumericError),
     #[error("unresolved sequences use different interpolation laws ({first:?} and {other:?})")]
@@ -58,9 +60,9 @@ impl<'a> UnresolvedXs<'a> {
     /// エネルギー e (eV) での平均断面積。パラメータは lin-lin で補間する（NJOY と同じ）。
     ///
     /// 波数は l ごとの AWRI から求める（NJOY は最初の l の AWRI を使う。全 l で同じなら一致する）。
-    pub fn cross_sections(&self, e: f64) -> Result<Sigma, NumericError> {
+    pub fn cross_sections(&self, e: f64) -> Result<Sigma, UrrError> {
         let urr = self.urr;
-        let ay = self.scattering_radius(e);
+        let ay = self.scattering_radius(e)?;
         let mut sigma = Sigma::default();
         for lv in &urr.l_values {
             let aa = self.channel_radius(lv.awri, ay);
@@ -116,7 +118,7 @@ impl UnresolvedXs<'_> {
             return Err(UrrError::Temperature(temperature));
         }
         let urr = self.urr;
-        let ay = self.scattering_radius(e);
+        let ay = self.scattering_radius(e)?;
         // ポテンシャル散乱と干渉の補正、系列ごとの平均の幅
         let (mut spot, mut sint) = (0.0, 0.0);
         let mut sequences = Vec::new();
@@ -196,12 +198,10 @@ impl UnresolvedXs<'_> {
     }
 
     /// 位相シフトに使う散乱半径（NRO=1 なら表から補間する）。
-    fn scattering_radius(&self, e: f64) -> f64 {
+    fn scattering_radius(&self, e: f64) -> Result<f64, UrrError> {
         match &self.urr.ap_energy {
-            Some(table) => table
-                .eval(e)
-                .expect("radius table covers the unresolved range"),
-            None => self.urr.ap,
+            Some(table) => table.eval(e).ok_or(UrrError::RadiusTable { energy: e }),
+            None => Ok(self.urr.ap),
         }
     }
 
