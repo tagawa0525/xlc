@@ -677,4 +677,12 @@ zones = [{ material = "water", rings = 1 }]
         let cause = std::error::Error::source(&err).expect("the geometry error is the cause");
         assert!(!err.to_string().contains(&cause.to_string()), "{err}");
     }
+
+    #[test]
+    fn toml_errors_are_not_repeated_in_the_chain() {
+        // 包んだ TOML のエラーは、自分の文と原因の連鎖のどちらか一方にだけ出す
+        let err = LatticeInput::parse("pitch = ").unwrap_err();
+        let chain = format!("{:#}", anyhow::Error::from(err));
+        assert_eq!(chain.matches("TOML parse error").count(), 1, "{chain}");
+    }
 }
