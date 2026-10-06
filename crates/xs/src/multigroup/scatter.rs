@@ -438,10 +438,11 @@ mod tests {
     #[test]
     fn free_gas_matrix_satisfies_detailed_balance() {
         // 重み関数の熱領域（0.1 eV 以下）は kT = 0.0253 eV の Maxwell 分布なので、
-        // 同じ温度の自由ガスなら群間でも φ_g σ(g→g') = φ_g' σ(g'→g) が成り立つ
+        // 同じ温度の自由ガスなら群間でも φ_g σ(g→g') = φ_g' σ(g'→g) が成り立つ。
+        // 自由原子の断面積 4 b を温度に拡げた 4 N(E) を与える（表の補間誤差は 1e-7 以下）
         let groups = GroupStructure::wims69();
         let weight = Weight::lwr();
-        let tables = BTreeMap::from([(2, constant(4.0))]);
+        let tables = BTreeMap::from([(2, broadened_constant(4.0, 15.86, 0.0253))]);
         let thermal = FreeGas {
             kt: 0.0253,
             cutoff: 4.0,
@@ -538,7 +539,7 @@ mod tests {
     #[test]
     fn elastic_uses_free_gas_even_with_mf6_data() {
         // MF6 に MT2 があっても、弾性散乱は2体反応と自由ガスで扱う
-        let groups = GroupStructure::new(vec![1.0, 0.01]);
+        let groups = GroupStructure::new(vec![1.0, 0.01, 1.0e-4]);
         let tables = BTreeMap::from([(2, constant(4.0))]);
         let mf6 = BTreeMap::from([(
             2,
@@ -561,7 +562,8 @@ mod tests {
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
-        assert!(m[0].iter().sum::<f64>() > 4.0, "{m:?}");
+        // 2体反応では上方散乱しない
+        assert!(m[1][0] > 0.0, "{m:?}");
     }
 
     #[test]
@@ -713,5 +715,58 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.contains("MT5"), "{err}");
+    }
+
+    /// 一定の自由原子の断面積 `sigma` を温度に拡げた σ N(E)。N(E) = (1 + 1/(2a²)) erf(a) + e^(-a²)/(a√π)、
+    /// a² = A E/kT。対数で等間隔の 20000 点の表（線形補間の相対誤差は 1e-7 以下）。
+    fn broadened_constant(sigma: f64, awr: f64, kt: f64) -> Tab1 {
+        let n = |e: f64| {
+            let a = (awr * e / kt).sqrt();
+            (1.0 + 0.5 / (a * a)) * crate::special::erf(a)
+                + (-a * a).exp() / (a * std::f64::consts::PI.sqrt())
+        };
+        let points = 20000;
+        let (lo, hi) = (1.0e-5_f64, 2.0e7_f64);
+        let x: Vec<f64> = (0..points)
+            .map(|i| lo * (hi / lo).powf(i as f64 / (points - 1) as f64))
+            .collect();
+        let y = x.iter().map(|&e| sigma * n(e)).collect();
+        Tab1::linear(x, y)
+    }
+
+    #[test]
+    fn free_gas_rows_sum_to_the_broadened_elastic_cross_section() {
+        // 温度に拡げた断面積に、規格化した出射分布を掛ける（NJOY THERMR と同じ）。熱領域の共鳴も
+        // 拡げた形のまま行の和に入る。散乱はすべて群構造の中に残すので、行の和は群平均の断面積
+        let groups = GroupStructure::wims69();
+        let weight = Weight::lwr();
+        let table = Tab1::linear(
+            vec![1.0e-5, 0.2, 0.3, 0.4, 2.0e7],
+            vec![4.0, 4.0, 50.0, 4.0, 4.0],
+        );
+        let thermal = FreeGas {
+            kt: 0.0253,
+            cutoff: 4.0,
+        };
+        let m = scattering_matrix(
+            &groups,
+            &weight,
+            235.0,
+            &BTreeMap::from([(2, table.clone())]),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            Some(&Thermal::FreeGas(thermal)),
+        )
+        .unwrap();
+        let flux = group_integrals(&groups, &weight, &table.x, |_| 1.0);
+        let sigma = group_integrals(&groups, &weight, &table.x, |e| table.eval(e).unwrap());
+        for g in 0..groups.len() {
+            let expected = sigma[g] / flux[g];
+            let row: f64 = m[g].iter().sum();
+            assert!(
+                (row - expected).abs() <= 1e-9 * expected,
+                "group {g}: {row} vs {expected}"
+            );
+        }
     }
 }
