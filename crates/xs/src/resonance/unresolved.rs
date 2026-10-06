@@ -7,7 +7,7 @@ use std::f64::consts::PI;
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, expectation_vec, width_ratios};
-use super::line_shape::jk_integrals;
+use super::line_shape::jk_interpolated;
 use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint};
 use crate::physics::{BK, wave_number_factor};
 
@@ -130,7 +130,10 @@ impl UnresolvedXs<'_> {
                 spot + sint
             ));
         }
-        let integrals: Vec<Vec<f64>> = sequences.iter().map(|q| q.integrals(&sigm)).collect();
+        let integrals = sequences
+            .iter()
+            .map(|q| q.integrals(&sigm))
+            .collect::<Result<Vec<_>, _>>()?;
 
         // 系列どうしの重なりを補正して足し合わせる（NJOY unresl と同じ式）
         Ok((0..sigma0.len())
@@ -187,8 +190,8 @@ impl UnresolvedXs<'_> {
 /// 自己遮蔽の積分で、σ0 ごとに求める量の数: J Γf, J Γγ, J Γn, J Γx, K Γ
 const PARTS: usize = 5;
 
-/// 幅のゆらぎの期待値の相対許容誤差（中性子幅、核分裂幅、競合幅の順）。J, K 積分（1e-12）の
-/// 外側なので、それぞれ内側の 100 倍にする（`expectation` を参照）
+/// 幅のゆらぎの期待値の相対許容誤差（中性子幅、核分裂幅、競合幅の順）。外側は内側の 100 倍にする
+/// （`expectation` を参照）。J, K の表の補間は連続なので、最も内側を緩める必要はない
 const SHIELDING_TOLERANCE: [f64; 3] = [1.0e-10, 1.0e-8, 1.0e-6];
 
 /// 1つの (l, J) 系列の、エネルギー e での平均の幅など。
@@ -208,23 +211,29 @@ struct Sequence<'a> {
 
 impl Sequence<'_> {
     /// σ0 ごとの [E[J Γf], E[J Γγ], E[J Γn], E[J Γx], E[K Γ]] / D。`sigm` は σ0 を含む背景断面積。
-    fn integrals(&self, sigm: &[f64]) -> Vec<f64> {
+    /// J, K は表から補間する（`jk_interpolated`）。表の範囲を外れたら、その点を記録してエラーにする。
+    fn integrals(&self, sigm: &[f64]) -> Result<Vec<f64>, String> {
         let n = PARTS * sigm.len();
         if self.gn <= 0.0 {
-            return vec![0.0; n];
+            return Ok(vec![0.0; n]);
         }
         let dof_f = if self.gf > 0.0 { self.jv.amuf } else { 0 };
         let dof_x = if self.gx > 0.0 { self.jv.amux } else { 0 };
+        let failure = std::cell::RefCell::new(None);
         let node = |x: f64, y: f64, z: f64, out: &mut [f64]| {
             let (gn, gf, gx) = (self.gn * x, self.gf * y, self.gx * z);
             let gamma = gn + gf + self.gg + gx;
             // 共鳴のピークの断面積と、θ = Γ/Δ
             let peak = self.ab * self.gj * gn / gamma;
-            let betas: Vec<f64> = sigm.iter().map(|s| s / peak).collect();
-            for (i, (j, k)) in jk_integrals(&betas, gamma / self.delta)
-                .into_iter()
-                .enumerate()
-            {
+            let theta = gamma / self.delta;
+            for (i, s) in sigm.iter().enumerate() {
+                let (j, k) = match jk_interpolated(s / peak, theta) {
+                    Ok(jk) => jk,
+                    Err(message) => {
+                        failure.borrow_mut().get_or_insert(message);
+                        (0.0, 0.0)
+                    }
+                };
                 out[PARTS * i..PARTS * (i + 1)].copy_from_slice(&[
                     j * gf,
                     j * self.gg,
@@ -242,7 +251,10 @@ impl Sequence<'_> {
             });
             out.copy_from_slice(&inner);
         });
-        values.into_iter().map(|v| v / self.d).collect()
+        match failure.into_inner() {
+            Some(message) => Err(message),
+            None => Ok(values.into_iter().map(|v| v / self.d).collect()),
+        }
     }
 }
 
