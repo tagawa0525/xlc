@@ -119,7 +119,7 @@ impl MaterialEntry {
             nu_fission,
             fission_terms,
         };
-        material.validate()?;
+        material.validate().map_err(|e| e.to_string())?;
         Ok(material)
     }
 }
