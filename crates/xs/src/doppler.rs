@@ -99,6 +99,12 @@ pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64
         .collect()
 }
 
+/// 拡げた値を計算する元の格子の点（節）の番号。`top` 未満の点から NJOY broadn と同じ規則で選ぶ。
+fn nodes(energies: &[f64], values: &[Vec<f64>], top: f64) -> Vec<usize> {
+    let _ = (energies, values, top);
+    todo!()
+}
+
 /// 拡げた値を最初に計算するエネルギー: 元の格子を x で `SEED_SPACING` まで間引いた点と、
 /// しきい反応の始まりと、上限 `top`。
 ///
@@ -382,7 +388,9 @@ mod tests {
     }
 
     #[test]
-    fn grid_resolves_broadened_cross_section() {
+    fn grid_meets_njoy_convergence_criterion_at_midpoints() {
+        // NJOY broadn と同じ判定: 中点の誤差が tol 以下か、10 tol 以下で誤差の面積が小さい
+        // （0.5 eV 未満ではどちらの許容誤差も 1/5）
         let (awr, temperature, e_max, tol) = (1.0, 300.0, 1.0e3, 1.0e-3);
         let a = alpha(awr, temperature);
         let table = Tab1::linear(vec![1.0e-11, 1.0e5], vec![10.0, 10.0]);
@@ -392,9 +400,73 @@ mod tests {
         for w in out.x.windows(2).filter(|w| w[1] <= e_max) {
             let mid = 0.5 * (w[0] + w[1]);
             let exact = broadened_constant(10.0, (a * mid).sqrt());
-            let approx = out.eval(mid).unwrap();
-            assert!((approx - exact).abs() <= tol * exact, "at {mid}");
+            let dy = (out.eval(mid).unwrap() - exact).abs();
+            let scale = if w[1] < 0.4999 { 0.2 } else { 1.0 };
+            let fine = dy <= scale * tol * exact;
+            let small_area =
+                dy <= scale * 10.0 * tol * exact && dy * (w[1] - w[0]) / 2.0 <= tol / 2.0e4 * mid;
+            assert!(fine || small_area, "at {mid}: error {}", dy / exact);
         }
+    }
+
+    fn one_reaction(values: &[f64]) -> Vec<Vec<f64>> {
+        values.iter().map(|&v| vec![v]).collect()
+    }
+
+    #[test]
+    fn nodes_at_changes_of_slope_direction() {
+        let e: Vec<f64> = (0..6)
+            .map(|k| 10.012_34 + 0.111_11 * f64::from(k))
+            .collect();
+        // 増加 → 減少（2 で向きが変わる）→ 平ら（4 で向きが変わる）
+        let v = one_reaction(&[1.0, 2.0, 3.0, 2.0, 1.0, 1.0]);
+        assert_eq!(nodes(&e, &v, 100.0), vec![0, 2, 4, 5]);
+    }
+
+    #[test]
+    fn small_changes_count_as_flat() {
+        let e: Vec<f64> = (0..4)
+            .map(|k| 10.012_34 + 0.111_11 * f64::from(k))
+            .collect();
+        // 1/1000 未満の減少は平ら（増加と同じ向き）とみなす
+        let v = one_reaction(&[1.0, 2.0, 1.9999, 3.0]);
+        assert_eq!(nodes(&e, &v, 100.0), vec![0, 3]);
+    }
+
+    #[test]
+    fn nodes_at_most_ten_points_apart() {
+        let e: Vec<f64> = (0..15)
+            .map(|k| 10.012_34 + 0.111_11 * f64::from(k))
+            .collect();
+        let v = one_reaction(&(0..15).map(f64::from).collect::<Vec<_>>());
+        assert_eq!(nodes(&e, &v, 100.0), vec![0, 11, 14]);
+    }
+
+    #[test]
+    fn nodes_within_energy_ratio() {
+        let e = [1.234_567, 2.345_678, 2.567_891, 2.678_912];
+        let v = one_reaction(&[1.0, 2.0, 3.0, 4.0]);
+        // 2.567891 は最初の節の 2.01 倍を超える
+        assert_eq!(nodes(&e, &v, 100.0), vec![0, 2, 3]);
+    }
+
+    #[test]
+    fn nodes_at_round_energies_and_thermal() {
+        let e = [1.234_567, 1.3, 1.345_678, 1.456_789];
+        let v = one_reaction(&[1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(nodes(&e, &v, 100.0), vec![0, 1, 3]);
+        let e = [0.021_234_5, 0.0253, 0.029_876_5, 0.031_234_5];
+        assert_eq!(nodes(&e, &v, 100.0), vec![0, 1, 3]);
+    }
+
+    #[test]
+    fn nodes_stop_below_top() {
+        let e: Vec<f64> = (0..6)
+            .map(|k| 10.012_34 + 0.111_11 * f64::from(k))
+            .collect();
+        let v = one_reaction(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        // top 未満の最後の点は節にする
+        assert_eq!(nodes(&e, &v, 10.4), vec![0, 3]);
     }
 
     #[test]
