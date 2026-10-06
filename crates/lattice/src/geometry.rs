@@ -1,4 +1,4 @@
-//! ピンセルの形状。
+//! 格子計算の形状: 同心円で区切った正方形のセル（ピンセル）と、それを正方格子に並べたもの。
 
 use std::f64::consts::PI;
 
@@ -63,6 +63,64 @@ impl PinCell {
     }
 }
 
+/// トラック上の1つの領域を通る区間。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Segment {
+    pub region: usize,
+    /// 平面に射影した長さ (cm)
+    pub length: f64,
+}
+
+/// ピンセルを n × n の正方格子に並べた、一辺 n × pitch の正方形の形状（中心が原点）。
+///
+/// セルは上の行から順に、各行は左から順に番号を付ける。領域はセルの順に、セルの中では
+/// `PinCell` の領域の順に通し番号を付ける。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lattice {
+    types: Vec<PinCell>,
+    /// [セル] のセルの種類（`types` の番号）
+    layout: Vec<usize>,
+    n: usize,
+    /// [セル] のセルの最初の領域の番号
+    offsets: Vec<usize>,
+}
+
+impl Lattice {
+    /// `types` はセルの種類（すべて同じピッチ）、`layout` は上の行から順の各行のセルの種類。
+    pub fn new(types: Vec<PinCell>, layout: Vec<Vec<usize>>) -> Result<Self, String> {
+        todo!("{types:?} {layout:?}")
+    }
+
+    /// 1つのピンセルだけの形状。
+    pub fn pin_cell(cell: PinCell) -> Self {
+        todo!("{cell:?}")
+    }
+
+    /// 一辺の長さ (cm)
+    pub fn width(&self) -> f64 {
+        todo!()
+    }
+
+    pub fn regions(&self) -> usize {
+        todo!()
+    }
+
+    /// セル `cell` の領域の範囲。
+    pub fn cell_regions(&self, cell: usize) -> std::ops::Range<usize> {
+        todo!("{cell}")
+    }
+
+    /// 領域ごとの体積（単位高さあたりの面積, cm²）の解析値。
+    pub fn volumes(&self) -> Vec<f64> {
+        todo!()
+    }
+
+    /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
+    pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
+        todo!("{start:?} {direction:?} {length}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,5 +145,79 @@ mod tests {
         assert!((v[0] - PI * 0.25).abs() < 1e-15);
         assert!((v[1] - PI * (0.64 - 0.25)).abs() < 1e-15);
         assert!((v.iter().sum::<f64>() - 4.0).abs() < 1e-14);
+    }
+
+    fn two_by_two() -> Lattice {
+        let pin = PinCell::new(2.0, vec![0.5]).unwrap();
+        let water = PinCell::new(2.0, vec![]).unwrap();
+        Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap()
+    }
+
+    #[test]
+    fn validates_lattice() {
+        let pin = PinCell::new(2.0, vec![0.5]).unwrap();
+        let other = PinCell::new(1.0, vec![]).unwrap();
+        // ピッチが揃っていない、行の長さが行の数と違う、種類の番号が範囲外
+        assert!(Lattice::new(vec![pin.clone(), other], vec![vec![0, 1], vec![1, 0]]).is_err());
+        assert!(Lattice::new(vec![pin.clone()], vec![vec![0, 0]]).is_err());
+        assert!(Lattice::new(vec![pin.clone()], vec![vec![1]]).is_err());
+        assert!(Lattice::new(vec![pin], vec![]).is_err());
+    }
+
+    #[test]
+    fn lattice_regions_and_volumes() {
+        let lattice = two_by_two();
+        assert_eq!(lattice.width(), 4.0);
+        // 上の行: ピン（2領域）、水（1領域）。下の行: 水、ピン
+        assert_eq!(lattice.regions(), 6);
+        assert_eq!(lattice.cell_regions(0), 0..2);
+        assert_eq!(lattice.cell_regions(1), 2..3);
+        assert_eq!(lattice.cell_regions(2), 3..4);
+        assert_eq!(lattice.cell_regions(3), 4..6);
+        let v = lattice.volumes();
+        let disk = PI * 0.25;
+        let expected = [disk, 4.0 - disk, 4.0, 4.0, disk, 4.0 - disk];
+        for (a, b) in v.iter().zip(expected) {
+            assert!((a - b).abs() < 1e-14, "{v:?}");
+        }
+    }
+
+    #[test]
+    fn segments_cross_cells_in_order() {
+        // 上の行の中心を左から右へ: ピンの外側, ピンの内側, ピンの外側, 水
+        let lattice = two_by_two();
+        let s = lattice.segments((-2.0, 1.0), (1.0, 0.0), 4.0);
+        let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
+        assert_eq!(regions, vec![1, 0, 1, 2]);
+        let lengths: Vec<f64> = s.iter().map(|s| s.length).collect();
+        for (a, b) in lengths.iter().zip([0.5, 1.0, 0.5, 2.0]) {
+            assert!((a - b).abs() < 1e-14, "{lengths:?}");
+        }
+    }
+
+    #[test]
+    fn diagonal_segments_cover_the_line() {
+        let lattice = two_by_two();
+        let d = std::f64::consts::FRAC_1_SQRT_2;
+        let s = lattice.segments((-2.0, -2.0), (d, d), 4.0 * 2.0_f64.sqrt());
+        let length: f64 = s.iter().map(|s| s.length).sum();
+        assert!((length - 4.0 * 2.0_f64.sqrt()).abs() < 1e-12);
+        // 左下と右上のピンを中心を通って横切る（直径 1.0 の区間がそれぞれある）
+        let inner: Vec<f64> = s
+            .iter()
+            .filter(|s| s.region == 0 || s.region == 4)
+            .map(|s| s.length)
+            .collect();
+        assert_eq!(inner.len(), 2);
+        assert!(inner.iter().all(|l| (l - 1.0).abs() < 1e-12), "{inner:?}");
+    }
+
+    #[test]
+    fn single_pin_cell_lattice() {
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let lattice = Lattice::pin_cell(cell.clone());
+        assert_eq!(lattice.width(), 1.26);
+        assert_eq!(lattice.regions(), 2);
+        assert_eq!(lattice.volumes(), cell.volumes());
     }
 }
