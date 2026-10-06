@@ -16,7 +16,7 @@ echo "== xs: ENDF/B-VIII.0 -> WIMS 69-group library"
 "$bin/xs" "$here/xs.toml"
 
 echo "== lattice: pin cell MOC -> 2-group constants"
-"$bin/lattice" "$here/pincell.inp"
+"$bin/lattice" "$here/pincell.toml"
 
 echo "== core: 3D NEM"
 "$bin/core" "$here/core.inp"

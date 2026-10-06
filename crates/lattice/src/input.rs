@@ -1,31 +1,38 @@
-//! 格子計算の入力ファイル。
+//! 格子計算の入力ファイル（TOML）。
 //!
-//! 1行に `キーワード 値...` を書く。`#` から行末まではコメント。`material`, `cell`, `row` は
-//! 何度でも書け、それ以外は1回だけ書く。
+//! ```toml
+//! library = "m1.msgpack"          # 多群ライブラリ（cross-sections と排他）
+//! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
+//! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
+//! pin-powers = "pins.msgpack"     # セルごとの核分裂率（平均が 1）
+//! pitch = 1.26                    # セルのピッチ (cm)
+//! azimuthal = 32                  # (0, π) の方位角の数
+//! spacing = 0.05                  # トラック間隔 (cm)
+//! boundary = { right = "vacuum", bottom = "vacuum" }   # 外周の辺の境界条件（書かない辺は鏡面反射）
+//! rows = ["pin box", "box pin"]   # セルの配置を上の行から
 //!
-//! ```text
-//! library m1.msgpack                 # 多群ライブラリ（cross-sections と排他）
-//! # cross-sections c5g7.xs       # 巨視的断面積のファイル（このときは material を書かない）
-//! output pincell.fg              # 少数群定数（library のときだけ。few-group-bounds が必要）
-//! few-group-bounds 1e7 0.625 1e-5
-//! pin-powers pins.txt            # セルごとの核分裂率（平均が 1）
-//! pitch 1.26                     # セルのピッチ (cm)
-//! azimuthal 32                   # (0, π) の方位角の数
-//! spacing 0.05                   # トラック間隔 (cm)
-//! boundary right vacuum bottom vacuum    # 外周の辺の境界条件（書かない辺は鏡面反射）
-//! material fuel temperature 900 U-235 7.0e-4 U-238 2.2e-2 O-16 4.6e-2   # 核種と個数密度 (1/(barn cm))
-//! material water temperature 600 H-1 4.9e-2 O-16 2.5e-2
-//! cell pin fuel 0.4096 3 water - 2       # 物質 外半径 分割数 ...（最後の帯の外半径は - でセルの外周まで）
-//! cell box water - 1 grid 4             # 均質なセルは小さな正方形に分けられる（4 × 4）
-//! cell rod fuel 0.4 2 water - 2 sectors 8   # 各リングを 45° ごとの扇形に分ける（1, 4, 8）
-//! row pin box                            # セルの配置を上の行から
-//! row box pin
+//! [material.fuel]
+//! temperature = 900               # K。ライブラリにある温度であること
+//! nuclides = { U-235 = 7.0e-4, U-238 = 2.2e-2, O-16 = 4.6e-2 }   # 個数密度 (1/(barn cm))
+//!
+//! [cell.pin]                      # 帯を内側から。最後の帯は radius を省略してセルの外周まで
+//! zones = [{ material = "fuel", radius = 0.4096, rings = 3 }, { material = "water", rings = 2 }]
+//! sectors = 8                     # 各リングを 45° ごとの扇形に分ける（1, 4, 8。省略すると 1）
+//!
+//! [cell.box]
+//! zones = [{ material = "water", rings = 1 }]
+//! grid = 4                        # 均質なセルを 4 × 4 の正方形に分ける（省略すると 1）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に、最後の帯は
 //! セルの内接円までを半径方向に等間隔に分ける。
 
 use std::path::PathBuf;
+
+use std::collections::BTreeMap;
+
+use serde::Deserialize;
+use xlc_xs::library::is_nuclide_name;
 
 use crate::geometry::{Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
@@ -85,146 +92,161 @@ pub struct LatticeInput {
     pub rows: Vec<Vec<String>>,
 }
 
-/// 1回だけ書くキーワード
-const SINGLE: [&str; 9] = [
-    "library",
-    "cross-sections",
-    "output",
-    "few-group-bounds",
-    "pin-powers",
-    "pitch",
-    "azimuthal",
-    "spacing",
-    "boundary",
-];
+/// 入力ファイルの読み込みエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum InputError {
+    #[error("{0}")]
+    Toml(#[from] toml::de::Error),
+    #[error("{0}")]
+    Invalid(String),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct InputFile {
+    library: Option<PathBuf>,
+    cross_sections: Option<PathBuf>,
+    /// 省略すると少数群定数を出さない
+    few_group: Option<FewGroupEntry>,
+    /// 省略するとピン出力を出さない
+    pin_powers: Option<PathBuf>,
+    pitch: f64,
+    azimuthal: usize,
+    spacing: f64,
+    /// 省略した辺は鏡面反射
+    boundary: Option<BoundaryEntry>,
+    rows: Vec<String>,
+    /// 巨視的断面積のときは書かない
+    material: Option<BTreeMap<String, MaterialEntry>>,
+    cell: BTreeMap<String, CellEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FewGroupEntry {
+    output: PathBuf,
+    bounds: Vec<f64>,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Condition {
+    Reflective,
+    Vacuum,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BoundaryEntry {
+    left: Option<Condition>,
+    right: Option<Condition>,
+    top: Option<Condition>,
+    bottom: Option<Condition>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MaterialEntry {
+    temperature: f64,
+    nuclides: BTreeMap<String, f64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CellEntry {
+    zones: Vec<ZoneEntry>,
+    /// 省略すると 1（均質なセルだけ）
+    grid: Option<usize>,
+    /// 省略すると 1
+    sectors: Option<usize>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ZoneEntry {
+    material: String,
+    /// 最後の帯だけ省略する（セルの外周まで）
+    radius: Option<f64>,
+    rings: usize,
+}
+
+fn positive(v: f64) -> bool {
+    v > 0.0 && v.is_finite()
+}
 
 impl LatticeInput {
-    /// エラーは「line N: ...」の形の文字列で返す。
-    pub fn parse(text: &str) -> Result<Self, String> {
-        let mut single: Vec<(&str, usize, Vec<&str>)> = Vec::new();
-        let mut materials = Vec::new();
-        let mut cells: Vec<CellInput> = Vec::new();
-        let mut rows = Vec::new();
-        for (index, raw) in text.lines().enumerate() {
-            let line = index + 1;
-            let content = raw.split('#').next().unwrap_or("");
-            let tokens: Vec<&str> = content.split_whitespace().collect();
-            let Some((&key, values)) = tokens.split_first() else {
-                continue;
-            };
-            let at = |e: String| format!("line {line}: {e}");
-            match key {
-                "material" => {
-                    let material = parse_material(values).map_err(at)?;
-                    if materials
-                        .iter()
-                        .any(|m: &MaterialInput| m.name == material.name)
-                    {
-                        return Err(at(format!("material `{}` is given twice", material.name)));
-                    }
-                    materials.push(material);
-                }
-                "cell" => {
-                    let cell = parse_cell(values).map_err(at)?;
-                    if cells.iter().any(|c| c.name == cell.name) {
-                        return Err(at(format!("cell `{}` is given twice", cell.name)));
-                    }
-                    cells.push(cell);
-                }
-                "row" => {
-                    if values.is_empty() {
-                        return Err(at("`row` needs cell names".into()));
-                    }
-                    rows.push(values.iter().map(|v| v.to_string()).collect());
-                }
-                _ if SINGLE.contains(&key) => {
-                    if single.iter().any(|(k, ..)| *k == key) {
-                        return Err(at(format!("`{key}` is given twice")));
-                    }
-                    single.push((key, line, values.to_vec()));
-                }
-                _ => {
-                    return Err(at(format!("unknown keyword `{key}`")));
-                }
-            }
-        }
-
-        let get = |key: &str| single.iter().find(|(k, ..)| *k == key);
-        let one = |key: &str| -> Result<Option<(usize, &str)>, String> {
-            match get(key) {
-                None => Ok(None),
-                Some((_, line, values)) => match values[..] {
-                    [value] => Ok(Some((*line, value))),
-                    _ => Err(format!("line {line}: `{key}` takes one value")),
-                },
-            }
-        };
-        let required = |key: &str| -> Result<(usize, &str), String> {
-            one(key)?.ok_or_else(|| format!("`{key}` is missing"))
-        };
-        let positive = |key: &str| -> Result<f64, String> {
-            let (line, value) = required(key)?;
-            parse_positive(value)
-                .ok_or_else(|| format!("line {line}: `{key}` must be a positive number"))
-        };
-        let cross_sections = match (one("library")?, one("cross-sections")?) {
-            (Some((_, path)), None) => CrossSections::Library(PathBuf::from(path)),
-            (None, Some((_, path))) => CrossSections::Macroscopic(PathBuf::from(path)),
-            (Some((line, _)), Some(_)) => {
-                return Err(format!(
-                    "line {line}: give either `library` or `cross-sections`, not both"
+    pub fn parse(text: &str) -> Result<Self, InputError> {
+        let file: InputFile = toml::from_str(text)?;
+        let invalid = |message: String| InputError::Invalid(message);
+        let cross_sections = match (file.library, file.cross_sections) {
+            (Some(path), None) => CrossSections::Library(path),
+            (None, Some(path)) => CrossSections::Macroscopic(path),
+            _ => {
+                return Err(invalid(
+                    "give exactly one of `library` and `cross-sections`".into(),
                 ));
             }
-            (None, None) => return Err("`library` or `cross-sections` is missing".into()),
         };
         let macroscopic = matches!(cross_sections, CrossSections::Macroscopic(_));
-        if macroscopic && let Some(m) = materials.first() {
-            return Err(format!(
-                "material `{}`: materials come from the cross-section file",
-                m.name
+        if macroscopic && file.material.is_some() {
+            return Err(invalid("materials come from the cross-section file".into()));
+        }
+        if macroscopic && file.few_group.is_some() {
+            return Err(invalid(
+                "`few-group` needs a library (group energies)".into(),
             ));
         }
-        let output = match (one("output")?, get("few-group-bounds")) {
-            (None, None) => None,
-            (Some((line, _)), _) if macroscopic => {
-                return Err(format!(
-                    "line {line}: `output` needs a library (group energies)"
-                ));
+        for (key, value) in [("pitch", file.pitch), ("spacing", file.spacing)] {
+            if !positive(value) {
+                return Err(invalid(format!("`{key}` must be positive, got {value}")));
             }
-            (Some((_, path)), Some((_, line, bounds))) => {
-                let bounds = bounds
-                    .iter()
-                    .map(|b| b.parse::<f64>())
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|_| format!("line {line}: invalid few-group bound"))?;
-                Some((PathBuf::from(path), bounds))
-            }
-            (Some((line, _)), None) => {
-                return Err(format!("line {line}: `output` needs `few-group-bounds`"));
-            }
-            (None, Some((_, line, _))) => {
-                return Err(format!("line {line}: `few-group-bounds` needs `output`"));
-            }
-        };
-        let azimuthal = {
-            let (line, value) = required("azimuthal")?;
-            value
-                .parse::<usize>()
-                .map_err(|_| format!("line {line}: `azimuthal` must be a non-negative integer"))?
-        };
-        let boundaries = match get("boundary") {
+        }
+        if file.azimuthal == 0 {
+            return Err(invalid("`azimuthal` must be positive".into()));
+        }
+        let boundaries = match file.boundary {
             None => Boundaries::REFLECTIVE,
-            Some((_, line, values)) => {
-                parse_boundaries(values).map_err(|e| format!("line {line}: {e}"))?
+            Some(b) => {
+                let side = |c: Option<Condition>| match c {
+                    None | Some(Condition::Reflective) => Boundary::Reflective,
+                    Some(Condition::Vacuum) => Boundary::Vacuum,
+                };
+                Boundaries {
+                    left: side(b.left),
+                    right: side(b.right),
+                    top: side(b.top),
+                    bottom: side(b.bottom),
+                }
             }
         };
+        let materials = file
+            .material
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(name, entry)| entry.into_input(name))
+            .collect::<Result<Vec<_>, String>>()
+            .map_err(invalid)?;
+        let cells = file
+            .cell
+            .into_iter()
+            .map(|(name, entry)| entry.into_input(name))
+            .collect::<Result<Vec<_>, String>>()
+            .map_err(invalid)?;
+        let rows = file
+            .rows
+            .iter()
+            .map(|row| row.split_whitespace().map(String::from).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        if rows.is_empty() || rows.iter().any(Vec::is_empty) {
+            return Err(invalid("`rows` needs cell names in every row".into()));
+        }
         Ok(Self {
             cross_sections,
-            output,
-            pin_powers: one("pin-powers")?.map(|(_, path)| PathBuf::from(path)),
-            pitch: positive("pitch")?,
-            azimuthal,
-            spacing: positive("spacing")?,
+            output: file.few_group.map(|f| (f.output, f.bounds)),
+            pin_powers: file.pin_powers,
+            pitch: file.pitch,
+            azimuthal: file.azimuthal,
+            spacing: file.spacing,
             boundaries,
             materials,
             cells,
@@ -303,172 +325,134 @@ impl LatticeInput {
     }
 }
 
-fn parse_positive(value: &str) -> Option<f64> {
-    value
-        .parse::<f64>()
-        .ok()
-        .filter(|v| *v > 0.0 && v.is_finite())
-}
-
-/// `NAME temperature T (NUCLIDE DENSITY)...`
-fn parse_material(values: &[&str]) -> Result<MaterialInput, String> {
-    let [name, "temperature", temperature, pairs @ ..] = values else {
-        return Err(
-            "`material` takes `NAME temperature T` and pairs of nuclide and density".into(),
-        );
-    };
-    let temperature = parse_positive(temperature)
-        .ok_or_else(|| format!("material `{name}`: invalid temperature `{temperature}`"))?;
-    if pairs.is_empty() || !pairs.len().is_multiple_of(2) {
-        return Err(format!(
-            "material `{name}`: give pairs of nuclide and density"
-        ));
-    }
-    let composition = pairs
-        .chunks(2)
-        .map(|pair| {
-            let density = pair[1]
-                .parse::<f64>()
-                .ok()
-                .filter(|v| *v >= 0.0 && v.is_finite())
-                .ok_or_else(|| format!("material `{name}`: invalid density `{}`", pair[1]))?;
-            Ok((pair[0].to_string(), density))
-        })
-        .collect::<Result<_, String>>()?;
-    Ok(MaterialInput {
-        name: name.to_string(),
-        temperature,
-        composition,
-    })
-}
-
-/// `NAME (MATERIAL OUTER RINGS)... [grid M]`（最後の帯の OUTER は `-`）
-fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
-    let Some((name, rest)) = values.split_first() else {
-        return Err("`cell` needs a name".into());
-    };
-    let count = |key: &str, value: &str| {
-        value
-            .parse::<usize>()
-            .ok()
-            .filter(|&m| m > 0)
-            .ok_or_else(|| format!("cell `{name}`: invalid {key} `{value}`"))
-    };
-    let (triples, grid, sectors) = match rest {
-        [zones @ .., "grid", m] => {
-            if !matches!(zones, [_, "-", "1"]) {
-                return Err(format!(
-                    "cell `{name}`: `grid` needs a homogeneous cell (`MATERIAL - 1`)"
-                ));
-            }
-            (zones, count("grid", m)?, 1)
+impl MaterialEntry {
+    fn into_input(self, name: String) -> Result<MaterialInput, String> {
+        if !positive(self.temperature) {
+            return Err(format!(
+                "material `{name}`: invalid temperature {}",
+                self.temperature
+            ));
         }
-        [zones @ .., "sectors", s] => (zones, 1, count("sectors", s)?),
-        _ => (rest, 1, 1),
-    };
-    if triples.is_empty() || !triples.len().is_multiple_of(3) {
-        return Err(format!(
-            "cell `{name}`: give zones as MATERIAL OUTER-RADIUS RINGS"
-        ));
-    }
-    let count = triples.len() / 3;
-    let mut zones = Vec::with_capacity(count);
-    let mut inner = 0.0;
-    for (k, zone) in triples.chunks(3).enumerate() {
-        let last = k + 1 == count;
-        let outer = match (zone[1], last) {
-            ("-", true) => None,
-            ("-", false) => {
+        if self.nuclides.is_empty() {
+            return Err(format!("material `{name}` has no nuclides"));
+        }
+        for (nuclide, &density) in &self.nuclides {
+            if !is_nuclide_name(nuclide) {
                 return Err(format!(
-                    "cell `{name}`: only the last zone extends to the cell boundary"
+                    "material `{name}`: nuclide name `{nuclide}` is not of the form U-235, Am-242m"
                 ));
             }
-            (_, true) => {
+            if !(density >= 0.0 && density.is_finite()) {
                 return Err(format!(
-                    "cell `{name}`: the last zone must extend to the cell boundary (`-`)"
+                    "material `{name}`: invalid density {density} of {nuclide}"
                 ));
             }
-            (r, false) => {
-                let r = parse_positive(r)
-                    .filter(|&r| r > inner)
-                    .ok_or_else(|| format!("cell `{name}`: radii must increase, got `{r}`"))?;
-                inner = r;
-                Some(r)
-            }
-        };
-        let rings = zone[2]
-            .parse::<usize>()
-            .ok()
-            .filter(|&n| n > 0)
-            .ok_or_else(|| format!("cell `{name}`: invalid number of rings `{}`", zone[2]))?;
-        zones.push(Zone {
-            material: zone[0].to_string(),
-            outer,
-            rings,
-        });
+        }
+        Ok(MaterialInput {
+            name,
+            temperature: self.temperature,
+            composition: self.nuclides.into_iter().collect(),
+        })
     }
-    Ok(CellInput {
-        name: name.to_string(),
-        zones,
-        grid,
-        sectors,
-    })
 }
 
-/// `(SIDE CONDITION)...`
-fn parse_boundaries(values: &[&str]) -> Result<Boundaries, String> {
-    if values.is_empty() || !values.len().is_multiple_of(2) {
-        return Err("`boundary` takes pairs of side and condition".into());
-    }
-    let mut boundaries = Boundaries::REFLECTIVE;
-    for pair in values.chunks(2) {
-        let condition = match pair[1] {
-            "reflective" => Boundary::Reflective,
-            "vacuum" => Boundary::Vacuum,
-            other => return Err(format!("unknown boundary condition `{other}`")),
+impl CellEntry {
+    fn into_input(self, name: String) -> Result<CellInput, String> {
+        let error = |message: &str| Err(format!("cell `{name}`: {message}"));
+        let Some((last, inner)) = self.zones.split_last() else {
+            return error("needs at least one zone");
         };
-        let side = match pair[0] {
-            "left" => &mut boundaries.left,
-            "right" => &mut boundaries.right,
-            "top" => &mut boundaries.top,
-            "bottom" => &mut boundaries.bottom,
-            other => return Err(format!("unknown side `{other}`")),
+        if last.radius.is_some() {
+            return error("the last zone extends to the cell boundary (no radius)");
+        }
+        let mut previous = 0.0;
+        for zone in inner {
+            match zone.radius {
+                Some(r) if positive(r) && r > previous => previous = r,
+                Some(r) => return error(&format!("radii must increase, got {r}")),
+                None => return error("only the last zone may omit its radius"),
+            }
+        }
+        if self.zones.iter().any(|z| z.rings == 0) {
+            return error("every zone needs at least one ring");
+        }
+        let (grid, sectors) = match (self.grid, self.sectors) {
+            (Some(_), Some(_)) => return error("`grid` and `sectors` exclude each other"),
+            (Some(0), _) | (_, Some(0)) => return error("`grid` and `sectors` must be positive"),
+            (Some(m), None) => {
+                if self.zones.len() != 1 || self.zones[0].rings != 1 {
+                    return error("`grid` needs a homogeneous cell (one zone with one ring)");
+                }
+                (m, 1)
+            }
+            (None, s) => (1, s.unwrap_or(1)),
         };
-        *side = condition;
+        Ok(CellInput {
+            name,
+            zones: self
+                .zones
+                .into_iter()
+                .map(|z| Zone {
+                    material: z.material,
+                    outer: z.radius,
+                    rings: z.rings,
+                })
+                .collect(),
+            grid,
+            sectors,
+        })
     }
-    Ok(boundaries)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const PIN_CELL: &str = "
+    const PIN_CELL: &str = r#"
 # pin cell
-library m1.msgpack
-output pincell.fg
-few-group-bounds 1e7 0.625 1e-5
-pitch 1.26
-azimuthal 16
-spacing 0.05
-material fuel temperature 900 U-235 7.0e-4 U-238 2.2e-2 O-16 4.6e-2   # UO2
-material water temperature 600 H-1 4.9e-2 O-16 2.5e-2
-cell pin fuel 0.4 2 water - 2
-row pin
-";
+library = "m1.msgpack"
+few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }
+pitch = 1.26
+azimuthal = 16
+spacing = 0.05
+rows = ["pin"]
 
-    const LATTICE: &str = "
-cross-sections c5g7.xs
-pin-powers pins.txt
-pitch 2.0
-azimuthal 8
-spacing 0.1
-boundary right vacuum bottom vacuum
-cell pin UO2 0.5 1 clad 0.6 1 water - 1
-cell box water - 1
-row pin box
-row box pin
-";
+[material.fuel]   # UO2
+temperature = 900
+nuclides = { U-235 = 7.0e-4, U-238 = 2.2e-2, O-16 = 4.6e-2 }
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }
+
+[cell.pin]
+zones = [{ material = "fuel", radius = 0.4, rings = 2 }, { material = "water", rings = 2 }]
+"#;
+
+    const LATTICE: &str = r#"
+cross-sections = "c5g7.toml"
+pin-powers = "pins.msgpack"
+pitch = 2.0
+azimuthal = 8
+spacing = 0.1
+boundary = { right = "vacuum", bottom = "vacuum" }
+rows = ["pin box", "box pin"]
+
+[cell.pin]
+zones = [
+  { material = "UO2", radius = 0.5, rings = 1 },
+  { material = "clad", radius = 0.6, rings = 1 },
+  { material = "water", rings = 1 },
+]
+
+[cell.box]
+zones = [{ material = "water", rings = 1 }]
+"#;
+
+    fn replaced(text: &str, from: &str, to: &str) -> Result<LatticeInput, InputError> {
+        assert!(text.contains(from), "{from}");
+        LatticeInput::parse(&text.replace(from, to))
+    }
 
     #[test]
     fn parses_pin_cell() {
@@ -479,7 +463,7 @@ row box pin
         );
         assert_eq!(
             input.output,
-            Some((PathBuf::from("pincell.fg"), vec![1e7, 0.625, 1e-5]))
+            Some((PathBuf::from("pincell.fg.msgpack"), vec![1e7, 0.625, 1e-5]))
         );
         assert_eq!(input.pin_powers, None);
         assert_eq!(
@@ -487,11 +471,13 @@ row box pin
             (1.26, 16, 0.05)
         );
         assert_eq!(input.boundaries, Boundaries::REFLECTIVE);
+        // 物質と核種は名前の順
         assert_eq!(input.materials.len(), 2);
+        assert_eq!(input.materials[0].name, "fuel");
         assert_eq!(input.materials[0].temperature, 900.0);
         assert_eq!(
             input.materials[0].composition[1],
-            ("U-238".to_string(), 2.2e-2)
+            ("U-235".to_string(), 7.0e-4)
         );
         assert_eq!(
             input.cells[0].zones,
@@ -508,6 +494,7 @@ row box pin
                 },
             ]
         );
+        assert_eq!((input.cells[0].grid, input.cells[0].sectors), (1, 1));
         assert_eq!(input.rows, vec![vec!["pin".to_string()]]);
     }
 
@@ -528,10 +515,10 @@ row box pin
         let input = LatticeInput::parse(LATTICE).unwrap();
         assert_eq!(
             input.cross_sections,
-            CrossSections::Macroscopic(PathBuf::from("c5g7.xs"))
+            CrossSections::Macroscopic(PathBuf::from("c5g7.toml"))
         );
         assert_eq!(input.output, None);
-        assert_eq!(input.pin_powers, Some(PathBuf::from("pins.txt")));
+        assert_eq!(input.pin_powers, Some(PathBuf::from("pins.msgpack")));
         assert_eq!(
             input.boundaries,
             Boundaries {
@@ -542,6 +529,7 @@ row box pin
         );
         let (lattice, materials) = input.geometry().unwrap();
         assert_eq!(lattice.width(), 4.0);
+        // セルは配置の順（上の行から）
         assert_eq!(
             materials,
             vec![
@@ -550,128 +538,126 @@ row box pin
         );
     }
 
-    fn line_of(text: &str, prefix: &str) -> usize {
-        text.lines().position(|l| l.starts_with(prefix)).unwrap() + 1
-    }
-
     #[test]
-    fn errors_report_lines() {
-        let text = PIN_CELL.replace("azimuthal 16", "azimuthal sixteen");
-        let err = LatticeInput::parse(&text).unwrap_err();
-        assert!(
-            err.starts_with(&format!("line {}:", line_of(&text, "azimuthal"))),
-            "{err}"
+    fn grid_and_sectors_split_cells() {
+        let text = LATTICE.replace(
+            "[cell.box]\nzones = [{ material = \"water\", rings = 1 }]",
+            "[cell.box]\nzones = [{ material = \"water\", rings = 1 }]\ngrid = 3",
         );
-        let text = PIN_CELL.replace("water - 2", "water 0.3 2");
-        let err = LatticeInput::parse(&text).unwrap_err();
-        assert!(
-            err.starts_with(&format!("line {}:", line_of(&text, "cell"))),
-            "{err}"
+        let input = LatticeInput::parse(&text).unwrap();
+        let (lattice, _) = input.geometry().unwrap();
+        assert_eq!(lattice.regions(), 3 + 9 + 9 + 3);
+        let text = LATTICE.replace(
+            "  { material = \"water\", rings = 1 },\n]",
+            "  { material = \"water\", rings = 1 },\n]\nsectors = 8",
         );
+        let (lattice, _) = LatticeInput::parse(&text).unwrap().geometry().unwrap();
+        assert_eq!(lattice.regions(), 2 * 24 + 2);
     }
 
     #[test]
     fn invalid_inputs_are_errors() {
-        let parse = LatticeInput::parse;
         // 断面積の出どころは library と cross-sections のどちらか一方
-        assert!(parse(&format!("{PIN_CELL}\ncross-sections a.xs")).is_err());
-        assert!(parse(&PIN_CELL.replace("library m1.msgpack", "")).is_err());
+        assert!(LatticeInput::parse(&format!("cross-sections = \"a.toml\"\n{PIN_CELL}")).is_err());
+        assert!(replaced(PIN_CELL, "library = \"m1.msgpack\"\n", "").is_err());
         // 巨視的断面積では material を書かない、少数群定数を出さない
         assert!(
-            parse(&format!(
-                "{LATTICE}\nmaterial UO2 temperature 600 U-235 1e-3"
+            LatticeInput::parse(&format!(
+                "{LATTICE}\n[material.UO2]\ntemperature = 600\nnuclides = {{ U-235 = 1e-3 }}"
             ))
             .is_err()
         );
         assert!(
-            parse(&format!(
-                "{LATTICE}\noutput a.fg\nfew-group-bounds 1e7 1e-5"
-            ))
+            replaced(
+                LATTICE,
+                "pitch = 2.0",
+                "pitch = 2.0\nfew-group = { output = \"a\", bounds = [1e7, 1e-5] }"
+            )
             .is_err()
         );
-        // output と few-group-bounds は対
-        assert!(parse(&PIN_CELL.replace("few-group-bounds 1e7 0.625 1e-5", "")).is_err());
-        // 知らないキーワード、2回書いたキーワード、知らない境界の辺と条件
-        assert!(parse(&format!("{PIN_CELL}\nalbedo 1")).is_err());
-        assert!(parse(&format!("{PIN_CELL}\npitch 2.0")).is_err());
-        assert!(parse(&LATTICE.replace("right vacuum", "east vacuum")).is_err());
-        assert!(parse(&LATTICE.replace("right vacuum", "right white")).is_err());
-        // 帯: 外半径が昇順でない、最後の帯がセルの外周まででない、分割数が 0
-        assert!(parse(&LATTICE.replace("clad 0.6 1", "clad 0.4 1")).is_err());
-        assert!(parse(&LATTICE.replace("water - 1\ncell box", "water 0.9 1\ncell box")).is_err());
-        assert!(parse(&LATTICE.replace("UO2 0.5 1", "UO2 0.5 0")).is_err());
-        // 同じ名前のセル・物質
-        assert!(parse(&format!("{LATTICE}\ncell box water - 2")).is_err());
+        // 知らないキー、知らない辺と条件
+        assert!(replaced(PIN_CELL, "pitch = 1.26", "pitch = 1.26\nalbedo = 1").is_err());
+        assert!(replaced(LATTICE, "right = \"vacuum\"", "east = \"vacuum\"").is_err());
+        assert!(replaced(LATTICE, "right = \"vacuum\"", "right = \"white\"").is_err());
+        // 正でない値、温度、個数密度、核種名
+        assert!(replaced(PIN_CELL, "pitch = 1.26", "pitch = 0").is_err());
+        assert!(replaced(PIN_CELL, "spacing = 0.05", "spacing = -0.05").is_err());
+        assert!(replaced(PIN_CELL, "azimuthal = 16", "azimuthal = 0").is_err());
+        assert!(replaced(PIN_CELL, "temperature = 900", "temperature = -900").is_err());
+        assert!(replaced(PIN_CELL, "U-238 = 2.2e-2", "U-238 = -2.2e-2").is_err());
+        assert!(replaced(PIN_CELL, "U-238 = 2.2e-2", "U238 = 2.2e-2").is_err());
         assert!(
-            parse(&format!(
-                "{PIN_CELL}\nmaterial fuel temperature 600 U-238 1e-2"
-            ))
+            replaced(
+                PIN_CELL,
+                "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+                "nuclides = {}"
+            )
+            .is_err()
+        );
+        // 帯: 外半径が昇順でない、最後の帯に外半径がある、途中の帯に外半径がない、分割数が 0
+        assert!(replaced(LATTICE, "radius = 0.6", "radius = 0.4").is_err());
+        assert!(
+            replaced(
+                PIN_CELL,
+                "{ material = \"water\", rings = 2 }",
+                "{ material = \"water\", radius = 0.6, rings = 2 }"
+            )
+            .is_err()
+        );
+        assert!(
+            replaced(
+                PIN_CELL,
+                "{ material = \"fuel\", radius = 0.4, rings = 2 }",
+                "{ material = \"fuel\", rings = 2 }"
+            )
+            .is_err()
+        );
+        assert!(replaced(PIN_CELL, "rings = 2 }]", "rings = 0 }]").is_err());
+        // grid は均質なセル（帯が1つで分割数 1）だけ、grid と sectors は同時に使わない
+        assert!(replaced(PIN_CELL, "rings = 2 }]", "rings = 2 }]\ngrid = 2").is_err());
+        assert!(
+            replaced(
+                LATTICE,
+                "zones = [{ material = \"water\", rings = 1 }]",
+                "zones = [{ material = \"water\", rings = 1 }]\ngrid = 2\nsectors = 4"
+            )
+            .is_err()
+        );
+        assert!(
+            replaced(
+                LATTICE,
+                "zones = [{ material = \"water\", rings = 1 }]",
+                "zones = [{ material = \"water\", rings = 1 }]\ngrid = 0"
+            )
             .is_err()
         );
     }
 
     #[test]
     fn geometry_checks_names_and_layout() {
-        let geometry = |text: &str| LatticeInput::parse(text).unwrap().geometry();
+        let geometry = |text: String| {
+            LatticeInput::parse(&text)
+                .map_err(|e| e.to_string())
+                .and_then(|i| i.geometry())
+        };
         // 配置に知らないセル、行の長さが行の数と違う
-        assert!(geometry(&LATTICE.replace("row box pin", "row box rod")).is_err());
-        assert!(geometry(&LATTICE.replace("row box pin", "row box pin pin")).is_err());
+        assert!(geometry(LATTICE.replace("\"box pin\"", "\"box rod\"")).is_err());
+        assert!(geometry(LATTICE.replace("\"box pin\"", "\"box pin pin\"")).is_err());
         // ライブラリのときは、セルの物質が material で定義されていること
-        assert!(geometry(&PIN_CELL.replace("water - 2", "steam - 2")).is_err());
-        // 帯の外半径がセルの内接円を超える
-        assert!(geometry(&LATTICE.replace("clad 0.6 1", "clad 1.2 1")).is_err());
-    }
-
-    #[test]
-    fn homogeneous_cells_can_be_split_into_a_grid() {
-        let text = LATTICE.replace("cell box water - 1", "cell box water - 1 grid 3");
-        let input = LatticeInput::parse(&text).unwrap();
-        assert_eq!(input.cells[1].grid, 3);
-        assert_eq!(input.cells[0].grid, 1);
-        let (lattice, materials) = input.geometry().unwrap();
-        // ピン 3 領域 + 3 × 3 の箱が2つ + ピン 3 領域
-        assert_eq!(lattice.regions(), 24);
-        assert_eq!(materials.iter().filter(|m| *m == "water").count(), 2 + 18);
-        // grid は同心円のない均質なセル（帯が1つで分割数 1）だけ
-        let parse = LatticeInput::parse;
         assert!(
-            parse(&LATTICE.replace("water - 1\ncell box", "water - 1 grid 2\ncell box")).is_err()
+            geometry(PIN_CELL.replace(
+                "{ material = \"water\", rings = 2 }",
+                "{ material = \"steam\", rings = 2 }"
+            ))
+            .is_err()
         );
+        // 帯の外半径がセルの内接円を超える、扇形の数が 1, 4, 8 でない
+        assert!(geometry(LATTICE.replace("radius = 0.6", "radius = 1.2")).is_err());
         assert!(
-            parse(&LATTICE.replace("cell box water - 1", "cell box water - 2 grid 2")).is_err()
-        );
-        assert!(
-            parse(&LATTICE.replace("cell box water - 1", "cell box water - 1 grid 0")).is_err()
-        );
-    }
-
-    #[test]
-    fn rings_can_be_split_into_sectors() {
-        let text = LATTICE.replace("water - 1\ncell box", "water - 1 sectors 8\ncell box");
-        let input = LatticeInput::parse(&text).unwrap();
-        assert_eq!(input.cells[0].sectors, 8);
-        assert_eq!(input.cells[1].sectors, 1);
-        let (lattice, materials) = input.geometry().unwrap();
-        // ピン (3 領域 × 8) が2つと水の箱が2つ
-        assert_eq!(lattice.regions(), 2 * 24 + 2);
-        assert_eq!(
-            &materials[..9],
-            &["UO2"; 8].map(String::from)[..]
-                .iter()
-                .cloned()
-                .chain(["clad".to_string()])
-                .collect::<Vec<_>>()[..]
-        );
-        // 分割数は 1, 4, 8、grid とは同時に使わない
-        let geometry = |text: &str| LatticeInput::parse(text).and_then(|i| i.geometry());
-        assert!(
-            geometry(&LATTICE.replace("water - 1\ncell box", "water - 1 sectors 3\ncell box"))
-                .is_err()
-        );
-        assert!(
-            LatticeInput::parse(
-                &LATTICE.replace("cell box water - 1", "cell box water - 1 grid 2 sectors 4")
-            )
+            geometry(LATTICE.replace(
+                "  { material = \"water\", rings = 1 },\n]",
+                "  { material = \"water\", rings = 1 },\n]\nsectors = 3"
+            ))
             .is_err()
         );
     }

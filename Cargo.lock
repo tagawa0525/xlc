@@ -235,6 +235,12 @@ dependencies = [
 name = "xlc-lattice"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "rmp-serde",
+ "rmpv",
+ "serde",
+ "thiserror",
+ "toml",
  "xlc-xs",
 ]
 
