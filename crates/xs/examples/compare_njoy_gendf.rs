@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use xs::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
 use xs::multigroup::{
-    GroupStructure, Weight, fission_spectrum, reaction_averages, scattering_matrix,
+    Emission, GroupStructure, Weight, fission_spectrum, reaction_averages, scattering_matrix,
 };
 use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(section) = tape.section(mat, 6, mt) {
             match Mf6::parse(&section) {
                 Ok(data) => {
-                    mf6.insert(mt, data);
+                    mf6.insert(mt, Emission::Mf6(data));
                 }
                 Err(e) => {
                     println!("MF6 MT{mt}: skipped ({e})");

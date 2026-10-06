@@ -21,7 +21,7 @@ pub use mf2::{
     Unresolved, UrrJValue, UrrLValue, UrrPoint,
 };
 pub use mf3::Mf3;
-pub use mf5::{Mf5, OutgoingDistributions, parse_outgoing};
+pub use mf5::{EnergyLaw, Mf5, OutgoingDistributions, parse_outgoing};
 pub use mf6::{Frame, Mf6, NeutronEmission};
 pub use mf7::Mf7Incoherent;
 pub use tab1::{Interpolation, Tab1};
