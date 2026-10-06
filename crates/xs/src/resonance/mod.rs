@@ -1,6 +1,7 @@
 //! 共鳴パラメータからの断面積の計算。
 
 mod factors;
+mod fluctuation;
 mod mlbw;
 mod reich_moore;
 
