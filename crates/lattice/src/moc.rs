@@ -490,6 +490,7 @@ fn equilibrium_flux(m: &Material, phi: &[f64], k: f64) -> Vec<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cmfd::CoarseMesh;
     use crate::geometry::{Lattice, PinCell};
     use crate::material::FissionTerm;
     use crate::tracking::{Boundaries, Boundary};
@@ -629,6 +630,59 @@ mod tests {
         let serial = solve_on(1);
         for threads in [2, 5, 8] {
             assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
+    }
+
+    #[test]
+    fn sweep_currents_balance_each_coarse_cell() {
+        // 1回のスイープで、セルの中の領域の減衰の和 Σ Δ（= 入る - 出る）と、セルの面から外向きの
+        // 正味の中性子流の和は打ち消し合う。線源と入ってくる角度中性子束は任意の値でよい
+        let pin = PinCell::new(1.26, vec![0.3, 0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let mesh = CoarseMesh::new(&lattice, &tracking);
+        // 2×2 の格子の中心を通るトラックがあり、セルの角を斜めに抜ける場合も確かめる
+        assert!(mesh.corner_crossings() > 0);
+        let (f, m) = (fuel(), moderator());
+        let materials = [&f, &f, &m, &m, &m, &f, &f, &m];
+        let ng = 2;
+        let sweeper = Sweeper::new(&tracking, &materials, ng, &mesh);
+        let equilibrium: Vec<Vec<f64>> = (0..materials.len())
+            .map(|i| {
+                (0..ng)
+                    .map(|g| 0.1 + ((7 * i + 3 * g) % 11) as f64 * 0.01)
+                    .collect()
+            })
+            .collect();
+        let incoming: Vec<f64> = (0..sweeper.outgoing_len())
+            .map(|j| 0.05 + ((37 * j) % 101) as f64 * 1.0e-3)
+            .collect();
+        let mut outgoing = vec![0.0; sweeper.outgoing_len()];
+        let mut tallies = sweeper.tallies(materials.len());
+        sweeper.sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies);
+        let sums = sum_tallies(&tallies, ng);
+        for cell in 0..mesh.cells() {
+            for g in 0..ng {
+                let inside: f64 = lattice
+                    .cell_regions(cell)
+                    .map(|i| sums.delta[i * ng + g])
+                    .sum();
+                let outward: f64 = mesh
+                    .cell_faces(cell)
+                    .iter()
+                    .map(|&(face, sign)| sign * sums.current[face * ng + g])
+                    .sum();
+                assert!(
+                    (inside + outward).abs() < 1e-12 * inside.abs().max(outward.abs()),
+                    "cell {cell} group {g}: {inside} + {outward}"
+                );
+            }
         }
     }
 
