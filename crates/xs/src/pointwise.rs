@@ -7,7 +7,10 @@ use std::collections::BTreeMap;
 
 use crate::doppler::{broaden, broadening_limit};
 use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape, Unresolved};
-use crate::resonance::{CrossSections, MlbwXs, ReichMooreXs, Sigma, UnresolvedXs};
+use crate::resonance::{
+    CrossSections, MlbwXs, ReichMooreXs, Sigma, UnresolvedXs, unresolved_grid,
+    unresolved_interpolation,
+};
 
 /// 線形化・共鳴計算の打ち切り判定: 区間の中点で、線形補間と真値の差が
 /// `tol × |真値|` 以下になるまで区間を二分する。
@@ -355,6 +358,10 @@ fn add_resonances(
             RangeKind::ScatteringRadius { .. } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
             RangeKind::UnresolvedLrf1 { lssf: 1 } => continue,
+            RangeKind::Unresolved(urr) if urr.lssf == 0 => {
+                replace_with_unresolved(tables, urr, range.el, range.eh, fission_mt, tol)?;
+                continue;
+            }
             RangeKind::Unresolved(Unresolved { lssf, .. }) | RangeKind::UnresolvedLrf1 { lssf } => {
                 return Err(format!(
                     "unresolved range with LSSF={lssf} is not supported"
@@ -391,6 +398,75 @@ fn add_resonances(
         }
     }
     Ok(())
+}
+
+/// LSSF=0 の非分離共鳴の範囲 [el, eh] で、弾性散乱・核分裂・捕獲を、平均断面積と MF3 の背景断面積の和に
+/// 置き換える（NJOY RECONR と同じ）。和は格子点で求め、格子点の間は MF2 の補間則で補間してから線形化する。
+fn replace_with_unresolved(
+    tables: &mut BTreeMap<u32, Tab1>,
+    urr: &Unresolved,
+    el: f64,
+    eh: f64,
+    fission_mt: u32,
+    tol: f64,
+) -> Result<(), String> {
+    let xs = UnresolvedXs::new(urr)?;
+    let law = unresolved_interpolation(urr)?;
+    let grid = unresolved_grid(urr, el, eh);
+    let averages: Vec<Sigma> = grid.iter().map(|&e| xs.cross_sections(e)).collect();
+    let parts: [(u32, fn(&Sigma) -> f64); 3] = [
+        (2, |s| s.elastic),
+        (fission_mt, |s| s.fission),
+        (102, |s| s.capture),
+    ];
+    for (mt, part) in parts {
+        let background = tables.get(&mt);
+        let values: Vec<f64> = grid
+            .iter()
+            .zip(&averages)
+            .map(|(&e, s)| part(s) + background.and_then(|t| t.eval(e)).unwrap_or(0.0))
+            .collect();
+        if background.is_none() && values.iter().all(|&v| v == 0.0) {
+            continue;
+        }
+        let unresolved = linearize(
+            &Tab1 {
+                breaks: vec![grid.len()],
+                laws: vec![law],
+                x: grid.clone(),
+                y: values,
+            },
+            tol,
+        );
+        let combined = match background {
+            Some(t) => add(&outside(t, el, eh), &unresolved),
+            None => unresolved,
+        };
+        tables.insert(mt, combined);
+    }
+    Ok(())
+}
+
+/// lin-lin の表の [el, eh] の中を 0 にした表（範囲の端は不連続点になる）。
+fn outside(t: &Tab1, el: f64, eh: f64) -> Tab1 {
+    let (mut x, mut y) = (Vec::new(), Vec::new());
+    for (&e, &v) in t.x.iter().zip(&t.y).filter(|(e, _)| **e < el) {
+        x.push(e);
+        y.push(v);
+    }
+    if el > t.x[0] {
+        x.extend([el, el]);
+        y.extend([left_limit(t, el), 0.0]);
+    }
+    if eh < t.x[t.x.len() - 1] {
+        x.extend([eh, eh]);
+        y.extend([0.0, right_limit(t, eh)]);
+    }
+    for (&e, &v) in t.x.iter().zip(&t.y).filter(|(e, _)| **e > eh) {
+        x.push(e);
+        y.push(v);
+    }
+    Tab1::linear(x, y)
 }
 
 /// 共鳴のピークと、その半値幅の位置。`peaks` は (共鳴エネルギー, 半値幅)。
