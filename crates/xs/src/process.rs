@@ -132,7 +132,11 @@ pub fn unresolved_shielding(
 /// 差を、全 σ0 の全断面積と弾性散乱に足して、全断面積 = 吸収 + 散乱 の関係を保つ。
 /// 熱領域の外では、行の和は無限希釈の弾性散乱に等しいので、差は 0 になる。
 pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f64> {
-    todo!()
+    elastic
+        .iter()
+        .zip(elastic_matrix)
+        .map(|(el, row)| row.iter().sum::<f64>() - el)
+        .collect()
 }
 
 /// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
@@ -144,7 +148,163 @@ pub fn process_nuclide(
     thermal: Option<&Mf7Incoherent>,
     settings: &Settings,
 ) -> Result<NuclideData, String> {
-    todo!()
+    let materials = tape.materials();
+    let [mat] = materials[..] else {
+        return Err(format!("expected one material, found {materials:?}"));
+    };
+    let text = |e: crate::endf::Error| e.to_string();
+    let mf3 = |mt: u32| -> Result<Mf3, String> {
+        let section = tape
+            .section(mat, 3, mt)
+            .ok_or_else(|| format!("MF3 MT{mt} not found"))?;
+        Mf3::parse(&section).map_err(text)
+    };
+    let first = *tape.mts(mat, 3).first().ok_or("no MF3 data")?;
+    let head = mf3(first)?;
+    let nubar = match tape.section(mat, 1, 452) {
+        Some(section) => Some(parse_nubar(&section).map_err(text)?),
+        None => None,
+    };
+    let mf5 = match tape.section(mat, 5, 18) {
+        Some(section) => Some(Mf5::parse(&section).map_err(text)?),
+        None => None,
+    };
+    let mut q_values = BTreeMap::new();
+    for mt in tape
+        .mts(mat, 3)
+        .into_iter()
+        .filter(|mt| (51..=90).contains(mt))
+    {
+        q_values.insert(mt, mf3(mt)?.qi);
+    }
+    let mut mf6 = BTreeMap::new();
+    for mt in tape.mts(mat, 6) {
+        if mt != 2 && emits_neutrons(mt) {
+            let section = tape.section(mat, 6, mt).expect("listed by mts");
+            mf6.insert(mt, Mf6::parse(&section).map_err(text)?);
+        }
+    }
+    let common = Common {
+        tape,
+        mat,
+        awr: head.awr,
+        nubar: nubar.as_ref(),
+        mf5: mf5.as_ref(),
+        q_values: &q_values,
+        mf6: &mf6,
+        thermal,
+        settings,
+    };
+    let temperatures = temperatures
+        .iter()
+        .map(|&t| common.at_temperature(t).map_err(|e| format!("{t} K: {e}")))
+        .collect::<Result<_, _>>()?;
+    Ok(NuclideData {
+        name: name.to_string(),
+        za: head.za,
+        awr: head.awr,
+        temperatures,
+    })
+}
+
+/// 温度によらない、1核種の処理の材料。
+struct Common<'a> {
+    tape: &'a Tape,
+    mat: i32,
+    awr: f64,
+    nubar: Option<&'a Tab1>,
+    mf5: Option<&'a Mf5>,
+    q_values: &'a BTreeMap<u32, f64>,
+    mf6: &'a BTreeMap<u32, Mf6>,
+    thermal: Option<&'a Mf7Incoherent>,
+    settings: &'a Settings,
+}
+
+impl Common<'_> {
+    fn at_temperature(&self, temperature: f64) -> Result<TemperatureData, String> {
+        let settings = self.settings;
+        let (groups, weight) = (&settings.groups, &settings.weight);
+        let ng = groups.len();
+        let tables = reconstruct_at(self.tape, self.mat, settings.tolerance, temperature)
+            .map_err(|e| e.to_string())?;
+        let shielding = unresolved_shielding(self.tape, self.mat, temperature, &settings.sigma0)?;
+        let averages = shielded_averages(
+            groups,
+            weight,
+            &tables,
+            self.nubar,
+            &settings.sigma0,
+            shielding.as_ref(),
+        )?;
+        let chi = match (tables.contains_key(&18), self.nubar, self.mf5) {
+            (false, ..) => vec![0.0; ng],
+            (true, Some(nu), Some(mf5)) => fission_spectrum(groups, weight, &tables, nu, mf5),
+            (true, ..) => return Err("fission needs MF1 MT452 and MF5 MT18".into()),
+        };
+
+        // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
+        let thermal = match self.thermal {
+            Some(data) => {
+                Thermal::Sab(ThermalSab::new(data, temperature, settings.thermal_cutoff)?)
+            }
+            None => Thermal::FreeGas(FreeGas {
+                kt: BK * temperature,
+                cutoff: settings.thermal_cutoff,
+            }),
+        };
+        let elastic_table = tables.get(&2).ok_or("MF3 MT2 not found")?;
+        let elastic_only = BTreeMap::from([(2, elastic_table.clone())]);
+        let others: BTreeMap<_, _> = tables
+            .iter()
+            .filter(|(mt, _)| **mt != 2)
+            .map(|(mt, t)| (*mt, t.clone()))
+            .collect();
+        let elastic = scattering_matrix(
+            groups,
+            weight,
+            self.awr,
+            &elastic_only,
+            self.q_values,
+            self.mf6,
+            Some(&thermal),
+        )?;
+        let mut scatter = scattering_matrix(
+            groups,
+            weight,
+            self.awr,
+            &others,
+            self.q_values,
+            self.mf6,
+            None,
+        )?;
+        for (row, el) in scatter.iter_mut().zip(&elastic) {
+            for (v, e) in row.iter_mut().zip(el) {
+                *v += e;
+            }
+        }
+        let zeros = vec![0.0; ng];
+        let sigma =
+            |avg: &ReactionAverages, mt: u32| avg.sigma.get(&mt).cloned().unwrap_or(zeros.clone());
+        let correction = thermal_correction(&sigma(&averages[0], 2), &elastic);
+        let corrected = |values: Vec<f64>| -> Vec<f64> {
+            values.iter().zip(&correction).map(|(v, c)| v + c).collect()
+        };
+        let shielded = averages
+            .iter()
+            .map(|avg| Shielded {
+                total: corrected(sigma(avg, 1)),
+                elastic: corrected(sigma(avg, 2)),
+                fission: sigma(avg, 18),
+                nu_fission: avg.nu_fission.clone().unwrap_or(zeros.clone()),
+            })
+            .collect();
+        Ok(TemperatureData {
+            temperature,
+            chi,
+            scatter,
+            shielded,
+        })
+    }
 }
 
 #[cfg(test)]
