@@ -214,7 +214,8 @@ impl Sequence<'_> {
     /// J, K は表から補間する（`jk_interpolated`）。表の範囲を外れたら、その点を記録してエラーにする。
     fn integrals(&self, sigm: &[f64]) -> Result<Vec<f64>, String> {
         let n = PARTS * sigm.len();
-        if self.gn <= 0.0 {
+        // 平均断面積（`fluctuation_integrals`）と同じく、Γn または Γγ が 0 以下なら 0 とする
+        if self.gn <= 0.0 || self.gg <= 0.0 {
             return Ok(vec![0.0; n]);
         }
         let dof_f = if self.gf > 0.0 { self.jv.amuf } else { 0 };
