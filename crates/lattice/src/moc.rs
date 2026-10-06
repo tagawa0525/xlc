@@ -125,6 +125,30 @@ pub fn solve(
     if let Some(i) = volumes.iter().position(|&v| v <= 0.0) {
         return Err(MocError::Untracked(i));
     }
+    // 領域の平均はトラックから求めた体積で計算するので、細い領域でトラックが足りないと
+    // 解析値からずれる。分割とトラック間隔が釣り合っているかを確かめられるように出す
+    if tracing::enabled!(tracing::Level::DEBUG) {
+        let lattice = &tracking.lattice;
+        let exact = lattice.volumes();
+        let (region, error) = worst_volume_error(&exact, &volumes);
+        let cell = (0..lattice.cells_per_side().pow(2))
+            .find(|&c| lattice.cell_regions(c).contains(&region));
+        tracing::debug!(
+            regions,
+            worst_region = region,
+            cell,
+            relative_error = error,
+            "track volumes against the exact areas"
+        );
+        for (region, (exact, tracked)) in exact.iter().zip(&volumes).enumerate() {
+            tracing::trace!(
+                region,
+                exact,
+                tracked,
+                relative_error = tracked / exact - 1.0
+            );
+        }
+    }
 
     let mesh = CoarseMesh::new(tracking);
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh);
@@ -586,6 +610,22 @@ fn group_without_source(materials: &[&Material], ng: usize) -> Option<usize> {
     reached.iter().position(|r| !r)
 }
 
+/// トラックから求めた体積 `tracked` の、解析値 `exact` に対する相対誤差が最も大きい領域と、その誤差。
+fn worst_volume_error(exact: &[f64], tracked: &[f64]) -> (usize, f64) {
+    exact
+        .iter()
+        .zip(tracked)
+        .map(|(e, t)| t / e - 1.0)
+        .enumerate()
+        .fold((0, 0.0), |worst, (region, error)| {
+            if error.abs() > worst.1.abs() {
+                (region, error)
+            } else {
+                worst
+            }
+        })
+}
+
 /// 中性子束の相対変化。両方 0 なら変化なし。
 fn relative_change(new: f64, old: f64) -> f64 {
     let scale = new.abs().max(old.abs());
@@ -998,6 +1038,15 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("region 0"), "{err}");
+    }
+
+    #[test]
+    fn worst_volume_error_finds_the_largest_relative_mismatch() {
+        let exact = [1.0, 0.1, 2.0];
+        let tracked = [1.001, 0.098, 2.002];
+        let (region, error) = worst_volume_error(&exact, &tracked);
+        assert_eq!(region, 1);
+        assert!((error + 0.02).abs() < 1e-12, "{error}");
     }
 
     #[test]
