@@ -504,14 +504,14 @@ pub(crate) mod tests {
 
     #[test]
     fn pole_of_a_resonance_without_capture_is_the_limit() {
-        // 捕獲がないと共鳴エネルギーは R 行列の極になるが、断面積は連続
+        // 捕獲がないと共鳴エネルギーは R 行列の極になるが、断面積は連続。両側の値の平均（傾きの分が
+        // 打ち消し合う）と比べる
         let xs = RMatrixLimitedXs::new(&inelastic_level(0.0)).unwrap();
         let at = xs.cross_sections(2.0e3).unwrap();
-        for side in [1.0 - 1.0e-9, 1.0 + 1.0e-9] {
-            let near = xs.cross_sections(2.0e3 * side).unwrap();
-            for (a, b) in at.iter().zip(&near) {
-                assert_close(*a, *b, &format!("pole at {side}"));
-            }
+        let below = xs.cross_sections(2.0e3 * (1.0 - 1.0e-9)).unwrap();
+        let above = xs.cross_sections(2.0e3 * (1.0 + 1.0e-9)).unwrap();
+        for ((a, b), c) in at.iter().zip(&below).zip(&above) {
+            assert_close(*a, 0.5 * (b + c), "pole");
         }
     }
 
