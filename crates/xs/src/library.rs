@@ -32,7 +32,8 @@ pub fn is_nuclide_name(name: &str) -> bool {
         (Some(a), None, None) | (Some(a), Some('a'..='z'), None) if a.is_ascii_uppercase()
     );
     let (mass, isomer) = match rest.split_once('m') {
-        Some((mass, index)) => (mass, index.is_empty() || number(index)),
+        // 最初の準安定状態は `m` だけで書く（`m1` を許すと同じ状態に名前が2つできる）
+        Some((mass, index)) => (mass, index.is_empty() || (number(index) && index != "1")),
         None => (rest, true),
     };
     element && number(mass) && isomer
