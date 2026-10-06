@@ -9,9 +9,7 @@ use crate::multigroup::{
     Weight, emits_neutrons, fission_spectrum, scattering_matrix, shielded_averages,
 };
 use crate::physics::BK;
-use crate::pointwise::{
-    DEFAULT_TOLERANCE, left_limit, linearize, reconstruct, reconstruct_at, right_limit,
-};
+use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
 use crate::resonance::{Sigma, UnresolvedXs, unresolved_grid, unresolved_interpolation};
 
 /// 処理の条件。
@@ -202,14 +200,7 @@ pub fn process_nuclide(
         Some(section) => Some(parse_nubar(&section).map_err(text)?),
         None => None,
     };
-    // 自由ガス模型は自由原子の断面積（0 K の弾性散乱）に核を掛ける（`free_gas_elastic` を参照）
-    let free_atom_elastic = match thermal {
-        Some(_) => None,
-        None => {
-            let mut tables = reconstruct(tape, mat, settings.tolerance).map_err(text)?;
-            Some(tables.remove(&2).ok_or("MF3 MT2 not found")?)
-        }
-    };
+    let cold = ColdParts::read(tape, mat, settings.tolerance).map_err(text)?;
     let mf5 = match tape.section(mat, 5, 18) {
         Some(section) => Some(Mf5::parse(&section).map_err(text)?),
         None => None,
@@ -246,7 +237,7 @@ pub fn process_nuclide(
         emissions: &emissions,
         thermal,
         settings,
-        free_atom_elastic: free_atom_elastic.as_ref(),
+        cold: &cold,
     };
     let temperatures = temperatures
         .iter()
@@ -271,8 +262,8 @@ struct Common<'a> {
     emissions: &'a BTreeMap<u32, Emission>,
     thermal: Option<&'a Mf7Incoherent>,
     settings: &'a Settings,
-    /// 0 K の弾性散乱断面積（自由ガス模型を使う場合）
-    free_atom_elastic: Option<&'a Tab1>,
+    /// 0 K の部分反応（温度ごとに広げる）
+    cold: &'a ColdParts,
 }
 
 impl Common<'_> {
@@ -280,8 +271,7 @@ impl Common<'_> {
         let settings = self.settings;
         let (groups, weight) = (&settings.groups, &settings.weight);
         let ng = groups.len();
-        let tables = reconstruct_at(self.tape, self.mat, settings.tolerance, temperature)
-            .map_err(|e| e.to_string())?;
+        let tables = self.cold.at(temperature);
         let shielding = unresolved_shielding(self.tape, self.mat, temperature, &settings.sigma0)?;
         let averages = shielded_averages(
             groups,
@@ -308,9 +298,13 @@ impl Common<'_> {
             }),
         };
         let elastic_table = tables.get(&2).ok_or("MF3 MT2 not found")?;
-        let elastic_table = match self.free_atom_elastic {
-            Some(free_atom) => free_gas_elastic(free_atom, elastic_table, settings.thermal_cutoff),
-            None => elastic_table.clone(),
+        // 自由ガス模型は自由原子の断面積（0 K の弾性散乱）に核を掛ける（`free_gas_elastic` を参照）
+        let elastic_table = match thermal {
+            Thermal::FreeGas(_) => {
+                let free_atom = self.cold.part(2).ok_or("MF3 MT2 not found")?;
+                free_gas_elastic(free_atom, elastic_table, settings.thermal_cutoff)
+            }
+            Thermal::Sab(_) => elastic_table.clone(),
         };
         let elastic_only = BTreeMap::from([(2, elastic_table)]);
         let others: BTreeMap<_, _> = tables
@@ -524,7 +518,7 @@ mod tests {
             let last = dilute.total.len() - 1;
             // 熱群の補正は全断面積と弾性散乱の両方に入るので、差は同じ温度に拡げた捕獲の群平均に等しい
             // （一定の 1 b でも、拡げると低いエネルギーで大きくなる）
-            let tables = reconstruct_at(&tape, 1, 1.0e-3, t.temperature).unwrap();
+            let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, t.temperature).unwrap();
             let capture = crate::multigroup::reaction_averages(
                 &settings.groups,
                 &settings.weight,
