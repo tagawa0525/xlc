@@ -84,7 +84,7 @@ pub enum LibraryError {
     Decode(String),
     #[error("{0} bytes follow the library")]
     TrailingBytes(usize),
-    #[error("structs must be MessagePack maps with field names")]
+    #[error("structs must be MessagePack maps with string field names")]
     NotMap,
     #[error("expected format {FORMAT}, found {0}")]
     Format(String),
@@ -159,7 +159,7 @@ impl Library {
         })
     }
 
-    /// 核種 `name` の、温度 `temperature` (K) での無限希釈の群定数。温度は表にあること（補間しない）。
+    /// 核種 `name` の、温度 `temperature` (K) での無限希釈の群定数。温度は表の値と完全に一致すること（補間しない）。
     pub fn nuclide(&self, name: &str, temperature: f64) -> Result<Nuclide, String> {
         let data = self
             .nuclides
@@ -169,7 +169,7 @@ impl Library {
         let t = data
             .temperatures
             .iter()
-            .find(|t| (t.temperature - temperature).abs() <= 1.0e-9 * temperature)
+            .find(|t| t.temperature == temperature)
             .ok_or_else(|| {
                 let available: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
                 format!("{name} has no data at {temperature} K (available: {available:?})")
@@ -193,8 +193,12 @@ impl Library {
 /// 項目の有無と型は、そのあとの serde の変換で確かめる。
 fn require_maps(value: &rmpv::Value) -> Result<(), LibraryError> {
     type Entries = [(rmpv::Value, rmpv::Value)];
+    // キーは文字列だけを認める（serde はバイナリのキーもフィールド名として受け付けるため）
     fn map(v: &rmpv::Value) -> Result<&Entries, LibraryError> {
-        v.as_map().map(Vec::as_slice).ok_or(LibraryError::NotMap)
+        v.as_map()
+            .filter(|entries| entries.iter().all(|(k, _)| k.is_str()))
+            .map(Vec::as_slice)
+            .ok_or(LibraryError::NotMap)
     }
     fn array<'a>(entries: &'a Entries, key: &str) -> &'a [rmpv::Value] {
         entries
