@@ -13,9 +13,9 @@
 
 use std::time::Instant;
 
-use xs::doppler::{broaden, broadening_limit};
-use xs::endf::{Mf2, Mf3, Tab1, Tape};
-use xs::pointwise::{DEFAULT_TOLERANCE, is_broadened};
+use xlc_xs::doppler::{broaden, broadening_limit};
+use xlc_xs::endf::{Mf2, Mf3, Tab1, Tape};
+use xlc_xs::pointwise::{DEFAULT_TOLERANCE, is_broadened};
 
 /// 同じ値とみなす相対差。NJOY の出力は有効数字 7 桁で、積分の打ち切り（NJOY は |x - y| ≤ 4、
 /// こちらは 5）の違いが 2e-6 程度あるので、それより一桁大きくとる。

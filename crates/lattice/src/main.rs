@@ -8,14 +8,14 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use lattice::fewgroup::homogenize;
-use lattice::input::{CrossSections, LatticeInput};
-use lattice::macroscopic;
-use lattice::material::Material;
-use lattice::moc::{Options, solve};
-use lattice::power::{cell_fission_rates, to_text};
-use lattice::tracking::Tracking;
-use xs::library::Library;
+use xlc_lattice::fewgroup::homogenize;
+use xlc_lattice::input::{CrossSections, LatticeInput};
+use xlc_lattice::macroscopic;
+use xlc_lattice::material::Material;
+use xlc_lattice::moc::{Options, solve};
+use xlc_lattice::power::{cell_fission_rates, to_text};
+use xlc_lattice::tracking::Tracking;
+use xlc_xs::library::Library;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
