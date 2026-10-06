@@ -213,16 +213,14 @@ pub fn process_nuclide(
         q_values.insert(mt, mf3(mt)?.qi);
     }
     let mut emissions = BTreeMap::new();
-    for mt in tape.mts(mat, 6) {
+    for (mt, section) in tape.sections(mat, 6) {
         if mt != 2 && emits_neutrons(mt) {
-            let section = tape.section(mat, 6, mt).expect("listed by mts");
             emissions.insert(mt, Emission::Mf6(Mf6::parse(&section)?));
         }
     }
     // MF6 のない反応は、MF4/MF5 で与えられている（MF5 のエネルギー分布だけを使う）
-    for mt in tape.mts(mat, 5) {
+    for (mt, section) in tape.sections(mat, 5) {
         if mt != 2 && emits_neutrons(mt) && !emissions.contains_key(&mt) {
-            let section = tape.section(mat, 5, mt).expect("listed by mts");
             emissions.insert(mt, Emission::Mf5(Mf5::parse(&section)?));
         }
     }
