@@ -522,6 +522,35 @@ mod tests {
     }
 
     #[test]
+    fn unit_base_keeps_histogram_steps() {
+        // 出射分布がヒストグラム（段差がある）でも、確率の合計と形を保つ。
+        // [0, 0.5] に密度 2 と [0, 1.5] に密度 2/3 の中間は、[0, 1] に密度 1
+        let step = |width: f64| Tab1 {
+            breaks: vec![3],
+            laws: vec![Interpolation::Histogram],
+            x: vec![0.0, 0.5 * width, width],
+            y: vec![2.0 / width, 0.0, 0.0],
+        };
+        let distributions = OutgoingDistributions {
+            breaks: vec![2],
+            laws: vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: true,
+            }],
+            incident: vec![10.0, 20.0],
+            spectra: vec![step(1.0), step(3.0)],
+        };
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let grouped = GroupedOutgoing::new(&groups, &distributions);
+        let mut out = vec![0.0; 3];
+        grouped.accumulate(15.0, 1.0, &mut out);
+        let expected = [0.0, 0.0, 1.0];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-9, "{out:?}");
+        }
+    }
+
+    #[test]
     fn unit_base_in_the_center_of_mass_matches_the_laboratory_for_a_heavy_target() {
         // 標的が十分重ければ、重心系と実験室系はほぼ同じ
         let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();

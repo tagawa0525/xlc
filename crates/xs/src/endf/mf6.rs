@@ -295,24 +295,30 @@ mod tests {
         assert!(law("6").is_err());
     }
 
-    #[test]
-    fn corresponding_points_with_equal_grids_are_not_supported() {
-        // 2つの入射エネルギーの出射分布がどちらも 2 点
-        let text = [
+    /// 2つの入射エネルギーの出射分布がどちらも 2 点で、入射エネルギーの補間則が `int` の節
+    fn equal_grids(int: &str) -> String {
+        [
             r(["8016.0", "15.85751", "0", "2", "1", "0"]),
             r(["1.0", "1.0", "0", "1", "1", "2"]),
             r(["2", "2", "", "", "", ""]),
             r(["1.6e7", "2.0", "2.0e7", "2.0", "", ""]),
             r(["0.0", "0.0", "1", "2", "1", "2"]),
-            r(["2", "12", "", "", "", ""]),
+            r(["2", int, "", "", "", ""]),
             r(["0.0", "1.6e7", "0", "0", "4", "2"]),
             r(["0.0", "1.0e-6", "1.0e6", "1.0e-6", "", ""]),
             r(["0.0", "2.0e7", "0", "0", "4", "2"]),
             r(["0.0", "5.0e-7", "2.0e6", "5.0e-7", "", ""]),
         ]
-        .concat();
-        let tape = Tape::parse(&text).unwrap();
+        .concat()
+    }
+
+    #[test]
+    fn corresponding_points_with_equal_grids_are_not_supported() {
+        let tape = Tape::parse(&equal_grids("12")).unwrap();
         assert!(Mf6::parse(&tape.section(825, 6, 16).unwrap()).is_err());
+        // ヒストグラムは入射エネルギーの間を補間しないので、対応点でも扱える
+        let tape = Tape::parse(&equal_grids("11")).unwrap();
+        assert!(Mf6::parse(&tape.section(825, 6, 16).unwrap()).is_ok());
     }
 
     #[test]
