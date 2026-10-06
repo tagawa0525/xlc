@@ -84,6 +84,7 @@ pub enum MocError {
 }
 
 /// `materials[i]` は領域 i の物質。
+#[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]
 pub fn solve(
     tracking: &Tracking,
     materials: &[&Material],
@@ -219,6 +220,31 @@ pub fn solve(
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
         // 残りの誤差を見積もって判定する
         // 両方の履歴を毎回更新する（短絡評価で片方が飛ぶと、縮小率を離れた反復どうしで比べてしまう）
+        tracing::debug!(
+            iteration,
+            k = new_k,
+            k_change = new_k - k,
+            flux_change = change
+        );
+        if tracing::enabled!(tracing::Level::TRACE) {
+            let (index, largest) = new_flux
+                .iter()
+                .flatten()
+                .zip(flux.iter().flatten())
+                .map(|(new, old)| relative_change(*new, *old))
+                .enumerate()
+                .fold((0, 0.0), |a, (i, c)| if c > a.1 { (i, c) } else { a });
+            let (region, group) = (index / ng, index % ng);
+            tracing::trace!(
+                region,
+                cell = mesh.cell(region),
+                group,
+                old = flux[region][group],
+                new = new_flux[region][group],
+                change = largest,
+                "largest flux change"
+            );
+        }
         let k_remaining = k_history.update((new_k - k).abs());
         let flux_remaining = flux_history.update(change);
         let converged =
@@ -258,6 +284,7 @@ struct Sweeper<'a> {
 }
 
 impl<'a> Sweeper<'a> {
+    #[tracing::instrument(name = "attenuation table", level = "debug", skip_all)]
     fn new(
         tracking: &'a Tracking,
         materials: &[&Material],
