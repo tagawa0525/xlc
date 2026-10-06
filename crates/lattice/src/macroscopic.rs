@@ -213,4 +213,14 @@ scatter 0.002 1.97
         // 全断面積は正
         assert!(parse(&SAMPLE.replace("total 0.6 2.0", "total 0.6 0.0")).is_err());
     }
+
+    #[test]
+    fn chi_is_normalized() {
+        // χ は確率分布。C5G7 の χ は有効数字6桁に丸めてあり、和が 1 + 9e-6 になる
+        let text = SAMPLE.replace("chi 1.0 0.0", "chi 0.58791 0.41176");
+        let chi = &parse(&text).unwrap()[0].1.fission_terms[0].chi;
+        let sum = 0.58791 + 0.41176;
+        assert_eq!(chi, &vec![0.58791 / sum, 0.41176 / sum]);
+        assert!(parse(&SAMPLE.replace("chi 1.0 0.0", "chi 0.0 0.0")).is_err());
+    }
 }
