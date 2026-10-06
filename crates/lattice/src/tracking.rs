@@ -76,6 +76,16 @@ pub struct Tracking {
 impl Tracking {
     /// `n_azimuthal` は (0, π) の方位角の数（偶数）、`spacing` は希望するトラック間隔 (cm)。
     pub fn new(lattice: &Lattice, n_azimuthal: usize, spacing: f64) -> Result<Self, String> {
+        Self::with_boundaries(lattice, n_azimuthal, spacing, Boundaries::REFLECTIVE)
+    }
+
+    /// 外周の4辺の境界条件を指定して作る（`new` は4辺とも鏡面反射）。
+    pub fn with_boundaries(
+        lattice: &Lattice,
+        n_azimuthal: usize,
+        spacing: f64,
+        boundaries: Boundaries,
+    ) -> Result<Self, String> {
         if n_azimuthal == 0 || !n_azimuthal.is_multiple_of(2) {
             return Err(format!(
                 "the number of azimuthal angles must be positive and even, got {n_azimuthal}"
@@ -191,25 +201,33 @@ impl Tracking {
                     .map(|track| Link { track, forward })
                     .ok_or_else(|| format!("no reflected track at {point:?}"))
             };
+            // 点のある辺の境界条件（トラックは角を通らない）
+            let boundary = |p: (f64, f64)| {
+                if (p.0 + half).abs() < tolerance {
+                    boundaries.left
+                } else if (p.0 - half).abs() < tolerance {
+                    boundaries.right
+                } else if (p.1 - half).abs() < tolerance {
+                    boundaries.top
+                } else {
+                    boundaries.bottom
+                }
+            };
             // 側辺で反射すると補角の順方向、上辺・下辺で反射すると逆方向に続く
             let end = tracks[k].end;
-            let forward_link = find(end, (end.0.abs() - half).abs() < tolerance)?;
+            let forward_link = match boundary(end) {
+                Boundary::Vacuum => None,
+                Boundary::Reflective => Some(find(end, (end.0.abs() - half).abs() < tolerance)?),
+            };
             let start = tracks[k].start;
-            let backward_link = find(start, (start.1 + half).abs() < tolerance)?;
-            tracks[k].forward_link = Some(forward_link);
-            tracks[k].backward_link = Some(backward_link);
+            let backward_link = match boundary(start) {
+                Boundary::Vacuum => None,
+                Boundary::Reflective => Some(find(start, (start.1 + half).abs() < tolerance)?),
+            };
+            tracks[k].forward_link = forward_link;
+            tracks[k].backward_link = backward_link;
         }
         Ok(Self { azimuths, tracks })
-    }
-
-    /// 外周の4辺の境界条件を指定して作る（`new` は4辺とも鏡面反射）。
-    pub fn with_boundaries(
-        lattice: &Lattice,
-        n_azimuthal: usize,
-        spacing: f64,
-        boundaries: Boundaries,
-    ) -> Result<Self, String> {
-        todo!("{lattice:?} {n_azimuthal} {spacing} {boundaries:?}")
     }
 
     /// トラックから推定した領域ごとの体積。MOC の領域平均の計算と整合する。
