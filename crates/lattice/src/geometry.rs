@@ -14,6 +14,8 @@ use std::f64::consts::PI;
 pub struct PinCell {
     pitch: f64,
     radii: Vec<f64>,
+    /// 1辺の小さな正方形の数（同心円のあるセルでは 1）
+    grid: usize,
 }
 
 impl PinCell {
@@ -29,7 +31,11 @@ impl PinCell {
                 "radii must be ascending and between 0 and pitch/2, got {radii:?}"
             ));
         }
-        Ok(Self { pitch, radii })
+        Ok(Self {
+            pitch,
+            radii,
+            grid: 1,
+        })
     }
 
     pub fn pitch(&self) -> f64 {
@@ -41,16 +47,27 @@ impl PinCell {
     }
 
     pub fn regions(&self) -> usize {
-        self.radii.len() + 1
+        self.radii.len() + self.grid * self.grid
     }
 
     /// 同心円がなく、m × m の小さな正方形に分けたセル。
     pub fn grid(pitch: f64, m: usize) -> Result<Self, String> {
-        todo!("{pitch} {m}")
+        if m == 0 {
+            return Err("a grid needs at least one square per side".into());
+        }
+        Ok(Self {
+            grid: m,
+            ..Self::new(pitch, Vec::new())?
+        })
     }
 
     /// 点 (x, y) を含む領域。
     pub fn region_at(&self, x: f64, y: f64) -> usize {
+        if self.grid > 1 {
+            let (m, h) = (self.grid, self.pitch / self.grid as f64);
+            let index = |v: f64| ((v / h).floor().max(0.0) as usize).min(m - 1);
+            return index(0.5 * self.pitch - y) * m + index(x + 0.5 * self.pitch);
+        }
         let r = x.hypot(y);
         self.radii.partition_point(|&ri| ri <= r)
     }
@@ -62,6 +79,18 @@ impl PinCell {
         let b = start.0 * direction.0 + start.1 * direction.1;
         let c0 = start.0 * start.0 + start.1 * start.1;
         let mut cuts = vec![0.0, length];
+        // 小さな正方形の境界の線 x, y = -p/2 + k p/m
+        let h = self.pitch / self.grid as f64;
+        for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
+            if d != 0.0 {
+                for k in 1..self.grid {
+                    let t = (-0.5 * self.pitch + k as f64 * h - origin) / d;
+                    if t > 0.0 && t < length {
+                        cuts.push(t);
+                    }
+                }
+            }
+        }
         for &r in &self.radii {
             let disc = b * b - (c0 - r * r);
             if disc > 0.0 {
@@ -89,6 +118,10 @@ impl PinCell {
 
     /// 領域ごとの体積（単位高さあたりの面積, cm²）の解析値。
     pub fn volumes(&self) -> Vec<f64> {
+        if self.grid > 1 {
+            let h = self.pitch / self.grid as f64;
+            return vec![h * h; self.grid * self.grid];
+        }
         let mut inner = 0.0;
         let mut volumes: Vec<f64> = self
             .radii
