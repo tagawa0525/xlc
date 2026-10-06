@@ -5,7 +5,11 @@
 //! 群構造は WIMS 69群、重み関数は iwt=4（軽水炉向けの値）とする。GENDF は同じ条件で
 //! 0 K、無限希釈（σ0 = 1e10）として作っておくこと。MT452 は ν̄ を比べる。
 //! MF5 MT18 があれば、GENDF の MF6 MT18 から求めた核分裂スペクトル χ も比べる。
+//! NJOY は核分裂スペクトルを、θ や分布の表の2点目の入射エネルギー（econst）まで一定とみなす。
+//! 解析式（LF=7）の U-236 では econst が 15 MeV になり、1e-5 eV の θ のスペクトルを全入射エネルギーに
+//! 使うので、θ(E) の変化を積分するこちらの χ とずれる（高エネルギーの群で十数 %）。
 //! GENDF の MF6（MT18 以外）は、散乱行列を行ごとに比べる（行の差の絶対値の和 / 行の和）。
+//! ENDF に MF6 がなく MF5 がある反応は、MF5 の出射エネルギー分布を使う。
 //! NJOY は MF4 の角度分布を使い、こちらは重心系等方を仮定するので、角度分布が前方に偏る
 //! 高エネルギーの群では一致しない。環境変数 XLC_ROWS を設定すると、全群の値を表示する。
 
@@ -13,7 +17,7 @@ use std::collections::BTreeMap;
 
 use xs::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
 use xs::multigroup::{
-    GroupStructure, Weight, fission_spectrum, reaction_averages, scattering_matrix,
+    Emission, GroupStructure, Weight, fission_spectrum, reaction_averages, scattering_matrix,
 };
 use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
@@ -122,27 +126,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             mt,
             Mf3::parse(&tape.section(mat, 3, mt).ok_or("no MF3")?)?.qi,
         )]);
-        let mut mf6 = BTreeMap::new();
+        let mut emissions = BTreeMap::new();
         if let Some(section) = tape.section(mat, 6, mt) {
             match Mf6::parse(&section) {
                 Ok(data) => {
-                    mf6.insert(mt, data);
+                    emissions.insert(mt, Emission::Mf6(data));
                 }
                 Err(e) => {
                     println!("MF6 MT{mt}: skipped ({e})");
                     continue;
                 }
             }
+        } else if let Some(section) = tape.section(mat, 5, mt) {
+            emissions.insert(mt, Emission::Mf5(Mf5::parse(&section)?));
         }
         let single = BTreeMap::from([(mt, table.clone())]);
-        let ours =
-            match scattering_matrix(&groups, &Weight::lwr(), awr, &single, &q_values, &mf6, None) {
-                Ok(m) => m,
-                Err(e) => {
-                    println!("MF6 MT{mt}: skipped ({e})");
-                    continue;
-                }
-            };
+        let ours = match scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            awr,
+            &single,
+            &q_values,
+            &emissions,
+            None,
+        ) {
+            Ok(m) => m,
+            Err(e) => {
+                println!("MF6 MT{mt}: skipped ({e})");
+                continue;
+            }
+        };
         let njoy = read_gendf_matrix(&gendf, ng)?;
         let mut worst = (0.0_f64, 0);
         for g in 0..ng {

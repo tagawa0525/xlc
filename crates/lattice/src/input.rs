@@ -13,12 +13,14 @@
 //! spacing 0.05               # トラック間隔 (cm)
 //! fuel U235 7.0e-4 U238 2.2e-2 O16 4.6e-2      # 核種と個数密度 (1/(barn cm))
 //! moderator H1 4.9e-2 O16 2.5e-2
+//! fuel-temperature 900                          # 材料の温度 (K)。ライブラリにある温度であること
+//! moderator-temperature 600
 //! few-group-bounds 1e7 0.625 1e-5              # 少数群の境界 (eV)
 //! ```
 
 use std::path::PathBuf;
 
-const KEYWORDS: [&str; 11] = [
+const KEYWORDS: [&str; 13] = [
     "library",
     "output",
     "pitch",
@@ -29,6 +31,8 @@ const KEYWORDS: [&str; 11] = [
     "spacing",
     "fuel",
     "moderator",
+    "fuel-temperature",
+    "moderator-temperature",
     "few-group-bounds",
 ];
 
@@ -44,6 +48,9 @@ pub struct PinCellInput {
     pub spacing: f64,
     pub fuel: Vec<(String, f64)>,
     pub moderator: Vec<(String, f64)>,
+    /// 燃料と減速材の温度 (K)
+    pub fuel_temperature: f64,
+    pub moderator_temperature: f64,
     pub few_group_bounds: Vec<f64>,
 }
 
@@ -135,6 +142,8 @@ impl PinCellInput {
             spacing: positive("spacing")?,
             fuel: composition("fuel")?,
             moderator: composition("moderator")?,
+            fuel_temperature: positive("fuel-temperature")?,
+            moderator_temperature: positive("moderator-temperature")?,
             few_group_bounds,
         })
     }
@@ -166,6 +175,8 @@ azimuthal 16
 spacing 0.05
 fuel U235 7.0e-4 U238 2.2e-2 O16 4.6e-2   # UO2
 moderator H1 4.9e-2 O16 2.5e-2
+fuel-temperature 900
+moderator-temperature 600
 few-group-bounds 1e7 0.625 1e-5
 ";
 
@@ -176,6 +187,10 @@ few-group-bounds 1e7 0.625 1e-5
         assert_eq!(input.fuel_rings, 2);
         assert_eq!(input.fuel[1], ("U238".to_string(), 2.2e-2));
         assert_eq!(input.moderator.len(), 2);
+        assert_eq!(
+            (input.fuel_temperature, input.moderator_temperature),
+            (900.0, 600.0)
+        );
         assert_eq!(input.few_group_bounds, vec![1e7, 0.625, 1e-5]);
     }
 

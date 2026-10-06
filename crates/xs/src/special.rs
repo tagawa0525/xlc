@@ -1,4 +1,4 @@
-//! 特殊関数（標準ライブラリにない誤差関数）。
+//! 特殊関数（標準ライブラリにない誤差関数など）。
 
 /// 誤差関数 erf(x)。
 pub fn erf(x: f64) -> f64 {
@@ -92,6 +92,44 @@ pub fn exp_e1(z: f64) -> f64 {
         }
     }
     panic!("E1({z}) did not converge");
+}
+
+/// 正則化した下側不完全ガンマ関数 P(3/2, x) = γ(3/2, x)/Γ(3/2)（x ≥ 0）。
+/// Maxwell 分布 √E e^(-E/θ) のうち、E/θ < x の割合。
+pub fn gamma_p_3_2(x: f64) -> f64 {
+    if x < GAMMA_SERIES_LIMIT {
+        // Γ(5/2) = 3√π/4
+        x * x.sqrt() * (-x).exp() * lower_gamma_series(1.5, x)
+            / (0.75 * std::f64::consts::PI.sqrt())
+    } else {
+        erf(x.sqrt()) - 2.0 * (x / std::f64::consts::PI).sqrt() * (-x).exp()
+    }
+}
+
+/// 正則化した下側不完全ガンマ関数 P(2, x) = 1 - e^(-x)(1 + x)（x ≥ 0）。
+/// 蒸発スペクトル E e^(-E/θ) のうち、E/θ < x の割合。
+pub fn gamma_p_2(x: f64) -> f64 {
+    if x < GAMMA_SERIES_LIMIT {
+        // Γ(3) = 2
+        0.5 * x * x * (-x).exp() * lower_gamma_series(2.0, x)
+    } else {
+        1.0 - (-x).exp() * (1.0 + x)
+    }
+}
+
+/// これより小さい x では級数、大きい x では閉じた式を使う。閉じた式は小さい x で 1 に近い
+/// 2つの項の差になって桁落ちし、級数は大きい x で収束が遅くなる
+const GAMMA_SERIES_LIMIT: f64 = 1.0;
+
+/// P(a, x) = x^a e^(-x)/Γ(a+1) Σ xⁿ/((a+1)…(a+n)) の和の部分。項がすべて正なので桁落ちしない。
+fn lower_gamma_series(a: f64, x: f64) -> f64 {
+    let (mut term, mut sum, mut n) = (1.0, 1.0, 0.0);
+    while term > sum * f64::EPSILON {
+        n += 1.0;
+        term *= x / (a + n);
+        sum += term;
+    }
+    sum
 }
 
 /// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy, y ≥ 0）。
@@ -216,6 +254,24 @@ mod tests {
         // 漸近形 1/z (1 - 1/z + 2/z² - ...)
         let z = 1.0e6;
         assert_rel(exp_e1(z), (1.0 - 1.0 / z + 2.0 / (z * z)) / z, 1e-15);
+    }
+
+    #[test]
+    fn regularized_incomplete_gamma() {
+        // decimal（50 桁）で級数 P(a, x) = x^a e^(-x)/Γ(a+1) Σ xⁿ/((a+1)…(a+n)) を足して求めた値
+        for (x, p32, p2) in [
+            (1.0e-8, 7.522_527_735_501_584e-13, 4.999_999_966_666_667e-17),
+            (0.01, 7.477_553_393_911_979e-4, 4.966_791_334_026_589e-5),
+            (0.5, 0.198_748_043_098_799_2, 0.090_204_010_431_049_86),
+            (1.0, 0.427_593_295_529_120_2, 0.264_241_117_657_115_3),
+            (3.0, 0.888_389_774_905_287_5, 0.800_851_726_528_544_2),
+            (20.0, 0.999_999_989_344_909_6, 0.999_999_956_715_773_9),
+        ] {
+            assert_rel(gamma_p_3_2(x), p32, 1e-14);
+            assert_rel(gamma_p_2(x), p2, 1e-14);
+        }
+        assert_eq!((gamma_p_3_2(0.0), gamma_p_2(0.0)), (0.0, 0.0));
+        assert_eq!((gamma_p_3_2(1.0e3), gamma_p_2(1.0e3)), (1.0, 1.0));
     }
 
     /// Re w(x + iy) = (y/π) ∫ e^(-t²) / ((x - t)² + y²) dt（y > 0）を Simpson 則で積分した値。

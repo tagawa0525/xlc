@@ -16,11 +16,13 @@ use crate::endf::{Interpolation, Tab1};
 pub use fission::fission_spectrum;
 pub use free_gas::{FreeGas, free_gas_group_integrals, free_gas_kernel};
 pub use integrate::{group_integrals, group_integrals_multi};
-pub use outgoing::{GroupedOutgoing, outgoing_group_integrals};
+pub use outgoing::{AnalyticSpectrum, GroupedLaw, GroupedOutgoing, outgoing_group_integrals};
 pub use sab::ThermalSab;
 #[cfg(test)]
 pub(crate) use sab::tests as sab_tests;
-pub use scatter::{Thermal, emits_neutrons, scattering_matrix, two_body_range};
+pub use scatter::{
+    Emission, Thermal, emits_neutrons, multiplicity, scattering_matrix, two_body_range,
+};
 pub use structure::GroupStructure;
 pub use weight::Weight;
 
