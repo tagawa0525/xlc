@@ -284,7 +284,7 @@ pub fn homogenize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::PinCell;
+    use crate::geometry::{Lattice, PinCell};
     use crate::material::FissionTerm;
     use crate::moc::{Options, solve};
     use crate::tracking::Tracking;
@@ -311,7 +311,7 @@ mod tests {
         let moderator = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
         let materials = vec![fuel.clone(), moderator.clone(), moderator];
         let cell = PinCell::new(1.26, vec![0.4096, 0.55]).unwrap();
-        let tracking = Tracking::new(&cell, 16, 0.05).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 16, 0.05).unwrap();
         let refs: Vec<&Material> = materials.iter().collect();
         let solution = solve(&tracking, &refs, &Options::default()).unwrap();
         (

@@ -36,6 +36,8 @@ pub struct Solution {
     pub flux: Vec<Vec<f64>>,
     /// トラックから推定した領域の体積
     pub volumes: Vec<f64>,
+    /// [群] の真空境界からの漏れ（中性子束と同じ規格化）
+    pub leakage: Vec<f64>,
     pub iterations: usize,
 }
 
@@ -139,6 +141,7 @@ pub fn solve(
             .collect();
 
         let mut delta = vec![vec![0.0; ng]; regions];
+        let mut leak = vec![0.0; ng];
         for (index, track) in tracking.tracks.iter().enumerate() {
             let weights: Vec<f64> = (0..np)
                 .map(|p| direction_weight(track.azimuth, p))
@@ -166,7 +169,18 @@ pub fn solve(
                 } else {
                     track.backward_link
                 };
-                next_boundary[slot(link.track, link.forward)..][..width].copy_from_slice(&psi);
+                match link {
+                    Some(link) => next_boundary[slot(link.track, link.forward)..][..width]
+                        .copy_from_slice(&psi),
+                    // 真空境界から出た分は漏れ。入ってくる角度中性子束は 0 のまま
+                    None => {
+                        for (p, weight) in weights.iter().enumerate() {
+                            for (l, value) in leak.iter_mut().zip(&psi[p * ng..][..ng]) {
+                                *l += weight * value;
+                            }
+                        }
+                    }
+                }
             }
         }
         std::mem::swap(&mut boundary, &mut next_boundary);
@@ -184,6 +198,9 @@ pub fn solve(
         let new_k = k * rate;
         for f in new_flux.iter_mut().flatten() {
             *f /= rate;
+        }
+        for l in &mut leak {
+            *l /= rate;
         }
         for b in &mut boundary {
             *b /= rate;
@@ -208,6 +225,7 @@ pub fn solve(
                 k,
                 flux,
                 volumes,
+                leakage: leak,
                 iterations: iteration,
             });
         }
@@ -282,8 +300,9 @@ fn equilibrium_flux(m: &Material, phi: &[f64], k: f64) -> Vec<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::PinCell;
+    use crate::geometry::{Lattice, PinCell};
     use crate::material::FissionTerm;
+    use crate::tracking::{Boundaries, Boundary};
 
     fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
         Material {
@@ -324,7 +343,7 @@ mod tests {
     #[test]
     fn homogeneous_cell_matches_infinite_medium() {
         let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
-        let tracking = Tracking::new(&cell, 8, 0.1).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
         let m = fuel();
         let solution = solve(&tracking, &[&m, &m, &m], &Options::default()).unwrap();
         let expected = infinite_medium_k(&m);
@@ -337,7 +356,8 @@ mod tests {
 
     fn heterogeneous(n_azimuthal: usize, spacing: f64) -> Solution {
         let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
-        let tracking = Tracking::new(&cell, n_azimuthal, spacing).unwrap();
+        let tracking =
+            Tracking::new(&Lattice::pin_cell(cell.clone()), n_azimuthal, spacing).unwrap();
         let (f, m) = (fuel(), moderator());
         solve(&tracking, &[&f, &f, &m, &m], &Options::default()).unwrap()
     }
@@ -359,6 +379,48 @@ mod tests {
     }
 
     #[test]
+    fn reflective_cell_has_no_leakage() {
+        assert_eq!(heterogeneous(8, 0.1).leakage, vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn vacuum_lattice_balances_production_with_absorption_and_leakage() {
+        // 2×2 の格子（燃料のピン2本と水のセル2つ）の外周を真空にすると、漏れの分だけ k が下がる
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let materials = [&f, &m, &m, &m, &f, &m];
+        let solve_with = |boundaries| {
+            let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+            solve(&tracking, &materials, &Options::default()).unwrap()
+        };
+        let all_vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        let s = solve_with(all_vacuum);
+        let (mut absorption, mut production) = (0.0, 0.0);
+        for (i, m) in materials.iter().enumerate() {
+            for g in 0..2 {
+                absorption += s.volumes[i] * m.absorption()[g] * s.flux[i][g];
+                production += s.volumes[i] * m.nu_fission[g] * s.flux[i][g];
+            }
+        }
+        let leakage: f64 = s.leakage.iter().sum();
+        assert!(leakage > 0.0);
+        // 反復は相対変化で打ち切るので、収支の誤差は全体の量（生成/k）に比例する
+        assert!(
+            (absorption + leakage - production / s.k).abs() < 1e-6 * production / s.k,
+            "{absorption} + {leakage} vs {}",
+            production / s.k
+        );
+        assert!(s.k < solve_with(Boundaries::REFLECTIVE).k);
+    }
+
+    #[test]
     fn refinement_converges() {
         let coarse = heterogeneous(16, 0.05);
         let fine = heterogeneous(32, 0.02);
@@ -373,7 +435,7 @@ mod tests {
     #[test]
     fn no_fission_is_error() {
         let cell = PinCell::new(1.26, vec![0.4]).unwrap();
-        let tracking = Tracking::new(&cell, 8, 0.1).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
         let m = moderator();
         assert!(solve(&tracking, &[&m, &m], &Options::default()).is_err());
     }
@@ -382,7 +444,7 @@ mod tests {
     fn region_without_tracks_is_error() {
         // 中心の極小の円には、中心からずれたトラックが1本も通らない
         let cell = PinCell::new(1.26, vec![1.0e-6, 0.4]).unwrap();
-        let tracking = Tracking::new(&cell, 4, 0.3).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 4, 0.3).unwrap();
         let m = fuel();
         assert!(tracking.volumes(3)[0] == 0.0);
         let err = solve(&tracking, &[&m, &m, &m], &Options::default()).unwrap_err();
@@ -415,7 +477,7 @@ mod tests {
     #[test]
     fn inconsistent_material_is_error() {
         let cell = PinCell::new(1.26, vec![0.4]).unwrap();
-        let tracking = Tracking::new(&cell, 8, 0.1).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
         let mut m = fuel();
         m.fission_terms.clear();
         let err = solve(&tracking, &[&m, &m], &Options::default()).unwrap_err();
@@ -425,7 +487,7 @@ mod tests {
     #[test]
     fn region_count_must_match() {
         let cell = PinCell::new(1.26, vec![0.4]).unwrap();
-        let tracking = Tracking::new(&cell, 8, 0.1).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
         let m = fuel();
         assert!(solve(&tracking, &[&m], &Options::default()).is_err());
     }
