@@ -15,11 +15,11 @@
 
 use std::collections::BTreeMap;
 
-use xs::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
-use xs::multigroup::{
+use xlc_xs::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
+use xlc_xs::multigroup::{
     Emission, GroupStructure, Weight, fission_spectrum, reaction_averages, scattering_matrix,
 };
-use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
+use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -191,7 +191,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// GENDF の MF6 の行列（P0）を [入射の群][出射の群] で返す。
 fn read_gendf_matrix(
-    section: &xs::endf::Section<'_>,
+    section: &xlc_xs::endf::Section<'_>,
     ng: usize,
 ) -> Result<Vec<Vec<f64>>, Box<dyn std::error::Error>> {
     let mut r = section.reader();
@@ -220,7 +220,7 @@ fn read_gendf_matrix(
 /// 低い群は「群ごとの νσf × 共通のスペクトル（IG=0 のレコード）」、高い群は生成行列の行で
 /// 与えられる。どちらも群の中性子束を掛けて足し合わせる。
 fn read_gendf_chi(
-    section: &xs::endf::Section<'_>,
+    section: &xlc_xs::endf::Section<'_>,
     ng: usize,
 ) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
     let mut r = section.reader();
@@ -260,7 +260,7 @@ fn read_gendf_chi(
 
 /// GENDF の MF3 の群平均値（MT452 なら ν̄）を、高エネルギーの群から順に返す。
 fn read_gendf_mf3(
-    section: &xs::endf::Section<'_>,
+    section: &xlc_xs::endf::Section<'_>,
     ng: usize,
 ) -> Result<Vec<f64>, Box<dyn std::error::Error>> {
     let mut r = section.reader();

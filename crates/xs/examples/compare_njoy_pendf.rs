@@ -7,8 +7,8 @@
 
 use std::time::Instant;
 
-use xs::endf::{Mf3, Tape};
-use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
+use xlc_xs::endf::{Mf3, Tape};
+use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
