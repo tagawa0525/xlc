@@ -20,12 +20,12 @@ pub use scatter::{emits_neutrons, scattering_matrix, two_body_range};
 pub use structure::GroupStructure;
 pub use weight::Weight;
 
-/// 無限希釈の群平均断面積。配列は群の順（高エネルギーから）。
+/// 群平均断面積。配列は群の順（高エネルギーから）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReactionAverages {
-    /// 群ごとの重み関数の積分 ∫_g w dE
+    /// 群ごとの中性子束の積分 ∫_g φ dE（無限希釈なら φ は重み関数 w）
     pub flux: Vec<f64>,
-    /// MT ごとの σ_g = ∫_g σ w dE / ∫_g w dE (barn)
+    /// MT ごとの σ_g = ∫_g σ φ dE / ∫_g φ dE (barn)
     pub sigma: BTreeMap<u32, Vec<f64>>,
     /// νσf の群平均（核分裂がなければ `None`）
     pub nu_fission: Option<Vec<f64>>,
@@ -39,9 +39,46 @@ pub fn reaction_averages(
     tables: &BTreeMap<u32, Tab1>,
     nubar: Option<&Tab1>,
 ) -> ReactionAverages {
-    let flux = group_integrals(groups, weight, &[], |_| 1.0);
-    let average = |breakpoints: &[f64], f: &dyn Fn(f64) -> f64| -> Vec<f64> {
-        group_integrals(groups, weight, breakpoints, f)
+    averages_with_flux(groups, weight, tables, nubar, &[], |_| 1.0)
+}
+
+/// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
+///
+/// 中性子束を w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の中性子束はこれに定数
+/// (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`flux` はその定数を掛けない値。
+pub fn shielded_averages(
+    groups: &GroupStructure,
+    weight: &Weight,
+    tables: &BTreeMap<u32, Tab1>,
+    nubar: Option<&Tab1>,
+    sigma0: &[f64],
+) -> Result<Vec<ReactionAverages>, String> {
+    let total = tables
+        .get(&1)
+        .ok_or("self-shielding needs the total cross section (MT1)")?;
+    Ok(sigma0
+        .iter()
+        .map(|&s0| {
+            averages_with_flux(groups, weight, tables, nubar, &total.x, |e| {
+                1.0 / (total.eval(e).unwrap_or(0.0) + s0)
+            })
+        })
+        .collect())
+}
+
+/// 中性子束 w(E)·`shape`(E) による群平均。`shape` は `breakpoints` の間で滑らかであること。
+fn averages_with_flux(
+    groups: &GroupStructure,
+    weight: &Weight,
+    tables: &BTreeMap<u32, Tab1>,
+    nubar: Option<&Tab1>,
+    breakpoints: &[f64],
+    shape: impl Fn(f64) -> f64,
+) -> ReactionAverages {
+    let flux = group_integrals(groups, weight, breakpoints, &shape);
+    let average = |points: &[f64], f: &dyn Fn(f64) -> f64| -> Vec<f64> {
+        let points: Vec<f64> = points.iter().chain(breakpoints).copied().collect();
+        group_integrals(groups, weight, &points, |e| f(e) * shape(e))
             .iter()
             .zip(&flux)
             .map(|(integral, phi)| integral / phi)
@@ -53,8 +90,8 @@ pub fn reaction_averages(
         .collect();
     let nu_fission = match (nubar, tables.get(&18)) {
         (Some(nu), Some(fission)) => {
-            let breakpoints: Vec<f64> = fission.x.iter().chain(&nu.x).copied().collect();
-            Some(average(&breakpoints, &|e| {
+            let points: Vec<f64> = fission.x.iter().chain(&nu.x).copied().collect();
+            Some(average(&points, &|e| {
                 nu.eval(e).unwrap_or(0.0) * fission.eval(e).unwrap_or(0.0)
             }))
         }
@@ -65,18 +102,6 @@ pub fn reaction_averages(
         sigma,
         nu_fission,
     }
-}
-
-/// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
-pub fn shielded_averages(
-    groups: &GroupStructure,
-    weight: &Weight,
-    tables: &BTreeMap<u32, Tab1>,
-    nubar: Option<&Tab1>,
-    sigma0: &[f64],
-) -> Result<Vec<ReactionAverages>, String> {
-    let _ = (groups, weight, tables, nubar, sigma0);
-    todo!()
 }
 
 #[cfg(test)]
