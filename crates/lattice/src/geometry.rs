@@ -20,18 +20,43 @@ pub struct PinCell {
     sectors: usize,
 }
 
+/// 形状の誤り。
+#[derive(Debug, thiserror::Error)]
+pub enum GeometryError {
+    #[error("pitch must be positive, got {0}")]
+    Pitch(f64),
+    #[error("radii must be ascending and between 0 and pitch/2, got {0:?}")]
+    Radii(Vec<f64>),
+    #[error("the number of sectors must be 1, 4 or 8, got {0}")]
+    Sectors(usize),
+    #[error("a grid needs at least one square per side")]
+    EmptyGrid,
+    #[error("the lattice has no cells")]
+    NoCells,
+    #[error("row {row} has {cells} cells, but the lattice has {rows} rows")]
+    RowLength {
+        row: usize,
+        cells: usize,
+        rows: usize,
+    },
+    #[error("no cell types")]
+    NoCellTypes,
+    #[error("all cell types must have the same pitch")]
+    MixedPitch,
+    #[error("cell type {index} is out of range ({types} types)")]
+    CellType { index: usize, types: usize },
+}
+
 impl PinCell {
     /// 半径は昇順で、セルの内接円より小さいこと。
-    pub fn new(pitch: f64, radii: Vec<f64>) -> Result<Self, String> {
+    pub fn new(pitch: f64, radii: Vec<f64>) -> Result<Self, GeometryError> {
         if !(pitch > 0.0 && pitch.is_finite()) {
-            return Err(format!("pitch must be positive, got {pitch}"));
+            return Err(GeometryError::Pitch(pitch));
         }
         let ascending = radii.windows(2).all(|w| w[0] < w[1]);
         let inside = radii.iter().all(|&r| r > 0.0 && r < 0.5 * pitch);
         if !(ascending && inside) {
-            return Err(format!(
-                "radii must be ascending and between 0 and pitch/2, got {radii:?}"
-            ));
+            return Err(GeometryError::Radii(radii));
         }
         Ok(Self {
             pitch,
@@ -59,12 +84,14 @@ impl PinCell {
 
     /// 同心円で区切った各リングを、さらに x 軸から等角度の扇形 `sectors` 個（1, 4, 8）に分けたセル。
     /// 領域はリングの順に、リングの中では角度の順に番号を付ける。
-    pub fn with_sectors(pitch: f64, radii: Vec<f64>, sectors: usize) -> Result<Self, String> {
+    pub fn with_sectors(
+        pitch: f64,
+        radii: Vec<f64>,
+        sectors: usize,
+    ) -> Result<Self, GeometryError> {
         // 正方形の対称性から、1, 4, 8 個なら外側の領域も扇形ごとに同じ面積になる
         if ![1, 4, 8].contains(&sectors) {
-            return Err(format!(
-                "the number of sectors must be 1, 4 or 8, got {sectors}"
-            ));
+            return Err(GeometryError::Sectors(sectors));
         }
         Ok(Self {
             sectors,
@@ -73,9 +100,9 @@ impl PinCell {
     }
 
     /// 同心円がなく、m × m の小さな正方形に分けたセル。
-    pub fn grid(pitch: f64, m: usize) -> Result<Self, String> {
+    pub fn grid(pitch: f64, m: usize) -> Result<Self, GeometryError> {
         if m == 0 {
-            return Err("a grid needs at least one square per side".into());
+            return Err(GeometryError::EmptyGrid);
         }
         Ok(Self {
             grid: m,
@@ -205,28 +232,28 @@ pub struct Lattice {
 
 impl Lattice {
     /// `types` はセルの種類（すべて同じピッチ）、`layout` は上の行から順の各行のセルの種類。
-    pub fn new(types: Vec<PinCell>, layout: Vec<Vec<usize>>) -> Result<Self, String> {
+    pub fn new(types: Vec<PinCell>, layout: Vec<Vec<usize>>) -> Result<Self, GeometryError> {
         let n = layout.len();
         if n == 0 {
-            return Err("the lattice has no cells".into());
+            return Err(GeometryError::NoCells);
         }
         if let Some(row) = layout.iter().position(|row| row.len() != n) {
-            return Err(format!(
-                "row {} has {} cells, but the lattice has {n} rows",
-                row + 1,
-                layout[row].len()
-            ));
+            return Err(GeometryError::RowLength {
+                row: row + 1,
+                cells: layout[row].len(),
+                rows: n,
+            });
         }
-        let pitch = types.first().ok_or("no cell types")?.pitch();
+        let pitch = types.first().ok_or(GeometryError::NoCellTypes)?.pitch();
         if types.iter().any(|t| t.pitch() != pitch) {
-            return Err("all cell types must have the same pitch".into());
+            return Err(GeometryError::MixedPitch);
         }
         let layout: Vec<usize> = layout.into_iter().flatten().collect();
         if let Some(&bad) = layout.iter().find(|&&t| t >= types.len()) {
-            return Err(format!(
-                "cell type {bad} is out of range ({} types)",
-                types.len()
-            ));
+            return Err(GeometryError::CellType {
+                index: bad,
+                types: types.len(),
+            });
         }
         let mut offsets = Vec::with_capacity(layout.len() + 1);
         let mut next = 0;

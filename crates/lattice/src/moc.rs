@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-use crate::material::Material;
+use crate::material::{Material, MaterialError};
 use crate::tracking::Tracking;
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
@@ -41,25 +41,50 @@ pub struct Solution {
     pub iterations: usize,
 }
 
+/// MOC の固有値計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum MocError {
+    #[error("no regions")]
+    NoRegions,
+    #[error("all materials must have the same number of groups")]
+    MixedGroups,
+    #[error("region {region}")]
+    Material {
+        region: usize,
+        source: MaterialError,
+    },
+    #[error("total cross sections must be positive (void is not supported)")]
+    NonPositiveTotal,
+    #[error("{materials} materials given, but the tracks cross {regions} regions")]
+    RegionCount { materials: usize, regions: usize },
+    #[error("no track crosses region {0}; use a finer track spacing")]
+    Untracked(usize),
+    #[error("no fissile material")]
+    NoFission,
+    #[error("not converged in {iterations} iterations (k = {k})")]
+    NotConverged { iterations: usize, k: f64 },
+}
+
 /// `materials[i]` は領域 i の物質。
 pub fn solve(
     tracking: &Tracking,
     materials: &[&Material],
     options: &Options,
-) -> Result<Solution, String> {
+) -> Result<Solution, MocError> {
     let regions = materials.len();
-    let ng = materials.first().ok_or("no regions")?.groups();
+    let ng = materials.first().ok_or(MocError::NoRegions)?.groups();
     if materials.iter().any(|m| m.groups() != ng) {
-        return Err("all materials must have the same number of groups".into());
+        return Err(MocError::MixedGroups);
     }
-    for (i, m) in materials.iter().enumerate() {
-        m.validate().map_err(|e| format!("region {i}: {e}"))?;
+    for (region, m) in materials.iter().enumerate() {
+        m.validate()
+            .map_err(|source| MocError::Material { region, source })?;
     }
     if materials
         .iter()
         .any(|m| m.total.iter().any(|&t| t <= 0.0 || !t.is_finite()))
     {
-        return Err("total cross sections must be positive (void is not supported)".into());
+        return Err(MocError::NonPositiveTotal);
     }
     let used = tracking
         .tracks
@@ -69,15 +94,14 @@ pub fn solve(
         .max()
         .map_or(0, |r| r + 1);
     if used != regions {
-        return Err(format!(
-            "{regions} materials given, but the tracks cross {used} regions"
-        ));
+        return Err(MocError::RegionCount {
+            materials: regions,
+            regions: used,
+        });
     }
     let volumes = tracking.volumes(regions);
     if let Some(i) = volumes.iter().position(|&v| v <= 0.0) {
-        return Err(format!(
-            "no track crosses region {i}; use a finer track spacing"
-        ));
+        return Err(MocError::Untracked(i));
     }
 
     let np = POLAR_SIN.len();
@@ -120,7 +144,7 @@ pub fn solve(
     let mut flux = vec![vec![1.0; ng]; regions];
     let initial = production(&flux);
     if initial <= 0.0 {
-        return Err("no fissile material".into());
+        return Err(MocError::NoFission);
     }
     for f in flux.iter_mut().flatten() {
         *f /= initial;
@@ -230,10 +254,10 @@ pub fn solve(
             });
         }
     }
-    Err(format!(
-        "not converged in {} iterations (k = {k})",
-        options.max_iterations
-    ))
+    Err(MocError::NotConverged {
+        iterations: options.max_iterations,
+        k,
+    })
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
@@ -447,7 +471,9 @@ mod tests {
         let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 4, 0.3).unwrap();
         let m = fuel();
         assert!(tracking.volumes(3)[0] == 0.0);
-        let err = solve(&tracking, &[&m, &m, &m], &Options::default()).unwrap_err();
+        let err = solve(&tracking, &[&m, &m, &m], &Options::default())
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("region 0"), "{err}");
     }
 
@@ -475,13 +501,33 @@ mod tests {
     }
 
     #[test]
+    fn material_errors_keep_the_cause_in_the_chain_only() {
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
+        let mut m = fuel();
+        m.nu_fission[1] *= 2.0;
+        let err = solve(&tracking, &[&m, &m], &Options::default()).unwrap_err();
+        let cause = std::error::Error::source(&err).expect("the material error is the cause");
+        assert!(!err.to_string().contains(&cause.to_string()), "{err}");
+    }
+
+    #[test]
     fn inconsistent_material_is_error() {
         let cell = PinCell::new(1.26, vec![0.4]).unwrap();
         let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
         let mut m = fuel();
         m.fission_terms.clear();
         let err = solve(&tracking, &[&m, &m], &Options::default()).unwrap_err();
-        assert!(err.contains("fission terms"), "{err}");
+        assert!(
+            matches!(
+                err,
+                MocError::Material {
+                    region: 0,
+                    source: MaterialError::NuFission
+                }
+            ),
+            "{err}"
+        );
     }
 
     #[test]
