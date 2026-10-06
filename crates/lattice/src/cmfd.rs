@@ -217,6 +217,20 @@ mod tests {
         assert_eq!(ratio.len(), 2);
     }
 
+    #[test]
+    fn artificial_diffusion_follows_the_optically_thick_fit() {
+        // Zhu ら (2016): 光学的に薄いと 0（従来の CMFD）、厚いと 0.127 に飽和し、Σt h = 4 で約 0.1
+        assert_eq!(artificial_diffusion(0.5), 0.0);
+        assert!((artificial_diffusion(4.0) - 0.1).abs() < 0.01);
+        assert_eq!(artificial_diffusion(20.0), 0.127);
+        // 多項式は飽和値に滑らかにつながる
+        assert!((artificial_diffusion(14.0 - 1e-9) - 0.127).abs() < 0.002);
+        let samples: Vec<f64> = (2..28)
+            .map(|i| artificial_diffusion(0.5 * i as f64))
+            .collect();
+        assert!(samples.windows(2).all(|w| w[1] >= w[0]), "{samples:?}");
+    }
+
     /// 面の外向きの重みの和（セル `cell` から出る分が正）
     fn outflow(mesh: &CoarseMesh, cell: usize, faces: &[(usize, f64)]) -> f64 {
         mesh.cell_faces(cell)
