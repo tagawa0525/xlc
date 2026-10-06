@@ -517,10 +517,17 @@ mod tests {
         let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
         let mut m = fuel();
         m.fission_terms.clear();
-        let err = solve(&tracking, &[&m, &m], &Options::default())
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("fission terms"), "{err}");
+        let err = solve(&tracking, &[&m, &m], &Options::default()).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                MocError::Material {
+                    region: 0,
+                    source: MaterialError::NuFission
+                }
+            ),
+            "{err}"
+        );
     }
 
     #[test]
