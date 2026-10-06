@@ -36,6 +36,8 @@ pub struct Solution {
     pub flux: Vec<Vec<f64>>,
     /// トラックから推定した領域の体積
     pub volumes: Vec<f64>,
+    /// [群] の真空境界からの漏れ（中性子束と同じ規格化）
+    pub leakage: Vec<f64>,
     pub iterations: usize,
 }
 
@@ -166,7 +168,11 @@ pub fn solve(
                 } else {
                     track.backward_link
                 };
-                next_boundary[slot(link.track, link.forward)..][..width].copy_from_slice(&psi);
+                match link {
+                    Some(link) => next_boundary[slot(link.track, link.forward)..][..width]
+                        .copy_from_slice(&psi),
+                    None => todo!("leakage"),
+                }
             }
         }
         std::mem::swap(&mut boundary, &mut next_boundary);
@@ -208,6 +214,7 @@ pub fn solve(
                 k,
                 flux,
                 volumes,
+                leakage: vec![],
                 iterations: iteration,
             });
         }
@@ -284,6 +291,7 @@ mod tests {
     use super::*;
     use crate::geometry::{Lattice, PinCell};
     use crate::material::FissionTerm;
+    use crate::tracking::{Boundaries, Boundary};
 
     fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
         Material {
@@ -357,6 +365,47 @@ mod tests {
         assert!((absorption - production / s.k).abs() < 1e-6 * absorption);
         // 熱中性子束は減速材で高く、燃料の中心で低い
         assert!(s.flux[3][1] > s.flux[0][1]);
+    }
+
+    #[test]
+    fn reflective_cell_has_no_leakage() {
+        assert_eq!(heterogeneous(8, 0.1).leakage, vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn vacuum_lattice_balances_production_with_absorption_and_leakage() {
+        // 2×2 の格子（燃料のピン2本と水のセル2つ）の外周を真空にすると、漏れの分だけ k が下がる
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let materials = [&f, &m, &m, &m, &f, &m];
+        let solve_with = |boundaries| {
+            let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+            solve(&tracking, &materials, &Options::default()).unwrap()
+        };
+        let all_vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        let s = solve_with(all_vacuum);
+        let (mut absorption, mut production) = (0.0, 0.0);
+        for (i, m) in materials.iter().enumerate() {
+            for g in 0..2 {
+                absorption += s.volumes[i] * m.absorption()[g] * s.flux[i][g];
+                production += s.volumes[i] * m.nu_fission[g] * s.flux[i][g];
+            }
+        }
+        let leakage: f64 = s.leakage.iter().sum();
+        assert!(leakage > 0.0);
+        assert!(
+            (absorption + leakage - production / s.k).abs() < 1e-6 * absorption,
+            "{absorption} + {leakage} vs {}",
+            production / s.k
+        );
+        assert!(s.k < solve_with(Boundaries::REFLECTIVE).k);
     }
 
     #[test]
