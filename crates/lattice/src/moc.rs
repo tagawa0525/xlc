@@ -400,8 +400,9 @@ mod tests {
         }
         let leakage: f64 = s.leakage.iter().sum();
         assert!(leakage > 0.0);
+        // 反復は相対変化で打ち切るので、収支の誤差は全体の量（生成/k）に比例する
         assert!(
-            (absorption + leakage - production / s.k).abs() < 1e-6 * absorption,
+            (absorption + leakage - production / s.k).abs() < 1e-6 * production / s.k,
             "{absorption} + {leakage} vs {}",
             production / s.k
         );
