@@ -1,7 +1,12 @@
 [package]
-name = "lattice"
+name = "xlc-lattice"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-xs = { path = "../xs" }
+xlc-xs = { path = "../xs" }
+
+# コマンド名は段階の名前に合わせて `lattice` とする
+[[bin]]
+name = "lattice"
+path = "src/main.rs"

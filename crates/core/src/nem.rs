@@ -5,7 +5,7 @@
 //! 3次・4次の係数は f1, f2 で重み付けした残差から、横方向の漏れは隣のノードを含む
 //! 2次式で近似する。ノード間は部分中性子流でつなぐ。
 
-use lattice::fewgroup::FewGroup;
+use xlc_lattice::fewgroup::FewGroup;
 
 /// 外周の境界条件。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

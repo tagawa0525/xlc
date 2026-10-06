@@ -12,10 +12,10 @@
 
 use std::collections::BTreeMap;
 
-use xs::endf::{Section, Tape, parse_nubar};
-use xs::multigroup::{GroupStructure, Weight, shielded_averages};
-use xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
-use xs::process::unresolved_shielding;
+use xlc_xs::endf::{Section, Tape, parse_nubar};
+use xlc_xs::multigroup::{GroupStructure, Weight, shielded_averages};
+use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
+use xlc_xs::process::unresolved_shielding;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
