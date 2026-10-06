@@ -30,8 +30,17 @@ pub struct Settings {
 /// 弾性散乱（MT2）を持つデータはエラーにする。S(α, β) の散乱行列は cutoff 未満で MF3 の弾性散乱を
 /// 置き換えるので、MT2 を扱わないと弾性散乱が黙って抜け落ちる（黒鉛、ZrH など）。
 pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, String> {
-    let _ = tape;
-    todo!()
+    let mat = *tape
+        .materials()
+        .first()
+        .ok_or("empty thermal scattering tape")?;
+    if tape.section(mat, 7, 2).is_some() {
+        return Err("thermal elastic scattering (MF7 MT2) is not supported".into());
+    }
+    let section = tape
+        .section(mat, 7, 4)
+        .ok_or("thermal scattering tape has no MF7 MT4")?;
+    Mf7Incoherent::parse(&section).map_err(|e| e.to_string())
 }
 
 /// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) と背景断面積 `sigma0` について作る
