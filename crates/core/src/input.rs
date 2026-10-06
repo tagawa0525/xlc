@@ -10,6 +10,8 @@
 
 use std::path::PathBuf;
 
+use serde::Deserialize;
+
 use crate::nem::Boundary;
 
 /// 入力ファイルの読み込みエラー。
@@ -29,9 +31,57 @@ pub struct CoreInput {
     pub boundaries: [Boundary; 6],
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct InputFile {
+    few_group: PathBuf,
+    size: [f64; 3],
+    nodes: [usize; 3],
+    boundary: BoundaryEntry,
+}
+
+/// 各軸の（低い側, 高い側）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BoundaryEntry {
+    x: [Condition; 2],
+    y: [Condition; 2],
+    z: [Condition; 2],
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum Condition {
+    Reflective,
+    ZeroFlux,
+}
+
 impl CoreInput {
     pub fn parse(text: &str) -> Result<Self, InputError> {
-        todo!("{text}")
+        let file: InputFile = toml::from_str(text)?;
+        if !file.size.iter().all(|&s| s > 0.0 && s.is_finite()) {
+            return Err(InputError::Invalid(format!(
+                "sizes must be positive, got {:?}",
+                file.size
+            )));
+        }
+        if file.nodes.contains(&0) {
+            return Err(InputError::Invalid(format!(
+                "node counts must be positive, got {:?}",
+                file.nodes
+            )));
+        }
+        let b = file.boundary;
+        let faces = [b.x[0], b.x[1], b.y[0], b.y[1], b.z[0], b.z[1]].map(|c| match c {
+            Condition::Reflective => Boundary::Reflective,
+            Condition::ZeroFlux => Boundary::ZeroFlux,
+        });
+        Ok(Self {
+            fewgroup: file.few_group,
+            size: file.size,
+            nodes: file.nodes,
+            boundaries: faces,
+        })
     }
 }
 
