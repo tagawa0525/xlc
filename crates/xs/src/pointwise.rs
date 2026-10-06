@@ -228,7 +228,6 @@ pub fn reconstruct_at(
 }
 
 /// 上限エネルギーより下から始まる反応を、まとめてドップラー拡がりで広げる。
-/// NJOY BROADR と同じく、生成断面積など（MT201〜599）は広げない。
 fn broaden_parts(
     tables: &mut BTreeMap<u32, Tab1>,
     mf2: Option<&Mf2>,
@@ -236,10 +235,10 @@ fn broaden_parts(
     temperature: f64,
     tol: f64,
 ) {
-    let e_max = broadening_limit(mf2, tables.values());
-    let mts: Vec<u32> = tables
-        .iter()
-        .filter(|(mt, t)| !(201..=599).contains(*mt) && t.x[0] < e_max)
+    let candidates = || tables.iter().filter(|(mt, _)| is_broadened(**mt));
+    let e_max = broadening_limit(mf2, candidates().map(|(_, t)| t));
+    let mts: Vec<u32> = candidates()
+        .filter(|(_, t)| t.x[0] < e_max)
         .map(|(mt, _)| *mt)
         .collect();
     if mts.is_empty() {
@@ -252,6 +251,15 @@ fn broaden_parts(
     {
         tables.insert(mt, hot);
     }
+}
+
+/// ドップラー拡がりで広げる反応か（NJOY BROADR と同じ規則）。広げない反応は、拡げる上限の判定にも使わない。
+///
+/// 非弾性散乱の和（MT3, MT4）、MT46〜49、生成断面積など（MT201〜599）は広げない。
+/// NJOY は MT18 を広げて MT19 を広げないが、ここでは MT19 がある場合に MT18 を部分反応の和で
+/// 作り直すので、MT19 を広げる（MT18 を広げるのと同じ結果になる）。
+pub fn is_broadened(mt: u32) -> bool {
+    !matches!(mt, 3 | 4 | 46..=49 | 201..=599)
 }
 
 /// 部分反応の和で作り直す反応。
