@@ -10,4 +10,6 @@ azimuthal 32
 spacing 0.05
 fuel U235 7.281430e-04 U238 2.247284e-02 O16 4.640196e-02
 moderator H1 4.947415e-02 O16 2.473708e-02
+fuel-temperature 293.6
+moderator-temperature 293.6
 few-group-bounds 1e7 0.625 1e-5
