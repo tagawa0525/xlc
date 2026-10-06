@@ -4,6 +4,7 @@ use std::f64::consts::PI;
 
 use rayon::prelude::*;
 
+use crate::cmfd::CoarseMesh;
 use crate::material::{Material, MaterialError};
 use crate::tracking::Tracking;
 
@@ -106,7 +107,8 @@ pub fn solve(
         return Err(MocError::Untracked(i));
     }
 
-    let sweeper = Sweeper::new(tracking, materials, ng);
+    let mesh = CoarseMesh::new(tracking);
+    let sweeper = Sweeper::new(tracking, materials, ng, &mesh);
     let production = |flux: &[Vec<f64>]| -> f64 {
         flux.iter()
             .zip(materials)
@@ -145,7 +147,11 @@ pub fn solve(
 
         sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies);
         std::mem::swap(&mut outgoing, &mut next_outgoing);
-        let (delta, mut leak) = sum_tallies(&tallies, ng);
+        let Sums {
+            delta,
+            mut leak,
+            current: _,
+        } = sum_tallies(&tallies, ng);
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
             .map(|i| {
@@ -202,6 +208,8 @@ pub fn solve(
 /// トラックのスイープ。トラックと物質から決まる量（減衰の表など）を、反復の前に一度だけ求めて持つ。
 struct Sweeper<'a> {
     tracking: &'a Tracking,
+    /// 正味の流れを数える粗メッシュ
+    mesh: &'a CoarseMesh,
     ng: usize,
     /// [極角][群] の数
     width: usize,
@@ -214,7 +222,12 @@ struct Sweeper<'a> {
 }
 
 impl<'a> Sweeper<'a> {
-    fn new(tracking: &'a Tracking, materials: &[&Material], ng: usize) -> Self {
+    fn new(
+        tracking: &'a Tracking,
+        materials: &[&Material],
+        ng: usize,
+        mesh: &'a CoarseMesh,
+    ) -> Self {
         let width = POLAR_SIN.len() * ng;
         let attenuation = tracking
             .tracks
@@ -233,6 +246,7 @@ impl<'a> Sweeper<'a> {
             .collect();
         Self {
             tracking,
+            mesh,
             ng,
             width,
             attenuation,
@@ -252,7 +266,7 @@ impl<'a> Sweeper<'a> {
     fn tallies(&self, regions: usize) -> Vec<Tally> {
         self.azimuths
             .iter()
-            .map(|_| Tally::new(regions * self.ng, self.ng, self.width))
+            .map(|_| Tally::new(regions, self.mesh.faces(), self.ng, self.width))
             .collect()
     }
 
@@ -304,10 +318,32 @@ impl<'a> Sweeper<'a> {
                             // 真空境界から入ってくる角度中性子束は 0
                             None => psi.fill(0.0),
                         }
+                        // 外周の面は順方向の向きで持つので、逆方向では向きを反対にする
+                        let [start, end] = self.mesh.ends(index);
+                        let (enter, exit, direction) = if forward {
+                            (start, end, 1.0)
+                        } else {
+                            (end, start, -1.0)
+                        };
+                        add_current(
+                            &mut tally.current,
+                            &[(enter.0, direction * enter.1)],
+                            psi,
+                            &weights,
+                        );
                         let n = track.segments.len();
+                        let first = if forward { 0 } else { n - 1 };
+                        let mut cell = self.mesh.cell(track.segments[first].region);
                         for step in 0..n {
                             let s = if forward { step } else { n - 1 - step };
                             let region = track.segments[s].region;
+                            // 隣のセルに移るときに通る面
+                            let next = self.mesh.cell(region);
+                            if next != cell {
+                                let path = self.mesh.path(cell, next);
+                                add_current(&mut tally.current, path.faces(), psi, &weights);
+                                cell = next;
+                            }
                             let att = &self.attenuation[index][s * width..][..width];
                             let q = &equilibrium[region];
                             let d = &mut tally.delta[region * ng..][..ng];
@@ -320,7 +356,12 @@ impl<'a> Sweeper<'a> {
                                 }
                             }
                         }
-                        out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
+                        add_current(
+                            &mut tally.current,
+                            &[(exit.0, direction * exit.1)],
+                            psi,
+                            &weights,
+                        );
                         let link = if forward {
                             track.forward_link
                         } else {
@@ -334,6 +375,7 @@ impl<'a> Sweeper<'a> {
                                 }
                             }
                         }
+                        out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
                     }
                 }
             });
@@ -346,15 +388,18 @@ struct Tally {
     delta: Vec<f64>,
     /// [群] の真空境界からの漏れ
     leak: Vec<f64>,
+    /// [粗メッシュの面][群] の正味の流れ（面の正の向きが正）
+    current: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
 }
 
 impl Tally {
-    fn new(deltas: usize, groups: usize, width: usize) -> Self {
+    fn new(regions: usize, faces: usize, groups: usize, width: usize) -> Self {
         Self {
-            delta: vec![0.0; deltas],
+            delta: vec![0.0; regions * groups],
             leak: vec![0.0; groups],
+            current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
         }
     }
@@ -362,30 +407,58 @@ impl Tally {
     fn clear(&mut self) {
         self.delta.fill(0.0);
         self.leak.fill(0.0);
+        self.current.fill(0.0);
     }
 }
 
-/// 方位角ごとの部分和を方位角の順に足し、[領域][群] の減衰の和と [群] の漏れを返す。
-fn sum_tallies(tallies: &[Tally], ng: usize) -> (Vec<f64>, Vec<f64>) {
-    let mut delta = vec![0.0; tallies[0].delta.len()];
-    // 領域ごとに並列に足す（1つの領域の中では方位角の順なので、結果は分け方によらない）
-    delta
-        .par_chunks_mut(ng)
-        .enumerate()
-        .for_each(|(region, sum)| {
+/// 方位角ごとの部分和を足し合わせたもの。
+struct Sums {
+    /// [領域][群] の角度中性子束の減衰の重み付き和
+    delta: Vec<f64>,
+    /// [群] の真空境界からの漏れ
+    leak: Vec<f64>,
+    /// [粗メッシュの面][群] の正味の流れ
+    current: Vec<f64>,
+}
+
+/// 方位角ごとの部分和を方位角の順に足す。
+fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
+    // 要素ごとに並列に足す（1つの要素の中では方位角の順なので、結果は分け方によらない）
+    let sum = |part: fn(&Tally) -> &[f64]| -> Vec<f64> {
+        let mut sum = vec![0.0; part(&tallies[0]).len()];
+        sum.par_chunks_mut(ng).enumerate().for_each(|(i, chunk)| {
             for tally in tallies {
-                for (a, b) in sum.iter_mut().zip(&tally.delta[region * ng..][..ng]) {
+                for (a, b) in chunk.iter_mut().zip(&part(tally)[i * ng..][..ng]) {
                     *a += b;
                 }
             }
         });
-    let mut leak = vec![0.0; ng];
-    for tally in tallies {
-        for (a, b) in leak.iter_mut().zip(&tally.leak) {
-            *a += b;
+        sum
+    };
+    Sums {
+        delta: sum(|t| &t.delta),
+        leak: sum(|t| &t.leak),
+        current: sum(|t| &t.current),
+    }
+}
+
+/// 面 `faces`（面の正の向きに通るなら重み正）を通る角度中性子束 `psi` [極角][群] の流れを、
+/// `current` [面][群] に足す。
+fn add_current(
+    current: &mut [f64],
+    faces: &[(usize, f64)],
+    psi: &[f64],
+    weights: &[f64; POLAR_SIN.len()],
+) {
+    let ng = psi.len() / weights.len();
+    for &(face, sign) in faces {
+        let c = &mut current[face * ng..][..ng];
+        for (p, weight) in weights.iter().enumerate() {
+            for (c, value) in c.iter_mut().zip(&psi[p * ng..][..ng]) {
+                *c += sign * weight * value;
+            }
         }
     }
-    (delta, leak)
 }
 
 /// 方位角ごとのトラックの番号の範囲（トラックは方位角の順に並ぶ）。
@@ -490,7 +563,6 @@ fn equilibrium_flux(m: &Material, phi: &[f64], k: f64) -> Vec<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cmfd::CoarseMesh;
     use crate::geometry::{Lattice, PinCell};
     use crate::material::FissionTerm;
     use crate::tracking::{Boundaries, Boundary};
@@ -646,9 +718,15 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
-        let mesh = CoarseMesh::new(&lattice, &tracking);
+        let mesh = CoarseMesh::new(&tracking);
         // 2×2 の格子の中心を通るトラックがあり、セルの角を斜めに抜ける場合も確かめる
-        assert!(mesh.corner_crossings() > 0);
+        let corner = |track: &crate::tracking::Track| {
+            track.segments.windows(2).any(|w| {
+                let (a, b) = (mesh.cell(w[0].region), mesh.cell(w[1].region));
+                a / 2 != b / 2 && a % 2 != b % 2
+            })
+        };
+        assert!(tracking.tracks.iter().any(corner));
         let (f, m) = (fuel(), moderator());
         let materials = [&f, &f, &m, &m, &m, &f, &f, &m];
         let ng = 2;
