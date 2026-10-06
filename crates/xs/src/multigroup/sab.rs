@@ -1,0 +1,299 @@
+//! 熱中性子散乱の S(α, β)（MF7 MT4 の非干渉性非弾性散乱）による、エネルギー移行の核。
+//!
+//! 主散乱体1原子あたりの二重微分断面積は
+//!   σ(E→E', μ) = σb/(2kT) √(E'/E) e^(-β/2) S(α, β)、σb = σfree ((A+1)/A)²、
+//!   α = (E + E' - 2μ√(EE'))/(A kT)、β = (E' - E)/kT
+//! （LASYM=0 の対称な S）。LAT=1 の表は α, β を kT0 = 0.0253 eV で作っているので、表を引くときは
+//! kT0 を使う。μ で積分した P0 の核は α の積分になり、
+//!   σ0(E→E') = σb A/(4E) e^(-β/2) (kT_表/kT) ∫ S dα_表、α_表 は (√E ∓ √E')²/(A kT_表) の間。
+
+use super::GroupStructure;
+use super::free_gas::{integrate_linear, integrate_log};
+use crate::endf::{Interpolation, Mf7Incoherent};
+use crate::physics::BK;
+
+/// LAT=1 の表で α, β に使う kT0 (eV)（ENDF の定義）
+const KT0: f64 = 0.0253;
+
+/// 1つの温度の S(α, β) による P0 のエネルギー移行の核。
+#[derive(Debug, Clone)]
+pub struct ThermalSab<'a> {
+    data: &'a Mf7Incoherent,
+    /// 標的の温度の kT と、表を引くときの kT (eV)
+    kt: f64,
+    kt_table: f64,
+    /// [β の番号 × α の数 + α の番号] の ln S（S = 0 は -∞）
+    ln_s: Vec<f64>,
+    /// 束縛原子の散乱断面積 σb (barn)
+    sigma_bound: f64,
+    /// この入射エネルギー (eV) 未満で使う
+    cutoff: f64,
+}
+
+impl<'a> ThermalSab<'a> {
+    /// 温度 `temperature` (K) の表で、入射エネルギー `cutoff` (eV) 未満に使う核を作る。
+    /// 温度は表にあること（温度方向には補間しない。NJOY THERMR も同じ）。
+    ///
+    /// 表の範囲外の S は使わない。そのかわり、`cutoff` までの下方散乱と、表の β の上限までの
+    /// 上方散乱を、表の α, β が覆うことを確かめる（上方散乱の先は e^(-β/2) で無視できる）。
+    pub fn new(data: &'a Mf7Incoherent, temperature: f64, cutoff: f64) -> Result<Self, String> {
+        if data.lasym != 0 {
+            return Err("asymmetric S(α, β) (LASYM≠0) is not supported".into());
+        }
+        if data.alpha_law != Interpolation::LogLin || data.beta_law != Interpolation::LogLin {
+            return Err("S(α, β) must interpolate ln S linearly in α and β".into());
+        }
+        let t = data
+            .temperatures
+            .iter()
+            .position(|&t| (t - temperature).abs() <= 1.0e-9 * temperature)
+            .ok_or_else(|| {
+                format!(
+                    "temperature {temperature} K is not in S(α, β) {:?}",
+                    data.temperatures
+                )
+            })?;
+        let kt = BK * temperature;
+        let kt_table = if data.lat == 1 { KT0 } else { kt };
+        let (alpha_max, beta_max) = (
+            *data.alpha.last().expect("α grid"),
+            *data.beta.last().expect("β grid"),
+        );
+        let e_up = cutoff + beta_max * kt_table;
+        let alpha_needed = (cutoff.sqrt() + e_up.sqrt()).powi(2) / (data.awr * kt_table);
+        if cutoff / kt_table > beta_max || alpha_needed > alpha_max {
+            return Err(format!(
+                "S(α, β) table (α ≤ {alpha_max}, β ≤ {beta_max}) does not cover scattering below {cutoff} eV"
+            ));
+        }
+        let ln_s = data.s[t]
+            .iter()
+            .map(|&v| if v > 0.0 { v.ln() } else { f64::NEG_INFINITY })
+            .collect();
+        let ratio = (data.awr + 1.0) / data.awr;
+        Ok(Self {
+            data,
+            kt,
+            kt_table,
+            ln_s,
+            sigma_bound: data.sigma_free * ratio * ratio,
+            cutoff,
+        })
+    }
+
+    /// この入射エネルギー (eV) 未満で使う。
+    pub fn cutoff(&self) -> f64 {
+        self.cutoff
+    }
+
+    /// σ0(E→E') (barn/eV)。
+    pub fn kernel(&self, e: f64, e_out: f64) -> f64 {
+        if e <= 0.0 || e_out <= 0.0 {
+            return 0.0;
+        }
+        let d = self.data;
+        let b = ((e_out - e) / self.kt_table).abs();
+        let beta = &d.beta;
+        if b > beta[beta.len() - 1] {
+            return 0.0;
+        }
+        let j = beta.partition_point(|&x| x <= b).clamp(1, beta.len() - 1) - 1;
+        let u = (b - beta[j]) / (beta[j + 1] - beta[j]);
+        let na = d.alpha.len();
+        // β について ln S を線形補間した、α の格子点での ln S
+        let row = |i: usize| {
+            let (lo, hi) = (self.ln_s[j * na + i], self.ln_s[(j + 1) * na + i]);
+            if lo == f64::NEG_INFINITY || hi == f64::NEG_INFINITY {
+                f64::NEG_INFINITY
+            } else {
+                lo + u * (hi - lo)
+            }
+        };
+        let scale = d.awr * self.kt_table;
+        let (root, root_out) = (e.sqrt(), e_out.sqrt());
+        let lo = (root - root_out).powi(2) / scale;
+        let hi = ((root + root_out).powi(2) / scale).min(d.alpha[na - 1]);
+        // α の区間ごとに exp(ln S) を解析的に積分する。最初の区間の下は、その区間の補間を延ばす
+        let first = d.alpha.partition_point(|&x| x <= lo).clamp(1, na - 1) - 1;
+        let mut integral = 0.0;
+        for i in first..na - 1 {
+            let (a0, a1) = (d.alpha[i], d.alpha[i + 1]);
+            let (x0, x1) = (if i == first { lo } else { a0 }, a1.min(hi));
+            if x1 <= x0 {
+                break;
+            }
+            let (l0, l1) = (row(i), row(i + 1));
+            if l0 == f64::NEG_INFINITY || l1 == f64::NEG_INFINITY {
+                continue;
+            }
+            let slope = (l1 - l0) / (a1 - a0);
+            let start = l0 + slope * (x0 - a0);
+            let width = x1 - x0;
+            integral += if (slope * width).abs() < 1.0e-12 {
+                start.exp() * width
+            } else {
+                start.exp() * (slope * width).exp_m1() / slope
+            };
+            if a1 >= hi {
+                break;
+            }
+        }
+        let beta_actual = (e_out - e) / self.kt;
+        self.sigma_bound * d.awr / (4.0 * e) * (-0.5 * beta_actual).exp() * self.kt_table / self.kt
+            * integral
+    }
+
+    /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に、
+    /// 上に散乱する分は最上位の群に入れる（中性子を失わない）。
+    ///
+    /// 群境界と、核が折れ曲がる E' = E ± β_j kT（表の β の格子点）で区間を分け、
+    /// 自由ガスと同じく対数的に細かく分けた区間の Gauss-Legendre 則で積分する。
+    pub fn group_integrals(&self, groups: &GroupStructure, e: f64) -> Vec<f64> {
+        let bounds = groups.bounds();
+        let highest = bounds[0];
+        let reach = e + self.data.beta[self.data.beta.len() - 1] * self.kt_table;
+        let mut points: Vec<f64> = bounds
+            .iter()
+            .copied()
+            .chain(
+                self.data
+                    .beta
+                    .iter()
+                    .flat_map(|&b| [e - b * self.kt_table, e + b * self.kt_table]),
+            )
+            .chain([0.0, e, reach])
+            .filter(|&x| (0.0..=reach).contains(&x))
+            .collect();
+        points.sort_by(f64::total_cmp);
+        points.dedup();
+
+        let kernel = |x: f64| self.kernel(e, x);
+        let mut integrals = vec![0.0; groups.len()];
+        for w in points.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            let mid = 0.5 * (a + b);
+            let g = groups
+                .find(mid)
+                .unwrap_or(if mid > highest { 0 } else { groups.len() - 1 });
+            integrals[g] += if a > 0.0 {
+                integrate_log(&kernel, a, b)
+            } else {
+                integrate_linear(&kernel, a, b)
+            };
+        }
+        integrals
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use crate::multigroup::{free_gas_group_integrals, free_gas_kernel};
+
+    pub(crate) const TEMPERATURE: f64 = 293.6;
+
+    /// 自由ガス（A = 1、σfree = 1 b）の対称な S(α, β) = e^(-(α²+β²)/(4α))/√(4πα) を細かい格子で表にしたもの。
+    /// 小さな α では S が β について幅 √α ほどで急に変わるので、実際の表と同じく β も原点の近くを細かくとる
+    pub(crate) fn free_gas_table() -> Mf7Incoherent {
+        let alpha: Vec<f64> = (0..=800)
+            .map(|i| 1.0e-5 * 10f64.powf(i as f64 / 100.0))
+            .collect();
+        let beta: Vec<f64> = std::iter::once(0.0)
+            .chain((0..=750).map(|i| 1.0e-5 * 10f64.powf(i as f64 / 100.0)))
+            .collect();
+        let s = beta
+            .iter()
+            .flat_map(|&b| {
+                alpha.iter().map(move |&a| {
+                    (-(a * a + b * b) / (4.0 * a)).exp() / (4.0 * std::f64::consts::PI * a).sqrt()
+                })
+            })
+            .collect();
+        Mf7Incoherent {
+            lat: 0,
+            lasym: 0,
+            sigma_free: 1.0,
+            awr: 1.0,
+            e_max: 10.0,
+            alpha,
+            alpha_law: Interpolation::LogLin,
+            beta,
+            beta_law: Interpolation::LogLin,
+            temperatures: vec![TEMPERATURE],
+            s: vec![s],
+            effective_temperature: crate::endf::Tab1::linear(vec![TEMPERATURE], vec![TEMPERATURE]),
+        }
+    }
+
+    /// `free_gas_table` を1桁あたり 20 点に粗くした表。補間の誤差は大きいが、詳細釣り合いのように
+    /// 表の細かさによらない性質を、散乱行列の段階で安く確かめるのに使う。
+    pub(crate) fn coarse_free_gas_table() -> Mf7Incoherent {
+        let fine = free_gas_table();
+        let (na, nb) = (fine.alpha.len(), fine.beta.len());
+        let keep_alpha: Vec<usize> = (0..na).step_by(5).collect();
+        let keep_beta: Vec<usize> = std::iter::once(0).chain((1..nb).step_by(5)).collect();
+        let s = keep_beta
+            .iter()
+            .flat_map(|&j| keep_alpha.iter().map(move |&i| (j, i)))
+            .map(|(j, i)| fine.s[0][j * na + i])
+            .collect();
+        Mf7Incoherent {
+            alpha: keep_alpha.iter().map(|&i| fine.alpha[i]).collect(),
+            beta: keep_beta.iter().map(|&j| fine.beta[j]).collect(),
+            s: vec![s],
+            ..fine
+        }
+    }
+
+    #[test]
+    fn free_gas_table_reproduces_free_gas_kernel() {
+        // 表の補間（ln S を α, β について線形）の誤差の範囲で、自由ガスの解析式と一致する
+        let data = free_gas_table();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let kt = BK * TEMPERATURE;
+        let groups = GroupStructure::wims69();
+        for e in [0.01, 0.0253, 0.1, 0.5] {
+            let ours = sab.group_integrals(&groups, e);
+            let reference = free_gas_group_integrals(&groups, e, 1.0, kt);
+            let total: f64 = reference.iter().sum();
+            let ours_total: f64 = ours.iter().sum();
+            assert!(
+                (ours_total / total - 1.0).abs() < 1e-3,
+                "E={e}: {ours_total} vs {total}"
+            );
+            for (g, (o, r)) in ours.iter().zip(&reference).enumerate() {
+                assert!(
+                    (o - r).abs() <= 2e-3 * r + 1e-6 * total,
+                    "E={e}, g={g}: {o} vs {r}"
+                );
+            }
+            let e_out = 0.7 * e;
+            let (k, k_ref) = (sab.kernel(e, e_out), free_gas_kernel(e, e_out, 1.0, kt));
+            assert!((k / k_ref - 1.0).abs() < 2e-3, "E={e}: {k} vs {k_ref}");
+        }
+    }
+
+    #[test]
+    fn kernel_satisfies_detailed_balance() {
+        // E σ0(E→E') e^(-E/kT) は E と E' について対称
+        let data = free_gas_table();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let kt = BK * TEMPERATURE;
+        for (e, e_out) in [(0.01, 0.05), (0.2, 0.03), (0.0253, 0.026)] {
+            let forward = e * sab.kernel(e, e_out) * (-e / kt).exp();
+            let backward = e_out * sab.kernel(e_out, e) * (-e_out / kt).exp();
+            assert!(
+                (forward / backward - 1.0).abs() < 1e-12,
+                "{forward} vs {backward}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_missing_temperature_and_short_table() {
+        let data = free_gas_table();
+        assert!(ThermalSab::new(&data, 600.0, 1.0).is_err());
+        // β の上限 316 は kT ≈ 0.0253 eV で 8 eV 分なので、10 eV までの下方散乱を覆わない
+        assert!(ThermalSab::new(&data, TEMPERATURE, 10.0).is_err());
+    }
+}

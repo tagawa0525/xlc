@@ -98,7 +98,7 @@ pub fn free_gas_group_integrals(groups: &GroupStructure, e: f64, awr: f64, kt: f
 }
 
 /// [a, b]（a > 0）をエネルギー比が一定以下になるよう対数的に分割して積分する。
-fn integrate_log(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+pub(super) fn integrate_log(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
     let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
     let ratio = (b / a).powf(1.0 / pieces as f64);
     let mut lo = a;
@@ -112,7 +112,7 @@ fn integrate_log(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
 }
 
 /// 0 を含む区間 [a, b] を等分して積分する。
-fn integrate_linear(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+pub(super) fn integrate_linear(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
     const PIECES: usize = 16;
     let width = (b - a) / PIECES as f64;
     (0..PIECES)

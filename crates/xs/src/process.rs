@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::endf::{Mf2, Mf3, Mf5, Mf6, RangeKind, Tab1, Tape, parse_nubar};
+use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, parse_nubar};
 use crate::library::Nuclide;
 use crate::multigroup::{
-    FreeGas, GroupStructure, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
-    reaction_averages, scattering_matrix,
+    FreeGas, GroupStructure, Thermal, UnresolvedShielding, Weight, emits_neutrons,
+    fission_spectrum, reaction_averages, scattering_matrix,
 };
 use crate::physics::BK;
 use crate::pointwise::{DEFAULT_TOLERANCE, left_limit, linearize, reconstruct, right_limit};
@@ -23,6 +23,24 @@ pub struct Settings {
     pub thermal_cutoff: f64,
     /// ポイントワイズの断面積の許容誤差
     pub tolerance: f64,
+}
+
+/// 熱中性子散乱のテープ（MF7）から、非干渉性非弾性散乱の S(α, β)（MT4）を読む。
+///
+/// 弾性散乱（MT2）を持つデータはエラーにする。S(α, β) の散乱行列は cutoff 未満で MF3 の弾性散乱を
+/// 置き換えるので、MT2 を扱わないと弾性散乱が黙って抜け落ちる（黒鉛、ZrH など）。
+pub fn read_thermal_scattering(tape: &Tape) -> Result<Mf7Incoherent, String> {
+    let mat = *tape
+        .materials()
+        .first()
+        .ok_or("empty thermal scattering tape")?;
+    if tape.section(mat, 7, 2).is_some() {
+        return Err("thermal elastic scattering (MF7 MT2) is not supported".into());
+    }
+    let section = tape
+        .section(mat, 7, 4)
+        .ok_or("thermal scattering tape has no MF7 MT4")?;
+    Mf7Incoherent::parse(&section).map_err(|e| e.to_string())
 }
 
 /// 非分離共鳴の自己遮蔽の補正を、温度 `temperature` (K) と背景断面積 `sigma0` について作る
@@ -187,7 +205,7 @@ pub fn process_nuclide(tape: &Tape, name: &str, settings: &Settings) -> Result<N
         &elastic_only,
         &q_values,
         &mf6,
-        Some(&thermal),
+        Some(&Thermal::FreeGas(thermal)),
     )?;
     let mut scatter = scattering_matrix(groups, weight, awr, &others, &q_values, &mf6, None)?;
     for (row, el) in scatter.iter_mut().zip(&elastic) {
@@ -296,5 +314,53 @@ mod tests {
             unresolved_shielding(&tape, 1, 300.0, &[10.0]).unwrap(),
             None
         );
+    }
+
+    /// MF7 の MT4（定数と β が1点の小さな表）と、指定があれば MT2 を持つ熱中性子散乱のテープ。
+    fn thermal_tape(with_elastic: bool) -> Tape {
+        use crate::endf::rec;
+        let mut lines: Vec<String> = vec![
+            rec(["1.001000+3", "9.991673-1", "0", "0", "0", "0"], 1, 7, 4),
+            rec(["0.0", "0.0", "0", "0", "6", "0"], 1, 7, 4),
+            rec(["4.0", "10.0", "9.9917-1", "5.0", "0.0", "2.0"], 1, 7, 4),
+            rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 7, 4),
+            rec(["2", "4", "", "", "", ""], 1, 7, 4),
+        ];
+        for beta in ["0.0", "2.0"] {
+            lines.push(rec(["2.936000+2", beta, "0", "0", "1", "2"], 1, 7, 4));
+            lines.push(rec(["2", "4", "", "", "", ""], 1, 7, 4));
+            lines.push(rec(["0.1", "1.0", "10.0", "0.01", "", ""], 1, 7, 4));
+        }
+        lines.extend([
+            rec(["0.0", "0.0", "0", "0", "1", "1"], 1, 7, 4),
+            rec(["1", "2", "", "", "", ""], 1, 7, 4),
+            rec(["2.936000+2", "1400.0", "", "", "", ""], 1, 7, 4),
+            rec(["", "", "", "", "", ""], 1, 7, 0),
+        ]);
+        if with_elastic {
+            // 非干渉性弾性散乱（LTHR=2）: SB と Debye-Waller 積分
+            lines.splice(
+                0..0,
+                [
+                    rec(["1.001000+3", "9.991673-1", "2", "0", "0", "0"], 1, 7, 2),
+                    rec(["2.0", "0.0", "0", "0", "1", "1"], 1, 7, 2),
+                    rec(["1", "2", "", "", "", ""], 1, 7, 2),
+                    rec(["2.936000+2", "10.0", "", "", "", ""], 1, 7, 2),
+                    rec(["", "", "", "", "", ""], 1, 7, 0),
+                ],
+            );
+        }
+        Tape::parse(&lines.concat()).unwrap()
+    }
+
+    #[test]
+    fn reads_incoherent_inelastic_scattering() {
+        let data = read_thermal_scattering(&thermal_tape(false)).unwrap();
+        assert_eq!(data.beta, vec![0.0, 2.0]);
+    }
+
+    #[test]
+    fn thermal_elastic_scattering_is_rejected() {
+        assert!(read_thermal_scattering(&thermal_tape(true)).is_err());
     }
 }
