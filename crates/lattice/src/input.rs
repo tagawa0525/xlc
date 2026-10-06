@@ -95,7 +95,7 @@ pub struct LatticeInput {
 /// 入力ファイルの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum InputError {
-    #[error("{0}")]
+    #[error(transparent)]
     Toml(#[from] toml::de::Error),
     #[error("{0}")]
     Invalid(String),
