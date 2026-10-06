@@ -2,6 +2,7 @@
 
 mod factors;
 mod fluctuation;
+mod line_shape;
 mod mlbw;
 mod reich_moore;
 mod unresolved;
