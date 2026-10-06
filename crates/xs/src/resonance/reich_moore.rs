@@ -318,9 +318,13 @@ fn invert3(mut a: [[Complex; 3]; 3]) -> [[Complex; 3]; 3] {
         row[i] = Complex::new(1.0, 0.0);
     }
     for col in 0..3 {
-        let pivot = (col..3)
-            .max_by(|&i, &j| a[i][col].norm_sqr().total_cmp(&a[j][col].norm_sqr()))
-            .expect("non-empty range");
+        let pivot = (col + 1..3).fold(col, |best, i| {
+            if a[i][col].norm_sqr() > a[best][col].norm_sqr() {
+                i
+            } else {
+                best
+            }
+        });
         a.swap(col, pivot);
         inv.swap(col, pivot);
         let p = a[col][col].recip();

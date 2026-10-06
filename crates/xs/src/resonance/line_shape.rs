@@ -23,7 +23,7 @@ pub(super) fn psi(x: f64, theta: f64) -> f64 {
 /// x = tan φ と置いて [0, π/2] を適応 Gauss-Kronrod 積分する。線形状の裾は ψ ~ 1/x² なので
 /// ψ/(ψ+β) dx = ψ/(ψ+β) (1 + x²) dφ は φ → π/2 でも有限（1/β に近づく）。
 pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>, NumericError> {
-    if let Some(beta) = betas.iter().find(|&&b| !(b > 0.0)) {
+    if let Some(beta) = betas.iter().find(|&&b| b <= 0.0 || b.is_nan()) {
         return Err(NumericError::Domain(format!(
             "J, K integrals for β = {beta}"
         )));
