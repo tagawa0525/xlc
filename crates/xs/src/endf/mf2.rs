@@ -32,6 +32,8 @@ pub enum RangeKind {
     Mlbw(Mlbw),
     /// LRU=2, LRF=2
     Unresolved(Unresolved),
+    /// LRU=2, LRF=1。パラメータは読み飛ばし、LSSF だけを持つ（無限希釈の断面積が MF3 にあれば使える）
+    UnresolvedLrf1 { lssf: i64 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -102,9 +104,9 @@ pub struct UrrLValue {
 pub struct UrrJValue {
     pub aj: f64,
     pub int: Interpolation,
-    pub amux: f64,
-    pub amun: f64,
-    pub amuf: f64,
+    pub amux: u32,
+    pub amun: u32,
+    pub amuf: u32,
     pub points: Vec<UrrPoint>,
 }
 
@@ -267,9 +269,9 @@ fn read_unresolved(
             j_values.push(UrrJValue {
                 aj: list.c1,
                 int,
-                amux: dof(header[2])?,
-                amun: dof(header[3])?,
-                amuf: dof(header[5])?,
+                amux: dof(header[2])? as u32,
+                amun: dof(header[3])? as u32,
+                amuf: dof(header[5])? as u32,
                 points,
             });
         }
@@ -467,7 +469,7 @@ mod tests {
         assert_eq!((urr.l_values[0].awri, urr.l_values[0].l), (236.006, 0));
         let j = &urr.l_values[0].j_values[0];
         assert_eq!((j.aj, j.int), (0.5, Interpolation::LogLog));
-        assert_eq!((j.amux, j.amun, j.amuf), (0.0, 1.0, 0.0));
+        assert_eq!((j.amux, j.amun, j.amuf), (0, 1, 0));
         assert_eq!(
             j.points[1],
             UrrPoint {
@@ -509,13 +511,86 @@ mod tests {
         assert_eq!(urr.ap, 0.948);
     }
 
+    /// 非分離共鳴 LRF=1 の範囲のあとに LRU=0 の範囲を置いて、パラメータを読み飛ばせたことを確かめる。
+    fn assert_skips_lrf1(lfw: &str, parameters: &[[&str; 6]]) {
+        let mut lines = vec![
+            HEAD,
+            ["9.423900+4", "1.0", "0", lfw, "2", "0"],
+            ["5.7+3", "4.0+4", "2", "1", "0", "0"],
+        ];
+        lines.extend_from_slice(parameters);
+        lines.push(["4.0+4", "2.0+7", "0", "0", "0", "0"]);
+        lines.push(["0.0", "0.5", "0", "0", "0", "0"]);
+        let data = mf2(&lines).unwrap();
+        assert_eq!(data.ranges[0].kind, RangeKind::UnresolvedLrf1 { lssf: 1 });
+        assert_eq!(data.ranges[1].kind, RangeKind::ScatteringRadius { ap: 0.5 });
+    }
+
     #[test]
-    fn rejects_unresolved_lrf1() {
+    fn skips_unresolved_lrf1_without_fission_widths() {
+        assert_skips_lrf1(
+            "0",
+            &[
+                // SPI AP LSSF 0 NLS 0、l ごとに AWRI 0 L 0 6*NJS NJS と D AJ AMUN GNO GG GF
+                ["0.0", "0.888", "1", "0", "1", "0"],
+                ["2.379916+2", "0.0", "0", "0", "6", "1"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
+            ],
+        );
+    }
+
+    #[test]
+    fn skips_unresolved_lrf1_with_fission_widths() {
+        assert_skips_lrf1(
+            "1",
+            &[
+                // SPI AP LSSF 0 NE NLS と ES、l ごとに AWRI 0 L 0 NJS 0、
+                // J ごとに 0 0 L MUF NE+6 0 と D AJ AMUN GNO GG 0 GF...
+                ["0.0", "0.888", "1", "0", "2", "1"],
+                ["5.7+3", "4.0+4", "", "", "", ""],
+                ["2.379916+2", "0.0", "0", "0", "1", "0"],
+                ["0.0", "0.0", "0", "1", "8", "0"],
+                ["13.1", "0.5", "1.0", "1.5-3", "3.1-2", "0.0"],
+                ["1.2-3", "1.4-3", "", "", "", ""],
+            ],
+        );
+    }
+
+    #[test]
+    fn rounds_degrees_of_freedom_like_njoy() {
+        // NJOY は自由度を最も近い整数に丸めて使う（Kr-83 の AMUX=1.0123 など）
+        let data = mf2(&[
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["2.0+4", "1.49+5", "2", "2", "0", "0"],
+            ["0.0", "0.948", "1", "0", "1", "0"],
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            ["0.5", "0.0", "2", "0", "18", "2"],
+            ["0.0", "0.0", "1.0123", "0.9", "0.0", "2.4"],
+            // 同じエネルギーの繰り返しはパラメータの段差を表す（Th-229 など）
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
+            ["2.0+4", "18.0", "0.0", "1.8-3", "2.3-2", "0.0"],
+        ])
+        .unwrap();
+        let RangeKind::Unresolved(urr) = &data.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let j = &urr.l_values[0].j_values[0];
+        assert_eq!((j.amux, j.amun, j.amuf), (1, 1, 2));
+        assert_eq!(j.points.len(), 2);
+    }
+
+    #[test]
+    fn rejects_degrees_of_freedom_beyond_quadrature() {
         let result = mf2(&[
             HEAD,
             ["9.223800+4", "1.0", "0", "0", "1", "0"],
-            ["2.0+4", "1.49+5", "2", "1", "0", "0"],
+            ["2.0+4", "1.49+5", "2", "2", "0", "0"],
             ["0.0", "0.948", "1", "0", "1", "0"],
+            ["2.360060+2", "0.0", "0", "0", "1", "0"],
+            ["0.5", "0.0", "2", "0", "12", "1"],
+            ["0.0", "0.0", "0.0", "5.0", "0.0", "0.0"],
+            ["2.0+4", "20.0", "0.0", "2.0-3", "2.3-2", "0.0"],
         ]);
         assert!(result.is_err());
     }
