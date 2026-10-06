@@ -112,7 +112,8 @@ mod tests {
         let threshold = 1.0e3 * (AWRI + 1.0) / AWRI;
         let below = xs.cross_sections(threshold * 0.999).unwrap();
         assert_eq!(below[3], 0.0);
-        for e in [threshold * 1.001, 1.5e3, 2.0e3, 3.0e3] {
+        // 捕獲がないと共鳴エネルギーちょうどは R 行列の極なので避ける
+        for e in [threshold * 1.001, 1.5e3, 1.999e3, 2.001e3, 3.0e3] {
             let [total, elastic, capture, level] = xs.cross_sections(e).unwrap()[..] else {
                 panic!("expected four reactions");
             };
@@ -131,6 +132,13 @@ mod tests {
         };
         assert!(capture > 0.0);
         assert_close(elastic + capture + level, total, "sum of parts");
+    }
+
+    #[test]
+    fn rejects_the_pole_of_a_resonance_without_capture() {
+        let xs = RMatrixLimitedXs::new(&inelastic_level(0.0)).unwrap();
+        let error = xs.cross_sections(2.0e3).unwrap_err().to_string();
+        assert!(error.contains("pole"), "{error}");
     }
 
     #[test]
