@@ -7,7 +7,7 @@ ENDF/B-VIII.0 から、M1 の対象核種（U-234, U-235, U-236, U-238, O-16, O-
 ## 実行
 
 ENDF/B-VIII.0 の中性子と熱中性子散乱のサブライブラリを `references/endf/ENDF-B-VIII.0_neutrons/` と
-`references/endf/ENDF-B-VIII.0_thermal_scatt/` に置いて（別の場所なら `xs.inp` の `endf-directory` と
+`references/endf/ENDF-B-VIII.0_thermal_scatt/` に置いて（別の場所なら `xs.toml` の `endf-directory` と
 `thermal-directory` を書き換えて）実行する。
 
 ```sh
@@ -18,7 +18,7 @@ examples/m1/run.sh
 
 | ファイル      | 内容                                                                               |
 | ------------- | ---------------------------------------------------------------------------------- |
-| `xs.inp`      | 多群ライブラリの入力（14 核種、核種ごとの温度、σ0 9 点、H in H2O の S(α,β)）       |
+| `xs.toml`     | 多群ライブラリの入力（14 核種、核種ごとの温度、σ0 9 点、H in H2O の S(α,β)）       |
 | `pincell.inp` | ピンセルの入力（M0 と同じ 3.1 wt% UO2 と水、被覆管なし。燃料 900 K、減速材 600 K） |
 | `run.sh`      | 2段階を順に実行するスクリプト                                                      |
 
