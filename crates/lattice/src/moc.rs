@@ -868,7 +868,9 @@ mod tests {
             .collect();
         let mut outgoing = vec![0.0; sweeper.outgoing_len()];
         let mut tallies = sweeper.tallies(materials.len());
-        sweeper.sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies);
+        sweeper
+            .sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies)
+            .unwrap();
         let sums = sum_tallies(&tallies, ng);
         for cell in 0..mesh.cells() {
             for g in 0..ng {
