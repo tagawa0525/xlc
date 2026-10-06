@@ -550,4 +550,33 @@ pub(crate) mod tests {
         assert!(read_modified(|f| f.nuclides[1].name = "U-235".into()).is_err());
         assert!(read_modified(|f| f.nuclides[0].temperatures[1].temperature = 293.6).is_err());
     }
+
+    #[test]
+    fn map_keys_must_be_strings() {
+        // serde はバイナリのキーもフィールド名として受け付けるので、構造の検査をすり抜けさせない
+        let file = sample_file();
+        let nuclides = rmpv::ext::to_value(&file.nuclides).unwrap();
+        let value = rmpv::Value::Map(vec![
+            ("format".into(), "xlc-multigroup".into()),
+            (
+                "group_bounds".into(),
+                rmpv::ext::to_value(&file.group_bounds).unwrap(),
+            ),
+            ("sigma0".into(), rmpv::ext::to_value(&file.sigma0).unwrap()),
+            (rmpv::Value::Binary(b"nuclides".to_vec()), nuclides),
+        ]);
+        let mut bytes = Vec::new();
+        rmpv::encode::write_value(&mut bytes, &value).unwrap();
+        assert!(matches!(
+            Library::from_msgpack(&bytes),
+            Err(LibraryError::NotMap)
+        ));
+    }
+
+    #[test]
+    fn temperatures_are_looked_up_exactly() {
+        // 重複の判定と同じく完全一致で引く。近い温度を黙って受け入れない
+        let library = sample();
+        assert!(library.nuclide("U-235", 900.0 * (1.0 + 1.0e-12)).is_err());
+    }
 }
