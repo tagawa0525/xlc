@@ -108,10 +108,10 @@ fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> 
     let dof_x = if gx > 0.0 { jv.amux } else { 0 };
     // 極に近い中性子幅の変数 x を一番内側で積分する
     let integral = |g: fn(f64, f64) -> f64| {
-        expectation(dof_x, |z| {
-            expectation(dof_f, |y| {
+        expectation(dof_x, 1.0e-10, |z| {
+            expectation(dof_f, 1.0e-10, |y| {
                 let rest = gf * y + gg + gx * z;
-                expectation(jv.amun, |x| g(x, y) / (gn * x + rest))
+                expectation(jv.amun, 1.0e-10, |x| g(x, y) / (gn * x + rest))
             })
         })
     };
@@ -285,6 +285,44 @@ mod tests {
             1.0e5,
         ];
         assert_eq!(unresolved_grid(&urr, 1.5e3, 1.0e5), expected);
+    }
+
+    #[test]
+    fn fluctuating_fission_width_converges() {
+        // U-234（ENDF/B-VIII.0）の l=1, J=1/2 の系列。中性子幅と核分裂幅の入れ子の積分で、
+        // 内側の積分のばらつきのために外側が収束しなかった
+        let point = |e, gno, gf| UrrPoint {
+            e,
+            d: 10.6,
+            gx: 0.0,
+            gno,
+            gg: 0.02,
+            gf,
+        };
+        let urr = Unresolved {
+            lssf: 0,
+            spi: 0.0,
+            ap: 0.893,
+            ap_energy: None,
+            naps: 0,
+            l_values: vec![UrrLValue {
+                awri: 232.029,
+                l: 1,
+                j_values: vec![UrrJValue {
+                    aj: 0.5,
+                    int: Interpolation::LinLin,
+                    amux: 0,
+                    amun: 1,
+                    amuf: 1,
+                    points: vec![
+                        point(4.0e4, 1.5872e-3, 6.7737e-4),
+                        point(6.0e4, 1.4566e-3, 6.0163e-4),
+                    ],
+                }],
+            }],
+        };
+        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(5.0e4);
+        assert!(sigma.fission > 0.0 && sigma.fission.is_finite());
     }
 
     #[test]

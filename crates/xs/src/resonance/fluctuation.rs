@@ -13,7 +13,8 @@ const TAIL: f64 = 40.0;
 const MAX_DEPTH: u32 = 50;
 
 /// 自由度 `dof` の χ² 分布での f(x) の期待値。自由度 0 は幅がゆらがない（x = 1）ことを表す。
-pub(super) fn expectation(dof: u32, f: impl Fn(f64) -> f64) -> f64 {
+pub(super) fn expectation(dof: u32, tolerance: f64, f: impl Fn(f64) -> f64) -> f64 {
+    let _ = tolerance;
     let k = f64::from(dof) / 2.0;
     // Γ(k)（k = 1/2, 1, 3/2, 2）
     let gamma = match dof {
@@ -109,6 +110,8 @@ mod tests {
     use crate::special::erfc;
 
     const SQRT_PI: f64 = 1.772_453_850_905_516;
+    const INNER: f64 = 1.0e-10;
+    const OUTER: f64 = 1.0e-8;
 
     #[test]
     fn reproduces_moments_of_chi_square() {
@@ -117,7 +120,7 @@ mod tests {
             let nu = f64::from(dof);
             let mut expected = 1.0;
             for k in 0..=6 {
-                let moment = expectation(dof, |x| x.powi(k));
+                let moment = expectation(dof, INNER, |x| x.powi(k));
                 assert!(
                     (moment - expected).abs() <= 1e-9 * expected,
                     "ν={dof}, k={k}: {moment} vs {expected}"
@@ -138,7 +141,7 @@ mod tests {
             let gamma = 2.0 * (-z).exp() / z.sqrt() - 2.0 * SQRT_PI * erfc(z.sqrt());
             let nu3 = 1.5_f64.powf(1.5) * c.sqrt() * z.exp() * gamma;
             for (dof, exact) in [(1, nu1), (3, nu3)] {
-                let actual = expectation(dof, |x| 1.0 / (x + c));
+                let actual = expectation(dof, INNER, |x| 1.0 / (x + c));
                 assert!(
                     (actual - exact).abs() <= 1e-8 * exact,
                     "ν={dof}, c={c}: {actual} vs {exact}"
@@ -148,7 +151,19 @@ mod tests {
     }
 
     #[test]
+    fn nested_expectations_converge_in_either_order() {
+        // 内側の期待値は許容誤差の範囲でばらつくので、外側は許容誤差を緩めないと収束しない
+        let f = |x: f64, y: f64| x * y / (x + 0.3 * y + 0.01);
+        let x_inside = expectation(1, OUTER, |y| expectation(1, INNER, |x| f(x, y)));
+        let y_inside = expectation(1, OUTER, |x| expectation(1, INNER, |y| f(x, y)));
+        assert!(
+            (x_inside - y_inside).abs() <= 1e-7 * x_inside,
+            "{x_inside} vs {y_inside}"
+        );
+    }
+
+    #[test]
     fn zero_degrees_of_freedom_do_not_fluctuate() {
-        assert_eq!(expectation(0, |x| 3.0 * x + 1.0), 4.0);
+        assert_eq!(expectation(0, INNER, |x| 3.0 * x + 1.0), 4.0);
     }
 }
