@@ -141,6 +141,7 @@ pub fn solve(
             .collect();
 
         let mut delta = vec![vec![0.0; ng]; regions];
+        let mut leak = vec![0.0; ng];
         for (index, track) in tracking.tracks.iter().enumerate() {
             let weights: Vec<f64> = (0..np)
                 .map(|p| direction_weight(track.azimuth, p))
@@ -171,7 +172,14 @@ pub fn solve(
                 match link {
                     Some(link) => next_boundary[slot(link.track, link.forward)..][..width]
                         .copy_from_slice(&psi),
-                    None => todo!("leakage"),
+                    // 真空境界から出た分は漏れ。入ってくる角度中性子束は 0 のまま
+                    None => {
+                        for (p, weight) in weights.iter().enumerate() {
+                            for (l, value) in leak.iter_mut().zip(&psi[p * ng..][..ng]) {
+                                *l += weight * value;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -190,6 +198,9 @@ pub fn solve(
         let new_k = k * rate;
         for f in new_flux.iter_mut().flatten() {
             *f /= rate;
+        }
+        for l in &mut leak {
+            *l /= rate;
         }
         for b in &mut boundary {
             *b /= rate;
@@ -214,7 +225,7 @@ pub fn solve(
                 k,
                 flux,
                 volumes,
-                leakage: vec![],
+                leakage: leak,
                 iterations: iteration,
             });
         }
