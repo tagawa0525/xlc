@@ -138,12 +138,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .expect("the input checks that few-group output needs a library");
         let few = homogenize(&solution, &materials, groups, bounds)?;
         let output = base.join(output);
-        std::fs::write(&output, few.to_msgpack()).with_context(|| shown(&output))?;
+        std::fs::write(&output, few.to_msgpack()?).with_context(|| shown(&output))?;
     }
     if let Some(file) = &input.pin_powers {
         let rates = cell_fission_rates(&solution, &lattice, &materials)?;
         let file = base.join(file);
-        std::fs::write(&file, to_msgpack(&rates, lattice.cells_per_side()))
+        std::fs::write(&file, to_msgpack(&rates, lattice.cells_per_side())?)
             .with_context(|| shown(&file))?;
     }
     println!("k {:.6}", solution.k);
