@@ -2,8 +2,9 @@
 //!
 //! 中性子の分布は LAW=1（連続エネルギー・角度分布）のエネルギー分布だけを扱い、角度は無視する
 //! （M0 の近似）。重心系の分布は、群に振り分けるときに重心系で等方として実験室系に変換する。
-//! LAW=2（2体反応の角度分布）は、出射エネルギーが角度と Q 値で決まる2体反応であることだけを記録し、
-//! MF4 の離散準位と同じく重心系で等方の2体反応として扱う（角度分布は使わない）。
+//! LAW=2（2体反応の角度分布）と LAW=3（等方の2体反応）は、出射エネルギーが角度と Q 値で決まる
+//! 2体反応であることだけを記録し、MF4 の離散準位と同じく重心系で等方の2体反応として扱う
+//! （角度分布は使わない）。
 //! 中性子以外の生成粒子は読み飛ばす。
 
 use super::Error;
@@ -33,7 +34,7 @@ pub struct Mf6 {
     pub awr: f64,
     /// 連続分布（LAW=1）で与えられた中性子
     pub neutrons: Vec<NeutronEmission>,
-    /// 中性子が2体反応（LAW=2）で与えられている
+    /// 中性子が2体反応（LAW=2, 3）で与えられている
     pub two_body: bool,
 }
 
@@ -65,7 +66,8 @@ impl Mf6 {
                     distributions: read_law1(&mut r)?,
                     frame,
                 }),
-                2 => {
+                // LAW=2 は角度分布つき、LAW=3 は等方の2体反応（どちらも角度分布は使わない）
+                2 | 3 => {
                     skip_law(&mut r, law, start)?;
                     two_body = true;
                 }
@@ -80,7 +82,7 @@ impl Mf6 {
         if two_body && !neutrons.is_empty() {
             return Err(Error::new(
                 r.line(),
-                "neutrons with both continuum (LAW=1) and two-body (LAW=2) laws",
+                "neutrons with both continuum (LAW=1) and two-body (LAW=2, 3) laws",
             ));
         }
         Ok(Self {
@@ -261,6 +263,22 @@ mod tests {
             r(["0.1", "", "", "", "", ""]),
             r(["0.0", "2.0e7", "0", "0", "1", "1"]),
             r(["0.3", "", "", "", "", ""]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
+        assert!(mf6.two_body);
+        assert!(mf6.neutrons.is_empty());
+    }
+
+    #[test]
+    fn isotropic_two_body_neutron_law_is_marked() {
+        // 中性子が LAW=3（重心系で等方な2体反応。分布のレコードはない）の準位の非弾性散乱
+        let text = [
+            r(["24052.0", "51.5493", "0", "2", "1", "0"]),
+            r(["1.0", "1.0", "0", "3", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["1.5e6", "1.0", "2.0e7", "1.0", "", ""]),
         ]
         .concat();
         let tape = Tape::parse(&text).unwrap();
