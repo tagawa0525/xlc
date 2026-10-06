@@ -44,10 +44,12 @@ nix develop ../..#references -c sh -c \
    venv/bin/pip install --no-deps --no-build-isolation ./src && venv/bin/pip install endf'
 ```
 
-実行するときは `install/bin` を `PATH` に入れ、`venv/bin/python` でスクリプトを動かす。たとえば C5G7 の参照解は:
+実行するときも、ビルドと同じ `references` の devShell に入る（OpenMC は GCC 13 の OpenMP（libgomp）に
+リンクしていて、外では読み込めずに止まる）。`install/bin` を `PATH` に入れ、`venv/bin/python` でスクリプトを
+動かす。たとえば C5G7 の参照解は:
 
 ```sh
 cd references/openmc
-PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 \
-  venv/bin/python ../../examples/c5g7/openmc_model.py work 200000 400 100
+nix develop ../..#references -c sh -c \
+  'PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 venv/bin/python ../../examples/c5g7/openmc_model.py work 1000000 400 100 2'
 ```
