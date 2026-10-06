@@ -25,8 +25,12 @@ pub struct Material {
 }
 
 impl Material {
-    /// 核種名と個数密度 (1/(barn·cm)) の組から作る。
-    pub fn mix(library: &Library, composition: &[(String, f64)]) -> Result<Self, String> {
+    /// 核種名と個数密度 (1/(barn·cm)) の組から、温度 `temperature` (K) の無限希釈の群定数で作る。
+    pub fn mix(
+        library: &Library,
+        composition: &[(String, f64)],
+        temperature: f64,
+    ) -> Result<Self, String> {
         if composition.is_empty() {
             return Err("a material needs at least one nuclide".into());
         }
@@ -47,9 +51,7 @@ impl Material {
             if !(*density >= 0.0 && density.is_finite()) {
                 return Err(format!("{name}: invalid number density {density}"));
             }
-            let nuclide = library
-                .nuclide(name)
-                .ok_or_else(|| format!("nuclide {name} is not in the library"))?;
+            let nuclide = library.nuclide(name, temperature)?;
             add(&mut m.total, &nuclide.total, *density);
             add(&mut m.fission, &nuclide.fission, *density);
             add(&mut m.nu_fission, &nuclide.nu_fission, *density);
@@ -119,42 +121,43 @@ impl Material {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xs::library::Nuclide;
+    use xs::library::{NuclideData, Shielded, TemperatureData};
     use xs::multigroup::GroupStructure;
 
     fn library() -> Library {
-        let nuclide = |name: &str, fissile: bool| Nuclide {
-            name: name.into(),
-            za: 0.0,
-            awr: 1.0,
-            temperature: 293.6,
-            total: vec![10.0, 20.0],
-            fission: if fissile {
-                vec![1.0, 2.0]
-            } else {
-                vec![0.0, 0.0]
-            },
-            nu_fission: if fissile {
-                vec![2.5, 5.0]
-            } else {
-                vec![0.0, 0.0]
-            },
-            chi: if fissile {
-                vec![1.0, 0.0]
-            } else {
-                vec![0.0, 0.0]
-            },
-            scatter: vec![vec![6.0, 2.0], vec![0.5, 15.0]],
+        let nuclide = |name: &str, fissile: bool| {
+            let fission = |values: Vec<f64>| if fissile { values } else { vec![0.0, 0.0] };
+            NuclideData {
+                name: name.into(),
+                za: 0.0,
+                awr: 1.0,
+                temperatures: vec![TemperatureData {
+                    temperature: 293.6,
+                    chi: fission(vec![1.0, 0.0]),
+                    scatter: vec![vec![6.0, 2.0], vec![0.5, 15.0]],
+                    shielded: vec![Shielded {
+                        total: vec![10.0, 20.0],
+                        elastic: vec![8.0, 15.5],
+                        fission: fission(vec![1.0, 2.0]),
+                        nu_fission: fission(vec![2.5, 5.0]),
+                    }],
+                }],
+            }
         };
         Library {
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]),
+            sigma0: vec![1.0e10],
             nuclides: vec![nuclide("F", true), nuclide("M", false)],
         }
     }
 
+    fn mix(library: &Library, composition: &[(String, f64)]) -> Result<Material, String> {
+        Material::mix(library, composition, 293.6)
+    }
+
     #[test]
     fn mixes_number_densities() {
-        let m = Material::mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
+        let m = mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
         assert_eq!(m.groups(), 2);
         assert!((m.total[1] - 0.8).abs() < 1e-15);
         assert!((m.scatter[0][1] - 0.08).abs() < 1e-15);
@@ -168,13 +171,13 @@ mod tests {
     #[test]
     fn fissile_nuclide_needs_normalized_chi() {
         let mut lib = library();
-        lib.nuclides[0].chi = vec![0.0, 0.0];
-        assert!(Material::mix(&lib, &[("F".into(), 0.01)]).is_err());
+        lib.nuclides[0].temperatures[0].chi = vec![0.0, 0.0];
+        assert!(mix(&lib, &[("F".into(), 0.01)]).is_err());
     }
 
     #[test]
     fn validate_detects_inconsistent_data() {
-        let good = Material::mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
+        let good = mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
         assert!(good.validate().is_ok());
         let mut short_row = good.clone();
         short_row.scatter[0].pop();
@@ -188,9 +191,14 @@ mod tests {
     }
 
     #[test]
+    fn temperature_must_be_in_the_library() {
+        assert!(Material::mix(&library(), &[("F".into(), 0.01)], 600.0).is_err());
+    }
+
+    #[test]
     fn unknown_nuclide_is_error() {
-        assert!(Material::mix(&library(), &[("X".into(), 0.01)]).is_err());
-        assert!(Material::mix(&library(), &[("F".into(), -0.01)]).is_err());
-        assert!(Material::mix(&library(), &[]).is_err());
+        assert!(mix(&library(), &[("X".into(), 0.01)]).is_err());
+        assert!(mix(&library(), &[("F".into(), -0.01)]).is_err());
+        assert!(mix(&library(), &[]).is_err());
     }
 }
