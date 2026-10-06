@@ -20,7 +20,22 @@ use crate::multigroup::GroupStructure;
 
 /// 核種名が約束事（全体計画の「ファイルの約束事」）の形か: `U-235`, `H-1`, `Am-242m`, `Hf-178m2`。
 pub fn is_nuclide_name(name: &str) -> bool {
-    todo!("{name}")
+    // 数字の並び（先頭は 0 でない）
+    let number =
+        |s: &str| !s.is_empty() && !s.starts_with('0') && s.bytes().all(|b| b.is_ascii_digit());
+    let Some((symbol, rest)) = name.split_once('-') else {
+        return false;
+    };
+    let mut chars = symbol.chars();
+    let element = matches!(
+        (chars.next(), chars.next(), chars.next()),
+        (Some(a), None, None) | (Some(a), Some('a'..='z'), None) if a.is_ascii_uppercase()
+    );
+    let (mass, isomer) = match rest.split_once('m') {
+        Some((mass, index)) => (mass, index.is_empty() || number(index)),
+        None => (rest, true),
+    };
+    element && number(mass) && isomer
 }
 
 /// 1つの σ0 での群定数 (barn)。
@@ -226,8 +241,10 @@ impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
     fn check(&self, ng: usize, n_sigma0: usize) -> Result<(), String> {
         let name = &self.name;
-        if name.is_empty() {
-            return Err("a nuclide has no name".into());
+        if !is_nuclide_name(name) {
+            return Err(format!(
+                "nuclide name `{name}` is not of the form U-235, Am-242m"
+            ));
         }
         if self.temperatures.is_empty() {
             return Err(format!("{name}: no temperatures"));
