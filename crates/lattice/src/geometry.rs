@@ -6,6 +6,10 @@ use std::f64::consts::PI;
 ///
 /// 領域 i（0 始まり）は半径 radii[i-1] と radii[i] の間の円環で、最後の領域は
 /// 最も外側の円より外のセルの残り。
+///
+/// 同心円のないセルは、m × m の小さな正方形に分けられる（`grid`）。領域は上の行から、各行は左から
+/// 番号を付ける。真空境界に接する反射体のように中性子束が大きく変わる均質な領域を、
+/// 平坦線源の近似で表せる大きさに分けるため。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinCell {
     pitch: f64,
@@ -38,6 +42,11 @@ impl PinCell {
 
     pub fn regions(&self) -> usize {
         self.radii.len() + 1
+    }
+
+    /// 同心円がなく、m × m の小さな正方形に分けたセル。
+    pub fn grid(pitch: f64, m: usize) -> Result<Self, String> {
+        todo!("{pitch} {m}")
     }
 
     /// 点 (x, y) を含む領域。
@@ -337,5 +346,38 @@ mod tests {
         assert_eq!(lattice.width(), 1.26);
         assert_eq!(lattice.regions(), 2);
         assert_eq!(lattice.volumes(), cell.volumes());
+    }
+
+    #[test]
+    fn grid_cell_regions_and_segments() {
+        assert!(PinCell::grid(2.0, 0).is_err());
+        let cell = PinCell::grid(2.0, 2).unwrap();
+        assert_eq!(cell.regions(), 4);
+        assert_eq!(cell.volumes(), vec![1.0; 4]);
+        // 左上、右上、左下、右下の順
+        assert_eq!(cell.region_at(-0.5, 0.5), 0);
+        assert_eq!(cell.region_at(0.5, 0.5), 1);
+        assert_eq!(cell.region_at(-0.5, -0.5), 2);
+        assert_eq!(cell.region_at(0.5, -0.5), 3);
+        // 下の行を左から右へ
+        let s = cell.segments((-1.0, -0.5), (1.0, 0.0), 2.0);
+        assert_eq!(
+            s,
+            vec![
+                Segment {
+                    region: 2,
+                    length: 1.0
+                },
+                Segment {
+                    region: 3,
+                    length: 1.0
+                }
+            ]
+        );
+        // 1 × 1 なら同心円のないセルと同じ
+        assert_eq!(
+            PinCell::grid(2.0, 1).unwrap(),
+            PinCell::new(2.0, vec![]).unwrap()
+        );
     }
 }
