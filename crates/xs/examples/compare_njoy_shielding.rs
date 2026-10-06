@@ -36,7 +36,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sigma0 = read_sigma0(&header)?;
     let groups = GroupStructure::wims69();
     let ng = groups.len();
-    let ours = shielded_averages(&groups, &Weight::lwr(), &tables, nubar.as_ref(), &sigma0)?;
+    let ours = shielded_averages(
+        &groups,
+        &Weight::lwr(),
+        &tables,
+        nubar.as_ref(),
+        &sigma0,
+        None,
+    )?;
 
     let mts: Vec<u32> = if mts.is_empty() {
         reference.mts(mat, 3)
