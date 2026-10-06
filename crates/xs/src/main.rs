@@ -5,12 +5,12 @@
 //! 入力ファイルの書式（`#` から行末まではコメント。パスは入力ファイルのディレクトリからの相対パス）:
 //!
 //! ```text
-//! output m1.lib                                   # 出力するライブラリ
+//! output m1.msgpack                                   # 出力するライブラリ
 //! endf-directory ../endf/neutrons                 # 核種の ENDF ファイルのディレクトリ
 //! thermal-directory ../endf/thermal_scatt         # 熱中性子散乱のファイルのディレクトリ
 //! sigma0 1e10 1e5 1e4 1e3 300 100 30 10 1         # 背景断面積 (barn)、降順（最初が無限希釈）
-//! nuclide H1 n-001_H_001.endf temperatures 293.6 600 thermal tsl-HinH2O.endf
-//! nuclide U238 n-092_U_238.endf temperatures 293.6 600 900 1200
+//! nuclide H-1 n-001_H_001.endf temperatures 293.6 600 thermal tsl-HinH2O.endf
+//! nuclide U-238 n-092_U_238.endf temperatures 293.6 600 900 1200
 //! ```
 //!
 //! `thermal` を指定した核種は、4 eV 未満の弾性散乱を S(α, β) で、ほかは自由ガス模型で扱う。
@@ -237,7 +237,7 @@ fn run(input: &Input) -> Result<(), String> {
         sigma0: settings.sigma0,
         nuclides,
     };
-    std::fs::write(&input.output, library.to_text())
+    std::fs::write(&input.output, library.to_msgpack())
         .map_err(|e| format!("{}: {e}", input.output.display()))
 }
 
@@ -276,30 +276,30 @@ mod tests {
 
     const INPUT: &str = "\
 # M1 のライブラリ
-output m1.lib
+output m1.msgpack
 endf-directory endf
 thermal-directory tsl
 sigma0 1e10 10 1
-nuclide H1 h.endf temperatures 293.6 600 thermal h2o.endf   # 水素
-nuclide U238 u.endf temperatures 293.6 900
+nuclide H-1 h.endf temperatures 293.6 600 thermal h2o.endf   # 水素
+nuclide U-238 u.endf temperatures 293.6 900
 ";
 
     #[test]
     fn parses_input_relative_to_its_directory() {
         let input = parse_input(INPUT, Path::new("work")).unwrap();
-        assert_eq!(input.output, PathBuf::from("work/m1.lib"));
+        assert_eq!(input.output, PathBuf::from("work/m1.msgpack"));
         assert_eq!(input.sigma0, vec![1.0e10, 10.0, 1.0]);
         assert_eq!(
             input.nuclides,
             vec![
                 NuclideInput {
-                    name: "H1".into(),
+                    name: "H-1".into(),
                     endf: PathBuf::from("work/endf/h.endf"),
                     temperatures: vec![293.6, 600.0],
                     thermal: Some(PathBuf::from("work/tsl/h2o.endf")),
                 },
                 NuclideInput {
-                    name: "U238".into(),
+                    name: "U-238".into(),
                     endf: PathBuf::from("work/endf/u.endf"),
                     temperatures: vec![293.6, 900.0],
                     thermal: None,
@@ -333,7 +333,7 @@ nuclide U238 u.endf temperatures 293.6 900
         assert!(replaced("temperatures 293.6 900", "temperatures -1").is_err());
         assert!(replaced("temperatures 293.6 900", "temperatures 900 900").is_err());
         // 核種名の重複、知らないキー
-        assert!(replaced("nuclide U238", "nuclide H1").is_err());
-        assert!(replaced("output m1.lib", "out m1.lib").is_err());
+        assert!(replaced("nuclide U-238", "nuclide H-1").is_err());
+        assert!(replaced("output m1.msgpack", "out m1.msgpack").is_err());
     }
 }

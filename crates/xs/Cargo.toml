@@ -4,3 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+rmp-serde.workspace = true
+rmpv.workspace = true
+serde.workspace = true
+thiserror.workspace = true
