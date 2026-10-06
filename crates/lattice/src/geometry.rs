@@ -46,6 +46,38 @@ impl PinCell {
         self.radii.partition_point(|&ri| ri <= r)
     }
 
+    /// セルの中心を原点とする点 start から方向 direction に長さ length 進む直線を、
+    /// 同心円で区間に分ける。
+    pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
+        // |start + t d|² = r² の解のうち (0, length) にあるもの
+        let b = start.0 * direction.0 + start.1 * direction.1;
+        let c0 = start.0 * start.0 + start.1 * start.1;
+        let mut cuts = vec![0.0, length];
+        for &r in &self.radii {
+            let disc = b * b - (c0 - r * r);
+            if disc > 0.0 {
+                let root = disc.sqrt();
+                cuts.extend(
+                    [-b - root, -b + root]
+                        .into_iter()
+                        .filter(|&t| t > 0.0 && t < length),
+                );
+            }
+        }
+        cuts.sort_by(f64::total_cmp);
+        cuts.windows(2)
+            .filter(|w| w[1] > w[0])
+            .map(|w| {
+                let mid = 0.5 * (w[0] + w[1]);
+                Segment {
+                    region: self
+                        .region_at(start.0 + mid * direction.0, start.1 + mid * direction.1),
+                    length: w[1] - w[0],
+                }
+            })
+            .collect()
+    }
+
     /// 領域ごとの体積（単位高さあたりの面積, cm²）の解析値。
     pub fn volumes(&self) -> Vec<f64> {
         let mut inner = 0.0;
@@ -88,36 +120,117 @@ pub struct Lattice {
 impl Lattice {
     /// `types` はセルの種類（すべて同じピッチ）、`layout` は上の行から順の各行のセルの種類。
     pub fn new(types: Vec<PinCell>, layout: Vec<Vec<usize>>) -> Result<Self, String> {
-        todo!("{types:?} {layout:?}")
+        let n = layout.len();
+        if n == 0 {
+            return Err("the lattice has no cells".into());
+        }
+        if let Some(row) = layout.iter().position(|row| row.len() != n) {
+            return Err(format!(
+                "row {} has {} cells, but the lattice has {n} rows",
+                row + 1,
+                layout[row].len()
+            ));
+        }
+        let pitch = types.first().ok_or("no cell types")?.pitch();
+        if types.iter().any(|t| t.pitch() != pitch) {
+            return Err("all cell types must have the same pitch".into());
+        }
+        let layout: Vec<usize> = layout.into_iter().flatten().collect();
+        if let Some(&bad) = layout.iter().find(|&&t| t >= types.len()) {
+            return Err(format!(
+                "cell type {bad} is out of range ({} types)",
+                types.len()
+            ));
+        }
+        let mut offsets = Vec::with_capacity(layout.len() + 1);
+        let mut next = 0;
+        for &t in &layout {
+            offsets.push(next);
+            next += types[t].regions();
+        }
+        offsets.push(next);
+        Ok(Self {
+            types,
+            layout,
+            n,
+            offsets,
+        })
     }
 
     /// 1つのピンセルだけの形状。
     pub fn pin_cell(cell: PinCell) -> Self {
-        todo!("{cell:?}")
+        Self::new(vec![cell], vec![vec![0]]).expect("a single cell is a valid lattice")
+    }
+
+    fn pitch(&self) -> f64 {
+        self.types[0].pitch()
     }
 
     /// 一辺の長さ (cm)
     pub fn width(&self) -> f64 {
-        todo!()
+        self.n as f64 * self.pitch()
     }
 
     pub fn regions(&self) -> usize {
-        todo!()
+        self.offsets[self.layout.len()]
     }
 
     /// セル `cell` の領域の範囲。
     pub fn cell_regions(&self, cell: usize) -> std::ops::Range<usize> {
-        todo!("{cell}")
+        self.offsets[cell]..self.offsets[cell + 1]
     }
 
     /// 領域ごとの体積（単位高さあたりの面積, cm²）の解析値。
     pub fn volumes(&self) -> Vec<f64> {
-        todo!()
+        self.layout
+            .iter()
+            .flat_map(|&t| self.types[t].volumes())
+            .collect()
     }
 
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
-        todo!("{start:?} {direction:?} {length}")
+        let (pitch, half) = (self.pitch(), 0.5 * self.width());
+        // 格子線 x, y = -W/2 + k p と交わる点で、セルごとの区間に分ける
+        let mut cuts = vec![0.0, length];
+        for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
+            if d != 0.0 {
+                for k in 1..self.n {
+                    let t = (-half + k as f64 * pitch - origin) / d;
+                    if t > 0.0 && t < length {
+                        cuts.push(t);
+                    }
+                }
+            }
+        }
+        cuts.sort_by(f64::total_cmp);
+        let mut segments = Vec::new();
+        for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
+            let mid = 0.5 * (w[0] + w[1]);
+            let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
+            let column = (((x + half) / pitch).floor() as usize).min(self.n - 1);
+            let row = (((half - y) / pitch).floor() as usize).min(self.n - 1);
+            let cell = row * self.n + column;
+            let center = (
+                -half + (column as f64 + 0.5) * pitch,
+                half - (row as f64 + 0.5) * pitch,
+            );
+            let local = (
+                start.0 + w[0] * direction.0 - center.0,
+                start.1 + w[0] * direction.1 - center.1,
+            );
+            let offset = self.offsets[cell];
+            segments.extend(
+                self.types[self.layout[cell]]
+                    .segments(local, direction, w[1] - w[0])
+                    .into_iter()
+                    .map(|s| Segment {
+                        region: offset + s.region,
+                        length: s.length,
+                    }),
+            );
+        }
+        segments
     }
 }
 
