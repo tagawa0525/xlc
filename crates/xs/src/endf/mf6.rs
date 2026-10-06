@@ -270,6 +270,22 @@ mod tests {
     }
 
     #[test]
+    fn isotropic_two_body_neutron_law_is_marked() {
+        // 中性子が LAW=3（重心系で等方な2体反応。分布のレコードはない）の準位の非弾性散乱
+        let text = [
+            r(["24052.0", "51.5493", "0", "2", "1", "0"]),
+            r(["1.0", "1.0", "0", "3", "1", "2"]),
+            r(["2", "2", "", "", "", ""]),
+            r(["1.5e6", "1.0", "2.0e7", "1.0", "", ""]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let mf6 = Mf6::parse(&tape.section(825, 6, 16).unwrap()).unwrap();
+        assert!(mf6.two_body);
+        assert!(mf6.neutrons.is_empty());
+    }
+
+    #[test]
     fn incident_interpolation_schemes() {
         let law = |int: &str| {
             let tape = Tape::parse(&section_with_int("2", "1", "0", int)).unwrap();
