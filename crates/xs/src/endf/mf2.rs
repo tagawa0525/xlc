@@ -1346,11 +1346,11 @@ mod tests {
 
     #[test]
     fn unsupported_formalism_is_error() {
-        // LRF=7 (R-matrix limited)
+        // LRF=1 (SLBW)
         let err = mf2(&[
             HEAD,
             ["9.223800+4", "1.0", "0", "0", "1", "0"],
-            ["1.0-5", "2.0+4", "1", "7", "0", "0"],
+            ["1.0-5", "2.0+4", "1", "1", "0", "0"],
         ])
         .unwrap_err();
         assert_eq!(err.line, 3);
