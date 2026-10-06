@@ -30,28 +30,48 @@ pub struct ThermalSab<'a> {
     cutoff: f64,
 }
 
+/// S(α, β) の表を散乱に使えないときのエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum SabError {
+    #[error("asymmetric S(α, β) (LASYM≠0) is not supported")]
+    Asymmetric,
+    #[error("S(α, β) must interpolate ln S linearly in α and β")]
+    Interpolation,
+    #[error("temperature {temperature} K is not in S(α, β) {available:?}")]
+    Temperature {
+        temperature: f64,
+        available: Vec<f64>,
+    },
+    #[error(
+        "S(α, β) table (α ≤ {alpha_max}, β ≤ {beta_max}) does not cover scattering below {cutoff} eV"
+    )]
+    Coverage {
+        alpha_max: f64,
+        beta_max: f64,
+        cutoff: f64,
+    },
+}
+
 impl<'a> ThermalSab<'a> {
     /// 温度 `temperature` (K) の表で、入射エネルギー `cutoff` (eV) 未満に使う核を作る。
     /// 温度は表にあること（温度方向には補間しない。NJOY THERMR も同じ）。
     ///
     /// 表の範囲外の S は使わない。そのかわり、`cutoff` までの下方散乱と、表の β の上限までの
     /// 上方散乱を、表の α, β が覆うことを確かめる（上方散乱の先は e^(-β/2) で無視できる）。
-    pub fn new(data: &'a Mf7Incoherent, temperature: f64, cutoff: f64) -> Result<Self, String> {
+    pub fn new(data: &'a Mf7Incoherent, temperature: f64, cutoff: f64) -> Result<Self, SabError> {
         if data.lasym != 0 {
-            return Err("asymmetric S(α, β) (LASYM≠0) is not supported".into());
+            return Err(SabError::Asymmetric);
         }
         if data.alpha_law != Interpolation::LogLin || data.beta_law != Interpolation::LogLin {
-            return Err("S(α, β) must interpolate ln S linearly in α and β".into());
+            return Err(SabError::Interpolation);
         }
         let t = data
             .temperatures
             .iter()
             .position(|&t| (t - temperature).abs() <= 1.0e-9 * temperature)
-            .ok_or_else(|| {
-                format!(
-                    "temperature {temperature} K is not in S(α, β) {:?}",
-                    data.temperatures
-                )
+            .ok_or_else(|| SabError::Temperature {
+                temperature,
+                available: data.temperatures.clone(),
             })?;
         let kt = BK * temperature;
         let kt_table = if data.lat == 1 { KT0 } else { kt };
@@ -62,9 +82,11 @@ impl<'a> ThermalSab<'a> {
         let e_up = cutoff + beta_max * kt_table;
         let alpha_needed = (cutoff.sqrt() + e_up.sqrt()).powi(2) / (data.awr * kt_table);
         if cutoff / kt_table > beta_max || alpha_needed > alpha_max {
-            return Err(format!(
-                "S(α, β) table (α ≤ {alpha_max}, β ≤ {beta_max}) does not cover scattering below {cutoff} eV"
-            ));
+            return Err(SabError::Coverage {
+                alpha_max,
+                beta_max,
+                cutoff,
+            });
         }
         let ln_s = data.s[t]
             .iter()
