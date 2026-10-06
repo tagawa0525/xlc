@@ -22,10 +22,10 @@ pub struct Track {
     pub end: (f64, f64),
     /// 始点から終点への順
     pub segments: Vec<Segment>,
-    /// 順方向のスイープで終点から出た角度中性子束の行き先
-    pub forward_link: Link,
-    /// 逆方向のスイープで始点から出た角度中性子束の行き先
-    pub backward_link: Link,
+    /// 順方向のスイープで終点から出た角度中性子束の行き先（真空境界なら `None`）
+    pub forward_link: Option<Link>,
+    /// 逆方向のスイープで始点から出た角度中性子束の行き先（真空境界なら `None`）
+    pub backward_link: Option<Link>,
 }
 
 /// 1つの方位角。
@@ -37,6 +37,34 @@ pub struct Azimuth {
     pub spacing: f64,
     /// 求積の重み（(0, π) の全方位角で和が 1）
     pub weight: f64,
+}
+
+/// 外周の辺の境界条件。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Boundary {
+    /// 鏡面反射
+    Reflective,
+    /// 真空（出た中性子は戻らない）
+    Vacuum,
+}
+
+/// 外周の4辺の境界条件。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Boundaries {
+    pub left: Boundary,
+    pub right: Boundary,
+    pub top: Boundary,
+    pub bottom: Boundary,
+}
+
+impl Boundaries {
+    /// 4辺とも鏡面反射
+    pub const REFLECTIVE: Self = Self {
+        left: Boundary::Reflective,
+        right: Boundary::Reflective,
+        top: Boundary::Reflective,
+        bottom: Boundary::Reflective,
+    };
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -134,14 +162,8 @@ impl Tracking {
                     start,
                     end,
                     segments: lattice.segments(start, (dx, dy), t),
-                    forward_link: Link {
-                        track: 0,
-                        forward: true,
-                    },
-                    backward_link: Link {
-                        track: 0,
-                        forward: true,
-                    },
+                    forward_link: None,
+                    backward_link: None,
                 });
             }
         }
@@ -174,10 +196,20 @@ impl Tracking {
             let forward_link = find(end, (end.0.abs() - half).abs() < tolerance)?;
             let start = tracks[k].start;
             let backward_link = find(start, (start.1 + half).abs() < tolerance)?;
-            tracks[k].forward_link = forward_link;
-            tracks[k].backward_link = backward_link;
+            tracks[k].forward_link = Some(forward_link);
+            tracks[k].backward_link = Some(backward_link);
         }
         Ok(Self { azimuths, tracks })
+    }
+
+    /// 外周の4辺の境界条件を指定して作る（`new` は4辺とも鏡面反射）。
+    pub fn with_boundaries(
+        lattice: &Lattice,
+        n_azimuthal: usize,
+        spacing: f64,
+        boundaries: Boundaries,
+    ) -> Result<Self, String> {
+        todo!("{lattice:?} {n_azimuthal} {spacing} {boundaries:?}")
     }
 
     /// トラックから推定した領域ごとの体積。MOC の領域平均の計算と整合する。
@@ -255,19 +287,13 @@ mod tests {
     fn links_join_tracks_at_reflected_points() {
         let t = Tracking::new(&cell(), 8, 0.05).unwrap();
         for track in &t.tracks {
-            let next = &t.tracks[track.forward_link.track];
-            let joined = if track.forward_link.forward {
-                next.start
-            } else {
-                next.end
-            };
+            let link = track.forward_link.unwrap();
+            let next = &t.tracks[link.track];
+            let joined = if link.forward { next.start } else { next.end };
             assert!((joined.0 - track.end.0).abs() < 1e-9 && (joined.1 - track.end.1).abs() < 1e-9);
-            let prev = &t.tracks[track.backward_link.track];
-            let joined = if track.backward_link.forward {
-                prev.start
-            } else {
-                prev.end
-            };
+            let link = track.backward_link.unwrap();
+            let prev = &t.tracks[link.track];
+            let joined = if link.forward { prev.start } else { prev.end };
             assert!(
                 (joined.0 - track.start.0).abs() < 1e-9 && (joined.1 - track.start.1).abs() < 1e-9
             );
@@ -291,7 +317,8 @@ mod tests {
                 track.forward_link
             } else {
                 track.backward_link
-            };
+            }
+            .unwrap();
             if link == start {
                 assert!(step > 1);
                 return;
@@ -327,13 +354,38 @@ mod tests {
                 let on_edge = (p.0.abs() - half).abs() < 1e-9 || (p.1.abs() - half).abs() < 1e-9;
                 assert!(on_edge, "{p:?}");
             }
-            let next = &t.tracks[track.forward_link.track];
-            let joined = if track.forward_link.forward {
-                next.start
-            } else {
-                next.end
-            };
+            let link = track.forward_link.unwrap();
+            let next = &t.tracks[link.track];
+            let joined = if link.forward { next.start } else { next.end };
             assert!((joined.0 - track.end.0).abs() < 1e-9 && (joined.1 - track.end.1).abs() < 1e-9);
         }
+    }
+
+    #[test]
+    fn vacuum_sides_have_no_links() {
+        // C5G7 と同じく右と下が真空、左と上が鏡面反射
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let t = Tracking::with_boundaries(&two_by_two(), 8, 0.05, boundaries).unwrap();
+        let half = 1.26;
+        let on_vacuum = |p: (f64, f64)| (p.0 - half).abs() < 1e-9 || (p.1 + half).abs() < 1e-9;
+        let (mut vacuum, mut reflective) = (0, 0);
+        for track in &t.tracks {
+            for (point, link) in [
+                (track.end, track.forward_link),
+                (track.start, track.backward_link),
+            ] {
+                assert_eq!(link.is_none(), on_vacuum(point), "{point:?}");
+                if link.is_none() {
+                    vacuum += 1;
+                } else {
+                    reflective += 1;
+                }
+            }
+        }
+        assert!(vacuum > 0 && reflective > 0);
     }
 }
