@@ -41,9 +41,10 @@ fn run(path: &Path) -> Result<(), String> {
     let library = Library::parse(&read(&library_path)?)
         .map_err(|e| format!("{}: {e}", library_path.display()))?;
 
-    let fuel = Material::mix(&library, &input.fuel).map_err(|e| format!("fuel: {e}"))?;
-    let moderator =
-        Material::mix(&library, &input.moderator).map_err(|e| format!("moderator: {e}"))?;
+    let fuel = Material::mix(&library, &input.fuel, input.fuel_temperature)
+        .map_err(|e| format!("fuel: {e}"))?;
+    let moderator = Material::mix(&library, &input.moderator, input.moderator_temperature)
+        .map_err(|e| format!("moderator: {e}"))?;
     let cell = PinCell::new(input.pitch, input.radii())?;
     let materials: Vec<&Material> = (0..cell.regions())
         .map(|i| {
