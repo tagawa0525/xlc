@@ -4,7 +4,7 @@
 //! 何度でも書け、それ以外は1回だけ書く。
 //!
 //! ```text
-//! library m1.lib                 # 多群ライブラリ（cross-sections と排他）
+//! library m1.msgpack                 # 多群ライブラリ（cross-sections と排他）
 //! # cross-sections c5g7.xs       # 巨視的断面積のファイル（このときは material を書かない）
 //! output pincell.fg              # 少数群定数（library のときだけ。few-group-bounds が必要）
 //! few-group-bounds 1e7 0.625 1e-5
@@ -13,8 +13,8 @@
 //! azimuthal 32                   # (0, π) の方位角の数
 //! spacing 0.05                   # トラック間隔 (cm)
 //! boundary right vacuum bottom vacuum    # 外周の辺の境界条件（書かない辺は鏡面反射）
-//! material fuel temperature 900 U235 7.0e-4 U238 2.2e-2 O16 4.6e-2   # 核種と個数密度 (1/(barn cm))
-//! material water temperature 600 H1 4.9e-2 O16 2.5e-2
+//! material fuel temperature 900 U-235 7.0e-4 U-238 2.2e-2 O-16 4.6e-2   # 核種と個数密度 (1/(barn cm))
+//! material water temperature 600 H-1 4.9e-2 O-16 2.5e-2
 //! cell pin fuel 0.4096 3 water - 2       # 物質 外半径 分割数 ...（最後の帯の外半径は - でセルの外周まで）
 //! cell box water - 1 grid 4             # 均質なセルは小さな正方形に分けられる（4 × 4）
 //! cell rod fuel 0.4 2 water - 2 sectors 8   # 各リングを 45° ごとの扇形に分ける（1, 4, 8）
