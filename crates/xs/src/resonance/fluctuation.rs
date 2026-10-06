@@ -9,6 +9,12 @@ const TAIL: f64 = 40.0;
 /// 適応積分で区間を分ける深さの上限（区間の幅は 2^-50 倍まで）
 const MAX_DEPTH: u32 = 50;
 
+/// 自由度 `dof` の χ² 分布での [E[x/(x + c)], E[x²/(x + c)]]（c > 0）。
+pub(super) fn width_ratios(dof: u32, c: f64) -> [f64; 2] {
+    let _ = (dof, c);
+    todo!()
+}
+
 /// 自由度 `dof` の χ² 分布での f(x) の期待値（相対許容誤差 `tolerance`）。
 /// 自由度 0 は幅がゆらがない（x = 1）ことを表す。
 ///
@@ -160,6 +166,30 @@ mod tests {
             (x_inside - y_inside).abs() <= 1e-7 * x_inside,
             "{x_inside} vs {y_inside}"
         );
+    }
+
+    #[test]
+    fn width_ratios_match_integration() {
+        // c が大きいところ（Γn ≪ Γγ、たとえば低エネルギーの l=2）まで確かめる
+        for dof in 0..=4 {
+            for c in [
+                1.0e-6, 1.0e-3, 0.1, 1.0, 10.0, 99.0, 101.0, 1.0e3, 1.0e6, 1.0e9,
+            ] {
+                let numeric = [
+                    expectation(dof, 1.0e-12, |x| x / (x + c)),
+                    expectation(dof, 1.0e-12, |x| x * x / (x + c)),
+                ];
+                let closed = width_ratios(dof, c);
+                for i in 0..2 {
+                    assert!(
+                        (closed[i] - numeric[i]).abs() <= 1e-9 * numeric[i],
+                        "ν={dof}, c={c}, [{i}]: {} vs {}",
+                        closed[i],
+                        numeric[i]
+                    );
+                }
+            }
+        }
     }
 
     #[test]

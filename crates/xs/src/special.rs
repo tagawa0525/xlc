@@ -56,6 +56,12 @@ pub fn erfcx(x: f64) -> f64 {
     1.0 / (std::f64::consts::PI.sqrt() * t)
 }
 
+/// スケールした指数積分 e^z E1(z)（z > 0）。E1(z) = ∫_z^∞ e^(-t)/t dt。
+pub fn exp_e1(z: f64) -> f64 {
+    let _ = z;
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,5 +99,24 @@ mod tests {
         let x = 1.0e4;
         assert_rel(erfcx(x), 1.0 / (x * std::f64::consts::PI.sqrt()), 1e-8);
         assert_rel(erfcx(1.0), 1.0_f64.exp() * 0.157_299_207_050_285_13, 1e-13);
+    }
+
+    #[test]
+    fn scaled_exponential_integral() {
+        // decimal（60 桁）で級数を足して求めた値
+        for (z, expected) in [
+            (0.1, 2.014_642_544_708_451_7),
+            (0.5, 0.922_910_632_483_730_5),
+            (1.0, 0.596_347_362_323_194_1),
+            (2.0, 0.361_328_616_888_222_6),
+            (5.0, 0.170_422_176_284_732_2),
+            (10.0, 0.091_563_333_939_788_08),
+            (30.0, 0.032_289_738_758_980_13),
+        ] {
+            assert_rel(exp_e1(z), expected, 1e-13);
+        }
+        // 漸近形 1/z (1 - 1/z + 2/z² - ...)
+        let z = 1.0e6;
+        assert_rel(exp_e1(z), (1.0 - 1.0 / z + 2.0 / (z * z)) / z, 1e-15);
     }
 }

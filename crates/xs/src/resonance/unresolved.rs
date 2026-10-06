@@ -330,6 +330,44 @@ mod tests {
     }
 
     #[test]
+    fn three_fluctuating_widths_converge() {
+        // U-236（ENDF/B-VIII.0）の l=2, J=3/2 の系列。中性子・核分裂・競合の幅がゆらぐ
+        let point = |e, gx| UrrPoint {
+            e,
+            d: 9.18,
+            gx,
+            gno: 1.836e-3,
+            gg: 0.019,
+            gf: 3.4e-4,
+        };
+        let urr = Unresolved {
+            lssf: 0,
+            spi: 0.0,
+            ap: 0.93543,
+            ap_energy: None,
+            naps: 0,
+            l_values: vec![UrrLValue {
+                awri: 234.0178,
+                l: 2,
+                j_values: vec![UrrJValue {
+                    aj: 1.5,
+                    int: Interpolation::LogLog,
+                    amux: 1,
+                    amun: 1,
+                    amuf: 1,
+                    points: vec![
+                        point(4.5e4, 0.0),
+                        point(5.0e4, 2.03e-5),
+                        point(6.0e4, 3.33e-4),
+                    ],
+                }],
+            }],
+        };
+        let sigma = UnresolvedXs::new(&urr).unwrap().cross_sections(5.0e4);
+        assert!(sigma.fission > 0.0 && sigma.fission.is_finite());
+    }
+
+    #[test]
     fn naps_two_needs_radius_table() {
         // NAPS=2 は、散乱半径の表（NRO=1）とは別に AP をチャネル半径に使う指定
         let mut urr = s_wave(vec![point(1.5e3, 1.0e-3)], Interpolation::LinLin);
