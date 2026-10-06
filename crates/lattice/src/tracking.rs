@@ -6,45 +6,7 @@
 
 use std::f64::consts::PI;
 
-use crate::geometry::PinCell;
-
-/// 点 start から方向 direction に長さ length 進む直線を、同心円で区間に分ける。
-fn segments(cell: &PinCell, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
-    // |start + t d|² = r² の解のうち (0, length) にあるもの
-    let b = start.0 * direction.0 + start.1 * direction.1;
-    let c0 = start.0 * start.0 + start.1 * start.1;
-    let mut cuts = vec![0.0, length];
-    for &r in cell.radii() {
-        let disc = b * b - (c0 - r * r);
-        if disc > 0.0 {
-            let root = disc.sqrt();
-            cuts.extend(
-                [-b - root, -b + root]
-                    .into_iter()
-                    .filter(|&t| t > 0.0 && t < length),
-            );
-        }
-    }
-    cuts.sort_by(f64::total_cmp);
-    cuts.windows(2)
-        .filter(|w| w[1] > w[0])
-        .map(|w| {
-            let mid = 0.5 * (w[0] + w[1]);
-            Segment {
-                region: cell.region_at(start.0 + mid * direction.0, start.1 + mid * direction.1),
-                length: w[1] - w[0],
-            }
-        })
-        .collect()
-}
-
-/// トラック上の1つの領域を通る区間。
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Segment {
-    pub region: usize,
-    /// 平面に射影した長さ (cm)
-    pub length: f64,
-}
+use crate::geometry::{Lattice, Segment};
 
 /// トラックの端から出た角度中性子束の行き先（反射後に続くトラックと、そのスイープの向き）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,10 +22,10 @@ pub struct Track {
     pub end: (f64, f64),
     /// 始点から終点への順
     pub segments: Vec<Segment>,
-    /// 順方向のスイープで終点から出た角度中性子束の行き先
-    pub forward_link: Link,
-    /// 逆方向のスイープで始点から出た角度中性子束の行き先
-    pub backward_link: Link,
+    /// 順方向のスイープで終点から出た角度中性子束の行き先（真空境界なら `None`）
+    pub forward_link: Option<Link>,
+    /// 逆方向のスイープで始点から出た角度中性子束の行き先（真空境界なら `None`）
+    pub backward_link: Option<Link>,
 }
 
 /// 1つの方位角。
@@ -77,6 +39,34 @@ pub struct Azimuth {
     pub weight: f64,
 }
 
+/// 外周の辺の境界条件。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Boundary {
+    /// 鏡面反射
+    Reflective,
+    /// 真空（出た中性子は戻らない）
+    Vacuum,
+}
+
+/// 外周の4辺の境界条件。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Boundaries {
+    pub left: Boundary,
+    pub right: Boundary,
+    pub top: Boundary,
+    pub bottom: Boundary,
+}
+
+impl Boundaries {
+    /// 4辺とも鏡面反射
+    pub const REFLECTIVE: Self = Self {
+        left: Boundary::Reflective,
+        right: Boundary::Reflective,
+        top: Boundary::Reflective,
+        bottom: Boundary::Reflective,
+    };
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tracking {
     pub azimuths: Vec<Azimuth>,
@@ -85,7 +75,17 @@ pub struct Tracking {
 
 impl Tracking {
     /// `n_azimuthal` は (0, π) の方位角の数（偶数）、`spacing` は希望するトラック間隔 (cm)。
-    pub fn new(cell: &PinCell, n_azimuthal: usize, spacing: f64) -> Result<Self, String> {
+    pub fn new(lattice: &Lattice, n_azimuthal: usize, spacing: f64) -> Result<Self, String> {
+        Self::with_boundaries(lattice, n_azimuthal, spacing, Boundaries::REFLECTIVE)
+    }
+
+    /// 外周の4辺の境界条件を指定して作る（`new` は4辺とも鏡面反射）。
+    pub fn with_boundaries(
+        lattice: &Lattice,
+        n_azimuthal: usize,
+        spacing: f64,
+        boundaries: Boundaries,
+    ) -> Result<Self, String> {
         if n_azimuthal == 0 || !n_azimuthal.is_multiple_of(2) {
             return Err(format!(
                 "the number of azimuthal angles must be positive and even, got {n_azimuthal}"
@@ -95,7 +95,7 @@ impl Tracking {
             return Err(format!("track spacing must be positive, got {spacing}"));
         }
         let n = n_azimuthal;
-        let width = cell.pitch();
+        let width = lattice.width();
         // 方位角を (0, π/2) で補正し、π - φ を対にする
         let mut azimuths = vec![
             Azimuth {
@@ -171,15 +171,9 @@ impl Tracking {
                     azimuth: a,
                     start,
                     end,
-                    segments: segments(cell, start, (dx, dy), t),
-                    forward_link: Link {
-                        track: 0,
-                        forward: true,
-                    },
-                    backward_link: Link {
-                        track: 0,
-                        forward: true,
-                    },
+                    segments: lattice.segments(start, (dx, dy), t),
+                    forward_link: None,
+                    backward_link: None,
                 });
             }
         }
@@ -207,11 +201,29 @@ impl Tracking {
                     .map(|track| Link { track, forward })
                     .ok_or_else(|| format!("no reflected track at {point:?}"))
             };
+            // 点のある辺の境界条件（トラックは角を通らない）
+            let boundary = |p: (f64, f64)| {
+                if (p.0 + half).abs() < tolerance {
+                    boundaries.left
+                } else if (p.0 - half).abs() < tolerance {
+                    boundaries.right
+                } else if (p.1 - half).abs() < tolerance {
+                    boundaries.top
+                } else {
+                    boundaries.bottom
+                }
+            };
             // 側辺で反射すると補角の順方向、上辺・下辺で反射すると逆方向に続く
             let end = tracks[k].end;
-            let forward_link = find(end, (end.0.abs() - half).abs() < tolerance)?;
+            let forward_link = match boundary(end) {
+                Boundary::Vacuum => None,
+                Boundary::Reflective => Some(find(end, (end.0.abs() - half).abs() < tolerance)?),
+            };
             let start = tracks[k].start;
-            let backward_link = find(start, (start.1 + half).abs() < tolerance)?;
+            let backward_link = match boundary(start) {
+                Boundary::Vacuum => None,
+                Boundary::Reflective => Some(find(start, (start.1 + half).abs() < tolerance)?),
+            };
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;
         }
@@ -235,8 +247,10 @@ impl Tracking {
 mod tests {
     use super::*;
 
-    fn cell() -> PinCell {
-        PinCell::new(1.26, vec![0.2, 0.3, 0.4096, 0.55]).unwrap()
+    use crate::geometry::PinCell;
+
+    fn cell() -> Lattice {
+        Lattice::pin_cell(PinCell::new(1.26, vec![0.2, 0.3, 0.4096, 0.55]).unwrap())
     }
 
     #[test]
@@ -291,19 +305,13 @@ mod tests {
     fn links_join_tracks_at_reflected_points() {
         let t = Tracking::new(&cell(), 8, 0.05).unwrap();
         for track in &t.tracks {
-            let next = &t.tracks[track.forward_link.track];
-            let joined = if track.forward_link.forward {
-                next.start
-            } else {
-                next.end
-            };
+            let link = track.forward_link.unwrap();
+            let next = &t.tracks[link.track];
+            let joined = if link.forward { next.start } else { next.end };
             assert!((joined.0 - track.end.0).abs() < 1e-9 && (joined.1 - track.end.1).abs() < 1e-9);
-            let prev = &t.tracks[track.backward_link.track];
-            let joined = if track.backward_link.forward {
-                prev.start
-            } else {
-                prev.end
-            };
+            let link = track.backward_link.unwrap();
+            let prev = &t.tracks[link.track];
+            let joined = if link.forward { prev.start } else { prev.end };
             assert!(
                 (joined.0 - track.start.0).abs() < 1e-9 && (joined.1 - track.start.1).abs() < 1e-9
             );
@@ -327,12 +335,75 @@ mod tests {
                 track.forward_link
             } else {
                 track.backward_link
-            };
+            }
+            .unwrap();
             if link == start {
                 assert!(step > 1);
                 return;
             }
         }
         panic!("the trajectory does not close");
+    }
+
+    fn two_by_two() -> Lattice {
+        let pin = PinCell::new(1.26, vec![0.3, 0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        Lattice::new(vec![pin, water], vec![vec![0, 1], vec![0, 0]]).unwrap()
+    }
+
+    #[test]
+    fn lattice_track_volumes_match_analytic() {
+        let lattice = two_by_two();
+        let t = Tracking::new(&lattice, 32, 0.005).unwrap();
+        for (estimated, exact) in t.volumes(lattice.regions()).iter().zip(lattice.volumes()) {
+            assert!(
+                (estimated - exact).abs() < 1e-3 * exact,
+                "{estimated} vs {exact}"
+            );
+        }
+    }
+
+    #[test]
+    fn lattice_tracks_reflect_at_the_outer_boundary() {
+        let t = Tracking::new(&two_by_two(), 8, 0.05).unwrap();
+        let half = 1.26;
+        for track in &t.tracks {
+            for p in [track.start, track.end] {
+                let on_edge = (p.0.abs() - half).abs() < 1e-9 || (p.1.abs() - half).abs() < 1e-9;
+                assert!(on_edge, "{p:?}");
+            }
+            let link = track.forward_link.unwrap();
+            let next = &t.tracks[link.track];
+            let joined = if link.forward { next.start } else { next.end };
+            assert!((joined.0 - track.end.0).abs() < 1e-9 && (joined.1 - track.end.1).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn vacuum_sides_have_no_links() {
+        // C5G7 と同じく右と下が真空、左と上が鏡面反射
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let t = Tracking::with_boundaries(&two_by_two(), 8, 0.05, boundaries).unwrap();
+        let half = 1.26;
+        let on_vacuum = |p: (f64, f64)| (p.0 - half).abs() < 1e-9 || (p.1 + half).abs() < 1e-9;
+        let (mut vacuum, mut reflective) = (0, 0);
+        for track in &t.tracks {
+            for (point, link) in [
+                (track.end, track.forward_link),
+                (track.start, track.backward_link),
+            ] {
+                assert_eq!(link.is_none(), on_vacuum(point), "{point:?}");
+                if link.is_none() {
+                    vacuum += 1;
+                } else {
+                    reflective += 1;
+                }
+            }
+        }
+        assert!(vacuum > 0 && reflective > 0);
     }
 }
