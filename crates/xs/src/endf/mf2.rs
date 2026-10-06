@@ -351,6 +351,9 @@ fn read_unresolved_lrf1(
     };
 
     let mut l_values = Vec::new();
+    if !matches!(lfw, 0 | 1) {
+        return Err(Error::new(r.line(), format!("invalid LFW={lfw}")));
+    }
     let (spi, ap, lssf) = if lfw == 0 {
         // SPI AP LSSF 0 NLS 0 と、l ごとに AWRI 0 L 0 6*NJS NJS の LIST（J ごとに D AJ AMUN GNO GG GF）
         let cont = r.cont()?;
@@ -389,6 +392,17 @@ fn read_unresolved_lrf1(
             return Err(Error::new(
                 header_line,
                 "fission width energies must be present and not decreasing",
+            ));
+        }
+        // 範囲の外へ外挿しない（NJOY も上端に届かなければエラーにする）
+        if let (Some(&first), Some(&last)) = (energies.values.first(), energies.values.last())
+            && (first > el || last < eh)
+        {
+            return Err(Error::new(
+                header_line,
+                format!(
+                    "fission width energies {first}..{last} eV do not cover the range {el}..{eh} eV"
+                ),
             ));
         }
         for _ in 0..count(energies.n2, r.line(), "NLS")? {
