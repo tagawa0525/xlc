@@ -395,6 +395,18 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn lists_sections_with_their_mts() {
+        let tape = Tape::parse(&sample_tape()).unwrap();
+        let sections = tape.sections(125, 3);
+        let mts: Vec<u32> = sections.iter().map(|(mt, _)| *mt).collect();
+        assert_eq!(mts, vec![1, 102]);
+        let mut r = sections[1].1.reader();
+        assert_eq!(r.cont().unwrap().c1, 1001.0);
+        assert!(r.cont().is_err());
+        assert!(tape.sections(125, 2).is_empty());
+    }
+
+    #[test]
     fn finds_sections_and_mts() {
         let tape = Tape::parse(&sample_tape()).unwrap();
         assert_eq!(tape.mts(125, 3), vec![1, 102]);
