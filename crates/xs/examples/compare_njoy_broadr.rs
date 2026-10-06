@@ -6,12 +6,20 @@
 //! 同じ 0 K の断面積を BROADR で拡げた結果と比べる。0 K の格子の違いを除いて、拡がりの計算だけを比べるためである。
 //! 拡げた PENDF には、その温度の物質だけを入れておく（BROADR の出力は温度ごとに同じ MAT 番号の物質が並ぶ）。
 //! 拡げる上限は ENDF の共鳴パラメータから決める。
+//!
+//! 拡げた値の計算は、両方の格子にある同じエネルギーの点で比べる（補間の誤差を含めないため）。
+//! 格子の作り方は、点の数で比べる。NJOY は節のエネルギーを丸めてから積分の区間を探すため、
+//! 丸めで節より下になった点では1〜3区間ずれた値を出す。そのような点は一致しない点として表示される。
 
 use std::time::Instant;
 
 use xs::doppler::{broaden, broadening_limit};
 use xs::endf::{Mf2, Mf3, Tab1, Tape};
 use xs::pointwise::DEFAULT_TOLERANCE;
+
+/// 同じ値とみなす相対差。NJOY の出力は有効数字 7 桁で、積分の打ち切り（NJOY は |x - y| ≤ 4、
+/// こちらは 5）の違いが 2e-6 程度あるので、それより一桁大きくとる。
+const SAME_VALUE: f64 = 1.0e-5;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -66,20 +74,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         };
         let njoy = Mf3::parse(&section)?.sigma;
+        // どちらも補間していない値どうしを比べるため、両方の格子にあるエネルギーだけを使う
         let mut worst = (0.0_f64, 0.0_f64);
-        let mut outside = 0;
+        let mut differing = Vec::new();
         let mut compared = 0;
         for (&e, &expected) in njoy.x.iter().zip(&njoy.y) {
             if expected <= 0.0 || e >= e_max {
                 continue;
             }
-            let Some(actual) = table.eval(e) else {
+            let k = table.x.partition_point(|&x| x < e);
+            if table.x.get(k) != Some(&e) {
                 continue;
-            };
-            let rel = (actual - expected).abs() / expected;
+            }
+            let rel = (table.y[k] - expected).abs() / expected;
             compared += 1;
-            if rel > 2.0 * DEFAULT_TOLERANCE {
-                outside += 1;
+            if rel > SAME_VALUE {
+                differing.push(e);
             }
             if rel > worst.0 {
                 worst = (rel, e);
@@ -87,12 +97,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let below = |t: &Tab1| t.x.iter().filter(|&&e| e < e_max).count();
         println!(
-            "MT{mt}: points below limit ours {} njoy {}, compared {compared}, max rel diff {:.2e} at {:.6e} eV, > 2 tol: {outside}",
+            "MT{mt}: points below limit ours {} njoy {}, common {compared}, max rel diff {:.2e} at {:.6e} eV, > {SAME_VALUE:e}: {}",
             below(table),
             below(&njoy),
             worst.0,
-            worst.1
+            worst.1,
+            differing.len()
         );
+        if !differing.is_empty() {
+            let shown: Vec<String> = differing
+                .iter()
+                .take(5)
+                .map(|e| format!("{e:.7e}"))
+                .collect();
+            println!("  differing at {} ...", shown.join(", "));
+        }
     }
     Ok(())
 }
