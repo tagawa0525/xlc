@@ -283,6 +283,7 @@ impl GroupedLaw {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::IncidentLaw;
 
     fn assert_close(actual: &[f64], expected: &[f64]) {
         for (a, e) in actual.iter().zip(expected) {
@@ -372,7 +373,10 @@ mod tests {
         assert_eq!(ec, 62500.0);
         let distributions = OutgoingDistributions {
             breaks: vec![1],
-            laws: vec![Interpolation::LinLin],
+            laws: vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: false,
+            }],
             incident: vec![e],
             spectra: vec![Tab1 {
                 breaks: vec![2],
@@ -392,12 +396,92 @@ mod tests {
         );
     }
 
+    /// 入射エネルギー 10 と 20 で、[0, 1] と [0, 3] の一様分布
+    fn widening(law: IncidentLaw) -> OutgoingDistributions {
+        OutgoingDistributions {
+            breaks: vec![2],
+            laws: vec![law],
+            incident: vec![10.0, 20.0],
+            spectra: vec![
+                Tab1::linear(vec![0.0, 1.0], vec![1.0, 1.0]),
+                Tab1::linear(vec![0.0, 3.0], vec![1.0 / 3.0, 1.0 / 3.0]),
+            ],
+        }
+    }
+
+    #[test]
+    fn unit_base_keeps_the_shape_between_incident_energies() {
+        // 単位基底では、中間の入射エネルギーで範囲が [0, 2] に伸びた一様分布になる
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let unit_base = IncidentLaw {
+            law: Interpolation::LinLin,
+            unit_base: true,
+        };
+        let grouped = GroupedOutgoing::new(&groups, &widening(unit_base));
+        let mut out = vec![0.0; 3];
+        grouped.accumulate(15.0, 1.0, &mut out);
+        let expected = [0.0, 0.5, 0.5];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-6, "{out:?}");
+        }
+        // ふつうの線形補間なら、2つの分布の平均（[0, 1] に 2/3、[1, 3] に 1/3）
+        let cartesian = IncidentLaw {
+            law: Interpolation::LinLin,
+            unit_base: false,
+        };
+        let grouped = GroupedOutgoing::new(&groups, &widening(cartesian));
+        let mut out = vec![0.0; 3];
+        grouped.accumulate(15.0, 1.0, &mut out);
+        let expected = [1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-6, "{out:?}");
+        }
+    }
+
+    #[test]
+    fn unit_base_in_the_center_of_mass_matches_the_laboratory_for_a_heavy_target() {
+        // 標的が十分重ければ、重心系と実験室系はほぼ同じ
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let law = IncidentLaw {
+            law: Interpolation::LinLin,
+            unit_base: true,
+        };
+        let lab = GroupedOutgoing::new(&groups, &widening(law));
+        let cm = GroupedOutgoing::center_of_mass(&groups, &widening(law), 1.0e9);
+        let (mut a, mut b) = (vec![0.0; 3], vec![0.0; 3]);
+        lab.accumulate(15.0, 1.0, &mut a);
+        cm.accumulate(15.0, 1.0, &mut b);
+        for (x, y) in a.iter().zip(&b) {
+            assert!((x - y).abs() < 1e-4, "{a:?} vs {b:?}");
+        }
+    }
+
+    #[test]
+    fn incident_interpolation_follows_its_law() {
+        // 線形・対数（LinLog）なら、入射エネルギーの対数の中点で2つの分布の平均
+        let groups = GroupStructure::new(vec![3.0, 2.0, 1.0, 1.0e-5]).unwrap();
+        let law = IncidentLaw {
+            law: Interpolation::LinLog,
+            unit_base: false,
+        };
+        let grouped = GroupedOutgoing::new(&groups, &widening(law));
+        let mut out = vec![0.0; 3];
+        grouped.accumulate((10.0_f64 * 20.0).sqrt(), 1.0, &mut out);
+        let expected = [1.0 / 6.0, 1.0 / 6.0, 2.0 / 3.0];
+        for (o, e) in out.iter().zip(expected) {
+            assert!((o - e).abs() < 1e-12, "{out:?}");
+        }
+    }
+
     #[test]
     fn interpolates_between_incident_energies() {
         let groups = GroupStructure::new(vec![4.0, 2.0, 1.0]).unwrap();
         let distributions = OutgoingDistributions {
             breaks: vec![2],
-            laws: vec![Interpolation::LinLin],
+            laws: vec![IncidentLaw {
+                law: Interpolation::LinLin,
+                unit_base: false,
+            }],
             incident: vec![10.0, 20.0],
             spectra: vec![
                 Tab1::linear(vec![2.0, 4.0], vec![0.5, 0.5]),
