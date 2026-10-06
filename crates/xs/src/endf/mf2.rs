@@ -104,9 +104,9 @@ pub struct UrrLValue {
 pub struct UrrJValue {
     pub aj: f64,
     pub int: Interpolation,
-    pub amux: u32,
-    pub amun: u32,
-    pub amuf: u32,
+    pub amux: WidthDof,
+    pub amun: WidthDof,
+    pub amuf: WidthDof,
     pub points: Vec<UrrPoint>,
 }
 
@@ -246,15 +246,12 @@ fn read_unresolved(
             };
             // 幅の分布の自由度は、NJOY と同じく最も近い整数に丸める。χ² 分布の求積があるのは 0〜4
             let dof = |v: f64| {
-                let rounded = v.round();
-                if (0.0..=4.0).contains(&rounded) {
-                    Ok(rounded as u32)
-                } else {
-                    Err(Error::new(
+                WidthDof::from_rounded(v).ok_or_else(|| {
+                    Error::new(
                         header_line + 1,
                         format!("degrees of freedom {v} must round to an integer from 0 to 4"),
-                    ))
-                }
+                    )
+                })
             };
             let points: Vec<UrrPoint> = points
                 .iter()
@@ -463,6 +460,37 @@ impl OrbitalL {
     }
 }
 
+/// 非分離共鳴の幅の分布（平均 1 の χ² 分布）の自由度。`Fixed`（0）は幅がゆらがないことを表す。
+/// χ² 分布の期待値を求められる 0〜4 だけを扱い（NJOY と同じ）、MF2 を読むときに確かめる。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WidthDof {
+    Fixed,
+    One,
+    Two,
+    Three,
+    Four,
+}
+
+impl WidthDof {
+    /// ENDF の自由度（実数）を、NJOY と同じく最も近い整数に丸めて作る（範囲外なら `None`）。
+    fn from_rounded(v: f64) -> Option<Self> {
+        let rounded = v.round();
+        [Self::Fixed, Self::One, Self::Two, Self::Three, Self::Four]
+            .into_iter()
+            .find(|dof| f64::from(dof.number()) == rounded)
+    }
+
+    pub fn number(self) -> u32 {
+        match self {
+            Self::Fixed => 0,
+            Self::One => 1,
+            Self::Two => 2,
+            Self::Three => 3,
+            Self::Four => 4,
+        }
+    }
+}
+
 impl std::fmt::Display for OrbitalL {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.number())
@@ -539,7 +567,10 @@ mod tests {
         );
         let j = &urr.l_values[0].j_values[0];
         assert_eq!((j.aj, j.int), (0.5, Interpolation::LogLog));
-        assert_eq!((j.amux, j.amun, j.amuf), (0, 1, 0));
+        assert_eq!(
+            (j.amux, j.amun, j.amuf),
+            (WidthDof::Fixed, WidthDof::One, WidthDof::Fixed)
+        );
         assert_eq!(
             j.points[1],
             UrrPoint {
@@ -667,7 +698,10 @@ mod tests {
             panic!("expected unresolved");
         };
         let j = &urr.l_values[0].j_values[0];
-        assert_eq!((j.amux, j.amun, j.amuf), (1, 1, 2));
+        assert_eq!(
+            (j.amux, j.amun, j.amuf),
+            (WidthDof::One, WidthDof::One, WidthDof::Two)
+        );
         assert_eq!(j.points.len(), 2);
     }
 
