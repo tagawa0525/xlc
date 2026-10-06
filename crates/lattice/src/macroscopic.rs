@@ -1,6 +1,6 @@
 //! 巨視的断面積のファイル（C5G7 のように物質の多群断面積が直接与えられる問題のため）。
 //!
-//! 1行に `キーワード 値...` を書く。`#` から行末まではコメント。`material` から次の `material` までが
+//! 1行に `キーワード 値...` を書く。χ は和が 1 になるよう規格化する。`#` から行末まではコメント。`material` から次の `material` までが
 //! 1つの物質で、`scatter` は入射の群の順に群の数だけ書く。核分裂のない物質は `fission`, `nu-fission`,
 //! `chi` を省略できる。
 //!
@@ -131,7 +131,13 @@ impl Draft {
         let zeros = vec![0.0; ng];
         let nu_fission = self.nu_fission.unwrap_or_else(|| zeros.clone());
         let fission_terms = if nu_fission.iter().any(|&v| v != 0.0) {
+            // χ は確率分布なので和で割る（公表値は丸めてあり、和がちょうど 1 にならない）
             let chi = self.chi.ok_or("`nu-fission` needs `chi`")?;
+            let sum: f64 = chi.iter().sum();
+            if sum <= 0.0 {
+                return Err(format!("chi sums to {sum}"));
+            }
+            let chi = chi.iter().map(|c| c / sum).collect();
             vec![FissionTerm {
                 chi,
                 nu_fission: nu_fission.clone(),
