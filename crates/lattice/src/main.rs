@@ -135,7 +135,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     if let Some((output, bounds)) = &input.output {
         let groups = groups
             .as_ref()
-            .expect("the input checks that few-group output needs a library");
+            .ok_or_else(|| anyhow!("few-group output needs a library"))?;
         let few = homogenize(&solution, &materials, groups, bounds)?;
         let output = base.join(output);
         std::fs::write(&output, few.to_msgpack()?).with_context(|| shown(&output))?;
