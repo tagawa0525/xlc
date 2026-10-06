@@ -612,8 +612,8 @@ pub(crate) mod tests {
             assert!(is_nuclide_name(name), "{name}");
         }
         for name in [
-            "", "U235", "u-235", "U-", "U-235M", "Am-242m0", "U-0235", "U 235", "Uuo-294", "H-1x",
-            "-1",
+            "", "U235", "u-235", "U-", "U-235M", "Am-242m0", "Am-242m1", "U-0235", "U 235",
+            "Uuo-294", "H-1x", "-1",
         ] {
             assert!(!is_nuclide_name(name), "{name}");
         }
