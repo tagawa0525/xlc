@@ -94,6 +94,12 @@ pub fn exp_e1(z: f64) -> f64 {
     panic!("E1({z}) did not converge");
 }
 
+/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（Im z ≥ 0）。
+pub fn faddeeva(x: f64, y: f64) -> (f64, f64) {
+    let _ = (x, y);
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,5 +156,56 @@ mod tests {
         // 漸近形 1/z (1 - 1/z + 2/z² - ...)
         let z = 1.0e6;
         assert_rel(exp_e1(z), (1.0 - 1.0 / z + 2.0 / (z * z)) / z, 1e-15);
+    }
+
+    /// Re w(x + iy) = (y/π) ∫ e^(-t²) / ((x - t)² + y²) dt（y > 0）を Simpson 則で積分した値。
+    fn re_w_by_integration(x: f64, y: f64) -> f64 {
+        // Lorentz 形の幅 y と Gauss 形の幅 1 を十分細かく分ける
+        let h = y.min(1.0) / 200.0;
+        let (lo, hi) = (-9.0_f64.min(x - 60.0 * y), 9.0_f64.max(x + 60.0 * y));
+        let n = (((hi - lo) / h).ceil() as usize).next_multiple_of(2);
+        let h = (hi - lo) / n as f64;
+        let f = |t: f64| (-t * t).exp() / ((x - t) * (x - t) + y * y);
+        let mut sum = f(lo) + f(hi);
+        for i in 1..n {
+            sum += if i % 2 == 1 { 4.0 } else { 2.0 } * f(lo + h * i as f64);
+        }
+        sum * h / 3.0 * y / std::f64::consts::PI
+    }
+
+    #[test]
+    fn faddeeva_real_part_matches_definition() {
+        for (x, y) in [(0.5, 0.05), (3.0, 0.1), (1.0, 1.0), (10.0, 0.2), (2.0, 5.0)] {
+            assert_rel(faddeeva(x, y).0, re_w_by_integration(x, y), 1e-10);
+        }
+    }
+
+    #[test]
+    fn faddeeva_on_imaginary_axis_is_erfcx() {
+        for y in [1.0e-3, 0.1, 1.0, 10.0, 100.0] {
+            let (re, im) = faddeeva(0.0, y);
+            assert_rel(re, erfcx(y), 1e-12);
+            assert!(im.abs() <= 1e-15, "{im}");
+        }
+    }
+
+    #[test]
+    fn faddeeva_on_real_axis_is_gaussian() {
+        for x in [0.0, 0.5, 2.0, 5.0] {
+            let re = faddeeva(x, 0.0).0;
+            assert!((re - (-x * x).exp()).abs() <= 1e-13, "x={x}: {re}");
+        }
+    }
+
+    #[test]
+    fn faddeeva_far_from_origin_is_asymptotic() {
+        // w(z) ≈ i/(√π z) (1 + 1/(2z²) + 3/(4z⁴))
+        let (x, y) = (300.0, 0.07);
+        let r2 = x * x + y * y;
+        let sqrt_pi = std::f64::consts::PI.sqrt();
+        // i/z = (y + ix)/|z|²。実部は y/(√π |z|²) に高次の補正が付く
+        let (re, im) = faddeeva(x, y);
+        assert_rel(re, y / (sqrt_pi * r2) * (1.0 + 3.0 / (2.0 * x * x)), 1e-6);
+        assert_rel(im, x / (sqrt_pi * r2) * (1.0 + 1.0 / (2.0 * x * x)), 1e-9);
     }
 }
