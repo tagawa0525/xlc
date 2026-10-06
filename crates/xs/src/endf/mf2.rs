@@ -48,6 +48,16 @@ pub struct ReichMoore {
     pub l_values: Vec<RmLValue>,
 }
 
+impl RangeKind {
+    /// 分離共鳴の範囲か。
+    pub fn is_resolved(&self) -> bool {
+        match self {
+            Self::ReichMoore(_) | Self::Mlbw(_) | Self::RMatrixLimited(_) => true,
+            Self::ScatteringRadius { .. } | Self::Unresolved(_) => false,
+        }
+    }
+}
+
 /// R-matrix limited（LRF=7）の共鳴パラメータ。Reich-Moore（KRM=3）で、幅を eV で与える（IFG=0）もの。
 #[derive(Debug, Clone, PartialEq)]
 pub struct RMatrixLimited {
