@@ -1,6 +1,6 @@
 """C5G7 の 2D の問題を OpenMC の多群モードで解き、lattice と同じ形式のピンごとの核分裂率を書く。
 
-使い方: python3 openmc_model.py <作業ディレクトリ> [粒子数/世代] [世代数] [非アクティブバッチ数]
+使い方: python3 openmc_model.py <作業ディレクトリ> [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]
 
 断面積は c5g7-xs.toml（lattice と同じファイル）を読んで OpenMC の多群データに変換する。
 形状は c5g7.toml と同じく、左上と右下が UO2、右上と左下が MOX の集合体、右と下が水の反射体。
@@ -35,6 +35,8 @@ def main() -> None:
     particles = int(sys.argv[2]) if len(sys.argv) > 2 else 100_000
     batches = int(sys.argv[3]) if len(sys.argv) > 3 else 300
     inactive = int(sys.argv[4]) if len(sys.argv) > 4 else 50
+    # 統計誤差の見積もりを確かめるには、種を変えて解き直す（同じ種では同じ結果になる）
+    seed = int(sys.argv[5]) if len(sys.argv) > 5 else 1
     work.mkdir(parents=True, exist_ok=True)
 
     groups, data = read_xs(HERE / "c5g7-xs.toml")
@@ -126,6 +128,7 @@ def main() -> None:
     settings.particles = particles
     settings.batches = batches
     settings.inactive = inactive
+    settings.seed = seed
     settings.source = openmc.IndependentSource(
         # 燃料のある左上の 2 × 2 集合体（x は左から、y は上から 2/3）
         space=openmc.stats.Box((-width / 2, -width / 6, -1), (width / 6, width / 2, 1)),
