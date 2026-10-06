@@ -1,4 +1,4 @@
-//! ピンセルの格子計算を行い、少数群定数を書き出すコマンド。
+//! 格子計算を行い、少数群定数とセルごとの核分裂率を書き出すコマンド。
 //!
 //! 使い方: lattice <入力ファイル>
 //!
@@ -9,10 +9,11 @@ use std::process::ExitCode;
 use std::time::Instant;
 
 use lattice::fewgroup::homogenize;
-use lattice::geometry::{Lattice, PinCell};
-use lattice::input::PinCellInput;
+use lattice::input::{CrossSections, LatticeInput};
+use lattice::macroscopic;
 use lattice::material::Material;
 use lattice::moc::{Options, solve};
+use lattice::power::{cell_fission_rates, to_text};
 use lattice::tracking::Tracking;
 use xs::library::Library;
 
@@ -35,44 +36,67 @@ fn run(path: &Path) -> Result<(), String> {
     let start = Instant::now();
     let read = |p: &Path| std::fs::read_to_string(p).map_err(|e| format!("{}: {e}", p.display()));
     let input =
-        PinCellInput::parse(&read(path)?).map_err(|e| format!("{}: {e}", path.display()))?;
+        LatticeInput::parse(&read(path)?).map_err(|e| format!("{}: {e}", path.display()))?;
     let base = path.parent().unwrap_or(Path::new("."));
-    let library_path = base.join(&input.library);
-    let library = Library::parse(&read(&library_path)?)
-        .map_err(|e| format!("{}: {e}", library_path.display()))?;
+    let (lattice, region_materials) = input.geometry()?;
 
-    let fuel = Material::mix(&library, &input.fuel, input.fuel_temperature)
-        .map_err(|e| format!("fuel: {e}"))?;
-    let moderator = Material::mix(&library, &input.moderator, input.moderator_temperature)
-        .map_err(|e| format!("moderator: {e}"))?;
-    let cell = Lattice::pin_cell(PinCell::new(input.pitch, input.radii())?);
-    let materials: Vec<&Material> = (0..cell.regions())
-        .map(|i| {
-            if i < input.fuel_rings {
-                &fuel
-            } else {
-                &moderator
-            }
+    let (named, groups) = match &input.cross_sections {
+        CrossSections::Library(file) => {
+            let file = base.join(file);
+            let library =
+                Library::parse(&read(&file)?).map_err(|e| format!("{}: {e}", file.display()))?;
+            let named = input
+                .materials
+                .iter()
+                .map(|m| {
+                    Material::mix(&library, &m.composition, m.temperature)
+                        .map(|mixed| (m.name.clone(), mixed))
+                        .map_err(|e| format!("material `{}`: {e}", m.name))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            (named, Some(library.groups))
+        }
+        CrossSections::Macroscopic(file) => {
+            let file = base.join(file);
+            let named = macroscopic::parse(&read(&file)?)
+                .map_err(|e| format!("{}: {e}", file.display()))?;
+            (named, None)
+        }
+    };
+    let materials = region_materials
+        .iter()
+        .map(|name| {
+            named
+                .iter()
+                .find(|(n, _)| n == name)
+                .map(|(_, m)| m)
+                .ok_or_else(|| format!("material `{name}` is not in the cross sections"))
         })
-        .collect();
-    let tracking = Tracking::new(&cell, input.azimuthal, input.spacing)?;
-    let solution = solve(&tracking, &materials, &Options::default())?;
-    let few = homogenize(
-        &solution,
-        &materials,
-        &library.groups,
-        &input.few_group_bounds,
-    )?;
+        .collect::<Result<Vec<&Material>, String>>()?;
 
-    let output = base.join(&input.output);
-    std::fs::write(&output, few.to_text()).map_err(|e| format!("{}: {e}", output.display()))?;
+    let tracking =
+        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
+    let solution = solve(&tracking, &materials, &Options::default())?;
+    if let Some((output, bounds)) = &input.output {
+        let groups = groups
+            .as_ref()
+            .expect("the input checks that output needs a library");
+        let few = homogenize(&solution, &materials, groups, bounds)?;
+        let output = base.join(output);
+        std::fs::write(&output, few.to_text()).map_err(|e| format!("{}: {e}", output.display()))?;
+    }
+    if let Some(file) = &input.pin_powers {
+        let rates = cell_fission_rates(&solution, &lattice, &materials)?;
+        let file = base.join(file);
+        std::fs::write(&file, to_text(&rates, lattice.cells_per_side()))
+            .map_err(|e| format!("{}: {e}", file.display()))?;
+    }
     eprintln!(
-        "k-inf {:.6} ({} iterations, {} tracks, {:.1} s) -> {}",
+        "k {:.6} ({} iterations, {} tracks, {:.1} s)",
         solution.k,
         solution.iterations,
         tracking.tracks.len(),
         start.elapsed().as_secs_f64(),
-        output.display()
     );
     Ok(())
 }
