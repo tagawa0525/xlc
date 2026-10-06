@@ -190,6 +190,13 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn theta_must_be_positive() {
+        let text = analytic_mf5("9", "1.0+6").replace("2.0+5", "0.0+0");
+        let tape = Tape::parse(&text).unwrap();
+        assert!(Mf5::parse(&tape.section(1, 5, 16).unwrap()).is_err());
+    }
+
+    #[test]
     fn other_lf_is_error() {
         let text = two_point_mf5("11", ("1.0+6", "2.0+7", "1.0"), ("1.0-5", "1.0+6", "1.0"));
         let tape = Tape::parse(&text).unwrap();
