@@ -7,9 +7,11 @@
 //!
 //! になる。表の最初の点より下は 1/v で x = 0 まで、最後の点より上は一定値で延ばす。
 //!
-//! NJOY は区間ごとの積分を誤差関数の差で解析的に求めるが、共鳴の細かい格子では差が桁落ちする。
-//! ここでは区間ごとに Gauss-Legendre 求積する。被積分関数は区間の中で滑らかなので、
-//! 区間の幅に応じた少ない点数で倍精度に近い精度になる。
+//! NJOY は区間ごとの積分を誤差関数の差で解析的に求める。ここでは区間ごとに Gauss-Legendre 求積する。
+//! 被積分関数は区間の中で滑らかなので、区間の幅に応じた少ない点数で誤差を 1e-11 以下に抑えられ、
+//! その上限を誤差公式で示せる（`quadrature`）。NJOY の方法を移した計算とは 1e-7 程度で一致する。
+//!
+//! 格子の作り方は NJOY broadn と同じ規則による（`grid`、`nodes`、`split`）。
 
 use crate::endf::{Mf2, RangeKind, Tab1};
 use crate::physics::BK;
@@ -25,24 +27,38 @@ const LOW_THRESHOLD: f64 = 1.0;
 const BELOW_THRESHOLD: f64 = 0.99999;
 
 /// |x - y| がこれを超える範囲は積分しない（核関数が exp(-25) ≈ 1.4e-11 以下になる）。
+/// NJOY は 4 で打ち切るが、それでは低エネルギーで打ち切りの誤差が 2e-6 程度になる。
 const WINDOW: f64 = 5.0;
 
-/// 拡げた値を計算する最初の格子の、x での間隔の下限。拡げた断面積の構造の幅は
-/// x で 1 程度（ドップラー幅）より狭くならないので、元の格子の点をこの間隔まで間引いてから二分する。
-const SEED_SPACING: f64 = 1.0;
+// 格子の作り方の定数。どれも NJOY broadn と同じ値。
 
-/// 全反応の和に対する比がこれより小さい反応は、格子の収束判定に使わない（NJOY と同じ）。
+/// 収束判定の許容誤差 errmax、errint の、`tol`（errthn）に対する比（NJOY の既定値）
+const ERRMAX_PER_TOL: f64 = 10.0;
+const ERRINT_PER_TOL: f64 = 1.0 / 20_000.0;
+/// これより下のエネルギー (eV) では、許容誤差を `LOW_ENERGY_SCALE` 倍にする
+const LOW_ENERGY: f64 = 0.4999;
+const LOW_ENERGY_SCALE: f64 = 0.2;
+/// 節の間に挟む元の格子点の数の上限
+const MAX_SKIPPED: usize = 10;
+/// 節のエネルギーの、前の節に対する比の上限
+const MAX_RATIO: f64 = 2.01;
+/// 増減の向きを決めるとき、隣の点との差が値のこの割合未満なら平らとみなす
+const FLAT: f64 = 1.0e-3;
+/// 区間の両端の値の比がこれを超えると、中点の誤差によらず区間を分ける
+const MAX_END_RATIO: f64 = 3.0;
+/// 区間の幅が直前の区間のこの倍を超えると、収束とみなさない（誤った収束を防ぐ）
+const MAX_GROWTH: f64 = 4.1;
+/// 誤差の判定に足す絶対誤差
+const ERRMIN: f64 = 1.0e-15;
+/// 全反応の和に対する比がこれより小さい反応は、収束判定に使わない
 const NEGLIGIBLE: f64 = 1.0e-6;
-
-/// これより狭い区間は二分しない（エネルギーの相対幅）。
-const MIN_RELATIVE_WIDTH: f64 = 1.0e-9;
 
 const SQRT_PI: f64 = 1.772_453_850_905_516;
 
 /// 0 K の表を、温度 `temperature` (K) に拡げる。
 ///
 /// `tables` は lin-lin の表で、同じエネルギー格子の上でまとめて拡げる。
-/// `e_max` 未満のエネルギーは拡げた値を、格子の中点での線形補間の誤差が `tol` 以下になるまで
+/// `e_max` 未満のエネルギーは拡げた値を、NJOY broadn と同じ判定（`tol` を errthn とする）で
 /// 細かくした格子に置き、`e_max` 以上は元の表の点をそのまま使う。
 /// 最初の点が格子全体の最初の点より上にある表（しきい反応）は、しきい値より下を 0 のままにする。
 pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64) -> Vec<Tab1> {
@@ -59,15 +75,7 @@ pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64
         values: &union.values,
     };
 
-    let mut points = Vec::new();
-    let seeds = seeds(tables, &union.energies, &integral.x, alpha, top);
-    let mut left = (seeds[0], integral.at(seeds[0]));
-    points.push(left.clone());
-    for &e in &seeds[1..] {
-        let right = (e, integral.at(e));
-        refine(&|e| integral.at(e), left, right.clone(), tol, &mut points);
-        left = right;
-    }
+    let points = grid(&union, &integral, top, tol);
 
     tables
         .iter()
@@ -99,77 +107,177 @@ pub fn broaden(tables: &[Tab1], awr: f64, temperature: f64, e_max: f64, tol: f64
         .collect()
 }
 
-/// 拡げた値を計算する元の格子の点（節）の番号。`top` 未満の点から NJOY broadn と同じ規則で選ぶ。
-fn nodes(energies: &[f64], values: &[Vec<f64>], top: f64) -> Vec<usize> {
-    let _ = (energies, values, top);
-    todo!()
-}
-
-/// 拡げた値を最初に計算するエネルギー: 元の格子を x で `SEED_SPACING` まで間引いた点と、
-/// しきい反応の始まりと、上限 `top`。
+/// 拡げた値の格子（NJOY broadn と同じ作り方）。
 ///
-/// 元の格子点での折れ曲がりは、拡げると x で ±1 程度の幅になまる。中点での二分だけでは
-/// 区間の端の近くのなまりを見逃すので、間隔の広いところでは各点の両側 `SEED_SPACING` にも点を置く。
-fn seeds(tables: &[Tab1], energies: &[f64], x: &[f64], alpha: f64, top: f64) -> Vec<f64> {
-    let mut thinned: Vec<(f64, f64)> = Vec::new();
-    for (&e, &xk) in energies.iter().zip(x).take_while(|(e, _)| **e < top) {
-        let starts = tables.iter().any(|t| t.x[0] == e);
-        let far = thinned
-            .last()
-            .is_none_or(|&(last, x_last)| last != e && xk >= x_last + SEED_SPACING);
-        if far || (starts && thinned.last().is_none_or(|&(last, _)| last != e)) {
-            thinned.push((e, xk));
+/// 元の格子から選んだ節と上限 `top` で拡げた値を計算し、節の間は中点で収束を判定して分ける。
+/// NJOY と違う点は次のとおり。
+/// - エネルギーを有効数字 7 桁に丸めない。NJOY は丸めた節のエネルギーで積分の区間を探すため、
+///   丸めで節より下になった点で1〜3区間ずれた値を出す（BROADR の出力との食い違いの原因）
+/// - 分ける深さに上限（NJOY は 12）を設けない。NJOY の上限は固定長の配列のためのもので、
+///   上限に達した区間は収束していなくてもそのまま残る。分割は、中点が両端の間に入らなくなれば止まる
+fn grid(union: &Union, integral: &Integral, top: f64, tol: f64) -> Vec<(f64, Vec<f64>)> {
+    let node = |k: usize| {
+        let values = integral.at(union.energies[k]);
+        let cold = &union.values[k];
+        let matches_cold = values
+            .iter()
+            .zip(cold)
+            .all(|(hot, cold)| (hot - cold).abs() <= tol * cold);
+        Point {
+            e: union.energies[k],
+            values,
+            node: Some(k),
+            matches_cold,
         }
-    }
-    thinned.push((top, (alpha * top).sqrt()));
+    };
+    let selected = nodes(&union.energies, &union.values, top);
+    let mut uppers = selected[1..].iter().map(|&k| node(k)).collect::<Vec<_>>();
+    uppers.push(Point {
+        e: top,
+        values: integral.at(top),
+        node: None,
+        matches_cold: false,
+    });
 
-    let mut seeds = vec![thinned[0].0];
-    for w in thinned.windows(2) {
-        let ((_, x0), (e1, x1)) = (w[0], w[1]);
-        if x1 - x0 > 2.0 * SEED_SPACING {
-            for xs in [x0 + SEED_SPACING, x1 - SEED_SPACING] {
-                seeds.push(xs * xs / alpha);
+    let mut out: Vec<(f64, Vec<f64>)> = Vec::new();
+    let mut lower = node(selected[0]);
+    for upper in uppers {
+        // stack の末尾が、lower と組む区間の上端
+        let mut stack = vec![upper];
+        while let Some(next) = stack.last() {
+            match split(&lower, next, out.last(), integral, tol) {
+                None => {
+                    let next = stack.pop().expect("not empty");
+                    out.push((lower.e, lower.values));
+                    lower = next;
+                }
+                Some(mid) => stack.push(mid),
             }
         }
-        seeds.push(e1);
     }
-    seeds
+    out.push((lower.e, lower.values));
+    out
 }
 
-/// 区間 (a, b) を、中点での線形補間の誤差が `tol` 以下になるまで二分し、
-/// 加えた点と右端の点を左から順に `points` に積む（左端は積まない）。
-fn refine(
-    f: &impl Fn(f64) -> Vec<f64>,
-    a: (f64, Vec<f64>),
-    b: (f64, Vec<f64>),
+/// 格子の点。`node` は元の格子の節の番号（中点なら `None`）、
+/// `matches_cold` は拡げた値が全反応で 0 K の値と `tol` 以内か。
+struct Point {
+    e: f64,
+    values: Vec<f64>,
+    node: Option<usize>,
+    matches_cold: bool,
+}
+
+/// 区間 (lower, upper) を中点で分けるなら、その中点を返す（NJOY broadn の収束判定）。
+/// `previous` は直前に格子に加えた点。
+fn split(
+    lower: &Point,
+    upper: &Point,
+    previous: Option<&(f64, Vec<f64>)>,
+    integral: &Integral,
     tol: f64,
-    points: &mut Vec<(f64, Vec<f64>)>,
-) {
-    // 右側の区間から積み、左側から取り出す
-    let mut stack = vec![b];
-    let mut left = a;
-    while let Some(right) = stack.pop() {
-        let mid = 0.5 * (left.0 + right.0);
-        if right.0 - left.0 > MIN_RELATIVE_WIDTH * mid {
-            let exact = f(mid);
-            if !converged(&left.1, &right.1, &exact, tol) {
-                stack.push(right);
-                stack.push((mid, exact));
-                continue;
-            }
-        }
-        points.push(right.clone());
-        left = right;
+) -> Option<Point> {
+    // 隣り合う元の格子点で、どちらも拡げても値が変わらなければ、そのまま線形補間でよい
+    if let (Some(a), Some(b)) = (lower.node, upper.node)
+        && b == a + 1
+        && lower.matches_cold
+        && upper.matches_cold
+    {
+        return None;
     }
+    let em = 0.5 * (lower.e + upper.e);
+    if em <= lower.e || em >= upper.e {
+        return None;
+    }
+    let scale = if upper.e < LOW_ENERGY {
+        LOW_ENERGY_SCALE
+    } else {
+        1.0
+    };
+    let (errthn, errmax) = (scale * tol, scale * ERRMAX_PER_TOL * tol);
+    let errint = ERRINT_PER_TOL * tol;
+    let dx = upper.e - lower.e;
+    let sn = integral.at(em);
+    let total: f64 = sn.iter().sum();
+    let converged = (0..sn.len()).all(|i| {
+        if total < ERRMIN || (sn[i] / total).abs() < NEGLIGIBLE {
+            return true;
+        }
+        let (a, b) = (lower.values[i], upper.values[i]);
+        if b > MAX_END_RATIO * a || b < a / MAX_END_RATIO {
+            return false;
+        }
+        let dy = (sn[i] - 0.5 * (a + b)).abs();
+        if dy <= errthn * sn[i].abs() + ERRMIN {
+            return true;
+        }
+        dy <= errmax * sn[i].abs() + ERRMIN && dy * dx / 2.0 <= errint * em
+    });
+    // 直前の区間より極端に広い区間は、収束を取り違えている恐れがある
+    let too_wide = previous.is_some_and(|(e, _)| dx > MAX_GROWTH * (lower.e - e));
+    if converged && !too_wide {
+        return None;
+    }
+    Some(Point {
+        e: em,
+        values: sn,
+        node: None,
+        matches_cold: false,
+    })
 }
 
-/// 中点の真値 `exact` が、両端の値の平均で `tol` の精度で表せるか。和に対して無視できる反応は見ない。
-fn converged(left: &[f64], right: &[f64], exact: &[f64], tol: f64) -> bool {
-    let total: f64 = exact.iter().map(|s| s.abs()).sum();
-    (0..exact.len()).all(|i| {
-        let linear = 0.5 * (left[i] + right[i]);
-        exact[i].abs() < NEGLIGIBLE * total || (linear - exact[i]).abs() <= tol * exact[i].abs()
-    })
+/// 拡げた値を計算する元の格子の点（節）の番号。`top` 未満の点から NJOY broadn と同じ規則で選ぶ。
+///
+/// 最初の点と `top` 未満の最後の点のほか、次の点を節にする: いずれかの反応で増減の向きが
+/// 前の節と変わる点、前の節から `MAX_SKIPPED` 点を超えた点、エネルギーが前の節の `MAX_RATIO` 倍を
+/// 超えた点、有効数字3桁で表せるエネルギー（0.0253 eV を含む）。前の節と同じエネルギーの点は飛ばす。
+fn nodes(energies: &[f64], values: &[Vec<f64>], top: f64) -> Vec<usize> {
+    let below = energies.partition_point(|&e| e < top);
+    if below == 0 {
+        return Vec::new();
+    }
+    let last = below - 1;
+    // 点 k から次の点への、反応ごとの増減の向き（平らは増加と同じ）
+    let rising = |k: usize| -> Vec<bool> {
+        values[k]
+            .iter()
+            .zip(&values[k + 1])
+            .map(|(a, b)| b - a >= 0.0 || (b - a).abs() < FLAT * a.abs())
+            .collect()
+    };
+    let mut nodes = vec![0];
+    if last == 0 {
+        return nodes;
+    }
+    let mut direction = rising(0);
+    for k in 1..=last {
+        let previous = *nodes.last().expect("starts with the first point");
+        let e = energies[k];
+        if e == energies[previous] {
+            continue;
+        }
+        if k == last {
+            nodes.push(k);
+            break;
+        }
+        let here = rising(k);
+        if k > previous + MAX_SKIPPED
+            || e > MAX_RATIO * energies[previous]
+            || is_round(e)
+            || here != direction
+        {
+            nodes.push(k);
+            direction = here;
+        }
+    }
+    nodes
+}
+
+/// 有効数字3桁で表せるエネルギーか。
+fn is_round(e: f64) -> bool {
+    let unit = 10f64.powi(e.log10().floor() as i32 - 2);
+    let rounded = (e / unit).round() * unit;
+    (e - rounded).abs() < 1.0e-9 * rounded
 }
 
 /// 複数の lin-lin の表を、共通のエネルギー格子の上の値の組にしたもの。
@@ -284,6 +392,10 @@ fn kernel(x: f64, y: f64) -> f64 {
 /// 区間 [a, b] の Gauss-Legendre 求積。各点 x と重み w で `f(x, w)` を呼ぶ。
 /// 被積分関数は x で幅 1 程度の構造（核関数）を持つので、区間の幅に応じて点数を選び、
 /// 幅 1 を超える区間は幅 1 以下の小区間に分ける。
+///
+/// n 点則の誤差は w^(2n+1) (n!)⁴ / ((2n+1) ((2n)!)³) · f⁽²ⁿ⁾ で、核関数 exp(-z²) の 2n 階微分は
+/// (2n)!/n! 倍以下なので、幅 w の区間の相対誤差は 2点則・w = 0.005 で 2e-12、4点則・w = 0.2 で 2e-12、
+/// 8点則・w = 1 で 9e-15 になる（x² σ(x) の変化は核関数よりずっと緩やかなので無視できる）。
 fn quadrature(a: f64, b: f64, mut f: impl FnMut(f64, f64)) {
     // [-1, 1] での正の分点と重み
     const GAUSS2: [(f64, f64); 1] = [(0.577_350_269_189_625_8, 1.0)];
@@ -292,8 +404,8 @@ fn quadrature(a: f64, b: f64, mut f: impl FnMut(f64, f64)) {
         (0.861_136_311_594_052_6, 0.347_854_845_137_453_9),
     ];
     const GAUSS8: [(f64, f64); 4] = [
-        (0.183_434_642_495_649_8, 0.362_683_783_378_362_0),
-        (0.525_532_409_916_329_0, 0.313_706_645_877_887_3),
+        (0.183_434_642_495_649_8, 0.362_683_783_378_362),
+        (0.525_532_409_916_329, 0.313_706_645_877_887_3),
         (0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
         (0.960_289_856_497_536_2, 0.101_228_536_290_376_3),
     ];
