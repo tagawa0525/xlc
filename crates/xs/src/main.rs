@@ -31,7 +31,7 @@ use std::time::Instant;
 use anyhow::{Context, anyhow};
 use serde::Deserialize;
 use xs::endf::Tape;
-use xs::library::{Library, NuclideData};
+use xs::library::{Library, NuclideData, is_nuclide_name};
 use xs::multigroup::{GroupStructure, Weight};
 use xs::pointwise::DEFAULT_TOLERANCE;
 use xs::process::{Settings, process_nuclide, read_thermal_scattering};
@@ -103,6 +103,11 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
     let endf_directory = base.join(&file.endf_directory);
     let mut nuclides = Vec::with_capacity(file.nuclide.len());
     for (name, entry) in file.nuclide {
+        if !is_nuclide_name(&name) {
+            return invalid(format!(
+                "nuclide name `{name}` is not of the form U-235, Am-242m"
+            ));
+        }
         let t = &entry.temperatures;
         if t.is_empty() || !t.iter().all(positive) {
             return invalid(format!("{name}: temperatures must be positive, got {t:?}"));
