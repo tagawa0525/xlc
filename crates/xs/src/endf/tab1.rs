@@ -180,6 +180,20 @@ mod tests {
     }
 
     #[test]
+    fn non_finite_values_are_rejected() {
+        let one = |x: f64, y: f64| Tab1::linear(vec![x], vec![y]);
+        assert!(one(f64::NAN, 1.0).check().is_err());
+        assert!(one(1.0, f64::INFINITY).check().is_err());
+        assert!(
+            Tab1::linear(vec![1.0, f64::INFINITY], vec![1.0, 2.0])
+                .check()
+                .is_err()
+        );
+        assert!(one(1.0, 2.0).check().is_ok());
+        assert!(ClampedTab1::new(one(f64::NAN, 1.0)).is_none());
+    }
+
+    #[test]
     fn clamped_table_extends_its_end_values() {
         assert!(ClampedTab1::new(Tab1::linear(vec![], vec![])).is_none());
         let t = ClampedTab1::new(Tab1::linear(vec![1.0, 3.0], vec![10.0, 30.0])).unwrap();
