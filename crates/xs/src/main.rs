@@ -5,12 +5,12 @@
 //! 入力ファイルの書式（`#` から行末まではコメント。パスは入力ファイルのディレクトリからの相対パス）:
 //!
 //! ```text
-//! output m1.lib                                   # 出力するライブラリ
+//! output m1.msgpack                                   # 出力するライブラリ
 //! endf-directory ../endf/neutrons                 # 核種の ENDF ファイルのディレクトリ
 //! thermal-directory ../endf/thermal_scatt         # 熱中性子散乱のファイルのディレクトリ
 //! sigma0 1e10 1e5 1e4 1e3 300 100 30 10 1         # 背景断面積 (barn)、降順（最初が無限希釈）
-//! nuclide H1 n-001_H_001.endf temperatures 293.6 600 thermal tsl-HinH2O.endf
-//! nuclide U238 n-092_U_238.endf temperatures 293.6 600 900 1200
+//! nuclide H-1 n-001_H_001.endf temperatures 293.6 600 thermal tsl-HinH2O.endf
+//! nuclide U-238 n-092_U_238.endf temperatures 293.6 600 900 1200
 //! ```
 //!
 //! `thermal` を指定した核種は、4 eV 未満の弾性散乱を S(α, β) で、ほかは自由ガス模型で扱う。
