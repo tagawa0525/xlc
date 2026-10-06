@@ -47,11 +47,14 @@ mod tests {
     const TEMPERATURE: f64 = 293.6;
 
     /// 自由ガス（A = 1、σfree = 1 b）の対称な S(α, β) = e^(-(α²+β²)/(4α))/√(4πα) を細かい格子で表にしたもの。
+    /// 小さな α では S が β について幅 √α ほどで急に変わるので、実際の表と同じく β も原点の近くを細かくとる
     fn free_gas_table() -> Mf7Incoherent {
-        let alpha: Vec<f64> = (0..=700)
-            .map(|i| 1.0e-4 * 10f64.powf(i as f64 / 100.0))
+        let alpha: Vec<f64> = (0..=800)
+            .map(|i| 1.0e-5 * 10f64.powf(i as f64 / 100.0))
             .collect();
-        let beta: Vec<f64> = (0..=1200).map(|i| 0.25 * f64::from(i)).collect();
+        let beta: Vec<f64> = std::iter::once(0.0)
+            .chain((0..=750).map(|i| 1.0e-5 * 10f64.powf(i as f64 / 100.0)))
+            .collect();
         let s = beta
             .iter()
             .flat_map(|&b| {
@@ -124,7 +127,7 @@ mod tests {
     fn rejects_missing_temperature_and_short_table() {
         let data = free_gas_table();
         assert!(ThermalSab::new(&data, 600.0, 1.0).is_err());
-        // β の上限 300 は kT ≈ 0.0253 eV で 7.6 eV 分なので、10 eV までの下方散乱を覆わない
+        // β の上限 316 は kT ≈ 0.0253 eV で 8 eV 分なので、10 eV までの下方散乱を覆わない
         assert!(ThermalSab::new(&data, TEMPERATURE, 10.0).is_err());
     }
 }
