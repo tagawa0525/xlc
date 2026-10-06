@@ -24,8 +24,10 @@
 //! grid = 4                        # 均質なセルを 4 × 4 の正方形に分ける（省略すると 1）
 //! ```
 //!
-//! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に、最後の帯は
-//! セルの内接円までを半径方向に等間隔に分ける。
+//! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
+//! 面積で）、最後の帯はセルの内接円までを半径方向に等間隔に分ける。外半径は外接円（ピッチ/√2）
+//! まで書け、内接円より大きい円はセルの外周で切り取る。四隅の減速材を半径方向に分けるには、
+//! 内接円より大きい外半径の帯を置き、最後の帯は分割数 1 にする。
 
 use std::path::PathBuf;
 
@@ -103,6 +105,11 @@ pub enum InputError {
     UndefinedMaterial { cell: String, material: String },
     #[error("cell `{0}` is not defined")]
     UndefinedCell(String),
+    #[error(
+        "cell `{cell}`: the last zone starts at {start} cm, outside the inscribed circle, \
+         so it cannot be split into rings; give the zone an outer radius instead"
+    )]
+    LastZoneOutside { cell: String, start: f64 },
     #[error("cell `{cell}`")]
     Cell { cell: String, source: GeometryError },
     #[error(transparent)]
@@ -288,7 +295,14 @@ impl LatticeInput {
                             (inner * inner + (r * r - inner * inner) * k as f64 / n).sqrt()
                         }))
                     }
-                    // セルの内接円までを等間隔に分ける（最後の領域は内接円の外の角を含む）
+                    // セルの内接円までを等間隔に分ける（最後の領域は内接円の外の角を含む）。
+                    // 内接円の外から始まる帯は、分ける幅がない
+                    None if zone.rings > 1 && inner >= half => {
+                        return Err(InputError::LastZoneOutside {
+                            cell: cell.name.clone(),
+                            start: inner,
+                        });
+                    }
                     None => {
                         radii.extend((1..zone.rings).map(|k| inner + (half - inner) * k as f64 / n))
                     }
@@ -522,6 +536,40 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn zones_may_reach_beyond_the_inscribed_circle() {
+        let geometry = |zones: &str| {
+            let text = PIN_CELL.replace(
+                "zones = [{ material = \"fuel\", radius = 0.4, rings = 2 }, { material = \"water\", rings = 2 }]",
+                zones,
+            );
+            LatticeInput::parse(&text).and_then(|i| i.geometry())
+        };
+        // 内接円（0.63）の外の 0.8 までの水の帯は、セルの外周で切り取った2つのリングになる
+        let (lattice, materials) = geometry(
+            r#"zones = [
+  { material = "fuel", radius = 0.4, rings = 2 },
+  { material = "water", radius = 0.8, rings = 2 },
+  { material = "water", rings = 1 },
+]"#,
+        )
+        .unwrap();
+        assert_eq!(materials.len(), 5);
+        let v = lattice.volumes();
+        assert!((v.iter().sum::<f64>() - 1.26 * 1.26).abs() < 1e-14);
+        // 最後の帯は内接円の外から始まるので、等間隔には分けられない
+        assert!(matches!(
+            geometry(
+                r#"zones = [
+  { material = "fuel", radius = 0.4, rings = 2 },
+  { material = "water", radius = 0.8, rings = 2 },
+  { material = "water", rings = 2 },
+]"#
+            ),
+            Err(InputError::LastZoneOutside { .. })
+        ));
+    }
+
+    #[test]
     fn parses_lattice() {
         let input = LatticeInput::parse(LATTICE).unwrap();
         assert_eq!(
@@ -658,8 +706,8 @@ zones = [{ material = "water", rings = 1 }]
             ))
             .is_err()
         );
-        // 帯の外半径がセルの内接円を超える、扇形の数が 1, 4, 8 でない
-        assert!(geometry(LATTICE.replace("radius = 0.6", "radius = 1.2")).is_err());
+        // 帯の外半径がセルの外接円（ピッチ 2 で √2）を超える、扇形の数が 1, 4, 8 でない
+        assert!(geometry(LATTICE.replace("radius = 0.6", "radius = 1.5")).is_err());
         assert!(
             geometry(LATTICE.replace(
                 "  { material = \"water\", rings = 1 },\n]",
@@ -672,7 +720,7 @@ zones = [{ material = "water", rings = 1 }]
     #[test]
     fn cell_errors_keep_the_cause_in_the_chain_only() {
         // 原因の文は連鎖（source）にだけ置く。自分の文にも埋め込むと、連鎖を表示するときに2回出る
-        let text = LATTICE.replace("radius = 0.6", "radius = 1.2");
+        let text = LATTICE.replace("radius = 0.6", "radius = 1.5");
         let err = LatticeInput::parse(&text).unwrap().geometry().unwrap_err();
         let cause = std::error::Error::source(&err).expect("the geometry error is the cause");
         assert!(!err.to_string().contains(&cause.to_string()), "{err}");

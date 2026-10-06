@@ -515,6 +515,20 @@ mod tests {
     }
 
     #[test]
+    fn clipped_ring_track_volumes_match_analytic() {
+        // 内接円（0.63）の外の 0.7 と 0.8 の円は、セルの外周で切り取られる
+        let cell = PinCell::with_sectors(1.26, vec![0.54, 0.7, 0.8], 8).unwrap();
+        let lattice = Lattice::pin_cell(cell);
+        let t = Tracking::new(&lattice, 32, 0.002).unwrap();
+        for (estimated, exact) in t.volumes(lattice.regions()).iter().zip(lattice.volumes()) {
+            assert!(
+                (estimated - exact).abs() < 1e-3 * exact,
+                "{estimated} vs {exact}"
+            );
+        }
+    }
+
+    #[test]
     fn sector_cell_track_volumes_match_analytic() {
         let cell = PinCell::with_sectors(1.26, vec![0.3, 0.54, 0.58], 8).unwrap();
         let lattice = Lattice::pin_cell(cell);
