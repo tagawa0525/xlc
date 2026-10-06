@@ -34,8 +34,104 @@ pub struct Mf7Incoherent {
 
 impl Mf7Incoherent {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
-        let _ = section;
-        todo!()
+        let mut r = section.reader();
+        let head = r.cont()?;
+        let (lat, lasym) = (head.l2, head.n1);
+        let constants = r.list()?;
+        let b = &constants.values;
+        let line = r.line();
+        if b.len() < 6 || b[5] <= 0.0 {
+            return Err(Error::new(
+                line,
+                "MF7 needs the principal scatterer constants",
+            ));
+        }
+        if constants.l1 != 0 {
+            return Err(Error::new(
+                line,
+                "S(α, β) stored as ln S (LLN=1) is not supported",
+            ));
+        }
+        let (sigma_free, awr, e_max) = (b[0] / b[5], b[2], b[3]);
+
+        let betas = r.tab2()?;
+        let beta_law = single_law(&betas.codes, r.line())?;
+        let mut alpha: Option<(Vec<f64>, Interpolation)> = None;
+        let mut temperatures: Vec<f64> = Vec::new();
+        let mut beta = Vec::with_capacity(betas.nz);
+        // [β][温度] の S(α) を読み、最後に [温度][β, α] に並べ替える
+        let mut by_beta: Vec<Vec<Vec<f64>>> = Vec::with_capacity(betas.nz);
+        for _ in 0..betas.nz {
+            let first = r.tab1()?;
+            let line = r.line();
+            let [law] = first.table.laws[..] else {
+                return Err(Error::new(
+                    line,
+                    "MF7 needs a single interpolation law in α",
+                ));
+            };
+            match &alpha {
+                None => alpha = Some((first.table.x.clone(), law)),
+                Some((grid, grid_law)) if *grid == first.table.x && *grid_law == law => {}
+                Some(_) => {
+                    return Err(Error::new(line, "α grid differs between β values"));
+                }
+            }
+            beta.push(first.c2);
+            let mut rows = vec![first.table.y];
+            let mut temps = vec![first.c1];
+            for _ in 0..first.l1 {
+                let list = r.list()?;
+                temps.push(list.c1);
+                rows.push(list.values);
+            }
+            if temperatures.is_empty() {
+                temperatures = temps;
+            } else if temperatures != temps {
+                return Err(Error::new(r.line(), "temperatures differ between β values"));
+            }
+            if rows.iter().any(|row| row.len() != rows[0].len()) {
+                return Err(Error::new(
+                    r.line(),
+                    "S(α) has a different length at another temperature",
+                ));
+            }
+            by_beta.push(rows);
+        }
+        let (alpha, alpha_law) =
+            alpha.ok_or_else(|| Error::new(r.line(), "MF7 has no β values"))?;
+        let s = (0..temperatures.len())
+            .map(|t| {
+                by_beta
+                    .iter()
+                    .flat_map(|rows| rows[t].iter().copied())
+                    .collect()
+            })
+            .collect();
+        let effective_temperature = r.tab1()?.table;
+        Ok(Self {
+            lat,
+            lasym,
+            sigma_free,
+            awr,
+            e_max,
+            alpha,
+            alpha_law,
+            beta,
+            beta_law,
+            temperatures,
+            s,
+            effective_temperature,
+        })
+    }
+}
+
+/// 補間則がただ1つであることを確かめる。
+fn single_law(codes: &[i64], line: usize) -> Result<Interpolation, Error> {
+    match codes {
+        [code] => Interpolation::from_code(*code)
+            .ok_or_else(|| Error::new(line, format!("invalid interpolation code {code}"))),
+        _ => Err(Error::new(line, "MF7 needs a single interpolation law")),
     }
 }
 
