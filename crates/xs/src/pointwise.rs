@@ -204,6 +204,20 @@ pub fn reconstruct(tape: &Tape, mat: i32, tol: f64) -> Result<BTreeMap<u32, Tab1
     Ok(tables)
 }
 
+/// テープ中の1核種の、温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
+///
+/// 0 K の部分反応をドップラー拡がりで広げてから、冗長な反応を部分反応の和で作り直す。
+/// `temperature` が 0 なら `reconstruct` と同じ。
+pub fn reconstruct_at(
+    tape: &Tape,
+    mat: i32,
+    tol: f64,
+    temperature: f64,
+) -> Result<BTreeMap<u32, Tab1>, Error> {
+    let _ = (tape, mat, tol, temperature);
+    todo!()
+}
+
 /// 部分反応の和で作り直す反応。
 struct Sum {
     mt: u32,
@@ -492,6 +506,32 @@ mod tests {
         assert_eq!(at(18, 1.0), 0.25);
         assert_eq!(at(18, 6.0e6), 0.375);
         assert_eq!(at(203, 3.0e6), 3.0);
+    }
+
+    #[test]
+    fn reconstruct_at_temperature_broadens_parts_and_sums_total() {
+        let full = ["1.0-5", "2.0+7"];
+        let text = [
+            mf3_section(1, full, ["100.0", "100.0"]),
+            mf3_section(2, full, ["10.0", "10.0"]),
+            mf3_section(102, full, ["0.5", "0.5"]),
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let cold = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        assert_eq!(reconstruct_at(&tape, 1, 1.0e-3, 0.0).unwrap(), cold);
+
+        let hot = reconstruct_at(&tape, 1, 1.0e-3, 600.0).unwrap();
+        // 一定の断面積は、拡げると低エネルギーで大きくなる
+        let e = 1.0e-3;
+        assert!(hot[&2].eval(e).unwrap() > 1.5 * cold[&2].eval(e).unwrap());
+        for &e in &hot[&1].x {
+            let parts = hot[&2].eval(e).unwrap() + hot[&102].eval(e).unwrap();
+            assert!(
+                (hot[&1].eval(e).unwrap() - parts).abs() <= 1.0e-12 * parts,
+                "at {e}"
+            );
+        }
     }
 
     fn single_level_mf2() -> String {
