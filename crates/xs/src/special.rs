@@ -97,13 +97,39 @@ pub fn exp_e1(z: f64) -> f64 {
 /// 正則化した下側不完全ガンマ関数 P(3/2, x) = γ(3/2, x)/Γ(3/2)（x ≥ 0）。
 /// Maxwell 分布 √E e^(-E/θ) のうち、E/θ < x の割合。
 pub fn gamma_p_3_2(x: f64) -> f64 {
-    todo!("{x}")
+    if x < GAMMA_SERIES_LIMIT {
+        // Γ(5/2) = 3√π/4
+        x * x.sqrt() * (-x).exp() * lower_gamma_series(1.5, x)
+            / (0.75 * std::f64::consts::PI.sqrt())
+    } else {
+        erf(x.sqrt()) - 2.0 * (x / std::f64::consts::PI).sqrt() * (-x).exp()
+    }
 }
 
 /// 正則化した下側不完全ガンマ関数 P(2, x) = 1 - e^(-x)(1 + x)（x ≥ 0）。
 /// 蒸発スペクトル E e^(-E/θ) のうち、E/θ < x の割合。
 pub fn gamma_p_2(x: f64) -> f64 {
-    todo!("{x}")
+    if x < GAMMA_SERIES_LIMIT {
+        // Γ(3) = 2
+        0.5 * x * x * (-x).exp() * lower_gamma_series(2.0, x)
+    } else {
+        1.0 - (-x).exp() * (1.0 + x)
+    }
+}
+
+/// これより小さい x では級数、大きい x では閉じた式を使う。閉じた式は小さい x で 1 に近い
+/// 2つの項の差になって桁落ちし、級数は大きい x で収束が遅くなる
+const GAMMA_SERIES_LIMIT: f64 = 1.0;
+
+/// P(a, x) = x^a e^(-x)/Γ(a+1) Σ xⁿ/((a+1)…(a+n)) の和の部分。項がすべて正なので桁落ちしない。
+fn lower_gamma_series(a: f64, x: f64) -> f64 {
+    let (mut term, mut sum, mut n) = (1.0, 1.0, 0.0);
+    while term > sum * f64::EPSILON {
+        n += 1.0;
+        term *= x / (a + n);
+        sum += term;
+    }
+    sum
 }
 
 /// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy, y ≥ 0）。

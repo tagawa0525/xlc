@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 
 use super::outgoing::uniform_fractions;
 use super::{
-    FreeGas, GroupStructure, GroupedOutgoing, ThermalSab, Weight, free_gas_group_integrals,
-    group_integrals, group_integrals_multi,
+    FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight,
+    free_gas_group_integrals, group_integrals, group_integrals_multi,
 };
 use crate::endf::{Frame, Mf5, Mf6, Tab1};
 
@@ -42,7 +42,13 @@ pub enum Emission {
 /// MF5 で与えられた反応の中性子の多重度（ENDF-6 の反応の定義による）。
 /// 定義から決まらない反応（MT5 など）は `None`。
 pub fn multiplicity(mt: u32) -> Option<f64> {
-    todo!("{mt}")
+    match mt {
+        4 | 22 | 23 | 28 | 29 | 32..=36 | 44 | 45 | 51..=91 => Some(1.0),
+        11 | 16 | 24 | 30 | 41 => Some(2.0),
+        17 | 25 | 42 => Some(3.0),
+        37 => Some(4.0),
+        _ => None,
+    }
 }
 
 /// 熱領域の散乱の扱い。どちらも cutoff 未満の入射エネルギーで、弾性散乱の静止標的の2体反応を置き換える。
@@ -98,7 +104,9 @@ pub fn scattering_matrix(
         } else if let Some(Emission::Mf6(data)) = emissions.get(&mt) {
             emission_rows(groups, weight, table, data)
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
-            todo!("{data:?}")
+            let count =
+                multiplicity(mt).ok_or_else(|| format!("MT{mt}: unknown neutron multiplicity"))?;
+            spectrum_rows(groups, weight, table, data, count)
         } else if (51..=90).contains(&mt) {
             let q = *q_values
                 .get(&mt)
@@ -283,6 +291,39 @@ fn emission_rows(
         }
     }
     rows
+}
+
+/// MF5 の出射エネルギー分布と多重度 `count` による ∫_g count σ(E) w(E) Σ_k p_k(E) P_k(E→g') dE。
+/// MF5 の分布は実験室系。
+fn spectrum_rows(
+    groups: &GroupStructure,
+    weight: &Weight,
+    table: &Tab1,
+    data: &Mf5,
+    count: f64,
+) -> Vec<Vec<f64>> {
+    let parts: Vec<(&Tab1, GroupedLaw)> = data
+        .subsections
+        .iter()
+        .map(|(p, law)| (p, GroupedLaw::new(groups, law)))
+        .collect();
+    let mut breakpoints = table.x.clone();
+    for (p, grouped) in &parts {
+        breakpoints.extend(&p.x);
+        breakpoints.extend(grouped.breakpoints());
+    }
+    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
+        let source = count * table.eval(e).unwrap_or(0.0);
+        if source == 0.0 {
+            return;
+        }
+        for (p, grouped) in &parts {
+            let pk = p.eval(e).unwrap_or(0.0);
+            if pk != 0.0 {
+                grouped.accumulate(e, source * pk, out);
+            }
+        }
+    })
 }
 
 #[cfg(test)]
