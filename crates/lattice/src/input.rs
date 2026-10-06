@@ -17,6 +17,7 @@
 //! material water temperature 600 H1 4.9e-2 O16 2.5e-2
 //! cell pin fuel 0.4096 3 water - 2       # 物質 外半径 分割数 ...（最後の帯の外半径は - でセルの外周まで）
 //! cell box water - 1 grid 4             # 均質なセルは小さな正方形に分けられる（4 × 4）
+//! cell rod fuel 0.4 2 water - 2 sectors 8   # 各リングを 45° ごとの扇形に分ける（1, 4, 8）
 //! row pin box                            # セルの配置を上の行から
 //! row box pin
 //! ```
@@ -64,6 +65,8 @@ pub struct CellInput {
     pub zones: Vec<Zone>,
     /// 均質なセルを分ける小さな正方形の1辺の数（`grid M`、書かなければ 1）
     pub grid: usize,
+    /// 各リングを分ける扇形の数（`sectors S`、書かなければ 1）
+    pub sectors: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -401,6 +404,7 @@ fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
         name: name.to_string(),
         zones,
         grid,
+        sectors: 1,
     })
 }
 
@@ -631,6 +635,37 @@ row box pin
         );
         assert!(
             parse(&LATTICE.replace("cell box water - 1", "cell box water - 1 grid 0")).is_err()
+        );
+    }
+
+    #[test]
+    fn rings_can_be_split_into_sectors() {
+        let text = LATTICE.replace("water - 1\ncell box", "water - 1 sectors 8\ncell box");
+        let input = LatticeInput::parse(&text).unwrap();
+        assert_eq!(input.cells[0].sectors, 8);
+        assert_eq!(input.cells[1].sectors, 1);
+        let (lattice, materials) = input.geometry().unwrap();
+        // ピン (3 領域 × 8) が2つと水の箱が2つ
+        assert_eq!(lattice.regions(), 2 * 24 + 2);
+        assert_eq!(
+            &materials[..9],
+            &["UO2"; 8].map(String::from)[..]
+                .iter()
+                .cloned()
+                .chain(["clad".to_string()])
+                .collect::<Vec<_>>()[..]
+        );
+        // 分割数は 1, 4, 8、grid とは同時に使わない
+        let geometry = |text: &str| LatticeInput::parse(text).and_then(|i| i.geometry());
+        assert!(
+            geometry(&LATTICE.replace("water - 1\ncell box", "water - 1 sectors 3\ncell box"))
+                .is_err()
+        );
+        assert!(
+            LatticeInput::parse(
+                &LATTICE.replace("cell box water - 1", "cell box water - 1 grid 2 sectors 4")
+            )
+            .is_err()
         );
     }
 }
