@@ -270,9 +270,15 @@ impl Lattice {
         })
     }
 
-    /// 1つのピンセルだけの形状。
+    /// 1つのピンセルだけの形状（`new` と同じものを、検査なしで直接作る）。
     pub fn pin_cell(cell: PinCell) -> Self {
-        Self::new(vec![cell], vec![vec![0]]).expect("a single cell is a valid lattice")
+        let regions = cell.regions();
+        Self {
+            types: vec![cell],
+            layout: vec![0],
+            n: 1,
+            offsets: vec![0, regions],
+        }
     }
 
     fn pitch(&self) -> f64 {
