@@ -24,7 +24,7 @@ pub use mf3::Mf3;
 pub use mf5::{EnergyLaw, Mf5, OutgoingDistributions, parse_outgoing};
 pub use mf6::{Frame, Mf6, NeutronEmission};
 pub use mf7::Mf7Incoherent;
-pub use tab1::{Interpolation, Tab1};
+pub use tab1::{ClampedTab1, Interpolation, Tab1};
 pub use tape::{Cont, List, Reader, Section, Tab1Record, Tab2Record, Tape};
 
 /// ENDF の読み込みで起きたエラー。`line` はテープ上の1始まりの行番号。
