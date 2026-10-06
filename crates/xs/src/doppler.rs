@@ -445,7 +445,7 @@ pub fn broadening_limit<'a>(mf2: Option<&Mf2>, tables: impl Iterator<Item = &'a 
     let ranges = mf2.map_or(&[][..], |m| &m.ranges);
     let resolved = ranges
         .iter()
-        .filter(|r| matches!(r.kind, RangeKind::ReichMoore(_) | RangeKind::Mlbw(_)))
+        .filter(|r| r.kind.is_resolved())
         .map(|r| r.eh)
         .reduce(f64::max);
     let unresolved = ranges

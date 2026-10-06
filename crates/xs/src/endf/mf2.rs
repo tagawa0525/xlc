@@ -1,6 +1,7 @@
 //! MF2 MT151（共鳴パラメータ）セクション。
 //!
-//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）と MLBW 形式（LRU=1, LRF=2）、
+//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）、MLBW 形式（LRU=1, LRF=2）、R-matrix limited 形式
+//! （LRU=1, LRF=7。Reich-Moore で幅を与えるものだけ）、
 //! 非分離共鳴（LRU=2 の LRF=1, 2）を扱う。それ以外の形式はエラーにする。
 
 use super::tape::{Reader, Section};
@@ -30,6 +31,8 @@ pub enum RangeKind {
     ReichMoore(ReichMoore),
     /// LRU=1, LRF=2
     Mlbw(Mlbw),
+    /// LRU=1, LRF=7
+    RMatrixLimited(RMatrixLimited),
     /// LRU=2（LRF=1 も LRF=2 と同じ形にして持つ）
     Unresolved(Unresolved),
 }
@@ -43,6 +46,74 @@ pub struct ReichMoore {
     /// 透過因子に使うチャネル半径の選び方（NAPS）
     pub naps: i64,
     pub l_values: Vec<RmLValue>,
+}
+
+impl RangeKind {
+    /// 分離共鳴の範囲か。
+    pub fn is_resolved(&self) -> bool {
+        match self {
+            Self::ReichMoore(_) | Self::Mlbw(_) | Self::RMatrixLimited(_) => true,
+            Self::ScatteringRadius { .. } | Self::Unresolved(_) => false,
+        }
+    }
+}
+
+/// R-matrix limited（LRF=7）の共鳴パラメータ。Reich-Moore（KRM=3）で、幅を eV で与える（IFG=0）もの。
+#[derive(Debug, Clone, PartialEq)]
+pub struct RMatrixLimited {
+    pub pairs: Vec<ParticlePair>,
+    pub spin_groups: Vec<SpinGroup>,
+}
+
+/// 粒子対。質量は中性子の質量を単位とし、スピンの符号はパリティを表す（PA, PB は読まない）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParticlePair {
+    pub ma: f64,
+    pub mb: f64,
+    pub za: f64,
+    pub zb: f64,
+    pub ia: f64,
+    pub ib: f64,
+    /// Q 値 (eV)
+    pub q: f64,
+    /// 透過因子を計算するか（1: する、-1: しない、0: MT で決める）
+    pub pnt: i64,
+    /// シフト因子を計算するか（1: する）
+    pub shf: i64,
+    pub mt: u32,
+}
+
+/// 1つの J^π の共鳴とチャネル。
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpinGroup {
+    /// J（符号はパリティ）
+    pub aj: f64,
+    /// パリティ（AJ = 0 のときだけ使う）
+    pub pj: f64,
+    pub channels: Vec<RmlChannel>,
+    pub resonances: Vec<RmlResonance>,
+}
+
+/// チャネル。`pair` は `RMatrixLimited::pairs` の添字。半径の単位は 10^-12 cm。
+#[derive(Debug, Clone, PartialEq)]
+pub struct RmlChannel {
+    pub pair: usize,
+    pub l: OrbitalL,
+    /// チャネルスピン
+    pub sch: f64,
+    /// 境界条件（シフト因子を計算するときだけ使う）
+    pub bnd: f64,
+    /// 位相シフトに使う半径
+    pub ape: f64,
+    /// 透過因子とシフト因子に使う半径
+    pub apt: f64,
+}
+
+/// 共鳴。`widths` はチャネルごとの幅 (eV) で、符号は換算幅の符号を表す。
+#[derive(Debug, Clone, PartialEq)]
+pub struct RmlResonance {
+    pub er: f64,
+    pub widths: Vec<f64>,
 }
 
 /// 多準位 Breit-Wigner（MLBW）の共鳴パラメータ。
@@ -177,6 +248,7 @@ impl Mf2 {
                 }
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
+                1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(&mut r)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 if lrf == 1 || lrf == 2 => {
                     let ap_energy = match nro {
@@ -464,6 +536,150 @@ fn read_unresolved_lrf1(
     })
 }
 
+fn read_r_matrix_limited(r: &mut Reader<'_>) -> Result<RMatrixLimited, Error> {
+    let count = |n: i64, line: usize, what: &str| {
+        usize::try_from(n).map_err(|_| Error::new(line, format!("invalid {what} {n}")))
+    };
+    // 0 0 IFG KRM NJS KRL
+    let control = r.cont()?;
+    let line = r.line();
+    let (ifg, krm, krl) = (control.l1, control.l2, control.n2);
+    if krm != 3 {
+        return Err(Error::new(
+            line,
+            format!("R-matrix limited KRM={krm} is not supported (only Reich-Moore, KRM=3)"),
+        ));
+    }
+    if ifg != 0 {
+        return Err(Error::new(
+            line,
+            format!("R-matrix limited IFG={ifg} is not supported (only widths, IFG=0)"),
+        ));
+    }
+    if krl != 0 {
+        return Err(Error::new(
+            line,
+            format!("relativistic kinematics KRL={krl} is not supported"),
+        ));
+    }
+    let njs = count(control.n1, line, "NJS")?;
+
+    // 0 0 NPP 0 12*NPP 2*NPP と、粒子対ごとに MA MB ZA ZB IA IB Q PNT SHF MT PA PB
+    let header_line = r.line() + 1;
+    let list = r.list()?;
+    let (chunks, []) = list.values.as_chunks::<12>() else {
+        return Err(Error::new(
+            header_line,
+            "particle pairs must be 12 values each",
+        ));
+    };
+    if Ok(chunks.len()) != usize::try_from(list.l1) {
+        return Err(Error::new(
+            header_line,
+            format!("NPP={} for {} particle pairs", list.l1, chunks.len()),
+        ));
+    }
+    // ENDF の整数の量を実数で書いたもの。整数でなければエラーにする
+    let integer = |v: f64, line: usize, what: &str| {
+        if v.fract() == 0.0 && v.abs() <= f64::from(i32::MAX) {
+            Ok(v as i64)
+        } else {
+            Err(Error::new(line, format!("{what}={v} must be an integer")))
+        }
+    };
+    let pairs = chunks
+        .iter()
+        .map(|p| {
+            let mt = integer(p[9], header_line, "MT")?;
+            Ok(ParticlePair {
+                ma: p[0],
+                mb: p[1],
+                za: p[2],
+                zb: p[3],
+                ia: p[4],
+                ib: p[5],
+                q: p[6],
+                pnt: integer(p[7], header_line, "PNT")?,
+                shf: integer(p[8], header_line, "SHF")?,
+                mt: u32::try_from(mt)
+                    .map_err(|_| Error::new(header_line, format!("invalid MT={mt}")))?,
+            })
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    let mut spin_groups = Vec::new();
+    for _ in 0..njs {
+        // AJ PJ KBK KPS 6*NCH NCH と、チャネルごとに PPI L SCH BND APE APT
+        let group_line = r.line() + 1;
+        let group = r.list()?;
+        if group.l1 != 0 || group.l2 != 0 {
+            return Err(Error::new(
+                group_line,
+                format!(
+                    "background R-matrix (KBK={}) and given phase shifts (KPS={}) are not supported",
+                    group.l1, group.l2
+                ),
+            ));
+        }
+        let (chunks, []) = group.values.as_chunks::<6>() else {
+            return Err(Error::new(group_line, "channels must be 6 values each"));
+        };
+        let channels = chunks
+            .iter()
+            .map(|c| {
+                let pair = integer(c[0], group_line, "PPI")?;
+                let pair = usize::try_from(pair - 1)
+                    .ok()
+                    .filter(|&i| i < pairs.len())
+                    .ok_or_else(|| Error::new(group_line, format!("invalid PPI={pair}")))?;
+                let l = integer(c[1], group_line, "L")?;
+                let l = OrbitalL::from_endf(l)
+                    .ok_or_else(|| Error::new(group_line, format!("unsupported L={l}")))?;
+                Ok(RmlChannel {
+                    pair,
+                    l,
+                    sch: c[2],
+                    bnd: c[3],
+                    ape: c[4],
+                    apt: c[5],
+                })
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        // 0 0 0 NRS 6*NX NX と、共鳴ごとに ER と NCH 個の幅（共鳴ごとに行を改める）
+        let resonance_line = r.line() + 1;
+        let list = r.list()?;
+        let nrs = count(list.l2, resonance_line, "NRS")?;
+        let stride = 6 * (channels.len() / 6 + 1);
+        if nrs > 0 && list.values.len() != nrs * stride {
+            return Err(Error::new(
+                resonance_line,
+                format!(
+                    "{} values for NRS={nrs} resonances of {} channels",
+                    list.values.len(),
+                    channels.len()
+                ),
+            ));
+        }
+        let resonances = list
+            .values
+            .chunks_exact(stride)
+            .take(nrs)
+            .map(|v| RmlResonance {
+                er: v[0],
+                widths: v[1..=channels.len()].to_vec(),
+            })
+            .collect();
+        spin_groups.push(SpinGroup {
+            aj: group.c1,
+            pj: group.c2,
+            channels,
+            resonances,
+        });
+    }
+    Ok(RMatrixLimited { pairs, spin_groups })
+}
+
 fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> {
     let cont = r.cont()?;
     let nls = usize::try_from(cont.n1)
@@ -663,6 +879,118 @@ mod tests {
     }
 
     const HEAD: [&str; 6] = ["9.223800+4", "2.360058+2", "0", "0", "1", "0"];
+
+    /// R-matrix limited（LRF=7）の範囲。`control` は IFG KRM NJS KRL の CONT
+    fn rml_lines(control: [&'static str; 6]) -> Vec<[&'static str; 6]> {
+        vec![
+            HEAD,
+            ["9.223800+4", "1.0", "0", "0", "1", "0"],
+            ["1.0-5", "1.9+5", "1", "7", "0", "0"],
+            control,
+            // 粒子対: MA MB ZA ZB IA IB / Q PNT SHF MT PA PB（光子と捕獲、中性子と標的）
+            ["0.0", "0.0", "2", "0", "24", "4"],
+            ["0.0", "5.743560+1", "0.0", "2.6+1", "1.0", "0.0"],
+            ["0.0", "0.0", "0.0", "1.02+2", "0.0", "0.0"],
+            ["1.0", "5.644629+1", "0.0", "2.6+1", "0.5", "-0.5"],
+            ["0.0", "1.0", "0.0", "2.0", "0.0", "0.0"],
+            // spin group: AJ PJ KBK KPS 6*NCH NCH と、チャネルごとに PPI L SCH BND APE APT
+            ["1.0", "0.0", "0", "0", "12", "2"],
+            ["1.0", "0.0", "0.0", "0.0", "0.0", "0.0"],
+            ["2.0", "1.0", "1.0", "0.0", "0.63", "0.64"],
+            // 共鳴: 0 0 0 NRS 6*NX NX と、共鳴ごとに ER とチャネルの幅
+            ["0.0", "0.0", "0", "2", "12", "2"],
+            ["-2.33+3", "1.0", "2.0", "0.0", "0.0", "0.0"],
+            ["1.5+3", "0.5", "-3.0", "0.0", "0.0", "0.0"],
+        ]
+    }
+
+    #[test]
+    fn reads_r_matrix_limited_range() {
+        let data = mf2(&rml_lines(["0.0", "0.0", "0", "3", "1", "0"])).unwrap();
+        let RangeKind::RMatrixLimited(rml) = &data.ranges[0].kind else {
+            panic!("expected R-matrix limited");
+        };
+        assert_eq!(
+            rml.pairs,
+            vec![
+                ParticlePair {
+                    ma: 0.0,
+                    mb: 57.4356,
+                    za: 0.0,
+                    zb: 26.0,
+                    ia: 1.0,
+                    ib: 0.0,
+                    q: 0.0,
+                    pnt: 0,
+                    shf: 0,
+                    mt: 102,
+                },
+                ParticlePair {
+                    ma: 1.0,
+                    mb: 56.44629,
+                    za: 0.0,
+                    zb: 26.0,
+                    ia: 0.5,
+                    ib: -0.5,
+                    q: 0.0,
+                    pnt: 1,
+                    shf: 0,
+                    mt: 2,
+                },
+            ]
+        );
+        assert_eq!(
+            rml.spin_groups,
+            vec![SpinGroup {
+                aj: 1.0,
+                pj: 0.0,
+                channels: vec![
+                    RmlChannel {
+                        pair: 0,
+                        l: OrbitalL::S,
+                        sch: 0.0,
+                        bnd: 0.0,
+                        ape: 0.0,
+                        apt: 0.0,
+                    },
+                    RmlChannel {
+                        pair: 1,
+                        l: OrbitalL::P,
+                        sch: 1.0,
+                        bnd: 0.0,
+                        ape: 0.63,
+                        apt: 0.64,
+                    },
+                ],
+                resonances: vec![
+                    RmlResonance {
+                        er: -2330.0,
+                        widths: vec![1.0, 2.0],
+                    },
+                    RmlResonance {
+                        er: 1500.0,
+                        widths: vec![0.5, -3.0],
+                    },
+                ],
+            }]
+        );
+    }
+
+    #[test]
+    fn rejects_r_matrix_limited_other_than_reich_moore() {
+        let error = mf2(&rml_lines(["0.0", "0.0", "0", "2", "1", "0"]))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("KRM=2"), "{error}");
+    }
+
+    #[test]
+    fn rejects_r_matrix_limited_with_reduced_amplitudes() {
+        let error = mf2(&rml_lines(["0.0", "0.0", "1", "3", "1", "0"]))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("IFG=1"), "{error}");
+    }
 
     #[test]
     fn reads_reich_moore_and_unresolved_ranges() {
@@ -1028,11 +1356,11 @@ mod tests {
 
     #[test]
     fn unsupported_formalism_is_error() {
-        // LRF=7 (R-matrix limited)
+        // LRF=1 (SLBW)
         let err = mf2(&[
             HEAD,
             ["9.223800+4", "1.0", "0", "0", "1", "0"],
-            ["1.0-5", "2.0+4", "1", "7", "0", "0"],
+            ["1.0-5", "2.0+4", "1", "1", "0", "0"],
         ])
         .unwrap_err();
         assert_eq!(err.line, 3);
