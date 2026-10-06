@@ -18,6 +18,27 @@ use serde::{Deserialize, Serialize};
 
 use crate::multigroup::GroupStructure;
 
+/// 核種名が約束事（全体計画の「ファイルの約束事」）の形か: `U-235`, `H-1`, `Am-242m`, `Hf-178m2`。
+pub fn is_nuclide_name(name: &str) -> bool {
+    // 数字の並び（先頭は 0 でない）
+    let number =
+        |s: &str| !s.is_empty() && !s.starts_with('0') && s.bytes().all(|b| b.is_ascii_digit());
+    let Some((symbol, rest)) = name.split_once('-') else {
+        return false;
+    };
+    let mut chars = symbol.chars();
+    let element = matches!(
+        (chars.next(), chars.next(), chars.next()),
+        (Some(a), None, None) | (Some(a), Some('a'..='z'), None) if a.is_ascii_uppercase()
+    );
+    let (mass, isomer) = match rest.split_once('m') {
+        // 最初の準安定状態は `m` だけで書く（`m1` を許すと同じ状態に名前が2つできる）
+        Some((mass, index)) => (mass, index.is_empty() || (number(index) && index != "1")),
+        None => (rest, true),
+    };
+    element && number(mass) && isomer
+}
+
 /// 1つの σ0 での群定数 (barn)。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -221,8 +242,10 @@ impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
     fn check(&self, ng: usize, n_sigma0: usize) -> Result<(), String> {
         let name = &self.name;
-        if name.is_empty() {
-            return Err("a nuclide has no name".into());
+        if !is_nuclide_name(name) {
+            return Err(format!(
+                "nuclide name `{name}` is not of the form U-235, Am-242m"
+            ));
         }
         if self.temperatures.is_empty() {
             return Err(format!("{name}: no temperatures"));
@@ -582,5 +605,23 @@ pub(crate) mod tests {
         // 重複の判定と同じく完全一致で引く。近い温度を黙って受け入れない
         let library = sample();
         assert!(library.nuclide("U-235", 900.0 * (1.0 + 1.0e-12)).is_err());
+    }
+
+    #[test]
+    fn nuclide_names_follow_the_convention() {
+        for name in ["U-235", "H-1", "Am-242m", "Hf-178m2", "Zr-90", "B-10"] {
+            assert!(is_nuclide_name(name), "{name}");
+        }
+        for name in [
+            "", "U235", "u-235", "U-", "U-235M", "Am-242m0", "Am-242m1", "U-0235", "U 235",
+            "Uuo-294", "H-1x", "-1",
+        ] {
+            assert!(!is_nuclide_name(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn library_nuclide_names_are_checked() {
+        assert!(read_modified(|f| f.nuclides[1].name = "H1".into()).is_err());
     }
 }

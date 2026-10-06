@@ -3,7 +3,7 @@
 #
 # 使い方: examples/m1/run.sh
 # ENDF/B-VIII.0 の中性子と熱中性子散乱のサブライブラリは references/endf/ に置く
-# （別の場所なら xs.inp の endf-directory と thermal-directory を書き換える）。
+# （別の場所なら xs.toml の endf-directory と thermal-directory を書き換える）。
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -13,7 +13,7 @@ bin="$root/target/release"
 cargo build --release --quiet --manifest-path "$root/Cargo.toml"
 
 echo "== xs: ENDF/B-VIII.0 -> WIMS 69-group library (temperatures, sigma0)"
-"$bin/xs" "$here/xs.inp"
+"$bin/xs" "$here/xs.toml"
 
 echo "== lattice: pin cell MOC -> 2-group constants"
 "$bin/lattice" "$here/pincell.inp"
