@@ -442,7 +442,12 @@ pub fn broadening_limit<'a>(mf2: Option<&Mf2>, tables: impl Iterator<Item = &'a 
         .reduce(f64::max);
     let unresolved = ranges
         .iter()
-        .filter(|r| matches!(r.kind, RangeKind::Unresolved(_)))
+        .filter(|r| {
+            matches!(
+                r.kind,
+                RangeKind::Unresolved(_) | RangeKind::UnresolvedLrf1 { .. }
+            )
+        })
         .map(|r| r.el)
         .reduce(f64::min);
     if let Some(e) = resolved.or(unresolved) {

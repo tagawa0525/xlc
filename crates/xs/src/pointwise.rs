@@ -354,8 +354,8 @@ fn add_resonances(
         let [_, elastic, fission, capture] = match &range.kind {
             RangeKind::ScatteringRadius { .. } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
-            RangeKind::UnresolvedLrf1 { .. } => todo!(),
-            RangeKind::Unresolved(Unresolved { lssf, .. }) => {
+            RangeKind::UnresolvedLrf1 { lssf: 1 } => continue,
+            RangeKind::Unresolved(Unresolved { lssf, .. }) | RangeKind::UnresolvedLrf1 { lssf } => {
                 return Err(format!(
                     "unresolved range with LSSF={lssf} is not supported"
                 ));
