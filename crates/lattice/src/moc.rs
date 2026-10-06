@@ -501,6 +501,17 @@ mod tests {
     }
 
     #[test]
+    fn material_errors_keep_the_cause_in_the_chain_only() {
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
+        let mut m = fuel();
+        m.nu_fission[1] *= 2.0;
+        let err = solve(&tracking, &[&m, &m], &Options::default()).unwrap_err();
+        let cause = std::error::Error::source(&err).expect("the material error is the cause");
+        assert!(!err.to_string().contains(&cause.to_string()), "{err}");
+    }
+
+    #[test]
     fn inconsistent_material_is_error() {
         let cell = PinCell::new(1.26, vec![0.4]).unwrap();
         let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
