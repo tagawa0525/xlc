@@ -721,6 +721,41 @@ mod tests {
         assert_eq!(at(1, 2.0e3), at(2, 2.0e3) + at(102, 2.0e3));
     }
 
+    #[test]
+    fn unresolved_background_at_top_comes_from_inside() {
+        // MF3 は非分離共鳴の範囲の中では背景だけで、上端 1e5 eV で範囲の外の値に段差で変わる。
+        // 上端の格子点の背景は、範囲の内側の値を使う
+        use crate::endf::rec;
+        let capture = [
+            rec(["1.001000+3", "1.0", "0", "0", "0", "0"], 1, 3, 102),
+            rec(["0.0", "0.0", "0", "0", "1", "4"], 1, 3, 102),
+            rec(["4", "2", "", "", "", ""], 1, 3, 102),
+            rec(["1.0-5", "0.5", "1.0+5", "0.5", "1.0+5", "7.0"], 1, 3, 102),
+            rec(["2.0+7", "7.0", "", "", "", ""], 1, 3, 102),
+            rec(["", "", "", "", "", ""], 1, 3, 0),
+        ]
+        .concat();
+        let text = [
+            unresolved_mf2(),
+            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            capture,
+        ]
+        .concat();
+        let tape = Tape::parse(&text).unwrap();
+        let tables = reconstruct(&tape, 1, 1.0e-3).unwrap();
+        let mf2 = Mf2::parse(&tape.section(1, 2, 151).unwrap()).unwrap();
+        let RangeKind::Unresolved(urr) = &mf2.ranges[0].kind else {
+            panic!("expected unresolved");
+        };
+        let average = UnresolvedXs::new(urr)
+            .unwrap()
+            .cross_sections(1.0e5)
+            .capture;
+        let t = &tables[&102];
+        assert!((left_limit(t, 1.0e5) - (average + 0.5)).abs() <= 1e-12 * average);
+        assert_eq!(right_limit(t, 1.0e5), 7.0);
+    }
+
     fn single_level_mf2() -> String {
         use crate::endf::rec;
         [
