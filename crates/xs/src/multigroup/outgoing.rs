@@ -226,9 +226,10 @@ impl GroupedOutgoing {
 /// 分布を作る。
 ///
 /// 各分布の出射エネルギーの範囲 [a, b] を 0〜1 の座標 u に移し、範囲の両端と、u での密度 ×
-/// 範囲の幅（u についての密度）を、補間則 `law` で入射エネルギーについて補間する。両方の分布の点を
-/// u で合わせた格子の上では、どちらも u について線形なので、線形の補間則なら補間した密度も線形になる。
-/// 範囲の幅が正であることは、読み込みのとき（`check_unit_base`）に確かめている。
+/// 範囲の幅（u についての密度）を、補間則 `law` で入射エネルギーについて補間する。両方の分布の区切りを
+/// u で合わせた区間ごとに、区間の中点を含む線分で両端の値を求めて点を出す。段差（同じ x の2点）は
+/// 区間の境目に左右の値として残る。範囲の幅が正であることは、読み込みのとき（`check_unit_base`）に
+/// 確かめている。
 fn unit_base_density(
     law: Interpolation,
     e: f64,
@@ -239,29 +240,36 @@ fn unit_base_density(
     let ((a0, b0), (a1, b1)) = (range(lo), range(hi));
     let a = law.interpolate(e, (x0, a0), (x1, a1));
     let b = law.interpolate(e, (x0, b0), (x1, b1));
-    let mut u: Vec<f64> =
+    let mut cuts: Vec<f64> =
         lo.x.iter()
             .map(|x| (x - a0) / (b0 - a0))
             .chain(hi.x.iter().map(|x| (x - a1) / (b1 - a1)))
             .map(|u| u.clamp(0.0, 1.0))
             .collect();
-    u.sort_by(f64::total_cmp);
-    u.dedup();
-    let y: Vec<f64> = u
-        .iter()
-        .map(|&u| {
-            let p0 = linear_at(lo, a0 + u * (b0 - a0)) * (b0 - a0);
-            let p1 = linear_at(hi, a1 + u * (b1 - a1)) * (b1 - a1);
-            law.interpolate(e, (x0, p0), (x1, p1)) / (b - a)
-        })
-        .collect();
-    Tab1::linear(u.iter().map(|u| a + u * (b - a)).collect(), y)
+    cuts.sort_by(f64::total_cmp);
+    cuts.dedup();
+    let (mut x, mut y) = (Vec::new(), Vec::new());
+    for w in cuts.windows(2) {
+        let (ua, ub) = (w[0], w[1]);
+        let middle = 0.5 * (ua + ub);
+        // u についての密度を、区間の中点を含む線分で両端について求める
+        let density = |t: &Tab1, start: f64, width: f64, u: f64| {
+            segment_value(t, start + middle * width, start + u * width) * width
+        };
+        for u in [ua, ub] {
+            let p0 = density(lo, a0, b0 - a0, u);
+            let p1 = density(hi, a1, b1 - a1, u);
+            x.push(a + u * (b - a));
+            y.push(law.interpolate(e, (x0, p0), (x1, p1)) / (b - a));
+        }
+    }
+    Tab1::linear(x, y)
 }
 
-/// 線形化した表の、範囲 [x の最初, x の最後] の中の値（2点以上の表）。
-fn linear_at(t: &Tab1, x: f64) -> f64 {
+/// 線形化した表（2点以上）の、点 `inside` を含む線分を延ばした x での値。
+fn segment_value(t: &Tab1, inside: f64, x: f64) -> f64 {
     let k =
-        t.x.partition_point(|&xi| xi <= x)
+        t.x.partition_point(|&xi| xi <= inside)
             .saturating_sub(1)
             .min(t.x.len() - 2);
     let (xa, xb, ya, yb) = (t.x[k], t.x[k + 1], t.y[k], t.y[k + 1]);

@@ -155,8 +155,12 @@ pub(super) fn incident_laws(
             let first = if range == 0 { 0 } else { breaks[range - 1] - 1 };
             let intervals = first..breaks[range].saturating_sub(1);
             let unit_base = match scheme {
+                // ヒストグラムは入射エネルギーの間を補間しないので、方式によらない
+                _ if law == Interpolation::Histogram => false,
                 Scheme::Cartesian => false,
                 Scheme::UnitBase => true,
+                // 点が1つの範囲には区間がなく、補間しない
+                Scheme::CorrespondingPoint if intervals.is_empty() => false,
                 Scheme::CorrespondingPoint => {
                     if intervals.clone().all(|k| counts[k] == counts[k + 1]) {
                         return Err(Error::new(
