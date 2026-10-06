@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 
 use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, parse_nubar};
-use crate::library::Nuclide;
+use crate::library::{NuclideData, Shielded, TemperatureData};
 use crate::multigroup::{
-    FreeGas, GroupStructure, Thermal, UnresolvedShielding, Weight, emits_neutrons,
-    fission_spectrum, reaction_averages, scattering_matrix,
+    FreeGas, GroupStructure, ReactionAverages, Thermal, ThermalSab, UnresolvedShielding, Weight,
+    emits_neutrons, fission_spectrum, scattering_matrix, shielded_averages,
 };
 use crate::physics::BK;
-use crate::pointwise::{DEFAULT_TOLERANCE, left_limit, linearize, reconstruct, right_limit};
+use crate::pointwise::{DEFAULT_TOLERANCE, left_limit, linearize, reconstruct_at, right_limit};
 use crate::resonance::{Sigma, UnresolvedXs, unresolved_grid, unresolved_interpolation};
 
 /// 処理の条件。
@@ -17,9 +17,9 @@ use crate::resonance::{Sigma, UnresolvedXs, unresolved_grid, unresolved_interpol
 pub struct Settings {
     pub groups: GroupStructure,
     pub weight: Weight,
-    /// 自由ガス模型の温度 (K)
-    pub temperature: f64,
-    /// この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う
+    /// 背景断面積 (barn)、降順。最初の値を無限希釈とみなす
+    pub sigma0: Vec<f64>,
+    /// この入射エネルギー (eV) 未満の弾性散乱を、自由ガス模型か S(α, β) で扱う
     pub thermal_cutoff: f64,
     /// ポイントワイズの断面積の許容誤差
     pub tolerance: f64,
@@ -126,105 +126,25 @@ pub fn unresolved_shielding(
     UnresolvedShielding::new(range.el, range.eh, urr.lssf, grid, law, shielded, infinite).map(Some)
 }
 
-/// 熱領域で弾性散乱の実効断面積が 0 K の値と違う分だけ、全断面積を補正する。
+/// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
 ///
-/// 自由ガスの散乱行列の行の和は、標的の熱運動を含む実効的な弾性散乱断面積になる。
-/// 全断面積をそれに合わせて、全断面積 = 吸収 + 散乱 の関係を保つ。
-pub fn effective_total(total: &[f64], elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f64> {
-    total
-        .iter()
-        .zip(elastic)
-        .zip(elastic_matrix)
-        .map(|((t, el), row)| t - el + row.iter().sum::<f64>())
-        .collect()
+/// 弾性散乱の散乱行列の行の和は、熱領域の扱いを含む実効的な散乱断面積になる。無限希釈の弾性散乱との
+/// 差を、全 σ0 の全断面積と弾性散乱に足して、全断面積 = 吸収 + 散乱 の関係を保つ。
+/// 熱領域の外では、行の和は無限希釈の弾性散乱に等しいので、差は 0 になる。
+pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f64> {
+    todo!()
 }
 
-/// テープ中の（ただ1つの）物質を処理する。
-pub fn process_nuclide(tape: &Tape, name: &str, settings: &Settings) -> Result<Nuclide, String> {
-    let materials = tape.materials();
-    let [mat] = materials[..] else {
-        return Err(format!("expected one material, found {materials:?}"));
-    };
-    let text = |e: crate::endf::Error| e.to_string();
-    let mf3 = |mt: u32| -> Result<Mf3, String> {
-        let section = tape
-            .section(mat, 3, mt)
-            .ok_or_else(|| format!("MF3 MT{mt} not found"))?;
-        Mf3::parse(&section).map_err(text)
-    };
-    let first = *tape.mts(mat, 3).first().ok_or("no MF3 data")?;
-    let head = mf3(first)?;
-    let (groups, weight) = (&settings.groups, &settings.weight);
-    let ng = groups.len();
-
-    let tables = reconstruct(tape, mat, settings.tolerance).map_err(text)?;
-    let nubar = match tape.section(mat, 1, 452) {
-        Some(section) => Some(parse_nubar(&section).map_err(text)?),
-        None => None,
-    };
-    let averages = reaction_averages(groups, weight, &tables, nubar.as_ref());
-    let fissile = tables.contains_key(&18);
-    let chi = match (fissile, nubar.as_ref(), tape.section(mat, 5, 18)) {
-        (false, ..) => vec![0.0; ng],
-        (true, Some(nu), Some(section)) => {
-            let mf5 = Mf5::parse(&section).map_err(text)?;
-            fission_spectrum(groups, weight, &tables, nu, &mf5)
-        }
-        (true, ..) => return Err("fission needs MF1 MT452 and MF5 MT18".into()),
-    };
-
-    let mut q_values = BTreeMap::new();
-    for &mt in tables.keys().filter(|mt| (51..=90).contains(*mt)) {
-        q_values.insert(mt, mf3(mt)?.qi);
-    }
-    let mut mf6 = BTreeMap::new();
-    for mt in tape.mts(mat, 6) {
-        if mt != 2 && emits_neutrons(mt) && tables.contains_key(&mt) {
-            let section = tape.section(mat, 6, mt).expect("listed by mts");
-            mf6.insert(mt, Mf6::parse(&section).map_err(text)?);
-        }
-    }
-
-    // 弾性散乱だけ自由ガスを使い、その実効断面積で全断面積を補正する
-    let thermal = FreeGas {
-        kt: BK * settings.temperature,
-        cutoff: settings.thermal_cutoff,
-    };
-    let elastic_table = tables.get(&2).ok_or("MF3 MT2 not found")?;
-    let elastic_only = BTreeMap::from([(2, elastic_table.clone())]);
-    let others: BTreeMap<_, _> = tables
-        .iter()
-        .filter(|(mt, _)| **mt != 2)
-        .map(|(mt, t)| (*mt, t.clone()))
-        .collect();
-    let awr = head.awr;
-    let elastic = scattering_matrix(
-        groups,
-        weight,
-        awr,
-        &elastic_only,
-        &q_values,
-        &mf6,
-        Some(&Thermal::FreeGas(thermal)),
-    )?;
-    let mut scatter = scattering_matrix(groups, weight, awr, &others, &q_values, &mf6, None)?;
-    for (row, el) in scatter.iter_mut().zip(&elastic) {
-        for (v, e) in row.iter_mut().zip(el) {
-            *v += e;
-        }
-    }
-    let sigma = |mt: u32| averages.sigma.get(&mt).cloned().unwrap_or(vec![0.0; ng]);
-    Ok(Nuclide {
-        name: name.to_string(),
-        za: head.za,
-        awr,
-        temperature: settings.temperature,
-        total: effective_total(&sigma(1), &sigma(2), &elastic),
-        fission: sigma(18),
-        nu_fission: averages.nu_fission.unwrap_or(vec![0.0; ng]),
-        chi,
-        scatter,
-    })
+/// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
+/// `thermal` があれば cutoff 未満の弾性散乱を S(α, β) で、なければ自由ガス模型で扱う。
+pub fn process_nuclide(
+    tape: &Tape,
+    name: &str,
+    temperatures: &[f64],
+    thermal: Option<&Mf7Incoherent>,
+    settings: &Settings,
+) -> Result<NuclideData, String> {
+    todo!()
 }
 
 #[cfg(test)]
@@ -232,11 +152,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn total_follows_effective_elastic() {
-        let total = vec![10.0, 30.0];
+    fn thermal_correction_is_row_sum_minus_elastic() {
         let elastic = vec![4.0, 20.0];
         let matrix = vec![vec![3.9, 0.1], vec![2.0, 27.0]];
-        assert_eq!(effective_total(&total, &elastic, &matrix), vec![10.0, 39.0]);
+        assert_eq!(thermal_correction(&elastic, &matrix), vec![0.0, 9.0]);
     }
 
     /// 非分離共鳴（LSSF=1、s 波の1系列）と、MF3 の一定の断面積だけのテープ。
@@ -362,5 +281,52 @@ mod tests {
     #[test]
     fn thermal_elastic_scattering_is_rejected() {
         assert!(read_thermal_scattering(&thermal_tape(true)).is_err());
+    }
+
+    #[test]
+    fn processes_each_temperature_and_sigma0() {
+        let tape = unresolved_tape();
+        let settings = Settings {
+            groups: GroupStructure::wims69(),
+            weight: Weight::lwr(),
+            sigma0: vec![1.0e10, 1.0],
+            thermal_cutoff: 4.0,
+            tolerance: 1.0e-3,
+        };
+        let data = process_nuclide(&tape, "X", &[293.6, 600.0], None, &settings).unwrap();
+        assert_eq!(data.name, "X");
+        let temperatures: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
+        assert_eq!(temperatures, vec![293.6, 600.0]);
+        for t in &data.temperatures {
+            assert_eq!(t.shielded.len(), 2);
+            let [dilute, shielded] = &t.shielded[..] else {
+                unreachable!()
+            };
+            let last = dilute.total.len() - 1;
+            // 熱群の補正は全断面積と弾性散乱の両方に入るので、差は同じ温度に拡げた捕獲の群平均に等しい
+            // （一定の 1 b でも、拡げると低いエネルギーで大きくなる）
+            let tables = reconstruct_at(&tape, 1, 1.0e-3, t.temperature).unwrap();
+            let capture = crate::multigroup::reaction_averages(
+                &settings.groups,
+                &settings.weight,
+                &tables,
+                None,
+            )
+            .sigma[&102][last];
+            assert!(capture > 1.0);
+            let absorption = dilute.total[last] - dilute.elastic[last];
+            // σ0 = 1e10 の重み 1/(σt + σ0) と無限希釈の重みは、σt/σ0 ≈ 1e-9 だけ違う
+            assert!(
+                (absorption - capture).abs() <= 1e-9 * capture,
+                "{absorption} vs {capture}"
+            );
+            // 自由ガスの実効的な散乱断面積は、自由原子の値（10 b）より大きい
+            assert!(dilute.elastic[last] > 10.0);
+            // 非分離共鳴の群（[1.5e4, 2.5e4] eV）では、σ0 が小さいと吸収が自己遮蔽で減る
+            let g = settings.groups.find(2.0e4).unwrap();
+            let absorption = |s: &Shielded| s.total[g] - s.elastic[g];
+            assert!(absorption(shielded) < absorption(dilute));
+            assert!(t.chi.iter().all(|&c| c == 0.0));
+        }
     }
 }
