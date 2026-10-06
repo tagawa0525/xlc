@@ -18,6 +18,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::multigroup::GroupStructure;
 
+/// 核種名が約束事（全体計画の「ファイルの約束事」）の形か: `U-235`, `H-1`, `Am-242m`, `Hf-178m2`。
+pub fn is_nuclide_name(name: &str) -> bool {
+    todo!("{name}")
+}
+
 /// 1つの σ0 での群定数 (barn)。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -582,5 +587,23 @@ pub(crate) mod tests {
         // 重複の判定と同じく完全一致で引く。近い温度を黙って受け入れない
         let library = sample();
         assert!(library.nuclide("U-235", 900.0 * (1.0 + 1.0e-12)).is_err());
+    }
+
+    #[test]
+    fn nuclide_names_follow_the_convention() {
+        for name in ["U-235", "H-1", "Am-242m", "Hf-178m2", "Zr-90", "B-10"] {
+            assert!(is_nuclide_name(name), "{name}");
+        }
+        for name in [
+            "", "U235", "u-235", "U-", "U-235M", "Am-242m0", "U-0235", "U 235", "Uuo-294", "H-1x",
+            "-1",
+        ] {
+            assert!(!is_nuclide_name(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn library_nuclide_names_are_checked() {
+        assert!(read_modified(|f| f.nuclides[1].name = "H1".into()).is_err());
     }
 }

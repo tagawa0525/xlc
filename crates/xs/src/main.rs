@@ -277,6 +277,9 @@ temperatures = [293.6, 900]
         }
         assert!(replaced("output", "out").is_err());
         assert!(replaced("endf = \"u.endf\"", "endf = \"u.endf\"\nlibrary = \"x\"").is_err());
+        // 核種名が約束事の形でない
+        assert!(replaced("[nuclide.U-238]", "[nuclide.U238]").is_err());
+        assert!(replaced("[nuclide.U-238]", "[nuclide.\"\"]").is_err());
         // 核種がない、同じ名前の核種（TOML の重複キー）
         let header = INPUT.split("[nuclide.H-1]").next().unwrap();
         assert!(parse_input(header, base).is_err());
