@@ -228,17 +228,20 @@ impl RMatrixLimitedXs {
                 let d = r.er - e;
                 let denominator = d * d + r.half_capture * r.half_capture;
                 if denominator == 0.0 {
+                    let w: Vec<f64> = (0..n)
+                        .map(|a| r.amplitudes[open_index[a]] * root_p[a])
+                        .collect();
+                    // 開いたチャネルに幅がない共鳴は寄与しない
+                    if w.iter().all(|&v| v == 0.0) {
+                        continue;
+                    }
                     if pole.is_some() {
                         return Err(RmlError::Poles {
                             group: group + 1,
                             energy: e,
                         });
                     }
-                    pole = Some(
-                        (0..n)
-                            .map(|a| r.amplitudes[open_index[a]] * root_p[a])
-                            .collect(),
-                    );
+                    pole = Some(w);
                     continue;
                 }
                 let shape = Complex::new(d / denominator, r.half_capture / denominator);
