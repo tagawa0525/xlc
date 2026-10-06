@@ -263,8 +263,13 @@ impl LatticeInput {
                 inner = zone.outer.unwrap_or(half);
                 names.extend(std::iter::repeat_n(zone.material.clone(), zone.rings));
             }
-            let pin = PinCell::new(self.pitch, radii)
-                .map_err(|e| format!("cell `{}`: {e}", cell.name))?;
+            let pin = if cell.grid > 1 {
+                names = vec![names[0].clone(); cell.grid * cell.grid];
+                PinCell::grid(self.pitch, cell.grid)
+            } else {
+                PinCell::new(self.pitch, radii)
+            }
+            .map_err(|e| format!("cell `{}`: {e}", cell.name))?;
             types.push(pin);
             region_materials.push(names);
         }
@@ -330,10 +335,26 @@ fn parse_material(values: &[&str]) -> Result<MaterialInput, String> {
     })
 }
 
-/// `NAME (MATERIAL OUTER RINGS)...`（最後の帯の OUTER は `-`）
+/// `NAME (MATERIAL OUTER RINGS)... [grid M]`（最後の帯の OUTER は `-`）
 fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
-    let Some((name, triples)) = values.split_first() else {
+    let Some((name, rest)) = values.split_first() else {
         return Err("`cell` needs a name".into());
+    };
+    let (triples, grid) = match rest {
+        [zones @ .., "grid", m] => {
+            let m = m
+                .parse::<usize>()
+                .ok()
+                .filter(|&m| m > 0)
+                .ok_or_else(|| format!("cell `{name}`: invalid grid `{m}`"))?;
+            if !matches!(zones, [_, "-", "1"]) {
+                return Err(format!(
+                    "cell `{name}`: `grid` needs a homogeneous cell (`MATERIAL - 1`)"
+                ));
+            }
+            (zones, m)
+        }
+        _ => (rest, 1),
     };
     if triples.is_empty() || !triples.len().is_multiple_of(3) {
         return Err(format!(
@@ -379,7 +400,7 @@ fn parse_cell(values: &[&str]) -> Result<CellInput, String> {
     Ok(CellInput {
         name: name.to_string(),
         zones,
-        grid: 1,
+        grid,
     })
 }
 
