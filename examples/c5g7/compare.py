@@ -1,12 +1,14 @@
 """C5G7 の 2D の結果を、ベンチマークの参照解（MCNP、NEA/NSC/DOC(2003)16 の Table 3〜5）と比べる。
 
-使い方: python3 compare.py <k> <pins.txt>
+使い方: python3 compare.py <k> <pins.msgpack>
 
-pins.txt は lattice のセルごとの核分裂率（51 × 51）。参照解のピン出力は燃料ピン 1056 本
+pins.msgpack は lattice（または openmc_model.py）のセルごとの核分裂率（51 × 51）。参照解のピン出力は燃料ピン 1056 本
 （案内管と核分裂計数管を除く）の平均が 1 なので、同じく燃料ピンだけで規格化し直す。
 """
 
 import sys
+
+import msgpack
 
 REFERENCE_K = 1.186550
 REFERENCE_MAX = 2.498
@@ -34,8 +36,11 @@ NON_FUEL = {
 
 def main() -> None:
     k = float(sys.argv[1])
-    with open(sys.argv[2]) as f:
-        rates = [[float(v) for v in line.split()] for line in f if line.strip()]
+    with open(sys.argv[2], "rb") as f:
+        data = msgpack.unpack(f)
+    if data["format"] != "xlc-pin-powers":
+        raise SystemExit(f"not a pin power file: {data['format']}")
+    rates = data["rows"]
     if len(rates) != 3 * ASSEMBLY or any(len(row) != 3 * ASSEMBLY for row in rates):
         raise SystemExit("expected a 51 x 51 table")
 

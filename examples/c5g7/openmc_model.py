@@ -2,15 +2,17 @@
 
 使い方: python3 openmc_model.py <作業ディレクトリ> [粒子数/世代] [世代数] [捨てる世代数]
 
-断面積は c5g7.xs（lattice と同じファイル）を読んで OpenMC の多群データに変換する。
-形状は c5g7.inp と同じく、左上と右下が UO2、右上と左下が MOX の集合体、右と下が水の反射体。
+断面積は c5g7-xs.toml（lattice と同じファイル）を読んで OpenMC の多群データに変換する。
+形状は c5g7.toml と同じく、左上と右下が UO2、右上と左下が MOX の集合体、右と下が水の反射体。
 """
 
 import sys
 from pathlib import Path
 
+import msgpack
 import numpy as np
 import openmc
+import tomllib
 
 HERE = Path(__file__).resolve().parent
 PITCH = 1.26
@@ -19,24 +21,13 @@ N = 17
 
 
 def read_xs(path: Path) -> tuple[int, dict[str, dict[str, np.ndarray]]]:
-    """c5g7.xs を物質名 → {total, fission, nu-fission, chi, scatter} の辞書にする。"""
-    materials: dict[str, dict[str, np.ndarray]] = {}
-    groups = 0
-    current = None
-    for raw in path.read_text().splitlines():
-        tokens = raw.split("#")[0].split()
-        if not tokens or tokens[0] == "xlc-macroscopic":
-            continue
-        key, values = tokens[0], tokens[1:]
-        if key == "groups":
-            groups = int(values[0])
-        elif key == "material":
-            current = materials.setdefault(values[0], {"scatter": []})
-        elif key == "scatter":
-            current["scatter"].append([float(v) for v in values])
-        else:
-            current[key] = np.array([float(v) for v in values])
-    return groups, materials
+    """c5g7-xs.toml を物質名 → {total, fission, nu-fission, chi, scatter} の辞書にする。"""
+    data = tomllib.loads(path.read_text())
+    materials = {
+        name: {key: np.array(values) for key, values in entry.items()}
+        for name, entry in data["material"].items()
+    }
+    return data["groups"], materials
 
 
 def main() -> None:
@@ -46,7 +37,7 @@ def main() -> None:
     inactive = int(sys.argv[4]) if len(sys.argv) > 4 else 50
     work.mkdir(parents=True, exist_ok=True)
 
-    groups, data = read_xs(HERE / "c5g7.xs")
+    groups, data = read_xs(HERE / "c5g7-xs.toml")
     # 群境界は使わないが、OpenMC は昇順の境界を求める（群 1 が最も高いエネルギー）
     structure = openmc.mgxs.EnergyGroups(np.logspace(-5, 7, groups + 1))
     library = openmc.MGXSLibrary(structure)
@@ -81,7 +72,7 @@ def main() -> None:
     water = openmc.Universe(cells=[openmc.Cell(fill=materials["water"])])
     pins = {name: pin(name) for name in ["UO2", "MOX43", "MOX70", "MOX87", "GT", "FC"]}
 
-    # c5g7.inp と同じ集合体の配置（1: 4.3%, 2: 7.0%, 3: 8.7%, 4: 案内管, 5: 核分裂計数管）
+    # c5g7.toml と同じ集合体の配置（1: 4.3%, 2: 7.0%, 3: 8.7%, 4: 案内管, 5: 核分裂計数管）
     mox_map = np.array(
         [
             [1] * 17,
@@ -120,7 +111,7 @@ def main() -> None:
     lattice = openmc.RectLattice()
     lattice.lower_left = (-width / 2, -width / 2)
     lattice.pitch = (PITCH, PITCH)
-    # OpenMC の RectLattice の行は上から並べる（c5g7.inp の row と同じ順）
+    # OpenMC の RectLattice の行は上から並べる（c5g7.toml の rows と同じ順）
     lattice.universes = universes
 
     left = openmc.XPlane(-width / 2, boundary_type="reflective")
@@ -158,8 +149,8 @@ def main() -> None:
     rates = values.reshape(3 * N, 3 * N)[::-1, :]
     positive = rates[rates > 0]
     rates = rates / positive.mean()
-    (work / "pins.txt").write_text(
-        "".join(" ".join(f"{v:.5f}" for v in row) + "\n" for row in rates)
+    (work / "pins.msgpack").write_bytes(
+        msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
     )
     print(f"k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
 
