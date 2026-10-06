@@ -578,6 +578,22 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn resonance_without_widths_does_not_count_as_a_pole() {
+        // 幅がすべて 0 の共鳴は何も寄与しないので、同じエネルギーに極があっても問題ない
+        let mut data = inelastic_level(0.0);
+        data.spin_groups[0].resonances.push(RmlResonance {
+            er: 2.0e3,
+            widths: vec![0.0, 0.0, 0.0],
+        });
+        let xs = RMatrixLimitedXs::new(&data).unwrap();
+        let single = RMatrixLimitedXs::new(&inelastic_level(0.0)).unwrap();
+        assert_eq!(
+            xs.cross_sections(2.0e3).unwrap(),
+            single.cross_sections(2.0e3).unwrap()
+        );
+    }
+
+    #[test]
     fn rejects_width_of_a_channel_closed_at_the_resonance() {
         let mut data = inelastic_level(0.5);
         // 共鳴が閾値より下にあると、非弾性散乱の幅は定義できない
