@@ -25,6 +25,9 @@
 //! `thermal` を指定した核種は、4 eV 未満の弾性散乱を S(α, β) で、ほかは自由ガス模型で扱う。
 //! 群構造は WIMS 69群、重み関数は軽水炉向けの iwt=4 とする。
 
+// テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
+#![cfg_attr(test, allow(clippy::disallowed_macros))]
+
 use std::collections::BTreeMap;
 use std::env::VarError;
 use std::io::IsTerminal;
