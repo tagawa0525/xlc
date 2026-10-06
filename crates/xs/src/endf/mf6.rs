@@ -82,7 +82,7 @@ impl Mf6 {
         if two_body && !neutrons.is_empty() {
             return Err(Error::new(
                 r.line(),
-                "neutrons with both continuum (LAW=1) and two-body (LAW=2) laws",
+                "neutrons with both continuum (LAW=1) and two-body (LAW=2, 3) laws",
             ));
         }
         Ok(Self {
