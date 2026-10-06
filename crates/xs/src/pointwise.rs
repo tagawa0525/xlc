@@ -190,44 +190,81 @@ pub fn reconstruct_at(
     tol: f64,
     temperature: f64,
 ) -> Result<BTreeMap<u32, Tab1>, Error> {
-    let available = tape.mts(mat, 3);
-    let mut tables = BTreeMap::new();
-    let mut awr = None;
-    for &mt in available.iter().filter(|&&mt| !is_dropped(mt, &available)) {
-        let section = tape.section(mat, 3, mt).expect("listed by mts");
-        let mf3 = Mf3::parse(&section)?;
-        awr.get_or_insert(mf3.awr);
-        tables.insert(mt, linearize(&mf3.sigma, tol));
-    }
-    let mut mf2 = None;
-    if let Some(section) = tape.section(mat, 2, 151) {
-        // MT18 を部分反応の和で作り直す場合は、共鳴の核分裂を第1チャンス核分裂に入れる
-        let fission_mt = if is_rebuilt(18, &available) { 19 } else { 18 };
-        let parsed = Mf2::parse(&section)?;
-        add_resonances(&mut tables, &parsed, fission_mt, tol)
-            .map_err(|message| Error::new(section.reader().line(), message))?;
-        mf2 = Some(parsed);
-    }
-    if let (true, Some(awr)) = (temperature > 0.0, awr) {
-        broaden_parts(&mut tables, mf2.as_ref(), awr, temperature, tol);
+    Ok(ColdParts::read(tape, mat, tol)?.at(temperature))
+}
+
+/// 1核種の 0 K の部分反応（冗長な反応を和で作り直す前）。共鳴の再構成は重いので、
+/// 複数の温度を扱うときは一度だけ作り、温度ごとに `at` で広げる。
+#[derive(Debug, Clone)]
+pub struct ColdParts {
+    tables: BTreeMap<u32, Tab1>,
+    mf2: Option<Mf2>,
+    awr: Option<f64>,
+    available: Vec<u32>,
+    tol: f64,
+}
+
+impl ColdParts {
+    /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
+    pub fn read(tape: &Tape, mat: i32, tol: f64) -> Result<Self, Error> {
+        let available = tape.mts(mat, 3);
+        let mut tables = BTreeMap::new();
+        let mut awr = None;
+        for &mt in available.iter().filter(|&&mt| !is_dropped(mt, &available)) {
+            let section = tape.section(mat, 3, mt).expect("listed by mts");
+            let mf3 = Mf3::parse(&section)?;
+            awr.get_or_insert(mf3.awr);
+            tables.insert(mt, linearize(&mf3.sigma, tol));
+        }
+        let mut mf2 = None;
+        if let Some(section) = tape.section(mat, 2, 151) {
+            // MT18 を部分反応の和で作り直す場合は、共鳴の核分裂を第1チャンス核分裂に入れる
+            let fission_mt = if is_rebuilt(18, &available) { 19 } else { 18 };
+            let parsed = Mf2::parse(&section)?;
+            add_resonances(&mut tables, &parsed, fission_mt, tol)
+                .map_err(|message| Error::new(section.reader().line(), message))?;
+            mf2 = Some(parsed);
+        }
+        Ok(Self {
+            tables,
+            mf2,
+            awr,
+            available,
+            tol,
+        })
     }
 
-    let total = add_all(
-        tables
-            .iter()
-            .filter(|(mt, _)| is_part_of_total(**mt))
-            .map(|(_, t)| t),
-    );
-    for sum in SUMS.iter().filter(|sum| is_rebuilt(sum.mt, &available)) {
-        let parts = tables.iter().filter(|(mt, _)| (sum.is_part)(**mt));
-        if let Some(t) = add_all(parts.map(|(_, t)| t)) {
-            tables.insert(sum.mt, t);
+    /// 0 K の部分反応の表（和で作り直す反応は含まない）。
+    pub fn part(&self, mt: u32) -> Option<&Tab1> {
+        self.tables.get(&mt)
+    }
+
+    /// 温度 `temperature` (K) のポイントワイズの断面積。キーは MT。
+    pub fn at(&self, temperature: f64) -> BTreeMap<u32, Tab1> {
+        let mut tables = self.tables.clone();
+        if let (true, Some(awr)) = (temperature > 0.0, self.awr) {
+            broaden_parts(&mut tables, self.mf2.as_ref(), awr, temperature, self.tol);
         }
+        let total = add_all(
+            tables
+                .iter()
+                .filter(|(mt, _)| is_part_of_total(**mt))
+                .map(|(_, t)| t),
+        );
+        for sum in SUMS
+            .iter()
+            .filter(|sum| is_rebuilt(sum.mt, &self.available))
+        {
+            let parts = tables.iter().filter(|(mt, _)| (sum.is_part)(**mt));
+            if let Some(t) = add_all(parts.map(|(_, t)| t)) {
+                tables.insert(sum.mt, t);
+            }
+        }
+        if let Some(total) = total {
+            tables.insert(1, total);
+        }
+        tables
     }
-    if let Some(total) = total {
-        tables.insert(1, total);
-    }
-    Ok(tables)
 }
 
 /// 上限エネルギーより下から始まる反応を、まとめてドップラー拡がりで広げる。
