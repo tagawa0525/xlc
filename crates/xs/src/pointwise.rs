@@ -425,6 +425,9 @@ fn add_resonances(
                 let nodes = resonance_nodes(peaks);
                 resonance_tables(&ReichMooreXs::new(rm), &nodes, range.el, range.eh, tol)
             }
+            RangeKind::RMatrixLimited(_) => {
+                return Err("R-matrix limited cross sections are not supported".into());
+            }
             RangeKind::Mlbw(bw) => {
                 let peaks = bw
                     .l_values
