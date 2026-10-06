@@ -103,7 +103,7 @@ pub enum InputError {
     UndefinedMaterial { cell: String, material: String },
     #[error("cell `{0}` is not defined")]
     UndefinedCell(String),
-    #[error("cell `{cell}`: {source}")]
+    #[error("cell `{cell}`")]
     Cell { cell: String, source: GeometryError },
     #[error(transparent)]
     Geometry(#[from] GeometryError),
