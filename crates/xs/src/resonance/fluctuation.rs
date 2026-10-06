@@ -3,16 +3,63 @@
 //! 自由度 ν の χ² 分布の密度は k^k x^(k-1) e^(-kx) / Γ(k)（k = ν/2）。x = u² と置くと
 //! 2 k^k u^(2k-1) e^(-k u²) / Γ(k) du になり、ν = 1 でも原点で有限になるので、u について適応積分する。
 
+use crate::special::{erfcx, exp_e1};
+
 /// u の積分の上限を k u² = TAIL とする。密度は e^(-40) ≈ 4e-18 倍になり、倍精度で無視できる
 const TAIL: f64 = 40.0;
 
 /// 適応積分で区間を分ける深さの上限（区間の幅は 2^-50 倍まで）
 const MAX_DEPTH: u32 = 50;
 
+/// これより大きい c では、閉じた式の代わりに 1/c の級数を使う。閉じた式は
+/// E[x²/(x+c)] = 1 - c E[x/(x+c)] の引き算で相対誤差が eps c² 程度になり（c = 100 で 2e-12）、
+/// 級数の項 m_n/c^n は c ≥ 100 なら 20 項ほどで倍精度の大きさを下回るため
+const SERIES_ABOVE: f64 = 100.0;
+
 /// 自由度 `dof` の χ² 分布での [E[x/(x + c)], E[x²/(x + c)]]（c > 0）。
+///
+/// x/(x+c) = 1 - c/(x+c) と x²/(x+c) = x - c x/(x+c) により E[1/(x+c)] に帰着させる。
+/// E[1/(x+c)] = k^k c^(k-1) e^(kc) Γ(1-k, kc)（k = ν/2）は、ν = 1, 3 では erfc、ν = 2, 4 では E1 で書ける。
 pub(super) fn width_ratios(dof: u32, c: f64) -> [f64; 2] {
-    let _ = (dof, c);
-    todo!()
+    if dof == 0 {
+        let r = 1.0 / (1.0 + c);
+        return [r, r];
+    }
+    if c > SERIES_ABOVE {
+        return width_ratio_series(dof, c);
+    }
+    let k = f64::from(dof) / 2.0;
+    let sqrt_pi = std::f64::consts::PI.sqrt();
+    let inverse = match dof {
+        1 => (std::f64::consts::PI * k / c).sqrt() * erfcx((k * c).sqrt()),
+        2 => exp_e1(c),
+        3 => 2.0 * k - 2.0 * sqrt_pi * k.powf(1.5) * c.sqrt() * erfcx((k * c).sqrt()),
+        4 => k - k * k * c * exp_e1(k * c),
+        _ => panic!("no χ² density for {dof} degrees of freedom"),
+    };
+    let r = 1.0 - c * inverse;
+    [r, 1.0 - c * r]
+}
+
+/// 大きな c での [E[x/(x+c)], E[x²/(x+c)]] の漸近級数。t_n = m_n/c^n（m_n = Π_{i<n} (1 + 2i/ν) は
+/// 平均 1 の χ²_ν の積率）として、E[x/(x+c)] = Σ_{n≥1} (-1)^(n+1) t_n、E[x²/(x+c)] = Σ_{n≥1} (-1)^(n+1) c t_(n+1)。
+fn width_ratio_series(dof: u32, c: f64) -> [f64; 2] {
+    const MAX_TERMS: u32 = 60;
+    let nu = f64::from(dof);
+    let (mut first, mut second) = (0.0, 0.0);
+    let mut t = 1.0 / c;
+    let mut sign = 1.0;
+    for n in 1..=MAX_TERMS {
+        let next = t * (1.0 + 2.0 * f64::from(n) / nu) / c;
+        first += sign * t;
+        second += sign * c * next;
+        if t <= f64::EPSILON * first.abs() && c * next <= f64::EPSILON * second.abs() {
+            return [first, second];
+        }
+        t = next;
+        sign = -sign;
+    }
+    panic!("width ratio series did not converge for c = {c}");
 }
 
 /// 自由度 `dof` の χ² 分布での f(x) の期待値（相対許容誤差 `tolerance`）。

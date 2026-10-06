@@ -57,9 +57,41 @@ pub fn erfcx(x: f64) -> f64 {
 }
 
 /// スケールした指数積分 e^z E1(z)（z > 0）。E1(z) = ∫_z^∞ e^(-t)/t dt。
+///
+/// z ≤ 1 では級数 E1 = -γ - ln z - Σ (-z)^n/(n n!)、z > 1 では連分数
+/// E1 = e^(-z) / (z + 1 - 1²/(z + 3 - 2²/(z + 5 - …)))（修正 Lentz 法）で計算する。
 pub fn exp_e1(z: f64) -> f64 {
-    let _ = z;
-    todo!()
+    assert!(z > 0.0, "E1 needs a positive argument, got {z}");
+    const EULER: f64 = 0.577_215_664_901_532_9;
+    const MAX_TERMS: u32 = 1000;
+    if z <= 1.0 {
+        let (mut sum, mut term) = (0.0, 1.0);
+        for n in 1..=MAX_TERMS {
+            let n = f64::from(n);
+            term *= -z / n;
+            sum += term / n;
+            if (term / n).abs() <= f64::EPSILON * sum.abs() {
+                return (-EULER - z.ln() - sum) * z.exp();
+            }
+        }
+    } else {
+        let tiny = f64::MIN_POSITIVE;
+        let mut b = z + 1.0;
+        let (mut c, mut d) = (1.0 / tiny, 1.0 / b);
+        let mut h = d;
+        for i in 1..=MAX_TERMS {
+            let a = -f64::from(i * i);
+            b += 2.0;
+            d = 1.0 / (a * d + b);
+            c = b + a / c;
+            let delta = c * d;
+            h *= delta;
+            if (delta - 1.0).abs() <= f64::EPSILON {
+                return h;
+            }
+        }
+    }
+    panic!("E1({z}) did not converge");
 }
 
 #[cfg(test)]
