@@ -312,6 +312,16 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn empty_grid_is_error() {
+        let mut data = free_gas_table();
+        data.beta.clear();
+        assert!(matches!(
+            ThermalSab::new(&data, TEMPERATURE, 1.0),
+            Err(SabError::EmptyGrid)
+        ));
+    }
+
+    #[test]
     fn rejects_missing_temperature_and_short_table() {
         let data = free_gas_table();
         assert!(ThermalSab::new(&data, 600.0, 1.0).is_err());

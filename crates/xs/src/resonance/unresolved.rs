@@ -414,7 +414,7 @@ const FILL: [f64; 78] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::{OrbitalL, UrrLValue};
+    use crate::endf::{OrbitalL, Tab1, UrrLValue};
     use crate::special::erfc;
 
     const AWRI: f64 = 236.0;
@@ -456,6 +456,21 @@ mod tests {
     /// 平均 1 の χ²_1 での E[1/(x+c)] = c^(-1/2) e^(c/2) √(π/2) erfc(√(c/2))。
     fn inverse_moment(c: f64) -> f64 {
         (PI / (2.0 * c)).sqrt() * (0.5 * c).exp() * erfc((0.5 * c).sqrt())
+    }
+
+    #[test]
+    fn energy_outside_the_radius_table_is_error() {
+        let mut urr = s_wave(
+            vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
+            Interpolation::LinLin,
+        );
+        urr.ap_energy = Some(Tab1::linear(vec![5.0e3, 1.0e4], vec![AP, AP]));
+        let xs = UnresolvedXs::new(&urr).unwrap();
+        assert!(xs.cross_sections(8.0e3).is_ok());
+        assert!(matches!(
+            xs.cross_sections(1.5e4),
+            Err(UrrError::RadiusTable { .. })
+        ));
     }
 
     #[test]
