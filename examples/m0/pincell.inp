@@ -2,14 +2,11 @@
 # 個数密度は 1/(barn cm)。
 library wims69.lib
 output pincell.fg
+few-group-bounds 1e7 0.625 1e-5
 pitch 1.26
-fuel-radius 0.4096
-fuel-rings 3
-moderator-rings 1
 azimuthal 32
 spacing 0.05
-fuel U235 7.281430e-04 U238 2.247284e-02 O16 4.640196e-02
-moderator H1 4.947415e-02 O16 2.473708e-02
-fuel-temperature 293.6
-moderator-temperature 293.6
-few-group-bounds 1e7 0.625 1e-5
+material fuel temperature 293.6 U235 7.281430e-04 U238 2.247284e-02 O16 4.640196e-02
+material water temperature 293.6 H1 4.947415e-02 O16 2.473708e-02
+cell pin fuel 0.4096 3 water - 2
+row pin
