@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
-use super::fluctuation::expectation;
+use super::fluctuation::{expectation, width_ratios};
 use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint};
 use crate::physics::wave_number_factor;
 
@@ -98,6 +98,7 @@ fn parameters(points: &[UrrPoint], e: f64) -> UrrPoint {
 
 /// 幅のゆらぎの積分 [E[x²/D], E[x/D], E[xy/D]]、D = Γn x + Γf y + Γγ + Γx z。
 /// x, y, z は自由度 AMUN, AMUF, AMUX の χ² 分布に従う（幅が 0 ならその変数はゆらがない）。
+/// 中性子幅 x の期待値は閉じた式（`width_ratios`）で、y と z は適応積分で求める。
 ///
 /// NJOY と同じく、Γn または Γγ が 0 以下なら 0 とする（共鳴がない、または分母が 0 になる）。
 fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> [f64; 3] {
@@ -106,29 +107,26 @@ fn fluctuation_integrals(gn: f64, gf: f64, gg: f64, gx: f64, jv: &UrrJValue) -> 
     }
     let dof_f = if gf > 0.0 { jv.amuf } else { 0 };
     let dof_x = if gx > 0.0 { jv.amux } else { 0 };
-    // 極に近い中性子幅の変数 x を一番内側で積分する
-    let integral = |g: fn(f64, f64) -> f64| {
-        expectation(dof_x, TOLERANCE[2], |z| {
-            expectation(dof_f, TOLERANCE[1], |y| {
-                let rest = gf * y + gg + gx * z;
-                expectation(jv.amun, TOLERANCE[0], |x| g(x, y) / (gn * x + rest))
-            })
-        })
+    let ratios = |y: f64, z: f64| width_ratios(jv.amun, (gf * y + gg + gx * z) / gn);
+    let outer = |g: &dyn Fn(f64, f64) -> f64| {
+        expectation(dof_x, TOLERANCE[1], |z| {
+            expectation(dof_f, TOLERANCE[0], |y| g(y, z))
+        }) / gn
     };
     [
-        integral(|x, _| x * x),
-        integral(|x, _| x),
+        outer(&|y, z| ratios(y, z)[1]),
+        outer(&|y, z| ratios(y, z)[0]),
         if gf > 0.0 {
-            integral(|x, y| x * y)
+            outer(&|y, z| y * ratios(y, z)[0])
         } else {
             0.0
         },
     ]
 }
 
-/// 幅のゆらぎの期待値の相対許容誤差（内側の中性子幅、核分裂幅、外側の競合幅の順）。
+/// 幅のゆらぎの期待値の相対許容誤差（内側の核分裂幅、外側の競合幅の順）。
 /// 外側は内側の 100 倍にする（`expectation` を参照）。群定数の許容誤差 1e-3 より十分小さい
-const TOLERANCE: [f64; 3] = [1.0e-12, 1.0e-10, 1.0e-8];
+const TOLERANCE: [f64; 2] = [1.0e-10, 1.0e-8];
 
 /// 平均断面積を計算する格子 [el, eh]。評価者のエネルギー（全系列の和）に、隣の点との比が
 /// `WIDE` を超える区間では NJOY と同じ補助格子 `FILL` の点を加える。
