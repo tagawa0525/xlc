@@ -375,9 +375,27 @@ mod tests {
     fn validates_radii() {
         assert!(PinCell::new(1.26, vec![0.2, 0.4]).is_ok());
         assert!(PinCell::new(1.26, vec![0.4, 0.2]).is_err());
-        assert!(PinCell::new(1.26, vec![0.63]).is_err());
+        // 内接円（0.63）より外の円はセルの外周で切り取る。外接円（0.891）以上は空になる
+        assert!(PinCell::new(1.26, vec![0.54, 0.7, 0.85]).is_ok());
+        assert!(PinCell::new(1.26, vec![0.54, 0.9]).is_err());
         assert!(PinCell::new(1.26, vec![0.0]).is_err());
         assert!(PinCell::new(0.0, vec![]).is_err());
+    }
+
+    #[test]
+    fn rings_beyond_the_inscribed_circle_are_clipped() {
+        // 半辺 h = 1 のセルの、内接円（1）と外接円（√2）の間の半径 1.2 の円は、セルの外周で切り取られる
+        let cell = PinCell::new(2.0, vec![0.5, 1.2]).unwrap();
+        let v = cell.volumes();
+        // 半径 r > h の円と正方形の共通部分は 4 [h² tan θc + r² (π/4 - θc)]（cos θc = h/r）
+        let (h, r) = (1.0_f64, 1.2_f64);
+        let theta = (h / r).acos();
+        let clipped = 4.0 * (h * h * theta.tan() + r * r * (0.25 * PI - theta));
+        assert!((v[1] - (clipped - PI * 0.25)).abs() < 1e-14, "{}", v[1]);
+        assert!((v.iter().sum::<f64>() - 4.0).abs() < 1e-14);
+        // 角の近くの点は最も外の領域、辺の中点の近くは切り取られたリング
+        assert_eq!(cell.region_at(0.95, 0.95), 2);
+        assert_eq!(cell.region_at(0.99, 0.0), 1);
     }
 
     #[test]

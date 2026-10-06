@@ -522,6 +522,40 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn zones_may_reach_beyond_the_inscribed_circle() {
+        let geometry = |zones: &str| {
+            let text = PIN_CELL.replace(
+                "zones = [{ material = \"fuel\", radius = 0.4, rings = 2 }, { material = \"water\", rings = 2 }]",
+                zones,
+            );
+            LatticeInput::parse(&text).and_then(|i| i.geometry())
+        };
+        // 内接円（0.63）の外の 0.8 までの水の帯は、セルの外周で切り取った2つのリングになる
+        let (lattice, materials) = geometry(
+            r#"zones = [
+  { material = "fuel", radius = 0.4, rings = 2 },
+  { material = "water", radius = 0.8, rings = 2 },
+  { material = "water", rings = 1 },
+]"#,
+        )
+        .unwrap();
+        assert_eq!(materials.len(), 5);
+        let v = lattice.volumes();
+        assert!((v.iter().sum::<f64>() - 1.26 * 1.26).abs() < 1e-14);
+        // 最後の帯は内接円の外から始まるので、等間隔には分けられない
+        assert!(
+            geometry(
+                r#"zones = [
+  { material = "fuel", radius = 0.4, rings = 2 },
+  { material = "water", radius = 0.8, rings = 2 },
+  { material = "water", rings = 2 },
+]"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn parses_lattice() {
         let input = LatticeInput::parse(LATTICE).unwrap();
         assert_eq!(
@@ -658,8 +692,8 @@ zones = [{ material = "water", rings = 1 }]
             ))
             .is_err()
         );
-        // 帯の外半径がセルの内接円を超える、扇形の数が 1, 4, 8 でない
-        assert!(geometry(LATTICE.replace("radius = 0.6", "radius = 1.2")).is_err());
+        // 帯の外半径がセルの外接円（ピッチ 2 で √2）を超える、扇形の数が 1, 4, 8 でない
+        assert!(geometry(LATTICE.replace("radius = 0.6", "radius = 1.5")).is_err());
         assert!(
             geometry(LATTICE.replace(
                 "  { material = \"water\", rings = 1 },\n]",
