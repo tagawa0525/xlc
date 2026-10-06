@@ -94,10 +94,69 @@ pub fn exp_e1(z: f64) -> f64 {
     panic!("E1({z}) did not converge");
 }
 
-/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（Im z ≥ 0）。
+/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy, y ≥ 0）。
+///
+/// Weideman (1994, SIAM J. Numer. Anal. 31) の有理近似 w(z) ≈ 2 p(Z)/(L - iz)² + 1/(√π (L - iz))、
+/// Z = (L + iz)/(L - iz) を使う。p は `FADDEEVA_TERMS` 次の多項式で、係数は `faddeeva_coefficients`。
 pub fn faddeeva(x: f64, y: f64) -> (f64, f64) {
-    let _ = (x, y);
-    todo!()
+    assert!(y >= 0.0, "faddeeva is implemented for Im z >= 0, got {y}");
+    let a = faddeeva_coefficients();
+    let l = faddeeva_scale();
+    // L - iz = (L + y) - ix、L + iz = (L - y) + ix
+    let den = (l + y, -x);
+    let z = complex_div((l - y, x), den);
+    // Horner 法で p(Z) = Σ a_m Z^(m-1)
+    let mut p = (0.0, 0.0);
+    for &coefficient in a.iter().rev() {
+        p = complex_mul(p, z);
+        p.0 += coefficient;
+    }
+    let den2 = complex_mul(den, den);
+    let first = complex_div((2.0 * p.0, 2.0 * p.1), den2);
+    let second = complex_div((1.0 / std::f64::consts::PI.sqrt(), 0.0), den);
+    (first.0 + second.0, first.1 + second.1)
+}
+
+/// Weideman の近似の項数 N。N = 32 で、テストの範囲の相対誤差が 1e-12 以下になる
+const FADDEEVA_TERMS: usize = 32;
+
+/// Weideman の近似の尺度 L = (N/√2)^(1/2)
+fn faddeeva_scale() -> f64 {
+    (FADDEEVA_TERMS as f64 / std::f64::consts::SQRT_2).sqrt()
+}
+
+/// p の係数 a_1..a_N。f(t) = e^(-t²)(L² + t²) を t_k = L tan(kπ/(2M))（M = 2N, |k| < M）で標本化し、
+/// a_m = (1/2M) Σ_k f(t_k) cos(π m k / M)（Weideman の FFT を偶関数として直接計算したもの）。
+fn faddeeva_coefficients() -> &'static [f64; FADDEEVA_TERMS] {
+    static COEFFICIENTS: std::sync::OnceLock<[f64; FADDEEVA_TERMS]> = std::sync::OnceLock::new();
+    COEFFICIENTS.get_or_init(|| {
+        let m = 2 * FADDEEVA_TERMS;
+        let l = faddeeva_scale();
+        let samples: Vec<(f64, f64)> = (1 - m as i64..m as i64)
+            .map(|k| {
+                let theta = k as f64 * std::f64::consts::PI / m as f64;
+                let t = l * (0.5 * theta).tan();
+                (k as f64, (-t * t).exp() * (l * l + t * t))
+            })
+            .collect();
+        std::array::from_fn(|i| {
+            let order = (i + 1) as f64;
+            let sum: f64 = samples
+                .iter()
+                .map(|&(k, f)| f * (std::f64::consts::PI * order * k / m as f64).cos())
+                .sum();
+            sum / (2 * m) as f64
+        })
+    })
+}
+
+fn complex_mul(a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
+    (a.0 * b.0 - a.1 * b.1, a.0 * b.1 + a.1 * b.0)
+}
+
+fn complex_div(a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
+    let d = b.0 * b.0 + b.1 * b.1;
+    ((a.0 * b.0 + a.1 * b.1) / d, (a.1 * b.0 - a.0 * b.1) / d)
 }
 
 #[cfg(test)]
