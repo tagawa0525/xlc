@@ -1,10 +1,10 @@
 //! MF2 MT151（共鳴パラメータ）セクション。
 //!
-//! M0 では、分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）と、無限希釈の断面積が MF3 にある
-//! 非分離共鳴（LRU=2）だけを扱う。それ以外の形式はエラーにする。
+//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）と MLBW 形式（LRU=1, LRF=2）、
+//! エネルギー依存のパラメータによる非分離共鳴（LRU=2, LRF=2）を扱う。それ以外の形式はエラーにする。
 
 use super::tape::{Reader, Section};
-use super::{Error, Interpolation};
+use super::{Error, Interpolation, Tab1};
 
 /// 1核種（同位体1つ）の共鳴パラメータ。
 #[derive(Debug, Clone, PartialEq)]
@@ -81,6 +81,8 @@ pub struct Unresolved {
     pub spi: f64,
     /// 散乱半径 (10^-12 cm)
     pub ap: f64,
+    /// エネルギー依存の散乱半径（NRO=1）。あれば位相シフトにはこちらを使う
+    pub ap_energy: Option<Tab1>,
     pub naps: i64,
     pub l_values: Vec<UrrLValue>,
 }
@@ -174,7 +176,13 @@ impl Mf2 {
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
                 1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
-                2 => RangeKind::Unresolved(read_unresolved(&mut r, range.n2)?),
+                2 if nro != 0 => {
+                    return unsupported(
+                        "energy-dependent radius (NRO≠0) in the unresolved range".into(),
+                    );
+                }
+                2 if lrf == 2 => RangeKind::Unresolved(read_unresolved(&mut r, range.n2)?),
+                2 => return unsupported(format!("unresolved LRF={lrf} is not supported")),
                 _ => return unsupported(format!("invalid LRU={lru}")),
             };
             ranges.push(ResonanceRange {
@@ -192,8 +200,87 @@ impl Mf2 {
 }
 
 fn read_unresolved(r: &mut Reader<'_>, naps: i64) -> Result<Unresolved, Error> {
-    let _ = (r, naps);
-    todo!()
+    let cont = r.cont()?;
+    let count = |n: i64, line: usize, what: &str| {
+        usize::try_from(n).map_err(|_| Error::new(line, format!("invalid {what} {n}")))
+    };
+    let nls = count(cont.n1, r.line(), "NLS")?;
+    let mut l_values = Vec::with_capacity(nls.min(MAX_L + 1));
+    for _ in 0..nls {
+        let l_cont = r.cont()?;
+        let l = u32::try_from(l_cont.l1)
+            .ok()
+            .filter(|&l| l as usize <= MAX_L)
+            .ok_or_else(|| Error::new(r.line(), format!("unsupported L={}", l_cont.l1)))?;
+        let njs = count(l_cont.n1, r.line(), "NJS")?;
+        let mut j_values = Vec::with_capacity(njs.min(MAX_L + 1));
+        for _ in 0..njs {
+            let header_line = r.line() + 1;
+            let list = r.list()?;
+            let int = Interpolation::from_code(list.l1).ok_or_else(|| {
+                Error::new(
+                    header_line,
+                    format!("invalid interpolation INT={}", list.l1),
+                )
+            })?;
+            let (chunks, rest) = list.values.as_chunks::<6>();
+            let ([header, points @ ..], []) = (chunks, rest) else {
+                return Err(Error::new(
+                    header_line,
+                    "unresolved parameters must be 6 values per energy after a header",
+                ));
+            };
+            // 幅の分布の自由度は、χ² 分布の求積がある 0〜4 の整数に限る
+            let dof = |v: f64| {
+                if (0.0..=4.0).contains(&v) && v.fract() == 0.0 {
+                    Ok(v)
+                } else {
+                    Err(Error::new(
+                        header_line + 1,
+                        format!("degrees of freedom {v} must be an integer from 0 to 4"),
+                    ))
+                }
+            };
+            let points: Vec<UrrPoint> = points
+                .iter()
+                .map(|p| UrrPoint {
+                    e: p[0],
+                    d: p[1],
+                    gx: p[2],
+                    gno: p[3],
+                    gg: p[4],
+                    gf: p[5],
+                })
+                .collect();
+            if points.is_empty() || points.windows(2).any(|w| w[1].e <= w[0].e) {
+                return Err(Error::new(
+                    header_line,
+                    "unresolved energies must be present and increasing",
+                ));
+            }
+            j_values.push(UrrJValue {
+                aj: list.c1,
+                int,
+                amux: dof(header[2])?,
+                amun: dof(header[3])?,
+                amuf: dof(header[5])?,
+                points,
+            });
+        }
+        l_values.push(UrrLValue {
+            awri: l_cont.c1,
+            l,
+            j_values,
+        });
+    }
+    Ok(Unresolved {
+        lssf: cont.l1,
+        spi: cont.c1,
+        ap: cont.c2,
+        ap_energy: None,
+        naps,
+        l_values,
+    })
 }
 
 fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> {
@@ -369,6 +456,7 @@ mod tests {
             panic!("expected unresolved");
         };
         assert_eq!((urr.lssf, urr.spi, urr.ap, urr.naps), (1, 0.0, 0.948, 0));
+        assert_eq!(urr.ap_energy, None);
         assert_eq!(urr.l_values.len(), 1);
         assert_eq!((urr.l_values[0].awri, urr.l_values[0].l), (236.006, 0));
         let j = &urr.l_values[0].j_values[0];
