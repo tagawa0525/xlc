@@ -15,23 +15,6 @@ pub use unresolved::{
     unresolved_grid,
 };
 
-/// エネルギーごとに共鳴領域の断面積を計算できるもの。
-pub trait CrossSections {
-    fn cross_sections(&self, e: f64) -> Sigma;
-}
-
-impl CrossSections for ReichMooreXs {
-    fn cross_sections(&self, e: f64) -> Sigma {
-        ReichMooreXs::cross_sections(self, e)
-    }
-}
-
-impl CrossSections for MlbwXs {
-    fn cross_sections(&self, e: f64) -> Sigma {
-        MlbwXs::cross_sections(self, e)
-    }
-}
-
 /// 共鳴領域の断面積 (barn)。
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Sigma {

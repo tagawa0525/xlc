@@ -8,8 +8,7 @@ use std::collections::BTreeMap;
 use crate::doppler::{broaden, broadening_limit};
 use crate::endf::{Error, Interpolation, Mf2, Mf3, RangeKind, Tab1, Tape, Unresolved};
 use crate::resonance::{
-    CrossSections, MlbwXs, ReichMooreXs, Sigma, UnresolvedXs, unresolved_grid,
-    unresolved_interpolation,
+    MlbwXs, ReichMooreXs, Sigma, UnresolvedXs, unresolved_grid, unresolved_interpolation,
 };
 
 /// 線形化・共鳴計算の打ち切り判定: 区間の中点で、線形補間と真値の差が
@@ -58,12 +57,12 @@ pub fn linearize(table: &Tab1, tol: f64) -> Tab1 {
 
 /// 区間 (a, b) を、中点での線形補間の誤差が `tol` 以下になるまで二分し、
 /// 加えた点と右端の点を左から順に `push` に渡す（左端は渡さない）。
-fn refine<const N: usize>(
-    f: &impl Fn(f64) -> [f64; N],
-    a: (f64, [f64; N]),
-    b: (f64, [f64; N]),
+fn refine<V: AsRef<[f64]> + Clone>(
+    f: &impl Fn(f64) -> V,
+    a: (f64, V),
+    b: (f64, V),
     tol: f64,
-    push: &mut impl FnMut(f64, [f64; N]),
+    push: &mut impl FnMut(f64, V),
 ) {
     // 右側の区間から積み、左側から取り出す
     let mut stack = vec![b];
@@ -73,31 +72,33 @@ fn refine<const N: usize>(
         let narrow = right.0 - left.0 <= MIN_RELATIVE_WIDTH * mid.abs();
         if !narrow {
             let exact = f(mid);
-            let converged = (0..N).all(|i| {
-                let linear = 0.5 * (left.1[i] + right.1[i]);
-                (linear - exact[i]).abs() <= tol * exact[i].abs()
-            });
+            let converged = (left.1.as_ref().iter())
+                .zip(right.1.as_ref())
+                .zip(exact.as_ref())
+                .all(|((&l, &r), &exact)| {
+                    let linear = 0.5 * (l + r);
+                    (linear - exact).abs() <= tol * exact.abs()
+                });
             if !converged {
                 stack.push(right);
                 stack.push((mid, exact));
                 continue;
             }
         }
-        push(right.0, right.1);
+        push(right.0, right.1.clone());
         left = right;
     }
 }
 
-/// [el, eh] での共鳴の寄与を、反応ごとに lin-lin の表にする。
+/// [el, eh] での共鳴の寄与 `f`（反応ごとの値）を、反応ごとに lin-lin の表にする。
 /// `nodes` は必ず格子に入れるエネルギー（共鳴のピークと半値幅の位置など）。
-pub fn resonance_tables(
-    xs: &impl CrossSections,
+pub fn resonance_tables<V: AsRef<[f64]> + Clone>(
+    f: impl Fn(f64) -> V,
     nodes: &[f64],
     el: f64,
     eh: f64,
     tol: f64,
-) -> [Tab1; 4] {
-    let f = |e: f64| xs.cross_sections(e).components();
+) -> Vec<Tab1> {
     let mut seeds: Vec<f64> = nodes
         .iter()
         .copied()
@@ -108,19 +109,35 @@ pub fn resonance_tables(
     seeds.sort_by(f64::total_cmp);
     seeds.dedup();
 
+    let first = f(el);
     let mut x = vec![el];
-    let mut values = vec![f(el)];
+    let mut values = vec![first.clone()];
     // 区間の左端の値（refine は右端を最後に積むので、次の区間の左端は今の区間の右端）
-    let mut left_value = values[0];
+    let mut left_value = first;
     for w in seeds.windows(2) {
         let right = (w[1], f(w[1]));
+        let next_left = right.1.clone();
         refine(&f, (w[0], left_value), right, tol, &mut |e, v| {
             x.push(e);
             values.push(v);
         });
-        left_value = right.1;
+        left_value = next_left;
     }
-    std::array::from_fn(|i| Tab1::linear(x.clone(), values.iter().map(|v| v[i]).collect()))
+    let count = values.first().map_or(0, |v| v.as_ref().len());
+    (0..count)
+        .map(|i| Tab1::linear(x.clone(), values.iter().map(|v| v.as_ref()[i]).collect()))
+        .collect()
+}
+
+/// `Sigma` の成分の表（`RESONANCE_MTS` の順）を、反応ごとの寄与にする。全断面積は部分反応の和で
+/// 作り直すので除き、核分裂は `fission_mt` に入れる。
+fn sigma_contributions(tables: Vec<Tab1>, fission_mt: u32) -> Vec<(u32, Tab1)> {
+    RESONANCE_MTS
+        .into_iter()
+        .map(|mt| if mt == 18 { fission_mt } else { mt })
+        .zip(tables)
+        .filter(|&(mt, _)| mt != 1)
+        .collect()
 }
 
 /// 2つの lin-lin の表の和。どちらの表も定義域の外では 0 とし、
@@ -391,7 +408,7 @@ fn add_resonances(
     tol: f64,
 ) -> Result<(), String> {
     for range in &mf2.ranges {
-        let [_, elastic, fission, capture] = match &range.kind {
+        let contributions = match &range.kind {
             RangeKind::ScatteringRadius { .. } => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 1 => continue,
             RangeKind::Unresolved(urr) if urr.lssf == 0 => {
@@ -423,7 +440,12 @@ fn add_resonances(
                     .flat_map(|lv| &lv.resonances)
                     .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gfa.abs() + r.gfb.abs())));
                 let nodes = resonance_nodes(peaks);
-                resonance_tables(&ReichMooreXs::new(rm), &nodes, range.el, range.eh, tol)
+                let xs = ReichMooreXs::new(rm);
+                let f = |e: f64| xs.cross_sections(e).components();
+                sigma_contributions(
+                    resonance_tables(f, &nodes, range.el, range.eh, tol),
+                    fission_mt,
+                )
             }
             RangeKind::RMatrixLimited(_) => {
                 return Err("R-matrix limited cross sections are not supported".into());
@@ -435,10 +457,15 @@ fn add_resonances(
                     .flat_map(|lv| &lv.resonances)
                     .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gf)));
                 let nodes = resonance_nodes(peaks);
-                resonance_tables(&MlbwXs::new(bw), &nodes, range.el, range.eh, tol)
+                let xs = MlbwXs::new(bw);
+                let f = |e: f64| xs.cross_sections(e).components();
+                sigma_contributions(
+                    resonance_tables(f, &nodes, range.el, range.eh, tol),
+                    fission_mt,
+                )
             }
         };
-        for (mt, contribution) in [(2, elastic), (fission_mt, fission), (102, capture)] {
+        for (mt, contribution) in contributions {
             if contribution.y.iter().all(|&v| v == 0.0) {
                 continue;
             }
@@ -604,7 +631,8 @@ mod tests {
     fn resonance_tables_converge_at_midpoints() {
         let (gn, gg, gf) = (1.5e-3, 2.3e-2, 1.0e-2);
         let xs = ReichMooreXs::new(&single_level(gn, gg, gf));
-        let tables = resonance_tables(&xs, &[6.674], 1.0e-5, 1.0e3, 1.0e-3);
+        let f = |e: f64| xs.cross_sections(e).components();
+        let tables = resonance_tables(f, &[6.674], 1.0e-5, 1.0e3, 1.0e-3);
         for (i, (t, mt)) in tables.iter().zip(RESONANCE_MTS).enumerate() {
             assert_linear(t);
             assert_eq!((t.x[0], *t.x.last().unwrap()), (1.0e-5, 1.0e3));
