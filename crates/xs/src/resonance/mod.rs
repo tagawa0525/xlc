@@ -3,6 +3,7 @@
 mod factors;
 mod fluctuation;
 mod line_shape;
+mod linear;
 mod mlbw;
 mod quadrature;
 mod r_matrix_limited;
