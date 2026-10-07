@@ -3,8 +3,9 @@
 //! 使い方: mg_materials <格子の入力 (TOML)> <出力 (msgpack)>
 //!
 //! 物質ごとに、全断面積・核分裂・νΣf の行列 [入射の群][出射の群]（核種ごとの νΣf × χ の和）・散乱行列の
-//! ルジャンドルのモーメント [l][入射の群][出射の群] (1/cm) を書く。群は高いエネルギーから。自己遮蔽はしない
-//! （検証するのは輸送の解き方なので、どちらも同じ定数であればよい）。
+//! ルジャンドルのモーメント [l][入射の群][出射の群] (1/cm) を書く。群は高いエネルギーから。モーメントは入力の
+//! `scattering-order` まで（省略するとライブラリにあるすべて）で、xlc が解く定数と同じにする。入力は
+//! `self-shielding = false` であること（自己遮蔽した定数はリングごとに違い、物質ごとには書けない）。
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -13,6 +14,7 @@ use anyhow::{Context, anyhow};
 use serde::Serialize;
 use xlc_lattice::input::{CrossSections, LatticeInput};
 use xlc_lattice::material::Material;
+use xlc_lattice::moc::available_order;
 use xlc_xs::library::Library;
 use xlc_xs::msgpack::to_named;
 
@@ -34,22 +36,14 @@ struct Materials {
     materials: BTreeMap<String, Constants>,
 }
 
-fn constants(m: &Material) -> Constants {
-    let ng = m.groups();
-    let mut nu_fission = vec![vec![0.0; ng]; ng];
-    for term in &m.fission_terms {
-        for (row, n) in nu_fission.iter_mut().zip(&term.nu_fission) {
-            for (value, chi) in row.iter_mut().zip(&term.chi) {
-                *value += n * chi;
-            }
-        }
-    }
+/// 散乱のモーメントを P_`order` まで持つ物質の定数
+fn constants(m: &Material, order: usize) -> Constants {
     Constants {
         total: m.total.clone(),
         fission: m.fission.clone(),
-        nu_fission,
+        nu_fission: m.fission_matrix(),
         scatter: std::iter::once(&m.scatter)
-            .chain(&m.anisotropic)
+            .chain(&m.anisotropic[..order])
             .cloned()
             .collect(),
     }
@@ -61,26 +55,46 @@ fn main() -> anyhow::Result<()> {
         return Err(anyhow!("usage: mg_materials <lattice input> <output>"));
     };
     let path = Path::new(input);
-    let input = LatticeInput::parse(&std::fs::read_to_string(path)?).context("input")?;
+    let shown = |p: &Path| p.display().to_string();
+    let text = std::fs::read_to_string(path).with_context(|| shown(path))?;
+    let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
     let CrossSections::Library(file) = &input.cross_sections else {
         return Err(anyhow!("the input must use a library"));
     };
-    let base = path.parent().unwrap_or(Path::new("."));
-    let library = Library::from_msgpack(&std::fs::read(base.join(file))?)?;
-    let materials = input
+    if input.self_shielding {
+        return Err(anyhow!(
+            "the input must set `self-shielding = false` (shielded constants differ by ring)"
+        ));
+    }
+    let file = path.parent().unwrap_or(Path::new(".")).join(file);
+    let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+    let library = Library::from_msgpack(&bytes).with_context(|| shown(&file))?;
+    let mixed = input
         .materials
         .iter()
         .map(|m| {
             let mixed = Material::mix(&library, &m.composition, m.temperature)
                 .with_context(|| format!("material `{}`", m.name))?;
-            Ok((m.name.clone(), constants(&mixed)))
+            Ok((m.name.clone(), mixed))
         })
-        .collect::<anyhow::Result<_>>()?;
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let references: Vec<&Material> = mixed.iter().map(|(_, m)| m).collect();
+    let available = available_order(&references);
+    let order = input.scattering_order.unwrap_or(available);
+    if order > available {
+        return Err(anyhow!(
+            "scattering order {order} exceeds P{available} of the library"
+        ));
+    }
+    let materials = mixed
+        .iter()
+        .map(|(name, m)| (name.clone(), constants(m, order)))
+        .collect();
     let bytes = to_named(&Materials {
         format: "xlc-mg-materials",
         group_bounds: library.groups.bounds().to_vec(),
         materials,
     })?;
-    std::fs::write(output, bytes)?;
+    std::fs::write(output, bytes).with_context(|| output.clone())?;
     Ok(())
 }
