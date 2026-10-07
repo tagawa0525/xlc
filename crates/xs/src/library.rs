@@ -9,6 +9,7 @@
 //!  group_bounds: [群境界 (eV)、降順],
 //!  sigma0: [σ0 (barn)、降順],
 //!  nuclides: [{name: "U-235", za, awr,
+//!              potential: ポテンシャル散乱 (barn)、分離共鳴を持つ核種だけ（なければ nil）,
 //!              temperatures: [{temperature (K), chi: [G 個],
 //!                              scatter: [[無限希釈の σ(g→g')、行が入射の群]],
 //!                              shielded: [{total, elastic, fission, nu_fission}（σ0 の順）]}]}]}
@@ -69,6 +70,8 @@ pub struct NuclideData {
     pub name: String,
     pub za: f64,
     pub awr: f64,
+    /// ポテンシャル散乱断面積 (barn)。分離共鳴を持つ核種だけ（ESSM で使う）
+    pub potential: Option<f64>,
     pub temperatures: Vec<TemperatureData>,
 }
 
@@ -433,6 +436,7 @@ pub(crate) mod tests {
             name: name.into(),
             za: 92235.0,
             awr: 233.0248,
+            potential: None,
             temperatures: temperatures
                 .iter()
                 .map(|&t| temperature(t, fissile))
@@ -455,6 +459,15 @@ pub(crate) mod tests {
             Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap(),
             library
         );
+    }
+
+    #[test]
+    fn keeps_the_potential_scattering() {
+        let mut library = sample();
+        library.nuclides[0].potential = Some(11.29);
+        let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+        assert_eq!(read.nuclides[0].potential, Some(11.29));
+        assert_eq!(read.nuclides[1].potential, None);
     }
 
     #[test]
