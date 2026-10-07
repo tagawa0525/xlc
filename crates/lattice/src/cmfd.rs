@@ -531,14 +531,14 @@ struct Lu {
     n: usize,
     /// 行優先の L（対角は 1、格納しない）と U
     lu: Vec<f64>,
-    /// 行の入れ替え
-    pivot: Vec<usize>,
+    /// 列 col の消去で行 col と入れ替えた行（LAPACK の ipiv と同じく、順に適用する）
+    swaps: Vec<usize>,
 }
 
 impl Lu {
     /// 行優先の n × n 行列を分解する。特異なら `None`。
     fn new(mut a: Vec<f64>, n: usize) -> Option<Self> {
-        let mut pivot: Vec<usize> = (0..n).collect();
+        let mut swaps = Vec::with_capacity(n);
         for col in 0..n {
             let best =
                 (col..n).max_by(|&i, &j| a[i * n + col].abs().total_cmp(&a[j * n + col].abs()))?;
@@ -549,8 +549,8 @@ impl Lu {
                 for j in 0..n {
                     a.swap(best * n + j, col * n + j);
                 }
-                pivot.swap(best, col);
             }
+            swaps.push(best);
             for row in col + 1..n {
                 let factor = a[row * n + col] / a[col * n + col];
                 a[row * n + col] = factor;
@@ -559,24 +559,28 @@ impl Lu {
                 }
             }
         }
-        Some(Self { n, lu: a, pivot })
+        Some(Self { n, lu: a, swaps })
     }
 
     /// `b` を A x = b の解 x で置き換える。
+    ///
+    /// CMFD の反復ごとに全セルで呼ぶので、確保をせず、行ごとの内積で前進・後退代入する。
     fn solve(&self, b: &mut [f64]) {
         let n = self.n;
-        let permuted: Vec<f64> = self.pivot.iter().map(|&p| b[p]).collect();
-        b.copy_from_slice(&permuted);
-        for row in 0..n {
-            for j in 0..row {
-                b[row] -= self.lu[row * n + j] * b[j];
+        for (col, &row) in self.swaps.iter().enumerate() {
+            if row != col {
+                b.swap(col, row);
             }
         }
+        for row in 0..n {
+            let l = &self.lu[row * n..][..row];
+            let sum: f64 = l.iter().zip(&b[..row]).map(|(a, x)| a * x).sum();
+            b[row] -= sum;
+        }
         for row in (0..n).rev() {
-            for j in row + 1..n {
-                b[row] -= self.lu[row * n + j] * b[j];
-            }
-            b[row] /= self.lu[row * n + row];
+            let u = &self.lu[row * n + row + 1..][..n - row - 1];
+            let sum: f64 = u.iter().zip(&b[row + 1..]).map(|(a, x)| a * x).sum();
+            b[row] = (b[row] - sum) / self.lu[row * n + row];
         }
     }
 }
