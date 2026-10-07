@@ -1,23 +1,29 @@
 //! 平坦線源の特性曲線法（MOC）による固有値計算。
 
 use std::f64::consts::PI;
+use std::sync::{Mutex, PoisonError};
 
 use rayon::prelude::*;
 
 pub mod dancoff;
 pub mod fixed_source;
+mod harmonics;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
 use crate::tracking::Tracking;
+use harmonics::{planar_moments, real_harmonic};
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
 const POLAR_SIN: [f64; 3] = [0.166_648, 0.537_707, 0.932_954];
 const POLAR_WEIGHT: [f64; 3] = [0.046_233, 0.283_619, 0.670_148];
 
-/// 反復の打ち切り条件。
+/// 反復の打ち切り条件と、散乱の非等方性の次数。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Options {
+    /// 散乱の非等方性を展開するルジャンドルの次数 L（0 なら等方散乱）。L ≥ 1 では、真空でない物質に
+    /// P1〜PL の散乱行列が要る
+    pub scattering_order: usize,
     /// 実効増倍率の変化の上限
     pub k_tolerance: f64,
     /// 中性子束の相対変化の上限
@@ -29,6 +35,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
+            scattering_order: 0,
             k_tolerance: 1.0e-7,
             flux_tolerance: 1.0e-6,
             max_iterations: 20_000,
@@ -82,6 +89,15 @@ pub enum MocError {
     NoFission,
     #[error("no neutron reaches group {0} (no fission spectrum or scattering into it)")]
     GroupWithoutSource(usize),
+    #[error(
+        "region {region}: scattering order {requested} needs P1 to P{requested} matrices, \
+         but the material has them up to P{available}"
+    )]
+    ScatteringOrder {
+        region: usize,
+        available: usize,
+        requested: usize,
+    },
     #[error(transparent)]
     Cmfd(#[from] CmfdError),
     #[error("not converged in {iterations} iterations (k = {k})")]
@@ -110,6 +126,18 @@ pub fn solve(
         .any(|m| !m.is_void() && m.total.iter().any(|&t| t <= 0.0 || !t.is_finite()))
     {
         return Err(MocError::NonPositiveTotal);
+    }
+    let order = options.scattering_order;
+    if let Some((region, m)) = materials
+        .iter()
+        .enumerate()
+        .find(|(_, m)| !m.is_void() && m.anisotropic.len() < order)
+    {
+        return Err(MocError::ScatteringOrder {
+            region,
+            available: m.anisotropic.len(),
+            requested: order,
+        });
     }
     if let Some(g) = group_without_source(materials, ng) {
         return Err(MocError::GroupWithoutSource(g));
@@ -163,7 +191,9 @@ pub fn solve(
     }
 
     let mesh = CoarseMesh::new(tracking);
-    let sweeper = Sweeper::new(tracking, materials, ng, &mesh);
+    // 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
+    let pairs = planar_moments(order);
+    let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs);
     let production = |flux: &[Vec<f64>]| -> f64 {
         flux.iter()
             .zip(materials)
@@ -179,6 +209,8 @@ pub fn solve(
     };
 
     let mut flux = vec![vec![1.0; ng]; regions];
+    // [領域][モーメント (1 番目から)][群] の高次のモーメント
+    let mut higher = vec![vec![0.0; (pairs.len() - 1) * ng]; regions];
     let initial = production(&flux);
     if initial <= 0.0 {
         return Err(MocError::NoFission);
@@ -197,9 +229,9 @@ pub fn solve(
     let mut flux_history = Remaining::default();
 
     for iteration in 1..=options.max_iterations {
-        // 等方線源を Σt で割ったもの（角度中性子束の平衡値）
+        // 線源を Σt で割ったもの（角度中性子束の平衡値）の [モーメント][群] の展開係数
         let equilibrium: Vec<Vec<f64>> = (0..regions)
-            .map(|i| equilibrium_flux(materials[i], &flux[i], k))
+            .map(|i| equilibrium_moments(materials[i], &flux[i], &higher[i], k, &pairs))
             .collect();
 
         sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies)?;
@@ -221,16 +253,35 @@ pub fn solve(
                         .collect();
                 }
                 let total = &materials[i].total;
-                let delta = &delta[i * ng..][..ng];
+                let delta = &delta[i * pairs.len() * ng..][..ng];
                 (0..ng)
                     .map(|g| 4.0 * PI * equilibrium[i][g] + delta[g] / (total[g] * volumes[i]))
                     .collect()
             })
             .collect();
+        // 高次のモーメント: φ_k = 4π e_k / (2l + 1) + Σ w Y_k Δψ / (Σt V)（真空では散乱しないので使わない）
+        let mut new_higher: Vec<Vec<f64>> = (0..regions)
+            .map(|i| {
+                let total = &materials[i].total;
+                let mut values = vec![0.0; (pairs.len() - 1) * ng];
+                if sweeper.void[i].is_some() {
+                    return values;
+                }
+                for (k, &(l, _)) in pairs.iter().enumerate().skip(1) {
+                    let delta = &delta[(i * pairs.len() + k) * ng..][..ng];
+                    let e = &equilibrium[i][k * ng..][..ng];
+                    for (g, v) in values[(k - 1) * ng..][..ng].iter_mut().enumerate() {
+                        *v = 4.0 * PI * e[g] / (2 * l + 1) as f64
+                            + delta[g] / (total[g] * volumes[i]);
+                    }
+                }
+                values
+            })
+            .collect();
         // べき乗法: 生成率の比で k を更新し、中性子束と境界の値を生成率 1 に規格化する
         let rate = production(&new_flux);
         let mut new_k = k * rate;
-        for f in new_flux.iter_mut().flatten() {
+        for f in new_flux.iter_mut().chain(&mut new_higher).flatten() {
             *f /= rate;
         }
         for l in leak.iter_mut().chain(&mut current) {
@@ -245,10 +296,11 @@ pub fn solve(
             let coarse = Coarse::homogenize(&mesh, materials, &volumes, &new_flux, &current)?;
             let (coarse_k, ratio) = coarse.solve(new_k, cmfd)?;
             new_k = coarse_k;
-            for (region, f) in new_flux.iter_mut().enumerate() {
+            // 高次のモーメントも同じ比で（角度分布の形は変えない）
+            for (region, (f, h)) in new_flux.iter_mut().zip(&mut new_higher).enumerate() {
                 let cell = mesh.cell(region);
-                for (g, value) in f.iter_mut().enumerate() {
-                    *value *= ratio[cell * ng + g];
+                for (j, value) in f.iter_mut().chain(h.iter_mut()).enumerate() {
+                    *value *= ratio[cell * ng + j % ng];
                 }
             }
             // トラックの端の角度中性子束も、端のあるセルの比で更新する（領域の中性子束だけを
@@ -294,6 +346,7 @@ pub fn solve(
         let converged =
             k_remaining < options.k_tolerance && flux_remaining < options.flux_tolerance;
         flux = new_flux;
+        higher = new_higher;
         k = new_k;
         if converged {
             return Ok(Solution {
@@ -325,6 +378,20 @@ struct Sweeper<'a> {
     azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
     void: Vec<Option<usize>>,
+    /// 角度中性子束のモーメントの数（1 なら等方散乱）
+    moments: usize,
+    /// [方位角][向き][極角][モーメント] の方向ごとの実球面調和関数の値
+    harmonics: Vec<f64>,
+    /// 非等方散乱のスイープの作業用の配列（使い回す。中身は方位角ごとに作り直すので、どれを使っても結果は同じ）
+    pool: Mutex<Vec<Directional>>,
+}
+
+/// 非等方散乱のスイープで、方位角ごとに作り直す配列。どちらも [領域][向き][極角][群]。
+struct Directional {
+    /// 方向ごとの角度中性子束の平衡値 Σ_k Y_k(Ω) e_k
+    source: Vec<f64>,
+    /// 方向ごとの減衰の重み付き和
+    delta: Vec<f64>,
 }
 
 impl<'a> Sweeper<'a> {
@@ -334,8 +401,20 @@ impl<'a> Sweeper<'a> {
         materials: &[&Material],
         ng: usize,
         mesh: &'a CoarseMesh,
+        pairs: &[(usize, isize)],
     ) -> Self {
         let width = POLAR_SIN.len() * ng;
+        // 順方向は方位角 φ、逆方向は φ + π。z について対称なモーメントだけなので、極角は上半分だけでよい
+        let mut harmonics = Vec::new();
+        for azimuth in &tracking.azimuths {
+            for side in 0..2 {
+                let phi = azimuth.phi + side as f64 * PI;
+                for sin in POLAR_SIN {
+                    let mu = (1.0 - sin * sin).sqrt();
+                    harmonics.extend(pairs.iter().map(|&(l, m)| real_harmonic(l, m, mu, phi)));
+                }
+            }
+        }
         let attenuation = tracking
             .tracks
             .iter()
@@ -369,7 +448,71 @@ impl<'a> Sweeper<'a> {
                     }))
                 })
                 .collect(),
+            moments: pairs.len(),
+            harmonics,
+            pool: Mutex::new(Vec::new()),
         }
+    }
+
+    /// 方位角 `azimuth` の [向き][極角] ごとの実球面調和関数の値 [モーメント]
+    fn harmonics(&self, azimuth: usize, side: usize, p: usize) -> &[f64] {
+        let k = self.moments;
+        &self.harmonics[((azimuth * 2 + side) * POLAR_SIN.len() + p) * k..][..k]
+    }
+
+    /// 方位角 `azimuth` の方向ごとの平衡値を展開係数 `equilibrium` から作り、減衰の和を 0 にした作業用の配列
+    fn directional(&self, equilibrium: &[Vec<f64>], azimuth: usize) -> Directional {
+        let (ng, width) = (self.ng, self.width);
+        let size = equilibrium.len() * 2 * width;
+        let reused = self
+            .pool
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .pop();
+        let mut d = reused.unwrap_or_else(|| Directional {
+            source: vec![0.0; size],
+            delta: vec![0.0; size],
+        });
+        d.delta.fill(0.0);
+        for (region, e) in equilibrium.iter().enumerate() {
+            // 真空の領域はスイープで線源を使わない
+            if self.void[region].is_some() {
+                continue;
+            }
+            for side in 0..2 {
+                for p in 0..POLAR_SIN.len() {
+                    let y = self.harmonics(azimuth, side, p);
+                    let out =
+                        &mut d.source[((2 * region + side) * POLAR_SIN.len() + p) * ng..][..ng];
+                    for (g, o) in out.iter_mut().enumerate() {
+                        *o = y.iter().enumerate().map(|(k, y)| y * e[k * ng + g]).sum();
+                    }
+                }
+            }
+        }
+        d
+    }
+
+    /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [領域][モーメント][群] に足し、作業用の配列を返す
+    fn fold(&self, d: Directional, azimuth: usize, delta: &mut [f64]) {
+        let (ng, k) = (self.ng, self.moments);
+        for (region, sums) in delta.chunks_mut(k * ng).enumerate() {
+            for side in 0..2 {
+                for p in 0..POLAR_SIN.len() {
+                    let y = self.harmonics(azimuth, side, p);
+                    let values = &d.delta[((2 * region + side) * POLAR_SIN.len() + p) * ng..][..ng];
+                    for (sum, y) in sums.chunks_mut(ng).zip(y) {
+                        for (s, v) in sum.iter_mut().zip(values) {
+                            *s += y * v;
+                        }
+                    }
+                }
+            }
+        }
+        self.pool
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(d);
     }
 
     /// 出ていく角度中性子束の配列の長さ
@@ -417,7 +560,13 @@ impl<'a> Sweeper<'a> {
             .iter()
             .map(|_| {
                 let voids = self.void.iter().flatten().count();
-                Tally::new(regions, voids, self.mesh.faces(), self.ng, self.width)
+                Tally::new(
+                    regions * self.moments,
+                    voids,
+                    self.mesh.faces(),
+                    self.ng,
+                    self.width,
+                )
             })
             .collect()
     }
@@ -430,7 +579,8 @@ impl<'a> Sweeper<'a> {
 
     /// 全トラックを両方向に1回ずつスイープする。
     ///
-    /// `equilibrium` は [領域][群] の角度中性子束の平衡値（線源 / 4πΣt）。`incoming` は前回の
+    /// `equilibrium` は [領域][モーメント][群] の角度中性子束の平衡値（線源 / Σt）の展開係数 e_k
+    /// （平衡値は Σ_k Y_k(Ω) e_k。等方なら線源 / 4πΣt）。`tallies` の減衰の和は [領域][モーメント][群]。`incoming` は前回の
     /// スイープで出ていった角度中性子束、`outgoing` には今回出ていく分を書く。どちらも
     /// [トラック][向き (0: 順, 1: 逆)][極角][群] の並びで、各トラックは自分の場所にだけ書くので、
     /// トラックごとに並列にスイープできる。
@@ -455,8 +605,12 @@ impl<'a> Sweeper<'a> {
             .par_iter_mut()
             .zip(outputs)
             .zip(&self.azimuths)
-            .try_for_each(|((tally, outputs), range)| {
+            .enumerate()
+            .try_for_each(|(azimuth, ((tally, outputs), range))| {
                 tally.clear();
+                // 非等方散乱では、線源と減衰の和を方向ごとに持つ
+                let mut directional =
+                    (self.moments > 1).then(|| self.directional(equilibrium, azimuth));
                 for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
@@ -509,9 +663,24 @@ impl<'a> Sweeper<'a> {
                                 continue;
                             }
                             let att = &self.attenuation[index][s * width..][..width];
-                            let q = &equilibrium[region];
-                            let d = &mut tally.delta[region * ng..][..ng];
+                            // 等方なら [群] を全ての極角で使い、非等方なら [極角][群]
+                            let (q, d, stride) = match directional.as_mut() {
+                                None => (
+                                    &equilibrium[region][..ng],
+                                    &mut tally.delta[region * ng..][..ng],
+                                    0,
+                                ),
+                                Some(dir) => {
+                                    let at = (2 * region + usize::from(!forward)) * width;
+                                    (
+                                        &dir.source[at..][..width],
+                                        &mut dir.delta[at..][..width],
+                                        ng,
+                                    )
+                                }
+                            };
                             for (p, weight) in weights.iter().enumerate() {
+                                let (q, d) = (&q[p * stride..][..ng], &mut d[p * stride..][..ng]);
                                 for g in 0..ng {
                                     let j = p * ng + g;
                                     let change = (psi[j] - q[g]) * att[j];
@@ -541,6 +710,9 @@ impl<'a> Sweeper<'a> {
                         }
                         out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
                     }
+                }
+                if let Some(d) = directional {
+                    self.fold(d, azimuth, &mut tally.delta);
                 }
                 Ok(())
             })
@@ -716,6 +888,49 @@ impl Remaining {
         self.previous = Some(change);
         estimate
     }
+}
+
+/// 真空でない全ての物質が持つ散乱行列の最高次数（そういう物質がなければ 0）。
+pub fn available_order(materials: &[&Material]) -> usize {
+    materials
+        .iter()
+        .filter(|m| !m.is_void())
+        .map(|m| m.anisotropic.len())
+        .min()
+        .unwrap_or(0)
+}
+
+/// 角度中性子束の平衡値（線源 / Σt）の [モーメント][群] の展開係数 e_k。線源は
+/// q(Ω) = Σ_k (2l+1)/(4π) Y_k(Ω) Σ_g' σ_l(g'→g) φ_k,g'（と等方な核分裂源）なので、e_k = (2l+1) q_k / (4πΣt)。
+/// `phi` はスカラー中性子束 [群]、`higher` は高次のモーメント [モーメント (1 番目から)][群]
+fn equilibrium_moments(
+    m: &Material,
+    phi: &[f64],
+    higher: &[f64],
+    k: f64,
+    pairs: &[(usize, isize)],
+) -> Vec<f64> {
+    let ng = phi.len();
+    let mut e = equilibrium_flux(m, phi, k);
+    for (index, &(l, _)) in pairs.iter().enumerate().skip(1) {
+        let moment = &higher[(index - 1) * ng..][..ng];
+        let mut source = vec![0.0; ng];
+        // 真空には散乱行列がない（solve で、真空でない物質には次数の分があることを確かめている）
+        if let Some(sigma) = m.anisotropic.get(l - 1) {
+            for (from, row) in sigma.iter().enumerate() {
+                for (to, s) in row.iter().enumerate() {
+                    source[to] += s * moment[from];
+                }
+            }
+        }
+        let factor = (2 * l + 1) as f64 / (4.0 * PI);
+        e.extend(source.iter().zip(&m.total).map(
+            |(q, t)| {
+                if *t == 0.0 { 0.0 } else { factor * q / t }
+            },
+        ));
+    }
+    e
 }
 
 /// 散乱源と核分裂源（/k）の和を 4πΣt で割った、角度中性子束の平衡値。
@@ -949,6 +1164,182 @@ mod tests {
         }
     }
 
+    /// P1〜P(L) の散乱行列を、P0 の行列に `factors` の係数を掛けて付けた物質
+    fn with_moments(m: &Material, factors: &[f64]) -> Material {
+        let mut m = m.clone();
+        m.anisotropic = factors
+            .iter()
+            .map(|f| {
+                m.scatter
+                    .iter()
+                    .map(|row| row.iter().map(|s| f * s).collect())
+                    .collect()
+            })
+            .collect();
+        m
+    }
+
+    fn order(scattering_order: usize) -> Options {
+        Options {
+            scattering_order,
+            ..Options::default()
+        }
+    }
+
+    /// 燃料のピンと水のセルを市松に並べた n×n の格子（外周は真空）
+    fn vacuum_checkerboard(n: usize) -> Tracking {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let layout = (0..n)
+            .map(|i| (0..n).map(|j| (i + j) % 2).collect())
+            .collect();
+        let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        Tracking::with_boundaries(&lattice, 16, 0.05, vacuum).unwrap()
+    }
+
+    /// 市松の格子の領域ごとの物質（ピンは燃料と水、水のセルは水）
+    fn checkerboard_materials<'a>(n: usize, f: &'a Material, m: &'a Material) -> Vec<&'a Material> {
+        (0..n * n)
+            .flat_map(|c| {
+                if (c / n + c % n).is_multiple_of(2) {
+                    vec![f, m]
+                } else {
+                    vec![m]
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn isotropic_moments_reproduce_p0() {
+        // 高次の散乱行列が 0 なら、高次のモーメントは線源に入らず、P0 と同じ解（丸め誤差まで）
+        let tracking = vacuum_checkerboard(2);
+        let (f, m) = (
+            with_moments(&fuel(), &[0.0, 0.0]),
+            with_moments(&moderator(), &[0.0, 0.0]),
+        );
+        let materials = checkerboard_materials(2, &f, &m);
+        let p0 = solve(&tracking, &materials, &order(0)).unwrap();
+        let p2 = solve(&tracking, &materials, &order(2)).unwrap();
+        assert!((p2.k - p0.k).abs() < 1e-12 * p0.k, "{} vs {}", p2.k, p0.k);
+        for (a, b) in p2.flux.iter().flatten().zip(p0.flux.iter().flatten()) {
+            assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn anisotropy_does_not_change_an_infinite_medium() {
+        // 角度中性子束が等方なので、高次の散乱は効かない
+        let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let m = with_moments(&fuel(), &[0.4, 0.1, 0.02]);
+        let solution = solve(&tracking, &[&m, &m, &m], &order(3)).unwrap();
+        let expected = infinite_medium_k(&m);
+        assert!(
+            (solution.k - expected).abs() < 1e-6,
+            "{} vs {expected}",
+            solution.k
+        );
+    }
+
+    #[test]
+    fn forward_scattering_acts_like_the_transport_correction() {
+        // 前方に偏った散乱では、外向きに流れる中性子が散乱しても外向きに進み続けるので、等方散乱より
+        // 漏れが増えて k が下がる。その効果を拡散の近似で表すのが輸送補正（Σt と自群の散乱から
+        // Σ_g' σ1(g→g') を引いた P0。拡散係数が大きくなる）なので、P1 の k は P0 より輸送補正の k に近い
+        let n = 6;
+        let tracking = vacuum_checkerboard(n);
+        let (f, m) = (
+            with_moments(&fuel(), &[0.05]),
+            with_moments(&moderator(), &[0.5]),
+        );
+        let corrected = |m: &Material| {
+            let mut c = m.clone();
+            for g in 0..2 {
+                let p1: f64 = m.anisotropic[0][g].iter().sum();
+                c.total[g] -= p1;
+                c.scatter[g][g] -= p1;
+            }
+            c.anisotropic.clear();
+            c
+        };
+        let (fc, mc) = (corrected(&f), corrected(&m));
+        let k = |f, m, options| {
+            solve(&tracking, &checkerboard_materials(n, f, m), &options)
+                .unwrap()
+                .k
+        };
+        let (p0, p1, tc) = (
+            k(&f, &m, order(0)),
+            k(&f, &m, order(1)),
+            k(&fc, &mc, order(0)),
+        );
+        assert!(p1 < p0, "P1 {p1} vs P0 {p0}");
+        assert!(
+            (p1 - tc).abs() < (p0 - tc).abs(),
+            "P0 {p0}, P1 {p1}, transport-corrected {tc}"
+        );
+    }
+
+    #[test]
+    fn anisotropic_result_does_not_depend_on_the_thread_count() {
+        let tracking = vacuum_checkerboard(2);
+        let (f, m) = (
+            with_moments(&fuel(), &[0.05, 0.01]),
+            with_moments(&moderator(), &[0.5, 0.2]),
+        );
+        let materials = checkerboard_materials(2, &f, &m);
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve(&tracking, &materials, &order(2)).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
+    }
+
+    #[test]
+    fn available_order_is_the_lowest_among_materials() {
+        let (f, m, void) = (
+            with_moments(&fuel(), &[0.05, 0.01]),
+            with_moments(&moderator(), &[0.5]),
+            Material::void(2),
+        );
+        assert_eq!(available_order(&[&f, &void]), 2);
+        assert_eq!(available_order(&[&f, &m, &void]), 1);
+        assert_eq!(available_order(&[&f, &fuel()]), 0);
+        assert_eq!(available_order(&[&void]), 0);
+    }
+
+    #[test]
+    fn scattering_order_needs_the_moments() {
+        let tracking = vacuum_checkerboard(2);
+        let (f, m) = (with_moments(&fuel(), &[0.05]), moderator());
+        let materials = checkerboard_materials(2, &f, &m);
+        assert!(matches!(
+            solve(&tracking, &materials, &order(1)),
+            Err(MocError::ScatteringOrder {
+                region: 1,
+                available: 0,
+                requested: 1
+            })
+        ));
+        // 足りなければ使わない次数は無視する
+        let m = with_moments(&moderator(), &[0.5]);
+        let materials = checkerboard_materials(2, &f, &m);
+        assert!(solve(&tracking, &materials, &order(1)).is_ok());
+    }
+
     #[test]
     fn sweep_currents_balance_each_coarse_cell() {
         // 1回のスイープで、セルの中の領域の減衰の和 Σ Δ（= 入る - 出る）と、セルの面から外向きの
@@ -974,7 +1365,7 @@ mod tests {
         let (f, m) = (fuel(), moderator());
         let materials = [&f, &f, &m, &m, &m, &f, &f, &m];
         let ng = 2;
-        let sweeper = Sweeper::new(&tracking, &materials, ng, &mesh);
+        let sweeper = Sweeper::new(&tracking, &materials, ng, &mesh, &[(0, 0)]);
         let equilibrium: Vec<Vec<f64>> = (0..materials.len())
             .map(|i| {
                 (0..ng)
