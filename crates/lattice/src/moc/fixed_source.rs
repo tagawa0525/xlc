@@ -191,12 +191,13 @@ mod tests {
 
     #[test]
     fn rejects_untracked_regions() {
-        // 0.4〜0.4000001 cm のリングには、間隔 0.02 cm のトラックが通らない
-        let tracking = pin(vec![0.4, 0.400_000_1]);
+        // 外接円（0.891 cm）のすぐ内側の円の外は四隅のごく小さな領域で、間隔 0.3 cm のトラックは通らない
+        let cell = PinCell::new(1.26, vec![0.89]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 4, 0.3).unwrap();
         let result = fixed_source(
             &tracking,
-            &[vec![1.0], vec![1.0], vec![1.0]],
-            &[vec![1.0], vec![1.0], vec![1.0]],
+            &[vec![1.0], vec![1.0]],
+            &[vec![1.0], vec![1.0]],
             &FixedSourceOptions::default(),
         );
         assert!(
