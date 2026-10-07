@@ -5,6 +5,7 @@ use std::f64::consts::PI;
 use rayon::prelude::*;
 
 pub mod dancoff;
+pub mod fixed_source;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
