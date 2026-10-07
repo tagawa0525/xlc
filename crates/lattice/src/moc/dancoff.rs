@@ -222,6 +222,34 @@ mod tests {
     }
 
     #[test]
+    fn fuel_rows_are_not_read() {
+        // 燃料の行は使わないので、空でもよい
+        let cell = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let c = dancoff(&tracking, &[vec![], vec![1.2]], &[true, false], &options()).unwrap();
+        assert_eq!(c[0].as_ref().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn rejects_fuel_clipped_by_the_cell() {
+        // 燃料の半径がセルの半ピッチより大きいと、隣のセルから直接燃料に入る
+        let pin = PinCell::new(1.0, vec![0.6]).unwrap();
+        let water = PinCell::new(1.0, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1]]).unwrap();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let result = dancoff(
+            &tracking,
+            &[vec![1.0], vec![1.0], vec![1.0]],
+            &[true, false, false],
+            &options(),
+        );
+        assert!(
+            matches!(result, Err(DancoffError::FuelOnBoundary(0))),
+            "{result:?}"
+        );
+    }
+
+    #[test]
     fn cells_without_fuel_have_no_factors() {
         let c = factors(1.26, vec![vec![0, 1], vec![1, 0]], &[1.0]);
         assert!(c[0].is_some() && c[3].is_some());
