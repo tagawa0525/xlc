@@ -379,6 +379,38 @@ pub(crate) mod tests {
         assert!(library.nuclide("O-16", 293.6).is_err());
     }
 
+    #[test]
+    fn interpolates_shielded_cross_sections_in_ln_sigma0() {
+        let library = sample();
+        // 格子点では表の値
+        let at_points = library.shielded("U-235", 900.0, &[1.0e10, 10.0]).unwrap();
+        assert_eq!(at_points.total, vec![11.5, 1.7929089665572825e-9]);
+        assert_eq!(at_points.fission, vec![1.2, 580.5]);
+        // ln σ0 の中点では、両端の値の平均
+        let middle = (1.0e10_f64 * 10.0).sqrt();
+        let between = library.shielded("U-235", 900.0, &[middle, middle]).unwrap();
+        assert!((between.total[0] - 0.75 * 11.5).abs() < 1e-12);
+        assert!((between.elastic[0] - 0.75 * 4.0).abs() < 1e-12);
+        assert!((between.nu_fission[0] - 0.75 * 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rejects_sigma0_outside_the_table() {
+        let library = sample();
+        for sigma0 in [5.0, 1.0e11, f64::NAN] {
+            let error = library.shielded("U-235", 900.0, &[sigma0, 100.0]);
+            assert!(
+                matches!(error, Err(LookupError::Sigma0 { group: 0, .. })),
+                "{sigma0}: {error:?}"
+            );
+        }
+        // σ0 は群の数だけ要る
+        assert!(matches!(
+            library.shielded("U-235", 900.0, &[100.0]),
+            Err(LookupError::Sigma0Groups { .. })
+        ));
+    }
+
     fn sample_file() -> LibraryFile {
         let library = sample();
         LibraryFile {
