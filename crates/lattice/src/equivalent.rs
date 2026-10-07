@@ -17,7 +17,7 @@ const TOLERANCE: f64 = 1.0e-12;
 
 /// 合わせられる Dancoff 係数の下限。孤立したセルの [`cell_dancoff`] は丸めで 1e-11 程度ずれるので、それより
 /// 十分大きくとる
-const MIN_DANCOFF: f64 = 1.0e-9;
+pub const MIN_DANCOFF: f64 = 1.0e-9;
 
 /// 減速材の厚さを倍にして Dancoff 係数を下回るまで探す回数の上限
 const DOUBLINGS: usize = 64;

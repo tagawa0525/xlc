@@ -44,6 +44,8 @@ pub enum DancoffError {
     Total(usize),
     #[error("fuel in cell {0} touches the cell boundary; the pin must be surrounded by non-fuel")]
     FuelOnBoundary(usize),
+    #[error("cell {cell}: negative Dancoff factor {value} beyond the convergence tolerance")]
+    Negative { cell: usize, value: f64 },
     #[error("boundary fluxes not converged in {0} iterations")]
     NotConverged(usize),
     #[error(transparent)]
@@ -157,13 +159,27 @@ pub fn dancoff(
                     *a += d;
                 }
             }
-            return Ok(absorbed
+            // 孤立したピンでは C = 0 が丸めや収束の判定の幅で負になる。その幅の中なら 0 とする
+            let factor = |cell: usize, r: f64, iso: f64| {
+                let c = 1.0 - r / (psi0 * iso);
+                if c >= 0.0 {
+                    Ok(c)
+                } else if c >= -options.tolerance {
+                    Ok(0.0)
+                } else {
+                    Err(DancoffError::Negative { cell, value: c })
+                }
+            };
+            return absorbed
                 .into_iter()
                 .zip(&isolated)
-                .map(|(rates, &iso)| {
-                    (iso > 0.0).then(|| rates.iter().map(|r| 1.0 - r / (psi0 * iso)).collect())
+                .enumerate()
+                .map(|(cell, (rates, &iso))| {
+                    (iso > 0.0)
+                        .then(|| rates.iter().map(|&r| factor(cell, r, iso)).collect())
+                        .transpose()
                 })
-                .collect());
+                .collect();
         }
     }
     Err(DancoffError::NotConverged(options.max_iterations))
