@@ -14,5 +14,6 @@ pub mod material;
 pub mod moc;
 pub mod power;
 pub mod shielding;
+pub mod sph;
 pub mod tracking;
 pub mod ufg;
