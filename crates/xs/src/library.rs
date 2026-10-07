@@ -9,7 +9,7 @@
 //!  group_bounds: [群境界 (eV)、降順],
 //!  sigma0: [σ0 (barn)、降順],
 //!  nuclides: [{name: "U-235", za, awr,
-//!              potential: ポテンシャル散乱 (barn)、分離共鳴を持つ核種だけ（なければ nil）,
+//!              resolved: {top: 分離共鳴の上端 (eV), potential: ポテンシャル散乱 (barn)}、分離共鳴を持つ核種だけ（なければ nil）,
 //!              temperatures: [{temperature (K), chi: [G 個],
 //!                              scatter: [[無限希釈の σ(g→g')、行が入射の群]],
 //!                              shielded: [{total, elastic, fission, nu_fission}（σ0 の順）]}]}]}
@@ -78,6 +78,16 @@ pub struct TemperatureData {
     pub pointwise: Pointwise,
 }
 
+/// 分離共鳴の範囲（分離共鳴を持つ核種だけが持つ）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Resolved {
+    /// 分離共鳴の上端 (eV)。セルの超微細群の減速計算の範囲を決めるのに使う
+    pub top: f64,
+    /// ポテンシャル散乱断面積 4π a² (barn)（ESSM で使う）
+    pub potential: f64,
+}
+
 /// 1核種の、温度ごとの群定数。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -85,8 +95,7 @@ pub struct NuclideData {
     pub name: String,
     pub za: f64,
     pub awr: f64,
-    /// ポテンシャル散乱断面積 (barn)。分離共鳴を持つ核種だけ（ESSM で使う）
-    pub potential: Option<f64>,
+    pub resolved: Option<Resolved>,
     pub temperatures: Vec<TemperatureData>,
 }
 
@@ -384,6 +393,14 @@ impl NuclideData {
                 self.za, self.awr
             ));
         }
+        if let Some(r) = &self.resolved
+            && !(r.top > 0.0 && r.top.is_finite() && r.potential >= 0.0 && r.potential.is_finite())
+        {
+            return Err(format!(
+                "{name}: invalid resolved range top {} eV or potential scattering {} b",
+                r.top, r.potential
+            ));
+        }
         for (k, t) in self.temperatures.iter().enumerate() {
             let at = |what: String| format!("{name} at {} K: {what}", t.temperature);
             if !(t.temperature > 0.0 && t.temperature.is_finite()) {
@@ -496,7 +513,7 @@ pub(crate) mod tests {
             name: name.into(),
             za: 92235.0,
             awr: 233.0248,
-            potential: None,
+            resolved: None,
             temperatures: temperatures
                 .iter()
                 .map(|&t| temperature(t, fissile))

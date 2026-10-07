@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use crate::endf::{
     Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
-use crate::library::{NuclideData, Pointwise, Shielded, TemperatureData};
+use crate::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
 use crate::multigroup::{
     Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
     SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
@@ -257,23 +257,10 @@ pub fn pointwise_within(
     })
 }
 
-/// 分離共鳴の上端 (eV)。分離共鳴がなければ `None`（ライブラリのポイントワイズの断面積の範囲を決めるのに使う）。
-pub fn resolved_top(tape: &Tape, mat: i32) -> Result<Option<f64>, ProcessError> {
-    let Some(section) = tape.section(mat, 2, 151) else {
-        return Ok(None);
-    };
-    Ok(Mf2::parse(&section)?
-        .ranges
-        .iter()
-        .filter(|r| r.kind.is_resolved())
-        .map(|r| r.eh)
-        .reduce(f64::max))
-}
-
-/// 分離共鳴を持つ核種のポテンシャル散乱断面積 4π a² (barn)。a は上端がいちばん高い分離共鳴の範囲の、
-/// s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。R-matrix limited は
-/// 弾性散乱の l=0 のチャネルの APE）。分離共鳴がなければ `None`。ESSM の線源と全断面積に使う。
-pub fn potential_scattering(tape: &Tape, mat: i32) -> Result<Option<f64>, ProcessError> {
+/// 分離共鳴の上端と、ポテンシャル散乱断面積 4π a² (barn)。上端は分離共鳴の範囲の上端のうち最も高いもの。
+/// a はその範囲の、s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。
+/// R-matrix limited は弾性散乱の l=0 のチャネルの APE）。分離共鳴がなければ `None`。
+pub fn resolved(tape: &Tape, mat: i32) -> Result<Option<Resolved>, ProcessError> {
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
     };
@@ -287,7 +274,10 @@ pub fn potential_scattering(tape: &Tape, mat: i32) -> Result<Option<f64>, Proces
         return Ok(None);
     };
     let radius = s_wave_radius(&range.kind)?;
-    Ok(Some(4.0 * std::f64::consts::PI * radius * radius))
+    Ok(Some(Resolved {
+        top: range.eh,
+        potential: 4.0 * std::f64::consts::PI * radius * radius,
+    }))
 }
 
 /// 分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。
@@ -417,7 +407,7 @@ pub fn process_nuclide(
         name: name.to_string(),
         za: head.za,
         awr: head.awr,
-        potential: potential_scattering(tape, mat)?,
+        resolved: resolved(tape, mat)?,
         temperatures,
     })
 }
