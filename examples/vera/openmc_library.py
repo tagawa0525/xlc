@@ -16,7 +16,7 @@ import openmc.data
 FUEL_TEMPERATURES = [600.0, 900.0, 1200.0]
 OTHER_TEMPERATURES = [600.0]
 
-# (名前, ENDF ファイル名, 温度)。Hf と He は計画のとおり除く
+# (名前, ENDF ファイル名)。Hf と He は計画のとおり除く
 FUEL = [
     ("U234", "n-092_U_234"),
     ("U235", "n-092_U_235"),
@@ -54,7 +54,6 @@ def main() -> None:
     jobs = [(n, neutrons / f"{f}.endf", FUEL_TEMPERATURES, out) for n, f in FUEL] + [
         (n, neutrons / f"{f}.endf", OTHER_TEMPERATURES, out) for n, f in OTHERS
     ]
-    # 処理に時間のかかる核種（U-238 など）から始める
     with ProcessPoolExecutor(max_workers=workers) as pool:
         paths = list(pool.map(neutron, jobs))
 
