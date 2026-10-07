@@ -297,6 +297,51 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn kernel_moments_match_the_free_gas_double_differential() {
+        // 自由ガス（A = 1、σfree = 1 b、σb = 4 b）の σ(E→E', μ) = σb/(2kT) √(E'/E) e^(-β/2) S(α, β) を
+        // μ で細かく積分した P_l のモーメントと、表から求めたものが、表の補間の誤差の範囲で一致する
+        let data = free_gas_table();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let kt = BK * TEMPERATURE;
+        let reference = |e: f64, e_out: f64, l: usize| {
+            let n = 200_000;
+            let beta = (e_out - e) / kt;
+            let f = |mu: f64| {
+                let alpha = (e + e_out - 2.0 * mu * (e * e_out).sqrt()) / kt;
+                let s = (-(alpha * alpha + beta * beta) / (4.0 * alpha)).exp()
+                    / (4.0 * std::f64::consts::PI * alpha).sqrt();
+                4.0 / (2.0 * kt)
+                    * (e_out / e).sqrt()
+                    * (-0.5 * beta).exp()
+                    * s
+                    * crate::multigroup::scatter::legendre(mu, l)[l]
+            };
+            // 中点則（μ = 1 の近くでも α > 0）
+            (0..n)
+                .map(|i| f(-1.0 + (i as f64 + 0.5) * 2.0 / n as f64))
+                .sum::<f64>()
+                * 2.0
+                / n as f64
+        };
+        for (e, e_out) in [(0.05, 0.03), (0.05, 0.07), (0.0253, 0.02), (0.2, 0.15)] {
+            let moments = sab.kernel_moments(e, e_out, 3);
+            let p0 = reference(e, e_out, 0);
+            assert!(
+                (moments[0] / p0 - 1.0).abs() < 2e-3,
+                "{e} {e_out}: {moments:?} vs {p0}"
+            );
+            for l in 1..=3 {
+                let r = reference(e, e_out, l);
+                assert!(
+                    (moments[l] - r).abs() < 2e-3 * p0,
+                    "{e} {e_out} P{l}: {} vs {r}",
+                    moments[l]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn kernel_satisfies_detailed_balance() {
         // E σ0(E→E') e^(-E/kT) は E と E' について対称
         let data = free_gas_table();
