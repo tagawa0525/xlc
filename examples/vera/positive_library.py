@@ -18,17 +18,17 @@ from numpy.polynomial import legendre
 
 
 def minimum(coefficients: np.ndarray) -> float:
-    """ルジャンドル級数 Σ_l c_l P_l(μ) の [-1, 1] での最小値（端と、導関数の実の根で求める）。"""
+    """ルジャンドル級数 Σ_l c_l P_l(μ) の [-1, 1] での最小値（端と、導関数の根で求める）。
+
+    重根に近い根は、固有値として求めると虚部が残るので、虚部によらず実部が [-1, 1] にある根の全てで
+    値を見る（余分な点は、求める最小値を真の値に近づけるだけ）。
+    """
     roots = (
         legendre.legroots(legendre.legder(coefficients))
         if len(coefficients) > 2
         else []
     )
-    points = [-1.0, 1.0] + [
-        r.real
-        for r in np.atleast_1d(roots)
-        if abs(r.imag) < 1e-12 and -1 <= r.real <= 1
-    ]
+    points = [-1.0, 1.0] + [r.real for r in np.atleast_1d(roots) if -1 <= r.real <= 1]
     return float(np.min(legendre.legval(np.array(points), coefficients)))
 
 
