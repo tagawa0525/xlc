@@ -17,8 +17,10 @@ pub struct FissionTerm {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Material {
     pub total: Vec<f64>,
-    /// [入射の群][出射の群]
+    /// P0 の散乱行列 [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
+    /// P1 以上の散乱行列 [l - 1][入射の群][出射の群]（l = 1..=L）。空なら等方散乱
+    pub anisotropic: Vec<Vec<Vec<f64>>>,
     pub fission: Vec<f64>,
     pub nu_fission: Vec<f64>,
     pub fission_terms: Vec<FissionTerm>,
@@ -41,6 +43,12 @@ pub enum MaterialError {
     Chi { term: usize, sum: f64 },
     #[error("nu-fission does not match the sum of fission terms")]
     NuFission,
+    #[error("{nuclide} has scattering moments up to P{order}, the others up to P{expected}")]
+    ScatteringOrder {
+        nuclide: String,
+        order: usize,
+        expected: usize,
+    },
 }
 
 impl Material {
@@ -62,9 +70,11 @@ impl Material {
         if nuclides.is_empty() {
             return Err(MaterialError::NoNuclides);
         }
+        let order = nuclides[0].0.anisotropic.len();
         let mut m = Self {
             total: vec![0.0; ng],
             scatter: vec![vec![0.0; ng]; ng],
+            anisotropic: vec![vec![vec![0.0; ng]; ng]; order],
             fission: vec![0.0; ng],
             nu_fission: vec![0.0; ng],
             fission_terms: Vec::new(),
@@ -81,11 +91,22 @@ impl Material {
                     density: *density,
                 });
             }
+            if nuclide.anisotropic.len() != order {
+                return Err(MaterialError::ScatteringOrder {
+                    nuclide: nuclide.name.clone(),
+                    order: nuclide.anisotropic.len(),
+                    expected: order,
+                });
+            }
             add(&mut m.total, &nuclide.total, *density);
             add(&mut m.fission, &nuclide.fission, *density);
             add(&mut m.nu_fission, &nuclide.nu_fission, *density);
-            for (row, from) in m.scatter.iter_mut().zip(&nuclide.scatter) {
-                add(row, from, *density);
+            let sums = std::iter::once(&mut m.scatter).chain(&mut m.anisotropic);
+            let moments = std::iter::once(&nuclide.scatter).chain(&nuclide.anisotropic);
+            for (sum, moment) in sums.zip(moments) {
+                for (row, from) in sum.iter_mut().zip(moment) {
+                    add(row, from, *density);
+                }
             }
             if nuclide.nu_fission.iter().any(|&v| v > 0.0) {
                 m.fission_terms.push(FissionTerm {
@@ -105,8 +126,9 @@ impl Material {
         if ng == 0
             || !sized(&self.fission)
             || !sized(&self.nu_fission)
-            || self.scatter.len() != ng
-            || !self.scatter.iter().all(|row| sized(row))
+            || !std::iter::once(&self.scatter)
+                .chain(&self.anisotropic)
+                .all(|m| m.len() == ng && m.iter().all(|row| sized(row)))
         {
             return Err(MaterialError::Groups(ng));
         }
@@ -145,6 +167,7 @@ impl Material {
         Self {
             total: vec![0.0; ng],
             scatter: vec![vec![0.0; ng]; ng],
+            anisotropic: Vec::new(),
             fission: vec![0.0; ng],
             nu_fission: vec![0.0; ng],
             fission_terms: Vec::new(),
@@ -157,11 +180,14 @@ impl Material {
         zero(&self.total)
             && zero(&self.fission)
             && zero(&self.nu_fission)
-            && self.scatter.iter().all(|row| zero(row))
+            && std::iter::once(&self.scatter)
+                .chain(&self.anisotropic)
+                .flatten()
+                .all(|row| zero(row))
             && self.fission_terms.is_empty()
     }
 
-    /// 群 g の反応（全断面積、群 g からの散乱、核分裂、νΣf）に `factors[g]` を掛けた物質（SPH 因子を入れる）。
+    /// 群 g の反応（全断面積、群 g からの各次数の散乱、核分裂、νΣf）に `factors[g]` を掛けた物質（SPH 因子を入れる）。
     pub fn scaled(&self, factors: &[f64]) -> Result<Self, MaterialError> {
         if factors.len() != self.groups() {
             return Err(MaterialError::Groups(self.groups()));
@@ -172,14 +198,17 @@ impl Material {
                 .map(|(x, f)| x * f)
                 .collect::<Vec<_>>()
         };
-        Ok(Self {
-            total: scale(&self.total),
-            scatter: self
-                .scatter
+        let rows = |matrix: &[Vec<f64>]| {
+            matrix
                 .iter()
                 .zip(factors)
                 .map(|(row, f)| row.iter().map(|x| x * f).collect())
-                .collect(),
+                .collect()
+        };
+        Ok(Self {
+            total: scale(&self.total),
+            scatter: rows(&self.scatter),
+            anisotropic: self.anisotropic.iter().map(|m| rows(m)).collect(),
             fission: scale(&self.fission),
             nu_fission: scale(&self.nu_fission),
             fission_terms: self
@@ -221,7 +250,10 @@ mod tests {
                     pointwise: Default::default(),
                     temperature: 293.6,
                     chi: fission(vec![1.0, 0.0]),
-                    scatter: vec![vec![vec![6.0, 2.0], vec![0.5, 15.0]]],
+                    scatter: vec![
+                        vec![vec![6.0, 2.0], vec![0.5, 15.0]],
+                        vec![vec![3.0, 0.4], vec![0.1, 1.0]],
+                    ],
                     shielded: vec![Shielded {
                         total: vec![10.0, 20.0],
                         elastic: vec![8.0, 15.5],
@@ -249,6 +281,9 @@ mod tests {
         assert_eq!(m.groups(), 2);
         assert!((m.total[1] - 0.8).abs() < 1e-15);
         assert!((m.scatter[0][1] - 0.08).abs() < 1e-15);
+        // P1 も個数密度で足す
+        assert_eq!(m.anisotropic.len(), 1);
+        assert!((m.anisotropic[0][0][1] - 0.016).abs() < 1e-15);
         assert!((m.nu_fission[1] - 0.05).abs() < 1e-15);
         assert_eq!(m.fission_terms.len(), 1);
         assert!((m.fission_terms[0].nu_fission[0] - 0.025).abs() < 1e-15);
@@ -270,6 +305,13 @@ mod tests {
         assert_eq!(
             s.scatter[1],
             m.scatter[1].iter().map(|v| v * 0.5).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            s.anisotropic[0][1],
+            m.anisotropic[0][1]
+                .iter()
+                .map(|v| v * 0.5)
+                .collect::<Vec<_>>()
         );
         assert_eq!(s.nu_fission[1], m.nu_fission[1] * 0.5);
         assert_eq!(s.fission[0], m.fission[0] * 2.0);
@@ -295,12 +337,29 @@ mod tests {
         let mut short_row = good.clone();
         short_row.scatter[0].pop();
         assert!(short_row.validate().is_err());
+        let mut short_moment = good.clone();
+        short_moment.anisotropic[0][1].pop();
+        assert!(short_moment.validate().is_err());
         let mut missing_term = good.clone();
         missing_term.fission_terms.clear();
         assert!(missing_term.validate().is_err());
         let mut bad_chi = good.clone();
         bad_chi.fission_terms[0].chi = vec![0.5, 0.0];
         assert!(bad_chi.validate().is_err());
+    }
+
+    #[test]
+    fn nuclides_must_have_the_same_scattering_order() {
+        let mut lib = library();
+        lib.nuclides[1].temperatures[0].scatter.pop();
+        assert!(mix(&lib, &[("F".into(), 0.01), ("M".into(), 0.03)]).is_err());
+        // 核種が1つなら、その次数のまま
+        assert!(
+            mix(&lib, &[("M".into(), 0.03)])
+                .unwrap()
+                .anisotropic
+                .is_empty()
+        );
     }
 
     #[test]

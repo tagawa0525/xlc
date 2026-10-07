@@ -649,11 +649,14 @@ fn shielded_nuclide(
     let ng = library.groups.len();
     let infinite = library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let dilute = library.shielded(name, temperature, &vec![*infinite; ng])?;
-    for (g, row) in nuclide.scatter.iter_mut().enumerate() {
-        let sum: f64 = row.iter().sum();
+    // 弾性散乱の変化を P0 の行の和に入れ、どの次数の行も同じ比で変える（角度分布の形は変えない）
+    for g in 0..ng {
+        let sum: f64 = nuclide.scatter[g].iter().sum();
         if sum > 0.0 {
             let factor = (sum + shielded.elastic[g] - dilute.elastic[g]) / sum;
-            row.iter_mut().for_each(|v| *v *= factor);
+            std::iter::once(&mut nuclide.scatter)
+                .chain(&mut nuclide.anisotropic)
+                .for_each(|m| m[g].iter_mut().for_each(|v| *v *= factor));
         }
     }
     nuclide.total.clone_from(&shielded.total);
@@ -1006,6 +1009,21 @@ mod tests {
 
         fn fuel_total(shielded: &FuelShielding, region: usize) -> f64 {
             shielded.materials[shielded.region_material[region]].total[0]
+        }
+
+        #[test]
+        fn shielding_scales_every_scattering_moment() {
+            // 群 0 の弾性散乱が無限希釈の 8 から 7 に減ると、群 0 の散乱の行はどの次数も (7 - 1) / 7 倍
+            let mut library = library();
+            library.nuclides[0].temperatures[0]
+                .scatter
+                .push(vec![vec![2.0, 0.5], vec![0.0, 1.0]]);
+            let table = library.shielded("U-238", T, &[1.0; 2]).unwrap();
+            let nuclide = shielded_nuclide(&library, "U-238", T, &table).unwrap();
+            let factor = 6.0 / 7.0;
+            assert_eq!(nuclide.scatter[0], vec![6.0 * factor, factor]);
+            assert_eq!(nuclide.anisotropic[0][0], vec![2.0 * factor, 0.5 * factor]);
+            assert_eq!(nuclide.anisotropic[0][1], vec![0.0, 1.0]);
         }
 
         #[test]

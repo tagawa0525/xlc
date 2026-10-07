@@ -254,6 +254,7 @@ mod tests {
         Material {
             total: total.to_vec(),
             scatter: scatter.iter().map(|r| r.to_vec()).collect(),
+            anisotropic: Vec::new(),
             fission: nu_fission.iter().map(|v| v / 2.5).collect(),
             nu_fission: nu_fission.to_vec(),
             fission_terms: if nu_fission.iter().any(|&v| v > 0.0) {
