@@ -77,6 +77,8 @@ fn main() -> anyhow::Result<()> {
         nuclides,
     })?;
     std::fs::write(output, bytes)?;
-    println!("Dancoff factors: {:?}", pin.dancoff);
+    for ((n, _), sigma0) in pin.nuclides.iter().zip(&pin.sigma0) {
+        println!("{} sigma0: {sigma0:?}", n.name);
+    }
     Ok(())
 }
