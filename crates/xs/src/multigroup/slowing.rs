@@ -79,25 +79,30 @@ pub fn slowing_down_shape_with(
     energies.sort_by(|a, b| b.total_cmp(a));
     energies.dedup();
     let step = width / window_points as f64;
-    let mut u = Vec::with_capacity(energies.len());
+    // レサジーと、その点のエネルギー。格子の点のエネルギーは計算し直さずに持つ
+    // （計算し直すと丸めで範囲の端からずれ、範囲の端で表を引けなくなる）
+    let mut u: Vec<f64> = Vec::with_capacity(energies.len());
+    let mut points: Vec<f64> = Vec::with_capacity(energies.len());
     for e in energies {
         let ue = (e_high / e).ln();
         if let Some(&last) = u.last() {
             let gap: f64 = ue - last;
             let extra = (gap / step).ceil() as usize;
             for k in 1..extra {
-                u.push(last + gap * k as f64 / extra as f64);
+                let fill = last + gap * k as f64 / extra as f64;
+                u.push(fill);
+                points.push(e_high * (-fill).exp());
             }
         }
         u.push(ue);
+        points.push(e);
     }
 
     let at = |t: &Tab1, e: f64| t.eval(e).ok_or(SlowingDownError::Undefined(e));
     let mut f = Vec::with_capacity(u.len());
     // g = σs F（格子点の値）
     let mut g = Vec::with_capacity(u.len());
-    for (i, &ui) in u.iter().enumerate() {
-        let e = e_high * (-ui).exp();
+    for (i, (&ui, &e)) in u.iter().zip(&points).enumerate() {
         let (st, ss) = (at(total, e)?, at(elastic, e)?);
         let big_w = e * weight.value(e);
         let value = if ui <= 0.0 {
@@ -127,15 +132,12 @@ pub fn slowing_down_shape_with(
     }
 
     // [e_low, e_high] の点を、形 f = F / W にしてエネルギーの昇順に並べる
-    let (x, y): (Vec<f64>, Vec<f64>) = u
+    let (x, y): (Vec<f64>, Vec<f64>) = points
         .iter()
         .zip(&f)
         .rev()
-        .filter(|&(&ui, _)| ui >= 0.0)
-        .map(|(&ui, &value)| {
-            let e = e_high * (-ui).exp();
-            (e, value / (e * weight.value(e)))
-        })
+        .filter(|&(&e, _)| e <= e_high)
+        .map(|(&e, &value)| (e, value / (e * weight.value(e))))
         .unzip();
     Ok(Tab1::linear(x, y))
 }

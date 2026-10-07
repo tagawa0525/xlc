@@ -157,14 +157,20 @@ struct LibraryFile {
 
 impl Library {
     /// MessagePack（フィールド名付きの map 形式）で書く。
-    pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
+    /// MessagePack で書く。読むときと同じ検査（配列の長さ、有限な値）を書く前にもして、壊れたライブラリを書かない。
+    pub fn to_msgpack(&self) -> Result<Vec<u8>, LibraryError> {
+        let ng = self.groups.len();
+        for n in &self.nuclides {
+            n.check(ng, self.sigma0.len())
+                .map_err(LibraryError::Invalid)?;
+        }
         let file = LibraryFile {
             format: FORMAT.into(),
             group_bounds: self.groups.bounds().to_vec(),
             sigma0: self.sigma0.clone(),
             nuclides: self.nuclides.clone(),
         };
-        msgpack::to_named(&file)
+        Ok(msgpack::to_named(&file)?)
     }
 
     /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。

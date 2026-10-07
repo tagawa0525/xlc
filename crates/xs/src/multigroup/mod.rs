@@ -157,6 +157,8 @@ pub enum ShieldingError {
     UnresolvedSigma0 { found: usize, expected: usize },
     #[error("the slowing-down weight needs elastic scattering (MT2)")]
     NoElastic,
+    #[error("the slowing-down weight is not defined at {0} eV")]
+    Undefined(f64),
     #[error(transparent)]
     SlowingDown(#[from] SlowingDownError),
 }
@@ -226,14 +228,15 @@ pub fn shielded_averages(
             let elastic = tables.get(&2).ok_or(ShieldingError::NoElastic)?;
             let shape = slowing_down_shape(total, elastic, slowing.awr, weight, s0, slowing.range)?;
             let (low, high) = slowing.range;
-            let scale = elastic.eval(high).unwrap_or(0.0) + s0;
+            let scale = elastic.eval(high).ok_or(ShieldingError::Undefined(high))? + s0;
             // 範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）
-            let at_low = shape.eval(low).unwrap_or(0.0);
+            let at_low = shape.eval(low).ok_or(ShieldingError::Undefined(low))?;
             let flux = |e: f64| {
                 if e < low {
                     at_low
                 } else if e <= high {
-                    shape.eval(e).unwrap_or(0.0)
+                    // 表は範囲をちょうど覆うので、引けないのは誤り。NaN はライブラリを書く前の検査で止まる
+                    shape.eval(e).unwrap_or(f64::NAN)
                 } else {
                     scale * bondarenko(e)
                 }
