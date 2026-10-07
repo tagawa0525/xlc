@@ -1,4 +1,108 @@
 //! 格子の対称性（正方形の回転と鏡映）による、ピンの組。
+//!
+//! 正方形の 8 つの対称操作のうち、セルの配置、領域の物質、外周の境界条件、余白を変えないものを調べ、それで
+//! 移り合うセルを同じ組にする。組の中のピンは、自己遮蔽の結果が同じなので1回だけ解けばよい（VERA の集合体の
+//! ように 1/8 対称なら約 1/8 になる）。対称性は前提とせず、真空境界や位置で違う物質のある検証の体系では、成り立つ
+//! 操作だけを使う。
+
+use crate::tracking::{Boundary, Tracking};
+
+/// 対称性のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum SymmetryError {
+    #[error("{given} region materials for {regions} regions")]
+    Regions { given: usize, regions: usize },
+}
+
+/// 正方形の 8 つの対称操作。格子の中心を原点とするセルの座標 (u, v)（u は右、v は下向き）に掛ける行列
+/// [a, b, c, d]: (u, v) → (a u + b v, c u + d v)。恒等、回転（3つ）、左右・上下・対角線・反対角線の鏡映
+const OPERATIONS: [[i64; 4]; 8] = [
+    [1, 0, 0, 1],
+    [0, -1, 1, 0],
+    [-1, 0, 0, -1],
+    [0, 1, -1, 0],
+    [-1, 0, 0, 1],
+    [1, 0, 0, -1],
+    [0, 1, 1, 0],
+    [0, -1, -1, 0],
+];
+
+/// セルごとの、同じ組の代表のセル（組の中で最も小さい番号）。`region_material` は領域ごとの物質の番号。
+pub fn cell_orbits(
+    tracking: &Tracking,
+    region_material: &[usize],
+) -> Result<Vec<usize>, SymmetryError> {
+    let lattice = &tracking.lattice;
+    let regions = lattice.regions();
+    if region_material.len() != regions {
+        return Err(SymmetryError::Regions {
+            given: region_material.len(),
+            regions,
+        });
+    }
+    let n = lattice.cells_per_side();
+    let cells = n * n;
+    // セルの座標は2倍して整数にする: U = 2c − (n − 1)、V = 2r − (n − 1)
+    let offset = n as i64 - 1;
+    let transform =
+        |op: &[i64; 4], (u, v): (i64, i64)| (op[0] * u + op[1] * v, op[2] * u + op[3] * v);
+    let map = |op: &[i64; 4], cell: usize| {
+        let (u, v) = (
+            2 * (cell % n) as i64 - offset,
+            2 * (cell / n) as i64 - offset,
+        );
+        let (u, v) = transform(op, (u, v));
+        (((v + offset) / 2) as usize) * n + ((u + offset) / 2) as usize
+    };
+    // セルのリングごとの物質（扇形や小さな正方形で物質が違うセルは None: 回すと領域の対応が変わる）
+    let rings = |cell: usize| -> Option<Vec<usize>> {
+        let pin = lattice.cell_type(cell);
+        let materials = &region_material[lattice.cell_regions(cell)];
+        let width = if pin.is_grid() {
+            materials.len()
+        } else {
+            pin.sectors()
+        };
+        materials
+            .chunks(width)
+            .map(|ring| ring.iter().all(|&m| m == ring[0]).then_some(ring[0]))
+            .collect()
+    };
+    let ring_materials: Vec<Option<Vec<usize>>> = (0..cells).map(rings).collect();
+    // 余白の物質が一様か
+    let margin = &region_material[lattice.cell_regions(cells - 1).end..];
+    let uniform_margin = margin.iter().all(|&m| Some(&m) == margin.first());
+    // 外周の辺の向き (u, v) と境界条件
+    let b = tracking.boundaries;
+    let sides = [
+        ((-1, 0), b.left),
+        ((1, 0), b.right),
+        ((0, -1), b.top),
+        ((0, 1), b.bottom),
+    ];
+    let side = |direction: (i64, i64)| -> Option<Boundary> {
+        sides.iter().find(|(d, _)| *d == direction).map(|(_, b)| *b)
+    };
+    let valid: Vec<&[i64; 4]> = OPERATIONS
+        .iter()
+        .filter(|op| {
+            let identity = **op == OPERATIONS[0];
+            let boundaries = sides
+                .iter()
+                .all(|&(d, condition)| side(transform(op, d)) == Some(condition));
+            let cells_match = (0..cells).all(|cell| {
+                let image = map(op, cell);
+                lattice.cell_type(cell) == lattice.cell_type(image)
+                    && ring_materials[cell].is_some()
+                    && ring_materials[cell] == ring_materials[image]
+            });
+            identity || (boundaries && uniform_margin && cells_match)
+        })
+        .collect();
+    Ok((0..cells)
+        .map(|cell| valid.iter().map(|op| map(op, cell)).min().unwrap_or(cell))
+        .collect())
+}
 
 #[cfg(test)]
 mod tests {
