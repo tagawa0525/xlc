@@ -1204,6 +1204,77 @@ mod tests {
         }
 
         #[test]
+        fn symmetric_pins_are_solved_once() {
+            // 3×3 の中央が水のセル: 角の 4 本と辺の 4 本がそれぞれ同じ組になり、等価なセルの減速計算は組ごとに1回
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+            let water = PinCell::new(1.26, vec![]).unwrap();
+            let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+            let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+            let pin_regions = ["fuel", "fuel", "fuel", crate::input::VOID, "clad", "water"];
+            let regions: Vec<String> = (0..9)
+                .flat_map(|cell| {
+                    if cell == 4 {
+                        vec!["water"]
+                    } else {
+                        pin_regions.to_vec()
+                    }
+                })
+                .map(String::from)
+                .collect();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 希釈した物質（3 と真空）に、2 組 × 真空でない 5 リングの物質
+            assert_eq!(shielded.materials.len(), 4 + 2 * 5);
+            // 角どうし、辺どうしは同じ物質を共有する。燃料のリングの最初の領域で比べる
+            let first = |cell: usize| shielded.region_material[lattice.cell_regions(cell).start];
+            assert_eq!(first(0), first(8));
+            assert_eq!(first(1), first(7));
+            assert_ne!(first(0), first(1));
+            // ピンごとの結果は 8 本とも残り、組の中では同じ
+            assert_eq!(shielded.pins.len(), 8);
+            let radius = |cell: usize| {
+                shielded
+                    .pins
+                    .iter()
+                    .find(|p| p.cell == cell)
+                    .unwrap()
+                    .equivalent
+                    .unwrap()
+            };
+            assert_eq!(radius(0), radius(8));
+            assert_eq!(radius(1), radius(3));
+        }
+
+        #[test]
         fn isolated_pins_are_shielded() {
             // 水が厚く、Dancoff 係数がセルの数値誤差より小さいピンも、孤立したピンとして解ける
             let library = resonant_library();
