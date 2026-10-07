@@ -545,10 +545,10 @@ impl<'a> Sweeper<'a> {
     /// スレッドの数や仕事の分け方によらない。方位角ごとのトラックの長さの和はほぼ等しく、
     /// 仕事の量も揃う
     fn tallies(&self, regions: usize) -> Vec<Tally> {
+        let voids = self.void.iter().flatten().count();
         self.azimuths
             .iter()
             .map(|range| {
-                let voids = self.void.iter().flatten().count();
                 let segments = self.tracking.tracks[range.clone()]
                     .iter()
                     .map(|t| t.segments.len())
@@ -743,7 +743,7 @@ struct Tally {
     current: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
-    /// スイープ中のトラックの [区間][極角][群] の減衰 1 - exp(-τ)（作業用。方位角の最も長いトラックの分）
+    /// スイープ中のトラックの [区間][極角][群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分）
     attenuation: Vec<f64>,
 }
 
