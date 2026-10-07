@@ -101,7 +101,8 @@ pub struct PinShielding {
     /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
     pub nuclides: Vec<(Nuclide, f64)>,
     /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）。UFG の範囲の群は、燃料のリングの値を中性子束と
-    /// 体積で平均したもの
+    /// 体積で平均したもの。`nuclides` とともに SPH 因子を掛けていない物理的な値（参照解と比べる用）で、MOC の
+    /// 中性子束と組み合わせて反応率を求めるには、領域の物質（SPH 因子を掛けたもの）を使う
     pub effective: Vec<Shielded>,
     /// UFG の減速計算に使った等価なセルの外半径 (cm)。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
