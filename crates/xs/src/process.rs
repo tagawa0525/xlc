@@ -556,6 +556,67 @@ mod tests {
     }
 
     #[test]
+    fn rejects_a_zero_s_wave_radius() {
+        use crate::endf::{ReichMoore, RmLValue};
+        let rm = RangeKind::ReichMoore(ReichMoore {
+            spi: 0.0,
+            ap: 0.0,
+            naps: 0,
+            l_values: vec![RmLValue {
+                awri: 236.0,
+                apl: 0.0,
+                l: OrbitalL::S,
+                resonances: vec![],
+            }],
+        });
+        assert!(matches!(
+            s_wave_radius(&rm),
+            Err(ProcessError::SWaveRadius(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_differing_s_wave_radii() {
+        use crate::endf::{ParticlePair, RMatrixLimited, RmlChannel, SpinGroup};
+        let pair = ParticlePair {
+            ma: 1.0,
+            mb: 56.0,
+            za: 0.0,
+            zb: 26.0,
+            ia: 0.5,
+            ib: 0.5,
+            q: 0.0,
+            pnt: 1,
+            shf: 0,
+            mt: 2,
+        };
+        let group = |aj: f64, ape: f64| SpinGroup {
+            aj,
+            pj: 0.0,
+            channels: vec![RmlChannel {
+                pair: 0,
+                l: OrbitalL::S,
+                sch: aj,
+                bnd: 0.0,
+                ape,
+                apt: ape,
+            }],
+            resonances: vec![],
+        };
+        let rml = |second: f64| {
+            RangeKind::RMatrixLimited(RMatrixLimited {
+                pairs: vec![pair.clone()],
+                spin_groups: vec![group(1.0, 0.63), group(2.0, second)],
+            })
+        };
+        assert_eq!(s_wave_radius(&rml(0.63)).unwrap(), 0.63);
+        assert!(matches!(
+            s_wave_radius(&rml(0.70)),
+            Err(ProcessError::SWaveRadii(_))
+        ));
+    }
+
+    #[test]
     fn no_resolved_range_needs_no_slowing_down() {
         let groups = GroupStructure::new(vec![1.0e5, 1.0e4, 1.0e-5]).unwrap();
         assert!(
