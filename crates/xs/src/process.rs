@@ -326,6 +326,7 @@ pub fn process_nuclide(
         name: name.to_string(),
         za: head.za,
         awr: head.awr,
+        potential: potential_scattering(tape, mat)?,
         temperatures,
     })
 }

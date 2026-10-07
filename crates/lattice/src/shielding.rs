@@ -451,6 +451,7 @@ mod tests {
                 name: "U-238".into(),
                 za: 92238.0,
                 awr: 236.0,
+                potential: None,
                 temperatures: vec![TemperatureData {
                     temperature: T,
                     chi: vec![0.0, 0.0],
@@ -584,6 +585,7 @@ mod tests {
                 name: name.into(),
                 za: 0.0,
                 awr: 1.0,
+                potential: None,
                 temperatures: vec![TemperatureData {
                     temperature: T,
                     chi: if fissile {
