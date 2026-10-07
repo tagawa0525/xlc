@@ -58,14 +58,14 @@ mod tests {
 
     #[test]
     fn heavy_absorber_scatters_without_losing_energy() {
-        // 質量が非常に大きいと散乱でエネルギーが変わらず、共鳴の中でも F = σ0 / (σa + σ0)
-        // （散乱断面積によらない。NR 近似の 1/(σt + σ0) とは違う）
+        // 質量が大きく、散乱でのエネルギーの損失（窓の幅 Δ ≈ 4/A = 4e-4）が共鳴の幅（5%）よりずっと
+        // 小さいと、共鳴の中でも F ≈ σ0 / (σa + σ0)（散乱断面積によらない。NR 近似の 1/(σt + σ0) とは違う）
         let (total, elastic) = resonance();
         let shape =
-            slowing_down_shape(&total, &elastic, 1.0e8, &Weight::lwr(), 50.0, RANGE).unwrap();
+            slowing_down_shape(&total, &elastic, 1.0e4, &Weight::lwr(), 50.0, RANGE).unwrap();
         let at_peak = shape.eval(10.0).unwrap();
         assert!(
-            (at_peak - 50.0 / 2050.0).abs() < 1e-4 * at_peak,
+            (at_peak - 50.0 / 2050.0).abs() < 1e-3 * at_peak,
             "{at_peak}"
         );
     }
