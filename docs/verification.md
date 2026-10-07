@@ -74,3 +74,17 @@ nix develop ../..#references -c sh -c \
   'PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 venv/bin/python ../../examples/vera/openmc_model.py \
      endfb80/cross_sections.xml 2B work-2B 1000000 400 100 1'
 ```
+
+同じ多群定数で OpenMC の多群モードと比べる（examples/vera/README.md の「同じ多群定数での OpenMC との比較」）には、
+負にならない散乱核のライブラリと、そこから多群定数を作ってから解く。格子の入力は `library` をそのライブラリに、
+`self-shielding = false` と `scattering-order` を同じ次数にしたもの:
+
+```sh
+cd references/openmc
+nix develop ../..#references -c sh -c \
+  'venv/bin/python ../../examples/vera/positive_library.py ../../examples/vera/vera.msgpack positive-P3.msgpack 3'
+cargo run --release -p xlc-lattice --example mg_materials -- <格子の入力> mg-2B.msgpack
+nix develop ../..#references -c sh -c \
+  'PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 PYTHONPATH=../../examples/vera venv/bin/python \
+     ../../examples/vera/openmc_mg.py mg-2B.msgpack 2B work-mg-2B 1000000 300 50 1'
+```
