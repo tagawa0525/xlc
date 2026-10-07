@@ -491,6 +491,25 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn void_zones_need_no_material() {
+        let input = replaced(
+            PIN_CELL,
+            "{ material = \"fuel\", radius = 0.4, rings = 2 }",
+            "{ material = \"fuel\", radius = 0.4, rings = 2 }, { material = \"void\", radius = 0.418, rings = 1 }",
+        )
+        .unwrap();
+        // 燃料 2、真空 1、水 2 の領域
+        let (_, regions) = input.geometry().unwrap();
+        assert_eq!(regions[2], VOID);
+    }
+
+    #[test]
+    fn void_cannot_be_defined() {
+        let result = replaced(PIN_CELL, "[material.water]", "[material.void]");
+        assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
+    }
+
+    #[test]
     fn self_shielding_is_on_unless_turned_off() {
         assert!(LatticeInput::parse(PIN_CELL).unwrap().self_shielding);
         let off = replaced(
