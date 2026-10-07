@@ -7,7 +7,7 @@
 
 use xlc_xs::library::{Library, LookupError, Nuclide, Shielded};
 
-use crate::input::MaterialInput;
+use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
 use crate::tracking::Tracking;
@@ -96,9 +96,16 @@ pub fn shield_fuel(
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
+    // 真空の帯は、物質の一覧の最後に置く真空の物質にする
+    let void = dilute.len();
+    let mut dilute = dilute;
+    dilute.push(Material::void(library.groups.len()));
     let region_index = region_materials
         .iter()
         .map(|name| {
+            if name == VOID {
+                return Ok(void);
+            }
             materials
                 .iter()
                 .position(|m| &m.name == name)
@@ -665,6 +672,26 @@ mod tests {
                 (beside - below).abs() < 1e-3 * beside,
                 "{beside} vs {below}"
             );
+        }
+
+        #[test]
+        fn void_gap_is_kept_void() {
+            let library = library();
+            let pin = PinCell::new(1.26, vec![0.4096, 0.418]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+            let regions: Vec<String> = ["fuel", crate::input::VOID, "water"]
+                .map(String::from)
+                .to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            assert!(shielded.materials[shielded.region_material[1]].is_void());
+            assert!(fuel_total(&shielded, 0) > 0.0);
         }
 
         #[test]
