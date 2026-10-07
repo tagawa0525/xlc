@@ -1,6 +1,6 @@
 //! ピンごとの超微細群（UFG）の減速計算。
 //!
-//! 同心円のリングのセル（白色境界）で、全核種の弾性散乱（重心系で等方、標的は静止）による減速を、超微細な格子の上で
+//! 同心円のリングのセル（白色境界）で、全核種の弾性散乱（重心系で等方）による減速を、超微細な格子の上で
 //! 高いエネルギーから順に解く。レサジー u = ln(E_high/E) と F_i(u) = E φ_i(E) で、リング i の散乱による発生密度は
 //!
 //! q_i(u) = Σ_k N_k/(1 − α_k) ∫_{u−Δk}^{u} σs,k(u') F_i(u') e^{−(u−u')} du'、α = ((A − 1)/(A + 1))²、Δ = ln(1/α)
@@ -9,15 +9,22 @@
 //! 窓の積分は窓をずらしながら更新する（窓が範囲全体にわたる H でも、格子点の数に比例する手間で済む）。格子点での
 //! 散乱（最後の区間の、その点の値の項）は未知の F_i を含むので、点ごとにリングの数の連立方程式を解く。
 //!
+//! 上の式は標的を静止とした散乱核である。散乱源のエネルギーが 400 kT 未満の核種は、標的の熱運動を自由ガス（断面積を
+//! 一定とみなした散乱核を規格化したもの）で扱い、静止した標的の核との差を散乱源に足す。差は E' ≈ E と E' ≈ E/α の
+//! 近く（散乱核の幅の数倍）にだけあるので、その範囲を直接の求積で足し、窓の積分の手間は変わらない。上方散乱で
+//! まだ求めていない低いエネルギーの F を使うので、その範囲は収束するまで掃き直す。
+//!
 //! 範囲の上（E_high より上）は、中性子束をどのリングでも 1/E（F = 1）とし、散乱断面積はライブラリの無限希釈の
 //! 群定数とする（範囲の上限はアクチニドの分離共鳴の上端で、その上の遮蔽は σ0 の表で扱う）。群の上端より上に
 //! 中性子はない。範囲の下限（熱中性子散乱の打ち切り）より下は計算しない。
 
+use std::f64::consts::PI;
 use std::ops::Range;
 
 use rayon::prelude::*;
 use xlc_xs::library::{Library, LookupError, Pointwise, Shielded};
-use xlc_xs::multigroup::WINDOW_POINTS;
+use xlc_xs::multigroup::{WINDOW_POINTS, free_gas_kernel};
+use xlc_xs::special::erf;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
@@ -45,6 +52,8 @@ pub enum UfgError {
     Undefined { name: String, energy: f64 },
     #[error("the slowing-down equations are singular at {0} eV")]
     Singular(f64),
+    #[error("upscattering by the free-gas kernel not converged in {0} iterations")]
+    NotConverged(usize),
     #[error("ring {ring}: non-finite group constants in group {group}")]
     NonFinite { ring: usize, group: usize },
     #[error(transparent)]
@@ -111,16 +120,54 @@ pub fn cell_range(
     Ok(Some([low, high]))
 }
 
+/// ボルツマン定数 (eV/K)
+const BOLTZMANN: f64 = 8.617_333_262e-5;
+
+/// 自由ガスの散乱核を使う散乱源のエネルギーの上限（kT の倍数）。OpenMC と MCNP の既定と同じで、これより上では
+/// 静止した標的と区別できない
+const FREE_GAS_CUTOFF: f64 = 400.0;
+
+/// 自由ガスと静止した標的の散乱核の差を足す範囲（散乱核の幅の倍数）。差は幅の n 倍の距離で e^{−n²} 程度に減る
+const FREE_GAS_REACH: f64 = 8.0;
+
+/// 上方散乱の反復の打ち切り（F の相対変化）と回数の上限
+const FREE_GAS_TOLERANCE: f64 = 1.0e-10;
+const FREE_GAS_ITERATIONS: usize = 100;
+
 /// 1つの核種（名前と温度の組）の減速計算のデータ
 struct Data<'a> {
     name: &'a str,
+    awr: f64,
     /// 1/(1 − α)
     gain: f64,
     /// 窓の幅 Δ = ln(1/α)（α = 0 なら無限）
     width: f64,
+    /// kT (eV)
+    kt: f64,
     pointwise: &'a Pointwise,
     /// 範囲の上で使う無限希釈の弾性散乱の群定数
     elastic: &'a [f64],
+}
+
+impl Data<'_> {
+    /// 自由ガスの散乱核を使う散乱源のエネルギーの上限 (eV)
+    fn cutoff(&self) -> f64 {
+        FREE_GAS_CUTOFF * self.kt
+    }
+
+    /// エネルギー e での自由ガスの散乱核の幅（レサジー）2√(kT/(A E))
+    fn thermal_width(&self, e: f64) -> f64 {
+        2.0 * (self.kt / (self.awr * e)).sqrt()
+    }
+
+    /// 規格化した自由ガスの散乱核のレサジーあたりの値 E S(E'→E) / N(E')。N(E') は自由ガスの実効断面積と自由原子の
+    /// 断面積の比 (1 + 1/(2a²)) erf(a) + e^{−a²}/(√π a)、a² = A E'/kT
+    fn free_gas(&self, e_in: f64, e: f64) -> f64 {
+        let a2 = self.awr * e_in / self.kt;
+        let a = a2.sqrt();
+        let norm = (1.0 + 0.5 / a2) * erf(a) + (-a2).exp() / (PI.sqrt() * a);
+        e * free_gas_kernel(e_in, e, self.awr, self.kt) / norm
+    }
 }
 
 /// セル `cell` の、範囲 `range`（[`cell_range`]）の減速計算。`rings` はリングごとの物質（真空は `None`）。
@@ -172,8 +219,10 @@ pub fn slowing_down(
                     let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
                     data.push(Data {
                         name: &d.name,
+                        awr: d.awr,
                         gain: 1.0 / (1.0 - alpha),
                         width: -alpha.ln(),
+                        kt: BOLTZMANN * t.temperature,
                         pointwise: &t.pointwise,
                         elastic: &t.shielded[0].elastic,
                     });
@@ -186,6 +235,21 @@ pub fn slowing_down(
         entries.push(ring);
     }
 
+    // 自由ガスの散乱核を使う核種（散乱源の上限が範囲の下限より上）と、その補正が届くエネルギーの上限
+    let thermal: Vec<&Data> = data.iter().filter(|d| d.cutoff() > low).collect();
+    let reach_top = thermal
+        .iter()
+        .map(|d| {
+            let e = d.cutoff().min(high);
+            e * (FREE_GAS_REACH * d.thermal_width(e)).exp()
+        })
+        .fold(0.0, f64::max);
+    // その範囲の格子の間隔: 散乱核の幅に WINDOW_POINTS 点
+    let thermal_step = thermal
+        .iter()
+        .map(|d| d.thermal_width(d.cutoff().min(high)) / WINDOW_POINTS as f64)
+        .fold(f64::INFINITY, f64::min);
+
     // 格子（エネルギーの降順）: ポイントワイズの断面積の格子と群の境界に、どの核種の窓にも WINDOW_POINTS 点が入るよう点を足す
     let group_bounds = &bounds[top..=bottom];
     let mut energies: Vec<f64> = data
@@ -196,10 +260,17 @@ pub fn slowing_down(
         .collect();
     energies.sort_by(|a, b| b.total_cmp(a));
     energies.dedup();
-    let step = data
+    let window_step = data
         .iter()
         .map(|d| d.width / WINDOW_POINTS as f64)
         .fold(f64::INFINITY, f64::min);
+    let step = |e: f64| {
+        if e <= reach_top {
+            window_step.min(thermal_step)
+        } else {
+            window_step
+        }
+    };
     let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
     // ポイントワイズの断面積の不連続点（同じエネルギーの2点）では、高い側と低い側の極限の2つの格子点を同じレサジーに置く。
     // 範囲の上端では低い側、下端では高い側の極限だけを使う
@@ -224,17 +295,39 @@ pub fn slowing_down(
         }
     }
     let u = lethargies;
+    let len = u.len();
 
-    let ng = bottom - top;
+    // 格子点ごとの弾性散乱（核種ごと）とリングの全断面積
+    let mut elastic = vec![Vec::with_capacity(len); data.len()];
+    let mut totals: Vec<Vec<f64>> = Vec::with_capacity(len);
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise.energy.len()).collect();
+    for &(e, below) in &points {
+        let row = data
+            .iter()
+            .zip(cursors.iter_mut())
+            .map(|(d, c)| evaluate(d, c, e, below))
+            .collect::<Result<Vec<_>, _>>()?;
+        for (column, v) in elastic.iter_mut().zip(&row) {
+            column.push(v[1]);
+        }
+        totals.push(
+            entries
+                .iter()
+                .map(|ring| ring.iter().map(|&(k, d)| d * row[k][0]).sum())
+                .collect(),
+        );
+    }
+
     let above = Above { bounds, top, high };
     let mut sweep = Sweep {
         data: &data,
         entries: &entries,
         volumes: &volumes,
         u: &u,
-        elastic: vec![Vec::with_capacity(u.len()); data.len()],
-        flux: vec![Vec::with_capacity(u.len()); n],
+        energies: points.iter().map(|p| p.0).collect(),
         above,
+        elastic,
+        flux: vec![vec![f64::NAN; len]; n],
         lower: vec![0; data.len()],
         // 範囲の上端での窓の積分（範囲の上の中性子束は 1/E）
         windows: entries
@@ -245,52 +338,95 @@ pub fn slowing_down(
                     .collect()
             })
             .collect(),
-        previous: Vec::new(),
-        group: 0,
-        group_flux: vec![vec![0.0; ng]; n],
-        rates: entries
-            .iter()
-            .map(|ring| vec![vec![[0.0; 4]; ng]; ring.len()])
-            .collect(),
+        first_pass: true,
     };
 
-    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise.energy.len()).collect();
-    for start in (0..u.len()).step_by(CHUNK) {
-        let chunk = start..(start + CHUNK).min(u.len());
-        // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf]
-        let mut values: Vec<Vec<[f64; 4]>> = Vec::with_capacity(chunk.len());
-        for &(e, below) in &points[chunk.clone()] {
-            let row = data
-                .iter()
-                .zip(cursors.iter_mut())
-                .map(|(d, c)| evaluate(d, c, e, below))
-                .collect::<Result<Vec<_>, _>>()?;
-            values.push(row);
-        }
-        let tracks = values
+    // 高いエネルギーから順に解く。自由ガスの補正が届く範囲（start から）は、上方散乱を反復するので飛程を残す
+    let start = points.iter().position(|p| p.0 <= reach_top).unwrap_or(len);
+    let mut saved = None;
+    let mut cached: Vec<Vec<Vec<f64>>> = Vec::new();
+    for begin in (0..len).step_by(CHUNK) {
+        let chunk = begin..(begin + CHUNK).min(len);
+        let tracks = totals[chunk.clone()]
             .par_iter()
-            .map(|row| {
-                let totals: Vec<f64> = entries
-                    .iter()
-                    .map(|ring| ring.iter().map(|&(k, d)| d * row[k][0]).sum())
-                    .collect();
-                cell.tracks(&totals)
-            })
+            .map(|t| cell.tracks(t))
             .collect::<Result<Vec<_>, _>>()?;
-        for ((m, row), w) in chunk.zip(values).zip(&tracks) {
-            let (e, below) = points[m];
-            sweep.point(m, row, w, e)?;
-            // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
-            if sweep.group < ng && !below && e == group_bounds[sweep.group + 1] {
-                sweep.group += 1;
+        for (m, w) in chunk.zip(tracks) {
+            if m == start {
+                saved = Some((sweep.windows.clone(), sweep.lower.clone()));
             }
+            sweep.point(m, &w, points[m].0)?;
+            if m >= start {
+                cached.push(w);
+            }
+        }
+    }
+    if let Some((windows, lower)) = saved {
+        sweep.first_pass = false;
+        let mut converged = false;
+        for _ in 0..FREE_GAS_ITERATIONS {
+            let old: Vec<Vec<f64>> = sweep.flux.iter().map(|f| f[start..].to_vec()).collect();
+            sweep.windows.clone_from(&windows);
+            sweep.lower.clone_from(&lower);
+            for (m, w) in (start..len).zip(&cached) {
+                sweep.point(m, w, points[m].0)?;
+            }
+            let change = sweep
+                .flux
+                .iter()
+                .zip(&old)
+                .flat_map(|(f, o)| f[start..].iter().zip(o).map(|(a, b)| ((a - b) / a).abs()))
+                .fold(0.0, f64::max);
+            if change <= FREE_GAS_TOLERANCE {
+                converged = true;
+                break;
+            }
+        }
+        if !converged {
+            return Err(UfgError::NotConverged(FREE_GAS_ITERATIONS));
+        }
+    }
+
+    // 群の積分（レサジーの台形則）。ポイントワイズの断面積は引き直す
+    let ng = bottom - top;
+    let mut group_flux = vec![vec![0.0; ng]; n];
+    let mut rates: Vec<Vec<Vec<[f64; 4]>>> = entries
+        .iter()
+        .map(|ring| vec![vec![[0.0; 4]; ng]; ring.len()])
+        .collect();
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise.energy.len()).collect();
+    let mut previous: Vec<[f64; 4]> = Vec::new();
+    let mut group = 0;
+    for (m, &(e, below)) in points.iter().enumerate() {
+        let values = data
+            .iter()
+            .zip(cursors.iter_mut())
+            .map(|(d, c)| evaluate(d, c, e, below))
+            .collect::<Result<Vec<_>, _>>()?;
+        if m > 0 {
+            let du = u[m] - u[m - 1];
+            for (i, ring) in entries.iter().enumerate() {
+                let (f0, f1) = (sweep.flux[i][m - 1], sweep.flux[i][m]);
+                group_flux[i][group] += 0.5 * du * (f0 + f1);
+                for (term, &(k, _)) in ring.iter().enumerate() {
+                    let (v0, v1) = (previous[k], values[k]);
+                    for x in 0..4 {
+                        rates[i][term][group][x] += 0.5 * du * (f0 * v0[x] + f1 * v1[x]);
+                    }
+                }
+            }
+        }
+        previous = values;
+        // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
+        if group < ng && !below && e == group_bounds[group + 1] {
+            group += 1;
         }
     }
 
     // 群定数
     let mut nuclides = Vec::with_capacity(n);
-    for (i, ring) in sweep.rates.iter().enumerate() {
-        let flux = &sweep.group_flux[i];
+    for (i, ring) in rates.iter().enumerate() {
+        let flux = &group_flux[i];
         let mut list = Vec::with_capacity(ring.len());
         for rate in ring {
             let column =
@@ -322,24 +458,24 @@ pub fn slowing_down(
     }
     Ok(CellSpectrum {
         groups: top..bottom,
-        flux: sweep.group_flux,
+        flux: group_flux,
         nuclides,
     })
 }
 
-/// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step` より広いところは点を足す。
-/// 丸めで同じレサジーになる点は1つにまとめ、`keep` を満たす（群の境界の）エネルギーを残す。
+/// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step`（エネルギーの関数）より広い
+/// ところは点を足す。丸めで同じレサジーになる点は1つにまとめ、`keep` を満たす（群の境界の）エネルギーを残す。
 fn lethargy_grid(
     energies: &[f64],
     high: f64,
-    step: f64,
+    step: impl Fn(f64) -> f64,
     keep: impl Fn(f64) -> bool,
 ) -> (Vec<f64>, Vec<f64>) {
     let mut u: Vec<f64> = Vec::with_capacity(energies.len());
     let mut points: Vec<f64> = Vec::with_capacity(energies.len());
     for &e in energies {
         let ue = (high / e).ln();
-        if let Some(&last) = u.last() {
+        if let (Some(&last), Some(&previous)) = (u.last(), points.last()) {
             if ue <= last {
                 if keep(e)
                     && let Some(p) = points.last_mut()
@@ -348,9 +484,10 @@ fn lethargy_grid(
                 }
                 continue;
             }
-            if step.is_finite() {
+            let h = step(e).min(step(previous));
+            if h.is_finite() {
                 let gap = ue - last;
-                let extra = (gap / step).ceil() as usize;
+                let extra = (gap / h).ceil() as usize;
                 for k in 1..extra {
                     let fill = last + gap * k as f64 / extra as f64;
                     u.push(fill);
@@ -451,40 +588,32 @@ struct Sweep<'a> {
     entries: &'a [Vec<(usize, f64)>],
     volumes: &'a [f64],
     u: &'a [f64],
+    /// 格子点のエネルギー (eV)
+    energies: Vec<f64>,
     above: Above<'a>,
     /// [核種][格子点] の弾性散乱
     elastic: Vec<Vec<f64>>,
-    /// [リング][格子点] の F
+    /// [リング][格子点] の F（まだ求めていない点は NaN）
     flux: Vec<Vec<f64>>,
     /// 核種ごとの、窓の下端を含む区間の始まりの格子点
     lower: Vec<usize>,
     /// [リング][項] の窓の積分 ∫ σs F e^{−(u−u')} du'
     windows: Vec<Vec<f64>>,
-    /// 1つ前の格子点のポイントワイズの断面積
-    previous: Vec<[f64; 4]>,
-    /// 今の区間の群（`groups` の中の番号）
-    group: usize,
-    group_flux: Vec<Vec<f64>>,
-    /// [リング][項][群] の反応率 ∫ F σ du [全, 弾性散乱, 核分裂, νσf]
-    rates: Vec<Vec<Vec<[f64; 4]>>>,
+    /// 最初の掃き下ろしか（まだ求めていない低いエネルギーの F は、直前の点の値で代える）
+    first_pass: bool,
 }
 
 impl Sweep<'_> {
-    /// 格子点 m の中性子束を求め、窓の積分と群の積分を進める。`values` はその点のポイントワイズの断面積、`tracks` は飛程。
-    fn point(
-        &mut self,
-        m: usize,
-        values: Vec<[f64; 4]>,
-        tracks: &[Vec<f64>],
-        energy: f64,
-    ) -> Result<(), UfgError> {
+    /// 格子点 m の中性子束を求め、窓の積分を進める。`tracks` はその点の飛程。
+    fn point(&mut self, m: usize, tracks: &[Vec<f64>], energy: f64) -> Result<(), UfgError> {
         let n = self.volumes.len();
-        for (column, v) in self.elastic.iter_mut().zip(&values) {
-            column.push(v[1]);
-        }
         // 窓の積分のうち既知の部分 [リング][項] と、その点の F_i の係数
         let mut known = self.windows.clone();
-        let mut own = vec![vec![0.0; 0]; n];
+        let mut own: Vec<Vec<f64>> = self
+            .entries
+            .iter()
+            .map(|ring| vec![0.0; ring.len()])
+            .collect();
         if m > 0 {
             let (u0, u1) = (self.u[m - 1], self.u[m]);
             let decay = (-(u1 - u0)).exp();
@@ -507,26 +636,20 @@ impl Sweep<'_> {
                 .collect();
             for (i, ring) in self.entries.iter().enumerate() {
                 let f = &self.flux[i];
-                own[i] = ring.iter().map(|&(k, _)| cb * self.elastic[k][m]).collect();
-                for (e, &(k, _)) in ring.iter().enumerate() {
+                for (term, &(k, _)) in ring.iter().enumerate() {
+                    own[i][term] = cb * self.elastic[k][m];
                     let (outside, weights) = &slabs[k];
                     let leaving: f64 = outside
                         + weights
                             .iter()
                             .map(|&(p, w)| w * self.elastic[k][p] * f[p])
                             .sum::<f64>();
-                    known[i][e] =
-                        decay * known[i][e] + ca * self.elastic[k][m - 1] * f[m - 1] - leaving;
+                    known[i][term] =
+                        decay * known[i][term] + ca * self.elastic[k][m - 1] * f[m - 1] - leaving;
                 }
             }
-        } else {
-            own = self
-                .entries
-                .iter()
-                .map(|ring| vec![0.0; ring.len()])
-                .collect();
         }
-        // F_j V_j − Σ_i c_i F_i W_ij = Σ_i k_i W_ij
+        // F_j V_j − Σ_i c_i F_i W_ij = Σ_i k_i W_ij（k は自由ガスの補正を含む）
         let source = |i: usize, terms: &[f64]| -> f64 {
             self.entries[i]
                 .iter()
@@ -534,7 +657,8 @@ impl Sweep<'_> {
                 .map(|(&(k, d), t)| d * self.data[k].gain * t)
                 .sum()
         };
-        let k: Vec<f64> = (0..n).map(|i| source(i, &known[i])).collect();
+        let thermal = self.free_gas(m);
+        let k: Vec<f64> = (0..n).map(|i| source(i, &known[i]) + thermal[i]).collect();
         let c: Vec<f64> = (0..n).map(|i| source(i, &own[i])).collect();
         // W は対称なので W_ij = W_ji
         let matrix: Vec<Vec<f64>> = tracks
@@ -555,28 +679,116 @@ impl Sweep<'_> {
             .collect();
         let f = solve(matrix, rhs).ok_or(UfgError::Singular(energy))?;
         for (i, ring) in self.entries.iter().enumerate() {
-            for (e, _) in ring.iter().enumerate() {
-                self.windows[i][e] = known[i][e] + own[i][e] * f[i];
+            for term in 0..ring.len() {
+                self.windows[i][term] = known[i][term] + own[i][term] * f[i];
             }
-            self.flux[i].push(f[i]);
+            self.flux[i][m] = f[i];
         }
-        // 群の積分（レサジーの台形則）
-        if m > 0 {
-            let du = self.u[m] - self.u[m - 1];
-            let g = self.group;
-            for (i, ring) in self.entries.iter().enumerate() {
-                let (f0, f1) = (self.flux[i][m - 1], f[i]);
-                self.group_flux[i][g] += 0.5 * du * (f0 + f1);
-                for (e, &(k, _)) in ring.iter().enumerate() {
-                    let (v0, v1) = (self.previous[k], values[k]);
-                    for x in 0..4 {
-                        self.rates[i][e][g][x] += 0.5 * du * (f0 * v0[x] + f1 * v1[x]);
+        Ok(())
+    }
+
+    /// 格子点 m への、自由ガスと静止した標的の散乱核の差による散乱源 [リング]
+    /// Σ_k N_k ∫ σs,k(u') F(u') [K_fg(u'→u) − K_static(u'→u)] du'。散乱源は範囲の中で E' が自由ガスの上限より下の点。
+    /// σs F は格子点の間で線形とし、差の核は台形則で積分する（静止した標的の核の飛び u' = u − Δ と u' = u で区間を分ける）
+    fn free_gas(&self, m: usize) -> Vec<f64> {
+        let n = self.volumes.len();
+        let mut result = vec![0.0; n];
+        let (um, em) = (self.u[m], self.energies[m]);
+        let last = self.u.len() - 1;
+        let high = self.above.high;
+        for (k, d) in self.data.iter().enumerate() {
+            if !self
+                .entries
+                .iter()
+                .any(|ring| ring.iter().any(|&(j, _)| j == k))
+            {
+                continue;
+            }
+            // 散乱源の範囲: E' < 400 kT かつ範囲の中
+            let lowest = (high / d.cutoff()).ln().max(0.0);
+            let reach = FREE_GAS_REACH * d.thermal_width(em);
+            let far = um - d.width;
+            let windows: Vec<(f64, f64)> = if d.width > 2.0 * reach {
+                vec![(far - reach, far + reach), (um - reach, um + reach)]
+            } else {
+                vec![(far - reach, um + reach)]
+            };
+            // 格子点ごとの σs F にかける重み
+            let mut weights: Vec<(usize, f64)> = Vec::new();
+            for (a, b) in windows {
+                let (a, b) = (a.max(lowest), b.min(self.u[last]));
+                if a >= b {
+                    continue;
+                }
+                // 区間の境目: 格子点、窓の端、静止した標的の核の飛び
+                let first = self.u.partition_point(|&x| x <= a).saturating_sub(1);
+                let end = self.u.partition_point(|&x| x < b).min(last);
+                let mut breaks: Vec<(f64, usize)> = (first..=end)
+                    .filter(|&p| self.u[p] > a && self.u[p] < b)
+                    .map(|p| (self.u[p], p))
+                    .collect();
+                breaks.push((a, first));
+                breaks.push((b, end.saturating_sub(1).max(first)));
+                if far > a && far < b {
+                    let p = self.u.partition_point(|&x| x <= far).saturating_sub(1);
+                    breaks.push((far, p));
+                }
+                breaks.sort_by(|x, y| x.0.total_cmp(&y.0));
+                for pair in breaks.windows(2) {
+                    let (x, y) = (pair[0].0, pair[1].0);
+                    if y <= x {
+                        continue;
+                    }
+                    // この区間を含む格子の区間 [u_p, u_{p+1}]
+                    let mid = 0.5 * (x + y);
+                    let p = self
+                        .u
+                        .partition_point(|&v| v <= mid)
+                        .saturating_sub(1)
+                        .min(last - 1);
+                    let (ua, ub) = (self.u[p], self.u[p + 1]);
+                    let inside = mid > far && mid < um;
+                    let kernel = |v: f64| {
+                        let fg = d.free_gas(high * (-v).exp(), em);
+                        let fixed = if inside {
+                            d.gain * (-(um - v)).exp()
+                        } else {
+                            0.0
+                        };
+                        fg - fixed
+                    };
+                    let half = 0.5 * (y - x);
+                    for v in [x, y] {
+                        let t = (v - ua) / (ub - ua);
+                        let w = half * kernel(v);
+                        weights.push((p, w * (1.0 - t)));
+                        weights.push((p + 1, w * t));
                     }
                 }
             }
+            for (i, ring) in self.entries.iter().enumerate() {
+                for &(j, density) in ring {
+                    if j != k {
+                        continue;
+                    }
+                    let f = &self.flux[i];
+                    let value = |p: usize| {
+                        // 最初の掃き下ろしでは、まだ求めていない点の F を直前の点の値で代える
+                        if self.first_pass && p >= m {
+                            if m > 0 { f[m - 1] } else { 1.0 }
+                        } else {
+                            f[p]
+                        }
+                    };
+                    result[i] += density
+                        * weights
+                            .iter()
+                            .map(|&(p, w)| w * self.elastic[k][p] * value(p))
+                            .sum::<f64>();
+                }
+            }
         }
-        self.previous = values;
-        Ok(())
+        result
     }
 }
 
