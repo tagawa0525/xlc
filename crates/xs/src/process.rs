@@ -6,8 +6,8 @@ use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, pars
 use crate::library::{NuclideData, Shielded, TemperatureData};
 use crate::multigroup::{
     Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
-    Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
-    scattering_matrix, shielded_averages,
+    SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
+    fission_spectrum, scattering_matrix, shielded_averages,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
@@ -157,6 +157,43 @@ pub fn unresolved_shielding(
     )?))
 }
 
+/// 分離共鳴の範囲を持つ核種の、σ0 ごとの群定数の重みを減速計算で作る範囲（docs/plans/m2-assembly.md）。
+/// 重み関数の熱中性子の区切り以上で最も低い群の境界から、分離共鳴の上端以下で最も高い群の境界まで
+/// （熱中性子の領域では標的の熱運動が効き、静止した標的の減速計算は成り立たない）。
+/// 分離共鳴の範囲がなければ `None`。
+pub fn slowing_down_range(
+    tape: &Tape,
+    mat: i32,
+    groups: &GroupStructure,
+    weight: &Weight,
+) -> Result<Option<SlowingDown>, ProcessError> {
+    let Some(section) = tape.section(mat, 2, 151) else {
+        return Ok(None);
+    };
+    let mf2 = Mf2::parse(&section)?;
+    let Some(top) = mf2
+        .ranges
+        .iter()
+        .filter(|r| r.kind.is_resolved())
+        .map(|r| r.eh)
+        .reduce(f64::max)
+    else {
+        return Ok(None);
+    };
+    let bounds = groups.bounds();
+    let [thermal, _] = weight.breakpoints();
+    let (Some(&low), Some(&high)) = (
+        bounds.iter().rev().find(|&&b| b >= thermal),
+        bounds.iter().find(|&&b| b <= top),
+    ) else {
+        return Ok(None);
+    };
+    Ok((high > low).then_some(SlowingDown {
+        awr: mf2.awr,
+        range: (low, high),
+    }))
+}
+
 /// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
 ///
 /// 弾性散乱の散乱行列の行の和は、熱領域の扱いを含む実効的な散乱断面積になる。無限希釈の弾性散乱との
@@ -275,6 +312,7 @@ impl Common<'_> {
         let ng = groups.len();
         let tables = self.cold.at(temperature);
         let shielding = unresolved_shielding(self.tape, self.mat, temperature, &settings.sigma0)?;
+        let slowing = slowing_down_range(self.tape, self.mat, groups, weight)?;
         let averages = shielded_averages(
             groups,
             weight,
@@ -282,6 +320,7 @@ impl Common<'_> {
             self.nubar,
             &settings.sigma0,
             shielding.as_ref(),
+            slowing.as_ref(),
         )?;
         let chi = match (tables.get(&18), self.nubar, self.mf5) {
             (None, ..) => vec![0.0; ng],
@@ -399,6 +438,49 @@ mod tests {
         Tape::parse(&text).unwrap()
     }
 
+    /// 分離共鳴（MLBW、1e-5 eV〜20 keV、6.67 eV に1つ）を持つテープ
+    fn resolved_tape() -> Tape {
+        use crate::endf::rec;
+        let text = [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["9.223800+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0-5", "2.0+4", "1", "2", "0", "0"], 1, 2, 151),
+            rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+            rec(
+                ["6.674", "0.5", "2.6e-2", "1.5e-3", "2.3e-2", "0.0"],
+                1,
+                2,
+                151,
+            ),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat();
+        Tape::parse(&text).unwrap()
+    }
+
+    #[test]
+    fn slowing_down_covers_the_resolved_range_in_whole_groups() {
+        let groups = GroupStructure::new(vec![1.0e5, 3.0e4, 1.0e4, 10.0, 1.0e-5]).unwrap();
+        let slowing = slowing_down_range(&resolved_tape(), 1, &groups, &Weight::lwr())
+            .unwrap()
+            .unwrap();
+        assert_eq!(slowing.awr, 236.006);
+        // 重み関数の熱中性子の区切り 0.1 eV 以上で最も低い群の境界から、分離共鳴の上端 20 keV 以下で
+        // 最も高い群の境界まで
+        assert_eq!(slowing.range, (10.0, 1.0e4));
+    }
+
+    #[test]
+    fn no_resolved_range_needs_no_slowing_down() {
+        let groups = GroupStructure::new(vec![1.0e5, 1.0e4, 1.0e-5]).unwrap();
+        assert!(
+            slowing_down_range(&unresolved_tape(), 1, &groups, &Weight::lwr())
+                .unwrap()
+                .is_none()
+        );
+    }
+
     #[test]
     fn unresolved_shielding_lowers_capture_at_small_background() {
         use crate::multigroup::shielded_averages;
@@ -416,10 +498,11 @@ mod tests {
             None,
             &sigma0,
             Some(&shielding),
+            None,
         )
         .unwrap();
         let plain =
-            shielded_averages(&groups, &Weight::lwr(), &tables, None, &sigma0, None).unwrap();
+            shielded_averages(&groups, &Weight::lwr(), &tables, None, &sigma0, None, None).unwrap();
         // 無限希釈では遮蔽因子は 1、σ0 = 1 b では捕獲が減る
         let capture = |avg: &crate::multigroup::ReactionAverages| avg.sigma[&102][0];
         assert!((capture(&shielded[0]) / capture(&plain[0]) - 1.0).abs() < 1e-5);
