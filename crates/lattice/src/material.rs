@@ -222,6 +222,20 @@ impl Material {
         })
     }
 
+    /// 核分裂で生まれる中性子の行列 Σ_核種 νΣf(g) χ(g') [入射の群][出射の群]
+    pub fn fission_matrix(&self) -> Vec<Vec<f64>> {
+        let ng = self.groups();
+        let mut matrix = vec![vec![0.0; ng]; ng];
+        for term in &self.fission_terms {
+            for (row, n) in matrix.iter_mut().zip(&term.nu_fission) {
+                for (value, chi) in row.iter_mut().zip(&term.chi) {
+                    *value += n * chi;
+                }
+            }
+        }
+        matrix
+    }
+
     /// 吸収断面積 Σt - Σ_g' Σs(g→g')（多重度のある反応では負になりうる）。
     pub fn absorption(&self) -> Vec<f64> {
         self.total
@@ -321,6 +335,23 @@ mod tests {
         );
         assert_eq!(s.fission_terms[0].chi, m.fission_terms[0].chi);
         s.validate().unwrap();
+    }
+
+    #[test]
+    fn fission_matrix_sums_each_term() {
+        // 核種ごとの νΣf(g) χ(g') の和 [入射の群][出射の群]
+        let mut m = mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
+        m.fission_terms.push(FissionTerm {
+            chi: vec![0.25, 0.75],
+            nu_fission: vec![0.1, 0.2],
+        });
+        let expected = [[0.025 + 0.025, 0.075], [0.05 + 0.05, 0.15]];
+        let matrix = m.fission_matrix();
+        for (row, e) in matrix.iter().zip(expected) {
+            for (v, e) in row.iter().zip(e) {
+                assert!((v - e).abs() < 1e-15, "{matrix:?}");
+            }
+        }
     }
 
     #[test]
