@@ -242,6 +242,94 @@ fn two_body_rows(
     })
 }
 
+/// 8 点のガウス・ルジャンドルの点と重み（[-1, 1]）
+const GAUSS_8: [(f64, f64); 8] = [
+    (-0.960_289_856_497_536_3, 0.101_228_536_290_376_3),
+    (-0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
+    (-0.525_532_409_916_329_0, 0.313_706_645_877_887_3),
+    (-0.183_434_642_495_649_8, 0.362_683_783_378_362_0),
+    (0.183_434_642_495_649_8, 0.362_683_783_378_362_0),
+    (0.525_532_409_916_329_0, 0.313_706_645_877_887_3),
+    (0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
+    (0.960_289_856_497_536_3, 0.101_228_536_290_376_3),
+];
+
+/// ルジャンドル多項式 P_0(x)〜P_order(x)
+pub(crate) fn legendre(x: f64, order: usize) -> Vec<f64> {
+    let mut p = Vec::with_capacity(order + 1);
+    p.push(1.0);
+    if order >= 1 {
+        p.push(x);
+    }
+    for l in 2..=order {
+        let l_f = l as f64;
+        p.push(((2.0 * l_f - 1.0) * x * p[l - 1] - (l_f - 1.0) * p[l - 2]) / l_f);
+    }
+    p
+}
+
+/// 重心系で等方な2体反応で、入射エネルギー `e` の中性子が群 g' に出る確率に、実験室系の散乱角の余弦 μ の
+/// ルジャンドル多項式 P_l(μ) を掛けたもの [l][g']（`scale` 倍。l = 0 は一様な振り分け）。
+///
+/// 出射の速さの比 s = (A+1)√(E'/E) で積分する。重心系の余弦は μ_c = (s² − 1 − A²β²)/(2Aβ) で、
+/// dμ_c/2 = s ds/(2Aβ)、実験室系の余弦は μ = (s² + 1 − A²β²)/(2s) と s の滑らかな式になる（A = 1 でも特異点がない）。
+fn two_body_moments(
+    groups: &GroupStructure,
+    e: f64,
+    awr: f64,
+    q: f64,
+    scale: f64,
+    order: usize,
+) -> Vec<Vec<f64>> {
+    let ng = groups.len();
+    let mut out = vec![vec![0.0; ng]; order + 1];
+    let Some((lo, hi)) = two_body_range(e, awr, q) else {
+        return out;
+    };
+    uniform_fractions(groups, lo, hi, scale, &mut out[0]);
+    if order == 0 {
+        return out;
+    }
+    let bounds = groups.bounds();
+    let group = |x: f64| {
+        groups
+            .find(x)
+            .unwrap_or(if x > bounds[0] { 0 } else { ng - 1 })
+    };
+    if hi <= lo {
+        // しきい値ちょうど: 中性子は重心とともに前へ進む（μ = 1、P_l = 1）
+        let g = group(lo);
+        for row in out.iter_mut().skip(1) {
+            row[g] += scale;
+        }
+        return out;
+    }
+    let ab = awr * (1.0 + (awr + 1.0) * q / (awr * e)).sqrt();
+    let c = 1.0 - ab * ab;
+    let speed = |x: f64| (awr + 1.0) * (x / e).sqrt();
+    let mut cuts: Vec<f64> = bounds
+        .iter()
+        .copied()
+        .filter(|&b| b > lo && b < hi)
+        .chain([lo, hi])
+        .collect();
+    cuts.sort_by(f64::total_cmp);
+    for w in cuts.windows(2) {
+        let g = group(0.5 * (w[0] + w[1]));
+        let (sa, sb) = (speed(w[0]), speed(w[1]));
+        let half = 0.5 * (sb - sa);
+        for &(x, weight) in &GAUSS_8 {
+            let s = sa + half * (x + 1.0);
+            let mu = (s * s + c) / (2.0 * s);
+            let factor = scale * weight * half * s / (2.0 * ab);
+            for (l, p) in legendre(mu, order).into_iter().enumerate().skip(1) {
+                out[l][g] += factor * p;
+            }
+        }
+    }
+    out
+}
+
 /// 出射エネルギーの範囲の端が群境界を横切る入射エネルギーと、しきい値。
 /// 被積分関数はここで折れ曲がるので、積分区間の境界に入れる。
 fn two_body_kinks(groups: &GroupStructure, awr: f64, q: f64) -> Vec<f64> {
