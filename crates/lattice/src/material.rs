@@ -184,6 +184,7 @@ mod tests {
                 name: name.into(),
                 za: 0.0,
                 awr: 1.0,
+                potential: None,
                 temperatures: vec![TemperatureData {
                     temperature: 293.6,
                     chi: fission(vec![1.0, 0.0]),
