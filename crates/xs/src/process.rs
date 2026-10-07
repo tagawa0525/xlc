@@ -282,6 +282,7 @@ impl Common<'_> {
             self.nubar,
             &settings.sigma0,
             shielding.as_ref(),
+            None,
         )?;
         let chi = match (tables.get(&18), self.nubar, self.mf5) {
             (None, ..) => vec![0.0; ng],
@@ -416,10 +417,11 @@ mod tests {
             None,
             &sigma0,
             Some(&shielding),
+            None,
         )
         .unwrap();
         let plain =
-            shielded_averages(&groups, &Weight::lwr(), &tables, None, &sigma0, None).unwrap();
+            shielded_averages(&groups, &Weight::lwr(), &tables, None, &sigma0, None, None).unwrap();
         // 無限希釈では遮蔽因子は 1、σ0 = 1 b では捕獲が減る
         let capture = |avg: &crate::multigroup::ReactionAverages| avg.sigma[&102][0];
         assert!((capture(&shielded[0]) / capture(&plain[0]) - 1.0).abs() < 1e-5);
