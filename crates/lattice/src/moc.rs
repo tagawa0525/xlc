@@ -69,12 +69,14 @@ pub enum MocError {
         region: usize,
         source: MaterialError,
     },
-    #[error("total cross sections must be positive (void is not supported)")]
+    #[error("total cross sections must be positive in every group, or zero in every group (void)")]
     NonPositiveTotal,
     #[error("{materials} materials given, but the tracks cross {regions} regions")]
     RegionCount { materials: usize, regions: usize },
     #[error("no track crosses region {0}; use a finer track spacing")]
     Untracked(usize),
+    #[error("cell {0} is all void")]
+    VoidCell(usize),
     #[error("no fissile material")]
     NoFission,
     #[error("no neutron reaches group {0} (no fission spectrum or scattering into it)")]
@@ -101,9 +103,10 @@ pub fn solve(
         m.validate()
             .map_err(|source| MocError::Material { region, source })?;
     }
+    // どの群も正（ふつうの物質）か、どの群も 0（真空）であること
     if materials
         .iter()
-        .any(|m| m.total.iter().any(|&t| t <= 0.0 || !t.is_finite()))
+        .any(|m| !m.is_void() && m.total.iter().any(|&t| t <= 0.0 || !t.is_finite()))
     {
         return Err(MocError::NonPositiveTotal);
     }
@@ -122,6 +125,13 @@ pub fn solve(
             materials: regions,
             regions: used,
         });
+    }
+    // 全体が真空のセルは、粗メッシュ（CMFD）の拡散係数が定まらない
+    let lattice = &tracking.lattice;
+    if let Some(cell) = (0..lattice.cells_per_side().pow(2))
+        .find(|&c| lattice.cell_regions(c).all(|r| materials[r].is_void()))
+    {
+        return Err(MocError::VoidCell(cell));
     }
     let volumes = tracking.volumes(regions);
     if let Some(i) = volumes.iter().position(|&v| v <= 0.0) {
@@ -196,12 +206,20 @@ pub fn solve(
         std::mem::swap(&mut outgoing, &mut next_outgoing);
         let Sums {
             delta,
+            void_flux,
             mut leak,
             mut current,
         } = sum_tallies(&tallies, ng);
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
             .map(|i| {
+                // 真空では、通り抜ける角度中性子束の経路長の積分から求める
+                if let Some(v) = sweeper.void[i] {
+                    return void_flux[v * ng..][..ng]
+                        .iter()
+                        .map(|f| f / volumes[i])
+                        .collect();
+                }
                 let total = &materials[i].total;
                 let delta = &delta[i * ng..][..ng];
                 (0..ng)
@@ -305,6 +323,8 @@ struct Sweeper<'a> {
     attenuation: Vec<Vec<f64>>,
     /// 方位角ごとのトラックの番号の範囲
     azimuths: Vec<std::ops::Range<usize>>,
+    /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
+    void: Vec<Option<usize>>,
 }
 
 impl<'a> Sweeper<'a> {
@@ -339,6 +359,15 @@ impl<'a> Sweeper<'a> {
             attenuation,
             azimuths: (0..tracking.azimuths.len())
                 .map(|a| tracking.azimuth_tracks(a))
+                .collect(),
+            void: materials
+                .iter()
+                .scan(0, |next, m| {
+                    Some(m.is_void().then(|| {
+                        *next += 1;
+                        *next - 1
+                    }))
+                })
                 .collect(),
         }
     }
@@ -386,7 +415,10 @@ impl<'a> Sweeper<'a> {
     fn tallies(&self, regions: usize) -> Vec<Tally> {
         self.azimuths
             .iter()
-            .map(|_| Tally::new(regions, self.mesh.faces(), self.ng, self.width))
+            .map(|_| {
+                let voids = self.void.iter().flatten().count();
+                Tally::new(regions, voids, self.mesh.faces(), self.ng, self.width)
+            })
             .collect()
     }
 
@@ -464,6 +496,18 @@ impl<'a> Sweeper<'a> {
                                 add_current(&mut tally.current, path?.faces(), psi, &weights);
                                 cell = next;
                             }
+                            if let Some(v) = self.void[region] {
+                                // 真空では角度中性子束は変わらない。3次元の経路長 (長さ / sinθ) を掛けて数える
+                                let length = track.segments[s].length;
+                                let v = &mut tally.void_flux[v * ng..][..ng];
+                                for (p, weight) in weights.iter().enumerate() {
+                                    let w = weight * length / POLAR_SIN[p];
+                                    for (f, value) in v.iter_mut().zip(&psi[p * ng..][..ng]) {
+                                        *f += w * value;
+                                    }
+                                }
+                                continue;
+                            }
                             let att = &self.attenuation[index][s * width..][..width];
                             let q = &equilibrium[region];
                             let d = &mut tally.delta[region * ng..][..ng];
@@ -507,6 +551,8 @@ impl<'a> Sweeper<'a> {
 struct Tally {
     /// [領域][群] の角度中性子束の減衰の重み付き和
     delta: Vec<f64>,
+    /// [真空の領域][群] の、真空の領域を通る角度中性子束の経路長の重み付き和
+    void_flux: Vec<f64>,
     /// [群] の真空境界からの漏れ
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の流れ（面の正の向きが正）
@@ -516,9 +562,10 @@ struct Tally {
 }
 
 impl Tally {
-    fn new(regions: usize, faces: usize, groups: usize, width: usize) -> Self {
+    fn new(regions: usize, voids: usize, faces: usize, groups: usize, width: usize) -> Self {
         Self {
             delta: vec![0.0; regions * groups],
+            void_flux: vec![0.0; voids * groups],
             leak: vec![0.0; groups],
             current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
@@ -527,6 +574,7 @@ impl Tally {
 
     fn clear(&mut self) {
         self.delta.fill(0.0);
+        self.void_flux.fill(0.0);
         self.leak.fill(0.0);
         self.current.fill(0.0);
     }
@@ -536,6 +584,8 @@ impl Tally {
 struct Sums {
     /// [領域][群] の角度中性子束の減衰の重み付き和
     delta: Vec<f64>,
+    /// [真空の領域][群] の、真空の領域を通る角度中性子束の経路長の重み付き和
+    void_flux: Vec<f64>,
     /// [群] の真空境界からの漏れ
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の流れ
@@ -558,6 +608,7 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
     };
     Sums {
         delta: sum(|t| &t.delta),
+        void_flux: sum(|t| &t.void_flux),
         leak: sum(|t| &t.leak),
         current: sum(|t| &t.current),
     }
@@ -682,10 +733,11 @@ fn equilibrium_flux(m: &Material, phi: &[f64], k: f64) -> Vec<f64> {
             *s += chi * rate / k;
         }
     }
+    // 真空には線源がない（散乱も核分裂もないので source も 0）
     source
         .iter()
         .zip(&m.total)
-        .map(|(q, t)| q / (4.0 * PI * t))
+        .map(|(q, t)| if *t == 0.0 { 0.0 } else { q / (4.0 * PI * t) })
         .collect()
 }
 
@@ -768,6 +820,68 @@ mod tests {
         assert!((absorption - production / s.k).abs() < 1e-6 * absorption);
         // 熱中性子束は減速材で高く、燃料の中心で低い
         assert!(s.flux[3][1] > s.flux[0][1]);
+    }
+
+    /// 燃料・ギャップ・減速材のピンセルで、ギャップを `gap` にした解
+    fn with_gap(gap: &Material) -> Solution {
+        let cell = PinCell::new(1.26, vec![0.3, 0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.02).unwrap();
+        let (f, m) = (fuel(), moderator());
+        solve(&tracking, &[&f, gap, &m], &Options::default()).unwrap()
+    }
+
+    #[test]
+    fn void_gap_matches_a_nearly_transparent_gap() {
+        let void = with_gap(&Material::void(2));
+        // 吸収も散乱もほとんどない物質（Σt だけがごく小さい）
+        let thin = with_gap(&two_group(
+            [1.0e-9, 1.0e-9],
+            [[0.0, 0.0], [0.0, 0.0]],
+            [0.0, 0.0],
+        ));
+        assert!((void.k - thin.k).abs() < 1e-7, "{} vs {}", void.k, thin.k);
+        for g in 0..2 {
+            let (a, b) = (void.flux[1][g], thin.flux[1][g]);
+            assert!((a - b).abs() < 1e-6 * b, "group {g}: {a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn rejects_partly_void_materials() {
+        let cell = PinCell::new(1.26, vec![0.3, 0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let partly = two_group([1.0, 0.0], [[0.5, 0.0], [0.0, 0.0]], [0.0, 0.0]);
+        let result = solve(&tracking, &[&f, &partly, &m], &Options::default());
+        assert!(
+            matches!(result, Err(MocError::NonPositiveTotal)),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_cells_that_are_all_void() {
+        // ピンと、全体が真空のセル
+        let pin = PinCell::new(1.26, vec![0.4]).unwrap();
+        let empty = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, empty], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let (f, m, v) = (fuel(), moderator(), Material::void(2));
+        let result = solve(&tracking, &[&f, &m, &v, &v, &f, &m], &Options::default());
+        assert!(matches!(result, Err(MocError::VoidCell(1))), "{result:?}");
+    }
+
+    #[test]
+    fn scattering_without_total_is_not_void() {
+        let cell = PinCell::new(1.26, vec![0.3, 0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let broken = two_group([0.0, 0.0], [[0.1, 0.0], [0.0, 0.0]], [0.0, 0.0]);
+        let result = solve(&tracking, &[&f, &broken, &m], &Options::default());
+        assert!(
+            matches!(result, Err(MocError::NonPositiveTotal)),
+            "{result:?}"
+        );
     }
 
     #[test]
