@@ -90,20 +90,21 @@ mod tests {
 
     #[test]
     fn range_follows_the_resolved_top_of_the_fuel() {
-        let fuel = material(&[("U-235", 0.01), ("Zr-90", 0.01)]);
+        let fuel = material(&[("U-235", 0.01)]);
+        let clad = material(&[("Zr-90", 0.04)]);
         let water = material(&[("H-1", 0.05)]);
         let range = |top: f64| {
             let mut fissile = constant("U-235", 233.0, 10.0, 8.0, 1.0);
             fissile.top = Some(top);
             // 燃料の外の核種の分離共鳴は範囲を決めない
-            let mut clad = constant("Zr-90", 89.0, 6.0, 6.0, 0.0);
-            clad.top = Some(1.0e6);
+            let mut zirconium = constant("Zr-90", 89.0, 6.0, 6.0, 0.0);
+            zirconium.top = Some(1.0e6);
             let lib = library(vec![
                 fissile,
-                clad,
+                zirconium,
                 constant("H-1", 0.99917, 20.0, 20.0, 0.0),
             ]);
-            cell_range(&lib, &[Some(&fuel), None, Some(&water)]).unwrap()
+            cell_range(&lib, &[Some(&fuel), None, Some(&clad), Some(&water)]).unwrap()
         };
         // 上端以下で最も高い群の境界
         assert_eq!(range(3.0e3), [4.0, 1.0e3]);
@@ -120,16 +121,17 @@ mod tests {
 
     #[test]
     fn scatterers_keep_the_asymptotic_spectrum() {
-        // 吸収がなく断面積が一定なら、どのリングでも中性子束はレサジーあたり一定（1/E）のまま
+        // 吸収がなく断面積が一定なら、どのリングでも中性子束はレサジーあたり一定（1/E）のまま。減速材は、窓が
+        // 群の上端（中性子のない範囲）まで届かない H-2 にする（H-1 では範囲の上からの線源が e^{−7.6} だけ足りない）
         let lib = library(vec![
             constant("U-238", 236.0, 11.0, 11.0, 0.0),
             constant("Zr-90", 89.0, 6.5, 6.5, 0.0),
-            constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+            constant("H-2", 1.9968, 3.4, 3.4, 0.0),
             constant("O-16", 15.86, 3.8, 3.8, 0.0),
         ]);
         let fuel = material(&[("U-238", 0.022), ("O-16", 0.045)]);
         let clad = material(&[("Zr-90", 0.043)]);
-        let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
+        let water = material(&[("H-2", 0.05), ("O-16", 0.025)]);
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
         let spectrum = slowing_down(
             &lib,
