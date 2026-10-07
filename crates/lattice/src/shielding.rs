@@ -181,6 +181,31 @@ mod tests {
     }
 
     #[test]
+    fn rejects_non_positive_chord_and_density() {
+        let library = library();
+        let equivalence = |chord| Equivalence {
+            chord,
+            terms: vec![carlvik(0.0).unwrap(); 2],
+        };
+        let shield = |density, chord| {
+            effective(
+                &library,
+                "U-238",
+                T,
+                density,
+                &[0.2; 2],
+                &equivalence(chord),
+            )
+        };
+        assert!(matches!(shield(0.02, 0.0), Err(ShieldingError::Chord(_))));
+        assert!(matches!(shield(0.0, 0.8), Err(ShieldingError::Density(_))));
+        assert!(matches!(
+            shield(f64::NAN, 0.8),
+            Err(ShieldingError::Density(_))
+        ));
+    }
+
+    #[test]
     fn without_escape_the_background_alone_sets_sigma0() {
         let library = library();
         let equivalence = Equivalence {
