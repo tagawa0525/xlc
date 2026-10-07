@@ -175,12 +175,8 @@ mod tests {
         let groups = GroupStructure::wims69();
         for e in [0.0253, 0.1, 0.5] {
             let ours = free_gas_group_moments(&groups, e, 1.0, kt, 3);
-            // σb = 4 σfree（A = 1）
-            let table: Vec<Vec<f64>> = sab
-                .group_moments(&groups, e, 3)
-                .into_iter()
-                .map(|row| row.into_iter().map(|v| v / 4.0).collect())
-                .collect();
+            // どちらも自由原子の断面積を 1 とした規格化（束縛原子の断面積 σb を含む）
+            let table = sab.group_moments(&groups, e, 3);
             let total: f64 = ours[0].iter().sum();
             for l in 0..=3 {
                 let (a, b): (f64, f64) = (ours[l].iter().sum(), table[l].iter().sum());
