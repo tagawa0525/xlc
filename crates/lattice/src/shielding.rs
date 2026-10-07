@@ -66,6 +66,20 @@ pub struct FuelShielding {
     pub materials: Vec<Material>,
     /// [領域] の `materials` の番号
     pub region_material: Vec<usize>,
+    /// 燃料のあるセルごとの自己遮蔽の結果（セルの順）
+    pub pins: Vec<PinShielding>,
+}
+
+/// 1本のピンの燃料の自己遮蔽の結果。
+#[derive(Debug, Clone, PartialEq)]
+pub struct PinShielding {
+    pub cell: usize,
+    /// 群ごとの Dancoff 係数
+    pub dancoff: Vec<f64>,
+    /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
+    pub nuclides: Vec<(Nuclide, f64)>,
+    /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）
+    pub effective: Vec<Shielded>,
 }
 
 /// 格子の燃料（核分裂する核種を含む物質）を、ピンごとの Dancoff 係数と等価原理で自己遮蔽する。
@@ -164,6 +178,7 @@ pub fn shield_fuel(
     let mut shielded = FuelShielding {
         materials: dilute,
         region_material: region_index.clone(),
+        pins: Vec::new(),
     };
     for (cell, fuel_regions, index, radius) in pins {
         let factors = factors[cell]
@@ -176,9 +191,33 @@ pub fn shield_fuel(
                 .map(|&c| carlvik(c))
                 .collect::<Result<_, _>>()?,
         };
-        let material = shield_material(library, &materials[index], &equivalence, options, cell)?;
+        let material = &materials[index];
+        let effective = shield_material(library, material, &equivalence, options, cell)?;
+        let nuclides = material
+            .composition
+            .iter()
+            .zip(&effective)
+            .map(|((name, density), s)| {
+                Ok((
+                    shielded_nuclide(library, name, material.temperature, s)?,
+                    *density,
+                ))
+            })
+            .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+        let mixed = Material::from_nuclides(&nuclides, library.groups.len()).map_err(|source| {
+            SelfShieldingError::Material {
+                name: material.name.clone(),
+                source,
+            }
+        })?;
+        shielded.pins.push(PinShielding {
+            cell,
+            dancoff: factors.clone(),
+            nuclides,
+            effective,
+        });
         let new = shielded.materials.len();
-        shielded.materials.push(material);
+        shielded.materials.push(mixed);
         for region in fuel_regions {
             shielded.region_material[region] = new;
         }
@@ -186,14 +225,14 @@ pub fn shield_fuel(
     Ok(shielded)
 }
 
-/// 1本のピンの燃料の物質を、核種の全断面積が収束するまで反復して自己遮蔽する。
+/// 1本のピンの燃料の核種の実効断面積を、全断面積が収束するまで反復して求める。
 fn shield_material(
     library: &Library,
     material: &MaterialInput,
     equivalence: &Equivalence,
     options: &ShieldingOptions,
     cell: usize,
-) -> Result<Material, SelfShieldingError> {
+) -> Result<Vec<Shielded>, SelfShieldingError> {
     let t = material.temperature;
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
@@ -240,18 +279,7 @@ fn shield_material(
             .fold(0.0, f64::max);
         totals = tables.iter().map(|s| s.total.clone()).collect();
         if change <= options.tolerance {
-            let nuclides = material
-                .composition
-                .iter()
-                .zip(&tables)
-                .map(|((name, density), s)| Ok((shielded_nuclide(library, name, t, s)?, *density)))
-                .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-            return Material::from_nuclides(&nuclides, ng).map_err(|source| {
-                SelfShieldingError::Material {
-                    name: material.name.clone(),
-                    source,
-                }
-            });
+            return Ok(tables);
         }
     }
     Err(SelfShieldingError::NotConverged {
@@ -646,6 +674,38 @@ mod tests {
                 shielded.materials[shielded.region_material[1]],
                 dilute("water")
             );
+        }
+
+        #[test]
+        fn reports_each_pin_with_its_nuclides() {
+            let library = library();
+            let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let cells: Vec<usize> = shielded.pins.iter().map(|p| p.cell).collect();
+            assert_eq!(cells, vec![0, 1, 2]);
+            let pin = &shielded.pins[0];
+            assert_eq!(pin.dancoff.len(), 2);
+            let names: Vec<&str> = pin.nuclides.iter().map(|(n, _)| n.name.as_str()).collect();
+            assert_eq!(names, vec!["U-238", "U-235"]);
+            // 実効断面積（弾性散乱を含む）も核種ごとに持ち、全断面積は核種の群定数と同じ
+            assert_eq!(pin.effective.len(), 2);
+            assert_eq!(pin.effective[0].total, pin.nuclides[0].0.total);
+            assert!(pin.effective[0].elastic[0] > 0.0);
+            // 物質の全断面積は、核種の全断面積と個数密度の積の和
+            let material = &shielded.materials[shielded.region_material[0]];
+            let sum: f64 = pin
+                .nuclides
+                .iter()
+                .map(|(n, density)| density * n.total[0])
+                .sum();
+            assert!((material.total[0] - sum).abs() < 1e-12 * sum);
         }
 
         #[test]
