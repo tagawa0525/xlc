@@ -33,6 +33,13 @@ def library(path: Path, work: Path) -> Path:
         raise SystemExit(f"{path}: not an xlc-mg-materials file")
     # OpenMC の境界は昇順。群の番号は xlc と同じく高いエネルギーから
     structure = openmc.mgxs.EnergyGroups(sorted(data["group_bounds"]))
+    ng = structure.num_groups
+    for name, xs in data["materials"].items():
+        shapes = [
+            np.shape(xs[k]) for k in ("total", "fission", "nu_fission", "scatter")
+        ]
+        if shapes[:3] != [(ng,), (ng,), (ng, ng)] or shapes[3][1:] != (ng, ng):
+            raise SystemExit(f"{name}: arrays {shapes} do not match {ng} groups")
     mgxs = openmc.MGXSLibrary(structure)
     for name, xs in data["materials"].items():
         total = np.array(xs["total"])
@@ -59,7 +66,6 @@ def library(path: Path, work: Path) -> Path:
             x.set_nu_fission(nu_fission)
         mgxs.add_xsdata(x)
     # 真空のギャップの代わりの、断面積がすべて 0 の物質（`main` を参照）
-    ng = structure.num_groups
     void = openmc.XSdata(VOID, structure)
     void.order = 0
     void.set_total(np.zeros(ng))
