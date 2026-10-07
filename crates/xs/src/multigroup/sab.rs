@@ -347,13 +347,9 @@ pub(crate) mod tests {
                 (moments[0] / p0 - 1.0).abs() < 2e-3,
                 "{e} {e_out}: {moments:?} vs {p0}"
             );
-            for l in 1..=3 {
+            for (l, m) in moments.iter().enumerate().skip(1) {
                 let r = reference(e, e_out, l);
-                assert!(
-                    (moments[l] - r).abs() < 2e-3 * p0,
-                    "{e} {e_out} P{l}: {} vs {r}",
-                    moments[l]
-                );
+                assert!((m - r).abs() < 2e-3 * p0, "{e} {e_out} P{l}: {} vs {r}", m);
             }
         }
     }
