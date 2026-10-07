@@ -1,4 +1,116 @@
 //! 等価原理による燃料の自己遮蔽（Dancoff 係数を入れた Carlvik の2項有理近似）。
+//!
+//! 燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
+//! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
+//! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
+//! （ライブラリの重み w/(σt + σ0) での群平均では、この式が厳密に成り立つ）。
+
+use xlc_xs::library::{Library, LookupError, Shielded};
+
+/// 自己遮蔽の計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum ShieldingError {
+    #[error("Dancoff factor {0} must be from 0 to 1")]
+    Dancoff(f64),
+    #[error("{given} rational terms for {groups} groups")]
+    Groups { given: usize, groups: usize },
+    #[error(transparent)]
+    Lookup(#[from] LookupError),
+}
+
+/// 有理近似の1つの項。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RationalTerm {
+    pub alpha: f64,
+    pub beta: f64,
+}
+
+/// 1本のピンの燃料の等価原理のパラメータ: ペレットの平均弦長 l̄ (cm) と、群ごとの有理近似の項。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Equivalence {
+    pub chord: f64,
+    pub terms: Vec<[RationalTerm; 2]>,
+}
+
+/// Dancoff 係数 `dancoff` での Carlvik の2項有理近似の係数。
+///
+/// A = (1 − C)/C として α₁,₂ = [(5A + 6) ∓ √(A² + 36A + 36)] / (2(A + 1))、
+/// β₁ = ((4A + 6)/(A + 1) − α₁)/(α₂ − α₁)、β₂ = 1 − β₁。分子と分母に C を掛けた形
+/// α₁,₂ = [(5 + C) ∓ √(1 + 34C + C²)] / 2、(4A + 6)/(A + 1) = 4 + 2C で計算し、C = 0（孤立した棒）でも使えるようにする。
+pub fn carlvik(dancoff: f64) -> Result<[RationalTerm; 2], ShieldingError> {
+    if !(0.0..=1.0).contains(&dancoff) {
+        return Err(ShieldingError::Dancoff(dancoff));
+    }
+    let c = dancoff;
+    let root = (1.0 + 34.0 * c + c * c).sqrt();
+    let (alpha1, alpha2) = (0.5 * (5.0 + c - root), 0.5 * (5.0 + c + root));
+    let beta1 = (4.0 + 2.0 * c - alpha1) / (alpha2 - alpha1);
+    Ok([
+        RationalTerm {
+            alpha: alpha1,
+            beta: beta1,
+        },
+        RationalTerm {
+            alpha: alpha2,
+            beta: 1.0 - beta1,
+        },
+    ])
+}
+
+/// 燃料の核種 `name`（個数密度 `density`、1/(barn cm)）の実効断面積。`background` は群ごとの、
+/// 同じ燃料の他の核種の全断面積の和 (1/cm)。
+pub fn effective(
+    library: &Library,
+    name: &str,
+    temperature: f64,
+    density: f64,
+    background: &[f64],
+    equivalence: &Equivalence,
+) -> Result<Shielded, ShieldingError> {
+    if equivalence.terms.len() != background.len() {
+        return Err(ShieldingError::Groups {
+            given: equivalence.terms.len(),
+            groups: background.len(),
+        });
+    }
+    let sigma0 = |i: usize| -> Vec<f64> {
+        background
+            .iter()
+            .zip(&equivalence.terms)
+            .map(|(b, terms)| (b + terms[i].alpha / equivalence.chord) / density)
+            .collect()
+    };
+    let (sigma0_1, sigma0_2) = (sigma0(0), sigma0(1));
+    let tables = [
+        library.shielded(name, temperature, &sigma0_1)?,
+        library.shielded(name, temperature, &sigma0_2)?,
+    ];
+    let sigma0 = [sigma0_1, sigma0_2];
+    let groups = background.len();
+    // 群ごとの重み β_i φ_i
+    let weights: Vec<[f64; 2]> = (0..groups)
+        .map(|g| {
+            std::array::from_fn(|i| {
+                let s = sigma0[i][g];
+                equivalence.terms[g][i].beta * s / (tables[i].total[g] + s)
+            })
+        })
+        .collect();
+    let combine = |of: fn(&Shielded) -> &Vec<f64>| -> Vec<f64> {
+        (0..groups)
+            .map(|g| {
+                let [w1, w2] = weights[g];
+                (w1 * of(&tables[0])[g] + w2 * of(&tables[1])[g]) / (w1 + w2)
+            })
+            .collect()
+    };
+    Ok(Shielded {
+        total: combine(|x| &x.total),
+        elastic: combine(|x| &x.elastic),
+        fission: combine(|x| &x.fission),
+        nu_fission: combine(|x| &x.nu_fission),
+    })
+}
 
 #[cfg(test)]
 mod tests {
