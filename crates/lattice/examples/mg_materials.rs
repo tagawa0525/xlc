@@ -33,20 +33,22 @@ struct Materials {
     format: &'static str,
     /// 群境界 (eV)、降順
     group_bounds: Vec<f64>,
+    /// 物質ごとの温度 (K)（解く問題と合っているかを確かめるため）
+    temperatures: BTreeMap<String, f64>,
     materials: BTreeMap<String, Constants>,
 }
 
-/// 散乱のモーメントを P_`order` まで持つ物質の定数
-fn constants(m: &Material, order: usize) -> Constants {
-    Constants {
+/// 散乱のモーメントを P_`order` まで持つ物質の定数（物質にその次数までなければ `None`）
+fn constants(m: &Material, order: usize) -> Option<Constants> {
+    Some(Constants {
         total: m.total.clone(),
         fission: m.fission.clone(),
         nu_fission: m.fission_matrix(),
         scatter: std::iter::once(&m.scatter)
-            .chain(&m.anisotropic[..order])
+            .chain(m.anisotropic.get(..order)?)
             .cloned()
             .collect(),
-    }
+    })
 }
 
 fn main() -> anyhow::Result<()> {
@@ -88,11 +90,21 @@ fn main() -> anyhow::Result<()> {
     }
     let materials = mixed
         .iter()
-        .map(|(name, m)| (name.clone(), constants(m, order)))
+        .map(|(name, m)| {
+            let c = constants(m, order)
+                .ok_or_else(|| anyhow!("material `{name}` has no P{order} scattering"))?;
+            Ok((name.clone(), c))
+        })
+        .collect::<anyhow::Result<_>>()?;
+    let temperatures = input
+        .materials
+        .iter()
+        .map(|m| (m.name.clone(), m.temperature))
         .collect();
     let bytes = to_named(&Materials {
         format: "xlc-mg-materials",
         group_bounds: library.groups.bounds().to_vec(),
+        temperatures,
         materials,
     })?;
     std::fs::write(output, bytes).with_context(|| output.clone())?;
