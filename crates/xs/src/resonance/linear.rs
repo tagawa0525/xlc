@@ -49,6 +49,25 @@ pub(super) fn solve(m: &mut [Complex64], b: &mut [Complex64], n: usize) -> Resul
     Ok(())
 }
 
+/// 極の共鳴を含む M = M' + c w wᵀ/d（w は実のベクトル、c は 0 でない定数）の、d → 0 での M⁻¹ の極限を
+/// Sherman-Morrison の公式 M⁻¹ → M'⁻¹ − (M'⁻¹w)(wᵀM'⁻¹) / (wᵀM'⁻¹w) で求め、`inverse` に入れた
+/// M'⁻¹ を置き換える（行優先の n×n）。M' は複素対称とする（wᵀM'⁻¹ = (M'⁻¹w)ᵀ）。
+/// wᵀM'⁻¹w が 0（極の共鳴が開いたチャネルに幅を持たない）なら、極の共鳴は寄与しないので M'⁻¹ のまま。
+pub(super) fn pole_limit(inverse: &mut [Complex64], w: &[f64], n: usize) {
+    let u: Vec<Complex64> = (0..n)
+        .map(|a| (0..n).fold(Complex64::ZERO, |acc, b| acc + inverse[a * n + b] * w[b]))
+        .collect();
+    let s = (0..n).fold(Complex64::ZERO, |acc, a| acc + u[a] * w[a]);
+    if s.norm_sqr() > 0.0 {
+        let scale = s.inv();
+        for a in 0..n {
+            for b in 0..n {
+                inverse[a * n + b] -= u[a] * u[b] * scale;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
