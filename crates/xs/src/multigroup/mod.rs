@@ -414,6 +414,31 @@ mod tests {
     }
 
     #[test]
+    fn below_the_slowing_down_range_the_flux_is_the_weight() {
+        // 範囲の下（熱中性子の領域）では σ0 によらず無限希釈の値
+        let groups = GroupStructure::new(vec![1.0e3, 100.0, 1.0, 0.01]).unwrap();
+        let capture = Tab1::linear(vec![1.0e-5, 2.0e7], vec![300.0, 0.0]);
+        let tables = BTreeMap::from([(1, constant(20.0)), (2, constant(10.0)), (102, capture)]);
+        let slowing = SlowingDown {
+            awr: 236.0,
+            range: (1.0, 100.0),
+        };
+        let infinite = reaction_averages(&groups, &Weight::lwr(), &tables, None);
+        let avg = &shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            &[1.0],
+            None,
+            Some(&slowing),
+        )
+        .unwrap()[0];
+        let (a, b) = (avg.sigma[&102][2], infinite.sigma[&102][2]);
+        assert!((a - b).abs() < 1e-12 * b, "{a} vs {b}");
+    }
+
+    #[test]
     fn slowing_down_weight_keeps_constant_cross_sections() {
         let groups = GroupStructure::new(vec![1.0e3, 100.0, 10.0, 1.0]).unwrap();
         let tables = BTreeMap::from([
