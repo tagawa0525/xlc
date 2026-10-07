@@ -216,7 +216,13 @@ pub fn potential_scattering(tape: &Tape, mat: i32) -> Result<Option<f64>, Proces
     else {
         return Ok(None);
     };
-    let radius = match &range.kind {
+    let radius = s_wave_radius(&range.kind)?;
+    Ok(Some(4.0 * std::f64::consts::PI * radius * radius))
+}
+
+/// 分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。
+fn s_wave_radius(kind: &RangeKind) -> Result<f64, ProcessError> {
+    Ok(match kind {
         RangeKind::ReichMoore(rm) => rm
             .l_values
             .iter()
@@ -230,9 +236,10 @@ pub fn potential_scattering(tape: &Tape, mat: i32) -> Result<Option<f64>, Proces
             .find(|c| c.l == OrbitalL::S && rml.pairs[c.pair].mt == 2)
             .map(|c| c.ape)
             .ok_or(ProcessError::NoSWaveRadius)?,
-        RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved(_) => return Ok(None),
-    };
-    Ok(Some(4.0 * std::f64::consts::PI * radius * radius))
+        RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved(_) => {
+            return Err(ProcessError::NoSWaveRadius);
+        }
+    })
 }
 
 /// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
