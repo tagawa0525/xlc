@@ -462,6 +462,21 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn keeps_the_pointwise_data() {
+        let mut library = sample();
+        library.pointwise_range = [4.0, 1.0e4];
+        library.nuclides[0].temperatures[0].pointwise = Pointwise {
+            energy: vec![4.0, 1.0e4],
+            total: vec![11.0, 12.0],
+            elastic: vec![9.0, 10.0],
+            fission: vec![0.5, 0.4],
+            nu_fission: vec![1.2, 1.0],
+        };
+        let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+        assert_eq!(read, library);
+    }
+
+    #[test]
     fn keeps_the_potential_scattering() {
         let mut library = sample();
         library.nuclides[0].potential = Some(11.29);

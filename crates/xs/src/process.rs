@@ -635,6 +635,47 @@ mod tests {
     }
 
     #[test]
+    fn pointwise_data_covers_the_range_on_the_total_grid() {
+        // 全断面積は部分反応の和なので、その格子は全反応の格子点と不連続点（x の重複）を含む
+        let total = Tab1::linear(
+            vec![1.0, 5.0, 10.0, 10.0, 20.0, 40.0],
+            vec![10.0, 12.0, 14.0, 24.0, 20.0, 18.0],
+        );
+        let elastic = Tab1::linear(vec![1.0, 40.0], vec![8.0, 8.0]);
+        let fission = Tab1::linear(vec![1.0, 40.0], vec![1.0, 2.0]);
+        let nubar = Tab1::linear(vec![1.0, 40.0], vec![2.5, 2.6]);
+        let tables = BTreeMap::from([(1, total), (2, elastic), (18, fission)]);
+        let data = pointwise_within(&tables, Some(&nubar), (4.0, 30.0)).unwrap();
+        // 範囲の端と、その間の格子点（不連続点は左右の極限を両方持つ）
+        assert_eq!(data.energy, vec![4.0, 5.0, 10.0, 10.0, 20.0, 30.0]);
+        assert_eq!(data.total[2], 14.0);
+        assert_eq!(data.total[3], 24.0);
+        assert!((data.total[0] - 11.5).abs() < 1e-12);
+        assert!(data.elastic.iter().all(|&v| v == 8.0));
+        let f = |e: f64| 1.0 + (e - 1.0) / 39.0;
+        let nu = |e: f64| 2.5 + 0.1 * (e - 1.0) / 39.0;
+        for (i, &e) in data.energy.iter().enumerate() {
+            assert!((data.fission[i] - f(e)).abs() < 1e-12);
+            assert!((data.nu_fission[i] - nu(e) * f(e)).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pointwise_data_without_fission_is_zero() {
+        let tables = BTreeMap::from([
+            (1, Tab1::linear(vec![1.0, 40.0], vec![10.0, 10.0])),
+            (2, Tab1::linear(vec![1.0, 40.0], vec![8.0, 8.0])),
+        ]);
+        let data = pointwise_within(&tables, None, (4.0, 30.0)).unwrap();
+        assert!(
+            data.fission
+                .iter()
+                .chain(&data.nu_fission)
+                .all(|&v| v == 0.0)
+        );
+    }
+
+    #[test]
     fn no_resolved_range_needs_no_slowing_down() {
         let groups = GroupStructure::new(vec![1.0e5, 1.0e4, 1.0e-5]).unwrap();
         assert!(
