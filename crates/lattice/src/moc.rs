@@ -1036,8 +1036,9 @@ mod tests {
 
     #[test]
     fn forward_scattering_acts_like_the_transport_correction() {
-        // 前方に偏った散乱は漏れを減らす。その効果を拡散の近似で表すのが輸送補正
-        // （Σt と自群の散乱から Σ_g' σ1(g→g') を引いた P0）なので、P1 の k は P0 より輸送補正の k に近い
+        // 前方に偏った散乱では、外向きに流れる中性子が散乱しても外向きに進み続けるので、等方散乱より
+        // 漏れが増えて k が下がる。その効果を拡散の近似で表すのが輸送補正（Σt と自群の散乱から
+        // Σ_g' σ1(g→g') を引いた P0。拡散係数が大きくなる）なので、P1 の k は P0 より輸送補正の k に近い
         let n = 6;
         let tracking = vacuum_checkerboard(n);
         let (f, m) = (
@@ -1065,7 +1066,7 @@ mod tests {
             k(&f, &m, order(1)),
             k(&fc, &mc, order(0)),
         );
-        assert!(p1 > p0, "P1 {p1} vs P0 {p0}");
+        assert!(p1 < p0, "P1 {p1} vs P0 {p0}");
         assert!(
             (p1 - tc).abs() < (p0 - tc).abs(),
             "P0 {p0}, P1 {p1}, transport-corrected {tc}"
