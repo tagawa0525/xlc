@@ -324,12 +324,12 @@ impl Lattice {
         self.offsets[self.layout.len()]
     }
 
-    /// セル `cell` の領域の範囲。
     /// セル `cell` の種類
     pub fn cell_type(&self, cell: usize) -> &PinCell {
         &self.types[self.layout[cell]]
     }
 
+    /// セル `cell` の領域の範囲。
     pub fn cell_regions(&self, cell: usize) -> std::ops::Range<usize> {
         self.offsets[cell]..self.offsets[cell + 1]
     }
