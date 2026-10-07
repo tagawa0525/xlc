@@ -49,8 +49,9 @@ mod tests {
     }
 
     #[test]
-    fn factors_reproduce_the_reference() {
-        // 燃料の全断面積を変えた解を参照にする
+    fn factors_reproduce_the_reference_shape() {
+        // 燃料の全断面積を変えた解を参照にする。群のバランス（反応率の和 = 上の群からの線源）は μ では変えられない
+        // ので、群ごとのリング間の形 μ φ̃ ∝ φ_ref を再現し、大きさは Σ V φ_ref / μ = Σ V φ_ref で決める
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
         let reference = multigroup_flux(&cell, &materials(3.0), GROUPS, &[1.0]).unwrap();
         let original = materials(2.0);
@@ -65,12 +66,27 @@ mod tests {
             })
             .collect();
         let flux = multigroup_flux(&cell, &scaled, GROUPS, &[1.0]).unwrap();
+        let volumes = cell.volumes();
         for k in 0..GROUPS.len() {
-            // 真空でないリングでは μ φ̃ が参照に一致する
-            for r in [0, 1, 3] {
-                let (a, b) = (factors[r][k] * flux[r][k], reference[r][k]);
-                assert!((a - b).abs() < 1e-8 * b, "{r} {k}: {a} vs {b}");
+            // 真空でないリングで μ φ̃ / φ_ref が等しい
+            let ratio = |r: usize| factors[r][k] * flux[r][k] / reference[r][k];
+            for r in [1, 3] {
+                assert!(
+                    (ratio(r) - ratio(0)).abs() < 1e-8 * ratio(0),
+                    "{r} {k}: {} vs {}",
+                    ratio(r),
+                    ratio(0)
+                );
             }
+            let preserved: f64 = [0, 1, 3]
+                .iter()
+                .map(|&r| volumes[r] * reference[r][k])
+                .sum();
+            let normalized: f64 = [0, 1, 3]
+                .iter()
+                .map(|&r| volumes[r] * reference[r][k] / factors[r][k])
+                .sum();
+            assert!((normalized - preserved).abs() < 1e-10 * preserved);
             // 真空のリングには掛ける断面積がないので 1
             assert_eq!(factors[2][k], 1.0);
         }
