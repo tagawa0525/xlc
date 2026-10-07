@@ -180,9 +180,10 @@ impl Library {
     /// MessagePack（フィールド名付きの map 形式）で書く。読むときと同じ検査（配列の長さ、有限な値）を
     /// 書く前にもして、壊れたライブラリを書かない。
     pub fn to_msgpack(&self) -> Result<Vec<u8>, LibraryError> {
+        check_range(self.pointwise_range).map_err(LibraryError::Invalid)?;
         let ng = self.groups.len();
         for n in &self.nuclides {
-            n.check(ng, self.sigma0.len())
+            n.check(ng, self.sigma0.len(), self.pointwise_range)
                 .map_err(LibraryError::Invalid)?;
         }
         let file = LibraryFile {
@@ -214,19 +215,14 @@ impl Library {
                 file.sigma0
             )));
         }
-        let [low, high] = file.pointwise_range;
-        if !(low > 0.0 && high >= low && high.is_finite()) {
-            return Err(invalid(format!(
-                "pointwise range {:?} must be positive and increasing",
-                file.pointwise_range
-            )));
-        }
+        check_range(file.pointwise_range).map_err(invalid)?;
         let ng = groups.len();
         for (k, n) in file.nuclides.iter().enumerate() {
             if file.nuclides[..k].iter().any(|m| m.name == n.name) {
                 return Err(invalid(format!("nuclide {} appears twice", n.name)));
             }
-            n.check(ng, file.sigma0.len()).map_err(invalid)?;
+            n.check(ng, file.sigma0.len(), file.pointwise_range)
+                .map_err(invalid)?;
         }
         Ok(Self {
             groups,
@@ -334,6 +330,17 @@ impl Library {
     }
 }
 
+/// ポイントワイズの断面積の範囲が正の有限な値で、下限 < 上限であることを確かめる。
+fn check_range([low, high]: [f64; 2]) -> Result<(), String> {
+    if low > 0.0 && high > low && high.is_finite() {
+        Ok(())
+    } else {
+        Err(format!(
+            "pointwise range [{low}, {high}] must be positive, finite and increasing"
+        ))
+    }
+}
+
 /// 構造体の位置（最上位、核種、温度、遮蔽断面積）がすべて map であることを確かめる。
 /// 項目の有無と型は、そのあとの serde の変換で確かめる。
 fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
@@ -361,7 +368,7 @@ impl From<MsgpackError> for LibraryError {
 
 impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
-    fn check(&self, ng: usize, n_sigma0: usize) -> Result<(), String> {
+    fn check(&self, ng: usize, n_sigma0: usize, range: [f64; 2]) -> Result<(), String> {
         let name = &self.name;
         if !is_nuclide_name(name) {
             return Err(format!(
@@ -417,6 +424,10 @@ impl NuclideData {
             if p.energy.windows(2).any(|w| w[1] < w[0]) {
                 return Err(at("pointwise energies must not decrease".into()));
             }
+            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）
+            if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
+                return Err(at(format!("pointwise data must cover the range {range:?}")));
+            }
             let values = t
                 .chi
                 .iter()
@@ -461,7 +472,14 @@ pub(crate) mod tests {
 
     fn temperature(t: f64, fissile: bool) -> TemperatureData {
         TemperatureData {
-            pointwise: Default::default(),
+            // sample() の範囲 [4, 1e4] eV を覆う
+            pointwise: Pointwise {
+                energy: vec![4.0, 1.0e4],
+                total: vec![11.0, 10.0],
+                elastic: vec![9.0, 9.0],
+                fission: vec![0.0, 0.0],
+                nu_fission: vec![0.0, 0.0],
+            },
             temperature: t,
             chi: if fissile {
                 vec![1.0, 0.0]
