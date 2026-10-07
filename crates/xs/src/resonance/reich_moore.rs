@@ -2,6 +2,9 @@
 //!
 //! NJOY2016 reconr の csrmat と同じ手順で計算する。捕獲は消去されたチャネルとして扱い、
 //! 中性子と2つの核分裂チャネルの 3×3 の R 行列を解く。レベルシフトは使わない。
+//!
+//! 捕獲幅のない共鳴のエネルギーちょうどでは R 行列が発散するが、断面積は有限の極限を持つ。その共鳴を
+//! 極として分け、R-matrix limited と同じ Sherman-Morrison の公式で極限を取る。NJOY はこの点で 0/0 になる。
 
 use std::f64::consts::PI;
 
@@ -9,7 +12,7 @@ use num_complex::Complex64;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
-use super::linear::{Singular, solve};
+use super::linear::{Singular, pole_limit, solve};
 use crate::endf::{OrbitalL, ReichMoore};
 use crate::physics::wave_number_factor;
 
@@ -19,6 +22,10 @@ pub enum ReichMooreError {
     /// J は ENDF と同じく、もう一方のチャネルスピンの共鳴の組を負で表す
     #[error("singular level matrix at {energy} eV (l = {l}, J = {j})")]
     Singular { energy: f64, l: u32, j: f64 },
+    /// 同じ組で、捕獲幅のない共鳴が同じエネルギーに複数ある（階数 2 以上の極限には対応しない）。
+    /// J の符号は `Singular` と同じ
+    #[error("several resonances without capture width at {energy} eV (l = {l}, J = {j})")]
+    Poles { energy: f64, l: u32, j: f64 },
 }
 
 /// 断面積の計算に使う形に前処理した Reich-Moore パラメータ。
@@ -122,23 +129,25 @@ impl ReichMooreXs {
                 let gj = (2.0 * ajc + 1.0) / gjd;
                 let interior = jj > jjl && jj < numj;
                 for channel in [ChannelSpin::Positive, ChannelSpin::Negative] {
-                    let group = self.channel_terms(lv, e, pe, ajc, channel);
+                    let (l, j) = (
+                        lv.l.number(),
+                        match channel {
+                            ChannelSpin::Positive => ajc,
+                            ChannelSpin::Negative => -ajc,
+                        },
+                    );
+                    let group = self
+                        .channel_terms(lv, e, pe, ajc, channel)
+                        .map_err(|SeveralPoles| ReichMooreError::Poles { energy: e, l, j })?;
                     let hard_sphere = match channel.contribution(group.positive, group.negative) {
                         Contribution::None => continue,
                         Contribution::Resonances => false,
                         Contribution::ResonancesAndHardSphere => interior,
                     };
-                    let mut terms =
-                        group
-                            .terms(gj, phi)
-                            .map_err(|Singular| ReichMooreError::Singular {
-                                energy: e,
-                                l: lv.l.number(),
-                                j: match channel {
-                                    ChannelSpin::Positive => ajc,
-                                    ChannelSpin::Negative => -ajc,
-                                },
-                            })?;
+                    let captures = group.captures;
+                    let mut terms = group
+                        .terms(gj, phi)
+                        .map_err(|Singular| ReichMooreError::Singular { energy: e, l, j })?;
                     if hard_sphere {
                         // 硬球散乱 2 gJ (1 - cos 2φ)
                         let potential = 4.0 * gj * phi.sin().powi(2);
@@ -148,7 +157,10 @@ impl ReichMooreXs {
                     sum.total += pifac * terms.total;
                     sum.elastic += pifac * terms.elastic;
                     sum.fission += pifac * terms.fission;
-                    sum.capture += pifac * (terms.total - terms.fission - terms.elastic);
+                    // 捕獲は残りの吸収。捕獲の幅がなければ、差を取らずに厳密に 0 とする（丸めの誤差を残さない）
+                    if captures {
+                        sum.capture += pifac * (terms.total - terms.fission - terms.elastic);
+                    }
                 }
             }
         }
@@ -156,6 +168,7 @@ impl ReichMooreXs {
     }
 
     /// 1つの (J, チャネルスピン) に属する共鳴から R 行列を組み立てる。
+    /// 捕獲幅のない共鳴のエネルギーちょうどでは R 行列が発散するので、その共鳴は極として分けておく。
     fn channel_terms(
         &self,
         lv: &LValue,
@@ -163,7 +176,7 @@ impl ReichMooreXs {
         pe: f64,
         ajc: f64,
         channel: ChannelSpin,
-    ) -> ChannelGroup {
+    ) -> Result<ChannelGroup, SeveralPoles> {
         let mut group = ChannelGroup::default();
         for res in &lv.resonances {
             if (res.aj.abs() - ajc).abs() > 0.25 {
@@ -185,11 +198,24 @@ impl ReichMooreXs {
                 amplitude(res.gfa),
                 amplitude(res.gfb),
             ];
+            let has_fission = res.gfa != 0.0 || res.gfb != 0.0;
+            group.captures |= res.gg != 0.0;
             let diff = res.er - e;
             let den = diff * diff + 0.25 * res.gg * res.gg;
+            if den == 0.0 {
+                // 中性子にも核分裂にも幅がない共鳴は寄与しない
+                if a.iter().all(|&v| v == 0.0) {
+                    continue;
+                }
+                if group.pole.is_some() {
+                    return Err(SeveralPoles);
+                }
+                group.pole = Some(a);
+                group.fission |= has_fission;
+                continue;
+            }
             let de2 = 0.5 * diff / den;
             let gg4 = 0.25 * res.gg / den;
-            let has_fission = res.gfa != 0.0 || res.gfb != 0.0;
             group.fission |= has_fission;
             let n = if has_fission { 3 } else { 1 };
             for i in 0..n {
@@ -199,7 +225,7 @@ impl ReichMooreXs {
                 }
             }
         }
-        group
+        Ok(group)
     }
 }
 
@@ -242,12 +268,19 @@ impl ChannelSpin {
     }
 }
 
+/// 同じ (J, チャネルスピン) の組に、捕獲幅のない共鳴が同じエネルギーに複数あった。
+struct SeveralPoles;
+
 #[derive(Debug, Default)]
 struct ChannelGroup {
     /// R 行列の実部（上三角）。単位行列は `terms` で足す
     r: [[f64; 3]; 3],
     /// R 行列の虚部（上三角）
     s: [[f64; 3]; 3],
+    /// 極として分けた共鳴の換算幅振幅（中性子、核分裂 2 つ）
+    pole: Option<[f64; 3]>,
+    /// 捕獲の幅を持つ共鳴があるか
+    captures: bool,
     fission: bool,
     positive: usize,
     negative: usize,
@@ -287,8 +320,16 @@ impl ChannelGroup {
             inv[i * n + i] = Complex64::ONE;
         }
         solve(&mut m[..n * n], &mut inv[..n * n], n)?;
-        // x = (I - M^{-1})_nn = (M^{-1} K)_nn
-        let x = (0..n).fold(Complex64::ZERO, |acc, j| acc + inv[j] * k(j, 0));
+        let x = match &self.pole {
+            // x = (I - M^{-1})_nn = (M^{-1} K)_nn
+            None => (0..n).fold(Complex64::ZERO, |acc, j| acc + inv[j] * k(j, 0)),
+            // 極の共鳴を含む K は発散するので、極限の M^{-1} から差を取る。極の近くでは x は 1 の程度なので、
+            // 桁落ちは起きない
+            Some(a) => {
+                pole_limit(&mut inv[..n * n], &a[..n], n)?;
+                Complex64::ONE - inv[0]
+            }
+        };
         let (p1, p2) = ((2.0 * phi).cos(), (2.0 * phi).sin());
         let one_minus_u = 2.0 * phi.sin().powi(2) + 2.0 * p1 * x.re + 2.0 * p2 * x.im;
         let u_imag = p2 * (2.0 * x.re - 1.0) - 2.0 * p1 * x.im;
@@ -407,6 +448,43 @@ pub(crate) mod tests {
                 e,
             );
         }
+    }
+
+    #[test]
+    fn resonance_without_capture_width_is_the_limit_at_its_energy() {
+        // Γγ = 0 では E = Er で R 行列が発散するが、断面積は Breit-Wigner の値に連続につながる
+        let e = 6.674;
+        for gf in [0.0, 1.0e-1] {
+            let sigma = ReichMooreXs::new(&single_level(1.5e-3, 0.0, gf))
+                .cross_sections(e)
+                .unwrap();
+            let exact = single_level_exact(e, 1.5e-3, 0.0, gf);
+            assert_close(sigma.total, exact.total, "total");
+            assert_close(sigma.elastic, exact.elastic, "elastic");
+            assert_close(sigma.fission, exact.fission, "fission");
+            // 捕獲の幅がないので、捕獲は差の丸めの誤差も残さず厳密に 0
+            assert_eq!(sigma.capture, 0.0);
+        }
+    }
+
+    #[test]
+    fn capture_is_exactly_zero_without_capture_width() {
+        // 極でないエネルギーでも、捕獲の幅がなければ捕獲は差の丸めの誤差を残さない
+        let xs = ReichMooreXs::new(&single_level(1.5e-3, 0.0, 1.0e-1));
+        for e in [1.0e-3, 1.0, 6.7, 100.0] {
+            assert_eq!(xs.cross_sections(e).unwrap().capture, 0.0, "at {e}");
+        }
+    }
+
+    #[test]
+    fn two_poles_in_one_group_are_an_error() {
+        // 同じ組に、捕獲幅のない共鳴が同じエネルギーに2つある場合（階数 2 の極限）には対応しない
+        let mut data = single_level(1.5e-3, 0.0, 0.0);
+        let mut second = data.l_values[0].resonances[0];
+        second.gn = 2.0e-3;
+        data.l_values[0].resonances.push(second);
+        let error = ReichMooreXs::new(&data).cross_sections(6.674).unwrap_err();
+        assert!(matches!(error, ReichMooreError::Poles { .. }), "{error}");
     }
 
     #[test]
