@@ -17,7 +17,7 @@ from pathlib import Path
 import msgpack
 import openmc
 
-# tally の score の、statepoint に保存される名前（書いた名前と違うもの）
+# tally の score の、statepoint に保存される名前（書いた名前と違うもの。弾性散乱は "(n,elastic)" になる）
 STORED = {"elastic": "(n,elastic)"}
 
 PITCH = 1.26
@@ -252,10 +252,7 @@ def main() -> None:
                             scores=[STORED.get(score, score)], nuclides=[nuclide]
                         ).ravel()
                         / (density * phi)
-                    )[
-                        # 統計の出力では弾性散乱の score は "(n,elastic)" の名前になる
-                        ::-1
-                    ].tolist()
+                    )[::-1].tolist()
                     for score in ["total", "elastic", "fission"]
                 }
                 for nuclide, density in FUEL.items()
