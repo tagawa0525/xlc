@@ -7,6 +7,8 @@
 //! こちらはその温度に拡げたポイントワイズの断面積を使う。反応ごと・σ0 ごとに、全群での相対差の最大値を表示する。
 //! 非分離共鳴があれば、その自己遮蔽（UNRESR に相当）も含める。GENDF も UNRESR を通して作っておくこと。
 //! 環境変数 XLC_URR_ONLY を設定すると、非分離共鳴の範囲にかかる群だけを比べる。
+//! 環境変数 XLC_SLOWING_DOWN を設定すると、分離共鳴の範囲の重みを超微細群の減速計算で作る
+//! （GROUPR の flux calculator（重み関数の番号が負）と比べるとき）。
 //! GROUPR は自己遮蔽する反応（MT1, 2, 18, 19, 51, 102 など）だけを σ0 ごとに出力し、
 //! それ以外は無限希釈の値だけを出すので、その反応は最初の σ0（無限希釈）だけを比べる。
 
@@ -15,7 +17,7 @@ use std::collections::BTreeMap;
 use xlc_xs::endf::{Section, Tape, parse_nubar};
 use xlc_xs::multigroup::{GroupStructure, Weight, shielded_averages};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
-use xlc_xs::process::unresolved_shielding;
+use xlc_xs::process::{slowing_down_range, unresolved_shielding};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
@@ -44,6 +46,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "unresolved shielding in {:.1} s",
         start.elapsed().as_secs_f64()
     );
+    let slowing = match std::env::var_os("XLC_SLOWING_DOWN") {
+        Some(_) => slowing_down_range(&tape, mat, &groups, &Weight::lwr())?,
+        None => None,
+    };
     let ours = shielded_averages(
         &groups,
         &Weight::lwr(),
@@ -51,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         nubar.as_ref(),
         &sigma0,
         shielding.as_ref(),
-        None,
+        slowing.as_ref(),
     )?;
 
     let mts: Vec<u32> = if mts.is_empty() {
