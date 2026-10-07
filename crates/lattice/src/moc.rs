@@ -1057,6 +1057,39 @@ mod tests {
     }
 
     #[test]
+    fn cmfd_accelerates_a_lattice_with_a_margin() {
+        // 集合体の間の水のギャップのように、格子の周りに余白がある。縁のセルの粗メッシュは余白の分だけ広い
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let layout = vec![vec![0, 1, 0], vec![1, 0, 1], vec![0, 1, 0]];
+        let lattice = Lattice::with_margin(vec![pin, water], layout, 0.3).unwrap();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let (f, m) = (fuel(), moderator());
+        // セルの順にピン（燃料と水）と水、その後に余白の 4 × 3 + 4 領域は水
+        let mut materials = Vec::new();
+        for row in [
+            [true, false, true],
+            [false, true, false],
+            [true, false, true],
+        ] {
+            for pin in row {
+                if pin {
+                    materials.extend([&f, &m]);
+                } else {
+                    materials.push(&m);
+                }
+            }
+        }
+        materials.extend(std::iter::repeat_n(&m, 16));
+        assert_eq!(materials.len(), lattice.regions());
+        assert_cmfd_accelerates(&tracking, &materials);
+    }
+
+    #[test]
     fn cmfd_converges_with_an_optically_thick_reflector() {
         // C5G7 の反射体と同じく、熱群で光学的に厚い（Σt h ≈ 4）水のセルが真空境界まで続く。
         // 従来の CMFD はこのような粗メッシュで振動して収束しない
