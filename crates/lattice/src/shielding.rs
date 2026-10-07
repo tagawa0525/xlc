@@ -18,6 +18,7 @@ use crate::geometry::Lattice;
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
+use crate::sph::{SphError, sph_factors};
 use crate::tracking::Tracking;
 use crate::ufg::{UfgError, cell_range, slowing_down};
 
@@ -70,6 +71,8 @@ pub enum SelfShieldingError {
     #[error(transparent)]
     Cp(#[from] CpError),
     #[error(transparent)]
+    Sph(#[from] SphError),
+    #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
 
@@ -102,6 +105,8 @@ pub struct PinShielding {
     pub effective: Vec<Shielded>,
     /// UFG の減速計算に使った等価なセルの外半径 (cm)。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
+    /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある
+    pub sph: Option<Vec<Vec<f64>>>,
 }
 
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
@@ -258,6 +263,7 @@ pub fn shield_fuel(
             nuclides,
             effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
+            sph: ufg.as_ref().map(|c| c.sph.clone()),
         });
         match ufg {
             // リングごとの物質（真空のリングは真空のまま）
@@ -305,6 +311,8 @@ struct CellShielding {
     rings: Vec<(Option<Material>, Vec<usize>)>,
     /// 燃料の核種の実効断面積。UFG の範囲の群は燃料のリングの値を中性子束と体積で平均し、範囲の外は等価原理の値
     effective: Vec<Shielded>,
+    /// [リング][UFG の範囲の群] の SPH 因子
+    sph: Vec<Vec<f64>>,
 }
 
 /// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
@@ -432,6 +440,22 @@ fn shield_cell(
         rings.push((Some(material), targets));
     }
 
+    // SPH 因子: 同じセルを多群で解いた中性子束のリング間の形が UFG と一致するよう、リングの物質に掛ける。
+    // 範囲の上の群の中性子束は UFG と同じく F = 1（群のレサジー幅）
+    let multigroup: Vec<Material> = rings
+        .iter()
+        .map(|(m, _)| m.clone().unwrap_or_else(|| Material::void(ng)))
+        .collect();
+    let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
+    let sph = sph_factors(&cylinder, &multigroup, top..bottom, &above, &spectrum.flux)?;
+    for ((material, _), mu) in rings.iter_mut().zip(&sph) {
+        if let Some(m) = material {
+            let mut all = vec![1.0; ng];
+            all[top..bottom].copy_from_slice(mu);
+            *m = m.scaled(&all);
+        }
+    }
+
     // 燃料の平均: 燃料のリングの中性子束と体積の重み
     let effective = carlvik
         .iter()
@@ -459,6 +483,7 @@ fn shield_cell(
         radius,
         rings,
         effective,
+        sph,
     }))
 }
 
