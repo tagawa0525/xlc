@@ -140,6 +140,22 @@ impl Material {
         self.total.len()
     }
 
+    /// 真空（どの群の断面積も 0）。
+    pub fn void(ng: usize) -> Self {
+        Self {
+            total: vec![0.0; ng],
+            scatter: vec![vec![0.0; ng]; ng],
+            fission: vec![0.0; ng],
+            nu_fission: vec![0.0; ng],
+            fission_terms: Vec::new(),
+        }
+    }
+
+    /// 真空か（どの群の全断面積も 0）
+    pub fn is_void(&self) -> bool {
+        self.total.iter().all(|&t| t == 0.0)
+    }
+
     /// 吸収断面積 Σt - Σ_g' Σs(g→g')（多重度のある反応では負になりうる）。
     pub fn absorption(&self) -> Vec<f64> {
         self.total
