@@ -184,7 +184,7 @@ mod tests {
                 name: name.into(),
                 za: 0.0,
                 awr: 1.0,
-                potential: None,
+                resolved: None,
                 temperatures: vec![TemperatureData {
                     pointwise: Default::default(),
                     temperature: 293.6,
