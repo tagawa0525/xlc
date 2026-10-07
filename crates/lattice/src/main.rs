@@ -30,7 +30,7 @@ use xlc_lattice::fewgroup::homogenize;
 use xlc_lattice::input::{CrossSections, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
-use xlc_lattice::moc::{Options, solve};
+use xlc_lattice::moc::{Options, available_order, solve};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
 use xlc_lattice::tracking::Tracking;
@@ -160,7 +160,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
     let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
 
-    let solution = solve(&tracking, &materials, &Options::default())?;
+    let options = Options {
+        scattering_order: input
+            .scattering_order
+            .unwrap_or_else(|| available_order(&materials)),
+        ..Options::default()
+    };
+    let solution = solve(&tracking, &materials, &options)?;
     if let Some((output, bounds)) = &input.output {
         let groups = groups
             .as_ref()
