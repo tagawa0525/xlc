@@ -161,6 +161,35 @@ impl Material {
             && self.fission_terms.is_empty()
     }
 
+    /// 群 g の反応（全断面積、群 g からの散乱、核分裂、νΣf）に `factors[g]` を掛けた物質（SPH 因子を入れる）。
+    pub fn scaled(&self, factors: &[f64]) -> Self {
+        let scale = |v: &[f64]| {
+            v.iter()
+                .zip(factors)
+                .map(|(x, f)| x * f)
+                .collect::<Vec<_>>()
+        };
+        Self {
+            total: scale(&self.total),
+            scatter: self
+                .scatter
+                .iter()
+                .zip(factors)
+                .map(|(row, f)| row.iter().map(|x| x * f).collect())
+                .collect(),
+            fission: scale(&self.fission),
+            nu_fission: scale(&self.nu_fission),
+            fission_terms: self
+                .fission_terms
+                .iter()
+                .map(|t| FissionTerm {
+                    chi: t.chi.clone(),
+                    nu_fission: scale(&t.nu_fission),
+                })
+                .collect(),
+        }
+    }
+
     /// 吸収断面積 Σt - Σ_g' Σs(g→g')（多重度のある反応では負になりうる）。
     pub fn absorption(&self) -> Vec<f64> {
         self.total
