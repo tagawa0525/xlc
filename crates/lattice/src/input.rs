@@ -11,6 +11,7 @@
 //! spacing = 0.05                  # トラック間隔 (cm)
 //! boundary = { right = "vacuum", bottom = "vacuum" }   # 外周の辺の境界条件（書かない辺は鏡面反射）
 //! rows = ["pin box", "box pin"]   # セルの配置を上の行から
+//! gap = { width = 0.04, material = "water" }   # 格子の周りの余白（集合体の間の水のギャップ。省略すると無し）
 //!
 //! [material.fuel]
 //! temperature = 900               # K。ライブラリにある温度であること
@@ -99,6 +100,16 @@ pub struct LatticeInput {
     pub cells: Vec<CellInput>,
     /// 上の行から順の、セルの名前の配置
     pub rows: Vec<Vec<String>>,
+    /// 格子の周りの余白
+    pub gap: Option<Gap>,
+}
+
+/// 格子の周りの余白（集合体の間の水のギャップなど）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Gap {
+    /// 幅 (cm)
+    pub width: f64,
+    pub material: String,
 }
 
 /// 入力ファイルの読み込みエラー。
@@ -140,9 +151,18 @@ struct InputFile {
     /// 省略した辺は鏡面反射
     boundary: Option<BoundaryEntry>,
     rows: Vec<String>,
+    /// 省略すると余白なし
+    gap: Option<GapEntry>,
     /// 巨視的断面積のときは書かない
     material: Option<BTreeMap<String, MaterialEntry>>,
     cell: BTreeMap<String, CellEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GapEntry {
+    width: f64,
+    material: String,
 }
 
 #[derive(Deserialize)]
@@ -274,6 +294,18 @@ impl LatticeInput {
         if rows.is_empty() || rows.iter().any(Vec::is_empty) {
             return Err(invalid("`rows` needs cell names in every row".into()));
         }
+        if let Some(gap) = &file.gap
+            && !positive(gap.width)
+        {
+            return Err(invalid(format!(
+                "the gap width must be positive, got {}",
+                gap.width
+            )));
+        }
+        let gap = file.gap.map(|g| Gap {
+            width: g.width,
+            material: g.material,
+        });
         Ok(Self {
             self_shielding: !macroscopic && file.self_shielding.unwrap_or(true),
             cross_sections,
@@ -286,6 +318,7 @@ impl LatticeInput {
             materials,
             cells,
             rows,
+            gap,
         })
     }
 
@@ -362,12 +395,26 @@ impl LatticeInput {
                     .collect::<Result<Vec<usize>, InputError>>()
             })
             .collect::<Result<Vec<_>, InputError>>()?;
-        let materials = layout
+        let mut materials: Vec<String> = layout
             .iter()
             .flatten()
             .flat_map(|&t| region_materials[t].iter().cloned())
             .collect();
-        Ok((Lattice::new(types, layout)?, materials))
+        let Some(gap) = &self.gap else {
+            return Ok((Lattice::new(types, layout)?, materials));
+        };
+        if let CrossSections::Library(_) = self.cross_sections
+            && !self.materials.iter().any(|m| m.name == gap.material)
+        {
+            return Err(InputError::UndefinedMaterial {
+                cell: "gap".into(),
+                material: gap.material.clone(),
+            });
+        }
+        let lattice = Lattice::with_margin(types, layout, gap.width)?;
+        // 余白の領域は、セルの領域の後に続く
+        materials.resize(lattice.regions(), gap.material.clone());
+        Ok((lattice, materials))
     }
 }
 
