@@ -186,6 +186,7 @@ mod tests {
                 awr: 1.0,
                 potential: None,
                 temperatures: vec![TemperatureData {
+                    pointwise: Default::default(),
                     temperature: 293.6,
                     chi: fission(vec![1.0, 0.0]),
                     scatter: vec![vec![6.0, 2.0], vec![0.5, 15.0]],
@@ -199,6 +200,7 @@ mod tests {
             }
         };
         Library {
+            pointwise_range: [4.0, 1.0e4],
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10],
             nuclides: vec![nuclide("F", true), nuclide("M", false)],
