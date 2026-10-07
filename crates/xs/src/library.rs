@@ -261,7 +261,7 @@ impl Library {
 
 impl Library {
     /// 核種 `name` の温度 `temperature` (K) の表（温度は表の値と完全に一致すること）。
-    fn lookup(
+    pub fn lookup(
         &self,
         name: &str,
         temperature: f64,
