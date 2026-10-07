@@ -585,7 +585,8 @@ mod tests {
                 name: name.into(),
                 za: 0.0,
                 awr: 1.0,
-                potential: None,
+                // 共鳴のある U-238 だけがポテンシャル散乱を持つ（ほかは弾性散乱を使う）
+                potential: (name == "U-238").then_some(11.29),
                 temperatures: vec![TemperatureData {
                     temperature: T,
                     chi: if fissile {
@@ -693,7 +694,9 @@ mod tests {
             let cells: Vec<usize> = shielded.pins.iter().map(|p| p.cell).collect();
             assert_eq!(cells, vec![0, 1, 2]);
             let pin = &shielded.pins[0];
-            assert_eq!(pin.dancoff.len(), 2);
+            // 核種ごと・群ごとの背景断面積
+            assert_eq!(pin.sigma0.len(), 2);
+            assert!(pin.sigma0.iter().all(|s| s.len() == 2));
             let names: Vec<&str> = pin.nuclides.iter().map(|(n, _)| n.name.as_str()).collect();
             assert_eq!(names, vec!["U-238", "U-235"]);
             // 実効断面積（弾性散乱を含む）も核種ごとに持ち、全断面積は核種の群定数と同じ
@@ -795,21 +798,52 @@ mod tests {
         }
 
         #[test]
-        fn rejects_fuel_outside_the_inner_rings() {
+        fn fuel_may_fill_any_rings() {
+            // 燃料の形の制約はない（ESSM は燃料の領域の中性子束だけを使う）
             let library = library();
             let (tracking, mut regions) = geometry(vec![vec![0]]);
             regions.swap(0, 1);
-            let result = shield_fuel(
+            let shielded = shield_fuel(
                 &library,
                 &tracking,
                 &materials(),
                 &regions,
                 &ShieldingOptions::default(),
-            );
-            assert!(
-                matches!(result, Err(SelfShieldingError::FuelShape(0))),
-                "{result:?}"
-            );
+            )
+            .unwrap();
+            assert_eq!(shielded.pins.len(), 1);
+        }
+
+        #[test]
+        fn homogeneous_fuel_gets_the_exact_background() {
+            // 格子全体が燃料（均質な無限媒質）なら、U-238 の σ0 は Σ_{j≠R} N_j σt,j / N_R
+            let library = library();
+            let cell = PinCell::new(1.26, vec![]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+            let (n238, n235) = (0.022, 0.01);
+            let materials = vec![MaterialInput {
+                name: "fuel".into(),
+                temperature: T,
+                composition: vec![("U-238".into(), n238), ("U-235".into(), n235)],
+            }];
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &["fuel".into()],
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let pin = &shielded.pins[0];
+            // U-235 の全断面積は σ0 によらない
+            let expected: Vec<f64> = [10.0, 50.0].iter().map(|t| n235 * t / n238).collect();
+            for (a, b) in pin.sigma0[0].iter().zip(&expected) {
+                assert!((a - b).abs() < 1e-8 * b, "{a} vs {b}");
+            }
+            let table = library.shielded("U-238", T, &expected).unwrap();
+            for (a, b) in pin.effective[0].total.iter().zip(&table.total) {
+                assert!((a - b).abs() < 1e-8 * b, "{a} vs {b}");
+            }
         }
     }
 }
