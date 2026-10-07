@@ -409,16 +409,13 @@ impl<'a> Sweeper<'a> {
         }
     }
 
-    /// 方位角ごとの部分和の入れ物。方位角ごとに順にスイープし、方位角の順に足すので、結果は
-    /// スレッドの数や仕事の分け方によらない。方位角ごとのトラックの長さの和はほぼ等しく、
-    /// 仕事の量も揃う
+    /// 部分和の入れ物（[`SLOTS`] 個）。方位角 a は a mod SLOTS 番目に入れ、入れ物ごとに方位角の順にスイープし、
+    /// 入れ物の順に足すので、結果はスレッドの数や仕事の分け方によらない。方位角ごとのトラックの長さの和は
+    /// ほぼ等しく、仕事の量も揃う。入れ物を方位角ごとに持つより、[領域][群] の和の配列が少なくて済む
     fn tallies(&self, regions: usize) -> Vec<Tally> {
-        self.azimuths
-            .iter()
-            .map(|_| {
-                let voids = self.void.iter().flatten().count();
-                Tally::new(regions, voids, self.mesh.faces(), self.ng, self.width)
-            })
+        let voids = self.void.iter().flatten().count();
+        (0..SLOTS.min(self.azimuths.len()))
+            .map(|_| Tally::new(regions, voids, self.mesh.faces(), self.ng, self.width))
             .collect()
     }
 
@@ -443,21 +440,25 @@ impl<'a> Sweeper<'a> {
     ) -> Result<(), CmfdError> {
         let (ng, width) = (self.ng, self.width);
         let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
-        // 出ていく角度中性子束の配列を、方位角ごとの範囲に分ける
+        // 出ていく角度中性子束の配列を、方位角ごとの範囲に分け、方位角を受け持つ入れ物に配る
+        let count = tallies.len();
         let mut rest = outgoing;
-        let mut outputs = Vec::with_capacity(self.azimuths.len());
-        for range in &self.azimuths {
+        let mut outputs: Vec<Vec<(std::ops::Range<usize>, &mut [f64])>> =
+            (0..count).map(|_| Vec::new()).collect();
+        for (a, range) in self.azimuths.iter().enumerate() {
             let (head, tail) = rest.split_at_mut(2 * width * range.len());
-            outputs.push(head);
+            outputs[a % count].push((range.clone(), head));
             rest = tail;
         }
         tallies
             .par_iter_mut()
             .zip(outputs)
-            .zip(&self.azimuths)
-            .try_for_each(|((tally, outputs), range)| {
+            .try_for_each(|(tally, azimuths)| {
                 tally.clear();
-                for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
+                for (index, out) in azimuths
+                    .into_iter()
+                    .flat_map(|(range, outputs)| range.zip(outputs.chunks_mut(2 * width)))
+                {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
                         std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
@@ -547,7 +548,10 @@ impl<'a> Sweeper<'a> {
     }
 }
 
-/// スイープで足し込む量（方位角ごとに持ち、スイープの後に足し合わせる）。
+/// 部分和の入れ物の数（スレッドの数によらず一定）
+const SLOTS: usize = 16;
+
+/// スイープで足し込む量（入れ物ごとに持ち、スイープの後に足し合わせる）。
 struct Tally {
     /// [領域][群] の角度中性子束の減衰の重み付き和
     delta: Vec<f64>,
@@ -580,7 +584,7 @@ impl Tally {
     }
 }
 
-/// 方位角ごとの部分和を足し合わせたもの。
+/// 入れ物ごとの部分和を足し合わせたもの。
 struct Sums {
     /// [領域][群] の角度中性子束の減衰の重み付き和
     delta: Vec<f64>,
@@ -592,9 +596,9 @@ struct Sums {
     current: Vec<f64>,
 }
 
-/// 方位角ごとの部分和を方位角の順に足す。
+/// 入れ物ごとの部分和を入れ物の順に足す。
 fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
-    // 要素ごとに並列に足す（1つの要素の中では方位角の順なので、結果は分け方によらない）
+    // 要素ごとに並列に足す（1つの要素の中では入れ物の順なので、結果は分け方によらない）
     let sum = |part: fn(&Tally) -> &[f64]| -> Vec<f64> {
         let mut sum = vec![0.0; part(&tallies[0]).len()];
         sum.par_chunks_mut(ng).enumerate().for_each(|(i, chunk)| {
