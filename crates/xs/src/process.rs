@@ -607,12 +607,13 @@ mod tests {
     }
 
     #[test]
-    fn potential_scattering_comes_from_the_s_wave_radius() {
+    fn resolved_range_has_its_top_and_potential_scattering() {
         use crate::endf::rec;
         let expected = 4.0 * std::f64::consts::PI * 0.948 * 0.948;
         // MLBW: AP
-        let mlbw = potential_scattering(&resolved_tape(), 1).unwrap().unwrap();
-        assert!((mlbw - expected).abs() < 1e-12 * expected);
+        let mlbw = resolved(&resolved_tape(), 1).unwrap().unwrap();
+        assert_eq!(mlbw.top, 2.0e4);
+        assert!((mlbw.potential - expected).abs() < 1e-12 * expected);
         // Reich-Moore で AP が 0 なら、l=0 の APL（U-238 と同じ）
         let text = [
             rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
@@ -629,16 +630,10 @@ mod tests {
             rec(["", "", "", "", "", ""], 1, 2, 0),
         ]
         .concat();
-        let rm = potential_scattering(&Tape::parse(&text).unwrap(), 1)
-            .unwrap()
-            .unwrap();
-        assert!((rm - expected).abs() < 1e-12 * expected);
+        let rm = resolved(&Tape::parse(&text).unwrap(), 1).unwrap().unwrap();
+        assert!((rm.potential - expected).abs() < 1e-12 * expected);
         // 分離共鳴がなければ持たない
-        assert!(
-            potential_scattering(&unresolved_tape(), 1)
-                .unwrap()
-                .is_none()
-        );
+        assert!(resolved(&unresolved_tape(), 1).unwrap().is_none());
     }
 
     #[test]
