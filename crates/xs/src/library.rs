@@ -512,6 +512,16 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn refuses_to_write_non_finite_values() {
+        let mut library = sample();
+        library.nuclides[0].temperatures[0].shielded[1].total[0] = f64::NAN;
+        assert!(matches!(
+            library.to_msgpack(),
+            Err(LibraryError::Invalid(_))
+        ));
+    }
+
+    #[test]
     fn written_as_a_map_with_the_format_name() {
         let bytes = sample().to_msgpack().unwrap();
         let value: std::collections::BTreeMap<String, serde::de::IgnoredAny> =

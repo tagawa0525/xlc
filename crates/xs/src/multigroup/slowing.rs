@@ -172,6 +172,17 @@ mod tests {
     }
 
     #[test]
+    fn shape_ends_exactly_at_the_range() {
+        // 端のエネルギーを計算し直すと丸めでずれ、範囲の端で表を引けなくなる
+        let (total, elastic) = (constant(10.0), constant(8.0));
+        let range = (0.1, 1.83e5);
+        let shape =
+            slowing_down_shape(&total, &elastic, 56.44629, &Weight::lwr(), 50.0, range).unwrap();
+        assert_eq!(shape.x.first(), Some(&range.0));
+        assert_eq!(shape.x.last(), Some(&range.1));
+    }
+
+    #[test]
     fn constant_absorber_approaches_the_asymptotic_flux() {
         // σa = 2, σs = 8, σ0 = 50: 上端から十分下では F = σ0 / (σa + σ0)
         let (total, elastic) = (constant(10.0), constant(8.0));
