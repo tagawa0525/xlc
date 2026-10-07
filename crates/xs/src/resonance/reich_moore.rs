@@ -410,6 +410,39 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn resonance_without_capture_width_is_the_limit_at_its_energy() {
+        // Γγ = 0 では E = Er で R 行列が発散するが、断面積は Breit-Wigner の値に連続につながる
+        let e = 6.674;
+        for gf in [0.0, 1.0e-1] {
+            let sigma = ReichMooreXs::new(&single_level(1.5e-3, 0.0, gf))
+                .cross_sections(e)
+                .unwrap();
+            let exact = single_level_exact(e, 1.5e-3, 0.0, gf);
+            assert_close(sigma.total, exact.total, "total");
+            assert_close(sigma.elastic, exact.elastic, "elastic");
+            assert_close(sigma.fission, exact.fission, "fission");
+            // 捕獲は厳密に 0。全断面積からの差なので、全断面積と同じ相対の精度で比べる
+            assert!(
+                sigma.capture.abs() <= 1e-9 * sigma.total,
+                "capture {} of total {}",
+                sigma.capture,
+                sigma.total
+            );
+        }
+    }
+
+    #[test]
+    fn two_poles_in_one_group_are_an_error() {
+        // 同じ組に、捕獲幅のない共鳴が同じエネルギーに2つあると、極限が1つに決まらない
+        let mut data = single_level(1.5e-3, 0.0, 0.0);
+        let mut second = data.l_values[0].resonances[0];
+        second.gn = 2.0e-3;
+        data.l_values[0].resonances.push(second);
+        let error = ReichMooreXs::new(&data).cross_sections(6.674).unwrap_err();
+        assert!(matches!(error, ReichMooreError::Poles { .. }), "{error}");
+    }
+
+    #[test]
     fn negative_fission_amplitude_gives_same_single_level_result() {
         // 単一準位では核分裂幅の符号（振幅の符号）は結果に影響しない
         let xs = ReichMooreXs::new(&single_level(1.5e-3, 2.3e-2, -1.0e-1));
