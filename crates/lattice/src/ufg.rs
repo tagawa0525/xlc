@@ -664,6 +664,10 @@ mod tests {
     }
 
     fn library(specs: Vec<Spec>) -> Library {
+        library_at(specs, TEMPERATURE)
+    }
+
+    fn library_at(specs: Vec<Spec>, temperature: f64) -> Library {
         let groups = GroupStructure::new(BOUNDS.to_vec()).unwrap();
         let ng = BOUNDS.len() - 1;
         let nuclides = specs
@@ -682,7 +686,7 @@ mod tests {
                         potential: 10.0,
                     }),
                     temperatures: vec![TemperatureData {
-                        temperature: TEMPERATURE,
+                        temperature,
                         chi: vec![0.0; ng],
                         scatter: vec![vec![0.0; ng]; ng],
                         shielded: vec![Shielded {
@@ -711,9 +715,13 @@ mod tests {
     }
 
     fn material(composition: &[(&str, f64)]) -> MaterialInput {
+        material_at(composition, TEMPERATURE)
+    }
+
+    fn material_at(composition: &[(&str, f64)], temperature: f64) -> MaterialInput {
         MaterialInput {
             name: "m".into(),
-            temperature: TEMPERATURE,
+            temperature,
             composition: composition
                 .iter()
                 .map(|&(n, d)| (n.to_string(), d))
@@ -916,6 +924,211 @@ mod tests {
             [total(0), total(1), total(2)]
         );
         assert!(total(2) < dilute, "{} vs {dilute}", total(2));
+    }
+
+    /// ボルツマン定数 (eV/K)
+    const BOLTZMANN: f64 = 8.617_333_262e-5;
+
+    /// 均質な無限媒質の減速計算を、一様なレサジーの格子と散乱核の直接の求積で解く（自由ガスの検証用の素朴な解法）。
+    /// 範囲の中の散乱源はすべて自由ガス（400 kT が範囲の上端より上の温度で使う）、範囲の上は F = 1 で静止した標的、
+    /// 散乱断面積は群定数。散乱核の規格化 N(E) は xs の群積分の和から求める。戻り値は (∫F du, ∫Σa F du)。
+    fn free_gas_reference(
+        lib: &Library,
+        mix: &[(&str, f64)],
+        [low, high]: [f64; 2],
+        h: f64,
+    ) -> (f64, f64) {
+        use xlc_xs::multigroup::{free_gas_group_integrals, free_gas_kernel};
+        let bounds = lib.groups.bounds();
+        let top = bounds.iter().position(|&b| b == high).unwrap();
+        struct Nuc<'a> {
+            density: f64,
+            awr: f64,
+            kt: f64,
+            p: &'a Pointwise,
+            elastic: &'a [f64],
+        }
+        let nuclides: Vec<Nuc> = mix
+            .iter()
+            .map(|&(name, density)| {
+                let d = lib.nuclides.iter().find(|n| n.name == name).unwrap();
+                let t = &d.temperatures[0];
+                Nuc {
+                    density,
+                    awr: d.awr,
+                    kt: BOLTZMANN * t.temperature,
+                    p: &t.pointwise,
+                    elastic: &t.shielded[0].elastic,
+                }
+            })
+            .collect();
+        let lerp = |x: &[f64], y: &[f64], e: f64| {
+            let j = x.partition_point(|&v| v <= e).clamp(1, x.len() - 1) - 1;
+            y[j] + (e - x[j]) / (x[j + 1] - x[j]) * (y[j + 1] - y[j])
+        };
+        let span = (high / low).ln();
+        let m = (span / h).round() as usize;
+        let u: Vec<f64> = (0..=m).map(|j| span * j as f64 / m as f64).collect();
+        let e: Vec<f64> = u.iter().map(|&x| high * (-x).exp()).collect();
+        let dh = span / m as f64;
+        // 範囲の上（静止した標的、F = 1）からの散乱源
+        let above: Vec<f64> = u
+            .iter()
+            .map(|&uj| {
+                nuclides
+                    .iter()
+                    .map(|n| {
+                        let alpha = ((n.awr - 1.0) / (n.awr + 1.0)).powi(2);
+                        let lower = uj + alpha.ln();
+                        (0..top)
+                            .map(|g| {
+                                let ga = (high / bounds[g]).ln();
+                                let gb = (high / bounds[g + 1]).ln();
+                                let (x, y) = (lower.max(ga), 0.0f64.min(gb));
+                                if x < y {
+                                    n.density * n.elastic[g] / (1.0 - alpha)
+                                        * ((-(uj - y)).exp() - (-(uj - x)).exp())
+                                } else {
+                                    0.0
+                                }
+                            })
+                            .sum::<f64>()
+                    })
+                    .sum()
+            })
+            .collect();
+        // 自由ガスの散乱核の重み: [ターゲット] の (散乱源の格子点, N_k σs,k h K)
+        let norms: Vec<Vec<f64>> = nuclides
+            .iter()
+            .map(|n| {
+                e.iter()
+                    .map(|&x| {
+                        free_gas_group_integrals(&lib.groups, x, n.awr, n.kt)
+                            .iter()
+                            .sum()
+                    })
+                    .collect()
+            })
+            .collect();
+        let total: Vec<f64> = e
+            .iter()
+            .map(|&x| {
+                nuclides
+                    .iter()
+                    .map(|n| n.density * lerp(&n.p.energy, &n.p.total, x))
+                    .sum()
+            })
+            .collect();
+        let absorption: Vec<f64> = e
+            .iter()
+            .map(|&x| {
+                nuclides
+                    .iter()
+                    .map(|n| {
+                        n.density
+                            * (lerp(&n.p.energy, &n.p.total, x)
+                                - lerp(&n.p.energy, &n.p.elastic, x))
+                    })
+                    .sum()
+            })
+            .collect();
+        let mut weights: Vec<Vec<(usize, f64)>> = vec![Vec::new(); u.len()];
+        for (k, n) in nuclides.iter().enumerate() {
+            let alpha = ((n.awr - 1.0) / (n.awr + 1.0)).powi(2);
+            for (t, &et) in e.iter().enumerate() {
+                for (j, &ej) in e.iter().enumerate() {
+                    // 散乱核の届く範囲: 静止した標的の窓と、熱運動の幅の 12 倍
+                    let width = 2.0 * (n.kt / (n.awr * et.min(ej))).sqrt();
+                    let d = u[t] - u[j];
+                    if d < -12.0 * width || d > -alpha.ln() + 12.0 * width {
+                        continue;
+                    }
+                    let end = if j == 0 || j == m { 0.5 } else { 1.0 };
+                    let sigma_s = lerp(&n.p.energy, &n.p.elastic, ej);
+                    let kernel = et * free_gas_kernel(ej, et, n.awr, n.kt) / norms[k][j];
+                    weights[t].push((j, n.density * sigma_s * end * dh * kernel));
+                }
+            }
+        }
+        let mut f = vec![1.0; u.len()];
+        for _ in 0..200 {
+            let mut change: f64 = 0.0;
+            for t in 0..u.len() {
+                let (mut source, mut own) = (above[t], 0.0);
+                for &(j, w) in &weights[t] {
+                    if j == t {
+                        own += w;
+                    } else {
+                        source += w * f[j];
+                    }
+                }
+                let new = source / (total[t] - own);
+                change = change.max(((new - f[t]) / new).abs());
+                f[t] = new;
+            }
+            if change < 1e-12 {
+                break;
+            }
+        }
+        let trapezoid = |y: &dyn Fn(usize) -> f64| -> f64 {
+            (0..m).map(|j| 0.5 * dh * (y(j) + y(j + 1))).sum()
+        };
+        (trapezoid(&|j| f[j]), trapezoid(&|j| absorption[j] * f[j]))
+    }
+
+    #[test]
+    fn free_gas_matches_a_direct_solution() {
+        // 10 eV に散乱の強い共鳴を持つ核種と減速材。3000 K では 400 kT = 103 eV で、範囲 4〜100 eV の散乱源は
+        // すべて自由ガスになる。静止した標的とは、群の中性子束が 1.2%、吸収率が 0.8% 違う
+        let temperature = 3000.0;
+        let resonance = |e: f64| 500.0 / (1.0 + ((e - 10.0) / 0.3).powi(2));
+        let energies: Vec<f64> = (0..=4000)
+            .map(|k| 4.0 * (5.0e3f64 / 4.0).powf(k as f64 / 4000.0))
+            .collect();
+        let points = energies
+            .iter()
+            .map(|&e| {
+                [
+                    e,
+                    10.0 + resonance(e) + 2.0 / e.sqrt(),
+                    10.0 + 0.5 * resonance(e),
+                    0.0,
+                ]
+            })
+            .collect();
+        let lib = library_at(
+            vec![
+                Spec {
+                    name: "Cr-50",
+                    awr: 49.5,
+                    top: None,
+                    points,
+                },
+                constant("Ti-48", 47.6, 4.0, 4.0, 0.0),
+            ],
+            temperature,
+        );
+        let composition = [("Cr-50", 0.005), ("Ti-48", 0.05)];
+        let mix = material_at(&composition, temperature);
+        let cell = Cylinder::new(vec![0.5, 1.0]).unwrap();
+        let spectrum = slowing_down(&lib, &cell, &[Some(&mix); 2], [4.0, 1.0e2]).unwrap();
+        // 参照解は h について2次で収束するので、h と h/2 から Richardson 補外する（h/4 との補外と 1e-4 以内で一致する）
+        let coarse = free_gas_reference(&lib, &composition, [4.0, 1.0e2], 2.0e-3);
+        let fine = free_gas_reference(&lib, &composition, [4.0, 1.0e2], 1.0e-3);
+        let (flux, absorption) = (
+            (4.0 * fine.0 - coarse.0) / 3.0,
+            (4.0 * fine.1 - coarse.1) / 3.0,
+        );
+        // 4〜100 eV の群
+        let k = 4 - spectrum.groups.start;
+        let f = spectrum.flux[0][k];
+        let n = &spectrum.nuclides[0][0];
+        let rate = 0.005 * (n.total[k] - n.elastic[k]) * f;
+        assert!((f - flux).abs() < 1e-3 * flux, "flux {f} vs {flux}");
+        assert!(
+            (rate - absorption).abs() < 1e-3 * absorption,
+            "absorption {rate} vs {absorption}"
+        );
     }
 
     #[test]
