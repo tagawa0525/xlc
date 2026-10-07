@@ -30,6 +30,8 @@ def main() -> None:
     n = len(reference)
     if len(ours) != n or any(len(row) != n for row in ours + reference):
         raise SystemExit("the two maps have different shapes")
+    if {len(g) for row in ours + reference for g in row} != {len(reference[0][0])}:
+        raise SystemExit("the two maps have different numbers of groups")
     fuel = {(i, j) for i in range(n) for j in range(n) if any(reference[i][j])}
     if fuel != {(i, j) for i in range(n) for j in range(n) if any(ours[i][j])}:
         raise SystemExit("the two maps have fuel in different cells")
