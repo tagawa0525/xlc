@@ -20,7 +20,7 @@
 use std::f64::consts::PI;
 use std::sync::OnceLock;
 
-/// y の求積で、リングの間の区間ごとに使う Gauss–Legendre の点の数
+/// y の求積で、小区間（リングの間の区間を、外の境界の特異点に合わせて分けたもの）ごとに使う Gauss–Legendre の点の数
 const POINTS: usize = 16;
 
 /// 円筒のセルの計算のエラー。
@@ -61,7 +61,7 @@ impl Cylinder {
         Self::with_points(radii, POINTS)
     }
 
-    /// リングの間の区間ごとに `points` 点の求積で弦をとる。
+    /// 小区間ごとに `points` 点の求積で弦をとる。
     pub fn with_points(radii: Vec<f64>, points: usize) -> Result<Self, CpError> {
         let increasing = radii.windows(2).all(|w| w[0] < w[1]);
         if radii.is_empty() || !increasing || !radii.iter().all(|r| r.is_finite() && *r > 0.0) {
@@ -71,18 +71,34 @@ impl Cylinder {
             return Err(CpError::Points);
         }
         let nodes = gauss_legendre(points)?;
-        let mut chords = Vec::with_capacity(radii.len() * points);
+        let mut chords = Vec::new();
         let mut inner = 0.0;
         for (k, &outer) in radii.iter().enumerate() {
-            // y = r_k − (r_k − r_{k−1}) t² で、弦の長さの √(r_k − y) の振る舞いを t について滑らかにする
-            let width = outer - inner;
+            let mut push = |y: f64, weight: f64| {
+                chords.push(Chord {
+                    weight,
+                    segments: segments(&radii, k, y),
+                })
+            };
+            // 外のリングの境界 r_{k+1} にも弦の長さの √(r_{k+1} − y) の特異点があり、それが区間の上端に近いと
+            // 求積が収束しにくい。上端から特異点までの距離 g = r_{k+1} − r_k を幅とする小区間をとり、その下は幅を
+            // 倍々にする。どの小区間でも、特異点までの距離が幅を下回らない
+            let gap = radii.get(k + 1).map_or(f64::INFINITY, |r| r - outer);
+            // 上端の小区間は y = r_k − d t² として、弦の長さの √(r_k − y) の振る舞いを t について滑らかにする
+            let top = gap.min(outer - inner);
             for &(x, w) in &nodes {
                 let t = 0.5 * (x + 1.0);
-                let y = outer - width * t * t;
-                chords.push(Chord {
-                    weight: w * width * t,
-                    segments: segments(&radii, k, y),
-                });
+                push(outer - top * t * t, w * top * t);
+            }
+            let (mut upper, mut width) = (outer - top, top);
+            while top < outer - inner && upper > inner {
+                width *= 2.0;
+                let lower = (upper - width).max(inner);
+                let half = 0.5 * (upper - lower);
+                for &(x, w) in &nodes {
+                    push(lower + half * (x + 1.0), w * half);
+                }
+                upper = lower;
             }
             inner = outer;
         }
