@@ -99,7 +99,7 @@ pub fn dancoff(
         .collect();
     let references: Vec<&Material> = materials.iter().collect();
     let mesh = CoarseMesh::new(tracking);
-    let sweeper = Sweeper::new(tracking, &references, ng, &mesh);
+    let sweeper = Sweeper::new(tracking, &references, ng, &mesh, &[(0, 0)]);
 
     // 孤立したピンでの吸収率 R_iso / ψ0: 燃料に入るたびに方向の重みを足す
     let mut isolated = vec![0.0; cells];
