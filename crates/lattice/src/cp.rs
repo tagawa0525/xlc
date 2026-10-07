@@ -13,8 +13,9 @@ mod tests {
     fn bickley_function_has_known_values() {
         // Ki3(0) = π/4、Ki3 は単調に減る
         assert!(close(ki3(0.0), PI / 4.0, 1e-12));
-        // Ki3(1) = ∫_0^{π/2} cos²θ exp(−1/cosθ) dθ（別の求積で求めた値）
-        assert!(close(ki3(1.0), 0.146_276_052_3, 1e-8), "{}", ki3(1.0));
+        // Ki3(x) = ∫_0^{π/2} cos²θ exp(−x/cosθ) dθ（SciPy の適応求積で求めた値）
+        assert!(close(ki3(1.0), 0.237_845_082_192_855, 1e-8), "{}", ki3(1.0));
+        assert!(close(ki3(2.0), 0.076_963_590_311_658, 1e-8), "{}", ki3(2.0));
         assert!(ki3(2.0) < ki3(1.0) && ki3(20.0) > 0.0);
     }
 
