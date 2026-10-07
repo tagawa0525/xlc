@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, parse_nubar};
+use crate::endf::{
+    Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
+};
 use crate::library::{NuclideData, Shielded, TemperatureData};
 use crate::multigroup::{
     Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
@@ -47,6 +49,10 @@ pub enum ProcessError {
     NoIncoherent,
     #[error("more than one unresolved range")]
     MultipleUnresolved,
+    #[error(
+        "the R-matrix limited range has no s-wave elastic channel for the potential scattering"
+    )]
+    NoSWaveRadius,
     #[error("expected one material, found {0:?}")]
     Materials(Vec<i32>),
     #[error("MF3 MT{0} not found")]
@@ -192,6 +198,41 @@ pub fn slowing_down_range(
         awr: mf2.awr,
         range: (low, high),
     }))
+}
+
+/// 分離共鳴を持つ核種のポテンシャル散乱断面積 4π a² (barn)。a は上端がいちばん高い分離共鳴の範囲の、
+/// s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。R-matrix limited は
+/// 弾性散乱の l=0 のチャネルの APE）。分離共鳴がなければ `None`。ESSM の線源と全断面積に使う。
+pub fn potential_scattering(tape: &Tape, mat: i32) -> Result<Option<f64>, ProcessError> {
+    let Some(section) = tape.section(mat, 2, 151) else {
+        return Ok(None);
+    };
+    let mf2 = Mf2::parse(&section)?;
+    let Some(range) = mf2
+        .ranges
+        .iter()
+        .filter(|r| r.kind.is_resolved())
+        .max_by(|a, b| a.eh.total_cmp(&b.eh))
+    else {
+        return Ok(None);
+    };
+    let radius = match &range.kind {
+        RangeKind::ReichMoore(rm) => rm
+            .l_values
+            .iter()
+            .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
+            .map_or(rm.ap, |lv| lv.apl),
+        RangeKind::Mlbw(bw) => bw.ap,
+        RangeKind::RMatrixLimited(rml) => rml
+            .spin_groups
+            .iter()
+            .flat_map(|g| &g.channels)
+            .find(|c| c.l == OrbitalL::S && rml.pairs[c.pair].mt == 2)
+            .map(|c| c.ape)
+            .ok_or(ProcessError::NoSWaveRadius)?,
+        RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved(_) => return Ok(None),
+    };
+    Ok(Some(4.0 * std::f64::consts::PI * radius * radius))
 }
 
 /// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
