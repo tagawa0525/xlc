@@ -290,8 +290,16 @@ mod tests {
         let capture = Tab1::linear(vec![1.0e-5, 1.0, 2.0e7], vec![5.0, 1.0, 0.1]);
         let tables = BTreeMap::from([(1, constant(3.0)), (102, capture)]);
         let infinite = reaction_averages(&groups, &weight, &tables, None);
-        let shielded =
-            shielded_averages(&groups, &weight, &tables, None, &[1.0e10, 10.0, 1.0], None).unwrap();
+        let shielded = shielded_averages(
+            &groups,
+            &weight,
+            &tables,
+            None,
+            &[1.0e10, 10.0, 1.0],
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(shielded.len(), 3);
         for avg in &shielded {
             for g in 0..69 {
@@ -311,8 +319,8 @@ mod tests {
         let tables = BTreeMap::from([(1, total)]);
         let (a, b) = (10.0_f64, 100.0_f64);
         for s0 in [1.0, 30.0, 1.0e3] {
-            let avg =
-                &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0], None).unwrap()[0];
+            let avg = &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0], None, None)
+                .unwrap()[0];
             let numerator = ((c * b + s0) / (c * a + s0)).ln();
             let denominator = (b * (c * a + s0) / (a * (c * b + s0))).ln() / s0;
             let expected = numerator / denominator;
@@ -320,6 +328,77 @@ mod tests {
             assert!(
                 (actual - expected).abs() <= 1e-10 * expected,
                 "σ0 {s0}: {actual} vs {expected}"
+            );
+        }
+    }
+
+    /// 20 eV に散乱の大きな共鳴（幅 1 eV）、ほかは散乱 10 b の核種の全断面積・弾性散乱・捕獲
+    fn scattering_resonance() -> BTreeMap<u32, Tab1> {
+        let x: Vec<f64> = (0..=40_000)
+            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(i) / 40_000.0))
+            .collect();
+        let peak = |e: f64| 1.0 / (1.0 + ((e - 20.0) / 0.5).powi(2));
+        let table =
+            |f: &dyn Fn(f64) -> f64| Tab1::linear(x.clone(), x.iter().map(|&e| f(e)).collect());
+        BTreeMap::from([
+            (1, table(&|e| 10.0 + 3000.0 * peak(e))),
+            (2, table(&|e| 10.0 + 2000.0 * peak(e))),
+            (102, table(&|e| 1000.0 * peak(e))),
+        ])
+    }
+
+    #[test]
+    fn slowing_down_weight_changes_only_groups_in_its_range() {
+        let groups = GroupStructure::new(vec![1.0e3, 100.0, 30.0, 10.0, 1.0]).unwrap();
+        let tables = scattering_resonance();
+        let slowing = SlowingDown {
+            awr: 1.0e4,
+            range: (1.0, 100.0),
+        };
+        let average = |s: Option<&SlowingDown>| {
+            shielded_averages(&groups, &Weight::lwr(), &tables, None, &[50.0], None, s)
+                .unwrap()
+                .remove(0)
+        };
+        let (nr, ufg) = (average(None), average(Some(&slowing)));
+        // 範囲の上の群は変わらない
+        assert!((ufg.sigma[&102][0] - nr.sigma[&102][0]).abs() <= 1e-12 * nr.sigma[&102][0]);
+        // 共鳴の群: NR 近似は吸収体の散乱で中性子束を減らしすぎるので、捕獲を小さく見積もる
+        assert!(
+            ufg.sigma[&102][2] > 1.05 * nr.sigma[&102][2],
+            "{} vs {}",
+            ufg.sigma[&102][2],
+            nr.sigma[&102][2]
+        );
+    }
+
+    #[test]
+    fn slowing_down_weight_keeps_constant_cross_sections() {
+        let groups = GroupStructure::new(vec![1.0e3, 100.0, 10.0, 1.0]).unwrap();
+        let tables = BTreeMap::from([
+            (1, constant(10.0)),
+            (2, constant(8.0)),
+            (102, constant(2.0)),
+        ]);
+        let slowing = SlowingDown {
+            awr: 236.0,
+            range: (1.0, 100.0),
+        };
+        let avg = &shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            &[50.0],
+            None,
+            Some(&slowing),
+        )
+        .unwrap()[0];
+        for g in 0..3 {
+            assert!(
+                (avg.sigma[&102][g] - 2.0).abs() < 1e-12,
+                "{}",
+                avg.sigma[&102][g]
             );
         }
     }
