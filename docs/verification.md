@@ -24,12 +24,19 @@ done
 
 ```sh
 git clone --branch 2016.79 https://github.com/njoy/NJOY2016.git references/NJOY2016
+git -C references/NJOY2016 apply ../../docs/patches/njoy2016-acer-law0.patch
 nix develop .#references -c sh -c \
   'cmake -S references/NJOY2016 -B references/NJOY2016/build -DCMAKE_BUILD_TYPE=Release &&
    cmake --build references/NJOY2016/build -j'
 ```
 
 NJOY の入力と出力は `references/njoy-runs/` に置き、`crates/xs/examples/compare_njoy_*` で比べる。
+
+`docs/patches/njoy2016-acer-law0.patch` は ACER のバグを直す。MF6 の生成物の分布が LAW=0（分布が
+与えられていない）だと、ACER は荷電粒子の生成データにその項目を LNW, LAW, IDAT の3語だけで書くが、
+書き出し（`change`）は分布の見出しが続くものとして読み進め、止まる（B-10 の MT700 の α 粒子）。
+パッチは LAW=0 の項目でその3語のあと次の反応に進む。荷電粒子の生成データだけにかかわり、
+中性子の断面積は変わらない（OpenMC は荷電粒子の生成データを読まない）。
 
 ## OpenMC（0.15.2）
 
@@ -52,4 +59,18 @@ nix develop ../..#references -c sh -c \
 cd references/openmc
 nix develop ../..#references -c sh -c \
   'PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 venv/bin/python ../../examples/c5g7/openmc_model.py work 1000000 400 100 2'
+```
+
+## VERA の参照解
+
+VERA Problem 1B〜1D, 2B〜2D の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
+データで OpenMC を動かして作る（`examples/vera/`）。データは `references/openmc/endfb80/` に置く:
+
+```sh
+cd references/openmc
+nix develop ../..#references -c sh -c \
+  'PATH=$PWD/../NJOY2016/build:$PATH venv/bin/python ../../examples/vera/openmc_library.py ../endf endfb80 8'
+nix develop ../..#references -c sh -c \
+  'PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 venv/bin/python ../../examples/vera/openmc_model.py \
+     endfb80/cross_sections.xml 2B work-2B 1000000 400 100 1'
 ```
