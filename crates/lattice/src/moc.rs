@@ -144,8 +144,7 @@ pub fn solve(
         let lattice = &tracking.lattice;
         let exact = lattice.volumes();
         let (region, error) = worst_volume_error(&exact, &volumes);
-        let cell = (0..lattice.cells_per_side().pow(2))
-            .find(|&c| lattice.cell_regions(c).contains(&region));
+        let cell = lattice.region_cell(region);
         tracing::debug!(
             regions,
             worst_region = region,
