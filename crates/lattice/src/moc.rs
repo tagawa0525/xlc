@@ -851,6 +851,31 @@ mod tests {
     }
 
     #[test]
+    fn rejects_cells_that_are_all_void() {
+        // ピンと、全体が真空のセル
+        let pin = PinCell::new(1.26, vec![0.4]).unwrap();
+        let empty = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, empty], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let (f, m, v) = (fuel(), moderator(), Material::void(2));
+        let result = solve(&tracking, &[&f, &m, &v, &v, &f, &m], &Options::default());
+        assert!(matches!(result, Err(MocError::VoidCell(1))), "{result:?}");
+    }
+
+    #[test]
+    fn scattering_without_total_is_not_void() {
+        let cell = PinCell::new(1.26, vec![0.3, 0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let broken = two_group([0.0, 0.0], [[0.1, 0.0], [0.0, 0.0]], [0.0, 0.0]);
+        let result = solve(&tracking, &[&f, &broken, &m], &Options::default());
+        assert!(
+            matches!(result, Err(MocError::NonPositiveTotal)),
+            "{result:?}"
+        );
+    }
+
+    #[test]
     fn reflective_cell_has_no_leakage() {
         assert_eq!(heterogeneous(8, 0.1).leakage, vec![0.0, 0.0]);
     }
