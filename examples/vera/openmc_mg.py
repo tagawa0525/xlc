@@ -22,6 +22,8 @@ from openmc_model import geometry_of, pin_mesh, write_pins
 
 # 物質の名前（xlc の格子の入力と同じ）
 FUEL, CLAD, WATER = "fuel", "zircaloy", "water"
+# 断面積がすべて 0 の物質の名前
+VOID = "void"
 
 
 def library(path: Path, work: Path) -> Path:
@@ -56,6 +58,14 @@ def library(path: Path, work: Path) -> Path:
             x.set_fission(np.array(xs["fission"]))
             x.set_nu_fission(nu_fission)
         mgxs.add_xsdata(x)
+    # 真空のギャップの代わりの、断面積がすべて 0 の物質（`main` を参照）
+    ng = structure.num_groups
+    void = openmc.XSdata(VOID, structure)
+    void.order = 0
+    void.set_total(np.zeros(ng))
+    void.set_absorption(np.zeros(ng))
+    void.set_scatter_matrix(np.zeros((ng, ng, 1)))
+    mgxs.add_xsdata(void)
     file = work / "mgxs.h5"
     mgxs.export_to_hdf5(str(file))
     return file
@@ -77,10 +87,13 @@ def main() -> None:
         m.add_macroscopic(name)
         return m
 
-    fuel, clad, water = (macroscopic(n) for n in (FUEL, CLAD, WATER))
-    materials = openmc.Materials([fuel, clad, water])
+    fuel, clad, water, void = (macroscopic(n) for n in (FUEL, CLAD, WATER, VOID))
+    materials = openmc.Materials([fuel, clad, water, void])
     materials.cross_sections = str(library(constants, work))
-    geometry, half = geometry_of(problem, fuel, clad, water)
+    # ギャップを物質のない真空にすると、OpenMC 0.15.2 の多群モードは、核分裂の tally を数えるときに
+    # 物質の番号 -1 で断面積の配列を引いて落ちる（src/tallies/tally_scoring.cpp の score_general_mg）。
+    # 断面積がすべて 0 の物質で埋める（衝突しないので真空と同じ）
+    geometry, half = geometry_of(problem, fuel, clad, water, void)
 
     settings = openmc.Settings()
     settings.energy_mode = "multi-group"
