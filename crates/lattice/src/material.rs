@@ -225,6 +225,30 @@ mod tests {
     }
 
     #[test]
+    fn scaled_multiplies_the_reactions_of_each_group() {
+        let m = mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
+        let s = m.scaled(&[2.0, 0.5]);
+        assert_eq!(s.total, vec![m.total[0] * 2.0, m.total[1] * 0.5]);
+        // 散乱は入射の群（行）の係数
+        assert_eq!(
+            s.scatter[0],
+            m.scatter[0].iter().map(|v| v * 2.0).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            s.scatter[1],
+            m.scatter[1].iter().map(|v| v * 0.5).collect::<Vec<_>>()
+        );
+        assert_eq!(s.nu_fission[1], m.nu_fission[1] * 0.5);
+        assert_eq!(s.fission[0], m.fission[0] * 2.0);
+        assert_eq!(
+            s.fission_terms[0].nu_fission[1],
+            m.fission_terms[0].nu_fission[1] * 0.5
+        );
+        assert_eq!(s.fission_terms[0].chi, m.fission_terms[0].chi);
+        s.validate().unwrap();
+    }
+
+    #[test]
     fn fissile_nuclide_needs_normalized_chi() {
         let mut lib = library();
         lib.nuclides[0].temperatures[0].chi = vec![0.0, 0.0];
