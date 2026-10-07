@@ -1299,6 +1299,19 @@ mod tests {
     }
 
     #[test]
+    fn available_order_is_the_lowest_among_materials() {
+        let (f, m, void) = (
+            with_moments(&fuel(), &[0.05, 0.01]),
+            with_moments(&moderator(), &[0.5]),
+            Material::void(2),
+        );
+        assert_eq!(available_order(&[&f, &void]), 2);
+        assert_eq!(available_order(&[&f, &m, &void]), 1);
+        assert_eq!(available_order(&[&f, &fuel()]), 0);
+        assert_eq!(available_order(&[&void]), 0);
+    }
+
+    #[test]
     fn scattering_order_needs_the_moments() {
         let tracking = vacuum_checkerboard(2);
         let (f, m) = (with_moments(&fuel(), &[0.05]), moderator());

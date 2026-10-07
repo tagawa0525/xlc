@@ -622,15 +622,19 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
-    fn scattering_order_is_isotropic_unless_given() {
-        assert_eq!(LatticeInput::parse(PIN_CELL).unwrap().scattering_order, 0);
-        let p3 = replaced(
+    fn scattering_order_is_optional() {
+        // 省略すると、ライブラリにある次数を全て使う（決めるのは物質を作った後）
+        assert_eq!(
+            LatticeInput::parse(PIN_CELL).unwrap().scattering_order,
+            None
+        );
+        let p1 = replaced(
             PIN_CELL,
             "pitch = 1.26",
-            "pitch = 1.26\nscattering-order = 3",
+            "pitch = 1.26\nscattering-order = 1",
         )
         .unwrap();
-        assert_eq!(p3.scattering_order, 3);
+        assert_eq!(p1.scattering_order, Some(1));
         // 巨視的断面積は P0 だけ
         let result = replaced(
             LATTICE,
