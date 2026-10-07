@@ -76,6 +76,16 @@ impl PinCell {
         &self.radii
     }
 
+    /// 各リングを分ける扇形の数
+    pub fn sectors(&self) -> usize {
+        self.sectors
+    }
+
+    /// 同心円ではなく小さな正方形に分けたセルか
+    pub fn is_grid(&self) -> bool {
+        self.grid > 1
+    }
+
     pub fn regions(&self) -> usize {
         if self.grid > 1 {
             self.grid * self.grid
@@ -315,6 +325,11 @@ impl Lattice {
     }
 
     /// セル `cell` の領域の範囲。
+    /// セル `cell` の種類
+    pub fn cell_type(&self, cell: usize) -> &PinCell {
+        &self.types[self.layout[cell]]
+    }
+
     pub fn cell_regions(&self, cell: usize) -> std::ops::Range<usize> {
         self.offsets[cell]..self.offsets[cell + 1]
     }
