@@ -602,7 +602,14 @@ pub(crate) mod tests {
             .push(vec![vec![0.1, 0.02], vec![0.0, 0.3]]);
         let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
         assert_eq!(read, library);
-        assert_eq!(read.nuclide("U-235", 293.6).unwrap().scatter, p0);
+        let u235 = read.nuclide("U-235", 293.6).unwrap();
+        assert_eq!(u235.scatter, p0);
+        // P1 以上は次数の順に
+        assert_eq!(
+            u235.anisotropic,
+            vec![vec![vec![0.1, 0.02], vec![0.0, 0.3]]]
+        );
+        assert!(read.nuclide("H-1", 293.6).unwrap().anisotropic.is_empty());
         // 次数がない、群の数が合わない
         let mut empty = sample();
         empty.nuclides[0].temperatures[0].scatter.clear();
