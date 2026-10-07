@@ -8,7 +8,7 @@
 //!   σ0(E→E') = σb A/(4E) e^(-β/2) (kT_表/kT) ∫ S dα_表、α_表 は (√E ∓ √E')²/(A kT_表) の間。
 
 use super::GroupStructure;
-use super::free_gas::{integrate_linear, integrate_log};
+use super::free_gas::integrate_points;
 use super::scatter::{GAUSS_8, legendre};
 use crate::endf::{Interpolation, Mf7Incoherent};
 use crate::physics::BK;
@@ -192,14 +192,21 @@ impl<'a> ThermalSab<'a> {
 
     /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に、
     /// 上に散乱する分は最上位の群に入れる（中性子を失わない）。
+    pub fn group_integrals(&self, groups: &GroupStructure, e: f64) -> Vec<f64> {
+        self.group_moments(groups, e, 0)
+            .into_iter()
+            .next()
+            .unwrap_or_default()
+    }
+
+    /// 入射エネルギー e での ∫_g' σ_l(E→E') dE'（[l][群]、l = 0..=order）。
     ///
     /// 群境界と、核が折れ曲がる E' = E ± β_j kT（表の β の格子点）で区間を分け、
     /// 自由ガスと同じく対数的に細かく分けた区間の Gauss-Legendre 則で積分する。
-    pub fn group_integrals(&self, groups: &GroupStructure, e: f64) -> Vec<f64> {
-        let bounds = groups.bounds();
-        let highest = bounds[0];
+    pub fn group_moments(&self, groups: &GroupStructure, e: f64, order: usize) -> Vec<Vec<f64>> {
         let reach = e + self.data.beta[self.data.beta.len() - 1] * self.kt_table;
-        let mut points: Vec<f64> = bounds
+        let mut points: Vec<f64> = groups
+            .bounds()
             .iter()
             .copied()
             .chain(
@@ -213,22 +220,8 @@ impl<'a> ThermalSab<'a> {
             .collect();
         points.sort_by(f64::total_cmp);
         points.dedup();
-
-        let kernel = |x: f64| self.kernel(e, x);
-        let mut integrals = vec![0.0; groups.len()];
-        for w in points.windows(2) {
-            let (a, b) = (w[0], w[1]);
-            let mid = 0.5 * (a + b);
-            let g = groups
-                .find(mid)
-                .unwrap_or(if mid > highest { 0 } else { groups.len() - 1 });
-            integrals[g] += if a > 0.0 {
-                integrate_log(&kernel, a, b)
-            } else {
-                integrate_linear(&kernel, a, b)
-            };
-        }
-        integrals
+        let kernel = |x: f64| self.kernel_moments(e, x, order);
+        integrate_points(groups, &points, order + 1, &kernel)
     }
 }
 
