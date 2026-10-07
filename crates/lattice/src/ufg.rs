@@ -198,7 +198,30 @@ pub fn slowing_down(
         .iter()
         .map(|d| d.width / WINDOW_POINTS as f64)
         .fold(f64::INFINITY, f64::min);
-    let (u, points) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
+    let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
+    // ポイントワイズの断面積の不連続点（同じエネルギーの2点）では、高い側と低い側の極限の2つの格子点を同じレサジーに置く。
+    // 範囲の上端では低い側、下端では高い側の極限だけを使う
+    let mut jumps: Vec<f64> = data
+        .iter()
+        .flat_map(|d| d.pointwise.energy.windows(2))
+        .filter(|w| w[0] == w[1] && w[0] > low && w[0] < high)
+        .map(|w| w[0])
+        .collect();
+    jumps.sort_by(f64::total_cmp);
+    jumps.dedup();
+    // （エネルギー、低い側の極限か）
+    let mut points: Vec<(f64, bool)> = Vec::with_capacity(energies.len() + jumps.len());
+    let mut lethargies: Vec<f64> = Vec::with_capacity(energies.len() + jumps.len());
+    for (&ue, &e) in u.iter().zip(&energies) {
+        let jump = jumps.binary_search_by(|x| x.total_cmp(&e)).is_ok();
+        points.push((e, e == high));
+        lethargies.push(ue);
+        if jump {
+            points.push((e, true));
+            lethargies.push(ue);
+        }
+    }
+    let u = lethargies;
 
     let ng = bottom - top;
     let above = Above { bounds, top, high };
@@ -234,11 +257,11 @@ pub fn slowing_down(
         let chunk = start..(start + CHUNK).min(u.len());
         // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf]
         let mut values: Vec<Vec<[f64; 4]>> = Vec::with_capacity(chunk.len());
-        for &e in &points[chunk.clone()] {
+        for &(e, below) in &points[chunk.clone()] {
             let row = data
                 .iter()
                 .zip(cursors.iter_mut())
-                .map(|(d, c)| evaluate(d, c, e))
+                .map(|(d, c)| evaluate(d, c, e, below))
                 .collect::<Result<Vec<_>, _>>()?;
             values.push(row);
         }
@@ -253,8 +276,10 @@ pub fn slowing_down(
             })
             .collect::<Result<Vec<_>, _>>()?;
         for ((m, row), w) in chunk.zip(values).zip(&tracks) {
-            sweep.point(m, row, w, points[m])?;
-            if sweep.group < ng && points[m] == group_bounds[sweep.group + 1] {
+            let (e, below) = points[m];
+            sweep.point(m, row, w, e)?;
+            // 群の境界が不連続点なら、高い側の格子点で次の群に移る（低い側との間は幅 0）
+            if sweep.group < ng && !below && e == group_bounds[sweep.group + 1] {
                 sweep.group += 1;
             }
         }
@@ -338,8 +363,8 @@ fn lethargy_grid(
 }
 
 /// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
-/// 降順に引くための位置（不連続点では高い側の極限の値になる）。
-fn evaluate(d: &Data, cursor: &mut usize, e: f64) -> Result<[f64; 4], UfgError> {
+/// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
+fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<[f64; 4], UfgError> {
     let x = &d.pointwise.energy;
     let defined =
         x.len() >= 2 && x.first().is_some_and(|&a| a <= e) && x.last().is_some_and(|&b| e <= b);
@@ -353,9 +378,19 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64) -> Result<[f64; 4], UfgError> 
     while *cursor > 0 && x[*cursor] > e {
         *cursor -= 1;
     }
-    let j = (*cursor).min(x.len() - 2);
-    let width = x[j + 1] - x[j];
-    let t = if width > 0.0 { (e - x[j]) / width } else { 0.0 };
+    if below {
+        // 同じエネルギーの点のうち最初のもの（低い側の極限）
+        while *cursor > 0 && x[*cursor - 1] == e {
+            *cursor -= 1;
+        }
+    }
+    let (j, t) = if below && *cursor > 0 && x[*cursor] == e {
+        (*cursor - 1, 1.0)
+    } else {
+        let j = (*cursor).min(x.len() - 2);
+        let width = x[j + 1] - x[j];
+        (j, if width > 0.0 { (e - x[j]) / width } else { 0.0 })
+    };
     let p = d.pointwise;
     let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
     Ok([
@@ -397,6 +432,10 @@ impl Above<'_> {
 /// 区間 [a, b] で線形な g の ∫_a^b g(u') e^{−(U − u')} du' を、両端の値 g(a), g(b) の係数 (ca, cb) で表す。
 fn segment(a: f64, b: f64, big_u: f64) -> (f64, f64) {
     let s = b - a;
+    if s == 0.0 {
+        // 不連続点の2つの格子点の間
+        return (0.0, 0.0);
+    }
     // 1 − e^{−s} と、(s − (1 − e^{−s})) / s
     let em = -(-s).exp_m1();
     let tail = (s - em) / s;
