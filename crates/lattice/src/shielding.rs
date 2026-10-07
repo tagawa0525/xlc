@@ -42,6 +42,8 @@ pub enum SelfShieldingError {
     FuelShape(usize),
     #[error("cell {0}: more than one fuel material")]
     MixedFuel(usize),
+    #[error("cell {0}: non-finite shielded cross sections")]
+    NonFinite(usize),
     #[error("cell {cell}: shielding not converged in {iterations} iterations")]
     NotConverged { cell: usize, iterations: usize },
     #[error("material `{name}`: {source}")]
@@ -187,6 +189,7 @@ fn shield_material(
 ) -> Result<Material, SelfShieldingError> {
     let t = material.temperature;
     let ng = library.groups.len();
+    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut totals = material
         .composition
         .iter()
@@ -198,6 +201,10 @@ fn shield_material(
             .iter()
             .enumerate()
             .map(|(k, (name, density))| {
+                // 個数密度が 0 の核種は何にも寄与しないので、無限希釈のままにする
+                if *density == 0.0 {
+                    return Ok(library.shielded(name, t, &vec![infinite; ng])?);
+                }
                 // 同じ燃料の他の核種の全断面積の和 (1/cm)
                 let background: Vec<f64> = (0..ng)
                     .map(|g| {
@@ -210,7 +217,15 @@ fn shield_material(
                     .collect();
                 effective(library, name, t, *density, &background, equivalence)
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, ShieldingError>>()?;
+        let finite = |s: &Shielded| {
+            [&s.total, &s.elastic, &s.fission, &s.nu_fission]
+                .iter()
+                .all(|v| v.iter().all(|x| x.is_finite()))
+        };
+        if !tables.iter().all(finite) {
+            return Err(SelfShieldingError::NonFinite(cell));
+        }
         let change = tables
             .iter()
             .zip(&totals)
