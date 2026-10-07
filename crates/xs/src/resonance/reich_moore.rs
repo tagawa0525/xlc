@@ -9,7 +9,7 @@ use num_complex::Complex64;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
-use super::linear::{Singular, solve};
+use super::linear::{Singular, pole_limit, solve};
 use crate::endf::{OrbitalL, ReichMoore};
 use crate::physics::wave_number_factor;
 
@@ -19,6 +19,8 @@ pub enum ReichMooreError {
     /// J は ENDF と同じく、もう一方のチャネルスピンの共鳴の組を負で表す
     #[error("singular level matrix at {energy} eV (l = {l}, J = {j})")]
     Singular { energy: f64, l: u32, j: f64 },
+    #[error("several resonances without capture width at {energy} eV (l = {l}, J = {j})")]
+    Poles { energy: f64, l: u32, j: f64 },
 }
 
 /// 断面積の計算に使う形に前処理した Reich-Moore パラメータ。
@@ -122,23 +124,24 @@ impl ReichMooreXs {
                 let gj = (2.0 * ajc + 1.0) / gjd;
                 let interior = jj > jjl && jj < numj;
                 for channel in [ChannelSpin::Positive, ChannelSpin::Negative] {
-                    let group = self.channel_terms(lv, e, pe, ajc, channel);
+                    let (l, j) = (
+                        lv.l.number(),
+                        match channel {
+                            ChannelSpin::Positive => ajc,
+                            ChannelSpin::Negative => -ajc,
+                        },
+                    );
+                    let group = self
+                        .channel_terms(lv, e, pe, ajc, channel)
+                        .map_err(|SeveralPoles| ReichMooreError::Poles { energy: e, l, j })?;
                     let hard_sphere = match channel.contribution(group.positive, group.negative) {
                         Contribution::None => continue,
                         Contribution::Resonances => false,
                         Contribution::ResonancesAndHardSphere => interior,
                     };
-                    let mut terms =
-                        group
-                            .terms(gj, phi)
-                            .map_err(|Singular| ReichMooreError::Singular {
-                                energy: e,
-                                l: lv.l.number(),
-                                j: match channel {
-                                    ChannelSpin::Positive => ajc,
-                                    ChannelSpin::Negative => -ajc,
-                                },
-                            })?;
+                    let mut terms = group
+                        .terms(gj, phi)
+                        .map_err(|Singular| ReichMooreError::Singular { energy: e, l, j })?;
                     if hard_sphere {
                         // 硬球散乱 2 gJ (1 - cos 2φ)
                         let potential = 4.0 * gj * phi.sin().powi(2);
@@ -156,6 +159,7 @@ impl ReichMooreXs {
     }
 
     /// 1つの (J, チャネルスピン) に属する共鳴から R 行列を組み立てる。
+    /// 捕獲幅のない共鳴のエネルギーちょうどでは R 行列が発散するので、その共鳴は極として分けておく。
     fn channel_terms(
         &self,
         lv: &LValue,
@@ -163,7 +167,7 @@ impl ReichMooreXs {
         pe: f64,
         ajc: f64,
         channel: ChannelSpin,
-    ) -> ChannelGroup {
+    ) -> Result<ChannelGroup, SeveralPoles> {
         let mut group = ChannelGroup::default();
         for res in &lv.resonances {
             if (res.aj.abs() - ajc).abs() > 0.25 {
@@ -185,11 +189,23 @@ impl ReichMooreXs {
                 amplitude(res.gfa),
                 amplitude(res.gfb),
             ];
+            let has_fission = res.gfa != 0.0 || res.gfb != 0.0;
             let diff = res.er - e;
             let den = diff * diff + 0.25 * res.gg * res.gg;
+            if den == 0.0 {
+                // 中性子にも核分裂にも幅がない共鳴は寄与しない
+                if a.iter().all(|&v| v == 0.0) {
+                    continue;
+                }
+                if group.pole.is_some() {
+                    return Err(SeveralPoles);
+                }
+                group.pole = Some(a);
+                group.fission |= has_fission;
+                continue;
+            }
             let de2 = 0.5 * diff / den;
             let gg4 = 0.25 * res.gg / den;
-            let has_fission = res.gfa != 0.0 || res.gfb != 0.0;
             group.fission |= has_fission;
             let n = if has_fission { 3 } else { 1 };
             for i in 0..n {
@@ -199,7 +215,7 @@ impl ReichMooreXs {
                 }
             }
         }
-        group
+        Ok(group)
     }
 }
 
@@ -242,12 +258,17 @@ impl ChannelSpin {
     }
 }
 
+/// 同じ (J, チャネルスピン) の組に、捕獲幅のない共鳴が同じエネルギーに複数あった。
+struct SeveralPoles;
+
 #[derive(Debug, Default)]
 struct ChannelGroup {
     /// R 行列の実部（上三角）。単位行列は `terms` で足す
     r: [[f64; 3]; 3],
     /// R 行列の虚部（上三角）
     s: [[f64; 3]; 3],
+    /// 極として分けた共鳴の換算幅振幅（中性子、核分裂 2 つ）
+    pole: Option<[f64; 3]>,
     fission: bool,
     positive: usize,
     negative: usize,
@@ -287,8 +308,16 @@ impl ChannelGroup {
             inv[i * n + i] = Complex64::ONE;
         }
         solve(&mut m[..n * n], &mut inv[..n * n], n)?;
-        // x = (I - M^{-1})_nn = (M^{-1} K)_nn
-        let x = (0..n).fold(Complex64::ZERO, |acc, j| acc + inv[j] * k(j, 0));
+        let x = match &self.pole {
+            // x = (I - M^{-1})_nn = (M^{-1} K)_nn
+            None => (0..n).fold(Complex64::ZERO, |acc, j| acc + inv[j] * k(j, 0)),
+            // 極の共鳴を含む K は発散するので、極限の M^{-1} から差を取る。極の近くでは x は 1 の程度なので、
+            // 桁落ちは起きない
+            Some(a) => {
+                pole_limit(&mut inv[..n * n], &a[..n], n);
+                Complex64::ONE - inv[0]
+            }
+        };
         let (p1, p2) = ((2.0 * phi).cos(), (2.0 * phi).sin());
         let one_minus_u = 2.0 * phi.sin().powi(2) + 2.0 * p1 * x.re + 2.0 * p2 * x.im;
         let u_imag = p2 * (2.0 * x.re - 1.0) - 2.0 * p1 * x.im;
