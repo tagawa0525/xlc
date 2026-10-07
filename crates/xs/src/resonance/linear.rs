@@ -8,6 +8,7 @@ pub(super) struct Singular;
 
 /// 複素 n×n 行列の方程式 M X = B を部分ピボットつき Gauss-Jordan 法で解き、`b` を X で置き換える
 /// （どちらも行優先の n×n。`m` は壊れる）。同じ大きさのピボットの候補があれば後の行を選ぶ。
+/// ピボットが 0 か NaN なら `Singular`。
 pub(super) fn solve(m: &mut [Complex64], b: &mut [Complex64], n: usize) -> Result<(), Singular> {
     for col in 0..n {
         let pivot = (col + 1..n).fold(col, |best, i| {
@@ -21,7 +22,9 @@ pub(super) fn solve(m: &mut [Complex64], b: &mut [Complex64], n: usize) -> Resul
                 best
             }
         });
-        if m[pivot * n + col].norm_sqr() == 0.0 {
+        // 0 と NaN を弾く（NaN は total_cmp で最大になるので、ピボットに選ばれる）
+        let size = m[pivot * n + col].norm_sqr();
+        if size == 0.0 || size.is_nan() {
             return Err(Singular);
         }
         for j in 0..n {
