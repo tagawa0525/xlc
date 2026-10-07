@@ -53,6 +53,10 @@ pub enum ProcessError {
         "the R-matrix limited range has no s-wave elastic channel for the potential scattering"
     )]
     NoSWaveRadius,
+    #[error("s-wave scattering radius {0} must be positive")]
+    SWaveRadius(f64),
+    #[error("s-wave elastic channels have different radii {0:?}")]
+    SWaveRadii(Vec<f64>),
     #[error("expected one material, found {0:?}")]
     Materials(Vec<i32>),
     #[error("MF3 MT{0} not found")]
@@ -222,24 +226,38 @@ pub fn potential_scattering(tape: &Tape, mat: i32) -> Result<Option<f64>, Proces
 
 /// 分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。
 fn s_wave_radius(kind: &RangeKind) -> Result<f64, ProcessError> {
-    Ok(match kind {
+    let radius = match kind {
         RangeKind::ReichMoore(rm) => rm
             .l_values
             .iter()
             .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
             .map_or(rm.ap, |lv| lv.apl),
         RangeKind::Mlbw(bw) => bw.ap,
-        RangeKind::RMatrixLimited(rml) => rml
-            .spin_groups
-            .iter()
-            .flat_map(|g| &g.channels)
-            .find(|c| c.l == OrbitalL::S && rml.pairs[c.pair].mt == 2)
-            .map(|c| c.ape)
-            .ok_or(ProcessError::NoSWaveRadius)?,
+        RangeKind::RMatrixLimited(rml) => {
+            // l=0 の弾性散乱のチャネルはどれも同じ半径であること（違えば、どれを使うかの根拠がない）
+            let mut radii: Vec<f64> = rml
+                .spin_groups
+                .iter()
+                .flat_map(|g| &g.channels)
+                .filter(|c| c.l == OrbitalL::S && rml.pairs[c.pair].mt == 2)
+                .map(|c| c.ape)
+                .collect();
+            radii.sort_by(f64::total_cmp);
+            radii.dedup();
+            match radii[..] {
+                [] => return Err(ProcessError::NoSWaveRadius),
+                [radius] => radius,
+                _ => return Err(ProcessError::SWaveRadii(radii)),
+            }
+        }
         RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved(_) => {
             return Err(ProcessError::NoSWaveRadius);
         }
-    })
+    };
+    if !(radius > 0.0 && radius.is_finite()) {
+        return Err(ProcessError::SWaveRadius(radius));
+    }
+    Ok(radius)
 }
 
 /// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
