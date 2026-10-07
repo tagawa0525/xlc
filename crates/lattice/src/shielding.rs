@@ -605,7 +605,7 @@ mod tests {
                 nu_fission: fission.iter().map(|f| 2.4 * f).collect(),
             };
             let u238 = |t: f64, e: f64| table([t, 10.0], [e, 4.0], [0.0, 0.0]);
-            let constant = |total, fission| vec![table(total, [6.0, 4.0], fission); 3];
+            let constant = |total, elastic, fission| vec![table(total, elastic, fission); 3];
             Library {
                 groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
                 sigma0: vec![1.0e10, 100.0, 1.0],
@@ -615,8 +615,17 @@ mod tests {
                         vec![u238(30.0, 8.0), u238(20.0, 7.5), u238(9.0, 7.0)],
                         false,
                     ),
-                    data("U-235", constant([10.0, 50.0], [2.0, 40.0]), true),
-                    data("H-1", constant([20.0, 30.0], [0.0, 0.0]), false),
+                    data(
+                        "U-235",
+                        constant([10.0, 50.0], [6.0, 4.0], [2.0, 40.0]),
+                        true,
+                    ),
+                    // 減速材は共鳴の群（群 0）でほとんど吸収しない（ESSM は遠くの中性子束を 1 とみなす）
+                    data(
+                        "H-1",
+                        constant([20.0, 30.0], [19.99, 29.5], [0.0, 0.0]),
+                        false,
+                    ),
                 ],
             }
         }
