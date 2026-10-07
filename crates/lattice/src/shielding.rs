@@ -1153,6 +1153,41 @@ mod tests {
         }
 
         #[test]
+        fn isolated_pins_are_shielded() {
+            // 水が厚く、Dancoff 係数がセルの数値誤差より小さいピンも、孤立したピンとして解ける
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let pin = PinCell::new(30.0, vec![0.4096]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.05).unwrap();
+            let regions: Vec<String> = ["fuel", "water"].map(String::from).to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let radius = shielded.pins[0].equivalent.unwrap();
+            assert!(radius > 3.0, "{radius}");
+        }
+
+        #[test]
         fn rejects_fuel_outside_the_inner_rings() {
             let library = library();
             let (tracking, mut regions) = geometry(vec![vec![0]]);
