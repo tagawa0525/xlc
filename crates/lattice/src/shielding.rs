@@ -66,6 +66,18 @@ pub struct FuelShielding {
     pub materials: Vec<Material>,
     /// [領域] の `materials` の番号
     pub region_material: Vec<usize>,
+    /// 燃料のあるセルごとの自己遮蔽の結果（セルの順）
+    pub pins: Vec<PinShielding>,
+}
+
+/// 1本のピンの燃料の自己遮蔽の結果。
+#[derive(Debug, Clone, PartialEq)]
+pub struct PinShielding {
+    pub cell: usize,
+    /// 群ごとの Dancoff 係数
+    pub dancoff: Vec<f64>,
+    /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
+    pub nuclides: Vec<(Nuclide, f64)>,
 }
 
 /// 格子の燃料（核分裂する核種を含む物質）を、ピンごとの Dancoff 係数と等価原理で自己遮蔽する。
@@ -164,6 +176,7 @@ pub fn shield_fuel(
     let mut shielded = FuelShielding {
         materials: dilute,
         region_material: region_index.clone(),
+        pins: Vec::new(),
     };
     for (cell, fuel_regions, index, radius) in pins {
         let factors = factors[cell]
@@ -176,7 +189,19 @@ pub fn shield_fuel(
                 .map(|&c| carlvik(c))
                 .collect::<Result<_, _>>()?,
         };
-        let material = shield_material(library, &materials[index], &equivalence, options, cell)?;
+        let nuclides = shield_material(library, &materials[index], &equivalence, options, cell)?;
+        let material =
+            Material::from_nuclides(&nuclides, library.groups.len()).map_err(|source| {
+                SelfShieldingError::Material {
+                    name: materials[index].name.clone(),
+                    source,
+                }
+            })?;
+        shielded.pins.push(PinShielding {
+            cell,
+            dancoff: factors.clone(),
+            nuclides,
+        });
         let new = shielded.materials.len();
         shielded.materials.push(material);
         for region in fuel_regions {
@@ -186,14 +211,14 @@ pub fn shield_fuel(
     Ok(shielded)
 }
 
-/// 1本のピンの燃料の物質を、核種の全断面積が収束するまで反復して自己遮蔽する。
+/// 1本のピンの燃料の核種を、全断面積が収束するまで反復して自己遮蔽する。
 fn shield_material(
     library: &Library,
     material: &MaterialInput,
     equivalence: &Equivalence,
     options: &ShieldingOptions,
     cell: usize,
-) -> Result<Material, SelfShieldingError> {
+) -> Result<Vec<(Nuclide, f64)>, SelfShieldingError> {
     let t = material.temperature;
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
@@ -240,18 +265,12 @@ fn shield_material(
             .fold(0.0, f64::max);
         totals = tables.iter().map(|s| s.total.clone()).collect();
         if change <= options.tolerance {
-            let nuclides = material
+            return material
                 .composition
                 .iter()
                 .zip(&tables)
                 .map(|((name, density), s)| Ok((shielded_nuclide(library, name, t, s)?, *density)))
-                .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-            return Material::from_nuclides(&nuclides, ng).map_err(|source| {
-                SelfShieldingError::Material {
-                    name: material.name.clone(),
-                    source,
-                }
-            });
+                .collect();
         }
     }
     Err(SelfShieldingError::NotConverged {
