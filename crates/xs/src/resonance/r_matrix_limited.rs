@@ -14,7 +14,7 @@ use std::f64::consts::PI;
 use num_complex::Complex64;
 
 use super::factors::{penetrability, phase_shift};
-use super::linear::{Singular, solve};
+use super::linear::{Singular, pole_limit, solve};
 use crate::endf::{OrbitalL, ParticlePair, RMatrixLimited};
 use crate::physics::wave_number_factor;
 
@@ -268,7 +268,7 @@ impl RMatrixLimitedXs {
                     solve(&mut m, &mut k, n).map_err(|Singular| singular())?;
                     k
                 }
-                Some(w) => pole_limit(m, &w, n).map_err(|Singular| singular())?,
+                Some(w) => x_at_pole(m, &w, n).map_err(|Singular| singular())?,
             };
 
             let kn = entrance.wave_number(e);
@@ -368,7 +368,7 @@ fn amplitude(
 }
 
 /// 極での X = i(I − M⁻¹) の極限。`m` は極の共鳴を除いた M' = I − iK'、`w` は極の共鳴の P^½ γ。
-fn pole_limit(mut m: Vec<Complex64>, w: &[f64], n: usize) -> Result<Vec<Complex64>, Singular> {
+fn x_at_pole(mut m: Vec<Complex64>, w: &[f64], n: usize) -> Result<Vec<Complex64>, Singular> {
     let mut inverse: Vec<Complex64> = (0..n * n)
         .map(|i| {
             if i % (n + 1) == 0 {
@@ -379,20 +379,7 @@ fn pole_limit(mut m: Vec<Complex64>, w: &[f64], n: usize) -> Result<Vec<Complex6
         })
         .collect();
     solve(&mut m, &mut inverse, n)?;
-    // u = M'⁻¹ w（M' は複素対称なので wᵀ M'⁻¹ = uᵀ）
-    let u: Vec<Complex64> = (0..n)
-        .map(|a| (0..n).fold(Complex64::ZERO, |acc, b| acc + inverse[a * n + b] * w[b]))
-        .collect();
-    let s = (0..n).fold(Complex64::ZERO, |acc, a| acc + u[a] * w[a]);
-    // 開いたチャネルに幅がなければ、極の共鳴は寄与しない
-    if s.norm_sqr() > 0.0 {
-        let scale = s.inv();
-        for a in 0..n {
-            for b in 0..n {
-                inverse[a * n + b] -= u[a] * u[b] * scale;
-            }
-        }
-    }
+    pole_limit(&mut inverse, w, n);
     Ok((0..n * n)
         .map(|i| {
             // i(δ − M⁻¹)
