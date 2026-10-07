@@ -97,6 +97,8 @@ pub struct Tracking {
     /// [トラック][向き (0: 順, 1: 逆)] のスイープの始めに入ってくる角度中性子束を出すスイープ
     /// （反射のつながりの逆。真空境界なら `None`）
     sources: Vec<Option<Link>>,
+    /// 外周の辺の境界条件
+    pub boundaries: Boundaries,
 }
 
 impl Tracking {
@@ -275,6 +277,7 @@ impl Tracking {
             tracks,
             first,
             sources,
+            boundaries,
         })
     }
 
