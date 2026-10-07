@@ -14,7 +14,7 @@ use crate::tracking::Tracking;
 /// 反復の打ち切り条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FixedSourceOptions {
-    /// 境界の角度中性子束の変化の上限（そのときの角度中性子束の最大値に対する比）
+    /// 境界の角度中性子束の変化の上限（群ごとの、そのときの角度中性子束の最大値に対する比）
     pub tolerance: f64,
     pub max_iterations: usize,
 }
@@ -41,6 +41,8 @@ pub enum FixedSourceError {
         "region {0}: sources must be finite and not negative, and zero in void and black regions"
     )]
     Source(usize),
+    #[error("no track crosses region {0}; use a finer track spacing")]
+    Untracked(usize),
     #[error("boundary fluxes not converged in {0} iterations")]
     NotConverged(usize),
     #[error(transparent)]
@@ -87,6 +89,9 @@ pub fn fixed_source(
     let mesh = CoarseMesh::new(tracking);
     let sweeper = Sweeper::new(tracking, &references, ng, &mesh);
     let volumes = tracking.volumes(regions);
+    if let Some(region) = volumes.iter().position(|&v| v <= 0.0) {
+        return Err(FixedSourceError::Untracked(region));
+    }
     // 角度中性子束の平衡値 Q / (4πΣt)
     let equilibrium: Vec<Vec<f64>> = totals
         .iter()
@@ -114,13 +119,20 @@ pub fn fixed_source(
     let mut tallies = sweeper.tallies(regions);
     for _ in 0..options.max_iterations {
         sweeper.sweep(&equilibrium, &outgoing, &mut next, &mut tallies)?;
-        let scale = next.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
-        let change = outgoing
-            .iter()
-            .zip(&next)
-            .fold(0.0_f64, |m, (a, b)| m.max((a - b).abs()));
+        // 群ごとに、その群の角度中性子束の最大値に対する変化で判定する（群の間で大きさが何桁も
+        // 違っても、小さな群を収束しないまま打ち切らないように）。並びは群がいちばん速く変わる
+        let mut scale = vec![0.0_f64; ng];
+        let mut change = vec![0.0_f64; ng];
+        for (i, (a, b)) in outgoing.iter().zip(&next).enumerate() {
+            scale[i % ng] = scale[i % ng].max(b.abs());
+            change[i % ng] = change[i % ng].max((a - b).abs());
+        }
         std::mem::swap(&mut outgoing, &mut next);
-        if change <= options.tolerance * scale {
+        if change
+            .iter()
+            .zip(&scale)
+            .all(|(c, s)| *c <= options.tolerance * s)
+        {
             let sums = sum_tallies(&tallies, ng);
             return Ok((0..regions)
                 .map(|i| match sweeper.void[i] {
