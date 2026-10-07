@@ -148,6 +148,48 @@ mod tests {
     }
 
     #[test]
+    fn group_moments_keep_the_p0_integrals() {
+        // P0 のモーメントは群積分と同じ。重い核の P1 は熱領域の上で静止した標的の 2/(3A) に近づく
+        let groups = GroupStructure::wims69();
+        for (awr, e) in [(1.0, 0.05), (15.86, 0.1), (236.0, 0.5)] {
+            let moments = free_gas_group_moments(&groups, e, awr, KT, 3);
+            let reference = free_gas_group_integrals(&groups, e, awr, KT);
+            let total: f64 = reference.iter().sum();
+            for (g, (m, r)) in moments[0].iter().zip(&reference).enumerate() {
+                assert!((m - r).abs() <= 1e-6 * total, "A={awr} g={g}: {m} vs {r}");
+            }
+        }
+        let moments = free_gas_group_moments(&groups, 2.0, 15.86, KT, 1);
+        let mu: f64 = moments[1].iter().sum::<f64>() / moments[0].iter().sum::<f64>();
+        assert!((mu - 2.0 / (3.0 * 15.86)).abs() < 2e-3, "{mu}");
+    }
+
+    #[test]
+    fn free_gas_moments_match_the_s_alpha_beta_table() {
+        // 自由ガスの S(α, β) の表（A = 1）から求めたモーメントと、表の補間の誤差の範囲で一致する
+        use super::super::sab::ThermalSab;
+        use super::super::sab::tests::{TEMPERATURE, free_gas_table};
+        let data = free_gas_table();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let kt = crate::physics::BK * TEMPERATURE;
+        let groups = GroupStructure::wims69();
+        for e in [0.0253, 0.1, 0.5] {
+            let ours = free_gas_group_moments(&groups, e, 1.0, kt, 3);
+            // σb = 4 σfree（A = 1）
+            let table: Vec<Vec<f64>> = sab
+                .group_moments(&groups, e, 3)
+                .into_iter()
+                .map(|row| row.into_iter().map(|v| v / 4.0).collect())
+                .collect();
+            let total: f64 = ours[0].iter().sum();
+            for l in 0..=3 {
+                let (a, b): (f64, f64) = (ours[l].iter().sum(), table[l].iter().sum());
+                assert!((a - b).abs() < 3e-3 * total, "E={e} P{l}: {a} vs {b}");
+            }
+        }
+    }
+
+    #[test]
     fn hydrogen_has_closed_form() {
         // A=1: E' < E では erf(√(E'/kT))/E、E' > E では exp((E-E')/kT) erf(√(E/kT))/E
         let e = 0.05;
