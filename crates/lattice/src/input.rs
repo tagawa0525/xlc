@@ -609,6 +609,25 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn scattering_order_is_isotropic_unless_given() {
+        assert_eq!(LatticeInput::parse(PIN_CELL).unwrap().scattering_order, 0);
+        let p3 = replaced(
+            PIN_CELL,
+            "pitch = 1.26",
+            "pitch = 1.26\nscattering-order = 3",
+        )
+        .unwrap();
+        assert_eq!(p3.scattering_order, 3);
+        // 巨視的断面積は P0 だけ
+        let result = replaced(
+            LATTICE,
+            "cross-sections = \"c5g7.toml\"",
+            "cross-sections = \"c5g7.toml\"\nscattering-order = 1",
+        );
+        assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
+    }
+
+    #[test]
     fn parses_pin_cell() {
         let input = LatticeInput::parse(PIN_CELL).unwrap();
         assert_eq!(
