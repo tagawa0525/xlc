@@ -7,14 +7,16 @@
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
 ギャップの He は計画のとおり除く（ギャップは真空）。被覆管・案内管・計装管と減速材は 600 K。
 2B〜2D は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
-xlc のライブラリ（msgpack）を渡すと、1B〜1D ではその群構造で燃料の核種ごとの実効断面積
-（燃料の領域の反応率 / (個数密度 × 中性子束)）を fuel-xs.msgpack に書く（自己遮蔽の検証用）。
+xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
+（燃料の領域の反応率 / (個数密度 × 中性子束)）を、1B〜1D では fuel-xs.msgpack に、2B〜2D ではピンごとに
+pin-xs.msgpack に書く（自己遮蔽の検証用）。
 """
 
 import sys
 from pathlib import Path
 
 import msgpack
+import numpy as np
 import openmc
 
 # tally の score の、statepoint に保存される名前（書いた名前と違うもの。弾性散乱は "(n,elastic)" になる）
@@ -215,6 +217,22 @@ def main() -> None:
         tally.filters = [openmc.MeshFilter(mesh)]
         tally.scores = ["fission"]
         tallies.append(tally)
+        # ピンごとの燃料の核種の実効断面積（メッシュはピンのセルと一致する）
+        if library is not None:
+            bounds = msgpack.unpackb(library.read_bytes())["group_bounds"]
+            pin_filters = [
+                openmc.MeshFilter(mesh),
+                openmc.MaterialFilter([fuel]),
+                openmc.EnergyFilter(sorted(bounds)),
+            ]
+            tally = openmc.Tally(name="pin fuel")
+            tally.filters = pin_filters
+            tally.nuclides = list(FUEL)
+            tally.scores = ["total", "elastic", "fission"]
+            flux = openmc.Tally(name="pin fuel flux")
+            flux.filters = pin_filters
+            flux.scores = ["flux"]
+            tallies.extend([tally, flux])
 
     # 燃料の核種ごとの実効断面積（群構造は xlc のライブラリから。OpenMC の境界は昇順）
     if problem.startswith("1") and library is not None:
@@ -241,6 +259,36 @@ def main() -> None:
             (work / "pins.msgpack").write_bytes(
                 msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
             )
+            if library is not None:
+                # [メッシュ（x が速く、y は下から）][群（昇順）] を [行（上から）][列][群（高いエネルギーから）] にする
+                def pins(values):
+                    groups = values.size // (N * N)
+                    return values.reshape(N, N, groups)[::-1, :, ::-1]
+
+                phi = pins(
+                    sp.get_tally(name="pin fuel flux").get_values(scores=["flux"])
+                )
+                rates = sp.get_tally(name="pin fuel")
+                xs = {}
+                for nuclide, density in FUEL.items():
+                    xs[nuclide] = {}
+                    for score in ["total", "elastic", "fission"]:
+                        rate = pins(
+                            rates.get_values(
+                                scores=[STORED.get(score, score)], nuclides=[nuclide]
+                            )
+                        )
+                        # 燃料のないセルは 0
+                        value = np.divide(
+                            rate,
+                            density * phi,
+                            out=np.zeros_like(rate),
+                            where=phi > 0,
+                        )
+                        xs[nuclide][score] = value.tolist()
+                (work / "pin-xs.msgpack").write_bytes(
+                    msgpack.packb({"format": "xlc-pin-xs", "nuclides": xs})
+                )
         if problem.startswith("1") and library is not None:
             phi = sp.get_tally(name="fuel flux").get_values(scores=["flux"]).ravel()
             rates = sp.get_tally(name="fuel")
