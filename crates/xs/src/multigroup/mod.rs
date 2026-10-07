@@ -6,6 +6,7 @@ mod integrate;
 mod outgoing;
 mod sab;
 mod scatter;
+mod slowing;
 mod structure;
 mod weight;
 
@@ -24,6 +25,7 @@ pub use scatter::{
     Emission, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
     two_body_range,
 };
+pub use slowing::{SlowingDownError, WINDOW_POINTS, slowing_down_shape, slowing_down_shape_with};
 pub use structure::{GroupError, GroupStructure};
 pub use weight::Weight;
 
@@ -153,12 +155,30 @@ pub enum ShieldingError {
     Sigma0(f64),
     #[error("unresolved shielding has {found} sigma zeros, expected {expected}")]
     UnresolvedSigma0 { found: usize, expected: usize },
+    #[error("the slowing-down weight needs elastic scattering (MT2)")]
+    NoElastic,
+    #[error("the slowing-down weight is not defined at {0} eV")]
+    Undefined(f64),
+    #[error(transparent)]
+    SlowingDown(#[from] SlowingDownError),
 }
 
-/// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
+/// 減速計算で重みを作る範囲。範囲の中では、超微細群の減速計算の中性子束で重みづけする（`slowing`）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SlowingDown {
+    /// 吸収体の質量比 AWR
+    pub awr: f64,
+    /// 範囲 (eV)。上端は群の境界であること（群の中で重みの式が切り替わらないように）
+    pub range: (f64, f64),
+}
+
+/// 背景断面積 σ0 ごとの群平均断面積。`sigma0` と同じ順に返す。
 ///
-/// 中性子束を w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の中性子束はこれに定数
-/// (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`flux` はその定数を掛けない値。
+/// 中性子束は、狭い共鳴の近似（Bondarenko 法）の w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の
+/// 中性子束はこれに定数 (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`slowing` を与えると、
+/// その範囲では超微細群の減速計算の中性子束を使い、範囲の上では Bondarenko の中性子束に定数
+/// (σs(E_high) + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。範囲の下
+/// （熱中性子の領域）では重み関数 w の定数倍（σ0 によらない。燃料の中の熱中性子束のへこみは輸送計算で扱う）。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn shielded_averages(
     groups: &GroupStructure,
@@ -167,6 +187,7 @@ pub fn shielded_averages(
     nubar: Option<&Tab1>,
     sigma0: &[f64],
     unresolved: Option<&UnresolvedShielding>,
+    slowing: Option<&SlowingDown>,
 ) -> Result<Vec<ReactionAverages>, ShieldingError> {
     let total = tables.get(&1).ok_or(ShieldingError::NoTotal)?;
     if let Some(&bad) = sigma0.iter().find(|s| !(s.is_finite() && **s > 0.0)) {
@@ -184,7 +205,7 @@ pub fn shielded_averages(
     if let Some(u) = unresolved {
         breakpoints.extend(&u.grid);
     }
-    Ok(sigma0
+    sigma0
         .iter()
         .enumerate()
         .map(|(s, &s0)| {
@@ -192,10 +213,40 @@ pub fn shielded_averages(
                 Some(u) => u.adjust(s, mt, e, value),
                 None => value,
             };
-            let flux = |e: f64| 1.0 / (adjust(1, e, total.eval(e).unwrap_or(0.0)) + s0);
-            averages_with_flux(groups, weight, tables, nubar, &breakpoints, flux, adjust)
+            let bondarenko = |e: f64| 1.0 / (adjust(1, e, total.eval(e).unwrap_or(0.0)) + s0);
+            let Some(slowing) = slowing else {
+                return Ok(averages_with_flux(
+                    groups,
+                    weight,
+                    tables,
+                    nubar,
+                    &breakpoints,
+                    bondarenko,
+                    adjust,
+                ));
+            };
+            let elastic = tables.get(&2).ok_or(ShieldingError::NoElastic)?;
+            let shape = slowing_down_shape(total, elastic, slowing.awr, weight, s0, slowing.range)?;
+            let (low, high) = slowing.range;
+            let scale = elastic.eval(high).ok_or(ShieldingError::Undefined(high))? + s0;
+            // 範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）
+            let at_low = shape.eval(low).ok_or(ShieldingError::Undefined(low))?;
+            let flux = |e: f64| {
+                if e < low {
+                    at_low
+                } else if e <= high {
+                    // 表は範囲をちょうど覆うので、引けないのは誤り。NaN はライブラリを書く前の検査で止まる
+                    shape.eval(e).unwrap_or(f64::NAN)
+                } else {
+                    scale * bondarenko(e)
+                }
+            };
+            let points: Vec<f64> = breakpoints.iter().chain(&shape.x).copied().collect();
+            Ok(averages_with_flux(
+                groups, weight, tables, nubar, &points, flux, adjust,
+            ))
         })
-        .collect())
+        .collect()
 }
 
 /// 中性子束 w(E)·`shape`(E) による群平均。`shape` は `breakpoints` の間で滑らかであること。
@@ -288,8 +339,16 @@ mod tests {
         let capture = Tab1::linear(vec![1.0e-5, 1.0, 2.0e7], vec![5.0, 1.0, 0.1]);
         let tables = BTreeMap::from([(1, constant(3.0)), (102, capture)]);
         let infinite = reaction_averages(&groups, &weight, &tables, None);
-        let shielded =
-            shielded_averages(&groups, &weight, &tables, None, &[1.0e10, 10.0, 1.0], None).unwrap();
+        let shielded = shielded_averages(
+            &groups,
+            &weight,
+            &tables,
+            None,
+            &[1.0e10, 10.0, 1.0],
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(shielded.len(), 3);
         for avg in &shielded {
             for g in 0..69 {
@@ -309,8 +368,8 @@ mod tests {
         let tables = BTreeMap::from([(1, total)]);
         let (a, b) = (10.0_f64, 100.0_f64);
         for s0 in [1.0, 30.0, 1.0e3] {
-            let avg =
-                &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0], None).unwrap()[0];
+            let avg = &shielded_averages(&groups, &Weight::lwr(), &tables, None, &[s0], None, None)
+                .unwrap()[0];
             let numerator = ((c * b + s0) / (c * a + s0)).ln();
             let denominator = (b * (c * a + s0) / (a * (c * b + s0))).ln() / s0;
             let expected = numerator / denominator;
@@ -318,6 +377,102 @@ mod tests {
             assert!(
                 (actual - expected).abs() <= 1e-10 * expected,
                 "σ0 {s0}: {actual} vs {expected}"
+            );
+        }
+    }
+
+    /// 20 eV に散乱の大きな共鳴（幅 1 eV）、ほかは散乱 10 b の核種の全断面積・弾性散乱・捕獲
+    fn scattering_resonance() -> BTreeMap<u32, Tab1> {
+        let x: Vec<f64> = (0..=40_000)
+            .map(|i| 1.0e-5 * (2.0e7_f64 / 1.0e-5).powf(f64::from(i) / 40_000.0))
+            .collect();
+        let peak = |e: f64| 1.0 / (1.0 + ((e - 20.0) / 0.5).powi(2));
+        let table =
+            |f: &dyn Fn(f64) -> f64| Tab1::linear(x.clone(), x.iter().map(|&e| f(e)).collect());
+        BTreeMap::from([
+            (1, table(&|e| 10.0 + 3000.0 * peak(e))),
+            (2, table(&|e| 10.0 + 2000.0 * peak(e))),
+            (102, table(&|e| 1000.0 * peak(e))),
+        ])
+    }
+
+    #[test]
+    fn slowing_down_weight_changes_only_groups_in_its_range() {
+        let groups = GroupStructure::new(vec![1.0e3, 100.0, 30.0, 10.0, 1.0]).unwrap();
+        let tables = scattering_resonance();
+        let slowing = SlowingDown {
+            awr: 1.0e4,
+            range: (1.0, 100.0),
+        };
+        let average = |s: Option<&SlowingDown>| {
+            shielded_averages(&groups, &Weight::lwr(), &tables, None, &[50.0], None, s)
+                .unwrap()
+                .remove(0)
+        };
+        let (nr, ufg) = (average(None), average(Some(&slowing)));
+        // 範囲の上の群は変わらない
+        assert!((ufg.sigma[&102][0] - nr.sigma[&102][0]).abs() <= 1e-12 * nr.sigma[&102][0]);
+        // 共鳴の群: NR 近似は吸収体の散乱で中性子束を減らしすぎるので、捕獲を小さく見積もる
+        assert!(
+            ufg.sigma[&102][2] > 1.05 * nr.sigma[&102][2],
+            "{} vs {}",
+            ufg.sigma[&102][2],
+            nr.sigma[&102][2]
+        );
+    }
+
+    #[test]
+    fn below_the_slowing_down_range_the_flux_is_the_weight() {
+        // 範囲の下（熱中性子の領域）では σ0 によらず無限希釈の値
+        let groups = GroupStructure::new(vec![1.0e3, 100.0, 1.0, 0.01]).unwrap();
+        let capture = Tab1::linear(vec![1.0e-5, 2.0e7], vec![300.0, 0.0]);
+        let tables = BTreeMap::from([(1, constant(20.0)), (2, constant(10.0)), (102, capture)]);
+        let slowing = SlowingDown {
+            awr: 236.0,
+            range: (1.0, 100.0),
+        };
+        let infinite = reaction_averages(&groups, &Weight::lwr(), &tables, None);
+        let avg = &shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            &[1.0],
+            None,
+            Some(&slowing),
+        )
+        .unwrap()[0];
+        let (a, b) = (avg.sigma[&102][2], infinite.sigma[&102][2]);
+        assert!((a - b).abs() < 1e-12 * b, "{a} vs {b}");
+    }
+
+    #[test]
+    fn slowing_down_weight_keeps_constant_cross_sections() {
+        let groups = GroupStructure::new(vec![1.0e3, 100.0, 10.0, 1.0]).unwrap();
+        let tables = BTreeMap::from([
+            (1, constant(10.0)),
+            (2, constant(8.0)),
+            (102, constant(2.0)),
+        ]);
+        let slowing = SlowingDown {
+            awr: 236.0,
+            range: (1.0, 100.0),
+        };
+        let avg = &shielded_averages(
+            &groups,
+            &Weight::lwr(),
+            &tables,
+            None,
+            &[50.0],
+            None,
+            Some(&slowing),
+        )
+        .unwrap()[0];
+        for g in 0..3 {
+            assert!(
+                (avg.sigma[&102][g] - 2.0).abs() < 1e-12,
+                "{}",
+                avg.sigma[&102][g]
             );
         }
     }
@@ -333,6 +488,7 @@ mod tests {
                 None,
                 &[bad],
                 None,
+                None,
             );
             assert!(result.is_err(), "σ0 = {bad}");
         }
@@ -347,6 +503,7 @@ mod tests {
             &tables,
             None,
             &[10.0],
+            None,
             None,
         );
         assert!(result.is_err());
@@ -385,6 +542,7 @@ mod tests {
             None,
             &[10.0],
             Some(&shielding),
+            None,
         )
         .unwrap()[0];
         // 捕獲 2 × 0.5/1、全断面積 11 × 8/10（中性子束も補正した全断面積で決まるが、一定なので平均は変わらない）
@@ -403,6 +561,7 @@ mod tests {
             None,
             &[10.0],
             Some(&shielding),
+            None,
         )
         .unwrap()[0];
         assert!((avg.sigma[&102][0] - 1.5).abs() < 1e-12);
@@ -432,6 +591,7 @@ mod tests {
             None,
             &[s0],
             Some(&shielding),
+            None,
         )
         .unwrap()[0];
         // 1/E の重みで、[1e3, 1e4] は σt = 1（幅 ln 10）、[10, 1e3] は σt = 10（幅 2 ln 10）
@@ -450,6 +610,7 @@ mod tests {
             None,
             &[10.0, 1.0],
             Some(&shielding),
+            None,
         );
         assert!(result.is_err());
     }
