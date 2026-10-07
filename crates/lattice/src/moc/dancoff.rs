@@ -228,6 +228,22 @@ mod tests {
     }
 
     #[test]
+    fn void_gap_matches_a_nearly_transparent_gap() {
+        // 燃料・ギャップ・被覆管・水のピン
+        let cell = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.02).unwrap();
+        let fuel = [true, false, false, false];
+        let factor = |gap: f64| {
+            let totals = vec![vec![], vec![gap], vec![0.3], vec![1.2]];
+            dancoff(&tracking, &totals, &fuel, &options()).unwrap()[0]
+                .clone()
+                .unwrap()[0]
+        };
+        let (void, thin) = (factor(0.0), factor(1.0e-9));
+        assert!((void - thin).abs() < 1e-7, "{void} vs {thin}");
+    }
+
+    #[test]
     fn fuel_rows_are_not_read() {
         // 燃料の行は使わないので、空でもよい
         let cell = PinCell::new(1.26, vec![0.4096]).unwrap();
