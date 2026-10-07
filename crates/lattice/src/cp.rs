@@ -124,7 +124,7 @@ impl Cylinder {
     /// 白色境界の衝突確率 P[i][j]（リング i で生まれた中性子が、リング j で初めて衝突する確率）。
     /// 真空のリングの列は 0 になる。
     pub fn probabilities(&self, totals: &[f64]) -> Result<Vec<Vec<f64>>, CpError> {
-        let white = self.white(totals)?;
+        let white = self.tracks(totals)?;
         let volumes = &self.volumes;
         Ok(white
             .iter()
@@ -139,7 +139,7 @@ impl Cylinder {
         if let Some(i) = sources.iter().position(|q| !q.is_finite()) {
             return Err(CpError::Source(i));
         }
-        let white = self.white(totals)?;
+        let white = self.tracks(totals)?;
         let volumes = &self.volumes;
         Ok((0..self.radii.len())
             .map(|j| {
@@ -158,7 +158,7 @@ impl Cylinder {
     }
 
     /// 白色境界の飛程 W[i][j]（リング i の単位の線源密度あたりの、リング j の中を飛ぶ長さの合計）。対称になる。
-    fn white(&self, totals: &[f64]) -> Result<Vec<Vec<f64>>, CpError> {
+    pub fn tracks(&self, totals: &[f64]) -> Result<Vec<Vec<f64>>, CpError> {
         self.check(totals.len())?;
         if let Some(i) = totals.iter().position(|t| !t.is_finite() || *t < 0.0) {
             return Err(CpError::Total(i));
