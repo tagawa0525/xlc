@@ -4,6 +4,8 @@
 //! ψ(x, θ) = √π (θ/2) Re w(θx/2 + iθ/2)（θ → ∞ で 1/(1 + x²)）。
 //! J(β, θ) = ∫₀^∞ ψ/(ψ + β) dx、K(β, θ) = ∫₀^∞ ψ(ψ + 2β)/(ψ + β)² dx。
 
+use num_complex::Complex64;
+
 use super::quadrature::gauss_kronrod;
 use super::unresolved::UrrError;
 use crate::numeric::NumericError;
@@ -15,7 +17,7 @@ const TOLERANCE: f64 = 1.0e-12;
 /// 線形状 ψ(x, θ)。
 pub(super) fn psi(x: f64, theta: f64) -> f64 {
     let y = 0.5 * theta;
-    std::f64::consts::PI.sqrt() * y * faddeeva(y * x, y).0
+    std::f64::consts::PI.sqrt() * y * faddeeva(Complex64::new(y * x, y)).re
 }
 
 /// 各 β について (J(β, θ), K(β, θ)) を求める。β は正であること。
