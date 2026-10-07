@@ -364,7 +364,8 @@ pub fn solve(
     })
 }
 
-/// トラックのスイープ。トラックと物質から決まる量（減衰の表など）を、反復の前に一度だけ求めて持つ。
+/// トラックのスイープ。方向や領域ごとに決まる量（球面調和関数、全断面積）を、反復の前に一度だけ求めて持つ。
+/// 区間の数に比例する量（減衰 1 - exp(-τ) など）は持たない。集合体でトラックを細かくするとメモリに載らないため。
 struct Sweeper<'a> {
     tracking: &'a Tracking,
     /// 正味の中性子流を数える粗メッシュ
@@ -372,8 +373,8 @@ struct Sweeper<'a> {
     ng: usize,
     /// [極角][群] の数
     width: usize,
-    /// [トラック] の区間ごと・極角ごと・群ごとの 1 - exp(-τ)
-    attenuation: Vec<Vec<f64>>,
+    /// [領域][群] の全断面積。減衰 1 - exp(-τ) はスイープでトラックごとに計算する
+    totals: Vec<f64>,
     /// 方位角ごとのトラックの番号の範囲
     azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
@@ -395,7 +396,6 @@ struct Directional {
 }
 
 impl<'a> Sweeper<'a> {
-    #[tracing::instrument(name = "attenuation table", level = "debug", skip_all)]
     fn new(
         tracking: &'a Tracking,
         materials: &[&Material],
@@ -415,27 +415,16 @@ impl<'a> Sweeper<'a> {
                 }
             }
         }
-        let attenuation = tracking
-            .tracks
+        let totals = materials
             .iter()
-            .map(|track| {
-                let mut values = Vec::with_capacity(track.segments.len() * width);
-                for s in &track.segments {
-                    for sin in POLAR_SIN {
-                        for t in &materials[s.region].total {
-                            values.push(-(-t * s.length / sin).exp_m1());
-                        }
-                    }
-                }
-                values
-            })
+            .flat_map(|m| m.total.iter().copied())
             .collect();
         Self {
             tracking,
             mesh,
             ng,
             width,
-            attenuation,
+            totals,
             azimuths: (0..tracking.azimuths.len())
                 .map(|a| tracking.azimuth_tracks(a))
                 .collect(),
@@ -556,16 +545,22 @@ impl<'a> Sweeper<'a> {
     /// スレッドの数や仕事の分け方によらない。方位角ごとのトラックの長さの和はほぼ等しく、
     /// 仕事の量も揃う
     fn tallies(&self, regions: usize) -> Vec<Tally> {
+        let voids = self.void.iter().flatten().count();
         self.azimuths
             .iter()
-            .map(|_| {
-                let voids = self.void.iter().flatten().count();
+            .map(|range| {
+                let segments = self.tracking.tracks[range.clone()]
+                    .iter()
+                    .map(|t| t.segments.len())
+                    .max()
+                    .unwrap_or(0);
                 Tally::new(
                     regions * self.moments,
                     voids,
                     self.mesh.faces(),
                     self.ng,
                     self.width,
+                    segments,
                 )
             })
             .collect()
@@ -615,6 +610,23 @@ impl<'a> Sweeper<'a> {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
                         std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
+                    // 減衰はトラックの両向きで同じなので、トラックごとに一度求める（真空の区間では使わない）
+                    for (s, att) in track
+                        .segments
+                        .iter()
+                        .zip(tally.attenuation.chunks_exact_mut(width))
+                    {
+                        if self.void[s.region].is_some() {
+                            continue;
+                        }
+                        let total = &self.totals[s.region * ng..][..ng];
+                        for (sin, att) in POLAR_SIN.iter().zip(att.chunks_exact_mut(ng)) {
+                            let path = s.length / sin;
+                            for (a, t) in att.iter_mut().zip(total) {
+                                *a = -(-t * path).exp_m1();
+                            }
+                        }
+                    }
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
                         match self.tracking.incoming_source(index, forward) {
@@ -642,7 +654,8 @@ impl<'a> Sweeper<'a> {
                         let mut cell = self.mesh.cell(track.segments[first].region);
                         for step in 0..n {
                             let s = if forward { step } else { n - 1 - step };
-                            let region = track.segments[s].region;
+                            let (region, length) =
+                                (track.segments[s].region, track.segments[s].length);
                             // 隣のセルに移るときに通る面
                             let next = self.mesh.cell(region);
                             if next != cell {
@@ -652,7 +665,6 @@ impl<'a> Sweeper<'a> {
                             }
                             if let Some(v) = self.void[region] {
                                 // 真空では角度中性子束は変わらない。3次元の経路長 (長さ / sinθ) を掛けて数える
-                                let length = track.segments[s].length;
                                 let v = &mut tally.void_flux[v * ng..][..ng];
                                 for (p, weight) in weights.iter().enumerate() {
                                     let w = weight * length / POLAR_SIN[p];
@@ -662,7 +674,7 @@ impl<'a> Sweeper<'a> {
                                 }
                                 continue;
                             }
-                            let att = &self.attenuation[index][s * width..][..width];
+                            let att = &tally.attenuation[s * width..][..width];
                             // 等方なら [群] をすべての極角で使い、非等方なら [極角][群]
                             let (q, d, stride) = match directional.as_mut() {
                                 None => (
@@ -731,16 +743,26 @@ struct Tally {
     current: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
+    /// スイープ中のトラックの [区間][極角][群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分）
+    attenuation: Vec<f64>,
 }
 
 impl Tally {
-    fn new(regions: usize, voids: usize, faces: usize, groups: usize, width: usize) -> Self {
+    fn new(
+        regions: usize,
+        voids: usize,
+        faces: usize,
+        groups: usize,
+        width: usize,
+        segments: usize,
+    ) -> Self {
         Self {
             delta: vec![0.0; regions * groups],
             void_flux: vec![0.0; voids * groups],
             leak: vec![0.0; groups],
             current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
+            attenuation: vec![0.0; segments * width],
         }
     }
 
