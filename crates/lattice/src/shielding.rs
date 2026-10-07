@@ -668,6 +668,26 @@ mod tests {
         }
 
         #[test]
+        fn void_gap_is_kept_void() {
+            let library = library();
+            let pin = PinCell::new(1.26, vec![0.4096, 0.418]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+            let regions: Vec<String> = ["fuel", crate::input::VOID, "water"]
+                .map(String::from)
+                .to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            assert!(shielded.materials[shielded.region_material[1]].is_void());
+            assert!(fuel_total(&shielded, 0) > 0.0);
+        }
+
+        #[test]
         fn nuclides_without_density_stay_dilute() {
             let library = library();
             let (tracking, regions) = geometry(vec![vec![0]]);
