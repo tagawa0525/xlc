@@ -394,6 +394,11 @@ impl MaterialEntry {
                 ));
             }
         }
+        if self.nuclides.values().all(|&density| density == 0.0) {
+            return Err(format!(
+                "material `{name}` has no nuclide with positive density; write `{VOID}` for void zones"
+            ));
+        }
         Ok(MaterialInput {
             name,
             temperature: self.temperature,

@@ -75,6 +75,8 @@ pub enum MocError {
     RegionCount { materials: usize, regions: usize },
     #[error("no track crosses region {0}; use a finer track spacing")]
     Untracked(usize),
+    #[error("cell {0} is all void")]
+    VoidCell(usize),
     #[error("no fissile material")]
     NoFission,
     #[error("no neutron reaches group {0} (no fission spectrum or scattering into it)")]
@@ -123,6 +125,13 @@ pub fn solve(
             materials: regions,
             regions: used,
         });
+    }
+    // 全体が真空のセルは、粗メッシュ（CMFD）の拡散係数が定まらない
+    let lattice = &tracking.lattice;
+    if let Some(cell) = (0..lattice.cells_per_side().pow(2))
+        .find(|&c| lattice.cell_regions(c).all(|r| materials[r].is_void()))
+    {
+        return Err(MocError::VoidCell(cell));
     }
     let volumes = tracking.volumes(regions);
     if let Some(i) = volumes.iter().position(|&v| v <= 0.0) {
