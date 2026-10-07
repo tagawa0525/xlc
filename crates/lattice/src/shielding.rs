@@ -653,6 +653,44 @@ mod tests {
         }
 
         #[test]
+        fn nuclides_without_density_stay_dilute() {
+            let library = library();
+            let (tracking, regions) = geometry(vec![vec![0]]);
+            let shield = |materials: &[MaterialInput]| {
+                let s = shield_fuel(
+                    &library,
+                    &tracking,
+                    materials,
+                    &regions,
+                    &ShieldingOptions::default(),
+                )
+                .unwrap();
+                s.materials[s.region_material[0]].clone()
+            };
+            let mut with_zero = materials();
+            with_zero[0].composition.push(("H-1".into(), 0.0));
+            assert_eq!(shield(&with_zero), shield(&materials()));
+        }
+
+        #[test]
+        fn rejects_non_finite_shielded_cross_sections() {
+            let mut library = library();
+            library.nuclides[0].temperatures[0].shielded[1].total[0] = f64::NAN;
+            let (tracking, regions) = geometry(vec![vec![0]]);
+            let result = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            );
+            assert!(
+                matches!(result, Err(SelfShieldingError::NonFinite(0))),
+                "{result:?}"
+            );
+        }
+
+        #[test]
         fn rejects_fuel_outside_the_inner_rings() {
             let library = library();
             let (tracking, mut regions) = geometry(vec![vec![0]]);
