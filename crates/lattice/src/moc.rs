@@ -4,6 +4,8 @@ use std::f64::consts::PI;
 
 use rayon::prelude::*;
 
+pub mod dancoff;
+
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
 use crate::tracking::Tracking;
