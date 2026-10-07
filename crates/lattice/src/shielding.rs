@@ -95,7 +95,8 @@ pub struct FuelShielding {
     pub pins: Vec<PinShielding>,
 }
 
-/// 1本のピンの燃料の自己遮蔽の結果。
+/// 1本のピンの燃料の自己遮蔽の結果。格子の対称性で移り合うピンは、組の代表（最も小さいセル番号）の結果を
+/// 共有する（`cell` 以外は代表の値）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinShielding {
     pub cell: usize,
@@ -229,7 +230,6 @@ pub fn shield_fuel(
             );
             shielded.pins.push(PinShielding {
                 cell,
-                dancoff: factors.clone(),
                 ..s.pin.clone()
             });
             continue;
