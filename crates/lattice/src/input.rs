@@ -480,6 +480,28 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn self_shielding_is_on_unless_turned_off() {
+        assert!(LatticeInput::parse(PIN_CELL).unwrap().self_shielding);
+        let off = replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            "library = \"m1.msgpack\"\nself-shielding = false",
+        )
+        .unwrap();
+        assert!(!off.self_shielding);
+    }
+
+    #[test]
+    fn self_shielding_needs_a_library() {
+        let result = replaced(
+            LATTICE,
+            "cross-sections = \"c5g7.toml\"",
+            "cross-sections = \"c5g7.toml\"\nself-shielding = true",
+        );
+        assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
+    }
+
+    #[test]
     fn parses_pin_cell() {
         let input = LatticeInput::parse(PIN_CELL).unwrap();
         assert_eq!(
