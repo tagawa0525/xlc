@@ -22,6 +22,12 @@ def read(path: str) -> list[list[float]]:
 
 def main() -> None:
     ours, reference = read(sys.argv[1]), read(sys.argv[2])
+    shape = [len(row) for row in ours]
+    if shape != [len(row) for row in reference]:
+        raise SystemExit("the two maps have different shapes")
+    fuel = [[x > 0 for x in row] for row in ours]
+    if fuel != [[x > 0 for x in row] for row in reference]:
+        raise SystemExit("the two maps have fission in different cells")
     diffs = [
         (a / b - 1, i, j)
         for i, (row_a, row_b) in enumerate(zip(ours, reference))
