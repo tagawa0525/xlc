@@ -32,6 +32,7 @@ use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, solve};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
+use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
 use xlc_lattice::tracking::Tracking;
 use xlc_xs::library::Library;
 
@@ -96,44 +97,59 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let base = path.parent().unwrap_or(Path::new("."));
     let (lattice, region_materials) = input.geometry().with_context(|| shown(path))?;
 
-    let (named, groups) = match &input.cross_sections {
+    let tracking =
+        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
+    // 物質の一覧と、領域ごとのその番号
+    let by_name = |named: Vec<(String, Material)>| -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
+        let index = region_materials
+            .iter()
+            .map(|name| {
+                named
+                    .iter()
+                    .position(|(n, _)| n == name)
+                    .ok_or_else(|| anyhow!("material `{name}` is not in the cross sections"))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        Ok((named.into_iter().map(|(_, m)| m).collect(), index))
+    };
+    let ((unique, region_index), groups) = match &input.cross_sections {
         CrossSections::Library(file) => {
             let file = base.join(file);
             let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
             let library = Library::from_msgpack(&bytes).with_context(|| shown(&file))?;
-            let named = input
-                .materials
-                .iter()
-                .map(|m| {
-                    Material::mix(&library, &m.composition, m.temperature)
-                        .map(|mixed| (m.name.clone(), mixed))
-                        .map_err(|e| anyhow!("material `{}`: {e}", m.name))
-                })
-                .collect::<anyhow::Result<Vec<_>>>()?;
-            (named, Some(library.groups))
+            let materials = if input.self_shielding {
+                let shielded = shield_fuel(
+                    &library,
+                    &tracking,
+                    &input.materials,
+                    &region_materials,
+                    &ShieldingOptions::default(),
+                )
+                .with_context(|| format!("{}: self-shielding", shown(path)))?;
+                (shielded.materials, shielded.region_material)
+            } else {
+                let named = input
+                    .materials
+                    .iter()
+                    .map(|m| {
+                        Material::mix(&library, &m.composition, m.temperature)
+                            .map(|mixed| (m.name.clone(), mixed))
+                            .map_err(|e| anyhow!("material `{}`: {e}", m.name))
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?;
+                by_name(named)?
+            };
+            (materials, Some(library.groups))
         }
         CrossSections::Macroscopic(file) => {
             let file = base.join(file);
             let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
-            (
-                macroscopic::parse(&text).with_context(|| shown(&file))?,
-                None,
-            )
+            let named = macroscopic::parse(&text).with_context(|| shown(&file))?;
+            (by_name(named)?, None)
         }
     };
-    let materials = region_materials
-        .iter()
-        .map(|name| {
-            named
-                .iter()
-                .find(|(n, _)| n == name)
-                .map(|(_, m)| m)
-                .ok_or_else(|| anyhow!("material `{name}` is not in the cross sections"))
-        })
-        .collect::<anyhow::Result<Vec<&Material>>>()?;
+    let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
 
-    let tracking =
-        Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
     let solution = solve(&tracking, &materials, &Options::default())?;
     if let Some((output, bounds)) = &input.output {
         let groups = groups
