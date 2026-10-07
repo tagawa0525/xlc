@@ -9,9 +9,9 @@
 //! - 同じ区間: 2∫dy [τa − Ki3(0) + Ki3(τa)]
 //! - 外への脱出: 2∫dy [Ki3(τ後) − Ki3(τ後+τa)]
 //!
-//! 一つの区間からの3つの和は、Ki3 の値によらず τa に打ち消し合う。そこで体積も同じ求積で 2∫dy Σ_a ℓa として
-//! 求めておけば（MOC で追跡の体積を使うのと同じ）、中性子の保存と相反則は y の求積の精度によらず成り立つ。
-//! ただし下の積分表示と表の値が一つの弦の上で混ざると、両者の差（1e-16 程度）を τ で割った分だけずれる。
+//! 一つの区間からの3つの和は τa に打ち消し合う。そこで脱出はこの和の残りとして求め（下の積分表示と表の値の
+//! どちらを使っても厳密になる）、体積も同じ求積で 2∫dy Σ_a ℓa として求めておけば（MOC で追跡の体積を使うのと
+//! 同じ）、中性子の保存と相反則は y の求積の精度によらず丸め誤差の範囲で成り立つ。
 //!
 //! 真空のリング（Σ = 0）を扱うため、衝突の代わりに飛程（単位の線源密度あたりの、リングの中を飛ぶ長さ）
 //! A_ij = V_iP_ij/Σ_j を求める。それには上の差分を Σ で割る。τ が小さいと差分が打ち消し合い、Ki3 の表の誤差が
@@ -197,20 +197,31 @@ impl Cylinder {
                     tau: totals[ring] * length,
                 })
                 .collect();
-            let mut rest: f64 = path.iter().map(|p| p.tau).sum();
             let last = path.len() - 1;
+            // 区間ごとの、その区間から前に飛んで衝突する数 Σ_b Σb A_ab（自己の項を含む）
+            let mut collided = vec![0.0; path.len()];
             for (a, from) in path.iter().enumerate() {
-                rest -= from.tau;
-                escapes[from.ring] += weight * from.escape(rest.max(0.0));
-                tracks[from.ring][from.ring] += weight * from.own();
+                let own = from.own();
+                tracks[from.ring][from.ring] += weight * own;
+                collided[a] += own * from.total;
                 // 弦が中心について対称なので、区間の対 (a, b) と鏡映した対 (L−1−b, L−1−a) は同じ値になる。
                 // a + b ≤ L − 1 の対だけを求め、a + b < L − 1 の対は鏡映の分も A[i][j] の側に足す
                 let mut between = 0.0;
                 for (b, to) in path.iter().enumerate().take(last + 1 - a).skip(a + 1) {
-                    let mirror = if a + b < last { 2.0 } else { 1.0 };
-                    tracks[from.ring][to.ring] += mirror * weight * from.to(to, between);
+                    let value = from.to(to, between);
+                    collided[a] += value * to.total;
+                    if a + b < last {
+                        tracks[from.ring][to.ring] += 2.0 * weight * value;
+                        collided[last - b] += value * from.total;
+                    } else {
+                        tracks[from.ring][to.ring] += weight * value;
+                    }
                     between += to.tau;
                 }
+            }
+            // 衝突しなければ外へ出る（ℓa = Σ_b Σb A_ab + e_a。表と積分表示のどちらの値でも保存則が厳密になる）
+            for (from, c) in path.iter().zip(&collided) {
+                escapes[from.ring] += weight * (from.length - c);
             }
         }
         // 鏡映の分を片側に足したので、平均で対称にする
@@ -260,16 +271,6 @@ impl Path {
             let d = ki3(between) - ki3(between + self.tau) - ki3(between + to.tau)
                 + ki3(between + self.tau + to.tau);
             d / (self.total * to.total)
-        }
-    }
-
-    /// 単位の線源密度あたりの、光学的距離 `rest` の先で外へ出る数: [Ki3(rest) − Ki3(rest + τ)]/Σ
-    fn escape(&self, rest: f64) -> f64 {
-        if self.tau.min(1.0) < CANCELLATION {
-            // [Ki3(rest) − Ki3(rest + τ)]/τ = ∫ exp(−rest cosh t) φ1(τ cosh t)/cosh² t dt
-            self.length * trapezoid(|c| (-rest * c).exp() * phi1(self.tau * c) / (c * c))
-        } else {
-            (ki3(rest) - ki3(rest + self.tau)) / self.total
         }
     }
 }
