@@ -11,4 +11,5 @@ pub mod macroscopic;
 pub mod material;
 pub mod moc;
 pub mod power;
+pub mod shielding;
 pub mod tracking;
