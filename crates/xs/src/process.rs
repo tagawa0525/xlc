@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use crate::endf::{
     Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
-use crate::library::{NuclideData, Shielded, TemperatureData};
+use crate::library::{NuclideData, Pointwise, Shielded, TemperatureData};
 use crate::multigroup::{
     Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
     SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
@@ -26,6 +26,8 @@ pub struct Settings {
     pub thermal_cutoff: f64,
     /// ポイントワイズの断面積の許容誤差
     pub tolerance: f64,
+    /// ライブラリに持たせるポイントワイズの断面積の範囲 (eV)
+    pub pointwise_range: (f64, f64),
 }
 
 /// 核種の処理のエラー。
@@ -202,6 +204,70 @@ pub fn slowing_down_range(
         awr: mf2.awr,
         range: (low, high),
     }))
+}
+
+/// 範囲 [low, high] (eV) のポイントワイズの断面積を、全断面積の格子で取り出す。全断面積は部分反応の和で作り直してあるので、
+/// その格子は全反応の格子点と不連続点（x の重複）を含む。不連続点では左と右の極限を並べ、範囲の端では範囲の内側の
+/// 極限を使う。νσf は ν(E)σf(E)（MT18 がなければ核分裂は 0）。
+pub fn pointwise_within(
+    tables: &BTreeMap<u32, Tab1>,
+    nubar: Option<&Tab1>,
+    (low, high): (f64, f64),
+) -> Result<Pointwise, ProcessError> {
+    let total = tables.get(&1).ok_or(ProcessError::MissingMf3(1))?;
+    let elastic = tables.get(&2).ok_or(ProcessError::MissingMf3(2))?;
+    let fission = tables.get(&18);
+    // (エネルギー, 右の極限か)
+    let mut points = vec![(low, true)];
+    let inside: Vec<f64> = total
+        .x
+        .iter()
+        .copied()
+        .filter(|&e| e > low && e < high)
+        .collect();
+    for (i, &e) in inside.iter().enumerate() {
+        // 同じエネルギーが続けば1つ目は左、2つ目は右の極限
+        let repeated_before = i > 0 && inside[i - 1] == e;
+        points.push((e, repeated_before));
+    }
+    points.push((high, false));
+    let value = |t: &Tab1, (e, right): (f64, bool)| {
+        if right {
+            right_limit(t, e)
+        } else {
+            left_limit(t, e)
+        }
+    };
+    let column = |t: &Tab1| points.iter().map(|&p| value(t, p)).collect::<Vec<f64>>();
+    let fission_values = fission.map_or(vec![0.0; points.len()], column);
+    let nu_fission = match nubar {
+        Some(nu) => points
+            .iter()
+            .zip(&fission_values)
+            .map(|(&(e, _), f)| nu.eval(e).unwrap_or(0.0) * f)
+            .collect(),
+        None => vec![0.0; points.len()],
+    };
+    Ok(Pointwise {
+        energy: points.iter().map(|&(e, _)| e).collect(),
+        total: column(total),
+        elastic: column(elastic),
+        fission: fission_values,
+        nu_fission,
+    })
+}
+
+/// 分離共鳴の上端 (eV)。分離共鳴がなければ `None`（ライブラリのポイントワイズの断面積の範囲を決めるのに使う）。
+pub fn resolved_top(tape: &Tape, mat: i32) -> Result<Option<f64>, ProcessError> {
+    let Some(section) = tape.section(mat, 2, 151) else {
+        return Ok(None);
+    };
+    Ok(Mf2::parse(&section)?
+        .ranges
+        .iter()
+        .filter(|r| r.kind.is_resolved())
+        .map(|r| r.eh)
+        .reduce(f64::max))
 }
 
 /// 分離共鳴を持つ核種のポテンシャル散乱断面積 4π a² (barn)。a は上端がいちばん高い分離共鳴の範囲の、
@@ -453,11 +519,13 @@ impl Common<'_> {
                 nu_fission: avg.nu_fission.clone().unwrap_or(zeros.clone()),
             })
             .collect();
+        let pointwise = pointwise_within(&tables, self.nubar, settings.pointwise_range)?;
         Ok(TemperatureData {
             temperature,
             chi,
             scatter,
             shielded,
+            pointwise,
         })
     }
 }
@@ -635,6 +703,47 @@ mod tests {
     }
 
     #[test]
+    fn pointwise_data_covers_the_range_on_the_total_grid() {
+        // 全断面積は部分反応の和なので、その格子は全反応の格子点と不連続点（x の重複）を含む
+        let total = Tab1::linear(
+            vec![1.0, 5.0, 10.0, 10.0, 20.0, 40.0],
+            vec![10.0, 12.0, 14.0, 24.0, 20.0, 18.0],
+        );
+        let elastic = Tab1::linear(vec![1.0, 40.0], vec![8.0, 8.0]);
+        let fission = Tab1::linear(vec![1.0, 40.0], vec![1.0, 2.0]);
+        let nubar = Tab1::linear(vec![1.0, 40.0], vec![2.5, 2.6]);
+        let tables = BTreeMap::from([(1, total), (2, elastic), (18, fission)]);
+        let data = pointwise_within(&tables, Some(&nubar), (4.0, 30.0)).unwrap();
+        // 範囲の端と、その間の格子点（不連続点は左右の極限を両方持つ）
+        assert_eq!(data.energy, vec![4.0, 5.0, 10.0, 10.0, 20.0, 30.0]);
+        assert_eq!(data.total[2], 14.0);
+        assert_eq!(data.total[3], 24.0);
+        assert!((data.total[0] - 11.5).abs() < 1e-12);
+        assert!(data.elastic.iter().all(|&v| v == 8.0));
+        let f = |e: f64| 1.0 + (e - 1.0) / 39.0;
+        let nu = |e: f64| 2.5 + 0.1 * (e - 1.0) / 39.0;
+        for (i, &e) in data.energy.iter().enumerate() {
+            assert!((data.fission[i] - f(e)).abs() < 1e-12);
+            assert!((data.nu_fission[i] - nu(e) * f(e)).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pointwise_data_without_fission_is_zero() {
+        let tables = BTreeMap::from([
+            (1, Tab1::linear(vec![1.0, 40.0], vec![10.0, 10.0])),
+            (2, Tab1::linear(vec![1.0, 40.0], vec![8.0, 8.0])),
+        ]);
+        let data = pointwise_within(&tables, None, (4.0, 30.0)).unwrap();
+        assert!(
+            data.fission
+                .iter()
+                .chain(&data.nu_fission)
+                .all(|&v| v == 0.0)
+        );
+    }
+
+    #[test]
     fn no_resolved_range_needs_no_slowing_down() {
         let groups = GroupStructure::new(vec![1.0e5, 1.0e4, 1.0e-5]).unwrap();
         assert!(
@@ -747,6 +856,7 @@ mod tests {
             sigma0: vec![1.0e10, 1.0],
             thermal_cutoff: 4.0,
             tolerance: 1.0e-3,
+            pointwise_range: (4.0, 1.0e4),
         };
         let data = process_nuclide(&tape, "X", &[293.6, 600.0], None, &settings).unwrap();
         assert_eq!(data.name, "X");
