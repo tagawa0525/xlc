@@ -110,6 +110,22 @@ pub enum LookupError {
         temperature: f64,
         available: Vec<f64>,
     },
+    #[error("{name}: sigma0 {sigma0} b in group {group} is outside the table {min}..{max} b")]
+    Sigma0 {
+        name: String,
+        group: usize,
+        sigma0: f64,
+        min: f64,
+        max: f64,
+    },
+    #[error("the library has no sigma0 values")]
+    NoSigma0,
+    #[error("{name}: {given} sigma0 values for {groups} groups")]
+    Sigma0Groups {
+        name: String,
+        given: usize,
+        groups: usize,
+    },
 }
 
 /// ライブラリの読み込みエラー。
@@ -186,6 +202,29 @@ impl Library {
 
     /// 核種 `name` の、温度 `temperature` (K) での無限希釈の群定数。温度は表の値と完全に一致すること（補間しない）。
     pub fn nuclide(&self, name: &str, temperature: f64) -> Result<Nuclide, LookupError> {
+        let (data, t) = self.lookup(name, temperature)?;
+        let dilute = &t.shielded[0];
+        Ok(Nuclide {
+            name: data.name.clone(),
+            za: data.za,
+            awr: data.awr,
+            temperature: t.temperature,
+            total: dilute.total.clone(),
+            fission: dilute.fission.clone(),
+            nu_fission: dilute.nu_fission.clone(),
+            chi: t.chi.clone(),
+            scatter: t.scatter.clone(),
+        })
+    }
+}
+
+impl Library {
+    /// 核種 `name` の温度 `temperature` (K) の表（温度は表の値と完全に一致すること）。
+    fn lookup(
+        &self,
+        name: &str,
+        temperature: f64,
+    ) -> Result<(&NuclideData, &TemperatureData), LookupError> {
         let data = self
             .nuclides
             .iter()
@@ -200,18 +239,62 @@ impl Library {
                 temperature,
                 available: data.temperatures.iter().map(|t| t.temperature).collect(),
             })?;
-        let dilute = &t.shielded[0];
-        Ok(Nuclide {
-            name: data.name.clone(),
-            za: data.za,
-            awr: data.awr,
-            temperature: t.temperature,
-            total: dilute.total.clone(),
-            fission: dilute.fission.clone(),
-            nu_fission: dilute.nu_fission.clone(),
-            chi: t.chi.clone(),
-            scatter: t.scatter.clone(),
-        })
+        Ok((data, t))
+    }
+
+    /// 核種 `name` の、群ごとの背景断面積 `sigma0` (barn) での遮蔽断面積。表の σ0 の間は ln σ0 に線形に
+    /// 補間し、格子点では表の値をそのまま使う。表の範囲の外はエラーにする。
+    pub fn shielded(
+        &self,
+        name: &str,
+        temperature: f64,
+        sigma0: &[f64],
+    ) -> Result<Shielded, LookupError> {
+        let (_, t) = self.lookup(name, temperature)?;
+        let groups = self.groups.len();
+        if sigma0.len() != groups {
+            return Err(LookupError::Sigma0Groups {
+                name: name.into(),
+                given: sigma0.len(),
+                groups,
+            });
+        }
+        let (Some(&max), Some(&min)) = (self.sigma0.first(), self.sigma0.last()) else {
+            return Err(LookupError::NoSigma0);
+        };
+        let mut result = Shielded {
+            total: Vec::with_capacity(groups),
+            elastic: Vec::with_capacity(groups),
+            fission: Vec::with_capacity(groups),
+            nu_fission: Vec::with_capacity(groups),
+        };
+        for (g, &s) in sigma0.iter().enumerate() {
+            if !(min..=max).contains(&s) {
+                return Err(LookupError::Sigma0 {
+                    name: name.into(),
+                    group: g,
+                    sigma0: s,
+                    min,
+                    max,
+                });
+            }
+            // σ0 は降順。k は s 以下の最初の格子点
+            let k = self.sigma0.partition_point(|&x| x > s);
+            let value = |of: fn(&Shielded) -> &Vec<f64>| -> f64 {
+                let b = of(&t.shielded[k])[g];
+                if self.sigma0[k] == s {
+                    return b;
+                }
+                let a = of(&t.shielded[k - 1])[g];
+                let u = (s / self.sigma0[k - 1]).ln() / (self.sigma0[k] / self.sigma0[k - 1]).ln();
+                a + u * (b - a)
+            };
+            result.total.push(value(|x| &x.total));
+            result.elastic.push(value(|x| &x.elastic));
+            result.fission.push(value(|x| &x.fission));
+            result.nu_fission.push(value(|x| &x.nu_fission));
+        }
+        Ok(result)
     }
 }
 
@@ -377,6 +460,38 @@ pub(crate) mod tests {
         assert_eq!(u235.chi, vec![1.0, 0.0]);
         assert!(library.nuclide("U-235", 600.0).is_err());
         assert!(library.nuclide("O-16", 293.6).is_err());
+    }
+
+    #[test]
+    fn interpolates_shielded_cross_sections_in_ln_sigma0() {
+        let library = sample();
+        // 格子点では表の値
+        let at_points = library.shielded("U-235", 900.0, &[1.0e10, 10.0]).unwrap();
+        assert_eq!(at_points.total, vec![11.5, 1.7929089665572825e-9]);
+        assert_eq!(at_points.fission, vec![1.2, 580.5]);
+        // ln σ0 の中点では、両端の値の平均
+        let middle = (1.0e10_f64 * 10.0).sqrt();
+        let between = library.shielded("U-235", 900.0, &[middle, middle]).unwrap();
+        assert!((between.total[0] - 0.75 * 11.5).abs() < 1e-12);
+        assert!((between.elastic[0] - 0.75 * 4.0).abs() < 1e-12);
+        assert!((between.nu_fission[0] - 0.75 * 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rejects_sigma0_outside_the_table() {
+        let library = sample();
+        for sigma0 in [5.0, 1.0e11, f64::NAN] {
+            let error = library.shielded("U-235", 900.0, &[sigma0, 100.0]);
+            assert!(
+                matches!(error, Err(LookupError::Sigma0 { group: 0, .. })),
+                "{sigma0}: {error:?}"
+            );
+        }
+        // σ0 は群の数だけ要る
+        assert!(matches!(
+            library.shielded("U-235", 900.0, &[100.0]),
+            Err(LookupError::Sigma0Groups { .. })
+        ));
     }
 
     fn sample_file() -> LibraryFile {
