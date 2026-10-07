@@ -151,9 +151,14 @@ impl Material {
         }
     }
 
-    /// 真空か（どの群の全断面積も 0）
+    /// 真空か（どの反応もどの群でも 0）
     pub fn is_void(&self) -> bool {
-        self.total.iter().all(|&t| t == 0.0)
+        let zero = |v: &[f64]| v.iter().all(|&x| x == 0.0);
+        zero(&self.total)
+            && zero(&self.fission)
+            && zero(&self.nu_fission)
+            && self.scatter.iter().all(|row| zero(row))
+            && self.fission_terms.is_empty()
     }
 
     /// 吸収断面積 Σt - Σ_g' Σs(g→g')（多重度のある反応では負になりうる）。
