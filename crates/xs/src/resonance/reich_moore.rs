@@ -450,19 +450,23 @@ pub(crate) mod tests {
             assert_close(sigma.total, exact.total, "total");
             assert_close(sigma.elastic, exact.elastic, "elastic");
             assert_close(sigma.fission, exact.fission, "fission");
-            // 捕獲は厳密に 0。全断面積からの差なので、全断面積と同じ相対の精度で比べる
-            assert!(
-                sigma.capture.abs() <= 1e-9 * sigma.total,
-                "capture {} of total {}",
-                sigma.capture,
-                sigma.total
-            );
+            // 捕獲の幅がないので、捕獲は差の丸めの誤差も残さず厳密に 0
+            assert_eq!(sigma.capture, 0.0);
+        }
+    }
+
+    #[test]
+    fn capture_is_exactly_zero_without_capture_width() {
+        // 極でないエネルギーでも、捕獲の幅がなければ捕獲は差の丸めの誤差を残さない
+        let xs = ReichMooreXs::new(&single_level(1.5e-3, 0.0, 1.0e-1));
+        for e in [1.0e-3, 1.0, 6.7, 100.0] {
+            assert_eq!(xs.cross_sections(e).unwrap().capture, 0.0, "at {e}");
         }
     }
 
     #[test]
     fn two_poles_in_one_group_are_an_error() {
-        // 同じ組に、捕獲幅のない共鳴が同じエネルギーに2つあると、極限が1つに決まらない
+        // 同じ組に、捕獲幅のない共鳴が同じエネルギーに2つある場合（階数 2 の極限）には対応しない
         let mut data = single_level(1.5e-3, 0.0, 0.0);
         let mut second = data.l_values[0].resonances[0];
         second.gn = 2.0e-3;
