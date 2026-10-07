@@ -1,16 +1,25 @@
-//! 等価原理による燃料の自己遮蔽（Dancoff 係数を入れた Carlvik の2項有理近似）。
+//! 燃料のピンの自己遮蔽。
 //!
-//! 燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
+//! 燃料の分離共鳴の範囲（[`crate::ufg::cell_range`]）は、ピンごとに Dancoff 係数を合わせた円筒の等価なセル
+//! （[`crate::equivalent`]）の超微細群の減速計算（[`crate::ufg`]）で、燃料のリング、被覆管、減速材の群定数を
+//! それぞれのリングの中性子束で縮約して求める。その範囲の外の群は、燃料を等価原理（Dancoff 係数を入れた
+//! Carlvik の2項有理近似）で遮蔽し、被覆管と減速材は無限希釈とする。
+//!
+//! 等価原理では、燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
 //! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
 //! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
 //! （ライブラリの重み w/(σt + σ0) での群平均では、この式が厳密に成り立つ）。
 
 use xlc_xs::library::{Library, LookupError, Nuclide, Shielded};
 
+use crate::cp::{CpError, Cylinder};
+use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
+use crate::geometry::Lattice;
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
 use crate::tracking::Tracking;
+use crate::ufg::{UfgError, cell_range, slowing_down};
 
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -42,6 +51,10 @@ pub enum SelfShieldingError {
     FuelShape(usize),
     #[error("cell {0}: more than one fuel material")]
     MixedFuel(usize),
+    #[error(
+        "cell {0}: each ring outside the fuel must be one material, and the outer rings the moderator"
+    )]
+    CellShape(usize),
     #[error("cell {0}: non-finite shielded cross sections")]
     NonFinite(usize),
     #[error("cell {cell}: shielding not converged in {iterations} iterations")]
@@ -50,6 +63,12 @@ pub enum SelfShieldingError {
     Material { name: String, source: MaterialError },
     #[error(transparent)]
     Dancoff(#[from] DancoffError),
+    #[error(transparent)]
+    Equivalent(#[from] EquivalentError),
+    #[error(transparent)]
+    Ufg(#[from] UfgError),
+    #[error(transparent)]
+    Cp(#[from] CpError),
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -78,12 +97,15 @@ pub struct PinShielding {
     pub dancoff: Vec<f64>,
     /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
     pub nuclides: Vec<(Nuclide, f64)>,
-    /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）
+    /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）。UFG の範囲の群は、燃料のリングの値を中性子束と
+    /// 体積で平均したもの
     pub effective: Vec<Shielded>,
+    /// UFG の減速計算に使った等価なセルの外半径 (cm)。燃料に分離共鳴を持つ核種がなければ `None`
+    pub equivalent: Option<f64>,
 }
 
-/// 格子の燃料（核分裂する核種を含む物質）を、ピンごとの Dancoff 係数と等価原理で自己遮蔽する。
-/// 被覆管と減速材は無限希釈のまま。`region_materials` は領域ごとの物質の名前。
+/// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
+/// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。
 pub fn shield_fuel(
     library: &Library,
     tracking: &Tracking,
@@ -171,7 +193,7 @@ pub fn shield_fuel(
         {
             return Err(SelfShieldingError::MixedFuel(cell));
         }
-        pins.push((cell, fuel_regions, index, pin.radii()[rings - 1]));
+        pins.push((cell, fuel_regions, index, rings));
     }
     let factors = dancoff(tracking, &totals, &fuel, &options.dancoff)?;
 
@@ -180,10 +202,11 @@ pub fn shield_fuel(
         region_material: region_index.clone(),
         pins: Vec::new(),
     };
-    for (cell, fuel_regions, index, radius) in pins {
+    for (cell, fuel_regions, index, rings) in pins {
         let factors = factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
+        let radius = lattice.cell_type(cell).radii()[rings - 1];
         let equivalence = Equivalence {
             chord: 2.0 * radius,
             terms: factors
@@ -192,7 +215,26 @@ pub fn shield_fuel(
                 .collect::<Result<_, _>>()?,
         };
         let material = &materials[index];
-        let effective = shield_material(library, material, &equivalence, options, cell)?;
+        let carlvik = shield_material(library, material, &equivalence, options, cell)?;
+        let pin_cell = PinRings {
+            lattice,
+            cell,
+            rings,
+            region_index: &region_index,
+            void,
+        };
+        let ufg = shield_cell(
+            library,
+            &pin_cell,
+            materials,
+            &shielded.materials,
+            factors,
+            &carlvik,
+        )?;
+        let effective = match &ufg {
+            Some(c) => c.effective.clone(),
+            None => carlvik,
+        };
         let nuclides = material
             .composition
             .iter()
@@ -215,14 +257,209 @@ pub fn shield_fuel(
             dancoff: factors.clone(),
             nuclides,
             effective,
+            equivalent: ufg.as_ref().map(|c| c.radius),
         });
-        let new = shielded.materials.len();
-        shielded.materials.push(mixed);
-        for region in fuel_regions {
-            shielded.region_material[region] = new;
+        match ufg {
+            // リングごとの物質（真空のリングは真空のまま）
+            Some(c) => {
+                for (material, regions) in c.rings {
+                    let Some(material) = material else {
+                        continue;
+                    };
+                    let new = shielded.materials.len();
+                    shielded.materials.push(material);
+                    for region in regions {
+                        shielded.region_material[region] = new;
+                    }
+                }
+            }
+            None => {
+                let new = shielded.materials.len();
+                shielded.materials.push(mixed);
+                for region in fuel_regions {
+                    shielded.region_material[region] = new;
+                }
+            }
         }
     }
     Ok(shielded)
+}
+
+/// 燃料のあるピンのセルと、その領域の物質
+struct PinRings<'a> {
+    lattice: &'a Lattice,
+    cell: usize,
+    /// 燃料のリングの数
+    rings: usize,
+    /// [領域] の物質の番号
+    region_index: &'a [usize],
+    /// 真空の物質の番号
+    void: usize,
+}
+
+/// ピンのセルの UFG の減速計算の結果
+struct CellShielding {
+    /// 等価なセルの外半径 (cm)
+    radius: f64,
+    /// 等価なセルのリングごとの物質（真空は `None`）と、それを割り当てる格子の領域
+    rings: Vec<(Option<Material>, Vec<usize>)>,
+    /// 燃料の核種の実効断面積。UFG の範囲の群は燃料のリングの値を中性子束と体積で平均し、範囲の外は等価原理の値
+    effective: Vec<Shielded>,
+}
+
+/// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
+/// リング（ギャップ、被覆管）、減速材（セルの外側の物質。等価なセルでは1つのリング）のそれぞれの核種に、そのリングの
+/// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、燃料は等価原理の値（`carlvik`）、それ以外は無限希釈。
+/// 燃料に分離共鳴を持つ核種がなければ `None`。
+fn shield_cell(
+    library: &Library,
+    pin: &PinRings,
+    materials: &[MaterialInput],
+    dilute: &[Material],
+    dancoff: &[f64],
+    carlvik: &[Shielded],
+) -> Result<Option<CellShielding>, SelfShieldingError> {
+    let cell = pin.cell;
+    let geometry = pin.lattice.cell_type(cell);
+    let (radii, sectors) = (geometry.radii(), geometry.sectors());
+    let first = pin.lattice.cell_regions(cell).start;
+    let regions = |ring: usize| first + ring * sectors..first + (ring + 1) * sectors;
+    // リングごとの物質の番号（最後はいちばん外の円の外）。扇形はどれも同じ物質であること
+    let ring_index = (0..=radii.len())
+        .map(|r| {
+            let index = pin.region_index[regions(r).start];
+            if pin.region_index[regions(r)].iter().all(|&i| i == index) {
+                Ok(index)
+            } else {
+                Err(SelfShieldingError::CellShape(cell))
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let moderator = ring_index[radii.len()];
+    // 減速材のリングの始まり: これより外はすべて減速材
+    let start = (pin.rings..=radii.len())
+        .find(|&r| ring_index[r..].iter().all(|&i| i == moderator))
+        .unwrap_or(radii.len());
+    if moderator == pin.void {
+        return Err(SelfShieldingError::CellShape(cell));
+    }
+    let input = |index: usize| (index != pin.void).then(|| &materials[index]);
+    let fuel = &materials[ring_index[0]];
+    let inputs: Vec<Option<&MaterialInput>> = (0..pin.rings)
+        .map(|_| Some(fuel))
+        .chain(ring_index[pin.rings..start].iter().map(|&i| input(i)))
+        .chain([input(moderator)])
+        .collect();
+    let Some(range) = cell_range(library, &inputs)? else {
+        return Ok(None);
+    };
+    let bounds = library.groups.bounds();
+    let position = |e: f64| {
+        bounds.iter().position(|&b| b == e).ok_or(UfgError::Range {
+            range,
+            pointwise: library.pointwise_range,
+        })
+    };
+    let (top, bottom) = (position(range[1])?, position(range[0])?);
+
+    // 等価なセルの外半径: UFG の範囲の群ごとに Dancoff 係数を合わせた外径の平均
+    let inner: Vec<f64> = [radii[pin.rings - 1]]
+        .into_iter()
+        .chain(radii[pin.rings..start].iter().copied())
+        .collect();
+    let mut sum = 0.0;
+    for (g, &c) in dancoff.iter().enumerate().take(bottom).skip(top) {
+        let totals: Vec<f64> = [0.0]
+            .into_iter()
+            .chain(
+                ring_index[pin.rings..start]
+                    .iter()
+                    .map(|&i| dilute[i].total[g]),
+            )
+            .chain([dilute[moderator].total[g]])
+            .collect();
+        // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
+        sum += equivalent_radius(&inner, &totals, c.max(MIN_DANCOFF))?;
+    }
+    let radius = sum / (bottom - top) as f64;
+    let cylinder = Cylinder::new(radii[..start].iter().copied().chain([radius]).collect())?;
+    let spectrum = slowing_down(library, &cylinder, &inputs, range)?;
+    let volumes = cylinder.volumes();
+
+    let ng = library.groups.len();
+    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
+    let mut rings = Vec::with_capacity(inputs.len());
+    for (j, input) in inputs.iter().enumerate() {
+        // 等価なセルのリング j に割り当てる格子の領域（減速材は外側のリングすべて）
+        let targets: Vec<usize> = if j < start {
+            regions(j).collect()
+        } else {
+            (start..=radii.len()).flat_map(regions).collect()
+        };
+        let Some(m) = input else {
+            rings.push((None, targets));
+            continue;
+        };
+        let nuclides = m
+            .composition
+            .iter()
+            .enumerate()
+            .map(|(k, (name, density))| {
+                let mut full = if j < pin.rings {
+                    carlvik[k].clone()
+                } else {
+                    library.shielded(name, m.temperature, &vec![infinite; ng])?
+                };
+                let ufg = &spectrum.nuclides[j][k];
+                for g in top..bottom {
+                    full.total[g] = ufg.total[g - top];
+                    full.elastic[g] = ufg.elastic[g - top];
+                    full.fission[g] = ufg.fission[g - top];
+                    full.nu_fission[g] = ufg.nu_fission[g - top];
+                }
+                Ok((
+                    shielded_nuclide(library, name, m.temperature, &full)?,
+                    *density,
+                ))
+            })
+            .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+        let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
+            SelfShieldingError::Material {
+                name: m.name.clone(),
+                source,
+            }
+        })?;
+        rings.push((Some(material), targets));
+    }
+
+    // 燃料の平均: 燃料のリングの中性子束と体積の重み
+    let effective = carlvik
+        .iter()
+        .enumerate()
+        .map(|(k, c)| {
+            let mut s = c.clone();
+            for g in top..bottom {
+                let weight = |j: usize| spectrum.flux[j][g - top] * volumes[j];
+                let total_weight: f64 = (0..pin.rings).map(weight).sum();
+                let average = |x: fn(&Shielded) -> &Vec<f64>| -> f64 {
+                    (0..pin.rings)
+                        .map(|j| weight(j) * x(&spectrum.nuclides[j][k])[g - top])
+                        .sum::<f64>()
+                        / total_weight
+                };
+                s.total[g] = average(|v| &v.total);
+                s.elastic[g] = average(|v| &v.elastic);
+                s.fission[g] = average(|v| &v.fission);
+                s.nu_fission[g] = average(|v| &v.nu_fission);
+            }
+            s
+        })
+        .collect();
+    Ok(Some(CellShielding {
+        radius,
+        rings,
+        effective,
+    }))
 }
 
 /// 1本のピンの燃料の核種の実効断面積を、全断面積が収束するまで反復して求める。
@@ -796,6 +1033,159 @@ mod tests {
                 matches!(result, Err(SelfShieldingError::NonFinite(0))),
                 "{result:?}"
             );
+        }
+
+        /// 分離共鳴（200 eV の共鳴）を持つ U-238 と、ポイントワイズの断面積を持つ核種のライブラリ。群 1, 2 が UFG の範囲
+        fn resonant_library() -> Library {
+            let bounds = vec![1.0e7, 1.0e4, 1.0e2, 4.0, 0.625, 1.0e-5];
+            let ng = bounds.len() - 1;
+            let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
+            let mut energies: Vec<f64> = (0..=400).map(|k| 180.0 + 0.1 * k as f64).collect();
+            energies.splice(0..0, [4.0, 100.0]);
+            energies.extend([1.0e3, 1.0e4]);
+            // (名前, awr, ポイントワイズの断面積 [全, 弾性散乱, 核分裂], 分離共鳴の上端)
+            let nuclide = |name: &str, awr: f64, points: Vec<[f64; 4]>, top: Option<f64>| {
+                let column = |k: usize| points.iter().map(|p| p[k]).collect::<Vec<_>>();
+                let (total, elastic, fission) = (points[0][1], points[0][2], points[0][3]);
+                // σ0 の表: 無限希釈から下がる（Carlvik で引く範囲の外の群に使う）
+                let table = |factor: f64| Shielded {
+                    total: vec![total * factor; ng],
+                    elastic: vec![elastic; ng],
+                    fission: vec![fission * factor; ng],
+                    nu_fission: vec![2.4 * fission * factor; ng],
+                };
+                NuclideData {
+                    name: name.into(),
+                    za: 0.0,
+                    awr,
+                    resolved: top.map(|top| xlc_xs::library::Resolved {
+                        top,
+                        potential: 10.0,
+                    }),
+                    temperatures: vec![TemperatureData {
+                        temperature: T,
+                        chi: (0..ng)
+                            .map(|g| if fission > 0.0 && g == 0 { 1.0 } else { 0.0 })
+                            .collect(),
+                        scatter: vec![vec![elastic; ng]; ng],
+                        shielded: vec![table(1.0), table(0.9), table(0.8)],
+                        pointwise: xlc_xs::library::Pointwise {
+                            energy: column(0),
+                            total: column(1),
+                            elastic: column(2),
+                            fission: column(3),
+                            nu_fission: column(3).iter().map(|f| 2.4 * f).collect(),
+                        },
+                    }],
+                }
+            };
+            let flat = |t: f64, e: f64, f: f64| vec![[4.0, t, e, f], [1.0e4, t, e, f]];
+            let u238 = energies
+                .iter()
+                .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.0])
+                .collect();
+            Library {
+                pointwise_range: [4.0, 1.0e4],
+                groups: GroupStructure::new(bounds).unwrap(),
+                sigma0: vec![1.0e10, 100.0, 1.0],
+                nuclides: vec![
+                    nuclide("U-238", 236.0, u238, Some(1.0e4)),
+                    nuclide("U-235", 233.0, flat(10.0, 8.0, 1.0), Some(2.0e3)),
+                    nuclide("O-16", 15.86, flat(3.8, 3.8, 0.0), None),
+                    nuclide("Zr-90", 89.0, flat(6.5, 6.5, 0.0), None),
+                    nuclide("H-1", 0.99917, flat(20.0, 20.0, 0.0), None),
+                ],
+            }
+        }
+
+        #[test]
+        fn fuel_rings_are_shielded_by_the_cell() {
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+            let regions: Vec<String> =
+                ["fuel", "fuel", "fuel", crate::input::VOID, "clad", "water"]
+                    .map(String::from)
+                    .to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let total = |region: usize, g: usize| {
+                shielded.materials[shielded.region_material[region]].total[g]
+            };
+            // UFG の範囲の群（100 eV〜10 keV）では、燃料の内側ほど共鳴が遮蔽される
+            assert!(
+                total(0, 1) < total(1, 1) && total(1, 1) < total(2, 1),
+                "{:?}",
+                [total(0, 1), total(1, 1), total(2, 1)]
+            );
+            // 範囲の外の群は、燃料のリングによらず等価原理の値
+            assert_eq!(total(0, 0), total(2, 0));
+            // 等価なセルの外径は、正方形のセルと面積の等しい円に近い
+            let radius = shielded.pins[0].equivalent.unwrap();
+            assert!((0.6..0.8).contains(&radius), "{radius}");
+            assert!(shielded.materials[shielded.region_material[3]].is_void());
+        }
+
+        #[test]
+        fn isolated_pins_are_shielded() {
+            // 水が厚く、Dancoff 係数がセルの数値誤差より小さいピンも、孤立したピンとして解ける
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let pin = PinCell::new(30.0, vec![0.4096]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.05).unwrap();
+            let regions: Vec<String> = ["fuel", "water"].map(String::from).to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let radius = shielded.pins[0].equivalent.unwrap();
+            assert!(radius > 3.0, "{radius}");
         }
 
         #[test]

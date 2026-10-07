@@ -39,8 +39,6 @@ pub enum UfgError {
         range: [f64; 2],
         pointwise: [f64; 2],
     },
-    #[error("no fuel nuclide in the cell has resolved resonances")]
-    NoFuel,
     #[error("{name}: atomic weight ratio {awr} must be positive")]
     Mass { name: String, awr: f64 },
     #[error("{name}: pointwise data are not defined at {energy} eV")]
@@ -68,11 +66,12 @@ pub struct CellSpectrum {
 
 /// セルの UFG の範囲 [下限, 上限] (eV)。下限はライブラリのポイントワイズの断面積の下限（熱中性子散乱の打ち切り以上の群の境界）、
 /// 上限は燃料（核分裂する核種を含む物質）の核種の分離共鳴の上端のうち最も高いもの（[`MAX_TOP`] で頭打ち）以下で
-/// 最も高い群の境界。`rings` はリングごとの物質（真空は `None`）。
+/// 最も高い群の境界。`rings` はリングごとの物質（真空は `None`）。燃料に分離共鳴を持つ核種がなければ `None`
+/// （減速計算で遮蔽する共鳴がない）。
 pub fn cell_range(
     library: &Library,
     rings: &[Option<&MaterialInput>],
-) -> Result<[f64; 2], UfgError> {
+) -> Result<Option<[f64; 2]>, UfgError> {
     let mut top: Option<f64> = None;
     for m in rings.iter().flatten() {
         let data = m
@@ -93,7 +92,10 @@ pub fn cell_range(
         }
     }
     let pointwise = library.pointwise_range;
-    let top = top.ok_or(UfgError::NoFuel)?.min(MAX_TOP).min(pointwise[1]);
+    let Some(top) = top else {
+        return Ok(None);
+    };
+    let top = top.min(MAX_TOP).min(pointwise[1]);
     let low = pointwise[0];
     let high = library
         .groups
@@ -106,7 +108,7 @@ pub fn cell_range(
             range: [low, top],
             pointwise,
         })?;
-    Ok([low, high])
+    Ok(Some([low, high]))
 }
 
 /// 1つの核種（名前と温度の組）の減速計算のデータ
@@ -738,7 +740,9 @@ mod tests {
                 zirconium,
                 constant("H-1", 0.99917, 20.0, 20.0, 0.0),
             ]);
-            cell_range(&lib, &[Some(&fuel), None, Some(&clad), Some(&water)]).unwrap()
+            cell_range(&lib, &[Some(&fuel), None, Some(&clad), Some(&water)])
+                .unwrap()
+                .unwrap()
         };
         // 上端以下で最も高い群の境界
         assert_eq!(range(3.0e3), [4.0, 1.0e3]);
@@ -747,10 +751,19 @@ mod tests {
     }
 
     #[test]
-    fn range_needs_fuel() {
-        let lib = library(vec![constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+    fn no_range_without_resolved_fuel() {
+        // 燃料がない、または燃料に分離共鳴を持つ核種がなければ、減速計算する範囲はない
+        let lib = library(vec![
+            constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+            constant("U-235", 233.0, 10.0, 8.0, 1.0),
+        ]);
         let water = material(&[("H-1", 0.05)]);
-        assert!(cell_range(&lib, &[Some(&water)]).is_err());
+        let fuel = material(&[("U-235", 0.01)]);
+        assert_eq!(cell_range(&lib, &[Some(&water)]).unwrap(), None);
+        assert_eq!(
+            cell_range(&lib, &[Some(&fuel), Some(&water)]).unwrap(),
+            None
+        );
     }
 
     #[test]
