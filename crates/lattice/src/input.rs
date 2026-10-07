@@ -294,13 +294,18 @@ impl LatticeInput {
         if rows.is_empty() || rows.iter().any(Vec::is_empty) {
             return Err(invalid("`rows` needs cell names in every row".into()));
         }
-        if let Some(gap) = &file.gap
-            && !positive(gap.width)
-        {
-            return Err(invalid(format!(
-                "the gap width must be positive, got {}",
-                gap.width
-            )));
+        if let Some(gap) = &file.gap {
+            if !positive(gap.width) {
+                return Err(invalid(format!(
+                    "the gap width must be positive, got {}",
+                    gap.width
+                )));
+            }
+            if gap.material == VOID {
+                return Err(invalid(format!(
+                    "the gap must be a material, not `{VOID}`; leave out `gap` for no gap"
+                )));
+            }
         }
         let gap = file.gap.map(|g| Gap {
             width: g.width,
