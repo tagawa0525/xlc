@@ -254,6 +254,7 @@ mod tests {
         Material {
             total: total.to_vec(),
             scatter,
+            anisotropic: Vec::new(),
             fission: vec![0.0; 4],
             nu_fission: vec![0.0; 4],
             fission_terms: Vec::new(),

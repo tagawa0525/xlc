@@ -115,6 +115,7 @@ impl MaterialEntry {
         let material = Material {
             total: self.total,
             scatter: self.scatter,
+            anisotropic: Vec::new(),
             fission,
             nu_fission,
             fission_terms,
