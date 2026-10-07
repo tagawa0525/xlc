@@ -675,6 +675,27 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn gap_surrounds_the_lattice() {
+        let text = LATTICE.replace(
+            "rows = [",
+            "gap = { width = 0.25, material = \"water\" }\nrows = [",
+        );
+        let (lattice, materials) = LatticeInput::parse(&text).unwrap().geometry().unwrap();
+        assert_eq!(lattice.width(), 4.5);
+        assert_eq!(lattice.margin(), 0.25);
+        // セルの領域の後に、余白の 4 × 2 + 4 領域
+        assert_eq!(materials.len(), lattice.regions());
+        assert_eq!(materials.len(), 8 + 12);
+        assert!(materials[8..].iter().all(|m| m == "water"));
+        // 幅が正でない、物質がない
+        for gap in ["{ width = 0.0, material = \"water\" }", "{ width = 0.1 }"] {
+            let text = LATTICE.replace("rows = [", &format!("gap = {gap}\nrows = ["));
+            let result = LatticeInput::parse(&text).and_then(|input| input.geometry().map(|_| ()));
+            assert!(result.is_err(), "{gap}");
+        }
+    }
+
+    #[test]
     fn grid_and_sectors_split_cells() {
         let text = LATTICE.replace(
             "[cell.box]\nzones = [{ material = \"water\", rings = 1 }]",
