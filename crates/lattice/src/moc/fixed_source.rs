@@ -190,6 +190,44 @@ mod tests {
     }
 
     #[test]
+    fn rejects_untracked_regions() {
+        // 0.4〜0.4000001 cm のリングには、間隔 0.02 cm のトラックが通らない
+        let tracking = pin(vec![0.4, 0.400_000_1]);
+        let result = fixed_source(
+            &tracking,
+            &[vec![1.0], vec![1.0], vec![1.0]],
+            &[vec![1.0], vec![1.0], vec![1.0]],
+            &FixedSourceOptions::default(),
+        );
+        assert!(
+            matches!(result, Err(FixedSourceError::Untracked(1))),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn small_groups_converge_on_their_own_scale() {
+        // 黒体の燃料と、収束の速い群（Σt 大）・遅い群（Σt 小、線源はごく小さい）の減速材
+        let tracking = pin(vec![0.4]);
+        let both = fixed_source(
+            &tracking,
+            &[vec![f64::INFINITY; 2], vec![10.0, 0.05]],
+            &[vec![0.0; 2], vec![10.0, 0.05e-10]],
+            &FixedSourceOptions::default(),
+        )
+        .unwrap();
+        let alone = fixed_source(
+            &tracking,
+            &[vec![f64::INFINITY], vec![0.05]],
+            &[vec![0.0], vec![0.05]],
+            &FixedSourceOptions::default(),
+        )
+        .unwrap();
+        let (a, b) = (both[1][1], 1.0e-10 * alone[1][0]);
+        assert!((a - b).abs() < 1e-8 * b, "{a} vs {b}");
+    }
+
+    #[test]
     fn black_regions_absorb_everything() {
         let tracking = pin(vec![0.4]);
         let flux = fixed_source(
