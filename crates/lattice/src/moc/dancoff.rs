@@ -91,6 +91,7 @@ pub fn dancoff(
                 totals[region].clone()
             },
             scatter: vec![vec![0.0; ng]; ng],
+            anisotropic: Vec::new(),
             fission: vec![0.0; ng],
             nu_fission: vec![0.0; ng],
             fission_terms: Vec::new(),

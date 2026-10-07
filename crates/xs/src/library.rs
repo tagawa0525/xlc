@@ -111,8 +111,10 @@ pub struct Nuclide {
     pub fission: Vec<f64>,
     pub nu_fission: Vec<f64>,
     pub chi: Vec<f64>,
-    /// [入射の群][出射の群]
+    /// P0 の散乱行列 [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
+    /// P1 以上の散乱行列 [l - 1][入射の群][出射の群]（l = 1..=L）
+    pub anisotropic: Vec<Vec<Vec<f64>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -255,6 +257,7 @@ impl Library {
             nu_fission: dilute.nu_fission.clone(),
             chi: t.chi.clone(),
             scatter: t.scatter[0].clone(),
+            anisotropic: t.scatter[1..].to_vec(),
         })
     }
 }
