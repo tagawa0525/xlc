@@ -80,12 +80,7 @@ pub fn dancoff(
         }
     }
     let cells = lattice.cells_per_side().pow(2);
-    let mut cell_of = vec![0; regions];
-    for cell in 0..cells {
-        for region in lattice.cell_regions(cell) {
-            cell_of[region] = cell;
-        }
-    }
+    let cell_of: Vec<usize> = (0..regions).map(|r| lattice.region_cell(r)).collect();
 
     // 黒体の燃料（減衰 1 − exp(−τ) が 1 になる）と、燃料の外の物質
     let materials: Vec<Material> = (0..regions)
