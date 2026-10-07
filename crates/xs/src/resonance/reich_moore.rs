@@ -139,6 +139,7 @@ impl ReichMooreXs {
                         Contribution::Resonances => false,
                         Contribution::ResonancesAndHardSphere => interior,
                     };
+                    let captures = group.captures;
                     let mut terms = group
                         .terms(gj, phi)
                         .map_err(|Singular| ReichMooreError::Singular { energy: e, l, j })?;
@@ -151,7 +152,10 @@ impl ReichMooreXs {
                     sum.total += pifac * terms.total;
                     sum.elastic += pifac * terms.elastic;
                     sum.fission += pifac * terms.fission;
-                    sum.capture += pifac * (terms.total - terms.fission - terms.elastic);
+                    // 捕獲は残りの吸収。捕獲の幅がなければ、差を取らずに厳密に 0 とする（丸めの誤差を残さない）
+                    if captures {
+                        sum.capture += pifac * (terms.total - terms.fission - terms.elastic);
+                    }
                 }
             }
         }
@@ -190,6 +194,7 @@ impl ReichMooreXs {
                 amplitude(res.gfb),
             ];
             let has_fission = res.gfa != 0.0 || res.gfb != 0.0;
+            group.captures |= res.gg != 0.0;
             let diff = res.er - e;
             let den = diff * diff + 0.25 * res.gg * res.gg;
             if den == 0.0 {
@@ -269,6 +274,8 @@ struct ChannelGroup {
     s: [[f64; 3]; 3],
     /// 極として分けた共鳴の換算幅振幅（中性子、核分裂 2 つ）
     pole: Option<[f64; 3]>,
+    /// 捕獲の幅を持つ共鳴があるか
+    captures: bool,
     fission: bool,
     positive: usize,
     negative: usize,
