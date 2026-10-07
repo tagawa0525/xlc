@@ -19,6 +19,7 @@ use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
 use crate::sph::{SphError, sph_factors};
+use crate::symmetry::{SymmetryError, cell_orbits};
 use crate::tracking::Tracking;
 use crate::ufg::{UfgError, cell_range, slowing_down};
 
@@ -73,6 +74,8 @@ pub enum SelfShieldingError {
     #[error(transparent)]
     Sph(#[from] SphError),
     #[error(transparent)]
+    Symmetry(#[from] SymmetryError),
+    #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
 
@@ -92,7 +95,8 @@ pub struct FuelShielding {
     pub pins: Vec<PinShielding>,
 }
 
-/// 1本のピンの燃料の自己遮蔽の結果。
+/// 1本のピンの燃料の自己遮蔽の結果。格子の対称性で移り合うピンは、組の代表（最も小さいセル番号）の結果を
+/// 共有する（`cell` 以外は代表の値）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinShielding {
     pub cell: usize,
@@ -208,10 +212,28 @@ pub fn shield_fuel(
         region_material: region_index.clone(),
         pins: Vec::new(),
     };
+    // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
+    // だけを解き、ほかは代表の物質を共有する
+    let orbits = cell_orbits(tracking, &region_index)?;
+    let mut solved: Vec<(usize, Solved)> = Vec::new();
     for (cell, fuel_regions, index, rings) in pins {
         let factors = factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
+        if let Some((_, s)) = solved.iter().find(|(c, _)| *c == orbits[cell]) {
+            assign(
+                lattice,
+                cell,
+                &s.assigned,
+                &fuel_regions,
+                &mut shielded.region_material,
+            );
+            shielded.pins.push(PinShielding {
+                cell,
+                ..s.pin.clone()
+            });
+            continue;
+        }
         let radius = lattice.cell_type(cell).radii()[rings - 1];
         let equivalence = Equivalence {
             chord: 2.0 * radius,
@@ -258,38 +280,100 @@ pub fn shield_fuel(
                 source,
             }
         })?;
-        shielded.pins.push(PinShielding {
+        let pin = PinShielding {
             cell,
             dancoff: factors.clone(),
             nuclides,
             effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| c.sph.clone()),
-        });
-        match ufg {
+        };
+        let assigned = match ufg {
             // リングごとの物質（真空のリングは真空のまま）
-            Some(c) => {
-                for (material, regions) in c.rings {
-                    let Some(material) = material else {
-                        continue;
-                    };
-                    let new = shielded.materials.len();
-                    shielded.materials.push(material);
-                    for region in regions {
-                        shielded.region_material[region] = new;
+            Some(c) => Assigned::Rings {
+                materials: c
+                    .rings
+                    .into_iter()
+                    .map(|m| {
+                        m.map(|m| {
+                            shielded.materials.push(m);
+                            shielded.materials.len() - 1
+                        })
+                    })
+                    .collect(),
+                start: c.start,
+            },
+            None => {
+                shielded.materials.push(mixed);
+                Assigned::Fuel(shielded.materials.len() - 1)
+            }
+        };
+        assign(
+            lattice,
+            cell,
+            &assigned,
+            &fuel_regions,
+            &mut shielded.region_material,
+        );
+        shielded.pins.push(pin.clone());
+        solved.push((cell, Solved { pin, assigned }));
+    }
+    Ok(shielded)
+}
+
+/// 組の代表のピンの結果
+struct Solved {
+    pin: PinShielding,
+    assigned: Assigned,
+}
+
+/// ピンのセルの領域に割り当てる物質の番号
+enum Assigned {
+    /// 等価なセルのリングごとの物質（真空は `None`）と、減速材のリングの始まり
+    Rings {
+        materials: Vec<Option<usize>>,
+        start: usize,
+    },
+    /// 燃料の領域だけ（UFG の範囲がないとき）
+    Fuel(usize),
+}
+
+/// ピンのセル `cell` の領域に、`assigned` の物質の番号を割り当てる。
+fn assign(
+    lattice: &Lattice,
+    cell: usize,
+    assigned: &Assigned,
+    fuel_regions: &std::ops::Range<usize>,
+    region_material: &mut [usize],
+) {
+    match assigned {
+        Assigned::Rings { materials, start } => {
+            for (targets, material) in ring_targets(lattice, cell, *start).iter().zip(materials) {
+                if let Some(m) = material {
+                    for &region in targets {
+                        region_material[region] = *m;
                     }
                 }
             }
-            None => {
-                let new = shielded.materials.len();
-                shielded.materials.push(mixed);
-                for region in fuel_regions {
-                    shielded.region_material[region] = new;
-                }
+        }
+        Assigned::Fuel(m) => {
+            for region in fuel_regions.clone() {
+                region_material[region] = *m;
             }
         }
     }
-    Ok(shielded)
+}
+
+/// 等価なセルのリングごとの、格子の領域。リング `start` は減速材で、セルのそれより外のリングをすべて含む。
+fn ring_targets(lattice: &Lattice, cell: usize, start: usize) -> Vec<Vec<usize>> {
+    let geometry = lattice.cell_type(cell);
+    let (rings, sectors) = (geometry.radii().len(), geometry.sectors());
+    let first = lattice.cell_regions(cell).start;
+    let regions = |ring: usize| first + ring * sectors..first + (ring + 1) * sectors;
+    (0..start)
+        .map(|j| regions(j).collect())
+        .chain([(start..=rings).flat_map(regions).collect()])
+        .collect()
 }
 
 /// 燃料のあるピンのセルと、その領域の物質
@@ -308,8 +392,10 @@ struct PinRings<'a> {
 struct CellShielding {
     /// 等価なセルの外半径 (cm)
     radius: f64,
-    /// 等価なセルのリングごとの物質（真空は `None`）と、それを割り当てる格子の領域
-    rings: Vec<(Option<Material>, Vec<usize>)>,
+    /// 等価なセルのリングごとの物質（真空は `None`）。格子の領域は [`ring_targets`]
+    rings: Vec<Option<Material>>,
+    /// 減速材のリングの始まり
+    start: usize,
     /// 燃料の核種の実効断面積。UFG の範囲の群は燃料のリングの値を中性子束と体積で平均し、範囲の外は等価原理の値
     effective: Vec<Shielded>,
     /// [リング][UFG の範囲の群] の SPH 因子
@@ -399,14 +485,8 @@ fn shield_cell(
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut rings = Vec::with_capacity(inputs.len());
     for (j, input) in inputs.iter().enumerate() {
-        // 等価なセルのリング j に割り当てる格子の領域（減速材は外側のリングすべて）
-        let targets: Vec<usize> = if j < start {
-            regions(j).collect()
-        } else {
-            (start..=radii.len()).flat_map(regions).collect()
-        };
         let Some(m) = input else {
-            rings.push((None, targets));
+            rings.push(None);
             continue;
         };
         let nuclides = m
@@ -438,18 +518,18 @@ fn shield_cell(
                 source,
             }
         })?;
-        rings.push((Some(material), targets));
+        rings.push(Some(material));
     }
 
     // SPH 因子: 同じセルを多群で解いた中性子束のリング間の形が UFG と一致するよう、リングの物質に掛ける。
     // 範囲の上の群の中性子束は UFG と同じく F = 1（群のレサジー幅）
     let multigroup: Vec<Material> = rings
         .iter()
-        .map(|(m, _)| m.clone().unwrap_or_else(|| Material::void(ng)))
+        .map(|m| m.clone().unwrap_or_else(|| Material::void(ng)))
         .collect();
     let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
     let sph = sph_factors(&cylinder, &multigroup, top..bottom, &above, &spectrum.flux)?;
-    for (ring, ((material, _), mu)) in rings.iter_mut().zip(&sph).enumerate() {
+    for (ring, (material, mu)) in rings.iter_mut().zip(&sph).enumerate() {
         if let Some(m) = material {
             let mut all = vec![1.0; ng];
             all[top..bottom].copy_from_slice(mu);
@@ -488,6 +568,7 @@ fn shield_cell(
     Ok(Some(CellShielding {
         radius,
         rings,
+        start,
         effective,
         sph,
     }))
@@ -1201,6 +1282,87 @@ mod tests {
             assert!(sph.iter().all(|row| row.len() == 2));
             assert_eq!(sph[3], vec![1.0, 1.0]);
             assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
+        }
+
+        #[test]
+        fn symmetric_pins_are_solved_once() {
+            // 3×3 の中央が水のセル: 角の 4 本と辺の 4 本がそれぞれ同じ組になり、等価なセルの減速計算は組ごとに1回
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+            let water = PinCell::new(1.26, vec![]).unwrap();
+            let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+            let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+            let pin_regions = ["fuel", "fuel", "fuel", crate::input::VOID, "clad", "water"];
+            let regions: Vec<String> = (0..9)
+                .flat_map(|cell| {
+                    if cell == 4 {
+                        vec!["water"]
+                    } else {
+                        pin_regions.to_vec()
+                    }
+                })
+                .map(String::from)
+                .collect();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 希釈した物質（3 と真空）に、2 組 × 真空でない 5 リングの物質
+            assert_eq!(shielded.materials.len(), 4 + 2 * 5);
+            // 角どうし、辺どうしは同じ物質を共有する。燃料のリングの最初の領域で比べる
+            let first = |cell: usize| shielded.region_material[lattice.cell_regions(cell).start];
+            assert_eq!(first(0), first(8));
+            assert_eq!(first(1), first(7));
+            assert_ne!(first(0), first(1));
+            // ピンごとの結果は 8 本とも残り、組の中では同じ
+            assert_eq!(shielded.pins.len(), 8);
+            let radius = |cell: usize| {
+                shielded
+                    .pins
+                    .iter()
+                    .find(|p| p.cell == cell)
+                    .unwrap()
+                    .equivalent
+                    .unwrap()
+            };
+            assert_eq!(radius(0), radius(8));
+            assert_eq!(radius(1), radius(3));
+            // 報告する Dancoff 係数も、外径を決めた代表の値
+            let dancoff = |cell: usize| {
+                &shielded
+                    .pins
+                    .iter()
+                    .find(|p| p.cell == cell)
+                    .unwrap()
+                    .dancoff
+            };
+            assert_eq!(dancoff(0), dancoff(8));
         }
 
         #[test]
