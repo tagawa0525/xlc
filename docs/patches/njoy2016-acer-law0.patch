@@ -1,0 +1,17 @@
+diff --git a/src/acefc.f90 b/src/acefc.f90
+index 2caa900..7e9c7f2 100644
+--- a/src/acefc.f90
++++ b/src/acefc.f90
+@@ -13810,6 +13810,12 @@ contains
+                   law=nint(xss(l))
+                   call write_integer(nout,l)            ! LAW
+                   call write_integer(nout,l)            ! IDAT
++                  !--law 0: the ENDF distribution is unknown (MF6 LAW=0),
++                  !--so acelcp writes only LNW, LAW and IDAT
++                  if (law.eq.0) then
++                     rlocator=rlocator+1
++                     cycle
++                  endif
+                   nrr=nint(xss(l))
+                   call write_integer(nout,l)               ! NR
+                   if (nrr.gt.0) then
