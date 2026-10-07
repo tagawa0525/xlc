@@ -34,6 +34,8 @@ pub enum SphError {
     },
     #[error("the reference flux must be {rings} rings of {groups} groups")]
     Reference { rings: usize, groups: usize },
+    #[error("ring {ring}: the reference flux in group {group} must be positive and finite")]
+    ReferenceValue { ring: usize, group: usize },
     #[error("ring {ring}: no multigroup flux in group {group} to match")]
     Flux { ring: usize, group: usize },
     #[error("the multigroup equations of group {0} are singular")]
@@ -108,7 +110,8 @@ pub fn multigroup_flux(
     });
     let mut flux = vec![vec![0.0; ng]; n];
     for _ in 0..ITERATIONS {
-        let mut change: f64 = 0.0;
+        // 中性子束の相対変化が許容以下か（NaN は収束とみなさない）
+        let mut converged = true;
         for (k, g) in groups.clone().enumerate() {
             // 他の群からの散乱源と、自群散乱の係数
             let source: Vec<f64> = (0..n)
@@ -139,11 +142,11 @@ pub fn multigroup_flux(
                 .collect();
             let phi = solve(matrix, rhs).ok_or(SphError::Singular(g))?;
             for (i, p) in phi.into_iter().enumerate() {
-                change = change.max(((p - flux[i][k]) / p).abs());
+                converged &= (p - flux[i][k]).abs() <= UPSCATTER_TOLERANCE * p.abs();
                 flux[i][k] = p;
             }
         }
-        if !upscatter || change <= UPSCATTER_TOLERANCE {
+        if !upscatter || converged {
             return Ok(flux);
         }
     }
@@ -169,6 +172,17 @@ pub fn sph_factors(
     }
     let volumes = cell.volumes();
     let active: Vec<usize> = (0..n).filter(|&r| !materials[r].is_void()).collect();
+    for &r in &active {
+        if let Some(k) = reference[r]
+            .iter()
+            .position(|&f| !(f > 0.0 && f.is_finite()))
+        {
+            return Err(SphError::ReferenceValue {
+                ring: r,
+                group: groups.start + k,
+            });
+        }
+    }
     let mut factors = vec![vec![1.0; ng]; n];
     for _ in 0..ITERATIONS {
         let scaled = materials
@@ -202,13 +216,14 @@ pub fn sph_factors(
                 next[r][k] *= current / preserved;
             }
         }
-        let change = next
+        // NaN は収束とみなさない（f64::max は NaN を無視する）
+        let converged = next
             .iter()
             .zip(&factors)
-            .flat_map(|(a, b)| a.iter().zip(b).map(|(x, y)| (x - y).abs()))
-            .fold(0.0, f64::max);
+            .flat_map(|(a, b)| a.iter().zip(b))
+            .all(|(x, y)| (x - y).abs() <= TOLERANCE);
         factors = next;
-        if change <= TOLERANCE {
+        if converged {
             return Ok(factors);
         }
     }
