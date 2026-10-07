@@ -220,7 +220,7 @@ def main() -> None:
         tally = openmc.Tally(name="fuel")
         tally.filters = [openmc.MaterialFilter([fuel]), energy]
         tally.nuclides = list(FUEL)
-        tally.scores = ["total", "absorption", "fission"]
+        tally.scores = ["total", "elastic", "fission"]
         flux = openmc.Tally(name="fuel flux")
         flux.filters = [openmc.MaterialFilter([fuel]), energy]
         flux.scores = ["flux"]
@@ -248,7 +248,7 @@ def main() -> None:
                         rates.get_values(scores=[score], nuclides=[nuclide]).ravel()
                         / (density * phi)
                     )[::-1].tolist()
-                    for score in ["total", "absorption", "fission"]
+                    for score in ["total", "elastic", "fission"]
                 }
                 for nuclide, density in FUEL.items()
             }
