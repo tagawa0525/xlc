@@ -13,7 +13,7 @@
 use xlc_xs::library::{Library, LookupError, Nuclide, Shielded};
 
 use crate::cp::{CpError, Cylinder};
-use crate::equivalent::{EquivalentError, equivalent_radius};
+use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
 use crate::geometry::Lattice;
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
@@ -340,7 +340,7 @@ fn shield_cell(
     let start = (pin.rings..=radii.len())
         .find(|&r| ring_index[r..].iter().all(|&i| i == moderator))
         .unwrap_or(radii.len());
-    if moderator == pin.void || start == pin.rings && pin.rings == 0 {
+    if moderator == pin.void {
         return Err(SelfShieldingError::CellShape(cell));
     }
     let input = |index: usize| (index != pin.void).then(|| &materials[index]);
@@ -378,7 +378,8 @@ fn shield_cell(
             )
             .chain([dilute[moderator].total[g]])
             .collect();
-        sum += equivalent_radius(&inner, &totals, c)?;
+        // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
+        sum += equivalent_radius(&inner, &totals, c.max(MIN_DANCOFF))?;
     }
     let radius = sum / (bottom - top) as f64;
     let cylinder = Cylinder::new(radii[..start].iter().copied().chain([radius]).collect())?;
