@@ -124,7 +124,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     &input.materials,
                     &region_materials,
                     &ShieldingOptions::default(),
-                )?;
+                )
+                .with_context(|| format!("{}: self-shielding", shown(path)))?;
                 (shielded.materials, shielded.region_material)
             } else {
                 let named = input
