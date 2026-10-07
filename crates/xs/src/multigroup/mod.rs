@@ -6,6 +6,7 @@ mod integrate;
 mod outgoing;
 mod sab;
 mod scatter;
+mod slowing;
 mod structure;
 mod weight;
 
