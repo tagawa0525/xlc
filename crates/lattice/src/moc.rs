@@ -890,6 +890,16 @@ impl Remaining {
     }
 }
 
+/// 真空でないすべての物質が持つ散乱行列の最高次数（そういう物質がなければ 0）。
+pub fn available_order(materials: &[&Material]) -> usize {
+    materials
+        .iter()
+        .filter(|m| !m.is_void())
+        .map(|m| m.anisotropic.len())
+        .min()
+        .unwrap_or(0)
+}
+
 /// 角度中性子束の平衡値（線源 / Σt）の [モーメント][群] の展開係数 e_k。線源は
 /// q(Ω) = Σ_k (2l+1)/(4π) Y_k(Ω) Σ_g' σ_l(g'→g) φ_k,g'（と等方な核分裂源）なので、e_k = (2l+1) q_k / (4πΣt)。
 /// `phi` はスカラー中性子束 [群]、`higher` は高次のモーメント [モーメント (1 番目から)][群]
