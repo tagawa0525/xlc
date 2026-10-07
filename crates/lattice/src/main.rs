@@ -27,7 +27,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_lattice::fewgroup::homogenize;
-use xlc_lattice::input::{CrossSections, LatticeInput};
+use xlc_lattice::input::{CrossSections, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, solve};
@@ -100,7 +100,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let tracking =
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
     // 物質の一覧と、領域ごとのその番号
-    let by_name = |named: Vec<(String, Material)>| -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
+    let by_name = |mut named: Vec<(String, Material)>,
+                   groups: usize|
+     -> anyhow::Result<(Vec<Material>, Vec<usize>)> {
+        // 真空の帯の物質。名前は予約語で、断面積のファイルにも同じ名前の物質があってはならない
+        if named.iter().any(|(n, _)| n == VOID) {
+            return Err(anyhow!(
+                "`{VOID}` is reserved for void zones and cannot be a material"
+            ));
+        }
+        named.push((VOID.into(), Material::void(groups)));
         let index = region_materials
             .iter()
             .map(|name| {
@@ -137,7 +146,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             .map_err(|e| anyhow!("material `{}`: {e}", m.name))
                     })
                     .collect::<anyhow::Result<Vec<_>>>()?;
-                by_name(named)?
+                by_name(named, library.groups.len())?
             };
             (materials, Some(library.groups))
         }
@@ -145,7 +154,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
             let file = base.join(file);
             let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
             let named = macroscopic::parse(&text).with_context(|| shown(&file))?;
-            (by_name(named)?, None)
+            let groups = named.first().map_or(0, |(_, m)| m.groups());
+            (by_name(named, groups)?, None)
         }
     };
     let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
