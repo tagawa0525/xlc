@@ -137,37 +137,21 @@ def tube(inner: float, outer: float, clad: openmc.Material, water: openmc.Materi
     )
 
 
-def main() -> None:
-    cross_sections = Path(sys.argv[1]).resolve()
-    problem = sys.argv[2]
-    work = Path(sys.argv[3]).resolve()
-    particles = int(sys.argv[4]) if len(sys.argv) > 4 else 100_000
-    batches = int(sys.argv[5]) if len(sys.argv) > 5 else 300
-    inactive = int(sys.argv[6]) if len(sys.argv) > 6 else 50
-    # 統計誤差の見積もりを確かめるには、種を変えて解き直す
-    seed = int(sys.argv[7]) if len(sys.argv) > 7 else 1
-    library = Path(sys.argv[8]).resolve() if len(sys.argv) > 8 else None
-    if problem not in FUEL_TEMPERATURE:
-        raise SystemExit(
-            f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
-        )
-    work.mkdir(parents=True, exist_ok=True)
-
-    fuel = material("fuel", FUEL, FUEL_TEMPERATURE[problem])
-    clad = material("zircaloy-4", ZIRCALOY, COLD)
-    water = material("moderator", MODERATOR, COLD)
-    water.add_s_alpha_beta("c_H_in_H2O")
-    materials = openmc.Materials([fuel, clad, water])
-    materials.cross_sections = str(cross_sections)
-
+def geometry_of(
+    problem: str,
+    fuel: openmc.Material,
+    clad: openmc.Material,
+    water: openmc.Material,
+    gap: openmc.Material | None = None,
+) -> tuple[openmc.Geometry, float]:
+    """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。"""
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
     rod = openmc.Universe(
         cells=[
             openmc.Cell(fill=fuel, region=-pellet),
-            # ギャップは真空
-            openmc.Cell(region=+pellet & -inner),
+            openmc.Cell(fill=gap, region=+pellet & -inner),
             openmc.Cell(fill=clad, region=+inner & -outer),
             openmc.Cell(fill=water, region=+outer),
         ]
@@ -192,27 +176,83 @@ def main() -> None:
         root = openmc.Cell(fill=lattice)
     box = openmc.model.RectangularPrism(2 * half, 2 * half, boundary_type="reflective")
     root.region = -box
-    geometry = openmc.Geometry([root])
+    return openmc.Geometry([root]), half
 
-    settings = openmc.Settings()
-    settings.particles = particles
-    settings.batches = batches
-    settings.inactive = inactive
-    settings.seed = seed
+
+def pin_mesh() -> openmc.RegularMesh:
+    """集合体のピンのセルと一致するメッシュ。"""
+    mesh = openmc.RegularMesh()
+    mesh.dimension = (N, N)
+    mesh.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
+    mesh.upper_right = (N * PITCH / 2, N * PITCH / 2)
+    return mesh
+
+
+def write_pins(sp: openmc.StatePoint, path: Path) -> None:
+    """名前が fission の tally（`pin_mesh` ごと）を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
+    values = sp.get_tally(name="fission").get_values(scores=["fission"]).ravel()
+    # メッシュは x が速く変わり、y は下から上。lattice と同じく上の行から並べる
+    rates = values.reshape(N, N)[::-1, :]
+    rates = rates / rates[rates > 0].mean()
+    path.write_bytes(
+        msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
+    )
+
+
+class Run:
+    """コマンドラインの 2〜7 番目の引数: <問題> <作業ディレクトリ> [粒子数/世代] [世代数] [捨てる世代数] [乱数の種]。"""
+
+    def __init__(self, argv: list[str]) -> None:
+        self.problem = argv[2]
+        if self.problem not in FUEL_TEMPERATURE:
+            raise SystemExit(
+                f"unknown problem {self.problem}; expected one of {list(FUEL_TEMPERATURE)}"
+            )
+        self.work = Path(argv[3]).resolve()
+        self.particles = int(argv[4]) if len(argv) > 4 else 100_000
+        self.batches = int(argv[5]) if len(argv) > 5 else 300
+        self.inactive = int(argv[6]) if len(argv) > 6 else 50
+        # 統計誤差の見積もりを確かめるには、種を変えて解き直す
+        self.seed = int(argv[7]) if len(argv) > 7 else 1
+
+    def settings(self, half: float) -> openmc.Settings:
+        """世代の数と乱数の種、燃料に一様な初期の中性子源（`half` は外周の箱の半分の幅）。"""
+        settings = openmc.Settings()
+        settings.particles = self.particles
+        settings.batches = self.batches
+        settings.inactive = self.inactive
+        settings.seed = self.seed
+        settings.source = openmc.IndependentSource(
+            space=openmc.stats.Box((-half, -half, -1), (half, half, 1)),
+            constraints={"fissionable": True},
+        )
+        return settings
+
+
+def main() -> None:
+    cross_sections = Path(sys.argv[1]).resolve()
+    run = Run(sys.argv)
+    problem, work = run.problem, run.work
+    library = Path(sys.argv[8]).resolve() if len(sys.argv) > 8 else None
+    work.mkdir(parents=True, exist_ok=True)
+
+    fuel = material("fuel", FUEL, FUEL_TEMPERATURE[problem])
+    clad = material("zircaloy-4", ZIRCALOY, COLD)
+    water = material("moderator", MODERATOR, COLD)
+    water.add_s_alpha_beta("c_H_in_H2O")
+    materials = openmc.Materials([fuel, clad, water])
+    materials.cross_sections = str(cross_sections)
+
+    geometry, half = geometry_of(problem, fuel, clad, water)
+
+    settings = run.settings(half)
     # ライブラリにある温度だけを使う。OpenMC は温度を kT (eV) で持ち、K に直すと丸めで
     # わずかにずれるので、1 K の幅を許す（ライブラリの温度は 300 K ずつ離れている）
     settings.temperature = {"method": "nearest", "tolerance": 1.0}
-    settings.source = openmc.IndependentSource(
-        space=openmc.stats.Box((-half, -half, -1), (half, half, 1)),
-        constraints={"fissionable": True},
-    )
 
     tallies = openmc.Tallies()
     if problem.startswith("2"):
-        mesh = openmc.RegularMesh()
-        mesh.dimension = (N, N)
-        mesh.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
-        mesh.upper_right = (N * PITCH / 2, N * PITCH / 2)
+        mesh = pin_mesh()
         tally = openmc.Tally(name="fission")
         tally.filters = [openmc.MeshFilter(mesh)]
         tally.scores = ["fission"]
@@ -252,13 +292,7 @@ def main() -> None:
     with openmc.StatePoint(statepoint) as sp:
         k = sp.keff
         if problem.startswith("2"):
-            values = sp.get_tally(name="fission").get_values(scores=["fission"]).ravel()
-            # メッシュは x が速く変わり、y は下から上。lattice と同じく上の行から並べる
-            rates = values.reshape(N, N)[::-1, :]
-            rates = rates / rates[rates > 0].mean()
-            (work / "pins.msgpack").write_bytes(
-                msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
-            )
+            write_pins(sp, work / "pins.msgpack")
             if library is not None:
                 # [メッシュ（x が速く、y は下から）][群（昇順）] を [行（上から）][列][群（高いエネルギーから）] にする
                 def pins(values):
