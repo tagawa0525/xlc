@@ -17,7 +17,8 @@
 //! nuclides = { U-235 = 7.0e-4, U-238 = 2.2e-2, O-16 = 4.6e-2 }   # 個数密度 (1/(barn cm))
 //!
 //! [cell.pin]                      # 帯を内側から。最後の帯は radius を省略してセルの外周まで
-//! zones = [{ material = "fuel", radius = 0.4096, rings = 3 }, { material = "water", rings = 2 }]
+//! zones = [{ material = "fuel", radius = 0.4096, rings = 3 }, { material = "void", radius = 0.418, rings = 1 },
+//!          { material = "water", rings = 2 }]   # void は真空（定義しない予約の名前）
 //! sectors = 8                     # 各リングを 45° ごとの扇形に分ける（1, 4, 8。省略すると 1）
 //!
 //! [cell.box]
@@ -39,6 +40,9 @@ use xlc_xs::library::is_nuclide_name;
 
 use crate::geometry::{GeometryError, Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
+
+/// 真空の帯の物質の名前（予約語。この名前の物質は定義できない）
+pub const VOID: &str = "void";
 
 /// 断面積の出どころ。
 #[derive(Debug, Clone, PartialEq)]
@@ -244,6 +248,11 @@ impl LatticeInput {
                 }
             }
         };
+        if file.material.as_ref().is_some_and(|m| m.contains_key(VOID)) {
+            return Err(invalid(format!(
+                "`{VOID}` is reserved for void zones and cannot be defined"
+            )));
+        }
         let materials = file
             .material
             .unwrap_or_default()
@@ -291,6 +300,7 @@ impl LatticeInput {
             let mut inner = 0.0_f64;
             for zone in &cell.zones {
                 if let CrossSections::Library(_) = self.cross_sections
+                    && zone.material != VOID
                     && !self.materials.iter().any(|m| m.name == zone.material)
                 {
                     return Err(InputError::UndefinedMaterial {
