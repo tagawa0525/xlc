@@ -21,8 +21,14 @@ def read(path: str) -> dict:
 
 def main() -> None:
     ours, reference = read(sys.argv[1]), read(sys.argv[2])
+    for side in (ours, reference):
+        for rates in side.values():
+            # 非弾性（全 − 弾性）。共鳴の群では捕獲 + 核分裂（吸収）に等しい
+            rates["nonelastic"] = [
+                t - e for t, e in zip(rates["total"], rates["elastic"])
+            ]
     for nuclide in ["U238", "U235"]:
-        for score in ["total", "absorption", "fission"]:
+        for score in ["total", "elastic", "nonelastic", "fission"]:
             a, b = ours[nuclide][score], reference[nuclide][score]
             diffs = [(g + 1, x / y - 1) for g, (x, y) in enumerate(zip(a, b)) if y > 0]
             if not diffs:
