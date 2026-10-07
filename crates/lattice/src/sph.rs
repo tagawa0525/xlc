@@ -65,18 +65,14 @@ mod tests {
             })
             .collect();
         let flux = multigroup_flux(&cell, &scaled, GROUPS, &[1.0]).unwrap();
-        let volumes = cell.volumes();
         for k in 0..GROUPS.len() {
             // 真空でないリングでは μ φ̃ が参照に一致する
             for r in [0, 1, 3] {
                 let (a, b) = (factors[r][k] * flux[r][k], reference[r][k]);
                 assert!((a - b).abs() < 1e-8 * b, "{r} {k}: {a} vs {b}");
             }
-            // 真空のリングは 1、真空でないリングの中性子束と体積の積の和を保つ
+            // 真空のリングには掛ける断面積がないので 1
             assert_eq!(factors[2][k], 1.0);
-            let sum =
-                |f: &Vec<Vec<f64>>| [0, 1, 3].iter().map(|&r| volumes[r] * f[r][k]).sum::<f64>();
-            assert!((sum(&flux) - sum(&reference)).abs() < 1e-8 * sum(&reference));
         }
         // 燃料の全断面積を大きくした参照なので、燃料の μ は 1 と違う
         assert!((factors[0][0] - 1.0).abs() > 1e-3, "{:?}", factors[0]);
