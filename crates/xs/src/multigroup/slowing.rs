@@ -185,6 +185,42 @@ mod tests {
     }
 
     #[test]
+    fn energies_with_equal_lethargy_give_finite_flux() {
+        // 別の値なのに、レサジー ln(E_high / E) が丸めで同じになる2つのエネルギーを探す
+        let lethargy = |e: f64| (RANGE.1 / e).ln();
+        let mut e = 1.0_f64;
+        while lethargy(e.next_up()) != lethargy(e) {
+            e = e.next_up();
+        }
+        let x = vec![1.0e-5, e, e.next_up(), 2.0e7];
+        let total = Tab1::linear(x.clone(), vec![10.0, 10.0, 12.0, 12.0]);
+        let elastic = Tab1::linear(x, vec![8.0, 8.0, 9.0, 9.0]);
+        let shape =
+            slowing_down_shape(&total, &elastic, 236.0, &Weight::lwr(), 50.0, RANGE).unwrap();
+        assert!(shape.y.iter().all(|y| y.is_finite()), "{:?}", shape.y);
+    }
+
+    #[test]
+    fn rejects_fewer_than_two_points_per_window() {
+        let (total, elastic) = (constant(10.0), constant(8.0));
+        for points in [0, 1] {
+            let result = slowing_down_shape_with(
+                &total,
+                &elastic,
+                236.0,
+                &Weight::lwr(),
+                50.0,
+                RANGE,
+                points,
+            );
+            assert!(
+                matches!(result, Err(SlowingDownError::WindowPoints(_))),
+                "{points}"
+            );
+        }
+    }
+
+    #[test]
     fn constant_absorber_approaches_the_asymptotic_flux() {
         // σa = 2, σs = 8, σ0 = 50: 上端から十分下では F = σ0 / (σa + σ0)
         let (total, elastic) = (constant(10.0), constant(8.0));
