@@ -11,13 +11,15 @@ pub(crate) struct Lu {
 }
 
 impl Lu {
-    /// 行優先の n × n 行列を分解する。特異なら `None`。
+    /// 行優先の n × n 行列を分解する。ピボットが 0 か NaN なら特異として `None`。
     pub(crate) fn new(mut a: Vec<f64>, n: usize) -> Option<Self> {
         let mut swaps = Vec::with_capacity(n);
         for col in 0..n {
             let best =
                 (col..n).max_by(|&i, &j| a[i * n + col].abs().total_cmp(&a[j * n + col].abs()))?;
-            if a[best * n + col] == 0.0 {
+            // 0 と NaN を弾く（NaN は total_cmp で最大になるので、ピボットに選ばれる）
+            let pivot = a[best * n + col];
+            if pivot == 0.0 || pivot.is_nan() {
                 return None;
             }
             if best != col {
