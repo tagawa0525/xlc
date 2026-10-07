@@ -217,6 +217,7 @@ fn run(input: &Input) -> anyhow::Result<()> {
         thermal_cutoff: THERMAL_CUTOFF,
         tolerance: DEFAULT_TOLERANCE,
         pointwise_range,
+        scattering_order: SCATTERING_ORDER,
     };
     let results: Vec<anyhow::Result<NuclideData>> = std::thread::scope(|scope| {
         let handles: Vec<_> = input
@@ -309,6 +310,9 @@ fn process_file(
 
 /// この入射エネルギー (eV) 未満の弾性散乱を熱領域の扱いにする（WIMS 69群の熱群の上限）
 const THERMAL_CUTOFF: f64 = 4.0;
+
+/// 散乱行列のルジャンドルのモーメントの次数（MOC の非等方散乱は格子の入力でこの次数まで選ぶ）
+const SCATTERING_ORDER: usize = 3;
 
 #[cfg(test)]
 mod tests {
