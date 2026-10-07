@@ -66,7 +66,6 @@ pub fn exp_e1(z: f64) -> Result<f64, NumericError> {
     if !(z > 0.0 && z.is_finite()) {
         return Err(NumericError::Domain(format!("E1({z})")));
     }
-    const EULER: f64 = 0.577_215_664_901_532_9;
     const MAX_TERMS: u32 = 1000;
     if z <= 1.0 {
         let (mut sum, mut term) = (0.0, 1.0);
@@ -75,7 +74,7 @@ pub fn exp_e1(z: f64) -> Result<f64, NumericError> {
             term *= -z / n;
             sum += term / n;
             if (term / n).abs() <= f64::EPSILON * sum.abs() {
-                return Ok((-EULER - z.ln() - sum) * z.exp());
+                return Ok((-std::f64::consts::EULER_GAMMA - z.ln() - sum) * z.exp());
             }
         }
     } else {
