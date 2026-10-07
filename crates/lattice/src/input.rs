@@ -734,8 +734,12 @@ zones = [{ material = "water", rings = 1 }]
         assert_eq!(materials.len(), lattice.regions());
         assert_eq!(materials.len(), 8 + 12);
         assert!(materials[8..].iter().all(|m| m == "water"));
-        // 幅が正でない、物質がない
-        for gap in ["{ width = 0.0, material = \"water\" }", "{ width = 0.1 }"] {
+        // 幅が正でない、物質がない、真空（巨視的断面積でも）
+        for gap in [
+            "{ width = 0.0, material = \"water\" }",
+            "{ width = 0.1 }",
+            "{ width = 0.1, material = \"void\" }",
+        ] {
             let text = LATTICE.replace("rows = [", &format!("gap = {gap}\nrows = ["));
             let result = LatticeInput::parse(&text).and_then(|input| input.geometry().map(|_| ()));
             assert!(result.is_err(), "{gap}");
