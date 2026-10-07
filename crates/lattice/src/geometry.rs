@@ -506,6 +506,62 @@ mod tests {
         assert!(inner.iter().all(|l| (l - 1.0).abs() < 1e-12), "{inner:?}");
     }
 
+    /// 2×2 の格子の周りに幅 0.25 の余白
+    fn with_margin() -> Lattice {
+        let lattice = two_by_two();
+        Lattice::with_margin(lattice.types.clone(), vec![vec![0, 1], vec![1, 0]], 0.25).unwrap()
+    }
+
+    #[test]
+    fn margin_regions_and_volumes() {
+        let lattice = with_margin();
+        assert_eq!(lattice.width(), 4.5);
+        assert_eq!(lattice.margin(), 0.25);
+        // セルの 6 領域の後に、上の帯（左から）、下の帯、左の帯（上から）、右の帯、角（左上、右上、左下、右下）
+        assert_eq!(lattice.regions(), 6 + 4 * 2 + 4);
+        let v = lattice.volumes();
+        assert_eq!(v.len(), 18);
+        for (region, volume) in v.iter().enumerate().skip(6) {
+            let expected = if region < 14 { 2.0 * 0.25 } else { 0.25 * 0.25 };
+            assert!((volume - expected).abs() < 1e-14, "{region}: {volume}");
+        }
+        let total: f64 = v.iter().sum();
+        assert!((total - 4.5 * 4.5).abs() < 1e-12);
+        // 余白の領域が接するセル（角は角のセル）。セルの領域はそのセル
+        let cells: Vec<usize> = (0..18).map(|r| lattice.region_cell(r)).collect();
+        assert_eq!(
+            cells,
+            vec![0, 0, 1, 2, 3, 3, 0, 1, 2, 3, 0, 2, 1, 3, 0, 1, 2, 3]
+        );
+    }
+
+    #[test]
+    fn segments_cross_the_margin() {
+        let lattice = with_margin();
+        // 上の行の中心を左から右へ: 左の帯, ピンの外側, ピンの内側, ピンの外側, 水, 右の帯
+        let s = lattice.segments((-2.25, 1.0), (1.0, 0.0), 4.5);
+        let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
+        assert_eq!(regions, vec![10, 1, 0, 1, 2, 12]);
+        let lengths: Vec<f64> = s.iter().map(|s| s.length).collect();
+        for (a, b) in lengths.iter().zip([0.25, 0.5, 1.0, 0.5, 2.0, 0.25]) {
+            assert!((a - b).abs() < 1e-14, "{lengths:?}");
+        }
+        // 上の余白の中を左から右へ: 左上の角, 上の帯, 上の帯, 右上の角
+        let s = lattice.segments((-2.25, 2.1), (1.0, 0.0), 4.5);
+        let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
+        assert_eq!(regions, vec![14, 6, 7, 15]);
+    }
+
+    #[test]
+    fn margin_must_not_be_negative() {
+        let types = two_by_two().types.clone();
+        for margin in [-0.1, f64::NAN, f64::INFINITY] {
+            assert!(
+                Lattice::with_margin(types.clone(), vec![vec![0, 1], vec![1, 0]], margin).is_err()
+            );
+        }
+    }
+
     #[test]
     fn single_pin_cell_lattice() {
         let cell = PinCell::new(1.26, vec![0.4]).unwrap();
