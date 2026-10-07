@@ -325,6 +325,23 @@ mod tests {
     }
 
     #[test]
+    fn rejects_references_without_flux() {
+        // 真空でないリングの参照の中性子束が 0 や NaN なら、μ が決まらない
+        let cell = Cylinder::new(RADII.to_vec()).unwrap();
+        for bad in [0.0, f64::NAN, -1.0] {
+            let mut reference = multigroup_flux(&cell, &materials(2.0), GROUPS, &[1.0]).unwrap();
+            reference[0][1] = bad;
+            assert!(
+                matches!(
+                    sph_factors(&cell, &materials(2.0), GROUPS, &[1.0], &reference),
+                    Err(SphError::ReferenceValue { ring: 0, group: 2 })
+                ),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
     fn rejects_mismatched_sizes() {
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
         assert!(multigroup_flux(&cell, &materials(2.0)[..3], GROUPS, &[1.0]).is_err());
