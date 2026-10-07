@@ -13,7 +13,8 @@
 //! よらず丸め誤差の範囲で成り立つ。
 //!
 //! 真空のリング（Σ = 0）を扱うため、衝突の代わりに飛程（単位の線源密度あたりの、リングの中を飛ぶ長さ）
-//! A_ij = V_iP_ij/Σ_j を求める。真空のリングに入る項は、Σ → 0 の極限として Ki2 で表す。
+//! A_ij = V_iP_ij/Σ_j を求める。それには上の差分を Σ で割る。τ が小さいと差分が打ち消し合い、Ki3 の表の誤差が
+//! 1/τ² で増えるので、そのときは差分を τ で割った形の積分表示（[`trapezoid`]）で直接求める。Σ = 0 はその極限になる。
 
 use std::f64::consts::PI;
 use std::sync::OnceLock;
@@ -34,7 +35,7 @@ pub enum CpError {
     Rings { given: usize, rings: usize },
     #[error("ring {0}: total cross sections must be finite and not negative")]
     Total(usize),
-    #[error("ring {0}: sources must be finite, and zero in void rings")]
+    #[error("ring {0}: sources must be finite")]
     Source(usize),
     #[error("every ring is void")]
     Void,
@@ -114,11 +115,8 @@ impl Cylinder {
     /// リングごとの等方線源 `sources` (1/cm³/s) に対するスカラー中性子束。真空のリングの中性子束も求める。
     pub fn fixed_source(&self, totals: &[f64], sources: &[f64]) -> Result<Vec<f64>, CpError> {
         self.check(sources.len())?;
-        for (i, (q, t)) in sources.iter().zip(totals).enumerate() {
-            // 真空のリングどうしの飛程は求めていないので、真空に線源を置けない
-            if !q.is_finite() || (*t == 0.0 && *q != 0.0) {
-                return Err(CpError::Source(i));
-            }
+        if let Some(i) = sources.iter().position(|q| !q.is_finite()) {
+            return Err(CpError::Source(i));
         }
         let white = self.white(totals)?;
         let volumes = self.volumes();
@@ -139,7 +137,6 @@ impl Cylinder {
     }
 
     /// 白色境界の飛程 W[i][j]（リング i の単位の線源密度あたりの、リング j の中を飛ぶ長さの合計）。対称になる。
-    /// 真空のリングどうしの値は求めない（0 のまま）。
     fn white(&self, totals: &[f64]) -> Result<Vec<Vec<f64>>, CpError> {
         self.check(totals.len())?;
         if let Some(i) = totals.iter().position(|t| !t.is_finite() || *t < 0.0) {
@@ -183,9 +180,7 @@ impl Cylinder {
             for (a, from) in path.iter().enumerate() {
                 rest -= from.tau;
                 escapes[from.ring] += weight * from.escape(rest.max(0.0));
-                if !from.is_void() {
-                    tracks[from.ring][from.ring] += weight * from.own();
-                }
+                tracks[from.ring][from.ring] += weight * from.own();
                 let mut between = 0.0;
                 for to in &path[a + 1..] {
                     tracks[from.ring][to.ring] += weight * from.to(to, between);
@@ -214,39 +209,57 @@ struct Path {
     tau: f64,
 }
 
-impl Path {
-    fn is_void(&self) -> bool {
-        self.total == 0.0
-    }
+/// Ki3 の差分の大きさの目安（τ を 1 で頭打ちにした積）がこれより小さいと、差分を積分表示で直接求める。
+/// Ki3 の表の誤差（4e-13 程度）が、差分の値の 1e-8 程度に収まる境目
+const CANCELLATION: f64 = 1e-4;
 
+impl Path {
     /// 単位の線源密度あたりの、同じ区間の中を飛ぶ長さ: [τ − Ki3(0) + Ki3(τ)]/Σ²
     fn own(&self) -> f64 {
-        (self.tau - ki3(0.0) + ki3(self.tau)) / (self.total * self.total)
-    }
-
-    /// 単位の線源密度あたりの、光学的距離 `between` だけ先の区間 `to` の中を飛ぶ長さ
-    fn to(&self, to: &Path, between: f64) -> f64 {
-        match (self.is_void(), to.is_void()) {
-            (false, false) => {
-                let d = ki3(between) - ki3(between + self.tau) - ki3(between + to.tau)
-                    + ki3(between + self.tau + to.tau);
-                d / (self.total * to.total)
-            }
-            // Σ → 0 の極限
-            (false, true) => to.length * (ki2(between) - ki2(between + self.tau)) / self.total,
-            (true, false) => self.length * (ki2(between) - ki2(between + to.tau)) / to.total,
-            // 真空どうしは使わない（真空に線源を置かない）
-            (true, true) => 0.0,
+        if self.tau.min(1.0).powi(2) < CANCELLATION {
+            // [τ − Ki3(0) + Ki3(τ)]/τ² = ∫ φ2(τ cosh t)/cosh t dt
+            self.length.powi(2) * trapezoid(|c| phi2(self.tau * c) / c)
+        } else {
+            (self.tau - ki3(0.0) + ki3(self.tau)) / (self.total * self.total)
         }
     }
 
-    /// 単位の線源密度あたりの、光学的距離 `rest` の先で外へ出る数
+    /// 単位の線源密度あたりの、光学的距離 `between` だけ先の区間 `to` の中を飛ぶ長さ: D/(Σa Σb)
+    fn to(&self, to: &Path, between: f64) -> f64 {
+        if self.tau.min(1.0) * to.tau.min(1.0) < CANCELLATION {
+            // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
+            let integral =
+                trapezoid(|c| (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c);
+            self.length * to.length * integral
+        } else {
+            let d = ki3(between) - ki3(between + self.tau) - ki3(between + to.tau)
+                + ki3(between + self.tau + to.tau);
+            d / (self.total * to.total)
+        }
+    }
+
+    /// 単位の線源密度あたりの、光学的距離 `rest` の先で外へ出る数: [Ki3(rest) − Ki3(rest + τ)]/Σ
     fn escape(&self, rest: f64) -> f64 {
-        if self.is_void() {
-            self.length * ki2(rest)
+        if self.tau.min(1.0) < CANCELLATION {
+            // [Ki3(rest) − Ki3(rest + τ)]/τ = ∫ exp(−rest cosh t) φ1(τ cosh t)/cosh² t dt
+            self.length * trapezoid(|c| (-rest * c).exp() * phi1(self.tau * c) / (c * c))
         } else {
             (ki3(rest) - ki3(rest + self.tau)) / self.total
         }
+    }
+}
+
+/// φ1(z) = (1 − exp(−z))/z
+fn phi1(z: f64) -> f64 {
+    if z == 0.0 { 1.0 } else { -(-z).exp_m1() / z }
+}
+
+/// φ2(z) = (z − 1 + exp(−z))/z²。z が小さいと分子が打ち消し合うので、級数で求める（打ち切りの誤差は z⁵/5040）
+fn phi2(z: f64) -> f64 {
+    if z < 1e-2 {
+        0.5 - z * (1.0 / 6.0 - z * (1.0 / 24.0 - z * (1.0 / 120.0 - z / 720.0)))
+    } else {
+        (z + (-z).exp_m1()) / (z * z)
     }
 }
 
@@ -307,18 +320,21 @@ const FINE: f64 = 8192.0;
 const COARSE: f64 = 256.0;
 const MAX: f64 = 48.0;
 
-/// 表の点での (Ki1, Ki2, Ki3)
+/// 表の点での (Ki2, Ki3)
 struct Bickley {
-    fine: Vec<[f64; 3]>,
-    coarse: Vec<[f64; 3]>,
+    fine: Vec<[f64; 2]>,
+    coarse: Vec<[f64; 2]>,
 }
 
 fn table() -> &'static Bickley {
     static TABLE: OnceLock<Bickley> = OnceLock::new();
     TABLE.get_or_init(|| {
-        let nodes = |count: f64, start: f64, step: f64| -> Vec<[f64; 3]> {
+        let nodes = |count: f64, start: f64, step: f64| -> Vec<[f64; 2]> {
             (0..=count as usize)
-                .map(|i| bickley(start + i as f64 * step))
+                .map(|i| {
+                    let x = start + i as f64 * step;
+                    [bickley(2, x), bickley(3, x)]
+                })
                 .collect()
         };
         Bickley {
@@ -328,22 +344,21 @@ fn table() -> &'static Bickley {
     })
 }
 
-/// Bickley 関数 Ki_n(x) = ∫_0^{π/2} cos^{n−1}θ exp(−x/cosθ) dθ を、表の値と導関数 −Ki_{n−1} の3次 Hermite 補間で求める
-fn interpolate(x: f64, n: usize) -> f64 {
+/// Bickley 関数 Ki3(x) = ∫_0^{π/2} cos²θ exp(−x/cosθ) dθ を、表の値と導関数 −Ki2 の3次 Hermite 補間で求める
+pub fn ki3(x: f64) -> f64 {
     let table = table();
     let (nodes, start, step) = if x < 1.0 {
         (&table.fine, 0.0, 1.0 / FINE)
     } else if x < MAX {
         (&table.coarse, 1.0, 1.0 / COARSE)
     } else {
-        return bickley(x)[n - 1];
+        return bickley(3, x);
     };
     let s = (x - start) / step;
     let i = (s as usize).min(nodes.len() - 2);
     let t = s - i as f64;
-    let (a, b) = (&nodes[i], &nodes[i + 1]);
-    let (f0, f1) = (a[n - 1], b[n - 1]);
-    let (d0, d1) = (-a[n - 2] * step, -b[n - 2] * step);
+    let ([d0, f0], [d1, f1]) = (nodes[i], nodes[i + 1]);
+    let (d0, d1) = (-d0 * step, -d1 * step);
     let (t2, t3) = (t * t, t * t * t);
     (2.0 * t3 - 3.0 * t2 + 1.0) * f0
         + (t3 - 2.0 * t2 + t) * d0
@@ -351,37 +366,30 @@ fn interpolate(x: f64, n: usize) -> f64 {
         + (t3 - t2) * d1
 }
 
-/// Ki3(x)
-pub fn ki3(x: f64) -> f64 {
-    interpolate(x, 3)
+/// Ki_n(x) = ∫_0^∞ exp(−x cosh t)/cosh^n t dt
+fn bickley(n: i32, x: f64) -> f64 {
+    trapezoid(|c| (-x * c).exp() / c.powi(n))
 }
 
-/// Ki2(x)
-fn ki2(x: f64) -> f64 {
-    interpolate(x, 2)
-}
-
-/// (Ki1, Ki2, Ki3)(x) を、cosθ = 1/cosh t として Ki_n(x) = ∫_0^∞ exp(−x cosh t)/cosh^n t dt の台形則で求める。
-/// 被積分関数は t について偶で、|Im t| < π/2 で解析的なので、台形則の誤差は exp(−π²/h) で減る。
-fn bickley(x: f64) -> [f64; 3] {
+/// cosθ = 1/cosh t とした、t についての積分 ∫_0^∞ f(cosh t) dt の台形則。f は t について減る関数とする。
+/// 被積分関数は t について偶で、|Im t| < π/2 で解析的なので、台形則の誤差は exp(−π²/h) で減る
+/// （x が大きいと exp(−x cosh t) の幅が狭まるが、表の範囲 x < 48 では相対誤差 1e-13 程度に収まる）。
+fn trapezoid(f: impl Fn(f64) -> f64) -> f64 {
     const STEP: f64 = 0.125;
-    let mut sum = [0.0; 3];
-    let mut k = 0;
-    loop {
-        let t = k as f64 * STEP;
-        let c = t.cosh();
-        let f1 = (-x * c).exp() / c;
-        let factor = if k == 0 { 0.5 } else { 1.0 };
-        let terms = [f1, f1 / c, f1 / (c * c)];
-        for (s, f) in sum.iter_mut().zip(terms) {
-            *s += factor * f;
-        }
-        if f1 < 1e-18 * sum[0] {
+    // 1/cosh t は exp(−t) で減るので、t = 40 で 1e-17 を下回る
+    const NODES: usize = 320;
+    static COSH: OnceLock<Vec<f64>> = OnceLock::new();
+    let cosh = COSH.get_or_init(|| (0..=NODES).map(|k| (k as f64 * STEP).cosh()).collect());
+    let mut sum = 0.5 * f(1.0);
+    for &c in &cosh[1..] {
+        let term = f(c);
+        sum += term;
+        // すべてアンダーフローしたときも止まるよう、等号を含める
+        if term <= 1e-17 * sum {
             break;
         }
-        k += 1;
     }
-    sum.map(|s| s * STEP)
+    sum * STEP
 }
 
 #[cfg(test)]
