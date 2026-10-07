@@ -38,7 +38,9 @@ pub enum DancoffError {
     Regions { given: usize, regions: usize },
     #[error("no region outside the fuel")]
     NoModerator,
-    #[error("region {0}: total cross sections must be positive and finite")]
+    #[error(
+        "region {0}: total cross sections must be positive and finite, or zero in every group (void)"
+    )]
     Total(usize),
     #[error("fuel in cell {0} touches the cell boundary; the pin must be surrounded by non-fuel")]
     FuelOnBoundary(usize),
@@ -70,7 +72,8 @@ pub fn dancoff(
         .ok_or(DancoffError::NoModerator)?;
     for (region, t) in totals.iter().enumerate() {
         let valid = |v: &f64| *v > 0.0 && v.is_finite();
-        if !fuel[region] && (t.len() != ng || !t.iter().all(valid)) {
+        let void = t.iter().all(|&v| v == 0.0);
+        if !fuel[region] && (t.len() != ng || !(void || t.iter().all(valid))) {
             return Err(DancoffError::Total(region));
         }
     }
