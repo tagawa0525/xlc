@@ -1353,6 +1353,16 @@ mod tests {
             };
             assert_eq!(radius(0), radius(8));
             assert_eq!(radius(1), radius(3));
+            // 報告する Dancoff 係数も、外径を決めた代表の値
+            let dancoff = |cell: usize| {
+                &shielded
+                    .pins
+                    .iter()
+                    .find(|p| p.cell == cell)
+                    .unwrap()
+                    .dancoff
+            };
+            assert_eq!(dancoff(0), dancoff(8));
         }
 
         #[test]
