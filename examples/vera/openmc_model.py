@@ -145,10 +145,6 @@ def geometry_of(
     gap: openmc.Material | None = None,
 ) -> tuple[openmc.Geometry, float]:
     """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。"""
-    if problem not in FUEL_TEMPERATURE:
-        raise SystemExit(
-            f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
-        )
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
@@ -203,20 +199,41 @@ def write_pins(sp: openmc.StatePoint, path: Path) -> None:
     )
 
 
+class Run:
+    """コマンドラインの 2〜7 番目の引数: <問題> <作業ディレクトリ> [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]。"""
+
+    def __init__(self, argv: list[str]) -> None:
+        self.problem = argv[2]
+        if self.problem not in FUEL_TEMPERATURE:
+            raise SystemExit(
+                f"unknown problem {self.problem}; expected one of {list(FUEL_TEMPERATURE)}"
+            )
+        self.work = Path(argv[3]).resolve()
+        self.particles = int(argv[4]) if len(argv) > 4 else 100_000
+        self.batches = int(argv[5]) if len(argv) > 5 else 300
+        self.inactive = int(argv[6]) if len(argv) > 6 else 50
+        # 統計誤差の見積もりを確かめるには、種を変えて解き直す
+        self.seed = int(argv[7]) if len(argv) > 7 else 1
+
+    def settings(self, half: float) -> openmc.Settings:
+        """世代の数と乱数のシード、燃料に一様な初期の中性子源（`half` は外周の箱の半分の幅）。"""
+        settings = openmc.Settings()
+        settings.particles = self.particles
+        settings.batches = self.batches
+        settings.inactive = self.inactive
+        settings.seed = self.seed
+        settings.source = openmc.IndependentSource(
+            space=openmc.stats.Box((-half, -half, -1), (half, half, 1)),
+            constraints={"fissionable": True},
+        )
+        return settings
+
+
 def main() -> None:
     cross_sections = Path(sys.argv[1]).resolve()
-    problem = sys.argv[2]
-    work = Path(sys.argv[3]).resolve()
-    particles = int(sys.argv[4]) if len(sys.argv) > 4 else 100_000
-    batches = int(sys.argv[5]) if len(sys.argv) > 5 else 300
-    inactive = int(sys.argv[6]) if len(sys.argv) > 6 else 50
-    # 統計誤差の見積もりを確かめるには、種を変えて解き直す
-    seed = int(sys.argv[7]) if len(sys.argv) > 7 else 1
+    run = Run(sys.argv)
+    problem, work = run.problem, run.work
     library = Path(sys.argv[8]).resolve() if len(sys.argv) > 8 else None
-    if problem not in FUEL_TEMPERATURE:
-        raise SystemExit(
-            f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
-        )
     work.mkdir(parents=True, exist_ok=True)
 
     fuel = material("fuel", FUEL, FUEL_TEMPERATURE[problem])
@@ -228,18 +245,10 @@ def main() -> None:
 
     geometry, half = geometry_of(problem, fuel, clad, water)
 
-    settings = openmc.Settings()
-    settings.particles = particles
-    settings.batches = batches
-    settings.inactive = inactive
-    settings.seed = seed
+    settings = run.settings(half)
     # ライブラリにある温度だけを使う。OpenMC は温度を kT (eV) で持ち、K に直すと丸めで
     # わずかにずれるので、1 K の幅を許す（ライブラリの温度は 300 K ずつ離れている）
     settings.temperature = {"method": "nearest", "tolerance": 1.0}
-    settings.source = openmc.IndependentSource(
-        space=openmc.stats.Box((-half, -half, -1), (half, half, 1)),
-        constraints={"fissionable": True},
-    )
 
     tallies = openmc.Tallies()
     if problem.startswith("2"):
