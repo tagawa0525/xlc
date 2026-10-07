@@ -9,8 +9,9 @@
 //! - 同じ区間: 2∫dy [τa − Ki3(0) + Ki3(τa)]
 //! - 外への脱出: 2∫dy [Ki3(τ後) − Ki3(τ後+τa)]
 //!
-//! 一つの区間からの3つの和は、Ki3 の値によらず τa に打ち消し合うので、中性子の保存と相反則は y の求積の精度に
-//! よらず丸め誤差の範囲で成り立つ。
+//! 一つの区間からの3つの和は、Ki3 の値によらず τa に打ち消し合う。そこで体積も同じ求積で 2∫dy Σ_a ℓa として
+//! 求めておけば（MOC で追跡の体積を使うのと同じ）、中性子の保存と相反則は y の求積の精度によらず丸め誤差の範囲で
+//! 成り立つ。
 //!
 //! 真空のリング（Σ = 0）を扱うため、衝突の代わりに飛程（単位の線源密度あたりの、リングの中を飛ぶ長さ）
 //! A_ij = V_iP_ij/Σ_j を求める。それには上の差分を Σ で割る。τ が小さいと差分が打ち消し合い、Ki3 の表の誤差が
@@ -51,6 +52,7 @@ struct Chord {
 pub struct Cylinder {
     radii: Vec<f64>,
     chords: Vec<Chord>,
+    volumes: Vec<f64>,
 }
 
 impl Cylinder {
@@ -84,30 +86,33 @@ impl Cylinder {
             }
             inner = outer;
         }
-        Ok(Self { radii, chords })
+        let mut volumes = vec![0.0; radii.len()];
+        for chord in &chords {
+            for &(ring, length) in &chord.segments {
+                volumes[ring] += 2.0 * chord.weight * length;
+            }
+        }
+        Ok(Self {
+            radii,
+            chords,
+            volumes,
+        })
     }
 
-    /// リングの体積（単位の高さあたりの面積, cm²）。
+    /// リングの体積（単位の高さあたりの面積, cm²）。衝突確率と同じ求積で求めたもので、π(r_k² − r_{k−1}²) とは
+    /// 求積の誤差だけ違う。
     pub fn volumes(&self) -> Vec<f64> {
-        let mut inner = 0.0;
-        self.radii
-            .iter()
-            .map(|&r| {
-                let v = PI * (r * r - inner * inner);
-                inner = r;
-                v
-            })
-            .collect()
+        self.volumes.clone()
     }
 
     /// 白色境界の衝突確率 P[i][j]（リング i で生まれた中性子が、リング j で初めて衝突する確率）。
     /// 真空のリングの列は 0 になる。
     pub fn probabilities(&self, totals: &[f64]) -> Result<Vec<Vec<f64>>, CpError> {
         let white = self.white(totals)?;
-        let volumes = self.volumes();
+        let volumes = &self.volumes;
         Ok(white
             .iter()
-            .zip(&volumes)
+            .zip(volumes)
             .map(|(row, v)| row.iter().zip(totals).map(|(w, t)| w * t / v).collect())
             .collect())
     }
@@ -119,7 +124,7 @@ impl Cylinder {
             return Err(CpError::Source(i));
         }
         let white = self.white(totals)?;
-        let volumes = self.volumes();
+        let volumes = &self.volumes;
         Ok((0..self.radii.len())
             .map(|j| {
                 let tracks: f64 = sources.iter().zip(&white).map(|(q, row)| q * row[j]).sum();
