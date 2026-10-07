@@ -351,6 +351,43 @@ fn spectrum_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ルジャンドルの次数ごとの、全群の和
+    fn sums(moments: &[Vec<f64>]) -> Vec<f64> {
+        moments.iter().map(|row| row.iter().sum()).collect()
+    }
+
+    #[test]
+    fn hydrogen_moments_follow_the_kinematics() {
+        // A = 1 の弾性散乱は μ_lab = √(E'/E) で E' は [0, E] に一様: ⟨P1⟩ = 2/3, ⟨P2⟩ = 1/4, ⟨P3⟩ = 0
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e4, 3.0e3, 1.0e3, 1.0, 1.0e-5]).unwrap();
+        let m = two_body_moments(&groups, 5.0e3, 1.0, 0.0, 1.0, 3);
+        let total = sums(&m);
+        for (got, expected) in total.iter().zip([1.0, 2.0 / 3.0, 0.25, 0.0]) {
+            assert!((got - expected).abs() < 1e-12, "{total:?}");
+        }
+        // P0 は一様な振り分けと同じ
+        let mut uniform = vec![0.0; groups.len()];
+        let (lo, hi) = two_body_range(5.0e3, 1.0, 0.0).unwrap();
+        uniform_fractions(&groups, lo, hi, 1.0, &mut uniform);
+        for (a, b) in m[0].iter().zip(&uniform) {
+            assert!((a - b).abs() < 1e-14, "{:?} vs {uniform:?}", m[0]);
+        }
+    }
+
+    #[test]
+    fn heavy_target_moments_follow_the_kinematics() {
+        // 重心系で等方な弾性散乱の実験室系の平均の余弦は 2/(3A)
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let m = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 1);
+        let total = sums(&m);
+        assert!((total[0] - 2.0).abs() < 1e-12);
+        assert!(
+            (total[1] / total[0] - 2.0 / 30.0).abs() < 1e-12,
+            "{total:?}"
+        );
+    }
+
     use crate::endf::{ClampedTab1, IncidentLaw};
 
     fn constant(value: f64) -> Tab1 {
