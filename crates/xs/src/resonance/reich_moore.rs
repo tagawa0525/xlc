@@ -9,8 +9,16 @@ use num_complex::Complex64;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
+use super::linear::{Singular, solve};
 use crate::endf::{OrbitalL, ReichMoore};
 use crate::physics::wave_number_factor;
+
+/// Reich-Moore の断面積の計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum ReichMooreError {
+    #[error("singular level matrix at {energy} eV (J = {j})")]
+    Singular { energy: f64, j: f64 },
+}
 
 /// 断面積の計算に使う形に前処理した Reich-Moore パラメータ。
 #[derive(Debug, Clone)]
@@ -89,7 +97,7 @@ impl ReichMooreXs {
     }
 
     /// エネルギー e (eV) での断面積。
-    pub fn cross_sections(&self, e: f64) -> Sigma {
+    pub fn cross_sections(&self, e: f64) -> Result<Sigma, ReichMooreError> {
         let gjd = 2.0 * (2.0 * self.spi + 1.0);
         let mut sum = Sigma::default();
         for lv in self.l_values.iter().filter(|lv| !lv.resonances.is_empty()) {
@@ -119,7 +127,9 @@ impl ReichMooreXs {
                         Contribution::Resonances => false,
                         Contribution::ResonancesAndHardSphere => interior,
                     };
-                    let mut terms = group.terms(gj, phi);
+                    let mut terms = group
+                        .terms(gj, phi)
+                        .map_err(|Singular| ReichMooreError::Singular { energy: e, j: ajc })?;
                     if hard_sphere {
                         // 硬球散乱 2 gJ (1 - cos 2φ)
                         let potential = 4.0 * gj * phi.sin().powi(2);
@@ -133,7 +143,7 @@ impl ReichMooreXs {
                 }
             }
         }
-        sum
+        Ok(sum)
     }
 
     /// 1つの (J, チャネルスピン) に属する共鳴から R 行列を組み立てる。
@@ -248,81 +258,38 @@ impl ChannelGroup {
     /// 1 - Re U は低エネルギーで O(ρ²) と小さく、そのまま計算すると桁落ちする。
     /// I - M^{-1} = M^{-1} K と 1 - cos 2φ = 2 sin²φ を使って、差を取らずに計算する
     /// （NJOY は同じ目的で近似展開を使っている）。
-    fn terms(&self, gj: f64, phi: f64) -> Terms {
+    ///
+    /// M の実部は単位行列に半正定値の行列を足したものなので、物理的なパラメータでは M は正則である。
+    fn terms(&self, gj: f64, phi: f64) -> Result<Terms, Singular> {
         let n = if self.fission { 3 } else { 1 };
         // 上三角に積んだ K を対称に展開する。核分裂のないときは中性子チャネルだけを使う
-        let k: [[Complex64; 3]; 3] = std::array::from_fn(|i| {
-            std::array::from_fn(|j| {
-                let (a, b) = (i.min(j), i.max(j));
-                Complex64::new(self.r[a][b], self.s[a][b])
-            })
-        });
-        let m = std::array::from_fn(|i| {
-            std::array::from_fn(|j| {
-                let identity = if i == j {
-                    Complex64::ONE
-                } else {
-                    Complex64::ZERO
-                };
-                if i < n && j < n {
-                    identity + k[i][j]
-                } else {
-                    identity
-                }
-            })
-        });
-        let inv = invert3(m);
+        let k = |i: usize, j: usize| {
+            let (a, b) = (i.min(j), i.max(j));
+            Complex64::new(self.r[a][b], self.s[a][b])
+        };
+        // M = I + K と単位行列を、行優先の n×n で置く
+        let mut m = [Complex64::ZERO; 9];
+        let mut inv = [Complex64::ZERO; 9];
+        for i in 0..n {
+            for j in 0..n {
+                m[i * n + j] = k(i, j);
+            }
+            m[i * n + i] += 1.0;
+            inv[i * n + i] = Complex64::ONE;
+        }
+        solve(&mut m[..n * n], &mut inv[..n * n], n)?;
         // x = (I - M^{-1})_nn = (M^{-1} K)_nn
-        let x = (0..n).fold(Complex64::ZERO, |acc, j| acc + inv[0][j] * k[j][0]);
+        let x = (0..n).fold(Complex64::ZERO, |acc, j| acc + inv[j] * k(j, 0));
         let (p1, p2) = ((2.0 * phi).cos(), (2.0 * phi).sin());
         let one_minus_u = 2.0 * phi.sin().powi(2) + 2.0 * p1 * x.re + 2.0 * p2 * x.im;
         let u_imag = p2 * (2.0 * x.re - 1.0) - 2.0 * p1 * x.im;
-        Terms {
+        Ok(Terms {
             total: 2.0 * gj * one_minus_u,
             elastic: gj * (one_minus_u * one_minus_u + u_imag * u_imag),
-            fission: 4.0 * gj * (inv[0][1].norm_sqr() + inv[0][2].norm_sqr()),
-        }
+            // 核分裂のないときは (M^{-1})_nf の位置が 0 のまま残っている
+            fission: 4.0 * gj * (inv[1].norm_sqr() + inv[2].norm_sqr()),
+        })
     }
-}
-
-/// 複素 3×3 行列の逆行列（部分ピボット付き Gauss-Jordan 法）。
-/// R 行列は単位行列に正定値の実部を足したものなので、正則である。
-fn invert3(mut a: [[Complex64; 3]; 3]) -> [[Complex64; 3]; 3] {
-    let mut inv = [[Complex64::ZERO; 3]; 3];
-    for (i, row) in inv.iter_mut().enumerate() {
-        row[i] = Complex64::ONE;
-    }
-    for col in 0..3 {
-        // max_by と同じく、同じ大きさなら後の行を選ぶ
-        let pivot = (col + 1..3).fold(col, |best, i| {
-            if a[i][col]
-                .norm_sqr()
-                .total_cmp(&a[best][col].norm_sqr())
-                .is_ge()
-            {
-                i
-            } else {
-                best
-            }
-        });
-        a.swap(col, pivot);
-        inv.swap(col, pivot);
-        let p = a[col][col].inv();
-        for j in 0..3 {
-            a[col][j] *= p;
-            inv[col][j] *= p;
-        }
-        for row in 0..3 {
-            if row != col {
-                let f = a[row][col];
-                for j in 0..3 {
-                    a[row][j] -= f * a[col][j];
-                    inv[row][j] -= f * inv[col][j];
-                }
-            }
-        }
-    }
-    inv
 }
 
 #[cfg(test)]
@@ -414,7 +381,7 @@ pub(crate) mod tests {
         let xs = ReichMooreXs::new(&single_level(1.5e-3, 2.3e-2, 0.0));
         for e in [1.0e-3, 1.0, 6.0, 6.674, 6.69, 7.0, 100.0, 1.0e4] {
             assert_sigma(
-                xs.cross_sections(e),
+                xs.cross_sections(e).unwrap(),
                 single_level_exact(e, 1.5e-3, 2.3e-2, 0.0),
                 e,
             );
@@ -426,7 +393,7 @@ pub(crate) mod tests {
         let xs = ReichMooreXs::new(&single_level(1.5e-3, 2.3e-2, 1.0e-1));
         for e in [1.0e-3, 1.0, 6.674, 6.8, 100.0] {
             assert_sigma(
-                xs.cross_sections(e),
+                xs.cross_sections(e).unwrap(),
                 single_level_exact(e, 1.5e-3, 2.3e-2, 1.0e-1),
                 e,
             );
@@ -439,7 +406,7 @@ pub(crate) mod tests {
         let xs = ReichMooreXs::new(&single_level(1.5e-3, 2.3e-2, -1.0e-1));
         let e = 6.7;
         assert_sigma(
-            xs.cross_sections(e),
+            xs.cross_sections(e).unwrap(),
             single_level_exact(e, 1.5e-3, 2.3e-2, 1.0e-1),
             e,
         );
@@ -463,8 +430,8 @@ pub(crate) mod tests {
         );
         for e in [1.0, 6.674, 100.0] {
             assert_eq!(
-                ReichMooreXs::new(&with_other).cross_sections(e),
-                ReichMooreXs::new(&alone).cross_sections(e),
+                ReichMooreXs::new(&with_other).cross_sections(e).unwrap(),
+                ReichMooreXs::new(&alone).cross_sections(e).unwrap(),
                 "at {e}"
             );
         }
@@ -497,7 +464,7 @@ pub(crate) mod tests {
         let rho = k * AP;
         let phi = rho - rho.atan();
         let expected = 4.0 * PI / (k * k) * 3.0 * phi.sin().powi(2);
-        let sigma = ReichMooreXs::new(&data).cross_sections(e);
+        let sigma = ReichMooreXs::new(&data).cross_sections(e).unwrap();
         assert!((sigma.elastic - expected).abs() <= 1e-6 * expected);
         assert!((sigma.total - expected).abs() <= 1e-6 * expected);
     }
