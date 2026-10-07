@@ -9,6 +9,7 @@
 //! pitch = 1.26                    # セルのピッチ (cm)
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
+//! scattering-order = 3            # 散乱の非等方性のルジャンドルの次数（library のとき。省略すると 0 で等方散乱）
 //! boundary = { right = "vacuum", bottom = "vacuum" }   # 外周の辺の境界条件（書かない辺は鏡面反射）
 //! rows = ["pin box", "box pin"]   # セルの配置を上の行から
 //! gap = { width = 0.04, material = "water" }   # 格子の周りの余白（集合体の間の水のギャップ。省略すると無し）
@@ -95,6 +96,8 @@ pub struct LatticeInput {
     pub pitch: f64,
     pub azimuthal: usize,
     pub spacing: f64,
+    /// 散乱の非等方性のルジャンドルの次数（0 なら等方散乱）
+    pub scattering_order: usize,
     pub boundaries: Boundaries,
     pub materials: Vec<MaterialInput>,
     pub cells: Vec<CellInput>,
@@ -148,6 +151,8 @@ struct InputFile {
     pitch: f64,
     azimuthal: usize,
     spacing: f64,
+    /// 省略すると 0（等方散乱）
+    scattering_order: Option<usize>,
     /// 省略した辺は鏡面反射
     boundary: Option<BoundaryEntry>,
     rows: Vec<String>,
@@ -245,6 +250,13 @@ impl LatticeInput {
                 "`few-group` needs a library (group energies)".into(),
             ));
         }
+        let scattering_order = file.scattering_order.unwrap_or(0);
+        if macroscopic && scattering_order > 0 {
+            return Err(invalid(
+                "`scattering-order` needs a library (macroscopic cross sections are P0 only)"
+                    .into(),
+            ));
+        }
         for (key, value) in [("pitch", file.pitch), ("spacing", file.spacing)] {
             if !positive(value) {
                 return Err(invalid(format!("`{key}` must be positive, got {value}")));
@@ -319,6 +331,7 @@ impl LatticeInput {
             pitch: file.pitch,
             azimuthal: file.azimuthal,
             spacing: file.spacing,
+            scattering_order,
             boundaries,
             materials,
             cells,

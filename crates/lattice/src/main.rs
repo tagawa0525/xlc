@@ -160,7 +160,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
     let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
 
-    let solution = solve(&tracking, &materials, &Options::default())?;
+    let options = Options {
+        scattering_order: input.scattering_order,
+        ..Options::default()
+    };
+    let solution = solve(&tracking, &materials, &options)?;
     if let Some((output, bounds)) = &input.output {
         let groups = groups
             .as_ref()
