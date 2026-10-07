@@ -1,5 +1,7 @@
 //! 特殊関数（標準ライブラリにない誤差関数など）。
 
+use num_complex::Complex64;
+
 use crate::numeric::NumericError;
 
 /// 誤差関数 erf(x)。
@@ -135,34 +137,33 @@ fn lower_gamma_series(a: f64, x: f64) -> f64 {
     sum
 }
 
-/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz) の (実部, 虚部)（z = x + iy）。
+/// Faddeeva 関数 w(z) = e^(-z²) erfc(-iz)（z = x + iy）。
 ///
 /// y ≥ 0 では Weideman (1994, SIAM J. Numer. Anal. 31) の有理近似 w(z) ≈ 2 p(Z)/(L - iz)² + 1/(√π (L - iz))、
 /// Z = (L + iz)/(L - iz) を使う。p は `FADDEEVA_TERMS` 次の多項式で、係数は `faddeeva_coefficients`。
 /// y < 0 では w(z) = 2 e^(-z²) - w(-z) で上半面に移す。
-pub fn faddeeva(x: f64, y: f64) -> (f64, f64) {
+pub fn faddeeva(z: Complex64) -> Complex64 {
+    let (x, y) = (z.re, z.im);
     if y < 0.0 {
-        let (re, im) = faddeeva(-x, -y);
+        let w = faddeeva(-z);
         // e^(-z²) = e^(y² - x²) (cos 2xy - i sin 2xy)
         let scale = 2.0 * (y * y - x * x).exp();
         let phase = 2.0 * x * y;
-        return (scale * phase.cos() - re, -scale * phase.sin() - im);
+        return Complex64::new(scale * phase.cos() - w.re, -scale * phase.sin() - w.im);
     }
     let a = faddeeva_coefficients();
     let l = faddeeva_scale();
     // L - iz = (L + y) - ix、L + iz = (L - y) + ix
-    let den = (l + y, -x);
-    let z = complex_div((l - y, x), den);
+    let den = Complex64::new(l + y, -x);
+    let ratio = Complex64::new(l - y, x) / den;
     // Horner 法で p(Z) = Σ a_m Z^(m-1)
-    let mut p = (0.0, 0.0);
+    let mut p = Complex64::ZERO;
     for &coefficient in a.iter().rev() {
-        p = complex_mul(p, z);
-        p.0 += coefficient;
+        p = p * ratio + coefficient;
     }
-    let den2 = complex_mul(den, den);
-    let first = complex_div((2.0 * p.0, 2.0 * p.1), den2);
-    let second = complex_div((1.0 / std::f64::consts::PI.sqrt(), 0.0), den);
-    (first.0 + second.0, first.1 + second.1)
+    let first = p * 2.0 / (den * den);
+    let second = Complex64::new(1.0 / std::f64::consts::PI.sqrt(), 0.0) / den;
+    first + second
 }
 
 /// Weideman の近似の項数 N。N = 32 で、定義の数値積分と相対 1e-10、w(iy) = erfcx(y) と 1e-12、
@@ -199,15 +200,6 @@ fn faddeeva_coefficients() -> &'static [f64; FADDEEVA_TERMS] {
     })
 }
 
-fn complex_mul(a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
-    (a.0 * b.0 - a.1 * b.1, a.0 * b.1 + a.1 * b.0)
-}
-
-fn complex_div(a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
-    let d = b.0 * b.0 + b.1 * b.1;
-    ((a.0 * b.0 + a.1 * b.1) / d, (a.1 * b.0 - a.0 * b.1) / d)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -223,7 +215,7 @@ mod tests {
     fn faddeeva_below_the_real_axis() {
         // 虚軸の上では w(iy) = e^(y²) erfc(y)。y < 0 でも成り立つ
         for y in [-0.1, -0.5, -2.0] {
-            let (re, im) = faddeeva(0.0, y);
+            let Complex64 { re, im } = faddeeva(Complex64::new(0.0, y));
             assert_rel(re, (y * y).exp() * erfc(y), 1e-10);
             assert!(im.abs() < 1e-12, "{im}");
         }
@@ -323,14 +315,18 @@ mod tests {
     #[test]
     fn faddeeva_real_part_matches_definition() {
         for (x, y) in [(0.5, 0.05), (3.0, 0.1), (1.0, 1.0), (10.0, 0.2), (2.0, 5.0)] {
-            assert_rel(faddeeva(x, y).0, re_w_by_integration(x, y), 1e-10);
+            assert_rel(
+                faddeeva(Complex64::new(x, y)).re,
+                re_w_by_integration(x, y),
+                1e-10,
+            );
         }
     }
 
     #[test]
     fn faddeeva_on_imaginary_axis_is_erfcx() {
         for y in [1.0e-3, 0.1, 1.0, 10.0, 100.0] {
-            let (re, im) = faddeeva(0.0, y);
+            let Complex64 { re, im } = faddeeva(Complex64::new(0.0, y));
             assert_rel(re, erfcx(y), 1e-12);
             assert!(im.abs() <= 1e-15, "{im}");
         }
@@ -339,7 +335,7 @@ mod tests {
     #[test]
     fn faddeeva_on_real_axis_is_gaussian() {
         for x in [0.0, 0.5, 2.0, 5.0] {
-            let re = faddeeva(x, 0.0).0;
+            let re = faddeeva(Complex64::new(x, 0.0)).re;
             assert!((re - (-x * x).exp()).abs() <= 1e-13, "x={x}: {re}");
         }
     }
@@ -351,7 +347,7 @@ mod tests {
         let r2 = x * x + y * y;
         let sqrt_pi = std::f64::consts::PI.sqrt();
         // i/z = (y + ix)/|z|²。実部は y/(√π |z|²) に高次の補正が付く
-        let (re, im) = faddeeva(x, y);
+        let Complex64 { re, im } = faddeeva(Complex64::new(x, y));
         assert_rel(re, y / (sqrt_pi * r2) * (1.0 + 3.0 / (2.0 * x * x)), 1e-6);
         assert_rel(im, x / (sqrt_pi * r2) * (1.0 + 1.0 / (2.0 * x * x)), 1e-9);
     }
