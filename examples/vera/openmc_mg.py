@@ -18,7 +18,8 @@ from pathlib import Path
 import msgpack
 import numpy as np
 import openmc
-from openmc_model import geometry_of, pin_mesh, write_pins
+from openmc_model import COLD, FUEL_TEMPERATURE, Run, geometry_of, pin_mesh, write_pins
+from positive_library import minimum
 
 # 物質の名前（xlc の格子の入力と同じ）
 FUEL, CLAD, WATER = "fuel", "zircaloy", "water"
@@ -26,11 +27,29 @@ FUEL, CLAD, WATER = "fuel", "zircaloy", "water"
 VOID = "void"
 
 
-def library(path: Path, work: Path) -> Path:
-    """多群定数を OpenMC の MGXS ライブラリ（HDF5）にして、そのパスを返す。"""
+def check_positive(name: str, scatter: np.ndarray) -> None:
+    """散乱角の分布が負になる移行があれば止める（OpenMC は負の部分を 0 に切るので、xlc と違う散乱核になる）。"""
+    weights = (2 * np.arange(scatter.shape[0]) + 1) / 2
+    if (scatter[0] < 0).any() or scatter[1:, scatter[0] == 0].any():
+        raise SystemExit(f"{name}: negative or moment-only scattering transfers")
+    for g, h in zip(*np.nonzero(scatter[0] > 0)):
+        if minimum(weights * scatter[:, g, h] / scatter[0, g, h]) < -1e-12:
+            raise SystemExit(
+                f"{name}: the scattering kernel from group {g} to {h} is negative "
+                "(make the library with positive_library.py at this order)"
+            )
+
+
+def library(path: Path, problem: str, work: Path) -> Path:
+    """多群定数を OpenMC の MGXS ライブラリ（HDF5）にして、そのパスを返す。物質の温度が問題と合うこと。"""
     data = msgpack.unpackb(path.read_bytes())
     if data.get("format") != "xlc-mg-materials":
         raise SystemExit(f"{path}: not an xlc-mg-materials file")
+    expected = {FUEL: FUEL_TEMPERATURE[problem], CLAD: COLD, WATER: COLD}
+    if data["temperatures"] != expected:
+        raise SystemExit(
+            f"{path}: temperatures {data['temperatures']} are not those of {problem} {expected}"
+        )
     # OpenMC の境界は昇順。群の番号は xlc と同じく高いエネルギーから
     structure = openmc.mgxs.EnergyGroups(sorted(data["group_bounds"]))
     ng = structure.num_groups
@@ -45,6 +64,7 @@ def library(path: Path, work: Path) -> Path:
         total = np.array(xs["total"])
         # 散乱で生まれる中性子の行列（(n,2n) などの多重度を含む）[l][入射][出射]
         production = np.array(xs["scatter"])
+        check_positive(name, production)
         # OpenMC は散乱の反応と多重度を分けて持つ。生まれる中性子の和が全断面積を超える群（(n,2n) の効く
         # 高速群）では、散乱を全断面積（吸収 0）とし、残りを行ごとに一様な多重度にする。衝突あたりの
         # 出射の重みの期待値は νΣs(g→g')/Σt のままなので、分け方は輸送の結果に効かない
@@ -54,7 +74,8 @@ def library(path: Path, work: Path) -> Path:
         x = openmc.XSdata(name, structure)
         x.order = production.shape[0] - 1
         x.set_total(total)
-        x.set_absorption(total - scatter[0].sum(axis=1))
+        # 多重度で割った行は丸めで吸収がわずかに負になりうるので、ちょうど 0 にする
+        x.set_absorption(np.where(made > total, 0.0, total - scatter[0].sum(axis=1)))
         # OpenMC の並びは [入射][出射][l]
         x.set_scatter_matrix(np.moveaxis(scatter, 0, -1))
         x.set_multiplicity_matrix(
@@ -79,12 +100,8 @@ def library(path: Path, work: Path) -> Path:
 
 def main() -> None:
     constants = Path(sys.argv[1]).resolve()
-    problem = sys.argv[2]
-    work = Path(sys.argv[3]).resolve()
-    particles = int(sys.argv[4]) if len(sys.argv) > 4 else 100_000
-    batches = int(sys.argv[5]) if len(sys.argv) > 5 else 300
-    inactive = int(sys.argv[6]) if len(sys.argv) > 6 else 50
-    seed = int(sys.argv[7]) if len(sys.argv) > 7 else 1
+    run = Run(sys.argv)
+    problem, work = run.problem, run.work
     work.mkdir(parents=True, exist_ok=True)
 
     def macroscopic(name: str) -> openmc.Material:
@@ -95,23 +112,15 @@ def main() -> None:
 
     fuel, clad, water, void = (macroscopic(n) for n in (FUEL, CLAD, WATER, VOID))
     materials = openmc.Materials([fuel, clad, water, void])
-    materials.cross_sections = str(library(constants, work))
+    materials.cross_sections = str(library(constants, problem, work))
     # ギャップを物質のない真空にすると、OpenMC 0.15.2 の多群モードは、核分裂の tally を数えるときに
     # 物質の番号 -1 で断面積の配列を引いて落ちる（src/tallies/tally_scoring.cpp の score_general_mg）。
     # 断面積が全て 0 の物質で埋める（衝突しないので真空と同じ）
     geometry, half = geometry_of(problem, fuel, clad, water, void)
 
-    settings = openmc.Settings()
+    settings = run.settings(half)
     settings.energy_mode = "multi-group"
     settings.tabular_legendre = {"enable": False}
-    settings.particles = particles
-    settings.batches = batches
-    settings.inactive = inactive
-    settings.seed = seed
-    settings.source = openmc.IndependentSource(
-        space=openmc.stats.Box((-half, -half, -1), (half, half, 1)),
-        constraints={"fissionable": True},
-    )
     tallies = openmc.Tallies()
     if problem.startswith("2"):
         tally = openmc.Tally(name="fission")
