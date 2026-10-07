@@ -590,6 +590,28 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn keeps_the_scattering_moments() {
+        // 散乱行列はルジャンドルの次数ごと。P0 は無限希釈の核種の散乱行列になる
+        let mut library = sample();
+        let p0 = library.nuclides[0].temperatures[0].scatter[0].clone();
+        library.nuclides[0].temperatures[0]
+            .scatter
+            .push(vec![vec![0.1, 0.02], vec![0.0, 0.3]]);
+        let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+        assert_eq!(read, library);
+        assert_eq!(read.nuclide("U-235", 293.6).unwrap().scatter, p0);
+        // 次数がない、群の数が合わない
+        let mut empty = sample();
+        empty.nuclides[0].temperatures[0].scatter.clear();
+        assert!(empty.to_msgpack().is_err());
+        let mut short = sample();
+        short.nuclides[0].temperatures[0]
+            .scatter
+            .push(vec![vec![0.1, 0.02]]);
+        assert!(short.to_msgpack().is_err());
+    }
+
+    #[test]
     fn keeps_the_resolved_range() {
         let mut library = sample();
         let resolved = Resolved {
