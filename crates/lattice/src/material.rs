@@ -222,6 +222,20 @@ impl Material {
         })
     }
 
+    /// 核分裂で生まれる中性子の行列 Σ_核種 νΣf(g) χ(g') [入射の群][出射の群]
+    pub fn fission_matrix(&self) -> Vec<Vec<f64>> {
+        let ng = self.groups();
+        let mut matrix = vec![vec![0.0; ng]; ng];
+        for term in &self.fission_terms {
+            for (row, n) in matrix.iter_mut().zip(&term.nu_fission) {
+                for (value, chi) in row.iter_mut().zip(&term.chi) {
+                    *value += n * chi;
+                }
+            }
+        }
+        matrix
+    }
+
     /// 吸収断面積 Σt - Σ_g' Σs(g→g')（多重度のある反応では負になりうる）。
     pub fn absorption(&self) -> Vec<f64> {
         self.total
