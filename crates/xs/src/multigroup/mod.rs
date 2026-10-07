@@ -175,7 +175,8 @@ pub struct SlowingDown {
 /// 中性子束は、狭い共鳴の近似（Bondarenko 法）の w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の
 /// 中性子束はこれに定数 (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`slowing` を与えると、
 /// その範囲では超微細群の減速計算の中性子束を使い、範囲の上では Bondarenko の中性子束に定数
-/// (σs(E_high) + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。
+/// (σs(E_high) + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。範囲の下
+/// （熱中性子の領域）では重み関数 w の定数倍（σ0 によらない。燃料の中の熱中性子束のへこみは輸送計算で扱う）。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn shielded_averages(
     groups: &GroupStructure,
@@ -226,8 +227,12 @@ pub fn shielded_averages(
             let shape = slowing_down_shape(total, elastic, slowing.awr, weight, s0, slowing.range)?;
             let (low, high) = slowing.range;
             let scale = elastic.eval(high).unwrap_or(0.0) + s0;
+            // 範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）
+            let at_low = shape.eval(low).unwrap_or(0.0);
             let flux = |e: f64| {
-                if (low..=high).contains(&e) {
+                if e < low {
+                    at_low
+                } else if e <= high {
                     shape.eval(e).unwrap_or(0.0)
                 } else {
                     scale * bondarenko(e)

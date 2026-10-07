@@ -158,11 +158,14 @@ pub fn unresolved_shielding(
 }
 
 /// 分離共鳴の範囲を持つ核種の、σ0 ごとの群定数の重みを減速計算で作る範囲（docs/plans/m2-assembly.md）。
-/// 最も低い群の境界から、分離共鳴の上端以下で最も高い群の境界まで。分離共鳴の範囲がなければ `None`。
+/// 重み関数の熱中性子の区切り以上で最も低い群の境界から、分離共鳴の上端以下で最も高い群の境界まで
+/// （熱中性子の領域では標的の熱運動が効き、静止した標的の減速計算は成り立たない）。
+/// 分離共鳴の範囲がなければ `None`。
 pub fn slowing_down_range(
     tape: &Tape,
     mat: i32,
     groups: &GroupStructure,
+    weight: &Weight,
 ) -> Result<Option<SlowingDown>, ProcessError> {
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
@@ -178,7 +181,11 @@ pub fn slowing_down_range(
         return Ok(None);
     };
     let bounds = groups.bounds();
-    let (Some(&low), Some(&high)) = (bounds.last(), bounds.iter().find(|&&b| b <= top)) else {
+    let [thermal, _] = weight.breakpoints();
+    let (Some(&low), Some(&high)) = (
+        bounds.iter().rev().find(|&&b| b >= thermal),
+        bounds.iter().find(|&&b| b <= top),
+    ) else {
         return Ok(None);
     };
     Ok((high > low).then_some(SlowingDown {
@@ -305,7 +312,7 @@ impl Common<'_> {
         let ng = groups.len();
         let tables = self.cold.at(temperature);
         let shielding = unresolved_shielding(self.tape, self.mat, temperature, &settings.sigma0)?;
-        let slowing = slowing_down_range(self.tape, self.mat, groups)?;
+        let slowing = slowing_down_range(self.tape, self.mat, groups, weight)?;
         let averages = shielded_averages(
             groups,
             weight,
