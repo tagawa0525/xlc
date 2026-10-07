@@ -43,7 +43,7 @@ use xlc_xs::endf::Tape;
 use xlc_xs::library::{Library, NuclideData, is_nuclide_name};
 use xlc_xs::multigroup::{GroupStructure, Weight};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
-use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering, resolved_top};
+use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering, resolved};
 
 /// 入力ファイルを解釈した結果（パスは入力ファイルのディレクトリで解決済み）。
 #[derive(Debug, Clone, PartialEq)]
@@ -266,8 +266,8 @@ fn pointwise_range(
                 nuclide.name
             ));
         };
-        if let Some(t) = resolved_top(tape, mat).with_context(|| nuclide.name.clone())? {
-            top = Some(top.map_or(t, |u| u.max(t)));
+        if let Some(r) = resolved(tape, mat).with_context(|| nuclide.name.clone())? {
+            top = Some(top.map_or(r.top, |u| u.max(r.top)));
         }
     }
     let top = top.ok_or_else(|| anyhow!("no nuclide has resolved resonances"))?;
