@@ -685,6 +685,10 @@ mod tests {
             assert_eq!(pin.dancoff.len(), 2);
             let names: Vec<&str> = pin.nuclides.iter().map(|(n, _)| n.name.as_str()).collect();
             assert_eq!(names, vec!["U-238", "U-235"]);
+            // 実効断面積（弾性散乱を含む）も核種ごとに持ち、全断面積は核種の群定数と同じ
+            assert_eq!(pin.effective.len(), 2);
+            assert_eq!(pin.effective[0].total, pin.nuclides[0].0.total);
+            assert!(pin.effective[0].elastic[0] > 0.0);
             // 物質の全断面積は、核種の全断面積と個数密度の積の和
             let material = &shielded.materials[shielded.region_material[0]];
             let sum: f64 = pin
