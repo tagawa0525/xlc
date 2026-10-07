@@ -1,6 +1,7 @@
 //! CMFD（粗メッシュ有限差分）による MOC の加速。
 //!
-//! 粗メッシュは格子のセルとする。スイープでセルの面を通る正味の中性子の流れを数え、
+//! 粗メッシュは格子のセルとする（格子の周りの余白は接する縁のセルに含め、縁のセルはその分だけ広い）。
+//! スイープでセルの面を通る正味の中性子の流れを数え、
 //! 拡散の結合係数を流れに合うよう補正した粗メッシュの固有値問題を解いて、
 //! 細かい領域の中性子束をセルごとの比で更新する。
 
@@ -21,8 +22,8 @@ use crate::tracking::Tracking;
 pub struct CoarseMesh {
     /// 1辺のセルの数
     n: usize,
-    /// セルの一辺の長さ (cm)
-    pitch: f64,
+    /// 列（左から）と行（上から）ごとのセルの幅 (cm)。縁は余白の分だけ広い
+    sizes: Vec<f64>,
     /// [領域] の属するセル
     cell_of_region: Vec<usize>,
     /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
@@ -68,16 +69,20 @@ impl CoarseMesh {
     pub fn new(tracking: &Tracking) -> Self {
         let lattice = &tracking.lattice;
         let n = lattice.cells_per_side();
-        let mut cell_of_region = vec![0; lattice.regions()];
-        for cell in 0..n * n {
-            for region in lattice.cell_regions(cell) {
-                cell_of_region[region] = cell;
-            }
-        }
+        let cell_of_region = (0..lattice.regions())
+            .map(|r| lattice.region_cell(r))
+            .collect();
         let half = 0.5 * lattice.width();
+        let (pitch, margin) = (
+            (lattice.width() - 2.0 * lattice.margin()) / n as f64,
+            lattice.margin(),
+        );
+        let mut sizes = vec![pitch; n];
+        sizes[0] += margin;
+        sizes[n - 1] += margin;
         let mut mesh = Self {
             n,
-            pitch: lattice.width() / n as f64,
+            sizes,
             cell_of_region,
             ends: Vec::with_capacity(tracking.tracks.len()),
         };
@@ -151,6 +156,19 @@ impl CoarseMesh {
         } else {
             let (line, column) = ((face - vertical) / n, (face - vertical) % n);
             side(line, &|row| row * n + column)
+        }
+    }
+
+    /// 内側の面の長さと、面の低い側と高い側のセルの、面に垂直な方向の幅
+    fn face_geometry(&self, face: usize) -> (f64, f64, f64) {
+        let n = self.n;
+        let vertical = n * (n + 1);
+        if face < vertical {
+            let (row, line) = (face / (n + 1), face % (n + 1));
+            (self.sizes[row], self.sizes[line - 1], self.sizes[line])
+        } else {
+            let (line, column) = ((face - vertical) / n, (face - vertical) % n);
+            (self.sizes[column], self.sizes[line - 1], self.sizes[line])
         }
     }
 
@@ -323,11 +341,10 @@ impl Coarse {
         }
         // 断面積 = 反応率 / (体積 × 中性子束)。行列は φ に掛けて反応率になる形で持つので、
         // 列（入射の群）ごとに中性子束で割る
-        let h = mesh.pitch;
         let sigma_t = |c: usize, g: usize| total[c * ng + g] / (volume[c] * phi[c * ng + g]);
         // 光学的に厚いセルでは従来の CMFD が不安定になるので、拡散係数に θ(Σt h) h を足す
-        // （optimally diffusive CMFD）
-        let diffusion = |c: usize, g: usize| {
+        // （optimally diffusive CMFD）。h は面に垂直な方向のセルの幅
+        let diffusion = |c: usize, g: usize, h: f64| {
             let sigma = sigma_t(c, g);
             1.0 / (3.0 * sigma) + artificial_diffusion(sigma * h) * h
         };
@@ -348,19 +365,21 @@ impl Coarse {
             let net = &current[face * ng..][..ng];
             match mesh.face_cells(face) {
                 FaceCells::Inner { low, high } => {
-                    // 面の正の向きの流れ J = -D̃ (φ_h - φ_l) - D̂ (φ_h + φ_l)（面の長さあたり）
+                    // 面の正の向きの流れ J = -D̃ (φ_h - φ_l) - D̂ (φ_h + φ_l)（面の長さあたり）。
+                    // D̃ = 2 D_l D_h / (w_l D_h + w_h D_l)（w は面に垂直な方向のセルの幅）
+                    let (length, wl, wh) = mesh.face_geometry(face);
                     let mut on_high = vec![0.0; ng];
                     let mut on_low = vec![0.0; ng];
                     for g in 0..ng {
-                        let (dl, dh) = (diffusion(low, g), diffusion(high, g));
-                        let coupling = 2.0 * dl * dh / (h * (dl + dh));
+                        let (dl, dh) = (diffusion(low, g, wl), diffusion(high, g, wh));
+                        let coupling = 2.0 * dl * dh / (wl * dh + wh * dl);
                         let (fl, fh) = (phi[low * ng + g], phi[high * ng + g]);
-                        let correction = -(net[g] / h + coupling * (fh - fl)) / (fh + fl);
+                        let correction = -(net[g] / length + coupling * (fh - fl)) / (fh + fl);
                         // 低い側の式では J が出ていく流れ、高い側の式では入ってくる流れ
-                        diagonal[low * ng + g] += h * (coupling - correction);
-                        on_high[g] = h * (-coupling - correction);
-                        diagonal[high * ng + g] += h * (coupling + correction);
-                        on_low[g] = h * (-coupling + correction);
+                        diagonal[low * ng + g] += length * (coupling - correction);
+                        on_high[g] = length * (-coupling - correction);
+                        diagonal[high * ng + g] += length * (coupling + correction);
+                        on_low[g] = length * (-coupling + correction);
                     }
                     neighbors[low].push((high, on_high));
                     neighbors[high].push((low, on_low));
