@@ -445,8 +445,10 @@ fn add_resonances(
                     .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gfa.abs() + r.gfb.abs())));
                 let nodes = resonance_nodes(peaks);
                 let xs = ReichMooreXs::new(rm);
-                let f = |e: f64| Ok::<_, Infallible>(xs.cross_sections(e).components());
-                let Ok(tables) = resonance_tables(f, &nodes, range.el, range.eh, tol);
+                let f = |e: f64| xs.cross_sections(e).map(|sigma| sigma.components());
+                // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
+                let tables = resonance_tables(f, &nodes, range.el, range.eh, tol)
+                    .map_err(|e| e.to_string())?;
                 sigma_contributions(tables, fission_mt)
             }
             RangeKind::RMatrixLimited(rml) => {
@@ -644,8 +646,8 @@ mod tests {
     fn resonance_tables_converge_at_midpoints() {
         let (gn, gg, gf) = (1.5e-3, 2.3e-2, 1.0e-2);
         let xs = ReichMooreXs::new(&single_level(gn, gg, gf));
-        let f = |e: f64| Ok::<_, Infallible>(xs.cross_sections(e).components());
-        let Ok(tables) = resonance_tables(f, &[6.674], 1.0e-5, 1.0e3, 1.0e-3);
+        let f = |e: f64| xs.cross_sections(e).map(|sigma| sigma.components());
+        let tables = resonance_tables(f, &[6.674], 1.0e-5, 1.0e3, 1.0e-3).unwrap();
         for (i, (t, mt)) in tables.iter().zip(RESONANCE_MTS).enumerate() {
             assert_linear(t);
             assert_eq!((t.x[0], *t.x.last().unwrap()), (1.0e-5, 1.0e3));
