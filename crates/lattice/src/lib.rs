@@ -4,6 +4,7 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod cmfd;
+pub mod cp;
 pub mod fewgroup;
 pub mod geometry;
 pub mod input;
