@@ -11,7 +11,8 @@
 
 use std::f64::consts::PI;
 
-use super::complex::Complex;
+use num_complex::Complex64;
+
 use super::factors::{penetrability, phase_shift};
 use crate::endf::{OrbitalL, ParticlePair, RMatrixLimited};
 use crate::physics::wave_number_factor;
@@ -222,7 +223,7 @@ impl RMatrixLimitedXs {
                 .collect();
 
             // K = P^½ R P^½、R = Σ γγ / (E_λ − E − iΓγ/2)。極の共鳴は w = P^½ γ として分ける
-            let mut k = vec![Complex::default(); n * n];
+            let mut k = vec![Complex64::ZERO; n * n];
             let mut pole: Option<Vec<f64>> = None;
             for r in &g.resonances {
                 let d = r.er - e;
@@ -244,19 +245,18 @@ impl RMatrixLimitedXs {
                     pole = Some(w);
                     continue;
                 }
-                let shape = Complex::new(d / denominator, r.half_capture / denominator);
+                let shape = Complex64::new(d / denominator, r.half_capture / denominator);
                 for a in 0..n {
                     for b in 0..n {
                         let gamma = r.amplitudes[open_index[a]] * r.amplitudes[open_index[b]];
-                        let term = Complex::new(gamma * root_p[a] * root_p[b], 0.0);
-                        k[a * n + b] = k[a * n + b].add(term.mul(shape));
+                        k[a * n + b] += shape * (gamma * root_p[a] * root_p[b]);
                     }
                 }
             }
             // (I − iK) X = K
-            let mut m: Vec<Complex> = k.iter().map(|&v| Complex::new(v.im, -v.re)).collect();
+            let mut m: Vec<Complex64> = k.iter().map(|&v| -Complex64::I * v).collect();
             for a in 0..n {
-                m[a * n + a] = m[a * n + a].add(Complex::new(1.0, 0.0));
+                m[a * n + a] += 1.0;
             }
             let singular = || RmlError::Singular {
                 group: group + 1,
@@ -364,28 +364,28 @@ fn amplitude(
 }
 
 /// 極での X = i(I − M⁻¹) の極限。`m` は極の共鳴を除いた M' = I − iK'、`w` は極の共鳴の P^½ γ。
-fn pole_limit(m: Vec<Complex>, w: &[f64], n: usize) -> Option<Vec<Complex>> {
-    let identity: Vec<Complex> = (0..n * n)
-        .map(|i| Complex::new(if i % (n + 1) == 0 { 1.0 } else { 0.0 }, 0.0))
+fn pole_limit(m: Vec<Complex64>, w: &[f64], n: usize) -> Option<Vec<Complex64>> {
+    let identity: Vec<Complex64> = (0..n * n)
+        .map(|i| {
+            if i % (n + 1) == 0 {
+                Complex64::ONE
+            } else {
+                Complex64::ZERO
+            }
+        })
         .collect();
     let mut inverse = solve(m, identity, n)?;
     // u = M'⁻¹ w（M' は複素対称なので wᵀ M'⁻¹ = uᵀ）
-    let u: Vec<Complex> = (0..n)
-        .map(|a| {
-            (0..n).fold(Complex::default(), |acc, b| {
-                acc.add(inverse[a * n + b].mul(Complex::new(w[b], 0.0)))
-            })
-        })
+    let u: Vec<Complex64> = (0..n)
+        .map(|a| (0..n).fold(Complex64::ZERO, |acc, b| acc + inverse[a * n + b] * w[b]))
         .collect();
-    let s = (0..n).fold(Complex::default(), |acc, a| {
-        acc.add(u[a].mul(Complex::new(w[a], 0.0)))
-    });
+    let s = (0..n).fold(Complex64::ZERO, |acc, a| acc + u[a] * w[a]);
     // 開いたチャネルに幅がなければ、極の共鳴は寄与しない
     if s.norm_sqr() > 0.0 {
-        let scale = s.recip();
+        let scale = s.inv();
         for a in 0..n {
             for b in 0..n {
-                inverse[a * n + b] = inverse[a * n + b].sub(u[a].mul(u[b]).mul(scale));
+                inverse[a * n + b] -= u[a] * u[b] * scale;
             }
         }
     }
@@ -393,8 +393,12 @@ fn pole_limit(m: Vec<Complex>, w: &[f64], n: usize) -> Option<Vec<Complex>> {
         (0..n * n)
             .map(|i| {
                 // i(δ − M⁻¹)
-                let t = Complex::new(if i % (n + 1) == 0 { 1.0 } else { 0.0 }, 0.0).sub(inverse[i]);
-                Complex::new(-t.im, t.re)
+                let identity = if i % (n + 1) == 0 {
+                    Complex64::ONE
+                } else {
+                    Complex64::ZERO
+                };
+                Complex64::I * (identity - inverse[i])
             })
             .collect(),
     )
@@ -402,7 +406,7 @@ fn pole_limit(m: Vec<Complex>, w: &[f64], n: usize) -> Option<Vec<Complex>> {
 
 /// 複素 n×n 行列の方程式 M X = B を部分ピボット付き Gauss の消去法で解く（行列は行優先）。
 /// 特異なら `None`。
-fn solve(mut m: Vec<Complex>, mut b: Vec<Complex>, n: usize) -> Option<Vec<Complex>> {
+fn solve(mut m: Vec<Complex64>, mut b: Vec<Complex64>, n: usize) -> Option<Vec<Complex64>> {
     for col in 0..n {
         let pivot = (col..n).max_by(|&i, &j| {
             m[i * n + col]
@@ -416,17 +420,17 @@ fn solve(mut m: Vec<Complex>, mut b: Vec<Complex>, n: usize) -> Option<Vec<Compl
             m.swap(col * n + j, pivot * n + j);
             b.swap(col * n + j, pivot * n + j);
         }
-        let p = m[col * n + col].recip();
+        let p = m[col * n + col].inv();
         for j in 0..n {
-            m[col * n + j] = m[col * n + j].mul(p);
-            b[col * n + j] = b[col * n + j].mul(p);
+            m[col * n + j] *= p;
+            b[col * n + j] *= p;
         }
         for row in 0..n {
             if row != col {
                 let f = m[row * n + col];
                 for j in 0..n {
-                    m[row * n + j] = m[row * n + j].sub(f.mul(m[col * n + j]));
-                    b[row * n + j] = b[row * n + j].sub(f.mul(b[col * n + j]));
+                    m[row * n + j] = m[row * n + j] - f * m[col * n + j];
+                    b[row * n + j] = b[row * n + j] - f * b[col * n + j];
                 }
             }
         }
