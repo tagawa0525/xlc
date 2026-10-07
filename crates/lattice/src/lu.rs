@@ -95,4 +95,10 @@ mod tests {
             None
         );
     }
+
+    #[test]
+    fn nan_pivot_is_singular() {
+        // total_cmp では NaN がどの数より大きいので、ピボットに選ばれてしまう
+        assert!(Lu::new(vec![f64::NAN, 1.0, 1.0, 1.0], 2).is_none());
+    }
 }
