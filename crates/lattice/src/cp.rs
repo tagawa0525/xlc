@@ -448,6 +448,21 @@ mod tests {
     }
 
     #[test]
+    fn thin_rim_conserves_neutrons() {
+        // 広いリングの外の薄いリングは、弦の長さが y について急に変わるので求積の誤差が大きい。
+        // その誤差によらず、どこかで必ず衝突し、均質なら無限媒質の中性子束になる
+        let cell = Cylinder::new(vec![0.4, 0.4001, 0.5]).unwrap();
+        let p = cell.probabilities(&[0.5; 3]).unwrap();
+        for (i, row) in p.iter().enumerate() {
+            let sum: f64 = row.iter().sum();
+            assert!(close(sum, 1.0, 1e-12), "row {i}: {sum}");
+        }
+        for f in cell.fixed_source(&[0.5; 3], &[1.0; 3]).unwrap() {
+            assert!(close(f, 2.0, 1e-12), "{f}");
+        }
+    }
+
+    #[test]
     fn void_ring_carries_the_surrounding_flux() {
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
         let flux = cell
