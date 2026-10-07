@@ -400,6 +400,48 @@ mod tests {
         Tape::parse(&text).unwrap()
     }
 
+    /// 分離共鳴（MLBW、1e-5 eV〜20 keV、6.67 eV に1つ）を持つテープ
+    fn resolved_tape() -> Tape {
+        use crate::endf::rec;
+        let text = [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["9.223800+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0-5", "2.0+4", "1", "2", "0", "0"], 1, 2, 151),
+            rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+            rec(
+                ["6.674", "0.5", "2.6e-2", "1.5e-3", "2.3e-2", "0.0"],
+                1,
+                2,
+                151,
+            ),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat();
+        Tape::parse(&text).unwrap()
+    }
+
+    #[test]
+    fn slowing_down_covers_the_resolved_range_in_whole_groups() {
+        let groups = GroupStructure::new(vec![1.0e5, 3.0e4, 1.0e4, 10.0, 1.0e-5]).unwrap();
+        let slowing = slowing_down_range(&resolved_tape(), 1, &groups)
+            .unwrap()
+            .unwrap();
+        assert_eq!(slowing.awr, 236.006);
+        // 分離共鳴の上端 20 keV より下で最も高い群の境界まで
+        assert_eq!(slowing.range, (1.0e-5, 1.0e4));
+    }
+
+    #[test]
+    fn no_resolved_range_needs_no_slowing_down() {
+        let groups = GroupStructure::new(vec![1.0e5, 1.0e4, 1.0e-5]).unwrap();
+        assert!(
+            slowing_down_range(&unresolved_tape(), 1, &groups)
+                .unwrap()
+                .is_none()
+        );
+    }
+
     #[test]
     fn unresolved_shielding_lowers_capture_at_small_background() {
         use crate::multigroup::shielded_averages;
