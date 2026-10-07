@@ -38,7 +38,9 @@ pub enum DancoffError {
     Regions { given: usize, regions: usize },
     #[error("no region outside the fuel")]
     NoModerator,
-    #[error("region {0}: total cross sections must be positive and finite")]
+    #[error(
+        "region {0}: total cross sections must be positive and finite, or zero in every group (void)"
+    )]
     Total(usize),
     #[error("fuel in cell {0} touches the cell boundary; the pin must be surrounded by non-fuel")]
     FuelOnBoundary(usize),
@@ -70,7 +72,8 @@ pub fn dancoff(
         .ok_or(DancoffError::NoModerator)?;
     for (region, t) in totals.iter().enumerate() {
         let valid = |v: &f64| *v > 0.0 && v.is_finite();
-        if !fuel[region] && (t.len() != ng || !t.iter().all(valid)) {
+        let void = t.iter().all(|&v| v == 0.0);
+        if !fuel[region] && (t.len() != ng || !(void || t.iter().all(valid))) {
             return Err(DancoffError::Total(region));
         }
     }
@@ -225,6 +228,22 @@ mod tests {
                 assert!((c - r).abs() < 2e-3, "{c} vs {r}");
             }
         }
+    }
+
+    #[test]
+    fn void_gap_matches_a_nearly_transparent_gap() {
+        // 燃料・ギャップ・被覆管・水のピン
+        let cell = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.02).unwrap();
+        let fuel = [true, false, false, false];
+        let factor = |gap: f64| {
+            let totals = vec![vec![], vec![gap], vec![0.3], vec![1.2]];
+            dancoff(&tracking, &totals, &fuel, &options()).unwrap()[0]
+                .clone()
+                .unwrap()[0]
+        };
+        let (void, thin) = (factor(0.0), factor(1.0e-9));
+        assert!((void - thin).abs() < 1e-7, "{void} vs {thin}");
     }
 
     #[test]
