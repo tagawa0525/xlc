@@ -448,11 +448,16 @@ fn shield_cell(
         .collect();
     let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
     let sph = sph_factors(&cylinder, &multigroup, top..bottom, &above, &spectrum.flux)?;
-    for ((material, _), mu) in rings.iter_mut().zip(&sph) {
+    for (ring, ((material, _), mu)) in rings.iter_mut().zip(&sph).enumerate() {
         if let Some(m) = material {
             let mut all = vec![1.0; ng];
             all[top..bottom].copy_from_slice(mu);
-            *m = m.scaled(&all);
+            *m = m
+                .scaled(&all)
+                .map_err(|source| SelfShieldingError::Material {
+                    name: format!("ring {ring} of cell {cell}"),
+                    source,
+                })?;
         }
     }
 

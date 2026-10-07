@@ -11,7 +11,7 @@
 use std::ops::Range;
 
 use crate::cp::{CpError, Cylinder};
-use crate::material::Material;
+use crate::material::{Material, MaterialError};
 use crate::ufg::solve;
 
 /// SPH 因子の反復の打ち切り（μ の変化）と回数の上限
@@ -42,6 +42,33 @@ pub enum SphError {
     NotConverged(usize),
     #[error(transparent)]
     Cp(#[from] CpError),
+    #[error(transparent)]
+    Material(#[from] MaterialError),
+}
+
+/// リングと群の数を確かめる。
+fn check(
+    cell: &Cylinder,
+    materials: &[Material],
+    groups: &Range<usize>,
+    above: &[f64],
+) -> Result<(), SphError> {
+    let rings = cell.volumes().len();
+    if materials.len() != rings {
+        return Err(SphError::Rings {
+            given: materials.len(),
+            rings,
+        });
+    }
+    let short = materials.iter().any(|m| m.groups() < groups.end);
+    if above.len() != groups.start || groups.is_empty() || short {
+        return Err(SphError::Groups {
+            groups: groups.clone(),
+            needed: groups.end,
+            above: above.len(),
+        });
+    }
+    Ok(())
 }
 
 /// 円筒のセル（白色境界）の、群 `groups` の多群の固定源問題の中性子束 [リング][群（`groups` の中の順）]。
@@ -53,22 +80,9 @@ pub fn multigroup_flux(
     groups: Range<usize>,
     above: &[f64],
 ) -> Result<Vec<Vec<f64>>, SphError> {
+    check(cell, materials, &groups, above)?;
     let volumes = cell.volumes();
     let n = volumes.len();
-    if materials.len() != n {
-        return Err(SphError::Rings {
-            given: materials.len(),
-            rings: n,
-        });
-    }
-    let short = materials.iter().any(|m| m.groups() < groups.end);
-    if above.len() != groups.start || groups.is_empty() || short {
-        return Err(SphError::Groups {
-            groups: groups.clone(),
-            needed: groups.end,
-            above: above.len(),
-        });
-    }
     let ng = groups.len();
     // 範囲の上の群からの散乱源 [リング][群]
     let external: Vec<Vec<f64>> = materials
@@ -144,6 +158,7 @@ pub fn sph_factors(
     above: &[f64],
     reference: &[Vec<f64>],
 ) -> Result<Vec<Vec<f64>>, SphError> {
+    check(cell, materials, &groups, above)?;
     let n = materials.len();
     let ng = groups.len();
     if reference.len() != n || reference.iter().any(|r| r.len() != ng) {
@@ -156,7 +171,7 @@ pub fn sph_factors(
     let active: Vec<usize> = (0..n).filter(|&r| !materials[r].is_void()).collect();
     let mut factors = vec![vec![1.0; ng]; n];
     for _ in 0..ITERATIONS {
-        let scaled: Vec<Material> = materials
+        let scaled = materials
             .iter()
             .zip(&factors)
             .map(|(m, mu)| {
@@ -164,7 +179,7 @@ pub fn sph_factors(
                 all[groups.clone()].copy_from_slice(mu);
                 m.scaled(&all)
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
         let flux = multigroup_flux(cell, &scaled, groups.clone(), above)?;
         let mut next = vec![vec![1.0; ng]; n];
         for k in 0..ng {
