@@ -161,6 +161,38 @@ impl Material {
             && self.fission_terms.is_empty()
     }
 
+    /// 群 g の反応（全断面積、群 g からの散乱、核分裂、νΣf）に `factors[g]` を掛けた物質（SPH 因子を入れる）。
+    pub fn scaled(&self, factors: &[f64]) -> Result<Self, MaterialError> {
+        if factors.len() != self.groups() {
+            return Err(MaterialError::Groups(self.groups()));
+        }
+        let scale = |v: &[f64]| {
+            v.iter()
+                .zip(factors)
+                .map(|(x, f)| x * f)
+                .collect::<Vec<_>>()
+        };
+        Ok(Self {
+            total: scale(&self.total),
+            scatter: self
+                .scatter
+                .iter()
+                .zip(factors)
+                .map(|(row, f)| row.iter().map(|x| x * f).collect())
+                .collect(),
+            fission: scale(&self.fission),
+            nu_fission: scale(&self.nu_fission),
+            fission_terms: self
+                .fission_terms
+                .iter()
+                .map(|t| FissionTerm {
+                    chi: t.chi.clone(),
+                    nu_fission: scale(&t.nu_fission),
+                })
+                .collect(),
+        })
+    }
+
     /// 吸収断面積 Σt - Σ_g' Σs(g→g')（多重度のある反応では負になりうる）。
     pub fn absorption(&self) -> Vec<f64> {
         self.total
@@ -222,6 +254,31 @@ mod tests {
         assert!((m.fission_terms[0].nu_fission[0] - 0.025).abs() < 1e-15);
         let a = m.absorption();
         assert!((a[0] - (0.4 - 0.32)).abs() < 1e-15);
+    }
+
+    #[test]
+    fn scaled_multiplies_the_reactions_of_each_group() {
+        let m = mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
+        assert!(m.scaled(&[2.0]).is_err());
+        let s = m.scaled(&[2.0, 0.5]).unwrap();
+        assert_eq!(s.total, vec![m.total[0] * 2.0, m.total[1] * 0.5]);
+        // 散乱は入射の群（行）の係数
+        assert_eq!(
+            s.scatter[0],
+            m.scatter[0].iter().map(|v| v * 2.0).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            s.scatter[1],
+            m.scatter[1].iter().map(|v| v * 0.5).collect::<Vec<_>>()
+        );
+        assert_eq!(s.nu_fission[1], m.nu_fission[1] * 0.5);
+        assert_eq!(s.fission[0], m.fission[0] * 2.0);
+        assert_eq!(
+            s.fission_terms[0].nu_fission[1],
+            m.fission_terms[0].nu_fission[1] * 0.5
+        );
+        assert_eq!(s.fission_terms[0].chi, m.fission_terms[0].chi);
+        s.validate().unwrap();
     }
 
     #[test]

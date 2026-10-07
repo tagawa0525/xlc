@@ -18,6 +18,7 @@ use crate::geometry::Lattice;
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
+use crate::sph::{SphError, sph_factors};
 use crate::tracking::Tracking;
 use crate::ufg::{UfgError, cell_range, slowing_down};
 
@@ -70,6 +71,8 @@ pub enum SelfShieldingError {
     #[error(transparent)]
     Cp(#[from] CpError),
     #[error(transparent)]
+    Sph(#[from] SphError),
+    #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
 
@@ -98,10 +101,13 @@ pub struct PinShielding {
     /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
     pub nuclides: Vec<(Nuclide, f64)>,
     /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）。UFG の範囲の群は、燃料のリングの値を中性子束と
-    /// 体積で平均したもの
+    /// 体積で平均したもの。`nuclides` とともに SPH 因子を掛けていない物理的な値（参照解と比べる用）で、MOC の
+    /// 中性子束と組み合わせて反応率を求めるには、領域の物質（SPH 因子を掛けたもの）を使う
     pub effective: Vec<Shielded>,
     /// UFG の減速計算に使った等価なセルの外半径 (cm)。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
+    /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある
+    pub sph: Option<Vec<Vec<f64>>>,
 }
 
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
@@ -258,6 +264,7 @@ pub fn shield_fuel(
             nuclides,
             effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
+            sph: ufg.as_ref().map(|c| c.sph.clone()),
         });
         match ufg {
             // リングごとの物質（真空のリングは真空のまま）
@@ -305,6 +312,8 @@ struct CellShielding {
     rings: Vec<(Option<Material>, Vec<usize>)>,
     /// 燃料の核種の実効断面積。UFG の範囲の群は燃料のリングの値を中性子束と体積で平均し、範囲の外は等価原理の値
     effective: Vec<Shielded>,
+    /// [リング][UFG の範囲の群] の SPH 因子
+    sph: Vec<Vec<f64>>,
 }
 
 /// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
@@ -432,6 +441,27 @@ fn shield_cell(
         rings.push((Some(material), targets));
     }
 
+    // SPH 因子: 同じセルを多群で解いた中性子束のリング間の形が UFG と一致するよう、リングの物質に掛ける。
+    // 範囲の上の群の中性子束は UFG と同じく F = 1（群のレサジー幅）
+    let multigroup: Vec<Material> = rings
+        .iter()
+        .map(|(m, _)| m.clone().unwrap_or_else(|| Material::void(ng)))
+        .collect();
+    let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
+    let sph = sph_factors(&cylinder, &multigroup, top..bottom, &above, &spectrum.flux)?;
+    for (ring, ((material, _), mu)) in rings.iter_mut().zip(&sph).enumerate() {
+        if let Some(m) = material {
+            let mut all = vec![1.0; ng];
+            all[top..bottom].copy_from_slice(mu);
+            *m = m
+                .scaled(&all)
+                .map_err(|source| SelfShieldingError::Material {
+                    name: format!("ring {ring} of cell {cell}"),
+                    source,
+                })?;
+        }
+    }
+
     // 燃料の平均: 燃料のリングの中性子束と体積の重み
     let effective = carlvik
         .iter()
@@ -459,6 +489,7 @@ fn shield_cell(
         radius,
         rings,
         effective,
+        sph,
     }))
 }
 
@@ -1067,7 +1098,19 @@ mod tests {
                         chi: (0..ng)
                             .map(|g| if fission > 0.0 && g == 0 { 1.0 } else { 0.0 })
                             .collect(),
-                        scatter: vec![vec![elastic; ng]; ng],
+                        // 弾性散乱は自群に 9 割、次の群に 1 割（行の和が弾性散乱。最後の群は自群だけ）
+                        scatter: (0..ng)
+                            .map(|g| {
+                                (0..ng)
+                                    .map(|h| match (h == g, h == g + 1, g + 1 == ng) {
+                                        (true, _, true) => elastic,
+                                        (true, _, false) => 0.9 * elastic,
+                                        (_, true, _) => 0.1 * elastic,
+                                        _ => 0.0,
+                                    })
+                                    .collect()
+                            })
+                            .collect(),
                         shielded: vec![table(1.0), table(0.9), table(0.8)],
                         pointwise: xlc_xs::library::Pointwise {
                             energy: column(0),
@@ -1151,6 +1194,13 @@ mod tests {
             let radius = shielded.pins[0].equivalent.unwrap();
             assert!((0.6..0.8).contains(&radius), "{radius}");
             assert!(shielded.materials[shielded.region_material[3]].is_void());
+            // SPH 因子は等価なセルのリング（燃料3、ギャップ、被覆管、減速材）と UFG の範囲の群（1, 2）ごと。
+            // 真空のギャップは 1、燃料では 1 と違う
+            let sph = shielded.pins[0].sph.as_ref().unwrap();
+            assert_eq!(sph.len(), 6);
+            assert!(sph.iter().all(|row| row.len() == 2));
+            assert_eq!(sph[3], vec![1.0, 1.0]);
+            assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
         }
 
         #[test]
