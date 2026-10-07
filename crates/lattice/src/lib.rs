@@ -5,6 +5,7 @@
 
 pub mod cmfd;
 pub mod cp;
+pub mod equivalent;
 pub mod fewgroup;
 pub mod geometry;
 pub mod input;
