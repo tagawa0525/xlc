@@ -524,6 +524,34 @@ mod tests {
     }
 
     #[test]
+    fn hydrogen_moments_keep_the_mean_cosine() {
+        // 重心系で等方な A = 1 の弾性散乱は、入射エネルギーによらず実験室系の平均の余弦が 2/3 なので、
+        // どの入射の群でも P1 の行の和は P0 の行の和の 2/3。P0 は scattering_matrix と同じ
+        let groups = GroupStructure::new(vec![1.0e4, 1.0e3, 1.0e2]).unwrap();
+        let tables = BTreeMap::from([(2, constant(20.0))]);
+        let args = (&BTreeMap::new(), &BTreeMap::new());
+        let moments = scattering_moments(
+            &groups,
+            &Weight::lwr(),
+            1.0,
+            &tables,
+            args.0,
+            args.1,
+            None,
+            3,
+        )
+        .unwrap();
+        assert_eq!(moments.len(), 4);
+        let p0 =
+            scattering_matrix(&groups, &Weight::lwr(), 1.0, &tables, args.0, args.1, None).unwrap();
+        assert_eq!(moments[0], p0);
+        for (row0, row1) in moments[0].iter().zip(&moments[1]) {
+            let ratio = row1.iter().sum::<f64>() / row0.iter().sum::<f64>();
+            assert!((ratio - 2.0 / 3.0).abs() < 1e-10, "{ratio}");
+        }
+    }
+
+    #[test]
     fn discrete_inelastic_uses_q_value() {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
         let (awr, q) = (236.0, -4.49e4);
