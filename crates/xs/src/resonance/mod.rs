@@ -1,6 +1,5 @@
 //! 共鳴パラメータからの断面積の計算。
 
-mod complex;
 mod factors;
 mod fluctuation;
 mod line_shape;
