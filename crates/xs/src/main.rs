@@ -43,7 +43,7 @@ use xlc_xs::endf::Tape;
 use xlc_xs::library::{Library, NuclideData, is_nuclide_name};
 use xlc_xs::multigroup::{GroupStructure, Weight};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
-use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering};
+use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering, resolved_top};
 
 /// 入力ファイルを解釈した結果（パスは入力ファイルのディレクトリで解決済み）。
 #[derive(Debug, Clone, PartialEq)]
@@ -192,19 +192,38 @@ fn read_input(path: &Path) -> anyhow::Result<Input> {
 }
 
 fn run(input: &Input) -> anyhow::Result<()> {
+    let groups = GroupStructure::wims69();
+    // テープの読み込みと、核種ごとの処理は独立なので並列に行う
+    let tapes: Vec<anyhow::Result<Tape>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = input
+            .nuclides
+            .iter()
+            .map(|nuclide| scope.spawn(|| read_tape(&nuclide.endf)))
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join()
+                    .unwrap_or_else(|_| Err(anyhow!("reading panicked")))
+            })
+            .collect()
+    });
+    let tapes = tapes.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
+    let pointwise_range = pointwise_range(&input.nuclides, &tapes, &groups)?;
     let settings = Settings {
-        groups: GroupStructure::wims69(),
+        groups,
         weight: Weight::lwr(),
         sigma0: input.sigma0.clone(),
         thermal_cutoff: THERMAL_CUTOFF,
         tolerance: DEFAULT_TOLERANCE,
+        pointwise_range,
     };
-    // 核種ごとの処理は独立なので並列に行う
     let results: Vec<anyhow::Result<NuclideData>> = std::thread::scope(|scope| {
         let handles: Vec<_> = input
             .nuclides
             .iter()
-            .map(|nuclide| scope.spawn(|| process_file(nuclide, &settings)))
+            .zip(&tapes)
+            .map(|(nuclide, tape)| scope.spawn(|| process_file(nuclide, tape, &settings)))
             .collect();
         handles
             .into_iter()
@@ -218,28 +237,67 @@ fn run(input: &Input) -> anyhow::Result<()> {
     let library = Library {
         groups: settings.groups,
         sigma0: settings.sigma0,
+        pointwise_range: [pointwise_range.0, pointwise_range.1],
         nuclides,
     };
     std::fs::write(&input.output, library.to_msgpack()?)
         .with_context(|| format!("{}", input.output.display()))
 }
 
-/// 核種のファイルを読んで処理する（読み込みを含めた時間をログに出す）。
+fn read_tape(path: &Path) -> anyhow::Result<Tape> {
+    let context = || format!("{}", path.display());
+    let text = std::fs::read_to_string(path).with_context(context)?;
+    Tape::parse(&text).with_context(context)
+}
+
+/// ライブラリに持たせるポイントワイズの断面積の範囲 (eV): 熱中性子散乱の打ち切り以上で最も低い群の境界から、全核種の
+/// 分離共鳴の上端のうち最も高いもの以下で最も高い群の境界まで（どのセルの超微細群の範囲もこれに収まる）。
+fn pointwise_range(
+    nuclides: &[NuclideInput],
+    tapes: &[Tape],
+    groups: &GroupStructure,
+) -> anyhow::Result<(f64, f64)> {
+    let mut top: Option<f64> = None;
+    for (nuclide, tape) in nuclides.iter().zip(tapes) {
+        let materials = tape.materials();
+        let [mat] = materials[..] else {
+            return Err(anyhow!(
+                "{}: expected one material, found {materials:?}",
+                nuclide.name
+            ));
+        };
+        if let Some(t) = resolved_top(tape, mat).with_context(|| nuclide.name.clone())? {
+            top = Some(top.map_or(t, |u| u.max(t)));
+        }
+    }
+    let top = top.ok_or_else(|| anyhow!("no nuclide has resolved resonances"))?;
+    let bounds = groups.bounds();
+    let low = bounds.iter().rev().find(|&&b| b >= THERMAL_CUTOFF);
+    let high = bounds.iter().find(|&&b| b <= top);
+    match (low, high) {
+        (Some(&low), Some(&high)) if high > low => Ok((low, high)),
+        _ => Err(anyhow!(
+            "no group bounds between the thermal cutoff {THERMAL_CUTOFF} eV and {top} eV"
+        )),
+    }
+}
+
+/// 核種を処理する（処理の時間をログに出す）。
 #[tracing::instrument(name = "nuclide", skip_all, fields(name = %nuclide.name))]
-fn process_file(nuclide: &NuclideInput, settings: &Settings) -> anyhow::Result<NuclideData> {
-    let read = |path: &Path| -> anyhow::Result<Tape> {
-        let context = || format!("{}", path.display());
-        let text = std::fs::read_to_string(path).with_context(context)?;
-        Tape::parse(&text).with_context(context)
-    };
+fn process_file(
+    nuclide: &NuclideInput,
+    tape: &Tape,
+    settings: &Settings,
+) -> anyhow::Result<NuclideData> {
     let name = &nuclide.name;
-    let tape = read(&nuclide.endf)?;
     let thermal = match &nuclide.thermal {
-        Some(path) => Some(read_thermal_scattering(&read(path)?).with_context(|| name.clone())?),
+        Some(path) => {
+            Some(read_thermal_scattering(&read_tape(path)?).with_context(|| name.clone())?)
+        }
         None => None,
     };
     let data = process_nuclide(
-        &tape,
+        tape,
         name,
         &nuclide.temperatures,
         thermal.as_ref(),

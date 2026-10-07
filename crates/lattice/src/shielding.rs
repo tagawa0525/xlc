@@ -445,6 +445,7 @@ mod tests {
             nu_fission: vec![0.0, 0.0],
         };
         Library {
+            pointwise_range: [4.0, 1.0e4],
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 100.0, 1.0],
             nuclides: vec![NuclideData {
@@ -453,6 +454,7 @@ mod tests {
                 awr: 236.0,
                 potential: None,
                 temperatures: vec![TemperatureData {
+                    pointwise: Default::default(),
                     temperature: T,
                     chi: vec![0.0, 0.0],
                     scatter: vec![vec![6.0, 2.0], vec![0.5, 15.0]],
@@ -587,6 +589,7 @@ mod tests {
                 awr: 1.0,
                 potential: None,
                 temperatures: vec![TemperatureData {
+                    pointwise: Default::default(),
                     temperature: T,
                     chi: if fissile {
                         vec![1.0, 0.0]
@@ -606,6 +609,7 @@ mod tests {
             let u238 = |t: f64, e: f64| table([t, 10.0], [e, 4.0], [0.0, 0.0]);
             let constant = |total, fission| vec![table(total, [6.0, 4.0], fission); 3];
             Library {
+                pointwise_range: [4.0, 1.0e4],
                 groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
                 sigma0: vec![1.0e10, 100.0, 1.0],
                 nuclides: vec![
