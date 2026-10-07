@@ -145,6 +145,10 @@ def geometry_of(
     gap: openmc.Material | None = None,
 ) -> tuple[openmc.Geometry, float]:
     """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。"""
+    if problem not in FUEL_TEMPERATURE:
+        raise SystemExit(
+            f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
+        )
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
