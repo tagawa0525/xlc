@@ -472,6 +472,41 @@ mod tests {
     }
 
     #[test]
+    fn potential_scattering_comes_from_the_s_wave_radius() {
+        use crate::endf::rec;
+        let expected = 4.0 * std::f64::consts::PI * 0.948 * 0.948;
+        // MLBW: AP
+        let mlbw = potential_scattering(&resolved_tape(), 1).unwrap().unwrap();
+        assert!((mlbw - expected).abs() < 1e-12 * expected);
+        // Reich-Moore で AP が 0 なら、l=0 の APL（U-238 と同じ）
+        let text = [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["9.223800+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0-5", "2.0+4", "1", "3", "0", "0"], 1, 2, 151),
+            rec(["0.0", "0.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.948", "0", "0", "6", "1"], 1, 2, 151),
+            rec(
+                ["6.674", "0.5", "1.5e-3", "2.3e-2", "0.0", "0.0"],
+                1,
+                2,
+                151,
+            ),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat();
+        let rm = potential_scattering(&Tape::parse(&text).unwrap(), 1)
+            .unwrap()
+            .unwrap();
+        assert!((rm - expected).abs() < 1e-12 * expected);
+        // 分離共鳴がなければ持たない
+        assert!(
+            potential_scattering(&unresolved_tape(), 1)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
     fn no_resolved_range_needs_no_slowing_down() {
         let groups = GroupStructure::new(vec![1.0e5, 1.0e4, 1.0e-5]).unwrap();
         assert!(
