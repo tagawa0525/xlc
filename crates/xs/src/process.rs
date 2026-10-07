@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, parse_nubar};
+use crate::endf::{
+    Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
+};
 use crate::library::{NuclideData, Shielded, TemperatureData};
 use crate::multigroup::{
     Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
@@ -47,6 +49,14 @@ pub enum ProcessError {
     NoIncoherent,
     #[error("more than one unresolved range")]
     MultipleUnresolved,
+    #[error(
+        "the R-matrix limited range has no s-wave elastic channel for the potential scattering"
+    )]
+    NoSWaveRadius,
+    #[error("s-wave scattering radius {0} must be positive")]
+    SWaveRadius(f64),
+    #[error("s-wave elastic channels have different radii {0:?}")]
+    SWaveRadii(Vec<f64>),
     #[error("expected one material, found {0:?}")]
     Materials(Vec<i32>),
     #[error("MF3 MT{0} not found")]
@@ -194,6 +204,62 @@ pub fn slowing_down_range(
     }))
 }
 
+/// 分離共鳴を持つ核種のポテンシャル散乱断面積 4π a² (barn)。a は上端がいちばん高い分離共鳴の範囲の、
+/// s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。R-matrix limited は
+/// 弾性散乱の l=0 のチャネルの APE）。分離共鳴がなければ `None`。ESSM の線源と全断面積に使う。
+pub fn potential_scattering(tape: &Tape, mat: i32) -> Result<Option<f64>, ProcessError> {
+    let Some(section) = tape.section(mat, 2, 151) else {
+        return Ok(None);
+    };
+    let mf2 = Mf2::parse(&section)?;
+    let Some(range) = mf2
+        .ranges
+        .iter()
+        .filter(|r| r.kind.is_resolved())
+        .max_by(|a, b| a.eh.total_cmp(&b.eh))
+    else {
+        return Ok(None);
+    };
+    let radius = s_wave_radius(&range.kind)?;
+    Ok(Some(4.0 * std::f64::consts::PI * radius * radius))
+}
+
+/// 分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。
+fn s_wave_radius(kind: &RangeKind) -> Result<f64, ProcessError> {
+    let radius = match kind {
+        RangeKind::ReichMoore(rm) => rm
+            .l_values
+            .iter()
+            .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
+            .map_or(rm.ap, |lv| lv.apl),
+        RangeKind::Mlbw(bw) => bw.ap,
+        RangeKind::RMatrixLimited(rml) => {
+            // l=0 の弾性散乱のチャネルはどれも同じ半径であること（違えば、どれを使うかの根拠がない）
+            let mut radii: Vec<f64> = rml
+                .spin_groups
+                .iter()
+                .flat_map(|g| &g.channels)
+                .filter(|c| c.l == OrbitalL::S && rml.pairs[c.pair].mt == 2)
+                .map(|c| c.ape)
+                .collect();
+            radii.sort_by(f64::total_cmp);
+            radii.dedup();
+            match radii[..] {
+                [] => return Err(ProcessError::NoSWaveRadius),
+                [radius] => radius,
+                _ => return Err(ProcessError::SWaveRadii(radii)),
+            }
+        }
+        RangeKind::ScatteringRadius { .. } | RangeKind::Unresolved(_) => {
+            return Err(ProcessError::NoSWaveRadius);
+        }
+    };
+    if !(radius > 0.0 && radius.is_finite()) {
+        return Err(ProcessError::SWaveRadius(radius));
+    }
+    Ok(radius)
+}
+
 /// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
 ///
 /// 弾性散乱の散乱行列の行の和は、熱領域の扱いを含む実効的な散乱断面積になる。無限希釈の弾性散乱との
@@ -285,6 +351,7 @@ pub fn process_nuclide(
         name: name.to_string(),
         za: head.za,
         awr: head.awr,
+        potential: potential_scattering(tape, mat)?,
         temperatures,
     })
 }
@@ -469,6 +536,102 @@ mod tests {
         // 重み関数の熱中性子の区切り 0.1 eV 以上で最も低い群の境界から、分離共鳴の上端 20 keV 以下で
         // 最も高い群の境界まで
         assert_eq!(slowing.range, (10.0, 1.0e4));
+    }
+
+    #[test]
+    fn potential_scattering_comes_from_the_s_wave_radius() {
+        use crate::endf::rec;
+        let expected = 4.0 * std::f64::consts::PI * 0.948 * 0.948;
+        // MLBW: AP
+        let mlbw = potential_scattering(&resolved_tape(), 1).unwrap().unwrap();
+        assert!((mlbw - expected).abs() < 1e-12 * expected);
+        // Reich-Moore で AP が 0 なら、l=0 の APL（U-238 と同じ）
+        let text = [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["9.223800+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["1.0-5", "2.0+4", "1", "3", "0", "0"], 1, 2, 151),
+            rec(["0.0", "0.0", "0", "0", "1", "0"], 1, 2, 151),
+            rec(["2.360060+2", "0.948", "0", "0", "6", "1"], 1, 2, 151),
+            rec(
+                ["6.674", "0.5", "1.5e-3", "2.3e-2", "0.0", "0.0"],
+                1,
+                2,
+                151,
+            ),
+            rec(["", "", "", "", "", ""], 1, 2, 0),
+        ]
+        .concat();
+        let rm = potential_scattering(&Tape::parse(&text).unwrap(), 1)
+            .unwrap()
+            .unwrap();
+        assert!((rm - expected).abs() < 1e-12 * expected);
+        // 分離共鳴がなければ持たない
+        assert!(
+            potential_scattering(&unresolved_tape(), 1)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn rejects_a_zero_s_wave_radius() {
+        use crate::endf::{ReichMoore, RmLValue};
+        let rm = RangeKind::ReichMoore(ReichMoore {
+            spi: 0.0,
+            ap: 0.0,
+            naps: 0,
+            l_values: vec![RmLValue {
+                awri: 236.0,
+                apl: 0.0,
+                l: OrbitalL::S,
+                resonances: vec![],
+            }],
+        });
+        assert!(matches!(
+            s_wave_radius(&rm),
+            Err(ProcessError::SWaveRadius(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_differing_s_wave_radii() {
+        use crate::endf::{ParticlePair, RMatrixLimited, RmlChannel, SpinGroup};
+        let pair = ParticlePair {
+            ma: 1.0,
+            mb: 56.0,
+            za: 0.0,
+            zb: 26.0,
+            ia: 0.5,
+            ib: 0.5,
+            q: 0.0,
+            pnt: 1,
+            shf: 0,
+            mt: 2,
+        };
+        let group = |aj: f64, ape: f64| SpinGroup {
+            aj,
+            pj: 0.0,
+            channels: vec![RmlChannel {
+                pair: 0,
+                l: OrbitalL::S,
+                sch: aj,
+                bnd: 0.0,
+                ape,
+                apt: ape,
+            }],
+            resonances: vec![],
+        };
+        let rml = |second: f64| {
+            RangeKind::RMatrixLimited(RMatrixLimited {
+                pairs: vec![pair.clone()],
+                spin_groups: vec![group(1.0, 0.63), group(2.0, second)],
+            })
+        };
+        assert_eq!(s_wave_radius(&rml(0.63)).unwrap(), 0.63);
+        assert!(matches!(
+            s_wave_radius(&rml(0.70)),
+            Err(ProcessError::SWaveRadii(_))
+        ));
     }
 
     #[test]
