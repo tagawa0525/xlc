@@ -445,8 +445,28 @@ mod tests {
         let flux = cell
             .fixed_source(&[0.8, 0.0, 0.8, 0.8], &[2.4, 0.0, 2.4, 2.4])
             .unwrap();
-        for i in [0, 2, 3] {
-            assert!(close(flux[i], 3.0, 1e-8), "{i}: {}", flux[i]);
+        // 真空の中では角度中性子束が弦に沿って変わらないので、真空のリングの中性子束も周りと同じになる
+        for (i, f) in flux.iter().enumerate() {
+            assert!(close(*f, 3.0, 1e-8), "{i}: {f}");
+        }
+    }
+
+    #[test]
+    fn quadrature_converges() {
+        // 黒に近い燃料を細かいリングに分け、水の線源から入る中性子束をみる
+        let radii = vec![0.1, 0.2, 0.3, 0.4096, 0.418, 0.475, 0.711];
+        let totals = [30.0, 30.0, 30.0, 30.0, 0.0, 0.3, 1.2];
+        let sources = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0];
+        let flux = |points| {
+            Cylinder::with_points(radii.clone(), points)
+                .unwrap()
+                .fixed_source(&totals, &sources)
+                .unwrap()
+        };
+        let coarse = flux(POINTS);
+        let fine = flux(4 * POINTS);
+        for (i, (c, f)) in coarse.iter().zip(&fine).enumerate() {
+            assert!((c - f).abs() <= 1e-6 * f, "{i}: {c} vs {f}");
         }
     }
 
