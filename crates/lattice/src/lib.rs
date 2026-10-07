@@ -9,6 +9,7 @@ pub mod equivalent;
 pub mod fewgroup;
 pub mod geometry;
 pub mod input;
+mod lu;
 pub mod macroscopic;
 pub mod material;
 pub mod moc;
