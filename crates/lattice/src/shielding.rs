@@ -1151,6 +1151,13 @@ mod tests {
             let radius = shielded.pins[0].equivalent.unwrap();
             assert!((0.6..0.8).contains(&radius), "{radius}");
             assert!(shielded.materials[shielded.region_material[3]].is_void());
+            // SPH 因子は等価なセルのリング（燃料3、ギャップ、被覆管、減速材）と UFG の範囲の群（1, 2）ごと。
+            // 真空のギャップは 1、燃料では 1 と違う
+            let sph = shielded.pins[0].sph.as_ref().unwrap();
+            assert_eq!(sph.len(), 6);
+            assert!(sph.iter().all(|row| row.len() == 2));
+            assert_eq!(sph[3], vec![1.0, 1.0]);
+            assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
         }
 
         #[test]
