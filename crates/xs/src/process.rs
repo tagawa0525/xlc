@@ -6,8 +6,8 @@ use crate::endf::{Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, RangeKind, Tab1, Tape, pars
 use crate::library::{NuclideData, Shielded, TemperatureData};
 use crate::multigroup::{
     Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
-    Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
-    scattering_matrix, shielded_averages,
+    SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
+    fission_spectrum, scattering_matrix, shielded_averages,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
@@ -157,6 +157,36 @@ pub fn unresolved_shielding(
     )?))
 }
 
+/// 分離共鳴の範囲を持つ核種の、σ0 ごとの群定数の重みを減速計算で作る範囲（docs/plans/m2-assembly.md）。
+/// 最も低い群の境界から、分離共鳴の上端以下で最も高い群の境界まで。分離共鳴の範囲がなければ `None`。
+pub fn slowing_down_range(
+    tape: &Tape,
+    mat: i32,
+    groups: &GroupStructure,
+) -> Result<Option<SlowingDown>, ProcessError> {
+    let Some(section) = tape.section(mat, 2, 151) else {
+        return Ok(None);
+    };
+    let mf2 = Mf2::parse(&section)?;
+    let Some(top) = mf2
+        .ranges
+        .iter()
+        .filter(|r| r.kind.is_resolved())
+        .map(|r| r.eh)
+        .reduce(f64::max)
+    else {
+        return Ok(None);
+    };
+    let bounds = groups.bounds();
+    let (Some(&low), Some(&high)) = (bounds.last(), bounds.iter().find(|&&b| b <= top)) else {
+        return Ok(None);
+    };
+    Ok((high > low).then_some(SlowingDown {
+        awr: mf2.awr,
+        range: (low, high),
+    }))
+}
+
 /// 熱領域の散乱の扱い（自由ガス、S(α, β)）による弾性散乱の群断面積の変化。
 ///
 /// 弾性散乱の散乱行列の行の和は、熱領域の扱いを含む実効的な散乱断面積になる。無限希釈の弾性散乱との
@@ -275,6 +305,7 @@ impl Common<'_> {
         let ng = groups.len();
         let tables = self.cold.at(temperature);
         let shielding = unresolved_shielding(self.tape, self.mat, temperature, &settings.sigma0)?;
+        let slowing = slowing_down_range(self.tape, self.mat, groups)?;
         let averages = shielded_averages(
             groups,
             weight,
@@ -282,7 +313,7 @@ impl Common<'_> {
             self.nubar,
             &settings.sigma0,
             shielding.as_ref(),
-            None,
+            slowing.as_ref(),
         )?;
         let chi = match (tables.get(&18), self.nubar, self.mf5) {
             (None, ..) => vec![0.0; ng],
