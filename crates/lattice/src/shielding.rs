@@ -649,6 +649,34 @@ mod tests {
         }
 
         #[test]
+        fn reports_each_pin_with_its_nuclides() {
+            let library = library();
+            let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let cells: Vec<usize> = shielded.pins.iter().map(|p| p.cell).collect();
+            assert_eq!(cells, vec![0, 1, 2]);
+            let pin = &shielded.pins[0];
+            assert_eq!(pin.dancoff.len(), 2);
+            let names: Vec<&str> = pin.nuclides.iter().map(|(n, _)| n.name.as_str()).collect();
+            assert_eq!(names, vec!["U-238", "U-235"]);
+            // 物質の全断面積は、核種の全断面積と個数密度の積の和
+            let material = &shielded.materials[shielded.region_material[0]];
+            let sum: f64 = pin
+                .nuclides
+                .iter()
+                .map(|(n, density)| density * n.total[0])
+                .sum();
+            assert!((material.total[0] - sum).abs() < 1e-12 * sum);
+        }
+
+        #[test]
         fn pins_next_to_water_are_shielded_less() {
             let library = library();
             // 領域: セル0 (燃料, 水), セル1 (燃料, 水), セル2 (燃料, 水), セル3 (水)
