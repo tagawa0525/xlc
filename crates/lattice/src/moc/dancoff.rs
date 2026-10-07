@@ -36,6 +36,8 @@ impl Default for DancoffOptions {
 pub enum DancoffError {
     #[error("{given} values for {regions} regions")]
     Regions { given: usize, regions: usize },
+    #[error("no region outside the fuel")]
+    NoModerator,
     #[error("region {0}: total cross sections must be positive and finite")]
     Total(usize),
     #[error("fuel in cell {0} touches the cell boundary; the pin must be surrounded by non-fuel")]
@@ -61,7 +63,11 @@ pub fn dancoff(
             return Err(DancoffError::Regions { given, regions });
         }
     }
-    let ng = totals.first().map_or(0, Vec::len);
+    // 群の数は燃料の外の領域から取る（燃料の行は使わない）
+    let ng = (0..regions)
+        .find(|&r| !fuel[r])
+        .map(|r| totals[r].len())
+        .ok_or(DancoffError::NoModerator)?;
     for (region, t) in totals.iter().enumerate() {
         let valid = |v: &f64| *v > 0.0 && v.is_finite();
         if !fuel[region] && (t.len() != ng || !t.iter().all(valid)) {
@@ -102,21 +108,21 @@ pub fn dancoff(
             .sum();
         let n = track.segments.len();
         for forward in [true, false] {
-            let mut previous = None;
+            let mut previous: Option<usize> = None;
             for step in 0..n {
                 let s = if forward { step } else { n - 1 - step };
                 let region = track.segments[s].region;
-                let current = fuel[region].then_some(cell_of[region]);
-                if let Some(cell) = current {
-                    // 燃料が格子の端やセルの境目に接していると、孤立したピンへの入射として数えられない
-                    if step == 0 || step == n - 1 || previous.is_some_and(|c| c != cell) {
-                        return Err(DancoffError::FuelOnBoundary(cell));
-                    }
-                    if previous.is_none() {
-                        isolated[cell] += weight;
+                if fuel[region] {
+                    let cell = cell_of[region];
+                    // 燃料には同じセルの燃料の外の領域から入ること。格子の端やセルの境目から直接入ると、
+                    // 孤立したピンへの入射として数えられない（逆向きのスイープで、出る側も確かめる）
+                    match previous {
+                        Some(p) if fuel[p] && cell_of[p] == cell => {}
+                        Some(p) if !fuel[p] && cell_of[p] == cell => isolated[cell] += weight,
+                        _ => return Err(DancoffError::FuelOnBoundary(cell)),
                     }
                 }
-                previous = current;
+                previous = Some(region);
             }
         }
     }
