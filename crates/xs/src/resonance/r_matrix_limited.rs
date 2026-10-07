@@ -379,7 +379,7 @@ fn x_at_pole(mut m: Vec<Complex64>, w: &[f64], n: usize) -> Result<Vec<Complex64
         })
         .collect();
     solve(&mut m, &mut inverse, n)?;
-    pole_limit(&mut inverse, w, n);
+    pole_limit(&mut inverse, w, n)?;
     Ok((0..n * n)
         .map(|i| {
             // i(δ − M⁻¹)
