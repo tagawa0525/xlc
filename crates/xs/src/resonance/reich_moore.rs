@@ -2,6 +2,9 @@
 //!
 //! NJOY2016 reconr の csrmat と同じ手順で計算する。捕獲は消去されたチャネルとして扱い、
 //! 中性子と2つの核分裂チャネルの 3×3 の R 行列を解く。レベルシフトは使わない。
+//!
+//! 捕獲幅のない共鳴のエネルギーちょうどでは R 行列が発散するが、断面積は有限の極限を持つ。その共鳴を
+//! 極として分け、R-matrix limited と同じ Sherman-Morrison の公式で極限を取る。NJOY はこの点で 0/0 になる。
 
 use std::f64::consts::PI;
 
@@ -19,6 +22,8 @@ pub enum ReichMooreError {
     /// J は ENDF と同じく、もう一方のチャネルスピンの共鳴の組を負で表す
     #[error("singular level matrix at {energy} eV (l = {l}, J = {j})")]
     Singular { energy: f64, l: u32, j: f64 },
+    /// 同じ組で、捕獲幅のない共鳴が同じエネルギーに複数ある（階数 2 以上の極限には対応しない）。
+    /// J の符号は `Singular` と同じ
     #[error("several resonances without capture width at {energy} eV (l = {l}, J = {j})")]
     Poles { energy: f64, l: u32, j: f64 },
 }
@@ -321,7 +326,7 @@ impl ChannelGroup {
             // 極の共鳴を含む K は発散するので、極限の M^{-1} から差を取る。極の近くでは x は 1 の程度なので、
             // 桁落ちは起きない
             Some(a) => {
-                pole_limit(&mut inv[..n * n], &a[..n], n);
+                pole_limit(&mut inv[..n * n], &a[..n], n)?;
                 Complex64::ONE - inv[0]
             }
         };
