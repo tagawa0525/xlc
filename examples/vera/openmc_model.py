@@ -138,17 +138,20 @@ def tube(inner: float, outer: float, clad: openmc.Material, water: openmc.Materi
 
 
 def geometry_of(
-    problem: str, fuel: openmc.Material, clad: openmc.Material, water: openmc.Material
+    problem: str,
+    fuel: openmc.Material,
+    clad: openmc.Material,
+    water: openmc.Material,
+    gap: openmc.Material | None = None,
 ) -> tuple[openmc.Geometry, float]:
-    """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。"""
+    """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。"""
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
     rod = openmc.Universe(
         cells=[
             openmc.Cell(fill=fuel, region=-pellet),
-            # ギャップは真空
-            openmc.Cell(region=+pellet & -inner),
+            openmc.Cell(fill=gap, region=+pellet & -inner),
             openmc.Cell(fill=clad, region=+inner & -outer),
             openmc.Cell(fill=water, region=+outer),
         ]
