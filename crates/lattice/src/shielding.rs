@@ -1067,7 +1067,19 @@ mod tests {
                         chi: (0..ng)
                             .map(|g| if fission > 0.0 && g == 0 { 1.0 } else { 0.0 })
                             .collect(),
-                        scatter: vec![vec![elastic; ng]; ng],
+                        // 弾性散乱は自群に 9 割、次の群に 1 割（行の和が弾性散乱。最後の群は自群だけ）
+                        scatter: (0..ng)
+                            .map(|g| {
+                                (0..ng)
+                                    .map(|h| match (h == g, h == g + 1, g + 1 == ng) {
+                                        (true, _, true) => elastic,
+                                        (true, _, false) => 0.9 * elastic,
+                                        (_, true, _) => 0.1 * elastic,
+                                        _ => 0.0,
+                                    })
+                                    .collect()
+                            })
+                            .collect(),
                         shielded: vec![table(1.0), table(0.9), table(0.8)],
                         pointwise: xlc_xs::library::Pointwise {
                             energy: column(0),
