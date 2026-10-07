@@ -324,6 +324,23 @@ mod tests {
     }
 
     #[test]
+    fn fission_matrix_sums_each_term() {
+        // 核種ごとの νΣf(g) χ(g') の和 [入射の群][出射の群]
+        let mut m = mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
+        m.fission_terms.push(FissionTerm {
+            chi: vec![0.25, 0.75],
+            nu_fission: vec![0.1, 0.2],
+        });
+        let expected = [[0.025 + 0.025, 0.075], [0.05 + 0.05, 0.15]];
+        let matrix = m.fission_matrix();
+        for (row, e) in matrix.iter().zip(expected) {
+            for (v, e) in row.iter().zip(e) {
+                assert!((v - e).abs() < 1e-15, "{matrix:?}");
+            }
+        }
+    }
+
+    #[test]
     fn fissile_nuclide_needs_normalized_chi() {
         let mut lib = library();
         lib.nuclides[0].temperatures[0].chi = vec![0.0, 0.0];
