@@ -649,11 +649,14 @@ fn shielded_nuclide(
     let ng = library.groups.len();
     let infinite = library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let dilute = library.shielded(name, temperature, &vec![*infinite; ng])?;
-    for (g, row) in nuclide.scatter.iter_mut().enumerate() {
-        let sum: f64 = row.iter().sum();
+    // 弾性散乱の変化を P0 の行の和に入れ、どの次数の行も同じ比で変える（角度分布の形は変えない）
+    for g in 0..ng {
+        let sum: f64 = nuclide.scatter[g].iter().sum();
         if sum > 0.0 {
             let factor = (sum + shielded.elastic[g] - dilute.elastic[g]) / sum;
-            row.iter_mut().for_each(|v| *v *= factor);
+            std::iter::once(&mut nuclide.scatter)
+                .chain(&mut nuclide.anisotropic)
+                .for_each(|m| m[g].iter_mut().for_each(|v| *v *= factor));
         }
     }
     nuclide.total.clone_from(&shielded.total);
