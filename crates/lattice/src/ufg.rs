@@ -752,6 +752,41 @@ mod tests {
     }
 
     #[test]
+    fn discontinuities_keep_both_limits() {
+        // 500 eV で 10 b から 20 b に跳ぶ微量の核種: 中性子束は 1/E のままなので、群平均は両側の値の
+        // レサジーの重みの平均になる
+        let step = Spec {
+            name: "Pu-239",
+            awr: 236.999,
+            top: None,
+            points: vec![
+                [4.0, 10.0, 0.0, 0.0],
+                [500.0, 10.0, 0.0, 0.0],
+                [500.0, 20.0, 0.0, 0.0],
+                [2.0e4, 20.0, 0.0, 0.0],
+            ],
+        };
+        let lib = library(vec![
+            constant("U-238", 236.0, 11.0, 11.0, 0.0),
+            constant("H-2", 1.9968, 3.4, 3.4, 0.0),
+            step,
+        ]);
+        let fuel = material(&[("U-238", 0.022), ("Pu-239", 1.0e-12)]);
+        let water = material(&[("H-2", 0.05)]);
+        let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+        let spectrum =
+            slowing_down(&lib, &cell, &[Some(&fuel), Some(&water)], [4.0, 1.0e4]).unwrap();
+        // 1 keV〜100 eV の群
+        let k = 3 - spectrum.groups.start;
+        let expected = (10.0 * 5.0f64.ln() + 20.0 * 2.0f64.ln()) / 10.0f64.ln();
+        let total = spectrum.nuclides[0][1].total[k];
+        assert!(
+            (total - expected).abs() < 1e-9 * expected,
+            "{total} vs {expected}"
+        );
+    }
+
+    #[test]
     fn hydrogen_slowing_down_matches_the_analytic_solution() {
         // H と吸収だけの核種の均質な媒質: 衝突密度 q は dq/du = −r q で減る。
         // r = 1 − Σs/((1 − α)Σt)、q(0) は範囲の上（中性子束 1/E、群の上端より上は 0）からの散乱
