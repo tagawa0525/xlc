@@ -1,15 +1,17 @@
-//! 等価原理による燃料の自己遮蔽（Dancoff 係数を入れた Carlvik の2項有理近似）。
+//! 燃料の自己遮蔽。背景断面積は ESSM（埋め込み自己遮蔽法）で求める（docs/plans/m2-assembly.md）。
 //!
-//! 燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
-//! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
-//! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
-//! （ライブラリの重み w/(σt + σ0) での群平均では、この式が厳密に成り立つ）。
+//! 共鳴の群ごとの固定源の輸送方程式 Ω·∇ψ + Σ_i (Σa,i + Σp,i) ψ = Σ_i Σp,i / 4π（NR 近似）を格子全体の MOC で
+//! 解き、ピンの燃料の平均の中性子束 φ から Σb = Σa φ / (1 − φ) とする。ライブラリの σ0 は吸収体自身の散乱を
+//! 含まないので、核種 R の σ0 は (Σb − N_R σp,R + Σ_{j≠R} N_j σa,j) / N_R（均質な媒質では厳密な σ0 に戻る）。
+//! 吸収は σ0 によるので、σ0 と実効断面積を収束するまで交互に求める。
+//!
+//! 等価原理（Dancoff 係数と Carlvik の2項有理近似）の関数は、置き換える前の方式として残っている。
 
 use xlc_xs::library::{Library, LookupError, Nuclide, Shielded};
 
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
-use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
+use crate::moc::fixed_source::{FixedSourceError, FixedSourceOptions, fixed_source};
 use crate::tracking::Tracking;
 
 /// 格子の燃料の自己遮蔽の反復の条件。
@@ -18,7 +20,7 @@ pub struct ShieldingOptions {
     /// 燃料の各核種の全断面積の相対変化の上限
     pub tolerance: f64,
     pub max_iterations: usize,
-    pub dancoff: DancoffOptions,
+    pub fixed_source: FixedSourceOptions,
 }
 
 impl Default for ShieldingOptions {
@@ -26,7 +28,7 @@ impl Default for ShieldingOptions {
         Self {
             tolerance: 1.0e-6,
             max_iterations: 100,
-            dancoff: DancoffOptions::default(),
+            fixed_source: FixedSourceOptions::default(),
         }
     }
 }
@@ -38,18 +40,16 @@ pub enum SelfShieldingError {
     UnknownMaterial(String),
     #[error("{given} region materials for {regions} regions")]
     Regions { given: usize, regions: usize },
-    #[error("cell {0}: fuel must fill the innermost rings of a ring cell")]
-    FuelShape(usize),
     #[error("cell {0}: more than one fuel material")]
     MixedFuel(usize),
     #[error("cell {0}: non-finite shielded cross sections")]
     NonFinite(usize),
-    #[error("cell {cell}: shielding not converged in {iterations} iterations")]
-    NotConverged { cell: usize, iterations: usize },
+    #[error("shielding not converged in {0} iterations")]
+    NotConverged(usize),
     #[error("material `{name}`: {source}")]
     Material { name: String, source: MaterialError },
     #[error(transparent)]
-    Dancoff(#[from] DancoffError),
+    FixedSource(#[from] FixedSourceError),
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -74,15 +74,31 @@ pub struct FuelShielding {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinShielding {
     pub cell: usize,
-    /// 群ごとの Dancoff 係数
-    pub dancoff: Vec<f64>,
+    /// [核種][群] の背景断面積 σ0 (barn)（`nuclides` の順）
+    pub sigma0: Vec<Vec<f64>>,
     /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
     pub nuclides: Vec<(Nuclide, f64)>,
     /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）
     pub effective: Vec<Shielded>,
 }
 
-/// 格子の燃料（核分裂する核種を含む物質）を、ピンごとの Dancoff 係数と等価原理で自己遮蔽する。
+/// 核種の、ESSM の方程式に使う吸収 σa（全 − 弾性）とポテンシャル散乱 σp (barn) の群ごとの値。
+struct Parts {
+    absorption: Vec<f64>,
+    potential: Vec<f64>,
+}
+
+/// 1本のピンの燃料の反復の状態。
+struct Pin {
+    cell: usize,
+    regions: Vec<usize>,
+    material: usize,
+    /// 核種ごとの今の実効断面積と σ0
+    tables: Vec<Shielded>,
+    sigma0: Vec<Vec<f64>>,
+}
+
+/// 格子の燃料（核分裂する核種を含む物質）を、ESSM の背景断面積で自己遮蔽する。
 /// 被覆管と減速材は無限希釈のまま。`region_materials` は領域ごとの物質の名前。
 pub fn shield_fuel(
     library: &Library,
@@ -99,7 +115,9 @@ pub fn shield_fuel(
             regions,
         });
     }
-    let dilute = materials
+    let ng = library.groups.len();
+    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
+    let mut dilute = materials
         .iter()
         .map(|m| {
             Material::mix(library, &m.composition, m.temperature).map_err(|source| {
@@ -112,8 +130,7 @@ pub fn shield_fuel(
         .collect::<Result<Vec<_>, _>>()?;
     // 真空の帯は、物質の一覧の最後に置く真空の物質にする
     let void = dilute.len();
-    let mut dilute = dilute;
-    dilute.push(Material::void(library.groups.len()));
+    dilute.push(Material::void(ng));
     let region_index = region_materials
         .iter()
         .map(|name| {
@@ -126,77 +143,201 @@ pub fn shield_fuel(
                 .ok_or_else(|| SelfShieldingError::UnknownMaterial(name.clone()))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let fuel: Vec<bool> = region_index
+    let is_fuel: Vec<bool> = dilute
         .iter()
-        .map(|&i| dilute[i].nu_fission.iter().any(|&v| v > 0.0))
+        .map(|m| m.nu_fission.iter().any(|&v| v > 0.0))
         .collect();
-    // 燃料の行は使わない
-    let totals: Vec<Vec<f64>> = region_index
-        .iter()
-        .zip(&fuel)
-        .map(|(&i, &f)| {
-            if f {
-                Vec::new()
-            } else {
-                dilute[i].total.clone()
+
+    // 物質ごと・核種ごとの σa と σp（無限希釈）
+    let parts = |m: &MaterialInput| -> Result<Vec<Parts>, SelfShieldingError> {
+        m.composition
+            .iter()
+            .map(|(name, _)| {
+                let table = library.shielded(name, m.temperature, &vec![infinite; ng])?;
+                let potential = library
+                    .nuclides
+                    .iter()
+                    .find(|n| &n.name == name)
+                    .and_then(|n| n.potential);
+                Ok(Parts {
+                    absorption: absorption(&table),
+                    potential: potential.map_or(table.elastic.clone(), |p| vec![p; ng]),
+                })
+            })
+            .collect()
+    };
+    let material_parts = materials.iter().map(parts).collect::<Result<Vec<_>, _>>()?;
+    // 燃料以外の領域の、ESSM の全断面積と線源（反復で変わらない）
+    let fixed_terms = |index: usize| -> (Vec<f64>, Vec<f64>) {
+        let Some(m) = materials.get(index) else {
+            return (vec![0.0; ng], vec![0.0; ng]);
+        };
+        let mut total = vec![0.0; ng];
+        let mut source = vec![0.0; ng];
+        for ((_, density), p) in m.composition.iter().zip(&material_parts[index]) {
+            for g in 0..ng {
+                total[g] += density * (p.absorption[g] + p.potential[g]);
+                source[g] += density * p.potential[g];
             }
-        })
-        .collect();
-    // 燃料のあるセルごとに、燃料の物質と、燃料が埋める内側のリングの外半径。Dancoff 係数を
-    // 求める前に確かめる（燃料が外側にあると、Dancoff 係数のほうが先に失敗して原因が分かりにくい）
+        }
+        (total, source)
+    };
+
+    // ピンごとの燃料の領域と物質
     let mut pins = Vec::new();
     for cell in 0..lattice.cells_per_side().pow(2) {
-        let range = lattice.cell_regions(cell);
-        let local: Vec<bool> = range.clone().map(|r| fuel[r]).collect();
-        if !local.contains(&true) {
+        let fuel_regions: Vec<usize> = lattice
+            .cell_regions(cell)
+            .filter(|&r| is_fuel[region_index[r]])
+            .collect();
+        let Some(&first) = fuel_regions.first() else {
             continue;
-        }
-        let pin = lattice.cell_type(cell);
-        let n_fuel = local.iter().take_while(|&&f| f).count();
-        let rings = n_fuel / pin.sectors();
-        // 燃料は内側のリングをちょうど埋め、その外側に燃料がないこと
-        if pin.is_grid()
-            || n_fuel % pin.sectors() != 0
-            || rings == 0
-            || rings > pin.radii().len()
-            || local[n_fuel..].contains(&true)
-        {
-            return Err(SelfShieldingError::FuelShape(cell));
-        }
-        let fuel_regions = range.start..range.start + n_fuel;
-        let index = region_index[range.start];
-        if region_index[fuel_regions.clone()]
-            .iter()
-            .any(|&i| i != index)
-        {
+        };
+        let material = region_index[first];
+        if fuel_regions.iter().any(|&r| region_index[r] != material) {
             return Err(SelfShieldingError::MixedFuel(cell));
         }
-        pins.push((cell, fuel_regions, index, pin.radii()[rings - 1]));
+        let m = &materials[material];
+        let tables = m
+            .composition
+            .iter()
+            .map(|(name, _)| library.shielded(name, m.temperature, &vec![infinite; ng]))
+            .collect::<Result<Vec<_>, _>>()?;
+        pins.push(Pin {
+            cell,
+            regions: fuel_regions,
+            material,
+            sigma0: vec![vec![infinite; ng]; tables.len()],
+            tables,
+        });
     }
-    let factors = dancoff(tracking, &totals, &fuel, &options.dancoff)?;
+    let volumes = tracking.volumes(regions);
 
+    for _ in 0..options.max_iterations {
+        // 領域ごとの ESSM の全断面積と線源
+        let (mut totals, mut sources): (Vec<Vec<f64>>, Vec<Vec<f64>>) =
+            region_index.iter().map(|&i| fixed_terms(i)).unzip();
+        for pin in &pins {
+            let m = &materials[pin.material];
+            let (mut total, mut source) = (vec![0.0; ng], vec![0.0; ng]);
+            for (((_, density), table), p) in m
+                .composition
+                .iter()
+                .zip(&pin.tables)
+                .zip(&material_parts[pin.material])
+            {
+                let a = absorption(table);
+                for g in 0..ng {
+                    total[g] += density * (a[g] + p.potential[g]);
+                    source[g] += density * p.potential[g];
+                }
+            }
+            for &r in &pin.regions {
+                totals[r].clone_from(&total);
+                sources[r].clone_from(&source);
+            }
+        }
+        let flux = fixed_source(tracking, &totals, &sources, &options.fixed_source)?;
+
+        let mut change = 0.0_f64;
+        for pin in &mut pins {
+            let m = &materials[pin.material];
+            let parts = &material_parts[pin.material];
+            let volume: f64 = pin.regions.iter().map(|&r| volumes[r]).sum();
+            let absorptions: Vec<Vec<f64>> = pin.tables.iter().map(absorption).collect();
+            let mut new_tables = Vec::with_capacity(pin.tables.len());
+            for (k, (name, density)) in m.composition.iter().enumerate() {
+                if *density == 0.0 {
+                    // 個数密度が 0 の核種は何にも寄与しないので、無限希釈のまま
+                    new_tables.push(pin.tables[k].clone());
+                    continue;
+                }
+                let sigma0: Vec<f64> = (0..ng)
+                    .map(|g| {
+                        let phi = pin
+                            .regions
+                            .iter()
+                            .map(|&r| volumes[r] * flux[r][g])
+                            .sum::<f64>()
+                            / volume;
+                        let sigma_a: f64 = m
+                            .composition
+                            .iter()
+                            .zip(&absorptions)
+                            .map(|((_, n), a)| n * a[g])
+                            .sum();
+                        let others: f64 = m
+                            .composition
+                            .iter()
+                            .zip(&absorptions)
+                            .enumerate()
+                            .filter(|&(j, _)| j != k)
+                            .map(|(_, ((_, n), a))| n * a[g])
+                            .sum();
+                        // 吸収がない（中性子束が減らない）群は無限希釈
+                        if sigma_a <= 0.0 || phi >= 1.0 {
+                            return infinite;
+                        }
+                        let background = sigma_a * phi / (1.0 - phi);
+                        let s = (background - density * parts[k].potential[g] + others) / density;
+                        // 表の最初の σ0 は無限希釈そのもの。それより大きい σ0 は無限希釈とする
+                        s.min(infinite)
+                    })
+                    .collect();
+                new_tables.push(library.shielded(name, m.temperature, &sigma0)?);
+                pin.sigma0[k] = sigma0;
+            }
+            let finite = |s: &Shielded| {
+                [&s.total, &s.elastic, &s.fission, &s.nu_fission]
+                    .iter()
+                    .all(|v| v.iter().all(|x| x.is_finite()))
+            };
+            if !new_tables.iter().all(finite) {
+                return Err(SelfShieldingError::NonFinite(pin.cell));
+            }
+            for (new, old) in new_tables.iter().zip(&pin.tables) {
+                for (a, b) in new.total.iter().zip(&old.total) {
+                    change = change.max(((a - b) / b).abs());
+                }
+            }
+            pin.tables = new_tables;
+        }
+        if change <= options.tolerance {
+            return finish(library, materials, dilute, region_index, pins);
+        }
+    }
+    Err(SelfShieldingError::NotConverged(options.max_iterations))
+}
+
+/// 吸収（全 − 弾性。共鳴の群では捕獲と核分裂の和）。
+fn absorption(table: &Shielded) -> Vec<f64> {
+    table
+        .total
+        .iter()
+        .zip(&table.elastic)
+        .map(|(t, e)| t - e)
+        .collect()
+}
+
+/// 収束した実効断面積から、ピンごとの物質と結果を作る。
+fn finish(
+    library: &Library,
+    materials: &[MaterialInput],
+    dilute: Vec<Material>,
+    region_index: Vec<usize>,
+    pins: Vec<Pin>,
+) -> Result<FuelShielding, SelfShieldingError> {
     let mut shielded = FuelShielding {
         materials: dilute,
-        region_material: region_index.clone(),
-        pins: Vec::new(),
+        region_material: region_index,
+        pins: Vec::with_capacity(pins.len()),
     };
-    for (cell, fuel_regions, index, radius) in pins {
-        let factors = factors[cell]
-            .as_ref()
-            .ok_or(SelfShieldingError::FuelShape(cell))?;
-        let equivalence = Equivalence {
-            chord: 2.0 * radius,
-            terms: factors
-                .iter()
-                .map(|&c| carlvik(c))
-                .collect::<Result<_, _>>()?,
-        };
-        let material = &materials[index];
-        let effective = shield_material(library, material, &equivalence, options, cell)?;
+    for pin in pins {
+        let material = &materials[pin.material];
         let nuclides = material
             .composition
             .iter()
-            .zip(&effective)
+            .zip(&pin.tables)
             .map(|((name, density), s)| {
                 Ok((
                     shielded_nuclide(library, name, material.temperature, s)?,
@@ -210,82 +351,19 @@ pub fn shield_fuel(
                 source,
             }
         })?;
-        shielded.pins.push(PinShielding {
-            cell,
-            dancoff: factors.clone(),
-            nuclides,
-            effective,
-        });
-        let new = shielded.materials.len();
+        let index = shielded.materials.len();
         shielded.materials.push(mixed);
-        for region in fuel_regions {
-            shielded.region_material[region] = new;
+        for &r in &pin.regions {
+            shielded.region_material[r] = index;
         }
+        shielded.pins.push(PinShielding {
+            cell: pin.cell,
+            sigma0: pin.sigma0,
+            nuclides,
+            effective: pin.tables,
+        });
     }
     Ok(shielded)
-}
-
-/// 1本のピンの燃料の核種の実効断面積を、全断面積が収束するまで反復して求める。
-fn shield_material(
-    library: &Library,
-    material: &MaterialInput,
-    equivalence: &Equivalence,
-    options: &ShieldingOptions,
-    cell: usize,
-) -> Result<Vec<Shielded>, SelfShieldingError> {
-    let t = material.temperature;
-    let ng = library.groups.len();
-    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
-    let mut totals = material
-        .composition
-        .iter()
-        .map(|(name, _)| Ok(library.nuclide(name, t)?.total))
-        .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-    for _ in 0..options.max_iterations {
-        let tables = material
-            .composition
-            .iter()
-            .enumerate()
-            .map(|(k, (name, density))| {
-                // 個数密度が 0 の核種は何にも寄与しないので、無限希釈のままにする
-                if *density == 0.0 {
-                    return Ok(library.shielded(name, t, &vec![infinite; ng])?);
-                }
-                // 同じ燃料の他の核種の全断面積の和 (1/cm)
-                let background: Vec<f64> = (0..ng)
-                    .map(|g| {
-                        (material.composition.iter().zip(&totals))
-                            .enumerate()
-                            .filter(|&(j, _)| j != k)
-                            .map(|(_, ((_, n), sigma))| n * sigma[g])
-                            .sum()
-                    })
-                    .collect();
-                effective(library, name, t, *density, &background, equivalence)
-            })
-            .collect::<Result<Vec<_>, ShieldingError>>()?;
-        let finite = |s: &Shielded| {
-            [&s.total, &s.elastic, &s.fission, &s.nu_fission]
-                .iter()
-                .all(|v| v.iter().all(|x| x.is_finite()))
-        };
-        if !tables.iter().all(finite) {
-            return Err(SelfShieldingError::NonFinite(cell));
-        }
-        let change = tables
-            .iter()
-            .zip(&totals)
-            .flat_map(|(s, old)| s.total.iter().zip(old).map(|(a, b)| ((a - b) / b).abs()))
-            .fold(0.0, f64::max);
-        totals = tables.iter().map(|s| s.total.clone()).collect();
-        if change <= options.tolerance {
-            return Ok(tables);
-        }
-    }
-    Err(SelfShieldingError::NotConverged {
-        cell,
-        iterations: options.max_iterations,
-    })
 }
 
 /// 無限希釈の群定数を、自己遮蔽した値に置き換える。散乱行列は無限希釈の形のまま、行の和を
