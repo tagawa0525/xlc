@@ -51,6 +51,19 @@ pub struct Shielded {
     pub nu_fission: Vec<f64>,
 }
 
+/// 1つの温度での、ドップラー拡がりのポイントワイズの断面積 (barn)。`Library::pointwise_range` の範囲で、エネルギーの昇順
+/// （不連続点は同じエネルギーを2回持ち、左と右の極限の値を並べる）。点の間は lin-lin。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Pointwise {
+    /// エネルギー (eV)
+    pub energy: Vec<f64>,
+    pub total: Vec<f64>,
+    pub elastic: Vec<f64>,
+    pub fission: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+}
+
 /// 1つの温度での群定数。`shielded` は `Library::sigma0` の順。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -61,6 +74,8 @@ pub struct TemperatureData {
     /// 無限希釈の散乱行列 [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
     pub shielded: Vec<Shielded>,
+    /// 超微細群の減速計算に使うポイントワイズの断面積
+    pub pointwise: Pointwise,
 }
 
 /// 1核種の、温度ごとの群定数。
@@ -96,6 +111,8 @@ pub struct Library {
     pub groups: GroupStructure,
     /// 背景断面積 (barn)、降順。最初の値を無限希釈とみなす
     pub sigma0: Vec<f64>,
+    /// ポイントワイズの断面積を持つエネルギーの範囲 [下限, 上限] (eV)
+    pub pointwise_range: [f64; 2],
     pub nuclides: Vec<NuclideData>,
 }
 
@@ -155,22 +172,25 @@ struct LibraryFile {
     format: String,
     group_bounds: Vec<f64>,
     sigma0: Vec<f64>,
+    pointwise_range: [f64; 2],
     nuclides: Vec<NuclideData>,
 }
 
 impl Library {
-    /// MessagePack（フィールド名付きの map 形式）で書く。
-    /// MessagePack で書く。読むときと同じ検査（配列の長さ、有限な値）を書く前にもして、壊れたライブラリを書かない。
+    /// MessagePack（フィールド名付きの map 形式）で書く。読むときと同じ検査（配列の長さ、有限な値）を
+    /// 書く前にもして、壊れたライブラリを書かない。
     pub fn to_msgpack(&self) -> Result<Vec<u8>, LibraryError> {
+        check_range(self.pointwise_range).map_err(LibraryError::Invalid)?;
         let ng = self.groups.len();
         for n in &self.nuclides {
-            n.check(ng, self.sigma0.len())
+            n.check(ng, self.sigma0.len(), self.pointwise_range)
                 .map_err(LibraryError::Invalid)?;
         }
         let file = LibraryFile {
             format: FORMAT.into(),
             group_bounds: self.groups.bounds().to_vec(),
             sigma0: self.sigma0.clone(),
+            pointwise_range: self.pointwise_range,
             nuclides: self.nuclides.clone(),
         };
         Ok(msgpack::to_named(&file)?)
@@ -195,16 +215,19 @@ impl Library {
                 file.sigma0
             )));
         }
+        check_range(file.pointwise_range).map_err(invalid)?;
         let ng = groups.len();
         for (k, n) in file.nuclides.iter().enumerate() {
             if file.nuclides[..k].iter().any(|m| m.name == n.name) {
                 return Err(invalid(format!("nuclide {} appears twice", n.name)));
             }
-            n.check(ng, file.sigma0.len()).map_err(invalid)?;
+            n.check(ng, file.sigma0.len(), file.pointwise_range)
+                .map_err(invalid)?;
         }
         Ok(Self {
             groups,
             sigma0: file.sigma0,
+            pointwise_range: file.pointwise_range,
             nuclides: file.nuclides,
         })
     }
@@ -307,6 +330,17 @@ impl Library {
     }
 }
 
+/// ポイントワイズの断面積の範囲が正の有限な値で、下限 < 上限であることを確かめる。
+fn check_range([low, high]: [f64; 2]) -> Result<(), String> {
+    if low > 0.0 && high > low && high.is_finite() {
+        Ok(())
+    } else {
+        Err(format!(
+            "pointwise range [{low}, {high}] must be positive, finite and increasing"
+        ))
+    }
+}
+
 /// 構造体の位置（最上位、核種、温度、遮蔽断面積）がすべて map であることを確かめる。
 /// 項目の有無と型は、そのあとの serde の変換で確かめる。
 fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
@@ -334,7 +368,7 @@ impl From<MsgpackError> for LibraryError {
 
 impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
-    fn check(&self, ng: usize, n_sigma0: usize) -> Result<(), String> {
+    fn check(&self, ng: usize, n_sigma0: usize, range: [f64; 2]) -> Result<(), String> {
         let name = &self.name;
         if !is_nuclide_name(name) {
             return Err(format!(
@@ -382,12 +416,30 @@ impl NuclideData {
             if !t.shielded.iter().all(all_sized) {
                 return Err(at(format!("shielded cross sections must have {ng} groups")));
             }
-            let values = t.chi.iter().chain(t.scatter.iter().flatten()).chain(
-                t.shielded
-                    .iter()
-                    .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission])
-                    .flatten(),
-            );
+            let p = &t.pointwise;
+            let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission];
+            if columns.iter().any(|c| c.len() != p.energy.len()) {
+                return Err(at("pointwise columns must match the energies".into()));
+            }
+            if p.energy.windows(2).any(|w| w[1] < w[0]) {
+                return Err(at("pointwise energies must not decrease".into()));
+            }
+            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）
+            if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
+                return Err(at(format!("pointwise data must cover the range {range:?}")));
+            }
+            let values = t
+                .chi
+                .iter()
+                .chain(t.scatter.iter().flatten())
+                .chain(
+                    t.shielded
+                        .iter()
+                        .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission])
+                        .flatten(),
+                )
+                .chain(p.energy.iter())
+                .chain(columns.into_iter().flatten());
             if let Some(bad) = values.copied().find(|v| !v.is_finite()) {
                 return Err(at(format!("non-finite value {bad}")));
             }
@@ -420,6 +472,14 @@ pub(crate) mod tests {
 
     fn temperature(t: f64, fissile: bool) -> TemperatureData {
         TemperatureData {
+            // sample() の範囲 [4, 1e4] eV を覆う
+            pointwise: Pointwise {
+                energy: vec![4.0, 1.0e4],
+                total: vec![11.0, 10.0],
+                elastic: vec![9.0, 9.0],
+                fission: vec![0.0, 0.0],
+                nu_fission: vec![0.0, 0.0],
+            },
             temperature: t,
             chi: if fissile {
                 vec![1.0, 0.0]
@@ -443,6 +503,7 @@ pub(crate) mod tests {
                 .collect(),
         };
         Library {
+            pointwise_range: [4.0, 1.0e4],
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 10.0],
             nuclides: vec![
@@ -459,6 +520,56 @@ pub(crate) mod tests {
             Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap(),
             library
         );
+    }
+
+    #[test]
+    fn refuses_to_write_a_bad_pointwise_range() {
+        for range in [[0.0, 1.0e4], [1.0e4, 4.0], [4.0, f64::INFINITY]] {
+            let mut library = sample();
+            library.pointwise_range = range;
+            assert!(
+                matches!(library.to_msgpack(), Err(LibraryError::Invalid(_))),
+                "{range:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn pointwise_data_must_cover_the_range() {
+        let mut library = sample();
+        let pointwise = &mut library.nuclides[0].temperatures[0].pointwise;
+        // 上端 1e4 eV に届かない
+        *pointwise = Pointwise {
+            energy: vec![4.0, 100.0],
+            total: vec![11.0, 12.0],
+            elastic: vec![9.0, 10.0],
+            fission: vec![0.5, 0.4],
+            nu_fission: vec![1.2, 1.0],
+        };
+        assert!(matches!(
+            library.to_msgpack(),
+            Err(LibraryError::Invalid(_))
+        ));
+        library.nuclides[0].temperatures[0].pointwise = Pointwise::default();
+        assert!(matches!(
+            library.to_msgpack(),
+            Err(LibraryError::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn keeps_the_pointwise_data() {
+        let mut library = sample();
+        library.pointwise_range = [4.0, 1.0e4];
+        library.nuclides[0].temperatures[0].pointwise = Pointwise {
+            energy: vec![4.0, 1.0e4],
+            total: vec![11.0, 12.0],
+            elastic: vec![9.0, 10.0],
+            fission: vec![0.5, 0.4],
+            nu_fission: vec![1.2, 1.0],
+        };
+        let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+        assert_eq!(read, library);
     }
 
     #[test]
@@ -519,6 +630,7 @@ pub(crate) mod tests {
             format: "xlc-multigroup".into(),
             group_bounds: library.groups.bounds().to_vec(),
             sigma0: library.sigma0,
+            pointwise_range: library.pointwise_range,
             nuclides: library.nuclides,
         }
     }
@@ -546,7 +658,16 @@ pub(crate) mod tests {
         let value: std::collections::BTreeMap<String, serde::de::IgnoredAny> =
             rmp_serde::from_slice(&bytes).unwrap();
         let keys: Vec<&str> = value.keys().map(String::as_str).collect();
-        assert_eq!(keys, vec!["format", "group_bounds", "nuclides", "sigma0"]);
+        assert_eq!(
+            keys,
+            vec![
+                "format",
+                "group_bounds",
+                "nuclides",
+                "pointwise_range",
+                "sigma0"
+            ]
+        );
         #[derive(Deserialize)]
         struct Head {
             format: String,
