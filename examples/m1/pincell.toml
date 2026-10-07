@@ -1,6 +1,7 @@
 # M1 のピンセル（M0 と同じ組成、燃料 900 K・減速材 600 K、無限希釈）: 3.1 wt% の UO2（10.4 g/cm3）と水（0.74 g/cm3）。被覆管は含めない。
 # 個数密度は 1/(barn cm)。
 library = "m1.msgpack"
+self-shielding = false
 few-group = { output = "pincell-fg.msgpack", bounds = [1e7, 0.625, 1e-5] }
 pitch = 1.26
 azimuthal = 32

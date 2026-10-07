@@ -2,6 +2,7 @@
 //!
 //! ```toml
 //! library = "m1.msgpack"          # 多群ライブラリ（cross-sections と排他）
+//! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! pin-powers = "pins.msgpack"     # セルごとの核分裂率（平均が 1）
@@ -81,6 +82,8 @@ pub struct CellInput {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LatticeInput {
     pub cross_sections: CrossSections,
+    /// 燃料（核分裂する核種を含む物質）をピンごとに自己遮蔽する（ライブラリのとき）
+    pub self_shielding: bool,
     /// 少数群定数の出力と、その群境界 (eV)
     pub output: Option<(PathBuf, Vec<f64>)>,
     pub pin_powers: Option<PathBuf>,
@@ -120,6 +123,8 @@ pub enum InputError {
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct InputFile {
     library: Option<PathBuf>,
+    /// 省略すると、ライブラリのときは true
+    self_shielding: Option<bool>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
     few_group: Option<FewGroupEntry>,
@@ -206,6 +211,11 @@ impl LatticeInput {
         if macroscopic && file.material.is_some() {
             return Err(invalid("materials come from the cross-section file".into()));
         }
+        if macroscopic && file.self_shielding.is_some() {
+            return Err(invalid(
+                "`self-shielding` needs a library (nuclide data)".into(),
+            ));
+        }
         if macroscopic && file.few_group.is_some() {
             return Err(invalid(
                 "`few-group` needs a library (group energies)".into(),
@@ -256,6 +266,7 @@ impl LatticeInput {
             return Err(invalid("`rows` needs cell names in every row".into()));
         }
         Ok(Self {
+            self_shielding: !macroscopic && file.self_shielding.unwrap_or(true),
             cross_sections,
             output: file.few_group.map(|f| (f.output, f.bounds)),
             pin_powers: file.pin_powers,
@@ -477,6 +488,28 @@ zones = [{ material = "water", rings = 1 }]
     fn replaced(text: &str, from: &str, to: &str) -> Result<LatticeInput, InputError> {
         assert!(text.contains(from), "{from}");
         LatticeInput::parse(&text.replace(from, to))
+    }
+
+    #[test]
+    fn self_shielding_is_on_unless_turned_off() {
+        assert!(LatticeInput::parse(PIN_CELL).unwrap().self_shielding);
+        let off = replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            "library = \"m1.msgpack\"\nself-shielding = false",
+        )
+        .unwrap();
+        assert!(!off.self_shielding);
+    }
+
+    #[test]
+    fn self_shielding_needs_a_library() {
+        let result = replaced(
+            LATTICE,
+            "cross-sections = \"c5g7.toml\"",
+            "cross-sections = \"c5g7.toml\"\nself-shielding = true",
+        );
+        assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
     }
 
     #[test]
