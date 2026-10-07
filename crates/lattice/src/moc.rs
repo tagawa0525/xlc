@@ -372,8 +372,8 @@ struct Sweeper<'a> {
     ng: usize,
     /// [極角][群] の数
     width: usize,
-    /// [トラック] の区間ごと・極角ごと・群ごとの 1 - exp(-τ)
-    attenuation: Vec<Vec<f64>>,
+    /// [領域][群] の全断面積。減衰 1 - exp(-τ) はスイープのたびにその場で計算する
+    totals: Vec<f64>,
     /// 方位角ごとのトラックの番号の範囲
     azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
@@ -395,7 +395,6 @@ struct Directional {
 }
 
 impl<'a> Sweeper<'a> {
-    #[tracing::instrument(name = "attenuation table", level = "debug", skip_all)]
     fn new(
         tracking: &'a Tracking,
         materials: &[&Material],
@@ -415,27 +414,16 @@ impl<'a> Sweeper<'a> {
                 }
             }
         }
-        let attenuation = tracking
-            .tracks
+        let totals = materials
             .iter()
-            .map(|track| {
-                let mut values = Vec::with_capacity(track.segments.len() * width);
-                for s in &track.segments {
-                    for sin in POLAR_SIN {
-                        for t in &materials[s.region].total {
-                            values.push(-(-t * s.length / sin).exp_m1());
-                        }
-                    }
-                }
-                values
-            })
+            .flat_map(|m| m.total.iter().copied())
             .collect();
         Self {
             tracking,
             mesh,
             ng,
             width,
-            attenuation,
+            totals,
             azimuths: (0..tracking.azimuths.len())
                 .map(|a| tracking.azimuth_tracks(a))
                 .collect(),
@@ -662,7 +650,8 @@ impl<'a> Sweeper<'a> {
                                 }
                                 continue;
                             }
-                            let att = &self.attenuation[index][s * width..][..width];
+                            let length = track.segments[s].length;
+                            let total = &self.totals[region * ng..][..ng];
                             // 等方なら [群] を全ての極角で使い、非等方なら [極角][群]
                             let (q, d, stride) = match directional.as_mut() {
                                 None => (
@@ -681,9 +670,11 @@ impl<'a> Sweeper<'a> {
                             };
                             for (p, weight) in weights.iter().enumerate() {
                                 let (q, d) = (&q[p * stride..][..ng], &mut d[p * stride..][..ng]);
+                                let path = length / POLAR_SIN[p];
                                 for g in 0..ng {
                                     let j = p * ng + g;
-                                    let change = (psi[j] - q[g]) * att[j];
+                                    let attenuation = -(-total[g] * path).exp_m1();
+                                    let change = (psi[j] - q[g]) * attenuation;
                                     psi[j] -= change;
                                     d[g] += weight * change;
                                 }
