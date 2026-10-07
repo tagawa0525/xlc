@@ -7,7 +7,7 @@
 
 use xlc_xs::library::{Library, LookupError, Nuclide, Shielded};
 
-use crate::input::MaterialInput;
+use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
 use crate::tracking::Tracking;
@@ -96,9 +96,16 @@ pub fn shield_fuel(
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
+    // 真空の帯は、物質の一覧の最後に置く真空の物質にする
+    let void = dilute.len();
+    let mut dilute = dilute;
+    dilute.push(Material::void(library.groups.len()));
     let region_index = region_materials
         .iter()
         .map(|name| {
+            if name == VOID {
+                return Ok(void);
+            }
             materials
                 .iter()
                 .position(|m| &m.name == name)
