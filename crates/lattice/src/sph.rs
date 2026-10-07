@@ -34,6 +34,8 @@ pub enum SphError {
     },
     #[error("the reference flux must be {rings} rings of {groups} groups")]
     Reference { rings: usize, groups: usize },
+    #[error("ring {ring}: no multigroup flux in group {group} to match")]
+    Flux { ring: usize, group: usize },
     #[error("the multigroup equations of group {0} are singular")]
     Singular(usize),
     #[error("not converged in {0} iterations")]
@@ -167,6 +169,12 @@ pub fn sph_factors(
         let mut next = vec![vec![1.0; ng]; n];
         for k in 0..ng {
             for &r in &active {
+                if !(flux[r][k] > 0.0 && flux[r][k].is_finite()) {
+                    return Err(SphError::Flux {
+                        ring: r,
+                        group: groups.start + k,
+                    });
+                }
                 next[r][k] = reference[r][k] / flux[r][k];
             }
             // Σ V φ_ref / μ = Σ V φ_ref に規格化する
