@@ -51,6 +51,19 @@ pub struct Shielded {
     pub nu_fission: Vec<f64>,
 }
 
+/// 1つの温度での、ドップラー拡がりのポイントワイズの断面積 (barn)。`Library::pointwise_range` の範囲で、エネルギーの昇順
+/// （不連続点は同じエネルギーを2回持ち、左と右の極限の値を並べる）。点の間は lin-lin。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Pointwise {
+    /// エネルギー (eV)
+    pub energy: Vec<f64>,
+    pub total: Vec<f64>,
+    pub elastic: Vec<f64>,
+    pub fission: Vec<f64>,
+    pub nu_fission: Vec<f64>,
+}
+
 /// 1つの温度での群定数。`shielded` は `Library::sigma0` の順。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -61,6 +74,8 @@ pub struct TemperatureData {
     /// 無限希釈の散乱行列 [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
     pub shielded: Vec<Shielded>,
+    /// 超微細群の減速計算に使うポイントワイズの断面積
+    pub pointwise: Pointwise,
 }
 
 /// 1核種の、温度ごとの群定数。
@@ -96,6 +111,8 @@ pub struct Library {
     pub groups: GroupStructure,
     /// 背景断面積 (barn)、降順。最初の値を無限希釈とみなす
     pub sigma0: Vec<f64>,
+    /// ポイントワイズの断面積を持つエネルギーの範囲 [下限, 上限] (eV)
+    pub pointwise_range: [f64; 2],
     pub nuclides: Vec<NuclideData>,
 }
 
@@ -155,12 +172,13 @@ struct LibraryFile {
     format: String,
     group_bounds: Vec<f64>,
     sigma0: Vec<f64>,
+    pointwise_range: [f64; 2],
     nuclides: Vec<NuclideData>,
 }
 
 impl Library {
-    /// MessagePack（フィールド名付きの map 形式）で書く。
-    /// MessagePack で書く。読むときと同じ検査（配列の長さ、有限な値）を書く前にもして、壊れたライブラリを書かない。
+    /// MessagePack（フィールド名付きの map 形式）で書く。読むときと同じ検査（配列の長さ、有限な値）を
+    /// 書く前にもして、壊れたライブラリを書かない。
     pub fn to_msgpack(&self) -> Result<Vec<u8>, LibraryError> {
         let ng = self.groups.len();
         for n in &self.nuclides {
@@ -171,6 +189,7 @@ impl Library {
             format: FORMAT.into(),
             group_bounds: self.groups.bounds().to_vec(),
             sigma0: self.sigma0.clone(),
+            pointwise_range: self.pointwise_range,
             nuclides: self.nuclides.clone(),
         };
         Ok(msgpack::to_named(&file)?)
@@ -195,6 +214,13 @@ impl Library {
                 file.sigma0
             )));
         }
+        let [low, high] = file.pointwise_range;
+        if !(low > 0.0 && high >= low && high.is_finite()) {
+            return Err(invalid(format!(
+                "pointwise range {:?} must be positive and increasing",
+                file.pointwise_range
+            )));
+        }
         let ng = groups.len();
         for (k, n) in file.nuclides.iter().enumerate() {
             if file.nuclides[..k].iter().any(|m| m.name == n.name) {
@@ -205,6 +231,7 @@ impl Library {
         Ok(Self {
             groups,
             sigma0: file.sigma0,
+            pointwise_range: file.pointwise_range,
             nuclides: file.nuclides,
         })
     }
@@ -382,12 +409,26 @@ impl NuclideData {
             if !t.shielded.iter().all(all_sized) {
                 return Err(at(format!("shielded cross sections must have {ng} groups")));
             }
-            let values = t.chi.iter().chain(t.scatter.iter().flatten()).chain(
-                t.shielded
-                    .iter()
-                    .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission])
-                    .flatten(),
-            );
+            let p = &t.pointwise;
+            let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission];
+            if columns.iter().any(|c| c.len() != p.energy.len()) {
+                return Err(at("pointwise columns must match the energies".into()));
+            }
+            if p.energy.windows(2).any(|w| w[1] < w[0]) {
+                return Err(at("pointwise energies must not decrease".into()));
+            }
+            let values = t
+                .chi
+                .iter()
+                .chain(t.scatter.iter().flatten())
+                .chain(
+                    t.shielded
+                        .iter()
+                        .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission])
+                        .flatten(),
+                )
+                .chain(p.energy.iter())
+                .chain(columns.into_iter().flatten());
             if let Some(bad) = values.copied().find(|v| !v.is_finite()) {
                 return Err(at(format!("non-finite value {bad}")));
             }
@@ -420,6 +461,7 @@ pub(crate) mod tests {
 
     fn temperature(t: f64, fissile: bool) -> TemperatureData {
         TemperatureData {
+            pointwise: Default::default(),
             temperature: t,
             chi: if fissile {
                 vec![1.0, 0.0]
@@ -443,6 +485,7 @@ pub(crate) mod tests {
                 .collect(),
         };
         Library {
+            pointwise_range: [4.0, 1.0e4],
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 10.0],
             nuclides: vec![
@@ -534,6 +577,7 @@ pub(crate) mod tests {
             format: "xlc-multigroup".into(),
             group_bounds: library.groups.bounds().to_vec(),
             sigma0: library.sigma0,
+            pointwise_range: library.pointwise_range,
             nuclides: library.nuclides,
         }
     }
