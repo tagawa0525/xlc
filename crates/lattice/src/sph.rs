@@ -262,7 +262,7 @@ mod tests {
             .map(|(m, mu)| {
                 let mut all = vec![1.0; 4];
                 all[GROUPS].copy_from_slice(mu);
-                m.scaled(&all)
+                m.scaled(&all).unwrap()
             })
             .collect();
         let flux = multigroup_flux(&cell, &scaled, GROUPS, &[1.0]).unwrap();
@@ -316,5 +316,8 @@ mod tests {
         assert!(multigroup_flux(&cell, &materials(2.0), GROUPS, &[]).is_err());
         let reference = vec![vec![1.0; 2]; 4];
         assert!(sph_factors(&cell, &materials(2.0), GROUPS, &[1.0], &reference).is_err());
+        // 物質の群より先まで求める群の範囲
+        let reference = vec![vec![1.0; 5]; 4];
+        assert!(sph_factors(&cell, &materials(2.0), 1..6, &[1.0], &reference).is_err());
     }
 }

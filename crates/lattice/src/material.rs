@@ -256,7 +256,8 @@ mod tests {
     #[test]
     fn scaled_multiplies_the_reactions_of_each_group() {
         let m = mix(&library(), &[("F".into(), 0.01), ("M".into(), 0.03)]).unwrap();
-        let s = m.scaled(&[2.0, 0.5]);
+        assert!(m.scaled(&[2.0]).is_err());
+        let s = m.scaled(&[2.0, 0.5]).unwrap();
         assert_eq!(s.total, vec![m.total[0] * 2.0, m.total[1] * 0.5]);
         // 散乱は入射の群（行）の係数
         assert_eq!(
