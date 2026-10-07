@@ -364,7 +364,8 @@ pub fn solve(
     })
 }
 
-/// トラックのスイープ。トラックと物質から決まる量（方向ごとの球面調和関数など）を、反復の前に一度だけ求めて持つ。
+/// トラックのスイープ。方向や領域ごとに決まる量（球面調和関数、全断面積）を、反復の前に一度だけ求めて持つ。
+/// 区間の数に比例する量（減衰 1 - exp(-τ) など）は持たない。集合体でトラックを細かくするとメモリに載らないため。
 struct Sweeper<'a> {
     tracking: &'a Tracking,
     /// 正味の流れを数える粗メッシュ
@@ -372,8 +373,8 @@ struct Sweeper<'a> {
     ng: usize,
     /// [極角][群] の数
     width: usize,
-    /// [領域][群] の全断面積。減衰 1 - exp(-τ) はスイープのたびにその場で計算する
-    totals: Vec<f64>,
+    /// [領域][群] の全断面積。減衰 1 - exp(-τ) はスイープでトラックごとに計算する
+    totals: Vec<Vec<f64>>,
     /// 方位角ごとのトラックの番号の範囲
     azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
@@ -414,10 +415,7 @@ impl<'a> Sweeper<'a> {
                 }
             }
         }
-        let totals = materials
-            .iter()
-            .flat_map(|m| m.total.iter().copied())
-            .collect();
+        let totals = materials.iter().map(|m| m.total.clone()).collect();
         Self {
             tracking,
             mesh,
@@ -596,6 +594,8 @@ impl<'a> Sweeper<'a> {
             .enumerate()
             .try_for_each(|(azimuth, ((tally, outputs), range))| {
                 tally.clear();
+                // [区間][極角][群] の減衰。トラックの両向きで同じなので、トラックごとに一度求める
+                let mut attenuation = Vec::new();
                 // 非等方散乱では、線源と減衰の和を方向ごとに持つ
                 let mut directional =
                     (self.moments > 1).then(|| self.directional(equilibrium, azimuth));
@@ -603,6 +603,14 @@ impl<'a> Sweeper<'a> {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
                         std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
+                    attenuation.clear();
+                    for s in &track.segments {
+                        for sin in POLAR_SIN {
+                            for t in &self.totals[s.region] {
+                                attenuation.push(-(-t * s.length / sin).exp_m1());
+                            }
+                        }
+                    }
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
                         match self.tracking.incoming_source(index, forward) {
@@ -630,7 +638,8 @@ impl<'a> Sweeper<'a> {
                         let mut cell = self.mesh.cell(track.segments[first].region);
                         for step in 0..n {
                             let s = if forward { step } else { n - 1 - step };
-                            let region = track.segments[s].region;
+                            let (region, length) =
+                                (track.segments[s].region, track.segments[s].length);
                             // 隣のセルに移るときに通る面
                             let next = self.mesh.cell(region);
                             if next != cell {
@@ -640,7 +649,6 @@ impl<'a> Sweeper<'a> {
                             }
                             if let Some(v) = self.void[region] {
                                 // 真空では角度中性子束は変わらない。3次元の経路長 (長さ / sinθ) を掛けて数える
-                                let length = track.segments[s].length;
                                 let v = &mut tally.void_flux[v * ng..][..ng];
                                 for (p, weight) in weights.iter().enumerate() {
                                     let w = weight * length / POLAR_SIN[p];
@@ -650,8 +658,7 @@ impl<'a> Sweeper<'a> {
                                 }
                                 continue;
                             }
-                            let length = track.segments[s].length;
-                            let total = &self.totals[region * ng..][..ng];
+                            let att = &attenuation[s * width..][..width];
                             // 等方なら [群] を全ての極角で使い、非等方なら [極角][群]
                             let (q, d, stride) = match directional.as_mut() {
                                 None => (
@@ -670,11 +677,9 @@ impl<'a> Sweeper<'a> {
                             };
                             for (p, weight) in weights.iter().enumerate() {
                                 let (q, d) = (&q[p * stride..][..ng], &mut d[p * stride..][..ng]);
-                                let path = length / POLAR_SIN[p];
                                 for g in 0..ng {
                                     let j = p * ng + g;
-                                    let attenuation = -(-total[g] * path).exp_m1();
-                                    let change = (psi[j] - q[g]) * attenuation;
+                                    let change = (psi[j] - q[g]) * att[j];
                                     psi[j] -= change;
                                     d[g] += weight * change;
                                 }
