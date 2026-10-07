@@ -3,7 +3,8 @@
 使い方: python3 compare_pins.py <xlc の pins.msgpack> <OpenMC の pins.msgpack>
 
 どちらもセルごとの核分裂率（17 × 17、上の行から）。燃料ピン（核分裂率が正のセル）の平均で規格化し直し、
-相対差 (xlc / OpenMC − 1) の二乗平均と最大を表示する。
+相対差 (xlc / OpenMC − 1) の二乗平均と最大、水の穴（燃料のないセル）の上下左右の隣、斜めの隣、それ以外の
+ピンの平均を表示する。
 """
 
 import math
@@ -34,11 +35,31 @@ def main() -> None:
         for j, (a, b) in enumerate(zip(row_a, row_b))
         if a > 0 and b > 0
     ]
+    n = len(reference)
+    holes = {(i, j) for i in range(n) for j in range(n) if not fuel[i][j]}
+
+    def touches(i: int, j: int, steps: tuple[tuple[int, int], ...]) -> bool:
+        return any((i + di, j + dj) in holes for di, dj in steps)
+
+    side = ((1, 0), (-1, 0), (0, 1), (0, -1))
+    corner = ((1, 1), (1, -1), (-1, 1), (-1, -1))
+    groups = {"beside holes": [], "diagonal to holes": [], "others": []}
+    for d, i, j in diffs:
+        if touches(i, j, side):
+            groups["beside holes"].append(d)
+        elif touches(i, j, corner):
+            groups["diagonal to holes"].append(d)
+        else:
+            groups["others"].append(d)
     rms = math.sqrt(sum(d * d for d, _, _ in diffs) / len(diffs))
     worst = max(diffs, key=lambda x: abs(x[0]))
     print(
         f"{len(diffs)} pins: rms {100 * rms:.2f}%, max {100 * worst[0]:+.2f}% at {worst[1:]}"
     )
+    for name, values in groups.items():
+        if values:
+            mean = 100 * sum(values) / len(values)
+            print(f"{name} ({len(values)} pins): mean {mean:+.2f}%")
 
 
 if __name__ == "__main__":
