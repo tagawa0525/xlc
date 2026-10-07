@@ -950,6 +950,168 @@ mod tests {
         }
     }
 
+    /// P1〜P(L) の散乱行列を、P0 の行列に `factors` の係数を掛けて付けた物質
+    fn with_moments(m: &Material, factors: &[f64]) -> Material {
+        let mut m = m.clone();
+        m.anisotropic = factors
+            .iter()
+            .map(|f| {
+                m.scatter
+                    .iter()
+                    .map(|row| row.iter().map(|s| f * s).collect())
+                    .collect()
+            })
+            .collect();
+        m
+    }
+
+    fn order(scattering_order: usize) -> Options {
+        Options {
+            scattering_order,
+            ..Options::default()
+        }
+    }
+
+    /// 燃料のピンと水のセルを市松に並べた n×n の格子（外周は真空）
+    fn vacuum_checkerboard(n: usize) -> Tracking {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let layout = (0..n)
+            .map(|i| (0..n).map(|j| (i + j) % 2).collect())
+            .collect();
+        let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        Tracking::with_boundaries(&lattice, 16, 0.05, vacuum).unwrap()
+    }
+
+    /// 市松の格子の領域ごとの物質（ピンは燃料と水、水のセルは水）
+    fn checkerboard_materials<'a>(n: usize, f: &'a Material, m: &'a Material) -> Vec<&'a Material> {
+        (0..n * n)
+            .flat_map(|c| {
+                if (c / n + c % n) % 2 == 0 {
+                    vec![f, m]
+                } else {
+                    vec![m]
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn isotropic_moments_reproduce_p0() {
+        // 高次の散乱行列が 0 なら、高次のモーメントは線源に入らず、P0 と同じ解（丸め誤差まで）
+        let tracking = vacuum_checkerboard(2);
+        let (f, m) = (
+            with_moments(&fuel(), &[0.0, 0.0]),
+            with_moments(&moderator(), &[0.0, 0.0]),
+        );
+        let materials = checkerboard_materials(2, &f, &m);
+        let p0 = solve(&tracking, &materials, &order(0)).unwrap();
+        let p2 = solve(&tracking, &materials, &order(2)).unwrap();
+        assert!((p2.k - p0.k).abs() < 1e-12 * p0.k, "{} vs {}", p2.k, p0.k);
+        for (a, b) in p2.flux.iter().flatten().zip(p0.flux.iter().flatten()) {
+            assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn anisotropy_does_not_change_an_infinite_medium() {
+        // 角度中性子束が等方なので、高次の散乱は効かない
+        let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let m = with_moments(&fuel(), &[0.4, 0.1, 0.02]);
+        let solution = solve(&tracking, &[&m, &m, &m], &order(3)).unwrap();
+        let expected = infinite_medium_k(&m);
+        assert!(
+            (solution.k - expected).abs() < 1e-6,
+            "{} vs {expected}",
+            solution.k
+        );
+    }
+
+    #[test]
+    fn forward_scattering_acts_like_the_transport_correction() {
+        // 前方に偏った散乱は漏れを減らす。その効果を拡散の近似で表すのが輸送補正
+        // （Σt と自群の散乱から Σ_g' σ1(g→g') を引いた P0）なので、P1 の k は P0 より輸送補正の k に近い
+        let n = 6;
+        let tracking = vacuum_checkerboard(n);
+        let (f, m) = (
+            with_moments(&fuel(), &[0.05]),
+            with_moments(&moderator(), &[0.5]),
+        );
+        let corrected = |m: &Material| {
+            let mut c = m.clone();
+            for g in 0..2 {
+                let p1: f64 = m.anisotropic[0][g].iter().sum();
+                c.total[g] -= p1;
+                c.scatter[g][g] -= p1;
+            }
+            c.anisotropic.clear();
+            c
+        };
+        let (fc, mc) = (corrected(&f), corrected(&m));
+        let k = |f, m, options| {
+            solve(&tracking, &checkerboard_materials(n, f, m), &options)
+                .unwrap()
+                .k
+        };
+        let (p0, p1, tc) = (
+            k(&f, &m, order(0)),
+            k(&f, &m, order(1)),
+            k(&fc, &mc, order(0)),
+        );
+        assert!(p1 > p0, "P1 {p1} vs P0 {p0}");
+        assert!(
+            (p1 - tc).abs() < (p0 - tc).abs(),
+            "P0 {p0}, P1 {p1}, transport-corrected {tc}"
+        );
+    }
+
+    #[test]
+    fn anisotropic_result_does_not_depend_on_the_thread_count() {
+        let tracking = vacuum_checkerboard(2);
+        let (f, m) = (
+            with_moments(&fuel(), &[0.05, 0.01]),
+            with_moments(&moderator(), &[0.5, 0.2]),
+        );
+        let materials = checkerboard_materials(2, &f, &m);
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve(&tracking, &materials, &order(2)).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
+    }
+
+    #[test]
+    fn scattering_order_needs_the_moments() {
+        let tracking = vacuum_checkerboard(2);
+        let (f, m) = (with_moments(&fuel(), &[0.05]), moderator());
+        let materials = checkerboard_materials(2, &f, &m);
+        assert!(matches!(
+            solve(&tracking, &materials, &order(1)),
+            Err(MocError::ScatteringOrder {
+                region: 1,
+                available: 0,
+                requested: 1
+            })
+        ));
+        // 足りなければ使わない次数は無視する
+        let m = with_moments(&moderator(), &[0.5]);
+        let materials = checkerboard_materials(2, &f, &m);
+        assert!(solve(&tracking, &materials, &order(1)).is_ok());
+    }
+
     #[test]
     fn sweep_currents_balance_each_coarse_cell() {
         // 1回のスイープで、セルの中の領域の減衰の和 Σ Δ（= 入る - 出る）と、セルの面から外向きの
