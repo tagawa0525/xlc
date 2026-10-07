@@ -455,19 +455,20 @@ mod tests {
     #[test]
     fn slowing_down_covers_the_resolved_range_in_whole_groups() {
         let groups = GroupStructure::new(vec![1.0e5, 3.0e4, 1.0e4, 10.0, 1.0e-5]).unwrap();
-        let slowing = slowing_down_range(&resolved_tape(), 1, &groups)
+        let slowing = slowing_down_range(&resolved_tape(), 1, &groups, &Weight::lwr())
             .unwrap()
             .unwrap();
         assert_eq!(slowing.awr, 236.006);
-        // 分離共鳴の上端 20 keV より下で最も高い群の境界まで
-        assert_eq!(slowing.range, (1.0e-5, 1.0e4));
+        // 重み関数の熱中性子の区切り 0.1 eV 以上で最も低い群の境界から、分離共鳴の上端 20 keV 以下で
+        // 最も高い群の境界まで
+        assert_eq!(slowing.range, (10.0, 1.0e4));
     }
 
     #[test]
     fn no_resolved_range_needs_no_slowing_down() {
         let groups = GroupStructure::new(vec![1.0e5, 1.0e4, 1.0e-5]).unwrap();
         assert!(
-            slowing_down_range(&unresolved_tape(), 1, &groups)
+            slowing_down_range(&unresolved_tape(), 1, &groups, &Weight::lwr())
                 .unwrap()
                 .is_none()
         );
