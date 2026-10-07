@@ -514,6 +514,16 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn materials_need_some_nuclide() {
+        let result = replaced(
+            PIN_CELL,
+            "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+            "nuclides = { H-1 = 0.0, O-16 = 0.0 }",
+        );
+        assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
+    }
+
+    #[test]
     fn void_cannot_be_defined() {
         let result = replaced(PIN_CELL, "[material.water]", "[material.void]");
         assert!(matches!(result, Err(InputError::Invalid(_))), "{result:?}");
