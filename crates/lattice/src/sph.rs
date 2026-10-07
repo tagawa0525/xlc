@@ -11,8 +11,8 @@
 use std::ops::Range;
 
 use crate::cp::{CpError, Cylinder};
+use crate::lu::solve;
 use crate::material::{Material, MaterialError};
-use crate::ufg::solve;
 
 /// SPH 因子の反復の打ち切り（μ の変化）と回数の上限
 const TOLERANCE: f64 = 1.0e-10;
@@ -127,14 +127,11 @@ pub fn multigroup_flux(
                 .collect();
             let w = &tracks[k];
             // φ_j V_j − Σ_i W_ij Σs,i(g→g) φ_i = Σ_i W_ij Q_i（W は対称）
-            let matrix: Vec<Vec<f64>> = (0..n)
-                .map(|j| {
-                    (0..n)
-                        .map(|i| {
-                            let diagonal = if i == j { volumes[j] } else { 0.0 };
-                            diagonal - w[j][i] * materials[i].scatter[g][g]
-                        })
-                        .collect()
+            let matrix: Vec<f64> = (0..n * n)
+                .map(|k| {
+                    let (j, i) = (k / n, k % n);
+                    let diagonal = if i == j { volumes[j] } else { 0.0 };
+                    diagonal - w[j][i] * materials[i].scatter[g][g]
                 })
                 .collect();
             let rhs: Vec<f64> = (0..n)

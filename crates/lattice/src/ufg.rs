@@ -21,6 +21,7 @@ use xlc_xs::multigroup::WINDOW_POINTS;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
+use crate::lu::solve;
 
 /// セルの UFG の範囲の上限の頭打ち (eV)。U-238 の分離共鳴の上端で、これより上は U-238 の非弾性散乱（45 keV から）と
 /// 核分裂の線源が効き、弾性散乱だけの減速計算が成り立たない（docs/plans/m2-assembly.md）
@@ -537,16 +538,15 @@ impl Sweep<'_> {
         let k: Vec<f64> = (0..n).map(|i| source(i, &known[i])).collect();
         let c: Vec<f64> = (0..n).map(|i| source(i, &own[i])).collect();
         // W は対称なので W_ij = W_ji
-        let matrix: Vec<Vec<f64>> = tracks
+        let matrix: Vec<f64> = tracks
             .iter()
             .zip(self.volumes)
             .enumerate()
-            .map(|(j, (row, v))| {
+            .flat_map(|(j, (row, v))| {
                 row.iter()
                     .zip(&c)
                     .enumerate()
-                    .map(|(i, (w, ci))| if i == j { v - w * ci } else { -w * ci })
-                    .collect()
+                    .map(move |(i, (w, ci))| if i == j { v - w * ci } else { -w * ci })
             })
             .collect();
         let rhs: Vec<f64> = tracks
@@ -606,34 +606,6 @@ fn slab(u: &[f64], a: f64, b: f64, big_u: f64, lower: &mut usize) -> Vec<(usize,
         q += 1;
     }
     weights
-}
-
-/// 部分ピボット選択の Gauss の消去法。特異なら `None`
-pub(crate) fn solve(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f64>> {
-    let n = b.len();
-    for col in 0..n {
-        let pivot = (col..n).max_by(|&i, &j| a[i][col].abs().total_cmp(&a[j][col].abs()))?;
-        if a[pivot][col] == 0.0 {
-            return None;
-        }
-        a.swap(col, pivot);
-        b.swap(col, pivot);
-        let (upper, lower) = a.split_at_mut(col + 1);
-        let pivot_row = &upper[col];
-        for (offset, row) in lower.iter_mut().enumerate() {
-            let factor = row[col] / pivot_row[col];
-            for (x, p) in row[col..].iter_mut().zip(&pivot_row[col..]) {
-                *x -= factor * p;
-            }
-            b[col + 1 + offset] -= factor * b[col];
-        }
-    }
-    let mut x = vec![0.0; n];
-    for row in (0..n).rev() {
-        let sum: f64 = (row + 1..n).map(|k| a[row][k] * x[k]).sum();
-        x[row] = (b[row] - sum) / a[row][row];
-    }
-    x.iter().all(|v| v.is_finite()).then_some(x)
 }
 
 #[cfg(test)]
