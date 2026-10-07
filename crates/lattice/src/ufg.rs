@@ -738,7 +738,9 @@ mod tests {
                 zirconium,
                 constant("H-1", 0.99917, 20.0, 20.0, 0.0),
             ]);
-            cell_range(&lib, &[Some(&fuel), None, Some(&clad), Some(&water)]).unwrap()
+            cell_range(&lib, &[Some(&fuel), None, Some(&clad), Some(&water)])
+                .unwrap()
+                .unwrap()
         };
         // 上端以下で最も高い群の境界
         assert_eq!(range(3.0e3), [4.0, 1.0e3]);
@@ -747,10 +749,19 @@ mod tests {
     }
 
     #[test]
-    fn range_needs_fuel() {
-        let lib = library(vec![constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+    fn no_range_without_resolved_fuel() {
+        // 燃料がない、または燃料に分離共鳴を持つ核種がなければ、減速計算する範囲はない
+        let lib = library(vec![
+            constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+            constant("U-235", 233.0, 10.0, 8.0, 1.0),
+        ]);
         let water = material(&[("H-1", 0.05)]);
-        assert!(cell_range(&lib, &[Some(&water)]).is_err());
+        let fuel = material(&[("U-235", 0.01)]);
+        assert_eq!(cell_range(&lib, &[Some(&water)]).unwrap(), None);
+        assert_eq!(
+            cell_range(&lib, &[Some(&fuel), Some(&water)]).unwrap(),
+            None
+        );
     }
 
     #[test]
