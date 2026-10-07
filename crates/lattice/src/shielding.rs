@@ -260,4 +260,158 @@ mod tests {
         // σ0 に依存しない群はそのまま
         assert!(close(result.total[1], 20.0));
     }
+
+    mod lattice {
+        use super::super::*;
+        use crate::geometry::{Lattice, PinCell};
+        use crate::input::MaterialInput;
+        use crate::material::Material;
+        use crate::tracking::Tracking;
+        use xlc_xs::library::{Library, NuclideData, Shielded, TemperatureData};
+        use xlc_xs::multigroup::GroupStructure;
+
+        const T: f64 = 600.0;
+
+        /// 共鳴のある U-238（群 0 が σ0 に依存）、核分裂する U-235、水素
+        fn library() -> Library {
+            let data = |name: &str, tables: Vec<Shielded>, fissile: bool| NuclideData {
+                name: name.into(),
+                za: 0.0,
+                awr: 1.0,
+                temperatures: vec![TemperatureData {
+                    temperature: T,
+                    chi: if fissile {
+                        vec![1.0, 0.0]
+                    } else {
+                        vec![0.0, 0.0]
+                    },
+                    scatter: vec![vec![6.0, 1.0], vec![0.0, 4.0]],
+                    shielded: tables,
+                }],
+            };
+            let table = |total: [f64; 2], elastic: [f64; 2], fission: [f64; 2]| Shielded {
+                total: total.to_vec(),
+                elastic: elastic.to_vec(),
+                fission: fission.to_vec(),
+                nu_fission: fission.iter().map(|f| 2.4 * f).collect(),
+            };
+            let u238 = |t: f64, e: f64| table([t, 10.0], [e, 4.0], [0.0, 0.0]);
+            let constant = |total, fission| vec![table(total, [6.0, 4.0], fission); 3];
+            Library {
+                groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
+                sigma0: vec![1.0e10, 100.0, 1.0],
+                nuclides: vec![
+                    data(
+                        "U-238",
+                        vec![u238(30.0, 8.0), u238(20.0, 7.5), u238(9.0, 7.0)],
+                        false,
+                    ),
+                    data("U-235", constant([10.0, 50.0], [2.0, 40.0]), true),
+                    data("H-1", constant([20.0, 30.0], [0.0, 0.0]), false),
+                ],
+            }
+        }
+
+        fn materials() -> Vec<MaterialInput> {
+            vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![("U-238".into(), 0.022), ("U-235".into(), 7.0e-4)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05)],
+                },
+            ]
+        }
+
+        /// ピン（燃料と水）と水のセルを `layout` に並べた格子と、領域ごとの物質の名前
+        fn geometry(layout: Vec<Vec<usize>>) -> (Tracking, Vec<String>) {
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let water = PinCell::new(1.26, vec![]).unwrap();
+            let names = |t: usize| -> Vec<String> {
+                if t == 0 {
+                    vec!["fuel".into(), "water".into()]
+                } else {
+                    vec!["water".into()]
+                }
+            };
+            let regions = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, water], layout).unwrap();
+            (Tracking::new(&lattice, 16, 0.02).unwrap(), regions)
+        }
+
+        fn fuel_total(shielded: &FuelShielding, region: usize) -> f64 {
+            shielded.materials[shielded.region_material[region]].total[0]
+        }
+
+        #[test]
+        fn shields_fuel_and_keeps_moderator_dilute() {
+            let library = library();
+            let (tracking, regions) = geometry(vec![vec![0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let dilute = |name: &str| {
+                let m = materials().into_iter().find(|m| m.name == name).unwrap();
+                Material::mix(&library, &m.composition, T).unwrap()
+            };
+            assert!(fuel_total(&shielded, 0) < dilute("fuel").total[0]);
+            assert_eq!(
+                shielded.materials[shielded.region_material[1]],
+                dilute("water")
+            );
+        }
+
+        #[test]
+        fn pins_next_to_water_are_shielded_less() {
+            let library = library();
+            // 領域: セル0 (燃料, 水), セル1 (燃料, 水), セル2 (燃料, 水), セル3 (水)
+            let (tracking, regions) = geometry(vec![vec![0, 0], vec![0, 1]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let (far, beside, below) = (
+                fuel_total(&shielded, 0),
+                fuel_total(&shielded, 2),
+                fuel_total(&shielded, 4),
+            );
+            // 水のセルの隣のピンは影が少なく（Dancoff 係数が小さく）、遮蔽が弱い
+            assert!(beside > far, "{beside} vs {far}");
+            assert!(
+                (beside - below).abs() < 1e-3 * beside,
+                "{beside} vs {below}"
+            );
+        }
+
+        #[test]
+        fn rejects_fuel_outside_the_inner_rings() {
+            let library = library();
+            let (tracking, mut regions) = geometry(vec![vec![0]]);
+            regions.swap(0, 1);
+            let result = shield_fuel(
+                &library,
+                &tracking,
+                &materials(),
+                &regions,
+                &ShieldingOptions::default(),
+            );
+            assert!(
+                matches!(result, Err(SelfShieldingError::FuelShape(0))),
+                "{result:?}"
+            );
+        }
+    }
 }
