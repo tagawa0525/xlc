@@ -14,6 +14,7 @@ use std::f64::consts::PI;
 use num_complex::Complex64;
 
 use super::factors::{penetrability, phase_shift};
+use super::linear::{Singular, solve};
 use crate::endf::{OrbitalL, ParticlePair, RMatrixLimited};
 use crate::physics::wave_number_factor;
 
@@ -263,8 +264,11 @@ impl RMatrixLimitedXs {
                 energy: e,
             };
             let x = match pole {
-                None => solve(m, k, n).ok_or_else(singular)?,
-                Some(w) => pole_limit(m, &w, n).ok_or_else(singular)?,
+                None => {
+                    solve(&mut m, &mut k, n).map_err(|Singular| singular())?;
+                    k
+                }
+                Some(w) => pole_limit(m, &w, n).map_err(|Singular| singular())?,
             };
 
             let kn = entrance.wave_number(e);
@@ -364,8 +368,8 @@ fn amplitude(
 }
 
 /// 極での X = i(I − M⁻¹) の極限。`m` は極の共鳴を除いた M' = I − iK'、`w` は極の共鳴の P^½ γ。
-fn pole_limit(m: Vec<Complex64>, w: &[f64], n: usize) -> Option<Vec<Complex64>> {
-    let identity: Vec<Complex64> = (0..n * n)
+fn pole_limit(mut m: Vec<Complex64>, w: &[f64], n: usize) -> Result<Vec<Complex64>, Singular> {
+    let mut inverse: Vec<Complex64> = (0..n * n)
         .map(|i| {
             if i % (n + 1) == 0 {
                 Complex64::ONE
@@ -374,7 +378,7 @@ fn pole_limit(m: Vec<Complex64>, w: &[f64], n: usize) -> Option<Vec<Complex64>> 
             }
         })
         .collect();
-    let mut inverse = solve(m, identity, n)?;
+    solve(&mut m, &mut inverse, n)?;
     // u = M'⁻¹ w（M' は複素対称なので wᵀ M'⁻¹ = uᵀ）
     let u: Vec<Complex64> = (0..n)
         .map(|a| (0..n).fold(Complex64::ZERO, |acc, b| acc + inverse[a * n + b] * w[b]))
@@ -389,53 +393,17 @@ fn pole_limit(m: Vec<Complex64>, w: &[f64], n: usize) -> Option<Vec<Complex64>> 
             }
         }
     }
-    Some(
-        (0..n * n)
-            .map(|i| {
-                // i(δ − M⁻¹)
-                let identity = if i % (n + 1) == 0 {
-                    Complex64::ONE
-                } else {
-                    Complex64::ZERO
-                };
-                Complex64::I * (identity - inverse[i])
-            })
-            .collect(),
-    )
-}
-
-/// 複素 n×n 行列の方程式 M X = B を部分ピボットつき Gauss の消去法で解く（行列は行優先）。
-/// 特異なら `None`。
-fn solve(mut m: Vec<Complex64>, mut b: Vec<Complex64>, n: usize) -> Option<Vec<Complex64>> {
-    for col in 0..n {
-        let pivot = (col..n).max_by(|&i, &j| {
-            m[i * n + col]
-                .norm_sqr()
-                .total_cmp(&m[j * n + col].norm_sqr())
-        })?;
-        if m[pivot * n + col].norm_sqr() == 0.0 {
-            return None;
-        }
-        for j in 0..n {
-            m.swap(col * n + j, pivot * n + j);
-            b.swap(col * n + j, pivot * n + j);
-        }
-        let p = m[col * n + col].inv();
-        for j in 0..n {
-            m[col * n + j] *= p;
-            b[col * n + j] *= p;
-        }
-        for row in 0..n {
-            if row != col {
-                let f = m[row * n + col];
-                for j in 0..n {
-                    m[row * n + j] = m[row * n + j] - f * m[col * n + j];
-                    b[row * n + j] = b[row * n + j] - f * b[col * n + j];
-                }
-            }
-        }
-    }
-    Some(b)
+    Ok((0..n * n)
+        .map(|i| {
+            // i(δ − M⁻¹)
+            let identity = if i % (n + 1) == 0 {
+                Complex64::ONE
+            } else {
+                Complex64::ZERO
+            };
+            Complex64::I * (identity - inverse[i])
+        })
+        .collect())
 }
 
 #[cfg(test)]
