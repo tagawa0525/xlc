@@ -5,8 +5,9 @@
 
 use std::f64::consts::PI;
 
+use num_complex::Complex64;
+
 use super::Sigma;
-use super::complex::Complex;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use crate::endf::{OrbitalL, ReichMoore};
 use crate::physics::wave_number_factor;
@@ -250,17 +251,21 @@ impl ChannelGroup {
     fn terms(&self, gj: f64, phi: f64) -> Terms {
         let n = if self.fission { 3 } else { 1 };
         // 上三角に積んだ K を対称に展開する。核分裂のないときは中性子チャネルだけを使う
-        let k: [[Complex; 3]; 3] = std::array::from_fn(|i| {
+        let k: [[Complex64; 3]; 3] = std::array::from_fn(|i| {
             std::array::from_fn(|j| {
                 let (a, b) = (i.min(j), i.max(j));
-                Complex::new(self.r[a][b], self.s[a][b])
+                Complex64::new(self.r[a][b], self.s[a][b])
             })
         });
         let m = std::array::from_fn(|i| {
             std::array::from_fn(|j| {
-                let identity = Complex::new(if i == j { 1.0 } else { 0.0 }, 0.0);
+                let identity = if i == j {
+                    Complex64::ONE
+                } else {
+                    Complex64::ZERO
+                };
                 if i < n && j < n {
-                    identity.add(k[i][j])
+                    identity + k[i][j]
                 } else {
                     identity
                 }
@@ -268,7 +273,7 @@ impl ChannelGroup {
         });
         let inv = invert3(m);
         // x = (I - M^{-1})_nn = (M^{-1} K)_nn
-        let x = (0..n).fold(Complex::default(), |acc, j| acc.add(inv[0][j].mul(k[j][0])));
+        let x = (0..n).fold(Complex64::ZERO, |acc, j| acc + inv[0][j] * k[j][0]);
         let (p1, p2) = ((2.0 * phi).cos(), (2.0 * phi).sin());
         let one_minus_u = 2.0 * phi.sin().powi(2) + 2.0 * p1 * x.re + 2.0 * p2 * x.im;
         let u_imag = p2 * (2.0 * x.re - 1.0) - 2.0 * p1 * x.im;
@@ -282,10 +287,10 @@ impl ChannelGroup {
 
 /// 複素 3×3 行列の逆行列（部分ピボット付き Gauss-Jordan 法）。
 /// R 行列は単位行列に正定値の実部を足したものなので、正則である。
-fn invert3(mut a: [[Complex; 3]; 3]) -> [[Complex; 3]; 3] {
-    let mut inv = [[Complex::default(); 3]; 3];
+fn invert3(mut a: [[Complex64; 3]; 3]) -> [[Complex64; 3]; 3] {
+    let mut inv = [[Complex64::ZERO; 3]; 3];
     for (i, row) in inv.iter_mut().enumerate() {
-        row[i] = Complex::new(1.0, 0.0);
+        row[i] = Complex64::ONE;
     }
     for col in 0..3 {
         // max_by と同じく、同じ大きさなら後の行を選ぶ
@@ -302,17 +307,17 @@ fn invert3(mut a: [[Complex; 3]; 3]) -> [[Complex; 3]; 3] {
         });
         a.swap(col, pivot);
         inv.swap(col, pivot);
-        let p = a[col][col].recip();
+        let p = a[col][col].inv();
         for j in 0..3 {
-            a[col][j] = a[col][j].mul(p);
-            inv[col][j] = inv[col][j].mul(p);
+            a[col][j] *= p;
+            inv[col][j] *= p;
         }
         for row in 0..3 {
             if row != col {
                 let f = a[row][col];
                 for j in 0..3 {
-                    a[row][j] = a[row][j].sub(f.mul(a[col][j]));
-                    inv[row][j] = inv[row][j].sub(f.mul(inv[col][j]));
+                    a[row][j] -= f * a[col][j];
+                    inv[row][j] -= f * inv[col][j];
                 }
             }
         }
