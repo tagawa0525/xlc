@@ -10,6 +10,7 @@
 
 use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
+use super::scatter::{GAUSS_8, legendre};
 use crate::special::{erf, erfcx};
 
 /// 熱領域の弾性散乱を自由ガス模型で扱う条件。
@@ -61,18 +62,32 @@ pub fn free_gas_kernel(e: f64, e_out: f64, awr: f64, kt: f64) -> f64 {
 /// 入射エネルギー e での ∫_g' S(E→E') dE'（群ごと、和は N(E)）。
 /// 群構造の外に散乱する分は端の群に入れる（ほかの反応と同じく、中性子を失わない）。
 pub fn free_gas_group_integrals(groups: &GroupStructure, e: f64, awr: f64, kt: f64) -> Vec<f64> {
-    let bounds = groups.bounds();
-    let highest = bounds[0];
+    free_gas_group_moments(groups, e, awr, kt, 0)
+        .into_iter()
+        .next()
+        .unwrap_or_default()
+}
+
+/// 入射エネルギー e での ∫_g' S_l(E→E') dE'（[l][群]、l = 0..=order）。S_l は自由ガスの二重微分断面積の
+/// ルジャンドルのモーメント（[`free_gas_kernel_moments`]）。
+pub fn free_gas_group_moments(
+    groups: &GroupStructure,
+    e: f64,
+    awr: f64,
+    kt: f64,
+    order: usize,
+) -> Vec<Vec<f64>> {
     // 核の幅の目安。重い核では E の近くに集中し、軽い核では kT 程度に広がる
     let width = 2.0 * (e * kt / awr).sqrt() + kt / awr;
     let reach = e + 30.0 * width + 40.0 * kt;
     // 下方散乱は静止標的なら αE まで届き、熱運動でさらに広がる
     let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
     let lower = (alpha * e - 30.0 * width).max(0.0);
-    let kernel = |x: f64| free_gas_kernel(e, x, awr, kt);
+    let kernel = |x: f64| free_gas_kernel_moments(e, x, awr, kt, order);
 
     // 区間の境界: 群境界、E' = E（核の折れ点）、αE、E の周りの核の幅ごとの点
-    let mut points: Vec<f64> = bounds
+    let mut points: Vec<f64> = groups
+        .bounds()
         .iter()
         .copied()
         .chain((-60..=60).map(|k| e + 0.5 * f64::from(k) * width))
@@ -81,53 +96,123 @@ pub fn free_gas_group_integrals(groups: &GroupStructure, e: f64, awr: f64, kt: f
         .collect();
     points.sort_by(f64::total_cmp);
     points.dedup();
+    integrate_points(groups, &points, order + 1, &kernel)
+}
 
-    let mut integrals = vec![0.0; groups.len()];
+/// 自由ガスの二重微分断面積のルジャンドルのモーメント S_l(E→E') = ∫ S(E→E', μ) P_l(μ) dμ（自由原子の断面積を
+/// 1 としたとき、1/eV）。P0 は解析式（[`free_gas_kernel`]）、P1 以上は
+///   S_l = σb A/(4E) e^(-β/2) ∫ S(α, β) P_l(μ(α)) dα、S(α, β) = e^(-(α²+β²)/(4α))/√(4πα)、σb = ((A+1)/A)²、
+///   μ(α) = (E + E' − α A kT)/(2√(EE'))
+/// を u = √α で積分する（S は α = |β| の近くに幅 2√α で集まり、u では幅 1 ほどの滑らかな形になる）。
+pub fn free_gas_kernel_moments(e: f64, e_out: f64, awr: f64, kt: f64, order: usize) -> Vec<f64> {
+    let mut moments = vec![0.0; order + 1];
+    moments[0] = free_gas_kernel(e, e_out, awr, kt);
+    if order == 0 || e <= 0.0 || e_out <= 0.0 {
+        return moments;
+    }
+    let scale = awr * kt;
+    let (root, root_out) = (e.sqrt(), e_out.sqrt());
+    let beta = (e_out - e) / kt;
+    let b = beta.abs();
+    // 指数 (u² − |β|)²/(4u²) が 50 を超える u は寄与しない
+    let c = 50.0_f64.sqrt();
+    let (cut_lo, cut_hi) = ((b + c * c).sqrt() - c, (b + c * c).sqrt() + c);
+    let u_lo = ((root - root_out).abs() / scale.sqrt()).max(cut_lo);
+    let u_hi = ((root + root_out) / scale.sqrt()).min(cut_hi);
+    if u_hi <= u_lo {
+        return moments;
+    }
+    let pieces = ((u_hi - u_lo) / 0.1).ceil().max(1.0) as usize;
+    let step = (u_hi - u_lo) / pieces as f64;
+    // S dα = 2 e^(-(α²+β²)/(4α))/√(4π) du
+    let norm = 2.0 / (4.0 * std::f64::consts::PI).sqrt();
+    let mut integrals = vec![0.0; order + 1];
+    for k in 0..pieces {
+        let a = u_lo + k as f64 * step;
+        let half = 0.5 * step;
+        for &(x, w) in &GAUSS_8 {
+            let u = a + half * (x + 1.0);
+            let alpha = u * u;
+            let s = norm * (-(alpha * alpha + beta * beta) / (4.0 * alpha)).exp();
+            let mu = (e + e_out - alpha * scale) / (2.0 * root * root_out);
+            for (m, p) in integrals.iter_mut().zip(legendre(mu, order)).skip(1) {
+                *m += w * half * s * p;
+            }
+        }
+    }
+    let sigma_bound = ((awr + 1.0) / awr).powi(2);
+    let factor = sigma_bound * awr / (4.0 * e) * (-0.5 * beta).exp();
+    for (m, i) in moments.iter_mut().zip(integrals).skip(1) {
+        *m = factor * i;
+    }
+    moments
+}
+
+/// 区間の境界 `points` の間ごとに、ベクトル値の関数 f（長さ n）を積分して群に足す [n][群]。
+/// 群構造の外の区間は端の群に入れる。
+pub(super) fn integrate_points(
+    groups: &GroupStructure,
+    points: &[f64],
+    n: usize,
+    f: &impl Fn(f64) -> Vec<f64>,
+) -> Vec<Vec<f64>> {
+    let highest = groups.bounds()[0];
+    let mut integrals = vec![vec![0.0; groups.len()]; n];
     for w in points.windows(2) {
         let (a, b) = (w[0], w[1]);
         let mid = 0.5 * (a + b);
         let g = groups
             .find(mid)
             .unwrap_or(if mid > highest { 0 } else { groups.len() - 1 });
-        integrals[g] += if a > 0.0 {
-            integrate_log(&kernel, a, b)
+        let values = if a > 0.0 {
+            integrate_log_multi(f, a, b, n)
         } else {
-            integrate_linear(&kernel, a, b)
+            integrate_linear_multi(f, a, b, n)
         };
+        for (row, v) in integrals.iter_mut().zip(values) {
+            row[g] += v;
+        }
     }
     integrals
 }
 
-/// [a, b]（a > 0）をエネルギー比が一定以下になるよう対数的に分割して積分する。
-pub(super) fn integrate_log(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+/// [a, b]（a > 0）をエネルギー比が一定以下になるよう対数的に分割して、ベクトル値の関数を積分する。
+fn integrate_log_multi(f: &impl Fn(f64) -> Vec<f64>, a: f64, b: f64, n: usize) -> Vec<f64> {
     let pieces = ((b / a).ln() / MAX_RATIO.ln()).ceil().max(1.0) as usize;
     let ratio = (b / a).powf(1.0 / pieces as f64);
     let mut lo = a;
-    let mut sum = 0.0;
+    let mut sum = vec![0.0; n];
     for i in 0..pieces {
         let hi = if i + 1 == pieces { b } else { lo * ratio };
-        sum += gauss_legendre(f, lo, hi);
+        gauss_legendre_multi(f, lo, hi, &mut sum);
         lo = hi;
     }
     sum
 }
 
-/// 0 を含む区間 [a, b] を等分して積分する。
-pub(super) fn integrate_linear(f: &impl Fn(f64) -> f64, a: f64, b: f64) -> f64 {
+/// 0 を含む区間 [a, b] を等分して、ベクトル値の関数を積分する。
+fn integrate_linear_multi(f: &impl Fn(f64) -> Vec<f64>, a: f64, b: f64, n: usize) -> Vec<f64> {
     const PIECES: usize = 16;
     let width = (b - a) / PIECES as f64;
-    (0..PIECES)
-        .map(|i| gauss_legendre(f, a + i as f64 * width, a + (i + 1) as f64 * width))
-        .sum()
+    let mut sum = vec![0.0; n];
+    for i in 0..PIECES {
+        gauss_legendre_multi(
+            f,
+            a + i as f64 * width,
+            a + (i + 1) as f64 * width,
+            &mut sum,
+        );
+    }
+    sum
 }
 
-fn gauss_legendre(f: &impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64 {
+fn gauss_legendre_multi(f: &impl Fn(f64) -> Vec<f64>, lo: f64, hi: f64, sum: &mut [f64]) {
     let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
-    GAUSS_LEGENDRE
-        .iter()
-        .map(|&(x, wk)| wk * f(mid + half * x))
-        .sum::<f64>()
-        * half
+    for &(x, wk) in &GAUSS_LEGENDRE {
+        for (s, v) in sum.iter_mut().zip(f(mid + half * x)) {
+            *s += wk * half * v;
+        }
+    }
 }
 
 /// 1つの積分区間の上限と下限のエネルギー比の上限
@@ -145,6 +230,44 @@ mod tests {
             (actual - expected).abs() <= tol * expected.abs(),
             "actual {actual}, expected {expected}"
         );
+    }
+
+    #[test]
+    fn group_moments_keep_the_p0_integrals() {
+        // P0 のモーメントは群積分と同じ。重い核の P1 は熱領域の上で静止した標的の 2/(3A) に近づく
+        let groups = GroupStructure::wims69();
+        for (awr, e) in [(1.0, 0.05), (15.86, 0.1), (236.0, 0.5)] {
+            let moments = free_gas_group_moments(&groups, e, awr, KT, 3);
+            let reference = free_gas_group_integrals(&groups, e, awr, KT);
+            let total: f64 = reference.iter().sum();
+            for (g, (m, r)) in moments[0].iter().zip(&reference).enumerate() {
+                assert!((m - r).abs() <= 1e-6 * total, "A={awr} g={g}: {m} vs {r}");
+            }
+        }
+        let moments = free_gas_group_moments(&groups, 2.0, 15.86, KT, 1);
+        let mu: f64 = moments[1].iter().sum::<f64>() / moments[0].iter().sum::<f64>();
+        assert!((mu - 2.0 / (3.0 * 15.86)).abs() < 2e-3, "{mu}");
+    }
+
+    #[test]
+    fn free_gas_moments_match_the_s_alpha_beta_table() {
+        // 自由ガスの S(α, β) の表（A = 1）から求めたモーメントと、表の補間の誤差の範囲で一致する
+        use super::super::sab::ThermalSab;
+        use super::super::sab::tests::{TEMPERATURE, free_gas_table};
+        let data = free_gas_table();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let kt = crate::physics::BK * TEMPERATURE;
+        let groups = GroupStructure::wims69();
+        for e in [0.0253, 0.1, 0.5] {
+            let ours = free_gas_group_moments(&groups, e, 1.0, kt, 3);
+            // どちらも自由原子の断面積を 1 とした規格化（束縛原子の断面積 σb を含む）
+            let table = sab.group_moments(&groups, e, 3);
+            let total: f64 = ours[0].iter().sum();
+            for l in 0..=3 {
+                let (a, b): (f64, f64) = (ours[l].iter().sum(), table[l].iter().sum());
+                assert!((a - b).abs() < 3e-3 * total, "E={e} P{l}: {a} vs {b}");
+            }
+        }
     }
 
     #[test]

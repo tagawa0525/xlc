@@ -221,7 +221,7 @@ mod tests {
                     pointwise: Default::default(),
                     temperature: 293.6,
                     chi: fission(vec![1.0, 0.0]),
-                    scatter: vec![vec![6.0, 2.0], vec![0.5, 15.0]],
+                    scatter: vec![vec![vec![6.0, 2.0], vec![0.5, 15.0]]],
                     shielded: vec![Shielded {
                         total: vec![10.0, 20.0],
                         elastic: vec![8.0, 15.5],

@@ -11,7 +11,7 @@
 //!  nuclides: [{name: "U-235", za, awr,
 //!              resolved: {top: 分離共鳴の上端 (eV), potential: ポテンシャル散乱 (barn)}、分離共鳴を持つ核種だけ（なければ nil）,
 //!              temperatures: [{temperature (K), chi: [G 個],
-//!                              scatter: [[無限希釈の σ(g→g')、行が入射の群]],
+//!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
 //!                              shielded: [{total, elastic, fission, nu_fission}（σ0 の順）]}]}]}
 //! ```
 
@@ -71,8 +71,8 @@ pub struct TemperatureData {
     /// 処理温度 (K)
     pub temperature: f64,
     pub chi: Vec<f64>,
-    /// 無限希釈の散乱行列 [入射の群][出射の群]
-    pub scatter: Vec<Vec<f64>>,
+    /// 無限希釈の散乱行列のルジャンドルのモーメント [次数 l][入射の群][出射の群]（少なくとも P0）
+    pub scatter: Vec<Vec<Vec<f64>>>,
     pub shielded: Vec<Shielded>,
     /// 超微細群の減速計算に使うポイントワイズの断面積
     pub pointwise: Pointwise,
@@ -254,7 +254,7 @@ impl Library {
             fission: dilute.fission.clone(),
             nu_fission: dilute.nu_fission.clone(),
             chi: t.chi.clone(),
-            scatter: t.scatter.clone(),
+            scatter: t.scatter[0].clone(),
         })
     }
 }
@@ -416,8 +416,11 @@ impl NuclideData {
             if !sized(&t.chi) {
                 return Err(at(format!("chi must have {ng} groups")));
             }
-            if t.scatter.len() != ng || !t.scatter.iter().all(|row| sized(row)) {
-                return Err(at(format!("scatter must be {ng} x {ng}")));
+            let square = |m: &Vec<Vec<f64>>| m.len() == ng && m.iter().all(|row| sized(row));
+            if t.scatter.is_empty() || !t.scatter.iter().all(square) {
+                return Err(at(format!(
+                    "scatter must be one or more {ng} x {ng} Legendre moments"
+                )));
             }
             if t.shielded.len() != n_sigma0 {
                 return Err(at(format!(
@@ -448,7 +451,7 @@ impl NuclideData {
             let values = t
                 .chi
                 .iter()
-                .chain(t.scatter.iter().flatten())
+                .chain(t.scatter.iter().flatten().flatten())
                 .chain(
                     t.shielded
                         .iter()
@@ -503,7 +506,7 @@ pub(crate) mod tests {
             } else {
                 vec![0.0, 0.0]
             },
-            scatter: vec![vec![4.0, 0.01], vec![1.0e-7, 15.0]],
+            scatter: vec![vec![vec![4.0, 0.01], vec![1.0e-7, 15.0]]],
             shielded: vec![shielded(1.0, fissile), shielded(0.5, fissile)],
         }
     }
@@ -587,6 +590,28 @@ pub(crate) mod tests {
         };
         let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
         assert_eq!(read, library);
+    }
+
+    #[test]
+    fn keeps_the_scattering_moments() {
+        // 散乱行列はルジャンドルの次数ごと。P0 は無限希釈の核種の散乱行列になる
+        let mut library = sample();
+        let p0 = library.nuclides[0].temperatures[0].scatter[0].clone();
+        library.nuclides[0].temperatures[0]
+            .scatter
+            .push(vec![vec![0.1, 0.02], vec![0.0, 0.3]]);
+        let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+        assert_eq!(read, library);
+        assert_eq!(read.nuclide("U-235", 293.6).unwrap().scatter, p0);
+        // 次数がない、群の数が合わない
+        let mut empty = sample();
+        empty.nuclides[0].temperatures[0].scatter.clear();
+        assert!(empty.to_msgpack().is_err());
+        let mut short = sample();
+        short.nuclides[0].temperatures[0]
+            .scatter
+            .push(vec![vec![0.1, 0.02]]);
+        assert!(short.to_msgpack().is_err());
     }
 
     #[test]
@@ -770,7 +795,7 @@ pub(crate) mod tests {
         .unwrap_err();
         assert!(err.to_string().contains("U-235"), "{err}");
         assert!(
-            read_modified(|f| f.nuclides[1].temperatures[0].scatter[1]
+            read_modified(|f| f.nuclides[1].temperatures[0].scatter[0][1]
                 .pop()
                 .map(|_| ())
                 .unwrap())
@@ -862,7 +887,8 @@ pub(crate) mod tests {
                 .is_err()
         );
         assert!(
-            read_modified(|f| f.nuclides[1].temperatures[0].scatter[0][1] = f64::INFINITY).is_err()
+            read_modified(|f| f.nuclides[1].temperatures[0].scatter[0][0][1] = f64::INFINITY)
+                .is_err()
         );
         assert!(read_modified(|f| f.nuclides[1].awr = f64::NAN).is_err());
         assert!(read_modified(|f| f.group_bounds[0] = f64::INFINITY).is_err());
