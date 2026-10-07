@@ -684,7 +684,7 @@ mod tests {
                     temperatures: vec![TemperatureData {
                         temperature: TEMPERATURE,
                         chi: vec![0.0; ng],
-                        scatter: vec![vec![0.0; ng]; ng],
+                        scatter: vec![vec![vec![0.0; ng]; ng]],
                         shielded: vec![Shielded {
                             total: group(1),
                             elastic: group(2),
