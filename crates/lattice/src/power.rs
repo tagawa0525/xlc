@@ -69,6 +69,7 @@ mod tests {
         Material {
             total: vec![total],
             scatter: vec![vec![scatter]],
+            anisotropic: Vec::new(),
             fission: vec![nu_fission / 2.5],
             nu_fission: vec![nu_fission],
             fission_terms: if nu_fission > 0.0 {
