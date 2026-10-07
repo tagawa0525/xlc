@@ -85,6 +85,6 @@ nix develop ../..#references -c sh -c \
   'venv/bin/python ../../examples/vera/positive_library.py ../../examples/vera/vera.msgpack positive-P3.msgpack 3'
 cargo run --release -p xlc-lattice --example mg_materials -- <格子の入力> mg-2B.msgpack
 nix develop ../..#references -c sh -c \
-  'PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 PYTHONPATH=../../examples/vera venv/bin/python \
+  'PATH=$PWD/install/bin:$PATH OMP_NUM_THREADS=16 venv/bin/python \
      ../../examples/vera/openmc_mg.py mg-2B.msgpack 2B work-mg-2B 1000000 300 50 1'
 ```
