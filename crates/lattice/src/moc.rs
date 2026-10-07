@@ -770,6 +770,43 @@ mod tests {
         assert!(s.flux[3][1] > s.flux[0][1]);
     }
 
+    /// 燃料・ギャップ・減速材のピンセルで、ギャップを `gap` にした解
+    fn with_gap(gap: &Material) -> Solution {
+        let cell = PinCell::new(1.26, vec![0.3, 0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.02).unwrap();
+        let (f, m) = (fuel(), moderator());
+        solve(&tracking, &[&f, gap, &m], &Options::default()).unwrap()
+    }
+
+    #[test]
+    fn void_gap_matches_a_nearly_transparent_gap() {
+        let void = with_gap(&Material::void(2));
+        // 吸収も散乱もほとんどない物質（Σt だけがごく小さい）
+        let thin = with_gap(&two_group(
+            [1.0e-9, 1.0e-9],
+            [[0.0, 0.0], [0.0, 0.0]],
+            [0.0, 0.0],
+        ));
+        assert!((void.k - thin.k).abs() < 1e-7, "{} vs {}", void.k, thin.k);
+        for g in 0..2 {
+            let (a, b) = (void.flux[1][g], thin.flux[1][g]);
+            assert!((a - b).abs() < 1e-6 * b, "group {g}: {a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn rejects_partly_void_materials() {
+        let cell = PinCell::new(1.26, vec![0.3, 0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let partly = two_group([1.0, 0.0], [[0.5, 0.0], [0.0, 0.0]], [0.0, 0.0]);
+        let result = solve(&tracking, &[&f, &partly, &m], &Options::default());
+        assert!(
+            matches!(result, Err(MocError::NonPositiveTotal)),
+            "{result:?}"
+        );
+    }
+
     #[test]
     fn reflective_cell_has_no_leakage() {
         assert_eq!(heterogeneous(8, 0.1).leakage, vec![0.0, 0.0]);
