@@ -39,8 +39,6 @@ pub enum UfgError {
         range: [f64; 2],
         pointwise: [f64; 2],
     },
-    #[error("no fuel nuclide in the cell has resolved resonances")]
-    NoFuel,
     #[error("{name}: atomic weight ratio {awr} must be positive")]
     Mass { name: String, awr: f64 },
     #[error("{name}: pointwise data are not defined at {energy} eV")]
@@ -68,11 +66,12 @@ pub struct CellSpectrum {
 
 /// セルの UFG の範囲 [下限, 上限] (eV)。下限はライブラリのポイントワイズの断面積の下限（熱中性子散乱の打ち切り以上の群の境界）、
 /// 上限は燃料（核分裂する核種を含む物質）の核種の分離共鳴の上端のうち最も高いもの（[`MAX_TOP`] で頭打ち）以下で
-/// 最も高い群の境界。`rings` はリングごとの物質（真空は `None`）。
+/// 最も高い群の境界。`rings` はリングごとの物質（真空は `None`）。燃料に分離共鳴を持つ核種がなければ `None`
+/// （減速計算で遮蔽する共鳴がない）。
 pub fn cell_range(
     library: &Library,
     rings: &[Option<&MaterialInput>],
-) -> Result<[f64; 2], UfgError> {
+) -> Result<Option<[f64; 2]>, UfgError> {
     let mut top: Option<f64> = None;
     for m in rings.iter().flatten() {
         let data = m
@@ -93,7 +92,10 @@ pub fn cell_range(
         }
     }
     let pointwise = library.pointwise_range;
-    let top = top.ok_or(UfgError::NoFuel)?.min(MAX_TOP).min(pointwise[1]);
+    let Some(top) = top else {
+        return Ok(None);
+    };
+    let top = top.min(MAX_TOP).min(pointwise[1]);
     let low = pointwise[0];
     let high = library
         .groups
@@ -106,7 +108,7 @@ pub fn cell_range(
             range: [low, top],
             pointwise,
         })?;
-    Ok([low, high])
+    Ok(Some([low, high]))
 }
 
 /// 1つの核種（名前と温度の組）の減速計算のデータ
