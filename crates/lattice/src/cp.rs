@@ -471,6 +471,29 @@ mod tests {
     }
 
     #[test]
+    fn bickley_function_vanishes_far_away() {
+        // exp(−x) が 0 に丸められる距離でも止まる
+        assert_eq!(ki3(750.0), 0.0);
+        assert!(ki3(60.0) > 0.0 && ki3(60.0) < 1e-26);
+    }
+
+    #[test]
+    fn thin_gas_approaches_void() {
+        // ギャップの Σ を 0 に近づけると、真空のときの中性子束に連続につながる
+        let cell = Cylinder::new(RADII.to_vec()).unwrap();
+        let flux =
+            |gap: f64, sources: &[f64]| cell.fixed_source(&[0.6, gap, 0.3, 1.2], sources).unwrap();
+        for sources in [[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]] {
+            let void = flux(0.0, &sources);
+            for gap in [1e-6, 1e-10] {
+                for (i, (f, v)) in flux(gap, &sources).iter().zip(&void).enumerate() {
+                    assert!((f - v).abs() <= 1e-5 * v, "{gap} {i}: {f} vs {v}");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn rejects_bad_radii() {
         assert!(Cylinder::new(vec![]).is_err());
         assert!(Cylinder::new(vec![0.5, 0.4]).is_err());
