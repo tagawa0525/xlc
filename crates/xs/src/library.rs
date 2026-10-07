@@ -458,6 +458,15 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn keeps_the_potential_scattering() {
+        let mut library = sample();
+        library.nuclides[0].potential = Some(11.29);
+        let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+        assert_eq!(read.nuclides[0].potential, Some(11.29));
+        assert_eq!(read.nuclides[1].potential, None);
+    }
+
+    #[test]
     fn gives_infinite_dilution_at_a_tabulated_temperature() {
         let library = sample();
         let u235 = library.nuclide("U-235", 900.0).unwrap();
