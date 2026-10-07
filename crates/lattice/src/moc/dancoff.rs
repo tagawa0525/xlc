@@ -235,14 +235,12 @@ mod tests {
         // 燃料の半径がセルの半ピッチより大きいと、隣のセルから直接燃料に入る
         let pin = PinCell::new(1.0, vec![0.6]).unwrap();
         let water = PinCell::new(1.0, vec![]).unwrap();
-        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1]]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 1]]).unwrap();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        let result = dancoff(
-            &tracking,
-            &[vec![1.0], vec![1.0], vec![1.0]],
-            &[true, false, false],
-            &options(),
-        );
+        let mut fuel = vec![false; lattice.volumes().len()];
+        fuel[0] = true;
+        let totals = vec![vec![1.0]; fuel.len()];
+        let result = dancoff(&tracking, &totals, &fuel, &options());
         assert!(
             matches!(result, Err(DancoffError::FuelOnBoundary(0))),
             "{result:?}"
