@@ -87,7 +87,7 @@ pub fn fixed_source(
         .collect();
     let references: Vec<&Material> = materials.iter().collect();
     let mesh = CoarseMesh::new(tracking);
-    let sweeper = Sweeper::new(tracking, &references, ng, &mesh);
+    let sweeper = Sweeper::new(tracking, &references, ng, &mesh, &[(0, 0)]);
     let volumes = tracking.volumes(regions);
     if let Some(region) = volumes.iter().position(|&v| v <= 0.0) {
         return Err(FixedSourceError::Untracked(region));
