@@ -78,6 +78,8 @@ pub struct PinShielding {
     pub dancoff: Vec<f64>,
     /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
     pub nuclides: Vec<(Nuclide, f64)>,
+    /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）
+    pub effective: Vec<Shielded>,
 }
 
 /// 格子の燃料（核分裂する核種を含む物質）を、ピンごとの Dancoff 係数と等価原理で自己遮蔽する。
@@ -189,21 +191,33 @@ pub fn shield_fuel(
                 .map(|&c| carlvik(c))
                 .collect::<Result<_, _>>()?,
         };
-        let nuclides = shield_material(library, &materials[index], &equivalence, options, cell)?;
-        let material =
-            Material::from_nuclides(&nuclides, library.groups.len()).map_err(|source| {
-                SelfShieldingError::Material {
-                    name: materials[index].name.clone(),
-                    source,
-                }
-            })?;
+        let material = &materials[index];
+        let effective = shield_material(library, material, &equivalence, options, cell)?;
+        let nuclides = material
+            .composition
+            .iter()
+            .zip(&effective)
+            .map(|((name, density), s)| {
+                Ok((
+                    shielded_nuclide(library, name, material.temperature, s)?,
+                    *density,
+                ))
+            })
+            .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+        let mixed = Material::from_nuclides(&nuclides, library.groups.len()).map_err(|source| {
+            SelfShieldingError::Material {
+                name: material.name.clone(),
+                source,
+            }
+        })?;
         shielded.pins.push(PinShielding {
             cell,
             dancoff: factors.clone(),
             nuclides,
+            effective,
         });
         let new = shielded.materials.len();
-        shielded.materials.push(material);
+        shielded.materials.push(mixed);
         for region in fuel_regions {
             shielded.region_material[region] = new;
         }
@@ -211,14 +225,14 @@ pub fn shield_fuel(
     Ok(shielded)
 }
 
-/// 1本のピンの燃料の核種を、全断面積が収束するまで反復して自己遮蔽する。
+/// 1本のピンの燃料の核種の実効断面積を、全断面積が収束するまで反復して求める。
 fn shield_material(
     library: &Library,
     material: &MaterialInput,
     equivalence: &Equivalence,
     options: &ShieldingOptions,
     cell: usize,
-) -> Result<Vec<(Nuclide, f64)>, SelfShieldingError> {
+) -> Result<Vec<Shielded>, SelfShieldingError> {
     let t = material.temperature;
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
@@ -265,12 +279,7 @@ fn shield_material(
             .fold(0.0, f64::max);
         totals = tables.iter().map(|s| s.total.clone()).collect();
         if change <= options.tolerance {
-            return material
-                .composition
-                .iter()
-                .zip(&tables)
-                .map(|((name, density), s)| Ok((shielded_nuclide(library, name, t, s)?, *density)))
-                .collect();
+            return Ok(tables);
         }
     }
     Err(SelfShieldingError::NotConverged {
