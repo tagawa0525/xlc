@@ -46,6 +46,8 @@ pub enum GeometryError {
     MixedPitch,
     #[error("cell type {index} is out of range ({types} types)")]
     CellType { index: usize, types: usize },
+    #[error("the margin around the lattice must be finite and not negative, got {0}")]
+    Margin(f64),
 }
 
 impl PinCell {
@@ -241,10 +243,13 @@ pub struct Segment {
     pub length: f64,
 }
 
-/// ピンセルを n × n の正方格子に並べた、一辺 n × pitch の正方形の形状（中心が原点）。
+/// ピンセルを n × n の正方格子に並べ、周りに幅 m の余白（集合体の間の水のギャップなど）を付けた、一辺
+/// n × pitch + 2m の正方形の形状（中心が原点）。
 ///
 /// セルは上の行から順に、各行は左から順に番号を付ける。領域はセルの順に、セルの中では
-/// `PinCell` の領域の順に通し番号を付ける。
+/// `PinCell` の領域の順に通し番号を付ける。余白があれば、その後に余白の領域を、上の帯（セルの列ごとに左から）、
+/// 下の帯、左の帯（セルの行ごとに上から）、右の帯、角（左上、右上、左下、右下）の順に置く。帯をセルの幅で
+/// 分けるのは、平坦な線源の近似で表せる大きさにするため。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lattice {
     types: Vec<PinCell>,
@@ -253,11 +258,25 @@ pub struct Lattice {
     n: usize,
     /// [セル] のセルの最初の領域の番号
     offsets: Vec<usize>,
+    /// 格子の周りの余白の幅 (cm)
+    margin: f64,
 }
 
 impl Lattice {
     /// `types` はセルの種類（すべて同じピッチ）、`layout` は上の行から順の各行のセルの種類。
     pub fn new(types: Vec<PinCell>, layout: Vec<Vec<usize>>) -> Result<Self, GeometryError> {
+        Self::with_margin(types, layout, 0.0)
+    }
+
+    /// 周りに幅 `margin` (cm) の余白を付けた格子（`new` を参照）。
+    pub fn with_margin(
+        types: Vec<PinCell>,
+        layout: Vec<Vec<usize>>,
+        margin: f64,
+    ) -> Result<Self, GeometryError> {
+        if !(margin >= 0.0 && margin.is_finite()) {
+            return Err(GeometryError::Margin(margin));
+        }
         let n = layout.len();
         if n == 0 {
             return Err(GeometryError::NoCells);
@@ -292,6 +311,7 @@ impl Lattice {
             layout,
             n,
             offsets,
+            margin,
         })
     }
 
@@ -303,6 +323,7 @@ impl Lattice {
             layout: vec![0],
             n: 1,
             offsets: vec![0, regions],
+            margin: 0.0,
         }
     }
 
@@ -315,13 +336,47 @@ impl Lattice {
         self.n
     }
 
-    /// 一辺の長さ (cm)
+    /// 一辺の長さ (cm)。余白を含む
     pub fn width(&self) -> f64 {
-        self.n as f64 * self.pitch()
+        self.n as f64 * self.pitch() + 2.0 * self.margin
+    }
+
+    /// 格子の周りの余白の幅 (cm)
+    pub fn margin(&self) -> f64 {
+        self.margin
     }
 
     pub fn regions(&self) -> usize {
+        self.cell_region_count() + self.margin_regions()
+    }
+
+    /// セルの領域の数（余白の領域はこの後に続く）
+    fn cell_region_count(&self) -> usize {
         self.offsets[self.layout.len()]
+    }
+
+    /// 余白の領域の数（余白がなければ 0）
+    fn margin_regions(&self) -> usize {
+        if self.margin > 0.0 { 4 * self.n + 4 } else { 0 }
+    }
+
+    /// 領域の属するセル。余白の領域は、接するセル（角は角のセル）
+    pub fn region_cell(&self, region: usize) -> usize {
+        let base = self.cell_region_count();
+        if region < base {
+            return self.offsets.partition_point(|&o| o <= region) - 1;
+        }
+        let (n, k) = (self.n, region - base);
+        match k / n {
+            // 上の帯、下の帯
+            0 => k,
+            1 => (n - 1) * n + (k - n),
+            // 左の帯、右の帯
+            2 => (k - 2 * n) * n,
+            3 => (k - 3 * n) * n + n - 1,
+            // 角
+            _ => [0, n - 1, (n - 1) * n, n * n - 1][(k - 4 * n).min(3)],
+        }
     }
 
     /// セル `cell` の種類
@@ -336,20 +391,28 @@ impl Lattice {
 
     /// 領域ごとの体積（単位高さあたりの面積, cm²）の解析値。
     pub fn volumes(&self) -> Vec<f64> {
-        self.layout
+        let mut volumes: Vec<f64> = self
+            .layout
             .iter()
             .flat_map(|&t| self.types[t].volumes())
-            .collect()
+            .collect();
+        if self.margin > 0.0 {
+            let strip = self.pitch() * self.margin;
+            volumes.extend(std::iter::repeat_n(strip, 4 * self.n));
+            volumes.extend(std::iter::repeat_n(self.margin * self.margin, 4));
+        }
+        volumes
     }
 
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
-        let (pitch, half) = (self.pitch(), 0.5 * self.width());
-        // 格子線 x, y = -W/2 + k p と交わる点で、セルごとの区間に分ける
+        // half は格子（余白を除く）の半辺
+        let (pitch, half) = (self.pitch(), 0.5 * self.n as f64 * self.pitch());
+        // 格子線 x, y = -W/2 + k p（余白があれば格子の外周も）と交わる点で、セルごとの区間に分ける
         let mut cuts = vec![0.0, length];
         for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
             if d != 0.0 {
-                for k in 1..self.n {
+                for k in 0..=self.n {
                     let t = (-half + k as f64 * pitch - origin) / d;
                     if t > 0.0 && t < length {
                         cuts.push(t);
@@ -362,6 +425,13 @@ impl Lattice {
         for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
             let mid = 0.5 * (w[0] + w[1]);
             let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
+            if self.margin > 0.0 && (x.abs() > half || y.abs() > half) {
+                segments.push(Segment {
+                    region: self.margin_region(x, y, half),
+                    length: w[1] - w[0],
+                });
+                continue;
+            }
             let column = (((x + half) / pitch).floor() as usize).min(self.n - 1);
             let row = (((half - y) / pitch).floor() as usize).min(self.n - 1);
             let cell = row * self.n + column;
@@ -385,6 +455,25 @@ impl Lattice {
             );
         }
         segments
+    }
+
+    /// 余白の中の点 (x, y) を含む余白の領域。`half` は格子の半辺
+    fn margin_region(&self, x: f64, y: f64, half: f64) -> usize {
+        let (n, pitch) = (self.n, self.pitch());
+        let base = self.cell_region_count();
+        let column = (((x + half) / pitch).floor().max(0.0) as usize).min(n - 1);
+        let row = (((half - y) / pitch).floor().max(0.0) as usize).min(n - 1);
+        let corner = |k: usize| base + 4 * n + k;
+        match (x < -half, x > half, y > half, y < -half) {
+            (true, _, true, _) => corner(0),
+            (_, true, true, _) => corner(1),
+            (true, _, _, true) => corner(2),
+            (_, true, _, true) => corner(3),
+            (_, _, true, _) => base + column,
+            (_, _, _, true) => base + n + column,
+            (true, _, _, _) => base + 2 * n + row,
+            _ => base + 3 * n + row,
+        }
     }
 }
 
@@ -504,6 +593,62 @@ mod tests {
             .collect();
         assert_eq!(inner.len(), 2);
         assert!(inner.iter().all(|l| (l - 1.0).abs() < 1e-12), "{inner:?}");
+    }
+
+    /// 2×2 の格子の周りに幅 0.25 の余白
+    fn with_margin() -> Lattice {
+        let lattice = two_by_two();
+        Lattice::with_margin(lattice.types.clone(), vec![vec![0, 1], vec![1, 0]], 0.25).unwrap()
+    }
+
+    #[test]
+    fn margin_regions_and_volumes() {
+        let lattice = with_margin();
+        assert_eq!(lattice.width(), 4.5);
+        assert_eq!(lattice.margin(), 0.25);
+        // セルの 6 領域の後に、上の帯（左から）、下の帯、左の帯（上から）、右の帯、角（左上、右上、左下、右下）
+        assert_eq!(lattice.regions(), 6 + 4 * 2 + 4);
+        let v = lattice.volumes();
+        assert_eq!(v.len(), 18);
+        for (region, volume) in v.iter().enumerate().skip(6) {
+            let expected = if region < 14 { 2.0 * 0.25 } else { 0.25 * 0.25 };
+            assert!((volume - expected).abs() < 1e-14, "{region}: {volume}");
+        }
+        let total: f64 = v.iter().sum();
+        assert!((total - 4.5 * 4.5).abs() < 1e-12);
+        // 余白の領域が接するセル（角は角のセル）。セルの領域はそのセル
+        let cells: Vec<usize> = (0..18).map(|r| lattice.region_cell(r)).collect();
+        assert_eq!(
+            cells,
+            vec![0, 0, 1, 2, 3, 3, 0, 1, 2, 3, 0, 2, 1, 3, 0, 1, 2, 3]
+        );
+    }
+
+    #[test]
+    fn segments_cross_the_margin() {
+        let lattice = with_margin();
+        // 上の行の中心を左から右へ: 左の帯, ピンの外側, ピンの内側, ピンの外側, 水, 右の帯
+        let s = lattice.segments((-2.25, 1.0), (1.0, 0.0), 4.5);
+        let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
+        assert_eq!(regions, vec![10, 1, 0, 1, 2, 12]);
+        let lengths: Vec<f64> = s.iter().map(|s| s.length).collect();
+        for (a, b) in lengths.iter().zip([0.25, 0.5, 1.0, 0.5, 2.0, 0.25]) {
+            assert!((a - b).abs() < 1e-14, "{lengths:?}");
+        }
+        // 上の余白の中を左から右へ: 左上の角, 上の帯, 上の帯, 右上の角
+        let s = lattice.segments((-2.25, 2.1), (1.0, 0.0), 4.5);
+        let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
+        assert_eq!(regions, vec![14, 6, 7, 15]);
+    }
+
+    #[test]
+    fn margin_must_not_be_negative() {
+        let types = two_by_two().types.clone();
+        for margin in [-0.1, f64::NAN, f64::INFINITY] {
+            assert!(
+                Lattice::with_margin(types.clone(), vec![vec![0, 1], vec![1, 0]], margin).is_err()
+            );
+        }
     }
 
     #[test]
