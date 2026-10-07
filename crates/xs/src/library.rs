@@ -573,12 +573,25 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn keeps_the_potential_scattering() {
+    fn keeps_the_resolved_range() {
         let mut library = sample();
-        library.nuclides[0].potential = Some(11.29);
+        let resolved = Resolved {
+            top: 2.0e4,
+            potential: 11.29,
+        };
+        library.nuclides[0].resolved = Some(resolved.clone());
         let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
-        assert_eq!(read.nuclides[0].potential, Some(11.29));
-        assert_eq!(read.nuclides[1].potential, None);
+        assert_eq!(read.nuclides[0].resolved, Some(resolved));
+        assert_eq!(read.nuclides[1].resolved, None);
+    }
+
+    #[test]
+    fn refuses_a_bad_resolved_range() {
+        for (top, potential) in [(0.0, 11.29), (f64::INFINITY, 11.29), (2.0e4, -1.0)] {
+            let mut library = sample();
+            library.nuclides[0].resolved = Some(Resolved { top, potential });
+            assert!(library.to_msgpack().is_err(), "{top} {potential}");
+        }
     }
 
     #[test]
