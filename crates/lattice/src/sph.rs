@@ -287,6 +287,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_rings_without_flux() {
+        // 範囲の上から散乱してくる中性子がなければ、多群の中性子束が 0 になり、μ が決まらない
+        let cell = Cylinder::new(RADII.to_vec()).unwrap();
+        let reference = multigroup_flux(&cell, &materials(2.0), GROUPS, &[1.0]).unwrap();
+        let mut isolated = materials(2.0);
+        for m in &mut isolated {
+            m.scatter[0] = vec![0.0; 4];
+        }
+        assert!(matches!(
+            sph_factors(&cell, &isolated, GROUPS, &[1.0], &reference),
+            Err(SphError::Flux { .. })
+        ));
+    }
+
+    #[test]
     fn rejects_mismatched_sizes() {
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
         assert!(multigroup_flux(&cell, &materials(2.0)[..3], GROUPS, &[1.0]).is_err());
