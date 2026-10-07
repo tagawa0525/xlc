@@ -198,18 +198,22 @@ impl Cylinder {
                 })
                 .collect();
             let mut rest: f64 = path.iter().map(|p| p.tau).sum();
+            let last = path.len() - 1;
             for (a, from) in path.iter().enumerate() {
                 rest -= from.tau;
                 escapes[from.ring] += weight * from.escape(rest.max(0.0));
                 tracks[from.ring][from.ring] += weight * from.own();
+                // 弦が中心について対称なので、区間の対 (a, b) と鏡映した対 (L−1−b, L−1−a) は同じ値になる。
+                // a + b ≤ L − 1 の対だけを求め、a + b < L − 1 の対は鏡映の分も A[i][j] の側に足す
                 let mut between = 0.0;
-                for to in &path[a + 1..] {
-                    tracks[from.ring][to.ring] += weight * from.to(to, between);
+                for (b, to) in path.iter().enumerate().take(last + 1 - a).skip(a + 1) {
+                    let mirror = if a + b < last { 2.0 } else { 1.0 };
+                    tracks[from.ring][to.ring] += mirror * weight * from.to(to, between);
                     between += to.tau;
                 }
             }
         }
-        // 弦が中心について対称なので、A[i][j] と A[j][i] は丸め誤差を除いて等しい
+        // 鏡映の分を片側に足したので、平均で対称にする
         for i in 1..n {
             let (above, below) = tracks.split_at_mut(i);
             for (j, row) in above.iter_mut().enumerate() {
