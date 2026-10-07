@@ -17,6 +17,9 @@ from pathlib import Path
 import msgpack
 import openmc
 
+# tally の score の、statepoint に保存される名前（書いた名前と違うもの。弾性散乱は "(n,elastic)" になる）
+STORED = {"elastic": "(n,elastic)"}
+
 PITCH = 1.26
 N = 17
 # 集合体の外周の水ギャップ（片側）
@@ -245,7 +248,9 @@ def main() -> None:
             xs = {
                 nuclide: {
                     score: (
-                        rates.get_values(scores=[score], nuclides=[nuclide]).ravel()
+                        rates.get_values(
+                            scores=[STORED.get(score, score)], nuclides=[nuclide]
+                        ).ravel()
                         / (density * phi)
                     )[::-1].tolist()
                     for score in ["total", "elastic", "fission"]
