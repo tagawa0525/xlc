@@ -1,12 +1,14 @@
 """VERA Problem 1B〜1D（ピンセル）と 2B〜2D（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
-        [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]
+        [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード] [xlc のライブラリ]
 
 <問題> は 1B, 1C, 1D, 2B, 2C, 2D。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
 ギャップの He は計画のとおり除く（ギャップは真空）。被覆管・案内管・計装管と減速材は 600 K。
 2B〜2D は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+xlc のライブラリ（msgpack）を渡すと、1B〜1D ではその群構造で燃料の核種ごとの実効断面積
+（燃料の領域の反応率 / (個数密度 × 中性子束)）を fuel-xs.msgpack に書く（自己遮蔽の検証用）。
 """
 
 import sys
@@ -139,6 +141,7 @@ def main() -> None:
     inactive = int(sys.argv[6]) if len(sys.argv) > 6 else 50
     # 統計誤差の見積もりを確かめるには、種を変えて解き直す
     seed = int(sys.argv[7]) if len(sys.argv) > 7 else 1
+    library = Path(sys.argv[8]).resolve() if len(sys.argv) > 8 else None
     if problem not in FUEL_TEMPERATURE:
         raise SystemExit(
             f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
@@ -210,6 +213,19 @@ def main() -> None:
         tally.scores = ["fission"]
         tallies.append(tally)
 
+    # 燃料の核種ごとの実効断面積（群構造は xlc のライブラリから。OpenMC の境界は昇順）
+    if problem.startswith("1") and library is not None:
+        bounds = msgpack.unpackb(library.read_bytes())["group_bounds"]
+        energy = openmc.EnergyFilter(sorted(bounds))
+        tally = openmc.Tally(name="fuel")
+        tally.filters = [openmc.MaterialFilter([fuel]), energy]
+        tally.nuclides = list(FUEL)
+        tally.scores = ["total", "elastic", "fission"]
+        flux = openmc.Tally(name="fuel flux")
+        flux.filters = [openmc.MaterialFilter([fuel]), energy]
+        flux.scores = ["flux"]
+        tallies.extend([tally, flux])
+
     model = openmc.Model(geometry, materials, settings, tallies)
     statepoint = model.run(cwd=work, output=False)
     with openmc.StatePoint(statepoint) as sp:
@@ -221,6 +237,23 @@ def main() -> None:
             rates = rates / rates[rates > 0].mean()
             (work / "pins.msgpack").write_bytes(
                 msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
+            )
+        if problem.startswith("1") and library is not None:
+            phi = sp.get_tally(name="fuel flux").get_values(scores=["flux"]).ravel()
+            rates = sp.get_tally(name="fuel")
+            # 群は xlc と同じく高いエネルギーから並べる
+            xs = {
+                nuclide: {
+                    score: (
+                        rates.get_values(scores=[score], nuclides=[nuclide]).ravel()
+                        / (density * phi)
+                    )[::-1].tolist()
+                    for score in ["total", "elastic", "fission"]
+                }
+                for nuclide, density in FUEL.items()
+            }
+            (work / "fuel-xs.msgpack").write_bytes(
+                msgpack.packb({"format": "xlc-fuel-xs", "nuclides": xs})
             )
     print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
 
