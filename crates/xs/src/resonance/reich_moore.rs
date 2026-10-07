@@ -402,6 +402,14 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn singular_level_matrix_is_an_error() {
+        // M = I + K が特異になる K。物理的な共鳴パラメータ（K の実部が半正定値）では起きない
+        let mut group = ChannelGroup::default();
+        group.r[0][0] = -1.0;
+        assert!(group.terms(0.5, 0.1).is_err());
+    }
+
+    #[test]
     fn single_level_without_fission_matches_breit_wigner() {
         let xs = ReichMooreXs::new(&single_level(1.5e-3, 2.3e-2, 0.0));
         for e in [1.0e-3, 1.0, 6.0, 6.674, 6.69, 7.0, 100.0, 1.0e4] {
