@@ -154,8 +154,8 @@ mod tests {
 
     #[test]
     fn rejects_unreachable_dancoff() {
-        // 減速材をなくしても届かない影、0 以下、1 以上
-        for c in [0.999, 0.0, -0.1, 1.0, f64::NAN] {
+        // 減速材をなくしても届かない影、0 以下、1 以上、セルの Dancoff 係数の数値誤差より小さい値
+        for c in [0.999, 0.0, -0.1, 1.0, f64::NAN, 1e-12] {
             assert!(equivalent_radius(&INNER, &TOTALS, c).is_err(), "{c}");
         }
         // 減速材の全断面積が 0、リングの数が合わない
