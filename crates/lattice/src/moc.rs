@@ -6,6 +6,7 @@ use rayon::prelude::*;
 
 pub mod dancoff;
 pub mod fixed_source;
+mod harmonics;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
