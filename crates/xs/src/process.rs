@@ -9,7 +9,7 @@ use crate::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData
 use crate::multigroup::{
     Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
     SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
-    fission_spectrum, scattering_matrix, shielded_averages,
+    fission_spectrum, scattering_moments, shielded_averages,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
@@ -28,6 +28,8 @@ pub struct Settings {
     pub tolerance: f64,
     /// ライブラリに持たせるポイントワイズの断面積の範囲 (eV)
     pub pointwise_range: (f64, f64),
+    /// 散乱行列のルジャンドルのモーメントの次数
+    pub scattering_order: usize,
 }
 
 /// 核種の処理のエラー。
@@ -470,7 +472,8 @@ impl Common<'_> {
             .filter(|(mt, _)| **mt != 2)
             .map(|(mt, t)| (*mt, t.clone()))
             .collect();
-        let elastic = scattering_matrix(
+        let order = settings.scattering_order;
+        let elastic = scattering_moments(
             groups,
             weight,
             self.awr,
@@ -478,8 +481,9 @@ impl Common<'_> {
             self.q_values,
             self.emissions,
             Some(&thermal),
+            order,
         )?;
-        let mut scatter = scattering_matrix(
+        let mut scatter = scattering_moments(
             groups,
             weight,
             self.awr,
@@ -487,16 +491,19 @@ impl Common<'_> {
             self.q_values,
             self.emissions,
             None,
+            order,
         )?;
-        for (row, el) in scatter.iter_mut().zip(&elastic) {
-            for (v, e) in row.iter_mut().zip(el) {
-                *v += e;
+        for (matrix, el) in scatter.iter_mut().zip(&elastic) {
+            for (row, el_row) in matrix.iter_mut().zip(el) {
+                for (v, e) in row.iter_mut().zip(el_row) {
+                    *v += e;
+                }
             }
         }
         let zeros = vec![0.0; ng];
         let sigma =
             |avg: &ReactionAverages, mt: u32| avg.sigma.get(&mt).cloned().unwrap_or(zeros.clone());
-        let correction = thermal_correction(&sigma(&averages[0], 2), &elastic);
+        let correction = thermal_correction(&sigma(&averages[0], 2), &elastic[0]);
         let corrected = |values: Vec<f64>| -> Vec<f64> {
             values.iter().zip(&correction).map(|(v, c)| v + c).collect()
         };
@@ -842,6 +849,7 @@ mod tests {
             thermal_cutoff: 4.0,
             tolerance: 1.0e-3,
             pointwise_range: (4.0, 1.0e4),
+            scattering_order: 0,
         };
         let data = process_nuclide(&tape, "X", &[293.6, 600.0], None, &settings).unwrap();
         assert_eq!(data.name, "X");

@@ -7,10 +7,11 @@
 
 use std::collections::BTreeMap;
 
+use super::free_gas::free_gas_group_moments;
 use super::outgoing::uniform_fractions;
 use super::{
-    FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight,
-    free_gas_group_integrals, group_integrals, group_integrals_multi,
+    FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight, group_integrals,
+    group_integrals_multi,
 };
 use crate::endf::{Frame, Mf5, Mf6, Tab1};
 
@@ -83,7 +84,7 @@ pub enum ScatterError {
 /// - `thermal`: 熱領域の弾性散乱の扱い（`None` なら全域で静止標的）
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
-#[tracing::instrument(level = "debug", skip_all)]
+/// P0 の散乱行列 σ(g→g')（[`scattering_moments`] の 0 次）。
 pub fn scattering_matrix(
     groups: &GroupStructure,
     weight: &Weight,
@@ -93,6 +94,28 @@ pub fn scattering_matrix(
     emissions: &BTreeMap<u32, Emission>,
     thermal: Option<&Thermal>,
 ) -> Result<Vec<Vec<f64>>, ScatterError> {
+    let moments = scattering_moments(groups, weight, awr, tables, q_values, emissions, thermal, 0)?;
+    Ok(moments.into_iter().next().unwrap_or_default())
+}
+
+/// 散乱行列のルジャンドルのモーメント σ_l(g→g') = ∫_g ∫_g' σ(E→E', μ) P_l(μ) dE' w(E) dE / ∫_g w dE
+/// （[l][入射の群][出射の群]、l = 0..=order、μ は実験室系の散乱角の余弦）。
+///
+/// P1 以上は、2体反応（弾性散乱と離散準位の非弾性散乱。重心系で等方）の運動学と、熱領域（S(α, β) と自由ガス）の
+/// 角度分布から作る。連続的な放出（MF5, MF6）の P1 以上はまだ角度分布を入れておらず 0 とする
+/// （docs/plans/m2-assembly.md の「散乱の非等方性」）。
+#[tracing::instrument(level = "debug", skip_all)]
+#[allow(clippy::too_many_arguments)]
+pub fn scattering_moments(
+    groups: &GroupStructure,
+    weight: &Weight,
+    awr: f64,
+    tables: &BTreeMap<u32, Tab1>,
+    q_values: &BTreeMap<u32, f64>,
+    emissions: &BTreeMap<u32, Emission>,
+    thermal: Option<&Thermal>,
+    order: usize,
+) -> Result<Vec<Vec<Vec<f64>>>, ScatterError> {
     if let Some(Thermal::FreeGas(free_gas)) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
@@ -105,7 +128,7 @@ pub fn scattering_matrix(
     let flux = group_integrals(groups, weight, &[], |_| 1.0);
     let has_n2n_partials = tables.keys().any(|mt| (875..=891).contains(mt));
     let has_inelastic_partials = tables.keys().any(|mt| (51..=91).contains(mt));
-    let mut matrix = vec![vec![0.0; ng]; ng];
+    let mut moments = vec![vec![vec![0.0; ng]; ng]; order + 1];
     for (&mt, table) in tables {
         // 部分反応のある MT4 と MT16 は和なので、部分反応の側で数える
         if !emits_neutrons(mt)
@@ -116,36 +139,59 @@ pub fn scattering_matrix(
         }
         // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
         let rows = if mt == 2 {
-            elastic_rows(groups, weight, awr, table, thermal)
+            elastic_rows(groups, weight, awr, table, thermal, order)
         } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
             && !data.two_body
         {
-            emission_rows(groups, weight, table, data)
+            isotropic(emission_rows(groups, weight, table, data), order)
         } else if let Some(Emission::Mf6(_)) = emissions.get(&mt)
             && !(51..=90).contains(&mt)
         {
             return Err(ScatterError::TwoBody(mt));
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
             let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
-            spectrum_rows(groups, weight, table, data, count)
+            isotropic(spectrum_rows(groups, weight, table, data, count), order)
         } else if (51..=90).contains(&mt) {
             let q = *q_values.get(&mt).ok_or(ScatterError::QValue(mt))?;
-            two_body_rows(groups, weight, awr, q, table)
+            two_body_rows(groups, weight, awr, q, table, order)
         } else {
             return Err(ScatterError::NoDistribution(mt));
         };
-        for (sum, row) in matrix.iter_mut().zip(rows) {
-            for (s, v) in sum.iter_mut().zip(row) {
-                *s += v;
+        for (sum, part) in moments.iter_mut().zip(rows) {
+            for (row, values) in sum.iter_mut().zip(part) {
+                for (s, v) in row.iter_mut().zip(values) {
+                    *s += v;
+                }
             }
         }
     }
-    for (row, phi) in matrix.iter_mut().zip(&flux) {
-        for v in row.iter_mut() {
-            *v /= phi;
+    for matrix in &mut moments {
+        for (row, phi) in matrix.iter_mut().zip(&flux) {
+            for v in row.iter_mut() {
+                *v /= phi;
+            }
         }
     }
-    Ok(matrix)
+    Ok(moments)
+}
+
+/// P0 の行だけを持ち、P1 以上を 0 とした [l][g][g']（角度分布をまだ入れていない反応）
+fn isotropic(rows: Vec<Vec<f64>>, order: usize) -> Vec<Vec<Vec<f64>>> {
+    let ng = rows.len();
+    std::iter::once(rows)
+        .chain((0..order).map(|_| vec![vec![0.0; ng]; ng]))
+        .collect()
+}
+
+/// [g][l × ng + g'] の積分を [l][g][g'] に並べ替える
+fn by_order(rows: Vec<Vec<f64>>, ng: usize, order: usize) -> Vec<Vec<Vec<f64>>> {
+    (0..=order)
+        .map(|l| {
+            rows.iter()
+                .map(|row| row[l * ng..(l + 1) * ng].to_vec())
+                .collect()
+        })
+        .collect()
 }
 
 /// 中性子を放出する反応（核分裂を除く）
@@ -175,7 +221,7 @@ pub fn emits_neutrons(mt: u32) -> bool {
     )
 }
 
-/// 弾性散乱の ∫_g σ(E) w(E) P(E→g') dE。`thermal` の cutoff 未満では熱領域の扱い、
+/// 弾性散乱の ∫_g σ(E) w(E) P_l(E→g') dE（[l][g][g']）。`thermal` の cutoff 未満では熱領域の扱い、
 /// それ以上では静止標的との2体反応とする。
 fn elastic_rows(
     groups: &GroupStructure,
@@ -183,10 +229,12 @@ fn elastic_rows(
     awr: f64,
     table: &Tab1,
     thermal: Option<&Thermal>,
-) -> Vec<Vec<f64>> {
+    order: usize,
+) -> Vec<Vec<Vec<f64>>> {
     let Some(thermal) = thermal else {
-        return two_body_rows(groups, weight, awr, 0.0, table);
+        return two_body_rows(groups, weight, awr, 0.0, table, order);
     };
+    let ng = groups.len();
     let cutoff = match thermal {
         Thermal::FreeGas(free_gas) => free_gas.cutoff,
         Thermal::Sab(sab) => sab.cutoff(),
@@ -194,62 +242,72 @@ fn elastic_rows(
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, 0.0));
     breakpoints.push(cutoff);
-    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
+    let add = |out: &mut [f64], moments: Vec<Vec<f64>>, scale: f64| {
+        for (l, row) in moments.into_iter().enumerate() {
+            for (o, v) in out[l * ng..(l + 1) * ng].iter_mut().zip(row) {
+                *o += scale * v;
+            }
+        }
+    };
+    let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
         let sigma = table.eval(e).unwrap_or(0.0);
         match thermal {
             // S(α, β) の核は断面積そのものなので、MF3 の弾性散乱断面積は使わない
-            Thermal::Sab(sab) if e < cutoff => {
-                for (o, t) in out.iter_mut().zip(sab.group_integrals(groups, e)) {
-                    *o += t;
-                }
-            }
+            Thermal::Sab(sab) if e < cutoff => add(out, sab.group_moments(groups, e, order), 1.0),
             // 温度に拡げた断面積はすでに熱運動による実効断面積の増加 N(E) を含むので、
             // 出射分布は和 N(E) で規格化する（NJOY THERMR と同じ）
             Thermal::FreeGas(free_gas) if e < cutoff => {
-                let transfer = free_gas_group_integrals(groups, e, awr, free_gas.kt);
-                let total: f64 = transfer.iter().sum();
-                for (o, t) in out.iter_mut().zip(transfer) {
-                    *o += sigma * t / total;
-                }
+                let moments = free_gas_group_moments(groups, e, awr, free_gas.kt, order);
+                let total: f64 = moments[0].iter().sum();
+                add(out, moments, sigma / total);
             }
-            _ => {
-                if let Some((lo, hi)) = two_body_range(e, awr, 0.0) {
-                    uniform_fractions(groups, lo, hi, sigma, out);
-                }
-            }
+            _ => add(
+                out,
+                two_body_moments(groups, e, awr, 0.0, sigma, order),
+                1.0,
+            ),
         }
-    })
+    });
+    by_order(rows, ng, order)
 }
 
-/// 2体反応の ∫_g σ(E) w(E) P(E→g') dE。
+/// 2体反応の ∫_g σ(E) w(E) P_l(E→g') dE（[l][g][g']）。
 fn two_body_rows(
     groups: &GroupStructure,
     weight: &Weight,
     awr: f64,
     q: f64,
     table: &Tab1,
-) -> Vec<Vec<f64>> {
+    order: usize,
+) -> Vec<Vec<Vec<f64>>> {
+    let ng = groups.len();
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, q));
-    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
+    let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
         let sigma = table.eval(e).unwrap_or(0.0);
         if sigma == 0.0 {
             return;
         }
-        if let Some((lo, hi)) = two_body_range(e, awr, q) {
-            uniform_fractions(groups, lo, hi, sigma, out);
+        for (l, row) in two_body_moments(groups, e, awr, q, sigma, order)
+            .into_iter()
+            .enumerate()
+        {
+            for (o, v) in out[l * ng..(l + 1) * ng].iter_mut().zip(row) {
+                *o += v;
+            }
         }
-    })
+    });
+    by_order(rows, ng, order)
 }
 
 /// 8 点のガウス・ルジャンドルの点と重み（[-1, 1]）
 pub(crate) const GAUSS_8: [(f64, f64); 8] = [
     (-0.960_289_856_497_536_3, 0.101_228_536_290_376_3),
     (-0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
-    (-0.525_532_409_916_329_0, 0.313_706_645_877_887_3),
-    (-0.183_434_642_495_649_8, 0.362_683_783_378_362_0),
-    (0.183_434_642_495_649_8, 0.362_683_783_378_362_0),
-    (0.525_532_409_916_329_0, 0.313_706_645_877_887_3),
+    (-0.525_532_409_916_329, 0.313_706_645_877_887_3),
+    (-0.183_434_642_495_649_8, 0.362_683_783_378_362),
+    (0.183_434_642_495_649_8, 0.362_683_783_378_362),
+    (0.525_532_409_916_329, 0.313_706_645_877_887_3),
     (0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
     (0.960_289_856_497_536_3, 0.101_228_536_290_376_3),
 ];
