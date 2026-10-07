@@ -798,6 +798,124 @@ mod tests {
             );
         }
 
+        /// 分離共鳴（200 eV の共鳴）を持つ U-238 と、ポイントワイズの断面積を持つ核種のライブラリ。群 1, 2 が UFG の範囲
+        fn resonant_library() -> Library {
+            let bounds = vec![1.0e7, 1.0e4, 1.0e2, 4.0, 0.625, 1.0e-5];
+            let ng = bounds.len() - 1;
+            let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
+            let mut energies: Vec<f64> = (0..=400).map(|k| 180.0 + 0.1 * k as f64).collect();
+            energies.splice(0..0, [4.0, 100.0]);
+            energies.extend([1.0e3, 1.0e4]);
+            // (名前, awr, ポイントワイズの断面積 [全, 弾性散乱, 核分裂], 分離共鳴の上端)
+            let nuclide = |name: &str, awr: f64, points: Vec<[f64; 4]>, top: Option<f64>| {
+                let column = |k: usize| points.iter().map(|p| p[k]).collect::<Vec<_>>();
+                let (total, elastic, fission) = (points[0][1], points[0][2], points[0][3]);
+                // σ0 の表: 無限希釈から下がる（Carlvik で引く範囲の外の群に使う）
+                let table = |factor: f64| Shielded {
+                    total: vec![total * factor; ng],
+                    elastic: vec![elastic; ng],
+                    fission: vec![fission * factor; ng],
+                    nu_fission: vec![2.4 * fission * factor; ng],
+                };
+                NuclideData {
+                    name: name.into(),
+                    za: 0.0,
+                    awr,
+                    resolved: top.map(|top| xlc_xs::library::Resolved {
+                        top,
+                        potential: 10.0,
+                    }),
+                    temperatures: vec![TemperatureData {
+                        temperature: T,
+                        chi: (0..ng)
+                            .map(|g| if fission > 0.0 && g == 0 { 1.0 } else { 0.0 })
+                            .collect(),
+                        scatter: vec![vec![elastic; ng]; ng],
+                        shielded: vec![table(1.0), table(0.9), table(0.8)],
+                        pointwise: xlc_xs::library::Pointwise {
+                            energy: column(0),
+                            total: column(1),
+                            elastic: column(2),
+                            fission: column(3),
+                            nu_fission: column(3).iter().map(|f| 2.4 * f).collect(),
+                        },
+                    }],
+                }
+            };
+            let flat = |t: f64, e: f64, f: f64| vec![[4.0, t, e, f], [1.0e4, t, e, f]];
+            let u238 = energies
+                .iter()
+                .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.0])
+                .collect();
+            Library {
+                pointwise_range: [4.0, 1.0e4],
+                groups: GroupStructure::new(bounds).unwrap(),
+                sigma0: vec![1.0e10, 100.0, 1.0],
+                nuclides: vec![
+                    nuclide("U-238", 236.0, u238, Some(1.0e4)),
+                    nuclide("U-235", 233.0, flat(10.0, 8.0, 1.0), Some(2.0e3)),
+                    nuclide("O-16", 15.86, flat(3.8, 3.8, 0.0), None),
+                    nuclide("Zr-90", 89.0, flat(6.5, 6.5, 0.0), None),
+                    nuclide("H-1", 0.99917, flat(20.0, 20.0, 0.0), None),
+                ],
+            }
+        }
+
+        #[test]
+        fn fuel_rings_are_shielded_by_the_cell() {
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+            let regions: Vec<String> =
+                ["fuel", "fuel", "fuel", crate::input::VOID, "clad", "water"]
+                    .map(String::from)
+                    .to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let total = |region: usize, g: usize| {
+                shielded.materials[shielded.region_material[region]].total[g]
+            };
+            // UFG の範囲の群（100 eV〜10 keV）では、燃料の内側ほど共鳴が遮蔽される
+            assert!(
+                total(0, 1) < total(1, 1) && total(1, 1) < total(2, 1),
+                "{:?}",
+                [total(0, 1), total(1, 1), total(2, 1)]
+            );
+            // 範囲の外の群は、燃料のリングによらず等価原理の値
+            assert_eq!(total(0, 0), total(2, 0));
+            // 等価なセルの外径は、正方形のセルと面積の等しい円に近い
+            let radius = shielded.pins[0].equivalent.unwrap();
+            assert!((0.6..0.8).contains(&radius), "{radius}");
+            assert!(shielded.materials[shielded.region_material[3]].is_void());
+        }
+
         #[test]
         fn rejects_fuel_outside_the_inner_rings() {
             let library = library();
