@@ -155,12 +155,27 @@ pub enum ShieldingError {
     Sigma0(f64),
     #[error("unresolved shielding has {found} sigma zeros, expected {expected}")]
     UnresolvedSigma0 { found: usize, expected: usize },
+    #[error("the slowing-down weight needs elastic scattering (MT2)")]
+    NoElastic,
+    #[error(transparent)]
+    SlowingDown(#[from] SlowingDownError),
 }
 
-/// 背景断面積 σ0 ごとの、狭い共鳴の近似（Bondarenko 法）による群平均断面積。`sigma0` と同じ順に返す。
+/// 減速計算で重みを作る範囲。範囲の中では、超微細群の減速計算の中性子束で重みづけする（`slowing`）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SlowingDown {
+    /// 吸収体の質量比 AWR
+    pub awr: f64,
+    /// 範囲 (eV)。上端は群の境界であること（群の中で重みの式が切り替わらないように）
+    pub range: (f64, f64),
+}
+
+/// 背景断面積 σ0 ごとの群平均断面積。`sigma0` と同じ順に返す。
 ///
-/// 中性子束を w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の中性子束はこれに定数
-/// (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`flux` はその定数を掛けない値。
+/// 中性子束は、狭い共鳴の近似（Bondarenko 法）の w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の
+/// 中性子束はこれに定数 (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`slowing` を与えると、
+/// その範囲では超微細群の減速計算の中性子束を使い、範囲の上では Bondarenko の中性子束に定数
+/// (σs(E_high) + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn shielded_averages(
     groups: &GroupStructure,
@@ -169,6 +184,7 @@ pub fn shielded_averages(
     nubar: Option<&Tab1>,
     sigma0: &[f64],
     unresolved: Option<&UnresolvedShielding>,
+    slowing: Option<&SlowingDown>,
 ) -> Result<Vec<ReactionAverages>, ShieldingError> {
     let total = tables.get(&1).ok_or(ShieldingError::NoTotal)?;
     if let Some(&bad) = sigma0.iter().find(|s| !(s.is_finite() && **s > 0.0)) {
@@ -186,7 +202,7 @@ pub fn shielded_averages(
     if let Some(u) = unresolved {
         breakpoints.extend(&u.grid);
     }
-    Ok(sigma0
+    sigma0
         .iter()
         .enumerate()
         .map(|(s, &s0)| {
@@ -194,10 +210,35 @@ pub fn shielded_averages(
                 Some(u) => u.adjust(s, mt, e, value),
                 None => value,
             };
-            let flux = |e: f64| 1.0 / (adjust(1, e, total.eval(e).unwrap_or(0.0)) + s0);
-            averages_with_flux(groups, weight, tables, nubar, &breakpoints, flux, adjust)
+            let bondarenko = |e: f64| 1.0 / (adjust(1, e, total.eval(e).unwrap_or(0.0)) + s0);
+            let Some(slowing) = slowing else {
+                return Ok(averages_with_flux(
+                    groups,
+                    weight,
+                    tables,
+                    nubar,
+                    &breakpoints,
+                    bondarenko,
+                    adjust,
+                ));
+            };
+            let elastic = tables.get(&2).ok_or(ShieldingError::NoElastic)?;
+            let shape = slowing_down_shape(total, elastic, slowing.awr, weight, s0, slowing.range)?;
+            let (low, high) = slowing.range;
+            let scale = elastic.eval(high).unwrap_or(0.0) + s0;
+            let flux = |e: f64| {
+                if (low..=high).contains(&e) {
+                    shape.eval(e).unwrap_or(0.0)
+                } else {
+                    scale * bondarenko(e)
+                }
+            };
+            let points: Vec<f64> = breakpoints.iter().chain(&shape.x).copied().collect();
+            Ok(averages_with_flux(
+                groups, weight, tables, nubar, &points, flux, adjust,
+            ))
         })
-        .collect())
+        .collect()
 }
 
 /// 中性子束 w(E)·`shape`(E) による群平均。`shape` は `breakpoints` の間で滑らかであること。
@@ -414,6 +455,7 @@ mod tests {
                 None,
                 &[bad],
                 None,
+                None,
             );
             assert!(result.is_err(), "σ0 = {bad}");
         }
@@ -428,6 +470,7 @@ mod tests {
             &tables,
             None,
             &[10.0],
+            None,
             None,
         );
         assert!(result.is_err());
@@ -466,6 +509,7 @@ mod tests {
             None,
             &[10.0],
             Some(&shielding),
+            None,
         )
         .unwrap()[0];
         // 捕獲 2 × 0.5/1、全断面積 11 × 8/10（中性子束も補正した全断面積で決まるが、一定なので平均は変わらない）
@@ -484,6 +528,7 @@ mod tests {
             None,
             &[10.0],
             Some(&shielding),
+            None,
         )
         .unwrap()[0];
         assert!((avg.sigma[&102][0] - 1.5).abs() < 1e-12);
@@ -513,6 +558,7 @@ mod tests {
             None,
             &[s0],
             Some(&shielding),
+            None,
         )
         .unwrap()[0];
         // 1/E の重みで、[1e3, 1e4] は σt = 1（幅 ln 10）、[10, 1e3] は σt = 10（幅 2 ln 10）
@@ -531,6 +577,7 @@ mod tests {
             None,
             &[10.0, 1.0],
             Some(&shielding),
+            None,
         );
         assert!(result.is_err());
     }
