@@ -481,20 +481,27 @@ mod tests {
 
     #[test]
     fn quadrature_converges() {
-        // 黒に近い燃料を細かいリングに分け、水の線源から入る中性子束をみる
-        let radii = vec![0.1, 0.2, 0.3, 0.4096, 0.418, 0.475, 0.711];
-        let totals = [30.0, 30.0, 30.0, 30.0, 0.0, 0.3, 1.2];
-        let sources = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0];
-        let flux = |points| {
-            Cylinder::with_points(radii.clone(), points)
-                .unwrap()
-                .fixed_source(&totals, &sources)
-                .unwrap()
-        };
-        let coarse = flux(POINTS);
-        let fine = flux(4 * POINTS);
-        for (i, (c, f)) in coarse.iter().zip(&fine).enumerate() {
-            assert!((c - f).abs() <= 1e-6 * f, "{i}: {c} vs {f}");
+        // 黒に近い燃料を細かいリングに分け、水の線源から入る中性子束をみる。2つ目は、広い燃料の外の薄いリム
+        let cells = [
+            (
+                vec![0.1, 0.2, 0.3, 0.4096, 0.418, 0.475, 0.711],
+                vec![30.0, 30.0, 30.0, 30.0, 0.0, 0.3, 1.2],
+            ),
+            (vec![0.4, 0.4001, 0.5], vec![20.0, 40.0, 1.2]),
+        ];
+        for (radii, totals) in cells {
+            let mut sources = vec![0.0; radii.len()];
+            sources[radii.len() - 1] = 1.0;
+            let flux = |points| {
+                Cylinder::with_points(radii.clone(), points)
+                    .unwrap()
+                    .fixed_source(&totals, &sources)
+                    .unwrap()
+            };
+            let (coarse, fine) = (flux(POINTS), flux(4 * POINTS));
+            for (i, (c, f)) in coarse.iter().zip(&fine).enumerate() {
+                assert!((c - f).abs() <= 1e-9 * f, "{radii:?} {i}: {c} vs {f}");
+            }
         }
     }
 
