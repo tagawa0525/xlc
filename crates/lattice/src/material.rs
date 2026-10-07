@@ -1,6 +1,6 @@
 //! 物質の巨視的断面積。
 
-use xlc_xs::library::{Library, LookupError};
+use xlc_xs::library::{Library, LookupError, Nuclide};
 
 /// χ の和と 1 の差の許容値
 const CHI_TOLERANCE: f64 = 1.0e-6;
@@ -50,10 +50,18 @@ impl Material {
         composition: &[(String, f64)],
         temperature: f64,
     ) -> Result<Self, MaterialError> {
-        if composition.is_empty() {
+        let nuclides = composition
+            .iter()
+            .map(|(name, density)| Ok((library.nuclide(name, temperature)?, *density)))
+            .collect::<Result<Vec<_>, MaterialError>>()?;
+        Self::from_nuclides(&nuclides, library.groups.len())
+    }
+
+    /// 核種の群定数 (barn) と個数密度 (1/(barn·cm)) の組から作る。
+    pub fn from_nuclides(nuclides: &[(Nuclide, f64)], ng: usize) -> Result<Self, MaterialError> {
+        if nuclides.is_empty() {
             return Err(MaterialError::NoNuclides);
         }
-        let ng = library.groups.len();
         let mut m = Self {
             total: vec![0.0; ng],
             scatter: vec![vec![0.0; ng]; ng],
@@ -66,14 +74,13 @@ impl Material {
                 *s += n * v;
             }
         };
-        for (name, density) in composition {
+        for (nuclide, density) in nuclides {
             if !(*density >= 0.0 && density.is_finite()) {
                 return Err(MaterialError::Density {
-                    nuclide: name.clone(),
+                    nuclide: nuclide.name.clone(),
                     density: *density,
                 });
             }
-            let nuclide = library.nuclide(name, temperature)?;
             add(&mut m.total, &nuclide.total, *density);
             add(&mut m.fission, &nuclide.fission, *density);
             add(&mut m.nu_fission, &nuclide.nu_fission, *density);
