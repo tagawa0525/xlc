@@ -246,12 +246,21 @@ struct Path {
 }
 
 /// Ki3 の差分の大きさの目安（τ を 1 で頭打ちにした積）がこれより小さいと、差分を積分表示で直接求める。
-/// Ki3 の表の誤差（4e-13 程度）が、差分の値の 1e-8 程度に収まる境目
-const CANCELLATION: f64 = 1e-4;
+/// Ki3 の表の誤差（2e-15 程度）が、差分の値の 1e-8 程度に収まる境目
+const CANCELLATION: f64 = 1e-6;
+
+/// 真空の区間と、光学的厚さがこれ以上の区間の対は、Ki2 の差分を表で求める（[`Path::to`]）。Ki2 の表の誤差は
+/// 1e-3 以下で 4e-10、それより上で 1e-12 程度で、真空に隣り合う対の Ki2(0) は表の点の値なので、差分の値の
+/// 1e-8 程度に収まる
+const VOID_TABLE: f64 = 1e-2;
 
 impl Path {
     /// 単位の線源密度あたりの、同じ区間の中を飛ぶ長さ: [τ − Ki3(0) + Ki3(τ)]/Σ²
     fn own(&self) -> f64 {
+        if self.tau == 0.0 {
+            // τ → 0 の極限: ℓ² Ki1(0)/2
+            return self.length.powi(2) * PI / 4.0;
+        }
         if self.tau.min(1.0).powi(2) < CANCELLATION {
             // [τ − Ki3(0) + Ki3(τ)]/τ² = ∫ φ2(τ cosh t)/cosh t dt
             self.length.powi(2) * trapezoid(|c| phi2(self.tau * c) / c)
@@ -262,6 +271,15 @@ impl Path {
 
     /// 単位の線源密度あたりの、光学的距離 `between` だけ先の区間 `to` の中を飛ぶ長さ: D/(Σa Σb)
     fn to(&self, to: &Path, between: f64) -> f64 {
+        // 片方が真空なら、D/(τa τb) は真空の側の τ → 0 の極限で [Ki2(τab) − Ki2(τab + τ)]/τ になる（τ は他方）
+        let other = match (self.tau == 0.0, to.tau == 0.0) {
+            (true, false) => Some(to.tau),
+            (false, true) => Some(self.tau),
+            _ => None,
+        };
+        if let Some(tau) = other.filter(|&t| t >= VOID_TABLE) {
+            return self.length * to.length * (ki2(between) - ki2(between + tau)) / tau;
+        }
         if self.tau.min(1.0) * to.tau.min(1.0) < CANCELLATION {
             // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
             let integral =
@@ -343,23 +361,23 @@ fn legendre(n: usize, x: f64) -> (f64, f64) {
 
 /// 表の区間: [0, 1) は細かく（Ki の 3 階以上の導関数が 0 で発散するため）、[1, MAX) は粗く
 const FINE: f64 = 8192.0;
-const COARSE: f64 = 256.0;
+const COARSE: f64 = 1024.0;
 const MAX: f64 = 48.0;
 
-/// 表の点での (Ki2, Ki3)
+/// 表の点での (Ki1, Ki2, Ki3)
 struct Bickley {
-    fine: Vec<[f64; 2]>,
-    coarse: Vec<[f64; 2]>,
+    fine: Vec<[f64; 3]>,
+    coarse: Vec<[f64; 3]>,
 }
 
 fn table() -> &'static Bickley {
     static TABLE: OnceLock<Bickley> = OnceLock::new();
     TABLE.get_or_init(|| {
-        let nodes = |count: f64, start: f64, step: f64| -> Vec<[f64; 2]> {
+        let nodes = |count: f64, start: f64, step: f64| -> Vec<[f64; 3]> {
             (0..=count as usize)
                 .map(|i| {
                     let x = start + i as f64 * step;
-                    [bickley(2, x), bickley(3, x)]
+                    [bickley(1, x), bickley(2, x), bickley(3, x)]
                 })
                 .collect()
         };
@@ -370,21 +388,32 @@ fn table() -> &'static Bickley {
     })
 }
 
-/// Bickley 関数 Ki3(x) = ∫_0^{π/2} cos²θ exp(−x/cosθ) dθ を、表の値と導関数 −Ki2 の3次 Hermite 補間で求める
+/// Bickley 関数 Ki3(x) = ∫_0^{π/2} cos²θ exp(−x/cosθ) dθ
 pub fn ki3(x: f64) -> f64 {
+    interpolate(x, 3)
+}
+
+/// Ki2(x)
+fn ki2(x: f64) -> f64 {
+    interpolate(x, 2)
+}
+
+/// Ki_n(x)（n = 2, 3）を、表の値と導関数 −Ki_{n−1} の3次 Hermite 補間で求める
+fn interpolate(x: f64, n: usize) -> f64 {
     let table = table();
     let (nodes, start, step) = if x < 1.0 {
         (&table.fine, 0.0, 1.0 / FINE)
     } else if x < MAX {
         (&table.coarse, 1.0, 1.0 / COARSE)
     } else {
-        return bickley(3, x);
+        return bickley(n as i32, x);
     };
     let s = (x - start) / step;
     let i = (s as usize).min(nodes.len() - 2);
     let t = s - i as f64;
-    let ([d0, f0], [d1, f1]) = (nodes[i], nodes[i + 1]);
-    let (d0, d1) = (-d0 * step, -d1 * step);
+    let (a, b) = (&nodes[i], &nodes[i + 1]);
+    let (f0, f1) = (a[n - 1], b[n - 1]);
+    let (d0, d1) = (-a[n - 2] * step, -b[n - 2] * step);
     let (t2, t3) = (t * t, t * t * t);
     (2.0 * t3 - 3.0 * t2 + 1.0) * f0
         + (t3 - 2.0 * t2 + t) * d0
