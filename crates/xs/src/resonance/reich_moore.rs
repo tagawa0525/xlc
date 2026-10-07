@@ -16,8 +16,9 @@ use crate::physics::wave_number_factor;
 /// Reich-Moore の断面積の計算のエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum ReichMooreError {
-    #[error("singular level matrix at {energy} eV (J = {j})")]
-    Singular { energy: f64, j: f64 },
+    /// J は ENDF と同じく、もう一方のチャネルスピンの共鳴の組を負で表す
+    #[error("singular level matrix at {energy} eV (l = {l}, J = {j})")]
+    Singular { energy: f64, l: u32, j: f64 },
 }
 
 /// 断面積の計算に使う形に前処理した Reich-Moore パラメータ。
@@ -127,9 +128,17 @@ impl ReichMooreXs {
                         Contribution::Resonances => false,
                         Contribution::ResonancesAndHardSphere => interior,
                     };
-                    let mut terms = group
-                        .terms(gj, phi)
-                        .map_err(|Singular| ReichMooreError::Singular { energy: e, j: ajc })?;
+                    let mut terms =
+                        group
+                            .terms(gj, phi)
+                            .map_err(|Singular| ReichMooreError::Singular {
+                                energy: e,
+                                l: lv.l.number(),
+                                j: match channel {
+                                    ChannelSpin::Positive => ajc,
+                                    ChannelSpin::Negative => -ajc,
+                                },
+                            })?;
                     if hard_sphere {
                         // 硬球散乱 2 gJ (1 - cos 2φ)
                         let potential = 4.0 * gj * phi.sin().powi(2);
@@ -286,8 +295,8 @@ impl ChannelGroup {
         Ok(Terms {
             total: 2.0 * gj * one_minus_u,
             elastic: gj * (one_minus_u * one_minus_u + u_imag * u_imag),
-            // 核分裂のないときは (M^{-1})_nf の位置が 0 のまま残っている
-            fission: 4.0 * gj * (inv[1].norm_sqr() + inv[2].norm_sqr()),
+            // (M^{-1})_nf は行優先の 0 行目の 1 列目以降
+            fission: 4.0 * gj * (1..n).map(|j| inv[j].norm_sqr()).sum::<f64>(),
         })
     }
 }

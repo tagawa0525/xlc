@@ -10,13 +10,17 @@ pub(super) struct Singular;
 /// （どちらも行優先の n×n。`m` は壊れる）。同じ大きさのピボットの候補があれば後の行を選ぶ。
 pub(super) fn solve(m: &mut [Complex64], b: &mut [Complex64], n: usize) -> Result<(), Singular> {
     for col in 0..n {
-        let pivot = (col..n)
-            .max_by(|&i, &j| {
-                m[i * n + col]
-                    .norm_sqr()
-                    .total_cmp(&m[j * n + col].norm_sqr())
-            })
-            .ok_or(Singular)?;
+        let pivot = (col + 1..n).fold(col, |best, i| {
+            if m[i * n + col]
+                .norm_sqr()
+                .total_cmp(&m[best * n + col].norm_sqr())
+                .is_ge()
+            {
+                i
+            } else {
+                best
+            }
+        });
         if m[pivot * n + col].norm_sqr() == 0.0 {
             return Err(Singular);
         }
