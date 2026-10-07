@@ -12,7 +12,7 @@ mod unresolved;
 
 pub use mlbw::MlbwXs;
 pub use r_matrix_limited::{RMatrixLimitedXs, RmlError};
-pub use reich_moore::ReichMooreXs;
+pub use reich_moore::{ReichMooreError, ReichMooreXs};
 pub use unresolved::{
     ShieldedSigma, UnresolvedXs, UrrError, interpolation as unresolved_interpolation,
     unresolved_grid,
