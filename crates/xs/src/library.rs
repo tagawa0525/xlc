@@ -561,7 +561,16 @@ pub(crate) mod tests {
         let value: std::collections::BTreeMap<String, serde::de::IgnoredAny> =
             rmp_serde::from_slice(&bytes).unwrap();
         let keys: Vec<&str> = value.keys().map(String::as_str).collect();
-        assert_eq!(keys, vec!["format", "group_bounds", "nuclides", "sigma0"]);
+        assert_eq!(
+            keys,
+            vec![
+                "format",
+                "group_bounds",
+                "nuclides",
+                "pointwise_range",
+                "sigma0"
+            ]
+        );
         #[derive(Deserialize)]
         struct Head {
             format: String,
