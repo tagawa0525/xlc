@@ -505,6 +505,41 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn refuses_to_write_a_bad_pointwise_range() {
+        for range in [[0.0, 1.0e4], [1.0e4, 4.0], [4.0, f64::INFINITY]] {
+            let mut library = sample();
+            library.pointwise_range = range;
+            assert!(
+                matches!(library.to_msgpack(), Err(LibraryError::Invalid(_))),
+                "{range:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn pointwise_data_must_cover_the_range() {
+        let mut library = sample();
+        let pointwise = &mut library.nuclides[0].temperatures[0].pointwise;
+        // 上端 1e4 eV に届かない
+        *pointwise = Pointwise {
+            energy: vec![4.0, 100.0],
+            total: vec![11.0, 12.0],
+            elastic: vec![9.0, 10.0],
+            fission: vec![0.5, 0.4],
+            nu_fission: vec![1.2, 1.0],
+        };
+        assert!(matches!(
+            library.to_msgpack(),
+            Err(LibraryError::Invalid(_))
+        ));
+        library.nuclides[0].temperatures[0].pointwise = Pointwise::default();
+        assert!(matches!(
+            library.to_msgpack(),
+            Err(LibraryError::Invalid(_))
+        ));
+    }
+
+    #[test]
     fn keeps_the_pointwise_data() {
         let mut library = sample();
         library.pointwise_range = [4.0, 1.0e4];
