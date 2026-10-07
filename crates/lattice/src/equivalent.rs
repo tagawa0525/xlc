@@ -15,6 +15,10 @@ const BLACK: f64 = 1.0e5;
 /// 等価なセルの外径の、減速材の厚さに対する収束の判定
 const TOLERANCE: f64 = 1.0e-12;
 
+/// 合わせられる Dancoff 係数の下限。孤立したセルの [`cell_dancoff`] は丸めで 1e-11 程度ずれるので、それより
+/// 十分大きくとる
+const MIN_DANCOFF: f64 = 1.0e-9;
+
 /// 減速材の厚さを倍にして Dancoff 係数を下回るまで探す回数の上限
 const DOUBLINGS: usize = 64;
 
@@ -27,7 +31,7 @@ pub enum EquivalentError {
     Total(usize),
     #[error("the moderator total cross section {0} must be positive and finite")]
     Moderator(f64),
-    #[error("Dancoff factor {0} must be between 0 and 1")]
+    #[error("Dancoff factor {0} must be between {MIN_DANCOFF} and 1")]
     Range(f64),
     #[error("Dancoff factor {0} is not reached even without moderator")]
     Unreachable(f64),
@@ -78,7 +82,7 @@ pub fn equivalent_radius(
     if !(moderator > 0.0 && moderator.is_finite()) {
         return Err(EquivalentError::Moderator(moderator));
     }
-    if !(dancoff > 0.0 && dancoff < 1.0) {
+    if !(MIN_DANCOFF..1.0).contains(&dancoff) {
         return Err(EquivalentError::Range(dancoff));
     }
     let inner = radii.last().copied().ok_or(EquivalentError::Rings {
