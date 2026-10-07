@@ -29,6 +29,8 @@ pub enum SlowingDownError {
     Sigma0(f64),
     #[error("cross sections are not defined at {0} eV")]
     Undefined(f64),
+    #[error("a scattering window needs at least 2 grid points, got {0}")]
+    WindowPoints(usize),
 }
 
 /// [e_low, e_high] (eV) での中性子束の形 f(E) = φ(E) / w(E)（エネルギーの昇順の lin-lin の表）。
@@ -62,6 +64,9 @@ pub fn slowing_down_shape_with(
     if !(sigma0 > 0.0 && sigma0.is_finite()) {
         return Err(SlowingDownError::Sigma0(sigma0));
     }
+    if window_points < 2 {
+        return Err(SlowingDownError::WindowPoints(window_points));
+    }
     let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
     let width = -alpha.ln();
     let one_minus_alpha = 1.0 - alpha;
@@ -85,6 +90,16 @@ pub fn slowing_down_shape_with(
     let mut points: Vec<f64> = Vec::with_capacity(energies.len());
     for e in energies {
         let ue = (e_high / e).ln();
+        // 別のエネルギーでもレサジーが丸めで同じなら、同じ点とする（幅 0 の区間を作らない）。
+        // 範囲の端なら、端のエネルギーのほうを残す（形の表がちょうど端で始まり終わるように）
+        if u.last().is_some_and(|&last| ue <= last) {
+            if (e == e_low || e == e_high)
+                && let Some(p) = points.last_mut()
+            {
+                *p = e;
+            }
+            continue;
+        }
         if let Some(&last) = u.last() {
             let gap: f64 = ue - last;
             let extra = (gap / step).ceil() as usize;
