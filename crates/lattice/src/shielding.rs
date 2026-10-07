@@ -1009,6 +1009,21 @@ mod tests {
         }
 
         #[test]
+        fn shielding_scales_every_scattering_moment() {
+            // 群 0 の弾性散乱が無限希釈の 8 から 7 に減ると、群 0 の散乱の行はどの次数も (7 - 1) / 7 倍
+            let mut library = library();
+            library.nuclides[0].temperatures[0]
+                .scatter
+                .push(vec![vec![2.0, 0.5], vec![0.0, 1.0]]);
+            let table = library.shielded("U-238", T, &[1.0; 2]).unwrap();
+            let nuclide = shielded_nuclide(&library, "U-238", T, &table).unwrap();
+            let factor = 6.0 / 7.0;
+            assert_eq!(nuclide.scatter[0], vec![6.0 * factor, factor]);
+            assert_eq!(nuclide.anisotropic[0][0], vec![2.0 * factor, 0.5 * factor]);
+            assert_eq!(nuclide.anisotropic[0][1], vec![0.0, 1.0]);
+        }
+
+        #[test]
         fn shields_fuel_and_keeps_moderator_dilute() {
             let library = library();
             let (tracking, regions) = geometry(vec![vec![0]]);
