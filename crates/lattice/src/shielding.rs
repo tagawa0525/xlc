@@ -12,6 +12,10 @@ use xlc_xs::library::{Library, LookupError, Shielded};
 pub enum ShieldingError {
     #[error("Dancoff factor {0} must be from 0 to 1")]
     Dancoff(f64),
+    #[error("mean chord length {0} cm must be positive")]
+    Chord(f64),
+    #[error("number density {0} must be positive")]
+    Density(f64),
     #[error("{given} rational terms for {groups} groups")]
     Groups { given: usize, groups: usize },
     #[error(transparent)]
@@ -67,6 +71,12 @@ pub fn effective(
     background: &[f64],
     equivalence: &Equivalence,
 ) -> Result<Shielded, ShieldingError> {
+    if !(equivalence.chord > 0.0 && equivalence.chord.is_finite()) {
+        return Err(ShieldingError::Chord(equivalence.chord));
+    }
+    if !(density > 0.0 && density.is_finite()) {
+        return Err(ShieldingError::Density(density));
+    }
     if equivalence.terms.len() != background.len() {
         return Err(ShieldingError::Groups {
             given: equivalence.terms.len(),
