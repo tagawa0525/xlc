@@ -19,8 +19,8 @@ pub struct PinCell {
     grid: usize,
     /// 各リングを分ける扇形の数（1, 4, 8）
     sectors: usize,
-    /// 外周の正方形の枠の厚さ (cm)。0 なら支持格子なし
-    frame: f64,
+    /// 外周の正方形の枠の厚さ (cm)
+    frame: Option<f64>,
 }
 
 /// 形状の誤り。
@@ -73,7 +73,7 @@ impl PinCell {
             radii,
             grid: 1,
             sectors: 1,
-            frame: 0.0,
+            frame: None,
         })
     }
 
@@ -99,7 +99,7 @@ impl PinCell {
         if self.grid > 1 {
             self.grid * self.grid
         } else {
-            (self.radii.len() + 1) * self.sectors + usize::from(self.frame > 0.0)
+            (self.radii.len() + 1) * self.sectors + usize::from(self.frame.is_some())
         }
     }
 
@@ -134,10 +134,12 @@ impl PinCell {
     /// セルの外周に厚さ `thickness` cm の正方形の枠（支持格子を体積を保って薄い枠にしたもの）を付けたセル。
     /// 枠は1つの領域で、領域の番号の最後に置く。同心円の領域は、セルの外周の代わりに枠の内側で切り取る。
     pub fn with_frame(self, thickness: f64) -> Result<Self, GeometryError> {
+        if self.grid > 1 {
+            return Err(GeometryError::FrameOnGrid);
+        }
         let inner = 0.5 * self.pitch - thickness;
         let fits = thickness > 0.0
             && inner > 0.0
-            && self.grid == 1
             && self
                 .radii
                 .last()
@@ -146,14 +148,20 @@ impl PinCell {
             return Err(GeometryError::Frame(thickness));
         }
         Ok(Self {
-            frame: thickness,
+            frame: Some(thickness),
             ..self
         })
     }
 
     /// 枠の内側の正方形の半辺
     fn inner_half(&self) -> f64 {
-        0.5 * self.pitch - self.frame
+        0.5 * self.pitch - self.frame.unwrap_or(0.0)
+    }
+
+    /// 点 (x, y) が枠の中か
+    fn in_frame(&self, x: f64, y: f64) -> bool {
+        let a = self.inner_half();
+        self.frame.is_some() && (x.abs() > a || y.abs() > a)
     }
 
     /// 点 (x, y) を含む領域。
@@ -163,8 +171,7 @@ impl PinCell {
             let index = |v: f64| ((v / h).floor().max(0.0) as usize).min(m - 1);
             return index(0.5 * self.pitch - y) * m + index(x + 0.5 * self.pitch);
         }
-        let a = self.inner_half();
-        if self.frame > 0.0 && (x.abs() > a || y.abs() > a) {
+        if self.in_frame(x, y) {
             return (self.radii.len() + 1) * self.sectors;
         }
         let ring = self.radii.partition_point(|&ri| ri <= x.hypot(y));
@@ -193,7 +200,7 @@ impl PinCell {
             }
         }
         // 枠の内側の正方形の辺 x, y = ±a
-        if self.frame > 0.0 {
+        if self.frame.is_some() {
             let a = self.inner_half();
             for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
                 if d != 0.0 {
@@ -217,7 +224,11 @@ impl PinCell {
                     let t = -cross(start) / denominator;
                     let point = (start.0 + t * direction.0, start.1 + t * direction.1);
                     // 中心を通る直線では交点が中心そのもの（u·point = 0）になるので、等号も含める
-                    if t > 0.0 && t < length && u.0 * point.0 + u.1 * point.1 >= 0.0 {
+                    if t > 0.0
+                        && t < length
+                        && u.0 * point.0 + u.1 * point.1 >= 0.0
+                        && !self.in_frame(point.0, point.1)
+                    {
                         cuts.push(t);
                     }
                 }
@@ -227,11 +238,12 @@ impl PinCell {
             let disc = b * b - (c0 - r * r);
             if disc > 0.0 {
                 let root = disc.sqrt();
-                cuts.extend(
-                    [-b - root, -b + root]
-                        .into_iter()
-                        .filter(|&t| t > 0.0 && t < length),
-                );
+                // 枠の中の交点（枠の内側の正方形の外接円の外）では区切らない
+                cuts.extend([-b - root, -b + root].into_iter().filter(|&t| {
+                    t > 0.0
+                        && t < length
+                        && !self.in_frame(start.0 + t * direction.0, start.1 + t * direction.1)
+                }));
             }
         }
         cuts.sort_by(f64::total_cmp);
@@ -271,7 +283,7 @@ impl PinCell {
             .iter()
             .flat_map(|v| std::iter::repeat_n(v / self.sectors as f64, self.sectors))
             .collect();
-        if self.frame > 0.0 {
+        if self.frame.is_some() {
             volumes.push(self.pitch * self.pitch - 4.0 * a * a);
         }
         volumes
