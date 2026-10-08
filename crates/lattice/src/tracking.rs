@@ -71,16 +71,18 @@ pub struct Azimuth {
 }
 
 /// 外周の辺の境界条件。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Boundary {
     /// 鏡面反射
     Reflective,
     /// 真空（出た中性子は戻らない）
     Vacuum,
+    /// 出た中性子のうち割合 α（0 ≤ α ≤ 1）が鏡面反射で戻る
+    Albedo(f64),
 }
 
 /// 外周の4辺の境界条件。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Boundaries {
     pub left: Boundary,
     pub right: Boundary,
@@ -278,12 +280,16 @@ impl Tracking {
             let (end, end_side) = (tracks[k].end, tracks[k].end_side);
             let forward_link = match boundaries.of(end_side) {
                 Boundary::Vacuum => None,
-                Boundary::Reflective => Some(find(end, end_side.is_vertical())?),
+                Boundary::Reflective | Boundary::Albedo(_) => {
+                    Some(find(end, end_side.is_vertical())?)
+                }
             };
             let (start, start_side) = (tracks[k].start, tracks[k].start_side);
             let backward_link = match boundaries.of(start_side) {
                 Boundary::Vacuum => None,
-                Boundary::Reflective => Some(find(start, start_side == Side::Bottom)?),
+                Boundary::Reflective | Boundary::Albedo(_) => {
+                    Some(find(start, start_side == Side::Bottom)?)
+                }
             };
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;

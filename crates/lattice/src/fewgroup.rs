@@ -39,7 +39,7 @@ pub fn homogenize(
         boundaries.top,
         boundaries.bottom,
     ];
-    if sides.contains(&Boundary::Vacuum) {
+    if sides.iter().any(|&b| b != Boundary::Reflective) {
         return Err(HomogenizeError::NotReflective);
     }
     let ng = fine.len();

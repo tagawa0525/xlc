@@ -1247,6 +1247,44 @@ mod tests {
     }
 
     #[test]
+    fn albedo_sides_lie_between_vacuum_and_reflection() {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let materials = [&f, &m, &m, &m, &f, &m];
+        let solve_with = |right: Boundary| {
+            let boundaries = Boundaries {
+                right,
+                ..Boundaries::REFLECTIVE
+            };
+            let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+            solve(&tracking, &materials, &Options::default()).unwrap()
+        };
+        let reflective = solve_with(Boundary::Reflective);
+        let vacuum = solve_with(Boundary::Vacuum);
+        // α = 1 は鏡面反射、α = 0 は真空と同じ
+        assert!((solve_with(Boundary::Albedo(1.0)).k - reflective.k).abs() < 1e-9);
+        assert!((solve_with(Boundary::Albedo(0.0)).k - vacuum.k).abs() < 1e-9);
+        // 間のアルベドでは k も間で、返らなかった分は漏れとして収支が合う
+        let half = solve_with(Boundary::Albedo(0.5));
+        assert!(vacuum.k < half.k && half.k < reflective.k, "{}", half.k);
+        let (mut absorption, mut production) = (0.0, 0.0);
+        for (i, m) in materials.iter().enumerate() {
+            for g in 0..2 {
+                absorption += half.volumes[i] * m.absorption()[g] * half.flux[i][g];
+                production += half.volumes[i] * m.nu_fission[g] * half.flux[i][g];
+            }
+        }
+        let leakage: f64 = half.leakage.iter().sum();
+        assert!(
+            (absorption + leakage - production / half.k).abs() < 1e-6 * production / half.k,
+            "{absorption} + {leakage} vs {}",
+            production / half.k
+        );
+    }
+
+    #[test]
     fn result_does_not_depend_on_the_thread_count() {
         // スイープの和を足す順がスレッドの分け方で変わると、結果が最下位のビットで揺れる
         let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
