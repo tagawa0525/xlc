@@ -364,6 +364,15 @@ impl LatticeInput {
         let mut types = Vec::with_capacity(self.cells.len());
         let mut region_materials = Vec::with_capacity(self.cells.len());
         for cell in &self.cells {
+            // 枠の厚さは、それを使って帯を分ける前に確かめる（帯の誤りとして報告しないため）
+            if let Some(frame) = &cell.frame
+                && !(frame.thickness > 0.0 && frame.thickness < 0.5 * self.pitch)
+            {
+                return Err(InputError::Cell {
+                    cell: cell.name.clone(),
+                    source: GeometryError::Frame(frame.thickness),
+                });
+            }
             // 最後の帯を等間隔に分ける内接円（枠があれば枠の内側の正方形の内接円）の半径
             let half = 0.5 * self.pitch - cell.frame.as_ref().map_or(0.0, |f| f.thickness);
             let materials = cell
