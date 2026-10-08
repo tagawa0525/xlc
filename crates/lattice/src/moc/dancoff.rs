@@ -423,6 +423,15 @@ mod tests {
     }
 
     #[test]
+    fn rejects_lump_numbers_out_of_range() {
+        let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let totals = vec![vec![5.0]; 3];
+        let result = lump_dancoff(&tracking, &totals, &[None, Some(1), None], 1, &options());
+        assert!(result.is_err(), "{result:?}");
+    }
+
+    #[test]
     fn rejects_fuel_clipped_by_the_cell() {
         // 燃料の半径がセルの半ピッチより大きいと、隣のセルから直接燃料に入る
         let pin = PinCell::new(1.0, vec![0.6]).unwrap();
