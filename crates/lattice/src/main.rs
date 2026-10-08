@@ -178,8 +178,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     if let Some(file) = &input.pin_powers {
         let rates = cell_fission_rates(&solution, &lattice, &materials)?;
         let file = base.join(file);
-        std::fs::write(&file, to_msgpack(&rates, lattice.cells_per_side())?)
-            .with_context(|| shown(&file))?;
+        std::fs::write(&file, to_msgpack(&rates, &lattice)?).with_context(|| shown(&file))?;
     }
     println!("k {:.6}", solution.k);
     tracing::info!(

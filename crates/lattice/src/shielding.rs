@@ -14,7 +14,7 @@ use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
 use crate::cp::{CpError, Cylinder};
 use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
-use crate::geometry::Lattice;
+use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
@@ -177,13 +177,16 @@ pub fn shield_fuel(
     // 燃料のあるセルごとに、燃料の物質と、燃料が埋める内側のリングの外半径。Dancoff 係数を
     // 求める前に確かめる（燃料が外側にあると、Dancoff 係数のほうが先に失敗して原因が分かりにくい）
     let mut pins = Vec::new();
-    for cell in 0..lattice.cells_per_side().pow(2) {
+    for cell in 0..lattice.cells() {
         let range = lattice.cell_regions(cell);
         let local: Vec<bool> = range.clone().map(|r| fuel[r]).collect();
         if !local.contains(&true) {
             continue;
         }
-        let pin = lattice.cell_type(cell);
+        // 燃料はピンセルの内側のリングにだけ置ける
+        let Some(pin) = lattice.cell_type(cell).pin() else {
+            return Err(SelfShieldingError::FuelShape(cell));
+        };
         let n_fuel = local.iter().take_while(|&&f| f).count();
         let rings = n_fuel / pin.sectors();
         // 燃料は内側のリングをちょうど埋め、その外側に燃料がないこと
@@ -234,7 +237,11 @@ pub fn shield_fuel(
             });
             continue;
         }
-        let radius = lattice.cell_type(cell).radii()[rings - 1];
+        let radius = lattice
+            .cell_type(cell)
+            .pin()
+            .ok_or(SelfShieldingError::FuelShape(cell))?
+            .radii()[rings - 1];
         let equivalence = Equivalence {
             chord: 2.0 * radius,
             terms: factors
@@ -348,7 +355,12 @@ fn assign(
 ) {
     match assigned {
         Assigned::Rings { materials, start } => {
-            for (targets, material) in ring_targets(lattice, cell, *start).iter().zip(materials) {
+            // 燃料のあるセルはピンセル（`shield_fuel` で確かめてある）
+            let Some(pin) = lattice.cell_type(cell).pin() else {
+                return;
+            };
+            let first = lattice.cell_regions(cell).start;
+            for (targets, material) in ring_targets(pin, first, *start).iter().zip(materials) {
                 if let Some(m) = material {
                     for &region in targets {
                         region_material[region] = *m;
@@ -364,11 +376,10 @@ fn assign(
     }
 }
 
-/// 等価なセルのリングごとの、格子の領域。リング `start` は減速材で、セルのそれより外のリングをすべて含む。
-fn ring_targets(lattice: &Lattice, cell: usize, start: usize) -> Vec<Vec<usize>> {
-    let geometry = lattice.cell_type(cell);
+/// 等価なセルのリングごとの、格子の領域（ピンセル `geometry` の最初の領域が `first`）。リング `start` は減速材で、
+/// セルのそれより外のリングをすべて含む（外周の枠は含めず、無限希釈のままにする）。
+fn ring_targets(geometry: &PinCell, first: usize, start: usize) -> Vec<Vec<usize>> {
     let (rings, sectors) = (geometry.radii().len(), geometry.sectors());
-    let first = lattice.cell_regions(cell).start;
     let regions = |ring: usize| first + ring * sectors..first + (ring + 1) * sectors;
     (0..start)
         .map(|j| regions(j).collect())
@@ -415,7 +426,11 @@ fn shield_cell(
     carlvik: &[Shielded],
 ) -> Result<Option<CellShielding>, SelfShieldingError> {
     let cell = pin.cell;
-    let geometry = pin.lattice.cell_type(cell);
+    let geometry = pin
+        .lattice
+        .cell_type(cell)
+        .pin()
+        .ok_or(SelfShieldingError::CellShape(cell))?;
     let (radii, sectors) = (geometry.radii(), geometry.sectors());
     let first = pin.lattice.cell_regions(cell).start;
     let regions = |ring: usize| first + ring * sectors..first + (ring + 1) * sectors;
