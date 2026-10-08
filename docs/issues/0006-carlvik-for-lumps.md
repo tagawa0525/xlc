@@ -16,6 +16,8 @@ resolution:
 Carlvik の係数は孤立した円筒の脱出確率から導かれたもので、枠のような薄い板の形には合わない。枠の吸収は OpenMC と
 0.5% 以内で合っている（1B）。
 
+関係する ADR: [ADR-0074](../adr/0074-shield-outside-range-by-equivalence.md)、[ADR-0086](../adr/0086-shield-structural-lumps.md)
+
 ## 完了の条件
 
 板や環などの形での誤差を見積もり、効くなら形に合った係数（例えば平板の2項近似）を使うか、近似として ADR に記録する。

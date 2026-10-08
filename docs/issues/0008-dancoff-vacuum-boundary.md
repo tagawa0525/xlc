@@ -15,9 +15,11 @@ resolution:
 Dancoff 係数の MOC は、反射境界の格子を前提にしている。反射体の定数を作る格子（燃料の集合体と反射体を並べたもの）
 では、真空やアルベドの境界の外から入る中性子の扱いを決めていない。
 
+関係する ADR: [ADR-0084](../adr/0084-make-reflector-constants-with-fuel.md)
+
 ## 完了の条件
 
-反射体の定数（docs/plans/m3-core-hzp.md の進め方の 5）を作るときに、境界の条件での Dancoff 係数の扱いを決め、テストで確かめる。
+M3 の計画（docs/plans/m3-core-hzp.md）の進め方の 5 で反射体の定数（[ADR-0084](../adr/0084-make-reflector-constants-with-fuel.md)）を作るときに、境界の条件での Dancoff 係数の扱いを決め、テストで確かめる。
 
 ## 経緯
 

@@ -3,7 +3,7 @@ status: accepted
 date: 2026-10-06
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0001"]
 ---
 
 # ADR-0022: 群構造は WIMS 69 群とする

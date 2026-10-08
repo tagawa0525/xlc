@@ -16,6 +16,8 @@ lattice のピンごとの減速計算は、断面積をポイントワイズの
 系統）だが、コード（`ufg` モジュール、`UfgError` など）と docs では「超微細群（UFG）」と呼んでいる。UFG は普通、
 等レサジーの数万群に群平均の断面積を置く方式（AEGIS、nTRACER の PSM）を指すので、誤解を招く。
 
+関係する ADR: [ADR-0068](../adr/0068-solve-pinwise-slowing-down.md)
+
 ## 完了の条件
 
 名前を決め（例: `pointwise`、`slowing_down`）、コードと docs の呼び方をそろえる。
