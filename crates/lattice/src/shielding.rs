@@ -1562,6 +1562,56 @@ mod tests {
         }
 
         #[test]
+        fn pieces_split_by_sectors_stay_in_their_cell() {
+            // 外のリング（内径 0.65 > 半ピッチ 0.63）は四隅に分かれる。対称な操作は扇形を入れ替えるので、
+            // 対称なセル（1 と 2）の隅は同じ黒体にしない
+            let library = library_with_zirconium();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
+            let layout = vec![vec![0, 1], vec![1, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names: &[&str] = if t == 0 {
+                    &["fuel", "water"]
+                } else {
+                    &["water"; 8]
+                };
+                let mut names: Vec<String> = names.iter().map(|n| n.to_string()).collect();
+                if t == 1 {
+                    names.extend(std::iter::repeat_n("zirc".to_string(), 8));
+                }
+                names
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, corner], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "zirc".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.04)],
+            });
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 2つのセルの四隅（扇形2つずつ）
+            assert_eq!(shielded.lumps.len(), 8, "{:?}", shielded.lumps);
+            for lump in &shielded.lumps {
+                let cells: Vec<usize> = lump
+                    .regions
+                    .iter()
+                    .map(|&r| tracking.lattice.region_cell(r))
+                    .collect();
+                assert!(cells.iter().all(|&c| c == cells[0]), "{lump:?}");
+                assert_eq!(lump.regions.len(), 2, "{lump:?}");
+            }
+        }
+
+        #[test]
         fn other_resonant_materials_do_not_shadow_a_lump() {
             // 管の物質が分離共鳴を持つかどうかで、同じセルの枠（別の物質）の遮蔽は変わらない（群定数は同じ）
             let library = library_with_copies("Fe-56", "Fe-56x");
