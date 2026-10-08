@@ -23,7 +23,8 @@ use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
 use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
-use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_dancoff};
+use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_chords, lump_dancoff};
+use crate::shadow::{Absorber, ShadowError, shadow_totals};
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{SymmetryError, cell_orbits};
 use crate::tracking::Tracking;
@@ -73,6 +74,8 @@ pub enum SelfShieldingError {
     Material { name: String, source: MaterialError },
     #[error(transparent)]
     Dancoff(#[from] DancoffError),
+    #[error(transparent)]
+    Shadow(#[from] ShadowError),
     #[error(transparent)]
     Equivalent(#[from] EquivalentError),
     #[error(transparent)]
@@ -184,22 +187,7 @@ pub fn shield_fuel(
                 .ok_or_else(|| SelfShieldingError::UnknownMaterial(name.clone()))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let fuel: Vec<bool> = region_index
-        .iter()
-        .map(|&i| dilute[i].nu_fission.iter().any(|&v| v > 0.0))
-        .collect();
-    // 燃料の行は使わない
-    let totals: Vec<Vec<f64>> = region_index
-        .iter()
-        .zip(&fuel)
-        .map(|(&i, &f)| {
-            if f {
-                Vec::new()
-            } else {
-                dilute[i].total.clone()
-            }
-        })
-        .collect();
+    let fuel: Vec<bool> = region_index.iter().map(|&i| is_fuel(&dilute[i])).collect();
     // 燃料のあるセルごとに、燃料の物質と、燃料が埋める内側のリングの外半径。Dancoff 係数を
     // 求める前に確かめる（燃料が外側にあると、Dancoff 係数のほうが先に失敗して原因が分かりにくい）
     let mut pins = Vec::new();
@@ -232,9 +220,32 @@ pub fn shield_fuel(
         {
             return Err(SelfShieldingError::MixedFuel(cell));
         }
-        pins.push((cell, fuel_regions, index, rings));
+        pins.push((cell, fuel_regions, index, rings, pin.radii()[rings - 1]));
     }
-    let factors = dancoff(tracking, &totals, &fuel, &options.dancoff)?;
+    // 燃料の物質（と燃料の外半径）ごとに、その燃料の吸収で重みづけした全断面積（[`crate::shadow`]）で
+    // Dancoff 係数を求める。燃料はすべて黒体
+    let mut shadows: Vec<Shadow> = Vec::new();
+    for &(_, _, index, _, radius) in &pins {
+        if shadows
+            .iter()
+            .any(|s| s.index == index && s.radius == radius)
+        {
+            continue;
+        }
+        let absorber = Absorber {
+            materials: vec![(&materials[index], 1.0)],
+            chord: 2.0 * radius,
+        };
+        let rows = shadow_rows(library, &absorber, materials, &dilute)?;
+        let totals: Vec<Vec<f64>> = region_index.iter().map(|&i| rows[i].clone()).collect();
+        let factors = dancoff(tracking, &totals, &fuel, &options.dancoff)?;
+        shadows.push(Shadow {
+            index,
+            radius,
+            rows,
+            factors,
+        });
+    }
 
     let mut shielded = FuelShielding {
         materials: dilute,
@@ -246,8 +257,12 @@ pub fn shield_fuel(
     // だけを解き、ほかは代表の物質を共有する
     let orbits = cell_orbits(tracking, &region_index)?;
     let mut solved: Vec<(usize, Solved)> = Vec::new();
-    for (cell, fuel_regions, index, rings) in pins {
-        let factors = factors[cell]
+    for (cell, fuel_regions, index, rings, radius) in pins {
+        let shadow = shadows
+            .iter()
+            .find(|s| s.index == index && s.radius == radius)
+            .ok_or(SelfShieldingError::FuelShape(cell))?;
+        let factors = shadow.factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
         if let Some((_, s)) = solved.iter().find(|(c, _)| *c == orbits[cell]) {
@@ -264,11 +279,6 @@ pub fn shield_fuel(
             });
             continue;
         }
-        let radius = lattice
-            .cell_type(cell)
-            .pin()
-            .ok_or(SelfShieldingError::FuelShape(cell))?
-            .radii()[rings - 1];
         let equivalence = Equivalence {
             chord: 2.0 * radius,
             terms: factors
@@ -289,7 +299,7 @@ pub fn shield_fuel(
             library,
             &pin_cell,
             materials,
-            &shielded.materials,
+            &shadow.rows,
             factors,
             &carlvik,
         )?;
@@ -364,6 +374,44 @@ pub fn shield_fuel(
     Ok(shielded)
 }
 
+/// 核分裂する核種を含む物質（燃料）。
+fn is_fuel(material: &Material) -> bool {
+    material.nu_fission.iter().any(|&v| v > 0.0)
+}
+
+/// 1つの燃料の物質（と燃料の外半径）の影の計算
+struct Shadow {
+    /// 燃料の物質の番号
+    index: usize,
+    /// 燃料の外半径 (cm)
+    radius: f64,
+    /// 物質ごとの影の計算の全断面積（[`shadow_rows`]）
+    rows: Vec<Vec<f64>>,
+    /// セルごとの Dancoff 係数
+    factors: Vec<Option<Vec<f64>>>,
+}
+
+/// 吸収体 `absorber` の影の計算の、物質ごと（`materials` の順で、最後に真空）の全断面積 (1/cm)
+/// （[`shadow_totals`]）。`dilute` は `materials` の順の無限希釈の物質（後ろに余分があってもよい）で、燃料の物質は
+/// 空にする（燃料のピンでは黒体、塊の計算では SPH 因子を掛けない実効断面積を使う）。
+fn shadow_rows(
+    library: &Library,
+    absorber: &Absorber,
+    materials: &[MaterialInput],
+    dilute: &[Material],
+) -> Result<Vec<Vec<f64>>, SelfShieldingError> {
+    let others: Vec<usize> = (0..materials.len())
+        .filter(|&i| !is_fuel(&dilute[i]))
+        .collect();
+    let refs: Vec<&MaterialInput> = others.iter().map(|&i| &materials[i]).collect();
+    let mut rows = vec![Vec::new(); materials.len()];
+    for (&i, row) in others.iter().zip(shadow_totals(library, absorber, &refs)?) {
+        rows[i] = row;
+    }
+    rows.push(vec![0.0; library.groups.len()]);
+    Ok(rows)
+}
+
 /// 燃料でなく、燃料のピンの等価なセルでも置き換えていない領域のうち、分離共鳴を持つ核種を含む物質の領域
 /// （支持格子の枠、案内管など）を、等価原理で遮蔽する。
 ///
@@ -383,7 +431,6 @@ fn shield_lumps(
 ) -> Result<(), SelfShieldingError> {
     let lattice = &tracking.lattice;
     let n_regions = region_index.len();
-    let is_fuel = |m: &Material| m.nu_fission.iter().any(|&v| v > 0.0);
     // 物質ごとの、分離共鳴を持つ核種（個数密度が正のもの）の名前の組。燃料と、持たない物質は空
     let resonant = materials
         .iter()
@@ -494,14 +541,11 @@ fn shield_lumps(
         });
         lump_of[l].2.push(region);
     }
-    // 影の計算の全断面積は、燃料のピンの Dancoff 係数と同じく燃料でない領域は無限希釈とし、燃料はピンの
-    // SPH 因子を掛けない実効断面積（物理的な値。SPH 因子は MOC の反応率を合わせるためのもの）とする。
-    // 対称に移り合うピンは同じ核種を共有するので、組ごとに1回求める
+    // 影の計算の全断面積は、燃料はピンの SPH 因子を掛けない実効断面積（物理的な値。SPH 因子は MOC の反応率を
+    // 合わせるためのもの）とし、ほかは組ごとに、組の塊の吸収で重みづけした値（[`shadow_rows`]）とする。
+    // 対称に移り合うピンは同じ核種を共有するので、燃料の値は組ごとに1回求める
     let ng = library.groups.len();
-    let mut totals: Vec<Vec<f64>> = region_index
-        .iter()
-        .map(|&i| shielded.materials[i].total.clone())
-        .collect();
+    let mut physical: Vec<Option<Vec<f64>>> = vec![None; n_regions];
     let mut fuel_totals: HashMap<usize, Vec<f64>> = HashMap::new();
     for pin in &shielded.pins {
         let orbit = orbits[pin.cell];
@@ -519,10 +563,11 @@ fn shield_lumps(
         };
         for region in lattice.cell_regions(pin.cell) {
             if is_fuel(&shielded.materials[region_index[region]]) {
-                totals[region].clone_from(total);
+                physical[region] = Some(total.clone());
             }
         }
     }
+    let volumes = tracking.volumes(n_regions);
     // 核種の組ごとに、その組の物質の領域を黒体にし、その組の黒体の結果を求める。黒体の番号は組の中での番号に付け直す
     let mut found: Vec<Option<Lump>> = vec![None; body_of.len()];
     let mut sets: Vec<&[&str]> = body_of.iter().map(|&(_, set)| set).collect();
@@ -541,6 +586,33 @@ fn shield_lumps(
             .map(|&i| resonant_of(i) == set)
             .collect();
         let local: Vec<Option<usize>> = body.iter().map(|b| b.and_then(|b| number[b])).collect();
+        // 吸収体は組の塊をすべて合わせたもの: 物質ごとの体積と、合わせた塊の平均弦長
+        let merged: Vec<Option<usize>> = local.iter().map(|l| l.map(|_| 0)).collect();
+        let [chord] = lump_chords(tracking, &black, &merged, 1)?[..] else {
+            return Err(SelfShieldingError::Body(
+                group.first().copied().unwrap_or_default(),
+            ));
+        };
+        let mut absorbing: Vec<(&MaterialInput, f64)> = Vec::new();
+        for region in (0..n_regions).filter(|&r| merged[r].is_some()) {
+            let m = &materials[region_index[region]];
+            match absorbing.iter_mut().find(|(a, _)| std::ptr::eq(*a, m)) {
+                Some((_, v)) => *v += volumes[region],
+                None => absorbing.push((m, volumes[region])),
+            }
+        }
+        let absorber = Absorber {
+            materials: absorbing,
+            chord,
+        };
+        let rows = shadow_rows(library, &absorber, materials, &shielded.materials)?;
+        let totals: Vec<Vec<f64>> = (0..n_regions)
+            .map(|r| {
+                physical[r]
+                    .clone()
+                    .unwrap_or_else(|| rows[region_index[r]].clone())
+            })
+            .collect();
         let results = lump_dancoff(
             tracking,
             &totals,
@@ -689,12 +761,13 @@ struct CellShielding {
 /// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
 /// リング（ギャップ、被覆管）、減速材（セルの外側の物質。等価なセルでは1つのリング）のそれぞれの核種に、そのリングの
 /// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、燃料は等価原理の値（`carlvik`）、それ以外は無限希釈。
-/// 燃料に分離共鳴を持つ核種がなければ `None`。
+/// 等価なセルの外半径は、燃料のピンの Dancoff 係数と同じ、物質ごとの影の計算の全断面積 `shadow`（[`shadow_rows`]）で
+/// Dancoff 係数を合わせる。燃料に分離共鳴を持つ核種がなければ `None`。
 fn shield_cell(
     library: &Library,
     pin: &PinRings,
     materials: &[MaterialInput],
-    dilute: &[Material],
+    shadow: &[Vec<f64>],
     dancoff: &[f64],
     carlvik: &[Shielded],
 ) -> Result<Option<CellShielding>, SelfShieldingError> {
@@ -754,12 +827,8 @@ fn shield_cell(
     for (g, &c) in dancoff.iter().enumerate().take(bottom).skip(top) {
         let totals: Vec<f64> = [0.0]
             .into_iter()
-            .chain(
-                ring_index[pin.rings..start]
-                    .iter()
-                    .map(|&i| dilute[i].total[g]),
-            )
-            .chain([dilute[moderator].total[g]])
+            .chain(ring_index[pin.rings..start].iter().map(|&i| shadow[i][g]))
+            .chain([shadow[moderator][g]])
             .collect();
         // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
         sum += equivalent_radius(&inner, &totals, c.max(MIN_DANCOFF))?;
