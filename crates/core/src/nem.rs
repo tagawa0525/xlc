@@ -903,14 +903,21 @@ mod tests {
 
     #[test]
     fn unit_adfs_leave_results_unchanged() {
-        // ADF を入れる前（47c63a7）の結果
+        // ADF を入れる前（47c63a7）と同じ反復（a3, a4 を前の反復の a1, a2 から求める。#0025 の修正の前で、
+        // 既定の許容差では 47c63a7 の結果に 1e-12 で一致していた）を、許容差を詰めて収束させた値。
+        // 既定の許容差の値は反復の道筋で 1e-9 程度変わるので、収束させた値で比べる
         let p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
-        let s = solve(&p, &Options::default()).unwrap();
-        let k = 8.510692818894939e-1;
+        let tight = Options {
+            k_tolerance: 1e-14,
+            flux_tolerance: 1e-13,
+            max_iterations: 10_000,
+        };
+        let s = solve(&p, &tight).unwrap();
+        let k = 8.510692798259939e-1;
         assert!((s.k - k).abs() < 1e-12, "{} vs {k}", s.k);
         let flux = [
-            [0.0005911585345818675, 0.00012519241066775465],
-            [0.0016614051334569624, 0.0003510047054023206],
+            [0.0005911585762519943, 0.00012519241937033706],
+            [0.001661405206417996, 0.0003510047208700676],
         ];
         for (phi, expected) in s.flux.iter().zip(flux) {
             for (a, b) in phi.iter().zip(expected) {
