@@ -17,7 +17,7 @@ use std::ops::Range;
 
 use rayon::prelude::*;
 use xlc_format::library::{Library, LookupError, Pointwise, Shielded};
-use xlc_xs::multigroup::WINDOW_POINTS;
+use xlc_numeric::slowing::WINDOW_POINTS;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;

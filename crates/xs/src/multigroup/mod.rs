@@ -27,7 +27,7 @@ pub use scatter::{
     Emission, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
     scattering_moments, two_body_range,
 };
-pub use slowing::{SlowingDownError, WINDOW_POINTS, slowing_down_shape, slowing_down_shape_with};
+pub use slowing::{SlowingDownError, slowing_down_shape, slowing_down_shape_with};
 
 pub use weight::Weight;
 
