@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core]
 opened: 2026-10-09
-closed:
+closed: 2026-10-09
 milestone: M3
 blocked-by: []
-resolution:
+resolution: コミット cea28f6
 ---
 
 # core の NEM で、両側が反射の1ノードの方向の展開係数が発散する
@@ -38,3 +38,7 @@ core の NEM で a3、a4 を、1ノードの問題と同じく a1、a2 と同時
 
 - 2026-10-09: ADR-0094 の実装で、細かいノードの参照の解の y の面の中性子束が ±0.4（ノード平均の 100 倍）になって
   いたことから分かった
+- 2026-10-09: `xlc_numeric::nem::outflow` が、ノードの中で面の条件、a1, a2 と a3, a4 の残差の式を同時に解くように
+  した（cea28f6）。前の反復の値は、ほかの群の展開係数と隣のノードの値だけになる。上の再現の問題は 2000 回の反復で
+  k が許容差を詰めて収束させた値と相対 1e-12 以内のまま（`single_reflective_node_direction_stays_bounded`）。反復の
+  不動点は変わらない（2領域の平板で k の差 1e-15）。1ノードの問題も同じ `outflow` で解く（022a8b8。ADR-0094）
