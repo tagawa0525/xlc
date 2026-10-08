@@ -10,7 +10,7 @@ issues: []
 
 ## 背景
 
-CMFD（[ADR-0061](0061-accelerate-moc-with-cmfd.md)）で粗メッシュの中性子束を更新したあと、MOC の細かい領域の量をどこまで更新するかと、境界の角度
+CMFD（[ADR-0083](0083-generalize-to-rectilinear-lattice.md)。M2 では [ADR-0061](0061-accelerate-moc-with-cmfd.md)）で粗メッシュの中性子束を更新したあと、MOC の細かい領域の量をどこまで更新するかと、境界の角度
 中性子束の初期値を決める必要があった。
 
 ## 検討した案
