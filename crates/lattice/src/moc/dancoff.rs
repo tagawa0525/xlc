@@ -298,14 +298,14 @@ mod tests {
 
     #[test]
     fn isolated_annulus_has_its_own_chord() {
-        // 薄い水の中の孤立した円環（内径 0.5、外径 0.55）: C ≈ 0、l̄ = 4V/S = 2(r₂ − r₁)
+        // 光学的に厚い水の中の孤立した円環（内径 0.5、外径 0.55）: C ≈ 0、l̄ = 4V/S = 2(r₂ − r₁)。
+        // 水が薄いと、内側の水は中性子が入れず空になり、外側も遠くの円環の影を受ける
         let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
         let lattice = Lattice::pin_cell(cell);
         let tracking = Tracking::new(&lattice, 32, 0.005).unwrap();
-        let totals = vec![vec![1.0e-3]; 3];
+        let totals = vec![vec![5.0]; 3];
         let lumps =
             lump_dancoff(&tracking, &totals, &[None, Some(0), None], 1, &options()).unwrap();
-        // 鏡面反射の外周で隣のセルの円環の影がわずかに残る
         assert!(lumps[0].dancoff[0] < 0.05, "{lumps:?}");
         assert!((lumps[0].chord - 0.1).abs() < 1e-3 * 0.1, "{lumps:?}");
     }
