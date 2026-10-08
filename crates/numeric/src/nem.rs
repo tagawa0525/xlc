@@ -33,18 +33,19 @@ pub struct Line<'a> {
     pub inflow: [Inflow; 2],
 }
 
-/// 1方向の途中結果。`out` はノード平均 φ̄ = 0 のときの出ていく部分中性子流で、
-/// 実際の値は `slope` × φ̄ を足したもの。
+/// 1方向の途中結果。`out` と `higher` はノード平均 φ̄ = 0 のときの値で、実際の値は `slope` と
+/// `higher_slope` に φ̄ をかけて足したもの。
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Outflow {
-    /// [+ 面, - 面]
+    /// [+ 面, - 面] の出ていく部分中性子流
     pub out: [f64; 2],
     pub slope: [f64; 2],
     /// [+ 面, - 面] の i = β o + external の β
     pub beta: [f64; 2],
     pub external: [f64; 2],
-    pub a3: f64,
-    pub a4: f64,
+    /// 3次・4次の係数 [a3, a4]
+    pub higher: [f64; 2],
+    pub higher_slope: [f64; 2],
 }
 
 /// ノード平均を決めたあとの面の値。
@@ -64,20 +65,25 @@ impl Outflow {
         let out: [f64; 2] = std::array::from_fn(|f| self.out[f] + self.slope[f] * average);
         let incoming: [f64; 2] = std::array::from_fn(|f| self.beta[f] * out[f] + self.external[f]);
         let (phi_r, phi_l) = (2.0 * (out[0] + incoming[0]), 2.0 * (out[1] + incoming[1]));
+        let [a3, a4]: [f64; 2] =
+            std::array::from_fn(|i| self.higher[i] + self.higher_slope[i] * average);
         Faces {
             out,
             incoming,
-            coefficients: [
-                phi_r - phi_l,
-                phi_r + phi_l - 2.0 * average,
-                self.a3,
-                self.a4,
-            ],
+            coefficients: [phi_r - phi_l, phi_r + phi_l - 2.0 * average, a3, a4],
         }
     }
 }
 
-/// 3次・4次の係数と、出ていく部分中性子流のノード平均についての線形の式 o = out + slope φ̄。
+/// 出ていく部分中性子流と 3次・4次の係数の、ノード平均についての線形の式
+/// o = out + slope φ̄、(a3, a4) = higher + higher_slope φ̄。
+///
+/// 面の条件（入射 i = β o + 外からの入射）、a1 と a2（面の中性子束で決まる）、f1, f2 で重み付けした残差の
+/// 式の a3, a4 を、このノードのこの群の中で同時に解く。前の反復の値を使うのは、ほかの群の展開係数
+/// （源のモーメント）と、`inflow` と `transverse` に入っている隣のノードの値だけである。a3, a4 を前の反復の
+/// a1, a2 から求めると、両側の面の正味の中性子流が決まるノード（1つのノードで両側が反射の方向）では
+/// 正味の中性子流が a1 + a3/2 と 3a2 + a4/5 を決め、D/h² ≪ Σr なら a3 ≈ 10 a1、a4 ≈ 35 a2 なので、誤差が
+/// 反復ごとに約 -5 倍と -2.3 倍になって発散する（#0025）。
 pub fn outflow(line: &Line) -> Outflow {
     let Line {
         diffusion,
@@ -90,12 +96,14 @@ pub fn outflow(line: &Line) -> Outflow {
         inflow,
     } = *line;
     let alpha = diffusion / h;
-    let s = source_moments(coupling, coefficients, (l1, l2));
-    let [a1, a2, _, _] = coefficients[g];
-    // f1, f2 で重み付けした残差から 3次・4次の係数（前の反復の a1, a2 から）
+    // 自群の項を除いた源のモーメント（自群の項は未知の係数とともに左辺に置く）
+    let own = coupling[g];
+    let mut s = source_moments(coupling, coefficients, (l1, l2));
+    for (si, ai) in s.iter_mut().zip(coefficients[g]) {
+        *si -= own * ai;
+    }
     let [w3, w4] = higher_order_weights(diffusion, h, removal);
-    let a3 = (removal * a1 / 12.0 - s[0] / 12.0 + s[2] / 120.0) / w3;
-    let a4 = (removal * a2 / 20.0 - s[1] / 20.0 + s[3] / 700.0) / w4;
+    let net = removal - own;
 
     // 面の中性子束と正味の中性子流の連続から、出ていく部分中性子流 o = (o_R, o_L) は
     //   M o = A i + c,  M = [[1+8α, 4α], [4α, 1+8α]],  A = [[1-8α, -4α], [-4α, 1-8α]]
@@ -124,19 +132,52 @@ pub fn outflow(line: &Line) -> Outflow {
             (k[0][0] * r[1] - k[1][0] * r[0]) / det,
         ]
     };
-    // φ̄ = 0 のときの値と、φ̄ に対する傾き
-    let base = solve2([
-        q * ext_r - w * ext_l - alpha * a3 / 2.0 - alpha * a4 / 5.0,
-        q * ext_l - w * ext_r + alpha * a3 / 2.0 - alpha * a4 / 5.0,
+    // o = o0 + o3 a3 + o4 a4 + oφ φ̄
+    let o0 = solve2([q * ext_r - w * ext_l, q * ext_l - w * ext_r]);
+    let o3 = solve2([-alpha / 2.0, alpha / 2.0]);
+    let o4 = solve2([-alpha / 5.0, -alpha / 5.0]);
+    let o_average = solve2([6.0 * alpha, 6.0 * alpha]);
+    // 面の中性子束 2(o + i) = 2((1 + β) o + 外からの入射) から a1 = φ_R - φ_L、a2 = φ_R + φ_L - 2φ̄
+    // （φ̄ の項は下で足す）
+    let moments = |o: [f64; 2], external: [f64; 2]| {
+        let phi_r = 2.0 * ((1.0 + beta_r) * o[0] + external[0]);
+        let phi_l = 2.0 * ((1.0 + beta_l) * o[1] + external[1]);
+        [phi_r - phi_l, phi_r + phi_l]
+    };
+    let constant = moments(o0, [ext_r, ext_l]);
+    let by_a3 = moments(o3, [0.0; 2]);
+    let by_a4 = moments(o4, [0.0; 2]);
+    let mut by_average = moments(o_average, [0.0; 2]);
+    by_average[1] -= 2.0;
+    // 重み付けした残差 (w3 - c_gg/120) a3 = (Σr - c_gg) a1/12 - s0/12 + s2/120、
+    // (w4 - c_gg/700) a4 = (Σr - c_gg) a2/20 - s1/20 + s3/700 に a1, a2 を入れた 2×2 の式
+    let (f3, f4) = (net / 12.0, net / 20.0);
+    let m = [
+        [w3 - own / 120.0 - f3 * by_a3[0], -f3 * by_a4[0]],
+        [-f4 * by_a3[1], w4 - own / 700.0 - f4 * by_a4[1]],
+    ];
+    let det_m = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+    let solve_m = |r: [f64; 2]| {
+        [
+            (m[1][1] * r[0] - m[0][1] * r[1]) / det_m,
+            (m[0][0] * r[1] - m[1][0] * r[0]) / det_m,
+        ]
+    };
+    let higher = solve_m([
+        -s[0] / 12.0 + s[2] / 120.0 + f3 * constant[0],
+        -s[1] / 20.0 + s[3] / 700.0 + f4 * constant[1],
     ]);
-    let slope = solve2([6.0 * alpha, 6.0 * alpha]);
+    let higher_slope = solve_m([f3 * by_average[0], f4 * by_average[1]]);
+    let combine = |base: [f64; 2], a: [f64; 2]| -> [f64; 2] {
+        std::array::from_fn(|f| base[f] + o3[f] * a[0] + o4[f] * a[1])
+    };
     Outflow {
-        out: base,
-        slope,
+        out: combine(o0, higher),
+        slope: combine(o_average, higher_slope),
         beta: [beta_r, beta_l],
         external: [ext_r, ext_l],
-        a3,
-        a4,
+        higher,
+        higher_slope,
     }
 }
 
