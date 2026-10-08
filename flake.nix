@@ -46,7 +46,7 @@
             poppler-utils
           ];
         };
-        # 参照用のツール（NJOY, OpenMC）のビルド（docs/verification.md）。
+        # 参照用のツール（NJOY, OpenMC）のビルド（docs/environment.md）。
         # OpenMC 0.15.2 が同梱する fmt は GCC 16 でコンパイルできないので GCC 13 を使う
         references = pkgs.mkShell.override { stdenv = pkgs.gcc13Stdenv; } {
           packages = with pkgs; [

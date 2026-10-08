@@ -25,7 +25,7 @@ issues: []
 ## 確認
 
 `lattice_tracks_reflect_at_the_outer_boundary`、`links_join_tracks_at_reflected_points`、`vacuum_sides_have_no_links`、
-`vacuum_lattice_balances_production_with_absorption_and_leakage`。C5G7 との比較（examples/c5g7/README.md）。
+`vacuum_lattice_balances_production_with_absorption_and_leakage`。C5G7 との比較（examples/c5g7/verification.md）。
 
 ## 結果
 

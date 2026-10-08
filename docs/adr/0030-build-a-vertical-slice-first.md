@@ -24,7 +24,7 @@ issues: []
 ## 確認
 
 M0 の完了条件（ENDF から作った多群ライブラリで、ピンセルの k∞ と均質な炉心の k_eff を、3段階のコマンドを順に実行して
-求められること）。examples/m0/README.md。
+求められること）。examples/m0/verification.md。
 
 ## 結果
 

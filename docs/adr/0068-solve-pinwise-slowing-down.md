@@ -56,7 +56,7 @@ issues: ["#0002", "#0003"]
 
 `fuel_rings_are_shielded_by_the_cell`、`equivalent_radius_recovers_the_cell`、`resonance_is_shielded_more_inside_the_fuel`、
 `pins_next_to_water_are_shielded_less`。VERA 1B〜1D を同じ核データの OpenMC と比べた（コード同士の検証。
-examples/vera/README.md）。OpenMC とは、中性子束の重みの群定数と直接比べる（反応率から逆算した σ0 には、MOC の角度の
+examples/vera/verification.md）。OpenMC とは、中性子束の重みの群定数と直接比べる（反応率から逆算した σ0 には、MOC の角度の
 扱いの誤差が混ざる）。等価なセルの誤差を、案内管や集合体の端のそばのピンで測るための、集合体全体を UFG の MOC で
 直接解く参照のツールは、M2 の計画の作業にあるがまだ作っていない。
 

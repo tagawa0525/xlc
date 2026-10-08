@@ -33,7 +33,7 @@ issues: []
 
 ## 確認
 
-手順は docs/verification.md の「VERA の参照解」、結果は examples/vera/README.md。
+手順は docs/environment.md の「VERA の参照解」、結果は examples/vera/verification.md。
 
 ## 結果
 
