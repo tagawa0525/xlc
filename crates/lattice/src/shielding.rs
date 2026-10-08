@@ -1216,6 +1216,7 @@ mod tests {
         use crate::geometry::{Lattice, PinCell};
         use crate::input::MaterialInput;
         use crate::material::Material;
+        use crate::shadow::{Absorber, shadow_totals};
         use crate::tracking::Tracking;
         use xlc_format::group::GroupStructure;
         use xlc_format::library::{Library, NuclideData, Resolved, Shielded, TemperatureData};
@@ -1835,33 +1836,104 @@ mod tests {
             }
         }
 
-        /// 被覆管が物質 `clad`、枠（厚さ 0.05）が分離共鳴を持つ Zr-91 の物質 grid の、UFG で遮蔽するピンセル。
-        /// 枠の塊の Dancoff 係数と、`black` の領域を黒体にして求め直した Dancoff 係数（燃料はピンの SPH 因子を
-        /// 掛けない実効断面積、ほかは無限希釈の全断面積）
-        fn frame_dancoff(clad: &str, black: &[usize]) -> (Vec<f64>, Vec<f64>) {
+        /// `resonant_library()` に、分離共鳴を持つ Zr-91（一定の 0.1 barn の吸収を持つ）と Zr-92（500 eV に、燃料の
+        /// 共鳴と重ならない共鳴を持つ。群定数の全断面積は共鳴の外の 5 barn より大きい 6.5 barn）を加えたもの
+        fn framed_library() -> Library {
             let mut library = resonant_library();
-            let mut zr91 = library.nuclides[3].clone();
+            let zr = library.nuclides[3].clone();
+            let mut zr91 = zr.clone();
             zr91.name = "Zr-91".into();
-            zr91.resolved = Some(xlc_format::library::Resolved {
+            zr91.resolved = Some(Resolved {
                 top: 1.0e3,
                 potential: 6.5,
             });
-            library.nuclides.push(zr91);
-            let material = |name: &str, composition: &[(&str, f64)]| MaterialInput {
+            let pointwise = &mut zr91.temperatures[0].pointwise;
+            pointwise.total.iter_mut().for_each(|t| *t += 0.1);
+            let mut zr92 = zr;
+            zr92.name = "Zr-92".into();
+            zr92.resolved = Some(Resolved {
+                top: 1.0e3,
+                potential: 5.0,
+            });
+            let energy: Vec<f64> = [4.0, 100.0]
+                .into_iter()
+                .chain((0..=400).map(|k| 480.0 + 0.1 * k as f64))
+                .chain([1.0e3, 1.0e4])
+                .collect();
+            let total: Vec<f64> = energy
+                .iter()
+                .map(|&e| 5.0 + 1.0e3 / (1.0 + ((e - 500.0) / 0.5).powi(2)))
+                .collect();
+            let n = energy.len();
+            zr92.temperatures[0].pointwise = xlc_format::library::Pointwise {
+                energy,
+                elastic: total.clone(),
+                total,
+                fission: vec![0.0; n],
+                nu_fission: vec![0.0; n],
+            };
+            library.nuclides.extend([zr91, zr92]);
+            library
+        }
+
+        fn input(name: &str, composition: &[(&str, f64)]) -> MaterialInput {
+            MaterialInput {
                 name: name.into(),
                 temperature: T,
                 composition: composition.iter().map(|&(n, d)| (n.into(), d)).collect(),
-            };
-            let materials = vec![
-                material(
+            }
+        }
+
+        /// `framed_library()` の物質
+        fn framed_materials() -> Vec<MaterialInput> {
+            vec![
+                input(
                     "fuel",
                     &[("U-238", 0.022), ("U-235", 5.0e-4), ("O-16", 0.045)],
                 ),
-                material("clad", &[("Zr-90", 0.043)]),
-                material("grid", &[("Zr-91", 0.043)]),
-                material("grid2", &[("Zr-91", 0.03)]),
-                material("water", &[("H-1", 0.05), ("O-16", 0.025)]),
-            ];
+                input(
+                    "fuel2",
+                    &[("U-238", 0.011), ("U-235", 5.0e-4), ("O-16", 0.045)],
+                ),
+                input("clad", &[("Zr-90", 0.043)]),
+                input("clad3", &[("Zr-92", 0.043)]),
+                input("grid", &[("Zr-91", 0.043)]),
+                input("grid2", &[("Zr-91", 0.03)]),
+                input("water", &[("H-1", 0.05), ("O-16", 0.025)]),
+            ]
+        }
+
+        /// 領域ごとの物質の名前 `regions` に、影の計算の全断面積を並べる。燃料の領域は `fuel`、真空は 0、ほかは
+        /// 吸収体 `absorber` の重みの全断面積（[`shadow_totals`]）
+        fn shadow_rows(
+            library: &Library,
+            absorber: &Absorber,
+            regions: &[String],
+            fuel: &[f64],
+        ) -> Vec<Vec<f64>> {
+            let materials = framed_materials();
+            let refs: Vec<&MaterialInput> = materials.iter().collect();
+            let shadow = shadow_totals(library, absorber, &refs).unwrap();
+            regions
+                .iter()
+                .map(|name| match name.as_str() {
+                    "fuel" | "fuel2" => fuel.to_vec(),
+                    crate::input::VOID => vec![0.0; library.groups.len()],
+                    name => shadow[materials.iter().position(|m| m.name == name).unwrap()].clone(),
+                })
+                .collect()
+        }
+
+        /// 被覆管が物質 `clad`、枠（厚さ 0.05）が分離共鳴を持つ Zr-91 の物質 grid の、UFG で遮蔽するピンセル
+        struct Framed {
+            library: Library,
+            tracking: Tracking,
+            regions: Vec<String>,
+            shielded: FuelShielding,
+        }
+
+        fn framed_pin(clad: &str) -> Framed {
+            let library = framed_library();
             let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475])
                 .unwrap()
                 .with_frame(0.05)
@@ -1881,32 +1953,46 @@ mod tests {
             let shielded = shield_fuel(
                 &library,
                 &tracking,
-                &materials,
+                &framed_materials(),
                 &regions,
                 &ShieldingOptions::default(),
             )
             .unwrap();
-            let pin = &shielded.pins[0];
-            assert!(pin.sph.is_some());
-            let fuel = Material::from_nuclides(&pin.nuclides, library.groups.len()).unwrap();
-            let totals: Vec<Vec<f64>> = regions
-                .iter()
-                .map(|name| match name.as_str() {
-                    "fuel" => fuel.total.clone(),
-                    crate::input::VOID => vec![0.0; library.groups.len()],
-                    name => {
-                        let m = materials.iter().find(|m| m.name == name).unwrap();
-                        Material::mix(&library, &m.composition, T).unwrap().total
-                    }
-                })
-                .collect();
-            let lump: Vec<Option<usize>> = (0..regions.len())
+            assert!(shielded.pins[0].sph.is_some());
+            Framed {
+                library,
+                tracking,
+                regions,
+                shielded,
+            }
+        }
+
+        /// `framed_pin(clad)` の枠の塊の Dancoff 係数と、`black` の領域を黒体にして求め直した Dancoff 係数（燃料は
+        /// ピンの SPH 因子を掛けない実効断面積、ほかは枠の物質の吸収で重みづけした全断面積）
+        fn frame_dancoff(clad: &str, black: &[usize]) -> (Vec<f64>, Vec<f64>) {
+            let f = framed_pin(clad);
+            let ng = f.library.groups.len();
+            let fuel = Material::from_nuclides(&f.shielded.pins[0].nuclides, ng).unwrap();
+            let lump: Vec<Option<usize>> = (0..f.regions.len())
                 .map(|r| black.contains(&r).then_some(usize::from(r != 6)))
                 .collect();
             let lumps = 1 + usize::from(black.len() > 1);
             let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+            // 吸収体は枠の塊（領域 6）
+            let frame: Vec<Option<usize>> = (0..f.regions.len())
+                .map(|r| (r == 6).then_some(0))
+                .collect();
+            let chord =
+                crate::moc::dancoff::lump_chords(&f.tracking, &black, &frame, 1).unwrap()[0];
+            let materials = framed_materials();
+            let grid = materials.iter().find(|m| m.name == "grid").unwrap();
+            let absorber = Absorber {
+                materials: vec![(grid, 1.0)],
+                chord,
+            };
+            let totals = shadow_rows(&f.library, &absorber, &f.regions, &fuel.total);
             let expected = lump_dancoff(
-                &tracking,
+                &f.tracking,
                 &totals,
                 &black,
                 &lump,
@@ -1914,11 +2000,112 @@ mod tests {
                 &DancoffOptions::default(),
             )
             .unwrap();
-            assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
+            assert_eq!(f.shielded.lumps.len(), 1, "{:?}", f.shielded.lumps);
             (
-                shielded.lumps[0].dancoff.clone(),
+                f.shielded.lumps[0].dancoff.clone(),
                 expected[0].dancoff.clone(),
             )
+        }
+
+        #[test]
+        fn lumps_see_totals_weighted_by_their_absorption() {
+            // 枠と分離共鳴を持つ核種の組が違う被覆管は黒体でなく、枠の吸収で重みづけした全断面積で影の計算に入る
+            let (dancoff, expected) = frame_dancoff("clad3", &[6]);
+            for (c, e) in dancoff.iter().zip(&expected) {
+                assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
+            }
+        }
+
+        #[test]
+        fn pins_see_totals_weighted_by_their_fuel() {
+            // 燃料のピンの Dancoff 係数と等価なセルの外半径は、被覆管を燃料の吸収で重みづけした全断面積で見る
+            let f = framed_pin("clad3");
+            let materials = framed_materials();
+            let absorber = Absorber {
+                materials: vec![(&materials[0], 1.0)],
+                chord: 2.0 * 0.4096,
+            };
+            let totals = shadow_rows(&f.library, &absorber, &f.regions, &[]);
+            let fuel: Vec<bool> = f.regions.iter().map(|n| n == "fuel").collect();
+            let factors = dancoff(&f.tracking, &totals, &fuel, &DancoffOptions::default()).unwrap();
+            let expected = factors[0].as_ref().unwrap();
+            let pin = &f.shielded.pins[0];
+            for (c, e) in pin.dancoff.iter().zip(expected) {
+                assert!((c - e).abs() < 1e-9, "{:?} vs {expected:?}", pin.dancoff);
+            }
+            // UFG の範囲は群 1, 2
+            let radius = (1..3)
+                .map(|g| {
+                    let rings = [0.0, 0.0, totals[4][g], totals[5][g]];
+                    equivalent_radius(
+                        &[0.4096, 0.418, 0.475],
+                        &rings,
+                        pin.dancoff[g].max(MIN_DANCOFF),
+                    )
+                    .unwrap()
+                })
+                .sum::<f64>()
+                / 2.0;
+            let equivalent = pin.equivalent.unwrap();
+            assert!(
+                (equivalent - radius).abs() < 1e-12,
+                "{equivalent} vs {radius}"
+            );
+        }
+
+        #[test]
+        fn each_fuel_material_weights_its_own_pins() {
+            // 燃料の物質ごとに、その燃料の吸収で重みづけした全断面積で Dancoff 係数を求める
+            let library = framed_library();
+            let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+            let lattice = Lattice::new(vec![pin], vec![vec![0, 0], vec![0, 0]]).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let cell = |fuel: &str| {
+                [fuel, fuel, fuel, crate::input::VOID, "clad3", "water"].map(String::from)
+            };
+            // 市松模様: セル 0, 3 が fuel、1, 2 が fuel2
+            let of_cell = [0, 1, 1, 0];
+            let regions: Vec<String> = of_cell
+                .iter()
+                .flat_map(|&k| cell(["fuel", "fuel2"][k]))
+                .collect();
+            let materials = framed_materials();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let fuel: Vec<bool> = regions.iter().map(|n| n.starts_with("fuel")).collect();
+            let expected: Vec<Vec<f64>> = [0, 1]
+                .into_iter()
+                .map(|k| {
+                    let absorber = Absorber {
+                        materials: vec![(&materials[k], 1.0)],
+                        chord: 2.0 * 0.4096,
+                    };
+                    let totals = shadow_rows(&library, &absorber, &regions, &[]);
+                    let factors =
+                        dancoff(&tracking, &totals, &fuel, &DancoffOptions::default()).unwrap();
+                    factors[k].clone().unwrap()
+                })
+                .collect();
+            assert!(
+                expected[0]
+                    .iter()
+                    .zip(&expected[1])
+                    .any(|(a, b)| (a - b).abs() > 1e-6),
+                "{expected:?}"
+            );
+            assert_eq!(shielded.pins.len(), 4);
+            for (pin, &k) in shielded.pins.iter().zip(&of_cell) {
+                let e = &expected[k];
+                for (c, x) in pin.dancoff.iter().zip(e) {
+                    assert!((c - x).abs() < 1e-9, "{:?} vs {e:?}", pin.dancoff);
+                }
+            }
         }
 
         #[test]
