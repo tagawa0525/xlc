@@ -13,8 +13,8 @@
 //! NR 近似の群平均の中性子束 φ_i = (σp + σ0,i) / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる。σp は核種の
 //! ポテンシャル散乱で、NR 近似の中性子束 (σp + σ0) w / (σt + σ0) の線源に入る（共鳴の間で中性子束が w になる）。
 //! ライブラリの重みが w/(σt + σ0) の群（Bondarenko）では、この式は NR 近似の範囲で厳密に成り立つ。分離共鳴の
-//! 範囲の群は flux calculator の中性子束で重みづけしてあり、この式は近似になる（U-238 の σ0 = 30〜100 b で、
-//! flux calculator の群の中性子束との比は 0.88〜1.05）。
+//! 範囲の群は flux calculator の中性子束で重みづけしてあり、この式は近似になる（docs/plans/m3-core-hzp.md）。
+//! σp は分離共鳴の範囲の s 波の散乱半径の値をすべての群に使う（非分離共鳴の範囲の p 波などは入れない）。
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -1086,10 +1086,13 @@ pub fn effective(
     ];
     let sigma0 = [sigma0_1, sigma0_2];
     let groups = background.len();
-    // 分離共鳴を持たない核種は σ0 によらないので、σp は重みに効かない
+    // 分離共鳴を持たない核種の表は、滑らかな断面積の群の中の形でしか σ0 によらず、2つの表がほぼ等しいので、
+    // 重みの σp は効かない
     let potential = library
-        .lookup(name, temperature)?
-        .0
+        .nuclides
+        .iter()
+        .find(|n| n.name == name)
+        .ok_or_else(|| LookupError::Nuclide(name.into()))?
         .resolved
         .as_ref()
         .map_or(0.0, |r| r.potential);
