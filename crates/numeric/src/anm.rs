@@ -282,13 +282,15 @@ mod tests {
 
     /// 細かいメッシュ（セル中心の差分、`cells` 個）の参照解: -D φ'' + A φ = -L(x)
     /// （L = L̄ + l1 ξ + l2 (3ξ² - 1/4)、ξ = x/h - 1/2）。右の面は入射 `right`、左の面は入射 `left`
-    /// （`None` なら反射）。[群] の（ノード平均、右の面の出ていく部分中性子流、左の面の出ていく部分中性子流）を返す
+    /// （`None` なら反射）。[群] の（ノード平均、右の面の出ていく部分中性子流、左の面の出ていく部分中性子流）を返す。
+    /// `faces` には [群] の（右の面の中性子束、右の外向きの正味の中性子流、左の面の中性子束、左の外向きの正味の中性子流）を書く
     fn finite_difference(
         width: f64,
         cells: usize,
         transverse: &[(f64, f64, f64)],
         right: &[f64],
         left: Option<&[f64]>,
+        faces: &mut Vec<[f64; 4]>,
     ) -> Vec<(f64, f64, f64)> {
         let (diffusion, total, scatter) = reflector();
         let dx = width / cells as f64;
@@ -361,11 +363,21 @@ mod tests {
                     phi / 4.0 + k * (end - phi) / 2.0
                 };
                 let right_out = out(flux[g][cells - 1], right[g]);
-                let left_out = match left {
-                    Some(left) => out(flux[g][0], left[g]),
+                let right_phi = face(d, flux[g][cells - 1], right[g]);
+                let (left_out, left_phi) = match left {
+                    Some(left) => (out(flux[g][0], left[g]), face(d, flux[g][0], left[g])),
                     // 反射: 正味の中性子流 0、面の中性子束は外挿（2次の精度）
-                    None => (1.5 * flux[g][0] - 0.5 * flux[g][1]) / 4.0,
+                    None => {
+                        let phi = 1.5 * flux[g][0] - 0.5 * flux[g][1];
+                        (phi / 4.0, phi)
+                    }
                 };
+                faces.push([
+                    right_phi,
+                    2.0 * right_out - right_phi / 2.0,
+                    left_phi,
+                    2.0 * left_out - left_phi / 2.0,
+                ]);
                 (average, right_out, left_out)
             })
             .collect()
@@ -380,7 +392,8 @@ mod tests {
         let width = 20.0;
         let transverse = [(1.0e-4, -2.0e-4, 5.0e-5), (-3.0e-5, 4.0e-5, -1.0e-5)];
         let incoming = [0.02, 0.006];
-        let reference = finite_difference(width, 20_000, &transverse, &incoming, None);
+        let reference =
+            finite_difference(width, 20_000, &transverse, &incoming, None, &mut Vec::new());
         let averages: Vec<f64> = reference.iter().map(|r| r.0).collect();
         let moments: Vec<(f64, f64)> = transverse.iter().map(|t| (t.1, t.2)).collect();
         let inflow: Vec<[Inflow; 2]> = (0..2)
@@ -442,6 +455,7 @@ mod tests {
             &[(0.0, 0.0, 0.0); 2],
             &incoming,
             Some(&[0.0; 2]),
+            &mut Vec::new(),
         );
         let averages: Vec<f64> = reference.iter().map(|r| r.0).collect();
         let inflow: Vec<[Inflow; 2]> = (0..2)
@@ -513,5 +527,59 @@ mod tests {
         // 幅が正でない
         let zero = AnmNode { width: 0.0, ..node };
         assert!(matches!(outflow(&zero, 0), Err(AnmError::Invalid(_))));
+    }
+
+    #[test]
+    fn one_node_problems_of_non_fissile_nodes_use_anm() {
+        // ADF の1ノードの問題（ADR-0094）は、核分裂のないノードを ANM で解く（ADR-0102）。参照の 1D の解の
+        // ノード平均と面の正味の中性子流を与えると、均質な面の中性子束は参照の面の中性子束になる（ADF は 1）。
+        // 燃料側から入り真空側へ出る 21.5 cm の反射体でも正
+        use crate::nem::{Edge, OneNode, surface_fluxes};
+        let (diffusion, total, scatter) = reflector();
+        let width = 21.5;
+        let mut faces = Vec::new();
+        let reference = finite_difference(
+            width,
+            20_000,
+            &[(0.0, 0.0, 0.0); 2],
+            &[0.0; 2],
+            Some(&[0.05, 0.004]),
+            &mut faces,
+        );
+        let averages: Vec<f64> = reference.iter().map(|r| r.0).collect();
+        // 面（-x, +x, -y, +y）の外向きの正味の中性子流。左（-x）が入射の面
+        let minus: Vec<f64> = faces.iter().map(|f| f[3]).collect();
+        let plus: Vec<f64> = faces.iter().map(|f| f[1]).collect();
+        let zero = [0.0; 2];
+        let surface = surface_fluxes(&OneNode {
+            diffusion: &diffusion,
+            total: &total,
+            scatter: &scatter,
+            nu_fission: &[0.0; 2],
+            chi: &[0.0; 2],
+            k: 1.0,
+            flux: &averages,
+            widths: [width, width],
+            currents: [&minus, &plus, &zero, &zero],
+            edges: [
+                Edge::Reflective,
+                Edge::Vacuum,
+                Edge::Reflective,
+                Edge::Reflective,
+            ],
+        })
+        .unwrap();
+        for g in 0..2 {
+            let [right, _, left, _] = faces[g];
+            assert!(
+                (surface[0][g] - left).abs() < 2e-5 * left,
+                "{surface:?} {faces:?}"
+            );
+            assert!(
+                (surface[1][g] - right).abs() < 2e-5 * right,
+                "{surface:?} {faces:?}"
+            );
+            assert!(surface[1][g] > 0.0);
+        }
     }
 }
