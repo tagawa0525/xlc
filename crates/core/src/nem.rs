@@ -586,6 +586,7 @@ mod tests {
             diffusion: vec![d1, d2],
             scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
             adf: vec![vec![1.0, 1.0]; 4],
+            vacuum_ratio: vec![None; 4],
         }
     }
 
@@ -779,6 +780,7 @@ mod tests {
             diffusion: vec![d],
             scatter: vec![vec![total - absorption]],
             adf: vec![vec![1.0]; 4],
+            vacuum_ratio: vec![None; 4],
         }
     }
 
@@ -1340,6 +1342,7 @@ mod tests {
                 diffusion: vec![0.0; ng],
                 scatter: vec![vec![0.0; ng]; ng],
                 adf: vec![vec![1.0; ng]; 4],
+                vacuum_ratio: vec![None; 4],
             };
             for &n in &members {
                 let (v, f, x) = (core.volume(n), &solution.flux[n], core.material(n));
