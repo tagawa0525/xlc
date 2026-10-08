@@ -59,7 +59,8 @@ issues: []            # きっかけになった、またはこの ADR で解決
 
 ## 移行の基準
 
-2026-10-08 に計画（docs/plans/）から ADR へ移したときの基準。以後の ADR も同じ基準で書く。
+2026-10-08 に計画（docs/plans/）から ADR へ移したときの基準。この移行にだけ当てはめる。以後の新しい決定は、実装の前に
+`status: proposed` の ADR として書く（「運用」）。
 
 - 決定は、main にマージしたコードに実装されたときだけ、独立した ADR にする。のちに置き換えたら、`status: superseded`
   と `superseded-by` で新しい ADR に結び、新しい ADR は古い決定のうちまだ有効な部分を書き直して含む（採用中の ADR
@@ -74,9 +75,13 @@ issues: []            # きっかけになった、またはこの ADR で解決
 
 ## 運用
 
-- ADR は main にマージした時点で変えられなくなる。マージした ADR で直してよいのは、誤字、リンクの直し、置き換え
-  られたときの `status` と `superseded-by` だけである。決定を変えるときは新しい ADR を作り、新しい方の `supersedes`
-  と古い方の `superseded-by` で両方向に結ぶ
+- 実装の前の決定は `status: proposed` の ADR として書き、そのまま main にマージしてよい
+- ADR は main にマージした時点で変えられなくなる。マージした ADR で直してよいのは、誤字、リンクの直し、`status` の
+  変更（とそれに伴うフロントマターの直し）だけである。`status` の変更は次のとおり
+  - 置き換えられたとき: `superseded` にし、`superseded-by` を書く。決定を変えるときは新しい ADR を作り、新しい方の
+    `supersedes` と古い方の `superseded-by` で両方向に結ぶ
+  - proposed → accepted: 実装をマージするブランチで変え、`date` をその日にする
+  - proposed → rejected: 採らない理由を「結果」に短く書き足し、`date` をその日にする
 - マージの前（この移行のブランチを含む）は、ブランチの上の ADR を自由に直してよい
 - フロントマターの `issues` には、その ADR のきっかけになった issue と、その ADR で解決する issue だけを書く。issue の側は
   「関係する ADR:」の行に、`issues` にその issue を書いた ADR を挙げ、両方向をそろえる。本文の中で触れるだけの
