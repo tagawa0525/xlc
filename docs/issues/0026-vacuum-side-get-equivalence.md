@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, core]
 opened: 2026-10-09
-closed:
+closed: 2026-10-09
 milestone: M3
 blocked-by: []
-resolution:
+resolution: ADR-0101
 ---
 
 # 真空の辺の GET の等価性: P1 の関係と、大きなノードの負の均質な面の中性子束
@@ -35,3 +35,6 @@ core の真空の面の条件（ADR-0099）は不均質な中性子束に P1 の
 - 2026-10-09: ADR-0094 の実装の検証で分かった
 - 2026-10-09: 真空の面の条件を、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す形にする案を ADR-0101 に
   した。17×17 の集合体の負の均質な面の中性子束は r によらないので #0027 に分けた
+- 2026-10-09: ADR-0101 を実装した。格子計算は真空の辺の r を少数群定数に書き、core の `vacuum` は J = r f φ を課す。
+  n = 3、5、9 の core の k は MOC と 0.0015、0.0025、0.0044 pcm で一致した（examples/vera/verification.md の
+  「真空の辺の比 J/φ を入れた core の1ノードの NEM」、43ba22d）。燃料が真空に面する集合体を ADF の対象にするかは #0027
