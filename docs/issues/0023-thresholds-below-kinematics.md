@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [xs]
 opened: 2026-10-08
-closed:
+closed: 2026-10-08
 milestone: M3
 blocked-by: []
-resolution:
+resolution: コミット 46663e4
 ---
 
 # 運動学のしきい値より下から始まる反応の扱いを決める
@@ -30,3 +30,6 @@ xlc の値は ENDF の表の厳密な積分と 7 桁一致する。どちらが�
 ## 経緯
 
 - 2026-10-08: M3 の新しい核種のライブラリを NJOY と比べて見つかった
+- 2026-10-08: しきい値より下の断面積はありえないので、最初の点をしきい値に移して warn を出し、しきい値以下のほかの点は
+  捨てることにした（NJOY RECONR と同じ。NJOY はほかの点をしきい値のすぐ上に詰める）。46663e4 で実装し、Cd-112 の MT51 の
+  6 群の差は 3.0e-3 から 1.1e-4 になった（examples/m3-nuclides/verification.md）。ユーザーの確認はまだ
