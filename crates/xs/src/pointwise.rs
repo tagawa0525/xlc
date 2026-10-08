@@ -225,6 +225,53 @@ pub struct ColdParts {
     tol: f64,
 }
 
+/// 運動学のしきい値 −Q (A + 1)/A より下から始まる反応の表を、しきい値から始める（NJOY RECONR と同じ）。
+///
+/// しきい値より下の断面積はありえない。評価済みデータの Q 値と AWR の丸めで、表がしきい値のわずかに下から始まる
+/// ことがあり、そのまま使うと、出射する中性子のない断面積が残る。最初の点をその値のまましきい値に移し、
+/// しきい値以下のほかの点は捨てる（NJOY はそれらを有効数字 7 桁でしきい値のすぐ上に詰めて並べるので、
+/// 群定数の差は無視できる）。
+fn start_at_threshold(mt: u32, mf3: &Mf3) -> Tab1 {
+    let sigma = &mf3.sigma;
+    if mf3.qi >= 0.0 || mf3.awr <= 0.0 {
+        return sigma.clone();
+    }
+    let threshold = -mf3.qi * (mf3.awr + 1.0) / mf3.awr;
+    let Some(&first) = sigma.x.first() else {
+        return sigma.clone();
+    };
+    if first >= threshold {
+        return sigma.clone();
+    }
+    // しきい値以下の点の数（最初の点を含む）。最初の点だけを残してしきい値に移す
+    let below = sigma.x.partition_point(|&e| e <= threshold);
+    if below == sigma.x.len() {
+        return sigma.clone();
+    }
+    let dropped = below - 1;
+    tracing::warn!(
+        "MT{mt}: the table starts at {first} eV, below the kinematic threshold {threshold} eV; \
+         starting it at the threshold and dropping {dropped} more points below it (NJOY RECONR \
+         also starts it there)"
+    );
+    let mut x = vec![threshold];
+    x.extend_from_slice(&sigma.x[below..]);
+    let mut y = vec![sigma.y[0]];
+    y.extend_from_slice(&sigma.y[below..]);
+    // 区間の補間則の区切り（1 始まりの最後の点の番号）を、捨てた点の数だけ詰める。区間を持たなくなった
+    // 範囲は除く
+    let (breaks, laws) = sigma
+        .breaks
+        .iter()
+        .zip(&sigma.laws)
+        .filter_map(|(&b, &law)| {
+            let shifted = b.checked_sub(dropped)?;
+            (shifted >= 2).then_some((shifted, law))
+        })
+        .unzip();
+    Tab1 { breaks, laws, x, y }
+}
+
 impl ColdParts {
     /// MF3 と共鳴パラメータから、許容誤差 `tol` で 0 K の部分反応を作る。
     #[tracing::instrument(name = "reconstruct", level = "debug", skip_all)]
@@ -240,7 +287,7 @@ impl ColdParts {
             let mt = *mt;
             let mf3 = Mf3::parse(section)?;
             awr.get_or_insert(mf3.awr);
-            tables.insert(mt, linearize(&mf3.sigma, tol));
+            tables.insert(mt, linearize(&start_at_threshold(mt, &mf3), tol));
         }
         let mut mf2 = None;
         if let Some(section) = tape.section(mat, 2, 151) {
