@@ -402,6 +402,7 @@ mod tests {
         let tables = scattering_resonance();
         let slowing = SlowingDown {
             awr: 1.0e4,
+            potential: 10.0,
             range: (1.0, 100.0),
         };
         let average = |s: Option<&SlowingDown>| {
@@ -429,6 +430,7 @@ mod tests {
         let tables = BTreeMap::from([(1, constant(20.0)), (2, constant(10.0)), (102, capture)]);
         let slowing = SlowingDown {
             awr: 236.0,
+            potential: 10.0,
             range: (1.0, 100.0),
         };
         let infinite = reaction_averages(&groups, &Weight::lwr(), &tables, None);
@@ -456,6 +458,7 @@ mod tests {
         ]);
         let slowing = SlowingDown {
             awr: 236.0,
+            potential: 8.0,
             range: (1.0, 100.0),
         };
         let avg = &shielded_averages(

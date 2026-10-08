@@ -618,6 +618,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(slowing.awr, 236.006);
+        // 範囲の上の散乱源に使うポテンシャル散乱は、分離共鳴の範囲の s 波の散乱半径から
+        let potential = resolved(&resolved_tape(), 1).unwrap().unwrap().potential;
+        assert_eq!(slowing.potential, potential);
         // 重み関数の熱中性子の区切り 0.1 eV 以上で最も低い群の境界から、分離共鳴の上端 20 keV 以下で
         // 最も高い群の境界まで
         assert_eq!(slowing.range, (10.0, 1.0e4));
