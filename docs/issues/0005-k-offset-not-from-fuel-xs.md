@@ -9,13 +9,13 @@ closed:
 
 ## 問題
 
-VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/README.md）。MOX のピンセルでは、9.1 keV より下の燃料の
+VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/README.md）。MOX のピンセルでは、15.03 keV より下（14〜69 群）の燃料の
 核種の断面積の差から見積もった k の差（MOX-1 −162 pcm、MOX-2 −2 pcm）を除いても、+241 pcm（MOX-1）と
 +180 pcm（MOX-2）が残る（examples/mox/README.md）。同じ原因の疑いがある。
 
 ## 完了の条件
 
-差の内訳（燃料以外の物質、9.1 keV より上の群、輸送の近似など）を分け、原因を特定する。
+差の内訳（燃料以外の物質、15.03 keV より上の群、輸送の近似など）を分け、原因を特定する。
 
 ## 経緯
 
