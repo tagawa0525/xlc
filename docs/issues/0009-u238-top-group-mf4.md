@@ -3,6 +3,9 @@ status: open
 labels: [xs, verification]
 opened: 2026-10-08
 closed:
+milestone:
+blocked-by: []
+resolution:
 ---
 
 # U-238 の最も高い群の弾性散乱の散乱行列が NJOY と 2e-3 違う

@@ -3,6 +3,9 @@ status: open
 labels: [lattice, shielding, verification]
 opened: 2026-10-08
 closed:
+milestone:
+blocked-by: []
+resolution:
 ---
 
 # 支持格子による k の変化の OpenMC との差が +40 pcm 残る

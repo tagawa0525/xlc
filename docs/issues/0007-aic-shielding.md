@@ -3,6 +3,9 @@ status: open
 labels: [lattice, shielding]
 opened: 2026-10-08
 closed:
+milestone: M3
+blocked-by: []
+resolution:
 ---
 
 # AIC の自己遮蔽（C4）
