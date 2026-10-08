@@ -10,7 +10,8 @@
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
 //! scattering-order = 1            # 散乱の非等方性のルジャンドルの次数（library のとき。省略するとライブラリにある全ての次数）
-//! boundary = { right = "vacuum", bottom = "vacuum" }   # 外周の辺の境界条件（書かない辺は鏡面反射）
+//! boundary = { right = "vacuum", bottom = { albedo = 0.3 } }   # 外周の辺の境界条件（reflective, vacuum,
+//!                                                              # { albedo = α }。書かない辺は鏡面反射）
 //! rows = ["pin box", "box pin"]   # セルの配置を上の行から
 //! gap = { width = 0.04, material = "water" }   # 格子の周りの余白（集合体の間の水のギャップ。省略すると無し）
 //!
@@ -205,11 +206,25 @@ struct FewGroupEntry {
     bounds: Vec<f64>,
 }
 
+/// 辺の境界条件: "reflective"、"vacuum"、または { albedo = α }
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Condition {
+    Named(Named),
+    Albedo(AlbedoEntry),
+}
+
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "lowercase")]
-enum Condition {
+enum Named {
     Reflective,
     Vacuum,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AlbedoEntry {
+    albedo: f64,
 }
 
 #[derive(Deserialize)]
@@ -305,8 +320,9 @@ impl LatticeInput {
             None => Boundaries::REFLECTIVE,
             Some(b) => {
                 let side = |c: Option<Condition>| match c {
-                    None | Some(Condition::Reflective) => Boundary::Reflective,
-                    Some(Condition::Vacuum) => Boundary::Vacuum,
+                    None | Some(Condition::Named(Named::Reflective)) => Boundary::Reflective,
+                    Some(Condition::Named(Named::Vacuum)) => Boundary::Vacuum,
+                    Some(Condition::Albedo(a)) => Boundary::Albedo(a.albedo),
                 };
                 Boundaries {
                     left: side(b.left),
