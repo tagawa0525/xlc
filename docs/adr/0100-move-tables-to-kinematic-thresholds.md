@@ -16,7 +16,8 @@ ENDF/B-VIII.0 のしきい反応の MF3 には、表が実験室系のしきい�
 （|Q| より下から始まる表はない）。しきい値をまたぐ区間の補間則は lin-lin が 972、lin-log（INT=3）が 141、ヒストグラムが
 2 で、ln y をとる補間則はない。E_th より下に 0 でない値を持つのは 21 反応で、O-16 の MT103、MT600（2.1 eV 下に 5e-11 b）、
 Fe-54 の MT606〜633 の 13 反応（0.5 eV 以内に 2.6e-11 b 以下）、Ti-46、Ti-47、Ti-50 の 6 反応（5.3 eV 以内の2点目に
-1.5e-7 b 以下）。どれもしきい値の 2.6e-6 以内、その反応の最大値の 2e-6 以下である。しきい値より下では反応は起こらず、
+1.5e-7 b 以下）。どれもしきい値の 2.6e-6 以内、その反応の最大値の 5e-6 以下である（2026-10-09 の初版は 2e-6 と書いて
+いたが、Ti-47 の MT57 は 5.0e-6）。しきい値より下では反応は起こらず、
 xs の2体の散乱行列もそこでは中性子を出さない。
 
 NJOY2016 の RECONR（reconr.f90 の lunion）は、MF3 の各反応で、見出しの AWR から E_th を求め、有効数字 7 桁で切り上げた
@@ -43,8 +44,10 @@ NJOY2016 の RECONR（reconr.f90 の lunion）は、MF3 の各反応で、見出
 ## 決定と理由
 
 しきい値 E_th は、運動学（2体の散乱行列）と同じく最初の MF3 の見出しの AWR で求める。E_th より下から始まる表は、
-E_th より下の点を捨て、E_th に最初の点の値を置く（NJOY と同じく最初の点をしきい値に移す。値は通常 0 なので、断面積は
-しきい値から立ち上がる）。E_th から次の点までは、しきい値をまたいでいた区間の補間則を引き継ぐ（NJOY と同じ）。ln y をとる
+E_th より下の点を捨て、E_th に 0 を置く（NJOY と同じく最初の点をしきい値に移すが、値は 0 にする）。断面積は
+しきい値より下で 0 で、しきい値から連続に立ち上がる。NJOY は最初の点の値を残し、0 でなければ段差にするが、しきい値の
+段差は物理的でなく、評価済みデータで E_th より下にある 0 でない値（上の 21 反応）はその反応の最大値の 5e-6 以下なので、
+0 にしても群定数は変わらない（下の「確認」）。E_th から次の点までは、しきい値をまたいでいた区間の補間則を引き継ぐ（NJOY と同じ）。ln y をとる
 補間則（INT=4, 5）は 0 の端で成り立たないので、そのときだけ lin-lin にする。ちょうど E_th にある点は捨てず、値も変えない
 （`crates/xs/src/pointwise.rs` の `start_at_threshold`）。NJOY はしきい値より下のほかの点を詰めて残すが、その幅は 1e-7 程度で
 群定数には効かないので捨てる。移す先は Q 値と AWR から決まり、推測で補う値ではない。
@@ -56,7 +59,7 @@ E_th をそのまま計算した入射エネルギーでは、2体の運動学�
 しきい値の断面積の中性子を失わないよう、E_th 以上では β² を 0 で止める（`two_body_range`）。
 
 核種ごとに1回 `tracing::warn!` を出し、合わせた反応の数、最も大きい移動（eV）と、しきい値に対する比が最も大きい移動の
-それぞれの MT、捨てた点の数を示す。反応ごとの詳細は debug に出す。
+それぞれの MT、捨てた点の数、0 でない値を 0 にした反応の数と最も大きかった値（反応の最大値に対する比）を示す。反応ごとの詳細は debug に出す。
 
 ## 確認
 
@@ -64,14 +67,15 @@ E_th をそのまま計算した入射エネルギーでは、2体の運動学�
 `interval_from_the_threshold_keeps_laws_valid_at_zero`、`point_at_the_threshold_is_kept`、
 `nonzero_values_below_q_are_an_error`、`tables_without_points_above_the_threshold_are_an_error`、
 `thresholds_need_a_positive_awr`、`threshold_shift_is_reported_per_reaction`、`threshold_shifts_are_summarized_per_nuclide`、
-`two_body_range_holds_at_the_rounded_threshold`。NJOY GROUPR と比べて、Cd-112 の MT51 の 6 群の差は 3.0e-3 から 1.1e-4
+`two_body_range_holds_at_the_rounded_threshold`、`nonzero_values_below_the_threshold_become_zero`。NJOY GROUPR と比べて、Cd-112 の MT51 の 6 群の差は 3.0e-3 から 1.1e-4
 になり、0 K の無限希釈で 1e-3 を超えて違う反応は 142 から 129 になった。残る差は GROUPR の積分による
 （examples/m3-nuclides/verification.md、4cdc221 と a930010、2026-10-09）。VERA 1B〜1D、2B の k は 6 桁まで変わらない
-（examples/vera/verification.md、06f5279、2026-10-09）。
+（examples/vera/verification.md、06f5279、2026-10-09）。しきい値の値を 0 にしても（d77b878）、M3 と VERA のライブラリは
+変わらず（断面積と散乱行列の差は 1e-9 未満）、NJOY との比較も同じ（examples/m3-nuclides/verification.md、2026-10-09）。
 
 ## 結果
 
 - M3 の新しい核種のライブラリでは 28 核種が警告を出す。最も大きい移動は Cd-112 の MT105 の 3.2 keV、比で最も大きいのは
   Cd-112 の MT51 の 9.2e-4
-- E_th より下の 0 でない値（上の 21 反応）は、最初の点の値なら E_th に置き（O-16、Fe-54。NJOY と同じく段差になる）、
-  2点目以降なら捨てる（Ti）。0 にするか、エラーにするかは決めていない（#0024）
+- E_th より下の 0 でない値（上の 21 反応）は 0 になり、核種ごとの警告に、0 にした反応の数と、反応の最大値に対して最も
+  大きかった値とその MT を出す（M3 では Ti-47 の MT57 の 5.0e-6）。決めた経緯は #0024
