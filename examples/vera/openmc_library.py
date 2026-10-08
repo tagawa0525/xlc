@@ -1,10 +1,11 @@
-"""VERA Problem 1B〜1D, 2B〜2D の参照解に使う OpenMC の連続エネルギーのデータを、ENDF/B-VIII.0 から
+"""VERA Problem 1B〜1D, 2B〜2D と MOX ピンセル（examples/mox）の参照解に使う OpenMC の連続エネルギーのデータを、ENDF/B-VIII.0 から
 手元の NJOY で作る（xs と同じ評価済みデータから作り、核データの違いを比較から除くため）。
 
 使い方: python3 openmc_library.py <ENDF/B-VIII.0 のディレクトリ> <出力ディレクトリ> [並列数]
 
 `njoy` は PATH から呼ぶ。出力ディレクトリに核種ごとの HDF5 と cross_sections.xml を書く。
-燃料の核種は 600, 900, 1200 K、ほかの核種と H in H2O の S(α,β) は 600 K だけを作る。
+燃料の核種は 600, 900, 1200 K、ほかの核種（MOX の Pu と Am を含む）と H in H2O の S(α,β) は 600 K だけを作る。
+出力ディレクトリにすでにある HDF5 は作り直さない（核種を足したときに、足した分だけを作る）。
 """
 
 import sys
@@ -33,12 +34,16 @@ OTHERS = (
     ]
     + [(f"Fe{a}", f"n-026_Fe_{a:03d}") for a in (54, 56, 57, 58)]
     + [(f"Cr{a}", f"n-024_Cr_{a:03d}") for a in (50, 52, 53, 54)]
+    + [(f"Pu{a}", f"n-094_Pu_{a:03d}") for a in (238, 239, 240, 241, 242)]
+    + [("Am241", "n-095_Am_241")]
 )
 
 
 def neutron(args: tuple[str, Path, list[float], Path]) -> Path:
     name, endf, temperatures, out = args
     path = out / f"{name}.h5"
+    if path.exists():
+        return path
     data = openmc.data.IncidentNeutron.from_njoy(str(endf), temperatures=temperatures)
     data.export_to_hdf5(str(path), "w")
     print(f"{name}: {temperatures}", flush=True)
@@ -57,14 +62,15 @@ def main() -> None:
     with ProcessPoolExecutor(max_workers=workers) as pool:
         paths = list(pool.map(neutron, jobs))
 
-    thermal = openmc.data.ThermalScattering.from_njoy(
-        str(neutrons / "n-001_H_001.endf"),
-        str(endf / "ENDF-B-VIII.0_thermal_scatt" / "tsl-HinH2O.endf"),
-        temperatures=OTHER_TEMPERATURES,
-    )
     thermal_path = out / "c_H_in_H2O.h5"
-    thermal.export_to_hdf5(str(thermal_path), "w")
-    print(f"{thermal.name}: {OTHER_TEMPERATURES}", flush=True)
+    if not thermal_path.exists():
+        thermal = openmc.data.ThermalScattering.from_njoy(
+            str(neutrons / "n-001_H_001.endf"),
+            str(endf / "ENDF-B-VIII.0_thermal_scatt" / "tsl-HinH2O.endf"),
+            temperatures=OTHER_TEMPERATURES,
+        )
+        thermal.export_to_hdf5(str(thermal_path), "w")
+        print(f"{thermal.name}: {OTHER_TEMPERATURES}", flush=True)
 
     library = openmc.data.DataLibrary()
     for path in [*paths, thermal_path]:
