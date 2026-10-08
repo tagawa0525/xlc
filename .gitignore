@@ -15,3 +15,5 @@
 /examples/mox/xs.log
 /examples/m3-nuclides/*.msgpack
 /examples/m3-nuclides/xs.log
+/examples/reflector/*.msgpack
+/examples/reflector/xs.log
