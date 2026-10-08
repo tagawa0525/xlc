@@ -52,6 +52,7 @@ pub struct Shielded {
 }
 
 /// 1つの温度での、ドップラー拡がりのポイントワイズの断面積 (barn)。`Library::pointwise_range` の範囲で、エネルギーの昇順
+/// （範囲がなければ空）
 /// （不連続点は同じエネルギーを2回持ち、左と右の極限の値を並べる）。点の間は lin-lin。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -462,7 +463,13 @@ impl NuclideData {
             if p.energy.windows(2).any(|w| w[1] < w[0]) {
                 return Err(at("pointwise energies must not decrease".into()));
             }
-            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）。範囲がなければ空
+            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）。範囲がなければ空で、
+            // 分離共鳴も持たない（範囲は分離共鳴を持つ核種がないときだけない）
+            if range.is_none() && self.resolved.is_some() {
+                return Err(format!(
+                    "{name}: resolved resonances need a pointwise range"
+                ));
+            }
             match range {
                 Some(range) => {
                     if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
