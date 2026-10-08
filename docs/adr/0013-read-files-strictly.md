@@ -3,7 +3,7 @@ status: accepted
 date: 2026-10-06
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0012"]
 ---
 
 # ADR-0013: ファイルの読み込みは厳密にし、推測で補わない
@@ -36,4 +36,6 @@ issues: []
 
 ## 結果
 
-形式を変えたら古いファイルは読めなくなる（[ADR-0012](0012-drop-backward-compatibility.md)）。
+- 形式を変えたら古いファイルは読めなくなる（[ADR-0012](0012-drop-backward-compatibility.md)）
+- 多群ライブラリの `NuclideData.resolved` は `Option` で、項目が欠けても `None` として読まれる。この ADR と
+  食い違っている（#0012）
