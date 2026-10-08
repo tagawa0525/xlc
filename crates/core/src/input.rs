@@ -4,7 +4,8 @@
 //! few-group = "pincell-fg.msgpack"   # 少数群定数のファイル
 //! size = [300, 300, 366]             # x, y, z の寸法 (cm)
 //! nodes = [15, 15, 18]               # x, y, z のノード数（等分割）
-//! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum のいずれか）。6面とも書く
+//! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum、marshak のいずれか）。6面とも書く。
+//! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0101）
 //! boundary = { x = ["reflective", "zero-flux"], y = ["zero-flux", "zero-flux"], z = ["zero-flux", "zero-flux"] }
 //! ```
 
@@ -55,6 +56,7 @@ enum Condition {
     Reflective,
     ZeroFlux,
     Vacuum,
+    Marshak,
 }
 
 impl CoreInput {
@@ -77,6 +79,7 @@ impl CoreInput {
             Condition::Reflective => Boundary::Reflective,
             Condition::ZeroFlux => Boundary::ZeroFlux,
             Condition::Vacuum => Boundary::Vacuum,
+            Condition::Marshak => Boundary::Marshak,
         });
         Ok(Self {
             fewgroup: file.few_group,
@@ -126,11 +129,18 @@ boundary = { x = ["reflective", "zero-flux"], y = ["zero-flux", "zero-flux"], z 
     }
 
     #[test]
+    fn parses_marshak_boundary() {
+        // Marshak の条件（r = 1/2）は入力で明示したときだけ使う（ADR-0101）
+        let input = replaced("x = [\"reflective\"", "x = [\"marshak\"").unwrap();
+        assert_eq!(input.boundaries[0], Boundary::Marshak);
+    }
+
+    #[test]
     fn invalid_inputs_are_errors() {
         assert!(replaced("size = [300, 300, 366]", "size = [300, 300]").is_err());
         assert!(replaced("size = [300, 300, 366]", "size = [300, -1, 366]").is_err());
         assert!(replaced("nodes = [15, 15, 18]", "nodes = [15, 0, 18]").is_err());
-        assert!(replaced("\"reflective\"", "\"marshak\"").is_err());
+        assert!(replaced("\"reflective\"", "\"albedo\"").is_err());
         assert!(replaced("z = [\"zero-flux\", \"zero-flux\"] ", "").is_err());
         assert!(replaced("y = [\"zero-flux\", \"zero-flux\"]", "y = [\"zero-flux\"]").is_err());
         // 必須のキーがない、知らないキー、TOML の誤りは位置つき
