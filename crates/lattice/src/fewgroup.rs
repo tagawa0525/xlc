@@ -862,6 +862,7 @@ mod tests {
             leakage: vec![0.0; 2],
             sides: vec![vec![0.0; 2]; 4],
             currents: vec![vec![0.0; 2]; 4],
+            region_currents: vec![[vec![0.0; 2], vec![0.0; 2]]; 2],
             size: [1.0, 3.0],
             iterations: 1,
         }
@@ -1113,6 +1114,7 @@ mod tests {
             leakage: vec![0.0; 2],
             sides: vec![vec![1.0; 2]; 4],
             currents: vec![vec![0.0; 2]; 4],
+            region_currents: vec![[vec![0.0; 2], vec![0.0; 2]]; 2],
             size: [1.0, 0.5],
             iterations: 1,
         };
