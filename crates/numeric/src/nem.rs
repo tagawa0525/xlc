@@ -314,11 +314,9 @@ const MAX_ITERATIONS: usize = 10_000;
 /// 同じ NEM の式（4次の展開、f1, f2 で重み付けした残差、2次の横方向の漏れ）を、面の正味の中性子流が参照の
 /// 値になるように解く。横方向の漏れは、もう一方の方向の参照の漏れで、2次式の外側は `edges` で決める。
 ///
-/// core は a3, a4 を前の反復の a1, a2 から求める（`outflow`）が、両方の面の正味の中性子流を決めると、その
-/// 反復は発散する（正味の中性子流は a1 + a3/2 と 3a2 + a4/5 を決め、D/h² ≪ Σr のノードでは a3 ≈ 10 a1、
-/// a4 ≈ 35 a2 なので、前の a1 の誤差が約 -5 倍、a2 の誤差が約 -2.3 倍になる。#0025）。そこで群ごとに
-/// (a1, a3) と (a2, a4) を同時に解き、群の間の結合と真空の面の横方向の漏れだけを前の反復の値とする。
-/// 面の中性子束の相対変化が丸め誤差の水準になるまで繰り返す。
+/// 面の条件は、core の入射の形で β = 1、外からの入射 −J（J は参照の外向きの正味の中性子流）とし、core と同じ
+/// `outflow` で解く（a1〜a4 をノードの中で同時に解き、群の間の結合と真空の面の横方向の漏れだけを前の
+/// 反復の値とする）。面の中性子束の相対変化が丸め誤差の水準になるまで繰り返す。
 pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
     validate(node)?;
     let OneNode {
@@ -352,7 +350,6 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
                     s + chi[g] * nu_fission[from] / k
                 })
                 .collect();
-            let own = coupling[g];
             for d in 0..2 {
                 let h = widths[d];
                 let a = coefficients[d][g];
@@ -373,25 +370,28 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
                     beside(edges[2 * d + 1], plus),
                 );
                 // 自群の項を除いた源のモーメント
-                let mut s = source_moments(&coupling, &coefficients[d], moments);
-                for (si, ai) in s.iter_mut().zip(a) {
-                    *si -= own * ai;
-                }
-                let [w3, w4] = higher_order_weights(diffusion[g], h, removal);
-                let net = removal - own;
-                // 外向きの正味の中性子流: + 面 -(D/h)(a1 + 3a2 + a3/2 + a4/5)、- 面 (D/h)(a1 - 3a2 + a3/2 - a4/5)
-                let (out_minus, out_plus) = (currents[2 * d][g], currents[2 * d + 1][g]);
-                let odd = h * (out_minus - out_plus) / (2.0 * diffusion[g]);
-                let even = -h * (out_minus + out_plus) / (2.0 * diffusion[g]);
-                // a1 = odd - a3/2 を w3 a3 = Σr a1/12 - s0/12 + s2/120（s は自群を含む）に入れる
-                let a3 = (-s[0] / 12.0 + s[2] / 120.0 + net * odd / 12.0)
-                    / (w3 - own / 120.0 + net / 24.0);
-                let a1 = odd - a3 / 2.0;
-                // a2 = (even - a4/5)/3 を w4 a4 = Σr a2/20 - s1/20 + s3/700 に入れる
-                let a4 = (-s[1] / 20.0 + s[3] / 700.0 + net * even / 60.0)
-                    / (w4 - own / 700.0 + net / 300.0);
-                let a2 = (even - a4 / 5.0) / 3.0;
-                let updated = [a1, a2, a3, a4];
+                // 両方の面の外向きの正味の中性子流 J を参照の値にする: i = o - J（β = 1、外からの入射 -J）
+                let updated = outflow(&Line {
+                    diffusion: diffusion[g],
+                    width: h,
+                    removal,
+                    coupling: &coupling,
+                    coefficients: &coefficients[d],
+                    group: g,
+                    transverse: moments,
+                    inflow: [
+                        Inflow {
+                            beta: 1.0,
+                            external: -currents[2 * d + 1][g],
+                        },
+                        Inflow {
+                            beta: 1.0,
+                            external: -currents[2 * d][g],
+                        },
+                    ],
+                })
+                .at(flux[g])
+                .coefficients;
                 for (new, old) in face_fluxes(&updated, flux[g]).iter().zip([minus, plus]) {
                     let relative = (new - old).abs() / flux[g];
                     // NaN も収束していないとみなす
