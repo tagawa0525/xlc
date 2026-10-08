@@ -22,7 +22,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_core::input::CoreInput;
 use xlc_core::nem::{Mesh, Options, Problem, solve};
-use xlc_lattice::fewgroup::FewGroup;
+use xlc_format::fewgroup::FewGroup;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
