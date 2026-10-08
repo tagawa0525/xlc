@@ -30,6 +30,10 @@ pub enum HomogenizeError {
     NoP1 { region: usize },
     #[error("few group {group} has transport cross section {transport}")]
     Transport { group: usize, transport: f64 },
+    #[error(
+        "few group {group} has no net current in the lattice; current-weighted diffusion coefficients need one"
+    )]
+    NoNetCurrent { group: usize },
     #[error("B1 critical spectrum")]
     B1(#[from] B1Error),
     #[error("one-node problem for the discontinuity factors")]
@@ -46,7 +50,7 @@ pub enum HomogenizeError {
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
 /// `coarse_bounds`（`fine` の境界の一部、降順）の少数群に縮約する。
-/// 拡散係数は `diffusion_coefficients` で作る（ADR-0098）。格子全体を1つのノード（集合体）として均質化する。
+/// 拡散係数は `diffusion_coefficients` で作る（ADR-0104）。格子全体を1つのノード（集合体）として均質化する。
 ///
 /// 不連続因子（ADF）は、辺の上の不均質な中性子束（MOC）を、同じ辺の均質な中性子束で割る（一般化等価理論、
 /// ADR-0103）。均質な中性子束は、均質化した定数、MOC の k とノード平均の中性子束、辺ごとの正味の中性子流で
@@ -279,7 +283,7 @@ fn coarse_groups(
     Ok(group_of)
 }
 
-/// 少数群の拡散係数（ADR-0098）。どちらもライブラリの P1 の散乱行列を使い、真空でない物質に P1 の
+/// 少数群の拡散係数（ADR-0104）。どちらもライブラリの P1 の散乱行列を使い、真空でない物質に P1 の
 /// モーメントがなければエラーにする。
 ///
 /// - 外周がすべて鏡面反射の格子: 細かい群のまま中性子束と体積で均質化し、B1 の臨界のバックリングでの
@@ -287,8 +291,8 @@ fn coarse_groups(
 ///   核分裂のない媒質では臨界のバックリングが定まらないので、B² = 0 の中性子流の式（P1）を MOC の
 ///   中性子束で解き、MOC の中性子束で縮約する
 /// - それ以外（真空かアルベドの辺がある）: outflow の輸送断面積 Σtr,g = Σt,g − Σ_g' Σs1(g→g') を、
-///   領域と細かい群について MOC の中性子束と体積で重みづけして少数群に均質化し、D_G = 1/(3⟨Σtr⟩_G) とする
-///   （真空の領域は Σtr = 0 で、中性子束と体積は重みに入る）
+///   領域と細かい群について、MOC の領域の中性子流 × 体積を格子の正味の中性子流の向きへ射影した重みで少数群に
+///   平均し、D_G = 1/(3⟨Σtr⟩_G) とする（ADR-0104。真空の領域は Σtr = 0 で、中性子流は重みに入る）
 pub fn diffusion_coefficients(
     solution: &Solution,
     materials: &[&Material],
@@ -407,32 +411,55 @@ fn b1_diffusion(
     Ok(sum.iter().zip(&total).map(|(j, f)| j / f).collect())
 }
 
+/// 中性子流で重みづけした outflow の輸送断面積の拡散係数（ADR-0104）: Σtr,g = Σt,g − Σ_g' Σs1(g→g') を、
+/// 領域の中性子流 × 体積をノードの正味の中性子流の向き ê_G（Σ_{g∈G} Σ_r V_r J⃗_r,g の向き）へ射影した符号つきの重み
+/// w_r,g で少数群に平均し、D_G = 1/(3⟨Σtr⟩_G) とする（Fick の法則を中性子流について足した形）。真空の領域は Σtr = 0 で
+/// 重みに入る。正味の中性子流が 0 なら向きが定まらず、⟨Σtr⟩ が正でなければ D が定まらないので、どちらもエラーにする。
 fn outflow_diffusion(
     solution: &Solution,
     materials: &[&Material],
     group_of: &[usize],
     coarse: usize,
 ) -> Result<Vec<f64>, HomogenizeError> {
+    let mut net = vec![[0.0; 2]; coarse];
+    for (current, volume) in solution.region_currents.iter().zip(&solution.volumes) {
+        for (g, &big) in group_of.iter().enumerate() {
+            for (n, c) in net[big].iter_mut().zip(current) {
+                *n += volume * c[g];
+            }
+        }
+    }
     let mut transport = vec![0.0; coarse];
     let mut weight = vec![0.0; coarse];
-    for ((m, phi), volume) in materials.iter().zip(&solution.flux).zip(&solution.volumes) {
+    let mut magnitude = vec![0.0; coarse];
+    for ((m, current), volume) in materials
+        .iter()
+        .zip(&solution.region_currents)
+        .zip(&solution.volumes)
+    {
         for (g, &big) in group_of.iter().enumerate() {
-            let w = volume * phi[g];
+            let length = net[big][0].hypot(net[big][1]);
+            let w = volume * (current[0][g] * net[big][0] + current[1][g] * net[big][1]) / length;
             let out: f64 = m.anisotropic.first().map_or(0.0, |p1| p1[g].iter().sum());
             transport[big] += w * (m.total[g] - out);
             weight[big] += w;
+            magnitude[big] += w.abs();
         }
     }
-    if weight.iter().any(|&f| f <= 0.0) {
-        return Err(HomogenizeError::NoFlux);
-    }
-    transport
-        .iter()
-        .zip(&weight)
-        .enumerate()
-        .map(|(group, (t, w))| {
-            let transport = t / w;
-            if transport > 0.0 {
+    (0..coarse)
+        .map(|group| {
+            let length = net[group][0].hypot(net[group][1]);
+            if !(length > 0.0 && length.is_finite()) {
+                return Err(HomogenizeError::NoNetCurrent { group });
+            }
+            // 打ち消しの程度: 1 なら領域と細かい群の中性子流がすべてノードの正味の流れの向き
+            tracing::debug!(
+                group,
+                cancellation = weight[group] / magnitude[group],
+                "current weights"
+            );
+            let transport = transport[group] / weight[group];
+            if transport > 0.0 && transport.is_finite() {
                 Ok(1.0 / (3.0 * transport))
             } else {
                 Err(HomogenizeError::Transport { group, transport })
