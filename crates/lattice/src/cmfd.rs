@@ -1,6 +1,6 @@
 //! CMFD（粗メッシュ有限差分）による MOC の加速。
 //!
-//! 粗メッシュは格子のセルとする（格子の周りの余白は接する縁のセルに含め、縁のセルはその分だけ広い）。
+//! 粗メッシュは格子のセルとする（格子の周りの余白も、薄い行と列のセルになる）。
 //! スイープでセルの面を通る正味の中性子の流れを数え、
 //! 拡散の結合係数を流れに合うよう補正した粗メッシュの固有値問題を解いて、
 //! 細かい領域の中性子束をセルごとの比で更新する。
@@ -13,18 +13,18 @@ use crate::tracking::Tracking;
 /// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。
 ///
 /// 面は、縦の面（x 方向に通る）を先に、横の面（y 方向に通る）を後に番号を付ける。
-/// 縦の面 (r, i) はセルの行 r の、左から i 番目の格子線の上（i = 0..=n）、横の面 (j, c) は
-/// セルの列 c の、上から j 番目の格子線の上（j = 0..=n）にある。面の正の向きは、
+/// 縦の面 (r, i) はセルの行 r の、左から i 番目の格子線の上（i = 0..=列の数）、横の面 (j, c) は
+/// セルの列 c の、上から j 番目の格子線の上（j = 0..=行の数）にある。面の正の向きは、
 /// 縦の面では +x（右）、横の面では -y（下、行の番号が増える向き）とする。
 ///
 /// 内側の面の通過は前もって持たず、スイープで隣り合う区間のセルを比べて求める。前もって持つと、
 /// 区間の数に比例するメモリと、スイープで読む量が増えるため。
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoarseMesh {
-    /// 1辺のセルの数
-    n: usize,
-    /// 列（左から）と行（上から）ごとのセルの幅 (cm)。縁は余白の分だけ広い
-    sizes: Vec<f64>,
+    /// 列（左から）ごとのセルの幅 (cm)
+    widths: Vec<f64>,
+    /// 行（上から）ごとのセルの高さ (cm)
+    heights: Vec<f64>,
     /// [領域] の属するセル
     cell_of_region: Vec<usize>,
     /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
@@ -69,21 +69,13 @@ impl FacePath {
 impl CoarseMesh {
     pub fn new(tracking: &Tracking) -> Self {
         let lattice = &tracking.lattice;
-        let n = lattice.cells_per_side();
         let cell_of_region = (0..lattice.regions())
             .map(|r| lattice.region_cell(r))
             .collect();
-        let half = 0.5 * lattice.width();
-        let (pitch, margin) = (
-            (lattice.width() - 2.0 * lattice.margin()) / n as f64,
-            lattice.margin(),
-        );
-        let mut sizes = vec![pitch; n];
-        sizes[0] += margin;
-        sizes[n - 1] += margin;
+        let half = (0.5 * lattice.width(), 0.5 * lattice.height());
         let mut mesh = Self {
-            n,
-            sizes,
+            widths: lattice.widths().to_vec(),
+            heights: lattice.heights().to_vec(),
             cell_of_region,
             ends: Vec::with_capacity(tracking.tracks.len()),
         };
@@ -98,12 +90,23 @@ impl CoarseMesh {
         mesh
     }
 
+    /// 列の数
+    fn columns(&self) -> usize {
+        self.widths.len()
+    }
+
+    /// 行の数
+    fn rows(&self) -> usize {
+        self.heights.len()
+    }
+
     pub fn cells(&self) -> usize {
-        self.n * self.n
+        self.columns() * self.rows()
     }
 
     pub fn faces(&self) -> usize {
-        2 * self.n * (self.n + 1)
+        let (nc, nr) = (self.columns(), self.rows());
+        nr * (nc + 1) + (nr + 1) * nc
     }
 
     /// 領域の属するセル
@@ -113,7 +116,7 @@ impl CoarseMesh {
 
     /// セルの4つの面と、外向きが面の正の向きなら 1、逆なら -1（左、右、上、下の順）。
     pub fn cell_faces(&self, cell: usize) -> [(usize, f64); 4] {
-        let (r, c) = (cell / self.n, cell % self.n);
+        let (r, c) = (cell / self.columns(), cell % self.columns());
         [
             (self.vertical(r, c), -1.0),
             (self.vertical(r, c + 1), 1.0),
@@ -129,19 +132,19 @@ impl CoarseMesh {
 
     /// 面の両側のセル。
     pub fn face_cells(&self, face: usize) -> FaceCells {
-        let n = self.n;
-        let vertical = n * (n + 1);
-        // 面が格子線 `line`（0..=n）の上にあり、線に沿った位置で決まるセルの番号を `cell(k)`
+        let (nc, nr) = (self.columns(), self.rows());
+        let vertical = nr * (nc + 1);
+        // 面が格子線 `line`（0..=last）の上にあり、線に沿った位置で決まるセルの番号を `cell(k)`
         // （k は線の手前側のセルの行または列）で求める
-        let side = |line: usize, cell: &dyn Fn(usize) -> usize| {
+        let side = |line: usize, last: usize, cell: &dyn Fn(usize) -> usize| {
             if line == 0 {
                 FaceCells::Outer {
                     cell: cell(0),
                     outward: -1.0,
                 }
-            } else if line == n {
+            } else if line == last {
                 FaceCells::Outer {
-                    cell: cell(n - 1),
+                    cell: cell(last - 1),
                     outward: 1.0,
                 }
             } else {
@@ -152,39 +155,45 @@ impl CoarseMesh {
             }
         };
         if face < vertical {
-            let (row, line) = (face / (n + 1), face % (n + 1));
-            side(line, &|column| row * n + column)
+            let (row, line) = (face / (nc + 1), face % (nc + 1));
+            side(line, nc, &|column| row * nc + column)
         } else {
-            let (line, column) = ((face - vertical) / n, (face - vertical) % n);
-            side(line, &|row| row * n + column)
+            let (line, column) = ((face - vertical) / nc, (face - vertical) % nc);
+            side(line, nr, &|row| row * nc + column)
         }
     }
 
     /// 内側の面の長さと、面の低い側と高い側のセルの、面に垂直な方向の幅
     fn face_geometry(&self, face: usize) -> (f64, f64, f64) {
-        let n = self.n;
-        let vertical = n * (n + 1);
+        let (nc, nr) = (self.columns(), self.rows());
+        let vertical = nr * (nc + 1);
         if face < vertical {
-            let (row, line) = (face / (n + 1), face % (n + 1));
-            (self.sizes[row], self.sizes[line - 1], self.sizes[line])
+            let (row, line) = (face / (nc + 1), face % (nc + 1));
+            (self.heights[row], self.widths[line - 1], self.widths[line])
         } else {
-            let (line, column) = ((face - vertical) / n, (face - vertical) % n);
-            (self.sizes[column], self.sizes[line - 1], self.sizes[line])
+            let (line, column) = ((face - vertical) / nc, (face - vertical) % nc);
+            (
+                self.widths[column],
+                self.heights[line - 1],
+                self.heights[line],
+            )
         }
     }
 
     fn vertical(&self, row: usize, line: usize) -> usize {
-        row * (self.n + 1) + line
+        row * (self.columns() + 1) + line
     }
 
     fn horizontal(&self, line: usize, column: usize) -> usize {
-        self.n * (self.n + 1) + line * self.n + column
+        let nc = self.columns();
+        self.rows() * (nc + 1) + line * nc + column
     }
 
     /// セル `from` から隣のセル `to` へ移るときに通る面と向き。
     pub(crate) fn path(&self, from: usize, to: usize) -> Result<FacePath, CmfdError> {
-        let (r1, c1) = (from / self.n, from % self.n);
-        let (r2, c2) = (to / self.n, to % self.n);
+        let nc = self.columns();
+        let (r1, c1) = (from / nc, from % nc);
+        let (r2, c2) = (to / nc, to % nc);
         let sign = |a: usize, b: usize| if b > a { 1.0 } else { -1.0 };
         match (r1.abs_diff(r2), c1.abs_diff(c2)) {
             (0, 1) => Ok(FacePath::new(&[(
@@ -208,14 +217,15 @@ impl CoarseMesh {
 
     /// トラックの端の点 `point`（外周の上）にある、セル `cell` の外周の面と、
     /// 外向きが面の正の向きなら 1、逆なら -1。
-    fn outer_face(&self, cell: usize, point: (f64, f64), half: f64) -> (usize, f64) {
-        let (r, c) = (cell / self.n, cell % self.n);
+    fn outer_face(&self, cell: usize, point: (f64, f64), half: (f64, f64)) -> (usize, f64) {
+        let (nc, nr) = (self.columns(), self.rows());
+        let (r, c) = (cell / nc, cell % nc);
         // 外向きの向き。トラックは外周の角を通らないので、点に最も近い辺が点のある辺
         let sides = [
-            ((point.0 + half).abs(), self.vertical(r, 0), -1.0),
-            ((point.0 - half).abs(), self.vertical(r, self.n), 1.0),
-            ((point.1 - half).abs(), self.horizontal(0, c), -1.0),
-            ((point.1 + half).abs(), self.horizontal(self.n, c), 1.0),
+            ((point.0 + half.0).abs(), self.vertical(r, 0), -1.0),
+            ((point.0 - half.0).abs(), self.vertical(r, nc), 1.0),
+            ((point.1 - half.1).abs(), self.horizontal(0, c), -1.0),
+            ((point.1 + half.1).abs(), self.horizontal(nr, c), 1.0),
         ];
         let [first, rest @ ..] = sides;
         let (_, face, outward) =

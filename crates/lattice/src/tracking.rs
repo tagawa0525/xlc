@@ -121,7 +121,7 @@ impl Tracking {
             return Err(TrackingError::Spacing(spacing));
         }
         let n = n_azimuthal;
-        let width = lattice.width();
+        let (width, height) = (lattice.width(), lattice.height());
         // 方位角を (0, π/2) で補正し、π - φ を対にする
         let mut azimuths = vec![
             Azimuth {
@@ -135,10 +135,12 @@ impl Tracking {
         for a in 0..n / 2 {
             let desired = PI / n as f64 * (a as f64 + 0.5);
             let nx = (width / spacing * desired.sin()).floor() as usize + 1;
-            let ny = (width / spacing * desired.cos()).floor() as usize + 1;
-            let phi = (nx as f64 / ny as f64).atan();
-            // 補正後の間隔 W/√(nx² + ny²) は希望の間隔より小さい
-            let delta = width / ((nx * nx + ny * ny) as f64).sqrt();
+            let ny = (height / spacing * desired.cos()).floor() as usize + 1;
+            // 下辺に nx 本、側辺に ny 本が等間隔に入り、反射で端点がつながる角: tan φ = (H/ny)/(W/nx)
+            let (dx, dy) = (width / nx as f64, height / ny as f64);
+            let phi = dy.atan2(dx);
+            // 補正後の間隔（下辺の間隔の、トラックに垂直な成分）は希望の間隔より小さい
+            let delta = dx * phi.sin();
             azimuths[a] = Azimuth {
                 phi,
                 spacing: delta,
@@ -173,24 +175,26 @@ impl Tracking {
             azimuths[a].weight = (upper - lower) / PI;
         }
 
-        let half = 0.5 * width;
+        let (half, half_height) = (0.5 * width, 0.5 * height);
         let mut tracks = Vec::new();
         let mut first = vec![0; n + 1];
         for a in 0..n {
             first[a] = tracks.len();
             let (nx, ny) = counts[a];
             let (dx, dy) = (azimuths[a].phi.cos(), azimuths[a].phi.sin());
-            let bottom = (0..nx).map(|i| (-half + width / nx as f64 * (i as f64 + 0.5), -half));
+            let bottom =
+                (0..nx).map(|i| (-half + width / nx as f64 * (i as f64 + 0.5), -half_height));
             // 右上向きなら左辺、左上向きなら右辺から入る
             let side_x = if dx > 0.0 { -half } else { half };
-            let side = (0..ny).map(|j| (side_x, -half + width / ny as f64 * (j as f64 + 0.5)));
+            let side =
+                (0..ny).map(|j| (side_x, -half_height + height / ny as f64 * (j as f64 + 0.5)));
             for start in bottom.chain(side) {
                 let to_side = if dx > 0.0 {
                     (half - start.0) / dx
                 } else {
                     (-half - start.0) / dx
                 };
-                let to_top = (half - start.1) / dy;
+                let to_top = (half_height - start.1) / dy;
                 let t = to_side.min(to_top);
                 let end = (start.0 + t * dx, start.1 + t * dy);
                 tracks.push(Track {
@@ -206,7 +210,7 @@ impl Tracking {
         first[n] = tracks.len();
 
         // 反射でつながるトラックを、補角の方位角のトラックから端点の一致で探す
-        let tolerance = 1.0e-9 * width;
+        let tolerance = 1.0e-9 * width.max(height);
         let same = |p: (f64, f64), q: (f64, f64)| {
             (p.0 - q.0).abs() < tolerance && (p.1 - q.1).abs() < tolerance
         };
@@ -233,7 +237,7 @@ impl Tracking {
                     boundaries.left
                 } else if (p.0 - half).abs() < tolerance {
                     boundaries.right
-                } else if (p.1 - half).abs() < tolerance {
+                } else if (p.1 - half_height).abs() < tolerance {
                     boundaries.top
                 } else {
                     boundaries.bottom
@@ -248,7 +252,9 @@ impl Tracking {
             let start = tracks[k].start;
             let backward_link = match boundary(start) {
                 Boundary::Vacuum => None,
-                Boundary::Reflective => Some(find(start, (start.1 + half).abs() < tolerance)?),
+                Boundary::Reflective => {
+                    Some(find(start, (start.1 + half_height).abs() < tolerance)?)
+                }
             };
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;

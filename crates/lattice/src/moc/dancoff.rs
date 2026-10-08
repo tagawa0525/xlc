@@ -79,7 +79,7 @@ pub fn dancoff(
             return Err(DancoffError::Total(region));
         }
     }
-    let cells = lattice.cells_per_side().pow(2);
+    let cells = lattice.cells();
     let cell_of: Vec<usize> = (0..regions).map(|r| lattice.region_cell(r)).collect();
 
     // 黒体の燃料（減衰 1 − exp(−τ) が 1 になる）と、燃料の外の物質
@@ -199,7 +199,7 @@ mod tests {
         let regions = lattice.volumes().len();
         // ピンのセルは (燃料, 水) の2領域、水のセルは1領域
         let mut fuel = Vec::with_capacity(regions);
-        for cell in 0..lattice.cells_per_side().pow(2) {
+        for cell in 0..lattice.cells() {
             let range = lattice.cell_regions(cell);
             fuel.push(range.len() == 2);
             fuel.extend(std::iter::repeat_n(false, range.len() - 1));

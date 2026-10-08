@@ -472,9 +472,20 @@ impl LatticeInput {
                 material: gap.material.clone(),
             });
         }
+        // 余白は周りの薄い行と列のセル（`Lattice::with_margin` と同じ並び）で、どれも1つの領域
+        let n = layout.len();
+        let border = || vec![gap.material.clone(); n + 2];
+        materials = border();
+        for row in &layout {
+            materials.push(gap.material.clone());
+            materials.extend(
+                row.iter()
+                    .flat_map(|&t| region_materials[t].iter().cloned()),
+            );
+            materials.push(gap.material.clone());
+        }
+        materials.extend(border());
         let lattice = Lattice::with_margin(types, layout, gap.width)?;
-        // 余白の領域は、セルの領域の後に続く
-        materials.resize(lattice.regions(), gap.material.clone());
         Ok((lattice, materials))
     }
 }
@@ -820,11 +831,13 @@ zones = [{ material = "water", rings = 1 }]
         );
         let (lattice, materials) = LatticeInput::parse(&text).unwrap().geometry().unwrap();
         assert_eq!(lattice.width(), 4.5);
-        assert_eq!(lattice.margin(), 0.25);
-        // セルの領域の後に、余白の 4 × 2 + 4 領域
+        assert_eq!(lattice.widths(), &[0.25, 2.0, 2.0, 0.25]);
+        // 余白は周りの薄い行と列のセル（各 1 領域）で、領域はセルの順に並ぶ
         assert_eq!(materials.len(), lattice.regions());
         assert_eq!(materials.len(), 8 + 12);
-        assert!(materials[8..].iter().all(|m| m == "water"));
+        assert!(materials[..4].iter().all(|m| m == "water"));
+        assert_eq!(materials[4..9], ["water", "UO2", "clad", "water", "water"]);
+        assert_eq!(materials.iter().filter(|m| *m == "UO2").count(), 2);
         // 幅が正でない、物質がない、真空（巨視的断面積でも）
         for gap in [
             "{ width = 0.0, material = \"water\" }",
