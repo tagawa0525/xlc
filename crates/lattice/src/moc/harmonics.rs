@@ -56,21 +56,6 @@ mod tests {
     use super::*;
     use std::f64::consts::PI;
 
-    /// ルジャンドル多項式 P_l(x)
-    fn legendre(l: usize, x: f64) -> f64 {
-        let (mut previous, mut current) = (1.0, x);
-        if l == 0 {
-            return previous;
-        }
-        for n in 1..l {
-            let n = n as f64;
-            let next = ((2.0 * n + 1.0) * x * current - n * previous) / (n + 1.0);
-            previous = current;
-            current = next;
-        }
-        current
-    }
-
     #[test]
     fn low_orders_are_the_direction_cosines() {
         let (mu, phi) = (0.3_f64, 1.1_f64);
@@ -93,7 +78,7 @@ mod tests {
                     let sum: f64 = (-(l as isize)..=l as isize)
                         .map(|m| real_harmonic(l, m, mu1, phi1) * real_harmonic(l, m, mu2, phi2))
                         .sum();
-                    let expected = legendre(l, cosine);
+                    let expected = xlc_numeric::quadrature::legendre(cosine, l)[l];
                     assert!((sum - expected).abs() < 1e-13, "l {l}: {sum} vs {expected}");
                 }
             }

@@ -541,7 +541,14 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "xlc-format",
- "xlc-xs",
+ "xlc-numeric",
+]
+
+[[package]]
+name = "xlc-numeric"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
 ]
 
 [[package]]
@@ -558,4 +565,5 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "xlc-format",
+ "xlc-numeric",
 ]
