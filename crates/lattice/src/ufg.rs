@@ -30,7 +30,7 @@ use crate::input::MaterialInput;
 use crate::lu::solve;
 
 /// セルの UFG の範囲の上限の頭打ち (eV)。U-238 の分離共鳴の上端で、これより上は U-238 の非弾性散乱（45 keV から）と
-/// 核分裂の線源が効き、弾性散乱だけの減速計算が成り立たない（docs/plans/m2-assembly.md）
+/// 核分裂の線源が効き、弾性散乱だけの減速計算が成り立たない（ADR-0069）
 pub const MAX_TOP: f64 = 2.0e4;
 
 /// 飛程をまとめて並列に求める格子点の数

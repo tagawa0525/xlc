@@ -3,6 +3,9 @@ status: open
 labels: [lattice, shielding, verification]
 opened: 2026-10-08
 closed:
+milestone:
+blocked-by: []
+resolution:
 ---
 
 # 支持格子による k の変化の OpenMC との差が +40 pcm 残る
@@ -12,6 +15,8 @@ closed:
 支持格子の支持格子による k の変化は、等価なセルに支持格子のリングを入れて OpenMC との差が 1B で −170 → +40 pcm、2B で
 −126 → +38 pcm になった（examples/vera/README.md）。OpenMC の2つの計算の差の統計誤差は 1σ で約 10 pcm なので、
 約 4σ にあたるが、原因は分けていない。
+
+関係する ADR: [ADR-0088](../adr/0088-add-frame-ring-to-equivalent-cell.md)
 
 ## 完了の条件
 
