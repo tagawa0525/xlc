@@ -2,7 +2,7 @@
 status: superseded
 date: 2026-10-07
 supersedes: []
-superseded-by: ADR-0068
+superseded-by: [ADR-0068, ADR-0074]
 issues: []
 ---
 
@@ -55,4 +55,6 @@ U-238 の共鳴吸収を +4〜6% 多く見積もった（VERA 1B で −1887 pcm
 よる誤差で、方法そのものの限界である（Gibson の MIT 博士論文 2016 の Table 9.72 と 6.7〜6.8 にも同じ向きと大きさの
 誤差がある）。
 
-UFG の範囲の外では、この方式（Carlvik の2項有理近似、ln σ0 の補間）を使い続ける（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）。
+UFG の範囲の外で有効な部分（Dancoff 係数の求め方、Carlvik の2項有理近似、ln σ0 の補間、燃料だけを遮蔽すること）は
+[ADR-0074](0074-shield-outside-range-by-equivalence.md) にまとめ直した。そこでは、共鳴の干渉を Bondarenko の方法の反復で近似する。2項を合わせる重みは [ADR-0089](0089-weight-two-terms-with-potential-scattering.md) で
+直した。
