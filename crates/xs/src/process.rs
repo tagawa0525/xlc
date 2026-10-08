@@ -174,7 +174,8 @@ pub fn unresolved_shielding(
 
 /// 分離共鳴の範囲を持つ核種の、σ0 ごとの群定数の重みを減速計算で作る範囲（ADR-0072）。
 /// 重み関数の熱中性子の区切り以上で最も低い群の境界から、分離共鳴の上端以下で最も高い群の境界まで
-/// （熱中性子の領域では標的の熱運動が効き、静止した標的の減速計算は成り立たない）。
+/// （熱中性子の領域では標的の熱運動が効き、静止した標的の減速計算は成り立たない）。範囲より上の散乱源の
+/// ポテンシャル散乱は、分離共鳴の範囲の s 波の散乱半径から求める（`resolved`）。
 /// 分離共鳴の範囲がなければ `None`。
 pub fn slowing_down_range(
     tape: &Tape,
@@ -185,14 +186,8 @@ pub fn slowing_down_range(
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
     };
-    let mf2 = Mf2::parse(&section)?;
-    let Some(top) = mf2
-        .ranges
-        .iter()
-        .filter(|r| r.kind.is_resolved())
-        .map(|r| r.eh)
-        .reduce(f64::max)
-    else {
+    let awr = Mf2::parse(&section)?.awr;
+    let Some(Resolved { top, potential }) = resolved(tape, mat)? else {
         return Ok(None);
     };
     let bounds = groups.bounds();
@@ -204,7 +199,8 @@ pub fn slowing_down_range(
         return Ok(None);
     };
     Ok((high > low).then_some(SlowingDown {
-        awr: mf2.awr,
+        awr,
+        potential,
         range: (low, high),
     }))
 }
