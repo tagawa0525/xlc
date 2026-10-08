@@ -453,23 +453,22 @@ mod tests {
     }
 
     #[test]
-    fn strips_comments_but_not_quoted_hashes() {
+    fn keeps_hashes_in_values() {
         let text = format!(
             "---\n\
-             status: accepted      # proposed | accepted\n\
-             supersedes: []        # 例: [{a2}]\n\
-             superseded-by:        # 例: {a7}\n\
-             issues: [\"{i1}\", \"{i14}\"] # 例\n\
+             status: accepted # note\n\
+             resolution: wontfix: see {i1}\n\
+             issues: [\"{i1}\", \"{i14}\"]\n\
              ---\n",
-            a2 = adr(2),
-            a7 = adr(7),
             i1 = issue(1),
             i14 = issue(14),
         );
         let fm = parse_front_matter(&text).unwrap();
-        assert_eq!(fm.get("status"), Some(&scalar("accepted")));
-        assert_eq!(fm.get("supersedes"), Some(&list(&[])));
-        assert_eq!(fm.get("superseded-by"), Some(&Value::Empty));
+        assert_eq!(fm.get("status"), Some(&scalar("accepted # note")));
+        assert_eq!(
+            fm.get("resolution"),
+            Some(&scalar(&format!("wontfix: see {}", issue(1))))
+        );
         assert_eq!(fm.get("issues"), Some(&list(&[&issue(1), &issue(14)])));
     }
 
@@ -629,7 +628,8 @@ mod tests {
     }
 
     #[test]
-    fn skips_front_matter_and_fences() {
+    fn skips_fences_but_not_front_matter() {
+        // フロントマターは読み分けない（番号つきの文書のフロントマターも、参照を探す行に入れる）
         let text = "---\n\
                     status: open\n\
                     ---\n\
@@ -647,16 +647,52 @@ mod tests {
                     three\n";
         assert_eq!(
             markdown_lines(text).unwrap(),
-            [(4, "one"), (10, "two"), (15, "three")]
+            [
+                (1, "---"),
+                (2, "status: open"),
+                (3, "---"),
+                (4, "one"),
+                (10, "two"),
+                (15, "three")
+            ]
         );
         assert_eq!(
-            markdown_lines("a\n---\nb\n").unwrap(),
-            [(1, "a"), (2, "---"), (3, "b")]
+            markdown_lines("---\nstatus: open\n").unwrap(),
+            [(1, "---"), (2, "status: open")]
         );
     }
 
     #[test]
-    fn rejects_unclosed_blocks() {
+    fn follows_commonmark_fences() {
+        // 囲いの記号のあとにバッククォートを含む行は、コードブロックを開かない
+        assert_eq!(
+            markdown_lines("```cargo test``` で走る\nx\n").unwrap(),
+            [(1, "```cargo test``` で走る"), (2, "x")]
+        );
+        // 4つ以上の空白で字下げした囲いは、囲いでない
+        assert_eq!(
+            markdown_lines("    ```\nx\n").unwrap(),
+            [(1, "    ```"), (2, "x")]
+        );
+        assert!(markdown_lines("   ```\nx\n   ```\n").unwrap().is_empty());
+        // 閉じる囲いは、同じ記号が開いたときと同じ数以上並び、ほかに何もない行
+        assert_eq!(
+            markdown_lines("```\n``` not closing\n```\ny\n").unwrap(),
+            [(4, "y")]
+        );
+        assert_eq!(
+            markdown_lines("```rust\nx\n    ```\n```\ny\n").unwrap(),
+            [(5, "y")]
+        );
+        // `~~~` の情報の文字列にはバッククォートを書ける
+        assert_eq!(
+            markdown_lines("~~~ info with ` tick\nx\n~~~\ny\n").unwrap(),
+            [(4, "y")]
+        );
+    }
+
+    #[test]
+    fn rejects_unclosed_fences() {
         assert_eq!(
             markdown_lines("a\n\n```\ncode\n"),
             Err(Error::UnclosedFence { line: 3 })
@@ -664,10 +700,6 @@ mod tests {
         assert_eq!(
             markdown_lines("````\n```\n"),
             Err(Error::UnclosedFence { line: 1 })
-        );
-        assert_eq!(
-            markdown_lines("---\nstatus: open\n"),
-            Err(Error::UnclosedFrontMatter)
         );
     }
 }
