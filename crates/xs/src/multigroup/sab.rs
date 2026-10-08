@@ -7,11 +7,11 @@
 //! kT0 を使う。μ で積分した P0 の核は α の積分になり、
 //!   σ0(E→E') = σb A/(4E) e^(-β/2) (kT_表/kT) ∫ S dα_表、α_表 は (√E ∓ √E')²/(A kT_表) の間。
 
-use super::GroupStructure;
 use super::free_gas::integrate_points;
 use super::scatter::{GAUSS_8, legendre};
 use crate::endf::{Interpolation, Mf7Incoherent};
 use crate::physics::BK;
+use xlc_format::group::GroupStructure;
 
 /// LAT=1 の表で α, β に使う kT0 (eV)（ENDF の定義）
 const KT0: f64 = 0.0253;
