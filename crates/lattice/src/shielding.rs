@@ -5,10 +5,16 @@
 //! それぞれのリングの中性子束で縮約して求める。その範囲の外の群は、燃料を等価原理（Dancoff 係数を入れた
 //! Carlvik の2項有理近似）で遮蔽し、被覆管と減速材は無限希釈とする。
 //!
+//! 燃料のピンの等価なセルに入らない構造材（支持格子の枠、案内管など）のうち分離共鳴を持つ核種を含むものは、
+//! 塊ごとに Dancoff 係数と平均弦長を求め、燃料と同じ等価原理で遮蔽する（[`shield_lumps`]）。
+//!
 //! 等価原理では、燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
 //! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
 //! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
 //! （ライブラリの重み w/(σt + σ0) での群平均では、この式が厳密に成り立つ）。
+
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
@@ -17,7 +23,7 @@ use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
 use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
-use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
+use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_dancoff};
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{SymmetryError, cell_orbits};
 use crate::tracking::Tracking;
@@ -57,6 +63,8 @@ pub enum SelfShieldingError {
         "cell {0}: each ring outside the fuel must be one material, and the outer rings the moderator"
     )]
     CellShape(usize),
+    #[error("structural body {0} has no Dancoff factor")]
+    Body(usize),
     #[error("cell {0}: non-finite shielded cross sections")]
     NonFinite(usize),
     #[error("cell {cell}: shielding not converged in {iterations} iterations")]
@@ -85,7 +93,7 @@ impl From<LookupError> for SelfShieldingError {
     }
 }
 
-/// 自己遮蔽した物質。燃料はセルごとに、それ以外は物質ごとに1つずつ持つ。
+/// 自己遮蔽した物質。燃料はセルごとに、構造材の塊は対称なセルの組と物質ごとに、それ以外は物質ごとに1つずつ持つ。
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuelShielding {
     pub materials: Vec<Material>,
@@ -93,6 +101,24 @@ pub struct FuelShielding {
     pub region_material: Vec<usize>,
     /// 燃料のあるセルごとの自己遮蔽の結果（セルの順）
     pub pins: Vec<PinShielding>,
+    /// 構造材の塊ごとの自己遮蔽の結果
+    pub lumps: Vec<LumpShielding>,
+}
+
+/// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
+#[derive(Debug, Clone, PartialEq)]
+pub struct LumpShielding {
+    /// 塊のあるセル（対称に移り合うセルの組でまとめた塊は、組の代表（最も小さいセル番号））
+    pub cell: usize,
+    pub material: String,
+    /// 塊の領域（組のすべてのセルの分）
+    pub regions: Vec<usize>,
+    /// 群ごとの Dancoff 係数
+    pub dancoff: Vec<f64>,
+    /// 平均弦長 (cm)
+    pub chord: f64,
+    /// 物質の核種ごとの実効断面積（物質の組成の順）
+    pub effective: Vec<Shielded>,
 }
 
 /// 1本のピンの燃料の自己遮蔽の結果。格子の対称性で移り合うピンは、組の代表（最も小さいセル番号）の結果を
@@ -214,6 +240,7 @@ pub fn shield_fuel(
         materials: dilute,
         region_material: region_index.clone(),
         pins: Vec::new(),
+        lumps: Vec::new(),
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する
@@ -325,7 +352,252 @@ pub fn shield_fuel(
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
     }
+    shield_lumps(
+        library,
+        tracking,
+        materials,
+        &region_index,
+        &orbits,
+        options,
+        &mut shielded,
+    )?;
     Ok(shielded)
+}
+
+/// 燃料でなく、燃料のピンの等価なセルでも置き換えていない領域のうち、分離共鳴を持つ核種を含む物質の領域
+/// （支持格子の枠、案内管など）を、等価原理で遮蔽する。
+///
+/// 分離共鳴を持つ核種の組が同じ物質は、共鳴が同じエネルギーにあり互いに影を作る。そこで、セルの中で接する
+/// （[`Cell::adjacent`](crate::geometry::Cell::adjacent)）組の同じ領域のひとまとまりを1つの黒体とし、組ごとに
+/// その組の物質の領域（ピンの等価なセルで遮蔽した被覆管なども含む）を同時に黒体にして、黒体ごとの Dancoff 係数と
+/// 平均弦長を求める（[`lump_dancoff`]。組の違う物質は影を作らない）。黒体の中の物質ごとの領域を塊とし、
+/// 黒体の Dancoff 係数と平均弦長で遮蔽する。対称に移り合うセルの組の対応する黒体は1つにする。
+fn shield_lumps(
+    library: &Library,
+    tracking: &Tracking,
+    materials: &[MaterialInput],
+    region_index: &[usize],
+    orbits: &[usize],
+    options: &ShieldingOptions,
+    shielded: &mut FuelShielding,
+) -> Result<(), SelfShieldingError> {
+    let lattice = &tracking.lattice;
+    let n_regions = region_index.len();
+    let is_fuel = |m: &Material| m.nu_fission.iter().any(|&v| v > 0.0);
+    // 物質ごとの、分離共鳴を持つ核種（個数密度が正のもの）の名前の組。燃料と、持たない物質は空
+    let resonant = materials
+        .iter()
+        .zip(&shielded.materials)
+        .map(|(m, dilute)| {
+            let mut names = Vec::new();
+            if is_fuel(dilute) {
+                return Ok(names);
+            }
+            for (name, density) in &m.composition {
+                if *density > 0.0 && library.lookup(name, m.temperature)?.0.resolved.is_some() {
+                    names.push(name.as_str());
+                }
+            }
+            names.sort_unstable();
+            names.dedup();
+            Ok(names)
+        })
+        .collect::<Result<Vec<Vec<&str>>, LookupError>>()?;
+    // 真空は物質の一覧の外
+    let resonant_of = |index: usize| resonant.get(index).map_or(&[][..], Vec::as_slice);
+    let candidate: Vec<bool> = (0..n_regions)
+        .map(|r| {
+            shielded.region_material[r] == region_index[r]
+                && !resonant_of(region_index[r]).is_empty()
+        })
+        .collect();
+    if !candidate.contains(&true) {
+        return Ok(());
+    }
+    // セルの中で接する、組の同じ候補の領域をまとめる。まとまりの代表は最も小さい領域の番号
+    let mut parent: Vec<usize> = (0..n_regions).collect();
+    let root = |parent: &mut Vec<usize>, mut r: usize| {
+        while parent[r] != r {
+            parent[r] = parent[parent[r]];
+            r = parent[r];
+        }
+        r
+    };
+    for cell in 0..lattice.cells() {
+        let first = lattice.cell_regions(cell).start;
+        for (a, b) in lattice.cell_type(cell).adjacent() {
+            let (a, b) = (first + a, first + b);
+            if candidate[a]
+                && candidate[b]
+                && resonant_of(region_index[a]) == resonant_of(region_index[b])
+            {
+                let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
+                parent[ra.max(rb)] = ra.min(rb);
+            }
+        }
+    }
+    // 対称な操作はリングごとの物質が同じセルどうしでしか成り立たない（[`cell_orbits`]）が、扇形を入れ替える。
+    // リングを丸ごと（枠、小さな正方形や長方形のセルではセルを丸ごと）含むまとまりだけが、組のセルで同じ番号の
+    // まとまりに移る。ほかのまとまり（扇形で分かれた四隅など）は、そのセルだけの黒体にする
+    let ring = |region: usize| -> (usize, usize) {
+        let cell = lattice.region_cell(region);
+        let range = lattice.cell_regions(cell);
+        let local = region - range.start;
+        match lattice.cell_type(cell).pin() {
+            Some(pin) if !pin.is_grid() && local < (pin.radii().len() + 1) * pin.sectors() => {
+                (local / pin.sectors(), pin.sectors())
+            }
+            Some(pin) if !pin.is_grid() => (usize::MAX, 1),
+            _ => (0, range.len()),
+        }
+    };
+    let mut counts: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
+    for region in (0..n_regions).filter(|&r| candidate[r]) {
+        let (r, size) = ring(region);
+        counts
+            .entry((root(&mut parent, region), r))
+            .or_insert((0, size))
+            .0 += 1;
+    }
+    let mut whole: HashMap<usize, bool> = HashMap::new();
+    for (&(root, _), &(n, size)) in &counts {
+        *whole.entry(root).or_insert(true) &= n == size;
+    }
+    // 黒体は (セル, まとまりの代表のセルの中での番号) ごと（セルは、組でまとめるまとまりなら組の代表）、塊は
+    // (黒体, 物質の番号) ごと
+    let mut bodies: HashMap<(usize, usize), usize> = HashMap::new();
+    // [黒体] の (セル, 核種の組)
+    let mut body_of: Vec<(usize, &[&str])> = Vec::new();
+    let mut body = vec![None; n_regions];
+    let mut lumps: HashMap<(usize, usize), usize> = HashMap::new();
+    // [塊] の (黒体, 物質の番号, 領域)
+    let mut lump_of: Vec<(usize, usize, Vec<usize>)> = Vec::new();
+    for region in (0..n_regions).filter(|&r| candidate[r]) {
+        let cell = lattice.region_cell(region);
+        let first = lattice.cell_regions(cell).start;
+        let representative = root(&mut parent, region);
+        let owner = if whole.get(&representative).copied().unwrap_or(false) {
+            orbits[cell]
+        } else {
+            cell
+        };
+        let key = (owner, representative - first);
+        let b = *bodies.entry(key).or_insert_with(|| {
+            body_of.push((owner, resonant_of(region_index[region])));
+            body_of.len() - 1
+        });
+        body[region] = Some(b);
+        let index = region_index[region];
+        let l = *lumps.entry((b, index)).or_insert_with(|| {
+            lump_of.push((b, index, Vec::new()));
+            lump_of.len() - 1
+        });
+        lump_of[l].2.push(region);
+    }
+    // 影の計算の全断面積は、燃料のピンの Dancoff 係数と同じく燃料でない領域は無限希釈とし、燃料はピンの
+    // SPH 因子を掛けない実効断面積（物理的な値。SPH 因子は MOC の反応率を合わせるためのもの）とする。
+    // 対称に移り合うピンは同じ核種を共有するので、組ごとに1回求める
+    let ng = library.groups.len();
+    let mut totals: Vec<Vec<f64>> = region_index
+        .iter()
+        .map(|&i| shielded.materials[i].total.clone())
+        .collect();
+    let mut fuel_totals: HashMap<usize, Vec<f64>> = HashMap::new();
+    for pin in &shielded.pins {
+        let orbit = orbits[pin.cell];
+        let total = match fuel_totals.entry(orbit) {
+            Entry::Occupied(e) => e.into_mut(),
+            Entry::Vacant(e) => {
+                let fuel = Material::from_nuclides(&pin.nuclides, ng).map_err(|source| {
+                    SelfShieldingError::Material {
+                        name: format!("fuel in cell {}", pin.cell),
+                        source,
+                    }
+                })?;
+                e.insert(fuel.total)
+            }
+        };
+        for region in lattice.cell_regions(pin.cell) {
+            if is_fuel(&shielded.materials[region_index[region]]) {
+                totals[region].clone_from(total);
+            }
+        }
+    }
+    // 核種の組ごとに、その組の物質の領域を黒体にし、その組の黒体の結果を求める。黒体の番号は組の中での番号に付け直す
+    let mut found: Vec<Option<Lump>> = vec![None; body_of.len()];
+    let mut sets: Vec<&[&str]> = body_of.iter().map(|&(_, set)| set).collect();
+    sets.sort_unstable();
+    sets.dedup();
+    for set in sets {
+        let group: Vec<usize> = (0..body_of.len())
+            .filter(|&b| body_of[b].1 == set)
+            .collect();
+        let mut number = vec![None; body_of.len()];
+        for (k, &b) in group.iter().enumerate() {
+            number[b] = Some(k);
+        }
+        let black: Vec<bool> = region_index
+            .iter()
+            .map(|&i| resonant_of(i) == set)
+            .collect();
+        let local: Vec<Option<usize>> = body.iter().map(|b| b.and_then(|b| number[b])).collect();
+        let results = lump_dancoff(
+            tracking,
+            &totals,
+            &black,
+            &local,
+            group.len(),
+            &options.dancoff,
+        )?;
+        for (b, result) in group.into_iter().zip(results) {
+            found[b] = Some(result);
+        }
+    }
+    for (b, index, lump_regions) in lump_of {
+        let cell = body_of[b].0;
+        let found = found[b].as_ref().ok_or(SelfShieldingError::Body(b))?;
+        let equivalence = Equivalence {
+            chord: found.chord,
+            terms: found
+                .dancoff
+                .iter()
+                .map(|&c| carlvik(c))
+                .collect::<Result<_, _>>()?,
+        };
+        let material = &materials[index];
+        let tables = shield_material(library, material, &equivalence, options, cell)?;
+        let nuclides = material
+            .composition
+            .iter()
+            .zip(&tables)
+            .map(|((name, density), s)| {
+                Ok((
+                    shielded_nuclide(library, name, material.temperature, s)?,
+                    *density,
+                ))
+            })
+            .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+        let mixed = Material::from_nuclides(&nuclides, ng).map_err(|source| {
+            SelfShieldingError::Material {
+                name: material.name.clone(),
+                source,
+            }
+        })?;
+        shielded.materials.push(mixed);
+        let m = shielded.materials.len() - 1;
+        for &region in &lump_regions {
+            shielded.region_material[region] = m;
+        }
+        shielded.lumps.push(LumpShielding {
+            cell,
+            material: material.name.clone(),
+            regions: lump_regions,
+            dancoff: found.dancoff.clone(),
+            chord: found.chord,
+            effective: tables,
+        });
+    }
+    Ok(())
 }
 
 /// 組の代表のピンの結果
@@ -946,7 +1218,7 @@ mod tests {
         use crate::material::Material;
         use crate::tracking::Tracking;
         use xlc_format::group::GroupStructure;
-        use xlc_format::library::{Library, NuclideData, Shielded, TemperatureData};
+        use xlc_format::library::{Library, NuclideData, Resolved, Shielded, TemperatureData};
 
         const T: f64 = 600.0;
 
@@ -1125,6 +1397,308 @@ mod tests {
             );
         }
 
+        /// 分離共鳴を持つ（群 0 が σ0 に依存する）Zr を加えた `library()`
+        fn library_with_zirconium() -> Library {
+            let mut library = library();
+            let mut zr = library.nuclides[2].clone();
+            zr.name = "Zr-90".into();
+            zr.resolved = Some(Resolved {
+                top: 1.0e4,
+                potential: 6.0,
+            });
+            zr.temperatures[0].shielded = [15.0, 10.0, 5.0]
+                .iter()
+                .map(|&t| Shielded {
+                    total: vec![t, 8.0],
+                    elastic: vec![6.0, 4.0],
+                    fission: vec![0.0, 0.0],
+                    nu_fission: vec![0.0, 0.0],
+                })
+                .collect();
+            library.nuclides.push(zr);
+            library
+        }
+
+        #[test]
+        fn structural_frames_are_shielded_as_lumps() {
+            let library = library_with_zirconium();
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "zirc".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.04)],
+            });
+            // 領域: セルごとに (燃料, 水, 枠)
+            let pin = PinCell::new(1.26, vec![0.4096])
+                .unwrap()
+                .with_frame(0.05)
+                .unwrap();
+            let lattice = Lattice::new(vec![pin], vec![vec![0, 0], vec![0, 0]]).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let regions: Vec<String> = (0..4)
+                .flat_map(|_| ["fuel", "water", "zirc"].map(String::from))
+                .collect();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let dilute = |name: &str| {
+                let m = materials.iter().find(|m| m.name == name).unwrap();
+                Material::mix(&library, &m.composition, T).unwrap()
+            };
+            let frame = shielded.region_material[2];
+            assert!(shielded.materials[frame].total[0] < dilute("zirc").total[0]);
+            // 対称に移り合う枠は同じ物質を共有する
+            assert!((0..4).all(|c| shielded.region_material[3 * c + 2] == frame));
+            // 分離共鳴を持たない水は無限希釈のまま
+            assert_eq!(
+                shielded.materials[shielded.region_material[1]],
+                dilute("water")
+            );
+        }
+
+        /// `library_with_zirconium()` に、Zr-90 と同じ群定数で分離共鳴を持つ核種 `resonant` と持たない核種
+        /// `plain` を加えたもの
+        fn library_with_copies(resonant: &str, plain: &str) -> Library {
+            let mut library = library_with_zirconium();
+            let zr = library.nuclides[3].clone();
+            let mut copy = |name: &str, resolved: bool| {
+                let mut n = zr.clone();
+                n.name = name.into();
+                if !resolved {
+                    n.resolved = None;
+                }
+                library.nuclides.push(n);
+            };
+            copy(resonant, true);
+            copy(plain, false);
+            library
+        }
+
+        /// 枠（物質 zirc、厚さ 0.05）付きのセルの種類（半径と、内側からの物質の名前）を `layout` に並べた格子と、
+        /// 領域ごとの物質の名前
+        fn framed(
+            types: &[(Vec<f64>, Vec<&str>)],
+            layout: Vec<Vec<usize>>,
+        ) -> (Tracking, Vec<String>) {
+            let cells = types
+                .iter()
+                .map(|(radii, _)| {
+                    PinCell::new(1.26, radii.clone())
+                        .unwrap()
+                        .with_frame(0.05)
+                        .unwrap()
+                })
+                .collect();
+            let regions = layout
+                .iter()
+                .flatten()
+                .flat_map(|&t| types[t].1.iter().chain(&["zirc"]).map(|n| n.to_string()))
+                .collect();
+            let lattice = Lattice::new(cells, layout).unwrap();
+            (Tracking::new(&lattice, 16, 0.02).unwrap(), regions)
+        }
+
+        fn with_material(name: &str, nuclide: &str) -> Vec<MaterialInput> {
+            let mut materials = materials();
+            for (name, nuclide) in [("zirc", "Zr-90"), (name, nuclide)] {
+                materials.push(MaterialInput {
+                    name: name.into(),
+                    temperature: T,
+                    composition: vec![(nuclide.into(), 0.04)],
+                });
+            }
+            materials
+        }
+
+        #[test]
+        fn reports_each_lump() {
+            let library = library_with_zirconium();
+            let types = [(vec![0.4096], vec!["fuel", "water"])];
+            let (tracking, regions) = framed(&types, vec![vec![0, 0], vec![0, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 対称に移り合う4つの枠は1つの塊。露出した面は枠の内側だけ
+            assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
+            let lump = &shielded.lumps[0];
+            assert_eq!((lump.cell, lump.material.as_str()), (0, "zirc"));
+            assert_eq!(lump.regions, vec![2, 5, 8, 11]);
+            let (p, t): (f64, f64) = (1.26, 0.05);
+            let chord = (p * p - (p - 2.0 * t).powi(2)) / (p - 2.0 * t);
+            assert!((lump.chord - chord).abs() < 1e-2 * chord, "{}", lump.chord);
+            assert_eq!(lump.dancoff.len(), 2);
+            // 実効断面積は、塊の物質の核種の全断面積
+            let frame = &shielded.materials[shielded.region_material[2]];
+            assert!((frame.total[0] - 0.04 * lump.effective[0].total[0]).abs() < 1e-12);
+        }
+
+        #[test]
+        fn touching_pieces_are_one_lump() {
+            // 管（外径 0.6）は枠の内側（半辺 0.58）に届き、同じ物質の枠と1つの塊になる
+            let library = library_with_zirconium();
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (vec![0.5, 0.6], vec!["water", "zirc", "water"]),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // セル1の領域: 水, 管, 水, 枠
+            assert_eq!(shielded.region_material[4], shielded.region_material[6]);
+        }
+
+        #[test]
+        fn touching_materials_with_the_same_resonant_nuclides_are_one_body() {
+            // 同じ核種で密度の違う物質 zirc2 を zirc が囲む。2つは1つの黒体で、Dancoff 係数と平均弦長を共有する
+            let library = library_with_zirconium();
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (
+                    vec![0.3, 0.35, 0.4, 0.45],
+                    vec!["water", "zirc", "zirc2", "zirc", "water"],
+                ),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("zirc2", "Zr-90"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let lump = |material: &str| {
+                shielded
+                    .lumps
+                    .iter()
+                    .find(|l| l.material == material && l.cell == 1)
+                    .unwrap()
+            };
+            let (outer, inner) = (lump("zirc"), lump("zirc2"));
+            assert_eq!(outer.dancoff, inner.dancoff);
+            assert_eq!(outer.chord, inner.chord);
+            assert_eq!(outer.regions, vec![4, 6, 10, 12]);
+            assert_eq!(inner.regions, vec![5, 11]);
+        }
+
+        #[test]
+        fn pieces_split_by_sectors_stay_in_their_cell() {
+            // 外のリング（内径 0.65 > 半ピッチ 0.63）は四隅に分かれる。対称な操作は扇形を入れ替えるので、
+            // 対称なセル（1 と 2）の隅は同じ黒体にしない
+            let library = library_with_zirconium();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
+            let layout = vec![vec![0, 1], vec![1, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names: &[&str] = if t == 0 {
+                    &["fuel", "water"]
+                } else {
+                    &["water"; 8]
+                };
+                let mut names: Vec<String> = names.iter().map(|n| n.to_string()).collect();
+                if t == 1 {
+                    names.extend(std::iter::repeat_n("zirc".to_string(), 8));
+                }
+                names
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, corner], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "zirc".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.04)],
+            });
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 2つのセルの四隅（扇形2つずつ）
+            assert_eq!(shielded.lumps.len(), 8, "{:?}", shielded.lumps);
+            for lump in &shielded.lumps {
+                let cells: Vec<usize> = lump
+                    .regions
+                    .iter()
+                    .map(|&r| tracking.lattice.region_cell(r))
+                    .collect();
+                assert!(cells.iter().all(|&c| c == cells[0]), "{lump:?}");
+                assert_eq!(lump.regions.len(), 2, "{lump:?}");
+            }
+        }
+
+        #[test]
+        fn other_resonant_materials_do_not_shadow_a_lump() {
+            // 管の物質が分離共鳴を持つかどうかで、同じセルの枠（別の物質）の遮蔽は変わらない（群定数は同じ）
+            let library = library_with_copies("Fe-56", "Fe-56x");
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (vec![0.45, 0.5], vec!["water", "tube", "water"]),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let frame = |nuclide: &str| {
+                let shielded = shield_fuel(
+                    &library,
+                    &tracking,
+                    &with_material("tube", nuclide),
+                    &regions,
+                    &ShieldingOptions::default(),
+                )
+                .unwrap();
+                // セル1の領域: 水, 管, 水, 枠
+                shielded.materials[shielded.region_material[6]].total[0]
+            };
+            let (resonant, plain) = (frame("Fe-56"), frame("Fe-56x"));
+            assert!(
+                (resonant - plain).abs() < 1e-12 * plain,
+                "{resonant} vs {plain}"
+            );
+        }
+
+        #[test]
+        fn separate_pieces_of_a_material_are_separate_lumps() {
+            // 管と枠が同じ物質でも、離れた領域は別の塊として形に合った平均弦長で遮蔽する
+            let library = library_with_zirconium();
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (vec![0.45, 0.5], vec!["water", "zirc", "water"]),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // セル1の領域: 水, 管, 水, 枠
+            let (tube, frame) = (shielded.region_material[4], shielded.region_material[6]);
+            assert_ne!(tube, frame);
+            let total = |m: usize| shielded.materials[m].total[0];
+            assert!(total(tube) != total(frame), "{}", total(tube));
+        }
+
         #[test]
         fn void_gap_is_kept_void() {
             let library = library();
@@ -1259,6 +1833,153 @@ mod tests {
                     nuclide("H-1", 0.99917, flat(20.0, 20.0, 0.0), None),
                 ],
             }
+        }
+
+        /// 被覆管が物質 `clad`、枠（厚さ 0.05）が分離共鳴を持つ Zr-91 の物質 grid の、UFG で遮蔽するピンセル。
+        /// 枠の塊の Dancoff 係数と、`black` の領域を黒体にして求め直した Dancoff 係数（燃料はピンの SPH 因子を
+        /// 掛けない実効断面積、ほかは無限希釈の全断面積）
+        fn frame_dancoff(clad: &str, black: &[usize]) -> (Vec<f64>, Vec<f64>) {
+            let mut library = resonant_library();
+            let mut zr91 = library.nuclides[3].clone();
+            zr91.name = "Zr-91".into();
+            zr91.resolved = Some(xlc_format::library::Resolved {
+                top: 1.0e3,
+                potential: 6.5,
+            });
+            library.nuclides.push(zr91);
+            let material = |name: &str, composition: &[(&str, f64)]| MaterialInput {
+                name: name.into(),
+                temperature: T,
+                composition: composition.iter().map(|&(n, d)| (n.into(), d)).collect(),
+            };
+            let materials = vec![
+                material(
+                    "fuel",
+                    &[("U-238", 0.022), ("U-235", 5.0e-4), ("O-16", 0.045)],
+                ),
+                material("clad", &[("Zr-90", 0.043)]),
+                material("grid", &[("Zr-91", 0.043)]),
+                material("grid2", &[("Zr-91", 0.03)]),
+                material("water", &[("H-1", 0.05), ("O-16", 0.025)]),
+            ];
+            let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475])
+                .unwrap()
+                .with_frame(0.05)
+                .unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+            let regions: Vec<String> = [
+                "fuel",
+                "fuel",
+                "fuel",
+                crate::input::VOID,
+                clad,
+                "water",
+                "grid",
+            ]
+            .map(String::from)
+            .to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let pin = &shielded.pins[0];
+            assert!(pin.sph.is_some());
+            let fuel = Material::from_nuclides(&pin.nuclides, library.groups.len()).unwrap();
+            let totals: Vec<Vec<f64>> = regions
+                .iter()
+                .map(|name| match name.as_str() {
+                    "fuel" => fuel.total.clone(),
+                    crate::input::VOID => vec![0.0; library.groups.len()],
+                    name => {
+                        let m = materials.iter().find(|m| m.name == name).unwrap();
+                        Material::mix(&library, &m.composition, T).unwrap().total
+                    }
+                })
+                .collect();
+            let lump: Vec<Option<usize>> = (0..regions.len())
+                .map(|r| black.contains(&r).then_some(usize::from(r != 6)))
+                .collect();
+            let lumps = 1 + usize::from(black.len() > 1);
+            let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+            let expected = lump_dancoff(
+                &tracking,
+                &totals,
+                &black,
+                &lump,
+                lumps,
+                &DancoffOptions::default(),
+            )
+            .unwrap();
+            assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
+            (
+                shielded.lumps[0].dancoff.clone(),
+                expected[0].dancoff.clone(),
+            )
+        }
+
+        #[test]
+        fn lumps_see_the_physical_fuel() {
+            // 燃料は SPH 因子を掛けない実効断面積で、塊の影の計算に入る
+            let (dancoff, expected) = frame_dancoff("clad", &[6]);
+            for (c, e) in dancoff.iter().zip(&expected) {
+                assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
+            }
+        }
+
+        #[test]
+        fn same_material_in_the_pin_shadows_a_lump() {
+            // 被覆管が枠と同じ物質なら、等価なセルで遮蔽した被覆管も、枠と同じ共鳴の影を作る（黒体）
+            let (dancoff, expected) = frame_dancoff("grid", &[4, 6]);
+            for (c, e) in dancoff.iter().zip(&expected) {
+                assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
+            }
+        }
+
+        #[test]
+        fn materials_with_the_same_resonant_nuclides_shadow_a_lump() {
+            // 被覆管が枠と別の物質でも、分離共鳴を持つ核種が同じなら同じ共鳴の影を作る（黒体）
+            let (dancoff, expected) = frame_dancoff("grid2", &[4, 6]);
+            for (c, e) in dancoff.iter().zip(&expected) {
+                assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
+            }
+        }
+
+        #[test]
+        fn pieces_of_a_lump_follow_contact() {
+            // 小さな正方形のセルの縦の列と、扇形の角度の 0 と 2π をまたぐ扇形は、それぞれ1つの塊
+            let library = library_with_zirconium();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let grid = PinCell::grid(1.26, 3).unwrap();
+            let sectored = PinCell::with_sectors(1.26, vec![0.5, 0.6], 4).unwrap();
+            let layout = vec![vec![0, 1, 0], vec![2, 0, 0], vec![0, 0, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names = match t {
+                    0 => "fuel water",
+                    1 => "water zirc water water zirc water water zirc water",
+                    _ => "water water water water zirc water water zirc water water water water",
+                };
+                names.split(' ').map(String::from).collect()
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, grid, sectored], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let m = &shielded.region_material;
+            // 正方形のセル（セル1）は領域 2〜10、扇形のセル（セル3）は 13〜24（リング 1 の扇形は 17〜20）
+            assert!(m[3] == m[6] && m[6] == m[9], "{m:?}");
+            assert_eq!(m[17], m[20], "{m:?}");
+            assert_eq!(shielded.lumps.len(), 2, "{:?}", shielded.lumps);
         }
 
         #[test]
