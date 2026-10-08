@@ -3,6 +3,9 @@ status: open
 labels: [lattice, refactor]
 opened: 2026-10-08
 closed:
+milestone:
+blocked-by: []
+resolution:
 ---
 
 # 「UFG」という名前が中身（ポイントワイズ）と合わない

@@ -3,6 +3,9 @@ status: open
 labels: [lattice, verification]
 opened: 2026-10-08
 closed:
+milestone: M3
+blocked-by: []
+resolution:
 ---
 
 # ADF を OpenMC と比べていない

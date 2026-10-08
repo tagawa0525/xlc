@@ -3,6 +3,9 @@ status: open
 labels: [xs, lattice, shielding]
 opened: 2026-10-08
 closed:
+milestone: M3
+blocked-by: []
+resolution:
 ---
 
 # UFG の範囲（4 eV）より下の共鳴の自己遮蔽
@@ -26,7 +29,7 @@ U-238 −1%）ので、核種の間の干渉も入っていない。Pu-240 の 1
 ## 完了の条件
 
 A と B を試作して、MOX-1 の Pu-242 の誤差と干渉がどこまで消えるか（B）と、ピン1本の計算時間（A）を測り、
-方式を計画に決める。Pu が燃焼で生まれる M4 の前に実装し、MOX のピンセルで検証する。
+方式を決めて ADR にする。Pu が燃焼で生まれる M4 の前に実装し、MOX のピンセルで検証する。
 
 ## 経緯
 
