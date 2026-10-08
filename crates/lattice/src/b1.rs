@@ -56,6 +56,10 @@ pub struct Mode {
 }
 
 impl Mode {
+    fn physical(&self) -> bool {
+        self.flux.iter().all(|&f| f > 0.0)
+    }
+
     /// [群] の拡散係数 D_g = J_g / (B φ_g)。
     pub fn diffusion(&self) -> Vec<f64> {
         self.current
@@ -79,6 +83,10 @@ pub enum B1Error {
     Imaginary { buckling: f64, limit: f64 },
     #[error("the B1 equations are singular at buckling {0}")]
     Singular(f64),
+    #[error("B1 cross sections must be finite")]
+    NotFinite,
+    #[error("no bracket: k {k} at buckling {buckling}")]
+    NoNegativeBracket { buckling: f64, k: f64 },
     #[error("no critical buckling: k is {k} at buckling {buckling}")]
     NoCriticalBuckling { buckling: f64, k: f64 },
 }
@@ -170,6 +178,14 @@ impl Medium {
             flux: x,
             current,
         })
+    }
+
+    fn solve(&self, buckling: f64) -> Option<Mode> {
+        self.mode(buckling).ok()
+    }
+
+    pub fn zero_buckling_current(&self, flux: &[f64]) -> Result<Vec<f64>, B1Error> {
+        Err(B1Error::Singular(flux.len() as f64))
     }
 
     /// k = 1 になる臨界のバックリングを二分法で探す。物理的な（中性子束がすべて正の）モードの k は B² に
@@ -356,5 +372,59 @@ mod tests {
     fn no_fission_is_an_error() {
         let medium = two_group([[0.0; 2]; 2], [0.0, 0.0]);
         assert!(matches!(medium.critical(), Err(B1Error::NoFission)));
+    }
+
+    #[test]
+    fn nan_is_rejected() {
+        let mut medium = two_group([[0.0; 2]; 2], [0.01, 0.3]);
+        assert!(matches!(
+            medium.mode(f64::NAN),
+            Err(B1Error::Imaginary { .. })
+        ));
+        medium.scatter1[1][0] = f64::NAN;
+        assert!(matches!(medium.critical(), Err(B1Error::NotFinite)));
+    }
+
+    #[test]
+    fn negative_buckling_without_a_bracket_is_an_error() {
+        // 群 0 は Σt が最小だが源がなく中性子束 0、核分裂は群 1 だけ（k∞ = 0.5）。−min(Σt)² の近くでも
+        // モードは物理的で k < 1 のままで、区間 (−min(Σt)², 0) に臨界のバックリングがない
+        let medium = Medium {
+            total: vec![0.5, 2.0],
+            scatter: vec![vec![0.1, 0.0], vec![0.0, 0.0]],
+            scatter1: vec![vec![0.0; 2]; 2],
+            nu_fission: vec![0.0, 1.0],
+            chi: vec![0.0, 1.0],
+        };
+        assert!(matches!(
+            medium.critical(),
+            Err(B1Error::NoNegativeBracket { k, .. }) if k < 1.0
+        ));
+    }
+
+    #[test]
+    fn modes_beyond_the_pole_count_as_too_negative() {
+        // 1群（k∞ < 1）で、−min(Σt)² と臨界の B² の間には極があり、その先のモードは物理的でない。
+        // 探索はその点を下端として扱い、臨界に収束する
+        let (medium, _) = one_group(-0.25);
+        let limit = NEGATIVE_LIMIT * medium.negative_limit();
+        let beyond = medium.solve(0.9 * limit).unwrap();
+        assert!(!beyond.physical(), "k {}", beyond.k);
+        let mode = medium.critical().unwrap();
+        assert!((mode.k - 1.0).abs() < 1e-10);
+        assert!(mode.buckling > 0.9 * limit);
+    }
+
+    #[test]
+    fn zero_buckling_current_solves_the_p1_equation() {
+        // 核分裂のない媒質でも使える。3 Σt d − 3 Σs1ᵀ d = φ
+        let medium = two_group([[0.2, 0.05], [0.01, 0.6]], [0.0, 0.0]);
+        let flux = [1.0, 2.0];
+        let d = medium.zero_buckling_current(&flux).unwrap();
+        for g in 0..2 {
+            let lhs = 3.0 * medium.total[g] * d[g]
+                - 3.0 * (0..2).map(|f| medium.scatter1[f][g] * d[f]).sum::<f64>();
+            assert!((lhs - flux[g]).abs() < 1e-14, "{lhs} vs {}", flux[g]);
+        }
     }
 }
