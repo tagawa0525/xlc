@@ -168,6 +168,8 @@ pub enum ShieldingError {
 pub struct SlowingDown {
     /// 吸収体の質量比 AWR
     pub awr: f64,
+    /// 吸収体のポテンシャル散乱断面積 (b)。範囲より上の散乱源（NR 近似）に使う
+    pub potential: f64,
     /// 範囲 (eV)。上端は群の境界であること（群の中で重みの式が切り替わらないように）
     pub range: (f64, f64),
 }
@@ -177,7 +179,7 @@ pub struct SlowingDown {
 /// 中性子束は、狭い共鳴の近似（Bondarenko 法）の w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の
 /// 中性子束はこれに定数 (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`slowing` を与えると、
 /// その範囲では超微細群の減速計算の中性子束を使い、範囲の上では Bondarenko の中性子束に定数
-/// (σs(E_high) + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。範囲の下
+/// (σp + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。範囲の下
 /// （熱中性子の領域）では重み関数 w の定数倍（σ0 によらない。燃料の中の熱中性子束のへこみは輸送計算で扱う）。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn shielded_averages(
@@ -226,27 +228,38 @@ pub fn shielded_averages(
                 ));
             };
             let elastic = tables.get(&2).ok_or(ShieldingError::NoElastic)?;
-            let shape = slowing_down_shape(total, elastic, slowing.awr, weight, s0, slowing.range)?;
-            let (low, high) = slowing.range;
-            let scale = elastic.eval(high).ok_or(ShieldingError::Undefined(high))? + s0;
-            // 範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）
-            let at_low = shape.eval(low).ok_or(ShieldingError::Undefined(low))?;
-            let flux = |e: f64| {
-                if e < low {
-                    at_low
-                } else if e <= high {
-                    // 表は範囲をちょうど覆うので、引けないのは誤り。NaN はライブラリを書く前の検査で止まる
-                    shape.eval(e).unwrap_or(f64::NAN)
-                } else {
-                    scale * bondarenko(e)
-                }
-            };
+            let shape = slowing_down_shape(total, elastic, slowing, weight, s0)?;
+            let flux = slowing_down_flux(&shape, slowing, s0, bondarenko)?;
             let points: Vec<f64> = breakpoints.iter().chain(&shape.x).copied().collect();
             Ok(averages_with_flux(
                 groups, weight, tables, nubar, &points, flux, adjust,
             ))
         })
         .collect()
+}
+
+/// 減速計算の形 `shape` と、範囲の上の Bondarenko の中性子束 `bondarenko` = 1/(σt + σ0) をつないだ、重み関数に
+/// 対する中性子束の比。範囲の上は (σp + σ0) を掛けて上端でつなぐ（減速計算の上端の値は
+/// W (σp + σ0)/(σt + σ0)）。範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）。
+fn slowing_down_flux<'a>(
+    shape: &'a Tab1,
+    slowing: &SlowingDown,
+    sigma0: f64,
+    bondarenko: impl Fn(f64) -> f64 + 'a,
+) -> Result<impl Fn(f64) -> f64 + 'a, ShieldingError> {
+    let (low, high) = slowing.range;
+    let scale = slowing.potential + sigma0;
+    let at_low = shape.eval(low).ok_or(ShieldingError::Undefined(low))?;
+    Ok(move |e: f64| {
+        if e < low {
+            at_low
+        } else if e <= high {
+            // 表は範囲をちょうど覆うので、引けないのは誤り。NaN はライブラリを書く前の検査で止まる
+            shape.eval(e).unwrap_or(f64::NAN)
+        } else {
+            scale * bondarenko(e)
+        }
+    })
 }
 
 /// 中性子束 w(E)·`shape`(E) による群平均。`shape` は `breakpoints` の間で滑らかであること。
@@ -402,6 +415,7 @@ mod tests {
         let tables = scattering_resonance();
         let slowing = SlowingDown {
             awr: 1.0e4,
+            potential: 10.0,
             range: (1.0, 100.0),
         };
         let average = |s: Option<&SlowingDown>| {
@@ -422,6 +436,27 @@ mod tests {
     }
 
     #[test]
+    fn flux_is_continuous_at_the_top_of_the_slowing_down_range() {
+        // 範囲の上の Bondarenko の中性子束には (σp + σ0) を掛けて上端でつなぐ。σs(E_high) = 10 b と
+        // σp = 4 b が違うので、σs(E_high) + σ0 を掛けると上端で 60/54 倍の段差になる
+        let (total, elastic) = (constant(10.0), constant(10.0));
+        let slowing = SlowingDown {
+            awr: 236.0,
+            potential: 4.0,
+            range: (1.0, 100.0),
+        };
+        let s0 = 50.0;
+        let shape = slowing_down_shape(&total, &elastic, &slowing, &Weight::lwr(), s0).unwrap();
+        let flux = slowing_down_flux(&shape, &slowing, s0, |_| 1.0 / (10.0 + s0)).unwrap();
+        let high = slowing.range.1;
+        let (inside, above) = (flux(high), flux(high.next_up()));
+        assert!(
+            (inside - above).abs() < 1e-12 * inside,
+            "{inside} vs {above}"
+        );
+    }
+
+    #[test]
     fn below_the_slowing_down_range_the_flux_is_the_weight() {
         // 範囲の下（熱中性子の領域）では σ0 によらず無限希釈の値
         let groups = GroupStructure::new(vec![1.0e3, 100.0, 1.0, 0.01]).unwrap();
@@ -429,6 +464,7 @@ mod tests {
         let tables = BTreeMap::from([(1, constant(20.0)), (2, constant(10.0)), (102, capture)]);
         let slowing = SlowingDown {
             awr: 236.0,
+            potential: 10.0,
             range: (1.0, 100.0),
         };
         let infinite = reaction_averages(&groups, &Weight::lwr(), &tables, None);
@@ -456,6 +492,7 @@ mod tests {
         ]);
         let slowing = SlowingDown {
             awr: 236.0,
+            potential: 8.0,
             range: (1.0, 100.0),
         };
         let avg = &shielded_averages(
