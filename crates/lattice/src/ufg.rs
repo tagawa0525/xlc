@@ -42,8 +42,13 @@ pub enum UfgError {
     #[error("range {range:?} must be two group bounds inside the pointwise range {pointwise:?}")]
     Range {
         range: [f64; 2],
-        pointwise: [f64; 2],
+        pointwise: Option<[f64; 2]>,
     },
+    #[error(
+        "the fuel has resolved resonances but the library has no pointwise data \
+         (made without any nuclide with resolved resonances)"
+    )]
+    NoPointwise,
     #[error("{name}: atomic weight ratio {awr} must be positive")]
     Mass { name: String, awr: f64 },
     #[error("{name}: pointwise data are not defined at {energy} eV")]
@@ -96,10 +101,10 @@ pub fn cell_range(
             top = Some(top.map_or(r.top, |t| t.max(r.top)));
         }
     }
-    let pointwise = library.pointwise_range;
     let Some(top) = top else {
         return Ok(None);
     };
+    let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
     let top = top.min(MAX_TOP).min(pointwise[1]);
     let low = pointwise[0];
     let high = library
@@ -111,7 +116,7 @@ pub fn cell_range(
         .filter(|&b| b > low)
         .ok_or(UfgError::Range {
             range: [low, top],
-            pointwise,
+            pointwise: Some(pointwise),
         })?;
     Ok(Some([low, high]))
 }
@@ -145,8 +150,11 @@ pub fn slowing_down(
     }
     let bounds = library.groups.bounds();
     let [low, high] = range;
-    let pointwise = library.pointwise_range;
-    let bad = || UfgError::Range { range, pointwise };
+    let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
+    let bad = || UfgError::Range {
+        range,
+        pointwise: Some(pointwise),
+    };
     let top = bounds.iter().position(|&b| b == high).ok_or_else(bad)?;
     let bottom = bounds.iter().position(|&b| b == low).ok_or_else(bad)?;
     if !(low < high && low >= pointwise[0] && high <= pointwise[1]) {
@@ -681,7 +689,7 @@ mod tests {
         Library {
             groups,
             sigma0: vec![1.0e10],
-            pointwise_range: [4.0, 2.0e4],
+            pointwise_range: Some([4.0, 2.0e4]),
             nuclides,
         }
     }
@@ -740,6 +748,22 @@ mod tests {
             cell_range(&lib, &[Some(&fuel), Some(&water)]).unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn resolved_fuel_needs_pointwise_data() {
+        // 燃料に分離共鳴があるのにポイントワイズの断面積のないライブラリはエラー。燃料のないセルは範囲がないだけでよい
+        let mut fissile = constant("U-235", 233.0, 10.0, 8.0, 1.0);
+        fissile.top = Some(3.0e3);
+        let mut lib = library(vec![fissile, constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+        lib.pointwise_range = None;
+        let water = material(&[("H-1", 0.05)]);
+        let fuel = material(&[("U-235", 0.01)]);
+        assert_eq!(cell_range(&lib, &[Some(&water)]).unwrap(), None);
+        assert!(matches!(
+            cell_range(&lib, &[Some(&fuel), Some(&water)]),
+            Err(UfgError::NoPointwise)
+        ));
     }
 
     #[test]

@@ -278,7 +278,7 @@ mod tests {
             }
         };
         Library {
-            pointwise_range: [4.0, 1.0e4],
+            pointwise_range: Some([4.0, 1.0e4]),
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10],
             nuclides: vec![nuclide("F", true), nuclide("M", false)],

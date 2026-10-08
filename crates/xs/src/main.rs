@@ -239,7 +239,7 @@ fn run(input: &Input) -> anyhow::Result<()> {
     let library = Library {
         groups: settings.groups,
         sigma0: settings.sigma0,
-        pointwise_range: [pointwise_range.0, pointwise_range.1],
+        pointwise_range: pointwise_range.map(|(low, high)| [low, high]),
         nuclides,
     };
     std::fs::write(&input.output, library.to_msgpack()?)
@@ -254,11 +254,12 @@ fn read_tape(path: &Path) -> anyhow::Result<Tape> {
 
 /// ライブラリに持たせるポイントワイズの断面積の範囲 (eV): 熱中性子散乱の打ち切り以上で最も低い群の境界から、全核種の
 /// 分離共鳴の上端のうち最も高いもの以下で最も高い群の境界まで（どのセルの超微細群の範囲もこれに収まる）。
+/// 分離共鳴を持つ核種がなければ、超微細群の計算をしないので範囲はない（`None`）。
 fn pointwise_range(
     nuclides: &[NuclideInput],
     tapes: &[Tape],
     groups: &GroupStructure,
-) -> anyhow::Result<(f64, f64)> {
+) -> anyhow::Result<Option<(f64, f64)>> {
     let mut top: Option<f64> = None;
     for (nuclide, tape) in nuclides.iter().zip(tapes) {
         let materials = tape.materials();
@@ -272,12 +273,14 @@ fn pointwise_range(
             top = Some(top.map_or(r.top, |u| u.max(r.top)));
         }
     }
-    let top = top.ok_or_else(|| anyhow!("no nuclide has resolved resonances"))?;
+    let Some(top) = top else {
+        return Ok(None);
+    };
     let bounds = groups.bounds();
     let low = bounds.iter().rev().find(|&&b| b >= THERMAL_CUTOFF);
     let high = bounds.iter().find(|&&b| b <= top);
     match (low, high) {
-        (Some(&low), Some(&high)) if high > low => Ok((low, high)),
+        (Some(&low), Some(&high)) if high > low => Ok(Some((low, high))),
         _ => Err(anyhow!(
             "no group bounds between the thermal cutoff {THERMAL_CUTOFF} eV and {top} eV"
         )),
@@ -335,6 +338,15 @@ thermal = "h2o.endf"
 endf = "u.endf"
 temperatures = [293.6, 900]
 "#;
+
+    #[test]
+    fn no_resolved_resonances_means_no_pointwise_range() {
+        // 分離共鳴を持つ核種がなければ、超微細群の計算に使うポイントワイズの断面積は要らない（エラーにしない）
+        assert!(matches!(
+            pointwise_range(&[], &[], &GroupStructure::wims69()),
+            Ok(None)
+        ));
+    }
 
     #[test]
     fn parses_input_relative_to_its_directory() {
