@@ -10,7 +10,8 @@
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
 //! scattering-order = 1            # 散乱の非等方性のルジャンドルの次数（library のとき。省略するとライブラリにある全ての次数）
-//! boundary = { right = "vacuum", bottom = "vacuum" }   # 外周の辺の境界条件（書かない辺は鏡面反射）
+//! boundary = { right = "vacuum", bottom = { albedo = 0.3 } }   # 外周の辺の境界条件（reflective, vacuum,
+//!                                                              # { albedo = α }。書かない辺は鏡面反射）
 //! rows = ["pin box", "box pin"]   # セルの配置を上の行から
 //! gap = { width = 0.04, material = "water" }   # 格子の周りの余白（集合体の間の水のギャップ。省略すると無し）
 //!
@@ -205,20 +206,35 @@ struct FewGroupEntry {
     bounds: Vec<f64>,
 }
 
-#[derive(Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum Condition {
-    Reflective,
-    Vacuum,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BoundaryEntry {
-    left: Option<Condition>,
-    right: Option<Condition>,
-    top: Option<Condition>,
-    bottom: Option<Condition>,
+    /// "reflective"、"vacuum"、または { albedo = α }（`condition` で読む）
+    left: Option<toml::Value>,
+    right: Option<toml::Value>,
+    top: Option<toml::Value>,
+    bottom: Option<toml::Value>,
+}
+
+/// 辺の境界条件を読む（書ける条件を、誤りの文で示す）。
+fn condition(value: toml::Value) -> Result<Boundary, String> {
+    let expected = "expected \"reflective\", \"vacuum\" or { albedo = number }";
+    match value {
+        toml::Value::String(name) => match name.as_str() {
+            "reflective" => Ok(Boundary::Reflective),
+            "vacuum" => Ok(Boundary::Vacuum),
+            _ => Err(format!("unknown side condition `{name}`; {expected}")),
+        },
+        toml::Value::Table(table) => match table.get("albedo") {
+            Some(albedo) if table.len() == 1 => match albedo {
+                toml::Value::Float(a) => Ok(Boundary::Albedo(*a)),
+                toml::Value::Integer(a) => Ok(Boundary::Albedo(*a as f64)),
+                _ => Err(format!("the albedo must be a number; {expected}")),
+            },
+            _ => Err(format!("unknown side condition {table}; {expected}")),
+        },
+        other => Err(format!("unknown side condition {other}; {expected}")),
+    }
 }
 
 #[derive(Deserialize)]
@@ -304,15 +320,15 @@ impl LatticeInput {
         let boundaries = match file.boundary {
             None => Boundaries::REFLECTIVE,
             Some(b) => {
-                let side = |c: Option<Condition>| match c {
-                    None | Some(Condition::Reflective) => Boundary::Reflective,
-                    Some(Condition::Vacuum) => Boundary::Vacuum,
+                let side = |c: Option<toml::Value>| {
+                    c.map_or(Ok(Boundary::Reflective), condition)
+                        .map_err(invalid)
                 };
                 Boundaries {
-                    left: side(b.left),
-                    right: side(b.right),
-                    top: side(b.top),
-                    bottom: side(b.bottom),
+                    left: side(b.left)?,
+                    right: side(b.right)?,
+                    top: side(b.top)?,
+                    bottom: side(b.bottom)?,
                 }
             }
         };
@@ -948,6 +964,39 @@ zones = [{ material = "water", rings = 1 }]
                 "gap = { width = 0.1, material = \"water\" }\n"
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn sides_may_have_an_albedo() {
+        let input = replaced(
+            LATTICE,
+            "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+            "boundary = { right = \"vacuum\", top = { albedo = 0.3 } }",
+        )
+        .unwrap();
+        assert_eq!(input.boundaries.top, Boundary::Albedo(0.3));
+        assert_eq!(input.boundaries.right, Boundary::Vacuum);
+        assert_eq!(input.boundaries.bottom, Boundary::Reflective);
+        assert!(
+            replaced(
+                LATTICE,
+                "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+                "boundary = { top = { albedo = 0.3, extra = 1 } }",
+            )
+            .is_err()
+        );
+        // 書き間違いには、書ける条件を示す
+        let error = replaced(
+            LATTICE,
+            "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+            "boundary = { right = \"vacum\" }",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("reflective") && error.contains("albedo"),
+            "{error}"
         );
     }
 

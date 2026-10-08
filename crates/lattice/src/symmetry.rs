@@ -70,7 +70,7 @@ pub fn cell_orbits(
     };
     let ring_materials: Vec<Option<Vec<usize>>> = (0..cells).map(rings).collect();
     // 外周の辺の向き (u, v) と境界条件
-    let b = tracking.boundaries;
+    let b = tracking.boundaries();
     let sides = [
         ((-1, 0), b.left),
         ((1, 0), b.right),
