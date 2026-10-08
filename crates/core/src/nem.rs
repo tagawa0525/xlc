@@ -751,4 +751,361 @@ mod tests {
                 .contains("finite")
         );
     }
+
+    /// 1群の均質な物質（拡散係数 1 cm）
+    fn one_group() -> FewGroup {
+        let (d, absorption, nu_fission) = (1.0, 0.07, 0.08);
+        let total = 1.0 / (3.0 * d);
+        FewGroup {
+            bounds: vec![1.0e7, 1.0e-5],
+            k_inf: 0.0,
+            total: vec![total],
+            absorption: vec![absorption],
+            nu_fission: vec![nu_fission],
+            fission: vec![nu_fission / 2.4],
+            chi: vec![1.0],
+            diffusion: vec![d],
+            scatter: vec![vec![total - absorption]],
+            adf: vec![vec![1.0]; 4],
+        }
+    }
+
+    /// 1群の均質な体系の k（バックリング b2）
+    fn one_group_k(m: &FewGroup, b2: f64) -> f64 {
+        m.nu_fission[0] / (m.absorption[0] + m.diffusion[0] * b2)
+    }
+
+    /// (0, π/x_max) にある f の最小の根（符号の変わる区間を探して二分法）
+    fn smallest_root(f: impl Fn(f64) -> f64, upper: f64) -> f64 {
+        let steps = 10_000;
+        let mut a = upper * 1e-6;
+        for i in 1..=steps {
+            let b = upper * i as f64 / steps as f64;
+            if f(a).signum() != f(b).signum() {
+                let (mut lo, mut hi) = (a, b);
+                for _ in 0..200 {
+                    let mid = 0.5 * (lo + hi);
+                    if f(lo).signum() == f(mid).signum() {
+                        lo = mid;
+                    } else {
+                        hi = mid;
+                    }
+                }
+                return 0.5 * (lo + hi);
+            }
+            a = b;
+        }
+        panic!("no root below {upper}");
+    }
+
+    /// x 方向の平板（y, z は反射）
+    fn slab(
+        dx: Vec<f64>,
+        materials: Vec<FewGroup>,
+        node_material: Vec<usize>,
+        x: Boundary,
+    ) -> Problem {
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[0] = x;
+        boundaries[1] = x;
+        Problem {
+            mesh: Mesh {
+                dx,
+                dy: vec![20.0],
+                dz: vec![20.0],
+            },
+            materials,
+            node_material,
+            boundaries,
+        }
+    }
+
+    /// x 方向に 6 ノードの平板。燃料と、断面積の違う燃料が交互に並ぶ
+    fn two_material_slab(adf_a: Vec<Vec<f64>>, adf_b: Vec<Vec<f64>>) -> Problem {
+        let mut a = material();
+        a.adf = adf_a;
+        let mut b = material();
+        b.diffusion = vec![1.2, 0.5];
+        b.absorption = vec![0.012, 0.10];
+        b.nu_fission = vec![0.004, 0.09];
+        b.adf = adf_b;
+        slab(
+            vec![10.0; 6],
+            vec![a, b],
+            vec![0, 1, 0, 1, 0, 1],
+            Boundary::ZeroFlux,
+        )
+    }
+
+    /// 収束した状態も返す
+    fn solve_state(p: &Problem) -> (Core<'_>, Solution, State) {
+        let core = Core::new(p).unwrap();
+        let (s, state) = iterate(&core, &Options::default()).unwrap();
+        (core, s, state)
+    }
+
+    /// 内側のすべての面で、不均質な中性子束 f φ（φ = 2(J+ + J-)）と正味の中性子流が連続であること。
+    /// 辺の番号は（左、右、上、下）で、-x は左、+x は右、-y は下、+y は上、z の面の ADF は 1
+    fn assert_interface_conditions(p: &Problem) {
+        let (core, _, state) = solve_state(p);
+        let adf = |n: usize, d: usize, plus: bool, g: usize| {
+            let side = match (d, plus) {
+                (0, false) => 0,
+                (0, true) => 1,
+                (1, true) => 2,
+                (1, false) => 3,
+                _ => return 1.0,
+            };
+            p.materials[p.node_material[n]].adf[side][g]
+        };
+        let mut checked = 0;
+        for n in 0..core.nodes() {
+            for d in 0..3 {
+                let Some(m) = core.neighbor(n, d, 1) else {
+                    continue;
+                };
+                for g in 0..core.groups {
+                    // n の + 面と m の - 面
+                    let (_, in_n) = core.incoming(&state, n, d, g);
+                    let (in_m, _) = core.incoming(&state, m, d, g);
+                    let (out_n, out_m) = (state.out_plus[d][n][g], state.out_minus[d][m][g]);
+                    let (phi_n, phi_m) = (2.0 * (out_n + in_n), 2.0 * (out_m + in_m));
+                    let (f_n, f_m) = (adf(n, d, true, g), adf(m, d, false, g));
+                    assert!(
+                        (phi_n / phi_m - f_m / f_n).abs() < 1e-6 * f_m / f_n,
+                        "node {n} dir {d} group {g}: {} vs {}",
+                        phi_n / phi_m,
+                        f_m / f_n
+                    );
+                    let (j_n, j_m) = (out_n - in_n, in_m - out_m);
+                    assert!(
+                        (j_n - j_m).abs() < 1e-6 * phi_n,
+                        "node {n} dir {d} group {g}: {j_n} vs {j_m}"
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 0);
+    }
+
+    #[test]
+    fn unit_adfs_leave_results_unchanged() {
+        // ADF を入れる前（47c63a7）の結果
+        let p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let s = solve(&p, &Options::default()).unwrap();
+        let k = 8.510692818894939e-1;
+        assert!((s.k - k).abs() < 1e-12, "{} vs {k}", s.k);
+        let flux = [
+            [0.0005911585345818675, 0.00012519241066775465],
+            [0.0016614051334569624, 0.0003510047054023206],
+        ];
+        for (phi, expected) in s.flux.iter().zip(flux) {
+            for (a, b) in phi.iter().zip(expected) {
+                assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
+            }
+        }
+        assert_interface_conditions(&p);
+    }
+
+    #[test]
+    fn adfs_make_homogeneous_flux_jump_at_faces() {
+        // 群と辺で違う値にして、辺の対応も確かめる
+        let a = vec![
+            vec![1.05, 1.3],
+            vec![1.1, 1.25],
+            vec![0.9, 1.4],
+            vec![0.95, 1.2],
+        ];
+        let b = vec![
+            vec![0.97, 0.8],
+            vec![0.93, 0.85],
+            vec![1.02, 0.75],
+            vec![0.99, 0.9],
+        ];
+        let p = two_material_slab(a.clone(), b.clone());
+        assert_interface_conditions(&p);
+        let unit = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let (k, k_unit) = (
+            solve(&p, &Options::default()).unwrap().k,
+            solve(&unit, &Options::default()).unwrap().k,
+        );
+        assert!((k - k_unit).abs() > 1e-4, "{k} vs {k_unit}");
+
+        // x と y に 3 × 2 の市松模様、z に 2 層
+        let mut q = cuboid([30.0, 20.0, 40.0], [3, 2, 2], [Boundary::ZeroFlux; 6]);
+        let mut m = material();
+        m.adf = b;
+        m.absorption[1] = 0.09;
+        q.materials[0].adf = a;
+        q.materials.push(m);
+        q.node_material = (0..12).map(|n| (n + n / 3) % 2).collect();
+        assert_interface_conditions(&q);
+    }
+
+    #[test]
+    fn two_region_slab_matches_analytic_jump() {
+        // 同じ断面積の領域 A (0, a) と B (a, a + b) の1群の平板、両端は中性子束 0。
+        // φ_A = sin(Bx)、φ_B = c sin(B(a + b - x)) を f_A φ_A = f_B φ_B と中性子流の連続に入れると
+        // f_A sin(Ba) cos(Bb) + f_B cos(Ba) sin(Bb) = 0
+        let (a, b) = (30.0, 50.0);
+        let (f_a, f_b) = (1.0, 1.5);
+        let buckling = smallest_root(
+            |x| f_a * (x * a).sin() * (x * b).cos() + f_b * (x * a).cos() * (x * b).sin(),
+            PI / a,
+        );
+        let mut m_a = one_group();
+        m_a.adf = vec![vec![f_a]; 4];
+        let mut m_b = one_group();
+        m_b.adf = vec![vec![f_b]; 4];
+        let expected = one_group_k(&m_a, buckling * buckling);
+        let p = slab(
+            vec![5.0; 16],
+            vec![m_a, m_b],
+            (0..16).map(|i| usize::from(i >= 6)).collect(),
+            Boundary::ZeroFlux,
+        );
+        let s = solve(&p, &Options::default()).unwrap();
+        assert!(
+            (s.k - expected).abs() < 1e-5 * expected,
+            "{} vs {expected}",
+            s.k
+        );
+        // ADF がなければ k は B = π/(a + b) のもの
+        let plain = one_group_k(&one_group(), (PI / (a + b)).powi(2));
+        assert!((expected - plain).abs() > 1e-3 * plain);
+    }
+
+    #[test]
+    fn uniform_adf_scaling_keeps_k() {
+        let a = vec![
+            vec![1.05, 1.3],
+            vec![1.1, 1.25],
+            vec![0.9, 1.4],
+            vec![0.95, 1.2],
+        ];
+        let b = vec![
+            vec![0.97, 0.8],
+            vec![0.93, 0.85],
+            vec![1.02, 0.75],
+            vec![0.99, 0.9],
+        ];
+        // 群ごとに違う倍率で、すべての物質とすべての辺の ADF を変える
+        let scale = |adf: &[Vec<f64>]| -> Vec<Vec<f64>> {
+            adf.iter().map(|s| vec![2.0 * s[0], 0.5 * s[1]]).collect()
+        };
+        let base = solve(
+            &two_material_slab(a.clone(), b.clone()),
+            &Options::default(),
+        )
+        .unwrap();
+        let scaled = solve(
+            &two_material_slab(scale(&a), scale(&b)),
+            &Options::default(),
+        )
+        .unwrap();
+        assert!(
+            (base.k - scaled.k).abs() < 1e-9,
+            "{} vs {}",
+            base.k,
+            scaled.k
+        );
+        for (x, y) in base.flux.iter().flatten().zip(scaled.flux.iter().flatten()) {
+            assert!((x - y).abs() < 1e-6 * x, "{x} vs {y}");
+        }
+    }
+
+    #[test]
+    fn invalid_adfs_are_errors() {
+        let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
+        p.materials[0].adf.pop();
+        assert!(solve(&p, &Options::default()).is_err());
+        let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
+        p.materials[0].adf[1].pop();
+        assert!(solve(&p, &Options::default()).is_err());
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], [Boundary::Reflective; 6]);
+            p.materials[0].adf[2][1] = bad;
+            let err = solve(&p, &Options::default()).unwrap_err().to_string();
+            assert!(err.contains("discontinuity"), "{err}");
+        }
+    }
+
+    #[test]
+    fn vacuum_face_has_no_incoming_current() {
+        let p = slab(vec![5.0; 6], vec![material()], vec![0; 6], Boundary::Vacuum);
+        let (core, s, state) = solve_state(&p);
+        for g in 0..2 {
+            let (in_minus, _) = core.incoming(&state, 0, 0, g);
+            let (_, in_plus) = core.incoming(&state, 5, 0, g);
+            assert_eq!((in_minus, in_plus), (0.0, 0.0));
+            assert!(state.out_minus[0][0][g] > 0.0 && state.out_plus[0][5][g] > 0.0);
+            // 外へ出る正味の中性子数は出ていく部分中性子流そのもの
+            let area = 20.0 * 20.0;
+            let out = area * (state.out_minus[0][0][g] + state.out_plus[0][5][g]);
+            assert!((s.leakage[g] - out).abs() < 1e-12 * out);
+        }
+    }
+
+    #[test]
+    fn vacuum_k_lies_between_zero_flux_and_reflective() {
+        let k = |x: Boundary| {
+            let p = slab(vec![5.0; 6], vec![material()], vec![0; 6], x);
+            solve(&p, &Options::default()).unwrap().k
+        };
+        let (zero, vacuum, reflective) = (
+            k(Boundary::ZeroFlux),
+            k(Boundary::Vacuum),
+            k(Boundary::Reflective),
+        );
+        assert!(
+            zero < vacuum && vacuum < reflective,
+            "{zero} {vacuum} {reflective}"
+        );
+    }
+
+    /// 1群の裸の平板（幅 l）に Marshak の条件 J- = φ/4 + (D/2) dφ/dx = 0 を課した解
+    /// φ = cos(Bx) は tan(Bl/2) = 1/(2DB) を満たす
+    fn marshak_buckling(m: &FewGroup, l: f64) -> f64 {
+        let d = m.diffusion[0];
+        smallest_root(
+            |b| (b * l / 2.0).sin() * 2.0 * d * b - (b * l / 2.0).cos(),
+            PI / l,
+        )
+    }
+
+    #[test]
+    fn bare_slab_matches_marshak_analytic() {
+        let m = one_group();
+        let l = 40.0;
+        let b = marshak_buckling(&m, l);
+        let expected = one_group_k(&m, b * b);
+        let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Vacuum);
+        let s = solve(&p, &Options::default()).unwrap();
+        assert!(
+            (s.k - expected).abs() < 1e-6 * expected,
+            "{} vs {expected}",
+            s.k
+        );
+        // 外挿距離 2D を無視した中性子束 0 の解とは区別できる
+        let zero = one_group_k(&one_group(), (PI / l).powi(2));
+        assert!((expected - zero).abs() > 1e-3 * zero);
+    }
+
+    #[test]
+    fn bare_cuboid_matches_marshak_analytic() {
+        // 各方向の解は分離できるので B² は各方向の Marshak の解の和。横方向の漏れの近似を通る
+        let m = one_group();
+        let size = [40.0, 50.0, 60.0];
+        let b2: f64 = size.iter().map(|&l| marshak_buckling(&m, l).powi(2)).sum();
+        let expected = one_group_k(&m, b2);
+        let error = |n: usize| {
+            let mut p = cuboid(size, [n; 3], [Boundary::Vacuum; 6]);
+            p.materials = vec![one_group()];
+            (solve(&p, &Options::default()).unwrap().k - expected).abs() / expected
+        };
+        let (coarse, fine) = (error(4), error(8));
+        assert!(fine < 2e-4, "relative error {fine}");
+        assert!(fine < coarse / 4.0, "{coarse} -> {fine}");
+    }
 }
