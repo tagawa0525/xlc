@@ -862,7 +862,12 @@ mod tests {
             leakage: vec![0.0; 2],
             sides: vec![vec![0.0; 2]; 4],
             currents: vec![vec![0.0; 2]; 4],
-            region_currents: vec![[vec![0.0; 2], vec![0.0; 2]]; 2],
+            // [領域][x, y][群]。体積 (1, 2) を掛けて ê_G へ射影した重みは、群 0 で (0.5, 2)、群 1 で (1.0, −0.2)
+            // （群 1 は領域 1 で逆向き）。どちらの群も ê = (0.6, 0.8)
+            region_currents: vec![
+                [vec![0.3, 0.6], vec![0.4, 0.8]],
+                [vec![0.6, -0.06], vec![0.8, -0.08]],
+            ],
             size: [1.0, 3.0],
             iterations: 1,
         }
@@ -881,6 +886,7 @@ mod tests {
 
     #[test]
     fn open_lattice_without_p1_scattering_uses_one_third_total() {
+        // P1 が 0 なら Σtr = Σt。重みは中性子流（`two_regions` のコメント）。D = 1/(3⟨Σt⟩)
         let mut a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
         let mut b = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
         for m in [&mut a, &mut b] {
@@ -894,10 +900,9 @@ mod tests {
             &vacuum(),
         )
         .unwrap();
-        // 重み V φ: 群 0 は 2 と 2、群 1 は 1 と 6。D = 1/(3⟨Σt⟩)
         let expected = [
-            1.0 / (3.0 * (2.0 * 0.5 + 2.0 * 0.6) / 4.0),
-            1.0 / (3.0 * (1.0 * 1.2 + 6.0 * 2.0) / 7.0),
+            1.0 / (3.0 * (0.5 * 0.5 + 2.0 * 0.6) / 2.5),
+            1.0 / (3.0 * (1.0 * 1.2 - 0.2 * 2.0) / 0.8),
         ];
         for (d, e) in d.iter().zip(expected) {
             assert!((d - e).abs() < 1e-14 * e, "{d} vs {e}");
@@ -905,8 +910,9 @@ mod tests {
     }
 
     #[test]
-    fn open_lattice_uses_the_outflow_transport_cross_section() {
-        // P1 = 0.3 P0: Σtr,g = Σt,g − 0.3 Σ_g' Σs0(g→g')。⟨Σtr⟩ を V φ で重みづけし、D = 1/(3⟨Σtr⟩)
+    fn open_lattice_weights_the_outflow_transport_cross_section_by_currents() {
+        // P1 = 0.3 P0: Σtr,g = Σt,g − 0.3 Σ_g' Σs0(g→g')。⟨Σtr⟩ を、ノードの正味の中性子流の向きへ射影した
+        // 領域の中性子流 × 体積で重みづけし（符号つき）、D = 1/(3⟨Σtr⟩)（ADR-0104）
         let a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
         let b = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
         let albedo = Boundaries {
@@ -915,17 +921,17 @@ mod tests {
         };
         let tr = |t: f64, out: f64| t - 0.3 * out;
         let sums = [
-            2.0 * tr(0.5, 0.47) + 2.0 * tr(0.6, 0.598),
-            1.0 * tr(1.2, 0.9) + 6.0 * tr(2.0, 1.972),
+            0.5 * tr(0.5, 0.47) + 2.0 * tr(0.6, 0.598),
+            1.0 * tr(1.2, 0.9) - 0.2 * tr(2.0, 1.972),
         ];
-        let expected = [1.0 / (3.0 * sums[0] / 4.0), 1.0 / (3.0 * sums[1] / 7.0)];
+        let expected = [1.0 / (3.0 * sums[0] / 2.5), 1.0 / (3.0 * sums[1] / 0.8)];
         let d =
             diffusion_coefficients(&two_regions(), &[&a, &b], &fine(), fine().bounds(), &albedo)
                 .unwrap();
         for (d, e) in d.iter().zip(expected) {
             assert!((d - e).abs() < 1e-14 * e, "{d} vs {e}");
         }
-        // 1群への縮約も ⟨Σtr⟩ を V φ で重みづけする
+        // 1群への縮約も同じ向き（ê = (0.6, 0.8)）への射影で重みづけする
         let one = diffusion_coefficients(
             &two_regions(),
             &[&a, &b],
@@ -934,13 +940,16 @@ mod tests {
             &albedo,
         )
         .unwrap();
-        let expected = 1.0 / (3.0 * (sums[0] + sums[1]) / 11.0);
-        assert!((one[0] - expected).abs() < 1e-14 * expected);
+        let expected = 1.0 / (3.0 * (sums[0] + sums[1]) / 3.3);
+        assert!(
+            (one[0] - expected).abs() < 1e-14 * expected,
+            "{one:?} vs {expected}"
+        );
     }
 
     #[test]
-    fn outflow_counts_a_void_gap_with_its_flux() {
-        // 真空の隙間（ピンのギャップ）は Σtr = 0 で、中性子束と体積は重みに入る
+    fn current_weighting_counts_a_void_gap_with_its_current() {
+        // 真空の隙間（ピンのギャップ）は Σtr = 0 で、中性子流は重みに入る
         let a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
         let void = Material::void(2);
         let d = diffusion_coefficients(
@@ -952,11 +961,70 @@ mod tests {
         )
         .unwrap();
         let expected = [
-            1.0 / (3.0 * 2.0 * tr_of(&a, 0) / 4.0),
-            1.0 / (3.0 * 1.0 * tr_of(&a, 1) / 7.0),
+            1.0 / (3.0 * 0.5 * tr_of(&a, 0) / 2.5),
+            1.0 / (3.0 * 1.0 * tr_of(&a, 1) / 0.8),
         ];
         for (d, e) in d.iter().zip(expected) {
             assert!((d - e).abs() < 1e-14 * e, "{d} vs {e}");
+        }
+    }
+
+    #[test]
+    fn current_weighting_needs_a_net_current_and_a_positive_mean() {
+        let a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
+        let b = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        // ノードの正味の中性子流が 0（対称な位置）なら、向きが定まらない
+        let mut zero = two_regions();
+        zero.region_currents = vec![[vec![0.0; 2], vec![0.0; 2]]; 2];
+        assert!(matches!(
+            diffusion_coefficients(&zero, &[&a, &b], &fine(), fine().bounds(), &vacuum()),
+            Err(HomogenizeError::NoNetCurrent { group: 0 })
+        ));
+        // 逆向きの重みが大きく、⟨Σtr⟩ が正でない
+        let mut opposite = two_regions();
+        // 群 0 の重みは (1.0, −0.9)（和 0.1）で、⟨Σtr⟩ = (0.359 − 0.9 × 0.4206)/0.1 < 0
+        opposite.region_currents = vec![
+            [vec![1.0, 0.6], vec![0.0, 0.8]],
+            [vec![-0.45, -0.06], vec![0.0, -0.08]],
+        ];
+        assert!(matches!(
+            diffusion_coefficients(&opposite, &[&a, &b], &fine(), fine().bounds(), &vacuum()),
+            Err(HomogenizeError::Transport { group: 0, .. })
+        ));
+    }
+
+    #[test]
+    fn open_lattice_d_uses_the_moc_region_currents() {
+        // 格子の解の領域の中性子流で、手で重みづけした値と一致する
+        let (solution, materials, fine, boundaries) = open_lattice();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(&solution, &refs, &fine, fine.bounds(), &boundaries).unwrap();
+        for g in 0..2 {
+            let net: [f64; 2] = std::array::from_fn(|c| {
+                solution
+                    .region_currents
+                    .iter()
+                    .zip(&solution.volumes)
+                    .map(|(j, v)| v * j[c][g])
+                    .sum()
+            });
+            let length = net[0].hypot(net[1]);
+            let (mut weight, mut sum) = (0.0, 0.0);
+            for ((j, v), m) in solution
+                .region_currents
+                .iter()
+                .zip(&solution.volumes)
+                .zip(&materials)
+            {
+                let w = v * (j[0][g] * net[0] + j[1][g] * net[1]) / length;
+                weight += w;
+                sum += w * tr_of(m, g);
+            }
+            let expected = 1.0 / (3.0 * sum / weight);
+            assert!(
+                (fg.diffusion[g] - expected).abs() < 1e-12 * expected,
+                "group {g}"
+            );
         }
     }
 
