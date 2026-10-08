@@ -55,6 +55,12 @@ pub enum GeometryError {
     Sizes,
     #[error("{rows} rows of cells for {heights} row heights")]
     Rows { rows: usize, heights: usize },
+    #[error("row {row} has {cells} cells for {columns} column widths")]
+    Columns {
+        row: usize,
+        cells: usize,
+        columns: usize,
+    },
     #[error("the pin cell at row {row}, column {column} needs a square slot of its pitch")]
     PinSlot { row: usize, column: usize },
     #[error("frame thickness must be positive, below pitch/2 and outside the circles, got {0}")]
@@ -356,6 +362,9 @@ pub struct Lattice {
     widths: Vec<f64>,
     /// 行の高さ（上から, cm）
     heights: Vec<f64>,
+    /// 列の境界の x（左から）と、行の境界の y（上から）。両端を含む
+    xs: Vec<f64>,
+    ys: Vec<f64>,
     types: Vec<Cell>,
     /// [セル] のセルの種類（`types` の番号）
     layout: Vec<usize>,
@@ -423,6 +432,9 @@ impl Lattice {
         types: Vec<Cell>,
         layout: Vec<Vec<usize>>,
     ) -> Result<Self, GeometryError> {
+        if layout.is_empty() || layout.iter().all(Vec::is_empty) {
+            return Err(GeometryError::NoCells);
+        }
         let positive = |v: &[f64]| !v.is_empty() && v.iter().all(|&x| x > 0.0 && x.is_finite());
         if !positive(&widths) || !positive(&heights) {
             return Err(GeometryError::Sizes);
@@ -437,10 +449,10 @@ impl Lattice {
             });
         }
         if let Some(row) = layout.iter().position(|row| row.len() != widths.len()) {
-            return Err(GeometryError::RowLength {
+            return Err(GeometryError::Columns {
                 row: row + 1,
                 cells: layout[row].len(),
-                rows: widths.len(),
+                columns: widths.len(),
             });
         }
         if let Some(&bad) = layout.iter().flatten().find(|&&t| t >= types.len()) {
@@ -473,9 +485,13 @@ impl Lattice {
             next += types[t].regions();
         }
         offsets.push(next);
+        let xs = edges(&widths, 1.0);
+        let ys = edges(&heights, -1.0);
         Ok(Self {
             widths,
             heights,
+            xs,
+            ys,
             types,
             layout,
             offsets,
@@ -488,6 +504,8 @@ impl Lattice {
         Self {
             widths: vec![pitch],
             heights: vec![pitch],
+            xs: vec![-0.5 * pitch, 0.5 * pitch],
+            ys: vec![0.5 * pitch, -0.5 * pitch],
             types: vec![Cell::Pin(cell)],
             layout: vec![0],
             offsets: vec![0, regions],
@@ -548,6 +566,20 @@ impl Lattice {
         self.offsets[cell]..self.offsets[cell + 1]
     }
 
+    /// ピンセルのある行（上から）と列（左から）の番号。余白や反射体のように、ピッチに合わないマスだけの
+    /// 行と列を除く（ピン出力の表の範囲）
+    pub fn pin_rows_and_columns(&self) -> (Vec<usize>, Vec<usize>) {
+        let columns = self.columns();
+        let pin = |r: usize, c: usize| self.cell_type(r * columns + c).pin().is_some();
+        let rows = (0..self.rows())
+            .filter(|&r| (0..columns).any(|c| pin(r, c)))
+            .collect();
+        let kept = (0..columns)
+            .filter(|&c| (0..self.rows()).any(|r| pin(r, c)))
+            .collect();
+        (rows, kept)
+    }
+
     /// セル `cell` の幅と高さ
     pub fn cell_size(&self, cell: usize) -> (f64, f64) {
         let columns = self.columns();
@@ -569,11 +601,9 @@ impl Lattice {
 
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
-        // 列と行の境界線（x は左から、y は上から）
-        let xs = edges(&self.widths, -0.5 * self.width(), 1.0);
-        let ys = edges(&self.heights, 0.5 * self.height(), -1.0);
+        let (xs, ys) = (&self.xs, &self.ys);
         let mut cuts = vec![0.0, length];
-        for (lines, origin, d) in [(&xs, start.0, direction.0), (&ys, start.1, direction.1)] {
+        for (lines, origin, d) in [(xs, start.0, direction.0), (ys, start.1, direction.1)] {
             if d != 0.0 {
                 for &line in lines.iter() {
                     let t = (line - origin) / d;
@@ -620,15 +650,18 @@ impl Lattice {
     }
 }
 
-/// 大きさ `sizes` を並べた境界の座標（`start` から向き `sign` に。両端を含む）
-fn edges(sizes: &[f64], start: f64, sign: f64) -> Vec<f64> {
+/// 大きさ `sizes` を中心を原点に並べた境界の座標（向き `sign` に。両端を含み、両端はちょうど ∓sign × 全長/2。
+/// 足し合わせの丸めで端がずれると、トラックの端に極小の区間ができるため）
+fn edges(sizes: &[f64], sign: f64) -> Vec<f64> {
+    let half = 0.5 * sizes.iter().sum::<f64>();
     let mut edges = Vec::with_capacity(sizes.len() + 1);
-    let mut at = start;
+    let mut at = -sign * half;
     edges.push(at);
-    for &s in sizes {
+    for &s in &sizes[..sizes.len().saturating_sub(1)] {
         at += sign * s;
         edges.push(at);
     }
+    edges.push(sign * half);
     edges
 }
 

@@ -87,8 +87,8 @@ pub fn cell_orbits(
             let boundaries = sides
                 .iter()
                 .all(|&(d, condition)| side(transform(op, d)) == Some(condition));
-            // 軸を入れ替える操作では、セルの幅と高さも入れ替わる
-            let swap = op[0] == 0;
+            // 軸を入れ替える操作（x 軸の像が y 軸の上）では、セルの幅と高さも入れ替わる
+            let swap = transform(op, (1, 0)).0 == 0;
             let cells_match = (0..cells).all(|cell| {
                 let Some(image) = map(op, cell) else {
                     return false;
