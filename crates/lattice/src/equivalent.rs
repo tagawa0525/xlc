@@ -35,6 +35,10 @@ pub enum EquivalentError {
     Range(f64),
     #[error("Dancoff factor {0} is not reached even without moderator")]
     Unreachable(f64),
+    #[error(
+        "outer ring needs a positive finite area and a finite non-negative total, got {area} cm² and {total} /cm"
+    )]
+    Outer { area: f64, total: f64 },
     #[error("Dancoff factor {0} needs a cell larger than {1} cm")]
     TooSmall(f64, f64),
     #[error(transparent)]
@@ -75,11 +79,12 @@ pub struct OuterRing {
 }
 
 /// Dancoff 係数が `dancoff` になる等価なセルの外半径 (cm)。`radii` は減速材より内側のリング（燃料から被覆管まで）の
-/// 外半径、`totals` はそのリングと外側の減速材のリングの全断面積 (1/cm)（燃料の値は使わない）。
+/// 外半径、`totals` はそのリングと外側の減速材のリングの全断面積 (1/cm)（燃料の値は使わない）。`outer` があれば、
+/// 減速材のリングの外にそのリングを置いたセルで合わせ、減速材のリングの外半径を返す。
 pub fn equivalent_radius(
     radii: &[f64],
     totals: &[f64],
-    _outer: Option<OuterRing>,
+    outer: Option<OuterRing>,
     dancoff: f64,
 ) -> Result<f64, EquivalentError> {
     if totals.len() != radii.len() + 1 {
@@ -92,6 +97,11 @@ pub fn equivalent_radius(
     if !(moderator > 0.0 && moderator.is_finite()) {
         return Err(EquivalentError::Moderator(moderator));
     }
+    if let Some(OuterRing { area, total }) = outer
+        && !(area > 0.0 && area.is_finite() && total >= 0.0 && total.is_finite())
+    {
+        return Err(EquivalentError::Outer { area, total });
+    }
     if !(MIN_DANCOFF..1.0).contains(&dancoff) {
         return Err(EquivalentError::Range(dancoff));
     }
@@ -100,10 +110,14 @@ pub fn equivalent_radius(
         rings: 0,
     })?;
     // 減速材の厚さ t の Dancoff 係数（t について減る）
+    let mut totals = totals.to_vec();
+    totals.extend(outer.map(|o| o.total));
     let at = |t: f64| -> Result<f64, EquivalentError> {
         let mut cell = radii.to_vec();
-        cell.push(inner + t);
-        cell_dancoff(&cell, totals)
+        let moderator = inner + t;
+        cell.push(moderator);
+        cell.extend(outer.map(|o| (moderator * moderator + o.area / PI).sqrt()));
+        cell_dancoff(&cell, &totals)
     };
     // 下回る厚さを探してから二分法
     let mut high = inner;

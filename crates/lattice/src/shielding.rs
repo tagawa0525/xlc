@@ -15,11 +15,12 @@
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::f64::consts::PI;
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
 use crate::cp::{CpError, Cylinder};
-use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
+use crate::equivalent::{EquivalentError, MIN_DANCOFF, OuterRing, equivalent_radius};
 use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
@@ -632,6 +633,7 @@ fn assign(
                 .pin()
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
             let first = lattice.cell_regions(cell).start;
+            // 支持格子のリングは ring_targets にないので割り当てない
             for (targets, material) in ring_targets(pin, first, *start).iter().zip(materials) {
                 if let Some(m) = material {
                     for &region in targets {
@@ -677,7 +679,8 @@ struct PinRings<'a> {
 struct CellShielding {
     /// 等価なセルの外半径 (cm)
     radius: f64,
-    /// 等価なセルのリングごとの物質（真空は `None`）。格子の領域は [`ring_targets`]
+    /// 等価なセルのリングごとの物質（真空は `None`）。格子の領域は [`ring_targets`]。支持格子のリング（最後）は格子に
+    /// 使わない（枠は塊として遮蔽する）
     rings: Vec<Option<Material>>,
     /// 減速材のリングの始まり
     start: usize,
@@ -729,10 +732,18 @@ fn shield_cell(
     }
     let input = |index: usize| (index != pin.void).then(|| &materials[index]);
     let fuel = &materials[ring_index[0]];
+    // 外周の枠: (物質の番号, 面積)。等価なセルでは減速材のリングの外に同じ面積のリングとして置く（枠の影と、
+    // 支持格子の物質が減速材の中性子束を変える効果を入れるため）
+    let frame = geometry.frame().map(|_| {
+        let volumes = geometry.volumes();
+        let last = volumes.len() - 1;
+        (pin.region_index[first + last], volumes[last])
+    });
     let inputs: Vec<Option<&MaterialInput>> = (0..pin.rings)
         .map(|_| Some(fuel))
         .chain(ring_index[pin.rings..start].iter().map(|&i| input(i)))
         .chain([input(moderator)])
+        .chain(frame.map(|(i, _)| input(i)))
         .collect();
     let Some(range) = cell_range(library, &inputs)? else {
         return Ok(None);
@@ -763,10 +774,21 @@ fn shield_cell(
             .chain([dilute[moderator].total[g]])
             .collect();
         // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
-        sum += equivalent_radius(&inner, &totals, None, c.max(MIN_DANCOFF))?;
+        let outer = frame.map(|(i, area)| OuterRing {
+            area,
+            total: dilute[i].total[g],
+        });
+        sum += equivalent_radius(&inner, &totals, outer, c.max(MIN_DANCOFF))?;
     }
     let radius = sum / (bottom - top) as f64;
-    let cylinder = Cylinder::new(radii[..start].iter().copied().chain([radius]).collect())?;
+    let cylinder = Cylinder::new(
+        radii[..start]
+            .iter()
+            .copied()
+            .chain([radius])
+            .chain(frame.map(|(_, area)| (radius * radius + area / PI).sqrt()))
+            .collect(),
+    )?;
     let spectrum = slowing_down(library, &cylinder, &inputs, range)?;
     let volumes = cylinder.volumes();
 
