@@ -193,7 +193,8 @@ impl PinCell {
                         pairs.push((region(ring, s.min(next)), region(ring, s.max(next))));
                     }
                 }
-                // どの扇形も軸の向き（辺までの長さ a）を含むので、外径が a を超えるリングは辺に届く
+                // どの扇形も軸の向き（辺までの長さ a）を含む（扇形は 1, 4, 8 個だけ）ので、外径が a を超える
+                // リングは辺に届く
                 let reaches_edge = ring + 1 == rings || self.radii[ring] > a;
                 if self.frame.is_some() && reaches_edge {
                     pairs.push((region(ring, s), rings * sectors));
@@ -798,6 +799,20 @@ mod tests {
         }
         expected.sort_unstable();
         assert_eq!(pairs, expected);
+    }
+
+    #[test]
+    fn eight_sectors_meet_across_diagonals_beyond_the_edge() {
+        // 半ピッチ 0.5。リング 1（内径 0.6 > 0.5）は軸の上になく、対角線（0.5√2 ≈ 0.71 まで）の上でだけ
+        // 隣の扇形と接する。扇形 0 と 1 の境界は対角線（45°）、1 と 2 の境界は軸（90°）
+        let pin = PinCell::with_sectors(1.0, vec![0.6], 8).unwrap();
+        let pairs = Cell::Pin(pin).adjacent();
+        assert!(pairs.contains(&(8, 9)), "{pairs:?}");
+        assert!(!pairs.contains(&(9, 10)), "{pairs:?}");
+        assert!(
+            pairs.contains(&(1, 2)) && pairs.contains(&(0, 7)),
+            "{pairs:?}"
+        );
     }
 
     #[test]
