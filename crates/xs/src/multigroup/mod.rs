@@ -24,7 +24,7 @@ pub(crate) use sab::tests as sab_tests;
 pub use sab::{SabError, ThermalSab};
 pub use scatter::{
     Emission, Reactions, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
-    scattering_moments, two_body_range,
+    scattering_moments, two_body_range, uses_angular,
 };
 pub use slowing::{SlowingDownError, slowing_down_shape, slowing_down_shape_with};
 pub use weight::Weight;
