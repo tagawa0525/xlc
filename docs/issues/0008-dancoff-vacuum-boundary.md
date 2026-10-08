@@ -3,6 +3,9 @@ status: open
 labels: [lattice, shielding]
 opened: 2026-10-08
 closed:
+milestone: M3
+blocked-by: []
+resolution:
 ---
 
 # Dancoff 係数の計算での真空境界（C6）

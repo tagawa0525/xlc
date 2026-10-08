@@ -3,6 +3,9 @@ status: open
 labels: [xs, lattice, verification]
 opened: 2026-10-08
 closed:
+milestone:
+blocked-by: []
+resolution:
 ---
 
 # 燃料の断面積で説明できない k の差（VERA +295 pcm、MOX +180〜+240 pcm）

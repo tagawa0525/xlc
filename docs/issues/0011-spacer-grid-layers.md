@@ -3,6 +3,9 @@ status: open
 labels: [lattice, core]
 opened: 2026-10-08
 closed:
+milestone: M3
+blocked-by: []
+resolution:
 ---
 
 # 支持格子の層の少数群定数の作り方

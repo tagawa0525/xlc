@@ -3,6 +3,9 @@ status: open
 labels: [lattice, shielding]
 opened: 2026-10-08
 closed:
+milestone:
+blocked-by: []
+resolution:
 ---
 
 # lattice のポイントワイズの減速計算の格子の収束
