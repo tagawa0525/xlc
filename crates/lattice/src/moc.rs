@@ -62,6 +62,9 @@ pub struct Solution {
     pub volumes: Vec<f64>,
     /// [群] の真空境界からの漏れ（中性子束と同じ規格化）
     pub leakage: Vec<f64>,
+    /// [外周の辺（左、右、上、下）][群] の辺の上の平均スカラー中性子束（中性子束と同じ規格化）。
+    /// 集合体の不連続因子（ADF）に使う
+    pub sides: Vec<Vec<f64>>,
     pub iterations: usize,
 }
 
@@ -354,6 +357,7 @@ pub fn solve(
                 flux,
                 volumes,
                 leakage: leak,
+                sides: vec![vec![0.0; ng]; 4],
                 iterations: iteration,
             });
         }
@@ -1020,6 +1024,25 @@ mod tests {
         let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
         let phi = [a[1][1] / det, -a[1][0] / det];
         m.nu_fission[0] * phi[0] + m.nu_fission[1] * phi[1]
+    }
+
+    #[test]
+    fn sides_of_an_infinite_medium_see_the_mean_flux() {
+        // 均質な無限媒質では中性子束は平らで等方なので、外周の辺の上の中性子束は領域の中性子束と同じ
+        let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let m = fuel();
+        let solution = solve(&tracking, &[&m, &m, &m], &Options::default()).unwrap();
+        assert_eq!(solution.sides.len(), 4);
+        for side in &solution.sides {
+            for (s, f) in side.iter().zip(&solution.flux[0]) {
+                assert!(
+                    (s - f).abs() < 1e-8 * f,
+                    "{side:?} vs {:?}",
+                    solution.flux[0]
+                );
+            }
+        }
     }
 
     #[test]
