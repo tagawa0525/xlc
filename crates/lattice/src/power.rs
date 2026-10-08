@@ -3,7 +3,7 @@
 use crate::geometry::Lattice;
 use crate::material::Material;
 use crate::moc::Solution;
-use xlc_xs::msgpack::MsgpackError;
+use xlc_format::msgpack::MsgpackError;
 
 /// 核分裂のあるセルがない。
 #[derive(Debug, thiserror::Error)]
@@ -51,7 +51,7 @@ pub fn to_msgpack(rates: &[f64], n: usize) -> Result<Vec<u8>, MsgpackError> {
         format: &'static str,
         rows: Vec<Vec<f64>>,
     }
-    xlc_xs::msgpack::to_named(&PinPowers {
+    xlc_format::msgpack::to_named(&PinPowers {
         format: "xlc-pin-powers",
         rows: rates.chunks(n).map(<[f64]>::to_vec).collect(),
     })
@@ -120,6 +120,6 @@ mod tests {
             }
         );
         // フィールド名付きの map 形式
-        assert!(xlc_xs::msgpack::read_value(&bytes).is_ok());
+        assert!(xlc_format::msgpack::read_value(&bytes).is_ok());
     }
 }

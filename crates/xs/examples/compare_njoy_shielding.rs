@@ -14,8 +14,9 @@
 
 use std::collections::BTreeMap;
 
+use xlc_format::group::GroupStructure;
 use xlc_xs::endf::{Section, Tape, parse_nubar};
-use xlc_xs::multigroup::{GroupStructure, Weight, shielded_averages};
+use xlc_xs::multigroup::{Weight, shielded_averages};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::{slowing_down_range, unresolved_shielding};
 

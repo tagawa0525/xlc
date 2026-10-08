@@ -16,8 +16,12 @@
 use std::ops::Range;
 
 use rayon::prelude::*;
-use xlc_xs::library::{Library, LookupError, Pointwise, Shielded};
-use xlc_xs::multigroup::WINDOW_POINTS;
+use xlc_format::library::{Library, LookupError, Pointwise, Shielded};
+
+/// 1つの窓（散乱で届くレサジーの幅 Δ）に入れる格子点の最少の数。xs のライブラリの重みの減速計算の同名の定数とは
+/// 独立に選べる、この計算の格子の細かさの設定である。同じ減速の式を同じ格子の作り方で解くので、xs で収束を確かめた
+/// 値（xs の `finer_grids_do_not_change_the_flux`）をそのまま使っている。この計算での収束はまだ確かめていない
+const WINDOW_POINTS: usize = 16;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
@@ -611,8 +615,8 @@ fn slab(u: &[f64], a: f64, b: f64, big_u: f64, lower: &mut usize) -> Vec<(usize,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xlc_xs::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
-    use xlc_xs::multigroup::GroupStructure;
+    use xlc_format::group::GroupStructure;
+    use xlc_format::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
 
     const TEMPERATURE: f64 = 600.0;
     const BOUNDS: [f64; 7] = [2.0e7, 2.0e4, 1.0e4, 1.0e3, 1.0e2, 4.0, 1.0e-5];
