@@ -5,10 +5,10 @@
 
 xlc 側は crates/lattice/examples/fuel_xs.rs、OpenMC 側は openmc_model.py で作る。捕獲は全 − 弾性 − 核分裂
 （UFG の範囲より下では非弾性の反応は捕獲と核分裂だけ）。群ごとの相対差 (xlc / OpenMC − 1) を、
-UFG の範囲（WIMS 69 群の 15〜27 群）と、その下の 4〜0.1 eV（28〜56 群）について表示する。
+UFG の範囲（4 eV〜15.03 keV、WIMS 69 群の 14〜27 群）と、その下の 4〜0.1 eV（28〜56 群）について表示する。
 反応率の差は OpenMC の燃料の中性子束で ΔR = Σ_g φ_g N (σ_xlc − σ_OpenMC) と足す。k = νF / A（F は核分裂率、
 A はセル全体の吸収率）なので、中性子束を固定した 1 次の近似で Δk/k ≈ ΔνF / νF − (ΔC + ΔF) / A に換算する
-（ν はライブラリの無限希釈の群の値）。全 − 弾性 − 核分裂が捕獲に等しい 15 群（9.1 keV）より下だけを足す。核種は OpenMC の名前で、省略すると Pu240, Pu239, Pu241, Pu242, U238。
+（ν はライブラリの無限希釈の群の値）。14 群（15.03 keV）より下だけを足す。核種は OpenMC の名前で、省略すると Pu240, Pu239, Pu241, Pu242, U238。
 """
 
 import sys
@@ -16,7 +16,8 @@ from pathlib import Path
 
 import msgpack
 
-UFG = range(15, 28)
+# WIMS 69 群（1 始まり）の UFG の範囲（4 eV〜15.03 keV）、4〜0.1 eV、熱群
+UFG = range(14, 28)
 BELOW = range(28, 57)
 THERMAL = range(57, 70)
 
@@ -78,10 +79,10 @@ def main() -> None:
         a, b = xlc[n], openmc[n]
         v = nu(library, n)
         for label, groups in [
-            ("15-27", UFG),
+            ("14-27", UFG),
             ("28-56", BELOW),
             ("57-69", THERMAL),
-            ("15-69", range(UFG.start, THERMAL.stop)),
+            ("14-69", range(UFG.start, THERMAL.stop)),
         ]:
             cells, dk = [], 0.0
             for score in ["capture", "fission"]:
