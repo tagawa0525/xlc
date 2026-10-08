@@ -230,7 +230,7 @@ pub fn shield_fuel(
                 &s.assigned,
                 &fuel_regions,
                 &mut shielded.region_material,
-            );
+            )?;
             shielded.pins.push(PinShielding {
                 cell,
                 ..s.pin.clone()
@@ -321,7 +321,7 @@ pub fn shield_fuel(
             &assigned,
             &fuel_regions,
             &mut shielded.region_material,
-        );
+        )?;
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
     }
@@ -352,13 +352,13 @@ fn assign(
     assigned: &Assigned,
     fuel_regions: &std::ops::Range<usize>,
     region_material: &mut [usize],
-) {
+) -> Result<(), SelfShieldingError> {
     match assigned {
         Assigned::Rings { materials, start } => {
-            // 燃料のあるセルはピンセル（`shield_fuel` で確かめてある）
-            let Some(pin) = lattice.cell_type(cell).pin() else {
-                return;
-            };
+            let pin = lattice
+                .cell_type(cell)
+                .pin()
+                .ok_or(SelfShieldingError::FuelShape(cell))?;
             let first = lattice.cell_regions(cell).start;
             for (targets, material) in ring_targets(pin, first, *start).iter().zip(materials) {
                 if let Some(m) = material {
@@ -374,6 +374,7 @@ fn assign(
             }
         }
     }
+    Ok(())
 }
 
 /// 等価なセルのリングごとの、格子の領域（ピンセル `geometry` の最初の領域が `first`）。リング `start` は減速材で、

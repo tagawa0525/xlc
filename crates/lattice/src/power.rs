@@ -61,13 +61,7 @@ pub fn to_msgpack(rates: &[f64], lattice: &Lattice) -> Result<Vec<u8>, MsgpackEr
 /// ピンセルのある行と列だけを取り出した、行ごとの値
 fn pin_rows(rates: &[f64], lattice: &Lattice) -> Vec<Vec<f64>> {
     let columns = lattice.columns();
-    let pin = |cell: usize| lattice.cell_type(cell).pin().is_some();
-    let rows: Vec<usize> = (0..lattice.rows())
-        .filter(|&r| (0..columns).any(|c| pin(r * columns + c)))
-        .collect();
-    let kept: Vec<usize> = (0..columns)
-        .filter(|&c| (0..lattice.rows()).any(|r| pin(r * columns + c)))
-        .collect();
+    let (rows, kept) = lattice.pin_rows_and_columns();
     rows.iter()
         .map(|&r| kept.iter().map(|&c| rates[r * columns + c]).collect())
         .collect()
