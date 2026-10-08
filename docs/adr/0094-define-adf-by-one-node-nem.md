@@ -108,7 +108,8 @@ ADF は、GET の定義（面の不均質な中性子束 / 同じ面の均質な
 ## 結果
 
 - 反射体の ADF、CDF の使い方（ピン出力の再構成）、分岐のテーブルに入れる量は、この ADR を前提に別に決める
-- core の NEM に、ADF の面の条件と、入射の部分中性子流が 0 の外周の境界を加える必要がある（M3 の進め方の 6）
+- core の NEM に、ADF の面の条件と、入射の部分中性子流が 0 の外周の境界を加える必要がある（M3 の進め方の 6）。
+  [ADR-0099](0099-couple-core-nodes-by-get-with-vacuum-boundary.md) で加えた
 - 均質な解が平らでない格子の CDF は #0020
 - 拡散係数は D = 1/(3Σt)（輸送補正なし。[ADR-0044](0044-collapse-to-two-groups.md)）で、見直しを [ADR-0098](0098-derive-diffusion-coefficients-from-b1-and-currents.md) で提案している。ADF は
   定数を作った体系では D の誤差も吸収するが、別の体系では吸収しない
