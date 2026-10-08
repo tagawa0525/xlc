@@ -1228,4 +1228,107 @@ mod tests {
         assert!(fine < 1e-4, "relative error {fine}");
         assert!(fine < coarse / 8.0, "{coarse} -> {fine}");
     }
+
+    #[test]
+    fn side_mapping_matches_two_region_analytic() {
+        // 2領域の平板を x、y、z の各方向に置き、ADF の跳びを解析解（two_region_slab_matches_analytic_jump）
+        // と比べる。跳びを境の2つのノードだけに置く: 境の A のノードは - 面で 1、+ 面で f_A、境の B の
+        // ノードは - 面で f_B、+ 面で 1、ほかのノードと辺は 1 か関係のない値（その方向に隣がなく、
+        // 反射の面では ADF は効かない）。- 面と + 面の辺を取り違えれば、跳びが境からずれて解析解から外れる
+        let (a, b) = (30.0, 50.0);
+        let (f_a, f_b) = (1.0, 1.5);
+        let analytic = |f_a: f64, f_b: f64| {
+            let buckling = smallest_root(
+                |x| f_a * (x * a).sin() * (x * b).cos() + f_b * (x * a).cos() * (x * b).sin(),
+                PI / a,
+            );
+            one_group_k(&one_group(), buckling * buckling)
+        };
+        // 方向ごとの（- 面, + 面）の辺（左、右、上、下の番号）。z の面の ADF は 1 なので跳びはない
+        let cases = [
+            (Some((0, 1)), analytic(f_a, f_b)),
+            (Some((3, 2)), analytic(f_a, f_b)),
+            (None, analytic(1.0, 1.0)),
+        ];
+        for (d, (sides, expected)) in cases.into_iter().enumerate() {
+            let bulk = one_group();
+            let mut edge_a = one_group();
+            let mut edge_b = one_group();
+            match sides {
+                Some((minus, plus)) => {
+                    edge_a.adf = vec![vec![3.0]; 4];
+                    edge_a.adf[minus] = vec![1.0];
+                    edge_a.adf[plus] = vec![f_a];
+                    edge_b.adf = vec![vec![0.5]; 4];
+                    edge_b.adf[minus] = vec![f_b];
+                    edge_b.adf[plus] = vec![1.0];
+                }
+                None => {
+                    edge_a.adf = vec![vec![f_a]; 4];
+                    edge_b.adf = vec![vec![f_b]; 4];
+                }
+            }
+            let mut widths = [vec![20.0], vec![20.0], vec![20.0]];
+            widths[d] = vec![5.0; 16];
+            let mut boundaries = [Boundary::Reflective; 6];
+            boundaries[2 * d] = Boundary::ZeroFlux;
+            boundaries[2 * d + 1] = Boundary::ZeroFlux;
+            let [dx, dy, dz] = widths;
+            let p = Problem {
+                mesh: Mesh { dx, dy, dz },
+                materials: vec![bulk, edge_a, edge_b],
+                node_material: (0..16)
+                    .map(|i| match i {
+                        5 => 1,
+                        6 => 2,
+                        _ => 0,
+                    })
+                    .collect(),
+                boundaries,
+            };
+            let k = solve(&p, &Options::default()).unwrap().k;
+            assert!(
+                (k - expected).abs() < 1e-8 * expected,
+                "direction {d}: {k} vs {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn vacuum_corner_converges_with_refinement() {
+        // 40 cm 角の 2D（-x, -y は反射、+x, +y は真空）。20 cm 角の4区画に2種類の物質を市松に置き、
+        // 真空の角にも物質の境がある分離できない問題で、細かいノードの解に近づくこと。
+        // 横方向の漏れの真空の面での扱いと、物質の境の ADF を通る
+        let mut a = material();
+        a.adf = vec![vec![1.1, 1.3]; 4];
+        let mut b = material();
+        b.diffusion = vec![1.2, 0.5];
+        b.absorption = vec![0.012, 0.10];
+        b.nu_fission = vec![0.004, 0.09];
+        b.adf = vec![vec![0.95, 0.8]; 4];
+        let k = |n: usize| {
+            let mut boundaries = [Boundary::Reflective; 6];
+            boundaries[1] = Boundary::Vacuum;
+            boundaries[3] = Boundary::Vacuum;
+            let p = Problem {
+                mesh: Mesh {
+                    dx: vec![40.0 / n as f64; n],
+                    dy: vec![40.0 / n as f64; n],
+                    dz: vec![20.0],
+                },
+                materials: vec![a.clone(), b.clone()],
+                node_material: (0..n * n)
+                    .map(|i| usize::from((i % n < n / 2) != (i / n < n / 2)))
+                    .collect(),
+                boundaries,
+            };
+            solve(&p, &Options::default()).unwrap().k
+        };
+        let reference = k(32);
+        let error = |n: usize| (k(n) - reference).abs() / reference;
+        let (coarse, fine) = (error(4), error(8));
+        // 測った値は 9.6e-5 -> 1.1e-5
+        assert!(coarse < 2e-4, "relative error {coarse}");
+        assert!(fine < coarse / 6.0, "{coarse} -> {fine}");
+    }
 }
