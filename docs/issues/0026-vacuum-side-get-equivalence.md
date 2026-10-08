@@ -14,7 +14,7 @@ resolution:
 
 ADR-0094 の ADF（不均質な面の中性子束 / 1ノードの NEM の均質な面の中性子束）を入れた core の NEM は、真空の辺の
 ある格子を、その格子の MOC の k から +1510〜+3803 pcm ずれて解く（VERA 2B の燃料ピンの 3×3、5×5、9×9、右の辺が
-真空。examples/vera/verification.md の「真空の辺のある格子の ADF と core の1ノードの NEM」、bc531c7、2026-10-09）。
+真空。examples/vera/verification.md の「真空の辺のある格子の ADF と core の1ノードの NEM」、491dba3、2026-10-09）。
 core の真空の面の条件（ADR-0099）は不均質な中性子束に P1 の関係 φ_het = 2J を課すが、MOC の真空の辺では
 φ_het/(2J) = 0.87〜0.95 である。右の辺の ADF を 2J / 均質な面の中性子束にすると、3つとも MOC の k に 10⁻⁶ で一致する。
 
