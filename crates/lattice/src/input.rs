@@ -206,34 +206,35 @@ struct FewGroupEntry {
     bounds: Vec<f64>,
 }
 
-/// 辺の境界条件: "reflective"、"vacuum"、または { albedo = α }
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum Condition {
-    Named(Named),
-    Albedo(AlbedoEntry),
-}
-
-#[derive(Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum Named {
-    Reflective,
-    Vacuum,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AlbedoEntry {
-    albedo: f64,
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BoundaryEntry {
-    left: Option<Condition>,
-    right: Option<Condition>,
-    top: Option<Condition>,
-    bottom: Option<Condition>,
+    /// "reflective"、"vacuum"、または { albedo = α }（`condition` で読む）
+    left: Option<toml::Value>,
+    right: Option<toml::Value>,
+    top: Option<toml::Value>,
+    bottom: Option<toml::Value>,
+}
+
+/// 辺の境界条件を読む（書ける条件を、誤りの文で示す）。
+fn condition(value: toml::Value) -> Result<Boundary, String> {
+    let expected = "expected \"reflective\", \"vacuum\" or { albedo = number }";
+    match value {
+        toml::Value::String(name) => match name.as_str() {
+            "reflective" => Ok(Boundary::Reflective),
+            "vacuum" => Ok(Boundary::Vacuum),
+            _ => Err(format!("unknown side condition `{name}`; {expected}")),
+        },
+        toml::Value::Table(table) => match table.get("albedo") {
+            Some(albedo) if table.len() == 1 => match albedo {
+                toml::Value::Float(a) => Ok(Boundary::Albedo(*a)),
+                toml::Value::Integer(a) => Ok(Boundary::Albedo(*a as f64)),
+                _ => Err(format!("the albedo must be a number; {expected}")),
+            },
+            _ => Err(format!("unknown side condition {table}; {expected}")),
+        },
+        other => Err(format!("unknown side condition {other}; {expected}")),
+    }
 }
 
 #[derive(Deserialize)]
@@ -319,16 +320,15 @@ impl LatticeInput {
         let boundaries = match file.boundary {
             None => Boundaries::REFLECTIVE,
             Some(b) => {
-                let side = |c: Option<Condition>| match c {
-                    None | Some(Condition::Named(Named::Reflective)) => Boundary::Reflective,
-                    Some(Condition::Named(Named::Vacuum)) => Boundary::Vacuum,
-                    Some(Condition::Albedo(a)) => Boundary::Albedo(a.albedo),
+                let side = |c: Option<toml::Value>| {
+                    c.map_or(Ok(Boundary::Reflective), condition)
+                        .map_err(&invalid)
                 };
                 Boundaries {
-                    left: side(b.left),
-                    right: side(b.right),
-                    top: side(b.top),
-                    bottom: side(b.bottom),
+                    left: side(b.left)?,
+                    right: side(b.right)?,
+                    top: side(b.top)?,
+                    bottom: side(b.bottom)?,
                 }
             }
         };
