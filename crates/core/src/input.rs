@@ -4,7 +4,8 @@
 //! few-group = "pincell-fg.msgpack"   # 少数群定数のファイル
 //! size = [300, 300, 366]             # x, y, z の寸法 (cm)
 //! nodes = [15, 15, 18]               # x, y, z のノード数（等分割）
-//! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum のいずれか）。6面とも書く
+//! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum、marshak のいずれか）。6面とも書く。
+//! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0101）
 //! boundary = { x = ["reflective", "zero-flux"], y = ["zero-flux", "zero-flux"], z = ["zero-flux", "zero-flux"] }
 //! ```
 
@@ -55,6 +56,7 @@ enum Condition {
     Reflective,
     ZeroFlux,
     Vacuum,
+    Marshak,
 }
 
 impl CoreInput {
@@ -77,6 +79,7 @@ impl CoreInput {
             Condition::Reflective => Boundary::Reflective,
             Condition::ZeroFlux => Boundary::ZeroFlux,
             Condition::Vacuum => Boundary::Vacuum,
+            Condition::Marshak => Boundary::Marshak,
         });
         Ok(Self {
             fewgroup: file.few_group,
