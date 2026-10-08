@@ -96,6 +96,22 @@ pub struct FuelShielding {
     pub region_material: Vec<usize>,
     /// 燃料のあるセルごとの自己遮蔽の結果（セルの順）
     pub pins: Vec<PinShielding>,
+    /// 構造材の塊ごとの自己遮蔽の結果
+    pub lumps: Vec<LumpShielding>,
+}
+
+/// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
+#[derive(Debug, Clone, PartialEq)]
+pub struct LumpShielding {
+    /// 塊のあるセルの組の代表（最も小さいセル番号）
+    pub cell: usize,
+    pub material: String,
+    /// 群ごとの Dancoff 係数
+    pub dancoff: Vec<f64>,
+    /// 平均弦長 (cm)
+    pub chord: f64,
+    /// 物質の核種ごとの実効断面積（物質の組成の順）
+    pub effective: Vec<Shielded>,
 }
 
 /// 1本のピンの燃料の自己遮蔽の結果。格子の対称性で移り合うピンは、組の代表（最も小さいセル番号）の結果を
@@ -217,6 +233,7 @@ pub fn shield_fuel(
         materials: dilute,
         region_material: region_index.clone(),
         pins: Vec::new(),
+        lumps: Vec::new(),
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する
@@ -1371,6 +1388,32 @@ mod tests {
                 });
             }
             materials
+        }
+
+        #[test]
+        fn reports_each_lump() {
+            let library = library_with_zirconium();
+            let types = [(vec![0.4096], vec!["fuel", "water"])];
+            let (tracking, regions) = framed(&types, vec![vec![0, 0], vec![0, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 対称に移り合う4つの枠は1つの塊。露出した面は枠の内側だけ
+            assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
+            let lump = &shielded.lumps[0];
+            assert_eq!((lump.cell, lump.material.as_str()), (0, "zirc"));
+            let (p, t): (f64, f64) = (1.26, 0.05);
+            let chord = (p * p - (p - 2.0 * t).powi(2)) / (p - 2.0 * t);
+            assert!((lump.chord - chord).abs() < 1e-2 * chord, "{}", lump.chord);
+            assert_eq!(lump.dancoff.len(), 2);
+            // 実効断面積は、塊の物質の核種の全断面積
+            let frame = &shielded.materials[shielded.region_material[2]];
+            assert!((frame.total[0] - 0.04 * lump.effective[0].total[0]).abs() < 1e-12);
         }
 
         #[test]
