@@ -11,7 +11,7 @@ mod harmonics;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
-use crate::tracking::Tracking;
+use crate::tracking::{Side, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
@@ -62,6 +62,9 @@ pub struct Solution {
     pub volumes: Vec<f64>,
     /// [群] の真空境界からの漏れ（中性子束と同じ規格化）
     pub leakage: Vec<f64>,
+    /// [外周の辺（左、右、上、下）][群] の辺の上の平均スカラー中性子束（中性子束と同じ規格化）。
+    /// 集合体の不連続因子（ADF）に使う
+    pub sides: Vec<Vec<f64>>,
     pub iterations: usize,
 }
 
@@ -241,6 +244,7 @@ pub fn solve(
             void_flux,
             mut leak,
             mut current,
+            sides: side_sums,
         } = sum_tallies(&tallies, ng);
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
@@ -287,6 +291,7 @@ pub fn solve(
         for l in leak.iter_mut().chain(&mut current) {
             *l /= rate;
         }
+
         for b in &mut outgoing {
             *b /= rate;
         }
@@ -349,11 +354,26 @@ pub fn solve(
         higher = new_higher;
         k = new_k;
         if converged {
+            // 辺の上の平均: 辺の長さで割る。入ってくる側は前の反復のスイープの値で、CMFD の比もかけていないが、
+            // 収束した解ではどちらも反復の許容誤差の程度しか違わない
+            let lattice = &tracking.lattice;
+            let lengths = [
+                lattice.height(),
+                lattice.height(),
+                lattice.width(),
+                lattice.width(),
+            ];
+            let sides = side_sums
+                .chunks(ng)
+                .zip(lengths)
+                .map(|(values, length)| values.iter().map(|v| v / (rate * length)).collect())
+                .collect();
             return Ok(Solution {
                 k,
                 flux,
                 volumes,
                 leakage: leak,
+                sides,
                 iterations: iteration,
             });
         }
@@ -379,6 +399,8 @@ struct Sweeper<'a> {
     azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
     void: Vec<Option<usize>>,
+    /// [方位角][縦の辺, 横の辺][極角] の、外周の辺の上の中性子束の重み
+    side_weights: Vec<[[f64; POLAR_SIN.len()]; 2]>,
     /// 角度中性子束のモーメントの数（1 なら等方散乱）
     moments: usize,
     /// [方位角][向き][極角][モーメント] の方向ごとの実球面調和関数の値
@@ -435,6 +457,19 @@ impl<'a> Sweeper<'a> {
                         *next += 1;
                         *next - 1
                     }))
+                })
+                .collect(),
+            side_weights: tracking
+                .azimuths
+                .iter()
+                .map(|azimuth| {
+                    // 辺の上の中性子束の重み: 流れの重み 4π (w_a/2) ω_p sinθ_p δ_a を sinθ_p と、方向が辺の法線と
+                    // なす方位角の余弦（縦の辺（左右）では |cos φ|、横の辺（上下）では |sin φ|）で割る
+                    [azimuth.phi.cos().abs(), azimuth.phi.sin().abs()].map(|c| {
+                        std::array::from_fn(|p| {
+                            4.0 * PI * 0.5 * azimuth.weight * POLAR_WEIGHT[p] * azimuth.spacing / c
+                        })
+                    })
                 })
                 .collect(),
             moments: pairs.len(),
@@ -610,6 +645,7 @@ impl<'a> Sweeper<'a> {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
                         std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
+                    let side_weights = &self.side_weights[track.azimuth];
                     // 減衰はトラックの両向きで同じなので、トラックごとに一度求める（真空の区間では使わない）
                     for (s, att) in track
                         .segments
@@ -649,6 +685,12 @@ impl<'a> Sweeper<'a> {
                             psi,
                             &weights,
                         );
+                        let (entry_side, exit_side) = if forward {
+                            (track.start_side, track.end_side)
+                        } else {
+                            (track.end_side, track.start_side)
+                        };
+                        add_side(&mut tally.sides, entry_side, psi, side_weights);
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
                         let mut cell = self.mesh.cell(track.segments[first].region);
@@ -707,6 +749,7 @@ impl<'a> Sweeper<'a> {
                             psi,
                             &weights,
                         );
+                        add_side(&mut tally.sides, exit_side, psi, side_weights);
                         let link = if forward {
                             track.forward_link
                         } else {
@@ -741,6 +784,8 @@ struct Tally {
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の流れ（面の正の向きが正）
     current: Vec<f64>,
+    /// [外周の辺（左、右、上、下）][群] の、辺を横切る角度中性子束の重み付き和（面の中性子束）
+    sides: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
     /// スイープ中のトラックの [区間][極角][群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分）
@@ -760,6 +805,7 @@ impl Tally {
             delta: vec![0.0; regions * groups],
             void_flux: vec![0.0; voids * groups],
             leak: vec![0.0; groups],
+            sides: vec![0.0; 4 * groups],
             current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
             attenuation: vec![0.0; segments * width],
@@ -770,6 +816,7 @@ impl Tally {
         self.delta.fill(0.0);
         self.void_flux.fill(0.0);
         self.leak.fill(0.0);
+        self.sides.fill(0.0);
         self.current.fill(0.0);
     }
 }
@@ -784,6 +831,8 @@ struct Sums {
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の流れ
     current: Vec<f64>,
+    /// [外周の辺][群] の面の中性子束の和
+    sides: Vec<f64>,
 }
 
 /// 方位角ごとの部分和を方位角の順に足す。
@@ -805,6 +854,20 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
         void_flux: sum(|t| &t.void_flux),
         leak: sum(|t| &t.leak),
         current: sum(|t| &t.current),
+        sides: sum(|t| &t.sides),
+    }
+}
+
+/// 外周の辺 `side` を横切る角度中性子束 `psi` [極角][群] を、方位角の重み `weights` [縦の辺, 横の辺][極角] で
+/// `sides` [辺][群] に足す。
+fn add_side(sides: &mut [f64], side: Side, psi: &[f64], weights: &[[f64; POLAR_SIN.len()]; 2]) {
+    let weights = &weights[usize::from(!side.is_vertical())];
+    let ng = psi.len() / weights.len();
+    let s = &mut sides[side as usize * ng..][..ng];
+    for (p, weight) in weights.iter().enumerate() {
+        for (v, value) in s.iter_mut().zip(&psi[p * ng..][..ng]) {
+            *v += weight * value;
+        }
     }
 }
 
@@ -1020,6 +1083,25 @@ mod tests {
         let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
         let phi = [a[1][1] / det, -a[1][0] / det];
         m.nu_fission[0] * phi[0] + m.nu_fission[1] * phi[1]
+    }
+
+    #[test]
+    fn sides_of_an_infinite_medium_see_the_mean_flux() {
+        // 均質な無限媒質では中性子束は平らで等方なので、外周の辺の上の中性子束は領域の中性子束と同じ
+        let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let m = fuel();
+        let solution = solve(&tracking, &[&m, &m, &m], &Options::default()).unwrap();
+        assert_eq!(solution.sides.len(), 4);
+        for side in &solution.sides {
+            for (s, f) in side.iter().zip(&solution.flux[0]) {
+                assert!(
+                    (s - f).abs() < 1e-8 * f,
+                    "{side:?} vs {:?}",
+                    solution.flux[0]
+                );
+            }
+        }
     }
 
     #[test]
