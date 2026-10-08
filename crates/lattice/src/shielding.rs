@@ -106,6 +106,8 @@ pub struct LumpShielding {
     /// 塊のあるセルの組の代表（最も小さいセル番号）
     pub cell: usize,
     pub material: String,
+    /// 塊の領域（組のすべてのセルの分）
+    pub regions: Vec<usize>,
     /// 群ごとの Dancoff 係数
     pub dancoff: Vec<f64>,
     /// 平均弦長 (cm)
@@ -496,6 +498,7 @@ fn shield_lumps(
         shielded.lumps.push(LumpShielding {
             cell,
             material: material.name.clone(),
+            regions: Vec::new(),
             dancoff: found.dancoff.clone(),
             chord: found.chord,
             effective: tables,
@@ -1441,6 +1444,7 @@ mod tests {
             assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
             let lump = &shielded.lumps[0];
             assert_eq!((lump.cell, lump.material.as_str()), (0, "zirc"));
+            assert_eq!(lump.regions, vec![2, 5, 8, 11]);
             let (p, t): (f64, f64) = (1.26, 0.05);
             let chord = (p * p - (p - 2.0 * t).powi(2)) / (p - 2.0 * t);
             assert!((lump.chord - chord).abs() < 1e-2 * chord, "{}", lump.chord);
@@ -1662,6 +1666,7 @@ mod tests {
                 ),
                 material("clad", &[("Zr-90", 0.043)]),
                 material("grid", &[("Zr-91", 0.043)]),
+                material("grid2", &[("Zr-91", 0.03)]),
                 material("water", &[("H-1", 0.05), ("O-16", 0.025)]),
             ];
             let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475])
@@ -1739,6 +1744,49 @@ mod tests {
             for (c, e) in dancoff.iter().zip(&expected) {
                 assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
             }
+        }
+
+        #[test]
+        fn materials_with_the_same_resonant_nuclides_shadow_a_lump() {
+            // 被覆管が枠と別の物質でも、分離共鳴を持つ核種が同じなら同じ共鳴の影を作る（黒体）
+            let (dancoff, expected) = frame_dancoff("grid2", &[4, 6]);
+            for (c, e) in dancoff.iter().zip(&expected) {
+                assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
+            }
+        }
+
+        #[test]
+        fn pieces_of_a_lump_follow_contact() {
+            // 小さな正方形のセルの縦の列と、扇形の角度の 0 と 2π をまたぐ扇形は、それぞれ1つの塊
+            let library = library_with_zirconium();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let grid = PinCell::grid(1.26, 3).unwrap();
+            let sectored = PinCell::with_sectors(1.26, vec![0.5, 0.6], 4).unwrap();
+            let layout = vec![vec![0, 1, 0], vec![2, 0, 0], vec![0, 0, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names = match t {
+                    0 => "fuel water",
+                    1 => "water zirc water water zirc water water zirc water",
+                    _ => "water water water water zirc water water zirc water water water water",
+                };
+                names.split(' ').map(String::from).collect()
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, grid, sectored], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let m = &shielded.region_material;
+            // 正方形のセル（セル1）は領域 2〜10、扇形のセル（セル3）は 13〜24（リング 1 の扇形は 17〜20）
+            assert!(m[3] == m[6] && m[6] == m[9], "{m:?}");
+            assert_eq!(m[17], m[20], "{m:?}");
+            assert_eq!(shielded.lumps.len(), 2, "{:?}", shielded.lumps);
         }
 
         #[test]
