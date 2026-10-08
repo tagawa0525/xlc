@@ -952,6 +952,27 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn sides_may_have_an_albedo() {
+        let input = replaced(
+            LATTICE,
+            "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+            "boundary = { right = \"vacuum\", top = { albedo = 0.3 } }",
+        )
+        .unwrap();
+        assert_eq!(input.boundaries.top, Boundary::Albedo(0.3));
+        assert_eq!(input.boundaries.right, Boundary::Vacuum);
+        assert_eq!(input.boundaries.bottom, Boundary::Reflective);
+        assert!(
+            replaced(
+                LATTICE,
+                "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+                "boundary = { top = { albedo = 0.3, extra = 1 } }",
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn gap_surrounds_the_lattice() {
         let text = LATTICE.replace(
             "rows = [",
