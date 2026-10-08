@@ -16,11 +16,18 @@ import sys
 from pathlib import Path
 
 import msgpack
-import numpy as np
 import openmc
 
-# tally の score の、statepoint に保存される名前（書いた名前と違うもの。弾性散乱は "(n,elastic)" になる）
-STORED = {"elastic": "(n,elastic)"}
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from openmc_common import (
+    effective_xs,
+    eigenvalue_settings,
+    fuel_tallies,
+    group_filter,
+    material,
+)
+
+SCORES = ["total", "elastic", "fission"]
 
 PITCH = 1.26
 N = 17
@@ -115,16 +122,6 @@ GUIDE_TUBES = [
 INSTRUMENT_TUBE = (8, 8)
 
 
-def material(
-    name: str, densities: dict[str, float], temperature: float
-) -> openmc.Material:
-    m = openmc.Material(name=name, temperature=temperature)
-    for nuclide, density in densities.items():
-        m.add_nuclide(nuclide, density, "ao")
-    m.set_density("sum")
-    return m
-
-
 def tube(inner: float, outer: float, clad: openmc.Material, water: openmc.Material):
     """中が減速材の管（案内管・計装管）のセル。"""
     r_in, r_out = openmc.ZCylinder(r=inner), openmc.ZCylinder(r=outer)
@@ -217,16 +214,9 @@ class Run:
 
     def settings(self, half: float) -> openmc.Settings:
         """世代の数と乱数の種、燃料に一様な初期の中性子源（`half` は外周の箱の半分の幅）。"""
-        settings = openmc.Settings()
-        settings.particles = self.particles
-        settings.batches = self.batches
-        settings.inactive = self.inactive
-        settings.seed = self.seed
-        settings.source = openmc.IndependentSource(
-            space=openmc.stats.Box((-half, -half, -1), (half, half, 1)),
-            constraints={"fissionable": True},
+        return eigenvalue_settings(
+            self.particles, self.batches, self.inactive, self.seed, half
         )
-        return settings
 
 
 def main() -> None:
@@ -259,33 +249,17 @@ def main() -> None:
         tallies.append(tally)
         # ピンごとの燃料の核種の実効断面積（メッシュはピンのセルと一致する）
         if library is not None:
-            bounds = msgpack.unpackb(library.read_bytes())["group_bounds"]
             pin_filters = [
                 openmc.MeshFilter(mesh),
                 openmc.MaterialFilter([fuel]),
-                openmc.EnergyFilter(sorted(bounds)),
+                group_filter(library),
             ]
-            tally = openmc.Tally(name="pin fuel")
-            tally.filters = pin_filters
-            tally.nuclides = list(FUEL)
-            tally.scores = ["total", "elastic", "fission"]
-            flux = openmc.Tally(name="pin fuel flux")
-            flux.filters = pin_filters
-            flux.scores = ["flux"]
-            tallies.extend([tally, flux])
+            tallies.extend(fuel_tallies("pin fuel", pin_filters, list(FUEL), SCORES))
 
     # 燃料の核種ごとの実効断面積（群構造は xlc のライブラリから。OpenMC の境界は昇順）
     if problem.startswith("1") and library is not None:
-        bounds = msgpack.unpackb(library.read_bytes())["group_bounds"]
-        energy = openmc.EnergyFilter(sorted(bounds))
-        tally = openmc.Tally(name="fuel")
-        tally.filters = [openmc.MaterialFilter([fuel]), energy]
-        tally.nuclides = list(FUEL)
-        tally.scores = ["total", "elastic", "fission"]
-        flux = openmc.Tally(name="fuel flux")
-        flux.filters = [openmc.MaterialFilter([fuel]), energy]
-        flux.scores = ["flux"]
-        tallies.extend([tally, flux])
+        filters = [openmc.MaterialFilter([fuel]), group_filter(library)]
+        tallies.extend(fuel_tallies("fuel", filters, list(FUEL), SCORES))
 
     model = openmc.Model(geometry, materials, settings, tallies)
     statepoint = model.run(cwd=work, output=False)
@@ -299,45 +273,23 @@ def main() -> None:
                     groups = values.size // (N * N)
                     return values.reshape(N, N, groups)[::-1, :, ::-1]
 
-                phi = pins(
-                    sp.get_tally(name="pin fuel flux").get_values(scores=["flux"])
-                )
-                rates = sp.get_tally(name="pin fuel")
-                xs = {}
-                for nuclide, density in FUEL.items():
-                    xs[nuclide] = {}
-                    for score in ["total", "elastic", "fission"]:
-                        rate = pins(
-                            rates.get_values(
-                                scores=[STORED.get(score, score)], nuclides=[nuclide]
-                            )
-                        )
-                        # 燃料のないセルは 0
-                        value = np.divide(
-                            rate,
-                            density * phi,
-                            out=np.zeros_like(rate),
-                            where=phi > 0,
-                        )
-                        xs[nuclide][score] = value.tolist()
+                # 燃料のないセルは 0
+                xs = {
+                    nuclide: {score: value.tolist() for score, value in by.items()}
+                    for nuclide, by in effective_xs(
+                        sp, "pin fuel", FUEL, SCORES, pins
+                    ).items()
+                }
                 (work / "pin-xs.msgpack").write_bytes(
                     msgpack.packb({"format": "xlc-pin-xs", "nuclides": xs})
                 )
         if problem.startswith("1") and library is not None:
-            phi = sp.get_tally(name="fuel flux").get_values(scores=["flux"]).ravel()
-            rates = sp.get_tally(name="fuel")
             # 群は xlc と同じく高いエネルギーから並べる
             xs = {
-                nuclide: {
-                    score: (
-                        rates.get_values(
-                            scores=[STORED.get(score, score)], nuclides=[nuclide]
-                        ).ravel()
-                        / (density * phi)
-                    )[::-1].tolist()
-                    for score in ["total", "elastic", "fission"]
-                }
-                for nuclide, density in FUEL.items()
+                nuclide: {score: value.tolist() for score, value in by.items()}
+                for nuclide, by in effective_xs(
+                    sp, "fuel", FUEL, SCORES, lambda v: v.ravel()[::-1]
+                ).items()
             }
             (work / "fuel-xs.msgpack").write_bytes(
                 msgpack.packb({"format": "xlc-fuel-xs", "nuclides": xs})
