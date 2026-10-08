@@ -5,7 +5,7 @@ opened: 2026-10-08
 closed: 2026-10-08
 milestone: M3
 blocked-by: []
-resolution: コミット 50c3700
+resolution: コミット 16112fc
 ---
 
 # 文書の整合性の検査（番号の重複、状態、置き換えのリンク、参照先）
