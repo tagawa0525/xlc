@@ -11,8 +11,6 @@ xlc-numeric = { path = "../numeric" }
 xlc-format = { path = "../format" }
 anyhow.workspace = true
 num-complex.workspace = true
-rmp-serde.workspace = true
-rmpv.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true

@@ -10,8 +10,7 @@
 
 use crate::special::{erf, erfcx};
 use xlc_format::group::GroupStructure;
-use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
-use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_4, GAUSS_LEGENDRE_8, legendre};
 
 /// 熱領域の弾性散乱を自由ガス模型で扱う条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
