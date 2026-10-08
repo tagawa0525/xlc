@@ -44,6 +44,11 @@ pub enum UfgError {
         range: [f64; 2],
         pointwise: [f64; 2],
     },
+    #[error(
+        "the fuel has resolved resonances but the library has no pointwise data \
+         (made without any nuclide with resolved resonances)"
+    )]
+    NoPointwise,
     #[error("{name}: atomic weight ratio {awr} must be positive")]
     Mass { name: String, awr: f64 },
     #[error("{name}: pointwise data are not defined at {energy} eV")]
@@ -96,10 +101,10 @@ pub fn cell_range(
             top = Some(top.map_or(r.top, |t| t.max(r.top)));
         }
     }
-    let pointwise = library.pointwise_range;
     let Some(top) = top else {
         return Ok(None);
     };
+    let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
     let top = top.min(MAX_TOP).min(pointwise[1]);
     let low = pointwise[0];
     let high = library
@@ -145,7 +150,7 @@ pub fn slowing_down(
     }
     let bounds = library.groups.bounds();
     let [low, high] = range;
-    let pointwise = library.pointwise_range;
+    let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
     let bad = || UfgError::Range { range, pointwise };
     let top = bounds.iter().position(|&b| b == high).ok_or_else(bad)?;
     let bottom = bounds.iter().position(|&b| b == low).ok_or_else(bad)?;
@@ -681,7 +686,7 @@ mod tests {
         Library {
             groups,
             sigma0: vec![1.0e10],
-            pointwise_range: [4.0, 2.0e4],
+            pointwise_range: Some([4.0, 2.0e4]),
             nuclides,
         }
     }
