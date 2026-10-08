@@ -10,13 +10,12 @@
 //! 使うので、θ(E) の変化を積分するこちらの χ とずれる（高エネルギーの群で十数 %）。
 //! GENDF の MF6（MT18 以外）は、散乱行列を行ごとに比べる（行の差の絶対値の和 / 行の和）。
 //! ENDF に MF6 がなく MF5 がある反応は、MF5 の出射エネルギー分布を使う。
-//! NJOY は MF4 の角度分布を使い、こちらは重心系等方を仮定するので、角度分布が前方に偏る
-//! 高エネルギーの群では一致しない。環境変数 XLC_ROWS を設定すると、全群の値を表示する。
+//! 散乱行列はどちらも MF4 の角度分布を使う。環境変数 XLC_ROWS を設定すると、全群の値を表示する。
 
 use std::collections::BTreeMap;
 
 use xlc_format::group::GroupStructure;
-use xlc_xs::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
+use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, parse_nubar};
 use xlc_xs::multigroup::{
     Emission, Reactions, Weight, fission_spectrum, reaction_averages, scattering_matrix,
 };
@@ -142,6 +141,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else if let Some(section) = tape.section(mat, 5, mt) {
             emissions.insert(mt, Emission::Mf5(Mf5::parse(&section)?));
         }
+        // 角度分布は、弾性散乱・離散準位と、MF5 で与えられた反応の分（xs の処理と同じ）
+        let mut angular = BTreeMap::new();
+        let two_body = mt == 2 || (51..=90).contains(&mt);
+        let continuum = matches!(emissions.get(&mt), Some(Emission::Mf5(_)));
+        if (two_body || continuum)
+            && let Some(section) = tape.section(mat, 4, mt)
+        {
+            angular.insert(mt, Mf4::parse(&section)?);
+        }
         let single = BTreeMap::from([(mt, table.clone())]);
         let ours = match scattering_matrix(
             &groups,
@@ -151,7 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tables: &single,
                 q_values: &q_values,
                 emissions: &emissions,
-                angular: &BTreeMap::new(),
+                angular: &angular,
             },
             None,
         ) {
