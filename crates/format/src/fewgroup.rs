@@ -225,4 +225,25 @@ mod tests {
         bytes.push(0xc0);
         assert!(FewGroup::from_msgpack(&bytes).is_err());
     }
+
+    #[test]
+    fn validate_checks_values_in_memory() {
+        // ファイルを経ずに作った値（core の Problem など）も同じ検査を通す
+        assert!(sample().validate().is_ok());
+        let mut fg = sample();
+        fg.adf.pop();
+        assert!(fg.validate().is_err());
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let mut fg = sample();
+            fg.adf[1][0] = bad;
+            let err = fg.validate().unwrap_err().to_string();
+            assert!(err.contains("discontinuity"), "{err}");
+        }
+        let mut fg = sample();
+        fg.diffusion.pop();
+        assert!(fg.validate().is_err());
+        let mut fg = sample();
+        fg.k_inf = 0.0;
+        assert!(fg.validate().is_err());
+    }
 }

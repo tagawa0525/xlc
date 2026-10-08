@@ -680,7 +680,8 @@ mod tests {
         let total = [1.0 / (3.0 * d1), 1.0 / (3.0 * d2)];
         FewGroup {
             bounds: vec![1.0e7, 0.625, 1.0e-5],
-            k_inf: 0.0,
+            // NEM は使わないが、少数群定数として正しい値にする
+            k_inf: 1.0,
             total: total.to_vec(),
             absorption: vec![a1, a2],
             nu_fission: vec![nf1, nf2],
@@ -839,7 +840,8 @@ mod tests {
         let total = 1.0 / (3.0 * d);
         FewGroup {
             bounds: vec![1.0e7, 1.0e-5],
-            k_inf: 0.0,
+            // NEM は使わないが、少数群定数として正しい値にする
+            k_inf: 1.0,
             total: vec![total],
             absorption: vec![absorption],
             nu_fission: vec![nu_fission],
