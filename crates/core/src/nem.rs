@@ -360,7 +360,13 @@ impl<'a> Core<'a> {
     /// とすると、f(o + i) = f'(o' + i')（不均質な中性子束）と o - i = i' - o'（正味の中性子流）から
     ///   i = ((f' - f) o + 2 f' o') / (f + f')
     /// なので、β = (f' - f)/(f + f')、外からの入射は 2 f' o'/(f + f')（ADF が等しければ i = o'）。
-    /// 外周では、反射 β = 1、中性子束ゼロ β = -1（2(o + i) = 0）、真空 β = 0 で、外からの入射は 0。
+    ///
+    /// 外周の境界条件も GET のとおり不均質な中性子束 f φ = 2f(o + i) と正味の中性子流 o - i に課し、
+    /// 外からの入射は 0:
+    /// - 反射: 正味の中性子流 0 で、β = 1（f によらない）
+    /// - 中性子束ゼロ: f φ = 0 は φ = 0 と同じで、β = -1（f によらない）
+    /// - 真空（Marshak）: 不均質な入射の部分中性子流 f φ/4 - (o - i)/2 = (f(o + i) - (o - i))/2 = 0
+    ///   から β = (1 - f)/(1 + f)。隣の面の式で f' = 1、o' = 0 としたものに等しく、f = 1 なら 0
     fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
         let face = |step: isize, index: usize| match self.neighbor(n, d, step) {
             Some(m) => {
@@ -379,7 +385,10 @@ impl<'a> Core<'a> {
             None => match self.problem.boundaries[2 * d + index] {
                 Boundary::Reflective => (1.0, 0.0),
                 Boundary::ZeroFlux => (-1.0, 0.0),
-                Boundary::Vacuum => (0.0, 0.0),
+                Boundary::Vacuum => {
+                    let f = self.adf(n, d, step > 0, g);
+                    ((1.0 - f) / (1.0 + f), 0.0)
+                }
             },
         };
         (face(-1, 0), face(1, 1))
