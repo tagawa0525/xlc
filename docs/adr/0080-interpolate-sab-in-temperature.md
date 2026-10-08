@@ -10,8 +10,8 @@ issues: []
 
 ## 背景
 
-HZP は 565 K だが、H in H2O の S(α,β) は 550 K と 573.6 K にしかない。格子計算は温度方向に補間しないとしていた
-（[ADR-0047](0047-choose-temperatures-per-nuclide.md)）。
+HZP は 565 K だが、H in H2O の S(α,β) は 550 K と 573.6 K にしかない。格子計算は材料の温度がライブラリにあることを
+求める（[ADR-0047](0047-choose-temperatures-per-nuclide.md)）。
 
 - 参照解（OpenMC）と同じ扱いにできること
 
