@@ -30,5 +30,4 @@ issues: []
 ## 結果
 
 - M3 で、長方形の範囲の cyclic tracking にする（[ADR-0083](0083-generalize-to-rectilinear-lattice.md)）。全体で1組のトラックであることは変わらない
-- コードは、辺ごとにアルベドの境界も選べる（`sides_may_have_an_albedo`、`albedo_sides_lie_between_vacuum_and_reflection`）。
-  これを加えた判断は計画に記録がない
+- のちに、辺ごとにアルベドの境界も選べるようにした（[ADR-0093](0093-add-albedo-boundaries.md)）
