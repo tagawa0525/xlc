@@ -166,6 +166,43 @@ impl PinCell {
         })
     }
 
+    /// 同心円のセルの、面を共有する領域の組（[`Cell::adjacent`]）。同じ扇形の内外のリング、扇形の境界の半直線
+    /// （x 軸から等角度）がリングを通る隣の扇形、枠の内側の正方形の辺に届くリングと枠が接する。
+    fn adjacent(&self) -> Vec<(usize, usize)> {
+        let (rings, sectors) = (self.radii.len() + 1, self.sectors);
+        let a = self.inner_half();
+        let region = |ring: usize, sector: usize| ring * sectors + sector;
+        let inner = |ring: usize| if ring == 0 { 0.0 } else { self.radii[ring - 1] };
+        let mut pairs = Vec::new();
+        for ring in 0..rings {
+            for s in 0..sectors {
+                if ring + 1 < rings {
+                    pairs.push((region(ring, s), region(ring + 1, s)));
+                }
+                // 扇形 s と s + 1 の境界の半直線は角度 2π(s + 1)/sectors で、正方形の辺までの長さは軸の上なら a、
+                // 対角線の上なら a√2
+                if sectors > 1 {
+                    let next = (s + 1) % sectors;
+                    let on_axis = (s + 1) * 4 % sectors == 0;
+                    let reach = if on_axis {
+                        a
+                    } else {
+                        a * std::f64::consts::SQRT_2
+                    };
+                    if inner(ring) < reach {
+                        pairs.push((region(ring, s.min(next)), region(ring, s.max(next))));
+                    }
+                }
+                // どの扇形も軸の向き（辺までの長さ a）を含むので、外径が a を超えるリングは辺に届く
+                let reaches_edge = ring + 1 == rings || self.radii[ring] > a;
+                if self.frame.is_some() && reaches_edge {
+                    pairs.push((region(ring, s), rings * sectors));
+                }
+            }
+        }
+        pairs
+    }
+
     /// 枠の内側の正方形の半辺
     fn inner_half(&self) -> f64 {
         0.5 * self.pitch - self.frame.unwrap_or(0.0)
@@ -344,7 +381,11 @@ impl Cell {
 
     /// セルの中で面を共有する領域の組（セルの中の番号、小さい順）
     pub fn adjacent(&self) -> Vec<(usize, usize)> {
-        Vec::new()
+        match self {
+            Self::Pin(pin) if pin.is_grid() => squares(pin.grid, pin.grid),
+            Self::Pin(pin) => pin.adjacent(),
+            Self::Block { nx, ny } => squares(*nx, *ny),
+        }
     }
 
     /// ピンセルなら、そのピンセル
@@ -354,6 +395,23 @@ impl Cell {
             Self::Block { .. } => None,
         }
     }
+}
+
+/// 上の行から、各行は左から番号を付けた `nx` × `ny` の長方形のうち、辺を共有する組
+fn squares(nx: usize, ny: usize) -> Vec<(usize, usize)> {
+    let mut pairs = Vec::new();
+    for row in 0..ny {
+        for column in 0..nx {
+            let k = row * nx + column;
+            if column + 1 < nx {
+                pairs.push((k, k + 1));
+            }
+            if row + 1 < ny {
+                pairs.push((k, k + nx));
+            }
+        }
+    }
+    pairs
 }
 
 /// 列ごとの幅と行ごとの高さを持つ長方形の格子にセルを並べた形状（中心が原点）。
