@@ -3,12 +3,12 @@
 use std::collections::BTreeMap;
 
 use crate::endf::{
-    Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
+    Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
 use crate::multigroup::{
-    Emission, FreeGas, ReactionAverages, SabError, ScatterError, ShieldingError, SlowingDown,
-    Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
-    scattering_moments, shielded_averages,
+    Emission, FreeGas, ReactionAverages, Reactions, SabError, ScatterError, ShieldingError,
+    SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
+    fission_spectrum, scattering_moments, shielded_averages, uses_angular,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
@@ -383,6 +383,13 @@ pub fn process_nuclide(
             emissions.insert(mt, Emission::Mf5(Mf5::parse(&section)?));
         }
     }
+    // 角度分布（MF4）: 弾性散乱、離散準位（2体反応）と、MF5 で与えられた連続的な放出の分
+    let mut angular = BTreeMap::new();
+    for (mt, section) in tape.sections(mat, 4) {
+        if uses_angular(mt, emissions.get(&mt)) {
+            angular.insert(mt, Mf4::parse(&section)?);
+        }
+    }
     let common = Common {
         tape,
         mat,
@@ -391,6 +398,7 @@ pub fn process_nuclide(
         mf5: mf5.as_ref(),
         q_values: &q_values,
         emissions: &emissions,
+        angular: &angular,
         thermal,
         settings,
         cold: &cold,
@@ -424,6 +432,7 @@ struct Common<'a> {
     mf5: Option<&'a Mf5>,
     q_values: &'a BTreeMap<u32, f64>,
     emissions: &'a BTreeMap<u32, Emission>,
+    angular: &'a BTreeMap<u32, Mf4>,
     thermal: Option<&'a Mf7Incoherent>,
     settings: &'a Settings,
     /// 0 K の部分反応（温度ごとに広げる）
@@ -478,9 +487,12 @@ impl Common<'_> {
             groups,
             weight,
             self.awr,
-            &elastic_only,
-            self.q_values,
-            self.emissions,
+            &Reactions {
+                tables: &elastic_only,
+                q_values: self.q_values,
+                emissions: self.emissions,
+                angular: self.angular,
+            },
             Some(&thermal),
             order,
         )?;
@@ -488,9 +500,12 @@ impl Common<'_> {
             groups,
             weight,
             self.awr,
-            &others,
-            self.q_values,
-            self.emissions,
+            &Reactions {
+                tables: &others,
+                q_values: self.q_values,
+                emissions: self.emissions,
+                angular: self.angular,
+            },
             None,
             order,
         )?;
