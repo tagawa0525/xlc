@@ -27,8 +27,8 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::library::Library;
-use xlc_lattice::fewgroup::homogenize;
-use xlc_lattice::input::{CrossSections, LatticeInput, VOID};
+use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes};
+use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, available_order, solve};
@@ -167,19 +167,34 @@ fn run(path: &Path) -> anyhow::Result<()> {
         ..Options::default()
     };
     let solution = solve(&tracking, &materials, &options)?;
-    if let Some((output, bounds)) = &input.output {
+    if let Some(FewGroupOutput { bounds, files }) = &input.output {
         let groups = groups
             .as_ref()
             .ok_or_else(|| anyhow!("few-group output needs a library"))?;
-        let few = homogenize(
-            &solution,
-            &materials,
-            groups,
-            bounds,
-            &tracking.boundaries(),
-        )?;
-        let output = base.join(output);
-        std::fs::write(&output, few.to_msgpack()?).with_context(|| shown(&output))?;
+        let boundaries = tracking.boundaries();
+        let written = match files {
+            FewGroupFiles::Lattice(output) => vec![(
+                output,
+                homogenize(&solution, &materials, groups, bounds, &boundaries)?,
+            )],
+            FewGroupFiles::Nodes(entries) => {
+                let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
+                let fews = homogenize_nodes(
+                    &solution,
+                    &lattice,
+                    &materials,
+                    groups,
+                    bounds,
+                    &boundaries,
+                    &nodes,
+                )?;
+                entries.iter().map(|(output, _)| output).zip(fews).collect()
+            }
+        };
+        for (output, few) in written {
+            let output = base.join(output);
+            std::fs::write(&output, few.to_msgpack()?).with_context(|| shown(&output))?;
+        }
     }
     if let Some(file) = &input.pin_powers {
         let rates = cell_fission_rates(&solution, &lattice, &materials)?;
