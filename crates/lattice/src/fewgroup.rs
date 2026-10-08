@@ -5,6 +5,7 @@ use xlc_format::group::GroupStructure;
 
 use crate::material::Material;
 use crate::moc::Solution;
+use crate::tracking::Boundaries;
 
 /// 少数群への縮約のエラー。
 #[derive(Debug, thiserror::Error)]
@@ -17,6 +18,8 @@ pub enum HomogenizeError {
     Span,
     #[error("a few group has no flux")]
     NoFlux,
+    #[error("discontinuity factors need reflective sides on the whole lattice")]
+    NotReflective,
 }
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
@@ -28,7 +31,9 @@ pub fn homogenize(
     materials: &[&Material],
     fine: &GroupStructure,
     coarse_bounds: &[f64],
+    boundaries: &Boundaries,
 ) -> Result<FewGroup, HomogenizeError> {
+    let _ = boundaries;
     let ng = fine.len();
     if materials.len() != solution.flux.len() {
         return Err(HomogenizeError::RegionCount {
@@ -140,7 +145,7 @@ mod tests {
     use crate::geometry::{Lattice, PinCell};
     use crate::material::FissionTerm;
     use crate::moc::{Options, solve};
-    use crate::tracking::Tracking;
+    use crate::tracking::{Boundary, Tracking};
 
     fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
         Material {
@@ -182,10 +187,32 @@ mod tests {
         let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
         let solution = solve(&tracking, &[&m, &m], &Options::default()).unwrap();
         let fine = GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap();
-        let fg = homogenize(&solution, &[&m, &m], &fine, fine.bounds()).unwrap();
+        let fg = homogenize(
+            &solution,
+            &[&m, &m],
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
         for value in fg.adf.iter().flatten() {
             assert!((value - 1.0).abs() < 1e-8, "{:?}", fg.adf);
         }
+    }
+
+    #[test]
+    fn adf_needs_reflective_sides() {
+        // 真空の辺があると均質な解は平らでないので、体積平均で割る不連続因子は作れない
+        let (solution, materials, fine) = solved();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let vacuum = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        assert!(matches!(
+            homogenize(&solution, &refs, &fine, fine.bounds(), &vacuum),
+            Err(HomogenizeError::NotReflective)
+        ));
     }
 
     #[test]
@@ -193,7 +220,14 @@ mod tests {
         // 燃料が中心にあると、外周（減速材）の熱中性子束はセルの平均より高い。4 辺は対称で等しい
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        let fg = homogenize(&solution, &refs, &fine, fine.bounds()).unwrap();
+        let fg = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
         assert!(fg.adf[0][1] > 1.0, "{:?}", fg.adf);
         for side in &fg.adf {
             for (a, b) in side.iter().zip(&fg.adf[0]) {
@@ -207,7 +241,14 @@ mod tests {
         // 反応率を保存するので、1群の νΣf/Σa はセルの k∞ に一致する
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        let one = homogenize(&solution, &refs, &fine, &[1.0e7, 1.0e-5]).unwrap();
+        let one = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            &[1.0e7, 1.0e-5],
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
         assert_eq!(one.groups(), 1);
         let k = one.nu_fission[0] / one.absorption[0];
         assert!(
@@ -224,7 +265,14 @@ mod tests {
     fn two_group_constants_reproduce_k_inf() {
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        let fg = homogenize(&solution, &refs, &fine, fine.bounds()).unwrap();
+        let fg = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
         // 均質な2群の無限媒質の k = νΣfᵀ (diag Σt - Σsᵀ)⁻¹ χ（χ = (1, 0)）
         let a = [
             [fg.total[0] - fg.scatter[0][0], -fg.scatter[1][0]],
@@ -244,7 +292,25 @@ mod tests {
     fn coarse_bounds_must_be_fine_bounds() {
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        assert!(homogenize(&solution, &refs, &fine, &[1.0e7, 1.0, 1.0e-5]).is_err());
-        assert!(homogenize(&solution, &refs, &fine, &[1.0e7, 0.625]).is_err());
+        assert!(
+            homogenize(
+                &solution,
+                &refs,
+                &fine,
+                &[1.0e7, 1.0, 1.0e-5],
+                &Boundaries::REFLECTIVE
+            )
+            .is_err()
+        );
+        assert!(
+            homogenize(
+                &solution,
+                &refs,
+                &fine,
+                &[1.0e7, 0.625],
+                &Boundaries::REFLECTIVE
+            )
+            .is_err()
+        );
     }
 }

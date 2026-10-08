@@ -171,7 +171,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let groups = groups
             .as_ref()
             .ok_or_else(|| anyhow!("few-group output needs a library"))?;
-        let few = homogenize(&solution, &materials, groups, bounds)?;
+        let few = homogenize(&solution, &materials, groups, bounds, &tracking.boundaries)?;
         let output = base.join(output);
         std::fs::write(&output, few.to_msgpack()?).with_context(|| shown(&output))?;
     }
