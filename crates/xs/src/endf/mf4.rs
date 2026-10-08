@@ -56,10 +56,11 @@ impl Mf4 {
         let mut r = section.reader();
         let head = r.cont()?;
         let ltt = head.l2;
-        if head.n2 != 0 {
+        // LVT = 1 なら、Legendre 係数の変換行列の LIST が続く（ENDF/B-VIII.0 では使われていない）
+        if head.l1 != 0 {
             return Err(Error::new(
                 r.line(),
-                "MF4 transformation matrices (NM > 0) are not supported",
+                "MF4 transformation matrices (LVT = 1) are not supported",
             ));
         }
         let cont = r.cont()?;
@@ -72,10 +73,21 @@ impl Mf4 {
             (0, 1) => Angular::Isotropic,
             (1, 0) => Angular::Legendre(legendre_table(&mut r)?),
             (2, 0) => Angular::Tabulated(angle_tables(&mut r)?),
-            (3, 0) => Angular::Mixed {
-                legendre: legendre_table(&mut r)?,
-                tabulated: angle_tables(&mut r)?,
-            },
+            (3, 0) => {
+                let legendre = legendre_table(&mut r)?;
+                let tabulated = angle_tables(&mut r)?;
+                // 表の部分は Legendre の部分の最後のエネルギーから始まる
+                if legendre.energies.last() != tabulated.energies.first() {
+                    return Err(Error::new(
+                        r.line(),
+                        "the tabulated part must start where the Legendre part ends",
+                    ));
+                }
+                Angular::Mixed {
+                    legendre,
+                    tabulated,
+                }
+            }
             (ltt, li) => {
                 return Err(Error::new(
                     r.line(),
@@ -174,7 +186,8 @@ impl Distribution<'_> {
         }
     }
 
-    /// Legendre 係数 a_0..a_order（a_0 = 1）。表の分布は、補間した密度を両方の表の μ の点で区切って積分する
+    /// Legendre 係数 a_0..a_order（a_0 = 1）。表の分布は、補間した密度を両方の表の μ の点で区切って積分し、
+    /// ∫ f dμ で規格化する（評価済みデータの表は丸めで規格化がわずかにずれる）
     pub fn moments(&self, order: usize) -> Vec<f64> {
         let mut a = vec![0.0; order + 1];
         a[0] = 1.0;
@@ -185,10 +198,9 @@ impl Distribution<'_> {
                     *a = *c;
                 }
             }
-            Self::Tabulated { lower, upper, .. } => {
-                let mut cuts: Vec<f64> = lower.1.x.iter().chain(&upper.1.x).copied().collect();
-                cuts.sort_by(f64::total_cmp);
-                cuts.dedup();
+            Self::Tabulated { .. } => {
+                let cuts = self.kinks();
+                let mut norm = 0.0;
                 // 対数の補間則では密度が多項式でないので、区間をさらに分ける
                 for w in cuts.windows(2) {
                     let width = (w[1] - w[0]) / TABLE_PIECES as f64;
@@ -198,24 +210,53 @@ impl Distribution<'_> {
                         for &(node, weight) in &GAUSS_LEGENDRE_8 {
                             let mu = mid + half * node;
                             let f = self.density(mu);
+                            norm += weight * half * f;
                             for (a, p) in a[1..].iter_mut().zip(&legendre(mu, order)[1..]) {
                                 *a += weight * half * f * p;
                             }
                         }
                     }
                 }
+                if norm > 0.0 {
+                    for v in &mut a[1..] {
+                        *v /= norm;
+                    }
+                }
             }
         }
         a
+    }
+
+    /// 密度が折れ曲がる μ（表の分布の両方の表の点。昇順）。それ以外の分布では μ = −1, 1 だけ
+    pub fn kinks(&self) -> Vec<f64> {
+        let Self::Tabulated { lower, upper, .. } = self else {
+            return vec![-1.0, 1.0];
+        };
+        let mut cuts: Vec<f64> = lower.1.x.iter().chain(&upper.1.x).copied().collect();
+        cuts.sort_by(f64::total_cmp);
+        cuts.dedup();
+        cuts
+    }
+
+    /// Legendre 係数の分布の次数（それ以外は 0）
+    pub fn order(&self) -> usize {
+        match self {
+            Self::Legendre(a) => a.len(),
+            _ => 0,
+        }
     }
 }
 
 /// 表の分布のモーメントで、表の点の間をさらに等分する数
 const TABLE_PIECES: usize = 4;
 
-/// 表の μ での値（表は [−1, 1] を覆うことを読むときに確かめてある）
+/// 表の μ での値（表は [−1, 1] を覆うことを読むときに確かめてある。点が2つ未満の表は 0）
 fn table_value(t: &Tab1, mu: f64) -> f64 {
-    let k = t.x.partition_point(|&x| x <= mu).clamp(1, t.x.len() - 1);
+    let n = t.x.len().min(t.y.len());
+    if n < 2 {
+        return 0.0;
+    }
+    let k = t.x.partition_point(|&x| x <= mu).max(1).min(n - 1);
     t.law_of_interval(k - 1)
         .interpolate(mu, (t.x[k - 1], t.y[k - 1]), (t.x[k], t.y[k]))
 }

@@ -8,7 +8,7 @@ use crate::endf::{
 use crate::multigroup::{
     Emission, FreeGas, ReactionAverages, Reactions, SabError, ScatterError, ShieldingError,
     SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
-    fission_spectrum, scattering_moments, shielded_averages,
+    fission_spectrum, scattering_moments, shielded_averages, uses_angular,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
@@ -386,8 +386,7 @@ pub fn process_nuclide(
     // 角度分布（MF4）: 弾性散乱、離散準位（2体反応）と、MF5 で与えられた連続的な放出の分
     let mut angular = BTreeMap::new();
     for (mt, section) in tape.sections(mat, 4) {
-        let continuum = matches!(emissions.get(&mt), Some(Emission::Mf5(_)));
-        if mt == 2 || (51..=90).contains(&mt) || continuum {
+        if uses_angular(mt, emissions.get(&mt)) {
             angular.insert(mt, Mf4::parse(&section)?);
         }
     }
