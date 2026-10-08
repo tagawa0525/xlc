@@ -139,6 +139,10 @@ pub fn scattering_moments(
         if (mt == 2 || (51..=90).contains(&mt)) && mf4.frame != Frame::CenterOfMass {
             return Err(ScatterError::LabTwoBody(mt));
         }
+        // MF5 の放出は出射エネルギーと角度を独立に掛けるので、角度分布は実験室系で使う
+        if matches!(emissions.get(&mt), Some(Emission::Mf5(_))) && mf4.frame != Frame::Laboratory {
+            return Err(ScatterError::CenterOfMassContinuum(mt));
+        }
     }
     if let Some(Thermal::FreeGas(free_gas)) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
@@ -174,7 +178,7 @@ pub fn scattering_moments(
             return Err(ScatterError::TwoBody(mt));
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
             let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
-            spectrum_moments(groups, weight, table, data, count, angular.get(&mt), order)?
+            spectrum_moments(groups, weight, table, data, count, angular.get(&mt), order)
         } else if (51..=90).contains(&mt) {
             let q = *q_values.get(&mt).ok_or(ScatterError::QValue(mt))?;
             two_body_rows(groups, weight, awr, q, table, angular.get(&mt), order)
@@ -266,6 +270,7 @@ fn elastic_rows(
     };
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, 0.0));
+    breakpoints.extend(angular.map(Mf4::energies).unwrap_or_default());
     breakpoints.push(cutoff);
     let add = |out: &mut [f64], moments: Vec<Vec<f64>>, scale: f64| {
         for (l, row) in moments.into_iter().enumerate() {
@@ -309,6 +314,7 @@ fn two_body_rows(
     let ng = groups.len();
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, q));
+    breakpoints.extend(angular.map(Mf4::energies).unwrap_or_default());
     let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
         let sigma = table.eval(e).unwrap_or(0.0);
         if sigma == 0.0 {
@@ -343,12 +349,16 @@ fn two_body_moments(
     order: usize,
     angular: Option<&Mf4>,
 ) -> Vec<Vec<f64>> {
-    let angular = angular.filter(|a| a.angular != Angular::Isotropic);
+    // 入射エネルギーごとに一度だけ分布を求める
+    let angular = angular
+        .filter(|a| a.angular != Angular::Isotropic)
+        .map(|a| a.at(e));
     let ng = groups.len();
     let mut out = vec![vec![0.0; ng]; order + 1];
     let Some((lo, hi)) = two_body_range(e, awr, q) else {
         return out;
     };
+    let first = usize::from(angular.is_none());
     if angular.is_none() {
         uniform_fractions(groups, lo, hi, scale, &mut out[0]);
         if order == 0 {
@@ -362,9 +372,10 @@ fn two_body_moments(
             .unwrap_or(if x > bounds[0] { 0 } else { ng - 1 })
     };
     if hi <= lo {
-        // しきい値ちょうど: 中性子は重心とともに前へ進む（μ = 1、P_l = 1）
+        // しきい値ちょうど: 中性子は重心とともに前へ進む（μ = 1、P_l = 1）。角度分布があるときは
+        // P0 もここで入れる（一様な振り分けをしていないため）
         let g = group(lo);
-        for row in out.iter_mut().skip(1) {
+        for row in out.iter_mut().skip(first) {
             row[g] += scale;
         }
         return out;
@@ -381,7 +392,6 @@ fn two_body_moments(
     cuts.sort_by(f64::total_cmp);
     // 角度分布は μ_c の高次の多項式や折れ線になりうるので、範囲を細かく分ける
     let pieces = if angular.is_some() { ANGULAR_PIECES } else { 1 };
-    let first = usize::from(angular.is_none());
     for w in cuts.windows(2) {
         let g = group(0.5 * (w[0] + w[1]));
         let (sa, sb) = (speed(w[0]), speed(w[1]));
@@ -392,9 +402,9 @@ fn two_body_moments(
             for &(x, weight) in &GAUSS_LEGENDRE_8 {
                 let s = start + half * (x + 1.0);
                 let mu = (s * s + c) / (2.0 * s);
-                let density = angular.map_or(0.5, |a| {
+                let density = angular.as_ref().map_or(0.5, |a| {
                     let mu_c = ((s * s - 1.0 - ab * ab) / (2.0 * ab)).clamp(-1.0, 1.0);
-                    a.density(e, mu_c)
+                    a.density(mu_c)
                 });
                 let factor = scale * weight * half * s / ab * density;
                 for (l, p) in legendre(mu, order).into_iter().enumerate().skip(first) {
@@ -491,8 +501,9 @@ fn emission_rows(
     rows
 }
 
-/// MF5 の出射エネルギー分布と、実験室系の角度分布（MF4。エネルギーと独立）による
-/// ∫_g count σ(E) w(E) a_l(E) Σ_k p_k(E) P_k(E→g') dE（[l][g][g']）。角度分布がなければ P1 以上は 0。
+/// MF5 の出射エネルギー分布と多重度 `count`、実験室系の角度分布（MF4。エネルギーと独立）による
+/// ∫_g count σ(E) w(E) a_l(E) Σ_k p_k(E) P_k(E→g') dE（[l][g][g']）。MF5 の分布は実験室系。
+/// 角度分布がなければ P1 以上は 0。
 fn spectrum_moments(
     groups: &GroupStructure,
     weight: &Weight,
@@ -501,14 +512,9 @@ fn spectrum_moments(
     count: f64,
     angular: Option<&Mf4>,
     order: usize,
-) -> Result<Vec<Vec<Vec<f64>>>, ScatterError> {
-    let Some(mf4) = angular.filter(|a| a.angular != Angular::Isotropic && order > 0) else {
-        return Ok(isotropic(
-            spectrum_rows(groups, weight, table, data, count),
-            order,
-        ));
-    };
+) -> Vec<Vec<Vec<f64>>> {
     let ng = groups.len();
+    let angular = angular.filter(|a| a.angular != Angular::Isotropic && order > 0);
     let parts: Vec<(&Tab1, GroupedLaw)> = data
         .subsections
         .iter()
@@ -519,58 +525,29 @@ fn spectrum_moments(
         breakpoints.extend(&p.x);
         breakpoints.extend(grouped.breakpoints());
     }
+    breakpoints.extend(angular.map(Mf4::energies).unwrap_or_default());
     let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
         let source = count * table.eval(e).unwrap_or(0.0);
         if source == 0.0 {
             return;
         }
-        let mut p0 = vec![0.0; ng];
+        let (p0, higher) = out.split_at_mut(ng);
         for (p, grouped) in &parts {
             let pk = p.eval(e).unwrap_or(0.0);
             if pk != 0.0 {
-                grouped.accumulate(e, source * pk, &mut p0);
+                grouped.accumulate(e, source * pk, p0);
             }
         }
-        for (l, a) in mf4.moments(e, order).into_iter().enumerate() {
-            for (o, v) in out[l * ng..(l + 1) * ng].iter_mut().zip(&p0) {
-                *o += a * v;
+        if let Some(mf4) = angular {
+            let a = mf4.moments(e, order);
+            for (l, row) in higher.chunks_exact_mut(ng).enumerate() {
+                for (o, v) in row.iter_mut().zip(p0.iter()) {
+                    *o += a[l + 1] * v;
+                }
             }
         }
     });
-    Ok(by_order(rows, ng, order))
-}
-
-/// MF5 の出射エネルギー分布と多重度 `count` による ∫_g count σ(E) w(E) Σ_k p_k(E) P_k(E→g') dE。
-/// MF5 の分布は実験室系。
-fn spectrum_rows(
-    groups: &GroupStructure,
-    weight: &Weight,
-    table: &Tab1,
-    data: &Mf5,
-    count: f64,
-) -> Vec<Vec<f64>> {
-    let parts: Vec<(&Tab1, GroupedLaw)> = data
-        .subsections
-        .iter()
-        .map(|(p, law)| (p, GroupedLaw::new(groups, law)))
-        .collect();
-    let mut breakpoints = table.x.clone();
-    for (p, grouped) in &parts {
-        breakpoints.extend(&p.x);
-        breakpoints.extend(grouped.breakpoints());
-    }
-    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
-        let source = count * table.eval(e).unwrap_or(0.0);
-        if source == 0.0 {
-            return;
-        }
-        for (p, grouped) in &parts {
-            let pk = p.eval(e).unwrap_or(0.0);
-            if pk != 0.0 {
-                grouped.accumulate(e, source * pk, out);
-            }
-        }
-    })
+    by_order(rows, ng, order)
 }
 
 #[cfg(test)]
