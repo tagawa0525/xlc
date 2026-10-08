@@ -80,6 +80,8 @@ pub enum ScatterError {
     TwoBody(u32),
     #[error("MT{0}: two-body angular distributions must be in the centre-of-mass frame")]
     LabTwoBody(u32),
+    #[error("MT{0}: angular distributions of MF5 emissions must be in the laboratory frame")]
+    CenterOfMassContinuum(u32),
 }
 
 /// 散乱行列を作る反応のデータ（どれもキーは MT）。
@@ -637,6 +639,17 @@ mod tests {
         for (a, b) in plain.iter().flatten().zip(with.iter().flatten()) {
             assert!((a - b).abs() < 1e-12, "{plain:?} vs {with:?}");
         }
+    }
+
+    #[test]
+    fn threshold_with_angles_keeps_the_particles() {
+        // しきい値ちょうどでは出射エネルギーの幅が 0。角度分布があっても P0 の和は scale
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let (awr, q) = (10.0_f64, -1.0e6_f64);
+        let threshold = -q * (awr + 1.0) / awr;
+        let m = two_body_moments(&groups, threshold, awr, q, 2.0, 1, Some(&linear_cm(0.2)));
+        let total = sums(&m);
+        assert!((total[0] - 2.0).abs() < 1e-12, "{m:?}");
     }
 
     #[test]
@@ -1233,6 +1246,27 @@ mod tests {
         );
         let sum = |m: &Vec<Vec<f64>>| m[g].iter().sum::<f64>();
         assert!((sum(&forward) - sum(&isotropic)).abs() < 1e-12 * sum(&isotropic));
+    }
+
+    #[test]
+    fn center_of_mass_continuum_angles_are_error() {
+        // MF5 の放出の角度分布は実験室系で使う（重心系の分布を黙って実験室系として使わない）
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(16, constant(0.5))]);
+        let emissions = BTreeMap::from([(16, Emission::Mf5(evaporation()))]);
+        let angular = BTreeMap::from([(16, linear_cm(0.3))]);
+        let reactions = Reactions {
+            tables: &tables,
+            q_values: &BTreeMap::new(),
+            emissions: &emissions,
+            angular: &angular,
+        };
+        let err =
+            scattering_moments(&groups, &Weight::lwr(), 15.86, &reactions, None, 1).unwrap_err();
+        assert!(
+            matches!(err, ScatterError::CenterOfMassContinuum(16)),
+            "{err}"
+        );
     }
 
     #[test]
