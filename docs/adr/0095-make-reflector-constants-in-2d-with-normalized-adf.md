@@ -71,7 +71,7 @@ issues: []
   隙間 0.19 cm、厚さ 2.85 cm、SS304）のとおり階段に沿って置く
 - 燃料側の外周の辺と、反射体の横の辺は鏡面反射、反射体の外側の辺は真空（入射 0）とする。core でも反射体のノードの
   外側を入射の部分中性子流が 0 の境界とし、格子計算と炉心計算の境界をそろえる。core の NEM にはこの境界がまだなく
-  （いまは正味の流れ 0 と中性子束 0 だけ）、加える必要がある（[ADR-0094](0094-define-adf-by-one-node-nem.md)）。反射体のノードより外の水とバレルは入れない（[ADR-0078](0078-put-baffle-in-reflector.md)。比べ方の偏りは #0016）
+  （いまは正味の流れ 0 と中性子束 0 だけ）、加える必要がある（[ADR-0094](0094-define-adf-by-one-node-nem.md)。[ADR-0099](0099-couple-core-nodes-by-get-with-vacuum-boundary.md) で加えた）。反射体のノードより外の水とバレルは入れない（[ADR-0078](0078-put-baffle-in-reflector.md)。比べ方の偏りは #0016）
 - 反射体のノードは、ギャップ、バッフル、水をまとめて中性子束と体積で重みづけして均質化する。拡散係数は、いまは燃料と
   同じ D = 1/(3Σt)（[ADR-0044](0044-collapse-to-two-groups.md)）とし、見直しは [ADR-0098](0098-derive-diffusion-coefficients-from-b1-and-currents.md)（非反射の格子の作り方）に従う
 - 反射体の ADF は、[ADR-0094](0094-define-adf-by-one-node-nem.md) の方法で燃料のノードと反射体のノードの両方について求め、燃料と接する面ごとに f*= f_反射体 /
