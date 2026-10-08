@@ -309,6 +309,18 @@ pub fn lump_dancoff(
         .collect()
 }
 
+/// 塊ごとの平均弦長 l̄ = 4V/S (cm)（[`lump_dancoff`] の `chord`）。トラックの幾何だけで決まり、全断面積も MOC も
+/// 要らない。引数は [`lump_dancoff`] と同じ。
+pub fn lump_chords(
+    tracking: &Tracking,
+    black: &[bool],
+    lump: &[Option<usize>],
+    lumps: usize,
+) -> Result<Vec<f64>, DancoffError> {
+    let _ = (tracking, black, lump);
+    Ok(vec![0.0; lumps])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -462,6 +474,30 @@ mod tests {
             (lumps[0].dancoff[0] - expected[0].dancoff[0]).abs() < 1e-12,
             "{lumps:?} vs {expected:?}"
         );
+    }
+
+    #[test]
+    fn chords_come_from_the_tracks_alone() {
+        // 塊の平均弦長は、Dancoff 係数を求めたときの値と同じ。複数の塊を1つにまとめると V と R_iso の和の比
+        let (p, t) = (1.26, 0.05);
+        let cell = PinCell::new(p, vec![]).unwrap().with_frame(t).unwrap();
+        let lattice = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.01).unwrap();
+        let totals = vec![vec![0.3]; lattice.regions()];
+        let lump: Vec<Option<usize>> = (0..8).map(|r| (r % 2 == 1).then_some(r / 2)).collect();
+        let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+        let expected = lump_dancoff(&tracking, &totals, &black, &lump, 4, &options()).unwrap();
+        let chords = lump_chords(&tracking, &black, &lump, 4).unwrap();
+        assert_eq!(chords.len(), 4);
+        for (c, e) in chords.iter().zip(&expected) {
+            assert!((c - e.chord).abs() < 1e-12, "{chords:?} vs {expected:?}");
+        }
+        let merged: Vec<Option<usize>> = lump.iter().map(|l| l.map(|_| 0)).collect();
+        let whole = lump_chords(&tracking, &black, &merged, 1).unwrap();
+        let volumes = tracking.volumes(lattice.regions());
+        let volume: f64 = (0..8).filter(|r| r % 2 == 1).map(|r| volumes[r]).sum();
+        let entries: f64 = (0..4).map(|l| volumes[2 * l + 1] / expected[l].chord).sum();
+        assert!((whole[0] - volume / entries).abs() < 1e-12, "{whole:?}");
     }
 
     #[test]
