@@ -8,7 +8,8 @@
 //! NJOY は核分裂スペクトルを、θ や分布の表の2点目の入射エネルギー（econst）まで一定とみなす。
 //! 解析式（LF=7）の U-236 では econst が 15 MeV になり、1e-5 eV の θ のスペクトルを全入射エネルギーに
 //! 使うので、θ(E) の変化を積分するこちらの χ とずれる（高エネルギーの群で十数 %）。
-//! GENDF の MF6（MT18 以外）は、散乱行列を行ごとに比べる（行の差の絶対値の和 / 行の和）。
+//! GENDF の MF6（MT18 以外）は、散乱行列を Legendre の次数ごと・行ごとに比べる（行の差の絶対値の和 / P0 の行の和）。
+//! 次数は GENDF にある分（GROUPR の lord）まで。
 //! ENDF に MF6 がなく MF5 がある反応は、MF5 の出射エネルギー分布を使う。
 //! 散乱行列はどちらも MF4 の角度分布を使う。環境変数 XLC_ROWS を設定すると、全群の値を表示する。
 
@@ -17,7 +18,7 @@ use std::collections::BTreeMap;
 use xlc_format::group::GroupStructure;
 use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, parse_nubar};
 use xlc_xs::multigroup::{
-    Emission, Reactions, Weight, fission_spectrum, reaction_averages, scattering_matrix,
+    Emission, Reactions, Weight, fission_spectrum, reaction_averages, scattering_moments,
 };
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
@@ -151,7 +152,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             angular.insert(mt, Mf4::parse(&section)?);
         }
         let single = BTreeMap::from([(mt, table.clone())]);
-        let ours = match scattering_matrix(
+        let njoy = read_gendf_matrix(&gendf, ng)?;
+        let order = njoy.len() - 1;
+        let ours = match scattering_moments(
             &groups,
             &Weight::lwr(),
             awr,
@@ -162,6 +165,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 angular: &angular,
             },
             None,
+            order,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -169,48 +173,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
         };
-        let njoy = read_gendf_matrix(&gendf, ng)?;
-        let mut worst = (0.0_f64, 0);
-        for g in 0..ng {
-            // どちらか一方にだけ散乱がある群も差として数える
-            let sum = njoy[g].iter().sum::<f64>().max(ours[g].iter().sum());
-            if sum <= 0.0 {
-                continue;
+        // P_l の行列は、行の差の絶対値の和を P0 の行の和で割る
+        let p0_sums: Vec<f64> = ours[0].iter().map(|row| row.iter().sum()).collect();
+        for (l, (ours, njoy_l)) in ours.iter().zip(&njoy).enumerate() {
+            let mut worst = (0.0_f64, 0);
+            for g in 0..ng {
+                // どちらか一方にだけ散乱がある群も差として数える
+                let sum = njoy[0][g].iter().sum::<f64>().max(p0_sums[g]);
+                if sum <= 0.0 {
+                    continue;
+                }
+                let diff: f64 = ours[g]
+                    .iter()
+                    .zip(&njoy_l[g])
+                    .map(|(a, b)| (a - b).abs())
+                    .sum();
+                if diff / sum > worst.0 {
+                    worst = (diff / sum, g);
+                }
+                if std::env::var("XLC_ROWS").is_ok() {
+                    println!("  MT{mt} P{l} group {g:2}: {:.2e}", diff / sum);
+                }
             }
-            let diff: f64 = ours[g]
-                .iter()
-                .zip(&njoy[g])
-                .map(|(a, b)| (a - b).abs())
-                .sum();
-            if diff / sum > worst.0 {
-                worst = (diff / sum, g);
-            }
-            if std::env::var("XLC_ROWS").is_ok() {
-                println!("  MT{mt} group {g:2}: {:.2e}", diff / sum);
-            }
+            let g = worst.1;
+            println!(
+                "MF6 MT{mt} P{l}: max row |diff| / P0 row sum {:.2e} in group {g} (row sum ours {:.6e}, njoy {:.6e}; self ours {:.6e}, njoy {:.6e})",
+                worst.0,
+                ours[g].iter().sum::<f64>(),
+                njoy_l[g].iter().sum::<f64>(),
+                ours[g][g],
+                njoy_l[g][g]
+            );
         }
-        let g = worst.1;
-        println!(
-            "MF6 MT{mt}: max row |diff| / row sum {:.2e} in group {g} (row sum ours {:.6e}, njoy {:.6e}; self ours {:.6e}, njoy {:.6e})",
-            worst.0,
-            ours[g].iter().sum::<f64>(),
-            njoy[g].iter().sum::<f64>(),
-            ours[g][g],
-            njoy[g][g]
-        );
     }
     Ok(())
 }
 
-/// GENDF の MF6 の行列（P0）を [入射の群][出射の群] で返す。
+/// GENDF の MF6 の行列を、Legendre の次数ごとに [l][入射の群][出射の群] で返す（最初の σ0）。
+/// 値は出射の群ごとに (NL, NZ) の順（NL が速い）に並ぶ。
 fn read_gendf_matrix(
     section: &xlc_xs::endf::Section<'_>,
     ng: usize,
-) -> Result<Vec<Vec<f64>>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Vec<Vec<f64>>>, Box<dyn std::error::Error>> {
     let mut r = section.reader();
     let head = r.cont()?;
     let (nl, nz) = (usize::try_from(head.l1)?, usize::try_from(head.l2)?);
-    let mut matrix = vec![vec![0.0; ng]; ng];
+    let mut matrix = vec![vec![vec![0.0; ng]; ng]; nl];
     while !r.at_end() {
         let list = r.list()?;
         let (ng2, ig2lo, ig) = (
@@ -222,7 +230,9 @@ fn read_gendf_matrix(
             continue;
         }
         for j in 0..ng2.saturating_sub(1) {
-            matrix[ng - ig][ng - (ig2lo + j)] = list.values[nl * nz * (j + 1)];
+            for (l, m) in matrix.iter_mut().enumerate() {
+                m[ng - ig][ng - (ig2lo + j)] = list.values[nl * nz * (j + 1) + l];
+            }
         }
     }
     Ok(matrix)
