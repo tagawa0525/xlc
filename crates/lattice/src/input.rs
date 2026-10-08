@@ -22,6 +22,7 @@
 //! zones = [{ material = "fuel", radius = 0.4096, rings = 3 }, { material = "void", radius = 0.418, rings = 1 },
 //!          { material = "water", rings = 2 }]   # void は真空（定義しない予約の名前）
 //! sectors = 8                     # 各リングを 45° ごとの扇形に分ける（1, 4, 8。省略すると 1）
+//! frame = { thickness = 0.0141, material = "zircaloy" }   # 外周の正方形の枠（支持格子。省略すると無し）
 //!
 //! [cell.box]
 //! zones = [{ material = "water", rings = 1 }]
@@ -83,6 +84,16 @@ pub struct CellInput {
     pub grid: usize,
     /// 各リングを分ける扇形の数（`sectors S`、書かなければ 1）
     pub sectors: usize,
+    /// 外周の正方形の枠（支持格子を体積を保って薄い枠にしたもの）
+    pub frame: Option<Frame>,
+}
+
+/// セルの外周の枠。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Frame {
+    /// 厚さ (cm)
+    pub thickness: f64,
+    pub material: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -208,6 +219,14 @@ struct CellEntry {
     grid: Option<usize>,
     /// 省略すると 1
     sectors: Option<usize>,
+    frame: Option<FrameEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FrameEntry {
+    thickness: f64,
+    material: String,
 }
 
 #[derive(Deserialize)]
@@ -342,23 +361,31 @@ impl LatticeInput {
 
     /// 形状と、領域ごとの物質の名前。
     pub fn geometry(&self) -> Result<(Lattice, Vec<String>), InputError> {
-        let half = 0.5 * self.pitch;
         let mut types = Vec::with_capacity(self.cells.len());
         let mut region_materials = Vec::with_capacity(self.cells.len());
         for cell in &self.cells {
+            // 最後の帯を等間隔に分ける内接円（枠があれば枠の内側の正方形の内接円）の半径
+            let half = 0.5 * self.pitch - cell.frame.as_ref().map_or(0.0, |f| f.thickness);
+            let materials = cell
+                .zones
+                .iter()
+                .map(|z| &z.material)
+                .chain(cell.frame.as_ref().map(|f| &f.material));
             let mut radii = Vec::new();
             let mut names = Vec::new();
             let mut inner = 0.0_f64;
-            for zone in &cell.zones {
+            for material in materials {
                 if let CrossSections::Library(_) = self.cross_sections
-                    && zone.material != VOID
-                    && !self.materials.iter().any(|m| m.name == zone.material)
+                    && material != VOID
+                    && !self.materials.iter().any(|m| &m.name == material)
                 {
                     return Err(InputError::UndefinedMaterial {
                         cell: cell.name.clone(),
-                        material: zone.material.clone(),
+                        material: material.clone(),
                     });
                 }
+            }
+            for zone in &cell.zones {
                 let n = zone.rings as f64;
                 match zone.outer {
                     // 等体積に分ける
@@ -390,7 +417,14 @@ impl LatticeInput {
                     .into_iter()
                     .flat_map(|n| std::iter::repeat_n(n, cell.sectors))
                     .collect();
-                PinCell::with_sectors(self.pitch, radii, cell.sectors)
+                let pin = PinCell::with_sectors(self.pitch, radii, cell.sectors);
+                match &cell.frame {
+                    Some(frame) => {
+                        names.push(frame.material.clone());
+                        pin.and_then(|p| p.with_frame(frame.thickness))
+                    }
+                    None => pin,
+                }
             }
             .map_err(|source| InputError::Cell {
                 cell: cell.name.clone(),
@@ -503,6 +537,9 @@ impl CellEntry {
             }
             (None, s) => (1, s.unwrap_or(1)),
         };
+        if self.frame.is_some() && grid > 1 {
+            return error("`frame` needs a cell with rings, not `grid`");
+        }
         Ok(CellInput {
             name,
             zones: self
@@ -516,6 +553,10 @@ impl CellEntry {
                 .collect(),
             grid,
             sectors,
+            frame: self.frame.map(|f| Frame {
+                thickness: f.thickness,
+                material: f.material,
+            }),
         })
     }
 }
