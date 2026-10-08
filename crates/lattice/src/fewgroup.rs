@@ -195,8 +195,134 @@ pub fn diffusion_coefficients(
     boundaries: &Boundaries,
 ) -> Result<Vec<f64>, HomogenizeError> {
     check_regions(solution, materials)?;
-    let _ = (fine, boundaries);
-    Ok(vec![0.0; coarse_bounds.len() - 1])
+    let group_of = coarse_groups(fine, coarse_bounds)?;
+    if let Some(region) = materials
+        .iter()
+        .position(|m| !m.is_void() && m.anisotropic.is_empty())
+    {
+        return Err(HomogenizeError::NoP1 { region });
+    }
+    let coarse = coarse_bounds.len() - 1;
+    if reflective(boundaries) {
+        b1_diffusion(solution, materials, &group_of, coarse)
+    } else {
+        outflow_diffusion(solution, materials, &group_of, coarse)
+    }
+}
+
+fn b1_diffusion(
+    solution: &Solution,
+    materials: &[&Material],
+    group_of: &[usize],
+    coarse: usize,
+) -> Result<Vec<f64>, HomogenizeError> {
+    let ng = group_of.len();
+    let mut flux = vec![0.0; ng];
+    let mut medium = Medium {
+        total: vec![0.0; ng],
+        scatter: vec![vec![0.0; ng]; ng],
+        scatter1: vec![vec![0.0; ng]; ng],
+        nu_fission: vec![0.0; ng],
+        chi: vec![0.0; ng],
+    };
+    for ((m, phi), volume) in materials.iter().zip(&solution.flux).zip(&solution.volumes) {
+        for g in 0..ng {
+            let w = volume * phi[g];
+            flux[g] += w;
+            medium.total[g] += w * m.total[g];
+            medium.nu_fission[g] += w * m.nu_fission[g];
+            for (to, s) in m.scatter[g].iter().enumerate() {
+                medium.scatter[g][to] += w * s;
+            }
+            // 真空（P1 のモーメントを持たない）は散乱しない
+            if let Some(p1) = m.anisotropic.first() {
+                for (to, s) in p1[g].iter().enumerate() {
+                    medium.scatter1[g][to] += w * s;
+                }
+            }
+        }
+        for term in &m.fission_terms {
+            let rate: f64 = term
+                .nu_fission
+                .iter()
+                .zip(phi)
+                .map(|(n, f)| volume * n * f)
+                .sum();
+            for (c, chi) in term.chi.iter().zip(medium.chi.iter_mut()) {
+                *chi += c * rate;
+            }
+        }
+    }
+    if let Some(g) = flux.iter().position(|&f| f <= 0.0) {
+        return Err(HomogenizeError::NoFineFlux(g));
+    }
+    for (g, f) in flux.iter().enumerate() {
+        medium.total[g] /= f;
+        medium.nu_fission[g] /= f;
+        for v in medium.scatter[g]
+            .iter_mut()
+            .chain(medium.scatter1[g].iter_mut())
+        {
+            *v /= f;
+        }
+    }
+    let produced: f64 = medium.chi.iter().sum();
+    if produced <= 0.0 {
+        return Err(B1Error::NoFission.into());
+    }
+    for c in &mut medium.chi {
+        *c /= produced;
+    }
+    let mode = medium.critical()?;
+    tracing::info!(buckling = mode.buckling, "B1 critical spectrum");
+    let mut current = vec![0.0; coarse];
+    let mut weight = vec![0.0; coarse];
+    for g in 0..ng {
+        current[group_of[g]] += mode.current[g];
+        weight[group_of[g]] += mode.flux[g];
+    }
+    if weight.iter().any(|&f| f <= 0.0) {
+        return Err(HomogenizeError::NoFlux);
+    }
+    Ok(current.iter().zip(&weight).map(|(j, f)| j / f).collect())
+}
+
+fn outflow_diffusion(
+    solution: &Solution,
+    materials: &[&Material],
+    group_of: &[usize],
+    coarse: usize,
+) -> Result<Vec<f64>, HomogenizeError> {
+    let mut sum = vec![0.0; coarse];
+    let mut weight = vec![0.0; coarse];
+    for (region, ((m, phi), volume)) in materials
+        .iter()
+        .zip(&solution.flux)
+        .zip(&solution.volumes)
+        .enumerate()
+    {
+        for (g, &big) in group_of.iter().enumerate() {
+            let w = volume * phi[g];
+            if w == 0.0 {
+                continue;
+            }
+            let out: f64 = m.anisotropic.first().map_or(0.0, |p1| p1[g].iter().sum());
+            let transport = m.total[g] - out;
+            if transport <= 0.0 || transport.is_nan() {
+                return Err(HomogenizeError::Transport {
+                    region,
+                    group: g,
+                    transport,
+                });
+            }
+            sum[big] += w / (3.0 * transport);
+            weight[big] += w;
+        }
+    }
+    if weight.iter().any(|&f| f <= 0.0) {
+        return Err(HomogenizeError::NoFlux);
+    }
+    Ok(sum.iter().zip(&weight).map(|(d, f)| d / f).collect())
 }
 
 #[cfg(test)]
