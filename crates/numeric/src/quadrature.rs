@@ -114,6 +114,11 @@ mod tests {
     }
 
     #[test]
+    fn zero_points_is_an_error() {
+        assert!(gauss_legendre(0).is_err());
+    }
+
+    #[test]
     fn nodes_integrate_polynomials_exactly() {
         // n 点は 2n − 1 次までの多項式を正確に積分する
         for n in [1, 3, 7, 20] {
