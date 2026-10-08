@@ -270,7 +270,7 @@ impl Library {
         })
     }
 
-    /// 核種 `name` の、温度 `temperature` (K) での無限希釈の群定数。温度は表の値と完全に一致すること（補間しない）。
+    /// 核種 `name` の、温度 `temperature` (K) での無限希釈の群定数。温度の扱いは [`Library::lookup`] と同じ。
     pub fn nuclide(&self, name: &str, temperature: f64) -> Result<Nuclide, LookupError> {
         let (data, t) = self.lookup(name, temperature)?;
         let dilute = &t.shielded[0];
@@ -317,6 +317,17 @@ impl Library {
         if !data.thermal_scattering {
             return Err(missing());
         }
+        let refuse = |reason: String| LookupError::Interpolation {
+            name: name.into(),
+            temperature,
+            reason,
+        };
+        // 共鳴の遮蔽とドップラー拡がりは温度で線形にならないので、内挿するのは共鳴のない核種だけ
+        if data.resolved.is_some() {
+            return Err(refuse(
+                "nuclides with resolved resonances need their exact temperature".into(),
+            ));
+        }
         // 表の温度のうち、温度を挟む最も近い2つ
         let below = data
             .temperatures
@@ -331,12 +342,7 @@ impl Library {
         let (Some(low), Some(high)) = (below, above) else {
             return Err(missing());
         };
-        let table =
-            interpolate(low, high, temperature).map_err(|reason| LookupError::Interpolation {
-                name: name.into(),
-                temperature,
-                reason,
-            })?;
+        let table = interpolate(low, high, temperature).map_err(refuse)?;
         Ok((data, Cow::Owned(table)))
     }
 
@@ -396,7 +402,6 @@ impl Library {
     }
 }
 
-/// ポイントワイズの断面積の範囲が正の有限な値で、下限 < 上限であることを確かめる。
 /// 2つの温度の表 `low`, `high` から、温度 `temperature` の表を温度について線形に内挿して作る。
 /// ポイントワイズの断面積は両方のエネルギーの点を合わせた格子で、それぞれを lin-lin で評価してから内挿する
 /// （不連続点のあるポイントワイズの断面積は、左右の極限の対応があいまいになるので内挿しない）。
@@ -406,6 +411,13 @@ fn interpolate(
     temperature: f64,
 ) -> Result<TemperatureData, String> {
     let f = (temperature - low.temperature) / (high.temperature - low.temperature);
+    // 形のそろわない表を zip で黙って切り詰めない
+    let same = low.chi.len() == high.chi.len()
+        && low.scatter.len() == high.scatter.len()
+        && low.shielded.len() == high.shielded.len();
+    if !same {
+        return Err("the two temperatures have tables of different shapes".into());
+    }
     let mix = |a: &[f64], b: &[f64]| -> Vec<f64> {
         a.iter().zip(b).map(|(x, y)| x + f * (y - x)).collect()
     };
@@ -430,6 +442,10 @@ fn interpolate(
     let repeated = |e: &[f64]| e.windows(2).any(|w| w[0] == w[1]);
     if repeated(&p.energy) || repeated(&q.energy) {
         return Err("pointwise data have discontinuities".into());
+    }
+    // 両方のポイントワイズの断面積が同じ範囲を覆うこと（範囲の外を端の値で埋めない）
+    if p.energy.first() != q.energy.first() || p.energy.last() != q.energy.last() {
+        return Err("pointwise data cover different ranges".into());
     }
     let mut energy: Vec<f64> = p.energy.iter().chain(&q.energy).copied().collect();
     energy.sort_by(f64::total_cmp);
@@ -476,6 +492,7 @@ fn lin_lin(x: &[f64], y: &[f64], e: f64) -> f64 {
     y0 + (y1 - y0) * (e - x0) / (x1 - x0)
 }
 
+/// ポイントワイズの断面積の範囲が正の有限な値で、下限 < 上限であることを確かめる。
 fn check_range([low, high]: [f64; 2]) -> Result<(), String> {
     if low > 0.0 && high > low && high.is_finite() {
         Ok(())

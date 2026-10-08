@@ -13,10 +13,10 @@
 //! 群定数とする（範囲の上限はアクチニドの分離共鳴の上端で、その上の遮蔽は σ0 の表で扱う）。群の上端より上に
 //! 中性子はない。範囲の下限（熱中性子散乱の打ち切り）より下は計算しない。
 
+use std::borrow::Cow;
 use std::ops::Range;
 
 use rayon::prelude::*;
-use std::borrow::Cow;
 
 use xlc_format::library::{Library, LookupError, Pointwise, Shielded, TemperatureData};
 
