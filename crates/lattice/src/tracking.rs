@@ -315,7 +315,7 @@ impl Tracking {
 mod tests {
     use super::*;
 
-    use crate::geometry::PinCell;
+    use crate::geometry::{Cell, PinCell};
 
     fn cell() -> Lattice {
         Lattice::pin_cell(PinCell::new(1.26, vec![0.2, 0.3, 0.4096, 0.55]).unwrap())
@@ -434,6 +434,53 @@ mod tests {
             .count();
         assert_eq!(fed + empty, 2 * t.tracks.len());
         assert!(empty > 0);
+    }
+
+    /// ピン 2 本の右に、幅 0.5 と 1.5 の均質な列を足した 2 行 4 列の長方形の格子
+    fn rectangle() -> Lattice {
+        let pin = PinCell::new(1.26, vec![0.4]).unwrap();
+        Lattice::rectilinear(
+            vec![1.26, 1.26, 0.5, 1.5],
+            vec![1.26, 1.26],
+            vec![Cell::Pin(pin), Cell::BLOCK, Cell::Block { nx: 2, ny: 3 }],
+            vec![vec![0, 0, 1, 2], vec![0, 0, 1, 2]],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn rectangle_track_volumes_match_analytic() {
+        let lattice = rectangle();
+        let t = Tracking::new(&lattice, 16, 0.002).unwrap();
+        for (estimated, exact) in t.volumes(lattice.regions()).iter().zip(lattice.volumes()) {
+            assert!(
+                (estimated - exact).abs() < 1e-3 * exact,
+                "{estimated} vs {exact}"
+            );
+        }
+    }
+
+    #[test]
+    fn rectangle_tracks_close_by_reflection() {
+        let t = Tracking::new(&rectangle(), 8, 0.05).unwrap();
+        for first in [0, t.tracks.len() / 2] {
+            let start = Link {
+                track: first,
+                forward: true,
+            };
+            let mut link = start;
+            let closed = (1..=10 * t.tracks.len()).any(|_| {
+                let track = &t.tracks[link.track];
+                link = if link.forward {
+                    track.forward_link
+                } else {
+                    track.backward_link
+                }
+                .unwrap();
+                link == start
+            });
+            assert!(closed, "track {first}");
+        }
     }
 
     #[test]
