@@ -443,8 +443,11 @@ fn validate(node: &OneNode) -> Result<(), OneNodeError> {
 mod tests {
     use super::*;
 
+    /// 拡散係数、全断面積、散乱、νΣf、χ
+    type Constants = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>, Vec<f64>, Vec<f64>);
+
     /// 2群の定数（χ = (1, 0)、上方散乱あり）
-    fn constants() -> (Vec<f64>, Vec<f64>, Vec<Vec<f64>>, Vec<f64>, Vec<f64>) {
+    fn constants() -> Constants {
         (
             vec![1.4, 0.4],
             vec![0.24, 0.83],
