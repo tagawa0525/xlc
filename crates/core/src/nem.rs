@@ -4,6 +4,11 @@
 //! f1 = ξ, f2 = 3ξ² - 1/4, f3 = ξ³ - ξ/4, f4 = (ξ² - 1/20)(ξ² - 1/4)（ξ ∈ [-1/2, 1/2]）で解く。
 //! 3次・4次の係数は f1, f2 で重み付けした残差から、横方向の漏れは隣のノードを含む
 //! 2次式で近似する。ノード間は部分中性子流でつなぐ。
+//!
+//! 面では、一般化等価理論（GET。K. S. Smith, "Assembly homogenization techniques for light water
+//! reactor analysis", Prog. Nucl. Energy 17, 303 (1986)）の条件で、不連続因子（ADF）f をかけた
+//! 不均質な中性子束 f φ と正味の中性子流を連続にする。径方向の ADF は少数群定数の辺ごとの値で、
+//! 2次元の格子計算からは軸方向の ADF は出ない（軸方向に一様な格子では 1）ので、z の面では 1 とする。
 
 use xlc_format::fewgroup::FewGroup;
 
@@ -82,6 +87,11 @@ pub enum NemError {
 #[tracing::instrument(name = "nem", skip_all)]
 pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError> {
     let core = Core::new(problem).map_err(NemError::InvalidProblem)?;
+    iterate(&core, options).map(|(solution, _)| solution)
+}
+
+/// べき乗法の反復。収束した解と、そのときの部分中性子流などの状態を返す。
+fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError> {
     let ng = core.groups;
     let nodes = core.nodes();
     let mut state = State::new(nodes, ng);
@@ -140,12 +150,13 @@ pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError>
             {
                 return Err(NemError::NonFundamentalMode { node: n });
             }
-            return Ok(Solution {
+            let solution = Solution {
                 k,
                 leakage: core.leakage(&state),
-                flux: state.flux,
+                flux: state.flux.clone(),
                 iterations: iteration,
-            });
+            };
+            return Ok((solution, state));
         }
     }
     Err(NemError::NotConverged {
@@ -251,6 +262,15 @@ impl<'a> Core<'a> {
             if !all_finite {
                 return Err(format!("material {i}: cross sections must be finite"));
             }
+            let adf_valid = m.adf.len() == 4
+                && m.adf.iter().all(|side| {
+                    side.len() == groups && side.iter().all(|&f| f > 0.0 && f.is_finite())
+                });
+            if !adf_valid {
+                return Err(format!(
+                    "material {i}: discontinuity factors must be 4 sides of {groups} positive values"
+                ));
+            }
             if m.diffusion.iter().any(|&d| d.is_nan() || d <= 0.0) {
                 return Err(format!(
                     "material {i}: diffusion coefficients must be positive"
@@ -309,29 +329,51 @@ impl<'a> Core<'a> {
         &self.problem.materials[self.problem.node_material[n]]
     }
 
-    /// ノード n の - 面・+ 面に入ってくる部分中性子流。外周では境界条件から求める。
-    fn incoming(&self, state: &State, n: usize, d: usize, g: usize) -> (f64, f64) {
-        let from = |step: isize, own_out: f64, face: usize| match self.neighbor(n, d, step) {
-            Some(m) if step < 0 => state.out_plus[d][m][g],
-            Some(m) => state.out_minus[d][m][g],
-            None => match self.problem.boundaries[2 * d + face] {
-                Boundary::Reflective => own_out,
-                // 面の中性子束 2(J+ + J-) = 0
-                Boundary::ZeroFlux => -own_out,
-            },
+    /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
+    /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1
+    fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
+        let side = match (d, plus) {
+            (0, false) => 0,
+            (0, true) => 1,
+            (1, true) => 2,
+            (1, false) => 3,
+            _ => return 1.0,
         };
+        self.material(n).adf[side][g]
+    }
+
+    /// ノード n の - 面・+ 面に入ってくる部分中性子流。
+    fn incoming(&self, state: &State, n: usize, d: usize, g: usize) -> (f64, f64) {
+        let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, g);
         (
-            from(-1, state.out_minus[d][n][g], 0),
-            from(1, state.out_plus[d][n][g], 1),
+            beta_l * state.out_minus[d][n][g] + ext_l,
+            beta_r * state.out_plus[d][n][g] + ext_r,
         )
     }
 
     /// ノード n の - 面・+ 面の入射の条件 (β, 外からの入射)。入射は β × 出ていく部分中性子流
-    /// + 外からの入射。隣のノードがある面では β = 0、外周では境界条件の β と 0。
+    /// + 外からの入射。
+    ///
+    /// 隣のノードとの面では、自分の側の ADF を f、隣の側を f'、出ていく部分中性子流を o、o'
+    /// とすると、f(o + i) = f'(o' + i')（不均質な中性子束）と o - i = i' - o'（正味の中性子流）から
+    ///   i = ((f' - f) o + 2 f' o') / (f + f')
+    /// なので、β = (f' - f)/(f + f')、外からの入射は 2 f' o'/(f + f')（ADF が等しければ i = o'）。
+    /// 外周では、反射 β = 1、中性子束ゼロ β = -1（2(o + i) = 0）で、外からの入射は 0。
     fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
         let face = |step: isize, index: usize| match self.neighbor(n, d, step) {
-            Some(m) if step < 0 => (0.0, state.out_plus[d][m][g]),
-            Some(m) => (0.0, state.out_minus[d][m][g]),
+            Some(m) => {
+                let plus = step > 0;
+                let (own, other) = (self.adf(n, d, plus, g), self.adf(m, d, !plus, g));
+                let out = if plus {
+                    state.out_minus[d][m][g]
+                } else {
+                    state.out_plus[d][m][g]
+                };
+                (
+                    (other - own) / (own + other),
+                    2.0 * other * out / (own + other),
+                )
+            }
             None => match self.problem.boundaries[2 * d + index] {
                 Boundary::Reflective => (1.0, 0.0),
                 Boundary::ZeroFlux => (-1.0, 0.0),
@@ -399,8 +441,8 @@ impl<'a> Core<'a> {
 
                 // 面の中性子束と正味の中性子流の連続から、出ていく部分中性子流 o = (o_R, o_L) は
                 //   M o = A i + c,  M = [[1+8α, 4α], [4α, 1+8α]],  A = [[1-8α, -4α], [-4α, 1-8α]]
-                // を満たす（c はノード平均と a3, a4 の項）。外周の面では入射が i = β o
-                // （反射 β = 1、中性子束ゼロ β = -1）なので、それも同時に解く
+                // を満たす（c はノード平均と a3, a4 の項）。入射は i = β o + 外からの入射
+                // （face_inputs）なので、それも同時に解く
                 let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, g);
                 let (p, q) = (1.0 + 8.0 * alpha, 1.0 - 8.0 * alpha);
                 let w = 4.0 * alpha;
