@@ -946,7 +946,7 @@ mod tests {
         use crate::material::Material;
         use crate::tracking::Tracking;
         use xlc_format::group::GroupStructure;
-        use xlc_format::library::{Library, NuclideData, Shielded, TemperatureData};
+        use xlc_format::library::{Library, NuclideData, Resolved, Shielded, TemperatureData};
 
         const T: f64 = 600.0;
 
@@ -1122,6 +1122,70 @@ mod tests {
             assert!(
                 (beside - below).abs() < 1e-3 * beside,
                 "{beside} vs {below}"
+            );
+        }
+
+        /// 分離共鳴を持つ（群 0 が σ0 に依存する）Zr を加えた `library()`
+        fn library_with_zirconium() -> Library {
+            let mut library = library();
+            let mut zr = library.nuclides[2].clone();
+            zr.name = "Zr-90".into();
+            zr.resolved = Some(Resolved {
+                top: 1.0e4,
+                potential: 6.0,
+            });
+            zr.temperatures[0].shielded = [15.0, 10.0, 5.0]
+                .iter()
+                .map(|&t| Shielded {
+                    total: vec![t, 8.0],
+                    elastic: vec![6.0, 4.0],
+                    fission: vec![0.0, 0.0],
+                    nu_fission: vec![0.0, 0.0],
+                })
+                .collect();
+            library.nuclides.push(zr);
+            library
+        }
+
+        #[test]
+        fn structural_frames_are_shielded_as_lumps() {
+            let library = library_with_zirconium();
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "zirc".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.04)],
+            });
+            // 領域: セルごとに (燃料, 水, 枠)
+            let pin = PinCell::new(1.26, vec![0.4096])
+                .unwrap()
+                .with_frame(0.05)
+                .unwrap();
+            let lattice = Lattice::new(vec![pin], vec![vec![0, 0], vec![0, 0]]).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let regions: Vec<String> = (0..4)
+                .flat_map(|_| ["fuel", "water", "zirc"].map(String::from))
+                .collect();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let dilute = |name: &str| {
+                let m = materials.iter().find(|m| m.name == name).unwrap();
+                Material::mix(&library, &m.composition, T).unwrap()
+            };
+            let frame = shielded.region_material[2];
+            assert!(shielded.materials[frame].total[0] < dilute("zirc").total[0]);
+            // 対称に移り合う枠は同じ物質を共有する
+            assert!((0..4).all(|c| shielded.region_material[3 * c + 2] == frame));
+            // 分離共鳴を持たない水は無限希釈のまま
+            assert_eq!(
+                shielded.materials[shielded.region_material[1]],
+                dilute("water")
             );
         }
 
