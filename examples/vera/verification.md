@@ -408,7 +408,7 @@ k は解き直していない。
 しきい値より下に 0 でない値を持つ反応のしきい値の値を 0 にした（[ADR-0100](../../docs/adr/0100-move-tables-to-kinematic-thresholds.md)。Fe-54 の 13 反応と O-16 の MT600 で、
 反応の最大値の 7e-9 以下）。ライブラリは前の節のものと断面積も散乱行列も 1e-9 未満でしか違わないので、k は解き直していない。
 
-## 真空の辺のある格子の ADF と core の1ノードの NEM（2026-10-09、6c2b970）
+## 真空の辺のある格子の ADF と core の1ノードの NEM（2026-10-09、8460d2f）
 
 非反射の格子の ADF を一般化等価理論の1ノードの NEM で作り（[ADR-0094](../../docs/adr/0094-define-adf-by-one-node-nem.md)）、同じ体系（右の辺が真空、ほかは
 鏡面反射）を、その2群定数で core の1ノードの NEM（真空の面は [ADR-0099](../../docs/adr/0099-couple-core-nodes-by-get-with-vacuum-boundary.md) の Marshak の条件）で解いて、MOC の k と比べた。

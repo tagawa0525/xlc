@@ -120,7 +120,7 @@ ADF は、GET の定義（面の不均質な中性子束 / 同じ面の均質な
   引き継ぐ）、真空の辺のある格子は1ノードの問題の均質な面の中性子束で割り、辺の対応は（左、右、上、下）=（-x、+x、+y、
   -y）（`open_lattice_adfs_divide_by_the_one_node_flux`）、アルベドの辺はエラー（`adf_rejects_albedo_sides`）。MOC の
   辺の正味の流れは、真空の辺で漏れと相対 1e-6 で合い、鏡面反射の辺で 0（`side_currents_add_up_to_the_leakage`）
-- MOC との比較（examples/vera/verification.md の「真空の辺のある格子の ADF と core の1ノードの NEM」、6c2b970、2026-10-09）:
+- MOC との比較（examples/vera/verification.md の「真空の辺のある格子の ADF と core の1ノードの NEM」、8460d2f、2026-10-09）:
   VERA 2B の燃料ピンの n × n の格子（右の辺が真空）を core の1ノードで解くと、k は MOC から n = 3、5、9 で +3724、
   +3803、+1510 pcm ずれる（平らな ADF では +25170〜+37875 pcm）。真空の辺の ADF を 2J / 均質な面の中性子束に置き換える
   と 10⁻⁶ で一致するので、差はすべて core の真空の面の条件の P1 の関係 φ_het = 2J による（MOC では φ_het/(2J) =
