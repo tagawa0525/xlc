@@ -624,6 +624,7 @@ pub(crate) mod tests {
     /// 温度 550 K と 573.6 K の H-1 様の核種（573.6 K は値を 2 倍にしたもの）
     fn two_temperatures(thermal: bool) -> Library {
         let mut library = sample();
+        library.nuclides.retain(|n| n.name != "H-1");
         let mut n = library.nuclides[0].clone();
         n.name = "H-1".into();
         n.thermal_scattering = thermal;
