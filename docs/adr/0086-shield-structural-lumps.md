@@ -40,7 +40,7 @@ l̄ = V / R_iso）を求め、黒体の中の物質ごとに燃料と同じ Carl
 `structural_frames_are_shielded_as_lumps`、`touching_materials_with_the_same_resonant_nuclides_are_one_body`、
 `materials_with_the_same_resonant_nuclides_shadow_a_lump`、`other_resonant_materials_do_not_shadow_a_lump`、
 `connected_frames_see_only_their_open_faces`、`isolated_annulus_has_its_own_chord`。遮蔽した 1B の枠の吸収断面積は、OpenMC の
-枠の中性子束で重みづけした平均で 0.00195 /cm（OpenMC 0.00194 /cm。examples/vera/README.md、ff4707e、2026-10-08）。
+枠の中性子束で重みづけした平均で 0.00195 /cm（OpenMC 0.00194 /cm。examples/vera/README.md、612913c、2026-10-08）。
 
 ## 結果
 
