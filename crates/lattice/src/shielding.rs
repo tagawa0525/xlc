@@ -1460,7 +1460,7 @@ mod tests {
             let library = library_with_copies("Fe-56", "Fe-56x");
             let types = [
                 (vec![0.4096], vec!["fuel", "water"]),
-                (vec![0.5, 0.6], vec!["water", "tube", "water"]),
+                (vec![0.45, 0.5], vec!["water", "tube", "water"]),
             ];
             let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
             let frame = |nuclide: &str| {
@@ -1488,7 +1488,7 @@ mod tests {
             let library = library_with_zirconium();
             let types = [
                 (vec![0.4096], vec!["fuel", "water"]),
-                (vec![0.5, 0.6], vec!["water", "zirc", "water"]),
+                (vec![0.45, 0.5], vec!["water", "zirc", "water"]),
             ];
             let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
             let shielded = shield_fuel(
