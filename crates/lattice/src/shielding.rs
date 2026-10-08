@@ -19,7 +19,7 @@ use std::collections::hash_map::Entry;
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
 use crate::cp::{CpError, Cylinder};
-use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
+use crate::equivalent::{EquivalentError, MIN_DANCOFF, OuterRing, equivalent_radius, outer_radius};
 use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
@@ -134,9 +134,11 @@ pub struct PinShielding {
     /// 体積で平均したもの。`nuclides` とともに SPH 因子を掛けていない物理的な値（参照解と比べる用）で、MOC の
     /// 中性子束と組み合わせて反応率を求めるには、領域の物質（SPH 因子を掛けたもの）を使う
     pub effective: Vec<Shielded>,
-    /// UFG の減速計算に使った等価なセルの外半径 (cm)。燃料に分離共鳴を持つ核種がなければ `None`
+    /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。枠のあるセルでは、その外に枠と同じ面積の
+    /// 枠のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
-    /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある
+    /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある。
+    /// 枠のあるセルの最後は枠のリングの値で、格子には使わないので 1
     pub sph: Option<Vec<Vec<f64>>>,
 }
 
@@ -675,9 +677,10 @@ struct PinRings<'a> {
 
 /// ピンのセルの UFG の減速計算の結果
 struct CellShielding {
-    /// 等価なセルの外半径 (cm)
+    /// 等価なセルの減速材のリングの外半径 (cm)
     radius: f64,
-    /// 等価なセルのリングごとの物質（真空は `None`）。格子の領域は [`ring_targets`]
+    /// 等価なセルの減速材までのリングごとの物質（真空は `None`）。格子の領域は [`ring_targets`]。枠のリングの
+    /// 物質は格子に使わないので含めない（枠は塊として遮蔽する）
     rings: Vec<Option<Material>>,
     /// 減速材のリングの始まり
     start: usize,
@@ -729,10 +732,16 @@ fn shield_cell(
     }
     let input = |index: usize| (index != pin.void).then(|| &materials[index]);
     let fuel = &materials[ring_index[0]];
+    // 外周の枠: (物質の番号, 面積)。等価なセルでは減速材のリングの外に同じ面積のリングとして置く（枠の影と、
+    // 枠の物質が減速材の中性子束を変える効果を入れるため）
+    let frame = geometry
+        .frame()
+        .map(|(region, area)| (pin.region_index[first + region], area));
     let inputs: Vec<Option<&MaterialInput>> = (0..pin.rings)
         .map(|_| Some(fuel))
         .chain(ring_index[pin.rings..start].iter().map(|&i| input(i)))
         .chain([input(moderator)])
+        .chain(frame.map(|(i, _)| input(i)))
         .collect();
     let Some(range) = cell_range(library, &inputs)? else {
         return Ok(None);
@@ -763,10 +772,21 @@ fn shield_cell(
             .chain([dilute[moderator].total[g]])
             .collect();
         // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
-        sum += equivalent_radius(&inner, &totals, c.max(MIN_DANCOFF))?;
+        let outer = frame.map(|(i, area)| OuterRing {
+            area,
+            total: dilute[i].total[g],
+        });
+        sum += equivalent_radius(&inner, &totals, outer, c.max(MIN_DANCOFF))?;
     }
     let radius = sum / (bottom - top) as f64;
-    let cylinder = Cylinder::new(radii[..start].iter().copied().chain([radius]).collect())?;
+    let cylinder = Cylinder::new(
+        radii[..start]
+            .iter()
+            .copied()
+            .chain([radius])
+            .chain(frame.map(|(_, area)| outer_radius(radius, area)))
+            .collect(),
+    )?;
     let spectrum = slowing_down(library, &cylinder, &inputs, range)?;
     let volumes = cylinder.volumes();
 
@@ -817,7 +837,21 @@ fn shield_cell(
         .map(|m| m.clone().unwrap_or_else(|| Material::void(ng)))
         .collect();
     let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
-    let sph = sph_factors(&cylinder, &multigroup, top..bottom, &above, &spectrum.flux)?;
+    // 枠のリングの断面積は格子に使わないので、因子を掛けない
+    let mut fixed = vec![false; multigroup.len()];
+    if frame.is_some()
+        && let Some(last) = fixed.last_mut()
+    {
+        *last = true;
+    }
+    let sph = sph_factors(
+        &cylinder,
+        &multigroup,
+        &fixed,
+        top..bottom,
+        &above,
+        &spectrum.flux,
+    )?;
     for (ring, (material, mu)) in rings.iter_mut().zip(&sph).enumerate() {
         if let Some(m) = material {
             let mut all = vec![1.0; ng];
@@ -829,6 +863,11 @@ fn shield_cell(
                     source,
                 })?;
         }
+    }
+
+    // 枠のリングの物質は格子に使わない（枠は塊として遮蔽する）
+    if frame.is_some() {
+        rings.pop();
     }
 
     // 燃料の平均: 燃料のリングの中性子束と体積の重み
@@ -2043,6 +2082,70 @@ mod tests {
             assert!(sph.iter().all(|row| row.len() == 2));
             assert_eq!(sph[3], vec![1.0, 1.0]);
             assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
+        }
+
+        #[test]
+        fn frames_are_the_outer_ring_of_the_cell() {
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let shield = |frame: bool| {
+                let mut pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+                let mut regions = vec!["fuel", crate::input::VOID, "clad", "water"];
+                if frame {
+                    pin = pin.with_frame(0.05).unwrap();
+                    regions.push("clad");
+                }
+                let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+                let regions: Vec<String> = regions.into_iter().map(String::from).collect();
+                shield_fuel(
+                    &library,
+                    &tracking,
+                    &materials,
+                    &regions,
+                    &ShieldingOptions::default(),
+                )
+                .unwrap()
+            };
+            let (plain, framed) = (shield(false), shield(true));
+            // 等価なセルのリング: 燃料、ギャップ、被覆管、減速材と、枠
+            let sph = |s: &FuelShielding| s.pins[0].sph.as_ref().unwrap().len();
+            assert_eq!(sph(&plain), 4);
+            assert_eq!(sph(&framed), 5);
+            // 枠の影は枠のリングが作るので、減速材のリングは枠のないセルより小さい
+            let radius = |s: &FuelShielding| s.pins[0].equivalent.unwrap();
+            assert!(
+                radius(&framed) < radius(&plain),
+                "{} {}",
+                radius(&framed),
+                radius(&plain)
+            );
+            // 枠のリングの断面積は格子に使わないので、SPH 因子は 1 のまま
+            let rings = framed.pins[0].sph.as_ref().unwrap();
+            assert!(rings[4].iter().all(|&mu| mu == 1.0), "{rings:?}");
+            // 格子の枠は等価なセルのリングの物質で上書きされない（この Zr-90 は分離共鳴を持たないので、
+            // 被覆管と同じ物質の無限希釈のまま。被覆管のリングは UFG の物質）
+            assert_eq!(framed.region_material[4], 1);
+            assert_ne!(framed.region_material[4], framed.region_material[2]);
         }
 
         #[test]
