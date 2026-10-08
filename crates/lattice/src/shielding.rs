@@ -10,8 +10,11 @@
 //!
 //! 等価原理では、燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
 //! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
-//! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
-//! （ライブラリの重み w/(σt + σ0) での群平均では、この式が厳密に成り立つ）。
+//! NR 近似の群平均の中性子束 φ_i = (σp + σ0,i) / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる。σp は核種の
+//! ポテンシャル散乱で、NR 近似の中性子束 (σp + σ0) w / (σt + σ0) の線源に入る（共鳴の間で中性子束が w になる）。
+//! ライブラリの重みが w/(σt + σ0) の群（Bondarenko）では、この式は NR 近似の範囲で厳密に成り立つ。分離共鳴の
+//! 範囲の群は flux calculator の中性子束で重みづけしてあり、この式は近似になる（U-238 の σ0 = 30〜100 b で、
+//! flux calculator の群の中性子束との比は 0.88〜1.05）。
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -1083,12 +1086,19 @@ pub fn effective(
     ];
     let sigma0 = [sigma0_1, sigma0_2];
     let groups = background.len();
+    // 分離共鳴を持たない核種は σ0 によらないので、σp は重みに効かない
+    let potential = library
+        .lookup(name, temperature)?
+        .0
+        .resolved
+        .as_ref()
+        .map_or(0.0, |r| r.potential);
     // 群ごとの重み β_i φ_i
     let weights: Vec<[f64; 2]> = (0..groups)
         .map(|g| {
             std::array::from_fn(|i| {
                 let s = sigma0[i][g];
-                equivalence.terms[g][i].beta * s / (tables[i].total[g] + s)
+                equivalence.terms[g][i].beta * (potential + s) / (tables[i].total[g] + s)
             })
         })
         .collect();
