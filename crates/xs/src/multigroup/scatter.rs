@@ -14,7 +14,7 @@ use super::{
     FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight, group_integrals,
     group_integrals_multi,
 };
-use crate::endf::Mf4;
+use crate::endf::{Angular, Mf4};
 use crate::endf::{Frame, Mf5, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
@@ -302,11 +302,14 @@ fn two_body_rows(
     by_order(rows, ng, order)
 }
 
-/// 重心系で等方な2体反応で、入射エネルギー `e` の中性子が群 g' に出る確率に、実験室系の散乱角の余弦 μ の
-/// ルジャンドル多項式 P_l(μ) を掛けたもの [l][g']（`scale` 倍。l = 0 は一様な振り分け）。
+/// 2体反応で、入射エネルギー `e` の中性子が群 g' に出る確率に、実験室系の散乱角の余弦 μ のルジャンドル多項式
+/// P_l(μ) を掛けたもの [l][g']（`scale` 倍）。`angular` は重心系の角度分布（MF4。`None` か等方なら重心系で等方で、
+/// l = 0 は一様な振り分け）。
 ///
 /// 出射の速さの比 s = (A+1)√(E'/E) で積分する。重心系の余弦は μ_c = (s² − 1 − A²β²)/(2Aβ) で、
-/// dμ_c/2 = s ds/(2Aβ)、実験室系の余弦は μ = (s² + 1 − A²β²)/(2s) と s の滑らかな式になる（A = 1 でも特異点がない）。
+/// dμ_c = s ds/(Aβ)、実験室系の余弦は μ = (s² + 1 − A²β²)/(2s) と s の滑らかな式になる（A = 1 でも特異点がない）。
+/// 角度分布があるときは f(μ_c) を掛けて P0 も同じく積分し、P0 の和が `scale` になるよう規格化する
+/// （分布の規格化と数値積分の誤差で粒子数を変えないため）。
 fn two_body_moments(
     groups: &GroupStructure,
     e: f64,
@@ -316,15 +319,17 @@ fn two_body_moments(
     order: usize,
     angular: Option<&Mf4>,
 ) -> Vec<Vec<f64>> {
-    let _ = angular;
+    let angular = angular.filter(|a| a.angular != Angular::Isotropic);
     let ng = groups.len();
     let mut out = vec![vec![0.0; ng]; order + 1];
     let Some((lo, hi)) = two_body_range(e, awr, q) else {
         return out;
     };
-    uniform_fractions(groups, lo, hi, scale, &mut out[0]);
-    if order == 0 {
-        return out;
+    if angular.is_none() {
+        uniform_fractions(groups, lo, hi, scale, &mut out[0]);
+        if order == 0 {
+            return out;
+        }
     }
     let bounds = groups.bounds();
     let group = |x: f64| {
@@ -350,21 +355,44 @@ fn two_body_moments(
         .chain([lo, hi])
         .collect();
     cuts.sort_by(f64::total_cmp);
+    // 角度分布は μ_c の高次の多項式や折れ線になりうるので、範囲を細かく分ける
+    let pieces = if angular.is_some() { ANGULAR_PIECES } else { 1 };
+    let first = usize::from(angular.is_none());
     for w in cuts.windows(2) {
         let g = group(0.5 * (w[0] + w[1]));
         let (sa, sb) = (speed(w[0]), speed(w[1]));
-        let half = 0.5 * (sb - sa);
-        for &(x, weight) in &GAUSS_LEGENDRE_8 {
-            let s = sa + half * (x + 1.0);
-            let mu = (s * s + c) / (2.0 * s);
-            let factor = scale * weight * half * s / (2.0 * ab);
-            for (l, p) in legendre(mu, order).into_iter().enumerate().skip(1) {
-                out[l][g] += factor * p;
+        let width = (sb - sa) / pieces as f64;
+        let half = 0.5 * width;
+        for piece in 0..pieces {
+            let start = sa + width * piece as f64;
+            for &(x, weight) in &GAUSS_LEGENDRE_8 {
+                let s = start + half * (x + 1.0);
+                let mu = (s * s + c) / (2.0 * s);
+                let density = angular.map_or(0.5, |a| {
+                    let mu_c = ((s * s - 1.0 - ab * ab) / (2.0 * ab)).clamp(-1.0, 1.0);
+                    a.density(e, mu_c)
+                });
+                let factor = scale * weight * half * s / ab * density;
+                for (l, p) in legendre(mu, order).into_iter().enumerate().skip(first) {
+                    out[l][g] += factor * p;
+                }
+            }
+        }
+    }
+    if angular.is_some() {
+        let total: f64 = out[0].iter().sum();
+        if total > 0.0 {
+            for v in out.iter_mut().flatten() {
+                *v *= scale / total;
             }
         }
     }
     out
 }
+
+/// 角度分布のある2体反応で、群に分けた出射の速さの範囲をさらに等分する数。Legendre 係数の次数が高い
+/// 分布（高いエネルギーの弾性散乱）も 8 点の Gauss–Legendre で積分できるようにする
+const ANGULAR_PIECES: usize = 16;
 
 /// 出射エネルギーの範囲の端が群境界を横切る入射エネルギーと、しきい値。
 /// 被積分関数はここで折れ曲がるので、積分区間の境界に入れる。
@@ -475,7 +503,7 @@ fn spectrum_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::{Angular, Frame, Interpolation, LegendreTable};
+    use crate::endf::{Frame, Interpolation, LegendreTable};
 
     /// ルジャンドルの次数ごとの、全群の和
     fn sums(moments: &[Vec<f64>]) -> Vec<f64> {
