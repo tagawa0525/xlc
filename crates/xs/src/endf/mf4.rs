@@ -113,9 +113,23 @@ impl Mf4 {
 
 impl Mf4 {
     /// 入射エネルギー `e` での確率密度 f(μ)（`frame` の系の μ について。∫ f dμ = 1）。
+    /// 入射エネルギーの間は、Legendre 係数、または同じ μ での表の値を、ENDF の補間則で補間する。
     pub fn density(&self, e: f64, mu: f64) -> f64 {
-        let _ = (e, mu);
-        f64::NAN
+        match &self.angular {
+            Angular::Isotropic => 0.5,
+            Angular::Legendre(table) => table.density(e, mu),
+            Angular::Tabulated(tables) => tables.density(e, mu),
+            Angular::Mixed {
+                legendre,
+                tabulated,
+            } => {
+                if legendre.energies.last().is_some_and(|&top| e <= top) {
+                    legendre.density(e, mu)
+                } else {
+                    tabulated.density(e, mu)
+                }
+            }
+        }
     }
 }
 
@@ -128,6 +142,27 @@ impl LegendreTable {
                 .collect()
         };
         interpolate(&self.breaks, &self.laws, &self.energies, e, at)
+    }
+}
+
+impl LegendreTable {
+    fn density(&self, e: f64, mu: f64) -> f64 {
+        let order = self.coefficients.iter().map(Vec::len).max().unwrap_or(0);
+        let a = self.moments(e, order);
+        let p = legendre(mu, order);
+        0.5 + a
+            .iter()
+            .zip(p.iter().skip(1))
+            .enumerate()
+            .map(|(k, (a, p))| (2 * k + 3) as f64 / 2.0 * a * p)
+            .sum::<f64>()
+    }
+}
+
+impl AngleTables {
+    fn density(&self, e: f64, mu: f64) -> f64 {
+        let at = |k: usize| vec![self.tables[k].eval(mu).unwrap_or(0.0)];
+        interpolate(&self.breaks, &self.laws, &self.energies, e, at)[0]
     }
 }
 
