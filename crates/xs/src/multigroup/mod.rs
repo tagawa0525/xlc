@@ -425,6 +425,27 @@ mod tests {
     }
 
     #[test]
+    fn flux_is_continuous_at_the_top_of_the_slowing_down_range() {
+        // 範囲の上の Bondarenko の中性子束には (σp + σ0) を掛けて上端でつなぐ。σs(E_high) = 10 b と
+        // σp = 4 b が違うので、σs(E_high) + σ0 を掛けると上端で 60/54 倍の段差になる
+        let (total, elastic) = (constant(10.0), constant(10.0));
+        let slowing = SlowingDown {
+            awr: 236.0,
+            potential: 4.0,
+            range: (1.0, 100.0),
+        };
+        let s0 = 50.0;
+        let shape = slowing_down_shape(&total, &elastic, &slowing, &Weight::lwr(), s0).unwrap();
+        let flux = slowing_down_flux(&shape, &slowing, s0, |_| 1.0 / (10.0 + s0)).unwrap();
+        let high = slowing.range.1;
+        let (inside, above) = (flux(high), flux(high.next_up()));
+        assert!(
+            (inside - above).abs() < 1e-12 * inside,
+            "{inside} vs {above}"
+        );
+    }
+
+    #[test]
     fn below_the_slowing_down_range_the_flux_is_the_weight() {
         // 範囲の下（熱中性子の領域）では σ0 によらず無限希釈の値
         let groups = GroupStructure::new(vec![1.0e3, 100.0, 1.0, 0.01]).unwrap();
