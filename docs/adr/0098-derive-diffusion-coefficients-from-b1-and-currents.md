@@ -1,7 +1,7 @@
 ---
-status: proposed
-date: 2026-10-08
-supersedes: []
+status: accepted
+date: 2026-10-09
+supersedes: [ADR-0044]
 superseded-by:
 issues: ["#0021"]
 ---
@@ -47,16 +47,26 @@ MOC は非等方散乱を解き、散乱の次数が 1 以上なら、解く途�
 
 ## 決定と理由
 
+少数群は、[ADR-0044](0044-collapse-to-two-groups.md) のとおり境界 0.625 eV の2群とし、断面積は領域・群ごとの反応率を保存するように均質化・縮約する
+（ADR-0044 から引き継ぐ。比べた案の記録はない）。
+
 拡散係数は、格子の境界によって次のように求める。どちらも、ライブラリの P1 の散乱行列と MOC の解から、手で合わせる係数
 なしに決まる。
 
 - 外周が鏡面反射の単一集合体（燃料の定数）: 集合体を細かい群のまま中性子束で均質化し（全断面積、P0 と P1 の散乱行列、
   νΣf、χ）、B1 の方程式で臨界のバックリングを探し、D_g = J_g / (B φ_g) を B1 の中性子束で少数群に縮約する。正味の
   中性子流が 0 の格子では、漏れのある体系での中性子流のスペクトルを、均質な無限媒質の基本モードとして求めるほかないため。
-  B1 は P1 の散乱行列（in-scatter を含む）と、P1 より高い次数の効果（関数 a(B)）を含み、P1 より原理に近い
+  B1 は P1 の散乱行列（in-scatter を含む）と、P1 より高い次数の効果（関数 γ(B²/Σt²)。B → 0 で 1）を含み、P1 より原理に近い。B² < 0（k∞ < 1）では γ の解析接続を使う
+- 外周が鏡面反射でも核分裂のない格子（水だけ、核分裂性でない集合体）では、臨界のバックリングが定まらない。このときは
+  B² → 0 の極限の B1 の中性子流の式（P1 の式、γ = 1）3 Σt,g d_g − 3 Σ_g' Σs1(g'→g) d_g' = φ_g を、均質化した MOC の
+  中性子束 φ で解き、D_g = d_g / φ_g を MOC の中性子束で縮約する。臨界の場合と同じ式の極限で、in-scatter を含み、
+  中性子流のスペクトルを決めるのに使えるのは格子自身の中性子束だけだからである（outflow の補正にすると、同じ鏡面反射の
+  格子で、核分裂の有無で in-scatter の扱いが変わる）。いまの MOC は核分裂のない格子を解かない（固有値計算だけ）ので、
+  この場合は定数を作る経路ができたときに使われる
 - B1 には P1 の散乱行列が要る。ライブラリに P1 のモーメントがない（P0 だけで処理した）ときはエラーにする
 - 非反射の格子（反射体、カラーセット）: まず outflow の輸送断面積 Σtr,g = Σt,g − Σ_g' Σs1(g→g') を細かい群で領域ごとに
-  作り、D_g = 1/(3Σtr,g) を中性子束と体積で重みづけして均質化と縮約をする。中性子流のスペクトルを使わずに定まり、
+  作り、Σtr を中性子束と体積で重みづけして少数群に均質化し（真空の領域は Σtr = 0 で、中性子束と体積は重みに入る）、
+  D_G = 1/(3⟨Σtr⟩_G) とする。D を直接に重みづけると、ピンの隙間のような真空の領域で D が無限大になる。中性子流のスペクトルを使わずに定まり、
   [ADR-0044](0044-collapse-to-two-groups.md) の 1/(3Σt) より原理に近い。反射体では outflow の補正が漏れを大きく見積もる傾向がある（上の Lee らの論文）ので、
   inflow の補正に進めるかを #0021 で決める
 - inflow の補正の候補は、MOC の中性子流の1次のモーメント φ1 を重みにする形である。φ1 は領域ごとの符号つきのベクトルの
@@ -69,24 +79,41 @@ MOC は非等方散乱を解き、散乱の次数が 1 以上なら、解く途�
 少数群の断面積の縮約の重みは、いまのとおり MOC の中性子束とし、B1 のスペクトルで重みづけし直さない（臨界スペクトルで
 断面積を重みづけし直すかは、k∞ の保存と GET の ADF との整合に効くので、カラーセットでの比較のあとに別に決める）。
 
-実装したら [ADR-0044](0044-collapse-to-two-groups.md) の拡散係数の部分を置き換える（2群の境界はそのまま有効）。置き換えの結び（`supersedes`）は、
-この ADR を accepted にするときに付ける。
+この ADR は [ADR-0044](0044-collapse-to-two-groups.md) を置き換える（拡散係数の D = 1/(3Σt) をやめ、2群の境界と縮約は上に書き直して引き継ぐ）。
 
 ## 確認
 
-まだ実装していない。次で確かめる。
-
-- B1 のテスト: 等方散乱の均質な媒質で、B → 0 の極限が D = 1/(3Σt) になること。P1 の散乱行列が対角だけのとき、
-  D = 1/(3(Σt − Σs1)) の極限に近づくこと
-- outflow のテスト: P1 の散乱がないときに 1/(3Σt) に一致すること。1群で、outflow と in-scatter の補正が一致すること
+- B1（`crates/lattice/src/b1.rs`）: `isotropic_scattering_gives_one_third_total_at_zero_buckling`（Σs1 = 0、B² = 0 で
+  1/(3Σt)）、`isotropic_scattering_follows_gamma_at_finite_buckling`（Σs1 = 0 で D = 1/(3γΣt)、B² の正負とも）、
+  `diagonal_p1_scattering_gives_the_transport_cross_section`（P1 が対角だけなら B² = 0 で 1/(3(Σt − Σs1))）、
+  `one_group_critical_mode_matches_the_transport_dispersion_relation`（1群の等方散乱では B1 は厳密で、臨界の B² と D が
+  輸送方程式の平面波の分散関係 c = x/arctan(x)、c = y/artanh(y) に 10⁻⁸ で一致）、`critical_buckling_sign_follows_k_inf`
+  （|k − 1| < 10⁻¹⁰、B² の符号は k∞ − 1 の符号）、`modes_beyond_the_pole_count_as_too_negative`、
+  `negative_buckling_without_a_bracket_is_an_error`、`nan_is_rejected`、`zero_buckling_current_solves_the_p1_equation`、
+  `gamma_series_joins_the_closed_form`、`no_fission_is_an_error`
+- 格子（`crates/lattice/src/fewgroup.rs`）: `b1_diffusion_matches_a_hand_computed_two_region_lattice`（χ の違う2つの
+  核分裂性の領域と上方散乱のある格子を、実装の均質化を使わない手書きの2群の B1 の式と比べる。1群の D は B1 の中性子束で
+  縮約し、MOC の中性子束で重みづけした値と 0.1% 以上違う）、`reflective_lattice_takes_d_from_the_b1_mode`、
+  `reflective_lattice_without_fission_uses_the_p1_current_of_the_moc_flux`、
+  `open_lattice_without_p1_scattering_uses_one_third_total`、`open_lattice_uses_the_outflow_transport_cross_section`、
+  `outflow_counts_a_void_gap_with_its_flux`、`diffusion_needs_p1_moments`（P1 がなければ、どちらの境界でもエラー）。
+  縮約が k∞ を保つことは `two_group_constants_reproduce_k_inf`、`one_group_collapse_preserves_k`（ADR-0044 から）
+- VERA 1B と 2B（枠なし）の2群の D は、1/(3Σt) の 0.662、0.289 cm と 0.655、0.278 cm から、B1 で 1.419、0.469 cm と
+  1.446、0.454 cm になった（臨界の B² は 2.82 × 10⁻³、2.85 × 10⁻³ /cm²。examples/vera/verification.md、a9a3e1b、
+  2026-10-09）
 - 単一集合体の定数を使う体系で、D の作り方（1/(3Σt)、outflow、B1）ごとに、core の NEM と同じ多群定数の xlc の
-  MOC（同じ問題）を比べる: 4-2D（[ADR-0094](0094-define-adf-by-one-node-nem.md) の閾値の案: k ±50 pcm、集合体出力の差の最大 1%）と REF1-2D
-  （[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-adf.md) の閾値の案）
+  MOC を比べること（4-2D、REF1-2D）は、まだしていない（「結果」）
 
 ## 結果
 
+- 非反射の格子の均質化（反射体とカラーセット、[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-adf.md)）はまだないので、outflow の D は
+  `diffusion_coefficients` にあるが、少数群定数の出力（`homogenize`、反射境界だけ）からはまだ使われない
+- D の作り方の良し悪しは、4-2D と REF1-2D の xlc の MOC との比較（ADR-0094、ADR-0095 の閾値の案）で確かめる。
+  それまで 1/(3Σt) と B1 のどちらが core に良いかは測っていない
 - 反射体の D を inflow の補正にするかは #0021
-- 均質化の重みに使う P1 の散乱行列は、中性子流でなく中性子束で重みづけした近似になる（B1 の計算の中で）
+- B1 の中性子流の式の Σt と P1 の散乱行列は、中性子流でなく中性子束で重みづけして均質化した近似である。外周が鏡面反射の
+  MOC では正味の中性子流が 0 で、中性子流の重みが得られないため。この近似の大きさは、D の作り方の比較（4-2D）で
+  ほかの誤差と一緒に見る
 - 単一集合体の定数の ADF（GET、[ADR-0094](0094-define-adf-by-one-node-nem.md)）は平らな均質な解で決まり、D に依らない。D は、別の体系で使ったときの漏れの
   精度に効く。反射体の ADF は D に依るので、D を変えたら反射体のテーブルを作り直す
 - 細部は、xlc の格子計算（MOC）の結果との比較を通じて段階的に詰め、新しい ADR か issue に記録する（2026-10-08 の
