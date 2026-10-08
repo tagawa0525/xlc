@@ -84,29 +84,158 @@ impl FrontMatter {
 }
 
 /// Markdown の先頭の `---` で囲んだ前付けを読む。
-pub fn parse_front_matter(_text: &str) -> Result<FrontMatter, Error> {
-    Ok(FrontMatter::default())
+///
+/// 各行は `key: value` で、値は空、裸の文字列、引用符で囲んだ文字列、`[a, "b"]` の一覧のどれか。引用符の外の
+/// `#`（行頭か空白のあと）から行末まではコメントとして捨てる。空行、重複したキー、閉じていない引用符や角括弧は
+/// エラーにする。
+pub fn parse_front_matter(text: &str) -> Result<FrontMatter, Error> {
+    let mut lines = text.lines();
+    if lines.next() != Some("---") {
+        return Err(Error::MissingFrontMatter);
+    }
+    let mut entries: Vec<(String, Value)> = Vec::new();
+    for (i, line) in lines.enumerate() {
+        if line == "---" {
+            return Ok(FrontMatter { entries });
+        }
+        let malformed = || Error::MalformedLine {
+            line: i + 1,
+            text: line.to_string(),
+        };
+        let (key, value) = strip_comment(line).split_once(':').ok_or_else(malformed)?;
+        let key = key.trim();
+        if key.is_empty() || key.contains(char::is_whitespace) {
+            return Err(malformed());
+        }
+        if entries.iter().any(|(k, _)| k == key) {
+            return Err(Error::DuplicateKey(key.to_string()));
+        }
+        let value = parse_value(key, value.trim())?;
+        entries.push((key.to_string(), value));
+    }
+    Err(Error::UnclosedFrontMatter)
+}
+
+/// 引用符の外で、行頭か空白のあとにある `#` から行末までを除く。
+fn strip_comment(line: &str) -> &str {
+    let mut in_quote = false;
+    let mut previous: Option<char> = None;
+    for (i, c) in line.char_indices() {
+        match c {
+            '"' => in_quote = !in_quote,
+            '#' if !in_quote && previous.is_none_or(char::is_whitespace) => {
+                return line[..i].trim_end();
+            }
+            _ => {}
+        }
+        previous = Some(c);
+    }
+    line.trim_end()
+}
+
+fn parse_value(key: &str, value: &str) -> Result<Value, Error> {
+    let malformed = || Error::MalformedValue {
+        key: key.to_string(),
+        value: value.to_string(),
+    };
+    if value.is_empty() {
+        return Ok(Value::Empty);
+    }
+    if let Some(rest) = value.strip_prefix('[') {
+        let inner = rest.strip_suffix(']').ok_or_else(malformed)?.trim();
+        if inner.is_empty() {
+            return Ok(Value::List(Vec::new()));
+        }
+        return inner
+            .split(',')
+            .map(|item| match unquote(item.trim()) {
+                Some(s) if !s.is_empty() => Ok(s.to_string()),
+                _ => Err(malformed()),
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::List);
+    }
+    unquote(value)
+        .map(|s| Value::Scalar(s.to_string()))
+        .ok_or_else(malformed)
+}
+
+/// `"text"` なら中身を、引用符を含まない裸の文字列ならそのままを返す。引用符が対にならなければ `None`。
+fn unquote(s: &str) -> Option<&str> {
+    let inner = match s.strip_prefix('"') {
+        Some(rest) => rest.strip_suffix('"')?,
+        None => s,
+    };
+    (!inner.contains('"')).then_some(inner)
 }
 
 /// `NNNN-name.md` の形のファイル名から番号を取り出す。形が違えば `None`。
-pub fn numbered_file(_name: &str) -> Option<u32> {
-    None
+pub fn numbered_file(name: &str) -> Option<u32> {
+    let (number, rest) = name.strip_suffix(".md")?.split_once('-')?;
+    if number.len() != 4 || !number.bytes().all(|b| b.is_ascii_digit()) || rest.is_empty() {
+        return None;
+    }
+    number.parse().ok()
+}
+
+/// 英数字か `_`（ASCII のみ。日本語の文に続けて書いた参照は、参照として数える）。
+fn is_word(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_'
+}
+
+/// `text[start..]` の先頭がちょうど4桁の数字で、そのあとに英数字が続かなければ、その数を返す。
+fn four_digits_at(text: &str, start: usize) -> Option<u32> {
+    let digits = text.get(start..start + 4)?;
+    if !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    if text[start + 4..].chars().next().is_some_and(is_word) {
+        return None;
+    }
+    digits.parse().ok()
 }
 
 /// `ADR-NNNN`（4桁）の参照の番号を、現れた順に返す。
-pub fn adr_refs(_text: &str) -> Vec<u32> {
-    Vec::new()
+pub fn adr_refs(text: &str) -> Vec<u32> {
+    const PREFIX: &str = "ADR-";
+    text.match_indices(PREFIX)
+        .filter(|(i, _)| !text[..*i].chars().next_back().is_some_and(is_word))
+        .filter_map(|(i, _)| four_digits_at(text, i + PREFIX.len()))
+        .collect()
 }
 
 /// issue の参照 `#NNNN`（ちょうど4桁で、前に `#` も英数字もない）の番号を、現れた順に返す。
-pub fn issue_refs(_text: &str) -> Vec<u32> {
-    Vec::new()
+pub fn issue_refs(text: &str) -> Vec<u32> {
+    text.match_indices('#')
+        .filter(|(i, _)| {
+            !text[..*i]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c == '#' || is_word(c))
+        })
+        .filter_map(|(i, _)| four_digits_at(text, i + 1))
+        .collect()
 }
 
 /// Markdown の相対リンク `[text](path)` の行き先を、現れた順に返す。`http:`、`https:`、`mailto:` と、
 /// 同じ文書の中の `#anchor` だけのものは除き、パスの `#anchor` は外す。
-pub fn relative_links(_text: &str) -> Vec<String> {
-    Vec::new()
+pub fn relative_links(text: &str) -> Vec<String> {
+    text.match_indices("](")
+        .filter_map(|(i, open)| {
+            let rest = &text[i + open.len()..];
+            let target = &rest[..rest.find(')')?];
+            // `[text](path "title")` の題は除く
+            let target = target.split_whitespace().next()?;
+            let external = ["http:", "https:", "mailto:", "#"]
+                .iter()
+                .any(|p| target.starts_with(p));
+            if external {
+                return None;
+            }
+            let path = target.split('#').next()?;
+            (!path.is_empty()).then(|| path.to_string())
+        })
+        .collect()
 }
 
 #[cfg(test)]
