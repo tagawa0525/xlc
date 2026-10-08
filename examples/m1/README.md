@@ -2,7 +2,8 @@
 
 ENDF/B-VIII.0 から、M1 の対象核種（U-234, U-235, U-236, U-238, O-16, O-17, H-1, B-10, B-11, Zr）の
 温度と背景断面積 σ0 に依存する多群ライブラリ（`xs`）を作り、ピンセルの2群定数（`lattice`）を計算する例。
-手法と近似は [M1 の計画](../../docs/plans/m1-nuclear-data.md) のとおり。
+手法と近似は M1 で決めた [ADR-0046](../../docs/adr/0046-broaden-with-sigma1.md)〜[ADR-0053](../../docs/adr/0053-read-xs-input-from-file.md) のとおり（後に置き換えたものは、各 ADR の `superseded-by` が新しい
+決定を指す）。範囲と作業の順序は [M1 の計画](../../docs/plans/m1-nuclear-data.md)。
 
 ## 実行
 
