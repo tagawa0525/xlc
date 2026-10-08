@@ -10,8 +10,11 @@
 //!
 //! 等価原理では、燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
 //! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
-//! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
-//! （ライブラリの重み w/(σt + σ0) での群平均では、この式が厳密に成り立つ）。
+//! NR 近似の群平均の中性子束 φ_i = (σp + σ0,i) / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる。σp は核種の
+//! ポテンシャル散乱で、NR 近似の中性子束 (σp + σ0) w / (σt + σ0) の線源に入る（共鳴の間で中性子束が w になる）。
+//! ライブラリの重みが w/(σt + σ0) の群（Bondarenko）では、この式は NR 近似の範囲で厳密に成り立つ。分離共鳴の
+//! 範囲の群は flux calculator の中性子束で重みづけしてあり、この式は近似になる（docs/plans/m3-core-hzp.md）。
+//! σp は分離共鳴の範囲の s 波の散乱半径の値をすべての群に使う（非分離共鳴の範囲の p 波などは入れない）。
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -1083,12 +1086,22 @@ pub fn effective(
     ];
     let sigma0 = [sigma0_1, sigma0_2];
     let groups = background.len();
+    // 分離共鳴を持たない核種の表は、滑らかな断面積の群の中の形でしか σ0 によらず、2つの表がほぼ等しいので、
+    // 重みの σp は効かない
+    let potential = library
+        .nuclides
+        .iter()
+        .find(|n| n.name == name)
+        .ok_or_else(|| LookupError::Nuclide(name.into()))?
+        .resolved
+        .as_ref()
+        .map_or(0.0, |r| r.potential);
     // 群ごとの重み β_i φ_i
     let weights: Vec<[f64; 2]> = (0..groups)
         .map(|g| {
             std::array::from_fn(|i| {
                 let s = sigma0[i][g];
-                equivalence.terms[g][i].beta * s / (tables[i].total[g] + s)
+                equivalence.terms[g][i].beta * (potential + s) / (tables[i].total[g] + s)
             })
         })
         .collect();
@@ -1222,7 +1235,13 @@ mod tests {
 
     #[test]
     fn two_terms_are_weighted_by_the_narrow_resonance_flux() {
-        let library = library();
+        // NR 近似の燃料の中性子束 (σp + σ0) / (σt + σ0) は、吸収体自身のポテンシャル散乱 σp を線源に含む
+        let potential = 11.0;
+        let mut library = library();
+        library.nuclides[0].resolved = Some(xlc_format::library::Resolved {
+            top: 2.0e4,
+            potential,
+        });
         let (chord, density, background) = (0.8192, 0.02, 0.05);
         let terms = carlvik(0.0).unwrap();
         let equivalence = Equivalence {
@@ -1242,7 +1261,7 @@ mod tests {
         for term in terms {
             let sigma0 = (background + term.alpha / chord) / density;
             let table = library.shielded("U-238", T, &[sigma0; 2]).unwrap();
-            let flux = sigma0 / (table.total[0] + sigma0);
+            let flux = (potential + sigma0) / (table.total[0] + sigma0);
             numerator += term.beta * flux * table.total[0];
             denominator += term.beta * flux;
         }
