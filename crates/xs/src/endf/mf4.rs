@@ -442,6 +442,61 @@ mod tests {
     }
 
     #[test]
+    fn repeated_first_energy_uses_the_later_distribution_there() {
+        let text = head("1", "0", "2")
+            + &[
+                r(["0.0", "0.0", "0", "0", "1", "3"]),
+                r(["3", "2", "", "", "", ""]),
+                r(["0.0", "1.0e-5", "0", "0", "1", "0"]),
+                r(["0.5", "", "", "", "", ""]),
+                r(["0.0", "1.0e-5", "0", "0", "1", "0"]),
+                r(["0.0", "", "", "", "", ""]),
+                r(["0.0", "2.0e5", "0", "0", "1", "0"]),
+                r(["0.2", "", "", "", "", ""]),
+            ]
+            .concat();
+        let mf4 = parse(&text).unwrap();
+        close(&mf4.moments(1.0e-5, 1), &[1.0, 0.0]);
+    }
+
+    #[test]
+    fn tabulated_moments_follow_the_interpolated_density() {
+        // 入射エネルギーの間を INT=4（ln f が E に線形）で補間する: モーメントは補間した密度のモーメント
+        let text = head("2", "0", "2")
+            + &[
+                r(["0.0", "0.0", "0", "0", "1", "2"]),
+                r(["2", "4", "", "", "", ""]),
+                r(["0.0", "2.0e5", "0", "0", "1", "2"]),
+                r(["2", "2", "", "", "", ""]),
+                r(["-1.0", "0.2", "1.0", "0.8", "", ""]),
+                r(["0.0", "4.0e5", "0", "0", "1", "2"]),
+                r(["2", "2", "", "", "", ""]),
+                r(["-1.0", "0.5", "1.0", "0.5", "", ""]),
+            ]
+            .concat();
+        let mf4 = parse(&text).unwrap();
+        let e = 3.0e5;
+        let nodes = xlc_numeric::quadrature::gauss_legendre(64).unwrap();
+        let expected: f64 = nodes.iter().map(|&(x, w)| w * x * mf4.density(e, x)).sum();
+        let a = mf4.moments(e, 1);
+        assert!((a[1] - expected).abs() < 1e-12, "{a:?} vs {expected}");
+    }
+
+    #[test]
+    fn tables_must_cover_all_angles() {
+        let text = head("2", "0", "2")
+            + &[
+                r(["0.0", "0.0", "0", "0", "1", "1"]),
+                r(["1", "2", "", "", "", ""]),
+                r(["0.0", "2.0e5", "0", "0", "1", "2"]),
+                r(["2", "2", "", "", "", ""]),
+                r(["-0.5", "0.5", "1.0", "0.5", "", ""]),
+            ]
+            .concat();
+        assert!(parse(&text).is_err());
+    }
+
+    #[test]
     fn transformation_matrix_is_not_supported() {
         // NM > 0（Legendre 係数の変換行列）は使われていないので扱わない
         let text = [
