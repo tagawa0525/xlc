@@ -21,7 +21,8 @@ pub enum HomogenizeError {
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
 /// `coarse_bounds`（`fine` の境界の一部、降順）の少数群に縮約する。
-/// 拡散係数は D = 1/(3Σt) とする（M0 の近似）。
+/// 拡散係数は D = 1/(3Σt) とする（M0 の近似）。不連続因子は、辺の上の中性子束を体積平均の中性子束で割る
+/// （外周が鏡面反射の単一の格子のとき。均質な解が平らになる）。
 pub fn homogenize(
     solution: &Solution,
     materials: &[&Material],
@@ -84,6 +85,24 @@ pub fn homogenize(
     if flux.iter().any(|&f| f <= 0.0) {
         return Err(HomogenizeError::NoFlux);
     }
+    // 不連続因子: 辺の上の中性子束 / 均質化した中性子束（反射境界の単一の格子では、均質な解は平らで
+    // 体積平均に等しい）
+    let volume: f64 = solution.volumes.iter().sum();
+    let adf = solution
+        .sides
+        .iter()
+        .map(|side| {
+            let mut surface = vec![0.0; coarse];
+            for (g, v) in side.iter().enumerate() {
+                surface[group_of[g]] += v;
+            }
+            surface
+                .iter()
+                .zip(&flux)
+                .map(|(s, f)| s / (f / volume))
+                .collect()
+        })
+        .collect();
     let per_flux =
         |values: Vec<f64>| -> Vec<f64> { values.iter().zip(&flux).map(|(v, f)| v / f).collect() };
     let total = per_flux(total);
@@ -111,7 +130,7 @@ pub fn homogenize(
             chi
         },
         scatter,
-        adf: vec![vec![f64::NAN; coarse]; 4],
+        adf,
     })
 }
 
