@@ -1564,9 +1564,8 @@ mod tests {
     /// まとまり）ごとに反応率を保存して定数を均質化し、GET の1ノードの問題（ADR-0103）で ADF を作った
     /// 粗いノードの問題と、細かいノードの解を返す。z は1層。
     ///
-    /// 1ノードの問題の外周の扱い（`Edge`）は、粗いノードの面が外周なら細かいノードの問題の境界とする。
-    /// 内側の面（隣の粗いノード）の扱いは1ノードの問題にないので、内側の面は、その方向の横方向の漏れが
-    /// 0 の問題（y と z に1つの細かいノードで、どちらも反射）でだけ使う
+    /// 1ノードの問題の外周の扱い（`Edge`）は、粗いノードの面が外周なら細かいノードの問題の境界、内側の面
+    /// なら隣の粗いノード（幅と参照の横方向の漏れ。ADR-0095）とする
     fn coarsen_with_get(fine: &Problem, blocks: [usize; 2]) -> (Problem, Solution) {
         use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
         let (core, solution, state) = solve_state(fine);
@@ -1576,12 +1575,9 @@ mod tests {
         let [bx, by] = blocks;
         let (cx, cy) = (nx / bx, ny / by);
         assert_eq!((cx * bx, cy * by), (nx, ny));
-        assert!(
-            cx * cy == 1 || ny == 1,
-            "inner faces need zero transverse leakage"
-        );
         let ng = core.groups;
-        let mut materials = Vec::new();
+        // [粗いノード] の定数、ノード平均、面（-x, +x, -y, +y）の不均質な中性子束と外向きの正味の中性子流、幅
+        let mut nodes = Vec::new();
         for (cj, ci) in (0..cy).flat_map(|j| (0..cx).map(move |i| (j, i))) {
             let members: Vec<usize> = (cj * by..(cj + 1) * by)
                 .flat_map(|j| (ci * bx..(ci + 1) * bx).map(move |i| core.index([i, j, 0])))
@@ -1674,25 +1670,45 @@ mod tests {
                     }
                 }
             }
-            let edge = |d: usize, plus: bool| {
-                let outer = if d == 0 {
-                    if plus { ci == cx - 1 } else { ci == 0 }
-                } else if plus {
-                    cj == cy - 1
-                } else {
-                    cj == 0
-                };
-                match (outer, fine.boundaries[2 * d + usize::from(plus)]) {
-                    (true, Boundary::Marshak) => Edge::Vacuum,
-                    (true, Boundary::Reflective) | (false, _) => Edge::Reflective,
-                    (true, Boundary::ZeroFlux) => panic!("no zero-flux edge in GET"),
-                    (true, Boundary::Vacuum) => panic!("the fine reference uses marshak"),
-                }
-            };
-            let widths = [
+            let widths: [f64; 2] = [
                 core.widths[0][ci * bx..(ci + 1) * bx].iter().sum(),
                 core.widths[1][cj * by..(cj + 1) * by].iter().sum(),
             ];
+            nodes.push((m, average, het, current, widths));
+        }
+        // [粗いノード][方向] の横方向の漏れ（もう一方の方向の正味の漏れ）
+        let transverse: Vec<[Vec<f64>; 2]> = nodes
+            .iter()
+            .map(|(_, _, _, current, widths)| {
+                let net = |d: usize| -> Vec<f64> {
+                    (0..ng)
+                        .map(|g| (current[2 * d][g] + current[2 * d + 1][g]) / widths[d])
+                        .collect()
+                };
+                [net(1), net(0)]
+            })
+            .collect();
+        let mut materials = Vec::new();
+        for (c, (mut m, average, het, current, widths)) in nodes.clone().into_iter().enumerate() {
+            let (ci, cj) = (c % cx, c / cx);
+            let edge = |d: usize, plus: bool| {
+                let neighbor = match (d, plus) {
+                    (0, false) => (ci > 0).then(|| c - 1),
+                    (0, true) => (ci + 1 < cx).then_some(c + 1),
+                    (_, false) => (cj > 0).then(|| c - cx),
+                    (_, true) => (cj + 1 < cy).then_some(c + cx),
+                };
+                match (neighbor, fine.boundaries[2 * d + usize::from(plus)]) {
+                    (Some(other), _) => Edge::Neighbor {
+                        width: nodes[other].4[d],
+                        leakage: &transverse[other][d],
+                    },
+                    (None, Boundary::Marshak) => Edge::Vacuum,
+                    (None, Boundary::Reflective) => Edge::Reflective,
+                    (None, Boundary::ZeroFlux) => panic!("no zero-flux edge in GET"),
+                    (None, Boundary::Vacuum) => panic!("the fine reference uses marshak"),
+                }
+            };
             let surface = surface_fluxes(&OneNode {
                 diffusion: &m.diffusion,
                 total: &m.total,
@@ -1907,5 +1923,93 @@ mod tests {
         let p = slab(vec![10.0; 2], vec![m], vec![0, 0], Boundary::Reflective);
         let err = solve(&p, &Options::default());
         assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
+    }
+
+    #[test]
+    fn get_adfs_reproduce_inner_faces_with_transverse_leakage() {
+        // 2×2 の粗いノード（細かいノード 2.5 cm × 4 × 4 ずつ）。+x と +y が真空なので、内側の面にも横方向の
+        // 漏れがあり、1ノードの問題の内側の辺は隣の粗いノードの幅と漏れで2次式を作る（ADR-0095）
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        boundaries[3] = Boundary::Marshak;
+        let pattern = [0, 1, 2, 0, 1, 1, 0, 2];
+        let fine = Problem {
+            mesh: Mesh {
+                dx: vec![2.5; 8],
+                dy: vec![2.5; 8],
+                dz: vec![20.0],
+            },
+            materials: three_fuels(),
+            node_material: (0..64).map(|n| pattern[(n * 5 + n / 8) % 8]).collect(),
+            boundaries,
+        };
+        let (coarse, solution) = coarsen_with_get(&fine, [4, 4]);
+        assert_get_equivalence(&coarse, &solution, [4, 4], 8);
+    }
+
+    #[test]
+    fn normalized_adfs_take_the_neighbor_adf() {
+        // 反射体の定数のように、辺の ADF を f* = f_自分 / f_隣 で持ち、印を付けた辺では、core はその面の
+        // ADF を f* × 隣のノードの面の ADF にする（ADR-0095）。隣の ADF が作ったときと同じなら、元の ADF の
+        // 解と同じ
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        let fine = Problem {
+            mesh: Mesh {
+                dx: vec![2.5; 16],
+                dy: vec![20.0],
+                dz: vec![20.0],
+            },
+            materials: three_fuels(),
+            node_material: vec![0, 1, 0, 1, 1, 0, 1, 0, 2, 2, 1, 1, 2, 2, 0, 0],
+            boundaries,
+        };
+        let (coarse, _) = coarsen_with_get(&fine, [8, 1]);
+        let raw = solve(&coarse, &Options::default()).unwrap();
+        let mut normalized = coarse.clone();
+        let fuel = normalized.materials[0].adf[1].clone();
+        let reflector = &mut normalized.materials[1];
+        reflector.adf[0] = reflector.adf[0]
+            .iter()
+            .zip(&fuel)
+            .map(|(f, g)| f / g)
+            .collect();
+        reflector.normalized_adf[0] = true;
+        let s = solve(&normalized, &Options::default()).unwrap();
+        assert!((s.k - raw.k).abs() < 1e-12 * raw.k, "{} vs {}", s.k, raw.k);
+        for (a, b) in s.flux.iter().flatten().zip(raw.flux.iter().flatten()) {
+            assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
+        }
+        // 隣の ADF を変えると、f* はそれに掛かる
+        let mut other = normalized.clone();
+        other.materials[0].adf[1] = fuel.iter().map(|f| 1.1 * f).collect();
+        let mut direct = coarse.clone();
+        direct.materials[0].adf[1] = other.materials[0].adf[1].clone();
+        direct.materials[1].adf[0] = coarse.materials[1].adf[0].iter().map(|f| 1.1 * f).collect();
+        let (a, b) = (
+            solve(&other, &Options::default()).unwrap().k,
+            solve(&direct, &Options::default()).unwrap().k,
+        );
+        assert!((a - b).abs() < 1e-12 * b, "{a} vs {b}");
+        assert!((a - raw.k).abs() > 1e-6, "{a} vs {}", raw.k);
+    }
+
+    #[test]
+    fn normalized_adfs_need_a_plain_neighbor() {
+        // f* の辺は隣のノードの ADF を掛けるので、外周の面と、隣も f* の面はエラー
+        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        p.materials[0].normalized_adf[0] = true;
+        assert!(matches!(
+            solve(&p, &Options::default()),
+            Err(NemError::InvalidProblem(_))
+        ));
+        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        p.materials[0].normalized_adf[1] = true;
+        p.materials[1].normalized_adf[0] = true;
+        let err = solve(&p, &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
+        // 片側だけなら解ける
+        p.materials[0].normalized_adf[1] = false;
+        assert!(solve(&p, &Options::default()).is_ok());
     }
 }
