@@ -157,8 +157,8 @@ pub fn solve(
     }
     // 全体が真空のセルは、粗メッシュ（CMFD）の拡散係数が定まらない
     let lattice = &tracking.lattice;
-    if let Some(cell) = (0..lattice.cells_per_side().pow(2))
-        .find(|&c| lattice.cell_regions(c).all(|r| materials[r].is_void()))
+    if let Some(cell) =
+        (0..lattice.cells()).find(|&c| lattice.cell_regions(c).all(|r| materials[r].is_void()))
     {
         return Err(MocError::VoidCell(cell));
     }
