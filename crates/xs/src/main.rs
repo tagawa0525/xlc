@@ -337,6 +337,12 @@ temperatures = [293.6, 900]
 "#;
 
     #[test]
+    fn no_resolved_resonances_means_no_pointwise_range() {
+        // 分離共鳴を持つ核種がなければ、超微細群の計算に使うポイントワイズの断面積は要らない（エラーにしない）
+        assert!(pointwise_range(&[], &[], &GroupStructure::wims69()).is_ok());
+    }
+
+    #[test]
     fn parses_input_relative_to_its_directory() {
         let input = parse_input(INPUT, Path::new("work")).unwrap();
         assert_eq!(input.output, PathBuf::from("work/m1.msgpack"));
