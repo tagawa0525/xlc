@@ -96,3 +96,5 @@ core は多重線形で内挿する。燃料の温度の軸は √T について
   多すぎれば、軸の点を減らすか、構造を見直す
 - 支持格子の層の定数の作り方は #0011（[ADR-0085](0085-branch-on-core-states.md)）
 - 燃焼度の軸、履歴の分岐、HDF5 への移行は M4 で設計し直す（[ADR-0011](0011-write-data-files-in-messagepack.md)、[ADR-0085](0085-branch-on-core-states.md)）
+- 細部は、xlc の格子計算（MOC）の結果との比較を通じて段階的に詰め、新しい ADR か issue に記録する（2026-10-08 の
+  ユーザーの方針）
