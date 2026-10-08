@@ -976,6 +976,88 @@ mod tests {
     }
 
     #[test]
+    fn accepts_resolution_forms() {
+        let hash40 = "0123456789abcdef0123456789abcdef01234567";
+        for resolution in [
+            adr(2),
+            "コミット 36fbabc".to_string(),
+            format!("コミット {hash40}"),
+            "wontfix: not needed".to_string(),
+        ] {
+            let mut files = base();
+            edit(
+                &mut files,
+                ISSUE2,
+                "resolution: wontfix: not needed",
+                &format!("resolution: {resolution}"),
+            );
+            assert_violations(files, &[]);
+        }
+    }
+
+    #[test]
+    fn rejects_other_resolutions() {
+        let hash41 = "0123456789abcdef0123456789abcdef012345678";
+        for resolution in [
+            "crates/docs（cargo test）".to_string(),
+            "コミット 4f9e59".to_string(),
+            format!("コミット {hash41}"),
+            "コミット 4F9E59A".to_string(),
+            "コミット xyz1234".to_string(),
+            "コミット".to_string(),
+            "wontfix:".to_string(),
+            format!("{} と {}", adr(1), adr(2)),
+        ] {
+            let mut files = base();
+            edit(
+                &mut files,
+                ISSUE2,
+                "resolution: wontfix: not needed",
+                &format!("resolution: {resolution}"),
+            );
+            assert_violations(
+                files,
+                &[format!(
+                    "{ISSUE2}: `resolution` must be ADR-NNNN, `コミット <hash>` or `wontfix: <reason>`, \
+                     not {resolution:?}"
+                )],
+            );
+        }
+        let mut files = base();
+        edit(
+            &mut files,
+            ISSUE2,
+            "resolution: wontfix: not needed",
+            "resolution: [wontfix: x]",
+        );
+        assert_violations(
+            files,
+            &[format!(
+                "{ISSUE2}: `resolution` must be ADR-NNNN, `コミット <hash>` or `wontfix: <reason>`, \
+                 not [\"wontfix: x\"]"
+            )],
+        );
+    }
+
+    #[test]
+    fn checks_resolving_adrs_exist() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ISSUE2,
+            "resolution: wontfix: not needed",
+            &format!("resolution: {}", adr(99)),
+        );
+        assert_violations(
+            files,
+            &[format!(
+                "{ISSUE2}: `resolution` names {}, which does not exist",
+                adr(99)
+            )],
+        );
+    }
+
+    #[test]
     fn checks_blocking_issues() {
         let mut files = base();
         edit(
