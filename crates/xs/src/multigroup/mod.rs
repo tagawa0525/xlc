@@ -168,6 +168,8 @@ pub enum ShieldingError {
 pub struct SlowingDown {
     /// 吸収体の質量比 AWR
     pub awr: f64,
+    /// 吸収体のポテンシャル散乱断面積 (b)。範囲より上の散乱源（NR 近似）に使う
+    pub potential: f64,
     /// 範囲 (eV)。上端は群の境界であること（群の中で重みの式が切り替わらないように）
     pub range: (f64, f64),
 }
@@ -177,7 +179,7 @@ pub struct SlowingDown {
 /// 中性子束は、狭い共鳴の近似（Bondarenko 法）の w(E)/(σt(E) + σ0) とする（σt は MT1）。NJOY GROUPR の
 /// 中性子束はこれに定数 (σpot + σ0) を掛けたものだが、群平均では打ち消し合う。`slowing` を与えると、
 /// その範囲では超微細群の減速計算の中性子束を使い、範囲の上では Bondarenko の中性子束に定数
-/// (σs(E_high) + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。範囲の下
+/// (σp + σ0) を掛けて上端でつなぐ（定数なので範囲の上の群平均は変わらない）。範囲の下
 /// （熱中性子の領域）では重み関数 w の定数倍（σ0 によらない。燃料の中の熱中性子束のへこみは輸送計算で扱う）。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn shielded_averages(
@@ -226,9 +228,9 @@ pub fn shielded_averages(
                 ));
             };
             let elastic = tables.get(&2).ok_or(ShieldingError::NoElastic)?;
-            let shape = slowing_down_shape(total, elastic, slowing.awr, weight, s0, slowing.range)?;
+            let shape = slowing_down_shape(total, elastic, slowing, weight, s0)?;
             let (low, high) = slowing.range;
-            let scale = elastic.eval(high).ok_or(ShieldingError::Undefined(high))? + s0;
+            let scale = slowing.potential + s0;
             // 範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）
             let at_low = shape.eval(low).ok_or(ShieldingError::Undefined(low))?;
             let flux = |e: f64| {
