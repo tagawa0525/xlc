@@ -24,11 +24,12 @@ issues: []
 
 スレッド数の既定は物理コアの数とする。SMT を使うと、P0 では 3〜6% 速いが、既定の P3 では方向ごとの作業用の配列が
 スレッドごとに増えて 12% 遅くなり、メモリも増える（2B の P3、無限希釈の多群定数で、16 → 32 スレッドで 8.9 → 11.9 GB。
-docs/plans/m2-assembly.md、0ad844d、2026-10-08）。
+docs/plans/m2-assembly.md、0ad844d と c89eca5、2026-10-08）。
 
 ## 確認
 
-上の測定（examples/vera/README.md）。
+数値は計画に記録した測定で（docs/plans/m2-assembly.md、0ad844d と c89eca5、2026-10-08）、examples/ の README には
+ない。確かめるテストはない。
 
 ## 結果
 
