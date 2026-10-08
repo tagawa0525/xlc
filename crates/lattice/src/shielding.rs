@@ -1611,6 +1611,101 @@ mod tests {
             }
         }
 
+        /// 被覆管が物質 `clad`、枠（厚さ 0.05）が分離共鳴を持つ Zr-91 の物質 grid の、UFG で遮蔽するピンセル。
+        /// 枠の塊の Dancoff 係数と、`black` の領域を黒体にして求め直した Dancoff 係数（燃料はピンの SPH 因子を
+        /// 掛けない実効断面積、ほかは無限希釈の全断面積）
+        fn frame_dancoff(clad: &str, black: &[usize]) -> (Vec<f64>, Vec<f64>) {
+            let mut library = resonant_library();
+            let mut zr91 = library.nuclides[3].clone();
+            zr91.name = "Zr-91".into();
+            zr91.resolved = Some(xlc_format::library::Resolved {
+                top: 1.0e3,
+                potential: 6.5,
+            });
+            library.nuclides.push(zr91);
+            let material = |name: &str, composition: &[(&str, f64)]| MaterialInput {
+                name: name.into(),
+                temperature: T,
+                composition: composition.iter().map(|&(n, d)| (n.into(), d)).collect(),
+            };
+            let materials = vec![
+                material(
+                    "fuel",
+                    &[("U-238", 0.022), ("U-235", 5.0e-4), ("O-16", 0.045)],
+                ),
+                material("clad", &[("Zr-90", 0.043)]),
+                material("grid", &[("Zr-91", 0.043)]),
+                material("water", &[("H-1", 0.05), ("O-16", 0.025)]),
+            ];
+            let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475])
+                .unwrap()
+                .with_frame(0.05)
+                .unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+            let regions: Vec<String> = [
+                "fuel",
+                "fuel",
+                "fuel",
+                crate::input::VOID,
+                clad,
+                "water",
+                "grid",
+            ]
+            .map(String::from)
+            .to_vec();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let pin = &shielded.pins[0];
+            assert!(pin.sph.is_some());
+            let fuel = Material::from_nuclides(&pin.nuclides, library.groups.len()).unwrap();
+            let totals: Vec<Vec<f64>> = regions
+                .iter()
+                .map(|name| match name.as_str() {
+                    "fuel" => fuel.total.clone(),
+                    crate::input::VOID => vec![0.0; library.groups.len()],
+                    name => {
+                        let m = materials.iter().find(|m| m.name == name).unwrap();
+                        Material::mix(&library, &m.composition, T).unwrap().total
+                    }
+                })
+                .collect();
+            let lump: Vec<Option<usize>> = (0..regions.len())
+                .map(|r| black.contains(&r).then_some(usize::from(r != 6)))
+                .collect();
+            let lumps = 1 + usize::from(black.len() > 1);
+            let expected =
+                lump_dancoff(&tracking, &totals, &lump, lumps, &DancoffOptions::default()).unwrap();
+            assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
+            (
+                shielded.lumps[0].dancoff.clone(),
+                expected[0].dancoff.clone(),
+            )
+        }
+
+        #[test]
+        fn lumps_see_the_physical_fuel() {
+            // 燃料は SPH 因子を掛けない実効断面積で、塊の影の計算に入る
+            let (dancoff, expected) = frame_dancoff("clad", &[6]);
+            for (c, e) in dancoff.iter().zip(&expected) {
+                assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
+            }
+        }
+
+        #[test]
+        fn same_material_in_the_pin_shadows_a_lump() {
+            // 被覆管が枠と同じ物質なら、等価なセルで遮蔽した被覆管も、枠と同じ共鳴の影を作る（黒体）
+            let (dancoff, expected) = frame_dancoff("grid", &[4, 6]);
+            for (c, e) in dancoff.iter().zip(&expected) {
+                assert!((c - e).abs() < 1e-9, "{dancoff:?} vs {expected:?}");
+            }
+        }
+
         #[test]
         fn fuel_rings_are_shielded_by_the_cell() {
             let library = resonant_library();
