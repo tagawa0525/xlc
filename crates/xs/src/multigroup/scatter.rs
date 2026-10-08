@@ -699,6 +699,20 @@ mod tests {
     }
 
     #[test]
+    fn two_body_range_holds_at_the_rounded_threshold() {
+        // しきい値 −Q (A + 1)/A をそのまま計算した入射エネルギーでも、丸めで β² が負（−2.2e-16）になる組がある。
+        // しきい値の断面積の中性子を失わないよう、しきい値以上では β² = 0 として出射エネルギーを返す
+        let (awr, q): (f64, f64) = (23.885511445655023, -284446.41774354107);
+        let threshold = -q * (awr + 1.0) / awr;
+        assert!(1.0 + (awr + 1.0) * q / (awr * threshold) < 0.0);
+        let expected = threshold / (awr + 1.0).powi(2);
+        assert_eq!(
+            two_body_range(threshold, awr, q),
+            Some((expected, expected))
+        );
+    }
+
+    #[test]
     fn inelastic_threshold() {
         // しきい値 -Q (A+1)/A
         let (awr, q) = (236.0, -4.49e4);
