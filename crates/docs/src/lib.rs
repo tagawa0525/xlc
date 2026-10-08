@@ -1,10 +1,15 @@
-//! 文書（docs/adr、docs/issues ほか）の整合性を確かめるための読み取り（#0013）。
+//! 文書（docs/adr、docs/issues ほか）の整合性の検査（#0013）。
 //!
-//! 検査そのものは tests/consistency.rs にあり、ワークスペースの `cargo test` で走る。ここには、Markdown の前付け、
-//! 番号つきのファイル名、`ADR-NNNN` と `#NNNN` の参照、相対リンクを読む小さな関数を置く。
+//! 約束（番号、前付け、置き換えのリンク、issue と ADR の対応、参照先、相対リンク）の検査は [`check`] にあり、
+//! tests/consistency.rs がリポジトリのファイルを読んで走らせる（ワークスペースの `cargo test`）。ここには、
+//! Markdown の前付け、番号つきのファイル名、`ADR-NNNN` と `#NNNN` の参照、リンクを読む小さな関数を置く。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
+
+pub mod check;
+
+pub use check::{Docs, Violation};
 
 use std::fmt;
 
@@ -21,6 +26,8 @@ pub enum Error {
     DuplicateKey(String),
     /// 閉じていない引用符や角括弧。
     MalformedValue { key: String, value: String },
+    /// 閉じていないコードブロック（開いた行の番号は 1 から）。
+    UnclosedFence { line: usize },
 }
 
 impl fmt::Display for Error {
@@ -36,6 +43,9 @@ impl fmt::Display for Error {
             Error::DuplicateKey(key) => write!(f, "front matter key `{key}` appears twice"),
             Error::MalformedValue { key, value } => {
                 write!(f, "front matter value of `{key}` is malformed: {value:?}")
+            }
+            Error::UnclosedFence { line } => {
+                write!(f, "code fence opened on line {line} is not closed")
             }
         }
     }
@@ -217,30 +227,47 @@ pub fn issue_refs(text: &str) -> Vec<u32> {
         .collect()
 }
 
-/// Markdown の相対リンク `[text](path)` の行き先を、現れた順に返す。`http:`、`https:`、`mailto:` と、
-/// 同じ文書の中の `#anchor` だけのものは除き、パスの `#anchor` は外す。
-pub fn relative_links(text: &str) -> Vec<String> {
-    text.match_indices("](")
-        .filter_map(|(i, open)| {
-            let rest = &text[i + open.len()..];
-            let target = &rest[..rest.find(')')?];
-            // `[text](path "title")` の題は除く
-            let target = target.split_whitespace().next()?;
-            let external = ["http:", "https:", "mailto:", "#"]
-                .iter()
-                .any(|p| target.starts_with(p));
-            if external {
-                return None;
-            }
-            let path = target.split('#').next()?;
-            (!path.is_empty()).then(|| path.to_string())
-        })
-        .collect()
+/// Markdown のリンクの行き先。外部の URL（`http:`、`https:`、`mailto:`）と、同じ文書の中の `#anchor` だけの
+/// ものは含めない。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Link {
+    /// 相対パス（`#anchor` は外す）。
+    Relative(String),
+    /// `/` で始まる絶対パス。
+    Absolute(String),
+    /// `http:`、`https:`、`mailto:` 以外のスキーム（`ftp:`、`file:` など）。
+    OtherScheme(String),
+}
+
+/// 1行の中のリンクの行き先を、現れた順に返す。インラインのリンク `[text](target)` と、参照の定義
+/// `[label]: target` を読む。コードスパンの中は読まない。
+pub fn links(_line: &str) -> Vec<Link> {
+    Vec::new()
+}
+
+/// 1行からコードスパン（対になったバッククォートで囲んだ部分）を除く。
+pub fn strip_code_spans(line: &str) -> String {
+    line.to_string()
+}
+
+/// Markdown の、前付けとコードブロック（```` ``` ```` か `~~~` で囲んだ部分）の外の行を、行番号（1 から）とともに
+/// 返す。閉じていない前付けとコードブロックはエラーにする。
+pub fn markdown_lines(_text: &str) -> Result<Vec<(usize, &str)>, Error> {
+    Ok(Vec::new())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 検査の対象のソースに参照と同じ形の文字列を書かないよう、参照は組み立てる
+    fn adr(n: u32) -> String {
+        format!("ADR-{n:04}")
+    }
+
+    fn issue(n: u32) -> String {
+        format!("#{n:04}")
+    }
 
     fn scalar(s: &str) -> Value {
         Value::Scalar(s.to_string())
@@ -252,23 +279,30 @@ mod tests {
 
     #[test]
     fn reads_front_matter_values() {
-        let text = "---\n\
-                    status: superseded\n\
-                    date: 2026-10-08\n\
-                    supersedes: [ADR-0002, ADR-0003]\n\
-                    superseded-by: ADR-0007\n\
-                    issues: [\"#0001\"]\n\
-                    closed:\n\
-                    title: \"quoted text\"\n\
-                    ---\n\
-                    \n\
-                    # ADR-0001: title\n";
-        let fm = parse_front_matter(text).unwrap();
+        let text = format!(
+            "---\n\
+             status: superseded\n\
+             date: 2026-10-08\n\
+             supersedes: [{a2}, {a3}]\n\
+             superseded-by: {a7}\n\
+             issues: [\"{i1}\"]\n\
+             closed:\n\
+             title: \"quoted text\"\n\
+             ---\n\
+             \n\
+             # {a1}: title\n",
+            a1 = adr(1),
+            a2 = adr(2),
+            a3 = adr(3),
+            a7 = adr(7),
+            i1 = issue(1),
+        );
+        let fm = parse_front_matter(&text).unwrap();
         assert_eq!(fm.get("status"), Some(&scalar("superseded")));
         assert_eq!(fm.get("date"), Some(&scalar("2026-10-08")));
-        assert_eq!(fm.get("supersedes"), Some(&list(&["ADR-0002", "ADR-0003"])));
-        assert_eq!(fm.get("superseded-by"), Some(&scalar("ADR-0007")));
-        assert_eq!(fm.get("issues"), Some(&list(&["#0001"])));
+        assert_eq!(fm.get("supersedes"), Some(&list(&[&adr(2), &adr(3)])));
+        assert_eq!(fm.get("superseded-by"), Some(&scalar(&adr(7))));
+        assert_eq!(fm.get("issues"), Some(&list(&[&issue(1)])));
         assert_eq!(fm.get("closed"), Some(&Value::Empty));
         assert_eq!(fm.get("title"), Some(&scalar("quoted text")));
         assert_eq!(fm.get("missing"), None);
@@ -288,27 +322,30 @@ mod tests {
 
     #[test]
     fn strips_comments_but_not_quoted_hashes() {
-        let text = "---\n\
-                    status: accepted      # proposed | accepted\n\
-                    supersedes: []        # 例: [ADR-0002]\n\
-                    superseded-by:        # 例: ADR-0007\n\
-                    issues: [\"#0001\", \"#0014\"] # 例\n\
-                    ---\n";
-        let fm = parse_front_matter(text).unwrap();
+        let text = format!(
+            "---\n\
+             status: accepted      # proposed | accepted\n\
+             supersedes: []        # 例: [{a2}]\n\
+             superseded-by:        # 例: {a7}\n\
+             issues: [\"{i1}\", \"{i14}\"] # 例\n\
+             ---\n",
+            a2 = adr(2),
+            a7 = adr(7),
+            i1 = issue(1),
+            i14 = issue(14),
+        );
+        let fm = parse_front_matter(&text).unwrap();
         assert_eq!(fm.get("status"), Some(&scalar("accepted")));
         assert_eq!(fm.get("supersedes"), Some(&list(&[])));
         assert_eq!(fm.get("superseded-by"), Some(&Value::Empty));
-        assert_eq!(fm.get("issues"), Some(&list(&["#0001", "#0014"])));
+        assert_eq!(fm.get("issues"), Some(&list(&[&issue(1), &issue(14)])));
     }
 
     #[test]
     fn value_items_flatten_scalars_and_lists() {
         assert!(Value::Empty.items().is_empty());
-        assert_eq!(scalar("ADR-0007").items(), ["ADR-0007"]);
-        assert_eq!(
-            list(&["ADR-0068", "ADR-0074"]).items(),
-            ["ADR-0068", "ADR-0074"]
-        );
+        assert_eq!(scalar("a").items(), ["a"]);
+        assert_eq!(list(&["a", "b"]).items(), ["a", "b"]);
     }
 
     #[test]
@@ -334,7 +371,7 @@ mod tests {
             Err(Error::DuplicateKey("status".to_string()))
         );
         assert!(matches!(
-            parse_front_matter("---\nissues: [\"#0001\"\n---\n"),
+            parse_front_matter("---\nissues: [\"x\"\n---\n"),
             Err(Error::MalformedValue { .. })
         ));
         assert!(matches!(
@@ -347,6 +384,8 @@ mod tests {
     fn reads_numbered_file_names() {
         assert_eq!(numbered_file("0013-docs-consistency-check.md"), Some(13));
         assert_eq!(numbered_file("0001-a.md"), Some(1));
+        assert_eq!(numbered_file("0090-solve-full-core.md"), Some(90));
+        assert_eq!(numbered_file("0005-k-offset-2d.md"), Some(5));
         assert_eq!(numbered_file("README.md"), None);
         assert_eq!(numbered_file("013-short.md"), None);
         assert_eq!(numbered_file("00013-long.md"), None);
@@ -356,34 +395,147 @@ mod tests {
     }
 
     #[test]
+    fn requires_kebab_case_names() {
+        assert_eq!(numbered_file("0013-Docs-check.md"), None);
+        assert_eq!(numbered_file("0013-docs_check.md"), None);
+        assert_eq!(numbered_file("0013-docs--check.md"), None);
+        assert_eq!(numbered_file("0013--docs.md"), None);
+        assert_eq!(numbered_file("0013-docs-.md"), None);
+        assert_eq!(numbered_file("0013-docs check.md"), None);
+        assert_eq!(numbered_file("0013-文書.md"), None);
+    }
+
+    #[test]
     fn finds_adr_references() {
-        assert_eq!(
-            adr_refs("ADR-0002 と [ADR-0068](../adr/0068-x.md)、(ADR-0093)"),
-            [2, 68, 93]
+        let text = format!(
+            "{} と [{}](../adr/0068-x.md)、({})",
+            adr(2),
+            adr(68),
+            adr(93)
         );
+        assert_eq!(adr_refs(&text), [2, 68, 93]);
         // 4桁でないもの、語の途中のもの、書式の説明の `ADR-NNNN` は数えない
         assert!(adr_refs("ADR-NNNN ADR-001 ADR-00012 XADR-0001 ADR-0001x").is_empty());
     }
 
     #[test]
     fn finds_issue_references() {
-        assert_eq!(
-            issue_refs("#0013 と (#0001)、[\"#0002\", \"#0014\"]"),
-            [13, 1, 2, 14]
+        let text = format!(
+            "{}と ({})、[\"{}\", \"{}\"]",
+            issue(13),
+            issue(1),
+            issue(2),
+            issue(14)
         );
+        assert_eq!(issue_refs(&text), [13, 1, 2, 14]);
         // 見出しの記号、`##`、5桁、16進の色、語の途中のものは数えない
         assert!(issue_refs("## 0001 ##0001 #00012 #0000ff a#0001 #001").is_empty());
     }
 
+    fn relative(path: &str) -> Link {
+        Link::Relative(path.to_string())
+    }
+
     #[test]
-    fn finds_relative_links() {
-        let text = "[ADR-0068](../adr/0068-solve.md)、[計画](../plans/m3.md#節) と \
+    fn finds_inline_links() {
+        let text = "[題](../adr/0068-solve.md)、[計画](../plans/m3.md#節) と \
                     ![図](fig.png)、[外](https://example.com/a.md)、[外](http://x)、\
                     [メール](mailto:a@b)、[同じ文書](#anchor)、[題](a.md \"title\")";
         assert_eq!(
-            relative_links(text),
-            ["../adr/0068-solve.md", "../plans/m3.md", "fig.png", "a.md"]
+            links(text),
+            [
+                relative("../adr/0068-solve.md"),
+                relative("../plans/m3.md"),
+                relative("fig.png"),
+                relative("a.md"),
+            ]
         );
-        assert!(relative_links("[text] (not a link) and `[x]`").is_empty());
+        assert!(links("[text] (not a link)").is_empty());
+    }
+
+    #[test]
+    fn reports_absolute_links_and_other_schemes() {
+        assert_eq!(
+            links("[a](/docs/a.md) [b](ftp://host/b) [c](file:///c.md) [d](C:/d.md)"),
+            [
+                Link::Absolute("/docs/a.md".to_string()),
+                Link::OtherScheme("ftp://host/b".to_string()),
+                Link::OtherScheme("file:///c.md".to_string()),
+                Link::OtherScheme("C:/d.md".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn finds_reference_definitions() {
+        assert_eq!(
+            links("[label]: ../plans/m3.md#節"),
+            [relative("../plans/m3.md")]
+        );
+        assert_eq!(links("   [x y]: a.md \"title\""), [relative("a.md")]);
+        assert_eq!(links("[web]: https://example.com"), Vec::<Link>::new());
+        assert_eq!(links("[abs]: /a.md"), [Link::Absolute("/a.md".to_string())]);
+        // 脚注と、4つ以上の空白で字下げしたもの（コード）は定義でない
+        assert!(links("[^1]: note.md").is_empty());
+        assert!(links("    [x]: a.md").is_empty());
+    }
+
+    #[test]
+    fn ignores_links_in_code_spans() {
+        assert!(links("`[x](nowhere.md)` and ``[a](`b`.md)``").is_empty());
+        assert_eq!(links("`code` then [a](a.md)"), [relative("a.md")]);
+        // 対にならないバッククォートはそのまま
+        assert_eq!(links("` [a](a.md)"), [relative("a.md")]);
+    }
+
+    #[test]
+    fn strips_code_spans() {
+        assert_eq!(strip_code_spans("a `b` c"), "a  c");
+        assert_eq!(strip_code_spans("a ``b ` c`` d"), "a  d");
+        assert_eq!(strip_code_spans("a `b"), "a `b");
+        assert_eq!(strip_code_spans("no code"), "no code");
+    }
+
+    #[test]
+    fn skips_front_matter_and_fences() {
+        let text = "---\n\
+                    status: open\n\
+                    ---\n\
+                    one\n\
+                    ```markdown\n\
+                    hidden\n\
+                    ~~~\n\
+                    still hidden\n\
+                    ```\n\
+                    two\n\
+                    ~~~~\n\
+                    hidden\n\
+                    ```\n\
+                    ~~~~~\n\
+                    three\n";
+        assert_eq!(
+            markdown_lines(text).unwrap(),
+            [(4, "one"), (10, "two"), (15, "three")]
+        );
+        assert_eq!(
+            markdown_lines("a\n---\nb\n").unwrap(),
+            [(1, "a"), (2, "---"), (3, "b")]
+        );
+    }
+
+    #[test]
+    fn rejects_unclosed_blocks() {
+        assert_eq!(
+            markdown_lines("a\n\n```\ncode\n"),
+            Err(Error::UnclosedFence { line: 3 })
+        );
+        assert_eq!(
+            markdown_lines("````\n```\n"),
+            Err(Error::UnclosedFence { line: 1 })
+        );
+        assert_eq!(
+            markdown_lines("---\nstatus: open\n"),
+            Err(Error::UnclosedFrontMatter)
+        );
     }
 }
