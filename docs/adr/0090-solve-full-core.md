@@ -24,7 +24,7 @@ KENO は 1/4 炉心で解いて −53/−39 pcm を補正している。docs/pla
 
 ## 確認
 
-`symmetric_half_core_matches_full_core`。Problem 5 を仕様書の実測値と KENO の値で比べる（M3 の検証）。
+まだ確かめていない（core の装荷図と全炉心の入力は M3 の作業）。M3 の Problem 5 を、仕様書の実測値と KENO の値と比べて確かめる。
 
 ## 結果
 

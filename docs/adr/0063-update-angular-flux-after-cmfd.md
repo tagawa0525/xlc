@@ -25,7 +25,8 @@ CMFD の後は、領域の中性子束に加えて、トラックの端の角度
 
 ## 確認
 
-CMFD の加速のテスト（`cmfd_accelerates_a_pin_cell` など）。
+この更新と初期値だけを確かめるテストはない。CMFD の加速のテスト（`cmfd_accelerates_a_pin_cell` など）が、この更新を
+含めて同じ解に収束することを確かめる。
 
 ## 結果
 
