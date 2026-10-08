@@ -221,6 +221,14 @@ mod tests {
             homogenize(&solution, &refs, &fine, fine.bounds(), &vacuum),
             Err(HomogenizeError::NotReflective)
         ));
+        let albedo = Boundaries {
+            top: Boundary::Albedo(0.5),
+            ..Boundaries::REFLECTIVE
+        };
+        assert!(matches!(
+            homogenize(&solution, &refs, &fine, fine.bounds(), &albedo),
+            Err(HomogenizeError::NotReflective)
+        ));
     }
 
     #[test]
