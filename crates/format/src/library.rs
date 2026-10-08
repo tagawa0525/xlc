@@ -570,6 +570,26 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn library_without_pointwise_range_round_trips() {
+        // 分離共鳴を持つ核種がないライブラリ: 範囲はなく、ポイントワイズの断面積は空
+        let mut library = sample();
+        library.pointwise_range = None;
+        for n in &mut library.nuclides {
+            n.resolved = None;
+            for t in &mut n.temperatures {
+                t.pointwise = Pointwise::default();
+            }
+        }
+        let bytes = library.to_msgpack().unwrap();
+        assert_eq!(Library::from_msgpack(&bytes).unwrap(), library);
+        // 範囲がないのにポイントワイズの断面積がある
+        let mut bad = library.clone();
+        bad.nuclides[0].temperatures[0].pointwise =
+            sample().nuclides[0].temperatures[0].pointwise.clone();
+        assert!(bad.to_msgpack().is_err());
+    }
+
+    #[test]
     fn refuses_to_write_a_bad_pointwise_range() {
         for range in [[0.0, 1.0e4], [1.0e4, 4.0], [4.0, f64::INFINITY]] {
             let mut library = sample();
