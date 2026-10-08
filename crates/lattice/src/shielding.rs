@@ -969,7 +969,7 @@ fn shield_material(
 }
 
 /// 無限希釈の群定数を、自己遮蔽した値に置き換える。散乱行列は無限希釈の形のまま、行の和を
-/// 弾性散乱の変化の分だけ変える（M1 で決めたとおり）。
+/// 弾性散乱の変化の分だけ変える（ADR-0050、ADR-0076）。
 fn shielded_nuclide(
     library: &Library,
     name: &str,
