@@ -3,7 +3,8 @@
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //! `format` ("xlc-fewgroup"), `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`,
 //! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）,
-//! `vacuum_ratio`（[辺][群]。真空の辺だけ値を持ち、ほかの辺は nil。ADR-0101）。
+//! `vacuum_ratio`（[辺][群]。真空の辺だけ値を持ち、ほかの辺は nil。ADR-0101）、`normalized_adf`（[辺]。
+//! `adf` が燃料の ADF で割った値 f* の辺。ADR-0095）。
 
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +29,10 @@ pub struct FewGroup {
     /// [辺（左、右、上、下）][群] の、格子計算の真空の辺の外向きの正味の中性子流 / 辺の上の不均質な中性子束
     /// （辺にわたる平均の比）。真空でない辺は `None`（ADR-0101）
     pub vacuum_ratio: Vec<Option<Vec<f64>>>,
+    /// [辺（左、右、上、下）] の、`adf` が格子計算で隣の燃料のノードの ADF で割った値
+    /// f* = f_反射体 / f_燃料 である辺（反射体の定数の、燃料と接する辺。ADR-0095）。core は、その辺の ADF を
+    /// f* × 隣のノードの ADF とする
+    pub normalized_adf: Vec<bool>,
 }
 
 /// 少数群定数のファイルの読み込みエラー。
@@ -57,6 +62,7 @@ struct FewGroupFile {
     scatter: Vec<Vec<f64>>,
     adf: Vec<Vec<f64>>,
     vacuum_ratio: Vec<Option<Vec<f64>>>,
+    normalized_adf: Vec<bool>,
 }
 
 impl FewGroup {
@@ -79,6 +85,7 @@ impl FewGroup {
             scatter: self.scatter.clone(),
             adf: self.adf.clone(),
             vacuum_ratio: self.vacuum_ratio.clone(),
+            normalized_adf: self.normalized_adf.clone(),
         })
     }
 
@@ -100,13 +107,14 @@ impl FewGroup {
             scatter: file.scatter,
             adf: file.adf,
             vacuum_ratio: file.vacuum_ratio,
+            normalized_adf: file.normalized_adf,
         };
         fewgroup.validate()?;
         Ok(fewgroup)
     }
 
     /// 群境界の順序、配列の長さ、値が有限であること、不連続因子が正であること、真空の辺の比が
-    /// 0 < r ≤ 1 であることを確かめる。
+    /// 0 < r ≤ 1 であること、f* の辺が真空の辺でないことを確かめる。
     /// ファイルから読んだ値にも、ファイルを経ずに作った値にも使う。
     pub fn validate(&self) -> Result<(), FewGroupError> {
         let invalid = |message: String| Err(FewGroupError::Invalid(message));
@@ -170,6 +178,20 @@ impl FewGroup {
                 ));
             }
         }
+        if self.normalized_adf.len() != 4 {
+            return invalid(format!(
+                "`normalized_adf` has {} sides, expected 4",
+                self.normalized_adf.len()
+            ));
+        }
+        // f* は燃料と接する辺の値で、外周の真空の辺は燃料と接しない
+        if let Some(side) =
+            (0..4).find(|&s| self.normalized_adf[s] && self.vacuum_ratio[s].is_some())
+        {
+            return invalid(format!(
+                "`normalized_adf` marks side {side}, which is a vacuum side"
+            ));
+        }
         if !(self.k_inf > 0.0 && self.k_inf.is_finite()) {
             return invalid(format!("invalid k-inf {}", self.k_inf));
         }
@@ -198,6 +220,7 @@ mod tests {
             scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],
             adf: vec![vec![x(3.0), x(3.3)]; 4],
             vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
+            normalized_adf: vec![true, false, false, false],
         }
     }
 
@@ -216,6 +239,7 @@ mod tests {
             scatter: fg.scatter,
             adf: fg.adf,
             vacuum_ratio: fg.vacuum_ratio,
+            normalized_adf: fg.normalized_adf,
         }
     }
 
@@ -310,6 +334,31 @@ mod tests {
         assert_eq!(
             FewGroup::from_msgpack(&fg.to_msgpack().unwrap()).unwrap(),
             fg
+        );
+    }
+
+    #[test]
+    fn normalized_sides_are_checked() {
+        // 反射体の定数は、燃料と接する辺の ADF を燃料の ADF で割った f* で持ち、その辺に印を付ける
+        // （ADR-0095）。印は4辺ぶんで、外周の真空の辺（燃料と接しない）には付けない
+        let fg = sample();
+        assert_eq!(
+            FewGroup::from_msgpack(&fg.to_msgpack().unwrap()).unwrap(),
+            fg
+        );
+        let mut fg = sample();
+        fg.normalized_adf.pop();
+        let err = fg.validate().unwrap_err().to_string();
+        assert!(err.contains("normalized_adf"), "{err}");
+        let mut fg = sample();
+        fg.normalized_adf[1] = true;
+        let err = fg.validate().unwrap_err().to_string();
+        assert!(err.contains("normalized_adf"), "{err}");
+        assert!(
+            read_modified(|f| {
+                f.normalized_adf.push(false);
+            })
+            .is_err()
         );
     }
 }

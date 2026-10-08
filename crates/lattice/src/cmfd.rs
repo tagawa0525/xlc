@@ -163,6 +163,21 @@ impl CoarseMesh {
         }
     }
 
+    /// 縦の面（x 方向に通る）なら true
+    pub fn is_vertical(&self, face: usize) -> bool {
+        face < self.rows() * (self.columns() + 1)
+    }
+
+    /// 面の長さ (cm)
+    pub fn face_length(&self, face: usize) -> f64 {
+        let nc = self.columns();
+        if self.is_vertical(face) {
+            self.heights[face / (nc + 1)]
+        } else {
+            self.widths[(face - self.rows() * (nc + 1)) % nc]
+        }
+    }
+
     /// 内側の面の長さと、面の低い側と高い側のセルの、面に垂直な方向の幅
     fn face_geometry(&self, face: usize) -> (f64, f64, f64) {
         let (nc, nr) = (self.columns(), self.rows());
@@ -181,12 +196,11 @@ impl CoarseMesh {
     }
 
     fn vertical(&self, row: usize, line: usize) -> usize {
-        row * (self.columns() + 1) + line
+        vertical_face(self.columns(), row, line)
     }
 
     fn horizontal(&self, line: usize, column: usize) -> usize {
-        let nc = self.columns();
-        self.rows() * (nc + 1) + line * nc + column
+        horizontal_face(self.rows(), self.columns(), line, column)
     }
 
     /// セル `from` から隣のセル `to` へ移るときに通る面と向き。
@@ -237,6 +251,18 @@ impl CoarseMesh {
             );
         (face, outward)
     }
+}
+
+/// `columns` 列の格子の、セルの行 `row` の左から `line` 番目の格子線（0..=列の数）の上の縦の面の番号
+/// （`CoarseMesh` の番号）
+pub fn vertical_face(columns: usize, row: usize, line: usize) -> usize {
+    row * (columns + 1) + line
+}
+
+/// `rows` 行 `columns` 列の格子の、セルの列 `column` の上から `line` 番目の格子線（0..=行の数）の上の
+/// 横の面の番号（`CoarseMesh` の番号。縦の面のあと）
+pub fn horizontal_face(rows: usize, columns: usize, line: usize, column: usize) -> usize {
+    rows * (columns + 1) + line * columns + column
 }
 
 /// CMFD の固有値問題の打ち切り条件。
