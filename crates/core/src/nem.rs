@@ -607,6 +607,7 @@ mod tests {
             chi: vec![1.0, 0.0],
             diffusion: vec![d1, d2],
             scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
+            adf: vec![vec![1.0, 1.0]; 4],
         }
     }
 

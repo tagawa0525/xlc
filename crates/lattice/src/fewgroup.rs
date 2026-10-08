@@ -111,6 +111,7 @@ pub fn homogenize(
             chi
         },
         scatter,
+        adf: vec![vec![f64::NAN; coarse]; 4],
     })
 }
 
@@ -153,6 +154,33 @@ mod tests {
             materials,
             GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
         )
+    }
+
+    #[test]
+    fn homogeneous_cell_has_unit_adf() {
+        let m = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let cell = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+        let solution = solve(&tracking, &[&m, &m], &Options::default()).unwrap();
+        let fine = GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap();
+        let fg = homogenize(&solution, &[&m, &m], &fine, fine.bounds()).unwrap();
+        for value in fg.adf.iter().flatten() {
+            assert!((value - 1.0).abs() < 1e-8, "{:?}", fg.adf);
+        }
+    }
+
+    #[test]
+    fn fuel_pin_raises_the_thermal_adf() {
+        // 燃料が中心にあると、外周（減速材）の熱中性子束はセルの平均より高い。4 辺は対称で等しい
+        let (solution, materials, fine) = solved();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(&solution, &refs, &fine, fine.bounds()).unwrap();
+        assert!(fg.adf[0][1] > 1.0, "{:?}", fg.adf);
+        for side in &fg.adf {
+            for (a, b) in side.iter().zip(&fg.adf[0]) {
+                assert!((a - b).abs() < 1e-6 * b, "{:?}", fg.adf);
+            }
+        }
     }
 
     #[test]

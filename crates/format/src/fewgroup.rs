@@ -2,7 +2,7 @@
 //!
 //! フィールド名付きの map 形式の MessagePack（全体計画の「ファイルの約束事」）:
 //! `format` ("xlc-fewgroup"), `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`,
-//! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）。
+//! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）。
 
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +22,8 @@ pub struct FewGroup {
     pub diffusion: Vec<f64>,
     /// [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
+    /// [辺（左、右、上、下）][群] の不連続因子（辺の上の中性子束 / 均質化した中性子束）
+    pub adf: Vec<Vec<f64>>,
 }
 
 /// 少数群定数のファイルの読み込みエラー。
@@ -49,6 +51,7 @@ struct FewGroupFile {
     chi: Vec<f64>,
     diffusion: Vec<f64>,
     scatter: Vec<Vec<f64>>,
+    adf: Vec<Vec<f64>>,
 }
 
 impl FewGroup {
@@ -69,6 +72,7 @@ impl FewGroup {
             chi: self.chi.clone(),
             diffusion: self.diffusion.clone(),
             scatter: self.scatter.clone(),
+            adf: self.adf.clone(),
         })
     }
 
@@ -112,6 +116,14 @@ impl FewGroup {
                 file.scatter.len()
             ));
         }
+        if file.adf.len() != 4 {
+            return invalid(format!("`adf` has {} sides, expected 4", file.adf.len()));
+        }
+        for side in &file.adf {
+            if side.len() != ng || !side.iter().all(|v| *v > 0.0 && v.is_finite()) {
+                return invalid(format!("`adf` needs {ng} positive values per side"));
+            }
+        }
         if !(file.k_inf > 0.0 && file.k_inf.is_finite()) {
             return invalid(format!("invalid k-inf {}", file.k_inf));
         }
@@ -125,6 +137,7 @@ impl FewGroup {
             chi: file.chi,
             diffusion: file.diffusion,
             scatter: file.scatter,
+            adf: file.adf,
         })
     }
 }
@@ -148,6 +161,7 @@ mod tests {
             chi: vec![1.0, 0.0],
             diffusion: vec![x(4.1), x(1.2)],
             scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],
+            adf: vec![vec![x(3.0), x(3.3)]; 4],
         }
     }
 
@@ -164,6 +178,7 @@ mod tests {
             chi: fg.chi,
             diffusion: fg.diffusion,
             scatter: fg.scatter,
+            adf: fg.adf,
         }
     }
 
