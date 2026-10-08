@@ -2133,9 +2133,9 @@ mod tests {
             // 枠のリングの断面積は格子に使わないので、SPH 因子は 1 のまま
             let rings = framed.pins[0].sph.as_ref().unwrap();
             assert!(rings[4].iter().all(|&mu| mu == 1.0), "{rings:?}");
-            // 格子の枠は塊として遮蔽した物質のままで、等価なセルのリングの物質は使われない
-            assert!(framed.lumps.iter().any(|l| l.regions.contains(&4)));
-            assert_ne!(framed.region_material[4], framed.region_material[2]);
+            // 格子の枠は等価なセルのリングの物質で上書きされない（この Zr-90 は分離共鳴を持たないので、
+            // 被覆管と同じ物質の無限希釈のまま。被覆管のリングは UFG の物質）
+            assert_eq!(framed.region_material[4], 1);
         }
 
         #[test]
