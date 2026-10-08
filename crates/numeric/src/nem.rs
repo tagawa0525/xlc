@@ -90,21 +90,12 @@ pub fn outflow(line: &Line) -> Outflow {
         inflow,
     } = *line;
     let alpha = diffusion / h;
-    // 源のモーメント（他の群・核分裂の展開係数から）
-    let mut s = [0.0; 4];
-    for (c, a) in coupling.iter().zip(coefficients) {
-        for (si, ai) in s.iter_mut().zip(a) {
-            *si += c * ai;
-        }
-    }
-    s[0] -= l1;
-    s[1] -= l2;
-
+    let s = source_moments(coupling, coefficients, (l1, l2));
     let [a1, a2, _, _] = coefficients[g];
-    let dh2 = diffusion / (h * h);
-    // f1, f2 で重み付けした残差から 3次・4次の係数
-    let a3 = (removal * a1 / 12.0 - s[0] / 12.0 + s[2] / 120.0) / (dh2 / 2.0 + removal / 120.0);
-    let a4 = (removal * a2 / 20.0 - s[1] / 20.0 + s[3] / 700.0) / (dh2 / 5.0 + removal / 700.0);
+    // f1, f2 で重み付けした残差から 3次・4次の係数（前の反復の a1, a2 から）
+    let [w3, w4] = higher_order_weights(diffusion, h, removal);
+    let a3 = (removal * a1 / 12.0 - s[0] / 12.0 + s[2] / 120.0) / w3;
+    let a4 = (removal * a2 / 20.0 - s[1] / 20.0 + s[3] / 700.0) / w4;
 
     // 面の中性子束と正味の中性子流の連続から、出ていく部分中性子流 o = (o_R, o_L) は
     //   M o = A i + c,  M = [[1+8α, 4α], [4α, 1+8α]],  A = [[1-8α, -4α], [-4α, 1-8α]]
@@ -147,6 +138,27 @@ pub fn outflow(line: &Line) -> Outflow {
         a3,
         a4,
     }
+}
+
+/// 源のモーメント s0〜s3: 結合係数 c(g'→g) × 展開係数の和から、横方向の漏れの f1, f2 の係数を引いたもの。
+fn source_moments(coupling: &[f64], coefficients: &[[f64; 4]], transverse: (f64, f64)) -> [f64; 4] {
+    let mut s = [0.0; 4];
+    for (c, a) in coupling.iter().zip(coefficients) {
+        for (si, ai) in s.iter_mut().zip(a) {
+            *si += c * ai;
+        }
+    }
+    s[0] -= transverse.0;
+    s[1] -= transverse.1;
+    s
+}
+
+/// f1, f2 で重み付けした残差の式
+///   w3 a3 = Σr a1/12 - s0/12 + s2/120,  w4 a4 = Σr a2/20 - s1/20 + s3/700
+/// の左辺の係数 [w3, w4]。
+fn higher_order_weights(diffusion: f64, width: f64, removal: f64) -> [f64; 2] {
+    let dh2 = diffusion / (width * width);
+    [dh2 / 2.0 + removal / 120.0, dh2 / 5.0 + removal / 700.0]
 }
 
 /// 横方向の漏れの2次式で、ノードの片側に置く条件。
@@ -252,9 +264,179 @@ pub enum OneNodeError {
     NotConverged(usize),
 }
 
+/// 1ノードの問題の反復の上限
+const MAX_ITERATIONS: usize = 10_000;
+
 /// 1ノードの問題の均質な面の中性子束 [面（-x, +x, -y, +y）][群]。
-pub fn surface_fluxes(_node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
-    Err(OneNodeError::NotConverged(0))
+///
+/// ノード平均は参照の値に固定し（参照の k ではノードのバランス式がそれを満たす）、方向・群ごとに、core と
+/// 同じ NEM の式（4次の展開、f1, f2 で重み付けした残差、2次の横方向の漏れ）を、面の正味の中性子流が参照の
+/// 値になるように解く。横方向の漏れは、もう一方の方向の参照の漏れで、2次式の外側は `edges` で決める。
+///
+/// core は a3, a4 を前の反復の a1, a2 から求める（`outflow`）が、両方の面の正味の中性子流を決めると、その
+/// 反復は発散する（正味の中性子流は a1 + a3/2 と 3a2 + a4/5 を決め、大きなノードでは a3 ≈ 6 a1 なので、
+/// 前の a1 の誤差が約 -3 倍になる）。そこで群ごとに (a1, a3) と (a2, a4) を同時に解き、群の間の結合と
+/// 真空の面の横方向の漏れだけを前の反復の値とする。面の中性子束の相対変化が丸め誤差の水準になるまで
+/// 繰り返す。
+pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
+    validate(node)?;
+    let OneNode {
+        diffusion,
+        total,
+        scatter,
+        nu_fission,
+        chi,
+        k,
+        flux,
+        widths,
+        currents,
+        edges,
+    } = *node;
+    let ng = flux.len();
+    // [方向][群] の単位体積あたりの正味の漏れ
+    let leakage: [Vec<f64>; 2] = std::array::from_fn(|d| {
+        (0..ng)
+            .map(|g| (currents[2 * d][g] + currents[2 * d + 1][g]) / widths[d])
+            .collect()
+    });
+    // [方向][群] の展開係数
+    let mut coefficients = [vec![[0.0; 4]; ng], vec![[0.0; 4]; ng]];
+    for _ in 0..MAX_ITERATIONS {
+        let mut change: f64 = 0.0;
+        for g in 0..ng {
+            let removal = total[g] - scatter[g][g];
+            let coupling: Vec<f64> = (0..ng)
+                .map(|from| {
+                    let s = if from == g { 0.0 } else { scatter[from][g] };
+                    s + chi[g] * nu_fission[from] / k
+                })
+                .collect();
+            let own = coupling[g];
+            for d in 0..2 {
+                let h = widths[d];
+                let a = coefficients[d][g];
+                // 横方向（z の漏れは 0）。真空の面では、漏れ × 面の中性子束 / ノード平均（core と同じ）
+                let transverse = leakage[1 - d][g];
+                let [minus, plus] = face_fluxes(&a, flux[g]);
+                let beside = |edge: Edge, surface: f64| match edge {
+                    Edge::Reflective => Beside::Node {
+                        width: h,
+                        leakage: transverse,
+                    },
+                    Edge::Vacuum => Beside::Face(transverse * surface / flux[g]),
+                };
+                let moments = transverse_moments(
+                    h,
+                    beside(edges[2 * d], minus),
+                    transverse,
+                    beside(edges[2 * d + 1], plus),
+                );
+                // 自群の項を除いた源のモーメント
+                let mut s = source_moments(&coupling, &coefficients[d], moments);
+                for (si, ai) in s.iter_mut().zip(a) {
+                    *si -= own * ai;
+                }
+                let [w3, w4] = higher_order_weights(diffusion[g], h, removal);
+                let net = removal - own;
+                // 外向きの正味の中性子流: + 面 -(D/h)(a1 + 3a2 + a3/2 + a4/5)、- 面 (D/h)(a1 - 3a2 + a3/2 - a4/5)
+                let (out_minus, out_plus) = (currents[2 * d][g], currents[2 * d + 1][g]);
+                let odd = h * (out_minus - out_plus) / (2.0 * diffusion[g]);
+                let even = -h * (out_minus + out_plus) / (2.0 * diffusion[g]);
+                // a1 = odd - a3/2 を w3 a3 = Σr a1/12 - s0/12 + s2/120（s は自群を含む）に入れる
+                let a3 = (-s[0] / 12.0 + s[2] / 120.0 + net * odd / 12.0)
+                    / (w3 - own / 120.0 + net / 24.0);
+                let a1 = odd - a3 / 2.0;
+                // a2 = (even - a4/5)/3 を w4 a4 = Σr a2/20 - s1/20 + s3/700 に入れる
+                let a4 = (-s[1] / 20.0 + s[3] / 700.0 + net * even / 60.0)
+                    / (w4 - own / 700.0 + net / 300.0);
+                let a2 = (even - a4 / 5.0) / 3.0;
+                let updated = [a1, a2, a3, a4];
+                for (new, old) in face_fluxes(&updated, flux[g]).iter().zip([minus, plus]) {
+                    let relative = (new - old).abs() / flux[g];
+                    // NaN も収束していないとみなす
+                    change = if relative <= change { change } else { relative };
+                }
+                coefficients[d][g] = updated;
+            }
+        }
+        if change <= CONVERGED {
+            let mut surface = [vec![0.0; ng], vec![0.0; ng], vec![0.0; ng], vec![0.0; ng]];
+            for d in 0..2 {
+                for g in 0..ng {
+                    let [minus, plus] = face_fluxes(&coefficients[d][g], flux[g]);
+                    surface[2 * d][g] = minus;
+                    surface[2 * d + 1][g] = plus;
+                }
+            }
+            for (face, values) in surface.iter().enumerate() {
+                if let Some((group, &value)) = values
+                    .iter()
+                    .enumerate()
+                    .find(|(_, v)| !(**v > 0.0 && v.is_finite()))
+                {
+                    return Err(OneNodeError::NonPositiveSurface {
+                        face,
+                        group,
+                        flux: value,
+                    });
+                }
+            }
+            return Ok(surface);
+        }
+    }
+    Err(OneNodeError::NotConverged(MAX_ITERATIONS))
+}
+
+/// 1ノードの問題の収束の判定: 面の中性子束の、ノード平均に対する変化
+const CONVERGED: f64 = 1.0e-14;
+
+/// 展開係数とノード平均から、[- 面, + 面] の中性子束
+fn face_fluxes(a: &[f64; 4], average: f64) -> [f64; 2] {
+    [average + 0.5 * (a[1] - a[0]), average + 0.5 * (a[1] + a[0])]
+}
+
+fn validate(node: &OneNode) -> Result<(), OneNodeError> {
+    let ng = node.flux.len();
+    let invalid = |what: &str| Err(OneNodeError::Invalid(what.into()));
+    let lengths = [
+        node.diffusion.len(),
+        node.total.len(),
+        node.scatter.len(),
+        node.nu_fission.len(),
+        node.chi.len(),
+    ];
+    if ng == 0
+        || lengths.iter().any(|&l| l != ng)
+        || node.scatter.iter().any(|row| row.len() != ng)
+        || node.currents.iter().any(|c| c.len() != ng)
+    {
+        return invalid("one-node constants, fluxes and currents must have the same groups");
+    }
+    let finite = |values: &[f64]| values.iter().all(|v| v.is_finite());
+    if !(finite(node.total)
+        && finite(node.nu_fission)
+        && finite(node.chi)
+        && node.scatter.iter().all(|r| finite(r))
+        && node.currents.iter().all(|c| finite(c)))
+    {
+        return invalid("one-node cross sections and currents must be finite");
+    }
+    if !node.flux.iter().all(|&f| f > 0.0 && f.is_finite()) {
+        return invalid("one-node average fluxes must be positive");
+    }
+    if !node.diffusion.iter().all(|&d| d > 0.0 && d.is_finite()) {
+        return invalid("one-node diffusion coefficients must be positive");
+    }
+    if !(0..ng).all(|g| node.total[g] - node.scatter[g][g] > 0.0) {
+        return invalid("one-node removal cross sections must be positive");
+    }
+    if !(node.k > 0.0 && node.k.is_finite()) {
+        return invalid("one-node k must be positive");
+    }
+    if !node.widths.iter().all(|&w| w > 0.0 && w.is_finite()) {
+        return invalid("one-node widths must be positive");
+    }
+    Ok(())
 }
 
 #[cfg(test)]

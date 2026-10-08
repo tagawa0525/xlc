@@ -2,6 +2,7 @@
 
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::group::GroupStructure;
+use xlc_numeric::nem::{Edge, OneNode, OneNodeError, surface_fluxes};
 
 use crate::b1::{B1Error, Medium};
 use crate::material::Material;
@@ -21,8 +22,6 @@ pub enum HomogenizeError {
     NoFlux,
     #[error("library group {0} has no flux")]
     NoFineFlux(usize),
-    #[error("discontinuity factors need reflective sides on the whole lattice")]
-    NotReflective,
     #[error("discontinuity factors cannot be made with an albedo side")]
     Albedo,
     #[error(
@@ -33,12 +32,19 @@ pub enum HomogenizeError {
     Transport { group: usize, transport: f64 },
     #[error("B1 critical spectrum")]
     B1(#[from] B1Error),
+    #[error("one-node problem for the discontinuity factors")]
+    OneNode(#[from] OneNodeError),
 }
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
 /// `coarse_bounds`（`fine` の境界の一部、降順）の少数群に縮約する。
-/// 拡散係数は `diffusion_coefficients` で作る（ADR-0098）。不連続因子は、辺の上の中性子束を体積平均の中性子束で割る。
-/// 格子全体を1つのノード（集合体）として均質化し、外周がすべて鏡面反射であること（均質な解が平らになる）。
+/// 拡散係数は `diffusion_coefficients` で作る（ADR-0098）。格子全体を1つのノード（集合体）として均質化する。
+///
+/// 不連続因子（ADF）は、辺の上の不均質な中性子束（MOC）を、同じ辺の均質な中性子束で割る（一般化等価理論、
+/// ADR-0094）。均質な中性子束は、均質化した定数、MOC の k とノード平均の中性子束、辺ごとの正味の中性子流で
+/// 解いた1ノードの NEM（`xlc_numeric::nem::surface_fluxes`。core と同じ式）の面の値とする。外周がすべて
+/// 鏡面反射なら正味の中性子流は 0 で、均質な解は平らになり、体積平均の中性子束で割るのと同じになる。
+/// アルベドの辺は core に対応する境界がないのでエラーにする。
 pub fn homogenize(
     solution: &Solution,
     materials: &[&Material],
@@ -46,8 +52,14 @@ pub fn homogenize(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
 ) -> Result<FewGroup, HomogenizeError> {
-    if !reflective(boundaries) {
-        return Err(HomogenizeError::NotReflective);
+    let sides = [
+        boundaries.left,
+        boundaries.right,
+        boundaries.top,
+        boundaries.bottom,
+    ];
+    if sides.iter().any(|b| matches!(b, Boundary::Albedo(_))) {
+        return Err(HomogenizeError::Albedo);
     }
     let ng = fine.len();
     check_regions(solution, materials)?;
@@ -86,24 +98,6 @@ pub fn homogenize(
     if flux.iter().any(|&f| f <= 0.0) {
         return Err(HomogenizeError::NoFlux);
     }
-    // 不連続因子: 辺の上の中性子束 / 均質化した中性子束（反射境界の単一の格子では、均質な解は平らで
-    // 体積平均に等しい）
-    let volume: f64 = solution.volumes.iter().sum();
-    let adf = solution
-        .sides
-        .iter()
-        .map(|side| {
-            let mut surface = vec![0.0; coarse];
-            for (g, v) in side.iter().enumerate() {
-                surface[group_of[g]] += v;
-            }
-            surface
-                .iter()
-                .zip(&flux)
-                .map(|(s, f)| s / (f / volume))
-                .collect()
-        })
-        .collect();
     let per_flux =
         |values: Vec<f64>| -> Vec<f64> { values.iter().zip(&flux).map(|(v, f)| v / f).collect() };
     let total = per_flux(total);
@@ -113,7 +107,7 @@ pub fn homogenize(
         .map(|(row, f)| row.iter().map(|v| v / f).collect())
         .collect();
     let produced: f64 = chi.iter().sum();
-    Ok(FewGroup {
+    let mut few = FewGroup {
         bounds: coarse_bounds.to_vec(),
         k_inf: solution.k,
         absorption: total
@@ -121,7 +115,13 @@ pub fn homogenize(
             .zip(&scatter)
             .map(|(t, row)| t - row.iter().sum::<f64>())
             .collect(),
-        diffusion: diffusion(solution, materials, &group_of, coarse, true)?,
+        diffusion: diffusion(
+            solution,
+            materials,
+            &group_of,
+            coarse,
+            reflective(boundaries),
+        )?,
         total,
         nu_fission: per_flux(nu_fission),
         fission: per_flux(fission),
@@ -131,8 +131,53 @@ pub fn homogenize(
             chi
         },
         scatter,
-        adf,
-    })
+        adf: Vec::new(),
+    };
+    // 辺ごとの少数群の値（細かい群の和。辺の平均の中性子束と正味の中性子流は群について足せる）
+    let collapse = |values: &[Vec<f64>]| -> Vec<Vec<f64>> {
+        values
+            .iter()
+            .map(|side| {
+                let mut sum = vec![0.0; coarse];
+                for (g, v) in side.iter().enumerate() {
+                    sum[group_of[g]] += v;
+                }
+                sum
+            })
+            .collect()
+    };
+    let (heterogeneous, currents) = (collapse(&solution.sides), collapse(&solution.currents));
+    let volume: f64 = solution.volumes.iter().sum();
+    let average: Vec<f64> = flux.iter().map(|f| f / volume).collect();
+    // 1ノードの問題の面は（-x, +x, -y, +y）で、辺（左、右、上、下）の（0, 1, 3, 2）番目
+    let faces = [0, 1, 3, 2];
+    let edge = |side: usize| match sides[side] {
+        Boundary::Vacuum => Edge::Vacuum,
+        _ => Edge::Reflective,
+    };
+    let surface = surface_fluxes(&OneNode {
+        diffusion: &few.diffusion,
+        total: &few.total,
+        scatter: &few.scatter,
+        nu_fission: &few.nu_fission,
+        chi: &few.chi,
+        k: solution.k,
+        flux: &average,
+        widths: solution.size,
+        currents: faces.map(|side| currents[side].as_slice()),
+        edges: faces.map(edge),
+    })?;
+    few.adf = (0..4)
+        .map(|side| {
+            let face = faces[side];
+            heterogeneous[side]
+                .iter()
+                .zip(&surface[face])
+                .map(|(h, s)| h / s)
+                .collect()
+        })
+        .collect();
+    Ok(few)
 }
 
 fn reflective(boundaries: &Boundaries) -> bool {
