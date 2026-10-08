@@ -163,6 +163,21 @@ impl CoarseMesh {
         }
     }
 
+    /// 縦の面（x 方向に通る）なら true
+    pub fn is_vertical(&self, face: usize) -> bool {
+        face < self.rows() * (self.columns() + 1)
+    }
+
+    /// 面の長さ (cm)
+    pub fn face_length(&self, face: usize) -> f64 {
+        let nc = self.columns();
+        if self.is_vertical(face) {
+            self.heights[face / (nc + 1)]
+        } else {
+            self.widths[(face - self.rows() * (nc + 1)) % nc]
+        }
+    }
+
     /// 内側の面の長さと、面の低い側と高い側のセルの、面に垂直な方向の幅
     fn face_geometry(&self, face: usize) -> (f64, f64, f64) {
         let (nc, nr) = (self.columns(), self.rows());
@@ -180,11 +195,13 @@ impl CoarseMesh {
         }
     }
 
-    fn vertical(&self, row: usize, line: usize) -> usize {
+    /// セルの行 `row` の、左から `line` 番目の格子線の上の縦の面
+    pub fn vertical(&self, row: usize, line: usize) -> usize {
         row * (self.columns() + 1) + line
     }
 
-    fn horizontal(&self, line: usize, column: usize) -> usize {
+    /// セルの列 `column` の、上から `line` 番目の格子線の上の横の面
+    pub fn horizontal(&self, line: usize, column: usize) -> usize {
         let nc = self.columns();
         self.rows() * (nc + 1) + line * nc + column
     }
