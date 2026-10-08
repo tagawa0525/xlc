@@ -343,24 +343,23 @@ mod tests {
 
     #[test]
     fn log_lin_tables_are_integrated_exactly() {
-        // ln f が μ に線形（INT=4）: f(μ) = c e^μ（c = 1/(e − 1/e)）の a_1 = c ∫ μ e^μ dμ = 2c/e
-        let c = 1.0 / (1.0_f64.exp() - (-1.0_f64).exp());
-        let (lo, hi) = (
-            format!("{}", c / 1.0_f64.exp()),
-            format!("{}", c * 1.0_f64.exp()),
-        );
+        // ln f が μ に線形（INT=4）: f(μ) = 0.2 e^{b(μ+1)}、b = ln 3 / 2（f(1) = 0.6）の
+        // a_1 = ∫ μ f dμ = 0.2 e^b [e^{bμ}(μ/b − 1/b²)]_{−1}^{1}
         let text = head("2", "0", "2")
             + &[
                 r(["0.0", "0.0", "0", "0", "1", "1"]),
                 r(["1", "2", "", "", "", ""]),
                 r(["0.0", "1.0e5", "0", "0", "1", "2"]),
                 r(["2", "4", "", "", "", ""]),
-                r(["-1.0", &lo, "1.0", &hi, "", ""]),
+                r(["-1.0", "0.2", "1.0", "0.6", "", ""]),
             ]
             .concat();
         let mf4 = parse(&text).unwrap();
+        let b = 3.0_f64.ln() / 2.0;
+        let primitive = |mu: f64| (b * mu).exp() * (mu / b - 1.0 / (b * b));
+        let expected = 0.2 * b.exp() * (primitive(1.0) - primitive(-1.0));
         let a = mf4.moments(1.0e5, 1);
-        assert!((a[1] - 2.0 * c / 1.0_f64.exp()).abs() < 1e-12, "{a:?}");
+        assert!((a[1] - expected).abs() < 1e-12, "{a:?} vs {expected}");
     }
 
     #[test]
