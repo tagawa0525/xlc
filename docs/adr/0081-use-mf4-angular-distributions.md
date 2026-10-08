@@ -42,7 +42,7 @@ MF4 の角度分布（重心系・実験室系、Legendre・表・混合）を x
 `center_of_mass_continuum_angles_are_error`、`isotropic_center_of_mass_continuum_is_accepted`、
 `elastic_uses_free_gas_even_with_mf6_data`、`discrete_inelastic_uses_q_value`、`center_of_mass_energy_spreads_in_laboratory`、
 `mf6_multiplicity_scales_the_row`。NJOY GROUPR（Legendre の次数 3）と比べ、O-16 と H-1 の弾性散乱と O-16 の第1準位は
-どの次数も P0 の行の和に対して 1.3e-4 以内で一致する（examples/vera/README.md）。
+どの次数も P0 の行の和に対して 1.3e-4 以内で一致する（examples/vera/verification.md）。
 
 ## 結果
 

@@ -45,7 +45,7 @@ M2 で次のとおり詳細を決め、実装した（2026-10-07）。
 ## 確認
 
 `isolated_rod_gives_carlvik_coefficients`、`coefficients_are_ordered_and_betas_sum_to_one`、
-`interpolates_shielded_cross_sections_in_ln_sigma0`。VERA のピンセルを OpenMC と比べた（examples/vera/README.md）。
+`interpolates_shielded_cross_sections_in_ln_sigma0`。VERA のピンセルを OpenMC と比べた（examples/vera/verification.md）。
 
 ## 結果
 

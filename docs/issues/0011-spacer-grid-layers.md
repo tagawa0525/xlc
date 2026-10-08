@@ -16,7 +16,7 @@ resolution:
 （CASMO-4/SIMULATE-3 の Palo Verde の手法）は、格子計算で支持格子を燃料の高さ全体に薄めて混ぜ、位置どおりの
 支持格子は炉心計算の側で扱う。xlc は支持格子を入れた格子計算ができるので、層の定数を直接作れる。支持格子による燃料の
 自己遮蔽の変化の大きさは測っていない。目安として、等価なセルに支持格子のリングを入れると 1B の k が +210 pcm 動いた
-（支持格子による変化の OpenMC との差が −170 → +40 pcm。examples/vera/README.md）。
+（支持格子による変化の OpenMC との差が −170 → +40 pcm。examples/vera/verification.md）。
 
 関係する ADR: [ADR-0085](../adr/0085-branch-on-core-states.md)
 

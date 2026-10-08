@@ -75,7 +75,7 @@ nix develop ../..#references -c sh -c \
      endfb80/cross_sections.xml 2B work-2B 1000000 400 100 1'
 ```
 
-同じ多群定数で OpenMC の多群モードと比べる（examples/vera/README.md の「同じ多群定数での OpenMC との比較」）には、
+同じ多群定数で OpenMC の多群モードと比べる（examples/vera/verification.md の「同じ多群定数での OpenMC との比較」）には、
 負にならない散乱核のライブラリと、そこから多群定数を作ってから解く。格子の入力は `library` をそのライブラリに、
 `self-shielding = false` と `scattering-order` を同じ次数にしたもの:
 
