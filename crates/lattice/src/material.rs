@@ -249,8 +249,8 @@ impl Material {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use xlc_format::group::GroupStructure;
     use xlc_xs::library::{NuclideData, Shielded, TemperatureData};
-    use xlc_xs::multigroup::GroupStructure;
 
     fn library() -> Library {
         let nuclide = |name: &str, fissile: bool| {

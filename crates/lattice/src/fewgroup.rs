@@ -5,8 +5,8 @@
 //! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）。
 
 use serde::{Deserialize, Serialize};
+use xlc_format::group::GroupStructure;
 use xlc_format::msgpack::{self, MsgpackError};
-use xlc_xs::multigroup::GroupStructure;
 
 use crate::material::Material;
 use crate::moc::Solution;

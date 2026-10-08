@@ -783,8 +783,8 @@ pub fn effective(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use xlc_format::group::GroupStructure;
     use xlc_xs::library::{Library, NuclideData, Shielded, TemperatureData};
-    use xlc_xs::multigroup::GroupStructure;
 
     const T: f64 = 900.0;
 
@@ -928,8 +928,8 @@ mod tests {
         use crate::input::MaterialInput;
         use crate::material::Material;
         use crate::tracking::Tracking;
+        use xlc_format::group::GroupStructure;
         use xlc_xs::library::{Library, NuclideData, Shielded, TemperatureData};
-        use xlc_xs::multigroup::GroupStructure;
 
         const T: f64 = 600.0;
 

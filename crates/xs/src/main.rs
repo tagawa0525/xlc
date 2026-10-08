@@ -39,9 +39,10 @@ use serde::Deserialize;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+use xlc_format::group::GroupStructure;
 use xlc_xs::endf::Tape;
 use xlc_xs::library::{Library, NuclideData, is_nuclide_name};
-use xlc_xs::multigroup::{GroupStructure, Weight};
+use xlc_xs::multigroup::Weight;
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
 use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering, resolved};
 
