@@ -57,13 +57,7 @@ fn main() -> anyhow::Result<()> {
     )?;
     // ピンセルのある行と列（余白の行と列を除く）での位置
     let columns = lattice.columns();
-    let pin = |cell: usize| lattice.cell_type(cell).pin().is_some();
-    let pin_rows: Vec<usize> = (0..lattice.rows())
-        .filter(|&r| (0..columns).any(|c| pin(r * columns + c)))
-        .collect();
-    let pin_columns: Vec<usize> = (0..columns)
-        .filter(|&c| (0..lattice.rows()).any(|r| pin(r * columns + c)))
-        .collect();
+    let (pin_rows, pin_columns) = lattice.pin_rows_and_columns();
     let n = pin_rows.len();
     if pin_columns.len() != n {
         anyhow::bail!("pins must fill a square block");

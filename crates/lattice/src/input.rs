@@ -408,6 +408,8 @@ impl LatticeInput {
     pub fn geometry(&self) -> Result<(Lattice, Vec<String>), InputError> {
         let mut types = Vec::with_capacity(self.cells.len());
         let mut region_materials = Vec::with_capacity(self.cells.len());
+        // [セルの種類] の、ピッチに合わないマスに置くときの長方形のセル（均質なセルだけ）
+        let mut blocks: Vec<Option<Cell>> = Vec::with_capacity(self.cells.len());
         for cell in &self.cells {
             // 枠の厚さは、それを使って帯を分ける前に確かめる（帯の誤りとして報告しないため）
             if let Some(frame) = &cell.frame
@@ -463,17 +465,19 @@ impl LatticeInput {
                 inner = zone.outer.unwrap_or(half);
                 names.extend(std::iter::repeat_n(zone.material.clone(), zone.rings));
             }
-            // 均質なセル（帯が1つで分割1、扇形と枠なし）は、どのマスにも置ける長方形のセル
+            // 均質なセル（帯が1つで分割1、扇形と枠なし）は、ピッチの正方形のマスではピンセル（同心円なし）、
+            // ほかのマスでは長方形のセルにする（種類はマスで決める。下の `blocks`）
             let homogeneous = cell.zones.len() == 1
                 && cell.zones[0].rings == 1
                 && cell.sectors == 1
                 && cell.frame.is_none();
-            let pin = if homogeneous {
+            blocks.push(homogeneous.then_some(Cell::Block {
+                nx: cell.grid,
+                ny: cell.grid,
+            }));
+            let pin = if cell.grid > 1 {
                 names = vec![names[0].clone(); cell.grid * cell.grid];
-                Ok(Cell::Block {
-                    nx: cell.grid,
-                    ny: cell.grid,
-                })
+                PinCell::grid(self.pitch, cell.grid).map(Cell::Pin)
             } else {
                 names = names
                     .into_iter()
@@ -518,7 +522,25 @@ impl LatticeInput {
                 .clone()
                 .unwrap_or_else(|| pitches(layout.len())),
         );
+        // ピッチの正方形でないマスの均質なセルは、長方形のセルの種類に置き換える
         let mut layout = layout;
+        let mut block_type = vec![None; types.len()];
+        for (r, row) in layout.iter_mut().enumerate() {
+            for (c, t) in row.iter_mut().enumerate() {
+                let slot = (widths.get(c), heights.get(r));
+                if slot == (Some(&self.pitch), Some(&self.pitch)) {
+                    continue;
+                }
+                if let Some(block) = &blocks[*t] {
+                    let index = *block_type[*t].get_or_insert_with(|| {
+                        types.push(block.clone());
+                        region_materials.push(region_materials[*t].clone());
+                        types.len() - 1
+                    });
+                    *t = index;
+                }
+            }
+        }
         if let Some(gap) = &self.gap {
             if let CrossSections::Library(_) = self.cross_sections
                 && !self.materials.iter().any(|m| m.name == gap.material)
