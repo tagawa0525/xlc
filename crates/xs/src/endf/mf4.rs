@@ -124,7 +124,7 @@ impl LegendreTable {
 }
 
 impl AngleTables {
-    /// a_l = ∫ f(μ) P_l(μ) dμ（l = 1..order）。f は区間ごとに線形（INT=2）として積分する
+    /// a_l = ∫ f(μ) P_l(μ) dμ（l = 1..order）。f は区間ごとに表の補間則で補間して積分する
     fn moments(&self, e: f64, order: usize) -> Vec<f64> {
         let at = |k: usize| -> Vec<f64> {
             let t = &self.tables[k];
@@ -134,7 +134,9 @@ impl AngleTables {
                 let (mid, half) = (0.5 * (x0 + x1), 0.5 * (x1 - x0));
                 for &(node, weight) in &GAUSS_LEGENDRE_8 {
                     let mu = mid + half * node;
-                    let f = t.y[i - 1] + (t.y[i] - t.y[i - 1]) * (mu - x0) / (x1 - x0);
+                    let f =
+                        t.law_of_interval(i - 1)
+                            .interpolate(mu, (x0, t.y[i - 1]), (x1, t.y[i]));
                     for (a, p) in a.iter_mut().zip(legendre(mu, order).into_iter().skip(1)) {
                         *a += weight * half * f * p;
                     }
@@ -193,7 +195,8 @@ fn legendre_table(r: &mut Reader<'_>) -> Result<LegendreTable, Error> {
     })
 }
 
-/// TAB2 と、それに続く入射エネルギーごとの TAB1（f(μ)）を読む。f は線形補間（INT=2）だけを扱う。
+/// TAB2 と、それに続く入射エネルギーごとの TAB1（f(μ)）を読む。μ は負にもなるので、ln μ を使う補間則
+/// （INT=3, 5）は定義できず、エラーにする。
 fn angle_tables(r: &mut Reader<'_>) -> Result<AngleTables, Error> {
     let tab2 = r.tab2()?;
     let laws = laws(&tab2.codes, r.line())?;
@@ -201,18 +204,15 @@ fn angle_tables(r: &mut Reader<'_>) -> Result<AngleTables, Error> {
     let mut tables = Vec::with_capacity(tab2.nz);
     for _ in 0..tab2.nz {
         let record = r.tab1()?;
-        if record
+        if let Some(law) = record
             .table
             .laws
             .iter()
-            .any(|&law| law != Interpolation::LinLin)
+            .find(|law| matches!(law, Interpolation::LinLog | Interpolation::LogLog))
         {
             return Err(Error::new(
                 r.line(),
-                format!(
-                    "angular tables must be lin-lin in mu, got {:?}",
-                    record.table.laws
-                ),
+                format!("{law:?} interpolation in mu is not defined for negative mu"),
             ));
         }
         energies.push(record.c2);
@@ -238,14 +238,15 @@ fn laws(codes: &[i64], line: usize) -> Result<Vec<Interpolation>, Error> {
 }
 
 fn increasing(energies: &[f64], line: usize) -> Result<(), Error> {
-    if let Some(w) = energies.windows(2).find(|w| w[0] >= w[1]) {
-        return Err(Error::new(
-            line,
-            format!("incident energies must be increasing: {w:?}"),
-        ));
-    }
     if energies.is_empty() {
         return Err(Error::new(line, "no incident energies"));
+    }
+    // 同じエネルギーが続くのは不連続（後の分布をそのエネルギーから使う）
+    if let Some(w) = energies.windows(2).find(|w| w[0] > w[1]) {
+        return Err(Error::new(
+            line,
+            format!("incident energies must not decrease: {w:?}"),
+        ));
     }
     Ok(())
 }
