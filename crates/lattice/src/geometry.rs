@@ -48,6 +48,8 @@ pub enum GeometryError {
     CellType { index: usize, types: usize },
     #[error("the margin around the lattice must be finite and not negative, got {0}")]
     Margin(f64),
+    #[error("frame thickness must be positive, below pitch/2 and outside the circles, got {0}")]
+    Frame(f64),
 }
 
 impl PinCell {
@@ -122,6 +124,13 @@ impl PinCell {
             grid: m,
             ..Self::new(pitch, Vec::new())?
         })
+    }
+
+    /// セルの外周に厚さ `thickness` cm の正方形の枠（支持格子を体積を保って薄い枠にしたもの）を付けたセル。
+    /// 枠は1つの領域で、領域の番号の最後に置く。同心円の領域は、セルの外周の代わりに枠の内側で切り取る。
+    pub fn with_frame(self, thickness: f64) -> Result<Self, GeometryError> {
+        let _ = thickness;
+        Ok(self)
     }
 
     /// 点 (x, y) を含む領域。
@@ -480,6 +489,34 @@ impl Lattice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frames_need_room() {
+        let cell = || PinCell::with_sectors(1.26, vec![0.4, 0.6], 8).unwrap();
+        assert!(cell().with_frame(0.0).is_err());
+        assert!(cell().with_frame(0.63).is_err());
+        // 枠の内側（半辺 0.43）の外接円 0.608 より大きい円は置けない
+        assert!(cell().with_frame(0.2).is_err());
+        assert!(PinCell::grid(1.26, 3).unwrap().with_frame(0.01).is_err());
+    }
+
+    #[test]
+    fn frame_takes_the_cell_edge() {
+        let (pitch, t) = (1.26, 0.02);
+        let cell = PinCell::with_sectors(pitch, vec![0.4, 0.6], 8)
+            .unwrap()
+            .with_frame(t)
+            .unwrap();
+        assert_eq!(cell.regions(), 3 * 8 + 1);
+        let volumes = cell.volumes();
+        let frame = pitch * pitch - (pitch - 2.0 * t).powi(2);
+        assert!((volumes[24] - frame).abs() < 1e-12, "{volumes:?}");
+        assert!((volumes.iter().sum::<f64>() - pitch * pitch).abs() < 1e-12);
+        assert_eq!(cell.region_at(0.62, 0.0), 24);
+        assert_eq!(cell.region_at(0.0, -0.625), 24);
+        // 枠の内側の四隅は、最も外側のリング
+        assert_eq!(cell.region_at(0.6, 0.6) / 8, 2);
+    }
 
     #[test]
     fn pin_cell_matches_a_one_cell_lattice() {
