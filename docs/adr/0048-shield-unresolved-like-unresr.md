@@ -27,7 +27,7 @@ NJOY RECONR と同じ式で共鳴パラメータから求める。
 
 `unresolved_shielding_lowers_capture_at_small_background`、`lssf0_adds_shielding_difference`、
 `lssf1_scales_by_shielding_factor`。NJOY UNRESR との比較（`crates/xs/examples/compare_njoy_shielding.rs`、
-examples/m1/README.md）。
+examples/m1/verification.md）。
 
 ## 結果
 

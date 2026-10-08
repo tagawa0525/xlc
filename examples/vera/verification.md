@@ -15,7 +15,7 @@ NJOY で作ったデータで OpenMC を動かして作る（核データの違�
 | `compare_fuel_xs.py`     | 燃料の核種ごとの実効断面積（全・弾性・非弾性・核分裂）を、xlc（`fuel_xs` の例）と OpenMC で群ごとに比べる |
 
 組成は仕様書の表 P1-4, P2-4 の個数密度のとおり。Hf（1e-6 /(barn cm) 未満）とギャップの He は除き、
-ギャップは真空とする（[ADR-0054](../../docs/adr/0054-model-vera-materials.md)）。手順は docs/verification.md の「VERA の参照解」。
+ギャップは真空とする（[ADR-0054](../../docs/adr/0054-model-vera-materials.md)）。手順は docs/environment.md の「VERA の参照解」。
 
 ## 参照解
 
@@ -39,7 +39,7 @@ NJOY で作ったデータで OpenMC を動かして作る（核データの違�
 - OpenMC は、出射エネルギーの分布が片対数（INT=4）の区間を線形として扱う（ACE から読むときに置き換える）。
   対象の核種では Sn の MF5 の連続スペクトル（MT16, 17, 22, 28, 91）が当たる。xs は補間則のとおりに扱う。
   被覆管の中の Sn は微量なので、影響は統計誤差より小さいと見込む
-- NJOY の ACER は B-10 で止まるので、手元でバグを直した NJOY を使う（docs/verification.md）。
+- NJOY の ACER は B-10 で止まるので、手元でバグを直した NJOY を使う（docs/environment.md）。
   直したのは荷電粒子の生成データの書き出しだけで、中性子の断面積は変わらない
 
 ## xlc の結果（自己遮蔽は Bondarenko の重みのライブラリ）

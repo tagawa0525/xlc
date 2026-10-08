@@ -26,7 +26,7 @@ issues: []
 
 ## 確認
 
-M0 の例（examples/m0/README.md）で3段階をつないで確かめた。
+M0 の例（examples/m0/verification.md）で3段階をつないで確かめた。
 
 ## 結果
 

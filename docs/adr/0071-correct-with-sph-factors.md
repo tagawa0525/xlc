@@ -33,7 +33,7 @@ SPH 因子（Hébert の SPH 等価）で直す。リング r・群 g の反応�
 ## 確認
 
 `factors_reproduce_the_reference_shape`、`consistent_reference_needs_no_correction`、`rejects_references_without_flux`、
-`rejects_rings_without_flux`。VERA のピンセルの結果（examples/vera/README.md）。
+`rejects_rings_without_flux`。VERA のピンセルの結果（examples/vera/verification.md）。
 
 ## 結果
 

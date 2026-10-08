@@ -26,7 +26,7 @@ issues: []
 ## 確認
 
 `weight_only_in_maxwellian_region`、`weight_only_in_one_over_e_region`、`group_spanning_weight_breakpoint`。
-NJOY GROUPR との比較（`crates/xs/examples/compare_njoy_gendf.rs`、examples/m1/README.md）。
+NJOY GROUPR との比較（`crates/xs/examples/compare_njoy_gendf.rs`、examples/m1/verification.md）。
 
 ## 結果
 

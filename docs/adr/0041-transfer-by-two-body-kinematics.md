@@ -26,7 +26,7 @@ M0 の縦切り（2026-10-06）で、散乱行列（群の間の移行）を、�
 ## 確認
 
 `hydrogen_elastic_matrix`、`discrete_inelastic_uses_q_value`、`free_gas_rows_sum_to_the_broadened_elastic_cross_section`、
-`mf6_multiplicity_scales_the_row`。NJOY GROUPR との比較（examples/m1/README.md）。
+`mf6_multiplicity_scales_the_row`。NJOY GROUPR との比較（examples/m1/verification.md）。
 
 ## 結果
 

@@ -67,7 +67,7 @@ ENDF 形式の評価済み核データから出発し、PWR 炉心全体の解�
 
 格子計算の精度の目標は、同じ核データで作ったモンテカルロ計算の参照解に対して、燃焼を通じて k の差が ±100 pcm
 （許容の上限は ±150 pcm）、ピン出力の差が rms 0.2% 以内とする（[ADR-0032](../adr/0032-target-lattice-accuracy.md)）。達成の状況は検証の例
-（examples/vera/README.md など）に記録する。
+（examples/vera/verification.md など）に記録する。
 
 参照解は、同じ核データから手元で作った OpenMC で求める（[ADR-0031](../adr/0031-verify-against-openmc-with-same-data.md)）。
 

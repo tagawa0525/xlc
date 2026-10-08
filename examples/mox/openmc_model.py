@@ -5,7 +5,7 @@
 
 <問題> は MOX-1, MOX-2。断面積は examples/vera/openmc_library.py で作ったもの。
 組成は pin_cell.pdf の付録 2 の個数密度で、セルは同じ面積の正方形（ピッチ 1.26 cm、外周は鏡面反射）、
-温度はすべて 600 K にする（README）。xlc のライブラリ（msgpack）の群構造で、燃料の核種ごとの実効断面積
+温度はすべて 600 K にする（verification.md）。xlc のライブラリ（msgpack）の群構造で、燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を fuel-xs.msgpack に書く（examples/vera/openmc_model.py と
 同じ形式に捕獲 `capture` を足したもの）。比べやすいよう、燃料の中性子束 `flux`（体積で割らない tally の値）と
 その相対標準偏差 `flux-rsd`、反応率の相対標準偏差 `<score>-rsd`、同じ規格化でのセル全体の吸収率 `absorption` と

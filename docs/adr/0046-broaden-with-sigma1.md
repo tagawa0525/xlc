@@ -31,7 +31,7 @@ M1 の計画は、この項目に温度の組（293.6, 600, 900, 1200 K）も書
 ## 確認
 
 `constant_cross_section_matches_analytic_broadening`、`one_over_v_is_unchanged`。NJOY BROADR との比較
-（`crates/xs/examples/compare_njoy_broadr.rs`、examples/m1/README.md）。
+（`crates/xs/examples/compare_njoy_broadr.rs`、examples/m1/verification.md）。
 
 ## 結果
 
