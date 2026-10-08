@@ -517,6 +517,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlc-docs"
+version = "0.1.0"
+
+[[package]]
 name = "xlc-format"
 version = "0.1.0"
 dependencies = [
