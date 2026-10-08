@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-06
-supersedes: []
+supersedes: [ADR-0009]
 superseded-by:
 issues: []
 ---
