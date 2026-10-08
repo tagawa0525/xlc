@@ -513,7 +513,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "xlc-lattice",
+ "xlc-format",
 ]
 
 [[package]]
