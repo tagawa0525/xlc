@@ -481,7 +481,9 @@ mod tests {
         let mf4 = parse(&text).unwrap();
         let b = 3.0_f64.ln() / 2.0;
         let primitive = |mu: f64| (b * mu).exp() * (mu / b - 1.0 / (b * b));
-        let expected = 0.2 * b.exp() * (primitive(1.0) - primitive(-1.0));
+        // ∫ f dμ = 0.2 (e^{2b} − 1)/b で割って規格化する
+        let norm = 0.2 * ((2.0 * b).exp() - 1.0) / b;
+        let expected = 0.2 * b.exp() * (primitive(1.0) - primitive(-1.0)) / norm;
         let a = mf4.moments(1.0e5, 1);
         assert!((a[1] - expected).abs() < 1e-12, "{a:?} vs {expected}");
     }
@@ -557,7 +559,14 @@ mod tests {
         let mf4 = parse(&text).unwrap();
         let e = 3.0e5;
         let nodes = xlc_numeric::quadrature::gauss_legendre(64).unwrap();
-        let expected: f64 = nodes.iter().map(|&(x, w)| w * x * mf4.density(e, x)).sum();
+        let integral = |g: &dyn Fn(f64) -> f64| -> f64 {
+            nodes
+                .iter()
+                .map(|&(x, w)| w * g(x) * mf4.density(e, x))
+                .sum()
+        };
+        // 補間した密度は規格化されていないので、∫ f dμ で割る
+        let expected = integral(&|x| x) / integral(&|_| 1.0);
         let a = mf4.moments(e, 1);
         assert!((a[1] - expected).abs() < 1e-12, "{a:?} vs {expected}");
     }
