@@ -514,6 +514,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "xlc-format",
+ "xlc-numeric",
 ]
 
 [[package]]
