@@ -198,6 +198,7 @@ mod tests {
             scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],
             adf: vec![vec![x(3.0), x(3.3)]; 4],
             vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
+            normalized_adf: vec![true, false, false, false],
         }
     }
 
@@ -216,6 +217,7 @@ mod tests {
             scatter: fg.scatter,
             adf: fg.adf,
             vacuum_ratio: fg.vacuum_ratio,
+            normalized_adf: fg.normalized_adf,
         }
     }
 
@@ -310,6 +312,31 @@ mod tests {
         assert_eq!(
             FewGroup::from_msgpack(&fg.to_msgpack().unwrap()).unwrap(),
             fg
+        );
+    }
+
+    #[test]
+    fn normalized_sides_are_checked() {
+        // 反射体の定数は、燃料と接する辺の ADF を燃料の ADF で割った f* で持ち、その辺に印を付ける
+        // （ADR-0095）。印は4辺ぶんで、外周の真空の辺（燃料と接しない）には付けない
+        let fg = sample();
+        assert_eq!(
+            FewGroup::from_msgpack(&fg.to_msgpack().unwrap()).unwrap(),
+            fg
+        );
+        let mut fg = sample();
+        fg.normalized_adf.pop();
+        let err = fg.validate().unwrap_err().to_string();
+        assert!(err.contains("normalized_adf"), "{err}");
+        let mut fg = sample();
+        fg.normalized_adf[1] = true;
+        let err = fg.validate().unwrap_err().to_string();
+        assert!(err.contains("normalized_adf"), "{err}");
+        assert!(
+            read_modified(|f| {
+                f.normalized_adf.push(false);
+            })
+            .is_err()
         );
     }
 }
