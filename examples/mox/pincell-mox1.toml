@@ -1,0 +1,46 @@
+# LWR MOX ピンセル（NEA、pin_cell.pdf の付録 2）の MOX-1（Pu の劣化が大きい組成）。
+# 円筒のセル（外半径 0.710879 cm）は同じ面積の正方形（ピッチ 1.26 cm）にし、温度はすべて 600 K にする。
+# 被覆管の Zr は天然の同位体組成で分ける。燃料は自己遮蔽する。個数密度は 1/(barn cm)。
+library = "mox.msgpack"
+pitch = 1.26
+azimuthal = 64
+spacing = 0.02
+rows = ["pin"]
+
+[material.fuel]
+temperature = 600
+
+[material.fuel.nuclides]
+U-235 = 5.1050e-05
+U-238 = 2.0370e-02
+Pu-238 = 4.6690e-05
+Pu-239 = 1.4650e-03
+Pu-240 = 5.6910e-04
+Pu-241 = 2.7130e-04
+Pu-242 = 1.4130e-04
+Am-241 = 3.0280e-05
+O-16 = 4.5880e-02
+
+[material.zirconium]
+temperature = 600
+
+[material.zirconium.nuclides]
+Zr-90 = 1.99626e-02
+Zr-91 = 4.35336e-03
+Zr-92 = 6.65420e-03
+Zr-94 = 6.74344e-03
+Zr-96 = 1.08640e-03
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.744e-02, O-16 = 2.372e-02 }
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.41, rings = 5 },
+  { material = "zirconium", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
