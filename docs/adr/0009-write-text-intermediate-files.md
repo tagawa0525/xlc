@@ -2,7 +2,7 @@
 status: superseded
 date: 2026-10-06
 supersedes: []
-superseded-by: ADR-0011
+superseded-by: [ADR-0010, ADR-0011]
 issues: []
 ---
 
