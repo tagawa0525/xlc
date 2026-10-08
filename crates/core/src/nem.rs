@@ -1036,7 +1036,7 @@ mod tests {
         );
         let s = solve(&p, &Options::default()).unwrap();
         assert!(
-            (s.k - expected).abs() < 1e-5 * expected,
+            (s.k - expected).abs() < 1e-8 * expected,
             "{} vs {expected}",
             s.k
         );
@@ -1152,7 +1152,7 @@ mod tests {
         let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Vacuum);
         let s = solve(&p, &Options::default()).unwrap();
         assert!(
-            (s.k - expected).abs() < 1e-6 * expected,
+            (s.k - expected).abs() < 1e-8 * expected,
             "{} vs {expected}",
             s.k
         );
@@ -1174,7 +1174,7 @@ mod tests {
             (solve(&p, &Options::default()).unwrap().k - expected).abs() / expected
         };
         let (coarse, fine) = (error(4), error(8));
-        assert!(fine < 2e-4, "relative error {fine}");
-        assert!(fine < coarse / 4.0, "{coarse} -> {fine}");
+        assert!(fine < 1e-4, "relative error {fine}");
+        assert!(fine < coarse / 8.0, "{coarse} -> {fine}");
     }
 }
