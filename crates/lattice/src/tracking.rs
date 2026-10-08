@@ -133,7 +133,7 @@ pub struct Tracking {
     /// （反射のつながりの逆。真空境界なら `None`）
     sources: Vec<Option<Link>>,
     /// 外周の辺の境界条件
-    pub boundaries: Boundaries,
+    boundaries: Boundaries,
 }
 
 impl Tracking {
@@ -162,6 +162,18 @@ impl Tracking {
                 return Err(TrackingError::Albedo(albedo));
             }
         }
+        // α = 1 は鏡面反射、α = 0 は真空と同じなので、そちらに揃える（対称性の判定で同じものとして扱うため）
+        let canonical = |b: Boundary| match b {
+            Boundary::Albedo(a) if a == 1.0 => Boundary::Reflective,
+            Boundary::Albedo(a) if a == 0.0 => Boundary::Vacuum,
+            other => other,
+        };
+        let boundaries = Boundaries {
+            left: canonical(boundaries.left),
+            right: canonical(boundaries.right),
+            top: canonical(boundaries.top),
+            bottom: canonical(boundaries.bottom),
+        };
         let n = n_azimuthal;
         let (width, height) = (lattice.width(), lattice.height());
         // 方位角を (0, π/2) で補正し、π - φ を対にする
@@ -329,6 +341,11 @@ impl Tracking {
             sources,
             boundaries,
         })
+    }
+
+    /// 外周の辺の境界条件（作るときに確かめたもの。あとから変えられない）
+    pub fn boundaries(&self) -> Boundaries {
+        self.boundaries
     }
 
     /// 方位角 `azimuth` のトラックの番号の範囲。
