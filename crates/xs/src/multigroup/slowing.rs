@@ -129,8 +129,14 @@ pub fn slowing_down_shape_with(
     // g = σs F（格子点の値。最初の窓は σp W）
     let mut g = Vec::with_capacity(u.len());
     for (i, (&ui, &e)) in u.iter().zip(&points).enumerate() {
-        let (st, ss) = (at(total, e)?, at(elastic, e)?);
         let big_w = e * weight.value(e);
+        if ui < 0.0 {
+            // 範囲より上: 散乱源だけを使い、中性子束は表に入れない（下でエネルギーが上端以下の点だけを残す）
+            f.push(f64::NAN);
+            g.push(potential * big_w);
+            continue;
+        }
+        let (st, ss) = (at(total, e)?, at(elastic, e)?);
         let (value, source) = if ui <= 0.0 {
             // 最初の窓: NR 近似。散乱源はポテンシャル散乱が重み関数のスペクトルで散乱するもの
             (
