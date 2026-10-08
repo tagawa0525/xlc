@@ -510,7 +510,7 @@ impl Coarse {
 /// neutron transport calculations", Ann. Nucl. Energy 95 (2016) 116–124 の式 (23) と Table 1。
 /// フーリエ解析で求めた最適値の当てはめで、τ < 1 では 0（従来の CMFD）、τ ≥ 14 では飽和値。
 /// C5G7 の反射体（熱群で τ ≈ 4）では従来の CMFD が振動して収束せず、partial current CMFD に
-/// 当たる θ = 1/4 より、細かい領域の多い場合に反復が少ない（M2 の計画を参照）
+/// 当たる θ = 1/4 より、細かい領域の多い場合に反復が少ない（ADR-0062 を参照）
 pub(crate) fn artificial_diffusion(tau: f64) -> f64 {
     /// 多項式を使う範囲の下限と上限
     const THIN: f64 = 1.0;

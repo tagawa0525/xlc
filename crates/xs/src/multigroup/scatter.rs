@@ -118,7 +118,7 @@ pub fn scattering_matrix(
 ///
 /// `angular` は MT ごとの角度分布（MF4）。2体反応（弾性散乱と離散準位の非弾性散乱）は重心系の分布と運動学から、
 /// MF5 の連続的な放出は実験室系の分布から、熱領域（S(α, β) と自由ガス）はその角度分布から P1 以上を作る。
-/// MF6 の連続的な放出の P1 以上はまだ角度分布を入れておらず 0 とする（docs/plans/m3-core-hzp.md）。
+/// MF6 の連続的な放出の P1 以上はまだ角度分布を入れておらず 0 とする（ADR-0082）。
 #[tracing::instrument(level = "debug", skip_all)]
 pub fn scattering_moments(
     groups: &GroupStructure,
