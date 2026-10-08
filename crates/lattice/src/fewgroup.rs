@@ -167,6 +167,15 @@ pub fn homogenize(
         currents: faces.map(|side| currents[side].as_slice()),
         edges: faces.map(edge),
     })?;
+    for (side, &face) in faces.iter().enumerate() {
+        tracing::debug!(
+            side,
+            heterogeneous = ?heterogeneous[side],
+            homogeneous = ?surface[face],
+            outward_current = ?currents[side],
+            "one-node face values"
+        );
+    }
     few.adf = (0..4)
         .map(|side| {
             let face = faces[side];
