@@ -1259,4 +1259,272 @@ mod tests {
         state.flux[0][1] = 0.0;
         assert!(core.sweep_group(&mut state, 1, 1.0).is_ok());
     }
+
+    /// 細かいノードの解を参照（不均質な解）とし、粗いノード（x, y に `blocks` 個ずつの細かいノードの
+    /// まとまり）ごとに反応率を保存して定数を均質化し、GET の1ノードの問題（ADR-0094）で ADF を作った
+    /// 粗いノードの問題と、細かいノードの解を返す。z は1層。
+    ///
+    /// 1ノードの問題の外周の扱い（`Edge`）は、粗いノードの面が外周なら細かいノードの問題の境界とする。
+    /// 内側の面（隣の粗いノード）の扱いは1ノードの問題にないので、内側の面は、その方向の横方向の漏れが
+    /// 0 の問題（y と z に1つの細かいノードで、どちらも反射）でだけ使う
+    fn coarsen_with_get(fine: &Problem, blocks: [usize; 2]) -> (Problem, Solution) {
+        use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
+        let (core, solution, state) = solve_state(fine);
+        let core = &core;
+        let [nx, ny, nz] = core.counts;
+        assert_eq!(nz, 1);
+        let [bx, by] = blocks;
+        let (cx, cy) = (nx / bx, ny / by);
+        assert_eq!((cx * bx, cy * by), (nx, ny));
+        assert!(
+            cx * cy == 1 || ny == 1,
+            "inner faces need zero transverse leakage"
+        );
+        let ng = core.groups;
+        let mut materials = Vec::new();
+        for (cj, ci) in (0..cy).flat_map(|j| (0..cx).map(move |i| (j, i))) {
+            let members: Vec<usize> = (cj * by..(cj + 1) * by)
+                .flat_map(|j| (ci * bx..(ci + 1) * bx).map(move |i| core.index([i, j, 0])))
+                .collect();
+            // 反応率を保存する均質化（D は中性子束の重みの平均。GET の ADF が差を吸収する）
+            let mut volume = 0.0;
+            let mut flux = vec![0.0; ng];
+            let mut m = FewGroup {
+                bounds: fine.materials[0].bounds.clone(),
+                k_inf: solution.k,
+                total: vec![0.0; ng],
+                absorption: vec![0.0; ng],
+                nu_fission: vec![0.0; ng],
+                fission: vec![0.0; ng],
+                chi: vec![0.0; ng],
+                diffusion: vec![0.0; ng],
+                scatter: vec![vec![0.0; ng]; ng],
+                adf: vec![vec![1.0; ng]; 4],
+            };
+            for &n in &members {
+                let (v, f, x) = (core.volume(n), &solution.flux[n], core.material(n));
+                volume += v;
+                let production: f64 = (0..ng).map(|g| x.nu_fission[g] * f[g]).sum();
+                for g in 0..ng {
+                    let w = v * f[g];
+                    flux[g] += w;
+                    m.total[g] += w * x.total[g];
+                    m.nu_fission[g] += w * x.nu_fission[g];
+                    m.fission[g] += w * x.fission[g];
+                    m.diffusion[g] += w * x.diffusion[g];
+                    m.chi[g] += v * x.chi[g] * production;
+                    for to in 0..ng {
+                        m.scatter[g][to] += w * x.scatter[g][to];
+                    }
+                }
+            }
+            for (g, f) in flux.iter().enumerate() {
+                for value in [
+                    &mut m.total[g],
+                    &mut m.nu_fission[g],
+                    &mut m.fission[g],
+                    &mut m.diffusion[g],
+                ] {
+                    *value /= f;
+                }
+                for value in &mut m.scatter[g] {
+                    *value /= f;
+                }
+                m.absorption[g] = m.total[g] - m.scatter[g].iter().sum::<f64>();
+            }
+            let produced: f64 = m.chi.iter().sum();
+            for c in &mut m.chi {
+                *c /= produced;
+            }
+            let average: Vec<f64> = flux.iter().map(|f| f / volume).collect();
+
+            // 面（-x, +x, -y, +y）の不均質な中性子束と外向きの正味の中性子流の、面にわたる平均
+            let mut het = [vec![0.0; ng], vec![0.0; ng], vec![0.0; ng], vec![0.0; ng]];
+            let mut current = het.clone();
+            for (face, d, plus) in [(0, 0, false), (1, 0, true), (2, 1, false), (3, 1, true)] {
+                // 1つのノードで両側が反射の方向では、解はその方向に一様で、面の中性子束はノード平均。
+                // その方向の展開係数は使わない（両側の正味の流れが 0 に決まり、前の反復の a1, a2 から
+                // a3, a4 を求める反復が丸め誤差を増やす。値は解に効かない）
+                if core.counts[d] == 1
+                    && fine.boundaries[2 * d] == Boundary::Reflective
+                    && fine.boundaries[2 * d + 1] == Boundary::Reflective
+                {
+                    het[face].clone_from(&average);
+                    continue;
+                }
+                let on_face: Vec<usize> = members
+                    .iter()
+                    .copied()
+                    .filter(|&n| {
+                        let p = core.position(n);
+                        let lowest = if d == 0 { ci * bx } else { cj * by };
+                        let count = if d == 0 { bx } else { by };
+                        p[d] == if plus { lowest + count - 1 } else { lowest }
+                    })
+                    .collect();
+                let length: f64 = on_face
+                    .iter()
+                    .map(|&n| core.volume(n) / core.width(n, d))
+                    .sum();
+                for &n in &on_face {
+                    let w = core.volume(n) / core.width(n, d) / length;
+                    for g in 0..ng {
+                        let (in_minus, in_plus) = core.incoming(&state, n, d, g);
+                        let (o, i) = if plus {
+                            (state.out_plus[d][n][g], in_plus)
+                        } else {
+                            (state.out_minus[d][n][g], in_minus)
+                        };
+                        het[face][g] += w * 2.0 * (o + i);
+                        current[face][g] += w * (o - i);
+                    }
+                }
+            }
+            let edge = |d: usize, plus: bool| {
+                let outer = if d == 0 {
+                    if plus { ci == cx - 1 } else { ci == 0 }
+                } else if plus {
+                    cj == cy - 1
+                } else {
+                    cj == 0
+                };
+                match (outer, fine.boundaries[2 * d + usize::from(plus)]) {
+                    (true, Boundary::Vacuum) => Edge::Vacuum,
+                    (true, Boundary::Reflective) | (false, _) => Edge::Reflective,
+                    (true, Boundary::ZeroFlux) => panic!("no zero-flux edge in GET"),
+                }
+            };
+            let widths = [
+                core.widths[0][ci * bx..(ci + 1) * bx].iter().sum(),
+                core.widths[1][cj * by..(cj + 1) * by].iter().sum(),
+            ];
+            let surface = surface_fluxes(&OneNode {
+                diffusion: &m.diffusion,
+                total: &m.total,
+                scatter: &m.scatter,
+                nu_fission: &m.nu_fission,
+                chi: &m.chi,
+                k: solution.k,
+                flux: &average,
+                widths,
+                currents: [&current[0], &current[1], &current[2], &current[3]],
+                edges: [edge(0, false), edge(0, true), edge(1, false), edge(1, true)],
+            })
+            .unwrap();
+            // 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上
+            for (side, face) in [(0, 0), (1, 1), (2, 3), (3, 2)] {
+                m.adf[side] = (0..ng).map(|g| het[face][g] / surface[face][g]).collect();
+            }
+            materials.push(m);
+        }
+        let merge = |widths: &[f64], b: usize| -> Vec<f64> {
+            widths.chunks(b).map(|c| c.iter().sum()).collect()
+        };
+        let coarse = Problem {
+            mesh: Mesh {
+                dx: merge(&fine.mesh.dx, bx),
+                dy: merge(&fine.mesh.dy, by),
+                dz: fine.mesh.dz.clone(),
+            },
+            node_material: (0..materials.len()).collect(),
+            materials,
+            boundaries: fine.boundaries,
+        };
+        (coarse, solution)
+    }
+
+    /// 粗いノードの問題の k とノード平均の中性子束が、細かいノードの解（同じ規格化: 全体の生成率 1）を
+    /// 再現することを確かめ、ADF をすべて 1 にしたときの k の相対差を返す
+    fn assert_get_equivalence(coarse: &Problem, fine: &Solution, blocks: [usize; 2], nx: usize) {
+        let s = solve(coarse, &Options::default()).unwrap();
+        assert!(
+            (s.k - fine.k).abs() < 1e-7 * fine.k,
+            "{} vs {}",
+            s.k,
+            fine.k
+        );
+        let [bx, by] = blocks;
+        let cx = nx / bx;
+        for (c, phi) in s.flux.iter().enumerate() {
+            let (ci, cj) = (c % cx, c / cx);
+            let members: Vec<usize> = (cj * by..(cj + 1) * by)
+                .flat_map(|j| (ci * bx..(ci + 1) * bx).map(move |i| i + nx * j))
+                .collect();
+            for (g, value) in phi.iter().enumerate() {
+                // 細かいノードはどれも同じ大きさ
+                let expected =
+                    members.iter().map(|&n| fine.flux[n][g]).sum::<f64>() / members.len() as f64;
+                assert!(
+                    (value - expected).abs() < 1e-6 * expected,
+                    "node {c} group {g}: {value} vs {expected}"
+                );
+            }
+        }
+        let mut unit = coarse.clone();
+        for m in &mut unit.materials {
+            m.adf = vec![vec![1.0; m.groups()]; 4];
+        }
+        let k_unit = solve(&unit, &Options::default()).unwrap().k;
+        // ADF がなければ、粗いノードの NEM の誤差の分だけ k が外れる
+        assert!(
+            (k_unit - fine.k).abs() > 1e-4 * fine.k,
+            "{k_unit} vs {}",
+            fine.k
+        );
+    }
+
+    /// 細かいノードの物質: 燃料、断面積の違う燃料、核分裂の少ない燃料
+    fn three_fuels() -> Vec<FewGroup> {
+        let a = material();
+        let mut b = material();
+        b.diffusion = vec![1.2, 0.5];
+        b.absorption = vec![0.012, 0.10];
+        b.nu_fission = vec![0.004, 0.09];
+        let mut c = material();
+        c.absorption = vec![0.009, 0.06];
+        c.nu_fission = vec![0.002, 0.04];
+        c.fission = vec![0.002 / 2.4, 0.04 / 2.4];
+        vec![a, b, c]
+    }
+
+    #[test]
+    fn get_adfs_reproduce_a_two_node_slab() {
+        // x 方向に 20 cm の粗いノード2つ（細かいノード 2.5 cm × 8 ずつ、中に2種類の物質）。-x は反射、
+        // +x は真空。粗いノードの間の面で、ADF をかけた不均質な中性子束と正味の中性子流がつながる
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Vacuum;
+        let fine = Problem {
+            mesh: Mesh {
+                dx: vec![2.5; 16],
+                dy: vec![20.0],
+                dz: vec![20.0],
+            },
+            materials: three_fuels(),
+            node_material: vec![0, 1, 0, 1, 1, 0, 1, 0, 2, 2, 1, 1, 2, 2, 0, 0],
+            boundaries,
+        };
+        let (coarse, solution) = coarsen_with_get(&fine, [8, 1]);
+        assert_get_equivalence(&coarse, &solution, [8, 1], 16);
+    }
+
+    #[test]
+    fn get_adfs_reproduce_a_node_with_vacuum_sides() {
+        // 20 cm 角の粗いノード1つ（細かいノード 5 cm 角 × 16、3種類の物質）。-x と -y は反射、+x と +y は
+        // 真空。真空の面での横方向の漏れの扱いと、2方向の横方向の漏れを通る
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Vacuum;
+        boundaries[3] = Boundary::Vacuum;
+        let fine = Problem {
+            mesh: Mesh {
+                dx: vec![5.0; 4],
+                dy: vec![5.0; 4],
+                dz: vec![20.0],
+            },
+            materials: three_fuels(),
+            node_material: vec![0, 1, 0, 2, 1, 0, 2, 0, 0, 2, 1, 1, 2, 0, 1, 0],
+            boundaries,
+        };
+        let (coarse, solution) = coarsen_with_get(&fine, [4, 4]);
+        assert_get_equivalence(&coarse, &solution, [4, 4], 4);
+    }
 }
