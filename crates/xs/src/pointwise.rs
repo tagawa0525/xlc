@@ -1028,6 +1028,26 @@ mod tests {
     }
 
     #[test]
+    fn nonzero_values_below_the_threshold_become_zero() {
+        // しきい値より下の断面積はなく、しきい値から連続に立ち上がるので、しきい値の値は 0 にする（NJOY は
+        // 最初の点の値を残して段差にする）。しきい値より上のデータは変えない
+        let threshold: f64 = 1.0e3 * 10.0 / 9.0;
+        let points = [
+            ("1.0+3", "2.0-3"),
+            ("1.05+3", "3.0-3"),
+            ("2.0+3", "1.0"),
+            ("2.0+7", "1.0"),
+        ];
+        let (table, shift) = adjusted("9.0", "-1.0+3", "2", &points).unwrap();
+        assert_eq!((table.x[0], table.y[0]), (threshold, 0.0));
+        assert_eq!(&table.y[1..], &[1.0, 1.0]);
+        let mid = 0.5 * (threshold + 2.0e3);
+        assert!((table.eval(mid).unwrap() - 0.5).abs() < 1e-12);
+        // 0 にした値のうち最も大きいもの（反応の最大値に対する比）
+        assert_eq!(shift.map(|s| s.zeroed), Some(3.0e-3));
+    }
+
+    #[test]
     fn threshold_shift_is_reported_per_reaction() {
         let text = threshold_section(&[
             ("1.0+3", "0.0"),
@@ -1046,6 +1066,8 @@ mod tests {
                 first: 1.0e3,
                 threshold,
                 dropped: 1,
+                // しきい値より下の 0.01 b を 0 にした（反応の最大値 1 b に対する比）
+                zeroed: 0.01,
             })
         );
         // しきい値より上から始まる表は動かさない
@@ -1059,16 +1081,18 @@ mod tests {
     fn threshold_shifts_are_summarized_per_nuclide() {
         // 核種ごとに1回だけ警告する: 合わせた反応の数、最も大きい移動（eV）とその MT、捨てた点の数の和
         assert_eq!(summarize_thresholds(&[]), None);
-        let shift = |mt: u32, first: f64, threshold: f64, dropped: usize| ThresholdShift {
-            mt,
-            first,
-            threshold,
-            dropped,
-        };
+        let shift =
+            |mt: u32, first: f64, threshold: f64, dropped: usize, zeroed: f64| ThresholdShift {
+                mt,
+                first,
+                threshold,
+                dropped,
+                zeroed,
+            };
         let shifts = [
-            shift(51, 1.0e3, 1.1e3, 0),
-            shift(16, 9.0e6, 9.0005e6, 2),
-            shift(52, 2.0e3, 2.05e3, 1),
+            shift(51, 1.0e3, 1.1e3, 0, 0.0),
+            shift(16, 9.0e6, 9.0005e6, 2, 2.0e-7),
+            shift(52, 2.0e3, 2.05e3, 1, 1.0e-6),
         ];
         let summary = summarize_thresholds(&shifts).unwrap();
         assert_eq!(summary.reactions, 3);
@@ -1078,6 +1102,11 @@ mod tests {
         assert!((summary.largest.relative() - 500.0 / 9.0005e6).abs() < 1e-15);
         // 相対で最も大きいのは MT51 の 100 / 1100
         assert_eq!(summary.largest_relative, shifts[0]);
+        // しきい値より下の 0 でない値を 0 にした反応の数と、反応の最大値に対して最も大きかった値
+        assert_eq!(summary.zeroed, 2);
+        assert_eq!(summary.largest_zeroed, Some(shifts[2]));
+        let none = summarize_thresholds(&shifts[..1]).unwrap();
+        assert_eq!((none.zeroed, none.largest_zeroed), (0, None));
     }
 
     #[test]
