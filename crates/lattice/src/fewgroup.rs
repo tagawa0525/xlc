@@ -548,8 +548,8 @@ mod tests {
         })
         .unwrap();
         for (side, face) in [(0, 0), (1, 1), (2, 3), (3, 2)] {
-            for g in 0..2 {
-                let expected = solution.sides[side][g] / surface[face][g];
+            for (g, homogeneous) in surface[face].iter().enumerate() {
+                let expected = solution.sides[side][g] / homogeneous;
                 let adf = fg.adf[side][g];
                 assert!(
                     (adf - expected).abs() < 1e-12 * expected,
@@ -558,8 +558,8 @@ mod tests {
             }
         }
         // 真空の辺では、均質な解が平らでないので、体積平均で割った値と違う
-        for g in 0..2 {
-            let flat = solution.sides[1][g] / average[g];
+        for (g, mean) in average.iter().enumerate() {
+            let flat = solution.sides[1][g] / mean;
             assert!(
                 (fg.adf[1][g] - flat).abs() > 1e-2 * flat,
                 "{} vs {flat}",
