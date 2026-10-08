@@ -15,7 +15,7 @@ target/release/xs examples/reflector/xs.toml          # 2 分 40 秒（32 スレ
 cd examples/reflector && ../../target/release/lattice reflector-I.toml
 ```
 
-## I 型の格子の1ノードの問題（44f4d0d、2026-10-09）
+## I 型の格子の1ノードの問題（425cb26、2026-10-09）
 
 `reflector-I.toml` の格子（49 列 × 19 行のセル、29498 領域、方位角 32、トラック間隔 0.05 cm、自己遮蔽なし）を MOC で
 解き（228 秒）、集合体のノード（21.50 cm 角）と反射体のノード（21.50 cm 角）に分けて均質化した。反射体のノードの
