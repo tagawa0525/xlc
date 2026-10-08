@@ -19,7 +19,7 @@
 
 use std::f64::consts::PI;
 use std::sync::OnceLock;
-use xlc_numeric::quadrature::gauss_legendre;
+use xlc_numeric::quadrature::{NodesError, gauss_legendre};
 
 /// y の求積で、小区間（リングの間の区間を、外の境界の特異点に合わせて分けたもの）ごとに使う Gauss–Legendre の点の数
 const POINTS: usize = 16;
@@ -31,8 +31,8 @@ pub enum CpError {
     Radii(Vec<f64>),
     #[error("the y quadrature needs at least one point per ring")]
     Points,
-    #[error("Gauss-Legendre nodes for {0} points did not converge")]
-    Nodes(usize),
+    #[error(transparent)]
+    Nodes(#[from] NodesError),
     #[error("{given} values for {rings} rings")]
     Rings { given: usize, rings: usize },
     #[error("ring {0}: total cross sections must be finite and not negative")]
@@ -71,7 +71,7 @@ impl Cylinder {
         if points == 0 {
             return Err(CpError::Points);
         }
-        let nodes = gauss_legendre(points).map_err(|e| CpError::Nodes(e.0))?;
+        let nodes = gauss_legendre(points)?;
         let mut chords = Vec::new();
         let mut inner = 0.0;
         for (k, &outer) in radii.iter().enumerate() {
