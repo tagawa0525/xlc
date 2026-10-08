@@ -27,7 +27,9 @@ lattice のピンごとの減速計算（[ADR-0068](0068-solve-pinwise-slowing-d
   静止した自由原子の散乱核が成り立たないため。セルの UFG もこの下限から計算し、その下は範囲の外の規則（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）に
   従う
 - ライブラリの各核種は、分離共鳴の上端（セルの UFG の範囲を決める）と、s 波の散乱半径 a からポテンシャル散乱 4π a² を
-  持つ（Reich-Moore と MLBW は l=0 の APL、0 なら AP。R-matrix limited は弾性散乱の l=0 のチャネルの APE）
+  持つ（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。R-matrix limited は弾性散乱の l=0 のチャネルの APE）。
+  M2 の計画は「Reich-Moore と MLBW は l=0 の APL」と書いていたが、ENDF の MLBW（LRF=2）の l ごとのレコードには
+  APL がないので、MLBW は AP を使う（`crates/xs/src/process.rs` の `s_wave_radius`）
 
 ## 確認
 
