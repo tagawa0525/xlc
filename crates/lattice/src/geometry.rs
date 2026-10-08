@@ -495,8 +495,8 @@ mod tests {
         let cell = || PinCell::with_sectors(1.26, vec![0.4, 0.6], 8).unwrap();
         assert!(cell().with_frame(0.0).is_err());
         assert!(cell().with_frame(0.63).is_err());
-        // 枠の内側（半辺 0.43）の外接円 0.608 より大きい円は置けない
-        assert!(cell().with_frame(0.2).is_err());
+        // 枠の内側（半辺 0.38）の外接円 0.537 より大きい円（0.6）は置けない
+        assert!(cell().with_frame(0.25).is_err());
         assert!(PinCell::grid(1.26, 3).unwrap().with_frame(0.01).is_err());
     }
 
