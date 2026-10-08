@@ -25,7 +25,7 @@ M2（2026-10-06）で、17×17 集合体と C5G7 を解く形状を決める必�
 ## 確認
 
 `lattice_track_volumes_match_analytic`、`sector_cell_track_volumes_match_analytic`、`gap_surrounds_the_lattice`。C5G7 との比較
-（examples/c5g7/README.md）。
+（examples/c5g7/verification.md）。
 
 ## 結果
 

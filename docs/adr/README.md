@@ -38,7 +38,7 @@ issues: []            # きっかけになった、またはこの ADR で解決
 
 ## 確認
 
-決定が成り立つことを何で示しているか。テストの名前、例、比較（examples/vera/README.md の OpenMC との比較など）と、
+決定が成り立つことを何で示しているか。テストの名前、例、比較（examples/vera/verification.md の OpenMC との比較など）と、
 あれば判定の閾値。確かめるものがない約束事なら、そう1行で書く。
 
 ## 結果
@@ -49,7 +49,7 @@ issues: []            # きっかけになった、またはこの ADR で解決
 ## 書き方
 
 - 測った数値は、その時点の値として、出典のファイルと、数値を記録したコミットと日付を添える。例:
-  「VERA 1B で −3080 pcm（examples/vera/README.md、fcd48f1、2026-10-07）」。コミットが簡単に分からなければ、
+  「VERA 1B で −3080 pcm（examples/vera/verification.md、fcd48f1、2026-10-07）」。コミットが簡単に分からなければ、
   ファイルと日付を書く
 - 測った数値の詳細は examples/*/README.md に置き、ADR からは参照する
 - 同じ核データ（ENDF/B-VIII.0 を NJOY で処理したもの）の OpenMC との比較は、コード同士の検証（verification）であり、

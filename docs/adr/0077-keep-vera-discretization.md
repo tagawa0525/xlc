@@ -11,7 +11,7 @@ issues: []
 ## 背景
 
 VERA の入力の設定（ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 32・間隔 0.05 cm、燃料 5 リング）で、k は OpenMC
-との差（+47〜+210 pcm）が残る（examples/vera/README.md、docs/plans/m2-assembly.md、5328c32、2026-10-08）。設定を
+との差（+47〜+210 pcm）が残る（examples/vera/verification.md、docs/plans/m2-assembly.md、5328c32、2026-10-08）。設定を
 詰めるかを決める必要があった。
 
 - 精度の目標（[ADR-0032](0032-target-lattice-accuracy.md)）
@@ -32,11 +32,11 @@ VERA の入力の設定は変えない。細かくしたときの k の変化は
 
 ## 確認
 
-上の収束の測定（examples/vera/README.md）。
+上の収束の測定（examples/vera/verification.md）。
 
 ## 結果
 
 光学的に非常に厚い領域（無限希釈の共鳴の群）では、k がトラック間隔に対して不規則に動く（ピンセルの P0 で、間隔
-0.012〜0.05 cm で −149〜+91 pcm。燃料を横切るトラックの本数の数え誤差。examples/vera/README.md、4729666、2026-10-08。計画（docs/plans/m2-assembly.md）には丸めて
+0.012〜0.05 cm で −149〜+91 pcm。燃料を横切るトラックの本数の数え誤差。examples/vera/verification.md、4729666、2026-10-08。計画（docs/plans/m2-assembly.md）には丸めて
 −150〜+90 pcm と記録した。5328c32、2026-10-08）。制御棒や Gd のような吸収体を扱うときに
 見直す（M3 では AIC と B4C を入れたところで測る）。

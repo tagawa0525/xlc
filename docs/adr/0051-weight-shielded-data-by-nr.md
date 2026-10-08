@@ -22,11 +22,11 @@ M1（2026-10-06）で、背景断面積 σ0 ごとの群平均断面積を作る
 
 ## 確認
 
-NJOY GROUPR との比較（examples/m1/README.md）。
+NJOY GROUPR との比較（examples/m1/verification.md）。
 
 ## 結果
 
 M2 で、分離共鳴の範囲の重みを減速計算で作る方式に置き換えた（[ADR-0072](0072-weight-shielded-data-by-flux-calculator.md)、2026-10-07）。この重みは、吸収体自身の共鳴
 散乱を中性子束を減らすものとして扱うため、U-238 の低い共鳴（散乱でのエネルギーの損失が共鳴の幅と同じ程度）で
-遮蔽を強く見積もる（均質な媒質で 21〜25 群の吸収が −9〜−30%。examples/vera/README.md、docs/plans/m2-assembly.md、
+遮蔽を強く見積もる（均質な媒質で 21〜25 群の吸収が −9〜−30%。examples/vera/verification.md、docs/plans/m2-assembly.md、
 4538492、2026-10-07）。分離共鳴の範囲を持たない核種と、範囲の外は、この重みのまま。

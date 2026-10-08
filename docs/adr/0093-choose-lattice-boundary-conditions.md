@@ -37,7 +37,7 @@ M2（2026-10-06）では、外周の境界条件を鏡面反射と真空（C5G7 
 
 `lattice_tracks_reflect_at_the_outer_boundary`、`vacuum_sides_have_no_links`、`sides_may_have_an_albedo`、
 `albedo_sides_lie_between_vacuum_and_reflection`、`albedo_must_be_a_fraction`、`adf_needs_reflective_sides`。C5G7 との比較
-（examples/c5g7/README.md）。
+（examples/c5g7/verification.md）。
 
 ## 結果
 

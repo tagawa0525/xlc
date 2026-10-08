@@ -24,7 +24,7 @@ issues: []
 
 M0 で、均質なセルの解析解（無限媒質の多群固有値）との一致と、トラック間隔・角度の収束性を確かめた
 （`homogeneous_cell_matches_infinite_medium`、`refinement_converges`）。M2 で C5G7 と VERA Problem 1〜2 と比べた
-（examples/c5g7/README.md、examples/vera/README.md）。
+（examples/c5g7/verification.md、examples/vera/verification.md）。
 
 ## 結果
 

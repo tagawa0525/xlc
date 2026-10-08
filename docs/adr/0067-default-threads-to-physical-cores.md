@@ -28,7 +28,7 @@ docs/plans/m2-assembly.md、0ad844d と c89eca5、2026-10-08）。
 
 ## 確認
 
-数値は計画に記録した測定で（docs/plans/m2-assembly.md、0ad844d と c89eca5、2026-10-08）、examples/ の README には
+数値は計画に記録した測定で（docs/plans/m2-assembly.md、0ad844d と c89eca5、2026-10-08）、examples/ の検証の記録（verification.md）には
 ない。確かめるテストはない。
 
 ## 結果

@@ -23,7 +23,7 @@ issues: []
 
 ## 確認
 
-`chi_is_normalized`、`fissile_nuclide_needs_normalized_chi`。NJOY GROUPR との比較（examples/m1/README.md）。
+`chi_is_normalized`、`fissile_nuclide_needs_normalized_chi`。NJOY GROUPR との比較（examples/m1/verification.md）。
 
 ## 結果
 

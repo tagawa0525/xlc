@@ -27,7 +27,7 @@ M0 は3段階を最小構成でつなぐ縦切りで（[ADR-0030](0030-build-a-v
 
 ## 確認
 
-M0 の例で、同じ条件の NJOY（RECONR, GROUPR）の結果と比べた（examples/m0/README.md）。
+M0 の例で、同じ条件の NJOY（RECONR, GROUPR）の結果と比べた（examples/m0/verification.md）。
 
 ## 結果
 

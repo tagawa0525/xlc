@@ -12,7 +12,7 @@ issues: []
 
 σ0 ごとの群定数は Bondarenko の重み 1/(σt + σ0)（NR 近似）で作っていた（[ADR-0051](0051-weight-shielded-data-by-nr.md)）。この重みは、吸収体自身の共鳴散乱を
 中性子束を減らすものとして扱うため、U-238 の低い共鳴（散乱でのエネルギーの損失が共鳴の幅と同じ程度）で遮蔽を強く
-見積もる（均質な媒質で 21〜25 群の吸収が −9〜−30%。examples/vera/README.md、docs/plans/m2-assembly.md、4538492、
+見積もる（均質な媒質で 21〜25 群の吸収が −9〜−30%。examples/vera/verification.md、docs/plans/m2-assembly.md、4538492、
 2026-10-07）。σ0 ごとの群定数は、UFG の範囲の外の等価原理（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）と、核データの検証に使う。
 
 - 評価済みデータだけから決まること（手で調整する数表を持たない）
@@ -40,7 +40,7 @@ issues: []
 ## 確認
 
 NJOY GROUPR の flux calculator（重み関数の番号を負にする）と 1e-3 以内で一致（docs/plans/m2-assembly.md、4538492、
-2026-10-07）。OpenMC の均質な無限媒質と比べた（examples/vera/README.md）。テストは
+2026-10-07）。OpenMC の均質な無限媒質と比べた（examples/vera/verification.md）。テストは
 `narrow_resonance_flux_matches_analytic_average`、`slowing_down_covers_the_resolved_range_in_whole_groups`、
 `slowing_down_weight_changes_only_groups_in_its_range`、`below_the_slowing_down_range_the_flux_is_the_weight`、
 `finer_grids_do_not_change_the_flux`。
