@@ -768,6 +768,35 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn interpolation_refuses_what_it_cannot_do() {
+        let lookup = |change: &dyn Fn(&mut NuclideData)| {
+            let mut library = two_temperatures(true);
+            let n = library
+                .nuclides
+                .iter_mut()
+                .find(|n| n.name == "H-1")
+                .unwrap();
+            change(n);
+            library.lookup("H-1", 565.0).map(|_| ())
+        };
+        assert!(lookup(&|_| {}).is_ok());
+        // 分離共鳴の遮蔽とドップラー拡がりは温度で内挿できない
+        assert!(
+            lookup(&|n| {
+                n.resolved = Some(Resolved {
+                    top: 1.0e3,
+                    potential: 10.0,
+                })
+            })
+            .is_err()
+        );
+        // 散乱行列の次数が違う
+        assert!(lookup(&|n| n.temperatures[1].scatter.truncate(1)).is_err());
+        // ポイントワイズの断面積の範囲が違う
+        assert!(lookup(&|n| n.temperatures[1].pointwise = Pointwise::default()).is_err());
+    }
+
+    #[test]
     fn other_nuclides_are_not_interpolated() {
         let library = two_temperatures(false);
         assert!(library.lookup("H-1", 565.0).is_err());
