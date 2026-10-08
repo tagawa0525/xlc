@@ -15,7 +15,7 @@ resolution:
 Dancoff 係数の MOC は、反射境界の格子を前提にしている。反射体の定数を作る格子（燃料の集合体と反射体を並べたもの）
 では、真空やアルベドの境界の外から入る中性子の扱いを決めていない。
 
-関係する ADR: [ADR-0084](../adr/0084-make-reflector-constants-with-fuel.md)
+関係する ADR: [ADR-0084](../adr/0084-make-reflector-constants-with-fuel.md)、[ADR-0093](../adr/0093-add-albedo-boundaries.md)
 
 ## 完了の条件
 
