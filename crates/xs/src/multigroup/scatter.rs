@@ -82,29 +82,32 @@ pub enum ScatterError {
     LabTwoBody(u32),
 }
 
-/// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
-///
-/// - `tables`: ポイントワイズの断面積（キーは MT）
-/// - `q_values`: 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
-/// - `emissions`: 連続的な中性子放出反応の出射分布（キーは MT）
-/// - `thermal`: 熱領域の弾性散乱の扱い（`None` なら全域で静止標的）
+/// 散乱行列を作る反応のデータ（どれもキーは MT）。
+#[derive(Debug, Clone, Copy)]
+pub struct Reactions<'a> {
+    /// ポイントワイズの断面積
+    pub tables: &'a BTreeMap<u32, Tab1>,
+    /// 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
+    pub q_values: &'a BTreeMap<u32, f64>,
+    /// 連続的な中性子放出反応の出射分布
+    pub emissions: &'a BTreeMap<u32, Emission>,
+    /// 角度分布（MF4）
+    pub angular: &'a BTreeMap<u32, Mf4>,
+}
+
+/// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。`thermal` は熱領域の弾性散乱の扱い
+/// （`None` なら全域で静止標的）。
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
 /// P0 の散乱行列 σ(g→g')（[`scattering_moments`] の 0 次）。
-#[allow(clippy::too_many_arguments)]
 pub fn scattering_matrix(
     groups: &GroupStructure,
     weight: &Weight,
     awr: f64,
-    tables: &BTreeMap<u32, Tab1>,
-    q_values: &BTreeMap<u32, f64>,
-    emissions: &BTreeMap<u32, Emission>,
-    angular: &BTreeMap<u32, Mf4>,
+    reactions: &Reactions,
     thermal: Option<&Thermal>,
 ) -> Result<Vec<Vec<f64>>, ScatterError> {
-    let moments = scattering_moments(
-        groups, weight, awr, tables, q_values, emissions, angular, thermal, 0,
-    )?;
+    let moments = scattering_moments(groups, weight, awr, reactions, thermal, 0)?;
     Ok(moments.into_iter().next().unwrap_or_default())
 }
 
@@ -115,18 +118,20 @@ pub fn scattering_matrix(
 /// MF5 の連続的な放出は実験室系の分布から、熱領域（S(α, β) と自由ガス）はその角度分布から P1 以上を作る。
 /// MF6 の連続的な放出の P1 以上はまだ角度分布を入れておらず 0 とする（docs/plans/m3-core-hzp.md）。
 #[tracing::instrument(level = "debug", skip_all)]
-#[allow(clippy::too_many_arguments)]
 pub fn scattering_moments(
     groups: &GroupStructure,
     weight: &Weight,
     awr: f64,
-    tables: &BTreeMap<u32, Tab1>,
-    q_values: &BTreeMap<u32, f64>,
-    emissions: &BTreeMap<u32, Emission>,
-    angular: &BTreeMap<u32, Mf4>,
+    reactions: &Reactions,
     thermal: Option<&Thermal>,
     order: usize,
 ) -> Result<Vec<Vec<Vec<f64>>>, ScatterError> {
+    let Reactions {
+        tables,
+        q_values,
+        emissions,
+        angular,
+    } = *reactions;
     // 2体反応の角度分布は重心系で使う（対象の評価済みデータはすべて重心系で与えている）
     for (&mt, mf4) in angular {
         if (mt == 2 || (51..=90).contains(&mt)) && mf4.frame != Frame::CenterOfMass {
@@ -701,10 +706,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap();
@@ -727,10 +734,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            args.0,
-            args.1,
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: args.0,
+                emissions: args.1,
+                angular: &BTreeMap::new(),
+            },
             None,
             3,
         )
@@ -740,10 +749,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            args.0,
-            args.1,
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: args.0,
+                emissions: args.1,
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap();
@@ -764,10 +775,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             awr,
-            &tables,
-            &q_values,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &q_values,
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap();
@@ -793,10 +806,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 awr,
-                &tables,
-                &q_values,
-                emissions,
-                &BTreeMap::new(),
+                &Reactions {
+                    tables: &tables,
+                    q_values: &q_values,
+                    emissions,
+                    angular: &BTreeMap::new(),
+                },
                 None,
             )
         };
@@ -808,10 +823,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             awr,
-            &tables,
-            &q_values,
-            &BTreeMap::from([(16, two_body)]),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &q_values,
+                emissions: &BTreeMap::from([(16, two_body)]),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -827,10 +844,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -847,10 +866,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 15.86,
-                &tables,
-                &BTreeMap::new(),
-                &BTreeMap::new(),
-                &BTreeMap::new(),
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &BTreeMap::new(),
+                    angular: &BTreeMap::new(),
+                },
                 None,
             )
             .unwrap();
@@ -874,10 +895,12 @@ mod tests {
             &groups,
             &weight,
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
@@ -919,10 +942,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::Sab(sab)),
         )
         .unwrap();
@@ -982,10 +1007,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            &BTreeMap::new(),
-            &mf6,
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &mf6,
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
@@ -1003,10 +1030,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 15.86,
-                &tables,
-                &BTreeMap::new(),
-                &BTreeMap::new(),
-                &BTreeMap::new(),
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &BTreeMap::new(),
+                    angular: &BTreeMap::new(),
+                },
                 Some(&Thermal::FreeGas(thermal)),
             );
             assert!(result.is_err(), "kt {kt}, cutoff {cutoff}");
@@ -1021,10 +1050,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -1061,10 +1092,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &mf6,
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &mf6,
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap();
@@ -1100,10 +1133,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 15.86,
-                &tables,
-                &BTreeMap::new(),
-                &emissions,
-                &BTreeMap::new(),
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &emissions,
+                    angular: &BTreeMap::new(),
+                },
                 None,
             )
             .unwrap();
@@ -1153,10 +1188,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &emissions,
-            &angular,
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &emissions,
+                angular: &angular,
+            },
             None,
             1,
         )
@@ -1177,10 +1214,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 10.0,
-                &tables,
-                &BTreeMap::new(),
-                &BTreeMap::new(),
-                angular,
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &BTreeMap::new(),
+                    angular,
+                },
                 None,
             )
             .unwrap()
@@ -1204,10 +1243,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             10.0,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-            &BTreeMap::from([(2, linear_lab(0.2))]),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::from([(2, linear_lab(0.2))]),
+            },
             None,
         )
         .unwrap_err();
@@ -1223,10 +1264,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &emissions,
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &emissions,
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -1268,10 +1311,12 @@ mod tests {
             &groups,
             &weight,
             235.0,
-            &BTreeMap::from([(2, table.clone())]),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &BTreeMap::from([(2, table.clone())]),
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();

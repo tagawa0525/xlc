@@ -23,7 +23,7 @@ pub use outgoing::{AnalyticSpectrum, GroupedLaw, GroupedOutgoing, outgoing_group
 pub(crate) use sab::tests as sab_tests;
 pub use sab::{SabError, ThermalSab};
 pub use scatter::{
-    Emission, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
+    Emission, Reactions, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
     scattering_moments, two_body_range,
 };
 pub use slowing::{SlowingDownError, slowing_down_shape, slowing_down_shape_with};

@@ -6,9 +6,9 @@ use crate::endf::{
     Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
 use crate::multigroup::{
-    Emission, FreeGas, ReactionAverages, SabError, ScatterError, ShieldingError, SlowingDown,
-    Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
-    scattering_moments, shielded_averages,
+    Emission, FreeGas, ReactionAverages, Reactions, SabError, ScatterError, ShieldingError,
+    SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
+    fission_spectrum, scattering_moments, shielded_averages,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
@@ -488,10 +488,12 @@ impl Common<'_> {
             groups,
             weight,
             self.awr,
-            &elastic_only,
-            self.q_values,
-            self.emissions,
-            self.angular,
+            &Reactions {
+                tables: &elastic_only,
+                q_values: self.q_values,
+                emissions: self.emissions,
+                angular: self.angular,
+            },
             Some(&thermal),
             order,
         )?;
@@ -499,10 +501,12 @@ impl Common<'_> {
             groups,
             weight,
             self.awr,
-            &others,
-            self.q_values,
-            self.emissions,
-            self.angular,
+            &Reactions {
+                tables: &others,
+                q_values: self.q_values,
+                emissions: self.emissions,
+                angular: self.angular,
+            },
             None,
             order,
         )?;
