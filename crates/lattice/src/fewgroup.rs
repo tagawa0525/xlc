@@ -5,6 +5,7 @@ use xlc_format::group::GroupStructure;
 
 use crate::material::Material;
 use crate::moc::Solution;
+use crate::tracking::{Boundaries, Boundary};
 
 /// 少数群への縮約のエラー。
 #[derive(Debug, thiserror::Error)]
@@ -17,17 +18,30 @@ pub enum HomogenizeError {
     Span,
     #[error("a few group has no flux")]
     NoFlux,
+    #[error("discontinuity factors need reflective sides on the whole lattice")]
+    NotReflective,
 }
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
 /// `coarse_bounds`（`fine` の境界の一部、降順）の少数群に縮約する。
-/// 拡散係数は D = 1/(3Σt) とする（M0 の近似）。
+/// 拡散係数は D = 1/(3Σt) とする（M0 の近似）。不連続因子は、辺の上の中性子束を体積平均の中性子束で割る。
+/// 格子全体を1つのノード（集合体）として均質化し、外周がすべて鏡面反射であること（均質な解が平らになる）。
 pub fn homogenize(
     solution: &Solution,
     materials: &[&Material],
     fine: &GroupStructure,
     coarse_bounds: &[f64],
+    boundaries: &Boundaries,
 ) -> Result<FewGroup, HomogenizeError> {
+    let sides = [
+        boundaries.left,
+        boundaries.right,
+        boundaries.top,
+        boundaries.bottom,
+    ];
+    if sides.contains(&Boundary::Vacuum) {
+        return Err(HomogenizeError::NotReflective);
+    }
     let ng = fine.len();
     if materials.len() != solution.flux.len() {
         return Err(HomogenizeError::RegionCount {
@@ -84,6 +98,24 @@ pub fn homogenize(
     if flux.iter().any(|&f| f <= 0.0) {
         return Err(HomogenizeError::NoFlux);
     }
+    // 不連続因子: 辺の上の中性子束 / 均質化した中性子束（反射境界の単一の格子では、均質な解は平らで
+    // 体積平均に等しい）
+    let volume: f64 = solution.volumes.iter().sum();
+    let adf = solution
+        .sides
+        .iter()
+        .map(|side| {
+            let mut surface = vec![0.0; coarse];
+            for (g, v) in side.iter().enumerate() {
+                surface[group_of[g]] += v;
+            }
+            surface
+                .iter()
+                .zip(&flux)
+                .map(|(s, f)| s / (f / volume))
+                .collect()
+        })
+        .collect();
     let per_flux =
         |values: Vec<f64>| -> Vec<f64> { values.iter().zip(&flux).map(|(v, f)| v / f).collect() };
     let total = per_flux(total);
@@ -111,6 +143,7 @@ pub fn homogenize(
             chi
         },
         scatter,
+        adf,
     })
 }
 
@@ -120,7 +153,7 @@ mod tests {
     use crate::geometry::{Lattice, PinCell};
     use crate::material::FissionTerm;
     use crate::moc::{Options, solve};
-    use crate::tracking::Tracking;
+    use crate::tracking::{Boundary, Tracking};
 
     fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
         Material {
@@ -156,11 +189,74 @@ mod tests {
     }
 
     #[test]
+    fn homogeneous_cell_has_unit_adf() {
+        let m = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let cell = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
+        let solution = solve(&tracking, &[&m, &m], &Options::default()).unwrap();
+        let fine = GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap();
+        let fg = homogenize(
+            &solution,
+            &[&m, &m],
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        for value in fg.adf.iter().flatten() {
+            assert!((value - 1.0).abs() < 1e-8, "{:?}", fg.adf);
+        }
+    }
+
+    #[test]
+    fn adf_needs_reflective_sides() {
+        // 真空の辺があると均質な解は平らでないので、体積平均で割る不連続因子は作れない
+        let (solution, materials, fine) = solved();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let vacuum = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        assert!(matches!(
+            homogenize(&solution, &refs, &fine, fine.bounds(), &vacuum),
+            Err(HomogenizeError::NotReflective)
+        ));
+    }
+
+    #[test]
+    fn fuel_pin_raises_the_thermal_adf() {
+        // 燃料が中心にあると、外周（減速材）の熱中性子束はセルの平均より高い。4 辺は対称で等しい
+        let (solution, materials, fine) = solved();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        assert!(fg.adf[0][1] > 1.0, "{:?}", fg.adf);
+        for side in &fg.adf {
+            for (a, b) in side.iter().zip(&fg.adf[0]) {
+                assert!((a - b).abs() < 1e-6 * b, "{:?}", fg.adf);
+            }
+        }
+    }
+
+    #[test]
     fn one_group_collapse_preserves_k() {
         // 反応率を保存するので、1群の νΣf/Σa はセルの k∞ に一致する
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        let one = homogenize(&solution, &refs, &fine, &[1.0e7, 1.0e-5]).unwrap();
+        let one = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            &[1.0e7, 1.0e-5],
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
         assert_eq!(one.groups(), 1);
         let k = one.nu_fission[0] / one.absorption[0];
         assert!(
@@ -177,7 +273,14 @@ mod tests {
     fn two_group_constants_reproduce_k_inf() {
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        let fg = homogenize(&solution, &refs, &fine, fine.bounds()).unwrap();
+        let fg = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
         // 均質な2群の無限媒質の k = νΣfᵀ (diag Σt - Σsᵀ)⁻¹ χ（χ = (1, 0)）
         let a = [
             [fg.total[0] - fg.scatter[0][0], -fg.scatter[1][0]],
@@ -197,7 +300,25 @@ mod tests {
     fn coarse_bounds_must_be_fine_bounds() {
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        assert!(homogenize(&solution, &refs, &fine, &[1.0e7, 1.0, 1.0e-5]).is_err());
-        assert!(homogenize(&solution, &refs, &fine, &[1.0e7, 0.625]).is_err());
+        assert!(
+            homogenize(
+                &solution,
+                &refs,
+                &fine,
+                &[1.0e7, 1.0, 1.0e-5],
+                &Boundaries::REFLECTIVE
+            )
+            .is_err()
+        );
+        assert!(
+            homogenize(
+                &solution,
+                &refs,
+                &fine,
+                &[1.0e7, 0.625],
+                &Boundaries::REFLECTIVE
+            )
+            .is_err()
+        );
     }
 }
