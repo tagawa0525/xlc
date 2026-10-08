@@ -619,6 +619,52 @@ mod tests {
     }
 
     #[test]
+    fn neighbor_edges_shape_the_transverse_leakage() {
+        // 隣のノードの辺（ADR-0095 の複数のノードの格子）は、core と同じく、隣の幅とその参照の横方向の
+        // 漏れで2次式を作る。自分と同じ幅と漏れの隣は鏡像と同じ（鏡面反射の辺と一致する）
+        let (diffusion, total, scatter, nu_fission, chi) = constants();
+        let flux = [1.3, 0.4];
+        let zero = [0.0, 0.0];
+        // y の漏れ（x の方向の横方向の漏れ）が正: ±y の面から外へ流れ出る
+        let out_y = [0.004, 0.001];
+        let out_x = [0.01, 0.002];
+        let width = [21.5, 21.5];
+        let solve_with = |plus: Edge| {
+            surface_fluxes(&OneNode {
+                diffusion: &diffusion,
+                total: &total,
+                scatter: &scatter,
+                nu_fission: &nu_fission,
+                chi: &chi,
+                k: 0.98,
+                flux: &flux,
+                widths: width,
+                currents: [&zero, &out_x, &out_y, &out_y],
+                edges: [Edge::Reflective, plus, Edge::Reflective, Edge::Reflective],
+            })
+            .unwrap()
+        };
+        let own: Vec<f64> = (0..2).map(|g| 2.0 * out_y[g] / width[1]).collect();
+        let mirror = solve_with(Edge::Reflective);
+        let same = solve_with(Edge::Neighbor {
+            width: width[0],
+            leakage: &own,
+        });
+        for (a, b) in mirror.iter().flatten().zip(same.iter().flatten()) {
+            assert!((a - b).abs() < 1e-13 * b, "{mirror:?} vs {same:?}");
+        }
+        // 隣の横方向の漏れが大きいと、2次式は +x に向かって大きくなり、+x の面の中性子束は下がる
+        let larger: Vec<f64> = own.iter().map(|l| 3.0 * l).collect();
+        let raised = solve_with(Edge::Neighbor {
+            width: width[0],
+            leakage: &larger,
+        });
+        for g in 0..2 {
+            assert!(raised[1][g] < mirror[1][g], "{raised:?} vs {mirror:?}");
+        }
+    }
+
+    #[test]
     fn invalid_one_node_problems_are_errors() {
         let (diffusion, total, scatter, nu_fission, chi) = constants();
         let zero = [0.0, 0.0];
