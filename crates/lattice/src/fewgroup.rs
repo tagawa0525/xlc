@@ -531,6 +531,15 @@ fn discontinuity_factors(
     currents: &[Vec<f64>],
     edges: [Edge; 4],
 ) -> Result<Vec<Vec<f64>>, HomogenizeError> {
+    tracing::debug!(
+        diffusion = ?few.diffusion,
+        total = ?few.total,
+        scatter = ?few.scatter,
+        nu_fission = ?few.nu_fission,
+        k,
+        size = ?size,
+        "one-node constants"
+    );
     for (side, het) in heterogeneous.iter().enumerate() {
         tracing::debug!(
             side,
