@@ -3,6 +3,9 @@ status: open
 labels: [lattice, verification]
 opened: 2026-10-08
 closed:
+milestone: M3
+blocked-by: []
+resolution:
 ---
 
 # ADF を OpenMC と比べていない
@@ -10,6 +13,8 @@ closed:
 ## 問題
 
 集合体の面ごとの不連続因子（ADF）は、反射境界の場合だけ作っているが、OpenMC などの参照と比べていない。
+
+関係する ADR: [ADR-0026](../adr/0026-output-two-group-tables-from-lattice.md)、[ADR-0084](../adr/0084-make-reflector-constants-with-fuel.md)
 
 ## 完了の条件
 

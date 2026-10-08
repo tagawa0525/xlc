@@ -1,7 +1,15 @@
 # M0: 3段階の縦切り
 
 ENDF/B-VIII.0 から、多群ライブラリ（`xs`）、ピンセルの2群定数（`lattice`）、炉心の k_eff（`core`）までを
-順に計算する例。手法と近似は [M0 の計画](../../docs/plans/m0-vertical-slice.md) のとおり。
+順に計算する例。手法と近似は M0 で決めた次の ADR のとおり（後に置き換えたものは、各 ADR の `superseded-by` が
+新しい決定を指す）。範囲と完了条件は [M0 の計画](../../docs/plans/m0-vertical-slice.md)。
+
+- 進め方とクレート: [ADR-0030](../../docs/adr/0030-build-a-vertical-slice-first.md)、[ADR-0001](../../docs/adr/0001-split-into-three-stage-crates.md)（`xlc-core` の名前を含む）
+- 核データと処理の流れ: [ADR-0020](../../docs/adr/0020-use-endf-b-viii-0.md)、[ADR-0021](../../docs/adr/0021-follow-njoy-processing-flow.md)（M0 は Reich-Moore だけ）、[ADR-0022](../../docs/adr/0022-use-wims-69-groups.md)、[ADR-0039](../../docs/adr/0039-weight-with-njoy-iwt4.md)
+- 断面積と散乱: [ADR-0038](../../docs/adr/0038-use-zero-kelvin-cross-sections-in-m0.md)、[ADR-0040](../../docs/adr/0040-scatter-isotropically-in-m0.md)、[ADR-0041](../../docs/adr/0041-transfer-by-two-body-kinematics.md)、[ADR-0042](../../docs/adr/0042-collapse-chi-by-fission-source.md)
+- 格子計算: [ADR-0024](../../docs/adr/0024-solve-lattice-with-2d-moc.md)、[ADR-0043](../../docs/adr/0043-track-pin-cells-cyclically.md)、[ADR-0044](../../docs/adr/0044-collapse-to-two-groups.md)
+- 炉心計算: [ADR-0027](../../docs/adr/0027-solve-core-with-nem.md)、[ADR-0045](../../docs/adr/0045-expand-nem-to-fourth-order.md)
+- 段階間のファイル: [ADR-0009](../../docs/adr/0009-write-text-intermediate-files.md)
 
 ## 実行
 

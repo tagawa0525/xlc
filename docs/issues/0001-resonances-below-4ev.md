@@ -3,6 +3,9 @@ status: open
 labels: [xs, lattice, shielding]
 opened: 2026-10-08
 closed:
+milestone: M3
+blocked-by: []
+resolution:
 ---
 
 # UFG の範囲（4 eV）より下の共鳴の自己遮蔽
@@ -15,7 +18,7 @@ Pu-242 の 2.67 eV の共鳴がその中に入る。MOX のピンセル（exampl
 U-238 −1%）ので、核種の間の干渉も入っていない。Pu-240 の 1.06 eV は 37 群で +0.03% と合う。
 
 下限を 4 eV にしているのは、H in H2O が 4 eV より下で S(α,β) を使い、静止した自由原子の散乱核が成り立たない
-ため（docs/plans/m2-assembly.md）。先行事例は3通り:
+ため（[ADR-0073](../adr/0073-store-pointwise-data-in-library.md)）。先行事例は3通り:
 
 - A. ポイントワイズの減速計算を熱中性子の範囲まで延ばし、S(α,β) の散乱核と上方散乱の反復を入れる（SCALE CENTRM。
   既定で 0.001 eV〜20 keV）
@@ -23,10 +26,12 @@ U-238 −1%）ので、核種の間の干渉も入っていない。Pu-240 の 1
   1次元の CP を解く
 - C. 表を引く方式を 1.25〜1.86 eV で止める（MPACT、Polaris、HELIOS、nTRACER。今の xlc と同じ系統）
 
+関係する ADR: [ADR-0022](../adr/0022-use-wims-69-groups.md)、[ADR-0052](../adr/0052-scatter-h-in-h2o-by-sab.md)、[ADR-0069](../adr/0069-cap-cell-slowing-down-at-20-kev.md)、[ADR-0073](../adr/0073-store-pointwise-data-in-library.md)、[ADR-0074](../adr/0074-shield-outside-range-by-equivalence.md)
+
 ## 完了の条件
 
 A と B を試作して、MOX-1 の Pu-242 の誤差と干渉がどこまで消えるか（B）と、ピン1本の計算時間（A）を測り、
-方式を計画に決める。Pu が燃焼で生まれる M4 の前に実装し、MOX のピンセルで検証する。
+方式を決めて ADR にする。Pu が燃焼で生まれる M4 の前に実装し、MOX のピンセルで検証する。
 
 ## 経緯
 
