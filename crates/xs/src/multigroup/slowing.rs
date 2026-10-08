@@ -7,9 +7,11 @@
 //! F(u) (σt + σ0) = σ0 W(u) + 1/(1 − α) ∫_{u−Δ}^{u} σs(u') F(u') e^{−(u−u')} du'、α = ((A − 1)/(A + 1))²、Δ = ln(1/α)
 //!
 //! を高いエネルギーから順に解く。σs F は格子点の間で線形とし、線形 × 指数関数を区間ごとに解析的に積分する。
-//! 上端 E_high より上（最初の窓）は、吸収体の散乱をその場の値とする NR 近似 F = W (σs + σ0) / (σt + σ0) とする。
+//! 上端 E_high より上（最初の窓）は NR 近似とし、吸収体の散乱源はポテンシャル散乱 σp が重み関数のスペクトルで
+//! 散乱する σp W(u) とする（NJOY GROUPR の flux calculator と同じ。共鳴の散乱 σs(u) F(u) を使うと、範囲のすぐ上の
+//! 散乱の共鳴が、範囲の上端の中性子束を NJOY より大きく見積もる）。上端の値は F = W (σp + σ0) / (σt + σ0)。
 
-use super::Weight;
+use super::{SlowingDown, Weight};
 use crate::endf::Tab1;
 
 /// 1つの窓（散乱で届くレサジーの幅 Δ）に入れる格子点の最少の数。格子はポイントワイズの断面積の格子に、これより
@@ -28,34 +30,39 @@ pub enum SlowingDownError {
     Mass(f64),
     #[error("background cross section {0} b must be positive")]
     Sigma0(f64),
+    #[error("potential scattering {0} b must be positive")]
+    Potential(f64),
     #[error("cross sections are not defined at {0} eV")]
     Undefined(f64),
     #[error("a scattering window needs at least 2 grid points, got {0}")]
     WindowPoints(usize),
 }
 
-/// [e_low, e_high] (eV) での中性子束の形 f(E) = φ(E) / w(E)（エネルギーの昇順の lin-lin の表）。
+/// 範囲 `slowing.range` = [e_low, e_high] (eV) での中性子束の形 f(E) = φ(E) / w(E)（エネルギーの昇順の lin-lin の表）。
 pub fn slowing_down_shape(
     total: &Tab1,
     elastic: &Tab1,
-    awr: f64,
+    slowing: &SlowingDown,
     weight: &Weight,
     sigma0: f64,
-    range: (f64, f64),
 ) -> Result<Tab1, SlowingDownError> {
-    slowing_down_shape_with(total, elastic, awr, weight, sigma0, range, WINDOW_POINTS)
+    slowing_down_shape_with(total, elastic, slowing, weight, sigma0, WINDOW_POINTS)
 }
 
 /// 窓あたりの最少の格子点の数 `window_points` を指定する `slowing_down_shape`。
 pub fn slowing_down_shape_with(
     total: &Tab1,
     elastic: &Tab1,
-    awr: f64,
+    slowing: &SlowingDown,
     weight: &Weight,
     sigma0: f64,
-    (e_low, e_high): (f64, f64),
     window_points: usize,
 ) -> Result<Tab1, SlowingDownError> {
+    let SlowingDown {
+        awr,
+        potential,
+        range: (e_low, e_high),
+    } = *slowing;
     if !(e_low > 0.0 && e_high > e_low && e_high.is_finite()) {
         return Err(SlowingDownError::Range(e_low, e_high));
     }
@@ -64,6 +71,9 @@ pub fn slowing_down_shape_with(
     }
     if !(sigma0 > 0.0 && sigma0.is_finite()) {
         return Err(SlowingDownError::Sigma0(sigma0));
+    }
+    if !(potential > 0.0 && potential.is_finite()) {
+        return Err(SlowingDownError::Potential(potential));
     }
     if window_points < 2 {
         return Err(SlowingDownError::WindowPoints(window_points));
@@ -116,14 +126,17 @@ pub fn slowing_down_shape_with(
 
     let at = |t: &Tab1, e: f64| t.eval(e).ok_or(SlowingDownError::Undefined(e));
     let mut f = Vec::with_capacity(u.len());
-    // g = σs F（格子点の値）
+    // g = σs F（格子点の値。最初の窓は σp W）
     let mut g = Vec::with_capacity(u.len());
     for (i, (&ui, &e)) in u.iter().zip(&points).enumerate() {
         let (st, ss) = (at(total, e)?, at(elastic, e)?);
         let big_w = e * weight.value(e);
-        let value = if ui <= 0.0 {
-            // 最初の窓: NR 近似
-            big_w * (ss + sigma0) / (st + sigma0)
+        let (value, source) = if ui <= 0.0 {
+            // 最初の窓: NR 近似。散乱源はポテンシャル散乱が重み関数のスペクトルで散乱するもの
+            (
+                big_w * (potential + sigma0) / (st + sigma0),
+                potential * big_w,
+            )
         } else {
             // 窓 [ui − Δ, ui] の積分のうち、既知の部分と、最後の区間の g_{i−1} の項
             let lower = ui - width;
@@ -141,10 +154,12 @@ pub fn slowing_down_shape_with(
             }
             let (ca, cb) = segment(u[i - 1], ui, ui);
             known += ca * g[i - 1];
-            (sigma0 * big_w + known / one_minus_alpha) / (st + sigma0 - ss * cb / one_minus_alpha)
+            let value = (sigma0 * big_w + known / one_minus_alpha)
+                / (st + sigma0 - ss * cb / one_minus_alpha);
+            (value, ss * value)
         };
         f.push(value);
-        g.push(ss * value);
+        g.push(source);
     }
 
     // [e_low, e_high] の点を、形 f = F / W にしてエネルギーの昇順に並べる
