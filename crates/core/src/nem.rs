@@ -1867,4 +1867,14 @@ mod tests {
         let err = solve(&p, &Options::default());
         assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
     }
+
+    #[test]
+    fn negative_nu_fission_is_an_error() {
+        // νΣf で核の種類（NEM か ANM）を選ぶので、負の νΣf は推測せずにエラー（ADR-0102）
+        let mut m = material();
+        m.nu_fission[0] = -1.0e-3;
+        let p = slab(vec![10.0; 2], vec![m], vec![0, 0], Boundary::Reflective);
+        let err = solve(&p, &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
+    }
 }

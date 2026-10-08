@@ -271,8 +271,11 @@ mod tests {
     use super::*;
     use crate::nem::Inflow;
 
-    /// 反射体（水と鋼）に近い2群の定数: 拡散係数、全断面積、散乱 [出る群][入る群]（上方散乱あり）
-    fn reflector() -> (Vec<f64>, Vec<f64>, Vec<Vec<f64>>) {
+    /// 拡散係数、全断面積、散乱 [出る群][入る群]
+    type Constants = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
+
+    /// 反射体（水と鋼）に近い2群の定数（上方散乱あり）
+    fn reflector() -> Constants {
         (
             vec![1.25, 0.30],
             vec![0.60, 1.90],
@@ -292,7 +295,20 @@ mod tests {
         left: Option<&[f64]>,
         faces: &mut Vec<[f64; 4]>,
     ) -> Vec<(f64, f64, f64)> {
-        let (diffusion, total, scatter) = reflector();
+        finite_difference_of(&reflector(), width, cells, transverse, right, left, faces)
+    }
+
+    /// 定数 `constants`（拡散係数、全断面積、散乱）の `finite_difference`
+    fn finite_difference_of(
+        constants: &Constants,
+        width: f64,
+        cells: usize,
+        transverse: &[(f64, f64, f64)],
+        right: &[f64],
+        left: Option<&[f64]>,
+        faces: &mut Vec<[f64; 4]>,
+    ) -> Vec<(f64, f64, f64)> {
+        let (diffusion, total, scatter) = constants.clone();
         let dx = width / cells as f64;
         let mut flux = vec![vec![0.0; cells]; 2];
         // 入射 i の面: 面の中性子束 φf で φf/4 - J_in/2 = i、外向きの J = k(φ_端 - φf)、k = 2D/dx から
@@ -580,6 +596,182 @@ mod tests {
                 "{surface:?} {faces:?}"
             );
             assert!(surface[1][g] > 0.0);
+        }
+    }
+
+    /// 定数 `constants` の幅 `width` のノード（右から入射、左は真空、横方向の漏れなし）を、ANM と細かいメッシュの
+    /// 差分で解き、ANM の出ていく部分中性子流の、差分の解に対する最大の相対差を返す
+    fn against_differences(constants: &Constants, width: f64, cells: usize) -> f64 {
+        let (diffusion, total, scatter) = constants;
+        let incoming = [0.05, 0.004];
+        let reference = finite_difference_of(
+            constants,
+            width,
+            cells,
+            &[(0.0, 0.0, 0.0); 2],
+            &incoming,
+            Some(&[0.0; 2]),
+            &mut Vec::new(),
+        );
+        let averages: Vec<f64> = reference.iter().map(|r| r.0).collect();
+        let inflow: Vec<[Inflow; 2]> = (0..2)
+            .map(|g| {
+                [
+                    Inflow {
+                        beta: 0.0,
+                        external: incoming[g],
+                    },
+                    Inflow::default(),
+                ]
+            })
+            .collect();
+        let node = AnmNode {
+            diffusion,
+            total,
+            scatter,
+            width,
+            transverse: &[(0.0, 0.0); 2],
+            inflow: &inflow,
+            averages: &averages,
+        };
+        let mut worst: f64 = 0.0;
+        for g in 0..2 {
+            let faces = outflow(&node, g).unwrap().at(averages[g]);
+            let (_, right, left) = reference[g];
+            worst = worst
+                .max((faces.out[0] - right).abs() / right)
+                .max((faces.out[1] - left).abs() / left);
+        }
+        worst
+    }
+
+    #[test]
+    fn thin_and_thick_nodes_match_fine_differences() {
+        // 薄いノード（κh/2 ≈ 2 × 10⁻⁴）と厚いノード（κh/2 ≈ 50）でも、差分の解に一致する
+        let thin = against_differences(&reflector(), 1.0e-3, 200);
+        assert!(thin < 1e-9, "{thin}");
+        let thick = against_differences(&reflector(), 200.0, 40_000);
+        assert!(thick < 1e-5, "{thick}");
+    }
+
+    #[test]
+    fn even_face_value_keeps_precision_for_small_arguments() {
+        // 1 − tanh(t)/t は、t が小さいと直接の式では桁が落ちる。級数 t²/3 − 2t⁴/15 + 17t⁶/315 − 62t⁸/2835 と比べる
+        for t in [1.0e-6_f64, 1.0e-4, 1.0e-2, 0.04] {
+            let t2 = t * t;
+            let series = t2 / 3.0 - 2.0 * t2 * t2 / 15.0 + 17.0 * t2.powi(3) / 315.0
+                - 62.0 * t2.powi(4) / 2835.0;
+            let value = even_face_value(t);
+            assert!(
+                (value - series).abs() < 1e-14 * series,
+                "{t}: {value} vs {series}"
+            );
+        }
+        // 大きい t では直接の式
+        for t in [0.1_f64, 1.0, 50.0, 1.0e4] {
+            let direct = 1.0 - t.tanh() / t;
+            assert!((even_face_value(t) - direct).abs() < 1e-15, "{t}");
+        }
+    }
+
+    #[test]
+    fn uncoupled_equal_modes_are_solved() {
+        // 群の間の散乱がなく D⁻¹A の対角が等しい（固有値が重なる）ときも、固有ベクトルは単位ベクトルで解ける
+        let constants: Constants = (
+            vec![1.0, 0.5],
+            vec![0.4, 0.3],
+            vec![vec![0.36, 0.0], vec![0.0, 0.28]],
+        );
+        let error = against_differences(&constants, 20.0, 20_000);
+        assert!(error < 2e-6, "{error}");
+    }
+
+    #[test]
+    fn ill_conditioned_modes_are_errors() {
+        // 群が結合して D⁻¹A の固有値が重なる（または非常に近い）と、2つのモードの固有ベクトルがそろい、面の
+        // 条件の式が悪条件になる。精度を黙って落とさず、エラーにする
+        let inflow = vec![[Inflow::default(); 2]; 2];
+        for gap in [0.0, 1.0e-14] {
+            let diffusion = [1.0, 1.0];
+            let total = [0.5, 0.48 + 0.02 + gap];
+            // 除去は 0.12 と 0.12 + gap、下方散乱 0.02 で結合
+            let scatter = [vec![0.38, 0.02], vec![0.0, 0.38]];
+            let node = AnmNode {
+                diffusion: &diffusion,
+                total: &total,
+                scatter: &scatter,
+                width: 20.0,
+                transverse: &[(0.0, 0.0); 2],
+                inflow: &inflow,
+                averages: &[1.0, 1.0],
+            };
+            let result = outflow(&node, 0);
+            assert!(
+                matches!(result, Err(AnmError::IllConditioned { .. })),
+                "{gap}: {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn non_finite_inputs_are_errors() {
+        let (diffusion, total, scatter) = reflector();
+        let inflow = vec![[Inflow::default(); 2]; 2];
+        let base = AnmNode {
+            diffusion: &diffusion,
+            total: &total,
+            scatter: &scatter,
+            width: 20.0,
+            transverse: &[(0.0, 0.0); 2],
+            inflow: &inflow,
+            averages: &[1.0, 1.0],
+        };
+        let nan_inflow = vec![
+            [
+                Inflow {
+                    beta: f64::NAN,
+                    external: 0.0,
+                },
+                Inflow::default(),
+            ],
+            [Inflow::default(); 2],
+        ];
+        let infinite_inflow = vec![
+            [Inflow::default(); 2],
+            [
+                Inflow::default(),
+                Inflow {
+                    beta: 0.0,
+                    external: f64::INFINITY,
+                },
+            ],
+        ];
+        for node in [
+            AnmNode {
+                transverse: &[(f64::NAN, 0.0), (0.0, 0.0)],
+                ..base
+            },
+            AnmNode {
+                inflow: &nan_inflow,
+                ..base
+            },
+            AnmNode {
+                inflow: &infinite_inflow,
+                ..base
+            },
+            AnmNode {
+                averages: &[1.0, f64::NAN],
+                ..base
+            },
+            AnmNode {
+                total: &[0.6, f64::INFINITY],
+                ..base
+            },
+        ] {
+            assert!(
+                matches!(outflow(&node, 0), Err(AnmError::Invalid(_))),
+                "{node:?}"
+            );
         }
     }
 }
