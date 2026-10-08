@@ -1222,7 +1222,13 @@ mod tests {
 
     #[test]
     fn two_terms_are_weighted_by_the_narrow_resonance_flux() {
-        let library = library();
+        // NR 近似の燃料の中性子束 (σp + σ0) / (σt + σ0) は、吸収体自身のポテンシャル散乱 σp を線源に含む
+        let potential = 11.0;
+        let mut library = library();
+        library.nuclides[0].resolved = Some(xlc_format::library::Resolved {
+            top: 2.0e4,
+            potential,
+        });
         let (chord, density, background) = (0.8192, 0.02, 0.05);
         let terms = carlvik(0.0).unwrap();
         let equivalence = Equivalence {
@@ -1242,7 +1248,7 @@ mod tests {
         for term in terms {
             let sigma0 = (background + term.alpha / chord) / density;
             let table = library.shielded("U-238", T, &[sigma0; 2]).unwrap();
-            let flux = sigma0 / (table.total[0] + sigma0);
+            let flux = (potential + sigma0) / (table.total[0] + sigma0);
             numerator += term.beta * flux * table.total[0];
             denominator += term.beta * flux;
         }
