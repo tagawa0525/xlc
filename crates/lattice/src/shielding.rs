@@ -10,7 +10,7 @@
 //! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
 //! （ライブラリの重み w/(σt + σ0) での群平均では、この式が厳密に成り立つ）。
 
-use xlc_xs::library::{Library, LookupError, Nuclide, Shielded};
+use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
 use crate::cp::{CpError, Cylinder};
 use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
@@ -784,7 +784,7 @@ pub fn effective(
 mod tests {
     use super::*;
     use xlc_format::group::GroupStructure;
-    use xlc_xs::library::{Library, NuclideData, Shielded, TemperatureData};
+    use xlc_format::library::{Library, NuclideData, Shielded, TemperatureData};
 
     const T: f64 = 900.0;
 
@@ -929,7 +929,7 @@ mod tests {
         use crate::material::Material;
         use crate::tracking::Tracking;
         use xlc_format::group::GroupStructure;
-        use xlc_xs::library::{Library, NuclideData, Shielded, TemperatureData};
+        use xlc_format::library::{Library, NuclideData, Shielded, TemperatureData};
 
         const T: f64 = 600.0;
 
@@ -1188,7 +1188,7 @@ mod tests {
                     name: name.into(),
                     za: 0.0,
                     awr,
-                    resolved: top.map(|top| xlc_xs::library::Resolved {
+                    resolved: top.map(|top| xlc_format::library::Resolved {
                         top,
                         potential: 10.0,
                     }),
@@ -1213,7 +1213,7 @@ mod tests {
                                 .collect(),
                         ],
                         shielded: vec![table(1.0), table(0.9), table(0.8)],
-                        pointwise: xlc_xs::library::Pointwise {
+                        pointwise: xlc_format::library::Pointwise {
                             energy: column(0),
                             total: column(1),
                             elastic: column(2),
