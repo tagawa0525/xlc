@@ -49,8 +49,9 @@ pub enum HomogenizeError {
 /// 拡散係数は `diffusion_coefficients` で作る（ADR-0098）。格子全体を1つのノード（集合体）として均質化する。
 ///
 /// 不連続因子（ADF）は、辺の上の不均質な中性子束（MOC）を、同じ辺の均質な中性子束で割る（一般化等価理論、
-/// ADR-0094）。均質な中性子束は、均質化した定数、MOC の k とノード平均の中性子束、辺ごとの正味の中性子流で
-/// 解いた1ノードの NEM（`xlc_numeric::nem::surface_fluxes`。core と同じ式）の面の値とする。外周がすべて
+/// ADR-0103）。均質な中性子束は、均質化した定数、MOC の k とノード平均の中性子束、辺ごとの正味の中性子流で
+/// 解いた1ノードの問題（`xlc_numeric::nem::surface_fluxes`。core と同じ核で、核分裂のあるノードは NEM、ない
+/// ノードは ANM。ADR-0102）の面の値とする。外周がすべて
 /// 鏡面反射なら正味の流れは 0 で、均質な解は平らになり、体積平均の中性子束で割るのと同じになる。
 /// アルベドの辺は core に対応する境界がないのでエラーにする。
 ///
@@ -565,7 +566,7 @@ mod tests {
     #[test]
     fn open_lattice_adfs_divide_by_the_one_node_flux() {
         // 真空の辺がある格子の ADF は、参照の k、ノード平均の中性子束、辺の正味の流れで解いた1ノードの
-        // NEM の均質な面の中性子束で割る（ADR-0094）。辺は（左、右、上、下）で、-x が左、+x が右、
+        // NEM の均質な面の中性子束で割る（ADR-0103）。辺は（左、右、上、下）で、-x が左、+x が右、
         // -y が下、+y が上
         use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
         let (solution, materials, fine, boundaries) = open_lattice();
@@ -661,7 +662,7 @@ mod tests {
 
     #[test]
     fn adf_rejects_albedo_sides() {
-        // core にアルベドの境界がないので、アルベドの辺の格子では ADF を作らない（ADR-0094）
+        // core にアルベドの境界がないので、アルベドの辺の格子では ADF を作らない（ADR-0103）
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
         let albedo = Boundaries {
