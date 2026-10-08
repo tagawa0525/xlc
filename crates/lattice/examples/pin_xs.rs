@@ -11,11 +11,11 @@ use std::path::Path;
 
 use anyhow::{Context, anyhow};
 use serde::Serialize;
+use xlc_format::msgpack::to_named;
 use xlc_lattice::input::{CrossSections, LatticeInput};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
 use xlc_lattice::tracking::Tracking;
 use xlc_xs::library::Library;
-use xlc_xs::msgpack::to_named;
 
 /// [行][列][群]
 type Map = Vec<Vec<Vec<f64>>>;
