@@ -52,6 +52,7 @@ pub struct Shielded {
 }
 
 /// 1つの温度での、ドップラー拡がりのポイントワイズの断面積 (barn)。`Library::pointwise_range` の範囲で、エネルギーの昇順
+/// （範囲がなければ空）
 /// （不連続点は同じエネルギーを2回持ち、左と右の極限の値を並べる）。点の間は lin-lin。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -122,8 +123,9 @@ pub struct Library {
     pub groups: GroupStructure,
     /// 背景断面積 (barn)、降順。最初の値を無限希釈とみなす
     pub sigma0: Vec<f64>,
-    /// ポイントワイズの断面積を持つエネルギーの範囲 [下限, 上限] (eV)
-    pub pointwise_range: [f64; 2],
+    /// ポイントワイズの断面積を持つエネルギーの範囲 [下限, 上限] (eV)。分離共鳴を持つ核種がなければ、超微細群の計算に
+    /// 使うポイントワイズの断面積は要らないので `None`（どの核種のポイントワイズの断面積も空）
+    pub pointwise_range: Option<[f64; 2]>,
     pub nuclides: Vec<NuclideData>,
 }
 
@@ -183,7 +185,8 @@ struct LibraryFile {
     format: String,
     group_bounds: Vec<f64>,
     sigma0: Vec<f64>,
-    pointwise_range: [f64; 2],
+    /// 範囲がなければ空の配列（項目は欠かさない）
+    pointwise_range: Vec<f64>,
     nuclides: Vec<NuclideData>,
 }
 
@@ -191,7 +194,9 @@ impl Library {
     /// MessagePack（フィールド名付きの map 形式）で書く。読むときと同じ検査（配列の長さ、有限な値）を
     /// 書く前にもして、壊れたライブラリを書かない。
     pub fn to_msgpack(&self) -> Result<Vec<u8>, LibraryError> {
-        check_range(self.pointwise_range).map_err(LibraryError::Invalid)?;
+        if let Some(range) = self.pointwise_range {
+            check_range(range).map_err(LibraryError::Invalid)?;
+        }
         let ng = self.groups.len();
         for n in &self.nuclides {
             n.check(ng, self.sigma0.len(), self.pointwise_range)
@@ -201,7 +206,7 @@ impl Library {
             format: FORMAT.into(),
             group_bounds: self.groups.bounds().to_vec(),
             sigma0: self.sigma0.clone(),
-            pointwise_range: self.pointwise_range,
+            pointwise_range: self.pointwise_range.map(Vec::from).unwrap_or_default(),
             nuclides: self.nuclides.clone(),
         };
         Ok(msgpack::to_named(&file)?)
@@ -226,19 +231,30 @@ impl Library {
                 file.sigma0
             )));
         }
-        check_range(file.pointwise_range).map_err(invalid)?;
+        let pointwise_range = match file.pointwise_range[..] {
+            [] => None,
+            [low, high] => {
+                check_range([low, high]).map_err(invalid)?;
+                Some([low, high])
+            }
+            ref other => {
+                return Err(invalid(format!(
+                    "pointwise range must be empty or [low, high], got {other:?}"
+                )));
+            }
+        };
         let ng = groups.len();
         for (k, n) in file.nuclides.iter().enumerate() {
             if file.nuclides[..k].iter().any(|m| m.name == n.name) {
                 return Err(invalid(format!("nuclide {} appears twice", n.name)));
             }
-            n.check(ng, file.sigma0.len(), file.pointwise_range)
+            n.check(ng, file.sigma0.len(), pointwise_range)
                 .map_err(invalid)?;
         }
         Ok(Self {
             groups,
             sigma0: file.sigma0,
-            pointwise_range: file.pointwise_range,
+            pointwise_range,
             nuclides: file.nuclides,
         })
     }
@@ -380,7 +396,7 @@ impl From<MsgpackError> for LibraryError {
 
 impl NuclideData {
     /// 配列の長さ（群の数 `ng`、σ0 の数 `n_sigma0`）と温度の表があることを確かめる。
-    fn check(&self, ng: usize, n_sigma0: usize, range: [f64; 2]) -> Result<(), String> {
+    fn check(&self, ng: usize, n_sigma0: usize, range: Option<[f64; 2]>) -> Result<(), String> {
         let name = &self.name;
         if !is_nuclide_name(name) {
             return Err(format!(
@@ -447,9 +463,24 @@ impl NuclideData {
             if p.energy.windows(2).any(|w| w[1] < w[0]) {
                 return Err(at("pointwise energies must not decrease".into()));
             }
-            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）
-            if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
-                return Err(at(format!("pointwise data must cover the range {range:?}")));
+            // 範囲をちょうど覆うこと（超微細群の減速計算が範囲の外を引かないように）。範囲がなければ空で、
+            // 分離共鳴も持たない（範囲は分離共鳴を持つ核種がないときだけない）
+            if range.is_none() && self.resolved.is_some() {
+                return Err(format!(
+                    "{name}: resolved resonances need a pointwise range"
+                ));
+            }
+            match range {
+                Some(range) => {
+                    if p.energy.first() != Some(&range[0]) || p.energy.last() != Some(&range[1]) {
+                        return Err(at(format!("pointwise data must cover the range {range:?}")));
+                    }
+                }
+                None => {
+                    if !p.energy.is_empty() {
+                        return Err(at("pointwise data without a pointwise range".into()));
+                    }
+                }
             }
             let values = t
                 .chi
@@ -526,7 +557,7 @@ pub(crate) mod tests {
                 .collect(),
         };
         Library {
-            pointwise_range: [4.0, 1.0e4],
+            pointwise_range: Some([4.0, 1.0e4]),
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 10.0],
             nuclides: vec![
@@ -546,10 +577,76 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn resolved_resonances_need_a_pointwise_range() {
+        // 分離共鳴を持つ核種があるのに範囲がないライブラリは、書くときにも読むときにも拒む
+        let resolved = Some(Resolved {
+            top: 1.0e4,
+            potential: 10.0,
+        });
+        let mut library = sample();
+        library.pointwise_range = None;
+        library.nuclides[0].resolved = resolved.clone();
+        for n in &mut library.nuclides {
+            for t in &mut n.temperatures {
+                t.pointwise = Pointwise::default();
+            }
+        }
+        assert!(library.to_msgpack().is_err());
+        let mut file = sample_file();
+        file.pointwise_range = Vec::new();
+        file.nuclides[0].resolved = resolved;
+        for n in &mut file.nuclides {
+            for t in &mut n.temperatures {
+                t.pointwise = Pointwise::default();
+            }
+        }
+        let bytes = rmp_serde::to_vec_named(&file).unwrap();
+        assert!(Library::from_msgpack(&bytes).is_err());
+    }
+
+    #[test]
+    fn pointwise_range_must_be_empty_or_a_pair() {
+        for range in [vec![4.0], vec![4.0, 1.0e3, 1.0e4]] {
+            let mut file = sample_file();
+            file.pointwise_range = range;
+            let bytes = rmp_serde::to_vec_named(&file).unwrap();
+            assert!(Library::from_msgpack(&bytes).is_err());
+        }
+    }
+
+    #[test]
+    fn library_without_pointwise_range_round_trips() {
+        // 分離共鳴を持つ核種がないライブラリ: 範囲はなく、ポイントワイズの断面積は空
+        let mut library = sample();
+        library.pointwise_range = None;
+        for n in &mut library.nuclides {
+            n.resolved = None;
+            for t in &mut n.temperatures {
+                t.pointwise = Pointwise::default();
+            }
+        }
+        let bytes = library.to_msgpack().unwrap();
+        assert_eq!(Library::from_msgpack(&bytes).unwrap(), library);
+        // 範囲がないのにポイントワイズの断面積がある
+        let mut bad = library.clone();
+        bad.nuclides[0].temperatures[0].pointwise =
+            sample().nuclides[0].temperatures[0].pointwise.clone();
+        assert!(bad.to_msgpack().is_err());
+        // 読むときも拒む
+        let mut file = sample_file();
+        file.pointwise_range = Vec::new();
+        for n in &mut file.nuclides {
+            n.resolved = None;
+        }
+        let bytes = rmp_serde::to_vec_named(&file).unwrap();
+        assert!(Library::from_msgpack(&bytes).is_err());
+    }
+
+    #[test]
     fn refuses_to_write_a_bad_pointwise_range() {
         for range in [[0.0, 1.0e4], [1.0e4, 4.0], [4.0, f64::INFINITY]] {
             let mut library = sample();
-            library.pointwise_range = range;
+            library.pointwise_range = Some(range);
             assert!(
                 matches!(library.to_msgpack(), Err(LibraryError::Invalid(_))),
                 "{range:?}"
@@ -583,7 +680,7 @@ pub(crate) mod tests {
     #[test]
     fn keeps_the_pointwise_data() {
         let mut library = sample();
-        library.pointwise_range = [4.0, 1.0e4];
+        library.pointwise_range = Some([4.0, 1.0e4]);
         library.nuclides[0].temperatures[0].pointwise = Pointwise {
             energy: vec![4.0, 1.0e4],
             total: vec![11.0, 12.0],
@@ -695,7 +792,7 @@ pub(crate) mod tests {
             format: "xlc-multigroup".into(),
             group_bounds: library.groups.bounds().to_vec(),
             sigma0: library.sigma0,
-            pointwise_range: library.pointwise_range,
+            pointwise_range: library.pointwise_range.map(Vec::from).unwrap_or_default(),
             nuclides: library.nuclides,
         }
     }
