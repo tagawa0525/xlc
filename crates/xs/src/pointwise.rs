@@ -229,8 +229,9 @@ pub struct ColdParts {
 ///
 /// しきい値より下の断面積はありえない。評価済みデータには、重心系のしきい値 |Q| と E_th の間（Q 値と AWR の丸めや、
 /// しきい値の書き方の違い）から始まる表がある。E_th より下の点は捨て、E_th に最初の点の値を置き（NJOY RECONR
-/// と同じく最初の点をしきい値に移す。最初の点の値は通常 0）、E_th から次の点までは lin-lin にする（0 の端でも
-/// 成り立つ補間則。その先はファイルのまま）。ちょうど E_th にある点は残す。`awr` は運動学（2体の散乱行列）と同じ
+/// と同じく最初の点をしきい値に移す。最初の点の値は通常 0）、E_th から次の点までは、しきい値をまたいでいた区間の
+/// 補間則を引き継ぐ（NJOY と同じ）。ただし ln y をとる補間則（INT=4, 5）は 0 の端で成り立たないので lin-lin にする。
+/// その先はファイルのまま。ちょうど E_th にある点は残す。`awr` は運動学（2体の散乱行列）と同じ
 /// AWR（最初の MF3 の見出し）。
 ///
 /// 次は推測で直さずにエラーにする: AWR が正でない、|Q| より下に値が 0 でない点がある、E_th より上に点がない。
@@ -296,13 +297,25 @@ fn start_at_threshold(
             below,
         )
     } else {
-        // E_th に最初の点の値を置き、次の点までを lin-lin にする。区切りの番号は、捨てた点の数から置いた1点を
-        // 引いた分だけ詰める
+        // E_th に最初の点の値を置く。区切りの番号は、捨てた点の数から置いた1点を引いた分だけ詰める
         let mut x = vec![threshold];
         x.extend_from_slice(&sigma.x[below..]);
         let mut y = vec![sigma.y[0]];
         y.extend_from_slice(&sigma.y[below..]);
-        let (mut breaks, mut laws) = (vec![2], vec![Interpolation::LinLin]);
+        // しきい値をまたいでいた区間（点 below − 1 と below の間）の補間則を引き継ぐ。ln y をとる補間則は 0 の端で
+        // 成り立たないので lin-lin にする
+        let crossing = sigma
+            .breaks
+            .iter()
+            .position(|&b| b > below)
+            .map_or(Interpolation::LinLin, |k| sigma.laws[k]);
+        let takes_log_of_y = matches!(crossing, Interpolation::LogLin | Interpolation::LogLog);
+        let first_law = if takes_log_of_y && (y[0] <= 0.0 || y[1] <= 0.0) {
+            Interpolation::LinLin
+        } else {
+            crossing
+        };
+        let (mut breaks, mut laws) = (vec![2], vec![first_law]);
         for (&b, &law) in sigma.breaks.iter().zip(&sigma.laws) {
             if let Some(shifted) = (b + 1).checked_sub(below)
                 && shifted >= 3
