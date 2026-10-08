@@ -360,8 +360,8 @@ pub fn shield_fuel(
 /// 燃料でなく、燃料のピンの等価なセルでも置き換えていない領域のうち、分離共鳴を持つ核種を含む物質の領域
 /// （支持格子の枠、案内管など）を塊にまとめ、等価原理で遮蔽する。塊は、対称に移り合うセルの組・物質・セルの中の
 /// ひと続きの領域（セルの領域の順で、同じ物質が続く範囲。リングとその外の枠はこの順に並ぶ）ごと。物質ごとに、
-/// その物質の塊だけを同時に黒体にして、塊ごとの Dancoff 係数と平均弦長を求める（[`lump_dancoff`]。別の物質の
-/// 共鳴は別のエネルギーにあるので、影を作らない）。
+/// その物質の領域（ピンの等価なセルで遮蔽した被覆管なども含む）だけを同時に黒体にして、塊ごとの Dancoff 係数と
+/// 平均弦長を求める（[`lump_dancoff`]。別の物質の共鳴は別のエネルギーにあるので、影を作らない）。
 fn shield_lumps(
     library: &Library,
     tracking: &Tracking,
@@ -415,23 +415,49 @@ fn shield_lumps(
             lump[region] = Some(k);
         }
     }
-    let totals: Vec<Vec<f64>> = shielded
-        .region_material
+    // 影の計算の全断面積は、燃料のピンの Dancoff 係数と同じく燃料でない領域は無限希釈とし、燃料はピンの
+    // SPH 因子を掛けない実効断面積（物理的な値。SPH 因子は MOC の反応率を合わせるためのもの）とする
+    let ng = library.groups.len();
+    let mut totals: Vec<Vec<f64>> = region_index
         .iter()
-        .map(|&m| shielded.materials[m].total.clone())
+        .map(|&i| shielded.materials[i].total.clone())
         .collect();
-    // 物質ごとに、その物質の塊だけを黒体にする。塊の番号は物質の中での番号に付け直す
+    for pin in &shielded.pins {
+        let fuel = Material::from_nuclides(&pin.nuclides, ng).map_err(|source| {
+            SelfShieldingError::Material {
+                name: format!("fuel in cell {}", pin.cell),
+                source,
+            }
+        })?;
+        for region in lattice.cell_regions(pin.cell) {
+            if shielded.materials[region_index[region]]
+                .nu_fission
+                .iter()
+                .any(|&v| v > 0.0)
+            {
+                totals[region].clone_from(&fuel.total);
+            }
+        }
+    }
+    // 物質ごとに、その物質の領域だけを黒体にする（共鳴が同じエネルギーにあるので影を作る）。塊の番号は物質の中での
+    // 番号に付け直し、塊でない領域（ピンの等価なセルで遮蔽した被覆管など）は最後の番号の、結果を使わない塊にする
     let mut found = Vec::with_capacity(keys.len());
     let mut indices: Vec<usize> = keys.iter().map(|&(_, index, _)| index).collect();
     indices.sort_unstable();
     indices.dedup();
     for index in indices {
         let members: Vec<usize> = (0..keys.len()).filter(|&k| keys[k].1 == index).collect();
+        let shadow = members.len();
         let local: Vec<Option<usize>> = lump
             .iter()
-            .map(|l| l.and_then(|l| members.iter().position(|&m| m == l)))
+            .zip(region_index)
+            .map(|(l, &i)| match l {
+                Some(l) => members.iter().position(|m| m == l),
+                None => (i == index).then_some(shadow),
+            })
             .collect();
-        let lumps = lump_dancoff(tracking, &totals, &local, members.len(), &options.dancoff)?;
+        let count = shadow + usize::from(local.contains(&Some(shadow)));
+        let lumps = lump_dancoff(tracking, &totals, &local, count, &options.dancoff)?;
         found.extend(members.into_iter().zip(lumps));
     }
     found.sort_by_key(|&(k, _)| k);
