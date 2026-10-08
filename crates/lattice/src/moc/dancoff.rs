@@ -9,7 +9,7 @@
 
 use std::f64::consts::PI;
 
-use super::{POLAR_SIN, Sweeper, sum_tallies};
+use super::{POLAR_SIN, Sweeper, direction_weight, sum_tallies};
 use crate::cmfd::{CmfdError, CoarseMesh};
 use crate::material::Material;
 use crate::tracking::Tracking;
@@ -46,6 +46,12 @@ pub enum DancoffError {
     FuelOnBoundary(usize),
     #[error("cell {cell}: negative Dancoff factor {value} beyond the convergence tolerance")]
     Negative { cell: usize, value: f64 },
+    #[error("region {0} is in a lump but not black")]
+    NotBlack(usize),
+    #[error("lump {lump} is outside the {lumps} lumps")]
+    Lump { lump: usize, lumps: usize },
+    #[error("lump {0} has no face open to non-black regions")]
+    Unexposed(usize),
     #[error("boundary fluxes not converged in {0} iterations")]
     NotConverged(usize),
     #[error(transparent)]
@@ -82,31 +88,10 @@ pub fn dancoff(
     let cells = lattice.cells();
     let cell_of: Vec<usize> = (0..regions).map(|r| lattice.region_cell(r)).collect();
 
-    // 黒体の燃料（減衰 1 − exp(−τ) が 1 になる）と、燃料の外の物質
-    let materials: Vec<Material> = (0..regions)
-        .map(|region| Material {
-            total: if fuel[region] {
-                vec![f64::INFINITY; ng]
-            } else {
-                totals[region].clone()
-            },
-            scatter: vec![vec![0.0; ng]; ng],
-            anisotropic: Vec::new(),
-            fission: vec![0.0; ng],
-            nu_fission: vec![0.0; ng],
-            fission_terms: Vec::new(),
-        })
-        .collect();
-    let references: Vec<&Material> = materials.iter().collect();
-    let mesh = CoarseMesh::new(tracking);
-    let sweeper = Sweeper::new(tracking, &references, ng, &mesh, &[(0, 0)]);
-
     // 孤立したピンでの吸収率 R_iso / ψ0: 燃料に入るたびに方向の重みを足す
     let mut isolated = vec![0.0; cells];
     for track in &tracking.tracks {
-        let weight: f64 = (0..POLAR_SIN.len())
-            .map(|p| sweeper.direction_weight(track.azimuth, p))
-            .sum();
+        let weight = track_weight(tracking, track.azimuth);
         let n = track.segments.len();
         for forward in [true, false] {
             let mut previous: Option<usize> = None;
@@ -129,10 +114,82 @@ pub fn dancoff(
     }
 
     let psi0 = 1.0 / (4.0 * PI);
-    let equilibrium: Vec<Vec<f64>> = (0..regions)
-        .map(|region| vec![if fuel[region] { 0.0 } else { psi0 }; ng])
+    let delta = absorbed_by_black(tracking, totals, fuel, ng, options)?;
+    let mut absorbed = vec![vec![0.0; ng]; cells];
+    for region in (0..regions).filter(|&r| fuel[r]) {
+        for (a, d) in absorbed[cell_of[region]]
+            .iter_mut()
+            .zip(&delta[region * ng..][..ng])
+        {
+            *a += d;
+        }
+    }
+    absorbed
+        .into_iter()
+        .zip(&isolated)
+        .enumerate()
+        .map(|(cell, (rates, &iso))| {
+            (iso > 0.0)
+                .then(|| {
+                    rates
+                        .iter()
+                        .map(|&r| factor(cell, r, psi0 * iso, options.tolerance))
+                        .collect()
+                })
+                .transpose()
+        })
+        .collect()
+}
+
+/// 吸収率 `absorbed` と孤立したときの入射率 `isolated`（ψ0 を掛けたもの）からの Dancoff 係数 C = 1 − R/R_iso。
+/// 孤立した塊では C = 0 が丸めや収束の判定の幅 `tolerance` で負になる。その幅の中なら 0 とする
+fn factor(owner: usize, absorbed: f64, isolated: f64, tolerance: f64) -> Result<f64, DancoffError> {
+    let c = 1.0 - absorbed / isolated;
+    if c >= 0.0 {
+        Ok(c)
+    } else if c >= -tolerance {
+        Ok(0.0)
+    } else {
+        Err(DancoffError::Negative {
+            cell: owner,
+            value: c,
+        })
+    }
+}
+
+/// 黒体（`black` が真の領域。全断面積が無限大）の外の各領域に、その群の全断面積 Σt と、無限に広がれば
+/// スカラー中性子束が 1 になる一様な等方線源 Σt（ψ0 = 1/4π、散乱なし）を置いた固定源の MOC の、
+/// [領域][群] の黒体の吸収率（減衰の重み付き和）。散乱がないので、反復するのは境界の角度中性子束だけ。
+fn absorbed_by_black(
+    tracking: &Tracking,
+    totals: &[Vec<f64>],
+    black: &[bool],
+    ng: usize,
+    options: &DancoffOptions,
+) -> Result<Vec<f64>, DancoffError> {
+    let regions = black.len();
+    let materials: Vec<Material> = (0..regions)
+        .map(|region| Material {
+            total: if black[region] {
+                vec![f64::INFINITY; ng]
+            } else {
+                totals[region].clone()
+            },
+            scatter: vec![vec![0.0; ng]; ng],
+            anisotropic: Vec::new(),
+            fission: vec![0.0; ng],
+            nu_fission: vec![0.0; ng],
+            fission_terms: Vec::new(),
+        })
         .collect();
-    // 最初は境界から ψ0 が入ってくるとする（燃料は境界に接しないので、端の領域はどれも燃料の外）
+    let references: Vec<&Material> = materials.iter().collect();
+    let mesh = CoarseMesh::new(tracking);
+    let sweeper = Sweeper::new(tracking, &references, ng, &mesh, &[(0, 0)]);
+    let psi0 = 1.0 / (4.0 * PI);
+    let equilibrium: Vec<Vec<f64>> = (0..regions)
+        .map(|region| vec![if black[region] { 0.0 } else { psi0 }; ng])
+        .collect();
+    // 最初は境界から ψ0 が入ってくるとする
     let mut outgoing = sweeper.isotropic_outgoing(&vec![vec![1.0; ng]; regions]);
     let mut next = outgoing.clone();
     let mut tallies = sweeper.tallies(regions);
@@ -145,40 +202,111 @@ pub fn dancoff(
             .fold(0.0, f64::max);
         std::mem::swap(&mut outgoing, &mut next);
         if change <= options.tolerance * psi0 {
-            let sums = sum_tallies(&tallies, ng);
-            let mut absorbed = vec![vec![0.0; ng]; cells];
-            for region in (0..regions).filter(|&r| fuel[r]) {
-                for (a, d) in absorbed[cell_of[region]]
-                    .iter_mut()
-                    .zip(&sums.delta[region * ng..][..ng])
-                {
-                    *a += d;
-                }
-            }
-            // 孤立したピンでは C = 0 が丸めや収束の判定の幅で負になる。その幅の中なら 0 とする
-            let factor = |cell: usize, r: f64, iso: f64| {
-                let c = 1.0 - r / (psi0 * iso);
-                if c >= 0.0 {
-                    Ok(c)
-                } else if c >= -options.tolerance {
-                    Ok(0.0)
-                } else {
-                    Err(DancoffError::Negative { cell, value: c })
-                }
-            };
-            return absorbed
-                .into_iter()
-                .zip(&isolated)
-                .enumerate()
-                .map(|(cell, (rates, &iso))| {
-                    (iso > 0.0)
-                        .then(|| rates.iter().map(|&r| factor(cell, r, iso)).collect())
-                        .transpose()
-                })
-                .collect();
+            return Ok(sum_tallies(&tallies, ng).delta);
         }
     }
     Err(DancoffError::NotConverged(options.max_iterations))
+}
+
+/// トラックの1つの向きの、極角についての方向の重みの和 Σ_p 4π (w_a/2) ω_p sinθ_p δ_a
+fn track_weight(tracking: &Tracking, azimuth: usize) -> f64 {
+    (0..POLAR_SIN.len())
+        .map(|p| direction_weight(tracking, azimuth, p))
+        .sum()
+}
+
+/// 黒体にした塊（燃料でない共鳴の吸収体の領域など）の、群ごとの Dancoff 係数と平均弦長。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lump {
+    pub dancoff: Vec<f64>,
+    /// 平均弦長 l̄ = 4V/S (cm)。S は黒体でない領域に接する面（露出した面）
+    pub chord: f64,
+}
+
+/// 塊ごとの Dancoff 係数と平均弦長。`black` は [領域] の黒体にするか、`lump` は [領域] の塊の番号（塊でない
+/// 領域は `None`。塊は黒体の領域だけ）で、塊は 0..`lumps`。塊でない黒体の領域は、影を作るだけで結果を求めない。
+/// 黒体の領域どうしの間を移る中性子は数えず、黒体でない領域から塊に入るたびに、孤立した塊への
+/// 入射として数える（隣のセルとつながる支持格子の枠のように、露出した面が一部だけの塊にも使える）。
+/// 等方な中性子束 1 での入射率 R_iso = S/4 から l̄ = 4V/S = V/R_iso とする。
+pub fn lump_dancoff(
+    tracking: &Tracking,
+    totals: &[Vec<f64>],
+    black: &[bool],
+    lump: &[Option<usize>],
+    lumps: usize,
+    options: &DancoffOptions,
+) -> Result<Vec<Lump>, DancoffError> {
+    let regions = tracking.lattice.regions();
+    for given in [totals.len(), black.len(), lump.len()] {
+        if given != regions {
+            return Err(DancoffError::Regions { given, regions });
+        }
+    }
+    if let Some(&l) = lump.iter().flatten().find(|&&l| l >= lumps) {
+        return Err(DancoffError::Lump { lump: l, lumps });
+    }
+    if let Some(region) = (0..regions).find(|&r| lump[r].is_some() && !black[r]) {
+        return Err(DancoffError::NotBlack(region));
+    }
+    let ng = (0..regions)
+        .find(|&r| !black[r])
+        .map(|r| totals[r].len())
+        .ok_or(DancoffError::NoModerator)?;
+    for (region, t) in totals.iter().enumerate() {
+        let valid = |v: &f64| *v > 0.0 && v.is_finite();
+        let void = t.iter().all(|&v| v == 0.0);
+        if !black[region] && (t.len() != ng || !(void || t.iter().all(valid))) {
+            return Err(DancoffError::Total(region));
+        }
+    }
+    // 孤立した塊への入射率 R_iso / ψ0: 黒体でない領域から塊に入るたびに方向の重みを足す
+    // （外周から直接入るのは、鏡面反射の向こうの続きの塊からなので数えない）
+    let mut isolated = vec![0.0; lumps];
+    for track in &tracking.tracks {
+        let weight = track_weight(tracking, track.azimuth);
+        let n = track.segments.len();
+        for forward in [true, false] {
+            let mut previous: Option<usize> = None;
+            for step in 0..n {
+                let s = if forward { step } else { n - 1 - step };
+                let region = track.segments[s].region;
+                if let (Some(l), Some(p)) = (lump[region], previous)
+                    && !black[p]
+                {
+                    isolated[l] += weight;
+                }
+                previous = Some(region);
+            }
+        }
+    }
+    let psi0 = 1.0 / (4.0 * PI);
+    let delta = absorbed_by_black(tracking, totals, black, ng, options)?;
+    let volumes = tracking.volumes(regions);
+    let mut absorbed = vec![vec![0.0; ng]; lumps];
+    let mut volume = vec![0.0; lumps];
+    for (region, l) in lump.iter().enumerate() {
+        if let Some(l) = *l {
+            volume[l] += volumes[region];
+            for (a, d) in absorbed[l].iter_mut().zip(&delta[region * ng..][..ng]) {
+                *a += d;
+            }
+        }
+    }
+    (0..lumps)
+        .map(|l| {
+            let iso = psi0 * isolated[l];
+            if iso <= 0.0 {
+                return Err(DancoffError::Unexposed(l));
+            }
+            Ok(Lump {
+                dancoff: absorbed[l]
+                    .iter()
+                    .map(|&r| factor(l, r, iso, options.tolerance))
+                    .collect::<Result<_, _>>()?,
+                chord: volume[l] / iso,
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -265,6 +393,113 @@ mod tests {
         let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
         let c = dancoff(&tracking, &[vec![], vec![1.2]], &[true, false], &options()).unwrap();
         assert_eq!(c[0].as_ref().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn isolated_annulus_has_its_own_chord() {
+        // 光学的に厚い水の中の孤立した円環（内径 0.5、外径 0.55）: C ≈ 0、l̄ = 4V/S = 2(r₂ − r₁)。
+        // 水が薄いと、内側の水は中性子が入れず空になり、外側も遠くの円環の影を受ける
+        let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
+        let lattice = Lattice::pin_cell(cell);
+        let tracking = Tracking::new(&lattice, 32, 0.005).unwrap();
+        let totals = vec![vec![5.0]; 3];
+        let lumps = lump_dancoff(
+            &tracking,
+            &totals,
+            &[false, true, false],
+            &[None, Some(0), None],
+            1,
+            &options(),
+        )
+        .unwrap();
+        assert!(lumps[0].dancoff[0] < 0.05, "{lumps:?}");
+        assert!((lumps[0].chord - 0.1).abs() < 1e-3 * 0.1, "{lumps:?}");
+    }
+
+    #[test]
+    fn connected_frames_see_only_their_open_faces() {
+        // 2×2 のセルの外周の枠（厚さ 0.05）は隣の枠とつながる。セルごとの塊の l̄ = 4V/S は、露出した内側の面
+        // S = 4(p − 2t) だけで決まる
+        let (p, t) = (1.26, 0.05);
+        let cell = PinCell::new(p, vec![]).unwrap().with_frame(t).unwrap();
+        let lattice = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 32, 0.005).unwrap();
+        let totals = vec![vec![0.3]; lattice.regions()];
+        // セルごとに（水, 枠）の2領域
+        let lump: Vec<Option<usize>> = (0..8).map(|r| (r % 2 == 1).then_some(r / 2)).collect();
+        let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+        let lumps = lump_dancoff(&tracking, &totals, &black, &lump, 4, &options()).unwrap();
+        let expected = (p * p - (p - 2.0 * t).powi(2)) / (p - 2.0 * t);
+        for l in &lumps {
+            assert!((l.chord - expected).abs() < 1e-3 * expected, "{lumps:?}");
+            assert!((0.0..=1.0).contains(&l.dancoff[0]), "{lumps:?}");
+            assert!(
+                (l.dancoff[0] - lumps[0].dancoff[0]).abs() < 1e-6,
+                "{lumps:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn black_regions_outside_lumps_shadow_them() {
+        // 4つの枠をすべて黒体にし、1つだけを塊として数えると、4つとも塊にしたときと同じ結果
+        let (p, t) = (1.26, 0.05);
+        let cell = PinCell::new(p, vec![]).unwrap().with_frame(t).unwrap();
+        let lattice = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.01).unwrap();
+        let totals = vec![vec![0.3]; lattice.regions()];
+        let black: Vec<bool> = (0..8).map(|r| r % 2 == 1).collect();
+        let all: Vec<Option<usize>> = (0..8).map(|r| (r % 2 == 1).then_some(r / 2)).collect();
+        let one: Vec<Option<usize>> = (0..8).map(|r| (r == 1).then_some(0)).collect();
+        let expected = lump_dancoff(&tracking, &totals, &black, &all, 4, &options()).unwrap();
+        let lumps = lump_dancoff(&tracking, &totals, &black, &one, 1, &options()).unwrap();
+        assert_eq!(lumps.len(), 1);
+        assert!(
+            (lumps[0].chord - expected[0].chord).abs() < 1e-12,
+            "{lumps:?}"
+        );
+        assert!(
+            (lumps[0].dancoff[0] - expected[0].dancoff[0]).abs() < 1e-12,
+            "{lumps:?} vs {expected:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_lumps_that_are_not_black() {
+        let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let totals = vec![vec![5.0]; 3];
+        let result = lump_dancoff(
+            &tracking,
+            &totals,
+            &[false, false, false],
+            &[None, Some(0), None],
+            1,
+            &options(),
+        );
+        assert!(
+            matches!(result, Err(DancoffError::NotBlack(1))),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_lump_numbers_out_of_range() {
+        let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let totals = vec![vec![5.0]; 3];
+        let result = lump_dancoff(
+            &tracking,
+            &totals,
+            &[false, true, false],
+            &[None, Some(1), None],
+            1,
+            &options(),
+        );
+        assert!(
+            matches!(result, Err(DancoffError::Lump { lump: 1, lumps: 1 })),
+            "{result:?}"
+        );
     }
 
     #[test]

@@ -601,12 +601,6 @@ impl<'a> Sweeper<'a> {
             .collect()
     }
 
-    /// 方向ごとの重み 4π (w_a/2) ω_p sinθ_p δ_a
-    fn direction_weight(&self, azimuth: usize, p: usize) -> f64 {
-        let a = &self.tracking.azimuths[azimuth];
-        4.0 * PI * 0.5 * a.weight * POLAR_WEIGHT[p] * POLAR_SIN[p] * a.spacing
-    }
-
     /// 全トラックを両方向に1回ずつスイープする。
     ///
     /// `equilibrium` は [領域][モーメント][群] の角度中性子束の平衡値（線源 / Σt）の展開係数 e_k
@@ -644,7 +638,7 @@ impl<'a> Sweeper<'a> {
                 for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
-                        std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
+                        std::array::from_fn(|p| direction_weight(self.tracking, track.azimuth, p));
                     let side_weights = &self.side_weights[track.azimuth];
                     // 減衰はトラックの両向きで同じなので、トラックごとに一度求める（真空の区間では使わない）
                     for (s, att) in track
@@ -1049,6 +1043,12 @@ fn equilibrium_flux(m: &Material, phi: &[f64], k: f64) -> Vec<f64> {
         .zip(&m.total)
         .map(|(q, t)| if *t == 0.0 { 0.0 } else { q / (4.0 * PI * t) })
         .collect()
+}
+
+/// トラックの1つの向きの、方向ごとの重み 4π (w_a/2) ω_p sinθ_p δ_a
+fn direction_weight(tracking: &Tracking, azimuth: usize, p: usize) -> f64 {
+    let a = &tracking.azimuths[azimuth];
+    4.0 * PI * 0.5 * a.weight * POLAR_WEIGHT[p] * POLAR_SIN[p] * a.spacing
 }
 
 #[cfg(test)]

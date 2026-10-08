@@ -166,6 +166,44 @@ impl PinCell {
         })
     }
 
+    /// 同心円のセルの、面を共有する領域の組（[`Cell::adjacent`]）。同じ扇形の内外のリング、扇形の境界の半直線
+    /// （x 軸から等角度）がリングを通る隣の扇形、枠の内側の正方形の辺に届くリングと枠が接する。
+    fn adjacent(&self) -> Vec<(usize, usize)> {
+        let (rings, sectors) = (self.radii.len() + 1, self.sectors);
+        let a = self.inner_half();
+        let region = |ring: usize, sector: usize| ring * sectors + sector;
+        let inner = |ring: usize| if ring == 0 { 0.0 } else { self.radii[ring - 1] };
+        let mut pairs = Vec::new();
+        for ring in 0..rings {
+            for s in 0..sectors {
+                if ring + 1 < rings {
+                    pairs.push((region(ring, s), region(ring + 1, s)));
+                }
+                // 扇形 s と s + 1 の境界の半直線は角度 2π(s + 1)/sectors で、正方形の辺までの長さは軸の上なら a、
+                // 対角線の上なら a√2
+                if sectors > 1 {
+                    let next = (s + 1) % sectors;
+                    let on_axis = (s + 1) * 4 % sectors == 0;
+                    let reach = if on_axis {
+                        a
+                    } else {
+                        a * std::f64::consts::SQRT_2
+                    };
+                    if inner(ring) < reach {
+                        pairs.push((region(ring, s.min(next)), region(ring, s.max(next))));
+                    }
+                }
+                // どの扇形も軸の向き（辺までの長さ a）を含む（扇形は 1, 4, 8 個だけ）ので、外径が a を超える
+                // リングは辺に届く
+                let reaches_edge = ring + 1 == rings || self.radii[ring] > a;
+                if self.frame.is_some() && reaches_edge {
+                    pairs.push((region(ring, s), rings * sectors));
+                }
+            }
+        }
+        pairs
+    }
+
     /// 枠の内側の正方形の半辺
     fn inner_half(&self) -> f64 {
         0.5 * self.pitch - self.frame.unwrap_or(0.0)
@@ -342,6 +380,15 @@ impl Cell {
         }
     }
 
+    /// セルの中で面を共有する領域の組（セルの中の番号、小さい順）
+    pub fn adjacent(&self) -> Vec<(usize, usize)> {
+        match self {
+            Self::Pin(pin) if pin.is_grid() => squares(pin.grid, pin.grid),
+            Self::Pin(pin) => pin.adjacent(),
+            Self::Block { nx, ny } => squares(*nx, *ny),
+        }
+    }
+
     /// ピンセルなら、そのピンセル
     pub fn pin(&self) -> Option<&PinCell> {
         match self {
@@ -349,6 +396,23 @@ impl Cell {
             Self::Block { .. } => None,
         }
     }
+}
+
+/// 上の行から、各行は左から番号を付けた `nx` × `ny` の長方形のうち、辺を共有する組
+fn squares(nx: usize, ny: usize) -> Vec<(usize, usize)> {
+    let mut pairs = Vec::new();
+    for row in 0..ny {
+        for column in 0..nx {
+            let k = row * nx + column;
+            if column + 1 < nx {
+                pairs.push((k, k + 1));
+            }
+            if row + 1 < ny {
+                pairs.push((k, k + nx));
+            }
+        }
+    }
+    pairs
 }
 
 /// 列ごとの幅と行ごとの高さを持つ長方形の格子にセルを並べた形状（中心が原点）。
@@ -708,6 +772,58 @@ fn block_segments(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn adjacent_regions_of_rings_sectors_and_frames() {
+        // 半ピッチ 0.5（枠の内側 0.45）。リング: r < 0.3、0.3〜0.5、0.5 より外（4 扇形）と枠
+        let pin = PinCell::with_sectors(1.0, vec![0.3, 0.5], 4)
+            .unwrap()
+            .with_frame(0.05)
+            .unwrap();
+        let mut pairs = Cell::Pin(pin).adjacent();
+        pairs.sort_unstable();
+        let mut expected = Vec::new();
+        for s in 0..4 {
+            let next = (s + 1) % 4;
+            // 同じ扇形の内外のリングは接する
+            for ring in 0..2 {
+                expected.push((4 * ring + s, 4 * (ring + 1) + s));
+            }
+            // リング 0 と 1 は軸の上で隣の扇形と接する（内径 0.3 < 0.45）。リング 2（内径 0.5 > 0.45）は
+            // 軸の上になく、扇形どうしは接しない
+            for ring in 0..2 {
+                expected.push((4 * ring + s.min(next), 4 * ring + s.max(next)));
+            }
+            // リング 1（外径 0.5 > 0.45）とリング 2 は枠と接する
+            expected.extend([(4 + s, 12), (8 + s, 12)]);
+        }
+        expected.sort_unstable();
+        assert_eq!(pairs, expected);
+    }
+
+    #[test]
+    fn eight_sectors_meet_across_diagonals_beyond_the_edge() {
+        // 半ピッチ 0.5。リング 1（内径 0.6 > 0.5）は軸の上になく、対角線（0.5√2 ≈ 0.71 まで）の上でだけ
+        // 隣の扇形と接する。扇形 0 と 1 の境界は対角線（45°）、1 と 2 の境界は軸（90°）
+        let pin = PinCell::with_sectors(1.0, vec![0.6], 8).unwrap();
+        let pairs = Cell::Pin(pin).adjacent();
+        assert!(pairs.contains(&(8, 9)), "{pairs:?}");
+        assert!(!pairs.contains(&(9, 10)), "{pairs:?}");
+        assert!(
+            pairs.contains(&(1, 2)) && pairs.contains(&(0, 7)),
+            "{pairs:?}"
+        );
+    }
+
+    #[test]
+    fn adjacent_squares_of_grids_and_blocks() {
+        let mut pairs = Cell::Pin(PinCell::grid(1.0, 2).unwrap()).adjacent();
+        pairs.sort_unstable();
+        assert_eq!(pairs, vec![(0, 1), (0, 2), (1, 3), (2, 3)]);
+        let mut pairs = Cell::Block { nx: 3, ny: 1 }.adjacent();
+        pairs.sort_unstable();
+        assert_eq!(pairs, vec![(0, 1), (1, 2)]);
+    }
 
     #[test]
     fn frames_need_room() {
