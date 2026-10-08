@@ -69,6 +69,10 @@ pub struct Solution {
     /// CMFD のために数える粗メッシュの面の正味の流れを辺にわたって足し、辺の長さで割ったもの。
     /// ADF の1ノードの問題（ADR-0103）に使う
     pub currents: Vec<Vec<f64>>,
+    /// [領域][x, y][群] の領域平均の中性子流（角度中性子束の1次のモーメント。中性子束と同じ規格化）。散乱の次数が
+    /// 1 以上なら1次のモーメントそのもの、0 ならスイープで数えた値。真空の領域は通り抜ける角度中性子束から数える。
+    /// 非反射の格子の拡散係数の重み（ADR-0104）に使う
+    pub region_currents: Vec<[Vec<f64>; 2]>,
     /// 格子の x、y の幅 (cm)
     pub size: [f64; 2],
     pub iterations: usize,
@@ -251,6 +255,8 @@ pub fn solve(
             mut leak,
             mut current,
             sides: side_sums,
+            void_current,
+            region_current,
         } = sum_tallies(&tallies, ng);
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
@@ -288,11 +294,42 @@ pub fn solve(
                 values
             })
             .collect();
+        // 領域の中性子流 [領域][x, y の順に群]: 真空は通り抜ける角度中性子束、散乱の次数が 1 以上なら1次の
+        // モーメント（Y_11 = Ω_x、Y_1,-1 = Ω_y）、0 なら Σ w Ω Δψ / (Σt V)（等方な線源は中性子流を持たない）
+        let moment_of = |pair: (usize, isize)| pairs.iter().position(|&q| q == pair);
+        let (x_moment, y_moment) = (moment_of((1, 1)), moment_of((1, -1)));
+        let mut new_currents: Vec<Vec<f64>> = (0..regions)
+            .map(|i| {
+                if let Some(v) = sweeper.void[i] {
+                    return void_current[v * 2 * ng..][..2 * ng]
+                        .iter()
+                        .map(|j| j / volumes[i])
+                        .collect();
+                }
+                match (x_moment, y_moment) {
+                    (Some(x), Some(y)) => [x, y]
+                        .iter()
+                        .flat_map(|&k| new_higher[i][(k - 1) * ng..][..ng].to_vec())
+                        .collect(),
+                    _ => {
+                        let total = &materials[i].total;
+                        region_current[i * 2 * ng..][..2 * ng]
+                            .iter()
+                            .enumerate()
+                            .map(|(j, c)| c / (total[j % ng] * volumes[i]))
+                            .collect()
+                    }
+                }
+            })
+            .collect();
         // べき乗法: 生成率の比で k を更新し、中性子束と境界の値を生成率 1 に規格化する
         let rate = production(&new_flux);
         let mut new_k = k * rate;
         for f in new_flux.iter_mut().chain(&mut new_higher).flatten() {
             *f /= rate;
+        }
+        for c in new_currents.iter_mut().flatten() {
+            *c /= rate;
         }
         for l in leak.iter_mut().chain(&mut current) {
             *l /= rate;
@@ -308,9 +345,19 @@ pub fn solve(
             let (coarse_k, ratio) = coarse.solve(new_k, cmfd)?;
             new_k = coarse_k;
             // 高次のモーメントも同じ比で（角度分布の形は変えない）
-            for (region, (f, h)) in new_flux.iter_mut().zip(&mut new_higher).enumerate() {
+            for (region, ((f, h), c)) in new_flux
+                .iter_mut()
+                .zip(&mut new_higher)
+                .zip(&mut new_currents)
+                .enumerate()
+            {
                 let cell = mesh.cell(region);
-                for (j, value) in f.iter_mut().chain(h.iter_mut()).enumerate() {
+                for (j, value) in f
+                    .iter_mut()
+                    .chain(h.iter_mut())
+                    .chain(c.iter_mut())
+                    .enumerate()
+                {
                     *value *= ratio[cell * ng + j % ng];
                 }
             }
@@ -381,6 +428,10 @@ pub fn solve(
                 leakage: leak,
                 sides,
                 currents: side_currents(&mesh, &current, ng, lengths),
+                region_currents: new_currents
+                    .iter()
+                    .map(|c| [c[..ng].to_vec(), c[ng..].to_vec()])
+                    .collect(),
                 size: [lattice.width(), lattice.height()],
                 iterations: iteration,
             });
@@ -634,6 +685,7 @@ impl<'a> Sweeper<'a> {
                     self.ng,
                     self.width,
                     segments,
+                    if self.moments == 1 { regions } else { 0 },
                 )
             })
             .collect()
@@ -717,6 +769,9 @@ impl<'a> Sweeper<'a> {
                         } else {
                             (end, start, -1.0)
                         };
+                        // 進む向きの方位角の余弦と正弦（極角の sinθ は掛けていない）
+                        let phi = self.tracking.azimuths[track.azimuth].phi;
+                        let cosines = [direction * phi.cos(), direction * phi.sin()];
                         add_current(
                             &mut tally.current,
                             &[(enter.0, direction * enter.1)],
@@ -740,11 +795,16 @@ impl<'a> Sweeper<'a> {
                             }
                             if let Some(v) = self.void[region] {
                                 // 真空では角度中性子束は変わらない。3次元の経路長 (長さ / sinθ) を掛けて数える
-                                let v = &mut tally.void_flux[v * ng..][..ng];
+                                let flux = &mut tally.void_flux[v * ng..][..ng];
+                                let current = &mut tally.void_current[v * 2 * ng..][..2 * ng];
                                 for (p, weight) in weights.iter().enumerate() {
                                     let w = weight * length / POLAR_SIN[p];
-                                    for (f, value) in v.iter_mut().zip(&psi[p * ng..][..ng]) {
-                                        *f += w * value;
+                                    let cosines =
+                                        [cosines[0] * POLAR_SIN[p], cosines[1] * POLAR_SIN[p]];
+                                    for (g, value) in psi[p * ng..][..ng].iter().enumerate() {
+                                        flux[g] += w * value;
+                                        current[g] += w * cosines[0] * value;
+                                        current[ng + g] += w * cosines[1] * value;
                                     }
                                 }
                                 continue;
@@ -766,13 +826,22 @@ impl<'a> Sweeper<'a> {
                                     )
                                 }
                             };
+                            // 等方散乱では、中性子流も減衰の和から数える（非等方では1次のモーメントを使う）
+                            let mut current = (stride == 0)
+                                .then(|| &mut tally.region_current[region * 2 * ng..][..2 * ng]);
                             for (p, weight) in weights.iter().enumerate() {
                                 let (q, d) = (&q[p * stride..][..ng], &mut d[p * stride..][..ng]);
+                                let cosines =
+                                    [cosines[0] * POLAR_SIN[p], cosines[1] * POLAR_SIN[p]];
                                 for g in 0..ng {
                                     let j = p * ng + g;
                                     let change = (psi[j] - q[g]) * att[j];
                                     psi[j] -= change;
                                     d[g] += weight * change;
+                                    if let Some(c) = current.as_deref_mut() {
+                                        c[g] += weight * cosines[0] * change;
+                                        c[ng + g] += weight * cosines[1] * change;
+                                    }
                                 }
                             }
                         }
@@ -819,6 +888,10 @@ struct Tally {
     current: Vec<f64>,
     /// [外周の辺（左、右、上、下）][群] の、辺を横切る角度中性子束の重み付き和（面の中性子束）
     sides: Vec<f64>,
+    /// [真空の領域][x, y][群] の、真空の領域を通る角度中性子束 × 方向の余弦の経路長の重み付き和
+    void_current: Vec<f64>,
+    /// [領域][x, y][群] の、減衰の重み付き和 × 方向の余弦（等方散乱のときだけ。非等方では1次のモーメントを使う）
+    region_current: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
     /// スイープ中のトラックの [区間][極角][群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分）
@@ -826,6 +899,7 @@ struct Tally {
 }
 
 impl Tally {
+    /// `currents` は中性子流を数える領域の数（等方散乱なら領域の数、非等方なら 0）
     fn new(
         regions: usize,
         voids: usize,
@@ -833,10 +907,13 @@ impl Tally {
         groups: usize,
         width: usize,
         segments: usize,
+        currents: usize,
     ) -> Self {
         Self {
             delta: vec![0.0; regions * groups],
             void_flux: vec![0.0; voids * groups],
+            void_current: vec![0.0; voids * 2 * groups],
+            region_current: vec![0.0; currents * 2 * groups],
             leak: vec![0.0; groups],
             sides: vec![0.0; 4 * groups],
             current: vec![0.0; faces * groups],
@@ -848,6 +925,8 @@ impl Tally {
     fn clear(&mut self) {
         self.delta.fill(0.0);
         self.void_flux.fill(0.0);
+        self.void_current.fill(0.0);
+        self.region_current.fill(0.0);
         self.leak.fill(0.0);
         self.sides.fill(0.0);
         self.current.fill(0.0);
@@ -866,6 +945,10 @@ struct Sums {
     current: Vec<f64>,
     /// [外周の辺][群] の面の中性子束の和
     sides: Vec<f64>,
+    /// [真空の領域][x, y][群] の中性子流の経路長の和
+    void_current: Vec<f64>,
+    /// [領域][x, y][群] の減衰 × 方向の余弦の和（等方散乱のときだけ）
+    region_current: Vec<f64>,
 }
 
 /// 方位角ごとの部分和を方位角の順に足す。
@@ -888,6 +971,8 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
         leak: sum(|t| &t.leak),
         current: sum(|t| &t.current),
         sides: sum(|t| &t.sides),
+        void_current: sum(|t| &t.void_current),
+        region_current: sum(|t| &t.region_current),
     }
 }
 
@@ -1878,18 +1963,19 @@ mod tests {
     }
 
     /// 燃料の均質なブロック（1 cm 角、4 × 4 の領域）を x に `columns` 個並べた帯の、[領域] の x 座標（中心が原点）
-    fn strip(columns: usize) -> (Lattice, Vec<f64>) {
+    fn strip(columns: usize, n: usize) -> (Lattice, Vec<f64>) {
         let lattice = Lattice::rectilinear(
             vec![1.0; columns],
             vec![1.0],
-            vec![Cell::Block { nx: 4, ny: 4 }],
+            vec![Cell::Block { nx: n, ny: n }],
             vec![vec![0; columns]],
         )
         .unwrap();
         let x = (0..columns)
             .flat_map(|c| {
-                (0..16)
-                    .map(move |r| -0.5 * columns as f64 + c as f64 + (r % 4) as f64 * 0.25 + 0.125)
+                (0..n * n).map(move |r| {
+                    -0.5 * columns as f64 + c as f64 + ((r % n) as f64 + 0.5) / n as f64
+                })
             })
             .collect();
         (lattice, x)
@@ -1908,7 +1994,7 @@ mod tests {
 
     #[test]
     fn region_currents_vanish_in_an_infinite_medium() {
-        let (lattice, _) = strip(2);
+        let (lattice, _) = strip(2, 4);
         let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
         let m = fuel();
         let s = solve(&tracking, &[&m; 32], &Options::default()).unwrap();
@@ -1925,60 +2011,74 @@ mod tests {
         }
     }
 
-    #[test]
-    fn region_currents_satisfy_the_first_moment_balance() {
-        // 帯（x ∈ [−2, 2]、右が真空、ほかは鏡面反射）の x の1次のモーメントの式
-        //   Σ_r V_r J_x,r = 2 × 1 × J_右 − Σ_r x_r V_r (q_r − Σt,r φ_r)
-        // （部分積分と領域ごとのバランス ∫∇·J = V (q − Σt φ)。x_r は領域の中心で、領域の中での変化による誤差が残る）。
-        // 等方散乱（電流の集計）と P1 の散乱（中性子束のモーメント）の両方。真空の領域を1つ含む
-        let (lattice, x) = strip(4);
+    /// 燃料の帯（x ∈ [−2, 2]、右が真空、ほかは鏡面反射。1 cm のブロックを n × n の領域に分け、1つを真空にする）の、
+    /// x の1次のモーメントの式
+    ///   Σ_r V_r J_x,r = 2 × 1 × J_右 − Σ_r x_r V_r (q_r − Σt,r φ_r)
+    /// （部分積分と領域ごとのバランス ∫∇·J = V (q − Σt φ)）の [群] の相対差。x_r は領域の中心なので、領域の中での
+    /// 変化による誤差（領域の幅の2乗に比例）が残る
+    fn first_moment_mismatch(n: usize, order: usize) -> Vec<f64> {
+        let (lattice, x) = strip(4, n);
         let boundaries = Boundaries {
             right: Boundary::Vacuum,
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
-        for order in [0, 1] {
-            let (f, void) = (with_p1(fuel()), Material::void(2));
-            let materials: Vec<&Material> =
-                (0..64).map(|r| if r == 37 { &void } else { &f }).collect();
-            let options = Options {
-                scattering_order: order,
-                ..Options::default()
-            };
-            let s = solve(&tracking, &materials, &options).unwrap();
-            for g in 0..2 {
+        let (f, void) = (with_p1(fuel()), Material::void(2));
+        let materials: Vec<&Material> = (0..4 * n * n)
+            .map(|r| if r == n + 1 { &void } else { &f })
+            .collect();
+        let options = Options {
+            scattering_order: order,
+            ..Options::default()
+        };
+        let s = solve(&tracking, &materials, &options).unwrap();
+        (0..2)
+            .map(|g| {
                 let mut moment = 0.0;
                 let mut divergence = 0.0;
                 for (r, m) in materials.iter().enumerate() {
                     let v = s.volumes[r];
                     moment += v * s.region_currents[r][0][g];
-                    let q: f64 = (0..2)
+                    let scattered: f64 = (0..2)
                         .map(|from| m.scatter[from][g] * s.flux[r][from])
-                        .sum::<f64>()
-                        + m.fission_terms
-                            .iter()
-                            .map(|t| {
-                                t.chi[g]
-                                    * t.nu_fission
-                                        .iter()
-                                        .zip(&s.flux[r])
-                                        .map(|(n, phi)| n * phi)
-                                        .sum::<f64>()
-                            })
-                            .sum::<f64>()
-                            / s.k;
+                        .sum();
+                    let fission: f64 = m
+                        .fission_terms
+                        .iter()
+                        .map(|t| {
+                            t.chi[g]
+                                * t.nu_fission
+                                    .iter()
+                                    .zip(&s.flux[r])
+                                    .map(|(n, phi)| n * phi)
+                                    .sum::<f64>()
+                        })
+                        .sum();
+                    let q = scattered + fission / s.k;
                     divergence += x[r] * v * (q - m.total[g] * s.flux[r][g]);
                 }
-                let expected = 2.0 * s.currents[1][g] - divergence;
-                assert!(
-                    (moment - expected).abs() < 2e-3 * expected.abs(),
-                    "order {order} group {g}: {moment} vs {expected}"
-                );
                 // 真空の領域の中性子流も右向き
+                assert!(s.region_currents[n + 1][0][g] > 0.0);
+                let expected = 2.0 * s.currents[1][g] - divergence;
+                (moment - expected).abs() / expected.abs()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn region_currents_satisfy_the_first_moment_balance() {
+        // 等方散乱（スイープで数えた中性子流）と P1 の散乱（1次のモーメント）の両方で、領域を細かくすると差は
+        // 幅の2乗で減る（0.25 cm で熱群 2%、0.125 cm で 0.6% 程度）
+        for order in [0, 1] {
+            let (coarse, fine) = (
+                first_moment_mismatch(4, order),
+                first_moment_mismatch(8, order),
+            );
+            for g in 0..2 {
+                assert!(fine[g] < 1e-2, "order {order} group {g}: {fine:?}");
                 assert!(
-                    s.region_currents[37][0][g] > 0.0,
-                    "{:?}",
-                    s.region_currents[37]
+                    coarse[g] > 3.0 * fine[g],
+                    "order {order} group {g}: {coarse:?} {fine:?}"
                 );
             }
         }
@@ -1986,8 +2086,8 @@ mod tests {
 
     #[test]
     fn region_currents_are_antisymmetric_in_a_mirror_lattice() {
-        // 両側が真空の対称な帯では、x の中性子流は左右で符号が逆、y の中性子流は 0
-        let (lattice, _) = strip(4);
+        // 両側が真空の対称な帯では、x の中性子流は左右で符号が逆、y の中性子流は 0（領域ごとには推定の誤差がある）
+        let (lattice, _) = strip(4, 4);
         let boundaries = Boundaries {
             left: Boundary::Vacuum,
             right: Boundary::Vacuum,
@@ -2015,7 +2115,16 @@ mod tests {
                     (a + b).abs() < 1e-6 * scale,
                     "region {r} group {g}: {a} vs {b}"
                 );
-                assert!(s.region_currents[r][1][g].abs() < 1e-6 * scale);
+                assert!(s.region_currents[r][1][g].abs() < 1e-2 * scale);
+            }
+        }
+        // 1D の問題なので、セルの中の y の中性子流は（領域の推定の誤差で ±0.2% 程度あるが）セルで足すと打ち消す
+        for cell in 0..4 {
+            for g in 0..2 {
+                let sum: f64 = (cell * 16..(cell + 1) * 16)
+                    .map(|r| s.volumes[r] * s.region_currents[r][1][g])
+                    .sum();
+                assert!(sum.abs() < 1e-8 * scale, "cell {cell} group {g}: {sum}");
             }
         }
     }
