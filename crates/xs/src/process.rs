@@ -28,7 +28,8 @@ pub struct Settings {
     /// ポイントワイズの断面積の許容誤差
     pub tolerance: f64,
     /// ライブラリに持たせるポイントワイズの断面積の範囲 (eV)
-    pub pointwise_range: (f64, f64),
+    /// ポイントワイズの断面積を持たせる範囲 (eV)。`None` なら持たせない
+    pub pointwise_range: Option<(f64, f64)>,
     /// 散乱行列のルジャンドルのモーメントの次数
     pub scattering_order: usize,
 }
@@ -532,7 +533,10 @@ impl Common<'_> {
                 nu_fission: avg.nu_fission.clone().unwrap_or(zeros.clone()),
             })
             .collect();
-        let pointwise = pointwise_within(&tables, self.nubar, settings.pointwise_range)?;
+        let pointwise = match settings.pointwise_range {
+            Some(range) => pointwise_within(&tables, self.nubar, range)?,
+            None => Pointwise::default(),
+        };
         Ok(TemperatureData {
             temperature,
             chi,
@@ -864,7 +868,7 @@ mod tests {
             sigma0: vec![1.0e10, 1.0],
             thermal_cutoff: 4.0,
             tolerance: 1.0e-3,
-            pointwise_range: (4.0, 1.0e4),
+            pointwise_range: Some((4.0, 1.0e4)),
             scattering_order: 0,
         };
         let data = process_nuclide(&tape, "X", &[293.6, 600.0], None, &settings).unwrap();

@@ -449,11 +449,12 @@ fn shield_cell(
         return Ok(None);
     };
     let bounds = library.groups.bounds();
+    let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
     let position = |e: f64| {
-        bounds.iter().position(|&b| b == e).ok_or(UfgError::Range {
-            range,
-            pointwise: library.pointwise_range,
-        })
+        bounds
+            .iter()
+            .position(|&b| b == e)
+            .ok_or(UfgError::Range { range, pointwise })
     };
     let (top, bottom) = (position(range[1])?, position(range[0])?);
 
@@ -797,7 +798,7 @@ mod tests {
             nu_fission: vec![0.0, 0.0],
         };
         Library {
-            pointwise_range: [4.0, 1.0e4],
+            pointwise_range: Some([4.0, 1.0e4]),
             groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
             sigma0: vec![1.0e10, 100.0, 1.0],
             nuclides: vec![NuclideData {
@@ -961,7 +962,7 @@ mod tests {
             let u238 = |t: f64, e: f64| table([t, 10.0], [e, 4.0], [0.0, 0.0]);
             let constant = |total, fission| vec![table(total, [6.0, 4.0], fission); 3];
             Library {
-                pointwise_range: [4.0, 1.0e4],
+                pointwise_range: Some([4.0, 1.0e4]),
                 groups: GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap(),
                 sigma0: vec![1.0e10, 100.0, 1.0],
                 nuclides: vec![
@@ -1229,7 +1230,7 @@ mod tests {
                 .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.0])
                 .collect();
             Library {
-                pointwise_range: [4.0, 1.0e4],
+                pointwise_range: Some([4.0, 1.0e4]),
                 groups: GroupStructure::new(bounds).unwrap(),
                 sigma0: vec![1.0e10, 100.0, 1.0],
                 nuclides: vec![
