@@ -8,7 +8,7 @@ ENDF/B-VIII.0 から、M1 の対象核種（U-234, U-235, U-236, U-238, O-16, O-
 - 共鳴の形式（MLBW の追加）: [ADR-0021](../../docs/adr/0021-follow-njoy-processing-flow.md)
 - ドップラー拡がりと温度: [ADR-0046](../../docs/adr/0046-broaden-with-sigma1.md)、[ADR-0047](../../docs/adr/0047-choose-temperatures-per-nuclide.md)
 - 非分離共鳴: [ADR-0048](../../docs/adr/0048-shield-unresolved-like-unresr.md)、[ADR-0049](../../docs/adr/0049-integrate-width-fluctuations-adaptively.md)
-- σ0 ごとの群定数と重み: [ADR-0050](../../docs/adr/0050-tabulate-sigma0-per-nuclide-and-temperature.md)、[ADR-0051](../../docs/adr/0051-weight-shielded-data-by-nr.md)
+- σ0 ごとの群定数と重み: [ADR-0050](../../docs/adr/0050-tabulate-sigma0-per-nuclide-and-temperature.md)、[ADR-0051](../../docs/adr/0051-weight-shielded-data-by-nr.md)、[ADR-0092](../../docs/adr/0092-match-scattering-rows-to-shielded-elastic.md)
 - 熱中性子散乱: [ADR-0052](../../docs/adr/0052-scatter-h-in-h2o-by-sab.md)
 - `xs` の入力: [ADR-0053](../../docs/adr/0053-read-xs-input-from-file.md)
 

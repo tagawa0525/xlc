@@ -19,13 +19,13 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 
 ### 核データ
 
-- 565 K の熱中性子散乱: [ADR-0080](../adr/0080-interpolate-sab-in-temperature.md)
+- 565 K の熱中性子散乱と核種ごとの温度: [ADR-0080](../adr/0080-interpolate-sab-in-temperature.md)（[ADR-0047](../adr/0047-choose-temperatures-per-nuclide.md) を置き換え）
 - 群の間の移行と MF4 の角度分布: [ADR-0081](../adr/0081-use-mf4-angular-distributions.md)（[ADR-0041](../adr/0041-transfer-by-two-body-kinematics.md) を置き換え）
-- MF6 の角度のデータ: [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)
+- MF6 の角度のデータ: [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)（[ADR-0091](../adr/0091-use-mf6-angular-data.md) を置き換え）
 
 ### 格子計算
 
-- セルの形と長方形の格子: [ADR-0083](../adr/0083-generalize-to-rectilinear-lattice.md)
+- セルの形と長方形の格子、CMFD の粗メッシュ: [ADR-0083](../adr/0083-generalize-to-rectilinear-lattice.md)（[ADR-0059](../adr/0059-use-square-lattice-geometry.md)、[ADR-0061](../adr/0061-accelerate-moc-with-cmfd.md) を置き換え）
 - 出力に、集合体の面ごとの不連続因子（ADF）、ピン出力の再構成用の形状関数、反射体の少数群定数を加える。
   反射体の定数の作り方: [ADR-0084](../adr/0084-make-reflector-constants-with-fuel.md)
 - 状態の分岐とテーブル: [ADR-0085](../adr/0085-branch-on-core-states.md)
