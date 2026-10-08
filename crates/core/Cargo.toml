@@ -8,6 +8,7 @@ workspace = true
 
 [dependencies]
 xlc-format = { path = "../format" }
+xlc-numeric = { path = "../numeric" }
 anyhow.workspace = true
 serde.workspace = true
 thiserror.workspace = true

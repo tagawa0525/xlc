@@ -9,7 +9,7 @@ pub mod dancoff;
 pub mod fixed_source;
 mod harmonics;
 
-use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
+use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
 use crate::tracking::{Boundary, Side, Tracking};
 use harmonics::{planar_moments, real_harmonic};
@@ -65,6 +65,12 @@ pub struct Solution {
     /// [外周の辺（左、右、上、下）][群] の辺の上の平均スカラー中性子束（中性子束と同じ規格化）。
     /// 集合体の不連続因子（ADF）に使う
     pub sides: Vec<Vec<f64>>,
+    /// [外周の辺（左、右、上、下）][群] の辺の上で平均した、外向きの正味の中性子流（中性子束と同じ規格化）。
+    /// CMFD のために数える粗メッシュの面の正味の流れを辺にわたって足し、辺の長さで割ったもの。
+    /// ADF の1ノードの問題（ADR-0094）に使う
+    pub currents: Vec<Vec<f64>>,
+    /// 格子の x、y の幅 (cm)
+    pub size: [f64; 2],
     pub iterations: usize,
 }
 
@@ -374,6 +380,8 @@ pub fn solve(
                 volumes,
                 leakage: leak,
                 sides,
+                currents: side_currents(&mesh, &current, ng, lengths),
+                size: [lattice.width(), lattice.height()],
                 iterations: iteration,
             });
         }
@@ -382,6 +390,36 @@ pub fn solve(
         iterations: options.max_iterations,
         k,
     })
+}
+
+/// [外周の辺（左、右、上、下）][群] の外向きの正味の中性子流の、辺の上の平均。`current` は粗メッシュの
+/// [面][群] の正味の流れ（面の正の向き、面の長さで積分した値）、`lengths` は辺の長さ。
+fn side_currents(
+    mesh: &CoarseMesh,
+    current: &[f64],
+    ng: usize,
+    lengths: [f64; 4],
+) -> Vec<Vec<f64>> {
+    let mut sums = vec![vec![0.0; ng]; 4];
+    for face in 0..mesh.faces() {
+        let FaceCells::Outer { cell, outward } = mesh.face_cells(face) else {
+            continue;
+        };
+        // 外周の面は、その外向きの向きの辺の上にある
+        let side = mesh
+            .cell_faces(cell)
+            .iter()
+            .position(|&(f, sign)| f == face && sign == outward);
+        if let Some(side) = side {
+            for (sum, net) in sums[side].iter_mut().zip(&current[face * ng..][..ng]) {
+                *sum += outward * net;
+            }
+        }
+    }
+    sums.iter()
+        .zip(lengths)
+        .map(|(values, length)| values.iter().map(|v| v / length).collect())
+        .collect()
 }
 
 /// トラックのスイープ。方向や領域ごとに決まる量（球面調和関数、全断面積）を、反復の前に一度だけ求めて持つ。
@@ -1111,6 +1149,41 @@ mod tests {
                     solution.flux[0]
                 );
             }
+        }
+    }
+
+    #[test]
+    fn side_currents_add_up_to_the_leakage() {
+        // 真空の辺（右、下）の外向きの正味の流れ × 辺の長さの和は漏れに等しく、鏡面反射の辺（左、上）
+        // では 0
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let s = solve(&tracking, &[&f, &m, &m, &m, &f, &m], &Options::default()).unwrap();
+        assert_eq!(s.size, [2.52, 2.52]);
+        assert_eq!(s.currents.len(), 4);
+        for g in 0..2 {
+            let leakage = s.leakage[g];
+            assert!(leakage > 0.0);
+            for side in [0, 2] {
+                assert!(
+                    s.currents[side][g].abs() * 2.52 < 1e-6 * leakage,
+                    "{:?}",
+                    s.currents
+                );
+            }
+            for side in [1, 3] {
+                assert!(s.currents[side][g] > 0.0, "{:?}", s.currents);
+            }
+            let out = 2.52 * (s.currents[1][g] + s.currents[3][g]);
+            assert!((out - leakage).abs() < 1e-6 * leakage, "{out} vs {leakage}");
         }
     }
 
