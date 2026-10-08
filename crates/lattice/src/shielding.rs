@@ -5,6 +5,9 @@
 //! それぞれのリングの中性子束で縮約して求める。その範囲の外の群は、燃料を等価原理（Dancoff 係数を入れた
 //! Carlvik の2項有理近似）で遮蔽し、被覆管と減速材は無限希釈とする。
 //!
+//! 燃料のピンの等価なセルに入らない構造材（支持格子の枠、案内管など）のうち分離共鳴を持つ核種を含むものは、
+//! 塊ごとに Dancoff 係数と平均弦長を求め、燃料と同じ等価原理で遮蔽する（[`shield_lumps`]）。
+//!
 //! 等価原理では、燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
 //! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
 //! NR 近似の群平均の中性子束 φ_i = σ0,i / (σt(σ0,i) + σ0,i) と β_i で重みづけして合わせる
@@ -17,7 +20,7 @@ use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
 use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
-use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff};
+use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff, lump_dancoff};
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{SymmetryError, cell_orbits};
 use crate::tracking::Tracking;
@@ -85,7 +88,7 @@ impl From<LookupError> for SelfShieldingError {
     }
 }
 
-/// 自己遮蔽した物質。燃料はセルごとに、それ以外は物質ごとに1つずつ持つ。
+/// 自己遮蔽した物質。燃料はセルごとに、構造材の塊は対称なセルの組と物質ごとに、それ以外は物質ごとに1つずつ持つ。
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuelShielding {
     pub materials: Vec<Material>,
@@ -325,7 +328,115 @@ pub fn shield_fuel(
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
     }
+    shield_lumps(
+        library,
+        tracking,
+        materials,
+        &region_index,
+        &orbits,
+        options,
+        &mut shielded,
+    )?;
     Ok(shielded)
+}
+
+/// 燃料でなく、燃料のピンの等価なセルでも置き換えていない領域のうち、分離共鳴を持つ核種を含む物質の領域
+/// （支持格子の枠、案内管など）を、対称に移り合うセルの組と物質ごとの塊にまとめ、等価原理で遮蔽する。
+/// 塊をすべて同時に黒体にして、塊ごとの Dancoff 係数と平均弦長を求める（[`lump_dancoff`]）。
+fn shield_lumps(
+    library: &Library,
+    tracking: &Tracking,
+    materials: &[MaterialInput],
+    region_index: &[usize],
+    orbits: &[usize],
+    options: &ShieldingOptions,
+    shielded: &mut FuelShielding,
+) -> Result<(), SelfShieldingError> {
+    let lattice = &tracking.lattice;
+    // 物質ごとに、分離共鳴を持つ核種を含むか（燃料は除く。真空は一覧の外）
+    let resonant = materials
+        .iter()
+        .zip(&shielded.materials)
+        .map(|(m, dilute)| {
+            if dilute.nu_fission.iter().any(|&v| v > 0.0) {
+                return Ok(false);
+            }
+            for (name, density) in &m.composition {
+                if *density > 0.0 && library.lookup(name, m.temperature)?.0.resolved.is_some() {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        })
+        .collect::<Result<Vec<bool>, LookupError>>()?;
+    // 塊は (セルの組の代表, 物質の番号) ごと
+    let mut keys: Vec<(usize, usize)> = Vec::new();
+    let mut lump = vec![None; region_index.len()];
+    for (cell, &orbit) in orbits.iter().enumerate() {
+        for region in lattice.cell_regions(cell) {
+            let index = region_index[region];
+            let kept = shielded.region_material[region] == index;
+            if !kept || !resonant.get(index).copied().unwrap_or(false) {
+                continue;
+            }
+            let key = (orbit, index);
+            let k = match keys.iter().position(|&k| k == key) {
+                Some(k) => k,
+                None => {
+                    keys.push(key);
+                    keys.len() - 1
+                }
+            };
+            lump[region] = Some(k);
+        }
+    }
+    if keys.is_empty() {
+        return Ok(());
+    }
+    let totals: Vec<Vec<f64>> = shielded
+        .region_material
+        .iter()
+        .map(|&m| shielded.materials[m].total.clone())
+        .collect();
+    let lumps = lump_dancoff(tracking, &totals, &lump, keys.len(), &options.dancoff)?;
+    let mut lump_material = Vec::with_capacity(keys.len());
+    for (&(cell, index), found) in keys.iter().zip(&lumps) {
+        let equivalence = Equivalence {
+            chord: found.chord,
+            terms: found
+                .dancoff
+                .iter()
+                .map(|&c| carlvik(c))
+                .collect::<Result<_, _>>()?,
+        };
+        let material = &materials[index];
+        let tables = shield_material(library, material, &equivalence, options, cell)?;
+        let nuclides = material
+            .composition
+            .iter()
+            .zip(&tables)
+            .map(|((name, density), s)| {
+                Ok((
+                    shielded_nuclide(library, name, material.temperature, s)?,
+                    *density,
+                ))
+            })
+            .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+        let mixed = Material::from_nuclides(&nuclides, library.groups.len()).map_err(|source| {
+            SelfShieldingError::Material {
+                name: material.name.clone(),
+                source,
+            }
+        })?;
+        shielded.materials.push(mixed);
+        lump_material.push(shielded.materials.len() - 1);
+    }
+    for (region, l) in lump.iter().enumerate() {
+        if let Some(l) = l {
+            shielded.region_material[region] = lump_material[*l];
+        }
+    }
+    Ok(())
 }
 
 /// 組の代表のピンの結果
