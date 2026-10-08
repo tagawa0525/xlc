@@ -650,7 +650,8 @@ fn assign(
 }
 
 /// 等価なセルのリングごとの、格子の領域（ピンセル `geometry` の最初の領域が `first`）。リング `start` は減速材で、
-/// セルのそれより外のリングをすべて含む（外周の枠は含めない。枠は塊として [`shield_lumps`] で遮蔽する）。
+/// セルのそれより外のリングをすべて含む（外周の枠は含めない。分離共鳴を持つ核種を含む枠は、塊として
+/// [`shield_lumps`] で遮蔽する）。
 fn ring_targets(geometry: &PinCell, first: usize, start: usize) -> Vec<Vec<usize>> {
     let (rings, sectors) = (geometry.radii().len(), geometry.sectors());
     let regions = |ring: usize| first + ring * sectors..first + (ring + 1) * sectors;
