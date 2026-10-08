@@ -11,7 +11,7 @@ mod harmonics;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
-use crate::tracking::Tracking;
+use crate::tracking::{Side, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
@@ -246,13 +246,6 @@ pub fn solve(
             mut current,
             sides: side_sums,
         } = sum_tallies(&tallies, ng);
-        // 辺の上の平均: 辺の長さで割る
-        let lengths = [
-            tracking.lattice.height(),
-            tracking.lattice.height(),
-            tracking.lattice.width(),
-            tracking.lattice.width(),
-        ];
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
             .map(|i| {
@@ -298,11 +291,7 @@ pub fn solve(
         for l in leak.iter_mut().chain(&mut current) {
             *l /= rate;
         }
-        let sides: Vec<Vec<f64>> = side_sums
-            .chunks(ng)
-            .zip(lengths)
-            .map(|(values, length)| values.iter().map(|v| v / (rate * length)).collect())
-            .collect();
+
         for b in &mut outgoing {
             *b /= rate;
         }
@@ -365,6 +354,20 @@ pub fn solve(
         higher = new_higher;
         k = new_k;
         if converged {
+            // 辺の上の平均: 辺の長さで割る。入ってくる側は前の反復のスイープの値で、CMFD の比もかけていないが、
+            // 収束した解ではどちらも反復の許容誤差の程度しか違わない
+            let lattice = &tracking.lattice;
+            let lengths = [
+                lattice.height(),
+                lattice.height(),
+                lattice.width(),
+                lattice.width(),
+            ];
+            let sides = side_sums
+                .chunks(ng)
+                .zip(lengths)
+                .map(|(values, length)| values.iter().map(|v| v / (rate * length)).collect())
+                .collect();
             return Ok(Solution {
                 k,
                 flux,
@@ -396,8 +399,8 @@ struct Sweeper<'a> {
     azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
     void: Vec<Option<usize>>,
-    /// [トラック] の始点と終点のある外周の辺（0 左、1 右、2 上、3 下）
-    ends: Vec<[usize; 2]>,
+    /// [方位角][縦の辺, 横の辺][極角] の、外周の辺の上の中性子束の重み
+    side_weights: Vec<[[f64; POLAR_SIN.len()]; 2]>,
     /// 角度中性子束のモーメントの数（1 なら等方散乱）
     moments: usize,
     /// [方位角][向き][極角][モーメント] の方向ごとの実球面調和関数の値
@@ -456,10 +459,18 @@ impl<'a> Sweeper<'a> {
                     }))
                 })
                 .collect(),
-            ends: tracking
-                .tracks
+            side_weights: tracking
+                .azimuths
                 .iter()
-                .map(|t| [side_of(tracking, t.start), side_of(tracking, t.end)])
+                .map(|azimuth| {
+                    // 辺の上の中性子束の重み: 流れの重み 4π (w_a/2) ω_p sinθ_p δ_a を sinθ_p と、方向が辺の法線と
+                    // なす方位角の余弦（縦の辺（左右）では |cos φ|、横の辺（上下）では |sin φ|）で割る
+                    [azimuth.phi.cos().abs(), azimuth.phi.sin().abs()].map(|c| {
+                        std::array::from_fn(|p| {
+                            4.0 * PI * 0.5 * azimuth.weight * POLAR_WEIGHT[p] * azimuth.spacing / c
+                        })
+                    })
+                })
                 .collect(),
             moments: pairs.len(),
             harmonics,
@@ -634,12 +645,7 @@ impl<'a> Sweeper<'a> {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
                         std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
-                    // 辺の上の中性子束の重み: 流れの重みを sinθ |Ω の辺の法線成分の方位角の余弦| で割る
-                    // （縦の辺（左右）では |cos φ|、横の辺（上下）では |sin φ|）
-                    let phi = self.tracking.azimuths[track.azimuth].phi;
-                    let side_weights: [[f64; POLAR_SIN.len()]; 2] =
-                        [phi.cos().abs(), phi.sin().abs()]
-                            .map(|c| std::array::from_fn(|p| weights[p] / (POLAR_SIN[p] * c)));
+                    let side_weights = &self.side_weights[track.azimuth];
                     // 減衰はトラックの両向きで同じなので、トラックごとに一度求める（真空の区間では使わない）
                     for (s, att) in track
                         .segments
@@ -679,18 +685,12 @@ impl<'a> Sweeper<'a> {
                             psi,
                             &weights,
                         );
-                        let ends = self.ends[index];
                         let (entry_side, exit_side) = if forward {
-                            (ends[0], ends[1])
+                            (track.start_side, track.end_side)
                         } else {
-                            (ends[1], ends[0])
+                            (track.end_side, track.start_side)
                         };
-                        add_side(
-                            &mut tally.sides,
-                            entry_side,
-                            psi,
-                            &side_weights[entry_side / 2],
-                        );
+                        add_side(&mut tally.sides, entry_side, psi, side_weights);
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
                         let mut cell = self.mesh.cell(track.segments[first].region);
@@ -749,12 +749,7 @@ impl<'a> Sweeper<'a> {
                             psi,
                             &weights,
                         );
-                        add_side(
-                            &mut tally.sides,
-                            exit_side,
-                            psi,
-                            &side_weights[exit_side / 2],
-                        );
+                        add_side(&mut tally.sides, exit_side, psi, side_weights);
                         let link = if forward {
                             track.forward_link
                         } else {
@@ -863,27 +858,12 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
     }
 }
 
-/// 外周の上の点 `point` のある辺（0 左、1 右、2 上、3 下）。トラックは外周の角を通らないので、最も近い辺
-fn side_of(tracking: &Tracking, point: (f64, f64)) -> usize {
-    let (hx, hy) = (
-        0.5 * tracking.lattice.width(),
-        0.5 * tracking.lattice.height(),
-    );
-    let distances = [
-        (point.0 + hx).abs(),
-        (point.0 - hx).abs(),
-        (point.1 - hy).abs(),
-        (point.1 + hy).abs(),
-    ];
-    (0..4)
-        .min_by(|&a, &b| distances[a].total_cmp(&distances[b]))
-        .unwrap_or(0)
-}
-
-/// 外周の辺 `side` を横切る角度中性子束 `psi` [極角][群] を、重み `weights` [極角] で `sides` [辺][群] に足す。
-fn add_side(sides: &mut [f64], side: usize, psi: &[f64], weights: &[f64; POLAR_SIN.len()]) {
+/// 外周の辺 `side` を横切る角度中性子束 `psi` [極角][群] を、方位角の重み `weights` [縦の辺, 横の辺][極角] で
+/// `sides` [辺][群] に足す。
+fn add_side(sides: &mut [f64], side: Side, psi: &[f64], weights: &[[f64; POLAR_SIN.len()]; 2]) {
+    let weights = &weights[usize::from(!side.is_vertical())];
     let ng = psi.len() / weights.len();
-    let s = &mut sides[side * ng..][..ng];
+    let s = &mut sides[side as usize * ng..][..ng];
     for (p, weight) in weights.iter().enumerate() {
         for (v, value) in s.iter_mut().zip(&psi[p * ng..][..ng]) {
             *v += weight * value;
