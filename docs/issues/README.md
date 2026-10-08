@@ -16,7 +16,7 @@ opened: 2026-10-08
 closed:
 milestone:            # 任意。M3、M4 など
 blocked-by: []        # 先に閉じる必要のある issue（例: ["#0001"]）
-resolution:           # 閉じるとき: ADR-NNNN | マージのコミット | wontfix: 理由
+resolution:           # 閉じるとき: ADR-NNNN | コミット <hash> | wontfix: 理由
 ---
 
 # 題名
@@ -37,6 +37,8 @@ resolution:           # 閉じるとき: ADR-NNNN | マージのコミット | w
 
 - 閉じるときは `status: closed` と `closed` の日付と `resolution` を書き、ファイルは消さずに残す。閉じる変更は、対応したブランチの
   中でコミットする
+- `resolution` は、`ADR-NNNN`（決めた ADR）、`コミット <hash>`（解決したコミット。7〜40 桁の16進。ブランチの上のものでよい。
+  マージのコミットは、閉じる変更をコミットする時点では分からない）、`wontfix: 理由` のどれかにする
 - ブランチ名とコミットの本文で番号を示す（例: ブランチ `fix/0004-frame-gap`、本文に `Refs: #0004`。決定に結びつくなら `Refs: ADR-0002` も）
 - 番号は、ブランチの上で既存の最大の番号 + 1 を振る。マージの前に main に rebase し、番号がぶつかっていたら
   振り直す（重複は、`cargo test` で走る crates/docs の検査が見つける。#0013）
