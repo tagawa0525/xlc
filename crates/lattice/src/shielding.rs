@@ -1300,6 +1300,112 @@ mod tests {
             );
         }
 
+        /// `library_with_zirconium()` に、Zr-90 と同じ群定数で分離共鳴を持つ核種 `resonant` と持たない核種
+        /// `plain` を加えたもの
+        fn library_with_copies(resonant: &str, plain: &str) -> Library {
+            let mut library = library_with_zirconium();
+            let zr = library.nuclides[3].clone();
+            let mut copy = |name: &str, resolved: bool| {
+                let mut n = zr.clone();
+                n.name = name.into();
+                if !resolved {
+                    n.resolved = None;
+                }
+                library.nuclides.push(n);
+            };
+            copy(resonant, true);
+            copy(plain, false);
+            library
+        }
+
+        /// 枠（物質 zirc、厚さ 0.05）つきのセルの種類（半径と、内側からの物質の名前）を `layout` に並べた格子と、
+        /// 領域ごとの物質の名前
+        fn framed(
+            types: &[(Vec<f64>, Vec<&str>)],
+            layout: Vec<Vec<usize>>,
+        ) -> (Tracking, Vec<String>) {
+            let cells = types
+                .iter()
+                .map(|(radii, _)| {
+                    PinCell::new(1.26, radii.clone())
+                        .unwrap()
+                        .with_frame(0.05)
+                        .unwrap()
+                })
+                .collect();
+            let regions = layout
+                .iter()
+                .flatten()
+                .flat_map(|&t| types[t].1.iter().chain(&["zirc"]).map(|n| n.to_string()))
+                .collect();
+            let lattice = Lattice::new(cells, layout).unwrap();
+            (Tracking::new(&lattice, 16, 0.02).unwrap(), regions)
+        }
+
+        fn with_material(name: &str, nuclide: &str) -> Vec<MaterialInput> {
+            let mut materials = materials();
+            for (name, nuclide) in [("zirc", "Zr-90"), (name, nuclide)] {
+                materials.push(MaterialInput {
+                    name: name.into(),
+                    temperature: T,
+                    composition: vec![(nuclide.into(), 0.04)],
+                });
+            }
+            materials
+        }
+
+        #[test]
+        fn other_resonant_materials_do_not_shadow_a_lump() {
+            // 管の物質が分離共鳴を持つかどうかで、同じセルの枠（別の物質）の遮蔽は変わらない（群定数は同じ）
+            let library = library_with_copies("Fe-56", "Fe-56x");
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (vec![0.5, 0.6], vec!["water", "tube", "water"]),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let frame = |nuclide: &str| {
+                let shielded = shield_fuel(
+                    &library,
+                    &tracking,
+                    &with_material("tube", nuclide),
+                    &regions,
+                    &ShieldingOptions::default(),
+                )
+                .unwrap();
+                // セル1の領域: 水, 管, 水, 枠
+                shielded.materials[shielded.region_material[6]].total[0]
+            };
+            let (resonant, plain) = (frame("Fe-56"), frame("Fe-56x"));
+            assert!(
+                (resonant - plain).abs() < 1e-12 * plain,
+                "{resonant} vs {plain}"
+            );
+        }
+
+        #[test]
+        fn separate_pieces_of_a_material_are_separate_lumps() {
+            // 管と枠が同じ物質でも、離れた領域は別の塊として形に合った平均弦長で遮蔽する
+            let library = library_with_zirconium();
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (vec![0.5, 0.6], vec!["water", "zirc", "water"]),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // セル1の領域: 水, 管, 水, 枠
+            let (tube, frame) = (shielded.region_material[4], shielded.region_material[6]);
+            assert_ne!(tube, frame);
+            let total = |m: usize| shielded.materials[m].total[0];
+            assert!(total(tube) != total(frame), "{}", total(tube));
+        }
+
         #[test]
         fn void_gap_is_kept_void() {
             let library = library();
