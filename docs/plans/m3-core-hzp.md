@@ -22,6 +22,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 - 565 K の熱中性子散乱と核種ごとの温度: [ADR-0080](../adr/0080-interpolate-sab-in-temperature.md)（[ADR-0047](../adr/0047-choose-temperatures-per-nuclide.md) を置き換え）
 - 群の間の移行と MF4 の角度分布: [ADR-0081](../adr/0081-use-mf4-angular-distributions.md)（[ADR-0041](../adr/0041-transfer-by-two-body-kinematics.md) を置き換え）
 - MF6 の角度のデータ: [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)（[ADR-0056](../adr/0056-treat-mf6-law2-law3-as-two-body.md) を置き換え）
+- 運動学のしきい値より下から始まる反応: [ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)
 
 ### 格子計算
 
@@ -63,9 +64,10 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
    — 済（c729ccd）
 2. 新しい核種の処理と、MF4 の角度分布の散乱行列への反映（MF6 の角度のデータは入れない。[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）
    — 済（MF4 は dfed461、MF6 を入れない決定は 69fb19c、分離共鳴のない核種のライブラリは 903c123。新しい核種（C、Si、P、
-   Ti、Mn、Ni、Ag、Cd、In の 29 核種）のライブラリと NJOY との比較は c03a54e（examples/m3-nuclides/verification.md）。
-   減速計算の範囲より上の散乱源を NJOY にそろえたのは 2d09cea。NJOY との差のうち、拡げた格子が小さい反応で粗いこと
-   （#0022）と、運動学のしきい値より下の断面積の扱い（#0023）は未解決。新しい物質の格子計算（2E〜2K）はまだ）
+   Ti、Mn、Ni、Ag、Cd、In の 29 核種）のライブラリと NJOY との比較は c03a54e と 6632572（examples/m3-nuclides/verification.md）。
+   減速計算の範囲より上の散乱源を NJOY にそろえたのは 2d09cea、運動学のしきい値から反応を始めるのは a466a05（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
+   VERA の k はこの2つで 6 桁まで変わらない（e560b64）。しきい値の値を 0 にしたのは b64fc7c（#0024）。NJOY との差のうち、拡げた格子が小さい反応で粗いこと（#0022）は
+   未解決。新しい物質の格子計算（2E〜2K）はまだ）
 3. 熱中性子の散乱行列の複数の温度と、lattice での温度の内挿 — 済（782da41）
 4. セルの形の追加（中実の棒、支持格子の枠、長方形の領域、場所で違う格子の幅） — 作業中（枠は 025f774、長方形の格子は
    33cb13c、構造材の自己遮蔽は bb1a203 と 3b14564。中実の棒は同心円のセルで表せるが、シンブルプラグの物質（SS304）は
