@@ -811,6 +811,57 @@ mod tests {
     }
 
     #[test]
+    fn threshold_shift_is_reported_per_reaction() {
+        let text = threshold_section(&[
+            ("1.0+3", "0.0"),
+            ("1.1+3", "0.01"),
+            ("2.0+3", "1.0"),
+            ("2.0+7", "1.0"),
+        ]);
+        let tape = Tape::parse(&text).unwrap();
+        let mf3 = Mf3::parse(&tape.section(1, 3, 51).unwrap()).unwrap();
+        let (_, shift) = start_at_threshold(51, &mf3);
+        let threshold = 1.0e3 * 10.0 / 9.0;
+        assert_eq!(
+            shift,
+            Some(ThresholdShift {
+                mt: 51,
+                first: 1.0e3,
+                threshold,
+                dropped: 1,
+            })
+        );
+        // しきい値より上から始まる表は動かさない
+        let text = threshold_section(&[("2.0+3", "0.0"), ("2.0+7", "1.0")]);
+        let tape = Tape::parse(&text).unwrap();
+        let mf3 = Mf3::parse(&tape.section(1, 3, 51).unwrap()).unwrap();
+        assert_eq!(start_at_threshold(51, &mf3).1, None);
+    }
+
+    #[test]
+    fn threshold_shifts_are_summarized_per_nuclide() {
+        // 核種ごとに1回だけ警告する: 合わせた反応の数、最も大きい移動（eV）とその MT、捨てた点の数の和
+        assert_eq!(summarize_thresholds(&[]), None);
+        let shift = |mt: u32, first: f64, threshold: f64, dropped: usize| ThresholdShift {
+            mt,
+            first,
+            threshold,
+            dropped,
+        };
+        let shifts = [
+            shift(51, 1.0e3, 1.1e3, 0),
+            shift(16, 9.0e6, 9.0005e6, 2),
+            shift(52, 2.0e3, 2.05e3, 1),
+        ];
+        let summary = summarize_thresholds(&shifts).unwrap();
+        assert_eq!(summary.reactions, 3);
+        assert_eq!(summary.dropped, 3);
+        // eV で最も大きいのは MT16 の 500 eV（相対では MT51 の 1/11 のほうが大きい）
+        assert_eq!(summary.largest, shifts[1]);
+        assert!((summary.largest.relative() - 500.0 / 9.0005e6).abs() < 1e-15);
+    }
+
+    #[test]
     fn redundant_reactions_are_sums_of_their_parts() {
         let full = ["1.0-5", "2.0+7"];
         let text = [
