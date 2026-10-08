@@ -2,7 +2,8 @@
 //!
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //! `format` ("xlc-fewgroup"), `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`,
-//! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）。
+//! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）,
+//! `vacuum_ratio`（[辺][群]。真空の辺だけ値を持ち、ほかの辺は nil。ADR-0101）。
 
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,9 @@ pub struct FewGroup {
     pub scatter: Vec<Vec<f64>>,
     /// [辺（左、右、上、下）][群] の不連続因子（辺の上の中性子束 / 均質化した中性子束）
     pub adf: Vec<Vec<f64>>,
+    /// [辺（左、右、上、下）][群] の、格子計算の真空の辺の外向きの正味の中性子流 / 辺の上の不均質な中性子束
+    /// （辺にわたる平均の比）。真空でない辺は `None`（ADR-0101）
+    pub vacuum_ratio: Vec<Option<Vec<f64>>>,
 }
 
 /// 少数群定数のファイルの読み込みエラー。
@@ -52,6 +56,7 @@ struct FewGroupFile {
     diffusion: Vec<f64>,
     scatter: Vec<Vec<f64>>,
     adf: Vec<Vec<f64>>,
+    vacuum_ratio: Vec<Option<Vec<f64>>>,
 }
 
 impl FewGroup {
@@ -73,6 +78,7 @@ impl FewGroup {
             diffusion: self.diffusion.clone(),
             scatter: self.scatter.clone(),
             adf: self.adf.clone(),
+            vacuum_ratio: self.vacuum_ratio.clone(),
         })
     }
 
@@ -93,12 +99,14 @@ impl FewGroup {
             diffusion: file.diffusion,
             scatter: file.scatter,
             adf: file.adf,
+            vacuum_ratio: file.vacuum_ratio,
         };
         fewgroup.validate()?;
         Ok(fewgroup)
     }
 
-    /// 群境界の順序、配列の長さ、値が有限であること、不連続因子が正であることを確かめる。
+    /// 群境界の順序、配列の長さ、値が有限であること、不連続因子が正であること、真空の辺の比が
+    /// 0 < r ≤ 1 であることを確かめる。
     /// ファイルから読んだ値にも、ファイルを経ずに作った値にも使う。
     pub fn validate(&self) -> Result<(), FewGroupError> {
         let invalid = |message: String| Err(FewGroupError::Invalid(message));
@@ -148,6 +156,20 @@ impl FewGroup {
                 ));
             }
         }
+        if self.vacuum_ratio.len() != 4 {
+            return invalid(format!(
+                "`vacuum_ratio` has {} sides, expected 4",
+                self.vacuum_ratio.len()
+            ));
+        }
+        // 真空の辺では入射がないので、J/φ は出ていく角度中性子束の μ の平均
+        for side in self.vacuum_ratio.iter().flatten() {
+            if side.len() != ng || !side.iter().all(|r| *r > 0.0 && *r <= 1.0) {
+                return invalid(format!(
+                    "`vacuum_ratio` needs {ng} values in (0, 1] on a vacuum side, got {side:?}"
+                ));
+            }
+        }
         if !(self.k_inf > 0.0 && self.k_inf.is_finite()) {
             return invalid(format!("invalid k-inf {}", self.k_inf));
         }
@@ -175,6 +197,7 @@ mod tests {
             diffusion: vec![x(4.1), x(1.2)],
             scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],
             adf: vec![vec![x(3.0), x(3.3)]; 4],
+            vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
         }
     }
 
@@ -192,6 +215,7 @@ mod tests {
             diffusion: fg.diffusion,
             scatter: fg.scatter,
             adf: fg.adf,
+            vacuum_ratio: fg.vacuum_ratio,
         }
     }
 
@@ -228,6 +252,7 @@ mod tests {
         assert!(read_modified(|f| f.bounds.reverse()).is_err());
         assert!(read_modified(|f| f.total[0] = f64::NAN).is_err());
         assert!(read_modified(|f| f.k_inf = f64::INFINITY).is_err());
+        assert!(read_modified(|f| f.vacuum_ratio[1] = Some(vec![0.5])).is_err());
         // 配列形式、末尾の余り
         let array = rmp_serde::to_vec(&sample_file()).unwrap();
         assert!(matches!(
@@ -258,5 +283,33 @@ mod tests {
         let mut fg = sample();
         fg.k_inf = 0.0;
         assert!(fg.validate().is_err());
+    }
+
+    #[test]
+    fn vacuum_ratios_are_checked() {
+        // 真空の辺の J/φ は、出ていく角度中性子束の μ の平均なので 0 < r ≤ 1（ADR-0101）
+        let mut fg = sample();
+        fg.vacuum_ratio[1] = Some(vec![1.0, 0.5]);
+        assert!(fg.validate().is_ok());
+        for bad in [0.0, -0.1, 1.0 + 1e-12, f64::NAN, f64::INFINITY] {
+            let mut fg = sample();
+            fg.vacuum_ratio[1] = Some(vec![bad, 0.5]);
+            let err = fg.validate().unwrap_err().to_string();
+            assert!(err.contains("vacuum_ratio"), "{err}");
+        }
+        let mut fg = sample();
+        fg.vacuum_ratio.pop();
+        assert!(fg.validate().is_err());
+        let mut fg = sample();
+        fg.vacuum_ratio[0] = Some(vec![0.5]);
+        assert!(fg.validate().is_err());
+        // 真空の辺がなければ、どの辺も持たない
+        let mut fg = sample();
+        fg.vacuum_ratio = vec![None; 4];
+        assert!(fg.validate().is_ok());
+        assert_eq!(
+            FewGroup::from_msgpack(&fg.to_msgpack().unwrap()).unwrap(),
+            fg
+        );
     }
 }
