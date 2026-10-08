@@ -605,6 +605,16 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn pointwise_range_must_be_empty_or_a_pair() {
+        for range in [vec![4.0], vec![4.0, 1.0e3, 1.0e4]] {
+            let mut file = sample_file();
+            file.pointwise_range = range;
+            let bytes = rmp_serde::to_vec_named(&file).unwrap();
+            assert!(Library::from_msgpack(&bytes).is_err());
+        }
+    }
+
+    #[test]
     fn library_without_pointwise_range_round_trips() {
         // 分離共鳴を持つ核種がないライブラリ: 範囲はなく、ポイントワイズの断面積は空
         let mut library = sample();
@@ -622,6 +632,14 @@ pub(crate) mod tests {
         bad.nuclides[0].temperatures[0].pointwise =
             sample().nuclides[0].temperatures[0].pointwise.clone();
         assert!(bad.to_msgpack().is_err());
+        // 読むときも拒む
+        let mut file = sample_file();
+        file.pointwise_range = Vec::new();
+        for n in &mut file.nuclides {
+            n.resolved = None;
+        }
+        let bytes = rmp_serde::to_vec_named(&file).unwrap();
+        assert!(Library::from_msgpack(&bytes).is_err());
     }
 
     #[test]

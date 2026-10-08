@@ -751,6 +751,22 @@ mod tests {
     }
 
     #[test]
+    fn resolved_fuel_needs_pointwise_data() {
+        // 燃料に分離共鳴があるのにポイントワイズの断面積のないライブラリはエラー。燃料のないセルは範囲がないだけでよい
+        let mut fissile = constant("U-235", 233.0, 10.0, 8.0, 1.0);
+        fissile.top = Some(3.0e3);
+        let mut lib = library(vec![fissile, constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+        lib.pointwise_range = None;
+        let water = material(&[("H-1", 0.05)]);
+        let fuel = material(&[("U-235", 0.01)]);
+        assert_eq!(cell_range(&lib, &[Some(&water)]).unwrap(), None);
+        assert!(matches!(
+            cell_range(&lib, &[Some(&fuel), Some(&water)]),
+            Err(UfgError::NoPointwise)
+        ));
+    }
+
+    #[test]
     fn scatterers_keep_the_asymptotic_spectrum() {
         // 吸収がなく断面積が一定なら、どのリングでも中性子束はレサジーあたり一定（1/E）のまま。減速材は、窓が
         // 群の上端（中性子のない範囲）まで届かない H-2 にする（H-1 では範囲の上からの線源が e^{−7.6} だけ足りない）
