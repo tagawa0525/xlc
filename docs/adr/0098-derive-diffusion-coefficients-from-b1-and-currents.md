@@ -1,7 +1,7 @@
 ---
-status: proposed
-date: 2026-10-08
-supersedes: []
+status: accepted
+date: 2026-10-09
+supersedes: [ADR-0044]
 superseded-by:
 issues: ["#0021"]
 ---
@@ -47,6 +47,9 @@ MOC は非等方散乱を解き、散乱の次数が 1 以上なら、解く途�
 
 ## 決定と理由
 
+少数群は、[ADR-0044](0044-collapse-to-two-groups.md) のとおり境界 0.625 eV の2群とし、断面積は領域・群ごとの反応率を保存するように均質化・縮約する
+（ADR-0044 から引き継ぐ。比べた案の記録はない）。
+
 拡散係数は、格子の境界によって次のように求める。どちらも、ライブラリの P1 の散乱行列と MOC の解から、手で合わせる係数
 なしに決まる。
 
@@ -69,22 +72,34 @@ MOC は非等方散乱を解き、散乱の次数が 1 以上なら、解く途�
 少数群の断面積の縮約の重みは、いまのとおり MOC の中性子束とし、B1 のスペクトルで重みづけし直さない（臨界スペクトルで
 断面積を重みづけし直すかは、k∞ の保存と GET の ADF との整合に効くので、カラーセットでの比較のあとに別に決める）。
 
-実装したら [ADR-0044](0044-collapse-to-two-groups.md) の拡散係数の部分を置き換える（2群の境界はそのまま有効）。置き換えの結び（`supersedes`）は、
-この ADR を accepted にするときに付ける。
+この ADR は [ADR-0044](0044-collapse-to-two-groups.md) を置き換える（拡散係数の D = 1/(3Σt) をやめ、2群の境界と縮約は上に書き直して引き継ぐ）。
 
 ## 確認
 
-まだ実装していない。次で確かめる。
-
-- B1 のテスト: 等方散乱の均質な媒質で、B → 0 の極限が D = 1/(3Σt) になること。P1 の散乱行列が対角だけのとき、
-  D = 1/(3(Σt − Σs1)) の極限に近づくこと
-- outflow のテスト: P1 の散乱がないときに 1/(3Σt) に一致すること。1群で、outflow と in-scatter の補正が一致すること
+- B1（`crates/lattice/src/b1.rs`）: `isotropic_scattering_gives_one_third_total_at_zero_buckling`（Σs1 = 0、B² = 0 で
+  1/(3Σt)）、`isotropic_scattering_follows_gamma_at_finite_buckling`（Σs1 = 0 で D = 1/(3γΣt)、B² の正負とも）、
+  `diagonal_p1_scattering_gives_the_transport_cross_section`（P1 が対角だけなら B² = 0 で 1/(3(Σt − Σs1))）、
+  `one_group_critical_mode_matches_the_transport_dispersion_relation`（1群の等方散乱では B1 は厳密で、臨界の B² と D が
+  輸送方程式の平面波の分散関係 c = x/arctan(x)、c = y/artanh(y) に 10⁻⁸ で一致）、`critical_buckling_sign_follows_k_inf`
+  （|k − 1| < 10⁻¹⁰、B² の符号は k∞ − 1 の符号）、`gamma_series_joins_the_closed_form`、`no_fission_is_an_error`
+- 格子（`crates/lattice/src/fewgroup.rs`）: `reflective_lattice_takes_d_from_the_b1_mode`（均質化した細かい群の B1 の
+  J/(Bφ)、1群では Σ J / Σ Bφ）、`open_lattice_without_p1_scattering_uses_one_third_total`、
+  `open_lattice_uses_the_outflow_transport_cross_section`、`outflow_rejects_a_void_region_with_flux`、
+  `diffusion_needs_p1_moments`（P1 がなければ、どちらの境界でもエラー）。縮約が k∞ を保つことは
+  `two_group_constants_reproduce_k_inf`、`one_group_collapse_preserves_k`（ADR-0044 から）
+- VERA 1B と 2B（支持格子なし）の2群の D は、1/(3Σt) の 0.662、0.289 cm と 0.655、0.278 cm から、B1 で 1.419、0.469 cm と
+  1.446、0.454 cm になった（臨界の B² は 2.82 × 10⁻³、2.85 × 10⁻³ /cm²。examples/vera/verification.md、837c548、
+  2026-10-09）
 - 単一集合体の定数を使う体系で、D の作り方（1/(3Σt)、outflow、B1）ごとに、core の NEM と同じ多群定数の xlc の
-  MOC（同じ問題）を比べる: 4-2D（[ADR-0094](0094-define-adf-by-one-node-nem.md) の閾値の案: k ±50 pcm、集合体出力の差の最大 1%）と REF1-2D
-  （[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-adf.md) の閾値の案）
+  MOC を比べること（4-2D、REF1-2D）は、まだしていない（「結果」）
 
 ## 結果
 
+- 非反射の格子の均質化（反射体とカラーセット、[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-adf.md)）はまだないので、outflow の D は
+  `diffusion_coefficients` にあるが、少数群定数の出力（`homogenize`、反射境界だけ）からはまだ使われない。真空の
+  領域に中性子束があると Σtr = 0 で D が定まらないので、outflow ではエラーにする
+- D の作り方の良し悪しは、4-2D と REF1-2D の xlc の MOC との比較（ADR-0094、ADR-0095 の閾値の案）で確かめる。
+  それまで 1/(3Σt) と B1 のどちらが core に良いかは測っていない
 - 反射体の D を inflow の補正にするかは #0021
 - 均質化の重みに使う P1 の散乱行列は、中性子流でなく中性子束で重みづけした近似になる（B1 の計算の中で）
 - 単一集合体の定数の ADF（GET、[ADR-0094](0094-define-adf-by-one-node-nem.md)）は平らな均質な解で決まり、D に依らない。D は、別の体系で使ったときの漏れの
