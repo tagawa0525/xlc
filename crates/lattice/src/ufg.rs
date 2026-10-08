@@ -353,7 +353,7 @@ pub fn slowing_down(
 
 /// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step` より広いところは点を足す。
 /// 丸めで同じレサジーになる点は1つにまとめ、`keep` を満たす（群の境界の）エネルギーを残す。
-fn lethargy_grid(
+pub(crate) fn lethargy_grid(
     energies: &[f64],
     high: f64,
     step: f64,

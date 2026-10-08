@@ -19,6 +19,10 @@ use std::borrow::Cow;
 use xlc_format::library::{Library, LookupError, TemperatureData};
 
 use crate::input::MaterialInput;
+use crate::ufg::{MAX_TOP, lethargy_grid};
+
+/// 重みの積分のレサジーの刻みの上限。ポイントワイズの断面積の点の間をこれ以下に分けて台形則で積分する（誤差は刻みの2乗に比例する）
+const STEP: f64 = 1.0e-3;
 
 /// 影を受ける吸収体 A（黒体にする物質）。
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +49,10 @@ pub enum ShadowError {
     Volume(f64),
     #[error("group {0}: the absorber does not absorb")]
     NoAbsorption(usize),
+    #[error("group {0}: non-finite shadow cross section")]
+    NonFinite(usize),
+    #[error("the absorber has resolved resonances but the library has no pointwise range")]
+    NoPointwise,
 }
 
 /// 吸収体 `absorber` の影の計算に使う、`materials` の物質ごと・群ごとの全断面積 (1/cm)（モジュールの説明を参照）。
@@ -53,12 +61,113 @@ pub fn shadow_totals(
     absorber: &Absorber,
     materials: &[&MaterialInput],
 ) -> Result<Vec<Vec<f64>>, ShadowError> {
+    if !(absorber.chord > 0.0 && absorber.chord.is_finite()) {
+        return Err(ShadowError::Chord(absorber.chord));
+    }
+    if let Some(&(_, v)) = absorber
+        .materials
+        .iter()
+        .find(|&&(_, v)| !(v > 0.0 && v.is_finite()))
+    {
+        return Err(ShadowError::Volume(v));
+    }
     let mut tables = Tables::default();
-    let _ = absorber;
-    materials
+    let mut totals = materials
         .iter()
         .map(|m| dilute(library, &mut tables, m))
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    // 吸収体の核種（表の番号、体積で平均した個数密度）と、物質ごとの核種（表の番号、個数密度）。個数密度が 0 の核種は
+    // 何にも寄与しないので除く
+    let volume: f64 = absorber.materials.iter().map(|&(_, v)| v).sum();
+    let mut absorbing = Vec::new();
+    for &(m, v) in &absorber.materials {
+        for (name, density) in m.composition.iter().filter(|(_, n)| *n > 0.0) {
+            absorbing.push((tables.index(library, m, name)?, density * v / volume));
+        }
+    }
+    let targets = materials
+        .iter()
+        .map(|m| {
+            m.composition
+                .iter()
+                .filter(|(_, n)| *n > 0.0)
+                .map(|(name, density)| Ok((tables.index(library, m, name)?, *density)))
+                .collect::<Result<Vec<_>, ShadowError>>()
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if !absorbing.iter().any(|&(k, _)| tables.resolved[k]) {
+        return Ok(totals);
+    }
+    let range = library.pointwise_range.ok_or(ShadowError::NoPointwise)?;
+    let (low, high) = (range[0], range[1].min(MAX_TOP));
+    let mut involved: Vec<usize> = absorbing
+        .iter()
+        .chain(targets.iter().flatten())
+        .map(|&(k, _)| k)
+        .collect();
+    involved.sort_unstable();
+    involved.dedup();
+    let escape = 1.0 / absorber.chord;
+    for g in 0..library.groups.len() {
+        let (lower, upper) = library.groups.range(g);
+        if !(lower >= low && upper <= high) {
+            continue;
+        }
+        // 格子（降順）: 群の境界と、核種のポイントワイズの断面積の点。点の間は STEP 以下に分ける
+        let mut energies: Vec<f64> = involved
+            .iter()
+            .flat_map(|&k| tables.tables[k].pointwise.energy.iter().copied())
+            .filter(|&e| e > lower && e < upper)
+            .chain([upper, lower])
+            .collect();
+        energies.sort_by(|a, b| b.total_cmp(a));
+        energies.dedup();
+        let (u, points) = lethargy_grid(&energies, upper, STEP, |e| e == upper || e == lower);
+        // 点 e での [核種] の [全, 弾性散乱]。不連続点では、`below` なら低い側の極限
+        let sample = |e: f64, below: bool| -> Result<Vec<[f64; 2]>, ShadowError> {
+            let mut values = vec![[0.0; 2]; tables.tables.len()];
+            for &k in &involved {
+                values[k] = tables.at(k, e, below)?;
+            }
+            Ok(values)
+        };
+        // 点での重み Σa,A/(Σt,A + 1/l̄) と、物質ごとの Σt
+        let weigh = |values: &[[f64; 2]]| -> (f64, Vec<f64>) {
+            let (mut total, mut absorption) = (0.0, 0.0);
+            for &(k, n) in &absorbing {
+                total += n * values[k][0];
+                absorption += n * (values[k][0] - values[k][1]);
+            }
+            let sigma = targets
+                .iter()
+                .map(|t| t.iter().map(|&(k, n)| n * values[k][0]).sum())
+                .collect();
+            (absorption / (total + escape), sigma)
+        };
+        let mut numerator = vec![0.0; materials.len()];
+        let mut denominator = 0.0;
+        for i in 0..points.len().saturating_sub(1) {
+            let du = u[i + 1] - u[i];
+            // 区間は points[i] から下。上端は低い側、下端は高い側の極限
+            let (wa, sa) = weigh(&sample(points[i], true)?);
+            let (wb, sb) = weigh(&sample(points[i + 1], false)?);
+            denominator += 0.5 * du * (wa + wb);
+            for (n, (a, b)) in numerator.iter_mut().zip(sa.iter().zip(&sb)) {
+                *n += 0.5 * du * (a * wa + b * wb);
+            }
+        }
+        if !(denominator > 0.0 && denominator.is_finite()) {
+            return Err(ShadowError::NoAbsorption(g));
+        }
+        for (total, n) in totals.iter_mut().zip(&numerator) {
+            let value = n / denominator;
+            if !value.is_finite() {
+                return Err(ShadowError::NonFinite(g));
+            }
+            total[g] = value;
+        }
+    }
+    Ok(totals)
 }
 
 /// 核種（名前と温度の組）ごとの表。同じ核種を何度も引かない
@@ -66,6 +175,8 @@ pub fn shadow_totals(
 struct Tables<'a> {
     keys: Vec<(&'a str, f64)>,
     tables: Vec<Cow<'a, TemperatureData>>,
+    /// 分離共鳴を持つか
+    resolved: Vec<bool>,
 }
 
 impl<'a> Tables<'a> {
@@ -80,7 +191,7 @@ impl<'a> Tables<'a> {
         if let Some(k) = self.keys.iter().position(|&(n, tk)| n == name && tk == t) {
             return Ok(k);
         }
-        let (_, table) = library
+        let (data, table) = library
             .lookup(name, t)
             .map_err(|source| ShadowError::Lookup {
                 material: material.name.clone(),
@@ -88,7 +199,39 @@ impl<'a> Tables<'a> {
             })?;
         self.keys.push((name, t));
         self.tables.push(table);
+        self.resolved.push(data.resolved.is_some());
         Ok(self.tables.len() - 1)
+    }
+
+    /// 表 `k` のポイントワイズの断面積 [全, 弾性散乱] の、エネルギー `e` での lin-lin の補間。不連続点（同じエネルギーの2点。
+    /// 低い側の極限が先）では、`below` なら低い側、そうでなければ高い側の極限
+    fn at(&self, k: usize, e: f64, below: bool) -> Result<[f64; 2], ShadowError> {
+        let p = &self.tables[k].pointwise;
+        let x = &p.energy;
+        let undefined = || ShadowError::Undefined {
+            name: self.keys[k].0.to_string(),
+            energy: e,
+        };
+        let (Some(&first), Some(&last)) = (x.first(), x.last()) else {
+            return Err(undefined());
+        };
+        if !(x.len() >= 2 && first <= e && e <= last) {
+            return Err(undefined());
+        }
+        // j は e 以上の最初の点（`below`）または e 以下の最後の点
+        let j = if below {
+            x.partition_point(|&v| v < e)
+        } else {
+            x.partition_point(|&v| v <= e) - 1
+        };
+        if x[j] == e {
+            return Ok([p.total[j], p.elastic[j]]);
+        }
+        // e は x[a] と x[a + 1] の間
+        let a = if below { j - 1 } else { j };
+        let t = (e - x[a]) / (x[a + 1] - x[a]);
+        let lerp = |y: &[f64]| y[a] + t * (y[a + 1] - y[a]);
+        Ok([lerp(&p.total), lerp(&p.elastic)])
     }
 }
 
