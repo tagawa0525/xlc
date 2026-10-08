@@ -7,8 +7,9 @@
 組成は pin_cell.pdf の付録 2 の個数密度で、セルは同じ面積の正方形（ピッチ 1.26 cm、外周は鏡面反射）、
 温度はすべて 600 K にする（README）。xlc のライブラリ（msgpack）の群構造で、燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を fuel-xs.msgpack に書く（examples/vera/openmc_model.py と
-同じ形式）。比べやすいよう、燃料の中性子束 `flux`（体積で割らない tally の値）、反応率の相対標準偏差
-`<score>-rsd`、同じ規格化でのセル全体の吸収率 `absorption` と ν × 核分裂率 `nu-fission` も書く。
+同じ形式に捕獲 `capture` を足したもの）。比べやすいよう、燃料の中性子束 `flux`（体積で割らない tally の値）、
+反応率の相対標準偏差 `<score>-rsd`、同じ規格化でのセル全体の吸収率 `absorption` と
+ν × 核分裂率 `nu-fission` も書く。
 """
 
 import sys
@@ -18,9 +19,16 @@ import msgpack
 import numpy as np
 import openmc
 
-# 書き出す名前と tally の score の名前（statepoint では弾性散乱は "(n,elastic)" になる）。
-# capture は統計誤差を見るためで、比べる捕獲断面積は全 − 弾性 − 核分裂から求める
-STORED = {"elastic": "(n,elastic)", "capture": "(n,gamma)"}
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from openmc_common import (
+    STORED,
+    effective_xs,
+    eigenvalue_settings,
+    fuel_tallies,
+    group_filter,
+    material,
+)
+
 SCORES = ["total", "elastic", "fission", "capture"]
 
 PITCH = 1.26
@@ -61,12 +69,42 @@ ZIRCONIUM = {
 WATER = {"H1": 0.04744, "O16": 0.02372}
 
 
-def material(name: str, densities: dict[str, float]) -> openmc.Material:
-    m = openmc.Material(name=name, temperature=TEMPERATURE)
-    for nuclide, density in densities.items():
-        m.add_nuclide(nuclide, density, "ao")
-    m.set_density("sum")
-    return m
+def relative_std(tally: openmc.Tally, **selection) -> np.ndarray:
+    """tally の値の相対標準偏差（値が 0 のところは 0）を、群の高いエネルギーから並べる。"""
+    mean = tally.get_values(**selection).ravel()
+    std = tally.get_values(value="std_dev", **selection).ravel()
+    return np.divide(std, mean, out=np.zeros_like(mean), where=mean > 0)[::-1]
+
+
+def write_fuel_xs(statepoint: Path, path: Path, densities: dict[str, float]) -> None:
+    """statepoint から燃料の実効断面積を取り出して `path` に書く。"""
+    with openmc.StatePoint(statepoint) as sp:
+        k = sp.keff
+        # 群は xlc と同じく高いエネルギーから並べる
+        xs = effective_xs(sp, "fuel", densities, SCORES, lambda v: v.ravel()[::-1])
+        rates = sp.get_tally(name="fuel")
+        flux = sp.get_tally(name="fuel flux")
+        balance = sp.get_tally(name="balance")
+        nuclides = {}
+        for nuclide, by in xs.items():
+            nuclides[nuclide] = {score: value.tolist() for score, value in by.items()}
+            for score in SCORES:
+                rsd = relative_std(
+                    rates, scores=[STORED.get(score, score)], nuclides=[nuclide]
+                )
+                nuclides[nuclide][f"{score}-rsd"] = rsd.tolist()
+        data = {
+            "format": "xlc-fuel-xs",
+            "keff": [k.nominal_value, k.std_dev],
+            "flux": flux.get_values(scores=["flux"]).ravel()[::-1].tolist(),
+            **{
+                score: float(balance.get_values(scores=[score]).ravel()[0])
+                for score in ["absorption", "nu-fission"]
+            },
+            "densities": densities,
+            "nuclides": nuclides,
+        }
+    path.write_bytes(msgpack.packb(data))
 
 
 def main() -> None:
@@ -83,9 +121,9 @@ def main() -> None:
     work.mkdir(parents=True, exist_ok=True)
 
     densities = FUEL[problem]
-    fuel = material("fuel", densities)
-    clad = material("zirconium", ZIRCONIUM)
-    water = material("water", WATER)
+    fuel = material("fuel", densities, TEMPERATURE)
+    clad = material("zirconium", ZIRCONIUM, TEMPERATURE)
+    water = material("water", WATER, TEMPERATURE)
     water.add_s_alpha_beta("c_H_in_H2O")
     materials = openmc.Materials([fuel, clad, water])
     materials.cross_sections = str(cross_sections)
@@ -100,74 +138,24 @@ def main() -> None:
         ]
     )
 
-    settings = openmc.Settings()
-    settings.particles = particles
-    settings.batches = batches
-    settings.inactive = inactive
-    settings.seed = seed
-    half = PITCH / 2
-    settings.source = openmc.IndependentSource(
-        space=openmc.stats.Box((-half, -half, -1), (half, half, 1)),
-        constraints={"fissionable": True},
-    )
+    settings = eigenvalue_settings(particles, batches, inactive, seed, PITCH / 2)
     # ライブラリの温度だけを使う（kT から K に直すときの丸めのために 1 K の幅を許す）
     settings.temperature = {"method": "nearest", "tolerance": 1.0}
 
-    # 燃料の核種ごとの実効断面積（群構造は xlc のライブラリから。OpenMC の境界は昇順）
-    bounds = msgpack.unpackb(library.read_bytes())["group_bounds"]
-    filters = [openmc.MaterialFilter([fuel]), openmc.EnergyFilter(sorted(bounds))]
-    rates = openmc.Tally(name="fuel")
-    rates.filters = filters
-    rates.nuclides = list(densities)
-    rates.scores = [STORED.get(score, score) for score in SCORES]
-    flux = openmc.Tally(name="fuel flux")
-    flux.filters = filters
-    flux.scores = ["flux"]
+    # 燃料の核種ごとの実効断面積（群構造は xlc のライブラリから）
+    filters = [openmc.MaterialFilter([fuel]), group_filter(library)]
+    tallies = fuel_tallies("fuel", filters, list(densities), SCORES)
 
     # 核種の吸収率の差を k の差に換算するための、セル全体の吸収と生成
     balance = openmc.Tally(name="balance")
     balance.scores = ["absorption", "nu-fission"]
+    tallies.append(balance)
 
-    model = openmc.Model(
-        geometry, materials, settings, openmc.Tallies([rates, flux, balance])
-    )
+    model = openmc.Model(geometry, materials, settings, openmc.Tallies(tallies))
     statepoint = model.run(cwd=work, output=False)
+    write_fuel_xs(statepoint, work / "fuel-xs.msgpack", densities)
     with openmc.StatePoint(statepoint) as sp:
         k = sp.keff
-        phi = sp.get_tally(name="fuel flux").get_values(scores=["flux"]).ravel()
-        tally = sp.get_tally(name="fuel")
-        xs = {}
-        for nuclide, density in densities.items():
-            xs[nuclide] = {}
-            for score in SCORES:
-                name = STORED.get(score, score)
-                mean = tally.get_values(scores=[name], nuclides=[nuclide]).ravel()
-                std = tally.get_values(
-                    scores=[name], nuclides=[nuclide], value="std_dev"
-                ).ravel()
-                rsd = np.divide(std, mean, out=np.zeros_like(mean), where=mean > 0)
-                # 群は xlc と同じく高いエネルギーから並べる
-                xs[nuclide][score] = (mean / (density * phi))[::-1].tolist()
-                xs[nuclide][f"{score}-rsd"] = rsd[::-1].tolist()
-        (work / "fuel-xs.msgpack").write_bytes(
-            msgpack.packb(
-                {
-                    "format": "xlc-fuel-xs",
-                    "keff": [k.nominal_value, k.std_dev],
-                    "flux": phi[::-1].tolist(),
-                    **{
-                        score: float(
-                            sp.get_tally(name="balance")
-                            .get_values(scores=[score])
-                            .ravel()[0]
-                        )
-                        for score in ["absorption", "nu-fission"]
-                    },
-                    "densities": densities,
-                    "nuclides": xs,
-                }
-            )
-        )
     print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
 
 
