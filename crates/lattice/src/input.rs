@@ -824,6 +824,41 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn columns_and_rows_may_have_their_own_sizes() {
+        // ピンの格子の右に、厚さ 0.5 のバッフルと 1.5 の水の列を足す（反射体）
+        let reflector = |rows: &str, extra: &str| {
+            let text = LATTICE
+                .replace(
+                    "rows = [\"pin box\", \"box pin\"]",
+                    &format!("widths = [{{ size = 2.0, count = 2 }}, {{ size = 0.5 }}, {{ size = 1.5 }}]\n{extra}rows = {rows}"),
+                )
+                .replace(
+                    "[cell.box]",
+                    "[cell.baffle]\nzones = [{ material = \"clad\", rings = 1 }]\n\n[cell.box]",
+                );
+            LatticeInput::parse(&text).and_then(|input| input.geometry())
+        };
+        let (lattice, materials) =
+            reflector("[\"pin box baffle box\", \"box pin baffle box\"]", "").unwrap();
+        assert_eq!(lattice.widths(), &[2.0, 2.0, 0.5, 1.5]);
+        assert_eq!(lattice.heights(), &[2.0, 2.0]);
+        // ピン 3 + 水 1 + バッフル 1 + 水 1 の行が 2 つ
+        assert_eq!(lattice.regions(), 12);
+        assert_eq!(materials[4], "clad");
+        // ピンはピッチの幅の列にだけ置ける
+        assert!(reflector("[\"pin box pin box\", \"box pin baffle box\"]", "").is_err());
+        // 列の数がそろわない、余白と同時には使えない
+        assert!(reflector("[\"pin box baffle\", \"box pin baffle\"]", "").is_err());
+        assert!(
+            reflector(
+                "[\"pin box baffle box\", \"box pin baffle box\"]",
+                "gap = { width = 0.1, material = \"water\" }\n"
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn gap_surrounds_the_lattice() {
         let text = LATTICE.replace(
             "rows = [",
