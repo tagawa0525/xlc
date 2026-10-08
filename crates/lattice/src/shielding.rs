@@ -15,12 +15,11 @@
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::f64::consts::PI;
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
 use crate::cp::{CpError, Cylinder};
-use crate::equivalent::{EquivalentError, MIN_DANCOFF, OuterRing, equivalent_radius};
+use crate::equivalent::{EquivalentError, MIN_DANCOFF, OuterRing, equivalent_radius, outer_radius};
 use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
@@ -735,11 +734,9 @@ fn shield_cell(
     let fuel = &materials[ring_index[0]];
     // 外周の枠: (物質の番号, 面積)。等価なセルでは減速材のリングの外に同じ面積のリングとして置く（枠の影と、
     // 枠の物質が減速材の中性子束を変える効果を入れるため）
-    let frame = geometry.frame().map(|_| {
-        let volumes = geometry.volumes();
-        let last = volumes.len() - 1;
-        (pin.region_index[first + last], volumes[last])
-    });
+    let frame = geometry
+        .frame()
+        .map(|(region, area)| (pin.region_index[first + region], area));
     let inputs: Vec<Option<&MaterialInput>> = (0..pin.rings)
         .map(|_| Some(fuel))
         .chain(ring_index[pin.rings..start].iter().map(|&i| input(i)))
@@ -787,7 +784,7 @@ fn shield_cell(
             .iter()
             .copied()
             .chain([radius])
-            .chain(frame.map(|(_, area)| (radius * radius + area / PI).sqrt()))
+            .chain(frame.map(|(_, area)| outer_radius(radius, area)))
             .collect(),
     )?;
     let spectrum = slowing_down(library, &cylinder, &inputs, range)?;

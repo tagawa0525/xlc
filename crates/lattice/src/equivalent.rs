@@ -78,6 +78,18 @@ pub struct OuterRing {
     pub total: f64,
 }
 
+impl OuterRing {
+    /// 内半径 `inner` (cm) のときの外半径 (cm)
+    pub fn radius(&self, inner: f64) -> f64 {
+        outer_radius(inner, self.area)
+    }
+}
+
+/// 内半径 `inner` (cm)、面積 `area` (cm²) のリングの外半径 (cm)
+pub fn outer_radius(inner: f64, area: f64) -> f64 {
+    (inner * inner + area / PI).sqrt()
+}
+
 /// Dancoff 係数が `dancoff` になる等価なセルの外半径 (cm)。`radii` は減速材より内側のリング（燃料から被覆管まで）の
 /// 外半径、`totals` はそのリングと外側の減速材のリングの全断面積 (1/cm)（燃料の値は使わない）。`outer` があれば、
 /// 減速材のリングの外にそのリングを置いたセルで合わせ、減速材のリングの外半径を返す。
@@ -116,7 +128,7 @@ pub fn equivalent_radius(
         let mut cell = radii.to_vec();
         let moderator = inner + t;
         cell.push(moderator);
-        cell.extend(outer.map(|o| (moderator * moderator + o.area / PI).sqrt()));
+        cell.extend(outer.map(|o| o.radius(moderator)));
         cell_dancoff(&cell, &totals)
     };
     // 下回る厚さを探してから二分法
@@ -200,7 +212,7 @@ mod tests {
         };
         let moderator = 0.66;
         let mut radii = cell(moderator);
-        radii.push((moderator * moderator + outer.area / PI).sqrt());
+        radii.push(outer.radius(moderator));
         let mut totals = TOTALS.to_vec();
         totals.push(outer.total);
         let c = cell_dancoff(&radii, &totals).unwrap();
