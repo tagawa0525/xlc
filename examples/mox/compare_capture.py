@@ -6,9 +6,9 @@
 xlc 側は crates/lattice/examples/fuel_xs.rs、OpenMC 側は openmc_model.py で作る。捕獲は全 − 弾性 − 核分裂
 （UFG の範囲より下では非弾性の反応は捕獲と核分裂だけ）。群ごとの相対差 (xlc / OpenMC − 1) を、
 UFG の範囲（WIMS 69 群の 15〜27 群）と、その下の 4〜0.1 eV（28〜56 群）について表示する。
-捕獲率の差は OpenMC の燃料の中性子束で Σ_g φ_g N (σ_xlc − σ_OpenMC) と足し、セル全体の吸収率に対する比
-（中性子束を固定した 1 次の Δk/k ≈ −ΔC/A）で表す。核種は OpenMC の名前で、省略すると
-Pu240, Pu239, Pu241, Pu242, U238。
+反応率の差は OpenMC の燃料の中性子束で ΔR = Σ_g φ_g N (σ_xlc − σ_OpenMC) と足す。k = νF / A（F は核分裂率、
+A はセル全体の吸収率）なので、中性子束を固定した 1 次の近似で Δk/k ≈ ΔνF / νF − (ΔC + ΔF) / A に換算する
+（ν はライブラリの無限希釈の群の値）。全 − 弾性 − 核分裂が捕獲に等しい 15 群（9.1 keV）より下だけを足す。核種は OpenMC の名前で、省略すると Pu240, Pu239, Pu241, Pu242, U238。
 """
 
 import sys
@@ -18,6 +18,7 @@ import msgpack
 
 UFG = range(15, 28)
 BELOW = range(28, 57)
+THERMAL = range(57, 70)
 
 
 def read(path: str) -> dict:
@@ -31,8 +32,18 @@ def reactions(rates: dict) -> dict[str, list[float]]:
     return {"capture": capture, "fission": rates["fission"]}
 
 
+def nu(library: dict, nuclide: str) -> list[float]:
+    """無限希釈の群ごとの ν（核分裂のない群は 0）。"""
+    (data,) = [n for n in library["nuclides"] if n["name"].replace("-", "") == nuclide]
+    dilute = data["temperatures"][0]["shielded"][0]
+    return [
+        p / f if f > 0 else 0.0 for p, f in zip(dilute["nu_fission"], dilute["fission"])
+    ]
+
+
 def main() -> None:
-    bounds = read(sys.argv[1])["group_bounds"]
+    library = read(sys.argv[1])
+    bounds = library["group_bounds"]
     ours = read(sys.argv[2])["nuclides"]
     reference = read(sys.argv[3])
     nuclides = sys.argv[4:] or ["Pu240", "Pu239", "Pu241", "Pu242", "U238"]
@@ -57,28 +68,37 @@ def main() -> None:
                 )
             print(f"{g:5d}  {bounds[g]:10.4g}  " + "  ".join(cells))
 
-    print("\ncapture/fission rate difference (sum over groups, OpenMC flux)")
-    print("nuclide  reaction  group range  rel. diff (%)  dR / A (pcm)")
+    print("\nrate differences (sum over groups, OpenMC flux) and first-order k effect")
+    print("nuclide  groups  capture (%)  fission (%)  dk/k (pcm)")
+    total = {}
     density = reference["densities"]
+    production = reference["nu-fission"]
     for n in nuclides:
-        for score in ["capture", "fission"]:
-            a = reactions(ours[n])[score]
-            b = reactions(reference["nuclides"][n])[score]
-            for label, groups in [
-                ("all", range(1, len(phi) + 1)),
-                ("15-27", UFG),
-                ("28-56", BELOW),
-            ]:
-                ref = sum(phi[g - 1] * density[n] * b[g - 1] for g in groups)
-                diff = sum(
-                    phi[g - 1] * density[n] * (a[g - 1] - b[g - 1]) for g in groups
+        a, b = reactions(ours[n]), reactions(reference["nuclides"][n])
+        v = nu(library, n)
+        for label, groups in [
+            ("15-27", UFG),
+            ("28-56", BELOW),
+            ("57-69", THERMAL),
+            ("15-69", range(UFG.start, THERMAL.stop)),
+        ]:
+            cells, dk = [], 0.0
+            for score in ["capture", "fission"]:
+                ref = sum(phi[g - 1] * density[n] * b[score][g - 1] for g in groups)
+                diff = [
+                    phi[g - 1] * density[n] * (a[score][g - 1] - b[score][g - 1])
+                    for g in groups
+                ]
+                cells.append(
+                    f"{sum(diff) / ref * 100:+11.2f}" if ref > 0 else f"{'-':>11}"
                 )
-                if ref <= 0:
-                    continue
-                print(
-                    f"{n:7s}  {score:8s}  {label:11s}  {diff / ref * 100:+13.2f}"
-                    f"  {diff / absorption * 1e5:+12.1f}"
-                )
+                dk -= sum(diff) / absorption
+                if score == "fission":
+                    dk += sum(v[g - 1] * d for g, d in zip(groups, diff)) / production
+            print(f"{n:7s}  {label:6s}  {cells[0]}  {cells[1]}  {dk * 1e5:+10.1f}")
+            total[label] = total.get(label, 0.0) + dk
+    for label, dk in total.items():
+        print(f"{'sum':7s}  {label:6s}  {'':11s}  {'':11s}  {dk * 1e5:+10.1f}")
 
 
 if __name__ == "__main__":
