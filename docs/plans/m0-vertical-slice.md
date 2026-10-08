@@ -3,52 +3,38 @@
 ## 目的
 
 `xs` → `lattice` → `core` の3段階を最小構成で端から端までつなぎ、段階間のデータ形式と
-各段階の計算の骨格を確定する。物理の精度は M1 以降で上げる。ここで決めた簡略化は、
+各段階の計算の骨格を確定する（[ADR-0030](../adr/0030-build-a-vertical-slice-first.md)）。物理の精度は M1 以降で上げる。ここで決めた簡略化は、
 後のマイルストーンで置き換える前提のものである。
 
 ## 対象
 
 - 核種は H-1, O-16, U-235, U-238 とする。被覆管（Zr）は含めず、ピンセルは燃料と水の2領域とする
-- ENDF/B-VIII.0 を使う
+- ENDF/B-VIII.0 を使う（[ADR-0020](../adr/0020-use-endf-b-viii-0.md)）
 
 ## xs: 核データ処理
 
-- 共鳴: 分離共鳴領域は Reich-Moore（LRF=3）の共鳴パラメータから 0 K の断面積を再構成する。
-  対象核種の分離共鳴はこの形式だけで、他の形式は M1 で扱う。非分離共鳴領域は、
-  無限希釈の平均断面積が MF3 に入っている（LSSF=1）のでそれを使う
-- 温度: ドップラー拡がりは M1 で扱い、M0 の断面積は 0 K とする。熱中性子の散乱だけは、
-  標的の熱運動を無視すると上方散乱がなくなり熱スペクトルが成り立たないため、
-  293.6 K の自由ガス模型で扱う。熱中性子散乱則 S(α,β) は M1 で扱う
-- 群構造と重み関数: WIMS 69群とし、重み関数は NJOY の iwt=4 と同じもの
-  （Maxwell 分布 + 1/E + 核分裂スペクトル）にする。同じ条件の NJOY（RECONR, GROUPR）の結果と
-  比べて検証できるようにするためである
-- 散乱: 散乱は等方（P0）とし、輸送補正はしない（M2 で非等方散乱に変更。m2-assembly.md の「散乱の非等方性」）。
-  - 弾性散乱は、4 eV 以上では静止した標的との重心系等方散乱、4 eV 未満では自由ガス模型とする
-  - 離散準位の非弾性散乱は、重心系等方の運動学で扱う
-  - 連続的な中性子放出反応（MT91, (n,2n) など）は、MF6 LAW=1 のエネルギー分布と多重度を使う。
-    角度と座標系（重心系か実験室系か）は無視する
-- 核分裂: ν は MF1 MT452、核分裂スペクトル χ は MF5 MT18 を使い、
-  χ は核分裂源（νσf と重み関数の積）で重み付けして1本のベクトルにする
+- 共鳴と温度: [ADR-0038](../adr/0038-use-zero-kelvin-cross-sections-in-m0.md)（M1 で置き換え）。分離共鳴の形式: [ADR-0021](../adr/0021-follow-njoy-processing-flow.md)
+- 群構造と重み関数: [ADR-0022](../adr/0022-use-wims-69-groups.md)、[ADR-0039](../adr/0039-weight-with-njoy-iwt4.md)
+- 散乱: [ADR-0040](../adr/0040-scatter-isotropically-in-m0.md)（M2 で [ADR-0075](../adr/0075-solve-moc-with-anisotropic-scattering.md) に置き換え）、[ADR-0041](../adr/0041-transfer-by-two-body-kinematics.md)
+- 核分裂: [ADR-0042](../adr/0042-collapse-chi-by-fission-source.md)
 
 ## lattice: 格子計算
 
-- ピンセルの 2D MOC を、正方形の外周で鏡面反射とする。鏡面反射を厳密に扱うため、
-  方位角はトラックが外周でつながる角度に補正する（cyclic tracking）
-- 散乱は等方とする。2群（境界 0.625 eV）に縮約し、拡散係数は D = 1/(3Σt) とする
+- ピンセルの MOC と cyclic tracking: [ADR-0043](../adr/0043-track-pin-cells-cyclically.md)
+- 散乱は等方とする（[ADR-0040](../adr/0040-scatter-isotropically-in-m0.md)）。2群への縮約と拡散係数: [ADR-0044](../adr/0044-collapse-to-two-groups.md)
 - 検証: 均質なセルでの解析解（無限媒質の多群固有値）との一致と、トラック間隔・角度の収束性で行う
 
 ## core: 炉心計算
 
-- 3D の2群 NEM（4次多項式展開、横方向の漏れは2次近似）を実装する。CMFD 加速は M3 で入れる
+- 3D の2群 NEM: [ADR-0045](../adr/0045-expand-nem-to-fourth-order.md)。CMFD 加速は M3 で入れる（[ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)）
 - 境界条件は、反射とゼロ中性子束（解析解と比べるため）とする。真空境界（入射部分中性子流ゼロ）は
   M3 で入れる
-- クレート名は `core` にすると Rust 標準の `core` クレートと衝突するので、パッケージ名を
-  `xlc-core` とする
+- パッケージ名 `xlc-core`: [ADR-0001](../adr/0001-split-into-three-stage-crates.md)
 - 検証: 均質な直方体炉心の解析解（2群拡散方程式、B² = Σ(π/L)²）との一致で行う
 
 ## 段階間のデータ形式
 
-人が読めて diff を取れるテキスト形式とする（全体計画のとおり）。M2 でデータファイルは MessagePack、入力ファイルは TOML に改めた（全体計画の「ファイルの約束事」を参照）。
+自前のテキスト形式とする（[ADR-0009](../adr/0009-write-text-intermediate-files.md)。M2 でデータファイルは [ADR-0011](../adr/0011-write-data-files-in-messagepack.md)、入力ファイルは [ADR-0010](../adr/0010-write-inputs-in-toml.md) に改めた）。
 
 - 多群ライブラリ（`xs` → `lattice`）: 群境界、核種ごとの σt, νσf, σf, χ, 散乱行列
 - 少数群定数（`lattice` → `core`）: 2群の Σt, Σa, νΣf, Σf, χ, 散乱行列, D
