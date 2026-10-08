@@ -19,6 +19,8 @@ pub enum Boundary {
     Reflective,
     /// 境界での中性子束 0
     ZeroFlux,
+    /// 外から入る部分中性子流 0（Marshak の真空境界）
+    Vacuum,
 }
 
 /// 直方体の炉心のノード分割。幅は cm。
@@ -358,7 +360,7 @@ impl<'a> Core<'a> {
     /// とすると、f(o + i) = f'(o' + i')（不均質な中性子束）と o - i = i' - o'（正味の中性子流）から
     ///   i = ((f' - f) o + 2 f' o') / (f + f')
     /// なので、β = (f' - f)/(f + f')、外からの入射は 2 f' o'/(f + f')（ADF が等しければ i = o'）。
-    /// 外周では、反射 β = 1、中性子束ゼロ β = -1（2(o + i) = 0）で、外からの入射は 0。
+    /// 外周では、反射 β = 1、中性子束ゼロ β = -1（2(o + i) = 0）、真空 β = 0 で、外からの入射は 0。
     fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
         let face = |step: isize, index: usize| match self.neighbor(n, d, step) {
             Some(m) => {
@@ -377,6 +379,7 @@ impl<'a> Core<'a> {
             None => match self.problem.boundaries[2 * d + index] {
                 Boundary::Reflective => (1.0, 0.0),
                 Boundary::ZeroFlux => (-1.0, 0.0),
+                Boundary::Vacuum => (0.0, 0.0),
             },
         };
         (face(-1, 0), face(1, 1))
@@ -395,6 +398,19 @@ impl<'a> Core<'a> {
         // 横方向の漏れは群のスイープの始めの値を使う
         let leakage: Vec<[f64; 3]> = (0..nodes)
             .map(|n| std::array::from_fn(|d| self.net_leakage(state, n, d, g)))
+            .collect();
+        // 真空の面の中性子束と、ノード平均に対する比（横方向の漏れの形に使う）
+        let face_ratio: Vec<[[f64; 2]; 3]> = (0..nodes)
+            .map(|n| {
+                std::array::from_fn(|d| {
+                    let (in_minus, in_plus) = self.incoming(state, n, d, g);
+                    let phi = state.flux[n][g];
+                    [
+                        2.0 * (state.out_minus[d][n][g] + in_minus) / phi,
+                        2.0 * (state.out_plus[d][n][g] + in_plus) / phi,
+                    ]
+                })
+            })
             .collect();
         for n in 0..nodes {
             let m = self.material(n);
@@ -427,7 +443,7 @@ impl<'a> Core<'a> {
                         *si += c * a;
                     }
                 }
-                let (l1, l2) = self.transverse_shape(&leakage, n, d);
+                let (l1, l2) = self.transverse_shape(&leakage, &face_ratio, n, d);
                 s[0] -= l1;
                 s[1] -= l2;
 
@@ -500,9 +516,16 @@ impl<'a> Core<'a> {
     /// 方向 d の横方向の漏れ（他の2方向の漏れの和）を、両隣のノードを含む2次式で近似し、
     /// ノード n での f1, f2 の係数を返す。
     ///
-    /// 外周では、反射境界なら外に鏡像のノードがあるとみなし、中性子束ゼロの境界なら
-    /// 面で漏れが 0 になる（漏れは中性子束に比例する）という条件を使う。
-    fn transverse_shape(&self, leakage: &[[f64; 3]], n: usize, d: usize) -> (f64, f64) {
+    /// 外周では、反射境界なら外に鏡像のノードがあるとみなす。中性子束ゼロと真空の境界では、
+    /// 漏れは中性子束に比例するとみなし、面の漏れをノードの漏れ × 面の中性子束 / ノード平均
+    /// （`face_ratio`、[ノード][方向][- 面, + 面]）とする（中性子束ゼロなら 0）。
+    fn transverse_shape(
+        &self,
+        leakage: &[[f64; 3]],
+        face_ratio: &[[[f64; 2]; 3]],
+        n: usize,
+        d: usize,
+    ) -> (f64, f64) {
         let transverse =
             |m: usize| -> f64 { (0..3).filter(|&e| e != d).map(|e| leakage[m][e]).sum() };
         let h = self.width(n, d);
@@ -524,6 +547,10 @@ impl<'a> Core<'a> {
                         average(near.min(far), near.max(far), transverse(n))
                     }
                     Boundary::ZeroFlux => ([1.0, near, near * near], 0.0),
+                    Boundary::Vacuum => (
+                        [1.0, near, near * near],
+                        transverse(n) * face_ratio[n][d][face],
+                    ),
                 },
             }
         };
