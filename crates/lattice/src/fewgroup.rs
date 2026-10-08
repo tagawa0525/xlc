@@ -889,6 +889,8 @@ mod tests {
             leakage: vec![0.0; 2],
             sides: vec![vec![0.0; 2]; 4],
             currents: vec![vec![0.0; 2]; 4],
+            face_fluxes: vec![vec![0.0; 2]; 4],
+            face_currents: vec![vec![0.0; 2]; 4],
             // [領域][x, y][群]。体積 (1, 2) を掛けて ê_G へ射影した重みは、群 0 で (0.5, 2)、群 1 で (1.0, −0.2)
             // （群 1 は領域 1 で逆向き）。どちらの群も ê = (0.6, 0.8)
             region_currents: vec![
@@ -1209,6 +1211,8 @@ mod tests {
             leakage: vec![0.0; 2],
             sides: vec![vec![1.0; 2]; 4],
             currents: vec![vec![0.0; 2]; 4],
+            face_fluxes: vec![vec![1.0; 2]; 4],
+            face_currents: vec![vec![0.0; 2]; 4],
             region_currents: vec![[vec![0.0; 2], vec![0.0; 2]]; 2],
             size: [1.0, 0.5],
             iterations: 1,
