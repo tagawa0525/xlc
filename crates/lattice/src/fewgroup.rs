@@ -5,7 +5,7 @@ use xlc_format::group::GroupStructure;
 
 use crate::material::Material;
 use crate::moc::Solution;
-use crate::tracking::Boundaries;
+use crate::tracking::{Boundaries, Boundary};
 
 /// 少数群への縮約のエラー。
 #[derive(Debug, thiserror::Error)]
@@ -24,8 +24,8 @@ pub enum HomogenizeError {
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
 /// `coarse_bounds`（`fine` の境界の一部、降順）の少数群に縮約する。
-/// 拡散係数は D = 1/(3Σt) とする（M0 の近似）。不連続因子は、辺の上の中性子束を体積平均の中性子束で割る
-/// （外周が鏡面反射の単一の格子のとき。均質な解が平らになる）。
+/// 拡散係数は D = 1/(3Σt) とする（M0 の近似）。不連続因子は、辺の上の中性子束を体積平均の中性子束で割る。
+/// 格子全体を1つのノード（集合体）として均質化し、外周がすべて鏡面反射であること（均質な解が平らになる）。
 pub fn homogenize(
     solution: &Solution,
     materials: &[&Material],
@@ -33,7 +33,15 @@ pub fn homogenize(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
 ) -> Result<FewGroup, HomogenizeError> {
-    let _ = boundaries;
+    let sides = [
+        boundaries.left,
+        boundaries.right,
+        boundaries.top,
+        boundaries.bottom,
+    ];
+    if sides.contains(&Boundary::Vacuum) {
+        return Err(HomogenizeError::NotReflective);
+    }
     let ng = fine.len();
     if materials.len() != solution.flux.len() {
         return Err(HomogenizeError::RegionCount {
