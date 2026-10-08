@@ -791,7 +791,13 @@ pub(crate) mod tests {
             .is_err()
         );
         // 散乱行列の次数が違う
-        assert!(lookup(&|n| n.temperatures[1].scatter.truncate(1)).is_err());
+        assert!(
+            lookup(&|n| {
+                let p0 = n.temperatures[1].scatter[0].clone();
+                n.temperatures[1].scatter.push(p0);
+            })
+            .is_err()
+        );
         // ポイントワイズの断面積の範囲が違う
         assert!(lookup(&|n| n.temperatures[1].pointwise = Pointwise::default()).is_err());
     }
