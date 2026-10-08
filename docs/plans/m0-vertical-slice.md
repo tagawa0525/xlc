@@ -15,7 +15,7 @@
 
 - 共鳴と温度: [ADR-0038](../adr/0038-use-zero-kelvin-cross-sections-in-m0.md)（M1 で置き換え）。分離共鳴の形式: [ADR-0021](../adr/0021-follow-njoy-processing-flow.md)
 - 群構造と重み関数: [ADR-0022](../adr/0022-use-wims-69-groups.md)、[ADR-0039](../adr/0039-weight-with-njoy-iwt4.md)
-- 散乱: [ADR-0040](../adr/0040-scatter-isotropically-in-m0.md)（M2 で [ADR-0075](../adr/0075-solve-moc-with-anisotropic-scattering.md) に置き換え）、[ADR-0041](../adr/0041-transfer-by-two-body-kinematics.md)
+- 散乱: [ADR-0040](../adr/0040-scatter-isotropically-in-m0.md)（M2 で [ADR-0075](../adr/0075-solve-moc-with-anisotropic-scattering.md) に置き換え）、[ADR-0041](../adr/0041-transfer-by-two-body-kinematics.md)（M3 で [ADR-0081](../adr/0081-use-mf4-angular-distributions.md) に置き換え）
 - 核分裂: [ADR-0042](../adr/0042-collapse-chi-by-fission-source.md)
 
 ## lattice: 格子計算
