@@ -9,8 +9,9 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
+use xlc_format::group::GroupStructure;
 use xlc_xs::endf::Tape;
-use xlc_xs::multigroup::{GroupStructure, Thermal, ThermalSab, Weight, scattering_matrix};
+use xlc_xs::multigroup::{Thermal, ThermalSab, Weight, scattering_matrix};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::read_thermal_scattering;
 

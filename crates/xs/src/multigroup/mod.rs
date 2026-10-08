@@ -7,10 +7,11 @@ mod outgoing;
 mod sab;
 mod scatter;
 mod slowing;
-mod structure;
 mod weight;
 
 use std::collections::BTreeMap;
+
+use xlc_format::group::GroupStructure;
 
 use crate::endf::{Interpolation, Tab1};
 
@@ -25,8 +26,7 @@ pub use scatter::{
     Emission, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
     scattering_moments, two_body_range,
 };
-pub use slowing::{SlowingDownError, WINDOW_POINTS, slowing_down_shape, slowing_down_shape_with};
-pub use structure::{GroupError, GroupStructure};
+pub use slowing::{SlowingDownError, slowing_down_shape, slowing_down_shape_with};
 pub use weight::Weight;
 
 /// 群平均断面積。配列は群の順（高エネルギーから）。

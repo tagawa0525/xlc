@@ -513,7 +513,17 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "xlc-lattice",
+ "xlc-format",
+]
+
+[[package]]
+name = "xlc-format"
+version = "0.1.0"
+dependencies = [
+ "rmp-serde",
+ "rmpv",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -524,13 +534,20 @@ dependencies = [
  "num_cpus",
  "rayon",
  "rmp-serde",
- "rmpv",
  "serde",
  "thiserror",
  "toml",
  "tracing",
  "tracing-subscriber",
- "xlc-xs",
+ "xlc-format",
+ "xlc-numeric",
+]
+
+[[package]]
+name = "xlc-numeric"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
 ]
 
 [[package]]
@@ -539,11 +556,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "num-complex",
- "rmp-serde",
- "rmpv",
  "serde",
  "thiserror",
  "toml",
  "tracing",
  "tracing-subscriber",
+ "xlc-format",
+ "xlc-numeric",
 ]

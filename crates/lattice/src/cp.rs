@@ -19,6 +19,7 @@
 
 use std::f64::consts::PI;
 use std::sync::OnceLock;
+use xlc_numeric::quadrature::{NodesError, gauss_legendre};
 
 /// y の求積で、小区間（リングの間の区間を、外の境界の特異点に合わせて分けたもの）ごとに使う Gauss–Legendre の点の数
 const POINTS: usize = 16;
@@ -30,8 +31,8 @@ pub enum CpError {
     Radii(Vec<f64>),
     #[error("the y quadrature needs at least one point per ring")]
     Points,
-    #[error("Gauss-Legendre nodes for {0} points did not converge")]
-    Nodes(usize),
+    #[error(transparent)]
+    Nodes(#[from] NodesError),
     #[error("{given} values for {rings} rings")]
     Rings { given: usize, rings: usize },
     #[error("ring {0}: total cross sections must be finite and not negative")]
@@ -320,43 +321,6 @@ fn segments(radii: &[f64], k: usize, y: f64) -> Vec<(usize, f64)> {
     chord.push((k, 2.0 * half(radii[k])));
     chord.extend(outer);
     chord
-}
-
-/// [−1, 1] の n 点の Gauss–Legendre の点と重み（Newton 法で Legendre 多項式の零点を求める）。
-fn gauss_legendre(n: usize) -> Result<Vec<(f64, f64)>, CpError> {
-    let mut nodes = Vec::with_capacity(n);
-    for i in 0..n {
-        let mut x = (PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
-        let mut converged = false;
-        for _ in 0..100 {
-            let (p, dp) = legendre(n, x);
-            let step = p / dp;
-            x -= step;
-            if step.abs() <= 1e-15 {
-                converged = true;
-                break;
-            }
-        }
-        if !converged {
-            return Err(CpError::Nodes(n));
-        }
-        let (_, dp) = legendre(n, x);
-        nodes.push((x, 2.0 / ((1.0 - x * x) * dp * dp)));
-    }
-    Ok(nodes)
-}
-
-/// Legendre 多項式 P_n(x) とその導関数
-fn legendre(n: usize, x: f64) -> (f64, f64) {
-    let (mut p0, mut p1) = (1.0, x);
-    for k in 2..=n {
-        let k = k as f64;
-        (p0, p1) = (p1, ((2.0 * k - 1.0) * x * p1 - (k - 1.0) * p0) / k);
-    }
-    if n == 0 {
-        return (1.0, 0.0);
-    }
-    (p1, n as f64 * (x * p1 - p0) / (x * x - 1.0))
 }
 
 /// 表の区間: [0, 1) は細かく（Ki の 3 階以上の導関数が 0 で発散するため）、[1, MAX) は粗く

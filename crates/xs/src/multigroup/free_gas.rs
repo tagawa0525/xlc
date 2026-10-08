@@ -8,10 +8,9 @@
 //! （一定の自由原子の断面積なら σ N(E)）に S/N(E) を掛ける。自由原子の断面積が一定なら σ S に等しく、
 //! 詳細バランスが厳密に成り立つ。
 
-use super::GroupStructure;
-use super::integrate::GAUSS_LEGENDRE;
-use super::scatter::{GAUSS_8, legendre};
 use crate::special::{erf, erfcx};
+use xlc_format::group::GroupStructure;
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_4, GAUSS_LEGENDRE_8, legendre};
 
 /// 熱領域の弾性散乱を自由ガス模型で扱う条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -130,7 +129,7 @@ pub fn free_gas_kernel_moments(e: f64, e_out: f64, awr: f64, kt: f64, order: usi
     for k in 0..pieces {
         let a = u_lo + k as f64 * step;
         let half = 0.5 * step;
-        for &(x, w) in &GAUSS_8 {
+        for &(x, w) in &GAUSS_LEGENDRE_8 {
             let u = a + half * (x + 1.0);
             let alpha = u * u;
             let s = norm * (-(alpha * alpha + beta * beta) / (4.0 * alpha)).exp();
@@ -208,7 +207,7 @@ fn integrate_linear_multi(f: &impl Fn(f64) -> Vec<f64>, a: f64, b: f64, n: usize
 
 fn gauss_legendre_multi(f: &impl Fn(f64) -> Vec<f64>, lo: f64, hi: f64, sum: &mut [f64]) {
     let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
-    for &(x, wk) in &GAUSS_LEGENDRE {
+    for &(x, wk) in &GAUSS_LEGENDRE_4 {
         for (s, v) in sum.iter_mut().zip(f(mid + half * x)) {
             *s += wk * half * v;
         }

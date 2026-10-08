@@ -6,6 +6,7 @@
 //! MF6 がなく MF4/MF5 で与えられた反応は、MF5 のエネルギー分布と、反応で決まる多重度を使う。
 
 use std::collections::BTreeMap;
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
 
 use super::free_gas::free_gas_group_moments;
 use super::outgoing::uniform_fractions;
@@ -300,32 +301,6 @@ fn two_body_rows(
     by_order(rows, ng, order)
 }
 
-/// 8 点のガウス・ルジャンドルの点と重み（[-1, 1]）
-pub(crate) const GAUSS_8: [(f64, f64); 8] = [
-    (-0.960_289_856_497_536_3, 0.101_228_536_290_376_3),
-    (-0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
-    (-0.525_532_409_916_329, 0.313_706_645_877_887_3),
-    (-0.183_434_642_495_649_8, 0.362_683_783_378_362),
-    (0.183_434_642_495_649_8, 0.362_683_783_378_362),
-    (0.525_532_409_916_329, 0.313_706_645_877_887_3),
-    (0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
-    (0.960_289_856_497_536_3, 0.101_228_536_290_376_3),
-];
-
-/// ルジャンドル多項式 P_0(x)〜P_order(x)
-pub(crate) fn legendre(x: f64, order: usize) -> Vec<f64> {
-    let mut p = Vec::with_capacity(order + 1);
-    p.push(1.0);
-    if order >= 1 {
-        p.push(x);
-    }
-    for l in 2..=order {
-        let l_f = l as f64;
-        p.push(((2.0 * l_f - 1.0) * x * p[l - 1] - (l_f - 1.0) * p[l - 2]) / l_f);
-    }
-    p
-}
-
 /// 重心系で等方な2体反応で、入射エネルギー `e` の中性子が群 g' に出る確率に、実験室系の散乱角の余弦 μ の
 /// ルジャンドル多項式 P_l(μ) を掛けたもの [l][g']（`scale` 倍。l = 0 は一様な振り分け）。
 ///
@@ -376,7 +351,7 @@ fn two_body_moments(
         let g = group(0.5 * (w[0] + w[1]));
         let (sa, sb) = (speed(w[0]), speed(w[1]));
         let half = 0.5 * (sb - sa);
-        for &(x, weight) in &GAUSS_8 {
+        for &(x, weight) in &GAUSS_LEGENDRE_8 {
             let s = sa + half * (x + 1.0);
             let mu = (s * s + c) / (2.0 * s);
             let factor = scale * weight * half * s / (2.0 * ab);
