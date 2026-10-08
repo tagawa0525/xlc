@@ -1092,7 +1092,7 @@ fn direction_weight(tracking: &Tracking, azimuth: usize, p: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::{Lattice, PinCell};
+    use crate::geometry::{Cell, Lattice, PinCell};
     use crate::material::FissionTerm;
     use crate::tracking::{Boundaries, Boundary};
 
@@ -1875,5 +1875,148 @@ mod tests {
         let tracking = Tracking::new(&Lattice::pin_cell(cell.clone()), 8, 0.1).unwrap();
         let m = fuel();
         assert!(solve(&tracking, &[&m], &Options::default()).is_err());
+    }
+
+    /// 燃料の均質なブロック（1 cm 角、4 × 4 の領域）を x に `columns` 個並べた帯の、[領域] の x 座標（中心が原点）
+    fn strip(columns: usize) -> (Lattice, Vec<f64>) {
+        let lattice = Lattice::rectilinear(
+            vec![1.0; columns],
+            vec![1.0],
+            vec![Cell::Block { nx: 4, ny: 4 }],
+            vec![vec![0; columns]],
+        )
+        .unwrap();
+        let x = (0..columns)
+            .flat_map(|c| {
+                (0..16)
+                    .map(move |r| -0.5 * columns as f64 + c as f64 + (r % 4) as f64 * 0.25 + 0.125)
+            })
+            .collect();
+        (lattice, x)
+    }
+
+    /// P1 の散乱を P0 の 0.3 倍で持つ物質
+    fn with_p1(mut m: Material) -> Material {
+        m.anisotropic = vec![
+            m.scatter
+                .iter()
+                .map(|row| row.iter().map(|s| 0.3 * s).collect())
+                .collect(),
+        ];
+        m
+    }
+
+    #[test]
+    fn region_currents_vanish_in_an_infinite_medium() {
+        let (lattice, _) = strip(2);
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let m = fuel();
+        let s = solve(&tracking, &[&m; 32], &Options::default()).unwrap();
+        assert_eq!(s.region_currents.len(), 32);
+        for (r, current) in s.region_currents.iter().enumerate() {
+            for (c, component) in current.iter().enumerate() {
+                for (g, j) in component.iter().enumerate() {
+                    assert!(
+                        j.abs() < 1e-8 * s.flux[r][g],
+                        "region {r} {c} group {g}: {j}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn region_currents_satisfy_the_first_moment_balance() {
+        // 帯（x ∈ [−2, 2]、右が真空、ほかは鏡面反射）の x の1次のモーメントの式
+        //   Σ_r V_r J_x,r = 2 × 1 × J_右 − Σ_r x_r V_r (q_r − Σt,r φ_r)
+        // （部分積分と領域ごとのバランス ∫∇·J = V (q − Σt φ)。x_r は領域の中心で、領域の中での変化による誤差が残る）。
+        // 等方散乱（電流の集計）と P1 の散乱（中性子束のモーメント）の両方。真空の領域を1つ含む
+        let (lattice, x) = strip(4);
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        for order in [0, 1] {
+            let (f, void) = (with_p1(fuel()), Material::void(2));
+            let materials: Vec<&Material> =
+                (0..64).map(|r| if r == 37 { &void } else { &f }).collect();
+            let options = Options {
+                scattering_order: order,
+                ..Options::default()
+            };
+            let s = solve(&tracking, &materials, &options).unwrap();
+            for g in 0..2 {
+                let mut moment = 0.0;
+                let mut divergence = 0.0;
+                for (r, m) in materials.iter().enumerate() {
+                    let v = s.volumes[r];
+                    moment += v * s.region_currents[r][0][g];
+                    let q: f64 = (0..2)
+                        .map(|from| m.scatter[from][g] * s.flux[r][from])
+                        .sum::<f64>()
+                        + m.fission_terms
+                            .iter()
+                            .map(|t| {
+                                t.chi[g]
+                                    * t.nu_fission
+                                        .iter()
+                                        .zip(&s.flux[r])
+                                        .map(|(n, phi)| n * phi)
+                                        .sum::<f64>()
+                            })
+                            .sum::<f64>()
+                            / s.k;
+                    divergence += x[r] * v * (q - m.total[g] * s.flux[r][g]);
+                }
+                let expected = 2.0 * s.currents[1][g] - divergence;
+                assert!(
+                    (moment - expected).abs() < 2e-3 * expected.abs(),
+                    "order {order} group {g}: {moment} vs {expected}"
+                );
+                // 真空の領域の中性子流も右向き
+                assert!(
+                    s.region_currents[37][0][g] > 0.0,
+                    "{:?}",
+                    s.region_currents[37]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn region_currents_are_antisymmetric_in_a_mirror_lattice() {
+        // 両側が真空の対称な帯では、x の中性子流は左右で符号が逆、y の中性子流は 0
+        let (lattice, _) = strip(4);
+        let boundaries = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        let m = fuel();
+        let s = solve(&tracking, &[&m; 64], &Options::default()).unwrap();
+        let mirror = |r: usize| {
+            let (cell, inner) = (r / 16, r % 16);
+            (3 - cell) * 16 + (inner / 4) * 4 + 3 - inner % 4
+        };
+        let scale = s
+            .region_currents
+            .iter()
+            .map(|c| c[0][0].abs())
+            .fold(0.0, f64::max);
+        for r in 0..64 {
+            for g in 0..2 {
+                let (a, b) = (
+                    s.region_currents[r][0][g],
+                    s.region_currents[mirror(r)][0][g],
+                );
+                assert!(
+                    (a + b).abs() < 1e-6 * scale,
+                    "region {r} group {g}: {a} vs {b}"
+                );
+                assert!(s.region_currents[r][1][g].abs() < 1e-6 * scale);
+            }
+        }
     }
 }
