@@ -26,7 +26,8 @@ SPH 因子（Hébert の SPH 等価）で直す。リング r・群 g の反応�
 冒頭の説明）。M2 の計画は「同じセルを多群で解いた反応率が UFG と一致するよう求めた SPH 因子」と書いていたが、一致する
 のはリング間の形と平均の中性子束までである。
 
-SPH 因子は UFG の中性子束を参照にして求めるので、参照のない範囲の外（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）には掛けない。真空のリングと、因子を
+因子は、UFG の範囲の群で、等価なセルの真空でないすべてのリング（燃料、被覆管、減速材）の物質に掛ける
+（`crates/lattice/src/shielding.rs` の `shield_cell`）。SPH 因子は UFG の中性子束を参照にして求めるので、参照のない範囲の外（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）には掛けない。真空のリングと、因子を
 掛ける先のないリング（格子に使わない等価なセルの支持格子のリング。[ADR-0088](0088-add-frame-ring-to-equivalent-cell.md)）は μ = 1 とする。
 
 ## 確認
@@ -36,5 +37,5 @@ SPH 因子は UFG の中性子束を参照にして求めるので、参照の�
 
 ## 結果
 
-- 等価なセルの被覆管と減速材には掛けない（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）
+- 範囲の外の群では、どのリングにも掛けない（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）
 - 支持格子のリングの SPH 因子は 1 のままにする（[ADR-0088](0088-add-frame-ring-to-equivalent-cell.md)）
