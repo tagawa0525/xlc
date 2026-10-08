@@ -648,4 +648,33 @@ mod tests {
             Err(OneNodeError::NonPositiveSurface { face: 1, .. })
         ));
     }
+
+    #[test]
+    fn fissile_nodes_have_positive_nu_fission() {
+        // νΣf が正の群があれば核分裂のあるノード（NEM）、どの群も 0 なら核分裂のないノード（ANM。ADR-0102）。
+        // 負や有限でない値はエラー
+        assert_eq!(is_fissile(&[0.0, 0.0]), Ok(false));
+        assert_eq!(is_fissile(&[0.0, 1.0e-3]), Ok(true));
+        for bad in [-1.0e-3, f64::NAN, f64::INFINITY] {
+            assert!(is_fissile(&[0.0, bad]).is_err(), "{bad}");
+        }
+        let (diffusion, total, scatter, _, chi) = constants();
+        let zero = [0.0, 0.0];
+        let node = OneNode {
+            diffusion: &diffusion,
+            total: &total,
+            scatter: &scatter,
+            nu_fission: &[0.006, -0.1],
+            chi: &chi,
+            k: 1.0,
+            flux: &[1.3, 0.4],
+            widths: [21.5, 21.5],
+            currents: [&zero; 4],
+            edges: [Edge::Reflective; 4],
+        };
+        assert!(matches!(
+            surface_fluxes(&node),
+            Err(OneNodeError::Invalid(_))
+        ));
+    }
 }
