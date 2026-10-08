@@ -106,7 +106,7 @@ pub struct FuelShielding {
 /// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
 #[derive(Debug, Clone, PartialEq)]
 pub struct LumpShielding {
-    /// 塊のあるセルの組の代表（最も小さいセル番号）
+    /// 塊のあるセル（対称に移り合うセルの組でまとめた塊は、組の代表（最も小さいセル番号））
     pub cell: usize,
     pub material: String,
     /// 塊の領域（組のすべてのセルの分）
@@ -434,10 +434,37 @@ fn shield_lumps(
             }
         }
     }
-    // 黒体は (セルの組の代表, まとまりの代表のセルの中での番号) ごと、塊は (黒体, 物質の番号) ごと。対称な操作は
-    // リングごとの物質が同じセルどうしでしか成り立たない（[`cell_orbits`]）ので、組のセルの対応するまとまりは同じ番号になる
+    // 対称な操作はリングごとの物質が同じセルどうしでしか成り立たない（[`cell_orbits`]）が、扇形を入れ替える。
+    // リングを丸ごと（枠、小さな正方形や長方形のセルではセルを丸ごと）含むまとまりだけが、組のセルで同じ番号の
+    // まとまりに移る。ほかのまとまり（扇形で分かれた四隅など）は、そのセルだけの黒体にする
+    let ring = |region: usize| -> (usize, usize) {
+        let cell = lattice.region_cell(region);
+        let range = lattice.cell_regions(cell);
+        let local = region - range.start;
+        match lattice.cell_type(cell).pin() {
+            Some(pin) if !pin.is_grid() && local < (pin.radii().len() + 1) * pin.sectors() => {
+                (local / pin.sectors(), pin.sectors())
+            }
+            Some(pin) if !pin.is_grid() => (usize::MAX, 1),
+            _ => (0, range.len()),
+        }
+    };
+    let mut counts: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
+    for region in (0..n_regions).filter(|&r| candidate[r]) {
+        let (r, size) = ring(region);
+        counts
+            .entry((root(&mut parent, region), r))
+            .or_insert((0, size))
+            .0 += 1;
+    }
+    let mut whole: HashMap<usize, bool> = HashMap::new();
+    for (&(root, _), &(n, size)) in &counts {
+        *whole.entry(root).or_insert(true) &= n == size;
+    }
+    // 黒体は (セル, まとまりの代表のセルの中での番号) ごと（セルは、組でまとめるまとまりなら組の代表）、塊は
+    // (黒体, 物質の番号) ごと
     let mut bodies: HashMap<(usize, usize), usize> = HashMap::new();
-    // [黒体] の (セルの組の代表, 核種の組)
+    // [黒体] の (セル, 核種の組)
     let mut body_of: Vec<(usize, &[&str])> = Vec::new();
     let mut body = vec![None; n_regions];
     let mut lumps: HashMap<(usize, usize), usize> = HashMap::new();
@@ -446,9 +473,15 @@ fn shield_lumps(
     for region in (0..n_regions).filter(|&r| candidate[r]) {
         let cell = lattice.region_cell(region);
         let first = lattice.cell_regions(cell).start;
-        let key = (orbits[cell], root(&mut parent, region) - first);
+        let representative = root(&mut parent, region);
+        let owner = if whole.get(&representative).copied().unwrap_or(false) {
+            orbits[cell]
+        } else {
+            cell
+        };
+        let key = (owner, representative - first);
         let b = *bodies.entry(key).or_insert_with(|| {
-            body_of.push((orbits[cell], resonant_of(region_index[region])));
+            body_of.push((owner, resonant_of(region_index[region])));
             body_of.len() - 1
         });
         body[region] = Some(b);
