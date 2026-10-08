@@ -229,26 +229,37 @@ pub fn shielded_averages(
             };
             let elastic = tables.get(&2).ok_or(ShieldingError::NoElastic)?;
             let shape = slowing_down_shape(total, elastic, slowing, weight, s0)?;
-            let (low, high) = slowing.range;
-            let scale = slowing.potential + s0;
-            // 範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）
-            let at_low = shape.eval(low).ok_or(ShieldingError::Undefined(low))?;
-            let flux = |e: f64| {
-                if e < low {
-                    at_low
-                } else if e <= high {
-                    // 表は範囲をちょうど覆うので、引けないのは誤り。NaN はライブラリを書く前の検査で止まる
-                    shape.eval(e).unwrap_or(f64::NAN)
-                } else {
-                    scale * bondarenko(e)
-                }
-            };
+            let flux = slowing_down_flux(&shape, slowing, s0, bondarenko)?;
             let points: Vec<f64> = breakpoints.iter().chain(&shape.x).copied().collect();
             Ok(averages_with_flux(
                 groups, weight, tables, nubar, &points, flux, adjust,
             ))
         })
         .collect()
+}
+
+/// 減速計算の形 `shape` と、範囲の上の Bondarenko の中性子束 `bondarenko` = 1/(σt + σ0) をつないだ、重み関数に
+/// 対する中性子束の比。範囲の上は (σp + σ0) を掛けて上端でつなぐ（減速計算の上端の値は
+/// W (σp + σ0)/(σt + σ0)）。範囲の下は重み関数の定数倍（下端でつながるよう、下端の値を掛ける）。
+fn slowing_down_flux<'a>(
+    shape: &'a Tab1,
+    slowing: &SlowingDown,
+    sigma0: f64,
+    bondarenko: impl Fn(f64) -> f64 + 'a,
+) -> Result<impl Fn(f64) -> f64 + 'a, ShieldingError> {
+    let (low, high) = slowing.range;
+    let scale = slowing.potential + sigma0;
+    let at_low = shape.eval(low).ok_or(ShieldingError::Undefined(low))?;
+    Ok(move |e: f64| {
+        if e < low {
+            at_low
+        } else if e <= high {
+            // 表は範囲をちょうど覆うので、引けないのは誤り。NaN はライブラリを書く前の検査で止まる
+            shape.eval(e).unwrap_or(f64::NAN)
+        } else {
+            scale * bondarenko(e)
+        }
+    })
 }
 
 /// 中性子束 w(E)·`shape`(E) による群平均。`shape` は `breakpoints` の間で滑らかであること。
