@@ -1238,6 +1238,117 @@ mod tests {
     }
 
     #[test]
+    fn faces_of_an_infinite_medium_see_the_mean_flux() {
+        // 均質な無限媒質では、内側の面（セルの境）の上の中性子束も領域の中性子束と同じで、正味の中性子流は 0
+        let cell = PinCell::new(1.26, vec![0.3, 0.45]).unwrap();
+        let lattice = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 8, 0.1).unwrap();
+        let m = fuel();
+        let solution = solve(&tracking, &[&m; 12], &Options::default()).unwrap();
+        // 2×2 のセルの面は 縦 2×3 と横 3×2
+        assert_eq!(solution.face_fluxes.len(), 12);
+        assert_eq!(solution.face_currents.len(), 12);
+        let mean = &solution.flux[0];
+        for (face, values) in solution.face_fluxes.iter().enumerate() {
+            for (g, (v, f)) in values.iter().zip(mean).enumerate() {
+                assert!(
+                    (v - f).abs() < 1e-8 * f,
+                    "face {face} group {g}: {v} vs {f}"
+                );
+                let j = solution.face_currents[face][g];
+                assert!(j.abs() < 1e-8 * f, "face {face} group {g}: current {j}");
+            }
+        }
+    }
+
+    #[test]
+    fn faces_agree_with_sides_and_mirror_lattices() {
+        // 外周の面を辺ごとに長さで重みづけして平均すると、辺の値（`sides`、`currents`）に一致する。
+        // 真ん中が対称面の格子の、真ん中の内側の面の中性子束は、半分の格子の鏡面反射の辺の値に近い
+        // （方位角がセルの比で変わる cyclic tracking の差だけ違う）
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let open = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let full = Lattice::new(
+            vec![pin.clone(), water.clone()],
+            vec![
+                vec![1, 0, 0, 1],
+                vec![1, 0, 0, 1],
+                vec![1, 0, 0, 1],
+                vec![1, 0, 0, 1],
+            ],
+        )
+        .unwrap();
+        let (f, m) = (fuel(), moderator());
+        // 行ごとの領域: 水、ピン（燃料、減速材）、ピン、水
+        let row = [&m, &f, &m, &f, &m, &m];
+        let materials: Vec<&Material> = (0..4).flat_map(|_| row).collect();
+        let tracking = Tracking::with_boundaries(&full, 32, 0.02, open).unwrap();
+        let s = solve(&tracking, &materials, &Options::default()).unwrap();
+        // 縦の面 (r, i) は r × 5 + i、横の面 (j, c) は 20 + j × 4 + c
+        let vertical = |r: usize, i: usize| r * 5 + i;
+        let horizontal = |j: usize, c: usize| 20 + j * 4 + c;
+        let sides: [Vec<(usize, f64)>; 4] = [
+            (0..4).map(|r| (vertical(r, 0), -1.0)).collect(),
+            (0..4).map(|r| (vertical(r, 4), 1.0)).collect(),
+            (0..4).map(|c| (horizontal(0, c), -1.0)).collect(),
+            (0..4).map(|c| (horizontal(4, c), 1.0)).collect(),
+        ];
+        for (side, faces) in sides.iter().enumerate() {
+            for g in 0..2 {
+                let flux: f64 = faces.iter().map(|&(i, _)| s.face_fluxes[i][g]).sum::<f64>() / 4.0;
+                let out: f64 = faces
+                    .iter()
+                    .map(|&(i, o)| o * s.face_currents[i][g])
+                    .sum::<f64>()
+                    / 4.0;
+                let (expected, current) = (s.sides[side][g], s.currents[side][g]);
+                assert!(
+                    (flux - expected).abs() < 1e-12 * expected,
+                    "{flux} vs {expected}"
+                );
+                assert!(
+                    (out - current).abs() < 1e-12 * expected,
+                    "{out} vs {current}"
+                );
+            }
+        }
+        let half = Lattice::new(vec![pin, water], vec![vec![1, 0]; 4]).unwrap();
+        let tracking = Tracking::with_boundaries(
+            &half,
+            32,
+            0.02,
+            Boundaries {
+                left: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            },
+        )
+        .unwrap();
+        let materials: Vec<&Material> = (0..4).flat_map(|_| [&m, &f, &m]).collect();
+        let h = solve(&tracking, &materials, &Options::default()).unwrap();
+        for g in 0..2 {
+            let center: f64 = (0..4)
+                .map(|r| s.face_fluxes[vertical(r, 2)][g])
+                .sum::<f64>()
+                / 4.0;
+            // 全体の中性子束の規格化（生成率 1）は半分の格子の 2 倍の体積にわたるので、半分の値の 1/2
+            let expected = 0.5 * h.sides[1][g];
+            assert!(
+                (center - expected).abs() < 2e-3 * expected,
+                "group {g}: {center} vs {expected}"
+            );
+            let net: f64 = (0..4)
+                .map(|r| s.face_currents[vertical(r, 2)][g])
+                .sum::<f64>();
+            assert!(net.abs() < 1e-6 * center, "{net}");
+        }
+    }
+
+    #[test]
     fn side_currents_add_up_to_the_leakage() {
         // 真空の辺（右、下）の外向きの正味の中性子流 × 辺の長さの和は漏れに等しく、鏡面反射の辺（左、上）
         // では 0
