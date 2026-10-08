@@ -1,16 +1,17 @@
 ---
 status: accepted
 date: 2026-10-07
-supersedes: []
+supersedes: [ADR-0092]
 superseded-by:
-issues: ["#0009"]
+issues: ["#0009", "#0014"]
 ---
 
 # ADR-0076: ライブラリの散乱行列を、Legendre のモーメント P0〜P_L で持つ
 
 ## 背景
 
-MOC を非等方散乱で解く（[ADR-0075](0075-solve-moc-with-anisotropic-scattering.md)）ので、ライブラリに散乱行列の高次のモーメントが要る。
+MOC を非等方散乱で解く（[ADR-0075](0075-solve-moc-with-anisotropic-scattering.md)）ので、ライブラリに散乱行列の高次のモーメントが要る。自己遮蔽した核種の散乱行列は、
+M1 では行の和を自己遮蔽した弾性散乱断面積に合わせるとしていた（[ADR-0092](0092-match-scattering-rows-to-shielded-elastic.md)）。
 
 ## 検討した案
 
@@ -21,15 +22,18 @@ MOC を非等方散乱で解く（[ADR-0075](0075-solve-moc-with-anisotropic-sca
 ライブラリの散乱行列を、Legendre のモーメント P0〜P_L で持つ（L は核データの処理の入力。既定 3）。
 
 - 2体の反応（弾性散乱と離散準位の非弾性散乱）は、出射のエネルギーで実験室系の散乱角が運動学で決まるので、エネルギーの
-  移行の積分に P_l(μ_lab) を掛ける。重心系の角度分布も同じ形で入る。重心系で等方としても、運動学の分（水素の効果の
-  大半）が入る。どの角度分布を使うかは [ADR-0081](0081-use-mf4-angular-distributions.md) と [ADR-0082](0082-leave-out-mf6-angular-data.md)
+  移行の積分に P_l(μ_lab) を掛ける。重心系の角度分布（弾性散乱と離散準位の MF4）も同じ形で入る。まず重心系で等方
+  として運動学の分（水素の効果の大半）を入れ、MF4 の角度分布はその後に入れる（[ADR-0081](0081-use-mf4-angular-distributions.md)）
 - 熱中性子散乱則と自由ガスは、μ が α（またはエネルギー）の式で表せるので、核の μ の積分に P_l(μ) を掛ける
-- 連続的な放出は、出射エネルギーと角度が独立な実験室系の角度分布があれば、エネルギーの移行に P_l の係数を掛ける
-  （MF5 の反応の MF4。[ADR-0081](0081-use-mf4-angular-distributions.md)）。角度分布を使わない放出（MF6 の LAW=1。[ADR-0082](0082-leave-out-mf6-angular-data.md)）と、等方の放出の P1 以上は 0
-- 自己遮蔽した核種では、P0 の行の和（非弾性散乱や多重度を含む）に弾性散乱の変化を足した値と元の和の比で、すべての次数の
-  行を変える（角度分布と群の間の移行の形は無限希釈のまま。散乱行列の自己遮蔽を後回しにすることは [ADR-0050](0050-tabulate-sigma0-per-nuclide-and-temperature.md)）。高次の
-  モーメントにも P0 と同じ比を使う点は MPACT と同じ（MPACT の比は遮蔽した散乱断面積と無限希釈の比。MPACT Theory Manual
-  v4.3, 式 9.13〜9.14）
+- 連続的な放出は、角度分布を持つ形式（MF5 の反応の MF4。LCT で実験室系か重心系かを見る）はその角度分布を使う。角度
+  分布が等方のときだけ P1 以上が 0（Zircaloy-4 の Sn の MT16, 17, 22, 28, 91 などは MF4 が実験室系で非等方）
+- 自己遮蔽した核種では、P0 の行の和（非弾性散乱や多重度を含む）に弾性散乱の変化を足した値と元の和の比で、すべての
+  次数の行を変える（[ADR-0092](0092-match-scattering-rows-to-shielded-elastic.md) を置き換える）。散乱行列は σ0 ごとに持たず、角度分布と群の間の移行の形は無限希釈のまま
+  とする（散乱行列の自己遮蔽は効果が小さいので後回しにする。[ADR-0092](0092-match-scattering-rows-to-shielded-elastic.md) から引き継ぐ）。高次のモーメントにも P0 と同じ比を
+  使う点は MPACT と同じ（MPACT の比は遮蔽した散乱断面積と無限希釈の比。MPACT Theory Manual v4.3, 式 9.13〜9.14）
+
+M2 の計画はこの項目に、MF6 の角度のデータ（LAW=2 の重心系の分布、連続的な放出の Kalbach-Mann など）を使うことも
+書いていた。その部分は別の決定として [ADR-0091](0091-use-mf6-angular-data.md) に分けた（のちに [ADR-0082](0082-leave-out-mf6-angular-data.md) で置き換え）。
 
 ## 確認
 
@@ -39,5 +43,7 @@ MOC を非等方散乱で解く（[ADR-0075](0075-solve-moc-with-anisotropic-sca
 
 ## 結果
 
-- 角度分布の出所は [ADR-0081](0081-use-mf4-angular-distributions.md)（MF4）と [ADR-0082](0082-leave-out-mf6-angular-data.md)（MF6）
+- L は核データの処理の入力にしておらず、xs のコードに 3 で固定してある（`crates/xs/src/main.rs` の `SCATTERING_ORDER`。
+  xs.toml に項目がない）。格子計算は、ライブラリにある次数までを入力で選べる。#0014
+- MF4 の角度分布は [ADR-0081](0081-use-mf4-angular-distributions.md)、MF6 の角度のデータは [ADR-0091](0091-use-mf6-angular-data.md)（のちに [ADR-0082](0082-leave-out-mf6-angular-data.md)）
 - U-238 の最も高い群の弾性散乱が NJOY と 2e-3 違う（#0009）

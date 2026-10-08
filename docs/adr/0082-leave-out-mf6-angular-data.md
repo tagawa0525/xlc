@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-08
-supersedes: []
+supersedes: [ADR-0091]
 superseded-by:
 issues: []
 ---
@@ -11,20 +11,25 @@ issues: []
 ## 背景
 
 MF4 の角度分布は散乱行列に入れる（[ADR-0081](0081-use-mf4-angular-distributions.md)）。MF6 の角度のデータ（LAW=1 の Kalbach-Mann と Legendre、LAW=2 の
-Legendre）も入れるかを、対象の核種で調べて決めた（2026-10-08）。
+Legendre）も入れるかを、対象の核種で調べて決めた（2026-10-08）。M2 では、MF6 の角度のデータを使うと決めていたが
+実装していなかった（[ADR-0091](0091-use-mf6-angular-data.md)）。
 
 - PWR への影響
 - 入射エネルギーの間の単位基底の補間に角度を通す手間
 
 ## 検討した案
 
-- MF6 の角度のデータも入れる: 入射エネルギーの間の単位基底の補間に角度を通す手間がかかる
+- MF6 の角度のデータも入れる（[ADR-0091](0091-use-mf6-angular-data.md)）: 入射エネルギーの間の単位基底の補間に角度を通す手間がかかる
 - 入れない（採用）
 
 ## 決定と理由
 
-MF6 の角度のデータは入れない。MF6 の連続的な放出（LAW=1）の P1 以上は 0 とする。MF6 の LAW=2, 3 の2体反応は、
-重心系で等方として運動学の分だけが P1 以上に入る（[ADR-0056](0056-treat-mf6-law2-law3-as-two-body.md)）。
+MF6 の角度のデータは入れない（[ADR-0091](0091-use-mf6-angular-data.md) を置き換える）。
+
+- MF6 の連続的な放出（LAW=1）の P1 以上は 0 とする
+- MF6 の LAW=2, 3 で与えられる離散準位の非弾性散乱は、MF3 だけの離散準位と同じく、Q 値による重心系で等方な2体反応と
+  する（[ADR-0056](0056-treat-mf6-law2-law3-as-two-body.md) と同じ扱い）。LAW=3 は重心系で等方なので厳密で、LAW=2 は角度分布を無視する近似になる。P1 以上には
+  重心系で等方な2体反応の運動学の分だけが入る
 
 角度のデータを持つ MF6 の中性子は、重心系の Kalbach-Mann（O-16、B-11、U-234、U-236 の (n,2n) や連続の非弾性散乱、
 構造材の MT5）と、実験室系の Legendre（Si-28 の MT91）だけで、WIMS 69 群の上端 10 MeV より下に入るのは O-16 の
@@ -34,7 +39,8 @@ MF6 の角度のデータは入れない。MF6 の連続的な放出（LAW=1）�
 
 ## 確認
 
-上の調査（2026-10-08）。影響の大きさは測っていない。
+上の調査（2026-10-08）。影響の大きさは測っていない。2体反応の扱いは `two_body_mf6_level_uses_q_value`、
+`two_body_neutron_law_is_marked`、`isotropic_two_body_neutron_law_is_marked`、`lab_frame_two_body_angles_are_error`。
 
 ## 結果
 
