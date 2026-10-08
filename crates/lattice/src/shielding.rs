@@ -360,10 +360,11 @@ pub fn shield_fuel(
 }
 
 /// 燃料でなく、燃料のピンの等価なセルでも置き換えていない領域のうち、分離共鳴を持つ核種を含む物質の領域
-/// （支持格子の枠、案内管など）を塊にまとめ、等価原理で遮蔽する。塊は、対称に移り合うセルの組・物質・セルの中の
-/// ひと続きの領域（セルの領域の順で、同じ物質が続く範囲。リングとその外の枠はこの順に並ぶ）ごと。物質ごとに、
-/// その物質の領域（ピンの等価なセルで遮蔽した被覆管なども含む）だけを同時に黒体にして、塊ごとの Dancoff 係数と
-/// 平均弦長を求める（[`lump_dancoff`]。別の物質の共鳴は別のエネルギーにあるので、影を作らない）。
+/// （支持格子の枠、案内管など）を塊にまとめ、等価原理で遮蔽する。塊は、セルの中で接する（トラックで隣り合う）
+/// 同じ物質の領域のひとまとまりで、対称に移り合うセルの組の対応するものは1つにする。分離共鳴を持つ核種の組が
+/// 同じ物質ごとに、その物質の領域（ピンの等価なセルで遮蔽した被覆管なども含む）を同時に黒体にして、塊ごとの
+/// Dancoff 係数と平均弦長を求める（[`lump_dancoff`]。共鳴を持つ核種の違う物質は、共鳴が別のエネルギーにあるので
+/// 影を作らない）。
 fn shield_lumps(
     library: &Library,
     tracking: &Tracking,
@@ -374,98 +375,146 @@ fn shield_lumps(
     shielded: &mut FuelShielding,
 ) -> Result<(), SelfShieldingError> {
     let lattice = &tracking.lattice;
-    // 物質ごとに、分離共鳴を持つ核種を含むか（燃料は除く。真空は一覧の外）
+    let regions = region_index.len();
+    let is_fuel = |m: &Material| m.nu_fission.iter().any(|&v| v > 0.0);
+    // 物質ごとの、分離共鳴を持つ核種（個数密度が正のもの）の名前の組。燃料と、持たない物質は空
     let resonant = materials
         .iter()
         .zip(&shielded.materials)
         .map(|(m, dilute)| {
-            if dilute.nu_fission.iter().any(|&v| v > 0.0) {
-                return Ok(false);
+            let mut names = Vec::new();
+            if is_fuel(dilute) {
+                return Ok(names);
             }
             for (name, density) in &m.composition {
                 if *density > 0.0 && library.lookup(name, m.temperature)?.0.resolved.is_some() {
-                    return Ok(true);
+                    names.push(name.as_str());
                 }
             }
-            Ok(false)
+            names.sort_unstable();
+            names.dedup();
+            Ok(names)
         })
-        .collect::<Result<Vec<bool>, LookupError>>()?;
-    // 塊は (セルの組の代表, 物質の番号, セルの中のひと続きの領域の番号) ごと
-    let mut keys: Vec<(usize, usize, usize)> = Vec::new();
-    let mut lump = vec![None; region_index.len()];
-    for (cell, &orbit) in orbits.iter().enumerate() {
-        let mut piece = 0;
-        let mut previous = None;
-        for region in lattice.cell_regions(cell) {
-            let index = region_index[region];
-            if previous.is_some_and(|p| p != index) {
-                piece += 1;
+        .collect::<Result<Vec<Vec<&str>>, LookupError>>()?;
+    // 真空は物質の一覧の外
+    let resonant_of = |index: usize| resonant.get(index).map_or(&[][..], Vec::as_slice);
+    let candidate: Vec<bool> = (0..regions)
+        .map(|r| {
+            shielded.region_material[r] == region_index[r]
+                && !resonant_of(region_index[r]).is_empty()
+        })
+        .collect();
+    if !candidate.contains(&true) {
+        return Ok(());
+    }
+    // セルの中でトラックが続けて通る、同じ物質の候補の領域をまとめる。まとまりの代表は最も小さい領域の番号
+    let mut parent: Vec<usize> = (0..regions).collect();
+    let root = |parent: &mut Vec<usize>, mut r: usize| {
+        while parent[r] != r {
+            parent[r] = parent[parent[r]];
+            r = parent[r];
+        }
+        r
+    };
+    for track in &tracking.tracks {
+        for pair in track.segments.windows(2) {
+            let (a, b) = (pair[0].region, pair[1].region);
+            if a != b
+                && candidate[a]
+                && candidate[b]
+                && region_index[a] == region_index[b]
+                && lattice.region_cell(a) == lattice.region_cell(b)
+            {
+                let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
+                parent[ra.max(rb)] = ra.min(rb);
             }
-            previous = Some(index);
-            let kept = shielded.region_material[region] == index;
-            if !kept || !resonant.get(index).copied().unwrap_or(false) {
-                continue;
-            }
-            let key = (orbit, index, piece);
-            let k = match keys.iter().position(|&k| k == key) {
-                Some(k) => k,
-                None => {
-                    keys.push(key);
-                    keys.len() - 1
-                }
-            };
-            lump[region] = Some(k);
         }
     }
+    // 塊は (セルの組の代表, 物質の番号, まとまりの代表のセルの中での番号) ごと。対称な操作はリングごとの物質が
+    // 同じセルどうしでしか成り立たない（[`cell_orbits`]）ので、組のセルの対応するまとまりは同じ番号になる
+    let mut keys: Vec<(usize, usize, usize)> = Vec::new();
+    let mut lump = vec![None; regions];
+    let mut members: Vec<Vec<usize>> = Vec::new();
+    for region in (0..regions).filter(|&r| candidate[r]) {
+        let cell = lattice.region_cell(region);
+        let first = lattice.cell_regions(cell).start;
+        let key = (
+            orbits[cell],
+            region_index[region],
+            root(&mut parent, region) - first,
+        );
+        let k = match keys.iter().position(|&k| k == key) {
+            Some(k) => k,
+            None => {
+                keys.push(key);
+                members.push(Vec::new());
+                keys.len() - 1
+            }
+        };
+        lump[region] = Some(k);
+        members[k].push(region);
+    }
     // 影の計算の全断面積は、燃料のピンの Dancoff 係数と同じく燃料でない領域は無限希釈とし、燃料はピンの
-    // SPH 因子を掛けない実効断面積（物理的な値。SPH 因子は MOC の反応率を合わせるためのもの）とする
+    // SPH 因子を掛けない実効断面積（物理的な値。SPH 因子は MOC の反応率を合わせるためのもの）とする。
+    // 対称に移り合うピンは同じ核種を共有するので、組ごとに1回求める
     let ng = library.groups.len();
     let mut totals: Vec<Vec<f64>> = region_index
         .iter()
         .map(|&i| shielded.materials[i].total.clone())
         .collect();
+    let mut fuel_totals: Vec<(usize, Vec<f64>)> = Vec::new();
     for pin in &shielded.pins {
-        let fuel = Material::from_nuclides(&pin.nuclides, ng).map_err(|source| {
-            SelfShieldingError::Material {
-                name: format!("fuel in cell {}", pin.cell),
-                source,
+        let orbit = orbits[pin.cell];
+        let total = match fuel_totals.iter().find(|(o, _)| *o == orbit) {
+            Some((_, total)) => total.clone(),
+            None => {
+                let fuel = Material::from_nuclides(&pin.nuclides, ng).map_err(|source| {
+                    SelfShieldingError::Material {
+                        name: format!("fuel in cell {}", pin.cell),
+                        source,
+                    }
+                })?;
+                fuel_totals.push((orbit, fuel.total.clone()));
+                fuel.total
             }
-        })?;
+        };
         for region in lattice.cell_regions(pin.cell) {
-            if shielded.materials[region_index[region]]
-                .nu_fission
-                .iter()
-                .any(|&v| v > 0.0)
-            {
-                totals[region].clone_from(&fuel.total);
+            if is_fuel(&shielded.materials[region_index[region]]) {
+                totals[region].clone_from(&total);
             }
         }
     }
-    // 物質ごとに、その物質の領域だけを黒体にする（共鳴が同じエネルギーにあるので影を作る）。塊の番号は物質の中での
-    // 番号に付け直し、塊でない領域（ピンの等価なセルで遮蔽した被覆管など）は最後の番号の、結果を使わない塊にする
+    // 分離共鳴を持つ核種の組ごとに、その組の物質の領域を黒体にし、その組の塊の結果を求める。塊の番号は組の中での
+    // 番号に付け直す
     let mut found = Vec::with_capacity(keys.len());
-    let mut indices: Vec<usize> = keys.iter().map(|&(_, index, _)| index).collect();
-    indices.sort_unstable();
-    indices.dedup();
-    for index in indices {
-        let members: Vec<usize> = (0..keys.len()).filter(|&k| keys[k].1 == index).collect();
-        let shadow = members.len();
+    let mut sets: Vec<&[&str]> = keys.iter().map(|&(_, i, _)| resonant_of(i)).collect();
+    sets.sort_unstable();
+    sets.dedup();
+    for set in sets {
+        let group: Vec<usize> = (0..keys.len())
+            .filter(|&k| resonant_of(keys[k].1) == set)
+            .collect();
+        let black: Vec<bool> = region_index
+            .iter()
+            .map(|&i| resonant_of(i) == set)
+            .collect();
         let local: Vec<Option<usize>> = lump
             .iter()
-            .zip(region_index)
-            .map(|(l, &i)| match l {
-                Some(l) => members.iter().position(|m| m == l),
-                None => (i == index).then_some(shadow),
-            })
+            .map(|l| l.and_then(|l| group.iter().position(|&k| k == l)))
             .collect();
-        let count = shadow + usize::from(local.contains(&Some(shadow)));
-        let black: Vec<bool> = local.iter().map(Option::is_some).collect();
-        let lumps = lump_dancoff(tracking, &totals, &black, &local, count, &options.dancoff)?;
-        found.extend(members.into_iter().zip(lumps));
+        let lumps = lump_dancoff(
+            tracking,
+            &totals,
+            &black,
+            &local,
+            group.len(),
+            &options.dancoff,
+        )?;
+        found.extend(group.into_iter().zip(lumps));
     }
     found.sort_by_key(|&(k, _)| k);
     let mut lump_material = Vec::with_capacity(keys.len());
-    for (&(cell, index, _), (_, found)) in keys.iter().zip(&found) {
+    for ((&(cell, index, _), (_, found)), regions) in keys.iter().zip(&found).zip(members) {
         let equivalence = Equivalence {
             chord: found.chord,
             terms: found
@@ -498,7 +547,7 @@ fn shield_lumps(
         shielded.lumps.push(LumpShielding {
             cell,
             material: material.name.clone(),
-            regions: Vec::new(),
+            regions,
             dancoff: found.dancoff.clone(),
             chord: found.chord,
             effective: tables,
