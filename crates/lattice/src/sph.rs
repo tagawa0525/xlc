@@ -154,6 +154,7 @@ pub fn multigroup_flux(
 pub fn sph_factors(
     cell: &Cylinder,
     materials: &[Material],
+    _fixed: &[bool],
     groups: Range<usize>,
     above: &[f64],
     reference: &[Vec<f64>],
@@ -268,7 +269,15 @@ mod tests {
     fn consistent_reference_needs_no_correction() {
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
         let reference = multigroup_flux(&cell, &materials(2.0), GROUPS, &[1.0]).unwrap();
-        let factors = sph_factors(&cell, &materials(2.0), GROUPS, &[1.0], &reference).unwrap();
+        let factors = sph_factors(
+            &cell,
+            &materials(2.0),
+            &[false; 4],
+            GROUPS,
+            &[1.0],
+            &reference,
+        )
+        .unwrap();
         for row in &factors {
             for mu in row {
                 assert!((mu - 1.0).abs() < 1e-10, "{mu}");
@@ -283,7 +292,8 @@ mod tests {
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
         let reference = multigroup_flux(&cell, &materials(3.0), GROUPS, &[1.0]).unwrap();
         let original = materials(2.0);
-        let factors = sph_factors(&cell, &original, GROUPS, &[1.0], &reference).unwrap();
+        let factors =
+            sph_factors(&cell, &original, &[false; 4], GROUPS, &[1.0], &reference).unwrap();
         let scaled: Vec<Material> = original
             .iter()
             .zip(&factors)
@@ -323,6 +333,40 @@ mod tests {
     }
 
     #[test]
+    fn fixed_rings_keep_one() {
+        // 掛ける先のないリング（等価なセルの枠）は μ = 1 のまま、残りのリングで形を合わせて規格化する
+        let cell = Cylinder::new(RADII.to_vec()).unwrap();
+        let reference = multigroup_flux(&cell, &materials(3.0), GROUPS, &[1.0]).unwrap();
+        let original = materials(2.0);
+        let fixed = [false, false, false, true];
+        let factors = sph_factors(&cell, &original, &fixed, GROUPS, &[1.0], &reference).unwrap();
+        let scaled: Vec<Material> = original
+            .iter()
+            .zip(&factors)
+            .map(|(m, mu)| {
+                let mut all = vec![1.0; 4];
+                all[GROUPS].copy_from_slice(mu);
+                m.scaled(&all).unwrap()
+            })
+            .collect();
+        let flux = multigroup_flux(&cell, &scaled, GROUPS, &[1.0]).unwrap();
+        let volumes = cell.volumes();
+        for k in 0..GROUPS.len() {
+            assert_eq!(factors[3][k], 1.0);
+            let ratio = |r: usize| factors[r][k] * flux[r][k] / reference[r][k];
+            assert!((ratio(1) - ratio(0)).abs() < 1e-8 * ratio(0));
+            let preserved: f64 = [0, 1].iter().map(|&r| volumes[r] * reference[r][k]).sum();
+            let normalized: f64 = [0, 1]
+                .iter()
+                .map(|&r| volumes[r] * reference[r][k] / factors[r][k])
+                .sum();
+            assert!((normalized - preserved).abs() < 1e-10 * preserved);
+        }
+        // 固定するリングの数が合わなければエラー
+        assert!(sph_factors(&cell, &original, &[false; 3], GROUPS, &[1.0], &reference).is_err());
+    }
+
+    #[test]
     fn rejects_rings_without_flux() {
         // 範囲の上から散乱してくる中性子がなければ、多群の中性子束が 0 になり、μ が決まらない
         let cell = Cylinder::new(RADII.to_vec()).unwrap();
@@ -332,7 +376,7 @@ mod tests {
             m.scatter[0] = vec![0.0; 4];
         }
         assert!(matches!(
-            sph_factors(&cell, &isolated, GROUPS, &[1.0], &reference),
+            sph_factors(&cell, &isolated, &[false; 4], GROUPS, &[1.0], &reference),
             Err(SphError::Flux { .. })
         ));
     }
@@ -346,7 +390,14 @@ mod tests {
             reference[0][1] = bad;
             assert!(
                 matches!(
-                    sph_factors(&cell, &materials(2.0), GROUPS, &[1.0], &reference),
+                    sph_factors(
+                        &cell,
+                        &materials(2.0),
+                        &[false; 4],
+                        GROUPS,
+                        &[1.0],
+                        &reference
+                    ),
                     Err(SphError::ReferenceValue { ring: 0, group: 2 })
                 ),
                 "{bad}"
@@ -360,9 +411,29 @@ mod tests {
         assert!(multigroup_flux(&cell, &materials(2.0)[..3], GROUPS, &[1.0]).is_err());
         assert!(multigroup_flux(&cell, &materials(2.0), GROUPS, &[]).is_err());
         let reference = vec![vec![1.0; 2]; 4];
-        assert!(sph_factors(&cell, &materials(2.0), GROUPS, &[1.0], &reference).is_err());
+        assert!(
+            sph_factors(
+                &cell,
+                &materials(2.0),
+                &[false; 4],
+                GROUPS,
+                &[1.0],
+                &reference
+            )
+            .is_err()
+        );
         // 物質の群より先まで求める群の範囲
         let reference = vec![vec![1.0; 5]; 4];
-        assert!(sph_factors(&cell, &materials(2.0), 1..6, &[1.0], &reference).is_err());
+        assert!(
+            sph_factors(
+                &cell,
+                &materials(2.0),
+                &[false; 4],
+                1..6,
+                &[1.0],
+                &reference
+            )
+            .is_err()
+        );
     }
 }

@@ -839,7 +839,15 @@ fn shield_cell(
         .map(|m| m.clone().unwrap_or_else(|| Material::void(ng)))
         .collect();
     let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
-    let sph = sph_factors(&cylinder, &multigroup, top..bottom, &above, &spectrum.flux)?;
+    let fixed = vec![false; multigroup.len()];
+    let sph = sph_factors(
+        &cylinder,
+        &multigroup,
+        &fixed,
+        top..bottom,
+        &above,
+        &spectrum.flux,
+    )?;
     for (ring, (material, mu)) in rings.iter_mut().zip(&sph).enumerate() {
         if let Some(m) = material {
             let mut all = vec![1.0; ng];
@@ -2122,6 +2130,12 @@ mod tests {
                 radius(&framed),
                 radius(&plain)
             );
+            // 支持格子のリングの断面積は格子に使わないので、SPH 因子は 1 のまま
+            let rings = framed.pins[0].sph.as_ref().unwrap();
+            assert!(rings[4].iter().all(|&mu| mu == 1.0), "{rings:?}");
+            // 格子の枠は塊として遮蔽した物質のままで、等価なセルのリングの物質は使われない
+            assert!(framed.lumps.iter().any(|l| l.regions.contains(&4)));
+            assert_ne!(framed.region_material[4], framed.region_material[2]);
         }
 
         #[test]
