@@ -9,7 +9,7 @@
 
 use std::f64::consts::PI;
 
-use super::{POLAR_SIN, POLAR_WEIGHT, Sweeper, sum_tallies};
+use super::{POLAR_SIN, Sweeper, direction_weight, sum_tallies};
 use crate::cmfd::{CmfdError, CoarseMesh};
 use crate::material::Material;
 use crate::tracking::Tracking;
@@ -206,11 +206,10 @@ fn absorbed_by_black(
     Err(DancoffError::NotConverged(options.max_iterations))
 }
 
-/// トラック1本の、両方向の極角の重みの和 Σ_p 4π (w_a/2) ω_p sinθ_p δ_a（方向の重みの和）
+/// トラックの1つの向きの、極角についての方向の重みの和 Σ_p 4π (w_a/2) ω_p sinθ_p δ_a
 fn track_weight(tracking: &Tracking, azimuth: usize) -> f64 {
-    let a = &tracking.azimuths[azimuth];
     (0..POLAR_SIN.len())
-        .map(|p| 4.0 * PI * 0.5 * a.weight * POLAR_WEIGHT[p] * POLAR_SIN[p] * a.spacing)
+        .map(|p| direction_weight(tracking, azimuth, p))
         .sum()
 }
 
