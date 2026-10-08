@@ -52,6 +52,8 @@ pub enum GeometryError {
     Margin(f64),
     #[error("frame thickness must be positive, below pitch/2 and outside the circles, got {0}")]
     Frame(f64),
+    #[error("a frame needs a cell with rings, not a grid of squares")]
+    FrameOnGrid,
 }
 
 impl PinCell {
@@ -541,7 +543,25 @@ mod tests {
         assert!(cell().with_frame(0.63).is_err());
         // 枠の内側（半辺 0.38）の外接円 0.537 より大きい円（0.6）は置けない
         assert!(cell().with_frame(0.25).is_err());
-        assert!(PinCell::grid(1.26, 3).unwrap().with_frame(0.01).is_err());
+        assert!(matches!(
+            PinCell::grid(1.26, 3).unwrap().with_frame(0.01),
+            Err(GeometryError::FrameOnGrid)
+        ));
+    }
+
+    #[test]
+    fn frame_is_not_cut_inside() {
+        // 枠の中では扇形や円で区切らない（同じ領域の区間が続かない）
+        let cell = PinCell::with_sectors(1.26, vec![0.4, 0.75], 8)
+            .unwrap()
+            .with_frame(0.05)
+            .unwrap();
+        let d = (0.6_f64, 0.8_f64);
+        let segments = cell.segments((-0.63, -0.3), d, 2.0);
+        assert!(
+            segments.windows(2).all(|w| w[0].region != w[1].region),
+            "{segments:?}"
+        );
     }
 
     #[test]
