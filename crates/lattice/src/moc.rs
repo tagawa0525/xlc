@@ -11,7 +11,7 @@ mod harmonics;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
-use crate::tracking::{Side, Tracking};
+use crate::tracking::{Boundary, Side, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
@@ -665,10 +665,24 @@ impl<'a> Sweeper<'a> {
                     }
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
+                        let boundaries = &self.tracking.boundaries;
+                        let (entry, leaving) = if forward {
+                            (track.start_side, track.end_side)
+                        } else {
+                            (track.end_side, track.start_side)
+                        };
                         match self.tracking.incoming_source(index, forward) {
-                            Some(source) => psi.copy_from_slice(
-                                &incoming[slot(source.track, source.forward) * width..][..width],
-                            ),
+                            Some(source) => {
+                                psi.copy_from_slice(
+                                    &incoming[slot(source.track, source.forward) * width..]
+                                        [..width],
+                                );
+                                // アルベドの辺では、出た角度中性子束の割合 α だけが戻る
+                                let albedo = returned(boundaries.of(entry));
+                                if albedo != 1.0 {
+                                    psi.iter_mut().for_each(|v| *v *= albedo);
+                                }
+                            }
                             // 真空境界から入ってくる角度中性子束は 0
                             None => psi.fill(0.0),
                         }
@@ -755,11 +769,16 @@ impl<'a> Sweeper<'a> {
                         } else {
                             track.backward_link
                         };
-                        // 真空境界から出た分は漏れ
-                        if link.is_none() {
+                        // 戻らない分（真空では全部、アルベドでは 1 − α）は漏れ
+                        let lost = if link.is_some() {
+                            1.0 - returned(boundaries.of(leaving))
+                        } else {
+                            1.0
+                        };
+                        if lost > 0.0 {
                             for (p, weight) in weights.iter().enumerate() {
                                 for (l, value) in tally.leak.iter_mut().zip(&psi[p * ng..][..ng]) {
-                                    *l += weight * value;
+                                    *l += lost * weight * value;
                                 }
                             }
                         }
@@ -855,6 +874,15 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
         leak: sum(|t| &t.leak),
         current: sum(|t| &t.current),
         sides: sum(|t| &t.sides),
+    }
+}
+
+/// 境界から戻る角度中性子束の割合（鏡面反射 1、真空 0、アルベド α）
+fn returned(boundary: Boundary) -> f64 {
+    match boundary {
+        Boundary::Reflective => 1.0,
+        Boundary::Vacuum => 0.0,
+        Boundary::Albedo(albedo) => albedo,
     }
 }
 
