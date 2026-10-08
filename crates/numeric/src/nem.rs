@@ -322,6 +322,14 @@ pub enum OneNodeError {
     NotConverged(usize),
     #[error("analytic nodal method")]
     Anm(#[from] AnmError),
+    #[error("the node has no net current, so the direction of the equivalence is undefined")]
+    NoNetCurrent,
+    #[error(
+        "no diffusion coefficient in group {group} gives equal discontinuity factors on both faces"
+    )]
+    NoEquivalentDiffusion { group: usize },
+    #[error("the equivalent diffusion coefficients did not converge in {0} iterations")]
+    EquivalenceNotConverged(usize),
 }
 
 /// 1ノードの問題の反復の上限
@@ -338,6 +346,25 @@ const MAX_ITERATIONS: usize = 10_000;
 /// `outflow` か `AnmModes::outflow` で解く（NEM は a1〜a4 をノードの中で同時に解き、群の間の結合と真空の面の
 /// 横方向の漏れだけを前の反復の値とする）。面の中性子束の相対変化が丸め誤差の水準になるまで繰り返す。
 pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
+    let surface = homogeneous_faces(node)?;
+    for (face, values) in surface.iter().enumerate() {
+        if let Some((group, &value)) = values
+            .iter()
+            .enumerate()
+            .find(|(_, v)| !(**v > 0.0 && v.is_finite()))
+        {
+            return Err(OneNodeError::NonPositiveSurface {
+                face,
+                group,
+                flux: value,
+            });
+        }
+    }
+    Ok(surface)
+}
+
+/// `surface_fluxes` の均質な面の中性子束（正であることを確かめない。等価な拡散係数の根の探索で、符号の変化を見る）
+pub(crate) fn homogeneous_faces(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
     validate(node)?;
     let OneNode {
         diffusion,
@@ -449,19 +476,6 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
                     let [minus, plus] = face_fluxes(&coefficients[d][g], flux[g]);
                     surface[2 * d][g] = minus;
                     surface[2 * d + 1][g] = plus;
-                }
-            }
-            for (face, values) in surface.iter().enumerate() {
-                if let Some((group, &value)) = values
-                    .iter()
-                    .enumerate()
-                    .find(|(_, v)| !(**v > 0.0 && v.is_finite()))
-                {
-                    return Err(OneNodeError::NonPositiveSurface {
-                        face,
-                        group,
-                        flux: value,
-                    });
                 }
             }
             return Ok(surface);
