@@ -41,7 +41,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 
 - 集合体ごとに違う少数群定数（装荷図）と、軸方向の層（燃料、支持格子、プレナム、ノズル、炉心板、上下の水）を
   入力で与える。ノードの定数は状態（ホウ素濃度、温度、制御棒）でテーブルを内挿する
-- NEM に ADF を入れ、CMFD で固有値の反復を加速する（[ADR-0027](../adr/0027-solve-core-with-nem.md)、[ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)。粗メッシュのソルバは [ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）。面の条件の形と外周の真空の境界は [ADR-0099](../adr/0099-couple-core-nodes-by-get-with-vacuum-boundary.md)
+- NEM に ADF を入れ、CMFD で固有値の反復を加速する（[ADR-0027](../adr/0027-solve-core-with-nem.md)、[ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)。粗メッシュのソルバは [ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）。面の条件の形と外周の真空の境界は [ADR-0101](../adr/0101-impose-transport-current-ratio-at-vacuum-faces.md)（[ADR-0099](../adr/0099-couple-core-nodes-by-get-with-vacuum-boundary.md) を置き換え）
 - 制御棒の先端がノードの途中にあるときの扱い（カスピング）と、ピン出力の再構成の方法は、実装の前に文献で
   比べて決める
 - 全炉心を解く: [ADR-0090](../adr/0090-solve-full-core.md)
@@ -64,18 +64,20 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
    — 済（2891d70）
 2. 新しい核種の処理と、MF4 の角度分布の散乱行列への反映（MF6 の角度のデータは入れない。[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）
    — 済（MF4 は 97eea1e、MF6 を入れない決定は af65bdc、分離共鳴のない核種のライブラリは 44070e2。新しい核種（C、Si、P、
-   Ti、Mn、Ni、Ag、Cd、In の 29 核種）のライブラリと NJOY との比較は cce0b6e と 007c227（examples/m3-nuclides/verification.md）。
-   減速計算の範囲より上の散乱源を NJOY にそろえたのは 770d09d、運動学のしきい値から反応を始めるのは e694dca（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
-   VERA の k はこの2つで 6 桁まで変わらない（63fcd3d）。しきい値の値を 0 にしたのは 92ef88e（#0024）。NJOY との差のうち、拡げた格子が小さい反応で粗いこと（#0022）は
+   Ti、Mn、Ni、Ag、Cd、In の 29 核種）のライブラリと NJOY との比較は 20ea99b と d40f91a（examples/m3-nuclides/verification.md）。
+   減速計算の範囲より上の散乱源を NJOY にそろえたのは 1e0fd5d、運動学のしきい値から反応を始めるのは 4cdc221（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
+   VERA の k はこの2つで 6 桁まで変わらない（06f5279）。しきい値の値を 0 にしたのは d77b878（#0024）。NJOY との差のうち、拡げた格子が小さい反応で粗いこと（#0022）は
    未解決。新しい物質の格子計算（2E〜2K）はまだ）
 3. 熱中性子の散乱行列の複数の温度と、lattice での温度の内挿 — 済（92b1e89）
 4. セルの形の追加（中実の棒、支持格子の枠、長方形の領域、場所で違う格子の幅） — 作業中（枠は 07eb7fb、長方形の格子は
    42c0e67、構造材の自己遮蔽は d91afe5 と 2f2a71b。中実の棒は同心円のセルで表せるが、シンブルプラグの物質（SS304）は
    新しい核種が要り、まだ確かめていない）
 5. 格子計算の出力（ADF、ピン出力の形状関数、反射体の定数）と状態の分岐のテーブル — 作業中（反射境界の ADF は c7a1ee2、
-   アルベド境界は 21e52b5、真空の辺のある格子の ADF（1ノードの NEM。ADR-0094）は 7bce5d3。CDF、形状関数、反射体の
-   定数、分岐のテーブルは未）
+   アルベド境界は 21e52b5、真空の辺のある格子の ADF（1ノードの NEM。ADR-0094）は 0486dc6、真空の辺の比 J/φ
+   （ADR-0101）は 0f8e102。燃料が真空に面する 17×17 の集合体の ADF（#0027）、CDF、形状関数、反射体の定数、分岐の
+   テーブルは未）
 6. core: 装荷図と軸方向の層、テーブルの内挿、ADF を入れた NEM、CMFD（粗メッシュのソルバを共通のクレートに切り出す）
-   — 作業中（ADF は f62bbed、真空の境界は bf9ed9d と 8cc6a90。装荷図と軸方向の層、テーブルの内挿、CMFD は未）
+   — 作業中（ADF は f62bbed、真空の境界は bf9ed9d と 8cc6a90、格子計算の比 J/φ を課す真空の面は 1eada00
+   （ADR-0101）、両側が反射の1ノードの方向の発散の修正は 73e979f（#0025）。装荷図と軸方向の層、テーブルの内挿、CMFD は未）
 7. core: 制御棒の部分挿入、ピン出力の再構成 — 未着手
 8. Problem 3〜5 の入力と、炉心の結果のまとめ — 未着手
