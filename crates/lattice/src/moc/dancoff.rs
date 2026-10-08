@@ -46,6 +46,8 @@ pub enum DancoffError {
     FuelOnBoundary(usize),
     #[error("cell {cell}: negative Dancoff factor {value} beyond the convergence tolerance")]
     Negative { cell: usize, value: f64 },
+    #[error("lump {lump} is outside the {lumps} lumps")]
+    Lump { lump: usize, lumps: usize },
     #[error("lump {0} has no face open to non-black regions")]
     Unexposed(usize),
     #[error("boundary fluxes not converged in {0} iterations")]
@@ -236,6 +238,9 @@ pub fn lump_dancoff(
         if given != regions {
             return Err(DancoffError::Regions { given, regions });
         }
+    }
+    if let Some(&l) = lump.iter().flatten().find(|&&l| l >= lumps) {
+        return Err(DancoffError::Lump { lump: l, lumps });
     }
     let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
     let ng = (0..regions)
@@ -428,7 +433,10 @@ mod tests {
         let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
         let totals = vec![vec![5.0]; 3];
         let result = lump_dancoff(&tracking, &totals, &[None, Some(1), None], 1, &options());
-        assert!(result.is_err(), "{result:?}");
+        assert!(
+            matches!(result, Err(DancoffError::Lump { lump: 1, lumps: 1 })),
+            "{result:?}"
+        );
     }
 
     #[test]
