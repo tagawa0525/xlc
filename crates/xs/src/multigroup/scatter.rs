@@ -17,7 +17,7 @@ use super::{
     group_integrals_multi,
 };
 
-use crate::endf::{Angular, Frame, Mf4, Mf5, Mf6, Tab1};
+use crate::endf::{Angular, Distribution, Frame, Mf4, Mf5, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
 /// 出射エネルギーの範囲。出射エネルギーはこの範囲で一様に分布する。しきい値未満なら `None`。
@@ -139,8 +139,12 @@ pub fn scattering_moments(
         if (mt == 2 || (51..=90).contains(&mt)) && mf4.frame != Frame::CenterOfMass {
             return Err(ScatterError::LabTwoBody(mt));
         }
-        // MF5 の放出は出射エネルギーと角度を独立に掛けるので、角度分布は実験室系で使う
-        if matches!(emissions.get(&mt), Some(Emission::Mf5(_))) && mf4.frame != Frame::Laboratory {
+        // MF5 の放出は出射エネルギーと角度を独立に掛けるので、角度分布は実験室系で使う。
+        // 重心系で等方（O-18 など）は、これまでどおり P1 以上を 0 とする（重心系の運動の分を入れない近似）
+        if matches!(emissions.get(&mt), Some(Emission::Mf5(_)))
+            && mf4.frame != Frame::Laboratory
+            && mf4.angular != Angular::Isotropic
+        {
             return Err(ScatterError::CenterOfMassContinuum(mt));
         }
     }
@@ -220,6 +224,12 @@ fn by_order(rows: Vec<Vec<f64>>, ng: usize, order: usize) -> Vec<Vec<Vec<f64>>> 
                 .collect()
         })
         .collect()
+}
+
+/// 角度分布（MF4）を散乱行列に使う反応: 弾性散乱、離散準位（2体反応）と、MF5 で与えられた連続的な放出。
+/// MF6 の反応は MF6 の中の角度分布を使い、核分裂の中性子は等方とする
+pub fn uses_angular(mt: u32, emission: Option<&Emission>) -> bool {
+    mt == 2 || (51..=90).contains(&mt) || matches!(emission, Some(Emission::Mf5(_)))
 }
 
 /// 中性子を放出する反応（核分裂を除く）
@@ -383,15 +393,26 @@ fn two_body_moments(
     let ab = awr * (1.0 + (awr + 1.0) * q / (awr * e)).sqrt();
     let c = 1.0 - ab * ab;
     let speed = |x: f64| (awr + 1.0) * (x / e).sqrt();
+    // 出射エネルギーの区切り: 群境界と、角度分布の折れる μ_c（E' = E (1 + A²β² + 2Aβ μ_c)/(A+1)²）
+    let kinks = angular
+        .as_ref()
+        .map(Distribution::kinks)
+        .unwrap_or_default();
+    let energy = |mu_c: f64| e * (1.0 + ab * ab + 2.0 * ab * mu_c) / (awr + 1.0).powi(2);
     let mut cuts: Vec<f64> = bounds
         .iter()
         .copied()
+        .chain(kinks.into_iter().map(energy))
         .filter(|&b| b > lo && b < hi)
         .chain([lo, hi])
         .collect();
     cuts.sort_by(f64::total_cmp);
+    cuts.dedup();
     // 角度分布は μ_c の高次の多項式や折れ線になりうるので、範囲を細かく分ける
-    let pieces = if angular.is_some() { ANGULAR_PIECES } else { 1 };
+    // Legendre の分布は次数が高いほど細かく分ける（表の分布は折れ目で区切ってあるので少しでよい）
+    let pieces = angular
+        .as_ref()
+        .map_or(1, |a| (a.order() / 2).max(MIN_ANGULAR_PIECES));
     for w in cuts.windows(2) {
         let g = group(0.5 * (w[0] + w[1]));
         let (sa, sb) = (speed(w[0]), speed(w[1]));
@@ -424,9 +445,9 @@ fn two_body_moments(
     out
 }
 
-/// 角度分布のある2体反応で、群に分けた出射の速さの範囲をさらに等分する数。Legendre 係数の次数が高い
-/// 分布（高いエネルギーの弾性散乱）も 8 点の Gauss–Legendre で積分できるようにする
-const ANGULAR_PIECES: usize = 16;
+/// 角度分布のある2体反応で、区切った出射の速さの範囲をさらに等分する最少の数。Legendre の分布は次数の
+/// 半分まで増やす（8 点の Gauss–Legendre は 15 次まで正確で、密度は μ_c の NL 次、μ_c は s の2次）
+const MIN_ANGULAR_PIECES: usize = 4;
 
 /// 出射エネルギーの範囲の端が群境界を横切る入射エネルギーと、しきい値。
 /// 被積分関数はここで折れ曲がるので、積分区間の境界に入れる。

@@ -19,6 +19,7 @@ use xlc_format::group::GroupStructure;
 use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, parse_nubar};
 use xlc_xs::multigroup::{
     Emission, Reactions, Weight, fission_spectrum, reaction_averages, scattering_moments,
+    uses_angular,
 };
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
@@ -144,9 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         // 角度分布は、弾性散乱・離散準位と、MF5 で与えられた反応の分（xs の処理と同じ）
         let mut angular = BTreeMap::new();
-        let two_body = mt == 2 || (51..=90).contains(&mt);
-        let continuum = matches!(emissions.get(&mt), Some(Emission::Mf5(_)));
-        if (two_body || continuum)
+        if uses_angular(mt, emissions.get(&mt))
             && let Some(section) = tape.section(mat, 4, mt)
         {
             angular.insert(mt, Mf4::parse(&section)?);
