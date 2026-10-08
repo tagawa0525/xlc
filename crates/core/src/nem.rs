@@ -1331,4 +1331,31 @@ mod tests {
         assert!(coarse < 2e-4, "relative error {coarse}");
         assert!(fine < coarse / 6.0, "{coarse} -> {fine}");
     }
+
+    #[test]
+    fn no_flux_next_to_a_vacuum_face_is_error() {
+        // 真空の面の横方向の漏れは面の中性子束 / ノード平均を使うので、ノード平均が正でなければ止める
+        let p = slab(vec![5.0; 6], vec![material()], vec![0; 6], Boundary::Vacuum);
+        let core = Core::new(&p).unwrap();
+        for bad in [0.0, -1.0, f64::NAN] {
+            let mut state = State::new(6, 2);
+            state.flux[0][1] = bad;
+            let err = core
+                .sweep_group(&mut state, 1, 1.0)
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("vacuum"), "{err}");
+        }
+        // 真空の面がなければ問題にしない
+        let p = slab(
+            vec![5.0; 6],
+            vec![material()],
+            vec![0; 6],
+            Boundary::ZeroFlux,
+        );
+        let core = Core::new(&p).unwrap();
+        let mut state = State::new(6, 2);
+        state.flux[0][1] = 0.0;
+        assert!(core.sweep_group(&mut state, 1, 1.0).is_ok());
+    }
 }
