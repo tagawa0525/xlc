@@ -150,6 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &single,
             &q_values,
             &emissions,
+            &BTreeMap::new(),
             None,
         ) {
             Ok(m) => m,

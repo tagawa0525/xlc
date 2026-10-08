@@ -76,6 +76,8 @@ pub enum ScatterError {
     NoDistribution(u32),
     #[error("MT{0}: a two-body (LAW=2) neutron distribution outside the discrete levels MT51-90")]
     TwoBody(u32),
+    #[error("MT{0}: two-body angular distributions must be in the centre-of-mass frame")]
+    LabTwoBody(u32),
 }
 
 /// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
@@ -94,9 +96,12 @@ pub fn scattering_matrix(
     tables: &BTreeMap<u32, Tab1>,
     q_values: &BTreeMap<u32, f64>,
     emissions: &BTreeMap<u32, Emission>,
+    angular: &BTreeMap<u32, Mf4>,
     thermal: Option<&Thermal>,
 ) -> Result<Vec<Vec<f64>>, ScatterError> {
-    let moments = scattering_moments(groups, weight, awr, tables, q_values, emissions, thermal, 0)?;
+    let moments = scattering_moments(
+        groups, weight, awr, tables, q_values, emissions, angular, thermal, 0,
+    )?;
     Ok(moments.into_iter().next().unwrap_or_default())
 }
 
@@ -115,9 +120,11 @@ pub fn scattering_moments(
     tables: &BTreeMap<u32, Tab1>,
     q_values: &BTreeMap<u32, f64>,
     emissions: &BTreeMap<u32, Emission>,
+    angular: &BTreeMap<u32, Mf4>,
     thermal: Option<&Thermal>,
     order: usize,
 ) -> Result<Vec<Vec<Vec<f64>>>, ScatterError> {
+    let _ = angular;
     if let Some(Thermal::FreeGas(free_gas)) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
@@ -638,6 +645,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeMap::new(),
             None,
         )
         .unwrap();
@@ -663,13 +671,23 @@ mod tests {
             &tables,
             args.0,
             args.1,
+            &BTreeMap::new(),
             None,
             3,
         )
         .unwrap();
         assert_eq!(moments.len(), 4);
-        let p0 =
-            scattering_matrix(&groups, &Weight::lwr(), 1.0, &tables, args.0, args.1, None).unwrap();
+        let p0 = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            1.0,
+            &tables,
+            args.0,
+            args.1,
+            &BTreeMap::new(),
+            None,
+        )
+        .unwrap();
         assert_eq!(moments[0], p0);
         for (row0, row1) in moments[0].iter().zip(&moments[1]) {
             let ratio = row1.iter().sum::<f64>() / row0.iter().sum::<f64>();
@@ -689,6 +707,7 @@ mod tests {
             awr,
             &tables,
             &q_values,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             None,
         )
@@ -718,6 +737,7 @@ mod tests {
                 &tables,
                 &q_values,
                 emissions,
+                &BTreeMap::new(),
                 None,
             )
         };
@@ -732,6 +752,7 @@ mod tests {
             &tables,
             &q_values,
             &BTreeMap::from([(16, two_body)]),
+            &BTreeMap::new(),
             None,
         )
         .unwrap_err();
@@ -748,6 +769,7 @@ mod tests {
             &Weight::lwr(),
             15.86,
             &tables,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             None,
@@ -767,6 +789,7 @@ mod tests {
                 &Weight::lwr(),
                 15.86,
                 &tables,
+                &BTreeMap::new(),
                 &BTreeMap::new(),
                 &BTreeMap::new(),
                 None,
@@ -793,6 +816,7 @@ mod tests {
             &weight,
             15.86,
             &tables,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             Some(&Thermal::FreeGas(thermal)),
@@ -837,6 +861,7 @@ mod tests {
             &Weight::lwr(),
             1.0,
             &tables,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             Some(&Thermal::Sab(sab)),
@@ -901,6 +926,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &mf6,
+            &BTreeMap::new(),
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
@@ -921,6 +947,7 @@ mod tests {
                 &tables,
                 &BTreeMap::new(),
                 &BTreeMap::new(),
+                &BTreeMap::new(),
                 Some(&Thermal::FreeGas(thermal)),
             );
             assert!(result.is_err(), "kt {kt}, cutoff {cutoff}");
@@ -936,6 +963,7 @@ mod tests {
             &Weight::lwr(),
             15.86,
             &tables,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             None,
@@ -977,6 +1005,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &mf6,
+            &BTreeMap::new(),
             None,
         )
         .unwrap();
@@ -1015,6 +1044,7 @@ mod tests {
                 &tables,
                 &BTreeMap::new(),
                 &emissions,
+                &BTreeMap::new(),
                 None,
             )
             .unwrap();
@@ -1045,6 +1075,86 @@ mod tests {
         assert_eq!(multiplicity(5), None);
     }
 
+    /// 実験室系の分布 f(μ) = 1/2 + 3/2 a μ（全エネルギーで同じ）
+    fn linear_lab(a: f64) -> Mf4 {
+        Mf4 {
+            frame: Frame::Laboratory,
+            ..linear_cm(a)
+        }
+    }
+
+    #[test]
+    fn continuum_lab_angles_scale_the_spectrum() {
+        // MF5 の出射エネルギーと MF4 の実験室系の角度は独立なので、P1 の行は a_1 × P0 の行
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(16, constant(0.5))]);
+        let emissions = BTreeMap::from([(16, Emission::Mf5(evaporation()))]);
+        let angular = BTreeMap::from([(16, linear_lab(0.3))]);
+        let m = scattering_moments(
+            &groups,
+            &Weight::lwr(),
+            15.86,
+            &tables,
+            &BTreeMap::new(),
+            &emissions,
+            &angular,
+            None,
+            1,
+        )
+        .unwrap();
+        for (p1, p0) in m[1].iter().flatten().zip(m[0].iter().flatten()) {
+            assert!((p1 - 0.3 * p0).abs() < 1e-12, "{m:?}");
+        }
+        assert!(m[0][0].iter().sum::<f64>() > 0.0);
+    }
+
+    #[test]
+    fn elastic_angles_move_the_outgoing_energies() {
+        // 重心系で前方に偏る弾性散乱は、等方より高い出射エネルギーの群に多く出る（行の和は同じ）
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(2, constant(1.0))]);
+        let solve = |angular: &BTreeMap<u32, Mf4>| {
+            scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                10.0,
+                &tables,
+                &BTreeMap::new(),
+                &BTreeMap::new(),
+                angular,
+                None,
+            )
+            .unwrap()
+        };
+        let isotropic = solve(&BTreeMap::new());
+        let forward = solve(&BTreeMap::from([(2, linear_cm(0.2))]));
+        let g = 1;
+        assert!(
+            forward[g][g] > isotropic[g][g] * 1.01,
+            "{forward:?} vs {isotropic:?}"
+        );
+        let sum = |m: &Vec<Vec<f64>>| m[g].iter().sum::<f64>();
+        assert!((sum(&forward) - sum(&isotropic)).abs() < 1e-12 * sum(&isotropic));
+    }
+
+    #[test]
+    fn lab_frame_two_body_angles_are_error() {
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(2, constant(1.0))]);
+        let err = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            10.0,
+            &tables,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeMap::from([(2, linear_lab(0.2))]),
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ScatterError::LabTwoBody(2)), "{err}");
+    }
+
     #[test]
     fn mf5_without_known_multiplicity_is_error() {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
@@ -1057,6 +1167,7 @@ mod tests {
             &tables,
             &BTreeMap::new(),
             &emissions,
+            &BTreeMap::new(),
             None,
         )
         .unwrap_err();
@@ -1099,6 +1210,7 @@ mod tests {
             &weight,
             235.0,
             &BTreeMap::from([(2, table.clone())]),
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             Some(&Thermal::FreeGas(thermal)),

@@ -42,6 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &elastic,
         &BTreeMap::new(),
         &BTreeMap::new(),
+        &BTreeMap::new(),
         Some(&Thermal::Sab(sab)),
     )?;
     println!("matrix in {:.1} s", start.elapsed().as_secs_f64());
