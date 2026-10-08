@@ -1,9 +1,11 @@
 //! 散乱行列（P0）。
 //!
-//! 弾性散乱と離散準位の非弾性散乱は、静止した標的との重心系等方の2体反応として扱う。
+//! 弾性散乱と離散準位の非弾性散乱は、静止した標的との2体反応として扱う。重心系の角度分布は MF4 で、
+//! なければ重心系で等方とする。
 //! 熱領域の弾性散乱は、指定があれば自由ガス模型で扱う（標的の熱運動による上方散乱を含む）。
 //! 連続的な中性子放出反応（MT91, (n,2n) など）は MF6 のエネルギー分布と多重度を使う。
-//! MF6 がなく MF4/MF5 で与えられた反応は、MF5 のエネルギー分布と、反応で決まる多重度を使う。
+//! MF6 がなく MF4/MF5 で与えられた反応は、MF5 のエネルギー分布と、反応で決まる多重度を使い、
+//! MF4 の実験室系の角度分布をエネルギーと独立に掛ける。
 
 use std::collections::BTreeMap;
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
@@ -14,7 +16,8 @@ use super::{
     FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight, group_integrals,
     group_integrals_multi,
 };
-use crate::endf::{Frame, Mf5, Mf6, Tab1};
+
+use crate::endf::{Angular, Distribution, Frame, Mf4, Mf5, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
 /// 出射エネルギーの範囲。出射エネルギーはこの範囲で一様に分布する。しきい値未満なら `None`。
@@ -75,14 +78,27 @@ pub enum ScatterError {
     NoDistribution(u32),
     #[error("MT{0}: a two-body (LAW=2) neutron distribution outside the discrete levels MT51-90")]
     TwoBody(u32),
+    #[error("MT{0}: two-body angular distributions must be in the centre-of-mass frame")]
+    LabTwoBody(u32),
+    #[error("MT{0}: angular distributions of MF5 emissions must be in the laboratory frame")]
+    CenterOfMassContinuum(u32),
 }
 
-/// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。
-///
-/// - `tables`: ポイントワイズの断面積（キーは MT）
-/// - `q_values`: 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
-/// - `emissions`: 連続的な中性子放出反応の出射分布（キーは MT）
-/// - `thermal`: 熱領域の弾性散乱の扱い（`None` なら全域で静止標的）
+/// 散乱行列を作る反応のデータ（どれもキーは MT）。
+#[derive(Debug, Clone, Copy)]
+pub struct Reactions<'a> {
+    /// ポイントワイズの断面積
+    pub tables: &'a BTreeMap<u32, Tab1>,
+    /// 離散準位の非弾性散乱（MT51〜90）の Q 値 (eV)
+    pub q_values: &'a BTreeMap<u32, f64>,
+    /// 連続的な中性子放出反応の出射分布
+    pub emissions: &'a BTreeMap<u32, Emission>,
+    /// 角度分布（MF4）
+    pub angular: &'a BTreeMap<u32, Mf4>,
+}
+
+/// 散乱行列 σ(g→g') (barn)。[入射の群][出射の群]。`thermal` は熱領域の弾性散乱の扱い
+/// （`None` なら全域で静止標的）。
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
 /// P0 の散乱行列 σ(g→g')（[`scattering_moments`] の 0 次）。
@@ -90,33 +106,48 @@ pub fn scattering_matrix(
     groups: &GroupStructure,
     weight: &Weight,
     awr: f64,
-    tables: &BTreeMap<u32, Tab1>,
-    q_values: &BTreeMap<u32, f64>,
-    emissions: &BTreeMap<u32, Emission>,
+    reactions: &Reactions,
     thermal: Option<&Thermal>,
 ) -> Result<Vec<Vec<f64>>, ScatterError> {
-    let moments = scattering_moments(groups, weight, awr, tables, q_values, emissions, thermal, 0)?;
+    let moments = scattering_moments(groups, weight, awr, reactions, thermal, 0)?;
     Ok(moments.into_iter().next().unwrap_or_default())
 }
 
 /// 散乱行列のルジャンドルのモーメント σ_l(g→g') = ∫_g ∫_g' σ(E→E', μ) P_l(μ) dE' w(E) dE / ∫_g w dE
 /// （[l][入射の群][出射の群]、l = 0..=order、μ は実験室系の散乱角の余弦）。
 ///
-/// P1 以上は、2体反応（弾性散乱と離散準位の非弾性散乱。重心系で等方）の運動学と、熱領域（S(α, β) と自由ガス）の
-/// 角度分布から作る。連続的な放出（MF5, MF6）の P1 以上はまだ角度分布を入れておらず 0 とする
-/// （docs/plans/m2-assembly.md の「散乱の非等方性」）。
+/// `angular` は MT ごとの角度分布（MF4）。2体反応（弾性散乱と離散準位の非弾性散乱）は重心系の分布と運動学から、
+/// MF5 の連続的な放出は実験室系の分布から、熱領域（S(α, β) と自由ガス）はその角度分布から P1 以上を作る。
+/// MF6 の連続的な放出の P1 以上はまだ角度分布を入れておらず 0 とする（docs/plans/m3-core-hzp.md）。
 #[tracing::instrument(level = "debug", skip_all)]
-#[allow(clippy::too_many_arguments)]
 pub fn scattering_moments(
     groups: &GroupStructure,
     weight: &Weight,
     awr: f64,
-    tables: &BTreeMap<u32, Tab1>,
-    q_values: &BTreeMap<u32, f64>,
-    emissions: &BTreeMap<u32, Emission>,
+    reactions: &Reactions,
     thermal: Option<&Thermal>,
     order: usize,
 ) -> Result<Vec<Vec<Vec<f64>>>, ScatterError> {
+    let Reactions {
+        tables,
+        q_values,
+        emissions,
+        angular,
+    } = *reactions;
+    // 2体反応の角度分布は重心系で使う（対象の評価済みデータはすべて重心系で与えている）
+    for (&mt, mf4) in angular {
+        if (mt == 2 || (51..=90).contains(&mt)) && mf4.frame != Frame::CenterOfMass {
+            return Err(ScatterError::LabTwoBody(mt));
+        }
+        // MF5 の放出は出射エネルギーと角度を独立に掛けるので、角度分布は実験室系で使う。
+        // 重心系で等方（O-18 など）は、これまでどおり P1 以上を 0 とする（重心系の運動の分を入れない近似）
+        if matches!(emissions.get(&mt), Some(Emission::Mf5(_)))
+            && mf4.frame != Frame::Laboratory
+            && mf4.angular != Angular::Isotropic
+        {
+            return Err(ScatterError::CenterOfMassContinuum(mt));
+        }
+    }
     if let Some(Thermal::FreeGas(free_gas)) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
@@ -140,7 +171,7 @@ pub fn scattering_moments(
         }
         // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
         let rows = if mt == 2 {
-            elastic_rows(groups, weight, awr, table, thermal, order)
+            elastic_rows(groups, weight, awr, table, thermal, angular.get(&2), order)
         } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
             && !data.two_body
         {
@@ -151,10 +182,10 @@ pub fn scattering_moments(
             return Err(ScatterError::TwoBody(mt));
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
             let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
-            isotropic(spectrum_rows(groups, weight, table, data, count), order)
+            spectrum_moments(groups, weight, table, data, count, angular.get(&mt), order)
         } else if (51..=90).contains(&mt) {
             let q = *q_values.get(&mt).ok_or(ScatterError::QValue(mt))?;
-            two_body_rows(groups, weight, awr, q, table, order)
+            two_body_rows(groups, weight, awr, q, table, angular.get(&mt), order)
         } else {
             return Err(ScatterError::NoDistribution(mt));
         };
@@ -195,6 +226,12 @@ fn by_order(rows: Vec<Vec<f64>>, ng: usize, order: usize) -> Vec<Vec<Vec<f64>>> 
         .collect()
 }
 
+/// 角度分布（MF4）を散乱行列に使う反応: 弾性散乱、離散準位（2体反応）と、MF5 で与えられた連続的な放出。
+/// MF6 の反応は MF6 の中の角度分布を使い、核分裂の中性子は等方とする
+pub fn uses_angular(mt: u32, emission: Option<&Emission>) -> bool {
+    mt == 2 || (51..=90).contains(&mt) || matches!(emission, Some(Emission::Mf5(_)))
+}
+
 /// 中性子を放出する反応（核分裂を除く）
 pub fn emits_neutrons(mt: u32) -> bool {
     matches!(
@@ -230,10 +267,11 @@ fn elastic_rows(
     awr: f64,
     table: &Tab1,
     thermal: Option<&Thermal>,
+    angular: Option<&Mf4>,
     order: usize,
 ) -> Vec<Vec<Vec<f64>>> {
     let Some(thermal) = thermal else {
-        return two_body_rows(groups, weight, awr, 0.0, table, order);
+        return two_body_rows(groups, weight, awr, 0.0, table, angular, order);
     };
     let ng = groups.len();
     let cutoff = match thermal {
@@ -242,6 +280,7 @@ fn elastic_rows(
     };
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, 0.0));
+    breakpoints.extend(angular.map(Mf4::energies).unwrap_or_default());
     breakpoints.push(cutoff);
     let add = |out: &mut [f64], moments: Vec<Vec<f64>>, scale: f64| {
         for (l, row) in moments.into_iter().enumerate() {
@@ -264,7 +303,7 @@ fn elastic_rows(
             }
             _ => add(
                 out,
-                two_body_moments(groups, e, awr, 0.0, sigma, order),
+                two_body_moments(groups, e, awr, 0.0, sigma, order, angular),
                 1.0,
             ),
         }
@@ -279,17 +318,19 @@ fn two_body_rows(
     awr: f64,
     q: f64,
     table: &Tab1,
+    angular: Option<&Mf4>,
     order: usize,
 ) -> Vec<Vec<Vec<f64>>> {
     let ng = groups.len();
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, q));
+    breakpoints.extend(angular.map(Mf4::energies).unwrap_or_default());
     let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
         let sigma = table.eval(e).unwrap_or(0.0);
         if sigma == 0.0 {
             return;
         }
-        for (l, row) in two_body_moments(groups, e, awr, q, sigma, order)
+        for (l, row) in two_body_moments(groups, e, awr, q, sigma, order, angular)
             .into_iter()
             .enumerate()
         {
@@ -301,11 +342,14 @@ fn two_body_rows(
     by_order(rows, ng, order)
 }
 
-/// 重心系で等方な2体反応で、入射エネルギー `e` の中性子が群 g' に出る確率に、実験室系の散乱角の余弦 μ の
-/// ルジャンドル多項式 P_l(μ) を掛けたもの [l][g']（`scale` 倍。l = 0 は一様な振り分け）。
+/// 2体反応で、入射エネルギー `e` の中性子が群 g' に出る確率に、実験室系の散乱角の余弦 μ のルジャンドル多項式
+/// P_l(μ) を掛けたもの [l][g']（`scale` 倍）。`angular` は重心系の角度分布（MF4。`None` か等方なら重心系で等方で、
+/// l = 0 は一様な振り分け）。
 ///
 /// 出射の速さの比 s = (A+1)√(E'/E) で積分する。重心系の余弦は μ_c = (s² − 1 − A²β²)/(2Aβ) で、
-/// dμ_c/2 = s ds/(2Aβ)、実験室系の余弦は μ = (s² + 1 − A²β²)/(2s) と s の滑らかな式になる（A = 1 でも特異点がない）。
+/// dμ_c = s ds/(Aβ)、実験室系の余弦は μ = (s² + 1 − A²β²)/(2s) と s の滑らかな式になる（A = 1 でも特異点がない）。
+/// 角度分布があるときは f(μ_c) を掛けて P0 も同じく積分し、P0 の和が `scale` になるよう規格化する
+/// （分布の規格化と数値積分の誤差で粒子数を変えないため）。
 fn two_body_moments(
     groups: &GroupStructure,
     e: f64,
@@ -313,15 +357,23 @@ fn two_body_moments(
     q: f64,
     scale: f64,
     order: usize,
+    angular: Option<&Mf4>,
 ) -> Vec<Vec<f64>> {
+    // 入射エネルギーごとに一度だけ分布を求める
+    let angular = angular
+        .filter(|a| a.angular != Angular::Isotropic)
+        .map(|a| a.at(e));
     let ng = groups.len();
     let mut out = vec![vec![0.0; ng]; order + 1];
     let Some((lo, hi)) = two_body_range(e, awr, q) else {
         return out;
     };
-    uniform_fractions(groups, lo, hi, scale, &mut out[0]);
-    if order == 0 {
-        return out;
+    let first = usize::from(angular.is_none());
+    if angular.is_none() {
+        uniform_fractions(groups, lo, hi, scale, &mut out[0]);
+        if order == 0 {
+            return out;
+        }
     }
     let bounds = groups.bounds();
     let group = |x: f64| {
@@ -330,9 +382,10 @@ fn two_body_moments(
             .unwrap_or(if x > bounds[0] { 0 } else { ng - 1 })
     };
     if hi <= lo {
-        // しきい値ちょうど: 中性子は重心とともに前へ進む（μ = 1、P_l = 1）
+        // しきい値ちょうど: 中性子は重心とともに前へ進む（μ = 1、P_l = 1）。角度分布があるときは
+        // P0 もここで入れる（一様な振り分けをしていないため）
         let g = group(lo);
-        for row in out.iter_mut().skip(1) {
+        for row in out.iter_mut().skip(first) {
             row[g] += scale;
         }
         return out;
@@ -340,28 +393,61 @@ fn two_body_moments(
     let ab = awr * (1.0 + (awr + 1.0) * q / (awr * e)).sqrt();
     let c = 1.0 - ab * ab;
     let speed = |x: f64| (awr + 1.0) * (x / e).sqrt();
+    // 出射エネルギーの区切り: 群境界と、角度分布の折れる μ_c（E' = E (1 + A²β² + 2Aβ μ_c)/(A+1)²）
+    let kinks = angular
+        .as_ref()
+        .map(Distribution::kinks)
+        .unwrap_or_default();
+    let energy = |mu_c: f64| e * (1.0 + ab * ab + 2.0 * ab * mu_c) / (awr + 1.0).powi(2);
     let mut cuts: Vec<f64> = bounds
         .iter()
         .copied()
+        .chain(kinks.into_iter().map(energy))
         .filter(|&b| b > lo && b < hi)
         .chain([lo, hi])
         .collect();
     cuts.sort_by(f64::total_cmp);
+    cuts.dedup();
+    // 角度分布は μ_c の高次の多項式や折れ線になりうるので、範囲を細かく分ける
+    // Legendre の分布は次数が高いほど細かく分ける（表の分布は折れ目で区切ってあるので少しでよい）
+    let pieces = angular
+        .as_ref()
+        .map_or(1, |a| (a.order() / 2).max(MIN_ANGULAR_PIECES));
     for w in cuts.windows(2) {
         let g = group(0.5 * (w[0] + w[1]));
         let (sa, sb) = (speed(w[0]), speed(w[1]));
-        let half = 0.5 * (sb - sa);
-        for &(x, weight) in &GAUSS_LEGENDRE_8 {
-            let s = sa + half * (x + 1.0);
-            let mu = (s * s + c) / (2.0 * s);
-            let factor = scale * weight * half * s / (2.0 * ab);
-            for (l, p) in legendre(mu, order).into_iter().enumerate().skip(1) {
-                out[l][g] += factor * p;
+        let width = (sb - sa) / pieces as f64;
+        let half = 0.5 * width;
+        for piece in 0..pieces {
+            let start = sa + width * piece as f64;
+            for &(x, weight) in &GAUSS_LEGENDRE_8 {
+                let s = start + half * (x + 1.0);
+                let mu = (s * s + c) / (2.0 * s);
+                let density = angular.as_ref().map_or(0.5, |a| {
+                    let mu_c = ((s * s - 1.0 - ab * ab) / (2.0 * ab)).clamp(-1.0, 1.0);
+                    a.density(mu_c)
+                });
+                let factor = scale * weight * half * s / ab * density;
+                for (l, p) in legendre(mu, order).into_iter().enumerate().skip(first) {
+                    out[l][g] += factor * p;
+                }
+            }
+        }
+    }
+    if angular.is_some() {
+        let total: f64 = out[0].iter().sum();
+        if total > 0.0 {
+            for v in out.iter_mut().flatten() {
+                *v *= scale / total;
             }
         }
     }
     out
 }
+
+/// 角度分布のある2体反応で、区切った出射の速さの範囲をさらに等分する最少の数。Legendre の分布は次数の
+/// 半分まで増やす（8 点の Gauss–Legendre は 15 次まで正確で、密度は μ_c の NL 次、μ_c は s の2次）
+const MIN_ANGULAR_PIECES: usize = 4;
 
 /// 出射エネルギーの範囲の端が群境界を横切る入射エネルギーと、しきい値。
 /// 被積分関数はここで折れ曲がるので、積分区間の境界に入れる。
@@ -436,15 +522,20 @@ fn emission_rows(
     rows
 }
 
-/// MF5 の出射エネルギー分布と多重度 `count` による ∫_g count σ(E) w(E) Σ_k p_k(E) P_k(E→g') dE。
-/// MF5 の分布は実験室系。
-fn spectrum_rows(
+/// MF5 の出射エネルギー分布と多重度 `count`、実験室系の角度分布（MF4。エネルギーと独立）による
+/// ∫_g count σ(E) w(E) a_l(E) Σ_k p_k(E) P_k(E→g') dE（[l][g][g']）。MF5 の分布は実験室系。
+/// 角度分布がなければ P1 以上は 0。
+fn spectrum_moments(
     groups: &GroupStructure,
     weight: &Weight,
     table: &Tab1,
     data: &Mf5,
     count: f64,
-) -> Vec<Vec<f64>> {
+    angular: Option<&Mf4>,
+    order: usize,
+) -> Vec<Vec<Vec<f64>>> {
+    let ng = groups.len();
+    let angular = angular.filter(|a| a.angular != Angular::Isotropic && order > 0);
     let parts: Vec<(&Tab1, GroupedLaw)> = data
         .subsections
         .iter()
@@ -455,23 +546,35 @@ fn spectrum_rows(
         breakpoints.extend(&p.x);
         breakpoints.extend(grouped.breakpoints());
     }
-    group_integrals_multi(groups, weight, &breakpoints, groups.len(), |e, out| {
+    breakpoints.extend(angular.map(Mf4::energies).unwrap_or_default());
+    let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
         let source = count * table.eval(e).unwrap_or(0.0);
         if source == 0.0 {
             return;
         }
+        let (p0, higher) = out.split_at_mut(ng);
         for (p, grouped) in &parts {
             let pk = p.eval(e).unwrap_or(0.0);
             if pk != 0.0 {
-                grouped.accumulate(e, source * pk, out);
+                grouped.accumulate(e, source * pk, p0);
             }
         }
-    })
+        if let Some(mf4) = angular {
+            let a = mf4.moments(e, order);
+            for (l, row) in higher.chunks_exact_mut(ng).enumerate() {
+                for (o, v) in row.iter_mut().zip(p0.iter()) {
+                    *o += a[l + 1] * v;
+                }
+            }
+        }
+    });
+    by_order(rows, ng, order)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::{AngleTables, Interpolation, LegendreTable};
 
     /// ルジャンドルの次数ごとの、全群の和
     fn sums(moments: &[Vec<f64>]) -> Vec<f64> {
@@ -482,7 +585,7 @@ mod tests {
     fn hydrogen_moments_follow_the_kinematics() {
         // A = 1 の弾性散乱は μ_lab = √(E'/E) で E' は [0, E] に一様: ⟨P1⟩ = 2/3, ⟨P2⟩ = 1/4, ⟨P3⟩ = 0
         let groups = GroupStructure::new(vec![1.0e7, 1.0e4, 3.0e3, 1.0e3, 1.0, 1.0e-5]).unwrap();
-        let m = two_body_moments(&groups, 5.0e3, 1.0, 0.0, 1.0, 3);
+        let m = two_body_moments(&groups, 5.0e3, 1.0, 0.0, 1.0, 3, None);
         let total = sums(&m);
         for (got, expected) in total.iter().zip([1.0, 2.0 / 3.0, 0.25, 0.0]) {
             assert!((got - expected).abs() < 1e-12, "{total:?}");
@@ -500,12 +603,84 @@ mod tests {
     fn heavy_target_moments_follow_the_kinematics() {
         // 重心系で等方な弾性散乱の実験室系の平均の余弦は 2/(3A)
         let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
-        let m = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 1);
+        let m = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 1, None);
         let total = sums(&m);
         assert!((total[0] - 2.0).abs() < 1e-12);
         assert!(
             (total[1] / total[0] - 2.0 / 30.0).abs() < 1e-12,
             "{total:?}"
+        );
+    }
+
+    /// 重心系の分布 f(μ_c) = 1/2 + 3/2 a μ_c（全エネルギーで同じ）
+    fn linear_cm(a: f64) -> Mf4 {
+        Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Legendre(LegendreTable {
+                breaks: vec![2],
+                laws: vec![Interpolation::LinLin],
+                energies: vec![1.0e-5, 2.0e7],
+                coefficients: vec![vec![a], vec![a]],
+            }),
+        }
+    }
+
+    #[test]
+    fn isotropic_angular_data_changes_nothing() {
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let isotropic = Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Isotropic,
+        };
+        let plain = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 3, None);
+        let with = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 3, Some(&isotropic));
+        for (a, b) in plain.iter().flatten().zip(with.iter().flatten()) {
+            assert!((a - b).abs() < 1e-12, "{plain:?} vs {with:?}");
+        }
+    }
+
+    #[test]
+    fn threshold_with_angles_keeps_the_particles() {
+        // しきい値ちょうどでは出射エネルギーの幅が 0。角度分布があっても P0 の和は scale
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let (awr, q) = (10.0_f64, -1.0e6_f64);
+        let threshold = -q * (awr + 1.0) / awr;
+        let m = two_body_moments(&groups, threshold, awr, q, 2.0, 1, Some(&linear_cm(0.2)));
+        let total = sums(&m);
+        assert!((total[0] - 2.0).abs() < 1e-12, "{m:?}");
+    }
+
+    #[test]
+    fn center_of_mass_distribution_shifts_the_outgoing_energies() {
+        // A = 10、E = 1e3 eV の弾性散乱。E' = E (1 + A² + 2A μ_c)/(A+1)² は μ_c に線形なので、
+        // 群 [E1, E2] に出る確率は ∫ f dμ_c（f = 1/2 + 3/2 a μ_c）
+        let (awr, e, a) = (10.0_f64, 1.0e3_f64, 0.2);
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let mf4 = linear_cm(a);
+        let m = two_body_moments(&groups, e, awr, 0.0, 1.0, 1, Some(&mf4));
+        let mu_c = |ep: f64| ((awr + 1.0).powi(2) * ep / e - 1.0 - awr * awr) / (2.0 * awr);
+        let cdf = |mu: f64| {
+            let mu = mu.clamp(-1.0, 1.0);
+            0.5 * (mu + 1.0) + 0.75 * a * (mu * mu - 1.0)
+        };
+        let b = groups.bounds();
+        for g in 0..groups.len() {
+            let expected = cdf(mu_c(b[g])) - cdf(mu_c(b[g + 1]));
+            assert!((m[0][g] - expected).abs() < 1e-12, "group {g}: {:?}", m[0]);
+        }
+        // P1 の和は ∫ f(μ_c) μ_lab(μ_c) dμ_c、μ_lab = (1 + A μ_c)/√(1 + A² + 2A μ_c)
+        let nodes = xlc_numeric::quadrature::gauss_legendre(64).unwrap();
+        let expected: f64 = nodes
+            .iter()
+            .map(|&(x, w)| {
+                let f = 0.5 + 1.5 * a * x;
+                w * f * (1.0 + awr * x) / (1.0 + awr * awr + 2.0 * awr * x).sqrt()
+            })
+            .sum();
+        let total = sums(&m);
+        assert!(
+            (total[1] - expected).abs() < 1e-12,
+            "{total:?} vs {expected}"
         );
     }
 
@@ -542,9 +717,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap();
@@ -567,16 +745,30 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            args.0,
-            args.1,
+            &Reactions {
+                tables: &tables,
+                q_values: args.0,
+                emissions: args.1,
+                angular: &BTreeMap::new(),
+            },
             None,
             3,
         )
         .unwrap();
         assert_eq!(moments.len(), 4);
-        let p0 =
-            scattering_matrix(&groups, &Weight::lwr(), 1.0, &tables, args.0, args.1, None).unwrap();
+        let p0 = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            1.0,
+            &Reactions {
+                tables: &tables,
+                q_values: args.0,
+                emissions: args.1,
+                angular: &BTreeMap::new(),
+            },
+            None,
+        )
+        .unwrap();
         assert_eq!(moments[0], p0);
         for (row0, row1) in moments[0].iter().zip(&moments[1]) {
             let ratio = row1.iter().sum::<f64>() / row0.iter().sum::<f64>();
@@ -594,9 +786,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             awr,
-            &tables,
-            &q_values,
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &q_values,
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap();
@@ -622,9 +817,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 awr,
-                &tables,
-                &q_values,
-                emissions,
+                &Reactions {
+                    tables: &tables,
+                    q_values: &q_values,
+                    emissions,
+                    angular: &BTreeMap::new(),
+                },
                 None,
             )
         };
@@ -636,9 +834,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             awr,
-            &tables,
-            &q_values,
-            &BTreeMap::from([(16, two_body)]),
+            &Reactions {
+                tables: &tables,
+                q_values: &q_values,
+                emissions: &BTreeMap::from([(16, two_body)]),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -654,9 +855,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -673,9 +877,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 15.86,
-                &tables,
-                &BTreeMap::new(),
-                &BTreeMap::new(),
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &BTreeMap::new(),
+                    angular: &BTreeMap::new(),
+                },
                 None,
             )
             .unwrap();
@@ -699,9 +906,12 @@ mod tests {
             &groups,
             &weight,
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
@@ -743,9 +953,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::Sab(sab)),
         )
         .unwrap();
@@ -805,9 +1018,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             1.0,
-            &tables,
-            &BTreeMap::new(),
-            &mf6,
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &mf6,
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
@@ -825,9 +1041,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 15.86,
-                &tables,
-                &BTreeMap::new(),
-                &BTreeMap::new(),
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &BTreeMap::new(),
+                    angular: &BTreeMap::new(),
+                },
                 Some(&Thermal::FreeGas(thermal)),
             );
             assert!(result.is_err(), "kt {kt}, cutoff {cutoff}");
@@ -842,9 +1061,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -881,9 +1103,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &mf6,
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &mf6,
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap();
@@ -919,9 +1144,12 @@ mod tests {
                 &groups,
                 &Weight::lwr(),
                 15.86,
-                &tables,
-                &BTreeMap::new(),
-                &emissions,
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &emissions,
+                    angular: &BTreeMap::new(),
+                },
                 None,
             )
             .unwrap();
@@ -952,6 +1180,168 @@ mod tests {
         assert_eq!(multiplicity(5), None);
     }
 
+    /// 実験室系の分布 f(μ) = 1/2 + 3/2 a μ（全エネルギーで同じ）
+    fn linear_lab(a: f64) -> Mf4 {
+        Mf4 {
+            frame: Frame::Laboratory,
+            ..linear_cm(a)
+        }
+    }
+
+    #[test]
+    fn continuum_lab_angles_scale_the_spectrum() {
+        // MF5 の出射エネルギーと MF4 の実験室系の角度は独立なので、P1 の行は a_1 × P0 の行
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(16, constant(0.5))]);
+        let emissions = BTreeMap::from([(16, Emission::Mf5(evaporation()))]);
+        let angular = BTreeMap::from([(16, linear_lab(0.3))]);
+        let m = scattering_moments(
+            &groups,
+            &Weight::lwr(),
+            15.86,
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &emissions,
+                angular: &angular,
+            },
+            None,
+            1,
+        )
+        .unwrap();
+        for (p1, p0) in m[1].iter().flatten().zip(m[0].iter().flatten()) {
+            assert!((p1 - 0.3 * p0).abs() < 1e-12, "{m:?}");
+        }
+        assert!(m[0][0].iter().sum::<f64>() > 0.0);
+    }
+
+    #[test]
+    fn elastic_angles_move_the_outgoing_energies() {
+        // 重心系で前方に偏る弾性散乱は、等方より高い出射エネルギーの群に多く出る（行の和は同じ）
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(2, constant(1.0))]);
+        let solve = |angular: &BTreeMap<u32, Mf4>| {
+            scattering_matrix(
+                &groups,
+                &Weight::lwr(),
+                10.0,
+                &Reactions {
+                    tables: &tables,
+                    q_values: &BTreeMap::new(),
+                    emissions: &BTreeMap::new(),
+                    angular,
+                },
+                None,
+            )
+            .unwrap()
+        };
+        let isotropic = solve(&BTreeMap::new());
+        let forward = solve(&BTreeMap::from([(2, linear_cm(0.2))]));
+        let g = 1;
+        assert!(
+            forward[g][g] > isotropic[g][g] * 1.01,
+            "{forward:?} vs {isotropic:?}"
+        );
+        let sum = |m: &Vec<Vec<f64>>| m[g].iter().sum::<f64>();
+        assert!((sum(&forward) - sum(&isotropic)).abs() < 1e-12 * sum(&isotropic));
+    }
+
+    #[test]
+    fn center_of_mass_continuum_angles_are_error() {
+        // MF5 の放出の角度分布は実験室系で使う（重心系の分布を黙って実験室系として使わない）
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(16, constant(0.5))]);
+        let emissions = BTreeMap::from([(16, Emission::Mf5(evaporation()))]);
+        let angular = BTreeMap::from([(16, linear_cm(0.3))]);
+        let reactions = Reactions {
+            tables: &tables,
+            q_values: &BTreeMap::new(),
+            emissions: &emissions,
+            angular: &angular,
+        };
+        let err =
+            scattering_moments(&groups, &Weight::lwr(), 15.86, &reactions, None, 1).unwrap_err();
+        assert!(
+            matches!(err, ScatterError::CenterOfMassContinuum(16)),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn isotropic_center_of_mass_continuum_is_accepted() {
+        // O-18 の MF5 の反応は、重心系で等方（LTT=0, LCT=2）の MF4 を持つ。P1 以上は 0 として扱う
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(16, constant(0.5))]);
+        let emissions = BTreeMap::from([(16, Emission::Mf5(evaporation()))]);
+        let isotropic = Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Isotropic,
+        };
+        let angular = BTreeMap::from([(16, isotropic)]);
+        let reactions = Reactions {
+            tables: &tables,
+            q_values: &BTreeMap::new(),
+            emissions: &emissions,
+            angular: &angular,
+        };
+        let m = scattering_moments(&groups, &Weight::lwr(), 15.86, &reactions, None, 1).unwrap();
+        assert!(m[1].iter().flatten().all(|&v| v == 0.0));
+        assert!(m[0][0].iter().sum::<f64>() > 0.0);
+    }
+
+    #[test]
+    fn tabulated_center_of_mass_kinks_are_integrated_exactly() {
+        // 重心系の f(μ_c) が μ_c = 0 で折れる表: (−1, 0.25), (0, 0.25), (1, 1.25)。E' は μ_c に線形なので
+        // 群に出る確率は累積分布 F(μ_c) の差
+        let (awr, e) = (10.0_f64, 1.0e3_f64);
+        let table = Tab1::linear(vec![-1.0, 0.0, 1.0], vec![0.25, 0.25, 1.25]);
+        let mf4 = Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Tabulated(AngleTables {
+                breaks: vec![2],
+                laws: vec![Interpolation::LinLin],
+                energies: vec![1.0e-5, 2.0e7],
+                tables: vec![table.clone(), table],
+            }),
+        };
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let m = two_body_moments(&groups, e, awr, 0.0, 1.0, 0, Some(&mf4));
+        let mu_c = |ep: f64| ((awr + 1.0).powi(2) * ep / e - 1.0 - awr * awr) / (2.0 * awr);
+        let cdf = |mu: f64| {
+            let mu = mu.clamp(-1.0, 1.0);
+            if mu < 0.0 {
+                0.25 * (mu + 1.0)
+            } else {
+                0.25 + 0.25 * mu + 0.5 * mu * mu
+            }
+        };
+        let b = groups.bounds();
+        for g in 0..groups.len() {
+            let expected = cdf(mu_c(b[g])) - cdf(mu_c(b[g + 1]));
+            assert!((m[0][g] - expected).abs() < 1e-12, "group {g}: {:?}", m[0]);
+        }
+    }
+
+    #[test]
+    fn lab_frame_two_body_angles_are_error() {
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(2, constant(1.0))]);
+        let err = scattering_matrix(
+            &groups,
+            &Weight::lwr(),
+            10.0,
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::from([(2, linear_lab(0.2))]),
+            },
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ScatterError::LabTwoBody(2)), "{err}");
+    }
+
     #[test]
     fn mf5_without_known_multiplicity_is_error() {
         let groups = GroupStructure::new(vec![2.0e7, 1.0e6]).unwrap();
@@ -961,9 +1351,12 @@ mod tests {
             &groups,
             &Weight::lwr(),
             15.86,
-            &tables,
-            &BTreeMap::new(),
-            &emissions,
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &emissions,
+                angular: &BTreeMap::new(),
+            },
             None,
         )
         .unwrap_err();
@@ -1005,9 +1398,12 @@ mod tests {
             &groups,
             &weight,
             235.0,
-            &BTreeMap::from([(2, table.clone())]),
-            &BTreeMap::new(),
-            &BTreeMap::new(),
+            &Reactions {
+                tables: &BTreeMap::from([(2, table.clone())]),
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
             Some(&Thermal::FreeGas(thermal)),
         )
         .unwrap();
