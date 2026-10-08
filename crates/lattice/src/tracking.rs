@@ -164,8 +164,8 @@ impl Tracking {
         }
         // α = 1 は鏡面反射、α = 0 は真空と同じなので、そちらに揃える（対称性の判定で同じものとして扱うため）
         let canonical = |b: Boundary| match b {
-            Boundary::Albedo(a) if a == 1.0 => Boundary::Reflective,
-            Boundary::Albedo(a) if a == 0.0 => Boundary::Vacuum,
+            Boundary::Albedo(1.0) => Boundary::Reflective,
+            Boundary::Albedo(0.0) => Boundary::Vacuum,
             other => other,
         };
         let boundaries = Boundaries {

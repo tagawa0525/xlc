@@ -322,7 +322,7 @@ impl LatticeInput {
             Some(b) => {
                 let side = |c: Option<toml::Value>| {
                     c.map_or(Ok(Boundary::Reflective), condition)
-                        .map_err(&invalid)
+                        .map_err(invalid)
                 };
                 Boundaries {
                     left: side(b.left)?,
