@@ -276,12 +276,18 @@ fn solve3(a: [[f64; 3]; 3], b: [f64; 3]) -> [f64; 3] {
 
 /// 1ノードの GET の問題で、参照の格子計算の外周の境界。面の条件は参照の正味の中性子流で決まり、
 /// これは横方向の漏れの2次式の外側の扱いだけを決める（core の `Reflective` と `Vacuum` と同じ）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Edge {
+///
+/// 複数のノードの格子（ADR-0095）の内側の辺は、core の隣のノードと同じく、隣のノードの幅と参照の
+/// 横方向の漏れで2次式を作る。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Edge<'a> {
     /// 鏡面反射: 外に鏡像のノードがあるとみなす
     Reflective,
     /// 真空: 面の漏れをノードの漏れ × 面の中性子束 / ノード平均とする
     Vacuum,
+    /// 隣のノード: その方向の幅と、[群] の参照の横方向の漏れ（単位体積あたりの正味の漏れ。その方向に
+    /// 垂直な方向の分）
+    Neighbor { width: f64, leakage: &'a [f64] },
 }
 
 /// 一般化等価理論（GET）の1ノードの問題: 均質化した定数、参照の k、参照のノード平均の中性子束と
@@ -303,8 +309,8 @@ pub struct OneNode<'a> {
     pub widths: [f64; 2],
     /// [面（-x, +x, -y, +y）][群] の、面の平均の外向きの正味の中性子流（中性子束と同じ規格化）
     pub currents: [&'a [f64]; 4],
-    /// [面（-x, +x, -y, +y）] の参照の境界
-    pub edges: [Edge; 4],
+    /// [面（-x, +x, -y, +y）] の参照の境界か隣のノード
+    pub edges: [Edge<'a>; 4],
 }
 
 /// 1ノードの問題のエラー。
@@ -420,6 +426,10 @@ pub(crate) fn homogeneous_faces(node: &OneNode) -> Result<[Vec<f64>; 4], OneNode
                             leakage: transverse,
                         },
                         Edge::Vacuum => Beside::Face(transverse * surface / flux[group]),
+                        Edge::Neighbor { width, leakage } => Beside::Node {
+                            width,
+                            leakage: leakage[group],
+                        },
                     };
                     transverse_moments(
                         h,
@@ -532,6 +542,15 @@ fn validate(node: &OneNode) -> Result<(), OneNodeError> {
     }
     if !node.widths.iter().all(|&w| w > 0.0 && w.is_finite()) {
         return invalid("one-node widths must be positive");
+    }
+    for edge in &node.edges {
+        if let Edge::Neighbor { width, leakage } = edge
+            && !(*width > 0.0 && width.is_finite() && leakage.len() == ng && finite(leakage))
+        {
+            return invalid(
+                "one-node neighbor edges need a positive width and finite leakages for every group",
+            );
+        }
     }
     Ok(())
 }
