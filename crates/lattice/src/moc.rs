@@ -11,7 +11,7 @@ mod harmonics;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
 use crate::material::{Material, MaterialError};
-use crate::tracking::{Side, Tracking};
+use crate::tracking::{Boundary, Side, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
@@ -60,7 +60,7 @@ pub struct Solution {
     pub flux: Vec<Vec<f64>>,
     /// トラックから推定した領域の体積
     pub volumes: Vec<f64>,
-    /// [群] の真空境界からの漏れ（中性子束と同じ規格化）
+    /// [群] の外周からの漏れ（真空の辺と、アルベドの辺で戻らない 1 − α の分。中性子束と同じ規格化）
     pub leakage: Vec<f64>,
     /// [外周の辺（左、右、上、下）][群] の辺の上の平均スカラー中性子束（中性子束と同じ規格化）。
     /// 集合体の不連続因子（ADF）に使う
@@ -665,7 +665,13 @@ impl<'a> Sweeper<'a> {
                     }
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
+                        let (entry_side, exit_side) = if forward {
+                            (track.start_side, track.end_side)
+                        } else {
+                            (track.end_side, track.start_side)
+                        };
                         match self.tracking.incoming_source(index, forward) {
+                            // 出ていくときに境界から戻る分（アルベド）を掛けてある
                             Some(source) => psi.copy_from_slice(
                                 &incoming[slot(source.track, source.forward) * width..][..width],
                             ),
@@ -685,11 +691,6 @@ impl<'a> Sweeper<'a> {
                             psi,
                             &weights,
                         );
-                        let (entry_side, exit_side) = if forward {
-                            (track.start_side, track.end_side)
-                        } else {
-                            (track.end_side, track.start_side)
-                        };
                         add_side(&mut tally.sides, entry_side, psi, side_weights);
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
@@ -750,20 +751,20 @@ impl<'a> Sweeper<'a> {
                             &weights,
                         );
                         add_side(&mut tally.sides, exit_side, psi, side_weights);
-                        let link = if forward {
-                            track.forward_link
-                        } else {
-                            track.backward_link
-                        };
-                        // 真空境界から出た分は漏れ
-                        if link.is_none() {
+                        // 境界から戻るのは割合 r（鏡面反射 1、アルベド α、真空 0）で、残りは漏れ。戻る分を
+                        // 掛けて渡すので、つながった先のトラックはそのまま受け取る
+                        let r = returned(self.tracking.boundaries().of(exit_side));
+                        if r < 1.0 {
                             for (p, weight) in weights.iter().enumerate() {
                                 for (l, value) in tally.leak.iter_mut().zip(&psi[p * ng..][..ng]) {
-                                    *l += weight * value;
+                                    *l += (1.0 - r) * weight * value;
                                 }
                             }
                         }
-                        out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
+                        let out = &mut out[usize::from(!forward) * width..][..width];
+                        for (o, v) in out.iter_mut().zip(psi.iter()) {
+                            *o = r * v;
+                        }
                     }
                 }
                 if let Some(d) = directional {
@@ -855,6 +856,15 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
         leak: sum(|t| &t.leak),
         current: sum(|t| &t.current),
         sides: sum(|t| &t.sides),
+    }
+}
+
+/// 境界から戻る角度中性子束の割合（鏡面反射 1、真空 0、アルベド α）
+fn returned(boundary: Boundary) -> f64 {
+    match boundary {
+        Boundary::Reflective => 1.0,
+        Boundary::Vacuum => 0.0,
+        Boundary::Albedo(albedo) => albedo,
     }
 }
 
@@ -1244,6 +1254,44 @@ mod tests {
             production / s.k
         );
         assert!(s.k < solve_with(Boundaries::REFLECTIVE).k);
+    }
+
+    #[test]
+    fn albedo_sides_lie_between_vacuum_and_reflection() {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let materials = [&f, &m, &m, &m, &f, &m];
+        let solve_with = |right: Boundary| {
+            let boundaries = Boundaries {
+                right,
+                ..Boundaries::REFLECTIVE
+            };
+            let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+            solve(&tracking, &materials, &Options::default()).unwrap()
+        };
+        let reflective = solve_with(Boundary::Reflective);
+        let vacuum = solve_with(Boundary::Vacuum);
+        // α = 1 は鏡面反射、α = 0 は真空と同じ
+        assert!((solve_with(Boundary::Albedo(1.0)).k - reflective.k).abs() < 1e-9);
+        assert!((solve_with(Boundary::Albedo(0.0)).k - vacuum.k).abs() < 1e-9);
+        // 間のアルベドでは k も間で、返らなかった分は漏れとして収支が合う
+        let half = solve_with(Boundary::Albedo(0.5));
+        assert!(vacuum.k < half.k && half.k < reflective.k, "{}", half.k);
+        let (mut absorption, mut production) = (0.0, 0.0);
+        for (i, m) in materials.iter().enumerate() {
+            for g in 0..2 {
+                absorption += half.volumes[i] * m.absorption()[g] * half.flux[i][g];
+                production += half.volumes[i] * m.nu_fission[g] * half.flux[i][g];
+            }
+        }
+        let leakage: f64 = half.leakage.iter().sum();
+        assert!(
+            (absorption + leakage - production / half.k).abs() < 1e-6 * production / half.k,
+            "{absorption} + {leakage} vs {}",
+            production / half.k
+        );
     }
 
     #[test]

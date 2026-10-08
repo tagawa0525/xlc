@@ -71,16 +71,18 @@ pub struct Azimuth {
 }
 
 /// 外周の辺の境界条件。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Boundary {
     /// 鏡面反射
     Reflective,
     /// 真空（出た中性子は戻らない）
     Vacuum,
+    /// 出た中性子のうち割合 α（0 ≤ α ≤ 1）が鏡面反射で戻る
+    Albedo(f64),
 }
 
 /// 外周の4辺の境界条件。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Boundaries {
     pub left: Boundary,
     pub right: Boundary,
@@ -103,6 +105,8 @@ impl Boundaries {
 pub enum TrackingError {
     #[error("the number of azimuthal angles must be positive and even, got {0}")]
     Azimuthal(usize),
+    #[error("an albedo must be between 0 and 1, got {0}")]
+    Albedo(f64),
     #[error("track spacing must be positive, got {0}")]
     Spacing(f64),
     #[error(
@@ -129,7 +133,7 @@ pub struct Tracking {
     /// （反射のつながりの逆。真空境界なら `None`）
     sources: Vec<Option<Link>>,
     /// 外周の辺の境界条件
-    pub boundaries: Boundaries,
+    boundaries: Boundaries,
 }
 
 impl Tracking {
@@ -151,6 +155,25 @@ impl Tracking {
         if !(spacing > 0.0 && spacing.is_finite()) {
             return Err(TrackingError::Spacing(spacing));
         }
+        for side in [Side::Left, Side::Right, Side::Top, Side::Bottom] {
+            if let Boundary::Albedo(albedo) = boundaries.of(side)
+                && !(0.0..=1.0).contains(&albedo)
+            {
+                return Err(TrackingError::Albedo(albedo));
+            }
+        }
+        // α = 1 は鏡面反射、α = 0 は真空と同じなので、そちらに揃える（対称性の判定で同じものとして扱うため）
+        let canonical = |b: Boundary| match b {
+            Boundary::Albedo(1.0) => Boundary::Reflective,
+            Boundary::Albedo(0.0) => Boundary::Vacuum,
+            other => other,
+        };
+        let boundaries = Boundaries {
+            left: canonical(boundaries.left),
+            right: canonical(boundaries.right),
+            top: canonical(boundaries.top),
+            bottom: canonical(boundaries.bottom),
+        };
         let n = n_azimuthal;
         let (width, height) = (lattice.width(), lattice.height());
         // 方位角を (0, π/2) で補正し、π - φ を対にする
@@ -278,12 +301,16 @@ impl Tracking {
             let (end, end_side) = (tracks[k].end, tracks[k].end_side);
             let forward_link = match boundaries.of(end_side) {
                 Boundary::Vacuum => None,
-                Boundary::Reflective => Some(find(end, end_side.is_vertical())?),
+                Boundary::Reflective | Boundary::Albedo(_) => {
+                    Some(find(end, end_side.is_vertical())?)
+                }
             };
             let (start, start_side) = (tracks[k].start, tracks[k].start_side);
             let backward_link = match boundaries.of(start_side) {
                 Boundary::Vacuum => None,
-                Boundary::Reflective => Some(find(start, start_side == Side::Bottom)?),
+                Boundary::Reflective | Boundary::Albedo(_) => {
+                    Some(find(start, start_side == Side::Bottom)?)
+                }
             };
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;
@@ -314,6 +341,11 @@ impl Tracking {
             sources,
             boundaries,
         })
+    }
+
+    /// 外周の辺の境界条件（作るときに確かめたもの。あとから変えられない）
+    pub fn boundaries(&self) -> Boundaries {
+        self.boundaries
     }
 
     /// 方位角 `azimuth` のトラックの番号の範囲。
@@ -348,6 +380,20 @@ mod tests {
 
     fn cell() -> Lattice {
         Lattice::pin_cell(PinCell::new(1.26, vec![0.2, 0.3, 0.4096, 0.55]).unwrap())
+    }
+
+    #[test]
+    fn albedo_must_be_a_fraction() {
+        for albedo in [-0.1, 1.1, f64::NAN] {
+            let boundaries = Boundaries {
+                top: Boundary::Albedo(albedo),
+                ..Boundaries::REFLECTIVE
+            };
+            assert!(
+                Tracking::with_boundaries(&cell(), 8, 0.05, boundaries).is_err(),
+                "{albedo}"
+            );
+        }
     }
 
     #[test]
