@@ -570,6 +570,34 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn resolved_resonances_need_a_pointwise_range() {
+        // 分離共鳴を持つ核種があるのに範囲がないライブラリは、書くときにも読むときにも拒む
+        let resolved = Some(Resolved {
+            top: 1.0e4,
+            potential: 10.0,
+        });
+        let mut library = sample();
+        library.pointwise_range = None;
+        library.nuclides[0].resolved = resolved.clone();
+        for n in &mut library.nuclides {
+            for t in &mut n.temperatures {
+                t.pointwise = Pointwise::default();
+            }
+        }
+        assert!(library.to_msgpack().is_err());
+        let mut file = sample_file();
+        file.pointwise_range = Vec::new();
+        file.nuclides[0].resolved = resolved;
+        for n in &mut file.nuclides {
+            for t in &mut n.temperatures {
+                t.pointwise = Pointwise::default();
+            }
+        }
+        let bytes = rmp_serde::to_vec_named(&file).unwrap();
+        assert!(Library::from_msgpack(&bytes).is_err());
+    }
+
+    #[test]
     fn library_without_pointwise_range_round_trips() {
         // 分離共鳴を持つ核種がないライブラリ: 範囲はなく、ポイントワイズの断面積は空
         let mut library = sample();
