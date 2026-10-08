@@ -342,6 +342,11 @@ impl Cell {
         }
     }
 
+    /// セルの中で面を共有する領域の組（セルの中の番号、小さい順）
+    pub fn adjacent(&self) -> Vec<(usize, usize)> {
+        Vec::new()
+    }
+
     /// ピンセルなら、そのピンセル
     pub fn pin(&self) -> Option<&PinCell> {
         match self {
@@ -708,6 +713,44 @@ fn block_segments(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn adjacent_regions_of_rings_sectors_and_frames() {
+        // 半ピッチ 0.5（枠の内側 0.45）。リング: r < 0.3、0.3〜0.5、0.5 より外（4 扇形）と枠
+        let pin = PinCell::with_sectors(1.0, vec![0.3, 0.5], 4)
+            .unwrap()
+            .with_frame(0.05)
+            .unwrap();
+        let mut pairs = Cell::Pin(pin).adjacent();
+        pairs.sort_unstable();
+        let mut expected = Vec::new();
+        for s in 0..4 {
+            let next = (s + 1) % 4;
+            // 同じ扇形の内外のリングは接する
+            for ring in 0..2 {
+                expected.push((4 * ring + s, 4 * (ring + 1) + s));
+            }
+            // リング 0 と 1 は軸の上で隣の扇形と接する（内径 0.3 < 0.45）。リング 2（内径 0.5 > 0.45）は
+            // 軸の上になく、扇形どうしは接しない
+            for ring in 0..2 {
+                expected.push((4 * ring + s.min(next), 4 * ring + s.max(next)));
+            }
+            // リング 1（外径 0.5 > 0.45）とリング 2 は枠と接する
+            expected.extend([(4 + s, 12), (8 + s, 12)]);
+        }
+        expected.sort_unstable();
+        assert_eq!(pairs, expected);
+    }
+
+    #[test]
+    fn adjacent_squares_of_grids_and_blocks() {
+        let mut pairs = Cell::Pin(PinCell::grid(1.0, 2).unwrap()).adjacent();
+        pairs.sort_unstable();
+        assert_eq!(pairs, vec![(0, 1), (0, 2), (1, 3), (2, 3)]);
+        let mut pairs = Cell::Block { nx: 3, ny: 1 }.adjacent();
+        pairs.sort_unstable();
+        assert_eq!(pairs, vec![(0, 1), (1, 2)]);
+    }
 
     #[test]
     fn frames_need_room() {
