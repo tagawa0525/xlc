@@ -24,6 +24,13 @@ use crate::endf::{Angular, Distribution, Frame, Mf4, Mf5, Mf6, Tab1};
 pub fn two_body_range(e: f64, awr: f64, q: f64) -> Option<(f64, f64)> {
     // E' = E/(A+1)² (1 + A²β² + 2Aβμ)、β² = 1 + (A+1)Q/(A E)、μ は重心系の散乱角の余弦
     let beta2 = 1.0 + (awr + 1.0) * q / (awr * e);
+    // しきい値 −Q (A + 1)/A 以上では β² ≥ 0 だが、ちょうどしきい値では丸めでわずかに負になることがある。
+    // しきい値の断面積（xs はしきい値から表を始める。ADR-0100）の中性子を失わないよう、0 とする
+    let beta2 = if beta2 < 0.0 && e >= -q * (awr + 1.0) / awr {
+        0.0
+    } else {
+        beta2
+    };
     if beta2 < 0.0 {
         return None;
     }
