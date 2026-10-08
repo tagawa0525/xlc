@@ -553,7 +553,7 @@ fn spectrum_moments(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::{Interpolation, LegendreTable};
+    use crate::endf::{AngleTables, Interpolation, LegendreTable};
 
     /// ルジャンドルの次数ごとの、全群の和
     fn sums(moments: &[Vec<f64>]) -> Vec<f64> {
@@ -1244,6 +1244,61 @@ mod tests {
             matches!(err, ScatterError::CenterOfMassContinuum(16)),
             "{err}"
         );
+    }
+
+    #[test]
+    fn isotropic_center_of_mass_continuum_is_accepted() {
+        // O-18 の MF5 の反応は、重心系で等方（LTT=0, LCT=2）の MF4 を持つ。P1 以上は 0 として扱う
+        let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e-5]).unwrap();
+        let tables = BTreeMap::from([(16, constant(0.5))]);
+        let emissions = BTreeMap::from([(16, Emission::Mf5(evaporation()))]);
+        let isotropic = Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Isotropic,
+        };
+        let angular = BTreeMap::from([(16, isotropic)]);
+        let reactions = Reactions {
+            tables: &tables,
+            q_values: &BTreeMap::new(),
+            emissions: &emissions,
+            angular: &angular,
+        };
+        let m = scattering_moments(&groups, &Weight::lwr(), 15.86, &reactions, None, 1).unwrap();
+        assert!(m[1].iter().flatten().all(|&v| v == 0.0));
+        assert!(m[0][0].iter().sum::<f64>() > 0.0);
+    }
+
+    #[test]
+    fn tabulated_center_of_mass_kinks_are_integrated_exactly() {
+        // 重心系の f(μ_c) が μ_c = 0 で折れる表: (−1, 0.25), (0, 0.25), (1, 1.25)。E' は μ_c に線形なので
+        // 群に出る確率は累積分布 F(μ_c) の差
+        let (awr, e) = (10.0_f64, 1.0e3_f64);
+        let table = Tab1::linear(vec![-1.0, 0.0, 1.0], vec![0.25, 0.25, 1.25]);
+        let mf4 = Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Tabulated(AngleTables {
+                breaks: vec![2],
+                laws: vec![Interpolation::LinLin],
+                energies: vec![1.0e-5, 2.0e7],
+                tables: vec![table.clone(), table],
+            }),
+        };
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let m = two_body_moments(&groups, e, awr, 0.0, 1.0, 0, Some(&mf4));
+        let mu_c = |ep: f64| ((awr + 1.0).powi(2) * ep / e - 1.0 - awr * awr) / (2.0 * awr);
+        let cdf = |mu: f64| {
+            let mu = mu.clamp(-1.0, 1.0);
+            if mu < 0.0 {
+                0.25 * (mu + 1.0)
+            } else {
+                0.25 + 0.25 * mu + 0.5 * mu * mu
+            }
+        };
+        let b = groups.bounds();
+        for g in 0..groups.len() {
+            let expected = cdf(mu_c(b[g])) - cdf(mu_c(b[g + 1]));
+            assert!((m[0][g] - expected).abs() < 1e-12, "group {g}: {:?}", m[0]);
+        }
     }
 
     #[test]
