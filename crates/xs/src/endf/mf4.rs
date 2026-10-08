@@ -342,6 +342,47 @@ mod tests {
     }
 
     #[test]
+    fn log_lin_tables_are_integrated_exactly() {
+        // ln f が μ に線形（INT=4）: f(μ) = c e^μ（c = 1/(e − 1/e)）の a_1 = c ∫ μ e^μ dμ = 2c/e
+        let c = 1.0 / (1.0_f64.exp() - (-1.0_f64).exp());
+        let (lo, hi) = (
+            format!("{}", c / 1.0_f64.exp()),
+            format!("{}", c * 1.0_f64.exp()),
+        );
+        let text = head("2", "0", "2")
+            + &[
+                r(["0.0", "0.0", "0", "0", "1", "1"]),
+                r(["1", "2", "", "", "", ""]),
+                r(["0.0", "1.0e5", "0", "0", "1", "2"]),
+                r(["2", "4", "", "", "", ""]),
+                r(["-1.0", &lo, "1.0", &hi, "", ""]),
+            ]
+            .concat();
+        let mf4 = parse(&text).unwrap();
+        let a = mf4.moments(1.0e5, 1);
+        assert!((a[1] - 2.0 * c / 1.0_f64.exp()).abs() < 1e-12, "{a:?}");
+    }
+
+    #[test]
+    fn repeated_incident_energy_is_a_discontinuity() {
+        // 先頭の入射エネルギーが2回ある（Pb-204 など）: 2つ目の分布から使う
+        let text = head("1", "0", "2")
+            + &[
+                r(["0.0", "0.0", "0", "0", "1", "3"]),
+                r(["3", "2", "", "", "", ""]),
+                r(["0.0", "1.0e-5", "0", "0", "1", "0"]),
+                r(["0.5", "", "", "", "", ""]),
+                r(["0.0", "1.0e-5", "0", "0", "1", "0"]),
+                r(["0.0", "", "", "", "", ""]),
+                r(["0.0", "2.0e5", "0", "0", "1", "0"]),
+                r(["0.2", "", "", "", "", ""]),
+            ]
+            .concat();
+        let mf4 = parse(&text).unwrap();
+        close(&mf4.moments(1.0e5, 1), &[1.0, 0.1]);
+    }
+
+    #[test]
     fn transformation_matrix_is_not_supported() {
         // NM > 0（Legendre 係数の変換行列）は使われていないので扱わない
         let text = [
