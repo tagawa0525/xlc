@@ -1,8 +1,8 @@
 ---
-status: accepted
-date: 2026-10-06
+status: superseded
+date: 2026-10-08
 supersedes: []
-superseded-by:
+superseded-by: ADR-0081
 issues: []
 ---
 
@@ -10,7 +10,7 @@ issues: []
 
 ## 背景
 
-散乱行列（群の間の移行）を、反応の種類ごとにどう作るかを決める必要があった。
+M0 の縦切り（2026-10-06）で、散乱行列（群の間の移行）を、反応の種類ごとにどう作るかを決める必要があった。
 
 ## 検討した案
 
@@ -30,5 +30,7 @@ issues: []
 
 ## 結果
 
-- H in H2O は 4 eV 未満で S(α,β) を使う（[ADR-0052](0052-scatter-h-in-h2o-by-sab.md)）
-- 散乱行列の Legendre モーメントは [ADR-0076](0076-store-legendre-scattering-moments.md)、MF4 の角度分布は [ADR-0081](0081-use-mf4-angular-distributions.md)、MF6 の2体の法則は [ADR-0056](0056-treat-mf6-law2-law3-as-two-body.md)
+M3 で、2体の反応と MF5 の連続的な放出に MF4 の角度分布を入れる決定に置き換えた（[ADR-0081](0081-use-mf4-angular-distributions.md)）。まだ有効な部分
+（4 eV を境にした弾性散乱の扱い、離散準位の Q 値の2体反応、MF6 LAW=1 のエネルギー分布と多重度）は [ADR-0081](0081-use-mf4-angular-distributions.md) に
+まとめ直した。重心系の MF6 LAW=1 の出射エネルギーは、計画に書かないまま、重心系で等方として実験室系に変換する
+実装にしていた（cd67a8c、2026-10-06）。
