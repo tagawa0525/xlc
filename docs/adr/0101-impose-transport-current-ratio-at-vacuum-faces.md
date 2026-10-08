@@ -15,7 +15,7 @@ issues: ["#0026"]
 中性子束と正味の中性子流の間に P1 の関係 φ_het = 2J を置く。格子計算（MOC）の真空の辺は入射の角度中性子束を 0 とするだけ
 で、出ていく角度分布は等方でない。VERA 2B の燃料ピンの n × n の格子（右の辺が真空）では、MOC の右の辺の
 φ_het/(2J) は 0.87〜0.95 で、ADR-0094 の ADF を入れた core の1ノードの NEM の k は MOC から +1510〜+3803 pcm ずれた
-（examples/vera/verification.md の「真空の辺のある格子の ADF と core の1ノードの NEM」、bc531c7、2026-10-09。#0026）。
+（examples/vera/verification.md の「真空の辺のある格子の ADF と core の1ノードの NEM」、491dba3、2026-10-09。#0026）。
 右の辺の ADF だけを 2J / 均質な面の中性子束に置き換えると、k は 10⁻⁶ で一致した。
 
 - 定数を作った体系では、core が参照（格子計算の MOC）の k、ノード平均の反応率、面の正味の中性子流を再現すること（GET）
@@ -96,7 +96,7 @@ issues: ["#0026"]
   （`get_adfs_reproduce_a_two_node_slab`、`get_adfs_reproduce_a_node_with_vacuum_sides`）
 - lattice: 真空の辺の r は MOC の辺の外向きの正味の中性子流 / 不均質な面の中性子束（細かい群の和の比）に相対 1e-14 で
   一致し、2×2 の格子で 1/2 と 1 の間、鏡面反射の辺は r を持たない（`vacuum_sides_carry_the_current_ratio`）
-- MOC との比較（examples/vera/verification.md の「真空の辺の比 J/φ を入れた core の1ノードの NEM」、0f8e102、
+- MOC との比較（examples/vera/verification.md の「真空の辺の比 J/φ を入れた core の1ノードの NEM」、8cd9422、
   2026-10-09）: VERA 2B の燃料ピンの n × n（右の辺が真空）を core の1ノードの NEM で解くと、k は MOC から n = 3、5、9 で
   +0.0015、+0.0025、+0.0044 pcm（core の k の収束の許容差の程度）。`marshak` では +3724、+3803、+1510 pcm。r は
   0.527〜0.572
