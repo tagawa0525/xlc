@@ -6,7 +6,7 @@ superseded-by:
 issues: []
 ---
 
-# ADR-0056: MF6 の LAW=2, 3 の離散準位の非弾性散乱は、Q 値による2体の運動学で扱う
+# ADR-0056: MF6 の LAW=2, 3 の離散準位の非弾性散乱は、重心系で等方な Q 値の2体反応として扱う
 
 ## 背景
 
@@ -18,8 +18,8 @@ Cr と Sn-120 は、離散準位の非弾性散乱（MT51〜90）の出射分布
 
 ## 決定と理由
 
-MF3 だけの離散準位と同じく（MF4 の離散準位と同じく）、Q 値による2体の運動学で扱う。LAW=3 は重心系で等方、LAW=2 は
-重心系の角度分布を使う（[ADR-0076](0076-store-legendre-scattering-moments.md)）。
+MF3 だけの離散準位と同じく、Q 値による2体の運動学で扱う。LAW=3 は重心系で等方である。LAW=2 の角度のデータ
+（Legendre）は読み飛ばし、重心系で等方として扱う（角度のデータを使わない理由は [ADR-0082](0082-leave-out-mf6-angular-data.md)）。
 
 ## 確認
 
@@ -28,4 +28,4 @@ MF3 だけの離散準位と同じく（MF4 の離散準位と同じく）、Q �
 
 ## 結果
 
-MF6 の LAW=1 と LAW=2 の角度のデータを P1 以上に入れるかは [ADR-0082](0082-leave-out-mf6-angular-data.md)。
+P1 以上は、重心系で等方な2体反応の運動学の分だけが入る（[ADR-0076](0076-store-legendre-scattering-moments.md)、[ADR-0082](0082-leave-out-mf6-angular-data.md)）。
