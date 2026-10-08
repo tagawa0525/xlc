@@ -11,6 +11,7 @@
 //! 2次元の格子計算からは軸方向の ADF は出ない（軸方向に一様な格子では 1）ので、z の面では 1 とする。
 
 use xlc_format::fewgroup::FewGroup;
+use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, outflow, transverse_moments};
 
 /// 外周の境界条件。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -406,65 +407,34 @@ impl<'a> Core<'a> {
 
             // 出ていく部分中性子流はノード平均について線形（o = p + q φ̄）なので、
             // ノードのバランス式と同時に解く（古い値を使うと高速群で振動する）
-            let mut parts = [Direction::default(); 3];
+            let mut parts = [Outflow::default(); 3];
             let mut balance_rhs = source;
             let mut balance_diag = removal;
             for (d, part) in parts.iter_mut().enumerate() {
                 let h = self.width(n, d);
-                let alpha = m.diffusion[g] / h;
-                // 源のモーメント（他の群・核分裂の展開係数から）
-                let mut s = [0.0; 4];
-                for (from, c) in coupling.iter().enumerate() {
-                    for (si, a) in s.iter_mut().zip(&state.coefficients[d][n][from]) {
-                        *si += c * a;
-                    }
-                }
                 // ノード n の群 g の値はまだ更新していないので、スイープの始めの値と同じ
-                let (l1, l2) = self.transverse_shape(state, &leakage, n, d, g)?;
-                s[0] -= l1;
-                s[1] -= l2;
-
-                let [a1, a2, _, _] = state.coefficients[d][n][g];
-                let dh2 = m.diffusion[g] / (h * h);
-                // f1, f2 で重み付けした残差から 3次・4次の係数
-                let a3 = (removal * a1 / 12.0 - s[0] / 12.0 + s[2] / 120.0)
-                    / (dh2 / 2.0 + removal / 120.0);
-                let a4 = (removal * a2 / 20.0 - s[1] / 20.0 + s[3] / 700.0)
-                    / (dh2 / 5.0 + removal / 700.0);
-
-                // 面の中性子束と正味の中性子流の連続から、出ていく部分中性子流 o = (o_R, o_L) は
-                //   M o = A i + c,  M = [[1+8α, 4α], [4α, 1+8α]],  A = [[1-8α, -4α], [-4α, 1-8α]]
-                // を満たす（c はノード平均と a3, a4 の項）。入射は i = β o + 外からの入射
-                // （face_inputs）なので、それも同時に解く
+                let transverse = self.transverse_shape(state, &leakage, n, d, g)?;
+                // 入射は i = β o + 外からの入射（face_inputs）
                 let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, g);
-                let (p, q) = (1.0 + 8.0 * alpha, 1.0 - 8.0 * alpha);
-                let w = 4.0 * alpha;
-                // K = M - A B（B = diag(β_R, β_L)）
-                let k = [
-                    [p - q * beta_r, w + w * beta_l],
-                    [w + w * beta_r, p - q * beta_l],
-                ];
-                let det = k[0][0] * k[1][1] - k[0][1] * k[1][0];
-                let solve2 = |r: [f64; 2]| {
-                    [
-                        (k[1][1] * r[0] - k[0][1] * r[1]) / det,
-                        (k[0][0] * r[1] - k[1][0] * r[0]) / det,
-                    ]
-                };
-                // φ̄ = 0 のときの値と、φ̄ に対する傾き
-                let base = solve2([
-                    q * ext_r - w * ext_l - alpha * a3 / 2.0 - alpha * a4 / 5.0,
-                    q * ext_l - w * ext_r + alpha * a3 / 2.0 - alpha * a4 / 5.0,
-                ]);
-                let slope = solve2([6.0 * alpha, 6.0 * alpha]);
-                *part = Direction {
-                    out: base,
-                    slope,
-                    beta: [beta_r, beta_l],
-                    external: [ext_r, ext_l],
-                    a3,
-                    a4,
-                };
+                *part = outflow(&Line {
+                    diffusion: m.diffusion[g],
+                    width: h,
+                    removal,
+                    coupling: &coupling,
+                    coefficients: &state.coefficients[d][n],
+                    group: g,
+                    transverse,
+                    inflow: [
+                        Inflow {
+                            beta: beta_r,
+                            external: ext_r,
+                        },
+                        Inflow {
+                            beta: beta_l,
+                            external: ext_l,
+                        },
+                    ],
+                });
                 // 正味の漏れ (o_R + o_L - i_R - i_L)/h（i = β o + 外からの入射）をバランス式に入れる
                 for f in 0..2 {
                     balance_rhs -= ((1.0 - part.beta[f]) * part.out[f] - part.external[f]) / h;
@@ -474,18 +444,10 @@ impl<'a> Core<'a> {
             let average = balance_rhs / balance_diag;
             state.flux[n][g] = average;
             for (d, part) in parts.iter().enumerate() {
-                let out: [f64; 2] = std::array::from_fn(|f| part.out[f] + part.slope[f] * average);
-                let incoming: [f64; 2] =
-                    std::array::from_fn(|f| part.beta[f] * out[f] + part.external[f]);
-                state.out_plus[d][n][g] = out[0];
-                state.out_minus[d][n][g] = out[1];
-                let (phi_r, phi_l) = (2.0 * (out[0] + incoming[0]), 2.0 * (out[1] + incoming[1]));
-                state.coefficients[d][n][g] = [
-                    phi_r - phi_l,
-                    phi_r + phi_l - 2.0 * average,
-                    part.a3,
-                    part.a4,
-                ];
+                let faces = part.at(average);
+                state.out_plus[d][n][g] = faces.out[0];
+                state.out_minus[d][n][g] = faces.out[1];
+                state.coefficients[d][n][g] = faces.coefficients;
             }
         }
         Ok(())
@@ -508,24 +470,18 @@ impl<'a> Core<'a> {
         let transverse =
             |m: usize| -> f64 { (0..3).filter(|&e| e != d).map(|e| leakage[m][e]).sum() };
         let h = self.width(n, d);
-        // ノードの中心を原点とした q(x) = c0 + c1 x + c2 x² への条件 (行, 右辺)
-        let average = |a: f64, b: f64, value: f64| {
-            ([1.0, 0.5 * (a + b), (a * a + a * b + b * b) / 3.0], value)
-        };
         let side = |step: isize, face: usize| {
-            let sign = step as f64;
-            let near = sign * 0.5 * h;
             Ok(match self.neighbor(n, d, step) {
-                Some(m) => {
-                    let far = near + sign * self.width(m, d);
-                    average(near.min(far), near.max(far), transverse(m))
-                }
+                Some(m) => Beside::Node {
+                    width: self.width(m, d),
+                    leakage: transverse(m),
+                },
                 None => match self.problem.boundaries[2 * d + face] {
-                    Boundary::Reflective => {
-                        let far = near + sign * h;
-                        average(near.min(far), near.max(far), transverse(n))
-                    }
-                    Boundary::ZeroFlux => ([1.0, near, near * near], 0.0),
+                    Boundary::Reflective => Beside::Node {
+                        width: h,
+                        leakage: transverse(n),
+                    },
+                    Boundary::ZeroFlux => Beside::Face(0.0),
                     Boundary::Vacuum => {
                         let flux = state.flux[n][g];
                         if !(flux > 0.0 && flux.is_finite()) {
@@ -537,21 +493,17 @@ impl<'a> Core<'a> {
                         } else {
                             2.0 * (state.out_minus[d][n][g] + in_minus)
                         };
-                        ([1.0, near, near * near], transverse(n) * face_flux / flux)
+                        Beside::Face(transverse(n) * face_flux / flux)
                     }
                 },
             })
         };
-        let rows = [
+        Ok(transverse_moments(
+            h,
             side(-1, 0)?,
-            average(-0.5 * h, 0.5 * h, transverse(n)),
+            transverse(n),
             side(1, 1)?,
-        ];
-        let c = solve3(
-            [rows[0].0, rows[1].0, rows[2].0],
-            [rows[0].1, rows[1].1, rows[2].1],
-        );
-        Ok((c[1] * h, c[2] * h * h / 3.0))
+        ))
     }
 
     /// 外周の面から外へ出る正味の中性子数（群ごと）
@@ -573,39 +525,6 @@ impl<'a> Core<'a> {
         }
         total
     }
-}
-
-/// 3×3 の連立一次方程式（Cramer の公式）。
-fn solve3(a: [[f64; 3]; 3], b: [f64; 3]) -> [f64; 3] {
-    let det = |m: [[f64; 3]; 3]| {
-        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
-            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
-    };
-    let d = det(a);
-    std::array::from_fn(|j| {
-        let mut m = a;
-        for (row, value) in m.iter_mut().zip(b) {
-            row[j] = value;
-        }
-        det(m) / d
-    })
-}
-
-/// ノードの1方向の途中結果。`out` は φ̄ = 0 のときの出ていく部分中性子流で、
-/// 実際の値は `slope` × φ̄ を足したもの。
-#[derive(Debug, Clone, Copy, Default)]
-struct Direction {
-    /// [+ 面, - 面]
-    out: [f64; 2],
-    slope: [f64; 2],
-    /// 面での入射 i = β o + external の β（`Core::face_inputs`。隣の面では ADF の比から、
-    /// 外周では境界条件から決まり、ADF が等しい隣の面と ADF が 1 の真空の面では 0）
-    beta: [f64; 2],
-    /// 隣のノードの出ていく部分中性子流から入る分 2 f' o'/(f + f')（外周の面では 0）
-    external: [f64; 2],
-    a3: f64,
-    a4: f64,
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
