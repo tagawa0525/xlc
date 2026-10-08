@@ -7,13 +7,14 @@ use crate::endf::{
 };
 use crate::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
 use crate::multigroup::{
-    Emission, FreeGas, GroupStructure, ReactionAverages, SabError, ScatterError, ShieldingError,
-    SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
-    fission_spectrum, scattering_moments, shielded_averages,
+    Emission, FreeGas, ReactionAverages, SabError, ScatterError, ShieldingError, SlowingDown,
+    Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
+    scattering_moments, shielded_averages,
 };
 use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
 use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
+use xlc_format::group::GroupStructure;
 
 /// 処理の条件。
 #[derive(Debug, Clone)]

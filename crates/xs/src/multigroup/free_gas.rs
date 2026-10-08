@@ -8,10 +8,10 @@
 //! （一定の自由原子の断面積なら σ N(E)）に S/N(E) を掛ける。自由原子の断面積が一定なら σ S に等しく、
 //! 詳細バランスが厳密に成り立つ。
 
-use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
 use super::scatter::{GAUSS_8, legendre};
 use crate::special::{erf, erfcx};
+use xlc_format::group::GroupStructure;
 
 /// 熱領域の弾性散乱を自由ガス模型で扱う条件。
 #[derive(Debug, Clone, Copy, PartialEq)]

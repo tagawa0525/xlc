@@ -611,8 +611,8 @@ fn slab(u: &[f64], a: f64, b: f64, big_u: f64, lower: &mut usize) -> Vec<(usize,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use xlc_format::group::GroupStructure;
     use xlc_xs::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
-    use xlc_xs::multigroup::GroupStructure;
 
     const TEMPERATURE: f64 = 600.0;
     const BOUNDS: [f64; 7] = [2.0e7, 2.0e4, 1.0e4, 1.0e3, 1.0e2, 4.0, 1.0e-5];

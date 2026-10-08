@@ -1,12 +1,12 @@
 //! 出射エネルギー分布の群への振り分け。
 
-use super::GroupStructure;
 use super::integrate::GAUSS_LEGENDRE;
 use crate::endf::{
     ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
 };
 use crate::pointwise::linearize;
 use crate::special::{gamma_p_2, gamma_p_3_2};
+use xlc_format::group::GroupStructure;
 
 /// 出射エネルギーの確率密度の表を、群ごとに積分する。
 ///
