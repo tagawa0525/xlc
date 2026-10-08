@@ -1,0 +1,6 @@
+# lattice-9x9-vacuum.toml と同じ体系（右の辺が真空）を、その2群定数で1ノードの NEM で解く。
+# 幅は 9 × 1.26 + 2 × 0.04 = 11.42 cm。z は反射で、高さは結果に効かない。
+few-group = "fg-9x9-vacuum.msgpack"
+size = [11.42, 11.42, 11.42]
+nodes = [1, 1, 1]
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
