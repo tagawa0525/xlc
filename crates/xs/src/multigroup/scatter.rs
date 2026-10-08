@@ -14,6 +14,7 @@ use super::{
     FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight, group_integrals,
     group_integrals_multi,
 };
+use crate::endf::Mf4;
 use crate::endf::{Frame, Mf5, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
@@ -264,7 +265,7 @@ fn elastic_rows(
             }
             _ => add(
                 out,
-                two_body_moments(groups, e, awr, 0.0, sigma, order),
+                two_body_moments(groups, e, awr, 0.0, sigma, order, None),
                 1.0,
             ),
         }
@@ -289,7 +290,7 @@ fn two_body_rows(
         if sigma == 0.0 {
             return;
         }
-        for (l, row) in two_body_moments(groups, e, awr, q, sigma, order)
+        for (l, row) in two_body_moments(groups, e, awr, q, sigma, order, None)
             .into_iter()
             .enumerate()
         {
@@ -313,7 +314,9 @@ fn two_body_moments(
     q: f64,
     scale: f64,
     order: usize,
+    angular: Option<&Mf4>,
 ) -> Vec<Vec<f64>> {
+    let _ = angular;
     let ng = groups.len();
     let mut out = vec![vec![0.0; ng]; order + 1];
     let Some((lo, hi)) = two_body_range(e, awr, q) else {
@@ -472,6 +475,7 @@ fn spectrum_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::{Angular, Frame, Interpolation, LegendreTable};
 
     /// ルジャンドルの次数ごとの、全群の和
     fn sums(moments: &[Vec<f64>]) -> Vec<f64> {
@@ -482,7 +486,7 @@ mod tests {
     fn hydrogen_moments_follow_the_kinematics() {
         // A = 1 の弾性散乱は μ_lab = √(E'/E) で E' は [0, E] に一様: ⟨P1⟩ = 2/3, ⟨P2⟩ = 1/4, ⟨P3⟩ = 0
         let groups = GroupStructure::new(vec![1.0e7, 1.0e4, 3.0e3, 1.0e3, 1.0, 1.0e-5]).unwrap();
-        let m = two_body_moments(&groups, 5.0e3, 1.0, 0.0, 1.0, 3);
+        let m = two_body_moments(&groups, 5.0e3, 1.0, 0.0, 1.0, 3, None);
         let total = sums(&m);
         for (got, expected) in total.iter().zip([1.0, 2.0 / 3.0, 0.25, 0.0]) {
             assert!((got - expected).abs() < 1e-12, "{total:?}");
@@ -500,12 +504,73 @@ mod tests {
     fn heavy_target_moments_follow_the_kinematics() {
         // 重心系で等方な弾性散乱の実験室系の平均の余弦は 2/(3A)
         let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
-        let m = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 1);
+        let m = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 1, None);
         let total = sums(&m);
         assert!((total[0] - 2.0).abs() < 1e-12);
         assert!(
             (total[1] / total[0] - 2.0 / 30.0).abs() < 1e-12,
             "{total:?}"
+        );
+    }
+
+    /// 重心系の分布 f(μ_c) = 1/2 + 3/2 a μ_c（全エネルギーで同じ）
+    fn linear_cm(a: f64) -> Mf4 {
+        Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Legendre(LegendreTable {
+                breaks: vec![2],
+                laws: vec![Interpolation::LinLin],
+                energies: vec![1.0e-5, 2.0e7],
+                coefficients: vec![vec![a], vec![a]],
+            }),
+        }
+    }
+
+    #[test]
+    fn isotropic_angular_data_changes_nothing() {
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let isotropic = Mf4 {
+            frame: Frame::CenterOfMass,
+            angular: Angular::Isotropic,
+        };
+        let plain = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 3, None);
+        let with = two_body_moments(&groups, 1.0e3, 10.0, 0.0, 2.0, 3, Some(&isotropic));
+        for (a, b) in plain.iter().flatten().zip(with.iter().flatten()) {
+            assert!((a - b).abs() < 1e-12, "{plain:?} vs {with:?}");
+        }
+    }
+
+    #[test]
+    fn center_of_mass_distribution_shifts_the_outgoing_energies() {
+        // A = 10、E = 1e3 eV の弾性散乱。E' = E (1 + A² + 2A μ_c)/(A+1)² は μ_c に線形なので、
+        // 群 [E1, E2] に出る確率は ∫ f dμ_c（f = 1/2 + 3/2 a μ_c）
+        let (awr, e, a) = (10.0_f64, 1.0e3_f64, 0.2);
+        let groups = GroupStructure::new(vec![1.0e7, 1.0e3, 9.0e2, 8.5e2, 1.0e-5]).unwrap();
+        let mf4 = linear_cm(a);
+        let m = two_body_moments(&groups, e, awr, 0.0, 1.0, 1, Some(&mf4));
+        let mu_c = |ep: f64| ((awr + 1.0).powi(2) * ep / e - 1.0 - awr * awr) / (2.0 * awr);
+        let cdf = |mu: f64| {
+            let mu = mu.clamp(-1.0, 1.0);
+            0.5 * (mu + 1.0) + 0.75 * a * (mu * mu - 1.0)
+        };
+        let b = groups.bounds();
+        for g in 0..groups.len() {
+            let expected = cdf(mu_c(b[g])) - cdf(mu_c(b[g + 1]));
+            assert!((m[0][g] - expected).abs() < 1e-12, "group {g}: {:?}", m[0]);
+        }
+        // P1 の和は ∫ f(μ_c) μ_lab(μ_c) dμ_c、μ_lab = (1 + A μ_c)/√(1 + A² + 2A μ_c)
+        let nodes = xlc_numeric::quadrature::gauss_legendre(64).unwrap();
+        let expected: f64 = nodes
+            .iter()
+            .map(|&(x, w)| {
+                let f = 0.5 + 1.5 * a * x;
+                w * f * (1.0 + awr * x) / (1.0 + awr * awr + 2.0 * awr * x).sqrt()
+            })
+            .sum();
+        let total = sums(&m);
+        assert!(
+            (total[1] - expected).abs() < 1e-12,
+            "{total:?} vs {expected}"
         );
     }
 
