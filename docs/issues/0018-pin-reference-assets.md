@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 `references/`（git の管理外、約 10 GB）には、性格の違う3種類が混ざっている（比べるのに使う小さな結果は
-examples/ にコミットしていて、対比のために表の最後に並べる）。手順は docs/verification.md にあるが、再現性は
+examples/ にコミットしていて、対比のために表の最後に並べる）。手順は docs/environment.md にあるが、再現性は
 手作業に頼っている。
 
 | 中身                                                              | 今の扱い                                                                                                             |

@@ -12,7 +12,7 @@ issues: []
 
 ピンごとの減速計算（[ADR-0068](0068-solve-pinwise-slowing-down.md)）とライブラリの重みの減速計算（[ADR-0072](0072-weight-shielded-data-by-flux-calculator.md)）は、散乱核で標的を静止として扱う。OpenMC
 （400 kT 未満で断面積一定の自由ガス）と比べると、U-238 の中性子幅の大きい共鳴（36.7 eV と 20.9 eV）の群の吸収が
-600 K で +0.3〜+0.8%、1200 K で +1.6〜+2.6% 多く、温度とともに k の差が負に開く（examples/vera/README.md の
+600 K で +0.3〜+0.8%、1200 K で +1.6〜+2.6% 多く、温度とともに k の差が負に開く（examples/vera/verification.md の
 「ピンごとの UFG での結果」の群ごとの表、24 群と 25 群。範囲にまとめた値は docs/plans/m2-assembly.md、bd8e148、2026-10-07）。
 
 - 精度
@@ -40,7 +40,7 @@ issues: []
 ## 確認
 
 `heavy_absorber_scatters_without_losing_energy`、`hydrogen_slowing_down_matches_the_analytic_solution`。OpenMC との群ごとの
-吸収の比較（examples/vera/README.md）。
+吸収の比較（examples/vera/verification.md）。
 
 ## 結果
 

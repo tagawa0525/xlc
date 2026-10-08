@@ -24,7 +24,7 @@ H in H2O は ENDF の S(α,β)（MF7 の非干渉性非弾性散乱）から散�
 ## 確認
 
 `reads_incoherent_inelastic_scattering`、`sab_matrix_satisfies_detailed_balance`、`sab_ignores_mf3_elastic_below_cutoff`。
-NJOY THERMR との比較（`crates/xs/examples/compare_njoy_thermr.rs`、examples/m1/README.md）。
+NJOY THERMR との比較（`crates/xs/examples/compare_njoy_thermr.rs`、examples/m1/verification.md）。
 
 ## 結果
 

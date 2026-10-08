@@ -27,7 +27,7 @@ M2 で k が届いていない分は、原因の調査を後に回し、M3 以�
 
 ## 確認
 
-達成の状況は検証の例（examples/vera/README.md など）に記録する。
+達成の状況は検証の例（examples/vera/verification.md など）に記録する。
 
 ## 結果
 

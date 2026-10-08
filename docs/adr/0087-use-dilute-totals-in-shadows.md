@@ -21,12 +21,12 @@ issues: ["#0007"]
 ## 検討した案
 
 - 黒体の吸収率で重みづけした平均（ブランチ `feat/dancoff-potential` に残す）: 実装して VERA と比べると、群ごとの差が
-  打ち消し合い、k は 1B と 2B の枠あり、枠なしで −5〜+0.4 pcm しか動かなかった（examples/vera/README.md、6a0345c、
+  打ち消し合い、k は 1B と 2B の枠あり、枠なしで −5〜+0.4 pcm しか動かなかった（examples/vera/verification.md、6a0345c、
   2026-10-08）。燃料の物質ごとに Dancoff 係数の MOC を解くことになり、燃料の物質がピンごとに分かれる M4 の燃焼では
   集合体1つで数百回になる。ポイントワイズの断面積の積分のコードも増える
 - ポテンシャル散乱（λΣp。MPACT（ORNL/SPR-2021/2330 の式 9.17–9.18）、HELIOS 系、SCALE/Polaris が使う）: 上の平均の、
   共鳴が重ならない極限にあたる。吸収率の重みの平均より Zircaloy を透明にしすぎ（4 eV〜200 keV の群で無限希釈より
-  最大 45% 透明にし、k が +44 pcm 動く。examples/vera/README.md）、共鳴の重なる物質の影も落とす
+  最大 45% 透明にし、k が +44 pcm 動く。examples/vera/verification.md）、共鳴の重なる物質の影も落とす
 - 無限希釈の群平均（採用）
 
 ## 決定と理由
@@ -38,7 +38,7 @@ issues: ["#0007"]
 
 ## 確認
 
-上の VERA 1B, 2B の比較（examples/vera/README.md）。
+上の VERA 1B, 2B の比較（examples/vera/verification.md）。
 
 ## 結果
 

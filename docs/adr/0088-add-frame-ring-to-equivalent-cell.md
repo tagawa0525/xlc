@@ -12,7 +12,7 @@ issues: ["#0004"]
 
 支持格子の枠のある格子では、格子の Dancoff 係数に枠の影が入る。等価なセル（[ADR-0068](0068-solve-pinwise-slowing-down.md)）に枠がないと、その影を水で作る
 ことになり、枠の Zr が減速材の中性子束を変える効果も落ちる。VERA 1B では、枠による k の変化の OpenMC との差
-（−170 pcm。2B は −126 pcm）の大部分がこれによる（examples/vera/README.md、612913c と 9fb742c、2026-10-08）。
+（−170 pcm。2B は −126 pcm）の大部分がこれによる（examples/vera/verification.md、612913c と 9fb742c、2026-10-08）。
 
 ## 検討した案
 
@@ -29,7 +29,7 @@ issues: ["#0004"]
 ## 確認
 
 `frames_are_the_outer_ring_of_the_cell`、`fixed_rings_keep_one`。枠による k の変化の OpenMC との差は、1B で −170 → +40 pcm、
-2B で −126 → +38 pcm になった（examples/vera/README.md、1d4606f、2026-10-08）。OpenMC の2つの計算の差の統計誤差は
+2B で −126 → +38 pcm になった（examples/vera/verification.md、1d4606f、2026-10-08）。OpenMC の2つの計算の差の統計誤差は
 1σ で約 10 pcm。
 
 ## 結果

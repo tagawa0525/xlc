@@ -31,7 +31,7 @@ docs/plans/m3-core-hzp.md、99deb84、2026-10-08）。どちらも燃料では U
 ## 確認
 
 `two_terms_are_weighted_by_the_narrow_resonance_flux`。k は 1B〜1D、2B（枠なし）で 1 pcm 以内しか変わらない
-（examples/vera/README.md）。
+（examples/vera/verification.md）。
 
 ## 結果
 
