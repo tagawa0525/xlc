@@ -56,8 +56,8 @@ impl Docs {
             .iter()
             .map(|(path, text)| (path.as_str(), scanned_lines(path, text, &mut out)))
             .collect();
-        let adrs = self.numbered(ADR_DIR, &lines, &mut out);
-        let issues = self.numbered(ISSUE_DIR, &lines, &mut out);
+        let adrs = self.numbered(ADR_DIR, &mut out);
+        let issues = self.numbered(ISSUE_DIR, &mut out);
         let adr_numbers: BTreeSet<u32> = adrs.iter().map(|d| d.number).collect();
         let issue_numbers: BTreeSet<u32> = issues.iter().map(|d| d.number).collect();
 
@@ -67,31 +67,34 @@ impl Docs {
         check_front(&issues, &ISSUE_KEYS, &ISSUE_STATUSES, "opened", &mut out);
         check_headings(&adrs, &mut out);
         check_supersession(&adrs, &adr_numbers, &mut out);
-        check_issue_states(&issues, &issue_numbers, &adr_numbers, &mut out);
-        check_adr_issue_links(&adrs, &issues, &issue_numbers, &mut out);
+        let adr_issues = adr_issues(&adrs, &issue_numbers, &mut out);
+        check_issue_states(&issues, &issue_numbers, &adr_issues, &mut out);
+        check_adr_issue_links(&adr_issues, &issues, &mut out);
         check_mentions(&lines, &adr_numbers, &issue_numbers, &mut out);
         self.check_links(&lines, &mut out);
 
         let mut found = out.0;
         found.sort();
-        // 閉じていないフロントマターは、フロントマターと本文の両方の読み取りで見つかる
-        found.dedup();
         found
     }
 
     /// 閉じた issue の `resolution` が `コミット <hash>` の形のとき、その issue のパスと hash。git で hash が
     /// 指すコミットを確かめるのは呼ぶ側（tests/consistency.rs）。
     pub fn resolution_commits(&self) -> Vec<(String, String)> {
-        Vec::new()
+        self.numbered(ISSUE_DIR, &mut Violations::default())
+            .iter()
+            .filter(|issue| issue.status() == "closed")
+            .filter_map(|issue| match issue.front.get("resolution") {
+                Some(Value::Scalar(s)) => {
+                    commit_hash(s).map(|h| (issue.path.to_string(), h.to_string()))
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     /// `dir` の直下の番号つきの文書（README.md を除く）。
-    fn numbered<'a>(
-        &'a self,
-        dir: &str,
-        lines: &BTreeMap<&'a str, Vec<(usize, &'a str)>>,
-        out: &mut Violations,
-    ) -> Vec<Doc<'a>> {
+    fn numbered(&self, dir: &str, out: &mut Violations) -> Vec<Doc<'_>> {
         let mut docs = Vec::new();
         for (path, text) in &self.texts {
             let Some(name) = path.strip_prefix(dir) else {
@@ -109,7 +112,8 @@ impl Docs {
                     path,
                     number,
                     front,
-                    lines: lines.get(path.as_str()).cloned().unwrap_or_default(),
+                    // 閉じていないコードブロックは、行を読むほかの検査（scanned_lines）が違反にする
+                    lines: markdown_lines(text).ok(),
                 }),
                 Err(e) => out.file(path, e),
             }
@@ -213,8 +217,8 @@ struct Doc<'a> {
     path: &'a str,
     number: u32,
     front: FrontMatter,
-    /// フロントマターとコードブロックの外の行。
-    lines: Vec<(usize, &'a str)>,
+    /// コードブロックの外の行（フロントマターを含む）。コードブロックが閉じていなければ `None` で、行を見る検査を飛ばす。
+    lines: Option<Vec<(usize, &'a str)>>,
 }
 
 impl Doc<'_> {
@@ -252,7 +256,8 @@ fn scanned_for_links(path: &str) -> bool {
         || ((path.starts_with("docs/") || path.starts_with("examples/")) && extension(path) == "md")
 }
 
-/// 参照とリンクを探す行。Markdown はフロントマターとコードブロックを除き、ほかのファイルはすべての行。
+/// 参照とリンクを探す行。Markdown はコードブロックを除き、ほかのファイルはすべての行。コードブロックが閉じて
+/// いなければ違反にし、そのファイルの行は見ない。
 fn scanned_lines<'a>(path: &str, text: &'a str, out: &mut Violations) -> Vec<(usize, &'a str)> {
     if extension(path) != "md" {
         return text.lines().enumerate().map(|(i, l)| (i + 1, l)).collect();
@@ -287,7 +292,7 @@ fn show(value: &Value) -> String {
     }
 }
 
-/// `YYYY-MM-DD`（月は 01〜12、日は 01〜31）か。
+/// 暦にある日付の `YYYY-MM-DD` か（月の日数と閏年を見る）。
 fn is_date(s: &str) -> bool {
     let bytes = s.as_bytes();
     let digits = |r: std::ops::Range<usize>| bytes[r].iter().all(u8::is_ascii_digit);
@@ -300,9 +305,31 @@ fn is_date(s: &str) -> bool {
     {
         return false;
     }
-    let month: u32 = s[5..7].parse().unwrap_or(0);
-    let day: u32 = s[8..10].parse().unwrap_or(0);
-    (1..=12).contains(&month) && (1..=31).contains(&day)
+    let (Ok(year), Ok(month), Ok(day)) = (
+        s[0..4].parse::<u32>(),
+        s[5..7].parse::<u32>(),
+        s[8..10].parse::<u32>(),
+    ) else {
+        return false;
+    };
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1..=days).contains(&day)
+}
+
+/// `コミット <hash>` の hash（7〜40 桁の英小文字の16進）。形が違えば `None`。
+fn commit_hash(resolution: &str) -> Option<&str> {
+    resolution.strip_prefix("コミット ").filter(|h| {
+        (7..=40).contains(&h.len())
+            && h.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
 }
 
 /// 番号の重複（1）。
@@ -374,7 +401,10 @@ fn check_date(doc: &Doc, key: &str, out: &mut Violations) {
 fn check_headings(adrs: &[Doc], out: &mut Violations) {
     for adr in adrs {
         let prefix = format!("# ADR-{:04}: ", adr.number);
-        let heading = adr.lines.iter().find(|(_, l)| l.starts_with("# "));
+        let Some(lines) = &adr.lines else {
+            continue;
+        };
+        let heading = lines.iter().find(|(_, l)| l.starts_with("# "));
         let ok = heading.is_some_and(|(_, l)| {
             l.strip_prefix(&prefix)
                 .is_some_and(|t| !t.trim().is_empty())
@@ -475,7 +505,7 @@ fn check_supersession(adrs: &[Doc], existing: &BTreeSet<u32>, out: &mut Violatio
 fn check_issue_states(
     issues: &[Doc],
     existing: &BTreeSet<u32>,
-    adrs: &BTreeSet<u32>,
+    adr_issues: &BTreeMap<u32, BTreeSet<u32>>,
     out: &mut Violations,
 ) {
     for issue in issues {
@@ -496,36 +526,40 @@ fn check_issue_states(
             check_date(issue, "closed", out);
         }
         if closed {
-            check_resolution(issue, adrs, out);
+            check_resolution(issue, adr_issues, out);
         }
         front_refs(issue, "blocked-by", issue_refs, "#", existing, out);
     }
 }
 
 /// `resolution` が `ADR-NNNN`（ある ADR）、`コミット <hash>`（7〜40 桁の英小文字の16進）、`wontfix: 理由` のどれか
-/// （docs/issues/README.md）。空なら何もしない（空のことは状態の検査が見る）。
-fn check_resolution(issue: &Doc, adrs: &BTreeSet<u32>, out: &mut Violations) {
+/// （docs/issues/README.md）。ADR なら、その ADR の `issues` がこの issue を挙げていること（docs/adr/README.md）。
+/// 空なら何もしない（空のことは状態の検査が見る）。
+fn check_resolution(issue: &Doc, adr_issues: &BTreeMap<u32, BTreeSet<u32>>, out: &mut Violations) {
     let value = match issue.front.get("resolution") {
         None | Some(Value::Empty) => return,
         Some(Value::Scalar(s)) => Some(s.as_str()),
         Some(Value::List(_)) => None,
     };
     if let Some(n) = value.and_then(|s| single_ref(s, adr_refs, "ADR-")) {
-        if !adrs.contains(&n) {
-            out.file(
+        match adr_issues.get(&n) {
+            None => out.file(
                 issue.path,
                 format!("`resolution` names ADR-{n:04}, which does not exist"),
-            );
+            ),
+            Some(named) if !named.contains(&issue.number) => out.file(
+                issue.path,
+                format!(
+                    "`resolution` names ADR-{n:04}, whose `issues` does not name #{:04}",
+                    issue.number
+                ),
+            ),
+            Some(_) => {}
         }
         return;
     }
-    let is_hash = |h: &str| {
-        (7..=40).contains(&h.len())
-            && h.bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-    };
     let valid = value.is_some_and(|s| {
-        s.strip_prefix("コミット ").is_some_and(is_hash)
+        commit_hash(s).is_some()
             || s.strip_prefix("wontfix:")
                 .is_some_and(|reason| !reason.trim().is_empty())
     });
@@ -540,22 +574,37 @@ fn check_resolution(issue: &Doc, adrs: &BTreeSet<u32>, out: &mut Violations) {
     }
 }
 
+/// ADR ごとの、フロントマターの `issues` が挙げる issue。形が違うものと、ない issue は違反にする。
+fn adr_issues(
+    adrs: &[Doc],
+    existing: &BTreeSet<u32>,
+    out: &mut Violations,
+) -> BTreeMap<u32, BTreeSet<u32>> {
+    adrs.iter()
+        .map(|adr| {
+            let issues = front_refs(adr, "issues", issue_refs, "#", existing, out);
+            (adr.number, issues)
+        })
+        .collect()
+}
+
 /// ADR のフロントマターの `issues` と、issue の「関係する ADR:」の行が両方向にそろっているか（5）。
 fn check_adr_issue_links(
-    adrs: &[Doc],
+    adr_issues: &BTreeMap<u32, BTreeSet<u32>>,
     issues: &[Doc],
-    existing: &BTreeSet<u32>,
     out: &mut Violations,
 ) {
     let mut from_adrs: BTreeMap<u32, BTreeSet<u32>> = BTreeMap::new();
-    for adr in adrs {
-        for issue in front_refs(adr, "issues", issue_refs, "#", existing, out) {
-            from_adrs.entry(issue).or_default().insert(adr.number);
+    for (adr, named) in adr_issues {
+        for issue in named {
+            from_adrs.entry(*issue).or_default().insert(*adr);
         }
     }
     for issue in issues {
-        let related: Vec<(usize, &str)> = issue
-            .lines
+        let Some(lines) = &issue.lines else {
+            continue;
+        };
+        let related: Vec<(usize, &str)> = lines
             .iter()
             .filter_map(|(n, l)| l.strip_prefix(RELATED_ADRS).map(|rest| (*n, rest)))
             .collect();

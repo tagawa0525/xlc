@@ -95,9 +95,8 @@ impl FrontMatter {
 
 /// Markdown の先頭の `---` で囲んだフロントマターを読む。
 ///
-/// 各行は `key: value` で、値は空、裸の文字列、引用符で囲んだ文字列、`[a, "b"]` の一覧のどれか。引用符の外の
-/// `#`（行頭か空白のあと）から行末まではコメントとして捨てる。空行、重複したキー、閉じていない引用符や角括弧は
-/// エラーにする。
+/// 各行は `key: value` で、値は空、裸の文字列、引用符で囲んだ文字列、`[a, "b"]` の一覧のどれか。`#` は値の
+/// 一部として読む（コメントは書かない）。空行、重複したキー、閉じていない引用符や角括弧はエラーにする。
 pub fn parse_front_matter(text: &str) -> Result<FrontMatter, Error> {
     let mut lines = text.lines();
     if lines.next() != Some("---") {
@@ -112,7 +111,7 @@ pub fn parse_front_matter(text: &str) -> Result<FrontMatter, Error> {
             line: i + 1,
             text: line.to_string(),
         };
-        let (key, value) = strip_comment(line).split_once(':').ok_or_else(malformed)?;
+        let (key, value) = line.trim_end().split_once(':').ok_or_else(malformed)?;
         let key = key.trim();
         if key.is_empty() || key.contains(char::is_whitespace) {
             return Err(malformed());
@@ -124,23 +123,6 @@ pub fn parse_front_matter(text: &str) -> Result<FrontMatter, Error> {
         entries.push((key.to_string(), value));
     }
     Err(Error::UnclosedFrontMatter)
-}
-
-/// 引用符の外で、行頭か空白のあとにある `#` から行末までを除く。
-fn strip_comment(line: &str) -> &str {
-    let mut in_quote = false;
-    let mut previous: Option<char> = None;
-    for (i, c) in line.char_indices() {
-        match c {
-            '"' => in_quote = !in_quote,
-            '#' if !in_quote && previous.is_none_or(char::is_whitespace) => {
-                return line[..i].trim_end();
-            }
-            _ => {}
-        }
-        previous = Some(c);
-    }
-    line.trim_end()
 }
 
 fn parse_value(key: &str, value: &str) -> Result<Value, Error> {
@@ -345,38 +327,50 @@ fn closing_run(text: &str, ticks: usize) -> Option<usize> {
     None
 }
 
-/// コードブロックの囲いの記号と数（```` ``` ```` か `~~~` 以上）。
-fn fence_marker(line: &str) -> Option<(char, usize)> {
-    let trimmed = line.trim_start();
+/// 4つ以上の空白で字下げしていない行の、字下げを除いた残り。
+fn unindented(line: &str) -> Option<&str> {
+    let rest = line.trim_start_matches(' ');
+    (line.len() - rest.len() <= 3).then_some(rest)
+}
+
+/// 先頭に続く `c` の数。
+fn run_of(text: &str, c: char) -> usize {
+    text.len() - text.trim_start_matches(c).len()
+}
+
+/// コードブロックを開く囲い（CommonMark）の記号と数。3つ以上の ```` ` ```` か `~` で、字下げは3つまで。
+/// ```` ` ```` の囲いの情報の文字列にはバッククォートを書けない（```` ```cargo test``` ```` は囲いでない）。
+fn opening_fence(line: &str) -> Option<(char, usize)> {
+    let rest = unindented(line)?;
     ['`', '~'].into_iter().find_map(|c| {
-        let n = trimmed.len() - trimmed.trim_start_matches(c).len();
-        (n >= 3).then_some((c, n))
+        let n = run_of(rest, c);
+        (n >= 3 && !(c == '`' && rest[n..].contains('`'))).then_some((c, n))
     })
 }
 
-/// Markdown の、フロントマターとコードブロック（```` ``` ```` か `~~~` で囲んだ部分）の外の行を、行番号（1 から）とともに
-/// 返す。閉じていないフロントマターとコードブロックはエラーにする。
+/// `c` が `n` 個以上並び、ほかに何もない、字下げが3つまでの行か（閉じる囲い）。
+fn closes_fence(line: &str, c: char, n: usize) -> bool {
+    unindented(line).is_some_and(|rest| {
+        let run = run_of(rest, c);
+        run >= n && rest[run..].trim().is_empty()
+    })
+}
+
+/// Markdown の、コードブロック（CommonMark の ```` ``` ```` か `~~~` の囲い）の外の行を、行番号（1 から）とともに
+/// 返す。フロントマターは読み分けない（ほかの行と同じに返す）。閉じていないコードブロックはエラーにする。
 pub fn markdown_lines(text: &str) -> Result<Vec<(usize, &str)>, Error> {
-    let mut lines = text.lines().enumerate().map(|(i, l)| (i + 1, l)).peekable();
-    if lines.peek().is_some_and(|(_, l)| *l == "---") {
-        lines.next();
-        if !lines.by_ref().any(|(_, l)| l == "---") {
-            return Err(Error::UnclosedFrontMatter);
-        }
-    }
     let mut out = Vec::new();
     // 開いているコードブロックの記号、数、開いた行
     let mut fence: Option<(char, usize, usize)> = None;
-    for (number, line) in lines {
+    for (i, line) in text.lines().enumerate() {
+        let number = i + 1;
         match fence {
-            None => match fence_marker(line) {
+            None => match opening_fence(line) {
                 Some((c, n)) => fence = Some((c, n, number)),
                 None => out.push((number, line)),
             },
             Some((c, n, _)) => {
-                let trimmed = line.trim();
-                let run = trimmed.len() - trimmed.trim_start_matches(c).len();
-                if run >= n && run == trimmed.len() {
+                if closes_fence(line, c, n) {
                     fence = None;
                 }
             }
