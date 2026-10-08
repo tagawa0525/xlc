@@ -14,6 +14,7 @@ pub mod macroscopic;
 pub mod material;
 pub mod moc;
 pub mod power;
+pub mod shadow;
 pub mod shielding;
 pub mod sph;
 pub mod symmetry;
