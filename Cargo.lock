@@ -517,6 +517,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlc-format"
+version = "0.1.0"
+dependencies = [
+ "rmp-serde",
+ "rmpv",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "xlc-lattice"
 version = "0.1.0"
 dependencies = [
@@ -530,6 +540,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "xlc-format",
  "xlc-xs",
 ]
 
@@ -546,4 +557,5 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "xlc-format",
 ]
