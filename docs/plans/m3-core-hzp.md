@@ -21,7 +21,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 
 - 565 K の熱中性子散乱と核種ごとの温度: [ADR-0080](../adr/0080-interpolate-sab-in-temperature.md)（[ADR-0047](../adr/0047-choose-temperatures-per-nuclide.md) を置き換え）
 - 群の間の移行と MF4 の角度分布: [ADR-0081](../adr/0081-use-mf4-angular-distributions.md)（[ADR-0041](../adr/0041-transfer-by-two-body-kinematics.md) を置き換え）
-- MF6 の角度のデータ: [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)（[ADR-0091](../adr/0091-use-mf6-angular-data.md) を置き換え）
+- MF6 の角度のデータ: [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)
 
 ### 格子計算
 

@@ -1,8 +1,8 @@
 ---
-status: superseded
-date: 2026-10-07
+status: accepted
+date: 2026-10-06
 supersedes: []
-superseded-by: ADR-0091
+superseded-by:
 issues: []
 ---
 
@@ -29,5 +29,6 @@ MF3 だけの離散準位と同じく、Q 値による2体の運動学（重心�
 
 ## 結果
 
-M2 で散乱を非等方にしたとき（2026-10-07）、LAW=2 の重心系の角度分布を使うことにした（[ADR-0091](0091-use-mf6-angular-data.md)）。その決定は実装
-されないまま、M3 で角度のデータを使わないことに戻した（[ADR-0082](0082-leave-out-mf6-angular-data.md)）。いまの扱いは [ADR-0082](0082-leave-out-mf6-angular-data.md) にまとめてある。
+M2 の計画は、散乱を非等方にしたとき（2026-10-07）に LAW=2 の重心系の角度分布を使うことに一時変えたが、実装の前に
+M3 で角度のデータを使わないことにした（[ADR-0082](0082-leave-out-mf6-angular-data.md)）。この ADR の扱いはそのまま有効で、角度のデータを使わない理由は
+P3 の散乱行列のもとで [ADR-0082](0082-leave-out-mf6-angular-data.md) が改めて示している。
