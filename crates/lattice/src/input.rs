@@ -934,6 +934,10 @@ zones = [{ material = "water", rings = 1 }]
         // ピン 3 + 水 1 + バッフル 1 + 水 1 の行が 2 つ
         assert_eq!(lattice.regions(), 12);
         assert_eq!(materials[4], "clad");
+        // 均質なセルは、ピッチのマスではピンセル、ほかのマスでは長方形のセル
+        assert!(lattice.cell_type(1).pin().is_some());
+        assert!(lattice.cell_type(3).pin().is_none());
+        assert_eq!(lattice.pin_rows_and_columns(), (vec![0, 1], vec![0, 1]));
         // ピンはピッチの幅の列にだけ置ける
         assert!(reflector("[\"pin box pin box\", \"box pin baffle box\"]", "").is_err());
         // 列の数がそろわない、余白と同時には使えない
