@@ -182,10 +182,20 @@ fn unquote(s: &str) -> Option<&str> {
 /// `NNNN-name.md` の形のファイル名から番号を取り出す。形が違えば `None`。
 pub fn numbered_file(name: &str) -> Option<u32> {
     let (number, rest) = name.strip_suffix(".md")?.split_once('-')?;
-    if number.len() != 4 || !number.bytes().all(|b| b.is_ascii_digit()) || rest.is_empty() {
+    if number.len() != 4 || !number.bytes().all(|b| b.is_ascii_digit()) || !is_kebab_case(rest) {
         return None;
     }
     number.parse().ok()
+}
+
+/// 英小文字と数字の語を `-` でつないだもの（`[a-z0-9]+(-[a-z0-9]+)*`）か。
+fn is_kebab_case(name: &str) -> bool {
+    name.split('-').all(|word| {
+        !word.is_empty()
+            && word
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+    })
 }
 
 /// 英数字か `_`（ASCII のみ。日本語の文に続けて書いた参照は、参照として数える）。
@@ -241,19 +251,141 @@ pub enum Link {
 
 /// 1行の中のリンクの行き先を、現れた順に返す。インラインのリンク `[text](target)` と、参照の定義
 /// `[label]: target` を読む。コードスパンの中は読まない。
-pub fn links(_line: &str) -> Vec<Link> {
-    Vec::new()
+pub fn links(line: &str) -> Vec<Link> {
+    let line = strip_code_spans(line);
+    let mut found: Vec<Link> = reference_definition(&line).into_iter().collect();
+    found.extend(line.match_indices("](").filter_map(|(i, open)| {
+        let rest = &line[i + open.len()..];
+        // `[text](target "title")` の題は除く
+        rest[..rest.find(')')?]
+            .split_whitespace()
+            .next()
+            .and_then(classify_link)
+    }));
+    found
+}
+
+/// 参照の定義 `[label]: target` の行き先。脚注 `[^label]:` と、4つ以上の空白で字下げした行（コード）は除く。
+fn reference_definition(line: &str) -> Option<Link> {
+    let indent = line.len() - line.trim_start_matches(' ').len();
+    if indent > 3 {
+        return None;
+    }
+    let rest = line[indent..].strip_prefix('[')?;
+    let (label, target) = rest.split_once("]:")?;
+    if label.is_empty() || label.starts_with('^') || label.contains(['[', ']']) {
+        return None;
+    }
+    target.split_whitespace().next().and_then(classify_link)
+}
+
+/// リンクの行き先を分ける。外部の URL と、`#anchor` だけのものは `None`。
+fn classify_link(target: &str) -> Option<Link> {
+    const EXTERNAL: [&str; 4] = ["http:", "https:", "mailto:", "#"];
+    if EXTERNAL.iter().any(|p| target.starts_with(p)) {
+        return None;
+    }
+    if target.starts_with('/') {
+        return Some(Link::Absolute(target.to_string()));
+    }
+    if has_scheme(target) {
+        return Some(Link::OtherScheme(target.to_string()));
+    }
+    let path = target.split('#').next().unwrap_or("");
+    (!path.is_empty()).then(|| Link::Relative(path.to_string()))
+}
+
+/// `scheme:` で始まるか（英字のあとに英数字か `+ - .` が続き、`:` で終わる）。
+fn has_scheme(target: &str) -> bool {
+    target.split_once(':').is_some_and(|(scheme, _)| {
+        scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+            && scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+    })
 }
 
 /// 1行からコードスパン（対になったバッククォートで囲んだ部分）を除く。
 pub fn strip_code_spans(line: &str) -> String {
-    line.to_string()
+    let mut out = String::new();
+    let mut rest = line;
+    while let Some(start) = rest.find('`') {
+        out.push_str(&rest[..start]);
+        let ticks = backtick_run(&rest[start..]);
+        let body = &rest[start + ticks..];
+        match closing_run(body, ticks) {
+            Some(end) => rest = &body[end + ticks..],
+            None => {
+                // 対にならないバッククォートは文字のまま
+                out.push_str(&rest[start..start + ticks]);
+                rest = body;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// 先頭に続くバッククォートの数。
+fn backtick_run(text: &str) -> usize {
+    text.len() - text.trim_start_matches('`').len()
+}
+
+/// `text` の中で、ちょうど `ticks` 個続くバッククォートの位置。
+fn closing_run(text: &str, ticks: usize) -> Option<usize> {
+    let mut from = 0;
+    while let Some(offset) = text[from..].find('`') {
+        let at = from + offset;
+        let run = backtick_run(&text[at..]);
+        if run == ticks {
+            return Some(at);
+        }
+        from = at + run;
+    }
+    None
+}
+
+/// コードブロックの囲いの記号と数（```` ``` ```` か `~~~` 以上）。
+fn fence_marker(line: &str) -> Option<(char, usize)> {
+    let trimmed = line.trim_start();
+    ['`', '~'].into_iter().find_map(|c| {
+        let n = trimmed.len() - trimmed.trim_start_matches(c).len();
+        (n >= 3).then_some((c, n))
+    })
 }
 
 /// Markdown の、前付けとコードブロック（```` ``` ```` か `~~~` で囲んだ部分）の外の行を、行番号（1 から）とともに
 /// 返す。閉じていない前付けとコードブロックはエラーにする。
-pub fn markdown_lines(_text: &str) -> Result<Vec<(usize, &str)>, Error> {
-    Ok(Vec::new())
+pub fn markdown_lines(text: &str) -> Result<Vec<(usize, &str)>, Error> {
+    let mut lines = text.lines().enumerate().map(|(i, l)| (i + 1, l)).peekable();
+    if lines.peek().is_some_and(|(_, l)| *l == "---") {
+        lines.next();
+        if !lines.by_ref().any(|(_, l)| l == "---") {
+            return Err(Error::UnclosedFrontMatter);
+        }
+    }
+    let mut out = Vec::new();
+    // 開いているコードブロックの記号、数、開いた行
+    let mut fence: Option<(char, usize, usize)> = None;
+    for (number, line) in lines {
+        match fence {
+            None => match fence_marker(line) {
+                Some((c, n)) => fence = Some((c, n, number)),
+                None => out.push((number, line)),
+            },
+            Some((c, n, _)) => {
+                let trimmed = line.trim();
+                let run = trimmed.len() - trimmed.trim_start_matches(c).len();
+                if run >= n && run == trimmed.len() {
+                    fence = None;
+                }
+            }
+        }
+    }
+    match fence {
+        Some((_, _, line)) => Err(Error::UnclosedFence { line }),
+        None => Ok(out),
+    }
 }
 
 #[cfg(test)]

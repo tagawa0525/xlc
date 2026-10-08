@@ -5,6 +5,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use crate::{
+    FrontMatter, Link, Value, adr_refs, issue_refs, links, markdown_lines, numbered_file,
+    parse_front_matter,
+};
+
 /// 約束に反しているところ。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Violation {
@@ -45,7 +50,524 @@ impl Docs {
 
     /// すべての約束を確かめ、違反を並べて返す。
     pub fn check(&self) -> Vec<Violation> {
+        let mut out = Violations::default();
+        let lines: BTreeMap<&str, Vec<(usize, &str)>> = self
+            .texts
+            .iter()
+            .map(|(path, text)| (path.as_str(), scanned_lines(path, text, &mut out)))
+            .collect();
+        let adrs = self.numbered(ADR_DIR, &lines, &mut out);
+        let issues = self.numbered(ISSUE_DIR, &lines, &mut out);
+        let adr_numbers: BTreeSet<u32> = adrs.iter().map(|d| d.number).collect();
+        let issue_numbers: BTreeSet<u32> = issues.iter().map(|d| d.number).collect();
+
+        check_unique(&adrs, &mut out);
+        check_unique(&issues, &mut out);
+        check_front(&adrs, &ADR_KEYS, &ADR_STATUSES, "date", &mut out);
+        check_front(&issues, &ISSUE_KEYS, &ISSUE_STATUSES, "opened", &mut out);
+        check_headings(&adrs, &mut out);
+        check_supersession(&adrs, &adr_numbers, &mut out);
+        check_issue_states(&issues, &issue_numbers, &mut out);
+        check_adr_issue_links(&adrs, &issues, &issue_numbers, &mut out);
+        check_mentions(&lines, &adr_numbers, &issue_numbers, &mut out);
+        self.check_links(&lines, &mut out);
+
+        let mut found = out.0;
+        found.sort();
+        // 閉じていない前付けは、前付けと本文の両方の読み取りで見つかる
+        found.dedup();
+        found
+    }
+
+    /// `dir` の直下の番号つきの文書（README.md を除く）。
+    fn numbered<'a>(
+        &'a self,
+        dir: &str,
+        lines: &BTreeMap<&'a str, Vec<(usize, &'a str)>>,
+        out: &mut Violations,
+    ) -> Vec<Doc<'a>> {
+        let mut docs = Vec::new();
+        for (path, text) in &self.texts {
+            let Some(name) = path.strip_prefix(dir) else {
+                continue;
+            };
+            if name.contains('/') || !name.ends_with(".md") || name == "README.md" {
+                continue;
+            }
+            let Some(number) = numbered_file(name) else {
+                out.file(path, "file name is not NNNN-kebab-case.md");
+                continue;
+            };
+            match parse_front_matter(text) {
+                Ok(front) => docs.push(Doc {
+                    path,
+                    number,
+                    front,
+                    lines: lines.get(path.as_str()).cloned().unwrap_or_default(),
+                }),
+                Err(e) => out.file(path, e),
+            }
+        }
+        docs
+    }
+
+    /// Markdown の相対リンクの行き先があるか。絶対パスと、http、https、mailto 以外のスキームは違反にする。
+    fn check_links(&self, lines: &BTreeMap<&str, Vec<(usize, &str)>>, out: &mut Violations) {
+        for (path, lines) in lines {
+            if !scanned_for_links(path) {
+                continue;
+            }
+            let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
+            for (number, line) in lines {
+                for link in links(line) {
+                    match link {
+                        Link::Relative(target) => {
+                            if !resolve(dir, &target).is_some_and(|p| self.exists(&p)) {
+                                out.line(
+                                    path,
+                                    *number,
+                                    format!("link target {target} does not exist"),
+                                );
+                            }
+                        }
+                        Link::Absolute(target) => {
+                            out.line(path, *number, format!("absolute link {target}"))
+                        }
+                        Link::OtherScheme(target) => out.line(
+                            path,
+                            *number,
+                            format!("link with unsupported scheme {target}"),
+                        ),
+                    }
+                }
+            }
+        }
+    }
+
+    /// ファイルか、ファイルを含むディレクトリがあるか（空のパスはリポジトリの根）。
+    fn exists(&self, path: &str) -> bool {
+        if path.is_empty() || self.paths.contains(path) {
+            return true;
+        }
+        let dir = format!("{path}/");
+        self.paths
+            .range(dir.clone()..)
+            .next()
+            .is_some_and(|p| p.starts_with(&dir))
+    }
+}
+
+const ADR_DIR: &str = "docs/adr/";
+const ISSUE_DIR: &str = "docs/issues/";
+const ADR_KEYS: [&str; 5] = ["status", "date", "supersedes", "superseded-by", "issues"];
+const ADR_STATUSES: [&str; 5] = [
+    "proposed",
+    "accepted",
+    "rejected",
+    "superseded",
+    "deprecated",
+];
+const ISSUE_KEYS: [&str; 7] = [
+    "status",
+    "labels",
+    "opened",
+    "closed",
+    "milestone",
+    "blocked-by",
+    "resolution",
+];
+const ISSUE_STATUSES: [&str; 2] = ["open", "closed"];
+/// issue の本文で、関係する ADR を挙げる行の書き出し（docs/issues/README.md）。
+const RELATED_ADRS: &str = "関係する ADR:";
+
+/// 集めている違反。
+#[derive(Default)]
+struct Violations(Vec<Violation>);
+
+impl Violations {
+    fn file(&mut self, path: &str, message: impl ToString) {
+        self.push(path, None, message);
+    }
+
+    fn line(&mut self, path: &str, line: usize, message: impl ToString) {
+        self.push(path, Some(line), message);
+    }
+
+    fn push(&mut self, path: &str, line: Option<usize>, message: impl ToString) {
+        self.0.push(Violation {
+            path: path.to_string(),
+            line,
+            message: message.to_string(),
+        });
+    }
+}
+
+/// 番号つきの ADR か issue の1件。
+struct Doc<'a> {
+    path: &'a str,
+    number: u32,
+    front: FrontMatter,
+    /// 前付けとコードブロックの外の行。
+    lines: Vec<(usize, &'a str)>,
+}
+
+impl Doc<'_> {
+    /// 一つの文字列の `status`。ないか一覧なら空。
+    fn status(&self) -> &str {
+        match self.front.get("status") {
+            Some(Value::Scalar(s)) => s,
+            _ => "",
+        }
+    }
+
+    fn items(&self, key: &str) -> Vec<&str> {
+        self.front.get(key).map(Value::items).unwrap_or_default()
+    }
+}
+
+fn extension(path: &str) -> &str {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name.rsplit_once('.').map_or("", |(_, e)| e)
+}
+
+/// 参照 `ADR-NNNN` と `#NNNN` を確かめるファイル: CLAUDE.md、docs の Markdown、examples の文書とスクリプト、
+/// crates のソースと Cargo.toml。
+fn scanned_for_refs(path: &str) -> bool {
+    let ext = extension(path);
+    path == "CLAUDE.md"
+        || (path.starts_with("docs/") && ext == "md")
+        || (path.starts_with("examples/") && ["md", "py", "rs", "toml", "sh"].contains(&ext))
+        || (path.starts_with("crates/") && ["rs", "toml"].contains(&ext))
+}
+
+/// 相対リンクを確かめるファイル: CLAUDE.md と、docs と examples の Markdown。
+fn scanned_for_links(path: &str) -> bool {
+    path == "CLAUDE.md"
+        || ((path.starts_with("docs/") || path.starts_with("examples/")) && extension(path) == "md")
+}
+
+/// 参照とリンクを探す行。Markdown は前付けとコードブロックを除き、ほかのファイルはすべての行。
+fn scanned_lines<'a>(path: &str, text: &'a str, out: &mut Violations) -> Vec<(usize, &'a str)> {
+    if extension(path) != "md" {
+        return text.lines().enumerate().map(|(i, l)| (i + 1, l)).collect();
+    }
+    markdown_lines(text).unwrap_or_else(|e| {
+        out.file(path, e);
         Vec::new()
+    })
+}
+
+/// `dir` からの相対パス `target` を、根からのパスにする。根より上に出れば `None`。
+fn resolve(dir: &str, target: &str) -> Option<String> {
+    let mut parts: Vec<&str> = dir.split('/').filter(|p| !p.is_empty()).collect();
+    for part in target.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            _ => parts.push(part),
+        }
+    }
+    Some(parts.join("/"))
+}
+
+/// 前付けの値の表示（違反の文に入れる）。
+fn show(value: &Value) -> String {
+    match value {
+        Value::Empty => "empty".to_string(),
+        Value::Scalar(s) => format!("{s:?}"),
+        Value::List(items) => format!("{items:?}"),
+    }
+}
+
+/// `YYYY-MM-DD`（月は 01〜12、日は 01〜31）か。
+fn is_date(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    let digits = |r: std::ops::Range<usize>| bytes[r].iter().all(u8::is_ascii_digit);
+    if bytes.len() != 10
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || !digits(0..4)
+        || !digits(5..7)
+        || !digits(8..10)
+    {
+        return false;
+    }
+    let month: u32 = s[5..7].parse().unwrap_or(0);
+    let day: u32 = s[8..10].parse().unwrap_or(0);
+    (1..=12).contains(&month) && (1..=31).contains(&day)
+}
+
+/// 番号の重複（1）。
+fn check_unique(docs: &[Doc], out: &mut Violations) {
+    let mut by_number: BTreeMap<u32, Vec<&str>> = BTreeMap::new();
+    for doc in docs {
+        by_number.entry(doc.number).or_default().push(doc.path);
+    }
+    for (number, paths) in by_number {
+        if let [first, rest @ ..] = paths.as_slice()
+            && !rest.is_empty()
+        {
+            out.file(
+                first,
+                format!("number {number:04} is also used by {}", rest.join(", ")),
+            );
+        }
+    }
+}
+
+/// 前付けのキー、`status` の値、日付（2）。
+fn check_front(
+    docs: &[Doc],
+    keys: &[&str],
+    statuses: &[&str],
+    date_key: &str,
+    out: &mut Violations,
+) {
+    for doc in docs {
+        for key in keys {
+            if doc.front.get(key).is_none() {
+                out.file(doc.path, format!("front matter has no `{key}`"));
+            }
+        }
+        for key in doc.front.keys() {
+            if !keys.contains(&key) {
+                out.file(doc.path, format!("unexpected front matter key `{key}`"));
+            }
+        }
+        match doc.front.get("status") {
+            Some(Value::Scalar(s)) if statuses.contains(&s.as_str()) => {}
+            Some(value) => out.file(
+                doc.path,
+                format!(
+                    "`status` must be one of {}, not {}",
+                    statuses.join(", "),
+                    show(value)
+                ),
+            ),
+            None => {}
+        }
+        check_date(doc, date_key, out);
+    }
+}
+
+/// `key` があれば、一つの `YYYY-MM-DD` か。
+fn check_date(doc: &Doc, key: &str, out: &mut Violations) {
+    match doc.front.get(key) {
+        Some(Value::Scalar(s)) if is_date(s) => {}
+        Some(value) => out.file(
+            doc.path,
+            format!("`{key}` is not YYYY-MM-DD: {}", show(value)),
+        ),
+        None => {}
+    }
+}
+
+/// ADR の最初の見出しが `# ADR-NNNN: 題名` で、番号がファイルの番号と同じか。
+fn check_headings(adrs: &[Doc], out: &mut Violations) {
+    for adr in adrs {
+        let prefix = format!("# ADR-{:04}: ", adr.number);
+        let heading = adr.lines.iter().find(|(_, l)| l.starts_with("# "));
+        let ok = heading.is_some_and(|(_, l)| {
+            l.strip_prefix(&prefix)
+                .is_some_and(|t| !t.trim().is_empty())
+        });
+        if !ok {
+            let message = format!("first heading must be `{}<title>`", prefix);
+            match heading {
+                Some((number, _)) => out.line(adr.path, *number, message),
+                None => out.file(adr.path, message),
+            }
+        }
+    }
+}
+
+/// `ADR-NNNN` か `#NNNN` の一つだけの文字列なら、その番号。
+fn single_ref(item: &str, refs: fn(&str) -> Vec<u32>, prefix: &str) -> Option<u32> {
+    match refs(item).as_slice() {
+        [n] if item == format!("{prefix}{n:04}") => Some(*n),
+        _ => None,
+    }
+}
+
+/// 前付けの `key` の要素を番号にする。形が違うものと、存在しない番号は違反にする。
+fn front_refs(
+    doc: &Doc,
+    key: &str,
+    refs: fn(&str) -> Vec<u32>,
+    prefix: &str,
+    existing: &BTreeSet<u32>,
+    out: &mut Violations,
+) -> BTreeSet<u32> {
+    let mut numbers = BTreeSet::new();
+    for item in doc.items(key) {
+        match single_ref(item, refs, prefix) {
+            Some(n) if existing.contains(&n) => {
+                numbers.insert(n);
+            }
+            Some(_) => out.file(
+                doc.path,
+                format!("`{key}` names {item}, which does not exist"),
+            ),
+            None => out.file(
+                doc.path,
+                format!("`{key}` item {item:?} is not {prefix}NNNN"),
+            ),
+        }
+    }
+    numbers
+}
+
+/// 置き換えの状態と、両方向のリンク（3）。
+fn check_supersession(adrs: &[Doc], existing: &BTreeSet<u32>, out: &mut Violations) {
+    let mut supersedes: BTreeMap<u32, (&str, BTreeSet<u32>)> = BTreeMap::new();
+    let mut superseded_by: BTreeMap<u32, (&str, BTreeSet<u32>)> = BTreeMap::new();
+    for adr in adrs {
+        let superseded = adr.status() == "superseded";
+        let by_set = !adr.items("superseded-by").is_empty();
+        if superseded && !by_set {
+            out.file(
+                adr.path,
+                "status is superseded but `superseded-by` is empty",
+            );
+        }
+        if !superseded && by_set {
+            out.file(
+                adr.path,
+                "`superseded-by` is set but status is not superseded",
+            );
+        }
+        let by = front_refs(adr, "superseded-by", adr_refs, "ADR-", existing, out);
+        superseded_by.insert(adr.number, (adr.path, by));
+        let old = front_refs(adr, "supersedes", adr_refs, "ADR-", existing, out);
+        supersedes.insert(adr.number, (adr.path, old));
+    }
+    for (new, (path, olds)) in &supersedes {
+        for old in olds {
+            if !superseded_by.get(old).is_some_and(|(_, s)| s.contains(new)) {
+                out.file(
+                    path,
+                    format!("supersedes ADR-{old:04}, but ADR-{old:04} is not superseded-by ADR-{new:04}"),
+                );
+            }
+        }
+    }
+    for (old, (path, news)) in &superseded_by {
+        for new in news {
+            if !supersedes.get(new).is_some_and(|(_, s)| s.contains(old)) {
+                out.file(
+                    path,
+                    format!("superseded-by ADR-{new:04}, but ADR-{new:04} does not supersede ADR-{old:04}"),
+                );
+            }
+        }
+    }
+}
+
+/// 閉じた issue の日付と解決（4）と、`blocked-by` の参照先。
+fn check_issue_states(issues: &[Doc], existing: &BTreeSet<u32>, out: &mut Violations) {
+    for issue in issues {
+        let closed = issue.status() == "closed";
+        for key in ["closed", "resolution"] {
+            let set = !issue.items(key).is_empty();
+            if closed && !set {
+                out.file(issue.path, format!("status is closed but `{key}` is empty"));
+            }
+            if !closed && set {
+                out.file(
+                    issue.path,
+                    format!("status is {} but `{key}` is set", issue.status()),
+                );
+            }
+        }
+        if closed && !issue.items("closed").is_empty() {
+            check_date(issue, "closed", out);
+        }
+        front_refs(issue, "blocked-by", issue_refs, "#", existing, out);
+    }
+}
+
+/// ADR の前付けの `issues` と、issue の「関係する ADR:」の行が両方向にそろっているか（5）。
+fn check_adr_issue_links(
+    adrs: &[Doc],
+    issues: &[Doc],
+    existing: &BTreeSet<u32>,
+    out: &mut Violations,
+) {
+    let mut from_adrs: BTreeMap<u32, BTreeSet<u32>> = BTreeMap::new();
+    for adr in adrs {
+        for issue in front_refs(adr, "issues", issue_refs, "#", existing, out) {
+            from_adrs.entry(issue).or_default().insert(adr.number);
+        }
+    }
+    for issue in issues {
+        let related: Vec<(usize, &str)> = issue
+            .lines
+            .iter()
+            .filter_map(|(n, l)| l.strip_prefix(RELATED_ADRS).map(|rest| (*n, rest)))
+            .collect();
+        let [(number, line)] = related.as_slice() else {
+            out.file(
+                issue.path,
+                format!(
+                    "expected one `{RELATED_ADRS}` line outside code blocks, found {}",
+                    related.len()
+                ),
+            );
+            continue;
+        };
+        let listed: BTreeSet<u32> = adr_refs(line).into_iter().collect();
+        if listed.is_empty() != line.trim_start().starts_with("なし") {
+            out.line(
+                issue.path,
+                *number,
+                format!("`{RELATED_ADRS}` must list ADRs or say なし"),
+            );
+        }
+        let expected = from_adrs.get(&issue.number).cloned().unwrap_or_default();
+        for adr in listed.difference(&expected) {
+            out.line(
+                issue.path,
+                *number,
+                format!(
+                    "lists ADR-{adr:04}, whose `issues` does not name #{:04}",
+                    issue.number
+                ),
+            );
+        }
+        for adr in expected.difference(&listed) {
+            out.line(
+                issue.path,
+                *number,
+                format!(
+                    "ADR-{adr:04} names #{:04} in `issues`, but `{RELATED_ADRS}` does not list it",
+                    issue.number
+                ),
+            );
+        }
+    }
+}
+
+/// 本文の参照 `ADR-NNNN` と `#NNNN` の参照先があるか（6）。
+fn check_mentions(
+    lines: &BTreeMap<&str, Vec<(usize, &str)>>,
+    adrs: &BTreeSet<u32>,
+    issues: &BTreeSet<u32>,
+    out: &mut Violations,
+) {
+    for (path, lines) in lines {
+        if !scanned_for_refs(path) {
+            continue;
+        }
+        for (number, line) in lines {
+            for n in adr_refs(line).into_iter().filter(|n| !adrs.contains(n)) {
+                out.line(path, *number, format!("ADR-{n:04} does not exist"));
+            }
+            for n in issue_refs(line).into_iter().filter(|n| !issues.contains(n)) {
+                out.line(path, *number, format!("#{n:04} does not exist"));
+            }
+        }
     }
 }
 
