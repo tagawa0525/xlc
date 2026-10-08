@@ -466,6 +466,13 @@ fn shield_lumps(
         })?;
         shielded.materials.push(mixed);
         lump_material.push(shielded.materials.len() - 1);
+        shielded.lumps.push(LumpShielding {
+            cell,
+            material: material.name.clone(),
+            dancoff: found.dancoff.clone(),
+            chord: found.chord,
+            effective: tables,
+        });
     }
     for (region, l) in lump.iter().enumerate() {
         if let Some(l) = l {
