@@ -67,7 +67,7 @@ impl Docs {
         check_front(&issues, &ISSUE_KEYS, &ISSUE_STATUSES, "opened", &mut out);
         check_headings(&adrs, &mut out);
         check_supersession(&adrs, &adr_numbers, &mut out);
-        check_issue_states(&issues, &issue_numbers, &mut out);
+        check_issue_states(&issues, &issue_numbers, &adr_numbers, &mut out);
         check_adr_issue_links(&adrs, &issues, &issue_numbers, &mut out);
         check_mentions(&lines, &adr_numbers, &issue_numbers, &mut out);
         self.check_links(&lines, &mut out);
@@ -466,7 +466,12 @@ fn check_supersession(adrs: &[Doc], existing: &BTreeSet<u32>, out: &mut Violatio
 }
 
 /// 閉じた issue の日付と解決（4）と、`blocked-by` の参照先。
-fn check_issue_states(issues: &[Doc], existing: &BTreeSet<u32>, out: &mut Violations) {
+fn check_issue_states(
+    issues: &[Doc],
+    existing: &BTreeSet<u32>,
+    adrs: &BTreeSet<u32>,
+    out: &mut Violations,
+) {
     for issue in issues {
         let closed = issue.status() == "closed";
         for key in ["closed", "resolution"] {
@@ -484,7 +489,48 @@ fn check_issue_states(issues: &[Doc], existing: &BTreeSet<u32>, out: &mut Violat
         if closed && !issue.items("closed").is_empty() {
             check_date(issue, "closed", out);
         }
+        if closed {
+            check_resolution(issue, adrs, out);
+        }
         front_refs(issue, "blocked-by", issue_refs, "#", existing, out);
+    }
+}
+
+/// `resolution` が `ADR-NNNN`（ある ADR）、`コミット <hash>`（7〜40 桁の英小文字の16進）、`wontfix: 理由` のどれか
+/// （docs/issues/README.md）。空なら何もしない（空のことは状態の検査が見る）。
+fn check_resolution(issue: &Doc, adrs: &BTreeSet<u32>, out: &mut Violations) {
+    let value = match issue.front.get("resolution") {
+        None | Some(Value::Empty) => return,
+        Some(Value::Scalar(s)) => Some(s.as_str()),
+        Some(Value::List(_)) => None,
+    };
+    if let Some(n) = value.and_then(|s| single_ref(s, adr_refs, "ADR-")) {
+        if !adrs.contains(&n) {
+            out.file(
+                issue.path,
+                format!("`resolution` names ADR-{n:04}, which does not exist"),
+            );
+        }
+        return;
+    }
+    let is_hash = |h: &str| {
+        (7..=40).contains(&h.len())
+            && h.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    };
+    let valid = value.is_some_and(|s| {
+        s.strip_prefix("コミット ").is_some_and(is_hash)
+            || s.strip_prefix("wontfix:")
+                .is_some_and(|reason| !reason.trim().is_empty())
+    });
+    if !valid {
+        let shown = issue.front.get("resolution").map(show).unwrap_or_default();
+        out.file(
+            issue.path,
+            format!(
+                "`resolution` must be ADR-NNNN, `コミット <hash>` or `wontfix: <reason>`, not {shown}"
+            ),
+        );
     }
 }
 
