@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, core]
 opened: 2026-10-09
-closed:
+closed: 2026-10-09
 milestone: M3
 blocked-by: []
-resolution:
+resolution: ADR-0101
 ---
 
 # 真空の辺の GET の等価性: P1 の関係と、大きなノードの負の均質な面の中性子束
@@ -21,7 +21,7 @@ core の真空の面の条件（ADR-0099）は不均質な中性子束に P1 の
 また、17×17 の集合体（21.5 cm）に真空の辺があると、1ノードの問題の熱群の均質な面の中性子束が負になり、ADF を
 作れない（ADR-0094 のとおりエラー）。
 
-関係する ADR: [ADR-0094](../adr/0094-define-adf-by-one-node-nem.md)
+関係する ADR: [ADR-0094](../adr/0094-define-adf-by-one-node-nem.md)、[ADR-0101](../adr/0101-impose-transport-current-ratio-at-vacuum-faces.md)
 
 ## 完了の条件
 
@@ -33,3 +33,8 @@ core の真空の面の条件（ADR-0099）は不均質な中性子束に P1 の
 ## 経緯
 
 - 2026-10-09: ADR-0094 の実装の検証で分かった
+- 2026-10-09: 真空の面の条件を、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す形にする案を ADR-0101 に
+  した。17×17 の集合体の負の均質な面の中性子束は r によらないので #0027 に分けた
+- 2026-10-09: ADR-0101 を実装した。格子計算は真空の辺の r を少数群定数に書き、core の `vacuum` は J = r f φ を課す。
+  n = 3、5、9 の core の k は MOC と 0.0015、0.0025、0.0044 pcm で一致した（examples/vera/verification.md の
+  「真空の辺の比 J/φ を入れた core の1ノードの NEM」、8cd9422）。燃料が真空に面する集合体を ADF の対象にするかは #0027
