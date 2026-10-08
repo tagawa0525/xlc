@@ -186,10 +186,11 @@ pub fn slowing_down_range(
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
     };
-    let awr = Mf2::parse(&section)?.awr;
-    let Some(Resolved { top, potential }) = resolved(tape, mat)? else {
+    let mf2 = Mf2::parse(&section)?;
+    let Some(Resolved { top, potential }) = resolved_in(&mf2)? else {
         return Ok(None);
     };
+    let awr = mf2.awr;
     let bounds = groups.bounds();
     let [thermal, _] = weight.breakpoints();
     let (Some(&low), Some(&high)) = (
@@ -263,7 +264,11 @@ pub fn resolved(tape: &Tape, mat: i32) -> Result<Option<Resolved>, ProcessError>
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
     };
-    let mf2 = Mf2::parse(&section)?;
+    resolved_in(&Mf2::parse(&section)?)
+}
+
+/// 読んだ MF2 から `resolved` を求める。
+fn resolved_in(mf2: &Mf2) -> Result<Option<Resolved>, ProcessError> {
     let Some(range) = mf2
         .ranges
         .iter()
