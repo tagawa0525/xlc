@@ -1046,7 +1046,9 @@ mod tests {
     }
 
     #[test]
-    fn uniform_adf_scaling_keeps_k() {
+    fn uniform_adf_scaling_keeps_k_without_vacuum() {
+        // 外周が反射と中性子束 0 だけなら、面の条件は ADF の比だけで決まる（真空の面では変わる。
+        // outer_adf_at_vacuum_matches_analytic）
         let a = vec![
             vec![1.05, 1.3],
             vec![1.1, 1.25],
@@ -1101,17 +1103,29 @@ mod tests {
     }
 
     #[test]
-    fn vacuum_face_has_no_incoming_current() {
-        let p = slab(vec![5.0; 6], vec![material()], vec![0; 6], Boundary::Vacuum);
+    fn vacuum_face_has_no_incoming_heterogeneous_current() {
+        // 不均質な中性子束 f φ = 2f(o + i) と正味の中性子流 o - i から、入射の部分中性子流は
+        // f φ/4 - (o - i)/2 = (f(o + i) - (o - i))/2 で、真空の面ではこれが 0
+        let mut m = material();
+        m.adf[0] = vec![1.3, 0.8];
+        m.adf[1] = vec![0.7, 1.6];
+        let p = slab(vec![5.0; 6], vec![m.clone()], vec![0; 6], Boundary::Vacuum);
         let (core, s, state) = solve_state(&p);
         for g in 0..2 {
             let (in_minus, _) = core.incoming(&state, 0, 0, g);
             let (_, in_plus) = core.incoming(&state, 5, 0, g);
-            assert_eq!((in_minus, in_plus), (0.0, 0.0));
-            assert!(state.out_minus[0][0][g] > 0.0 && state.out_plus[0][5][g] > 0.0);
-            // 外へ出る正味の中性子数は出ていく部分中性子流そのもの
+            let (out_minus, out_plus) = (state.out_minus[0][0][g], state.out_plus[0][5][g]);
+            for (f, o, i) in [
+                (m.adf[0][g], out_minus, in_minus),
+                (m.adf[1][g], out_plus, in_plus),
+            ] {
+                assert!(o > 0.0);
+                let incoming = (f * (o + i) - (o - i)) / 2.0;
+                assert!(incoming.abs() < 1e-14 * o, "{incoming} for {o}");
+            }
+            // 外へ出る正味の中性子数は、外周の面の正味の中性子流の和
             let area = 20.0 * 20.0;
-            let out = area * (state.out_minus[0][0][g] + state.out_plus[0][5][g]);
+            let out = area * (out_minus - in_minus + out_plus - in_plus);
             assert!((s.leakage[g] - out).abs() < 1e-12 * out);
         }
     }
@@ -1133,21 +1147,46 @@ mod tests {
         );
     }
 
-    /// 1群の裸の平板（幅 l）に Marshak の条件 J- = φ/4 + (D/2) dφ/dx = 0 を課した解
-    /// φ = cos(Bx) は tan(Bl/2) = 1/(2DB) を満たす
-    fn marshak_buckling(m: &FewGroup, l: f64) -> f64 {
+    /// 1群の裸の平板（幅 l、外周の面の ADF f）に、不均質な中性子束 f φ で Marshak の条件
+    /// J- = f φ/4 + (D/2) dφ/dx = 0 を課した解 φ = cos(Bx) は tan(Bl/2) = f/(2DB) を満たす
+    /// （外挿距離は 2D/f）
+    fn marshak_buckling(m: &FewGroup, l: f64, f: f64) -> f64 {
         let d = m.diffusion[0];
         smallest_root(
-            |b| (b * l / 2.0).sin() * 2.0 * d * b - (b * l / 2.0).cos(),
+            |b| (b * l / 2.0).sin() * 2.0 * d * b - f * (b * l / 2.0).cos(),
             PI / l,
         )
+    }
+
+    #[test]
+    fn outer_adf_at_vacuum_matches_analytic() {
+        // 1種類の物質なので内側の面には跳びがなく、外周の真空の面の ADF だけが効く。
+        // ADF をすべて同じ倍率で変えると、k は解析解のとおり変わる
+        let l = 40.0;
+        // f が大きいほど外挿距離 2D/f が短く、漏れが増えて k は下がる
+        let mut previous = f64::INFINITY;
+        for f in [0.7, 1.0, 1.5, 2.0] {
+            let mut m = one_group();
+            m.adf = vec![vec![f]; 4];
+            let b = marshak_buckling(&m, l, f);
+            let expected = one_group_k(&m, b * b);
+            let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Vacuum);
+            let s = solve(&p, &Options::default()).unwrap();
+            assert!(
+                (s.k - expected).abs() < 1e-8 * expected,
+                "f = {f}: {} vs {expected}",
+                s.k
+            );
+            assert!(expected < previous, "f = {f}");
+            previous = expected;
+        }
     }
 
     #[test]
     fn bare_slab_matches_marshak_analytic() {
         let m = one_group();
         let l = 40.0;
-        let b = marshak_buckling(&m, l);
+        let b = marshak_buckling(&m, l, 1.0);
         let expected = one_group_k(&m, b * b);
         let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Vacuum);
         let s = solve(&p, &Options::default()).unwrap();
@@ -1166,7 +1205,10 @@ mod tests {
         // 各方向の解は分離できるので B² は各方向の Marshak の解の和。横方向の漏れの近似を通る
         let m = one_group();
         let size = [40.0, 50.0, 60.0];
-        let b2: f64 = size.iter().map(|&l| marshak_buckling(&m, l).powi(2)).sum();
+        let b2: f64 = size
+            .iter()
+            .map(|&l| marshak_buckling(&m, l, 1.0).powi(2))
+            .sum();
         let expected = one_group_k(&m, b2);
         let error = |n: usize| {
             let mut p = cuboid(size, [n; 3], [Boundary::Vacuum; 6]);
