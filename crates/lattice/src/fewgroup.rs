@@ -27,12 +27,8 @@ pub enum HomogenizeError {
         "region {region} has no P1 scattering moments; diffusion coefficients need a library with them"
     )]
     NoP1 { region: usize },
-    #[error("region {region} has transport cross section {transport} in group {group}")]
-    Transport {
-        region: usize,
-        group: usize,
-        transport: f64,
-    },
+    #[error("few group {group} has transport cross section {transport}")]
+    Transport { group: usize, transport: f64 },
     #[error("B1 critical spectrum")]
     B1(#[from] B1Error),
 }
@@ -309,8 +305,8 @@ fn outflow_diffusion(
             let out: f64 = m.anisotropic.first().map_or(0.0, |p1| p1[g].iter().sum());
             let transport = m.total[g] - out;
             if transport <= 0.0 || transport.is_nan() {
+                let _ = region;
                 return Err(HomogenizeError::Transport {
-                    region,
                     group: g,
                     transport,
                 });
@@ -604,6 +600,17 @@ mod tests {
         }
     }
 
+    fn fine() -> GroupStructure {
+        GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap()
+    }
+
+    fn vacuum() -> Boundaries {
+        Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        }
+    }
+
     #[test]
     fn open_lattice_without_p1_scattering_uses_one_third_total() {
         let mut a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
@@ -611,63 +618,302 @@ mod tests {
         for m in [&mut a, &mut b] {
             m.anisotropic = vec![vec![vec![0.0; 2]; 2]];
         }
-        let fine = GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap();
-        let vacuum = Boundaries {
-            right: Boundary::Vacuum,
-            ..Boundaries::REFLECTIVE
-        };
-        let d = diffusion_coefficients(&two_regions(), &[&a, &b], &fine, fine.bounds(), &vacuum)
-            .unwrap();
-        // 重み V φ: 群 0 は 2 と 2、群 1 は 1 と 6
+        let d = diffusion_coefficients(
+            &two_regions(),
+            &[&a, &b],
+            &fine(),
+            fine().bounds(),
+            &vacuum(),
+        )
+        .unwrap();
+        // 重み V φ: 群 0 は 2 と 2、群 1 は 1 と 6。D = 1/(3⟨Σt⟩)
         let expected = [
-            (2.0 / (3.0 * 0.5) + 2.0 / (3.0 * 0.6)) / 4.0,
-            (1.0 / (3.0 * 1.2) + 6.0 / (3.0 * 2.0)) / 7.0,
+            1.0 / (3.0 * (2.0 * 0.5 + 2.0 * 0.6) / 4.0),
+            1.0 / (3.0 * (1.0 * 1.2 + 6.0 * 2.0) / 7.0),
         ];
         for (d, e) in d.iter().zip(expected) {
-            assert!((d - e).abs() < 1e-14, "{d} vs {e}");
+            assert!((d - e).abs() < 1e-14 * e, "{d} vs {e}");
         }
     }
 
     #[test]
     fn open_lattice_uses_the_outflow_transport_cross_section() {
-        // P1 = 0.3 P0: Σtr,g = Σt,g − 0.3 Σ_g' Σs0(g→g')
+        // P1 = 0.3 P0: Σtr,g = Σt,g − 0.3 Σ_g' Σs0(g→g')。⟨Σtr⟩ を V φ で重みづけし、D = 1/(3⟨Σtr⟩)
         let a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
         let b = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
-        let fine = GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap();
         let albedo = Boundaries {
             top: Boundary::Albedo(0.5),
             ..Boundaries::REFLECTIVE
         };
-        let tr = |t: f64, out: f64| 1.0 / (3.0 * (t - 0.3 * out));
-        let expected_per_group = [
-            (2.0 * tr(0.5, 0.47) + 2.0 * tr(0.6, 0.598)) / 4.0,
-            (1.0 * tr(1.2, 0.9) + 6.0 * tr(2.0, 1.972)) / 7.0,
+        let tr = |t: f64, out: f64| t - 0.3 * out;
+        let sums = [
+            2.0 * tr(0.5, 0.47) + 2.0 * tr(0.6, 0.598),
+            1.0 * tr(1.2, 0.9) + 6.0 * tr(2.0, 1.972),
         ];
-        let d = diffusion_coefficients(&two_regions(), &[&a, &b], &fine, fine.bounds(), &albedo)
-            .unwrap();
-        for (d, e) in d.iter().zip(expected_per_group) {
+        let expected = [1.0 / (3.0 * sums[0] / 4.0), 1.0 / (3.0 * sums[1] / 7.0)];
+        let d =
+            diffusion_coefficients(&two_regions(), &[&a, &b], &fine(), fine().bounds(), &albedo)
+                .unwrap();
+        for (d, e) in d.iter().zip(expected) {
             assert!((d - e).abs() < 1e-14 * e, "{d} vs {e}");
         }
-        // 1群への縮約も V φ の重み
-        let one =
-            diffusion_coefficients(&two_regions(), &[&a, &b], &fine, &[1.0e7, 1.0e-5], &albedo)
-                .unwrap();
-        let expected = (expected_per_group[0] * 4.0 + expected_per_group[1] * 7.0) / 11.0;
+        // 1群への縮約も ⟨Σtr⟩ を V φ で重みづけする
+        let one = diffusion_coefficients(
+            &two_regions(),
+            &[&a, &b],
+            &fine(),
+            &[1.0e7, 1.0e-5],
+            &albedo,
+        )
+        .unwrap();
+        let expected = 1.0 / (3.0 * (sums[0] + sums[1]) / 11.0);
         assert!((one[0] - expected).abs() < 1e-14 * expected);
     }
 
     #[test]
-    fn outflow_rejects_a_void_region_with_flux() {
+    fn outflow_counts_a_void_gap_with_its_flux() {
+        // 真空の隙間（ピンのギャップ）は Σtr = 0 で、中性子束と体積は重みに入る
         let a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
         let void = Material::void(2);
-        let fine = GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap();
-        let vacuum = Boundaries {
-            bottom: Boundary::Vacuum,
-            ..Boundaries::REFLECTIVE
+        let d = diffusion_coefficients(
+            &two_regions(),
+            &[&a, &void],
+            &fine(),
+            fine().bounds(),
+            &vacuum(),
+        )
+        .unwrap();
+        let expected = [
+            1.0 / (3.0 * 2.0 * tr_of(&a, 0) / 4.0),
+            1.0 / (3.0 * 1.0 * tr_of(&a, 1) / 7.0),
+        ];
+        for (d, e) in d.iter().zip(expected) {
+            assert!((d - e).abs() < 1e-14 * e, "{d} vs {e}");
+        }
+    }
+
+    fn tr_of(m: &Material, g: usize) -> f64 {
+        m.total[g] - m.anisotropic[0][g].iter().sum::<f64>()
+    }
+
+    #[test]
+    fn reflective_lattice_without_fission_uses_the_p1_current_of_the_moc_flux() {
+        // 核分裂がないと臨界のバックリングは定まらない。B² = 0 の中性子流の式
+        // 3 ⟨Σt⟩_g d_g − 3 Σ_g' ⟨Σs1⟩(g'→g) d_g' = Φ_g を MOC の中性子束 Φ で解き、D_G = Σ d / Σ Φ
+        let a = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.0, 0.0]);
+        let b = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let flux = [4.0, 7.0];
+        let hom = |g: usize, f: &dyn Fn(&Material) -> f64| {
+            let w = [[2.0, 1.0], [2.0, 6.0]];
+            (w[0][g] * f(&a) + w[1][g] * f(&b)) / flux[g]
         };
-        assert!(matches!(
-            diffusion_coefficients(&two_regions(), &[&a, &void], &fine, fine.bounds(), &vacuum),
-            Err(HomogenizeError::Transport { region: 1, .. })
-        ));
+        let t0 = hom(0, &|m| m.total[0]);
+        let t1 = hom(1, &|m| m.total[1]);
+        let s = |from: usize, to: usize| hom(from, &|m| m.anisotropic[0][from][to]);
+        // [3(t0 − s00), −3 s10; −3 s01, 3(t1 − s11)] d = Φ
+        let m = [
+            [3.0 * (t0 - s(0, 0)), -3.0 * s(1, 0)],
+            [-3.0 * s(0, 1), 3.0 * (t1 - s(1, 1))],
+        ];
+        let det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+        let d = [
+            (m[1][1] * flux[0] - m[0][1] * flux[1]) / det,
+            (m[0][0] * flux[1] - m[1][0] * flux[0]) / det,
+        ];
+        let got = diffusion_coefficients(
+            &two_regions(),
+            &[&a, &b],
+            &fine(),
+            fine().bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        for g in 0..2 {
+            let e = d[g] / flux[g];
+            assert!((got[g] - e).abs() < 1e-13 * e, "{} vs {e}", got[g]);
+        }
+        let one = diffusion_coefficients(
+            &two_regions(),
+            &[&a, &b],
+            &fine(),
+            &[1.0e7, 1.0e-5],
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        let e = (d[0] + d[1]) / (flux[0] + flux[1]);
+        assert!((one[0] - e).abs() < 1e-13 * e);
+    }
+
+    /// 2つの核分裂性の物質（χ が違い、熱群から高速群への上方散乱がある）
+    fn fissile(
+        total: [f64; 2],
+        scatter: [[f64; 2]; 2],
+        p1: [[f64; 2]; 2],
+        nu_fission: [f64; 2],
+        chi: [f64; 2],
+    ) -> Material {
+        Material {
+            total: total.to_vec(),
+            scatter: scatter.iter().map(|r| r.to_vec()).collect(),
+            anisotropic: vec![p1.iter().map(|r| r.to_vec()).collect()],
+            fission: nu_fission.iter().map(|v| v / 2.5).collect(),
+            nu_fission: nu_fission.to_vec(),
+            fission_terms: vec![FissionTerm {
+                chi: chi.to_vec(),
+                nu_fission: nu_fission.to_vec(),
+            }],
+        }
+    }
+
+    /// 2群の B1 の基本モード（手で書いた 2 × 2 の式）。(k, φ, d)
+    fn oracle_mode(
+        total: [f64; 2],
+        s0: [[f64; 2]; 2],
+        s1: [[f64; 2]; 2],
+        nu_fission: [f64; 2],
+        chi: [f64; 2],
+        b2: f64,
+    ) -> (f64, [f64; 2], [f64; 2]) {
+        let gamma = |t: f64| {
+            let x = b2.abs().sqrt() / t;
+            if b2 == 0.0 {
+                1.0
+            } else if b2 > 0.0 {
+                x * x * x.atan() / (3.0 * (x - x.atan()))
+            } else {
+                x * x * x.atanh() / (3.0 * (x.atanh() - x))
+            }
+        };
+        // d = M⁻¹ φ、M = [3γ0 t0 − 3 s1(0→0), −3 s1(1→0); −3 s1(0→1), 3γ1 t1 − 3 s1(1→1)]
+        let m = [
+            [
+                3.0 * gamma(total[0]) * total[0] - 3.0 * s1[0][0],
+                -3.0 * s1[1][0],
+            ],
+            [
+                -3.0 * s1[0][1],
+                3.0 * gamma(total[1]) * total[1] - 3.0 * s1[1][1],
+            ],
+        ];
+        let det_m = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+        let inv = [
+            [m[1][1] / det_m, -m[0][1] / det_m],
+            [-m[1][0] / det_m, m[0][0] / det_m],
+        ];
+        // A = diag(t) − S0ᵀ + B² M⁻¹、A φ = χ
+        let a = [
+            [
+                total[0] - s0[0][0] + b2 * inv[0][0],
+                -s0[1][0] + b2 * inv[0][1],
+            ],
+            [
+                -s0[0][1] + b2 * inv[1][0],
+                total[1] - s0[1][1] + b2 * inv[1][1],
+            ],
+        ];
+        let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+        let phi = [
+            (a[1][1] * chi[0] - a[0][1] * chi[1]) / det,
+            (a[0][0] * chi[1] - a[1][0] * chi[0]) / det,
+        ];
+        let d = [
+            inv[0][0] * phi[0] + inv[0][1] * phi[1],
+            inv[1][0] * phi[0] + inv[1][1] * phi[1],
+        ];
+        (nu_fission[0] * phi[0] + nu_fission[1] * phi[1], phi, d)
+    }
+
+    #[test]
+    fn b1_diffusion_matches_a_hand_computed_two_region_lattice() {
+        let a = fissile(
+            [0.5, 1.2],
+            [[0.42, 0.05], [0.01, 0.95]],
+            [[0.15, 0.01], [0.002, 0.3]],
+            [0.016, 0.45],
+            [1.0, 0.0],
+        );
+        let b = fissile(
+            [0.6, 1.6],
+            [[0.5, 0.08], [0.02, 1.4]],
+            [[0.2, 0.02], [0.004, 0.5]],
+            [0.008, 0.19],
+            [0.6, 0.4],
+        );
+        let solution = Solution {
+            k: 1.0,
+            flux: vec![vec![2.0, 1.0], vec![1.5, 2.5]],
+            volumes: vec![1.0, 0.5],
+            leakage: vec![0.0; 2],
+            sides: vec![vec![1.0; 2]; 4],
+            iterations: 1,
+        };
+        // 重み V φ: A は (2, 1)、B は (0.75, 1.25)。中性子束 (2.75, 2.25)
+        let w = [[2.0, 1.0], [0.75, 1.25]];
+        let flux = [2.75, 2.25];
+        let hom = |g: usize, xa: f64, xb: f64| (w[0][g] * xa + w[1][g] * xb) / flux[g];
+        let total = [hom(0, 0.5, 0.6), hom(1, 1.2, 1.6)];
+        let s0 = [
+            [hom(0, 0.42, 0.5), hom(0, 0.05, 0.08)],
+            [hom(1, 0.01, 0.02), hom(1, 0.95, 1.4)],
+        ];
+        let s1 = [
+            [hom(0, 0.15, 0.2), hom(0, 0.01, 0.02)],
+            [hom(1, 0.002, 0.004), hom(1, 0.3, 0.5)],
+        ];
+        let nu_fission = [hom(0, 0.016, 0.008), hom(1, 0.45, 0.19)];
+        let rate_a = 2.0 * 0.016 + 1.0 * 0.45;
+        let rate_b = 0.75 * 0.008 + 1.25 * 0.19;
+        let chi = [
+            (rate_a + 0.6 * rate_b) / (rate_a + rate_b),
+            0.4 * rate_b / (rate_a + rate_b),
+        ];
+        let k = |b2: f64| oracle_mode(total, s0, s1, nu_fission, chi, b2);
+        // 二分法（k は B² について単調に減る）
+        let k_inf = k(0.0).0;
+        assert!(k_inf > 1.0, "{k_inf}");
+        let (mut low, mut high) = (0.0, 1.0);
+        assert!(k(high).0 < 1.0);
+        for _ in 0..200 {
+            let middle = 0.5 * (low + high);
+            if k(middle).0 > 1.0 {
+                low = middle;
+            } else {
+                high = middle;
+            }
+        }
+        let (_, phi, d) = k(0.5 * (low + high));
+        let fg = homogenize(
+            &solution,
+            &[&a, &b],
+            &fine(),
+            fine().bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        for g in 0..2 {
+            let e = d[g] / phi[g];
+            assert!(
+                (fg.diffusion[g] - e).abs() < 1e-8 * e,
+                "{} vs {e}",
+                fg.diffusion[g]
+            );
+        }
+        // 1群: B1 の中性子束で縮約する。MOC の中性子束で重みづけした値とは違う
+        let one = homogenize(
+            &solution,
+            &[&a, &b],
+            &fine(),
+            &[1.0e7, 1.0e-5],
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        let e = (d[0] + d[1]) / (phi[0] + phi[1]);
+        assert!(
+            (one.diffusion[0] - e).abs() < 1e-8 * e,
+            "{} vs {e}",
+            one.diffusion[0]
+        );
+        let moc = (d[0] / phi[0] * flux[0] + d[1] / phi[1] * flux[1]) / (flux[0] + flux[1]);
+        assert!((moc - e).abs() > 1e-3 * e, "{moc} vs {e}");
     }
 }
