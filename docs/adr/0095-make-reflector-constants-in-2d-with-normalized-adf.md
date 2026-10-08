@@ -110,7 +110,7 @@ issues: []
 ## 結果
 
 - I 型の格子で、反射体のノードの1ノードの問題（[ADR-0094](0094-define-adf-by-one-node-nem.md)）の、真空の面の高速群の均質な面の中性子束が負になり、
-  ADF を作れない（examples/reflector/verification.md、425cb26、2026-10-09）。扱いは #0027 で決める。それまで core での
+  ADF を作れない（examples/reflector/verification.md、d0d0d74、2026-10-09）。扱いは #0027 で決める。それまで core での
   等価性と f* の近似の誤差は測れない
 - core の、反射体のノードどうしの面の ADF を 1 とする扱いと、反射体の定数を炉心の位置に合わせて回す扱いは、まだない。
   core に種類の違うノードを並べる入力（装荷図）はまだない（#0030）
