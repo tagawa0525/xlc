@@ -85,8 +85,18 @@ pub enum B1Error {
 
 /// γ(s)（s = B²/Σt²）。s ≤ −1 では定まらない（呼ぶ側で除く）。
 pub(crate) fn gamma(s: f64) -> f64 {
-    let _ = s;
-    1.0
+    if s.abs() < SERIES_LIMIT {
+        // x² arctan(x) / (3 (x − arctan x)) の s = x² の級数（s < 0 でも同じ式）
+        1.0 + s * (4.0 / 15.0 + s * (-12.0 / 175.0 + s * 92.0 / 2625.0))
+    } else if s > 0.0 {
+        let x = s.sqrt();
+        let a = x.atan();
+        s * a / (3.0 * (x - a))
+    } else {
+        let y = (-s).sqrt();
+        let a = y.atanh();
+        -s * a / (3.0 * (a - y))
+    }
 }
 
 impl Medium {
@@ -128,9 +138,38 @@ impl Medium {
     /// バックリング B² での基本モード。核分裂源は χ の形に決まっているので、
     /// [φ; d] を χ の源で1回解き、k = νΣf·φ とする。
     pub fn mode(&self, buckling: f64) -> Result<Mode, B1Error> {
-        let _ = buckling;
         self.validate()?;
-        Err(B1Error::Singular(buckling))
+        let limit = self.negative_limit();
+        if buckling <= limit || !buckling.is_finite() {
+            return Err(B1Error::Imaginary { buckling, limit });
+        }
+        let ng = self.groups();
+        let n = 2 * ng;
+        // 行: 0..ng が中性子収支、ng..2ng が中性子流の式。列: 0..ng が φ、ng..2ng が d
+        let mut a = vec![0.0; n * n];
+        for g in 0..ng {
+            let total = self.total[g];
+            a[g * n + g] += total;
+            a[g * n + ng + g] = buckling;
+            a[(ng + g) * n + g] = -1.0;
+            a[(ng + g) * n + ng + g] += 3.0 * gamma(buckling / (total * total)) * total;
+            for from in 0..ng {
+                a[g * n + from] -= self.scatter[from][g];
+                a[(ng + g) * n + ng + from] -= 3.0 * self.scatter1[from][g];
+            }
+        }
+        let lu = Lu::new(a, n).ok_or(B1Error::Singular(buckling))?;
+        let mut x = vec![0.0; n];
+        x[..ng].copy_from_slice(&self.chi);
+        lu.solve(&mut x);
+        let current = x.split_off(ng);
+        let k = self.nu_fission.iter().zip(&x).map(|(v, f)| v * f).sum();
+        Ok(Mode {
+            buckling,
+            k,
+            flux: x,
+            current,
+        })
     }
 
     /// k = 1 になる臨界のバックリングを二分法で探す。物理的な（中性子束がすべて正の）モードの k は B² に
@@ -139,7 +178,62 @@ impl Medium {
     /// 極は −min(Σt)² より上にあるので、(−min(Σt)², 0) を、k > 1 か物理的でないモードを「負に過ぎる」
     /// として二分する。
     pub fn critical(&self) -> Result<Mode, B1Error> {
-        self.mode(0.0)
+        let zero = self.mode(0.0)?;
+        if (zero.k - 1.0).abs() <= K_TOLERANCE {
+            return Ok(zero);
+        }
+        let (mut low, mut high) = if zero.k > 1.0 {
+            let mut high = self
+                .total
+                .iter()
+                .copied()
+                .fold(f64::INFINITY, f64::min)
+                .powi(2);
+            let mut doublings = 0;
+            loop {
+                let mode = self.mode(high)?;
+                if mode.k < 1.0 {
+                    break;
+                }
+                doublings += 1;
+                if doublings > MAX_DOUBLINGS {
+                    return Err(B1Error::NoCriticalBuckling {
+                        buckling: high,
+                        k: mode.k,
+                    });
+                }
+                high *= 2.0;
+            }
+            (0.0, high)
+        } else {
+            (NEGATIVE_LIMIT * self.negative_limit(), 0.0)
+        };
+        let mut best = zero;
+        for _ in 0..MAX_BISECTIONS {
+            let middle = 0.5 * (low + high);
+            let mode = self.mode(middle)?;
+            let physical = mode.flux.iter().all(|&f| f > 0.0);
+            if mode.k > 1.0 || !physical {
+                low = middle;
+            } else {
+                high = middle;
+            }
+            if physical && (mode.k - 1.0).abs() < (best.k - 1.0).abs() {
+                best = mode;
+            }
+            if (best.k - 1.0).abs() <= K_TOLERANCE
+                || high - low <= f64::EPSILON * low.abs().max(high.abs())
+            {
+                break;
+            }
+        }
+        if (best.k - 1.0).abs() > CRITICAL_TOLERANCE {
+            return Err(B1Error::NoCriticalBuckling {
+                buckling: best.buckling,
+                k: best.k,
+            });
+        }
+        Ok(best)
     }
 }
 
