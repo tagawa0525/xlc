@@ -203,3 +203,191 @@ fn solve3(a: [[f64; 3]; 3], b: [f64; 3]) -> [f64; 3] {
         det(m) / d
     })
 }
+
+/// 1ノードの GET の問題で、参照の格子計算の外周の境界。面の条件は参照の正味の中性子流で決まり、
+/// これは横方向の漏れの2次式の外側の扱いだけを決める（core の `Reflective` と `Vacuum` と同じ）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Edge {
+    /// 鏡面反射: 外に鏡像のノードがあるとみなす
+    Reflective,
+    /// 真空: 面の漏れをノードの漏れ × 面の中性子束 / ノード平均とする
+    Vacuum,
+}
+
+/// 一般化等価理論（GET）の1ノードの問題: 均質化した定数、参照の k、参照のノード平均の中性子束と
+/// 面の正味の中性子流から、均質な面の中性子束を求める。2次元（x, y）のノードで、z の漏れは 0。
+#[derive(Debug, Clone, Copy)]
+pub struct OneNode<'a> {
+    /// [群] の拡散係数
+    pub diffusion: &'a [f64],
+    /// [群] の全断面積
+    pub total: &'a [f64],
+    /// [出る群][入る群] の散乱
+    pub scatter: &'a [Vec<f64>],
+    pub nu_fission: &'a [f64],
+    pub chi: &'a [f64],
+    pub k: f64,
+    /// [群] の参照のノード平均の中性子束
+    pub flux: &'a [f64],
+    /// x, y の幅 (cm)
+    pub widths: [f64; 2],
+    /// [面（-x, +x, -y, +y）][群] の、面の平均の外向きの正味の中性子流（中性子束と同じ規格化）
+    pub currents: [&'a [f64]; 4],
+    /// [面（-x, +x, -y, +y）] の参照の境界
+    pub edges: [Edge; 4],
+}
+
+/// 1ノードの問題のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum OneNodeError {
+    #[error("{0}")]
+    Invalid(String),
+    #[error("the homogeneous flux on face {face} in group {group} is {flux}; it must be positive")]
+    NonPositiveSurface {
+        face: usize,
+        group: usize,
+        flux: f64,
+    },
+    #[error("the one-node NEM did not converge in {0} iterations")]
+    NotConverged(usize),
+}
+
+/// 1ノードの問題の均質な面の中性子束 [面（-x, +x, -y, +y）][群]。
+pub fn surface_fluxes(_node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
+    Err(OneNodeError::NotConverged(0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 2群の定数（χ = (1, 0)、上方散乱あり）
+    fn constants() -> (Vec<f64>, Vec<f64>, Vec<Vec<f64>>, Vec<f64>, Vec<f64>) {
+        (
+            vec![1.4, 0.4],
+            vec![0.24, 0.83],
+            vec![vec![0.21, 0.017], vec![0.001, 0.75]],
+            vec![0.006, 0.11],
+            vec![1.0, 0.0],
+        )
+    }
+
+    #[test]
+    fn zero_currents_give_the_node_average() {
+        // 正味の流れが 0 で外周が反射なら、均質な解は平らで、面の中性子束はノード平均
+        let (diffusion, total, scatter, nu_fission, chi) = constants();
+        let flux = [1.3, 0.4];
+        let zero = [0.0, 0.0];
+        let node = OneNode {
+            diffusion: &diffusion,
+            total: &total,
+            scatter: &scatter,
+            nu_fission: &nu_fission,
+            chi: &chi,
+            k: 1.05,
+            flux: &flux,
+            widths: [21.5, 20.0],
+            currents: [&zero; 4],
+            edges: [Edge::Reflective; 4],
+        };
+        let surface = surface_fluxes(&node).unwrap();
+        for face in &surface {
+            for (s, f) in face.iter().zip(&flux) {
+                assert!((s - f).abs() < 1e-14 * f, "{surface:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn outward_current_lowers_the_face_flux() {
+        // +x から外へ流れ出ると、均質な解は +x に向かって下がる。-x と ±y は反射
+        let (diffusion, total, scatter, nu_fission, chi) = constants();
+        let flux = [1.3, 0.4];
+        let zero = [0.0, 0.0];
+        let out = [0.01, 0.002];
+        let node = OneNode {
+            diffusion: &diffusion,
+            total: &total,
+            scatter: &scatter,
+            nu_fission: &nu_fission,
+            chi: &chi,
+            k: 0.98,
+            flux: &flux,
+            widths: [21.5, 21.5],
+            currents: [&zero, &out, &zero, &zero],
+            edges: [
+                Edge::Reflective,
+                Edge::Vacuum,
+                Edge::Reflective,
+                Edge::Reflective,
+            ],
+        };
+        let surface = surface_fluxes(&node).unwrap();
+        for g in 0..2 {
+            assert!(
+                surface[1][g] < flux[g] && flux[g] < surface[0][g],
+                "{surface:?}"
+            );
+            // 面の中性子束の差 φ+ - φ- は a1。正味の流れ J+ = -(D/h)(a1 + 3a2 + a3/2 + a4/5) の
+            // 主な項から、a1 はおよそ -J h / D の大きさ
+            let a1 = surface[1][g] - surface[0][g];
+            let scale = out[g] * 21.5 / diffusion[g];
+            assert!(-a1 > 0.2 * scale && -a1 < 2.0 * scale, "{a1} vs {scale}");
+        }
+    }
+
+    #[test]
+    fn invalid_one_node_problems_are_errors() {
+        let (diffusion, total, scatter, nu_fission, chi) = constants();
+        let zero = [0.0, 0.0];
+        let base = |flux: &'static [f64]| (flux, [21.5, 21.5]);
+        for (flux, widths) in [
+            base(&[0.0, 0.4]),
+            base(&[f64::NAN, 0.4]),
+            base(&[1.0]),
+            (&[1.3, 0.4][..], [0.0, 21.5]),
+        ] {
+            let node = OneNode {
+                diffusion: &diffusion,
+                total: &total,
+                scatter: &scatter,
+                nu_fission: &nu_fission,
+                chi: &chi,
+                k: 1.0,
+                flux,
+                widths,
+                currents: [&zero; 4],
+                edges: [Edge::Reflective; 4],
+            };
+            assert!(
+                matches!(surface_fluxes(&node), Err(OneNodeError::Invalid(_))),
+                "{flux:?} {widths:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn non_positive_surface_flux_is_error() {
+        // 外へ出る流れがノード平均に比べて大きすぎると、均質な面の中性子束が負になり ADF を作れない
+        let (diffusion, total, scatter, nu_fission, chi) = constants();
+        let flux = [1.3, 0.4];
+        let zero = [0.0, 0.0];
+        let out = [1.0, 0.5];
+        let node = OneNode {
+            diffusion: &diffusion,
+            total: &total,
+            scatter: &scatter,
+            nu_fission: &nu_fission,
+            chi: &chi,
+            k: 0.9,
+            flux: &flux,
+            widths: [21.5, 21.5],
+            currents: [&zero, &out, &zero, &zero],
+            edges: [Edge::Reflective; 4],
+        };
+        assert!(matches!(
+            surface_fluxes(&node),
+            Err(OneNodeError::NonPositiveSurface { face: 1, .. })
+        ));
+    }
+}
