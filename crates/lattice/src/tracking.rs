@@ -357,6 +357,20 @@ mod tests {
     }
 
     #[test]
+    fn albedo_must_be_a_fraction() {
+        for albedo in [-0.1, 1.1, f64::NAN] {
+            let boundaries = Boundaries {
+                top: Boundary::Albedo(albedo),
+                ..Boundaries::REFLECTIVE
+            };
+            assert!(
+                Tracking::with_boundaries(&cell(), 8, 0.05, boundaries).is_err(),
+                "{albedo}"
+            );
+        }
+    }
+
+    #[test]
     fn rejects_bad_settings() {
         assert!(Tracking::new(&cell(), 3, 0.05).is_err());
         assert!(Tracking::new(&cell(), 0, 0.05).is_err());
