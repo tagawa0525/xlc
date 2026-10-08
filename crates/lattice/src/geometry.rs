@@ -98,6 +98,16 @@ impl PinCell {
         &self.radii
     }
 
+    /// 外周の枠の (セルの中の領域の番号, 面積 (cm²))
+    pub fn frame(&self) -> Option<(usize, f64)> {
+        self.frame.map(|t| {
+            (
+                self.regions() - 1,
+                self.pitch * self.pitch - (self.pitch - 2.0 * t).powi(2),
+            )
+        })
+    }
+
     /// 各リングを分ける扇形の数
     pub fn sectors(&self) -> usize {
         self.sectors
@@ -334,9 +344,7 @@ impl PinCell {
             .iter()
             .flat_map(|v| std::iter::repeat_n(v / self.sectors as f64, self.sectors))
             .collect();
-        if self.frame.is_some() {
-            volumes.push(self.pitch * self.pitch - 4.0 * a * a);
-        }
+        volumes.extend(self.frame().map(|(_, area)| area));
         volumes
     }
 }
