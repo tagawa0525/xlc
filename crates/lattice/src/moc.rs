@@ -9,7 +9,7 @@ pub mod dancoff;
 pub mod fixed_source;
 mod harmonics;
 
-use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh};
+use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
 use crate::tracking::{Boundary, Side, Tracking};
 use harmonics::{planar_moments, real_harmonic};
@@ -380,7 +380,7 @@ pub fn solve(
                 volumes,
                 leakage: leak,
                 sides,
-                currents: vec![vec![0.0; ng]; 4],
+                currents: side_currents(&mesh, &current, ng, lengths),
                 size: [lattice.width(), lattice.height()],
                 iterations: iteration,
             });
@@ -390,6 +390,36 @@ pub fn solve(
         iterations: options.max_iterations,
         k,
     })
+}
+
+/// [外周の辺（左、右、上、下）][群] の外向きの正味の中性子流の、辺の上の平均。`current` は粗メッシュの
+/// [面][群] の正味の中性子流（面の正の向き、面の長さで積分した値）、`lengths` は辺の長さ。
+fn side_currents(
+    mesh: &CoarseMesh,
+    current: &[f64],
+    ng: usize,
+    lengths: [f64; 4],
+) -> Vec<Vec<f64>> {
+    let mut sums = vec![vec![0.0; ng]; 4];
+    for face in 0..mesh.faces() {
+        let FaceCells::Outer { cell, outward } = mesh.face_cells(face) else {
+            continue;
+        };
+        // 外周の面は、その外向きの向きの辺の上にある
+        let side = mesh
+            .cell_faces(cell)
+            .iter()
+            .position(|&(f, sign)| f == face && sign == outward);
+        if let Some(side) = side {
+            for (sum, net) in sums[side].iter_mut().zip(&current[face * ng..][..ng]) {
+                *sum += outward * net;
+            }
+        }
+    }
+    sums.iter()
+        .zip(lengths)
+        .map(|(values, length)| values.iter().map(|v| v / length).collect())
+        .collect()
 }
 
 /// トラックのスイープ。方向や領域ごとに決まる量（球面調和関数、全断面積）を、反復の前に一度だけ求めて持つ。
