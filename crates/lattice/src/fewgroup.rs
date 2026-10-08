@@ -150,6 +150,7 @@ pub fn homogenize(
         scatter,
         adf: Vec::new(),
         vacuum_ratio: Vec::new(),
+        normalized_adf: vec![false; 4],
     };
     // 辺ごとの少数群の値（細かい群の和。辺の平均の中性子束と正味の流れは群について足せる）
     let collapse = |values: &[Vec<f64>]| -> Vec<Vec<f64>> {
