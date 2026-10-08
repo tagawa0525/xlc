@@ -28,5 +28,5 @@ NJOY THERMR との比較（`crates/xs/examples/compare_njoy_thermr.rs`、example
 
 ## 結果
 
-- S(α,β) の温度は 283.6〜800 K しかない（[ADR-0047](0047-choose-temperatures-per-nuclide.md)）。565 K は [ADR-0080](0080-interpolate-sab-in-temperature.md)
+- S(α,β) の温度は 283.6〜800 K しかない。温度の選び方と 565 K の扱いは [ADR-0080](0080-interpolate-sab-in-temperature.md)
 - 4 eV 未満では静止した自由原子の散乱核が成り立たないので、減速計算の下限を 4 eV にする（[ADR-0073](0073-store-pointwise-data-in-library.md)、#0001）
