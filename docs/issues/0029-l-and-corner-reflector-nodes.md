@@ -4,7 +4,7 @@ labels: [lattice, core]
 opened: 2026-10-09
 closed:
 milestone: M3
-blocked-by: ["#0027"]
+blocked-by: []
 resolution:
 ---
 
@@ -32,4 +32,4 @@ ADF を 1 とする近似と、代表の燃料を選ぶ近似の影響）を測�
 
 ## 経緯
 
-- 2026-10-09: ADR-0095 の I 型を実装したときに残した。I 型の等価性の確認が #0027 で止まっている
+- 2026-10-09: ADR-0095 の I 型を実装したときに残した
