@@ -819,7 +819,10 @@ zones = [{ material = "water", rings = 1 }]
         );
         assert_eq!(
             input.output,
-            Some((PathBuf::from("pincell.fg.msgpack"), vec![1e7, 0.625, 1e-5]))
+            Some(FewGroupOutput {
+                bounds: vec![1e7, 0.625, 1e-5],
+                files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
+            })
         );
         assert_eq!(input.pin_powers, None);
         assert_eq!(
@@ -1194,5 +1197,94 @@ zones = [{ material = "water", rings = 1 }]
         let err = LatticeInput::parse("pitch = ").unwrap_err();
         let chain = format!("{:#}", anyhow::Error::from(err));
         assert_eq!(chain.matches("TOML parse error").count(), 1, "{chain}");
+    }
+
+    #[test]
+    fn parses_few_group_nodes() {
+        // 格子をノードに分け、ノードごとに少数群定数を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と
+        // 列を含む）の、1 から数えた最初と最後。LATTICE は巨視的断面積なので、ライブラリに置き換える
+        let text = LATTICE.replace("cross-sections = \"c5g7.toml\"\n", "");
+        let input = replaced(
+            &text,
+            "pin-powers = \"pins.msgpack\"",
+            "library = \"m1.msgpack\"\nfew-group = { bounds = [1e7, 1e-5], nodes = [\n  \
+             { output = \"fuel.msgpack\", columns = [1, 1], rows = [1, 2] },\n  \
+             { output = \"reflector.msgpack\", columns = [2, 2], rows = [1, 2], reflector = true },\n] }",
+        );
+        let input = input.unwrap_or_else(|e| panic!("{e}"));
+        let expected = FewGroupOutput {
+            bounds: vec![1e7, 1e-5],
+            files: FewGroupFiles::Nodes(vec![
+                (
+                    PathBuf::from("fuel.msgpack"),
+                    Node {
+                        columns: 0..1,
+                        rows: 0..2,
+                        reflector: false,
+                    },
+                ),
+                (
+                    PathBuf::from("reflector.msgpack"),
+                    Node {
+                        columns: 1..2,
+                        rows: 0..2,
+                        reflector: true,
+                    },
+                ),
+            ]),
+        };
+        assert_eq!(input.output, Some(expected));
+    }
+
+    #[test]
+    fn invalid_few_group_nodes_are_errors() {
+        let few_group = |entry: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = [1e7, 1e-5]{entry} }}"),
+            )
+        };
+        let node = |output: &str, columns: &str, rows: &str| {
+            format!("{{ output = \"{output}\", columns = {columns}, rows = {rows} }}")
+        };
+        let good = node("a", "[1, 1]", "[1, 1]");
+        assert!(few_group(&format!(", nodes = [{good}]")).is_ok());
+        for (entry, what) in [
+            (String::new(), "neither output nor nodes"),
+            (
+                format!(", output = \"x\", nodes = [{good}]"),
+                "both output and nodes",
+            ),
+            (", nodes = []".to_string(), "no nodes"),
+            (
+                format!(", nodes = [{}]", node("a", "[0, 1]", "[1, 1]")),
+                "column 0",
+            ),
+            (
+                format!(", nodes = [{}]", node("a", "[2, 1]", "[1, 1]")),
+                "reversed columns",
+            ),
+            (
+                format!(", nodes = [{}]", node("a", "[1, 1]", "[3, 2]")),
+                "reversed rows",
+            ),
+            (
+                format!(", nodes = [{good}, {}]", node("a", "[2, 2]", "[1, 1]")),
+                "same output",
+            ),
+            (
+                format!(", nodes = [{}]", node("a", "[1, 2, 3]", "[1, 1]")),
+                "three numbers",
+            ),
+        ] {
+            assert!(
+                matches!(
+                    few_group(&entry),
+                    Err(InputError::Invalid(_) | InputError::Toml(_))
+                ),
+                "{what}"
+            );
+        }
     }
 }
