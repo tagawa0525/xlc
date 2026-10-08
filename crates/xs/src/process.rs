@@ -419,7 +419,7 @@ pub fn process_nuclide(
         za: head.za,
         awr: head.awr,
         resolved: resolved(tape, mat)?,
-        thermal_scattering: false,
+        thermal_scattering: thermal.is_some(),
         temperatures,
     })
 }
