@@ -37,7 +37,7 @@ NJOY2016 の RECONR（reconr.f90 の lunion）は、MF3 の各反応で、見出
   立ち上がらない。NJOY との差も残る（Cd-112 の MT51 で約 3e-3）
 - 最初の点をしきい値に移し、しきい値より下のほかの点を捨てる（採用）
 - しきい値からの区間をいつも lin-lin にする: lin-log の長い区間（Ti-47 の MT51 は 163〜200 keV）の形が変わり、NJOY と
-  群平均で 6% 違った（ブランチ feat/m3-nuclides で試した、f4509a7〜b649d36、2026-10-09）
+  群平均で 6% 違った（ブランチ feat/m3-nuclides で試した、0af3bf8〜b1a4eb7、2026-10-09）
 - エラーにする: 評価済みデータに広くあり、ライブラリを作れない
 
 ## 決定と理由
@@ -66,8 +66,8 @@ E_th をそのまま計算した入射エネルギーでは、2体の運動学�
 `thresholds_need_a_positive_awr`、`threshold_shift_is_reported_per_reaction`、`threshold_shifts_are_summarized_per_nuclide`、
 `two_body_range_holds_at_the_rounded_threshold`。NJOY GROUPR と比べて、Cd-112 の MT51 の 6 群の差は 3.0e-3 から 1.1e-4
 になり、0 K の無限希釈で 1e-3 を超えて違う反応は 142 から 129 になった。残る差は GROUPR の積分による
-（examples/m3-nuclides/verification.md、b564e08 と f167e30、2026-10-09）。VERA 1B〜1D、2B の k は 6 桁まで変わらない
-（examples/vera/verification.md、efd37ee、2026-10-09）。
+（examples/m3-nuclides/verification.md、4cdc221 と a930010、2026-10-09）。VERA 1B〜1D、2B の k は 6 桁まで変わらない
+（examples/vera/verification.md、06f5279、2026-10-09）。
 
 ## 結果
 
