@@ -1,6 +1,6 @@
 //! 均質化した少数群定数（`lattice` から `core` に渡すファイル）。
 //!
-//! フィールド名付きの map 形式の MessagePack（全体計画の「ファイルの約束事」）:
+//! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //! `format` ("xlc-fewgroup"), `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`,
 //! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）。
 
