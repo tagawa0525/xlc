@@ -16,7 +16,7 @@
 status: accepted      # proposed | accepted | rejected | superseded | deprecated
 date: 2026-10-08      # 最後に status が変わった日（accepted なら決めた日）
 supersedes: []        # この ADR が置き換えた ADR（例: [ADR-0002]）
-superseded-by:        # この ADR を置き換えた ADR（例: ADR-0007）
+superseded-by:        # この ADR を置き換えた ADR（例: ADR-0007。複数なら [ADR-0068, ADR-0074]）
 issues: []            # きっかけになった、またはこの ADR で解決した issue（例: ["#0001"]）
 ---
 
