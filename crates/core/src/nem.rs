@@ -82,6 +82,9 @@ pub enum NemError {
          non-fundamental mode (use smaller nodes)"
     )]
     NonFundamentalMode { node: usize },
+    /// 真空の面の横方向の漏れに、面の中性子束 / ノード平均を使えない
+    #[error("node {node} next to a vacuum face has a flux {flux}; it must be positive")]
+    VacuumFaceFlux { node: usize, flux: f64 },
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
 }
@@ -120,7 +123,7 @@ fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError
     for iteration in 1..=options.max_iterations {
         let previous = state.flux.clone();
         for g in 0..ng {
-            core.sweep_group(&mut state, g, k);
+            core.sweep_group(&mut state, g, k)?;
         }
         // べき乗法: 生成率の比で k を更新し、全体を生成率 1 に規格化する
         let rate = production(&state);
@@ -402,24 +405,11 @@ impl<'a> Core<'a> {
         (j_plus - j_minus) / self.width(n, d)
     }
 
-    fn sweep_group(&self, state: &mut State, g: usize, k: f64) {
+    fn sweep_group(&self, state: &mut State, g: usize, k: f64) -> Result<(), NemError> {
         let nodes = self.nodes();
         // 横方向の漏れは群のスイープの始めの値を使う
         let leakage: Vec<[f64; 3]> = (0..nodes)
             .map(|n| std::array::from_fn(|d| self.net_leakage(state, n, d, g)))
-            .collect();
-        // 真空の面の中性子束と、ノード平均に対する比（横方向の漏れの形に使う）
-        let face_ratio: Vec<[[f64; 2]; 3]> = (0..nodes)
-            .map(|n| {
-                std::array::from_fn(|d| {
-                    let (in_minus, in_plus) = self.incoming(state, n, d, g);
-                    let phi = state.flux[n][g];
-                    [
-                        2.0 * (state.out_minus[d][n][g] + in_minus) / phi,
-                        2.0 * (state.out_plus[d][n][g] + in_plus) / phi,
-                    ]
-                })
-            })
             .collect();
         for n in 0..nodes {
             let m = self.material(n);
@@ -452,7 +442,8 @@ impl<'a> Core<'a> {
                         *si += c * a;
                     }
                 }
-                let (l1, l2) = self.transverse_shape(&leakage, &face_ratio, n, d);
+                // ノード n の群 g の値はまだ更新していないので、スイープの始めの値と同じ
+                let (l1, l2) = self.transverse_shape(state, &leakage, n, d, g)?;
                 s[0] -= l1;
                 s[1] -= l2;
 
@@ -520,6 +511,7 @@ impl<'a> Core<'a> {
                 ];
             }
         }
+        Ok(())
     }
 
     /// 方向 d の横方向の漏れ（他の2方向の漏れの和）を、両隣のノードを含む2次式で近似し、
@@ -527,14 +519,15 @@ impl<'a> Core<'a> {
     ///
     /// 外周では、反射境界なら外に鏡像のノードがあるとみなす。中性子束ゼロと真空の境界では、
     /// 漏れは中性子束に比例するとみなし、面の漏れをノードの漏れ × 面の中性子束 / ノード平均
-    /// （`face_ratio`、[ノード][方向][- 面, + 面]）とする（中性子束ゼロなら 0）。
+    /// とする（中性子束ゼロなら 0）。真空の面のノード平均が正でなければエラー。
     fn transverse_shape(
         &self,
+        state: &State,
         leakage: &[[f64; 3]],
-        face_ratio: &[[[f64; 2]; 3]],
         n: usize,
         d: usize,
-    ) -> (f64, f64) {
+        g: usize,
+    ) -> Result<(f64, f64), NemError> {
         let transverse =
             |m: usize| -> f64 { (0..3).filter(|&e| e != d).map(|e| leakage[m][e]).sum() };
         let h = self.width(n, d);
@@ -545,7 +538,7 @@ impl<'a> Core<'a> {
         let side = |step: isize, face: usize| {
             let sign = step as f64;
             let near = sign * 0.5 * h;
-            match self.neighbor(n, d, step) {
+            Ok(match self.neighbor(n, d, step) {
                 Some(m) => {
                     let far = near + sign * self.width(m, d);
                     average(near.min(far), near.max(far), transverse(m))
@@ -556,23 +549,32 @@ impl<'a> Core<'a> {
                         average(near.min(far), near.max(far), transverse(n))
                     }
                     Boundary::ZeroFlux => ([1.0, near, near * near], 0.0),
-                    Boundary::Vacuum => (
-                        [1.0, near, near * near],
-                        transverse(n) * face_ratio[n][d][face],
-                    ),
+                    Boundary::Vacuum => {
+                        let flux = state.flux[n][g];
+                        if !(flux > 0.0 && flux.is_finite()) {
+                            return Err(NemError::VacuumFaceFlux { node: n, flux });
+                        }
+                        let (in_minus, in_plus) = self.incoming(state, n, d, g);
+                        let face_flux = if step > 0 {
+                            2.0 * (state.out_plus[d][n][g] + in_plus)
+                        } else {
+                            2.0 * (state.out_minus[d][n][g] + in_minus)
+                        };
+                        ([1.0, near, near * near], transverse(n) * face_flux / flux)
+                    }
                 },
-            }
+            })
         };
         let rows = [
-            side(-1, 0),
+            side(-1, 0)?,
             average(-0.5 * h, 0.5 * h, transverse(n)),
-            side(1, 1),
+            side(1, 1)?,
         ];
         let c = solve3(
             [rows[0].0, rows[1].0, rows[2].0],
             [rows[0].1, rows[1].1, rows[2].1],
         );
-        (c[1] * h, c[2] * h * h / 3.0)
+        Ok((c[1] * h, c[2] * h * h / 3.0))
     }
 
     /// 外周の面から外へ出る正味の中性子数（群ごと）
