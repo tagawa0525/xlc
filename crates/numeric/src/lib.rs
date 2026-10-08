@@ -6,4 +6,3 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod quadrature;
-pub mod slowing;
