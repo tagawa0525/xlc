@@ -834,21 +834,29 @@ zones = [{ material = "water", rings = 1 }]
             replaced(
                 LATTICE,
                 "  { material = \"water\", rings = 1 },\n]",
-                &format!("  {{ material = \"water\", rings = 1 }},\n]\nframe = {frame}"),
+                &format!("  {{ material = \"water\", rings = 2 }},\n]\nframe = {frame}"),
             )
         };
         let input = with_frame("{ thickness = 0.05, material = \"clad\" }").unwrap();
         let (lattice, regions) = input.geometry().unwrap();
-        // ピンセル 3 + 枠 1 が 2 つ、均質なセル 1 が 2 つ
-        assert_eq!(lattice.regions(), 2 * 4 + 2);
-        assert_eq!(regions[3], "clad");
-        // 厚すぎる枠と、未定義の項目
-        assert!(
-            with_frame("{ thickness = 1.0, material = \"clad\" }")
-                .unwrap()
-                .geometry()
-                .is_err()
-        );
+        // ピンセル 4 + 枠 1 が 2 つ、均質なセル 1 が 2 つ
+        assert_eq!(lattice.regions(), 2 * 5 + 2);
+        assert_eq!(regions[4], "clad");
+        // 厚すぎる枠は、帯の配置ではなく枠の誤りとして報告する
+        for thickness in ["1.0", "-0.1", "nan"] {
+            let frame = format!("{{ thickness = {thickness}, material = \"clad\" }}");
+            let error = with_frame(&frame).and_then(|input| input.geometry().map(|_| ()));
+            assert!(
+                matches!(
+                    error,
+                    Err(InputError::Cell {
+                        source: GeometryError::Frame(_),
+                        ..
+                    })
+                ),
+                "{thickness}: {error:?}"
+            );
+        }
         assert!(with_frame("{ thickness = 0.05 }").is_err());
     }
 
