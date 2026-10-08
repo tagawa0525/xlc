@@ -34,4 +34,4 @@ closed:
   中でコミットする
 - ブランチ名とコミットの本文で番号を示す（例: ブランチ `fix/0004-frame-gap`、本文に `Refs: #0004`）
 - 一覧のファイルは作らない（手で書く一覧は各ファイルとずれる）。開いている issue は
-  `grep -l "status: open" docs/issues/*.md` で探す
+  `grep -l '^status: open$' docs/issues/[0-9]*.md` で探す
