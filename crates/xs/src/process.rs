@@ -174,7 +174,8 @@ pub fn unresolved_shielding(
 
 /// 分離共鳴の範囲を持つ核種の、σ0 ごとの群定数の重みを減速計算で作る範囲（ADR-0072）。
 /// 重み関数の熱中性子の区切り以上で最も低い群の境界から、分離共鳴の上端以下で最も高い群の境界まで
-/// （熱中性子の領域では標的の熱運動が効き、静止した標的の減速計算は成り立たない）。
+/// （熱中性子の領域では標的の熱運動が効き、静止した標的の減速計算は成り立たない）。範囲より上の散乱源の
+/// ポテンシャル散乱は、分離共鳴の範囲の s 波の散乱半径から求める（`resolved`）。
 /// 分離共鳴の範囲がなければ `None`。
 pub fn slowing_down_range(
     tape: &Tape,
@@ -186,15 +187,10 @@ pub fn slowing_down_range(
         return Ok(None);
     };
     let mf2 = Mf2::parse(&section)?;
-    let Some(top) = mf2
-        .ranges
-        .iter()
-        .filter(|r| r.kind.is_resolved())
-        .map(|r| r.eh)
-        .reduce(f64::max)
-    else {
+    let Some(Resolved { top, potential }) = resolved_in(&mf2)? else {
         return Ok(None);
     };
+    let awr = mf2.awr;
     let bounds = groups.bounds();
     let [thermal, _] = weight.breakpoints();
     let (Some(&low), Some(&high)) = (
@@ -204,7 +200,8 @@ pub fn slowing_down_range(
         return Ok(None);
     };
     Ok((high > low).then_some(SlowingDown {
-        awr: mf2.awr,
+        awr,
+        potential,
         range: (low, high),
     }))
 }
@@ -267,7 +264,11 @@ pub fn resolved(tape: &Tape, mat: i32) -> Result<Option<Resolved>, ProcessError>
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
     };
-    let mf2 = Mf2::parse(&section)?;
+    resolved_in(&Mf2::parse(&section)?)
+}
+
+/// 読んだ MF2 から `resolved` を求める。
+fn resolved_in(mf2: &Mf2) -> Result<Option<Resolved>, ProcessError> {
     let Some(range) = mf2
         .ranges
         .iter()
@@ -618,6 +619,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(slowing.awr, 236.006);
+        // 範囲の上の散乱源に使うポテンシャル散乱は、分離共鳴の範囲の s 波の散乱半径から
+        let potential = resolved(&resolved_tape(), 1).unwrap().unwrap().potential;
+        assert_eq!(slowing.potential, potential);
         // 重み関数の熱中性子の区切り 0.1 eV 以上で最も低い群の境界から、分離共鳴の上端 20 keV 以下で
         // 最も高い群の境界まで
         assert_eq!(slowing.range, (10.0, 1.0e4));
