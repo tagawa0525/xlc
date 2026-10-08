@@ -23,7 +23,7 @@ use crate::equivalent::{EquivalentError, MIN_DANCOFF, equivalent_radius};
 use crate::geometry::{Lattice, PinCell};
 use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
-use crate::moc::dancoff::{DancoffError, DancoffOptions, dancoff, lump_dancoff};
+use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_dancoff};
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{SymmetryError, cell_orbits};
 use crate::tracking::Tracking;
@@ -63,6 +63,8 @@ pub enum SelfShieldingError {
         "cell {0}: each ring outside the fuel must be one material, and the outer rings the moderator"
     )]
     CellShape(usize),
+    #[error("structural body {0} has no Dancoff factor")]
+    Body(usize),
     #[error("cell {0}: non-finite shielded cross sections")]
     NonFinite(usize),
     #[error("cell {cell}: shielding not converged in {iterations} iterations")]
@@ -522,7 +524,7 @@ fn shield_lumps(
         }
     }
     // 核種の組ごとに、その組の物質の領域を黒体にし、その組の黒体の結果を求める。黒体の番号は組の中での番号に付け直す
-    let mut found = Vec::with_capacity(body_of.len());
+    let mut found: Vec<Option<Lump>> = vec![None; body_of.len()];
     let mut sets: Vec<&[&str]> = body_of.iter().map(|&(_, set)| set).collect();
     sets.sort_unstable();
     sets.dedup();
@@ -547,12 +549,13 @@ fn shield_lumps(
             group.len(),
             &options.dancoff,
         )?;
-        found.extend(group.into_iter().zip(results));
+        for (b, result) in group.into_iter().zip(results) {
+            found[b] = Some(result);
+        }
     }
-    // 黒体の番号の順（どの黒体もちょうど1回現れる）
-    found.sort_by_key(|&(b, _)| b);
     for (b, index, lump_regions) in lump_of {
-        let (cell, found) = (body_of[b].0, &found[b].1);
+        let cell = body_of[b].0;
+        let found = found[b].as_ref().ok_or(SelfShieldingError::Body(b))?;
         let equivalence = Equivalence {
             chord: found.chord,
             terms: found
