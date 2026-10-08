@@ -5,7 +5,7 @@ opened: 2026-10-08
 closed: 2026-10-08
 milestone: M3
 blocked-by: []
-resolution: コミット b564e08
+resolution: ADR-0100
 ---
 
 # 運動学のしきい値より下から始まる反応の扱いを決める
@@ -21,7 +21,7 @@ M3 の新しい核種の無限希釈の群定数では、しきい値を含む�
 ほかのしきい反応で最大 1.5e-2。examples/m3-nuclides/verification.md）。NJOY の PENDF から xlc で群平均すると差は消え、
 xlc の値は ENDF の表の厳密な積分と 7 桁一致する。どちらが正しいかは評価済みデータの不整合の扱いの問題で、決めていない。
 
-関係する ADR: なし
+関係する ADR: [ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)
 
 ## 完了の条件
 
@@ -32,4 +32,5 @@ xlc の値は ENDF の表の厳密な積分と 7 桁一致する。どちらが�
 - 2026-10-08: M3 の新しい核種のライブラリを NJOY と比べて見つかった
 - 2026-10-08: しきい値より下の断面積はありえないので、最初の点をしきい値に移して warn を出し、しきい値以下のほかの点は
   捨てることにした（NJOY RECONR と同じ。NJOY はほかの点をしきい値のすぐ上に詰める）。b564e08 で実装し、Cd-112 の MT51 の
-  6 群の差は 3.0e-3 から 1.1e-4 になった（examples/m3-nuclides/verification.md）。ユーザーの確認はまだ
+  6 群の差は 3.0e-3 から 1.1e-4 になった（examples/m3-nuclides/verification.md）
+- 2026-10-09: 方針が認められ、[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md) にした。警告は核種ごとに1回にまとめた
