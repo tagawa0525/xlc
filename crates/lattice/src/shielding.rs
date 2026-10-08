@@ -1504,6 +1504,61 @@ mod tests {
         }
 
         #[test]
+        fn touching_pieces_are_one_lump() {
+            // 管（外径 0.6）は枠の内側（半辺 0.58）に届き、同じ物質の枠と1つの塊になる
+            let library = library_with_zirconium();
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (vec![0.5, 0.6], vec!["water", "zirc", "water"]),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("unused", "H-1"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // セル1の領域: 水, 管, 水, 枠
+            assert_eq!(shielded.region_material[4], shielded.region_material[6]);
+        }
+
+        #[test]
+        fn touching_materials_with_the_same_resonant_nuclides_are_one_body() {
+            // 同じ核種で密度の違う物質 zirc2 を zirc が囲む。2つは1つの黒体で、Dancoff 係数と平均弦長を共有する
+            let library = library_with_zirconium();
+            let types = [
+                (vec![0.4096], vec!["fuel", "water"]),
+                (
+                    vec![0.3, 0.35, 0.4, 0.45],
+                    vec!["water", "zirc", "zirc2", "zirc", "water"],
+                ),
+            ];
+            let (tracking, regions) = framed(&types, vec![vec![0, 1], vec![1, 0]]);
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &with_material("zirc2", "Zr-90"),
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let lump = |material: &str| {
+                shielded
+                    .lumps
+                    .iter()
+                    .find(|l| l.material == material && l.cell == 1)
+                    .unwrap()
+            };
+            let (outer, inner) = (lump("zirc"), lump("zirc2"));
+            assert_eq!(outer.dancoff, inner.dancoff);
+            assert_eq!(outer.chord, inner.chord);
+            assert_eq!(outer.regions, vec![4, 6, 10, 12]);
+            assert_eq!(inner.regions, vec![5, 11]);
+        }
+
+        #[test]
         fn other_resonant_materials_do_not_shadow_a_lump() {
             // 管の物質が分離共鳴を持つかどうかで、同じセルの枠（別の物質）の遮蔽は変わらない（群定数は同じ）
             let library = library_with_copies("Fe-56", "Fe-56x");
