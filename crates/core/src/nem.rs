@@ -685,6 +685,39 @@ mod tests {
     }
 
     #[test]
+    fn single_reflective_node_direction_stays_bounded() {
+        // z に 300 cm のノード1つで両側が反射。その方向の解は一様で、展開係数は 0 のまま
+        // でなければならない。前の反復の a1, a2 から a3, a4 を求めると、丸め誤差が反復ごとに
+        // 約 -5 倍と -2.3 倍になり、400 回ほどで NaN になっていた（#0025）
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[0] = Boundary::ZeroFlux;
+        boundaries[1] = Boundary::ZeroFlux;
+        let p = cuboid([60.0, 20.0, 300.0], [6, 1, 1], boundaries);
+        let tight = Options {
+            k_tolerance: 1e-14,
+            flux_tolerance: 1e-13,
+            max_iterations: 10_000,
+        };
+        let converged = solve(&p, &tight).unwrap();
+        let core = Core::new(&p).unwrap();
+        // 許容差 0 では収束しないので、上限の回数まで反復を続ける
+        let long = Options {
+            k_tolerance: 0.0,
+            flux_tolerance: 0.0,
+            max_iterations: 2000,
+        };
+        match iterate(&core, &long) {
+            Err(NemError::NotConverged { k, .. }) => assert!(
+                (k - converged.k).abs() < 1e-12 * converged.k,
+                "{k} vs {}",
+                converged.k
+            ),
+            Err(e) => panic!("expected NotConverged, got {e}"),
+            Ok((s, _)) => panic!("converged with zero tolerances (k = {})", s.k),
+        }
+    }
+
+    #[test]
     fn non_fundamental_mode_is_error() {
         // 断面 10 cm の裸の細い柱を1ノードで表すと、横方向の漏れが除去の約5倍になり、
         // 符号が交互に変わる解に収束する。基本モードではないので誤りとして返す
