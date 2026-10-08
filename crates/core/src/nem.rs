@@ -1569,8 +1569,10 @@ mod tests {
                 m.absorption[g] = m.total[g] - m.scatter[g].iter().sum::<f64>();
             }
             let produced: f64 = m.chi.iter().sum();
-            for c in &mut m.chi {
-                *c /= produced;
+            if produced > 0.0 {
+                for c in &mut m.chi {
+                    *c /= produced;
+                }
             }
             let average: Vec<f64> = flux.iter().map(|f| f / volume).collect();
 
@@ -1763,5 +1765,71 @@ mod tests {
         };
         let (coarse, solution) = coarsen_with_get(&fine, [4, 4]);
         assert_get_equivalence(&coarse, &solution, [4, 4], 4);
+    }
+
+    /// 核分裂のない2群の物質（水に近い。上方散乱あり）
+    fn reflector() -> FewGroup {
+        let mut m = material();
+        m.diffusion = vec![1.25, 0.30];
+        m.total = vec![0.60, 1.90];
+        m.scatter = vec![vec![0.565, 0.032], vec![0.0015, 1.885]];
+        m.absorption = vec![0.003, 0.0135];
+        m.nu_fission = vec![0.0; 2];
+        m.fission = vec![0.0; 2];
+        m.chi = vec![0.0; 2];
+        m
+    }
+
+    #[test]
+    fn get_adfs_reproduce_fuel_and_a_wide_reflector() {
+        // 燃料（20 cm）と反射体（21.5 cm。細かいノード 2.5 cm × 8 と 2.6875 cm × 8）の 1D、+x は真空。
+        // 粗い反射体のノードは core と1ノードの問題の両方で ANM で解き（ADR-0102）、GET の定数で細かいノードの
+        // 解を再現する
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        let mut materials = three_fuels();
+        materials.push(reflector());
+        let mut dx = vec![2.5; 8];
+        dx.extend(vec![21.5 / 8.0; 8]);
+        let fine = Problem {
+            mesh: Mesh {
+                dx,
+                dy: vec![20.0],
+                dz: vec![20.0],
+            },
+            materials,
+            node_material: vec![0, 1, 0, 1, 1, 0, 2, 0, 3, 3, 3, 3, 3, 3, 3, 3],
+            boundaries,
+        };
+        let (coarse, solution) = coarsen_with_get(&fine, [8, 1]);
+        assert!(coarse.materials[1].nu_fission.iter().all(|&v| v == 0.0));
+        assert_get_equivalence(&coarse, &solution, [8, 1], 16);
+    }
+
+    #[test]
+    fn non_fissile_nodes_need_two_groups() {
+        // ANM の核は2群（ADR-0102）
+        let mut m = reflector();
+        m.bounds = vec![1.0e7, 1.0e-5];
+        m.total = vec![0.6];
+        m.absorption = vec![0.01];
+        m.diffusion = vec![1.0];
+        m.scatter = vec![vec![0.59]];
+        m.nu_fission = vec![0.0];
+        m.fission = vec![0.0];
+        m.chi = vec![0.0];
+        m.adf = vec![vec![1.0]; 4];
+        let mut fuel = m.clone();
+        fuel.nu_fission = vec![0.02];
+        fuel.fission = vec![0.008];
+        fuel.chi = vec![1.0];
+        let p = slab(
+            vec![10.0; 2],
+            vec![fuel, m],
+            vec![0, 1],
+            Boundary::Reflective,
+        );
+        let err = solve(&p, &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
     }
 }
