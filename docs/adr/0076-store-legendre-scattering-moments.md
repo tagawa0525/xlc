@@ -44,7 +44,7 @@ M2 の計画はこの項目に、MF6 の角度のデータ（LAW=2 の重心系�
 
 `hydrogen_moments_follow_the_kinematics`、`hydrogen_moments_keep_the_mean_cosine`、`heavy_target_moments_follow_the_kinematics`、
 `free_gas_moments_match_the_s_alpha_beta_table`、`kernel_moments_match_the_free_gas_double_differential`、
-`shielding_scales_every_scattering_moment`、`isotropic_moments_reproduce_p0`。NJOY GROUPR との比較（examples/vera/README.md）。
+`shielding_scales_every_scattering_moment`、`isotropic_moments_reproduce_p0`。NJOY GROUPR との比較（examples/vera/verification.md）。
 
 ## 結果
 

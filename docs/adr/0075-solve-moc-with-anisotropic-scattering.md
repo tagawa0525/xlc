@@ -12,7 +12,7 @@ issues: []
 
 M0 から散乱を等方（P0）とし輸送補正もしていなかった（[ADR-0040](0040-scatter-isotropically-in-m0.md)）。VERA 2B のピンの核分裂率が OpenMC より、水の穴の
 上下左右の隣で平均 +0.45%、斜めの隣で −0.16%、それ以外で −0.42% ずれた（rms 0.43%。2C と 2D も 0.44%。
-examples/vera/README.md、docs/plans/m2-assembly.md、df9171a と cd6c357、2026-10-07）。自己遮蔽とトラックが原因でないことを
+examples/vera/verification.md、docs/plans/m2-assembly.md、df9171a と cd6c357、2026-10-07）。自己遮蔽とトラックが原因でないことを
 確かめたうえで、水素の前方に偏る散乱を表せないことによると見込んだ。
 
 - 精度（近似を持ち込まないこと）
@@ -39,7 +39,7 @@ k の幅は 10 pcm、ピンの核分裂率でほぼ 0 で、時間の差も小�
 
 `anisotropy_does_not_change_an_infinite_medium`、`forward_scattering_acts_like_the_transport_correction`、
 `addition_theorem_holds`、`anisotropic_result_does_not_depend_on_the_thread_count`。VERA 2B〜2D の水の穴のまわりのピンの
-核分裂率を OpenMC と比べる（examples/vera/README.md）。
+核分裂率を OpenMC と比べる（examples/vera/verification.md）。
 
 ## 結果
 

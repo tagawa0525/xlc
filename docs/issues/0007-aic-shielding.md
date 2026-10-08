@@ -21,7 +21,7 @@ resolution:
 ## 完了の条件
 
 制御棒のセルを入れる段階で、OpenMC と比べて AIC の吸収と制御棒の反応度を確かめる。影の計算の全断面積は、
-燃料の吸収率で重みづけした平均（UFG の範囲の群。examples/vera/README.md、
+燃料の吸収率で重みづけした平均（UFG の範囲の群。examples/vera/verification.md、
 [ADR-0087](../adr/0087-use-dilute-totals-in-shadows.md)。実装はブランチ feat/dancoff-potential に残してある）で再測定する。
 
 ## 経緯

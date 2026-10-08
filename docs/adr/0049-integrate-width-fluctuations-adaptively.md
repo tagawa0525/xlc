@@ -32,13 +32,13 @@ integrals」とある）、ふつうの Gauss 求積の点ではない。
 NJOY の求積の表は使わず、許容誤差を指定した適応積分で求める（2026-10-06）。中性子幅の期待値は閉じた式で求める
 （E[1/(x+c)] は自由度 1, 3 では erfc、2, 4 では E1 で書ける。c が大きいところは 1/c の級数。260245f、2026-10-06）。
 核分裂幅と競合幅は適応 Gauss-Kronrod 積分で求める。積分は非分離共鳴の格子点でだけ行うので、計算量は問題にならない
-（U-236 で競合幅もゆらぐところでは重くなる。examples/m1/README.md の「計算時間について」）。
+（U-236 で競合幅もゆらぐところでは重くなる。examples/m1/verification.md の「計算時間について」）。
 
 ## 確認
 
 `width_ratios_match_integration`、`reproduces_moments_of_chi_square`、`nested_expectations_converge_in_either_order`、
 `three_fluctuating_widths_converge`。NJOY UNRESR との比較では最大 4e-4 ずれ、その原因は UNRESR の求積表による
-（examples/m1/README.md、46873af、2026-10-06）。上の 0.9%、0.5%、8% を出したスクリプトやテストはリポジトリにない。
+（examples/m1/verification.md、46873af、2026-10-06）。上の 0.9%、0.5%、8% を出したスクリプトやテストはリポジトリにない。
 NJOY の説明書は手元にないので、Hwang の求積の中身は NJOY2016 のソースで確かめた。
 
 ## 結果

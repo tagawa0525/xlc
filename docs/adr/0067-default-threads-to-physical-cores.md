@@ -28,7 +28,7 @@ docs/plans/m2-assembly.md、447e421 と ae658a1、2026-10-08）。
 
 ## 確認
 
-数値は計画に記録した測定で（docs/plans/m2-assembly.md、447e421 と ae658a1、2026-10-08）、examples/ の README には
+数値は計画に記録した測定で（docs/plans/m2-assembly.md、447e421 と ae658a1、2026-10-08）、examples/*/verification.md には
 ない。確かめるテストはない。
 
 ## 結果
