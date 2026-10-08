@@ -1,12 +1,12 @@
 ---
-status: accepted
-date: 2026-10-06
+status: superseded
+date: 2026-10-08
 supersedes: []
-superseded-by:
+superseded-by: ADR-0083
 issues: []
 ---
 
-# ADR-0061: MOC の固有値計算を、格子のセルを粗メッシュとする CMFD で加速する
+# ADR-0061: MOC の固有値計算を、ピンセル単位の粗メッシュによる CMFD で加速する
 
 ## 背景
 
@@ -21,7 +21,7 @@ issues: []
 
 ## 決定と理由
 
-MOC の固有値計算を、格子のセル（M2 の集合体ではピンセル）を粗メッシュとする CMFD で加速する。
+MOC の固有値計算を、ピンセル単位の粗メッシュによる CMFD で加速する。
 
 ## 確認
 
@@ -31,4 +31,5 @@ MOC の固有値計算を、格子のセル（M2 の集合体ではピンセル�
 ## 結果
 
 - CMFD の拡散係数の定め方は [ADR-0062](0062-use-optimally-diffusive-cmfd.md)、CMFD の後の更新は [ADR-0063](0063-update-angular-flux-after-cmfd.md)
-- M3 では、CMFD の粗メッシュのセルを格子のセルとする（[ADR-0083](0083-generalize-to-rectilinear-lattice.md)）
+- M3 で格子を長方形の格子に一般化したとき、粗メッシュのセルをピンセルから格子のセルに変えた（[ADR-0083](0083-generalize-to-rectilinear-lattice.md)）。CMFD で加速する
+  ことを含めて、[ADR-0083](0083-generalize-to-rectilinear-lattice.md) にまとめ直した
