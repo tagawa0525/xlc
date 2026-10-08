@@ -155,6 +155,15 @@ pub fn homogenize(
         Boundary::Vacuum => Edge::Vacuum,
         _ => Edge::Reflective,
     };
+    for (side, het) in heterogeneous.iter().enumerate() {
+        tracing::debug!(
+            side,
+            heterogeneous = ?het,
+            outward_current = ?currents[side],
+            average = ?average,
+            "one-node inputs"
+        );
+    }
     let surface = surface_fluxes(&OneNode {
         diffusion: &few.diffusion,
         total: &few.total,
@@ -168,13 +177,7 @@ pub fn homogenize(
         edges: faces.map(edge),
     })?;
     for (side, &face) in faces.iter().enumerate() {
-        tracing::debug!(
-            side,
-            heterogeneous = ?heterogeneous[side],
-            homogeneous = ?surface[face],
-            outward_current = ?currents[side],
-            "one-node face values"
-        );
+        tracing::debug!(side, homogeneous = ?surface[face], "one-node face flux");
     }
     few.adf = (0..4)
         .map(|side| {
