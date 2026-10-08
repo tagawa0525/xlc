@@ -21,7 +21,7 @@ M1 までの格子計算は、無限希釈の断面積でピンセルを1つ解�
 
 - 材料の組成: [ADR-0054](../adr/0054-model-vera-materials.md)
 - R-matrix limited 形式（Fe-54, 57）: [ADR-0055](../adr/0055-reconstruct-r-matrix-limited-subset.md)
-- MF6 の LAW=2, 3: [ADR-0056](../adr/0056-treat-mf6-law2-law3-as-two-body.md)（M2 で [ADR-0091](../adr/0091-use-mf6-angular-data.md)、M3 で [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md) に置き換え）
+- MF6 の LAW=2, 3: [ADR-0056](../adr/0056-treat-mf6-law2-law3-as-two-body.md)（MF6 の角度のデータは [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）
 - 出射分布の補間則: [ADR-0057](../adr/0057-interpolate-outgoing-distributions-as-endf.md)
 - 非分離共鳴の LRF=1 と Fe-58 の l=3: [ADR-0058](../adr/0058-read-lrf1-as-lrf2-with-l3.md)
 
@@ -52,8 +52,8 @@ M1 までの格子計算は、無限希釈の断面積でピンセルを1つ解�
 ### 散乱の非等方性
 
 - MOC の非等方散乱: [ADR-0075](../adr/0075-solve-moc-with-anisotropic-scattering.md)（[ADR-0040](../adr/0040-scatter-isotropically-in-m0.md) を置き換え）
-- ライブラリの散乱行列のモーメント: [ADR-0076](../adr/0076-store-legendre-scattering-moments.md)（[ADR-0092](../adr/0092-match-scattering-rows-to-shielded-elastic.md) を置き換え）
-- MF6 の角度のデータ: [ADR-0091](../adr/0091-use-mf6-angular-data.md)（M3 で [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md) に置き換え）
+- ライブラリの散乱行列のモーメント: [ADR-0076](../adr/0076-store-legendre-scattering-moments.md)
+- MF6 の角度のデータ: M2 の計画の扱いは実装の前に変えた（[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）
 
 ### 離散化の設定
 
