@@ -42,7 +42,7 @@ pub enum UfgError {
     #[error("range {range:?} must be two group bounds inside the pointwise range {pointwise:?}")]
     Range {
         range: [f64; 2],
-        pointwise: [f64; 2],
+        pointwise: Option<[f64; 2]>,
     },
     #[error(
         "the fuel has resolved resonances but the library has no pointwise data \
@@ -116,7 +116,7 @@ pub fn cell_range(
         .filter(|&b| b > low)
         .ok_or(UfgError::Range {
             range: [low, top],
-            pointwise,
+            pointwise: Some(pointwise),
         })?;
     Ok(Some([low, high]))
 }
@@ -151,7 +151,10 @@ pub fn slowing_down(
     let bounds = library.groups.bounds();
     let [low, high] = range;
     let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
-    let bad = || UfgError::Range { range, pointwise };
+    let bad = || UfgError::Range {
+        range,
+        pointwise: Some(pointwise),
+    };
     let top = bounds.iter().position(|&b| b == high).ok_or_else(bad)?;
     let bottom = bounds.iter().position(|&b| b == low).ok_or_else(bad)?;
     if !(low < high && low >= pointwise[0] && high <= pointwise[1]) {

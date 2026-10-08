@@ -449,12 +449,11 @@ fn shield_cell(
         return Ok(None);
     };
     let bounds = library.groups.bounds();
-    let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
     let position = |e: f64| {
-        bounds
-            .iter()
-            .position(|&b| b == e)
-            .ok_or(UfgError::Range { range, pointwise })
+        bounds.iter().position(|&b| b == e).ok_or(UfgError::Range {
+            range,
+            pointwise: library.pointwise_range,
+        })
     };
     let (top, bottom) = (position(range[1])?, position(range[0])?);
 
