@@ -19,6 +19,8 @@ pub struct PinCell {
     grid: usize,
     /// 各リングを分ける扇形の数（1, 4, 8）
     sectors: usize,
+    /// 外周の正方形の枠の厚さ (cm)
+    frame: Option<f64>,
 }
 
 /// 形状の誤り。
@@ -48,6 +50,10 @@ pub enum GeometryError {
     CellType { index: usize, types: usize },
     #[error("the margin around the lattice must be finite and not negative, got {0}")]
     Margin(f64),
+    #[error("frame thickness must be positive, below pitch/2 and outside the circles, got {0}")]
+    Frame(f64),
+    #[error("a frame needs a cell with rings, not a grid of squares")]
+    FrameOnGrid,
 }
 
 impl PinCell {
@@ -67,6 +73,7 @@ impl PinCell {
             radii,
             grid: 1,
             sectors: 1,
+            frame: None,
         })
     }
 
@@ -92,7 +99,7 @@ impl PinCell {
         if self.grid > 1 {
             self.grid * self.grid
         } else {
-            (self.radii.len() + 1) * self.sectors
+            (self.radii.len() + 1) * self.sectors + usize::from(self.frame.is_some())
         }
     }
 
@@ -124,12 +131,48 @@ impl PinCell {
         })
     }
 
+    /// セルの外周に厚さ `thickness` cm の正方形の枠（支持格子を体積を保って薄い枠にしたもの）を付けたセル。
+    /// 枠は1つの領域で、領域の番号の最後に置く。同心円の領域は、セルの外周の代わりに枠の内側で切り取る。
+    pub fn with_frame(self, thickness: f64) -> Result<Self, GeometryError> {
+        if self.grid > 1 {
+            return Err(GeometryError::FrameOnGrid);
+        }
+        let inner = 0.5 * self.pitch - thickness;
+        let fits = thickness > 0.0
+            && inner > 0.0
+            && self
+                .radii
+                .last()
+                .is_none_or(|&r| r < inner * std::f64::consts::SQRT_2);
+        if !fits {
+            return Err(GeometryError::Frame(thickness));
+        }
+        Ok(Self {
+            frame: Some(thickness),
+            ..self
+        })
+    }
+
+    /// 枠の内側の正方形の半辺
+    fn inner_half(&self) -> f64 {
+        0.5 * self.pitch - self.frame.unwrap_or(0.0)
+    }
+
+    /// 点 (x, y) が枠の中か
+    fn in_frame(&self, x: f64, y: f64) -> bool {
+        let a = self.inner_half();
+        self.frame.is_some() && (x.abs() > a || y.abs() > a)
+    }
+
     /// 点 (x, y) を含む領域。
     pub fn region_at(&self, x: f64, y: f64) -> usize {
         if self.grid > 1 {
             let (m, h) = (self.grid, self.pitch / self.grid as f64);
             let index = |v: f64| ((v / h).floor().max(0.0) as usize).min(m - 1);
             return index(0.5 * self.pitch - y) * m + index(x + 0.5 * self.pitch);
+        }
+        if self.in_frame(x, y) {
+            return (self.radii.len() + 1) * self.sectors;
         }
         let ring = self.radii.partition_point(|&ri| ri <= x.hypot(y));
         let angle = y.atan2(x).rem_euclid(2.0 * PI);
@@ -156,6 +199,20 @@ impl PinCell {
                 }
             }
         }
+        // 枠の内側の正方形の辺 x, y = ±a
+        if self.frame.is_some() {
+            let a = self.inner_half();
+            for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
+                if d != 0.0 {
+                    for edge in [-a, a] {
+                        let t = (edge - origin) / d;
+                        if t > 0.0 && t < length {
+                            cuts.push(t);
+                        }
+                    }
+                }
+            }
+        }
         // 扇形の境界の半直線 t u（u = (cos θk, sin θk)）: u × (start + t d) = 0
         if self.sectors > 1 {
             for k in 0..self.sectors {
@@ -167,7 +224,11 @@ impl PinCell {
                     let t = -cross(start) / denominator;
                     let point = (start.0 + t * direction.0, start.1 + t * direction.1);
                     // 中心を通る直線では交点が中心そのもの（u·point = 0）になるので、等号も含める
-                    if t > 0.0 && t < length && u.0 * point.0 + u.1 * point.1 >= 0.0 {
+                    if t > 0.0
+                        && t < length
+                        && u.0 * point.0 + u.1 * point.1 >= 0.0
+                        && !self.in_frame(point.0, point.1)
+                    {
                         cuts.push(t);
                     }
                 }
@@ -177,11 +238,12 @@ impl PinCell {
             let disc = b * b - (c0 - r * r);
             if disc > 0.0 {
                 let root = disc.sqrt();
-                cuts.extend(
-                    [-b - root, -b + root]
-                        .into_iter()
-                        .filter(|&t| t > 0.0 && t < length),
-                );
+                // 枠の中の交点（枠の内側の正方形の外接円の外）では区切らない
+                cuts.extend([-b - root, -b + root].into_iter().filter(|&t| {
+                    t > 0.0
+                        && t < length
+                        && !self.in_frame(start.0 + t * direction.0, start.1 + t * direction.1)
+                }));
             }
         }
         cuts.sort_by(f64::total_cmp);
@@ -204,7 +266,8 @@ impl PinCell {
             let h = self.pitch / self.grid as f64;
             return vec![h * h; self.grid * self.grid];
         }
-        let disk = |r: f64| clipped_disk_area(r, 0.5 * self.pitch);
+        let a = self.inner_half();
+        let disk = |r: f64| clipped_disk_area(r, a);
         let mut inner = 0.0;
         let mut volumes: Vec<f64> = self
             .radii
@@ -215,11 +278,15 @@ impl PinCell {
                 v
             })
             .collect();
-        volumes.push(self.pitch * self.pitch - disk(inner));
-        volumes
+        volumes.push(4.0 * a * a - disk(inner));
+        let mut volumes: Vec<f64> = volumes
             .iter()
             .flat_map(|v| std::iter::repeat_n(v / self.sectors as f64, self.sectors))
-            .collect()
+            .collect();
+        if self.frame.is_some() {
+            volumes.push(self.pitch * self.pitch - 4.0 * a * a);
+        }
+        volumes
     }
 }
 
@@ -480,6 +547,52 @@ impl Lattice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn frames_need_room() {
+        let cell = || PinCell::with_sectors(1.26, vec![0.4, 0.6], 8).unwrap();
+        assert!(cell().with_frame(0.0).is_err());
+        assert!(cell().with_frame(0.63).is_err());
+        // 枠の内側（半辺 0.38）の外接円 0.537 より大きい円（0.6）は置けない
+        assert!(cell().with_frame(0.25).is_err());
+        assert!(matches!(
+            PinCell::grid(1.26, 3).unwrap().with_frame(0.01),
+            Err(GeometryError::FrameOnGrid)
+        ));
+    }
+
+    #[test]
+    fn frame_is_not_cut_inside() {
+        // 枠の中では扇形や円で区切らない（同じ領域の区間が続かない）
+        let cell = PinCell::with_sectors(1.26, vec![0.4, 0.75], 8)
+            .unwrap()
+            .with_frame(0.05)
+            .unwrap();
+        let d = (0.6_f64, 0.8_f64);
+        let segments = cell.segments((-0.63, -0.3), d, 2.0);
+        assert!(
+            segments.windows(2).all(|w| w[0].region != w[1].region),
+            "{segments:?}"
+        );
+    }
+
+    #[test]
+    fn frame_takes_the_cell_edge() {
+        let (pitch, t) = (1.26, 0.02);
+        let cell = PinCell::with_sectors(pitch, vec![0.4, 0.6], 8)
+            .unwrap()
+            .with_frame(t)
+            .unwrap();
+        assert_eq!(cell.regions(), 3 * 8 + 1);
+        let volumes = cell.volumes();
+        let frame = pitch * pitch - (pitch - 2.0 * t).powi(2);
+        assert!((volumes[24] - frame).abs() < 1e-12, "{volumes:?}");
+        assert!((volumes.iter().sum::<f64>() - pitch * pitch).abs() < 1e-12);
+        assert_eq!(cell.region_at(0.62, 0.0), 24);
+        assert_eq!(cell.region_at(0.0, -0.625), 24);
+        // 枠の内側の四隅は、最も外側のリング
+        assert_eq!(cell.region_at(0.6, 0.6) / 8, 2);
+    }
 
     #[test]
     fn pin_cell_matches_a_one_cell_lattice() {
