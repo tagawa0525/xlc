@@ -1,78 +1,115 @@
 //! リポジトリの文書の整合性の検査（#0013）。
 //!
-//! リポジトリのファイルを一度だけ読み、xlc_docs::Docs の検査に違反がないことを確かめる。違反はすべて並べて示す。
+//! git が追跡しているファイルを一度だけ読み、xlc_docs::Docs の検査に違反がないことを確かめる。閉じた issue の
+//! `resolution: コミット <hash>` は、git で HEAD の祖先のコミットを指すことを確かめる。違反はすべて並べて示す。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
 
 use xlc_docs::Docs;
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
 /// 中身を読むファイルの拡張子（文書と、参照を書くソースとスクリプト）。
 const TEXT_EXTENSIONS: [&str; 5] = ["md", "rs", "py", "toml", "sh"];
-/// 読まない根のディレクトリ。references/ は git で追跡しない（docs/environment.md）ので、文書からリンクしない。
-const SKIPPED_TOP_DIRS: [&str; 2] = ["target", "references"];
 
-/// `dir` の下のファイルを集める。隠しファイルと隠しディレクトリは除く。
-fn collect(
-    root: &Path,
-    dir: &Path,
-    texts: &mut BTreeMap<String, String>,
-    others: &mut Vec<String>,
-) -> io::Result<()> {
-    for entry in fs::read_dir(dir)? {
-        let path = entry?.path();
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        if name.starts_with('.') || (dir == root && SKIPPED_TOP_DIRS.contains(&name)) {
-            continue;
-        }
-        if path.is_dir() {
-            collect(root, &path, texts, others)?;
-            continue;
-        }
-        let relative = path
-            .strip_prefix(root)
-            .unwrap_or(&path)
-            .components()
-            .map(|c| c.as_os_str().to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("/");
-        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        if TEXT_EXTENSIONS.contains(&extension) {
-            texts.insert(relative, fs::read_to_string(&path)?);
-        } else {
-            others.push(relative);
-        }
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
+}
+
+/// リポジトリの根で git を走らせる。git がなければエラーにする。
+fn git(root: &Path, args: &[&str]) -> Result<Output> {
+    Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .map_err(|e| format!("cannot run git {args:?} (is git installed?): {e}").into())
+}
+
+/// git が追跡しているファイル（`/` 区切りのパス）。
+fn tracked_files(root: &Path) -> Result<Vec<String>> {
+    let output = git(root, &["ls-files", "-z"])?;
+    if !output.status.success() {
+        return Err(format!(
+            "git ls-files failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
     }
-    Ok(())
+    Ok(String::from_utf8(output.stdout)?
+        .split('\0')
+        .filter(|p| !p.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+/// `hash` が HEAD の祖先のコミットを指すか。違えば理由を返す。
+fn commit_problem(root: &Path, hash: &str) -> Result<Option<String>> {
+    let commit = format!("{hash}^{{commit}}");
+    if !git(root, &["rev-parse", "--quiet", "--verify", &commit])?
+        .status
+        .success()
+    {
+        return Ok(Some(format!("commit {hash} does not exist")));
+    }
+    let ancestor = git(root, &["merge-base", "--is-ancestor", hash, "HEAD"])?;
+    Ok(match ancestor.status.code() {
+        Some(0) => None,
+        Some(1) => Some(format!(
+            "commit {hash} is not an ancestor of HEAD (rebased? update the hash)"
+        )),
+        _ => {
+            return Err(format!(
+                "git merge-base failed: {}",
+                String::from_utf8_lossy(&ancestor.stderr)
+            )
+            .into());
+        }
+    })
 }
 
 #[test]
-fn docs_are_consistent() -> io::Result<()> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+fn docs_are_consistent() -> Result<()> {
+    let root = repo_root();
     let mut texts = BTreeMap::new();
     let mut others = Vec::new();
-    collect(&root, &root, &mut texts, &mut others)?;
+    for path in tracked_files(&root)? {
+        let extension = path.rsplit_once('.').map_or("", |(_, e)| e);
+        // 追跡していても作業ツリーで消したファイルは、読まずに数えない
+        let file = root.join(&path);
+        if !file.exists() {
+            continue;
+        }
+        if TEXT_EXTENSIONS.contains(&extension) {
+            texts.insert(path, fs::read_to_string(file)?);
+        } else {
+            others.push(path);
+        }
+    }
     assert!(
         texts.contains_key("CLAUDE.md") && texts.contains_key("docs/adr/README.md"),
         "the repository root was not found at {}",
         root.display()
     );
 
-    let violations = Docs::new(texts, others).check();
+    let docs = Docs::new(texts, others);
+    let mut violations: Vec<String> = docs.check().iter().map(ToString::to_string).collect();
+    for (path, hash) in docs.resolution_commits() {
+        if let Some(problem) = commit_problem(&root, &hash)? {
+            violations.push(format!("{path}: `resolution` names {problem}"));
+        }
+    }
     assert!(
         violations.is_empty(),
         "{} documentation violation(s):\n{}",
         violations.len(),
-        violations
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n")
+        violations.join("\n")
     );
     Ok(())
 }

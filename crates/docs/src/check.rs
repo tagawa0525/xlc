@@ -79,6 +79,12 @@ impl Docs {
         found
     }
 
+    /// 閉じた issue の `resolution` が `コミット <hash>` の形のとき、その issue のパスと hash。git で hash が
+    /// 指すコミットを確かめるのは呼ぶ側（tests/consistency.rs）。
+    pub fn resolution_commits(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
     /// `dir` の直下の番号つきの文書（README.md を除く）。
     fn numbered<'a>(
         &'a self,
@@ -875,7 +881,7 @@ mod tests {
     }
 
     #[test]
-    fn finds_bad_dates() {
+    fn finds_malformed_dates() {
         let mut files = base();
         edit(&mut files, ADR2, "date: 2026-10-08", "date: 2026-13-08");
         edit(&mut files, ISSUE1, "opened: 2026-10-08", "opened: 8 Oct");
@@ -885,14 +891,91 @@ mod tests {
             "closed: 2026-10-08",
             "closed: [2026-10-08]",
         );
-        edit(&mut files, ADR1, "date: 2026-10-08", "date: 2026-02-30x");
+        edit(&mut files, ADR1, "date: 2026-10-08", "date: 2026-10-08x");
         assert_violations(
             files,
             &[
-                format!("{ADR1}: `date` is not YYYY-MM-DD: \"2026-02-30x\""),
+                format!("{ADR1}: `date` is not YYYY-MM-DD: \"2026-10-08x\""),
                 format!("{ADR2}: `date` is not YYYY-MM-DD: \"2026-13-08\""),
                 format!("{ISSUE1}: `opened` is not YYYY-MM-DD: \"8 Oct\""),
                 format!("{ISSUE2}: `closed` is not YYYY-MM-DD: [\"2026-10-08\"]"),
+            ],
+        );
+    }
+
+    #[test]
+    fn finds_dates_not_on_the_calendar() {
+        let mut files = base();
+        edit(&mut files, ADR1, "date: 2026-10-08", "date: 2026-02-30");
+        edit(&mut files, ADR2, "date: 2026-10-08", "date: 2026-04-31");
+        // 閏年の 2 月 29 日はある
+        edit(
+            &mut files,
+            ISSUE1,
+            "opened: 2026-10-08",
+            "opened: 2024-02-29",
+        );
+        edit(
+            &mut files,
+            ISSUE2,
+            "closed: 2026-10-08",
+            "closed: 2026-02-29",
+        );
+        assert_violations(
+            files,
+            &[
+                format!("{ADR1}: `date` is not YYYY-MM-DD: \"2026-02-30\""),
+                format!("{ADR2}: `date` is not YYYY-MM-DD: \"2026-04-31\""),
+                format!("{ISSUE2}: `closed` is not YYYY-MM-DD: \"2026-02-29\""),
+            ],
+        );
+    }
+
+    #[test]
+    fn keeps_hashes_in_front_matter_values() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ADR2,
+            "status: accepted",
+            "status: accepted # note",
+        );
+        assert_violations(
+            files,
+            &[format!(
+                "{ADR2}: `status` must be one of proposed, accepted, rejected, superseded, \
+                 deprecated, not \"accepted # note\""
+            )],
+        );
+    }
+
+    #[test]
+    fn finds_missing_references_in_front_matter() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ISSUE1,
+            "milestone:",
+            &format!("milestone: after {}", issue(99)),
+        );
+        edit(
+            &mut files,
+            ISSUE2,
+            "resolution: wontfix: not needed",
+            &format!("resolution: wontfix: duplicate of {}", issue(98)),
+        );
+        edit(
+            &mut files,
+            ISSUE2,
+            "labels: [docs]",
+            &format!("labels: [{}]", adr(97)),
+        );
+        assert_violations(
+            files,
+            &[
+                format!("{ISSUE1}:6: {} does not exist", issue(99)),
+                format!("{ISSUE2}:3: {} does not exist", adr(97)),
+                format!("{ISSUE2}:8: {} does not exist", issue(98)),
             ],
         );
     }
@@ -996,6 +1079,7 @@ mod tests {
                     adr(99)
                 ),
                 format!("{ADR2}: `supersedes` item \"adr-3\" is not ADR-NNNN"),
+                format!("{ADR2}:4: {} does not exist", adr(99)),
             ],
         );
     }
@@ -1025,7 +1109,6 @@ mod tests {
     fn accepts_resolution_forms() {
         let hash40 = "0123456789abcdef0123456789abcdef01234567";
         for resolution in [
-            adr(2),
             "コミット 6951152".to_string(),
             format!("コミット {hash40}"),
             "wontfix: not needed".to_string(),
@@ -1096,10 +1179,83 @@ mod tests {
         );
         assert_violations(
             files,
+            &[
+                format!(
+                    "{ISSUE2}: `resolution` names {}, which does not exist",
+                    adr(99)
+                ),
+                format!("{ISSUE2}:8: {} does not exist", adr(99)),
+            ],
+        );
+    }
+
+    #[test]
+    fn accepts_resolving_adrs_that_name_the_issue() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ADR2,
+            &format!("issues: [\"{}\"]", issue(1)),
+            &format!("issues: [\"{}\", \"{}\"]", issue(1), issue(2)),
+        );
+        edit(
+            &mut files,
+            ISSUE2,
+            "関係する ADR: なし",
+            &format!("関係する ADR: [{}](../adr/0002-keep-b.md)", adr(2)),
+        );
+        edit(
+            &mut files,
+            ISSUE2,
+            "resolution: wontfix: not needed",
+            &format!("resolution: {}", adr(2)),
+        );
+        assert_violations(files, &[]);
+    }
+
+    #[test]
+    fn requires_resolving_adrs_to_name_the_issue() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ISSUE2,
+            "resolution: wontfix: not needed",
+            &format!("resolution: {}", adr(2)),
+        );
+        assert_violations(
+            files,
             &[format!(
-                "{ISSUE2}: `resolution` names {}, which does not exist",
-                adr(99)
+                "{ISSUE2}: `resolution` names {}, whose `issues` does not name {}",
+                adr(2),
+                issue(2)
             )],
+        );
+    }
+
+    #[test]
+    fn lists_commits_named_as_resolutions() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ISSUE2,
+            "resolution: wontfix: not needed",
+            "resolution: コミット 6951152",
+        );
+        // 形の違うものと、開いている issue のものは挙げない
+        add(
+            &mut files,
+            "docs/issues/0003-closed-bad.md",
+            issue_text("closed", "2026-10-08", "[]", "コミット XYZ", "なし"),
+        );
+        add(
+            &mut files,
+            "docs/issues/0004-open-four.md",
+            issue_text("open", "", "[]", "コミット 1234567", "なし"),
+        );
+        let docs = Docs::new(files, Vec::new());
+        assert_eq!(
+            docs.resolution_commits(),
+            [(ISSUE2.to_string(), "6951152".to_string())]
         );
     }
 
@@ -1114,10 +1270,13 @@ mod tests {
         );
         assert_violations(
             files,
-            &[format!(
-                "{ISSUE2}: `blocked-by` names {}, which does not exist",
-                issue(99)
-            )],
+            &[
+                format!(
+                    "{ISSUE2}: `blocked-by` names {}, which does not exist",
+                    issue(99)
+                ),
+                format!("{ISSUE2}:7: {} does not exist", issue(99)),
+            ],
         );
     }
 
@@ -1241,6 +1400,66 @@ mod tests {
         assert_violations(
             files,
             &["docs/plans/b.md: code fence opened on line 3 is not closed".to_string()],
+        );
+    }
+
+    #[test]
+    fn unclosed_fences_skip_line_rules() {
+        let mut files = base();
+        add(
+            &mut files,
+            "docs/adr/0003-keep-c.md",
+            adr_text(3, "rejected", "[]", "", "[]").replace(
+                &format!("# {}: decide something", adr(3)),
+                &format!("```\n# {}: in a fence", adr(3)),
+            ),
+        );
+        edit(&mut files, ISSUE1, "関係する ADR:", "```\n関係する ADR:");
+        assert_violations(
+            files,
+            &[
+                "docs/adr/0003-keep-c.md: code fence opened on line 9 is not closed".to_string(),
+                format!("{ISSUE1}: code fence opened on line 15 is not closed"),
+            ],
+        );
+    }
+
+    #[test]
+    fn inline_backticks_do_not_open_fences() {
+        let mut files = base();
+        add(
+            &mut files,
+            "docs/plans/d.md",
+            format!(
+                "```cargo test``` で走る\n{}\n    ```\n{}\n",
+                adr(99),
+                issue(99)
+            ),
+        );
+        assert_violations(
+            files,
+            &[
+                format!("docs/plans/d.md:2: {} does not exist", adr(99)),
+                format!("docs/plans/d.md:4: {} does not exist", issue(99)),
+            ],
+        );
+    }
+
+    #[test]
+    fn leading_rules_outside_numbered_docs_are_text() {
+        let mut files = base();
+        add(
+            &mut files,
+            "docs/plans/e.md",
+            format!("---\n{}\n", issue(99)),
+        );
+        add(&mut files, "CLAUDE.md", format!("---\n{}\n---\n", adr(99)));
+        assert_violations(
+            files,
+            &[
+                format!("docs/plans/e.md:2: {} does not exist", issue(99)),
+                format!("CLAUDE.md:2: {} does not exist", adr(99)),
+            ],
         );
     }
 
