@@ -2,7 +2,7 @@
 status: superseded
 date: 2026-10-07
 supersedes: []
-superseded-by: [ADR-0068, ADR-0074]
+superseded-by: [ADR-0068, ADR-0074, ADR-0089]
 issues: []
 ---
 
@@ -51,7 +51,7 @@ M2 で次のとおり詳細を決め、実装した（2026-10-07）。
 
 分離共鳴の範囲で、ピンごとの UFG の減速計算に置き換えた（[ADR-0068](0068-solve-pinwise-slowing-down.md)）。UFG の重みのライブラリと組み合わせると、
 U-238 の共鳴吸収を +4〜6% 多く見積もった（VERA 1B で −1887 pcm。NR の重みのライブラリのときは誤差が打ち消し合って
-+232 pcm だった。docs/plans/m2-assembly.md、4538492、2026-10-07）。燃料の中の散乱源を平坦とすることと、有理近似に
++232 pcm だった。docs/plans/m2-assembly.md、ebb8e81 と 4538492、2026-10-07）。燃料の中の散乱源を平坦とすることと、有理近似に
 よる誤差で、方法そのものの限界である（Gibson の MIT 博士論文 2016 の Table 9.72 と 6.7〜6.8 にも同じ向きと大きさの
 誤差がある）。
 

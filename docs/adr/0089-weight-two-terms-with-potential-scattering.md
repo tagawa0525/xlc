@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-08
-supersedes: []
+supersedes: [ADR-0023]
 superseded-by:
 issues: []
 ---
@@ -22,7 +22,7 @@ issues: []
 ## 決定と理由
 
 重みは、NR 近似の群の中性子束 β_i (σp + σ0,i)/(σt(σ0,i) + σ0,i) とする（σp は吸収体自身のポテンシャル散乱で、中性子束の
-線源に入る）。ライブラリの分離共鳴の範囲の群は flux calculator の中性子束で重みづけしてあり（[ADR-0072](0072-weight-shielded-data-by-flux-calculator.md)）、この式は近似に
+線源に入る。σp は、分離共鳴の範囲の s 波の散乱半径から求めた値（[ADR-0073](0073-store-pointwise-data-in-library.md)）をすべての群に使う）。ライブラリの分離共鳴の範囲の群は flux calculator の中性子束で重みづけしてあり（[ADR-0072](0072-weight-shielded-data-by-flux-calculator.md)）、この式は近似に
 なる。xs の flux calculator で求めた群の中性子束と比べると、σp を入れた式は U-238（σ0 = 30〜100 b）で −12〜+5% 違う
 ものの、VERA 1B の燃料の U-238 で2項を合わせた捕獲は 0.4% 以内で一致した（σp を落とすと最大 1.3% ずれる。
 docs/plans/m3-core-hzp.md、99deb84、2026-10-08）。どちらも燃料では UFG の範囲の群で、実際には UFG の値を使う。この差では、
