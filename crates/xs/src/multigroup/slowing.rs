@@ -7,9 +7,11 @@
 //! F(u) (σt + σ0) = σ0 W(u) + 1/(1 − α) ∫_{u−Δ}^{u} σs(u') F(u') e^{−(u−u')} du'、α = ((A − 1)/(A + 1))²、Δ = ln(1/α)
 //!
 //! を高いエネルギーから順に解く。σs F は格子点の間で線形とし、線形 × 指数関数を区間ごとに解析的に積分する。
-//! 上端 E_high より上（最初の窓）は、吸収体の散乱をその場の値とする NR 近似 F = W (σs + σ0) / (σt + σ0) とする。
+//! 上端 E_high より上（最初の窓）は NR 近似とし、吸収体の散乱源はポテンシャル散乱 σp が重み関数のスペクトルで
+//! 散乱する σp W(u) とする（NJOY GROUPR の flux calculator と同じ。共鳴の散乱 σs(u) F(u) を使うと、範囲のすぐ上の
+//! 散乱の共鳴が、範囲の上端の中性子束を NJOY より大きく見積もる）。上端の値は F = W (σp + σ0) / (σt + σ0)。
 
-use super::Weight;
+use super::{SlowingDown, Weight};
 use crate::endf::Tab1;
 
 /// 1つの窓（散乱で届くレサジーの幅 Δ）に入れる格子点の最少の数。格子はポイントワイズの断面積の格子に、これより
@@ -28,34 +30,39 @@ pub enum SlowingDownError {
     Mass(f64),
     #[error("background cross section {0} b must be positive")]
     Sigma0(f64),
+    #[error("potential scattering {0} b must be positive")]
+    Potential(f64),
     #[error("cross sections are not defined at {0} eV")]
     Undefined(f64),
     #[error("a scattering window needs at least 2 grid points, got {0}")]
     WindowPoints(usize),
 }
 
-/// [e_low, e_high] (eV) での中性子束の形 f(E) = φ(E) / w(E)（エネルギーの昇順の lin-lin の表）。
+/// 範囲 `slowing.range` = [e_low, e_high] (eV) での中性子束の形 f(E) = φ(E) / w(E)（エネルギーの昇順の lin-lin の表）。
 pub fn slowing_down_shape(
     total: &Tab1,
     elastic: &Tab1,
-    awr: f64,
+    slowing: &SlowingDown,
     weight: &Weight,
     sigma0: f64,
-    range: (f64, f64),
 ) -> Result<Tab1, SlowingDownError> {
-    slowing_down_shape_with(total, elastic, awr, weight, sigma0, range, WINDOW_POINTS)
+    slowing_down_shape_with(total, elastic, slowing, weight, sigma0, WINDOW_POINTS)
 }
 
 /// 窓あたりの最少の格子点の数 `window_points` を指定する `slowing_down_shape`。
 pub fn slowing_down_shape_with(
     total: &Tab1,
     elastic: &Tab1,
-    awr: f64,
+    slowing: &SlowingDown,
     weight: &Weight,
     sigma0: f64,
-    (e_low, e_high): (f64, f64),
     window_points: usize,
 ) -> Result<Tab1, SlowingDownError> {
+    let SlowingDown {
+        awr,
+        potential,
+        range: (e_low, e_high),
+    } = *slowing;
     if !(e_low > 0.0 && e_high > e_low && e_high.is_finite()) {
         return Err(SlowingDownError::Range(e_low, e_high));
     }
@@ -64,6 +71,9 @@ pub fn slowing_down_shape_with(
     }
     if !(sigma0 > 0.0 && sigma0.is_finite()) {
         return Err(SlowingDownError::Sigma0(sigma0));
+    }
+    if !(potential > 0.0 && potential.is_finite()) {
+        return Err(SlowingDownError::Potential(potential));
     }
     if window_points < 2 {
         return Err(SlowingDownError::WindowPoints(window_points));
@@ -116,14 +126,23 @@ pub fn slowing_down_shape_with(
 
     let at = |t: &Tab1, e: f64| t.eval(e).ok_or(SlowingDownError::Undefined(e));
     let mut f = Vec::with_capacity(u.len());
-    // g = σs F（格子点の値）
+    // g = σs F（格子点の値。最初の窓は σp W）
     let mut g = Vec::with_capacity(u.len());
     for (i, (&ui, &e)) in u.iter().zip(&points).enumerate() {
-        let (st, ss) = (at(total, e)?, at(elastic, e)?);
         let big_w = e * weight.value(e);
-        let value = if ui <= 0.0 {
-            // 最初の窓: NR 近似
-            big_w * (ss + sigma0) / (st + sigma0)
+        if ui < 0.0 {
+            // 範囲より上: 散乱源だけを使い、中性子束は表に入れない（下でエネルギーが上端以下の点だけを残す）
+            f.push(f64::NAN);
+            g.push(potential * big_w);
+            continue;
+        }
+        let (st, ss) = (at(total, e)?, at(elastic, e)?);
+        let (value, source) = if ui <= 0.0 {
+            // 最初の窓: NR 近似。散乱源はポテンシャル散乱が重み関数のスペクトルで散乱するもの
+            (
+                big_w * (potential + sigma0) / (st + sigma0),
+                potential * big_w,
+            )
         } else {
             // 窓 [ui − Δ, ui] の積分のうち、既知の部分と、最後の区間の g_{i−1} の項
             let lower = ui - width;
@@ -141,10 +160,12 @@ pub fn slowing_down_shape_with(
             }
             let (ca, cb) = segment(u[i - 1], ui, ui);
             known += ca * g[i - 1];
-            (sigma0 * big_w + known / one_minus_alpha) / (st + sigma0 - ss * cb / one_minus_alpha)
+            let value = (sigma0 * big_w + known / one_minus_alpha)
+                / (st + sigma0 - ss * cb / one_minus_alpha);
+            (value, ss * value)
         };
         f.push(value);
-        g.push(ss * value);
+        g.push(source);
     }
 
     // [e_low, e_high] の点を、形 f = F / W にしてエネルギーの昇順に並べる
@@ -172,6 +193,7 @@ fn segment(a: f64, b: f64, big_u: f64) -> (f64, f64) {
 mod tests {
     use super::*;
     use crate::endf::Tab1;
+    use crate::multigroup::SlowingDown;
 
     const RANGE: (f64, f64) = (1.0, 1.0e3);
 
@@ -179,11 +201,41 @@ mod tests {
         Tab1::linear(vec![1.0e-5, 2.0e7], vec![value, value])
     }
 
+    /// 範囲 RANGE の減速計算（ポテンシャル散乱 `potential` b）
+    fn slowing(awr: f64, potential: f64) -> SlowingDown {
+        SlowingDown {
+            awr,
+            potential,
+            range: RANGE,
+        }
+    }
+
     #[test]
     fn pure_scatterer_keeps_the_weight_spectrum() {
         let (total, elastic) = (constant(10.0), constant(10.0));
+        let shape = slowing_down_shape(
+            &total,
+            &elastic,
+            &slowing(236.0, 10.0),
+            &Weight::lwr(),
+            50.0,
+        )
+        .unwrap();
+        for y in &shape.y {
+            assert!((y - 1.0).abs() < 1e-12, "{y}");
+        }
+    }
+
+    #[test]
+    fn source_above_the_range_is_potential_scattering() {
+        // 範囲の上の吸収体の散乱は、NR 近似どおりポテンシャル散乱 σp が重み関数のスペクトルで散乱するとする
+        // （NJOY GROUPR の flux calculator と同じ）。範囲の上に散乱の共鳴があっても、範囲の中の純粋な
+        // 散乱体（σs = σp）の中性子束は重み関数のまま。共鳴は上端のすぐ上（最初の窓の中）に置く
+        let above = 1.005 * RANGE.1;
+        let x = vec![1.0e-5, above, above, 2.0e7];
+        let step = Tab1::linear(x, vec![10.0, 10.0, 30.0, 30.0]);
         let shape =
-            slowing_down_shape(&total, &elastic, 236.0, &Weight::lwr(), 50.0, RANGE).unwrap();
+            slowing_down_shape(&step, &step, &slowing(236.0, 10.0), &Weight::lwr(), 50.0).unwrap();
         for y in &shape.y {
             assert!((y - 1.0).abs() < 1e-12, "{y}");
         }
@@ -194,8 +246,12 @@ mod tests {
         // 端のエネルギーを計算し直すと丸めでずれ、範囲の端で表を引けなくなる
         let (total, elastic) = (constant(10.0), constant(8.0));
         let range = (0.1, 1.83e5);
-        let shape =
-            slowing_down_shape(&total, &elastic, 56.44629, &Weight::lwr(), 50.0, range).unwrap();
+        let slowing = SlowingDown {
+            awr: 56.44629,
+            potential: 8.0,
+            range,
+        };
+        let shape = slowing_down_shape(&total, &elastic, &slowing, &Weight::lwr(), 50.0).unwrap();
         assert_eq!(shape.x.first(), Some(&range.0));
         assert_eq!(shape.x.last(), Some(&range.1));
     }
@@ -212,7 +268,8 @@ mod tests {
         let total = Tab1::linear(x.clone(), vec![10.0, 10.0, 12.0, 12.0]);
         let elastic = Tab1::linear(x, vec![8.0, 8.0, 9.0, 9.0]);
         let shape =
-            slowing_down_shape(&total, &elastic, 236.0, &Weight::lwr(), 50.0, RANGE).unwrap();
+            slowing_down_shape(&total, &elastic, &slowing(236.0, 9.0), &Weight::lwr(), 50.0)
+                .unwrap();
         assert!(shape.y.iter().all(|y| y.is_finite()), "{:?}", shape.y);
     }
 
@@ -223,10 +280,9 @@ mod tests {
             let result = slowing_down_shape_with(
                 &total,
                 &elastic,
-                236.0,
+                &slowing(236.0, 8.0),
                 &Weight::lwr(),
                 50.0,
-                RANGE,
                 points,
             );
             assert!(
@@ -241,7 +297,8 @@ mod tests {
         // σa = 2, σs = 8, σ0 = 50: 上端から十分下では F = σ0 / (σa + σ0)
         let (total, elastic) = (constant(10.0), constant(8.0));
         let shape =
-            slowing_down_shape(&total, &elastic, 236.0, &Weight::lwr(), 50.0, RANGE).unwrap();
+            slowing_down_shape(&total, &elastic, &slowing(236.0, 8.0), &Weight::lwr(), 50.0)
+                .unwrap();
         let low = shape.eval(2.0).unwrap();
         assert!((low - 50.0 / 52.0).abs() < 1e-10, "{low}");
     }
@@ -276,8 +333,14 @@ mod tests {
         // 質量が大きく、散乱でのエネルギーの損失（窓の幅 Δ ≈ 4/A = 4e-4）が共鳴の幅（5%）よりずっと
         // 小さいと、共鳴の中でも F ≈ σ0 / (σa + σ0)（散乱断面積によらない。NR 近似の 1/(σt + σ0) とは違う）
         let (total, elastic) = resonance();
-        let shape =
-            slowing_down_shape(&total, &elastic, 1.0e4, &Weight::lwr(), 50.0, RANGE).unwrap();
+        let shape = slowing_down_shape(
+            &total,
+            &elastic,
+            &slowing(1.0e4, 10.0),
+            &Weight::lwr(),
+            50.0,
+        )
+        .unwrap();
         let at_peak = shape.eval(10.0).unwrap();
         assert!(
             (at_peak - 50.0 / 2050.0).abs() < 1e-3 * at_peak,
@@ -288,15 +351,20 @@ mod tests {
     #[test]
     fn finer_grids_do_not_change_the_flux() {
         let (total, elastic) = resonance();
-        let coarse =
-            slowing_down_shape(&total, &elastic, 236.0, &Weight::lwr(), 50.0, RANGE).unwrap();
+        let coarse = slowing_down_shape(
+            &total,
+            &elastic,
+            &slowing(236.0, 10.0),
+            &Weight::lwr(),
+            50.0,
+        )
+        .unwrap();
         let fine = slowing_down_shape_with(
             &total,
             &elastic,
-            236.0,
+            &slowing(236.0, 10.0),
             &Weight::lwr(),
             50.0,
-            RANGE,
             4 * WINDOW_POINTS,
         )
         .unwrap();
