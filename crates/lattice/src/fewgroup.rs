@@ -583,6 +583,42 @@ mod tests {
     }
 
     #[test]
+    fn vacuum_sides_carry_the_current_ratio() {
+        // 真空の辺は、MOC の辺の外向きの正味の中性子流 / 辺の上の不均質な中性子束を、少数群ごとに細かい群の
+        // 和の比で持つ（ADR-0101）。鏡面反射の辺は持たない
+        let (solution, materials, fine, boundaries) = open_lattice();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(&solution, &refs, &fine, fine.bounds(), &boundaries).unwrap();
+        for side in [0, 2, 3] {
+            assert_eq!(fg.vacuum_ratio[side], None, "side {side}");
+        }
+        let ratio = fg.vacuum_ratio[1].clone().unwrap();
+        for (g, r) in ratio.iter().enumerate() {
+            let expected = solution.currents[1][g] / solution.sides[1][g];
+            assert!((r - expected).abs() < 1e-14 * expected, "{r} vs {expected}");
+            // 出ていく角度中性子束だけなので P1 の 1/2 より大きく、1 より小さい
+            assert!(*r > 0.5 && *r < 1.0, "{r}");
+        }
+        let one = homogenize(&solution, &refs, &fine, &[1.0e7, 1.0e-5], &boundaries).unwrap();
+        let collapsed = one.vacuum_ratio[1].clone().unwrap();
+        let expected =
+            solution.currents[1].iter().sum::<f64>() / solution.sides[1].iter().sum::<f64>();
+        assert!((collapsed[0] - expected).abs() < 1e-14 * expected);
+        // 外周がすべて鏡面反射の格子は、どの辺も持たない
+        let (solution, materials, fine) = solved();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        assert_eq!(fg.vacuum_ratio, vec![None; 4]);
+    }
+
+    #[test]
     fn adf_rejects_albedo_sides() {
         // core にアルベドの境界がないので、アルベドの辺の格子では ADF を作らない（ADR-0094）
         let (solution, materials, fine) = solved();
