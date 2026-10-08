@@ -1,42 +1,10 @@
-//! 均質化した少数群定数（`lattice` から `core` に渡すファイル）。
-//!
-//! フィールド名付きの map 形式の MessagePack（全体計画の「ファイルの約束事」）:
-//! `format` ("xlc-fewgroup"), `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`,
-//! `fission`, `chi`, `diffusion`（G 個ずつ）, `scatter`（[入射の群][出射の群]）。
+//! MOC の解から、少数群定数（`xlc_format::fewgroup::FewGroup`）を作る。
 
-use serde::{Deserialize, Serialize};
+use xlc_format::fewgroup::FewGroup;
 use xlc_format::group::GroupStructure;
-use xlc_format::msgpack::{self, MsgpackError};
 
 use crate::material::Material;
 use crate::moc::Solution;
-
-/// セル全体で均質化した少数群定数。断面積は 1/cm、拡散係数は cm。
-#[derive(Debug, Clone, PartialEq)]
-pub struct FewGroup {
-    /// 群境界 (eV)、降順
-    pub bounds: Vec<f64>,
-    pub k_inf: f64,
-    pub total: Vec<f64>,
-    pub absorption: Vec<f64>,
-    pub nu_fission: Vec<f64>,
-    pub fission: Vec<f64>,
-    pub chi: Vec<f64>,
-    pub diffusion: Vec<f64>,
-    /// [入射の群][出射の群]
-    pub scatter: Vec<Vec<f64>>,
-}
-
-/// 少数群定数のファイルの読み込みエラー。
-#[derive(Debug, thiserror::Error)]
-pub enum FewGroupError {
-    #[error(transparent)]
-    Msgpack(#[from] MsgpackError),
-    #[error("expected format xlc-fewgroup, found {0}")]
-    Format(String),
-    #[error("{0}")]
-    Invalid(String),
-}
 
 /// 少数群への縮約のエラー。
 #[derive(Debug, thiserror::Error)]
@@ -50,102 +18,6 @@ pub enum HomogenizeError {
     #[error("a few group has no flux")]
     NoFlux,
 }
-
-/// ファイルの中身（フィールド名付きの map 形式で書く）。
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FewGroupFile {
-    format: String,
-    bounds: Vec<f64>,
-    k_inf: f64,
-    total: Vec<f64>,
-    absorption: Vec<f64>,
-    nu_fission: Vec<f64>,
-    fission: Vec<f64>,
-    chi: Vec<f64>,
-    diffusion: Vec<f64>,
-    scatter: Vec<Vec<f64>>,
-}
-
-impl FewGroup {
-    pub fn groups(&self) -> usize {
-        self.total.len()
-    }
-
-    /// MessagePack（フィールド名付きの map 形式）で書く。
-    pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
-        msgpack::to_named(&FewGroupFile {
-            format: FORMAT.into(),
-            bounds: self.bounds.clone(),
-            k_inf: self.k_inf,
-            total: self.total.clone(),
-            absorption: self.absorption.clone(),
-            nu_fission: self.nu_fission.clone(),
-            fission: self.fission.clone(),
-            chi: self.chi.clone(),
-            diffusion: self.diffusion.clone(),
-            scatter: self.scatter.clone(),
-        })
-    }
-
-    /// MessagePack から読み、群境界の順序、配列の長さ、値が有限であることを確かめる。
-    pub fn from_msgpack(bytes: &[u8]) -> Result<Self, FewGroupError> {
-        let file: FewGroupFile = msgpack::from_value(msgpack::read_value(bytes)?)?;
-        if file.format != FORMAT {
-            return Err(FewGroupError::Format(file.format));
-        }
-        let invalid = |message: String| Err(FewGroupError::Invalid(message));
-        let b = &file.bounds;
-        if b.len() < 2
-            || !b.windows(2).all(|w| w[0] > w[1])
-            || !b.iter().all(|&x| x > 0.0 && x.is_finite())
-        {
-            return invalid(format!("bounds must be positive and descending, got {b:?}"));
-        }
-        let ng = b.len() - 1;
-        let vectors = [
-            ("total", &file.total),
-            ("absorption", &file.absorption),
-            ("nu_fission", &file.nu_fission),
-            ("fission", &file.fission),
-            ("chi", &file.chi),
-            ("diffusion", &file.diffusion),
-        ];
-        for (name, v) in vectors
-            .into_iter()
-            .chain(file.scatter.iter().map(|row| ("scatter", row)))
-        {
-            if v.len() != ng {
-                return invalid(format!("`{name}` has {} values for {ng} groups", v.len()));
-            }
-            if let Some(bad) = v.iter().find(|x| !x.is_finite()) {
-                return invalid(format!("`{name}` has a non-finite value {bad}"));
-            }
-        }
-        if file.scatter.len() != ng {
-            return invalid(format!(
-                "`scatter` has {} rows for {ng} groups",
-                file.scatter.len()
-            ));
-        }
-        if !(file.k_inf > 0.0 && file.k_inf.is_finite()) {
-            return invalid(format!("invalid k-inf {}", file.k_inf));
-        }
-        Ok(Self {
-            bounds: file.bounds,
-            k_inf: file.k_inf,
-            total: file.total,
-            absorption: file.absorption,
-            nu_fission: file.nu_fission,
-            fission: file.fission,
-            chi: file.chi,
-            diffusion: file.diffusion,
-            scatter: file.scatter,
-        })
-    }
-}
-
-const FORMAT: &str = "xlc-fewgroup";
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
 /// `coarse_bounds`（`fine` の境界の一部、降順）の少数群に縮約する。
@@ -327,71 +199,5 @@ mod tests {
         let refs: Vec<&Material> = materials.iter().collect();
         assert!(homogenize(&solution, &refs, &fine, &[1.0e7, 1.0, 1.0e-5]).is_err());
         assert!(homogenize(&solution, &refs, &fine, &[1.0e7, 0.625]).is_err());
-    }
-
-    fn sample() -> FewGroup {
-        let (solution, materials, fine) = solved();
-        let refs: Vec<&Material> = materials.iter().collect();
-        homogenize(&solution, &refs, &fine, fine.bounds()).unwrap()
-    }
-
-    fn sample_file() -> FewGroupFile {
-        let fg = sample();
-        FewGroupFile {
-            format: "xlc-fewgroup".into(),
-            bounds: fg.bounds,
-            k_inf: fg.k_inf,
-            total: fg.total,
-            absorption: fg.absorption,
-            nu_fission: fg.nu_fission,
-            fission: fg.fission,
-            chi: fg.chi,
-            diffusion: fg.diffusion,
-            scatter: fg.scatter,
-        }
-    }
-
-    fn read_modified(change: impl FnOnce(&mut FewGroupFile)) -> Result<FewGroup, FewGroupError> {
-        let mut file = sample_file();
-        change(&mut file);
-        FewGroup::from_msgpack(&rmp_serde::to_vec_named(&file).unwrap())
-    }
-
-    #[test]
-    fn round_trips_bit_exactly() {
-        let fg = sample();
-        assert_eq!(
-            FewGroup::from_msgpack(&fg.to_msgpack().unwrap()).unwrap(),
-            fg
-        );
-    }
-
-    #[test]
-    fn invalid_files_are_rejected() {
-        assert!(read_modified(|f| f.format = "xlc-multigroup".into()).is_err());
-        assert!(
-            read_modified(|f| {
-                f.diffusion.pop();
-            })
-            .is_err()
-        );
-        assert!(
-            read_modified(|f| {
-                f.scatter[0].pop();
-            })
-            .is_err()
-        );
-        assert!(read_modified(|f| f.bounds.reverse()).is_err());
-        assert!(read_modified(|f| f.total[0] = f64::NAN).is_err());
-        assert!(read_modified(|f| f.k_inf = f64::INFINITY).is_err());
-        // 配列形式、末尾の余り
-        let array = rmp_serde::to_vec(&sample_file()).unwrap();
-        assert!(matches!(
-            FewGroup::from_msgpack(&array),
-            Err(FewGroupError::Msgpack(MsgpackError::NotMap))
-        ));
-        let mut bytes = sample().to_msgpack().unwrap();
-        bytes.push(0xc0);
-        assert!(FewGroup::from_msgpack(&bytes).is_err());
     }
 }
