@@ -132,6 +132,8 @@ pub fn homogenize(
         },
         scatter,
         adf: Vec::new(),
+        // 真空の辺の比は格子計算からまだ出さない（ADR-0101）
+        vacuum_ratio: vec![None; 4],
     };
     // 辺ごとの少数群の値（細かい群の和。辺の平均の中性子束と正味の流れは群について足せる）
     let collapse = |values: &[Vec<f64>]| -> Vec<Vec<f64>> {
