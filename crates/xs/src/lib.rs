@@ -5,7 +5,6 @@
 
 pub mod doppler;
 pub mod endf;
-pub mod library;
 pub mod multigroup;
 pub mod numeric;
 pub mod physics;
