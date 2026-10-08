@@ -1,4 +1,270 @@
-//! 解析的ノード法（ANM）の1ノードの計算（ADR-0102）。
+//! 解析的ノード法（ANM）の1ノードの計算（ADR-0102）。核分裂のないノードを、core と lattice の ADF の
+//! 1ノードの問題（ADR-0094）が同じ式で解く。
+//!
+//! 横方向に積分した2群の1D の式 −D φ″ + A φ = −L(x)（A[g][g] = Σr_g、A[g][g'] = −Σs(g'→g)、L は横方向の漏れ）
+//! を、ξ = x/h ∈ [−1/2, 1/2] で
+//!
+//!   φ(ξ) = φ̄ + p1 f1(ξ) + p2 f2(ξ) + Σ_k v_k (A_k C_k(ξ) + B_k S_k(ξ))
+//!
+//! と厳密に表す。f1 = ξ、f2 = 3ξ² − 1/4 は NEM と同じ横方向の漏れの1次・2次の項（L = L̄ + l1 f1 + l2 f2）で、
+//! 特解は A p1 = −l1、A p2 = −l2。κ_k² と v_k は D⁻¹A の固有値と固有ベクトルで、C_k = (cosh(κ_k h ξ) − 平均) と
+//! S_k = sinh(κ_k h ξ)（どちらも cosh(κ_k h/2) で割る）はノード平均が 0。ノード平均 φ̄ は NEM と同じく引数とし、
+//! 0 次のモーメント（バランス）は 3D のバランス式で課す。4 つの係数 A_k, B_k を、2群の両方の面の入射の条件
+//! i = β o + 外からの入射 から解く。
+
+use crate::nem::{Inflow, Outflow};
+
+/// 1つのノードの1つの方向の、核分裂のない2群の入力。
+#[derive(Debug, Clone, Copy)]
+pub struct AnmNode<'a> {
+    /// [群] の拡散係数
+    pub diffusion: &'a [f64],
+    /// [群] の全断面積
+    pub total: &'a [f64],
+    /// [出る群][入る群] の散乱
+    pub scatter: &'a [Vec<f64>],
+    /// その方向のノードの幅 (cm)
+    pub width: f64,
+    /// [群] の横方向の漏れの f1, f2 の係数（`nem::transverse_moments`）
+    pub transverse: &'a [(f64, f64)],
+    /// [群][+ 面, - 面] の入射の条件
+    pub inflow: &'a [[Inflow; 2]],
+    /// [群] のノード平均（求める群の値は使わない）
+    pub averages: &'a [f64],
+}
+
+/// ANM の核のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum AnmError {
+    #[error("the analytic nodal method needs 2 groups, got {0}")]
+    Groups(usize),
+    #[error("{0}")]
+    Modes(String),
+    #[error("{0}")]
+    Invalid(String),
+    #[error("the analytic nodal face conditions are singular")]
+    Singular,
+}
+
+/// 群 `group` の、出ていく部分中性子流のノード平均についての線形の式（`nem::Outflow`。3次・4次の係数は 0）。
+/// ほかの群のノード平均と入射の条件は `node` の値を使う。
+pub fn outflow(node: &AnmNode, group: usize) -> Result<Outflow, AnmError> {
+    let ng = node.diffusion.len();
+    if ng != 2 {
+        return Err(AnmError::Groups(ng));
+    }
+    let lengths = [
+        node.total.len(),
+        node.scatter.len(),
+        node.transverse.len(),
+        node.inflow.len(),
+        node.averages.len(),
+    ];
+    if lengths.iter().any(|&l| l != 2) || node.scatter.iter().any(|row| row.len() != 2) {
+        return Err(AnmError::Invalid(
+            "ANM constants, leakages, inflows and averages must have 2 groups".into(),
+        ));
+    }
+    let h = node.width;
+    if !(h > 0.0 && h.is_finite()) {
+        return Err(AnmError::Invalid(format!(
+            "ANM width must be positive, got {h}"
+        )));
+    }
+    if !node.diffusion.iter().all(|&d| d > 0.0 && d.is_finite()) {
+        return Err(AnmError::Invalid(
+            "ANM diffusion coefficients must be positive".into(),
+        ));
+    }
+    let d = node.diffusion;
+    // A[g][g'] と M = D⁻¹ A
+    let a: [[f64; 2]; 2] = std::array::from_fn(|g| {
+        std::array::from_fn(|from| {
+            if from == g {
+                node.total[g] - node.scatter[g][g]
+            } else {
+                -node.scatter[from][g]
+            }
+        })
+    });
+    if !(a[0][0] > 0.0 && a[1][1] > 0.0) {
+        return Err(AnmError::Modes(format!(
+            "ANM removal cross sections must be positive, got {} and {}",
+            a[0][0], a[1][1]
+        )));
+    }
+    let m: [[f64; 2]; 2] = std::array::from_fn(|g| std::array::from_fn(|h| a[g][h] / d[g]));
+    let modes = modes(m)?;
+    let det_a = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+    let inverse = |r: [f64; 2]| {
+        [
+            (a[1][1] * r[0] - a[0][1] * r[1]) / det_a,
+            (a[0][0] * r[1] - a[1][0] * r[0]) / det_a,
+        ]
+    };
+    let p1 = inverse([-node.transverse[0].0, -node.transverse[1].0]);
+    let p2 = inverse([-node.transverse[0].1, -node.transverse[1].1]);
+
+    // 面（+, -）の中性子束と dφ/dξ の、係数 u = (A_a, B_a, A_b, B_b) についての係数
+    // [群][面][未知数]
+    let mut phi = [[[0.0; 4]; 2]; 2];
+    let mut slope = [[[0.0; 4]; 2]; 2];
+    for (k, (mu, v)) in modes.iter().enumerate() {
+        let t = 0.5 * mu.sqrt() * h;
+        let tanh = t.tanh();
+        // C(±1/2) = 1 − tanh(t)/t、S(±1/2) = ±tanh t、dC/dξ(±1/2) = ±2t tanh t、dS/dξ(±1/2) = 2t
+        let even = 1.0 - tanh / t;
+        for g in 0..2 {
+            for (f, sign) in [(0, 1.0), (1, -1.0)] {
+                phi[g][f][2 * k] = v[g] * even;
+                phi[g][f][2 * k + 1] = v[g] * sign * tanh;
+                slope[g][f][2 * k] = v[g] * sign * 2.0 * t * tanh;
+                slope[g][f][2 * k + 1] = v[g] * 2.0 * t;
+            }
+        }
+    }
+    // 面の条件の行列（[群][面] の行）: + 面 (1 − β) φ/4 − (1 + β) J/2 = e、− 面 (1 − β) φ/4 + (1 + β) J/2 = e、
+    // J = −(D/h) dφ/dξ
+    let mut matrix = [[0.0; 4]; 4];
+    let row = |g: usize, f: usize| 2 * g + f;
+    let weights = |g: usize, f: usize| {
+        let Inflow { beta, .. } = node.inflow[g][f];
+        let sign = if f == 0 { -1.0 } else { 1.0 };
+        // φ と dφ/dξ にかける係数
+        ((1.0 - beta) / 4.0, -sign * (1.0 + beta) / 2.0 * d[g] / h)
+    };
+    for g in 0..2 {
+        for f in 0..2 {
+            let (wp, ws) = weights(g, f);
+            for j in 0..4 {
+                matrix[row(g, f)][j] = wp * phi[g][f][j] + ws * slope[g][f][j];
+            }
+        }
+    }
+    // 既知の部分（ノード平均 `averages`、特解、外からの入射）の面の値から右辺を作り、解いて、群 `group` の
+    // 出ていく部分中性子流 o+ = φ/4 + J/2、o− = φ/4 − J/2 を返す
+    let solve_out = |averages: [f64; 2], particular: bool| -> Result<[f64; 2], AnmError> {
+        let known = |g: usize, f: usize| -> (f64, f64) {
+            let sign = if f == 0 { 1.0 } else { -1.0 };
+            let (q1, q2) = if particular {
+                (p1[g], p2[g])
+            } else {
+                (0.0, 0.0)
+            };
+            // f1(±1/2) = ±1/2、f2(±1/2) = 1/2、f1' = 1、f2'(±1/2) = ±3
+            (
+                averages[g] + sign * q1 / 2.0 + q2 / 2.0,
+                q1 + sign * 3.0 * q2,
+            )
+        };
+        let mut rhs = [0.0; 4];
+        for g in 0..2 {
+            for f in 0..2 {
+                let (wp, ws) = weights(g, f);
+                let (p, s) = known(g, f);
+                let external = if particular {
+                    node.inflow[g][f].external
+                } else {
+                    0.0
+                };
+                rhs[row(g, f)] = external - wp * p - ws * s;
+            }
+        }
+        let u = solve4(matrix, rhs).ok_or(AnmError::Singular)?;
+        Ok(std::array::from_fn(|f| {
+            let (p, s) = known(group, f);
+            let value = p + (0..4).map(|j| phi[group][f][j] * u[j]).sum::<f64>();
+            let derivative = s + (0..4).map(|j| slope[group][f][j] * u[j]).sum::<f64>();
+            let current = -d[group] / h * derivative;
+            let sign = if f == 0 { 1.0 } else { -1.0 };
+            value / 4.0 + sign * current / 2.0
+        }))
+    };
+    let mut others = [node.averages[0], node.averages[1]];
+    others[group] = 0.0;
+    let mut unit = [0.0; 2];
+    unit[group] = 1.0;
+    Ok(Outflow {
+        out: solve_out(others, true)?,
+        slope: solve_out(unit, false)?,
+        beta: [node.inflow[group][0].beta, node.inflow[group][1].beta],
+        external: [
+            node.inflow[group][0].external,
+            node.inflow[group][1].external,
+        ],
+        higher: [0.0; 2],
+        higher_slope: [0.0; 2],
+    })
+}
+
+/// D⁻¹A の2つの固有値 κ² と固有ベクトル。どちらも正の実数で、互いに異なること。
+fn modes(m: [[f64; 2]; 2]) -> Result<[(f64, [f64; 2]); 2], AnmError> {
+    let half = 0.5 * (m[0][0] + m[1][1]);
+    let det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+    let discriminant = half * half - det;
+    let distinct = 1.0e-12 * half * half;
+    if !(discriminant.is_finite() && det.is_finite()) || discriminant < -distinct {
+        return Err(AnmError::Modes(format!(
+            "D^-1 A has complex eigenvalues (matrix {m:?})"
+        )));
+    }
+    let coupled = m[0][1] != 0.0 || m[1][0] != 0.0;
+    if discriminant <= distinct && coupled {
+        return Err(AnmError::Modes(format!(
+            "D^-1 A has a repeated eigenvalue with coupled groups (matrix {m:?})"
+        )));
+    }
+    let root = discriminant.max(0.0).sqrt();
+    let values = [half + root, half - root];
+    if values.iter().any(|&mu| mu.is_nan() || mu <= 0.0) {
+        return Err(AnmError::Modes(format!(
+            "D^-1 A must have positive eigenvalues, got {values:?}"
+        )));
+    }
+    if !coupled {
+        // 群が結合しないなら、固有ベクトルは単位ベクトル（固有値が等しくてもよい）
+        return Ok([(m[0][0], [1.0, 0.0]), (m[1][1], [0.0, 1.0])]);
+    }
+    Ok(values.map(|mu| {
+        // (M − μ) v = 0 の2つの行から、大きいほうの候補を使う
+        let first = [m[0][1], mu - m[0][0]];
+        let second = [mu - m[1][1], m[1][0]];
+        let norm = |v: [f64; 2]| v[0].abs().max(v[1].abs());
+        let v = if norm(first) >= norm(second) {
+            first
+        } else {
+            second
+        };
+        let scale = norm(v);
+        (mu, [v[0] / scale, v[1] / scale])
+    }))
+}
+
+/// 4×4 の連立一次方程式（部分ピボットの Gauss の消去法）。特異なら `None`。
+fn solve4(mut a: [[f64; 4]; 4], mut b: [f64; 4]) -> Option<[f64; 4]> {
+    for col in 0..4 {
+        let pivot = (col..4).max_by(|&i, &j| a[i][col].abs().total_cmp(&a[j][col].abs()))?;
+        if a[pivot][col] == 0.0 || a[pivot][col].is_nan() {
+            return None;
+        }
+        a.swap(col, pivot);
+        b.swap(col, pivot);
+        let pivot_row = a[col];
+        for r in col + 1..4 {
+            let factor = a[r][col] / pivot_row[col];
+            for (value, p) in a[r][col..].iter_mut().zip(&pivot_row[col..]) {
+                *value -= factor * p;
+            }
+            b[r] -= factor * b[col];
+        }
+    }
+    let mut x = [0.0; 4];
+    for r in (0..4).rev() {
+        let sum: f64 = (r + 1..4).map(|c| a[r][c] * x[c]).sum();
+        x[r] = (b[r] - sum) / a[r][r];
+    }
+    x.iter().all(|v| v.is_finite()).then_some(x)
+}
 
 #[cfg(test)]
 mod tests {
