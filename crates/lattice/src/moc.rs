@@ -244,7 +244,15 @@ pub fn solve(
             void_flux,
             mut leak,
             mut current,
+            sides: side_sums,
         } = sum_tallies(&tallies, ng);
+        // 辺の上の平均: 辺の長さで割る
+        let lengths = [
+            tracking.lattice.height(),
+            tracking.lattice.height(),
+            tracking.lattice.width(),
+            tracking.lattice.width(),
+        ];
 
         let mut new_flux: Vec<Vec<f64>> = (0..regions)
             .map(|i| {
@@ -290,6 +298,11 @@ pub fn solve(
         for l in leak.iter_mut().chain(&mut current) {
             *l /= rate;
         }
+        let sides: Vec<Vec<f64>> = side_sums
+            .chunks(ng)
+            .zip(lengths)
+            .map(|(values, length)| values.iter().map(|v| v / (rate * length)).collect())
+            .collect();
         for b in &mut outgoing {
             *b /= rate;
         }
@@ -357,7 +370,7 @@ pub fn solve(
                 flux,
                 volumes,
                 leakage: leak,
-                sides: vec![vec![0.0; ng]; 4],
+                sides,
                 iterations: iteration,
             });
         }
@@ -383,6 +396,8 @@ struct Sweeper<'a> {
     azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
     void: Vec<Option<usize>>,
+    /// [トラック] の始点と終点のある外周の辺（0 左、1 右、2 上、3 下）
+    ends: Vec<[usize; 2]>,
     /// 角度中性子束のモーメントの数（1 なら等方散乱）
     moments: usize,
     /// [方位角][向き][極角][モーメント] の方向ごとの実球面調和関数の値
@@ -440,6 +455,11 @@ impl<'a> Sweeper<'a> {
                         *next - 1
                     }))
                 })
+                .collect(),
+            ends: tracking
+                .tracks
+                .iter()
+                .map(|t| [side_of(tracking, t.start), side_of(tracking, t.end)])
                 .collect(),
             moments: pairs.len(),
             harmonics,
@@ -614,6 +634,12 @@ impl<'a> Sweeper<'a> {
                     let track = &self.tracking.tracks[index];
                     let weights: [f64; POLAR_SIN.len()] =
                         std::array::from_fn(|p| self.direction_weight(track.azimuth, p));
+                    // 辺の上の中性子束の重み: 流れの重みを sinθ |Ω の辺の法線成分の方位角の余弦| で割る
+                    // （縦の辺（左右）では |cos φ|、横の辺（上下）では |sin φ|）
+                    let phi = self.tracking.azimuths[track.azimuth].phi;
+                    let side_weights: [[f64; POLAR_SIN.len()]; 2] =
+                        [phi.cos().abs(), phi.sin().abs()]
+                            .map(|c| std::array::from_fn(|p| weights[p] / (POLAR_SIN[p] * c)));
                     // 減衰はトラックの両向きで同じなので、トラックごとに一度求める（真空の区間では使わない）
                     for (s, att) in track
                         .segments
@@ -652,6 +678,18 @@ impl<'a> Sweeper<'a> {
                             &[(enter.0, direction * enter.1)],
                             psi,
                             &weights,
+                        );
+                        let ends = self.ends[index];
+                        let (entry_side, exit_side) = if forward {
+                            (ends[0], ends[1])
+                        } else {
+                            (ends[1], ends[0])
+                        };
+                        add_side(
+                            &mut tally.sides,
+                            entry_side,
+                            psi,
+                            &side_weights[entry_side / 2],
                         );
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
@@ -711,6 +749,12 @@ impl<'a> Sweeper<'a> {
                             psi,
                             &weights,
                         );
+                        add_side(
+                            &mut tally.sides,
+                            exit_side,
+                            psi,
+                            &side_weights[exit_side / 2],
+                        );
                         let link = if forward {
                             track.forward_link
                         } else {
@@ -745,6 +789,8 @@ struct Tally {
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の流れ（面の正の向きが正）
     current: Vec<f64>,
+    /// [外周の辺（左、右、上、下）][群] の、辺を横切る角度中性子束の重み付き和（面の中性子束）
+    sides: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
     /// スイープ中のトラックの [区間][極角][群] の減衰 1 - exp(-τ)（作業用。方位角で区間の最も多いトラックの分）
@@ -764,6 +810,7 @@ impl Tally {
             delta: vec![0.0; regions * groups],
             void_flux: vec![0.0; voids * groups],
             leak: vec![0.0; groups],
+            sides: vec![0.0; 4 * groups],
             current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
             attenuation: vec![0.0; segments * width],
@@ -774,6 +821,7 @@ impl Tally {
         self.delta.fill(0.0);
         self.void_flux.fill(0.0);
         self.leak.fill(0.0);
+        self.sides.fill(0.0);
         self.current.fill(0.0);
     }
 }
@@ -788,6 +836,8 @@ struct Sums {
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の流れ
     current: Vec<f64>,
+    /// [外周の辺][群] の面の中性子束の和
+    sides: Vec<f64>,
 }
 
 /// 方位角ごとの部分和を方位角の順に足す。
@@ -809,6 +859,35 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
         void_flux: sum(|t| &t.void_flux),
         leak: sum(|t| &t.leak),
         current: sum(|t| &t.current),
+        sides: sum(|t| &t.sides),
+    }
+}
+
+/// 外周の上の点 `point` のある辺（0 左、1 右、2 上、3 下）。トラックは外周の角を通らないので、最も近い辺
+fn side_of(tracking: &Tracking, point: (f64, f64)) -> usize {
+    let (hx, hy) = (
+        0.5 * tracking.lattice.width(),
+        0.5 * tracking.lattice.height(),
+    );
+    let distances = [
+        (point.0 + hx).abs(),
+        (point.0 - hx).abs(),
+        (point.1 - hy).abs(),
+        (point.1 + hy).abs(),
+    ];
+    (0..4)
+        .min_by(|&a, &b| distances[a].total_cmp(&distances[b]))
+        .unwrap_or(0)
+}
+
+/// 外周の辺 `side` を横切る角度中性子束 `psi` [極角][群] を、重み `weights` [極角] で `sides` [辺][群] に足す。
+fn add_side(sides: &mut [f64], side: usize, psi: &[f64], weights: &[f64; POLAR_SIN.len()]) {
+    let ng = psi.len() / weights.len();
+    let s = &mut sides[side * ng..][..ng];
+    for (p, weight) in weights.iter().enumerate() {
+        for (v, value) in s.iter_mut().zip(&psi[p * ng..][..ng]) {
+            *v += weight * value;
+        }
     }
 }
 
