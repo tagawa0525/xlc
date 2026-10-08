@@ -164,6 +164,12 @@ pub enum LookupError {
         given: usize,
         groups: usize,
     },
+    #[error("{name}: cannot interpolate to {temperature} K: {reason}")]
+    Interpolation {
+        name: String,
+        temperature: f64,
+        reason: String,
+    },
 }
 
 /// ライブラリの読み込みエラー。
@@ -296,16 +302,42 @@ impl Library {
             .iter()
             .find(|n| n.name == name)
             .ok_or_else(|| LookupError::Nuclide(name.into()))?;
-        let t = data
+        let missing = || LookupError::Temperature {
+            name: name.into(),
+            temperature,
+            available: data.temperatures.iter().map(|t| t.temperature).collect(),
+        };
+        if let Some(t) = data
             .temperatures
             .iter()
             .find(|t| t.temperature == temperature)
-            .ok_or_else(|| LookupError::Temperature {
+        {
+            return Ok((data, Cow::Borrowed(t)));
+        }
+        if !data.thermal_scattering {
+            return Err(missing());
+        }
+        // 表の温度のうち、温度を挟む最も近い2つ
+        let below = data
+            .temperatures
+            .iter()
+            .filter(|t| t.temperature < temperature)
+            .max_by(|a, b| a.temperature.total_cmp(&b.temperature));
+        let above = data
+            .temperatures
+            .iter()
+            .filter(|t| t.temperature > temperature)
+            .min_by(|a, b| a.temperature.total_cmp(&b.temperature));
+        let (Some(low), Some(high)) = (below, above) else {
+            return Err(missing());
+        };
+        let table =
+            interpolate(low, high, temperature).map_err(|reason| LookupError::Interpolation {
                 name: name.into(),
                 temperature,
-                available: data.temperatures.iter().map(|t| t.temperature).collect(),
+                reason,
             })?;
-        Ok((data, Cow::Borrowed(t)))
+        Ok((data, Cow::Owned(table)))
     }
 
     /// 核種 `name` の、群ごとの背景断面積 `sigma0` (barn) での遮蔽断面積。表の σ0 の間は ln σ0 に線形に
@@ -365,6 +397,85 @@ impl Library {
 }
 
 /// ポイントワイズの断面積の範囲が正の有限な値で、下限 < 上限であることを確かめる。
+/// 2つの温度の表 `low`, `high` から、温度 `temperature` の表を温度について線形に内挿して作る。
+/// ポイントワイズの断面積は両方のエネルギーの点を合わせた格子で、それぞれを lin-lin で評価してから内挿する
+/// （不連続点のあるポイントワイズの断面積は、左右の極限の対応があいまいになるので内挿しない）。
+fn interpolate(
+    low: &TemperatureData,
+    high: &TemperatureData,
+    temperature: f64,
+) -> Result<TemperatureData, String> {
+    let f = (temperature - low.temperature) / (high.temperature - low.temperature);
+    let mix = |a: &[f64], b: &[f64]| -> Vec<f64> {
+        a.iter().zip(b).map(|(x, y)| x + f * (y - x)).collect()
+    };
+    let scatter = low
+        .scatter
+        .iter()
+        .zip(&high.scatter)
+        .map(|(a, b)| a.iter().zip(b).map(|(x, y)| mix(x, y)).collect())
+        .collect();
+    let shielded = low
+        .shielded
+        .iter()
+        .zip(&high.shielded)
+        .map(|(a, b)| Shielded {
+            total: mix(&a.total, &b.total),
+            elastic: mix(&a.elastic, &b.elastic),
+            fission: mix(&a.fission, &b.fission),
+            nu_fission: mix(&a.nu_fission, &b.nu_fission),
+        })
+        .collect();
+    let (p, q) = (&low.pointwise, &high.pointwise);
+    let repeated = |e: &[f64]| e.windows(2).any(|w| w[0] == w[1]);
+    if repeated(&p.energy) || repeated(&q.energy) {
+        return Err("pointwise data have discontinuities".into());
+    }
+    let mut energy: Vec<f64> = p.energy.iter().chain(&q.energy).copied().collect();
+    energy.sort_by(f64::total_cmp);
+    energy.dedup();
+    let column = |a: &[f64], b: &[f64]| -> Vec<f64> {
+        energy
+            .iter()
+            .map(|&e| {
+                let (x, y) = (lin_lin(&p.energy, a, e), lin_lin(&q.energy, b, e));
+                x + f * (y - x)
+            })
+            .collect()
+    };
+    let pointwise = Pointwise {
+        total: column(&p.total, &q.total),
+        elastic: column(&p.elastic, &q.elastic),
+        fission: column(&p.fission, &q.fission),
+        nu_fission: column(&p.nu_fission, &q.nu_fission),
+        energy,
+    };
+    Ok(TemperatureData {
+        temperature,
+        chi: mix(&low.chi, &high.chi),
+        scatter,
+        shielded,
+        pointwise,
+    })
+}
+
+/// 昇順の格子 `x` の値 `y` を、`e` で lin-lin に評価する（範囲の外は端の値）
+fn lin_lin(x: &[f64], y: &[f64], e: f64) -> f64 {
+    let n = x.len().min(y.len());
+    if n == 0 {
+        return 0.0;
+    }
+    let k = x[..n].partition_point(|&v| v <= e);
+    if k == 0 {
+        return y[0];
+    }
+    if k == n {
+        return y[n - 1];
+    }
+    let (x0, x1, y0, y1) = (x[k - 1], x[k], y[k - 1], y[k]);
+    y0 + (y1 - y0) * (e - x0) / (x1 - x0)
+}
+
 fn check_range([low, high]: [f64; 2]) -> Result<(), String> {
     if low > 0.0 && high > low && high.is_finite() {
         Ok(())
