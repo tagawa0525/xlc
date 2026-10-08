@@ -98,6 +98,11 @@ impl PinCell {
         &self.radii
     }
 
+    /// 外周の枠の厚さ (cm)
+    pub fn frame(&self) -> Option<f64> {
+        self.frame
+    }
+
     /// 各リングを分ける扇形の数
     pub fn sectors(&self) -> usize {
         self.sectors
