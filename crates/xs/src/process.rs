@@ -27,8 +27,7 @@ pub struct Settings {
     pub thermal_cutoff: f64,
     /// ポイントワイズの断面積の許容誤差
     pub tolerance: f64,
-    /// ライブラリに持たせるポイントワイズの断面積の範囲 (eV)
-    /// ポイントワイズの断面積を持たせる範囲 (eV)。`None` なら持たせない
+    /// ライブラリに持たせるポイントワイズの断面積の範囲 (eV)。`None` なら持たせない
     pub pointwise_range: Option<(f64, f64)>,
     /// 散乱行列のルジャンドルのモーメントの次数
     pub scattering_order: usize,
