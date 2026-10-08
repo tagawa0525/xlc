@@ -239,6 +239,7 @@ pub fn homogenize_nodes(
             Some(_) => Boundary::Reflective,
         });
         few.vacuum_ratio = vacuum_ratios(&node_sides, &heterogeneous, &currents)?;
+        tracing::info!(node = n, average_flux = ?average, "node");
         homogenized.push(Homogenized {
             few,
             average,
