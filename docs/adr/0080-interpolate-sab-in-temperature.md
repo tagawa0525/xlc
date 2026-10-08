@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-08
-supersedes: []
+supersedes: [ADR-0047]
 superseded-by:
 issues: []
 ---
@@ -10,8 +10,8 @@ issues: []
 
 ## 背景
 
-HZP は 565 K だが、H in H2O の S(α,β) は 550 K と 573.6 K にしかない。格子計算は材料の温度がライブラリにあることを
-求める（[ADR-0047](0047-choose-temperatures-per-nuclide.md)）。
+HZP は 565 K だが、H in H2O の S(α,β) は 550 K と 573.6 K にしかない。M1 では、温度は核種ごとに指定し、格子計算は
+温度方向に補間せず、材料の温度がライブラリにあることを求めるとしていた（[ADR-0047](0047-choose-temperatures-per-nuclide.md)）。
 
 - 参照解（OpenMC）と同じ扱いにできること
 
@@ -22,7 +22,13 @@ HZP は 565 K だが、H in H2O の S(α,β) は 550 K と 573.6 K にしかな�
 
 ## 決定と理由
 
-xs は両方の温度の熱中性子の散乱行列をライブラリに持ち、lattice が物質の温度で群定数を温度について線形に内挿する。
+[ADR-0047](0047-choose-temperatures-per-nuclide.md) のうち、次はそのまま有効である。
+
+- ライブラリの温度は核種ごとに指定する（H in H2O の S(α, β) は 283.6〜800 K しかなく、水を 900 K 以上で扱う必要も
+  ないため。燃料と被覆管は 293.6, 600, 900, 1200 K、減速材は 293.6, 600 K のように選ぶ）
+- S(α,β) を持たない核種は温度方向に補間せず、格子計算は材料の温度がライブラリにあることを求める
+
+変えるのは S(α,β) の熱中性子の散乱行列の扱いで、次のとおりにする。xs は両方の温度の熱中性子の散乱行列をライブラリに持ち、lattice が物質の温度で群定数を温度について線形に内挿する。
 参照解の OpenMC も温度の内挿のモードで解く。OpenMC はこのモードで、両側の温度の S(α,β) を温度（kT）の比で確率的に
 選ぶ（src/thermal.cpp）ので、期待値は同じ線形の内挿になり、扱いがそろう。S(α,β) を持たない核種は、xs も OpenMC の
 ライブラリも計算する温度（565 K、等温温度係数の 560 K と 570 K）そのもので作り、内挿するのは S(α,β) だけにする。
@@ -32,8 +38,9 @@ S(α,β) を内挿で作ったものに当たるため。
 
 ## 確認
 
-`thermal_scattering_is_interpolated_in_temperature`、`other_nuclides_are_not_interpolated`。
+`thermal_scattering_is_interpolated_in_temperature`、`other_nuclides_are_not_interpolated`、`temperature_must_be_in_the_library`、
+`temperatures_are_looked_up_exactly`。
 
 ## 結果
 
-[ADR-0047](0047-choose-temperatures-per-nuclide.md) の「温度方向に補間しない」の例外は、S(α,β) の熱中性子の散乱行列だけである。
+温度方向に内挿するのは、S(α,β) の熱中性子の散乱行列だけである。
