@@ -126,11 +126,18 @@ boundary = { x = ["reflective", "zero-flux"], y = ["zero-flux", "zero-flux"], z 
     }
 
     #[test]
+    fn parses_marshak_boundary() {
+        // Marshak の条件（r = 1/2）は入力で明示したときだけ使う（ADR-0101）
+        let input = replaced("x = [\"reflective\"", "x = [\"marshak\"").unwrap();
+        assert_eq!(input.boundaries[0], Boundary::Marshak);
+    }
+
+    #[test]
     fn invalid_inputs_are_errors() {
         assert!(replaced("size = [300, 300, 366]", "size = [300, 300]").is_err());
         assert!(replaced("size = [300, 300, 366]", "size = [300, -1, 366]").is_err());
         assert!(replaced("nodes = [15, 15, 18]", "nodes = [15, 0, 18]").is_err());
-        assert!(replaced("\"reflective\"", "\"marshak\"").is_err());
+        assert!(replaced("\"reflective\"", "\"albedo\"").is_err());
         assert!(replaced("z = [\"zero-flux\", \"zero-flux\"] ", "").is_err());
         assert!(replaced("y = [\"zero-flux\", \"zero-flux\"]", "y = [\"zero-flux\"]").is_err());
         // 必須のキーがない、知らないキー、TOML の誤りは位置つき
