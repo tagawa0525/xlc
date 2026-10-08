@@ -237,17 +237,13 @@ pub fn lump_dancoff(
     options: &DancoffOptions,
 ) -> Result<Vec<Lump>, DancoffError> {
     let regions = tracking.lattice.regions();
-    for given in [totals.len(), black.len(), lump.len()] {
-        if given != regions {
-            return Err(DancoffError::Regions { given, regions });
-        }
+    if totals.len() != regions {
+        return Err(DancoffError::Regions {
+            given: totals.len(),
+            regions,
+        });
     }
-    if let Some(&l) = lump.iter().flatten().find(|&&l| l >= lumps) {
-        return Err(DancoffError::Lump { lump: l, lumps });
-    }
-    if let Some(region) = (0..regions).find(|&r| lump[r].is_some() && !black[r]) {
-        return Err(DancoffError::NotBlack(region));
-    }
+    let exposure = exposure(tracking, black, lump, lumps)?;
     let ng = (0..regions)
         .find(|&r| !black[r])
         .map(|r| totals[r].len())
@@ -258,6 +254,64 @@ pub fn lump_dancoff(
         if !black[region] && (t.len() != ng || !(void || t.iter().all(valid))) {
             return Err(DancoffError::Total(region));
         }
+    }
+    let delta = absorbed_by_black(tracking, totals, black, ng, options)?;
+    let mut absorbed = vec![vec![0.0; ng]; lumps];
+    for (region, l) in lump.iter().enumerate() {
+        if let Some(l) = *l {
+            for (a, d) in absorbed[l].iter_mut().zip(&delta[region * ng..][..ng]) {
+                *a += d;
+            }
+        }
+    }
+    absorbed
+        .iter()
+        .zip(&exposure)
+        .enumerate()
+        .map(|(l, (rates, &(iso, volume)))| {
+            Ok(Lump {
+                dancoff: rates
+                    .iter()
+                    .map(|&r| factor(l, r, iso, options.tolerance))
+                    .collect::<Result<_, _>>()?,
+                chord: volume / iso,
+            })
+        })
+        .collect()
+}
+
+/// 塊ごとの平均弦長 l̄ = 4V/S (cm)（[`lump_dancoff`] の `chord`）。トラックの幾何だけで決まり、全断面積も MOC も
+/// 要らない。引数は [`lump_dancoff`] と同じ。
+pub fn lump_chords(
+    tracking: &Tracking,
+    black: &[bool],
+    lump: &[Option<usize>],
+    lumps: usize,
+) -> Result<Vec<f64>, DancoffError> {
+    Ok(exposure(tracking, black, lump, lumps)?
+        .into_iter()
+        .map(|(iso, volume)| volume / iso)
+        .collect())
+}
+
+/// 塊ごとの、孤立した塊への入射率 R_iso（ψ0 を掛けたもの。正であること）と体積。引数を確かめる。
+fn exposure(
+    tracking: &Tracking,
+    black: &[bool],
+    lump: &[Option<usize>],
+    lumps: usize,
+) -> Result<Vec<(f64, f64)>, DancoffError> {
+    let regions = tracking.lattice.regions();
+    for given in [black.len(), lump.len()] {
+        if given != regions {
+            return Err(DancoffError::Regions { given, regions });
+        }
+    }
+    if let Some(&l) = lump.iter().flatten().find(|&&l| l >= lumps) {
+        return Err(DancoffError::Lump { lump: l, lumps });
+    }
+    if let Some(region) = (0..regions).find(|&r| lump[r].is_some() && !black[r]) {
+        return Err(DancoffError::NotBlack(region));
     }
     // 孤立した塊への入射率 R_iso / ψ0: 黒体でない領域から塊に入るたびに方向の重みを足す
     // （外周から直接入るのは、鏡面反射の向こうの続きの塊からなので数えない）
@@ -280,45 +334,25 @@ pub fn lump_dancoff(
         }
     }
     let psi0 = 1.0 / (4.0 * PI);
-    let delta = absorbed_by_black(tracking, totals, black, ng, options)?;
     let volumes = tracking.volumes(regions);
-    let mut absorbed = vec![vec![0.0; ng]; lumps];
     let mut volume = vec![0.0; lumps];
     for (region, l) in lump.iter().enumerate() {
         if let Some(l) = *l {
             volume[l] += volumes[region];
-            for (a, d) in absorbed[l].iter_mut().zip(&delta[region * ng..][..ng]) {
-                *a += d;
-            }
         }
     }
-    (0..lumps)
-        .map(|l| {
-            let iso = psi0 * isolated[l];
+    isolated
+        .iter()
+        .zip(volume)
+        .enumerate()
+        .map(|(l, (&iso, v))| {
+            let iso = psi0 * iso;
             if iso <= 0.0 {
                 return Err(DancoffError::Unexposed(l));
             }
-            Ok(Lump {
-                dancoff: absorbed[l]
-                    .iter()
-                    .map(|&r| factor(l, r, iso, options.tolerance))
-                    .collect::<Result<_, _>>()?,
-                chord: volume[l] / iso,
-            })
+            Ok((iso, v))
         })
         .collect()
-}
-
-/// 塊ごとの平均弦長 l̄ = 4V/S (cm)（[`lump_dancoff`] の `chord`）。トラックの幾何だけで決まり、全断面積も MOC も
-/// 要らない。引数は [`lump_dancoff`] と同じ。
-pub fn lump_chords(
-    tracking: &Tracking,
-    black: &[bool],
-    lump: &[Option<usize>],
-    lumps: usize,
-) -> Result<Vec<f64>, DancoffError> {
-    let _ = (tracking, black, lump);
-    Ok(vec![0.0; lumps])
 }
 
 #[cfg(test)]
