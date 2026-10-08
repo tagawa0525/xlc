@@ -21,14 +21,14 @@ M1 までの格子計算は、無限希釈の断面積でピンセルを1つ解�
 
 - 材料の組成: [ADR-0054](../adr/0054-model-vera-materials.md)
 - R-matrix limited 形式（Fe-54, 57）: [ADR-0055](../adr/0055-reconstruct-r-matrix-limited-subset.md)
-- MF6 の LAW=2, 3: [ADR-0056](../adr/0056-treat-mf6-law2-law3-as-two-body.md)（MF6 の角度のデータは [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）
+- MF6 の LAW=2, 3: [ADR-0056](../adr/0056-treat-mf6-law2-law3-as-two-body.md)（M3 で [ADR-0082](../adr/0082-leave-out-mf6-angular-data.md) に置き換え）
 - 出射分布の補間則: [ADR-0057](../adr/0057-interpolate-outgoing-distributions-as-endf.md)
 - 非分離共鳴の LRF=1 と Fe-58 の l=3: [ADR-0058](../adr/0058-read-lrf1-as-lrf2-with-l3.md)
 
 ### 形状とトラッキング
 
 - 形状: [ADR-0059](../adr/0059-use-square-lattice-geometry.md)（M3 で [ADR-0083](../adr/0083-generalize-to-rectilinear-lattice.md) に置き換え）
-- トラッキングと境界条件: [ADR-0060](../adr/0060-track-whole-assembly-cyclically.md)
+- トラッキング: [ADR-0060](../adr/0060-track-whole-assembly-cyclically.md)、境界条件: [ADR-0093](../adr/0093-choose-lattice-boundary-conditions.md)
 
 ### 反復の加速と並列化
 
