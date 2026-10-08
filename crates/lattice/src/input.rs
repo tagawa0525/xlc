@@ -788,6 +788,30 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn frames_are_cell_edges() {
+        let with_frame = |frame: &str| {
+            replaced(
+                LATTICE,
+                "  { material = \"water\", rings = 1 },\n]",
+                &format!("  {{ material = \"water\", rings = 1 }},\n]\nframe = {frame}"),
+            )
+        };
+        let input = with_frame("{ thickness = 0.05, material = \"clad\" }").unwrap();
+        let (lattice, regions) = input.geometry().unwrap();
+        // ピンセル 3 + 枠 1 が 2 つ、均質なセル 1 が 2 つ
+        assert_eq!(lattice.regions(), 2 * 4 + 2);
+        assert_eq!(regions[3], "clad");
+        // 厚すぎる枠と、未定義の項目
+        assert!(
+            with_frame("{ thickness = 1.0, material = \"clad\" }")
+                .unwrap()
+                .geometry()
+                .is_err()
+        );
+        assert!(with_frame("{ thickness = 0.05 }").is_err());
+    }
+
+    #[test]
     fn grid_and_sectors_split_cells() {
         let text = LATTICE.replace(
             "[cell.box]\nzones = [{ material = \"water\", rings = 1 }]",
