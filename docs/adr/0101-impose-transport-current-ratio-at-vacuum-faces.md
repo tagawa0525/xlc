@@ -1,7 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-09
-supersedes: []
+supersedes: [ADR-0099]
 superseded-by:
 issues: ["#0026"]
 ---
@@ -77,16 +77,29 @@ issues: ["#0026"]
 
 ## 確認
 
-- 少数群定数: r の往復、辺の数、群の数、範囲（0 < r ≤ 1、有限）の検査
-- core: r = 1/2 の `vacuum` は `marshak` と同じ解（1群の裸の平板の解析解 tan(Bl/2) = f/(2DB) と相対 1e-8）、
-  r を変えた裸の平板の解析解（J = r f φ から tan(Bl/2) = r f/(DB)）、r のない物質の `vacuum` と z の
-  `vacuum` はエラー。ADR-0099 の確認（ADF の面の条件、2領域の平板と辺の対応の解析解、真空の角の収束）は `marshak` で
-  引き継ぐ
-- GET の等価性（core の NEM の細かいノードの解を参照にした1ノードの問題）: 参照の真空の面は `marshak`、粗いノードの
-  問題は参照から作った r で `vacuum`
-- lattice: 真空の辺の r が MOC の辺の正味の流れ / 不均質な面の中性子束、鏡面反射の辺は r を持たない
-- MOC との比較（examples/vera/verification.md）: VERA 2B の燃料ピンの n × n（n = 3、5、9、右の辺が真空）を core の
-  1ノードの NEM で解き、MOC の k を数 pcm 以内で再現する
+- 少数群定数: r の往復、辺の数、群の数、範囲（0 < r ≤ 1、有限）の検査（`vacuum_ratios_are_checked`、
+  `invalid_files_are_rejected`）
+- core: r = 1/2 の `vacuum` は `marshak` と k で 1e-14 以内、中性子束で相対 1e-12 以内で同じ解
+  （`half_ratio_vacuum_equals_marshak`）、真空の面で J = r f φ が丸め誤差で成り立つ（`vacuum_face_imposes_the_ratio`）、
+  1群の裸の平板の解析解 D B tan(Bl/2) = r f と f = 0.8、1.3、r = 0.5〜0.9 で相対 1e-8（`vacuum_ratio_matches_analytic`）、
+  r のない物質の `vacuum` と z の `vacuum` はエラーで、`marshak` を示す（`vacuum_needs_ratios`）、入力の
+  `parses_vacuum_boundary` と `parses_marshak_boundary`。ADR-0099 の確認は `marshak` で引き継ぐ: ADF の面の条件
+  （`unit_adfs_leave_results_unchanged`、`adfs_make_homogeneous_flux_jump_at_faces`、
+  `two_region_slab_matches_analytic_jump`、`uniform_adf_scaling_keeps_k_without_vacuum`、
+  `side_mapping_matches_two_region_analytic`）、Marshak の条件（`vacuum_face_has_no_incoming_heterogeneous_current`、
+  `vacuum_k_lies_between_zero_flux_and_reflective`、`bare_slab_matches_marshak_analytic`、
+  `outer_adf_at_vacuum_matches_analytic`、`bare_cuboid_matches_marshak_analytic`）、真空の角の収束
+  （`vacuum_corner_converges_with_refinement`）、真空の面のノード平均が正でなければエラー
+  （`no_flux_next_to_a_vacuum_face_is_error`）
+- GET の等価性: 細かいノードの参照の真空の面は `marshak`、粗いノードの問題は参照の辺の J/φ_het から作った r で
+  `vacuum` とし、k が相対 1e-7、ノード平均の中性子束が相対 1e-6 で参照を再現する
+  （`get_adfs_reproduce_a_two_node_slab`、`get_adfs_reproduce_a_node_with_vacuum_sides`）
+- lattice: 真空の辺の r は MOC の辺の外向きの正味の流れ / 不均質な面の中性子束（細かい群の和の比）に相対 1e-14 で
+  一致し、2×2 の格子で 1/2 と 1 の間、鏡面反射の辺は r を持たない（`vacuum_sides_carry_the_current_ratio`）
+- MOC との比較（examples/vera/verification.md の「真空の辺の比 J/φ を入れた core の1ノードの NEM」、43ba22d、
+  2026-10-09）: VERA 2B の燃料ピンの n × n（右の辺が真空）を core の1ノードの NEM で解くと、k は MOC から n = 3、5、9 で
+  +0.0015、+0.0025、+0.0044 pcm（core の k の収束の許容差の程度）。`marshak` では +3724、+3803、+1510 pcm。r は
+  0.527〜0.572
 
 ## 結果
 
