@@ -51,6 +51,8 @@ def main() -> None:
     absorption = reference["absorption"]
     k = reference["keff"]
     print(f"OpenMC k {k[0]:.6f} +- {k[1]:.6f}")
+    xlc = {n: reactions(ours[n]) for n in nuclides}
+    openmc = {n: reactions(reference["nuclides"][n]) for n in nuclides}
 
     for score in ["capture", "fission"]:
         print(f"\n{score}: xlc / OpenMC - 1 (%), OpenMC rate rsd (%) in brackets")
@@ -58,8 +60,7 @@ def main() -> None:
         for g in [*UFG, *BELOW]:
             cells = []
             for n in nuclides:
-                a = reactions(ours[n])[score][g - 1]
-                b = reactions(reference["nuclides"][n])[score][g - 1]
+                a, b = xlc[n][score][g - 1], openmc[n][score][g - 1]
                 rsd = reference["nuclides"][n][f"{score}-rsd"][g - 1]
                 cells.append(
                     f"{(a / b - 1) * 100:+7.2f} [{rsd * 100:4.2f}]"
@@ -74,7 +75,7 @@ def main() -> None:
     density = reference["densities"]
     production = reference["nu-fission"]
     for n in nuclides:
-        a, b = reactions(ours[n]), reactions(reference["nuclides"][n])
+        a, b = xlc[n], openmc[n]
         v = nu(library, n)
         for label, groups in [
             ("15-27", UFG),
