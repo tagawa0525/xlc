@@ -16,6 +16,7 @@
 use crate::endf::{Mf2, RangeKind, Tab1};
 use crate::physics::BK;
 use crate::pointwise::{left_limit, right_limit};
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_2, GAUSS_LEGENDRE_4, GAUSS_LEGENDRE_8};
 
 /// 拡げる上限エネルギーの既定の最大値 (eV)。NJOY BROADR と同じ。
 pub const MAX_LIMIT: f64 = 6.5e6;
@@ -405,32 +406,19 @@ fn kernel(x: f64, y: f64) -> f64 {
 /// (2n)!/n! 倍以下なので、幅 w の区間の相対誤差は 2点則・w = 0.005 で 2e-12、4点則・w = 0.2 で 2e-12、
 /// 8点則・w = 1 で 9e-15 になる（x² σ(x) の変化は核関数よりずっと緩やかなので無視できる）。
 fn quadrature(a: f64, b: f64, mut f: impl FnMut(f64, f64)) {
-    // [-1, 1] での正の分点と重み
-    const GAUSS2: [(f64, f64); 1] = [(0.577_350_269_189_625_8, 1.0)];
-    const GAUSS4: [(f64, f64); 2] = [
-        (0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
-        (0.861_136_311_594_052_6, 0.347_854_845_137_453_9),
-    ];
-    const GAUSS8: [(f64, f64); 4] = [
-        (0.183_434_642_495_649_8, 0.362_683_783_378_362),
-        (0.525_532_409_916_329, 0.313_706_645_877_887_3),
-        (0.796_666_477_413_626_7, 0.222_381_034_453_374_5),
-        (0.960_289_856_497_536_2, 0.101_228_536_290_376_3),
-    ];
     let width = b - a;
     let (rule, panels): (&[(f64, f64)], usize) = if width <= 0.005 {
-        (&GAUSS2, 1)
+        (&GAUSS_LEGENDRE_2, 1)
     } else if width <= 0.2 {
-        (&GAUSS4, 1)
+        (&GAUSS_LEGENDRE_4, 1)
     } else {
-        (&GAUSS8, width.ceil() as usize)
+        (&GAUSS_LEGENDRE_8, width.ceil() as usize)
     };
     let h = width / panels as f64;
     for p in 0..panels {
         let center = a + h * (p as f64 + 0.5);
         let half = 0.5 * h;
         for &(node, weight) in rule {
-            f(center - half * node, half * weight);
             f(center + half * node, half * weight);
         }
     }

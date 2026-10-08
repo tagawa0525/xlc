@@ -38,7 +38,7 @@ use std::path::PathBuf;
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
-use xlc_xs::library::is_nuclide_name;
+use xlc_format::library::is_nuclide_name;
 
 use crate::geometry::{GeometryError, Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};

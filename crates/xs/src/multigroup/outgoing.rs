@@ -1,12 +1,12 @@
 //! 出射エネルギー分布の群への振り分け。
 
-use super::GroupStructure;
-use super::integrate::GAUSS_LEGENDRE;
 use crate::endf::{
     ClampedTab1, EnergyLaw, IncidentLaw, Interpolation, OutgoingDistributions, Tab1,
 };
 use crate::pointwise::linearize;
 use crate::special::{gamma_p_2, gamma_p_3_2};
+use xlc_format::group::GroupStructure;
+use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
 
 /// 出射エネルギーの確率密度の表を、群ごとに積分する。
 ///
@@ -63,7 +63,7 @@ fn laboratory_group_integrals(groups: &GroupStructure, density: &Tab1, ec: f64) 
         let width = (x1 - x0) / PIECES as f64;
         for i in 0..PIECES {
             let (mid, half) = (x0 + (i as f64 + 0.5) * width, 0.5 * width);
-            for &(t, wk) in &GAUSS_LEGENDRE {
+            for &(t, wk) in &GAUSS_LEGENDRE_4 {
                 let e = mid + half * t;
                 let density = y0 + (y1 - y0) * (e - x0) / (x1 - x0);
                 let (lo, hi) = (

@@ -15,9 +15,10 @@
 
 use std::collections::BTreeMap;
 
+use xlc_format::group::GroupStructure;
 use xlc_xs::endf::{Mf3, Mf5, Mf6, Tape, parse_nubar};
 use xlc_xs::multigroup::{
-    Emission, GroupStructure, Weight, fission_spectrum, reaction_averages, scattering_matrix,
+    Emission, Weight, fission_spectrum, reaction_averages, scattering_matrix,
 };
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
