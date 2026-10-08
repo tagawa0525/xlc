@@ -228,9 +228,10 @@ pub struct ColdParts {
 /// 運動学のしきい値 E_th = −Q (A + 1)/A より下から始まる反応の表を、しきい値から始める（[ADR-0100]）。
 ///
 /// しきい値より下の断面積はありえない。評価済みデータには、重心系のしきい値 |Q| と E_th の間（Q 値と AWR の丸めや、
-/// しきい値の書き方の違い）から始まる表がある。E_th より下の点は捨て、E_th に最初の点の値を置き（NJOY RECONR
-/// と同じく最初の点をしきい値に移す。最初の点の値は通常 0）、E_th から次の点までは、しきい値をまたいでいた区間の
-/// 補間則を引き継ぐ（NJOY と同じ）。ただし ln y をとる補間則（INT=4, 5）は 0 の端で成り立たないので lin-lin にする。
+/// しきい値の書き方の違い）から始まる表がある。E_th より下の点は捨て、E_th に 0 を置き（NJOY RECONR と同じく
+/// 最初の点をしきい値に移すが、NJOY は最初の点の値を残して段差にする。こちらは断面積がしきい値から連続に立ち上がる
+/// よう 0 にする。評価済みデータでは 0 でない値もその反応の最大値の 5e-6 以下）、E_th から次の点までは、しきい値を
+/// またいでいた区間の補間則を引き継ぐ（NJOY と同じ）。ただし ln y をとる補間則（INT=4, 5）は 0 の端で成り立たないので lin-lin にする。
 /// その先はファイルのまま。ちょうど E_th にある点は残す。`awr` は運動学（2体の散乱行列）と同じ
 /// AWR（最初の MF3 の見出し）。
 ///
@@ -297,10 +298,11 @@ fn start_at_threshold(
             below,
         )
     } else {
-        // E_th に最初の点の値を置く。区切りの番号は、捨てた点の数から置いた1点を引いた分だけ詰める
+        // E_th に 0 を置く（しきい値から連続に立ち上がる）。区切りの番号は、捨てた点の数から置いた1点を引いた分だけ
+        // 詰める
         let mut x = vec![threshold];
         x.extend_from_slice(&sigma.x[below..]);
-        let mut y = vec![sigma.y[0]];
+        let mut y = vec![0.0];
         y.extend_from_slice(&sigma.y[below..]);
         // しきい値をまたいでいた区間（点 below − 1 と below の間）の補間則を引き継ぐ。ln y をとる補間則は 0 の端で
         // 成り立たないので lin-lin にする
@@ -326,15 +328,25 @@ fn start_at_threshold(
         }
         (x, y, breaks, laws, below - 1)
     };
+    // E_th より下の 0 でない値（捨てるか 0 にした）のうち最も大きいものの、反応の最大値に対する比
+    let maximum = sigma.y.iter().copied().fold(0.0, f64::max);
+    let below_max = sigma.y[..below].iter().map(|v| v.abs()).fold(0.0, f64::max);
+    let zeroed = if maximum > 0.0 {
+        below_max / maximum
+    } else {
+        0.0
+    };
     tracing::debug!(
         "MT{mt}: the table starts at {first} eV, below the kinematic threshold {threshold} eV; \
-         starting it at the threshold and dropping {dropped} more points below it"
+         starting it at the threshold and dropping {dropped} more points below it; the largest \
+         value below it, now 0, was {zeroed:.2e} of the maximum"
     );
     let shift = ThresholdShift {
         mt,
         first,
         threshold,
         dropped,
+        zeroed,
     };
     Ok((Tab1 { breaks, laws, x, y }, Some(shift)))
 }
@@ -349,6 +361,8 @@ struct ThresholdShift {
     threshold: f64,
     /// 捨てた点の数（しきい値に移した最初の点を除く）
     dropped: usize,
+    /// しきい値より下の 0 でない値（捨てるか 0 にした）のうち最も大きいものの、反応の最大値に対する比
+    zeroed: f64,
 }
 
 impl ThresholdShift {
@@ -373,6 +387,10 @@ struct ThresholdSummary {
     largest_relative: ThresholdShift,
     /// 捨てた点の数の和
     dropped: usize,
+    /// しきい値より下の 0 でない値を 0 にした反応の数
+    zeroed: usize,
+    /// そのうち、反応の最大値に対する比が最も大きかった反応
+    largest_zeroed: Option<ThresholdShift>,
 }
 
 /// しきい値に合わせた反応をまとめる。なければ `None`。
@@ -388,6 +406,12 @@ fn summarize_thresholds(shifts: &[ThresholdShift]) -> Option<ThresholdSummary> {
         largest,
         largest_relative,
         dropped: shifts.iter().map(|s| s.dropped).sum(),
+        zeroed: shifts.iter().filter(|s| s.zeroed > 0.0).count(),
+        largest_zeroed: shifts
+            .iter()
+            .filter(|s| s.zeroed > 0.0)
+            .max_by(|a, b| a.zeroed.total_cmp(&b.zeroed))
+            .copied(),
     })
 }
 
@@ -419,11 +443,18 @@ impl ColdParts {
         }
         if let Some(summary) = summarize_thresholds(&shifts) {
             let (largest, relative) = (summary.largest, summary.largest_relative);
+            let zeroed = summary.largest_zeroed.map_or(String::new(), |z| {
+                format!(
+                    "; {} reactions had nonzero values below the threshold, now 0 (the largest \
+                     {:.2e} of the reaction maximum in MT{})",
+                    summary.zeroed, z.zeroed, z.mt
+                )
+            });
             tracing::warn!(
                 "{} reactions start below their kinematic threshold -Q(A+1)/A and now start at it \
-                 (as in NJOY RECONR); the largest shift is {:.4e} eV in MT{} and the largest \
+                 with a zero cross section; the largest shift is {:.4e} eV in MT{} and the largest \
                  relative shift is {:.2e} of the threshold in MT{}; {} points below the thresholds \
-                 were dropped",
+                 were dropped{zeroed}",
                 summary.reactions,
                 largest.shift(),
                 largest.mt,
