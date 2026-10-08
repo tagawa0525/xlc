@@ -986,6 +986,18 @@ zones = [{ material = "water", rings = 1 }]
             )
             .is_err()
         );
+        // 書き間違いには、書ける条件を示す
+        let error = replaced(
+            LATTICE,
+            "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+            "boundary = { right = \"vacum\" }",
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("reflective") && error.contains("albedo"),
+            "{error}"
+        );
     }
 
     #[test]
