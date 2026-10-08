@@ -20,12 +20,43 @@ pub struct Track {
     pub azimuth: usize,
     pub start: (f64, f64),
     pub end: (f64, f64),
+    /// 始点と終点のある外周の辺（トラックは外周の角を通らない）
+    pub start_side: Side,
+    pub end_side: Side,
     /// 始点から終点への順
     pub segments: Vec<Segment>,
     /// 順方向のスイープで終点から出た角度中性子束の行き先（真空境界なら `None`）
     pub forward_link: Option<Link>,
     /// 逆方向のスイープで始点から出た角度中性子束の行き先（真空境界なら `None`）
     pub backward_link: Option<Link>,
+}
+
+/// 外周の辺。`usize` にすると 0 左、1 右、2 上、3 下。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+impl Side {
+    /// 縦の辺（左右）か
+    pub fn is_vertical(self) -> bool {
+        matches!(self, Self::Left | Self::Right)
+    }
+}
+
+impl Boundaries {
+    /// 辺 `side` の境界条件
+    pub fn of(&self, side: Side) -> Boundary {
+        match side {
+            Side::Left => self.left,
+            Side::Right => self.right,
+            Side::Top => self.top,
+            Side::Bottom => self.bottom,
+        }
+    }
 }
 
 /// 1つの方位角。
@@ -188,7 +219,11 @@ impl Tracking {
             let side_x = if dx > 0.0 { -half } else { half };
             let side =
                 (0..ny).map(|j| (side_x, -half_height + height / ny as f64 * (j as f64 + 0.5)));
-            for start in bottom.chain(side) {
+            let entry = if dx > 0.0 { Side::Left } else { Side::Right };
+            let starts = bottom
+                .map(|p| (p, Side::Bottom))
+                .chain(side.map(|p| (p, entry)));
+            for (start, start_side) in starts {
                 let to_side = if dx > 0.0 {
                     (half - start.0) / dx
                 } else {
@@ -197,10 +232,18 @@ impl Tracking {
                 let to_top = (half_height - start.1) / dy;
                 let t = to_side.min(to_top);
                 let end = (start.0 + t * dx, start.1 + t * dy);
+                // 右上向きなら右辺、左上向きなら左辺か、上辺で出る
+                let end_side = if to_side < to_top {
+                    if dx > 0.0 { Side::Right } else { Side::Left }
+                } else {
+                    Side::Top
+                };
                 tracks.push(Track {
                     azimuth: a,
                     start,
                     end,
+                    start_side,
+                    end_side,
                     segments: lattice.segments(start, (dx, dy), t),
                     forward_link: None,
                     backward_link: None,
@@ -231,30 +274,16 @@ impl Tracking {
                     .map(|track| Link { track, forward })
                     .ok_or(TrackingError::NoReflectedTrack(point))
             };
-            // 点のある辺の境界条件（トラックは角を通らない）
-            let boundary = |p: (f64, f64)| {
-                if (p.0 + half).abs() < tolerance {
-                    boundaries.left
-                } else if (p.0 - half).abs() < tolerance {
-                    boundaries.right
-                } else if (p.1 - half_height).abs() < tolerance {
-                    boundaries.top
-                } else {
-                    boundaries.bottom
-                }
-            };
             // 側辺で反射すると補角の順方向、上辺・下辺で反射すると逆方向に続く
-            let end = tracks[k].end;
-            let forward_link = match boundary(end) {
+            let (end, end_side) = (tracks[k].end, tracks[k].end_side);
+            let forward_link = match boundaries.of(end_side) {
                 Boundary::Vacuum => None,
-                Boundary::Reflective => Some(find(end, (end.0.abs() - half).abs() < tolerance)?),
+                Boundary::Reflective => Some(find(end, end_side.is_vertical())?),
             };
-            let start = tracks[k].start;
-            let backward_link = match boundary(start) {
+            let (start, start_side) = (tracks[k].start, tracks[k].start_side);
+            let backward_link = match boundaries.of(start_side) {
                 Boundary::Vacuum => None,
-                Boundary::Reflective => {
-                    Some(find(start, (start.1 + half_height).abs() < tolerance)?)
-                }
+                Boundary::Reflective => Some(find(start, start_side == Side::Bottom)?),
             };
             tracks[k].forward_link = forward_link;
             tracks[k].backward_link = backward_link;
