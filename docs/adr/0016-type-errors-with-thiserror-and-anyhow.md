@@ -24,8 +24,10 @@ M2 までのエラーは `String` だった。エラーの種類で分岐でき�
 
 ## 確認
 
-`cell_errors_keep_the_cause_in_the_chain_only`、`material_errors_keep_the_cause_in_the_chain_only`、
-`toml_errors_are_not_repeated_in_the_chain`。
+型の使い分けそのものを確かめるテストはない。エラーの原因の連鎖の表示は `cell_errors_keep_the_cause_in_the_chain_only`、
+`material_errors_keep_the_cause_in_the_chain_only`、`toml_errors_are_not_repeated_in_the_chain` で確かめる。内部の検査の
+補助関数には、メッセージを `String` で返して型付きのエラーの variant に包むものがある（例: crates/format/src/library.rs の
+`check`）。
 
 ## 結果
 
