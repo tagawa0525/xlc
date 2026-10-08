@@ -1,10 +1,11 @@
 //! 格子の対称性（正方形の回転と鏡映）による、ピンの組。
 //!
-//! 正方形の 8 つの対称操作のうち、セルの配置、領域の物質、外周の境界条件、余白を変えないものを調べ、それで
+//! 正方形の 8 つの対称操作のうち、セルの配置と大きさ、領域の物質、外周の境界条件を変えないものを調べ、それで
 //! 移り合うセルを同じ組にする。組の中のピンは、自己遮蔽の結果が同じなので1回だけ解けばよい（VERA の集合体の
 //! ように 1/8 対称なら約 1/8 になる）。対称性は前提とせず、真空境界や位置で違う物質のある検証の体系では、成り立つ
 //! 操作だけを使う。
 
+use crate::geometry::Cell;
 use crate::tracking::{Boundary, Tracking};
 
 /// 対称性のエラー。
@@ -40,28 +41,27 @@ pub fn cell_orbits(
             regions,
         });
     }
-    let n = lattice.cells_per_side();
-    let cells = n * n;
-    // セルの座標は2倍して整数にする: U = 2c − (n − 1)、V = 2r − (n − 1)
-    let offset = n as i64 - 1;
+    let (nc, nr) = (lattice.columns(), lattice.rows());
+    let cells = nc * nr;
+    // セルの座標は2倍して整数にする: U = 2c − (nc − 1)、V = 2r − (nr − 1)
+    let (oc, or) = (nc as i64 - 1, nr as i64 - 1);
     let transform =
         |op: &[i64; 4], (u, v): (i64, i64)| (op[0] * u + op[1] * v, op[2] * u + op[3] * v);
-    let map = |op: &[i64; 4], cell: usize| {
-        let (u, v) = (
-            2 * (cell % n) as i64 - offset,
-            2 * (cell / n) as i64 - offset,
-        );
+    // セルの像（格子の外に出れば None）
+    let map = |op: &[i64; 4], cell: usize| -> Option<usize> {
+        let (u, v) = (2 * (cell % nc) as i64 - oc, 2 * (cell / nc) as i64 - or);
         let (u, v) = transform(op, (u, v));
-        (((v + offset) / 2) as usize) * n + ((u + offset) / 2) as usize
+        let (c, r) = (u + oc, v + or);
+        let inside = c >= 0 && r >= 0 && c % 2 == 0 && r % 2 == 0;
+        let (c, r) = (c / 2, r / 2);
+        (inside && (c as usize) < nc && (r as usize) < nr).then(|| r as usize * nc + c as usize)
     };
     // セルのリングごとの物質（扇形や小さな正方形で物質が違うセルは None: 回すと領域の対応が変わる）
     let rings = |cell: usize| -> Option<Vec<usize>> {
-        let pin = lattice.cell_type(cell);
         let materials = &region_material[lattice.cell_regions(cell)];
-        let width = if pin.is_grid() {
-            materials.len()
-        } else {
-            pin.sectors()
+        let width = match lattice.cell_type(cell) {
+            Cell::Pin(pin) if !pin.is_grid() => pin.sectors(),
+            _ => materials.len(),
         };
         materials
             .chunks(width)
@@ -69,9 +69,6 @@ pub fn cell_orbits(
             .collect()
     };
     let ring_materials: Vec<Option<Vec<usize>>> = (0..cells).map(rings).collect();
-    // 余白の物質が一様か
-    let margin = &region_material[lattice.cell_regions(cells - 1).end..];
-    let uniform_margin = margin.iter().all(|&m| Some(&m) == margin.first());
     // 外周の辺の向き (u, v) と境界条件
     let b = tracking.boundaries;
     let sides = [
@@ -90,17 +87,30 @@ pub fn cell_orbits(
             let boundaries = sides
                 .iter()
                 .all(|&(d, condition)| side(transform(op, d)) == Some(condition));
+            // 軸を入れ替える操作（x 軸の像が y 軸の上）では、セルの幅と高さも入れ替わる
+            let swap = transform(op, (1, 0)).0 == 0;
             let cells_match = (0..cells).all(|cell| {
-                let image = map(op, cell);
-                lattice.cell_type(cell) == lattice.cell_type(image)
+                let Some(image) = map(op, cell) else {
+                    return false;
+                };
+                let (w, h) = lattice.cell_size(cell);
+                let size = if swap { (h, w) } else { (w, h) };
+                size == lattice.cell_size(image)
+                    && lattice.cell_type(cell) == lattice.cell_type(image)
                     && ring_materials[cell].is_some()
                     && ring_materials[cell] == ring_materials[image]
             });
-            identity || (boundaries && uniform_margin && cells_match)
+            identity || (boundaries && cells_match)
         })
         .collect();
     Ok((0..cells)
-        .map(|cell| valid.iter().map(|op| map(op, cell)).min().unwrap_or(cell))
+        .map(|cell| {
+            valid
+                .iter()
+                .filter_map(|op| map(op, cell))
+                .min()
+                .unwrap_or(cell)
+        })
         .collect())
 }
 

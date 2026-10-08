@@ -55,11 +55,23 @@ fn main() -> anyhow::Result<()> {
         &regions,
         &ShieldingOptions::default(),
     )?;
-    let n = lattice.cells_per_side();
+    // ピンセルのある行と列（余白の行と列を除く）での位置
+    let columns = lattice.columns();
+    let (pin_rows, pin_columns) = lattice.pin_rows_and_columns();
+    let n = pin_rows.len();
+    if pin_columns.len() != n {
+        anyhow::bail!("pins must fill a square block");
+    }
     let ng = library.groups.len();
     let mut nuclides: BTreeMap<String, Rates> = BTreeMap::new();
     for pin in &shielded.pins {
-        let (row, column) = (pin.cell / n, pin.cell % n);
+        let position = |list: &[usize], k: usize| list.iter().position(|&x| x == k);
+        let (Some(row), Some(column)) = (
+            position(&pin_rows, pin.cell / columns),
+            position(&pin_columns, pin.cell % columns),
+        ) else {
+            anyhow::bail!("a shielded pin outside the pin block");
+        };
         for ((nuclide, _), effective) in pin.nuclides.iter().zip(&pin.effective) {
             let rates = nuclides
                 .entry(nuclide.name.replace('-', ""))
