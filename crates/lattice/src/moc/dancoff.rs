@@ -228,6 +228,7 @@ pub struct Lump {
 pub fn lump_dancoff(
     tracking: &Tracking,
     totals: &[Vec<f64>],
+    black: &[bool],
     lump: &[Option<usize>],
     lumps: usize,
     options: &DancoffOptions,
@@ -241,6 +242,7 @@ pub fn lump_dancoff(
     if let Some(&l) = lump.iter().flatten().find(|&&l| l >= lumps) {
         return Err(DancoffError::Lump { lump: l, lumps });
     }
+    let _ = black;
     let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
     let ng = (0..regions)
         .find(|&r| !black[r])
@@ -397,8 +399,15 @@ mod tests {
         let lattice = Lattice::pin_cell(cell);
         let tracking = Tracking::new(&lattice, 32, 0.005).unwrap();
         let totals = vec![vec![5.0]; 3];
-        let lumps =
-            lump_dancoff(&tracking, &totals, &[None, Some(0), None], 1, &options()).unwrap();
+        let lumps = lump_dancoff(
+            &tracking,
+            &totals,
+            &[false, true, false],
+            &[None, Some(0), None],
+            1,
+            &options(),
+        )
+        .unwrap();
         assert!(lumps[0].dancoff[0] < 0.05, "{lumps:?}");
         assert!((lumps[0].chord - 0.1).abs() < 1e-3 * 0.1, "{lumps:?}");
     }
@@ -414,7 +423,8 @@ mod tests {
         let totals = vec![vec![0.3]; lattice.regions()];
         // セルごとに（水, 枠）の2領域
         let lump: Vec<Option<usize>> = (0..8).map(|r| (r % 2 == 1).then_some(r / 2)).collect();
-        let lumps = lump_dancoff(&tracking, &totals, &lump, 4, &options()).unwrap();
+        let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+        let lumps = lump_dancoff(&tracking, &totals, &black, &lump, 4, &options()).unwrap();
         let expected = (p * p - (p - 2.0 * t).powi(2)) / (p - 2.0 * t);
         for l in &lumps {
             assert!((l.chord - expected).abs() < 1e-3 * expected, "{lumps:?}");
@@ -427,11 +437,58 @@ mod tests {
     }
 
     #[test]
+    fn black_regions_outside_lumps_shadow_them() {
+        // 4つの枠をすべて黒体にし、1つだけを塊として数えると、4つとも塊にしたときと同じ結果
+        let (p, t) = (1.26, 0.05);
+        let cell = PinCell::new(p, vec![]).unwrap().with_frame(t).unwrap();
+        let lattice = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.01).unwrap();
+        let totals = vec![vec![0.3]; lattice.regions()];
+        let black: Vec<bool> = (0..8).map(|r| r % 2 == 1).collect();
+        let all: Vec<Option<usize>> = (0..8).map(|r| (r % 2 == 1).then_some(r / 2)).collect();
+        let one: Vec<Option<usize>> = (0..8).map(|r| (r == 1).then_some(0)).collect();
+        let expected = lump_dancoff(&tracking, &totals, &black, &all, 4, &options()).unwrap();
+        let lumps = lump_dancoff(&tracking, &totals, &black, &one, 1, &options()).unwrap();
+        assert_eq!(lumps.len(), 1);
+        assert!(
+            (lumps[0].chord - expected[0].chord).abs() < 1e-12,
+            "{lumps:?}"
+        );
+        assert!(
+            (lumps[0].dancoff[0] - expected[0].dancoff[0]).abs() < 1e-12,
+            "{lumps:?} vs {expected:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_lumps_that_are_not_black() {
+        let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
+        let totals = vec![vec![5.0]; 3];
+        let result = lump_dancoff(
+            &tracking,
+            &totals,
+            &[false, false, false],
+            &[None, Some(0), None],
+            1,
+            &options(),
+        );
+        assert!(result.is_err(), "{result:?}");
+    }
+
+    #[test]
     fn rejects_lump_numbers_out_of_range() {
         let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
         let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
         let totals = vec![vec![5.0]; 3];
-        let result = lump_dancoff(&tracking, &totals, &[None, Some(1), None], 1, &options());
+        let result = lump_dancoff(
+            &tracking,
+            &totals,
+            &[false, true, false],
+            &[None, Some(1), None],
+            1,
+            &options(),
+        );
         assert!(
             matches!(result, Err(DancoffError::Lump { lump: 1, lumps: 1 })),
             "{result:?}"

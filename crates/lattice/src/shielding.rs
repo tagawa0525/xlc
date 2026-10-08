@@ -457,7 +457,8 @@ fn shield_lumps(
             })
             .collect();
         let count = shadow + usize::from(local.contains(&Some(shadow)));
-        let lumps = lump_dancoff(tracking, &totals, &local, count, &options.dancoff)?;
+        let black: Vec<bool> = local.iter().map(Option::is_some).collect();
+        let lumps = lump_dancoff(tracking, &totals, &black, &local, count, &options.dancoff)?;
         found.extend(members.into_iter().zip(lumps));
     }
     found.sort_by_key(|&(k, _)| k);
@@ -1705,8 +1706,16 @@ mod tests {
                 .map(|r| black.contains(&r).then_some(usize::from(r != 6)))
                 .collect();
             let lumps = 1 + usize::from(black.len() > 1);
-            let expected =
-                lump_dancoff(&tracking, &totals, &lump, lumps, &DancoffOptions::default()).unwrap();
+            let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+            let expected = lump_dancoff(
+                &tracking,
+                &totals,
+                &black,
+                &lump,
+                lumps,
+                &DancoffOptions::default(),
+            )
+            .unwrap();
             assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
             (
                 shielded.lumps[0].dancoff.clone(),
