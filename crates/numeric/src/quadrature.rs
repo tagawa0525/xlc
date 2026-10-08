@@ -58,6 +58,12 @@ fn legendre_with_derivative(n: usize, x: f64) -> (f64, f64) {
     (p1, n as f64 * (x * p1 - p0) / (x * x - 1.0))
 }
 
+/// 2 点の Gauss–Legendre の点と重み（[−1, 1]、昇順）
+pub const GAUSS_LEGENDRE_2: [(f64, f64); 2] = [
+    (-0.577_350_269_189_625_8, 1.0),
+    (0.577_350_269_189_625_8, 1.0),
+];
+
 /// 4 点の Gauss–Legendre の点と重み（[−1, 1]、昇順）
 pub const GAUSS_LEGENDRE_4: [(f64, f64); 4] = [
     (-0.861_136_311_594_052_6, 0.347_854_845_137_453_8),
@@ -94,7 +100,11 @@ mod tests {
 
     #[test]
     fn tables_match_the_computed_nodes() {
-        for table in [&GAUSS_LEGENDRE_4[..], &GAUSS_LEGENDRE_8[..]] {
+        for table in [
+            &GAUSS_LEGENDRE_2[..],
+            &GAUSS_LEGENDRE_4[..],
+            &GAUSS_LEGENDRE_8[..],
+        ] {
             let mut computed = gauss_legendre(table.len()).unwrap();
             computed.sort_by(|a, b| a.0.total_cmp(&b.0));
             for ((x, w), (cx, cw)) in table.iter().zip(&computed) {
