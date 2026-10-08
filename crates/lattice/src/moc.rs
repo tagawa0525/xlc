@@ -60,7 +60,7 @@ pub struct Solution {
     pub flux: Vec<Vec<f64>>,
     /// トラックから推定した領域の体積
     pub volumes: Vec<f64>,
-    /// [群] の真空境界からの漏れ（中性子束と同じ規格化）
+    /// [群] の外周からの漏れ（真空の辺と、アルベドの辺で戻らない 1 − α の分。中性子束と同じ規格化）
     pub leakage: Vec<f64>,
     /// [外周の辺（左、右、上、下）][群] の辺の上の平均スカラー中性子束（中性子束と同じ規格化）。
     /// 集合体の不連続因子（ADF）に使う
@@ -665,24 +665,16 @@ impl<'a> Sweeper<'a> {
                     }
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
-                        let boundaries = &self.tracking.boundaries;
-                        let (entry, leaving) = if forward {
+                        let (entry_side, exit_side) = if forward {
                             (track.start_side, track.end_side)
                         } else {
                             (track.end_side, track.start_side)
                         };
                         match self.tracking.incoming_source(index, forward) {
-                            Some(source) => {
-                                psi.copy_from_slice(
-                                    &incoming[slot(source.track, source.forward) * width..]
-                                        [..width],
-                                );
-                                // アルベドの辺では、出た角度中性子束の割合 α だけが戻る
-                                let albedo = returned(boundaries.of(entry));
-                                if albedo != 1.0 {
-                                    psi.iter_mut().for_each(|v| *v *= albedo);
-                                }
-                            }
+                            // 出ていくときに境界から戻る分（アルベド）を掛けてある
+                            Some(source) => psi.copy_from_slice(
+                                &incoming[slot(source.track, source.forward) * width..][..width],
+                            ),
                             // 真空境界から入ってくる角度中性子束は 0
                             None => psi.fill(0.0),
                         }
@@ -699,11 +691,6 @@ impl<'a> Sweeper<'a> {
                             psi,
                             &weights,
                         );
-                        let (entry_side, exit_side) = if forward {
-                            (track.start_side, track.end_side)
-                        } else {
-                            (track.end_side, track.start_side)
-                        };
                         add_side(&mut tally.sides, entry_side, psi, side_weights);
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
@@ -764,25 +751,20 @@ impl<'a> Sweeper<'a> {
                             &weights,
                         );
                         add_side(&mut tally.sides, exit_side, psi, side_weights);
-                        let link = if forward {
-                            track.forward_link
-                        } else {
-                            track.backward_link
-                        };
-                        // 戻らない分（真空では全部、アルベドでは 1 − α）は漏れ
-                        let lost = if link.is_some() {
-                            1.0 - returned(boundaries.of(leaving))
-                        } else {
-                            1.0
-                        };
-                        if lost > 0.0 {
+                        // 境界から戻るのは割合 r（鏡面反射 1、アルベド α、真空 0）で、残りは漏れ。戻る分を
+                        // 掛けて渡すので、つながった先のトラックはそのまま受け取る
+                        let r = returned(self.tracking.boundaries().of(exit_side));
+                        if r < 1.0 {
                             for (p, weight) in weights.iter().enumerate() {
                                 for (l, value) in tally.leak.iter_mut().zip(&psi[p * ng..][..ng]) {
-                                    *l += lost * weight * value;
+                                    *l += (1.0 - r) * weight * value;
                                 }
                             }
                         }
-                        out[usize::from(!forward) * width..][..width].copy_from_slice(psi);
+                        let out = &mut out[usize::from(!forward) * width..][..width];
+                        for (o, v) in out.iter_mut().zip(psi.iter()) {
+                            *o = r * v;
+                        }
                     }
                 }
                 if let Some(d) = directional {
