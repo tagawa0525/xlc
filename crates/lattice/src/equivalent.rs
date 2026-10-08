@@ -65,11 +65,21 @@ pub fn cell_dancoff(radii: &[f64], totals: &[f64]) -> Result<f64, EquivalentErro
     Ok(1.0 - absorbed / (PI * fuel / 2.0))
 }
 
+/// 減速材のリングの外に置く、面積の決まったリング（セルの外周の枠）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OuterRing {
+    /// 面積 (cm²)
+    pub area: f64,
+    /// 全断面積 (1/cm)
+    pub total: f64,
+}
+
 /// Dancoff 係数が `dancoff` になる等価なセルの外半径 (cm)。`radii` は減速材より内側のリング（燃料から被覆管まで）の
 /// 外半径、`totals` はそのリングと外側の減速材のリングの全断面積 (1/cm)（燃料の値は使わない）。
 pub fn equivalent_radius(
     radii: &[f64],
     totals: &[f64],
+    _outer: Option<OuterRing>,
     dancoff: f64,
 ) -> Result<f64, EquivalentError> {
     if totals.len() != radii.len() + 1 {
@@ -152,7 +162,7 @@ mod tests {
     #[test]
     fn equivalent_radius_recovers_the_cell() {
         let c = cell_dancoff(&cell(0.711), &TOTALS).unwrap();
-        let r = equivalent_radius(&INNER, &TOTALS, c).unwrap();
+        let r = equivalent_radius(&INNER, &TOTALS, None, c).unwrap();
         assert!((r - 0.711).abs() < 1e-9, "{r}");
     }
 
@@ -160,10 +170,48 @@ mod tests {
     fn rejects_unreachable_dancoff() {
         // 減速材をなくしても届かない影、0 以下、1 以上、セルの Dancoff 係数の数値誤差より小さい値
         for c in [0.999, 0.0, -0.1, 1.0, f64::NAN, 1e-12] {
-            assert!(equivalent_radius(&INNER, &TOTALS, c).is_err(), "{c}");
+            assert!(equivalent_radius(&INNER, &TOTALS, None, c).is_err(), "{c}");
         }
         // 減速材の全断面積が 0、リングの数が合わない
-        assert!(equivalent_radius(&INNER, &[0.0, 0.0, 0.3, 0.0], 0.3).is_err());
+        assert!(equivalent_radius(&INNER, &[0.0, 0.0, 0.3, 0.0], None, 0.3).is_err());
         assert!(cell_dancoff(&cell(0.711), &TOTALS[..3]).is_err());
+    }
+
+    #[test]
+    fn outer_ring_keeps_its_area() {
+        // 減速材の外に面積の決まったリング（枠）があっても、そのセルの外半径を取り戻す
+        let outer = OuterRing {
+            area: 0.12,
+            total: 0.3,
+        };
+        let moderator = 0.66;
+        let mut radii = cell(moderator);
+        radii.push((moderator * moderator + outer.area / PI).sqrt());
+        let mut totals = TOTALS.to_vec();
+        totals.push(outer.total);
+        let c = cell_dancoff(&radii, &totals).unwrap();
+        let r = equivalent_radius(&INNER, &TOTALS, Some(outer), c).unwrap();
+        assert!((r - moderator).abs() < 1e-9, "{r}");
+        // 枠の影の分だけ、枠のないセルより減速材は薄い
+        let without = equivalent_radius(&INNER, &TOTALS, None, c).unwrap();
+        assert!(without > r, "{without} {r}");
+    }
+
+    #[test]
+    fn rejects_bad_outer_rings() {
+        let c = cell_dancoff(&cell(0.7), &TOTALS).unwrap();
+        for (area, total) in [
+            (0.0, 0.3),
+            (-0.1, 0.3),
+            (0.1, -0.3),
+            (f64::NAN, 0.3),
+            (0.1, f64::INFINITY),
+        ] {
+            let outer = Some(OuterRing { area, total });
+            assert!(
+                equivalent_radius(&INNER, &TOTALS, outer, c).is_err(),
+                "{area} {total}"
+            );
+        }
     }
 }

@@ -763,7 +763,7 @@ fn shield_cell(
             .chain([dilute[moderator].total[g]])
             .collect();
         // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
-        sum += equivalent_radius(&inner, &totals, c.max(MIN_DANCOFF))?;
+        sum += equivalent_radius(&inner, &totals, None, c.max(MIN_DANCOFF))?;
     }
     let radius = sum / (bottom - top) as f64;
     let cylinder = Cylinder::new(radii[..start].iter().copied().chain([radius]).collect())?;
@@ -2043,6 +2043,63 @@ mod tests {
             assert!(sph.iter().all(|row| row.len() == 2));
             assert_eq!(sph[3], vec![1.0, 1.0]);
             assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
+        }
+
+        #[test]
+        fn frames_are_the_outer_ring_of_the_cell() {
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let shield = |frame: bool| {
+                let mut pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+                let mut regions = vec!["fuel", crate::input::VOID, "clad", "water"];
+                if frame {
+                    pin = pin.with_frame(0.05).unwrap();
+                    regions.push("clad");
+                }
+                let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+                let regions: Vec<String> = regions.into_iter().map(String::from).collect();
+                shield_fuel(
+                    &library,
+                    &tracking,
+                    &materials,
+                    &regions,
+                    &ShieldingOptions::default(),
+                )
+                .unwrap()
+            };
+            let (plain, framed) = (shield(false), shield(true));
+            // 等価なセルのリング: 燃料、ギャップ、被覆管、減速材と、枠
+            let sph = |s: &FuelShielding| s.pins[0].sph.as_ref().unwrap().len();
+            assert_eq!(sph(&plain), 4);
+            assert_eq!(sph(&framed), 5);
+            // 枠の影は支持格子のリングが作るので、減速材のリングは枠のないセルより小さい
+            let radius = |s: &FuelShielding| s.pins[0].equivalent.unwrap();
+            assert!(
+                radius(&framed) < radius(&plain),
+                "{} {}",
+                radius(&framed),
+                radius(&plain)
+            );
         }
 
         #[test]
