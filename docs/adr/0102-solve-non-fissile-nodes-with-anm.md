@@ -1,9 +1,9 @@
 ---
 status: accepted
 date: 2026-10-09
-supersedes: [ADR-0027]
+supersedes: [ADR-0027, ADR-0045]
 superseded-by:
-issues: []
+issues: ["#0027"]
 ---
 
 # ADR-0102: 核分裂のないノードは2群の解析的ノード法（ANM）で解き、core と1ノードの問題で同じ核を使う
@@ -37,8 +37,9 @@ NEM で解くと、ノード平均を保ち両方の面の正味の中性子流�
 
 ## 決定と理由
 
-核分裂のないノード（νΣf がどの群も 0 の物質）は2群の ANM で、核分裂のあるノードは NEM（ADR-0045 の4次）で解く。
-ANM の核は共通の計算のクレート（`xlc-numeric`）に置き、core と、ADF を作る1ノードの問題（ADR-0094）の両方で使う。
+核分裂のないノード（νΣf がどの群も 0 の物質）は2群の ANM で、核分裂のあるノード（νΣf が正の群がある物質）は
+4次の NEM で解く。νΣf が負か有限でない物質は、核を選べないのでエラーにする。ANM の核は共通の計算のクレート
+（`xlc-numeric`）に置き、core と、ADF を作る1ノードの問題（[ADR-0103](0103-define-adf-by-one-node-kernels.md)。[ADR-0094](0094-define-adf-by-one-node-nem.md) を置き換え）の両方で使う。
 NEM の核と同じく、core が使う式で格子計算の1ノードの問題を解くことで、GET の等価性を保つ。
 
 - 方向ごとの横方向に積分した式 −D φ″ + A φ = −L(x)（A は除去と群の間の散乱の 2×2 の行列、L は横方向の漏れ）を、
@@ -49,30 +50,50 @@ NEM の核と同じく、core が使う式で格子計算の1ノードの問題�
 - 横方向の漏れは NEM と同じ2次式（隣のノードを含む）とする
 - 核の出力は NEM と同じ形（群ごとの、ノード平均について線形な出ていく部分中性子流と、面の中性子束）とし、core の
   群ごとのスイープにそのまま入れる。ほかの群のノード平均と入射は、スイープのそのときの値を使う
-- 2群でない核分裂のないノード、D⁻¹A の固有値が正の実数で異ならないノードはエラーにする（ADR-0098 の少数群は2群）
+- 2群でない核分裂のないノード、D⁻¹A の固有値が正の実数でないノードはエラーにする（ADR-0098 の少数群は2群）。
+  群が結合しない（群の間の散乱が 0 の）ときは、固有ベクトルを単位ベクトルとし、固有値が等しくてもよい。群が結合して
+  固有値が重なる（近い）ときは、2つのモードの固有ベクトルがそろい、ANM の基底が足りなくなる（重なった固有値には
+  x sinh の形の解が要る）。この扱いは入れず、面の条件の 4×4 の式（列の大きさをそろえたもの）の 1-ノルムの条件数が
+  10⁻⁸/ε を超えたらエラーにする。解の相対誤差はおよそ 条件数 × ε なので、8 桁の精度を保てないときに黙って精度を
+  落とさない。反射体の定数（水、鋼）では、2群の除去と拡散の比が大きく違い、固有値は重ならない
+- 薄いノードでは cosh のモードの面の値 1 − tanh(t)/t（t = κh/2）が桁落ちするので、t < 0.0436 では級数で求める
+  （直接の式の相対誤差 3ε/t² と級数の打ち切りの相対誤差が等しくなる点。どちらの側も 4 × 10⁻¹³ 以下）。小さいほうの
+  固有値は det/(大きいほうの固有値) で求める
+- ANM の固有値と面の値の表は、ノードの定数と幅で決まるので、core はノードと方向ごとに1回だけ作る
 - 核分裂のあるノードは NEM のままとする。ANM を燃料に使うと、k∞/k_eff が 1 に近いノードの不安定の扱い（PARCS の
   hybrid の閾値）を決める必要があり、燃料の NEM の結果（VERA の検証）が変わる
 
-この ADR は [ADR-0027](0027-solve-core-with-nem.md) を置き換える。ADR-0027 のうち次はそのまま有効である: 炉心計算は 3D のノード法の2群の拡散
-計算とし、1集合体を径方向に1ノード（必要なら2×2）とする。燃料（核分裂のある）のノードは NEM で解く（商用コードの
-標準的な手法で、ADF とピン出力の再構成を含めて確立しているため）。展開の次数は [ADR-0045](0045-expand-nem-to-fourth-order.md)、加速は
-[ADR-0028](0028-accelerate-core-with-nonlinear-cmfd.md)。
+この ADR は [ADR-0027](0027-solve-core-with-nem.md) と [ADR-0045](0045-expand-nem-to-fourth-order.md) を置き換える。次はそのまま有効である（ADR の運用。docs/adr/README.md）。
+
+- ADR-0027: 炉心計算は 3D のノード法の2群の拡散計算とし、1集合体を径方向に1ノード（必要なら2×2）とする。燃料
+  （核分裂のある）のノードは NEM で解く（商用コードの標準的な手法で、ADF とピン出力の再構成を含めて確立している
+  ため）。加速は [ADR-0028](0028-accelerate-core-with-nonlinear-cmfd.md)
+- ADR-0045: NEM は4次の多項式で展開し、横方向の漏れは2次で近似する。この ADR の ANM のノードも、横方向の漏れは
+  同じ2次式とする
 
 ## 確認
+
+ADR-0027 と ADR-0045 の確認を引き継ぐ: 均質な直方体炉心の解析解（2群拡散方程式、B² = Σ(π/L)²）との一致
+（`bare_cuboid_matches_analytic_buckling`、`assembly_sized_nodes_converge`）。M3 で VERA Problem 3〜5 と比べる。
 
 - `anm::tests::non_fissile_slab_matches_fine_differences`: 核分裂のない2群の平板（20 cm、上方散乱と横方向の漏れの
   2次式あり）で、細かいメッシュ（20000 セル）の差分の解のノード平均を与えると、ANM の出ていく部分中性子流が差分の
   解に相対 2 × 10⁻⁶ で一致し、1D のバランスを満たす
+- `thin_and_thick_nodes_match_analytic_and_fine_differences`: 群が結合しない2群の解析解に、幅 10⁻³ cm（κh/2 ≈ 10⁻⁴）、
+  1 cm、200 cm で相対 10⁻¹² で一致する。群が結合する 200 cm のノードは差分に 10⁻⁵ で一致する。
+  `even_face_value_keeps_precision_for_small_arguments`、`uncoupled_equal_modes_are_solved`、
+  `ill_conditioned_modes_are_errors`（固有値が重なる、または 10⁻¹⁴ だけ違う結合した群）、`non_finite_inputs_are_errors`
 - `anm::tests::steep_reflector_keeps_positive_face_flux` と `one_node_problems_of_non_fissile_nodes_use_anm`: 燃料側から
   入り真空側へ出る 21.5 cm の反射体で、面の中性子束が正で、1ノードの問題の均質な面の中性子束が差分の解の面の
   中性子束に一致する（ADF が 1）
 - `nem::tests::get_adfs_reproduce_fuel_and_a_wide_reflector`（core）: 燃料（20 cm）と反射体（21.5 cm）の細かいノードの
   解を、2つの粗いノード（反射体は ANM）の GET の定数で k の相対 10⁻⁷ で再現する
+- νΣf の分類: `fissile_nodes_have_positive_nu_fission`（numeric）、`negative_nu_fission_is_an_error`（core）
 - 燃料だけの問題: core と numeric の既存のテストは変えずに通る
 - I 型の反射体の格子での確認は ADR-0095 の確認で行う
 
 ## 結果
 
-- ADR-0094 の1ノードの問題は、核分裂のないノードで ANM を使う
+- ADF の1ノードの問題も核分裂のないノードで ANM を使う（ADR-0103 が ADR-0094 を置き換える）
 - 燃料が真空に直接面する集合体の負の均質な面の中性子束（#0027）は、燃料のノードが NEM のままなので残る
 - ピン出力の再構成（[ADR-0096](0096-reconstruct-pin-power-analytically.md)）は燃料のノードだけなので、反射体のノードの形は使わない
