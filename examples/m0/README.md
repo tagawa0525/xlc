@@ -1,7 +1,8 @@
 # M0: 3段階の縦切り
 
 ENDF/B-VIII.0 から、多群ライブラリ（`xs`）、ピンセルの2群定数（`lattice`）、炉心の k_eff（`core`）までを
-順に計算する例。手法と近似は [M0 の計画](../../docs/plans/m0-vertical-slice.md) のとおり。
+順に計算する例。手法と近似は M0 で決めた [ADR-0038](../../docs/adr/0038-use-zero-kelvin-cross-sections-in-m0.md)〜[ADR-0045](../../docs/adr/0045-expand-nem-to-fourth-order.md) のとおり（後に置き換えたものは、各 ADR の `superseded-by` が新しい
+決定を指す）。範囲と完了条件は [M0 の計画](../../docs/plans/m0-vertical-slice.md)。
 
 ## 実行
 
