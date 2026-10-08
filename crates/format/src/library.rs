@@ -1,6 +1,6 @@
 //! 多群ライブラリ（`xs` から `lattice` に渡すファイル）。
 //!
-//! フィールド名付きの map 形式の MessagePack（全体計画の「ファイルの約束事」）。f64 は 8 バイトのまま持つので、
+//! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）。f64 は 8 バイトのまま持つので、
 //! 書いて読んだ値は最下位のビットまで一致する。核種ごとに温度の表を持ち、温度ごとに σ0（背景断面積）ごとの
 //! 群定数を持つ。σ0 は全核種で共通で、降順に並べ、最初の値を無限希釈とみなす。
 //!
@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::group::GroupStructure;
 use crate::msgpack::{self, MsgpackError};
 
-/// 核種名が約束事（全体計画の「ファイルの約束事」）の形か: `U-235`, `H-1`, `Am-242m`, `Hf-178m2`。
+/// 核種名が約束事（ADR-0015）の形か: `U-235`, `H-1`, `Am-242m`, `Hf-178m2`。
 pub fn is_nuclide_name(name: &str) -> bool {
     // 数字の並び（先頭は 0 でない）
     let number =
