@@ -10,3 +10,6 @@
 /examples/vera/vera.msgpack
 /examples/vera/pins-*.msgpack
 /examples/vera/xs.log
+/examples/mox/*.msgpack
+!/examples/mox/openmc-*.msgpack
+/examples/mox/xs.log
