@@ -105,6 +105,8 @@ impl Boundaries {
 pub enum TrackingError {
     #[error("the number of azimuthal angles must be positive and even, got {0}")]
     Azimuthal(usize),
+    #[error("an albedo must be between 0 and 1, got {0}")]
+    Albedo(f64),
     #[error("track spacing must be positive, got {0}")]
     Spacing(f64),
     #[error(
@@ -152,6 +154,13 @@ impl Tracking {
         }
         if !(spacing > 0.0 && spacing.is_finite()) {
             return Err(TrackingError::Spacing(spacing));
+        }
+        for side in [Side::Left, Side::Right, Side::Top, Side::Bottom] {
+            if let Boundary::Albedo(albedo) = boundaries.of(side)
+                && !(0.0..=1.0).contains(&albedo)
+            {
+                return Err(TrackingError::Albedo(albedo));
+            }
         }
         let n = n_azimuthal;
         let (width, height) = (lattice.width(), lattice.height());
