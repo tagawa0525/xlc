@@ -181,6 +181,35 @@ pub fn dancoff(
     Err(DancoffError::NotConverged(options.max_iterations))
 }
 
+/// 黒体にした塊（燃料でない共鳴の吸収体の領域など）の、群ごとの Dancoff 係数と平均弦長。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lump {
+    pub dancoff: Vec<f64>,
+    /// 平均弦長 l̄ = 4V/S (cm)。S は黒体でない領域に接する面（露出した面）
+    pub chord: f64,
+}
+
+/// 塊ごとの Dancoff 係数と平均弦長。`lump` は [領域] の塊の番号（黒体にしない領域は `None`）で、塊は
+/// 0..`lumps`。黒体の領域どうしの間を移る中性子は数えず、黒体でない領域から塊に入るたびに、孤立した塊への
+/// 入射として数える（隣のセルとつながる支持格子の枠のように、露出した面が一部だけの塊にも使える）。
+/// 等方な中性子束 1 での入射率 R_iso = S/4 から l̄ = 4V/S = V/R_iso とする。
+pub fn lump_dancoff(
+    tracking: &Tracking,
+    totals: &[Vec<f64>],
+    lump: &[Option<usize>],
+    lumps: usize,
+    options: &DancoffOptions,
+) -> Result<Vec<Lump>, DancoffError> {
+    let _ = (tracking, totals, lump, options);
+    Ok(vec![
+        Lump {
+            dancoff: Vec::new(),
+            chord: f64::NAN,
+        };
+        lumps
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,6 +294,43 @@ mod tests {
         let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.05).unwrap();
         let c = dancoff(&tracking, &[vec![], vec![1.2]], &[true, false], &options()).unwrap();
         assert_eq!(c[0].as_ref().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn isolated_annulus_has_its_own_chord() {
+        // 薄い水の中の孤立した円環（内径 0.5、外径 0.55）: C ≈ 0、l̄ = 4V/S = 2(r₂ − r₁)
+        let cell = PinCell::new(4.0, vec![0.5, 0.55]).unwrap();
+        let lattice = Lattice::pin_cell(cell);
+        let tracking = Tracking::new(&lattice, 32, 0.005).unwrap();
+        let totals = vec![vec![1.0e-3]; 3];
+        let lumps =
+            lump_dancoff(&tracking, &totals, &[None, Some(0), None], 1, &options()).unwrap();
+        // 鏡面反射の外周で隣のセルの円環の影がわずかに残る
+        assert!(lumps[0].dancoff[0] < 0.05, "{lumps:?}");
+        assert!((lumps[0].chord - 0.1).abs() < 1e-3 * 0.1, "{lumps:?}");
+    }
+
+    #[test]
+    fn connected_frames_see_only_their_open_faces() {
+        // 2×2 のセルの外周の枠（厚さ 0.05）は隣の枠とつながる。セルごとの塊の l̄ = 4V/S は、露出した内側の面
+        // S = 4(p − 2t) だけで決まる
+        let (p, t) = (1.26, 0.05);
+        let cell = PinCell::new(p, vec![]).unwrap().with_frame(t).unwrap();
+        let lattice = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 32, 0.005).unwrap();
+        let totals = vec![vec![0.3]; lattice.regions()];
+        // セルごとに（水, 枠）の2領域
+        let lump: Vec<Option<usize>> = (0..8).map(|r| (r % 2 == 1).then_some(r / 2)).collect();
+        let lumps = lump_dancoff(&tracking, &totals, &lump, 4, &options()).unwrap();
+        let expected = (p * p - (p - 2.0 * t).powi(2)) / (p - 2.0 * t);
+        for l in &lumps {
+            assert!((l.chord - expected).abs() < 1e-3 * expected, "{lumps:?}");
+            assert!((0.0..=1.0).contains(&l.dancoff[0]), "{lumps:?}");
+            assert!(
+                (l.dancoff[0] - lumps[0].dancoff[0]).abs() < 1e-6,
+                "{lumps:?}"
+            );
+        }
     }
 
     #[test]
