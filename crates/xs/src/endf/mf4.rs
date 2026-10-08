@@ -111,6 +111,14 @@ impl Mf4 {
     }
 }
 
+impl Mf4 {
+    /// 入射エネルギー `e` での確率密度 f(μ)（`frame` の系の μ について。∫ f dμ = 1）。
+    pub fn density(&self, e: f64, mu: f64) -> f64 {
+        let _ = (e, mu);
+        f64::NAN
+    }
+}
+
 impl LegendreTable {
     /// a_1..a_order（与えられた次数より上は 0）
     fn moments(&self, e: f64, order: usize) -> Vec<f64> {
@@ -382,6 +390,20 @@ mod tests {
         // 1e-5 eV の a_1 = 0 と 2e5 eV の 0.2 の間の線形補間
         let expected = 0.2 * (1.0e5 - 1.0e-5) / (2.0e5 - 1.0e-5);
         close(&mf4.moments(1.0e5, 1), &[1.0, expected]);
+    }
+
+    #[test]
+    fn density_of_each_form() {
+        let iso = parse(&head("0", "1", "1")).unwrap();
+        assert_eq!(iso.density(1.0e6, 0.3), 0.5);
+        // Legendre: f(μ) = 1/2 + 3/2 a_1 μ + 5/2 a_2 P_2(μ)、1.5e5 eV で a_1 = 0.2、a_2 = 0.03
+        let legendre = parse(&(head("1", "0", "2") + &legendre_part())).unwrap();
+        let mu = 0.4_f64;
+        let expected = 0.5 + 1.5 * 0.2 * mu + 2.5 * 0.03 * 0.5 * (3.0 * mu * mu - 1.0);
+        assert!((legendre.density(1.5e5, mu) - expected).abs() < 1e-12);
+        // 表: 2e5 eV の 0.5 + 0.3 μ と 4e5 eV の 0.5 を 3e5 eV で線形に補間
+        let tabulated = parse(&(head("2", "0", "2") + &tabulated_part())).unwrap();
+        assert!((tabulated.density(3.0e5, mu) - (0.5 + 0.15 * mu)).abs() < 1e-12);
     }
 
     #[test]
