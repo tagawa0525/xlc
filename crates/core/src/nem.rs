@@ -12,7 +12,8 @@
 //! 外周の真空の面は、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
 
 use xlc_format::fewgroup::FewGroup;
-use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, outflow, transverse_moments};
+use xlc_numeric::anm::{self, AnmNode};
+use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, is_fissile, outflow, transverse_moments};
 
 /// 外周の境界条件。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,6 +260,13 @@ impl<'a> Core<'a> {
             if m.groups() != groups {
                 return Err(format!("material {i} must have {groups} groups"));
             }
+            // 核分裂のないノードは2群の ANM で解く（ADR-0102）
+            if !is_fissile(&m.nu_fission) && groups != 2 {
+                return Err(format!(
+                    "material {i} has no fission and is solved with the 2-group analytic nodal \
+                     method, but has {groups} groups"
+                ));
+            }
             if m.diffusion.iter().any(|&d| d.is_nan() || d <= 0.0) {
                 return Err(format!(
                     "material {i}: diffusion coefficients must be positive"
@@ -431,9 +439,13 @@ impl<'a> Core<'a> {
 
     fn sweep_group(&self, state: &mut State, g: usize, k: f64) -> Result<(), NemError> {
         let nodes = self.nodes();
-        // 横方向の漏れは群のスイープの始めの値を使う
-        let leakage: Vec<[f64; 3]> = (0..nodes)
-            .map(|n| std::array::from_fn(|d| self.net_leakage(state, n, d, g)))
+        // 横方向の漏れは群のスイープの始めの値を使う。[群][ノード]（核分裂のないノードの ANM はすべての群を使う）
+        let leakage: Vec<Vec<[f64; 3]>> = (0..self.groups)
+            .map(|group| {
+                (0..nodes)
+                    .map(|n| std::array::from_fn(|d| self.net_leakage(state, n, d, group)))
+                    .collect()
+            })
             .collect();
         for n in 0..nodes {
             let m = self.material(n);
@@ -459,18 +471,10 @@ impl<'a> Core<'a> {
             for (d, part) in parts.iter_mut().enumerate() {
                 let h = self.width(n, d);
                 // ノード n の群 g の値はまだ更新していないので、スイープの始めの値と同じ
-                let transverse = self.transverse_shape(state, &leakage, n, d, g)?;
-                // 入射は i = β o + 外からの入射（face_inputs）
-                let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, g);
-                *part = outflow(&Line {
-                    diffusion: m.diffusion[g],
-                    width: h,
-                    removal,
-                    coupling: &coupling,
-                    coefficients: &state.coefficients[d][n],
-                    group: g,
-                    transverse,
-                    inflow: [
+                // 入射は i = β o + 外からの入射（face_inputs）。[+ 面, - 面]
+                let inflow_of = |group: usize| {
+                    let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, group);
+                    [
                         Inflow {
                             beta: beta_r,
                             external: ext_r,
@@ -479,8 +483,39 @@ impl<'a> Core<'a> {
                             beta: beta_l,
                             external: ext_l,
                         },
-                    ],
-                });
+                    ]
+                };
+                *part = if is_fissile(&m.nu_fission) {
+                    outflow(&Line {
+                        diffusion: m.diffusion[g],
+                        width: h,
+                        removal,
+                        coupling: &coupling,
+                        coefficients: &state.coefficients[d][n],
+                        group: g,
+                        transverse: self.transverse_shape(state, &leakage[g], n, d, g)?,
+                        inflow: inflow_of(g),
+                    })
+                } else {
+                    // 核分裂のないノードは2群の ANM（ADR-0102）。ほかの群はスイープのそのときの値を使う
+                    let transverse = (0..self.groups)
+                        .map(|group| self.transverse_shape(state, &leakage[group], n, d, group))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let inflow: Vec<[Inflow; 2]> = (0..self.groups).map(inflow_of).collect();
+                    anm::outflow(
+                        &AnmNode {
+                            diffusion: &m.diffusion,
+                            total: &m.total,
+                            scatter: &m.scatter,
+                            width: h,
+                            transverse: &transverse,
+                            inflow: &inflow,
+                            averages: &state.flux[n],
+                        },
+                        g,
+                    )
+                    .map_err(|e| NemError::InvalidProblem(format!("node {n}: {e}")))?
+                };
                 // 正味の漏れ (o_R + o_L - i_R - i_L)/h（i = β o + 外からの入射）をバランス式に入れる
                 for f in 0..2 {
                     balance_rhs -= ((1.0 - part.beta[f]) * part.out[f] - part.external[f]) / h;
