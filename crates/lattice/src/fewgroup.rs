@@ -119,7 +119,7 @@ pub fn homogenize(
             .zip(&scatter)
             .map(|(t, row)| t - row.iter().sum::<f64>())
             .collect(),
-        diffusion: diffusion_coefficients(solution, materials, fine, coarse_bounds, boundaries)?,
+        diffusion: diffusion(solution, materials, &group_of, coarse, true)?,
         total,
         nu_fission: per_flux(nu_fission),
         fission: per_flux(fission),
@@ -180,9 +180,12 @@ fn coarse_groups(
 /// モーメントがなければエラーにする。
 ///
 /// - 外周がすべて鏡面反射の格子: 細かい群のまま中性子束と体積で均質化し、B1 の臨界のバックリングでの
-///   基本モードから D_g = J_g / (B φ_g) とし、B1 の中性子束で縮約する（D_G = Σ J_g / Σ B φ_g）
-/// - それ以外（真空かアルベドの辺がある）: 領域・細かい群ごとに outflow の輸送断面積
-///   Σtr,g = Σt,g − Σ_g' Σs1(g→g') で D = 1/(3Σtr) とし、MOC の中性子束と体積で重みづけして均質化・縮約する
+///   基本モードから D_g = J_g / (B φ_g) とし、B1 の中性子束で縮約する（D_G = Σ J_g / Σ B φ_g）。
+///   核分裂のない媒質では臨界のバックリングが定まらないので、B² = 0 の中性子流の式（P1）を MOC の
+///   中性子束で解き、MOC の中性子束で縮約する
+/// - それ以外（真空かアルベドの辺がある）: outflow の輸送断面積 Σtr,g = Σt,g − Σ_g' Σs1(g→g') を、
+///   領域と細かい群について MOC の中性子束と体積で重みづけして少数群に均質化し、D_G = 1/(3⟨Σtr⟩_G) とする
+///   （真空の領域は Σtr = 0 で、中性子束と体積は重みに入る）
 pub fn diffusion_coefficients(
     solution: &Solution,
     materials: &[&Material],
@@ -192,17 +195,33 @@ pub fn diffusion_coefficients(
 ) -> Result<Vec<f64>, HomogenizeError> {
     check_regions(solution, materials)?;
     let group_of = coarse_groups(fine, coarse_bounds)?;
+    diffusion(
+        solution,
+        materials,
+        &group_of,
+        coarse_bounds.len() - 1,
+        reflective(boundaries),
+    )
+}
+
+/// 検査済みの領域と群の対応で、拡散係数を作る（`diffusion_coefficients`）。
+fn diffusion(
+    solution: &Solution,
+    materials: &[&Material],
+    group_of: &[usize],
+    coarse: usize,
+    reflective: bool,
+) -> Result<Vec<f64>, HomogenizeError> {
     if let Some(region) = materials
         .iter()
         .position(|m| !m.is_void() && m.anisotropic.is_empty())
     {
         return Err(HomogenizeError::NoP1 { region });
     }
-    let coarse = coarse_bounds.len() - 1;
-    if reflective(boundaries) {
-        b1_diffusion(solution, materials, &group_of, coarse)
+    if reflective {
+        b1_diffusion(solution, materials, group_of, coarse)
     } else {
-        outflow_diffusion(solution, materials, &group_of, coarse)
+        outflow_diffusion(solution, materials, group_of, coarse)
     }
 }
 
@@ -263,24 +282,26 @@ fn b1_diffusion(
         }
     }
     let produced: f64 = medium.chi.iter().sum();
-    if produced <= 0.0 {
-        return Err(B1Error::NoFission.into());
-    }
-    for c in &mut medium.chi {
-        *c /= produced;
-    }
-    let mode = medium.critical()?;
-    tracing::info!(buckling = mode.buckling, "B1 critical spectrum");
-    let mut current = vec![0.0; coarse];
-    let mut weight = vec![0.0; coarse];
+    let (current, weight) = if produced > 0.0 {
+        for c in &mut medium.chi {
+            *c /= produced;
+        }
+        let mode = medium.critical()?;
+        (mode.current, mode.flux)
+    } else {
+        // 核分裂のない媒質: B² = 0 の P1 の中性子流を、MOC の中性子束（領域で積分した値）で解く
+        (medium.zero_buckling_current(&flux)?, flux)
+    };
+    let mut sum = vec![0.0; coarse];
+    let mut total = vec![0.0; coarse];
     for g in 0..ng {
-        current[group_of[g]] += mode.current[g];
-        weight[group_of[g]] += mode.flux[g];
+        sum[group_of[g]] += current[g];
+        total[group_of[g]] += weight[g];
     }
-    if weight.iter().any(|&f| f <= 0.0) {
+    if total.iter().any(|&f| f <= 0.0) {
         return Err(HomogenizeError::NoFlux);
     }
-    Ok(current.iter().zip(&weight).map(|(j, f)| j / f).collect())
+    Ok(sum.iter().zip(&total).map(|(j, f)| j / f).collect())
 }
 
 fn outflow_diffusion(
@@ -289,36 +310,32 @@ fn outflow_diffusion(
     group_of: &[usize],
     coarse: usize,
 ) -> Result<Vec<f64>, HomogenizeError> {
-    let mut sum = vec![0.0; coarse];
+    let mut transport = vec![0.0; coarse];
     let mut weight = vec![0.0; coarse];
-    for (region, ((m, phi), volume)) in materials
-        .iter()
-        .zip(&solution.flux)
-        .zip(&solution.volumes)
-        .enumerate()
-    {
+    for ((m, phi), volume) in materials.iter().zip(&solution.flux).zip(&solution.volumes) {
         for (g, &big) in group_of.iter().enumerate() {
             let w = volume * phi[g];
-            if w == 0.0 {
-                continue;
-            }
             let out: f64 = m.anisotropic.first().map_or(0.0, |p1| p1[g].iter().sum());
-            let transport = m.total[g] - out;
-            if transport <= 0.0 || transport.is_nan() {
-                let _ = region;
-                return Err(HomogenizeError::Transport {
-                    group: g,
-                    transport,
-                });
-            }
-            sum[big] += w / (3.0 * transport);
+            transport[big] += w * (m.total[g] - out);
             weight[big] += w;
         }
     }
     if weight.iter().any(|&f| f <= 0.0) {
         return Err(HomogenizeError::NoFlux);
     }
-    Ok(sum.iter().zip(&weight).map(|(d, f)| d / f).collect())
+    transport
+        .iter()
+        .zip(&weight)
+        .enumerate()
+        .map(|(group, (t, w))| {
+            let transport = t / w;
+            if transport > 0.0 {
+                Ok(1.0 / (3.0 * transport))
+            } else {
+                Err(HomogenizeError::Transport { group, transport })
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
