@@ -16,10 +16,11 @@ U-234, U-235, U-236, U-238, O-16, O-17, H-1（H in H2O）, B-10, B-11, Zr-90, Zr
 
 - 共鳴の形式（MLBW の追加）: [ADR-0021](../adr/0021-follow-njoy-processing-flow.md)
 - ドップラー拡がり: [ADR-0046](../adr/0046-broaden-with-sigma1.md)
-- 核種ごとの温度: [ADR-0047](../adr/0047-choose-temperatures-per-nuclide.md)
+- 核種ごとの温度: [ADR-0047](../adr/0047-choose-temperatures-per-nuclide.md)（M3 で [ADR-0080](../adr/0080-interpolate-sab-in-temperature.md) に置き換え）
 - 非分離共鳴の自己遮蔽: [ADR-0048](../adr/0048-shield-unresolved-like-unresr.md)
 - 幅のゆらぎの期待値: [ADR-0049](../adr/0049-integrate-width-fluctuations-adaptively.md)
 - σ0 ごとの群定数とライブラリの中身: [ADR-0050](../adr/0050-tabulate-sigma0-per-nuclide-and-temperature.md)
+- 自己遮蔽した核種の散乱行列: [ADR-0092](../adr/0092-match-scattering-rows-to-shielded-elastic.md)（M2 で [ADR-0076](../adr/0076-store-legendre-scattering-moments.md) に置き換え）
 - σ0 ごとの群定数の重み: [ADR-0051](../adr/0051-weight-shielded-data-by-nr.md)（M2 で [ADR-0072](../adr/0072-weight-shielded-data-by-flux-calculator.md) に置き換え）
 - 熱中性子散乱: [ADR-0052](../adr/0052-scatter-h-in-h2o-by-sab.md)
 - `xs` の入力: [ADR-0053](../adr/0053-read-xs-input-from-file.md)
