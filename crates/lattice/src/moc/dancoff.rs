@@ -46,6 +46,8 @@ pub enum DancoffError {
     FuelOnBoundary(usize),
     #[error("cell {cell}: negative Dancoff factor {value} beyond the convergence tolerance")]
     Negative { cell: usize, value: f64 },
+    #[error("region {0} is in a lump but not black")]
+    NotBlack(usize),
     #[error("lump {lump} is outside the {lumps} lumps")]
     Lump { lump: usize, lumps: usize },
     #[error("lump {0} has no face open to non-black regions")]
@@ -221,8 +223,9 @@ pub struct Lump {
     pub chord: f64,
 }
 
-/// 塊ごとの Dancoff 係数と平均弦長。`lump` は [領域] の塊の番号（黒体にしない領域は `None`）で、塊は
-/// 0..`lumps`。黒体の領域どうしの間を移る中性子は数えず、黒体でない領域から塊に入るたびに、孤立した塊への
+/// 塊ごとの Dancoff 係数と平均弦長。`black` は [領域] の黒体にするか、`lump` は [領域] の塊の番号（塊でない
+/// 領域は `None`。塊は黒体の領域だけ）で、塊は 0..`lumps`。塊でない黒体の領域は、影を作るだけで結果を求めない。
+/// 黒体の領域どうしの間を移る中性子は数えず、黒体でない領域から塊に入るたびに、孤立した塊への
 /// 入射として数える（隣のセルとつながる支持格子の枠のように、露出した面が一部だけの塊にも使える）。
 /// 等方な中性子束 1 での入射率 R_iso = S/4 から l̄ = 4V/S = V/R_iso とする。
 pub fn lump_dancoff(
@@ -234,7 +237,7 @@ pub fn lump_dancoff(
     options: &DancoffOptions,
 ) -> Result<Vec<Lump>, DancoffError> {
     let regions = tracking.lattice.regions();
-    for given in [totals.len(), lump.len()] {
+    for given in [totals.len(), black.len(), lump.len()] {
         if given != regions {
             return Err(DancoffError::Regions { given, regions });
         }
@@ -242,8 +245,9 @@ pub fn lump_dancoff(
     if let Some(&l) = lump.iter().flatten().find(|&&l| l >= lumps) {
         return Err(DancoffError::Lump { lump: l, lumps });
     }
-    let _ = black;
-    let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+    if let Some(region) = (0..regions).find(|&r| lump[r].is_some() && !black[r]) {
+        return Err(DancoffError::NotBlack(region));
+    }
     let ng = (0..regions)
         .find(|&r| !black[r])
         .map(|r| totals[r].len())
@@ -276,7 +280,7 @@ pub fn lump_dancoff(
         }
     }
     let psi0 = 1.0 / (4.0 * PI);
-    let delta = absorbed_by_black(tracking, totals, &black, ng, options)?;
+    let delta = absorbed_by_black(tracking, totals, black, ng, options)?;
     let volumes = tracking.volumes(regions);
     let mut absorbed = vec![vec![0.0; ng]; lumps];
     let mut volume = vec![0.0; lumps];
@@ -473,7 +477,10 @@ mod tests {
             1,
             &options(),
         );
-        assert!(result.is_err(), "{result:?}");
+        assert!(
+            matches!(result, Err(DancoffError::NotBlack(1))),
+            "{result:?}"
+        );
     }
 
     #[test]
