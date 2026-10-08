@@ -4,8 +4,12 @@ use std::f64::consts::PI;
 
 /// Gauss–Legendre の点が求まらない。
 #[derive(Debug, thiserror::Error)]
-#[error("Gauss-Legendre nodes for {0} points did not converge")]
-pub struct NodesError(pub usize);
+pub enum NodesError {
+    #[error("Gauss-Legendre needs at least one point")]
+    NoPoints,
+    #[error("Gauss-Legendre nodes for {0} points did not converge")]
+    NotConverged(usize),
+}
 
 /// Legendre 多項式 P_0(x)〜P_order(x)
 pub fn legendre(x: f64, order: usize) -> Vec<f64> {
@@ -23,6 +27,9 @@ pub fn legendre(x: f64, order: usize) -> Vec<f64> {
 
 /// [−1, 1] の n 点の Gauss–Legendre の点と重み（Newton 法で Legendre 多項式の零点を求める）。
 pub fn gauss_legendre(n: usize) -> Result<Vec<(f64, f64)>, NodesError> {
+    if n == 0 {
+        return Err(NodesError::NoPoints);
+    }
     let mut nodes = Vec::with_capacity(n);
     for i in 0..n {
         let mut x = (PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
@@ -37,7 +44,7 @@ pub fn gauss_legendre(n: usize) -> Result<Vec<(f64, f64)>, NodesError> {
             }
         }
         if !converged {
-            return Err(NodesError(n));
+            return Err(NodesError::NotConverged(n));
         }
         let (_, dp) = legendre_with_derivative(n, x);
         nodes.push((x, 2.0 / ((1.0 - x * x) * dp * dp)));
