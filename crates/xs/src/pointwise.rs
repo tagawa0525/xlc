@@ -231,28 +231,27 @@ pub struct ColdParts {
 /// ことがあり、そのまま使うと、出射する中性子のない断面積が残る。最初の点をその値のまましきい値に移し、
 /// しきい値以下のほかの点は捨てる（NJOY はそれらを有効数字 7 桁でしきい値のすぐ上に詰めて並べるので、
 /// 群定数の差は無視できる）。
-fn start_at_threshold(mt: u32, mf3: &Mf3) -> Tab1 {
+fn start_at_threshold(mt: u32, mf3: &Mf3) -> (Tab1, Option<ThresholdShift>) {
     let sigma = &mf3.sigma;
     if mf3.qi >= 0.0 || mf3.awr <= 0.0 {
-        return sigma.clone();
+        return (sigma.clone(), None);
     }
     let threshold = -mf3.qi * (mf3.awr + 1.0) / mf3.awr;
     let Some(&first) = sigma.x.first() else {
-        return sigma.clone();
+        return (sigma.clone(), None);
     };
     if first >= threshold {
-        return sigma.clone();
+        return (sigma.clone(), None);
     }
     // しきい値以下の点の数（最初の点を含む）。最初の点だけを残してしきい値に移す
     let below = sigma.x.partition_point(|&e| e <= threshold);
     if below == sigma.x.len() {
-        return sigma.clone();
+        return (sigma.clone(), None);
     }
     let dropped = below - 1;
-    tracing::warn!(
+    tracing::debug!(
         "MT{mt}: the table starts at {first} eV, below the kinematic threshold {threshold} eV; \
-         starting it at the threshold and dropping {dropped} more points below it (NJOY RECONR \
-         also starts it there)"
+         starting it at the threshold and dropping {dropped} more points below it"
     );
     let mut x = vec![threshold];
     x.extend_from_slice(&sigma.x[below..]);
@@ -269,7 +268,59 @@ fn start_at_threshold(mt: u32, mf3: &Mf3) -> Tab1 {
             (shifted >= 2).then_some((shifted, law))
         })
         .unzip();
-    Tab1 { breaks, laws, x, y }
+    let shift = ThresholdShift {
+        mt,
+        first,
+        threshold,
+        dropped,
+    };
+    (Tab1 { breaks, laws, x, y }, Some(shift))
+}
+
+/// 運動学のしきい値に合わせた1反応（`start_at_threshold`）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ThresholdShift {
+    mt: u32,
+    /// 表の最初の点 (eV)
+    first: f64,
+    /// 運動学のしきい値 (eV)
+    threshold: f64,
+    /// 捨てた点の数（しきい値に移した最初の点を除く）
+    dropped: usize,
+}
+
+impl ThresholdShift {
+    /// 最初の点を動かした幅 (eV)
+    fn shift(&self) -> f64 {
+        self.threshold - self.first
+    }
+
+    /// しきい値に対する、動かした幅の比
+    fn relative(&self) -> f64 {
+        self.shift() / self.threshold
+    }
+}
+
+/// 1核種でしきい値に合わせた反応のまとめ（核種ごとに1回だけ警告するため）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ThresholdSummary {
+    reactions: usize,
+    /// 動かした幅 (eV) が最も大きい反応
+    largest: ThresholdShift,
+    /// 捨てた点の数の和
+    dropped: usize,
+}
+
+/// しきい値に合わせた反応をまとめる。なければ `None`。
+fn summarize_thresholds(shifts: &[ThresholdShift]) -> Option<ThresholdSummary> {
+    let largest = *shifts
+        .iter()
+        .max_by(|a, b| a.shift().total_cmp(&b.shift()))?;
+    Some(ThresholdSummary {
+        reactions: shifts.len(),
+        largest,
+        dropped: shifts.iter().map(|s| s.dropped).sum(),
+    })
 }
 
 impl ColdParts {
@@ -280,6 +331,7 @@ impl ColdParts {
         let available: Vec<u32> = sections.iter().map(|(mt, _)| *mt).collect();
         let mut tables = BTreeMap::new();
         let mut awr = None;
+        let mut shifts = Vec::new();
         for (mt, section) in sections
             .iter()
             .filter(|(mt, _)| !is_dropped(*mt, &available))
@@ -287,7 +339,22 @@ impl ColdParts {
             let mt = *mt;
             let mf3 = Mf3::parse(section)?;
             awr.get_or_insert(mf3.awr);
-            tables.insert(mt, linearize(&start_at_threshold(mt, &mf3), tol));
+            let (sigma, shift) = start_at_threshold(mt, &mf3);
+            shifts.extend(shift);
+            tables.insert(mt, linearize(&sigma, tol));
+        }
+        if let Some(summary) = summarize_thresholds(&shifts) {
+            let largest = summary.largest;
+            tracing::warn!(
+                "{} reactions start below their kinematic threshold -Q(A+1)/A and now start at it \
+                 (as in NJOY RECONR); the largest shift is {:.4e} eV ({:.2e} of the threshold) in \
+                 MT{}; {} points below the thresholds were dropped",
+                summary.reactions,
+                largest.shift(),
+                largest.relative(),
+                largest.mt,
+                summary.dropped
+            );
         }
         let mut mf2 = None;
         if let Some(section) = tape.section(mat, 2, 151) {
