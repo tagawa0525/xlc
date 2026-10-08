@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-09
 supersedes: [ADR-0098]
 superseded-by:
@@ -101,9 +101,28 @@ ADR-0098 は [ADR-0044](0044-collapse-to-two-groups.md) の D = 1/(3Σt) をや�
 
 ## 確認
 
-まだ実装していない。
+- MOC の領域の中性子流（`crates/lattice/src/moc.rs`）: 無限媒質で 0（`region_currents_vanish_in_an_infinite_medium`）、
+  両側が真空の対称な帯で x が反対称、y はセルで打ち消す（`region_currents_are_antisymmetric_in_a_mirror_lattice`）、
+  右が真空の帯で x の1次のモーメントのバランスの式を、等方散乱（スイープで数えた値）と P1 の散乱（1次のモーメント）の両方で
+  満たし、差は領域の幅の2乗で減る（0.125 cm で 1% 未満。真空の領域を含む。`region_currents_satisfy_the_first_moment_balance`）
+- 拡散係数（`crates/lattice/src/fewgroup.rs`）: 手で計算した符号つきの重み（逆向きの領域を含む）と一致
+  （`open_lattice_weights_the_outflow_transport_cross_section_by_currents`、`open_lattice_without_p1_scattering_uses_one_third_total`、
+  `current_weighting_counts_a_void_gap_with_its_current`）、MOC の格子の領域の中性子流から手で重みづけした値と一致
+  （`open_lattice_d_uses_the_moc_region_currents`）、正味の中性子流が 0 と、重みづけした ⟨Σtr⟩ が正でないときはエラー
+  （`current_weighting_needs_a_net_current_and_a_positive_mean`）。ADR-0098 の B1 と P1 の確認はそのまま引き継ぐ
+- 反射体の I 型の格子（ADR-0095 の格子のノードごとの均質化を合わせた作業用の版で測った。記録は反射体の定数の
+  ブランチで examples/reflector/verification.md に書く。2026-10-09）: 反射体のノードの D は（高速、熱）で、中性子束の
+  重みの（0.895, 0.276）cm から（1.448, 0.348）cm になった。高速群は文献の 1.0〜1.4 cm の程度で、1ノードの問題の
+  真空の面の高速群の均質な中性子束は正になった。熱群は真空の面で −0.00115 と負のままである。打ち消しの程度
+  （Σw/Σ|w|）は、反射体のノードで高速 0.997、熱 0.21（熱群の中性子流は、燃料の近くで燃料へ戻り、外側で真空へ出る）。
+  燃料のノードの D は（1.099, 0.375）から（1.538, 0.425）cm になった
 
 ## 結果
 
-- 反射体の定数は、I 型の格子で、中性子流の重みの D で1ノードの均質な解が正になるかを測る（examples/reflector）。正に
-  ならなければ、Koebke の等価理論の D を別に決める
+- 反射体のノードの熱群は、中性子流の向きがノードの中で変わり、重みが大きく打ち消す（0.21）。この D でも1ノードの
+  均質な解の真空の面の熱群が負になるので、反射体の ADF はまだ作れない。熱群の扱い（Koebke の等価理論の D など）は
+  ユーザーの決定のあとで別に決める
+- 対称な位置のノード（正味の中性子流がほぼ 0）では、向きが丸め誤差で決まり、重みが意味を持たない。いまは厳密に 0 の
+  ときだけエラーにしている。カラーセットの内側のノードで問題になったら、打ち消しの程度の判定を決める
+- 非反射の格子の定数（真空の辺のある格子、ノードごとの均質化）の D は変わるので、作り直す。GET の等価性は D に依らない
+- 単一集合体（鏡面反射）の D は B1 のままで変わらない
