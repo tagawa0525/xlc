@@ -315,7 +315,39 @@ impl<'a> Core<'a> {
             })
             .collect::<Result<Vec<_>, String>>()?;
         core.check_vacuum_ratios()?;
+        core.check_normalized_adfs()?;
         Ok(core)
+    }
+
+    /// f* の辺（`normalized_adf`）の面が、隣のノードの f* でない辺と接することを確かめる（ADR-0095）
+    fn check_normalized_adfs(&self) -> Result<(), String> {
+        for n in 0..self.nodes() {
+            for d in 0..2 {
+                for plus in [false, true] {
+                    let Some(side) = side_of(d, plus) else {
+                        continue;
+                    };
+                    if !self.material(n).normalized_adf[side] {
+                        continue;
+                    }
+                    let material = self.problem.node_material[n];
+                    let Some(m) = self.neighbor(n, d, if plus { 1 } else { -1 }) else {
+                        return Err(format!(
+                            "material {material} has f* (an ADF over the fuel's) on side {side}, \
+                             but node {n} has no neighbor there"
+                        ));
+                    };
+                    let facing =
+                        side_of(d, !plus).is_some_and(|s| self.material(m).normalized_adf[s]);
+                    if facing {
+                        return Err(format!(
+                            "nodes {n} and {m} both have f* on their shared face"
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// `Vacuum` の面のノードの物質が、その面の辺の比を持つことを確かめる。z の面は、2次元の格子計算が
@@ -387,9 +419,21 @@ impl<'a> Core<'a> {
     }
 
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
-    /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1
+    /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1。
+    /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
+    /// ないことは `check_normalized_adfs` で確かめてある）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
-        side_of(d, plus).map_or(1.0, |side| self.material(n).adf[side][g])
+        let Some(side) = side_of(d, plus) else {
+            return 1.0;
+        };
+        let material = self.material(n);
+        let own = material.adf[side][g];
+        if !material.normalized_adf[side] {
+            return own;
+        }
+        self.neighbor(n, d, if plus { 1 } else { -1 })
+            .and_then(|m| side_of(d, !plus).map(|s| own * self.material(m).adf[s][g]))
+            .unwrap_or(f64::NAN)
     }
 
     /// ノード n の方向 d の外周の面の、真空の面の比 r = J/φ_het。`Marshak` は 1/2
@@ -1980,18 +2024,12 @@ mod tests {
         for (a, b) in s.flux.iter().flatten().zip(raw.flux.iter().flatten()) {
             assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
         }
-        // 隣の ADF を変えると、f* はそれに掛かる
+        // 隣の ADF を変えると f* はそれに掛かるが、面の条件は両側の ADF の比だけで決まるので、解は変わらない
+        // （f* の方法が比を反射体の問題から取る理由）
         let mut other = normalized.clone();
         other.materials[0].adf[1] = fuel.iter().map(|f| 1.1 * f).collect();
-        let mut direct = coarse.clone();
-        direct.materials[0].adf[1] = other.materials[0].adf[1].clone();
-        direct.materials[1].adf[0] = coarse.materials[1].adf[0].iter().map(|f| 1.1 * f).collect();
-        let (a, b) = (
-            solve(&other, &Options::default()).unwrap().k,
-            solve(&direct, &Options::default()).unwrap().k,
-        );
-        assert!((a - b).abs() < 1e-12 * b, "{a} vs {b}");
-        assert!((a - raw.k).abs() > 1e-6, "{a} vs {}", raw.k);
+        let k = solve(&other, &Options::default()).unwrap().k;
+        assert!((k - raw.k).abs() < 1e-12 * raw.k, "{k} vs {}", raw.k);
     }
 
     #[test]
