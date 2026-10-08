@@ -342,7 +342,10 @@ temperatures = [293.6, 900]
     #[test]
     fn no_resolved_resonances_means_no_pointwise_range() {
         // 分離共鳴を持つ核種がなければ、超微細群の計算に使うポイントワイズの断面積は要らない（エラーにしない）
-        assert!(pointwise_range(&[], &[], &GroupStructure::wims69()).is_ok());
+        assert!(matches!(
+            pointwise_range(&[], &[], &GroupStructure::wims69()),
+            Ok(None)
+        ));
     }
 
     #[test]
