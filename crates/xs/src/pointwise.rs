@@ -225,56 +225,105 @@ pub struct ColdParts {
     tol: f64,
 }
 
-/// 運動学のしきい値 −Q (A + 1)/A より下から始まる反応の表を、しきい値から始める（NJOY RECONR と同じ）。
+/// 運動学のしきい値 E_th = −Q (A + 1)/A より下から始まる反応の表を、しきい値から始める（[ADR-0100]）。
 ///
-/// しきい値より下の断面積はありえない。評価済みデータの Q 値と AWR の丸めで、表がしきい値のわずかに下から始まる
-/// ことがあり、そのまま使うと、出射する中性子のない断面積が残る。最初の点をその値のまましきい値に移し、
-/// しきい値以下のほかの点は捨てる（NJOY はそれらを有効数字 7 桁でしきい値のすぐ上に詰めて並べるので、
-/// 群定数の差は無視できる）。
-fn start_at_threshold(mt: u32, mf3: &Mf3) -> (Tab1, Option<ThresholdShift>) {
+/// しきい値より下の断面積はありえない。評価済みデータには、重心系のしきい値 |Q| と E_th の間（Q 値と AWR の丸めや、
+/// しきい値の書き方の違い）から始まる表がある。E_th より下の点は捨て、E_th に最初の点の値を置き（NJOY RECONR
+/// と同じく最初の点をしきい値に移す。最初の点の値は通常 0）、E_th から次の点までは lin-lin にする（0 の端でも
+/// 成り立つ補間則。その先はファイルのまま）。ちょうど E_th にある点は残す。`awr` は運動学（2体の散乱行列）と同じ
+/// AWR（最初の MF3 の見出し）。
+///
+/// 次は推測で直さずにエラーにする: AWR が正でない、|Q| より下に値が 0 でない点がある、E_th より上に点がない。
+///
+/// [ADR-0100]: ../../../docs/adr/0100-move-tables-to-kinematic-thresholds.md
+fn start_at_threshold(
+    mt: u32,
+    mf3: &Mf3,
+    awr: f64,
+) -> Result<(Tab1, Option<ThresholdShift>), String> {
     let sigma = &mf3.sigma;
-    if mf3.qi >= 0.0 || mf3.awr <= 0.0 {
-        return (sigma.clone(), None);
+    if mf3.qi >= 0.0 {
+        return Ok((sigma.clone(), None));
     }
-    let threshold = -mf3.qi * (mf3.awr + 1.0) / mf3.awr;
+    if awr <= 0.0 || awr.is_nan() {
+        return Err(format!(
+            "MT{mt}: a threshold reaction needs a positive AWR, got {awr}"
+        ));
+    }
+    let q = -mf3.qi;
+    let threshold = q * (awr + 1.0) / awr;
     let Some(&first) = sigma.x.first() else {
-        return (sigma.clone(), None);
+        return Ok((sigma.clone(), None));
     };
     if first >= threshold {
-        return (sigma.clone(), None);
+        return Ok((sigma.clone(), None));
     }
-    // しきい値以下の点の数（最初の点を含む）。最初の点だけを残してしきい値に移す
-    let below = sigma.x.partition_point(|&e| e <= threshold);
-    if below == sigma.x.len() {
-        return (sigma.clone(), None);
+    if let Some((e, y)) = sigma
+        .x
+        .iter()
+        .zip(&sigma.y)
+        .find(|&(&e, &y)| e < q && y != 0.0)
+    {
+        return Err(format!(
+            "MT{mt}: the cross section is {y} b at {e} eV, below even the centre-of-mass threshold \
+             |Q| = {q} eV"
+        ));
     }
-    let dropped = below - 1;
+    // E_th より下の点の数
+    let below = sigma.x.partition_point(|&e| e < threshold);
+    if !sigma.x[below..].iter().any(|&e| e > threshold) {
+        return Err(format!(
+            "MT{mt}: the table ends at or below the kinematic threshold {threshold} eV"
+        ));
+    }
+    let at_threshold = sigma.x[below] == threshold;
+    let (x, y, breaks, laws, dropped) = if at_threshold {
+        // ちょうど E_th の点から始める。区間はどれもファイルのまま
+        let (breaks, laws) = sigma
+            .breaks
+            .iter()
+            .zip(&sigma.laws)
+            .filter_map(|(&b, &law)| {
+                let shifted = b.checked_sub(below)?;
+                (shifted >= 2).then_some((shifted, law))
+            })
+            .unzip();
+        (
+            sigma.x[below..].to_vec(),
+            sigma.y[below..].to_vec(),
+            breaks,
+            laws,
+            below,
+        )
+    } else {
+        // E_th に最初の点の値を置き、次の点までを lin-lin にする。区切りの番号は、捨てた点の数から置いた1点を
+        // 引いた分だけ詰める
+        let mut x = vec![threshold];
+        x.extend_from_slice(&sigma.x[below..]);
+        let mut y = vec![sigma.y[0]];
+        y.extend_from_slice(&sigma.y[below..]);
+        let (mut breaks, mut laws) = (vec![2], vec![Interpolation::LinLin]);
+        for (&b, &law) in sigma.breaks.iter().zip(&sigma.laws) {
+            if let Some(shifted) = (b + 1).checked_sub(below)
+                && shifted >= 3
+            {
+                breaks.push(shifted);
+                laws.push(law);
+            }
+        }
+        (x, y, breaks, laws, below - 1)
+    };
     tracing::debug!(
         "MT{mt}: the table starts at {first} eV, below the kinematic threshold {threshold} eV; \
          starting it at the threshold and dropping {dropped} more points below it"
     );
-    let mut x = vec![threshold];
-    x.extend_from_slice(&sigma.x[below..]);
-    let mut y = vec![sigma.y[0]];
-    y.extend_from_slice(&sigma.y[below..]);
-    // 区間の補間則の区切り（1 始まりの最後の点の番号）を、捨てた点の数だけ詰める。区間を持たなくなった
-    // 範囲は除く
-    let (breaks, laws) = sigma
-        .breaks
-        .iter()
-        .zip(&sigma.laws)
-        .filter_map(|(&b, &law)| {
-            let shifted = b.checked_sub(dropped)?;
-            (shifted >= 2).then_some((shifted, law))
-        })
-        .unzip();
     let shift = ThresholdShift {
         mt,
         first,
         threshold,
         dropped,
     };
-    (Tab1 { breaks, laws, x, y }, Some(shift))
+    Ok((Tab1 { breaks, laws, x, y }, Some(shift)))
 }
 
 /// 運動学のしきい値に合わせた1反応（`start_at_threshold`）。
@@ -307,6 +356,8 @@ struct ThresholdSummary {
     reactions: usize,
     /// 動かした幅 (eV) が最も大きい反応
     largest: ThresholdShift,
+    /// しきい値に対する動かした幅の比が最も大きい反応
+    largest_relative: ThresholdShift,
     /// 捨てた点の数の和
     dropped: usize,
 }
@@ -316,9 +367,13 @@ fn summarize_thresholds(shifts: &[ThresholdShift]) -> Option<ThresholdSummary> {
     let largest = *shifts
         .iter()
         .max_by(|a, b| a.shift().total_cmp(&b.shift()))?;
+    let largest_relative = *shifts
+        .iter()
+        .max_by(|a, b| a.relative().total_cmp(&b.relative()))?;
     Some(ThresholdSummary {
         reactions: shifts.len(),
         largest,
+        largest_relative,
         dropped: shifts.iter().map(|s| s.dropped).sum(),
     })
 }
@@ -332,6 +387,11 @@ impl ColdParts {
         let mut tables = BTreeMap::new();
         let mut awr = None;
         let mut shifts = Vec::new();
+        // しきい値は、運動学（2体の散乱行列）と同じく最初の MF3 の見出しの AWR で求める
+        let head_awr = match sections.first() {
+            Some((_, section)) => Mf3::parse(section)?.awr,
+            None => 0.0,
+        };
         for (mt, section) in sections
             .iter()
             .filter(|(mt, _)| !is_dropped(*mt, &available))
@@ -339,20 +399,23 @@ impl ColdParts {
             let mt = *mt;
             let mf3 = Mf3::parse(section)?;
             awr.get_or_insert(mf3.awr);
-            let (sigma, shift) = start_at_threshold(mt, &mf3);
+            let (sigma, shift) = start_at_threshold(mt, &mf3, head_awr)
+                .map_err(|message| Error::new(section.reader().line(), message))?;
             shifts.extend(shift);
             tables.insert(mt, linearize(&sigma, tol));
         }
         if let Some(summary) = summarize_thresholds(&shifts) {
-            let largest = summary.largest;
+            let (largest, relative) = (summary.largest, summary.largest_relative);
             tracing::warn!(
                 "{} reactions start below their kinematic threshold -Q(A+1)/A and now start at it \
-                 (as in NJOY RECONR); the largest shift is {:.4e} eV ({:.2e} of the threshold) in \
-                 MT{}; {} points below the thresholds were dropped",
+                 (as in NJOY RECONR); the largest shift is {:.4e} eV in MT{} and the largest \
+                 relative shift is {:.2e} of the threshold in MT{}; {} points below the thresholds \
+                 were dropped",
                 summary.reactions,
                 largest.shift(),
-                largest.relative(),
                 largest.mt,
+                relative.relative(),
+                relative.mt,
                 summary.dropped
             );
         }
