@@ -5,6 +5,12 @@
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
+//! # 格子をノードに分けるときは output の代わりに nodes を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と列を
+//! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
+//! # ADF を燃料の ADF で割る。省略すると false）
+//! # few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
+//! #   { output = "fuel.msgpack", columns = [1, 19], rows = [1, 19] },
+//! #   { output = "reflector.msgpack", columns = [20, 30], rows = [1, 19], reflector = true } ] }
 //! pin-powers = "pins.msgpack"     # セルごとの核分裂率（平均が 1）
 //! pitch = 1.26                    # セルのピッチ (cm)
 //! azimuthal = 32                  # (0, π) の方位角の数
@@ -42,6 +48,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
+use crate::fewgroup::Node;
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
 
@@ -102,8 +109,8 @@ pub struct LatticeInput {
     pub cross_sections: CrossSections,
     /// 燃料（核分裂する核種を含む物質）をピンごとに自己遮蔽する（ライブラリのとき）
     pub self_shielding: bool,
-    /// 少数群定数の出力と、その群境界 (eV)
-    pub output: Option<(PathBuf, Vec<f64>)>,
+    /// 少数群定数の出力
+    pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
     pub pitch: f64,
     pub azimuthal: usize,
@@ -121,6 +128,23 @@ pub struct LatticeInput {
     pub heights: Option<Vec<f64>>,
     /// 格子の周りの余白
     pub gap: Option<Gap>,
+}
+
+/// 少数群定数の出力。
+#[derive(Debug, Clone, PartialEq)]
+pub struct FewGroupOutput {
+    /// 群境界 (eV)
+    pub bounds: Vec<f64>,
+    pub files: FewGroupFiles,
+}
+
+/// 少数群定数のファイル。
+#[derive(Debug, Clone, PartialEq)]
+pub enum FewGroupFiles {
+    /// 格子全体を1つのノードとして均質化する
+    Lattice(PathBuf),
+    /// ノードごとのファイル（ADR-0095）
+    Nodes(Vec<(PathBuf, Node)>),
 }
 
 /// 格子の周りの余白（集合体の間の水のギャップなど）。
@@ -202,8 +226,63 @@ struct GapEntry {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FewGroupEntry {
-    output: PathBuf,
+    /// `nodes` と排他
+    output: Option<PathBuf>,
     bounds: Vec<f64>,
+    nodes: Option<Vec<NodeEntry>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NodeEntry {
+    output: PathBuf,
+    /// 1 から数えた最初と最後（TOML の配列は長さを確かめないので、読んでから確かめる）
+    columns: Vec<usize>,
+    rows: Vec<usize>,
+    /// 省略すると false
+    reflector: Option<bool>,
+}
+
+impl FewGroupEntry {
+    fn into_output(self) -> Result<FewGroupOutput, String> {
+        let files = match (self.output, self.nodes) {
+            (Some(output), None) => FewGroupFiles::Lattice(output),
+            (None, Some(nodes)) => {
+                if nodes.is_empty() {
+                    return Err("`few-group` needs some nodes".into());
+                }
+                let range = |values: &[usize], what: &str| match *values {
+                    [first, last] if first >= 1 && first <= last => Ok(first - 1..last),
+                    _ => Err(format!(
+                        "node {what} must be the first and last, counted from 1, got {values:?}"
+                    )),
+                };
+                let mut files: Vec<(PathBuf, Node)> = Vec::with_capacity(nodes.len());
+                for entry in nodes {
+                    if files.iter().any(|(output, _)| *output == entry.output) {
+                        return Err(format!("two nodes write to {}", entry.output.display()));
+                    }
+                    let node = Node {
+                        columns: range(&entry.columns, "columns")?,
+                        rows: range(&entry.rows, "rows")?,
+                        reflector: entry.reflector.unwrap_or(false),
+                    };
+                    files.push((entry.output, node));
+                }
+                FewGroupFiles::Nodes(files)
+            }
+            _ => {
+                return Err(
+                    "`few-group` needs exactly one of `output` (the whole lattice) and `nodes`"
+                        .into(),
+                );
+            }
+        };
+        Ok(FewGroupOutput {
+            bounds: self.bounds,
+            files,
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -404,7 +483,11 @@ impl LatticeInput {
         Ok(Self {
             self_shielding: !macroscopic && file.self_shielding.unwrap_or(true),
             cross_sections,
-            output: file.few_group.map(|f| (f.output, f.bounds)),
+            output: file
+                .few_group
+                .map(FewGroupEntry::into_output)
+                .transpose()
+                .map_err(invalid)?,
             pin_powers: file.pin_powers,
             pitch: file.pitch,
             azimuthal: file.azimuthal,
@@ -819,7 +902,10 @@ zones = [{ material = "water", rings = 1 }]
         );
         assert_eq!(
             input.output,
-            Some((PathBuf::from("pincell.fg.msgpack"), vec![1e7, 0.625, 1e-5]))
+            Some(FewGroupOutput {
+                bounds: vec![1e7, 0.625, 1e-5],
+                files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
+            })
         );
         assert_eq!(input.pin_powers, None);
         assert_eq!(
@@ -1194,5 +1280,94 @@ zones = [{ material = "water", rings = 1 }]
         let err = LatticeInput::parse("pitch = ").unwrap_err();
         let chain = format!("{:#}", anyhow::Error::from(err));
         assert_eq!(chain.matches("TOML parse error").count(), 1, "{chain}");
+    }
+
+    #[test]
+    fn parses_few_group_nodes() {
+        // 格子をノードに分け、ノードごとに少数群定数を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と
+        // 列を含む）の、1 から数えた最初と最後。LATTICE は巨視的断面積なので、ライブラリに置き換える
+        let text = LATTICE.replace("cross-sections = \"c5g7.toml\"\n", "");
+        let input = replaced(
+            &text,
+            "pin-powers = \"pins.msgpack\"",
+            "library = \"m1.msgpack\"\nfew-group = { bounds = [1e7, 1e-5], nodes = [\n  \
+             { output = \"fuel.msgpack\", columns = [1, 1], rows = [1, 2] },\n  \
+             { output = \"reflector.msgpack\", columns = [2, 2], rows = [1, 2], reflector = true },\n] }",
+        );
+        let input = input.unwrap_or_else(|e| panic!("{e}"));
+        let expected = FewGroupOutput {
+            bounds: vec![1e7, 1e-5],
+            files: FewGroupFiles::Nodes(vec![
+                (
+                    PathBuf::from("fuel.msgpack"),
+                    Node {
+                        columns: 0..1,
+                        rows: 0..2,
+                        reflector: false,
+                    },
+                ),
+                (
+                    PathBuf::from("reflector.msgpack"),
+                    Node {
+                        columns: 1..2,
+                        rows: 0..2,
+                        reflector: true,
+                    },
+                ),
+            ]),
+        };
+        assert_eq!(input.output, Some(expected));
+    }
+
+    #[test]
+    fn invalid_few_group_nodes_are_errors() {
+        let few_group = |entry: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = [1e7, 1e-5]{entry} }}"),
+            )
+        };
+        let node = |output: &str, columns: &str, rows: &str| {
+            format!("{{ output = \"{output}\", columns = {columns}, rows = {rows} }}")
+        };
+        let good = node("a", "[1, 1]", "[1, 1]");
+        assert!(few_group(&format!(", nodes = [{good}]")).is_ok());
+        for (entry, what) in [
+            (String::new(), "neither output nor nodes"),
+            (
+                format!(", output = \"x\", nodes = [{good}]"),
+                "both output and nodes",
+            ),
+            (", nodes = []".to_string(), "no nodes"),
+            (
+                format!(", nodes = [{}]", node("a", "[0, 1]", "[1, 1]")),
+                "column 0",
+            ),
+            (
+                format!(", nodes = [{}]", node("a", "[2, 1]", "[1, 1]")),
+                "reversed columns",
+            ),
+            (
+                format!(", nodes = [{}]", node("a", "[1, 1]", "[3, 2]")),
+                "reversed rows",
+            ),
+            (
+                format!(", nodes = [{good}, {}]", node("a", "[2, 2]", "[1, 1]")),
+                "same output",
+            ),
+            (
+                format!(", nodes = [{}]", node("a", "[1, 2, 3]", "[1, 1]")),
+                "three numbers",
+            ),
+        ] {
+            assert!(
+                matches!(
+                    few_group(&entry),
+                    Err(InputError::Invalid(_) | InputError::Toml(_))
+                ),
+                "{what}"
+            );
+        }
     }
 }
