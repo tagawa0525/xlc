@@ -5,7 +5,6 @@ use std::collections::BTreeMap;
 use crate::endf::{
     Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
-use crate::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
 use crate::multigroup::{
     Emission, FreeGas, ReactionAverages, SabError, ScatterError, ShieldingError, SlowingDown,
     Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons, fission_spectrum,
@@ -15,6 +14,7 @@ use crate::physics::BK;
 use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
 use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
 use xlc_format::group::GroupStructure;
+use xlc_format::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
 
 /// 処理の条件。
 #[derive(Debug, Clone)]

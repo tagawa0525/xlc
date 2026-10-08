@@ -6,4 +6,5 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod group;
+pub mod library;
 pub mod msgpack;

@@ -26,6 +26,7 @@ use anyhow::{Context, anyhow};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+use xlc_format::library::Library;
 use xlc_lattice::fewgroup::homogenize;
 use xlc_lattice::input::{CrossSections, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
@@ -34,7 +35,6 @@ use xlc_lattice::moc::{Options, available_order, solve};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
 use xlc_lattice::tracking::Tracking;
-use xlc_xs::library::Library;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();

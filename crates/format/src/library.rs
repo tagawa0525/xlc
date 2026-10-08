@@ -17,8 +17,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use xlc_format::group::GroupStructure;
-use xlc_format::msgpack::{self, MsgpackError};
+use crate::group::GroupStructure;
+use crate::msgpack::{self, MsgpackError};
 
 /// 核種名が約束事（全体計画の「ファイルの約束事」）の形か: `U-235`, `H-1`, `Am-242m`, `Hf-178m2`。
 pub fn is_nuclide_name(name: &str) -> bool {

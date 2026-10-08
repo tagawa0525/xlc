@@ -12,11 +12,11 @@ use std::path::Path;
 
 use anyhow::{Context, anyhow};
 use serde::Serialize;
+use xlc_format::library::Library;
 use xlc_format::msgpack::to_named;
 use xlc_lattice::input::{CrossSections, LatticeInput};
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::available_order;
-use xlc_xs::library::Library;
 
 #[derive(Serialize)]
 struct Constants {
