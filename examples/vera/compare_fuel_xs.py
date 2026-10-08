@@ -1,9 +1,10 @@
 """xlc と OpenMC の、燃料の核種ごとの実効断面積を群ごとに比べる（自己遮蔽の検証）。
 
-使い方: python3 compare_fuel_xs.py <xlc の fuel-xs.msgpack> <OpenMC の fuel-xs.msgpack> [群の境界の msgpack]
+使い方: python3 compare_fuel_xs.py <xlc の fuel-xs.msgpack> <OpenMC の fuel-xs.msgpack> [核種 ...]
 
 xlc 側は crates/lattice/examples/fuel_xs.rs、OpenMC 側は openmc_model.py で作る。核種と反応ごとに、
 相対差 (xlc / OpenMC − 1) が最も大きい群と、共鳴の群（WIMS 69 群の 15〜27 群）の差を表示する。
+核種は OpenMC の名前（U238 など）で、省略すると U238 と U235。
 """
 
 import sys
@@ -27,7 +28,8 @@ def main() -> None:
             rates["nonelastic"] = [
                 t - e for t, e in zip(rates["total"], rates["elastic"])
             ]
-    for nuclide in ["U238", "U235"]:
+    nuclides = sys.argv[3:] or ["U238", "U235"]
+    for nuclide in nuclides:
         for score in ["total", "elastic", "nonelastic", "fission"]:
             a, b = ours[nuclide][score], reference[nuclide][score]
             diffs = [(g + 1, x / y - 1) for g, (x, y) in enumerate(zip(a, b)) if y > 0]
