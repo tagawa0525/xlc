@@ -1,9 +1,11 @@
 //! 散乱行列（P0）。
 //!
-//! 弾性散乱と離散準位の非弾性散乱は、静止した標的との重心系等方の2体反応として扱う。
+//! 弾性散乱と離散準位の非弾性散乱は、静止した標的との2体反応として扱う。重心系の角度分布は MF4 で、
+//! なければ重心系で等方とする。
 //! 熱領域の弾性散乱は、指定があれば自由ガス模型で扱う（標的の熱運動による上方散乱を含む）。
 //! 連続的な中性子放出反応（MT91, (n,2n) など）は MF6 のエネルギー分布と多重度を使う。
-//! MF6 がなく MF4/MF5 で与えられた反応は、MF5 のエネルギー分布と、反応で決まる多重度を使う。
+//! MF6 がなく MF4/MF5 で与えられた反応は、MF5 のエネルギー分布と、反応で決まる多重度を使い、
+//! MF4 の実験室系の角度分布をエネルギーと独立に掛ける。
 
 use std::collections::BTreeMap;
 use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
@@ -14,8 +16,8 @@ use super::{
     FreeGas, GroupStructure, GroupedLaw, GroupedOutgoing, ThermalSab, Weight, group_integrals,
     group_integrals_multi,
 };
-use crate::endf::{Angular, Mf4};
-use crate::endf::{Frame, Mf5, Mf6, Tab1};
+
+use crate::endf::{Angular, Frame, Mf4, Mf5, Mf6, Tab1};
 
 /// 重心系等方の2体反応（Q 値 q、標的の質量比 awr）で、入射エネルギー e の中性子の
 /// 出射エネルギーの範囲。出射エネルギーはこの範囲で一様に分布する。しきい値未満なら `None`。
@@ -89,6 +91,7 @@ pub enum ScatterError {
 ///
 /// 中性子を放出するのに分布のない反応があればエラーにする（中性子を黙って失わないため）。
 /// P0 の散乱行列 σ(g→g')（[`scattering_moments`] の 0 次）。
+#[allow(clippy::too_many_arguments)]
 pub fn scattering_matrix(
     groups: &GroupStructure,
     weight: &Weight,
@@ -108,9 +111,9 @@ pub fn scattering_matrix(
 /// 散乱行列のルジャンドルのモーメント σ_l(g→g') = ∫_g ∫_g' σ(E→E', μ) P_l(μ) dE' w(E) dE / ∫_g w dE
 /// （[l][入射の群][出射の群]、l = 0..=order、μ は実験室系の散乱角の余弦）。
 ///
-/// P1 以上は、2体反応（弾性散乱と離散準位の非弾性散乱。重心系で等方）の運動学と、熱領域（S(α, β) と自由ガス）の
-/// 角度分布から作る。連続的な放出（MF5, MF6）の P1 以上はまだ角度分布を入れておらず 0 とする
-/// （docs/plans/m2-assembly.md の「散乱の非等方性」）。
+/// `angular` は MT ごとの角度分布（MF4）。2体反応（弾性散乱と離散準位の非弾性散乱）は重心系の分布と運動学から、
+/// MF5 の連続的な放出は実験室系の分布から、熱領域（S(α, β) と自由ガス）はその角度分布から P1 以上を作る。
+/// MF6 の連続的な放出の P1 以上はまだ角度分布を入れておらず 0 とする（docs/plans/m3-core-hzp.md）。
 #[tracing::instrument(level = "debug", skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub fn scattering_moments(
@@ -124,7 +127,12 @@ pub fn scattering_moments(
     thermal: Option<&Thermal>,
     order: usize,
 ) -> Result<Vec<Vec<Vec<f64>>>, ScatterError> {
-    let _ = angular;
+    // 2体反応の角度分布は重心系で使う（対象の評価済みデータはすべて重心系で与えている）
+    for (&mt, mf4) in angular {
+        if (mt == 2 || (51..=90).contains(&mt)) && mf4.frame != Frame::CenterOfMass {
+            return Err(ScatterError::LabTwoBody(mt));
+        }
+    }
     if let Some(Thermal::FreeGas(free_gas)) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
@@ -148,7 +156,7 @@ pub fn scattering_moments(
         }
         // 弾性散乱は MF6 の有無にかかわらず2体反応（熱領域では自由ガス）で扱う
         let rows = if mt == 2 {
-            elastic_rows(groups, weight, awr, table, thermal, order)
+            elastic_rows(groups, weight, awr, table, thermal, angular.get(&2), order)
         } else if let Some(Emission::Mf6(data)) = emissions.get(&mt)
             && !data.two_body
         {
@@ -159,10 +167,10 @@ pub fn scattering_moments(
             return Err(ScatterError::TwoBody(mt));
         } else if let Some(Emission::Mf5(data)) = emissions.get(&mt) {
             let count = multiplicity(mt).ok_or(ScatterError::Multiplicity(mt))?;
-            isotropic(spectrum_rows(groups, weight, table, data, count), order)
+            spectrum_moments(groups, weight, table, data, count, angular.get(&mt), order)?
         } else if (51..=90).contains(&mt) {
             let q = *q_values.get(&mt).ok_or(ScatterError::QValue(mt))?;
-            two_body_rows(groups, weight, awr, q, table, order)
+            two_body_rows(groups, weight, awr, q, table, angular.get(&mt), order)
         } else {
             return Err(ScatterError::NoDistribution(mt));
         };
@@ -238,10 +246,11 @@ fn elastic_rows(
     awr: f64,
     table: &Tab1,
     thermal: Option<&Thermal>,
+    angular: Option<&Mf4>,
     order: usize,
 ) -> Vec<Vec<Vec<f64>>> {
     let Some(thermal) = thermal else {
-        return two_body_rows(groups, weight, awr, 0.0, table, order);
+        return two_body_rows(groups, weight, awr, 0.0, table, angular, order);
     };
     let ng = groups.len();
     let cutoff = match thermal {
@@ -272,7 +281,7 @@ fn elastic_rows(
             }
             _ => add(
                 out,
-                two_body_moments(groups, e, awr, 0.0, sigma, order, None),
+                two_body_moments(groups, e, awr, 0.0, sigma, order, angular),
                 1.0,
             ),
         }
@@ -287,6 +296,7 @@ fn two_body_rows(
     awr: f64,
     q: f64,
     table: &Tab1,
+    angular: Option<&Mf4>,
     order: usize,
 ) -> Vec<Vec<Vec<f64>>> {
     let ng = groups.len();
@@ -297,7 +307,7 @@ fn two_body_rows(
         if sigma == 0.0 {
             return;
         }
-        for (l, row) in two_body_moments(groups, e, awr, q, sigma, order, None)
+        for (l, row) in two_body_moments(groups, e, awr, q, sigma, order, angular)
             .into_iter()
             .enumerate()
         {
@@ -474,6 +484,55 @@ fn emission_rows(
     rows
 }
 
+/// MF5 の出射エネルギー分布と、実験室系の角度分布（MF4。エネルギーと独立）による
+/// ∫_g count σ(E) w(E) a_l(E) Σ_k p_k(E) P_k(E→g') dE（[l][g][g']）。角度分布がなければ P1 以上は 0。
+fn spectrum_moments(
+    groups: &GroupStructure,
+    weight: &Weight,
+    table: &Tab1,
+    data: &Mf5,
+    count: f64,
+    angular: Option<&Mf4>,
+    order: usize,
+) -> Result<Vec<Vec<Vec<f64>>>, ScatterError> {
+    let Some(mf4) = angular.filter(|a| a.angular != Angular::Isotropic && order > 0) else {
+        return Ok(isotropic(
+            spectrum_rows(groups, weight, table, data, count),
+            order,
+        ));
+    };
+    let ng = groups.len();
+    let parts: Vec<(&Tab1, GroupedLaw)> = data
+        .subsections
+        .iter()
+        .map(|(p, law)| (p, GroupedLaw::new(groups, law)))
+        .collect();
+    let mut breakpoints = table.x.clone();
+    for (p, grouped) in &parts {
+        breakpoints.extend(&p.x);
+        breakpoints.extend(grouped.breakpoints());
+    }
+    let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
+        let source = count * table.eval(e).unwrap_or(0.0);
+        if source == 0.0 {
+            return;
+        }
+        let mut p0 = vec![0.0; ng];
+        for (p, grouped) in &parts {
+            let pk = p.eval(e).unwrap_or(0.0);
+            if pk != 0.0 {
+                grouped.accumulate(e, source * pk, &mut p0);
+            }
+        }
+        for (l, a) in mf4.moments(e, order).into_iter().enumerate() {
+            for (o, v) in out[l * ng..(l + 1) * ng].iter_mut().zip(&p0) {
+                *o += a * v;
+            }
+        }
+    });
+    Ok(by_order(rows, ng, order))
+}
+
 /// MF5 の出射エネルギー分布と多重度 `count` による ∫_g count σ(E) w(E) Σ_k p_k(E) P_k(E→g') dE。
 /// MF5 の分布は実験室系。
 fn spectrum_rows(
@@ -510,7 +569,7 @@ fn spectrum_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::endf::{Frame, Interpolation, LegendreTable};
+    use crate::endf::{Interpolation, LegendreTable};
 
     /// ルジャンドルの次数ごとの、全群の和
     fn sums(moments: &[Vec<f64>]) -> Vec<f64> {

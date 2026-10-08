@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use crate::endf::{
-    Mf2, Mf3, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
+    Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
 use crate::multigroup::{
     Emission, FreeGas, ReactionAverages, SabError, ScatterError, ShieldingError, SlowingDown,
@@ -383,6 +383,14 @@ pub fn process_nuclide(
             emissions.insert(mt, Emission::Mf5(Mf5::parse(&section)?));
         }
     }
+    // 角度分布（MF4）: 弾性散乱、離散準位（2体反応）と、MF5 で与えられた連続的な放出の分
+    let mut angular = BTreeMap::new();
+    for (mt, section) in tape.sections(mat, 4) {
+        let continuum = matches!(emissions.get(&mt), Some(Emission::Mf5(_)));
+        if mt == 2 || (51..=90).contains(&mt) || continuum {
+            angular.insert(mt, Mf4::parse(&section)?);
+        }
+    }
     let common = Common {
         tape,
         mat,
@@ -391,6 +399,7 @@ pub fn process_nuclide(
         mf5: mf5.as_ref(),
         q_values: &q_values,
         emissions: &emissions,
+        angular: &angular,
         thermal,
         settings,
         cold: &cold,
@@ -424,6 +433,7 @@ struct Common<'a> {
     mf5: Option<&'a Mf5>,
     q_values: &'a BTreeMap<u32, f64>,
     emissions: &'a BTreeMap<u32, Emission>,
+    angular: &'a BTreeMap<u32, Mf4>,
     thermal: Option<&'a Mf7Incoherent>,
     settings: &'a Settings,
     /// 0 K の部分反応（温度ごとに広げる）
@@ -481,7 +491,7 @@ impl Common<'_> {
             &elastic_only,
             self.q_values,
             self.emissions,
-            &BTreeMap::new(),
+            self.angular,
             Some(&thermal),
             order,
         )?;
@@ -492,7 +502,7 @@ impl Common<'_> {
             &others,
             self.q_values,
             self.emissions,
-            &BTreeMap::new(),
+            self.angular,
             None,
             order,
         )?;
