@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-06
-supersedes: [ADR-0009]
+supersedes: []
 superseded-by:
 issues: []
 ---
@@ -33,5 +33,5 @@ issues: []
 
 ## 結果
 
-- 既存の自前のテキスト形式の入力は M2 の中で移行した
+- 既存の自前のテキスト形式の入力は M2 の中で移行した。xs の入力ファイル（[ADR-0053](0053-read-xs-input-from-file.md)）もこの形式で書く
 - 読み込みの厳密さは [ADR-0013](0013-read-files-strictly.md)
