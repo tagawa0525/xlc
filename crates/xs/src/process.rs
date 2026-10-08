@@ -481,6 +481,7 @@ impl Common<'_> {
             &elastic_only,
             self.q_values,
             self.emissions,
+            &BTreeMap::new(),
             Some(&thermal),
             order,
         )?;
@@ -491,6 +492,7 @@ impl Common<'_> {
             &others,
             self.q_values,
             self.emissions,
+            &BTreeMap::new(),
             None,
             order,
         )?;
