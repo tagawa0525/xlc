@@ -3,7 +3,7 @@ status: open
 labels: [lattice, shielding, verification]
 opened: 2026-10-08
 closed:
-milestone:
+milestone: M2
 blocked-by: []
 resolution:
 ---
