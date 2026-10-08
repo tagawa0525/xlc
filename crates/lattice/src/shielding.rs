@@ -805,6 +805,7 @@ mod tests {
                 za: 92238.0,
                 awr: 236.0,
                 resolved: None,
+                thermal_scattering: false,
                 temperatures: vec![TemperatureData {
                     pointwise: Default::default(),
                     temperature: T,
@@ -940,6 +941,7 @@ mod tests {
                 za: 0.0,
                 awr: 1.0,
                 resolved: None,
+                thermal_scattering: false,
                 temperatures: vec![TemperatureData {
                     pointwise: Default::default(),
                     temperature: T,
@@ -1192,6 +1194,7 @@ mod tests {
                         top,
                         potential: 10.0,
                     }),
+                    thermal_scattering: false,
                     temperatures: vec![TemperatureData {
                         temperature: T,
                         chi: (0..ng)

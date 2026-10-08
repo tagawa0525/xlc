@@ -260,6 +260,7 @@ mod tests {
                 za: 0.0,
                 awr: 1.0,
                 resolved: None,
+                thermal_scattering: false,
                 temperatures: vec![TemperatureData {
                     pointwise: Default::default(),
                     temperature: 293.6,

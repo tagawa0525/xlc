@@ -16,7 +16,9 @@
 use std::ops::Range;
 
 use rayon::prelude::*;
-use xlc_format::library::{Library, LookupError, Pointwise, Shielded};
+use std::borrow::Cow;
+
+use xlc_format::library::{Library, LookupError, Pointwise, Shielded, TemperatureData};
 
 /// 1つの窓（散乱で届くレサジーの幅 Δ）に入れる格子点の最少の数。xs のライブラリの重みの減速計算の同名の定数とは
 /// 独立に選べる、この計算の格子の細かさの設定である。同じ減速の式を同じ格子の作り方で解くので、xs で収束を確かめた
@@ -128,9 +130,19 @@ struct Data<'a> {
     gain: f64,
     /// 窓の幅 Δ = ln(1/α)（α = 0 なら無限）
     width: f64,
-    pointwise: &'a Pointwise,
+    /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの）
+    table: Cow<'a, TemperatureData>,
+}
+
+impl Data<'_> {
+    fn pointwise(&self) -> &Pointwise {
+        &self.table.pointwise
+    }
+
     /// 範囲の上で使う無限希釈の弾性散乱の群定数
-    elastic: &'a [f64],
+    fn elastic(&self) -> &[f64] {
+        &self.table.shielded[0].elastic
+    }
 }
 
 /// セル `cell` の、範囲 `range`（[`cell_range`]）の減速計算。`rings` はリングごとの物質（真空は `None`）。
@@ -187,8 +199,7 @@ pub fn slowing_down(
                         name: &d.name,
                         gain: 1.0 / (1.0 - alpha),
                         width: -alpha.ln(),
-                        pointwise: &t.pointwise,
-                        elastic: &t.shielded[0].elastic,
+                        table: t,
                     });
                     keys.push((name, temperature));
                     data.len() - 1
@@ -203,7 +214,7 @@ pub fn slowing_down(
     let group_bounds = &bounds[top..=bottom];
     let mut energies: Vec<f64> = data
         .iter()
-        .flat_map(|d| d.pointwise.energy.iter().copied())
+        .flat_map(|d| d.pointwise().energy.iter().copied())
         .filter(|&e| e > low && e < high)
         .chain(group_bounds.iter().copied())
         .collect();
@@ -218,7 +229,7 @@ pub fn slowing_down(
     // 範囲の上端では低い側、下端では高い側の極限だけを使う
     let mut jumps: Vec<f64> = data
         .iter()
-        .flat_map(|d| d.pointwise.energy.windows(2))
+        .flat_map(|d| d.pointwise().energy.windows(2))
         .filter(|w| w[0] == w[1] && w[0] > low && w[0] < high)
         .map(|w| w[0])
         .collect();
@@ -267,7 +278,7 @@ pub fn slowing_down(
             .collect(),
     };
 
-    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise.energy.len()).collect();
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     for start in (0..u.len()).step_by(CHUNK) {
         let chunk = start..(start + CHUNK).min(u.len());
         // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf]
@@ -380,7 +391,7 @@ fn lethargy_grid(
 /// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
 /// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
 fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<[f64; 4], UfgError> {
-    let x = &d.pointwise.energy;
+    let x = &d.pointwise().energy;
     let defined =
         x.len() >= 2 && x.first().is_some_and(|&a| a <= e) && x.last().is_some_and(|&b| e <= b);
     if !defined {
@@ -406,7 +417,7 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<[f64; 4
         let width = x[j + 1] - x[j];
         (j, if width > 0.0 { (e - x[j]) / width } else { 0.0 })
     };
-    let p = d.pointwise;
+    let p = d.pointwise();
     let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
     Ok([
         lerp(&p.total),
@@ -435,7 +446,7 @@ impl Above<'_> {
                 let gb = (self.high / self.bounds[g + 1]).ln();
                 let (x, y) = (a.max(ga), b.min(gb));
                 if x < y {
-                    d.elastic[g] * ((-(big_u - y)).exp() - (-(big_u - x)).exp())
+                    d.elastic()[g] * ((-(big_u - y)).exp() - (-(big_u - x)).exp())
                 } else {
                     0.0
                 }
@@ -665,6 +676,7 @@ mod tests {
                         top,
                         potential: 10.0,
                     }),
+                    thermal_scattering: false,
                     temperatures: vec![TemperatureData {
                         temperature: TEMPERATURE,
                         chi: vec![0.0; ng],
