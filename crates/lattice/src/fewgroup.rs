@@ -472,7 +472,7 @@ fn outflow_diffusion(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::geometry::{Lattice, PinCell};
+    use crate::geometry::{Cell, Lattice, PinCell};
     use crate::material::FissionTerm;
     use crate::moc::{Options, solve};
     use crate::tracking::{Boundary, Tracking};
@@ -1286,5 +1286,290 @@ mod tests {
         );
         let moc = (d[0] / phi[0] * flux[0] + d[1] / phi[1] * flux[1]) / (flux[0] + flux[1]);
         assert!((moc - e).abs() > 1e-3 * e, "{moc} vs {e}");
+    }
+
+    /// 燃料のピンと水のセルを横に並べた帯（1行2列、右が真空）と、その解
+    fn strip() -> (Lattice, Solution, Vec<Material>, Boundaries) {
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 2],
+            vec![1.26],
+            vec![Cell::Pin(pin), Cell::Pin(cell)],
+            vec![vec![0, 1]],
+        )
+        .unwrap();
+        let boundaries = vacuum();
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        let materials = vec![fuel, water.clone(), water];
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        (lattice, solution, materials, boundaries)
+    }
+
+    fn node(columns: std::ops::Range<usize>, rows: std::ops::Range<usize>) -> Node {
+        Node {
+            columns,
+            rows,
+            reflector: false,
+        }
+    }
+
+    #[test]
+    fn nodes_of_an_infinite_medium_are_the_medium() {
+        // 1つの物質の格子（外周がすべて鏡面反射）を2つのノードに分けると、どちらも物質の断面積そのもので、
+        // 面の正味の中性子流は 0、ADF は 1。複数のノードの格子の拡散係数は outflow（ADR-0098）で、
+        // 1/(3(Σt − Σs1))
+        let m = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let lattice = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        let refs = vec![&m; 8];
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        let fine = fine();
+        let nodes = [node(0..1, 0..2), node(1..2, 0..2)];
+        let fgs = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+            &nodes,
+        )
+        .unwrap();
+        assert_eq!(fgs.len(), 2);
+        for fg in &fgs {
+            for g in 0..2 {
+                assert!((fg.total[g] - m.total[g]).abs() < 1e-12, "{:?}", fg.total);
+                assert!((fg.nu_fission[g] - m.nu_fission[g]).abs() < 1e-12);
+                let transport = m.total[g] - m.anisotropic[0][g].iter().sum::<f64>();
+                let d = 1.0 / (3.0 * transport);
+                assert!(
+                    (fg.diffusion[g] - d).abs() < 1e-12 * d,
+                    "{:?}",
+                    fg.diffusion
+                );
+            }
+            for value in fg.adf.iter().flatten() {
+                assert!((value - 1.0).abs() < 1e-6, "{:?}", fg.adf);
+            }
+            assert_eq!(fg.vacuum_ratio, vec![None; 4]);
+            assert_eq!(fg.normalized_adf, vec![false; 4]);
+        }
+    }
+
+    #[test]
+    fn strip_nodes_make_get_constants_and_normalized_adfs() {
+        // 燃料と水の帯を、燃料のノードと反射体のノードに分ける（ADR-0095）
+        use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
+        let (lattice, solution, materials, boundaries) = strip();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let nodes = [
+            node(0..1, 0..1),
+            Node {
+                reflector: true,
+                ..node(1..2, 0..1)
+            },
+        ];
+        let fgs = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+        )
+        .unwrap();
+        let (fuel, reflector) = (&fgs[0], &fgs[1]);
+        // 定数は、ノードの領域だけの反応率の保存（燃料は領域 0, 1、反射体は領域 2）
+        let average = |regions: std::ops::Range<usize>, g: usize, x: &dyn Fn(&Material) -> f64| {
+            let (mut rate, mut flux) = (0.0, 0.0);
+            for r in regions {
+                let w = solution.volumes[r] * solution.flux[r][g];
+                rate += w * x(&materials[r]);
+                flux += w;
+            }
+            (rate / flux, flux / 1.26_f64.powi(2))
+        };
+        let mut fluxes = [[0.0; 2]; 2];
+        for (n, (fg, regions)) in [(fuel, 0..2), (reflector, 2..3)].into_iter().enumerate() {
+            for g in 0..2 {
+                let (total, flux) = average(regions.clone(), g, &|m| m.total[g]);
+                assert!((fg.total[g] - total).abs() < 1e-12 * total);
+                let (transport, _) = average(regions.clone(), g, &|m| {
+                    m.total[g] - m.anisotropic[0][g].iter().sum::<f64>()
+                });
+                let d = 1.0 / (3.0 * transport);
+                assert!((fg.diffusion[g] - d).abs() < 1e-12 * d);
+                fluxes[n][g] = flux;
+            }
+            assert_eq!(fg.k_inf, solution.k);
+        }
+        // 面の値: 縦の面は 0（左）、1（燃料と反射体の境）、2（右）、横の面は 3, 4（上）と 5, 6（下）
+        let het = |face: usize| solution.face_fluxes[face].clone();
+        let out = |face: usize, sign: f64| -> Vec<f64> {
+            solution.face_currents[face]
+                .iter()
+                .map(|j| sign * j)
+                .collect()
+        };
+        let one_node =
+            |fg: &FewGroup, flux: &[f64], faces: [usize; 4], signs: [f64; 4], edges: [Edge; 4]| {
+                let c: Vec<Vec<f64>> = (0..4).map(|i| out(faces[i], signs[i])).collect();
+                surface_fluxes(&OneNode {
+                    diffusion: &fg.diffusion,
+                    total: &fg.total,
+                    scatter: &fg.scatter,
+                    nu_fission: &fg.nu_fission,
+                    chi: &fg.chi,
+                    k: solution.k,
+                    flux,
+                    widths: [1.26, 1.26],
+                    currents: [&c[0], &c[1], &c[2], &c[3]],
+                    edges,
+                })
+                .unwrap()
+            };
+        // 隣の横方向（y）の漏れは、鏡面反射の上下の面の正味の中性子流（収束の許容差の程度で 0）
+        let y_leakage = |top: usize, bottom: usize| -> Vec<f64> {
+            (0..2)
+                .map(|g| {
+                    (-solution.face_currents[top][g] + solution.face_currents[bottom][g]) / 1.26
+                })
+                .collect()
+        };
+        let (fuel_y, reflector_y) = (y_leakage(3, 5), y_leakage(4, 6));
+        let fuel_surface = one_node(
+            fuel,
+            &fluxes[0],
+            [0, 1, 5, 3],
+            [-1.0, 1.0, 1.0, -1.0],
+            [
+                Edge::Reflective,
+                Edge::Neighbor {
+                    width: 1.26,
+                    leakage: &reflector_y,
+                },
+                Edge::Reflective,
+                Edge::Reflective,
+            ],
+        );
+        let reflector_surface = one_node(
+            reflector,
+            &fluxes[1],
+            [1, 2, 6, 4],
+            [-1.0, 1.0, 1.0, -1.0],
+            [
+                Edge::Neighbor {
+                    width: 1.26,
+                    leakage: &fuel_y,
+                },
+                Edge::Vacuum,
+                Edge::Reflective,
+                Edge::Reflective,
+            ],
+        );
+        for g in 0..2 {
+            // 燃料の右の辺の ADF は、境の面の不均質な中性子束 / 均質な面の中性子束
+            let expected = het(1)[g] / fuel_surface[1][g];
+            assert!((fuel.adf[1][g] - expected).abs() < 1e-10 * expected);
+            // 反射体の左の辺は f* = f_反射体 / f_燃料
+            let f_reflector = het(1)[g] / reflector_surface[0][g];
+            let expected = f_reflector / fuel.adf[1][g];
+            assert!(
+                (reflector.adf[0][g] - expected).abs() < 1e-10 * expected,
+                "{} vs {expected}",
+                reflector.adf[0][g]
+            );
+            // 真空の辺の ADF と J/φ
+            let expected = het(2)[g] / reflector_surface[1][g];
+            assert!((reflector.adf[1][g] - expected).abs() < 1e-10 * expected);
+            let ratio = reflector.vacuum_ratio[1].as_ref().unwrap()[g];
+            let expected = solution.face_currents[2][g] / het(2)[g];
+            assert!((ratio - expected).abs() < 1e-12 * expected);
+        }
+        assert_eq!(fuel.normalized_adf, vec![false; 4]);
+        assert_eq!(reflector.normalized_adf, vec![true, false, false, false]);
+        assert_eq!(fuel.vacuum_ratio, vec![None; 4]);
+        assert_eq!(
+            reflector
+                .vacuum_ratio
+                .iter()
+                .map(Option::is_some)
+                .collect::<Vec<_>>(),
+            vec![false, true, false, false]
+        );
+    }
+
+    #[test]
+    fn invalid_nodes_are_errors() {
+        let (lattice, solution, materials, boundaries) = strip();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let run = |nodes: &[Node], boundaries: &Boundaries| {
+            homogenize_nodes(
+                &solution,
+                &lattice,
+                &refs,
+                &fine,
+                fine.bounds(),
+                boundaries,
+                nodes,
+            )
+        };
+        let reflector = |n: Node| Node {
+            reflector: true,
+            ..n
+        };
+        let cases: Vec<(Vec<Node>, &str)> = vec![
+            (vec![], "no nodes"),
+            (vec![node(0..1, 0..1)], "not covered"),
+            (vec![node(0..2, 0..1), node(1..2, 0..1)], "overlap"),
+            (vec![node(0..1, 0..1), node(1..3, 0..1)], "outside"),
+            (vec![node(0..1, 0..1), node(1..1, 0..1)], "empty"),
+            (
+                vec![reflector(node(0..1, 0..1)), reflector(node(1..2, 0..1))],
+                "no fuel",
+            ),
+        ];
+        for (nodes, what) in &cases {
+            assert!(
+                matches!(run(nodes, &boundaries), Err(HomogenizeError::Nodes(_))),
+                "{what}"
+            );
+        }
+        let albedo = Boundaries {
+            top: Boundary::Albedo(0.5),
+            ..boundaries
+        };
+        assert!(matches!(
+            run(&[node(0..1, 0..1), node(1..2, 0..1)], &albedo),
+            Err(HomogenizeError::Albedo)
+        ));
+        // 隣が1つのノードで面がそろわない（左のノードの右の辺に2つのノードが接する）
+        let m = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let square = Lattice::new(vec![cell], vec![vec![0, 0], vec![0, 0]]).unwrap();
+        let tracking = Tracking::new(&square, 16, 0.05).unwrap();
+        let refs = vec![&m; 8];
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        let misaligned = homogenize_nodes(
+            &solution,
+            &square,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+            &[node(0..1, 0..2), node(1..2, 0..1), node(1..2, 1..2)],
+        );
+        assert!(
+            matches!(misaligned, Err(HomogenizeError::Nodes(_))),
+            "{misaligned:?}"
+        );
     }
 }
