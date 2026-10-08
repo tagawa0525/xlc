@@ -9,6 +9,7 @@
 //! reactor analysis", Prog. Nucl. Energy 17, 303 (1986)）の条件で、不連続因子（ADF）f をかけた
 //! 不均質な中性子束 f φ と正味の中性子流を連続にする。径方向の ADF は少数群定数の辺ごとの値で、
 //! 2次元の格子計算からは軸方向の ADF は出ない（軸方向に一様な格子では 1）ので、z の面では 1 とする。
+//! 外周の真空の面は、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
 
 use xlc_format::fewgroup::FewGroup;
 use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, outflow, transverse_moments};
@@ -20,8 +21,12 @@ pub enum Boundary {
     Reflective,
     /// 境界での中性子束 0
     ZeroFlux,
-    /// 外から入る部分中性子流 0（Marshak の真空境界）
+    /// 真空: 不均質な中性子束 f φ と正味の中性子流に J = r f φ を課す。r は、その面のノードの物質の
+    /// 少数群定数の、その面に当たる辺の `vacuum_ratio`（格子計算の真空の辺の J/φ_het。ADR-0101）
     Vacuum,
+    /// Marshak の条件（不均質な入射の部分中性子流 0）。r = 1/2 の `Vacuum` で、P1 の関係を置くことを
+    /// 入力で明示したときだけ使う
+    Marshak,
 }
 
 /// 直方体の炉心のノード分割。幅は cm。
@@ -268,12 +273,46 @@ impl<'a> Core<'a> {
                 ));
             }
         }
-        Ok(Self {
+        let core = Self {
             problem,
             widths,
             counts,
             groups,
-        })
+        };
+        core.check_vacuum_ratios()?;
+        Ok(core)
+    }
+
+    /// `Vacuum` の面のノードの物質が、その面の辺の比を持つことを確かめる。z の面は、2次元の格子計算が
+    /// 比を出さないのでエラー（ADR-0101）
+    fn check_vacuum_ratios(&self) -> Result<(), String> {
+        const NAMES: [&str; 6] = ["-x", "+x", "-y", "+y", "-z", "+z"];
+        for (face, name) in NAMES.iter().enumerate() {
+            if self.problem.boundaries[face] != Boundary::Vacuum {
+                continue;
+            }
+            let (d, plus) = (face / 2, face % 2 == 1);
+            let Some(side) = side_of(d, plus) else {
+                return Err(format!(
+                    "the {name} face is vacuum, but 2D lattices give no ratio J/phi for z faces; \
+                     use \"marshak\" for the P1 (Marshak) condition"
+                ));
+            };
+            for n in 0..self.nodes() {
+                if self.neighbor(n, d, if plus { 1 } else { -1 }).is_some() {
+                    continue;
+                }
+                let material = self.problem.node_material[n];
+                if self.problem.materials[material].vacuum_ratio[side].is_none() {
+                    return Err(format!(
+                        "material {material} has no vacuum ratio J/phi on side {side} for the \
+                         vacuum face {name}; make it in a lattice with that side vacuum, or use \
+                         \"marshak\" for the P1 (Marshak) condition"
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn nodes(&self) -> usize {
@@ -315,14 +354,18 @@ impl<'a> Core<'a> {
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
     /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
-        let side = match (d, plus) {
-            (0, false) => 0,
-            (0, true) => 1,
-            (1, true) => 2,
-            (1, false) => 3,
-            _ => return 1.0,
-        };
-        self.material(n).adf[side][g]
+        side_of(d, plus).map_or(1.0, |side| self.material(n).adf[side][g])
+    }
+
+    /// ノード n の方向 d の外周の面の、真空の面の比 r = J/φ_het。`Marshak` は 1/2
+    fn vacuum_ratio(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
+        match self.problem.boundaries[2 * d + usize::from(plus)] {
+            Boundary::Marshak => 0.5,
+            // `Vacuum` の面の物質が辺の比を持つことは `check_vacuum_ratios` で確かめてある
+            _ => side_of(d, plus)
+                .and_then(|side| self.material(n).vacuum_ratio[side].as_deref())
+                .map_or(f64::NAN, |r| r[g]),
+        }
     }
 
     /// ノード n の - 面・+ 面に入ってくる部分中性子流。
@@ -346,8 +389,10 @@ impl<'a> Core<'a> {
     /// 外からの入射は 0:
     /// - 反射: 正味の中性子流 0 で、β = 1（f によらない）
     /// - 中性子束ゼロ: f φ = 0 は φ = 0 と同じで、β = -1（f によらない）
-    /// - 真空（Marshak）: 不均質な入射の部分中性子流 f φ/4 - (o - i)/2 = (f(o + i) - (o - i))/2 = 0
-    ///   から β = (1 - f)/(1 + f)。隣の面の式で f' = 1、o' = 0 としたものに等しく、f = 1 なら 0
+    /// - 真空: 格子計算の真空の辺の比 r で J = r f φ、つまり o - i = 2 r f (o + i) から
+    ///   β = (1 - 2rf)/(1 + 2rf)（ADR-0101）
+    /// - Marshak: r = 1/2 で、不均質な入射の部分中性子流 f φ/4 - (o - i)/2 = 0 と同じ。β = (1 - f)/(1 + f) は
+    ///   隣の面の式で f' = 1、o' = 0 としたものに等しく、f = 1 なら 0
     fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
         let face = |step: isize, index: usize| match self.neighbor(n, d, step) {
             Some(m) => {
@@ -366,9 +411,10 @@ impl<'a> Core<'a> {
             None => match self.problem.boundaries[2 * d + index] {
                 Boundary::Reflective => (1.0, 0.0),
                 Boundary::ZeroFlux => (-1.0, 0.0),
-                Boundary::Vacuum => {
-                    let f = self.adf(n, d, step > 0, g);
-                    ((1.0 - f) / (1.0 + f), 0.0)
+                Boundary::Vacuum | Boundary::Marshak => {
+                    let plus = step > 0;
+                    let rf = self.vacuum_ratio(n, d, plus, g) * self.adf(n, d, plus, g);
+                    ((1.0 - 2.0 * rf) / (1.0 + 2.0 * rf), 0.0)
                 }
             },
         };
@@ -482,7 +528,7 @@ impl<'a> Core<'a> {
                         leakage: transverse(n),
                     },
                     Boundary::ZeroFlux => Beside::Face(0.0),
-                    Boundary::Vacuum => {
+                    Boundary::Vacuum | Boundary::Marshak => {
                         let flux = state.flux[n][g];
                         if !(flux > 0.0 && flux.is_finite()) {
                             return Err(NemError::VacuumFaceFlux { node: n, flux });
@@ -524,6 +570,18 @@ impl<'a> Core<'a> {
             }
         }
         total
+    }
+}
+
+/// 方向 d の - 面（`plus` が false）・+ 面（true）に当たる少数群定数の辺（左、右、上、下）の番号。
+/// -x が左、+x が右、-y が下、+y が上。z の面は少数群定数の辺に当たらない
+fn side_of(d: usize, plus: bool) -> Option<usize> {
+    match (d, plus) {
+        (0, false) => Some(0),
+        (0, true) => Some(1),
+        (1, true) => Some(2),
+        (1, false) => Some(3),
+        _ => None,
     }
 }
 
@@ -1227,7 +1285,7 @@ mod tests {
             Boundary::Vacuum,
         );
         let (core, _, state) = solve_state(&p);
-        for g in 0..2 {
+        for (g, ratio) in r.into_iter().enumerate() {
             let (in_minus, _) = core.incoming(&state, 0, 0, g);
             let (_, in_plus) = core.incoming(&state, 5, 0, g);
             let (out_minus, out_plus) = (state.out_minus[0][0][g], state.out_plus[0][5][g]);
@@ -1238,9 +1296,9 @@ mod tests {
                 let (current, heterogeneous) = (o - i, 2.0 * f * (o + i));
                 assert!(current > 0.0);
                 assert!(
-                    (current - r[g] * heterogeneous).abs() < 1e-14 * current,
+                    (current - ratio * heterogeneous).abs() < 1e-14 * current,
                     "{current} vs {}",
-                    r[g] * heterogeneous
+                    ratio * heterogeneous
                 );
             }
         }
@@ -1560,6 +1618,7 @@ mod tests {
                     (true, Boundary::Marshak) => Edge::Vacuum,
                     (true, Boundary::Reflective) | (false, _) => Edge::Reflective,
                     (true, Boundary::ZeroFlux) => panic!("no zero-flux edge in GET"),
+                    (true, Boundary::Vacuum) => panic!("the fine reference uses marshak"),
                 }
             };
             let widths = [
