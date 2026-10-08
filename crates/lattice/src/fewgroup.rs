@@ -4,7 +4,8 @@ use std::ops::Range;
 
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::group::GroupStructure;
-use xlc_numeric::nem::{Edge, OneNode, OneNodeError, surface_fluxes};
+use xlc_numeric::equivalence::equivalent_diffusion;
+use xlc_numeric::nem::{Edge, OneNode, OneNodeError, is_fissile, surface_fluxes};
 
 use crate::b1::{B1Error, Medium};
 use crate::cmfd::{horizontal_face, vertical_face};
@@ -132,7 +133,9 @@ pub fn homogenize(
 /// 少数群定数を作る（ADR-0095）。返す定数はノードの順。
 ///
 /// - 断面積は、ノードの領域だけで反応率を保存する。拡散係数は、ノードの4辺がすべて外周の鏡面反射の辺
-///   （格子全体が1つのノード）なら B1、ほかは outflow（ADR-0098）。`k_inf` は格子の k
+///   （格子全体が1つのノード）なら B1、ほかは、核分裂のあるノードではノードの領域の中性子流で重みづけした outflow、
+///   核分裂のないノードでは Koebke の等価理論の D（正味の中性子流の向きの2つの面の不連続因子をそろえる。
+///   ADR-0104）。`k_inf` は格子の k
 /// - 辺の不均質な中性子束と正味の中性子流は、辺の上の粗メッシュの面の値（MOC の `face_fluxes`、
 ///   `face_currents`）を、面の長さで重みづけして平均する。内側の辺も同じ
 /// - ADF は1ノードの問題（ADR-0094）で作る。外周の辺は格子の境界（鏡面反射か真空）、内側の辺は隣の
@@ -275,26 +278,54 @@ pub fn homogenize_nodes(
                 None => Edge::Reflective,
             }
         });
-        adfs.push(discontinuity_factors(
-            &h.few,
+        // 核分裂のないノードの拡散係数は、Koebke の等価理論の D（ADR-0104）。中性子流の重みの D から探す
+        let mut few = h.few.clone();
+        let fissile = is_fissile(&few.nu_fission)
+            .map_err(|e| HomogenizeError::OneNode(OneNodeError::Invalid(e.to_string())))?;
+        if !fissile {
+            few.diffusion = equivalent_diffusion(
+                &OneNode {
+                    diffusion: &h.few.diffusion,
+                    total: &few.total,
+                    scatter: &few.scatter,
+                    nu_fission: &few.nu_fission,
+                    chi: &few.chi,
+                    k: solution.k,
+                    flux: &h.average,
+                    widths: h.size,
+                    currents: FACES.map(|side| h.currents[side].as_slice()),
+                    edges,
+                },
+                FACES.map(|side| h.heterogeneous[side].as_slice()),
+            )?;
+            tracing::info!(
+                node = n,
+                current_weighted = ?h.few.diffusion,
+                equivalent = ?few.diffusion,
+                "equivalent diffusion coefficients"
+            );
+        }
+        let adf = discontinuity_factors(
+            &few,
             solution.k,
             &h.average,
             h.size,
             &h.heterogeneous,
             &h.currents,
             edges,
-        )?);
+        )?;
+        few.adf = adf;
+        adfs.push(few);
     }
     let mut result = Vec::with_capacity(nodes.len());
-    for (n, (node, h)) in nodes.iter().zip(homogenized).enumerate() {
-        let mut few = h.few;
-        few.adf = adfs[n].clone();
+    for (n, node) in nodes.iter().enumerate() {
+        let mut few = adfs[n].clone();
         if node.reflector {
             for side in 0..4 {
                 if let Some(m) = neighbors[n][side]
                     && !nodes[m].reflector
                 {
-                    for (f, fuel) in few.adf[side].iter_mut().zip(&adfs[m][OPPOSITE[side]]) {
+                    for (f, fuel) in few.adf[side].iter_mut().zip(&adfs[m].adf[OPPOSITE[side]]) {
                         *f /= fuel;
                     }
                     few.normalized_adf[side] = true;
