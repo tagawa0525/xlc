@@ -66,6 +66,8 @@ M1 までの格子計算は、無限希釈の断面積でピンセルを1つ解�
 
 ## 進め方
 
+すべて済（最後のマージは fd9a7a7）。ただし 6 の集合体の UFG の参照の道具は作っていない（#0019）。
+
 1. 一般の正方格子の形状、集合体全体のトラッキング、真空境界と、巨視的断面積の入力。C5G7 で検証する
 2. ファイルの約束事への移行（入力を TOML、データファイルを MessagePack、エラーを thiserror と anyhow に。
    [ADR-0010](../adr/0010-write-inputs-in-toml.md)、[ADR-0011](../adr/0011-write-data-files-in-messagepack.md)、[ADR-0016](../adr/0016-type-errors-with-thiserror-and-anyhow.md)）。コードが増える前に済ませる
