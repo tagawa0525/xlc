@@ -42,188 +42,266 @@ pub enum AnmError {
     Modes(String),
     #[error("{0}")]
     Invalid(String),
-    #[error("the analytic nodal face conditions are singular")]
-    Singular,
+    /// 面の条件の式（列をそろえた 4×4）の条件数が `MAX_CONDITION` を超える。群が結合して D⁻¹A の固有値が
+    /// 重なる（近い）と、2つのモードの固有ベクトルがそろって起きる
+    #[error(
+        "the analytic nodal face conditions are ill-conditioned (condition number {condition:e}); \
+         the eigenvalues of D^-1 A are (nearly) repeated with coupled groups"
+    )]
+    IllConditioned { condition: f64 },
 }
 
-/// 群 `group` の、出ていく部分中性子流のノード平均についての線形の式（`nem::Outflow`。3次・4次の係数は 0）。
-/// ほかの群のノード平均と入射の条件は `node` の値を使う。
-pub fn outflow(node: &AnmNode, group: usize) -> Result<Outflow, AnmError> {
-    let ng = node.diffusion.len();
-    if ng != 2 {
-        return Err(AnmError::Groups(ng));
-    }
-    let lengths = [
-        node.total.len(),
-        node.scatter.len(),
-        node.transverse.len(),
-        node.inflow.len(),
-        node.averages.len(),
-    ];
-    if lengths.iter().any(|&l| l != 2) || node.scatter.iter().any(|row| row.len() != 2) {
-        return Err(AnmError::Invalid(
-            "ANM constants, leakages, inflows and averages must have 2 groups".into(),
-        ));
-    }
-    let h = node.width;
-    if !(h > 0.0 && h.is_finite()) {
-        return Err(AnmError::Invalid(format!(
-            "ANM width must be positive, got {h}"
-        )));
-    }
-    if !node.diffusion.iter().all(|&d| d > 0.0 && d.is_finite()) {
-        return Err(AnmError::Invalid(
-            "ANM diffusion coefficients must be positive".into(),
-        ));
-    }
-    let d = node.diffusion;
-    // A[g][g'] と M = D⁻¹ A
-    let a: [[f64; 2]; 2] = std::array::from_fn(|g| {
-        std::array::from_fn(|from| {
-            if from == g {
-                node.total[g] - node.scatter[g][g]
-            } else {
-                -node.scatter[from][g]
-            }
-        })
-    });
-    if !(a[0][0] > 0.0 && a[1][1] > 0.0) {
-        return Err(AnmError::Modes(format!(
-            "ANM removal cross sections must be positive, got {} and {}",
-            a[0][0], a[1][1]
-        )));
-    }
-    let m: [[f64; 2]; 2] = std::array::from_fn(|g| std::array::from_fn(|h| a[g][h] / d[g]));
-    let modes = modes(m)?;
-    let det_a = a[0][0] * a[1][1] - a[0][1] * a[1][0];
-    let inverse = |r: [f64; 2]| {
-        [
-            (a[1][1] * r[0] - a[0][1] * r[1]) / det_a,
-            (a[0][0] * r[1] - a[1][0] * r[0]) / det_a,
-        ]
-    };
-    let p1 = inverse([-node.transverse[0].0, -node.transverse[1].0]);
-    let p2 = inverse([-node.transverse[0].1, -node.transverse[1].1]);
+/// 面の条件の式の条件数の上限。解の相対誤差はおよそ 条件数 × ε なので、ε の 10⁻⁸ 倍の逆数にして、8 桁の
+/// 精度を保てないときはエラーにする（黙って精度を落とさない）
+const MAX_CONDITION: f64 = 1.0e-8 / f64::EPSILON;
 
-    // 面（+, -）の中性子束と dφ/dξ の、係数 u = (A_a, B_a, A_b, B_b) についての係数
-    // [群][面][未知数]
-    let mut phi = [[[0.0; 4]; 2]; 2];
-    let mut slope = [[[0.0; 4]; 2]; 2];
-    for (k, (mu, v)) in modes.iter().enumerate() {
-        let t = 0.5 * mu.sqrt() * h;
-        let tanh = t.tanh();
-        // C(±1/2) = 1 − tanh(t)/t、S(±1/2) = ±tanh t、dC/dξ(±1/2) = ±2t tanh t、dS/dξ(±1/2) = 2t
-        let even = 1.0 - tanh / t;
-        for g in 0..2 {
-            for (f, sign) in [(0, 1.0), (1, -1.0)] {
-                phi[g][f][2 * k] = v[g] * even;
-                phi[g][f][2 * k + 1] = v[g] * sign * tanh;
-                slope[g][f][2 * k] = v[g] * sign * 2.0 * t * tanh;
-                slope[g][f][2 * k + 1] = v[g] * 2.0 * t;
+/// 1 − tanh(t)/t を級数で求める t の上限。直接の式は 1 から引く桁落ちで相対誤差がおよそ 3ε/t²、級数
+/// t²/3 − 2t⁴/15 + 17t⁶/315 − 62t⁸/2835 の打ち切りの相対誤差は、次の項 1382t¹⁰/155925 から 0.0266 t⁸。
+/// 両者が等しくなる t = (3ε/0.0266)^(1/10) ≈ 0.0436 で切り替え、どちらの側でも相対誤差を 4 × 10⁻¹³ 以下にする
+const SERIES_BELOW: f64 = 0.0436;
+
+/// cosh のモードの面の値（cosh(κh/2) で割り、ノード平均を引いたもの）1 − tanh(t)/t（t = κh/2）
+fn even_face_value(t: f64) -> f64 {
+    if t < SERIES_BELOW {
+        let t2 = t * t;
+        t2 * (1.0 / 3.0 - t2 * (2.0 / 15.0 - t2 * (17.0 / 315.0 - t2 * 62.0 / 2835.0)))
+    } else {
+        1.0 - t.tanh() / t
+    }
+}
+
+/// 核分裂のない2群のノードの、1つの方向の定数で決まる量（固有値と固有ベクトル、面の値の表）。core はノードと
+/// 方向ごとに1回作り、反復のたびに `outflow` で使う。
+#[derive(Debug, Clone, PartialEq)]
+pub struct AnmModes {
+    diffusion: [f64; 2],
+    width: f64,
+    /// A[g][g']
+    removal: [[f64; 2]; 2],
+    /// [群][面（+, -）][未知数 (A_a, B_a, A_b, B_b)] の、面の中性子束と dφ/dξ への係数
+    phi: [[[f64; 4]; 2]; 2],
+    slope: [[[f64; 4]; 2]; 2],
+}
+
+impl AnmModes {
+    /// 拡散係数、全断面積、散乱 [出る群][入る群]、幅から作る。2群で、値が有限で、除去が正で、D⁻¹A の固有値が
+    /// 正の実数であること。
+    pub fn new(
+        diffusion: &[f64],
+        total: &[f64],
+        scatter: &[Vec<f64>],
+        width: f64,
+    ) -> Result<Self, AnmError> {
+        let ng = diffusion.len();
+        if ng != 2 {
+            return Err(AnmError::Groups(ng));
+        }
+        if total.len() != 2 || scatter.len() != 2 || scatter.iter().any(|row| row.len() != 2) {
+            return Err(AnmError::Invalid("ANM constants must have 2 groups".into()));
+        }
+        if !(width > 0.0 && width.is_finite()) {
+            return Err(AnmError::Invalid(format!(
+                "ANM width must be positive, got {width}"
+            )));
+        }
+        if !diffusion.iter().all(|&d| d > 0.0 && d.is_finite()) {
+            return Err(AnmError::Invalid(
+                "ANM diffusion coefficients must be positive".into(),
+            ));
+        }
+        if !(total.iter().all(|v| v.is_finite()) && scatter.iter().flatten().all(|v| v.is_finite()))
+        {
+            return Err(AnmError::Invalid(
+                "ANM cross sections must be finite".into(),
+            ));
+        }
+        let a: [[f64; 2]; 2] = std::array::from_fn(|g| {
+            std::array::from_fn(|from| {
+                if from == g {
+                    total[g] - scatter[g][g]
+                } else {
+                    -scatter[from][g]
+                }
+            })
+        });
+        if !(a[0][0] > 0.0 && a[1][1] > 0.0) {
+            return Err(AnmError::Modes(format!(
+                "ANM removal cross sections must be positive, got {} and {}",
+                a[0][0], a[1][1]
+            )));
+        }
+        let m: [[f64; 2]; 2] =
+            std::array::from_fn(|g| std::array::from_fn(|h| a[g][h] / diffusion[g]));
+        let mut phi = [[[0.0; 4]; 2]; 2];
+        let mut slope = [[[0.0; 4]; 2]; 2];
+        for (k, (mu, v)) in modes(m)?.iter().enumerate() {
+            let t = 0.5 * mu.sqrt() * width;
+            let tanh = t.tanh();
+            // C(±1/2) = 1 − tanh(t)/t、S(±1/2) = ±tanh t、dC/dξ(±1/2) = ±2t tanh t、dS/dξ(±1/2) = 2t
+            let even = even_face_value(t);
+            for g in 0..2 {
+                for (f, sign) in [(0, 1.0), (1, -1.0)] {
+                    phi[g][f][2 * k] = v[g] * even;
+                    phi[g][f][2 * k + 1] = v[g] * sign * tanh;
+                    slope[g][f][2 * k] = v[g] * sign * 2.0 * t * tanh;
+                    slope[g][f][2 * k + 1] = v[g] * 2.0 * t;
+                }
             }
         }
+        Ok(Self {
+            diffusion: [diffusion[0], diffusion[1]],
+            width,
+            removal: a,
+            phi,
+            slope,
+        })
     }
-    // 面の条件の行列（[群][面] の行）: + 面 (1 − β) φ/4 − (1 + β) J/2 = e、− 面 (1 − β) φ/4 + (1 + β) J/2 = e、
-    // J = −(D/h) dφ/dξ
-    let mut matrix = [[0.0; 4]; 4];
-    let row = |g: usize, f: usize| 2 * g + f;
-    let weights = |g: usize, f: usize| {
-        let Inflow { beta, .. } = node.inflow[g][f];
-        let sign = if f == 0 { -1.0 } else { 1.0 };
-        // φ と dφ/dξ にかける係数
-        ((1.0 - beta) / 4.0, -sign * (1.0 + beta) / 2.0 * d[g] / h)
-    };
-    for g in 0..2 {
-        for f in 0..2 {
-            let (wp, ws) = weights(g, f);
-            for j in 0..4 {
-                matrix[row(g, f)][j] = wp * phi[g][f][j] + ws * slope[g][f][j];
-            }
+
+    /// 群 `group` の、出ていく部分中性子流のノード平均についての線形の式（`nem::Outflow`。3次・4次の係数は 0）。
+    /// `transverse` は [群] の横方向の漏れの f1, f2 の係数、`inflow` は [群][+ 面, - 面] の入射の条件、`averages` は
+    /// [群] のノード平均（求める群の値は使わない）。
+    pub fn outflow(
+        &self,
+        transverse: &[(f64, f64)],
+        inflow: &[[Inflow; 2]],
+        averages: &[f64],
+        group: usize,
+    ) -> Result<Outflow, AnmError> {
+        if transverse.len() != 2 || inflow.len() != 2 || averages.len() != 2 || group >= 2 {
+            return Err(AnmError::Invalid(
+                "ANM leakages, inflows and averages must have 2 groups".into(),
+            ));
         }
-    }
-    // 既知の部分（ノード平均 `averages`、特解、外からの入射）の面の値から右辺を作り、解いて、群 `group` の
-    // 出ていく部分中性子流 o+ = φ/4 + J/2、o− = φ/4 − J/2 を返す
-    let solve_out = |averages: [f64; 2], particular: bool| -> Result<[f64; 2], AnmError> {
-        let known = |g: usize, f: usize| -> (f64, f64) {
-            let sign = if f == 0 { 1.0 } else { -1.0 };
-            let (q1, q2) = if particular {
-                (p1[g], p2[g])
-            } else {
-                (0.0, 0.0)
-            };
-            // f1(±1/2) = ±1/2、f2(±1/2) = 1/2、f1' = 1、f2'(±1/2) = ±3
-            (
-                averages[g] + sign * q1 / 2.0 + q2 / 2.0,
-                q1 + sign * 3.0 * q2,
-            )
+        let finite = transverse
+            .iter()
+            .all(|(a, b)| a.is_finite() && b.is_finite())
+            && inflow
+                .iter()
+                .flatten()
+                .all(|i| i.beta.is_finite() && i.external.is_finite())
+            && averages.iter().all(|v| v.is_finite());
+        if !finite {
+            return Err(AnmError::Invalid(
+                "ANM leakages, inflows and averages must be finite".into(),
+            ));
+        }
+        let (d, h, a) = (self.diffusion, self.width, self.removal);
+        let det_a = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+        let inverse = |r: [f64; 2]| {
+            [
+                (a[1][1] * r[0] - a[0][1] * r[1]) / det_a,
+                (a[0][0] * r[1] - a[1][0] * r[0]) / det_a,
+            ]
         };
-        let mut rhs = [0.0; 4];
+        let p1 = inverse([-transverse[0].0, -transverse[1].0]);
+        let p2 = inverse([-transverse[0].1, -transverse[1].1]);
+        let (phi, slope) = (&self.phi, &self.slope);
+        // 面の条件の行列（[群][面] の行）: + 面 (1 − β) φ/4 − (1 + β) J/2 = e、− 面 (1 − β) φ/4 + (1 + β) J/2 = e、
+        // J = −(D/h) dφ/dξ
+        let row = |g: usize, f: usize| 2 * g + f;
+        let weights = |g: usize, f: usize| {
+            let Inflow { beta, .. } = inflow[g][f];
+            let sign = if f == 0 { -1.0 } else { 1.0 };
+            // φ と dφ/dξ にかける係数
+            ((1.0 - beta) / 4.0, -sign * (1.0 + beta) / 2.0 * d[g] / h)
+        };
+        let mut matrix = [[0.0; 4]; 4];
         for g in 0..2 {
             for f in 0..2 {
                 let (wp, ws) = weights(g, f);
-                let (p, s) = known(g, f);
-                let external = if particular {
-                    node.inflow[g][f].external
-                } else {
-                    0.0
-                };
-                rhs[row(g, f)] = external - wp * p - ws * s;
+                for j in 0..4 {
+                    matrix[row(g, f)][j] = wp * phi[g][f][j] + ws * slope[g][f][j];
+                }
             }
         }
-        let u = solve4(matrix, rhs).ok_or(AnmError::Singular)?;
-        Ok(std::array::from_fn(|f| {
-            let (p, s) = known(group, f);
-            let value = p + (0..4).map(|j| phi[group][f][j] * u[j]).sum::<f64>();
-            let derivative = s + (0..4).map(|j| slope[group][f][j] * u[j]).sum::<f64>();
-            let current = -d[group] / h * derivative;
-            let sign = if f == 0 { 1.0 } else { -1.0 };
-            value / 4.0 + sign * current / 2.0
-        }))
-    };
-    let mut others = [node.averages[0], node.averages[1]];
-    others[group] = 0.0;
-    let mut unit = [0.0; 2];
-    unit[group] = 1.0;
-    Ok(Outflow {
-        out: solve_out(others, true)?,
-        slope: solve_out(unit, false)?,
-        beta: [node.inflow[group][0].beta, node.inflow[group][1].beta],
-        external: [
-            node.inflow[group][0].external,
-            node.inflow[group][1].external,
-        ],
-        higher: [0.0; 2],
-        higher_slope: [0.0; 2],
-    })
+        let lu = Lu4::conditioned(matrix)?;
+        // 既知の部分（ノード平均 `averages`、特解、外からの入射）の面の値から右辺を作り、解いて、群 `group` の
+        // 出ていく部分中性子流 o+ = φ/4 + J/2、o− = φ/4 − J/2 を返す
+        let solve_out = |averages: [f64; 2], particular: bool| -> [f64; 2] {
+            let known = |g: usize, f: usize| -> (f64, f64) {
+                let sign = if f == 0 { 1.0 } else { -1.0 };
+                let (q1, q2) = if particular {
+                    (p1[g], p2[g])
+                } else {
+                    (0.0, 0.0)
+                };
+                // f1(±1/2) = ±1/2、f2(±1/2) = 1/2、f1' = 1、f2'(±1/2) = ±3
+                (
+                    averages[g] + sign * q1 / 2.0 + q2 / 2.0,
+                    q1 + sign * 3.0 * q2,
+                )
+            };
+            let mut rhs = [0.0; 4];
+            for g in 0..2 {
+                for f in 0..2 {
+                    let (wp, ws) = weights(g, f);
+                    let (p, s) = known(g, f);
+                    let external = if particular {
+                        inflow[g][f].external
+                    } else {
+                        0.0
+                    };
+                    rhs[row(g, f)] = external - wp * p - ws * s;
+                }
+            }
+            let u = lu.solve(rhs);
+            std::array::from_fn(|f| {
+                let (p, s) = known(group, f);
+                let value = p + (0..4).map(|j| phi[group][f][j] * u[j]).sum::<f64>();
+                let derivative = s + (0..4).map(|j| slope[group][f][j] * u[j]).sum::<f64>();
+                let current = -d[group] / h * derivative;
+                let sign = if f == 0 { 1.0 } else { -1.0 };
+                value / 4.0 + sign * current / 2.0
+            })
+        };
+        let mut others = [averages[0], averages[1]];
+        others[group] = 0.0;
+        let mut unit = [0.0; 2];
+        unit[group] = 1.0;
+        Ok(Outflow {
+            out: solve_out(others, true),
+            slope: solve_out(unit, false),
+            beta: [inflow[group][0].beta, inflow[group][1].beta],
+            external: [inflow[group][0].external, inflow[group][1].external],
+            higher: [0.0; 2],
+            higher_slope: [0.0; 2],
+        })
+    }
 }
 
-/// D⁻¹A の2つの固有値 κ² と固有ベクトル。どちらも正の実数で、互いに異なること。
+/// 群 `group` の `AnmModes::outflow`（モードを毎回作る）。
+pub fn outflow(node: &AnmNode, group: usize) -> Result<Outflow, AnmError> {
+    AnmModes::new(node.diffusion, node.total, node.scatter, node.width)?.outflow(
+        node.transverse,
+        node.inflow,
+        node.averages,
+        group,
+    )
+}
+
+/// D⁻¹A の2つの固有値 κ² と固有ベクトル。どちらも正の実数であること。群が結合しないときは単位ベクトルで、
+/// 固有値が等しくてもよい。群が結合して固有値が重なる（近い）ときは、固有ベクトルがそろい、面の条件の式の
+/// 条件数（`Lu4::conditioned`）でエラーになる。
 fn modes(m: [[f64; 2]; 2]) -> Result<[(f64, [f64; 2]); 2], AnmError> {
+    if m[0][1] == 0.0 && m[1][0] == 0.0 {
+        return Ok([(m[0][0], [1.0, 0.0]), (m[1][1], [0.0, 1.0])]);
+    }
     let half = 0.5 * (m[0][0] + m[1][1]);
     let det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
     let discriminant = half * half - det;
-    let distinct = 1.0e-12 * half * half;
-    if !(discriminant.is_finite() && det.is_finite()) || discriminant < -distinct {
+    if !(discriminant.is_finite() && det.is_finite()) || discriminant < 0.0 {
+        // 散乱の非対角の積が負でなければ判別式は (m00 − m11)²/4 + m01 m10 ≥ 0
         return Err(AnmError::Modes(format!(
             "D^-1 A has complex eigenvalues (matrix {m:?})"
         )));
     }
-    let coupled = m[0][1] != 0.0 || m[1][0] != 0.0;
-    if discriminant <= distinct && coupled {
-        return Err(AnmError::Modes(format!(
-            "D^-1 A has a repeated eigenvalue with coupled groups (matrix {m:?})"
-        )));
-    }
-    let root = discriminant.max(0.0).sqrt();
-    let values = [half + root, half - root];
+    let large = half + discriminant.sqrt();
+    // 小さいほうは det / large（half − root の桁落ちを避ける）
+    let values = [large, det / large];
     if values.iter().any(|&mu| mu.is_nan() || mu <= 0.0) {
         return Err(AnmError::Modes(format!(
             "D^-1 A must have positive eigenvalues, got {values:?}"
         )));
-    }
-    if !coupled {
-        // 群が結合しないなら、固有ベクトルは単位ベクトル（固有値が等しくてもよい）
-        return Ok([(m[0][0], [1.0, 0.0]), (m[1][1], [0.0, 1.0])]);
     }
     Ok(values.map(|mu| {
         // (M − μ) v = 0 の2つの行から、大きいほうの候補を使う
@@ -240,30 +318,96 @@ fn modes(m: [[f64; 2]; 2]) -> Result<[(f64, [f64; 2]); 2], AnmError> {
     }))
 }
 
-/// 4×4 の連立一次方程式（部分ピボットの Gauss の消去法）。特異なら `None`。
-fn solve4(mut a: [[f64; 4]; 4], mut b: [f64; 4]) -> Option<[f64; 4]> {
-    for col in 0..4 {
-        let pivot = (col..4).max_by(|&i, &j| a[i][col].abs().total_cmp(&a[j][col].abs()))?;
-        if a[pivot][col] == 0.0 || a[pivot][col].is_nan() {
-            return None;
-        }
-        a.swap(col, pivot);
-        b.swap(col, pivot);
-        let pivot_row = a[col];
-        for r in col + 1..4 {
-            let factor = a[r][col] / pivot_row[col];
-            for (value, p) in a[r][col..].iter_mut().zip(&pivot_row[col..]) {
-                *value -= factor * p;
+/// 4×4 の LU 分解（部分ピボット）。
+struct Lu4 {
+    lu: [[f64; 4]; 4],
+    /// 列のスケール（列をそろえた行列を分解する）
+    scale: [f64; 4],
+    pivot: [usize; 4],
+}
+
+impl Lu4 {
+    /// 列を最大の絶対値でそろえて分解し、1-ノルムの条件数が `MAX_CONDITION` 以下であることを確かめる
+    /// （列のスケールは未知数の単位を変えるだけで、解の精度は列をそろえた行列の条件数で決まる）。
+    fn conditioned(matrix: [[f64; 4]; 4]) -> Result<Self, AnmError> {
+        let ill = |condition: f64| Err(AnmError::IllConditioned { condition });
+        let mut scale = [0.0; 4];
+        for (j, s) in scale.iter_mut().enumerate() {
+            *s = (0..4).map(|i| matrix[i][j].abs()).fold(0.0, f64::max);
+            if *s == 0.0 || !s.is_finite() {
+                return ill(f64::INFINITY);
             }
-            b[r] -= factor * b[col];
         }
+        let mut lu = [[0.0; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                lu[i][j] = matrix[i][j] / scale[j];
+            }
+        }
+        let norm = (0..4)
+            .map(|j| (0..4).map(|i| lu[i][j].abs()).sum::<f64>())
+            .fold(0.0, f64::max);
+        let mut pivot = [0, 1, 2, 3];
+        for col in 0..4 {
+            let best = (col..4)
+                .max_by(|&i, &j| lu[i][col].abs().total_cmp(&lu[j][col].abs()))
+                .unwrap_or(col);
+            if lu[best][col] == 0.0 {
+                return ill(f64::INFINITY);
+            }
+            lu.swap(col, best);
+            pivot.swap(col, best);
+            let pivot_row = lu[col];
+            for row in lu.iter_mut().skip(col + 1) {
+                let factor = row[col] / pivot_row[col];
+                row[col] = factor;
+                for (value, p) in row[col + 1..].iter_mut().zip(&pivot_row[col + 1..]) {
+                    *value -= factor * p;
+                }
+            }
+        }
+        let factored = Self { lu, scale, pivot };
+        // 逆行列の 1-ノルム（列ごとに単位ベクトルを解く。列をそろえた行列の逆）
+        let inverse_norm = (0..4)
+            .map(|j| {
+                let mut e = [0.0; 4];
+                e[j] = 1.0;
+                factored
+                    .solve_scaled(e)
+                    .iter()
+                    .map(|v| v.abs())
+                    .sum::<f64>()
+            })
+            .fold(0.0, f64::max);
+        let condition = norm * inverse_norm;
+        if condition.is_nan() || condition > MAX_CONDITION {
+            return ill(condition);
+        }
+        Ok(factored)
     }
-    let mut x = [0.0; 4];
-    for r in (0..4).rev() {
-        let sum: f64 = (r + 1..4).map(|c| a[r][c] * x[c]).sum();
-        x[r] = (b[r] - sum) / a[r][r];
+
+    /// 列をそろえた行列の解
+    fn solve_scaled(&self, b: [f64; 4]) -> [f64; 4] {
+        let mut y: [f64; 4] = std::array::from_fn(|i| b[self.pivot[i]]);
+        for i in 0..4 {
+            for j in 0..i {
+                y[i] -= self.lu[i][j] * y[j];
+            }
+        }
+        for i in (0..4).rev() {
+            for j in i + 1..4 {
+                y[i] -= self.lu[i][j] * y[j];
+            }
+            y[i] /= self.lu[i][i];
+        }
+        y
     }
-    x.iter().all(|v| v.is_finite()).then_some(x)
+
+    /// 元の行列の解（列のスケールで割り戻す）
+    fn solve(&self, b: [f64; 4]) -> [f64; 4] {
+        let y = self.solve_scaled(b);
+        std::array::from_fn(|j| y[j] / self.scale[j])
+    }
 }
 
 #[cfg(test)]
@@ -600,7 +744,7 @@ mod tests {
     }
 
     /// 定数 `constants` の幅 `width` のノード（右から入射、左は真空、横方向の漏れなし）を、ANM と細かいメッシュの
-    /// 差分で解き、ANM の出ていく部分中性子流の、差分の解に対する最大の相対差を返す
+    /// 差分で解き、ANM の出ていく部分中性子流の、差分の解に対する最大の相対差（値か入射の大きいほうに対する）を返す
     fn against_differences(constants: &Constants, width: f64, cells: usize) -> f64 {
         let (diffusion, total, scatter) = constants;
         let incoming = [0.05, 0.004];
@@ -638,18 +782,87 @@ mod tests {
         for g in 0..2 {
             let faces = outflow(&node, g).unwrap().at(averages[g]);
             let (_, right, left) = reference[g];
+            // 厚いノードの真空側は入射より桁違いに小さいので、入射の大きさで割る
             worst = worst
-                .max((faces.out[0] - right).abs() / right)
-                .max((faces.out[1] - left).abs() / left);
+                .max((faces.out[0] - right).abs() / right.max(incoming[g]))
+                .max((faces.out[1] - left).abs() / left.max(incoming[g]));
         }
         worst
     }
 
     #[test]
-    fn thin_and_thick_nodes_match_fine_differences() {
-        // 薄いノード（κh/2 ≈ 2 × 10⁻⁴）と厚いノード（κh/2 ≈ 50）でも、差分の解に一致する
-        let thin = against_differences(&reflector(), 1.0e-3, 200);
-        assert!(thin < 1e-9, "{thin}");
+    fn thin_and_thick_nodes_match_analytic_and_fine_differences() {
+        // 群が結合しない2群では、各群が φ = c1 cosh κx + c2 sinh κx（x ∈ [0, h]、左は真空、右から入射 i）と
+        // 解析的に解ける。薄いノード（κh/2 ≈ 10⁻⁴）から厚いノード（κh/2 ≈ 80）まで、丸め誤差の水準で一致する
+        let constants: Constants = (
+            vec![1.25, 0.30],
+            vec![0.60, 1.90],
+            vec![vec![0.57, 0.0], vec![0.0, 1.88]],
+        );
+        let (diffusion, total, scatter) = &constants;
+        let incoming = [0.05, 0.004];
+        for width in [1.0e-3, 1.0, 200.0] {
+            // [群] の（ノード平均、右の出ていく部分中性子流、左の出ていく部分中性子流）
+            let exact: Vec<(f64, f64, f64)> = (0..2)
+                .map(|g| {
+                    let d = diffusion[g];
+                    let kappa = ((total[g] - scatter[g][g]) / d).sqrt();
+                    let kh = kappa * width;
+                    let (c, sh) = (kh.cosh(), kh.sinh());
+                    // 左: 入射 φ/4 + J/2 = 0、J = −Dφ' から c1 = 2Dκ c2。右: φ/4 − J/2 = i
+                    let per_c2 = 2.0 * d * kappa;
+                    let right_per_c2 =
+                        (per_c2 * c + sh) / 4.0 + d * kappa * (per_c2 * sh + c) / 2.0;
+                    let c2 = incoming[g] / right_per_c2;
+                    let c1 = per_c2 * c2;
+                    let half = (0.5 * kh).sinh();
+                    let average = (c1 * sh + c2 * 2.0 * half * half) / kh;
+                    let phi_right = c1 * c + c2 * sh;
+                    let derivative_right = kappa * (c1 * sh + c2 * c);
+                    // 右の出ていく部分中性子流 φ/4 + J/2 = φ/4 − Dφ'/2、左は φ/4 − J/2
+                    let right = phi_right / 4.0 - d * derivative_right / 2.0;
+                    let left = c1 / 4.0 + d * kappa * c2 / 2.0;
+                    (average, right, left)
+                })
+                .collect();
+            let averages: Vec<f64> = exact.iter().map(|e| e.0).collect();
+            let inflow: Vec<[Inflow; 2]> = (0..2)
+                .map(|g| {
+                    [
+                        Inflow {
+                            beta: 0.0,
+                            external: incoming[g],
+                        },
+                        Inflow::default(),
+                    ]
+                })
+                .collect();
+            let node = AnmNode {
+                diffusion,
+                total,
+                scatter,
+                width,
+                transverse: &[(0.0, 0.0); 2],
+                inflow: &inflow,
+                averages: &averages,
+            };
+            for g in 0..2 {
+                let faces = outflow(&node, g).unwrap().at(averages[g]);
+                let (_, right, left) = exact[g];
+                assert!(
+                    (faces.out[0] - right).abs() < 1e-12 * right,
+                    "{width} group {g}: {} vs {right}",
+                    faces.out[0]
+                );
+                // 厚いノードの真空側は入射より桁違いに小さいので、入射の大きさに対する丸め誤差で比べる
+                assert!(
+                    (faces.out[1] - left).abs() < 1e-12 * left.max(incoming[g]),
+                    "{width} group {g}: {} vs {left}",
+                    faces.out[1]
+                );
+            }
+        }
+        // 群が結合する厚いノード（κh/2 ≈ 50）も、細かいメッシュの差分に一致する
         let thick = against_differences(&reflector(), 200.0, 40_000);
         assert!(thick < 1e-5, "{thick}");
     }

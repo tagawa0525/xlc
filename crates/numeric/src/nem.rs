@@ -7,11 +7,20 @@
 //! 面では部分中性子流を使い、入射の部分中性子流 i を、出ていく部分中性子流 o から i = β o + 外からの入射
 //! の形で与える。
 
-use crate::anm::{self, AnmError, AnmNode};
+use crate::anm::{AnmError, AnmModes};
 
-/// 核分裂のあるノード（νΣf が正の群がある）か。核分裂のないノードは NEM の代わりに ANM で解く（ADR-0102）
-pub fn is_fissile(nu_fission: &[f64]) -> bool {
-    nu_fission.iter().any(|&v| v != 0.0)
+/// νΣf が負か有限でない（核の種類を選べない）。
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+#[error("nu-fission must be finite and non-negative, got {0}")]
+pub struct NuFissionError(pub f64);
+
+/// 核分裂のあるノード（νΣf が正の群がある）か。核分裂のないノード（どの群も 0）は NEM の代わりに ANM で
+/// 解く（ADR-0102）。負や有限でない νΣf は、推測せずにエラーにする。
+pub fn is_fissile(nu_fission: &[f64]) -> Result<bool, NuFissionError> {
+    if let Some(&bad) = nu_fission.iter().find(|v| !(v.is_finite() && **v >= 0.0)) {
+        return Err(NuFissionError(bad));
+    }
+    Ok(nu_fission.iter().any(|&v| v > 0.0))
 }
 
 /// 面の入射の部分中性子流 i = β o + `external`（o は同じ面から出ていく部分中性子流）。
@@ -317,15 +326,16 @@ pub enum OneNodeError {
 /// 1ノードの問題の反復の上限
 const MAX_ITERATIONS: usize = 10_000;
 
-/// 1ノードの問題の均質な面の中性子束 [面（-x, +x, -y, +y）][群]。
+/// 1ノードの問題の均質な面の中性子束 [面（-x, +x, -y, +y）][群]（ADR-0103）。
 ///
 /// ノード平均は参照の値に固定し（参照の k ではノードのバランス式がそれを満たす）、方向・群ごとに、core と
-/// 同じ NEM の式（4次の展開、f1, f2 で重み付けした残差、2次の横方向の漏れ）を、面の正味の中性子流が参照の
-/// 値になるように解く。横方向の漏れは、もう一方の方向の参照の漏れで、2次式の外側は `edges` で決める。
+/// 同じノードの核を、面の正味の中性子流が参照の値になるように解く。核分裂のあるノードは NEM の式（4次の展開、
+/// f1, f2 で重み付けした残差）、核分裂のないノードは2群の ANM（`anm::AnmModes`。ADR-0102）で、どちらも2次の
+/// 横方向の漏れを使う。横方向の漏れは、もう一方の方向の参照の漏れで、2次式の外側は `edges` で決める。
 ///
 /// 面の条件は、core の入射の形で β = 1、外からの入射 −J（J は参照の外向きの正味の中性子流）とし、core と同じ
-/// `outflow` で解く（a1〜a4 をノードの中で同時に解き、群の間の結合と真空の面の横方向の漏れだけを前の
-/// 反復の値とする）。面の中性子束の相対変化が丸め誤差の水準になるまで繰り返す。
+/// `outflow` か `AnmModes::outflow` で解く（NEM は a1〜a4 をノードの中で同時に解き、群の間の結合と真空の面の
+/// 横方向の漏れだけを前の反復の値とする）。面の中性子束の相対変化が丸め誤差の水準になるまで繰り返す。
 pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
     validate(node)?;
     let OneNode {
@@ -341,7 +351,16 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
         edges,
     } = *node;
     let ng = flux.len();
-    let fissile = is_fissile(nu_fission);
+    let fissile = is_fissile(nu_fission).map_err(|e| OneNodeError::Invalid(e.to_string()))?;
+    // 核分裂のないノードの、方向ごとの ANM のモード（ADR-0102）
+    let modes = if fissile {
+        None
+    } else {
+        Some([
+            AnmModes::new(diffusion, total, scatter, widths[0])?,
+            AnmModes::new(diffusion, total, scatter, widths[1])?,
+        ])
+    };
     // [方向][群] の単位体積あたりの正味の漏れ
     let leakage: [Vec<f64>; 2] = std::array::from_fn(|d| {
         (0..ng)
@@ -395,8 +414,8 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
                     ]
                 };
                 let [minus, plus] = face_fluxes(&coefficients[d][g], flux[g]);
-                let line = if fissile {
-                    outflow(&Line {
+                let line = match &modes {
+                    None => outflow(&Line {
                         diffusion: diffusion[g],
                         width: h,
                         removal,
@@ -405,23 +424,13 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
                         group: g,
                         transverse: moments_of(g),
                         inflow: inflow_of(g),
-                    })
-                } else {
-                    // 核分裂のないノードは ANM（ADR-0102）。ほかの群も参照のノード平均と正味の中性子流で決まる
-                    let transverse: Vec<(f64, f64)> = (0..ng).map(moments_of).collect();
-                    let inflow: Vec<[Inflow; 2]> = (0..ng).map(inflow_of).collect();
-                    anm::outflow(
-                        &AnmNode {
-                            diffusion,
-                            total,
-                            scatter,
-                            width: h,
-                            transverse: &transverse,
-                            inflow: &inflow,
-                            averages: flux,
-                        },
-                        g,
-                    )?
+                    }),
+                    // 核分裂のないノードは ANM。ほかの群も参照のノード平均と正味の中性子流で決まる
+                    Some(modes) => {
+                        let transverse: Vec<(f64, f64)> = (0..ng).map(moments_of).collect();
+                        let inflow: Vec<[Inflow; 2]> = (0..ng).map(inflow_of).collect();
+                        modes[d].outflow(&transverse, &inflow, flux, g)?
+                    }
                 };
                 let updated = line.at(flux[g]).coefficients;
                 for (new, old) in face_fluxes(&updated, flux[g]).iter().zip([minus, plus]) {
