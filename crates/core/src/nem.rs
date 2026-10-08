@@ -12,7 +12,8 @@
 //! 外周の真空の面は、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
 
 use xlc_format::fewgroup::FewGroup;
-use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, outflow, transverse_moments};
+use xlc_numeric::anm::AnmModes;
+use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, is_fissile, outflow, transverse_moments};
 
 /// 外周の境界条件。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -183,6 +184,10 @@ struct Core<'a> {
     widths: [&'a [f64]; 3],
     counts: [usize; 3],
     groups: usize,
+    /// [物質] の核分裂のある物質か（ノードの核を選ぶ。ADR-0102）
+    fissile: Vec<bool>,
+    /// [ノード] の、核分裂のないノードの方向ごとの ANM のモード（定数と幅で決まるので1回だけ作る）
+    anm: Vec<Option<[AnmModes; 3]>>,
 }
 
 /// 反復で更新する量。
@@ -259,6 +264,14 @@ impl<'a> Core<'a> {
             if m.groups() != groups {
                 return Err(format!("material {i} must have {groups} groups"));
             }
+            // 核分裂のないノードは2群の ANM で解く（ADR-0102）
+            if !is_fissile(&m.nu_fission).map_err(|e| format!("material {i}: {e}"))? && groups != 2
+            {
+                return Err(format!(
+                    "material {i} has no fission and is solved with the 2-group analytic nodal \
+                     method, but has {groups} groups"
+                ));
+            }
             if m.diffusion.iter().any(|&d| d.is_nan() || d <= 0.0) {
                 return Err(format!(
                     "material {i}: diffusion coefficients must be positive"
@@ -273,12 +286,34 @@ impl<'a> Core<'a> {
                 ));
             }
         }
-        let core = Self {
+        let fissile = problem
+            .materials
+            .iter()
+            .map(|m| is_fissile(&m.nu_fission))
+            .collect::<Result<Vec<bool>, _>>()
+            .map_err(|e| e.to_string())?;
+        let mut core = Self {
             problem,
             widths,
             counts,
             groups,
+            fissile,
+            anm: Vec::new(),
         };
+        core.anm = (0..core.nodes())
+            .map(|n| {
+                let material = problem.node_material[n];
+                if core.fissile[material] {
+                    return Ok(None);
+                }
+                let m = &problem.materials[material];
+                let modes = |d: usize| {
+                    AnmModes::new(&m.diffusion, &m.total, &m.scatter, core.width(n, d))
+                        .map_err(|e| format!("material {material} in node {n}: {e}"))
+                };
+                Ok(Some([modes(0)?, modes(1)?, modes(2)?]))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
         core.check_vacuum_ratios()?;
         Ok(core)
     }
@@ -431,7 +466,8 @@ impl<'a> Core<'a> {
 
     fn sweep_group(&self, state: &mut State, g: usize, k: f64) -> Result<(), NemError> {
         let nodes = self.nodes();
-        // 横方向の漏れは群のスイープの始めの値を使う
+        // 横方向の漏れは群のスイープの始めの値を使う。核分裂のないノードの ANM が使うほかの群の漏れは、その群の
+        // 値がこのスイープで変わらないので、使うノードの分だけその場で求める
         let leakage: Vec<[f64; 3]> = (0..nodes)
             .map(|n| std::array::from_fn(|d| self.net_leakage(state, n, d, g)))
             .collect();
@@ -459,18 +495,10 @@ impl<'a> Core<'a> {
             for (d, part) in parts.iter_mut().enumerate() {
                 let h = self.width(n, d);
                 // ノード n の群 g の値はまだ更新していないので、スイープの始めの値と同じ
-                let transverse = self.transverse_shape(state, &leakage, n, d, g)?;
-                // 入射は i = β o + 外からの入射（face_inputs）
-                let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, g);
-                *part = outflow(&Line {
-                    diffusion: m.diffusion[g],
-                    width: h,
-                    removal,
-                    coupling: &coupling,
-                    coefficients: &state.coefficients[d][n],
-                    group: g,
-                    transverse,
-                    inflow: [
+                // 入射は i = β o + 外からの入射（face_inputs）。[+ 面, - 面]
+                let inflow_of = |group: usize| {
+                    let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, group);
+                    [
                         Inflow {
                             beta: beta_r,
                             external: ext_r,
@@ -479,8 +507,41 @@ impl<'a> Core<'a> {
                             beta: beta_l,
                             external: ext_l,
                         },
-                    ],
-                });
+                    ]
+                };
+                *part = match &self.anm[n] {
+                    None => outflow(&Line {
+                        diffusion: m.diffusion[g],
+                        width: h,
+                        removal,
+                        coupling: &coupling,
+                        coefficients: &state.coefficients[d][n],
+                        group: g,
+                        transverse: self.transverse_shape(state, &|i| leakage[i], n, d, g)?,
+                        inflow: inflow_of(g),
+                    }),
+                    // 核分裂のないノードは2群の ANM（ADR-0102）。ほかの群はスイープのそのときの値を使う
+                    Some(modes) => {
+                        let transverse = (0..self.groups)
+                            .map(|group| {
+                                if group == g {
+                                    self.transverse_shape(state, &|i| leakage[i], n, d, g)
+                                } else {
+                                    let other = |i: usize| -> [f64; 3] {
+                                        std::array::from_fn(|e| {
+                                            self.net_leakage(state, i, e, group)
+                                        })
+                                    };
+                                    self.transverse_shape(state, &other, n, d, group)
+                                }
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        let inflow: Vec<[Inflow; 2]> = (0..self.groups).map(inflow_of).collect();
+                        modes[d]
+                            .outflow(&transverse, &inflow, &state.flux[n], g)
+                            .map_err(|e| NemError::InvalidProblem(format!("node {n}: {e}")))?
+                    }
+                };
                 // 正味の漏れ (o_R + o_L - i_R - i_L)/h（i = β o + 外からの入射）をバランス式に入れる
                 for f in 0..2 {
                     balance_rhs -= ((1.0 - part.beta[f]) * part.out[f] - part.external[f]) / h;
@@ -508,13 +569,15 @@ impl<'a> Core<'a> {
     fn transverse_shape(
         &self,
         state: &State,
-        leakage: &[[f64; 3]],
+        leakage: &dyn Fn(usize) -> [f64; 3],
         n: usize,
         d: usize,
         g: usize,
     ) -> Result<(f64, f64), NemError> {
-        let transverse =
-            |m: usize| -> f64 { (0..3).filter(|&e| e != d).map(|e| leakage[m][e]).sum() };
+        let transverse = |m: usize| -> f64 {
+            let l = leakage(m);
+            (0..3).filter(|&e| e != d).map(|e| l[e]).sum()
+        };
         let h = self.width(n, d);
         let side = |step: isize, face: usize| {
             Ok(match self.neighbor(n, d, step) {
@@ -1496,7 +1559,7 @@ mod tests {
     }
 
     /// 細かいノードの解を参照（不均質な解）とし、粗いノード（x, y に `blocks` 個ずつの細かいノードの
-    /// まとまり）ごとに反応率を保存して定数を均質化し、GET の1ノードの問題（ADR-0094）で ADF を作った
+    /// まとまり）ごとに反応率を保存して定数を均質化し、GET の1ノードの問題（ADR-0103）で ADF を作った
     /// 粗いノードの問題と、細かいノードの解を返す。z は1層。
     ///
     /// 1ノードの問題の外周の扱い（`Edge`）は、粗いノードの面が外周なら細かいノードの問題の境界とする。
@@ -1569,8 +1632,10 @@ mod tests {
                 m.absorption[g] = m.total[g] - m.scatter[g].iter().sum::<f64>();
             }
             let produced: f64 = m.chi.iter().sum();
-            for c in &mut m.chi {
-                *c /= produced;
+            if produced > 0.0 {
+                for c in &mut m.chi {
+                    *c /= produced;
+                }
             }
             let average: Vec<f64> = flux.iter().map(|f| f / volume).collect();
 
@@ -1763,5 +1828,81 @@ mod tests {
         };
         let (coarse, solution) = coarsen_with_get(&fine, [4, 4]);
         assert_get_equivalence(&coarse, &solution, [4, 4], 4);
+    }
+
+    /// 核分裂のない2群の物質（水に近い。上方散乱あり）
+    fn reflector() -> FewGroup {
+        let mut m = material();
+        m.diffusion = vec![1.25, 0.30];
+        m.total = vec![0.60, 1.90];
+        m.scatter = vec![vec![0.565, 0.032], vec![0.0015, 1.885]];
+        m.absorption = vec![0.003, 0.0135];
+        m.nu_fission = vec![0.0; 2];
+        m.fission = vec![0.0; 2];
+        m.chi = vec![0.0; 2];
+        m
+    }
+
+    #[test]
+    fn get_adfs_reproduce_fuel_and_a_wide_reflector() {
+        // 燃料（20 cm）と反射体（21.5 cm。細かいノード 2.5 cm × 8 と 2.6875 cm × 8）の 1D、+x は真空。
+        // 粗い反射体のノードは core と1ノードの問題の両方で ANM で解き（ADR-0102）、GET の定数で細かいノードの
+        // 解を再現する
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        let mut materials = three_fuels();
+        materials.push(reflector());
+        let mut dx = vec![2.5; 8];
+        dx.extend(vec![21.5 / 8.0; 8]);
+        let fine = Problem {
+            mesh: Mesh {
+                dx,
+                dy: vec![20.0],
+                dz: vec![20.0],
+            },
+            materials,
+            node_material: vec![0, 1, 0, 1, 1, 0, 2, 0, 3, 3, 3, 3, 3, 3, 3, 3],
+            boundaries,
+        };
+        let (coarse, solution) = coarsen_with_get(&fine, [8, 1]);
+        assert!(coarse.materials[1].nu_fission.iter().all(|&v| v == 0.0));
+        assert_get_equivalence(&coarse, &solution, [8, 1], 16);
+    }
+
+    #[test]
+    fn non_fissile_nodes_need_two_groups() {
+        // ANM の核は2群（ADR-0102）
+        let mut m = reflector();
+        m.bounds = vec![1.0e7, 1.0e-5];
+        m.total = vec![0.6];
+        m.absorption = vec![0.01];
+        m.diffusion = vec![1.0];
+        m.scatter = vec![vec![0.59]];
+        m.nu_fission = vec![0.0];
+        m.fission = vec![0.0];
+        m.chi = vec![0.0];
+        m.adf = vec![vec![1.0]; 4];
+        let mut fuel = m.clone();
+        fuel.nu_fission = vec![0.02];
+        fuel.fission = vec![0.008];
+        fuel.chi = vec![1.0];
+        let p = slab(
+            vec![10.0; 2],
+            vec![fuel, m],
+            vec![0, 1],
+            Boundary::Reflective,
+        );
+        let err = solve(&p, &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
+    }
+
+    #[test]
+    fn negative_nu_fission_is_an_error() {
+        // νΣf で核の種類（NEM か ANM）を選ぶので、負の νΣf は推測せずにエラー（ADR-0102）
+        let mut m = material();
+        m.nu_fission[0] = -1.0e-3;
+        let p = slab(vec![10.0; 2], vec![m], vec![0, 0], Boundary::Reflective);
+        let err = solve(&p, &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
     }
 }

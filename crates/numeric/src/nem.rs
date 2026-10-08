@@ -1,11 +1,28 @@
-//! ノード展開法（NEM）の1ノードの計算。core の NEM と、lattice の ADF（一般化等価理論の1ノードの問題）が
-//! 共有する（ADR-0094、ADR-0003）。
+//! ノード展開法（NEM）の1ノードの計算と、ADF の1ノードの問題。core と、lattice の ADF（一般化等価理論の
+//! 1ノードの問題）が共有する（ADR-0103、ADR-0003）。核分裂のないノードは NEM の代わりに `anm` の ANM で解く
+//! （ADR-0102。`is_fissile` で選ぶ）。
 //!
 //! 横方向に積分した1次元の拡散方程式を、ノード平均と4次までの多項式
 //! f1 = ξ, f2 = 3ξ² - 1/4, f3 = ξ³ - ξ/4, f4 = (ξ² - 1/20)(ξ² - 1/4)（ξ ∈ [-1/2, 1/2]）で解く。
 //! 3次・4次の係数は f1, f2 で重み付けした残差から、横方向の漏れは隣のノードを含む2次式で近似する。
 //! 面では部分中性子流を使い、入射の部分中性子流 i を、出ていく部分中性子流 o から i = β o + 外からの入射
 //! の形で与える。
+
+use crate::anm::{AnmError, AnmModes};
+
+/// νΣf が負か有限でない（核の種類を選べない）。
+#[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
+#[error("nu-fission must be finite and non-negative, got {0}")]
+pub struct NuFissionError(pub f64);
+
+/// 核分裂のあるノード（νΣf が正の群がある）か。核分裂のないノード（どの群も 0）は NEM の代わりに ANM で
+/// 解く（ADR-0102）。負や有限でない νΣf は、推測せずにエラーにする。
+pub fn is_fissile(nu_fission: &[f64]) -> Result<bool, NuFissionError> {
+    if let Some(&bad) = nu_fission.iter().find(|v| !(v.is_finite() && **v >= 0.0)) {
+        return Err(NuFissionError(bad));
+    }
+    Ok(nu_fission.iter().any(|&v| v > 0.0))
+}
 
 /// 面の入射の部分中性子流 i = β o + `external`（o は同じ面から出ていく部分中性子流）。
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -303,20 +320,23 @@ pub enum OneNodeError {
     },
     #[error("the one-node NEM did not converge in {0} iterations")]
     NotConverged(usize),
+    #[error("analytic nodal method")]
+    Anm(#[from] AnmError),
 }
 
 /// 1ノードの問題の反復の上限
 const MAX_ITERATIONS: usize = 10_000;
 
-/// 1ノードの問題の均質な面の中性子束 [面（-x, +x, -y, +y）][群]。
+/// 1ノードの問題の均質な面の中性子束 [面（-x, +x, -y, +y）][群]（ADR-0103）。
 ///
 /// ノード平均は参照の値に固定し（参照の k ではノードのバランス式がそれを満たす）、方向・群ごとに、core と
-/// 同じ NEM の式（4次の展開、f1, f2 で重み付けした残差、2次の横方向の漏れ）を、面の正味の中性子流が参照の
-/// 値になるように解く。横方向の漏れは、もう一方の方向の参照の漏れで、2次式の外側は `edges` で決める。
+/// 同じノードの核を、面の正味の中性子流が参照の値になるように解く。核分裂のあるノードは NEM の式（4次の展開、
+/// f1, f2 で重み付けした残差）、核分裂のないノードは2群の ANM（`anm::AnmModes`。ADR-0102）で、どちらも2次の
+/// 横方向の漏れを使う。横方向の漏れは、もう一方の方向の参照の漏れで、2次式の外側は `edges` で決める。
 ///
 /// 面の条件は、core の入射の形で β = 1、外からの入射 −J（J は参照の外向きの正味の中性子流）とし、core と同じ
-/// `outflow` で解く（a1〜a4 をノードの中で同時に解き、群の間の結合と真空の面の横方向の漏れだけを前の
-/// 反復の値とする）。面の中性子束の相対変化が丸め誤差の水準になるまで繰り返す。
+/// `outflow` か `AnmModes::outflow` で解く（NEM は a1〜a4 をノードの中で同時に解き、群の間の結合と真空の面の
+/// 横方向の漏れだけを前の反復の値とする）。面の中性子束の相対変化が丸め誤差の水準になるまで繰り返す。
 pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
     validate(node)?;
     let OneNode {
@@ -332,6 +352,16 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
         edges,
     } = *node;
     let ng = flux.len();
+    let fissile = is_fissile(nu_fission).map_err(|e| OneNodeError::Invalid(e.to_string()))?;
+    // 核分裂のないノードの、方向ごとの ANM のモード（ADR-0102）
+    let modes = if fissile {
+        None
+    } else {
+        Some([
+            AnmModes::new(diffusion, total, scatter, widths[0])?,
+            AnmModes::new(diffusion, total, scatter, widths[1])?,
+        ])
+    };
     // [方向][群] の単位体積あたりの正味の漏れ
     let leakage: [Vec<f64>; 2] = std::array::from_fn(|d| {
         (0..ng)
@@ -352,46 +382,58 @@ pub fn surface_fluxes(node: &OneNode) -> Result<[Vec<f64>; 4], OneNodeError> {
                 .collect();
             for d in 0..2 {
                 let h = widths[d];
-                let a = coefficients[d][g];
-                // 横方向（z の漏れは 0）。真空の面では、漏れ × 面の中性子束 / ノード平均（core と同じ）
-                let transverse = leakage[1 - d][g];
-                let [minus, plus] = face_fluxes(&a, flux[g]);
-                let beside = |edge: Edge, surface: f64| match edge {
-                    Edge::Reflective => Beside::Node {
-                        width: h,
-                        leakage: transverse,
-                    },
-                    Edge::Vacuum => Beside::Face(transverse * surface / flux[g]),
+                // 群 `group` の横方向（z の漏れは 0）の f1, f2 の係数。真空の面では、漏れ × 面の中性子束 /
+                // ノード平均（core と同じ）
+                let moments_of = |group: usize| {
+                    let transverse = leakage[1 - d][group];
+                    let [minus, plus] = face_fluxes(&coefficients[d][group], flux[group]);
+                    let beside = |edge: Edge, surface: f64| match edge {
+                        Edge::Reflective => Beside::Node {
+                            width: h,
+                            leakage: transverse,
+                        },
+                        Edge::Vacuum => Beside::Face(transverse * surface / flux[group]),
+                    };
+                    transverse_moments(
+                        h,
+                        beside(edges[2 * d], minus),
+                        transverse,
+                        beside(edges[2 * d + 1], plus),
+                    )
                 };
-                let moments = transverse_moments(
-                    h,
-                    beside(edges[2 * d], minus),
-                    transverse,
-                    beside(edges[2 * d + 1], plus),
-                );
-                // 自群の項を除いた源のモーメント
                 // 両方の面の外向きの正味の中性子流 J を参照の値にする: i = o - J（β = 1、外からの入射 -J）
-                let updated = outflow(&Line {
-                    diffusion: diffusion[g],
-                    width: h,
-                    removal,
-                    coupling: &coupling,
-                    coefficients: &coefficients[d],
-                    group: g,
-                    transverse: moments,
-                    inflow: [
+                let inflow_of = |group: usize| {
+                    [
                         Inflow {
                             beta: 1.0,
-                            external: -currents[2 * d + 1][g],
+                            external: -currents[2 * d + 1][group],
                         },
                         Inflow {
                             beta: 1.0,
-                            external: -currents[2 * d][g],
+                            external: -currents[2 * d][group],
                         },
-                    ],
-                })
-                .at(flux[g])
-                .coefficients;
+                    ]
+                };
+                let [minus, plus] = face_fluxes(&coefficients[d][g], flux[g]);
+                let line = match &modes {
+                    None => outflow(&Line {
+                        diffusion: diffusion[g],
+                        width: h,
+                        removal,
+                        coupling: &coupling,
+                        coefficients: &coefficients[d],
+                        group: g,
+                        transverse: moments_of(g),
+                        inflow: inflow_of(g),
+                    }),
+                    // 核分裂のないノードは ANM。ほかの群も参照のノード平均と正味の中性子流で決まる
+                    Some(modes) => {
+                        let transverse: Vec<(f64, f64)> = (0..ng).map(moments_of).collect();
+                        let inflow: Vec<[Inflow; 2]> = (0..ng).map(inflow_of).collect();
+                        modes[d].outflow(&transverse, &inflow, flux, g)?
+                    }
+                };
+                let updated = line.at(flux[g]).coefficients;
                 for (new, old) in face_fluxes(&updated, flux[g]).iter().zip([minus, plus]) {
                     let relative = (new - old).abs() / flux[g];
                     // NaN も収束していないとみなす
@@ -614,6 +656,35 @@ mod tests {
         assert!(matches!(
             surface_fluxes(&node),
             Err(OneNodeError::NonPositiveSurface { face: 1, .. })
+        ));
+    }
+
+    #[test]
+    fn fissile_nodes_have_positive_nu_fission() {
+        // νΣf が正の群があれば核分裂のあるノード（NEM）、どの群も 0 なら核分裂のないノード（ANM。ADR-0102）。
+        // 負や有限でない値はエラー
+        assert_eq!(is_fissile(&[0.0, 0.0]), Ok(false));
+        assert_eq!(is_fissile(&[0.0, 1.0e-3]), Ok(true));
+        for bad in [-1.0e-3, f64::NAN, f64::INFINITY] {
+            assert!(is_fissile(&[0.0, bad]).is_err(), "{bad}");
+        }
+        let (diffusion, total, scatter, _, chi) = constants();
+        let zero = [0.0, 0.0];
+        let node = OneNode {
+            diffusion: &diffusion,
+            total: &total,
+            scatter: &scatter,
+            nu_fission: &[0.006, -0.1],
+            chi: &chi,
+            k: 1.0,
+            flux: &[1.3, 0.4],
+            widths: [21.5, 21.5],
+            currents: [&zero; 4],
+            edges: [Edge::Reflective; 4],
+        };
+        assert!(matches!(
+            surface_fluxes(&node),
+            Err(OneNodeError::Invalid(_))
         ));
     }
 }
