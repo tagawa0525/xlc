@@ -40,7 +40,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 
 - 集合体ごとに違う少数群定数（装荷図）と、軸方向の層（燃料、支持格子、プレナム、ノズル、炉心板、上下の水）を
   入力で与える。ノードの定数は状態（ホウ素濃度、温度、制御棒）でテーブルを内挿する
-- NEM に ADF を入れ、CMFD で固有値の反復を加速する（[ADR-0027](../adr/0027-solve-core-with-nem.md)、[ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)。粗メッシュのソルバは [ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）
+- NEM に ADF を入れ、CMFD で固有値の反復を加速する（[ADR-0027](../adr/0027-solve-core-with-nem.md)、[ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)。粗メッシュのソルバは [ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）。面の条件の形と外周の真空の境界は [ADR-0099](../adr/0099-couple-core-nodes-by-get-with-vacuum-boundary.md)
 - 制御棒の先端がノードの途中にあるときの扱い（カスピング）と、ピン出力の再構成の方法は、実装の前に文献で
   比べて決める
 - 全炉心を解く: [ADR-0090](../adr/0090-solve-full-core.md)
@@ -71,6 +71,6 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 5. 格子計算の出力（ADF、ピン出力の形状関数、反射体の定数）と状態の分岐のテーブル — 作業中（反射境界の ADF は a9e6e3a、
    アルベド境界は e6a3356。非反射境界の ADF、形状関数、反射体の定数、分岐のテーブルは未）
 6. core: 装荷図と軸方向の層、テーブルの内挿、ADF を入れた NEM、CMFD（粗メッシュのソルバを共通のクレートに切り出す）
-   — 未着手
+   — 作業中（ADF は ee1f49c、真空の境界は e216c37 と 0638dd2。装荷図と軸方向の層、テーブルの内挿、CMFD は未）
 7. core: 制御棒の部分挿入、ピン出力の再構成 — 未着手
 8. Problem 3〜5 の入力と、炉心の結果のまとめ — 未着手

@@ -4,7 +4,7 @@
 //! few-group = "pincell-fg.msgpack"   # 少数群定数のファイル
 //! size = [300, 300, 366]             # x, y, z の寸法 (cm)
 //! nodes = [15, 15, 18]               # x, y, z のノード数（等分割）
-//! # 各軸の（低い側, 高い側）の境界条件（reflective または zero-flux）。6面とも書く
+//! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum のいずれか）。6面とも書く
 //! boundary = { x = ["reflective", "zero-flux"], y = ["zero-flux", "zero-flux"], z = ["zero-flux", "zero-flux"] }
 //! ```
 
@@ -54,6 +54,7 @@ struct BoundaryEntry {
 enum Condition {
     Reflective,
     ZeroFlux,
+    Vacuum,
 }
 
 impl CoreInput {
@@ -75,6 +76,7 @@ impl CoreInput {
         let faces = [b.x[0], b.x[1], b.y[0], b.y[1], b.z[0], b.z[1]].map(|c| match c {
             Condition::Reflective => Boundary::Reflective,
             Condition::ZeroFlux => Boundary::ZeroFlux,
+            Condition::Vacuum => Boundary::Vacuum,
         });
         Ok(Self {
             fewgroup: file.few_group,
@@ -118,11 +120,17 @@ boundary = { x = ["reflective", "zero-flux"], y = ["zero-flux", "zero-flux"], z 
     }
 
     #[test]
+    fn parses_vacuum_boundary() {
+        let input = replaced("x = [\"reflective\"", "x = [\"vacuum\"").unwrap();
+        assert_eq!(input.boundaries[0], Boundary::Vacuum);
+    }
+
+    #[test]
     fn invalid_inputs_are_errors() {
         assert!(replaced("size = [300, 300, 366]", "size = [300, 300]").is_err());
         assert!(replaced("size = [300, 300, 366]", "size = [300, -1, 366]").is_err());
         assert!(replaced("nodes = [15, 15, 18]", "nodes = [15, 0, 18]").is_err());
-        assert!(replaced("\"reflective\"", "\"vacuum\"").is_err());
+        assert!(replaced("\"reflective\"", "\"marshak\"").is_err());
         assert!(replaced("z = [\"zero-flux\", \"zero-flux\"] ", "").is_err());
         assert!(replaced("y = [\"zero-flux\", \"zero-flux\"]", "y = [\"zero-flux\"]").is_err());
         // 必須のキーがない、知らないキー、TOML の誤りは位置つき
