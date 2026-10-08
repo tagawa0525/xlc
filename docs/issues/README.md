@@ -16,7 +16,7 @@ opened: 2026-10-08
 closed:
 milestone:            # 任意。M3、M4 など
 blocked-by: []        # 先に閉じる必要のある issue（例: ["#0001"]）
-resolution:           # 閉じるとき: ADR-NNNN | マージのコミット | wontfix: 理由
+resolution:           # 閉じるとき: ADR-NNNN | コミット <hash> | wontfix: 理由
 ---
 
 # 題名
@@ -37,8 +37,12 @@ resolution:           # 閉じるとき: ADR-NNNN | マージのコミット | w
 
 - 閉じるときは `status: closed` と `closed` の日付と `resolution` を書き、ファイルは消さずに残す。閉じる変更は、対応したブランチの
   中でコミットする
+- `resolution` は、`ADR-NNNN`（決めた ADR。その ADR の前付けの `issues` にこの issue を挙げる）、`コミット <hash>`
+  （解決したコミット。7〜40 桁の英小文字の16進）、`wontfix: 理由` のどれかにする。マージのコミットは、閉じる変更を
+  コミットする時点では分からないので、ブランチの上のコミットを書いてよい。マージの前にブランチを rebase したら
+  hash を書き直す（検査が、HEAD の祖先でない hash を見つける）
 - ブランチ名とコミットの本文で番号を示す（例: ブランチ `fix/0004-frame-gap`、本文に `Refs: #0004`。決定に結びつくなら `Refs: ADR-0002` も）
 - 番号は、ブランチの上で既存の最大の番号 + 1 を振る。マージの前に main に rebase し、番号がぶつかっていたら
-  振り直す（重複を見つける検査は #0013 で作る。それまでは手で確かめる）
+  振り直す（重複は、`cargo test` で走る crates/docs の検査が見つける。#0013）
 - 一覧のファイルは作らない（手で書く一覧は各ファイルとずれる）。開いている issue は
   `grep -l '^status: open$' docs/issues/[0-9]*.md` で探す

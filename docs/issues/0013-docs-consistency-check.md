@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs]
 opened: 2026-10-08
-closed:
+closed: 2026-10-08
 milestone: M3
 blocked-by: []
-resolution:
+resolution: コミット ca17698
 ---
 
 # 文書の整合性の検査（番号の重複、状態、置き換えのリンク、参照先）
@@ -30,3 +30,6 @@ ADR と issue の前付け（`status` の値、`supersedes` と `superseded-by` 
 ## 経緯
 
 - 2026-10-08: ADR を入れたときの READMEs が、まだない検査を前提にしていた
+- 2026-10-08: crates/docs に検査を作った。番号の重複、前付けのキーと `status`、置き換えの両方向のリンク、閉じた issue の日付と
+  解決、ADR の `issues` と「関係する ADR:」の対応、`ADR-NNNN` と `#NNNN` の参照先、相対リンクを確かめる。ワークスペースの
+  `cargo test` で走るので、チェックのスクリプト（run-checks.sh）が文書だけの変更でも走らせる
