@@ -6,7 +6,7 @@ superseded-by:
 issues: []
 ---
 
-# ADR-0060: 集合体全体を1組の cyclic tracking で解き、外周は鏡面反射と真空とする
+# ADR-0060: 集合体全体を1組の cyclic tracking で解く
 
 ## 背景
 
@@ -20,7 +20,7 @@ issues: []
 ## 決定と理由
 
 トラッキングは、ピンセルで使っている cyclic tracking を集合体全体に広げる（全体で1組のトラック）。モジュール単位の
-トラッキングは、メモリが問題になるまで使わない。外周の境界条件は鏡面反射と真空（C5G7 のため）とする。
+トラッキングは、メモリが問題になるまで使わない。
 
 ## 確認
 
@@ -30,4 +30,4 @@ issues: []
 ## 結果
 
 - M3 で、長方形の範囲の cyclic tracking にする（[ADR-0083](0083-generalize-to-rectilinear-lattice.md)）。全体で1組のトラックであることは変わらない
-- のちに、辺ごとにアルベドの境界も選べるようにした（[ADR-0093](0093-add-albedo-boundaries.md)）
+- 外周の境界条件（鏡面反射、真空、アルベド）は [ADR-0093](0093-choose-lattice-boundary-conditions.md)
