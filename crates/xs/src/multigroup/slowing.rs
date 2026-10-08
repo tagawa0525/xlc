@@ -11,10 +11,7 @@
 
 use super::Weight;
 use crate::endf::Tab1;
-
-/// 1つの窓（散乱で届くレサジーの幅 Δ）に入れる格子点の最少の数。格子はポイントワイズの断面積の格子に、これより
-/// 粗いところだけ点を足す（`finer_grids_do_not_change_the_flux` で収束を確かめた値）
-pub const WINDOW_POINTS: usize = 16;
+use xlc_numeric::slowing::WINDOW_POINTS;
 
 /// 減速計算のエラー。
 #[derive(Debug, thiserror::Error)]

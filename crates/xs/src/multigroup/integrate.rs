@@ -1,6 +1,7 @@
 //! 群ごとの積分。
 
 use super::{GroupStructure, Weight};
+use xlc_numeric::quadrature::GAUSS_LEGENDRE_4;
 
 /// 各群について ∫_g f(E) w(E) dE を求める。
 ///
@@ -56,7 +57,7 @@ pub fn group_integrals_multi(
         for i in 0..pieces {
             let hi = if i + 1 == pieces { b } else { lo * ratio };
             let (mid, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
-            for &(x, wk) in &GAUSS_LEGENDRE {
+            for &(x, wk) in &GAUSS_LEGENDRE_4 {
                 let e = mid + half * x;
                 values.fill(0.0);
                 f(e, &mut values);
@@ -73,14 +74,6 @@ pub fn group_integrals_multi(
 
 /// 1つの積分区間の上限と下限のエネルギー比の上限
 const MAX_RATIO: f64 = 1.05;
-
-/// 4点 Gauss-Legendre 求積の (節点, 重み)
-pub(super) const GAUSS_LEGENDRE: [(f64, f64); 4] = [
-    (-0.861_136_311_594_052_6, 0.347_854_845_137_453_8),
-    (-0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
-    (0.339_981_043_584_856_3, 0.652_145_154_862_546_1),
-    (0.861_136_311_594_052_6, 0.347_854_845_137_453_8),
-];
 
 #[cfg(test)]
 mod tests {

@@ -8,10 +8,10 @@
 //!   σ0(E→E') = σb A/(4E) e^(-β/2) (kT_表/kT) ∫ S dα_表、α_表 は (√E ∓ √E')²/(A kT_表) の間。
 
 use super::free_gas::integrate_points;
-use super::scatter::{GAUSS_8, legendre};
 use crate::endf::{Interpolation, Mf7Incoherent};
 use crate::physics::BK;
 use xlc_format::group::GroupStructure;
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
 
 /// LAT=1 の表で α, β に使う kT0 (eV)（ENDF の定義）
 const KT0: f64 = 0.0253;
@@ -168,7 +168,7 @@ impl<'a> ThermalSab<'a> {
             };
             if order > 0 {
                 let half = 0.5 * width;
-                for &(x, w) in &GAUSS_8 {
+                for &(x, w) in &GAUSS_LEGENDRE_8 {
                     let t = half * (x + 1.0);
                     let s = (start + slope * t).exp();
                     for (m, p) in moments.iter_mut().zip(legendre(mu(x0 + t), order)).skip(1) {
@@ -327,11 +327,7 @@ pub(crate) mod tests {
                 let alpha = (e + e_out - 2.0 * mu * (e * e_out).sqrt()) / kt;
                 let s = (-(alpha * alpha + beta * beta) / (4.0 * alpha)).exp()
                     / (4.0 * std::f64::consts::PI * alpha).sqrt();
-                4.0 / (2.0 * kt)
-                    * (e_out / e).sqrt()
-                    * (-0.5 * beta).exp()
-                    * s
-                    * crate::multigroup::scatter::legendre(mu, l)[l]
+                4.0 / (2.0 * kt) * (e_out / e).sqrt() * (-0.5 * beta).exp() * s * legendre(mu, l)[l]
             };
             // 中点則（μ = 1 の近くでも α > 0）
             (0..n)
