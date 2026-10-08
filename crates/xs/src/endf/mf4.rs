@@ -5,6 +5,7 @@ use super::Error;
 use super::mf6::Frame;
 use super::tab1::{Interpolation, Tab1};
 use super::tape::{Reader, Section};
+use xlc_numeric::quadrature::{GAUSS_LEGENDRE_8, legendre};
 
 /// 入射エネルギーごとの Legendre 係数 a_l（l = 1..NL）。f(μ) = Σ (2l+1)/2 a_l P_l(μ)、a_0 = 1。
 #[derive(Debug, Clone, PartialEq)]
@@ -52,15 +53,201 @@ pub struct Mf4 {
 
 impl Mf4 {
     pub fn parse(section: &Section<'_>) -> Result<Self, Error> {
-        let _ = section;
-        Err(Error::new(0, "MF4 is not supported yet"))
+        let mut r = section.reader();
+        let head = r.cont()?;
+        let ltt = head.l2;
+        if head.n2 != 0 {
+            return Err(Error::new(
+                r.line(),
+                "MF4 transformation matrices (NM > 0) are not supported",
+            ));
+        }
+        let cont = r.cont()?;
+        let frame = match cont.l2 {
+            1 => Frame::Laboratory,
+            2 => Frame::CenterOfMass,
+            lct => return Err(Error::new(r.line(), format!("LCT={lct} is not supported"))),
+        };
+        let angular = match (ltt, cont.l1) {
+            (0, 1) => Angular::Isotropic,
+            (1, 0) => Angular::Legendre(legendre_table(&mut r)?),
+            (2, 0) => Angular::Tabulated(angle_tables(&mut r)?),
+            (3, 0) => Angular::Mixed {
+                legendre: legendre_table(&mut r)?,
+                tabulated: angle_tables(&mut r)?,
+            },
+            (ltt, li) => {
+                return Err(Error::new(
+                    r.line(),
+                    format!("LTT={ltt} with LI={li} is not supported"),
+                ));
+            }
+        };
+        Ok(Self { frame, angular })
     }
 
     /// 入射エネルギー `e` での角度分布の Legendre 係数 a_0..a_order（a_0 = 1。`frame` の系の μ について）。
+    /// 入射エネルギーの間は、係数（表の分布ではそのモーメント）を ENDF の補間則で補間する。範囲の外は端の値とする。
     pub fn moments(&self, e: f64, order: usize) -> Vec<f64> {
-        let _ = (e, order);
-        Vec::new()
+        let mut a = vec![0.0; order + 1];
+        a[0] = 1.0;
+        let higher = match &self.angular {
+            Angular::Isotropic => return a,
+            Angular::Legendre(table) => table.moments(e, order),
+            Angular::Tabulated(tables) => tables.moments(e, order),
+            Angular::Mixed {
+                legendre,
+                tabulated,
+            } => {
+                if legendre.energies.last().is_some_and(|&top| e <= top) {
+                    legendre.moments(e, order)
+                } else {
+                    tabulated.moments(e, order)
+                }
+            }
+        };
+        a[1..].copy_from_slice(&higher);
+        a
     }
+}
+
+impl LegendreTable {
+    /// a_1..a_order（与えられた次数より上は 0）
+    fn moments(&self, e: f64, order: usize) -> Vec<f64> {
+        let at = |k: usize| -> Vec<f64> {
+            (1..=order)
+                .map(|l| self.coefficients[k].get(l - 1).copied().unwrap_or(0.0))
+                .collect()
+        };
+        interpolate(&self.breaks, &self.laws, &self.energies, e, at)
+    }
+}
+
+impl AngleTables {
+    /// a_l = ∫ f(μ) P_l(μ) dμ（l = 1..order）。f は区間ごとに線形（INT=2）として積分する
+    fn moments(&self, e: f64, order: usize) -> Vec<f64> {
+        let at = |k: usize| -> Vec<f64> {
+            let t = &self.tables[k];
+            let mut a = vec![0.0; order];
+            for i in 1..t.x.len() {
+                let (x0, x1) = (t.x[i - 1], t.x[i]);
+                let (mid, half) = (0.5 * (x0 + x1), 0.5 * (x1 - x0));
+                for &(node, weight) in &GAUSS_LEGENDRE_8 {
+                    let mu = mid + half * node;
+                    let f = t.y[i - 1] + (t.y[i] - t.y[i - 1]) * (mu - x0) / (x1 - x0);
+                    for (a, p) in a.iter_mut().zip(legendre(mu, order).into_iter().skip(1)) {
+                        *a += weight * half * f * p;
+                    }
+                }
+            }
+            a
+        };
+        interpolate(&self.breaks, &self.laws, &self.energies, e, at)
+    }
+}
+
+/// 入射エネルギー `e` での値を、入射エネルギーごとの値 `at(k)` から補間則で求める（範囲の外は端の値）。
+fn interpolate(
+    breaks: &[usize],
+    laws: &[Interpolation],
+    energies: &[f64],
+    e: f64,
+    at: impl Fn(usize) -> Vec<f64>,
+) -> Vec<f64> {
+    let n = energies.len();
+    if e <= energies[0] {
+        return at(0);
+    }
+    if e >= energies[n - 1] {
+        return at(n - 1);
+    }
+    let k = energies.partition_point(|&x| x <= e);
+    let law = breaks
+        .iter()
+        .position(|&b| k < b)
+        .map_or(Interpolation::LinLin, |i| laws[i]);
+    let (lo, hi) = (at(k - 1), at(k));
+    lo.iter()
+        .zip(&hi)
+        .map(|(&y0, &y1)| law.interpolate(e, (energies[k - 1], y0), (energies[k], y1)))
+        .collect()
+}
+
+/// TAB2 と、それに続く入射エネルギーごとの LIST（Legendre 係数）を読む。
+fn legendre_table(r: &mut Reader<'_>) -> Result<LegendreTable, Error> {
+    let tab2 = r.tab2()?;
+    let laws = laws(&tab2.codes, r.line())?;
+    let mut energies = Vec::with_capacity(tab2.nz);
+    let mut coefficients = Vec::with_capacity(tab2.nz);
+    for _ in 0..tab2.nz {
+        let list = r.list()?;
+        energies.push(list.c2);
+        coefficients.push(list.values);
+    }
+    increasing(&energies, r.line())?;
+    Ok(LegendreTable {
+        breaks: tab2.breaks,
+        laws,
+        energies,
+        coefficients,
+    })
+}
+
+/// TAB2 と、それに続く入射エネルギーごとの TAB1（f(μ)）を読む。f は線形補間（INT=2）だけを扱う。
+fn angle_tables(r: &mut Reader<'_>) -> Result<AngleTables, Error> {
+    let tab2 = r.tab2()?;
+    let laws = laws(&tab2.codes, r.line())?;
+    let mut energies = Vec::with_capacity(tab2.nz);
+    let mut tables = Vec::with_capacity(tab2.nz);
+    for _ in 0..tab2.nz {
+        let record = r.tab1()?;
+        if record
+            .table
+            .laws
+            .iter()
+            .any(|&law| law != Interpolation::LinLin)
+        {
+            return Err(Error::new(
+                r.line(),
+                format!(
+                    "angular tables must be lin-lin in mu, got {:?}",
+                    record.table.laws
+                ),
+            ));
+        }
+        energies.push(record.c2);
+        tables.push(record.table);
+    }
+    increasing(&energies, r.line())?;
+    Ok(AngleTables {
+        breaks: tab2.breaks,
+        laws,
+        energies,
+        tables,
+    })
+}
+
+fn laws(codes: &[i64], line: usize) -> Result<Vec<Interpolation>, Error> {
+    codes
+        .iter()
+        .map(|&c| {
+            Interpolation::from_code(c)
+                .ok_or_else(|| Error::new(line, format!("invalid interpolation code {c}")))
+        })
+        .collect()
+}
+
+fn increasing(energies: &[f64], line: usize) -> Result<(), Error> {
+    if let Some(w) = energies.windows(2).find(|w| w[0] >= w[1]) {
+        return Err(Error::new(
+            line,
+            format!("incident energies must be increasing: {w:?}"),
+        ));
+    }
+    if energies.is_empty() {
+        return Err(Error::new(line, "no incident energies"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
