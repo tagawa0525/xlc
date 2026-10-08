@@ -23,6 +23,8 @@ pub enum HomogenizeError {
     NoFineFlux(usize),
     #[error("discontinuity factors need reflective sides on the whole lattice")]
     NotReflective,
+    #[error("discontinuity factors cannot be made with an albedo side")]
+    Albedo,
     #[error(
         "region {region} has no P1 scattering moments; diffusion coefficients need a library with them"
     )]
@@ -405,25 +407,134 @@ mod tests {
     }
 
     #[test]
-    fn adf_needs_reflective_sides() {
-        // 真空の辺があると均質な解は平らでないので、体積平均で割る不連続因子は作れない
+    fn reflective_adfs_divide_by_the_average_flux() {
+        // 外周がすべて鏡面反射なら、1ノードの問題の均質な解は平らで、ADF は辺の上の中性子束 / 体積平均
+        // の中性子束（ADR-0093 までの定義）
         let (solution, materials, fine) = solved();
         let refs: Vec<&Material> = materials.iter().collect();
-        let vacuum = Boundaries {
-            right: Boundary::Vacuum,
-            ..Boundaries::REFLECTIVE
-        };
-        assert!(matches!(
-            homogenize(&solution, &refs, &fine, fine.bounds(), &vacuum),
-            Err(HomogenizeError::NotReflective)
-        ));
+        let fg = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        let volume: f64 = solution.volumes.iter().sum();
+        for g in 0..2 {
+            let average: f64 = solution
+                .flux
+                .iter()
+                .zip(&solution.volumes)
+                .map(|(f, v)| v * f[g])
+                .sum::<f64>()
+                / volume;
+            for (side, values) in fg.adf.iter().enumerate() {
+                let expected = solution.sides[side][g] / average;
+                assert!(
+                    (values[g] - expected).abs() < 1e-6 * expected,
+                    "side {side} group {g}: {} vs {expected}",
+                    values[g]
+                );
+            }
+        }
+    }
+
+    /// 燃料と水の 2×2 の格子（右が真空）の解
+    fn open_lattice() -> (Solution, Vec<Material>, GroupStructure, Boundaries) {
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, cell], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let boundaries = vacuum();
+        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let materials = vec![
+            fuel.clone(),
+            water.clone(),
+            water.clone(),
+            water.clone(),
+            fuel,
+            water,
+        ];
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        (solution, materials, fine(), boundaries)
+    }
+
+    #[test]
+    fn open_lattice_adfs_divide_by_the_one_node_flux() {
+        // 真空の辺がある格子の ADF は、参照の k、ノード平均の中性子束、辺の正味の中性子流で解いた1ノードの
+        // NEM の均質な面の中性子束で割る（ADR-0094）。辺は（左、右、上、下）で、-x が左、+x が右、
+        // -y が下、+y が上
+        use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
+        let (solution, materials, fine, boundaries) = open_lattice();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(&solution, &refs, &fine, fine.bounds(), &boundaries).unwrap();
+        let volume: f64 = solution.volumes.iter().sum();
+        let average: Vec<f64> = (0..2)
+            .map(|g| {
+                solution
+                    .flux
+                    .iter()
+                    .zip(&solution.volumes)
+                    .map(|(f, v)| v * f[g])
+                    .sum::<f64>()
+                    / volume
+            })
+            .collect();
+        let c = &solution.currents;
+        let surface = surface_fluxes(&OneNode {
+            diffusion: &fg.diffusion,
+            total: &fg.total,
+            scatter: &fg.scatter,
+            nu_fission: &fg.nu_fission,
+            chi: &fg.chi,
+            k: solution.k,
+            flux: &average,
+            widths: solution.size,
+            currents: [&c[0], &c[1], &c[3], &c[2]],
+            edges: [
+                Edge::Reflective,
+                Edge::Vacuum,
+                Edge::Reflective,
+                Edge::Reflective,
+            ],
+        })
+        .unwrap();
+        for (side, face) in [(0, 0), (1, 1), (2, 3), (3, 2)] {
+            for g in 0..2 {
+                let expected = solution.sides[side][g] / surface[face][g];
+                let adf = fg.adf[side][g];
+                assert!(
+                    (adf - expected).abs() < 1e-12 * expected,
+                    "side {side} group {g}: {adf} vs {expected}"
+                );
+            }
+        }
+        // 真空の辺では、均質な解が平らでないので、体積平均で割った値と違う
+        for g in 0..2 {
+            let flat = solution.sides[1][g] / average[g];
+            assert!(
+                (fg.adf[1][g] - flat).abs() > 1e-2 * flat,
+                "{} vs {flat}",
+                fg.adf[1][g]
+            );
+        }
+    }
+
+    #[test]
+    fn adf_rejects_albedo_sides() {
+        // core にアルベドの境界がないので、アルベドの辺の格子では ADF を作らない（ADR-0094）
+        let (solution, materials, fine) = solved();
+        let refs: Vec<&Material> = materials.iter().collect();
         let albedo = Boundaries {
             top: Boundary::Albedo(0.5),
             ..Boundaries::REFLECTIVE
         };
         assert!(matches!(
             homogenize(&solution, &refs, &fine, fine.bounds(), &albedo),
-            Err(HomogenizeError::NotReflective)
+            Err(HomogenizeError::Albedo)
         ));
     }
 
@@ -613,6 +724,8 @@ mod tests {
             volumes: vec![1.0, 2.0],
             leakage: vec![0.0; 2],
             sides: vec![vec![0.0; 2]; 4],
+            currents: vec![vec![0.0; 2]; 4],
+            size: [1.0, 3.0],
             iterations: 1,
         }
     }
@@ -862,6 +975,8 @@ mod tests {
             volumes: vec![1.0, 0.5],
             leakage: vec![0.0; 2],
             sides: vec![vec![1.0; 2]; 4],
+            currents: vec![vec![0.0; 2]; 4],
+            size: [1.0, 0.5],
             iterations: 1,
         };
         // 重み V φ: A は (2, 1)、B は (0.75, 1.25)。中性子束 (2.75, 2.25)
