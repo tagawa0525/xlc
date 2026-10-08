@@ -28,4 +28,4 @@ M0 で、均質なセルの解析解（無限媒質の多群固有値）との�
 
 ## 結果
 
-トラッキングは [ADR-0043](0043-track-pin-cells-cyclically.md)、[ADR-0060](0060-track-whole-assembly-cyclically.md)、反復の加速は [ADR-0061](0061-accelerate-moc-with-cmfd.md)。
+トラッキングは [ADR-0043](0043-track-pin-cells-cyclically.md)、[ADR-0060](0060-track-whole-assembly-cyclically.md)、反復の加速は [ADR-0083](0083-generalize-to-rectilinear-lattice.md)（M2 では [ADR-0061](0061-accelerate-moc-with-cmfd.md)）。
