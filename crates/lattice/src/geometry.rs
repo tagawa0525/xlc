@@ -19,6 +19,8 @@ pub struct PinCell {
     grid: usize,
     /// 各リングを分ける扇形の数（1, 4, 8）
     sectors: usize,
+    /// 外周の正方形の枠の厚さ (cm)。0 なら支持格子なし
+    frame: f64,
 }
 
 /// 形状の誤り。
@@ -69,6 +71,7 @@ impl PinCell {
             radii,
             grid: 1,
             sectors: 1,
+            frame: 0.0,
         })
     }
 
@@ -94,7 +97,7 @@ impl PinCell {
         if self.grid > 1 {
             self.grid * self.grid
         } else {
-            (self.radii.len() + 1) * self.sectors
+            (self.radii.len() + 1) * self.sectors + usize::from(self.frame > 0.0)
         }
     }
 
@@ -129,8 +132,26 @@ impl PinCell {
     /// セルの外周に厚さ `thickness` cm の正方形の枠（支持格子を体積を保って薄い枠にしたもの）を付けたセル。
     /// 枠は1つの領域で、領域の番号の最後に置く。同心円の領域は、セルの外周の代わりに枠の内側で切り取る。
     pub fn with_frame(self, thickness: f64) -> Result<Self, GeometryError> {
-        let _ = thickness;
-        Ok(self)
+        let inner = 0.5 * self.pitch - thickness;
+        let fits = thickness > 0.0
+            && inner > 0.0
+            && self.grid == 1
+            && self
+                .radii
+                .last()
+                .is_none_or(|&r| r < inner * std::f64::consts::SQRT_2);
+        if !fits {
+            return Err(GeometryError::Frame(thickness));
+        }
+        Ok(Self {
+            frame: thickness,
+            ..self
+        })
+    }
+
+    /// 枠の内側の正方形の半辺
+    fn inner_half(&self) -> f64 {
+        0.5 * self.pitch - self.frame
     }
 
     /// 点 (x, y) を含む領域。
@@ -139,6 +160,10 @@ impl PinCell {
             let (m, h) = (self.grid, self.pitch / self.grid as f64);
             let index = |v: f64| ((v / h).floor().max(0.0) as usize).min(m - 1);
             return index(0.5 * self.pitch - y) * m + index(x + 0.5 * self.pitch);
+        }
+        let a = self.inner_half();
+        if self.frame > 0.0 && (x.abs() > a || y.abs() > a) {
+            return (self.radii.len() + 1) * self.sectors;
         }
         let ring = self.radii.partition_point(|&ri| ri <= x.hypot(y));
         let angle = y.atan2(x).rem_euclid(2.0 * PI);
@@ -161,6 +186,20 @@ impl PinCell {
                     let t = (-0.5 * self.pitch + k as f64 * h - origin) / d;
                     if t > 0.0 && t < length {
                         cuts.push(t);
+                    }
+                }
+            }
+        }
+        // 枠の内側の正方形の辺 x, y = ±a
+        if self.frame > 0.0 {
+            let a = self.inner_half();
+            for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
+                if d != 0.0 {
+                    for edge in [-a, a] {
+                        let t = (edge - origin) / d;
+                        if t > 0.0 && t < length {
+                            cuts.push(t);
+                        }
                     }
                 }
             }
@@ -213,7 +252,8 @@ impl PinCell {
             let h = self.pitch / self.grid as f64;
             return vec![h * h; self.grid * self.grid];
         }
-        let disk = |r: f64| clipped_disk_area(r, 0.5 * self.pitch);
+        let a = self.inner_half();
+        let disk = |r: f64| clipped_disk_area(r, a);
         let mut inner = 0.0;
         let mut volumes: Vec<f64> = self
             .radii
@@ -224,11 +264,15 @@ impl PinCell {
                 v
             })
             .collect();
-        volumes.push(self.pitch * self.pitch - disk(inner));
-        volumes
+        volumes.push(4.0 * a * a - disk(inner));
+        let mut volumes: Vec<f64> = volumes
             .iter()
             .flat_map(|v| std::iter::repeat_n(v / self.sectors as f64, self.sectors))
-            .collect()
+            .collect();
+        if self.frame > 0.0 {
+            volumes.push(self.pitch * self.pitch - 4.0 * a * a);
+        }
+        volumes
     }
 }
 
