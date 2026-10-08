@@ -1777,11 +1777,32 @@ mod tests {
             for (g, node_flux) in node_fluxes.iter_mut().enumerate() {
                 let (total, flux) = average(regions.clone(), g, &|m| m.total[g]);
                 assert!((fg.total[g] - total).abs() < 1e-12 * total);
-                let (transport, _) = average(regions.clone(), g, &|m| {
-                    m.total[g] - m.anisotropic[0][g].iter().sum::<f64>()
-                });
-                let d = 1.0 / (3.0 * transport);
-                assert!((fg.diffusion[g] - d).abs() < 1e-12 * d);
+                // 燃料のノードの D は、領域の中性子流をノードの正味の中性子流の向きへ射影した重みの outflow の
+                // Σtr から（ADR-0104）。反射体のノードの D は等価な D（下で x の面の不連続因子がそろうことを見る）
+                if regions.start == 0 {
+                    let net: [f64; 2] = std::array::from_fn(|c| {
+                        regions
+                            .clone()
+                            .map(|r| solution.volumes[r] * solution.region_currents[r][c][g])
+                            .sum()
+                    });
+                    let length = net[0].hypot(net[1]);
+                    let (mut weight, mut sum) = (0.0, 0.0);
+                    for r in regions.clone() {
+                        let j = &solution.region_currents[r];
+                        let w =
+                            solution.volumes[r] * (j[0][g] * net[0] + j[1][g] * net[1]) / length;
+                        let m = &materials[r];
+                        weight += w;
+                        sum += w * (m.total[g] - m.anisotropic[0][g].iter().sum::<f64>());
+                    }
+                    let d = 1.0 / (3.0 * sum / weight);
+                    assert!(
+                        (fg.diffusion[g] - d).abs() < 1e-12 * d,
+                        "{} vs {d}",
+                        fg.diffusion[g]
+                    );
+                }
                 *node_flux = flux;
             }
             assert_eq!(fg.k_inf, solution.k);
@@ -1865,6 +1886,13 @@ mod tests {
             // 真空の辺の ADF と J/φ
             let expected = het(2)[g] / reflector_surface[1][g];
             assert!((reflector.adf[1][g] - expected).abs() < 1e-10 * expected);
+            // 反射体のノードの x の2つの面の不連続因子は等しい（Koebke の等価な D。ADR-0104）
+            let left = reflector.adf[0][g] * fuel.adf[1][g];
+            assert!(
+                (left - reflector.adf[1][g]).abs() < 1e-9 * left,
+                "group {g}: {left} vs {}",
+                reflector.adf[1][g]
+            );
             let ratio = reflector.vacuum_ratio[1].as_ref().unwrap()[g];
             let expected = solution.face_currents[2][g] / het(2)[g];
             assert!((ratio - expected).abs() < 1e-12 * expected);
