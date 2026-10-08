@@ -811,18 +811,32 @@ mod tests {
         .concat()
     }
 
-    /// しきい反応の MF3（AWR 9、Q = −1000 eV なので運動学のしきい値は 1000 × 10 / 9 eV）
-    fn threshold_section(points: &[(&str, &str)]) -> String {
+    /// 弾性散乱の MF3（しきい反応の `threshold_section` と同じ AWR 9。しきい値は最初の MF3 の AWR で求める）
+    fn elastic_with_awr_9() -> String {
         use crate::endf::rec;
+        [
+            rec(["4.009000+3", "9.0", "0", "0", "0", "0"], 1, 3, 2),
+            rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 3, 2),
+            rec(["2", "2", "", "", "", ""], 1, 3, 2),
+            rec(["1.0-5", "10.0", "2.0+7", "10.0", "", ""], 1, 3, 2),
+            rec(["", "", "", "", "", ""], 1, 3, 0),
+        ]
+        .concat()
+    }
+
+    /// しきい反応の MF3（AWR 9、Q = −1000 eV なので運動学のしきい値は 1000 × 10 / 9 eV、lin-lin）
+    fn threshold_section(points: &[(&str, &str)]) -> String {
+        threshold_section_with("9.0", "-1.0+3", "2", points)
+    }
+
+    /// しきい反応の MF3（AWR `awr`、Q 値 `q`、補間則 `law`）
+    fn threshold_section_with(awr: &str, q: &str, law: &str, points: &[(&str, &str)]) -> String {
+        use crate::endf::rec;
+        let np = points.len().to_string();
         let mut lines = vec![
-            rec(["4.009000+3", "9.0", "0", "0", "0", "0"], 1, 3, 51),
-            rec(
-                ["-1.0+3", "-1.0+3", "0", "0", "1", &points.len().to_string()],
-                1,
-                3,
-                51,
-            ),
-            rec([&points.len().to_string(), "2", "", "", "", ""], 1, 3, 51),
+            rec(["4.009000+3", awr, "0", "0", "0", "0"], 1, 3, 51),
+            rec([q, q, "0", "0", "1", &np], 1, 3, 51),
+            rec([&np, law, "", "", "", ""], 1, 3, 51),
         ];
         for chunk in points.chunks(3) {
             let mut fields = ["", "", "", "", "", ""];
@@ -836,13 +850,68 @@ mod tests {
         lines.concat()
     }
 
+    /// `threshold_section_with` の表を `start_at_threshold` に通す
+    fn adjusted(
+        awr: &str,
+        q: &str,
+        law: &str,
+        points: &[(&str, &str)],
+    ) -> Result<(Tab1, Option<ThresholdShift>), String> {
+        let tape = Tape::parse(&threshold_section_with(awr, q, law, points)).unwrap();
+        let mf3 = Mf3::parse(&tape.section(1, 3, 51).unwrap()).unwrap();
+        start_at_threshold(51, &mf3, mf3.awr)
+    }
+
+    #[test]
+    fn interval_from_the_threshold_is_lin_lin() {
+        // しきい値から最初の点までの区間は新しく作るので、断面積 0 の端でも成り立つ lin-lin にする。
+        // その先の区間はファイルの補間則のまま
+        let points = [("1.0+3", "0.0"), ("2.0+3", "1.0"), ("2.0+7", "1.0")];
+        let (table, _) = adjusted("9.0", "-1.0+3", "3", &points).unwrap();
+        assert_eq!(table.x[0], 1.0e3 * 10.0 / 9.0);
+        assert_eq!(table.breaks, vec![2, 3]);
+        assert_eq!(
+            table.laws,
+            vec![Interpolation::LinLin, Interpolation::LinLog]
+        );
+    }
+
+    #[test]
+    fn point_at_the_threshold_is_kept() {
+        // Q = −900 eV、AWR 9 でしきい値はちょうど 1000 eV。しきい値の点は捨てず、その値も変えない
+        let points = [("9.5+2", "0.0"), ("1.0+3", "0.2"), ("2.0+3", "1.0")];
+        let (table, shift) = adjusted("9.0", "-9.0+2", "2", &points).unwrap();
+        assert_eq!(table.x, vec![1.0e3, 2.0e3]);
+        assert_eq!(table.y, vec![0.2, 1.0]);
+        assert_eq!(shift.map(|s| s.dropped), Some(1));
+    }
+
+    #[test]
+    fn nonzero_values_below_q_are_an_error() {
+        // 表が重心系のしきい値 |Q| より下から値を持つのは、しきい値の書き方の違いでは説明できない
+        let points = [("5.0+2", "0.1"), ("2.0+3", "1.0")];
+        assert!(adjusted("9.0", "-1.0+3", "2", &points).is_err());
+    }
+
+    #[test]
+    fn tables_without_points_above_the_threshold_are_an_error() {
+        let points = [("1.0+3", "0.0"), ("1.1+3", "0.1")];
+        assert!(adjusted("9.0", "-1.0+3", "2", &points).is_err());
+    }
+
+    #[test]
+    fn thresholds_need_a_positive_awr() {
+        let points = [("1.0+3", "0.0"), ("2.0+3", "1.0")];
+        assert!(adjusted("0.0", "-1.0+3", "2", &points).is_err());
+    }
+
     #[test]
     fn reactions_start_at_the_kinematic_threshold() {
         // 運動学のしきい値 −Q (A + 1)/A より下の断面積はありえないので、最初の点をしきい値に上げる
         // （NJOY RECONR と同じ）
         let threshold = 1.0e3 * 10.0 / 9.0;
         let text = [
-            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            elastic_with_awr_9(),
             threshold_section(&[("1.0+3", "0.0"), ("2.0+3", "1.0"), ("2.0+7", "1.0")]),
         ]
         .concat();
@@ -860,7 +929,7 @@ mod tests {
         // しきい値より下の点が2つ以上あれば、2つ目からは捨てる（NJOY はしきい値のすぐ上に詰めて並べる）
         let threshold = 1.0e3 * 10.0 / 9.0;
         let text = [
-            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            elastic_with_awr_9(),
             threshold_section(&[
                 ("1.0+3", "0.0"),
                 ("1.1+3", "0.01"),
@@ -887,7 +956,7 @@ mod tests {
         ]);
         let tape = Tape::parse(&text).unwrap();
         let mf3 = Mf3::parse(&tape.section(1, 3, 51).unwrap()).unwrap();
-        let (_, shift) = start_at_threshold(51, &mf3);
+        let (_, shift) = start_at_threshold(51, &mf3, mf3.awr).unwrap();
         let threshold = 1.0e3 * 10.0 / 9.0;
         assert_eq!(
             shift,
@@ -902,7 +971,7 @@ mod tests {
         let text = threshold_section(&[("2.0+3", "0.0"), ("2.0+7", "1.0")]);
         let tape = Tape::parse(&text).unwrap();
         let mf3 = Mf3::parse(&tape.section(1, 3, 51).unwrap()).unwrap();
-        assert_eq!(start_at_threshold(51, &mf3).1, None);
+        assert_eq!(start_at_threshold(51, &mf3, mf3.awr).unwrap().1, None);
     }
 
     #[test]
@@ -926,6 +995,8 @@ mod tests {
         // eV で最も大きいのは MT16 の 500 eV（相対では MT51 の 1/11 のほうが大きい）
         assert_eq!(summary.largest, shifts[1]);
         assert!((summary.largest.relative() - 500.0 / 9.0005e6).abs() < 1e-15);
+        // 相対で最も大きいのは MT51 の 100 / 1100
+        assert_eq!(summary.largest_relative, shifts[0]);
     }
 
     #[test]
