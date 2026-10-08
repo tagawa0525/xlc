@@ -9,8 +9,10 @@
 //! reactor analysis", Prog. Nucl. Energy 17, 303 (1986)）の条件で、不連続因子（ADF）f をかけた
 //! 不均質な中性子束 f φ と正味の中性子流を連続にする。径方向の ADF は少数群定数の辺ごとの値で、
 //! 2次元の格子計算からは軸方向の ADF は出ない（軸方向に一様な格子では 1）ので、z の面では 1 とする。
+//! 外周の真空の面は、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
 
 use xlc_format::fewgroup::FewGroup;
+use xlc_numeric::nem::{Beside, Inflow, Line, Outflow, outflow, transverse_moments};
 
 /// 外周の境界条件。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,8 +21,12 @@ pub enum Boundary {
     Reflective,
     /// 境界での中性子束 0
     ZeroFlux,
-    /// 外から入る部分中性子流 0（Marshak の真空境界）
+    /// 真空: 不均質な中性子束 f φ と正味の中性子流に J = r f φ を課す。r は、その面のノードの物質の
+    /// 少数群定数の、その面に当たる辺の `vacuum_ratio`（格子計算の真空の辺の J/φ_het。ADR-0101）
     Vacuum,
+    /// Marshak の条件（不均質な入射の部分中性子流 0）。r = 1/2 の `Vacuum` で、P1 の関係を置くことを
+    /// 入力で明示したときだけ使う
+    Marshak,
 }
 
 /// 直方体の炉心のノード分割。幅は cm。
@@ -267,12 +273,46 @@ impl<'a> Core<'a> {
                 ));
             }
         }
-        Ok(Self {
+        let core = Self {
             problem,
             widths,
             counts,
             groups,
-        })
+        };
+        core.check_vacuum_ratios()?;
+        Ok(core)
+    }
+
+    /// `Vacuum` の面のノードの物質が、その面の辺の比を持つことを確かめる。z の面は、2次元の格子計算が
+    /// 比を出さないのでエラー（ADR-0101）
+    fn check_vacuum_ratios(&self) -> Result<(), String> {
+        const NAMES: [&str; 6] = ["-x", "+x", "-y", "+y", "-z", "+z"];
+        for (face, name) in NAMES.iter().enumerate() {
+            if self.problem.boundaries[face] != Boundary::Vacuum {
+                continue;
+            }
+            let (d, plus) = (face / 2, face % 2 == 1);
+            let Some(side) = side_of(d, plus) else {
+                return Err(format!(
+                    "the {name} face is vacuum, but 2D lattices give no ratio J/phi for z faces; \
+                     use \"marshak\" for the P1 (Marshak) condition"
+                ));
+            };
+            for n in 0..self.nodes() {
+                if self.neighbor(n, d, if plus { 1 } else { -1 }).is_some() {
+                    continue;
+                }
+                let material = self.problem.node_material[n];
+                if self.problem.materials[material].vacuum_ratio[side].is_none() {
+                    return Err(format!(
+                        "material {material} has no vacuum ratio J/phi on side {side} for the \
+                         vacuum face {name}; make it in a lattice with that side vacuum, or use \
+                         \"marshak\" for the P1 (Marshak) condition"
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn nodes(&self) -> usize {
@@ -314,14 +354,18 @@ impl<'a> Core<'a> {
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
     /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
-        let side = match (d, plus) {
-            (0, false) => 0,
-            (0, true) => 1,
-            (1, true) => 2,
-            (1, false) => 3,
-            _ => return 1.0,
-        };
-        self.material(n).adf[side][g]
+        side_of(d, plus).map_or(1.0, |side| self.material(n).adf[side][g])
+    }
+
+    /// ノード n の方向 d の外周の面の、真空の面の比 r = J/φ_het。`Marshak` は 1/2
+    fn vacuum_ratio(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
+        match self.problem.boundaries[2 * d + usize::from(plus)] {
+            Boundary::Marshak => 0.5,
+            // `Vacuum` の面の物質が辺の比を持つことは `check_vacuum_ratios` で確かめてある
+            _ => side_of(d, plus)
+                .and_then(|side| self.material(n).vacuum_ratio[side].as_deref())
+                .map_or(f64::NAN, |r| r[g]),
+        }
     }
 
     /// ノード n の - 面・+ 面に入ってくる部分中性子流。
@@ -345,8 +389,10 @@ impl<'a> Core<'a> {
     /// 外からの入射は 0:
     /// - 反射: 正味の中性子流 0 で、β = 1（f によらない）
     /// - 中性子束ゼロ: f φ = 0 は φ = 0 と同じで、β = -1（f によらない）
-    /// - 真空（Marshak）: 不均質な入射の部分中性子流 f φ/4 - (o - i)/2 = (f(o + i) - (o - i))/2 = 0
-    ///   から β = (1 - f)/(1 + f)。隣の面の式で f' = 1、o' = 0 としたものに等しく、f = 1 なら 0
+    /// - 真空: 格子計算の真空の辺の比 r で J = r f φ、つまり o - i = 2 r f (o + i) から
+    ///   β = (1 - 2rf)/(1 + 2rf)（ADR-0101）
+    /// - Marshak: r = 1/2 で、不均質な入射の部分中性子流 f φ/4 - (o - i)/2 = 0 と同じ。β = (1 - f)/(1 + f) は
+    ///   隣の面の式で f' = 1、o' = 0 としたものに等しく、f = 1 なら 0
     fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
         let face = |step: isize, index: usize| match self.neighbor(n, d, step) {
             Some(m) => {
@@ -365,9 +411,10 @@ impl<'a> Core<'a> {
             None => match self.problem.boundaries[2 * d + index] {
                 Boundary::Reflective => (1.0, 0.0),
                 Boundary::ZeroFlux => (-1.0, 0.0),
-                Boundary::Vacuum => {
-                    let f = self.adf(n, d, step > 0, g);
-                    ((1.0 - f) / (1.0 + f), 0.0)
+                Boundary::Vacuum | Boundary::Marshak => {
+                    let plus = step > 0;
+                    let rf = self.vacuum_ratio(n, d, plus, g) * self.adf(n, d, plus, g);
+                    ((1.0 - 2.0 * rf) / (1.0 + 2.0 * rf), 0.0)
                 }
             },
         };
@@ -406,65 +453,34 @@ impl<'a> Core<'a> {
 
             // 出ていく部分中性子流はノード平均について線形（o = p + q φ̄）なので、
             // ノードのバランス式と同時に解く（古い値を使うと高速群で振動する）
-            let mut parts = [Direction::default(); 3];
+            let mut parts = [Outflow::default(); 3];
             let mut balance_rhs = source;
             let mut balance_diag = removal;
             for (d, part) in parts.iter_mut().enumerate() {
                 let h = self.width(n, d);
-                let alpha = m.diffusion[g] / h;
-                // 源のモーメント（他の群・核分裂の展開係数から）
-                let mut s = [0.0; 4];
-                for (from, c) in coupling.iter().enumerate() {
-                    for (si, a) in s.iter_mut().zip(&state.coefficients[d][n][from]) {
-                        *si += c * a;
-                    }
-                }
                 // ノード n の群 g の値はまだ更新していないので、スイープの始めの値と同じ
-                let (l1, l2) = self.transverse_shape(state, &leakage, n, d, g)?;
-                s[0] -= l1;
-                s[1] -= l2;
-
-                let [a1, a2, _, _] = state.coefficients[d][n][g];
-                let dh2 = m.diffusion[g] / (h * h);
-                // f1, f2 で重み付けした残差から 3次・4次の係数
-                let a3 = (removal * a1 / 12.0 - s[0] / 12.0 + s[2] / 120.0)
-                    / (dh2 / 2.0 + removal / 120.0);
-                let a4 = (removal * a2 / 20.0 - s[1] / 20.0 + s[3] / 700.0)
-                    / (dh2 / 5.0 + removal / 700.0);
-
-                // 面の中性子束と正味の中性子流の連続から、出ていく部分中性子流 o = (o_R, o_L) は
-                //   M o = A i + c,  M = [[1+8α, 4α], [4α, 1+8α]],  A = [[1-8α, -4α], [-4α, 1-8α]]
-                // を満たす（c はノード平均と a3, a4 の項）。入射は i = β o + 外からの入射
-                // （face_inputs）なので、それも同時に解く
+                let transverse = self.transverse_shape(state, &leakage, n, d, g)?;
+                // 入射は i = β o + 外からの入射（face_inputs）
                 let ((beta_l, ext_l), (beta_r, ext_r)) = self.face_inputs(state, n, d, g);
-                let (p, q) = (1.0 + 8.0 * alpha, 1.0 - 8.0 * alpha);
-                let w = 4.0 * alpha;
-                // K = M - A B（B = diag(β_R, β_L)）
-                let k = [
-                    [p - q * beta_r, w + w * beta_l],
-                    [w + w * beta_r, p - q * beta_l],
-                ];
-                let det = k[0][0] * k[1][1] - k[0][1] * k[1][0];
-                let solve2 = |r: [f64; 2]| {
-                    [
-                        (k[1][1] * r[0] - k[0][1] * r[1]) / det,
-                        (k[0][0] * r[1] - k[1][0] * r[0]) / det,
-                    ]
-                };
-                // φ̄ = 0 のときの値と、φ̄ に対する傾き
-                let base = solve2([
-                    q * ext_r - w * ext_l - alpha * a3 / 2.0 - alpha * a4 / 5.0,
-                    q * ext_l - w * ext_r + alpha * a3 / 2.0 - alpha * a4 / 5.0,
-                ]);
-                let slope = solve2([6.0 * alpha, 6.0 * alpha]);
-                *part = Direction {
-                    out: base,
-                    slope,
-                    beta: [beta_r, beta_l],
-                    external: [ext_r, ext_l],
-                    a3,
-                    a4,
-                };
+                *part = outflow(&Line {
+                    diffusion: m.diffusion[g],
+                    width: h,
+                    removal,
+                    coupling: &coupling,
+                    coefficients: &state.coefficients[d][n],
+                    group: g,
+                    transverse,
+                    inflow: [
+                        Inflow {
+                            beta: beta_r,
+                            external: ext_r,
+                        },
+                        Inflow {
+                            beta: beta_l,
+                            external: ext_l,
+                        },
+                    ],
+                });
                 // 正味の漏れ (o_R + o_L - i_R - i_L)/h（i = β o + 外からの入射）をバランス式に入れる
                 for f in 0..2 {
                     balance_rhs -= ((1.0 - part.beta[f]) * part.out[f] - part.external[f]) / h;
@@ -474,18 +490,10 @@ impl<'a> Core<'a> {
             let average = balance_rhs / balance_diag;
             state.flux[n][g] = average;
             for (d, part) in parts.iter().enumerate() {
-                let out: [f64; 2] = std::array::from_fn(|f| part.out[f] + part.slope[f] * average);
-                let incoming: [f64; 2] =
-                    std::array::from_fn(|f| part.beta[f] * out[f] + part.external[f]);
-                state.out_plus[d][n][g] = out[0];
-                state.out_minus[d][n][g] = out[1];
-                let (phi_r, phi_l) = (2.0 * (out[0] + incoming[0]), 2.0 * (out[1] + incoming[1]));
-                state.coefficients[d][n][g] = [
-                    phi_r - phi_l,
-                    phi_r + phi_l - 2.0 * average,
-                    part.a3,
-                    part.a4,
-                ];
+                let faces = part.at(average);
+                state.out_plus[d][n][g] = faces.out[0];
+                state.out_minus[d][n][g] = faces.out[1];
+                state.coefficients[d][n][g] = faces.coefficients;
             }
         }
         Ok(())
@@ -508,25 +516,19 @@ impl<'a> Core<'a> {
         let transverse =
             |m: usize| -> f64 { (0..3).filter(|&e| e != d).map(|e| leakage[m][e]).sum() };
         let h = self.width(n, d);
-        // ノードの中心を原点とした q(x) = c0 + c1 x + c2 x² への条件 (行, 右辺)
-        let average = |a: f64, b: f64, value: f64| {
-            ([1.0, 0.5 * (a + b), (a * a + a * b + b * b) / 3.0], value)
-        };
         let side = |step: isize, face: usize| {
-            let sign = step as f64;
-            let near = sign * 0.5 * h;
             Ok(match self.neighbor(n, d, step) {
-                Some(m) => {
-                    let far = near + sign * self.width(m, d);
-                    average(near.min(far), near.max(far), transverse(m))
-                }
+                Some(m) => Beside::Node {
+                    width: self.width(m, d),
+                    leakage: transverse(m),
+                },
                 None => match self.problem.boundaries[2 * d + face] {
-                    Boundary::Reflective => {
-                        let far = near + sign * h;
-                        average(near.min(far), near.max(far), transverse(n))
-                    }
-                    Boundary::ZeroFlux => ([1.0, near, near * near], 0.0),
-                    Boundary::Vacuum => {
+                    Boundary::Reflective => Beside::Node {
+                        width: h,
+                        leakage: transverse(n),
+                    },
+                    Boundary::ZeroFlux => Beside::Face(0.0),
+                    Boundary::Vacuum | Boundary::Marshak => {
                         let flux = state.flux[n][g];
                         if !(flux > 0.0 && flux.is_finite()) {
                             return Err(NemError::VacuumFaceFlux { node: n, flux });
@@ -537,21 +539,17 @@ impl<'a> Core<'a> {
                         } else {
                             2.0 * (state.out_minus[d][n][g] + in_minus)
                         };
-                        ([1.0, near, near * near], transverse(n) * face_flux / flux)
+                        Beside::Face(transverse(n) * face_flux / flux)
                     }
                 },
             })
         };
-        let rows = [
+        Ok(transverse_moments(
+            h,
             side(-1, 0)?,
-            average(-0.5 * h, 0.5 * h, transverse(n)),
+            transverse(n),
             side(1, 1)?,
-        ];
-        let c = solve3(
-            [rows[0].0, rows[1].0, rows[2].0],
-            [rows[0].1, rows[1].1, rows[2].1],
-        );
-        Ok((c[1] * h, c[2] * h * h / 3.0))
+        ))
     }
 
     /// 外周の面から外へ出る正味の中性子数（群ごと）
@@ -575,37 +573,16 @@ impl<'a> Core<'a> {
     }
 }
 
-/// 3×3 の連立一次方程式（Cramer の公式）。
-fn solve3(a: [[f64; 3]; 3], b: [f64; 3]) -> [f64; 3] {
-    let det = |m: [[f64; 3]; 3]| {
-        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
-            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
-    };
-    let d = det(a);
-    std::array::from_fn(|j| {
-        let mut m = a;
-        for (row, value) in m.iter_mut().zip(b) {
-            row[j] = value;
-        }
-        det(m) / d
-    })
-}
-
-/// ノードの1方向の途中結果。`out` は φ̄ = 0 のときの出ていく部分中性子流で、
-/// 実際の値は `slope` × φ̄ を足したもの。
-#[derive(Debug, Clone, Copy, Default)]
-struct Direction {
-    /// [+ 面, - 面]
-    out: [f64; 2],
-    slope: [f64; 2],
-    /// 面での入射 i = β o + external の β（`Core::face_inputs`。隣の面では ADF の比から、
-    /// 外周では境界条件から決まり、ADF が等しい隣の面と ADF が 1 の真空の面では 0）
-    beta: [f64; 2],
-    /// 隣のノードの出ていく部分中性子流から入る分 2 f' o'/(f + f')（外周の面では 0）
-    external: [f64; 2],
-    a3: f64,
-    a4: f64,
+/// 方向 d の - 面（`plus` が false）・+ 面（true）に当たる少数群定数の辺（左、右、上、下）の番号。
+/// -x が左、+x が右、-y が下、+y が上。z の面は少数群定数の辺に当たらない
+fn side_of(d: usize, plus: bool) -> Option<usize> {
+    match (d, plus) {
+        (0, false) => Some(0),
+        (0, true) => Some(1),
+        (1, true) => Some(2),
+        (1, false) => Some(3),
+        _ => None,
+    }
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
@@ -667,6 +644,7 @@ mod tests {
             diffusion: vec![d1, d2],
             scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
             adf: vec![vec![1.0, 1.0]; 4],
+            vacuum_ratio: vec![None; 4],
         }
     }
 
@@ -766,6 +744,39 @@ mod tests {
     }
 
     #[test]
+    fn single_reflective_node_direction_stays_bounded() {
+        // z に 300 cm のノード1つで両側が反射。その方向の解は一様で、展開係数は 0 のまま
+        // でなければならない。前の反復の a1, a2 から a3, a4 を求めると、丸め誤差が反復ごとに
+        // 約 -5 倍と -2.3 倍になり、400 回ほどで NaN になっていた（#0025）
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[0] = Boundary::ZeroFlux;
+        boundaries[1] = Boundary::ZeroFlux;
+        let p = cuboid([60.0, 20.0, 300.0], [6, 1, 1], boundaries);
+        let tight = Options {
+            k_tolerance: 1e-14,
+            flux_tolerance: 1e-13,
+            max_iterations: 10_000,
+        };
+        let converged = solve(&p, &tight).unwrap();
+        let core = Core::new(&p).unwrap();
+        // 許容差 0 では収束しないので、上限の回数まで反復を続ける
+        let long = Options {
+            k_tolerance: 0.0,
+            flux_tolerance: 0.0,
+            max_iterations: 2000,
+        };
+        match iterate(&core, &long) {
+            Err(NemError::NotConverged { k, .. }) => assert!(
+                (k - converged.k).abs() < 1e-12 * converged.k,
+                "{k} vs {}",
+                converged.k
+            ),
+            Err(e) => panic!("expected NotConverged, got {e}"),
+            Ok((s, _)) => panic!("converged with zero tolerances (k = {})", s.k),
+        }
+    }
+
+    #[test]
     fn non_fundamental_mode_is_error() {
         // 断面 10 cm の裸の細い柱を1ノードで表すと、横方向の漏れが除去の約5倍になり、
         // 符号が交互に変わる解に収束する。基本モードではないので誤りとして返す
@@ -827,6 +838,7 @@ mod tests {
             diffusion: vec![d],
             scatter: vec![vec![total - absorption]],
             adf: vec![vec![1.0]; 4],
+            vacuum_ratio: vec![None; 4],
         }
     }
 
@@ -951,14 +963,21 @@ mod tests {
 
     #[test]
     fn unit_adfs_leave_results_unchanged() {
-        // ADF を入れる前（e3b627c）の結果
+        // ADF を入れる前（e3b627c）と同じ反復（a3, a4 を前の反復の a1, a2 から求める。#0025 の修正の前で、
+        // 既定の許容差では e3b627c の結果に 1e-12 で一致していた）を、許容差を詰めて収束させた値。
+        // 既定の許容差の値は反復の道筋で 1e-9 程度変わるので、収束させた値で比べる
         let p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
-        let s = solve(&p, &Options::default()).unwrap();
-        let k = 8.510692818894939e-1;
+        let tight = Options {
+            k_tolerance: 1e-14,
+            flux_tolerance: 1e-13,
+            max_iterations: 10_000,
+        };
+        let s = solve(&p, &tight).unwrap();
+        let k = 8.510692798259939e-1;
         assert!((s.k - k).abs() < 1e-12, "{} vs {k}", s.k);
         let flux = [
-            [0.0005911585345818675, 0.00012519241066775465],
-            [0.0016614051334569624, 0.0003510047054023206],
+            [0.0005911585762519943, 0.00012519241937033706],
+            [0.001661405206417996, 0.0003510047208700676],
         ];
         for (phi, expected) in s.flux.iter().zip(flux) {
             for (a, b) in phi.iter().zip(expected) {
@@ -1100,7 +1119,7 @@ mod tests {
         let mut m = material();
         m.adf[0] = vec![1.3, 0.8];
         m.adf[1] = vec![0.7, 1.6];
-        let p = slab(vec![5.0; 6], vec![m.clone()], vec![0; 6], Boundary::Vacuum);
+        let p = slab(vec![5.0; 6], vec![m.clone()], vec![0; 6], Boundary::Marshak);
         let (core, s, state) = solve_state(&p);
         for g in 0..2 {
             let (in_minus, _) = core.incoming(&state, 0, 0, g);
@@ -1129,7 +1148,7 @@ mod tests {
         };
         let (zero, vacuum, reflective) = (
             k(Boundary::ZeroFlux),
-            k(Boundary::Vacuum),
+            k(Boundary::Marshak),
             k(Boundary::Reflective),
         );
         assert!(
@@ -1161,7 +1180,7 @@ mod tests {
             m.adf = vec![vec![f]; 4];
             let b = marshak_buckling(&m, l, f);
             let expected = one_group_k(&m, b * b);
-            let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Vacuum);
+            let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Marshak);
             let s = solve(&p, &Options::default()).unwrap();
             assert!(
                 (s.k - expected).abs() < 1e-8 * expected,
@@ -1179,7 +1198,7 @@ mod tests {
         let l = 40.0;
         let b = marshak_buckling(&m, l, 1.0);
         let expected = one_group_k(&m, b * b);
-        let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Vacuum);
+        let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Marshak);
         let s = solve(&p, &Options::default()).unwrap();
         assert!(
             (s.k - expected).abs() < 1e-8 * expected,
@@ -1202,13 +1221,143 @@ mod tests {
             .sum();
         let expected = one_group_k(&m, b2);
         let error = |n: usize| {
-            let mut p = cuboid(size, [n; 3], [Boundary::Vacuum; 6]);
+            let mut p = cuboid(size, [n; 3], [Boundary::Marshak; 6]);
             p.materials = vec![one_group()];
             (solve(&p, &Options::default()).unwrap().k - expected).abs() / expected
         };
         let (coarse, fine) = (error(4), error(8));
         assert!(fine < 1e-4, "relative error {fine}");
         assert!(fine < coarse / 8.0, "{coarse} -> {fine}");
+    }
+
+    /// 外周の x の2つの面（辺の左と右）に、真空の面の比 r を群ごとに持たせる
+    fn with_x_ratios(mut m: FewGroup, r: &[f64]) -> FewGroup {
+        m.vacuum_ratio[0] = Some(r.to_vec());
+        m.vacuum_ratio[1] = Some(r.to_vec());
+        m
+    }
+
+    #[test]
+    fn half_ratio_vacuum_equals_marshak() {
+        // r = 1/2 の真空の面の条件 J = r f φ は、Marshak の条件 f φ/4 = J/2 と同じ（ADR-0101）
+        let mut m = material();
+        m.adf[0] = vec![1.3, 0.8];
+        m.adf[1] = vec![0.7, 1.6];
+        let marshak = solve(
+            &slab(vec![5.0; 6], vec![m.clone()], vec![0; 6], Boundary::Marshak),
+            &Options::default(),
+        )
+        .unwrap();
+        let p = slab(
+            vec![5.0; 6],
+            vec![with_x_ratios(m, &[0.5, 0.5])],
+            vec![0; 6],
+            Boundary::Vacuum,
+        );
+        let vacuum = solve(&p, &Options::default()).unwrap();
+        assert!(
+            (vacuum.k - marshak.k).abs() < 1e-14,
+            "{} vs {}",
+            vacuum.k,
+            marshak.k
+        );
+        for (a, b) in vacuum
+            .flux
+            .iter()
+            .flatten()
+            .zip(marshak.flux.iter().flatten())
+        {
+            assert!((a - b).abs() < 1e-12 * b, "{a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn vacuum_face_imposes_the_ratio() {
+        // 真空の面では、不均質な中性子束 f φ = 2f(o + i) と正味の中性子流 o - i が J = r f φ を満たす
+        let mut m = material();
+        m.adf[0] = vec![1.3, 0.8];
+        m.adf[1] = vec![0.7, 1.6];
+        let r = [0.62, 0.55];
+        let p = slab(
+            vec![5.0; 6],
+            vec![with_x_ratios(m.clone(), &r)],
+            vec![0; 6],
+            Boundary::Vacuum,
+        );
+        let (core, _, state) = solve_state(&p);
+        for (g, ratio) in r.into_iter().enumerate() {
+            let (in_minus, _) = core.incoming(&state, 0, 0, g);
+            let (_, in_plus) = core.incoming(&state, 5, 0, g);
+            let (out_minus, out_plus) = (state.out_minus[0][0][g], state.out_plus[0][5][g]);
+            for (f, o, i) in [
+                (m.adf[0][g], out_minus, in_minus),
+                (m.adf[1][g], out_plus, in_plus),
+            ] {
+                let (current, heterogeneous) = (o - i, 2.0 * f * (o + i));
+                assert!(current > 0.0);
+                assert!(
+                    (current - ratio * heterogeneous).abs() < 1e-14 * current,
+                    "{current} vs {}",
+                    ratio * heterogeneous
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn vacuum_ratio_matches_analytic() {
+        // 1群の裸の平板に J = r f φ を課した解 φ = cos(Bx) は D B tan(Bl/2) = r f を満たす。
+        // r が大きいほど漏れが増えて k は下がる
+        let l = 40.0;
+        for f in [0.8, 1.3] {
+            let mut previous = f64::INFINITY;
+            for r in [0.5, 0.55, 0.6, 0.9] {
+                let mut m = one_group();
+                m.adf = vec![vec![f]; 4];
+                let d = m.diffusion[0];
+                let b = smallest_root(
+                    |b| (b * l / 2.0).sin() * d * b - r * f * (b * l / 2.0).cos(),
+                    PI / l,
+                );
+                let expected = one_group_k(&m, b * b);
+                let p = slab(
+                    vec![l / 8.0; 8],
+                    vec![with_x_ratios(m, &[r])],
+                    vec![0; 8],
+                    Boundary::Vacuum,
+                );
+                let s = solve(&p, &Options::default()).unwrap();
+                assert!(
+                    (s.k - expected).abs() < 1e-8 * expected,
+                    "f = {f}, r = {r}: {} vs {expected}",
+                    s.k
+                );
+                assert!(expected < previous, "f = {f}, r = {r}");
+                previous = expected;
+            }
+        }
+    }
+
+    #[test]
+    fn vacuum_needs_ratios() {
+        // 物質がその面の辺の比を持たなければエラー。黙って Marshak の条件にしない
+        let p = slab(vec![5.0; 6], vec![material()], vec![0; 6], Boundary::Vacuum);
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
+        assert!(err.contains("ratio") && err.contains("marshak"), "{err}");
+        // 片側だけ持つ
+        let mut m = material();
+        m.vacuum_ratio[0] = Some(vec![0.5, 0.5]);
+        let p = slab(vec![5.0; 6], vec![m], vec![0; 6], Boundary::Vacuum);
+        assert!(solve(&p, &Options::default()).is_err());
+        // z の面は、2次元の格子計算が比を出さないので、径方向の辺がすべて比を持っていてもエラー
+        let mut m = material();
+        m.vacuum_ratio = vec![Some(vec![0.5, 0.5]); 4];
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[5] = Boundary::Vacuum;
+        let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], boundaries);
+        p.materials = vec![m];
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
+        assert!(err.contains("z") && err.contains("marshak"), "{err}");
     }
 
     #[test]
@@ -1290,8 +1439,8 @@ mod tests {
         b.adf = vec![vec![0.95, 0.8]; 4];
         let k = |n: usize| {
             let mut boundaries = [Boundary::Reflective; 6];
-            boundaries[1] = Boundary::Vacuum;
-            boundaries[3] = Boundary::Vacuum;
+            boundaries[1] = Boundary::Marshak;
+            boundaries[3] = Boundary::Marshak;
             let p = Problem {
                 mesh: Mesh {
                     dx: vec![40.0 / n as f64; n],
@@ -1317,7 +1466,12 @@ mod tests {
     #[test]
     fn no_flux_next_to_a_vacuum_face_is_error() {
         // 真空の面の横方向の漏れは面の中性子束 / ノード平均を使うので、ノード平均が正でなければ止める
-        let p = slab(vec![5.0; 6], vec![material()], vec![0; 6], Boundary::Vacuum);
+        let p = slab(
+            vec![5.0; 6],
+            vec![material()],
+            vec![0; 6],
+            Boundary::Marshak,
+        );
         let core = Core::new(&p).unwrap();
         for bad in [0.0, -1.0, f64::NAN] {
             let mut state = State::new(6, 2);
@@ -1339,5 +1493,275 @@ mod tests {
         let mut state = State::new(6, 2);
         state.flux[0][1] = 0.0;
         assert!(core.sweep_group(&mut state, 1, 1.0).is_ok());
+    }
+
+    /// 細かいノードの解を参照（不均質な解）とし、粗いノード（x, y に `blocks` 個ずつの細かいノードの
+    /// まとまり）ごとに反応率を保存して定数を均質化し、GET の1ノードの問題（ADR-0094）で ADF を作った
+    /// 粗いノードの問題と、細かいノードの解を返す。z は1層。
+    ///
+    /// 1ノードの問題の外周の扱い（`Edge`）は、粗いノードの面が外周なら細かいノードの問題の境界とする。
+    /// 内側の面（隣の粗いノード）の扱いは1ノードの問題にないので、内側の面は、その方向の横方向の漏れが
+    /// 0 の問題（y と z に1つの細かいノードで、どちらも反射）でだけ使う
+    fn coarsen_with_get(fine: &Problem, blocks: [usize; 2]) -> (Problem, Solution) {
+        use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
+        let (core, solution, state) = solve_state(fine);
+        let core = &core;
+        let [nx, ny, nz] = core.counts;
+        assert_eq!(nz, 1);
+        let [bx, by] = blocks;
+        let (cx, cy) = (nx / bx, ny / by);
+        assert_eq!((cx * bx, cy * by), (nx, ny));
+        assert!(
+            cx * cy == 1 || ny == 1,
+            "inner faces need zero transverse leakage"
+        );
+        let ng = core.groups;
+        let mut materials = Vec::new();
+        for (cj, ci) in (0..cy).flat_map(|j| (0..cx).map(move |i| (j, i))) {
+            let members: Vec<usize> = (cj * by..(cj + 1) * by)
+                .flat_map(|j| (ci * bx..(ci + 1) * bx).map(move |i| core.index([i, j, 0])))
+                .collect();
+            // 反応率を保存する均質化（D は中性子束の重みの平均。GET の ADF が差を吸収する）
+            let mut volume = 0.0;
+            let mut flux = vec![0.0; ng];
+            let mut m = FewGroup {
+                bounds: fine.materials[0].bounds.clone(),
+                k_inf: solution.k,
+                total: vec![0.0; ng],
+                absorption: vec![0.0; ng],
+                nu_fission: vec![0.0; ng],
+                fission: vec![0.0; ng],
+                chi: vec![0.0; ng],
+                diffusion: vec![0.0; ng],
+                scatter: vec![vec![0.0; ng]; ng],
+                adf: vec![vec![1.0; ng]; 4],
+                vacuum_ratio: vec![None; 4],
+            };
+            for &n in &members {
+                let (v, f, x) = (core.volume(n), &solution.flux[n], core.material(n));
+                volume += v;
+                let production: f64 = (0..ng).map(|g| x.nu_fission[g] * f[g]).sum();
+                for g in 0..ng {
+                    let w = v * f[g];
+                    flux[g] += w;
+                    m.total[g] += w * x.total[g];
+                    m.nu_fission[g] += w * x.nu_fission[g];
+                    m.fission[g] += w * x.fission[g];
+                    m.diffusion[g] += w * x.diffusion[g];
+                    m.chi[g] += v * x.chi[g] * production;
+                    for to in 0..ng {
+                        m.scatter[g][to] += w * x.scatter[g][to];
+                    }
+                }
+            }
+            for (g, f) in flux.iter().enumerate() {
+                for value in [
+                    &mut m.total[g],
+                    &mut m.nu_fission[g],
+                    &mut m.fission[g],
+                    &mut m.diffusion[g],
+                ] {
+                    *value /= f;
+                }
+                for value in &mut m.scatter[g] {
+                    *value /= f;
+                }
+                m.absorption[g] = m.total[g] - m.scatter[g].iter().sum::<f64>();
+            }
+            let produced: f64 = m.chi.iter().sum();
+            for c in &mut m.chi {
+                *c /= produced;
+            }
+            let average: Vec<f64> = flux.iter().map(|f| f / volume).collect();
+
+            // 面（-x, +x, -y, +y）の不均質な中性子束と外向きの正味の中性子流の、面にわたる平均
+            let mut het = [vec![0.0; ng], vec![0.0; ng], vec![0.0; ng], vec![0.0; ng]];
+            let mut current = het.clone();
+            for (face, d, plus) in [(0, 0, false), (1, 0, true), (2, 1, false), (3, 1, true)] {
+                let on_face: Vec<usize> = members
+                    .iter()
+                    .copied()
+                    .filter(|&n| {
+                        let p = core.position(n);
+                        let lowest = if d == 0 { ci * bx } else { cj * by };
+                        let count = if d == 0 { bx } else { by };
+                        p[d] == if plus { lowest + count - 1 } else { lowest }
+                    })
+                    .collect();
+                let length: f64 = on_face
+                    .iter()
+                    .map(|&n| core.volume(n) / core.width(n, d))
+                    .sum();
+                for &n in &on_face {
+                    let w = core.volume(n) / core.width(n, d) / length;
+                    for g in 0..ng {
+                        let (in_minus, in_plus) = core.incoming(&state, n, d, g);
+                        let (o, i) = if plus {
+                            (state.out_plus[d][n][g], in_plus)
+                        } else {
+                            (state.out_minus[d][n][g], in_minus)
+                        };
+                        het[face][g] += w * 2.0 * (o + i);
+                        current[face][g] += w * (o - i);
+                    }
+                }
+            }
+            let edge = |d: usize, plus: bool| {
+                let outer = if d == 0 {
+                    if plus { ci == cx - 1 } else { ci == 0 }
+                } else if plus {
+                    cj == cy - 1
+                } else {
+                    cj == 0
+                };
+                match (outer, fine.boundaries[2 * d + usize::from(plus)]) {
+                    (true, Boundary::Marshak) => Edge::Vacuum,
+                    (true, Boundary::Reflective) | (false, _) => Edge::Reflective,
+                    (true, Boundary::ZeroFlux) => panic!("no zero-flux edge in GET"),
+                    (true, Boundary::Vacuum) => panic!("the fine reference uses marshak"),
+                }
+            };
+            let widths = [
+                core.widths[0][ci * bx..(ci + 1) * bx].iter().sum(),
+                core.widths[1][cj * by..(cj + 1) * by].iter().sum(),
+            ];
+            let surface = surface_fluxes(&OneNode {
+                diffusion: &m.diffusion,
+                total: &m.total,
+                scatter: &m.scatter,
+                nu_fission: &m.nu_fission,
+                chi: &m.chi,
+                k: solution.k,
+                flux: &average,
+                widths,
+                currents: [&current[0], &current[1], &current[2], &current[3]],
+                edges: [edge(0, false), edge(0, true), edge(1, false), edge(1, true)],
+            })
+            .unwrap();
+            // 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上
+            for (side, face) in [(0, 0), (1, 1), (2, 3), (3, 2)] {
+                m.adf[side] = (0..ng).map(|g| het[face][g] / surface[face][g]).collect();
+                // 参照の真空の面の比 J/φ_het（ADR-0101。参照は Marshak の条件なので 1/2）
+                let (d, plus) = (face / 2, face % 2 == 1);
+                if edge(d, plus) == Edge::Vacuum {
+                    m.vacuum_ratio[side] =
+                        Some((0..ng).map(|g| current[face][g] / het[face][g]).collect());
+                }
+            }
+            materials.push(m);
+        }
+        let merge = |widths: &[f64], b: usize| -> Vec<f64> {
+            widths.chunks(b).map(|c| c.iter().sum()).collect()
+        };
+        let coarse = Problem {
+            mesh: Mesh {
+                dx: merge(&fine.mesh.dx, bx),
+                dy: merge(&fine.mesh.dy, by),
+                dz: fine.mesh.dz.clone(),
+            },
+            node_material: (0..materials.len()).collect(),
+            materials,
+            // 粗いノードの真空の面は、参照から作った比 J/φ_het を使う
+            boundaries: fine.boundaries.map(|b| match b {
+                Boundary::Marshak => Boundary::Vacuum,
+                other => other,
+            }),
+        };
+        (coarse, solution)
+    }
+
+    /// 粗いノードの問題の k とノード平均の中性子束が、細かいノードの解（同じ規格化: 全体の生成率 1）を
+    /// 再現することを確かめ、ADF をすべて 1 にしたときの k の相対差を返す
+    fn assert_get_equivalence(coarse: &Problem, fine: &Solution, blocks: [usize; 2], nx: usize) {
+        let s = solve(coarse, &Options::default()).unwrap();
+        assert!(
+            (s.k - fine.k).abs() < 1e-7 * fine.k,
+            "{} vs {}",
+            s.k,
+            fine.k
+        );
+        let [bx, by] = blocks;
+        let cx = nx / bx;
+        for (c, phi) in s.flux.iter().enumerate() {
+            let (ci, cj) = (c % cx, c / cx);
+            let members: Vec<usize> = (cj * by..(cj + 1) * by)
+                .flat_map(|j| (ci * bx..(ci + 1) * bx).map(move |i| i + nx * j))
+                .collect();
+            for (g, value) in phi.iter().enumerate() {
+                // 細かいノードはどれも同じ大きさ
+                let expected =
+                    members.iter().map(|&n| fine.flux[n][g]).sum::<f64>() / members.len() as f64;
+                assert!(
+                    (value - expected).abs() < 1e-6 * expected,
+                    "node {c} group {g}: {value} vs {expected}"
+                );
+            }
+        }
+        let mut unit = coarse.clone();
+        for m in &mut unit.materials {
+            m.adf = vec![vec![1.0; m.groups()]; 4];
+        }
+        let k_unit = solve(&unit, &Options::default()).unwrap().k;
+        // ADF がなければ、粗いノードの NEM の誤差の分だけ k が外れる
+        assert!(
+            (k_unit - fine.k).abs() > 1e-4 * fine.k,
+            "{k_unit} vs {}",
+            fine.k
+        );
+    }
+
+    /// 細かいノードの物質: 燃料、断面積の違う燃料、核分裂の少ない燃料
+    fn three_fuels() -> Vec<FewGroup> {
+        let a = material();
+        let mut b = material();
+        b.diffusion = vec![1.2, 0.5];
+        b.absorption = vec![0.012, 0.10];
+        b.nu_fission = vec![0.004, 0.09];
+        let mut c = material();
+        c.absorption = vec![0.009, 0.06];
+        c.nu_fission = vec![0.002, 0.04];
+        c.fission = vec![0.002 / 2.4, 0.04 / 2.4];
+        vec![a, b, c]
+    }
+
+    #[test]
+    fn get_adfs_reproduce_a_two_node_slab() {
+        // x 方向に 20 cm の粗いノード2つ（細かいノード 2.5 cm × 8 ずつ、中に2種類の物質）。-x は反射、
+        // +x は真空。粗いノードの間の面で、ADF をかけた不均質な中性子束と正味の中性子流がつながる
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        let fine = Problem {
+            mesh: Mesh {
+                dx: vec![2.5; 16],
+                dy: vec![20.0],
+                dz: vec![20.0],
+            },
+            materials: three_fuels(),
+            node_material: vec![0, 1, 0, 1, 1, 0, 1, 0, 2, 2, 1, 1, 2, 2, 0, 0],
+            boundaries,
+        };
+        let (coarse, solution) = coarsen_with_get(&fine, [8, 1]);
+        assert_get_equivalence(&coarse, &solution, [8, 1], 16);
+    }
+
+    #[test]
+    fn get_adfs_reproduce_a_node_with_vacuum_sides() {
+        // 20 cm 角の粗いノード1つ（細かいノード 5 cm 角 × 16、3種類の物質）。-x と -y は反射、+x と +y は
+        // 真空。真空の面での横方向の漏れの扱いと、2方向の横方向の漏れを通る
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        boundaries[3] = Boundary::Marshak;
+        let fine = Problem {
+            mesh: Mesh {
+                dx: vec![5.0; 4],
+                dy: vec![5.0; 4],
+                dz: vec![20.0],
+            },
+            materials: three_fuels(),
+            node_material: vec![0, 1, 0, 2, 1, 0, 2, 0, 0, 2, 1, 1, 2, 0, 1, 0],
+            boundaries,
+        };
+        let (coarse, solution) = coarsen_with_get(&fine, [4, 4]);
+        assert_get_equivalence(&coarse, &solution, [4, 4], 4);
     }
 }
