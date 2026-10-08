@@ -341,8 +341,10 @@ pub fn shield_fuel(
 }
 
 /// 燃料でなく、燃料のピンの等価なセルでも置き換えていない領域のうち、分離共鳴を持つ核種を含む物質の領域
-/// （支持格子の枠、案内管など）を、対称に移り合うセルの組と物質ごとの塊にまとめ、等価原理で遮蔽する。
-/// 塊をすべて同時に黒体にして、塊ごとの Dancoff 係数と平均弦長を求める（[`lump_dancoff`]）。
+/// （支持格子の枠、案内管など）を塊にまとめ、等価原理で遮蔽する。塊は、対称に移り合うセルの組・物質・セルの中の
+/// ひと続きの領域（セルの領域の順で、同じ物質が続く範囲。リングとその外の枠はこの順に並ぶ）ごと。物質ごとに、
+/// その物質の塊だけを同時に黒体にして、塊ごとの Dancoff 係数と平均弦長を求める（[`lump_dancoff`]。別の物質の
+/// 共鳴は別のエネルギーにあるので、影を作らない）。
 fn shield_lumps(
     library: &Library,
     tracking: &Tracking,
@@ -369,17 +371,23 @@ fn shield_lumps(
             Ok(false)
         })
         .collect::<Result<Vec<bool>, LookupError>>()?;
-    // 塊は (セルの組の代表, 物質の番号) ごと
-    let mut keys: Vec<(usize, usize)> = Vec::new();
+    // 塊は (セルの組の代表, 物質の番号, セルの中のひと続きの領域の番号) ごと
+    let mut keys: Vec<(usize, usize, usize)> = Vec::new();
     let mut lump = vec![None; region_index.len()];
     for (cell, &orbit) in orbits.iter().enumerate() {
+        let mut piece = 0;
+        let mut previous = None;
         for region in lattice.cell_regions(cell) {
             let index = region_index[region];
+            if previous.is_some_and(|p| p != index) {
+                piece += 1;
+            }
+            previous = Some(index);
             let kept = shielded.region_material[region] == index;
             if !kept || !resonant.get(index).copied().unwrap_or(false) {
                 continue;
             }
-            let key = (orbit, index);
+            let key = (orbit, index, piece);
             let k = match keys.iter().position(|&k| k == key) {
                 Some(k) => k,
                 None => {
@@ -390,17 +398,28 @@ fn shield_lumps(
             lump[region] = Some(k);
         }
     }
-    if keys.is_empty() {
-        return Ok(());
-    }
     let totals: Vec<Vec<f64>> = shielded
         .region_material
         .iter()
         .map(|&m| shielded.materials[m].total.clone())
         .collect();
-    let lumps = lump_dancoff(tracking, &totals, &lump, keys.len(), &options.dancoff)?;
+    // 物質ごとに、その物質の塊だけを黒体にする。塊の番号は物質の中での番号に付け直す
+    let mut found = Vec::with_capacity(keys.len());
+    let mut indices: Vec<usize> = keys.iter().map(|&(_, index, _)| index).collect();
+    indices.sort_unstable();
+    indices.dedup();
+    for index in indices {
+        let members: Vec<usize> = (0..keys.len()).filter(|&k| keys[k].1 == index).collect();
+        let local: Vec<Option<usize>> = lump
+            .iter()
+            .map(|l| l.and_then(|l| members.iter().position(|&m| m == l)))
+            .collect();
+        let lumps = lump_dancoff(tracking, &totals, &local, members.len(), &options.dancoff)?;
+        found.extend(members.into_iter().zip(lumps));
+    }
+    found.sort_by_key(|&(k, _)| k);
     let mut lump_material = Vec::with_capacity(keys.len());
-    for (&(cell, index), found) in keys.iter().zip(&lumps) {
+    for (&(cell, index, _), (_, found)) in keys.iter().zip(&found) {
         let equivalence = Equivalence {
             chord: found.chord,
             terms: found
