@@ -12,8 +12,6 @@ xlc-format = { path = "../format" }
 anyhow.workspace = true
 num_cpus.workspace = true
 rayon.workspace = true
-rmp-serde.workspace = true
-rmpv.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
@@ -24,3 +22,6 @@ tracing-subscriber.workspace = true
 [[bin]]
 name = "lattice"
 path = "src/main.rs"
+
+[dev-dependencies]
+rmp-serde.workspace = true

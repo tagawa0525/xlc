@@ -534,7 +534,6 @@ dependencies = [
  "num_cpus",
  "rayon",
  "rmp-serde",
- "rmpv",
  "serde",
  "thiserror",
  "toml",
@@ -557,8 +556,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "num-complex",
- "rmp-serde",
- "rmpv",
  "serde",
  "thiserror",
  "toml",

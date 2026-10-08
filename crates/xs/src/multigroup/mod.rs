@@ -1,7 +1,5 @@
 //! ポイントワイズの断面積からの多群定数の作成（NJOY の GROUPR に相当）。
 
-use xlc_format::group::GroupStructure;
-
 mod fission;
 mod free_gas;
 mod integrate;
@@ -9,10 +7,11 @@ mod outgoing;
 mod sab;
 mod scatter;
 mod slowing;
-
 mod weight;
 
 use std::collections::BTreeMap;
+
+use xlc_format::group::GroupStructure;
 
 use crate::endf::{Interpolation, Tab1};
 
@@ -28,7 +27,6 @@ pub use scatter::{
     scattering_moments, two_body_range,
 };
 pub use slowing::{SlowingDownError, slowing_down_shape, slowing_down_shape_with};
-
 pub use weight::Weight;
 
 /// 群平均断面積。配列は群の順（高エネルギーから）。
