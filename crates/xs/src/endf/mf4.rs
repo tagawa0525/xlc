@@ -378,7 +378,9 @@ mod tests {
             ]
             .concat();
         let mf4 = parse(&text).unwrap();
-        close(&mf4.moments(1.0e5, 1), &[1.0, 0.1]);
+        // 1e-5 eV の a_1 = 0 と 2e5 eV の 0.2 の間の線形補間
+        let expected = 0.2 * (1.0e5 - 1.0e-5) / (2.0e5 - 1.0e-5);
+        close(&mf4.moments(1.0e5, 1), &[1.0, expected]);
     }
 
     #[test]
