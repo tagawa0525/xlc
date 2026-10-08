@@ -32,7 +32,8 @@ issues: ["#0012"]
 ## 確認
 
 `unknown_and_missing_fields_are_rejected`、`array_form_is_rejected`、`nested_structs_in_array_form_are_rejected`、
-`other_formats_are_rejected`、`trailing_bytes_are_rejected`、`non_finite_values_are_rejected`。
+`other_formats_are_rejected`、`trailing_bytes_are_rejected`、`non_finite_values_are_rejected`。欠けた `Option` の項目を
+拒むことは確かめておらず、実際に拒まない（#0012）。
 
 ## 結果
 
