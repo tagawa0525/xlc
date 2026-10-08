@@ -34,6 +34,14 @@ pub enum HomogenizeError {
     B1(#[from] B1Error),
     #[error("one-node problem for the discontinuity factors")]
     OneNode(#[from] OneNodeError),
+    #[error(
+        "vacuum side {side}, few group {group}: net current / surface flux is {ratio}, outside (0, 1]"
+    )]
+    VacuumRatio {
+        side: usize,
+        group: usize,
+        ratio: f64,
+    },
 }
 
 /// MOC の解を使い、領域・群ごとの反応率を保存するようにセル全体で均質化し、
@@ -45,6 +53,10 @@ pub enum HomogenizeError {
 /// 解いた1ノードの NEM（`xlc_numeric::nem::surface_fluxes`。core と同じ式）の面の値とする。外周がすべて
 /// 鏡面反射なら正味の流れは 0 で、均質な解は平らになり、体積平均の中性子束で割るのと同じになる。
 /// アルベドの辺は core に対応する境界がないのでエラーにする。
+///
+/// 真空の辺には、MOC の辺の外向きの正味の中性子流 / 辺の上の不均質な中性子束（どちらも辺にわたる平均で、
+/// 少数群の中の細かい群の和）を持たせる。core の真空の面の条件 J = r f φ に使う（ADR-0101）。入射がないので
+/// 0 < r ≤ 1 で、外れればエラーにする。
 pub fn homogenize(
     solution: &Solution,
     materials: &[&Material],
@@ -132,6 +144,7 @@ pub fn homogenize(
         },
         scatter,
         adf: Vec::new(),
+        vacuum_ratio: Vec::new(),
     };
     // 辺ごとの少数群の値（細かい群の和。辺の平均の中性子束と正味の流れは群について足せる）
     let collapse = |values: &[Vec<f64>]| -> Vec<Vec<f64>> {
@@ -147,6 +160,7 @@ pub fn homogenize(
             .collect()
     };
     let (heterogeneous, currents) = (collapse(&solution.sides), collapse(&solution.currents));
+    few.vacuum_ratio = vacuum_ratios(&sides, &heterogeneous, &currents)?;
     let volume: f64 = solution.volumes.iter().sum();
     let average: Vec<f64> = flux.iter().map(|f| f / volume).collect();
     // 1ノードの問題の面は（-x, +x, -y, +y）で、辺（左、右、上、下）の（0, 1, 3, 2）番目
@@ -190,6 +204,35 @@ pub fn homogenize(
         })
         .collect();
     Ok(few)
+}
+
+/// [辺] の真空の辺の比 J/φ_het（[少数群]）。真空でない辺は `None`。
+fn vacuum_ratios(
+    sides: &[Boundary; 4],
+    heterogeneous: &[Vec<f64>],
+    currents: &[Vec<f64>],
+) -> Result<Vec<Option<Vec<f64>>>, HomogenizeError> {
+    (0..4)
+        .map(|side| {
+            if sides[side] != Boundary::Vacuum {
+                return Ok(None);
+            }
+            heterogeneous[side]
+                .iter()
+                .zip(&currents[side])
+                .enumerate()
+                .map(|(group, (phi, j))| {
+                    let ratio = j / phi;
+                    if ratio > 0.0 && ratio <= 1.0 {
+                        Ok(ratio)
+                    } else {
+                        Err(HomogenizeError::VacuumRatio { side, group, ratio })
+                    }
+                })
+                .collect::<Result<Vec<f64>, _>>()
+                .map(Some)
+        })
+        .collect()
 }
 
 fn reflective(boundaries: &Boundaries) -> bool {
@@ -578,6 +621,42 @@ mod tests {
                 fg.adf[1][g]
             );
         }
+    }
+
+    #[test]
+    fn vacuum_sides_carry_the_current_ratio() {
+        // 真空の辺は、MOC の辺の外向きの正味の流れ / 辺の上の不均質な中性子束を、少数群ごとに細かい群の
+        // 和の比で持つ（ADR-0101）。鏡面反射の辺は持たない
+        let (solution, materials, fine, boundaries) = open_lattice();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(&solution, &refs, &fine, fine.bounds(), &boundaries).unwrap();
+        for side in [0, 2, 3] {
+            assert_eq!(fg.vacuum_ratio[side], None, "side {side}");
+        }
+        let ratio = fg.vacuum_ratio[1].clone().unwrap();
+        for (g, r) in ratio.iter().enumerate() {
+            let expected = solution.currents[1][g] / solution.sides[1][g];
+            assert!((r - expected).abs() < 1e-14 * expected, "{r} vs {expected}");
+            // 出ていく角度中性子束だけなので P1 の 1/2 より大きく、1 より小さい
+            assert!(*r > 0.5 && *r < 1.0, "{r}");
+        }
+        let one = homogenize(&solution, &refs, &fine, &[1.0e7, 1.0e-5], &boundaries).unwrap();
+        let collapsed = one.vacuum_ratio[1].clone().unwrap();
+        let expected =
+            solution.currents[1].iter().sum::<f64>() / solution.sides[1].iter().sum::<f64>();
+        assert!((collapsed[0] - expected).abs() < 1e-14 * expected);
+        // 外周がすべて鏡面反射の格子は、どの辺も持たない
+        let (solution, materials, fine) = solved();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fg = homogenize(
+            &solution,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        assert_eq!(fg.vacuum_ratio, vec![None; 4]);
     }
 
     #[test]
