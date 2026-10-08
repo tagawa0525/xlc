@@ -4,9 +4,10 @@
 //! 再現するよう、リング r・群 g の反応に掛ける因子 μ を求める（Hébert の SPH 等価）。μ を掛けた群定数で解いた
 //! 中性子束 φ̃ が φ_ref / μ に比例するよう、μ = φ_ref / φ̃ を反復する。群のバランス（反応率の和 = 上の群からの
 //! 線源）は μ では変えられず、多群の散乱行列は UFG と同じ群間の移行を与えないので、再現できるのは群ごとの
-//! リング間の形である。大きさは、群ごとに真空でないリングの Σ V φ_ref / μ = Σ V φ_ref となるよう規格化して
-//! 決める（セルの平均の中性子束を保つ）。真空のリングには掛ける断面積がないので μ = 1 とする。群定数にすると、
-//! 群の中のスペクトルの空間分布を平坦にした誤差（文献で約 −200 pcm）を直す。
+//! リング間の形である。大きさは、群ごとに因子を掛けるリングの Σ V φ_ref / μ = Σ V φ_ref となるよう規格化して
+//! 決める（それらのリングの平均の中性子束を保つ）。真空のリングと、因子を掛ける先のないリング（格子に使わない
+//! 等価なセルの支持格子のリング）は μ = 1 とし、規格化にも入れない。群定数にすると、群の中のスペクトルの空間分布を
+//! 平坦にした誤差（文献で約 −200 pcm）を直す。
 
 use std::ops::Range;
 
@@ -26,6 +27,8 @@ const UPSCATTER_TOLERANCE: f64 = 1.0e-12;
 pub enum SphError {
     #[error("{given} materials for {rings} rings")]
     Rings { given: usize, rings: usize },
+    #[error("{given} fixed flags for {rings} rings")]
+    Fixed { given: usize, rings: usize },
     #[error("groups {groups:?} need {needed} groups above and in the materials, got {above} above")]
     Groups {
         groups: Range<usize>,
@@ -150,11 +153,12 @@ pub fn multigroup_flux(
     Err(SphError::NotConverged(ITERATIONS))
 }
 
-/// 参照の中性子束 `reference` [リング][群] を再現する SPH 因子 [リング][群（`groups` の中の順）]。
+/// 参照の中性子束 `reference` [リング][群] を再現する SPH 因子 [リング][群（`groups` の中の順）]。`fixed` の
+/// リングは μ = 1 のままにする。
 pub fn sph_factors(
     cell: &Cylinder,
     materials: &[Material],
-    _fixed: &[bool],
+    fixed: &[bool],
     groups: Range<usize>,
     above: &[f64],
     reference: &[Vec<f64>],
@@ -168,8 +172,16 @@ pub fn sph_factors(
             groups: ng,
         });
     }
+    if fixed.len() != n {
+        return Err(SphError::Fixed {
+            given: fixed.len(),
+            rings: n,
+        });
+    }
     let volumes = cell.volumes();
-    let active: Vec<usize> = (0..n).filter(|&r| !materials[r].is_void()).collect();
+    let active: Vec<usize> = (0..n)
+        .filter(|&r| !(materials[r].is_void() || fixed[r]))
+        .collect();
     for &r in &active {
         if let Some(k) = reference[r]
             .iter()
