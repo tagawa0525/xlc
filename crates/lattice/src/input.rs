@@ -41,7 +41,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
-use crate::geometry::{GeometryError, Lattice, PinCell};
+use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
 
 /// 真空の帯の物質の名前（予約語。この名前の物質は定義できない）
@@ -114,6 +114,10 @@ pub struct LatticeInput {
     pub cells: Vec<CellInput>,
     /// 上の行から順の、セルの名前の配置
     pub rows: Vec<Vec<String>>,
+    /// 列の幅（左から, cm）。`None` ならどの列もピッチ
+    pub widths: Option<Vec<f64>>,
+    /// 行の高さ（上から, cm）。`None` ならどの行もピッチ
+    pub heights: Option<Vec<f64>>,
     /// 格子の周りの余白
     pub gap: Option<Gap>,
 }
@@ -167,11 +171,24 @@ struct InputFile {
     /// 省略した辺は鏡面反射
     boundary: Option<BoundaryEntry>,
     rows: Vec<String>,
+    /// 省略すると、どの列もピッチの幅
+    widths: Option<Vec<SizeEntry>>,
+    /// 省略すると、どの行もピッチの高さ
+    heights: Option<Vec<SizeEntry>>,
     /// 省略すると余白なし
     gap: Option<GapEntry>,
     /// 巨視的断面積のときは書かない
     material: Option<BTreeMap<String, MaterialEntry>>,
     cell: BTreeMap<String, CellEntry>,
+}
+
+/// 同じ大きさの列（行）の並び
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SizeEntry {
+    size: f64,
+    /// 省略すると 1
+    count: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -338,6 +355,32 @@ impl LatticeInput {
                 )));
             }
         }
+        // 列の幅と行の高さ（同じ大きさの並びを展開する）
+        let sizes = |entries: Option<Vec<SizeEntry>>, what: &str| -> Result<_, InputError> {
+            let Some(entries) = entries else {
+                return Ok(None);
+            };
+            let mut sizes = Vec::new();
+            for e in entries {
+                let count = e.count.unwrap_or(1);
+                if !positive(e.size) || count == 0 {
+                    return Err(invalid(format!(
+                        "{what} need positive sizes and counts, got {} x {count}",
+                        e.size
+                    )));
+                }
+                sizes.extend(std::iter::repeat_n(e.size, count));
+            }
+            Ok(Some(sizes))
+        };
+        let widths = sizes(file.widths, "widths")?;
+        let heights = sizes(file.heights, "heights")?;
+        if (widths.is_some() || heights.is_some()) && file.gap.is_some() {
+            return Err(invalid(
+                "`gap` and `widths`/`heights` exclude each other; give the gap as columns and rows"
+                    .into(),
+            ));
+        }
         let gap = file.gap.map(|g| Gap {
             width: g.width,
             material: g.material,
@@ -355,6 +398,8 @@ impl LatticeInput {
             materials,
             cells,
             rows,
+            widths,
+            heights,
             gap,
         })
     }
@@ -418,9 +463,17 @@ impl LatticeInput {
                 inner = zone.outer.unwrap_or(half);
                 names.extend(std::iter::repeat_n(zone.material.clone(), zone.rings));
             }
-            let pin = if cell.grid > 1 {
+            // 均質なセル（帯が1つで分割1、扇形と枠なし）は、どのマスにも置ける長方形のセル
+            let homogeneous = cell.zones.len() == 1
+                && cell.zones[0].rings == 1
+                && cell.sectors == 1
+                && cell.frame.is_none();
+            let pin = if homogeneous {
                 names = vec![names[0].clone(); cell.grid * cell.grid];
-                PinCell::grid(self.pitch, cell.grid)
+                Ok(Cell::Block {
+                    nx: cell.grid,
+                    ny: cell.grid,
+                })
             } else {
                 names = names
                     .into_iter()
@@ -434,6 +487,7 @@ impl LatticeInput {
                     }
                     None => pin,
                 }
+                .map(Cell::Pin)
             }
             .map_err(|source| InputError::Cell {
                 cell: cell.name.clone(),
@@ -456,36 +510,49 @@ impl LatticeInput {
                     .collect::<Result<Vec<usize>, InputError>>()
             })
             .collect::<Result<Vec<_>, InputError>>()?;
-        let mut materials: Vec<String> = layout
+        let columns = layout.first().map_or(0, Vec::len);
+        let pitches = |n: usize| vec![self.pitch; n];
+        let (mut widths, mut heights) = (
+            self.widths.clone().unwrap_or_else(|| pitches(columns)),
+            self.heights
+                .clone()
+                .unwrap_or_else(|| pitches(layout.len())),
+        );
+        let mut layout = layout;
+        if let Some(gap) = &self.gap {
+            if let CrossSections::Library(_) = self.cross_sections
+                && !self.materials.iter().any(|m| m.name == gap.material)
+            {
+                return Err(InputError::UndefinedMaterial {
+                    cell: "gap".into(),
+                    material: gap.material.clone(),
+                });
+            }
+            // 余白は周りの薄い行と列の均質なセル
+            let border = types.len();
+            types.push(Cell::BLOCK);
+            region_materials.push(vec![gap.material.clone()]);
+            let edge = vec![border; columns + 2];
+            let mut bordered = vec![edge.clone()];
+            bordered.extend(layout.into_iter().map(|row| {
+                std::iter::once(border)
+                    .chain(row)
+                    .chain(std::iter::once(border))
+                    .collect()
+            }));
+            bordered.push(edge);
+            layout = bordered;
+            for sizes in [&mut widths, &mut heights] {
+                sizes.insert(0, gap.width);
+                sizes.push(gap.width);
+            }
+        }
+        let materials: Vec<String> = layout
             .iter()
             .flatten()
             .flat_map(|&t| region_materials[t].iter().cloned())
             .collect();
-        let Some(gap) = &self.gap else {
-            return Ok((Lattice::new(types, layout)?, materials));
-        };
-        if let CrossSections::Library(_) = self.cross_sections
-            && !self.materials.iter().any(|m| m.name == gap.material)
-        {
-            return Err(InputError::UndefinedMaterial {
-                cell: "gap".into(),
-                material: gap.material.clone(),
-            });
-        }
-        // 余白は周りの薄い行と列のセル（`Lattice::with_margin` と同じ並び）で、どれも1つの領域
-        let n = layout.len();
-        let border = || vec![gap.material.clone(); n + 2];
-        materials = border();
-        for row in &layout {
-            materials.push(gap.material.clone());
-            materials.extend(
-                row.iter()
-                    .flat_map(|&t| region_materials[t].iter().cloned()),
-            );
-            materials.push(gap.material.clone());
-        }
-        materials.extend(border());
-        let lattice = Lattice::with_margin(types, layout, gap.width)?;
+        let lattice = Lattice::rectilinear(widths, heights, types, layout)?;
         Ok((lattice, materials))
     }
 }
