@@ -76,58 +76,13 @@ impl FewGroup {
         })
     }
 
-    /// MessagePack から読み、群境界の順序、配列の長さ、値が有限であることを確かめる。
+    /// MessagePack から読み、`validate` で値を確かめる。
     pub fn from_msgpack(bytes: &[u8]) -> Result<Self, FewGroupError> {
         let file: FewGroupFile = msgpack::from_value(msgpack::read_value(bytes)?)?;
         if file.format != FORMAT {
             return Err(FewGroupError::Format(file.format));
         }
-        let invalid = |message: String| Err(FewGroupError::Invalid(message));
-        let b = &file.bounds;
-        if b.len() < 2
-            || !b.windows(2).all(|w| w[0] > w[1])
-            || !b.iter().all(|&x| x > 0.0 && x.is_finite())
-        {
-            return invalid(format!("bounds must be positive and descending, got {b:?}"));
-        }
-        let ng = b.len() - 1;
-        let vectors = [
-            ("total", &file.total),
-            ("absorption", &file.absorption),
-            ("nu_fission", &file.nu_fission),
-            ("fission", &file.fission),
-            ("chi", &file.chi),
-            ("diffusion", &file.diffusion),
-        ];
-        for (name, v) in vectors
-            .into_iter()
-            .chain(file.scatter.iter().map(|row| ("scatter", row)))
-        {
-            if v.len() != ng {
-                return invalid(format!("`{name}` has {} values for {ng} groups", v.len()));
-            }
-            if let Some(bad) = v.iter().find(|x| !x.is_finite()) {
-                return invalid(format!("`{name}` has a non-finite value {bad}"));
-            }
-        }
-        if file.scatter.len() != ng {
-            return invalid(format!(
-                "`scatter` has {} rows for {ng} groups",
-                file.scatter.len()
-            ));
-        }
-        if file.adf.len() != 4 {
-            return invalid(format!("`adf` has {} sides, expected 4", file.adf.len()));
-        }
-        for side in &file.adf {
-            if side.len() != ng || !side.iter().all(|v| *v > 0.0 && v.is_finite()) {
-                return invalid(format!("`adf` needs {ng} positive values per side"));
-            }
-        }
-        if !(file.k_inf > 0.0 && file.k_inf.is_finite()) {
-            return invalid(format!("invalid k-inf {}", file.k_inf));
-        }
-        Ok(Self {
+        let fewgroup = Self {
             bounds: file.bounds,
             k_inf: file.k_inf,
             total: file.total,
@@ -138,7 +93,65 @@ impl FewGroup {
             diffusion: file.diffusion,
             scatter: file.scatter,
             adf: file.adf,
-        })
+        };
+        fewgroup.validate()?;
+        Ok(fewgroup)
+    }
+
+    /// 群境界の順序、配列の長さ、値が有限であること、不連続因子が正であることを確かめる。
+    /// ファイルから読んだ値にも、ファイルを経ずに作った値にも使う。
+    pub fn validate(&self) -> Result<(), FewGroupError> {
+        let invalid = |message: String| Err(FewGroupError::Invalid(message));
+        let b = &self.bounds;
+        if b.len() < 2
+            || !b.windows(2).all(|w| w[0] > w[1])
+            || !b.iter().all(|&x| x > 0.0 && x.is_finite())
+        {
+            return invalid(format!("bounds must be positive and descending, got {b:?}"));
+        }
+        let ng = b.len() - 1;
+        let vectors = [
+            ("total", &self.total),
+            ("absorption", &self.absorption),
+            ("nu_fission", &self.nu_fission),
+            ("fission", &self.fission),
+            ("chi", &self.chi),
+            ("diffusion", &self.diffusion),
+        ];
+        for (name, v) in vectors
+            .into_iter()
+            .chain(self.scatter.iter().map(|row| ("scatter", row)))
+        {
+            if v.len() != ng {
+                return invalid(format!("`{name}` has {} values for {ng} groups", v.len()));
+            }
+            if let Some(bad) = v.iter().find(|x| !x.is_finite()) {
+                return invalid(format!("`{name}` has a non-finite value {bad}"));
+            }
+        }
+        if self.scatter.len() != ng {
+            return invalid(format!(
+                "`scatter` has {} rows for {ng} groups",
+                self.scatter.len()
+            ));
+        }
+        if self.adf.len() != 4 {
+            return invalid(format!(
+                "`adf` (discontinuity factors) has {} sides, expected 4",
+                self.adf.len()
+            ));
+        }
+        for side in &self.adf {
+            if side.len() != ng || !side.iter().all(|v| *v > 0.0 && v.is_finite()) {
+                return invalid(format!(
+                    "`adf` (discontinuity factors) needs {ng} positive values per side"
+                ));
+            }
+        }
+        if !(self.k_inf > 0.0 && self.k_inf.is_finite()) {
+            return invalid(format!("invalid k-inf {}", self.k_inf));
+        }
+        Ok(())
     }
 }
 

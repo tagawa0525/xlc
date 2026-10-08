@@ -248,33 +248,10 @@ impl<'a> Core<'a> {
         }
         let groups = problem.materials.first().ok_or("no materials")?.groups();
         for (i, m) in problem.materials.iter().enumerate() {
-            let sized = |v: &[f64]| v.len() == groups;
-            let consistent = m.groups() == groups
-                && sized(&m.diffusion)
-                && sized(&m.nu_fission)
-                && sized(&m.chi)
-                && sized(&m.absorption)
-                && m.scatter.len() == groups
-                && m.scatter.iter().all(|row| sized(row));
-            if !consistent {
+            // 長さ、有限であること、不連続因子は少数群定数の検査（ファイルの読み込みと同じ）
+            m.validate().map_err(|e| format!("material {i}: {e}"))?;
+            if m.groups() != groups {
                 return Err(format!("material {i} must have {groups} groups"));
-            }
-            let all_finite = [&m.total, &m.diffusion, &m.nu_fission, &m.chi, &m.absorption]
-                .into_iter()
-                .chain(&m.scatter)
-                .flatten()
-                .all(|v| v.is_finite());
-            if !all_finite {
-                return Err(format!("material {i}: cross sections must be finite"));
-            }
-            let adf_valid = m.adf.len() == 4
-                && m.adf.iter().all(|side| {
-                    side.len() == groups && side.iter().all(|&f| f > 0.0 && f.is_finite())
-                });
-            if !adf_valid {
-                return Err(format!(
-                    "material {i}: discontinuity factors must be 4 sides of {groups} positive values"
-                ));
             }
             if m.diffusion.iter().any(|&d| d.is_nan() || d <= 0.0) {
                 return Err(format!(
