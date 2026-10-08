@@ -926,17 +926,22 @@ mod tests {
     }
 
     #[test]
-    fn interval_from_the_threshold_is_lin_lin() {
-        // しきい値から最初の点までの区間は新しく作るので、断面積 0 の端でも成り立つ lin-lin にする。
-        // その先の区間はファイルの補間則のまま
+    fn interval_from_the_threshold_keeps_laws_valid_at_zero() {
+        // しきい値から次の点までは、ファイルの区間の補間則を引き継ぐ（NJOY と同じ）。y に線形な補間則
+        // （lin-log の INT=3）は 0 の端でも成り立つので、区間が長くても形を変えない
+        let threshold: f64 = 1.0e3 * 10.0 / 9.0;
         let points = [("1.0+3", "0.0"), ("2.0+3", "1.0"), ("2.0+7", "1.0")];
         let (table, _) = adjusted("9.0", "-1.0+3", "3", &points).unwrap();
-        assert_eq!(table.x[0], 1.0e3 * 10.0 / 9.0);
-        assert_eq!(table.breaks, vec![2, 3]);
-        assert_eq!(
-            table.laws,
-            vec![Interpolation::LinLin, Interpolation::LinLog]
-        );
+        assert_eq!(table.x[0], threshold);
+        let e = (threshold * 2.0e3).sqrt();
+        let expected = (e / threshold).ln() / (2.0e3 / threshold).ln();
+        assert!((table.eval(e).unwrap() - expected).abs() < 1e-12);
+        // ln y の補間則（INT=4, 5）は 0 の端で成り立たないので、その区間だけ lin-lin にする
+        let (table, _) = adjusted("9.0", "-1.0+3", "5", &points).unwrap();
+        assert_eq!(table.laws[0], Interpolation::LinLin);
+        let mid = 0.5 * (threshold + 2.0e3);
+        assert!((table.eval(mid).unwrap() - 0.5).abs() < 1e-12);
+        assert_eq!(table.laws.last(), Some(&Interpolation::LogLog));
     }
 
     #[test]
