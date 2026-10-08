@@ -39,7 +39,7 @@ pub fn homogenize(
         boundaries.top,
         boundaries.bottom,
     ];
-    if sides.contains(&Boundary::Vacuum) {
+    if sides.iter().any(|&b| b != Boundary::Reflective) {
         return Err(HomogenizeError::NotReflective);
     }
     let ng = fine.len();
@@ -219,6 +219,14 @@ mod tests {
         };
         assert!(matches!(
             homogenize(&solution, &refs, &fine, fine.bounds(), &vacuum),
+            Err(HomogenizeError::NotReflective)
+        ));
+        let albedo = Boundaries {
+            top: Boundary::Albedo(0.5),
+            ..Boundaries::REFLECTIVE
+        };
+        assert!(matches!(
+            homogenize(&solution, &refs, &fine, fine.bounds(), &albedo),
             Err(HomogenizeError::NotReflective)
         ));
     }
