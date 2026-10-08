@@ -12,8 +12,8 @@ issues: ["#0021"]
 
 拡散係数は M0 で D = 1/(3Σt) とした（[ADR-0044](0044-collapse-to-two-groups.md)。`crates/lattice/src/fewgroup.rs` の `homogenize`。輸送補正なし）。
 D = 1/(3Σt) を確かめる比較はない。その後、ライブラリは散乱行列を P0〜P3 の Legendre のモーメントで持ち（[ADR-0076](0076-store-legendre-scattering-moments.md)）、
-MOC は非等方散乱を解き、散乱の次数が 1 以上なら、領域ごとに中性子束の高次のモーメント（実の球面調和関数の符号つきの
-成分）を持つ（[ADR-0075](0075-solve-moc-with-anisotropic-scattering.md)）。M3 では、ADF を GET で作り
+MOC は非等方散乱を解き、散乱の次数が 1 以上なら、解く途中で領域ごとに中性子束の高次のモーメント（実の球面調和関数の
+符号つきの成分）を持つ（[ADR-0075](0075-solve-moc-with-anisotropic-scattering.md)。いまの MOC の解の出力には含めない）。M3 では、ADF を GET で作り
 （[ADR-0094](0094-define-adf-by-one-node-nem.md)）、反射体の定数を作る（[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-adf.md)）。
 
 - GET の ADF は、定数を作った体系では D の誤差も吸収する。D の良し悪しは、定数を別の体系（単一集合体の定数を
