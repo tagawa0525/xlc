@@ -15,6 +15,8 @@
 //!                              shielded: [{total, elastic, fission, nu_fission}（σ0 の順）]}]}]}
 //! ```
 
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 
 use crate::group::GroupStructure;
@@ -97,6 +99,9 @@ pub struct NuclideData {
     pub za: f64,
     pub awr: f64,
     pub resolved: Option<Resolved>,
+    /// 熱中性子散乱を S(α, β) で作った。S(α, β) は評価済みデータの温度にしかないので、その間の温度は
+    /// 群定数を温度について線形に内挿する（それ以外の核種は、使う温度そのもので処理しておく）
+    pub thermal_scattering: bool,
     pub temperatures: Vec<TemperatureData>,
 }
 
@@ -279,12 +284,13 @@ impl Library {
 }
 
 impl Library {
-    /// 核種 `name` の温度 `temperature` (K) の表（温度は表の値と完全に一致すること）。
+    /// 核種 `name` の温度 `temperature` (K) の表。温度は表の値と一致すること。ただし熱中性子散乱を S(α, β) で
+    /// 作った核種（`thermal_scattering`）は、表の2つの温度の間なら群定数を温度について線形に内挿する。
     pub fn lookup(
         &self,
         name: &str,
         temperature: f64,
-    ) -> Result<(&NuclideData, &TemperatureData), LookupError> {
+    ) -> Result<(&NuclideData, Cow<'_, TemperatureData>), LookupError> {
         let data = self
             .nuclides
             .iter()
@@ -299,7 +305,7 @@ impl Library {
                 temperature,
                 available: data.temperatures.iter().map(|t| t.temperature).collect(),
             })?;
-        Ok((data, t))
+        Ok((data, Cow::Borrowed(t)))
     }
 
     /// 核種 `name` の、群ごとの背景断面積 `sigma0` (barn) での遮蔽断面積。表の σ0 の間は ln σ0 に線形に
@@ -551,6 +557,7 @@ pub(crate) mod tests {
             za: 92235.0,
             awr: 233.0248,
             resolved: None,
+            thermal_scattering: false,
             temperatures: temperatures
                 .iter()
                 .map(|&t| temperature(t, fissile))
@@ -612,6 +619,46 @@ pub(crate) mod tests {
             let bytes = rmp_serde::to_vec_named(&file).unwrap();
             assert!(Library::from_msgpack(&bytes).is_err());
         }
+    }
+
+    /// 温度 550 K と 573.6 K の H-1 様の核種（573.6 K は値を 2 倍にしたもの）
+    fn two_temperatures(thermal: bool) -> Library {
+        let mut library = sample();
+        let mut n = library.nuclides[0].clone();
+        n.name = "H-1".into();
+        n.thermal_scattering = thermal;
+        let mut low = n.temperatures[0].clone();
+        low.temperature = 550.0;
+        let mut high = low.clone();
+        high.temperature = 573.6;
+        high.scatter[0][0][0] *= 2.0;
+        high.shielded[0].total[0] *= 2.0;
+        n.temperatures = vec![low, high];
+        library.nuclides.push(n);
+        library
+    }
+
+    #[test]
+    fn thermal_scattering_is_interpolated_in_temperature() {
+        let library = two_temperatures(true);
+        let (_, low) = library.lookup("H-1", 550.0).unwrap();
+        let (_, t) = library.lookup("H-1", 565.0).unwrap();
+        let f = 1.0 + (565.0 - 550.0) / (573.6 - 550.0);
+        assert_eq!(t.temperature, 565.0);
+        assert!((t.scatter[0][0][0] - f * low.scatter[0][0][0]).abs() < 1e-12);
+        assert!((t.shielded[0].total[0] - f * low.shielded[0].total[0]).abs() < 1e-12);
+        // 表の温度ちょうどは表のまま、範囲の外はエラー
+        assert!(matches!(
+            library.lookup("H-1", 550.0).unwrap().1,
+            Cow::Borrowed(_)
+        ));
+        assert!(library.lookup("H-1", 600.0).is_err());
+    }
+
+    #[test]
+    fn other_nuclides_are_not_interpolated() {
+        let library = two_temperatures(false);
+        assert!(library.lookup("H-1", 565.0).is_err());
     }
 
     #[test]
