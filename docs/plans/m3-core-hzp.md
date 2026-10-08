@@ -64,9 +64,9 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
    — 済（c729ccd）
 2. 新しい核種の処理と、MF4 の角度分布の散乱行列への反映（MF6 の角度のデータは入れない。[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）
    — 済（MF4 は dfed461、MF6 を入れない決定は 69fb19c、分離共鳴のない核種のライブラリは 903c123。新しい核種（C、Si、P、
-   Ti、Mn、Ni、Ag、Cd、In の 29 核種）のライブラリと NJOY との比較は 3c0c824 と b656be2（examples/m3-nuclides/verification.md）。
-   減速計算の範囲より上の散乱源を NJOY にそろえたのは d8031dd、運動学のしきい値から反応を始めるのは f4ad75c（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
-   VERA の k はこの2つで 6 桁まで変わらない（ac5d8cb）。しきい値の値を 0 にしたのは 346e673（#0024）。NJOY との差のうち、拡げた格子が小さい反応で粗いこと（#0022）は
+   Ti、Mn、Ni、Ag、Cd、In の 29 核種）のライブラリと NJOY との比較は c03a54e と 6632572（examples/m3-nuclides/verification.md）。
+   減速計算の範囲より上の散乱源を NJOY にそろえたのは 2d09cea、運動学のしきい値から反応を始めるのは a466a05（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
+   VERA の k はこの2つで 6 桁まで変わらない（e560b64）。しきい値の値を 0 にしたのは b64fc7c（#0024）。NJOY との差のうち、拡げた格子が小さい反応で粗いこと（#0022）は
    未解決。新しい物質の格子計算（2E〜2K）はまだ）
 3. 熱中性子の散乱行列の複数の温度と、lattice での温度の内挿 — 済（782da41）
 4. セルの形の追加（中実の棒、支持格子の枠、長方形の領域、場所で違う格子の幅） — 作業中（枠は 025f774、長方形の格子は
