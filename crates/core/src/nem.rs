@@ -1382,16 +1382,6 @@ mod tests {
             let mut het = [vec![0.0; ng], vec![0.0; ng], vec![0.0; ng], vec![0.0; ng]];
             let mut current = het.clone();
             for (face, d, plus) in [(0, 0, false), (1, 0, true), (2, 1, false), (3, 1, true)] {
-                // 1つのノードで両側が反射の方向では、解はその方向に一様で、面の中性子束はノード平均。
-                // その方向の展開係数は使わない（両側の正味の中性子流が 0 に決まり、前の反復の a1, a2 から
-                // a3, a4 を求める反復が丸め誤差を増やす。値は解に効かない）
-                if core.counts[d] == 1
-                    && fine.boundaries[2 * d] == Boundary::Reflective
-                    && fine.boundaries[2 * d + 1] == Boundary::Reflective
-                {
-                    het[face].clone_from(&average);
-                    continue;
-                }
                 let on_face: Vec<usize> = members
                     .iter()
                     .copied()
