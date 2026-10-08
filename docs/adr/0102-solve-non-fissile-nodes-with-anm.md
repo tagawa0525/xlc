@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-09
 supersedes: [ADR-0027]
 superseded-by:
@@ -60,12 +60,16 @@ NEM の核と同じく、core が使う式で格子計算の1ノードの問題�
 
 ## 確認
 
-まだ実装していない。次で確かめる。
-
-- 核分裂のない均質な平板で、ANM の核の出ていく部分中性子流が、細かいメッシュの差分の解に一致すること
-- 燃料と反射体の 1D の細かいノードの解を、粗いノード（反射体は ANM）の GET の定数で再現すること
-- 燃料だけの問題の結果が変わらないこと（既存のテスト）
-- I 型の反射体の格子で1ノードの問題の均質な面の中性子束が正になり、core が MOC の k を再現すること
+- `anm::tests::non_fissile_slab_matches_fine_differences`: 核分裂のない2群の平板（20 cm、上方散乱と横方向の漏れの
+  2次式あり）で、細かいメッシュ（20000 セル）の差分の解のノード平均を与えると、ANM の出ていく部分中性子流が差分の
+  解に相対 2 × 10⁻⁶ で一致し、1D のバランスを満たす
+- `anm::tests::steep_reflector_keeps_positive_face_flux` と `one_node_problems_of_non_fissile_nodes_use_anm`: 燃料側から
+  入り真空側へ出る 21.5 cm の反射体で、面の中性子束が正で、1ノードの問題の均質な面の中性子束が差分の解の面の
+  中性子束に一致する（ADF が 1）
+- `nem::tests::get_adfs_reproduce_fuel_and_a_wide_reflector`（core）: 燃料（20 cm）と反射体（21.5 cm）の細かいノードの
+  解を、2つの粗いノード（反射体は ANM）の GET の定数で k の相対 10⁻⁷ で再現する
+- 燃料だけの問題: core と numeric の既存のテストは変えずに通る
+- I 型の反射体の格子での確認は ADR-0095 の確認で行う
 
 ## 結果
 
