@@ -5,7 +5,7 @@ opened: 2026-10-08
 closed: 2026-10-08
 milestone: M3
 blocked-by: []
-resolution: crates/docs（cargo test）
+resolution: コミット 1692401
 ---
 
 # 文書の整合性の検査（番号の重複、状態、置き換えのリンク、参照先）
