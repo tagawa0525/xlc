@@ -16,6 +16,8 @@ lattice の減速計算（crates/lattice/src/ufg.rs）は、xs の flux calculat
 WINDOW_POINTS = 16 点）を使っている。xs では格子を細かくしても中性子束が変わらないことを確かめているが、lattice の
 セル（多リングの CP、全核種）では確かめていない（コードのコメントのとおり）。
 
+関係する ADR: [ADR-0004](../adr/0004-keep-solver-settings-per-stage.md)、[ADR-0068](../adr/0068-solve-pinwise-slowing-down.md)
+
 ## 完了の条件
 
 VERA 1B などで WINDOW_POINTS を増やし、燃料の実効断面積と k が収束していることを確かめる。収束していなければ

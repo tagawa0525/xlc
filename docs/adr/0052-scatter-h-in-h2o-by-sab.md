@@ -3,7 +3,7 @@ status: accepted
 date: 2026-10-06
 supersedes: [ADR-0038]
 superseded-by:
-issues: []
+issues: ["#0001"]
 ---
 
 # ADR-0052: H in H2O の熱中性子散乱は S(α,β) で扱い、酸素は自由ガスのままとする

@@ -16,6 +16,8 @@ resolution:
 −126 → +38 pcm になった（examples/vera/README.md）。OpenMC の2つの計算の差の統計誤差は 1σ で約 10 pcm なので、
 約 4σ にあたるが、原因は分けていない。
 
+関係する ADR: [ADR-0088](../adr/0088-add-frame-ring-to-equivalent-cell.md)
+
 ## 完了の条件
 
 残りの差の原因を特定し、統計誤差の 2σ 以内まで直すか、近似として ADR に記録する。
