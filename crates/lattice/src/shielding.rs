@@ -135,9 +135,11 @@ pub struct PinShielding {
     /// 体積で平均したもの。`nuclides` とともに SPH 因子を掛けていない物理的な値（参照解と比べる用）で、MOC の
     /// 中性子束と組み合わせて反応率を求めるには、領域の物質（SPH 因子を掛けたもの）を使う
     pub effective: Vec<Shielded>,
-    /// UFG の減速計算に使った等価なセルの外半径 (cm)。燃料に分離共鳴を持つ核種がなければ `None`
+    /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。支持格子のあるセルでは、その外に枠と同じ面積の
+    /// 支持格子のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
-    /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある
+    /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある。
+    /// 支持格子のあるセルの最後は支持格子のリングの値で、格子には使わないので 1
     pub sph: Option<Vec<Vec<f64>>>,
 }
 
@@ -633,7 +635,6 @@ fn assign(
                 .pin()
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
             let first = lattice.cell_regions(cell).start;
-            // 支持格子のリングは ring_targets にないので割り当てない
             for (targets, material) in ring_targets(pin, first, *start).iter().zip(materials) {
                 if let Some(m) = material {
                     for &region in targets {
@@ -677,10 +678,10 @@ struct PinRings<'a> {
 
 /// ピンのセルの UFG の減速計算の結果
 struct CellShielding {
-    /// 等価なセルの外半径 (cm)
+    /// 等価なセルの減速材のリングの外半径 (cm)
     radius: f64,
-    /// 等価なセルのリングごとの物質（真空は `None`）。格子の領域は [`ring_targets`]。支持格子のリング（最後）は格子に
-    /// 使わない（枠は塊として遮蔽する）
+    /// 等価なセルの減速材までのリングごとの物質（真空は `None`）。格子の領域は [`ring_targets`]。支持格子のリングの
+    /// 物質は格子に使わないので含めない（枠は塊として遮蔽する）
     rings: Vec<Option<Material>>,
     /// 減速材のリングの始まり
     start: usize,
@@ -839,7 +840,13 @@ fn shield_cell(
         .map(|m| m.clone().unwrap_or_else(|| Material::void(ng)))
         .collect();
     let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
-    let fixed = vec![false; multigroup.len()];
+    // 支持格子のリングの断面積は格子に使わないので、因子を掛けない
+    let mut fixed = vec![false; multigroup.len()];
+    if frame.is_some()
+        && let Some(last) = fixed.last_mut()
+    {
+        *last = true;
+    }
     let sph = sph_factors(
         &cylinder,
         &multigroup,
@@ -859,6 +866,11 @@ fn shield_cell(
                     source,
                 })?;
         }
+    }
+
+    // 支持格子のリングの物質は格子に使わない（枠は塊として遮蔽する）
+    if frame.is_some() {
+        rings.pop();
     }
 
     // 燃料の平均: 燃料のリングの中性子束と体積の重み
@@ -2136,6 +2148,7 @@ mod tests {
             // 格子の枠は等価なセルのリングの物質で上書きされない（この Zr-90 は分離共鳴を持たないので、
             // 被覆管と同じ物質の無限希釈のまま。被覆管のリングは UFG の物質）
             assert_eq!(framed.region_material[4], 1);
+            assert_ne!(framed.region_material[4], framed.region_material[2]);
         }
 
         #[test]
