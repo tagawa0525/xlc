@@ -6,5 +6,6 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod anm;
+pub mod equivalence;
 pub mod nem;
 pub mod quadrature;
