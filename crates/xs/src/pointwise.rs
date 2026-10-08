@@ -697,6 +697,72 @@ mod tests {
         .concat()
     }
 
+    /// しきい反応の MF3（AWR 9、Q = −1000 eV なので運動学のしきい値は 1000 × 10 / 9 eV）
+    fn threshold_section(points: &[(&str, &str)]) -> String {
+        use crate::endf::rec;
+        let mut lines = vec![
+            rec(["4.009000+3", "9.0", "0", "0", "0", "0"], 1, 3, 51),
+            rec(
+                ["-1.0+3", "-1.0+3", "0", "0", "1", &points.len().to_string()],
+                1,
+                3,
+                51,
+            ),
+            rec([&points.len().to_string(), "2", "", "", "", ""], 1, 3, 51),
+        ];
+        for chunk in points.chunks(3) {
+            let mut fields = ["", "", "", "", "", ""];
+            for (k, (x, y)) in chunk.iter().enumerate() {
+                fields[2 * k] = x;
+                fields[2 * k + 1] = y;
+            }
+            lines.push(rec(fields, 1, 3, 51));
+        }
+        lines.push(rec(["", "", "", "", "", ""], 1, 3, 0));
+        lines.concat()
+    }
+
+    #[test]
+    fn reactions_start_at_the_kinematic_threshold() {
+        // 運動学のしきい値 −Q (A + 1)/A より下の断面積はありえないので、最初の点をしきい値に上げる
+        // （NJOY RECONR と同じ）
+        let threshold = 1.0e3 * 10.0 / 9.0;
+        let text = [
+            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            threshold_section(&[("1.0+3", "0.0"), ("2.0+3", "1.0"), ("2.0+7", "1.0")]),
+        ]
+        .concat();
+        let tables = reconstruct(&Tape::parse(&text).unwrap(), 1, 1.0e-3).unwrap();
+        let level = &tables[&51];
+        assert_eq!(level.x[0], threshold);
+        assert_eq!(level.eval(1.05e3), None);
+        let mid = 0.5 * (threshold + 2.0e3);
+        let expected = 0.5;
+        assert!((level.eval(mid).unwrap() - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn points_below_the_threshold_are_dropped() {
+        // しきい値より下の点が2つ以上あれば、2つ目からは捨てる（NJOY はしきい値のすぐ上に詰めて並べる）
+        let threshold = 1.0e3 * 10.0 / 9.0;
+        let text = [
+            mf3_section(2, ["1.0-5", "2.0+7"], ["10.0", "10.0"]),
+            threshold_section(&[
+                ("1.0+3", "0.0"),
+                ("1.1+3", "0.01"),
+                ("2.0+3", "1.0"),
+                ("2.0+7", "1.0"),
+            ]),
+        ]
+        .concat();
+        let tables = reconstruct(&Tape::parse(&text).unwrap(), 1, 1.0e-3).unwrap();
+        let level = &tables[&51];
+        assert_eq!(level.x[0], threshold);
+        assert_eq!(level.y[0], 0.0);
+        let mid = 0.5 * (threshold + 2.0e3);
+        assert!((level.eval(mid).unwrap() - 0.5).abs() < 1e-12);
+    }
+
     #[test]
     fn redundant_reactions_are_sums_of_their_parts() {
         let full = ["1.0-5", "2.0+7"];
