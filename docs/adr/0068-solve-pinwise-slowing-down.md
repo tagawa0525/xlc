@@ -25,8 +25,10 @@ issues: ["#0002", "#0003"]
   ライブラリと組み合わせると、U-238 の共鳴吸収を +4〜6% 多く見積もった（VERA 1B で −1887 pcm。NR の重みのライブラリの
   ときは誤差が打ち消し合って +232 pcm だった。docs/plans/m2-assembly.md、32fca1e と 42f67de、2026-10-07）。燃料の中の
   散乱源を平坦とすることと、有理近似による誤差である
-- ESSM（埋め込み自己遮蔽法。SCALE/Polaris と同じ）。計画で一時採った（2026-10-07、32fca1e）。実装はブランチ `feat/essm`
-  に比較用に残し、main にはマージしていない:
+- ESSM（埋め込み自己遮蔽法。SCALE/Polaris と同じ）。計画で一時採った（2026-10-07、32fca1e）。ブランチ `feat/essm` で
+  試した（比較用に残し、main にはマージしていない）。準備として main に入れたもののうち、ライブラリのポテンシャル散乱
+  （ad400b2）は [ADR-0073](0073-store-pointwise-data-in-library.md) と [ADR-0089](0089-weight-two-terms-with-potential-scattering.md) で使い続け、散乱なしの固定源の MOC（`crates/lattice/src/moc/fixed_source.rs`、
+  3215954）はいまテストからしか呼ばれていない:
   NR 近似の固定源の MOC Ω·∇ψ + Σ_i (Σa,i + Σp,i) ψ = Σ_i Σp,i / 4π の、ピンの燃料の平均の中性子束 φ から
   Σb = Σa φ / (1 − φ) とし、σ0,R = (Σb − N_R σp,R + Σ_{j≠R} N_j σa,j) / N_R でライブラリを引く（均質な媒質では厳密）。
   VERA 1B では U-238 の σ0 が約 52 b になり（Carlvik は約 46 b）、k が −3080 pcm だった（docs/plans/m2-assembly.md、

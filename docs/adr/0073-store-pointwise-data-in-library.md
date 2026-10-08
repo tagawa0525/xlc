@@ -31,6 +31,8 @@ lattice のピンごとの減速計算（[ADR-0068](0068-solve-pinwise-slowing-d
   持つ（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。R-matrix limited は弾性散乱の l=0 のチャネルの APE）。
   M2 の計画は「Reich-Moore と MLBW は l=0 の APL」と書いていたが、ENDF の MLBW（LRF=2）の l ごとのレコードには
   APL がないので、MLBW は AP を使う（`crates/xs/src/process.rs` の `s_wave_radius`）
+- ポテンシャル散乱は、はじめ ESSM のために入れた（マージ ad400b2、2026-10-07。ESSM は [ADR-0068](0068-solve-pinwise-slowing-down.md) の「検討した案」）。
+  いまは等価原理の2項の重み（[ADR-0089](0089-weight-two-terms-with-potential-scattering.md)）に使う
 
 ## 確認
 
