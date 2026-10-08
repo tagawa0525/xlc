@@ -11,7 +11,7 @@ mod harmonics;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
-use crate::tracking::{Boundary, Side, Tracking};
+use crate::tracking::{Boundary, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
@@ -69,6 +69,12 @@ pub struct Solution {
     /// CMFD のために数える粗メッシュの面の正味の中性子流を辺にわたって足し、辺の長さで割ったもの。
     /// ADF の1ノードの問題（ADR-0103）に使う
     pub currents: Vec<Vec<f64>>,
+    /// [粗メッシュの面][群] の面の上の平均スカラー中性子束（中性子束と同じ規格化）。面の番号は
+    /// `CoarseMesh`（格子のセルの面。縦の面を先に）。内側の面も含み、複数のノードの格子のノードの辺の
+    /// ADF（ADR-0095）に使う
+    pub face_fluxes: Vec<Vec<f64>>,
+    /// [粗メッシュの面][群] の面の上で平均した、面の正の向き（縦の面は +x、横の面は -y）の正味の中性子流
+    pub face_currents: Vec<Vec<f64>>,
     /// [領域][x, y][群] の領域平均の中性子流（角度中性子束の1次のモーメント。中性子束と同じ規格化）。散乱の次数が
     /// 1 以上なら1次のモーメントそのもの、0 ならスイープで数えた値。真空の領域は通り抜ける角度中性子束から数える。
     /// 非反射の格子の拡散係数の重み（ADR-0104）に使う
@@ -96,6 +102,8 @@ pub enum MocError {
     RegionCount { materials: usize, regions: usize },
     #[error("no track crosses region {0}; use a finer track spacing")]
     Untracked(usize),
+    #[error("no track crosses cell face {0}; use a finer track spacing")]
+    UntrackedFace(usize),
     #[error("cell {0} is all void")]
     VoidCell(usize),
     #[error("no fissile material")]
@@ -204,6 +212,10 @@ pub fn solve(
     }
 
     let mesh = CoarseMesh::new(tracking);
+    let face_lengths = tracked_face_lengths(tracking, &mesh)?;
+    if let Some(face) = face_lengths.iter().position(|&l| l <= 0.0) {
+        return Err(MocError::UntrackedFace(face));
+    }
     // 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
     let pairs = planar_moments(order);
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs);
@@ -254,7 +266,7 @@ pub fn solve(
             void_flux,
             mut leak,
             mut current,
-            sides: side_sums,
+            face_flux,
             void_current,
             region_current,
         } = sum_tallies(&tallies, ng);
@@ -407,7 +419,7 @@ pub fn solve(
         higher = new_higher;
         k = new_k;
         if converged {
-            // 辺の上の平均: 辺の長さで割る。入ってくる側は前の反復のスイープの値で、CMFD の比もかけていないが、
+            // 面と辺の上の平均: 長さで割る。入ってくる側は前の反復のスイープの値で、CMFD の比もかけていないが、
             // 収束した解ではどちらも反復の許容誤差の程度しか違わない
             let lattice = &tracking.lattice;
             let lengths = [
@@ -416,18 +428,30 @@ pub fn solve(
                 lattice.width(),
                 lattice.width(),
             ];
-            let sides = side_sums
+            // 面の中性子束は、トラックから推定した面の長さで割る（領域の体積と同じく、トラックの間隔の
+            // 離散化で面を横切る本数が長さに比例しない分を打ち消す。外周の辺の全体では推定が厳密）
+            let face_fluxes: Vec<Vec<f64>> = face_flux
                 .chunks(ng)
-                .zip(lengths)
+                .zip(&face_lengths)
                 .map(|(values, length)| values.iter().map(|v| v / (rate * length)).collect())
+                .collect();
+            let face_currents: Vec<Vec<f64>> = current
+                .chunks(ng)
+                .enumerate()
+                .map(|(face, values)| {
+                    let length = mesh.face_length(face);
+                    values.iter().map(|v| v / length).collect()
+                })
                 .collect();
             return Ok(Solution {
                 k,
                 flux,
                 volumes,
                 leakage: leak,
-                sides,
-                currents: side_currents(&mesh, &current, ng, lengths),
+                sides: outer_sides(&mesh, &face_fluxes, 1.0, lengths),
+                currents: outer_sides(&mesh, &face_currents, -1.0, lengths),
+                face_fluxes,
+                face_currents,
                 region_currents: new_currents
                     .iter()
                     .map(|c| [c[..ng].to_vec(), c[ng..].to_vec()])
@@ -443,16 +467,47 @@ pub fn solve(
     })
 }
 
-/// [外周の辺（左、右、上、下）][群] の外向きの正味の中性子流の、辺の上の平均。`current` は粗メッシュの
-/// [面][群] の正味の中性子流（面の正の向き、面の長さで積分した値）、`lengths` は辺の長さ。
-fn side_currents(
+/// 面の長さのトラックによる推定 [面]: トラックが面を横切るごとに、方位角の重み × トラックの間隔 / 方向が
+/// 面の法線となす方位角の余弦（面を横切る割合を掛ける）を足す。領域の体積の推定（`Tracking::volumes`）と同じ
+/// 形で、面の中性子束の推定と整合する。
+fn tracked_face_lengths(tracking: &Tracking, mesh: &CoarseMesh) -> Result<Vec<f64>, MocError> {
+    let mut lengths = vec![0.0; mesh.faces()];
+    for (index, track) in tracking.tracks.iter().enumerate() {
+        let azimuth = &tracking.azimuths[track.azimuth];
+        let across = [azimuth.phi.cos().abs(), azimuth.phi.sin().abs()];
+        let mut add = |faces: &[(usize, f64)]| {
+            for &(face, share) in faces {
+                let c = across[usize::from(!mesh.is_vertical(face))];
+                lengths[face] += share.abs() * azimuth.weight * azimuth.spacing / c;
+            }
+        };
+        let [start, end] = mesh.ends(index);
+        add(&[start]);
+        let mut cell = mesh.cell(track.segments[0].region);
+        for segment in &track.segments {
+            let next = mesh.cell(segment.region);
+            if next != cell {
+                add(mesh.path(cell, next)?.faces());
+                cell = next;
+            }
+        }
+        add(&[end]);
+    }
+    Ok(lengths)
+}
+
+/// [外周の辺（左、右、上、下）][群] の、外周の面の値 `values` [面][群]（面の上の平均）の辺の上の平均。
+/// `lengths` は辺の長さ。`sign` が 1 なら値をそのまま（中性子束）、-1 なら外向きの向きにそろえて
+/// （面の正の向きの正味の中性子流を、外向きの正味の中性子流にして）足す。
+fn outer_sides(
     mesh: &CoarseMesh,
-    current: &[f64],
-    ng: usize,
+    values: &[Vec<f64>],
+    sign: f64,
     lengths: [f64; 4],
 ) -> Vec<Vec<f64>> {
+    let ng = values.first().map_or(0, Vec::len);
     let mut sums = vec![vec![0.0; ng]; 4];
-    for face in 0..mesh.faces() {
+    for (face, face_values) in values.iter().enumerate() {
         let FaceCells::Outer { cell, outward } = mesh.face_cells(face) else {
             continue;
         };
@@ -460,10 +515,12 @@ fn side_currents(
         let side = mesh
             .cell_faces(cell)
             .iter()
-            .position(|&(f, sign)| f == face && sign == outward);
+            .position(|&(f, s)| f == face && s == outward);
         if let Some(side) = side {
-            for (sum, net) in sums[side].iter_mut().zip(&current[face * ng..][..ng]) {
-                *sum += outward * net;
+            let factor = if sign < 0.0 { outward } else { 1.0 };
+            let length = mesh.face_length(face);
+            for (sum, value) in sums[side].iter_mut().zip(face_values) {
+                *sum += factor * value * length;
             }
         }
     }
@@ -564,6 +621,27 @@ impl<'a> Sweeper<'a> {
             moments: pairs.len(),
             harmonics,
             pool: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// 面 `faces`（重みの絶対値が、その面を通る割合）を横切る角度中性子束 `psi` [極角][群] を、方位角の
+    /// 重み `weights` [縦の面, 横の面][極角] で `face_flux` [面][群] に足す（面の中性子束 × 面の長さ）。
+    fn add_face_flux(
+        &self,
+        face_flux: &mut [f64],
+        faces: &[(usize, f64)],
+        psi: &[f64],
+        weights: &[[f64; POLAR_SIN.len()]; 2],
+    ) {
+        let ng = self.ng;
+        for &(face, share) in faces {
+            let weights = &weights[usize::from(!self.mesh.is_vertical(face))];
+            let f = &mut face_flux[face * ng..][..ng];
+            for (p, weight) in weights.iter().enumerate() {
+                for (v, value) in f.iter_mut().zip(&psi[p * ng..][..ng]) {
+                    *v += share.abs() * weight * value;
+                }
+            }
         }
     }
 
@@ -749,10 +827,10 @@ impl<'a> Sweeper<'a> {
                     }
                     for forward in [true, false] {
                         let psi = &mut tally.psi;
-                        let (entry_side, exit_side) = if forward {
-                            (track.start_side, track.end_side)
+                        let exit_side = if forward {
+                            track.end_side
                         } else {
-                            (track.end_side, track.start_side)
+                            track.start_side
                         };
                         match self.tracking.incoming_source(index, forward) {
                             // 出ていくときに境界から戻る分（アルベド）を掛けてある
@@ -772,13 +850,9 @@ impl<'a> Sweeper<'a> {
                         // 進む向きの方位角の余弦と正弦（極角の sinθ は掛けていない）
                         let phi = self.tracking.azimuths[track.azimuth].phi;
                         let cosines = [direction * phi.cos(), direction * phi.sin()];
-                        add_current(
-                            &mut tally.current,
-                            &[(enter.0, direction * enter.1)],
-                            psi,
-                            &weights,
-                        );
-                        add_side(&mut tally.sides, entry_side, psi, side_weights);
+                        let entered = [(enter.0, direction * enter.1)];
+                        add_current(&mut tally.current, &entered, psi, &weights);
+                        self.add_face_flux(&mut tally.face_flux, &entered, psi, side_weights);
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
                         let mut cell = self.mesh.cell(track.segments[first].region);
@@ -789,8 +863,14 @@ impl<'a> Sweeper<'a> {
                             // 隣のセルに移るときに通る面
                             let next = self.mesh.cell(region);
                             if next != cell {
-                                let path = self.mesh.path(cell, next);
-                                add_current(&mut tally.current, path?.faces(), psi, &weights);
+                                let path = self.mesh.path(cell, next)?;
+                                add_current(&mut tally.current, path.faces(), psi, &weights);
+                                self.add_face_flux(
+                                    &mut tally.face_flux,
+                                    path.faces(),
+                                    psi,
+                                    side_weights,
+                                );
                                 cell = next;
                             }
                             if let Some(v) = self.void[region] {
@@ -845,13 +925,9 @@ impl<'a> Sweeper<'a> {
                                 }
                             }
                         }
-                        add_current(
-                            &mut tally.current,
-                            &[(exit.0, direction * exit.1)],
-                            psi,
-                            &weights,
-                        );
-                        add_side(&mut tally.sides, exit_side, psi, side_weights);
+                        let exited = [(exit.0, direction * exit.1)];
+                        add_current(&mut tally.current, &exited, psi, &weights);
+                        self.add_face_flux(&mut tally.face_flux, &exited, psi, side_weights);
                         // 境界から戻るのは割合 r（鏡面反射 1、アルベド α、真空 0）で、残りは漏れ。戻る分を
                         // 掛けて渡すので、つながった先のトラックはそのまま受け取る
                         let r = returned(self.tracking.boundaries().of(exit_side));
@@ -886,8 +962,8 @@ struct Tally {
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の中性子流（面の正の向きが正）
     current: Vec<f64>,
-    /// [外周の辺（左、右、上、下）][群] の、辺を横切る角度中性子束の重み付き和（面の中性子束）
-    sides: Vec<f64>,
+    /// [粗メッシュの面][群] の、面を横切る角度中性子束の重み付き和（面の中性子束 × 面の長さ）
+    face_flux: Vec<f64>,
     /// [真空の領域][x, y][群] の、真空の領域を通る角度中性子束 × 方向の余弦の経路長の重み付き和
     void_current: Vec<f64>,
     /// [領域][x, y][群] の、減衰の重み付き和 × 方向の余弦（等方散乱のときだけ。非等方では1次のモーメントを使う）
@@ -915,7 +991,7 @@ impl Tally {
             void_current: vec![0.0; voids * 2 * groups],
             region_current: vec![0.0; currents * 2 * groups],
             leak: vec![0.0; groups],
-            sides: vec![0.0; 4 * groups],
+            face_flux: vec![0.0; faces * groups],
             current: vec![0.0; faces * groups],
             psi: vec![0.0; width],
             attenuation: vec![0.0; segments * width],
@@ -928,7 +1004,7 @@ impl Tally {
         self.void_current.fill(0.0);
         self.region_current.fill(0.0);
         self.leak.fill(0.0);
-        self.sides.fill(0.0);
+        self.face_flux.fill(0.0);
         self.current.fill(0.0);
     }
 }
@@ -943,8 +1019,8 @@ struct Sums {
     leak: Vec<f64>,
     /// [粗メッシュの面][群] の正味の中性子流
     current: Vec<f64>,
-    /// [外周の辺][群] の面の中性子束の和
-    sides: Vec<f64>,
+    /// [粗メッシュの面][群] の面の中性子束 × 面の長さ
+    face_flux: Vec<f64>,
     /// [真空の領域][x, y][群] の中性子流の経路長の和
     void_current: Vec<f64>,
     /// [領域][x, y][群] の減衰 × 方向の余弦の和（等方散乱のときだけ）
@@ -970,7 +1046,7 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
         void_flux: sum(|t| &t.void_flux),
         leak: sum(|t| &t.leak),
         current: sum(|t| &t.current),
-        sides: sum(|t| &t.sides),
+        face_flux: sum(|t| &t.face_flux),
         void_current: sum(|t| &t.void_current),
         region_current: sum(|t| &t.region_current),
     }
@@ -982,19 +1058,6 @@ fn returned(boundary: Boundary) -> f64 {
         Boundary::Reflective => 1.0,
         Boundary::Vacuum => 0.0,
         Boundary::Albedo(albedo) => albedo,
-    }
-}
-
-/// 外周の辺 `side` を横切る角度中性子束 `psi` [極角][群] を、方位角の重み `weights` [縦の辺, 横の辺][極角] で
-/// `sides` [辺][群] に足す。
-fn add_side(sides: &mut [f64], side: Side, psi: &[f64], weights: &[[f64; POLAR_SIN.len()]; 2]) {
-    let weights = &weights[usize::from(!side.is_vertical())];
-    let ng = psi.len() / weights.len();
-    let s = &mut sides[side as usize * ng..][..ng];
-    for (p, weight) in weights.iter().enumerate() {
-        for (v, value) in s.iter_mut().zip(&psi[p * ng..][..ng]) {
-            *v += weight * value;
-        }
     }
 }
 
@@ -1317,7 +1380,13 @@ mod tests {
                 );
             }
         }
-        let half = Lattice::new(vec![pin, water], vec![vec![1, 0]; 4]).unwrap();
+        let half = Lattice::rectilinear(
+            vec![1.26; 2],
+            vec![1.26; 4],
+            vec![Cell::Pin(pin), Cell::Pin(water)],
+            vec![vec![1, 0]; 4],
+        )
+        .unwrap();
         let tracking = Tracking::with_boundaries(
             &half,
             32,
