@@ -269,7 +269,8 @@ pub fn horizontal_face(rows: usize, columns: usize, line: usize, column: usize) 
 ///
 /// MOC の反復の判定（`moc::Options`）より十分小さくする。CMFD の打ち切りの誤差が、MOC の
 /// 反復ごとの変化に紛れて収束の判定を誤らせないため。MOC の反復では、スイープによる変化が MOC の判定の
-/// 何倍あるかに比例して緩めて解くので、ここの値は MOC が収束したときの精度になる（ADR-0110）。
+/// 何倍あるかに比例して緩めて解く（ADR-0110）。ここの値は、スイープによる変化が MOC の判定以下になったときの精度で、
+/// 収束と判定した反復でも、スイープによる変化が判定より大きければ、その比だけ緩めたままになる。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CmfdOptions {
     /// 実効増倍率の変化の上限
@@ -517,9 +518,9 @@ impl Coarse {
             for c in 0..cells {
                 rhs.fill(0.0);
                 for s in &self.fission[c] {
-                    let rate = s.rate(&previous[c * ng..][..ng]);
+                    let rate = s.rate(&previous[c * ng..][..ng]) / k;
                     for (r, x) in rhs.iter_mut().zip(&s.chi) {
-                        *r += x * rate / k;
+                        *r += x * rate;
                     }
                 }
                 for (other, coefficients) in &self.neighbors[c] {
