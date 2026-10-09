@@ -3,7 +3,7 @@
 //! 項目: `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`, `fission`, `chi`, `diffusion`
 //! （G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）, `vacuum_ratio`（[辺][群]。
 //! 真空の辺だけ値を持ち、ほかの辺は nil。ADR-0101）、`normalized_adf`（[辺]。`adf` が燃料の ADF で割った値 f* の辺。
-//! ADR-0095）。
+//! ADR-0095）、`pins`（ピン出力の再構成の形状関数と角の不連続因子。ないときは nil。ADR-0096）。
 
 /// セル全体で均質化した少数群定数。断面積は 1/cm、拡散係数は cm。
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +28,22 @@ pub struct FewGroup {
     /// f* = f_反射体 / f_燃料 である辺（反射体の定数の、燃料と接する辺。ADR-0095）。core は、その辺の ADF を
     /// f* × 隣のノードの ADF とする
     pub normalized_adf: Vec<bool>,
+    /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。外周がすべて鏡面反射の単一の格子でだけ作る
+    pub pins: Option<Pins>,
+}
+
+/// 格子のセルごとの形状関数と、ノードの角の不連続因子（ADR-0096）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pins {
+    /// 列の幅 (cm)。-x の辺から順に。和はノードの幅
+    pub dx: Vec<f64>,
+    /// 行の高さ (cm)。-y の辺から順に。和はノードの高さ
+    pub dy: Vec<f64>,
+    /// [群][行（-y から）][列（-x から）] の形状関数（セルの群の核分裂率の平均 / ノードの群の核分裂率の平均）。
+    /// 核分裂のないセルは 0
+    pub form: Vec<Vec<Vec<f64>>>,
+    /// [角（-x -y、+x -y、+x +y、-x +y の順）][群] の角の不連続因子（角の不均質な中性子束 / 角の均質な中性子束）
+    pub corners: Vec<Vec<f64>>,
 }
 
 /// 少数群定数の値の誤り。
@@ -124,6 +140,46 @@ impl FewGroup {
         if !(self.k_inf > 0.0 && self.k_inf.is_finite()) {
             return invalid(format!("invalid k-inf {}", self.k_inf));
         }
+        if let Some(pins) = &self.pins {
+            pins.validate(ng)?;
+        }
+        Ok(())
+    }
+}
+
+impl Pins {
+    /// 列の幅と行の高さが正で、形状関数が [群][行][列] でセルの数だけあって負でなく、角の不連続因子が
+    /// 4 つの角に群の数だけあって正であることを確かめる
+    fn validate(&self, ng: usize) -> Result<(), FewGroupError> {
+        let invalid = |message: String| Err(FewGroupError::Invalid(message));
+        for (name, sizes) in [("dx", &self.dx), ("dy", &self.dy)] {
+            if sizes.is_empty() || !sizes.iter().all(|s| *s > 0.0 && s.is_finite()) {
+                return invalid(format!("pins: `{name}` must be positive, got {sizes:?}"));
+            }
+        }
+        let (rows, columns) = (self.dy.len(), self.dx.len());
+        if self.form.len() != ng
+            || self.form.iter().any(|g| {
+                g.len() != rows
+                    || g.iter().any(|row| {
+                        row.len() != columns || !row.iter().all(|v| *v >= 0.0 && v.is_finite())
+                    })
+            })
+        {
+            return invalid(format!(
+                "pins: `form` needs {ng} groups of {rows} rows of {columns} non-negative values"
+            ));
+        }
+        if self.corners.len() != 4
+            || self
+                .corners
+                .iter()
+                .any(|c| c.len() != ng || !c.iter().all(|v| *v > 0.0 && v.is_finite()))
+        {
+            return invalid(format!(
+                "pins: `corners` needs 4 corners of {ng} positive values"
+            ));
+        }
         Ok(())
     }
 }
@@ -146,12 +202,57 @@ pub(crate) fn sample() -> FewGroup {
         adf: vec![vec![x(3.0), x(3.3)]; 4],
         vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
         normalized_adf: vec![true, false, false, false],
+        pins: None,
+    }
+}
+
+/// テストのピンの形状（余白の列 1 と、ピンの列 2 の 3×2 のセル。2群）
+#[cfg(test)]
+pub(crate) fn sample_pins() -> Pins {
+    let x = |v: f64| v / 3.0;
+    Pins {
+        dx: vec![0.04, 1.26, 1.26],
+        dy: vec![1.26, 1.26],
+        form: vec![
+            vec![vec![0.0, x(3.1), x(2.9)], vec![0.0, x(3.2), x(2.8)]],
+            vec![vec![0.0, x(3.3), x(2.7)], vec![0.0, x(3.0), x(3.0)]],
+        ],
+        corners: vec![vec![x(2.5), x(3.5)]; 4],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pins_are_checked() {
+        // ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。列の幅と行の高さは正で、形状関数は
+        // [群][行][列] でセルの数だけあり、負でない。角の不連続因子は 4 つの角に群の数だけあり、正
+        let with = |pins: Pins| FewGroup {
+            pins: Some(pins),
+            ..sample()
+        };
+        assert!(with(sample_pins()).validate().is_ok());
+        let bad = |change: fn(&mut Pins), word: &str| {
+            let mut pins = sample_pins();
+            change(&mut pins);
+            let err = with(pins).validate().unwrap_err().to_string();
+            assert!(err.contains(word), "{err}");
+        };
+        bad(|p| p.dx[0] = 0.0, "pins");
+        bad(|p| p.dx[1] = -1.26, "pins");
+        bad(|p| p.dy.clear(), "pins");
+        bad(|p| p.dy[1] = f64::INFINITY, "pins");
+        bad(|p| p.form.pop().map(drop).unwrap_or(()), "form");
+        bad(|p| p.form[0].pop().map(drop).unwrap_or(()), "form");
+        bad(|p| p.form[1][0].pop().map(drop).unwrap_or(()), "form");
+        bad(|p| p.form[0][1][2] = -0.1, "form");
+        bad(|p| p.form[0][1][2] = f64::NAN, "form");
+        bad(|p| p.corners.pop().map(drop).unwrap_or(()), "corners");
+        bad(|p| p.corners[2] = vec![1.0], "corners");
+        bad(|p| p.corners[3][1] = 0.0, "corners");
+    }
 
     #[test]
     fn validate_checks_values_in_memory() {
