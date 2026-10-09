@@ -15,7 +15,8 @@
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
-use xlc_format::table::Axis;
+use xlc_format::fewgroup::FewGroup;
+use xlc_format::table::{Axis, Table};
 
 use crate::input::MaterialInput;
 use crate::water::borated_water;
@@ -37,8 +38,8 @@ pub struct Branches {
 
 impl Branches {
     /// テーブルの軸（boron、moderator、fuel の順）
-    pub fn axes(&self) -> Vec<Axis> {
-        self.axes.clone()
+    pub fn axes(&self) -> &[Axis] {
+        &self.axes
     }
 
     /// 軸の直積の順の物質の組
@@ -112,6 +113,51 @@ fn check_materials(
     Ok(())
 }
 
+/// ホウ酸水の物質がすべて軸に挙がっていること（テーブルの状態は炉心の状態なので、一部だけを変えると
+/// テーブルと計算が食い違う）。
+fn check_all_waters(
+    axis: &str,
+    listed: &[String],
+    waters: &BTreeMap<String, Water>,
+) -> Result<(), String> {
+    match waters.keys().find(|name| !listed.contains(name)) {
+        Some(name) => Err(format!(
+            "branches.{axis}: the water material `{name}` must be listed too"
+        )),
+        None => Ok(()),
+    }
+}
+
+/// 状態ごとの出力の少数群定数（[状態][出力]）を、出力ごとのテーブル（状態は軸の直積の順）にまとめる。
+pub fn tables(axes: &[Axis], per_state: Vec<Vec<FewGroup>>) -> Result<Vec<Table>, String> {
+    let expected: usize = axes.iter().map(|a| a.points().len()).product();
+    if per_state.len() != expected {
+        return Err(format!(
+            "{} states for axes of {expected} points in all",
+            per_state.len()
+        ));
+    }
+    let outputs = per_state.first().map_or(0, Vec::len);
+    let mut tables: Vec<Table> = (0..outputs)
+        .map(|_| Table {
+            axes: axes.to_vec(),
+            states: Vec::with_capacity(expected),
+        })
+        .collect();
+    for (state, fews) in per_state.into_iter().enumerate() {
+        if fews.len() != outputs {
+            return Err(format!(
+                "state {state} has {} outputs, state 0 has {outputs}",
+                fews.len()
+            ));
+        }
+        for (table, few) in tables.iter_mut().zip(fews) {
+            table.states.push(few);
+        }
+    }
+    Ok(tables)
+}
+
 /// 軸ごとの変更
 enum Change {
     Boron(Vec<f64>, Vec<String>),
@@ -142,6 +188,7 @@ impl BranchesEntry {
                 b10 = Some(water.b10);
             }
             let b10 = b10.ok_or("branches.boron: list the materials it changes")?;
+            check_all_waters("boron", &b.materials, waters)?;
             axes.push(Axis::Boron {
                 ppm: b.ppm.clone(),
                 b10,
@@ -160,8 +207,9 @@ impl BranchesEntry {
                 ));
             }
             check_materials("moderator", &m.materials, materials)?;
-            if !m.materials.iter().any(|n| waters.contains_key(n)) {
-                return Err("branches.moderator: no material written as water".into());
+            check_all_waters("moderator", &m.materials, waters)?;
+            if waters.is_empty() {
+                return Err("branches.moderator: no material is written as water".into());
             }
             axes.push(Axis::Moderator {
                 temperature: m.temperature.clone(),

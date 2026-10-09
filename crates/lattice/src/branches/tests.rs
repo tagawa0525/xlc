@@ -178,9 +178,7 @@ fn invalid_branches_are_errors() {
         "pin-powers",
     );
     let i = INPUT.find("boron = {").unwrap();
-    let err = LatticeInput::parse(&format!("{}", &INPUT[..i]))
-        .unwrap_err()
-        .to_string();
+    let err = LatticeInput::parse(&INPUT[..i]).unwrap_err().to_string();
     assert!(err.contains("no axes"), "{err}");
 }
 

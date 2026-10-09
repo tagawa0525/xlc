@@ -29,7 +29,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
-use xlc_format::table::Table;
+use xlc_lattice::branches::tables;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes};
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
@@ -124,22 +124,52 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .collect::<anyhow::Result<Vec<_>>>()?;
         Ok((named.into_iter().map(|(_, m)| m).collect(), index))
     };
-    let library = match &input.cross_sections {
+    // 断面積の出どころは一度だけ読む。巨視的断面積は分岐を持たない（入力の読み込みで確かめてある）
+    enum Source {
+        Library(Library),
+        Macroscopic(Vec<(String, Material)>),
+    }
+    let source = match &input.cross_sections {
         CrossSections::Library(file) => {
             let file = base.join(file);
             let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-            Some(Library::from_msgpack(&bytes).with_context(|| shown(&file))?)
+            Source::Library(Library::from_msgpack(&bytes).with_context(|| shown(&file))?)
         }
-        CrossSections::Macroscopic(_) => None,
+        CrossSections::Macroscopic(file) => {
+            let file = base.join(file);
+            let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
+            Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?)
+        }
     };
-    let groups = library.as_ref().map(|l| l.groups.clone());
+    let groups = match &source {
+        Source::Library(library) => Some(library.groups.clone()),
+        Source::Macroscopic(_) => None,
+    };
+    // 状態の軸の値（エラーとログに付ける）
+    let axes = input.branches.as_ref().map_or(&[][..], |b| b.axes());
+    let values = |state: usize| -> String {
+        let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
+        let mut rest = state;
+        let mut at = vec![0; counts.len()];
+        for (k, &n) in counts.iter().enumerate().rev() {
+            at[k] = rest % n;
+            rest /= n;
+        }
+        axes.iter()
+            .zip(at)
+            .filter_map(|(a, i)| a.points().get(i).map(|p| format!("{} {p}", a.name())))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
 
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let states = input.branch_states();
-    let mut tables: Vec<Vec<FewGroup>> = Vec::new();
+    let mut per_state: Vec<Vec<FewGroup>> = Vec::with_capacity(states.len());
     for (state, state_materials) in states.iter().enumerate() {
-        let (unique, region_index) = match (&input.cross_sections, &library) {
-            (CrossSections::Library(_), Some(library)) => {
+        let state_start = Instant::now();
+        let context = || format!("{}: state {state} ({})", shown(path), values(state));
+        let (unique, region_index) = match &source {
+            Source::Library(library) => {
                 if input.self_shielding {
                     let shielded = shield_fuel(
                         library,
@@ -148,7 +178,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         &region_materials,
                         &ShieldingOptions::default(),
                     )
-                    .with_context(|| format!("{}: self-shielding", shown(path)))?;
+                    .with_context(|| format!("{}: self-shielding", context()))?;
                     (shielded.materials, shielded.region_material)
                 } else {
                     let named = state_materials
@@ -158,18 +188,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 .map(|mixed| (m.name.clone(), mixed))
                                 .map_err(|e| anyhow!("material `{}`: {e}", m.name))
                         })
-                        .collect::<anyhow::Result<Vec<_>>>()?;
+                        .collect::<anyhow::Result<Vec<_>>>()
+                        .with_context(context)?;
                     by_name(named, library.groups.len())?
                 }
             }
-            (CrossSections::Macroscopic(file), _) => {
-                let file = base.join(file);
-                let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
-                let named = macroscopic::parse(&text).with_context(|| shown(&file))?;
+            Source::Macroscopic(named) => {
                 let groups = named.first().map_or(0, |(_, m)| m.groups());
-                by_name(named, groups)?
+                by_name(named.clone(), groups)?
             }
-            (CrossSections::Library(_), None) => return Err(anyhow!("library is not read")),
         };
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
 
@@ -179,7 +206,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .unwrap_or_else(|| available_order(&materials)),
             ..Options::default()
         };
-        let solution = solve(&tracking, &materials, &options)?;
+        let solution = solve(&tracking, &materials, &options).with_context(context)?;
         if let Some(FewGroupOutput { bounds, files }) = &input.output {
             let groups = groups
                 .as_ref()
@@ -206,10 +233,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     )?
                 }
             };
-            tables.resize_with(fews.len(), Vec::new);
-            for (table, few) in tables.iter_mut().zip(fews) {
-                table.push(few);
-            }
+            per_state.push(fews);
         }
         // ピン出力は分岐のないときだけ（入力の読み込みで確かめてある）
         if let Some(file) = &input.pin_powers {
@@ -226,7 +250,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
             state,
             iterations = solution.iterations,
             tracks = tracking.tracks.len(),
-            seconds = start.elapsed().as_secs_f64(),
+            seconds = state_start.elapsed().as_secs_f64(),
+            total_seconds = start.elapsed().as_secs_f64(),
             "lattice"
         );
     }
@@ -236,19 +261,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
             FewGroupFiles::Lattice(output) => vec![output],
             FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
-        let axes = input
-            .branches
-            .as_ref()
-            .map(|b| b.axes())
-            .unwrap_or_default();
-        for (output, states) in outputs.into_iter().zip(tables) {
+        let tables = tables(axes, per_state).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        for (output, table) in outputs.into_iter().zip(tables) {
             let output = base.join(output);
-            let bytes = Table {
-                axes: axes.clone(),
-                states,
-            }
-            .to_msgpack()
-            .with_context(|| shown(&output))?;
+            let bytes = table.to_msgpack().with_context(|| shown(&output))?;
             std::fs::write(&output, bytes).with_context(|| shown(&output))?;
         }
     }
