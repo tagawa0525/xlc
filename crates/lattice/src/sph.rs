@@ -12,8 +12,8 @@
 use std::ops::Range;
 
 use crate::cp::{CpError, Cylinder};
-use crate::lu::solve;
 use crate::material::{Material, MaterialError};
+use xlc_numeric::lu::solve;
 
 /// SPH 因子の反復の打ち切り（μ の変化）と回数の上限
 const TOLERANCE: f64 = 1.0e-10;
