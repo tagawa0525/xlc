@@ -27,7 +27,7 @@ const WINDOW_POINTS: usize = 16;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
-use crate::lu::solve;
+use xlc_numeric::lu::solve;
 
 /// セルの UFG の範囲の上限の頭打ち (eV)。U-238 の分離共鳴の上端で、これより上は U-238 の非弾性散乱（45 keV から）と
 /// 核分裂の線源が効き、弾性散乱だけの減速計算が成り立たない（ADR-0069）
