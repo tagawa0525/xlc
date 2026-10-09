@@ -189,7 +189,7 @@ fn pins_round_trip_and_share_cells() {
     );
     let mut table = with_pins(sample());
     if let Some(p) = table.states[2].pins.as_mut() {
-        p.x[1] = 0.05;
+        p.dx[1] = 1.27;
     }
     let err = table.validate().unwrap_err().to_string();
     assert!(err.contains("pins"), "{err}");

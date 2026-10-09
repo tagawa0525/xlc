@@ -35,10 +35,10 @@ pub struct FewGroup {
 /// 格子のセルごとの形状関数と、ノードの角の不連続因子（ADR-0096）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pins {
-    /// セルの x 方向の境界 (cm)。ノードの -x の辺を 0 とする昇順で、最後はノードの幅
-    pub x: Vec<f64>,
-    /// セルの y 方向の境界 (cm)。ノードの -y の辺を 0 とする昇順で、最後はノードの高さ
-    pub y: Vec<f64>,
+    /// 列の幅 (cm)。-x の辺から順に。和はノードの幅
+    pub dx: Vec<f64>,
+    /// 行の高さ (cm)。-y の辺から順に。和はノードの高さ
+    pub dy: Vec<f64>,
     /// [群][行（-y から）][列（-x から）] の形状関数（セルの群の核分裂率の平均 / ノードの群の核分裂率の平均）。
     /// 核分裂のないセルは 0
     pub form: Vec<Vec<Vec<f64>>>,
@@ -148,22 +148,16 @@ impl FewGroup {
 }
 
 impl Pins {
-    /// セルの境界が 0 から増え、形状関数が [群][行][列] でセルの数だけあって負でなく、角の不連続因子が
+    /// 列の幅と行の高さが正で、形状関数が [群][行][列] でセルの数だけあって負でなく、角の不連続因子が
     /// 4 つの角に群の数だけあって正であることを確かめる
     fn validate(&self, ng: usize) -> Result<(), FewGroupError> {
         let invalid = |message: String| Err(FewGroupError::Invalid(message));
-        for (name, edges) in [("x", &self.x), ("y", &self.y)] {
-            if edges.len() < 2
-                || edges.first() != Some(&0.0)
-                || !edges.windows(2).all(|w| w[0] < w[1])
-                || !edges.iter().all(|e| e.is_finite())
-            {
-                return invalid(format!(
-                    "pins: `{name}` must start at 0 and increase, got {edges:?}"
-                ));
+        for (name, sizes) in [("dx", &self.dx), ("dy", &self.dy)] {
+            if sizes.is_empty() || !sizes.iter().all(|s| *s > 0.0 && s.is_finite()) {
+                return invalid(format!("pins: `{name}` must be positive, got {sizes:?}"));
             }
         }
-        let (rows, columns) = (self.y.len() - 1, self.x.len() - 1);
+        let (rows, columns) = (self.dy.len(), self.dx.len());
         if self.form.len() != ng
             || self.form.iter().any(|g| {
                 g.len() != rows
@@ -217,8 +211,8 @@ pub(crate) fn sample() -> FewGroup {
 pub(crate) fn sample_pins() -> Pins {
     let x = |v: f64| v / 3.0;
     Pins {
-        x: vec![0.0, 0.04, 1.3, 2.56],
-        y: vec![0.0, 1.26, 2.52],
+        dx: vec![0.04, 1.26, 1.26],
+        dy: vec![1.26, 1.26],
         form: vec![
             vec![vec![0.0, x(3.1), x(2.9)], vec![0.0, x(3.2), x(2.8)]],
             vec![vec![0.0, x(3.3), x(2.7)], vec![0.0, x(3.0), x(3.0)]],
@@ -233,7 +227,7 @@ mod tests {
 
     #[test]
     fn pins_are_checked() {
-        // ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。境界は 0 から増え、形状関数は
+        // ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。列の幅と行の高さは正で、形状関数は
         // [群][行][列] でセルの数だけあり、負でない。角の不連続因子は 4 つの角に群の数だけあり、正
         let with = |pins: Pins| FewGroup {
             pins: Some(pins),
@@ -246,10 +240,10 @@ mod tests {
             let err = with(pins).validate().unwrap_err().to_string();
             assert!(err.contains(word), "{err}");
         };
-        bad(|p| p.x[0] = 0.01, "pins");
-        bad(|p| p.x.swap(1, 2), "pins");
-        bad(|p| p.y = vec![0.0], "pins");
-        bad(|p| p.y[2] = f64::INFINITY, "pins");
+        bad(|p| p.dx[0] = 0.0, "pins");
+        bad(|p| p.dx[1] = -1.26, "pins");
+        bad(|p| p.dy.clear(), "pins");
+        bad(|p| p.dy[1] = f64::INFINITY, "pins");
         bad(|p| p.form.pop().map(drop).unwrap_or(()), "form");
         bad(|p| p.form[0].pop().map(drop).unwrap_or(()), "form");
         bad(|p| p.form[1][0].pop().map(drop).unwrap_or(()), "form");

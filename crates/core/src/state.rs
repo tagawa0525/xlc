@@ -96,8 +96,8 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
         normalized_adf: normalized_adf.clone(),
         // セルの境界はそのまま、形状関数と角の不連続因子は w 倍
         pins: pins.as_ref().map(|p| Pins {
-            x: p.x.clone(),
-            y: p.y.clone(),
+            dx: p.dx.clone(),
+            dy: p.dy.clone(),
             form: p
                 .form
                 .iter()

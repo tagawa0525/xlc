@@ -647,8 +647,12 @@ impl Layout {
             materials: self
                 .materials
                 .iter()
-                .map(|m| rotated(&constants[m.file], m.turns))
-                .collect(),
+                .map(|m| {
+                    rotated(&constants[m.file], m.turns).map_err(|e| {
+                        InputError::Invalid(format!("{}: {e}", self.files[m.file].display()))
+                    })
+                })
+                .collect::<Result<_, _>>()?,
             node_material: self.node_material.clone(),
             boundaries: self.boundaries,
         })
@@ -696,9 +700,10 @@ impl Layout {
     }
 }
 
-/// 少数群定数の辺ごとの量（ADF、真空の辺の比、f* の印）を、反時計回りに 90° × `turns` 回す。
-/// 辺の並びは（左、右、上、下）。90° 回すと、右の辺が上に、上が左に、左が下に、下が右に来る。
-pub fn rotated(constants: &FewGroup, turns: u8) -> FewGroup {
+/// 少数群定数の辺ごとの量（ADF、真空の辺の比、f* の印）と、ピンの形状（ADR-0096）を、反時計回りに 90° × `turns`
+/// 回す。辺の並びは（左、右、上、下）。90° 回すと、右の辺が上に、上が左に、左が下に、下が右に来る。
+/// 配列の長さは `FewGroup::validate` で先に確かめる。
+pub fn rotated(constants: &FewGroup, turns: u8) -> Result<FewGroup, String> {
     fn turn<T: Clone>(sides: &[T]) -> Vec<T> {
         // 新しい（左、右、上、下）は、元の（上、下、右、左）
         [2, 3, 1, 0]
@@ -706,6 +711,7 @@ pub fn rotated(constants: &FewGroup, turns: u8) -> FewGroup {
             .filter_map(|&s| sides.get(s).cloned())
             .collect()
     }
+    constants.validate().map_err(|e| e.to_string())?;
     let mut out = constants.clone();
     for _ in 0..turns % 4 {
         out.adf = turn(&out.adf);
@@ -713,22 +719,22 @@ pub fn rotated(constants: &FewGroup, turns: u8) -> FewGroup {
         out.normalized_adf = turn(&out.normalized_adf);
         out.pins = out.pins.as_ref().map(turn_pins);
     }
-    out
+    Ok(out)
 }
 
-/// 90° 回したピンの形状。(x, y) は (H - y, x) に移る（H はノードの高さ）。新しい行 j、列 i のセルは、元の
-/// 行（下から）rows - 1 - i、列 j のセル。角（-x -y、+x -y、+x +y、-x +y）は1つずつ先に進む
+/// 90° 回したピンの形状。(x, y) は (H - y, x) に移る（H はノードの高さ）ので、新しい列の幅は元の行の高さを
+/// 上から並べたもの、新しい行の高さは元の列の幅。新しい行 j、列 i のセルは、元の行（下から）rows - 1 - i、列 j の
+/// セル。角（-x -y、+x -y、+x +y、-x +y）は1つずつ先に進む。長さは検査済みで、並べ替えだけなので丸めは入らない
 fn turn_pins(pins: &Pins) -> Pins {
-    let height = pins.y.last().copied().unwrap_or(0.0);
-    let rows = pins.y.len().saturating_sub(1);
+    let rows = pins.dy.len();
     Pins {
-        x: pins.y.iter().rev().map(|y| height - y).collect(),
-        y: pins.x.clone(),
+        dx: pins.dy.iter().rev().copied().collect(),
+        dy: pins.dx.clone(),
         form: pins
             .form
             .iter()
             .map(|g| {
-                (0..pins.x.len().saturating_sub(1))
+                (0..pins.dx.len())
                     .map(|j| {
                         (0..rows)
                             .filter_map(|i| g.get(rows - 1 - i).and_then(|row| row.get(j)).copied())
