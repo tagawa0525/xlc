@@ -5,10 +5,10 @@
 //! 拡散の結合係数を流れに合うよう補正した粗メッシュの固有値問題を解いて、
 //! 細かい領域の中性子束をセルごとの比で更新する。
 
-use crate::lu::Lu;
 use crate::material::Material;
 use crate::moc::Remaining;
 use crate::tracking::Tracking;
+use xlc_numeric::lu::Lu;
 
 /// 格子のセルを粗メッシュとし、トラックが外周で通る面を前もって求めたもの。
 ///

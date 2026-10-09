@@ -1,8 +1,8 @@
-//! 小さな実数の密行列の連立一次方程式（CMFD の群×群のブロック、UFG と SPH のリングの間の結合）。
+//! 小さな実数の密行列の連立一次方程式（lattice の CMFD の群×群のブロック、UFG と SPH のリングの間の結合、B1）。
 
 /// 部分ピボット選択付きの LU 分解。
 #[derive(Debug, Clone)]
-pub(crate) struct Lu {
+pub struct Lu {
     n: usize,
     /// 行優先の L（対角は 1、格納しない）と U
     lu: Vec<f64>,
@@ -12,7 +12,7 @@ pub(crate) struct Lu {
 
 impl Lu {
     /// 行優先の n × n 行列を分解する。ピボットが 0 か NaN なら特異として `None`。
-    pub(crate) fn new(mut a: Vec<f64>, n: usize) -> Option<Self> {
+    pub fn new(mut a: Vec<f64>, n: usize) -> Option<Self> {
         let mut swaps = Vec::with_capacity(n);
         for col in 0..n {
             let best =
@@ -42,7 +42,7 @@ impl Lu {
     /// `b` を A x = b の解 x で置き換える。
     ///
     /// CMFD の反復ごとに全セルで呼ぶので、確保をせず、行ごとの内積で前進・後退代入する。
-    pub(crate) fn solve(&self, b: &mut [f64]) {
+    pub fn solve(&self, b: &mut [f64]) {
         let n = self.n;
         for (col, &row) in self.swaps.iter().enumerate() {
             if row != col {
@@ -63,7 +63,7 @@ impl Lu {
 }
 
 /// 行優先の n × n 行列 `a` で A x = b を一度だけ解く。特異か、解が有限でなければ `None`。
-pub(crate) fn solve(a: Vec<f64>, mut b: Vec<f64>) -> Option<Vec<f64>> {
+pub fn solve(a: Vec<f64>, mut b: Vec<f64>) -> Option<Vec<f64>> {
     let lu = Lu::new(a, b.len())?;
     lu.solve(&mut b);
     b.iter().all(|v| v.is_finite()).then_some(b)
