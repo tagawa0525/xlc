@@ -3,7 +3,7 @@
 //! 項目: `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`, `fission`, `chi`, `diffusion`
 //! （G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）, `vacuum_ratio`（[辺][群]。
 //! 真空の辺だけ値を持ち、ほかの辺は nil。ADR-0101）、`normalized_adf`（[辺]。`adf` が燃料の ADF で割った値 f* の辺。
-//! ADR-0095）。
+//! ADR-0095）、`pins`（ピン出力の再構成の形状関数と角の不連続因子。ないときは nil。ADR-0096）。
 
 /// セル全体で均質化した少数群定数。断面積は 1/cm、拡散係数は cm。
 #[derive(Debug, Clone, PartialEq)]
@@ -140,6 +140,52 @@ impl FewGroup {
         if !(self.k_inf > 0.0 && self.k_inf.is_finite()) {
             return invalid(format!("invalid k-inf {}", self.k_inf));
         }
+        if let Some(pins) = &self.pins {
+            pins.validate(ng)?;
+        }
+        Ok(())
+    }
+}
+
+impl Pins {
+    /// セルの境界が 0 から増え、形状関数が [群][行][列] でセルの数だけあって負でなく、角の不連続因子が
+    /// 4 つの角に群の数だけあって正であることを確かめる
+    fn validate(&self, ng: usize) -> Result<(), FewGroupError> {
+        let invalid = |message: String| Err(FewGroupError::Invalid(message));
+        for (name, edges) in [("x", &self.x), ("y", &self.y)] {
+            if edges.len() < 2
+                || edges.first() != Some(&0.0)
+                || !edges.windows(2).all(|w| w[0] < w[1])
+                || !edges.iter().all(|e| e.is_finite())
+            {
+                return invalid(format!(
+                    "pins: `{name}` must start at 0 and increase, got {edges:?}"
+                ));
+            }
+        }
+        let (rows, columns) = (self.y.len() - 1, self.x.len() - 1);
+        if self.form.len() != ng
+            || self.form.iter().any(|g| {
+                g.len() != rows
+                    || g.iter().any(|row| {
+                        row.len() != columns || !row.iter().all(|v| *v >= 0.0 && v.is_finite())
+                    })
+            })
+        {
+            return invalid(format!(
+                "pins: `form` needs {ng} groups of {rows} rows of {columns} non-negative values"
+            ));
+        }
+        if self.corners.len() != 4
+            || self
+                .corners
+                .iter()
+                .any(|c| c.len() != ng || !c.iter().all(|v| *v > 0.0 && v.is_finite()))
+        {
+            return invalid(format!(
+                "pins: `corners` needs 4 corners of {ng} positive values"
+            ));
+        }
         Ok(())
     }
 }
@@ -162,6 +208,7 @@ pub(crate) fn sample() -> FewGroup {
         adf: vec![vec![x(3.0), x(3.3)]; 4],
         vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
         normalized_adf: vec![true, false, false, false],
+        pins: None,
     }
 }
 

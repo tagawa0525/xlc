@@ -356,6 +356,7 @@ fn sided(fissile: bool) -> FewGroup {
         adf: (1..=4).map(|s| vec![s as f64, 10.0 * s as f64]).collect(),
         vacuum_ratio: vec![None, Some(vec![0.4, 0.3]), None, None],
         normalized_adf: vec![true, false, false, false],
+        pins: None,
     }
 }
 

@@ -268,6 +268,7 @@ fn tables_collect_each_output_over_the_states() {
         adf: vec![vec![1.0, 1.0]; 4],
         vacuum_ratio: vec![None; 4],
         normalized_adf: vec![false; 4],
+        pins: None,
     };
     let per_state: Vec<Vec<_>> = (0..12)
         .map(|s| vec![few(1.0 + s as f64), few(2.0 + s as f64)])
