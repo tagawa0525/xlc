@@ -9,6 +9,9 @@
 //!
 //! セルの出力は Σ_g Σf,g φ̄_g（セルの均質な中性子束の平均）f_g（形状関数）。
 
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_numeric::lu::Lu;
 use xlc_numeric::quadrature::gauss_legendre;
@@ -20,81 +23,130 @@ use node::{Conditions, NodeFlux, NodeModel};
 mod basis;
 mod node;
 
-/// 辺（左、右、上、下）の番号。面（-x、+x、-y、+y）の順に
-const SIDES: [usize; 4] = [0, 1, 3, 2];
+/// セルの平均の Gauss-Legendre の点の数（各方向）。ピンのセル（1.26 cm）の中で κh ≲ 1 なので、6 点の誤差は 1e-12 より小さい
+const CELL_POINTS: usize = 6;
 
-/// [ノード] のセルの出力 [行（-y から）][列（-x から）]。ノードの並びは NEM と同じ（x が最も速く、次に y、z）
+/// [ノード] のセルの出力 [行（-y から）][列（-x から）]。ノードの並びは NEM と同じ（x が最も速く、次に y、z）。
+/// 核分裂のない軸方向の層（上下の反射体）は出力が 0 なので、空の表にする。核分裂のある層では、どのノードも形状関数を
+/// 持つこと（径方向の反射体の角の CDF は決めていない。#0020）
 pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec<f64>>>, String> {
-    let rule = gauss_legendre(FACE_POINTS).map_err(|e| e.to_string())?;
-    let mesh = &problem.mesh;
-    let (nx, ny, nz) = (mesh.dx.len(), mesh.dy.len(), mesh.dz.len());
-    let index = |i: usize, j: usize, k: usize| i + nx * (j + ny * k);
-    let material = |n: usize| -> Result<(&FewGroup, &Pins), String> {
-        let m = problem
-            .node_material
-            .get(n)
-            .and_then(|&m| problem.materials.get(m))
-            .ok_or_else(|| format!("node {n} has no material"))?;
-        let pins = m
-            .pins
-            .as_ref()
-            .ok_or_else(|| format!("node {n} has no form functions (pins)"))?;
-        Ok((m, pins))
-    };
+    let face_rule = gauss_legendre(FACE_POINTS).map_err(|e| e.to_string())?;
+    let cell_rule = gauss_legendre(CELL_POINTS).map_err(|e| e.to_string())?;
+    let (nx, ny, nz) = (
+        problem.mesh.dx.len(),
+        problem.mesh.dy.len(),
+        problem.mesh.dz.len(),
+    );
     let mut out = vec![Vec::new(); nx * ny * nz];
     for k in 0..nz {
-        // [ノード（層の中で i + nx j）] のモデルと条件
-        let mut models = Vec::with_capacity(nx * ny);
-        let mut conditions = Vec::with_capacity(nx * ny);
-        for j in 0..ny {
-            for i in 0..nx {
-                let n = index(i, j, k);
-                let (m, pins) = material(n)?;
-                for (sizes, width, name) in [
-                    (&pins.dx, mesh.dx[i], "width"),
-                    (&pins.dy, mesh.dy[j], "height"),
-                ] {
-                    let sum: f64 = sizes.iter().sum();
-                    if (sum - width).abs() > 1e-9 * width {
-                        return Err(format!(
-                            "node {n}: the cells of the form functions have a {name} of {sum} cm, \
-                             the node {width} cm"
-                        ));
-                    }
-                }
-                let half = [0.5 * mesh.dx[i], 0.5 * mesh.dy[j]];
-                models.push(
-                    NodeModel::new(m, solution.k, half, &rule)
-                        .map_err(|e| format!("node {n}: {e}"))?,
-                );
-                let current = |d: usize, side: usize| -> [f64; 2] {
-                    std::array::from_fn(|g| solution.currents[d][n][g][side])
-                };
-                let z = current(2, 1);
-                let z_minus = current(2, 0);
-                conditions.push(Conditions {
-                    half,
-                    average: [solution.flux[n][0], solution.flux[n][1]],
-                    corners: [[0.0; 2]; 4],
-                    currents: [current(0, 0), current(0, 1), current(1, 0), current(1, 1)],
-                    axial_leakage: std::array::from_fn(|g| (z[g] - z_minus[g]) / mesh.dz[k]),
-                });
-            }
+        let fissile = (0..nx * ny).any(|local| {
+            let n = local + nx * ny * k;
+            problem
+                .node_material
+                .get(n)
+                .and_then(|&m| problem.materials.get(m))
+                .is_some_and(|m| m.nu_fission.iter().any(|&v| v != 0.0))
+        });
+        if !fissile {
+            continue;
         }
+        let (models, conditions) = layer(problem, solution, k, &face_rule)?;
         let corners = corner_fluxes(problem, k, &models, &conditions)?;
         for j in 0..ny {
             for i in 0..nx {
                 let local = i + nx * j;
-                let n = index(i, j, k);
-                let (m, pins) = material(n)?;
+                let n = local + nx * ny * k;
+                let (m, pins) = node_constants(problem, n)?;
                 let mut c = conditions[local].clone();
                 c.corners = corner_values(&corners, nx, i, j, pins);
                 let node = models[local].solve(&c);
-                out[n] = cell_powers(&node, m, pins, c.half, &rule);
+                let map = cell_powers(&node, m, pins, c.half, &cell_rule);
+                if map.iter().flatten().any(|v| !v.is_finite()) {
+                    return Err(format!("node {n}: a reconstructed pin power is not finite"));
+                }
+                out[n] = map;
             }
         }
     }
     Ok(out)
+}
+
+/// ノード n の少数群定数と形状関数
+fn node_constants(problem: &Problem, n: usize) -> Result<(&FewGroup, &Pins), String> {
+    let m = problem
+        .node_material
+        .get(n)
+        .and_then(|&m| problem.materials.get(m))
+        .ok_or_else(|| format!("node {n} has no material"))?;
+    let pins = m.pins.as_ref().ok_or_else(|| {
+        format!(
+            "node {n} has no form functions (pins); reflector nodes next to fuel wait for #0020"
+        )
+    })?;
+    Ok((m, pins))
+}
+
+/// 層 k の [ノード（層の中で i + nx j）] のモデルと、角の値を 0 にした条件。モデルは物質とノードの大きさで決まるので、
+/// 同じ組のノードで共有する
+fn layer(
+    problem: &Problem,
+    solution: &Solution,
+    k: usize,
+    rule: &[(f64, f64)],
+) -> Result<(Vec<Rc<NodeModel>>, Vec<Conditions>), String> {
+    let mesh = &problem.mesh;
+    let (nx, ny) = (mesh.dx.len(), mesh.dy.len());
+    let mut cache: HashMap<(usize, u64, u64), Rc<NodeModel>> = HashMap::new();
+    let mut models = Vec::with_capacity(nx * ny);
+    let mut conditions = Vec::with_capacity(nx * ny);
+    for j in 0..ny {
+        for i in 0..nx {
+            let n = i + nx * (j + ny * k);
+            let (m, pins) = node_constants(problem, n)?;
+            for (sizes, width, name) in [
+                (&pins.dx, mesh.dx[i], "width"),
+                (&pins.dy, mesh.dy[j], "height"),
+            ] {
+                let sum: f64 = sizes.iter().sum();
+                if (sum - width).abs() > 1e-9 * width {
+                    return Err(format!(
+                        "node {n}: the cells of the form functions have a {name} of {sum} cm, \
+                         the node {width} cm"
+                    ));
+                }
+            }
+            let half = [0.5 * mesh.dx[i], 0.5 * mesh.dy[j]];
+            let key = (
+                problem.node_material[n],
+                half[0].to_bits(),
+                half[1].to_bits(),
+            );
+            let model = match cache.get(&key) {
+                Some(model) => Rc::clone(model),
+                None => {
+                    let model = Rc::new(
+                        NodeModel::new(m, solution.k, half, rule)
+                            .map_err(|e| format!("node {n}: {e}"))?,
+                    );
+                    cache.insert(key, Rc::clone(&model));
+                    model
+                }
+            };
+            models.push(model);
+            let current = |d: usize, side: usize| -> [f64; 2] {
+                std::array::from_fn(|g| solution.currents[d][n][g][side])
+            };
+            let (z_minus, z_plus) = (current(2, 0), current(2, 1));
+            conditions.push(Conditions {
+                half,
+                average: [solution.flux[n][0], solution.flux[n][1]],
+                corners: [[0.0; 2]; 4],
+                currents: [current(0, 0), current(0, 1), current(1, 0), current(1, 1)],
+                axial_leakage: std::array::from_fn(|g| (z_plus[g] - z_minus[g]) / mesh.dz[k]),
+            });
+        }
+    }
+    Ok((models, conditions))
 }
 
 /// 炉心全体のセルの出力 [行（上から）][列（左から）]。`maps` は `reconstruct` のノードごとの出力で、軸方向の層は
@@ -110,23 +162,31 @@ pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f6
             nx * ny * nz
         ));
     }
-    // 層の和（ノードは層の中で i + nx j）
-    let mut radial: Vec<Vec<Vec<f64>>> = maps[..nx * ny]
-        .iter()
-        .map(|m| m.iter().map(|row| vec![0.0; row.len()]).collect())
-        .collect();
+    // 層の和（ノードは層の中で i + nx j）。核分裂のない層の空の表は足さない
+    let mut radial: Vec<Option<Vec<Vec<f64>>>> = vec![None; nx * ny];
     for (n, map) in maps.iter().enumerate() {
+        if map.is_empty() {
+            continue;
+        }
         let (local, k) = (n % (nx * ny), n / (nx * ny));
-        let sum = &mut radial[local];
+        let sum = radial[local]
+            .get_or_insert_with(|| map.iter().map(|row| vec![0.0; row.len()]).collect());
         if map.len() != sum.len() || map.iter().zip(sum.iter()).any(|(a, b)| a.len() != b.len()) {
             return Err(format!(
-                "node {n}: its pin map differs in shape from the first layer"
+                "node {n}: its pin map differs in shape from its other layers"
             ));
         }
         for (s, v) in sum.iter_mut().flatten().zip(map.iter().flatten()) {
             *s += mesh.dz[k] * v;
         }
     }
+    let radial: Vec<Vec<Vec<f64>>> = radial
+        .into_iter()
+        .enumerate()
+        .map(|(local, map)| {
+            map.ok_or_else(|| format!("node column {local} has no pin map in any layer"))
+        })
+        .collect::<Result<_, _>>()?;
     // ノードの行ごとにセルの行の数が、ノードの列ごとにセルの列の数がそろうこと
     let rows_of = |j: usize| radial[nx * j].len();
     let columns_of = |i: usize| radial[i].first().map_or(0, Vec::len);
@@ -193,7 +253,7 @@ fn corner_values(
 fn corner_fluxes(
     problem: &Problem,
     k: usize,
-    models: &[NodeModel],
+    models: &[Rc<NodeModel>],
     conditions: &[Conditions],
 ) -> Result<Vec<[f64; 2]>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
@@ -208,22 +268,11 @@ fn corner_fluxes(
         let sy = if cj == j { 1.0 } else { -1.0 };
         (ci + (nx + 1) * cj, sx, sy)
     };
-    let zero_flux = |ci: usize, cj: usize| -> bool {
-        let b = &problem.boundaries;
-        (ci == 0 && b[0] == Boundary::ZeroFlux)
-            || (ci == nx && b[1] == Boundary::ZeroFlux)
-            || (cj == 0 && b[2] == Boundary::ZeroFlux)
-            || (cj == ny && b[3] == Boundary::ZeroFlux)
-    };
     for j in 0..ny {
         for i in 0..nx {
             let local = i + nx * j;
-            let n = i + nx * (j + ny * k);
-            let m = &problem.materials[problem.node_material[n]];
-            let pins = m
-                .pins
-                .as_ref()
-                .ok_or_else(|| format!("node {n} has no form functions (pins)"))?;
+            let n = local + nx * ny * k;
+            let (m, pins) = node_constants(problem, n)?;
             let model = &models[local];
             let base = conditions[local].clone();
             // 角の値が 0 のときの勾配と、角 c の群 h の値を 1 にしたときの増分。[角の点の角][群][軸]
@@ -265,31 +314,28 @@ fn corner_fluxes(
                     }
                 }
             }
-            // 外周の真空の辺を通る流れ r f φ（φ = Φ / CDF）。反射は 0
-            for (face, side) in SIDES.iter().enumerate() {
+            // 外周の真空の辺を通る流れ。真空の辺の比 r は不均質な中性子束に対する比（ADR-0101）で、角の点の不均質な
+            // 中性子束は Φ なので r Φ。反射は 0
+            for face in 0..4 {
                 let on_boundary = match face {
                     0 => i == 0,
                     1 => i == nx - 1,
                     2 => j == 0,
                     _ => j == ny - 1,
                 };
-                if !on_boundary {
-                    continue;
-                }
                 let ratio = |g: usize| -> Result<Option<f64>, String> {
                     match problem.boundaries[face] {
                         Boundary::Reflective | Boundary::ZeroFlux => Ok(None),
                         Boundary::Marshak => Ok(Some(0.5)),
-                        Boundary::Vacuum => m.vacuum_ratio[*side]
+                        // 辺（左、右、上、下）の番号は、面（-x、+x、-y、+y）の順に 0、1、3、2
+                        Boundary::Vacuum => m.vacuum_ratio[[0, 1, 3, 2][face]]
                             .as_ref()
                             .map(|r| Some(r[g]))
                             .ok_or_else(|| format!("node {n}: vacuum side without a ratio")),
                     }
                 };
-                if m.normalized_adf[*side] {
-                    return Err(format!(
-                        "node {n}: an outer side has an f* (normalized) ADF"
-                    ));
+                if !on_boundary {
+                    continue;
                 }
                 // この辺に接するノードの角
                 let touching: [usize; 2] = match face {
@@ -303,8 +349,7 @@ fn corner_fluxes(
                     for g in 0..2 {
                         if let Some(r) = ratio(g)? {
                             let row = 2 * p + g;
-                            matrix[row * unknowns + row] +=
-                                r * m.adf[*side][g] / pins.corners[c][g];
+                            matrix[row * unknowns + row] += r;
                         }
                     }
                 }
@@ -312,9 +357,14 @@ fn corner_fluxes(
         }
     }
     // 中性子束ゼロの外周の角は Φ = 0
+    let b = &problem.boundaries;
     for cj in 0..=ny {
         for ci in 0..=nx {
-            if zero_flux(ci, cj) {
+            let zero_flux = (ci == 0 && b[0] == Boundary::ZeroFlux)
+                || (ci == nx && b[1] == Boundary::ZeroFlux)
+                || (cj == 0 && b[2] == Boundary::ZeroFlux)
+                || (cj == ny && b[3] == Boundary::ZeroFlux);
+            if zero_flux {
                 for g in 0..2 {
                     let row = 2 * (ci + (nx + 1) * cj) + g;
                     matrix[row * unknowns..(row + 1) * unknowns].fill(0.0);
@@ -326,6 +376,9 @@ fn corner_fluxes(
     }
     let lu = Lu::new(matrix, unknowns).ok_or("the corner point balance is singular")?;
     lu.solve(&mut rhs);
+    if rhs.iter().any(|v| !v.is_finite()) {
+        return Err("the corner point balance gave non-finite corner fluxes".into());
+    }
     Ok((0..points).map(|p| [rhs[2 * p], rhs[2 * p + 1]]).collect())
 }
 
