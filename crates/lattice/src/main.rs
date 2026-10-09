@@ -1,4 +1,5 @@
-//! 格子計算を行い、少数群定数とセルごとの核分裂率を書き出すコマンド。
+//! 格子計算を行い、少数群定数のテーブルとセルごとの核分裂率を書き出すコマンド。入力に分岐（`[branches]`）が
+//! あれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
 //!
 //! 使い方: lattice <入力ファイル>
 //!
@@ -26,8 +27,9 @@ use anyhow::{Context, anyhow};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
-use xlc_format::table::Table;
+use xlc_lattice::branches::tables;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes};
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
@@ -122,94 +124,149 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .collect::<anyhow::Result<Vec<_>>>()?;
         Ok((named.into_iter().map(|(_, m)| m).collect(), index))
     };
-    let ((unique, region_index), groups) = match &input.cross_sections {
+    // 断面積の出どころは一度だけ読む。巨視的断面積は分岐を持たない（入力の読み込みで確かめてある）
+    enum Source {
+        Library(Library),
+        Macroscopic(Vec<(String, Material)>),
+    }
+    let source = match &input.cross_sections {
         CrossSections::Library(file) => {
             let file = base.join(file);
             let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
-            let library = Library::from_msgpack(&bytes).with_context(|| shown(&file))?;
-            let materials = if input.self_shielding {
-                let shielded = shield_fuel(
-                    &library,
-                    &tracking,
-                    &input.materials,
-                    &region_materials,
-                    &ShieldingOptions::default(),
-                )
-                .with_context(|| format!("{}: self-shielding", shown(path)))?;
-                (shielded.materials, shielded.region_material)
-            } else {
-                let named = input
-                    .materials
-                    .iter()
-                    .map(|m| {
-                        Material::mix(&library, &m.composition, m.temperature)
-                            .map(|mixed| (m.name.clone(), mixed))
-                            .map_err(|e| anyhow!("material `{}`: {e}", m.name))
-                    })
-                    .collect::<anyhow::Result<Vec<_>>>()?;
-                by_name(named, library.groups.len())?
-            };
-            (materials, Some(library.groups))
+            Source::Library(Library::from_msgpack(&bytes).with_context(|| shown(&file))?)
         }
         CrossSections::Macroscopic(file) => {
             let file = base.join(file);
             let text = std::fs::read_to_string(&file).with_context(|| shown(&file))?;
-            let named = macroscopic::parse(&text).with_context(|| shown(&file))?;
-            let groups = named.first().map_or(0, |(_, m)| m.groups());
-            (by_name(named, groups)?, None)
+            Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?)
         }
     };
-    let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
-
-    let options = Options {
-        scattering_order: input
-            .scattering_order
-            .unwrap_or_else(|| available_order(&materials)),
-        ..Options::default()
+    let groups = match &source {
+        Source::Library(library) => Some(library.groups.clone()),
+        Source::Macroscopic(_) => None,
     };
-    let solution = solve(&tracking, &materials, &options)?;
-    if let Some(FewGroupOutput { bounds, files }) = &input.output {
-        let groups = groups
-            .as_ref()
-            .ok_or_else(|| anyhow!("few-group output needs a library"))?;
-        let boundaries = tracking.boundaries();
-        let written = match files {
-            FewGroupFiles::Lattice(output) => vec![(
-                output,
-                homogenize(&solution, &materials, groups, bounds, &boundaries)?,
-            )],
-            FewGroupFiles::Nodes(entries) => {
-                let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
-                let fews = homogenize_nodes(
+    // 状態の軸の値（エラーとログに付ける）
+    let axes = input.branches.as_ref().map_or(&[][..], |b| b.axes());
+    let values = |state: usize| -> String {
+        let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
+        let mut rest = state;
+        let mut at = vec![0; counts.len()];
+        for (k, &n) in counts.iter().enumerate().rev() {
+            at[k] = rest % n;
+            rest /= n;
+        }
+        axes.iter()
+            .zip(at)
+            .filter_map(|(a, i)| a.points().get(i).map(|p| format!("{} {p}", a.name())))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
+    let states = input.branch_states();
+    let mut per_state: Vec<Vec<FewGroup>> = Vec::with_capacity(states.len());
+    for (state, state_materials) in states.iter().enumerate() {
+        let state_start = Instant::now();
+        let context = || format!("{}: state {state} ({})", shown(path), values(state));
+        let (unique, region_index) = match &source {
+            Source::Library(library) => {
+                if input.self_shielding {
+                    let shielded = shield_fuel(
+                        library,
+                        &tracking,
+                        state_materials,
+                        &region_materials,
+                        &ShieldingOptions::default(),
+                    )
+                    .with_context(|| format!("{}: self-shielding", context()))?;
+                    (shielded.materials, shielded.region_material)
+                } else {
+                    let named = state_materials
+                        .iter()
+                        .map(|m| {
+                            Material::mix(library, &m.composition, m.temperature)
+                                .map(|mixed| (m.name.clone(), mixed))
+                                .map_err(|e| anyhow!("material `{}`: {e}", m.name))
+                        })
+                        .collect::<anyhow::Result<Vec<_>>>()
+                        .with_context(context)?;
+                    by_name(named, library.groups.len())?
+                }
+            }
+            Source::Macroscopic(named) => {
+                let groups = named.first().map_or(0, |(_, m)| m.groups());
+                by_name(named.clone(), groups)?
+            }
+        };
+        let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
+
+        let options = Options {
+            scattering_order: input
+                .scattering_order
+                .unwrap_or_else(|| available_order(&materials)),
+            ..Options::default()
+        };
+        let solution = solve(&tracking, &materials, &options).with_context(context)?;
+        if let Some(FewGroupOutput { bounds, files }) = &input.output {
+            let groups = groups
+                .as_ref()
+                .ok_or_else(|| anyhow!("few-group output needs a library"))?;
+            let boundaries = tracking.boundaries();
+            let fews = match files {
+                FewGroupFiles::Lattice(_) => vec![homogenize(
                     &solution,
-                    &lattice,
                     &materials,
                     groups,
                     bounds,
                     &boundaries,
-                    &nodes,
-                )?;
-                entries.iter().map(|(output, _)| output).zip(fews).collect()
-            }
+                )?],
+                FewGroupFiles::Nodes(entries) => {
+                    let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
+                    homogenize_nodes(
+                        &solution,
+                        &lattice,
+                        &materials,
+                        groups,
+                        bounds,
+                        &boundaries,
+                        &nodes,
+                    )?
+                }
+            };
+            per_state.push(fews);
+        }
+        // ピン出力は分岐のないときだけ（入力の読み込みで確かめてある）
+        if let Some(file) = &input.pin_powers {
+            let rates = cell_fission_rates(&solution, &lattice, &materials)?;
+            let file = base.join(file);
+            std::fs::write(&file, to_msgpack(&rates, &lattice)?).with_context(|| shown(&file))?;
+        }
+        if input.branches.is_some() {
+            println!("state {state} k {:.6}", solution.k);
+        } else {
+            println!("k {:.6}", solution.k);
+        }
+        tracing::info!(
+            state,
+            iterations = solution.iterations,
+            tracks = tracking.tracks.len(),
+            seconds = state_start.elapsed().as_secs_f64(),
+            total_seconds = start.elapsed().as_secs_f64(),
+            "lattice"
+        );
+    }
+
+    if let Some(FewGroupOutput { files, .. }) = &input.output {
+        let outputs: Vec<&Path> = match files {
+            FewGroupFiles::Lattice(output) => vec![output],
+            FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
-        for (output, few) in written {
+        let tables = tables(axes, per_state).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        for (output, table) in outputs.into_iter().zip(tables) {
             let output = base.join(output);
-            // 分岐を計算しないときは、軸のない状態が1つのテーブル（ADR-0097）
-            let bytes = Table::single(few).to_msgpack()?;
+            let bytes = table.to_msgpack().with_context(|| shown(&output))?;
             std::fs::write(&output, bytes).with_context(|| shown(&output))?;
         }
     }
-    if let Some(file) = &input.pin_powers {
-        let rates = cell_fission_rates(&solution, &lattice, &materials)?;
-        let file = base.join(file);
-        std::fs::write(&file, to_msgpack(&rates, &lattice)?).with_context(|| shown(&file))?;
-    }
-    println!("k {:.6}", solution.k);
-    tracing::info!(
-        iterations = solution.iterations,
-        tracks = tracking.tracks.len(),
-        seconds = start.elapsed().as_secs_f64(),
-        "lattice"
-    );
     Ok(())
 }

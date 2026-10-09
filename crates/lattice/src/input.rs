@@ -36,6 +36,9 @@
 //! sectors = 8                     # 各リングを 45° ごとの扇形に分ける（1, 4, 8。省略すると 1）
 //! frame = { thickness = 0.0141, material = "zircaloy" }   # 外周の正方形の枠（支持格子。省略すると無し）
 //!
+//! [branches]                    # 分岐（省略すると1つの状態）。軸と書き方は lattice::branches（ADR-0097）
+//! fuel = { temperature = [550, 565, 580], materials = ["fuel"] }
+//!
 //! [cell.box]
 //! zones = [{ material = "water", rings = 1 }]
 //! grid = 4                        # 均質なセルを 4 × 4 の正方形に分ける（省略すると 1）
@@ -48,11 +51,13 @@
 
 use std::path::PathBuf;
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
+use crate::branches::{Branches, BranchesEntry, Water};
 use crate::fewgroup::Node;
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
@@ -134,6 +139,8 @@ pub struct LatticeInput {
     pub heights: Option<Vec<f64>>,
     /// 格子の周りの余白
     pub gap: Option<Gap>,
+    /// 分岐（ADR-0097）。`None` なら物質は書いたままの1つの状態
+    pub branches: Option<Branches>,
 }
 
 /// 少数群定数の出力。
@@ -211,6 +218,8 @@ struct InputFile {
     /// 巨視的断面積のときは書かない
     material: Option<BTreeMap<String, MaterialEntry>>,
     cell: BTreeMap<String, CellEntry>,
+    /// 省略すると分岐なし
+    branches: Option<BranchesEntry>,
 }
 
 /// 同じ大きさの列（行）の並び
@@ -443,13 +452,43 @@ impl LatticeInput {
                 "`{VOID}` is reserved for void zones and cannot be defined"
             )));
         }
-        let materials = file
-            .material
-            .unwrap_or_default()
+        let entries = file.material.unwrap_or_default();
+        // ホウ酸水で書いた物質の量（分岐でホウ素濃度と密度を変える）
+        let waters: BTreeMap<String, Water> = entries
+            .iter()
+            .filter_map(|(name, entry)| {
+                entry.water.as_ref().map(|w| {
+                    let water = Water {
+                        density: w.density,
+                        boron: w.boron,
+                        b10: w.b10,
+                    };
+                    (name.clone(), water)
+                })
+            })
+            .collect();
+        let materials = entries
             .into_iter()
             .map(|(name, entry)| entry.into_input(name))
             .collect::<Result<Vec<_>, String>>()
             .map_err(invalid)?;
+        if file.branches.is_some() && matches!(cross_sections, CrossSections::Macroscopic(_)) {
+            return Err(invalid(
+                "branches need a library (they change the compositions and temperatures)".into(),
+            ));
+        }
+        let branches = file
+            .branches
+            .map(|b| b.build(&materials, &waters))
+            .transpose()
+            .map_err(invalid)?;
+        if branches.is_some() && file.pin_powers.is_some() {
+            return Err(invalid(
+                "pin-powers cannot be written with branches (form functions go into the table; \
+                 ADR-0096)"
+                    .into(),
+            ));
+        }
         let cells = file
             .cell
             .into_iter()
@@ -516,6 +555,7 @@ impl LatticeInput {
                 .transpose()
                 .map_err(invalid)?,
             pin_powers: file.pin_powers,
+            branches,
             pitch: file.pitch,
             azimuthal: file.azimuthal,
             spacing: file.spacing,
@@ -702,6 +742,16 @@ impl LatticeInput {
             .collect();
         let lattice = Lattice::rectilinear(widths, heights, types, layout)?;
         Ok((lattice, materials))
+    }
+}
+
+impl LatticeInput {
+    /// 分岐の状態ごとの物質の組（軸の直積の順）。分岐がなければ、書いたままの物質の1つの組
+    pub fn branch_states(&self) -> Cow<'_, [Vec<MaterialInput>]> {
+        match &self.branches {
+            Some(branches) => Cow::Borrowed(branches.states()),
+            None => Cow::Owned(vec![self.materials.clone()]),
+        }
     }
 }
 
