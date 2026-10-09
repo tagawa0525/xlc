@@ -23,8 +23,8 @@ fn few(ppm: f64, tm: f64, tf: f64) -> FewGroup {
         normalized_adf: vec![false; 4],
         // 形状関数と角の不連続因子も内挿し、セルの境界はそのまま（ADR-0096）
         pins: Some(Pins {
-            x: vec![0.0, 1.0, 2.0],
-            y: vec![0.0, 2.0],
+            dx: vec![1.0, 1.0],
+            dy: vec![2.0],
             form: vec![vec![vec![v, 2.0 * v]], vec![vec![3.0 * v, 0.0]]],
             corners: vec![vec![1.1 * v, 1.2 * v]; 4],
         }),
@@ -122,7 +122,7 @@ fn multilinear_quantities_are_reproduced_between_points() {
         assert_eq!(got.bounds, want.bounds);
         assert_eq!(got.normalized_adf, want.normalized_adf);
         let (gp, wp) = (got.pins.unwrap(), want.pins.unwrap());
-        assert_eq!((gp.x, gp.y), (wp.x, wp.y));
+        assert_eq!((gp.dx, gp.dy), (wp.dx, wp.dy));
     }
 }
 

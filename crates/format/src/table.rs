@@ -4,7 +4,7 @@
 //! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`boron`、`moderator`、`fuel`）と
 //! `points`（昇順。ppm か K）。`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の原子分率）も持つ）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。各状態は少数群定数の `bounds` 以外の項目。`pins` は
-//! `x`、`y`、`form`、`corners` を持つ map か nil）。
+//! `dx`、`dy`、`form`、`corners` を持つ map か nil で、キーは省けない）。
 //! 軸のないテーブルは状態が1つ。
 
 use serde::{Deserialize, Serialize};
@@ -110,8 +110,8 @@ struct StateFile {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PinsFile {
-    x: Vec<f64>,
-    y: Vec<f64>,
+    dx: Vec<f64>,
+    dy: Vec<f64>,
     form: Vec<Vec<Vec<f64>>>,
     corners: Vec<Vec<f64>>,
 }
@@ -196,7 +196,7 @@ impl Table {
                 ));
             }
             // 形状関数は状態ごとに内挿するので、どの状態も持つか持たないかで、セルの境界も同じ
-            let cells = |s: &FewGroup| s.pins.as_ref().map(|p| (p.x.clone(), p.y.clone()));
+            let cells = |s: &FewGroup| s.pins.as_ref().map(|p| (p.dx.clone(), p.dy.clone()));
             if cells(state) != cells(first) {
                 return invalid(format!(
                     "state {i}: pins (form functions) and their cells must equal those of state 0"
@@ -246,8 +246,8 @@ impl Table {
                 vacuum_ratio: s.vacuum_ratio.clone(),
                 normalized_adf: s.normalized_adf.clone(),
                 pins: s.pins.as_ref().map(|p| PinsFile {
-                    x: p.x.clone(),
-                    y: p.y.clone(),
+                    dx: p.dx.clone(),
+                    dy: p.dy.clone(),
                     form: p.form.clone(),
                     corners: p.corners.clone(),
                 }),
@@ -301,8 +301,8 @@ impl Table {
                 vacuum_ratio: s.vacuum_ratio,
                 normalized_adf: s.normalized_adf,
                 pins: s.pins.map(|p| Pins {
-                    x: p.x,
-                    y: p.y,
+                    dx: p.dx,
+                    dy: p.dy,
                     form: p.form,
                     corners: p.corners,
                 }),
