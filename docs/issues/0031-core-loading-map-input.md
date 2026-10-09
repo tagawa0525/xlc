@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core]
 opened: 2026-10-09
-closed:
+closed: 2026-10-09
 milestone: M3
 blocked-by: []
-resolution:
+resolution: ADR-0105
 ---
 
 # 炉心の装荷図・配置の入力形式（段階 6 で決める。形式はユーザーが決める）
@@ -24,7 +24,7 @@ few-group = { fuel = "fg-fuel.msgpack", reflector = "fg-reflector.msgpack" }
 layout = ["fuel reflector"]
 ```
 
-関係する ADR: なし
+関係する ADR: ADR-0105
 
 ## 完了の条件
 
@@ -34,3 +34,4 @@ M3 の進め方の 6 で、装荷図（集合体の種類と位置、軸方向�
 ## 経緯
 
 - 2026-10-09: 反射体の定数の作業で暫定の形を作り、話題を分けるために外した（ユーザーの方針）
+- 2026-10-09: ユーザーと先行事例（VERAin、PARCS）を比べ、集合体の ID で追う形（シャッフリング）に決めた（ADR-0105）

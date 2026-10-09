@@ -1,0 +1,7 @@
+# 9 × 9 の格子（lattice-9x9-vacuum.toml）の台帳。
+[design.lattice-9x9-vacuum]
+bounds = [0.0, 11.42]
+layers = ["fg-9x9-vacuum.msgpack"]
+
+[assembly.L01]
+design = "lattice-9x9-vacuum"
