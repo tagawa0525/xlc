@@ -6,7 +6,8 @@
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（外周がすべて鏡面反射で、角に余白の
-//! # ある格子。nodes とは使えない。ADR-0096）
+//! # ある格子。nodes とは使えない。ADR-0096）。split = n を足すと、格子全体を n × n の部分ノードに分けた定数を書く
+//! # （外周がすべて鏡面反射の格子。nodes とは使えない。ADR-0108）
 //! # 格子をノードに分けるときは output の代わりに nodes を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と列を
 //! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
 //! # ADF を燃料の ADF で割る。省略すると false）
@@ -153,6 +154,8 @@ pub struct FewGroupOutput {
     pub files: FewGroupFiles,
     /// 格子全体の定数に、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
     pub pins: bool,
+    /// 格子全体を各方向に分ける部分ノードの数（ADR-0108）
+    pub split: usize,
 }
 
 /// 少数群定数のファイル。
@@ -251,6 +254,8 @@ struct FewGroupEntry {
     nodes: Option<Vec<NodeEntry>>,
     /// 省略すると false
     pins: Option<bool>,
+    /// 省略すると 1
+    split: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -267,6 +272,15 @@ struct NodeEntry {
 impl FewGroupEntry {
     fn into_output(self) -> Result<FewGroupOutput, String> {
         let pins = self.pins.unwrap_or(false);
+        let split = self.split.unwrap_or(1);
+        if split == 0 {
+            return Err("`split` must be positive".into());
+        }
+        if split > 1 && self.nodes.is_some() {
+            return Err(
+                "`split` (sub-nodes) needs `output` (the whole lattice), not `nodes`".into(),
+            );
+        }
         if pins && self.nodes.is_some() {
             return Err(
                 "`pins` (form functions) needs `output` (the whole lattice), not `nodes`".into(),
@@ -309,6 +323,7 @@ impl FewGroupEntry {
             bounds: self.bounds,
             files,
             pins,
+            split,
         })
     }
 }
