@@ -63,6 +63,76 @@ fn bracket(
     })
 }
 
+/// `w` 倍した少数群定数（群境界と f* の印はそのまま）。項目を足したらここで扱いを決める（`..` を使わない）
+fn scaled(f: &FewGroup, w: f64) -> FewGroup {
+    let FewGroup {
+        bounds,
+        k_inf,
+        total,
+        absorption,
+        nu_fission,
+        fission,
+        chi,
+        diffusion,
+        scatter,
+        adf,
+        vacuum_ratio,
+        normalized_adf,
+    } = f;
+    let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
+    FewGroup {
+        bounds: bounds.clone(),
+        k_inf: w * k_inf,
+        total: v(total),
+        absorption: v(absorption),
+        nu_fission: v(nu_fission),
+        fission: v(fission),
+        chi: v(chi),
+        diffusion: v(diffusion),
+        scatter: scatter.iter().map(|r| v(r)).collect(),
+        adf: adf.iter().map(|r| v(r)).collect(),
+        vacuum_ratio: vacuum_ratio.iter().map(|r| r.as_deref().map(v)).collect(),
+        normalized_adf: normalized_adf.clone(),
+    }
+}
+
+/// `acc += w * f`。項目を足したらここで扱いを決める（`..` を使わない）
+fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) {
+    let FewGroup {
+        bounds: _,
+        k_inf,
+        total,
+        absorption,
+        nu_fission,
+        fission,
+        chi,
+        diffusion,
+        scatter,
+        adf,
+        vacuum_ratio,
+        normalized_adf: _,
+    } = f;
+    acc.k_inf += w * k_inf;
+    add(&mut acc.total, w, total);
+    add(&mut acc.absorption, w, absorption);
+    add(&mut acc.nu_fission, w, nu_fission);
+    add(&mut acc.fission, w, fission);
+    add(&mut acc.chi, w, chi);
+    add(&mut acc.diffusion, w, diffusion);
+    for (a, x) in acc.scatter.iter_mut().zip(scatter) {
+        add(a, w, x);
+    }
+    for (a, x) in acc.adf.iter_mut().zip(adf) {
+        add(a, w, x);
+    }
+    // 真空の辺はどの状態でも同じ（テーブルの検査）
+    for (a, x) in acc.vacuum_ratio.iter_mut().zip(vacuum_ratio) {
+        if let (Some(a), Some(x)) = (a, x) {
+            add(a, w, x);
+        }
+    }
+}
+
 /// `acc += w * x`（同じ形の量どうし）
 fn add(acc: &mut [f64], w: f64, x: &[f64]) {
     for (a, x) in acc.iter_mut().zip(x) {
@@ -82,6 +152,12 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, Str
             .cloned()
             .ok_or_else(|| "the table has no states".to_string());
     };
+    // 軸がないことを、ほかの軸の範囲の外より先に示す（テーブルの検査で同じ軸は2つない）
+    for name in ["boron", "moderator", "fuel"] {
+        if !table.axes.iter().any(|a| a.name() == name) {
+            return Err(format!("the table has no {name} axis for the core state"));
+        }
+    }
     // テーブルの軸の順に、隣の2点
     let mut brackets = Vec::with_capacity(table.axes.len());
     for axis in &table.axes {
@@ -89,7 +165,7 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, Str
             Axis::Boron { ppm, b10 } => {
                 if *b10 != state.b10 {
                     return Err(format!(
-                        "boron: the table has b10 {b10}, the state {}",
+                        "boron: the table has b10 {b10} and the state {}; they must be exactly equal",
                         state.b10
                     ));
                 }
@@ -101,32 +177,9 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, Str
             Axis::Fuel { temperature } => bracket("fuel", temperature, state.fuel, f64::sqrt)?,
         });
     }
-    for name in ["boron", "moderator", "fuel"] {
-        if !table.axes.iter().any(|a| a.name() == name) {
-            return Err(format!("the table has no {name} axis for the core state"));
-        }
-    }
 
     let first = table.states.first().ok_or("the table has no states")?;
-    let zeros = |v: &[f64]| vec![0.0; v.len()];
-    let mut out = FewGroup {
-        bounds: first.bounds.clone(),
-        k_inf: 0.0,
-        total: zeros(&first.total),
-        absorption: zeros(&first.absorption),
-        nu_fission: zeros(&first.nu_fission),
-        fission: zeros(&first.fission),
-        chi: zeros(&first.chi),
-        diffusion: zeros(&first.diffusion),
-        scatter: first.scatter.iter().map(|r| zeros(r)).collect(),
-        adf: first.adf.iter().map(|r| zeros(r)).collect(),
-        vacuum_ratio: first
-            .vacuum_ratio
-            .iter()
-            .map(|r| r.as_deref().map(zeros))
-            .collect(),
-        normalized_adf: first.normalized_adf.clone(),
-    };
+    let mut out = scaled(first, 0.0);
     // 隣の 2^d 個の格子点の重みつきの和（最初の軸がいちばん遅く変わる並び）
     for corner in 0..1usize << brackets.len() {
         let mut index = 0;
@@ -143,26 +196,10 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, Str
             .states
             .get(index)
             .ok_or_else(|| format!("the table has no state {index}"))?;
-        out.k_inf += weight * s.k_inf;
-        add(&mut out.total, weight, &s.total);
-        add(&mut out.absorption, weight, &s.absorption);
-        add(&mut out.nu_fission, weight, &s.nu_fission);
-        add(&mut out.fission, weight, &s.fission);
-        add(&mut out.chi, weight, &s.chi);
-        add(&mut out.diffusion, weight, &s.diffusion);
-        for (acc, x) in out.scatter.iter_mut().zip(&s.scatter) {
-            add(acc, weight, x);
-        }
-        for (acc, x) in out.adf.iter_mut().zip(&s.adf) {
-            add(acc, weight, x);
-        }
-        // 真空の辺はどの状態でも同じ（テーブルの検査）
-        for (acc, x) in out.vacuum_ratio.iter_mut().zip(&s.vacuum_ratio) {
-            if let (Some(acc), Some(x)) = (acc, x) {
-                add(acc, weight, x);
-            }
-        }
+        accumulate(&mut out, weight, s);
     }
+    // 凸結合なので値の検査は通るはずだが、ソルバに渡す前に確かめる
+    out.validate().map_err(|e| e.to_string())?;
     Ok(out)
 }
 
