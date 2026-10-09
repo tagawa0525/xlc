@@ -271,9 +271,9 @@ fn tables_collect_each_output_over_the_states() {
         pins: None,
     };
     let per_state: Vec<Vec<_>> = (0..12)
-        .map(|s| vec![few(1.0 + s as f64), few(2.0 + s as f64)])
+        .map(|s| vec![vec![few(1.0 + s as f64)], vec![few(2.0 + s as f64)]])
         .collect();
-    let tables = tables(&axes, per_state).unwrap();
+    let tables = tables(&axes, 1, per_state).unwrap();
     assert_eq!(tables.len(), 2);
     for (o, table) in tables.iter().enumerate() {
         assert_eq!(table.axes, axes);
@@ -287,8 +287,23 @@ fn tables_collect_each_output_over_the_states() {
     }
     // 状態ごとの出力の数が違う、状態の数が軸と違う
     let ragged: Vec<Vec<_>> = (0..12)
-        .map(|s| vec![few(1.0); if s == 3 { 1 } else { 2 }])
+        .map(|s| vec![vec![few(1.0)]; if s == 3 { 1 } else { 2 }])
         .collect();
-    assert!(super::tables(&axes, ragged).is_err());
-    assert!(super::tables(&axes, vec![vec![few(1.0)]; 11]).is_err());
+    assert!(super::tables(&axes, 1, ragged).is_err());
+    assert!(super::tables(&axes, 1, vec![vec![vec![few(1.0)]]; 11]).is_err());
+    // 集合体を 2 × 2 に分けた出力は、状態ごとに部分ノードの定数を 4 つ持つ（ADR-0108）。数が違えばエラー
+    let split: Vec<Vec<_>> = (0..12)
+        .map(|s| {
+            vec![
+                (0..4)
+                    .map(|q| few(1.0 + s as f64 + q as f64 / 10.0))
+                    .collect(),
+            ]
+        })
+        .collect();
+    let tables = super::tables(&axes, 2, split.clone()).unwrap();
+    assert_eq!(tables[0].split, 2);
+    assert_eq!(tables[0].states.len(), 48);
+    assert_eq!(tables[0].states[5].k_inf, 2.1);
+    assert!(super::tables(&axes, 3, split).is_err());
 }
