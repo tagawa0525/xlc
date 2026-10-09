@@ -380,8 +380,12 @@ impl WaterEntry {
         if boron > 0.0 {
             let mass = b10 * MASS_B10 + (1.0 - b10) * MASS_B11;
             let atoms = density * w * AVOGADRO / mass;
-            composition.insert("B-10".to_string(), b10 * atoms);
-            composition.insert("B-11".to_string(), (1.0 - b10) * atoms);
+            // 原子分率が 0 の同位体は入れない（ライブラリに要らない核種を求めない）
+            for (nuclide, fraction) in [("B-10", b10), ("B-11", 1.0 - b10)] {
+                if fraction > 0.0 {
+                    composition.insert(nuclide.to_string(), fraction * atoms);
+                }
+            }
         }
         Ok(composition)
     }
