@@ -107,48 +107,184 @@ fn without_branches_there_is_one_state() {
     assert_eq!(input.branch_states(), vec![input.materials.clone()]);
 }
 
+/// エラーになり、その文に `needle` を含むこと
+fn rejects(from: &str, to: &str, needle: &str) {
+    let err = edited(from, to).unwrap_err().to_string();
+    assert!(err.contains(needle), "{err}");
+}
+
 #[test]
 fn invalid_branches_are_errors() {
-    // 知らない物質、ホウ酸水でない物質のホウ素、ホウ酸水のない減速材の軸
-    assert!(
-        edited(
-            "ppm = [900, 1700], materials = [\"water\"]",
-            "ppm = [900, 1700], materials = [\"oil\"]"
-        )
-        .is_err()
+    let boron = "ppm = [900, 1700], materials = [\"water\"]";
+    rejects(
+        boron,
+        "ppm = [900, 1700], materials = [\"oil\"]",
+        "unknown material `oil`",
     );
-    assert!(
-        edited(
-            "ppm = [900, 1700], materials = [\"water\"]",
-            "ppm = [900, 1700], materials = [\"clad\"]"
-        )
-        .is_err()
+    rejects(
+        boron,
+        "ppm = [900, 1700], materials = [\"water\", \"clad\"]",
+        "`clad` is not written as water",
     );
-    assert!(
-        edited(
-            "materials = [\"water\", \"clad\"]",
-            "materials = [\"clad\"]"
-        )
-        .is_err()
+    rejects(
+        boron,
+        "ppm = [900, 1700], materials = [\"water\", \"water\"]",
+        "listed twice",
     );
-    // 同じ物質が2つの温度の軸にある
-    assert!(edited("materials = [\"fuel\"]", "materials = [\"fuel\", \"clad\"]").is_err());
-    // 点が増えない、密度の数が違う、空の物質の一覧
-    assert!(edited("temperature = [550, 580]", "temperature = [580, 550]").is_err());
-    assert!(
-        edited(
-            "density = [0.76972, 0.74271, 0.71190]",
-            "density = [0.76972, 0.74271]"
-        )
-        .is_err()
+    rejects(
+        boron,
+        "ppm = [1700, 900], materials = [\"water\"]",
+        "increasing",
     );
-    assert!(edited("materials = [\"fuel\"]", "materials = []").is_err());
+    rejects(
+        "materials = [\"water\", \"clad\"]",
+        "materials = [\"clad\"]",
+        "`water`",
+    );
+    rejects(
+        "materials = [\"fuel\"]",
+        "materials = [\"fuel\", \"clad\"]",
+        "both the moderator and the fuel",
+    );
+    rejects(
+        "materials = [\"fuel\"]",
+        "materials = []",
+        "list the materials",
+    );
+    rejects(
+        "temperature = [550, 580]",
+        "temperature = [580, 550]",
+        "increasing",
+    );
+    rejects(
+        "density = [0.76972, 0.74271, 0.71190]",
+        "density = [0.76972, 0.74271]",
+        "densities",
+    );
+    rejects(
+        "density = [0.76972, 0.74271, 0.71190]",
+        "density = [0.76972, nan, 0.71190]",
+        "densities",
+    );
+    rejects(
+        "density = [0.76972, 0.74271, 0.71190]",
+        "density = [0.76972, 0.0, 0.71190]",
+        "densities",
+    );
     // ピン出力は分岐と一緒に出さない（状態ごとの形状関数は ADR-0096 でテーブルに入れる）
-    assert!(
-        edited(
-            "rows = [\"pin\"]",
-            "rows = [\"pin\"]\npin-powers = \"pins.msgpack\""
-        )
-        .is_err()
+    rejects(
+        "rows = [\"pin\"]",
+        "rows = [\"pin\"]\npin-powers = \"pins.msgpack\"",
+        "pin-powers",
     );
+    let i = INPUT.find("boron = {").unwrap();
+    let err = LatticeInput::parse(&format!("{}", &INPUT[..i]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("no axes"), "{err}");
+}
+
+#[test]
+fn every_borated_water_follows_the_boron_and_moderator_axes() {
+    // テーブルの状態は炉心の状態なので、ホウ酸水の一部だけを変えるとテーブルと計算が食い違う
+    let two = |boron: &str, moderator: &str| {
+        let text = INPUT
+            .replace(
+                "[cell.pin]",
+                "[material.gapwater]\ntemperature = 565\nwater = { density = 0.74271, boron = 1300, b10 = 0.199 }\n\n[cell.pin]",
+            )
+            .replace("ppm = [900, 1700], materials = [\"water\"]", boron)
+            .replace("materials = [\"water\", \"clad\"]", moderator);
+        LatticeInput::parse(&text)
+    };
+    let both = "materials = [\"water\", \"gapwater\", \"clad\"]";
+    assert!(
+        two(
+            "ppm = [900, 1700], materials = [\"water\", \"gapwater\"]",
+            both
+        )
+        .is_ok()
+    );
+    let err = two("ppm = [900, 1700], materials = [\"water\"]", both)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("`gapwater`"), "{err}");
+    let err = two(
+        "ppm = [900, 1700], materials = [\"water\", \"gapwater\"]",
+        "materials = [\"water\", \"clad\"]",
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("`gapwater`"), "{err}");
+    // ホウ素の B-10 の割合が物質で違う
+    let text = INPUT.replace(
+        "[cell.pin]",
+        "[material.gapwater]\ntemperature = 565\nwater = { density = 0.74271, boron = 1300, b10 = 0.2 }\n\n[cell.pin]",
+    );
+    let text = text
+        .replace(
+            "ppm = [900, 1700], materials = [\"water\"]",
+            "ppm = [900, 1700], materials = [\"water\", \"gapwater\"]",
+        )
+        .replace("materials = [\"water\", \"clad\"]", both);
+    let err = LatticeInput::parse(&text).unwrap_err().to_string();
+    assert!(err.contains("b10"), "{err}");
+}
+
+#[test]
+fn branches_need_a_library() {
+    let text = INPUT.replace(
+        "library = \"vera.msgpack\"",
+        "cross-sections = \"c5g7.toml\"",
+    );
+    let i = text.find("[material.fuel]").unwrap();
+    let j = text.find("[cell.pin]").unwrap();
+    let text = format!("{}{}", &text[..i], &text[j..]).replace(
+        "few-group = { output = \"fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }\n",
+        "",
+    );
+    let err = LatticeInput::parse(&text).unwrap_err().to_string();
+    assert!(err.contains("library"), "{err}");
+}
+
+#[test]
+fn tables_collect_each_output_over_the_states() {
+    // 状態ごとの出力の少数群定数（[状態][出力]）を、出力ごとのテーブル（状態は軸の直積の順）にまとめる
+    let input = LatticeInput::parse(INPUT).unwrap();
+    let axes = input.branches.as_ref().unwrap().axes().to_vec();
+    let few = |k: f64| xlc_format::fewgroup::FewGroup {
+        bounds: vec![1.0e7, 0.625, 1.0e-5],
+        k_inf: k,
+        total: vec![0.5, 1.0],
+        absorption: vec![0.01, 0.08],
+        nu_fission: vec![0.006, 0.1],
+        fission: vec![0.0025, 0.04],
+        chi: vec![1.0, 0.0],
+        diffusion: vec![1.4, 0.4],
+        scatter: vec![vec![0.47, 0.02], vec![0.0, 0.92]],
+        adf: vec![vec![1.0, 1.0]; 4],
+        vacuum_ratio: vec![None; 4],
+        normalized_adf: vec![false; 4],
+    };
+    let per_state: Vec<Vec<_>> = (0..12)
+        .map(|s| vec![few(1.0 + s as f64), few(2.0 + s as f64)])
+        .collect();
+    let tables = tables(&axes, per_state).unwrap();
+    assert_eq!(tables.len(), 2);
+    for (o, table) in tables.iter().enumerate() {
+        assert_eq!(table.axes, axes);
+        let ks: Vec<f64> = table.states.iter().map(|s| s.k_inf).collect();
+        assert_eq!(
+            ks,
+            (0..12)
+                .map(|s| 1.0 + o as f64 + s as f64)
+                .collect::<Vec<_>>()
+        );
+    }
+    // 状態ごとの出力の数が違う、状態の数が軸と違う
+    let ragged: Vec<Vec<_>> = (0..12)
+        .map(|s| vec![few(1.0); if s == 3 { 1 } else { 2 }])
+        .collect();
+    assert!(super::tables(&axes, ragged).is_err());
+    assert!(super::tables(&axes, vec![vec![few(1.0)]; 11]).is_err());
 }
