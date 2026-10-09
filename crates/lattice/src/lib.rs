@@ -4,6 +4,7 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod b1;
+pub mod branches;
 pub mod cmfd;
 pub mod cp;
 pub mod equivalent;
