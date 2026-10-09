@@ -79,7 +79,9 @@ fn close(a: f64, b: f64) -> bool {
 #[test]
 fn grid_points_return_the_lattice_states() {
     let t = table();
-    let got = interpolate(&t, Some(&state(1300.0, 580.0, 900.0))).unwrap();
+    let got = interpolate(&t, Some(&state(1300.0, 580.0, 900.0)))
+        .unwrap()
+        .remove(0);
     assert_eq!(got, few(1300.0, 580.0, 900.0));
 }
 
@@ -91,7 +93,9 @@ fn multilinear_quantities_are_reproduced_between_points() {
         (1291.0, 570.0, 565.0),
         (1650.0, 551.0, 899.0),
     ] {
-        let got = interpolate(&t, Some(&state(ppm, tm, tf))).unwrap();
+        let got = interpolate(&t, Some(&state(ppm, tm, tf)))
+            .unwrap()
+            .remove(0);
         let want = few(ppm, tm, tf);
         // すべての量を比べる
         let flat = |f: &FewGroup| {
@@ -131,7 +135,9 @@ fn multilinear_quantities_are_reproduced_between_points() {
 fn fuel_temperature_is_interpolated_in_its_square_root() {
     // 燃料の温度だけを変えると、量は √T について線形に変わる
     let t = table();
-    let got = interpolate(&t, Some(&state(1300.0, 565.0, 700.0))).unwrap();
+    let got = interpolate(&t, Some(&state(1300.0, 565.0, 700.0)))
+        .unwrap()
+        .remove(0);
     let w = (700f64.sqrt() - 550f64.sqrt()) / (900f64.sqrt() - 550f64.sqrt());
     let want = (1.0 - w) * few(1300.0, 565.0, 550.0).k_inf + w * few(1300.0, 565.0, 900.0).k_inf;
     assert!(close(got.k_inf, want));
@@ -168,7 +174,9 @@ fn single_point_axes_need_that_value() {
         temperature: vec![550.0],
     };
     t.states = t.states.iter().step_by(2).cloned().collect();
-    let got = interpolate(&t, Some(&state(1300.0, 565.0, 550.0))).unwrap();
+    let got = interpolate(&t, Some(&state(1300.0, 565.0, 550.0)))
+        .unwrap()
+        .remove(0);
     assert_eq!(got, few(1300.0, 565.0, 550.0));
     assert!(interpolate(&t, Some(&state(1300.0, 565.0, 551.0))).is_err());
 }
@@ -177,7 +185,7 @@ fn single_point_axes_need_that_value() {
 fn tables_without_axes_need_no_state() {
     let single = Table::single(few(1300.0, 565.0, 565.0));
     assert_eq!(
-        interpolate(&single, None).unwrap(),
+        interpolate(&single, None).unwrap()[0],
         few(1300.0, 565.0, 565.0)
     );
     assert!(interpolate(&single, Some(&state(1300.0, 565.0, 565.0))).is_err());
@@ -196,4 +204,33 @@ fn states_differing_in_pins_are_errors() {
     }
     let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0))).unwrap_err();
     assert!(err.contains("pins"), "{err}");
+}
+
+#[test]
+fn split_tables_interpolate_each_sub_node() {
+    // 2 × 2 の部分ノード（ADR-0108）。部分ノード q の値は few(...) の (1 + q/10) 倍で、部分ノードごとに内挿する
+    let mut t = table();
+    let points = t.states.len();
+    t.split = 2;
+    t.states = (0..points)
+        .flat_map(|p| {
+            let base = t.states[p].clone();
+            (0..4).map(move |q| {
+                let mut s = base.clone();
+                s.k_inf *= 1.0 + f64::from(u8::try_from(q).unwrap()) / 10.0;
+                s
+            })
+        })
+        .collect();
+    let got = interpolate(&t, Some(&state(1291.0, 570.0, 565.0))).unwrap();
+    assert_eq!(got.len(), 4);
+    let want = few(1291.0, 570.0, 565.0).k_inf;
+    for (q, sub) in got.iter().enumerate() {
+        let expected = want * (1.0 + q as f64 / 10.0);
+        assert!(
+            close(sub.k_inf, expected),
+            "sub-node {q}: {} vs {expected}",
+            sub.k_inf
+        );
+    }
 }
