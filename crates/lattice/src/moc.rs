@@ -123,6 +123,16 @@ pub enum MocError {
     Cmfd(#[from] CmfdError),
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
+    #[error(
+        "tolerances must be positive and finite, and CMFD ones no larger than MOC ones \
+         (MOC k {k}, flux {flux}; CMFD k {cmfd_k}, flux {cmfd_flux})"
+    )]
+    Tolerances {
+        k: f64,
+        flux: f64,
+        cmfd_k: f64,
+        cmfd_flux: f64,
+    },
 }
 
 /// `materials[i]` は領域 i の物質。
@@ -2130,13 +2140,59 @@ mod tests {
         assert!((tuned.k_tolerance / cmfd.k_tolerance - 100.0).abs() < 1e-12);
         assert!((tuned.flux_tolerance / cmfd.flux_tolerance - 30.0).abs() < 1e-12);
         assert_eq!(tuned.max_iterations, cmfd.max_iterations);
-        // MOC の許容誤差が 0（最大の反復の回数まで回す）なら、比べる基準がないので設定のまま
-        let fixed = Options {
-            k_tolerance: 0.0,
-            flux_tolerance: 0.0,
-            ..moc
+    }
+
+    #[test]
+    fn rejects_tolerances_that_do_not_bound_cmfd() {
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let cmfd = CmfdOptions::default();
+        let with = |k: f64, flux: f64, cmfd: CmfdOptions| Options {
+            k_tolerance: k,
+            flux_tolerance: flux,
+            acceleration: Acceleration::Cmfd(cmfd),
+            ..Options::default()
         };
-        assert_eq!(inexact_cmfd(&cmfd, &fixed, 0.1, 0.1), cmfd);
+        // MOC の許容誤差が 0、負、NaN、無限大
+        let bad = [
+            with(0.0, 1e-6, cmfd),
+            with(1e-7, -1e-6, cmfd),
+            with(f64::NAN, 1e-6, cmfd),
+            with(1e-7, f64::INFINITY, cmfd),
+            // CMFD の許容誤差が 0 か、MOC より大きい（k と中性子束で別に）
+            with(
+                1e-7,
+                1e-6,
+                CmfdOptions {
+                    k_tolerance: 0.0,
+                    ..cmfd
+                },
+            ),
+            with(
+                1e-7,
+                1e-6,
+                CmfdOptions {
+                    k_tolerance: 1e-6,
+                    ..cmfd
+                },
+            ),
+            with(
+                1e-7,
+                1e-6,
+                CmfdOptions {
+                    flux_tolerance: 1e-5,
+                    ..cmfd
+                },
+            ),
+        ];
+        for options in bad {
+            let result = solve(&tracking, &[&f, &m], &options);
+            assert!(
+                matches!(result, Err(MocError::Tolerances { .. })),
+                "{options:?}: {result:?}"
+            );
+        }
     }
 
     #[test]
