@@ -248,6 +248,7 @@ pub fn slowing_down(
         }
     }
     let u = lethargies;
+    tracing::debug!(points = u.len(), rings = entries.len(), "UFG slowing down");
 
     let ng = bottom - top;
     let above = Above { bounds, top, high };
