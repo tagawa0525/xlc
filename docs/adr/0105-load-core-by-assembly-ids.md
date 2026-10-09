@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-09
 supersedes: []
 superseded-by:
@@ -97,9 +97,10 @@ core の入力は1つの少数群定数で均質な直方体しか書けず、�
 
 ## 確認
 
-- 読み込みのテスト: 上のエラーのそれぞれ、回転で辺の量が回ること
-- 炉心の組み立てのテスト: 装荷図と層から、ノードごとの物質が正しく並ぶこと。燃料と反射体の2体の装荷図で、ライブラリ
-  の API で組んだ問題（examples の fuel_reflector）と同じ k になること
+- 読み込みのテスト（crates/core/src/input/tests.rs）: 上のエラーのそれぞれ、回転で辺の量が回ること、装荷図と層から
+  ノードごとの物質が正しく並ぶこと、反射体の層の核分裂をエラーにすること（6ced2c9、7bda1ce）
+- M0 の均質な炉心、VERA の 9 × 9 の1ノード、反射体の I 型（等価性と f* の方法）を4つの入力に書き換え、前の入力や
+  ライブラリの API で組んだ問題と k が一致した（examples/m0、examples/vera、examples/reflector の verification.md）
 
 ## 結果
 
