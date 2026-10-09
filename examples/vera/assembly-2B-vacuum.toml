@@ -1,6 +1,6 @@
-# VERA Problem 2B の集合体（assembly-2B.toml と同じ）の右の辺を真空にしたもの。非反射の格子の ADF（ADR-0094）の
-# 等価性を、core の1ノードの NEM と比べる。1ノードの問題の熱群の均質な面の中性子束が負になり、ADF を作れない
-# （verification.md）。
+# VERA Problem 2B の集合体（assembly-2B.toml と同じ物質とセル。離散化は ADR-0111 で方位角 32・間隔 0.05 cm のまま）
+# の右の辺を真空にしたもの。非反射の格子の ADF（ADR-0094）の等価性を、core の1ノードの NEM と比べる。
+# 1ノードの問題の熱群の均質な面の中性子束が負になり、ADF を作れない（verification.md）。
 library = "vera.msgpack"
 few-group = { output = "fg-2B-vacuum.msgpack", bounds = [1e7, 0.625, 1e-5] }
 boundary = { right = "vacuum" }
