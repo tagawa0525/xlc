@@ -147,6 +147,7 @@ pub struct PinShielding {
 
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
 /// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。
+#[tracing::instrument(name = "shielding", skip_all)]
 pub fn shield_fuel(
     library: &Library,
     tracking: &Tracking,
@@ -269,6 +270,8 @@ pub fn shield_fuel(
             });
             continue;
         }
+        // 代表のピンごとの時間（等価原理と UFG の減速計算）
+        let _pin = tracing::info_span!("pin", cell).entered();
         let radius = lattice
             .cell_type(cell)
             .pin()
@@ -366,6 +369,11 @@ pub fn shield_fuel(
         options,
         &mut shielded,
     )?;
+    tracing::info!(
+        pins = shielded.pins.len(),
+        solved = solved.len(),
+        "fuel pins and their symmetry representatives"
+    );
     Ok(shielded)
 }
 
