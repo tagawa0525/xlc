@@ -147,4 +147,8 @@ fn reading_checks_the_format_name() {
     bytes[at + 4] = b'T';
     assert!(Table::from_msgpack(&bytes).is_err());
     assert!(Table::from_msgpack(&[0x90]).is_err());
+    // 末尾の余り
+    let mut bytes = Table::single(state(3.5)).to_msgpack().unwrap();
+    bytes.push(0xc0);
+    assert!(Table::from_msgpack(&bytes).is_err());
 }
