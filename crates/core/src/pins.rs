@@ -2,3 +2,6 @@
 
 mod basis;
 mod node;
+
+#[cfg(test)]
+mod tests;
