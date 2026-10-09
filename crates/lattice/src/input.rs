@@ -36,6 +36,9 @@
 //! sectors = 8                     # 各リングを 45° ごとの扇形に分ける（1, 4, 8。省略すると 1）
 //! frame = { thickness = 0.0141, material = "zircaloy" }   # 外周の正方形の枠（支持格子。省略すると無し）
 //!
+//! [branches]                    # 分岐（省略すると1つの状態）。軸と書き方は lattice::branches（ADR-0097）
+//! fuel = { temperature = [550, 565, 580], materials = ["fuel"] }
+//!
 //! [cell.box]
 //! zones = [{ material = "water", rings = 1 }]
 //! grid = 4                        # 均質なセルを 4 × 4 の正方形に分ける（省略すると 1）
