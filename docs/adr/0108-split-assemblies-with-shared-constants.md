@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-09
 supersedes: []
 superseded-by:
@@ -57,10 +57,22 @@ issues: ["#0033"]
 
 ## 確認
 
-まだ実装していない。次で確かめる。
+テスト:
 
-- 鏡面反射の集合体1体を 2 × 2 に分けた core の k とピン出力が、分けないとき（と格子計算）に一致すること
-- 反射体を含まないカラーセットで、1 × 1 と 2 × 2 を、全体を xlc の MOC で解いた結果と比べる（#0043）
+- 格子計算: 1 × 1 に分けると集合体の定数に一致（ADF は MOC の収束の程度、相対 1e-8）。2 × 2 では外周の辺の半分の区間の
+  ADF が面の中性子束から直接求めた値に、内側の辺が 1 に、集合体の中心の CDF が 4 つのセルの角の領域の平均に一致する。
+  3 × 3 のピンを 2 × 2 に分けると中央の行と列のピンのセルを半分ずつに分け、印を付ける
+  （crates/lattice/src/fewgroup.rs の `one_by_one_split_is_the_assembly`、`two_by_two_split_takes_segment_fluxes`、
+  `odd_lattices_split_through_the_middle_pins`、`splits_need_a_reflective_lattice`）
+- テーブルと内挿: 状態ごとに部分ノードの定数を持ち、部分ノードごとに内挿する（`split_tables_hold_sub_nodes_per_state`、
+  `split_tables_interpolate_each_sub_node`）
+- core: 集合体の位置を部分ノードに分け、回した集合体では部分ノードも入れ替える。反射体のある炉心はエラー
+  （`split_layout_places_sub_nodes`、`split_nodes_wait_for_reflector_constants`）。分け合ったセルを面積で重み付けして
+  1つに戻す（`core_rows_merge_halves_of_split_cells`）
+
+VERA 2B の集合体1体（鏡面反射）を 2 × 2 に分けた core の k は 1.185801 で、分けないときと一致し、炉心全体のピン出力
+（17 × 17。中央の行と列は半分のセルを1つに戻したもの）の差は最大 3.5e-8 だった（2026-10-09）。分けたときの精度の
+比較（カラーセットの MOC と、VERA の Problem 4 か 5）は、#0043 と反射体の分割の段階で行う。
 
 ## 結果
 
