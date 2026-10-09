@@ -83,28 +83,31 @@ impl Combo {
             Kind::Odd => 1,
         };
         let start = self.power.max(0);
-        let xis: Vec<(f64, f64)> = self
-            .terms
-            .iter()
-            .map(|&(c, cx, cy)| (c, cx * x + cy * y))
-            .collect();
+        // 項は 4 つまで（`Basis::new`）。評価のたびに確保しないよう固定長の配列にする
+        let count = self.terms.len().min(4);
+        let mut xis = [(0.0, 0.0); 4];
+        for (slot, &(c, cx, cy)) in xis.iter_mut().zip(&self.terms) {
+            *slot = (c, cx * x + cy * y);
+        }
+        let xis = &xis[..count];
         // n = start の項の ξ^(2n+s)/(2n+s)!
         let first_order = 2 * start + s;
         let mut factorial = 1.0;
         for k in 1..=first_order {
             factorial *= f64::from(k);
         }
-        let mut powers: Vec<f64> = xis
-            .iter()
-            .map(|&(_, xi)| xi.powi(first_order) / factorial)
-            .collect();
+        let mut powers = [0.0; 4];
+        for (p, &(_, xi)) in powers.iter_mut().zip(xis) {
+            *p = xi.powi(first_order) / factorial;
+        }
+        let powers = &mut powers[..count];
         let mut sum = 0.0;
         let mut mu_power = 1.0;
         for n in start..start + 60 {
             let term: f64 = mu_power
                 * xis
                     .iter()
-                    .zip(&powers)
+                    .zip(powers.iter())
                     .map(|(&(c, _), p)| c * p)
                     .sum::<f64>();
             sum += term;
@@ -113,7 +116,7 @@ impl Combo {
             }
             // 次の n: ξ² / ((2n+s+1)(2n+s+2)) を掛ける
             let order = f64::from(2 * n + s);
-            for (p, &(_, xi)) in powers.iter_mut().zip(&xis) {
+            for (p, &(_, xi)) in powers.iter_mut().zip(xis) {
                 *p *= xi * xi / ((order + 1.0) * (order + 2.0));
             }
             mu_power *= mu;
