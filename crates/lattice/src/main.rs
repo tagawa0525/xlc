@@ -30,7 +30,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_lattice::branches::tables;
-use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes};
+use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes};
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
@@ -207,19 +207,35 @@ fn run(path: &Path) -> anyhow::Result<()> {
             ..Options::default()
         };
         let solution = solve(&tracking, &materials, &options).with_context(context)?;
-        if let Some(FewGroupOutput { bounds, files }) = &input.output {
+        if let Some(FewGroupOutput {
+            bounds,
+            files,
+            pins,
+        }) = &input.output
+        {
             let groups = groups
                 .as_ref()
                 .ok_or_else(|| anyhow!("few-group output needs a library"))?;
             let boundaries = tracking.boundaries();
             let fews = match files {
-                FewGroupFiles::Lattice(_) => vec![homogenize(
-                    &solution,
-                    &materials,
-                    groups,
-                    bounds,
-                    &boundaries,
-                )?],
+                FewGroupFiles::Lattice(_) => {
+                    let mut few = homogenize(&solution, &materials, groups, bounds, &boundaries)?;
+                    // ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）
+                    if *pins {
+                        few.pins = Some(
+                            pin_shapes(
+                                &solution,
+                                &lattice,
+                                &materials,
+                                groups,
+                                bounds,
+                                &boundaries,
+                            )
+                            .with_context(context)?,
+                        );
+                    }
+                    vec![few]
+                }
                 FewGroupFiles::Nodes(entries) => {
                     let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
                     homogenize_nodes(
