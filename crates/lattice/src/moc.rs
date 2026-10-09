@@ -123,6 +123,16 @@ pub enum MocError {
     Cmfd(#[from] CmfdError),
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
+    #[error(
+        "tolerances must be positive and finite, and CMFD ones no larger than MOC ones \
+         (MOC k {k}, flux {flux}; CMFD k {cmfd_k}, flux {cmfd_flux})"
+    )]
+    Tolerances {
+        k: f64,
+        flux: f64,
+        cmfd_k: f64,
+        cmfd_flux: f64,
+    },
 }
 
 /// `materials[i]` は領域 i の物質。
@@ -132,6 +142,30 @@ pub fn solve(
     materials: &[&Material],
     options: &Options,
 ) -> Result<Solution, MocError> {
+    // CMFD を MOC より細かく解く前提（ADR-0110）。比が 1 以下なので、緩めた CMFD の精度はスイープによる変化を超えない
+    let positive = |t: f64| t > 0.0 && t.is_finite();
+    let (cmfd_k, cmfd_flux) = match &options.acceleration {
+        Acceleration::Cmfd(c) => (c.k_tolerance, c.flux_tolerance),
+        Acceleration::None => (options.k_tolerance, options.flux_tolerance),
+    };
+    if ![
+        options.k_tolerance,
+        options.flux_tolerance,
+        cmfd_k,
+        cmfd_flux,
+    ]
+    .into_iter()
+    .all(positive)
+        || cmfd_k > options.k_tolerance
+        || cmfd_flux > options.flux_tolerance
+    {
+        return Err(MocError::Tolerances {
+            k: options.k_tolerance,
+            flux: options.flux_tolerance,
+            cmfd_k,
+            cmfd_flux,
+        });
+    }
     let regions = materials.len();
     let ng = materials.first().ok_or(MocError::NoRegions)?.groups();
     if materials.iter().any(|m| m.groups() != ng) {
@@ -354,7 +388,15 @@ pub fn solve(
         // 粗メッシュの解は生成率 1 に規格化されているので、更新後も生成率は 1 のまま
         if let Acceleration::Cmfd(cmfd) = &options.acceleration {
             let coarse = Coarse::homogenize(&mesh, materials, &volumes, &new_flux, &current)?;
-            let (coarse_k, ratio) = coarse.solve(new_k, cmfd)?;
+            // MOC がまだ収束から遠いうちは、CMFD を細かく解いても次のスイープで崩れる。スイープによる変化（CMFD の誤差を
+            // 含まない）に合わせて精度を緩める
+            let tuned = inexact_cmfd(
+                cmfd,
+                options,
+                (new_k - k).abs(),
+                largest_change(&new_flux, &flux),
+            );
+            let (coarse_k, ratio) = coarse.solve(new_k, &tuned)?;
             new_k = coarse_k;
             // 高次のモーメントも同じ比で（角度分布の形は変えない）
             for (region, ((f, h), c)) in new_flux
@@ -377,12 +419,7 @@ pub fn solve(
             // 更新すると、次のスイープで入ってくる流れと食い違う）
             sweeper.scale_outgoing(&mut outgoing, |region, g| ratio[mesh.cell(region) * ng + g]);
         }
-        let change = new_flux
-            .iter()
-            .flatten()
-            .zip(flux.iter().flatten())
-            .map(|(new, old)| relative_change(*new, *old))
-            .fold(0.0, f64::max);
+        let change = largest_change(&new_flux, &flux);
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
         // 残りの誤差を見積もって判定する
         // 両方の履歴を毎回更新する（短絡評価で片方が飛ぶと、縮小率を離れた反復どうしで比べてしまう）
@@ -1124,6 +1161,26 @@ fn worst_volume_error(exact: &[f64], tracked: &[f64]) -> (usize, f64) {
                 worst
             }
         })
+}
+
+/// MOC の反復で CMFD を解く精度。スイープによる k と中性子束の変化（`k_change`, `flux_change`）が MOC の許容誤差の
+/// 何倍あるかに比例して、設定の精度 `cmfd` を緩める（ADR-0110）。変化が許容誤差以下なら設定のまま。許容誤差は
+/// `solve` の最初で正の有限と確かめてある
+fn inexact_cmfd(cmfd: &CmfdOptions, moc: &Options, k_change: f64, flux_change: f64) -> CmfdOptions {
+    CmfdOptions {
+        k_tolerance: cmfd.k_tolerance * (k_change / moc.k_tolerance).max(1.0),
+        flux_tolerance: cmfd.flux_tolerance * (flux_change / moc.flux_tolerance).max(1.0),
+        ..*cmfd
+    }
+}
+
+/// 領域と群のうちで最も大きい中性子束の相対変化
+fn largest_change(new: &[Vec<f64>], old: &[Vec<f64>]) -> f64 {
+    new.iter()
+        .flatten()
+        .zip(old.iter().flatten())
+        .map(|(new, old)| relative_change(*new, *old))
+        .fold(0.0, f64::max)
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
@@ -2079,6 +2136,80 @@ mod tests {
         let (region, error) = worst_volume_error(&exact, &tracked);
         assert_eq!(region, 1);
         assert!((error + 0.02).abs() < 1e-12, "{error}");
+    }
+
+    #[test]
+    fn cmfd_tolerance_follows_the_moc_change() {
+        let cmfd = CmfdOptions::default();
+        let moc = Options::default();
+        // MOC の許容誤差以下の変化では設定のまま
+        assert_eq!(
+            inexact_cmfd(&cmfd, &moc, 0.5 * moc.k_tolerance, moc.flux_tolerance),
+            cmfd
+        );
+        // 許容誤差の 100 倍と 30 倍の変化では、k と中性子束の精度をそれぞれ同じ倍率で緩める
+        let tuned = inexact_cmfd(
+            &cmfd,
+            &moc,
+            100.0 * moc.k_tolerance,
+            30.0 * moc.flux_tolerance,
+        );
+        assert!((tuned.k_tolerance / cmfd.k_tolerance - 100.0).abs() < 1e-12);
+        assert!((tuned.flux_tolerance / cmfd.flux_tolerance - 30.0).abs() < 1e-12);
+        assert_eq!(tuned.max_iterations, cmfd.max_iterations);
+    }
+
+    #[test]
+    fn rejects_tolerances_that_do_not_bound_cmfd() {
+        let cell = PinCell::new(1.26, vec![0.4]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(cell), 8, 0.1).unwrap();
+        let (f, m) = (fuel(), moderator());
+        let cmfd = CmfdOptions::default();
+        let with = |k: f64, flux: f64, cmfd: CmfdOptions| Options {
+            k_tolerance: k,
+            flux_tolerance: flux,
+            acceleration: Acceleration::Cmfd(cmfd),
+            ..Options::default()
+        };
+        // MOC の許容誤差が 0、負、NaN、無限大
+        let bad = [
+            with(0.0, 1e-6, cmfd),
+            with(1e-7, -1e-6, cmfd),
+            with(f64::NAN, 1e-6, cmfd),
+            with(1e-7, f64::INFINITY, cmfd),
+            // CMFD の許容誤差が 0 か、MOC より大きい（k と中性子束で別に）
+            with(
+                1e-7,
+                1e-6,
+                CmfdOptions {
+                    k_tolerance: 0.0,
+                    ..cmfd
+                },
+            ),
+            with(
+                1e-7,
+                1e-6,
+                CmfdOptions {
+                    k_tolerance: 1e-6,
+                    ..cmfd
+                },
+            ),
+            with(
+                1e-7,
+                1e-6,
+                CmfdOptions {
+                    flux_tolerance: 1e-5,
+                    ..cmfd
+                },
+            ),
+        ];
+        for options in bad {
+            let result = solve(&tracking, &[&f, &m], &options);
+            assert!(
+                matches!(result, Err(MocError::Tolerances { .. })),
+                "{options:?}: {result:?}"
+            );
+        }
     }
 
     #[test]
