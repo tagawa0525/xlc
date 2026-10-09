@@ -172,8 +172,9 @@ fn core_rows_join_nodes_from_the_top() {
 
 #[test]
 fn vacuum_corners_lose_r_times_the_corner_flux() {
-    // y に一様な平板（x は Marshak、y と z は反射）。角の点の箱では J_y = 0 なので、境界の角の点の外向きの流れは
-    // r Φ（r = 1/2、Φ は不均質な角の中性子束）。面の ADF（1）と違う CDF（1.3）でも、ADF でなく Φ を使う
+    // 平板（x は Marshak、y と z は反射）の左下の角の点の箱は、ノード 0 だけを含み、箱の辺から出ていく流れ
+    // J_x + J_y（J = −D∇φ）と、真空の辺から出ていく r Φ（r = 1/2、Φ は不均質な角の中性子束）の和が 0。面の ADF（1）と
+    // 違う CDF（1.3）でも、真空の辺の流れは ADF でなく Φ で決まる
     let mut p = square(86.0, 4, 2, Boundary::Marshak);
     p.mesh.dy = vec![86.0 / 4.0];
     p.node_material = vec![0; 4];
@@ -195,11 +196,33 @@ fn vacuum_corners_lose_r_times_the_corner_flux() {
     let [a, b] = c.half;
     let grad = node.gradient(-a, -b);
     for g in 0..2 {
-        let outward = m.diffusion[g] * grad[g][0];
+        let outward = m.diffusion[g] * (grad[g][0] + grad[g][1]);
         let expected = 0.5 * corners[0][g];
         assert!(
             (outward - expected).abs() < 1e-8 * expected.abs(),
             "group {g}: {outward} vs {expected}"
         );
     }
+}
+
+#[test]
+fn layers_without_fission_are_skipped() {
+    // 下の層が反射体（核分裂も形状関数もない）。その層の出力は空で、炉心全体の表は燃料の層だけから作る
+    let mut p = square(43.0, 2, 4, Boundary::Reflective);
+    p.mesh.dz = vec![20.0, 30.0];
+    let mut water = p.materials[0].clone();
+    water.nu_fission = vec![0.0; 2];
+    water.fission = vec![0.0; 2];
+    water.chi = vec![0.0; 2];
+    water.pins = None;
+    p.materials.push(water);
+    p.node_material = vec![1, 1, 1, 1, 0, 0, 0, 0];
+    let s = solve(&p, &Options::default()).unwrap();
+    let maps = reconstruct(&p, &s).unwrap();
+    assert!(maps[..4].iter().all(Vec::is_empty));
+    assert!(maps[4..].iter().all(|m| m.len() == 4));
+    let rows = core_rows(&p, &maps).unwrap();
+    assert_eq!((rows.len(), rows[0].len()), (8, 8));
+    let mean = rows.iter().flatten().sum::<f64>() / 64.0;
+    assert!((mean - 1.0).abs() < 1e-12);
 }
