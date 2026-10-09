@@ -51,6 +51,7 @@
 
 use std::path::PathBuf;
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
@@ -471,6 +472,11 @@ impl LatticeInput {
             .map(|(name, entry)| entry.into_input(name))
             .collect::<Result<Vec<_>, String>>()
             .map_err(invalid)?;
+        if file.branches.is_some() && matches!(cross_sections, CrossSections::Macroscopic(_)) {
+            return Err(invalid(
+                "branches need a library (they change the compositions and temperatures)".into(),
+            ));
+        }
         let branches = file
             .branches
             .map(|b| b.build(&materials, &waters))
@@ -741,10 +747,10 @@ impl LatticeInput {
 
 impl LatticeInput {
     /// 分岐の状態ごとの物質の組（軸の直積の順）。分岐がなければ、書いたままの物質の1つの組
-    pub fn branch_states(&self) -> Vec<Vec<MaterialInput>> {
+    pub fn branch_states(&self) -> Cow<'_, [Vec<MaterialInput>]> {
         match &self.branches {
-            Some(branches) => branches.states().to_vec(),
-            None => vec![self.materials.clone()],
+            Some(branches) => Cow::Borrowed(branches.states()),
+            None => Cow::Owned(vec![self.materials.clone()]),
         }
     }
 }
