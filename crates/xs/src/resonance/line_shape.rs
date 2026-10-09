@@ -52,10 +52,10 @@ pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>,
 }
 
 /// J, K の表の範囲（log10 β, log10 θ）。燃料の核種の非分離共鳴で実際に使う範囲
-/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む。構造材は低温で θ がこれを超えることがあり（Fe-58 の 550 K で
-/// θ ≈ 1.0e4）、そこでは Lorentz の線形状の J, K を使う
+/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む。構造材は低温で θ が大きくなる（Fe-58 の 550 K で θ ≈ 1.0e4）。
+/// θ の上限は、その上で使う Lorentz の線形状との差（1/θ² の程度）が 1e-12 になる 10⁶ とする（ADR-0107）
 const LOG_BETA: (f64, f64) = (-6.0, 10.0);
-const LOG_THETA: (f64, f64) = (-3.0, 4.0);
+const LOG_THETA: (f64, f64) = (-3.0, 6.0);
 
 /// 表の点の間隔（log10）
 const STEP: f64 = 0.025;
@@ -98,7 +98,7 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
         let j = 0.5 * std::f64::consts::PI / beta;
         return Ok((j, 2.0 * j));
     }
-    if lt > LOG_THETA.1 && lb >= LOG_BETA.0 {
+    if lt > LOG_THETA.1 {
         return Ok(natural_jk(beta));
     }
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
@@ -120,14 +120,13 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
 }
 
 /// ドップラー拡がりのない Lorentz の線形状 ψ = 1/(1 + x²) の (J, K)。a² = (1 + β)/β として
-/// J = π/(2aβ)、K = (1/β)[π/(2a) + π(a² + 1)/(4a³)]。θ が表より大きいとき（自然幅がドップラー幅より
-/// 十分大きい、低温の構造材の非分離共鳴）に使う。Voigt の線形状との差は 1/θ² の程度（θ > 1e4 で 1e-8 以下）
+/// J = π/(2aβ)、K = 2J − ∫₀^∞ ψ²/(ψ + β)² dx = 2J − π/(4a³β²)。θ が表より大きいとき（自然幅がドップラー幅より
+/// 十分大きい）に使う。Voigt の線形状との差は 1/θ² の程度（ADR-0107）。β > 0 ならどこでも成り立つ
 fn natural_jk(beta: f64) -> (f64, f64) {
     let pi = std::f64::consts::PI;
     let a = ((1.0 + beta) / beta).sqrt();
     let j = pi / (2.0 * a * beta);
-    let k = (pi / (2.0 * a) + pi * (a * a + 1.0) / (4.0 * a * a * a)) / beta;
-    (j, k)
+    (j, 2.0 * j - pi / (4.0 * a.powi(3) * beta * beta))
 }
 
 /// 格子座標 u（0 から n-1）での 4 点の Lagrange 補間の、最初の点の番号と重み。
