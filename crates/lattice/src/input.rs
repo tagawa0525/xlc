@@ -1015,6 +1015,7 @@ zones = [{ material = "water", rings = 1 }]
                 bounds: vec![1e7, 0.625, 1e-5],
                 files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
                 pins: false,
+                split: 1,
             })
         );
         assert_eq!(input.pin_powers, None);
@@ -1426,6 +1427,7 @@ zones = [{ material = "water", rings = 1 }]
                 ),
             ]),
             pins: false,
+            split: 1,
         };
         assert_eq!(input.output, Some(expected));
     }
@@ -1447,6 +1449,26 @@ zones = [{ material = "water", rings = 1 }]
         let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], pins = true";
         let err = few_group(nodes).unwrap_err().to_string();
         assert!(err.contains("pins"), "{err}");
+    }
+
+    #[test]
+    fn few_group_may_split_the_lattice() {
+        // 格子全体を n × n の部分ノードに分けた定数（ADR-0108）。省略すると 1。nodes とは使えない
+        let few_group = |entry: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = [1e7, 1e-5]{entry} }}"),
+            )
+        };
+        let input = few_group(", output = \"a\", split = 2").unwrap();
+        assert_eq!(input.output.map(|o| o.split), Some(2));
+        let input = few_group(", output = \"a\"").unwrap();
+        assert_eq!(input.output.map(|o| o.split), Some(1));
+        assert!(few_group(", output = \"a\", split = 0").is_err());
+        let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], split = 2";
+        let err = few_group(nodes).unwrap_err().to_string();
+        assert!(err.contains("split"), "{err}");
     }
 
     #[test]
