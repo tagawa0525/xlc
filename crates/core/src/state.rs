@@ -108,8 +108,9 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
     }
 }
 
-/// `acc += w * f`。項目を足したらここで扱いを決める（`..` を使わない）
-fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) {
+/// `acc += w * f`。項目を足したらここで扱いを決める（`..` を使わない）。真空の辺、形状関数の有無とセルは
+/// どの状態でも同じはず（テーブルの検査）で、違えばエラー
+fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
     let FewGroup {
         bounds: _,
         k_inf,
@@ -138,21 +139,26 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) {
     for (a, x) in acc.adf.iter_mut().zip(adf) {
         add(a, w, x);
     }
-    // 真空の辺はどの状態でも同じ（テーブルの検査）
     for (a, x) in acc.vacuum_ratio.iter_mut().zip(vacuum_ratio) {
-        if let (Some(a), Some(x)) = (a, x) {
-            add(a, w, x);
+        match (a, x) {
+            (Some(a), Some(x)) => add(a, w, x),
+            (None, None) => {}
+            _ => return Err("the table states differ in their vacuum sides".into()),
         }
     }
-    // 形状関数の有無とセルはどの状態でも同じ（テーブルの検査）
-    if let (Some(a), Some(x)) = (&mut acc.pins, pins) {
-        for (a, x) in a.form.iter_mut().flatten().zip(x.form.iter().flatten()) {
-            add(a, w, x);
+    match (&mut acc.pins, pins) {
+        (Some(a), Some(x)) if a.dx == x.dx && a.dy == x.dy => {
+            for (a, x) in a.form.iter_mut().flatten().zip(x.form.iter().flatten()) {
+                add(a, w, x);
+            }
+            for (a, x) in a.corners.iter_mut().zip(&x.corners) {
+                add(a, w, x);
+            }
         }
-        for (a, x) in a.corners.iter_mut().zip(&x.corners) {
-            add(a, w, x);
-        }
+        (None, None) => {}
+        _ => return Err("the table states differ in their pins (form functions)".into()),
     }
+    Ok(())
 }
 
 /// `acc += w * x`（同じ形の量どうし）
@@ -218,7 +224,7 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, Str
             .states
             .get(index)
             .ok_or_else(|| format!("the table has no state {index}"))?;
-        accumulate(&mut out, weight, s);
+        accumulate(&mut out, weight, s)?;
     }
     // 凸結合なので値の検査は通るはずだが、ソルバに渡す前に確かめる
     out.validate().map_err(|e| e.to_string())?;

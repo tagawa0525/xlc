@@ -181,3 +181,18 @@ fn tables_without_axes_need_no_state() {
     );
     assert!(interpolate(&single, Some(&state(1300.0, 565.0, 565.0))).is_err());
 }
+
+#[test]
+fn states_differing_in_pins_are_errors() {
+    // テーブルの検査を経ずに作ったテーブルでも、形状関数の有無やセルが状態で違えば黙って内挿しない
+    let mut t = table();
+    t.states[1].pins = None;
+    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0))).unwrap_err();
+    assert!(err.contains("pins"), "{err}");
+    let mut t = table();
+    if let Some(p) = t.states[1].pins.as_mut() {
+        p.dx[0] = 1.5;
+    }
+    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0))).unwrap_err();
+    assert!(err.contains("pins"), "{err}");
+}
