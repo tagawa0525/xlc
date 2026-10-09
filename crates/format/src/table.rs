@@ -3,7 +3,9 @@
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`boron`、`moderator`、`fuel`）と
 //! `points`（昇順。ppm か K）。`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の原子分率）も持つ）,
-//! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。各状態は少数群定数の `bounds` 以外の項目。`pins` は
+//! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
+//! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
+//! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`pins` は
 //! `dx`、`dy`、`form`、`corners` を持つ map か nil で、キーは省けない）。
 //! 軸のないテーブルは状態が1つ。
 
@@ -47,7 +49,10 @@ impl Axis {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Table {
     pub axes: Vec<Axis>,
-    /// 軸の直積の順（最初の軸がいちばん遅く変わる）
+    /// 集合体を各方向に分けたノードの数（ADR-0108）。分けなければ 1
+    pub split: usize,
+    /// 軸の直積の順（最初の軸がいちばん遅く変わる）の状態ごとに、split × split の部分ノードの定数（部分ノードが
+    /// いちばん速く変わる。部分ノードは -y の行から、各行は -x から）
     pub states: Vec<FewGroup>,
 }
 
@@ -76,6 +81,7 @@ struct TableFile {
     format: String,
     bounds: Vec<f64>,
     axes: Vec<AxisFile>,
+    split: usize,
     states: Vec<StateFile>,
 }
 
@@ -127,8 +133,14 @@ impl Table {
     pub fn single(state: FewGroup) -> Self {
         Self {
             axes: Vec::new(),
+            split: 1,
             states: vec![state],
         }
+    }
+
+    /// 状態ごとの部分ノードの数（split²）
+    pub fn sub_nodes(&self) -> usize {
+        self.split * self.split
     }
 
     /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印、真空の辺）を確かめる。
@@ -173,17 +185,23 @@ impl Table {
                 _ => {}
             }
         }
-        let expected: usize = self.axes.iter().map(|a| a.points().len()).product();
-        if self.states.len() != expected {
+        if self.split == 0 {
+            return invalid("split must be positive".into());
+        }
+        let points: usize = self.axes.iter().map(|a| a.points().len()).product();
+        let sub = self.sub_nodes();
+        if self.states.len() != points * sub {
             return invalid(format!(
-                "{} states for axes of {expected} points in all",
+                "{} states for axes of {points} points in all and {sub} sub-nodes per point",
                 self.states.len()
             ));
         }
-        let Some(first) = self.states.first() else {
+        if self.states.is_empty() {
             return invalid("no states".into());
-        };
+        }
         for (i, state) in self.states.iter().enumerate() {
+            // 状態の間で比べる量は、状態 0 の同じ部分ノードと比べる
+            let first = &self.states[i % sub];
             state
                 .validate()
                 .map_err(|source| TableError::State { state: i, source })?;
@@ -198,14 +216,14 @@ impl Table {
                 || vacuum(state) != vacuum(first)
             {
                 return invalid(format!(
-                    "state {i}: group bounds, f* sides and vacuum sides must equal those of state 0"
+                    "state {i}: group bounds, f* sides and vacuum sides must equal those of the same sub-node of state 0"
                 ));
             }
             // 形状関数は状態ごとに内挿するので、どの状態も持つか持たないかで、セルの境界も同じ
             let cells = |s: &FewGroup| s.pins.as_ref().map(|p| (p.dx.clone(), p.dy.clone()));
             if cells(state) != cells(first) {
                 return invalid(format!(
-                    "state {i}: pins (form functions) and their cells must equal those of state 0"
+                    "state {i}: pins (form functions) and their cells must equal those of the same sub-node of state 0"
                 ));
             }
         }
@@ -263,6 +281,7 @@ impl Table {
             format: FORMAT.into(),
             bounds,
             axes,
+            split: self.split,
             states,
         })?)
     }
@@ -314,7 +333,11 @@ impl Table {
                 }),
             })
             .collect();
-        let table = Self { axes, states };
+        let table = Self {
+            axes,
+            split: file.split,
+            states,
+        };
         table.validate()?;
         Ok(table)
     }

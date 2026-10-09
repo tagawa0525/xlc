@@ -45,6 +45,7 @@ fn table() -> Table {
         }
     }
     Table {
+        split: 1,
         axes: vec![
             Axis::Boron {
                 ppm: PPM.to_vec(),
