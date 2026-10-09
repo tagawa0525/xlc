@@ -186,21 +186,43 @@ impl Cylinder {
         let n = self.radii.len();
         let mut tracks = vec![vec![0.0; n]; n];
         let mut escapes = vec![0.0; n];
+        // 弦の上の区間の境界の対 (p, q) の間の光学的距離 τ_p + … + τ_{q−1} の Ki3。弦ごとに必要になった対だけ求める
+        // （NaN は未計算）。光学的距離は区間 p から順に足す（弦の始めから足した和の差にすると、厚い区間の後で丸めが
+        // 大きくなる）。`between`（区間 a+1 から b−1 まで順に足したもの）は (a+1, b) の和と同じ順に足している
+        let longest = self
+            .chords
+            .iter()
+            .map(|c| c.segments.len())
+            .max()
+            .unwrap_or(0)
+            + 1;
+        let mut memo = vec![f64::NAN; longest * longest];
+        // 弦ごとに作り直さず再利用する
+        let mut path: Vec<Path> = Vec::with_capacity(longest);
+        let mut collided: Vec<f64> = Vec::with_capacity(longest);
         for chord in &self.chords {
             let weight = 2.0 * chord.weight;
-            let path: Vec<Path> = chord
-                .segments
-                .iter()
-                .map(|&(ring, length)| Path {
-                    ring,
-                    length,
-                    total: totals[ring],
-                    tau: totals[ring] * length,
-                })
-                .collect();
+            path.clear();
+            path.extend(chord.segments.iter().map(|&(ring, length)| Path {
+                ring,
+                length,
+                total: totals[ring],
+                tau: totals[ring] * length,
+            }));
             let last = path.len() - 1;
+            memo[..(path.len() + 1) * longest].fill(f64::NAN);
+            let taus: Vec<f64> = path.iter().map(|p| p.tau).collect();
+            let mut k3 = |p: usize, q: usize| -> f64 {
+                let slot = &mut memo[p * longest + q];
+                if slot.is_nan() {
+                    let optical: f64 = taus[p..q].iter().sum();
+                    *slot = small(ki3, optical);
+                }
+                *slot
+            };
             // 区間ごとの、その区間から前に飛んで衝突する数 Σ_b Σb A_ab（自己の項を含む）
-            let mut collided = vec![0.0; path.len()];
+            collided.clear();
+            collided.resize(path.len(), 0.0);
             for (a, from) in path.iter().enumerate() {
                 let own = from.own();
                 tracks[from.ring][from.ring] += weight * own;
@@ -209,7 +231,18 @@ impl Cylinder {
                 // a + b ≤ L − 1 の対だけを求め、a + b < L − 1 の対は鏡映の分も A[i][j] の側に足す
                 let mut between = 0.0;
                 for (b, to) in path.iter().enumerate().take(last + 1 - a).skip(a + 1) {
-                    let value = from.to(to, between);
+                    // 光学的距離は弦に沿って増えるだけなので、表の範囲を超えたら先の対はどれも無視できる（[`NEGLIGIBLE`]。
+                    // Ki3 の差分の最初の項 (a+1, b) の引数も同じ値）
+                    if between >= NEGLIGIBLE {
+                        break;
+                    }
+                    // Ki3 の差分の4項は、境界の対 (a+1, b)、(a, b)、(a+1, b+1)、(a, b+1) の値
+                    let value = if from.direct(to) {
+                        (k3(a + 1, b) - k3(a, b) - k3(a + 1, b + 1) + k3(a, b + 1))
+                            / (from.total * to.total)
+                    } else {
+                        from.to(to, between)
+                    };
                     collided[a] += value * to.total;
                     if a + b < last {
                         tracks[from.ring][to.ring] += 2.0 * weight * value;
@@ -255,12 +288,19 @@ const CANCELLATION: f64 = 1e-6;
 /// 1e-8 程度に収まる
 const VOID_TABLE: f64 = 1e-2;
 
+/// 光学的距離がこれ以上なら Ki3、Ki2 を 0 とする（表の上端。Ki2(48) ≈ 2e-22 で、ほかの項（τ や Ki3(0) = π/4 の程度）
+/// に足しても倍精度の丸めより小さい。表の外を台形則で積分し直す手間を省く）
+const NEGLIGIBLE: f64 = MAX;
+
 impl Path {
     /// 単位の線源密度あたりの、同じ区間の中を飛ぶ長さ: [τ − Ki3(0) + Ki3(τ)]/Σ²
     fn own(&self) -> f64 {
         if self.tau == 0.0 {
             // τ → 0 の極限: ℓ² Ki1(0)/2
             return self.length.powi(2) * PI / 4.0;
+        }
+        if self.tau >= NEGLIGIBLE {
+            return (self.tau - ki3(0.0)) / (self.total * self.total);
         }
         if self.tau.min(1.0).powi(2) < CANCELLATION {
             // [τ − Ki3(0) + Ki3(τ)]/τ² = ∫ φ2(τ cosh t)/cosh t dt
@@ -270,7 +310,14 @@ impl Path {
         }
     }
 
-    /// 単位の線源密度あたりの、光学的距離 `between` だけ先の区間 `to` の中を飛ぶ長さ: D/(Σa Σb)
+    /// 区間の対の D/(Σa Σb) を、Ki3 の差分そのままで求めてよいか（打ち消し合いが小さい。真空の区間を含めば積は 0 で
+    /// 偽）。偽なら [`Path::to`] の極限や積分表示で求める
+    fn direct(&self, to: &Path) -> bool {
+        self.tau.min(1.0) * to.tau.min(1.0) >= CANCELLATION
+    }
+
+    /// Ki3 の差分では打ち消し合う対（[`Path::direct`] が偽）の、単位の線源密度あたりの、光学的距離 `between` だけ先の
+    /// 区間 `to` の中を飛ぶ長さ D/(Σa Σb)
     fn to(&self, to: &Path, between: f64) -> f64 {
         // 片方が真空なら、D/(τa τb) は真空の側の τ → 0 の極限で [Ki2(τab) − Ki2(τab + τ)]/τ になる（τ は他方）
         let other = match (self.tau == 0.0, to.tau == 0.0) {
@@ -279,19 +326,19 @@ impl Path {
             _ => None,
         };
         if let Some(tau) = other.filter(|&t| t >= VOID_TABLE) {
-            return self.length * to.length * (ki2(between) - ki2(between + tau)) / tau;
+            return self.length * to.length * (small(ki2, between) - small(ki2, between + tau))
+                / tau;
         }
-        if self.tau.min(1.0) * to.tau.min(1.0) < CANCELLATION {
-            // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
-            let integral =
-                trapezoid(|c| (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c);
-            self.length * to.length * integral
-        } else {
-            let d = ki3(between) - ki3(between + self.tau) - ki3(between + to.tau)
-                + ki3(between + self.tau + to.tau);
-            d / (self.total * to.total)
-        }
+        // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
+        let integral =
+            trapezoid(|c| (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c);
+        self.length * to.length * integral
     }
+}
+
+/// 引数が [`NEGLIGIBLE`] 以上なら 0 とした Ki_n
+fn small(ki: fn(f64) -> f64, x: f64) -> f64 {
+    if x >= NEGLIGIBLE { 0.0 } else { ki(x) }
 }
 
 /// φ1(z) = (1 − exp(−z))/z
