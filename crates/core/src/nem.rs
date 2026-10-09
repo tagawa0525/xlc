@@ -856,24 +856,29 @@ mod tests {
         );
     }
 
-    #[test]
-    fn face_currents_balance_each_node() {
-        // ピン出力の再構成（ADR-0096）は面の正味の流れを条件にするので、解の流れは各ノードの釣り合いを
-        // （反復の収束の程度で）満たし、隣のノードと面で一致し、反射の面で 0 であること
-        let mut boundaries = [Boundary::ZeroFlux; 6];
-        boundaries[0] = Boundary::Reflective;
-        boundaries[3] = Boundary::Reflective;
-        let p = cuboid([60.0, 80.0, 100.0], [3, 4, 5], boundaries);
-        let (core, s, _) = solve_state(&p);
-        let m = material();
-        let ng = m.groups();
-        let widths = [20.0, 20.0, 20.0];
+    /// 解の面の正味の流れが、各ノードの釣り合いを（反復の収束の程度で）満たし、隣のノードと面で一致し、
+    /// 反射の面で 0、外周の面の和が漏れに等しく、Marshak の面で J = f φ/4·2 = f (o + i) であること
+    fn assert_face_currents(p: &Problem) {
+        let (core, s, state) = solve_state(p);
+        let ng = core.groups;
+        let scale = s
+            .currents
+            .iter()
+            .flatten()
+            .flatten()
+            .flatten()
+            .fold(0.0, |a: f64, j| a.max(j.abs()));
+        assert!(scale > 0.0);
         for n in 0..core.nodes() {
+            let m = core.material(n);
             let phi = &s.flux[n];
             let fission: f64 = (0..ng).map(|g| m.nu_fission[g] * phi[g]).sum::<f64>() / s.k;
             for g in 0..ng {
                 let leakage: f64 = (0..3)
-                    .map(|d| (s.currents[d][n][g][1] - s.currents[d][n][g][0]) / widths[d])
+                    .map(|d| {
+                        let [minus, plus] = s.currents[d][n][g];
+                        (plus - minus) / core.width(n, d)
+                    })
                     .sum();
                 let scattering_in: f64 = (0..ng)
                     .filter(|&h| h != g)
@@ -887,24 +892,96 @@ mod tests {
                 );
             }
         }
+        let mut outer = vec![0.0; ng];
         for n in 0..core.nodes() {
             for d in 0..3 {
-                for g in 0..ng {
+                let area = core.volume(n) / core.width(n, d);
+                for (g, out) in outer.iter_mut().enumerate() {
                     let [minus, plus] = s.currents[d][n][g];
-                    match core.neighbor(n, d, 1) {
-                        Some(next) => {
-                            let other = s.currents[d][next][g][0];
-                            assert!((plus - other).abs() < 1e-12, "node {n} direction {d}");
+                    for (step, index, current) in [(-1, 0, -minus), (1, 1, plus)] {
+                        if let Some(next) = core.neighbor(n, d, step) {
+                            let other = s.currents[d][next][g][1 - index];
+                            let own = if step > 0 { plus } else { minus };
+                            assert!(
+                                (own - other).abs() < 1e-12 * scale,
+                                "node {n} direction {d}: {own} vs {other}"
+                            );
+                            continue;
                         }
-                        None if d == 1 => assert!(plus.abs() < 1e-12, "reflective +y of {n}"),
-                        None => {}
-                    }
-                    if d == 0 && core.neighbor(n, d, -1).is_none() {
-                        assert!(minus.abs() < 1e-12, "reflective -x of {n}");
+                        *out += area * current;
+                        match p.boundaries[2 * d + index] {
+                            Boundary::Reflective => {
+                                assert!(current.abs() < 1e-12 * scale, "reflective face of {n}");
+                            }
+                            Boundary::Marshak => {
+                                let (o, i) = if step > 0 {
+                                    let (_, i) = core.incoming(&state, n, d, g);
+                                    (state.out_plus[d][n][g], i)
+                                } else {
+                                    let (i, _) = core.incoming(&state, n, d, g);
+                                    (state.out_minus[d][n][g], i)
+                                };
+                                let f = core.adf(n, d, step > 0, g);
+                                assert!(
+                                    (current - f * (o + i)).abs() < 1e-12 * scale,
+                                    "Marshak face of {n}"
+                                );
+                            }
+                            _ => assert!(current > 0.0, "outer face of {n} must leak"),
+                        }
                     }
                 }
             }
         }
+        for (g, (out, leak)) in outer.iter().zip(&s.leakage).enumerate() {
+            assert!(
+                (out - leak).abs() < 1e-12 * leak.abs().max(1e-300),
+                "group {g}: {out} vs {leak}"
+            );
+        }
+    }
+
+    #[test]
+    fn face_currents_balance_each_node() {
+        // ピン出力の再構成（ADR-0096）は面の正味の流れを条件にする
+        let mut boundaries = [Boundary::ZeroFlux; 6];
+        boundaries[0] = Boundary::Reflective;
+        boundaries[3] = Boundary::Reflective;
+        assert_face_currents(&cuboid([60.0, 80.0, 100.0], [3, 4, 5], boundaries));
+    }
+
+    #[test]
+    fn face_currents_are_continuous_across_adf_jumps() {
+        // 燃料と反射体（核分裂がないので ANM。ADR-0102）の 2D で、ADF が面で違い、+x は Marshak。
+        // 正味の流れは ADF の跳びによらず面で連続
+        let mut fuel = material();
+        fuel.adf = vec![
+            vec![1.1, 0.9],
+            vec![0.95, 1.2],
+            vec![1.05, 0.85],
+            vec![1.0, 1.1],
+        ];
+        let mut water = reflector();
+        water.adf = vec![
+            vec![0.8, 1.3],
+            vec![1.2, 0.7],
+            vec![0.9, 1.4],
+            vec![1.1, 0.75],
+        ];
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        boundaries[2] = Boundary::ZeroFlux;
+        let p = Problem {
+            mesh: Mesh {
+                dx: vec![10.0, 10.0, 10.0, 10.0],
+                dy: vec![10.0, 10.0],
+                dz: vec![20.0],
+            },
+            materials: vec![fuel, water],
+            node_material: vec![0, 0, 1, 1, 0, 1, 1, 1],
+            boundaries,
+        };
+        assert_face_currents(&p);
     }
 
     #[test]
