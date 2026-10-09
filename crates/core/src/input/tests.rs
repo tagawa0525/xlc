@@ -487,3 +487,22 @@ fn assembly_fission_rates_follow_the_map() {
         }
     }
 }
+
+#[test]
+fn case_reads_the_core_state() {
+    let text = format!("{CASE}\n[state]\nboron = 1291\nb10 = 0.199\nmoderator = 565\nfuel = 565\n");
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(
+        c.state,
+        Some(State {
+            boron: 1291.0,
+            b10: 0.199,
+            moderator: 565.0,
+            fuel: 565.0
+        })
+    );
+    assert_eq!(case().state, None);
+    // 4つとも必須
+    let partial = format!("{CASE}\n[state]\nboron = 1291\nmoderator = 565\nfuel = 565\n");
+    assert!(Case::parse(&partial, base()).is_err());
+}
