@@ -104,6 +104,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
                 .map(|g| g.iter().map(|row| v(row)).collect())
                 .collect(),
             corners: p.corners.iter().map(|c| v(c)).collect(),
+            halves: p.halves.clone(),
         }),
     }
 }
@@ -147,7 +148,7 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
         }
     }
     match (&mut acc.pins, pins) {
-        (Some(a), Some(x)) if a.dx == x.dx && a.dy == x.dy => {
+        (Some(a), Some(x)) if a.dx == x.dx && a.dy == x.dy && a.halves == x.halves => {
             for (a, x) in a.form.iter_mut().flatten().zip(x.form.iter().flatten()) {
                 add(a, w, x);
             }
@@ -168,17 +169,18 @@ fn add(acc: &mut [f64], w: f64, x: &[f64]) {
     }
 }
 
-/// テーブルを炉心の状態で内挿した少数群定数。`state` が `None` なら、軸のないテーブルの状態をそのまま返す。
-pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, String> {
+/// テーブルを炉心の状態で内挿した、部分ノードごと（`Table::states` の部分ノードの順。分けていなければ1つ）の少数群
+/// 定数。`state` が `None` なら、軸のないテーブルの状態をそのまま返す。
+pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>, String> {
+    let sub = table.sub_nodes();
     let Some(state) = state else {
         if !table.axes.is_empty() {
             return Err("the table has branch axes; give the core [state]".into());
         }
-        return table
-            .states
-            .first()
-            .cloned()
-            .ok_or_else(|| "the table has no states".to_string());
+        if table.states.len() != sub || sub == 0 {
+            return Err("the table has no states".into());
+        }
+        return Ok(table.states.clone());
     };
     // 軸がないことを、ほかの軸の範囲の外より先に示す（テーブルの検査で同じ軸は2つない）
     for name in ["boron", "moderator", "fuel"] {
@@ -206,9 +208,11 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, Str
         });
     }
 
-    let first = table.states.first().ok_or("the table has no states")?;
-    let mut out = scaled(first, 0.0);
-    // 隣の 2^d 個の格子点の重みつきの和（最初の軸がいちばん遅く変わる並び）
+    let mut out: Vec<FewGroup> = (0..sub)
+        .map(|q| table.states.get(q).map(|s| scaled(s, 0.0)))
+        .collect::<Option<_>>()
+        .ok_or("the table has no states")?;
+    // 隣の 2^d 個の格子点の重みつきの和（最初の軸がいちばん遅く変わる並び）。部分ノードごとに足す
     for corner in 0..1usize << brackets.len() {
         let mut index = 0;
         let mut weight = 1.0;
@@ -220,14 +224,18 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, Str
         if weight == 0.0 {
             continue;
         }
-        let s = table
-            .states
-            .get(index)
-            .ok_or_else(|| format!("the table has no state {index}"))?;
-        accumulate(&mut out, weight, s)?;
+        for (q, acc) in out.iter_mut().enumerate() {
+            let s = table
+                .states
+                .get(index * sub + q)
+                .ok_or_else(|| format!("the table has no state {index} sub-node {q}"))?;
+            accumulate(acc, weight, s)?;
+        }
     }
     // 凸結合なので値の検査は通るはずだが、ソルバに渡す前に確かめる
-    out.validate().map_err(|e| e.to_string())?;
+    for f in &out {
+        f.validate().map_err(|e| e.to_string())?;
+    }
     Ok(out)
 }
 

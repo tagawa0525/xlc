@@ -1,0 +1,6 @@
+# 集合体を 1 × 1 のノードに分けたケース。
+cycle = "cycle-1.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+pin-powers = "core-pins-1.msgpack"

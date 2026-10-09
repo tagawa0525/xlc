@@ -23,6 +23,7 @@ fn sample() -> Table {
                 temperature: vec![565.0],
             },
         ],
+        split: 1,
         states: (0..4).map(|i| state(3.0 + f64::from(i))).collect(),
     }
 }
@@ -193,6 +194,13 @@ fn pins_round_trip_and_share_cells() {
     }
     let err = table.validate().unwrap_err().to_string();
     assert!(err.contains("pins"), "{err}");
+    // 分け合ったセルの印も状態の間で同じ
+    let mut table = with_pins(sample());
+    if let Some(p) = table.states[1].pins.as_mut() {
+        p.halves[0] = !p.halves[0];
+    }
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("pins"), "{err}");
     let mut table = with_pins(sample());
     table.states[3].pins = None;
     let err = table.validate().unwrap_err().to_string();
@@ -227,4 +235,41 @@ fn states_need_the_pins_key() {
     rmpv::encode::write_value(&mut out, &value).unwrap();
     let err = Table::from_msgpack(&out).unwrap_err().to_string();
     assert!(err.contains("pins") || err.contains("missing"), "{err}");
+}
+
+#[test]
+fn split_tables_hold_sub_nodes_per_state() {
+    // 集合体を 2 × 2 に分けたテーブル（ADR-0108）は、状態ごとに部分ノードの定数を 4 つ持つ（部分ノードがいちばん
+    // 速く変わる）
+    let mut table = sample();
+    table.split = 2;
+    table.states = (0..16).map(|i| state(3.0 + f64::from(i))).collect();
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+    assert_eq!(table.sub_nodes(), 4);
+    // 状態の数 × 部分ノードの数でないとエラー
+    let mut short = table.clone();
+    short.states.pop();
+    assert!(short.validate().is_err());
+    let mut zero = table.clone();
+    zero.split = 0;
+    assert!(zero.validate().is_err());
+    // 状態の間で比べる量（真空の辺など）は、同じ部分ノードどうしで比べる
+    // （部分ノード 1 だけ印を変えるのはよいが、ある状態の部分ノード 1 だけ違えばエラー）
+    let mut mixed = table.clone();
+    for state in 0..4 {
+        mixed.states[4 * state + 1].normalized_adf[0] = false;
+    }
+    assert!(mixed.validate().is_ok());
+    mixed.states[5].normalized_adf[0] = true;
+    let err = mixed.validate().unwrap_err().to_string();
+    assert!(err.contains("state"), "{err}"); // 群境界は表全体の量なので、部分ノードで違えばエラー（ファイルには1つしか書かない）
+    let mut bounds = table.clone();
+    for state in 0..4 {
+        bounds.states[4 * state + 1].bounds = vec![2.0e7, 0.625, 1.0e-5];
+    }
+    let err = bounds.validate().unwrap_err().to_string();
+    assert!(err.contains("bounds"), "{err}");
 }

@@ -1,0 +1,10 @@
+# 2B の集合体の台帳（テーブルの分割 2 × 2）。
+[design.2B]
+bounds = [0.0, 21.5]
+layers = ["fg-2.msgpack"]
+
+[assembly.A01]
+design = "2B"
+
+[assembly.A02]
+design = "2B"
