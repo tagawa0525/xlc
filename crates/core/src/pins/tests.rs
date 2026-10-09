@@ -28,6 +28,7 @@ fn fuel(width: f64, cells: usize) -> FewGroup {
             dy: vec![width / cells as f64; cells],
             form: vec![vec![vec![1.0; cells]; cells]; 2],
             corners: vec![vec![1.0, 1.0]; 4],
+            halves: vec![false; 4],
         }),
     }
 }
@@ -225,4 +226,45 @@ fn layers_without_fission_are_skipped() {
     assert_eq!((rows.len(), rows[0].len()), (8, 8));
     let mean = rows.iter().flatten().sum::<f64>() / 64.0;
     assert!((mean - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn core_rows_merge_halves_of_split_cells() {
+    // 2 × 1 の部分ノード（ADR-0108）。左のノードの +x の辺と右のノードの -x の辺のセルは、1つのセルを半分ずつ分けた
+    // もので、面積で重み付けして1つに戻す（幅 0.5 と 0.3 の半分のセル、出力の密度 2 と 4 → (2·0.5 + 4·0.3)/0.8 = 2.75）
+    let mut left = fuel(2.0, 2);
+    let mut right = fuel(2.0, 2);
+    if let (Some(l), Some(r)) = (left.pins.as_mut(), right.pins.as_mut()) {
+        l.dx = vec![1.5, 0.5];
+        l.halves = vec![false, true, false, false];
+        r.dx = vec![0.3, 1.7];
+        r.halves = vec![true, false, false, false];
+    }
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![2.0, 2.0],
+            dy: vec![2.0],
+            dz: vec![1.0],
+        },
+        materials: vec![left, right],
+        node_material: vec![0, 1],
+        boundaries: [Boundary::Reflective; 6],
+    };
+    let maps = vec![
+        vec![vec![1.0, 2.0], vec![1.0, 2.0]],
+        vec![vec![4.0, 1.0], vec![4.0, 1.0]],
+    ];
+    let rows = core_rows(&p, &maps).unwrap();
+    let mean = (1.0 + 2.75 + 1.0) / 3.0;
+    for row in &rows {
+        for (got, want) in row.iter().zip([1.0, 2.75, 1.0]) {
+            assert!((got - want / mean).abs() < 1e-14, "{rows:?}");
+        }
+    }
+    // 片方の辺だけに印があればエラー
+    let mut one_sided = p.clone();
+    if let Some(r) = one_sided.materials[1].pins.as_mut() {
+        r.halves = vec![false; 4];
+    }
+    assert!(core_rows(&one_sided, &maps).is_err());
 }
