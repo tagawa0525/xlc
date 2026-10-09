@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-09
 supersedes: []
 superseded-by:
@@ -35,8 +35,8 @@ Phys. C 45, 030003 (2021)）の H-1 1.00782503223、O-16 15.99491461957、B-10 1
 
 ## 確認
 
-VERA の Problem 5 の減速材（565 K、0.743 g/cm³、B-10 19.9 at%）の 1285、1291、1170、1230 ppm の個数密度の表と、表示の
-6 桁で一致することをテストで確かめる。
+VERA の Problem 5 の減速材（565 K、0.743 g/cm³、B-10 19.9 at%）の 1285、1291、1170、1230 ppm の個数密度の表と、
+相対差 10⁻⁵ 以内（表示の 6 桁）で一致する（crates/lattice/src/input.rs の `borated_water_matches_vera_number_densities`）。
 
 ## 結果
 
