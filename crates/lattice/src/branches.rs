@@ -9,7 +9,7 @@
 //! fuel = { temperature = [550, 565, 580], materials = ["fuel"] }
 //! ```
 //!
-//! 軸は boron、moderator、fuel の順に並べ、書かない軸は持たない。温度の軸が変える物質は名前で挙げ、物質の種類から
+//! 軸は boron、moderator、fuel の順に並べ、3つとも書く（core は状態を与えるとき3つの軸をすべて求める）。温度の軸が変える物質は名前で挙げ、物質の種類から
 //! 推測しない。同じ物質を2つの温度の軸に挙げられない。
 
 use std::collections::BTreeMap;
@@ -235,6 +235,10 @@ impl BranchesEntry {
         }
         if axes.is_empty() {
             return Err("branches: no axes".into());
+        }
+        // core は状態を与えるとき3つの軸をすべて求める（ADR-0097）
+        if axes.len() != 3 {
+            return Err("branches: give all three axes (boron, moderator and fuel)".into());
         }
 
         let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
