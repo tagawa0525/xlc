@@ -9,3 +9,4 @@ pub mod fewgroup;
 pub mod group;
 pub mod library;
 pub mod msgpack;
+pub mod table;
