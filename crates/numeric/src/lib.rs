@@ -7,5 +7,6 @@
 
 pub mod anm;
 pub mod equivalence;
+pub mod lu;
 pub mod nem;
 pub mod quadrature;
