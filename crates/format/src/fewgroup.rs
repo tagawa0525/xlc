@@ -28,6 +28,22 @@ pub struct FewGroup {
     /// f* = f_反射体 / f_燃料 である辺（反射体の定数の、燃料と接する辺。ADR-0095）。core は、その辺の ADF を
     /// f* × 隣のノードの ADF とする
     pub normalized_adf: Vec<bool>,
+    /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。外周がすべて鏡面反射の単一の格子でだけ作る
+    pub pins: Option<Pins>,
+}
+
+/// 格子のセルごとの形状関数と、ノードの角の不連続因子（ADR-0096）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pins {
+    /// セルの x 方向の境界 (cm)。ノードの -x の辺を 0 とする昇順で、最後はノードの幅
+    pub x: Vec<f64>,
+    /// セルの y 方向の境界 (cm)。ノードの -y の辺を 0 とする昇順で、最後はノードの高さ
+    pub y: Vec<f64>,
+    /// [群][行（-y から）][列（-x から）] の形状関数（セルの群の核分裂率の平均 / ノードの群の核分裂率の平均）。
+    /// 核分裂のないセルは 0
+    pub form: Vec<Vec<Vec<f64>>>,
+    /// [角（-x -y、+x -y、+x +y、-x +y の順）][群] の角の不連続因子（角の不均質な中性子束 / 角の均質な中性子束）
+    pub corners: Vec<Vec<f64>>,
 }
 
 /// 少数群定数の値の誤り。
@@ -149,9 +165,53 @@ pub(crate) fn sample() -> FewGroup {
     }
 }
 
+/// テストのピンの形状（余白の列 1 と、ピンの列 2 の 3×2 のセル。2群）
+#[cfg(test)]
+pub(crate) fn sample_pins() -> Pins {
+    let x = |v: f64| v / 3.0;
+    Pins {
+        x: vec![0.0, 0.04, 1.3, 2.56],
+        y: vec![0.0, 1.26, 2.52],
+        form: vec![
+            vec![vec![0.0, x(3.1), x(2.9)], vec![0.0, x(3.2), x(2.8)]],
+            vec![vec![0.0, x(3.3), x(2.7)], vec![0.0, x(3.0), x(3.0)]],
+        ],
+        corners: vec![vec![x(2.5), x(3.5)]; 4],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pins_are_checked() {
+        // ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。境界は 0 から増え、形状関数は
+        // [群][行][列] でセルの数だけあり、負でない。角の不連続因子は 4 つの角に群の数だけあり、正
+        let with = |pins: Pins| FewGroup {
+            pins: Some(pins),
+            ..sample()
+        };
+        assert!(with(sample_pins()).validate().is_ok());
+        let bad = |change: fn(&mut Pins), word: &str| {
+            let mut pins = sample_pins();
+            change(&mut pins);
+            let err = with(pins).validate().unwrap_err().to_string();
+            assert!(err.contains(word), "{err}");
+        };
+        bad(|p| p.x[0] = 0.01, "pins");
+        bad(|p| p.x.swap(1, 2), "pins");
+        bad(|p| p.y = vec![0.0], "pins");
+        bad(|p| p.y[2] = f64::INFINITY, "pins");
+        bad(|p| p.form.pop().map(drop).unwrap_or(()), "form");
+        bad(|p| p.form[0].pop().map(drop).unwrap_or(()), "form");
+        bad(|p| p.form[1][0].pop().map(drop).unwrap_or(()), "form");
+        bad(|p| p.form[0][1][2] = -0.1, "form");
+        bad(|p| p.form[0][1][2] = f64::NAN, "form");
+        bad(|p| p.corners.pop().map(drop).unwrap_or(()), "corners");
+        bad(|p| p.corners[2] = vec![1.0], "corners");
+        bad(|p| p.corners[3][1] = 0.0, "corners");
+    }
 
     #[test]
     fn validate_checks_values_in_memory() {

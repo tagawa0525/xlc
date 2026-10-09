@@ -170,3 +170,31 @@ fn reading_rejects_wrong_axis_fields() {
         edit(|v| axis(v, 2).push(("density".into(), vec![rmpv::Value::from(0.7)].into()))).is_err()
     );
 }
+
+#[test]
+fn pins_round_trip_and_share_cells() {
+    // 形状関数と角の不連続因子も状態ごとに持ち、セルの境界はすべての状態で同じ（ADR-0096）
+    let with_pins = |mut table: Table| {
+        for (i, s) in table.states.iter_mut().enumerate() {
+            let mut pins = crate::fewgroup::sample_pins();
+            pins.form[0][1][1] += f64::from(u8::try_from(i).unwrap()) / 7.0;
+            s.pins = Some(pins);
+        }
+        table
+    };
+    let table = with_pins(sample());
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+    let mut table = with_pins(sample());
+    if let Some(p) = table.states[2].pins.as_mut() {
+        p.x[1] = 0.05;
+    }
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("pins"), "{err}");
+    let mut table = with_pins(sample());
+    table.states[3].pins = None;
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("pins"), "{err}");
+}
