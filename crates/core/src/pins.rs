@@ -209,6 +209,13 @@ pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f6
         .collect())
 }
 
+/// セルの大きさの並びが、丸めの程度（全体の 1e-9）で等しいか。切ったセルの幅は、回した集合体と回していない集合体で
+/// 最後の桁が違いうる（座標の引き算の丸め）
+fn same_sizes(a: &[f64], b: &[f64]) -> bool {
+    let scale: f64 = b.iter().sum();
+    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| (x - y).abs() <= 1e-9 * scale)
+}
+
 /// 層 k の炉心全体のセルの出力 [行（-y から）][列]。分け合ったセルは面積で重み付けして1つに戻す
 fn layer_grid(
     problem: &Problem,
@@ -225,7 +232,7 @@ fn layer_grid(
     for i in 0..nx {
         let first = &pins(i, 0)?.dx;
         for j in 0..ny {
-            if pins(i, j)?.dx != *first {
+            if !same_sizes(&pins(i, j)?.dx, first) {
                 return Err(format!(
                     "layer {k}: the nodes of column {i} have different cell widths"
                 ));
@@ -237,7 +244,7 @@ fn layer_grid(
     for j in 0..ny {
         let first = &pins(0, j)?.dy;
         for i in 0..nx {
-            if pins(i, j)?.dy != *first {
+            if !same_sizes(&pins(i, j)?.dy, first) {
                 return Err(format!(
                     "layer {k}: the nodes of row {j} have different cell heights"
                 ));
