@@ -2252,4 +2252,209 @@ mod tests {
         .to_string();
         assert!(err.contains("margin"), "{err}");
     }
+
+    /// `layout` のピン（0 が燃料、1 が水）の周りに幅 0.04 の余白を付けた格子、物質、鏡面反射の解と、集合体の定数
+    fn assembly(layout: Vec<Vec<usize>>) -> (Lattice, Solution, Vec<Material>, FewGroup) {
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::with_margin(vec![pin, cell], layout, 0.04).unwrap();
+        let materials: Vec<Material> = (0..lattice.cells())
+            .flat_map(|cell| {
+                let fuelled = lattice
+                    .cell_type(cell)
+                    .pin()
+                    .is_some_and(|p| !p.radii().is_empty());
+                lattice
+                    .cell_regions(cell)
+                    .enumerate()
+                    .map(|(k, _)| {
+                        if fuelled && k == 0 {
+                            fuel.clone()
+                        } else {
+                            water.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        let mut few = homogenize(
+            &solution,
+            &refs,
+            &fine(),
+            fine().bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        few.pins = Some(
+            pin_shapes(
+                &solution,
+                &lattice,
+                &refs,
+                &fine(),
+                fine().bounds(),
+                &Boundaries::REFLECTIVE,
+            )
+            .unwrap(),
+        );
+        (lattice, solution, materials, few)
+    }
+
+    fn split_of(
+        (lattice, solution, materials, few): &(Lattice, Solution, Vec<Material>, FewGroup),
+        n: usize,
+    ) -> Result<Vec<FewGroup>, HomogenizeError> {
+        let refs: Vec<&Material> = materials.iter().collect();
+        split_constants(
+            few,
+            solution,
+            lattice,
+            &refs,
+            &fine(),
+            fine().bounds(),
+            &Boundaries::REFLECTIVE,
+            n,
+        )
+    }
+
+    #[test]
+    fn one_by_one_split_is_the_assembly() {
+        // 分けなければ、集合体の定数そのもの（ADR-0108）
+        let a = assembly(vec![vec![0, 1], vec![1, 0]]);
+        let subs = split_of(&a, 1).unwrap();
+        assert_eq!(subs.len(), 1);
+        // 集合体の ADF は、MOC の外周の正味の流れ（鏡面反射なので収束の程度で 0）を条件にした1ノードの NEM で作る。
+        // 分けた定数は均質な解を平らとするので、MOC の収束の程度で一致する
+        let close = |x: f64, y: f64| (x - y).abs() < 1e-8 * y.abs();
+        for (s, w) in subs[0].adf.iter().flatten().zip(a.3.adf.iter().flatten()) {
+            assert!(close(*s, *w), "{:?} vs {:?}", subs[0].adf, a.3.adf);
+        }
+        assert_eq!(subs[0].pins, a.3.pins);
+        assert_eq!(subs[0].total, a.3.total);
+    }
+
+    #[test]
+    fn two_by_two_split_takes_segment_fluxes() {
+        // 2 × 2 のピン（左上と右下が燃料）を 2 × 2 に分ける。分ける線はピンのセルの境に乗る。外周の辺の ADF は、
+        // その辺の半分の区間の面の中性子束 / ノード平均（トラックの体積）。内側の辺は 1。断面積は集合体のもの
+        let a = assembly(vec![vec![0, 1], vec![1, 0]]);
+        let (lattice, solution, _, few) = &a;
+        let subs = split_of(&a, 2).unwrap();
+        assert_eq!(subs.len(), 4);
+        let volume: f64 = solution.volumes.iter().sum();
+        let average: Vec<f64> = (0..2)
+            .map(|g| {
+                solution
+                    .flux
+                    .iter()
+                    .zip(&solution.volumes)
+                    .map(|(f, v)| v * f[g])
+                    .sum::<f64>()
+                    / volume
+            })
+            .collect();
+        // 左の辺（縦の面の線 0）の下の区間は行 2、3（行は上から。行 3 は余白）
+        let (rows, columns) = (lattice.rows(), lattice.columns());
+        let heights = lattice.heights();
+        let face = |row: usize| crate::cmfd::vertical_face(columns, row, 0);
+        for g in 0..2 {
+            let lower = (solution.face_fluxes[face(2)][g] * heights[2]
+                + solution.face_fluxes[face(3)][g] * heights[3])
+                / (heights[2] + heights[3]);
+            let got = subs[0].adf[0][g];
+            assert!((got - lower / average[g]).abs() < 1e-12 * got, "group {g}");
+            // 内側の辺（部分ノード 0 の右と上）は 1
+            assert_eq!((subs[0].adf[1][g], subs[0].adf[2][g]), (1.0, 1.0));
+        }
+        assert!(rows == 4 && columns == 4);
+        for s in &subs {
+            assert_eq!(
+                (&s.total, &s.diffusion, s.k_inf),
+                (&few.total, &few.diffusion, few.k_inf)
+            );
+        }
+        // 部分ノード 0（左下）の形状関数は、集合体の左下の 2 × 2 のセル。分ける線はセルの境なので半分のセルはない
+        let pins = subs[0].pins.as_ref().unwrap();
+        let whole = few.pins.as_ref().unwrap();
+        assert_eq!(pins.dx, vec![0.04, 1.26]);
+        assert_eq!(pins.dy, vec![0.04, 1.26]);
+        assert_eq!(pins.halves, vec![false; 4]);
+        for g in 0..2 {
+            assert_eq!(
+                pins.form[g],
+                vec![
+                    whole.form[g][0][..2].to_vec(),
+                    whole.form[g][1][..2].to_vec()
+                ]
+            );
+        }
+        // 集合体の外周の角（-x -y）は集合体の CDF（足し合わせの順の丸めまで）
+        for (got, want) in pins.corners[0].iter().zip(&whole.corners[0]) {
+            assert!((got - want).abs() < 1e-12 * want);
+        }
+        // 集合体の中心（部分ノード 0 の +x +y の角）は、4 つのピンのセルの角の領域の中性子束の平均
+        let center: Vec<f64> = (0..2)
+            .map(|g| {
+                let e = 1e-7;
+                [(e, e), (-e, e), (-e, -e), (e, -e)]
+                    .iter()
+                    .map(|&(x, y)| solution.flux[lattice.region_at(x, y)][g])
+                    .sum::<f64>()
+                    / 4.0
+                    / average[g]
+            })
+            .collect();
+        for g in 0..2 {
+            assert!((pins.corners[2][g] - center[g]).abs() < 1e-12 * center[g]);
+        }
+    }
+
+    #[test]
+    fn odd_lattices_split_through_the_middle_pins() {
+        // 3 × 3 のピンを 2 × 2 に分けると、中央の行と列のピンのセルを半分ずつに分ける
+        let a = assembly(vec![vec![0, 1, 0], vec![1, 0, 1], vec![0, 1, 0]]);
+        let subs = split_of(&a, 2).unwrap();
+        let pins = subs[0].pins.as_ref().unwrap();
+        let close = |got: &[f64], want: &[f64]| {
+            got.len() == want.len() && got.iter().zip(want).all(|(a, b)| (a - b).abs() < 1e-12)
+        };
+        assert!(close(&pins.dx, &[0.04, 1.26, 0.63]), "{:?}", pins.dx);
+        assert!(close(&pins.dy, &[0.04, 1.26, 0.63]), "{:?}", pins.dy);
+        assert_eq!(pins.halves, vec![false, true, true, false]);
+        let whole = a.3.pins.as_ref().unwrap();
+        // 半分のセルは元のセルの形状関数を持つ（中央のピンは行 2（下から）、列 2）
+        assert_eq!(pins.form[0][2][2], whole.form[0][2][2]);
+        // 右上の部分ノードは中央のピンの残りの半分から始まる
+        let top_right = subs[3].pins.as_ref().unwrap();
+        assert!(
+            close(&top_right.dx, &[0.63, 1.26, 0.04]),
+            "{:?}",
+            top_right.dx
+        );
+        assert_eq!(top_right.halves, vec![true, false, false, true]);
+    }
+
+    #[test]
+    fn splits_need_a_reflective_lattice() {
+        let a = assembly(vec![vec![0, 1], vec![1, 0]]);
+        let refs: Vec<&Material> = a.2.iter().collect();
+        let err = split_constants(
+            &a.3,
+            &a.1,
+            &a.0,
+            &refs,
+            &fine(),
+            fine().bounds(),
+            &vacuum(),
+            2,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("reflective"), "{err}");
+        assert!(split_of(&a, 0).is_err());
+    }
 }
