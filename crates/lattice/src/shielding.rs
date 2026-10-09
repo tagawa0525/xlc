@@ -16,6 +16,7 @@
 //! 範囲の群は flux calculator の中性子束で重みづけしてあり、この式は近似になる（ADR-0089）。
 //! σp は分離共鳴の範囲の s 波の散乱半径の値をすべての群に使う（非分離共鳴の範囲の p 波などは入れない）。
 
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
@@ -251,8 +252,66 @@ pub fn shield_fuel(
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する
     let orbits = cell_orbits(tracking, &region_index)?;
+    // 代表のピン（組ごとにセルの順で最初に現れるピン）は互いに独立なので、並列に解く（各ピンの中でも衝突確率を
+    // 並列に求めるが、ピンの減速計算は逐次なので、ピンの間でも並列にしてコアを埋める）。結果の物質の追加と領域への
+    // 割り当ては、下のループでピンの順に逐次に行うので、結果は逐次に解いたときと同じ
+    let mut representatives: Vec<(usize, usize, usize)> = Vec::new();
+    for &(cell, _, index, rings) in &pins {
+        if !representatives
+            .iter()
+            .any(|&(c, _, _)| orbits[c] == orbits[cell])
+        {
+            representatives.push((cell, index, rings));
+        }
+    }
+    let dilute_materials: &[Material] = &shielded.materials;
+    let results: Vec<Result<(usize, PinSolution), SelfShieldingError>> = representatives
+        .par_iter()
+        .map(|&(cell, index, rings)| {
+            // 代表のピンごとの時間（等価原理と UFG の減速計算）
+            let _pin = tracing::info_span!("pin", cell).entered();
+            let factors = factors[cell]
+                .as_ref()
+                .ok_or(SelfShieldingError::FuelShape(cell))?;
+            let radius = lattice
+                .cell_type(cell)
+                .pin()
+                .ok_or(SelfShieldingError::FuelShape(cell))?
+                .radii()[rings - 1];
+            let equivalence = Equivalence {
+                chord: 2.0 * radius,
+                terms: factors
+                    .iter()
+                    .map(|&c| carlvik(c))
+                    .collect::<Result<_, _>>()?,
+            };
+            let material = &materials[index];
+            let carlvik = shield_material(library, material, &equivalence, options, cell)?;
+            let pin_cell = PinRings {
+                lattice,
+                cell,
+                rings,
+                region_index: &region_index,
+                void,
+            };
+            let ufg = shield_cell(
+                library,
+                &pin_cell,
+                materials,
+                dilute_materials,
+                factors,
+                &carlvik,
+            )?;
+            Ok((cell, PinSolution { carlvik, ufg }))
+        })
+        .collect();
+    // 最初のエラーをピンの順で返す
+    let mut computed: Vec<(usize, PinSolution)> = Vec::with_capacity(results.len());
+    for result in results {
+        computed.push(result?);
+    }
     let mut solved: Vec<(usize, Solved)> = Vec::new();
-    for (cell, fuel_regions, index, rings) in pins {
+    for (cell, fuel_regions, index, _rings) in pins {
         let factors = factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
@@ -270,37 +329,12 @@ pub fn shield_fuel(
             });
             continue;
         }
-        // 代表のピンごとの時間（等価原理と UFG の減速計算）
-        let _pin = tracing::info_span!("pin", cell).entered();
-        let radius = lattice
-            .cell_type(cell)
-            .pin()
-            .ok_or(SelfShieldingError::FuelShape(cell))?
-            .radii()[rings - 1];
-        let equivalence = Equivalence {
-            chord: 2.0 * radius,
-            terms: factors
-                .iter()
-                .map(|&c| carlvik(c))
-                .collect::<Result<_, _>>()?,
-        };
         let material = &materials[index];
-        let carlvik = shield_material(library, material, &equivalence, options, cell)?;
-        let pin_cell = PinRings {
-            lattice,
-            cell,
-            rings,
-            region_index: &region_index,
-            void,
-        };
-        let ufg = shield_cell(
-            library,
-            &pin_cell,
-            materials,
-            &shielded.materials,
-            factors,
-            &carlvik,
-        )?;
+        let position = computed
+            .iter()
+            .position(|(c, _)| *c == cell)
+            .ok_or(SelfShieldingError::FuelShape(cell))?;
+        let PinSolution { carlvik, ufg } = computed.swap_remove(position).1;
         let effective = match &ufg {
             Some(c) => c.effective.clone(),
             None => carlvik,
@@ -617,6 +651,12 @@ fn shield_lumps(
 struct Solved {
     pin: PinShielding,
     assigned: Assigned,
+}
+
+/// 代表のピンの等価原理と UFG の減速計算の結果
+struct PinSolution {
+    carlvik: Vec<Shielded>,
+    ufg: Option<CellShielding>,
 }
 
 /// ピンのセルの領域に割り当てる物質の番号
