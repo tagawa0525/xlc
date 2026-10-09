@@ -170,6 +170,12 @@ fn add(acc: &mut [f64], w: f64, x: &[f64]) {
 
 /// テーブルを炉心の状態で内挿した少数群定数。`state` が `None` なら、軸のないテーブルの状態をそのまま返す。
 pub fn interpolate(table: &Table, state: Option<&State>) -> Result<FewGroup, String> {
+    if table.split != 1 {
+        return Err(format!(
+            "the table is split {0} × {0}; split tables are not read yet",
+            table.split
+        ));
+    }
     let Some(state) = state else {
         if !table.axes.is_empty() {
             return Err("the table has branch axes; give the core [state]".into());

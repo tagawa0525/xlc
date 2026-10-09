@@ -141,6 +141,7 @@ pub fn tables(axes: &[Axis], per_state: Vec<Vec<FewGroup>>) -> Result<Vec<Table>
     let mut tables: Vec<Table> = (0..outputs)
         .map(|_| Table {
             axes: axes.to_vec(),
+            split: 1,
             states: Vec::with_capacity(expected),
         })
         .collect();
