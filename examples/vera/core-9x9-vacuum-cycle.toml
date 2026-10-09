@@ -1,0 +1,4 @@
+# 9 × 9 の格子1体だけを置くサイクル。
+plant = "core-9x9-vacuum-plant.toml"
+inventory = "core-9x9-vacuum-assemblies.toml"
+loading = ["L01"]
