@@ -1129,13 +1129,20 @@ fn worst_volume_error(exact: &[f64], tracked: &[f64]) -> (usize, f64) {
         })
 }
 
-/// 中性子束の相対変化。両方 0 なら変化なし。
 /// MOC の反復で CMFD を解く精度。スイープによる k と中性子束の変化（`k_change`, `flux_change`）が MOC の許容誤差の
-/// 何倍あるかに比例して、設定の精度 `cmfd` を緩める（ADR-0110）。変化が許容誤差以下なら設定のまま
+/// 何倍あるかに比例して、設定の精度 `cmfd` を緩める（ADR-0110）。変化が許容誤差以下なら設定のまま。MOC の
+/// 許容誤差が 0 以下（最大の反復の回数まで回す）なら、比べる基準がないので設定のまま
 fn inexact_cmfd(cmfd: &CmfdOptions, moc: &Options, k_change: f64, flux_change: f64) -> CmfdOptions {
+    let factor = |change: f64, tolerance: f64| {
+        if tolerance > 0.0 {
+            (change / tolerance).max(1.0)
+        } else {
+            1.0
+        }
+    };
     CmfdOptions {
-        k_tolerance: cmfd.k_tolerance * (k_change / moc.k_tolerance).max(1.0),
-        flux_tolerance: cmfd.flux_tolerance * (flux_change / moc.flux_tolerance).max(1.0),
+        k_tolerance: cmfd.k_tolerance * factor(k_change, moc.k_tolerance),
+        flux_tolerance: cmfd.flux_tolerance * factor(flux_change, moc.flux_tolerance),
         ..*cmfd
     }
 }
@@ -1149,6 +1156,7 @@ fn largest_change(new: &[Vec<f64>], old: &[Vec<f64>]) -> f64 {
         .fold(0.0, f64::max)
 }
 
+/// 中性子束の相対変化。両方 0 なら変化なし。
 fn relative_change(new: f64, old: f64) -> f64 {
     let scale = new.abs().max(old.abs());
     if scale == 0.0 {
