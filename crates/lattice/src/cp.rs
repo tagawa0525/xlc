@@ -186,7 +186,9 @@ impl Cylinder {
         let n = self.radii.len();
         let mut tracks = vec![vec![0.0; n]; n];
         let mut escapes = vec![0.0; n];
-        // 弦の上の区間の境界の対 (p, q) の間の光学的距離の Ki3。弦ごとに必要になった対だけ求める（NaN は未計算）
+        // 弦の上の区間の境界の対 (p, q) の間の光学的距離 τ_p + … + τ_{q−1} の Ki3。弦ごとに必要になった対だけ求める
+        // （NaN は未計算）。光学的距離は区間 p から順に足す（弦の始めから足した和の差にすると、厚い区間の後で丸めが
+        // 大きくなる）。`between`（区間 a+1 から b−1 まで順に足したもの）は (a+1, b) の和と同じ順に足している
         let longest = self
             .chords
             .iter()
@@ -195,35 +197,32 @@ impl Cylinder {
             .unwrap_or(0)
             + 1;
         let mut memo = vec![f64::NAN; longest * longest];
-        let mut bounds = vec![0.0; longest];
+        // 弦ごとに作り直さず再利用する
+        let mut path: Vec<Path> = Vec::with_capacity(longest);
+        let mut collided: Vec<f64> = Vec::with_capacity(longest);
         for chord in &self.chords {
             let weight = 2.0 * chord.weight;
-            let path: Vec<Path> = chord
-                .segments
-                .iter()
-                .map(|&(ring, length)| Path {
-                    ring,
-                    length,
-                    total: totals[ring],
-                    tau: totals[ring] * length,
-                })
-                .collect();
+            path.clear();
+            path.extend(chord.segments.iter().map(|&(ring, length)| Path {
+                ring,
+                length,
+                total: totals[ring],
+                tau: totals[ring] * length,
+            }));
             let last = path.len() - 1;
-            // 区間の境界までの光学的距離（境界 p は区間 p の始まり）
-            bounds[0] = 0.0;
-            for (k, segment) in path.iter().enumerate() {
-                bounds[k + 1] = bounds[k] + segment.tau;
-            }
             memo[..(path.len() + 1) * longest].fill(f64::NAN);
+            let taus: Vec<f64> = path.iter().map(|p| p.tau).collect();
             let mut k3 = |p: usize, q: usize| -> f64 {
                 let slot = &mut memo[p * longest + q];
                 if slot.is_nan() {
-                    *slot = small(ki3, bounds[q] - bounds[p]);
+                    let optical: f64 = taus[p..q].iter().sum();
+                    *slot = small(ki3, optical);
                 }
                 *slot
             };
             // 区間ごとの、その区間から前に飛んで衝突する数 Σ_b Σb A_ab（自己の項を含む）
-            let mut collided = vec![0.0; path.len()];
+            collided.clear();
+            collided.resize(path.len(), 0.0);
             for (a, from) in path.iter().enumerate() {
                 let own = from.own();
                 tracks[from.ring][from.ring] += weight * own;
@@ -232,7 +231,8 @@ impl Cylinder {
                 // a + b ≤ L − 1 の対だけを求め、a + b < L − 1 の対は鏡映の分も A[i][j] の側に足す
                 let mut between = 0.0;
                 for (b, to) in path.iter().enumerate().take(last + 1 - a).skip(a + 1) {
-                    // 光学的距離は弦に沿って増えるだけなので、表の範囲を超えたら先の対はどれも無視できる（[`NEGLIGIBLE`]）
+                    // 光学的距離は弦に沿って増えるだけなので、表の範囲を超えたら先の対はどれも無視できる（[`NEGLIGIBLE`]。
+                    // Ki3 の差分の最初の項 (a+1, b) の引数も同じ値）
                     if between >= NEGLIGIBLE {
                         break;
                     }
@@ -310,13 +310,14 @@ impl Path {
         }
     }
 
-    /// 区間の対の D/(Σa Σb) を、Ki3 の差分そのままで求めてよいか（真空の区間を含まず、打ち消し合いが小さい）。
-    /// そうでなければ [`Path::to`] の極限や積分表示で求める
+    /// 区間の対の D/(Σa Σb) を、Ki3 の差分そのままで求めてよいか（打ち消し合いが小さい。真空の区間を含めば積は 0 で
+    /// 偽）。偽なら [`Path::to`] の極限や積分表示で求める
     fn direct(&self, to: &Path) -> bool {
-        self.tau != 0.0 && to.tau != 0.0 && self.tau.min(1.0) * to.tau.min(1.0) >= CANCELLATION
+        self.tau.min(1.0) * to.tau.min(1.0) >= CANCELLATION
     }
 
-    /// 単位の線源密度あたりの、光学的距離 `between` だけ先の区間 `to` の中を飛ぶ長さ: D/(Σa Σb)
+    /// Ki3 の差分では打ち消し合う対（[`Path::direct`] が偽）の、単位の線源密度あたりの、光学的距離 `between` だけ先の
+    /// 区間 `to` の中を飛ぶ長さ D/(Σa Σb)
     fn to(&self, to: &Path, between: f64) -> f64 {
         // 片方が真空なら、D/(τa τb) は真空の側の τ → 0 の極限で [Ki2(τab) − Ki2(τab + τ)]/τ になる（τ は他方）
         let other = match (self.tau == 0.0, to.tau == 0.0) {
@@ -328,17 +329,10 @@ impl Path {
             return self.length * to.length * (small(ki2, between) - small(ki2, between + tau))
                 / tau;
         }
-        if self.tau.min(1.0) * to.tau.min(1.0) < CANCELLATION {
-            // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
-            let integral =
-                trapezoid(|c| (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c);
-            self.length * to.length * integral
-        } else {
-            let k = |x: f64| small(ki3, x);
-            let d = k(between) - k(between + self.tau) - k(between + to.tau)
-                + k(between + self.tau + to.tau);
-            d / (self.total * to.total)
-        }
+        // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
+        let integral =
+            trapezoid(|c| (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c);
+        self.length * to.length * integral
     }
 }
 
