@@ -31,5 +31,5 @@ M2 で k が届いていない分は、原因の調査を後に回し、M3 以�
 
 ## 結果
 
-- 離散化の設定は VERA の入力のまま進める（[ADR-0077](0077-keep-vera-discretization.md)。[ADR-0111](0111-use-30-azimuths-for-vera-assemblies.md) で置き換え）
+- 離散化の設定は VERA の入力のまま進める（[ADR-0077](0077-keep-vera-discretization.md)）
 - 燃料の断面積で説明できない k の差の調査は #0005
