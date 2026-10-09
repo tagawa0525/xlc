@@ -1489,6 +1489,24 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn water_keeps_only_present_boron_isotopes() {
+        for (b10, names) in [
+            (1.0, ["B-10", "H-1", "O-16"]),
+            (0.0, ["B-11", "H-1", "O-16"]),
+        ] {
+            let input = replaced(
+                PIN_CELL,
+                "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+                &format!("water = {{ density = 0.743, boron = 1291, b10 = {b10:?} }}"),
+            )
+            .unwrap();
+            let water = input.materials.iter().find(|m| m.name == "water").unwrap();
+            let got: Vec<&str> = water.composition.iter().map(|(n, _)| n.as_str()).collect();
+            assert_eq!(got, names);
+        }
+    }
+
+    #[test]
     fn invalid_water_is_an_error() {
         let water = "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }";
         let bad = |to: &str| replaced(PIN_CELL, water, to).is_err();
