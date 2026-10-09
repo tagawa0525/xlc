@@ -6,7 +6,7 @@
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
 //! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`pins` は
-//! `dx`、`dy`、`form`、`corners` を持つ map か nil で、キーは省けない）。
+//! `dx`、`dy`、`form`、`corners`、`halves` を持つ map か nil で、キーは省けない）。
 //! 軸のないテーブルは状態が1つ。
 
 use serde::{Deserialize, Serialize};
@@ -126,6 +126,7 @@ struct PinsFile {
     dy: Vec<f64>,
     form: Vec<Vec<Vec<f64>>>,
     corners: Vec<Vec<f64>>,
+    halves: Vec<bool>,
 }
 
 impl Table {
@@ -274,6 +275,7 @@ impl Table {
                     dy: p.dy.clone(),
                     form: p.form.clone(),
                     corners: p.corners.clone(),
+                    halves: p.halves.clone(),
                 }),
             })
             .collect();
@@ -330,6 +332,7 @@ impl Table {
                     dy: p.dy,
                     form: p.form,
                     corners: p.corners,
+                    halves: p.halves,
                 }),
             })
             .collect();

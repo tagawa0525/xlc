@@ -150,8 +150,9 @@ fn layer(
 }
 
 /// 炉心全体のセルの出力 [行（上から）][列（左から）]。`maps` は `reconstruct` のノードごとの出力で、軸方向の層は
-/// 厚さで重みを付けて足す。すべて 0 の行と列（集合体の間の余白など）を除き、核分裂のあるセルの平均で 1 に規格化する
-/// （`lattice` の `pin-powers` と同じ規格化）
+/// 厚さで重みを付けて足す（核分裂のない層の空の表は足さない）。集合体を分けた部分ノードが分け合ったセル（形状関数の
+/// `halves`。ADR-0108）は、面積で重み付けして1つに戻す。すべて 0 の行と列（集合体の間の余白など）を除き、核分裂の
+/// あるセルの平均で 1 に規格化する（`lattice` の `pin-powers` と同じ規格化）
 pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f64>>, String> {
     let mesh = &problem.mesh;
     let (nx, ny, nz) = (mesh.dx.len(), mesh.dy.len(), mesh.dz.len());
@@ -162,55 +163,27 @@ pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f6
             nx * ny * nz
         ));
     }
-    // 層の和（ノードは層の中で i + nx j）。核分裂のない層の空の表は足さない
-    let mut radial: Vec<Option<Vec<Vec<f64>>>> = vec![None; nx * ny];
-    for (n, map) in maps.iter().enumerate() {
-        if map.is_empty() {
+    // [行（-y から）][列] の層の和
+    let mut total: Option<Vec<Vec<f64>>> = None;
+    for k in 0..nz {
+        let layer = &maps[nx * ny * k..nx * ny * (k + 1)];
+        if layer.iter().all(Vec::is_empty) {
             continue;
         }
-        let (local, k) = (n % (nx * ny), n / (nx * ny));
-        let sum = radial[local]
-            .get_or_insert_with(|| map.iter().map(|row| vec![0.0; row.len()]).collect());
-        if map.len() != sum.len() || map.iter().zip(sum.iter()).any(|(a, b)| a.len() != b.len()) {
+        let grid = layer_grid(problem, k, layer)?;
+        let sum = total.get_or_insert_with(|| grid.iter().map(|r| vec![0.0; r.len()]).collect());
+        if sum.len() != grid.len() || sum.iter().zip(&grid).any(|(a, b)| a.len() != b.len()) {
             return Err(format!(
-                "node {n}: its pin map differs in shape from its other layers"
+                "layer {k}: its pin map differs in shape from the other layers"
             ));
         }
-        for (s, v) in sum.iter_mut().flatten().zip(map.iter().flatten()) {
+        for (s, v) in sum.iter_mut().flatten().zip(grid.iter().flatten()) {
             *s += mesh.dz[k] * v;
         }
     }
-    let radial: Vec<Vec<Vec<f64>>> = radial
-        .into_iter()
-        .enumerate()
-        .map(|(local, map)| {
-            map.ok_or_else(|| format!("node column {local} has no pin map in any layer"))
-        })
-        .collect::<Result<_, _>>()?;
-    // ノードの行ごとにセルの行の数が、ノードの列ごとにセルの列の数がそろうこと
-    let rows_of = |j: usize| radial[nx * j].len();
-    let columns_of = |i: usize| radial[i].first().map_or(0, Vec::len);
-    for j in 0..ny {
-        for i in 0..nx {
-            let map = &radial[i + nx * j];
-            if map.len() != rows_of(j) || map.iter().any(|r| r.len() != columns_of(i)) {
-                return Err(format!(
-                    "node ({i}, {j}) has a pin map of a different size from its row or column of nodes"
-                ));
-            }
-        }
-    }
-    // 上の行から: ノードの行 j を上から、ノードの中の行（-y から）も上から
-    let mut rows: Vec<Vec<f64>> = Vec::new();
-    for j in (0..ny).rev() {
-        for r in (0..rows_of(j)).rev() {
-            rows.push(
-                (0..nx)
-                    .flat_map(|i| radial[i + nx * j][r].iter().copied())
-                    .collect(),
-            );
-        }
-    }
+    let total = total.ok_or("no cell has fission")?;
+    // 上の行から
+    let rows: Vec<Vec<f64>> = total.into_iter().rev().collect();
     let columns = rows.first().map_or(0, Vec::len);
     let kept: Vec<usize> = (0..columns)
         .filter(|&c| rows.iter().any(|r| r[c] != 0.0))
@@ -233,6 +206,148 @@ pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f6
     Ok(rows
         .into_iter()
         .map(|r| r.into_iter().map(|v| v / mean).collect())
+        .collect())
+}
+
+/// 層 k の炉心全体のセルの出力 [行（-y から）][列]。分け合ったセルは面積で重み付けして1つに戻す
+fn layer_grid(
+    problem: &Problem,
+    k: usize,
+    layer: &[Vec<Vec<f64>>],
+) -> Result<Vec<Vec<f64>>, String> {
+    let mesh = &problem.mesh;
+    let (nx, ny) = (mesh.dx.len(), mesh.dy.len());
+    let pins = |i: usize, j: usize| -> Result<&Pins, String> {
+        node_constants(problem, i + nx * (j + ny * k)).map(|(_, p)| p)
+    };
+    // ノードの列ごとのセルの幅と、ノードの行ごとのセルの高さは、その列（行）のどのノードでも同じ
+    let mut widths: Vec<&[f64]> = Vec::with_capacity(nx);
+    for i in 0..nx {
+        let first = &pins(i, 0)?.dx;
+        for j in 0..ny {
+            if pins(i, j)?.dx != *first {
+                return Err(format!(
+                    "layer {k}: the nodes of column {i} have different cell widths"
+                ));
+            }
+        }
+        widths.push(first);
+    }
+    let mut heights: Vec<&[f64]> = Vec::with_capacity(ny);
+    for j in 0..ny {
+        let first = &pins(0, j)?.dy;
+        for i in 0..nx {
+            if pins(i, j)?.dy != *first {
+                return Err(format!(
+                    "layer {k}: the nodes of row {j} have different cell heights"
+                ));
+            }
+        }
+        heights.push(first);
+    }
+    // ノードの列 i と i + 1（行 j と j + 1）の間で分け合ったセルがあるか。両側の印がそろうこと
+    let shared = |a: &Pins, a_side: usize, b: &Pins, b_side: usize| -> Result<bool, String> {
+        if a.halves[a_side] != b.halves[b_side] {
+            return Err(format!(
+                "layer {k}: a split cell is marked on only one side"
+            ));
+        }
+        Ok(a.halves[a_side])
+    };
+    let mut merge_x = Vec::with_capacity(nx.saturating_sub(1));
+    for i in 0..nx.saturating_sub(1) {
+        let first = shared(pins(i, 0)?, 1, pins(i + 1, 0)?, 0)?;
+        for j in 1..ny {
+            if shared(pins(i, j)?, 1, pins(i + 1, j)?, 0)? != first {
+                return Err(format!(
+                    "layer {k}: split cells differ along the column boundary {i}"
+                ));
+            }
+        }
+        merge_x.push(first);
+    }
+    let mut merge_y = Vec::with_capacity(ny.saturating_sub(1));
+    for j in 0..ny.saturating_sub(1) {
+        let first = shared(pins(0, j)?, 2, pins(0, j + 1)?, 3)?;
+        for i in 1..nx {
+            if shared(pins(i, j)?, 2, pins(i, j + 1)?, 3)? != first {
+                return Err(format!(
+                    "layer {k}: split cells differ along the row boundary {j}"
+                ));
+            }
+        }
+        merge_y.push(first);
+    }
+    // 分ける前の全体の表と、列の幅、行の高さ
+    let mut grid: Vec<Vec<f64>> = Vec::new();
+    for j in 0..ny {
+        for r in 0..heights[j].len() {
+            let mut row = Vec::new();
+            for i in 0..nx {
+                let map = &layer[i + nx * j];
+                let cells = map
+                    .get(r)
+                    .filter(|cells| cells.len() == widths[i].len())
+                    .ok_or_else(|| {
+                        format!("layer {k}: node ({i}, {j}) has a pin map of a wrong size")
+                    })?;
+                row.extend_from_slice(cells);
+            }
+            grid.push(row);
+        }
+    }
+    let concat = |sizes: &[&[f64]]| {
+        sizes
+            .iter()
+            .flat_map(|s| s.iter().copied())
+            .collect::<Vec<f64>>()
+    };
+    // 列ごと、行ごとに、分け合ったセルの対（境の両側の番号）
+    let pairs = |sizes: &[&[f64]], merge: &[bool]| -> Vec<usize> {
+        let mut at = 0;
+        let mut out = Vec::new();
+        for (n, s) in sizes.iter().enumerate() {
+            at += s.len();
+            if merge.get(n).copied().unwrap_or(false) {
+                // 境の左（下）のセルは at - 1、右（上）は at
+                out.push(at - 1);
+            }
+        }
+        out
+    };
+    let column_pairs = pairs(&widths, &merge_x);
+    let row_pairs = pairs(&heights, &merge_y);
+    let merge = |values: &[f64], sizes: &[f64], pairs: &[usize]| -> Vec<f64> {
+        let mut out = Vec::with_capacity(values.len());
+        let mut c = 0;
+        while c < values.len() {
+            if pairs.contains(&c) {
+                let (w0, w1) = (sizes[c], sizes[c + 1]);
+                out.push((values[c] * w0 + values[c + 1] * w1) / (w0 + w1));
+                c += 2;
+            } else {
+                out.push(values[c]);
+                c += 1;
+            }
+        }
+        out
+    };
+    let (all_widths, all_heights) = (concat(&widths), concat(&heights));
+    let merged_columns: Vec<Vec<f64>> = grid
+        .iter()
+        .map(|row| merge(row, &all_widths, &column_pairs))
+        .collect();
+    let columns = merged_columns.first().map_or(0, Vec::len);
+    let transposed: Vec<Vec<f64>> = (0..columns)
+        .map(|c| merged_columns.iter().map(|r| r[c]).collect())
+        .collect();
+    let merged: Vec<Vec<f64>> = transposed
+        .iter()
+        .map(|col| merge(col, &all_heights, &row_pairs))
+        .collect();
+    let rows = merged.first().map_or(0, Vec::len);
+    Ok((0..rows)
+        .map(|r| merged.iter().map(|col| col[r]).collect())
         .collect())
 }
 
