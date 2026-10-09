@@ -1001,6 +1001,7 @@ zones = [{ material = "water", rings = 1 }]
             Some(FewGroupOutput {
                 bounds: vec![1e7, 0.625, 1e-5],
                 files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
+                pins: false,
             })
         );
         assert_eq!(input.pin_powers, None);
@@ -1411,8 +1412,28 @@ zones = [{ material = "water", rings = 1 }]
                     },
                 ),
             ]),
+            pins: false,
         };
         assert_eq!(input.output, Some(expected));
+    }
+
+    #[test]
+    fn few_group_may_ask_for_pin_form_functions() {
+        // 格子全体の定数にだけ、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
+        let few_group = |entry: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = [1e7, 1e-5]{entry} }}"),
+            )
+        };
+        let input = few_group(", output = \"a\", pins = true").unwrap();
+        assert!(input.output.is_some_and(|o| o.pins));
+        let input = few_group(", output = \"a\", pins = false").unwrap();
+        assert!(input.output.is_some_and(|o| !o.pins));
+        let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], pins = true";
+        let err = few_group(nodes).unwrap_err().to_string();
+        assert!(err.contains("pins"), "{err}");
     }
 
     #[test]
