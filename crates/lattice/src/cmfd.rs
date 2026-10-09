@@ -516,10 +516,11 @@ impl Coarse {
         let mut rhs = vec![0.0; ng];
         for iteration in 1..=options.max_iterations {
             let previous = phi.clone();
+            let inverse_k = 1.0 / k;
             for c in 0..cells {
                 rhs.fill(0.0);
                 for s in &self.fission[c] {
-                    let rate = s.rate(&previous[c * ng..][..ng]) / k;
+                    let rate = s.rate(&previous[c * ng..][..ng]) * inverse_k;
                     for (r, x) in rhs.iter_mut().zip(&s.chi) {
                         *r += x * rate;
                     }
