@@ -270,6 +270,8 @@ pub fn shield_fuel(
             });
             continue;
         }
+        // 代表のピンごとの時間（等価原理と UFG の減速計算）
+        let _pin = tracing::info_span!("pin", cell).entered();
         let radius = lattice
             .cell_type(cell)
             .pin()
@@ -703,7 +705,6 @@ struct CellShielding {
 /// リング（ギャップ、被覆管）、減速材（セルの外側の物質。等価なセルでは1つのリング）のそれぞれの核種に、そのリングの
 /// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、燃料は等価原理の値（`carlvik`）、それ以外は無限希釈。
 /// 燃料に分離共鳴を持つ核種がなければ `None`。
-#[tracing::instrument(name = "pin", skip_all, fields(cell = pin.cell))]
 fn shield_cell(
     library: &Library,
     pin: &PinRings,
