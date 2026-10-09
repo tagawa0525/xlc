@@ -535,6 +535,7 @@ pub fn pin_shapes(
         dy: lattice.heights().iter().rev().copied().collect(),
         form,
         corners,
+        halves: vec![false; 4],
     })
 }
 

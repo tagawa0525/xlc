@@ -44,6 +44,9 @@ pub struct Pins {
     pub form: Vec<Vec<Vec<f64>>>,
     /// [角（-x -y、+x -y、+x +y、-x +y の順）][群] の角の不連続因子（角の不均質な中性子束 / 角の均質な中性子束）
     pub corners: Vec<Vec<f64>>,
+    /// [辺（左、右、上、下）] の、その辺に接するセルの列（行）が、隣の部分ノードと分け合った1つのセルの半分か
+    /// （集合体を分けた部分ノード。ADR-0108）
+    pub halves: Vec<bool>,
 }
 
 /// 少数群定数の値の誤り。
@@ -178,6 +181,12 @@ impl Pins {
         {
             return invalid(format!(
                 "pins: `corners` needs 4 corners of {ng} positive values"
+            ));
+        }
+        if self.halves.len() != 4 {
+            return invalid(format!(
+                "pins: `halves` has {} sides, expected 4",
+                self.halves.len()
             ));
         }
         Ok(())
