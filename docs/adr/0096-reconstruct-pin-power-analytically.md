@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-08
+status: accepted
+date: 2026-10-09
 supersedes: []
 superseded-by:
 issues: []
@@ -110,14 +110,22 @@ core の解の面の平均の正味の中性子流、ノード平均と、4つ�
 
 ## 確認
 
-まだ実装していない（M3 の進め方の 7）。次で確かめる。
+テスト（crates/core/src/pins の tests）:
 
-- 再構成した形が、ノード平均の中性子束と4面の正味の中性子流を再現すること。均質な正方形の炉心（解析解が cos × cos）で、
-  再構成した形が解析解に一致すること
-- 均質化した定数の同じ問題を細かいメッシュの拡散で解き、均質な形を比べる（再構成だけの誤差を測る）
-- 4-2D、REF1-2D、5-2D のピン出力を、同じ多群定数の xlc の MOC で同じ問題を解いた結果と比べ（2段階の手法の誤差）、
-  OpenMC（2D）と KENO の値とも比べる。判定の閾値（案）: xlc の MOC に対してピン出力の差の RMS 1%、出力 0.8 以上の
-  ピンの相対の差の最大 3%（ユーザーの決定が要る。KENO の値との比べ方の偏りは #0016）
+- ∇²ψ = μψ の 8 つの関数が、μ = 0 とその近く、級数と閉じた式の境の両側で、差分の Laplacian と勾配に合い、μ で連続で、
+  ノードの条件の行列が正則（`functions_solve_the_helmholtz_equation`、`gradients_match_finite_differences`、
+  `functions_are_continuous_in_mu`、`node_conditions_determine_the_coefficients`）
+- 基底の範囲の厳密な2群の解（軸方向の一様な線源を含む）から作った条件で、ノードの中の値、勾配、4 面の正味の中性子流
+  （条件に入れない組み合わせも）を再現する（`solutions_in_the_span_are_reproduced`）
+- 同じノードを並べた鏡面反射の体系で平らな出力（`identical_reflective_nodes_give_flat_pins`）
+- 均質な裸の正方形の炉心（172 cm、中性子束ゼロ）で、セルの出力の形と cos × cos のセルの平均の差の最大（中心の値に
+  対して）が、2 × 2 のノード（86 cm）で 0.86%、4 × 4（43 cm）で 0.076%（`bare_square_matches_the_cosine_shape`）
+- 真空の境界の角の点の流れが r Φ（`vacuum_corners_lose_r_times_the_corner_flux`）、核分裂のない層を飛ばす
+  （`layers_without_fission_are_skipped`）
+
+VERA 2B の集合体1体を鏡面反射で置いた core の再構成のピン出力は、同じ回の格子計算の `pin-powers` と最大 0.17% 違った。
+格子計算のピン出力がトラックから推定した体積で平均していることによると見込む（#0041）。MOC との比較などの残りの
+検証は #0043 に記録した。
 
 ## 結果
 
