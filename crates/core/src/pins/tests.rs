@@ -169,3 +169,37 @@ fn core_rows_join_nodes_from_the_top() {
     short[1].pop();
     assert!(core_rows(&p, &short).is_err());
 }
+
+#[test]
+fn vacuum_corners_lose_r_times_the_corner_flux() {
+    // y に一様な平板（x は Marshak、y と z は反射）。角の点の箱では J_y = 0 なので、境界の角の点の外向きの流れは
+    // r Φ（r = 1/2、Φ は不均質な角の中性子束）。面の ADF（1）と違う CDF（1.3）でも、ADF でなく Φ を使う
+    let mut p = square(86.0, 4, 2, Boundary::Marshak);
+    p.mesh.dy = vec![86.0 / 4.0];
+    p.node_material = vec![0; 4];
+    p.boundaries[2] = Boundary::Reflective;
+    p.boundaries[3] = Boundary::Reflective;
+    if let Some(pins) = p.materials[0].pins.as_mut() {
+        pins.corners = vec![vec![1.3, 1.3]; 4];
+    }
+    let s = solve(&p, &Options::default()).unwrap();
+    let rule = gauss_legendre(FACE_POINTS).unwrap();
+    let (models, conditions) = layer(&p, &s, 0, &rule).unwrap();
+    let corners = corner_fluxes(&p, 0, &models, &conditions).unwrap();
+    // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
+    let m = &p.materials[0];
+    let pins = m.pins.as_ref().unwrap();
+    let mut c = conditions[0].clone();
+    c.corners = corner_values(&corners, 4, 0, 0, pins);
+    let node = models[0].solve(&c);
+    let [a, b] = c.half;
+    let grad = node.gradient(-a, -b);
+    for g in 0..2 {
+        let outward = m.diffusion[g] * grad[g][0];
+        let expected = 0.5 * corners[0][g];
+        assert!(
+            (outward - expected).abs() < 1e-8 * expected.abs(),
+            "group {g}: {outward} vs {expected}"
+        );
+    }
+}
