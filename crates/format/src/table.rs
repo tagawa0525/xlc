@@ -121,7 +121,7 @@ impl Table {
         })
     }
 
-    /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印）を確かめる。
+    /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印、真空の辺）を確かめる。
     pub fn validate(&self) -> Result<(), TableError> {
         let invalid = |message: String| Err(TableError::Invalid(message));
         let mut names = Vec::new();
@@ -177,9 +177,18 @@ impl Table {
             state
                 .validate()
                 .map_err(|source| TableError::State { state: i, source })?;
-            if state.bounds != first.bounds || state.normalized_adf != first.normalized_adf {
+            let vacuum = |s: &FewGroup| {
+                s.vacuum_ratio
+                    .iter()
+                    .map(Option::is_some)
+                    .collect::<Vec<_>>()
+            };
+            if state.bounds != first.bounds
+                || state.normalized_adf != first.normalized_adf
+                || vacuum(state) != vacuum(first)
+            {
                 return invalid(format!(
-                    "state {i}: group bounds and f* sides must equal those of state 0"
+                    "state {i}: group bounds, f* sides and vacuum sides must equal those of state 0"
                 ));
             }
         }
