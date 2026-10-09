@@ -344,7 +344,8 @@ fn sided(fissile: bool) -> FewGroup {
     let nu = if fissile { 0.1 } else { 0.0 };
     FewGroup {
         bounds: vec![1.0e7, 0.625, 1.0e-5],
-        k_inf: if fissile { 1.0 } else { 0.0 },
+        // 少数群定数の検査は k∞ > 0 を求める（反射体の値も正にしておく）
+        k_inf: if fissile { 1.0 } else { 0.01 },
         total: vec![0.5, 1.0],
         absorption: vec![0.01, 0.08],
         nu_fission: vec![nu, nu],
@@ -356,21 +357,78 @@ fn sided(fissile: bool) -> FewGroup {
         adf: (1..=4).map(|s| vec![s as f64, 10.0 * s as f64]).collect(),
         vacuum_ratio: vec![None, Some(vec![0.4, 0.3]), None, None],
         normalized_adf: vec![true, false, false, false],
+        pins: None,
     }
 }
 
 #[test]
 fn rotation_turns_sides_counterclockwise() {
     let m = sided(true);
-    let r = rotated(&m, 1);
+    let r = rotated(&m, 1).unwrap();
     // 90° 回すと、右の辺が上に、上が左に、左が下に、下が右に来る
     let order = |v: &[Vec<f64>]| v.iter().map(|g| g[0]).collect::<Vec<_>>();
     assert_eq!(order(&r.adf), vec![3.0, 4.0, 2.0, 1.0]);
     assert_eq!(r.vacuum_ratio, vec![None, None, Some(vec![0.4, 0.3]), None]);
     assert_eq!(r.normalized_adf, vec![false, false, false, true]);
-    assert_eq!(rotated(&m, 0), m);
-    assert_eq!(rotated(&rotated(&m, 1), 3), m);
-    assert_eq!(rotated(&rotated(&m, 2), 2), m);
+    assert_eq!(rotated(&m, 0).unwrap(), m);
+    assert_eq!(rotated(&rotated(&m, 1).unwrap(), 3).unwrap(), m);
+    assert_eq!(rotated(&rotated(&m, 2).unwrap(), 2).unwrap(), m);
+}
+
+#[test]
+fn rotation_turns_pins_counterclockwise() {
+    // 90° 回すと (x, y) が (H - y, x) に移る（H はノードの高さ）。列 2 × 行 1 のセルは、列 1 × 行 2 になり、
+    // 角（-x -y、+x -y、+x +y、-x +y）は1つずつ先に進む（ADR-0096）
+    let m = FewGroup {
+        pins: Some(Pins {
+            dx: vec![1.0, 2.0],
+            dy: vec![2.0],
+            form: vec![vec![vec![1.0, 2.0]], vec![vec![3.0, 4.0]]],
+            corners: vec![
+                vec![1.0, 1.5],
+                vec![2.0, 2.5],
+                vec![3.0, 3.5],
+                vec![4.0, 4.5],
+            ],
+        }),
+        ..sided(true)
+    };
+    let r = rotated(&m, 1).unwrap().pins.unwrap();
+    assert_eq!(r.dx, vec![2.0]);
+    assert_eq!(r.dy, vec![1.0, 2.0]);
+    assert_eq!(
+        r.form,
+        vec![vec![vec![1.0], vec![2.0]], vec![vec![3.0], vec![4.0]]]
+    );
+    assert_eq!(
+        r.corners,
+        vec![
+            vec![4.0, 4.5],
+            vec![1.0, 1.5],
+            vec![2.0, 2.5],
+            vec![3.0, 3.5]
+        ]
+    );
+    // 2 行 × 2 列で、行の向きも確かめる: 元の左上（行 1、列 0）は、回すと左下（行 0、列 0）
+    let square = FewGroup {
+        pins: Some(Pins {
+            dx: vec![1.0, 2.0],
+            dy: vec![1.5, 0.5],
+            form: vec![vec![vec![1.0, 2.0], vec![3.0, 4.0]]; 2],
+            corners: vec![vec![1.0, 1.0]; 4],
+        }),
+        ..sided(true)
+    };
+    let r = rotated(&square, 1).unwrap().pins.unwrap();
+    assert_eq!(r.dx, vec![0.5, 1.5]);
+    assert_eq!(r.form[0], vec![vec![3.0, 1.0], vec![4.0, 2.0]]);
+    for turns in 1..4 {
+        assert_eq!(
+            rotated(&rotated(&square, turns).unwrap(), 4 - turns).unwrap(),
+            square
+        );
+        assert_eq!(rotated(&rotated(&m, turns).unwrap(), 4 - turns).unwrap(), m);
+    }
 }
 
 #[test]
@@ -387,7 +445,7 @@ fn problem_rotates_materials_and_rejects_fissile_reflectors() {
     assert_eq!(problem.node_material, layout.node_material);
     assert_eq!(problem.boundaries, case().boundaries);
     for (material, m) in problem.materials.iter().zip(&layout.materials) {
-        assert_eq!(*material, rotated(&constants[m.file], m.turns));
+        assert_eq!(*material, rotated(&constants[m.file], m.turns).unwrap());
     }
     // 反射体の層が核分裂すればエラー（燃料は ID を付けて台帳に書く）
     let fissile: Vec<FewGroup> = layout.files.iter().map(|_| sided(true)).collect();

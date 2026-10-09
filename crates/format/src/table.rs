@@ -3,12 +3,13 @@
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`boron`、`moderator`、`fuel`）と
 //! `points`（昇順。ppm か K）。`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の原子分率）も持つ）,
-//! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。各状態は少数群定数の `bounds` 以外の項目）。
+//! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。各状態は少数群定数の `bounds` 以外の項目。`pins` は
+//! `dx`、`dy`、`form`、`corners` を持つ map か nil で、キーは省けない）。
 //! 軸のないテーブルは状態が1つ。
 
 use serde::{Deserialize, Serialize};
 
-use crate::fewgroup::{FewGroup, FewGroupError};
+use crate::fewgroup::{FewGroup, FewGroupError, Pins};
 use crate::msgpack::{self, MsgpackError};
 
 /// テーブルの軸。点は昇順。
@@ -103,6 +104,22 @@ struct StateFile {
     adf: Vec<Vec<f64>>,
     vacuum_ratio: Vec<Option<Vec<f64>>>,
     normalized_adf: Vec<bool>,
+    /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
+    #[serde(deserialize_with = "nil_or_pins")]
+    pins: Option<PinsFile>,
+}
+
+fn nil_or_pins<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<PinsFile>, D::Error> {
+    Option::deserialize(d)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PinsFile {
+    dx: Vec<f64>,
+    dy: Vec<f64>,
+    form: Vec<Vec<Vec<f64>>>,
+    corners: Vec<Vec<f64>>,
 }
 
 impl Table {
@@ -184,6 +201,13 @@ impl Table {
                     "state {i}: group bounds, f* sides and vacuum sides must equal those of state 0"
                 ));
             }
+            // 形状関数は状態ごとに内挿するので、どの状態も持つか持たないかで、セルの境界も同じ
+            let cells = |s: &FewGroup| s.pins.as_ref().map(|p| (p.dx.clone(), p.dy.clone()));
+            if cells(state) != cells(first) {
+                return invalid(format!(
+                    "state {i}: pins (form functions) and their cells must equal those of state 0"
+                ));
+            }
         }
         Ok(())
     }
@@ -227,6 +251,12 @@ impl Table {
                 adf: s.adf.clone(),
                 vacuum_ratio: s.vacuum_ratio.clone(),
                 normalized_adf: s.normalized_adf.clone(),
+                pins: s.pins.as_ref().map(|p| PinsFile {
+                    dx: p.dx.clone(),
+                    dy: p.dy.clone(),
+                    form: p.form.clone(),
+                    corners: p.corners.clone(),
+                }),
             })
             .collect();
         Ok(msgpack::to_named(&TableFile {
@@ -276,6 +306,12 @@ impl Table {
                 adf: s.adf,
                 vacuum_ratio: s.vacuum_ratio,
                 normalized_adf: s.normalized_adf,
+                pins: s.pins.map(|p| Pins {
+                    dx: p.dx,
+                    dy: p.dy,
+                    form: p.form,
+                    corners: p.corners,
+                }),
             })
             .collect();
         let table = Self { axes, states };

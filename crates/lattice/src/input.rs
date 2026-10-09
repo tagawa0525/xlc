@@ -5,6 +5,8 @@
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
+//! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（外周がすべて鏡面反射で、角に余白の
+//! # ある格子。nodes とは使えない。ADR-0096）
 //! # 格子をノードに分けるときは output の代わりに nodes を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と列を
 //! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
 //! # ADF を燃料の ADF で割る。省略すると false）
@@ -149,6 +151,8 @@ pub struct FewGroupOutput {
     /// 群境界 (eV)
     pub bounds: Vec<f64>,
     pub files: FewGroupFiles,
+    /// 格子全体の定数に、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
+    pub pins: bool,
 }
 
 /// 少数群定数のファイル。
@@ -245,6 +249,8 @@ struct FewGroupEntry {
     output: Option<PathBuf>,
     bounds: Vec<f64>,
     nodes: Option<Vec<NodeEntry>>,
+    /// 省略すると false
+    pins: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -260,6 +266,12 @@ struct NodeEntry {
 
 impl FewGroupEntry {
     fn into_output(self) -> Result<FewGroupOutput, String> {
+        let pins = self.pins.unwrap_or(false);
+        if pins && self.nodes.is_some() {
+            return Err(
+                "`pins` (form functions) needs `output` (the whole lattice), not `nodes`".into(),
+            );
+        }
         let files = match (self.output, self.nodes) {
             (Some(output), None) => FewGroupFiles::Lattice(output),
             (None, Some(nodes)) => {
@@ -296,6 +308,7 @@ impl FewGroupEntry {
         Ok(FewGroupOutput {
             bounds: self.bounds,
             files,
+            pins,
         })
     }
 }
@@ -1001,6 +1014,7 @@ zones = [{ material = "water", rings = 1 }]
             Some(FewGroupOutput {
                 bounds: vec![1e7, 0.625, 1e-5],
                 files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
+                pins: false,
             })
         );
         assert_eq!(input.pin_powers, None);
@@ -1411,8 +1425,28 @@ zones = [{ material = "water", rings = 1 }]
                     },
                 ),
             ]),
+            pins: false,
         };
         assert_eq!(input.output, Some(expected));
+    }
+
+    #[test]
+    fn few_group_may_ask_for_pin_form_functions() {
+        // 格子全体の定数にだけ、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
+        let few_group = |entry: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = [1e7, 1e-5]{entry} }}"),
+            )
+        };
+        let input = few_group(", output = \"a\", pins = true").unwrap();
+        assert!(input.output.is_some_and(|o| o.pins));
+        let input = few_group(", output = \"a\", pins = false").unwrap();
+        assert!(input.output.is_some_and(|o| !o.pins));
+        let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], pins = true";
+        let err = few_group(nodes).unwrap_err().to_string();
+        assert!(err.contains("pins"), "{err}");
     }
 
     #[test]
