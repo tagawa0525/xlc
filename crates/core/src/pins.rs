@@ -97,6 +97,85 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
     Ok(out)
 }
 
+/// 炉心全体のセルの出力 [行（上から）][列（左から）]。`maps` は `reconstruct` のノードごとの出力で、軸方向の層は
+/// 厚さで重みを付けて足す。すべて 0 の行と列（集合体の間の余白など）を除き、核分裂のあるセルの平均で 1 に規格化する
+/// （`lattice` の `pin-powers` と同じ規格化）
+pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f64>>, String> {
+    let mesh = &problem.mesh;
+    let (nx, ny, nz) = (mesh.dx.len(), mesh.dy.len(), mesh.dz.len());
+    if maps.len() != nx * ny * nz {
+        return Err(format!(
+            "{} pin maps for {} nodes",
+            maps.len(),
+            nx * ny * nz
+        ));
+    }
+    // 層の和（ノードは層の中で i + nx j）
+    let mut radial: Vec<Vec<Vec<f64>>> = maps[..nx * ny]
+        .iter()
+        .map(|m| m.iter().map(|row| vec![0.0; row.len()]).collect())
+        .collect();
+    for (n, map) in maps.iter().enumerate() {
+        let (local, k) = (n % (nx * ny), n / (nx * ny));
+        let sum = &mut radial[local];
+        if map.len() != sum.len() || map.iter().zip(sum.iter()).any(|(a, b)| a.len() != b.len()) {
+            return Err(format!(
+                "node {n}: its pin map differs in shape from the first layer"
+            ));
+        }
+        for (s, v) in sum.iter_mut().flatten().zip(map.iter().flatten()) {
+            *s += mesh.dz[k] * v;
+        }
+    }
+    // ノードの行ごとにセルの行の数が、ノードの列ごとにセルの列の数がそろうこと
+    let rows_of = |j: usize| radial[nx * j].len();
+    let columns_of = |i: usize| radial[i].first().map_or(0, Vec::len);
+    for j in 0..ny {
+        for i in 0..nx {
+            let map = &radial[i + nx * j];
+            if map.len() != rows_of(j) || map.iter().any(|r| r.len() != columns_of(i)) {
+                return Err(format!(
+                    "node ({i}, {j}) has a pin map of a different size from its row or column of nodes"
+                ));
+            }
+        }
+    }
+    // 上の行から: ノードの行 j を上から、ノードの中の行（-y から）も上から
+    let mut rows: Vec<Vec<f64>> = Vec::new();
+    for j in (0..ny).rev() {
+        for r in (0..rows_of(j)).rev() {
+            rows.push(
+                (0..nx)
+                    .flat_map(|i| radial[i + nx * j][r].iter().copied())
+                    .collect(),
+            );
+        }
+    }
+    let columns = rows.first().map_or(0, Vec::len);
+    let kept: Vec<usize> = (0..columns)
+        .filter(|&c| rows.iter().any(|r| r[c] != 0.0))
+        .collect();
+    let rows: Vec<Vec<f64>> = rows
+        .into_iter()
+        .filter(|r| r.iter().any(|&v| v != 0.0))
+        .map(|r| kept.iter().map(|&c| r[c]).collect())
+        .collect();
+    let fissile: Vec<f64> = rows
+        .iter()
+        .flatten()
+        .copied()
+        .filter(|&v| v > 0.0)
+        .collect();
+    if fissile.is_empty() {
+        return Err("no cell has fission".into());
+    }
+    let mean = fissile.iter().sum::<f64>() / fissile.len() as f64;
+    Ok(rows
+        .into_iter()
+        .map(|r| r.into_iter().map(|v| v / mean).collect())
+        .collect())
+}
+
 /// ノード (i, j) の 4 つの角の均質な中性子束 Φ / CDF
 fn corner_values(
     corners: &[[f64; 2]],
