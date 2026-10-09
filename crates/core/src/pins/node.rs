@@ -48,15 +48,13 @@ pub(crate) struct NodeModel {
     particular: [[f64; 9]; 2],
 }
 
-/// ノードの中の均質な中性子束。
-#[derive(Debug, Clone)]
-pub(crate) struct NodeFlux {
-    modes: [Basis; 2],
+/// ノードの中の均質な中性子束（モデルと、条件の値から解いた係数）。
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct NodeFlux<'a> {
+    model: &'a NodeModel,
     coefficients: [[f64; 8]; 2],
     /// [モード] の特解の係数 r_m
     sources: [f64; 2],
-    /// [モード][群] の固有ベクトル
-    vectors: [[f64; 2]; 2],
 }
 
 impl NodeModel {
@@ -170,7 +168,7 @@ impl NodeModel {
     }
 
     /// 条件の値からノードの中の中性子束を求める。`c.half` はこのモデルの大きさに等しいこと
-    pub(crate) fn solve(&self, c: &Conditions) -> NodeFlux {
+    pub(crate) fn solve(&self, c: &Conditions) -> NodeFlux<'_> {
         let to_mode = |f: [f64; 2]| -> [f64; 2] {
             std::array::from_fn(|m| self.inverse[m][0] * f[0] + self.inverse[m][1] * f[1])
         };
@@ -202,36 +200,25 @@ impl NodeModel {
             coefficients[mode] = std::array::from_fn(|k| rhs[k] / self.scales[mode][k]);
         }
         NodeFlux {
-            modes: self.modes.clone(),
+            model: self,
             coefficients,
             sources,
-            vectors: self.vectors,
         }
     }
 }
 
-impl NodeFlux {
-    #[cfg(test)]
-    pub(crate) fn new(
-        m: &FewGroup,
-        k: f64,
-        c: &Conditions,
-        rule: &[(f64, f64)],
-    ) -> Result<Self, String> {
-        Ok(NodeModel::new(m, k, c.half, rule)?.solve(c))
-    }
-
+impl NodeFlux<'_> {
     /// [モード] の ψ_m(x, y)
     #[cfg(test)]
     fn modes_at(&self, x: f64, y: f64) -> [f64; 2] {
         std::array::from_fn(|m| {
-            let v = self.modes[m].values(x, y);
+            let v = self.model.modes[m].values(x, y);
             let sum: f64 = v
                 .iter()
                 .zip(&self.coefficients[m])
                 .map(|(b, c)| b * c)
                 .sum();
-            sum + self.sources[m] * self.modes[m].particular(x, y)
+            sum + self.sources[m] * self.model.modes[m].particular(x, y)
         })
     }
 
@@ -239,14 +226,16 @@ impl NodeFlux {
     #[cfg(test)]
     pub(crate) fn flux(&self, x: f64, y: f64) -> [f64; 2] {
         let psi = self.modes_at(x, y);
-        std::array::from_fn(|g| self.vectors[0][g] * psi[0] + self.vectors[1][g] * psi[1])
+        std::array::from_fn(|g| {
+            self.model.vectors[0][g] * psi[0] + self.model.vectors[1][g] * psi[1]
+        })
     }
 
     /// (x, y) での [群][∂/∂x, ∂/∂y]
     pub(crate) fn gradient(&self, x: f64, y: f64) -> [[f64; 2]; 2] {
         let per_mode: [[f64; 2]; 2] = std::array::from_fn(|m| {
-            let g = self.modes[m].gradients(x, y);
-            let p = self.modes[m].particular_gradient(x, y);
+            let g = self.model.modes[m].gradients(x, y);
+            let p = self.model.modes[m].particular_gradient(x, y);
             std::array::from_fn(|axis| {
                 let sum: f64 = g
                     .iter()
@@ -258,7 +247,8 @@ impl NodeFlux {
         });
         std::array::from_fn(|g| {
             std::array::from_fn(|axis| {
-                self.vectors[0][g] * per_mode[0][axis] + self.vectors[1][g] * per_mode[1][axis]
+                self.model.vectors[0][g] * per_mode[0][axis]
+                    + self.model.vectors[1][g] * per_mode[1][axis]
             })
         })
     }
@@ -273,15 +263,17 @@ impl NodeFlux {
         rule: &[(f64, f64)],
     ) -> [f64; 2] {
         let psi: [f64; 2] = std::array::from_fn(|m| {
-            let v = self.modes[m].averages(x0, x1, y0, y1, rule);
+            let v = self.model.modes[m].averages(x0, x1, y0, y1, rule);
             let sum: f64 = v
                 .iter()
                 .zip(&self.coefficients[m])
                 .map(|(b, c)| b * c)
                 .sum();
-            sum + self.sources[m] * self.modes[m].particular_average(x0, x1, y0, y1, rule)
+            sum + self.sources[m] * self.model.modes[m].particular_average(x0, x1, y0, y1, rule)
         });
-        std::array::from_fn(|g| self.vectors[0][g] * psi[0] + self.vectors[1][g] * psi[1])
+        std::array::from_fn(|g| {
+            self.model.vectors[0][g] * psi[0] + self.model.vectors[1][g] * psi[1]
+        })
     }
 }
 
