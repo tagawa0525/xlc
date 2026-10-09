@@ -39,6 +39,7 @@
 //! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum、marshak のいずれか）。6面とも書く。
 //! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0101）
 //! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"] }
+//! pin-powers = "pins.msgpack"   # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）
 //! # 炉心の状態（省略すると、軸のないテーブルだけを使う。ADR-0097）
 //! [state]
 //! boron = 1291        # ホウ素濃度 (ppm)
@@ -386,6 +387,8 @@ pub struct Case {
     pub boundaries: [Boundary; 6],
     /// 炉心の状態。書けば分岐のテーブルをこの状態で内挿し、書かなければ軸のないテーブルだけを使う（ADR-0097）
     pub state: Option<State>,
+    /// 再構成したピン出力を書くファイル（ADR-0096）
+    pub pin_powers: Option<PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -396,6 +399,7 @@ struct CaseFile {
     radial_nodes: usize,
     boundary: BoundaryEntry,
     state: Option<State>,
+    pin_powers: Option<PathBuf>,
 }
 
 /// 各軸の（低い側, 高い側）
@@ -442,6 +446,7 @@ impl Case {
             radial_nodes: file.radial_nodes,
             boundaries,
             state: file.state,
+            pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
         })
     }
 }
