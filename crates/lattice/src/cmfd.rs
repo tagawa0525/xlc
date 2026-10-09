@@ -268,7 +268,8 @@ pub fn horizontal_face(rows: usize, columns: usize, line: usize, column: usize) 
 /// CMFD の固有値問題の打ち切り条件。
 ///
 /// MOC の反復の判定（`moc::Options`）より十分小さくする。CMFD の打ち切りの誤差が、MOC の
-/// 反復ごとの変化に紛れて収束の判定を誤らせないため。
+/// 反復ごとの変化に紛れて収束の判定を誤らせないため。MOC の反復では、スイープによる変化が MOC の判定の
+/// 何倍あるかに比例して緩めて解くので、ここの値は MOC が収束したときの精度になる（ADR-0110）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CmfdOptions {
     /// 実効増倍率の変化の上限
