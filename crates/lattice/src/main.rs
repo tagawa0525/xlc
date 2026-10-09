@@ -30,7 +30,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_lattice::branches::tables;
-use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes};
+use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
@@ -164,7 +164,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
 
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let states = input.branch_states();
-    let mut per_state: Vec<Vec<FewGroup>> = Vec::with_capacity(states.len());
+    let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(states.len());
     for (state, state_materials) in states.iter().enumerate() {
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
@@ -211,6 +211,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             bounds,
             files,
             pins,
+            split,
         }) = &input.output
         {
             let groups = groups
@@ -234,7 +235,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             .with_context(context)?,
                         );
                     }
-                    vec![few]
+                    // 集合体を分けた部分ノードの定数（ADR-0108）
+                    if *split > 1 {
+                        vec![
+                            split_constants(
+                                &few,
+                                &solution,
+                                &lattice,
+                                &materials,
+                                groups,
+                                bounds,
+                                &boundaries,
+                                *split,
+                            )
+                            .with_context(context)?,
+                        ]
+                    } else {
+                        vec![vec![few]]
+                    }
                 }
                 FewGroupFiles::Nodes(entries) => {
                     let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
@@ -247,6 +265,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         &boundaries,
                         &nodes,
                     )?
+                    .into_iter()
+                    .map(|few| vec![few])
+                    .collect()
                 }
             };
             per_state.push(fews);
@@ -272,12 +293,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
         );
     }
 
-    if let Some(FewGroupOutput { files, .. }) = &input.output {
+    if let Some(FewGroupOutput { files, split, .. }) = &input.output {
         let outputs: Vec<&Path> = match files {
             FewGroupFiles::Lattice(output) => vec![output],
             FewGroupFiles::Nodes(entries) => entries.iter().map(|(o, _)| o.as_path()).collect(),
         };
-        let tables = tables(axes, per_state).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+        let tables =
+            tables(axes, *split, per_state).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
         for (output, table) in outputs.into_iter().zip(tables) {
             let output = base.join(output);
             let bytes = table.to_msgpack().with_context(|| shown(&output))?;
