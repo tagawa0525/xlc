@@ -73,7 +73,8 @@ pub struct Solution {
     pub flux: Vec<Vec<f64>>,
     /// 外周から外へ出る正味の中性子数（群ごと）
     pub leakage: Vec<f64>,
-    /// [方向][ノード][群] の、ノードの - 面と + 面の平均の正味の中性子流（座標の正の向きを正）
+    /// [方向][ノード][群] の [- 面, + 面] の正味の中性子流。各面の上の平均で、単位面積あたり、座標の正の向きを
+    /// 正とし、`flux` と同じ規格化
     pub currents: [Vec<Vec<[f64; 2]>>; 3],
     pub iterations: usize,
 }
@@ -164,10 +165,11 @@ fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError
             {
                 return Err(NemError::NonFundamentalMode { node: n });
             }
+            let currents = std::array::from_fn(|d| core.currents(&state, d));
             let solution = Solution {
                 k,
-                leakage: core.leakage(&state),
-                currents: std::array::from_fn(|d| core.currents(&state, d)),
+                leakage: core.leakage(&currents),
+                currents,
                 flux: state.flux.clone(),
                 iterations: iteration,
             };
@@ -679,19 +681,18 @@ impl<'a> Core<'a> {
             .collect()
     }
 
-    /// 外周の面から外へ出る正味の中性子数（群ごと）
-    fn leakage(&self, state: &State) -> Vec<f64> {
+    /// 外周の面から外へ出る正味の中性子数（群ごと）。面の正味の中性子流（`currents`）の外周の面の和
+    fn leakage(&self, currents: &[Vec<Vec<[f64; 2]>>; 3]) -> Vec<f64> {
         let mut total = vec![0.0; self.groups];
         for n in 0..self.nodes() {
-            for d in 0..3 {
+            for (d, by_node) in currents.iter().enumerate() {
                 let area = self.volume(n) / self.width(n, d);
-                for (g, t) in total.iter_mut().enumerate() {
-                    let (in_minus, in_plus) = self.incoming(state, n, d, g);
+                for (t, [minus, plus]) in total.iter_mut().zip(&by_node[n]) {
                     if self.neighbor(n, d, -1).is_none() {
-                        *t += area * (state.out_minus[d][n][g] - in_minus);
+                        *t -= area * minus;
                     }
                     if self.neighbor(n, d, 1).is_none() {
-                        *t += area * (state.out_plus[d][n][g] - in_plus);
+                        *t += area * plus;
                     }
                 }
             }
