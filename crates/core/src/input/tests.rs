@@ -467,6 +467,7 @@ fn assembly_fission_rates_follow_the_map() {
             .map(|n| vec![n as f64 + 1.0, 0.0])
             .collect(),
         leakage: vec![0.0, 0.0],
+        currents: std::array::from_fn(|_| Vec::new()),
         iterations: 1,
     };
     let rates = layout.assembly_fission_rates(&problem, &solution);
