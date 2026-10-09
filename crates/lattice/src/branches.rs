@@ -128,8 +128,13 @@ fn check_all_waters(
     }
 }
 
-/// 状態ごとの出力の少数群定数（[状態][出力]）を、出力ごとのテーブル（状態は軸の直積の順）にまとめる。
-pub fn tables(axes: &[Axis], per_state: Vec<Vec<FewGroup>>) -> Result<Vec<Table>, String> {
+/// 状態ごとの出力の部分ノードの少数群定数（[状態][出力][部分ノード]。分けていなければ部分ノードは1つ）を、出力
+/// ごとのテーブル（状態は軸の直積の順）にまとめる。
+pub fn tables(
+    axes: &[Axis],
+    split: usize,
+    per_state: Vec<Vec<Vec<FewGroup>>>,
+) -> Result<Vec<Table>, String> {
     let expected: usize = axes.iter().map(|a| a.points().len()).product();
     if per_state.len() != expected {
         return Err(format!(
@@ -141,7 +146,8 @@ pub fn tables(axes: &[Axis], per_state: Vec<Vec<FewGroup>>) -> Result<Vec<Table>
     let mut tables: Vec<Table> = (0..outputs)
         .map(|_| Table {
             axes: axes.to_vec(),
-            states: Vec::with_capacity(expected),
+            split,
+            states: Vec::with_capacity(expected * split * split),
         })
         .collect();
     for (state, fews) in per_state.into_iter().enumerate() {
@@ -151,8 +157,15 @@ pub fn tables(axes: &[Axis], per_state: Vec<Vec<FewGroup>>) -> Result<Vec<Table>
                 fews.len()
             ));
         }
-        for (table, few) in tables.iter_mut().zip(fews) {
-            table.states.push(few);
+        for (table, subs) in tables.iter_mut().zip(fews) {
+            if subs.len() != split * split {
+                return Err(format!(
+                    "state {state} has {} sub-nodes, split {split} needs {}",
+                    subs.len(),
+                    split * split
+                ));
+            }
+            table.states.extend(subs);
         }
     }
     Ok(tables)
