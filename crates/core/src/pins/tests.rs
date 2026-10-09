@@ -28,6 +28,7 @@ fn fuel(width: f64, cells: usize) -> FewGroup {
             dy: vec![width / cells as f64; cells],
             form: vec![vec![vec![1.0; cells]; cells]; 2],
             corners: vec![vec![1.0, 1.0]; 4],
+            halves: vec![false; 4],
         }),
     }
 }
@@ -225,4 +226,78 @@ fn layers_without_fission_are_skipped() {
     assert_eq!((rows.len(), rows[0].len()), (8, 8));
     let mean = rows.iter().flatten().sum::<f64>() / 64.0;
     assert!((mean - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn core_rows_merge_halves_of_split_cells() {
+    // 2 × 1 の部分ノード（ADR-0108）。左のノードの +x の辺と右のノードの -x の辺のセルは、1つのセルを半分ずつ分けた
+    // もので、面積で重み付けして1つに戻す（幅 0.5 と 0.3 の半分のセル、出力の密度 2 と 4 → (2·0.5 + 4·0.3)/0.8 = 2.75）
+    let mut left = fuel(2.0, 2);
+    let mut right = fuel(2.0, 2);
+    if let (Some(l), Some(r)) = (left.pins.as_mut(), right.pins.as_mut()) {
+        l.dx = vec![1.5, 0.5];
+        l.halves = vec![false, true, false, false];
+        r.dx = vec![0.3, 1.7];
+        r.halves = vec![true, false, false, false];
+    }
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![2.0, 2.0],
+            dy: vec![2.0],
+            dz: vec![1.0],
+        },
+        materials: vec![left, right],
+        node_material: vec![0, 1],
+        boundaries: [Boundary::Reflective; 6],
+    };
+    let maps = vec![
+        vec![vec![1.0, 2.0], vec![1.0, 2.0]],
+        vec![vec![4.0, 1.0], vec![4.0, 1.0]],
+    ];
+    let rows = core_rows(&p, &maps).unwrap();
+    let mean = (1.0 + 2.75 + 1.0) / 3.0;
+    for row in &rows {
+        for (got, want) in row.iter().zip([1.0, 2.75, 1.0]) {
+            assert!((got - want / mean).abs() < 1e-14, "{rows:?}");
+        }
+    }
+    // 片方の辺だけに印があればエラー
+    let mut one_sided = p.clone();
+    if let Some(r) = one_sided.materials[1].pins.as_mut() {
+        r.halves = vec![false; 4];
+    }
+    assert!(core_rows(&one_sided, &maps).is_err());
+}
+
+#[test]
+fn cell_sizes_match_to_rounding_between_nodes() {
+    // 切ったセルの幅は、回した集合体と回していない集合体で最後の桁が違いうる（座標の引き算の丸め）。同じ列の
+    // ノードのセルの幅は丸めの程度で比べ、それより大きく違えばエラー
+    let with_dx = |dx: Vec<f64>| {
+        let mut m = fuel(2.56, 2);
+        if let Some(p) = m.pins.as_mut() {
+            p.dx = dx;
+            p.dy = vec![1.28, 1.28];
+        }
+        m
+    };
+    let mut p = Problem {
+        mesh: Mesh {
+            dx: vec![2.56],
+            dy: vec![2.56, 2.56],
+            dz: vec![1.0],
+        },
+        materials: vec![
+            with_dx(vec![1.93, 0.6300000000000008]),
+            with_dx(vec![1.93, 0.629999999999999]),
+        ],
+        node_material: vec![0, 1],
+        boundaries: [Boundary::Reflective; 6],
+    };
+    let maps = vec![vec![vec![1.0, 2.0]; 2]; 2];
+    assert!(core_rows(&p, &maps).is_ok());
+    if let Some(pins) = p.materials[1].pins.as_mut() {
+        pins.dx = vec![1.929, 0.631];
+    }
+    assert!(core_rows(&p, &maps).is_err());
 }

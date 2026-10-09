@@ -35,7 +35,7 @@
 //! ```toml
 //! cycle = "cycle-1.toml"
 //! axial-mesh = [0.0, 11.951, 200.0, 377.711, 406.3]   # 軸方向のノードの境界 (cm)
-//! radial-nodes = 1                                     # 集合体1体の各方向のノードの数
+//! radial-nodes = 1   # 集合体1体の各方向のノードの数。テーブルの分割の数と同じにする（反射体のある炉心は 1。ADR-0108）
 //! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum、marshak のいずれか）。6面とも書く。
 //! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0101）
 //! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"] }
@@ -424,14 +424,8 @@ impl Case {
     pub fn parse(text: &str, base: &Path) -> Result<Self, InputError> {
         let file: CaseFile = parse_toml(text)?;
         check_heights("axial-mesh", &file.axial_mesh)?;
-        match file.radial_nodes {
-            0 => return invalid("radial-nodes must be positive"),
-            1 => {}
-            n => {
-                return invalid(format!(
-                    "radial-nodes = {n}: ADFs of split nodes are not defined yet (#0033)"
-                ));
-            }
+        if file.radial_nodes == 0 {
+            return invalid("radial-nodes must be positive");
         }
         let b = file.boundary;
         let boundaries = [b.x[0], b.x[1], b.y[0], b.y[1], b.z[0], b.z[1]].map(|c| match c {
@@ -456,6 +450,8 @@ impl Case {
 pub struct LayoutMaterial {
     pub file: usize,
     pub turns: u8,
+    /// テーブルの部分ノードの番号（回す前の並び。-y の行から、各行は -x から。ADR-0108）
+    pub sub: usize,
 }
 
 /// 4つの入力から組み立てた炉心のノードの並び。
@@ -469,6 +465,8 @@ pub struct Layout {
     pub materials: Vec<LayoutMaterial>,
     /// ノードごとの物質の番号。並びは x が最も速く、次に y（下から）、z
     pub node_material: Vec<usize>,
+    /// 集合体の位置を各方向に分けたノードの数（ケースの `radial-nodes`。ADR-0108）
+    pub split: usize,
     /// 上の行（+y）から、位置ごとの集合体の ID（反射体の位置は `None`）
     pub ids: Vec<Vec<Option<String>>>,
     pub boundaries: [Boundary; 6],
@@ -562,6 +560,14 @@ impl Layout {
             ids.push(id_row);
         }
 
+        // 反射体の定数は、分けた均質な問題の不連続因子をまだ作れない（ADR-0108 の次の段階）
+        let split = case.radial_nodes;
+        if split > 1 && placements.iter().flatten().any(|p| p.reflector) {
+            return invalid(format!(
+                "radial-nodes = {split}: cores with reflector sites cannot be split yet (ADR-0108)"
+            ));
+        }
+
         // 層の最後が炉心の高さで、層の境界がメッシュに乗っていること（同じ数で書く）
         let mesh = &case.axial_mesh;
         for (what, column) in &used {
@@ -582,10 +588,25 @@ impl Layout {
         let mut file_index: HashMap<&Path, usize> = HashMap::new();
         let mut materials = Vec::new();
         let mut material_index: HashMap<LayoutMaterial, usize> = HashMap::new();
-        let mut node_material = Vec::with_capacity(rows * cols * (mesh.len() - 1));
+        let mut node_material = Vec::with_capacity(rows * cols * split * split * (mesh.len() - 1));
+        // 部分ノードの位置（炉心の向きで、-x と -y から）に来る、回す前の部分ノードの番号。90° 回すと元の (i, j) は
+        // (n − 1 − j, i) に移るので、逆にたどる
+        let sub_of = |mut i: usize, mut j: usize, turns: u8| {
+            for _ in 0..turns % 4 {
+                (i, j) = (j, split - 1 - i);
+            }
+            i + split * j
+        };
+        let sites = placements.iter().rev().flat_map(|row| {
+            (0..split).flat_map(move |sj| {
+                row.iter()
+                    .flat_map(move |p| (0..split).map(move |si| (p, si, sj)))
+            })
+        });
+        let sites: Vec<(&Placement, usize, usize)> = sites.collect();
         for z in mesh.windows(2) {
-            // 図の上の行が +y なので、y は下の行から
-            for placement in placements.iter().rev().flatten() {
+            // 図の上の行が +y なので、y は下の行から。集合体の位置の中は部分ノードの行と列
+            for &(placement, si, sj) in &sites {
                 let Placement {
                     column,
                     turns,
@@ -606,7 +627,11 @@ impl Layout {
                 });
                 // 軸方向の反射体の層などは、反射体と集合体の設計で同じファイルを使ってよい
                 reflector[file] |= is_reflector;
-                let material = LayoutMaterial { file, turns };
+                let material = LayoutMaterial {
+                    file,
+                    turns,
+                    sub: sub_of(si, sj, turns),
+                };
                 let m = *material_index.entry(material).or_insert_with(|| {
                     materials.push(material);
                     materials.len() - 1
@@ -617,21 +642,22 @@ impl Layout {
 
         Ok(Self {
             mesh: Mesh {
-                dx: vec![plant.pitch; cols],
-                dy: vec![plant.pitch; rows],
+                dx: vec![plant.pitch / split as f64; cols * split],
+                dy: vec![plant.pitch / split as f64; rows * split],
                 dz: mesh.windows(2).map(|w| w[1] - w[0]).collect(),
             },
             files,
             reflector,
             materials,
             node_material,
+            split,
             ids,
             boundaries: case.boundaries,
         })
     }
 
     /// `files` の順の少数群定数から、NEM の問題を作る。反射体の層が核分裂すればエラー。
-    pub fn problem(&self, constants: &[FewGroup]) -> Result<Problem, InputError> {
+    pub fn problem(&self, constants: &[Vec<FewGroup>]) -> Result<Problem, InputError> {
         if constants.len() != self.files.len() {
             return invalid(format!(
                 "{} few-group constants for {} files",
@@ -639,8 +665,24 @@ impl Layout {
                 self.files.len()
             ));
         }
-        for ((c, path), &is_reflector) in constants.iter().zip(&self.files).zip(&self.reflector) {
-            if is_reflector && c.nu_fission.iter().any(|&nf| nf != 0.0) {
+        let sub = self.split * self.split;
+        for (subs, path) in constants.iter().zip(&self.files) {
+            if subs.len() != sub {
+                return invalid(format!(
+                    "{} has {} sub-nodes per state; radial-nodes = {} needs {sub} (ADR-0108)",
+                    path.display(),
+                    subs.len(),
+                    self.split
+                ));
+            }
+        }
+        for ((subs, path), &is_reflector) in constants.iter().zip(&self.files).zip(&self.reflector)
+        {
+            if is_reflector
+                && subs
+                    .iter()
+                    .any(|c| c.nu_fission.iter().any(|&nf| nf != 0.0))
+            {
                 return invalid(format!(
                     "reflector layer {} has fission; load fuel with an assembly ID",
                     path.display()
@@ -653,7 +695,7 @@ impl Layout {
                 .materials
                 .iter()
                 .map(|m| {
-                    rotated(&constants[m.file], m.turns).map_err(|e| {
+                    rotated(&constants[m.file][m.sub], m.turns).map_err(|e| {
                         InputError::Invalid(format!("{}: {e}", self.files[m.file].display()))
                     })
                 })
@@ -671,14 +713,16 @@ impl Layout {
         solution: &Solution,
     ) -> Vec<Vec<Option<f64>>> {
         let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
-        let mut rates = vec![vec![0.0; nx]; ny];
+        // 集合体の位置の数（部分ノードを足し合わせる）
+        let (cols, rows) = (nx / self.split, ny / self.split);
+        let mut rates = vec![vec![0.0; cols]; rows];
         for (n, flux) in solution.flux.iter().enumerate() {
             let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
             let m = &problem.materials[problem.node_material[n]];
             let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
             let fission: f64 = m.fission.iter().zip(flux).map(|(f, phi)| f * phi).sum();
             // 図の上の行が +y
-            rates[ny - 1 - y][x] += fission * volume;
+            rates[rows - 1 - y / self.split][x / self.split] += fission * volume;
         }
         let loaded: Vec<f64> = self
             .ids
@@ -751,6 +795,11 @@ fn turn_pins(pins: &Pins) -> Pins {
         corners: [3, 0, 1, 2]
             .iter()
             .filter_map(|&c| pins.corners.get(c).cloned())
+            .collect(),
+        // 辺（左、右、上、下）の量: 新しい辺は元の（上、下、右、左）
+        halves: [2, 3, 1, 0]
+            .iter()
+            .filter_map(|&s| pins.halves.get(s).copied())
             .collect(),
     }
 }

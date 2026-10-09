@@ -671,6 +671,42 @@ impl Lattice {
             .collect()
     }
 
+    /// 点 (x, y)（格子の中心を原点とする）を含む領域。格子の外の点は、いちばん近い端のセルとする
+    pub fn region_at(&self, x: f64, y: f64) -> usize {
+        let (column, row) = self.cell_at(x, y);
+        let cell = row * self.columns() + column;
+        let (cx, cy) = self.cell_center(column, row);
+        let (lx, ly) = (x - cx, y - cy);
+        let local = match self.cell_type(cell) {
+            Cell::Pin(pin) => pin.region_at(lx, ly),
+            Cell::Block { nx, ny } => block_region(
+                (self.widths[column], self.heights[row]),
+                (*nx, *ny),
+                (lx, ly),
+            ),
+        };
+        self.offsets[cell] + local
+    }
+
+    /// 点 (x, y)（格子の中心を原点とする）を含むセルの（列、行（上から））。格子の外は、いちばん近い端のセル
+    fn cell_at(&self, x: f64, y: f64) -> (usize, usize) {
+        let column = self.xs[1..]
+            .partition_point(|&e| e <= x)
+            .min(self.columns() - 1);
+        let row = self.ys[1..]
+            .partition_point(|&e| e >= y)
+            .min(self.rows() - 1);
+        (column, row)
+    }
+
+    /// セル（列、行）の中心
+    fn cell_center(&self, column: usize, row: usize) -> (f64, f64) {
+        (
+            0.5 * (self.xs[column] + self.xs[column + 1]),
+            0.5 * (self.ys[row] + self.ys[row + 1]),
+        )
+    }
+
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
         let (xs, ys) = (&self.xs, &self.ys);
@@ -691,13 +727,9 @@ impl Lattice {
         for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
             let mid = 0.5 * (w[0] + w[1]);
             let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
-            let column = xs[1..].partition_point(|&e| e <= x).min(columns - 1);
-            let row = ys[1..].partition_point(|&e| e >= y).min(self.rows() - 1);
+            let (column, row) = self.cell_at(x, y);
             let cell = row * columns + column;
-            let center = (
-                0.5 * (xs[column] + xs[column + 1]),
-                0.5 * (ys[row] + ys[row + 1]),
-            );
+            let center = self.cell_center(column, row);
             let local = (
                 start.0 + w[0] * direction.0 - center.0,
                 start.1 + w[0] * direction.1 - center.1,
@@ -720,6 +752,13 @@ impl Lattice {
         }
         segments
     }
+}
+
+/// 大きさ (w, h) を (nx, ny) に分けたブロックの、セルの中心を原点とする点 (x, y) を含む領域（行は上から）
+fn block_region((w, h): (f64, f64), (nx, ny): (usize, usize), (x, y): (f64, f64)) -> usize {
+    let column = (((x + 0.5 * w) / (w / nx as f64)).floor().max(0.0) as usize).min(nx - 1);
+    let row = (((0.5 * h - y) / (h / ny as f64)).floor().max(0.0) as usize).min(ny - 1);
+    row * nx + column
 }
 
 /// 大きさ `sizes` を中心を原点に並べた境界の座標（向き `sign` に。両端を含み、両端はちょうど ∓sign × 全長/2。
@@ -767,10 +806,8 @@ fn block_segments(
         .map(|win| {
             let mid = 0.5 * (win[0] + win[1]);
             let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
-            let column = (((x + 0.5 * w) / dx).floor().max(0.0) as usize).min(nx - 1);
-            let row = (((0.5 * h - y) / dy).floor().max(0.0) as usize).min(ny - 1);
             Segment {
-                region: row * nx + column,
+                region: block_region((w, h), (nx, ny), (x, y)),
                 length: win[1] - win[0],
             }
         })

@@ -6,7 +6,8 @@
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（外周がすべて鏡面反射で、角に余白の
-//! # ある格子。nodes とは使えない。ADR-0096）
+//! # ある格子。nodes とは使えない。ADR-0096）。split = n を足すと、格子全体を n × n の部分ノードに分けた定数を書く
+//! # （外周がすべて鏡面反射の格子。nodes とは使えない。ADR-0108）
 //! # 格子をノードに分けるときは output の代わりに nodes を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と列を
 //! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
 //! # ADF を燃料の ADF で割る。省略すると false）
@@ -153,6 +154,8 @@ pub struct FewGroupOutput {
     pub files: FewGroupFiles,
     /// 格子全体の定数に、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
     pub pins: bool,
+    /// 格子全体を各方向に分ける部分ノードの数（ADR-0108）
+    pub split: usize,
 }
 
 /// 少数群定数のファイル。
@@ -251,6 +254,8 @@ struct FewGroupEntry {
     nodes: Option<Vec<NodeEntry>>,
     /// 省略すると false
     pins: Option<bool>,
+    /// 省略すると 1
+    split: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -267,6 +272,15 @@ struct NodeEntry {
 impl FewGroupEntry {
     fn into_output(self) -> Result<FewGroupOutput, String> {
         let pins = self.pins.unwrap_or(false);
+        let split = self.split.unwrap_or(1);
+        if split == 0 {
+            return Err("`split` must be positive".into());
+        }
+        if split > 1 && self.nodes.is_some() {
+            return Err(
+                "`split` (sub-nodes) needs `output` (the whole lattice), not `nodes`".into(),
+            );
+        }
         if pins && self.nodes.is_some() {
             return Err(
                 "`pins` (form functions) needs `output` (the whole lattice), not `nodes`".into(),
@@ -309,6 +323,7 @@ impl FewGroupEntry {
             bounds: self.bounds,
             files,
             pins,
+            split,
         })
     }
 }
@@ -465,6 +480,19 @@ impl LatticeInput {
                 "`{VOID}` is reserved for void zones and cannot be defined"
             )));
         }
+        let output = file
+            .few_group
+            .map(FewGroupEntry::into_output)
+            .transpose()
+            .map_err(invalid)?;
+        // 形状関数と部分ノードは、外周がすべて鏡面反射の格子でだけ作る（ADR-0096、ADR-0108）。MOC を解く前に止める
+        if output.as_ref().is_some_and(|o| o.pins || o.split > 1)
+            && boundaries != Boundaries::REFLECTIVE
+        {
+            return Err(invalid(
+                "`pins` and `split` need a lattice with every side reflective".into(),
+            ));
+        }
         let entries = file.material.unwrap_or_default();
         // ホウ酸水で書いた物質の量（分岐でホウ素濃度と密度を変える）
         let waters: BTreeMap<String, Water> = entries
@@ -562,11 +590,7 @@ impl LatticeInput {
         Ok(Self {
             self_shielding: !macroscopic && file.self_shielding.unwrap_or(true),
             cross_sections,
-            output: file
-                .few_group
-                .map(FewGroupEntry::into_output)
-                .transpose()
-                .map_err(invalid)?,
+            output,
             pin_powers: file.pin_powers,
             branches,
             pitch: file.pitch,
@@ -1015,6 +1039,7 @@ zones = [{ material = "water", rings = 1 }]
                 bounds: vec![1e7, 0.625, 1e-5],
                 files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
                 pins: false,
+                split: 1,
             })
         );
         assert_eq!(input.pin_powers, None);
@@ -1426,6 +1451,7 @@ zones = [{ material = "water", rings = 1 }]
                 ),
             ]),
             pins: false,
+            split: 1,
         };
         assert_eq!(input.output, Some(expected));
     }
@@ -1447,6 +1473,41 @@ zones = [{ material = "water", rings = 1 }]
         let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], pins = true";
         let err = few_group(nodes).unwrap_err().to_string();
         assert!(err.contains("pins"), "{err}");
+    }
+
+    #[test]
+    fn few_group_may_split_the_lattice() {
+        // 格子全体を n × n の部分ノードに分けた定数（ADR-0108）。省略すると 1。nodes とは使えない
+        let few_group = |entry: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = [1e7, 1e-5]{entry} }}"),
+            )
+        };
+        let input = few_group(", output = \"a\", split = 2").unwrap();
+        assert_eq!(input.output.map(|o| o.split), Some(2));
+        let input = few_group(", output = \"a\"").unwrap();
+        assert_eq!(input.output.map(|o| o.split), Some(1));
+        assert!(few_group(", output = \"a\", split = 0").is_err());
+        let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], split = 2";
+        let err = few_group(nodes).unwrap_err().to_string();
+        assert!(err.contains("split"), "{err}");
+        // 外周がすべて鏡面反射でない格子は、MOC を解く前に入力の段階で止める（pins も同じ）
+        for entry in [
+            ", output = \"a\", split = 2",
+            ", output = \"a\", pins = true",
+        ] {
+            let open = replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!(
+                    "few-group = {{ bounds = [1e7, 1e-5]{entry} }}\nboundary = {{ right = \"vacuum\" }}"
+                ),
+            );
+            let err = open.unwrap_err().to_string();
+            assert!(err.contains("reflective"), "{entry}: {err}");
+        }
     }
 
     #[test]
