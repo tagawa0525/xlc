@@ -1,0 +1,11 @@
+# 分岐のテーブル（table-2B.msgpack）の格子点の上の状態（1300 ppm、565 K）で、集合体1体（反射境界）の k∞ を求めるケース。
+cycle = "core-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
