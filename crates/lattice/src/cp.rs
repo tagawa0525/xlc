@@ -186,6 +186,16 @@ impl Cylinder {
         let n = self.radii.len();
         let mut tracks = vec![vec![0.0; n]; n];
         let mut escapes = vec![0.0; n];
+        // 弦の上の区間の境界の対 (p, q) の間の光学的距離の Ki3。弦ごとに必要になった対だけ求める（NaN は未計算）
+        let longest = self
+            .chords
+            .iter()
+            .map(|c| c.segments.len())
+            .max()
+            .unwrap_or(0)
+            + 1;
+        let mut memo = vec![f64::NAN; longest * longest];
+        let mut bounds = vec![0.0; longest];
         for chord in &self.chords {
             let weight = 2.0 * chord.weight;
             let path: Vec<Path> = chord
@@ -199,6 +209,19 @@ impl Cylinder {
                 })
                 .collect();
             let last = path.len() - 1;
+            // 区間の境界までの光学的距離（境界 p は区間 p の始まり）
+            bounds[0] = 0.0;
+            for (k, segment) in path.iter().enumerate() {
+                bounds[k + 1] = bounds[k] + segment.tau;
+            }
+            memo[..(path.len() + 1) * longest].fill(f64::NAN);
+            let mut k3 = |p: usize, q: usize| -> f64 {
+                let slot = &mut memo[p * longest + q];
+                if slot.is_nan() {
+                    *slot = small(ki3, bounds[q] - bounds[p]);
+                }
+                *slot
+            };
             // 区間ごとの、その区間から前に飛んで衝突する数 Σ_b Σb A_ab（自己の項を含む）
             let mut collided = vec![0.0; path.len()];
             for (a, from) in path.iter().enumerate() {
@@ -213,7 +236,13 @@ impl Cylinder {
                     if between >= NEGLIGIBLE {
                         break;
                     }
-                    let value = from.to(to, between);
+                    // Ki3 の差分の4項は、境界の対 (a+1, b)、(a, b)、(a+1, b+1)、(a, b+1) の値
+                    let value = if from.direct(to) {
+                        (k3(a + 1, b) - k3(a, b) - k3(a + 1, b + 1) + k3(a, b + 1))
+                            / (from.total * to.total)
+                    } else {
+                        from.to(to, between)
+                    };
                     collided[a] += value * to.total;
                     if a + b < last {
                         tracks[from.ring][to.ring] += 2.0 * weight * value;
@@ -279,6 +308,12 @@ impl Path {
         } else {
             (self.tau - ki3(0.0) + ki3(self.tau)) / (self.total * self.total)
         }
+    }
+
+    /// 区間の対の D/(Σa Σb) を、Ki3 の差分そのままで求めてよいか（真空の区間を含まず、打ち消し合いが小さい）。
+    /// そうでなければ [`Path::to`] の極限や積分表示で求める
+    fn direct(&self, to: &Path) -> bool {
+        self.tau != 0.0 && to.tau != 0.0 && self.tau.min(1.0) * to.tau.min(1.0) >= CANCELLATION
     }
 
     /// 単位の線源密度あたりの、光学的距離 `between` だけ先の区間 `to` の中を飛ぶ長さ: D/(Σa Σb)
