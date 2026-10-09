@@ -1,4 +1,5 @@
 use super::*;
+use crate::nem::Solution;
 
 const PLANT: &str = r#"
 pitch = 21.5
@@ -393,4 +394,96 @@ fn problem_rotates_materials_and_rejects_fissile_reflectors() {
     assert!(layout.problem(&fissile).is_err());
     // 定数の数がファイルの数と違う
     assert!(layout.problem(&constants[1..]).is_err());
+}
+
+#[test]
+fn reflectors_and_assemblies_may_share_layer_files() {
+    // 下部の反射体の層を、径方向の反射体と集合体の設計で共有する
+    let text = edited(
+        PLANT,
+        "bounds = [0.0, 10.0]\nlayers = [\"r.msgpack\"]",
+        "bounds = [0.0, 4.0, 10.0]\nlayers = [\"a-bottom.msgpack\", \"r.msgpack\"]",
+    );
+    let p = Plant::parse(&text, base()).unwrap();
+    let layout = layout_of(&case(), &cycle(), &p).unwrap();
+    let shared = layout
+        .files
+        .iter()
+        .position(|f| *f == PathBuf::from("dir/a-bottom.msgpack"))
+        .unwrap();
+    // 反射体に使うファイルは、核分裂の検査の対象になる
+    assert!(layout.reflector[shared]);
+    let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
+    assert!(layout.problem(&constants).is_ok());
+    let fissile: Vec<FewGroup> = (0..layout.files.len())
+        .map(|f| sided(f == shared))
+        .collect();
+    assert!(layout.problem(&fissile).is_err());
+}
+
+#[test]
+fn layer_paths_are_normalized() {
+    // 同じファイルを別の綴りで書いても1つのファイルになる
+    let text = edited(
+        PLANT,
+        "layers = [\"r.msgpack\"]",
+        "layers = [\"./sub/../r.msgpack\"]",
+    );
+    let p = Plant::parse(&text, base()).unwrap();
+    assert_eq!(
+        p.reflectors["R"].layers,
+        vec![PathBuf::from("dir/r.msgpack")]
+    );
+    let inv = Inventory::parse(
+        &edited(INVENTORY, "\"a-top.msgpack\"", "\"../dir/a-top.msgpack\""),
+        base(),
+    )
+    .unwrap();
+    assert_eq!(
+        inv.designs["A"].layers[1],
+        PathBuf::from("dir/a-top.msgpack")
+    );
+}
+
+#[test]
+fn rotating_assembly_sites_in_the_plant_points_to_the_loading() {
+    let err = Plant::parse(
+        &edited(PLANT, "\"R  *  R\",\n]", "\"R  *@90  R\",\n]"),
+        base(),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("loading"), "{err}");
+}
+
+#[test]
+fn assembly_fission_rates_follow_the_map() {
+    let layout = layout_of(&case(), &cycle(), &plant()).unwrap();
+    let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
+    let problem = layout.problem(&constants).unwrap();
+    // ノード n の高速群の中性子束を n + 1 にする（熱群は 0）
+    let solution = Solution {
+        k: 1.0,
+        flux: (0..layout.node_material.len())
+            .map(|n| vec![n as f64 + 1.0, 0.0])
+            .collect(),
+        leakage: vec![0.0, 0.0],
+        iterations: 1,
+    };
+    let rates = layout.assembly_fission_rates(&problem, &solution);
+    // 上の行の J01 は (x, y) = (1, 1) のノード 4、10、16、下の行の J02 は (1, 0) のノード 1、7、13。
+    // 層の厚さは 4、3、3 cm なので、J01 は 5×4 + 11×3 + 17×3 = 104、J02 は 2×4 + 8×3 + 14×3 = 74 に比例する
+    let mean = (104.0 + 74.0) / 2.0;
+    let expected = [
+        vec![None, Some(104.0 / mean), None],
+        vec![None, Some(74.0 / mean), None],
+    ];
+    for (row, want) in rates.iter().zip(&expected) {
+        for (got, want) in row.iter().zip(want) {
+            match (got, want) {
+                (Some(g), Some(w)) => assert!((g - w).abs() < 1e-12, "{g} vs {w}"),
+                (None, None) => {}
+                _ => panic!("{rates:?}"),
+            }
+        }
+    }
 }
