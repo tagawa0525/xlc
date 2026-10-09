@@ -73,6 +73,9 @@ pub struct Solution {
     pub flux: Vec<Vec<f64>>,
     /// 外周から外へ出る正味の中性子数（群ごと）
     pub leakage: Vec<f64>,
+    /// [方向][ノード][群] の [- 面, + 面] の正味の中性子流。各面の上の平均で、単位面積あたり、座標の正の向きを
+    /// 正とし、`flux` と同じ規格化
+    pub currents: [Vec<Vec<[f64; 2]>>; 3],
     pub iterations: usize,
 }
 
@@ -162,9 +165,11 @@ fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError
             {
                 return Err(NemError::NonFundamentalMode { node: n });
             }
+            let currents = std::array::from_fn(|d| core.currents(&state, d));
             let solution = Solution {
                 k,
-                leakage: core.leakage(&state),
+                leakage: core.leakage(&currents),
+                currents,
                 flux: state.flux.clone(),
                 iterations: iteration,
             };
@@ -659,19 +664,35 @@ impl<'a> Core<'a> {
         ))
     }
 
-    /// 外周の面から外へ出る正味の中性子数（群ごと）
-    fn leakage(&self, state: &State) -> Vec<f64> {
+    /// 方向 d の [ノード][群] の、- 面と + 面の正味の中性子流（座標の正の向きを正）
+    fn currents(&self, state: &State, d: usize) -> Vec<Vec<[f64; 2]>> {
+        (0..self.nodes())
+            .map(|n| {
+                (0..self.groups)
+                    .map(|g| {
+                        let (in_minus, in_plus) = self.incoming(state, n, d, g);
+                        [
+                            in_minus - state.out_minus[d][n][g],
+                            state.out_plus[d][n][g] - in_plus,
+                        ]
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// 外周の面から外へ出る正味の中性子数（群ごと）。面の正味の中性子流（`currents`）の外周の面の和
+    fn leakage(&self, currents: &[Vec<Vec<[f64; 2]>>; 3]) -> Vec<f64> {
         let mut total = vec![0.0; self.groups];
         for n in 0..self.nodes() {
-            for d in 0..3 {
+            for (d, by_node) in currents.iter().enumerate() {
                 let area = self.volume(n) / self.width(n, d);
-                for (g, t) in total.iter_mut().enumerate() {
-                    let (in_minus, in_plus) = self.incoming(state, n, d, g);
+                for (t, [minus, plus]) in total.iter_mut().zip(&by_node[n]) {
                     if self.neighbor(n, d, -1).is_none() {
-                        *t += area * (state.out_minus[d][n][g] - in_minus);
+                        *t -= area * minus;
                     }
                     if self.neighbor(n, d, 1).is_none() {
-                        *t += area * (state.out_plus[d][n][g] - in_plus);
+                        *t += area * plus;
                     }
                 }
             }
@@ -834,6 +855,134 @@ mod tests {
             "{production} / {} vs {absorption} + {leakage}",
             s.k
         );
+    }
+
+    /// 解の面の正味の中性子流が、各ノードのバランスを（反復の収束の程度で）満たし、隣のノードと面で一致し、
+    /// 反射の面で 0、外周の面の和が漏れに等しく、Marshak の面で J = f φ/4·2 = f (o + i) であること
+    fn assert_face_currents(p: &Problem) {
+        let (core, s, state) = solve_state(p);
+        let ng = core.groups;
+        let scale = s
+            .currents
+            .iter()
+            .flatten()
+            .flatten()
+            .flatten()
+            .fold(0.0, |a: f64, j| a.max(j.abs()));
+        assert!(scale > 0.0);
+        for n in 0..core.nodes() {
+            let m = core.material(n);
+            let phi = &s.flux[n];
+            let fission: f64 = (0..ng).map(|g| m.nu_fission[g] * phi[g]).sum::<f64>() / s.k;
+            for g in 0..ng {
+                let leakage: f64 = (0..3)
+                    .map(|d| {
+                        let [minus, plus] = s.currents[d][n][g];
+                        (plus - minus) / core.width(n, d)
+                    })
+                    .sum();
+                let scattering_in: f64 = (0..ng)
+                    .filter(|&h| h != g)
+                    .map(|h| m.scatter[h][g] * phi[h])
+                    .sum();
+                let removal = (m.total[g] - m.scatter[g][g]) * phi[g];
+                let residual = leakage + removal - scattering_in - m.chi[g] * fission;
+                assert!(
+                    residual.abs() < 1e-6 * removal,
+                    "node {n} group {g}: {residual}"
+                );
+            }
+        }
+        let mut outer = vec![0.0; ng];
+        for n in 0..core.nodes() {
+            for d in 0..3 {
+                let area = core.volume(n) / core.width(n, d);
+                for (g, out) in outer.iter_mut().enumerate() {
+                    let [minus, plus] = s.currents[d][n][g];
+                    for (step, index, current) in [(-1, 0, -minus), (1, 1, plus)] {
+                        if let Some(next) = core.neighbor(n, d, step) {
+                            let other = s.currents[d][next][g][1 - index];
+                            let own = if step > 0 { plus } else { minus };
+                            assert!(
+                                (own - other).abs() < 1e-12 * scale,
+                                "node {n} direction {d}: {own} vs {other}"
+                            );
+                            continue;
+                        }
+                        *out += area * current;
+                        match p.boundaries[2 * d + index] {
+                            Boundary::Reflective => {
+                                assert!(current.abs() < 1e-12 * scale, "reflective face of {n}");
+                            }
+                            Boundary::Marshak => {
+                                let (o, i) = if step > 0 {
+                                    let (_, i) = core.incoming(&state, n, d, g);
+                                    (state.out_plus[d][n][g], i)
+                                } else {
+                                    let (i, _) = core.incoming(&state, n, d, g);
+                                    (state.out_minus[d][n][g], i)
+                                };
+                                let f = core.adf(n, d, step > 0, g);
+                                assert!(
+                                    (current - f * (o + i)).abs() < 1e-12 * scale,
+                                    "Marshak face of {n}"
+                                );
+                            }
+                            _ => assert!(current > 0.0, "outer face of {n} must leak"),
+                        }
+                    }
+                }
+            }
+        }
+        for (g, (out, leak)) in outer.iter().zip(&s.leakage).enumerate() {
+            assert!(
+                (out - leak).abs() < 1e-12 * leak.abs().max(1e-300),
+                "group {g}: {out} vs {leak}"
+            );
+        }
+    }
+
+    #[test]
+    fn face_currents_balance_each_node() {
+        // ピン出力の再構成（ADR-0096）は面の正味の中性子流を条件にする
+        let mut boundaries = [Boundary::ZeroFlux; 6];
+        boundaries[0] = Boundary::Reflective;
+        boundaries[3] = Boundary::Reflective;
+        assert_face_currents(&cuboid([60.0, 80.0, 100.0], [3, 4, 5], boundaries));
+    }
+
+    #[test]
+    fn face_currents_are_continuous_across_adf_jumps() {
+        // 燃料と反射体（核分裂がないので ANM。ADR-0102）の 2D で、ADF が面で違い、+x は Marshak。
+        // 正味の中性子流は ADF の跳びによらず面で連続
+        let mut fuel = material();
+        fuel.adf = vec![
+            vec![1.1, 0.9],
+            vec![0.95, 1.2],
+            vec![1.05, 0.85],
+            vec![1.0, 1.1],
+        ];
+        let mut water = reflector();
+        water.adf = vec![
+            vec![0.8, 1.3],
+            vec![1.2, 0.7],
+            vec![0.9, 1.4],
+            vec![1.1, 0.75],
+        ];
+        let mut boundaries = [Boundary::Reflective; 6];
+        boundaries[1] = Boundary::Marshak;
+        boundaries[2] = Boundary::ZeroFlux;
+        let p = Problem {
+            mesh: Mesh {
+                dx: vec![10.0, 10.0, 10.0, 10.0],
+                dy: vec![10.0, 10.0],
+                dz: vec![20.0],
+            },
+            materials: vec![fuel, water],
+            node_material: vec![0, 0, 1, 1, 0, 1, 1, 1],
+            boundaries,
+        };
+        assert_face_currents(&p);
     }
 
     #[test]
