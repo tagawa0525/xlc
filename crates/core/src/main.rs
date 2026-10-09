@@ -88,15 +88,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .map(|file| {
             let bytes = std::fs::read(file).with_context(|| shown(file))?;
             let table = Table::from_msgpack(&bytes).with_context(|| shown(file))?;
-            let mut subs = interpolate(&table, case.state.as_ref())
-                .map_err(|e| anyhow!("{}: {e}", shown(file)))?;
-            match subs.len() {
-                1 => Ok(subs.remove(0)),
-                n => Err(anyhow!(
-                    "{}: split into {n} sub-nodes, not read yet",
-                    shown(file)
-                )),
-            }
+            interpolate(&table, case.state.as_ref()).map_err(|e| anyhow!("{}: {e}", shown(file)))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     let problem = layout.problem(&constants).with_context(inputs)?;
