@@ -268,3 +268,36 @@ fn core_rows_merge_halves_of_split_cells() {
     }
     assert!(core_rows(&one_sided, &maps).is_err());
 }
+
+#[test]
+fn cell_sizes_match_to_rounding_between_nodes() {
+    // 切ったセルの幅は、回した集合体と回していない集合体で最後の桁が違いうる（座標の引き算の丸め）。同じ列の
+    // ノードのセルの幅は丸めの程度で比べ、それより大きく違えばエラー
+    let with_dx = |dx: Vec<f64>| {
+        let mut m = fuel(2.56, 2);
+        if let Some(p) = m.pins.as_mut() {
+            p.dx = dx;
+            p.dy = vec![1.28, 1.28];
+        }
+        m
+    };
+    let mut p = Problem {
+        mesh: Mesh {
+            dx: vec![2.56],
+            dy: vec![2.56, 2.56],
+            dz: vec![1.0],
+        },
+        materials: vec![
+            with_dx(vec![1.93, 0.6300000000000008]),
+            with_dx(vec![1.93, 0.629999999999999]),
+        ],
+        node_material: vec![0, 1],
+        boundaries: [Boundary::Reflective; 6],
+    };
+    let maps = vec![vec![vec![1.0, 2.0]; 2]; 2];
+    assert!(core_rows(&p, &maps).is_ok());
+    if let Some(pins) = p.materials[1].pins.as_mut() {
+        pins.dx = vec![1.929, 0.631];
+    }
+    assert!(core_rows(&p, &maps).is_err());
+}
