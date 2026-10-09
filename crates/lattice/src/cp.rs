@@ -212,7 +212,10 @@ impl Cylinder {
             }));
             let last = path.len() - 1;
             memo[..(path.len() + 1) * longest].fill(f64::NAN);
-            memo2[..(path.len() + 1) * longest].fill(f64::NAN);
+            // Ki2 は真空の区間のある弦でだけ使う
+            if path.iter().any(|p| p.tau == 0.0) {
+                memo2[..(path.len() + 1) * longest].fill(f64::NAN);
+            }
             let taus: Vec<f64> = path.iter().map(|p| p.tau).collect();
             let mut k3 = |p: usize, q: usize| -> f64 {
                 let slot = &mut memo[p * longest + q];
@@ -222,7 +225,8 @@ impl Cylinder {
                 }
                 *slot
             };
-            // 真空と組になる対の Ki2 も、境界の対ごとに1回だけ求める
+            // 真空と組になる対の Ki2 も、境界の対ごとに1回だけ求める（区間 b が真空のときの引数 (a, b) は区間 a から
+            // 足すので、between + τa と足す順が違い、最後の桁が違いうる）
             let mut k2 = |p: usize, q: usize| -> f64 {
                 let slot = &mut memo2[p * longest + q];
                 if slot.is_nan() {
@@ -300,7 +304,7 @@ struct Path {
 /// Ki3 の表の誤差（2e-15 程度）が、差分の値の 1e-8 程度に収まる境目
 const CANCELLATION: f64 = 1e-6;
 
-/// 真空の区間と、光学的厚さがこれ以上の区間の対は、Ki2 の差分を表で求める（[`Path::to`]）。Ki2 の表の誤差は
+/// 真空の区間と、光学的厚さがこれ以上の区間の対は、Ki2 の差分を表で求める（`Cylinder::vacuum`）。Ki2 の表の誤差は
 /// 1e-3 以下で 4e-10、それより上で 1e-12 程度で、真空に隣り合う対の Ki2(0) は表の点の値なので、差分の値の
 /// 1e-8 程度に収まる
 const VOID_TABLE: f64 = 1e-2;
@@ -321,14 +325,15 @@ impl Path {
         }
         if self.tau.min(1.0).powi(2) < CANCELLATION {
             // [τ − Ki3(0) + Ki3(τ)]/τ² = ∫ φ2(τ cosh t)/cosh t dt
-            self.length.powi(2) * trapezoid(coarse_stride(self.tau), |c| phi2(self.tau * c) / c)
+            // 指数の因子がない（B = 0）
+            self.length.powi(2) * trapezoid(coarse_stride(0.0), |c| phi2(self.tau * c) / c)
         } else {
             (self.tau - ki3(0.0) + ki3(self.tau)) / (self.total * self.total)
         }
     }
 
     /// 区間の対の D/(Σa Σb) を、Ki3 の差分そのままで求めてよいか（打ち消し合いが小さい。真空の区間を含めば積は 0 で
-    /// 偽）。偽なら [`Path::to`] の極限や積分表示で求める
+    /// 偽）。偽なら、真空と厚い区間の対は Ki2 の差分（`Cylinder::vacuum`）、ほかは積分表示（[`Path::thin`]）で求める
     fn direct(&self, to: &Path) -> bool {
         self.tau.min(1.0) * to.tau.min(1.0) >= CANCELLATION
     }
@@ -337,7 +342,7 @@ impl Path {
     /// 単位の線源密度あたりの、光学的距離 `between` だけ先の区間 `to` の中を飛ぶ長さ D/(Σa Σb)
     fn thin(&self, to: &Path, between: f64) -> f64 {
         // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
-        let integral = trapezoid(coarse_stride(between + self.tau + to.tau), |c| {
+        let integral = trapezoid(coarse_stride(between), |c| {
             (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c
         });
         self.length * to.length * integral
@@ -449,8 +454,7 @@ fn bickley(n: i32, x: f64) -> f64 {
 /// 被積分関数は t について偶で、|Im t| < π/2 で解析的なので、台形則の誤差は exp(−π²/h) で減る
 /// （x が大きいと exp(−x cosh t) の幅が狭まるが、表の範囲 x < 48 では相対誤差 1e-13 程度に収まる）。
 ///
-/// 刻みは 0.125 × `stride`。被積分関数の指数の和 X（exp(−X cosh t) の X）が大きいと、被積分関数は t = 0 の近くに
-/// 幅 1/√X で集まり、刻み h の誤差はおよそ exp(−2π²/(X h²)) になる（[`coarse_stride`]）。
+/// 刻みは 0.125 × `stride`（[`coarse_stride`]）。
 fn trapezoid(stride: usize, f: impl Fn(f64) -> f64) -> f64 {
     const STEP: f64 = 0.125;
     // 1/cosh t は exp(−t) で減るので、t = 40 で 1e-17 を下回る
@@ -469,11 +473,13 @@ fn trapezoid(stride: usize, f: impl Fn(f64) -> f64) -> f64 {
     sum * STEP * stride as f64
 }
 
-/// 指数の和 `exponent` の積分を台形則で求める刻みの倍率。exponent < 4 なら刻み 0.25 でも誤差は
-/// exp(−2π²/(4 × 0.25²)) ≈ 4e-35 と、帯の幅 π/2 で決まる exp(−π²/0.25) ≈ 7e-18 の方が支配し、どちらも丸めより小さい。
-/// それより大きいと刻み 0.125 のまま（exponent = 48 で exp(−2π²/(48 × 0.125²)) ≈ 4e-12）
-fn coarse_stride(exponent: f64) -> usize {
-    if exponent < 4.0 { 2 } else { 1 }
+/// 被積分関数 exp(−B cosh t) g(cosh t)/cosh t（g は帯の上で有界。φ1、φ2 など）の積分を台形則で求める刻みの倍率。
+/// 帯 |Im t| < π/2 の端では exp(−B cosh t) が 1 の程度なのに、積分は e^−B の程度なので、刻み h の相対誤差は
+/// およそ e^B exp(−π²/h)（g が積分を小さくする分だけ相対では大きくなる）になる。B < 4 なら刻み 0.25 で 3e-14 以下
+/// （B = 3.99、τ = 3 の φ1 で 1.5e-14。打ち消し合いの目安 [`CANCELLATION`] で許す差分の誤差 1e-8 よりずっと小さい）。
+/// それより大きいと刻み 0.125 のまま
+fn coarse_stride(b: f64) -> usize {
+    if b < 4.0 { 2 } else { 1 }
 }
 
 #[cfg(test)]
@@ -555,6 +561,21 @@ mod tests {
         // 真空の中では角度中性子束が弦に沿って変わらないので、真空のリングの中性子束も周りと同じになる
         for (i, f) in flux.iter().enumerate() {
             assert!(close(*f, 3.0, 1e-8), "{i}: {f}");
+        }
+    }
+
+    #[test]
+    fn coarse_trapezoid_stays_within_its_bound() {
+        // 刻み 0.25 を使う範囲（B < 4）の端の近くでも、刻み 0.125 との相対差が見積もり（3e-14）以下
+        for b in [0.0, 1.0, 3.0, 3.99] {
+            for (ta, tb) in [(1e-4, 1e-4), (1e-3, 0.5), (1e-6, 3.0)] {
+                let f = |c: f64| (-b * c).exp() * phi1(ta * c) * phi1(tb * c) / c;
+                let (coarse, fine) = (trapezoid(coarse_stride(b), f), trapezoid(1, f));
+                assert!(
+                    (coarse - fine).abs() <= 3e-14 * fine,
+                    "B {b} τ ({ta}, {tb}): {coarse} vs {fine}"
+                );
+            }
         }
     }
 
