@@ -142,6 +142,30 @@ pub fn solve(
     materials: &[&Material],
     options: &Options,
 ) -> Result<Solution, MocError> {
+    // CMFD を MOC より細かく解く前提（ADR-0110）。比が 1 以下なので、緩めた CMFD の精度はスイープによる変化を超えない
+    let positive = |t: f64| t > 0.0 && t.is_finite();
+    let (cmfd_k, cmfd_flux) = match &options.acceleration {
+        Acceleration::Cmfd(c) => (c.k_tolerance, c.flux_tolerance),
+        Acceleration::None => (options.k_tolerance, options.flux_tolerance),
+    };
+    if ![
+        options.k_tolerance,
+        options.flux_tolerance,
+        cmfd_k,
+        cmfd_flux,
+    ]
+    .into_iter()
+    .all(positive)
+        || cmfd_k > options.k_tolerance
+        || cmfd_flux > options.flux_tolerance
+    {
+        return Err(MocError::Tolerances {
+            k: options.k_tolerance,
+            flux: options.flux_tolerance,
+            cmfd_k,
+            cmfd_flux,
+        });
+    }
     let regions = materials.len();
     let ng = materials.first().ok_or(MocError::NoRegions)?.groups();
     if materials.iter().any(|m| m.groups() != ng) {
@@ -1140,19 +1164,12 @@ fn worst_volume_error(exact: &[f64], tracked: &[f64]) -> (usize, f64) {
 }
 
 /// MOC の反復で CMFD を解く精度。スイープによる k と中性子束の変化（`k_change`, `flux_change`）が MOC の許容誤差の
-/// 何倍あるかに比例して、設定の精度 `cmfd` を緩める（ADR-0110）。変化が許容誤差以下なら設定のまま。MOC の
-/// 許容誤差が 0 以下（最大の反復の回数まで回す）なら、比べる基準がないので設定のまま
+/// 何倍あるかに比例して、設定の精度 `cmfd` を緩める（ADR-0110）。変化が許容誤差以下なら設定のまま。許容誤差は
+/// `solve` の最初で正の有限と確かめてある
 fn inexact_cmfd(cmfd: &CmfdOptions, moc: &Options, k_change: f64, flux_change: f64) -> CmfdOptions {
-    let factor = |change: f64, tolerance: f64| {
-        if tolerance > 0.0 {
-            (change / tolerance).max(1.0)
-        } else {
-            1.0
-        }
-    };
     CmfdOptions {
-        k_tolerance: cmfd.k_tolerance * factor(k_change, moc.k_tolerance),
-        flux_tolerance: cmfd.flux_tolerance * factor(flux_change, moc.flux_tolerance),
+        k_tolerance: cmfd.k_tolerance * (k_change / moc.k_tolerance).max(1.0),
+        flux_tolerance: cmfd.flux_tolerance * (flux_change / moc.flux_tolerance).max(1.0),
         ..*cmfd
     }
 }
