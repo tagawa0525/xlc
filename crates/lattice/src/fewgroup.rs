@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-use xlc_format::fewgroup::FewGroup;
+use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::group::GroupStructure;
 use xlc_numeric::equivalence::equivalent_diffusion;
 use xlc_numeric::nem::{Edge, OneNode, OneNodeError, is_fissile, surface_fluxes};
@@ -53,6 +53,8 @@ pub enum HomogenizeError {
     },
     #[error("nodes: {0}")]
     Nodes(String),
+    #[error("pins: {0}")]
+    Pins(String),
 }
 
 /// 格子のセルの長方形の範囲で、1つの少数群定数にまとめるもの（ADR-0095）。
@@ -441,6 +443,104 @@ fn node_neighbors(
 }
 
 /// 外周の辺（左、右、上、下）の境界条件
+/// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。格子全体を1つのノードとし、外周がすべて鏡面反射
+/// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は #0020）。
+///
+/// - セルの境界は、格子の列の幅と行の高さを -x、-y の辺から足したもの（行は下から）
+/// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均 / ノードの少数群 g の核分裂率の平均。核分裂のないセルは 0
+/// - 角の不連続因子 = 余白の角のセルの中性子束の平均 / ノード平均の中性子束。角のセルがピンのセル（余白がない）なら
+///   エラー
+pub fn pin_shapes(
+    solution: &Solution,
+    lattice: &Lattice,
+    materials: &[&Material],
+    fine: &GroupStructure,
+    coarse_bounds: &[f64],
+    boundaries: &Boundaries,
+) -> Result<Pins, HomogenizeError> {
+    if !reflective(boundaries) {
+        return Err(HomogenizeError::Pins(
+            "form functions need a lattice with every side reflective (other lattices: #0020)"
+                .into(),
+        ));
+    }
+    check_regions(solution, materials)?;
+    let group_of = coarse_groups(fine, coarse_bounds)?;
+    let coarse = coarse_bounds.len() - 1;
+    let (columns, rows) = (lattice.columns(), lattice.rows());
+    // [セル][少数群] の中性子束と核分裂率の体積積分と、セルの面積。core はセルの幾何の面積で再構成するので、
+    // 形状関数の面積で重みを付けた平均がちょうど 1 になるよう、トラックから推定した体積でなく解析的な体積を使う
+    let volumes = lattice.volumes();
+    let mut flux = vec![vec![0.0; coarse]; lattice.cells()];
+    let mut fission = vec![vec![0.0; coarse]; lattice.cells()];
+    let mut area = vec![0.0; lattice.cells()];
+    for cell in 0..lattice.cells() {
+        for region in lattice.cell_regions(cell) {
+            let (m, phi, volume) = (materials[region], &solution.flux[region], volumes[region]);
+            area[cell] += volume;
+            for (g, &big) in group_of.iter().enumerate() {
+                flux[cell][big] += volume * phi[g];
+                fission[cell][big] += volume * phi[g] * m.fission[g];
+            }
+        }
+    }
+    let total_area: f64 = area.iter().sum();
+    let node = |values: &[Vec<f64>], g: usize| -> f64 {
+        values.iter().map(|v| v[g]).sum::<f64>() / total_area
+    };
+    let edges = |sizes: &mut dyn Iterator<Item = f64>| {
+        std::iter::once(0.0)
+            .chain(sizes.scan(0.0, |sum, w| {
+                *sum += w;
+                Some(*sum)
+            }))
+            .collect::<Vec<f64>>()
+    };
+    let x = edges(&mut lattice.widths().iter().copied());
+    let y = edges(&mut lattice.heights().iter().rev().copied());
+    let mut form = Vec::with_capacity(coarse);
+    for g in 0..coarse {
+        let mean = node(&fission, g);
+        if mean.is_nan() || mean <= 0.0 {
+            return Err(HomogenizeError::Pins(format!(
+                "few group {g} has no fission; form functions need fission"
+            )));
+        }
+        // 行は下から（格子の行は上から）
+        form.push(
+            (0..rows)
+                .rev()
+                .map(|r| {
+                    (0..columns)
+                        .map(|c| fission[r * columns + c][g] / area[r * columns + c] / mean)
+                        .collect()
+                })
+                .collect(),
+        );
+    }
+    // 角（-x -y、+x -y、+x +y、-x +y）のセル。格子の行は上から
+    let corner_cells = [(rows - 1) * columns, rows * columns - 1, columns - 1, 0];
+    let mut corners = Vec::with_capacity(4);
+    for cell in corner_cells {
+        if lattice.cell_type(cell).pin().is_some() {
+            return Err(HomogenizeError::Pins(
+                "corner discontinuity factors need a margin (gap) at the lattice corners".into(),
+            ));
+        }
+        corners.push(
+            (0..coarse)
+                .map(|g| flux[cell][g] / area[cell] / node(&flux, g))
+                .collect(),
+        );
+    }
+    Ok(Pins {
+        x,
+        y,
+        form,
+        corners,
+    })
+}
+
 fn sides_of(boundaries: &Boundaries) -> [Boundary; 4] {
     [
         boundaries.left,
