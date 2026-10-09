@@ -5,7 +5,7 @@
 //! 持ち、与えないときは軸のないテーブルだけを使う。
 
 use serde::Deserialize;
-use xlc_format::fewgroup::FewGroup;
+use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{Axis, Table};
 
 /// 炉心の状態（ケースの `[state]`）。
@@ -78,6 +78,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
         adf,
         vacuum_ratio,
         normalized_adf,
+        pins,
     } = f;
     let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
     FewGroup {
@@ -93,6 +94,17 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
         adf: adf.iter().map(|r| v(r)).collect(),
         vacuum_ratio: vacuum_ratio.iter().map(|r| r.as_deref().map(v)).collect(),
         normalized_adf: normalized_adf.clone(),
+        // セルの境界はそのまま、形状関数と角の不連続因子は w 倍
+        pins: pins.as_ref().map(|p| Pins {
+            x: p.x.clone(),
+            y: p.y.clone(),
+            form: p
+                .form
+                .iter()
+                .map(|g| g.iter().map(|row| v(row)).collect())
+                .collect(),
+            corners: p.corners.iter().map(|c| v(c)).collect(),
+        }),
     }
 }
 
@@ -111,6 +123,7 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) {
         adf,
         vacuum_ratio,
         normalized_adf: _,
+        pins,
     } = f;
     acc.k_inf += w * k_inf;
     add(&mut acc.total, w, total);
@@ -128,6 +141,15 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) {
     // 真空の辺はどの状態でも同じ（テーブルの検査）
     for (a, x) in acc.vacuum_ratio.iter_mut().zip(vacuum_ratio) {
         if let (Some(a), Some(x)) = (a, x) {
+            add(a, w, x);
+        }
+    }
+    // 形状関数の有無とセルはどの状態でも同じ（テーブルの検査）
+    if let (Some(a), Some(x)) = (&mut acc.pins, pins) {
+        for (a, x) in a.form.iter_mut().flatten().zip(x.form.iter().flatten()) {
+            add(a, w, x);
+        }
+        for (a, x) in a.corners.iter_mut().zip(&x.corners) {
             add(a, w, x);
         }
     }
