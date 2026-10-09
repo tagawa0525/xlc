@@ -565,3 +565,16 @@ fn case_reads_the_core_state() {
     let partial = format!("{CASE}\n[state]\nboron = 1291\nmoderator = 565\nfuel = 565\n");
     assert!(Case::parse(&partial, base()).is_err());
 }
+
+#[test]
+fn case_may_write_pin_powers() {
+    // 再構成したピン出力のファイル（ADR-0096）。パスはケースのファイルのあるディレクトリから
+    let text = edited(
+        CASE,
+        "radial-nodes = 1",
+        "radial-nodes = 1\npin-powers = \"pins.msgpack\"",
+    );
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(c.pin_powers, Some(PathBuf::from("dir/pins.msgpack")));
+    assert_eq!(case().pin_powers, None);
+}

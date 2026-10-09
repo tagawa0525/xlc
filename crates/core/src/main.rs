@@ -22,7 +22,9 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, solve};
+use xlc_core::pins::{core_rows, reconstruct};
 use xlc_core::state::interpolate;
+use xlc_format::pins::PinPowers;
 use xlc_format::table::Table;
 
 fn main() -> ExitCode {
@@ -101,6 +103,20 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .map(|r| r.map_or_else(|| format!("{:>6}", "."), |r| format!("{r:6.4}")))
             .collect();
         println!("{}", cells.join(" "));
+    }
+    // 再構成したピン出力（ADR-0096）
+    if let Some(file) = &case.pin_powers {
+        let reconstructed = Instant::now();
+        let maps = reconstruct(&problem, &solution).map_err(|e| anyhow!("pin powers: {e}"))?;
+        let rows = core_rows(&problem, &maps).map_err(|e| anyhow!("pin powers: {e}"))?;
+        let bytes = PinPowers { rows }
+            .to_msgpack()
+            .with_context(|| shown(file))?;
+        std::fs::write(file, bytes).with_context(|| shown(file))?;
+        tracing::info!(
+            seconds = reconstructed.elapsed().as_secs_f64(),
+            "pin power reconstruction"
+        );
     }
     tracing::info!(
         iterations = solution.iterations,
