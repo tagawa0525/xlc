@@ -135,3 +135,37 @@ fn cells_must_cover_the_node() {
     let err = reconstruct(&p, &s).unwrap_err().to_string();
     assert!(err.contains("width"), "{err}");
 }
+
+#[test]
+fn core_rows_join_nodes_from_the_top() {
+    // 2 × 1 のノード、2 層（厚さ 1 と 3 cm）。ノードのセルは [行（-y から）][列]。すべて 0 の行と列（余白）を除き、
+    // 層の厚さで重みを付けて足し、核分裂のあるセルの平均で 1 に規格化する。行は上から
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![2.0, 2.0],
+            dy: vec![2.0],
+            dz: vec![1.0, 3.0],
+        },
+        materials: vec![fuel(2.0, 2)],
+        node_material: vec![0; 4],
+        boundaries: [Boundary::Reflective; 6],
+    };
+    let left = vec![vec![1.0, 0.0], vec![2.0, 0.0]];
+    let right = vec![vec![3.0, 0.0], vec![0.0, 0.0]];
+    // 層 0 と層 1 で同じ形、層 1 は 2 倍
+    let twice = |m: &Vec<Vec<f64>>| {
+        m.iter()
+            .map(|r| r.iter().map(|v| 2.0 * v).collect())
+            .collect()
+    };
+    let maps = vec![left.clone(), right.clone(), twice(&left), twice(&right)];
+    let rows = core_rows(&p, &maps).unwrap();
+    // 層の和は 7 倍: 左 (7, 0 / 14, 0)、右 (21, 0 / 0, 0)。列 1 と 3 はすべて 0 なので除く。上の行は y の大きい行
+    let (a, b, c) = (14.0, 7.0, 21.0);
+    let mean = (a + b + c) / 3.0;
+    assert_eq!(rows, vec![vec![a / mean, 0.0], vec![b / mean, c / mean]]);
+    // ノードのセルの行の数が、同じ行のノードで違えばエラー
+    let mut short = maps.clone();
+    short[1].pop();
+    assert!(core_rows(&p, &short).is_err());
+}
