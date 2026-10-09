@@ -198,3 +198,33 @@ fn pins_round_trip_and_share_cells() {
     let err = table.validate().unwrap_err().to_string();
     assert!(err.contains("pins"), "{err}");
 }
+
+#[test]
+fn states_need_the_pins_key() {
+    // 形状関数のない状態も `pins` に nil を書く。キーのないファイル（古い形式）は読まない
+    let bytes = sample().to_msgpack().unwrap();
+    let mut value = msgpack::read_value(&bytes).unwrap();
+    let rmpv::Value::Map(entries) = &mut value else {
+        panic!()
+    };
+    let (_, states) = entries
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("states"))
+        .unwrap();
+    let rmpv::Value::Array(states) = states else {
+        panic!()
+    };
+    let rmpv::Value::Map(fields) = &mut states[0] else {
+        panic!()
+    };
+    assert!(
+        fields
+            .iter()
+            .any(|(k, v)| k.as_str() == Some("pins") && v.is_nil())
+    );
+    fields.retain(|(k, _)| k.as_str() != Some("pins"));
+    let mut out = Vec::new();
+    rmpv::encode::write_value(&mut out, &value).unwrap();
+    let err = Table::from_msgpack(&out).unwrap_err().to_string();
+    assert!(err.contains("pins") || err.contains("missing"), "{err}");
+}
