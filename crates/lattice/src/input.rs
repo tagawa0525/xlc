@@ -1370,4 +1370,64 @@ zones = [{ material = "water", rings = 1 }]
             );
         }
     }
+
+    #[test]
+    fn borated_water_matches_vera_number_densities() {
+        // VERA の Problem 5 の減速材（565 K、0.743 g/cm³、B-10 19.9 at%）の個数密度の表（ADR-0106）
+        let table = [
+            (1285.0, [4.96231e-2, 1.05835e-5, 4.25999e-5, 2.48116e-2]),
+            (1291.0, [4.96228e-2, 1.06329e-5, 4.27988e-5, 2.48114e-2]),
+            (1170.0, [4.96288e-2, 9.63633e-6, 3.87874e-5, 2.48144e-2]),
+            (1230.0, [4.96258e-2, 1.01305e-5, 4.07765e-5, 2.48129e-2]),
+        ];
+        for (ppm, expected) in table {
+            let input = replaced(
+                PIN_CELL,
+                "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+                &format!("water = {{ density = 0.743, boron = {ppm}, b10 = 0.199 }}"),
+            )
+            .unwrap();
+            let water = input.materials.iter().find(|m| m.name == "water").unwrap();
+            let names: Vec<&str> = water.composition.iter().map(|(n, _)| n.as_str()).collect();
+            assert_eq!(names, ["B-10", "B-11", "H-1", "O-16"]);
+            let [h, b10, b11, o] = expected;
+            for ((_, got), want) in water.composition.iter().zip([b10, b11, h, o]) {
+                // 表は有効数字 6 桁
+                assert!(
+                    ((got - want) / want).abs() < 1e-5,
+                    "{ppm} ppm: {got} vs {want}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn water_without_boron_has_no_boron_nuclides() {
+        let input = replaced(
+            PIN_CELL,
+            "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+            "water = { density = 0.743, boron = 0, b10 = 0.199 }",
+        )
+        .unwrap();
+        let water = input.materials.iter().find(|m| m.name == "water").unwrap();
+        let names: Vec<&str> = water.composition.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(names, ["H-1", "O-16"]);
+        assert!(water.composition.iter().all(|&(_, n)| n > 0.0));
+    }
+
+    #[test]
+    fn invalid_water_is_an_error() {
+        let water = "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }";
+        let bad = |to: &str| replaced(PIN_CELL, water, to).is_err();
+        assert!(bad("water = { density = 0.0, boron = 1291, b10 = 0.199 }"));
+        assert!(bad("water = { density = 0.743, boron = -1, b10 = 0.199 }"));
+        assert!(bad("water = { density = 0.743, boron = 1e6, b10 = 0.199 }"));
+        assert!(bad("water = { density = 0.743, boron = 1291, b10 = 1.5 }"));
+        // 3つとも必須、nuclides と同時には書けない
+        assert!(bad("water = { density = 0.743, boron = 1291 }"));
+        assert!(bad(&format!(
+            "{water}\nwater = {{ density = 0.743, boron = 1291, b10 = 0.199 }}"
+        )));
+        assert!(bad(""));
+    }
 }
