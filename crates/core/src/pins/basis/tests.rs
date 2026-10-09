@@ -82,10 +82,9 @@ fn functions_are_continuous_in_mu() {
     for (x, y) in points() {
         let at = |mu: f64| Basis::new(mu, A, A).values(x, y);
         let zero = at(0.0);
-        for k in 0..8 {
-            for mu in [1e-14, -1e-14] {
-                let v = at(mu)[k];
-                assert!((v - zero[k]).abs() < 1e-9 * zero[k].abs().max(1.0), "{k}");
+        for mu in [1e-14, -1e-14] {
+            for (k, (v, z)) in at(mu).iter().zip(&zero).enumerate() {
+                assert!((v - z).abs() < 1e-9 * z.abs().max(1.0), "{k}");
             }
         }
         let r2 = 2.0 * A * A;
@@ -199,8 +198,8 @@ fn face_derivatives_average_the_outward_normal_derivative() {
     for mu in [0.0, -0.004, 0.3] {
         let basis = Basis::new(mu, A, 0.6 * A);
         let n = 20000;
-        for face in 0..4 {
-            let (axis, sign) = (face / 2, if face % 2 == 0 { -1.0 } else { 1.0 });
+        for face in 0..4usize {
+            let (axis, sign) = (face / 2, if face.is_multiple_of(2) { -1.0 } else { 1.0 });
             let along = if axis == 0 { 0.6 * A } else { A };
             let mut sum = [0.0; 8];
             for i in 0..=n {
