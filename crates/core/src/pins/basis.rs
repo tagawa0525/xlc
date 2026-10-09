@@ -131,6 +131,7 @@ pub(crate) struct Basis {
     functions: Vec<Combo>,
     gradients: Vec<[Combo; 2]>,
     particular: Combo,
+    particular_gradient: [Combo; 2],
 }
 
 impl Basis {
@@ -156,14 +157,17 @@ impl Basis {
             .iter()
             .map(|f| [f.derivative(0, mu), f.derivative(1, mu)])
             .collect();
+        // P = (C_x - 1)/μ は ∇²P = C_x = μP + 1
+        let particular = Combo::new(Kind::Even, &[t(1.0, x), t(-1.0, (0.0, 0.0))], 1);
+        let particular_gradient = [particular.derivative(0, mu), particular.derivative(1, mu)];
         Self {
             mu,
             half: [a, b],
             series: mu.abs() * (a * a + b * b) <= 1.0,
             functions,
             gradients,
-            // P = (C_x - 1)/μ は ∇²P = C_x = μP + 1
-            particular: Combo::new(Kind::Even, &[t(1.0, x), t(-1.0, (0.0, 0.0))], 1),
+            particular,
+            particular_gradient,
         }
     }
 
@@ -219,6 +223,29 @@ impl Basis {
             }
         }
         out
+    }
+
+    /// 特解 P の勾配 [∂/∂x, ∂/∂y]
+    pub(crate) fn particular_gradient(&self, x: f64, y: f64) -> [f64; 2] {
+        self.particular_gradient
+            .each_ref()
+            .map(|g| g.eval(self.mu, self.series, x, y))
+    }
+
+    /// 面（-x、+x、-y、+y）の上で平均した、特解 P の外向きの法線微分
+    pub(crate) fn particular_face_derivative(&self, face: usize, rule: &[(f64, f64)]) -> f64 {
+        let (axis, sign) = (face / 2, if face % 2 == 0 { -1.0 } else { 1.0 });
+        let (across, along) = (self.half[axis], self.half[1 - axis]);
+        rule.iter()
+            .map(|&(t, w)| {
+                let (x, y) = if axis == 0 {
+                    (sign * across, t * along)
+                } else {
+                    (t * along, sign * across)
+                };
+                0.5 * w * sign * self.particular_gradient(x, y)[axis]
+            })
+            .sum()
     }
 
     /// 長方形の上の特解 P の平均
