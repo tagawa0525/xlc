@@ -170,6 +170,13 @@ mod tests {
         let mut fg = sample();
         fg.k_inf = 0.0;
         assert!(fg.validate().is_err());
+        // 群境界が降順でない、散乱の行が短い
+        let mut fg = sample();
+        fg.bounds.reverse();
+        assert!(fg.validate().is_err());
+        let mut fg = sample();
+        fg.scatter[0].pop();
+        assert!(fg.validate().is_err());
     }
 
     #[test]

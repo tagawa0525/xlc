@@ -133,9 +133,10 @@ fn invalid_tables_are_errors() {
             b10: 0.199,
         }
     });
-    // 群境界、f* の印が状態の間で違う
+    // 群境界、f* の印、真空の辺が状態の間で違う
     bad(|t| t.states[3].bounds = vec![2.0e7, 0.625, 1.0e-5]);
     bad(|t| t.states[3].normalized_adf = vec![false; 4]);
+    bad(|t| t.states[3].vacuum_ratio[1] = None);
     // 状態そのものの誤り
     bad(|t| t.states[1].total[0] = f64::NAN);
 }
@@ -151,4 +152,45 @@ fn reading_checks_the_format_name() {
     let mut bytes = Table::single(state(3.5)).to_msgpack().unwrap();
     bytes.push(0xc0);
     assert!(Table::from_msgpack(&bytes).is_err());
+}
+
+#[test]
+fn reading_rejects_wrong_axis_fields() {
+    // 軸の欄を書き換えたファイルを読む（ADR-0013 の厳密な読み込み）
+    let edit = |change: fn(&mut rmpv::Value)| {
+        let bytes = sample().to_msgpack().unwrap();
+        let mut value = msgpack::read_value(&bytes).unwrap();
+        change(&mut value);
+        let mut out = Vec::new();
+        rmpv::encode::write_value(&mut out, &value).unwrap();
+        Table::from_msgpack(&out)
+    };
+    // axes の n 番目の軸の map
+    fn axis(value: &mut rmpv::Value, n: usize) -> &mut Vec<(rmpv::Value, rmpv::Value)> {
+        let rmpv::Value::Map(entries) = value else {
+            panic!()
+        };
+        let (_, axes) = entries
+            .iter_mut()
+            .find(|(k, _)| k.as_str() == Some("axes"))
+            .unwrap();
+        let rmpv::Value::Array(axes) = axes else {
+            panic!()
+        };
+        let rmpv::Value::Map(fields) = &mut axes[n] else {
+            panic!()
+        };
+        fields
+    }
+    assert!(edit(|_| {}).is_ok());
+    // 知らない名前
+    assert!(edit(|v| axis(v, 2)[0].1 = "clad".into()).is_err());
+    // ホウ素に b10 がない、減速材に density がない
+    assert!(edit(|v| axis(v, 0).retain(|(k, _)| k.as_str() != Some("b10"))).is_err());
+    assert!(edit(|v| axis(v, 1).retain(|(k, _)| k.as_str() != Some("density"))).is_err());
+    // 燃料に density や b10 がある
+    assert!(edit(|v| axis(v, 2).push(("b10".into(), 0.2.into()))).is_err());
+    assert!(
+        edit(|v| axis(v, 2).push(("density".into(), vec![rmpv::Value::from(0.7)].into()))).is_err()
+    );
 }
