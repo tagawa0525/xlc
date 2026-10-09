@@ -671,6 +671,30 @@ impl Lattice {
             .collect()
     }
 
+    /// 点 (x, y)（格子の中心を原点とする）を含む領域。格子の外の点は、いちばん近い端のセルとする
+    pub fn region_at(&self, x: f64, y: f64) -> usize {
+        let (xs, ys) = (&self.xs, &self.ys);
+        let columns = self.columns();
+        let column = xs[1..].partition_point(|&e| e <= x).min(columns - 1);
+        let row = ys[1..].partition_point(|&e| e >= y).min(self.rows() - 1);
+        let cell = row * columns + column;
+        let (cx, cy) = (
+            0.5 * (xs[column] + xs[column + 1]),
+            0.5 * (ys[row] + ys[row + 1]),
+        );
+        let (lx, ly) = (x - cx, y - cy);
+        let local = match self.cell_type(cell) {
+            Cell::Pin(pin) => pin.region_at(lx, ly),
+            Cell::Block { nx, ny } => {
+                let (w, h) = (self.widths[column], self.heights[row]);
+                let c = (((lx + 0.5 * w) / (w / *nx as f64)).floor().max(0.0) as usize).min(nx - 1);
+                let r = (((0.5 * h - ly) / (h / *ny as f64)).floor().max(0.0) as usize).min(ny - 1);
+                r * nx + c
+            }
+        };
+        self.offsets[cell] + local
+    }
+
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
         let (xs, ys) = (&self.xs, &self.ys);
