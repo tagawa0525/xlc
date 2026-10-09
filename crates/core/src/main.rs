@@ -22,7 +22,7 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, solve};
-use xlc_format::fewgroup::FewGroup;
+use xlc_format::table::Table;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -84,7 +84,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .iter()
         .map(|file| {
             let bytes = std::fs::read(file).with_context(|| shown(file))?;
-            FewGroup::from_msgpack(&bytes).with_context(|| shown(file))
+            let table = Table::from_msgpack(&bytes).with_context(|| shown(file))?;
+            // 状態からの内挿はまだない（ADR-0097）。軸のないテーブルだけを読む
+            if !table.axes.is_empty() {
+                return Err(anyhow!(
+                    "{}: tables with branch axes need the core state, which is not read yet",
+                    shown(file)
+                ));
+            }
+            table
+                .states
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("{}: no states", shown(file)))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     let problem = layout.problem(&constants).with_context(inputs)?;
