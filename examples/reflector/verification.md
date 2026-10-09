@@ -110,3 +110,8 @@ core のライブラリの API で問題を組んでいた例（`crates/core/exa
 | ------------------- | --------- | ------------------------ |
 | `core-I.toml`       | 0.531083  | 0.531083                 |
 | `core-I-fstar.toml` | 0.530389  | 0.530389                 |
+
+注記（2026-10-09）: このディレクトリの冒頭の手順を、炉心の入力（`core-I.toml`、`core-I-fstar.toml`）に書き換え、
+`fuel_reflector` の例を消した。前の節の数は、その節のコミットで
+`cargo run --release -p xlc-core --example fuel_reflector -- <燃料の少数群定数> examples/reflector/fg-I-reflector.msgpack 21.5`
+（燃料は `fg-I-fuel.msgpack` か `fg-2B.msgpack`）として再現する。
