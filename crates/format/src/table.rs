@@ -57,8 +57,12 @@ pub enum TableError {
     Msgpack(#[from] MsgpackError),
     #[error("expected format xlc-table, found {0}")]
     Format(String),
-    #[error("state {state}: {source}")]
-    State { state: usize, source: FewGroupError },
+    #[error("state {state}")]
+    State {
+        state: usize,
+        #[source]
+        source: FewGroupError,
+    },
     #[error("{0}")]
     Invalid(String),
 }
@@ -108,17 +112,6 @@ impl Table {
             axes: Vec::new(),
             states: vec![state],
         }
-    }
-
-    /// 軸ごとの点の番号から状態の番号。番号の数や範囲が合わなければ `None`。
-    pub fn index(&self, at: &[usize]) -> Option<usize> {
-        if at.len() != self.axes.len() {
-            return None;
-        }
-        self.axes.iter().zip(at).try_fold(0, |index, (axis, &i)| {
-            let n = axis.points().len();
-            (i < n).then_some(index * n + i)
-        })
     }
 
     /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印、真空の辺）を確かめる。

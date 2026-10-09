@@ -128,28 +128,30 @@ impl FewGroup {
     }
 }
 
+/// テストの少数群定数（2群、真空の辺と f* の辺を1つずつ持つ）
+#[cfg(test)]
+pub(crate) fn sample() -> FewGroup {
+    // 10 進で短く書けない値にして、ビット単位の往復を確かめる
+    let x = |v: f64| v / 3.0;
+    FewGroup {
+        bounds: vec![1.0e7, 0.625, 1.0e-5],
+        k_inf: x(3.5),
+        total: vec![x(1.6), x(2.2)],
+        absorption: vec![x(0.03), x(0.3)],
+        nu_fission: vec![x(0.02), x(0.4)],
+        fission: vec![x(0.008), x(0.16)],
+        chi: vec![1.0, 0.0],
+        diffusion: vec![x(4.1), x(1.2)],
+        scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],
+        adf: vec![vec![x(3.0), x(3.3)]; 4],
+        vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
+        normalized_adf: vec![true, false, false, false],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn sample() -> FewGroup {
-        // 10 進で短く書けない値にして、ビット単位の往復を確かめる
-        let x = |v: f64| v / 3.0;
-        FewGroup {
-            bounds: vec![1.0e7, 0.625, 1.0e-5],
-            k_inf: x(3.5),
-            total: vec![x(1.6), x(2.2)],
-            absorption: vec![x(0.03), x(0.3)],
-            nu_fission: vec![x(0.02), x(0.4)],
-            fission: vec![x(0.008), x(0.16)],
-            chi: vec![1.0, 0.0],
-            diffusion: vec![x(4.1), x(1.2)],
-            scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],
-            adf: vec![vec![x(3.0), x(3.3)]; 4],
-            vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
-            normalized_adf: vec![true, false, false, false],
-        }
-    }
 
     #[test]
     fn validate_checks_values_in_memory() {
