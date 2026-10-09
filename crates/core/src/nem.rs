@@ -73,6 +73,8 @@ pub struct Solution {
     pub flux: Vec<Vec<f64>>,
     /// 外周から外へ出る正味の中性子数（群ごと）
     pub leakage: Vec<f64>,
+    /// [方向][ノード][群] の、ノードの - 面と + 面の平均の正味の中性子流（座標の正の向きを正）
+    pub currents: [Vec<Vec<[f64; 2]>>; 3],
     pub iterations: usize,
 }
 
@@ -165,6 +167,7 @@ fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError
             let solution = Solution {
                 k,
                 leakage: core.leakage(&state),
+                currents: std::array::from_fn(|d| core.currents(&state, d)),
                 flux: state.flux.clone(),
                 iterations: iteration,
             };
@@ -657,6 +660,23 @@ impl<'a> Core<'a> {
             transverse(n),
             side(1, 1)?,
         ))
+    }
+
+    /// 方向 d の [ノード][群] の、- 面と + 面の正味の中性子流（座標の正の向きを正）
+    fn currents(&self, state: &State, d: usize) -> Vec<Vec<[f64; 2]>> {
+        (0..self.nodes())
+            .map(|n| {
+                (0..self.groups)
+                    .map(|g| {
+                        let (in_minus, in_plus) = self.incoming(state, n, d, g);
+                        [
+                            in_minus - state.out_minus[d][n][g],
+                            state.out_plus[d][n][g] - in_plus,
+                        ]
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
     /// 外周の面から外へ出る正味の中性子数（群ごと）
