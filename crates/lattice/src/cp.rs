@@ -209,6 +209,10 @@ impl Cylinder {
                 // a + b ≤ L − 1 の対だけを求め、a + b < L − 1 の対は鏡映の分も A[i][j] の側に足す
                 let mut between = 0.0;
                 for (b, to) in path.iter().enumerate().take(last + 1 - a).skip(a + 1) {
+                    // 光学的距離は弦に沿って増えるだけなので、表の範囲を超えたら先の対はどれも無視できる（[`NEGLIGIBLE`]）
+                    if between >= NEGLIGIBLE {
+                        break;
+                    }
                     let value = from.to(to, between);
                     collided[a] += value * to.total;
                     if a + b < last {
@@ -255,12 +259,19 @@ const CANCELLATION: f64 = 1e-6;
 /// 1e-8 程度に収まる
 const VOID_TABLE: f64 = 1e-2;
 
+/// 光学的距離がこれ以上なら Ki3、Ki2 を 0 とする（表の上端。Ki2(48) ≈ 2e-22 で、ほかの項（τ や Ki3(0) = π/4 の程度）
+/// に足しても倍精度の丸めより小さい。表の外を台形則で積分し直す手間を省く）
+const NEGLIGIBLE: f64 = MAX;
+
 impl Path {
     /// 単位の線源密度あたりの、同じ区間の中を飛ぶ長さ: [τ − Ki3(0) + Ki3(τ)]/Σ²
     fn own(&self) -> f64 {
         if self.tau == 0.0 {
             // τ → 0 の極限: ℓ² Ki1(0)/2
             return self.length.powi(2) * PI / 4.0;
+        }
+        if self.tau >= NEGLIGIBLE {
+            return (self.tau - ki3(0.0)) / (self.total * self.total);
         }
         if self.tau.min(1.0).powi(2) < CANCELLATION {
             // [τ − Ki3(0) + Ki3(τ)]/τ² = ∫ φ2(τ cosh t)/cosh t dt
@@ -279,7 +290,8 @@ impl Path {
             _ => None,
         };
         if let Some(tau) = other.filter(|&t| t >= VOID_TABLE) {
-            return self.length * to.length * (ki2(between) - ki2(between + tau)) / tau;
+            return self.length * to.length * (small(ki2, between) - small(ki2, between + tau))
+                / tau;
         }
         if self.tau.min(1.0) * to.tau.min(1.0) < CANCELLATION {
             // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
@@ -287,11 +299,17 @@ impl Path {
                 trapezoid(|c| (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c);
             self.length * to.length * integral
         } else {
-            let d = ki3(between) - ki3(between + self.tau) - ki3(between + to.tau)
-                + ki3(between + self.tau + to.tau);
+            let k = |x: f64| small(ki3, x);
+            let d = k(between) - k(between + self.tau) - k(between + to.tau)
+                + k(between + self.tau + to.tau);
             d / (self.total * to.total)
         }
     }
+}
+
+/// 引数が [`NEGLIGIBLE`] 以上なら 0 とした Ki_n
+fn small(ki: fn(f64) -> f64, x: f64) -> f64 {
+    if x >= NEGLIGIBLE { 0.0 } else { ki(x) }
 }
 
 /// φ1(z) = (1 − exp(−z))/z
