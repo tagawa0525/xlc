@@ -20,3 +20,5 @@
 /examples/reflector/xs.log
 /examples/branches/*.msgpack
 /examples/branches/*.log
+/examples/split/*.msgpack
+/examples/split/*.log
