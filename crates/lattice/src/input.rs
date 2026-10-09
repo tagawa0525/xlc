@@ -1484,6 +1484,21 @@ zones = [{ material = "water", rings = 1 }]
         let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], split = 2";
         let err = few_group(nodes).unwrap_err().to_string();
         assert!(err.contains("split"), "{err}");
+        // 外周がすべて鏡面反射でない格子は、MOC を解く前に入力の段階で止める（pins も同じ）
+        for entry in [
+            ", output = \"a\", split = 2",
+            ", output = \"a\", pins = true",
+        ] {
+            let open = replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!(
+                    "few-group = {{ bounds = [1e7, 1e-5]{entry} }}\nboundary = {{ right = \"vacuum\" }}"
+                ),
+            );
+            let err = open.unwrap_err().to_string();
+            assert!(err.contains("reflective"), "{entry}: {err}");
+        }
     }
 
     #[test]
