@@ -1,0 +1,5 @@
+# 開発のマシン（AMD Ryzen 9 9950X、Zen 5）の命令（AVX-512 を含む）でコンパイルする（ADR-0109）。
+# Zen 5 の命令を持たない CPU では動かないので、別のマシンでは値を変える。ホームの設定のターゲット別の rustflags は
+# [build] の rustflags より優先されるので、同じターゲット別の項目に書く（配列はつながる）
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=znver5"]
