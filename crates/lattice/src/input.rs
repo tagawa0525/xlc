@@ -480,6 +480,19 @@ impl LatticeInput {
                 "`{VOID}` is reserved for void zones and cannot be defined"
             )));
         }
+        let output = file
+            .few_group
+            .map(FewGroupEntry::into_output)
+            .transpose()
+            .map_err(invalid)?;
+        // 形状関数と部分ノードは、外周がすべて鏡面反射の格子でだけ作る（ADR-0096、ADR-0108）。MOC を解く前に止める
+        if output.as_ref().is_some_and(|o| o.pins || o.split > 1)
+            && boundaries != Boundaries::REFLECTIVE
+        {
+            return Err(invalid(
+                "`pins` and `split` need a lattice with every side reflective".into(),
+            ));
+        }
         let entries = file.material.unwrap_or_default();
         // ホウ酸水で書いた物質の量（分岐でホウ素濃度と密度を変える）
         let waters: BTreeMap<String, Water> = entries
@@ -577,11 +590,7 @@ impl LatticeInput {
         Ok(Self {
             self_shielding: !macroscopic && file.self_shielding.unwrap_or(true),
             cross_sections,
-            output: file
-                .few_group
-                .map(FewGroupEntry::into_output)
-                .transpose()
-                .map_err(invalid)?,
+            output,
             pin_powers: file.pin_powers,
             branches,
             pitch: file.pitch,
