@@ -6,7 +6,7 @@
 //! ```toml
 //! pitch = 21.5                 # 集合体のピッチ (cm)
 //! height = 406.3               # 炉心の高さ (cm)
-//! map = [                      # 上の行が +y。`*` は集合体を装荷する位置、ほかは反射体の種類
+//! map = [                      # 上の行が +y。`*` は集合体を装荷する位置、ほかは反射体の種類（`@90` で回す）
 //!   "R  R  R",
 //!   "R  *  R",
 //!   "R  R  R",
@@ -155,8 +155,8 @@ fn split_rows<'a>(what: &str, rows: &'a [String]) -> Result<Vec<Vec<&'a str>>, I
 pub enum Site {
     /// 集合体を装荷する位置（`*`）
     Assembly,
-    /// 反射体の種類
-    Reflector(String),
+    /// 反射体の種類と、反時計回りの 90° の回数（燃料に面する辺の向きを合わせる）
+    Reflector { name: String, turns: u8 },
 }
 
 /// 炉心の形（ADR-0105）。
@@ -209,10 +209,16 @@ impl Plant {
                         "-" => invalid(
                             "map: `-` (no node) needs boundaries along the core outline (#0034)",
                         ),
-                        name if reflectors.contains_key(name) => {
-                            Ok(Site::Reflector(name.to_string()))
+                        _ => {
+                            let (name, turns) = rotation("map", cell)?;
+                            if !reflectors.contains_key(name) {
+                                return invalid(format!("map: unknown reflector {name:?}"));
+                            }
+                            Ok(Site::Reflector {
+                                name: name.to_string(),
+                                turns,
+                            })
                         }
-                        name => invalid(format!("map: unknown reflector {name:?}")),
                     })
                     .collect::<Result<Vec<_>, _>>()
             })
@@ -296,27 +302,30 @@ struct CycleFile {
     loading: Vec<String>,
 }
 
+/// `名前@角度` を名前と反時計回りの 90° の回数に分ける（角度がなければ 0）。
+fn rotation<'a>(what: &str, cell: &'a str) -> Result<(&'a str, u8), InputError> {
+    let Some((name, angle)) = cell.split_once('@') else {
+        return Ok((cell, 0));
+    };
+    let turns = match angle {
+        "0" => 0,
+        "90" => 1,
+        "180" => 2,
+        "270" => 3,
+        _ => {
+            return invalid(format!(
+                "{what} {cell:?}: the rotation must be 0, 90, 180 or 270"
+            ));
+        }
+    };
+    Ok((name, turns))
+}
+
 fn placed(cell: &str) -> Result<Option<Placed>, InputError> {
     if cell == "." {
         return Ok(None);
     }
-    let (id, turns) = match cell.split_once('@') {
-        None => (cell, 0),
-        Some((id, angle)) => {
-            let turns = match angle {
-                "0" => 0,
-                "90" => 1,
-                "180" => 2,
-                "270" => 3,
-                _ => {
-                    return invalid(format!(
-                        "loading {cell:?}: the rotation must be 0, 90, 180 or 270"
-                    ));
-                }
-            };
-            (id, turns)
-        }
-    };
+    let (id, turns) = rotation("loading", cell)?;
     check_name("loading", id)?;
     Ok(Some(Placed {
         id: id.to_string(),
@@ -485,14 +494,14 @@ impl Layout {
                     (Site::Assembly, None) => {
                         return invalid(format!("{at}: an assembly ID is needed at `*`"));
                     }
-                    (Site::Reflector(name), None) => {
+                    (Site::Reflector { name, turns }, None) => {
                         let column = plant.reflectors.get(name).ok_or_else(|| {
                             InputError::Invalid(format!("{at}: unknown reflector {name:?}"))
                         })?;
-                        row.push((column, 0, true));
+                        row.push((column, *turns, true));
                         id_row.push(None);
                     }
-                    (Site::Reflector(name), Some(p)) => {
+                    (Site::Reflector { name, .. }, Some(p)) => {
                         return invalid(format!(
                             "{at}: {} is placed on the reflector {name}; use `.`",
                             p.id
