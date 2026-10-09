@@ -837,6 +837,57 @@ mod tests {
     }
 
     #[test]
+    fn face_currents_balance_each_node() {
+        // ピン出力の再構成（ADR-0096）は面の正味の流れを条件にするので、解の流れは各ノードの釣り合いを
+        // （反復の収束の程度で）満たし、隣のノードと面で一致し、反射の面で 0 であること
+        let mut boundaries = [Boundary::ZeroFlux; 6];
+        boundaries[0] = Boundary::Reflective;
+        boundaries[3] = Boundary::Reflective;
+        let p = cuboid([60.0, 80.0, 100.0], [3, 4, 5], boundaries);
+        let (core, s, _) = solve_state(&p);
+        let m = material();
+        let ng = m.groups();
+        let widths = [20.0, 20.0, 20.0];
+        for n in 0..core.nodes() {
+            let phi = &s.flux[n];
+            let fission: f64 = (0..ng).map(|g| m.nu_fission[g] * phi[g]).sum::<f64>() / s.k;
+            for g in 0..ng {
+                let leakage: f64 = (0..3)
+                    .map(|d| (s.currents[d][n][g][1] - s.currents[d][n][g][0]) / widths[d])
+                    .sum();
+                let scattering_in: f64 = (0..ng)
+                    .filter(|&h| h != g)
+                    .map(|h| m.scatter[h][g] * phi[h])
+                    .sum();
+                let removal = (m.total[g] - m.scatter[g][g]) * phi[g];
+                let residual = leakage + removal - scattering_in - m.chi[g] * fission;
+                assert!(
+                    residual.abs() < 1e-6 * removal,
+                    "node {n} group {g}: {residual}"
+                );
+            }
+        }
+        for n in 0..core.nodes() {
+            for d in 0..3 {
+                for g in 0..ng {
+                    let [minus, plus] = s.currents[d][n][g];
+                    match core.neighbor(n, d, 1) {
+                        Some(next) => {
+                            let other = s.currents[d][next][g][0];
+                            assert!((plus - other).abs() < 1e-12, "node {n} direction {d}");
+                        }
+                        None if d == 1 => assert!(plus.abs() < 1e-12, "reflective +y of {n}"),
+                        None => {}
+                    }
+                    if d == 0 && core.neighbor(n, d, -1).is_none() {
+                        assert!(minus.abs() < 1e-12, "reflective -x of {n}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn assembly_sized_nodes_converge() {
         // 集合体程度のノード（16.7 cm）の裸の立方体。外周の境界条件の遅れで発散していた
         let size = [200.0; 3];
