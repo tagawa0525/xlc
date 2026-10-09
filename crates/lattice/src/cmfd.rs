@@ -311,14 +311,32 @@ pub enum CmfdError {
     NotConverged(usize),
 }
 
+/// 粗メッシュのセルの、同じ核分裂スペクトルの項の和。核分裂源は χ (νΣf · φ)
+#[derive(Debug, Clone)]
+struct Spectrum {
+    chi: Vec<f64>,
+    /// χ の和（核分裂源の生成率に掛ける）
+    chi_sum: f64,
+    /// [群] の体積 × νΣf（均質化した中性子束あたり）
+    nu_fission: Vec<f64>,
+}
+
+impl Spectrum {
+    /// 中性子束 `phi`（[群]）での νΣf · φ
+    fn rate(&self, phi: &[f64]) -> f64 {
+        self.nu_fission.iter().zip(phi).map(|(a, b)| a * b).sum()
+    }
+}
+
 /// セルごとに均質化した粗メッシュの問題（流れに合わせて補正した拡散方程式）。
 #[derive(Debug, Clone)]
 pub(crate) struct Coarse {
     groups: usize,
     /// [セル][群] の均質化した中性子束
     flux: Vec<f64>,
-    /// [セル][出射の群][入射の群] の体積 × 核分裂源の行列 V χ νΣf
-    fission: Vec<f64>,
+    /// [セル] の核分裂源 V χ νΣf を、核分裂のスペクトルごとの項の和として持つ（密な群×群の行列にすると、
+    /// 右辺の計算が群の数の2乗になる）
+    fission: Vec<Vec<Spectrum>>,
     /// [セル] の対角のブロック（群×群）の LU 分解
     blocks: Vec<Lu>,
     /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)。方程式は
@@ -343,7 +361,7 @@ impl Coarse {
         // 反応率の和（後で中性子束で割る）
         let mut total = vec![0.0; cells * ng];
         let mut scatter = vec![0.0; cells * ng * ng];
-        let mut fission = vec![0.0; cells * ng * ng];
+        let mut fission: Vec<Vec<Spectrum>> = vec![Vec::new(); cells];
         for (region, m) in materials.iter().enumerate() {
             let (c, v, f) = (mesh.cell(region), volumes[region], &flux[region]);
             volume[c] += v;
@@ -355,11 +373,25 @@ impl Coarse {
                 }
             }
             for term in &m.fission_terms {
-                for g in 0..ng {
-                    let rate = v * term.nu_fission[g] * f[g];
-                    for to in 0..ng {
-                        fission[(c * ng + to) * ng + g] += term.chi[to] * rate;
+                // 同じスペクトルの項はまとめる
+                let terms = &mut fission[c];
+                let index = match terms.iter().position(|s| s.chi == term.chi) {
+                    Some(i) => i,
+                    None => {
+                        terms.push(Spectrum {
+                            chi: term.chi.clone(),
+                            chi_sum: term.chi.iter().sum(),
+                            nu_fission: vec![0.0; ng],
+                        });
+                        terms.len() - 1
                     }
+                };
+                for (r, (n, phi)) in terms[index]
+                    .nu_fission
+                    .iter_mut()
+                    .zip(term.nu_fission.iter().zip(f))
+                {
+                    *r += v * n * phi;
                 }
             }
         }
@@ -390,7 +422,14 @@ impl Coarse {
                 for g in 0..ng {
                     let j = (c * ng + to) * ng + g;
                     scatter[j] /= phi[c * ng + g];
-                    fission[j] /= phi[c * ng + g];
+                }
+            }
+        }
+
+        for (c, terms) in fission.iter_mut().enumerate() {
+            for s in terms.iter_mut() {
+                for (g, n) in s.nu_fission.iter_mut().enumerate() {
+                    *n /= phi[c * ng + g];
                 }
             }
         }
@@ -460,12 +499,9 @@ impl Coarse {
         let cells = self.blocks.len();
         let production = |phi: &[f64]| -> f64 {
             (0..cells)
-                .map(|c| {
-                    let f = &self.fission[c * ng * ng..][..ng * ng];
+                .flat_map(|c| {
                     let p = &phi[c * ng..][..ng];
-                    f.chunks(ng)
-                        .map(|row| row.iter().zip(p).map(|(a, b)| a * b).sum::<f64>())
-                        .sum::<f64>()
+                    self.fission[c].iter().map(move |s| s.chi_sum * s.rate(p))
                 })
                 .sum()
         };
@@ -478,14 +514,12 @@ impl Coarse {
         for iteration in 1..=options.max_iterations {
             let previous = phi.clone();
             for c in 0..cells {
-                let f = &self.fission[c * ng * ng..][..ng * ng];
-                for (to, r) in rhs.iter_mut().enumerate() {
-                    *r = f[to * ng..][..ng]
-                        .iter()
-                        .zip(&previous[c * ng..][..ng])
-                        .map(|(a, b)| a * b)
-                        .sum::<f64>()
-                        / k;
+                rhs.fill(0.0);
+                for s in &self.fission[c] {
+                    let rate = s.rate(&previous[c * ng..][..ng]);
+                    for (r, x) in rhs.iter_mut().zip(&s.chi) {
+                        *r += x * rate / k;
+                    }
                 }
                 for (other, coefficients) in &self.neighbors[c] {
                     for g in 0..ng {
