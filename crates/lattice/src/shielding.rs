@@ -147,6 +147,7 @@ pub struct PinShielding {
 
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
 /// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。
+#[tracing::instrument(name = "shielding", skip_all)]
 pub fn shield_fuel(
     library: &Library,
     tracking: &Tracking,
@@ -366,6 +367,11 @@ pub fn shield_fuel(
         options,
         &mut shielded,
     )?;
+    tracing::info!(
+        pins = shielded.pins.len(),
+        solved = solved.len(),
+        "fuel pins and their symmetry representatives"
+    );
     Ok(shielded)
 }
 
@@ -697,6 +703,7 @@ struct CellShielding {
 /// リング（ギャップ、被覆管）、減速材（セルの外側の物質。等価なセルでは1つのリング）のそれぞれの核種に、そのリングの
 /// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、燃料は等価原理の値（`carlvik`）、それ以外は無限希釈。
 /// 燃料に分離共鳴を持つ核種がなければ `None`。
+#[tracing::instrument(name = "pin", skip_all, fields(cell = pin.cell))]
 fn shield_cell(
     library: &Library,
     pin: &PinRings,
