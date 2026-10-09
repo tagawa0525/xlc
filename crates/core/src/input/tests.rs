@@ -66,6 +66,11 @@ fn cycle() -> Cycle {
     Cycle::parse(CYCLE, base()).unwrap()
 }
 
+/// 分けていないテーブルの、ファイルごとの部分ノードの定数（1つずつ）
+fn unsplit(constants: &[FewGroup]) -> Vec<Vec<FewGroup>> {
+    constants.iter().map(|c| vec![c.clone()]).collect()
+}
+
 fn case() -> Case {
     Case::parse(CASE, base()).unwrap()
 }
@@ -258,13 +263,73 @@ fn invalid_cases_are_errors() {
 }
 
 #[test]
-fn split_nodes_wait_for_issue_0033() {
-    let err = Case::parse(
+fn split_nodes_wait_for_reflector_constants() {
+    // 反射体の定数の分割（ADR-0108 の次の段階）まで、反射体のある炉心は分けられない
+    let c = Case::parse(
         &edited(CASE, "radial-nodes = 1", "radial-nodes = 2"),
         base(),
     )
-    .unwrap_err();
-    assert!(err.to_string().contains("#0033"), "{err}");
+    .unwrap();
+    assert_eq!(c.radial_nodes, 2);
+    let err = layout_of(&c, &cycle(), &plant()).unwrap_err().to_string();
+    assert!(
+        err.contains("reflector") && err.contains("ADR-0108"),
+        "{err}"
+    );
+}
+
+#[test]
+fn split_layout_places_sub_nodes() {
+    // 燃料だけの炉心を 2 × 2 に分ける（ADR-0108）。部分ノードの番号はテーブルの並び（-y の行から、各行は -x から）。
+    // 90° 回した集合体は、元の部分ノード 0（-x -y）が +x -y に来る
+    let plant = Plant::parse("pitch = 21.5\nheight = 10.0\nmap = [\"*  *\"]\n", base()).unwrap();
+    let cycle = Cycle::parse(
+        "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\nloading = [\"J01  J02@90\"]\n",
+        base(),
+    )
+    .unwrap();
+    let case = Case::parse(
+        &edited(CASE, "radial-nodes = 1", "radial-nodes = 2"),
+        base(),
+    )
+    .unwrap();
+    let layout = layout_of(&case, &cycle, &plant).unwrap();
+    assert_eq!(layout.mesh.dx, vec![10.75; 4]);
+    assert_eq!(layout.mesh.dy, vec![10.75; 2]);
+    let at = |x: usize, y: usize| {
+        let m = layout.materials[layout.node_material[x + 4 * y]];
+        (m.turns, m.sub)
+    };
+    assert_eq!(
+        [at(0, 0), at(1, 0), at(0, 1), at(1, 1)],
+        [(0, 0), (0, 1), (0, 2), (0, 3)]
+    );
+    assert_eq!(
+        [at(2, 0), at(3, 0), at(2, 1), at(3, 1)],
+        [(1, 2), (1, 0), (1, 3), (1, 1)]
+    );
+    // 位置ごとの ID は集合体の単位
+    assert_eq!(
+        layout.ids,
+        vec![vec![Some("J01".to_string()), Some("J02".to_string())]]
+    );
+    // 部分ノードの定数を回して置く。ファイルの定数の数が 4 でなければエラー
+    let subs: Vec<FewGroup> = (0..4)
+        .map(|q| FewGroup {
+            k_inf: 1.0 + q as f64,
+            ..sided(true)
+        })
+        .collect();
+    let constants = vec![subs.clone(); layout.files.len()];
+    let problem = layout.problem(&constants).unwrap();
+    for (material, m) in problem.materials.iter().zip(&layout.materials) {
+        assert_eq!(*material, rotated(&subs[m.sub], m.turns).unwrap());
+    }
+    assert!(
+        layout
+            .problem(&unsplit(&subs[..layout.files.len()]))
+            .is_err()
+    );
 }
 
 #[test]
@@ -440,7 +505,7 @@ fn problem_rotates_materials_and_rejects_fissile_reflectors() {
         .zip(&layout.reflector)
         .map(|(_, &r)| sided(!r))
         .collect();
-    let problem = layout.problem(&constants).unwrap();
+    let problem = layout.problem(&unsplit(&constants)).unwrap();
     assert_eq!(problem.mesh, layout.mesh);
     assert_eq!(problem.node_material, layout.node_material);
     assert_eq!(problem.boundaries, case().boundaries);
@@ -449,9 +514,9 @@ fn problem_rotates_materials_and_rejects_fissile_reflectors() {
     }
     // 反射体の層が核分裂すればエラー（燃料は ID を付けて台帳に書く）
     let fissile: Vec<FewGroup> = layout.files.iter().map(|_| sided(true)).collect();
-    assert!(layout.problem(&fissile).is_err());
+    assert!(layout.problem(&unsplit(&fissile)).is_err());
     // 定数の数がファイルの数と違う
-    assert!(layout.problem(&constants[1..]).is_err());
+    assert!(layout.problem(&unsplit(&constants[1..])).is_err());
 }
 
 #[test]
@@ -472,11 +537,11 @@ fn reflectors_and_assemblies_may_share_layer_files() {
     // 反射体に使うファイルは、核分裂の検査の対象になる
     assert!(layout.reflector[shared]);
     let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
-    assert!(layout.problem(&constants).is_ok());
+    assert!(layout.problem(&unsplit(&constants)).is_ok());
     let fissile: Vec<FewGroup> = (0..layout.files.len())
         .map(|f| sided(f == shared))
         .collect();
-    assert!(layout.problem(&fissile).is_err());
+    assert!(layout.problem(&unsplit(&fissile)).is_err());
 }
 
 #[test]
@@ -517,7 +582,7 @@ fn rotating_assembly_sites_in_the_plant_points_to_the_loading() {
 fn assembly_fission_rates_follow_the_map() {
     let layout = layout_of(&case(), &cycle(), &plant()).unwrap();
     let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
-    let problem = layout.problem(&constants).unwrap();
+    let problem = layout.problem(&unsplit(&constants)).unwrap();
     // ノード n の高速群の中性子束を n + 1 にする（熱群は 0）
     let solution = Solution {
         k: 1.0,
