@@ -1127,6 +1127,13 @@ fn worst_volume_error(exact: &[f64], tracked: &[f64]) -> (usize, f64) {
 }
 
 /// 中性子束の相対変化。両方 0 なら変化なし。
+/// MOC の反復で CMFD を解く精度。スイープによる k と中性子束の変化（`k_change`, `flux_change`）が MOC の許容誤差の
+/// 何倍あるかに比例して、設定の精度 `cmfd` を緩める（ADR-0110）。変化が許容誤差以下なら設定のまま
+fn inexact_cmfd(cmfd: &CmfdOptions, moc: &Options, k_change: f64, flux_change: f64) -> CmfdOptions {
+    let _ = (moc, k_change, flux_change);
+    *cmfd
+}
+
 fn relative_change(new: f64, old: f64) -> f64 {
     let scale = new.abs().max(old.abs());
     if scale == 0.0 {
@@ -2079,6 +2086,27 @@ mod tests {
         let (region, error) = worst_volume_error(&exact, &tracked);
         assert_eq!(region, 1);
         assert!((error + 0.02).abs() < 1e-12, "{error}");
+    }
+
+    #[test]
+    fn cmfd_tolerance_follows_the_moc_change() {
+        let cmfd = CmfdOptions::default();
+        let moc = Options::default();
+        // MOC の許容誤差以下の変化では設定のまま
+        assert_eq!(
+            inexact_cmfd(&cmfd, &moc, 0.5 * moc.k_tolerance, moc.flux_tolerance),
+            cmfd
+        );
+        // 許容誤差の 100 倍と 30 倍の変化では、k と中性子束の精度をそれぞれ同じ倍率で緩める
+        let tuned = inexact_cmfd(
+            &cmfd,
+            &moc,
+            100.0 * moc.k_tolerance,
+            30.0 * moc.flux_tolerance,
+        );
+        assert!((tuned.k_tolerance / cmfd.k_tolerance - 100.0).abs() < 1e-12);
+        assert!((tuned.flux_tolerance / cmfd.flux_tolerance - 30.0).abs() < 1e-12);
+        assert_eq!(tuned.max_iterations, cmfd.max_iterations);
     }
 
     #[test]
