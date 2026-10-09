@@ -237,9 +237,23 @@ mod tests {
     }
 
     #[test]
+    fn table_uses_natural_line_shape_above_its_theta_range() {
+        // θ = Γ/Δ が表より大きいとき（低温の構造材の非分離共鳴。Fe-58 の 550 K で θ ≈ 1.0e4）は、ドップラー
+        // 拡がりのない Lorentz の線形状の J, K（差は 1/θ² の程度）
+        for theta in [1.0025e4, 1.0e6] {
+            for beta in [1.0e-4, 1.0e-2, 1.0, 1.0e2] {
+                let (j, k) = jk_interpolated(beta, theta).unwrap();
+                let direct = jk_integrals(&[beta], theta).unwrap()[0];
+                assert_rel(j, direct.0, 1e-7);
+                assert_rel(k, direct.1, 1e-7);
+            }
+        }
+    }
+
+    #[test]
     fn table_rejects_points_outside_its_range() {
         assert!(jk_interpolated(1.0e-8, 1.0).is_err());
         assert!(jk_interpolated(1.0, 1.0e-5).is_err());
-        assert!(jk_interpolated(1.0, 1.0e6).is_err());
+        assert!(jk_interpolated(1.0e-8, 1.0e6).is_err());
     }
 }
