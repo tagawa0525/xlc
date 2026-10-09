@@ -15,6 +15,11 @@ fn mus() -> Vec<f64> {
     v
 }
 
+/// 面の平均の Gauss-Legendre の点と重み
+fn rule() -> Vec<(f64, f64)> {
+    xlc_numeric::quadrature::gauss_legendre(FACE_POINTS).unwrap()
+}
+
 fn points() -> Vec<(f64, f64)> {
     vec![
         (0.0, 0.0),
@@ -100,33 +105,91 @@ fn functions_are_continuous_in_mu() {
 
 #[test]
 fn node_conditions_determine_the_coefficients() {
-    // 4 つの角の値と、4 つの面の平均の外向きの法線微分の 8 × 8 の行列が、どの μ でも正則
-    for mu in mus() {
-        let basis = Basis::new(mu, A, A);
-        let mut rows = Vec::new();
-        for (x, y) in [(-A, -A), (A, -A), (A, A), (-A, A)] {
-            rows.push(basis.values(x, y).to_vec());
-        }
-        for face in 0..4 {
-            rows.push(basis.face_derivatives(face).to_vec());
-        }
-        let flat: Vec<f64> = rows.concat();
-        // 列ごとに大きさをそろえてから解く
-        let mut scaled = flat.clone();
-        for k in 0..8 {
-            let norm = (0..8).map(|r| flat[r * 8 + k].abs()).fold(0.0, f64::max);
-            assert!(norm > 0.0, "μ {mu} function {k} vanishes");
-            for r in 0..8 {
-                scaled[r * 8 + k] /= norm;
+    // 4 つの角の値、ノード平均、面の平均の外向きの法線微分の 3 つの組み合わせ（x の両面の差、y の両面の差、
+    // x と y の面の和の差）の 8 × 8 の行列が、どの μ でも正則。面の微分の重み付きの和 ∮∂ψ/∂n = μ∫ψ は平均と
+    // 結びつくので条件に入れない（μ = 0 では、4次式 (−x⁴/2 + 3x²y² − y⁴/2)/24 の角の値と面の微分が定数と同じ
+    // 形になり、平均を使わないと区別できない）
+    for (a, b) in [(A, A), (A, 0.6 * A)] {
+        for mu in mus() {
+            let basis = Basis::new(mu, a, b);
+            let mut rows = Vec::new();
+            for (x, y) in [(-a, -b), (a, -b), (a, b), (-a, b)] {
+                rows.push(basis.values(x, y).to_vec());
             }
+            rows.push(basis.averages(-a, a, -b, b, &rule()).to_vec());
+            let f: Vec<[f64; 8]> = (0..4)
+                .map(|face| basis.face_derivatives(face, &rule()))
+                .collect();
+            rows.push((0..8).map(|k| f[1][k] - f[0][k]).collect());
+            rows.push((0..8).map(|k| f[3][k] - f[2][k]).collect());
+            rows.push(
+                (0..8)
+                    .map(|k| b * (f[0][k] + f[1][k]) - a * (f[2][k] + f[3][k]))
+                    .collect(),
+            );
+            let flat: Vec<f64> = rows.concat();
+            // 列ごとに大きさをそろえてから解く
+            let mut scaled = flat.clone();
+            for k in 0..8 {
+                let norm = (0..8).map(|r| flat[r * 8 + k].abs()).fold(0.0, f64::max);
+                assert!(norm > 0.0, "μ {mu} function {k} vanishes");
+                for r in 0..8 {
+                    scaled[r * 8 + k] /= norm;
+                }
+            }
+            let mut x = vec![1.0; 8];
+            let lu =
+                xlc_numeric::lu::Lu::new(scaled, 8).unwrap_or_else(|| panic!("μ {mu} singular"));
+            lu.solve(&mut x);
+            assert!(
+                x.iter().all(|v| v.is_finite() && v.abs() < 1e6),
+                "μ {mu}: {x:?}"
+            );
         }
-        let mut b = vec![1.0; 8];
-        let lu = xlc_numeric::lu::Lu::new(scaled, 8).unwrap_or_else(|| panic!("μ {mu} singular"));
-        lu.solve(&mut b);
-        assert!(
-            b.iter().all(|v| v.is_finite() && v.abs() < 1e8),
-            "μ {mu}: {b:?}"
-        );
+    }
+}
+
+#[test]
+fn averages_match_a_fine_midpoint_sum() {
+    for mu in [0.0, -0.004, 0.3] {
+        let basis = Basis::new(mu, A, 0.6 * A);
+        // ノードの一部の長方形（ピンのセルの大きさ）とノード全体
+        for (x0, x1, y0, y1) in [(2.0, 3.26, -5.0, -3.74), (-A, A, -0.6 * A, 0.6 * A)] {
+            // 中点則（誤差は刻みの2乗に比例）を点の数 n と 2n で求め、Richardson 外挿で 4 次にする
+            let midpoint = |n: usize| {
+                let mut sum = [0.0; 9];
+                for i in 0..n {
+                    for j in 0..n {
+                        let x = x0 + (x1 - x0) * (i as f64 + 0.5) / n as f64;
+                        let y = y0 + (y1 - y0) * (j as f64 + 0.5) / n as f64;
+                        let v = basis.values(x, y);
+                        for k in 0..8 {
+                            sum[k] += v[k] / (n * n) as f64;
+                        }
+                        sum[8] += basis.particular(x, y) / (n * n) as f64;
+                    }
+                }
+                sum
+            };
+            let (coarse, fine) = (midpoint(200), midpoint(400));
+            let extrapolated: Vec<f64> =
+                (0..9).map(|k| (4.0 * fine[k] - coarse[k]) / 3.0).collect();
+            let (sum, particular) = (&extrapolated[..8], extrapolated[8]);
+            let got = basis.averages(x0, x1, y0, y1, &rule());
+            for k in 0..8 {
+                assert!(
+                    (got[k] - sum[k]).abs() < 1e-5 * sum[k].abs().max(1e-2),
+                    "μ {mu} function {k}: {} vs {}",
+                    got[k],
+                    sum[k]
+                );
+            }
+            let p = basis.particular_average(x0, x1, y0, y1, &rule());
+            assert!(
+                (p - particular).abs() < 1e-5 * particular.abs().max(1e-2),
+                "{p} vs {particular}"
+            );
+        }
     }
 }
 
@@ -152,7 +215,7 @@ fn face_derivatives_average_the_outward_normal_derivative() {
                     *s += w * sign * g[axis] / n as f64;
                 }
             }
-            let got = basis.face_derivatives(face);
+            let got = basis.face_derivatives(face, &rule());
             for k in 0..8 {
                 assert!(
                     (got[k] - sum[k]).abs() < 1e-6 * sum[k].abs().max(1e-3),
