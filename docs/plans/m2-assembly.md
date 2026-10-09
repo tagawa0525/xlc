@@ -57,7 +57,7 @@ M1 までの格子計算は、無限希釈の断面積でピンセルを1つ解�
 
 ### 離散化の設定
 
-- VERA の入力の設定のまま進める: [ADR-0077](../adr/0077-keep-vera-discretization.md)
+- VERA の入力の設定のまま進める: [ADR-0077](../adr/0077-keep-vera-discretization.md)（集合体は [ADR-0111](../adr/0111-use-30-azimuths-for-vera-assemblies.md) で方位角 30・間隔 0.03 cm に置き換え）
 
 ### 出力
 
