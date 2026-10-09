@@ -52,8 +52,8 @@ fn conditions_of(exact: &Exact, m: &FewGroup, half: [f64; 2], axial: [f64; 2]) -
     }
     // 面の正味の中性子流 J = −D ∂φ/∂(座標)（座標の正の向きを正）
     let mut currents = [[0.0; 2]; 4];
-    for face in 0..4 {
-        let (axis, sign) = (face / 2, if face % 2 == 0 { -1.0 } else { 1.0 });
+    for (face, current) in currents.iter_mut().enumerate() {
+        let (axis, sign) = (face / 2, if face.is_multiple_of(2) { -1.0 } else { 1.0 });
         for &(t, w) in &rule {
             let (x, y) = if axis == 0 {
                 (sign * a, t * b)
@@ -61,8 +61,8 @@ fn conditions_of(exact: &Exact, m: &FewGroup, half: [f64; 2], axial: [f64; 2]) -
                 (t * a, sign * b)
             };
             let grad = (exact.gradient)(x, y);
-            for g in 0..2 {
-                currents[face][g] += 0.5 * w * -m.diffusion[g] * grad[g][axis];
+            for (g, j) in current.iter_mut().enumerate() {
+                *j += 0.5 * w * -m.diffusion[g] * grad[g][axis];
             }
         }
     }
@@ -196,7 +196,7 @@ fn solutions_in_the_span_are_reproduced() {
         half,
         axial,
     );
-    for face in 0..4 {
+    for face in 0..4usize {
         for g in 0..2 {
             let (got, want) = (reproduced.currents[face][g], conditions.currents[face][g]);
             assert!(
