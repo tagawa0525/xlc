@@ -94,17 +94,22 @@ fn states_change_the_listed_materials_with_the_first_axis_slowest() {
 
 #[test]
 fn without_branches_there_is_one_state() {
-    let input = edited(
-        "[branches]\nboron = { ppm = [900, 1700], materials = [\"water\"] }\n",
-        "[branches]\n",
-    )
-    .unwrap();
-    // 減速材と燃料の軸だけ
-    assert_eq!(input.branch_states().len(), 6);
     let i = INPUT.find("[branches]").unwrap();
     let input = LatticeInput::parse(&INPUT[..i]).unwrap();
     assert!(input.branches.is_none());
     assert_eq!(input.branch_states(), vec![input.materials.clone()]);
+}
+
+#[test]
+fn branches_need_all_three_axes() {
+    // core は状態を与えるとき3つの軸をすべて求める（ADR-0097）ので、一部の軸のテーブルは作らない
+    for axis in ["boron = {", "moderator = {", "fuel = {"] {
+        let i = INPUT.find(axis).unwrap();
+        let j = i + INPUT[i..].find('\n').unwrap() + 1;
+        let text = format!("{}{}", &INPUT[..i], &INPUT[j..]);
+        let err = LatticeInput::parse(&text).unwrap_err().to_string();
+        assert!(err.contains("all three axes"), "{err}");
+    }
 }
 
 /// エラーになり、その文に `needle` を含むこと
