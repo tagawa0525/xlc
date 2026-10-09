@@ -194,6 +194,13 @@ fn pins_round_trip_and_share_cells() {
     }
     let err = table.validate().unwrap_err().to_string();
     assert!(err.contains("pins"), "{err}");
+    // 分け合ったセルの印も状態の間で同じ
+    let mut table = with_pins(sample());
+    if let Some(p) = table.states[1].pins.as_mut() {
+        p.halves[0] = !p.halves[0];
+    }
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("pins"), "{err}");
     let mut table = with_pins(sample());
     table.states[3].pins = None;
     let err = table.validate().unwrap_err().to_string();
@@ -258,5 +265,11 @@ fn split_tables_hold_sub_nodes_per_state() {
     assert!(mixed.validate().is_ok());
     mixed.states[5].normalized_adf[0] = true;
     let err = mixed.validate().unwrap_err().to_string();
-    assert!(err.contains("state"), "{err}");
+    assert!(err.contains("state"), "{err}"); // 群境界は表全体の量なので、部分ノードで違えばエラー（ファイルには1つしか書かない）
+    let mut bounds = table.clone();
+    for state in 0..4 {
+        bounds.states[4 * state + 1].bounds = vec![2.0e7, 0.625, 1.0e-5];
+    }
+    let err = bounds.validate().unwrap_err().to_string();
+    assert!(err.contains("bounds"), "{err}");
 }
