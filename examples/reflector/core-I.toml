@@ -1,0 +1,6 @@
+# I 型の格子（reflector-I.toml）を、集合体と反射体の2ノードの NEM で解くケース（ADR-0095 の等価性）。
+# -x、±y、±z は反射、+x は真空（反射体の少数群定数の右の辺の J/φ。ADR-0101）。z の高さは結果に効かない。
+cycle = "core-I-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
