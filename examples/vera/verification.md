@@ -455,3 +455,9 @@ core は2群・1ノード。差は k の相対差 (k_core − k_MOC)/k_MOC。
 
 17×17 の集合体（`assembly-2B-vacuum.toml`、自己遮蔽なし）は、同じく1ノードの問題の熱群の均質な面の中性子束が
 −7.2 × 10⁻⁴ になり、ADF を作れない（#0027。57 秒、32 コア）。
+
+## 装荷図の入力（ADR-0105）に書き換えた 9 × 9 の1ノード（d4355e5、2026-10-09）
+
+`core-9x9-vacuum.toml` を、ケースと、サイクル（`core-9x9-vacuum-cycle.toml`）、炉心の形（`core-9x9-vacuum-plant.toml`）、
+台帳（`core-9x9-vacuum-assemblies.toml`）に分けた。格子1体を ID L01 で置く。n = 9 の k は 0.339184 で、前の節の
+core（vacuum、r）の 0.33918419 と表示の桁まで一致する（ライブラリは 2026-10-08 の vera.msgpack、格子計算は 14 秒）。

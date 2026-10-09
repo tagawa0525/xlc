@@ -1,0 +1,14 @@
+# I 型の格子の集合体の台帳。F01 は格子から作った集合体の定数（等価性）、F02 は単一集合体の定数（f* の方法）。
+[design.lattice-I]
+bounds = [0.0, 21.5]
+layers = ["fg-I-fuel.msgpack"]
+
+[design.assembly-2B]
+bounds = [0.0, 21.5]
+layers = ["fg-2B.msgpack"]
+
+[assembly.F01]
+design = "lattice-I"
+
+[assembly.F02]
+design = "assembly-2B"
