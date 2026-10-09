@@ -766,10 +766,7 @@ pub fn rotated(constants: &FewGroup, turns: u8) -> Result<FewGroup, String> {
         out.adf = turn(&out.adf);
         out.vacuum_ratio = turn(&out.vacuum_ratio);
         out.normalized_adf = turn(&out.normalized_adf);
-        out.pins = out.pins.as_ref().map(|p| Pins {
-            halves: turn(&p.halves),
-            ..turn_pins(p)
-        });
+        out.pins = out.pins.as_ref().map(turn_pins);
     }
     Ok(out)
 }
@@ -799,8 +796,11 @@ fn turn_pins(pins: &Pins) -> Pins {
             .iter()
             .filter_map(|&c| pins.corners.get(c).cloned())
             .collect(),
-        // 辺の量なので `rotated` で回す
-        halves: pins.halves.clone(),
+        // 辺（左、右、上、下）の量: 新しい辺は元の（上、下、右、左）
+        halves: [2, 3, 1, 0]
+            .iter()
+            .filter_map(|&s| pins.halves.get(s).copied())
+            .collect(),
     }
 }
 
