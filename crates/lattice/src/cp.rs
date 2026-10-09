@@ -22,7 +22,13 @@ use std::sync::OnceLock;
 use xlc_numeric::quadrature::{NodesError, gauss_legendre};
 
 /// y の求積で、小区間（リングの間の区間を、外の境界の特異点に合わせて分けたもの）ごとに使う Gauss–Legendre の点の数
-const POINTS: usize = 16;
+/// （ADR-0109）
+const POINTS: usize = 7;
+
+/// 上端の小区間（y = r_k − d t²）の t を、接する弦（t → 0）に向けて比 [`RATIO`] で分ける段の数（ADR-0109）。
+/// 黒い燃料では、弦の長さが平均自由行程を横切る t の幅が 1/Σ に比例して狭くなるので、そこに点を集める
+const LEVELS: usize = 4;
+const RATIO: f64 = 0.25;
 
 /// 円筒のセルの計算のエラー。
 #[derive(Debug, thiserror::Error)]
@@ -85,11 +91,23 @@ impl Cylinder {
             // 求積が収束しにくい。上端から特異点までの距離 g = r_{k+1} − r_k を幅とする小区間をとり、その下は幅を
             // 倍々にする。どの小区間でも、特異点までの距離が幅を下回らない
             let gap = radii.get(k + 1).map_or(f64::INFINITY, |r| r - outer);
-            // 上端の小区間は y = r_k − d t² として、弦の長さの √(r_k − y) の振る舞いを t について滑らかにする
+            // 上端の小区間は y = r_k − d t² として、弦の長さの √(r_k − y) の振る舞いを t について滑らかにする。
+            // t の区間 [0, 1] は、接する弦の近くに向けて [RATIO, 1]、[RATIO², RATIO]、…、[0, RATIO^LEVELS] に分ける
             let top = gap.min(outer - inner);
-            for &(x, w) in &nodes {
-                let t = 0.5 * (x + 1.0);
-                push(outer - top * t * t, w * top * t);
+            let mut upper_t = 1.0;
+            for level in 0..=LEVELS {
+                let lower_t = if level == LEVELS {
+                    0.0
+                } else {
+                    upper_t * RATIO
+                };
+                let half_t = 0.5 * (upper_t - lower_t);
+                for &(x, w) in &nodes {
+                    let t = lower_t + half_t * (x + 1.0);
+                    // dy = 2 d t dt
+                    push(outer - top * t * t, 2.0 * w * half_t * top * t);
+                }
+                upper_t = lower_t;
             }
             let (mut upper, mut width) = (outer - top, top);
             while top < outer - inner && upper > inner {
