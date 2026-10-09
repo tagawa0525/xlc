@@ -27,6 +27,7 @@ fn few(ppm: f64, tm: f64, tf: f64) -> FewGroup {
             dy: vec![2.0],
             form: vec![vec![vec![v, 2.0 * v]], vec![vec![3.0 * v, 0.0]]],
             corners: vec![vec![1.1 * v, 1.2 * v]; 4],
+            halves: vec![false; 4],
         }),
     }
 }

@@ -218,6 +218,7 @@ pub(crate) fn sample_pins() -> Pins {
             vec![vec![0.0, x(3.3), x(2.7)], vec![0.0, x(3.0), x(3.0)]],
         ],
         corners: vec![vec![x(2.5), x(3.5)]; 4],
+        halves: vec![false, true, false, false],
     }
 }
 
@@ -252,6 +253,8 @@ mod tests {
         bad(|p| p.corners.pop().map(drop).unwrap_or(()), "corners");
         bad(|p| p.corners[2] = vec![1.0], "corners");
         bad(|p| p.corners[3][1] = 0.0, "corners");
+        // 辺ごとの、隣の部分ノードと分け合ったセルの印は 4 辺ぶん（ADR-0108）
+        bad(|p| p.halves.truncate(3), "halves");
     }
 
     #[test]

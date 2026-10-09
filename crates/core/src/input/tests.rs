@@ -455,6 +455,7 @@ fn rotation_turns_pins_counterclockwise() {
                 vec![3.0, 3.5],
                 vec![4.0, 4.5],
             ],
+            halves: vec![false, true, false, false],
         }),
         ..sided(true)
     };
@@ -474,6 +475,8 @@ fn rotation_turns_pins_counterclockwise() {
             vec![3.0, 3.5]
         ]
     );
+    // 分け合ったセルの印は辺の量と同じく回す（右の辺の印は上の辺に来る）
+    assert_eq!(r.halves, vec![false, false, true, false]);
     // 2 行 × 2 列で、行の向きも確かめる: 元の左上（行 1、列 0）は、回すと左下（行 0、列 0）
     let square = FewGroup {
         pins: Some(Pins {
@@ -481,6 +484,7 @@ fn rotation_turns_pins_counterclockwise() {
             dy: vec![1.5, 0.5],
             form: vec![vec![vec![1.0, 2.0], vec![3.0, 4.0]]; 2],
             corners: vec![vec![1.0, 1.0]; 4],
+            halves: vec![false; 4],
         }),
         ..sided(true)
     };
