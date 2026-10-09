@@ -2008,4 +2008,152 @@ mod tests {
             "{misaligned:?}"
         );
     }
+
+    /// 2×2 のピン（対角に燃料）の周りに幅 0.04 の余白を付けた格子、領域ごとの物質、鏡面反射の解
+    fn margined(margin: f64) -> (Lattice, Solution, Vec<Material>) {
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice =
+            Lattice::with_margin(vec![pin, cell], vec![vec![0, 1], vec![1, 0]], margin).unwrap();
+        // ピンの中心の領域だけ燃料、ほかは水
+        let materials: Vec<Material> = (0..lattice.cells())
+            .flat_map(|cell| {
+                let fuelled = lattice
+                    .cell_type(cell)
+                    .pin()
+                    .is_some_and(|p| !p.radii().is_empty());
+                lattice
+                    .cell_regions(cell)
+                    .enumerate()
+                    .map(|(k, _)| {
+                        if fuelled && k == 0 {
+                            fuel.clone()
+                        } else {
+                            water.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        (lattice, solution, materials)
+    }
+
+    #[test]
+    fn pin_shapes_average_to_one_and_take_corner_fluxes() {
+        // 形状関数はセルの群の核分裂率の平均 / ノードの群の核分裂率の平均で、面積で重みを付けたノードの平均は 1。
+        // 角の不連続因子は、余白の角のセルの中性子束 / ノード平均の中性子束（ADR-0094、ADR-0096）
+        let (lattice, solution, materials) = margined(0.04);
+        let refs: Vec<&Material> = materials.iter().collect();
+        let pins = pin_shapes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine(),
+            fine().bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-12 * b.abs().max(1.0);
+        // 対角の対称は、MOC の収束の程度で成り立つ
+        let symmetric = |a: f64, b: f64| (a - b).abs() < 1e-6 * b.abs();
+        let expected_edges = [0.0, 0.04, 1.30, 2.56, 2.60];
+        for (edges, name) in [(&pins.x, "x"), (&pins.y, "y")] {
+            assert_eq!(edges.len(), 5, "{name}");
+            for (e, w) in edges.iter().zip(expected_edges) {
+                assert!(close(*e, w), "{name}: {edges:?}");
+            }
+        }
+        let area = |j: usize, i: usize| (pins.x[i + 1] - pins.x[i]) * (pins.y[j + 1] - pins.y[j]);
+        for g in 0..2 {
+            let form = &pins.form[g];
+            assert_eq!((form.len(), form[0].len()), (4, 4));
+            let mean: f64 = (0..4)
+                .flat_map(|j| (0..4).map(move |i| (j, i)))
+                .map(|(j, i)| area(j, i) * form[j][i])
+                .sum::<f64>()
+                / (2.6 * 2.6);
+            assert!(close(mean, 1.0), "group {g}: {mean}");
+            // 燃料は上の行（下から 2 行目）の左と、下の行（下から 1 行目）の右。対称なので等しい
+            assert!(
+                form[2][1] > 1.0 && symmetric(form[2][1], form[1][2]),
+                "{form:?}"
+            );
+            for (j, i) in [
+                (2, 2),
+                (1, 1),
+                (0, 0),
+                (0, 3),
+                (3, 0),
+                (3, 3),
+                (0, 1),
+                (2, 0),
+            ] {
+                assert_eq!(form[j][i], 0.0, "cell ({j}, {i})");
+            }
+        }
+        // 角のセル（格子の行は上から）: -x -y は左下、+x -y は右下、+x +y は右上、-x +y は左上
+        let corner_cells = [(3, 0), (3, 3), (0, 3), (0, 0)];
+        // 平均は解析的な体積で取る（core はセルの幾何の面積で再構成する）
+        let volumes = lattice.volumes();
+        let volume: f64 = volumes.iter().sum();
+        for g in 0..2 {
+            let average = solution
+                .flux
+                .iter()
+                .zip(&volumes)
+                .map(|(f, v)| v * f[g])
+                .sum::<f64>()
+                / volume;
+            for (c, (r, col)) in corner_cells.into_iter().enumerate() {
+                let cell = r * 4 + col;
+                let regions = lattice.cell_regions(cell);
+                let (flux, v) = regions.fold((0.0, 0.0), |(f, v), i| {
+                    (f + volumes[i] * solution.flux[i][g], v + volumes[i])
+                });
+                let expected = flux / v / average;
+                assert!(close(pins.corners[c][g], expected), "corner {c} group {g}");
+            }
+            // 左下と右上は水のピンの角、左上と右下は燃料のピンの角で、対称
+            assert!(symmetric(pins.corners[0][g], pins.corners[2][g]));
+            assert!(symmetric(pins.corners[1][g], pins.corners[3][g]));
+        }
+    }
+
+    #[test]
+    fn pin_shapes_need_a_reflective_lattice_with_corner_margins() {
+        let (lattice, solution, materials) = margined(0.04);
+        let refs: Vec<&Material> = materials.iter().collect();
+        let shapes = |boundaries: &Boundaries| {
+            pin_shapes(
+                &solution,
+                &lattice,
+                &refs,
+                &fine(),
+                fine().bounds(),
+                boundaries,
+            )
+        };
+        // 外周が鏡面反射でない格子の角の均質な中性子束は決めていない（#0020）
+        let err = shapes(&vacuum()).unwrap_err().to_string();
+        assert!(err.contains("reflective"), "{err}");
+        // 角の中性子束は余白の角のセルで取る
+        let (lattice, solution, materials) = margined(0.0);
+        let refs: Vec<&Material> = materials.iter().collect();
+        let err = pin_shapes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine(),
+            fine().bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("margin"), "{err}");
+    }
 }
