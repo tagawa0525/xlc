@@ -2122,6 +2122,13 @@ mod tests {
         assert!((tuned.k_tolerance / cmfd.k_tolerance - 100.0).abs() < 1e-12);
         assert!((tuned.flux_tolerance / cmfd.flux_tolerance - 30.0).abs() < 1e-12);
         assert_eq!(tuned.max_iterations, cmfd.max_iterations);
+        // MOC の許容誤差が 0（最大の反復の回数まで回す）なら、比べる基準がないので設定のまま
+        let fixed = Options {
+            k_tolerance: 0.0,
+            flux_tolerance: 0.0,
+            ..moc
+        };
+        assert_eq!(inexact_cmfd(&cmfd, &fixed, 0.1, 0.1), cmfd);
     }
 
     #[test]
