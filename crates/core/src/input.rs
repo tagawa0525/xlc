@@ -46,13 +46,13 @@
 //! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use xlc_format::fewgroup::FewGroup;
 
-use crate::nem::{Boundary, Mesh, Problem};
+use crate::nem::{Boundary, Mesh, Problem, Solution};
 
 /// 入力ファイルの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
@@ -97,13 +97,35 @@ impl Column {
         }
         Ok(Self {
             bounds: entry.bounds,
-            layers: entry.layers.iter().map(|l| base.join(l)).collect(),
+            layers: entry
+                .layers
+                .iter()
+                .map(|l| normalized(&base.join(l)))
+                .collect(),
         })
     }
 
     fn height(&self) -> f64 {
         self.bounds.last().copied().unwrap_or(0.0)
     }
+}
+
+/// `.` と、前の名前を打ち消す `..` を字面で取り除く（同じファイルを別の綴りで書いても1つにまとめるため）。
+/// シンボリックリンクはたどらない。
+fn normalized(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir
+                if matches!(out.components().next_back(), Some(Component::Normal(_))) =>
+            {
+                out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 /// 高さの列が 0 から始まり、有限で、増えていくこと。
@@ -206,6 +228,9 @@ impl Plant {
                 row.into_iter()
                     .map(|cell| match cell {
                         "*" => Ok(Site::Assembly),
+                        _ if cell.starts_with("*@") => invalid(format!(
+                            "map: {cell:?}: rotate assemblies in the cycle's loading, not at `*`"
+                        )),
                         "-" => invalid(
                             "map: `-` (no node) needs boundaries along the core outline (#0034)",
                         ),
@@ -427,7 +452,7 @@ pub struct Layout {
     pub mesh: Mesh,
     /// 少数群定数のファイル（現れた順）
     pub files: Vec<PathBuf>,
-    /// ファイルごとに、反射体の層か
+    /// ファイルごとに、反射体（の種類のどれか）に使う層か
     pub reflector: Vec<bool>,
     pub materials: Vec<LayoutMaterial>,
     /// ノードごとの物質の番号。並びは x が最も速く、次に y（下から）、z
@@ -540,15 +565,11 @@ impl Layout {
                 };
                 let file = *file_index.entry(path).or_insert_with(|| {
                     files.push(path.to_path_buf());
-                    reflector.push(is_reflector);
+                    reflector.push(false);
                     files.len() - 1
                 });
-                if reflector[file] != is_reflector {
-                    return invalid(format!(
-                        "{} is used both as a reflector and in an assembly",
-                        path.display()
-                    ));
-                }
+                // 軸方向の反射体の層などは、反射体と集合体の設計で同じファイルを使ってよい
+                reflector[file] |= is_reflector;
                 let material = LayoutMaterial { file, turns };
                 let m = *material_index.entry(material).or_insert_with(|| {
                     materials.push(material);
@@ -600,6 +621,49 @@ impl Layout {
             node_material: self.node_material.clone(),
             boundaries: self.boundaries,
         })
+    }
+}
+
+impl Layout {
+    /// 集合体の位置ごとの、軸方向に積分した核分裂率（集合体の位置の平均で割る）。上の行（+y）から、反射体の
+    /// 位置は `None`。`problem` はこの並びから作った問題、`solution` はその解
+    pub fn assembly_fission_rates(
+        &self,
+        problem: &Problem,
+        solution: &Solution,
+    ) -> Vec<Vec<Option<f64>>> {
+        let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
+        let mut rates = vec![vec![0.0; nx]; ny];
+        for (n, flux) in solution.flux.iter().enumerate() {
+            let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
+            let m = &problem.materials[problem.node_material[n]];
+            let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
+            let fission: f64 = m.fission.iter().zip(flux).map(|(f, phi)| f * phi).sum();
+            // 図の上の行が +y
+            rates[ny - 1 - y][x] += fission * volume;
+        }
+        let loaded: Vec<f64> = self
+            .ids
+            .iter()
+            .zip(&rates)
+            .flat_map(|(ids, r)| {
+                ids.iter()
+                    .zip(r)
+                    .filter(|(id, _)| id.is_some())
+                    .map(|(_, &r)| r)
+            })
+            .collect();
+        let mean = loaded.iter().sum::<f64>() / loaded.len().max(1) as f64;
+        self.ids
+            .iter()
+            .zip(&rates)
+            .map(|(ids, r)| {
+                ids.iter()
+                    .zip(r)
+                    .map(|(id, &r)| id.as_ref().map(|_| r / mean))
+                    .collect()
+            })
+            .collect()
     }
 }
 
