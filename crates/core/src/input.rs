@@ -39,6 +39,12 @@
 //! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum、marshak のいずれか）。6面とも書く。
 //! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0101）
 //! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"] }
+//! # 炉心の状態（省略すると、軸のないテーブルだけを使う。ADR-0097）
+//! [state]
+//! boron = 1291        # ホウ素濃度 (ppm)
+//! b10 = 0.199         # ホウ素の中の B-10 の原子分率（テーブルと同じ値）
+//! moderator = 565     # 減速材の温度 (K)
+//! fuel = 565          # 燃料の温度 (K)
 //! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -49,6 +55,7 @@ use serde::de::DeserializeOwned;
 use xlc_format::fewgroup::FewGroup;
 
 use crate::nem::{Boundary, Mesh, Problem, Solution};
+use crate::state::State;
 
 /// 入力ファイルの読み込みエラー。
 #[derive(Debug, thiserror::Error)]
@@ -377,6 +384,8 @@ pub struct Case {
     pub radial_nodes: usize,
     /// [-x, +x, -y, +y, -z, +z]
     pub boundaries: [Boundary; 6],
+    /// 炉心の状態。書けば分岐のテーブルをこの状態で内挿し、書かなければ軸のないテーブルだけを使う（ADR-0097）
+    pub state: Option<State>,
 }
 
 #[derive(Deserialize)]
@@ -386,6 +395,7 @@ struct CaseFile {
     axial_mesh: Vec<f64>,
     radial_nodes: usize,
     boundary: BoundaryEntry,
+    state: Option<State>,
 }
 
 /// 各軸の（低い側, 高い側）
@@ -431,6 +441,7 @@ impl Case {
             axial_mesh: file.axial_mesh,
             radial_nodes: file.radial_nodes,
             boundaries,
+            state: file.state,
         })
     }
 }
