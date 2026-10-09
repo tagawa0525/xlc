@@ -1,6 +1,5 @@
 use super::*;
 use crate::nem::Solution;
-use xlc_format::fewgroup::Pins;
 
 const PLANT: &str = r#"
 pitch = 21.5

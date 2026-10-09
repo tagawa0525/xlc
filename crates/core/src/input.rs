@@ -52,7 +52,7 @@ use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use xlc_format::fewgroup::FewGroup;
+use xlc_format::fewgroup::{FewGroup, Pins};
 
 use crate::nem::{Boundary, Mesh, Problem, Solution};
 use crate::state::State;
@@ -711,8 +711,37 @@ pub fn rotated(constants: &FewGroup, turns: u8) -> FewGroup {
         out.adf = turn(&out.adf);
         out.vacuum_ratio = turn(&out.vacuum_ratio);
         out.normalized_adf = turn(&out.normalized_adf);
+        out.pins = out.pins.as_ref().map(turn_pins);
     }
     out
+}
+
+/// 90° 回したピンの形状。(x, y) は (H - y, x) に移る（H はノードの高さ）。新しい行 j、列 i のセルは、元の
+/// 行（下から）rows - 1 - i、列 j のセル。角（-x -y、+x -y、+x +y、-x +y）は1つずつ先に進む
+fn turn_pins(pins: &Pins) -> Pins {
+    let height = pins.y.last().copied().unwrap_or(0.0);
+    let rows = pins.y.len().saturating_sub(1);
+    Pins {
+        x: pins.y.iter().rev().map(|y| height - y).collect(),
+        y: pins.x.clone(),
+        form: pins
+            .form
+            .iter()
+            .map(|g| {
+                (0..pins.x.len().saturating_sub(1))
+                    .map(|j| {
+                        (0..rows)
+                            .filter_map(|i| g.get(rows - 1 - i).and_then(|row| row.get(j)).copied())
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect(),
+        corners: [3, 0, 1, 2]
+            .iter()
+            .filter_map(|&c| pins.corners.get(c).cloned())
+            .collect(),
+    }
 }
 
 #[cfg(test)]
