@@ -51,10 +51,11 @@ pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>,
     Ok(values.chunks(2).map(|c| (c[0], c[1])).collect())
 }
 
-/// J, K の表の範囲（log10 β, log10 θ）。対象核種の非分離共鳴で実際に使う範囲
-/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む
+/// J, K の表の範囲（log10 β, log10 θ）。燃料の核種の非分離共鳴で実際に使う範囲
+/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む。構造材は低温で θ が大きくなる（Fe-58 の 550 K で θ ≈ 1.0e4）。
+/// θ の上限は、その上で使う Lorentz の線形状との差（1/θ² の程度）が 1e-12 になる 10⁶ とする（ADR-0107）
 const LOG_BETA: (f64, f64) = (-6.0, 10.0);
-const LOG_THETA: (f64, f64) = (-3.0, 4.0);
+const LOG_THETA: (f64, f64) = (-3.0, 6.0);
 
 /// 表の点の間隔（log10）
 const STEP: f64 = 0.025;
@@ -90,11 +91,15 @@ fn table() -> Result<&'static JkTable, NumericError> {
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
 /// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
+/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
     let (lb, lt) = (beta.log10(), theta.log10());
     if lb > LOG_BETA.1 {
         let j = 0.5 * std::f64::consts::PI / beta;
         return Ok((j, 2.0 * j));
+    }
+    if lt > LOG_THETA.1 {
+        return Ok(natural_jk(beta));
     }
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
         return Err(UrrError::JkTable { beta, theta });
@@ -112,6 +117,16 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
         }
     }
     Ok((ln_j.exp(), ln_k.exp()))
+}
+
+/// ドップラー拡がりのない Lorentz の線形状 ψ = 1/(1 + x²) の (J, K)。a² = (1 + β)/β として
+/// J = π/(2aβ)、K = 2J − ∫₀^∞ ψ²/(ψ + β)² dx = 2J − π/(4a³β²)。θ が表より大きいとき（自然幅がドップラー幅より
+/// 十分大きい）に使う。Voigt の線形状との差は 1/θ² の程度（ADR-0107）。β > 0 ならどこでも成り立つ
+fn natural_jk(beta: f64) -> (f64, f64) {
+    let pi = std::f64::consts::PI;
+    let a = ((1.0 + beta) / beta).sqrt();
+    let j = pi / (2.0 * a * beta);
+    (j, 2.0 * j - pi / (4.0 * a.powi(3) * beta * beta))
 }
 
 /// 格子座標 u（0 から n-1）での 4 点の Lagrange 補間の、最初の点の番号と重み。
@@ -237,9 +252,29 @@ mod tests {
     }
 
     #[test]
+    fn table_uses_natural_line_shape_above_its_theta_range() {
+        // θ = Γ/Δ が表より大きいとき（低温の構造材の非分離共鳴。Fe-58 の 550 K で θ ≈ 1.0e4）は、ドップラー
+        // 拡がりのない Lorentz の線形状の J, K。表の端で値が跳ぶと、幅のゆらぎの適応積分（許容誤差 1e-10）が
+        // 収束しにくいので、表の端の内と外で直接の積分との差が 1e-10 より小さいこと
+        let top = 10f64.powf(LOG_THETA.1);
+        for theta in [1.0025e4, 0.999 * top, 1.001 * top, 1.0e8] {
+            for beta in [1.0e-6, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e10] {
+                let (j, k) = jk_interpolated(beta, theta).unwrap();
+                let direct = jk_integrals(&[beta], theta).unwrap()[0];
+                assert_rel(j, direct.0, 1e-10);
+                assert_rel(k, direct.1, 1e-10);
+            }
+        }
+        // 表の β より小さくても、Lorentz の線形状の J, K は使える
+        let (j, k) = jk_interpolated(1.0e-8, 1.0e8).unwrap();
+        let direct = jk_integrals(&[1.0e-8], 1.0e8).unwrap()[0];
+        assert_rel(j, direct.0, 1e-10);
+        assert_rel(k, direct.1, 1e-10);
+    }
+
+    #[test]
     fn table_rejects_points_outside_its_range() {
         assert!(jk_interpolated(1.0e-8, 1.0).is_err());
         assert!(jk_interpolated(1.0, 1.0e-5).is_err());
-        assert!(jk_interpolated(1.0, 1.0e6).is_err());
     }
 }
