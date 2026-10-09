@@ -25,6 +25,11 @@
 //! temperature = 900               # K。ライブラリにある温度であること
 //! nuclides = { U-235 = 7.0e-4, U-238 = 2.2e-2, O-16 = 4.6e-2 }   # 個数密度 (1/(barn cm))
 //!
+//! [material.water]
+//! temperature = 565
+//! # nuclides の代わりに、ホウ酸水の密度 (g/cm³)、ホウ素の質量 ppm、B-10 の原子分率（ADR-0106）
+//! water = { density = 0.743, boron = 1291, b10 = 0.199 }
+//!
 //! [cell.pin]                      # 帯を内側から。最後の帯は radius を省略してセルの外周まで
 //! zones = [{ material = "fuel", radius = 0.4096, rings = 3 }, { material = "void", radius = 0.418, rings = 1 },
 //!          { material = "water", rings = 2 }]   # void は真空（定義しない予約の名前）
@@ -51,6 +56,7 @@ use xlc_format::library::is_nuclide_name;
 use crate::fewgroup::Node;
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::tracking::{Boundaries, Boundary};
+use crate::water::borated_water;
 
 /// 真空の帯の物質の名前（予約語。この名前の物質は定義できない）
 pub const VOID: &str = "void";
@@ -320,7 +326,28 @@ fn condition(value: toml::Value) -> Result<Boundary, String> {
 #[serde(deny_unknown_fields)]
 struct MaterialEntry {
     temperature: f64,
-    nuclides: BTreeMap<String, f64>,
+    /// `water` と排他
+    nuclides: Option<BTreeMap<String, f64>>,
+    water: Option<WaterEntry>,
+}
+
+/// ホウ酸水（ADR-0106）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WaterEntry {
+    /// 密度 (g/cm³)
+    density: f64,
+    /// ホウ素の質量 ppm
+    boron: f64,
+    /// ホウ素の中の B-10 の原子分率
+    b10: f64,
+}
+
+impl WaterEntry {
+    fn composition(&self, name: &str) -> Result<BTreeMap<String, f64>, String> {
+        borated_water(self.density, self.boron, self.b10)
+            .map_err(|message| format!("material `{name}`: {message}"))
+    }
 }
 
 #[derive(Deserialize)]
@@ -678,6 +705,34 @@ impl LatticeInput {
     }
 }
 
+/// 核種の個数密度で書いた組成を確かめる。
+fn check_nuclides(
+    name: &str,
+    nuclides: BTreeMap<String, f64>,
+) -> Result<BTreeMap<String, f64>, String> {
+    if nuclides.is_empty() {
+        return Err(format!("material `{name}` has no nuclides"));
+    }
+    for (nuclide, &density) in &nuclides {
+        if !is_nuclide_name(nuclide) {
+            return Err(format!(
+                "material `{name}`: nuclide name `{nuclide}` is not of the form U-235, Am-242m"
+            ));
+        }
+        if !(density >= 0.0 && density.is_finite()) {
+            return Err(format!(
+                "material `{name}`: invalid density {density} of {nuclide}"
+            ));
+        }
+    }
+    if nuclides.values().all(|&density| density == 0.0) {
+        return Err(format!(
+            "material `{name}` has no nuclide with positive density; write `{VOID}` for void zones"
+        ));
+    }
+    Ok(nuclides)
+}
+
 impl MaterialEntry {
     fn into_input(self, name: String) -> Result<MaterialInput, String> {
         if !positive(self.temperature) {
@@ -686,30 +741,21 @@ impl MaterialEntry {
                 self.temperature
             ));
         }
-        if self.nuclides.is_empty() {
-            return Err(format!("material `{name}` has no nuclides"));
-        }
-        for (nuclide, &density) in &self.nuclides {
-            if !is_nuclide_name(nuclide) {
+        let nuclides = match (self.nuclides, self.water) {
+            (Some(nuclides), None) => check_nuclides(&name, nuclides)?,
+            // 作り方から、名前は正しく、密度は正で、水素と酸素を必ず含む
+            (None, Some(water)) => water.composition(&name)?,
+            (None, None) => return Err(format!("material `{name}` needs nuclides or water")),
+            (Some(_), Some(_)) => {
                 return Err(format!(
-                    "material `{name}`: nuclide name `{nuclide}` is not of the form U-235, Am-242m"
+                    "material `{name}` has both nuclides and water; write one of them"
                 ));
             }
-            if !(density >= 0.0 && density.is_finite()) {
-                return Err(format!(
-                    "material `{name}`: invalid density {density} of {nuclide}"
-                ));
-            }
-        }
-        if self.nuclides.values().all(|&density| density == 0.0) {
-            return Err(format!(
-                "material `{name}` has no nuclide with positive density; write `{VOID}` for void zones"
-            ));
-        }
+        };
         Ok(MaterialInput {
             name,
             temperature: self.temperature,
-            composition: self.nuclides.into_iter().collect(),
+            composition: nuclides.into_iter().collect(),
         })
     }
 }
@@ -1369,5 +1415,83 @@ zones = [{ material = "water", rings = 1 }]
                 "{what}"
             );
         }
+    }
+
+    #[test]
+    fn borated_water_matches_vera_number_densities() {
+        // VERA の Problem 5 の減速材（565 K、0.743 g/cm³、B-10 19.9 at%）の個数密度の表（ADR-0106）
+        let table = [
+            (1285.0, [4.96231e-2, 1.05835e-5, 4.25999e-5, 2.48116e-2]),
+            (1291.0, [4.96228e-2, 1.06329e-5, 4.27988e-5, 2.48114e-2]),
+            (1170.0, [4.96288e-2, 9.63633e-6, 3.87874e-5, 2.48144e-2]),
+            (1230.0, [4.96258e-2, 1.01305e-5, 4.07765e-5, 2.48129e-2]),
+        ];
+        for (ppm, expected) in table {
+            let input = replaced(
+                PIN_CELL,
+                "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+                &format!("water = {{ density = 0.743, boron = {ppm}, b10 = 0.199 }}"),
+            )
+            .unwrap();
+            let water = input.materials.iter().find(|m| m.name == "water").unwrap();
+            let names: Vec<&str> = water.composition.iter().map(|(n, _)| n.as_str()).collect();
+            assert_eq!(names, ["B-10", "B-11", "H-1", "O-16"]);
+            let [h, b10, b11, o] = expected;
+            for ((_, got), want) in water.composition.iter().zip([b10, b11, h, o]) {
+                // 表は有効数字 6 桁
+                assert!(
+                    ((got - want) / want).abs() < 1e-5,
+                    "{ppm} ppm: {got} vs {want}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn water_without_boron_has_no_boron_nuclides() {
+        let input = replaced(
+            PIN_CELL,
+            "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+            "water = { density = 0.743, boron = 0, b10 = 0.199 }",
+        )
+        .unwrap();
+        let water = input.materials.iter().find(|m| m.name == "water").unwrap();
+        let names: Vec<&str> = water.composition.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(names, ["H-1", "O-16"]);
+        assert!(water.composition.iter().all(|&(_, n)| n > 0.0));
+    }
+
+    #[test]
+    fn water_keeps_only_present_boron_isotopes() {
+        for (b10, names) in [
+            (1.0, ["B-10", "H-1", "O-16"]),
+            (0.0, ["B-11", "H-1", "O-16"]),
+        ] {
+            let input = replaced(
+                PIN_CELL,
+                "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+                &format!("water = {{ density = 0.743, boron = 1291, b10 = {b10:?} }}"),
+            )
+            .unwrap();
+            let water = input.materials.iter().find(|m| m.name == "water").unwrap();
+            let got: Vec<&str> = water.composition.iter().map(|(n, _)| n.as_str()).collect();
+            assert_eq!(got, names);
+        }
+    }
+
+    #[test]
+    fn invalid_water_is_an_error() {
+        let water = "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }";
+        let bad = |to: &str| replaced(PIN_CELL, water, to).is_err();
+        assert!(bad("water = { density = 0.0, boron = 1291, b10 = 0.199 }"));
+        assert!(bad("water = { density = 0.743, boron = -1, b10 = 0.199 }"));
+        assert!(bad("water = { density = 0.743, boron = 1e6, b10 = 0.199 }"));
+        assert!(bad("water = { density = 0.743, boron = 1291, b10 = 1.5 }"));
+        // 3つとも必須、nuclides と同時には書けない
+        assert!(bad("water = { density = 0.743, boron = 1291 }"));
+        assert!(bad(&format!(
+            "{water}\nwater = {{ density = 0.743, boron = 1291, b10 = 0.199 }}"
+        )));
+        assert!(bad(""));
     }
 }
