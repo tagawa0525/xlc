@@ -23,6 +23,7 @@ fn sample() -> Table {
                 temperature: vec![565.0],
             },
         ],
+        split: 1,
         states: (0..4).map(|i| state(3.0 + f64::from(i))).collect(),
     }
 }
@@ -227,4 +228,35 @@ fn states_need_the_pins_key() {
     rmpv::encode::write_value(&mut out, &value).unwrap();
     let err = Table::from_msgpack(&out).unwrap_err().to_string();
     assert!(err.contains("pins") || err.contains("missing"), "{err}");
+}
+
+#[test]
+fn split_tables_hold_sub_nodes_per_state() {
+    // 集合体を 2 × 2 に分けたテーブル（ADR-0108）は、状態ごとに部分ノードの定数を 4 つ持つ（部分ノードがいちばん
+    // 速く変わる）
+    let mut table = sample();
+    table.split = 2;
+    table.states = (0..16).map(|i| state(3.0 + f64::from(i))).collect();
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+    assert_eq!(table.sub_nodes(), 4);
+    // 状態の数 × 部分ノードの数でないとエラー
+    let mut short = table.clone();
+    short.states.pop();
+    assert!(short.validate().is_err());
+    let mut zero = table.clone();
+    zero.split = 0;
+    assert!(zero.validate().is_err());
+    // 状態の間で比べる量（真空の辺など）は、同じ部分ノードどうしで比べる
+    // （部分ノード 1 だけ印を変えるのはよいが、ある状態の部分ノード 1 だけ違えばエラー）
+    let mut mixed = table.clone();
+    for state in 0..4 {
+        mixed.states[4 * state + 1].normalized_adf[0] = false;
+    }
+    assert!(mixed.validate().is_ok());
+    mixed.states[5].normalized_adf[0] = true;
+    let err = mixed.validate().unwrap_err().to_string();
+    assert!(err.contains("state"), "{err}");
 }
