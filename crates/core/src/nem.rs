@@ -774,6 +774,7 @@ mod tests {
             adf: vec![vec![1.0, 1.0]; 4],
             vacuum_ratio: vec![None; 4],
             normalized_adf: vec![false; 4],
+            pins: None,
         }
     }
 
@@ -1097,6 +1098,7 @@ mod tests {
             adf: vec![vec![1.0]; 4],
             vacuum_ratio: vec![None; 4],
             normalized_adf: vec![false; 4],
+            pins: None,
         }
     }
 
@@ -1791,6 +1793,7 @@ mod tests {
                 adf: vec![vec![1.0; ng]; 4],
                 vacuum_ratio: vec![None; 4],
                 normalized_adf: vec![false; 4],
+                pins: None,
             };
             for &n in &members {
                 let (v, f, x) = (core.volume(n), &solution.flux[n], core.material(n));

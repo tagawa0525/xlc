@@ -531,6 +531,7 @@ fn constants(
         adf: Vec::new(),
         vacuum_ratio: Vec::new(),
         normalized_adf: vec![false; 4],
+        pins: None,
     };
     Ok((few, average))
 }
