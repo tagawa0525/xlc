@@ -6,11 +6,7 @@
 //! ```toml
 //! pitch = 21.5                 # 集合体のピッチ (cm)
 //! height = 406.3               # 炉心の高さ (cm)
-//! map = [                      # 上の行が +y。`*` は集合体を装荷する位置、ほかは反射体の種類（`@90` で回す）
-//!   "R  R  R",
-//!   "R  *  R",
-//!   "R  R  R",
-//! ]
+//! map = ["*  R"]               # 上の行が +y。`*` は集合体を装荷する位置、ほかは反射体の種類（`@90` で回す）
 //! [reflector.R]
 //! bounds = [0.0, 406.3]        # 軸方向の層の境界 (cm)。0 から炉心の高さまで
 //! layers = ["reflector.msgpack"]
@@ -31,7 +27,7 @@
 //! ```toml
 //! plant = "plant.toml"
 //! inventory = "assemblies.toml"
-//! loading = [".  .  .", ".  J01@90  .", ".  .  ."]
+//! loading = ["J01@90  ."]
 //! ```
 //!
 //! ケース（計算ごとに変わる）:
@@ -462,8 +458,15 @@ pub struct Layout {
     pub boundaries: [Boundary; 6],
 }
 
-/// 位置ごとの層、回転、反射体か
-type Placement<'a> = (&'a Column, u8, bool);
+/// 装荷図の位置に置いたもの。
+#[derive(Clone, Copy)]
+struct Placement<'a> {
+    column: &'a Column,
+    /// 反時計回りの 90° の回数
+    turns: u8,
+    /// 反射体の種類か
+    reflector: bool,
+}
 
 impl Layout {
     pub fn new(
@@ -488,6 +491,8 @@ impl Layout {
         }
 
         let mut seen = HashSet::new();
+        // 置いた設計と反射体の種類（名前ごとに1回だけ検査する）
+        let mut used: BTreeMap<String, &Column> = BTreeMap::new();
         let mut placements: Vec<Vec<Placement>> = Vec::with_capacity(rows);
         let mut ids = Vec::with_capacity(rows);
         for (r, (sites, loaded)) in plant.map.iter().zip(&cycle.loading).enumerate() {
@@ -506,14 +511,12 @@ impl Layout {
                         let column = inventory.designs.get(design).ok_or_else(|| {
                             InputError::Invalid(format!("{at}: unknown design {design:?}"))
                         })?;
-                        if column.height() != plant.height {
-                            return invalid(format!(
-                                "design {design}: the last bound {} differs from the height {}",
-                                column.height(),
-                                plant.height
-                            ));
-                        }
-                        row.push((column, p.turns, false));
+                        used.insert(format!("design {design}"), column);
+                        row.push(Placement {
+                            column,
+                            turns: p.turns,
+                            reflector: false,
+                        });
                         id_row.push(Some(p.id.clone()));
                     }
                     (Site::Assembly, None) => {
@@ -523,7 +526,12 @@ impl Layout {
                         let column = plant.reflectors.get(name).ok_or_else(|| {
                             InputError::Invalid(format!("{at}: unknown reflector {name:?}"))
                         })?;
-                        row.push((column, *turns, true));
+                        used.insert(format!("reflector {name}"), column);
+                        row.push(Placement {
+                            column,
+                            turns: *turns,
+                            reflector: true,
+                        });
                         id_row.push(None);
                     }
                     (Site::Reflector { name, .. }, Some(p)) => {
@@ -538,11 +546,18 @@ impl Layout {
             ids.push(id_row);
         }
 
-        // 層の境界がメッシュに乗っていること（同じ数で書く）
+        // 層の最後が炉心の高さで、層の境界がメッシュに乗っていること（同じ数で書く）
         let mesh = &case.axial_mesh;
-        for (column, _, _) in placements.iter().flatten() {
+        for (what, column) in &used {
+            if column.height() != plant.height {
+                return invalid(format!(
+                    "{what}: the last bound {} differs from the height {}",
+                    column.height(),
+                    plant.height
+                ));
+            }
             if let Some(b) = column.bounds.iter().find(|b| !mesh.contains(b)) {
-                return invalid(format!("layer bound {b} is not on the axial-mesh"));
+                return invalid(format!("{what}: layer bound {b} is not on the axial-mesh"));
             }
         }
 
@@ -554,7 +569,12 @@ impl Layout {
         let mut node_material = Vec::with_capacity(rows * cols * (mesh.len() - 1));
         for z in mesh.windows(2) {
             // 図の上の行が +y なので、y は下の行から
-            for &(column, turns, is_reflector) in placements.iter().rev().flatten() {
+            for placement in placements.iter().rev().flatten() {
+                let Placement {
+                    column,
+                    turns,
+                    reflector: is_reflector,
+                } = *placement;
                 // 層の境界はメッシュに乗っているので、ノードはどれか1つの層に収まる
                 let layer = column
                     .bounds
@@ -622,9 +642,7 @@ impl Layout {
             boundaries: self.boundaries,
         })
     }
-}
 
-impl Layout {
     /// 集合体の位置ごとの、軸方向に積分した核分裂率（集合体の位置の平均で割る）。上の行（+y）から、反射体の
     /// 位置は `None`。`problem` はこの並びから作った問題、`solution` はその解
     pub fn assembly_fission_rates(

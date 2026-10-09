@@ -68,7 +68,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let cycle = parse(&case.cycle, Cycle::parse)?;
     let plant = parse(&cycle.plant, Plant::parse)?;
     let inventory = parse(&cycle.inventory, Inventory::parse)?;
-    let layout = Layout::new(&case, &cycle, &plant, &inventory).with_context(|| shown(path))?;
+    // 4つの入力の組み合わせの誤りなので、どのファイルかを並べて示す
+    let inputs = || {
+        format!(
+            "{} (cycle {}, plant {}, inventory {})",
+            shown(path),
+            shown(&case.cycle),
+            shown(&cycle.plant),
+            shown(&cycle.inventory)
+        )
+    };
+    let layout = Layout::new(&case, &cycle, &plant, &inventory).with_context(inputs)?;
     let constants = layout
         .files
         .iter()
@@ -77,7 +87,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             FewGroup::from_msgpack(&bytes).with_context(|| shown(file))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let problem = layout.problem(&constants).with_context(|| shown(path))?;
+    let problem = layout.problem(&constants).with_context(inputs)?;
     let solution = solve(&problem, &Options::default())?;
     let leakage: f64 = solution.leakage.iter().sum();
     println!("k-eff {:.6}", solution.k);
