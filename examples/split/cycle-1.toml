@@ -1,0 +1,4 @@
+# 右の集合体を 90° 回して置く（回した部分ノードの並びを確かめる）。
+plant = "plant.toml"
+inventory = "assemblies-1.toml"
+loading = ["A01  A02@90"]
