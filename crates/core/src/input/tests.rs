@@ -1,5 +1,6 @@
 use super::*;
 use crate::nem::Solution;
+use xlc_format::fewgroup::Pins;
 
 const PLANT: &str = r#"
 pitch = 21.5
@@ -372,6 +373,59 @@ fn rotation_turns_sides_counterclockwise() {
     assert_eq!(rotated(&m, 0), m);
     assert_eq!(rotated(&rotated(&m, 1), 3), m);
     assert_eq!(rotated(&rotated(&m, 2), 2), m);
+}
+
+#[test]
+fn rotation_turns_pins_counterclockwise() {
+    // 90° 回すと (x, y) が (H - y, x) に移る（H はノードの高さ）。列 2 × 行 1 のセルは、列 1 × 行 2 になり、
+    // 角（-x -y、+x -y、+x +y、-x +y）は1つずつ先に進む（ADR-0096）
+    let m = FewGroup {
+        pins: Some(Pins {
+            x: vec![0.0, 1.0, 3.0],
+            y: vec![0.0, 2.0],
+            form: vec![vec![vec![1.0, 2.0]], vec![vec![3.0, 4.0]]],
+            corners: vec![
+                vec![1.0, 1.5],
+                vec![2.0, 2.5],
+                vec![3.0, 3.5],
+                vec![4.0, 4.5],
+            ],
+        }),
+        ..sided(true)
+    };
+    let r = rotated(&m, 1).pins.unwrap();
+    assert_eq!(r.x, vec![0.0, 2.0]);
+    assert_eq!(r.y, vec![0.0, 1.0, 3.0]);
+    assert_eq!(
+        r.form,
+        vec![vec![vec![1.0], vec![2.0]], vec![vec![3.0], vec![4.0]]]
+    );
+    assert_eq!(
+        r.corners,
+        vec![
+            vec![4.0, 4.5],
+            vec![1.0, 1.5],
+            vec![2.0, 2.5],
+            vec![3.0, 3.5]
+        ]
+    );
+    // 2 行 × 2 列で、行の向きも確かめる: 元の左上（行 1、列 0）は、回すと左下（行 0、列 0）
+    let square = FewGroup {
+        pins: Some(Pins {
+            x: vec![0.0, 1.0, 3.0],
+            y: vec![0.0, 1.5, 2.0],
+            form: vec![vec![vec![1.0, 2.0], vec![3.0, 4.0]]; 2],
+            corners: vec![vec![1.0, 1.0]; 4],
+        }),
+        ..sided(true)
+    };
+    let r = rotated(&square, 1).pins.unwrap();
+    assert_eq!(r.x, vec![0.0, 0.5, 2.0]);
+    assert_eq!(r.form[0], vec![vec![3.0, 1.0], vec![4.0, 2.0]]);
+    for turns in 1..4 {
+        assert_eq!(rotated(&rotated(&square, turns), 4 - turns), square);
+        assert_eq!(rotated(&rotated(&m, turns), 4 - turns), m);
+    }
 }
 
 #[test]
