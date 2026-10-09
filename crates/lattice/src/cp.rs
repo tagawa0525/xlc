@@ -580,6 +580,34 @@ mod tests {
     }
 
     #[test]
+    fn quadrature_converges_in_black_fuel() {
+        // 共鳴のピークの黒い燃料（全断面積 300〜1e4 /cm）でも、外の水から入る中性子束が求積の点を増やしても
+        // 1e-9 より動かない。リングに接する弦の近くで減衰が急なので、そこに点を集める（ADR-0109、#0044）
+        let r0: f64 = 0.4096;
+        let mut radii: Vec<f64> = (1..=5).map(|k| r0 * (k as f64 / 5.0).sqrt()).collect();
+        radii.extend([0.418, 0.475, 0.711]);
+        for sigma in [0.4, 30.0, 300.0, 3000.0, 1.0e4] {
+            let totals = [sigma, sigma, sigma, sigma, sigma, 0.0, 0.3, 1.2];
+            let mut sources = vec![0.0; 8];
+            sources[7] = 1.0;
+            let flux = |points| {
+                Cylinder::with_points(radii.clone(), points)
+                    .unwrap()
+                    .fixed_source(&totals, &sources)
+                    .unwrap()
+            };
+            let (coarse, fine) = (flux(POINTS), flux(4 * POINTS));
+            let peak = fine.iter().copied().fold(0.0, f64::max);
+            // 黒い燃料の奥のリングの中性子束は、丸めの程度まで小さいので比べない
+            for (i, (c, f)) in coarse.iter().zip(&fine).enumerate() {
+                if *f > 1e-6 * peak {
+                    assert!((c - f).abs() <= 1e-9 * f, "Σ {sigma} ring {i}: {c} vs {f}");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn quadrature_converges() {
         // 黒に近い燃料を細かいリングに分け、水の線源から入る中性子束をみる。2つ目は、広い燃料の外の薄いリム
         let cells = [
