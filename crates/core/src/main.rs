@@ -21,7 +21,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
-use xlc_core::nem::{Options, Problem, Solution, solve};
+use xlc_core::nem::{Options, solve};
 use xlc_format::fewgroup::FewGroup;
 
 fn main() -> ExitCode {
@@ -83,7 +83,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
     println!("k-eff {:.6}", solution.k);
     println!("leakage per fission neutron {:.4}", leakage * solution.k);
     println!("assembly fission rates (relative to the assembly mean, top row is +y)");
-    for row in assembly_fission_rates(&layout, &problem, &solution) {
+    for row in layout.assembly_fission_rates(&problem, &solution) {
         let cells: Vec<String> = row
             .iter()
             .map(|r| r.map_or_else(|| format!("{:>6}", "."), |r| format!("{r:6.4}")))
@@ -109,45 +109,4 @@ fn parse<T>(
 ) -> anyhow::Result<T> {
     let text = std::fs::read_to_string(path).with_context(|| shown(path))?;
     parse(&text, path.parent().unwrap_or(Path::new("."))).with_context(|| shown(path))
-}
-
-/// 集合体の位置ごとの、軸方向に積分した核分裂率（集合体の位置の平均で割る）。上の行（+y）から。
-fn assembly_fission_rates(
-    layout: &Layout,
-    problem: &Problem,
-    solution: &Solution,
-) -> Vec<Vec<Option<f64>>> {
-    let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
-    let mut rates = vec![vec![0.0; nx]; ny];
-    for (n, flux) in solution.flux.iter().enumerate() {
-        let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
-        let m = &problem.materials[problem.node_material[n]];
-        let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
-        let fission: f64 = m.fission.iter().zip(flux).map(|(f, phi)| f * phi).sum();
-        // 図の上の行が +y
-        rates[ny - 1 - y][x] += fission * volume;
-    }
-    let loaded: Vec<f64> = layout
-        .ids
-        .iter()
-        .zip(&rates)
-        .flat_map(|(ids, r)| {
-            ids.iter()
-                .zip(r)
-                .filter(|(id, _)| id.is_some())
-                .map(|(_, &r)| r)
-        })
-        .collect();
-    let mean = loaded.iter().sum::<f64>() / loaded.len().max(1) as f64;
-    layout
-        .ids
-        .iter()
-        .zip(&rates)
-        .map(|(ids, r)| {
-            ids.iter()
-                .zip(r)
-                .map(|(id, &r)| id.as_ref().map(|_| r / mean))
-                .collect()
-        })
-        .collect()
 }

@@ -409,7 +409,7 @@ fn reflectors_and_assemblies_may_share_layer_files() {
     let shared = layout
         .files
         .iter()
-        .position(|f| *f == PathBuf::from("dir/a-bottom.msgpack"))
+        .position(|f| f == Path::new("dir/a-bottom.msgpack"))
         .unwrap();
     // 反射体に使うファイルは、核分裂の検査の対象になる
     assert!(layout.reflector[shared]);
