@@ -84,18 +84,29 @@ fn multilinear_quantities_are_reproduced_between_points() {
     ] {
         let got = interpolate(&t, Some(&state(ppm, tm, tf))).unwrap();
         let want = few(ppm, tm, tf);
-        assert!(
-            close(got.k_inf, want.k_inf),
-            "{} vs {}",
-            got.k_inf,
-            want.k_inf
-        );
-        assert!(close(got.scatter[0][1], want.scatter[0][1]));
-        assert!(close(got.adf[3][1], want.adf[3][1]));
-        let (Some(g), Some(w)) = (&got.vacuum_ratio[1], &want.vacuum_ratio[1]) else {
-            panic!("vacuum ratio")
+        // すべての量を比べる
+        let flat = |f: &FewGroup| {
+            let mut v = vec![f.k_inf];
+            for x in [
+                &f.total,
+                &f.absorption,
+                &f.nu_fission,
+                &f.fission,
+                &f.chi,
+                &f.diffusion,
+            ] {
+                v.extend(x);
+            }
+            v.extend(f.scatter.iter().flatten());
+            v.extend(f.adf.iter().flatten());
+            v.extend(f.vacuum_ratio.iter().flatten().flatten());
+            v
         };
-        assert!(close(g[0], w[0]));
+        let (g, w) = (flat(&got), flat(&want));
+        assert_eq!(g.len(), w.len());
+        for (g, w) in g.iter().zip(&w) {
+            assert!(*w == 0.0 && *g == 0.0 || close(*g, *w), "{g} vs {w}");
+        }
         assert_eq!(got.vacuum_ratio[0], None);
         assert_eq!(got.bounds, want.bounds);
         assert_eq!(got.normalized_adf, want.normalized_adf);
@@ -125,11 +136,14 @@ fn invalid_states_are_errors() {
     let mut s = state(1300.0, 565.0, 600.0);
     s.b10 = 0.2;
     assert!(err(Some(&s), &t).contains("b10"));
+    assert!(err(Some(&s), &t).contains("exactly"));
     // 状態があるのに軸がない、状態がないのに軸がある
     let mut two = t.clone();
     two.axes.pop();
     two.states = two.states.iter().step_by(2).cloned().collect();
     assert!(err(Some(&state(1300.0, 565.0, 600.0)), &two).contains("fuel"));
+    // 軸がないことは、ほかの軸の範囲の外より先に示す
+    assert!(err(Some(&state(800.0, 565.0, 600.0)), &two).contains("fuel"));
     assert!(err(None, &t).contains("state"));
 }
 
