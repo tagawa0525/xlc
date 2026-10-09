@@ -255,21 +255,27 @@ mod tests {
     #[test]
     fn table_uses_natural_line_shape_above_its_theta_range() {
         // θ = Γ/Δ が表より大きいとき（低温の構造材の非分離共鳴。Fe-58 の 550 K で θ ≈ 1.0e4）は、ドップラー
-        // 拡がりのない Lorentz の線形状の J, K（差は 1/θ² の程度）
-        for theta in [1.0025e4, 1.0e6] {
-            for beta in [1.0e-4, 1.0e-2, 1.0, 1.0e2] {
+        // 拡がりのない Lorentz の線形状の J, K。表の端で値が跳ぶと、幅のゆらぎの適応積分（許容誤差 1e-10）が
+        // 収束しにくいので、表の端の内と外で直接の積分との差が 1e-10 より小さいこと
+        let top = 10f64.powf(LOG_THETA.1);
+        for theta in [1.0025e4, 0.999 * top, 1.001 * top, 1.0e8] {
+            for beta in [1.0e-6, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e10] {
                 let (j, k) = jk_interpolated(beta, theta).unwrap();
                 let direct = jk_integrals(&[beta], theta).unwrap()[0];
-                assert_rel(j, direct.0, 1e-7);
-                assert_rel(k, direct.1, 1e-7);
+                assert_rel(j, direct.0, 1e-10);
+                assert_rel(k, direct.1, 1e-10);
             }
         }
+        // 表の β より小さくても、Lorentz の線形状の J, K は使える
+        let (j, k) = jk_interpolated(1.0e-8, 1.0e8).unwrap();
+        let direct = jk_integrals(&[1.0e-8], 1.0e8).unwrap()[0];
+        assert_rel(j, direct.0, 1e-10);
+        assert_rel(k, direct.1, 1e-10);
     }
 
     #[test]
     fn table_rejects_points_outside_its_range() {
         assert!(jk_interpolated(1.0e-8, 1.0).is_err());
         assert!(jk_interpolated(1.0, 1.0e-5).is_err());
-        assert!(jk_interpolated(1.0e-8, 1.0e6).is_err());
     }
 }
