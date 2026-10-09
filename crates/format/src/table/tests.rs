@@ -170,3 +170,61 @@ fn reading_rejects_wrong_axis_fields() {
         edit(|v| axis(v, 2).push(("density".into(), vec![rmpv::Value::from(0.7)].into()))).is_err()
     );
 }
+
+#[test]
+fn pins_round_trip_and_share_cells() {
+    // 形状関数と角の不連続因子も状態ごとに持ち、セルの境界はすべての状態で同じ（ADR-0096）
+    let with_pins = |mut table: Table| {
+        for (i, s) in table.states.iter_mut().enumerate() {
+            let mut pins = crate::fewgroup::sample_pins();
+            pins.form[0][1][1] += f64::from(u8::try_from(i).unwrap()) / 7.0;
+            s.pins = Some(pins);
+        }
+        table
+    };
+    let table = with_pins(sample());
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+    let mut table = with_pins(sample());
+    if let Some(p) = table.states[2].pins.as_mut() {
+        p.dx[1] = 1.27;
+    }
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("pins"), "{err}");
+    let mut table = with_pins(sample());
+    table.states[3].pins = None;
+    let err = table.validate().unwrap_err().to_string();
+    assert!(err.contains("pins"), "{err}");
+}
+
+#[test]
+fn states_need_the_pins_key() {
+    // 形状関数のない状態も `pins` に nil を書く。キーのないファイル（古い形式）は読まない
+    let bytes = sample().to_msgpack().unwrap();
+    let mut value = msgpack::read_value(&bytes).unwrap();
+    let rmpv::Value::Map(entries) = &mut value else {
+        panic!()
+    };
+    let (_, states) = entries
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("states"))
+        .unwrap();
+    let rmpv::Value::Array(states) = states else {
+        panic!()
+    };
+    let rmpv::Value::Map(fields) = &mut states[0] else {
+        panic!()
+    };
+    assert!(
+        fields
+            .iter()
+            .any(|(k, v)| k.as_str() == Some("pins") && v.is_nil())
+    );
+    fields.retain(|(k, _)| k.as_str() != Some("pins"));
+    let mut out = Vec::new();
+    rmpv::encode::write_value(&mut out, &value).unwrap();
+    let err = Table::from_msgpack(&out).unwrap_err().to_string();
+    assert!(err.contains("pins") || err.contains("missing"), "{err}");
+}

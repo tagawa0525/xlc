@@ -1,4 +1,5 @@
 use super::*;
+use xlc_format::fewgroup::Pins;
 
 /// 各量が (ppm, 減速材の温度, √燃料の温度) の多重線形な関数（交差の項を含む）である状態
 fn value(ppm: f64, tm: f64, tf: f64) -> f64 {
@@ -20,6 +21,13 @@ fn few(ppm: f64, tm: f64, tf: f64) -> FewGroup {
         adf: vec![vec![v, 2.0 * v]; 4],
         vacuum_ratio: vec![None, Some(vec![0.5 * v / 3.0, 0.4 * v / 3.0]), None, None],
         normalized_adf: vec![false; 4],
+        // 形状関数と角の不連続因子も内挿し、セルの境界はそのまま（ADR-0096）
+        pins: Some(Pins {
+            dx: vec![1.0, 1.0],
+            dy: vec![2.0],
+            form: vec![vec![vec![v, 2.0 * v]], vec![vec![3.0 * v, 0.0]]],
+            corners: vec![vec![1.1 * v, 1.2 * v]; 4],
+        }),
     }
 }
 
@@ -100,6 +108,9 @@ fn multilinear_quantities_are_reproduced_between_points() {
             v.extend(f.scatter.iter().flatten());
             v.extend(f.adf.iter().flatten());
             v.extend(f.vacuum_ratio.iter().flatten().flatten());
+            let pins = f.pins.as_ref().unwrap();
+            v.extend(pins.form.iter().flatten().flatten());
+            v.extend(pins.corners.iter().flatten());
             v
         };
         let (g, w) = (flat(&got), flat(&want));
@@ -110,6 +121,8 @@ fn multilinear_quantities_are_reproduced_between_points() {
         assert_eq!(got.vacuum_ratio[0], None);
         assert_eq!(got.bounds, want.bounds);
         assert_eq!(got.normalized_adf, want.normalized_adf);
+        let (gp, wp) = (got.pins.unwrap(), want.pins.unwrap());
+        assert_eq!((gp.dx, gp.dy), (wp.dx, wp.dy));
     }
 }
 
@@ -167,4 +180,19 @@ fn tables_without_axes_need_no_state() {
         few(1300.0, 565.0, 565.0)
     );
     assert!(interpolate(&single, Some(&state(1300.0, 565.0, 565.0))).is_err());
+}
+
+#[test]
+fn states_differing_in_pins_are_errors() {
+    // テーブルの検査を経ずに作ったテーブルでも、形状関数の有無やセルが状態で違えば黙って内挿しない
+    let mut t = table();
+    t.states[1].pins = None;
+    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0))).unwrap_err();
+    assert!(err.contains("pins"), "{err}");
+    let mut t = table();
+    if let Some(p) = t.states[1].pins.as_mut() {
+        p.dx[0] = 1.5;
+    }
+    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0))).unwrap_err();
+    assert!(err.contains("pins"), "{err}");
 }
