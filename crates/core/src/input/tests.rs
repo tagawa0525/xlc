@@ -78,7 +78,10 @@ fn parses_plant() {
     let p = plant();
     assert_eq!(p.pitch, 21.5);
     assert_eq!(p.height, 10.0);
-    let r = Site::Reflector("R".to_string());
+    let r = Site::Reflector {
+        name: "R".to_string(),
+        turns: 0,
+    };
     assert_eq!(
         p.map,
         vec![
@@ -120,6 +123,40 @@ fn invalid_plants_are_errors() {
     assert!(bad("[reflector.R]", "[reflector.\"*\"]"));
     // 知らないキー
     assert!(bad("height = 10.0", "height = 10.0\nsize = 1"));
+}
+
+#[test]
+fn reflectors_can_be_rotated() {
+    // 反射体の向き（燃料に面する辺）は回転で合わせる
+    let text = edited(PLANT, "\"R  *  R\",\n]", "\"R  *  R@180\",\n]");
+    let p = Plant::parse(&text, base()).unwrap();
+    assert_eq!(
+        p.map[1][2],
+        Site::Reflector {
+            name: "R".to_string(),
+            turns: 2
+        }
+    );
+    assert!(
+        Plant::parse(
+            &edited(PLANT, "\"R  *  R\",\n]", "\"R  *  R@45\",\n]"),
+            base()
+        )
+        .is_err()
+    );
+    assert!(
+        Plant::parse(
+            &edited(PLANT, "\"R  *  R\",\n]", "\"R  *@90  R\",\n]"),
+            base()
+        )
+        .is_err()
+    );
+    let layout = layout_of(&case(), &cycle(), &p).unwrap();
+    let m = layout.materials[layout.node_material[2]];
+    assert_eq!(
+        (layout.files[m.file].clone(), m.turns),
+        (PathBuf::from("dir/r.msgpack"), 2)
+    );
 }
 
 #[test]
