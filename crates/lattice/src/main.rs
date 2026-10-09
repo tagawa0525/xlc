@@ -27,6 +27,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::library::Library;
+use xlc_format::table::Table;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes};
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
@@ -193,7 +194,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
         };
         for (output, few) in written {
             let output = base.join(output);
-            std::fs::write(&output, few.to_msgpack()?).with_context(|| shown(&output))?;
+            // 分岐を計算しないときは、軸のない状態が1つのテーブル（ADR-0097）
+            let bytes = Table::single(few).to_msgpack()?;
+            std::fs::write(&output, bytes).with_context(|| shown(&output))?;
         }
     }
     if let Some(file) = &input.pin_powers {
