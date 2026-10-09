@@ -304,7 +304,7 @@ impl Path {
         }
         if self.tau.min(1.0).powi(2) < CANCELLATION {
             // [τ − Ki3(0) + Ki3(τ)]/τ² = ∫ φ2(τ cosh t)/cosh t dt
-            self.length.powi(2) * trapezoid(|c| phi2(self.tau * c) / c)
+            self.length.powi(2) * trapezoid(coarse_stride(self.tau), |c| phi2(self.tau * c) / c)
         } else {
             (self.tau - ki3(0.0) + ki3(self.tau)) / (self.total * self.total)
         }
@@ -330,8 +330,9 @@ impl Path {
                 / tau;
         }
         // D/(τa τb) = ∫ exp(−τab cosh t) φ1(τa cosh t) φ1(τb cosh t)/cosh t dt
-        let integral =
-            trapezoid(|c| (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c);
+        let integral = trapezoid(coarse_stride(between + self.tau + to.tau), |c| {
+            (-between * c).exp() * phi1(self.tau * c) * phi1(to.tau * c) / c
+        });
         self.length * to.length * integral
     }
 }
@@ -434,20 +435,23 @@ fn interpolate(x: f64, n: usize) -> f64 {
 
 /// Ki_n(x) = ∫_0^∞ exp(−x cosh t)/cosh^n t dt
 fn bickley(n: i32, x: f64) -> f64 {
-    trapezoid(|c| (-x * c).exp() / c.powi(n))
+    trapezoid(1, |c| (-x * c).exp() / c.powi(n))
 }
 
 /// cosθ = 1/cosh t とした、t についての積分 ∫_0^∞ f(cosh t) dt の台形則。f は t について減る関数とする。
 /// 被積分関数は t について偶で、|Im t| < π/2 で解析的なので、台形則の誤差は exp(−π²/h) で減る
 /// （x が大きいと exp(−x cosh t) の幅が狭まるが、表の範囲 x < 48 では相対誤差 1e-13 程度に収まる）。
-fn trapezoid(f: impl Fn(f64) -> f64) -> f64 {
+///
+/// 刻みは 0.125 × `stride`。被積分関数の指数の和 X（exp(−X cosh t) の X）が大きいと、被積分関数は t = 0 の近くに
+/// 幅 1/√X で集まり、刻み h の誤差はおよそ exp(−2π²/(X h²)) になる（[`coarse_stride`]）。
+fn trapezoid(stride: usize, f: impl Fn(f64) -> f64) -> f64 {
     const STEP: f64 = 0.125;
     // 1/cosh t は exp(−t) で減るので、t = 40 で 1e-17 を下回る
     const NODES: usize = 320;
     static COSH: OnceLock<Vec<f64>> = OnceLock::new();
     let cosh = COSH.get_or_init(|| (0..=NODES).map(|k| (k as f64 * STEP).cosh()).collect());
     let mut sum = 0.5 * f(1.0);
-    for &c in &cosh[1..] {
+    for &c in cosh.iter().step_by(stride).skip(1) {
         let term = f(c);
         sum += term;
         // すべてアンダーフローしたときも止まるよう、等号を含める
@@ -455,7 +459,14 @@ fn trapezoid(f: impl Fn(f64) -> f64) -> f64 {
             break;
         }
     }
-    sum * STEP
+    sum * STEP * stride as f64
+}
+
+/// 指数の和 `exponent` の積分を台形則で求める刻みの倍率。exponent < 4 なら刻み 0.25 でも誤差は
+/// exp(−2π²/(4 × 0.25²)) ≈ 4e-35 と、帯の幅 π/2 で決まる exp(−π²/0.25) ≈ 7e-18 の方が支配し、どちらも丸めより小さい。
+/// それより大きいと刻み 0.125 のまま（exponent = 48 で exp(−2π²/(48 × 0.125²)) ≈ 4e-12）
+fn coarse_stride(exponent: f64) -> usize {
+    if exponent < 4.0 { 2 } else { 1 }
 }
 
 #[cfg(test)]
