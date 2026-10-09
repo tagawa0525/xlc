@@ -25,6 +25,11 @@
 //! temperature = 900               # K。ライブラリにある温度であること
 //! nuclides = { U-235 = 7.0e-4, U-238 = 2.2e-2, O-16 = 4.6e-2 }   # 個数密度 (1/(barn cm))
 //!
+//! [material.water]
+//! temperature = 565
+//! # nuclides の代わりに、ホウ酸水の密度 (g/cm³)、ホウ素の質量 ppm、B-10 の原子分率（ADR-0106）
+//! water = { density = 0.743, boron = 1291, b10 = 0.199 }
+//!
 //! [cell.pin]                      # 帯を内側から。最後の帯は radius を省略してセルの外周まで
 //! zones = [{ material = "fuel", radius = 0.4096, rings = 3 }, { material = "void", radius = 0.418, rings = 1 },
 //!          { material = "water", rings = 2 }]   # void は真空（定義しない予約の名前）
@@ -320,7 +325,66 @@ fn condition(value: toml::Value) -> Result<Boundary, String> {
 #[serde(deny_unknown_fields)]
 struct MaterialEntry {
     temperature: f64,
-    nuclides: BTreeMap<String, f64>,
+    /// `water` と排他
+    nuclides: Option<BTreeMap<String, f64>>,
+    water: Option<WaterEntry>,
+}
+
+/// ホウ酸水（ADR-0106）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WaterEntry {
+    /// 密度 (g/cm³)
+    density: f64,
+    /// ホウ素の質量 ppm
+    boron: f64,
+    /// ホウ素の中の B-10 の原子分率
+    b10: f64,
+}
+
+/// AME2020 の原子質量 (u)（M. Wang et al., Chinese Phys. C 45, 030003 (2021)。ADR-0106）
+const MASS_H1: f64 = 1.007_825_032_23;
+const MASS_O16: f64 = 15.994_914_619_57;
+const MASS_B10: f64 = 10.012_936_95;
+const MASS_B11: f64 = 11.009_305_36;
+/// アボガドロ定数 × 10⁻²⁴（個数密度を 1/(barn cm) にする）
+const AVOGADRO: f64 = 0.602_214_076;
+
+impl WaterEntry {
+    /// 核種の名前の順の個数密度 (1/(barn cm))。ホウ素がなければ B-10 と B-11 を入れない
+    fn composition(&self, name: &str) -> Result<BTreeMap<String, f64>, String> {
+        let Self {
+            density,
+            boron,
+            b10,
+        } = *self;
+        if !positive(density) {
+            return Err(format!(
+                "material `{name}`: invalid water density {density}"
+            ));
+        }
+        if !(0.0..1.0e6).contains(&boron) {
+            return Err(format!("material `{name}`: invalid boron {boron} ppm"));
+        }
+        if !(0.0..=1.0).contains(&b10) {
+            return Err(format!(
+                "material `{name}`: invalid B-10 atom fraction {b10}"
+            ));
+        }
+        let w = boron * 1.0e-6;
+        let water = density * (1.0 - w) * AVOGADRO / (2.0 * MASS_H1 + MASS_O16);
+        let mut composition = BTreeMap::from([
+            ("H-1".to_string(), 2.0 * water),
+            ("O-16".to_string(), water),
+        ]);
+        if boron > 0.0 {
+            let mass = b10 * MASS_B10 + (1.0 - b10) * MASS_B11;
+            let atoms = density * w * AVOGADRO / mass;
+            composition.insert("B-10".to_string(), b10 * atoms);
+            composition.insert("B-11".to_string(), (1.0 - b10) * atoms);
+        }
+        Ok(composition)
+    }
 }
 
 #[derive(Deserialize)]
@@ -686,10 +750,19 @@ impl MaterialEntry {
                 self.temperature
             ));
         }
-        if self.nuclides.is_empty() {
+        let nuclides = match (self.nuclides, &self.water) {
+            (Some(nuclides), None) => nuclides,
+            (None, Some(water)) => water.composition(&name)?,
+            _ => {
+                return Err(format!(
+                    "material `{name}` needs either nuclides or water (not both)"
+                ));
+            }
+        };
+        if nuclides.is_empty() {
             return Err(format!("material `{name}` has no nuclides"));
         }
-        for (nuclide, &density) in &self.nuclides {
+        for (nuclide, &density) in &nuclides {
             if !is_nuclide_name(nuclide) {
                 return Err(format!(
                     "material `{name}`: nuclide name `{nuclide}` is not of the form U-235, Am-242m"
@@ -701,7 +774,7 @@ impl MaterialEntry {
                 ));
             }
         }
-        if self.nuclides.values().all(|&density| density == 0.0) {
+        if nuclides.values().all(|&density| density == 0.0) {
             return Err(format!(
                 "material `{name}` has no nuclide with positive density; write `{VOID}` for void zones"
             ));
@@ -709,7 +782,7 @@ impl MaterialEntry {
         Ok(MaterialInput {
             name,
             temperature: self.temperature,
-            composition: self.nuclides.into_iter().collect(),
+            composition: nuclides.into_iter().collect(),
         })
     }
 }
