@@ -442,14 +442,15 @@ fn node_neighbors(
         .collect()
 }
 
-/// 外周の辺（左、右、上、下）の境界条件
 /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。格子全体を1つのノードとし、外周がすべて鏡面反射
 /// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は #0020）。
 ///
-/// - セルの境界は、格子の列の幅と行の高さを -x、-y の辺から足したもの（行は下から）
-/// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均 / ノードの少数群 g の核分裂率の平均。核分裂のないセルは 0
-/// - 角の不連続因子 = 余白の角のセルの中性子束の平均 / ノード平均の中性子束。角のセルがピンのセル（余白がない）なら
-///   エラー
+/// - セルの大きさは、格子の列の幅と行の高さ（行は下から）
+/// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均 / ノードの少数群 g の核分裂率の平均。核分裂のないセルは 0。
+///   core はセルの幾何の面積で再構成するので、面積で重みを付けた平均がちょうど 1 になるよう、トラックから推定した
+///   体積でなく解析的な体積で平均する
+/// - 角の不連続因子 = 余白の角のセルの中性子束の平均 / ノード平均の中性子束。面の ADF（`homogenize`）と同じ均質な
+///   中性子束を基準にするよう、トラックから推定した体積で平均する。角のセルがピンのセル（余白がない）ならエラー
 pub fn pin_shapes(
     solution: &Solution,
     lattice: &Lattice,
@@ -465,42 +466,38 @@ pub fn pin_shapes(
         ));
     }
     check_regions(solution, materials)?;
+    let volumes = lattice.volumes();
+    if volumes.len() != solution.flux.len() {
+        return Err(HomogenizeError::RegionCount {
+            materials: volumes.len(),
+            regions: solution.flux.len(),
+        });
+    }
     let group_of = coarse_groups(fine, coarse_bounds)?;
     let coarse = coarse_bounds.len() - 1;
     let (columns, rows) = (lattice.columns(), lattice.rows());
-    // [セル][少数群] の中性子束と核分裂率の体積積分と、セルの面積。core はセルの幾何の面積で再構成するので、
-    // 形状関数の面積で重みを付けた平均がちょうど 1 になるよう、トラックから推定した体積でなく解析的な体積を使う
-    let volumes = lattice.volumes();
-    let mut flux = vec![vec![0.0; coarse]; lattice.cells()];
+    // [セル][少数群] の、解析的な体積での核分裂率の積分と、トラックの体積での中性子束の積分。セルの面積も両方
     let mut fission = vec![vec![0.0; coarse]; lattice.cells()];
-    let mut area = vec![0.0; lattice.cells()];
+    let mut flux = vec![vec![0.0; coarse]; lattice.cells()];
+    let (mut area, mut track_area) = (vec![0.0; lattice.cells()], vec![0.0; lattice.cells()]);
     for cell in 0..lattice.cells() {
         for region in lattice.cell_regions(cell) {
-            let (m, phi, volume) = (materials[region], &solution.flux[region], volumes[region]);
+            let (m, phi) = (materials[region], &solution.flux[region]);
+            let (volume, track) = (volumes[region], solution.volumes[region]);
             area[cell] += volume;
+            track_area[cell] += track;
             for (g, &big) in group_of.iter().enumerate() {
-                flux[cell][big] += volume * phi[g];
                 fission[cell][big] += volume * phi[g] * m.fission[g];
+                flux[cell][big] += track * phi[g];
             }
         }
     }
-    let total_area: f64 = area.iter().sum();
-    let node = |values: &[Vec<f64>], g: usize| -> f64 {
-        values.iter().map(|v| v[g]).sum::<f64>() / total_area
+    let node = |values: &[Vec<f64>], areas: &[f64], g: usize| -> f64 {
+        values.iter().map(|v| v[g]).sum::<f64>() / areas.iter().sum::<f64>()
     };
-    let edges = |sizes: &mut dyn Iterator<Item = f64>| {
-        std::iter::once(0.0)
-            .chain(sizes.scan(0.0, |sum, w| {
-                *sum += w;
-                Some(*sum)
-            }))
-            .collect::<Vec<f64>>()
-    };
-    let x = edges(&mut lattice.widths().iter().copied());
-    let y = edges(&mut lattice.heights().iter().rev().copied());
     let mut form = Vec::with_capacity(coarse);
     for g in 0..coarse {
-        let mean = node(&fission, g);
+        let mean = node(&fission, &area, g);
         if mean.is_nan() || mean <= 0.0 {
             return Err(HomogenizeError::Pins(format!(
                 "few group {g} has no fission; form functions need fission"
@@ -529,18 +526,19 @@ pub fn pin_shapes(
         }
         corners.push(
             (0..coarse)
-                .map(|g| flux[cell][g] / area[cell] / node(&flux, g))
+                .map(|g| flux[cell][g] / track_area[cell] / node(&flux, &track_area, g))
                 .collect(),
         );
     }
     Ok(Pins {
-        x,
-        y,
+        dx: lattice.widths().to_vec(),
+        dy: lattice.heights().iter().rev().copied().collect(),
         form,
         corners,
     })
 }
 
+/// 外周の辺（左、右、上、下）の境界条件
 fn sides_of(boundaries: &Boundaries) -> [Boundary; 4] {
     [
         boundaries.left,
@@ -2146,7 +2144,8 @@ mod tests {
     #[test]
     fn pin_shapes_average_to_one_and_take_corner_fluxes() {
         // 形状関数はセルの群の核分裂率の平均 / ノードの群の核分裂率の平均で、面積で重みを付けたノードの平均は 1。
-        // 角の不連続因子は、余白の角のセルの中性子束 / ノード平均の中性子束（ADR-0094、ADR-0096）
+        // 角の不連続因子は、余白の角のセルの中性子束 / ノード平均の中性子束（ADR-0094、ADR-0096）。形状関数は
+        // 解析的な体積で、角の不連続因子はトラックの体積で平均する
         let (lattice, solution, materials) = margined(0.04);
         let refs: Vec<&Material> = materials.iter().collect();
         let pins = pin_shapes(
@@ -2161,14 +2160,10 @@ mod tests {
         let close = |a: f64, b: f64| (a - b).abs() < 1e-12 * b.abs().max(1.0);
         // 対角の対称は、MOC の収束の程度で成り立つ
         let symmetric = |a: f64, b: f64| (a - b).abs() < 1e-6 * b.abs();
-        let expected_edges = [0.0, 0.04, 1.30, 2.56, 2.60];
-        for (edges, name) in [(&pins.x, "x"), (&pins.y, "y")] {
-            assert_eq!(edges.len(), 5, "{name}");
-            for (e, w) in edges.iter().zip(expected_edges) {
-                assert!(close(*e, w), "{name}: {edges:?}");
-            }
-        }
-        let area = |j: usize, i: usize| (pins.x[i + 1] - pins.x[i]) * (pins.y[j + 1] - pins.y[j]);
+        // セルの大きさは格子の列の幅と行の高さ（行は下から）
+        assert_eq!(pins.dx, vec![0.04, 1.26, 1.26, 0.04]);
+        assert_eq!(pins.dy, vec![0.04, 1.26, 1.26, 0.04]);
+        let area = |j: usize, i: usize| pins.dx[i] * pins.dy[j];
         for g in 0..2 {
             let form = &pins.form[g];
             assert_eq!((form.len(), form[0].len()), (4, 4));
@@ -2198,14 +2193,14 @@ mod tests {
         }
         // 角のセル（格子の行は上から）: -x -y は左下、+x -y は右下、+x +y は右上、-x +y は左上
         let corner_cells = [(3, 0), (3, 3), (0, 3), (0, 0)];
-        // 平均は解析的な体積で取る（core はセルの幾何の面積で再構成する）
-        let volumes = lattice.volumes();
+        // 面の ADF と同じく、トラックから推定した体積で平均する
+        let volumes = &solution.volumes;
         let volume: f64 = volumes.iter().sum();
         for g in 0..2 {
             let average = solution
                 .flux
                 .iter()
-                .zip(&volumes)
+                .zip(volumes)
                 .map(|(f, v)| v * f[g])
                 .sum::<f64>()
                 / volume;
