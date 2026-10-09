@@ -4,6 +4,7 @@ use crate::geometry::Lattice;
 use crate::material::Material;
 use crate::moc::Solution;
 use xlc_format::msgpack::MsgpackError;
+use xlc_format::pins::PinPowers;
 
 /// 核分裂のあるセルがない。
 #[derive(Debug, thiserror::Error)]
@@ -43,19 +44,13 @@ pub fn cell_fission_rates(
     Ok(rates.iter().map(|r| r / mean).collect())
 }
 
-/// 核分裂率（`cell_fission_rates`）を、フィールド名付きの map 形式の MessagePack にする: `format`
-/// ("xlc-pin-powers") と、ピンセルのある行と列の核分裂率 `rows`（上の行から、各行は左から）。余白や反射体の
-/// ようにピンセルのない行と列は書かない。
+/// 核分裂率（`cell_fission_rates`）の、ピンセルのある行と列の値（`xlc_format::pins`）。余白や反射体のように
+/// ピンセルのない行と列は書かない。
 pub fn to_msgpack(rates: &[f64], lattice: &Lattice) -> Result<Vec<u8>, MsgpackError> {
-    #[derive(serde::Serialize)]
-    struct PinPowers {
-        format: &'static str,
-        rows: Vec<Vec<f64>>,
-    }
-    xlc_format::msgpack::to_named(&PinPowers {
-        format: "xlc-pin-powers",
+    PinPowers {
         rows: pin_rows(rates, lattice),
-    })
+    }
+    .to_msgpack()
 }
 
 /// ピンセルのある行と列だけを取り出した、行ごとの値
@@ -113,33 +108,24 @@ mod tests {
     }
 
     #[test]
-    fn pin_powers_are_written_by_rows() {
-        #[derive(serde::Deserialize, Debug, PartialEq)]
-        #[serde(deny_unknown_fields)]
-        struct PinPowers {
-            format: String,
+    fn pin_powers_drop_margins() {
+        #[derive(serde::Deserialize)]
+        struct File {
             rows: Vec<Vec<f64>>,
         }
+        let read = |bytes: Vec<u8>| -> Vec<Vec<f64>> {
+            let file: File = rmp_serde::from_slice(&bytes).unwrap();
+            file.rows
+        };
         let pin = PinCell::new(1.26, vec![0.4]).unwrap();
         let lattice = Lattice::new(vec![pin], vec![vec![0, 0], vec![0, 0]]).unwrap();
-        let bytes = to_msgpack(&[1.0, 0.0, 0.5, 1.5], &lattice).unwrap();
-        let value: PinPowers = rmp_serde::from_slice(&bytes).unwrap();
-        assert_eq!(
-            value,
-            PinPowers {
-                format: "xlc-pin-powers".into(),
-                rows: vec![vec![1.0, 0.0], vec![0.5, 1.5]],
-            }
-        );
-        // フィールド名付きの map 形式
-        assert!(xlc_format::msgpack::read_value(&bytes).is_ok());
+        let rows = read(to_msgpack(&[1.0, 0.0, 0.5, 1.5], &lattice).unwrap());
+        assert_eq!(rows, vec![vec![1.0, 0.0], vec![0.5, 1.5]]);
         // 余白の行と列は書かない
         let pin = PinCell::new(1.26, vec![0.4]).unwrap();
         let margin = Lattice::with_margin(vec![pin], vec![vec![0]], 0.1).unwrap();
         let mut rates = vec![0.0; 9];
         rates[4] = 1.0;
-        let value: PinPowers =
-            rmp_serde::from_slice(&to_msgpack(&rates, &margin).unwrap()).unwrap();
-        assert_eq!(value.rows, vec![vec![1.0]]);
+        assert_eq!(read(to_msgpack(&rates, &margin).unwrap()), vec![vec![1.0]]);
     }
 }
