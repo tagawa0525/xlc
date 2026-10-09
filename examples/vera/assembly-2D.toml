@@ -4,8 +4,8 @@
 library = "vera.msgpack"
 pin-powers = "pins-2D.msgpack"
 pitch = 1.26
-azimuthal = 32
-spacing = 0.05
+azimuthal = 30
+spacing = 0.03
 gap = { width = 0.04, material = "water" }
 rows = [
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
