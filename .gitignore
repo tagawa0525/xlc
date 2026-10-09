@@ -18,3 +18,5 @@
 /examples/m3-nuclides/xs.log
 /examples/reflector/*.msgpack
 /examples/reflector/xs.log
+/examples/branches/*.msgpack
+/examples/branches/*.log
