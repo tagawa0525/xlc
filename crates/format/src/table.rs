@@ -104,7 +104,13 @@ struct StateFile {
     adf: Vec<Vec<f64>>,
     vacuum_ratio: Vec<Option<Vec<f64>>>,
     normalized_adf: Vec<bool>,
+    /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
+    #[serde(deserialize_with = "nil_or_pins")]
     pins: Option<PinsFile>,
+}
+
+fn nil_or_pins<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<PinsFile>, D::Error> {
+    Option::deserialize(d)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
