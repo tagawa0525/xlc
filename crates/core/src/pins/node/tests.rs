@@ -31,9 +31,9 @@ fn fuel() -> FewGroup {
 }
 
 /// 拡散方程式 −D∇²φ + Aφ = q（q は一様）の厳密な解から、ノードの条件と、その解の値を求める関数を作る
-struct Exact {
-    flux: Box<dyn Fn(f64, f64) -> [f64; 2]>,
-    gradient: Box<dyn Fn(f64, f64) -> [[f64; 2]; 2]>,
+struct Exact<'a> {
+    flux: Box<dyn Fn(f64, f64) -> [f64; 2] + 'a>,
+    gradient: Box<dyn Fn(f64, f64) -> [[f64; 2]; 2] + 'a>,
 }
 
 /// 厳密な解の、ノードの条件（角、平均、面の正味の中性子流、軸方向の漏れ）
@@ -90,7 +90,8 @@ fn flat_conditions_give_a_flat_flux() {
     // k は k∞（無限の媒質で平らな解が釣り合う）
     let k = (m.nu_fission[0] + m.nu_fission[1] * m.scatter[0][1] / m.absorption[1])
         / (m.absorption[0] + m.scatter[0][1]);
-    let node = NodeFlux::new(&m, k, &conditions, &rule()).unwrap();
+    let model = NodeModel::new(&m, k, conditions.half, &rule()).unwrap();
+    let node = model.solve(&conditions);
     for (x, y) in [(0.0, 0.0), (5.0, -3.0), (10.75, 10.75)] {
         let f = node.flux(x, y);
         for g in 0..2 {
@@ -164,7 +165,8 @@ fn solutions_in_the_span_are_reproduced() {
         }),
     };
     let conditions = conditions_of(&exact, &m, half, axial);
-    let node = NodeFlux::new(&m, k, &conditions, &rule()).unwrap();
+    let model = NodeModel::new(&m, k, conditions.half, &rule()).unwrap();
+    let node = model.solve(&conditions);
     for (x, y) in [(0.0, 0.0), (3.1, -7.2), (-10.0, 7.9), (10.75, 8.0)] {
         let (got, want) = (node.flux(x, y), (exact.flux)(x, y));
         let (gg, gw) = (node.gradient(x, y), (exact.gradient)(x, y));
@@ -186,10 +188,7 @@ fn solutions_in_the_span_are_reproduced() {
     // 4 つの面の正味の中性子流
     let reproduced = conditions_of(
         &Exact {
-            flux: Box::new({
-                let node = node.clone();
-                move |x, y| node.flux(x, y)
-            }),
+            flux: Box::new(move |x, y| node.flux(x, y)),
             gradient: Box::new(move |x, y| node.gradient(x, y)),
         },
         &m,
@@ -220,9 +219,9 @@ fn invalid_nodes_are_errors() {
     // 2群でない
     let mut three = m.clone();
     three.total.push(1.0);
-    assert!(NodeFlux::new(&three, 1.0, &conditions, &rule()).is_err());
+    assert!(NodeModel::new(&three, 1.0, conditions.half, &rule()).is_err());
     // 固有値が複素数。非対角の項が負でない物理的な定数では起きない（M の非対角の積が負でない）ので、負の散乱で作る
     let mut complex = m.clone();
     complex.scatter[1][0] = -0.5;
-    assert!(NodeFlux::new(&complex, 1.0, &conditions, &rule()).is_err());
+    assert!(NodeModel::new(&complex, 1.0, conditions.half, &rule()).is_err());
 }
