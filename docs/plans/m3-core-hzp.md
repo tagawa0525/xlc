@@ -34,7 +34,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 - 影の計算の全断面積: [ADR-0087](../adr/0087-use-dilute-totals-in-shadows.md)
 - 等価なセルの枠のリング: [ADR-0088](../adr/0088-add-frame-ring-to-equivalent-cell.md)
 - 2項有理近似の重み: [ADR-0089](../adr/0089-weight-two-terms-with-potential-scattering.md)
-- AIC と B4C は光学的に非常に厚い。そのような領域では k がトラック間隔に対して不規則に動く（[ADR-0077](../adr/0077-keep-vera-discretization.md)）。
+- AIC と B4C は光学的に非常に厚い。そのような領域では k がトラック間隔に対して不規則に動く（[ADR-0111](../adr/0111-use-30-azimuths-for-vera-assemblies.md)）。
   制御棒のセルを入れたところで影響を測り、必要ならトラックの置き方を見直す
 
 ### 炉心計算
