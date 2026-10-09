@@ -1,0 +1,8 @@
+# I 型の格子の炉心の形: 集合体1体と、その +x に反射体（バッフルと水）1つ。ピッチと高さは 21.5 cm。
+pitch = 21.5
+height = 21.5
+map = ["*  R"]
+
+[reflector.R]
+bounds = [0.0, 21.5]
+layers = ["fg-I-reflector.msgpack"]

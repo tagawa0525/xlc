@@ -3,21 +3,21 @@
 燃料の集合体とバッフル・水を並べた格子をノードに分けて均質化し、反射体の定数を作る例（[ADR-0095](../../docs/adr/0095-make-reflector-constants-in-2d-with-normalized-adf.md)）。
 範囲と作業の順序は [M3 の計画](../../docs/plans/m3-core-hzp.md) の進め方の 5。
 
-| ファイル           | 内容                                                                                                     |
-| ------------------ | -------------------------------------------------------------------------------------------------------- |
-| `xs.toml`          | 多群ライブラリ（`reflector.msgpack`）の入力。examples/vera の核種に SS304 の核種を足し、600 K だけにした |
-| `reflector-I.toml` | I 型の格子（VERA 2B の集合体 + 隙間の水 0.19 cm + SS304 のバッフル 2.85 cm + 水 18.46 cm、右が真空）     |
-| `assembly-2B.toml` | 同じライブラリと自己遮蔽なしの単一集合体（鏡面反射）。f* に掛ける燃料の少数群定数                        |
+| ファイル                           | 内容                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `xs.toml`                          | 多群ライブラリ（`reflector.msgpack`）の入力。examples/vera の核種に SS304 の核種を足し、600 K だけにした |
+| `reflector-I.toml`                 | I 型の格子（VERA 2B の集合体 + 隙間の水 0.19 cm + SS304 のバッフル 2.85 cm + 水 18.46 cm、右が真空）     |
+| `assembly-2B.toml`                 | 同じライブラリと自己遮蔽なしの単一集合体（鏡面反射）。f* に掛ける燃料の少数群定数                        |
+| `core-I.toml`、`core-I-fstar.toml` | 炉心の計算のケース（集合体と反射体の2ノード）。等価性と f* の方法。入力の形は ADR-0105                   |
+| `core-I-cycle.toml` など           | サイクル、炉心の形（`core-I-plant.toml`）、台帳（`core-I-assemblies.toml`）                              |
 
 生成物（ライブラリ、少数群定数）は git で追跡しない。
 
 ```sh
 target/release/xs examples/reflector/xs.toml          # 2 分 40 秒（32 スレッド）
 cd examples/reflector && ../../target/release/lattice reflector-I.toml && ../../target/release/lattice assembly-2B.toml
-cd ../.. && cargo run --release -p xlc-core --example fuel_reflector -- \
-  examples/reflector/fg-I-fuel.msgpack examples/reflector/fg-I-reflector.msgpack 21.5   # 等価性
-cargo run --release -p xlc-core --example fuel_reflector -- \
-  examples/reflector/fg-2B.msgpack examples/reflector/fg-I-reflector.msgpack 21.5       # f* の方法
+../../target/release/core core-I.toml         # 等価性（格子から作った集合体の定数）
+../../target/release/core core-I-fstar.toml   # f* の方法（単一集合体の定数）
 ```
 
 ## I 型の格子の1ノードの問題（a1fe39d、2026-10-09）
@@ -98,3 +98,15 @@ k = 0.531075）。
   REF1-2D の閾値の案（k ±50 pcm）より大きく、自己遮蔽なしの燃料の I 型の格子（反射体の隣に燃料1体だけで、その k は
   0.531）では、燃料のノードの中の中性子束の形が単一集合体と大きく違う。REF1-2D の 3×3 で、燃料が反射体の片側にしか
   ないときの誤差を測る
+
+## 装荷図の入力（ADR-0105）で解いた I 型（7bda1ce、2026-10-09）
+
+core のライブラリの API で問題を組んでいた例（`crates/core/examples/fuel_reflector.rs`）を、炉心の入力の
+ケース（`core-I.toml`、`core-I-fstar.toml`）に置き換えた。集合体は台帳の ID（F01 が I 型の格子から作った定数、F02 が
+単一集合体の定数）で置き、反射体は炉心の形の `R` に置く。このコミットで作り直したライブラリと少数群定数で、両方の
+解き方の k が一致する。値は前の節と同じ。
+
+| ケース              | 4つの入力 | 前の例（fuel_reflector） |
+| ------------------- | --------- | ------------------------ |
+| `core-I.toml`       | 0.531083  | 0.531083                 |
+| `core-I-fstar.toml` | 0.530389  | 0.530389                 |
