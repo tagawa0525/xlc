@@ -19,4 +19,4 @@
 /examples/reflector/*.msgpack
 /examples/reflector/xs.log
 /examples/branches/*.msgpack
-/examples/branches/xs.log
+/examples/branches/*.log
