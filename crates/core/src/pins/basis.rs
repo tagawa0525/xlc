@@ -189,7 +189,7 @@ impl Basis {
 
     /// 面（-x、+x、-y、+y の順の番号）の上で平均した、外向きの法線微分。`rule` は [-1, 1] の Gauss-Legendre の点と重み
     pub(crate) fn face_derivatives(&self, face: usize, rule: &[(f64, f64)]) -> [f64; 8] {
-        let (axis, sign) = (face / 2, if face % 2 == 0 { -1.0 } else { 1.0 });
+        let (axis, sign) = (face / 2, if face.is_multiple_of(2) { -1.0 } else { 1.0 });
         let across = self.half[axis];
         let along = self.half[1 - axis];
         let mut out = [0.0; 8];
@@ -234,7 +234,7 @@ impl Basis {
 
     /// 面（-x、+x、-y、+y）の上で平均した、特解 P の外向きの法線微分
     pub(crate) fn particular_face_derivative(&self, face: usize, rule: &[(f64, f64)]) -> f64 {
-        let (axis, sign) = (face / 2, if face % 2 == 0 { -1.0 } else { 1.0 });
+        let (axis, sign) = (face / 2, if face.is_multiple_of(2) { -1.0 } else { 1.0 });
         let (across, along) = (self.half[axis], self.half[1 - axis]);
         rule.iter()
             .map(|&(t, w)| {
