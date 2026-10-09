@@ -212,7 +212,8 @@ impl Table {
                     .map(Option::is_some)
                     .collect::<Vec<_>>()
             };
-            if state.bounds != first.bounds
+            // 群境界は表全体の量（ファイルには1つだけ書く）なので、状態 0 の最初の定数と比べる
+            if state.bounds != self.states[0].bounds
                 || state.normalized_adf != first.normalized_adf
                 || vacuum(state) != vacuum(first)
             {
@@ -221,7 +222,11 @@ impl Table {
                 ));
             }
             // 形状関数は状態ごとに内挿するので、どの状態も持つか持たないかで、セルの境界も同じ
-            let cells = |s: &FewGroup| s.pins.as_ref().map(|p| (p.dx.clone(), p.dy.clone()));
+            let cells = |s: &FewGroup| {
+                s.pins
+                    .as_ref()
+                    .map(|p| (p.dx.clone(), p.dy.clone(), p.halves.clone()))
+            };
             if cells(state) != cells(first) {
                 return invalid(format!(
                     "state {i}: pins (form functions) and their cells must equal those of the same sub-node of state 0"
