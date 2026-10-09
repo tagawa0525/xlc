@@ -61,6 +61,9 @@ pub enum SelfShieldingError {
     Regions { given: usize, regions: usize },
     #[error("cell {0}: fuel must fill the innermost rings of a ring cell")]
     FuelShape(usize),
+    /// 解くと決めたピンの結果がない（内部の不整合）
+    #[error("cell {0}: internal error, the pin was not shielded")]
+    Unsolved(usize),
     #[error("cell {0}: more than one fuel material")]
     MixedFuel(usize),
     #[error(
@@ -252,24 +255,33 @@ pub fn shield_fuel(
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する
     let orbits = cell_orbits(tracking, &region_index)?;
-    // 代表のピン（組ごとにセルの順で最初に現れるピン）は互いに独立なので、並列に解く（各ピンの中でも衝突確率を
-    // 並列に求めるが、ピンの減速計算は逐次なので、ピンの間でも並列にしてコアを埋める）。結果の物質の追加と領域への
-    // 割り当ては、下のループでピンの順に逐次に行うので、結果は逐次に解いたときと同じ
-    let mut representatives: Vec<(usize, usize, usize)> = Vec::new();
-    for &(cell, _, index, rings) in &pins {
-        if !representatives
-            .iter()
-            .any(|&(c, _, _)| orbits[c] == orbits[cell])
-        {
-            representatives.push((cell, index, rings));
-        }
-    }
+    // 解くピンを、下のループと同じ判定（同じ組の代表がもう解かれていれば使い回す）で先に決める。[ピン] の、解く
+    // なら `solutions` の番号
+    let mut planned: Vec<usize> = Vec::new();
+    let plan: Vec<Option<usize>> = pins
+        .iter()
+        .map(|&(cell, ..)| {
+            if planned.contains(&orbits[cell]) {
+                None
+            } else {
+                planned.push(cell);
+                Some(planned.len() - 1)
+            }
+        })
+        .collect();
+    // 解くピンは互いに独立なので並列に解く（各ピンの中でも衝突確率を並列に求めるが、ピンの減速計算は逐次なので、
+    // ピンの間でも並列にしてコアを埋める）。ピンの計算は元の物質（`dilute`。領域の番号はこの範囲）だけを読む。
+    // 結果の物質の追加と領域への割り当て、エラーは、下のループでピンの順に逐次に扱うので、逐次に解いたときと同じ
     let dilute_materials: &[Material] = &shielded.materials;
-    let results: Vec<Result<(usize, PinSolution), SelfShieldingError>> = representatives
+    let solving: Vec<(usize, usize, usize)> = pins
+        .iter()
+        .zip(&plan)
+        .filter(|(_, p)| p.is_some())
+        .map(|(&(cell, _, index, rings), _)| (cell, index, rings))
+        .collect();
+    let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> = solving
         .par_iter()
         .map(|&(cell, index, rings)| {
-            // 代表のピンごとの時間（等価原理と UFG の減速計算）
-            let _pin = tracing::info_span!("pin", cell).entered();
             let factors = factors[cell]
                 .as_ref()
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
@@ -302,16 +314,12 @@ pub fn shield_fuel(
                 factors,
                 &carlvik,
             )?;
-            Ok((cell, PinSolution { carlvik, ufg }))
+            Ok(PinSolution { carlvik, ufg })
         })
+        .map(Some)
         .collect();
-    // 最初のエラーをピンの順で返す
-    let mut computed: Vec<(usize, PinSolution)> = Vec::with_capacity(results.len());
-    for result in results {
-        computed.push(result?);
-    }
     let mut solved: Vec<(usize, Solved)> = Vec::new();
-    for (cell, fuel_regions, index, _rings) in pins {
+    for ((cell, fuel_regions, index, _rings), planned) in pins.into_iter().zip(plan) {
         let factors = factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
@@ -330,11 +338,10 @@ pub fn shield_fuel(
             continue;
         }
         let material = &materials[index];
-        let position = computed
-            .iter()
-            .position(|(c, _)| *c == cell)
-            .ok_or(SelfShieldingError::FuelShape(cell))?;
-        let PinSolution { carlvik, ufg } = computed.swap_remove(position).1;
+        // 先に並列で解いた結果（同じ判定で解くと決めたピン）。エラーはここでピンの順に返す
+        let PinSolution { carlvik, ufg } = planned
+            .and_then(|k| solutions.get_mut(k).and_then(Option::take))
+            .ok_or(SelfShieldingError::Unsolved(cell))??;
         let effective = match &ufg {
             Some(c) => c.effective.clone(),
             None => carlvik,
