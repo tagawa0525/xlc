@@ -51,8 +51,9 @@ pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>,
     Ok(values.chunks(2).map(|c| (c[0], c[1])).collect())
 }
 
-/// J, K の表の範囲（log10 β, log10 θ）。対象核種の非分離共鳴で実際に使う範囲
-/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む
+/// J, K の表の範囲（log10 β, log10 θ）。燃料の核種の非分離共鳴で実際に使う範囲
+/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む。構造材は低温で θ がこれを超えることがあり（Fe-58 の 550 K で
+/// θ ≈ 1.0e4）、そこでは Lorentz の線形状の J, K を使う
 const LOG_BETA: (f64, f64) = (-6.0, 10.0);
 const LOG_THETA: (f64, f64) = (-3.0, 4.0);
 
@@ -90,11 +91,15 @@ fn table() -> Result<&'static JkTable, NumericError> {
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
 /// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
+/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
     let (lb, lt) = (beta.log10(), theta.log10());
     if lb > LOG_BETA.1 {
         let j = 0.5 * std::f64::consts::PI / beta;
         return Ok((j, 2.0 * j));
+    }
+    if lt > LOG_THETA.1 && lb >= LOG_BETA.0 {
+        return Ok(natural_jk(beta));
     }
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
         return Err(UrrError::JkTable { beta, theta });
@@ -112,6 +117,17 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
         }
     }
     Ok((ln_j.exp(), ln_k.exp()))
+}
+
+/// ドップラー拡がりのない Lorentz の線形状 ψ = 1/(1 + x²) の (J, K)。a² = (1 + β)/β として
+/// J = π/(2aβ)、K = (1/β)[π/(2a) + π(a² + 1)/(4a³)]。θ が表より大きいとき（自然幅がドップラー幅より
+/// 十分大きい、低温の構造材の非分離共鳴）に使う。Voigt の線形状との差は 1/θ² の程度（θ > 1e4 で 1e-8 以下）
+fn natural_jk(beta: f64) -> (f64, f64) {
+    let pi = std::f64::consts::PI;
+    let a = ((1.0 + beta) / beta).sqrt();
+    let j = pi / (2.0 * a * beta);
+    let k = (pi / (2.0 * a) + pi * (a * a + 1.0) / (4.0 * a * a * a)) / beta;
+    (j, k)
 }
 
 /// 格子座標 u（0 から n-1）での 4 点の Lagrange 補間の、最初の点の番号と重み。
