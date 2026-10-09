@@ -1,0 +1,4 @@
+# 分岐のテーブルの集合体1体を置くサイクル。
+plant = "core-plant.toml"
+inventory = "core-assemblies.toml"
+loading = ["A01"]
