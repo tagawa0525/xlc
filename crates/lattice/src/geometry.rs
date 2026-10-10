@@ -710,16 +710,34 @@ impl Lattice {
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
         let (xs, ys) = (&self.xs, &self.ys);
+        // 座標（セルの境界の線とトラックの始点）の絶対の丸め誤差の上限。境界の線は端から幅を足し合わせて作る
+        // （`edges`。1 回の足し算ごとに |座標| ≤ half の ε/2 以下）ので、線の数 n までの足し算で n ε half / 2、始点は
+        // 辺の上の点を同じ形の式（tracking の `-half + w/n (i + 1/2)`）で作るので 2 ε half 以下。合わせて (n + 4) ε half で抑える
+        let half = 0.5 * self.width().max(self.height());
+        let lines = xs.len().max(ys.len()) as f64;
+        let coordinate = (lines + 4.0) * f64::EPSILON * half;
         let mut crossings = Vec::new();
         for (lines, origin, d) in [(xs, start.0, direction.0), (ys, start.1, direction.1)] {
             if d != 0.0 {
-                crossings.extend(lines.iter().map(|&line| crossing(line, origin, d)));
+                crossings.extend(
+                    lines
+                        .iter()
+                        .map(|&line| crossing(line, origin, d, coordinate)),
+                );
             }
         }
-        let cuts = cuts(crossings, length);
+        // 終点は、出ていく辺までの長さから決まるので、その辺の線を横切る t と同じ丸め誤差を持つ。どの辺かは区別せず、
+        // 方向の成分の小さい方で抑える
+        let slowest = [direction.0, direction.1]
+            .into_iter()
+            .filter(|d| *d != 0.0)
+            .map(f64::abs)
+            .fold(f64::INFINITY, f64::min);
+        let end = coordinate / slowest + f64::EPSILON * length;
+        let cuts = cuts(crossings, length, end);
         let columns = self.columns();
         let mut segments = Vec::new();
-        for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
+        for w in cuts.windows(2) {
             let mid = 0.5 * (w[0] + w[1]);
             let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
             let (column, row) = self.cell_at(x, y);
@@ -749,27 +767,28 @@ impl Lattice {
     }
 }
 
-/// 直線 origin + t d が座標 `line` の線を横切る t と、その計算の丸め誤差の上限。引き算と割り算の丸め（それぞれ
-/// 相対 ε/2 以下）に、始点の座標自身の丸め（相対 ε/2 以下）を加え、2ε (|line| + |origin|) / |d| + 2ε |t| で抑える
-fn crossing(line: f64, origin: f64, d: f64) -> (f64, f64) {
+/// 直線 origin + t d が座標 `line` の線を横切る t と、その丸め誤差の上限。`coordinate` は線と始点の座標の絶対の
+/// 丸め誤差の上限の和で、t には coordinate / |d| として効く。t の引き算と割り算の丸め（相対 ε 以下）を足す
+fn crossing(line: f64, origin: f64, d: f64, coordinate: f64) -> (f64, f64) {
     let t = (line - origin) / d;
-    let error = 2.0 * f64::EPSILON * ((line.abs() + origin.abs()) / d.abs() + t.abs());
-    (t, error)
+    (t, coordinate / d.abs() + f64::EPSILON * t.abs())
 }
 
-/// 長さ `length` の直線の区切り（両端を含む昇順）。縦と横の線を横切る t の差が、丸め誤差の上限の和以下なら同じ点
+/// 長さ `length` の直線の区切り（両端を含む狭義の昇順）。縦と横の線を横切る t の差が、丸め誤差の上限の和以下なら、同じ点
 /// （セルの角）を横切ったとみて1つにまとめる。まとめないと、角をちょうど通る直線が、角のまわりのどれかのセルに
-/// 丸めの程度の区間を残し、そのセルを経由したことになる。まとめた組では誤差の小さい t を使う（両端 0 と `length`
-/// は誤差 0 なので、端の近くの交点は端にまとまる）
-fn cuts(mut crossings: Vec<(f64, f64)>, length: f64) -> Vec<f64> {
+/// 丸めの程度の区間を残し、そのセルを経由したことになる。まとめた組では誤差の小さい t を使い、両端はそのまま残す
+/// （始点 0 は基準なので誤差 0、終点 `length` の誤差の上限は `end`。端の近くの交点は端にまとまる）
+fn cuts(mut crossings: Vec<(f64, f64)>, length: f64, end: f64) -> Vec<f64> {
     crossings.retain(|&(t, _)| t > 0.0 && t < length);
-    crossings.extend([(0.0, 0.0), (length, 0.0)]);
+    crossings.extend([(0.0, 0.0), (length, end)]);
     crossings.sort_by(|a, b| a.0.total_cmp(&b.0));
     let mut merged: Vec<(f64, f64)> = Vec::with_capacity(crossings.len());
     for (t, error) in crossings {
         match merged.last_mut() {
-            Some(last) if t - last.0 <= error + last.1 => {
-                if error < last.1 {
+            // 両端どうしはまとめない（極端に短い直線でも区間を1つ残す）
+            Some(last) if t - last.0 <= error + last.1 && !(last.0 == 0.0 && t == length) => {
+                // 始点はそのまま残し、終点は残し、それ以外は誤差の小さい方を残す
+                if t == length || (last.0 != 0.0 && error < last.1) {
                     *last = (t, error);
                 }
             }
@@ -811,17 +830,22 @@ fn block_segments(
     length: f64,
 ) -> Vec<Segment> {
     let (dx, dy) = (w / nx as f64, h / ny as f64);
-    let mut crossings = Vec::new();
+    let mut cuts = vec![0.0, length];
     for (origin, d, step, count, low) in [
         (start.0, direction.0, dx, nx, -0.5 * w),
         (start.1, direction.1, dy, ny, -0.5 * h),
     ] {
         if d != 0.0 {
-            crossings.extend((1..count).map(|k| crossing(low + k as f64 * step, origin, d)));
+            for k in 1..count {
+                let t = (low + k as f64 * step - origin) / d;
+                if t > 0.0 && t < length {
+                    cuts.push(t);
+                }
+            }
         }
     }
-    cuts(crossings, length)
-        .windows(2)
+    cuts.sort_by(f64::total_cmp);
+    cuts.windows(2)
         .filter(|w| w[1] > w[0])
         .map(|win| {
             let mid = 0.5 * (win[0] + win[1]);
