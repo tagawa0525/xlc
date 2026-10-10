@@ -25,7 +25,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 ## 計算
 
 - 重い計算（OpenMC、NJOY、ライブラリの作り直し、xlc の集合体以上、時間を記録する測定）は、Slurm で 1 本ずつ流す:
-  `sbatch --exclusive --wait --export=ALL -o <ログ> --wrap='<コマンド>'`。直接走らせず、`pgrep` で他の計算を見張らない
+  `sbatch --exclusive --wait --export=ALL -J <名前> -o <ログ> --wrap='<コマンド>'`。直接走らせず、`pgrep` で他の計算を見張らない
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - `examples/vera/vera.msgpack` は git で追跡しない。worktree では main のものをコピーして使い、核種を足して作り直したら
   main の場所にも置く
