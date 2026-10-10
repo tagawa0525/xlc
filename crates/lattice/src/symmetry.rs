@@ -529,15 +529,11 @@ pub fn cell_orbits(
         .iter()
         .filter(|op| {
             let identity = **op == OPERATIONS[0];
-            // セルの種類は、軸を入れ替える操作でもそのまま比べる（ブロックの nx と ny を入れ替えない。#0053）
+            // セルの大きさと種類は、MOC の対称性（`images`）と同じく比べる（軸を入れ替える操作では、ブロックの
+            // nx と ny も入れ替える。#0053）
             let cells_match = (0..cells).all(|cell| {
-                cell_image(lattice, op, cell).is_some_and(|image| {
-                    let (w, h) = lattice.cell_size(cell);
-                    let size = if swaps_axes(op) { (h, w) } else { (w, h) };
-                    size == lattice.cell_size(image)
-                        && lattice.cell_type(cell) == lattice.cell_type(image)
-                        && ring_materials[cell].is_some()
-                        && ring_materials[cell] == ring_materials[image]
+                cell_image_checked(lattice, op, cell).is_ok_and(|image| {
+                    ring_materials[cell].is_some() && ring_materials[cell] == ring_materials[image]
                 })
             });
             identity || (check_boundaries(tracking, op).is_ok() && cells_match)
