@@ -100,6 +100,8 @@ pub enum SelfShieldingError {
     FluxGroups { given: usize, groups: usize },
     #[error("cell {0}: the SPH factors do not match the rings and groups of the cell")]
     SphLayout(usize),
+    #[error("the lattice is not the one that was self-shielded")]
+    ForeignLattice,
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -2531,8 +2533,9 @@ mod tests {
             assert_ne!(framed.region_material[4], framed.region_material[2]);
         }
 
-        #[test]
-        fn sph_factors_name_the_regions_of_their_rings() {
+        /// 燃料、ギャップ、被覆管、水のピンセル（`frame` なら外周に被覆管と同じ物質の枠）を自己遮蔽する（領域ごとの物質の
+        /// 名前とともに）。領域は 0 燃料、1 ギャップ、2 被覆管、3 水、4 枠
+        fn shielded_pin_cell(frame: bool) -> (Tracking, FuelShielding, Vec<String>) {
             let library = resonant_library();
             let materials = vec![
                 MaterialInput {
@@ -2555,88 +2558,14 @@ mod tests {
                     composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
                 },
             ];
-            let shield = |frame: bool| {
-                let mut pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
-                let mut regions = vec!["fuel", crate::input::VOID, "clad", "water"];
-                if frame {
-                    pin = pin.with_frame(0.05).unwrap();
-                    regions.push("clad");
-                }
-                let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
-                let regions: Vec<String> = regions.into_iter().map(String::from).collect();
-                shield_fuel(
-                    &library,
-                    &tracking,
-                    &materials,
-                    &regions,
-                    &ShieldingOptions::default(),
-                )
-                .unwrap()
-            };
-            // SPH 因子のリングごとに、そのリングの物質を置いた格子の領域。枠のリングの物質は格子に使わないので、
-            // 枠のセルでも枠の外の領域はどのリングにも入らない
-            for (frame, regions) in [(false, 4), (true, 5)] {
-                let shielded = shield(frame);
-                let pin = &shielded.pins[0];
-                let tracking = {
-                    let mut cell = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
-                    if frame {
-                        cell = cell.with_frame(0.05).unwrap();
-                    }
-                    Tracking::new(&Lattice::pin_cell(cell), 16, 0.02).unwrap()
-                };
-                let rings = pin.ring_regions(&tracking.lattice).unwrap();
-                assert_eq!(rings.len(), 4, "{rings:?}");
-                // SPH 因子の列は UFG の範囲の群（ライブラリの 1、2 群）
-                let sph = pin.sph.as_ref().unwrap();
-                assert_eq!(sph.groups, 1..3);
-                let sph = &sph.factors;
-                assert!(sph.iter().all(|row| row.len() == 2));
-                let mut covered: Vec<usize> = rings.iter().flatten().copied().collect();
-                covered.sort_unstable();
-                assert_eq!(covered, (0..4).collect::<Vec<_>>(), "{rings:?}");
-                assert_eq!(tracking.lattice.regions(), regions);
-                // リングの物質は、その領域の物質
-                for (ring, members) in rings.iter().enumerate() {
-                    let materials: Vec<usize> = members
-                        .iter()
-                        .map(|&r| shielded.region_material[r])
-                        .collect();
-                    assert!(materials.iter().all(|&m| m == materials[0]), "ring {ring}");
-                }
+            let mut pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+            let mut names = vec!["fuel", crate::input::VOID, "clad", "water"];
+            if frame {
+                pin = pin.with_frame(0.05).unwrap();
+                names.push("clad");
             }
-        }
-
-        /// 燃料、ギャップ、被覆管、水のピンセルを自己遮蔽する（領域ごとの物質の名前とともに）
-        fn shielded_pin_cell() -> (Tracking, FuelShielding, Vec<String>) {
-            let library = resonant_library();
-            let materials = vec![
-                MaterialInput {
-                    name: "fuel".into(),
-                    temperature: T,
-                    composition: vec![
-                        ("U-238".into(), 0.022),
-                        ("U-235".into(), 5.0e-4),
-                        ("O-16".into(), 0.045),
-                    ],
-                },
-                MaterialInput {
-                    name: "clad".into(),
-                    temperature: T,
-                    composition: vec![("Zr-90".into(), 0.043)],
-                },
-                MaterialInput {
-                    name: "water".into(),
-                    temperature: T,
-                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
-                },
-            ];
-            let pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
             let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
-            let names: Vec<String> = ["fuel", crate::input::VOID, "clad", "water"]
-                .into_iter()
-                .map(String::from)
-                .collect();
+            let names: Vec<String> = names.into_iter().map(String::from).collect();
             let shielded = shield_fuel(
                 &library,
                 &tracking,
@@ -2649,38 +2578,71 @@ mod tests {
         }
 
         #[test]
+        fn sph_factors_name_the_regions_of_their_rings() {
+            // 等価なセルのリング（燃料、ギャップ、被覆管、減速材）は、格子の領域 0〜3 の 1 つずつ。枠のリングの物質は格子に
+            // 使わないので、枠の領域 4 はどのリングにも入らず、因子の行は枠の分だけ 1 つ多い
+            for frame in [false, true] {
+                let (tracking, shielded, names) = shielded_pin_cell(frame);
+                let pin = &shielded.pins[0];
+                let rings = pin.ring_regions(&tracking.lattice).unwrap();
+                assert_eq!(
+                    rings,
+                    vec![vec![0], vec![1], vec![2], vec![3]],
+                    "frame {frame}"
+                );
+                let sph = pin.sph.as_ref().unwrap();
+                // UFG の範囲はライブラリの 1、2 群
+                assert_eq!(sph.groups, 1..3);
+                assert_eq!(sph.factors.len(), 4 + usize::from(frame));
+                assert!(sph.factors.iter().all(|row| row.len() == 2));
+                // 減速材のリングの領域の物質は水を遮蔽したもので、燃料や被覆管と別
+                assert_eq!(names[3], "water");
+                let m = |r: usize| shielded.region_material[r];
+                assert!(m(3) != m(0) && m(3) != m(2), "frame {frame}");
+            }
+        }
+
+        #[test]
         fn physical_flux_restores_the_sph_factors() {
-            let (tracking, shielded, _) = shielded_pin_cell();
-            let lattice = &tracking.lattice;
-            let ng = shielded.materials[0].groups();
-            let flux = vec![vec![1.0; ng]; lattice.regions()];
-            let physical = shielded.physical_flux(lattice, &flux).unwrap();
-            let pin = &shielded.pins[0];
-            let sph = pin.sph.as_ref().unwrap();
-            let rings = pin.ring_regions(lattice).unwrap();
-            for (factors, regions) in sph.factors.iter().zip(&rings) {
-                for &region in regions {
-                    for g in 0..ng {
-                        let expected = if sph.groups.contains(&g) {
-                            factors[g - sph.groups.start]
+            // MOC の中性子束がどこも 1 なら、物理的な中性子束は、リングの領域の UFG の範囲の群でそのリングの因子、
+            // ほかは 1（枠の領域を含む）
+            for frame in [false, true] {
+                let (tracking, shielded, _) = shielded_pin_cell(frame);
+                let lattice = &tracking.lattice;
+                let ng = shielded.materials[0].groups();
+                let flux = vec![vec![1.0; ng]; lattice.regions()];
+                let physical = shielded.physical_flux(lattice, &flux).unwrap();
+                let factors = &shielded.pins[0].sph.as_ref().unwrap().factors;
+                for (region, row) in physical.iter().enumerate() {
+                    for (g, &value) in row.iter().enumerate() {
+                        let expected = if region < 4 && (1..3).contains(&g) {
+                            factors[region][g - 1]
                         } else {
                             1.0
                         };
-                        assert_eq!(physical[region][g], expected, "region {region}, group {g}");
+                        assert_eq!(value, expected, "frame {frame}, region {region}, group {g}");
                     }
                 }
+                // 燃料では因子が 1 と違う（因子が実際に効いている）
+                assert!(
+                    physical[0].iter().any(|&f| (f - 1.0).abs() > 1e-6),
+                    "{:?}",
+                    physical[0]
+                );
             }
-            // UFG の範囲の燃料では 1 と違う（因子が実際に効いている）
-            assert!(
-                physical[0].iter().any(|&f| (f - 1.0).abs() > 1e-6),
-                "{:?}",
-                physical[0]
-            );
         }
 
         #[test]
         fn physical_flux_refuses_mismatched_sph() {
-            let (tracking, shielded, _) = shielded_pin_cell();
+            let refused = |shielded: &FuelShielding, tracking: &Tracking| {
+                let ng = shielded.materials[0].groups();
+                let flux = vec![vec![1.0; ng]; tracking.lattice.regions()];
+                matches!(
+                    shielded.physical_flux(&tracking.lattice, &flux),
+                    Err(SelfShieldingError::SphLayout(0))
+                )
+            };
+            let (tracking, shielded, _) = shielded_pin_cell(false);
             let lattice = &tracking.lattice;
             let ng = shielded.materials[0].groups();
             let flux = vec![vec![1.0; ng]; lattice.regions()];
@@ -2694,18 +2656,43 @@ mod tests {
                 shielded.physical_flux(lattice, &short),
                 Err(SelfShieldingError::FluxGroups { .. })
             ));
-            // リングより少ない因子と、群の数の違う因子の行
-            let mut fewer = shielded.clone();
-            fewer.pins[0].sph.as_mut().unwrap().factors.pop();
-            assert!(matches!(
-                fewer.physical_flux(lattice, &flux),
-                Err(SelfShieldingError::SphLayout(0))
+            let edit = |change: &dyn Fn(&mut Sph)| {
+                let mut edited = shielded.clone();
+                change(edited.pins[0].sph.as_mut().unwrap());
+                edited
+            };
+            // リングより少ない行、群の数の違う行、ライブラリの群の外の列、枠のないセルの余分な（1 だけの）行
+            assert!(refused(
+                &edit(&|s| s.factors.truncate(s.factors.len() - 1)),
+                &tracking
             ));
-            let mut narrow = shielded.clone();
-            narrow.pins[0].sph.as_mut().unwrap().factors[0].pop();
+            assert!(refused(&edit(&|s| s.factors[0].truncate(1)), &tracking));
+            assert!(refused(&edit(&|s| s.groups = ng - 1..ng + 1), &tracking));
+            assert!(refused(&edit(&|s| s.factors.push(vec![1.0; 2])), &tracking));
+            // 枠のあるセルで、枠の行がないか、枠の行の因子が 1 でない
+            let (tracking, shielded, _) = shielded_pin_cell(true);
+            let edit = |change: &dyn Fn(&mut Sph)| {
+                let mut edited = shielded.clone();
+                change(edited.pins[0].sph.as_mut().unwrap());
+                edited
+            };
+            assert!(refused(
+                &edit(&|s| s.factors.truncate(s.factors.len() - 1)),
+                &tracking
+            ));
+            assert!(refused(&edit(&|s| s.factors[4][0] = 1.1), &tracking));
+        }
+
+        #[test]
+        fn physical_flux_refuses_another_lattice() {
+            // 領域の数が同じでも、自己遮蔽したのと違う格子（燃料の半径が違う）
+            let (_, shielded, _) = shielded_pin_cell(false);
+            let other = Lattice::pin_cell(PinCell::new(1.26, vec![0.3, 0.418, 0.475]).unwrap());
+            let ng = shielded.materials[0].groups();
+            let flux = vec![vec![1.0; ng]; other.regions()];
             assert!(matches!(
-                narrow.physical_flux(lattice, &flux),
-                Err(SelfShieldingError::SphLayout(0))
+                shielded.physical_flux(&other, &flux),
+                Err(SelfShieldingError::ForeignLattice)
             ));
         }
 
