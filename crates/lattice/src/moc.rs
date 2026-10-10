@@ -486,9 +486,7 @@ fn solve_with(
             }
             // トラックの端の角度中性子束も、端のあるセルの比で更新する（領域の中性子束だけを
             // 更新すると、次のスイープで入ってくる流れと食い違う）
-            sweeper.scale_outgoing(&mut outgoing, |region, g| {
-                ratio[cells.index[mesh.cell(region)] * ng + g]
-            });
+            sweeper.scale_outgoing(&mut outgoing, |cell, g| ratio[cells.index[cell] * ng + g]);
         }
         let change = largest_change(&new_flux, &flux);
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
@@ -862,12 +860,19 @@ impl<'a> Sweeper<'a> {
         outgoing
     }
 
-    /// 出ていく角度中性子束に、スイープの終わりの領域と群ごとの係数 `factor` を掛ける
+    /// 出ていく角度中性子束に、トラックの出口の粗メッシュのセルと群ごとの係数 `factor` を掛ける。出口が外周の 2 つの
+    /// 面の境にあれば、出ていく経路と同じく両側のセルの係数を 1/2 ずつ平均する（片側のセルの係数だけを掛けると、
+    /// 両側の面に半分ずつ数えた流れと食い違う）
     fn scale_outgoing(&self, outgoing: &mut [f64], factor: impl Fn(usize, usize) -> f64) {
         for (j, out) in outgoing.chunks_mut(self.width).enumerate() {
-            let region = self.exit_region(j / 2, j % 2 == 0);
+            let track = self.representatives.tracks[j / 2];
+            let cells = self.mesh.end_cells(track, j % 2 == 0);
             for (i, o) in out.iter_mut().enumerate() {
-                *o *= factor(region, i % self.ng);
+                let g = i % self.ng;
+                *o *= cells
+                    .iter()
+                    .map(|&(cell, w)| w * factor(cell, g))
+                    .sum::<f64>();
             }
         }
     }
