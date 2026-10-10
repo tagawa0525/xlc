@@ -16,7 +16,7 @@ ADR-0115 で、検証の記録（examples/*/verification.md）は今の結果だ
 節を足し、古い測定を日付つきの注記で打ち消している（examples/vera/verification.md には、前の節を打ち消す注記が 6 か所
 ある）。
 
-関係する ADR: ADR-0115, ADR-0116, ADR-0117
+関係する ADR: ADR-0115, ADR-0116
 
 ## 完了の条件
 
@@ -28,3 +28,4 @@ ADR-0115 で、検証の記録（examples/*/verification.md）は今の結果だ
 
 - 2026-10-10: ADR-0115 を決めたときに起こした
 - 2026-10-10: VERA の分を済ませた（ADR-0116 で例を p1/、p2/ に置き直し、examples/vera/verification.md を今の結果だけの題目ごとの記録に書き直した）。ほかの例の記録は残る
+- 2026-10-10: 記録の規則は ADR-0117 に引き継いだ（ADR-0115 を置き換え。中身は同じ）
