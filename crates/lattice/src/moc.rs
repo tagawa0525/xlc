@@ -486,9 +486,7 @@ fn solve_with(
             }
             // トラックの端の角度中性子束も、端のあるセルの比で更新する（領域の中性子束だけを
             // 更新すると、次のスイープで入ってくる流れと食い違う）
-            sweeper.scale_outgoing(&mut outgoing, |region, g| {
-                ratio[cells.index[mesh.cell(region)] * ng + g]
-            });
+            sweeper.scale_outgoing(&mut outgoing, |cell, g| ratio[cells.index[cell] * ng + g]);
         }
         let change = largest_change(&new_flux, &flux);
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
@@ -587,7 +585,7 @@ fn tracked_face_lengths(tracking: &Tracking, mesh: &CoarseMesh) -> Result<Vec<f6
             }
         };
         let [start, end] = mesh.ends(index);
-        add(&[start]);
+        add(start.faces());
         let mut cell = mesh.cell(track.segments[0].region);
         for segment in &track.segments {
             let next = mesh.cell(segment.region);
@@ -596,7 +594,7 @@ fn tracked_face_lengths(tracking: &Tracking, mesh: &CoarseMesh) -> Result<Vec<f6
                 cell = next;
             }
         }
-        add(&[end]);
+        add(end.faces());
     }
     Ok(lengths)
 }
@@ -862,12 +860,19 @@ impl<'a> Sweeper<'a> {
         outgoing
     }
 
-    /// 出ていく角度中性子束に、スイープの終わりの領域と群ごとの係数 `factor` を掛ける
+    /// 出ていく角度中性子束に、トラックの出口の粗メッシュのセルと群ごとの係数 `factor` を掛ける。出口が外周の 2 つの
+    /// 面の境にあれば、出ていく経路と同じく両側のセルの係数を 1/2 ずつ平均する（片側のセルの係数だけを掛けると、
+    /// 両側の面に半分ずつ数えた流れと食い違う）
     fn scale_outgoing(&self, outgoing: &mut [f64], factor: impl Fn(usize, usize) -> f64) {
         for (j, out) in outgoing.chunks_mut(self.width).enumerate() {
-            let region = self.exit_region(j / 2, j % 2 == 0);
+            let track = self.representatives.tracks[j / 2];
+            let cells = self.mesh.end_cells(track, j % 2 == 0);
             for (i, o) in out.iter_mut().enumerate() {
-                *o *= factor(region, i % self.ng);
+                let g = i % self.ng;
+                *o *= cells
+                    .iter()
+                    .map(|&(cell, w)| w * factor(cell, g))
+                    .sum::<f64>();
             }
         }
     }
@@ -1023,9 +1028,14 @@ impl<'a> Sweeper<'a> {
                         // 進む向きの方位角の余弦と正弦（極角の sinθ は掛けていない）
                         let phi = self.tracking.azimuths[track.azimuth].phi;
                         let cosines = [direction * phi.cos(), direction * phi.sin()];
-                        let entered = [(enter.0, direction * enter.1)];
-                        add_current(&mut tally.current, &entered, psi, &weights);
-                        self.add_face_flux(&mut tally.face_flux, &entered, psi, side_weights);
+                        let entered = enter.scaled(direction);
+                        add_current(&mut tally.current, entered.faces(), psi, &weights);
+                        self.add_face_flux(
+                            &mut tally.face_flux,
+                            entered.faces(),
+                            psi,
+                            side_weights,
+                        );
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
                         let mut cell = self.mesh.cell(track.segments[first].region);
@@ -1101,9 +1111,9 @@ impl<'a> Sweeper<'a> {
                                 }
                             }
                         }
-                        let exited = [(exit.0, direction * exit.1)];
-                        add_current(&mut tally.current, &exited, psi, &weights);
-                        self.add_face_flux(&mut tally.face_flux, &exited, psi, side_weights);
+                        let exited = exit.scaled(direction);
+                        add_current(&mut tally.current, exited.faces(), psi, &weights);
+                        self.add_face_flux(&mut tally.face_flux, exited.faces(), psi, side_weights);
                         // 境界から戻るのは割合 r（鏡面反射 1、アルベド α、真空 0）で、残りは漏れ。戻る分を
                         // 掛けて渡すので、つながった先のトラックはそのまま受け取る
                         let r = returned(self.tracking.boundaries().of(exit_side));
@@ -2626,6 +2636,51 @@ mod tests {
                     .map(|r| s.volumes[r] * s.region_currents[r][1][g])
                     .sum();
                 assert!(sum.abs() < 1e-8 * scale, "cell {cell} group {g}: {sum}");
+            }
+        }
+    }
+
+    #[test]
+    fn reflective_faces_carry_no_net_current_where_track_ends_meet_a_cell_line() {
+        // 左の列が燃料、右の列が水の 2 × 2 の格子（鏡面反射）。トラックの端が上と下の辺の上で列の境（x = 0）にちょうど
+        // 来ると、出ていく流れと、反射してつながるトラックの入る流れを、境の両側の別の面に数えうる
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![0, 1]]).unwrap();
+        let (f, w) = (fuel(), moderator());
+        let materials: Vec<&Material> = (0..lattice.cells())
+            .flat_map(|cell| {
+                if cell % 2 == 0 {
+                    vec![&f, &w]
+                } else {
+                    vec![&w]
+                }
+            })
+            .collect();
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        // 前提: 上か下の辺の上で、端が x = 0 にあるトラックがある
+        let half = 0.5 * lattice.height();
+        let on_line = |p: (f64, f64)| (p.1.abs() - half).abs() < 1e-9 && p.0.abs() < 1e-9;
+        assert!(
+            tracking
+                .tracks
+                .iter()
+                .any(|t| on_line(t.start) || on_line(t.end)),
+            "no track ends on the column line"
+        );
+        let options = Options::default();
+        let s = solve(&tracking, &materials, &options).unwrap();
+        let (columns, rows) = (lattice.columns(), lattice.rows());
+        for line in [0, rows] {
+            for column in 0..columns {
+                let face = crate::cmfd::horizontal_face(rows, columns, line, column);
+                for g in 0..2 {
+                    let (current, flux) = (s.face_currents[face][g], s.face_fluxes[face][g]);
+                    assert!(
+                        current.abs() < options.flux_tolerance * flux,
+                        "face {face}, group {g}: net current {current} with face flux {flux}"
+                    );
+                }
             }
         }
     }
