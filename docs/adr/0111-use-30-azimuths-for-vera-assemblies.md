@@ -48,12 +48,12 @@ issues: ["#0047", "#0049"]
 
 適用の範囲は次のとおり。
 
-- 変える: OpenMC と比べる集合体（examples/vera/assembly-2B.toml〜assembly-2D.toml）
-- この ADR では変えない: ピンセル（examples/vera/pincell-1B.toml〜1D、方位角 64・間隔 0.02 cm）。1B の間隔 4 通りの平均では
+- 変える: OpenMC と比べる集合体（examples/vera/p2/assembly-2B.toml〜assembly-2D.toml）
+- この ADR では変えない: ピンセル（examples/vera/p1/pincell-1B.toml〜1D、方位角 64・間隔 0.02 cm）。1B の間隔 4 通りの平均では
   方位角 70 が 64 より参照に近い（−13、−46 pcm）が、間隔による幅（64 で 94 pcm）が大きく、1 つの間隔で解く入力の誤差は
   間隔の選び方でも決まる。間隔と合わせて選び直すかは #0049 で決める
 - 変えない: 同じ離散化の解どうしを比べる入力（方位角 32・間隔 0.05 cm）。ADF と NEM の比較
-  （examples/vera/assembly-2B-vacuum.toml、lattice-9x9-vacuum.toml、examples/reflector/）、分岐のテーブルと直接の計算の
+  （examples/vera/p2/assembly-2B-vacuum.toml、lattice-9x9-vacuum.toml、examples/reflector/）、分岐のテーブルと直接の計算の
   比較（examples/branches/）、テーブルの分割（examples/split/）。離散化の誤差は比べる両方に同じく入るので、
   変えると記録との連続性だけを失う
 - 燃料のリングは 5 のまま
