@@ -91,19 +91,8 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
             reason,
         };
         check_boundaries(tracking, op).map_err(broken)?;
-        let cells = (0..lattice.cells())
-            .map(|cell| cell_image_checked(lattice, op, cell))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(broken)?;
-        // (u, v)（v は下向き）の行列を (x, y) = (u, -v) に直す
-        let m = [op[0], -op[1], -op[2], op[3]];
-        let matrix = m.map(|v| v as f64);
-        let mut regions = Vec::with_capacity(lattice.regions());
-        for (cell, &image) in cells.iter().enumerate() {
-            let offset = lattice.cell_regions(image).start;
-            let local = cell_region_images(lattice.cell_type(cell), &m);
-            regions.extend(local.into_iter().map(|l| offset + l));
-        }
+        let (cells, regions) = region_map(lattice, op).map_err(broken)?;
+        let matrix = xy_matrix(op).map(|v| v as f64);
         // トラックの像: 端の点を移し、像の向きの方位角の、同じ始点のトラックを探す
         let apply =
             |(x, y): (f64, f64)| (matrix[0] * x + matrix[1] * y, matrix[2] * x + matrix[3] * y);
@@ -232,27 +221,54 @@ fn perimeter(p: (f64, f64), (w, h): (f64, f64)) -> f64 {
     }
 }
 
-/// 領域ごとの値 `values`（入力の物質の名前など）が、像 `images` のどれでも移った先の領域の値と同じか。違えば、最初に
-/// 違う領域とその像の値を示すエラー
+/// (u, v)（v は下向き）の操作 `op` を、(x, y) = (u, -v) の行列にしたもの
+fn xy_matrix(op: &[i64; 4]) -> [i64; 4] {
+    [op[0], -op[1], -op[2], op[3]]
+}
+
+/// 操作 `op` による [セル] と [領域] の像。セルの大きさと種類が移り合わなければ理由
+fn region_map(lattice: &Lattice, op: &[i64; 4]) -> Result<(Vec<usize>, Vec<usize>), String> {
+    let cells = (0..lattice.cells())
+        .map(|cell| cell_image_checked(lattice, op, cell))
+        .collect::<Result<Vec<_>, _>>()?;
+    let m = xy_matrix(op);
+    let mut regions = Vec::with_capacity(lattice.regions());
+    for (cell, &image) in cells.iter().enumerate() {
+        let offset = lattice.cell_regions(image).start;
+        let local = cell_region_images(lattice.cell_type(cell), &m);
+        regions.extend(local.into_iter().map(|l| offset + l));
+    }
+    Ok((cells, regions))
+}
+
+/// 領域ごとの値 `values`（入力の物質の名前など）が、操作 `operations`（`OPERATIONS` の番号）のどれでも移った先の領域の
+/// 値と同じか。セルの像だけから領域の対応を作る（境界条件とトラックは見ない）。違えば、最初に違う領域とその像の値を
+/// 示すエラー
 pub fn check_regions<T: PartialEq + std::fmt::Display>(
-    images: &[Image],
+    lattice: &Lattice,
+    operations: &[usize],
     values: &[T],
 ) -> Result<(), SymmetryError> {
-    for image in images {
-        if values.len() != image.regions.len() {
-            return Err(SymmetryError::Regions {
-                given: values.len(),
-                regions: image.regions.len(),
-            });
-        }
-        if let Some((r, &i)) = image
-            .regions
+    if values.len() != lattice.regions() {
+        return Err(SymmetryError::Regions {
+            given: values.len(),
+            regions: lattice.regions(),
+        });
+    }
+    for &index in operations {
+        let name = NAMES[index];
+        let (_, regions) =
+            region_map(lattice, &OPERATIONS[index]).map_err(|reason| SymmetryError::Broken {
+                operation: name,
+                reason,
+            })?;
+        if let Some((r, &i)) = regions
             .iter()
             .enumerate()
             .find(|&(r, &i)| values[r] != values[i])
         {
             return Err(SymmetryError::Broken {
-                operation: image.name,
+                operation: name,
                 reason: format!(
                     "region {r} has `{}`, but its image {i} has `{}`",
                     values[r], values[i]
@@ -716,8 +732,6 @@ mod tests {
     fn region_values_must_map_onto_themselves() {
         // 入力の物質の名前で、像の領域が同じ物質か確かめる
         let (lattice, _) = lattice(&[4]);
-        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
-        let images = images(&tracking, &QUARTER).unwrap();
         let names: Vec<String> = (0..lattice.cells())
             .flat_map(|cell| {
                 if cell == 4 {
@@ -727,11 +741,13 @@ mod tests {
                 }
             })
             .collect();
-        assert!(check_regions(&images, &names).is_ok());
+        assert!(check_regions(&lattice, &QUARTER, &names).is_ok());
         // 右上の角のピンの燃料だけ別の名前
         let mut changed = names.clone();
         changed[lattice.cell_regions(2).start] = "other".into();
-        let error = check_regions(&images, &changed).unwrap_err().to_string();
+        let error = check_regions(&lattice, &QUARTER, &changed)
+            .unwrap_err()
+            .to_string();
         assert!(
             error.contains("`other`") && error.contains("`fuel`"),
             "{error}"
