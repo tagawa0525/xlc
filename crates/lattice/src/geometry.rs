@@ -3,6 +3,10 @@
 
 use std::f64::consts::PI;
 
+/// 格子の大きさに対する、同じ点とみなす距離の比。座標の丸め（格子の大きさの ε の数十倍まで）より十分大きく、
+/// トラックの間隔（格子の大きさの 1e-3 程度）より十分小さい
+const COINCIDENT: f64 = 1.0e-9;
+
 /// 中心が原点の正方形のセル（一辺 `pitch` cm）と、中心を共有する同心円。
 ///
 /// 領域 i（0 始まり）は半径 radii[i-1] と radii[i] の間の円環で、最後の領域は
@@ -584,6 +588,12 @@ impl Lattice {
         }
     }
 
+    /// 同じ点とみなす距離 (cm): 格子の大きさの `COINCIDENT` 倍。トラックの端どうしをつなぐときと、直線が線を横切る
+    /// 点をまとめるときに使う
+    pub fn coincident(&self) -> f64 {
+        COINCIDENT * self.width().max(self.height())
+    }
+
     /// 列の幅（左から, cm）
     pub fn widths(&self) -> &[f64] {
         &self.widths
@@ -710,34 +720,16 @@ impl Lattice {
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
         let (xs, ys) = (&self.xs, &self.ys);
-        // 座標（セルの境界の線とトラックの始点）の絶対の丸め誤差の上限。境界の線は端から幅を足し合わせて作る
-        // （`edges`。1 回の足し算ごとに |座標| ≤ half の ε/2 以下）ので、線の数 n までの足し算で n ε half / 2、始点は
-        // 辺の上の点を同じ形の式（tracking の `-half + w/n (i + 1/2)`）で作るので 2 ε half 以下。合わせて (n + 4) ε half で抑える
-        let half = 0.5 * self.width().max(self.height());
-        let lines = xs.len().max(ys.len()) as f64;
-        let coordinate = (lines + 4.0) * f64::EPSILON * half;
         let mut crossings = Vec::new();
         for (lines, origin, d) in [(xs, start.0, direction.0), (ys, start.1, direction.1)] {
             if d != 0.0 {
-                crossings.extend(
-                    lines
-                        .iter()
-                        .map(|&line| crossing(line, origin, d, coordinate)),
-                );
+                crossings.extend(lines.iter().map(|&line| (line - origin) / d));
             }
         }
-        // 終点は、出ていく辺までの長さから決まるので、その辺の線を横切る t と同じ丸め誤差を持つ。どの辺かは区別せず、
-        // 方向の成分の小さい方で抑える
-        let slowest = [direction.0, direction.1]
-            .into_iter()
-            .filter(|d| *d != 0.0)
-            .map(f64::abs)
-            .fold(f64::INFINITY, f64::min);
-        let end = coordinate / slowest + f64::EPSILON * length;
-        let cuts = cuts(crossings, length, end);
+        let cuts = cuts(crossings, length, self.coincident());
         let columns = self.columns();
         let mut segments = Vec::new();
-        for w in cuts.windows(2) {
+        for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
             let mid = 0.5 * (w[0] + w[1]);
             let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
             let (column, row) = self.cell_at(x, y);
@@ -767,35 +759,22 @@ impl Lattice {
     }
 }
 
-/// 直線 origin + t d が座標 `line` の線を横切る t と、その丸め誤差の上限。`coordinate` は線と始点の座標の絶対の
-/// 丸め誤差の上限の和で、t には coordinate / |d| として効く。t の引き算と割り算の丸め（相対 ε 以下）を足す
-fn crossing(line: f64, origin: f64, d: f64, coordinate: f64) -> (f64, f64) {
-    let t = (line - origin) / d;
-    (t, coordinate / d.abs() + f64::EPSILON * t.abs())
-}
-
-/// 長さ `length` の直線の区切り（両端を含む狭義の昇順）。縦と横の線を横切る t の差が、丸め誤差の上限の和以下なら、同じ点
-/// （セルの角）を横切ったとみて1つにまとめる。まとめないと、角をちょうど通る直線が、角のまわりのどれかのセルに
-/// 丸めの程度の区間を残し、そのセルを経由したことになる。まとめた組では誤差の小さい t を使い、両端はそのまま残す
-/// （始点 0 は基準なので誤差 0、終点 `length` の誤差の上限は `end`。端の近くの交点は端にまとまる）
-fn cuts(mut crossings: Vec<(f64, f64)>, length: f64, end: f64) -> Vec<f64> {
-    crossings.retain(|&(t, _)| t > 0.0 && t < length);
-    crossings.extend([(0.0, 0.0), (length, end)]);
-    crossings.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let mut merged: Vec<(f64, f64)> = Vec::with_capacity(crossings.len());
-    for (t, error) in crossings {
-        match merged.last_mut() {
-            // 両端どうしはまとめない（極端に短い直線でも区間を1つ残す）
-            Some(last) if t - last.0 <= error + last.1 && !(last.0 == 0.0 && t == length) => {
-                // 始点はそのまま残し、終点は残し、それ以外は誤差の小さい方を残す
-                if t == length || (last.0 != 0.0 && error < last.1) {
-                    *last = (t, error);
-                }
-            }
-            _ => merged.push((t, error)),
+/// 長さ `length` の直線の区切り（両端 0 と `length` を含む昇順）。直線に沿って `coincident` 以内の交点は同じ点で
+/// 横切ったとみて、最初のものだけを残す（端から `coincident` 以内の交点は端にまとめる）。縦と横の線を横切る t は、
+/// セルの角をちょうど通る直線でも丸めで少しずれる。まとめないと、角のまわりのどれかのセルに丸めの程度の区間が残り、
+/// そのセルを経由したことになる
+fn cuts(mut crossings: Vec<f64>, length: f64, coincident: f64) -> Vec<f64> {
+    crossings.retain(|&t| t > coincident && t < length - coincident);
+    crossings.sort_by(f64::total_cmp);
+    let mut cuts = Vec::with_capacity(crossings.len() + 2);
+    cuts.push(0.0);
+    for t in crossings {
+        if cuts.last().is_some_and(|&last| t - last > coincident) {
+            cuts.push(t);
         }
     }
-    merged.into_iter().map(|(t, _)| t).collect()
+    cuts.push(length);
+    cuts
 }
 
 /// 大きさ (w, h) を (nx, ny) に分けたブロックの、セルの中心を原点とする点 (x, y) を含む領域（行は上から）
