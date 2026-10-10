@@ -1,4 +1,4 @@
-# VERA Problem 2B の集合体（examples/vera/assembly-2B.toml と同じ形状と組成）の分岐のテーブル（ADR-0097）。
+# VERA Problem 2B の集合体（examples/vera/p2/assembly-2B.toml と同じ形状と組成）の分岐のテーブル（ADR-0097）。
 # 減速材はホウ酸水（ADR-0106。B-10 19.9 at%）。温度の格子点は 550、565、580 K、密度は VERA の仕様書の付録 G の
 # 表 G-2。被覆管は減速材の温度に従う。ホウ素濃度は 900、1300、1700 ppm。
 library = "branches.msgpack"

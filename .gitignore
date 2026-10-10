@@ -8,8 +8,8 @@
 /.envrc
 /examples/c5g7/*.msgpack
 /examples/vera/vera.msgpack
-/examples/vera/pins-*.msgpack
-/examples/vera/fg-*.msgpack
+/examples/vera/p*/pins-*.msgpack
+/examples/vera/p*/fg-*.msgpack
 /examples/vera/xs.log
 /examples/mox/*.msgpack
 !/examples/mox/openmc-*.msgpack

@@ -1,8 +1,8 @@
 # VERA 2B の燃料ピン（assembly-2B.toml と同じ物質とセル）の 9×9 の格子（中心に案内管、周りに水のギャップ 0.04 cm）。
 # 右の辺は真空、ほかは鏡面反射。自己遮蔽はしない（無限希釈）。非反射の格子の ADF（ADR-0094）を、同じ体系を
 # core の1ノードの NEM（core-9x9-vacuum.toml）で解いて MOC の k と比べる。17×17 の集合体では1ノードの問題の熱群の
-# 均質な面の中性子束が負になり、ADF を作れない（assembly-2B-vacuum.toml。verification.md）。
-library = "vera.msgpack"
+# 均質な面の中性子束が負になり、ADF を作れない（assembly-2B-vacuum.toml。../verification.md）。
+library = "../vera.msgpack"
 self-shielding = false
 few-group = { output = "fg-9x9-vacuum.msgpack", bounds = [1e7, 0.625, 1e-5] }
 boundary = { right = "vacuum" }
