@@ -57,6 +57,8 @@ pub enum GeometryError {
     Margin(f64),
     #[error("column widths and row heights must be positive and finite")]
     Sizes,
+    #[error("a column or row of {size} cm is not wider than the same-point distance {limit} cm")]
+    ThinCell { size: f64, limit: f64 },
     #[error("{rows} rows of cells for {heights} row heights")]
     Rows { rows: usize, heights: usize },
     #[error("row {row} has {cells} cells for {columns} column widths")]
@@ -1080,6 +1082,17 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn cells_thinner_than_the_same_point_distance_are_errors() {
+        // 幅が同じ点とみなす距離（格子の大きさの 1e-9）以下の列は、両側の線を横切る点が1つにまとまり、区間を持てない
+        let pin = PinCell::new(1.26, vec![0.4]).unwrap();
+        assert!(matches!(
+            Lattice::with_margin(vec![pin.clone()], vec![vec![0; 2]; 2], 1e-12),
+            Err(GeometryError::ThinCell { .. })
+        ));
+        assert!(Lattice::with_margin(vec![pin], vec![vec![0; 2]; 2], 1e-6).is_ok());
     }
 
     /// 2×2 の格子の周りに幅 0.25 の余白
