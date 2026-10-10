@@ -3,8 +3,8 @@
 
 use std::f64::consts::PI;
 
-/// 格子の大きさに対する、同じ点とみなす距離の比。座標の丸め（格子の大きさの ε の数十倍まで）より十分大きく、
-/// トラックの間隔（格子の大きさの 1e-3 程度）より十分小さい
+/// 格子の大きさに対する、同じ点とみなす距離の比。座標の丸め（格子の大きさの ε の程度）より十分大きく、列と行の幅
+/// （格子の作成で、これより広いことを確かめる）やトラックの間隔より十分小さい
 const COINCIDENT: f64 = 1.0e-9;
 
 /// 中心が原点の正方形のセル（一辺 `pitch` cm）と、中心を共有する同心円。
@@ -775,9 +775,11 @@ fn cuts(mut crossings: Vec<f64>, length: f64, coincident: f64) -> Vec<f64> {
     crossings.sort_by(f64::total_cmp);
     let mut cuts = Vec::with_capacity(crossings.len() + 2);
     cuts.push(0.0);
+    let mut last = 0.0;
     for t in crossings {
-        if cuts.last().is_some_and(|&last| t - last > coincident) {
+        if t - last > coincident {
             cuts.push(t);
+            last = t;
         }
     }
     cuts.push(length);
