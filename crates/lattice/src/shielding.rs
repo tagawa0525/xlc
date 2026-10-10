@@ -1762,6 +1762,88 @@ mod tests {
         }
 
         #[test]
+        fn mirror_lumps_have_equal_dancoff() {
+            // 2 × 2 の格子（左上と右下が燃料、右上と左下が、四隅に分かれた Zr のリング）は 180° の回転で
+            // 自分自身に移る。右上のセルの隅の塊と、その像の左下のセルの隅の塊（扇形を 4 つ回した領域）は、トラックも
+            // 正確に移り合うので、Dancoff 係数と平均弦長が丸めの程度で一致する（#0055）
+            let library = library_with_zirconium();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
+            let layout = vec![vec![0, 1], vec![1, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names: &[&str] = if t == 0 {
+                    &["fuel", "water"]
+                } else {
+                    &["water"; 8]
+                };
+                let mut names: Vec<String> = names.iter().map(|n| n.to_string()).collect();
+                if t == 1 {
+                    names.extend(std::iter::repeat_n("zirc".to_string(), 8));
+                }
+                names
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, corner], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "zirc".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.04)],
+            });
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 180° の回転の像: 右上のセル（1）と左下のセル（2）が入れ替わり、扇形は 4 つ回る
+            let lattice = &tracking.lattice;
+            let image = |region: usize| -> usize {
+                let cell = lattice.region_cell(region);
+                let local = region - lattice.cell_regions(cell).start;
+                let (ring, sector) = (local / 8, local % 8);
+                let other = 3 - cell;
+                lattice.cell_regions(other).start + ring * 8 + (sector + 4) % 8
+            };
+            let mut compared = 0;
+            for a in &shielded.lumps {
+                let mut images: Vec<usize> = a.regions.iter().map(|&r| image(r)).collect();
+                images.sort_unstable();
+                let b = shielded
+                    .lumps
+                    .iter()
+                    .find(|b| {
+                        let mut r = b.regions.clone();
+                        r.sort_unstable();
+                        r == images
+                    })
+                    .unwrap();
+                let close = |x: f64, y: f64| (x - y).abs() <= 1e-10 * x.abs().max(y.abs());
+                assert!(
+                    close(a.chord, b.chord),
+                    "chord {:?}: {} vs {:?}: {}",
+                    a.regions,
+                    a.chord,
+                    b.regions,
+                    b.chord
+                );
+                for (g, (x, y)) in a.dancoff.iter().zip(&b.dancoff).enumerate() {
+                    assert!(
+                        close(*x, *y),
+                        "group {g}, {:?}: {x} vs {:?}: {y}",
+                        a.regions,
+                        b.regions
+                    );
+                }
+                compared += 1;
+            }
+            assert_eq!(compared, 8);
+        }
+
+        #[test]
         fn other_resonant_materials_do_not_shadow_a_lump() {
             // 管の物質が分離共鳴を持つかどうかで、同じセルの枠（別の物質）の遮蔽は変わらない（群定数は同じ）
             let library = library_with_copies("Fe-56", "Fe-56x");
