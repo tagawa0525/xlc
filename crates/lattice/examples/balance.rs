@@ -110,10 +110,10 @@ fn main() -> anyhow::Result<()> {
             production: vec![0.0; groups],
         });
         let volume = solution.volumes[region];
-        for g in 0..groups {
+        for (g, factor) in mu[region].iter().enumerate() {
             let phi = solution.flux[region][g] * volume;
             let out: f64 = m.scatter[g].iter().sum();
-            rates.flux[g] += phi * mu[region][g];
+            rates.flux[g] += phi * factor;
             rates.absorption[g] += (m.total[g] - out) * phi;
             rates.production[g] += m.nu_fission[g] * phi;
         }
