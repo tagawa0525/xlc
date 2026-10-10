@@ -2879,11 +2879,24 @@ mod tests {
             right: Boundary::Vacuum,
             ..Boundaries::REFLECTIVE
         };
-        // 軸がセルの中を通る長方形と、セルの境を通る正方形。鏡面反射と真空、等方散乱と P1
+        // アルベドの辺（左右と上下で違う値）
+        let albedo = Boundaries {
+            left: Boundary::Albedo(0.3),
+            right: Boundary::Albedo(0.3),
+            top: Boundary::Albedo(0.6),
+            bottom: Boundary::Albedo(0.6),
+        };
+        // 左右がアルベドで上下が鏡面反射
+        let mixed = Boundaries {
+            left: Boundary::Albedo(0.3),
+            right: Boundary::Albedo(0.3),
+            ..Boundaries::REFLECTIVE
+        };
+        // 軸がセルの中を通る長方形と、セルの境を通る正方形。鏡面反射、真空、アルベド、等方散乱と P1
         for odd in [true, false] {
             let (lattice, index) = quarter_lattice(odd);
             let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
-            for boundaries in [Boundaries::REFLECTIVE, vacuum, sides] {
+            for boundaries in [Boundaries::REFLECTIVE, vacuum, sides, albedo, mixed] {
                 let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
                 for order in [0, 1] {
                     let full =
