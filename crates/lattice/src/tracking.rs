@@ -416,6 +416,35 @@ mod tests {
     }
 
     #[test]
+    fn tracks_leave_no_round_off_segments_in_blocks() {
+        // 2 × 2 の、3 × 3 に分けたブロック（ピッチ 1.26）。45° を含む方位角では、ブロックの内側の格子の角を
+        // ちょうど通るトラックがある。角のまわりの小さな長方形に丸めの程度の区間を残さない（#0055）
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 2],
+            vec![1.26; 2],
+            vec![Cell::Block { nx: 3, ny: 3 }],
+            vec![vec![0; 2]; 2],
+        )
+        .unwrap();
+        for n_azimuthal in [6, 18, 30] {
+            for spacing in [0.05, 0.03, 0.02] {
+                let tracking = Tracking::new(&lattice, n_azimuthal, spacing).unwrap();
+                for (index, track) in tracking.tracks.iter().enumerate() {
+                    let shortest = track
+                        .segments
+                        .iter()
+                        .map(|s| s.length)
+                        .fold(f64::INFINITY, f64::min);
+                    assert!(
+                        shortest > 1e-12,
+                        "azimuths {n_azimuthal}, spacing {spacing}, track {index}: {shortest}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn tracks_leave_no_round_off_segments_at_cell_corners() {
         // 2 × 2、16 × 16、17 × 17 の均質なセル（区切りなし）の格子（余白なしとあり）。45° を含む方位角では、多くの
         // トラックがセルの角や、外周の辺とセルの境界の交わる点をちょうど通る。境界の線を足し合わせで作る丸めや、
