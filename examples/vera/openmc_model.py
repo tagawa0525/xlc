@@ -348,11 +348,19 @@ def pin_mesh() -> openmc.RegularMesh:
     return mesh
 
 
+def pin_rows(sp: openmc.StatePoint, value: str = "mean"):
+    """名前が fission の tally（`pin_mesh` ごと）の `value`（"mean" か "std_dev"）を、lattice と同じく上の行から並べた
+    17 × 17 にする。"""
+    values = (
+        sp.get_tally(name="fission").get_values(scores=["fission"], value=value).ravel()
+    )
+    # メッシュは x が速く変わり、y は下から上
+    return values.reshape(N, N)[::-1, :]
+
+
 def write_pins(sp: openmc.StatePoint, path: Path) -> None:
-    """名前が fission の tally（`pin_mesh` ごと）を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
-    values = sp.get_tally(name="fission").get_values(scores=["fission"]).ravel()
-    # メッシュは x が速く変わり、y は下から上。lattice と同じく上の行から並べる
-    rates = values.reshape(N, N)[::-1, :]
+    """名前が fission の tally を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
+    rates = pin_rows(sp)
     rates = rates / rates[rates > 0].mean()
     path.write_bytes(
         msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
