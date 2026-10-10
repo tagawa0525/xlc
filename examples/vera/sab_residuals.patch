@@ -116,7 +116,7 @@ index 76ae8582..eec3531b 100644
          for spec in specs {
              let error = || anyhow!("`{spec}`: expected <nuclide>:<first>-<last>");
 diff --git a/crates/lattice/src/ufg.rs b/crates/lattice/src/ufg.rs
-index e42ade1d..94d8c418 100644
+index 97d267d0..458907c8 100644
 --- a/crates/lattice/src/ufg.rs
 +++ b/crates/lattice/src/ufg.rs
 @@ -74,6 +74,9 @@ pub struct CellSpectrum {
@@ -220,7 +220,7 @@ index e42ade1d..94d8c418 100644
      }
  }
 diff --git a/crates/xs/src/multigroup/sab.rs b/crates/xs/src/multigroup/sab.rs
-index 59d0ccca..943edb7c 100644
+index 59d0ccca..d7abf819 100644
 --- a/crates/xs/src/multigroup/sab.rs
 +++ b/crates/xs/src/multigroup/sab.rs
 @@ -29,6 +29,8 @@ pub struct ThermalSab<'a> {
@@ -301,13 +301,15 @@ index 59d0ccca..943edb7c 100644
          for i in first..na - 1 {
              let (a0, a1) = (d.alpha[i], d.alpha[i + 1]);
              let (x0, x1) = (if i == first { lo } else { a0 }, a1.min(hi));
-@@ -156,6 +179,13 @@ impl<'a> ThermalSab<'a> {
+@@ -156,6 +179,15 @@ impl<'a> ThermalSab<'a> {
              }
              let (l0, l1) = (row(i), row(i + 1));
              if l0 == f64::NEG_INFINITY || l1 == f64::NEG_INFINITY {
-+                // 試行（#0005）: NJOY THERMR と同じく、S = 0 の格子点に接する区間は、α A ≥ 30 か β ≥ 30 なら SCT で補う
-+                if x1 * d.awr >= 30.0 || b >= 30.0 {
-+                    self.add_sct_pieces(&mut moments, x0, x1, b, &mu, order, 8);
++                // 試行（#0005）: NJOY THERMR（thermr.f90 の sig）と同じく、S = 0 の格子点に接する区間は、α の点ごとに
++                // α A ≥ 30 か β ≥ 30 なら SCT で補い、そうでなければ 0 とする
++                let start = if b >= 30.0 { x0 } else { x0.max(30.0 / d.awr) };
++                if start < x1 {
++                    self.add_sct_pieces(&mut moments, start, x1, b, &mu, order, 8);
 +                }
 +                if a1 >= hi {
 +                    break;
@@ -315,7 +317,7 @@ index 59d0ccca..943edb7c 100644
                  continue;
              }
              let slope = (l1 - l0) / (a1 - a0);
-@@ -180,14 +210,77 @@ impl<'a> ThermalSab<'a> {
+@@ -180,14 +212,77 @@ impl<'a> ThermalSab<'a> {
                  break;
              }
          }
@@ -396,7 +398,7 @@ index 59d0ccca..943edb7c 100644
  
      /// 入射エネルギー e での ∫_g' σ0(E→E') dE'（群ごと）。群構造より下に散乱する分は最下位の群に、
 diff --git a/crates/xs/src/multigroup/scatter.rs b/crates/xs/src/multigroup/scatter.rs
-index d04e2cae..4a9a45bd 100644
+index 3f661746..49f39654 100644
 --- a/crates/xs/src/multigroup/scatter.rs
 +++ b/crates/xs/src/multigroup/scatter.rs
 @@ -289,6 +289,14 @@ fn elastic_rows(
@@ -427,7 +429,7 @@ index d04e2cae..4a9a45bd 100644
              // 出射分布は和 N(E) で規格化する（NJOY THERMR と同じ）
              Thermal::FreeGas(free_gas) if e < cutoff => {
 diff --git a/crates/xs/src/process.rs b/crates/xs/src/process.rs
-index 0a2fb5c4..87efef16 100644
+index 6374c0ab..d8116354 100644
 --- a/crates/xs/src/process.rs
 +++ b/crates/xs/src/process.rs
 @@ -470,7 +470,12 @@ impl Common<'_> {
