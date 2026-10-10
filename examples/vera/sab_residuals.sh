@@ -13,7 +13,7 @@
 # パッチの仮の変更（環境変数で切り替える）:
 #   XLC_TRIAL_SAB_UPPER=<eV>       S(α, β) を使う入射エネルギーの上限（既定は 4 eV。上方散乱の表の覆いは確認しない）
 #   XLC_TRIAL_SCT=1                表の外（α、β の範囲の外と、S = 0 の格子点に接する区間）を NJOY THERMR の短時間衝突
-#                                  近似（有効温度は MF7）で補う
+#                                  近似（有効温度は MF7）で補う（E' は β の表の範囲で打ち切るので、β の外には届かない）
 #   XLC_TRIAL_UFG_SAB=1            ポイントワイズの断面積（UFG）の H の上限より下の弾性散乱を S(α, β) の散乱断面積にする
 #   XLC_TRIAL_FREE_GAS_UPPER=<eV>  S(α, β) の上限からこの入射エネルギーまでの H の弾性散乱の移行を自由ガスの核にする
 #   XLC_TRIAL_OUT_WEIGHT=<核種>:<最初の群>-<最後の群>,...（`homogeneous` の例だけ）
@@ -34,11 +34,13 @@ upper=9.877
 mkdir -p "$work"
 cd "$work"
 
-# パッチを当てた xlc を作る（今のコミットの別の worktree で）
+# パッチを当てた xlc を作る（今のコミットの別の worktree で）。パッチ、道具と入力もその worktree から読み、結果が
+# 今のコミットから出たものにする（追跡しない vera.msgpack だけは $repo から）
 src=$work/src
 git -C "$repo" worktree add --detach "$src" HEAD
 trap 'git -C "$repo" worktree remove --force "$src"' EXIT
-git -C "$src" apply "$repo/examples/vera/sab_residuals.patch"
+vera=$src/examples/vera
+git -C "$src" apply "$vera/sab_residuals.patch"
 export CARGO_TARGET_DIR=$work/target
 cargo build --release --manifest-path "$src/Cargo.toml" -p xlc-xs
 cargo build --release --manifest-path "$src/Cargo.toml" -p xlc-lattice --bin lattice --example homogeneous
@@ -47,11 +49,11 @@ lattice=$CARGO_TARGET_DIR/release/lattice
 homogeneous=$CARGO_TARGET_DIR/release/examples/homogeneous
 
 # 媒質
-"$python" "$repo/examples/vera/homogeneous_medium.py" 1B h-u5.toml H-1 U-235
-"$python" "$repo/examples/vera/homogeneous_medium.py" 1B h-u5-u8.toml H-1 U-235 U-238
-"$python" "$repo/examples/vera/homogeneous_medium.py" 1B h-u5-u8-o.toml H-1 U-235 U-238 O-16
-"$python" "$repo/examples/vera/homogeneous_medium.py" 1B no-clad.toml H-1 U-234 U-235 U-236 U-238 O-16 B-10 B-11
-"$python" "$repo/examples/vera/homogeneous_medium.py" 1B all.toml
+"$python" "$vera/homogeneous_medium.py" 1B h-u5.toml H-1 U-235
+"$python" "$vera/homogeneous_medium.py" 1B h-u5-u8.toml H-1 U-235 U-238
+"$python" "$vera/homogeneous_medium.py" 1B h-u5-u8-o.toml H-1 U-235 U-238 O-16
+"$python" "$vera/homogeneous_medium.py" 1B no-clad.toml H-1 U-234 U-235 U-236 U-238 O-16 B-10 B-11
+"$python" "$vera/homogeneous_medium.py" 1B all.toml
 
 # ライブラリ: 均質な媒質の核種だけのもの（<変種>.msgpack）と、1B のピンセルに H-1 を差し替える、U、O と制御棒の
 # 核種を除いたもの（light-<変種>.msgpack。ポイントワイズの断面積の範囲は全体のライブラリと同じ）
@@ -79,7 +81,7 @@ temperatures = [600]
 EOF
 done
 for v in base t0 a ad; do
-  "$python" - "$repo/examples/vera/xs.toml" "light-$v.toml" "light-$v.msgpack" "$neutrons" "$thermal" <<'EOF'
+  "$python" - "$vera/xs.toml" "light-$v.toml" "light-$v.msgpack" "$neutrons" "$thermal" <<'EOF'
 import re, sys
 source, out, library, neutrons, thermal = sys.argv[1:]
 text = open(source).read()
@@ -102,6 +104,10 @@ library() {
   # 自由ガスの核の P1 以上は、E/kT が約 1400 を超えると e^(-β/2) が桁あふれするので、群の境界 48.052 eV までにする
   ad) XLC_TRIAL_SAB_UPPER=$upper XLC_TRIAL_SCT=1 XLC_TRIAL_FREE_GAS_UPPER=48.052 "$xs" "$toml" ;;
   sct4) XLC_TRIAL_SCT=1 "$xs" "$toml" ;;
+  *)
+    echo "unknown variant: $v" >&2
+    exit 1
+    ;;
   esac
 }
 for v in base t0 a b ab ad sct4; do library "$v" "$v.toml"; done
@@ -134,7 +140,7 @@ done
   for v in base t0 a b ab ad sct4; do
     for m in h-u5 h-u5-u8; do
       "$homogeneous" "$m.toml" "$v.msgpack" --balance "x-$v-$m.msgpack" | grep balance | sed "s/^/$v $m/"
-      "$python" "$repo/examples/vera/compare_groups.py" "x-$v-$m.msgpack" "$openmc/bal-$m/balance.msgpack" \
+      "$python" "$vera/compare_groups.py" "x-$v-$m.msgpack" "$openmc/bal-$m/balance.msgpack" \
         "$v.msgpack" >"g-$v-$m.txt"
     done
   done
@@ -145,7 +151,7 @@ done
         tag=${spec//[:,]/_}
         XLC_TRIAL_OUT_WEIGHT=$spec "$homogeneous" "$m.toml" "$v.msgpack" --balance "x-$v-c-$tag-$m.msgpack" |
           grep balance | sed "s/^/$v+c($spec) $m/"
-        "$python" "$repo/examples/vera/compare_groups.py" "x-$v-c-$tag-$m.msgpack" \
+        "$python" "$vera/compare_groups.py" "x-$v-c-$tag-$m.msgpack" \
           "$openmc/bal-$m/balance.msgpack" "$v.msgpack" >"g-$v-c-$tag-$m.txt"
       done
     done
@@ -160,7 +166,7 @@ done
 
 # 1B のピンセル
 for v in base t0 a ad; do
-  sed "s#^library = .*#library = \"$work/vera-$v.msgpack\"#" "$repo/examples/vera/p1/pincell-1B.toml" >"pin-$v.toml"
+  sed "s#^library = .*#library = \"$work/vera-$v.msgpack\"#" "$vera/p1/pincell-1B.toml" >"pin-$v.toml"
   k=$("$lattice" "pin-$v.toml" | grep '^k ')
   echo "pincell $v $k"
 done | tee pincell.txt
