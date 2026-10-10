@@ -602,6 +602,32 @@ mod tests {
     }
 
     #[test]
+    fn region_values_must_map_onto_themselves() {
+        // 入力の物質の名前で、像の領域が同じ物質か確かめる
+        let (lattice, _) = lattice(&[4]);
+        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
+        let images = images(&tracking, &QUARTER).unwrap();
+        let names: Vec<String> = (0..lattice.cells())
+            .flat_map(|cell| {
+                if cell == 4 {
+                    vec!["water".to_string()]
+                } else {
+                    vec!["fuel".to_string(), "water".to_string()]
+                }
+            })
+            .collect();
+        assert!(check_regions(&images, &names).is_ok());
+        // 右上の角のピンの燃料だけ別の名前
+        let mut changed = names.clone();
+        changed[lattice.cell_regions(2).start] = "other".into();
+        let error = check_regions(&images, &changed).unwrap_err().to_string();
+        assert!(
+            error.contains("`other`") && error.contains("`fuel`"),
+            "{error}"
+        );
+    }
+
+    #[test]
     fn quarter_needs_every_mirror() {
         // 右だけ真空
         let (symmetric, _) = lattice(&[4]);

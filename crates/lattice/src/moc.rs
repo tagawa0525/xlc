@@ -2972,6 +2972,26 @@ mod tests {
     }
 
     #[test]
+    fn quarter_symmetry_needs_one_material_for_images() {
+        // 値が同じでも別の物質（自己遮蔽で別々に解いたピンにあたる）は、移り合う領域に使えない。値の比較で決めると、
+        // 別々に解いたピンが丸めの違いだけで対称かどうかが変わる
+        let (lattice, index) = quarter_lattice(false);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let copy = fuel();
+        let library = [&f, &w, &f, &void];
+        let mut materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let last = index.iter().rposition(|&i| i == 0).unwrap();
+        materials[last] = &copy;
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(
+            matches!(result, Err(MocError::AsymmetricMaterial { .. })),
+            "{result:?}"
+        );
+    }
+
+    #[test]
     fn quarter_symmetry_rejects_an_asymmetric_boundary() {
         // 右だけ真空: 上下の鏡映しか残らない
         let (lattice, index) = quarter_lattice(false);
