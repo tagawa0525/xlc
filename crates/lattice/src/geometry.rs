@@ -119,6 +119,11 @@ impl PinCell {
         self.sectors
     }
 
+    /// 1辺の小さな正方形の数（同心円のあるセルでは 1）
+    pub fn grid_size(&self) -> usize {
+        self.grid
+    }
+
     /// 同心円ではなく小さな正方形に分けたセルか
     pub fn is_grid(&self) -> bool {
         self.grid > 1
