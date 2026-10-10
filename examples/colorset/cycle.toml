@@ -1,0 +1,7 @@
+# 左上と右下に 3.10%、右上と左下に 2.11% の集合体（colorset.toml と同じ並び）。
+plant = "plant.toml"
+inventory = "assemblies.toml"
+loading = [
+  "A31  A21",
+  "B21  B31",
+]

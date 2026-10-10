@@ -1,0 +1,20 @@
+# assemblies.toml の定数から不連続因子（ADF と CDF）を外したもの（without_df.py で作る）。
+[design.31]
+bounds = [0.0, 21.5]
+layers = ["fg-31-nodf.msgpack"]
+
+[design.21]
+bounds = [0.0, 21.5]
+layers = ["fg-21-nodf.msgpack"]
+
+[assembly.A31]
+design = "31"
+
+[assembly.B31]
+design = "31"
+
+[assembly.A21]
+design = "21"
+
+[assembly.B21]
+design = "21"
