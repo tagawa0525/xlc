@@ -128,11 +128,19 @@ pub struct Detected {
     images: Vec<Image>,
     /// 格子のセルの数
     cells: usize,
+    /// 確かめたトラッキングの (領域、トラック、方位角) の数（`fits`）
+    shape: (usize, usize, usize),
     /// [操作] の成り立たなかった理由（成り立つ操作と使わない操作は `None`）
     rejected: Vec<Option<String>>,
 }
 
 impl Detected {
+    /// トラッキング `tracking` で求めたものとして使えるか（セル、領域、トラック、方位角の数が同じ）。別の格子やトラッキングの
+    /// 像は、領域とトラックの対応が成り立たない
+    pub fn fits(&self, tracking: &Tracking) -> bool {
+        self.cells == tracking.lattice.cells() && self.shape == shape(tracking)
+    }
+
     /// 使う対称性
     pub fn symmetry(&self) -> Symmetry {
         self.symmetry
@@ -177,6 +185,7 @@ impl Detected {
             symmetry,
             images,
             cells: self.cells,
+            shape: self.shape,
             rejected: self.rejected.clone(),
         })
     }
@@ -252,6 +261,7 @@ pub fn detect<T: PartialEq + std::fmt::Display>(
         symmetry,
         images,
         cells: tracking.lattice.cells(),
+        shape: shape(tracking),
         rejected,
     })
 }
@@ -266,8 +276,18 @@ pub fn require(tracking: &Tracking, symmetry: Symmetry) -> Result<Detected, Symm
         symmetry,
         images: verified,
         cells: tracking.lattice.cells(),
+        shape: shape(tracking),
         rejected: vec![None; OPERATIONS.len()],
     })
+}
+
+/// トラッキングの (領域、トラック、方位角) の数
+fn shape(tracking: &Tracking) -> (usize, usize, usize) {
+    (
+        tracking.lattice.regions(),
+        tracking.tracks.len(),
+        tracking.azimuths.len(),
+    )
 }
 
 /// 恒等の像（確かめなくても成り立つ）

@@ -291,9 +291,8 @@ fn solve_with(
     let pairs = planar_moments(order);
     let representatives = match symmetry {
         Some(verified) if verified.symmetry() != Symmetry::NONE => {
-            // 別のトラッキングで確かめた像は使えない
-            let identity = &verified.images()[0];
-            if identity.tracks.len() != tracking.tracks.len() || identity.regions.len() != regions {
+            // 別の格子やトラッキングで確かめた像は使えない
+            if !verified.fits(tracking) {
                 return Err(MocError::ForeignSymmetry);
             }
             Representatives::by_images(tracking, materials, &mesh, &pairs, verified.images())?
