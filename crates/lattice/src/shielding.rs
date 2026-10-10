@@ -157,6 +157,8 @@ pub struct PinShielding {
     /// 等価なセルの減速材のリングの番号（[`PinShielding::ring_regions`] でリングを格子の領域に対応させる）。UFG の範囲が
     /// なければ `None`
     pub moderator_ring: Option<usize>,
+    /// `sph` の列の群（ライブラリの群の番号）。UFG の範囲がなければ `None`
+    pub sph_groups: Option<std::ops::Range<usize>>,
 }
 
 impl PinShielding {
@@ -436,6 +438,7 @@ pub fn shield_fuel_with(
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| c.sph.clone()),
             moderator_ring: ufg.as_ref().map(|c| c.start),
+            sph_groups: None,
         };
         let assigned = match ufg {
             // リングごとの物質（真空のリングは真空のまま）
@@ -2516,6 +2519,10 @@ mod tests {
                 };
                 let rings = pin.ring_regions(&tracking.lattice).unwrap();
                 assert_eq!(rings.len(), 4, "{rings:?}");
+                // SPH 因子の列は UFG の範囲の群（ライブラリの 1、2 群）
+                assert_eq!(pin.sph_groups, Some(1..3));
+                let sph = pin.sph.as_ref().unwrap();
+                assert!(sph.iter().all(|row| row.len() == 2));
                 let mut covered: Vec<usize> = rings.iter().flatten().copied().collect();
                 covered.sort_unstable();
                 assert_eq!(covered, (0..4).collect::<Vec<_>>(), "{rings:?}");
