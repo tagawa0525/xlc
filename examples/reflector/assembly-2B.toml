@@ -1,4 +1,4 @@
-# VERA Problem 2B の集合体（examples/vera/assembly-2B.toml と同じ物質とセル）の単一集合体の格子（外周は鏡面反射）。
+# VERA Problem 2B の集合体（examples/vera/p2/assembly-2B.toml と同じ物質とセル）の単一集合体の格子（外周は鏡面反射）。
 # reflector-I.toml と同じライブラリと自己遮蔽なしで解き、反射体の f* に掛ける単一集合体の燃料の少数群定数（ADF）を
 # 作る（ADR-0095）。
 library = "reflector.msgpack"
