@@ -22,7 +22,7 @@
 set -euo pipefail
 
 if (($# != 2)); then
-  sed -n '2,25p' "$0" >&2
+  sed -n '2,21p' "$0" >&2
   exit 1
 fi
 repo=$(git rev-parse --show-toplevel)
@@ -119,7 +119,11 @@ for key in ("group_bounds", "sigma0", "pointwise_range"):
         raise SystemExit(f"{key} differs")
 (h,) = [n for n in b["nuclides"] if n["name"] == "H-1"]
 (i,) = [k for k, n in enumerate(a["nuclides"]) if n["name"] == "H-1"]
-print(f"vera-H-1 {out}: same as vera.msgpack {a['nuclides'][i] == h}")
+same = a["nuclides"][i] == h
+print(f"vera-H-1 {out}: same as vera.msgpack {same}")
+# 仮の変更のない base で H-1 が違えば、vera.msgpack はこのコミットのものでない（ほかの核種を混ぜられない）
+if out == "vera-base.msgpack" and not same:
+    raise SystemExit("vera.msgpack differs from this commit in H-1; rebuild it")
 a["nuclides"][i] = h
 Path(out).write_bytes(msgpack.packb(a))
 EOF
@@ -157,5 +161,6 @@ done
 # 1B のピンセル
 for v in base t0 a ad; do
   sed "s#^library = .*#library = \"$work/vera-$v.msgpack\"#" "$repo/examples/vera/p1/pincell-1B.toml" >"pin-$v.toml"
-  echo "pincell $v $("$lattice" "pin-$v.toml" 2>/dev/null | grep '^k ')"
+  k=$("$lattice" "pin-$v.toml" | grep '^k ')
+  echo "pincell $v $k"
 done | tee pincell.txt
