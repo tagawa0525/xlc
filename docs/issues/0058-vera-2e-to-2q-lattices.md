@@ -40,3 +40,5 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
 ## 経緯
 
 - 2026-10-10: 仕様書を読み、問題ごとに要るものを表にした。2E から順に進める（ブランチ feat/vera-2e）
+- 2026-10-10: 2E を解いた（examples/vera/verification.md の「OpenMC との比較」、7523f110）。xlc 1.072883、OpenMC 1.070288 ±
+  0.000047（+260 pcm）、ピン出力 rms 0.09%、最大 +0.31%。2B と同じ差で、Pyrex と SS304 の塊による差の増えはない
