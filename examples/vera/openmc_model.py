@@ -1,13 +1,13 @@
-"""VERA Problem 1B〜1D（ピンセル）と 2B〜2H（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
+"""VERA Problem 1B〜1D（ピンセル）と 2B〜2I（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
         [粒子数/世代] [世代数] [捨てる世代数] [乱数の種] [xlc のライブラリ]
 
 <問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
-2G, 2H。断面積は openmc_library.py で作ったもの。
+2G, 2H, 2I。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
 ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ。ADR-0120）。燃料以外は 600 K。
-2B〜2H は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+2B〜2I は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
 xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。
@@ -55,6 +55,7 @@ FUEL_TEMPERATURE = {
     "2F": 600.0,
     "2G": 600.0,
     "2H": 600.0,
+    "2I": 600.0,
 }
 
 # 個数密度 (/(barn cm))
@@ -90,7 +91,7 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2H）。仕様書の表 P2-1、P2-4
+# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2I）。仕様書の表 P2-1、P2-4
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
@@ -168,11 +169,14 @@ MODERATOR_OF = {
     "2F": MODERATOR_DENSE,
     "2G": MODERATOR_DENSE,
     "2H": MODERATOR_DENSE,
+    "2I": MODERATOR_DENSE,
 }
 # Pyrex の棒（仕様書の表 6）: 内管の内と外、Pyrex の内と外、被覆管の内と外の半径。内管の中と間は真空
 PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
 # 制御棒（仕様書の表 8）: SS304 の被覆管の内と外の半径と、吸収体の半径。吸収体と被覆管の間は真空
 ROD_CLAD = (0.386, 0.484)
+# 計装管のシンブル（仕様書の表 10）: SS304 の内と外の半径。中は真空
+THIMBLE_RADII = (0.258, 0.382)
 
 # 案内管の位置（行, 列。0 始まり）。計装管は中央
 GUIDE_TUBES = [
@@ -241,6 +245,12 @@ def rod_layers(name: str, nuclides: dict[str, float], radius: float) -> Layers:
     return [(absorber, radius), (None, clad_in), (steel, clad_out)]
 
 
+def thimble_layers() -> Layers:
+    """計装管のシンブル（中が真空の SS304 の管）の層。"""
+    inner, outer = THIMBLE_RADII
+    return [(None, inner), (material("ss304", SS304, COLD), outer)]
+
+
 # 案内管に入れるものの層を作る関数と位置。Pyrex の 12 本は仕様書の図 5 の配置
 INSERTS = {
     "2E": (
@@ -265,6 +275,8 @@ INSERTS = {
     "2G": (lambda: rod_layers("aic", AIC, 0.382), GUIDE_TUBES),
     "2H": (lambda: rod_layers("b4c", B4C, 0.373), GUIDE_TUBES),
 }
+# 計装管に入れるものの層を作る関数
+INSTRUMENT_INSERTS = {"2I": thimble_layers}
 
 
 def geometry_of(
@@ -274,9 +286,11 @@ def geometry_of(
     water: openmc.Material,
     gap: openmc.Material | None = None,
     insert: openmc.Universe | None = None,
+    instrument_insert: openmc.Universe | None = None,
 ) -> tuple[openmc.Geometry, float]:
     """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。
-    `insert` は案内管に入れるもののセル。INSERTS にある問題で要る。"""
+    `insert` は案内管に入れるもののセルで、INSERTS にある問題で要る。`instrument_insert` は計装管に入れるものを
+    入れた計装管のセルで、INSTRUMENT_INSERTS にある問題で要る。"""
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
@@ -294,7 +308,14 @@ def geometry_of(
         root = openmc.Cell(fill=rod)
     else:
         guide = tube([], GUIDE_INNER, GUIDE_OUTER, clad, water)
-        instrument = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
+        if problem in INSTRUMENT_INSERTS:
+            if instrument_insert is None:
+                raise SystemExit(
+                    f"{problem} needs the cell of its instrument tube insert"
+                )
+            instrument = instrument_insert
+        else:
+            instrument = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
         universes = [[rod] * N for _ in range(N)]
         for i, j in GUIDE_TUBES:
             universes[i][j] = guide
@@ -327,11 +348,19 @@ def pin_mesh() -> openmc.RegularMesh:
     return mesh
 
 
+def pin_rows(sp: openmc.StatePoint, value: str = "mean"):
+    """名前が fission の tally（`pin_mesh` ごと）の `value`（"mean" か "std_dev"）を、lattice と同じく上の行から並べた
+    17 × 17 にする。"""
+    values = (
+        sp.get_tally(name="fission").get_values(scores=["fission"], value=value).ravel()
+    )
+    # メッシュは x が速く変わり、y は下から上
+    return values.reshape(N, N)[::-1, :]
+
+
 def write_pins(sp: openmc.StatePoint, path: Path) -> None:
-    """名前が fission の tally（`pin_mesh` ごと）を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
-    values = sp.get_tally(name="fission").get_values(scores=["fission"]).ravel()
-    # メッシュは x が速く変わり、y は下から上。lattice と同じく上の行から並べる
-    rates = values.reshape(N, N)[::-1, :]
+    """名前が fission の tally を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
+    rates = pin_rows(sp)
     rates = rates / rates[rates > 0].mean()
     path.write_bytes(
         msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
@@ -373,16 +402,34 @@ def main() -> None:
     water = material("moderator", MODERATOR_OF[problem], COLD)
     water.add_s_alpha_beta("c_H_in_H2O")
     materials = openmc.Materials([fuel, clad, water])
-    insert = None
-    if problem in INSERTS:
-        layers = INSERTS[problem][0]()
+
+    def add_materials(layers: Layers) -> None:
         for fill, _ in layers:
             if fill is not None and all(fill is not m for m in materials):
                 materials.append(fill)
+
+    insert = None
+    if problem in INSERTS:
+        layers = INSERTS[problem][0]()
+        add_materials(layers)
         insert = tube(layers, GUIDE_INNER, GUIDE_OUTER, clad, water)
+    instrument_insert = None
+    if problem in INSTRUMENT_INSERTS:
+        layers = INSTRUMENT_INSERTS[problem]()
+        add_materials(layers)
+        instrument_insert = tube(
+            layers, INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water
+        )
     materials.cross_sections = str(cross_sections)
 
-    geometry, half = geometry_of(problem, fuel, clad, water, insert=insert)
+    geometry, half = geometry_of(
+        problem,
+        fuel,
+        clad,
+        water,
+        insert=insert,
+        instrument_insert=instrument_insert,
+    )
 
     settings = run.settings(half)
     # ライブラリにある温度だけを使う。OpenMC は温度を kT (eV) で持ち、K に直すと丸めで
