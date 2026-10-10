@@ -29,7 +29,7 @@ use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_dancoff};
 use crate::sph::{SphError, sph_factors};
-use crate::symmetry::{Detected, SymmetryError, detect};
+use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{UfgError, cell_range, slowing_down};
 
@@ -155,13 +155,35 @@ pub struct PinShielding {
 }
 
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
-/// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。
-#[tracing::instrument(name = "shielding", skip_all)]
+/// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。移り合うピンと塊の組は、領域ごとの物質の名前で成り立つ
+/// 対称操作（`symmetry::detect`）で作る。成り立つ対称操作をすでに求めてあれば `shield_fuel_with` を使う
 pub fn shield_fuel(
     library: &Library,
     tracking: &Tracking,
     materials: &[MaterialInput],
     region_materials: &[String],
+    options: &ShieldingOptions,
+) -> Result<FuelShielding, SelfShieldingError> {
+    let symmetry = detect(tracking, region_materials)?;
+    shield_fuel_with(
+        library,
+        tracking,
+        materials,
+        region_materials,
+        &symmetry,
+        options,
+    )
+}
+
+/// `shield_fuel` と同じ。移り合うピンと塊の組は、確かめた対称操作 `symmetry`（同じトラッキングと領域ごとの物質の名前で
+/// `symmetry::detect` が求めたもの）で作る（ADR-0114）。`symmetry` の操作で領域ごとの物質が移り合わなければエラー
+#[tracing::instrument(name = "shielding", skip_all)]
+pub fn shield_fuel_with(
+    library: &Library,
+    tracking: &Tracking,
+    materials: &[MaterialInput],
+    region_materials: &[String],
+    symmetry: &Detected,
     options: &ShieldingOptions,
 ) -> Result<FuelShielding, SelfShieldingError> {
     let lattice = &tracking.lattice;
@@ -259,8 +281,29 @@ pub fn shield_fuel(
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する。使う操作は、MOC と同じ確かめ方（トラックの像まで）で、領域ごとの入力の
-    // 物質の番号が移り合うものをすべて（ADR-0114）
-    let symmetry = detect(tracking, &region_index)?;
+    // 物質が移り合うもの（ADR-0114）。渡された操作が、この格子の物質で成り立つことを確かめる
+    for image in symmetry.images() {
+        if image.regions.len() != regions {
+            return Err(SelfShieldingError::Regions {
+                given: image.regions.len(),
+                regions,
+            });
+        }
+        if let Some((r, &i)) = image
+            .regions
+            .iter()
+            .enumerate()
+            .find(|&(r, &i)| region_index[r] != region_index[i])
+        {
+            return Err(SelfShieldingError::Symmetry(SymmetryError::Broken {
+                operation: image.name,
+                reason: format!(
+                    "region {r} has `{}`, but its image {i} has `{}`",
+                    region_materials[r], region_materials[i]
+                ),
+            }));
+        }
+    }
     let orbits = symmetry.cell_representatives();
     // 解くピンを、下のループと同じ判定（同じ組の代表がもう解かれていれば再利用する）で先に決める。[ピン] の、解く
     // なら `solutions` の番号
@@ -413,7 +456,7 @@ pub fn shield_fuel(
         tracking,
         materials,
         &region_index,
-        &symmetry,
+        (symmetry.images(), &orbits),
         options,
         &mut shielded,
     )?;
@@ -438,11 +481,10 @@ fn shield_lumps(
     tracking: &Tracking,
     materials: &[MaterialInput],
     region_index: &[usize],
-    symmetry: &Detected,
+    (images, orbits): (&[Image], &[usize]),
     options: &ShieldingOptions,
     shielded: &mut FuelShielding,
 ) -> Result<(), SelfShieldingError> {
-    let orbits = symmetry.cell_representatives();
     let lattice = &tracking.lattice;
     let n_regions = region_index.len();
     let is_fuel = |m: &Material| m.nu_fission.iter().any(|&v| v > 0.0);
@@ -505,7 +547,7 @@ fn shield_lumps(
     for region in (0..n_regions).filter(|&r| candidate[r]) {
         let representative = root(&mut parent, region);
         let mut least = representative;
-        for image in &symmetry.images {
+        for image in images {
             let map = &image.regions;
             let moved = root(&mut parent, map[region]);
             // 領域の像のまとまりが、代表の領域の像のまとまりと違えば、対称操作が接し方を保っていない
@@ -2302,7 +2344,7 @@ mod tests {
             shielded: &FuelShielding,
             expected: Symmetry,
         ) {
-            use crate::moc::{Options, solve};
+            use crate::moc::{Options, solve, solve_symmetric};
             let materials: Vec<&Material> = shielded
                 .region_material
                 .iter()
@@ -2313,18 +2355,15 @@ mod tests {
                 .map(|&m| std::ptr::from_ref(m) as usize)
                 .collect();
             let detected = detect(tracking, &identity).unwrap();
-            assert_eq!(detected.symmetry, expected, "{}", detected.symmetry.name());
+            assert_eq!(
+                detected.symmetry(),
+                expected,
+                "{}",
+                detected.symmetry().name()
+            );
             let options = Options::default();
             let full = solve(tracking, &materials, &options).unwrap();
-            let reduced = solve(
-                tracking,
-                &materials,
-                &Options {
-                    symmetry: detected.symmetry,
-                    ..options
-                },
-            )
-            .unwrap();
+            let reduced = solve_symmetric(tracking, &materials, &options, &detected).unwrap();
             assert!(
                 (full.k - reduced.k).abs() < options.k_tolerance,
                 "{} vs {}",
