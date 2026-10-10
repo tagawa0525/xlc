@@ -37,3 +37,5 @@ ADR-0094 の1ノードの問題の熱群の均質な面の中性子束が右の�
 - 2026-10-09: 反射体のノードは、ANM と Koebke の等価理論の D（ADR-0104）で均質な面の中性子束が正になり、I 型の反射体の
   格子で core が MOC の k を +1.5 pcm で再現した（examples/reflector/verification.md）。燃料が真空に直接面する集合体の
   場合は残る
+- 2026-10-10: 上の行の +1.5 pcm は、examples/reflector/verification.md の 8dbf48a の時点の値。MOC の鏡面反射の辺に残っていた
+  ノードごとの流れ（#0032）を直したあとは +0.0006 pcm（同じ記録、0aa4ccfd）
