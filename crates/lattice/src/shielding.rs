@@ -438,7 +438,7 @@ pub fn shield_fuel_with(
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| c.sph.clone()),
             moderator_ring: ufg.as_ref().map(|c| c.start),
-            sph_groups: None,
+            sph_groups: ufg.as_ref().map(|c| c.groups.clone()),
         };
         let assigned = match ufg {
             // リングごとの物質（真空のリングは真空のまま）
@@ -797,6 +797,8 @@ struct CellShielding {
     effective: Vec<Shielded>,
     /// [リング][UFG の範囲の群] の SPH 因子
     sph: Vec<Vec<f64>>,
+    /// `sph` の列の群
+    groups: std::ops::Range<usize>,
 }
 
 /// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
@@ -1008,6 +1010,7 @@ fn shield_cell(
         start,
         effective,
         sph,
+        groups: top..bottom,
     }))
 }
 
