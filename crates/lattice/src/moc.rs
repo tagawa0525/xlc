@@ -2965,6 +2965,13 @@ mod tests {
             matches!(result, Err(MocError::AsymmetricMaterial { .. })),
             "{result:?}"
         );
+        // 操作は番号ではなく名前で示す
+        let message = result.unwrap_err().to_string();
+        assert!(
+            message.contains("under the rotation by 180 degrees")
+                || message.contains("under the mirror across"),
+            "{message}"
+        );
     }
 
     #[test]
