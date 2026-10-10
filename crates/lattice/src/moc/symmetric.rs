@@ -1,4 +1,4 @@
-//! 対称性を使う MOC（ADR-0113）: スイープする代表のトラックと、状態を持つ代表の領域と粗メッシュのセル。
+//! 対称性を使う MOC（ADR-0112）: スイープする代表のトラックと、状態を持つ代表の領域と粗メッシュのセル。
 //!
 //! 対称操作の組み合わせ G で移り合うトラックの組（軌道 O）から代表を 1 本ずつ選び、軌道の大きさ |O| を掛けた重みでスイープする
 //! （tally の T）。解が対称なら、全体をスイープしたときの量は F(r) = (1/|G|) Σ_g S_g T(g⁻¹ r) になる。S_g はスカラーでは 1、
@@ -101,7 +101,7 @@ impl Representatives {
         for image in images {
             for (region, &other) in image.regions.iter().enumerate() {
                 // 同じ物質（同じ参照）であること。値が等しいだけの別の物質は認めない: 自己遮蔽で別々に解いたピンは
-                // 丸めの程度で違い、値で比べると対称かどうかが丸めで変わる（ADR-0113）
+                // 丸めの程度で違い、値で比べると対称かどうかが丸めで変わる（ADR-0112）
                 if !std::ptr::eq(materials[region], materials[other]) {
                     return Err(MocError::AsymmetricMaterial {
                         operation: image.name,

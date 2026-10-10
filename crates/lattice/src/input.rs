@@ -230,7 +230,7 @@ struct InputFile {
     scattering_order: Option<usize>,
     /// 省略した辺は鏡面反射
     boundary: Option<BoundaryEntry>,
-    /// 省略すると対称性を使わない（ADR-0113）
+    /// 省略すると、成り立つ対称操作をすべて使う（ADR-0112）
     symmetry: Option<SymmetryEntry>,
     rows: Vec<String>,
     /// 省略すると、どの列もピッチの幅
