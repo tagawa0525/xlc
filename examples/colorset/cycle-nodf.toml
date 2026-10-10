@@ -1,0 +1,7 @@
+# 不連続因子を外した定数で、cycle.toml と同じ並び。
+plant = "plant.toml"
+inventory = "assemblies-nodf.toml"
+loading = [
+  "A31  A21",
+  "B21  B31",
+]

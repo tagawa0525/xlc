@@ -1,0 +1,5 @@
+# カラーセットの MOC の解から作ったノードごとの定数で解く（形状関数がないのでピン出力は書かない）。
+cycle = "cycle-node.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
