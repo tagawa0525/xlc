@@ -2439,4 +2439,57 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn faces_ignore_segments_that_graze_a_corner() {
+        // 格子の中心（4 つのセルの角）や外周のセルの角をちょうど通るトラックは、どれかのセルに丸めの程度の区間を残す。
+        // そのセルを通ったとして面を数えると、上下で対称な格子の面の量が対称にならない
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let water = PinCell::grid(1.26, 2).unwrap();
+        let layout = vec![
+            vec![0, 1, 1, 0],
+            vec![0, 0, 0, 0],
+            vec![0, 0, 0, 0],
+            vec![0, 1, 1, 0],
+        ];
+        let lattice = Lattice::with_margin(vec![pin, water], layout, 0.04).unwrap();
+        let (f, w) = (fuel(), moderator());
+        let materials: Vec<&Material> = (0..lattice.cells())
+            .flat_map(|cell| match lattice.cell_type(cell) {
+                Cell::Pin(pin) if !pin.is_grid() => (0..pin.regions())
+                    .map(|r| if r < 8 { &f } else { &w })
+                    .collect::<Vec<_>>(),
+                cell => vec![&w; cell.regions()],
+            })
+            .collect();
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, vacuum).unwrap();
+        let grazing = tracking
+            .tracks
+            .iter()
+            .flat_map(|t| &t.segments)
+            .any(|s| s.length < 1e-12);
+        assert!(grazing, "no track passes through a corner");
+        let options = Options::default();
+        let s = solve(&tracking, &materials, &options).unwrap();
+        let (columns, rows) = (lattice.columns(), lattice.rows());
+        for row in 0..rows {
+            for line in 0..=columns {
+                let face = crate::cmfd::vertical_face(columns, row, line);
+                let image = crate::cmfd::vertical_face(columns, rows - 1 - row, line);
+                for g in 0..2 {
+                    let (a, b) = (s.face_fluxes[face][g], s.face_fluxes[image][g]);
+                    assert!(
+                        relative_change(a, b) < options.flux_tolerance,
+                        "face {face} and {image}, group {g}: {a} vs {b}"
+                    );
+                }
+            }
+        }
+    }
 }
