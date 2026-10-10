@@ -1,12 +1,9 @@
-//! 格子の対称性（正方形の回転と鏡映）による、ピンの組と、トラックと領域の像。
+//! 格子の対称性（正方形の回転と鏡映）による、トラック、領域、セルの像。
 //!
-//! 正方形の 8 つの対称操作のうち、セルの配置と大きさ、領域の物質、外周の境界条件を変えないものを調べ、それで
-//! 移り合うセルを同じ組にする。組の中のピンは、自己遮蔽の結果が同じなので1回だけ解けばよい（VERA の集合体の
-//! ように 1/8 対称なら約 1/8 になる）。対称性は前提とせず、真空境界や位置で違う物質のある検証の体系では、成り立つ
-//! 操作だけを使う。
-//!
-//! MOC で対称性を使うとき（ADR-0113）は、指定した操作のすべてで形状とトラックが移り合うことを確かめ、操作ごとの
-//! セル、領域、トラックの像を求める（`images`）。
+//! 正方形の 8 つの対称操作のうち、外周の境界条件、セルの配置と大きさと種類、トラック（端の点と区間の長さ）、領域の
+//! 値（物質）を変えないものを1つずつ確かめ、成り立つ操作をすべて使う（`detect`。ADR-0112）。対称性は前提とせず、
+//! 真空境界や位置で違う物質のある検証の体系では、成り立つ操作だけを使う。MOC は使う操作の像（`images`）で代表の
+//! トラックと領域だけを解き、自己遮蔽は同じ操作で移り合うピンと構造材の塊を組にして1回だけ解く（ADR-0112）。
 
 use std::f64::consts::PI;
 
@@ -23,6 +20,10 @@ pub enum SymmetryError {
          by position along the boundary, which needs ends away from the corners"
     )]
     CornerTrack { track: usize },
+    #[error("symmetry operation {0} does not exist (there are 8)")]
+    UnknownOperation(usize),
+    #[error("the symmetry operations {0:?} are not closed under composition")]
+    NotClosed(Vec<usize>),
     #[error("the lattice is not symmetric under the {operation}: {reason}")]
     Broken {
         operation: &'static str,
@@ -55,9 +56,329 @@ const NAMES: [&str; 8] = [
     "mirror across the anti-diagonal",
 ];
 
-/// 1/4 対称の操作（`OPERATIONS` の番号）: 恒等、180° 回転、左右と上下の鏡映。軸を入れ替えないので、長方形の
-/// 格子にも使える（ADR-0113）
-pub const QUARTER: [usize; 4] = [0, 2, 4, 5];
+/// 解くときに使う対称操作の組み合わせ（恒等を含み、合成で閉じた操作の集合。ADR-0112）。正方形では 10 通りある。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Symmetry(usize);
+
+/// 10 通りの対称性（`OPERATIONS` の番号のビットの集合）と、その名前（ログとエラーの表示用）。`Symmetry` はこの番号
+const SYMMETRIES: [(u8, &str); 10] = [
+    (0b0000_0001, "none"),
+    (0b0000_0101, "rotation by 180 degrees (1/2)"),
+    (0b0001_0001, "mirror across the vertical axis (1/2)"),
+    (0b0010_0001, "mirror across the horizontal axis (1/2)"),
+    (0b0100_0001, "mirror across the diagonal (1/2)"),
+    (0b1000_0001, "mirror across the anti-diagonal (1/2)"),
+    (0b0011_0101, "mirrors across both axes (1/4)"),
+    (0b1100_0101, "mirrors across both diagonals (1/4)"),
+    (0b0000_1111, "rotations by 90 degrees (1/4)"),
+    (0b1111_1111, "all eight operations (1/8)"),
+];
+
+impl Symmetry {
+    /// 恒等だけ（対称性を使わない）
+    pub const NONE: Self = Self(0);
+    /// 左右と上下の鏡映（1/4。軸を入れ替えないので長方形の格子にも使える）
+    pub const QUARTER: Self = Self(6);
+    /// 8 つの操作すべて（1/8）
+    pub const OCTANT: Self = Self(9);
+
+    /// 操作 `operations`（`OPERATIONS` の番号。恒等は含めなくてよい）を使う対称性。合成で閉じていなければエラー
+    pub fn new(operations: &[usize]) -> Result<Self, SymmetryError> {
+        if let Some(&unknown) = operations.iter().find(|&&i| i >= OPERATIONS.len()) {
+            return Err(SymmetryError::UnknownOperation(unknown));
+        }
+        let mask = operations.iter().fold(1u8, |m, &i| m | (1 << i));
+        SYMMETRIES
+            .iter()
+            .position(|&(s, _)| s == mask)
+            .map(Self)
+            .ok_or_else(|| {
+                SymmetryError::NotClosed((0..8).filter(|i| mask & (1 << i) != 0).collect())
+            })
+    }
+
+    /// 使う操作（`OPERATIONS` の番号の順。恒等が最初）
+    pub fn operations(self) -> Vec<usize> {
+        (0..OPERATIONS.len())
+            .filter(|&i| self.contains(i))
+            .collect()
+    }
+
+    /// 操作 `operation` を使うか
+    fn contains(self, operation: usize) -> bool {
+        SYMMETRIES[self.0].0 & (1 << operation) != 0
+    }
+
+    /// 対称性の名前
+    pub fn name(self) -> &'static str {
+        SYMMETRIES[self.0].1
+    }
+
+    /// 使う操作の数
+    pub fn order(self) -> usize {
+        SYMMETRIES[self.0].0.count_ones() as usize
+    }
+}
+
+/// 格子で成り立つ対称操作（`detect`）と、使う操作の像。恒等の像を必ず含む（`detect` と `restrict` だけが作る）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Detected {
+    symmetry: Symmetry,
+    /// 使う操作の像（`Symmetry::operations` の順。恒等が最初）
+    images: Vec<Image>,
+    /// 格子のセルの数
+    cells: usize,
+    /// 確かめたトラッキングの (領域、トラック、方位角) の数（`fits`）
+    shape: (usize, usize, usize),
+    /// [操作] の成り立たなかった理由（成り立つ操作と使わない操作は `None`）
+    rejected: Vec<Option<String>>,
+}
+
+impl Detected {
+    /// トラッキング `tracking` で求めたものとして使えるか（セル、領域、トラック、方位角の数が同じ）。別の格子やトラッキングの
+    /// 像は、領域とトラックの対応が成り立たない
+    pub fn fits(&self, tracking: &Tracking) -> bool {
+        self.cells == tracking.lattice.cells() && self.shape == shape(tracking)
+    }
+
+    /// 使う対称性
+    pub fn symmetry(&self) -> Symmetry {
+        self.symmetry
+    }
+
+    /// 使う操作の像（恒等が最初）
+    pub fn images(&self) -> &[Image] {
+        &self.images
+    }
+
+    /// [セル] の、移り合うセルのうち最も小さい番号（組の代表）
+    pub fn cell_representatives(&self) -> Vec<usize> {
+        (0..self.cells)
+            .map(|cell| {
+                self.images
+                    .iter()
+                    .map(|image| image.cells[cell])
+                    .fold(cell, usize::min)
+            })
+            .collect()
+    }
+
+    /// 成り立つ操作のうち、対称性 `symmetry` の操作だけを使う（検証のための強制。ADR-0112）。`symmetry` のどれかの操作が
+    /// 成り立たなければ、その操作の名前と成り立たなかった理由を示すエラー
+    pub fn restrict(&self, symmetry: Symmetry) -> Result<Self, SymmetryError> {
+        let held = self.symmetry.operations();
+        let mut images = Vec::with_capacity(symmetry.order());
+        for operation in symmetry.operations() {
+            match held.iter().position(|&h| h == operation) {
+                Some(i) => images.push(self.images[i].clone()),
+                None => {
+                    return Err(SymmetryError::Broken {
+                        operation: NAMES[operation],
+                        reason: self.rejected[operation]
+                            .clone()
+                            .unwrap_or_else(|| "it was not checked".into()),
+                    });
+                }
+            }
+        }
+        // 成り立ったが使わない操作は、その理由を残す（もう一度絞り込んだときに「確かめていない」としない）
+        let rejected = (0..OPERATIONS.len())
+            .map(|operation| {
+                if held.contains(&operation) && !symmetry.contains(operation) {
+                    Some(format!(
+                        "it holds, but the symmetry \"{}\" leaves it out",
+                        symmetry.name()
+                    ))
+                } else {
+                    self.rejected[operation].clone()
+                }
+            })
+            .collect();
+        Ok(Self {
+            symmetry,
+            images,
+            cells: self.cells,
+            shape: self.shape,
+            rejected,
+        })
+    }
+
+    /// 対称性を使わない（恒等だけ。確かめない）
+    pub fn none(tracking: &Tracking) -> Self {
+        Self {
+            symmetry: Symmetry::NONE,
+            images: vec![identity_image(tracking)],
+            cells: tracking.lattice.cells(),
+            shape: shape(tracking),
+            rejected: (0..OPERATIONS.len())
+                .map(|i| (i != 0).then(|| "the symmetry \"none\" does not check it".to_string()))
+                .collect(),
+        }
+    }
+}
+
+/// 恒等以外の 7 つの操作を1つずつ確かめ（`images` の確かめと、領域ごとの値 `values` が移った先の領域の値と同じこと）、
+/// 成り立つ操作をすべて使う対称性と、その像を返す（ADR-0112）。恒等は確かめずに使う。使った対称性と、成り立たなかった
+/// 操作の理由を info のログに出す。成り立つ操作が合成で閉じていなければ（確かめ方の不整合）エラー
+pub fn detect<T: PartialEq + std::fmt::Display>(
+    tracking: &Tracking,
+    values: &[T],
+) -> Result<Detected, SymmetryError> {
+    let regions = tracking.lattice.regions();
+    if values.len() != regions {
+        return Err(SymmetryError::Regions {
+            given: values.len(),
+            regions,
+        });
+    }
+    let tolerance = tracking.lattice.coincident();
+    // 像のトラックの索引は一度だけ作る。作れなければ（端が外周の角にあるトラック）、恒等以外の操作はどれも確かめられない
+    let starts = StartIndex::new(tracking, tolerance);
+    let mut held = Vec::new();
+    let mut images = vec![identity_image(tracking)];
+    let mut rejected = vec![None; OPERATIONS.len()];
+    for (index, &name) in NAMES.iter().enumerate().skip(1) {
+        let image =
+            match &starts {
+                Ok(starts) => image_of(tracking, starts, index, tolerance).and_then(|image| {
+                    match image
+                        .regions
+                        .iter()
+                        .enumerate()
+                        .find(|&(r, &i)| values[r] != values[i])
+                    {
+                        Some((r, &i)) => Err(SymmetryError::Broken {
+                            operation: name,
+                            reason: format!(
+                                "region {r} has `{}`, but its image {i} has `{}`",
+                                values[r], values[i]
+                            ),
+                        }),
+                        None => Ok(image),
+                    }
+                }),
+                Err(error) => Err(SymmetryError::Broken {
+                    operation: name,
+                    reason: error.to_string(),
+                }),
+            };
+        match image {
+            Ok(image) => {
+                held.push(index);
+                images.push(image);
+            }
+            Err(error) => {
+                tracing::info!(operation = name, %error, "symmetry operation does not hold");
+                // 強制したときのエラー（`restrict`）は操作の名前を付けて示すので、理由だけを残す
+                rejected[index] = Some(match error {
+                    SymmetryError::Broken { reason, .. } => reason,
+                    other => other.to_string(),
+                });
+            }
+        }
+    }
+    let symmetry = Symmetry::new(&held)?;
+    tracing::info!(
+        symmetry = symmetry.name(),
+        operations = symmetry.order(),
+        "symmetry"
+    );
+    Ok(Detected {
+        symmetry,
+        images,
+        cells: tracking.lattice.cells(),
+        shape: shape(tracking),
+        rejected,
+    })
+}
+
+/// 自己遮蔽と MOC に使う対称操作（`choose`）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Chosen {
+    shielding: Detected,
+    /// MOC に使う対称性が自己遮蔽と違うとき（強制したとき）だけ
+    moc: Option<Detected>,
+}
+
+impl Chosen {
+    /// 自己遮蔽のピンと塊の組に使う対称操作（ADR-0112）
+    pub fn shielding(&self) -> &Detected {
+        &self.shielding
+    }
+
+    /// MOC に使う対称操作
+    pub fn moc(&self) -> &Detected {
+        self.moc.as_ref().unwrap_or(&self.shielding)
+    }
+}
+
+/// 自己遮蔽と MOC に使う対称操作を選ぶ（ADR-0112）。`forced` が `None` なら `detect` の結果を両方に使う。
+/// 強制した対称性が `Symmetry::NONE` なら、判定をせず、両方とも対称性なしにする（検証の基準なので判定の結果に頼らない）。
+/// ほかの強制は、`detect` の結果を自己遮蔽に、その結果から取り出した強制の対称性を MOC に使い、成り立たない操作があれば
+/// その名前と理由を示すエラー
+pub fn choose<T: PartialEq + std::fmt::Display>(
+    tracking: &Tracking,
+    values: &[T],
+    forced: Option<Symmetry>,
+) -> Result<Chosen, SymmetryError> {
+    match forced {
+        Some(Symmetry::NONE) => {
+            tracing::info!("symmetry \"none\": no symmetry is detected or used");
+            Ok(Chosen {
+                shielding: Detected::none(tracking),
+                moc: None,
+            })
+        }
+        Some(symmetry) => {
+            let detected = detect(tracking, values)?;
+            let moc = detected.restrict(symmetry)?;
+            tracing::info!(symmetry = symmetry.name(), "forced symmetry");
+            Ok(Chosen {
+                shielding: detected,
+                moc: Some(moc),
+            })
+        }
+        None => Ok(Chosen {
+            shielding: detect(tracking, values)?,
+            moc: None,
+        }),
+    }
+}
+
+/// 対称性 `symmetry` のどの操作も、形状とトラックで成り立つことを確かめた像（領域の値は確かめない。ライブラリと
+/// テストで、対称性を指定して解くとき）。どれかの操作が成り立たなければエラー
+pub fn require(tracking: &Tracking, symmetry: Symmetry) -> Result<Detected, SymmetryError> {
+    let operations = symmetry.operations();
+    let mut verified = vec![identity_image(tracking)];
+    verified.extend(images(tracking, &operations[1..])?);
+    Ok(Detected {
+        symmetry,
+        images: verified,
+        cells: tracking.lattice.cells(),
+        shape: shape(tracking),
+        rejected: vec![None; OPERATIONS.len()],
+    })
+}
+
+/// トラッキングの (領域、トラック、方位角) の数
+fn shape(tracking: &Tracking) -> (usize, usize, usize) {
+    (
+        tracking.lattice.regions(),
+        tracking.tracks.len(),
+        tracking.azimuths.len(),
+    )
+}
+
+/// 恒等の像（確かめなくても成り立つ）
+fn identity_image(tracking: &Tracking) -> Image {
+    Image {
+        name: NAMES[0],
+        matrix: [1.0, 0.0, 0.0, 1.0],
+        cells: (0..tracking.lattice.cells()).collect(),
+        regions: (0..tracking.lattice.regions()).collect(),
+        tracks: (0..tracking.tracks.len()).map(|t| (t, true)).collect(),
+    }
+}
 
 /// 1つの対称操作による像。
 #[derive(Debug, Clone, PartialEq)]
@@ -79,66 +400,74 @@ pub struct Image {
 /// トラック（端の点と、像の領域ごとの区間の長さ）が移り合わなければエラー。領域の物質は確かめない（使う側で
 /// 確かめる）。
 pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, SymmetryError> {
-    let lattice = &tracking.lattice;
-    // 区間の端の一致を確かめる許容誤差（`Tracking` の反射のつながりと同じ）
-    let tolerance = 1.0e-9 * lattice.width().max(lattice.height());
+    // 像のトラックの索引は一度だけ作る
+    let tolerance = tracking.lattice.coincident();
     let starts = StartIndex::new(tracking, tolerance)?;
-    let mut images = Vec::with_capacity(operations.len());
-    for &index in operations {
-        let (op, name) = (&OPERATIONS[index], NAMES[index]);
-        let broken = |reason: String| SymmetryError::Broken {
-            operation: name,
-            reason,
+    operations
+        .iter()
+        .map(|&index| image_of(tracking, &starts, index, tolerance))
+        .collect()
+}
+
+/// 操作 `index` の像（`images` を参照）
+fn image_of(
+    tracking: &Tracking,
+    starts: &StartIndex,
+    index: usize,
+    tolerance: f64,
+) -> Result<Image, SymmetryError> {
+    let lattice = &tracking.lattice;
+    let (op, name) = (&OPERATIONS[index], NAMES[index]);
+    let broken = |reason: String| SymmetryError::Broken {
+        operation: name,
+        reason,
+    };
+    check_boundaries(tracking, op).map_err(broken)?;
+    let (cells, regions) = region_map(lattice, op).map_err(broken)?;
+    let matrix = xy_matrix(op).map(|v| v as f64);
+    // トラックの像: 端の点を移し、像の向きの方位角の、同じ始点のトラックを探す
+    let apply = |(x, y): (f64, f64)| (matrix[0] * x + matrix[1] * y, matrix[2] * x + matrix[3] * y);
+    let azimuths = &tracking.azimuths;
+    let mut tracks = Vec::with_capacity(tracking.tracks.len());
+    for (index, track) in tracking.tracks.iter().enumerate() {
+        let phi = azimuths[track.azimuth].phi;
+        let (dx, dy) = apply((phi.cos(), phi.sin()));
+        // 方位角は (0, π) で持つので、像の向きが下向きなら逆向きのトラックになる
+        let forward = dy > 0.0;
+        let (start, angle) = if forward {
+            (apply(track.start), dy.atan2(dx))
+        } else {
+            (apply(track.end), (-dy).atan2(-dx))
         };
-        check_boundaries(tracking, op).map_err(broken)?;
-        let (cells, regions) = region_map(lattice, op).map_err(broken)?;
-        let matrix = xy_matrix(op).map(|v| v as f64);
-        // トラックの像: 端の点を移し、像の向きの方位角の、同じ始点のトラックを探す
-        let apply =
-            |(x, y): (f64, f64)| (matrix[0] * x + matrix[1] * y, matrix[2] * x + matrix[3] * y);
-        let azimuths = &tracking.azimuths;
-        let mut tracks = Vec::with_capacity(tracking.tracks.len());
-        for (index, track) in tracking.tracks.iter().enumerate() {
-            let phi = azimuths[track.azimuth].phi;
-            let (dx, dy) = apply((phi.cos(), phi.sin()));
-            // 方位角は (0, π) で持つので、像の向きが下向きなら逆向きのトラックになる
-            let forward = dy > 0.0;
-            let (start, angle) = if forward {
-                (apply(track.start), dy.atan2(dx))
-            } else {
-                (apply(track.end), (-dy).atan2(-dx))
-            };
-            let image = azimuths
-                .iter()
-                .position(|a| (a.phi - angle).abs() < 1.0e-9)
-                .and_then(|a| starts.find(tracking, a, start, tolerance))
-                .ok_or_else(|| broken(format!("track {index} has no image track")))?;
-            let (a, b) = (
-                &azimuths[track.azimuth],
-                &azimuths[tracking.tracks[image].azimuth],
-            );
-            let close = |x: f64, y: f64| (x - y).abs() <= 1.0e-9 * x.abs().max(y.abs());
-            if !(close(a.weight, b.weight) && close(a.spacing, b.spacing)) {
-                return Err(broken(format!(
-                    "track {index} and its image {image} differ in weight or spacing"
-                )));
-            }
-            if !segments_match(track, &tracking.tracks[image], &regions, forward, tolerance) {
-                return Err(broken(format!(
-                    "track {index} and its image {image} differ in segments"
-                )));
-            }
-            tracks.push((image, forward));
+        let image = azimuths
+            .iter()
+            .position(|a| (a.phi - angle).abs() < 1.0e-9)
+            .and_then(|a| starts.find(tracking, a, start, tolerance))
+            .ok_or_else(|| broken(format!("track {index} has no image track")))?;
+        let (a, b) = (
+            &azimuths[track.azimuth],
+            &azimuths[tracking.tracks[image].azimuth],
+        );
+        let close = |x: f64, y: f64| (x - y).abs() <= 1.0e-9 * x.abs().max(y.abs());
+        if !(close(a.weight, b.weight) && close(a.spacing, b.spacing)) {
+            return Err(broken(format!(
+                "track {index} and its image {image} differ in weight or spacing"
+            )));
         }
-        images.push(Image {
-            name,
-            matrix,
-            cells,
-            regions,
-            tracks,
-        });
+        if !segments_match(track, &tracking.tracks[image], &regions, forward, tolerance) {
+            return Err(broken(format!(
+                "track {index} and its image {image} differ in segments"
+            )));
+        }
+        tracks.push((image, forward));
     }
-    Ok(images)
+    Ok(Image {
+        name,
+        matrix,
+        cells,
+        regions,
+        tracks,
+    })
 }
 
 /// 方位角ごとの、トラックの始点を外周に沿った位置の順に並べた索引（像のトラックを二分探索で探す）。
@@ -239,44 +568,6 @@ fn region_map(lattice: &Lattice, op: &[i64; 4]) -> Result<(Vec<usize>, Vec<usize
         regions.extend(local.into_iter().map(|l| offset + l));
     }
     Ok((cells, regions))
-}
-
-/// 領域ごとの値 `values`（入力の物質の名前など）が、操作 `operations`（`OPERATIONS` の番号）のどれでも移った先の領域の
-/// 値と同じか。セルの像だけから領域の対応を作る（境界条件とトラックは見ない）。違えば、最初に違う領域とその像の値を
-/// 示すエラー
-pub fn check_regions<T: PartialEq + std::fmt::Display>(
-    lattice: &Lattice,
-    operations: &[usize],
-    values: &[T],
-) -> Result<(), SymmetryError> {
-    if values.len() != lattice.regions() {
-        return Err(SymmetryError::Regions {
-            given: values.len(),
-            regions: lattice.regions(),
-        });
-    }
-    for &index in operations {
-        let name = NAMES[index];
-        let (_, regions) =
-            region_map(lattice, &OPERATIONS[index]).map_err(|reason| SymmetryError::Broken {
-                operation: name,
-                reason,
-            })?;
-        if let Some((r, &i)) = regions
-            .iter()
-            .enumerate()
-            .find(|&(r, &i)| values[r] != values[i])
-        {
-            return Err(SymmetryError::Broken {
-                operation: name,
-                reason: format!(
-                    "region {r} has `{}`, but its image {i} has `{}`",
-                    values[r], values[i]
-                ),
-            });
-        }
-    }
-    Ok(())
 }
 
 /// トラック `track` の区間を領域の像 `regions` で移したものが、像のトラック `image` の区間と同じか。領域ごとの長さの和と、
@@ -461,7 +752,7 @@ fn check_boundaries(tracking: &Tracking, op: &[i64; 4]) -> Result<(), String> {
     Ok(())
 }
 
-/// 対称操作で移り合う組（軌道）。MOC の領域と CMFD のセルは、組の代表の分だけ状態を持つ（ADR-0113）。
+/// 対称操作で移り合う組（軌道）。MOC の領域と CMFD のセルは、組の代表の分だけ状態を持つ（ADR-0112）。
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Orbits {
     /// 組の代表（番号の順）
@@ -511,62 +802,6 @@ impl Orbits {
     }
 }
 
-/// セルごとの、同じ組の代表のセル（組の中で最も小さい番号）。`region_material` は領域ごとの物質の番号。
-pub fn cell_orbits(
-    tracking: &Tracking,
-    region_material: &[usize],
-) -> Result<Vec<usize>, SymmetryError> {
-    let lattice = &tracking.lattice;
-    let regions = lattice.regions();
-    if region_material.len() != regions {
-        return Err(SymmetryError::Regions {
-            given: region_material.len(),
-            regions,
-        });
-    }
-    let cells = lattice.cells();
-    // セルのリングごとの物質（扇形や小さな正方形で物質が違うセルは None: 回すと領域の対応が変わる）
-    let rings = |cell: usize| -> Option<Vec<usize>> {
-        let materials = &region_material[lattice.cell_regions(cell)];
-        let width = match lattice.cell_type(cell) {
-            Cell::Pin(pin) if !pin.is_grid() => pin.sectors(),
-            _ => materials.len(),
-        };
-        materials
-            .chunks(width)
-            .map(|ring| ring.iter().all(|&m| m == ring[0]).then_some(ring[0]))
-            .collect()
-    };
-    let ring_materials: Vec<Option<Vec<usize>>> = (0..cells).map(rings).collect();
-    let valid: Vec<&[i64; 4]> = OPERATIONS
-        .iter()
-        .filter(|op| {
-            let identity = **op == OPERATIONS[0];
-            // セルの大きさと種類は、MOC の対称性（`images`）と同じく比べる（軸を入れ替える操作では、ブロックの
-            // nx と ny も入れ替える。#0053）
-            let cells_match = || {
-                (0..cells).all(|cell| {
-                    cell_image(lattice, op, cell).is_some_and(|image| {
-                        cell_mismatch(lattice, op, cell, image).is_none()
-                            && ring_materials[cell].is_some()
-                            && ring_materials[cell] == ring_materials[image]
-                    })
-                })
-            };
-            identity || (check_boundaries(tracking, op).is_ok() && cells_match())
-        })
-        .collect();
-    Ok((0..cells)
-        .map(|cell| {
-            valid
-                .iter()
-                .filter_map(|op| cell_image(lattice, op, cell))
-                .min()
-                .unwrap_or(cell)
-        })
-        .collect())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -599,7 +834,9 @@ mod tests {
     fn orbits(boundaries: Boundaries, materials: Option<Vec<usize>>) -> Vec<usize> {
         let (lattice, default) = lattice(&[4]);
         let tracking = Tracking::with_boundaries(&lattice, 8, 0.2, boundaries).unwrap();
-        cell_orbits(&tracking, &materials.unwrap_or(default)).unwrap()
+        detect(&tracking, &materials.unwrap_or(default))
+            .unwrap()
+            .cell_representatives()
     }
 
     #[test]
@@ -620,7 +857,9 @@ mod tests {
             .collect();
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         assert_eq!(
-            cell_orbits(&tracking, &materials).unwrap(),
+            detect(&tracking, &materials)
+                .unwrap()
+                .cell_representatives(),
             vec![0, 1, 0, 3, 4, 3, 0, 1, 0]
         );
     }
@@ -652,7 +891,9 @@ mod tests {
             .collect();
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         assert_eq!(
-            cell_orbits(&tracking, &materials).unwrap(),
+            detect(&tracking, &materials)
+                .unwrap()
+                .cell_representatives(),
             vec![0, 1, 0, 1, 4, 1, 0, 1, 0]
         );
     }
@@ -693,7 +934,158 @@ mod tests {
     fn region_materials_must_cover_the_lattice() {
         let (lattice, materials) = lattice(&[4]);
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
-        assert!(cell_orbits(&tracking, &materials[1..]).is_err());
+        assert!(detect(&tracking, &materials[1..]).is_err());
+    }
+
+    /// 3 × 3 のピン（燃料 0、水 1）の中央に、扇形 8 の水のセル（扇形ごとの物質 `pattern`）を置いた格子のトラックと領域の
+    /// 物質
+    fn patterned(pattern: [usize; 8], boundaries: Boundaries) -> (Tracking, Vec<usize>) {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let sectored = PinCell::with_sectors(1.26, vec![], 8).unwrap();
+        let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+        let lattice = Lattice::new(vec![pin, sectored], layout).unwrap();
+        let values = (0..9)
+            .flat_map(|cell| {
+                if cell == 4 {
+                    pattern.to_vec()
+                } else {
+                    vec![0, 1]
+                }
+            })
+            .collect();
+        let tracking = Tracking::with_boundaries(&lattice, 10, 0.05, boundaries).unwrap();
+        (tracking, values)
+    }
+
+    #[test]
+    fn identity_holds_even_when_images_cannot_be_found() {
+        // 像のトラックは始点を外周に沿った位置で探すので、端が外周の角にあるトラックがあると、恒等以外の操作は確かめられ
+        // ない（外した理由としてログに出す）。恒等は確かめなくても成り立つので、判定は止まらず、対称性なしになる
+        let (mut tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
+        let half = 0.5 * tracking.lattice.width();
+        tracking.tracks[0].start = (-half, -half);
+        let detected = detect(&tracking, &values).unwrap();
+        assert_eq!(detected.symmetry(), Symmetry::NONE);
+        assert_eq!(detected.cell_representatives(), (0..9).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn none_is_chosen_without_detection() {
+        // "none" は検証の基準なので、判定をせず（判定が止まる入力でも）、自己遮蔽も MOC も対称性なしで解く。値の数が
+        // 合わない入力は、判定するときだけエラーになる
+        let (tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
+        let short = &values[1..];
+        let chosen = choose(&tracking, short, Some(Symmetry::NONE)).unwrap();
+        assert_eq!(chosen.shielding().symmetry(), Symmetry::NONE);
+        assert_eq!(chosen.moc().symmetry(), Symmetry::NONE);
+        assert!(choose(&tracking, short, None).is_err());
+        // 判定するときは、自己遮蔽に成り立つ操作をすべて、MOC に強制した対称性を渡す
+        let chosen = choose(&tracking, &values, Some(Symmetry::QUARTER)).unwrap();
+        assert_eq!(chosen.shielding().symmetry(), Symmetry::OCTANT);
+        assert_eq!(chosen.moc().symmetry(), Symmetry::QUARTER);
+        let chosen = choose(&tracking, &values, None).unwrap();
+        assert_eq!(chosen.moc().symmetry(), Symmetry::OCTANT);
+    }
+
+    #[test]
+    fn forced_symmetry_reports_the_failing_operation() {
+        // 強制した対称性は、判定の結果から取り出す。成り立たない操作があれば、その操作の名前と理由を示すエラー
+        let right = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let (tracking, values) = patterned([2; 8], right);
+        let detected = detect(&tracking, &values).unwrap();
+        // 1/4 の操作のうち、番号の順で最初に成り立たないもの（180° 回転）を、名前を重ねずに示す
+        let quarter = detected
+            .restrict(Symmetry::QUARTER)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            quarter.contains("rotation by 180 degrees")
+                && quarter.contains("Vacuum")
+                && quarter.matches("not symmetric").count() == 1,
+            "{quarter}"
+        );
+        let mirror = Symmetry::new(&[5]).unwrap();
+        let kept = detected.restrict(mirror).unwrap();
+        assert_eq!(kept.symmetry(), mirror);
+        assert_eq!(kept.images().len(), 2);
+        assert_eq!(detected.restrict(Symmetry::NONE).unwrap().images().len(), 1);
+        // 成り立ったが絞り込みで外した操作を、もう一度求めると、外した理由を示す（「確かめていない」としない）
+        let (tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
+        let quarter = detect(&tracking, &values)
+            .unwrap()
+            .restrict(Symmetry::QUARTER)
+            .unwrap();
+        let error = quarter.restrict(Symmetry::OCTANT).unwrap_err().to_string();
+        assert!(error.contains("leaves it out"), "{error}");
+    }
+
+    #[test]
+    fn detects_every_operation_that_holds() {
+        let symmetry = |ops: &[usize]| Symmetry::new(ops).unwrap();
+        let reflective = Boundaries::REFLECTIVE;
+        // 右と下が真空（C5G7 の 1/4 炉心の形）: 左上から右下への対角線の鏡映だけ
+        let corner = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        // 右だけ真空: 上下の鏡映だけ
+        let right = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let cases = [
+            ([2; 8], reflective, Symmetry::OCTANT),
+            ([2; 8], corner, symmetry(&[6])),
+            ([2; 8], right, symmetry(&[5])),
+            // 扇形が 1 つおきに違う（風車）: 回転だけ
+            ([2, 3, 2, 3, 2, 3, 2, 3], reflective, symmetry(&[1, 2, 3])),
+            // 対角線をはさんで同じ: 2 つの対角線の鏡映と 180° 回転
+            ([2, 2, 3, 3, 2, 2, 3, 3], reflective, symmetry(&[2, 6, 7])),
+            // 半周ごとに同じ: 180° 回転だけ
+            ([2, 3, 4, 5, 2, 3, 4, 5], reflective, symmetry(&[2])),
+            // 扇形がどれも違う: なし
+            ([2, 3, 4, 5, 6, 7, 8, 9], reflective, Symmetry::NONE),
+        ];
+        for (pattern, boundaries, expected) in cases {
+            let (tracking, values) = patterned(pattern, boundaries);
+            let detected = detect(&tracking, &values).unwrap();
+            assert_eq!(
+                detected.symmetry(),
+                expected,
+                "{pattern:?}: {} instead of {}",
+                detected.symmetry().name(),
+                expected.name()
+            );
+            // 像は使う操作ごとに 1 つ（恒等を含む）
+            assert_eq!(detected.images().len(), expected.order());
+        }
+        // 長方形（真ん中の列が幅 1.0）では、軸を入れ替える操作は成り立たない
+        let lattice = quarter_lattice(true);
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let values = vec![0; lattice.regions()];
+        assert_eq!(
+            detect(&tracking, &values).unwrap().symmetry(),
+            Symmetry::QUARTER
+        );
+    }
+
+    #[test]
+    fn symmetry_names_closed_sets_only() {
+        // 恒等は含めなくてよい。合成で閉じない操作の集合（90° の回転だけ）と、ない操作の番号はエラー
+        assert_eq!(Symmetry::new(&[]).unwrap(), Symmetry::NONE);
+        assert_eq!(Symmetry::new(&[2, 4, 5]).unwrap(), Symmetry::QUARTER);
+        assert!(matches!(
+            Symmetry::new(&[1]),
+            Err(SymmetryError::NotClosed(_))
+        ));
+        assert!(matches!(
+            Symmetry::new(&[8]),
+            Err(SymmetryError::UnknownOperation(8))
+        ));
     }
 
     /// 1/4 対称だが 1/8 対称でない格子。`odd` なら 3 × 3 で、真ん中の列は幅 1.0 の 2 × 2 のブロック（左右の鏡映の軸が
@@ -725,7 +1117,7 @@ mod tests {
         for odd in [true, false] {
             let lattice = quarter_lattice(odd);
             let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
-            let images = images(&tracking, &QUARTER).unwrap();
+            let images = images(&tracking, &Symmetry::QUARTER.operations()).unwrap();
             assert_eq!(images.len(), 4);
             let exact = lattice.volumes();
             let apply =
@@ -769,7 +1161,7 @@ mod tests {
         // 正しい領域の像ではどのトラックも区間の長さが一致し、ピンの燃料と水を入れ替えた像では一致しないトラックがある
         let (lattice, _) = lattice(&[4]);
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
-        let images = images(&tracking, &QUARTER).unwrap();
+        let images = images(&tracking, &Symmetry::QUARTER.operations()).unwrap();
         let tolerance = 1.0e-9 * lattice.width();
         for image in &images {
             for (t, &(u, forward)) in image.tracks.iter().enumerate() {
@@ -800,6 +1192,7 @@ mod tests {
     fn region_values_must_map_onto_themselves() {
         // 入力の物質の名前で、像の領域が同じ物質か確かめる
         let (lattice, _) = lattice(&[4]);
+        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         let names: Vec<String> = (0..lattice.cells())
             .flat_map(|cell| {
                 if cell == 4 {
@@ -809,11 +1202,18 @@ mod tests {
                 }
             })
             .collect();
-        assert!(check_regions(&lattice, &QUARTER, &names).is_ok());
+        assert!(
+            detect(&tracking, &names)
+                .unwrap()
+                .restrict(Symmetry::QUARTER)
+                .is_ok()
+        );
         // 右上の角のピンの燃料だけ別の名前
         let mut changed = names.clone();
         changed[lattice.cell_regions(2).start] = "other".into();
-        let error = check_regions(&lattice, &QUARTER, &changed)
+        let error = detect(&tracking, &changed)
+            .unwrap()
+            .restrict(Symmetry::QUARTER)
             .unwrap_err()
             .to_string();
         assert!(
@@ -830,7 +1230,7 @@ mod tests {
         let mut tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         let half = (0.5 * lattice.width(), 0.5 * lattice.height());
         tracking.tracks[0].start = (-half.0, -half.1);
-        let error = images(&tracking, &QUARTER).unwrap_err();
+        let error = images(&tracking, &Symmetry::QUARTER.operations()).unwrap_err();
         assert!(
             matches!(error, SymmetryError::CornerTrack { track: 0 }),
             "{error}"
@@ -846,11 +1246,11 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&symmetric, 8, 0.2, boundaries).unwrap();
-        assert!(images(&tracking, &QUARTER).is_err());
+        assert!(images(&tracking, &Symmetry::QUARTER.operations()).is_err());
         // 左の真ん中だけ水
         let (asymmetric, _) = lattice(&[3]);
         let tracking = Tracking::new(&asymmetric, 8, 0.2).unwrap();
-        assert!(images(&tracking, &QUARTER).is_err());
+        assert!(images(&tracking, &Symmetry::QUARTER.operations()).is_err());
         // 左右が真空で上下が鏡面反射なら、1/8 対称でなくても 1/4 対称
         let boundaries = Boundaries {
             left: Boundary::Vacuum,
@@ -858,6 +1258,6 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&symmetric, 8, 0.2, boundaries).unwrap();
-        assert!(images(&tracking, &QUARTER).is_ok());
+        assert!(images(&tracking, &Symmetry::QUARTER.operations()).is_ok());
     }
 }
