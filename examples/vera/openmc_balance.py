@@ -13,7 +13,8 @@ xlc の `balance` の例（crates/lattice/examples/balance.rs）と同じ形式�
 
 統計誤差は、生成、吸収、中性子束が同じ粒子の追跡から出て強く相関するので、世代ごとの値から求める。世代ごとの値
 （それぞれの世代のすべてのエネルギーの生成で規格化したもの）を `batches` に書く。移行の行列（nu-scatter、出来事ごとの
-推定）は平均と標準偏差だけを書く。
+推定）は平均と標準偏差を書き、世代ごとには、入射の群ごとに、ほかの群へ出る分（`out_scatter`）と同じ群に残る分
+（`within_scatter`）だけを書く。
 """
 
 import sys
@@ -130,6 +131,9 @@ def main() -> None:
                 }
                 for name in ("rates", "outside")
             }
+            now["transfer"] = {
+                "nu-scatter": sp.get_tally(name="transfer").get_values(value="sum")
+            }
             if batch == batches:
                 k = sp.keff
                 tally = sp.get_tally(name="transfer")
@@ -139,7 +143,7 @@ def main() -> None:
             now
             if previous is None
             else {
-                name: {s: now[name][s] - previous[name][s] for s in SCORES}
+                name: {s: now[name][s] - previous[name][s] for s in now[name]}
                 for name in now
             }
         )
@@ -149,6 +153,8 @@ def main() -> None:
         total = edges["nu-fission"].sum()
         raw_totals.append(total)
         net_edges = net_absorption(edges)
+        moved = this["transfer"]["nu-scatter"].reshape(len(order), n, n)
+        within = np.diagonal(moved, axis1=1, axis2=2)
         per_batch.append(
             {
                 "flux": inside["flux"] / total,
@@ -158,6 +164,8 @@ def main() -> None:
                 "above": net_edges[:, 2].sum() / total,
                 "below_production": edges["nu-fission"][:, 0].sum() / total,
                 "above_production": edges["nu-fission"][:, 2].sum() / total,
+                "out_scatter": (moved.sum(axis=2) - within) / total,
+                "within_scatter": within / total,
             }
         )
 
@@ -192,7 +200,10 @@ def main() -> None:
         out["batches"].append(
             {
                 "materials": {
-                    NAMES[m.name]: {key: b[key][i][::-1].tolist() for key in KEYS}
+                    NAMES[m.name]: {
+                        key: b[key][i][::-1].tolist()
+                        for key in (*KEYS, "out_scatter", "within_scatter")
+                    }
                     for i, m in enumerate(order)
                 },
                 "below": float(b["below"]),

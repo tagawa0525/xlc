@@ -16,7 +16,11 @@ k (ΔP − k ΔA)、中性子束を OpenMC に固定）。全体の差との残�
 σ は OpenMC の世代ごとの値の標準誤差（同じ粒子の追跡による量の間の相関、規格化の生成、範囲の外の項を含む。世代の
 間の相関は含まないので小さめに出る）。範囲の境の既定は 15.03 keV（UFG の範囲の上）、4 eV（下）、0.625 eV。
 
-最後に、燃料の群の間の散乱による移行（反応率 / 中性子束）を、共鳴の範囲の群で比べる（群から出る割合と、群に残る割合）。
+最後に、燃料の群の間の散乱による移行を、4 eV〜15.03 keV に入る群（範囲の境の引数によらない）で比べる。群 g から
+ほかの群へ出る率を O_g、同じ群に残る率を W_g、中性子束を φ_g（どれも生成 1 あたり）として、群ごとに
+(O_g/φ_g)_xlc / (O_g/φ_g)_OpenMC − 1（W も同じ）と、出る率の不足の計 D = Σ_g [(O_g/φ_g)_xlc φ_g,OpenMC − O_g,OpenMC]
+（xlc の移行の断面積を OpenMC の中性子束に掛けた率と OpenMC の率の差、生成 1 あたり）と D / Σ_g O_g,OpenMC を出す。
+OpenMC の値は世代ごとの値の平均で、σ は世代ごとの値から求める（比は 1 次の近似で、中性子束と率の σ と相関を含む）。
 """
 
 import math
@@ -24,6 +28,9 @@ import sys
 from pathlib import Path
 
 import msgpack
+
+# 燃料の移行を比べる範囲 (eV)
+RESONANCE = (4.0, 15.03e3)
 
 
 def read(path: str) -> dict:
@@ -53,6 +60,18 @@ def main() -> None:
                 raise SystemExit("the group counts differ from the library")
     if not reference.get("batches") or "outside" not in reference:
         raise SystemExit("the OpenMC balance needs `batches` and `outside`")
+    # 反応率 / 中性子束を作るので、中性子束が 0 の群があれば止める
+    for label, side in [
+        ("xlc", ours["materials"]),
+        ("OpenMC", reference["materials"]),
+    ] + [
+        (f"OpenMC batch {i + 1}", b["materials"])
+        for i, b in enumerate(reference["batches"])
+    ]:
+        for name, rates in side.items():
+            zero = [g + 1 for g, f in enumerate(rates["flux"]) if not f > 0]
+            if zero:
+                raise SystemExit(f"{label}: {name} has no flux in groups {zero}")
 
     # 群 g は bounds[g]〜bounds[g+1]（高いエネルギーから）。範囲は群の上の境で決める
     labels = (
@@ -80,14 +99,9 @@ def main() -> None:
                 )
                 dp = da = 0.0
                 for g in sel:
-                    if a["flux"][g] > 0 and b["flux"][g] > 0:
-                        phi = b["flux"][g]
-                        da += (
-                            a["absorption"][g] / a["flux"][g] * phi - b["absorption"][g]
-                        )
-                        dp += (
-                            a["production"][g] / a["flux"][g] * phi - b["production"][g]
-                        )
+                    phi = b["flux"][g]
+                    da += a["absorption"][g] / a["flux"][g] * phi - b["absorption"][g]
+                    dp += a["production"][g] / a["flux"][g] * phi - b["production"][g]
                 parts[("first", name, r)] = k_ref * (dp - k_ref * da) * 1e5
         return parts
 
@@ -138,7 +152,7 @@ def main() -> None:
             fb = sum(b["flux"][g] for g in sel)
             print(
                 f"{name:9s} {label:>18s} {mean[(name, r)]:+7.1f} ± {sigma((name, r)):4.1f} "
-                f"{(fa / fb - 1) * 100 if fb else 0:+7.2f}%"
+                f"{(fa / fb - 1) * 100:+7.2f}%"
             )
     for side in ("below", "above"):
         print(f"{'outside':9s} {side:>18s} {mean[side]:+7.1f} ± {sigma(side):4.1f}")
@@ -157,35 +171,60 @@ def main() -> None:
         f"the rest {rest(mean):+.1f} ± {sigma(rest):.1f}"
     )
 
-    # 燃料の散乱による移行（反応率 / 中性子束）を共鳴の範囲の群で比べる
-    if "transfer" in ours["materials"].get("fuel", {}) and "transfer" in reference[
-        "materials"
-    ].get("fuel", {}):
-        a, b = ours["materials"]["fuel"], reference["materials"]["fuel"]
-        print(
-            "fuel scattering transfer in the resonance range (xlc / OpenMC − 1, OpenMC σ):"
+    # 燃料の散乱による移行を 4 eV〜15.03 keV の群で比べる
+    low, high = RESONANCE
+    resonance = [
+        g
+        for g in range(groups)
+        if bounds[g + 1] >= low * (1 - 1e-9) and bounds[g] <= high * (1 + 1e-9)
+    ]
+    fuel = ours["materials"]["fuel"]
+    batches = [b["materials"]["fuel"] for b in reference["batches"]]
+    if "transfer" not in fuel or any("out_scatter" not in b for b in batches):
+        raise SystemExit("the fuel transfer needs `transfer` and batch `out_scatter`")
+
+    def mean_of(key: str, g: int) -> float:
+        return sum(b[key][g] for b in batches) / n
+
+    def spread(values: list[float]) -> float:
+        m = sum(values) / n
+        return math.sqrt(sum((v - m) ** 2 for v in values) / (n - 1) / n)
+
+    def ratio(xs: float, key: str, g: int) -> tuple[float, float]:
+        """xs / (key / φ)_OpenMC − 1 と、その σ（1 次の近似）"""
+        rate, phi = mean_of(key, g), mean_of("flux", g)
+        r = xs * phi / rate
+        linear = [b["flux"][g] / phi - b[key][g] / rate for b in batches]
+        return r - 1, r * spread(linear)
+
+    print(
+        f"fuel scattering transfer in {low:g}〜{high:g} eV "
+        "(xlc / OpenMC − 1 of rate per flux; σ from batches):"
+    )
+    deficit = [0.0] * n
+    out_total = [0.0] * n
+    for g in resonance:
+        out_xs = (
+            sum(fuel["transfer"][g][h] for h in range(groups) if h != g)
+            / fuel["flux"][g]
         )
-        for g in ranges[1]:
-            out_a = (
-                sum(a["transfer"][g][h] for h in range(groups) if h != g) / a["flux"][g]
-            )
-            out_b = (
-                sum(b["transfer"][g][h] for h in range(groups) if h != g) / b["flux"][g]
-            )
-            out_s = (
-                math.sqrt(
-                    sum(b["transfer_std"][g][h] ** 2 for h in range(groups) if h != g)
-                )
-                / b["flux"][g]
-            )
-            in_a = a["transfer"][g][g] / a["flux"][g]
-            in_b = b["transfer"][g][g] / b["flux"][g]
-            in_s = b["transfer_std"][g][g] / b["flux"][g]
-            print(
-                f"  {g + 1:3d} {bounds[g + 1]:9.4g}〜{bounds[g]:<9.4g} "
-                f"out {out_a / out_b - 1:+7.2%} ± {out_s / out_b:.2%}  "
-                f"in {in_a / in_b - 1:+7.2%} ± {in_s / in_b:.2%}"
-            )
+        within_xs = fuel["transfer"][g][g] / fuel["flux"][g]
+        out, out_s = ratio(out_xs, "out_scatter", g)
+        within, within_s = ratio(within_xs, "within_scatter", g)
+        print(
+            f"  {g + 1:3d} {bounds[g + 1]:9.4g}〜{bounds[g]:<9.4g} "
+            f"out {out:+7.2%} ± {out_s:.2%}  within {within:+7.2%} ± {within_s:.2%}"
+        )
+        for i, b in enumerate(batches):
+            deficit[i] += out_xs * b["flux"][g] - b["out_scatter"][g]
+            out_total[i] += b["out_scatter"][g]
+    d, o = sum(deficit) / n, sum(out_total) / n
+    share = [x / o - d * y / o**2 for x, y in zip(deficit, out_total)]
+    print(
+        f"  groups {resonance[0] + 1}〜{resonance[-1] + 1}: out-scatter deficit "
+        f"D {d:+.3e} ± {spread(deficit):.1e} per unit production, "
+        f"D / OpenMC out {d / o:+.2%} ± {spread(share):.2%}"
+    )
 
 
 if __name__ == "__main__":
