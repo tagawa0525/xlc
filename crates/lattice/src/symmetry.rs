@@ -891,6 +891,24 @@ mod tests {
     }
 
     #[test]
+    fn none_is_chosen_without_detection() {
+        // "none" は検証の基準なので、判定をせず（判定が止まる入力でも）、自己遮蔽も MOC も対称性なしで解く。値の数が
+        // 合わない入力は、判定するときだけエラーになる
+        let (tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
+        let short = &values[1..];
+        let chosen = choose(&tracking, short, Some(Symmetry::NONE)).unwrap();
+        assert_eq!(chosen.shielding.symmetry(), Symmetry::NONE);
+        assert_eq!(chosen.moc.symmetry(), Symmetry::NONE);
+        assert!(choose(&tracking, short, None).is_err());
+        // 判定するときは、自己遮蔽に成り立つ操作をすべて、MOC に強制した対称性を渡す
+        let chosen = choose(&tracking, &values, Some(Symmetry::QUARTER)).unwrap();
+        assert_eq!(chosen.shielding.symmetry(), Symmetry::OCTANT);
+        assert_eq!(chosen.moc.symmetry(), Symmetry::QUARTER);
+        let chosen = choose(&tracking, &values, None).unwrap();
+        assert_eq!(chosen.moc.symmetry(), Symmetry::OCTANT);
+    }
+
+    #[test]
     fn forced_symmetry_reports_the_failing_operation() {
         // 強制した対称性は、判定の結果から取り出す。成り立たない操作があれば、その操作の名前と理由を示すエラー
         let right = Boundaries {
