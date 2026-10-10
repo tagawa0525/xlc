@@ -972,7 +972,7 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
-    fn symmetry_is_none_unless_given() {
+    fn symmetry_is_detected_unless_given() {
         let given = |value: &str| {
             replaced(
                 PIN_CELL,
@@ -980,13 +980,25 @@ zones = [{ material = "water", rings = 1 }]
                 &format!("spacing = 0.05\nsymmetry = \"{value}\""),
             )
         };
+        // 省略すると成り立つ対称操作をすべて使い、名前を書くとその対称性を強制する（ADR-0112）
         assert_eq!(
             LatticeInput::parse(PIN_CELL).unwrap().symmetry,
-            Symmetry::NONE
+            SymmetryChoice::Detect
         );
-        assert_eq!(given("quarter").unwrap().symmetry, Symmetry::QUARTER);
-        assert_eq!(given("none").unwrap().symmetry, Symmetry::NONE);
+        assert_eq!(
+            given("quarter").unwrap().symmetry,
+            SymmetryChoice::Force(Symmetry::QUARTER)
+        );
+        assert_eq!(
+            given("octant").unwrap().symmetry,
+            SymmetryChoice::Force(Symmetry::OCTANT)
+        );
+        assert_eq!(
+            given("none").unwrap().symmetry,
+            SymmetryChoice::Force(Symmetry::NONE)
+        );
         assert!(given("half").is_err());
+        assert!(given("auto").is_err());
     }
 
     #[test]

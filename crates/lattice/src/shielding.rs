@@ -1330,6 +1330,7 @@ mod tests {
         use crate::geometry::{Lattice, PinCell};
         use crate::input::MaterialInput;
         use crate::material::Material;
+        use crate::symmetry::{Symmetry, detect};
         use crate::tracking::Tracking;
         use xlc_format::group::GroupStructure;
         use xlc_format::library::{Library, NuclideData, Resolved, Shielded, TemperatureData};
@@ -1712,9 +1713,10 @@ mod tests {
         }
 
         #[test]
-        fn pieces_split_by_sectors_stay_in_their_cell() {
-            // 外のリング（内径 0.65 > 半ピッチ 0.63）は四隅に分かれる。対称な操作は扇形を入れ替えるので、
-            // 対称なセル（1 と 2）の隅は同じ黒体にしない
+        fn pieces_split_by_sectors_are_grouped_by_images() {
+            // 外のリング（内径 0.65 > 半ピッチ 0.63）は四隅に分かれる。成り立つ操作は恒等、180° 回転、対角線と
+            // 反対角線の鏡映で、隅（扇形2つずつ）はその像どうしで組になる（ADR-0114）: 格子の中心の 2 つ、外の角の
+            // 2 つ、残りの 4 つ
             let library = library_with_zirconium();
             let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
             let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
@@ -1748,16 +1750,18 @@ mod tests {
                 &ShieldingOptions::default(),
             )
             .unwrap();
-            // 2つのセルの四隅（扇形2つずつ）
-            assert_eq!(shielded.lumps.len(), 8, "{:?}", shielded.lumps);
+            let mut sizes: Vec<usize> = shielded.lumps.iter().map(|l| l.regions.len()).collect();
+            sizes.sort_unstable();
+            assert_eq!(sizes, vec![4, 4, 8], "{:?}", shielded.lumps);
+            // 組の領域は1つの物質を共有する
             for lump in &shielded.lumps {
-                let cells: Vec<usize> = lump
-                    .regions
-                    .iter()
-                    .map(|&r| tracking.lattice.region_cell(r))
-                    .collect();
-                assert!(cells.iter().all(|&c| c == cells[0]), "{lump:?}");
-                assert_eq!(lump.regions.len(), 2, "{lump:?}");
+                let m = shielded.region_material[lump.regions[0]];
+                assert!(
+                    lump.regions
+                        .iter()
+                        .all(|&r| shielded.region_material[r] == m),
+                    "{lump:?}"
+                );
             }
         }
 
@@ -1765,7 +1769,8 @@ mod tests {
         fn half_turned_lumps_have_equal_dancoff() {
             // 2 × 2 の格子（左上と右下が燃料、右上と左下が、四隅に分かれた Zr のリング）は 180° の回転で
             // 自分自身に移る。右上のセルの隅の塊と、その像の左下のセルの隅の塊（扇形を 4 つ回した領域）は、トラックも
-            // 正確に移り合うので、Dancoff 係数と平均弦長が丸めの程度で一致する（#0055）
+            // 正確に移り合うので、Dancoff 係数と平均弦長が丸めの程度で一致する（#0055）。自己遮蔽は像の隅を1つの黒体に
+            // まとめる（ADR-0114）ので、隅ごとの値は、隅を別々の塊にして `lump_dancoff` で求めて比べる
             let library = library_with_zirconium();
             let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
             let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
@@ -1799,48 +1804,44 @@ mod tests {
                 &ShieldingOptions::default(),
             )
             .unwrap();
-            // 180° の回転の像: 右上のセル（1）と左下のセル（2）が入れ替わり、扇形は 4 つ回る
+            // 隅ごとの塊: Zr のセル（1、2）の外のリングの扇形の対 (0, 1)、(2, 3)、(4, 5)、(6, 7)
             let lattice = &tracking.lattice;
-            let image = |region: usize| -> usize {
+            let corner = |region: usize| -> Option<usize> {
                 let cell = lattice.region_cell(region);
                 let local = region - lattice.cell_regions(cell).start;
-                let (ring, sector) = (local / 8, local % 8);
-                let other = 3 - cell;
-                lattice.cell_regions(other).start + ring * 8 + (sector + 4) % 8
+                (cell % 3 != 0 && local >= 8).then(|| (cell - 1) * 4 + (local % 8) / 2)
             };
-            let mut compared = 0;
-            for a in &shielded.lumps {
-                let mut images: Vec<usize> = a.regions.iter().map(|&r| image(r)).collect();
-                images.sort_unstable();
-                let b = shielded
-                    .lumps
-                    .iter()
-                    .find(|b| {
-                        let mut r = b.regions.clone();
-                        r.sort_unstable();
-                        r == images
-                    })
-                    .unwrap();
-                let close = |x: f64, y: f64| (x - y).abs() <= 1e-10 * x.abs().max(y.abs());
+            let lump: Vec<Option<usize>> = (0..lattice.regions()).map(corner).collect();
+            let black: Vec<bool> = lump.iter().map(Option::is_some).collect();
+            let totals: Vec<Vec<f64>> = shielded
+                .region_material
+                .iter()
+                .map(|&m| shielded.materials[m].total.clone())
+                .collect();
+            let found = lump_dancoff(
+                &tracking,
+                &totals,
+                &black,
+                &lump,
+                8,
+                &DancoffOptions::default(),
+            )
+            .unwrap();
+            // 180° の回転の像: 右上のセル（1）と左下のセル（2）が入れ替わり、扇形は 4 つ回る（隅は 2 つ回る）
+            let image = |l: usize| (1 - l / 4) * 4 + (l % 4 + 2) % 4;
+            let close = |x: f64, y: f64| (x - y).abs() <= 1e-10 * x.abs().max(y.abs());
+            for l in 0..8 {
+                let (a, b) = (&found[l], &found[image(l)]);
                 assert!(
                     close(a.chord, b.chord),
-                    "chord {:?}: {} vs {:?}: {}",
-                    a.regions,
+                    "chord {l}: {} vs {}",
                     a.chord,
-                    b.regions,
                     b.chord
                 );
                 for (g, (x, y)) in a.dancoff.iter().zip(&b.dancoff).enumerate() {
-                    assert!(
-                        close(*x, *y),
-                        "group {g}, {:?}: {x} vs {:?}: {y}",
-                        a.regions,
-                        b.regions
-                    );
+                    assert!(close(*x, *y), "group {g}, corner {l}: {x} vs {y}");
                 }
-                compared += 1;
             }
-            assert_eq!(compared, 8);
         }
 
         #[test]
@@ -2302,6 +2303,140 @@ mod tests {
             // 被覆管と同じ物質の無限希釈のまま。被覆管のリングは UFG の物質）
             assert_eq!(framed.region_material[4], 1);
             assert_ne!(framed.region_material[4], framed.region_material[2]);
+        }
+
+        /// 自己遮蔽した格子で成り立つ対称性（物質の参照で確かめる）が `expected` で、その対称性で解いた MOC の解が全体を
+        /// 解いた解と一致すること。自己遮蔽が対称な部分を同じ組として解いていなければ、物質の参照が移り合わない
+        fn assert_symmetric_solves(
+            tracking: &Tracking,
+            shielded: &FuelShielding,
+            expected: Symmetry,
+        ) {
+            use crate::moc::{Options, solve};
+            let materials: Vec<&Material> = shielded
+                .region_material
+                .iter()
+                .map(|&m| &shielded.materials[m])
+                .collect();
+            let identity: Vec<usize> = materials
+                .iter()
+                .map(|&m| std::ptr::from_ref(m) as usize)
+                .collect();
+            let detected = detect(tracking, &identity).unwrap();
+            assert_eq!(detected.symmetry, expected, "{}", detected.symmetry.name());
+            let options = Options::default();
+            let full = solve(tracking, &materials, &options).unwrap();
+            let reduced = solve(
+                tracking,
+                &materials,
+                &Options {
+                    symmetry: detected.symmetry,
+                    ..options
+                },
+            )
+            .unwrap();
+            assert!(
+                (full.k - reduced.k).abs() < options.k_tolerance,
+                "{} vs {}",
+                full.k,
+                reduced.k
+            );
+            for (a, b) in full
+                .flux
+                .iter()
+                .flatten()
+                .zip(reduced.flux.iter().flatten())
+            {
+                assert!(
+                    (a - b).abs() < options.flux_tolerance * a.abs(),
+                    "{a} vs {b}"
+                );
+            }
+        }
+
+        #[test]
+        fn corner_lumps_keep_the_symmetry() {
+            // 3 × 3 の、辺の中央の 4 つのセルが、四隅に分かれた構造材（外のリングの内径 0.65 > 半ピッチ 0.63）のセル。
+            // 移り合う隅は同じ塊の物質を共有し、1/8 対称のまま解ける（#0054 の (a)）
+            let library = library_with_zirconium();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
+            let layout = vec![vec![0, 1, 0], vec![1, 0, 1], vec![0, 1, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names: Vec<&str> = if t == 0 {
+                    vec!["fuel", "water"]
+                } else {
+                    [["water"; 8], ["zirc"; 8]].concat()
+                };
+                names.into_iter().map(String::from).collect()
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, corner], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "zirc".into(),
+                temperature: T,
+                composition: vec![("Zr-90".into(), 0.04)],
+            });
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            assert_symmetric_solves(&tracking, &shielded, Symmetry::OCTANT);
+        }
+
+        #[test]
+        fn sectored_cells_keep_the_symmetry() {
+            // 3 × 3 の中央が、扇形 8 で物質の違う水のセル（扇形 0、3、4、7 が water、1、2、5、6 が water2）。左右と
+            // 上下の鏡映では移り合うが対角線の鏡映では移り合わないので、ピンは鏡映で組になり、1/4 対称で解ける（#0054 の
+            // (b)）
+            let library = library();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let sectored = PinCell::with_sectors(1.26, vec![], 8).unwrap();
+            let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names: Vec<&str> = if t == 0 {
+                    vec!["fuel", "water"]
+                } else {
+                    (0..8)
+                        .map(|k| {
+                            if [1, 2, 5, 6].contains(&k) {
+                                "water2"
+                            } else {
+                                "water"
+                            }
+                        })
+                        .collect()
+                };
+                names.into_iter().map(String::from).collect()
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, sectored], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let mut materials = materials();
+            materials.push(MaterialInput {
+                name: "water2".into(),
+                temperature: T,
+                composition: vec![("H-1".into(), 0.04)],
+            });
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            // 角のピンどうし、上下の辺のピンどうしは同じ物質を共有する
+            let first = |cell: usize| shielded.region_material[lattice.cell_regions(cell).start];
+            assert_eq!(first(0), first(8));
+            assert_eq!(first(1), first(7));
+            assert_symmetric_solves(&tracking, &shielded, Symmetry::QUARTER);
         }
 
         #[test]
