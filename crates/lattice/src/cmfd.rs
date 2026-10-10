@@ -28,7 +28,8 @@ pub struct CoarseMesh {
     heights: Vec<f64>,
     /// [領域] の属するセル
     cell_of_region: Vec<usize>,
-    /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
+    /// [トラック] の始点で入る経路と終点で出る経路（順方向に通るときの向き付き）。ふつうは端のセルの外周の面 1 つ
+    /// （重み ±1）。端が外周の 2 つの面の境にあれば、自分の外周の面、隣のセルとの間の面、隣の外周の面の 3 つ（重み ±1/2）
     ends: Vec<[FacePath; 2]>,
 }
 
@@ -84,6 +85,7 @@ impl CoarseMesh {
             .collect();
         let half = (0.5 * lattice.width(), 0.5 * lattice.height());
         let coincident = lattice.coincident();
+        let lines = (lattice.column_lines(), lattice.row_lines());
         let mut mesh = Self {
             widths: lattice.widths().to_vec(),
             heights: lattice.heights().to_vec(),
@@ -93,8 +95,8 @@ impl CoarseMesh {
         for track in &tracking.tracks {
             let first = mesh.cell(track.segments[0].region);
             let last = mesh.cell(track.segments[track.segments.len() - 1].region);
-            let start = mesh.end_path(first, track.start, half, coincident, false);
-            let end = mesh.end_path(last, track.end, half, coincident, true);
+            let start = mesh.end_path(first, track.start, half, lines, coincident, false);
+            let end = mesh.end_path(last, track.end, half, lines, coincident, true);
             mesh.ends.push([start, end]);
         }
         mesh
@@ -135,7 +137,7 @@ impl CoarseMesh {
         ]
     }
 
-    /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
+    /// トラック `track` の始点で入る経路と終点で出る経路（順方向に通るときの向き付き。`ends` のフィールドを参照）
     pub(crate) fn ends(&self, track: usize) -> [FacePath; 2] {
         self.ends[track]
     }
@@ -249,6 +251,7 @@ impl CoarseMesh {
         cell: usize,
         point: (f64, f64),
         half: (f64, f64),
+        (xs, ys): (&[f64], &[f64]),
         coincident: f64,
         exiting: bool,
     ) -> FacePath {
@@ -272,25 +275,19 @@ impl CoarseMesh {
         let own = faces[side];
         // 辺に沿った格子線のうち、点がセルの両端の線にあれば、その向こうのセルと、そちらへ移る面（cell_faces の番号）
         let neighbour = if side >= 2 {
-            let left = -half.0 + self.widths[..c].iter().sum::<f64>();
-            let right = left + self.widths[c];
-            if c > 0 && (point.0 - left).abs() <= coincident {
+            if c > 0 && (point.0 - xs[c]).abs() <= coincident {
                 Some((cell - 1, 0))
-            } else if c + 1 < nc && (point.0 - right).abs() <= coincident {
+            } else if c + 1 < nc && (point.0 - xs[c + 1]).abs() <= coincident {
                 Some((cell + 1, 1))
             } else {
                 None
             }
+        } else if r > 0 && (point.1 - ys[r]).abs() <= coincident {
+            Some((cell - nc, 2))
+        } else if r + 1 < nr && (point.1 - ys[r + 1]).abs() <= coincident {
+            Some((cell + nc, 3))
         } else {
-            let top = half.1 - self.heights[..r].iter().sum::<f64>();
-            let bottom = top - self.heights[r];
-            if r > 0 && (point.1 - top).abs() <= coincident {
-                Some((cell - nc, 2))
-            } else if r + 1 < nr && (point.1 - bottom).abs() <= coincident {
-                Some((cell + nc, 3))
-            } else {
-                None
-            }
+            None
         };
         let sign = if exiting { 1.0 } else { -1.0 };
         match neighbour {
