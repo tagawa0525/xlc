@@ -234,6 +234,28 @@ impl PinCell {
         pairs
     }
 
+    /// セルの中の区切りの幅（名前と幅 cm）: 格子の正方形、最も内のリングの半径とリングの幅、枠の厚さ
+    fn widths(&self) -> Vec<(&'static str, f64)> {
+        if self.is_grid() {
+            return vec![("a grid square", self.pitch / self.grid as f64)];
+        }
+        let mut widths: Vec<(&'static str, f64)> = self
+            .radii
+            .iter()
+            .scan(0.0, |inner, &r| {
+                let width = r - *inner;
+                *inner = r;
+                Some(("a ring", width))
+            })
+            .collect();
+        // 円が枠の内側の正方形やセルの辺に接しても、間の領域は四隅の塊で細い帯ではない（細いのは接点のまわりだけで、
+        // 接線に近い弦と同じく、まとめて失う体積は同じ点とみなす距離の 2 乗の程度）ので確かめない
+        if let Some(thickness) = self.frame {
+            widths.push(("a frame", thickness));
+        }
+        widths
+    }
+
     /// 枠の内側の正方形の半辺
     fn inner_half(&self) -> f64 {
         0.5 * self.pitch - self.frame.unwrap_or(0.0)
@@ -563,7 +585,14 @@ impl Lattice {
                     Cell::Block { nx, ny } if *nx == 0 || *ny == 0 => {
                         return Err(GeometryError::EmptyGrid);
                     }
-                    _ => {}
+                    Cell::Block { nx, ny } => {
+                        let parts = [
+                            ("a block column", widths[c] / *nx as f64),
+                            ("a block row", heights[r] / *ny as f64),
+                        ];
+                        thin_region(t, &parts, limit)?;
+                    }
+                    Cell::Pin(pin) => thin_region(t, &pin.widths(), limit)?,
                 }
             }
         }
@@ -813,6 +842,24 @@ fn block_region((w, h): (f64, f64), (nx, ny): (usize, usize), (x, y): (f64, f64)
     let column = (((x + 0.5 * w) / (w / nx as f64)).floor().max(0.0) as usize).min(nx - 1);
     let row = (((0.5 * h - y) / (h / ny as f64)).floor().max(0.0) as usize).min(ny - 1);
     row * nx + column
+}
+
+/// セルの種類 `cell_type` の中の区切りの幅 `parts`（名前と幅）のどれかが、同じ点とみなす距離 `limit` 以下ならエラー。
+/// 区切りがまとまり、その領域が区間を持てなくなる（斜めに浅く横切るトラックでは区間が残り、体積が黙って過小になる）
+fn thin_region(
+    cell_type: usize,
+    parts: &[(&'static str, f64)],
+    limit: f64,
+) -> Result<(), GeometryError> {
+    match parts.iter().find(|(_, size)| *size <= limit) {
+        Some(&(what, size)) => Err(GeometryError::ThinRegion {
+            what,
+            cell_type,
+            size,
+            limit,
+        }),
+        None => Ok(()),
+    }
 }
 
 /// 大きさ `sizes` を中心を原点に並べた境界の座標（向き `sign` に。両端を含み、両端はちょうど ∓sign × 全長/2。
@@ -1191,7 +1238,7 @@ mod tests {
 
     #[test]
     fn regions_thinner_than_the_same_point_distance_are_errors() {
-        // セルの中の区切りの幅（リングの幅、枠の厚さと枠までの幅、格子の幅、ブロックの小さな長方形）が同じ点とみなす
+        // セルの中の区切りの幅（リングの幅、枠の厚さ、格子の幅、ブロックの小さな長方形）が同じ点とみなす
         // 距離（2 × 2、ピッチ 1.26 の格子で 2.5e-9 cm）以下なら、格子を作るときに止める（#0055）。斜めに浅く横切る
         // トラックでは区間が残り、体積が黙って過小になる
         let thin = |pin: PinCell| {
@@ -1208,7 +1255,8 @@ mod tests {
                 .with_frame(1e-12)
                 .unwrap()
         ));
-        assert!(thin(
+        // 枠の内側の正方形に接する円は、間の四隅の領域が細い帯にならないので止めない
+        assert!(!thin(
             PinCell::new(1.26, vec![0.58 - 1e-12])
                 .unwrap()
                 .with_frame(0.05)
