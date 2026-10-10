@@ -238,49 +238,38 @@ impl Drop for TempRepo {
 }
 
 #[test]
-fn commit_on_the_merged_branch_counts_during_a_merge() -> Result<()> {
-    // マージのコミットを作る前（hook の検査）は HEAD がまだ元のブランチなので、issue を閉じたブランチの上の
-    // コミットは、マージするブランチ（MERGE_HEAD）の祖先として認める。どちらの祖先でもないコミット（rebase で
-    // 捨てたブランチの上のものなど）は、マージの途中でもあとでも認めない
-    let t = TempRepo::new("merge")?;
+fn branch_commits_count_until_the_branch_is_gone() -> Result<()> {
+    // issue を閉じたブランチの上のコミットは、マージの前（hook の検査）もあとも認める。rebase で捨てたコミット
+    // （どのブランチにもない）は認めない
+    let t = TempRepo::new("branches")?;
     t.commit("chore: base")?;
+    t.run(&["switch", "-q", "-c", "topic"])?;
+    let fix = t.commit("fix: topic")?;
     t.run(&["switch", "-q", "-c", "gone"])?;
     let stale = t.commit("fix: gone")?;
     t.run(&["switch", "-q", "main"])?;
-    t.run(&["switch", "-q", "-c", "topic"])?;
-    let fix = t.commit("fix: topic")?;
-    t.run(&["switch", "-q", "main"])?;
+    t.run(&["branch", "-q", "-D", "gone"])?;
     t.commit("chore: other")?;
-    assert!(
-        t.problem(&fix)?.is_some(),
-        "a branch commit before the merge"
-    );
+    assert_eq!(t.problem(&fix)?, None, "a commit on an unmerged branch");
+    assert!(t.problem(&stale)?.is_some(), "a commit on no branch");
     t.run(&[
         "merge",
         "-q",
         "--no-ff",
-        "--no-commit",
         "--no-verify",
+        "-m",
+        "chore: merge",
         "topic",
     ])?;
+    t.run(&["branch", "-q", "-d", "topic"])?;
     assert_eq!(
         t.problem(&fix)?,
         None,
-        "a merged-branch commit during the merge"
+        "a merged commit after the branch is deleted"
     );
     assert!(
         t.problem(&stale)?.is_some(),
-        "a stale commit during the merge"
-    );
-    t.run(&["commit", "-q", "--no-verify", "-m", "chore: merge"])?;
-    assert_eq!(
-        t.problem(&fix)?,
-        None,
-        "a merged-branch commit after the merge"
-    );
-    assert!(
-        t.problem(&stale)?.is_some(),
-        "a stale commit after the merge"
+        "a commit on no branch after the merge"
     );
     Ok(())
 }
