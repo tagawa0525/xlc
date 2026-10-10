@@ -265,6 +265,56 @@ pub fn horizontal_face(rows: usize, columns: usize, line: usize, column: usize) 
     rows * (columns + 1) + line * columns + column
 }
 
+/// 粗メッシュのセルの、対称操作で移り合う組（ADR-0113）。CMFD は組の代表のセルだけで解く（代表でないセルの中性子束は
+/// 代表と同じ）。
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Orbits {
+    /// 解くセル（組の代表。番号の順）
+    pub representatives: Vec<usize>,
+    /// [セル] の代表の、`representatives` の中の位置
+    pub index: Vec<usize>,
+    /// [代表] の組のセルの数
+    pub sizes: Vec<f64>,
+}
+
+impl Orbits {
+    /// どのセルも自分だけの組（対称性を使わない）
+    pub fn identity(cells: usize) -> Self {
+        Self {
+            representatives: (0..cells).collect(),
+            index: (0..cells).collect(),
+            sizes: vec![1.0; cells],
+        }
+    }
+
+    /// [セル] の代表のセル `representative`（代表は自分自身が代表）から
+    pub fn new(representative: &[usize]) -> Self {
+        let representatives: Vec<usize> = (0..representative.len())
+            .filter(|&c| representative[c] == c)
+            .collect();
+        let mut position = vec![0; representative.len()];
+        for (i, &c) in representatives.iter().enumerate() {
+            position[c] = i;
+        }
+        let index: Vec<usize> = representative.iter().map(|&r| position[r]).collect();
+        let mut sizes = vec![0.0; representatives.len()];
+        for &i in &index {
+            sizes[i] += 1.0;
+        }
+        Self {
+            representatives,
+            index,
+            sizes,
+        }
+    }
+
+    /// セル `cell` が代表なら、その `representatives` の中の位置
+    fn position(&self, cell: usize) -> Option<usize> {
+        let i = self.index[cell];
+        (self.representatives[i] == cell).then_some(i)
+    }
+}
+
 /// CMFD の固有値問題の打ち切り条件。
 ///
 /// MOC の反復の判定（`moc::Options`）より十分小さくする。CMFD の打ち切りの誤差が、MOC の
@@ -335,6 +385,10 @@ impl Spectrum {
 #[derive(Debug, Clone)]
 pub(crate) struct Coarse {
     groups: usize,
+    /// [代表] の解くセル（エラーの表示用）
+    cells: Vec<usize>,
+    /// [代表] の組のセルの数（生成率の和の重み）
+    sizes: Vec<f64>,
     /// [セル][群] の均質化した中性子束
     flux: Vec<f64>,
     /// [セル] の核分裂源 V χ νΣf を、核分裂のスペクトルごとの項の和として持つ（密な群×群の行列にすると、
@@ -348,17 +402,20 @@ pub(crate) struct Coarse {
 }
 
 impl Coarse {
-    /// 細かい領域の [領域][群] の中性子束 `flux` と体積から、セルごとに断面積を均質化し、
-    /// スイープで数えた [面][群] の正味の流れ `current` に合うよう結合係数を補正する。
+    /// 細かい領域の中性子束と体積から、代表のセル（`orbits`）ごとに断面積を均質化し、スイープで数えた [面][群] の正味の
+    /// 流れ `current` に合うよう結合係数を補正する。領域 r の中性子束は `flux[state[r]]`（[群]）。代表でない隣のセルとの
+    /// 結合は、その代表との結合にする（対称な解では中性子束が同じ）。
     pub fn homogenize(
         mesh: &CoarseMesh,
+        orbits: &Orbits,
         materials: &[&Material],
         volumes: &[f64],
         flux: &[Vec<f64>],
+        state: &[usize],
         current: &[f64],
     ) -> Result<Self, CmfdError> {
         let ng = materials[0].groups();
-        let cells = mesh.cells();
+        let cells = orbits.representatives.len();
         let mut volume = vec![0.0; cells];
         let mut phi = vec![0.0; cells * ng];
         // 反応率の和（後で中性子束で割る）
@@ -366,7 +423,10 @@ impl Coarse {
         let mut scatter = vec![0.0; cells * ng * ng];
         let mut fission: Vec<Vec<Spectrum>> = vec![Vec::new(); cells];
         for (region, m) in materials.iter().enumerate() {
-            let (c, v, f) = (mesh.cell(region), volumes[region], &flux[region]);
+            let Some(c) = orbits.position(mesh.cell(region)) else {
+                continue;
+            };
+            let (v, f) = (volumes[region], &flux[state[region]]);
             volume[c] += v;
             for g in 0..ng {
                 phi[c * ng + g] += v * f[g];
@@ -403,7 +463,7 @@ impl Coarse {
                 let reaction = phi[c * ng + g];
                 if reaction <= 0.0 || !reaction.is_finite() {
                     return Err(CmfdError::NonPositiveFlux {
-                        cell: c,
+                        cell: orbits.representatives[c],
                         group: g,
                         flux: reaction,
                     });
@@ -440,33 +500,47 @@ impl Coarse {
         // 対角のブロックの対角項: 全断面積 + 面からの漏れ。隣との結合
         let mut diagonal: Vec<f64> = (0..cells * ng).map(|j| total[j] / phi[j]).collect();
         let mut neighbors: Vec<Vec<(usize, Vec<f64>)>> = vec![Vec::new(); cells];
-        for face in 0..mesh.faces() {
-            let net = &current[face * ng..][..ng];
-            match mesh.face_cells(face) {
-                FaceCells::Inner { low, high } => {
-                    // 面の正の向きの流れ J = -D̃ (φ_h - φ_l) - D̂ (φ_h + φ_l)（面の長さあたり）。
-                    // D̃ = 2 D_l D_h / (w_l D_h + w_h D_l)（w は面に垂直な方向のセルの幅）
-                    let (length, wl, wh) = mesh.face_geometry(face);
-                    let mut on_high = vec![0.0; ng];
-                    let mut on_low = vec![0.0; ng];
-                    for g in 0..ng {
-                        let (dl, dh) = (diffusion(low, g, wl), diffusion(high, g, wh));
-                        let coupling = 2.0 * dl * dh / (wl * dh + wh * dl);
-                        let (fl, fh) = (phi[low * ng + g], phi[high * ng + g]);
-                        let correction = -(net[g] / length + coupling * (fh - fl)) / (fh + fl);
-                        // 低い側の式では J が出ていく流れ、高い側の式では入ってくる流れ
-                        diagonal[low * ng + g] += length * (coupling - correction);
-                        on_high[g] = length * (-coupling - correction);
-                        diagonal[high * ng + g] += length * (coupling + correction);
-                        on_low[g] = length * (-coupling + correction);
+        for (c, &cell) in orbits.representatives.iter().enumerate() {
+            for (face, _) in mesh.cell_faces(cell) {
+                let net = &current[face * ng..][..ng];
+                match mesh.face_cells(face) {
+                    FaceCells::Inner { low, high } => {
+                        // 面の正の向きの流れ J = -D̃ (φ_h - φ_l) - D̂ (φ_h + φ_l)（面の長さあたり）。
+                        // D̃ = 2 D_l D_h / (w_l D_h + w_h D_l)（w は面に垂直な方向のセルの幅）。このセルから見て、
+                        // 外向きの流れ s J（s は外向きが面の正の向きなら 1）を -D̃ (φ_隣 - φ_自) - s D̂ (φ_自 + φ_隣) で表す
+                        let (length, wl, wh) = mesh.face_geometry(face);
+                        let (outward, other, own_width, other_width) = if low == cell {
+                            (1.0, high, wl, wh)
+                        } else {
+                            (-1.0, low, wh, wl)
+                        };
+                        let o = orbits.index[other];
+                        let mut on_other = vec![0.0; ng];
+                        for g in 0..ng {
+                            let (dc, dn) =
+                                (diffusion(c, g, own_width), diffusion(o, g, other_width));
+                            let coupling = 2.0 * dc * dn / (own_width * dn + other_width * dc);
+                            let (fc, fo) = (phi[c * ng + g], phi[o * ng + g]);
+                            // s D̂
+                            let correction =
+                                -(outward * net[g] / length + coupling * (fo - fc)) / (fc + fo);
+                            diagonal[c * ng + g] += length * (coupling - correction);
+                            on_other[g] = length * (-coupling - correction);
+                        }
+                        // 隣が自分の像（対称線をはさむ）なら、隣の中性子束は自分と同じ
+                        if o == c {
+                            for (d, a) in diagonal[c * ng..][..ng].iter_mut().zip(&on_other) {
+                                *d += a;
+                            }
+                        } else {
+                            neighbors[c].push((o, on_other));
+                        }
                     }
-                    neighbors[low].push((high, on_high));
-                    neighbors[high].push((low, on_low));
-                }
-                // 外周の面: 外向きの流れを、すべて補正の項 D̂ φ で表す
-                FaceCells::Outer { cell, outward } => {
-                    for g in 0..ng {
-                        diagonal[cell * ng + g] += outward * net[g] / phi[cell * ng + g];
+                    // 外周の面: 外向きの流れを、すべて補正の項 D̂ φ で表す
+                    FaceCells::Outer { outward, .. } => {
+                        for g in 0..ng {
+                            diagonal[c * ng + g] += outward * net[g] / phi[c * ng + g];
+                        }
                     }
                 }
             }
@@ -480,11 +554,13 @@ impl Coarse {
                 for g in 0..ng {
                     a[g * ng + g] += diagonal[c * ng + g];
                 }
-                Lu::new(a, ng).ok_or(CmfdError::Singular(c))
+                Lu::new(a, ng).ok_or(CmfdError::Singular(orbits.representatives[c]))
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             groups: ng,
+            cells: orbits.representatives.clone(),
+            sizes: orbits.sizes.clone(),
             flux: phi,
             fission,
             blocks,
@@ -492,7 +568,7 @@ impl Coarse {
         })
     }
 
-    /// 固有値問題を `k` から解き始め、k と [セル][群] の中性子束の比（解 / 均質化した中性子束、
+    /// 固有値問題を `k` から解き始め、k と [代表のセル][群] の中性子束の比（解 / 均質化した中性子束、
     /// どちらも生成率 1 に規格化）を返す。
     ///
     /// べき乗法の各反復で、ブロック Gauss-Seidel をセルの順に1回だけ行う。収束すると
@@ -500,11 +576,15 @@ impl Coarse {
     pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
         let ng = self.groups;
         let cells = self.blocks.len();
+        // 生成率は全てのセルの和（代表のセルは組のセルの数だけ数える）
         let production = |phi: &[f64]| -> f64 {
             (0..cells)
                 .flat_map(|c| {
                     let p = &phi[c * ng..][..ng];
-                    self.fission[c].iter().map(move |s| s.chi_sum * s.rate(p))
+                    let size = self.sizes[c];
+                    self.fission[c]
+                        .iter()
+                        .map(move |s| size * (s.chi_sum * s.rate(p)))
                 })
                 .sum()
         };
@@ -540,7 +620,7 @@ impl Coarse {
             }
             if let Some(j) = phi.iter().position(|&f| f <= 0.0 || !f.is_finite()) {
                 return Err(CmfdError::NonPositiveSolution {
-                    cell: j / ng,
+                    cell: self.cells[j / ng],
                     group: j % ng,
                     flux: phi[j],
                 });
@@ -659,7 +739,17 @@ mod tests {
         // 均質なので、領域の中性子束の形によらない
         let flux = vec![vec![1.0, 0.3], vec![0.8, 0.5]];
         let current = vec![0.0; mesh.faces() * 2];
-        let coarse = Coarse::homogenize(&mesh, &[&m, &m], &volumes, &flux, &current).unwrap();
+        let orbits = Orbits::identity(mesh.cells());
+        let coarse = Coarse::homogenize(
+            &mesh,
+            &orbits,
+            &[&m, &m],
+            &volumes,
+            &flux,
+            &[0, 1],
+            &current,
+        )
+        .unwrap();
         let (k, ratio) = coarse.solve(1.0, &CmfdOptions::default()).unwrap();
         assert!((k - expected).abs() < 1e-9, "{k} vs {expected}");
         assert_eq!(ratio.len(), 2);
