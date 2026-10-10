@@ -65,7 +65,7 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
   判定の範囲（統計誤差 12 pcm の 2 倍と 2E-empty の間隔の幅で 30.9 pcm。2I の間隔の幅と、計装管の中のリングの分け方が 2E-empty と違う分は測っておらず、判定の範囲に
   入っていない。#0059）の中にあり、0 と区別できない。シンブルによる k の変化は xlc −82 pcm、OpenMC −79 pcm。OpenMC と KENO-VI の k の差は +27 pcm、ピン出力は rms 0.043%、
   最大 −0.115% で、2B〜2D と同じ程度に一致する
-- 2026-10-11: 2J（Pyrex の棒 24 本と計装管のシンブル）を解いた（examples/vera/verification.md の「OpenMC との比較」、73658d53）。
+- 2026-10-11: 2J（Pyrex の棒 24 本と計装管のシンブル）を解いた（examples/vera/verification.md の「OpenMC との比較」、c3979785）。
   xlc 0.979017、OpenMC 0.976243 ± 0.000047（+277 pcm）、ピン出力 rms 0.10%、最大 +0.26%。2E-empty を基準にした変化は +31 pcm で、
   判定の範囲（2J の間隔の幅を除いて 30.9 pcm）の端にあり、0 と区別できない。2F と 2I の変化の和（+38 pcm）とも区別できない。
   2F を基準にしたシンブルによる k の変化は xlc −74 pcm、OpenMC −64 pcm。シンブルの上下左右の隣のピンは OpenMC で 2F より
