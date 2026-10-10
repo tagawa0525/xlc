@@ -87,8 +87,10 @@ issues: ["#0054"]
 - `symmetry::tests::swapping_axes_turns_blocks`、`swapped_blocks_are_images` ほか: 自己遮蔽のピンの組（`Detected` の
   セルの代表）は、ブロックの像の向き（#0053）、境界条件、物質の違いを `cell_orbits` と同じく扱う
 - VERA 2B を、変更の前の main（37a6484a）とこのブランチの `symmetry = "none"` で解くと、ピンの核分裂率のファイルはバイト
-  単位で同じ（k 1.186030、解いた燃料ピン 264 本中 39 本。examples/vera/verification.md「成り立つ対称操作をすべて使う」、
-  d6ac2070、2026-10-10）
+  単位で同じだった（k 1.186030、解いた燃料ピン 264 本中 39 本。そのときの none は自己遮蔽を組で解いていた。
+  examples/vera/verification.md「成り立つ対称操作をすべて使う」、d6ac2070、2026-10-10）。none が判定をしなくなったあと
+  （e57eed6c）は、自己遮蔽が 264 本をすべて別々に解き、ピンの核分裂率は組で解く main と最大 1.2e-12 しか違わない（同じ節の
+  注記）
 
 ## 結果
 
