@@ -291,6 +291,9 @@ cargo run --release -p xlc-lattice --example homogeneous -- all.toml examples/ve
 venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml all.toml work 200000 300 50 1
 ```
 
+（ce8e8d2a の `openmc_homogeneous.py` は k だけを書き、ライブラリの引数がない。いまは作業ディレクトリの次にライブラリを
+渡す。下の「反応率の比較」）
+
 | 媒質                                         | xlc      | OpenMC              | 差 (pcm)  |
 | -------------------------------------------- | -------- | ------------------- | --------- |
 | H-1、U-235                                   | 1.888852 | 1.888244 ± 0.000068 | +61 ± 7   |
@@ -305,6 +308,63 @@ venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections
   足した核種の影響は、ほかの核種のスペクトルを通して変わるので、核種ごとの寄与として足し合わせられるとは限らない
 - 同じ媒質を背景断面積だけで解くと（UFG なし）、すべての核種の媒質で 1.104395（−563 pcm）、H-1・U-235 で 1.889901
   （+166 pcm）。UFG の範囲の扱いで k が約 1000 pcm 動く
+
+### 反応率の比較（H-1・U-235 と H-1・U-235・U-238）
+
+差が +61 から +288 に増える 2 つの媒質で、核種ごと・群ごとの中性子束、正味の吸収、生成、散乱による移行を、生成 1 あたりで
+比べた。OpenMC は `openmc_homogeneous.py`（1 世代 20 万粒子・150 世代、最初の 50 世代を捨てる、乱数のシード 1。世代ごとの
+statepoint から世代ごとの値を求める）、xlc は `homogeneous` の例の `--balance`、比較は `compare_balance.py`（範囲の境
+100 keV、15.03 keV、4 eV、0.625 eV）と `compare_groups.py`。置き換えは `homogeneous` の例の `--swap`（核種の P0 の散乱行列の
+行を OpenMC の移行の率 / 中性子束に置き換え、正味の吸収と生成は変えない）。49bc2a84、2026-10-11。
+
+```sh
+venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml h-u5-u8.toml work \
+  ../../examples/vera/vera.msgpack 200000 150 50 1
+cargo run --release -p xlc-lattice --example homogeneous -- h-u5-u8.toml examples/vera/vera.msgpack --balance xlc.msgpack
+python3 examples/vera/compare_balance.py xlc.msgpack work/balance.msgpack examples/vera/vera.msgpack 1e5 15030 4 0.625
+python3 examples/vera/compare_groups.py xlc.msgpack work/balance.msgpack examples/vera/vera.msgpack
+cargo run --release -p xlc-lattice --example homogeneous -- h-u5-u8.toml examples/vera/vera.msgpack \
+  --swap work/balance.msgpack H-1:27-27
+```
+
+バランスは閉じる: OpenMC の正味の吸収からの 1/A は、H-1・U-235 で 1.888216 ± 0.000023（k の推定値 1.888213 ± 0.000109）、
+H-1・U-235・U-238 で 1.272674 ± 0.000165（1.272944 ± 0.000232）。k の差は 1/A で +63.6 ± 2.3 と +283.2 ± 16.5。
+
+- 生成 1 あたりの中性子束は、xlc の方が 0.8 MeV より下から 4 eV まで低い（H-1・U-235・U-238 で、0.82 MeV〜15 keV
+  （6〜13 群）で −0.6〜−2.0%、15 keV〜10 eV（14〜26 群）で −0.2〜−1.1%、4〜9.9 eV（27 群）で −2.1%）。
+  熱群（0.08 eV より下）は高い
+- H-1 の、群からほかの群へ出る移行（率 / 中性子束）が、xlc の方が大きい: 6〜13 群で +0.35〜+1.6%、14〜26 群で +0.0〜
+  +0.8%、27 群で +2.1%（σ はどれも 0.05% 以下）。同じ群に残る移行は小さい（−0.1〜−4.4%）。H-1 の P0 の散乱行列は NJOY
+  （GROUPR、WIMS 69 群、重み関数 iwt=4、0 K）と行ごとに 5.3e-5 以内で一致する（`compare_njoy_gendf`、
+  references/njoy-runs/H1）
+- U-238 の正味の吸収の率 / 中性子束は、14〜26 群で OpenMC と ±0.2% 以内で、27 群で +0.9%。U-238 の 4 eV〜15.03 keV の
+  寄与 +245 ± 16 は、主に中性子束の低さ（同じ範囲の吸収と生成の断面積の差による分は 1 次で −84 ± 12）
+- U-238 の、群から出る移行は xlc の方がずっと小さい（18〜27 群で −14〜−86%）
+
+散乱による移行を OpenMC のものに置き換えた k の変化:
+
+| 置き換えた行            | H-1・U-235 | H-1・U-235・U-238 |
+| ----------------------- | ---------- | ----------------- |
+| H-1、全群               | −68.5      | −390.3            |
+| H-1、1〜5 群            | −0.7       | −14.7             |
+| H-1、6〜13 群           | +1.2       | −17.1             |
+| H-1、14〜26 群          | −25.1      | −140.0            |
+| H-1、27 群（4〜9.9 eV） | −43.2      | −217.0            |
+| H-1、28〜69 群          | −0.7       | −1.3              |
+| U-238、全群             |            | +23.7             |
+| U-235、全群             | −0.0       | +0.3              |
+
+- H-1・U-235 では、H-1 の移行を置き換えると差（+63.6 ± 2.3）がほぼ消える（置き換えた k は OpenMC の 1/A と
+  −4.9 ± 2.3 pcm）。H-1・U-235・U-238 では −390 pcm 動き、差（+283 ± 17）を越える。残りの −107 ± 17 は、U-238 の吸収の断面積
+  の差（1 次で −84 ± 12）の向きと合う
+- 差を生むのは、H-1 の、27 群（4〜9.9 eV）と 14〜26 群の群から出る移行。U-238 の 6.67 eV の共鳴のある 27 群の中性子束が
+  xlc で低く、U-238 の吸収が少ない
+- 27 群の差の原因の候補（確かめていない）: xlc は 4 eV 未満だけを S(α,β) で扱い、4 eV より上は自由ガス
+  （[ADR-0052](../../docs/adr/0052-scatter-h-in-h2o-by-sab.md)）。OpenMC の c_H_in_H2O は評価済みデータの MF7 MT4 の上限
+  （10 eV）まで S(α,β) を使う。27 群はちょうど 4〜9.877 eV
+- 14〜26 群と 6〜13 群の差の原因の候補（確かめていない）: 散乱行列の群の中の重み（iwt=4 の 1/E。NJOY と同じ）と、媒質の
+  実際の群の中のスペクトル（U-238 の共鳴のくぼみ、H の散乱断面積のエネルギー変化）の違い。H-1・U-235 より H-1・U-235・
+  U-238 の方が 14〜26 群の差が大きいことは、共鳴のくぼみと合う
 
 ## k の差の内訳（1B の中性子収支）
 
