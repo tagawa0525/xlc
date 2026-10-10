@@ -36,7 +36,7 @@ resolution:           # 閉じるとき: ADR-NNNN | コミット <hash> | wontfi
 ## 運用
 
 - 検証の記録（examples/*/verification.md）の数値を引くときは、記録のファイルと、測ったときのコミットと日付を書く。
-  記録は今の姿に書き直されるので（ADR-0115）、節の題だけでは引き先が消えうる
+  記録は今の姿に書き直されるので（ADR-0117）、節の題だけでは引き先が消えうる
 - 閉じるときは `status: closed` と `closed` の日付と `resolution` を書き、ファイルは消さずに残す。閉じる変更は、対応したブランチの
   中でコミットする
 - `resolution` は、`ADR-NNNN`（決めた ADR。その ADR の前付けの `issues` にこの issue を挙げる）、`コミット <hash>`
