@@ -2439,4 +2439,116 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn faces_of_a_mirror_symmetric_lattice_are_symmetric() {
+        // 格子の中心（4 つのセルの角）や外周のセルの角をちょうど通るトラックがある、上下と左右で対称な格子。角を通る移動が
+        // 丸めで片側の隣のセルを経由したことになると、鏡像の面の量が揃わない（#0051）
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let water = PinCell::grid(1.26, 2).unwrap();
+        let layout = vec![
+            vec![0, 1, 1, 0],
+            vec![0, 0, 0, 0],
+            vec![0, 0, 0, 0],
+            vec![0, 1, 1, 0],
+        ];
+        let lattice = Lattice::with_margin(vec![pin, water], layout, 0.04).unwrap();
+        let (f, w) = (fuel(), moderator());
+        let materials: Vec<&Material> = (0..lattice.cells())
+            .flat_map(|cell| match lattice.cell_type(cell) {
+                Cell::Pin(pin) if !pin.is_grid() => (0..pin.regions())
+                    .map(|r| if r < 8 { &f } else { &w })
+                    .collect::<Vec<_>>(),
+                cell => vec![&w; cell.regions()],
+            })
+            .collect();
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, vacuum).unwrap();
+        // 前提: 内側のセルの角をちょうど通るトラックがある（角から直線までの距離が丸めの程度）
+        let edges = |sizes: &[f64]| -> Vec<f64> {
+            let mut at = -0.5 * sizes.iter().sum::<f64>();
+            sizes
+                .iter()
+                .map(|s| {
+                    at += s;
+                    at
+                })
+                .collect()
+        };
+        // 内側の線だけ（最後の要素は外周の辺）
+        let (xs, ys) = (edges(lattice.widths()), edges(lattice.heights()));
+        let (xs, ys) = (&xs[..xs.len() - 1], &ys[..ys.len() - 1]);
+        let through_corner = tracking.tracks.iter().any(|t| {
+            let d = (t.end.0 - t.start.0, t.end.1 - t.start.1);
+            let norm = d.0.hypot(d.1);
+            xs.iter().any(|&x| {
+                ys.iter()
+                    .any(|&y| ((x - t.start.0) * d.1 - (y - t.start.1) * d.0).abs() / norm < 1e-12)
+            })
+        });
+        assert!(through_corner, "no track passes through a corner");
+        let options = Options::default();
+        let s = solve(&tracking, &materials, &options).unwrap();
+        let (columns, rows) = (lattice.columns(), lattice.rows());
+        // 面の量を、同じ面の同じ群の中性子束の大きさで比べる（正味の流れは 0 に近いことがある）
+        let check = |face: usize, image: usize, sign: f64| {
+            for g in 0..2 {
+                let scale = s.face_fluxes[face][g];
+                for (name, a, b) in [
+                    ("flux", s.face_fluxes[face][g], s.face_fluxes[image][g]),
+                    (
+                        "current",
+                        s.face_currents[face][g],
+                        sign * s.face_currents[image][g],
+                    ),
+                ] {
+                    assert!(
+                        (a - b).abs() < options.flux_tolerance * scale,
+                        "{name} of face {face} and {image}, group {g}: {a} vs {b}"
+                    );
+                }
+            }
+        };
+        // 上下の鏡映: 縦の面は行が反転して流れ（x 向き）はそのまま、横の面は線が反転して流れ（y 向き）の符号が変わる
+        for row in 0..rows {
+            for line in 0..=columns {
+                let face = crate::cmfd::vertical_face(columns, row, line);
+                check(
+                    face,
+                    crate::cmfd::vertical_face(columns, rows - 1 - row, line),
+                    1.0,
+                );
+            }
+        }
+        for line in 0..=rows {
+            for column in 0..columns {
+                let face = crate::cmfd::horizontal_face(rows, columns, line, column);
+                let image = crate::cmfd::horizontal_face(rows, columns, rows - line, column);
+                check(face, image, -1.0);
+            }
+        }
+        // 左右の鏡映: 縦の面は線が反転して流れ（x 向き）の符号が変わり、横の面は列が反転して流れはそのまま
+        for row in 0..rows {
+            for line in 0..=columns {
+                let face = crate::cmfd::vertical_face(columns, row, line);
+                check(
+                    face,
+                    crate::cmfd::vertical_face(columns, row, columns - line),
+                    -1.0,
+                );
+            }
+        }
+        for line in 0..=rows {
+            for column in 0..columns {
+                let face = crate::cmfd::horizontal_face(rows, columns, line, column);
+                let image = crate::cmfd::horizontal_face(rows, columns, line, columns - 1 - column);
+                check(face, image, 1.0);
+            }
+        }
+    }
 }
