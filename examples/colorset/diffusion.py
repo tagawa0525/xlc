@@ -2,10 +2,11 @@
 ピン出力を書く。core の NEM とピン出力の再構成（ADR-0096）と同じ問題を、空間の離散化だけを細かくして解くので、
 core との差は、NEM と再構成の方法の誤差になる。
 
-使い方: python3 diffusion.py <cycle の台帳と並び> <出力の pins.msgpack> <セルあたりのメッシュの数>
+使い方: python3 diffusion.py <core のケース（case.toml）> <出力の pins.msgpack> <セルあたりのメッシュの数>
 
-- 並びは `cycle.toml` の loading と台帳（`inventory`）から読む（回さない並びだけ）
-- ノードは集合体1体（分割なし）。定数は各ノードのテーブルの最初の状態
+- ケースからサイクル、台帳、並びを読む。解けるのは、外周の 6 面がすべて鏡面反射、軸方向の層が 1 つ、ノードが集合体
+  1 体（分割なし）、状態の分岐のない（状態が 1 つの）テーブル、回さない燃料の集合体だけの炉心。それ以外はエラーにする
+  （この差分の式は、真空の辺の比、反射体の f*、状態の内挿、回した形状関数を扱わないので、黙って別の問題を解かない）
 - ノードの間の面では、不均質な中性子束（均質な中性子束 × その辺の ADF）と正味の中性子流を連続とする
 - ピン出力は Σ_g Σf,g φ_g（セルの平均）f_g（セル）。core と同じく、すべて 0 の行と列を除き、核分裂のあるセルの平均で
   1 に規格化する。行は +y（上）から
@@ -21,10 +22,29 @@ import scipy.sparse.linalg as spla
 import tomllib
 
 
-def read_layout(cycle_path: Path):
+def read_layout(case_path: Path):
+    case = tomllib.loads(case_path.read_text())
+    boundary = case["boundary"]
+    if any(side != "reflective" for axis in ("x", "y", "z") for side in boundary[axis]):
+        raise SystemExit(f"only reflective boundaries are handled: {boundary}")
+    if case.get("radial-nodes", 1) != 1:
+        raise SystemExit("only one radial node per assembly is handled")
+    if len(case["axial-mesh"]) != 2:
+        raise SystemExit("only one axial layer is handled")
+    if "state" in case:
+        raise SystemExit("states are not handled")
+    cycle_path = case_path.parent / case["cycle"]
     cycle = tomllib.loads(cycle_path.read_text())
-    inventory = tomllib.loads((cycle_path.parent / cycle["inventory"]).read_text())
+    base = cycle_path.parent
+    plant = tomllib.loads((base / cycle["plant"]).read_text())
+    inventory = tomllib.loads((base / cycle["inventory"]).read_text())
+    if plant.get("reflectors") or any(
+        site != "*" for line in plant["map"] for site in line.split()
+    ):
+        raise SystemExit("only maps of fuel assemblies are handled")
     rows = [line.split() for line in cycle["loading"]]
+    if len({len(row) for row in rows}) != 1:
+        raise SystemExit("the loading is not rectangular")
     nodes = []
     for row in rows:
         out = []
@@ -35,11 +55,22 @@ def read_layout(cycle_path: Path):
             if len(design["layers"]) != 1:
                 raise SystemExit("only one axial layer is handled")
             table = msgpack.unpackb(
-                (cycle_path.parent / design["layers"][0]).read_bytes(), raw=False
+                (base / design["layers"][0]).read_bytes(), raw=False
             )
             if table["split"] != 1:
                 raise SystemExit("split nodes are not handled")
-            out.append(table["states"][0])
+            if len(table["states"]) != 1:
+                raise SystemExit(f"{name}: tables with branches are not handled")
+            state = table["states"][0]
+            if state["pins"] is None:
+                raise SystemExit(f"{name}: the constants have no form functions")
+            if any(state["normalized_adf"]) or any(
+                r is not None for r in state["vacuum_ratio"]
+            ):
+                raise SystemExit(
+                    f"{name}: reflector or vacuum-side constants are not handled"
+                )
+            out.append(state)
         nodes.append(out)
     return nodes
 
@@ -47,10 +78,15 @@ def read_layout(cycle_path: Path):
 def solve(nodes, per_cell: int):
     """`nodes`[行（上から）][列] の定数で解き、(k, 中性子束 [群][y（下から）][x], メッシュの情報) を返す。"""
     n_rows, n_cols = len(nodes), len(nodes[0])
-    first = nodes[0][0]["pins"]
-    if first is None:
-        raise SystemExit("the constants have no form functions")
-    groups = len(first["form"])
+    groups = len(nodes[0][0]["pins"]["form"])
+    # メッシュは列ごとに最初の行のノードの幅、行ごとに最初の列のノードの高さで切るので、そろっていることを確かめる
+    for row in nodes:
+        for col, m in enumerate(row):
+            if (
+                m["pins"]["dx"] != nodes[0][col]["pins"]["dx"]
+                or m["pins"]["dy"] != row[0]["pins"]["dy"]
+            ):
+                raise SystemExit("cell sizes differ between nodes of one row or column")
 
     # x の方向のメッシュ: ノードの列ごとに、セルの幅を per_cell 個に分ける（幅の小さい余白のセルは 1 個）
     def mesh(widths):
@@ -184,8 +220,8 @@ def pin_powers(nodes, phi, xs, ys):
 
 
 def main():
-    cycle, output, per_cell = Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3])
-    nodes = read_layout(cycle)
+    case, output, per_cell = Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3])
+    nodes = read_layout(case)
     k, phi, xs, ys = solve(nodes, per_cell)
     power = pin_powers(nodes, phi, xs, ys)
     output.write_bytes(
