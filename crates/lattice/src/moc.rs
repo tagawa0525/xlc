@@ -2480,7 +2480,9 @@ mod tests {
                 })
                 .collect()
         };
+        // 内側の線だけ（最後の要素は外周の辺）
         let (xs, ys) = (edges(lattice.widths()), edges(lattice.heights()));
+        let (xs, ys) = (&xs[..xs.len() - 1], &ys[..ys.len() - 1]);
         let through_corner = tracking.tracks.iter().any(|t| {
             let d = (t.end.0 - t.start.0, t.end.1 - t.start.1);
             let norm = d.0.hypot(d.1);
