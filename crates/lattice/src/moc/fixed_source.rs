@@ -6,7 +6,7 @@
 
 use std::f64::consts::PI;
 
-use super::{Sweeper, sum_tallies};
+use super::{Representatives, Sweeper, sum_tallies};
 use crate::cmfd::{CmfdError, CoarseMesh};
 use crate::material::Material;
 use crate::tracking::Tracking;
@@ -87,7 +87,14 @@ pub fn fixed_source(
         .collect();
     let references: Vec<&Material> = materials.iter().collect();
     let mesh = CoarseMesh::new(tracking);
-    let sweeper = Sweeper::new(tracking, &references, ng, &mesh, &[(0, 0)]);
+    let sweeper = Sweeper::new(
+        tracking,
+        &references,
+        ng,
+        &mesh,
+        &[(0, 0)],
+        Representatives::all(tracking, &mesh, 1),
+    );
     let volumes = tracking.volumes(regions);
     if let Some(region) = volumes.iter().position(|&v| v <= 0.0) {
         return Err(FixedSourceError::Untracked(region));
@@ -133,7 +140,7 @@ pub fn fixed_source(
             .zip(&scale)
             .all(|(c, s)| *c <= options.tolerance * s)
         {
-            let sums = sum_tallies(&tallies, ng);
+            let sums = sum_tallies(&sweeper, &tallies);
             return Ok((0..regions)
                 .map(|i| match sweeper.void[i] {
                     Some(v) => sums.void_flux[v * ng..][..ng]

@@ -204,6 +204,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             scattering_order: input
                 .scattering_order
                 .unwrap_or_else(|| available_order(&materials)),
+            symmetry: input.symmetry,
             ..Options::default()
         };
         let solution = solve(&tracking, &materials, &options).with_context(context)?;
