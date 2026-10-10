@@ -1744,6 +1744,82 @@ mod tests {
             assert_eq!(inner.regions, vec![5, 11]);
         }
 
+        /// 自己遮蔽が像どうしでまとめた塊の組（`shielded.lumps`）を、組の中のセルごとの塊に分けて `lump_dancoff` で
+        /// 別々に求め、どれも組の値と 1e-10 以内で一致すること（ADR-0114。対称な位置の塊の値の食い違い（#0055）が
+        /// 再発すれば、組にまとめた値に隠れずにここで見つかる）。影の全断面積は `shield_lumps` と同じく、燃料はピンの
+        /// 実効断面積、それ以外は無限希釈
+        fn assert_lump_members_agree(
+            tracking: &Tracking,
+            inputs: &[MaterialInput],
+            regions: &[String],
+            shielded: &FuelShielding,
+            groups: usize,
+        ) {
+            let lattice = &tracking.lattice;
+            let dilute = |r: usize| -> &Material {
+                let i = inputs.iter().position(|m| m.name == regions[r]).unwrap();
+                &shielded.materials[i]
+            };
+            let fuel = |r: usize| dilute(r).nu_fission.iter().any(|&v| v > 0.0);
+            let mut totals: Vec<Vec<f64>> = (0..regions.len())
+                .map(|r| dilute(r).total.clone())
+                .collect();
+            for pin in &shielded.pins {
+                let total = Material::from_nuclides(&pin.nuclides, groups)
+                    .unwrap()
+                    .total;
+                for r in lattice.cell_regions(pin.cell).filter(|&r| fuel(r)) {
+                    totals[r].clone_from(&total);
+                }
+            }
+            let lumped: Vec<&str> = shielded.lumps.iter().map(|l| l.material.as_str()).collect();
+            let black: Vec<bool> = regions
+                .iter()
+                .map(|n| lumped.contains(&n.as_str()))
+                .collect();
+            // [領域] の、組の中のセルごとの塊の番号と、その塊の組
+            let mut member = vec![None; regions.len()];
+            let mut owner = Vec::new();
+            for (k, lump) in shielded.lumps.iter().enumerate() {
+                let mut cells: Vec<usize> = Vec::new();
+                for &r in &lump.regions {
+                    let cell = lattice.region_cell(r);
+                    let at = cells.iter().position(|&c| c == cell).unwrap_or_else(|| {
+                        cells.push(cell);
+                        owner.push(k);
+                        cells.len() - 1
+                    });
+                    member[r] = Some(owner.len() - cells.len() + at);
+                }
+            }
+            let found = lump_dancoff(
+                tracking,
+                &totals,
+                &black,
+                &member,
+                owner.len(),
+                &DancoffOptions::default(),
+            )
+            .unwrap();
+            let close = |x: f64, y: f64| (x - y).abs() <= 1e-10 * x.abs().max(y.abs());
+            for (m, (one, &k)) in found.iter().zip(&owner).enumerate() {
+                let group = &shielded.lumps[k];
+                assert!(
+                    close(one.chord, group.chord),
+                    "member {m} of lump {k}: chord {} vs {}",
+                    one.chord,
+                    group.chord
+                );
+                for (g, (x, y)) in one.dancoff.iter().zip(&group.dancoff).enumerate() {
+                    assert!(
+                        close(*x, *y),
+                        "member {m} of lump {k}, group {g}: {x} vs {y}"
+                    );
+                }
+            }
+            assert!(owner.len() > shielded.lumps.len(), "no lump was grouped");
+        }
+
         #[test]
         fn pieces_split_by_sectors_are_grouped_by_images() {
             // 外のリング（内径 0.65 > 半ピッチ 0.63）は四隅に分かれる。成り立つ操作は恒等、180° 回転、対角線と
@@ -1785,6 +1861,13 @@ mod tests {
             let mut sizes: Vec<usize> = shielded.lumps.iter().map(|l| l.regions.len()).collect();
             sizes.sort_unstable();
             assert_eq!(sizes, vec![4, 4, 8], "{:?}", shielded.lumps);
+            assert_lump_members_agree(
+                &tracking,
+                &materials,
+                &regions,
+                &shielded,
+                library.groups.len(),
+            );
             // 組の領域は1つの物質を共有する
             for lump in &shielded.lumps {
                 let m = shielded.region_material[lump.regions[0]];
@@ -2416,6 +2499,13 @@ mod tests {
                 &ShieldingOptions::default(),
             )
             .unwrap();
+            assert_lump_members_agree(
+                &tracking,
+                &materials,
+                &regions,
+                &shielded,
+                library.groups.len(),
+            );
             assert_symmetric_solves(&tracking, &shielded, Symmetry::OCTANT);
         }
 
