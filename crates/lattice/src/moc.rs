@@ -3300,7 +3300,7 @@ mod tests {
         // 事実（別の物質を指している）を示し、自己遮蔽で別々に解かれた可能性はヒントにとどめる
         let message = result.unwrap_err().to_string();
         assert!(
-            message.contains("refer to different materials") && message.contains("ADR-0114"),
+            message.contains("refer to different materials") && message.contains("ADR-0112"),
             "{message}"
         );
     }
