@@ -33,5 +33,6 @@ MOC の 1/4 対称性（ADR-0113）は軸を入れ替えない操作だけを使
 
 - 2026-10-10: feat/quarter-symmetry のコードレビューで、`cell_orbits` の挙動の変化として見つかった
 - 2026-10-10: `cell_orbits` のセルの大きさと種類の比べ方を、MOC の像と同じ `cell_image_checked` にした（fa1870f）。入力
-  （格子の TOML）から作るブロックはどれも nx = ny（`grid` × `grid`）なので、例題の結果は変わらない。nx ≠ ny のブロックは
+  （格子の TOML）から作るブロックはどれも nx = ny（セルの `grid` × `grid`、ギャップの `Cell::BLOCK`（1 × 1）、余白の
+  `Cell::BLOCK`）なので、例題の結果は変わらない。nx ≠ ny のブロックは
   Rust の API で直接作ったときだけ現れる
