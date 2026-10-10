@@ -44,7 +44,7 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
   0.000047（+260 pcm）、ピン出力 rms 0.09%、最大 +0.31%。2E-empty（Pyrex の棒を抜いたもの）で分けると、減速材の密度で
   −14 pcm、Pyrex の棒で +13 pcm と、どちらも小さい。Pyrex の棒のセルのリングは収束している（k 4.4 pcm、ピン 0.005% 以内）。
   OpenMC と KENO-VI のピン出力は 2E で rms 0.071%、最大 +0.163% と 2B〜2D より開く（原因は確かめていない）
-- 2026-10-10: 2F（Pyrex の棒 24 本）を解いた（examples/vera/verification.md の「OpenMC との比較」、14911dcd）。xlc 0.979760、OpenMC
+- 2026-10-10: 2F（Pyrex の棒 24 本）を解いた（examples/vera/verification.md の「OpenMC との比較」、d6593b9f）。xlc 0.979760、OpenMC
   0.976885 ± 0.000050（+288 pcm）、ピン出力 rms 0.11%、最大 −0.33%。2E-empty を基準にした Pyrex の棒による変化は 12 本で +13 pcm、
-  24 本で +41 pcm（統計誤差の約 6 倍）で、本数に比例せず差を正の向きに広げる（原因は確かめていない）。OpenMC と KENO-VI の
+  24 本で +41 pcm（統計誤差の約 6 倍）で、差を正の向きに広げる（本数に比例するかは統計誤差で区別できない。原因は確かめていない）。OpenMC と KENO-VI の
   ピン出力は rms 0.091%、最大 −0.196%（2E の 0.071% よりさらに開く）
