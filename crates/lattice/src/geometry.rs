@@ -254,7 +254,7 @@ impl PinCell {
 
     /// セルの中心を原点とする点 start から方向 direction に長さ length 進む直線を、
     /// 同心円で区間に分ける。直線に沿って `coincident` 以内の区切りは同じ点とみてまとめる（[`Lattice::coincident`]）。
-    pub fn segments(
+    pub(crate) fn segments(
         &self,
         start: (f64, f64),
         direction: (f64, f64),
@@ -1095,6 +1095,58 @@ mod tests {
                         "corner ({cx}, {cy}), angle {angle}, back {back}: {s:?}"
                     );
                 }
+            }
+        }
+    }
+
+    /// ピッチ 1.26 cm の格子の同じ点とみなす距離（格子の大きさの 1e-9）
+    const COINCIDENT_1_26: f64 = COINCIDENT * 1.26;
+
+    /// 点 `point` をちょうど通るよう、そこから `back` だけ戻った点から、向き `angle` に `2 back` 進む直線を
+    /// `pin` で区切る（始点の座標の丸めで、通る点の近くの区切りがずれる）
+    fn through(pin: &PinCell, point: (f64, f64), angle: f64, back: f64) -> Vec<Segment> {
+        let d = (angle.cos(), angle.sin());
+        let start = (point.0 - back * d.0, point.1 - back * d.1);
+        pin.segments(start, d, 2.0 * back, COINCIDENT_1_26)
+    }
+
+    #[test]
+    fn sector_rays_meet_once_at_the_centre() {
+        // 扇形 8 のセルの中心を通る直線。8 本の扇形の境界は中心で交わり、丸めで少しずつずれても 1 点にまとまるので、
+        // 中心のまわりに丸めの程度の区間を残さない
+        let pin = PinCell::with_sectors(1.26, vec![0.3], 8).unwrap();
+        for angle in [0.1, 0.3, 1.1, 2.0] {
+            for back in [0.37, 0.41, 0.5] {
+                let s = through(&pin, (0.0, 0.0), angle, back);
+                assert!(s.iter().all(|s| s.length > 1e-12), "{angle} {back}: {s:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn grid_corners_are_crossed_once() {
+        // 3 × 3 の格子のセルの内側の角（±0.21, ±0.21）をちょうど通る直線は、角のまわりに丸めの程度の区間を残さない
+        let pin = PinCell::grid(1.26, 3).unwrap();
+        for angle in [0.1, 0.3, 1.1] {
+            for back in [0.11, 0.37] {
+                let s = through(&pin, (0.21, -0.21), angle, back);
+                assert!(s.iter().all(|s| s.length > 1e-12), "{angle} {back}: {s:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn frame_corners_are_crossed_once() {
+        // 厚さ 0.05 cm の枠の付いたピンの、枠の内側の正方形の角（0.58, -0.58）をちょうど通る直線は、角のまわりに
+        // 丸めの程度の区間を残さない
+        let pin = PinCell::new(1.26, vec![0.4])
+            .unwrap()
+            .with_frame(0.05)
+            .unwrap();
+        for angle in [0.3, 0.7, 1.1] {
+            for back in [0.03, 0.04] {
+                let s = through(&pin, (0.58, -0.58), angle, back);
+                assert!(s.iter().all(|s| s.length > 1e-12), "{angle} {back}: {s:?}");
             }
         }
     }
