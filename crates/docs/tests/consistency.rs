@@ -1,7 +1,8 @@
 //! リポジトリの文書の整合性の検査（#0013）。
 //!
 //! git が追跡しているファイルを一度だけ読み、xlc_docs::Docs の検査に違反がないことを確かめる。閉じた issue の
-//! `resolution: コミット <hash>` は、git で HEAD の祖先のコミットを指すことを確かめる。違反はすべて並べて示す。
+//! `resolution: コミット <hash>` は、git で HEAD（マージの途中ではマージするブランチも）の祖先のコミットを指すことを
+//! 確かめる。違反はすべて並べて示す。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
@@ -49,7 +50,9 @@ fn tracked_files(root: &Path) -> Result<Vec<String>> {
         .collect())
 }
 
-/// `hash` が HEAD の祖先のコミットを指すか。違えば理由を返す。
+/// `hash` が HEAD の祖先のコミットを指すか。マージの途中（MERGE_HEAD がある）では、マージのコミットを作る前の
+/// 検査なので、マージするブランチの祖先も認める（issue を閉じたブランチの上のコミットは、まだ HEAD の祖先でない）。
+/// 違えば理由を返す。
 fn commit_problem(root: &Path, hash: &str) -> Result<Option<String>> {
     let commit = format!("{hash}^{{commit}}");
     if !git(root, &["rev-parse", "--quiet", "--verify", &commit])?
@@ -58,20 +61,37 @@ fn commit_problem(root: &Path, hash: &str) -> Result<Option<String>> {
     {
         return Ok(Some(format!("commit {hash} does not exist")));
     }
-    let ancestor = git(root, &["merge-base", "--is-ancestor", hash, "HEAD"])?;
-    Ok(match ancestor.status.code() {
-        Some(0) => None,
-        Some(1) => Some(format!(
-            "commit {hash} is not an ancestor of HEAD (rebased? update the hash)"
-        )),
-        _ => {
-            return Err(format!(
-                "git merge-base failed: {}",
-                String::from_utf8_lossy(&ancestor.stderr)
-            )
-            .into());
+    let merging = git(root, &["rev-parse", "--quiet", "--verify", "MERGE_HEAD"])?
+        .status
+        .success();
+    let heads: &[&str] = if merging {
+        &["HEAD", "MERGE_HEAD"]
+    } else {
+        &["HEAD"]
+    };
+    for head in heads {
+        if is_ancestor(root, hash, head)? {
+            return Ok(None);
         }
-    })
+    }
+    Ok(Some(format!(
+        "commit {hash} is not an ancestor of {} (rebased? update the hash)",
+        heads.join(" or ")
+    )))
+}
+
+/// `hash` が `head` の祖先か。
+fn is_ancestor(root: &Path, hash: &str, head: &str) -> Result<bool> {
+    let ancestor = git(root, &["merge-base", "--is-ancestor", hash, head])?;
+    match ancestor.status.code() {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => Err(format!(
+            "git merge-base failed: {}",
+            String::from_utf8_lossy(&ancestor.stderr)
+        )
+        .into()),
+    }
 }
 
 #[test]
