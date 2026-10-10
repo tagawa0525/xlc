@@ -94,6 +94,8 @@ pub enum SelfShieldingError {
     Sph(#[from] SphError),
     #[error(transparent)]
     Symmetry(#[from] SymmetryError),
+    #[error("the symmetry was verified for another lattice or tracking")]
+    ForeignSymmetry,
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -2580,6 +2582,45 @@ mod tests {
             assert_eq!(first(0), first(8));
             assert_eq!(first(1), first(7));
             assert_symmetric_solves(&tracking, &shielded, Symmetry::QUARTER);
+        }
+
+        #[test]
+        fn symmetry_of_another_tracking_is_an_error() {
+            // 渡された対称操作は、同じ格子とトラッキングで求めたものでなければならない（トラックの数やセルの数が違えば、
+            // 像の対応が成り立たない）。黙って使ったりパニックしたりせず、エラーにする
+            let library = library();
+            let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+            let lattice = |n: usize| Lattice::new(vec![pin.clone()], vec![vec![0; n]; n]).unwrap();
+            let names = |n: usize| -> Vec<String> {
+                (0..n * n)
+                    .flat_map(|_| ["fuel".to_string(), "water".to_string()])
+                    .collect()
+            };
+            let (small, large) = (lattice(2), lattice(3));
+            let tracking = Tracking::new(&large, 16, 0.05).unwrap();
+            let regions = names(3);
+            // 方位角の数の違うトラッキング（領域とセルは同じ）と、セルの数の違う格子
+            let other = Tracking::new(&large, 8, 0.05).unwrap();
+            let smaller = Tracking::new(&small, 16, 0.05).unwrap();
+            let foreign = [
+                detect(&other, &regions).unwrap(),
+                detect(&smaller, &names(2)).unwrap(),
+            ];
+            for symmetry in &foreign {
+                let result = shield_fuel_with(
+                    &library,
+                    &tracking,
+                    &materials(),
+                    &regions,
+                    symmetry,
+                    &ShieldingOptions::default(),
+                );
+                assert!(
+                    matches!(result, Err(SelfShieldingError::ForeignSymmetry)),
+                    "{:?}",
+                    result.err()
+                );
+            }
         }
 
         #[test]
