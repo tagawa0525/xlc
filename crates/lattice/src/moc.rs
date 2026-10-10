@@ -950,7 +950,7 @@ impl<'a> Sweeper<'a> {
                             self.directional(equilibrium, track.azimuth, &tally.regions),
                         ));
                     }
-                    // 代表のトラックは、移り合うトラックの数だけ重く数える（ADR-0113）
+                    // 代表のトラックは、移り合うトラックの数だけ重く数える（ADR-0112）
                     let multiplicity = representatives.multiplicity[position];
                     let weights: [f64; POLAR_SIN.len()] = std::array::from_fn(|p| {
                         multiplicity * direction_weight(self.tracking, track.azimuth, p)
