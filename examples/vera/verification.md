@@ -283,7 +283,7 @@ xlc は `homogeneous` の例（[`crates/lattice/examples/homogeneous.rs`](../../
 背景断面積（同じ媒質の他の核種の全断面積の和 / 個数密度。分離共鳴のない核種は無限希釈）の反復に、UFG の範囲
 （4 eV〜15.03 keV）の群を 1 リングの白色境界の円筒（無限媒質と同じ）の減速計算の値に置き換えたもの（格子の燃料と
 同じ扱い）。OpenMC は `openmc_homogeneous.py`（1 世代 20 万粒子・300 世代、最初の 50 世代を捨てる、乱数のシード 1。H-1 は
-c_H_in_H2O）。核種を減らした媒質は、残す核種の個数密度を変えない。ce8e8d2a、2026-10-11。
+c_H_in_H2O）。核種を減らした媒質は、残す核種の個数密度を変えない。c4f7f099、2026-10-11。
 
 ```sh
 python3 examples/vera/homogeneous_medium.py 1B all.toml [残す核種 ...]   # references/openmc の venv で
@@ -291,7 +291,7 @@ cargo run --release -p xlc-lattice --example homogeneous -- all.toml examples/ve
 venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml all.toml work 200000 300 50 1
 ```
 
-（ce8e8d2a の `openmc_homogeneous.py` は k だけを書き、ライブラリの引数がない。いまは作業ディレクトリの次にライブラリを
+（c4f7f099 の `openmc_homogeneous.py` は k だけを書き、ライブラリの引数がない。いまは作業ディレクトリの次にライブラリを
 渡す。下の「反応率の比較」）
 
 | 媒質                                         | xlc      | OpenMC              | 差 (pcm)  |
@@ -315,7 +315,7 @@ venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections
 比べた。OpenMC は `openmc_homogeneous.py`（1 世代 20 万粒子・150 世代、最初の 50 世代を捨てる、乱数のシード 1。世代ごとの
 statepoint から世代ごとの値を求める）、xlc は `homogeneous` の例の `--balance`、比較は `compare_balance.py`（範囲の境
 100 keV、15.03 keV、4 eV、0.625 eV）と `compare_groups.py`。置き換えは `homogeneous` の例の `--swap`（核種の P0 の散乱行列の
-行を OpenMC の移行の率 / 中性子束に置き換え、正味の吸収と生成は変えない）。49bc2a84、2026-10-11。
+行を OpenMC の移行の率 / 中性子束に置き換え、正味の吸収と生成は変えない）。2c7ac7e3、2026-10-11。
 
 ```sh
 venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml h-u5-u8.toml work \
@@ -373,7 +373,7 @@ OpenMC との k の差（1B で +295 pcm、#0005）を、物質ごと・群ご�
 正味の吸収の和が 1/k になり、k の差は −k_xlc k_OpenMC ΣΔA として物質と範囲に厳密に分かれる。xlc は `balance` の例
 （[`xlc_lattice::balance`](../../crates/lattice/src/balance.rs)。対称性なし、方位角 64・間隔 0.02 cm。ピンセルの設定は [ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md) で変えなかったもの）、OpenMC は `openmc_balance.py`
 （1 世代 100 万粒子・250 世代、最初の 50 世代を捨てる、乱数のシード 1。世代ごとの statepoint から世代ごとの値を求める）。
-どちらも 9271b44d で解いた、2026-10-11。
+どちらも 278a172e で解いた、2026-10-11。
 
 ```sh
 cargo run --release -p xlc-lattice --example balance -- examples/vera/p1/pincell-1B.toml xlc-1B.msgpack
@@ -441,7 +441,7 @@ xlc の中性子束は物理的な値（SPH 因子を掛けた領域と群では
   強い共鳴の群に集まることは、これと合う（確かめてはいない）
 移行の差の k への影響を、物質の散乱行列の行を OpenMC の移行の率 / 中性子束に置き換えて解き直して測った（`swap_transfer`
 の例。行の要素ごとに OpenMC / xlc の比を等価なセルのリングの行に掛け、全断面積は行の和の変化だけ動かして正味の吸収と
-生成は変えない。SPH 因子をそのまま使っても、置き換えた行列で求め直しても、k は 1.5 pcm 以内で同じ）。d9df1854、2026-10-11:
+生成は変えない。SPH 因子をそのまま使っても、置き換えた行列で求め直しても、k は 1.5 pcm 以内で同じ）。85c8d48e、2026-10-11:
 
 | 置き換えた行           | k の変化 | OpenMC との差 |
 | ---------------------- | -------- | ------------- |
