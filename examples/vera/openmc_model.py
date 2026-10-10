@@ -241,59 +241,38 @@ def tube(inner: float, outer: float, clad: openmc.Material, water: openmc.Materi
     )
 
 
-def pyrex_tube(
+def insert_tube(
+    layers: list[tuple[openmc.Material | None, float]],
     clad: openmc.Material,
     water: openmc.Material,
-    pyrex: openmc.Material,
-    steel: openmc.Material,
 ) -> openmc.Universe:
-    """Pyrex の棒を入れた案内管のセル。"""
-    inner_in, inner_out, glass_in, glass_out, clad_in, clad_out = (
-        openmc.ZCylinder(r=r) for r in PYREX_RADII
-    )
-    guide_in, guide_out = (
-        openmc.ZCylinder(r=GUIDE_INNER),
-        openmc.ZCylinder(r=GUIDE_OUTER),
-    )
-    return openmc.Universe(
-        cells=[
-            openmc.Cell(fill=None, region=-inner_in),
-            openmc.Cell(fill=steel, region=+inner_in & -inner_out),
-            openmc.Cell(fill=None, region=+inner_out & -glass_in),
-            openmc.Cell(fill=pyrex, region=+glass_in & -glass_out),
-            openmc.Cell(fill=None, region=+glass_out & -clad_in),
-            openmc.Cell(fill=steel, region=+clad_in & -clad_out),
-            openmc.Cell(fill=water, region=+clad_out & -guide_in),
-            openmc.Cell(fill=clad, region=+guide_in & -guide_out),
-            openmc.Cell(fill=water, region=+guide_out),
-        ]
-    )
+    """案内管に入れたもののセル。`layers` は中心から外へ (物質, 外側の半径) の並び（None は真空）で、その外から案内管の
+    内側までは減速材、案内管の被覆管、その外は減速材。"""
+    cells = []
+    inner = None
+    for fill, radius in [*layers, (water, GUIDE_INNER), (clad, GUIDE_OUTER)]:
+        outer = openmc.ZCylinder(r=radius)
+        region = -outer if inner is None else +inner & -outer
+        cells.append(openmc.Cell(fill=fill, region=region))
+        inner = outer
+    cells.append(openmc.Cell(fill=water, region=+inner))
+    return openmc.Universe(cells=cells)
 
 
-def rod_tube(
-    clad: openmc.Material,
-    water: openmc.Material,
-    absorber: openmc.Material,
-    radius: float,
-    steel: openmc.Material,
-) -> openmc.Universe:
-    """制御棒（半径 `radius` の吸収体と SS304 の被覆管）を入れた案内管のセル。"""
-    poison = openmc.ZCylinder(r=radius)
-    clad_in, clad_out = (openmc.ZCylinder(r=r) for r in ROD_CLAD)
-    guide_in, guide_out = (
-        openmc.ZCylinder(r=GUIDE_INNER),
-        openmc.ZCylinder(r=GUIDE_OUTER),
-    )
-    return openmc.Universe(
-        cells=[
-            openmc.Cell(fill=absorber, region=-poison),
-            openmc.Cell(fill=None, region=+poison & -clad_in),
-            openmc.Cell(fill=steel, region=+clad_in & -clad_out),
-            openmc.Cell(fill=water, region=+clad_out & -guide_in),
-            openmc.Cell(fill=clad, region=+guide_in & -guide_out),
-            openmc.Cell(fill=water, region=+guide_out),
-        ]
-    )
+def pyrex_layers(
+    pyrex: openmc.Material, steel: openmc.Material
+) -> list[tuple[openmc.Material | None, float]]:
+    """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。"""
+    fills = [None, steel, None, pyrex, None, steel]
+    return list(zip(fills, PYREX_RADII))
+
+
+def rod_layers(
+    absorber: openmc.Material, radius: float, steel: openmc.Material
+) -> list[tuple[openmc.Material | None, float]]:
+    """制御棒（半径 `radius` の吸収体と SS304 の被覆管。間は真空）の層。"""
+    clad_in, clad_out = ROD_CLAD
+    return [(absorber, radius), (None, clad_in), (steel, clad_out)]
 
 
 def geometry_of(
@@ -409,12 +388,12 @@ def main() -> None:
         if kind == "Pyrex":
             pyrex = material("pyrex", PYREX, COLD)
             materials.extend([pyrex, steel])
-            insert = pyrex_tube(clad, water, pyrex, steel)
+            insert = insert_tube(pyrex_layers(pyrex, steel), clad, water)
         else:
             nuclides, radius = ROD_ABSORBER[kind]
             absorber = material(kind.lower(), nuclides, COLD)
             materials.extend([absorber, steel])
-            insert = rod_tube(clad, water, absorber, radius, steel)
+            insert = insert_tube(rod_layers(absorber, radius, steel), clad, water)
     materials.cross_sections = str(cross_sections)
 
     geometry, half = geometry_of(problem, fuel, clad, water, insert=insert)
