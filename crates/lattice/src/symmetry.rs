@@ -153,6 +153,37 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
     Ok(images)
 }
 
+/// 領域ごとの値 `values`（入力の物質の名前など）が、像 `images` のどれでも移った先の領域の値と同じか。違えば、最初に
+/// 違う領域とその像の値を示すエラー
+pub fn check_regions<T: PartialEq + std::fmt::Display>(
+    images: &[Image],
+    values: &[T],
+) -> Result<(), SymmetryError> {
+    for image in images {
+        if values.len() != image.regions.len() {
+            return Err(SymmetryError::Regions {
+                given: values.len(),
+                regions: image.regions.len(),
+            });
+        }
+        if let Some((r, &i)) = image
+            .regions
+            .iter()
+            .enumerate()
+            .find(|&(r, &i)| values[r] != values[i])
+        {
+            return Err(SymmetryError::Broken {
+                operation: image.name,
+                reason: format!(
+                    "region {r} has `{}`, but its image {i} has `{}`",
+                    values[r], values[i]
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// トラック `track` の区間を領域の像 `regions` で移したものが、像のトラック `image` の区間と同じか。領域ごとの長さの和と、
 /// 入る領域（`forward` が偽なら像のトラックの終わりの領域）を比べる（長さの許容誤差 `tolerance`）。境界の上をかすめる
 /// `tolerance` 以下の区間は、像の側にだけ現れることがあるので比べない
