@@ -96,6 +96,10 @@ pub enum SelfShieldingError {
     Symmetry(#[from] SymmetryError),
     #[error("the symmetry was verified for another lattice or tracking")]
     ForeignSymmetry,
+    #[error("a flux of {given} groups for {groups} groups")]
+    FluxGroups { given: usize, groups: usize },
+    #[error("cell {0}: the SPH factors do not match the rings and groups of the cell")]
+    SphLayout(usize),
     #[error(transparent)]
     Shielding(#[from] ShieldingError),
 }
@@ -164,6 +168,18 @@ pub struct Sph {
     pub groups: std::ops::Range<usize>,
     /// 等価なセルの減速材のリングの番号（リングを格子の領域に対応させる）
     moderator_ring: usize,
+}
+
+impl FuelShielding {
+    /// MOC の中性子束 `flux`（[領域][群]）を物理的な中性子束にする。SPH 因子 μ を掛けた領域と群では、MOC の中性子束は
+    /// 物理的な中性子束の 1/μ になる（反応率は μσ × φ/μ で物理的な値のまま）ので、μ を掛けて戻す
+    pub fn physical_flux(
+        &self,
+        _lattice: &Lattice,
+        _flux: &[Vec<f64>],
+    ) -> Result<Vec<Vec<f64>>, SelfShieldingError> {
+        Err(SelfShieldingError::SphLayout(0))
+    }
 }
 
 impl PinShielding {
@@ -2547,6 +2563,142 @@ mod tests {
                         .collect();
                     assert!(materials.iter().all(|&m| m == materials[0]), "ring {ring}");
                 }
+            }
+        }
+
+        /// 燃料、ギャップ、被覆管、水のピンセルを自己遮蔽する（領域ごとの物質の名前とともに）
+        fn shielded_pin_cell() -> (Tracking, FuelShielding, Vec<String>) {
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+            let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+            let names: Vec<String> = ["fuel", crate::input::VOID, "clad", "water"]
+                .into_iter()
+                .map(String::from)
+                .collect();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &names,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            (tracking, shielded, names)
+        }
+
+        #[test]
+        fn physical_flux_restores_the_sph_factors() {
+            let (tracking, shielded, _) = shielded_pin_cell();
+            let lattice = &tracking.lattice;
+            let ng = shielded.materials[0].groups();
+            let flux = vec![vec![1.0; ng]; lattice.regions()];
+            let physical = shielded.physical_flux(lattice, &flux).unwrap();
+            let pin = &shielded.pins[0];
+            let sph = pin.sph.as_ref().unwrap();
+            let rings = pin.ring_regions(lattice).unwrap();
+            for (factors, regions) in sph.factors.iter().zip(&rings) {
+                for &region in regions {
+                    for g in 0..ng {
+                        let expected = if sph.groups.contains(&g) {
+                            factors[g - sph.groups.start]
+                        } else {
+                            1.0
+                        };
+                        assert_eq!(physical[region][g], expected, "region {region}, group {g}");
+                    }
+                }
+            }
+            // UFG の範囲の燃料では 1 と違う（因子が実際に効いている）
+            assert!(
+                physical[0].iter().any(|&f| (f - 1.0).abs() > 1e-6),
+                "{:?}",
+                physical[0]
+            );
+        }
+
+        #[test]
+        fn physical_flux_refuses_mismatched_sph() {
+            let (tracking, shielded, _) = shielded_pin_cell();
+            let lattice = &tracking.lattice;
+            let ng = shielded.materials[0].groups();
+            let flux = vec![vec![1.0; ng]; lattice.regions()];
+            // 領域の数、群の数の違う中性子束
+            assert!(matches!(
+                shielded.physical_flux(lattice, &flux[1..]),
+                Err(SelfShieldingError::Regions { .. })
+            ));
+            let short: Vec<Vec<f64>> = flux.iter().map(|f| f[1..].to_vec()).collect();
+            assert!(matches!(
+                shielded.physical_flux(lattice, &short),
+                Err(SelfShieldingError::FluxGroups { .. })
+            ));
+            // リングより少ない因子と、群の数の違う因子の行
+            let mut fewer = shielded.clone();
+            fewer.pins[0].sph.as_mut().unwrap().factors.pop();
+            assert!(matches!(
+                fewer.physical_flux(lattice, &flux),
+                Err(SelfShieldingError::SphLayout(0))
+            ));
+            let mut narrow = shielded.clone();
+            narrow.pins[0].sph.as_mut().unwrap().factors[0].pop();
+            assert!(matches!(
+                narrow.physical_flux(lattice, &flux),
+                Err(SelfShieldingError::SphLayout(0))
+            ));
+        }
+
+        #[test]
+        fn the_balance_of_a_reflective_cell_closes() {
+            use crate::moc::{Options, solve};
+            let (tracking, shielded, names) = shielded_pin_cell();
+            let materials: Vec<&Material> = shielded
+                .region_material
+                .iter()
+                .map(|&m| &shielded.materials[m])
+                .collect();
+            let solution = solve(&tracking, &materials, &Options::default()).unwrap();
+            let physical = shielded
+                .physical_flux(&tracking.lattice, &solution.flux)
+                .unwrap();
+            let rates =
+                crate::balance::by_material(&solution, &materials, &names, &physical).unwrap();
+            // 生成の和は 1、正味の吸収の和は 1/k（外周が鏡面反射）
+            let production: f64 = rates.values().flat_map(|r| &r.production).sum();
+            let absorption: f64 = rates.values().flat_map(|r| &r.absorption).sum();
+            assert!((production - 1.0).abs() < 1e-12, "{production}");
+            assert!(
+                (absorption * solution.k - 1.0).abs() < 1e-6,
+                "{absorption} {}",
+                solution.k
+            );
+            // 真空の領域は数えない
+            assert!(!rates.contains_key(crate::input::VOID));
+            // 群の間の移行の和は、群から出る散乱（全 − 正味の吸収）の反応率
+            let fuel = &rates["fuel"];
+            for g in 0..fuel.flux.len() {
+                let out: f64 = fuel.transfer[g].iter().sum();
+                assert!(out > 0.0, "group {g}");
             }
         }
 
