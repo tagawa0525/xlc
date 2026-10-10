@@ -12,7 +12,7 @@ mod symmetric;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
-use crate::symmetry::{Group, SymmetryError};
+use crate::symmetry::{Symmetry, SymmetryError};
 use crate::tracking::{Boundary, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 use symmetric::{RegionKind, Representatives};
@@ -33,9 +33,9 @@ pub struct Options {
     pub flux_tolerance: f64,
     pub max_iterations: usize,
     pub acceleration: Acceleration,
-    /// 解くときに使う格子の対称操作の群（ADR-0112）。恒等だけなら全体を解く。群のどれかの操作で、形状、境界条件、
+    /// 解くときに使う格子の対称性（ADR-0112）。恒等だけなら全体を解く。どれかの操作で、形状、境界条件、
     /// トラック、移り合う領域の物質（`solve` に渡す同じ参照）が移った先と同じでなければエラー
-    pub symmetry: Group,
+    pub symmetry: Symmetry,
 }
 
 impl Default for Options {
@@ -46,8 +46,8 @@ impl Default for Options {
             flux_tolerance: 1.0e-6,
             max_iterations: 20_000,
             acceleration: Acceleration::Cmfd(CmfdOptions::default()),
-            // 群は呼び出し側が決める。格子のプログラムは成り立つ最大の群を渡す（ADR-0112）
-            symmetry: Group::NONE,
+            // 対称性は呼び出し側が決める。格子のプログラムは成り立つ対称操作をすべて使う（ADR-0112）
+            symmetry: Symmetry::NONE,
         }
     }
 }
@@ -273,10 +273,10 @@ pub fn solve(
     }
     // 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
     let pairs = planar_moments(order);
-    let representatives = if options.symmetry == Group::NONE {
+    let representatives = if options.symmetry == Symmetry::NONE {
         Representatives::all(tracking, &mesh, pairs.len())
     } else {
-        Representatives::group(tracking, materials, &mesh, &pairs, options.symmetry)?
+        Representatives::symmetric(tracking, materials, &mesh, &pairs, options.symmetry)?
     };
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
     // 状態（中性子束、モーメント、平衡値）は、領域の軌道の代表 `kept[i]` の分だけ持つ（対称性を使わなければ全ての領域）
@@ -2759,7 +2759,7 @@ mod tests {
         (lattice, materials)
     }
 
-    fn symmetric(scattering_order: usize, symmetry: Group) -> Options {
+    fn symmetric(scattering_order: usize, symmetry: Symmetry) -> Options {
         Options {
             scattering_order,
             symmetry,
@@ -2891,8 +2891,8 @@ mod tests {
                 let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
                 for order in [0, 1] {
                     let full =
-                        solve(&tracking, &materials, &symmetric(order, Group::NONE)).unwrap();
-                    let options = symmetric(order, Group::QUARTER);
+                        solve(&tracking, &materials, &symmetric(order, Symmetry::NONE)).unwrap();
+                    let options = symmetric(order, Symmetry::QUARTER);
                     let quarter = solve(&tracking, &materials, &options).unwrap();
                     assert_same_solution(&full, &quarter, &options);
                 }
@@ -2910,7 +2910,7 @@ mod tests {
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
         let mesh = CoarseMesh::new(&tracking);
         let reduced =
-            Representatives::group(&tracking, &materials, &mesh, &[(0, 0)], Group::QUARTER)
+            Representatives::symmetric(&tracking, &materials, &mesh, &[(0, 0)], Symmetry::QUARTER)
                 .unwrap();
         assert_eq!(4 * reduced.regions.representatives.len(), lattice.regions());
         assert_eq!(4 * reduced.cells.representatives.len(), lattice.cells());
@@ -2924,7 +2924,7 @@ mod tests {
         let library = [&f, &w, &f, &void];
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        let options = symmetric(1, Group::QUARTER);
+        let options = symmetric(1, Symmetry::QUARTER);
         let solve_on = |threads| {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
@@ -2952,8 +2952,8 @@ mod tests {
         let library = [&f, &w, &g, &void];
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        assert!(solve(&tracking, &materials, &symmetric(0, Group::NONE)).is_ok());
-        let result = solve(&tracking, &materials, &symmetric(0, Group::QUARTER));
+        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::NONE)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::QUARTER));
         assert!(
             matches!(result, Err(MocError::AsymmetricMaterial { .. })),
             "{result:?}"
@@ -2979,8 +2979,8 @@ mod tests {
         let last = index.iter().rposition(|&i| i == 0).unwrap();
         materials[last] = &copy;
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        assert!(solve(&tracking, &materials, &symmetric(0, Group::NONE)).is_ok());
-        let result = solve(&tracking, &materials, &symmetric(0, Group::QUARTER));
+        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::NONE)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::QUARTER));
         assert!(
             matches!(result, Err(MocError::AsymmetricMaterial { .. })),
             "{result:?}"
@@ -3005,7 +3005,7 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
-        let result = solve(&tracking, &materials, &symmetric(0, Group::QUARTER));
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::QUARTER));
         assert!(matches!(result, Err(MocError::Symmetry(_))), "{result:?}");
     }
 }
