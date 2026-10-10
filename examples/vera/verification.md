@@ -280,7 +280,7 @@ OpenMC との k の差（1B で +295 pcm、#0005）を、物質ごと・群ご�
 正味の吸収の和が 1/k になり、k の差は −k_xlc k_OpenMC ΣΔA として物質と範囲に厳密に分かれる。xlc は `balance` の例
 （[`xlc_lattice::balance`](../../crates/lattice/src/balance.rs)。対称性なし、方位角 64・間隔 0.02 cm）、OpenMC は `openmc_balance.py`
 （1 世代 100 万粒子・250 世代、最初の 50 世代を捨てる、乱数のシード 1。世代ごとの statepoint から世代ごとの値を求める）。
-どちらも 54cca203 で解いた（xlc の出力は 0fe824bb とバイト単位で同じ）、2026-10-11。
+どちらも e9981637 で解いた（xlc の出力は 26015c1c とバイト単位で同じ）、2026-10-11。
 
 ```sh
 cargo run --release -p xlc-lattice --example balance -- examples/vera/p1/pincell-1B.toml xlc-1B.msgpack
