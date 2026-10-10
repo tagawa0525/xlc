@@ -383,6 +383,39 @@ mod tests {
     }
 
     #[test]
+    fn tracks_leave_no_round_off_segments_at_cell_corners() {
+        // 2 × 2、16 × 16、17 × 17 の均質なセル（区切りなし）の格子（余白なしとあり）。45° を含む方位角では、多くの
+        // トラックがセルの角や、外周の辺とセルの境界の交わる点をちょうど通る。境界の線を足し合わせで作る丸めや、
+        // 始点と終点の丸めがあっても、角のまわりのセルに丸めの程度の区間を残さない
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        for n in [2usize, 16, 17] {
+            for margin in [0.0, 0.04] {
+                let lattice = if margin > 0.0 {
+                    Lattice::with_margin(vec![water.clone()], vec![vec![0; n]; n], margin).unwrap()
+                } else {
+                    Lattice::new(vec![water.clone()], vec![vec![0; n]; n]).unwrap()
+                };
+                for n_azimuthal in [6, 18, 30] {
+                    for spacing in [0.05, 0.03] {
+                        let tracking = Tracking::new(&lattice, n_azimuthal, spacing).unwrap();
+                        for (index, track) in tracking.tracks.iter().enumerate() {
+                            let shortest = track
+                                .segments
+                                .iter()
+                                .map(|s| s.length)
+                                .fold(f64::INFINITY, f64::min);
+                            assert!(
+                                shortest > 1e-12,
+                                "n {n} margin {margin} azimuths {n_azimuthal}, spacing {spacing}, track {index}: {shortest}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn albedo_must_be_a_fraction() {
         for albedo in [-0.1, 1.1, f64::NAN] {
             let boundaries = Boundaries {
