@@ -319,6 +319,55 @@ fn check_boundaries(tracking: &Tracking, op: &[i64; 4]) -> Result<(), String> {
     Ok(())
 }
 
+/// 対称操作で移り合う組（軌道）。MOC の領域と CMFD のセルは、組の代表の分だけ状態を持つ（ADR-0113）。
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Orbits {
+    /// 組の代表（番号の順）
+    pub representatives: Vec<usize>,
+    /// [要素] の代表の、`representatives` の中の位置
+    pub index: Vec<usize>,
+    /// [代表] の組の要素の数
+    pub sizes: Vec<f64>,
+}
+
+impl Orbits {
+    /// どの要素も自分だけの組（対称性を使わない）
+    pub fn identity(count: usize) -> Self {
+        Self {
+            representatives: (0..count).collect(),
+            index: (0..count).collect(),
+            sizes: vec![1.0; count],
+        }
+    }
+
+    /// [要素] の代表 `representative`（代表は自分自身が代表）から
+    pub fn new(representative: &[usize]) -> Self {
+        let representatives: Vec<usize> = (0..representative.len())
+            .filter(|&c| representative[c] == c)
+            .collect();
+        let mut position = vec![0; representative.len()];
+        for (i, &c) in representatives.iter().enumerate() {
+            position[c] = i;
+        }
+        let index: Vec<usize> = representative.iter().map(|&r| position[r]).collect();
+        let mut sizes = vec![0.0; representatives.len()];
+        for &i in &index {
+            sizes[i] += 1.0;
+        }
+        Self {
+            representatives,
+            index,
+            sizes,
+        }
+    }
+
+    /// 要素 `element` が代表なら、その `representatives` の中の位置
+    pub fn position(&self, element: usize) -> Option<usize> {
+        let i = self.index[element];
+        (self.representatives[i] == element).then_some(i)
+    }
+}
+
 /// セルごとの、同じ組の代表のセル（組の中で最も小さい番号）。`region_material` は領域ごとの物質の番号。
 pub fn cell_orbits(
     tracking: &Tracking,

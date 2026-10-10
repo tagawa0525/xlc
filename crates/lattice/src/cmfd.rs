@@ -7,6 +7,7 @@
 
 use crate::material::Material;
 use crate::moc::Remaining;
+use crate::symmetry::Orbits;
 use crate::tracking::Tracking;
 use xlc_numeric::lu::Lu;
 
@@ -263,56 +264,6 @@ pub fn vertical_face(columns: usize, row: usize, line: usize) -> usize {
 /// 横の面の番号（`CoarseMesh` の番号。縦の面のあと）
 pub fn horizontal_face(rows: usize, columns: usize, line: usize, column: usize) -> usize {
     rows * (columns + 1) + line * columns + column
-}
-
-/// 粗メッシュのセルの、対称操作で移り合う組（ADR-0113）。CMFD は組の代表のセルだけで解く（代表でないセルの中性子束は
-/// 代表と同じ）。
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Orbits {
-    /// 解くセル（組の代表。番号の順）
-    pub representatives: Vec<usize>,
-    /// [セル] の代表の、`representatives` の中の位置
-    pub index: Vec<usize>,
-    /// [代表] の組のセルの数
-    pub sizes: Vec<f64>,
-}
-
-impl Orbits {
-    /// どのセルも自分だけの組（対称性を使わない）
-    pub fn identity(cells: usize) -> Self {
-        Self {
-            representatives: (0..cells).collect(),
-            index: (0..cells).collect(),
-            sizes: vec![1.0; cells],
-        }
-    }
-
-    /// [セル] の代表のセル `representative`（代表は自分自身が代表）から
-    pub fn new(representative: &[usize]) -> Self {
-        let representatives: Vec<usize> = (0..representative.len())
-            .filter(|&c| representative[c] == c)
-            .collect();
-        let mut position = vec![0; representative.len()];
-        for (i, &c) in representatives.iter().enumerate() {
-            position[c] = i;
-        }
-        let index: Vec<usize> = representative.iter().map(|&r| position[r]).collect();
-        let mut sizes = vec![0.0; representatives.len()];
-        for &i in &index {
-            sizes[i] += 1.0;
-        }
-        Self {
-            representatives,
-            index,
-            sizes,
-        }
-    }
-
-    /// セル `cell` が代表なら、その `representatives` の中の位置
-    fn position(&self, cell: usize) -> Option<usize> {
-        let i = self.index[cell];
-        (self.representatives[i] == cell).then_some(i)
-    }
 }
 
 /// CMFD の固有値問題の打ち切り条件。
