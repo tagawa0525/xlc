@@ -284,13 +284,10 @@ pub fn shield_fuel_with(
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する。使う操作は、MOC と同じ確かめ方（トラックの像まで）で、領域ごとの入力の
     // 物質が移り合うもの（ADR-0114）。渡された操作が、この格子の物質で成り立つことを確かめる
+    if !symmetry.fits(tracking) {
+        return Err(SelfShieldingError::ForeignSymmetry);
+    }
     for image in symmetry.images() {
-        if image.regions.len() != regions {
-            return Err(SelfShieldingError::Regions {
-                given: image.regions.len(),
-                regions,
-            });
-        }
         if let Some((r, &i)) = image
             .regions
             .iter()
