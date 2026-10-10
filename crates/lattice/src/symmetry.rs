@@ -57,6 +57,8 @@ pub const QUARTER: [usize; 4] = [0, 2, 4, 5];
 /// 1つの対称操作による像。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Image {
+    /// 操作の名前（エラーの表示用）
+    pub name: &'static str,
     /// 格子の中心を原点とする (x, y)（y は上向き。トラックの座標）に掛ける行列 [a, b, c, d]:
     /// (x, y) → (a x + b y, c x + d y)
     pub matrix: [f64; 4],
@@ -141,6 +143,7 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
             tracks.push((image, forward));
         }
         images.push(Image {
+            name,
             matrix,
             cells,
             regions,
