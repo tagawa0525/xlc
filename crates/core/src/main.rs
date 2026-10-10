@@ -104,6 +104,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .collect();
         println!("{}", cells.join(" "));
     }
+    // 格子計算の均質化のノード平均と比べられるように、ノードの順に出す（全体の生成率 1 に規格化）
+    for (node, flux) in solution.flux.iter().enumerate() {
+        tracing::debug!(node, flux = ?flux, "node average flux");
+    }
     // 再構成したピン出力（ADR-0096）
     if let Some(file) = &case.pin_powers {
         let reconstructed = Instant::now();
