@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs]
 opened: 2026-10-10
-closed:
+closed: 2026-10-10
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 2aff807
 ---
 
 # マージのときの検査が、閉じた issue のブランチの上のコミットを祖先と認めない
@@ -26,3 +26,4 @@ docs/issues/README.md はブランチの上のコミットを書いてよいと�
 ## 経緯
 
 - 2026-10-10: fix/0051-grazing-segments のマージで見つけた
+- 2026-10-10: マージの途中では MERGE_HEAD の祖先も認めるようにした（2aff807）
