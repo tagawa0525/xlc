@@ -1059,7 +1059,7 @@ mod tests {
         let cell = |r: usize| (r % 3, r / 3);
         for (cx, cy, column, row) in [(-0.63, 0.63, 1, 1), (0.63, -0.63, 2, 2), (0.63, 0.63, 2, 1)]
         {
-            for angle in [0.1, 0.3, 0.7853981633974483, 1.1, 1.3] {
+            for angle in [0.1, 0.3, std::f64::consts::FRAC_PI_4, 1.1, 1.3] {
                 let d = (f64::cos(angle), -f64::sin(angle));
                 for back in [0.11, 0.37, 0.5, 0.61] {
                     let start = (cx - back * d.0, cy - back * d.1);
