@@ -2638,7 +2638,7 @@ mod tests {
     #[test]
     fn reflective_faces_carry_no_net_current_where_track_ends_meet_a_cell_line() {
         // 左の列が燃料、右の列が水の 2 × 2 の格子（鏡面反射）。トラックの端が上と下の辺の上で列の境（x = 0）にちょうど
-        // 来ると、出ていく流れと、反射してつながるトラックの入る流れを、境の両側の別の面に数えうる（#0032）
+        // 来ると、出ていく流れと、反射してつながるトラックの入る流れを、境の両側の別の面に数えうる
         let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
         let water = PinCell::new(1.26, vec![]).unwrap();
         let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![0, 1]]).unwrap();
