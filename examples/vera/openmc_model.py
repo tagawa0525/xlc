@@ -1,12 +1,12 @@
-"""VERA Problem 1B〜1D（ピンセル）と 2B〜2E（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
+"""VERA Problem 1B〜1D（ピンセル）と 2B〜2F（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
         [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード] [xlc のライブラリ]
 
-<問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）。断面積は openmc_library.py で作ったもの。
+<問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
 ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒の中の He も同じ）。燃料以外は 600 K。
-2B〜2E は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+2B〜2F は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
 xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。
@@ -51,6 +51,7 @@ FUEL_TEMPERATURE = {
     "2D": 1200.0,
     "2E": 600.0,
     "2E-empty": 600.0,
+    "2F": 600.0,
 }
 
 # 個数密度 (/(barn cm))
@@ -86,7 +87,7 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E）。仕様書の表 P2-1、P2-4
+# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E、2F）。仕様書の表 P2-1、P2-4
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
@@ -140,6 +141,7 @@ MODERATOR_OF = {
     "2D": MODERATOR,
     "2E": MODERATOR_DENSE,
     "2E-empty": MODERATOR_DENSE,
+    "2F": MODERATOR_DENSE,
 }
 # Pyrex の棒（仕様書の表 6）: 内管の内と外、Pyrex の内と外、被覆管の内と外の半径。内管の中と間は真空
 PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
@@ -172,7 +174,7 @@ GUIDE_TUBES = [
     (14, 11),
 ]
 INSTRUMENT_TUBE = (8, 8)
-# Pyrex の棒を入れる案内管（仕様書の図 5 の 12 本の配置）
+# Pyrex の棒を入れる案内管（仕様書の図 5 の配置）
 PYREX_RODS = {
     "2E": [
         (2, 5),
@@ -188,6 +190,8 @@ PYREX_RODS = {
         (14, 5),
         (14, 11),
     ],
+    # 24 本はすべての案内管（図 5）
+    "2F": GUIDE_TUBES,
 }
 
 

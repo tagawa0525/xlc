@@ -19,6 +19,7 @@ CAPTIONS = {
     "2C": "Figure P2-5: Problem 2C (900K) CE KENO-VI Power Distribution Results",
     "2D": "Figure P2-6: Problem 2D (1200K) CE KENO-VI Power Distribution Results",
     "2E": "Figure P2-7: Problem 2E (12 Pyrex) CE KENO-VI Power Distribution Results",
+    "2F": "Figure P2-8: Problem 2F (24 Pyrex) CE KENO-VI Power Distribution Results",
 }
 # 1/8 の中の案内管の位置（中央からの行と列の数）。中央 (0, 0) は計装管
 TUBES = {(0, 0), (3, 0), (3, 3), (5, 5), (6, 0), (6, 3)}
