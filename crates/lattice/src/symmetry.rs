@@ -1,12 +1,9 @@
-//! 格子の対称性（正方形の回転と鏡映）による、ピンの組と、トラックと領域の像。
+//! 格子の対称性（正方形の回転と鏡映）による、トラック、領域、セルの像。
 //!
-//! 正方形の 8 つの対称操作のうち、セルの配置と大きさ、領域の物質、外周の境界条件を変えないものを調べ、それで
-//! 移り合うセルを同じ組にする。組の中のピンは、自己遮蔽の結果が同じなので1回だけ解けばよい（VERA の集合体の
-//! ように 1/8 対称なら約 1/8 になる）。対称性は前提とせず、真空境界や位置で違う物質のある検証の体系では、成り立つ
-//! 操作だけを使う。
-//!
-//! MOC で対称性を使うとき（ADR-0113）は、指定した操作のすべてで形状とトラックが移り合うことを確かめ、操作ごとの
-//! セル、領域、トラックの像を求める（`images`）。
+//! 正方形の 8 つの対称操作のうち、外周の境界条件、セルの配置と大きさと種類、トラック（端の点と区間の長さ）、領域の
+//! 値（物質）を変えないものを1つずつ確かめ、成り立つ操作をすべて使う（`detect`。ADR-0112）。対称性は前提とせず、
+//! 真空境界や位置で違う物質のある検証の体系では、成り立つ操作だけを使う。MOC は使う操作の像（`images`）で代表の
+//! トラックと領域だけを解き、自己遮蔽は同じ操作で移り合うピンと構造材の塊を組にして1回だけ解く（ADR-0114）。
 
 use std::f64::consts::PI;
 
@@ -120,6 +117,85 @@ impl Symmetry {
     pub fn order(self) -> usize {
         self.0.count_ones() as usize
     }
+}
+
+/// 格子で成り立つ対称操作（`detect`）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Detected {
+    pub symmetry: Symmetry,
+    /// 使う操作の像（`Symmetry::operations` の順。恒等を含む）
+    pub images: Vec<Image>,
+}
+
+impl Detected {
+    /// [セル] の、移り合うセルのうち最も小さい番号（組の代表）
+    pub fn cell_representatives(&self) -> Vec<usize> {
+        let cells = self.images.first().map_or(0, |image| image.cells.len());
+        (0..cells)
+            .map(|cell| {
+                self.images
+                    .iter()
+                    .map(|image| image.cells[cell])
+                    .fold(cell, usize::min)
+            })
+            .collect()
+    }
+}
+
+/// 恒等以外の 7 つの操作を1つずつ確かめ（`images` の確かめと、領域ごとの値 `values` が移った先の領域の値と同じこと）、
+/// 成り立つ操作をすべて使う対称性と、その像を返す（ADR-0112）。使った対称性と、成り立たなかった操作の理由を info の
+/// ログに出す。成り立つ操作が合成で閉じていなければ（確かめ方の不整合）エラー
+pub fn detect<T: PartialEq + std::fmt::Display>(
+    tracking: &Tracking,
+    values: &[T],
+) -> Result<Detected, SymmetryError> {
+    let regions = tracking.lattice.regions();
+    if values.len() != regions {
+        return Err(SymmetryError::Regions {
+            given: values.len(),
+            regions,
+        });
+    }
+    let mut held = Vec::new();
+    let mut found = Vec::new();
+    for (index, &name) in NAMES.iter().enumerate().skip(1) {
+        let image = images(tracking, &[index]).and_then(|mut images| {
+            let image = images.remove(0);
+            match image
+                .regions
+                .iter()
+                .enumerate()
+                .find(|&(r, &i)| values[r] != values[i])
+            {
+                Some((r, &i)) => Err(SymmetryError::Broken {
+                    operation: name,
+                    reason: format!(
+                        "region {r} has `{}`, but its image {i} has `{}`",
+                        values[r], values[i]
+                    ),
+                }),
+                None => Ok(image),
+            }
+        });
+        match image {
+            Ok(image) => {
+                held.push(index);
+                found.push(image);
+            }
+            Err(reason) => {
+                tracing::info!(operation = name, %reason, "symmetry operation does not hold");
+            }
+        }
+    }
+    let symmetry = Symmetry::new(&held)?;
+    let mut images = images(tracking, &[0])?;
+    images.extend(found);
+    tracing::info!(
+        symmetry = symmetry.name(),
+        operations = symmetry.order(),
+        "symmetry"
+    );
+    Ok(Detected { symmetry, images })
 }
 
 /// 1つの対称操作による像。
@@ -574,62 +650,6 @@ impl Orbits {
     }
 }
 
-/// セルごとの、同じ組の代表のセル（組の中で最も小さい番号）。`region_material` は領域ごとの物質の番号。
-pub fn cell_orbits(
-    tracking: &Tracking,
-    region_material: &[usize],
-) -> Result<Vec<usize>, SymmetryError> {
-    let lattice = &tracking.lattice;
-    let regions = lattice.regions();
-    if region_material.len() != regions {
-        return Err(SymmetryError::Regions {
-            given: region_material.len(),
-            regions,
-        });
-    }
-    let cells = lattice.cells();
-    // セルのリングごとの物質（扇形や小さな正方形で物質が違うセルは None: 回すと領域の対応が変わる）
-    let rings = |cell: usize| -> Option<Vec<usize>> {
-        let materials = &region_material[lattice.cell_regions(cell)];
-        let width = match lattice.cell_type(cell) {
-            Cell::Pin(pin) if !pin.is_grid() => pin.sectors(),
-            _ => materials.len(),
-        };
-        materials
-            .chunks(width)
-            .map(|ring| ring.iter().all(|&m| m == ring[0]).then_some(ring[0]))
-            .collect()
-    };
-    let ring_materials: Vec<Option<Vec<usize>>> = (0..cells).map(rings).collect();
-    let valid: Vec<&[i64; 4]> = OPERATIONS
-        .iter()
-        .filter(|op| {
-            let identity = **op == OPERATIONS[0];
-            // セルの大きさと種類は、MOC の対称性（`images`）と同じく比べる（軸を入れ替える操作では、ブロックの
-            // nx と ny も入れ替える。#0053）
-            let cells_match = || {
-                (0..cells).all(|cell| {
-                    cell_image(lattice, op, cell).is_some_and(|image| {
-                        cell_mismatch(lattice, op, cell, image).is_none()
-                            && ring_materials[cell].is_some()
-                            && ring_materials[cell] == ring_materials[image]
-                    })
-                })
-            };
-            identity || (check_boundaries(tracking, op).is_ok() && cells_match())
-        })
-        .collect();
-    Ok((0..cells)
-        .map(|cell| {
-            valid
-                .iter()
-                .filter_map(|op| cell_image(lattice, op, cell))
-                .min()
-                .unwrap_or(cell)
-        })
-        .collect())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -662,7 +682,9 @@ mod tests {
     fn orbits(boundaries: Boundaries, materials: Option<Vec<usize>>) -> Vec<usize> {
         let (lattice, default) = lattice(&[4]);
         let tracking = Tracking::with_boundaries(&lattice, 8, 0.2, boundaries).unwrap();
-        cell_orbits(&tracking, &materials.unwrap_or(default)).unwrap()
+        detect(&tracking, &materials.unwrap_or(default))
+            .unwrap()
+            .cell_representatives()
     }
 
     #[test]
@@ -683,7 +705,9 @@ mod tests {
             .collect();
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         assert_eq!(
-            cell_orbits(&tracking, &materials).unwrap(),
+            detect(&tracking, &materials)
+                .unwrap()
+                .cell_representatives(),
             vec![0, 1, 0, 3, 4, 3, 0, 1, 0]
         );
     }
@@ -715,7 +739,9 @@ mod tests {
             .collect();
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         assert_eq!(
-            cell_orbits(&tracking, &materials).unwrap(),
+            detect(&tracking, &materials)
+                .unwrap()
+                .cell_representatives(),
             vec![0, 1, 0, 1, 4, 1, 0, 1, 0]
         );
     }
@@ -756,7 +782,7 @@ mod tests {
     fn region_materials_must_cover_the_lattice() {
         let (lattice, materials) = lattice(&[4]);
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
-        assert!(cell_orbits(&tracking, &materials[1..]).is_err());
+        assert!(detect(&tracking, &materials[1..]).is_err());
     }
 
     /// 3 × 3 のピン（燃料 0、水 1）の中央に、扇形 8 の水のセル（扇形ごとの物質 `pattern`）を置いた格子のトラックと領域の

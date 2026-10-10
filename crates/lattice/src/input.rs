@@ -19,8 +19,9 @@
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
 //! scattering-order = 1            # 散乱の非等方性のルジャンドルの次数（library のとき。省略するとライブラリにあるすべての次数）
-//! symmetry = "quarter"            # 1/4 対称性（左右と上下の鏡映）で代表のトラックと領域だけを解く（"none" か "quarter"。
-//!                                 # 省略すると "none"。quarter では、格子がどちらかの鏡映で変わればエラー。ADR-0113）
+//! symmetry = "quarter"            # 使う対称性を強制する（検証用。"none"、"quarter"（左右と上下の鏡映）、"octant"（8 つの
+//!                                 # 操作すべて））。どれかの操作で格子が変わればエラー。省略すると、成り立つ対称操作を
+//!                                 # すべて使う（ADR-0112）
 //! boundary = { right = "vacuum", bottom = { albedo = 0.3 } }   # 外周の辺の境界条件（reflective, vacuum,
 //!                                                              # { albedo = α }。書かない辺は鏡面反射）
 //! rows = ["pin box", "box pin"]   # セルの配置を上の行から
@@ -66,6 +67,15 @@ use crate::branches::{Branches, BranchesEntry, Water};
 use crate::fewgroup::Node;
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::symmetry::Symmetry;
+
+/// 解くときに使う格子の対称性の選び方（ADR-0112）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SymmetryChoice {
+    /// 成り立つ対称操作をすべて使う（`symmetry` を省略したとき）
+    Detect,
+    /// この対称性を使う（検証用）。どれかの操作が成り立たなければエラー
+    Force(Symmetry),
+}
 use crate::tracking::{Boundaries, Boundary};
 use crate::water::borated_water;
 
@@ -135,8 +145,8 @@ pub struct LatticeInput {
     /// 散乱の非等方性のルジャンドルの次数（0 なら等方散乱。`None` ならライブラリにあるすべての次数）
     pub scattering_order: Option<usize>,
     pub boundaries: Boundaries,
-    /// 解くときに使う格子の対称性（ADR-0113）
-    pub symmetry: Symmetry,
+    /// 解くときに使う格子の対称性の選び方（ADR-0112）
+    pub symmetry: SymmetryChoice,
     pub materials: Vec<MaterialInput>,
     pub cells: Vec<CellInput>,
     /// 上の行から順の、セルの名前の配置
@@ -242,6 +252,7 @@ struct InputFile {
 enum SymmetryEntry {
     None,
     Quarter,
+    Octant,
 }
 
 /// 同じ大きさの列（行）の並び
@@ -614,8 +625,10 @@ impl LatticeInput {
             scattering_order,
             boundaries,
             symmetry: match file.symmetry {
-                None | Some(SymmetryEntry::None) => Symmetry::NONE,
-                Some(SymmetryEntry::Quarter) => Symmetry::QUARTER,
+                None => SymmetryChoice::Detect,
+                Some(SymmetryEntry::None) => SymmetryChoice::Force(Symmetry::NONE),
+                Some(SymmetryEntry::Quarter) => SymmetryChoice::Force(Symmetry::QUARTER),
+                Some(SymmetryEntry::Octant) => SymmetryChoice::Force(Symmetry::OCTANT),
             },
             materials,
             cells,
