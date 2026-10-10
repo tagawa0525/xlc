@@ -278,7 +278,7 @@ P0〜P3）は、NJOY GROUPR（Legendre の次数 3）の散乱行列と、O-16 �
 OpenMC との k の差（1B で +295 pcm、#0005）を、物質ごと・群ごとの正味の吸収（吸収から、(n,2n) など 2 個以上の中性子を出す
 反応で増える分を引いたもの。xlc の全断面積 − 散乱行列の行の和と同じ量）に分けた。外周が鏡面反射なので、生成 1 あたりの
 正味の吸収の和が 1/k になり、k の差は −k_xlc k_OpenMC ΣΔA として物質と範囲に厳密に分かれる。xlc は `balance` の例
-（[`xlc_lattice::balance`](../../crates/lattice/src/balance.rs)。対称性なし、方位角 64・間隔 0.02 cm）、OpenMC は `openmc_balance.py`
+（[`xlc_lattice::balance`](../../crates/lattice/src/balance.rs)。対称性なし、方位角 64・間隔 0.02 cm。ピンセルの設定は [ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md) で変えなかったもの）、OpenMC は `openmc_balance.py`
 （1 世代 100 万粒子・250 世代、最初の 50 世代を捨てる、乱数のシード 1。世代ごとの statepoint から世代ごとの値を求める）。
 どちらも e9981637 で解いた（xlc の出力は 26015c1c とバイト単位で同じ）、2026-10-11。
 
