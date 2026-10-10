@@ -131,7 +131,7 @@ pub enum MocError {
     #[error(
         "region {region} and its image {image} under the {operation} refer to different \
          materials (pass the same material for regions that the operation maps onto each \
-         other; self-shielding does so for the operations it verifies, ADR-0114)"
+         other; self-shielding does so for the operations it verifies, ADR-0112)"
     )]
     AsymmetricMaterial {
         operation: &'static str,
