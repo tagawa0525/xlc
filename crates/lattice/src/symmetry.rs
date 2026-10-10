@@ -187,4 +187,128 @@ mod tests {
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         assert!(cell_orbits(&tracking, &materials[1..]).is_err());
     }
+
+    /// 1/4 対称だが 1/8 対称でない格子。`odd` なら 3 × 3 で、真ん中の列は幅 1.0 の 2 × 2 のブロック（左右の鏡映の軸が
+    /// セルの中を通る長方形）。そうでなければ 4 × 4 で、扇形 8 のピンと 2 × 2 の水を左右と上下で対称に（対角線では
+    /// 非対称に）置き、周りに余白を付けたもの（軸がセルの境を通る）
+    fn quarter_lattice(odd: bool) -> Lattice {
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        if odd {
+            return Lattice::rectilinear(
+                vec![1.26, 1.0, 1.26],
+                vec![1.26; 3],
+                vec![Cell::Pin(pin), Cell::Block { nx: 2, ny: 2 }],
+                vec![vec![0, 1, 0]; 3],
+            )
+            .unwrap();
+        }
+        let water = PinCell::grid(1.26, 2).unwrap();
+        let layout = vec![
+            vec![0, 1, 1, 0],
+            vec![0, 0, 0, 0],
+            vec![0, 0, 0, 0],
+            vec![0, 1, 1, 0],
+        ];
+        Lattice::with_margin(vec![pin, water], layout, 0.04).unwrap()
+    }
+
+    #[test]
+    fn quarter_images_map_tracks_onto_tracks() {
+        for odd in [true, false] {
+            let lattice = quarter_lattice(odd);
+            let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
+            let images = images(&tracking, &QUARTER).unwrap();
+            assert_eq!(images.len(), 4);
+            let exact = lattice.volumes();
+            let apply =
+                |m: [f64; 4], p: (f64, f64)| (m[0] * p.0 + m[1] * p.1, m[2] * p.0 + m[3] * p.1);
+            let near =
+                |p: (f64, f64), q: (f64, f64)| (p.0 - q.0).abs() < 1e-9 && (p.1 - q.1).abs() < 1e-9;
+            for image in &images {
+                // 領域は同じ体積の領域に1対1で移る
+                let mut hit = vec![false; exact.len()];
+                for (r, &i) in image.regions.iter().enumerate() {
+                    assert!((exact[r] - exact[i]).abs() < 1e-12, "region {r} -> {i}");
+                    hit[i] = true;
+                }
+                assert!(hit.iter().all(|&h| h));
+                for (t, track) in tracking.tracks.iter().enumerate() {
+                    let (u, same) = image.tracks[t];
+                    let other = &tracking.tracks[u];
+                    let (start, end) = if same {
+                        (other.start, other.end)
+                    } else {
+                        (other.end, other.start)
+                    };
+                    assert!(near(apply(image.matrix, track.start), start), "track {t}");
+                    assert!(near(apply(image.matrix, track.end), end), "track {t}");
+                    // 移した領域ごとの区間の長さは、像のトラックの区間の長さと同じ
+                    let mut lengths = vec![0.0_f64; exact.len()];
+                    for s in &track.segments {
+                        lengths[image.regions[s.region]] += s.length;
+                    }
+                    for s in &other.segments {
+                        lengths[s.region] -= s.length;
+                    }
+                    assert!(lengths.iter().all(|l| l.abs() < 1e-9), "track {t}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn segment_lengths_reject_a_wrong_region_map() {
+        // 正しい領域の像ではどのトラックも区間の長さが一致し、ピンの燃料と水を入れ替えた像では一致しないトラックがある
+        let (lattice, _) = lattice(&[4]);
+        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
+        let images = images(&tracking, &QUARTER).unwrap();
+        let tolerance = 1.0e-9 * lattice.width();
+        for image in &images {
+            for (t, &(u, forward)) in image.tracks.iter().enumerate() {
+                assert!(segments_match(
+                    &tracking.tracks[t],
+                    &tracking.tracks[u],
+                    &image.regions,
+                    forward,
+                    tolerance
+                ));
+            }
+        }
+        let image = &images[1];
+        let mut wrong = image.regions.clone();
+        wrong.swap(0, 1);
+        assert!(image.tracks.iter().enumerate().any(|(t, &(u, forward))| {
+            !segments_match(
+                &tracking.tracks[t],
+                &tracking.tracks[u],
+                &wrong,
+                forward,
+                tolerance,
+            )
+        }));
+    }
+
+    #[test]
+    fn quarter_needs_every_mirror() {
+        // 右だけ真空
+        let (symmetric, _) = lattice(&[4]);
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&symmetric, 8, 0.2, boundaries).unwrap();
+        assert!(images(&tracking, &QUARTER).is_err());
+        // 左の真ん中だけ水
+        let (asymmetric, _) = lattice(&[3]);
+        let tracking = Tracking::new(&asymmetric, 8, 0.2).unwrap();
+        assert!(images(&tracking, &QUARTER).is_err());
+        // 左右が真空で上下が鏡面反射なら、1/8 対称でなくても 1/4 対称
+        let boundaries = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&symmetric, 8, 0.2, boundaries).unwrap();
+        assert!(images(&tracking, &QUARTER).is_ok());
+    }
 }

@@ -953,6 +953,24 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn symmetry_is_none_unless_given() {
+        let given = |value: &str| {
+            replaced(
+                PIN_CELL,
+                "spacing = 0.05",
+                &format!("spacing = 0.05\nsymmetry = \"{value}\""),
+            )
+        };
+        assert_eq!(
+            LatticeInput::parse(PIN_CELL).unwrap().symmetry,
+            Symmetry::None
+        );
+        assert_eq!(given("quarter").unwrap().symmetry, Symmetry::Quarter);
+        assert_eq!(given("none").unwrap().symmetry, Symmetry::None);
+        assert!(given("half").is_err());
+    }
+
+    #[test]
     fn void_zones_need_no_material() {
         let input = replaced(
             PIN_CELL,
