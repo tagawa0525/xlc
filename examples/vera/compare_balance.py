@@ -5,13 +5,18 @@
 
 どちらも生成の和を 1 に規格化してあり（OpenMC はすべてのエネルギーの和）、外周が鏡面反射なので正味の吸収の和が
 1/k になる。そこで k_xlc − k_OpenMC = −k_xlc k_OpenMC Σ ΔA が厳密に成り立ち、k の差（× 1e5、検証の記録の pcm と同じ
-絶対の差）を物質と範囲に分けられる。OpenMC の群の範囲の外（10 MeV より上）の吸収は xlc にないので、別の行にする。
+絶対の差）を物質と範囲に分けられる。OpenMC の群の範囲の外（いちばん下の境より下と、いちばん上の境より上）の吸収は
+xlc にないので、別の行にする。
 
-中性子束は、xlc も物理的な値（SPH 因子を掛けた領域と群では MOC の値に因子を掛けたもの）なので、反応率 / 中性子束は
-SPH 因子を掛ける前の物理的な実効断面積になる。1 次の近似では、群ごとの実効断面積の差を OpenMC の中性子束に掛けて
-断面積の差による分を求め（Δk ≈ k (ΔP − k ΔA)、中性子束を OpenMC に固定）、全体の差との残りを中性子束の形の差による分と
-する。σ は OpenMC の統計誤差だけ（群の間の相関は無視する）。範囲の境の既定は 15.03 keV（UFG の範囲の上）、4 eV（下）、
-0.625 eV。
+中性子束は、xlc も物理的な値（SPH 因子を戻したもの）なので、反応率 / 中性子束は物理的な実効断面積になる。1 次の近似で
+は、群ごとの吸収と生成の実効断面積の差を OpenMC の中性子束に掛けて、それらの断面積の差による分を求める（Δk ≈
+k (ΔP − k ΔA)、中性子束を OpenMC に固定）。全体の差との残りは、散乱による移行の差による分のほか、範囲の外の項、2 次の
+項、断面積の差が下流の中性子束に及ぼす間接の影響を含むので、原因ごとの分け方ではない。
+
+σ は OpenMC の世代ごとの値の標準誤差（同じ粒子の追跡による量の間の相関、規格化の生成、範囲の外の項を含む。世代の
+間の相関は含まないので小さめに出る）。範囲の境の既定は 15.03 keV（UFG の範囲の上）、4 eV（下）、0.625 eV。
+
+最後に、燃料の群の間の散乱による移行（反応率 / 中性子束）を、共鳴の範囲の群で比べる（群から出る割合と、群に残る割合）。
 """
 
 import math
@@ -41,15 +46,13 @@ def main() -> None:
             f"materials differ: {names} and {sorted(reference['materials'])}"
         )
     groups = len(bounds) - 1
+    keys = ("flux", "absorption", "production")
     for side in (ours, reference):
         for rates in side["materials"].values():
-            if any(
-                len(rates[key]) != groups
-                for key in ("flux", "absorption", "production")
-            ):
+            if any(len(rates[key]) != groups for key in keys):
                 raise SystemExit("the group counts differ from the library")
-    if "outside" not in reference:
-        raise SystemExit("the OpenMC balance has no `outside` part")
+    if not reference.get("batches") or "outside" not in reference:
+        raise SystemExit("the OpenMC balance needs `batches` and `outside`")
 
     # 群 g は bounds[g]〜bounds[g+1]（高いエネルギーから）。範囲は群の上の境で決める
     labels = (
@@ -61,100 +64,128 @@ def main() -> None:
     for g in range(groups):
         ranges[sum(1 for e in edges if bounds[g] <= e * (1 + 1e-9))].append(g)
 
-    a_ours = sum(sum(r["absorption"]) for r in ours["materials"].values())
-    outside = reference["outside"]["absorption"]
-    a_ref = sum(sum(r["absorption"]) for r in reference["materials"].values()) + outside
-    k_ours, k_ref = 1 / a_ours, 1 / a_ref
-    to_k = -k_ours * k_ref * 1e5
+    k_ours = 1 / sum(sum(r["absorption"]) for r in ours["materials"].values())
+
+    def split(ref: dict, below: float, above: float) -> dict:
+        """OpenMC の 1 組の値（平均か 1 世代）に対する、物質と範囲ごとの寄与と 1 次の近似の寄与。"""
+        a_ref = sum(sum(r["absorption"]) for r in ref.values()) + below + above
+        k_ref = 1 / a_ref
+        to_k = -k_ours * k_ref * 1e5
+        parts = {"k_ref": k_ref, "below": to_k * -below, "above": to_k * -above}
+        for name in names:
+            a, b = ours["materials"][name], ref[name]
+            for r, sel in enumerate(ranges):
+                parts[(name, r)] = to_k * sum(
+                    a["absorption"][g] - b["absorption"][g] for g in sel
+                )
+                dp = da = 0.0
+                for g in sel:
+                    if a["flux"][g] > 0 and b["flux"][g] > 0:
+                        phi = b["flux"][g]
+                        da += (
+                            a["absorption"][g] / a["flux"][g] * phi - b["absorption"][g]
+                        )
+                        dp += (
+                            a["production"][g] / a["flux"][g] * phi - b["production"][g]
+                        )
+                parts[("first", name, r)] = k_ref * (dp - k_ref * da) * 1e5
+        return parts
+
+    outside = reference["outside"]
+    mean = split(
+        reference["materials"],
+        outside["below"]["absorption"],
+        outside["above"]["absorption"],
+    )
+    samples = [
+        split(b["materials"], b["below"], b["above"]) for b in reference["batches"]
+    ]
+    n = len(samples)
+
+    def sigma(key) -> float:
+        """`key` は寄与の名前か、1 組の寄与から値を求める関数"""
+        values = [key(s) if callable(key) else s[key] for s in samples]
+        m = sum(values) / n
+        return math.sqrt(sum((v - m) ** 2 for v in values) / (n - 1) / n)
+
+    k_ref = mean["k_ref"]
     print(
-        f"k xlc {ours['k']:.6f} (1/A {k_ours:.6f}); OpenMC {reference['k']:.6f} "
-        f"(1/A {k_ref:.6f}, outside the groups: production {reference['outside']['production']:.2e}, "
-        f"absorption {outside:.2e}); k difference (1/A) {(k_ours - k_ref) * 1e5:+.1f}"
+        f"k xlc {ours['k']:.6f} (1/A {k_ours:.6f}); OpenMC {reference['k']:.6f} ± {reference['k_std']:.6f} "
+        f"(1/A {k_ref:.6f} ± {sigma('k_ref'):.6f}); "
+        f"k difference by 1/A {(k_ours - k_ref) * 1e5:+.1f} ± {sigma('k_ref') * 1e5:.1f}, "
+        f"by the k estimate {(ours['k'] - reference['k']) * 1e5:+.1f} ± {reference['k_std'] * 1e5:.1f}"
+    )
+    print(
+        f"outside the groups: production below {outside['below']['production']:.2e}, "
+        f"above {outside['above']['production']:.2e}"
     )
 
-    def std(values) -> float:
-        return math.sqrt(sum(v * v for v in values))
+    def total(s: dict) -> float:
+        return (
+            s["below"]
+            + s["above"]
+            + sum(s[(name, r)] for name in names for r in range(len(labels)))
+        )
 
-    print(f"{'material':9s} {'range':>18s} {'Δk':>14s} {'ΔA/A':>8s} {'Δφ/φ':>8s}")
-    total = 0.0
-    total_var = 0.0
+    def first(s: dict) -> float:
+        return sum(s[("first", name, r)] for name in names for r in range(len(labels)))
+
+    print(f"{'material':9s} {'range':>18s} {'Δk':>14s} {'Δφ/φ':>8s}")
     for name in names:
         a, b = ours["materials"][name], reference["materials"][name]
-        for label, sel in zip(labels, ranges):
-            da = sum(a["absorption"][g] - b["absorption"][g] for g in sel)
-            sa = std(b["absorption_std"][g] for g in sel)
-            ab = sum(b["absorption"][g] for g in sel)
+        for r, (label, sel) in enumerate(zip(labels, ranges)):
             fa = sum(a["flux"][g] for g in sel)
             fb = sum(b["flux"][g] for g in sel)
-            total += to_k * da
-            total_var += (to_k * sa) ** 2
             print(
-                f"{name:9s} {label:>18s} {to_k * da:+7.1f} ± {abs(to_k) * sa:4.1f} "
-                f"{(da / ab if ab else 0) * 100:+7.2f}% {(fa / fb - 1) * 100 if fb else 0:+7.2f}%"
+                f"{name:9s} {label:>18s} {mean[(name, r)]:+7.1f} ± {sigma((name, r)):4.1f} "
+                f"{(fa / fb - 1) * 100 if fb else 0:+7.2f}%"
             )
-    total += to_k * (0.0 - outside)
-    print(f"{'outside':9s} {'> 10 MeV (OpenMC)':>18s} {to_k * -outside:+7.1f}")
-    print(f"{'sum':9s} {'':>18s} {total:+7.1f} ± {math.sqrt(total_var):4.1f}")
+    for side in ("below", "above"):
+        print(f"{'outside':9s} {side:>18s} {mean[side]:+7.1f} ± {sigma(side):4.1f}")
+    print(f"{'sum':9s} {'':>18s} {total(mean):+7.1f} ± {sigma(total):4.1f}")
 
-    # 1 次の近似: 群ごとの物理的な実効断面積の差を、OpenMC の中性子束に掛ける
-    print("first order by effective cross sections on the OpenMC flux:")
-    first = 0.0
+    print("first order by absorption and production cross sections on the OpenMC flux:")
     for name in names:
-        a, b = ours["materials"][name], reference["materials"][name]
-        parts = []
-        for label, sel in zip(labels, ranges):
-            dp = da = var = 0.0
-            for g in sel:
-                if a["flux"][g] <= 0 or b["flux"][g] <= 0:
-                    continue
-                phi = b["flux"][g]
-                sx_a = a["absorption"][g] / a["flux"][g]
-                sx_p = a["production"][g] / a["flux"][g]
-                da += sx_a * phi - b["absorption"][g]
-                dp += sx_p * phi - b["production"][g]
-                # OpenMC の反応率と、xlc の断面積 × OpenMC の中性子束の誤差
-                var += (k_ref * b["absorption_std"][g]) ** 2 + b["production_std"][
-                    g
-                ] ** 2
-                var += ((sx_p - k_ref * sx_a) * b["flux_std"][g]) ** 2
-            dk = k_ref * (dp - k_ref * da) * 1e5
-            first += dk
-            parts.append(f"{label}: {dk:+7.1f} ± {k_ref * math.sqrt(var) * 1e5:4.1f}")
+        parts = [
+            f"{label}: {mean[('first', name, r)]:+7.1f} ± {sigma(('first', name, r)):4.1f}"
+            for r, label in enumerate(labels)
+        ]
         print(f"  {name:9s} " + " | ".join(parts))
+    rest = lambda s: total(s) - first(s)
     print(
-        f"  first order sum {first:+.1f}, the rest (flux shape and outside) {total - first:+.1f}"
+        f"  first order sum {first(mean):+.1f} ± {sigma(first):.1f}, "
+        f"the rest {rest(mean):+.1f} ± {sigma(rest):.1f}"
     )
 
-    # 群ごとの寄与の大きいもの（σ の 3 倍を超えるものだけ）
-    rows = []
-    for name in names:
-        a, b = ours["materials"][name], reference["materials"][name]
-        for g in range(groups):
-            da = a["absorption"][g] - b["absorption"][g]
-            sa = b["absorption_std"][g]
-            if abs(da) <= 3 * sa:
-                continue
-            ab, fb = b["absorption"][g], b["flux"][g]
-            rows.append(
-                (
-                    to_k * da,
-                    abs(to_k) * sa,
-                    name,
-                    g + 1,
-                    bounds[g + 1],
-                    bounds[g],
-                    da / ab if ab else 0.0,
-                    a["flux"][g] / fb - 1 if fb else 0.0,
-                    b["flux_std"][g] / fb if fb else 0.0,
-                )
-            )
-    print("largest group contributions beyond 3σ (group from 1, energies in eV):")
-    largest = sorted(rows, key=lambda r: -abs(r[0]))[:20]
-    for pcm, sigma, name, g, low, high, rel, flux, flux_sigma in largest:
+    # 燃料の散乱による移行（反応率 / 中性子束）を共鳴の範囲の群で比べる
+    if "transfer" in ours["materials"].get("fuel", {}) and "transfer" in reference[
+        "materials"
+    ].get("fuel", {}):
+        a, b = ours["materials"]["fuel"], reference["materials"]["fuel"]
         print(
-            f"{name:9s} {g:3d} {low:10.4g}〜{high:<10.4g} {pcm:+7.1f} ± {sigma:4.1f}  "
-            f"ΔA/A {rel * 100:+6.2f}%  Δφ/φ {flux * 100:+6.2f}% ± {flux_sigma * 100:.2f}%"
+            "fuel scattering transfer in the resonance range (xlc / OpenMC − 1, OpenMC σ):"
         )
+        for g in ranges[1]:
+            out_a = (
+                sum(a["transfer"][g][h] for h in range(groups) if h != g) / a["flux"][g]
+            )
+            out_b = (
+                sum(b["transfer"][g][h] for h in range(groups) if h != g) / b["flux"][g]
+            )
+            out_s = (
+                math.sqrt(
+                    sum(b["transfer_std"][g][h] ** 2 for h in range(groups) if h != g)
+                )
+                / b["flux"][g]
+            )
+            in_a = a["transfer"][g][g] / a["flux"][g]
+            in_b = b["transfer"][g][g] / b["flux"][g]
+            in_s = b["transfer_std"][g][g] / b["flux"][g]
+            print(
+                f"  {g + 1:3d} {bounds[g + 1]:9.4g}〜{bounds[g]:<9.4g} "
+                f"out {out_a / out_b - 1:+7.2%} ± {out_s / out_b:.2%}  "
+                f"in {in_a / in_b - 1:+7.2%} ± {in_s / in_b:.2%}"
+            )
 
 
 if __name__ == "__main__":

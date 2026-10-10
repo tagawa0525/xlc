@@ -1,4 +1,5 @@
-"""VERA の 1B〜1D を OpenMC の連続エネルギーモードで解き、物質ごと・群ごとの中性子束、正味の吸収、生成を書く。
+"""VERA の 1B〜1D を OpenMC の連続エネルギーモードで解き、物質ごと・群ごとの中性子束、正味の吸収、生成と、群の間の散乱に
+よる移行を書く。
 
 使い方: python3 openmc_balance.py <cross_sections.xml> <問題> <作業ディレクトリ> <xlc のライブラリ>
         [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]
@@ -6,11 +7,13 @@
 xlc の `balance` の例（crates/lattice/examples/balance.rs）と同じ形式の balance.msgpack を書く。群構造は xlc の
 ライブラリのもので、高いエネルギーから並べる。正味の吸収は、xlc（全断面積から、中性子を出すすべての反応の放出の数を
 含む散乱行列の行の和を引く）と同じ量にするため、吸収（中性子が出ない反応と核分裂）から、2 個以上の中性子を出す反応の
-増える分（放出の数 − 1）を引く。値はすべてのエネルギーの生成の和が 1 になるように規格化し、群の範囲の外（10 MeV より上）の正味の吸収と生成を
-`outside` に書く（外周が鏡面反射なので、正味の吸収の和が 1/k に
-なる）。各量の標準偏差を `*_std` に書く（規格化の生成の誤差は含めない）。確認のため、全断面積から中性子の放出の数で
-数えた散乱（nu-scatter、出来事ごとの推定）を引いた正味の吸収も `absorption_by_scatter` に書く。物質の名前は xlc の 1B の
-入力にそろえる。
+増える分（放出の数 − 1）を引く。値はすべてのエネルギーの生成の和が 1 になるように規格化する（外周が鏡面反射なので、
+正味の吸収の和が 1/k になる）。群の範囲の外（いちばん下の境より下と、いちばん上の境より上）の正味の吸収と生成は
+`outside` の `below` と `above` に書く。
+
+統計誤差は、生成、吸収、中性子束が同じ粒子の追跡から出て強く相関するので、世代ごとの値から求める。世代ごとの値
+（それぞれの世代のすべてのエネルギーの生成で規格化したもの）を `batches` に書く。移行の行列（nu-scatter、出来事ごとの
+推定）は平均と標準偏差だけを書く。
 """
 
 import sys
@@ -46,7 +49,16 @@ MULTIPLYING = {
     "(n,2np)": 1.0,
     "(n,3np)": 2.0,
 }
-SCORES = ["absorption", "nu-fission", *MULTIPLYING]
+SCORES = ["absorption", "nu-fission", "flux", *MULTIPLYING]
+KEYS = ("flux", "absorption", "production")
+
+
+def net_absorption(values: dict[str, np.ndarray]) -> np.ndarray:
+    """score ごとの値から正味の吸収を求める。"""
+    net = values["absorption"]
+    for score, extra in MULTIPLYING.items():
+        net = net - extra * values[score]
+    return net
 
 
 def main() -> None:
@@ -73,96 +85,132 @@ def main() -> None:
     geometry, half = geometry_of(problem, fuel, clad, water)
     settings = eigenvalue_settings(particles, batches, inactive, seed, half)
     settings.temperature = {"method": "nearest", "tolerance": 1.0}
+    # 世代ごとの値を、続く 2 つの statepoint の和の差から求める
+    settings.statepoint = {"batches": list(range(inactive + 1, batches + 1))}
 
     order = [fuel, clad, water]
-    filters = [openmc.MaterialFilter(order), group_filter(library)]
+    groups = group_filter(library)
+    low, high = groups.bins[0][0], groups.bins[-1][1]
     rates = openmc.Tally(name="rates")
-    rates.filters = filters
+    rates.filters = [openmc.MaterialFilter(order), groups]
     rates.scores = SCORES
-    flux = openmc.Tally(name="flux")
-    flux.filters = filters
-    flux.scores = ["flux"]
+    # 群の範囲の下、範囲の中、範囲の上
+    outside = openmc.Tally(name="outside")
+    outside.filters = [
+        openmc.MaterialFilter(order),
+        openmc.EnergyFilter([0.0, low, high, 1.0e10]),
+    ]
+    outside.scores = SCORES
     # 出来事ごとの推定が要る score は別の tally にする（同じ tally だと全体が出来事ごとの推定になる）
-    scattering = openmc.Tally(name="scattering")
-    scattering.filters = filters
-    scattering.scores = ["total", "nu-scatter"]
-    # 群のエネルギーの範囲の外（ライブラリの上の境 10 MeV より上など）も含めた和。バランスが閉じるかの確認
-    everything = openmc.Tally(name="all energies")
-    everything.filters = [openmc.MaterialFilter(order)]
-    everything.scores = SCORES
+    transfer = openmc.Tally(name="transfer")
+    transfer.filters = [
+        openmc.MaterialFilter(order),
+        groups,
+        openmc.EnergyoutFilter(groups.values),
+    ]
+    transfer.scores = ["nu-scatter"]
     model = openmc.Model(
-        geometry,
-        materials,
-        settings,
-        openmc.Tallies([rates, flux, scattering, everything]),
+        geometry, materials, settings, openmc.Tallies([rates, outside, transfer])
     )
-    statepoint = model.run(cwd=work, output=False)
+    model.run(cwd=work, output=False)
 
-    with openmc.StatePoint(statepoint) as sp:
-        k = sp.keff
-
-        def get(name: str, score: str, value: str = "mean") -> np.ndarray:
-            v = sp.get_tally(name=name).get_values(scores=[score], value=value)
-            return v.reshape(len(order), -1)
-
-        absorption = get("rates", "absorption")
-        variance = get("rates", "absorption", "std_dev") ** 2
-        for score, extra in MULTIPLYING.items():
-            absorption = absorption - extra * get("rates", score)
-            variance = variance + (extra * get("rates", score, "std_dev")) ** 2
-        production = get("rates", "nu-fission")
-        production_std = get("rates", "nu-fission", "std_dev")
-        phi = get("flux", "flux")
-        phi_std = get("flux", "flux", "std_dev")
-        by_scatter = get("scattering", "total") - get("scattering", "nu-scatter")
-        by_scatter_std = np.sqrt(
-            get("scattering", "total", "std_dev") ** 2
-            + get("scattering", "nu-scatter", "std_dev") ** 2
-        )
-
-        def whole(score: str) -> float:
-            return float(
-                sp.get_tally(name="all energies").get_values(scores=[score]).sum()
-            )
-
-        all_absorbed = whole("absorption") - sum(
-            extra * whole(score) for score, extra in MULTIPLYING.items()
-        )
-        # すべてのエネルギーの生成で規格化する（群の範囲の外の分は `outside` に書く）
-        total = whole("nu-fission")
-        out = {"format": "xlc-balance", "k": k.nominal_value, "materials": {}}
-        for i, m in enumerate(order):
-            # 群は高いエネルギーから
-            def put(v: np.ndarray, i: int = i) -> list[float]:
-                return (v[i][::-1] / total).tolist()
-
-            out["materials"][NAMES[m.name]] = {
-                "flux": put(phi),
-                "flux_std": put(phi_std),
-                "absorption": put(absorption),
-                "absorption_std": put(np.sqrt(variance)),
-                "production": put(production),
-                "production_std": put(production_std),
-                "absorption_by_scatter": put(by_scatter),
-                "absorption_by_scatter_std": put(by_scatter_std),
+    n = len(groups.bins)
+    width = len(str(batches))
+    previous = None
+    per_batch = []
+    raw_totals = []
+    for batch in range(inactive + 1, batches + 1):
+        with openmc.StatePoint(work / f"statepoint.{batch:0{width}d}.h5") as sp:
+            now = {
+                name: {
+                    score: sp.get_tally(name=name).get_values(
+                        scores=[score], value="sum"
+                    )
+                    for score in SCORES
+                }
+                for name in ("rates", "outside")
             }
-        absorbed = absorption.sum() / total
-        absorbed_std = np.sqrt(variance.sum()) / total
-        by_scatter_sum = by_scatter.sum() / total
-        out["outside"] = {
-            "absorption": (all_absorbed - absorption.sum()) / total,
-            "production": (total - production.sum()) / total,
-        }
-        (work / "balance.msgpack").write_bytes(msgpack.packb(out))
-        print(
-            f"all energies: 1/absorption {total / all_absorbed:.6f}, "
-            f"production outside the groups {out['outside']['production']:.2e}"
+            if batch == batches:
+                k = sp.keff
+                tally = sp.get_tally(name="transfer")
+                mean = tally.get_values(value="mean").reshape(len(order), n, n)
+                std = tally.get_values(value="std_dev").reshape(len(order), n, n)
+        this = (
+            now
+            if previous is None
+            else {
+                name: {s: now[name][s] - previous[name][s] for s in SCORES}
+                for name in now
+            }
         )
-        print(
-            f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}, inside the groups: "
-            f"absorption {absorbed:.6f} +- {absorbed_std:.6f}, "
-            f"total - nu-scatter {by_scatter_sum:.6f}"
+        previous = now
+        inside = {s: v.reshape(len(order), n) for s, v in this["rates"].items()}
+        edges = {s: v.reshape(len(order), 3) for s, v in this["outside"].items()}
+        total = edges["nu-fission"].sum()
+        raw_totals.append(total)
+        net_edges = net_absorption(edges)
+        per_batch.append(
+            {
+                "flux": inside["flux"] / total,
+                "absorption": net_absorption(inside) / total,
+                "production": inside["nu-fission"] / total,
+                "below": net_edges[:, 0].sum() / total,
+                "above": net_edges[:, 2].sum() / total,
+                "below_production": edges["nu-fission"][:, 0].sum() / total,
+                "above_production": edges["nu-fission"][:, 2].sum() / total,
+            }
         )
+
+    def mean_of(key: str) -> np.ndarray:
+        return np.mean([b[key] for b in per_batch], axis=0)
+
+    # 移行の行列は 1 世代あたりの平均なので、世代の生成の平均で規格化する
+    per_source = np.mean(raw_totals)
+    out = {
+        "format": "xlc-balance",
+        "k": k.nominal_value,
+        "k_std": k.std_dev,
+        "materials": {},
+        "outside": {
+            side: {
+                "absorption": float(mean_of(side)),
+                "production": float(mean_of(f"{side}_production")),
+            }
+            for side in ("below", "above")
+        },
+        "batches": [],
+    }
+    # 群は高いエネルギーから。行列は [入射][出射]
+    for i, m in enumerate(order):
+        name = NAMES[m.name]
+        out["materials"][name] = {key: mean_of(key)[i][::-1].tolist() for key in KEYS}
+        out["materials"][name]["transfer"] = (mean[i][::-1, ::-1] / per_source).tolist()
+        out["materials"][name]["transfer_std"] = (
+            std[i][::-1, ::-1] / per_source
+        ).tolist()
+    for b in per_batch:
+        out["batches"].append(
+            {
+                "materials": {
+                    NAMES[m.name]: {key: b[key][i][::-1].tolist() for key in KEYS}
+                    for i, m in enumerate(order)
+                },
+                "below": float(b["below"]),
+                "above": float(b["above"]),
+            }
+        )
+    (work / "balance.msgpack").write_bytes(msgpack.packb(out))
+    absorbed = np.array(
+        [b["absorption"].sum() + b["below"] + b["above"] for b in per_batch]
+    )
+    inverse = 1 / absorbed.mean()
+    inverse_std = absorbed.std(ddof=1) / np.sqrt(len(absorbed)) * inverse**2
+    print(
+        f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}, "
+        f"1/(net absorption over all energies) {inverse:.6f} +- {inverse_std:.6f}, "
+        f"production below/above the groups {out['outside']['below']['production']:.2e}/"
+        f"{out['outside']['above']['production']:.2e}"
+    )
 
 
 if __name__ == "__main__":
