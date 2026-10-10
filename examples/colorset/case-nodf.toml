@@ -1,0 +1,6 @@
+# 不連続因子を外した単一集合体の定数で解き、ピン出力を再構成する。
+cycle = "cycle-nodf.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+pin-powers = "core-pins-nodf.msgpack"

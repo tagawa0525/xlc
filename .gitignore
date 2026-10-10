@@ -22,3 +22,5 @@
 /examples/branches/*.log
 /examples/split/*.msgpack
 /examples/split/*.log
+/examples/colorset/*.msgpack
+/examples/colorset/*.log
