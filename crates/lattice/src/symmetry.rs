@@ -18,6 +18,11 @@ use crate::tracking::{Track, Tracking};
 pub enum SymmetryError {
     #[error("{given} region materials for {regions} regions")]
     Regions { given: usize, regions: usize },
+    #[error(
+        "track {track} starts or ends at a corner of the lattice; image tracks are looked up \
+         by position along the boundary, which needs ends away from the corners"
+    )]
+    CornerTrack { track: usize },
     #[error("the lattice is not symmetric under the {operation}: {reason}")]
     Broken {
         operation: &'static str,
@@ -77,7 +82,7 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
     let lattice = &tracking.lattice;
     // 区間の端の一致を確かめる許容誤差（`Tracking` の反射のつながりと同じ）
     let tolerance = 1.0e-9 * lattice.width().max(lattice.height());
-    let starts = StartIndex::new(tracking);
+    let starts = StartIndex::new(tracking, tolerance)?;
     let mut images = Vec::with_capacity(operations.len());
     for &index in operations {
         let (op, name) = (&OPERATIONS[index], NAMES[index]);
@@ -156,8 +161,21 @@ struct StartIndex {
 }
 
 impl StartIndex {
-    fn new(tracking: &Tracking) -> Self {
+    /// トラックの端（始点と終点。終点は逆向きのトラックの像の始点になる）は、外周の角から `tolerance` より離れている
+    /// こと。`Tracking` はトラックが外周の角を通らないように引くが、索引はそれに頼る（角の点は二つの辺の上にあり、外周に
+    /// 沿った位置が二通りになる。左下の角では位置が 0 と外周の全長に分かれる）ので、確かめてエラーにする
+    fn new(tracking: &Tracking, tolerance: f64) -> Result<Self, SymmetryError> {
         let size = (tracking.lattice.width(), tracking.lattice.height());
+        let near_corner = |(x, y): (f64, f64)| {
+            (x.abs() - 0.5 * size.0).abs() < tolerance && (y.abs() - 0.5 * size.1).abs() < tolerance
+        };
+        if let Some(track) = tracking
+            .tracks
+            .iter()
+            .position(|t| near_corner(t.start) || near_corner(t.end))
+        {
+            return Err(SymmetryError::CornerTrack { track });
+        }
         let sorted = (0..tracking.azimuths.len())
             .map(|a| {
                 let mut keys: Vec<(f64, usize)> = tracking
@@ -168,7 +186,7 @@ impl StartIndex {
                 keys
             })
             .collect();
-        Self { sorted, size }
+        Ok(Self { sorted, size })
     }
 
     /// 方位角 `azimuth` の、始点が `point` から `tolerance` 以内のトラック。始点の間隔は許容誤差よりずっと大きいので、
@@ -194,7 +212,7 @@ impl StartIndex {
 }
 
 /// 外周の上の点 `p`（中心が原点、幅と高さ `size`）の、左下の角から反時計回りに外周に沿って測った位置。点は、最も近い
-/// 辺の上にあるとみなす
+/// 辺の上にあるとみなす。点は外周の角にないこと（`StartIndex::new` が確かめる。角では位置が二通りになる）
 fn perimeter(p: (f64, f64), (w, h): (f64, f64)) -> f64 {
     let (x, y) = (p.0 + 0.5 * w, p.1 + 0.5 * h);
     // 下、右、上、左の辺までの距離
