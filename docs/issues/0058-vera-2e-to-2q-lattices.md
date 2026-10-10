@@ -70,5 +70,5 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
   判定の範囲（2J の間隔の幅を除いて 30.9 pcm）の端にあり、0 と区別できない。2F と 2I の変化の和（+38 pcm）とも区別できない。
   2F を基準にしたシンブルによる k の変化は xlc −74 pcm、OpenMC −64 pcm。シンブルの上下左右の隣のピンは OpenMC で 2F より
   −3.42% 下がり、xlc との差は平均 −0.11%（4 本と世代を独立とした統計誤差 0.038% は下限で、0 と区別できるとは言えない）。
-  OpenMC と KENO-VI の k の差は +105 pcm、ピン出力は rms 0.074%、最大 +0.149%。OpenMC のピン出力は git に入れず、
-  references/openmc/work-2J に置く
+  OpenMC と KENO-VI の k の差は +105 pcm、ピン出力は rms 0.074%、最大 +0.149%。OpenMC のピン出力は
+  examples/vera/p2/openmc-2J.msgpack に置き、git では追跡しない（ADR-0121）
