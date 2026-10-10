@@ -12,7 +12,7 @@ use super::harmonics::real_harmonic;
 use super::{MocError, Sums};
 use crate::cmfd::CoarseMesh;
 use crate::material::Material;
-use crate::symmetry::{Image, Orbits, Symmetry, SymmetryError, images};
+use crate::symmetry::{Image, Orbits, SymmetryError};
 use crate::tracking::Tracking;
 
 /// スイープする代表のトラック、状態を持つ代表の領域とセル、tally の集め方。
@@ -76,22 +76,10 @@ impl Representatives {
         }
     }
 
-    /// 対称性 `symmetry` の操作で移り合うトラックの代表だけをスイープし、領域とセルの軌道の代表の状態だけを持つ（ADR-0112）。
-    /// 形状とトラック（`symmetry::images`）がどれかの操作で移り合わないか、移り合う領域の物質 `materials` が同じ物質
-    /// （同じ参照）でなければエラー
-    pub fn symmetric(
-        tracking: &Tracking,
-        materials: &[&Material],
-        mesh: &CoarseMesh,
-        pairs: &[(usize, isize)],
-        symmetry: Symmetry,
-    ) -> Result<Self, MocError> {
-        let images = images(tracking, &symmetry.operations())?;
-        Self::by_images(tracking, materials, mesh, pairs, &images)
-    }
-
-    /// 使う対称操作の像 `images`（恒等を含む）から作る
-    fn by_images(
+    /// 使う対称操作の像 `images`（恒等を含む。`symmetry::detect` か `symmetry::require` で確かめたもの）で移り合う
+    /// トラックの代表だけをスイープし、領域とセルの軌道の代表の状態だけを持つ（ADR-0112）。移り合う領域の物質 `materials` が
+    /// 同じ物質（同じ参照）でなければエラー
+    pub fn by_images(
         tracking: &Tracking,
         materials: &[&Material],
         mesh: &CoarseMesh,
