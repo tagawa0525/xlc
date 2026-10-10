@@ -13,7 +13,7 @@ xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC 
 | `p1/pincell-1B.toml` など       | ピンセルの格子計算の入力                                                                         |
 | `p2/assembly-2B.toml` など      | 集合体の格子計算の入力（周りに水のギャップ 0.04 cm）                                             |
 | `p2/assembly-2E-empty.toml`     | 2E の Pyrex の棒を抜いたもの（仕様書にない。減速材の密度と吸収体の効果を分けるため）             |
-| `p2/openmc-2B.msgpack` など     | 参照解のピン出力（行は上から、核分裂のあるピンの平均で 1 に規格化）                              |
+| `p2/openmc-2B.msgpack` など     | 参照解のピン出力（行は上から、核分裂のあるピンの平均で 1 に規格化。git で追跡しない。ADR-0121）  |
 | `p2/lattice-9x9-vacuum.toml` 他 | 2B の燃料ピンの、右の辺が真空の格子と core の 1 ノードの比較（「真空の辺のある格子の ADF」の節） |
 | `openmc_library.py`             | ENDF/B-VIII.0 から OpenMC の連続エネルギーのデータを作る                                         |
 | `openmc_model.py`               | 1B〜1D、2B〜2I を OpenMC で解く。ピン出力と、燃料の核種ごとの実効断面積を書く                    |

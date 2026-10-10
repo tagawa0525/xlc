@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-11
 supersedes: []
 superseded-by:
@@ -11,7 +11,7 @@ issues: []
 ## 背景
 
 OpenMC の参照解の出力（VERA 2B〜2I のピン出力 `examples/vera/p2/openmc-*.msgpack`、MOX-1 と MOX-2 の燃料の実効断面積
-`examples/mox/openmc-*.msgpack`）を、.gitignore の例外にして git で追跡していた。どれも `openmc_model.py` が OpenMC の
+`examples/mox/openmc-*.msgpack`）を git で追跡していた（MOX は .gitignore の例外にして）。どれも `openmc_model.py` が OpenMC の
 作業ディレクトリに書く `pins.msgpack`、`fuel-xs.msgpack` のコピーで、作り直すと OpenMC の計算に 1 問題 16〜34 分かかる
 （examples/vera/verification.md、examples/mox/verification.md）。同じ例の xlc のライブラリ（`vera.msgpack`）、xlc の
 ピン出力、OpenMC の作業ディレクトリ（references/openmc/）は追跡していない。
