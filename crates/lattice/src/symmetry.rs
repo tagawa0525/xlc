@@ -806,6 +806,42 @@ mod tests {
     }
 
     #[test]
+    fn identity_holds_even_when_images_cannot_be_found() {
+        // 像のトラックは始点を外周に沿った位置で探すので、端が外周の角にあるトラックがあると、恒等以外の操作は確かめられ
+        // ない（外した理由としてログに出す）。恒等は確かめなくても成り立つので、判定は止まらず、対称性なしになる
+        let (mut tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
+        let half = 0.5 * tracking.lattice.width();
+        tracking.tracks[0].start = (-half, -half);
+        let detected = detect(&tracking, &values).unwrap();
+        assert_eq!(detected.symmetry(), Symmetry::NONE);
+        assert_eq!(detected.cell_representatives(), (0..9).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn forced_symmetry_reports_the_failing_operation() {
+        // 強制した対称性は、判定の結果から取り出す。成り立たない操作があれば、その操作の名前と理由を示すエラー
+        let right = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let (tracking, values) = patterned([2; 8], right);
+        let detected = detect(&tracking, &values).unwrap();
+        let quarter = detected
+            .restrict(Symmetry::QUARTER)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            quarter.contains("mirror across the vertical axis") && quarter.contains("Vacuum"),
+            "{quarter}"
+        );
+        let mirror = Symmetry::new(&[5]).unwrap();
+        let kept = detected.restrict(mirror).unwrap();
+        assert_eq!(kept.symmetry(), mirror);
+        assert_eq!(kept.images().len(), 2);
+        assert_eq!(detected.restrict(Symmetry::NONE).unwrap().images().len(), 1);
+    }
+
+    #[test]
     fn detects_every_operation_that_holds() {
         let symmetry = |ops: &[usize]| Symmetry::new(ops).unwrap();
         let reflective = Boundaries::REFLECTIVE;
@@ -837,21 +873,21 @@ mod tests {
             let (tracking, values) = patterned(pattern, boundaries);
             let detected = detect(&tracking, &values).unwrap();
             assert_eq!(
-                detected.symmetry,
+                detected.symmetry(),
                 expected,
                 "{pattern:?}: {} instead of {}",
-                detected.symmetry.name(),
+                detected.symmetry().name(),
                 expected.name()
             );
             // 像は使う操作ごとに 1 つ（恒等を含む）
-            assert_eq!(detected.images.len(), expected.order());
+            assert_eq!(detected.images().len(), expected.order());
         }
         // 長方形（真ん中の列が幅 1.0）では、軸を入れ替える操作は成り立たない
         let lattice = quarter_lattice(true);
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
         let values = vec![0; lattice.regions()];
         assert_eq!(
-            detect(&tracking, &values).unwrap().symmetry,
+            detect(&tracking, &values).unwrap().symmetry(),
             Symmetry::QUARTER
         );
     }
