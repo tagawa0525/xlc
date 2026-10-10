@@ -122,7 +122,7 @@ pub struct FuelShielding {
 /// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
 #[derive(Debug, Clone, PartialEq)]
 pub struct LumpShielding {
-    /// 塊のあるセル（対称操作で移り合う塊をまとめた組では、組の代表の領域（最も小さい番号）のセル。ADR-0114）
+    /// 塊のあるセル（対称操作で移り合う塊をまとめた組では、組の代表の領域（最も小さい番号）のセル。ADR-0112）
     pub cell: usize,
     pub material: String,
     /// 塊の領域（組のすべてのセルの分）
@@ -178,7 +178,7 @@ pub fn shield_fuel(
 }
 
 /// `shield_fuel` と同じ。移り合うピンと塊の組は、確かめた対称操作 `symmetry`（同じトラッキングと領域ごとの物質の名前で
-/// `symmetry::detect` が求めたもの）で作る（ADR-0114）。`symmetry` の操作で領域ごとの物質が移り合わなければエラー
+/// `symmetry::detect` が求めたもの）で作る（ADR-0112）。`symmetry` の操作で領域ごとの物質が移り合わなければエラー
 #[tracing::instrument(name = "shielding", skip_all)]
 pub fn shield_fuel_with(
     library: &Library,
@@ -283,7 +283,7 @@ pub fn shield_fuel_with(
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する。使う操作は、MOC と同じ確かめ方（トラックの像まで）で、領域ごとの入力の
-    // 物質が移り合うもの（ADR-0114）。渡された操作が、この格子の物質で成り立つことを確かめる
+    // 物質が移り合うもの（ADR-0112）。渡された操作が、この格子の物質で成り立つことを確かめる
     if !symmetry.fits(tracking) {
         return Err(SelfShieldingError::ForeignSymmetry);
     }
@@ -539,7 +539,7 @@ fn shield_lumps(
             }
         }
     }
-    // 使う対称操作で移したまとまりを同じ組にし、組を1つの黒体にする（ADR-0114）。まとまりの像は、まとまりの領域の
+    // 使う対称操作で移したまとまりを同じ組にし、組を1つの黒体にする（ADR-0112）。まとまりの像は、まとまりの領域の
     // 像を含むまとまり（セルの中の接し方は対称操作で保たれるので、まとまりの領域はどれも同じまとまりに移る）。組の
     // 代表は、像のまとまりの代表の領域の最も小さいもの
     let mut lump_root = vec![usize::MAX; n_regions];
@@ -1744,7 +1744,7 @@ mod tests {
         }
 
         /// 自己遮蔽が像どうしでまとめた塊の組（`shielded.lumps`）を、組の中のセルごとの塊に分けて `lump_dancoff` で
-        /// 別々に求め、どれも組の値と 1e-10 以内で一致すること（ADR-0114。対称な位置の塊の値の食い違い（#0055）が
+        /// 別々に求め、どれも組の値と 1e-10 以内で一致すること（ADR-0112。対称な位置の塊の値の食い違い（#0055）が
         /// 再発すれば、組にまとめた値に隠れずにここで見つかる）。影の全断面積は `shield_lumps` と同じく、燃料はピンの
         /// 実効断面積、それ以外は無限希釈
         fn assert_lump_members_agree(
@@ -1846,7 +1846,7 @@ mod tests {
         #[test]
         fn pieces_split_by_sectors_are_grouped_by_images() {
             // 外のリング（内径 0.65 > 半ピッチ 0.63）は四隅に分かれる。成り立つ操作は恒等、180° 回転、対角線と
-            // 反対角線の鏡映で、隅（扇形2つずつ）はその像どうしで組になる（ADR-0114）: 格子の中心の 2 つ、外の角の
+            // 反対角線の鏡映で、隅（扇形2つずつ）はその像どうしで組になる（ADR-0112）: 格子の中心の 2 つ、外の角の
             // 2 つ、残りの 4 つ
             let library = library_with_zirconium();
             let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
@@ -1908,7 +1908,7 @@ mod tests {
             // 2 × 2 の格子（左上と右下が燃料、右上と左下が、四隅に分かれた Zr のリング）は 180° の回転で
             // 自分自身に移る。右上のセルの隅の塊と、その像の左下のセルの隅の塊（扇形を 4 つ回した領域）は、トラックも
             // 正確に移り合うので、Dancoff 係数と平均弦長が丸めの程度で一致する（#0055）。自己遮蔽は像の隅を1つの黒体に
-            // まとめる（ADR-0114）ので、隅ごとの値は、隅を別々の塊にして `lump_dancoff` で求めて比べる
+            // まとめる（ADR-0112）ので、隅ごとの値は、隅を別々の塊にして `lump_dancoff` で求めて比べる
             let library = library_with_zirconium();
             let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
             let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
