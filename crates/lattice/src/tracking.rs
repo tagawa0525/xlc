@@ -276,7 +276,7 @@ impl Tracking {
         first[n] = tracks.len();
 
         // 反射でつながるトラックを、補角の方位角のトラックから端点の一致で探す
-        let tolerance = 1.0e-9 * width.max(height);
+        let tolerance = lattice.coincident();
         let same = |p: (f64, f64), q: (f64, f64)| {
             (p.0 - q.0).abs() < tolerance && (p.1 - q.1).abs() < tolerance
         };
