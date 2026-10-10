@@ -721,6 +721,21 @@ mod tests {
     }
 
     #[test]
+    fn track_ends_at_a_corner_are_an_error() {
+        // 像のトラックは外周に沿った位置で探すので、端が外周の角にあると位置が二通りになる。トラックは角を通らない前提を
+        // 確かめ、外れたら見つからないとせず理由を示す
+        let (lattice, _) = lattice(&[4]);
+        let mut tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
+        let half = (0.5 * lattice.width(), 0.5 * lattice.height());
+        tracking.tracks[0].start = (-half.0, -half.1);
+        let error = images(&tracking, &QUARTER).unwrap_err();
+        assert!(
+            matches!(error, SymmetryError::CornerTrack { track: 0 }),
+            "{error}"
+        );
+    }
+
+    #[test]
     fn quarter_needs_every_mirror() {
         // 右だけ真空
         let (symmetric, _) = lattice(&[4]);
