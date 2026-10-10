@@ -410,20 +410,33 @@ fn cell_image(lattice: &Lattice, op: &[i64; 4], cell: usize) -> Option<usize> {
 fn cell_image_checked(lattice: &Lattice, op: &[i64; 4], cell: usize) -> Result<usize, String> {
     let image = cell_image(lattice, op, cell)
         .ok_or_else(|| format!("cell {cell} falls outside the lattice"))?;
+    match cell_mismatch(lattice, op, cell, image) {
+        Some(what) => Err(format!(
+            "cell {cell} and its image {image} differ in {what}"
+        )),
+        None => Ok(image),
+    }
+}
+
+/// セル `cell` と、操作 `op` による像のセル `image` の大きさか種類が違えば、どちらか。軸を入れ替える操作では、
+/// 幅と高さ、ブロックの nx と ny を入れ替えて比べる
+fn cell_mismatch(
+    lattice: &Lattice,
+    op: &[i64; 4],
+    cell: usize,
+    image: usize,
+) -> Option<&'static str> {
     let swap = swaps_axes(op);
     let (w, h) = lattice.cell_size(cell);
     let size = if swap { (h, w) } else { (w, h) };
     if size != lattice.cell_size(image) {
-        return Err(format!("cell {cell} and its image {image} differ in size"));
+        return Some("size");
     }
-    let turned = match lattice.cell_type(cell) {
-        Cell::Block { nx, ny } if swap => Cell::Block { nx: *ny, ny: *nx },
-        other => other.clone(),
+    let same = match (lattice.cell_type(cell), lattice.cell_type(image)) {
+        (Cell::Block { nx, ny }, Cell::Block { nx: x, ny: y }) if swap => nx == y && ny == x,
+        (a, b) => a == b,
     };
-    if &turned != lattice.cell_type(image) {
-        return Err(format!("cell {cell} and its image {image} differ in type"));
-    }
-    Ok(image)
+    (!same).then_some("type")
 }
 
 /// 外周の辺の境界条件が、操作 `op` で移った先の辺の境界条件と同じか。違えば理由
@@ -531,12 +544,16 @@ pub fn cell_orbits(
             let identity = **op == OPERATIONS[0];
             // セルの大きさと種類は、MOC の対称性（`images`）と同じく比べる（軸を入れ替える操作では、ブロックの
             // nx と ny も入れ替える。#0053）
-            let cells_match = (0..cells).all(|cell| {
-                cell_image_checked(lattice, op, cell).is_ok_and(|image| {
-                    ring_materials[cell].is_some() && ring_materials[cell] == ring_materials[image]
+            let cells_match = || {
+                (0..cells).all(|cell| {
+                    cell_image(lattice, op, cell).is_some_and(|image| {
+                        cell_mismatch(lattice, op, cell, image).is_none()
+                            && ring_materials[cell].is_some()
+                            && ring_materials[cell] == ring_materials[image]
+                    })
                 })
-            });
-            identity || (check_boundaries(tracking, op).is_ok() && cells_match)
+            };
+            identity || (check_boundaries(tracking, op).is_ok() && cells_match())
         })
         .collect();
     Ok((0..cells)
