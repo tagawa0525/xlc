@@ -397,6 +397,54 @@ mod tests {
     }
 
     #[test]
+    fn tracks_ending_on_a_ring_leave_no_round_off_segment() {
+        // 2 × 2 の格子（ピッチ 1.26）の右上と左下が、半径 0.65 の円（扇形 8）が四隅に分かれたセル。方位角 16、間隔
+        // 0.02 cm では、外周の辺と円の交わる点（局所 (0.16, 0.63)、0.16² + 0.63² = 0.65²）でちょうど終わるトラックが
+        // ある。円を横切る点と終点が丸めでずれても、終点の手前に丸めの程度の区間を残さない（#0055）
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let corner = PinCell::with_sectors(1.26, vec![0.65], 8).unwrap();
+        let lattice = Lattice::new(vec![pin, corner], vec![vec![0, 1], vec![1, 0]]).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+        for (index, track) in tracking.tracks.iter().enumerate() {
+            let shortest = track
+                .segments
+                .iter()
+                .map(|s| s.length)
+                .fold(f64::INFINITY, f64::min);
+            assert!(shortest > 1e-12, "track {index}: {:?}", track.segments);
+        }
+    }
+
+    #[test]
+    fn tracks_leave_no_round_off_segments_in_blocks() {
+        // 2 × 2 の、3 × 3 に分けたブロック（ピッチ 1.26）。45° を含む方位角では、ブロックの内側の格子の角を
+        // ちょうど通るトラックがある。角のまわりの小さな長方形に丸めの程度の区間を残さない（#0055）
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 2],
+            vec![1.26; 2],
+            vec![Cell::Block { nx: 3, ny: 3 }],
+            vec![vec![0; 2]; 2],
+        )
+        .unwrap();
+        for n_azimuthal in [6, 18, 30] {
+            for spacing in [0.05, 0.03, 0.02] {
+                let tracking = Tracking::new(&lattice, n_azimuthal, spacing).unwrap();
+                for (index, track) in tracking.tracks.iter().enumerate() {
+                    let shortest = track
+                        .segments
+                        .iter()
+                        .map(|s| s.length)
+                        .fold(f64::INFINITY, f64::min);
+                    assert!(
+                        shortest > 1e-12,
+                        "azimuths {n_azimuthal}, spacing {spacing}, track {index}: {shortest}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn tracks_leave_no_round_off_segments_at_cell_corners() {
         // 2 × 2、16 × 16、17 × 17 の均質なセル（区切りなし）の格子（余白なしとあり）。45° を含む方位角では、多くの
         // トラックがセルの角や、外周の辺とセルの境界の交わる点をちょうど通る。境界の線を足し合わせで作る丸めや、
