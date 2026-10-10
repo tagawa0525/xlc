@@ -511,7 +511,7 @@ impl Coarse {
         Ok(Self {
             groups: ng,
             cells: orbits.representatives.clone(),
-            sizes: orbits.sizes.clone(),
+            sizes: orbits.sums(&vec![1.0; orbits.index.len()]),
             flux: phi,
             fission,
             blocks,

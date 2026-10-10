@@ -294,10 +294,7 @@ pub fn solve(
     let material = |i: usize| materials[kept[i]];
     let volume = |i: usize| volumes[kept[i]];
     // [代表] の軌道の領域の体積の和（生成率はすべての領域の和）
-    let mut orbit_volumes = vec![0.0; states];
-    for (&i, v) in reduced.regions.index.iter().zip(&volumes) {
-        orbit_volumes[i] += v;
-    }
+    let orbit_volumes = reduced.regions.sums(&volumes);
     let production = |flux: &[Vec<f64>]| -> f64 {
         flux.iter()
             .enumerate()

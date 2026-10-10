@@ -421,8 +421,6 @@ pub(crate) struct Orbits {
     pub representatives: Vec<usize>,
     /// [要素] の代表の、`representatives` の中の位置
     pub index: Vec<usize>,
-    /// [代表] の組の要素の数
-    pub sizes: Vec<f64>,
 }
 
 impl Orbits {
@@ -431,7 +429,6 @@ impl Orbits {
         Self {
             representatives: (0..count).collect(),
             index: (0..count).collect(),
-            sizes: vec![1.0; count],
         }
     }
 
@@ -445,15 +442,19 @@ impl Orbits {
             position[c] = i;
         }
         let index: Vec<usize> = representative.iter().map(|&r| position[r]).collect();
-        let mut sizes = vec![0.0; representatives.len()];
-        for &i in &index {
-            sizes[i] += 1.0;
-        }
         Self {
             representatives,
             index,
-            sizes,
         }
+    }
+
+    /// [要素] の値 `values` の、[代表] の組ごとの和（組の要素の数や、領域の軌道の体積）
+    pub fn sums(&self, values: &[f64]) -> Vec<f64> {
+        let mut sums = vec![0.0; self.representatives.len()];
+        for (&i, v) in self.index.iter().zip(values) {
+            sums[i] += v;
+        }
+        sums
     }
 
     /// 要素 `element` が代表なら、その `representatives` の中の位置
