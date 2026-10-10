@@ -67,6 +67,8 @@ use crate::branches::{Branches, BranchesEntry, Water};
 use crate::fewgroup::Node;
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::symmetry::Symmetry;
+use crate::tracking::{Boundaries, Boundary};
+use crate::water::borated_water;
 
 /// 解くときに使う格子の対称性の選び方（ADR-0112）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,8 +78,6 @@ pub enum SymmetryChoice {
     /// この対称性を使う（検証用）。どれかの操作が成り立たなければエラー
     Force(Symmetry),
 }
-use crate::tracking::{Boundaries, Boundary};
-use crate::water::borated_water;
 
 /// 真空の帯の物質の名前（予約語。この名前の物質は定義できない）
 pub const VOID: &str = "void";
