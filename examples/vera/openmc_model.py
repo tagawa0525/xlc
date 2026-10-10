@@ -1,13 +1,13 @@
-"""VERA Problem 1B〜1D（ピンセル）と 2B〜2I（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
+"""VERA Problem 1B〜1D（ピンセル）と 2B〜2J（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
         [粒子数/世代] [世代数] [捨てる世代数] [乱数の種] [xlc のライブラリ]
 
 <問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
-2G, 2H, 2I。断面積は openmc_library.py で作ったもの。
+2G, 2H, 2I, 2J。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
 ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ。ADR-0120）。燃料以外は 600 K。
-2B〜2I は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+2B〜2J は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
 xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。
@@ -56,6 +56,7 @@ FUEL_TEMPERATURE = {
     "2G": 600.0,
     "2H": 600.0,
     "2I": 600.0,
+    "2J": 600.0,
 }
 
 # 個数密度 (/(barn cm))
@@ -91,7 +92,7 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2I）。仕様書の表 P2-1、P2-4
+# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2J）。仕様書の表 P2-1、P2-4
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
@@ -170,6 +171,7 @@ MODERATOR_OF = {
     "2G": MODERATOR_DENSE,
     "2H": MODERATOR_DENSE,
     "2I": MODERATOR_DENSE,
+    "2J": MODERATOR_DENSE,
 }
 # Pyrex の棒（仕様書の表 6）: 内管の内と外、Pyrex の内と外、被覆管の内と外の半径。内管の中と間は真空
 PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
@@ -274,9 +276,10 @@ INSERTS = {
     "2F": (pyrex_layers, GUIDE_TUBES),
     "2G": (lambda: rod_layers("aic", AIC, 0.382), GUIDE_TUBES),
     "2H": (lambda: rod_layers("b4c", B4C, 0.373), GUIDE_TUBES),
+    "2J": (pyrex_layers, GUIDE_TUBES),
 }
 # 計装管に入れるものの層を作る関数
-INSTRUMENT_INSERTS = {"2I": thimble_layers}
+INSTRUMENT_INSERTS = {"2I": thimble_layers, "2J": thimble_layers}
 
 
 def geometry_of(
