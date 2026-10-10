@@ -1,12 +1,12 @@
-//! ピンセルの燃料の散乱行列のうち、指定した入射の群の行を OpenMC の行列に置き換えて解き、k の変化を測る（OpenMC との
+//! ピンセルの 1 つの物質の散乱行列のうち、指定した入射の群の行を OpenMC の行列に置き換えて解き、k の変化を測る（OpenMC との
 //! k の差のうち、群の間の散乱による移行の差による分を見積もる。examples/vera/verification.md「k の差の内訳」）。
 //!
-//! 使い方: swap_transfer <格子の入力 (TOML)> <OpenMC の balance.msgpack> <最初の群> <最後の群>
+//! 使い方: swap_transfer <格子の入力 (TOML)> <OpenMC の balance.msgpack> <物質> <最初の群> <最後の群>
 //!
-//! 群は 1 始まりで、高いエネルギーから数える。OpenMC の行列は `openmc_balance.py` の燃料の移行の率 / 中性子束（燃料の
-//! 物質全体の平均）。燃料のリングごとに物理的な（SPH 因子を掛けていない）行列があるので、置き換えは要素ごとの比
-//! R = OpenMC / xlc（xlc の側も燃料全体を物理的な中性子束で平均した値）を各リングの行に掛ける形にし、リングの間の違いを
-//! 残す。xlc が 0 で OpenMC が正の要素（自由ガスの上方散乱）は、OpenMC の値をどのリングにも置く。P1 以上の行列は同じ比を
+//! 群は 1 始まりで、高いエネルギーから数える。OpenMC の行列は `openmc_balance.py` の物質の移行の率 / 中性子束（物質
+//! 全体の平均）。等価なセルのリングごとに物理的な（SPH 因子を掛けていない）行列があるので、置き換えは要素ごとの比
+//! R = OpenMC / xlc（xlc の側も物質全体を物理的な中性子束で平均した値）を、その物質のリングの行に掛ける形にし、リングの
+//! 間の違いを残す。xlc が 0 で OpenMC が正の要素（自由ガスの上方散乱）は、OpenMC の値をどのリングにも置く。P1 以上の行列は同じ比を
 //! 掛ける（移行ごとの平均の余弦を保つ）。全断面積は行の和の変化だけ動かし、正味の吸収と生成は変えない。
 //!
 //! SPH 因子は 2 通り: (A) xlc 自身の行列で求めた因子をそのまま使う、(B) 置き換えた行列で等価なセルの因子を求め直す。
@@ -60,8 +60,8 @@ fn transfer_xs(rates: &Rates) -> anyhow::Result<Vec<Vec<f64>>> {
 struct Solved {
     k: f64,
     absorption: f64,
-    /// 燃料の移行の断面積（物理的な値）
-    fuel: Vec<Vec<f64>>,
+    /// 置き換える物質の移行の断面積（物理的な値）
+    swapped: Vec<Vec<f64>>,
 }
 
 fn solve_with(
@@ -69,6 +69,7 @@ fn solve_with(
     shielded: &FuelShielding,
     names: &[String],
     order: Option<usize>,
+    swapped: &str,
 ) -> anyhow::Result<Solved> {
     let materials: Vec<&Material> = shielded
         .region_material
@@ -82,13 +83,15 @@ fn solve_with(
     let solution = solve(tracking, &materials, &options)?;
     let physical = shielded.physical_flux(&tracking.lattice, &solution.flux)?;
     let rates = by_material(&solution, &materials, names, &physical)?;
-    let fuel = rates.get("fuel").ok_or_else(|| anyhow!("no `fuel`"))?;
+    let rates_of = rates
+        .get(swapped)
+        .ok_or_else(|| anyhow!("no `{swapped}`"))?;
     Ok(Solved {
         k: solution.k,
         absorption: rates.values().flat_map(|r| &r.absorption).sum(),
-        fuel: transfer_xs(&Rates {
-            flux: fuel.flux.clone(),
-            transfer: fuel.transfer.clone(),
+        swapped: transfer_xs(&Rates {
+            flux: rates_of.flux.clone(),
+            transfer: rates_of.transfer.clone(),
         })?,
     })
 }
@@ -129,9 +132,10 @@ fn spread(mu: &[f64], groups: &std::ops::Range<usize>, ng: usize) -> Vec<f64> {
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    let [_, input, reference, first, last] = args.as_slice() else {
+    let [_, input, reference, name, first, last] = args.as_slice() else {
         return Err(anyhow!(
-            "usage: swap_transfer <lattice input> <OpenMC balance> <first group> <last group>"
+            "usage: swap_transfer <lattice input> <OpenMC balance> <material> <first group> \
+             <last group>"
         ));
     };
     let (first, last): (usize, usize) = (first.parse()?, last.parse()?);
@@ -154,8 +158,8 @@ fn main() -> anyhow::Result<()> {
     let openmc = transfer_xs(
         reference
             .materials
-            .get("fuel")
-            .ok_or_else(|| anyhow!("no OpenMC `fuel`"))?,
+            .get(name)
+            .ok_or_else(|| anyhow!("no OpenMC `{name}`"))?,
     )?;
     if openmc.len() != ng || openmc.iter().any(|r| r.len() != ng) || rows.end > ng {
         return Err(anyhow!("the OpenMC matrix does not have {ng} groups"));
@@ -193,13 +197,16 @@ fn main() -> anyhow::Result<()> {
         .iter()
         .map(|r| shielded.region_material[r[0]])
         .collect();
-    let fuel_rings: Vec<bool> = rings.iter().map(|r| names[r[0]] == "fuel").collect();
+    let chosen: Vec<bool> = rings.iter().map(|r| &names[r[0]] == name).collect();
+    if !chosen.contains(&true) {
+        return Err(anyhow!("`{name}` is not in a ring of the equivalent cell"));
+    }
     let order = input.scattering_order;
 
-    let base_solved = solve_with(&tracking, &shielded, &names, order)?;
+    let base_solved = solve_with(&tracking, &shielded, &names, order, name)?;
     // 比 R = OpenMC / xlc（xlc が 0 なら None）
     let ratio: Vec<Vec<Option<f64>>> = base_solved
-        .fuel
+        .swapped
         .iter()
         .zip(&openmc)
         .map(|(x, o)| {
@@ -220,9 +227,9 @@ fn main() -> anyhow::Result<()> {
         .collect::<Result<_, _>>()?;
     let swapped: Vec<Material> = physical
         .iter()
-        .zip(&fuel_rings)
-        .map(|(m, &fuel)| {
-            if fuel {
+        .zip(&chosen)
+        .map(|(m, &chosen)| {
+            if chosen {
                 swap(m, &rows, &ratio, &openmc)
             } else {
                 m.clone()
@@ -298,8 +305,8 @@ fn main() -> anyhow::Result<()> {
         .map(|(a, b)| (a / b - 1.0).abs())
         .fold(0.0, f64::max);
 
-    let kept = solve_with(&tracking, &with_factors(&sph.factors)?, &names, order)?;
-    let refitted = solve_with(&tracking, &with_factors(&recomputed)?, &names, order)?;
+    let kept = solve_with(&tracking, &with_factors(&sph.factors)?, &names, order, name)?;
+    let refitted = solve_with(&tracking, &with_factors(&recomputed)?, &names, order, name)?;
     println!(
         "groups {first}..={last}; SPH factors recomputed from the reference: max |Δμ| {deviation:.1e}; \
          after the swap: max |μ'/μ − 1| {change:.2e}"
@@ -314,7 +321,7 @@ fn main() -> anyhow::Result<()> {
         let out = |m: &[Vec<f64>], g: usize| m[g].iter().sum::<f64>() - m[g][g];
         let worst = rows
             .clone()
-            .map(|g| (out(&s.fuel, g) / out(&openmc, g) - 1.0).abs())
+            .map(|g| (out(&s.swapped, g) / out(&openmc, g) - 1.0).abs())
             .fold(0.0, f64::max);
         println!(
             "{label:24} k {:.6} (1/A {:.6}), k − OpenMC {:+7.1} pcm; \
