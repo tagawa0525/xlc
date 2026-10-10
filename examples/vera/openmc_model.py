@@ -1,12 +1,13 @@
-"""VERA Problem 1B〜1D（ピンセル）と 2B〜2F（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
+"""VERA Problem 1B〜1D（ピンセル）と 2B〜2H（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
         [粒子数/世代] [世代数] [捨てる世代数] [乱数の種] [xlc のライブラリ]
 
-<問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F。断面積は openmc_library.py で作ったもの。
+<問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
+2G, 2H。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
-ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒の中の He も同じ）。燃料以外は 600 K。
-2B〜2F は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ）。燃料以外は 600 K。
+2B〜2H は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
 xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。
@@ -52,6 +53,8 @@ FUEL_TEMPERATURE = {
     "2E": 600.0,
     "2E-empty": 600.0,
     "2F": 600.0,
+    "2G": 600.0,
+    "2H": 600.0,
 }
 
 # 個数密度 (/(barn cm))
@@ -87,7 +90,7 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E、2F）。仕様書の表 P2-1、P2-4
+# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2H）。仕様書の表 P2-1、P2-4
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
@@ -131,6 +134,27 @@ SS304 = {
     "Ni62": 2.83413e-04,
     "Ni64": 7.21770e-05,
 }
+AIC = {
+    "Ag107": 2.36159e-02,
+    "Ag109": 2.19403e-02,
+    "Cd106": 3.41523e-05,
+    "Cd108": 2.43165e-05,
+    "Cd110": 3.41250e-04,
+    "Cd111": 3.49720e-04,
+    "Cd112": 6.59276e-04,
+    "Cd113": 3.33873e-04,
+    "Cd114": 7.84957e-04,
+    "Cd116": 2.04641e-04,
+    "In113": 3.44262e-04,
+    "In115": 7.68050e-03,
+}
+# 天然の C は SS304 と同じく C-12 と C-13 に分ける（ADR-0079）
+B4C = {
+    "B10": 1.52689e-02,
+    "B11": 6.14591e-02,
+    "C12": 1.89768e-02,
+    "C13": 2.05247e-04,
+}
 # 問題ごとの減速材。表にない問題は解かない（密度を取り違えないように）
 MODERATOR_OF = {
     "1B": MODERATOR,
@@ -142,9 +166,14 @@ MODERATOR_OF = {
     "2E": MODERATOR_DENSE,
     "2E-empty": MODERATOR_DENSE,
     "2F": MODERATOR_DENSE,
+    "2G": MODERATOR_DENSE,
+    "2H": MODERATOR_DENSE,
 }
 # Pyrex の棒（仕様書の表 6）: 内管の内と外、Pyrex の内と外、被覆管の内と外の半径。内管の中と間は真空
 PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
+# 制御棒（仕様書の表 8）: SS304 の被覆管の内と外の半径と、吸収体の半径。吸収体と被覆管の間は真空
+ROD_CLAD = (0.386, 0.484)
+ROD_ABSORBER = {"AIC": (AIC, 0.382), "B4C": (B4C, 0.373)}
 
 # 案内管の位置（行, 列。0 始まり）。計装管は中央
 GUIDE_TUBES = [
@@ -174,24 +203,29 @@ GUIDE_TUBES = [
     (14, 11),
 ]
 INSTRUMENT_TUBE = (8, 8)
-# Pyrex の棒を入れる案内管（仕様書の図 5 の配置）
-PYREX_RODS = {
-    "2E": [
-        (2, 5),
-        (2, 11),
-        (5, 2),
-        (5, 8),
-        (5, 14),
-        (8, 5),
-        (8, 11),
-        (11, 2),
-        (11, 8),
-        (11, 14),
-        (14, 5),
-        (14, 11),
-    ],
+# 案内管に入れるもの（Pyrex または制御棒の吸収体の名前）と位置。Pyrex の 12 本は仕様書の図 5 の配置
+INSERTS = {
+    "2E": (
+        "Pyrex",
+        [
+            (2, 5),
+            (2, 11),
+            (5, 2),
+            (5, 8),
+            (5, 14),
+            (8, 5),
+            (8, 11),
+            (11, 2),
+            (11, 8),
+            (11, 14),
+            (14, 5),
+            (14, 11),
+        ],
+    ),
     # 24 本はすべての案内管（図 5）
-    "2F": GUIDE_TUBES,
+    "2F": ("Pyrex", GUIDE_TUBES),
+    "2G": ("AIC", GUIDE_TUBES),
+    "2H": ("B4C", GUIDE_TUBES),
 }
 
 
@@ -236,16 +270,42 @@ def pyrex_tube(
     )
 
 
+def rod_tube(
+    clad: openmc.Material,
+    water: openmc.Material,
+    absorber: openmc.Material,
+    radius: float,
+    steel: openmc.Material,
+) -> openmc.Universe:
+    """制御棒（半径 `radius` の吸収体と SS304 の被覆管）を入れた案内管のセル。"""
+    poison = openmc.ZCylinder(r=radius)
+    clad_in, clad_out = (openmc.ZCylinder(r=r) for r in ROD_CLAD)
+    guide_in, guide_out = (
+        openmc.ZCylinder(r=GUIDE_INNER),
+        openmc.ZCylinder(r=GUIDE_OUTER),
+    )
+    return openmc.Universe(
+        cells=[
+            openmc.Cell(fill=absorber, region=-poison),
+            openmc.Cell(fill=None, region=+poison & -clad_in),
+            openmc.Cell(fill=steel, region=+clad_in & -clad_out),
+            openmc.Cell(fill=water, region=+clad_out & -guide_in),
+            openmc.Cell(fill=clad, region=+guide_in & -guide_out),
+            openmc.Cell(fill=water, region=+guide_out),
+        ]
+    )
+
+
 def geometry_of(
     problem: str,
     fuel: openmc.Material,
     clad: openmc.Material,
     water: openmc.Material,
     gap: openmc.Material | None = None,
-    inserts: tuple[openmc.Material, openmc.Material] | None = None,
+    insert: openmc.Universe | None = None,
 ) -> tuple[openmc.Geometry, float]:
     """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。
-    `inserts` は Pyrex の棒の (Pyrex, SS304)。PYREX_RODS にある問題で要る。"""
+    `insert` は案内管に入れるもののセル。INSERTS にある問題で要る。"""
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
@@ -268,14 +328,13 @@ def geometry_of(
         for i, j in GUIDE_TUBES:
             universes[i][j] = guide
         universes[INSTRUMENT_TUBE[0]][INSTRUMENT_TUBE[1]] = instrument
-        if problem in PYREX_RODS:
-            if inserts is None:
-                raise SystemExit(f"{problem} needs the Pyrex and SS304 materials")
-            pyrex_guide = pyrex_tube(clad, water, *inserts)
-            for i, j in PYREX_RODS[problem]:
+        if problem in INSERTS:
+            if insert is None:
+                raise SystemExit(f"{problem} needs the cell of its guide tube inserts")
+            for i, j in INSERTS[problem][1]:
                 if (i, j) not in GUIDE_TUBES:
-                    raise SystemExit(f"Pyrex rod at {(i, j)} is not in a guide tube")
-                universes[i][j] = pyrex_guide
+                    raise SystemExit(f"insert at {(i, j)} is not in a guide tube")
+                universes[i][j] = insert
         lattice = openmc.RectLattice()
         lattice.pitch = (PITCH, PITCH)
         lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
@@ -343,13 +402,22 @@ def main() -> None:
     water = material("moderator", MODERATOR_OF[problem], COLD)
     water.add_s_alpha_beta("c_H_in_H2O")
     materials = openmc.Materials([fuel, clad, water])
-    inserts = None
-    if problem in PYREX_RODS:
-        inserts = (material("pyrex", PYREX, COLD), material("ss304", SS304, COLD))
-        materials.extend(inserts)
+    insert = None
+    if problem in INSERTS:
+        kind = INSERTS[problem][0]
+        steel = material("ss304", SS304, COLD)
+        if kind == "Pyrex":
+            pyrex = material("pyrex", PYREX, COLD)
+            materials.extend([pyrex, steel])
+            insert = pyrex_tube(clad, water, pyrex, steel)
+        else:
+            nuclides, radius = ROD_ABSORBER[kind]
+            absorber = material(kind.lower(), nuclides, COLD)
+            materials.extend([absorber, steel])
+            insert = rod_tube(clad, water, absorber, radius, steel)
     materials.cross_sections = str(cross_sections)
 
-    geometry, half = geometry_of(problem, fuel, clad, water, inserts=inserts)
+    geometry, half = geometry_of(problem, fuel, clad, water, insert=insert)
 
     settings = run.settings(half)
     # ライブラリにある温度だけを使う。OpenMC は温度を kT (eV) で持ち、K に直すと丸めで
