@@ -590,6 +590,29 @@ mod tests {
     }
 
     #[test]
+    fn swapping_axes_turns_blocks() {
+        // 3 × 3 のピンの中央に 2 × 1 のブロックの水。90° の回転や対角線の鏡映では中央の像が 1 × 2 のブロックになり、
+        // 小さな長方形の並びが移り合わないので、軸を入れ替えない操作（左右、上下、180° の回転）だけが残る:
+        // 角の 4 本は同じ組、辺の上下の 2 本と左右の 2 本は別の組
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26; 3],
+            vec![Cell::Pin(pin), Cell::Block { nx: 2, ny: 1 }],
+            vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]],
+        )
+        .unwrap();
+        let materials: Vec<usize> = (0..9)
+            .flat_map(|cell| if cell == 4 { vec![1, 1] } else { vec![0, 1] })
+            .collect();
+        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
+        assert_eq!(
+            cell_orbits(&tracking, &materials).unwrap(),
+            vec![0, 1, 0, 3, 4, 3, 0, 1, 0]
+        );
+    }
+
+    #[test]
     fn reflective_lattice_has_all_symmetries() {
         // 角の 4 本と辺の 4 本がそれぞれ同じ組、中央の水は単独
         assert_eq!(
