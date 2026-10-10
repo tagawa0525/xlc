@@ -15,6 +15,22 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   ADR か issue に書いて参照する）を書く（ADR-0117）
 - 検証の環境（NJOY、OpenMC、核データ）: docs/environment.md。`references/` は git で追跡しない
 
+## 用語と書き方
+
+- 「群」はエネルギー群だけに使う。対称性は「対称性」「対称操作」と書き、コードの識別子でも group を使わない
+- 設定（方位角、トラック間隔など）は「今の入力」でなく、それを決めた ADR で示す
+- 結論は数値で支えられることだけを書く。確かめていない原因は「候補」「確かめていない」と書く。比べる前に、保存則や
+  釣り合い（k と 1/A など）が閉じているか、統計誤差（相関を含む）で区別できる差かを確かめる
+
+## 計算
+
+- 重い計算（OpenMC、NJOY、ライブラリの作り直し、xlc の集合体以上、時間を記録する測定）は、Slurm で 1 本ずつ流す:
+  `sbatch --exclusive --wait --export=ALL -o <ログ> --wrap='<コマンド>'`。直接走らせず、`pgrep` で他の計算を見張らない
+- OpenMC のスレッド数は docs/environment.md の値を使う
+- `examples/vera/vera.msgpack` は git で追跡しない。worktree では main のものをコピーして使い、核種を足して作り直したら
+  main の場所にも置く
+- 記録に書く測定のコミットは、その結果を出したコード（道具を含む）を含むコミットにする。rebase で hash が変わったら直す
+
 ## 作業の流れ
 
 - GitHub のリモートはない。PR の代わりに /git-merge でマージする（rebase、チェック、/code-review と指摘への対応、
