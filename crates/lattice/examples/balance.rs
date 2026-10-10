@@ -1,10 +1,13 @@
-//! 格子の入力を自己遮蔽して MOC で解き、物質ごと・群ごとの中性子束、正味の吸収、生成を書く（OpenMC との k の差の内訳用）。
+//! 格子の入力を自己遮蔽して MOC で解き、物質ごと・群ごとの物理的な中性子束、正味の吸収、生成を書く（OpenMC との k の差の
+//! 内訳用）。
 //!
 //! 使い方: balance <格子の入力 (TOML)> <出力 (msgpack)>
 //!
 //! 外周が鏡面反射の格子では、生成 1 あたりの正味の吸収の和が 1/k になる。正味の吸収は、群の全断面積から、その群から
 //! 出る散乱行列の行の和（(n,2n) などの放出の数を含む）を引いたもの。物質は入力の名前でまとめ、値は生成の和が 1 になる
-//! ように規格化し、群は高いエネルギーから並べる。対称性は使わない（領域ごとの値をそのまま足すため）。
+//! ように規格化し、群は高いエネルギーから並べる。中性子束は、SPH 因子を掛けた領域と群で MOC の値に因子を掛けた物理的な
+//! 値（反応率 / 中性子束が、SPH 因子を掛ける前の物理的な実効断面積になる）。対称性は使わない（領域ごとの値をそのまま
+//! 足すため）。
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -27,19 +30,10 @@ struct Rates {
 }
 
 #[derive(Serialize)]
-struct NuclideRates {
-    absorption: Vec<f64>,
-    production: Vec<f64>,
-}
-
-#[derive(Serialize)]
 struct Balance {
     format: &'static str,
     k: f64,
     materials: BTreeMap<String, Rates>,
-    /// 燃料の核種ごと（"燃料の物質の名前/核種"）。群ごとの燃料の値を、最初の燃料のピンの自己遮蔽した核種の断面積
-    /// （SPH 因子を掛けない、ピンの平均）の比で分けた近似
-    nuclides: BTreeMap<String, NuclideRates>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -85,6 +79,25 @@ fn main() -> anyhow::Result<()> {
     };
     let solution = solve(&tracking, &materials, &options)?;
     let groups = materials[0].total.len();
+    // SPH 因子 μ を掛けた領域と群では、MOC の中性子束は物理的な中性子束の 1/μ（反応率 μσ × φ/μ は物理的な値のまま）。
+    // 中性子束は μ を掛けて物理的な値に戻す
+    let mut mu = vec![vec![1.0; groups]; names.len()];
+    for pin in &shielded.pins {
+        let (Some(sph), Some(columns), Some(rings)) = (
+            pin.sph.as_ref(),
+            pin.sph_groups.clone(),
+            pin.ring_regions(&tracking.lattice),
+        ) else {
+            continue;
+        };
+        for (factors, regions) in sph.iter().zip(&rings) {
+            for &region in regions {
+                for (g, f) in columns.clone().zip(factors) {
+                    mu[region][g] = *f;
+                }
+            }
+        }
+    }
     let mut by_name: BTreeMap<String, Rates> = BTreeMap::new();
     for (region, (name, m)) in names.iter().zip(&materials).enumerate() {
         // 真空の領域には反応がない
@@ -100,7 +113,7 @@ fn main() -> anyhow::Result<()> {
         for g in 0..groups {
             let phi = solution.flux[region][g] * volume;
             let out: f64 = m.scatter[g].iter().sum();
-            rates.flux[g] += phi;
+            rates.flux[g] += phi * mu[region][g];
             rates.absorption[g] += (m.total[g] - out) * phi;
             rates.production[g] += m.nu_fission[g] * phi;
         }
@@ -116,44 +129,6 @@ fn main() -> anyhow::Result<()> {
             *v /= production;
         }
     }
-    let pin = shielded
-        .pins
-        .first()
-        .ok_or_else(|| anyhow!("no fuel pin"))?;
-    let fuel = names
-        .get(
-            tracking
-                .lattice
-                .cell_regions(pin.cell)
-                .next()
-                .ok_or_else(|| anyhow!("the fuel pin has no regions"))?,
-        )
-        .ok_or_else(|| anyhow!("no name for the fuel region"))?
-        .clone();
-    let fuel_rates = by_name
-        .get(&fuel)
-        .ok_or_else(|| anyhow!("no rates for {fuel}"))?;
-    let absorbing = |n: &xlc_format::library::Nuclide, density: f64, g: usize| {
-        density * (n.total[g] - n.scatter[g].iter().sum::<f64>())
-    };
-    let mut nuclides = BTreeMap::new();
-    for (n, density) in &pin.nuclides {
-        let mut rates = NuclideRates {
-            absorption: vec![0.0; groups],
-            production: vec![0.0; groups],
-        };
-        for g in 0..groups {
-            let a_all: f64 = pin.nuclides.iter().map(|(m, d)| absorbing(m, *d, g)).sum();
-            let p_all: f64 = pin.nuclides.iter().map(|(m, d)| d * m.nu_fission[g]).sum();
-            if a_all != 0.0 {
-                rates.absorption[g] = fuel_rates.absorption[g] * absorbing(n, *density, g) / a_all;
-            }
-            if p_all != 0.0 {
-                rates.production[g] = fuel_rates.production[g] * density * n.nu_fission[g] / p_all;
-            }
-        }
-        nuclides.insert(format!("{fuel}/{}", n.name.replace('-', "")), rates);
-    }
     let absorption: f64 = by_name.values().flat_map(|r| &r.absorption).sum();
     println!("k {:.6} 1/absorption {:.6}", solution.k, 1.0 / absorption);
     std::fs::write(
@@ -162,7 +137,6 @@ fn main() -> anyhow::Result<()> {
             format: "xlc-balance",
             k: solution.k,
             materials: by_name,
-            nuclides,
         })?,
     )?;
     Ok(())
