@@ -261,7 +261,7 @@ impl PinCell {
         length: f64,
         coincident: f64,
     ) -> Vec<Segment> {
-        // |start + t d|² = r² の解のうち (0, length) にあるもの
+        // 区切りの t（範囲の外のものは `cuts` が捨てる）。|start + t d|² = r² の解は −b ± √(r² − p²)
         let b = start.0 * direction.0 + start.1 * direction.1;
         let mut crossings = Vec::new();
         // 小さな正方形の境界の線 x, y = -p/2 + k p/m
@@ -269,10 +269,7 @@ impl PinCell {
         for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
             if d != 0.0 {
                 for k in 1..self.grid {
-                    let t = (-0.5 * self.pitch + k as f64 * h - origin) / d;
-                    if t > 0.0 && t < length {
-                        crossings.push(t);
-                    }
+                    crossings.push((-0.5 * self.pitch + k as f64 * h - origin) / d);
                 }
             }
         }
@@ -281,12 +278,7 @@ impl PinCell {
             let a = self.inner_half();
             for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
                 if d != 0.0 {
-                    for edge in [-a, a] {
-                        let t = (edge - origin) / d;
-                        if t > 0.0 && t < length {
-                            crossings.push(t);
-                        }
-                    }
+                    crossings.extend([-a, a].map(|edge| (edge - origin) / d));
                 }
             }
         }
@@ -301,11 +293,7 @@ impl PinCell {
                     let t = -cross(start) / denominator;
                     let point = (start.0 + t * direction.0, start.1 + t * direction.1);
                     // 中心を通る直線では交点が中心そのもの（u·point = 0）になるので、等号も含める
-                    if t > 0.0
-                        && t < length
-                        && u.0 * point.0 + u.1 * point.1 >= 0.0
-                        && !self.in_frame(point.0, point.1)
-                    {
+                    if u.0 * point.0 + u.1 * point.1 >= 0.0 && !self.in_frame(point.0, point.1) {
                         crossings.push(t);
                     }
                 }
@@ -320,15 +308,12 @@ impl PinCell {
                 let root = disc.sqrt();
                 // 枠の中の交点（枠の内側の正方形の外接円の外）では区切らない
                 crossings.extend([-b - root, -b + root].into_iter().filter(|&t| {
-                    t > 0.0
-                        && t < length
-                        && !self.in_frame(start.0 + t * direction.0, start.1 + t * direction.1)
+                    !self.in_frame(start.0 + t * direction.0, start.1 + t * direction.1)
                 }));
             }
         }
         cuts(crossings, length, coincident)
             .windows(2)
-            .filter(|w| w[1] > w[0])
             .map(|w| {
                 let mid = 0.5 * (w[0] + w[1]);
                 Segment {
@@ -750,7 +735,7 @@ impl Lattice {
         let cuts = cuts(crossings, length, coincident);
         let columns = self.columns();
         let mut segments = Vec::new();
-        for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
+        for w in cuts.windows(2) {
             let mid = 0.5 * (w[0] + w[1]);
             let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
             let (column, row) = self.cell_at(x, y);
@@ -853,17 +838,11 @@ fn block_segments(
         (start.1, direction.1, dy, ny, -0.5 * h),
     ] {
         if d != 0.0 {
-            for k in 1..count {
-                let t = (low + k as f64 * step - origin) / d;
-                if t > 0.0 && t < length {
-                    crossings.push(t);
-                }
-            }
+            crossings.extend((1..count).map(|k| (low + k as f64 * step - origin) / d));
         }
     }
     cuts(crossings, length, coincident)
         .windows(2)
-        .filter(|w| w[1] > w[0])
         .map(|win| {
             let mid = 0.5 * (win[0] + win[1]);
             let (x, y) = (start.0 + mid * direction.0, start.1 + mid * direction.1);
