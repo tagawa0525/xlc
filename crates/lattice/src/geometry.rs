@@ -710,18 +710,13 @@ impl Lattice {
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
         let (xs, ys) = (&self.xs, &self.ys);
-        let mut cuts = vec![0.0, length];
+        let mut crossings = Vec::new();
         for (lines, origin, d) in [(xs, start.0, direction.0), (ys, start.1, direction.1)] {
             if d != 0.0 {
-                for &line in lines.iter() {
-                    let t = (line - origin) / d;
-                    if t > 0.0 && t < length {
-                        cuts.push(t);
-                    }
-                }
+                crossings.extend(lines.iter().map(|&line| crossing(line, origin, d)));
             }
         }
-        cuts.sort_by(f64::total_cmp);
+        let cuts = cuts(crossings, length);
         let columns = self.columns();
         let mut segments = Vec::new();
         for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
@@ -752,6 +747,36 @@ impl Lattice {
         }
         segments
     }
+}
+
+/// 直線 origin + t d が座標 `line` の線を横切る t と、その計算の丸め誤差の上限。引き算と割り算の丸め（それぞれ
+/// 相対 ε/2 以下）に、始点の座標自身の丸め（相対 ε/2 以下）を加え、2ε (|line| + |origin|) / |d| + 2ε |t| で抑える
+fn crossing(line: f64, origin: f64, d: f64) -> (f64, f64) {
+    let t = (line - origin) / d;
+    let error = 2.0 * f64::EPSILON * ((line.abs() + origin.abs()) / d.abs() + t.abs());
+    (t, error)
+}
+
+/// 長さ `length` の直線の区切り（両端を含む昇順）。縦と横の線を横切る t の差が、丸め誤差の上限の和以下なら同じ点
+/// （セルの角）を横切ったとみて1つにまとめる。まとめないと、角をちょうど通る直線が、角のまわりのどれかのセルに
+/// 丸めの程度の区間を残し、そのセルを経由したことになる。まとめた組では誤差の小さい t を使う（両端 0 と `length`
+/// は誤差 0 なので、端の近くの交点は端にまとまる）
+fn cuts(mut crossings: Vec<(f64, f64)>, length: f64) -> Vec<f64> {
+    crossings.retain(|&(t, _)| t > 0.0 && t < length);
+    crossings.extend([(0.0, 0.0), (length, 0.0)]);
+    crossings.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut merged: Vec<(f64, f64)> = Vec::with_capacity(crossings.len());
+    for (t, error) in crossings {
+        match merged.last_mut() {
+            Some(last) if t - last.0 <= error + last.1 => {
+                if error < last.1 {
+                    *last = (t, error);
+                }
+            }
+            _ => merged.push((t, error)),
+        }
+    }
+    merged.into_iter().map(|(t, _)| t).collect()
 }
 
 /// 大きさ (w, h) を (nx, ny) に分けたブロックの、セルの中心を原点とする点 (x, y) を含む領域（行は上から）
@@ -786,22 +811,17 @@ fn block_segments(
     length: f64,
 ) -> Vec<Segment> {
     let (dx, dy) = (w / nx as f64, h / ny as f64);
-    let mut cuts = vec![0.0, length];
+    let mut crossings = Vec::new();
     for (origin, d, step, count, low) in [
         (start.0, direction.0, dx, nx, -0.5 * w),
         (start.1, direction.1, dy, ny, -0.5 * h),
     ] {
         if d != 0.0 {
-            for k in 1..count {
-                let t = (low + k as f64 * step - origin) / d;
-                if t > 0.0 && t < length {
-                    cuts.push(t);
-                }
-            }
+            crossings.extend((1..count).map(|k| crossing(low + k as f64 * step, origin, d)));
         }
     }
-    cuts.sort_by(f64::total_cmp);
-    cuts.windows(2)
+    cuts(crossings, length)
+        .windows(2)
         .filter(|w| w[1] > w[0])
         .map(|win| {
             let mid = 0.5 * (win[0] + win[1]);
