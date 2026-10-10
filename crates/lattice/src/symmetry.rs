@@ -77,6 +77,7 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
     let lattice = &tracking.lattice;
     // 区間の端の一致を確かめる許容誤差（`Tracking` の反射のつながりと同じ）
     let tolerance = 1.0e-9 * lattice.width().max(lattice.height());
+    let starts = StartIndex::new(tracking);
     let mut images = Vec::with_capacity(operations.len());
     for &index in operations {
         let (op, name) = (&OPERATIONS[index], NAMES[index]);
@@ -101,9 +102,6 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
         // トラックの像: 端の点を移し、像の向きの方位角の、同じ始点のトラックを探す
         let apply =
             |(x, y): (f64, f64)| (matrix[0] * x + matrix[1] * y, matrix[2] * x + matrix[3] * y);
-        let same = |p: (f64, f64), q: (f64, f64)| {
-            (p.0 - q.0).abs() < tolerance && (p.1 - q.1).abs() < tolerance
-        };
         let azimuths = &tracking.azimuths;
         let mut tracks = Vec::with_capacity(tracking.tracks.len());
         for (index, track) in tracking.tracks.iter().enumerate() {
@@ -119,11 +117,7 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
             let image = azimuths
                 .iter()
                 .position(|a| (a.phi - angle).abs() < 1.0e-9)
-                .and_then(|a| {
-                    tracking
-                        .azimuth_tracks(a)
-                        .find(|&j| same(tracking.tracks[j].start, start))
-                })
+                .and_then(|a| starts.find(tracking, a, start, tolerance))
                 .ok_or_else(|| broken(format!("track {index} has no image track")))?;
             let (a, b) = (
                 &azimuths[track.azimuth],
@@ -151,6 +145,73 @@ pub fn images(tracking: &Tracking, operations: &[usize]) -> Result<Vec<Image>, S
         });
     }
     Ok(images)
+}
+
+/// 方位角ごとの、トラックの始点を外周に沿った位置の順に並べた索引（像のトラックを二分探索で探す）。
+struct StartIndex {
+    /// [方位角] の (外周に沿った位置, トラックの番号) を位置の順に
+    sorted: Vec<Vec<(f64, usize)>>,
+    /// 格子の幅と高さ
+    size: (f64, f64),
+}
+
+impl StartIndex {
+    fn new(tracking: &Tracking) -> Self {
+        let size = (tracking.lattice.width(), tracking.lattice.height());
+        let sorted = (0..tracking.azimuths.len())
+            .map(|a| {
+                let mut keys: Vec<(f64, usize)> = tracking
+                    .azimuth_tracks(a)
+                    .map(|t| (perimeter(tracking.tracks[t].start, size), t))
+                    .collect();
+                keys.sort_by(|p, q| p.0.total_cmp(&q.0));
+                keys
+            })
+            .collect();
+        Self { sorted, size }
+    }
+
+    /// 方位角 `azimuth` の、始点が `point` から `tolerance` 以内のトラック。始点の間隔は許容誤差よりずっと大きいので、
+    /// 外周に沿った位置で最も近い2本だけを確かめればよい
+    fn find(
+        &self,
+        tracking: &Tracking,
+        azimuth: usize,
+        point: (f64, f64),
+        tolerance: f64,
+    ) -> Option<usize> {
+        let keys = &self.sorted[azimuth];
+        let at = keys.partition_point(|&(key, _)| key < perimeter(point, self.size));
+        let same = |t: usize| {
+            let start = tracking.tracks[t].start;
+            (start.0 - point.0).abs() < tolerance && (start.1 - point.1).abs() < tolerance
+        };
+        keys[at.saturating_sub(1)..keys.len().min(at + 1)]
+            .iter()
+            .map(|&(_, t)| t)
+            .find(|&t| same(t))
+    }
+}
+
+/// 外周の上の点 `p`（中心が原点、幅と高さ `size`）の、左下の角から反時計回りに外周に沿って測った位置。点は、最も近い
+/// 辺の上にあるとみなす
+fn perimeter(p: (f64, f64), (w, h): (f64, f64)) -> f64 {
+    let (x, y) = (p.0 + 0.5 * w, p.1 + 0.5 * h);
+    // 下、右、上、左の辺までの距離
+    let distances = [y, w - x, h - y, x].map(f64::abs);
+    let nearest = (1..4).fold(0, |best, i| {
+        if distances[i] < distances[best] {
+            i
+        } else {
+            best
+        }
+    });
+    match nearest {
+        0 => x,
+        1 => w + y,
+        2 => w + h + (w - x),
+        _ => 2.0 * w + h + (h - y),
+    }
 }
 
 /// 領域ごとの値 `values`（入力の物質の名前など）が、像 `images` のどれでも移った先の領域の値と同じか。違えば、最初に
