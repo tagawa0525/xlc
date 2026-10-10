@@ -31,6 +31,15 @@ pub struct CoarseMesh {
     /// [トラック] の始点で入る経路と終点で出る経路（順方向に通るときの向き付き）。ふつうは端のセルの外周の面 1 つ
     /// （重み ±1）。端が外周の 2 つの面の境にあれば、自分の外周の面、隣のセルとの間の面、隣の外周の面の 3 つ（重み ±1/2）
     ends: Vec<[FacePath; 2]>,
+    /// [トラック] の始点と終点の角度中性子束が属するセルと重み（`ends` の経路と同じ分け方）
+    end_cells: Vec<[EndCells; 2]>,
+}
+
+/// トラックの端の角度中性子束が属するセルと重み（1 つで重み 1 か、2 つで 1/2 ずつ）
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct EndCells {
+    cells: [(usize, f64); 2],
+    count: usize,
 }
 
 /// 面の両側のセル。面の正の向きは `low` から `high` へ。
@@ -91,6 +100,7 @@ impl CoarseMesh {
             heights: lattice.heights().to_vec(),
             cell_of_region,
             ends: Vec::with_capacity(tracking.tracks.len()),
+            end_cells: Vec::with_capacity(tracking.tracks.len()),
         };
         for track in &tracking.tracks {
             let first = mesh.cell(track.segments[0].region);
@@ -98,6 +108,11 @@ impl CoarseMesh {
             let start = mesh.end_path(first, track.start, half, lines, coincident, false);
             let end = mesh.end_path(last, track.end, half, lines, coincident, true);
             mesh.ends.push([start, end]);
+            let alone = |cell| EndCells {
+                cells: [(cell, 1.0), (cell, 0.0)],
+                count: 1,
+            };
+            mesh.end_cells.push([alone(first), alone(last)]);
         }
         mesh
     }
@@ -140,6 +155,12 @@ impl CoarseMesh {
     /// トラック `track` の始点で入る経路と終点で出る経路（順方向に通るときの向き付き。`ends` のフィールドを参照）
     pub(crate) fn ends(&self, track: usize) -> [FacePath; 2] {
         self.ends[track]
+    }
+
+    /// トラック `track` の終点（`exit` が真）か始点の角度中性子束が属するセルと重み
+    pub(crate) fn end_cells(&self, track: usize, exit: bool) -> &[(usize, f64)] {
+        let end = &self.end_cells[track][usize::from(exit)];
+        &end.cells[..end.count]
     }
 
     /// 面の両側のセル。
@@ -838,6 +859,43 @@ mod tests {
             mesh.face_cells(bottom),
             FaceCells::Inner { low: 0, high: 2 }
         );
+    }
+
+    #[test]
+    fn split_track_ends_share_their_flux_between_both_cells() {
+        // 端が外周の 2 つの面の境にあるトラックの角度中性子束は、経路と同じく境の両側のセルに 1/2 ずつ属する
+        let tracking = two_by_two();
+        let mesh = CoarseMesh::new(&tracking);
+        let mut split = 0;
+        for index in 0..tracking.tracks.len() {
+            for (path, exit) in mesh.ends(index).into_iter().zip([false, true]) {
+                let cells = mesh.end_cells(index, exit);
+                if path.faces().len() == 1 {
+                    assert_eq!(cells.len(), 1, "track {index}");
+                    assert_eq!(cells[0].1, 1.0, "track {index}");
+                    continue;
+                }
+                split += 1;
+                // 経路が外周の面を通るセルが、その 2 つ
+                let mut outer: Vec<usize> = path
+                    .faces()
+                    .iter()
+                    .filter_map(|&(face, _)| match mesh.face_cells(face) {
+                        FaceCells::Outer { cell, .. } => Some(cell),
+                        FaceCells::Inner { .. } => None,
+                    })
+                    .collect();
+                let mut found: Vec<usize> = cells.iter().map(|&(c, _)| c).collect();
+                outer.sort_unstable();
+                found.sort_unstable();
+                assert_eq!(found, outer, "track {index}");
+                assert!(
+                    cells.iter().all(|&(_, w)| w == 0.5),
+                    "track {index}: {cells:?}"
+                );
+            }
+        }
+        assert!(split > 0, "no track ends where a cell line meets the edge");
     }
 
     #[test]
