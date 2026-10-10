@@ -29,7 +29,7 @@ M3 の計画（docs/plans/m3-core-hzp.md の「検証」）は、新しい物質
 KENO の値は核データが違う（ENDF/B-VII.0）ので、主に比べるのは同じ核データ（ENDF/B-VIII.0）の OpenMC（連続エネルギー）である。
 OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openmc_library.py）も、問題ごとに広げる。
 
-関係する ADR: なし
+関係する ADR: [ADR-0120](../adr/0120-model-insert-helium-as-void.md)
 
 ## 完了の条件
 
@@ -46,5 +46,17 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
   OpenMC と KENO-VI のピン出力は 2E で rms 0.071%、最大 +0.163% と 2B〜2D より開く（原因は確かめていない）
 - 2026-10-10: 2F（Pyrex の棒 24 本）を解いた（examples/vera/verification.md の「OpenMC との比較」、408cf6ef）。xlc 0.979760、OpenMC
   0.976885 ± 0.000050（+288 pcm）、ピン出力 rms 0.11%、最大 −0.33%。2E-empty を基準にした Pyrex の棒による変化は 12 本で +13 pcm、
-  24 本で +41 pcm（統計誤差の約 6 倍）で、差を正の向きに広げる（本数に比例するかは統計誤差で区別できない。原因は確かめていない）。OpenMC と KENO-VI の
+  24 本で +41 pcm（統計誤差を独立として約 7 pcm で、その約 6 倍。xlc のトラック間隔の振れは入れていない。2026-10-11 の行で
+  見直した）。OpenMC と KENO-VI の
   ピン出力は rms 0.091%、最大 −0.196%（2E の 0.071% よりさらに開く）
+- 2026-10-11: 2G（AIC の制御棒 24 本）と 2H（B4C の制御棒 24 本）を解いた（examples/vera/verification.md の「OpenMC との比較」、
+  c0662d26）。xlc 0.849258、OpenMC 0.848986 ± 0.000050（2G、+27 pcm）、xlc 0.791907、OpenMC 0.788440 ± 0.000049（2H、+347 pcm）。
+  ピン出力は rms 0.13%、0.14%、最大 −0.41%、+0.41%。2E-empty（+247 pcm）を基準にした吸収体による変化は、Pyrex 24 本 +41 pcm、
+  AIC −220 pcm、B4C +100 pcm。判定の範囲（統計誤差を相関を見て大きめに 12 pcm とした 2 倍、2E-empty の間隔の幅 6.9 pcm、
+  その問題の間隔の幅の和。2F 59.8 pcm、2G 97.4 pcm、2H 64.0 pcm）の外にある AIC の負と B4C の正は区別でき、Pyrex 24 本の
+  +41 pcm は区別できない。原因は確かめていない（候補は
+  B-10 の群定数と、AIC の共鳴の自己遮蔽。#0007）。KENO-VI は制御棒の中の隙間を He で扱う（ADR-0120）が、見積もりでは小さい。OpenMC と KENO-VI の k の差は 2G で +129 pcm、2H で +22 pcm、ピン出力は rms
+  0.119%、0.088%。トラック間隔への依存（方位角 30 で 0.02〜0.05 cm の 7 点、方位角 128・間隔 0.01 cm との差）は、吸収体なしの
+  2E-empty で幅 7 pcm、2F で 29 pcm、2G で 67 pcm、2H で 33 pcm と吸収体で広がる。ADR-0111 の設定（0.03 cm）の参照との差は 2G で −31 pcm、
+  2H で −14 pcm で、吸収体による変化の約 1/7（参照の収束は確かめていない）。吸収体のリングは 5 から 40 で k が単調に増え、5 リングは
+  収束した値より約 8〜10 pcm 低いと見込む（#0059）
