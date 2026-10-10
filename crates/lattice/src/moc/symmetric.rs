@@ -97,12 +97,12 @@ impl Representatives {
         pairs: &[(usize, isize)],
         images: &[Image],
     ) -> Result<Self, MocError> {
-        for (operation, image) in images.iter().enumerate() {
+        for image in images {
             for (region, &other) in image.regions.iter().enumerate() {
                 let (a, b) = (materials[region], materials[other]);
                 if !(std::ptr::eq(a, b) || a == b) {
                     return Err(MocError::AsymmetricMaterial {
-                        operation,
+                        operation: image.name,
                         region,
                         image: other,
                     });
