@@ -2551,4 +2551,245 @@ mod tests {
             }
         }
     }
+
+    /// 1/4 対称だが 1/8 対称でない格子と、その領域の物質（燃料 0、水 1、別の燃料 2、真空 3 の番号）。ピンは扇形 8
+    /// （燃料、真空のギャップ、水）。`odd` なら 3 × 3 で、真ん中の列は幅 1.0 の 2 × 2 の水のブロック（左右の鏡映の軸が
+    /// セルの中を通る長方形）、真ん中の行のピンは別の燃料。そうでなければ 4 × 4 で、ピンと 2 × 2 の水を左右と上下で
+    /// 対称に（対角線では非対称に）置き、周りに水の余白を付けたもの（軸がセルの境を通る）
+    fn quarter_lattice(odd: bool) -> (Lattice, Vec<usize>) {
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let lattice = if odd {
+            Lattice::rectilinear(
+                vec![1.26, 1.0, 1.26],
+                vec![1.26; 3],
+                vec![Cell::Pin(pin), Cell::Block { nx: 2, ny: 2 }],
+                vec![vec![0, 1, 0]; 3],
+            )
+            .unwrap()
+        } else {
+            let water = PinCell::grid(1.26, 2).unwrap();
+            let layout = vec![
+                vec![0, 1, 1, 0],
+                vec![0, 0, 0, 0],
+                vec![0, 0, 0, 0],
+                vec![0, 1, 1, 0],
+            ];
+            Lattice::with_margin(vec![pin, water], layout, 0.04).unwrap()
+        };
+        let columns = lattice.columns();
+        let materials = (0..lattice.cells())
+            .flat_map(|cell| match lattice.cell_type(cell) {
+                Cell::Pin(pin) if !pin.is_grid() => {
+                    let fuel = if odd && cell / columns == 1 { 2 } else { 0 };
+                    (0..pin.regions())
+                        .map(|r| [fuel, 3, 1][r / 8])
+                        .collect::<Vec<_>>()
+                }
+                cell => vec![1; cell.regions()],
+            })
+            .collect();
+        (lattice, materials)
+    }
+
+    fn symmetric(scattering_order: usize, symmetry: Symmetry) -> Options {
+        Options {
+            scattering_order,
+            symmetry,
+            ..Options::default()
+        }
+    }
+
+    /// 全体を解いた解 `full` と、対称性を使って解いた解 `reduced` が、反復の判定の程度で一致すること
+    fn assert_same_solution(full: &Solution, reduced: &Solution, options: &Options) {
+        assert!(
+            (full.k - reduced.k).abs() < options.k_tolerance,
+            "k {} vs {}",
+            full.k,
+            reduced.k
+        );
+        // 中性子流は、同じ場所・同じ群の中性子束の大きさに対して比べる（鏡面反射の辺や対称線の上の中性子流は丸めの
+        // 程度の 0 なので、自分の大きさに対しては比べられない）。`scale` は [位置][群] の尺度
+        let close = |a: &[Vec<f64>], b: &[Vec<f64>], scale: &[Vec<f64>], what: &str| {
+            for (i, ((x, y), s)) in a.iter().zip(b).zip(scale).enumerate() {
+                for (g, ((x, y), s)) in x.iter().zip(y).zip(s).enumerate() {
+                    assert!(
+                        (x - y).abs() <= options.flux_tolerance * s.abs(),
+                        "{what} {i} group {g}: {x} vs {y} (scale {s})"
+                    );
+                }
+            }
+        };
+        for (r, (a, b)) in full.flux.iter().zip(&reduced.flux).enumerate() {
+            for (g, (a, b)) in a.iter().zip(b).enumerate() {
+                assert!(
+                    relative_change(*a, *b) < options.flux_tolerance,
+                    "region {r} group {g}: {a} vs {b}"
+                );
+            }
+        }
+        let faces = &full.face_fluxes;
+        close(faces, &reduced.face_fluxes, faces, "face flux");
+        close(
+            &full.face_currents,
+            &reduced.face_currents,
+            faces,
+            "face current",
+        );
+        close(&full.sides, &reduced.sides, &full.sides, "side flux");
+        close(
+            &full.currents,
+            &reduced.currents,
+            &full.sides,
+            "side current",
+        );
+        // 漏れは外周にわたる和なので、辺の中性子束 × 辺の長さの和に対して（辺は左、右、上、下）
+        let [width, height] = full.size;
+        let boundary: Vec<f64> = (0..full.leakage.len())
+            .map(|g| {
+                [height, height, width, width]
+                    .iter()
+                    .zip(&full.sides)
+                    .map(|(l, side)| l * side[g])
+                    .sum()
+            })
+            .collect();
+        close(
+            std::slice::from_ref(&full.leakage),
+            std::slice::from_ref(&reduced.leakage),
+            std::slice::from_ref(&boundary),
+            "leakage",
+        );
+        // 領域の中性子流は、領域の中性子束に対して（[領域][x, y の順に群]）
+        let currents = |s: &Solution| -> Vec<Vec<f64>> {
+            s.region_currents.iter().map(|c| c.concat()).collect()
+        };
+        let fluxes: Vec<Vec<f64>> = full
+            .flux
+            .iter()
+            .map(|f| [&f[..], &f[..]].concat())
+            .collect();
+        close(
+            &currents(full),
+            &currents(reduced),
+            &fluxes,
+            "region current",
+        );
+        assert_eq!(full.volumes, reduced.volumes);
+    }
+
+    #[test]
+    fn quarter_symmetry_reproduces_the_full_solution() {
+        let (f, w, g, void) = (
+            with_p1(fuel()),
+            with_p1(moderator()),
+            with_p1(two_group(
+                [0.55, 1.4],
+                [[0.5, 0.03], [0.0, 1.1]],
+                [0.01, 0.3],
+            )),
+            Material::void(2),
+        );
+        let library = [&f, &w, &g, &void];
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        // 左右だけ真空（1/8 対称ではない）
+        let sides = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        // 軸がセルの中を通る長方形と、セルの境を通る正方形。鏡面反射と真空、等方散乱と P1
+        for odd in [true, false] {
+            let (lattice, index) = quarter_lattice(odd);
+            let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+            for boundaries in [Boundaries::REFLECTIVE, vacuum, sides] {
+                let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
+                for order in [0, 1] {
+                    let full =
+                        solve(&tracking, &materials, &symmetric(order, Symmetry::None)).unwrap();
+                    let options = symmetric(order, Symmetry::Quarter);
+                    let quarter = solve(&tracking, &materials, &options).unwrap();
+                    assert_same_solution(&full, &quarter, &options);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn quarter_symmetry_solves_only_representatives() {
+        // 軸がセルの境を通る格子では、どの領域とセルも 4 つずつ移り合う
+        let (lattice, index) = quarter_lattice(false);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let mesh = CoarseMesh::new(&tracking);
+        let reduced = Representatives::quarter(&tracking, &materials, &mesh, &[(0, 0)]).unwrap();
+        assert_eq!(4 * reduced.regions.len(), lattice.regions());
+        assert_eq!(4 * reduced.cells.representatives.len(), lattice.cells());
+    }
+
+    #[test]
+    fn quarter_result_does_not_depend_on_the_thread_count() {
+        // 代表のトラックの組と、代表の領域に集める和の順は、スレッドの分け方によらない
+        let (lattice, index) = quarter_lattice(true);
+        let (f, w, void) = (with_p1(fuel()), with_p1(moderator()), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let options = symmetric(1, Symmetry::Quarter);
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve(&tracking, &materials, &options).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
+    }
+
+    #[test]
+    fn quarter_symmetry_rejects_asymmetric_materials() {
+        // 左上のピンの1つの扇形だけ物質が違う
+        let (lattice, mut index) = quarter_lattice(false);
+        let sector = index.iter().position(|&i| i == 0).unwrap();
+        index[sector] = 2;
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let g = Material {
+            total: vec![0.55, 1.4],
+            ..fuel()
+        };
+        let library = [&f, &w, &g, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(
+            matches!(result, Err(MocError::AsymmetricMaterial { .. })),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn quarter_symmetry_rejects_an_asymmetric_boundary() {
+        // 右だけ真空: 上下の鏡映しか残らない
+        let (lattice, index) = quarter_lattice(false);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(matches!(result, Err(MocError::Symmetry(_))), "{result:?}");
+    }
 }
