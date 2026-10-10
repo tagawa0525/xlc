@@ -105,16 +105,6 @@ zones = [
 sectors = 8
 
 # 案内管（中は減速材）
-[cell.gt]
-zones = [
-  { material = "water", radius = 0.561, rings = 3 },
-  { material = "zircaloy", radius = 0.602, rings = 1 },
-  { material = "water", radius = 0.75, rings = 2 },
-  { material = "water", rings = 1 },
-]
-sectors = 8
-
-# 計装管（中は減速材）
 [cell.it]
 zones = [
   { material = "water", radius = 0.559, rings = 3 },
