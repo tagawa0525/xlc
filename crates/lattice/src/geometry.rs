@@ -638,6 +638,16 @@ impl Lattice {
     }
 
     /// 列の幅（左から, cm）
+    /// 列の境界の x（左から、両端を含む）。区間を作るときの線と同じもの
+    pub(crate) fn column_lines(&self) -> &[f64] {
+        &self.xs
+    }
+
+    /// 行の境界の y（上から、両端を含む）
+    pub(crate) fn row_lines(&self) -> &[f64] {
+        &self.ys
+    }
+
     pub fn widths(&self) -> &[f64] {
         &self.widths
     }
