@@ -36,6 +36,9 @@ OpenMC の参照解の出力（VERA 2B〜2I のピン出力 `examples/vera/p2/op
 （VERA は [ADR-0116](0116-place-vera-examples-by-problem.md) の `examples/vera/p<n>/openmc-<問題>.msgpack`、MOX は
 `examples/mox/openmc-<問題>.msgpack`）とし、比べる道具と手順を変えない。
 
+これまでに追跡したものは、履歴からも消す（ユーザーの判断）。生成物を履歴に残す理由はなく、書き換えの前に GitHub の
+非公開リポジトリへ全ブランチを push して保険にする。書き換えで変わるコミットの番号は、記録の中で付け直す。
+
 作り直しの時間は、追跡しない理由を覆すほどではない。参照解は OpenMC の作業ディレクトリ（references/openmc/、追跡しない）
 にも残っており、手元で失っても手順（docs/environment.md、examples/mox/verification.md）で作り直せる。
 
@@ -47,5 +50,6 @@ OpenMC の参照解の出力（VERA 2B〜2I のピン出力 `examples/vera/p2/op
 ## 結果
 
 - worktree では、xlc のライブラリと同じく、main の参照解の出力をコピーして使う
-- 追跡をやめるマージで、main の作業ツリーからも参照解の出力が消える。VERA は references/openmc/ の作業ディレクトリの
-  `pins.msgpack` から、MOX はマージ前のコミットから戻す
+- 追跡をやめるマージで、main の作業ツリーからも参照解の出力が消える。マージの前に写しを取り、マージの後に戻す。
+  VERA は references/openmc/ の作業ディレクトリの `pins.msgpack` にも残る。MOX は作業ディレクトリに残っていないので、
+  失ったら examples/mox/verification.md の手順で作り直す
