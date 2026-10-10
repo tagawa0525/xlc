@@ -181,13 +181,39 @@ impl Detected {
                 }
             }
         }
+        // 成り立ったが使わない操作は、その理由を残す（もう一度絞り込んだときに「確かめていない」としない）
+        let rejected = (0..OPERATIONS.len())
+            .map(|operation| {
+                if held.contains(&operation) && !symmetry.contains(operation) {
+                    Some(format!(
+                        "it holds, but the symmetry \"{}\" leaves it out",
+                        symmetry.name()
+                    ))
+                } else {
+                    self.rejected[operation].clone()
+                }
+            })
+            .collect();
         Ok(Self {
             symmetry,
             images,
             cells: self.cells,
             shape: self.shape,
-            rejected: self.rejected.clone(),
+            rejected,
         })
+    }
+
+    /// 対称性を使わない（恒等だけ。確かめない）
+    pub fn none(tracking: &Tracking) -> Self {
+        Self {
+            symmetry: Symmetry::NONE,
+            images: vec![identity_image(tracking)],
+            cells: tracking.lattice.cells(),
+            shape: shape(tracking),
+            rejected: (0..OPERATIONS.len())
+                .map(|i| (i != 0).then(|| "the symmetry \"none\" does not check it".to_string()))
+                .collect(),
+        }
     }
 }
 
@@ -264,6 +290,59 @@ pub fn detect<T: PartialEq + std::fmt::Display>(
         shape: shape(tracking),
         rejected,
     })
+}
+
+/// 自己遮蔽と MOC に使う対称操作（`choose`）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Chosen {
+    shielding: Detected,
+    /// MOC に使う対称性が自己遮蔽と違うとき（強制したとき）だけ
+    moc: Option<Detected>,
+}
+
+impl Chosen {
+    /// 自己遮蔽のピンと塊の組に使う対称操作（ADR-0114）
+    pub fn shielding(&self) -> &Detected {
+        &self.shielding
+    }
+
+    /// MOC に使う対称操作
+    pub fn moc(&self) -> &Detected {
+        self.moc.as_ref().unwrap_or(&self.shielding)
+    }
+}
+
+/// 自己遮蔽と MOC に使う対称操作を選ぶ（ADR-0112、ADR-0114）。`forced` が `None` なら `detect` の結果を両方に使う。
+/// 強制した対称性が `Symmetry::NONE` なら、判定をせず、両方とも対称性なしにする（検証の基準なので判定の結果に頼らない）。
+/// ほかの強制は、`detect` の結果を自己遮蔽に、その結果から取り出した強制の対称性を MOC に使い、成り立たない操作があれば
+/// その名前と理由を示すエラー
+pub fn choose<T: PartialEq + std::fmt::Display>(
+    tracking: &Tracking,
+    values: &[T],
+    forced: Option<Symmetry>,
+) -> Result<Chosen, SymmetryError> {
+    match forced {
+        Some(Symmetry::NONE) => {
+            tracing::info!("symmetry \"none\": no symmetry is detected or used");
+            Ok(Chosen {
+                shielding: Detected::none(tracking),
+                moc: None,
+            })
+        }
+        Some(symmetry) => {
+            let detected = detect(tracking, values)?;
+            let moc = detected.restrict(symmetry)?;
+            tracing::info!(symmetry = symmetry.name(), "forced symmetry");
+            Ok(Chosen {
+                shielding: detected,
+                moc: Some(moc),
+            })
+        }
+        None => Ok(Chosen {
+            shielding: detect(tracking, values)?,
+            moc: None,
+        }),
+    }
 }
 
 /// 対称性 `symmetry` のどの操作も、形状とトラックで成り立つことを確かめた像（領域の値は確かめない。ライブラリと
@@ -897,15 +976,15 @@ mod tests {
         let (tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
         let short = &values[1..];
         let chosen = choose(&tracking, short, Some(Symmetry::NONE)).unwrap();
-        assert_eq!(chosen.shielding.symmetry(), Symmetry::NONE);
-        assert_eq!(chosen.moc.symmetry(), Symmetry::NONE);
+        assert_eq!(chosen.shielding().symmetry(), Symmetry::NONE);
+        assert_eq!(chosen.moc().symmetry(), Symmetry::NONE);
         assert!(choose(&tracking, short, None).is_err());
         // 判定するときは、自己遮蔽に成り立つ操作をすべて、MOC に強制した対称性を渡す
         let chosen = choose(&tracking, &values, Some(Symmetry::QUARTER)).unwrap();
-        assert_eq!(chosen.shielding.symmetry(), Symmetry::OCTANT);
-        assert_eq!(chosen.moc.symmetry(), Symmetry::QUARTER);
+        assert_eq!(chosen.shielding().symmetry(), Symmetry::OCTANT);
+        assert_eq!(chosen.moc().symmetry(), Symmetry::QUARTER);
         let chosen = choose(&tracking, &values, None).unwrap();
-        assert_eq!(chosen.moc.symmetry(), Symmetry::OCTANT);
+        assert_eq!(chosen.moc().symmetry(), Symmetry::OCTANT);
     }
 
     #[test]
@@ -933,6 +1012,14 @@ mod tests {
         assert_eq!(kept.symmetry(), mirror);
         assert_eq!(kept.images().len(), 2);
         assert_eq!(detected.restrict(Symmetry::NONE).unwrap().images().len(), 1);
+        // 成り立ったが絞り込みで外した操作を、もう一度求めると、外した理由を示す（「確かめていない」としない）
+        let (tracking, values) = patterned([2; 8], Boundaries::REFLECTIVE);
+        let quarter = detect(&tracking, &values)
+            .unwrap()
+            .restrict(Symmetry::QUARTER)
+            .unwrap();
+        let error = quarter.restrict(Symmetry::OCTANT).unwrap_err().to_string();
+        assert!(error.contains("leaves it out"), "{error}");
     }
 
     #[test]
