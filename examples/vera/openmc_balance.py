@@ -4,9 +4,13 @@
         [粒子数/世代] [世代数] [捨てる世代数] [乱数の種]
 
 xlc の `balance` の例（crates/lattice/examples/balance.rs）と同じ形式の balance.msgpack を書く。群構造は xlc の
-ライブラリのもので、高いエネルギーから並べる。正味の吸収は、吸収（中性子が出ない反応と核分裂）から、(n,2n)、(n,3n)、
-(n,4n) で増える中性子の数を引いたもの。値は生成の和が 1 になるように規格化する（外周が鏡面反射なので、正味の吸収の和が
-1/k になる）。物質の名前は xlc の 1B の入力にそろえる。燃料の核種ごとの値も同じ形で `nuclides` に書く（物質の名前/核種）。
+ライブラリのもので、高いエネルギーから並べる。正味の吸収は、xlc（全断面積から、中性子を出すすべての反応の放出の数を
+含む散乱行列の行の和を引く）と同じ量にするため、吸収（中性子が出ない反応と核分裂）から、2 個以上の中性子を出す反応の
+増える分（放出の数 − 1）を引く。値はすべてのエネルギーの生成の和が 1 になるように規格化し、群の範囲の外（10 MeV より上）の正味の吸収と生成を
+`outside` に書く（外周が鏡面反射なので、正味の吸収の和が 1/k に
+なる）。各量の標準偏差を `*_std` に書く（規格化の生成の誤差は含めない）。確認のため、全断面積から中性子の放出の数で
+数えた散乱（nu-scatter、出来事ごとの推定）を引いた正味の吸収も `absorption_by_scatter` に書く。物質の名前は xlc の 1B の
+入力にそろえる。
 """
 
 import sys
@@ -30,8 +34,18 @@ from openmc_model import (
 
 # xlc の 1B の入力の物質の名前
 NAMES = {"fuel": "fuel", "zircaloy-4": "zircaloy", "moderator": "water"}
-# 正味の吸収で引く、反応ごとに増える中性子の数
-MULTIPLYING = {"(n,2n)": 1.0, "(n,3n)": 2.0, "(n,4n)": 3.0}
+# 2 個以上の中性子を出す反応（ENDF の MT 11、16、17、24、25、30、37、41、42）と、増える中性子の数
+MULTIPLYING = {
+    "(n,2nd)": 1.0,
+    "(n,2n)": 1.0,
+    "(n,3n)": 2.0,
+    "(n,2na)": 1.0,
+    "(n,3na)": 2.0,
+    "(n,2n2a)": 1.0,
+    "(n,4n)": 3.0,
+    "(n,2np)": 1.0,
+    "(n,3np)": 2.0,
+}
 SCORES = ["absorption", "nu-fission", *MULTIPLYING]
 
 
@@ -60,61 +74,94 @@ def main() -> None:
     settings = eigenvalue_settings(particles, batches, inactive, seed, half)
     settings.temperature = {"method": "nearest", "tolerance": 1.0}
 
-    by_material = openmc.MaterialFilter([fuel, clad, water])
-    energy = group_filter(library)
-    # 燃料の核種ごとと、物質ごとの和（"total"）。全核種を数えると、出来事ごとの断面積の計算が重く何倍も遅くなる
-    nuclides = sorted(FUEL) + ["total"]
+    order = [fuel, clad, water]
+    filters = [openmc.MaterialFilter(order), group_filter(library)]
     rates = openmc.Tally(name="rates")
-    rates.filters = [by_material, energy]
-    rates.nuclides = nuclides
+    rates.filters = filters
     rates.scores = SCORES
     flux = openmc.Tally(name="flux")
-    flux.filters = [by_material, energy]
+    flux.filters = filters
     flux.scores = ["flux"]
-    model = openmc.Model(geometry, materials, settings, openmc.Tallies([rates, flux]))
+    # 出来事ごとの推定が要る score は別の tally にする（同じ tally だと全体が出来事ごとの推定になる）
+    scattering = openmc.Tally(name="scattering")
+    scattering.filters = filters
+    scattering.scores = ["total", "nu-scatter"]
+    # 群のエネルギーの範囲の外（ライブラリの上の境 10 MeV より上など）も含めた和。釣り合いが閉じるかの確認
+    everything = openmc.Tally(name="all energies")
+    everything.filters = [openmc.MaterialFilter(order)]
+    everything.scores = SCORES
+    model = openmc.Model(
+        geometry,
+        materials,
+        settings,
+        openmc.Tallies([rates, flux, scattering, everything]),
+    )
     statepoint = model.run(cwd=work, output=False)
 
     with openmc.StatePoint(statepoint) as sp:
         k = sp.keff
-        tally = sp.get_tally(name="rates")
-        phi = sp.get_tally(name="flux").get_values(scores=["flux"]).reshape(3, -1)
-        groups = phi.shape[1]
 
-        def values(score: str, nuclide: str) -> np.ndarray:
-            v = tally.get_values(scores=[score], nuclides=[nuclide])
-            return v.reshape(3, groups)
+        def get(name: str, score: str, value: str = "mean") -> np.ndarray:
+            v = sp.get_tally(name=name).get_values(scores=[score], value=value)
+            return v.reshape(len(order), -1)
 
-        absorption = {n: values("absorption", n) for n in nuclides}
-        for n in nuclides:
-            for score, extra in MULTIPLYING.items():
-                absorption[n] = absorption[n] - extra * values(score, n)
-        production = {n: values("nu-fission", n) for n in nuclides}
-        total = production["total"].sum()
-        order = [fuel, clad, water]
-        out = {
-            "format": "xlc-balance",
-            "k": k.nominal_value,
-            "materials": {},
-            "nuclides": {},
-        }
+        absorption = get("rates", "absorption")
+        variance = get("rates", "absorption", "std_dev") ** 2
+        for score, extra in MULTIPLYING.items():
+            absorption = absorption - extra * get("rates", score)
+            variance = variance + (extra * get("rates", score, "std_dev")) ** 2
+        production = get("rates", "nu-fission")
+        production_std = get("rates", "nu-fission", "std_dev")
+        phi = get("flux", "flux")
+        phi_std = get("flux", "flux", "std_dev")
+        by_scatter = get("scattering", "total") - get("scattering", "nu-scatter")
+        by_scatter_std = np.sqrt(
+            get("scattering", "total", "std_dev") ** 2
+            + get("scattering", "nu-scatter", "std_dev") ** 2
+        )
+
+        def whole(score: str) -> float:
+            return float(
+                sp.get_tally(name="all energies").get_values(scores=[score]).sum()
+            )
+
+        all_absorbed = whole("absorption") - sum(
+            extra * whole(score) for score, extra in MULTIPLYING.items()
+        )
+        # すべてのエネルギーの生成で規格化する（群の範囲の外の分は `outside` に書く）
+        total = whole("nu-fission")
+        out = {"format": "xlc-balance", "k": k.nominal_value, "materials": {}}
         for i, m in enumerate(order):
-            name = NAMES[m.name]
             # 群は高いエネルギーから
-            out["materials"][name] = {
-                "flux": (phi[i][::-1] / total).tolist(),
-                "absorption": (absorption["total"][i][::-1] / total).tolist(),
-                "production": (production["total"][i][::-1] / total).tolist(),
+            def put(v: np.ndarray, i: int = i) -> list[float]:
+                return (v[i][::-1] / total).tolist()
+
+            out["materials"][NAMES[m.name]] = {
+                "flux": put(phi),
+                "flux_std": put(phi_std),
+                "absorption": put(absorption),
+                "absorption_std": put(np.sqrt(variance)),
+                "production": put(production),
+                "production_std": put(production_std),
+                "absorption_by_scatter": put(by_scatter),
+                "absorption_by_scatter_std": put(by_scatter_std),
             }
-            for n in FUEL:
-                if n in m.get_nuclides():
-                    out["nuclides"][f"{name}/{n}"] = {
-                        "absorption": (absorption[n][i][::-1] / total).tolist(),
-                        "production": (production[n][i][::-1] / total).tolist(),
-                    }
+        absorbed = absorption.sum() / total
+        absorbed_std = np.sqrt(variance.sum()) / total
+        by_scatter_sum = by_scatter.sum() / total
+        out["outside"] = {
+            "absorption": (all_absorbed - absorption.sum()) / total,
+            "production": (total - production.sum()) / total,
+        }
         (work / "balance.msgpack").write_bytes(msgpack.packb(out))
-        absorbed = sum(sum(v["absorption"]) for v in out["materials"].values())
         print(
-            f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f} 1/absorption {1 / absorbed:.6f}"
+            f"all energies: 1/absorption {total / all_absorbed:.6f}, "
+            f"production outside the groups {out['outside']['production']:.2e}"
+        )
+        print(
+            f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}, inside the groups: "
+            f"absorption {absorbed:.6f} +- {absorbed_std:.6f}, "
+            f"total - nu-scatter {by_scatter_sum:.6f}"
         )
 
 
