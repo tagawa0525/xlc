@@ -1107,6 +1107,35 @@ mod tests {
     }
 
     #[test]
+    fn merged_cuts_do_not_depend_on_the_direction() {
+        // 1 行 17 列のピン（ピッチ 1.26、半径 0.4096。同じ点とみなす距離は 2.1e-8 cm。行の中心はちょうど 0）の円を、
+        // 中心からの距離が半径より 1 ulp だけ短い横の直線が横切る。円を横切る 2 点は 1.3e-8 cm しか離れておらず 1 点に
+        // まとまる。逆向きに通っても、区間の長さは丸めの程度で同じ（まとめた点が進む向きによらない）
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 17],
+            vec![1.26],
+            vec![Cell::Pin(pin)],
+            vec![vec![0; 17]],
+        )
+        .unwrap();
+        let half = 0.5 * lattice.width();
+        let y = 0.4096_f64.next_down();
+        let forward = lattice.segments((-half, y), (1.0, 0.0), 2.0 * half);
+        let backward = lattice.segments((half, y), (-1.0, 0.0), 2.0 * half);
+        assert_eq!(forward.len(), backward.len(), "{forward:?} {backward:?}");
+        for (a, b) in forward.iter().zip(backward.iter().rev()) {
+            assert_eq!(a.region, b.region);
+            assert!(
+                (a.length - b.length).abs() < 1e-12,
+                "{} vs {}",
+                a.length,
+                b.length
+            );
+        }
+    }
+
+    #[test]
     fn cells_thinner_than_the_same_point_distance_are_errors() {
         // 幅が同じ点とみなす距離（格子の大きさの 1e-9）以下の列は、両側の線を横切る点が1つにまとまり、区間を持てない
         let pin = PinCell::new(1.26, vec![0.4]).unwrap();
