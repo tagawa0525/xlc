@@ -154,12 +154,21 @@ pub struct PinShielding {
     /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある。
     /// 枠のあるセルの最後は枠のリングの値で、格子には使わないので 1
     pub sph: Option<Vec<Vec<f64>>>,
+    /// 等価なセルの減速材のリングの番号（[`PinShielding::ring_regions`] でリングを格子の領域に対応させる）。UFG の範囲が
+    /// なければ `None`
+    pub moderator_ring: Option<usize>,
 }
 
 impl PinShielding {
     /// `sph` のリングごとに、そのリングの物質を置いた格子 `lattice` の領域。UFG の範囲がなければ `None`
-    pub fn ring_regions(&self, _lattice: &Lattice) -> Option<Vec<Vec<usize>>> {
-        None
+    pub fn ring_regions(&self, lattice: &Lattice) -> Option<Vec<Vec<usize>>> {
+        let start = self.moderator_ring?;
+        let pin = lattice.cell_type(self.cell).pin()?;
+        Some(ring_targets(
+            pin,
+            lattice.cell_regions(self.cell).start,
+            start,
+        ))
     }
 }
 
@@ -426,6 +435,7 @@ pub fn shield_fuel_with(
             effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| c.sph.clone()),
+            moderator_ring: ufg.as_ref().map(|c| c.start),
         };
         let assigned = match ufg {
             // リングごとの物質（真空のリングは真空のまま）
