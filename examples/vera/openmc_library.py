@@ -1,4 +1,4 @@
-"""VERA Problem 1B〜1D, 2B〜2D と MOX ピンセル（examples/mox）の参照解に使う OpenMC の連続エネルギーのデータを、ENDF/B-VIII.0 から
+"""VERA Problem 1B〜1D, 2B〜2E と MOX ピンセル（examples/mox）の参照解に使う OpenMC の連続エネルギーのデータを、ENDF/B-VIII.0 から
 手元の NJOY で作る（xs と同じ評価済みデータから作り、核データの違いを比較から除くため）。
 
 使い方: python3 openmc_library.py <ENDF/B-VIII.0 のディレクトリ> <出力ディレクトリ> [並列数]
@@ -38,6 +38,10 @@ OTHERS = (
     ]
     + [(f"Fe{a}", f"n-026_Fe_{a:03d}") for a in (54, 56, 57, 58)]
     + [(f"Cr{a}", f"n-024_Cr_{a:03d}") for a in (50, 52, 53, 54)]
+    + [("C12", "n-006_C_012"), ("C13", "n-006_C_013"), ("P31", "n-015_P_031")]
+    + [(f"Si{a}", f"n-014_Si_{a:03d}") for a in (28, 29, 30)]
+    + [("Mn55", "n-025_Mn_055")]
+    + [(f"Ni{a}", f"n-028_Ni_{a:03d}") for a in (58, 60, 61, 62, 64)]
     + [(f"Pu{a}", f"n-094_Pu_{a:03d}") for a in (238, 239, 240, 241, 242)]
     + [("Am241", "n-095_Am_241")]
 )
