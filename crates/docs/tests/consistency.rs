@@ -1,8 +1,8 @@
 //! リポジトリの文書の整合性の検査（#0013）。
 //!
 //! git が追跡しているファイルを一度だけ読み、xlc_docs::Docs の検査に違反がないことを確かめる。閉じた issue の
-//! `resolution: コミット <hash>` は、git で HEAD（マージの途中ではマージするブランチも）の祖先のコミットを指すことを
-//! 確かめる。違反はすべて並べて示す。
+//! `resolution: コミット <hash>` は、git で HEAD かローカルのどれかのブランチの祖先のコミットを指すことを確かめる。
+//! 違反はすべて並べて示す。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
@@ -67,25 +67,11 @@ fn tracked_files(repo: &Repo) -> Result<Vec<String>> {
         .collect())
 }
 
-/// `resolution` のコミットがその祖先であるべき先頭。ふつうは HEAD だけ。マージの途中（MERGE_HEAD がある）では、
-/// マージするブランチも加える: マージのコミットを作る前の検査（hook）では HEAD がまだ元のブランチで、issue を
-/// 閉じたブランチの上のコミットは MERGE_HEAD の祖先にしかない。衝突で止まったマージの途中でも同じく認めるが、
-/// そのブランチは HEAD の祖先になる前提で、マージをやめて rebase したら、次の検査で古い hash が見つかる。
-/// MERGE_HEAD が複数行になるタコ足のマージでは、最初のブランチだけを見る（このリポジトリでは使わない）
-fn heads(repo: &Repo) -> Result<Vec<&'static str>> {
-    let merging = repo
-        .git(&["rev-parse", "--quiet", "--verify", "MERGE_HEAD"])?
-        .status
-        .success();
-    Ok(if merging {
-        vec!["HEAD", "MERGE_HEAD"]
-    } else {
-        vec!["HEAD"]
-    })
-}
-
-/// `hash` が `heads` のどれかの祖先のコミットを指すか。違えば理由を返す。
-fn commit_problem(repo: &Repo, hash: &str, heads: &[&str]) -> Result<Option<String>> {
+/// `hash` が HEAD か、ローカルのどれかのブランチの祖先のコミットを指すか。違えば理由を返す。マージのコミットを作る
+/// 前の検査（pre-merge-commit の hook）では、HEAD はまだ元のブランチで、MERGE_HEAD もまだない（git 2.55 で確かめた）。
+/// issue を閉じたブランチの上のコミットは、そのブランチの祖先として認める。rebase で捨てた古いコミットは、どの
+/// ブランチの祖先でもなくなるので見つかる。マージしていないブランチの上のコミットは、そのブランチを消すまで見逃す
+fn commit_problem(repo: &Repo, hash: &str) -> Result<Option<String>> {
     let commit = format!("{hash}^{{commit}}");
     if !repo
         .git(&["rev-parse", "--quiet", "--verify", &commit])?
@@ -94,15 +80,30 @@ fn commit_problem(repo: &Repo, hash: &str, heads: &[&str]) -> Result<Option<Stri
     {
         return Ok(Some(format!("commit {hash} does not exist")));
     }
-    for head in heads {
-        if is_ancestor(repo, hash, head)? {
-            return Ok(None);
-        }
+    if is_ancestor(repo, hash, "HEAD")? {
+        return Ok(None);
     }
-    Ok(Some(format!(
-        "commit {hash} is not an ancestor of {} (rebased? update the hash)",
-        heads.join(" or ")
-    )))
+    let branches = repo.git(&[
+        "for-each-ref",
+        "--contains",
+        hash,
+        "--format=%(refname)",
+        "refs/heads/",
+    ])?;
+    if !branches.status.success() {
+        return Err(format!(
+            "git for-each-ref failed: {}",
+            String::from_utf8_lossy(&branches.stderr)
+        )
+        .into());
+    }
+    Ok(if branches.stdout.is_empty() {
+        Some(format!(
+            "commit {hash} is not an ancestor of HEAD or any branch (rebased? update the hash)"
+        ))
+    } else {
+        None
+    })
 }
 
 /// `hash` が `head` の祖先か。
@@ -149,9 +150,8 @@ fn docs_are_consistent() -> Result<()> {
 
     let docs = Docs::new(texts, others);
     let mut violations: Vec<String> = docs.check().iter().map(ToString::to_string).collect();
-    let heads = heads(&repo)?;
     for (path, hash) in docs.resolution_commits() {
-        if let Some(problem) = commit_problem(&repo, &hash, &heads)? {
+        if let Some(problem) = commit_problem(&repo, &hash)? {
             violations.push(format!("{path}: `resolution` names {problem}"));
         }
     }
@@ -225,8 +225,7 @@ impl TempRepo {
     }
 
     fn problem(&self, hash: &str) -> Result<Option<String>> {
-        let repo = self.repo();
-        commit_problem(&repo, hash, &heads(&repo)?)
+        commit_problem(&self.repo(), hash)
     }
 }
 
