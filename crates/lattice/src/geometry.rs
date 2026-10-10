@@ -263,7 +263,6 @@ impl PinCell {
     ) -> Vec<Segment> {
         // |start + t d|² = r² の解のうち (0, length) にあるもの
         let b = start.0 * direction.0 + start.1 * direction.1;
-        let c0 = start.0 * start.0 + start.1 * start.1;
         let mut crossings = Vec::new();
         // 小さな正方形の境界の線 x, y = -p/2 + k p/m
         let h = self.pitch / self.grid as f64;
@@ -312,8 +311,11 @@ impl PinCell {
                 }
             }
         }
+        // 中心から直線までの距離。|start + t d|² = r² の判別式 b² − (|start|² − r²) は、接線に近い直線では b² と
+        // |start|² の打ち消し合いで丸めの誤差が大きいので、同じ値 r² − p² を (r − p)(r + p) で求める
+        let p = (start.0 * direction.1 - start.1 * direction.0).abs();
         for &r in &self.radii {
-            let disc = b * b - (c0 - r * r);
+            let disc = (r - p) * (r + p);
             if disc > 0.0 {
                 let root = disc.sqrt();
                 // 枠の中の交点（枠の内側の正方形の外接円の外）では区切らない
@@ -779,22 +781,34 @@ impl Lattice {
     }
 }
 
-/// 長さ `length` の直線の区切り（両端 0 と `length` を含む昇順）。直線に沿って `coincident` 以内の交点は同じ点で
-/// 横切ったとみて、最初のものだけを残す（端から `coincident` 以内の交点は端にまとめる）。2 つの線（縦と横の線、
-/// 円と辺、扇形の境界と円など）の交わる点をちょうど通る直線でも、それぞれを横切る t は丸めで少しずれる。まとめないと、
-/// 交わる点のまわりのどれかの領域に丸めの程度の区間が残り、その領域を経由したことになる（格子のセルは #0051、
-/// ピンとブロックのセルの中は #0055）
-fn cuts(mut crossings: Vec<f64>, length: f64, coincident: f64) -> Vec<f64> {
-    crossings.retain(|&t| t > coincident && t < length - coincident);
-    crossings.sort_by(f64::total_cmp);
-    let mut cuts = Vec::with_capacity(crossings.len() + 2);
-    cuts.push(0.0);
-    let mut last = 0.0;
-    for t in crossings {
-        if t - last > coincident {
-            cuts.push(t);
-            last = t;
+/// 長さ `length` の直線の区切り（両端 0 と `length` を含む狭義の昇順。`length` が正でなければ空）。直線に沿って
+/// 隣どうしが `coincident` 以内の交点は同じ点で横切ったとみて、組の中点の 1 点にまとめる（中点は進む向きによらない。
+/// 逆向きに通る像のトラックでも区間が同じになる）。端 0 と `length` を含む組は端にまとめ、両端どうしはまとめない。
+/// 2 つの線（縦と横の線、円と辺、扇形の境界と円など）の交わる点をちょうど通る直線でも、それぞれを横切る t は丸めで
+/// 少しずれる。まとめないと、交わる点のまわりのどれかの領域に丸めの程度の区間が残り、その領域を経由したことになる
+/// （格子のセルは #0051、ピンとブロックのセルの中は #0055）。範囲の外の交点は捨てる
+fn cuts(crossings: Vec<f64>, length: f64, coincident: f64) -> Vec<f64> {
+    if length.is_nan() || length <= 0.0 {
+        return Vec::new();
+    }
+    let mut points: Vec<f64> = crossings
+        .into_iter()
+        .filter(|&t| t > -coincident && t < length + coincident)
+        .collect();
+    points.sort_by(f64::total_cmp);
+    let mut cuts = vec![0.0];
+    let mut i = 0;
+    while i < points.len() {
+        // 隣どうしが coincident 以内の組 points[i..j]
+        let mut j = i + 1;
+        while j < points.len() && points[j] - points[j - 1] <= coincident {
+            j += 1;
         }
+        let (low, high) = (points[i], points[j - 1]);
+        if low > coincident && high < length - coincident {
+            cuts.push(0.5 * (low + high));
+        }
+        i = j;
     }
     cuts.push(length);
     cuts
