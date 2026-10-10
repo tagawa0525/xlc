@@ -28,5 +28,5 @@ resolution:
 
 - 2026-10-08: 自己遮蔽の前提の洗い出しで挙がった。制御棒の段階で扱う（ユーザーと合意）
 - 2026-10-11: VERA 2G（AIC の制御棒 24 本）で、xlc と OpenMC の k の差は +27 pcm、吸収体のない 2E-empty（+247 pcm）から −220 pcm
-  動く（examples/vera/verification.md の「OpenMC との比較」、ba6c711b）。B-10 の吸収体（Pyrex、B4C）は逆に正の向きに動かす。
+  動く（examples/vera/verification.md の「OpenMC との比較」、83f37240）。B-10 の吸収体（Pyrex、B4C）は逆に正の向きに動かす。
   xlc が AIC の吸収を多く見積もるかは、吸収体の中の反応率を OpenMC と比べていないので確かめていない
