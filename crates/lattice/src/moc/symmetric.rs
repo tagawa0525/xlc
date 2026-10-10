@@ -10,9 +10,9 @@ use std::ops::Range;
 
 use super::harmonics::real_harmonic;
 use super::{MocError, Sums};
-use crate::cmfd::{CoarseMesh, Orbits};
+use crate::cmfd::CoarseMesh;
 use crate::material::Material;
-use crate::symmetry::{Image, QUARTER, SymmetryError, images};
+use crate::symmetry::{Image, Orbits, QUARTER, SymmetryError, images};
 use crate::tracking::Tracking;
 
 /// スイープする代表のトラック、状態を持つ代表の領域とセル、tally の集め方。
@@ -27,10 +27,8 @@ pub(super) struct Representatives {
     slots: Vec<usize>,
     /// 群の操作の像（恒等を含む。対称性を使わなければ恒等だけ）
     images: Vec<TallyImage>,
-    /// 状態を持つ領域（領域の軌道の代表。番号の順）
-    pub regions: Vec<usize>,
-    /// [領域] の代表の、`regions` の中の位置
-    pub state: Vec<usize>,
+    /// 領域の軌道。状態は代表の領域の分だけ持つ
+    pub regions: Orbits,
     /// [領域] の、代表をその領域へ移す操作（`images` の番号）
     placement: Vec<usize>,
     /// 粗メッシュのセルの軌道（CMFD は代表のセルだけで解く）
@@ -67,13 +65,12 @@ impl Representatives {
             slots: (0..2 * n).collect(),
             images: vec![TallyImage {
                 regions: identity.clone(),
-                sources: identity.clone(),
+                sources: identity,
                 faces: (0..mesh.faces()).map(|f| (f, 1.0)).collect(),
                 moments: (0..moments).map(|k| (k, 1.0)).collect(),
                 matrix: [1.0, 0.0, 0.0, 1.0],
             }],
-            regions: identity.clone(),
-            state: identity,
+            regions: Orbits::identity(regions),
             placement: vec![0; regions],
             cells: Orbits::identity(mesh.cells()),
         }
@@ -152,24 +149,22 @@ impl Representatives {
         let chunks = balanced_chunks(tracking, &tracks, tracking.azimuths.len());
 
         let count = tracking.lattice.regions();
-        let regions: Vec<usize> = (0..count)
-            .filter(|&r| smallest(&|g| g.regions[r], r) == r)
-            .collect();
+        let region_representative: Vec<usize> =
+            (0..count).map(|r| smallest(&|g| g.regions[r], r)).collect();
+        let regions = Orbits::new(&region_representative);
         // 代表 ρ を領域 r へ移す操作（どれでもよい: 代表を動かさない操作で値が変わる成分は、対称な解では 0）
-        let mut state = vec![usize::MAX; count];
-        let mut placement = vec![usize::MAX; count];
-        for (i, &rho) in regions.iter().enumerate() {
-            for (operation, g) in images.iter().enumerate() {
-                let r = g.regions[rho];
-                if placement[r] == usize::MAX {
-                    placement[r] = operation;
-                    state[r] = i;
-                }
-            }
-        }
-        if let Some(r) = placement.iter().position(|&p| p == usize::MAX) {
-            return Err(broken(format!("region {r} is not an image of a representative")).into());
-        }
+        let placement = region_representative
+            .iter()
+            .enumerate()
+            .map(|(r, &rho)| {
+                images
+                    .iter()
+                    .position(|g| g.regions[rho] == r)
+                    .ok_or_else(|| {
+                        broken(format!("region {r} is not an image of its representative"))
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let cell_representative: Vec<usize> = (0..mesh.cells())
             .map(|c| smallest(&|g| g.cells[c], c))
             .collect();
@@ -178,7 +173,7 @@ impl Representatives {
             tracks = n,
             representative_tracks = tracks.len(),
             regions = count,
-            representative_regions = regions.len(),
+            representative_regions = regions.representatives.len(),
             cells = mesh.cells(),
             representative_cells = cells.representatives.len(),
             "symmetry"
@@ -194,7 +189,6 @@ impl Representatives {
             slots,
             images,
             regions,
-            state,
             placement,
             cells,
         })
@@ -220,7 +214,7 @@ impl Representatives {
         kind: RegionKind,
         each: &RegionValues,
     ) {
-        let to = self.regions[representative];
+        let to = self.regions.representatives[representative];
         let share = 1.0 / self.images.len() as f64;
         for image in &self.images {
             each(image.sources[to], &mut |values| match kind {
@@ -287,12 +281,17 @@ impl Representatives {
 
     /// [代表][群] のスカラーの値 `values` を、全ての領域の [領域][群] の値にする
     pub fn expand(&self, values: &[Vec<f64>]) -> Vec<Vec<f64>> {
-        self.state.iter().map(|&i| values[i].clone()).collect()
+        self.regions
+            .index
+            .iter()
+            .map(|&i| values[i].clone())
+            .collect()
     }
 
     /// [代表][x, y の順に群] のベクトル `values` を、全ての領域の [領域][x, y][群] にする
     pub fn expand_vectors(&self, values: &[Vec<f64>], ng: usize) -> Vec<[Vec<f64>; 2]> {
-        self.state
+        self.regions
+            .index
             .iter()
             .zip(&self.placement)
             .map(|(&i, &operation)| {
