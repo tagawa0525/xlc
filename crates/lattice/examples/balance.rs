@@ -83,16 +83,13 @@ fn main() -> anyhow::Result<()> {
     // 中性子束は μ を掛けて物理的な値に戻す
     let mut mu = vec![vec![1.0; groups]; names.len()];
     for pin in &shielded.pins {
-        let (Some(sph), Some(columns), Some(rings)) = (
-            pin.sph.as_ref(),
-            pin.sph_groups.clone(),
-            pin.ring_regions(&tracking.lattice),
-        ) else {
+        let (Some(sph), Some(rings)) = (pin.sph.as_ref(), pin.ring_regions(&tracking.lattice))
+        else {
             continue;
         };
-        for (factors, regions) in sph.iter().zip(&rings) {
+        for (factors, regions) in sph.factors.iter().zip(&rings) {
             for &region in regions {
-                for (g, f) in columns.clone().zip(factors) {
+                for (g, f) in sph.groups.clone().zip(factors) {
                     mu[region][g] = *f;
                 }
             }
