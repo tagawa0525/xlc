@@ -1762,7 +1762,7 @@ mod tests {
         }
 
         #[test]
-        fn mirror_lumps_have_equal_dancoff() {
+        fn half_turned_lumps_have_equal_dancoff() {
             // 2 × 2 の格子（左上と右下が燃料、右上と左下が、四隅に分かれた Zr のリング）は 180° の回転で
             // 自分自身に移る。右上のセルの隅の塊と、その像の左下のセルの隅の塊（扇形を 4 つ回した領域）は、トラックも
             // 正確に移り合うので、Dancoff 係数と平均弦長が丸めの程度で一致する（#0055）
