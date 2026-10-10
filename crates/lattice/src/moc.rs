@@ -587,7 +587,7 @@ fn tracked_face_lengths(tracking: &Tracking, mesh: &CoarseMesh) -> Result<Vec<f6
             }
         };
         let [start, end] = mesh.ends(index);
-        add(&[start]);
+        add(start.faces());
         let mut cell = mesh.cell(track.segments[0].region);
         for segment in &track.segments {
             let next = mesh.cell(segment.region);
@@ -596,7 +596,7 @@ fn tracked_face_lengths(tracking: &Tracking, mesh: &CoarseMesh) -> Result<Vec<f6
                 cell = next;
             }
         }
-        add(&[end]);
+        add(end.faces());
     }
     Ok(lengths)
 }
@@ -1023,9 +1023,14 @@ impl<'a> Sweeper<'a> {
                         // 進む向きの方位角の余弦と正弦（極角の sinθ は掛けていない）
                         let phi = self.tracking.azimuths[track.azimuth].phi;
                         let cosines = [direction * phi.cos(), direction * phi.sin()];
-                        let entered = [(enter.0, direction * enter.1)];
-                        add_current(&mut tally.current, &entered, psi, &weights);
-                        self.add_face_flux(&mut tally.face_flux, &entered, psi, side_weights);
+                        let entered = enter.scaled(direction);
+                        add_current(&mut tally.current, entered.faces(), psi, &weights);
+                        self.add_face_flux(
+                            &mut tally.face_flux,
+                            entered.faces(),
+                            psi,
+                            side_weights,
+                        );
                         let n = track.segments.len();
                         let first = if forward { 0 } else { n - 1 };
                         let mut cell = self.mesh.cell(track.segments[first].region);
@@ -1101,9 +1106,9 @@ impl<'a> Sweeper<'a> {
                                 }
                             }
                         }
-                        let exited = [(exit.0, direction * exit.1)];
-                        add_current(&mut tally.current, &exited, psi, &weights);
-                        self.add_face_flux(&mut tally.face_flux, &exited, psi, side_weights);
+                        let exited = exit.scaled(direction);
+                        add_current(&mut tally.current, exited.faces(), psi, &weights);
+                        self.add_face_flux(&mut tally.face_flux, exited.faces(), psi, side_weights);
                         // 境界から戻るのは割合 r（鏡面反射 1、アルベド α、真空 0）で、残りは漏れ。戻る分を
                         // 掛けて渡すので、つながった先のトラックはそのまま受け取る
                         let r = returned(self.tracking.boundaries().of(exit_side));
