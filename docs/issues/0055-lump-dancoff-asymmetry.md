@@ -5,7 +5,7 @@ opened: 2026-10-10
 closed: 2026-10-10
 milestone:
 blocked-by: []
-resolution: コミット 470ab576
+resolution: コミット 158725a8
 ---
 
 # 対称な位置の構造材の塊の Dancoff 係数と平均弦長が、約 1% 食い違う
