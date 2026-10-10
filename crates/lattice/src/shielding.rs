@@ -156,6 +156,13 @@ pub struct PinShielding {
     pub sph: Option<Vec<Vec<f64>>>,
 }
 
+impl PinShielding {
+    /// `sph` のリングごとに、そのリングの物質を置いた格子 `lattice` の領域。UFG の範囲がなければ `None`
+    pub fn ring_regions(&self, _lattice: &Lattice) -> Option<Vec<Vec<usize>>> {
+        None
+    }
+}
+
 /// 格子の燃料（核分裂する核種を含む物質）のピンを自己遮蔽する（モジュールの説明を参照）。燃料のないセルは
 /// 無限希釈のまま。`region_materials` は領域ごとの物質の名前。移り合うピンと塊の組は、領域ごとの物質の名前で成り立つ
 /// 対称操作（`symmetry::detect`）で作る。成り立つ対称操作をすでに求めてあれば `shield_fuel_with` を使う
@@ -2441,6 +2448,77 @@ mod tests {
             // 被覆管と同じ物質の無限希釈のまま。被覆管のリングは UFG の物質）
             assert_eq!(framed.region_material[4], 1);
             assert_ne!(framed.region_material[4], framed.region_material[2]);
+        }
+
+        #[test]
+        fn sph_factors_name_the_regions_of_their_rings() {
+            let library = resonant_library();
+            let materials = vec![
+                MaterialInput {
+                    name: "fuel".into(),
+                    temperature: T,
+                    composition: vec![
+                        ("U-238".into(), 0.022),
+                        ("U-235".into(), 5.0e-4),
+                        ("O-16".into(), 0.045),
+                    ],
+                },
+                MaterialInput {
+                    name: "clad".into(),
+                    temperature: T,
+                    composition: vec![("Zr-90".into(), 0.043)],
+                },
+                MaterialInput {
+                    name: "water".into(),
+                    temperature: T,
+                    composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+                },
+            ];
+            let shield = |frame: bool| {
+                let mut pin = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+                let mut regions = vec!["fuel", crate::input::VOID, "clad", "water"];
+                if frame {
+                    pin = pin.with_frame(0.05).unwrap();
+                    regions.push("clad");
+                }
+                let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+                let regions: Vec<String> = regions.into_iter().map(String::from).collect();
+                shield_fuel(
+                    &library,
+                    &tracking,
+                    &materials,
+                    &regions,
+                    &ShieldingOptions::default(),
+                )
+                .unwrap()
+            };
+            // SPH 因子のリングごとに、そのリングの物質を置いた格子の領域。枠のリングの物質は格子に使わないので、
+            // 枠のセルでも枠の外の領域はどのリングにも入らない
+            for (frame, regions) in [(false, 4), (true, 5)] {
+                let shielded = shield(frame);
+                let pin = &shielded.pins[0];
+                let tracking = {
+                    let mut cell = PinCell::new(1.26, vec![0.4096, 0.418, 0.475]).unwrap();
+                    if frame {
+                        cell = cell.with_frame(0.05).unwrap();
+                    }
+                    Tracking::new(&Lattice::pin_cell(cell), 16, 0.02).unwrap()
+                };
+                let rings = pin.ring_regions(&tracking.lattice).unwrap();
+                assert_eq!(rings.len(), 4, "{rings:?}");
+                let mut covered: Vec<usize> = rings.iter().flatten().copied().collect();
+                covered.sort_unstable();
+                assert_eq!(covered, (0..4).collect::<Vec<_>>(), "{rings:?}");
+                assert_eq!(tracking.lattice.regions(), regions);
+                // リングの物質は、その領域の物質
+                for (ring, members) in rings.iter().enumerate() {
+                    let materials: Vec<usize> = members
+                        .iter()
+                        .map(|&r| shielded.region_material[r])
+                        .collect();
+                    assert!(materials.iter().all(|&m| m == materials[0]), "ring {ring}");
+                }
+            }
         }
 
         /// 自己遮蔽した格子で成り立つ対称性（物質の参照で確かめる）が `expected` で、その対称性で解いた MOC の解が全体を
