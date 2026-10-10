@@ -113,3 +113,92 @@ fn docs_are_consistent() -> Result<()> {
     );
     Ok(())
 }
+
+/// 一時的な git のリポジトリで `args` を走らせ、成功を確かめる。
+fn run(dir: &Path, args: &[&str]) -> Result<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args([
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "commit.gpgsign=false",
+        ])
+        .args(args)
+        .output()?;
+    if !output.status.success() {
+        return Err(format!("git {args:?}: {}", String::from_utf8_lossy(&output.stderr)).into());
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
+}
+
+#[test]
+fn commit_on_the_merged_branch_counts_during_a_merge() -> Result<()> {
+    // マージのコミットを作る前（hook の検査）は HEAD がまだ元のブランチなので、issue を閉じたブランチの上の
+    // コミットは、マージするブランチ（MERGE_HEAD）の祖先として認める
+    let dir = std::env::temp_dir().join(format!("xlc-docs-merge-{}", std::process::id()));
+    if dir.exists() {
+        fs::remove_dir_all(&dir)?;
+    }
+    fs::create_dir_all(&dir)?;
+    run(&dir, &["init", "-q", "-b", "main"])?;
+    run(
+        &dir,
+        &[
+            "commit",
+            "-q",
+            "--no-verify",
+            "--allow-empty",
+            "-m",
+            "chore: base",
+        ],
+    )?;
+    run(&dir, &["switch", "-q", "-c", "topic"])?;
+    run(
+        &dir,
+        &[
+            "commit",
+            "-q",
+            "--no-verify",
+            "--allow-empty",
+            "-m",
+            "fix: topic",
+        ],
+    )?;
+    let fix = run(&dir, &["rev-parse", "HEAD"])?;
+    run(&dir, &["switch", "-q", "main"])?;
+    run(
+        &dir,
+        &[
+            "commit",
+            "-q",
+            "--no-verify",
+            "--allow-empty",
+            "-m",
+            "chore: other",
+        ],
+    )?;
+    let outside = commit_problem(&dir, &fix)?;
+    run(
+        &dir,
+        &[
+            "merge",
+            "-q",
+            "--no-ff",
+            "--no-commit",
+            "--no-verify",
+            "topic",
+        ],
+    )?;
+    let during = commit_problem(&dir, &fix)?;
+    fs::remove_dir_all(&dir)?;
+    assert!(
+        outside.is_some(),
+        "a commit off HEAD must be reported outside a merge"
+    );
+    assert_eq!(during, None);
+    Ok(())
+}
