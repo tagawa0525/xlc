@@ -383,6 +383,20 @@ mod tests {
     }
 
     #[test]
+    fn nearly_axial_and_empty_lines_keep_their_cells() {
+        // 2 × 2 の格子（ピッチ 2）。真下にほぼ平行な直線（x 成分は cos(π/2) の丸め）は、終わりの近くの横の線でも
+        // セルを移り、長さ 0 の直線は区間を持たない
+        let water = PinCell::new(2.0, vec![]).unwrap();
+        let lattice = Lattice::new(vec![water], vec![vec![0; 2]; 2]).unwrap();
+        let d = (std::f64::consts::FRAC_PI_2.cos(), -1.0);
+        let s = lattice.segments((-1.0, 2.0), d, 3.0);
+        let cells: Vec<usize> = s.iter().map(|s| lattice.region_cell(s.region)).collect();
+        assert_eq!(cells, vec![0, 2], "{s:?}");
+        assert!((s[0].length - 2.0).abs() < 1e-12 && (s[1].length - 1.0).abs() < 1e-12);
+        assert!(lattice.segments((-1.0, 2.0), d, 0.0).is_empty());
+    }
+
+    #[test]
     fn tracks_leave_no_round_off_segments_at_cell_corners() {
         // 2 × 2、16 × 16、17 × 17 の均質なセル（区切りなし）の格子（余白なしとあり）。45° を含む方位角では、多くの
         // トラックがセルの角や、外周の辺とセルの境界の交わる点をちょうど通る。境界の線を足し合わせで作る丸めや、
