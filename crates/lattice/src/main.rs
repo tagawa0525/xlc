@@ -37,7 +37,7 @@ use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, available_order, solve};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
-use xlc_lattice::symmetry::{Group, check_regions};
+use xlc_lattice::symmetry::{Symmetry, check_regions};
 use xlc_lattice::tracking::Tracking;
 
 fn main() -> ExitCode {
@@ -105,7 +105,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
     // 対称性を使うなら、入力の物質が対称であることを先に確かめる。MOC は移り合う領域が同じ物質であることを確かめるが、
     // 違えば、入力の違いと、自己遮蔽でピンを別々に解いたことの区別がつかない（ADR-0113）
-    if input.symmetry != Group::NONE {
+    if input.symmetry != Symmetry::NONE {
         check_regions(&lattice, &input.symmetry.operations(), &region_materials)
             .with_context(|| format!("{}: input materials", shown(path)))?;
     }

@@ -1,10 +1,10 @@
 //! 対称性を使う MOC（ADR-0113）: スイープする代表のトラックと、状態を持つ代表の領域と粗メッシュのセル。
 //!
-//! 対称操作の群 G で移り合うトラックの組（軌道 O）から代表を 1 本ずつ選び、軌道の大きさ |O| を掛けた重みでスイープする
+//! 対称操作の組み合わせ G で移り合うトラックの組（軌道 O）から代表を 1 本ずつ選び、軌道の大きさ |O| を掛けた重みでスイープする
 //! （tally の T）。解が対称なら、全体をスイープしたときの量は F(r) = (1/|G|) Σ_g S_g T(g⁻¹ r) になる。S_g はスカラーでは 1、
 //! ベクトルでは g の行列、モーメントでは符号つきの置換、面の正味の中性子流では面の向きの符号。領域ごとの量（中性子束、
 //! モーメント、平衡値）と CMFD のセルは、軌道の代表の分だけ持つ。代表でない領域の値は、代表をその領域へ移す操作で
-//! 代表の値から求める。対称性を使わないときは、群を恒等だけにした同じ形で扱う。
+//! 代表の値から求める。対称性を使わないときは、操作を恒等だけにした同じ形で扱う。
 
 use std::ops::Range;
 
@@ -12,7 +12,7 @@ use super::harmonics::real_harmonic;
 use super::{MocError, Sums};
 use crate::cmfd::CoarseMesh;
 use crate::material::Material;
-use crate::symmetry::{Group, Image, Orbits, SymmetryError, images};
+use crate::symmetry::{Image, Orbits, Symmetry, SymmetryError, images};
 use crate::tracking::Tracking;
 
 /// スイープする代表のトラック、状態を持つ代表の領域とセル、tally の集め方。
@@ -25,7 +25,7 @@ pub(super) struct Representatives {
     pub chunks: Vec<Range<usize>>,
     /// [トラック][向き (0: 順, 1: 逆)] の終わりの角度中性子束を持つ、代表のスイープの番号（代表の位置 × 2 + 向き）
     slots: Vec<usize>,
-    /// 群の操作の像（恒等を含む。対称性を使わなければ恒等だけ）
+    /// 使う対称操作の像（恒等を含む。対称性を使わなければ恒等だけ）
     images: Vec<TallyImage>,
     /// 領域の軌道。状態は代表の領域の分だけ持つ
     pub regions: Orbits,
@@ -76,21 +76,21 @@ impl Representatives {
         }
     }
 
-    /// 群 `group` で移り合うトラックの代表だけをスイープし、領域とセルの軌道の代表の状態だけを持つ（ADR-0112）。形状と
-    /// トラック（`symmetry::images`）が群のどれかの操作で移り合わないか、移り合う領域の物質 `materials` が同じ物質
+    /// 対称性 `symmetry` の操作で移り合うトラックの代表だけをスイープし、領域とセルの軌道の代表の状態だけを持つ（ADR-0112）。
+    /// 形状とトラック（`symmetry::images`）がどれかの操作で移り合わないか、移り合う領域の物質 `materials` が同じ物質
     /// （同じ参照）でなければエラー
-    pub fn group(
+    pub fn symmetric(
         tracking: &Tracking,
         materials: &[&Material],
         mesh: &CoarseMesh,
         pairs: &[(usize, isize)],
-        group: Group,
+        symmetry: Symmetry,
     ) -> Result<Self, MocError> {
-        let images = images(tracking, &group.operations())?;
+        let images = images(tracking, &symmetry.operations())?;
         Self::by_images(tracking, materials, mesh, pairs, &images)
     }
 
-    /// 群の操作の像 `images`（恒等を含む）から作る
+    /// 使う対称操作の像 `images`（恒等を含む）から作る
     fn by_images(
         tracking: &Tracking,
         materials: &[&Material],
@@ -111,7 +111,7 @@ impl Representatives {
                 }
             }
         }
-        // 軌道の代表は、軌道の中で最も小さい番号のもの（トラック、領域、セル）。群は恒等を含むので、軌道は空でない
+        // 軌道の代表は、軌道の中で最も小さい番号のもの（トラック、領域、セル）。操作は恒等を含むので、軌道は空でない
         let smallest =
             |of: &dyn Fn(&Image) -> usize, own: usize| images.iter().map(of).fold(own, usize::min);
         let n = tracking.tracks.len();
@@ -318,10 +318,10 @@ pub(super) enum RegionKind {
     Vector(usize),
 }
 
-/// 群の性質が崩れたときのエラー
+/// 対称操作の組み合わせの性質（合成で閉じ、像が 1 対 1）が崩れたときのエラー
 fn broken(reason: String) -> SymmetryError {
     SymmetryError::Broken {
-        operation: "group",
+        operation: "combination of operations",
         reason,
     }
 }

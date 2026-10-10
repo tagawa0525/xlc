@@ -65,7 +65,7 @@ use xlc_format::library::is_nuclide_name;
 use crate::branches::{Branches, BranchesEntry, Water};
 use crate::fewgroup::Node;
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
-use crate::symmetry::Group;
+use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
 use crate::water::borated_water;
 
@@ -135,8 +135,8 @@ pub struct LatticeInput {
     /// 散乱の非等方性のルジャンドルの次数（0 なら等方散乱。`None` ならライブラリにあるすべての次数）
     pub scattering_order: Option<usize>,
     pub boundaries: Boundaries,
-    /// 解くときに使う格子の対称操作の群（ADR-0113）
-    pub symmetry: Group,
+    /// 解くときに使う格子の対称性（ADR-0113）
+    pub symmetry: Symmetry,
     pub materials: Vec<MaterialInput>,
     pub cells: Vec<CellInput>,
     /// 上の行から順の、セルの名前の配置
@@ -614,8 +614,8 @@ impl LatticeInput {
             scattering_order,
             boundaries,
             symmetry: match file.symmetry {
-                None | Some(SymmetryEntry::None) => Group::NONE,
-                Some(SymmetryEntry::Quarter) => Group::QUARTER,
+                None | Some(SymmetryEntry::None) => Symmetry::NONE,
+                Some(SymmetryEntry::Quarter) => Symmetry::QUARTER,
             },
             materials,
             cells,
@@ -980,9 +980,12 @@ zones = [{ material = "water", rings = 1 }]
                 &format!("spacing = 0.05\nsymmetry = \"{value}\""),
             )
         };
-        assert_eq!(LatticeInput::parse(PIN_CELL).unwrap().symmetry, Group::NONE);
-        assert_eq!(given("quarter").unwrap().symmetry, Group::QUARTER);
-        assert_eq!(given("none").unwrap().symmetry, Group::NONE);
+        assert_eq!(
+            LatticeInput::parse(PIN_CELL).unwrap().symmetry,
+            Symmetry::NONE
+        );
+        assert_eq!(given("quarter").unwrap().symmetry, Symmetry::QUARTER);
+        assert_eq!(given("none").unwrap().symmetry, Symmetry::NONE);
         assert!(given("half").is_err());
     }
 
