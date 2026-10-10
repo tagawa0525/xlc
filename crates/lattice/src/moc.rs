@@ -12,7 +12,7 @@ mod symmetric;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
-use crate::symmetry::SymmetryError;
+use crate::symmetry::{Group, SymmetryError};
 use crate::tracking::{Boundary, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 use symmetric::{RegionKind, Representatives};
@@ -33,8 +33,9 @@ pub struct Options {
     pub flux_tolerance: f64,
     pub max_iterations: usize,
     pub acceleration: Acceleration,
-    /// 解くときに使う格子の対称性（ADR-0113）
-    pub symmetry: Symmetry,
+    /// 解くときに使う格子の対称操作の群（ADR-0112）。恒等だけなら全体を解く。群のどれかの操作で、形状、境界条件、
+    /// トラック、移り合う領域の物質（`solve` に渡す同じ参照）が移った先と同じでなければエラー
+    pub symmetry: Group,
 }
 
 impl Default for Options {
@@ -45,21 +46,10 @@ impl Default for Options {
             flux_tolerance: 1.0e-6,
             max_iterations: 20_000,
             acceleration: Acceleration::Cmfd(CmfdOptions::default()),
-            // 対称性は入力で指定したときだけ使う（ADR-0113）
-            symmetry: Symmetry::None,
+            // 群は呼び出し側が決める。格子のプログラムは成り立つ最大の群を渡す（ADR-0112）
+            symmetry: Group::NONE,
         }
     }
-}
-
-/// 解くときに使う格子の対称性（ADR-0113）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Symmetry {
-    /// すべてのトラックをスイープし、すべての領域の状態を持つ
-    None,
-    /// 左右と上下の鏡映（1/4 対称）で移り合うトラックの代表だけをスイープし、領域と粗メッシュのセルの状態も代表の分だけ
-    /// 持つ。形状、境界条件、トラックが、どの鏡映でも移った先と同じで、移り合う領域が同じ物質（`solve` に渡す同じ
-    /// 参照）でなければエラー
-    Quarter,
 }
 
 /// べき乗法の加速。
@@ -283,9 +273,10 @@ pub fn solve(
     }
     // 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
     let pairs = planar_moments(order);
-    let representatives = match options.symmetry {
-        Symmetry::None => Representatives::all(tracking, &mesh, pairs.len()),
-        Symmetry::Quarter => Representatives::quarter(tracking, materials, &mesh, &pairs)?,
+    let representatives = if options.symmetry == Group::NONE {
+        Representatives::all(tracking, &mesh, pairs.len())
+    } else {
+        Representatives::group(tracking, materials, &mesh, &pairs, options.symmetry)?
     };
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
     // 状態（中性子束、モーメント、平衡値）は、領域の軌道の代表 `kept[i]` の分だけ持つ（対称性を使わなければすべての領域）
@@ -2768,7 +2759,7 @@ mod tests {
         (lattice, materials)
     }
 
-    fn symmetric(scattering_order: usize, symmetry: Symmetry) -> Options {
+    fn symmetric(scattering_order: usize, symmetry: Group) -> Options {
         Options {
             scattering_order,
             symmetry,
@@ -2900,8 +2891,8 @@ mod tests {
                 let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
                 for order in [0, 1] {
                     let full =
-                        solve(&tracking, &materials, &symmetric(order, Symmetry::None)).unwrap();
-                    let options = symmetric(order, Symmetry::Quarter);
+                        solve(&tracking, &materials, &symmetric(order, Group::NONE)).unwrap();
+                    let options = symmetric(order, Group::QUARTER);
                     let quarter = solve(&tracking, &materials, &options).unwrap();
                     assert_same_solution(&full, &quarter, &options);
                 }
@@ -2918,7 +2909,9 @@ mod tests {
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
         let mesh = CoarseMesh::new(&tracking);
-        let reduced = Representatives::quarter(&tracking, &materials, &mesh, &[(0, 0)]).unwrap();
+        let reduced =
+            Representatives::group(&tracking, &materials, &mesh, &[(0, 0)], Group::QUARTER)
+                .unwrap();
         assert_eq!(4 * reduced.regions.representatives.len(), lattice.regions());
         assert_eq!(4 * reduced.cells.representatives.len(), lattice.cells());
     }
@@ -2931,7 +2924,7 @@ mod tests {
         let library = [&f, &w, &f, &void];
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        let options = symmetric(1, Symmetry::Quarter);
+        let options = symmetric(1, Group::QUARTER);
         let solve_on = |threads| {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
@@ -2959,8 +2952,8 @@ mod tests {
         let library = [&f, &w, &g, &void];
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
-        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(solve(&tracking, &materials, &symmetric(0, Group::NONE)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Group::QUARTER));
         assert!(
             matches!(result, Err(MocError::AsymmetricMaterial { .. })),
             "{result:?}"
@@ -2986,8 +2979,8 @@ mod tests {
         let last = index.iter().rposition(|&i| i == 0).unwrap();
         materials[last] = &copy;
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
-        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(solve(&tracking, &materials, &symmetric(0, Group::NONE)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Group::QUARTER));
         assert!(
             matches!(result, Err(MocError::AsymmetricMaterial { .. })),
             "{result:?}"
@@ -3012,7 +3005,7 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
-        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        let result = solve(&tracking, &materials, &symmetric(0, Group::QUARTER));
         assert!(matches!(result, Err(MocError::Symmetry(_))), "{result:?}");
     }
 }
