@@ -142,9 +142,10 @@ pub enum MocError {
     #[error(transparent)]
     Symmetry(#[from] SymmetryError),
     #[error(
-        "region {region} and its image {image} under the {operation} use different materials; \
-         regions mapped by the symmetry must share one material (self-shielded pins must be \
-         solved as one orbit)"
+        "region {region} and its image {image} under the {operation} refer to different \
+         materials (if self-shielded, they may have been solved separately: lumps split into \
+         sectors are shielded per cell, and pin orbits drop every operation when sectors of a \
+         cell differ in material; #0054)"
     )]
     AsymmetricMaterial {
         operation: &'static str,
