@@ -3,6 +3,10 @@
 
 use std::f64::consts::PI;
 
+/// 格子の大きさに対する、同じ点とみなす距離の比。座標の丸め（格子の大きさの ε の程度）より十分大きく、列と行の幅
+/// （格子の作成で、これより広いことを確かめる）やトラックの間隔より十分小さい
+const COINCIDENT: f64 = 1.0e-9;
+
 /// 中心が原点の正方形のセル（一辺 `pitch` cm）と、中心を共有する同心円。
 ///
 /// 領域 i（0 始まり）は半径 radii[i-1] と radii[i] の間の円環で、最後の領域は
@@ -53,6 +57,8 @@ pub enum GeometryError {
     Margin(f64),
     #[error("column widths and row heights must be positive and finite")]
     Sizes,
+    #[error("a column or row of {size} cm is not wider than the same-point distance {limit} cm")]
+    ThinCell { size: f64, limit: f64 },
     #[error("{rows} rows of cells for {heights} row heights")]
     Rows { rows: usize, heights: usize },
     #[error("row {row} has {cells} cells for {columns} column widths")]
@@ -511,6 +517,11 @@ impl Lattice {
         if !positive(&widths) || !positive(&heights) {
             return Err(GeometryError::Sizes);
         }
+        // 同じ点とみなす距離（`Lattice::coincident`）以下の列や行は、両側の線を横切る点がまとまり、区間を持てない
+        let limit = COINCIDENT * widths.iter().sum::<f64>().max(heights.iter().sum::<f64>());
+        if let Some(&size) = widths.iter().chain(&heights).find(|&&x| x <= limit) {
+            return Err(GeometryError::ThinCell { size, limit });
+        }
         if types.is_empty() {
             return Err(GeometryError::NoCellTypes);
         }
@@ -582,6 +593,12 @@ impl Lattice {
             layout: vec![0],
             offsets: vec![0, regions],
         }
+    }
+
+    /// 同じ点とみなす距離 (cm): 格子の大きさの `COINCIDENT` 倍。トラックの端どうしをつなぐときと、直線が線を横切る
+    /// 点をまとめるときに使う
+    pub fn coincident(&self) -> f64 {
+        COINCIDENT * self.width().max(self.height())
     }
 
     /// 列の幅（左から, cm）
@@ -710,18 +727,13 @@ impl Lattice {
     /// 点 start から方向 direction（単位ベクトル）に長さ length 進む直線を、領域ごとの区間に分ける。
     pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
         let (xs, ys) = (&self.xs, &self.ys);
-        let mut cuts = vec![0.0, length];
+        let mut crossings = Vec::new();
         for (lines, origin, d) in [(xs, start.0, direction.0), (ys, start.1, direction.1)] {
             if d != 0.0 {
-                for &line in lines.iter() {
-                    let t = (line - origin) / d;
-                    if t > 0.0 && t < length {
-                        cuts.push(t);
-                    }
-                }
+                crossings.extend(lines.iter().map(|&line| (line - origin) / d));
             }
         }
-        cuts.sort_by(f64::total_cmp);
+        let cuts = cuts(crossings, length, self.coincident());
         let columns = self.columns();
         let mut segments = Vec::new();
         for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
@@ -752,6 +764,26 @@ impl Lattice {
         }
         segments
     }
+}
+
+/// 長さ `length` の直線の区切り（両端 0 と `length` を含む昇順）。直線に沿って `coincident` 以内の交点は同じ点で
+/// 横切ったとみて、最初のものだけを残す（端から `coincident` 以内の交点は端にまとめる）。縦と横の線を横切る t は、
+/// セルの角をちょうど通る直線でも丸めで少しずれる。まとめないと、角のまわりのどれかのセルに丸めの程度の区間が残り、
+/// そのセルを経由したことになる
+fn cuts(mut crossings: Vec<f64>, length: f64, coincident: f64) -> Vec<f64> {
+    crossings.retain(|&t| t > coincident && t < length - coincident);
+    crossings.sort_by(f64::total_cmp);
+    let mut cuts = Vec::with_capacity(crossings.len() + 2);
+    cuts.push(0.0);
+    let mut last = 0.0;
+    for t in crossings {
+        if t - last > coincident {
+            cuts.push(t);
+            last = t;
+        }
+    }
+    cuts.push(length);
+    cuts
 }
 
 /// 大きさ (w, h) を (nx, ny) に分けたブロックの、セルの中心を原点とする点 (x, y) を含む領域（行は上から）
@@ -1028,6 +1060,46 @@ mod tests {
             .collect();
         assert_eq!(inner.len(), 2);
         assert!(inner.iter().all(|l| (l - 1.0).abs() < 1e-12), "{inner:?}");
+    }
+
+    #[test]
+    fn lines_through_a_cell_corner_skip_its_neighbours() {
+        // 3 × 3 の水のセル（ピッチ 1.26。境界の座標が2進で割り切れない）の内側の角を、いろいろな向きと始点で通す。
+        // 角をちょうど通る直線は、角のまわりの4つのセルのうち、向かい合う2つだけを通る
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![water], vec![vec![0; 3]; 3]).unwrap();
+        let cell = |r: usize| (r % 3, r / 3);
+        for (cx, cy, column, row) in [(-0.63, 0.63, 1, 1), (0.63, -0.63, 2, 2), (0.63, 0.63, 2, 1)]
+        {
+            for angle in [0.1, 0.3, std::f64::consts::FRAC_PI_4, 1.1, 1.3] {
+                let d = (f64::cos(angle), -f64::sin(angle));
+                for back in [0.11, 0.37, 0.5, 0.61] {
+                    let start = (cx - back * d.0, cy - back * d.1);
+                    let s = lattice.segments(start, d, 2.0 * back);
+                    let cells: Vec<(usize, usize)> = s
+                        .iter()
+                        .map(|s| cell(lattice.region_cell(s.region)))
+                        .collect();
+                    // 角の左上のセル（column - 1, row - 1）から右下のセル（column, row）へ直接移る
+                    assert_eq!(
+                        cells,
+                        vec![(column - 1, row - 1), (column, row)],
+                        "corner ({cx}, {cy}), angle {angle}, back {back}: {s:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cells_thinner_than_the_same_point_distance_are_errors() {
+        // 幅が同じ点とみなす距離（格子の大きさの 1e-9）以下の列は、両側の線を横切る点が1つにまとまり、区間を持てない
+        let pin = PinCell::new(1.26, vec![0.4]).unwrap();
+        assert!(matches!(
+            Lattice::with_margin(vec![pin.clone()], vec![vec![0; 2]; 2], 1e-12),
+            Err(GeometryError::ThinCell { .. })
+        ));
+        assert!(Lattice::with_margin(vec![pin], vec![vec![0; 2]; 2], 1e-6).is_ok());
     }
 
     /// 2×2 の格子の周りに幅 0.25 の余白
