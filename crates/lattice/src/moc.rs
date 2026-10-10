@@ -12,7 +12,7 @@ mod symmetric;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
-use crate::symmetry::SymmetryError;
+use crate::symmetry::{Detected, Symmetry, SymmetryError};
 use crate::tracking::{Boundary, Tracking};
 use harmonics::{planar_moments, real_harmonic};
 use symmetric::{RegionKind, Representatives};
@@ -33,8 +33,6 @@ pub struct Options {
     pub flux_tolerance: f64,
     pub max_iterations: usize,
     pub acceleration: Acceleration,
-    /// 解くときに使う格子の対称性（ADR-0113）
-    pub symmetry: Symmetry,
 }
 
 impl Default for Options {
@@ -45,21 +43,8 @@ impl Default for Options {
             flux_tolerance: 1.0e-6,
             max_iterations: 20_000,
             acceleration: Acceleration::Cmfd(CmfdOptions::default()),
-            // 対称性は入力で指定したときだけ使う（ADR-0113）
-            symmetry: Symmetry::None,
         }
     }
-}
-
-/// 解くときに使う格子の対称性（ADR-0113）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Symmetry {
-    /// 全てのトラックをスイープし、全ての領域の状態を持つ
-    None,
-    /// 左右と上下の鏡映（1/4 対称）で移り合うトラックの代表だけをスイープし、領域と粗メッシュのセルの状態も代表の分だけ
-    /// 持つ。形状、境界条件、トラックが、どの鏡映でも移った先と同じで、移り合う領域が同じ物質（`solve` に渡す同じ
-    /// 参照）でなければエラー
-    Quarter,
 }
 
 /// べき乗法の加速。
@@ -141,11 +126,12 @@ pub enum MocError {
     Cmfd(#[from] CmfdError),
     #[error(transparent)]
     Symmetry(#[from] SymmetryError),
+    #[error("the symmetry was verified for another tracking")]
+    ForeignSymmetry,
     #[error(
         "region {region} and its image {image} under the {operation} refer to different \
-         materials (if self-shielded, they may have been solved separately: lumps split into \
-         sectors are shielded per cell, and pin orbits drop every operation when sectors of a \
-         cell differ in material; #0054)"
+         materials (pass the same material for regions that the operation maps onto each \
+         other; self-shielding does so for the operations it verifies, ADR-0112)"
     )]
     AsymmetricMaterial {
         operation: &'static str,
@@ -167,11 +153,31 @@ pub enum MocError {
 }
 
 /// `materials[i]` は領域 i の物質。
-#[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]
 pub fn solve(
     tracking: &Tracking,
     materials: &[&Material],
     options: &Options,
+) -> Result<Solution, MocError> {
+    solve_with(tracking, materials, options, None)
+}
+
+/// `solve` と同じ問題を、確かめた対称操作 `symmetry`（`symmetry::detect` か `symmetry::require` の結果。同じトラッキングの
+/// もの）で移り合うトラックと領域の代表だけで解く（ADR-0112）。移り合う領域が同じ物質（同じ参照）でなければエラー
+pub fn solve_symmetric(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: &Detected,
+) -> Result<Solution, MocError> {
+    solve_with(tracking, materials, options, Some(symmetry))
+}
+
+#[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]
+fn solve_with(
+    tracking: &Tracking,
+    materials: &[&Material],
+    options: &Options,
+    symmetry: Option<&Detected>,
 ) -> Result<Solution, MocError> {
     // CMFD を MOC より細かく解く前提（ADR-0110）。比が 1 以下なので、緩めた CMFD の精度はスイープによる変化を超えない
     let positive = |t: f64| t > 0.0 && t.is_finite();
@@ -283,9 +289,15 @@ pub fn solve(
     }
     // 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
     let pairs = planar_moments(order);
-    let representatives = match options.symmetry {
-        Symmetry::None => Representatives::all(tracking, &mesh, pairs.len()),
-        Symmetry::Quarter => Representatives::quarter(tracking, materials, &mesh, &pairs)?,
+    let representatives = match symmetry {
+        Some(verified) if verified.symmetry() != Symmetry::NONE => {
+            // 別の格子やトラッキングで確かめた像は使えない
+            if !verified.fits(tracking) {
+                return Err(MocError::ForeignSymmetry);
+            }
+            Representatives::by_images(tracking, materials, &mesh, &pairs, verified.images())?
+        }
+        _ => Representatives::all(tracking, &mesh, pairs.len()),
     };
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
     // 状態（中性子束、モーメント、平衡値）は、領域の軌道の代表 `kept[i]` の分だけ持つ（対称性を使わなければ全ての領域）
@@ -960,7 +972,7 @@ impl<'a> Sweeper<'a> {
                             self.directional(equilibrium, track.azimuth, &tally.regions),
                         ));
                     }
-                    // 代表のトラックは、移り合うトラックの数だけ重く数える（ADR-0113）
+                    // 代表のトラックは、移り合うトラックの数だけ重く数える（ADR-0112）
                     let multiplicity = representatives.multiplicity[position];
                     let weights: [f64; POLAR_SIN.len()] = std::array::from_fn(|p| {
                         multiplicity * direction_weight(self.tracking, track.azimuth, p)
@@ -1469,6 +1481,7 @@ mod tests {
     use super::*;
     use crate::geometry::{Cell, Lattice, PinCell};
     use crate::material::FissionTerm;
+    use crate::symmetry::{detect, require};
     use crate::tracking::{Boundaries, Boundary};
 
     fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
@@ -2768,12 +2781,22 @@ mod tests {
         (lattice, materials)
     }
 
-    fn symmetric(scattering_order: usize, symmetry: Symmetry) -> Options {
+    fn order_options(scattering_order: usize) -> Options {
         Options {
             scattering_order,
-            symmetry,
             ..Options::default()
         }
+    }
+
+    /// 対称性 `symmetry` を確かめて（形状とトラック）、その対称性で解く。恒等だけなら全体を解く
+    fn solve_as(
+        tracking: &Tracking,
+        materials: &[&Material],
+        options: &Options,
+        symmetry: Symmetry,
+    ) -> Result<Solution, MocError> {
+        let verified = require(tracking, symmetry)?;
+        solve_symmetric(tracking, materials, options, &verified)
     }
 
     /// 全体を解いた解 `full` と、対称性を使って解いた解 `reduced` が、反復の判定の程度で一致すること
@@ -2900,12 +2923,287 @@ mod tests {
                 let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
                 for order in [0, 1] {
                     let full =
-                        solve(&tracking, &materials, &symmetric(order, Symmetry::None)).unwrap();
-                    let options = symmetric(order, Symmetry::Quarter);
-                    let quarter = solve(&tracking, &materials, &options).unwrap();
+                        solve_as(&tracking, &materials, &order_options(order), Symmetry::NONE)
+                            .unwrap();
+                    let options = order_options(order);
+                    let quarter =
+                        solve_as(&tracking, &materials, &options, Symmetry::QUARTER).unwrap();
                     assert_same_solution(&full, &quarter, &options);
                 }
             }
+        }
+    }
+
+    /// 正方形の 10 通りの対称性（ADR-0112）
+    fn all_symmetries() -> Vec<Symmetry> {
+        [
+            &[][..],
+            &[2],
+            &[4],
+            &[5],
+            &[6],
+            &[7],
+            &[2, 4, 5],
+            &[2, 6, 7],
+            &[1, 2, 3],
+            &[1, 2, 3, 4, 5, 6, 7],
+        ]
+        .iter()
+        .map(|ops| Symmetry::new(ops).unwrap())
+        .collect()
+    }
+
+    /// 1/8 対称な格子と、その領域の物質（燃料 0、水 1、別の燃料 2、真空 3 の番号）。ピンは扇形 8（燃料、真空のギャップ、
+    /// 水）。`odd` なら 3 × 3 で中央のピンは別の燃料（軸と対角線がセルの中を通る）。そうでなければ 4 × 4 で、辺の中央の
+    /// 8 つが 2 × 2 の水、周りに水の余白（軸がセルの境を通る）
+    fn octant_lattice(odd: bool) -> (Lattice, Vec<usize>) {
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let lattice = if odd {
+            Lattice::new(vec![pin], vec![vec![0; 3]; 3]).unwrap()
+        } else {
+            let water = PinCell::grid(1.26, 2).unwrap();
+            let layout = vec![
+                vec![0, 1, 1, 0],
+                vec![1, 0, 0, 1],
+                vec![1, 0, 0, 1],
+                vec![0, 1, 1, 0],
+            ];
+            Lattice::with_margin(vec![pin, water], layout, 0.04).unwrap()
+        };
+        let materials = (0..lattice.cells())
+            .flat_map(|cell| match lattice.cell_type(cell) {
+                Cell::Pin(pin) if !pin.is_grid() => {
+                    let fuel = if odd && cell == 4 { 2 } else { 0 };
+                    (0..pin.regions())
+                        .map(|r| [fuel, 3, 1][r / 8])
+                        .collect::<Vec<_>>()
+                }
+                cell => vec![1; cell.regions()],
+            })
+            .collect();
+        (lattice, materials)
+    }
+
+    #[test]
+    fn every_symmetry_reproduces_the_full_solution() {
+        let (f, w, g, void) = (
+            with_p1(fuel()),
+            with_p1(moderator()),
+            with_p1(two_group(
+                [0.55, 1.4],
+                [[0.5, 0.03], [0.0, 1.1]],
+                [0.01, 0.3],
+            )),
+            Material::void(2),
+        );
+        let library = [&f, &w, &g, &void];
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        let albedo = Boundaries {
+            left: Boundary::Albedo(0.3),
+            right: Boundary::Albedo(0.3),
+            top: Boundary::Albedo(0.3),
+            bottom: Boundary::Albedo(0.3),
+        };
+        // 1/8 対称な格子では 10 通りの対称性がどれも成り立つ。方位角 8（45° なし）は等方散乱で、10（45° あり）は P1 で。間隔
+        // 0.05 cm では、方位角 10 の 45° のトラックが余白の角のセル（0.04 cm 角）の面を通らないので 0.03 cm にする
+        for odd in [true, false] {
+            let (lattice, index) = octant_lattice(odd);
+            let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+            for boundaries in [Boundaries::REFLECTIVE, vacuum, albedo] {
+                for (azimuths, order) in [(8, 0), (10, 1)] {
+                    let tracking =
+                        Tracking::with_boundaries(&lattice, azimuths, 0.03, boundaries).unwrap();
+                    let full =
+                        solve_as(&tracking, &materials, &order_options(order), Symmetry::NONE)
+                            .unwrap();
+                    for symmetry in all_symmetries() {
+                        let options = order_options(order);
+                        let reduced = solve_as(&tracking, &materials, &options, symmetry)
+                            .unwrap_or_else(|e| panic!("{}: {e}", symmetry.name()));
+                        assert_same_solution(&full, &reduced, &options);
+                    }
+                }
+            }
+        }
+    }
+
+    /// 3 × 3 の、扇形 8 のピン（燃料、真空のギャップ、水）の中央に、扇形ごとの物質が `pattern`（`library` の番号）の
+    /// 扇形 8 のセルを置いた格子の領域の物質（`octant_lattice(true)` の中央を置き換えたもの）
+    fn patterned<'a>(
+        pattern: [usize; 8],
+        library: &[&'a Material],
+    ) -> (Lattice, Vec<&'a Material>) {
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let center = PinCell::with_sectors(1.26, vec![], 8).unwrap();
+        let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+        let lattice = Lattice::new(vec![pin, center], layout).unwrap();
+        let materials = (0..9)
+            .flat_map(|cell| {
+                if cell == 4 {
+                    pattern.iter().map(|&i| library[i]).collect::<Vec<_>>()
+                } else {
+                    (0..24).map(|r| library[[0, 3, 1][r / 8]]).collect()
+                }
+            })
+            .collect();
+        (lattice, materials)
+    }
+
+    #[test]
+    fn each_symmetry_alone_reproduces_the_full_solution() {
+        // それぞれの対称性だけが成り立つ格子（中央のセルの扇形の物質の並びと境界条件で、ほかの操作を外す）を、物質の参照で
+        // 判定した対称性で解き、全体を解いた解と比べる（P1、方位角 10）
+        let (f, w, void) = (with_p1(fuel()), with_p1(moderator()), Material::void(2));
+        let variant =
+            |total: [f64; 2]| with_p1(two_group(total, [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]));
+        let (a, b, c) = (
+            variant([0.65, 2.1]),
+            variant([0.7, 2.2]),
+            variant([0.75, 2.3]),
+        );
+        // 番号: 燃料 0、水 1、水の変種 2、4、5、真空 3（ピンのギャップ）
+        let library = [&f, &w, &a, &void, &b, &c];
+        let (left, right, bottom) = (
+            Boundaries {
+                left: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            },
+            Boundaries {
+                right: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            },
+            Boundaries {
+                bottom: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            },
+        );
+        let corner = Boundaries {
+            right: Boundary::Vacuum,
+            ..bottom
+        };
+        let opposite = Boundaries {
+            left: Boundary::Vacuum,
+            ..bottom
+        };
+        let reflective = Boundaries::REFLECTIVE;
+        let symmetry = |ops: &[usize]| Symmetry::new(ops).unwrap();
+        let cases = [
+            ([1; 8], right, symmetry(&[5])),
+            ([1; 8], bottom, symmetry(&[4])),
+            ([1; 8], corner, symmetry(&[6])),
+            ([1; 8], opposite, symmetry(&[7])),
+            ([1, 2, 4, 5, 1, 2, 4, 5], reflective, symmetry(&[2])),
+            ([1, 2, 2, 1, 1, 2, 2, 1], reflective, Symmetry::QUARTER),
+            ([1, 1, 2, 2, 1, 1, 2, 2], reflective, symmetry(&[2, 6, 7])),
+            ([1, 2, 1, 2, 1, 2, 1, 2], reflective, symmetry(&[1, 2, 3])),
+            ([1, 2, 1, 2, 1, 2, 1, 2], left, Symmetry::NONE),
+        ];
+        let options = order_options(1);
+        for (pattern, boundaries, expected) in cases {
+            let (lattice, materials) = patterned(pattern, &library);
+            let tracking = Tracking::with_boundaries(&lattice, 10, 0.05, boundaries).unwrap();
+            let identity: Vec<usize> = materials
+                .iter()
+                .map(|&m| std::ptr::from_ref(m) as usize)
+                .collect();
+            let detected = detect(&tracking, &identity).unwrap();
+            assert_eq!(
+                detected.symmetry(),
+                expected,
+                "{pattern:?}: {} instead of {}",
+                detected.symmetry().name(),
+                expected.name()
+            );
+            let full = solve(&tracking, &materials, &options).unwrap();
+            let reduced = solve_symmetric(&tracking, &materials, &options, &detected).unwrap();
+            assert_same_solution(&full, &reduced, &options);
+        }
+    }
+
+    #[test]
+    fn axis_swapping_symmetries_keep_high_moments() {
+        // P2 と P3 では、軸を入れ替える操作でモーメント (l, m) と (l, -m) が入れ替わり、符号が付く。1/8 対称な格子を、軸を
+        // 入れ替える操作を含む対称性で解き、全体を解いた解と比べる
+        let (f, w, g, void) = (
+            with_moments(&fuel(), &[0.3, 0.15, 0.05]),
+            with_moments(&moderator(), &[0.4, 0.2, 0.1]),
+            with_moments(&fuel(), &[0.2, 0.1, 0.05]),
+            Material::void(2),
+        );
+        let library = [&f, &w, &g, &void];
+        let (lattice, index) = octant_lattice(true);
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
+        let swapping = [
+            Symmetry::new(&[6]).unwrap(),
+            Symmetry::new(&[7]).unwrap(),
+            Symmetry::new(&[2, 6, 7]).unwrap(),
+            Symmetry::new(&[1, 2, 3]).unwrap(),
+            Symmetry::OCTANT,
+        ];
+        for order in [2, 3] {
+            let options = order_options(order);
+            let full = solve(&tracking, &materials, &options).unwrap();
+            for symmetry in swapping {
+                let reduced = solve_as(&tracking, &materials, &options, symmetry)
+                    .unwrap_or_else(|e| panic!("{}: {e}", symmetry.name()));
+                assert_same_solution(&full, &reduced, &options);
+            }
+        }
+    }
+
+    #[test]
+    fn axis_swapping_symmetries_need_a_square_lattice() {
+        // 1/4 対称な長方形（真ん中の列が幅 1.0）では、軸を入れ替えない対称性は解けて全体の解と一致し、軸を入れ替える
+        // 操作を含む対称性はエラー
+        let (lattice, index) = quarter_lattice(true);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let full = solve_as(&tracking, &materials, &order_options(0), Symmetry::NONE).unwrap();
+        for symmetry in all_symmetries() {
+            let options = order_options(0);
+            let result = solve_as(&tracking, &materials, &options, symmetry);
+            let swaps = symmetry
+                .operations()
+                .iter()
+                .any(|&i| [1, 3, 6, 7].contains(&i));
+            if swaps {
+                assert!(
+                    matches!(result, Err(MocError::Symmetry(_))),
+                    "{}: {result:?}",
+                    symmetry.name()
+                );
+            } else {
+                assert_same_solution(&full, &result.unwrap(), &options);
+            }
+        }
+    }
+
+    #[test]
+    fn octant_result_does_not_depend_on_the_thread_count() {
+        let (lattice, index) = octant_lattice(true);
+        let (f, w, void) = (with_p1(fuel()), with_p1(moderator()), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
+        let options = order_options(1);
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve_as(&tracking, &materials, &options, Symmetry::OCTANT).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
         }
     }
 
@@ -2918,7 +3216,14 @@ mod tests {
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
         let mesh = CoarseMesh::new(&tracking);
-        let reduced = Representatives::quarter(&tracking, &materials, &mesh, &[(0, 0)]).unwrap();
+        let reduced = Representatives::by_images(
+            &tracking,
+            &materials,
+            &mesh,
+            &[(0, 0)],
+            require(&tracking, Symmetry::QUARTER).unwrap().images(),
+        )
+        .unwrap();
         assert_eq!(4 * reduced.regions.representatives.len(), lattice.regions());
         assert_eq!(4 * reduced.cells.representatives.len(), lattice.cells());
     }
@@ -2931,13 +3236,13 @@ mod tests {
         let library = [&f, &w, &f, &void];
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        let options = symmetric(1, Symmetry::Quarter);
+        let options = order_options(1);
         let solve_on = |threads| {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
                 .build()
                 .unwrap()
-                .install(|| solve(&tracking, &materials, &options).unwrap())
+                .install(|| solve_as(&tracking, &materials, &options, Symmetry::QUARTER).unwrap())
         };
         let serial = solve_on(1);
         for threads in [2, 5] {
@@ -2959,8 +3264,8 @@ mod tests {
         let library = [&f, &w, &g, &void];
         let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
-        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(solve_as(&tracking, &materials, &order_options(0), Symmetry::NONE).is_ok());
+        let result = solve_as(&tracking, &materials, &order_options(0), Symmetry::QUARTER);
         assert!(
             matches!(result, Err(MocError::AsymmetricMaterial { .. })),
             "{result:?}"
@@ -2986,8 +3291,8 @@ mod tests {
         let last = index.iter().rposition(|&i| i == 0).unwrap();
         materials[last] = &copy;
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
-        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
-        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(solve_as(&tracking, &materials, &order_options(0), Symmetry::NONE).is_ok());
+        let result = solve_as(&tracking, &materials, &order_options(0), Symmetry::QUARTER);
         assert!(
             matches!(result, Err(MocError::AsymmetricMaterial { .. })),
             "{result:?}"
@@ -2995,7 +3300,7 @@ mod tests {
         // 事実（別の物質を指している）を示し、自己遮蔽で別々に解かれた可能性はヒントにとどめる
         let message = result.unwrap_err().to_string();
         assert!(
-            message.contains("refer to different materials") && message.contains("#0054"),
+            message.contains("refer to different materials") && message.contains("ADR-0112"),
             "{message}"
         );
     }
@@ -3012,7 +3317,7 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
-        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        let result = solve_as(&tracking, &materials, &order_options(0), Symmetry::QUARTER);
         assert!(matches!(result, Err(MocError::Symmetry(_))), "{result:?}");
     }
 }
