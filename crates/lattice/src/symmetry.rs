@@ -410,20 +410,33 @@ fn cell_image(lattice: &Lattice, op: &[i64; 4], cell: usize) -> Option<usize> {
 fn cell_image_checked(lattice: &Lattice, op: &[i64; 4], cell: usize) -> Result<usize, String> {
     let image = cell_image(lattice, op, cell)
         .ok_or_else(|| format!("cell {cell} falls outside the lattice"))?;
+    match cell_mismatch(lattice, op, cell, image) {
+        Some(what) => Err(format!(
+            "cell {cell} and its image {image} differ in {what}"
+        )),
+        None => Ok(image),
+    }
+}
+
+/// セル `cell` と、操作 `op` による像のセル `image` の大きさか種類が違えば、どちらか。軸を入れ替える操作では、
+/// 幅と高さ、ブロックの nx と ny を入れ替えて比べる
+fn cell_mismatch(
+    lattice: &Lattice,
+    op: &[i64; 4],
+    cell: usize,
+    image: usize,
+) -> Option<&'static str> {
     let swap = swaps_axes(op);
     let (w, h) = lattice.cell_size(cell);
     let size = if swap { (h, w) } else { (w, h) };
     if size != lattice.cell_size(image) {
-        return Err(format!("cell {cell} and its image {image} differ in size"));
+        return Some("size");
     }
-    let turned = match lattice.cell_type(cell) {
-        Cell::Block { nx, ny } if swap => Cell::Block { nx: *ny, ny: *nx },
-        other => other.clone(),
+    let same = match (lattice.cell_type(cell), lattice.cell_type(image)) {
+        (Cell::Block { nx, ny }, Cell::Block { nx: x, ny: y }) if swap => nx == y && ny == x,
+        (a, b) => a == b,
     };
-    if &turned != lattice.cell_type(image) {
-        return Err(format!("cell {cell} and its image {image} differ in type"));
-    }
-    Ok(image)
+    (!same).then_some("type")
 }
 
 /// 外周の辺の境界条件が、操作 `op` で移った先の辺の境界条件と同じか。違えば理由
@@ -529,18 +542,18 @@ pub fn cell_orbits(
         .iter()
         .filter(|op| {
             let identity = **op == OPERATIONS[0];
-            // セルの種類は、軸を入れ替える操作でもそのまま比べる（ブロックの nx と ny を入れ替えない。#0053）
-            let cells_match = (0..cells).all(|cell| {
-                cell_image(lattice, op, cell).is_some_and(|image| {
-                    let (w, h) = lattice.cell_size(cell);
-                    let size = if swaps_axes(op) { (h, w) } else { (w, h) };
-                    size == lattice.cell_size(image)
-                        && lattice.cell_type(cell) == lattice.cell_type(image)
-                        && ring_materials[cell].is_some()
-                        && ring_materials[cell] == ring_materials[image]
+            // セルの大きさと種類は、MOC の対称性（`images`）と同じく比べる（軸を入れ替える操作では、ブロックの
+            // nx と ny も入れ替える。#0053）
+            let cells_match = || {
+                (0..cells).all(|cell| {
+                    cell_image(lattice, op, cell).is_some_and(|image| {
+                        cell_mismatch(lattice, op, cell, image).is_none()
+                            && ring_materials[cell].is_some()
+                            && ring_materials[cell] == ring_materials[image]
+                    })
                 })
-            });
-            identity || (check_boundaries(tracking, op).is_ok() && cells_match)
+            };
+            identity || (check_boundaries(tracking, op).is_ok() && cells_match())
         })
         .collect();
     Ok((0..cells)
@@ -587,6 +600,61 @@ mod tests {
         let (lattice, default) = lattice(&[4]);
         let tracking = Tracking::with_boundaries(&lattice, 8, 0.2, boundaries).unwrap();
         cell_orbits(&tracking, &materials.unwrap_or(default)).unwrap()
+    }
+
+    #[test]
+    fn swapping_axes_turns_blocks() {
+        // 3 × 3 のピンの中央に 2 × 1 のブロックの水。90° の回転や対角線の鏡映では中央の像が 1 × 2 のブロックになり、
+        // 小さな長方形の並びが移り合わないので、軸を入れ替えない操作（左右、上下、180° の回転）だけが残る:
+        // 角の 4 本は同じ組、辺の上下の 2 本と左右の 2 本は別の組
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26; 3],
+            vec![Cell::Pin(pin), Cell::Block { nx: 2, ny: 1 }],
+            vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]],
+        )
+        .unwrap();
+        let materials: Vec<usize> = (0..9)
+            .flat_map(|cell| if cell == 4 { vec![1, 1] } else { vec![0, 1] })
+            .collect();
+        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
+        assert_eq!(
+            cell_orbits(&tracking, &materials).unwrap(),
+            vec![0, 1, 0, 3, 4, 3, 0, 1, 0]
+        );
+    }
+
+    #[test]
+    fn swapped_blocks_are_images() {
+        // 3 × 3 のピンの上下の辺の中央に 2 × 1、左右の辺の中央に 1 × 2 のブロックの水。軸を入れ替える操作でも
+        // ブロックが移り合うので、8 つの操作がすべて成り立つ: 角の 4 本と辺の 4 つのブロックがそれぞれ同じ組
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26; 3],
+            vec![
+                Cell::Pin(pin),
+                Cell::Block { nx: 2, ny: 1 },
+                Cell::Block { nx: 1, ny: 2 },
+            ],
+            vec![vec![0, 1, 0], vec![2, 0, 2], vec![0, 1, 0]],
+        )
+        .unwrap();
+        let materials: Vec<usize> = (0..9)
+            .flat_map(|cell| {
+                if cell % 2 == 1 {
+                    vec![1, 1]
+                } else {
+                    vec![0, 1]
+                }
+            })
+            .collect();
+        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
+        assert_eq!(
+            cell_orbits(&tracking, &materials).unwrap(),
+            vec![0, 1, 0, 1, 4, 1, 0, 1, 0]
+        );
     }
 
     #[test]

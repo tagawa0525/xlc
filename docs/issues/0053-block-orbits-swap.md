@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, symmetry]
 opened: 2026-10-10
-closed:
+closed: 2026-10-10
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 918bb99
 ---
 
 # 自己遮蔽のピンの組で、軸を入れ替える操作のブロックの像を比べていない
@@ -32,3 +32,7 @@ MOC の 1/4 対称性（ADR-0113）は軸を入れ替えない操作だけを使
 ## 経緯
 
 - 2026-10-10: feat/quarter-symmetry のコードレビューで、`cell_orbits` の挙動の変化として見つかった
+- 2026-10-10: `cell_orbits` のセルの大きさと種類の比べ方を、MOC の像と同じ `cell_image_checked` にした（918bb99）。入力
+  （格子の TOML）から作るブロックはどれも nx = ny（セルの `grid` × `grid`、ギャップの `Cell::BLOCK`（1 × 1）、余白の
+  `Cell::BLOCK`）なので、例題の結果は変わらない。nx ≠ ny のブロックは
+  Rust の API で直接作ったときだけ現れる
