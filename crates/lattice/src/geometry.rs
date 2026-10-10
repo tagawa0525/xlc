@@ -517,6 +517,11 @@ impl Lattice {
         if !positive(&widths) || !positive(&heights) {
             return Err(GeometryError::Sizes);
         }
+        // 同じ点とみなす距離（`Lattice::coincident`）以下の列や行は、両側の線を横切る点がまとまり、区間を持てない
+        let limit = COINCIDENT * widths.iter().sum::<f64>().max(heights.iter().sum::<f64>());
+        if let Some(&size) = widths.iter().chain(&heights).find(|&&x| x <= limit) {
+            return Err(GeometryError::ThinCell { size, limit });
+        }
         if types.is_empty() {
             return Err(GeometryError::NoCellTypes);
         }
