@@ -844,12 +844,24 @@ mod tests {
     fn track_ends_are_on_the_outer_faces_of_their_cells() {
         let tracking = two_by_two();
         let mesh = CoarseMesh::new(&tracking);
+        let mut split = 0;
         for (index, track) in tracking.tracks.iter().enumerate() {
             let [start, end] = mesh.ends(index);
             let first = mesh.cell(track.segments[0].region);
             let last = mesh.cell(track.segments[track.segments.len() - 1].region);
             assert_eq!(outflow(&mesh, first, start.faces()), -1.0, "track {index}");
             assert_eq!(outflow(&mesh, last, end.faces()), 1.0, "track {index}");
+            // 端が外周の 2 つの面の境にあって隣のセルを経由する経路でも、端のセル以外のセルの出入りは釣り合う
+            for cell in 0..mesh.cells() {
+                if cell != first {
+                    assert_eq!(outflow(&mesh, cell, start.faces()), 0.0, "track {index}");
+                }
+                if cell != last {
+                    assert_eq!(outflow(&mesh, cell, end.faces()), 0.0, "track {index}");
+                }
+            }
+            split += usize::from(start.faces().len() > 1) + usize::from(end.faces().len() > 1);
         }
+        assert!(split > 0, "no track ends where a cell line meets the edge");
     }
 }
