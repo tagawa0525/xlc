@@ -77,8 +77,8 @@ impl Representatives {
     }
 
     /// 1/4 対称（左右と上下の鏡映、`symmetry::QUARTER`）で移り合うトラックの代表だけをスイープし、領域とセルの軌道の
-    /// 代表の状態だけを持つ。形状とトラック（`symmetry::images`）と、領域の物質 `materials` が、どの操作でも移った先と
-    /// 同じでなければエラー
+    /// 代表の状態だけを持つ。形状とトラック（`symmetry::images`）がどの操作でも移り合わないか、移り合う領域の物質
+    /// `materials` が同じ物質（同じ参照）でなければエラー
     pub fn quarter(
         tracking: &Tracking,
         materials: &[&Material],
@@ -99,8 +99,9 @@ impl Representatives {
     ) -> Result<Self, MocError> {
         for image in images {
             for (region, &other) in image.regions.iter().enumerate() {
-                let (a, b) = (materials[region], materials[other]);
-                if !(std::ptr::eq(a, b) || a == b) {
+                // 同じ物質（同じ参照）であること。値が等しいだけの別の物質は認めない: 自己遮蔽で別々に解いたピンは
+                // 丸めの程度で違い、値で比べると対称かどうかが丸めで変わる（ADR-0113）
+                if !std::ptr::eq(materials[region], materials[other]) {
                     return Err(MocError::AsymmetricMaterial {
                         operation: image.name,
                         region,
