@@ -759,6 +759,92 @@ mod tests {
         assert!(cell_orbits(&tracking, &materials[1..]).is_err());
     }
 
+    /// 3 × 3 のピン（燃料 0、水 1）の中央に、扇形 8 の水のセル（扇形ごとの物質 `pattern`）を置いた格子のトラックと領域の
+    /// 物質
+    fn patterned(pattern: [usize; 8], boundaries: Boundaries) -> (Tracking, Vec<usize>) {
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let sectored = PinCell::with_sectors(1.26, vec![], 8).unwrap();
+        let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+        let lattice = Lattice::new(vec![pin, sectored], layout).unwrap();
+        let values = (0..9)
+            .flat_map(|cell| {
+                if cell == 4 {
+                    pattern.to_vec()
+                } else {
+                    vec![0, 1]
+                }
+            })
+            .collect();
+        let tracking = Tracking::with_boundaries(&lattice, 10, 0.05, boundaries).unwrap();
+        (tracking, values)
+    }
+
+    #[test]
+    fn detects_every_operation_that_holds() {
+        let symmetry = |ops: &[usize]| Symmetry::new(ops).unwrap();
+        let reflective = Boundaries::REFLECTIVE;
+        // 右と下が真空（C5G7 の 1/4 炉心の形）: 左上から右下への対角線の鏡映だけ
+        let corner = Boundaries {
+            right: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        // 右だけ真空: 上下の鏡映だけ
+        let right = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let cases = [
+            ([2; 8], reflective, Symmetry::OCTANT),
+            ([2; 8], corner, symmetry(&[6])),
+            ([2; 8], right, symmetry(&[5])),
+            // 扇形が 1 つおきに違う（風車）: 回転だけ
+            ([2, 3, 2, 3, 2, 3, 2, 3], reflective, symmetry(&[1, 2, 3])),
+            // 対角線をはさんで同じ: 2 つの対角線の鏡映と 180° 回転
+            ([2, 2, 3, 3, 2, 2, 3, 3], reflective, symmetry(&[2, 6, 7])),
+            // 半周ごとに同じ: 180° 回転だけ
+            ([2, 3, 4, 5, 2, 3, 4, 5], reflective, symmetry(&[2])),
+            // 扇形がどれも違う: なし
+            ([2, 3, 4, 5, 6, 7, 8, 9], reflective, Symmetry::NONE),
+        ];
+        for (pattern, boundaries, expected) in cases {
+            let (tracking, values) = patterned(pattern, boundaries);
+            let detected = detect(&tracking, &values).unwrap();
+            assert_eq!(
+                detected.symmetry,
+                expected,
+                "{pattern:?}: {} instead of {}",
+                detected.symmetry.name(),
+                expected.name()
+            );
+            // 像は使う操作ごとに 1 つ（恒等を含む）
+            assert_eq!(detected.images.len(), expected.order());
+        }
+        // 長方形（真ん中の列が幅 1.0）では、軸を入れ替える操作は成り立たない
+        let lattice = quarter_lattice(true);
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let values = vec![0; lattice.regions()];
+        assert_eq!(
+            detect(&tracking, &values).unwrap().symmetry,
+            Symmetry::QUARTER
+        );
+    }
+
+    #[test]
+    fn symmetry_names_closed_sets_only() {
+        // 恒等は含めなくてよい。合成で閉じない操作の集合（90° の回転だけ）と、ない操作の番号はエラー
+        assert_eq!(Symmetry::new(&[]).unwrap(), Symmetry::NONE);
+        assert_eq!(Symmetry::new(&[2, 4, 5]).unwrap(), Symmetry::QUARTER);
+        assert!(matches!(
+            Symmetry::new(&[1]),
+            Err(SymmetryError::NotClosed(_))
+        ));
+        assert!(matches!(
+            Symmetry::new(&[8]),
+            Err(SymmetryError::UnknownOperation(8))
+        ));
+    }
+
     /// 1/4 対称だが 1/8 対称でない格子。`odd` なら 3 × 3 で、真ん中の列は幅 1.0 の 2 × 2 のブロック（左右の鏡映の軸が
     /// セルの中を通る長方形）。そうでなければ 4 × 4 で、扇形 8 のピンと 2 × 2 の水を左右と上下で対称に（対角線では
     /// 非対称に）置き、周りに余白を付けたもの（軸がセルの境を通る）
