@@ -609,6 +609,38 @@ mod tests {
     }
 
     #[test]
+    fn swapped_blocks_are_images() {
+        // 3 × 3 のピンの上下の辺の中央に 2 × 1、左右の辺の中央に 1 × 2 のブロックの水。軸を入れ替える操作でも
+        // ブロックが移り合うので、8 つの操作がすべて成り立つ: 角の 4 本と辺の 4 つのブロックがそれぞれ同じ組
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26; 3],
+            vec![
+                Cell::Pin(pin),
+                Cell::Block { nx: 2, ny: 1 },
+                Cell::Block { nx: 1, ny: 2 },
+            ],
+            vec![vec![0, 1, 0], vec![2, 0, 2], vec![0, 1, 0]],
+        )
+        .unwrap();
+        let materials: Vec<usize> = (0..9)
+            .flat_map(|cell| {
+                if cell % 2 == 1 {
+                    vec![1, 1]
+                } else {
+                    vec![0, 1]
+                }
+            })
+            .collect();
+        let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
+        assert_eq!(
+            cell_orbits(&tracking, &materials).unwrap(),
+            vec![0, 1, 0, 1, 4, 1, 0, 1, 0]
+        );
+    }
+
+    #[test]
     fn reflective_lattice_has_all_symmetries() {
         // 角の 4 本と辺の 4 本がそれぞれ同じ組、中央の水は単独
         assert_eq!(
