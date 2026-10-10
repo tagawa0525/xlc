@@ -253,12 +253,18 @@ impl PinCell {
     }
 
     /// セルの中心を原点とする点 start から方向 direction に長さ length 進む直線を、
-    /// 同心円で区間に分ける。
-    pub fn segments(&self, start: (f64, f64), direction: (f64, f64), length: f64) -> Vec<Segment> {
+    /// 同心円で区間に分ける。直線に沿って `coincident` 以内の区切りは同じ点とみてまとめる（[`Lattice::coincident`]）。
+    pub fn segments(
+        &self,
+        start: (f64, f64),
+        direction: (f64, f64),
+        length: f64,
+        coincident: f64,
+    ) -> Vec<Segment> {
         // |start + t d|² = r² の解のうち (0, length) にあるもの
         let b = start.0 * direction.0 + start.1 * direction.1;
         let c0 = start.0 * start.0 + start.1 * start.1;
-        let mut cuts = vec![0.0, length];
+        let mut crossings = Vec::new();
         // 小さな正方形の境界の線 x, y = -p/2 + k p/m
         let h = self.pitch / self.grid as f64;
         for (origin, d) in [(start.0, direction.0), (start.1, direction.1)] {
@@ -266,7 +272,7 @@ impl PinCell {
                 for k in 1..self.grid {
                     let t = (-0.5 * self.pitch + k as f64 * h - origin) / d;
                     if t > 0.0 && t < length {
-                        cuts.push(t);
+                        crossings.push(t);
                     }
                 }
             }
@@ -279,7 +285,7 @@ impl PinCell {
                     for edge in [-a, a] {
                         let t = (edge - origin) / d;
                         if t > 0.0 && t < length {
-                            cuts.push(t);
+                            crossings.push(t);
                         }
                     }
                 }
@@ -301,7 +307,7 @@ impl PinCell {
                         && u.0 * point.0 + u.1 * point.1 >= 0.0
                         && !self.in_frame(point.0, point.1)
                     {
-                        cuts.push(t);
+                        crossings.push(t);
                     }
                 }
             }
@@ -311,15 +317,15 @@ impl PinCell {
             if disc > 0.0 {
                 let root = disc.sqrt();
                 // 枠の中の交点（枠の内側の正方形の外接円の外）では区切らない
-                cuts.extend([-b - root, -b + root].into_iter().filter(|&t| {
+                crossings.extend([-b - root, -b + root].into_iter().filter(|&t| {
                     t > 0.0
                         && t < length
                         && !self.in_frame(start.0 + t * direction.0, start.1 + t * direction.1)
                 }));
             }
         }
-        cuts.sort_by(f64::total_cmp);
-        cuts.windows(2)
+        cuts(crossings, length, coincident)
+            .windows(2)
             .filter(|w| w[1] > w[0])
             .map(|w| {
                 let mid = 0.5 * (w[0] + w[1]);
@@ -738,7 +744,8 @@ impl Lattice {
                 crossings.extend(lines.iter().map(|&line| (line - origin) / d));
             }
         }
-        let cuts = cuts(crossings, length, self.coincident());
+        let coincident = self.coincident();
+        let cuts = cuts(crossings, length, coincident);
         let columns = self.columns();
         let mut segments = Vec::new();
         for w in cuts.windows(2).filter(|w| w[1] > w[0]) {
@@ -753,13 +760,14 @@ impl Lattice {
             );
             let offset = self.offsets[cell];
             let pieces = match self.cell_type(cell) {
-                Cell::Pin(pin) => pin.segments(local, direction, w[1] - w[0]),
+                Cell::Pin(pin) => pin.segments(local, direction, w[1] - w[0], coincident),
                 Cell::Block { nx, ny } => block_segments(
                     (self.widths[column], self.heights[row]),
                     (*nx, *ny),
                     local,
                     direction,
                     w[1] - w[0],
+                    coincident,
                 ),
             };
             segments.extend(pieces.into_iter().map(|s| Segment {
@@ -772,9 +780,10 @@ impl Lattice {
 }
 
 /// 長さ `length` の直線の区切り（両端 0 と `length` を含む昇順）。直線に沿って `coincident` 以内の交点は同じ点で
-/// 横切ったとみて、最初のものだけを残す（端から `coincident` 以内の交点は端にまとめる）。縦と横の線を横切る t は、
-/// セルの角をちょうど通る直線でも丸めで少しずれる。まとめないと、角のまわりのどれかのセルに丸めの程度の区間が残り、
-/// そのセルを経由したことになる
+/// 横切ったとみて、最初のものだけを残す（端から `coincident` 以内の交点は端にまとめる）。2 つの線（縦と横の線、
+/// 円と辺、扇形の境界と円など）の交わる点をちょうど通る直線でも、それぞれを横切る t は丸めで少しずれる。まとめないと、
+/// 交わる点のまわりのどれかの領域に丸めの程度の区間が残り、その領域を経由したことになる（格子のセルは #0051、
+/// ピンとブロックのセルの中は #0055）
 fn cuts(mut crossings: Vec<f64>, length: f64, coincident: f64) -> Vec<f64> {
     crossings.retain(|&t| t > coincident && t < length - coincident);
     crossings.sort_by(f64::total_cmp);
@@ -821,9 +830,10 @@ fn block_segments(
     start: (f64, f64),
     direction: (f64, f64),
     length: f64,
+    coincident: f64,
 ) -> Vec<Segment> {
     let (dx, dy) = (w / nx as f64, h / ny as f64);
-    let mut cuts = vec![0.0, length];
+    let mut crossings = Vec::new();
     for (origin, d, step, count, low) in [
         (start.0, direction.0, dx, nx, -0.5 * w),
         (start.1, direction.1, dy, ny, -0.5 * h),
@@ -832,13 +842,13 @@ fn block_segments(
             for k in 1..count {
                 let t = (low + k as f64 * step - origin) / d;
                 if t > 0.0 && t < length {
-                    cuts.push(t);
+                    crossings.push(t);
                 }
             }
         }
     }
-    cuts.sort_by(f64::total_cmp);
-    cuts.windows(2)
+    cuts(crossings, length, coincident)
+        .windows(2)
         .filter(|w| w[1] > w[0])
         .map(|win| {
             let mid = 0.5 * (win[0] + win[1]);
@@ -928,7 +938,7 @@ mod tests {
             .with_frame(0.05)
             .unwrap();
         let d = (0.6_f64, 0.8_f64);
-        let segments = cell.segments((-0.63, -0.3), d, 2.0);
+        let segments = cell.segments((-0.63, -0.3), d, 2.0, 0.0);
         assert!(
             segments.windows(2).all(|w| w[0].region != w[1].region),
             "{segments:?}"
@@ -1186,7 +1196,7 @@ mod tests {
         assert_eq!(cell.region_at(-0.5, -0.5), 2);
         assert_eq!(cell.region_at(0.5, -0.5), 3);
         // 下の行を左から右へ
-        let s = cell.segments((-1.0, -0.5), (1.0, 0.0), 2.0);
+        let s = cell.segments((-1.0, -0.5), (1.0, 0.0), 2.0, 0.0);
         assert_eq!(
             s,
             vec![
@@ -1228,7 +1238,7 @@ mod tests {
             assert!((v[4 + k] - (4.0 - disk) / 4.0).abs() < 1e-14);
         }
         // y = 0.25 を左から右へ: 外側の第2象限、内側の第2、第1象限、外側の第1象限
-        let s = cell.segments((-1.0, 0.25), (1.0, 0.0), 2.0);
+        let s = cell.segments((-1.0, 0.25), (1.0, 0.0), 2.0, 0.0);
         let regions: Vec<usize> = s.iter().map(|s| s.region).collect();
         assert_eq!(regions, vec![5, 1, 0, 4]);
         let half_chord = (0.25_f64 - 0.0625).sqrt();
@@ -1256,7 +1266,7 @@ mod tests {
     fn line_through_the_center_is_cut_at_sector_boundaries() {
         // 中心を通る直線では、どの扇形の境界との交点も中心になる
         let cell = PinCell::with_sectors(2.0, vec![0.5], 4).unwrap();
-        let s = cell.segments((-0.6, -0.8), (0.6, 0.8), 2.0);
+        let s = cell.segments((-0.6, -0.8), (0.6, 0.8), 2.0, 0.0);
         let inner: Vec<(usize, f64)> = s
             .iter()
             .filter(|s| s.region < 4)
