@@ -12,7 +12,7 @@ use super::harmonics::real_harmonic;
 use super::{MocError, Sums};
 use crate::cmfd::CoarseMesh;
 use crate::material::Material;
-use crate::symmetry::{Image, Orbits, QUARTER, SymmetryError, images};
+use crate::symmetry::{Group, Image, Orbits, SymmetryError, images};
 use crate::tracking::Tracking;
 
 /// スイープする代表のトラック、状態を持つ代表の領域とセル、tally の集め方。
@@ -76,16 +76,17 @@ impl Representatives {
         }
     }
 
-    /// 1/4 対称（左右と上下の鏡映、`symmetry::QUARTER`）で移り合うトラックの代表だけをスイープし、領域とセルの軌道の
-    /// 代表の状態だけを持つ。形状とトラック（`symmetry::images`）がどの操作でも移り合わないか、移り合う領域の物質
-    /// `materials` が同じ物質（同じ参照）でなければエラー
-    pub fn quarter(
+    /// 群 `group` で移り合うトラックの代表だけをスイープし、領域とセルの軌道の代表の状態だけを持つ（ADR-0112）。形状と
+    /// トラック（`symmetry::images`）が群のどれかの操作で移り合わないか、移り合う領域の物質 `materials` が同じ物質
+    /// （同じ参照）でなければエラー
+    pub fn group(
         tracking: &Tracking,
         materials: &[&Material],
         mesh: &CoarseMesh,
         pairs: &[(usize, isize)],
+        group: Group,
     ) -> Result<Self, MocError> {
-        let images = images(tracking, &QUARTER)?;
+        let images = images(tracking, &group.operations())?;
         Self::by_images(tracking, materials, mesh, pairs, &images)
     }
 

@@ -23,6 +23,10 @@ pub enum SymmetryError {
          by position along the boundary, which needs ends away from the corners"
     )]
     CornerTrack { track: usize },
+    #[error("symmetry operation {0} does not exist (there are 8)")]
+    UnknownOperation(usize),
+    #[error("the symmetry operations {0:?} are not closed under composition")]
+    NotAGroup(Vec<usize>),
     #[error("the lattice is not symmetric under the {operation}: {reason}")]
     Broken {
         operation: &'static str,
@@ -55,9 +59,68 @@ const NAMES: [&str; 8] = [
     "mirror across the anti-diagonal",
 ];
 
-/// 1/4 対称の操作（`OPERATIONS` の番号）: 恒等、180° 回転、左右と上下の鏡映。軸を入れ替えないので、長方形の
-/// 格子にも使える（ADR-0113）
-pub const QUARTER: [usize; 4] = [0, 2, 4, 5];
+/// 正方形の対称操作の部分群（恒等を含み、合成で閉じた操作の集合。ADR-0112）。部分群は 10 通りある。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Group(u8);
+
+/// 10 通りの部分群（`OPERATIONS` の番号のビットの集合）と、その名前（ログとエラーの表示用）
+const GROUPS: [(u8, &str); 10] = [
+    (0b0000_0001, "none"),
+    (0b0000_0101, "rotation by 180 degrees (1/2)"),
+    (0b0001_0001, "mirror across the vertical axis (1/2)"),
+    (0b0010_0001, "mirror across the horizontal axis (1/2)"),
+    (0b0100_0001, "mirror across the diagonal (1/2)"),
+    (0b1000_0001, "mirror across the anti-diagonal (1/2)"),
+    (0b0011_0101, "mirrors across both axes (1/4)"),
+    (0b1100_0101, "mirrors across both diagonals (1/4)"),
+    (0b0000_1111, "rotations by 90 degrees (1/4)"),
+    (0b1111_1111, "all eight operations (1/8)"),
+];
+
+impl Group {
+    /// 恒等だけ（対称性を使わない）
+    pub const NONE: Self = Self(0b0000_0001);
+    /// 左右と上下の鏡映（1/4。軸を入れ替えないので長方形の格子にも使える。ADR-0113）
+    pub const QUARTER: Self = Self(0b0011_0101);
+    /// 8 つの操作すべて（1/8）
+    pub const OCTANT: Self = Self(0b1111_1111);
+
+    /// 操作 `operations`（`OPERATIONS` の番号。恒等は含めなくてよい）の群。合成で閉じていなければエラー
+    pub fn new(operations: &[usize]) -> Result<Self, SymmetryError> {
+        if let Some(&unknown) = operations.iter().find(|&&i| i >= OPERATIONS.len()) {
+            return Err(SymmetryError::UnknownOperation(unknown));
+        }
+        let mask = operations.iter().fold(1u8, |m, &i| m | (1 << i));
+        if GROUPS.iter().any(|&(g, _)| g == mask) {
+            Ok(Self(mask))
+        } else {
+            let mut operations: Vec<usize> = (0..8).filter(|i| mask & (1 << i) != 0).collect();
+            operations.sort_unstable();
+            Err(SymmetryError::NotAGroup(operations))
+        }
+    }
+
+    /// 群の操作（`OPERATIONS` の番号の順。恒等が最初）
+    pub fn operations(self) -> Vec<usize> {
+        (0..OPERATIONS.len())
+            .filter(|i| self.0 & (1 << i) != 0)
+            .collect()
+    }
+
+    /// 群の名前
+    pub fn name(self) -> &'static str {
+        // 作り方（定数と `new`）から、10 通りのどれか
+        GROUPS
+            .iter()
+            .find(|&&(g, _)| g == self.0)
+            .map_or("a subgroup of the square's operations", |&(_, name)| name)
+    }
+
+    /// 群の操作の数
+    pub fn order(self) -> usize {
+        self.0.count_ones() as usize
+    }
+}
 
 /// 1つの対称操作による像。
 #[derive(Debug, Clone, PartialEq)]
@@ -725,7 +788,7 @@ mod tests {
         for odd in [true, false] {
             let lattice = quarter_lattice(odd);
             let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
-            let images = images(&tracking, &QUARTER).unwrap();
+            let images = images(&tracking, &Group::QUARTER.operations()).unwrap();
             assert_eq!(images.len(), 4);
             let exact = lattice.volumes();
             let apply =
@@ -769,7 +832,7 @@ mod tests {
         // 正しい領域の像ではどのトラックも区間の長さが一致し、ピンの燃料と水を入れ替えた像では一致しないトラックがある
         let (lattice, _) = lattice(&[4]);
         let tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
-        let images = images(&tracking, &QUARTER).unwrap();
+        let images = images(&tracking, &Group::QUARTER.operations()).unwrap();
         let tolerance = 1.0e-9 * lattice.width();
         for image in &images {
             for (t, &(u, forward)) in image.tracks.iter().enumerate() {
@@ -809,11 +872,11 @@ mod tests {
                 }
             })
             .collect();
-        assert!(check_regions(&lattice, &QUARTER, &names).is_ok());
+        assert!(check_regions(&lattice, &Group::QUARTER.operations(), &names).is_ok());
         // 右上の角のピンの燃料だけ別の名前
         let mut changed = names.clone();
         changed[lattice.cell_regions(2).start] = "other".into();
-        let error = check_regions(&lattice, &QUARTER, &changed)
+        let error = check_regions(&lattice, &Group::QUARTER.operations(), &changed)
             .unwrap_err()
             .to_string();
         assert!(
@@ -830,7 +893,7 @@ mod tests {
         let mut tracking = Tracking::new(&lattice, 8, 0.2).unwrap();
         let half = (0.5 * lattice.width(), 0.5 * lattice.height());
         tracking.tracks[0].start = (-half.0, -half.1);
-        let error = images(&tracking, &QUARTER).unwrap_err();
+        let error = images(&tracking, &Group::QUARTER.operations()).unwrap_err();
         assert!(
             matches!(error, SymmetryError::CornerTrack { track: 0 }),
             "{error}"
@@ -846,11 +909,11 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&symmetric, 8, 0.2, boundaries).unwrap();
-        assert!(images(&tracking, &QUARTER).is_err());
+        assert!(images(&tracking, &Group::QUARTER.operations()).is_err());
         // 左の真ん中だけ水
         let (asymmetric, _) = lattice(&[3]);
         let tracking = Tracking::new(&asymmetric, 8, 0.2).unwrap();
-        assert!(images(&tracking, &QUARTER).is_err());
+        assert!(images(&tracking, &Group::QUARTER.operations()).is_err());
         // 左右が真空で上下が鏡面反射なら、1/8 対称でなくても 1/4 対称
         let boundaries = Boundaries {
             left: Boundary::Vacuum,
@@ -858,6 +921,6 @@ mod tests {
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&symmetric, 8, 0.2, boundaries).unwrap();
-        assert!(images(&tracking, &QUARTER).is_ok());
+        assert!(images(&tracking, &Group::QUARTER.operations()).is_ok());
     }
 }
