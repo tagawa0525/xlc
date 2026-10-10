@@ -1777,20 +1777,44 @@ mod tests {
                 .iter()
                 .map(|n| lumped.contains(&n.as_str()))
                 .collect();
-            // [領域] の、組の中のセルごとの塊の番号と、その塊の組
+            // [領域] の、組の中の塊（セルの中で接する領域のまとまり。`shield_lumps` と同じく `Cell::adjacent` でつなぐ）の
+            // 番号と、その塊の組。同じセルの中で像どうしの塊（対角線の鏡映で移り合う隅など）も別々に求める
+            let mut parent: Vec<usize> = (0..regions.len()).collect();
+            fn root(parent: &mut [usize], mut r: usize) -> usize {
+                while parent[r] != r {
+                    parent[r] = parent[parent[r]];
+                    r = parent[r];
+                }
+                r
+            }
+            let lump_of: Vec<Option<usize>> = (0..regions.len())
+                .map(|r| shielded.lumps.iter().position(|l| l.regions.contains(&r)))
+                .collect();
+            for cell in 0..lattice.cells() {
+                let first = lattice.cell_regions(cell).start;
+                for (a, b) in lattice.cell_type(cell).adjacent() {
+                    let (a, b) = (first + a, first + b);
+                    if lump_of[a].is_some() && lump_of[a] == lump_of[b] {
+                        let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
+                        parent[ra.max(rb)] = ra.min(rb);
+                    }
+                }
+            }
             let mut member = vec![None; regions.len()];
             let mut owner = Vec::new();
-            for (k, lump) in shielded.lumps.iter().enumerate() {
-                let mut cells: Vec<usize> = Vec::new();
-                for &r in &lump.regions {
-                    let cell = lattice.region_cell(r);
-                    let at = cells.iter().position(|&c| c == cell).unwrap_or_else(|| {
-                        cells.push(cell);
+            let mut numbered: Vec<(usize, usize)> = Vec::new();
+            for r in 0..regions.len() {
+                let Some(k) = lump_of[r] else { continue };
+                let top = root(&mut parent, r);
+                let m = match numbered.iter().find(|&&(t, _)| t == top) {
+                    Some(&(_, m)) => m,
+                    None => {
                         owner.push(k);
-                        cells.len() - 1
-                    });
-                    member[r] = Some(owner.len() - cells.len() + at);
-                }
+                        numbered.push((top, owner.len() - 1));
+                        owner.len() - 1
+                    }
+                };
+                member[r] = Some(m);
             }
             let found = lump_dancoff(
                 tracking,
