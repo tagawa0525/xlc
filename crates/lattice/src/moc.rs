@@ -2442,7 +2442,7 @@ mod tests {
 
     #[test]
     fn faces_of_a_mirror_symmetric_lattice_are_symmetric() {
-        // 格子の中心（4 つのセルの角）や外周のセルの角をちょうど通るトラックがある、上下で対称な格子。角を通る移動が
+        // 格子の中心（4 つのセルの角）や外周のセルの角をちょうど通るトラックがある、上下と左右で対称な格子。角を通る移動が
         // 丸めで片側の隣のセルを経由したことになると、鏡像の面の量が揃わない（#0051）
         let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
         let water = PinCell::grid(1.26, 2).unwrap();
@@ -2528,6 +2528,24 @@ mod tests {
                 let face = crate::cmfd::horizontal_face(rows, columns, line, column);
                 let image = crate::cmfd::horizontal_face(rows, columns, rows - line, column);
                 check(face, image, -1.0);
+            }
+        }
+        // 左右の鏡映: 縦の面は線が反転して流れ（x 向き）の符号が変わり、横の面は列が反転して流れはそのまま
+        for row in 0..rows {
+            for line in 0..=columns {
+                let face = crate::cmfd::vertical_face(columns, row, line);
+                check(
+                    face,
+                    crate::cmfd::vertical_face(columns, row, columns - line),
+                    -1.0,
+                );
+            }
+        }
+        for line in 0..=rows {
+            for column in 0..columns {
+                let face = crate::cmfd::horizontal_face(rows, columns, line, column);
+                let image = crate::cmfd::horizontal_face(rows, columns, line, columns - 1 - column);
+                check(face, image, 1.0);
             }
         }
     }
