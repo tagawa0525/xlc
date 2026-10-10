@@ -1,0 +1,7 @@
+# カラーセットの MOC の解から作ったノードごとの定数で、cycle.toml と同じ並び。
+plant = "plant.toml"
+inventory = "assemblies-node.toml"
+loading = [
+  "A31  A21",
+  "B21  B31",
+]

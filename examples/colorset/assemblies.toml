@@ -1,0 +1,20 @@
+# 単一集合体（外周が鏡面反射）の格子計算の定数の台帳。2 段階の手法で使う。
+[design.31]
+bounds = [0.0, 21.5]
+layers = ["fg-31.msgpack"]
+
+[design.21]
+bounds = [0.0, 21.5]
+layers = ["fg-21.msgpack"]
+
+[assembly.A31]
+design = "31"
+
+[assembly.B31]
+design = "31"
+
+[assembly.A21]
+design = "21"
+
+[assembly.B21]
+design = "21"

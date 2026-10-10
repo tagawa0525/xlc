@@ -1,0 +1,28 @@
+# カラーセットの MOC の解から作ったノードごとの定数の台帳（形状関数はない）。ノード法そのものの誤差を見る（#0037）。
+[design.31a]
+bounds = [0.0, 21.5]
+layers = ["fg-node-31a.msgpack"]
+
+[design.21a]
+bounds = [0.0, 21.5]
+layers = ["fg-node-21a.msgpack"]
+
+[design.21b]
+bounds = [0.0, 21.5]
+layers = ["fg-node-21b.msgpack"]
+
+[design.31b]
+bounds = [0.0, 21.5]
+layers = ["fg-node-31b.msgpack"]
+
+[assembly.A31]
+design = "31a"
+
+[assembly.A21]
+design = "21a"
+
+[assembly.B21]
+design = "21b"
+
+[assembly.B31]
+design = "31b"
