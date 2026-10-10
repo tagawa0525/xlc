@@ -10,9 +10,9 @@
 /examples/vera/vera.msgpack
 /examples/vera/p*/pins-*.msgpack
 /examples/vera/p*/fg-*.msgpack
+/examples/vera/p*/openmc-*.msgpack
 /examples/vera/xs.log
 /examples/mox/*.msgpack
-!/examples/mox/openmc-*.msgpack
 /examples/mox/xs.log
 /examples/m3-nuclides/*.msgpack
 /examples/m3-nuclides/xs.log
