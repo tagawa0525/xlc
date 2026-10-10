@@ -111,7 +111,7 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
   H in H2O の表は α ≤ 1581、β ≤ 395.26 で、600 K の 70374 個の格子点のうち 19464 個が S = 0。xlc は S = 0 の格子点に
   接する区間を 0 として積分する
 - 2026-10-11: 残る差の候補を、仮の変更（examples/vera/sab_residuals.patch。本番のソースには入れていない）を当てた xlc で
-  1 つずつ量った（examples/vera/sab_residuals.sh、b47406a0、2026-10-11。OpenMC は作り直さず、均質な媒質は cfd29ec7 の
+  1 つずつ量った（examples/vera/sab_residuals.sh、28de3969、2026-10-11。OpenMC は作り直さず、均質な媒質は cfd29ec7 の
   balance、1B のピンセルは 36b35da7 の 1/A 1.181810 ± 0.000044、核種を足した媒質は 8cdbcaab の k を使う）。どれも
   S(α,β) の上限を 9.877 eV にしたうえでの変更で、k の差（xlc − OpenMC の 1/A、pcm）は H-1・U-235（± 2.3）、
   H-1・U-235・U-238（± 16.5）、1B のピンセル（± 4.4）の順に、
