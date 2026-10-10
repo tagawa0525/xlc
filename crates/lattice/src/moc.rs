@@ -2900,6 +2900,153 @@ mod tests {
         }
     }
 
+    /// 正方形の 10 通りの対称性（ADR-0112）
+    fn all_symmetries() -> Vec<Symmetry> {
+        [
+            &[][..],
+            &[2],
+            &[4],
+            &[5],
+            &[6],
+            &[7],
+            &[2, 4, 5],
+            &[2, 6, 7],
+            &[1, 2, 3],
+            &[1, 2, 3, 4, 5, 6, 7],
+        ]
+        .iter()
+        .map(|ops| Symmetry::new(ops).unwrap())
+        .collect()
+    }
+
+    /// 1/8 対称な格子と、その領域の物質（燃料 0、水 1、別の燃料 2、真空 3 の番号）。ピンは扇形 8（燃料、真空のギャップ、
+    /// 水）。`odd` なら 3 × 3 で中央のピンは別の燃料（軸と対角線がセルの中を通る）。そうでなければ 4 × 4 で、辺の中央の
+    /// 8 つが 2 × 2 の水、周りに水の余白（軸がセルの境を通る）
+    fn octant_lattice(odd: bool) -> (Lattice, Vec<usize>) {
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let lattice = if odd {
+            Lattice::new(vec![pin], vec![vec![0; 3]; 3]).unwrap()
+        } else {
+            let water = PinCell::grid(1.26, 2).unwrap();
+            let layout = vec![
+                vec![0, 1, 1, 0],
+                vec![1, 0, 0, 1],
+                vec![1, 0, 0, 1],
+                vec![0, 1, 1, 0],
+            ];
+            Lattice::with_margin(vec![pin, water], layout, 0.04).unwrap()
+        };
+        let materials = (0..lattice.cells())
+            .flat_map(|cell| match lattice.cell_type(cell) {
+                Cell::Pin(pin) if !pin.is_grid() => {
+                    let fuel = if odd && cell == 4 { 2 } else { 0 };
+                    (0..pin.regions())
+                        .map(|r| [fuel, 3, 1][r / 8])
+                        .collect::<Vec<_>>()
+                }
+                cell => vec![1; cell.regions()],
+            })
+            .collect();
+        (lattice, materials)
+    }
+
+    #[test]
+    fn every_symmetry_reproduces_the_full_solution() {
+        let (f, w, g, void) = (
+            with_p1(fuel()),
+            with_p1(moderator()),
+            with_p1(two_group(
+                [0.55, 1.4],
+                [[0.5, 0.03], [0.0, 1.1]],
+                [0.01, 0.3],
+            )),
+            Material::void(2),
+        );
+        let library = [&f, &w, &g, &void];
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        let albedo = Boundaries {
+            left: Boundary::Albedo(0.3),
+            right: Boundary::Albedo(0.3),
+            top: Boundary::Albedo(0.3),
+            bottom: Boundary::Albedo(0.3),
+        };
+        // 1/8 対称な格子では 10 通りの対称性がどれも成り立つ。方位角 8（45° なし）は等方散乱で、10（45° あり）は P1 で。間隔
+        // 0.05 cm では、方位角 10 の 45° のトラックが余白の角のセル（0.04 cm 角）の面を通らないので 0.03 cm にする
+        for odd in [true, false] {
+            let (lattice, index) = octant_lattice(odd);
+            let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+            for boundaries in [Boundaries::REFLECTIVE, vacuum, albedo] {
+                for (azimuths, order) in [(8, 0), (10, 1)] {
+                    let tracking =
+                        Tracking::with_boundaries(&lattice, azimuths, 0.03, boundaries).unwrap();
+                    let full =
+                        solve(&tracking, &materials, &symmetric(order, Symmetry::NONE)).unwrap();
+                    for symmetry in all_symmetries() {
+                        let options = symmetric(order, symmetry);
+                        let reduced = solve(&tracking, &materials, &options)
+                            .unwrap_or_else(|e| panic!("{}: {e}", symmetry.name()));
+                        assert_same_solution(&full, &reduced, &options);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn axis_swapping_symmetries_need_a_square_lattice() {
+        // 1/4 対称な長方形（真ん中の列が幅 1.0）では、軸を入れ替えない対称性は解けて全体の解と一致し、軸を入れ替える
+        // 操作を含む対称性はエラー
+        let (lattice, index) = quarter_lattice(true);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let full = solve(&tracking, &materials, &symmetric(0, Symmetry::NONE)).unwrap();
+        for symmetry in all_symmetries() {
+            let options = symmetric(0, symmetry);
+            let result = solve(&tracking, &materials, &options);
+            let swaps = symmetry
+                .operations()
+                .iter()
+                .any(|&i| [1, 3, 6, 7].contains(&i));
+            if swaps {
+                assert!(
+                    matches!(result, Err(MocError::Symmetry(_))),
+                    "{}: {result:?}",
+                    symmetry.name()
+                );
+            } else {
+                assert_same_solution(&full, &result.unwrap(), &options);
+            }
+        }
+    }
+
+    #[test]
+    fn octant_result_does_not_depend_on_the_thread_count() {
+        let (lattice, index) = octant_lattice(true);
+        let (f, w, void) = (with_p1(fuel()), with_p1(moderator()), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
+        let options = symmetric(1, Symmetry::OCTANT);
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve(&tracking, &materials, &options).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
+    }
+
     #[test]
     fn quarter_symmetry_solves_only_representatives() {
         // 軸がセルの境を通る格子では、どの領域とセルも 4 つずつ移り合う
