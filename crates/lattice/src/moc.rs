@@ -2631,6 +2631,51 @@ mod tests {
     }
 
     #[test]
+    fn reflective_faces_carry_no_net_current_where_track_ends_meet_a_cell_line() {
+        // 左の列が燃料、右の列が水の 2 × 2 の格子（鏡面反射）。トラックの端が上と下の辺の上で列の境（x = 0）にちょうど
+        // 来ると、出ていく流れと、反射してつながるトラックの入る流れを、境の両側の別の面に数えうる（#0032）
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![pin, water], vec![vec![0, 1], vec![0, 1]]).unwrap();
+        let (f, w) = (fuel(), moderator());
+        let materials: Vec<&Material> = (0..lattice.cells())
+            .flat_map(|cell| {
+                if cell % 2 == 0 {
+                    vec![&f, &w]
+                } else {
+                    vec![&w]
+                }
+            })
+            .collect();
+        let tracking = Tracking::new(&lattice, 16, 0.05).unwrap();
+        // 前提: 上か下の辺の上で、端が x = 0 にあるトラックがある
+        let half = 0.5 * lattice.height();
+        let on_line = |p: (f64, f64)| (p.1.abs() - half).abs() < 1e-9 && p.0.abs() < 1e-9;
+        assert!(
+            tracking
+                .tracks
+                .iter()
+                .any(|t| on_line(t.start) || on_line(t.end)),
+            "no track ends on the column line"
+        );
+        let options = Options::default();
+        let s = solve(&tracking, &materials, &options).unwrap();
+        let (columns, rows) = (lattice.columns(), lattice.rows());
+        for line in [0, rows] {
+            for column in 0..columns {
+                let face = crate::cmfd::horizontal_face(rows, columns, line, column);
+                for g in 0..2 {
+                    let (current, flux) = (s.face_currents[face][g], s.face_fluxes[face][g]);
+                    assert!(
+                        current.abs() < options.flux_tolerance * flux,
+                        "face {face}, group {g}: net current {current} with face flux {flux}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn faces_of_a_mirror_symmetric_lattice_are_symmetric() {
         // 格子の中心（4 つのセルの角）や外周のセルの角をちょうど通るトラックがある、上下と左右で対称な格子。角を通る移動が
         // 丸めで片側の隣のセルを経由したことになると、鏡像の面の量が揃わない（#0051）
