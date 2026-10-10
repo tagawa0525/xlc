@@ -140,12 +140,9 @@ pub enum MocError {
     Cmfd(#[from] CmfdError),
     #[error(transparent)]
     Symmetry(#[from] SymmetryError),
-    #[error(
-        "region {region} and its image {image} under symmetry operation {operation} \
-         have different materials"
-    )]
+    #[error("region {region} and its image {image} under the {operation} have different materials")]
     AsymmetricMaterial {
-        operation: usize,
+        operation: &'static str,
         region: usize,
         image: usize,
     },
