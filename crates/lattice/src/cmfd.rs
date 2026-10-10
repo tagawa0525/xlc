@@ -29,7 +29,7 @@ pub struct CoarseMesh {
     /// [領域] の属するセル
     cell_of_region: Vec<usize>,
     /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
-    ends: Vec<[(usize, f64); 2]>,
+    ends: Vec<[FacePath; 2]>,
 }
 
 /// 面の両側のセル。面の正の向きは `low` から `high` へ。
@@ -65,6 +65,15 @@ impl FacePath {
     pub fn faces(&self) -> &[(usize, f64)] {
         &self.faces[..self.count]
     }
+
+    /// 重みを `factor` 倍した経路（逆向きに通るときは -1 倍）
+    pub fn scaled(&self, factor: f64) -> Self {
+        let mut path = *self;
+        for (_, weight) in &mut path.faces[..path.count] {
+            *weight *= factor;
+        }
+        path
+    }
 }
 
 impl CoarseMesh {
@@ -74,6 +83,7 @@ impl CoarseMesh {
             .map(|r| lattice.region_cell(r))
             .collect();
         let half = (0.5 * lattice.width(), 0.5 * lattice.height());
+        let coincident = lattice.coincident();
         let mut mesh = Self {
             widths: lattice.widths().to_vec(),
             heights: lattice.heights().to_vec(),
@@ -83,10 +93,9 @@ impl CoarseMesh {
         for track in &tracking.tracks {
             let first = mesh.cell(track.segments[0].region);
             let last = mesh.cell(track.segments[track.segments.len() - 1].region);
-            let start = mesh.outer_face(first, track.start, half);
-            let end = mesh.outer_face(last, track.end, half);
-            // 始点では入る（外向きの逆）、終点では出る
-            mesh.ends.push([(start.0, -start.1), end]);
+            let start = mesh.end_path(first, track.start, half, coincident, false);
+            let end = mesh.end_path(last, track.end, half, coincident, true);
+            mesh.ends.push([start, end]);
         }
         mesh
     }
@@ -127,7 +136,7 @@ impl CoarseMesh {
     }
 
     /// [トラック] の始点で入る面と終点で出る面（順方向に通るときの向き付き）
-    pub(crate) fn ends(&self, track: usize) -> [(usize, f64); 2] {
+    pub(crate) fn ends(&self, track: usize) -> [FacePath; 2] {
         self.ends[track]
     }
 
@@ -230,27 +239,73 @@ impl CoarseMesh {
         }
     }
 
-    /// トラックの端の点 `point`（外周の上）にある、セル `cell` の外周の面と、
-    /// 外向きが面の正の向きなら 1、逆なら -1。
-    fn outer_face(&self, cell: usize, point: (f64, f64), half: (f64, f64)) -> (usize, f64) {
+    /// トラックの端の点 `point`（外周の上）で、セル `cell` から出る（`exiting`）か、セルに入る経路。端が外周の 2 つの面の境
+    /// （格子線と外周の交わる点。同じ点とみなす距離 `coincident` 以内）にあるときは、トラックが代表する帯の半分ずつが
+    /// 境の両側の面を通るとして、2 通りの経路に 1/2 ずつ分ける: 自分のセルの外周の面と、隣のセルを経由する経路（セルの間の
+    /// 面と隣のセルの外周の面）。片側の面だけに数えると、出ていくトラックと、反射してつながる入るトラックが境の別の側に
+    /// 数えられ、鏡面反射の面に正味の中性子流が残る
+    fn end_path(
+        &self,
+        cell: usize,
+        point: (f64, f64),
+        half: (f64, f64),
+        coincident: f64,
+        exiting: bool,
+    ) -> FacePath {
         let (nc, nr) = (self.columns(), self.rows());
         let (r, c) = (cell / nc, cell % nc);
-        // 外向きの向き。トラックは外周の角を通らないので、点に最も近い辺が点のある辺
-        let sides = [
-            ((point.0 + half.0).abs(), self.vertical(r, 0), -1.0),
-            ((point.0 - half.0).abs(), self.vertical(r, nc), 1.0),
-            ((point.1 - half.1).abs(), self.horizontal(0, c), -1.0),
-            ((point.1 + half.1).abs(), self.horizontal(nr, c), 1.0),
+        let faces = self.cell_faces(cell);
+        // 点に最も近い辺が点のある辺（左、右、上、下。トラックは外周の角を通らない）
+        let distances = [
+            (point.0 + half.0).abs(),
+            (point.0 - half.0).abs(),
+            (point.1 - half.1).abs(),
+            (point.1 + half.1).abs(),
         ];
-        let [first, rest @ ..] = sides;
-        let (_, face, outward) =
-            rest.into_iter().fold(
-                first,
-                |nearest, side| {
-                    if side.0 < nearest.0 { side } else { nearest }
-                },
-            );
-        (face, outward)
+        let side = (1..4).fold(0, |nearest, s| {
+            if distances[s] < distances[nearest] {
+                s
+            } else {
+                nearest
+            }
+        });
+        let own = faces[side];
+        // 辺に沿った格子線のうち、点がセルの両端の線にあれば、その向こうのセルと、そちらへ移る面（cell_faces の番号）
+        let neighbour = if side >= 2 {
+            let left = -half.0 + self.widths[..c].iter().sum::<f64>();
+            let right = left + self.widths[c];
+            if c > 0 && (point.0 - left).abs() <= coincident {
+                Some((cell - 1, 0))
+            } else if c + 1 < nc && (point.0 - right).abs() <= coincident {
+                Some((cell + 1, 1))
+            } else {
+                None
+            }
+        } else {
+            let top = half.1 - self.heights[..r].iter().sum::<f64>();
+            let bottom = top - self.heights[r];
+            if r > 0 && (point.1 - top).abs() <= coincident {
+                Some((cell - nc, 2))
+            } else if r + 1 < nr && (point.1 - bottom).abs() <= coincident {
+                Some((cell + nc, 3))
+            } else {
+                None
+            }
+        };
+        let sign = if exiting { 1.0 } else { -1.0 };
+        match neighbour {
+            None => FacePath::new(&[(own.0, sign * own.1)]),
+            Some((other, toward)) => {
+                let theirs = self.cell_faces(other)[side];
+                // 自分のセルから隣へ移る向きの重み。入るときは隣から自分へ移るので逆
+                let between = faces[toward];
+                FacePath::new(&[
+                    (own.0, 0.5 * sign * own.1),
+                    (between.0, 0.5 * sign * between.1),
+                    (theirs.0, 0.5 * sign * theirs.1),
+                ])
+            }
+        }
     }
 }
 
@@ -796,8 +851,8 @@ mod tests {
             let [start, end] = mesh.ends(index);
             let first = mesh.cell(track.segments[0].region);
             let last = mesh.cell(track.segments[track.segments.len() - 1].region);
-            assert_eq!(outflow(&mesh, first, &[start]), -1.0, "track {index}");
-            assert_eq!(outflow(&mesh, last, &[end]), 1.0, "track {index}");
+            assert_eq!(outflow(&mesh, first, start.faces()), -1.0, "track {index}");
+            assert_eq!(outflow(&mesh, last, end.faces()), 1.0, "track {index}");
         }
     }
 }
