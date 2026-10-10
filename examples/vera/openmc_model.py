@@ -173,7 +173,6 @@ MODERATOR_OF = {
 PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
 # 制御棒（仕様書の表 8）: SS304 の被覆管の内と外の半径と、吸収体の半径。吸収体と被覆管の間は真空
 ROD_CLAD = (0.386, 0.484)
-ROD_ABSORBER = {"AIC": (AIC, 0.382), "B4C": (B4C, 0.373)}
 
 # 案内管の位置（行, 列。0 始まり）。計装管は中央
 GUIDE_TUBES = [
@@ -203,10 +202,49 @@ GUIDE_TUBES = [
     (14, 11),
 ]
 INSTRUMENT_TUBE = (8, 8)
-# 案内管に入れるもの（Pyrex または制御棒の吸収体の名前）と位置。Pyrex の 12 本は仕様書の図 5 の配置
+
+
+Layers = list[tuple[openmc.Material | None, float]]
+
+
+def tube(
+    layers: Layers,
+    inner: float,
+    outer: float,
+    clad: openmc.Material,
+    water: openmc.Material,
+) -> openmc.Universe:
+    """管（案内管・計装管、内と外の半径 `inner`、`outer`）のセル。`layers` は管に入れたもので、中心から外へ
+    (物質, 外側の半径) の並び（None は真空）。その外から管の内側までと、管の外は減速材。"""
+    cells = []
+    surface = None
+    for fill, radius in [*layers, (water, inner), (clad, outer)]:
+        boundary = openmc.ZCylinder(r=radius)
+        region = -boundary if surface is None else +surface & -boundary
+        cells.append(openmc.Cell(fill=fill, region=region))
+        surface = boundary
+    cells.append(openmc.Cell(fill=water, region=+surface))
+    return openmc.Universe(cells=cells)
+
+
+def pyrex_layers() -> Layers:
+    """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。"""
+    pyrex, steel = material("pyrex", PYREX, COLD), material("ss304", SS304, COLD)
+    fills = [None, steel, None, pyrex, None, steel]
+    return list(zip(fills, PYREX_RADII))
+
+
+def rod_layers(name: str, nuclides: dict[str, float], radius: float) -> Layers:
+    """制御棒（半径 `radius` の吸収体と SS304 の被覆管。間は真空）の層。"""
+    absorber, steel = material(name, nuclides, COLD), material("ss304", SS304, COLD)
+    clad_in, clad_out = ROD_CLAD
+    return [(absorber, radius), (None, clad_in), (steel, clad_out)]
+
+
+# 案内管に入れるものの層を作る関数と位置。Pyrex の 12 本は仕様書の図 5 の配置
 INSERTS = {
     "2E": (
-        "Pyrex",
+        pyrex_layers,
         [
             (2, 5),
             (2, 11),
@@ -223,56 +261,10 @@ INSERTS = {
         ],
     ),
     # 24 本はすべての案内管（図 5）
-    "2F": ("Pyrex", GUIDE_TUBES),
-    "2G": ("AIC", GUIDE_TUBES),
-    "2H": ("B4C", GUIDE_TUBES),
+    "2F": (pyrex_layers, GUIDE_TUBES),
+    "2G": (lambda: rod_layers("aic", AIC, 0.382), GUIDE_TUBES),
+    "2H": (lambda: rod_layers("b4c", B4C, 0.373), GUIDE_TUBES),
 }
-
-
-def tube(inner: float, outer: float, clad: openmc.Material, water: openmc.Material):
-    """中が減速材の管（案内管・計装管）のセル。"""
-    r_in, r_out = openmc.ZCylinder(r=inner), openmc.ZCylinder(r=outer)
-    return openmc.Universe(
-        cells=[
-            openmc.Cell(fill=water, region=-r_in),
-            openmc.Cell(fill=clad, region=+r_in & -r_out),
-            openmc.Cell(fill=water, region=+r_out),
-        ]
-    )
-
-
-def insert_tube(
-    layers: list[tuple[openmc.Material | None, float]],
-    clad: openmc.Material,
-    water: openmc.Material,
-) -> openmc.Universe:
-    """案内管に入れたもののセル。`layers` は中心から外へ (物質, 外側の半径) の並び（None は真空）で、その外から案内管の
-    内側までは減速材、案内管の被覆管、その外は減速材。"""
-    cells = []
-    inner = None
-    for fill, radius in [*layers, (water, GUIDE_INNER), (clad, GUIDE_OUTER)]:
-        outer = openmc.ZCylinder(r=radius)
-        region = -outer if inner is None else +inner & -outer
-        cells.append(openmc.Cell(fill=fill, region=region))
-        inner = outer
-    cells.append(openmc.Cell(fill=water, region=+inner))
-    return openmc.Universe(cells=cells)
-
-
-def pyrex_layers(
-    pyrex: openmc.Material, steel: openmc.Material
-) -> list[tuple[openmc.Material | None, float]]:
-    """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。"""
-    fills = [None, steel, None, pyrex, None, steel]
-    return list(zip(fills, PYREX_RADII))
-
-
-def rod_layers(
-    absorber: openmc.Material, radius: float, steel: openmc.Material
-) -> list[tuple[openmc.Material | None, float]]:
-    """制御棒（半径 `radius` の吸収体と SS304 の被覆管。間は真空）の層。"""
-    clad_in, clad_out = ROD_CLAD
-    return [(absorber, radius), (None, clad_in), (steel, clad_out)]
 
 
 def geometry_of(
@@ -301,8 +293,8 @@ def geometry_of(
         half = PITCH / 2
         root = openmc.Cell(fill=rod)
     else:
-        guide = tube(GUIDE_INNER, GUIDE_OUTER, clad, water)
-        instrument = tube(INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
+        guide = tube([], GUIDE_INNER, GUIDE_OUTER, clad, water)
+        instrument = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
         universes = [[rod] * N for _ in range(N)]
         for i, j in GUIDE_TUBES:
             universes[i][j] = guide
@@ -383,17 +375,11 @@ def main() -> None:
     materials = openmc.Materials([fuel, clad, water])
     insert = None
     if problem in INSERTS:
-        kind = INSERTS[problem][0]
-        steel = material("ss304", SS304, COLD)
-        if kind == "Pyrex":
-            pyrex = material("pyrex", PYREX, COLD)
-            materials.extend([pyrex, steel])
-            insert = insert_tube(pyrex_layers(pyrex, steel), clad, water)
-        else:
-            nuclides, radius = ROD_ABSORBER[kind]
-            absorber = material(kind.lower(), nuclides, COLD)
-            materials.extend([absorber, steel])
-            insert = insert_tube(rod_layers(absorber, radius, steel), clad, water)
+        layers = INSERTS[problem][0]()
+        for fill, _ in layers:
+            if fill is not None and all(fill is not m for m in materials):
+                materials.append(fill)
+        insert = tube(layers, GUIDE_INNER, GUIDE_OUTER, clad, water)
     materials.cross_sections = str(cross_sections)
 
     geometry, half = geometry_of(problem, fuel, clad, water, insert=insert)
