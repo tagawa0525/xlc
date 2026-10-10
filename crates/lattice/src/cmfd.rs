@@ -105,14 +105,11 @@ impl CoarseMesh {
         for track in &tracking.tracks {
             let first = mesh.cell(track.segments[0].region);
             let last = mesh.cell(track.segments[track.segments.len() - 1].region);
-            let start = mesh.end_path(first, track.start, half, lines, coincident, false);
-            let end = mesh.end_path(last, track.end, half, lines, coincident, true);
+            let (start, start_cells) =
+                mesh.end_path(first, track.start, half, lines, coincident, false);
+            let (end, end_cells) = mesh.end_path(last, track.end, half, lines, coincident, true);
             mesh.ends.push([start, end]);
-            let alone = |cell| EndCells {
-                cells: [(cell, 1.0), (cell, 0.0)],
-                count: 1,
-            };
-            mesh.end_cells.push([alone(first), alone(last)]);
+            mesh.end_cells.push([start_cells, end_cells]);
         }
         mesh
     }
@@ -275,7 +272,7 @@ impl CoarseMesh {
         (xs, ys): (&[f64], &[f64]),
         coincident: f64,
         exiting: bool,
-    ) -> FacePath {
+    ) -> (FacePath, EndCells) {
         let (nc, nr) = (self.columns(), self.rows());
         let (r, c) = (cell / nc, cell % nc);
         let faces = self.cell_faces(cell);
@@ -312,16 +309,28 @@ impl CoarseMesh {
         };
         let sign = if exiting { 1.0 } else { -1.0 };
         match neighbour {
-            None => FacePath::new(&[(own.0, sign * own.1)]),
+            None => (
+                FacePath::new(&[(own.0, sign * own.1)]),
+                EndCells {
+                    cells: [(cell, 1.0), (cell, 0.0)],
+                    count: 1,
+                },
+            ),
             Some((other, toward)) => {
                 let theirs = self.cell_faces(other)[side];
                 // 自分のセルから隣へ移る向きの重み。入るときは隣から自分へ移るので逆
                 let between = faces[toward];
-                FacePath::new(&[
-                    (own.0, 0.5 * sign * own.1),
-                    (between.0, 0.5 * sign * between.1),
-                    (theirs.0, 0.5 * sign * theirs.1),
-                ])
+                (
+                    FacePath::new(&[
+                        (own.0, 0.5 * sign * own.1),
+                        (between.0, 0.5 * sign * between.1),
+                        (theirs.0, 0.5 * sign * theirs.1),
+                    ]),
+                    EndCells {
+                        cells: [(cell, 0.5), (other, 0.5)],
+                        count: 2,
+                    },
+                )
             }
         }
     }
