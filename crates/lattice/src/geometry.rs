@@ -1030,6 +1030,35 @@ mod tests {
         assert!(inner.iter().all(|l| (l - 1.0).abs() < 1e-12), "{inner:?}");
     }
 
+    #[test]
+    fn lines_through_a_cell_corner_skip_its_neighbours() {
+        // 3 × 3 の水のセル（ピッチ 1.26。境界の座標が2進で割り切れない）の内側の角を、いろいろな向きと始点で通す。
+        // 角をちょうど通る直線は、角のまわりの4つのセルのうち、向かい合う2つだけを通る
+        let water = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::new(vec![water], vec![vec![0; 3]; 3]).unwrap();
+        let cell = |r: usize| (r % 3, r / 3);
+        for (cx, cy, column, row) in [(-0.63, 0.63, 1, 1), (0.63, -0.63, 2, 2), (0.63, 0.63, 2, 1)]
+        {
+            for angle in [0.1, 0.3, 0.7853981633974483, 1.1, 1.3] {
+                let d = (f64::cos(angle), -f64::sin(angle));
+                for back in [0.11, 0.37, 0.5, 0.61] {
+                    let start = (cx - back * d.0, cy - back * d.1);
+                    let s = lattice.segments(start, d, 2.0 * back);
+                    let cells: Vec<(usize, usize)> = s
+                        .iter()
+                        .map(|s| cell(lattice.region_cell(s.region)))
+                        .collect();
+                    // 角の左上のセル（column - 1, row - 1）から右下のセル（column, row）へ直接移る
+                    assert_eq!(
+                        cells,
+                        vec![(column - 1, row - 1), (column, row)],
+                        "corner ({cx}, {cy}), angle {angle}, back {back}: {s:?}"
+                    );
+                }
+            }
+        }
+    }
+
     /// 2×2 の格子の周りに幅 0.25 の余白
     fn with_margin() -> Lattice {
         let pin = PinCell::new(2.0, vec![0.5]).unwrap();
