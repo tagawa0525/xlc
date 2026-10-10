@@ -123,6 +123,8 @@ pub struct FuelShielding {
     pub pins: Vec<PinShielding>,
     /// 構造材の塊ごとの自己遮蔽の結果
     pub lumps: Vec<LumpShielding>,
+    /// 自己遮蔽した格子（リングと領域の対応を、同じ格子でだけ使う）
+    lattice: Lattice,
 }
 
 /// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
@@ -180,6 +182,9 @@ impl FuelShielding {
         lattice: &Lattice,
         flux: &[Vec<f64>],
     ) -> Result<Vec<Vec<f64>>, SelfShieldingError> {
+        if lattice != &self.lattice {
+            return Err(SelfShieldingError::ForeignLattice);
+        }
         if flux.len() != lattice.regions() {
             return Err(SelfShieldingError::Regions {
                 given: flux.len(),
@@ -200,15 +205,18 @@ impl FuelShielding {
             };
             let layout = || SelfShieldingError::SphLayout(pin.cell);
             let rings = pin.ring_regions(lattice).ok_or_else(layout)?;
-            // 因子はリングごと。支持格子のあるセルの最後は格子に使わない支持格子のリングで、因子は 1
-            let (used, frame) = sph
-                .factors
-                .split_at_checked(rings.len())
-                .ok_or_else(layout)?;
+            // 因子はリングごと。支持格子のあるセルでは最後に、格子に使わない支持格子のリングの行（因子は 1）が 1 つ多い
+            let framed = lattice
+                .cell_type(pin.cell)
+                .pin()
+                .is_some_and(|p| p.frame().is_some());
+            if sph.factors.len() != rings.len() + usize::from(framed) {
+                return Err(layout());
+            }
+            let (used, frame) = sph.factors.split_at(rings.len());
             let width = sph.groups.len();
             if sph.groups.end > groups
                 || sph.factors.iter().any(|row| row.len() != width)
-                || frame.len() > 1
                 || frame.iter().flatten().any(|&mu| mu != 1.0)
             {
                 return Err(layout());
@@ -363,6 +371,7 @@ pub fn shield_fuel_with(
         region_material: region_index.clone(),
         pins: Vec::new(),
         lumps: Vec::new(),
+        lattice: lattice.clone(),
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する。使う操作は、MOC と同じ確かめ方（トラックの像まで）で、領域ごとの入力の
