@@ -34,9 +34,10 @@ use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, spli
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
-use xlc_lattice::moc::{Options, available_order, solve};
+use xlc_lattice::moc::{Options, Symmetry, available_order, solve};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
+use xlc_lattice::symmetry::{QUARTER, check_regions, images};
 use xlc_lattice::tracking::Tracking;
 
 fn main() -> ExitCode {
@@ -102,6 +103,13 @@ fn run(path: &Path) -> anyhow::Result<()> {
 
     let tracking =
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
+    // 対称性を使うなら、入力の物質が対称であることを先に確かめる。MOC は移り合う領域が同じ物質であることを確かめるが、
+    // 違えば、入力の違いと、自己遮蔽でピンを別々に解いたことの区別がつかない（ADR-0113）
+    if input.symmetry == Symmetry::Quarter {
+        let images = images(&tracking, &QUARTER).with_context(|| shown(path))?;
+        check_regions(&images, &region_materials)
+            .with_context(|| format!("{}: input materials", shown(path)))?;
+    }
     // 物質の一覧と、領域ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
                    groups: usize|

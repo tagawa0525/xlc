@@ -57,7 +57,8 @@ pub enum Symmetry {
     /// 全てのトラックをスイープし、全ての領域の状態を持つ
     None,
     /// 左右と上下の鏡映（1/4 対称）で移り合うトラックの代表だけをスイープし、領域と粗メッシュのセルの状態も代表の分だけ
-    /// 持つ。形状、境界条件、領域の物質、トラックが、どの鏡映でも移った先と同じでなければエラー
+    /// 持つ。形状、境界条件、トラックが、どの鏡映でも移った先と同じで、移り合う領域が同じ物質（`solve` に渡す同じ
+    /// 参照）でなければエラー
     Quarter,
 }
 
@@ -140,7 +141,11 @@ pub enum MocError {
     Cmfd(#[from] CmfdError),
     #[error(transparent)]
     Symmetry(#[from] SymmetryError),
-    #[error("region {region} and its image {image} under the {operation} have different materials")]
+    #[error(
+        "region {region} and its image {image} under the {operation} use different materials; \
+         regions mapped by the symmetry must share one material (self-shielded pins must be \
+         solved as one orbit)"
+    )]
     AsymmetricMaterial {
         operation: &'static str,
         region: usize,
