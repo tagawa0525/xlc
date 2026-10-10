@@ -1,7 +1,7 @@
 //! 均質な無限媒質（`examples/vera/homogeneous_medium.py` の入力）の k を、xlc のライブラリで求める（OpenMC の
 //! `openmc_homogeneous.py` と比べる）。
 //!
-//! 使い方: homogeneous <媒質 (TOML)> <ライブラリ (msgpack)>
+//! 使い方: homogeneous <媒質 (TOML)> <ライブラリ (msgpack)> [釣り合いの出力 (msgpack)]
 //!
 //! 自己遮蔽は 3 通りで解く: (1) 無限希釈、(2) 背景断面積（同じ媒質の他の核種の全断面積の和 / 個数密度。逃げる
 //! 項はない。分離共鳴のない核種は無限希釈）の反復、(3) (2) に、UFG の範囲の群を減速計算の値に置き換えたもの（1 つのリングの白色境界の円筒は、
@@ -10,13 +10,18 @@
 //! 値を使う（表の上限が無限希釈）。
 //!
 //! k は、(Σt − Sᵀ) φ = (1/k) F φ（F は核種ごとの χ と νΣf の積の和）の最大の固有値を、べき乗法で求める。
+//!
+//! 釣り合いの出力は (3) の解の核種ごとの群ごとの中性子束、正味の吸収（全断面積 − 散乱行列の行の和）、生成、
+//! 散乱による移行で、生成の和が 1 になるように規格化する（`balance` の例と同じ形式で、物質の代わりに核種。
+//! `compare_balance.py` で OpenMC（`openmc_homogeneous.py`）と比べる）。
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use xlc_format::library::{Library, LookupError, Shielded};
+use xlc_format::msgpack::to_named;
 use xlc_lattice::cp::Cylinder;
 use xlc_lattice::input::MaterialInput;
 use xlc_lattice::material::Material;
@@ -28,6 +33,21 @@ use xlc_numeric::lu::Lu;
 struct Medium {
     temperature: f64,
     nuclides: BTreeMap<String, f64>,
+}
+
+#[derive(Serialize)]
+struct Rates {
+    flux: Vec<f64>,
+    absorption: Vec<f64>,
+    production: Vec<f64>,
+    transfer: Vec<Vec<f64>>,
+}
+
+#[derive(Serialize)]
+struct Balance {
+    format: &'static str,
+    k: f64,
+    materials: BTreeMap<String, Rates>,
 }
 
 /// 背景断面積の反復の打ち切り（全断面積の相対変化）と回数の上限
@@ -116,8 +136,8 @@ fn material(
     Ok(Material::from_nuclides(&nuclides, library.groups.len())?)
 }
 
-/// 無限媒質の k（べき乗法）
-fn k_infinity(m: &Material) -> anyhow::Result<f64> {
+/// 無限媒質の k と中性子束（べき乗法）
+fn k_infinity(m: &Material) -> anyhow::Result<(f64, Vec<f64>)> {
     let ng = m.groups();
     // A[h][g] φ_g: 群 h の釣り合い（Σt,h φ_h − Σ_g Σs(g→h) φ_g）
     let mut a = vec![0.0; ng * ng];
@@ -143,7 +163,7 @@ fn k_infinity(m: &Material) -> anyhow::Result<f64> {
         let next = after / before;
         flux = source;
         if (next - k).abs() < 1.0e-12 {
-            return Ok(next);
+            return Ok((next, flux));
         }
         k = next;
     }
@@ -152,8 +172,10 @@ fn k_infinity(m: &Material) -> anyhow::Result<f64> {
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    let [_, medium_path, library_path] = args.as_slice() else {
-        return Err(anyhow!("usage: homogeneous <medium> <library>"));
+    let (medium_path, library_path, output) = match args.as_slice() {
+        [_, m, l] => (m, l, None),
+        [_, m, l, o] => (m, l, Some(o)),
+        _ => return Err(anyhow!("usage: homogeneous <medium> <library> [balance]")),
     };
     let medium: Medium =
         toml::from_str(&std::fs::read_to_string(medium_path)?).context("medium")?;
@@ -192,8 +214,54 @@ fn main() -> anyhow::Result<()> {
         ("background cross sections", &background),
         ("background + UFG", &ufg),
     ] {
-        let k = k_infinity(&material(&library, &input, tables)?)?;
+        let (k, _) = k_infinity(&material(&library, &input, tables)?)?;
         println!("  {label:28} k {k:.6}");
+    }
+    if let Some(output) = output {
+        let (k, flux) = k_infinity(&material(&library, &input, &ufg)?)?;
+        let parts = input
+            .composition
+            .iter()
+            .zip(&ufg)
+            .map(|((name, density), s)| {
+                let nuclide = shielded_nuclide(&library, name, input.temperature, s)?;
+                Ok((
+                    name.clone(),
+                    Material::from_nuclides(&[(nuclide, *density)], ng)?,
+                ))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let produced: f64 = parts
+            .iter()
+            .flat_map(|(_, m)| m.nu_fission.iter().zip(&flux).map(|(n, f)| n * f))
+            .sum();
+        let phi: Vec<f64> = flux.iter().map(|f| f / produced).collect();
+        let materials: BTreeMap<String, Rates> = parts
+            .into_iter()
+            .map(|(name, m)| {
+                let rates = Rates {
+                    flux: phi.clone(),
+                    absorption: (0..ng)
+                        .map(|g| (m.total[g] - m.scatter[g].iter().sum::<f64>()) * phi[g])
+                        .collect(),
+                    production: (0..ng).map(|g| m.nu_fission[g] * phi[g]).collect(),
+                    transfer: (0..ng)
+                        .map(|g| m.scatter[g].iter().map(|s| s * phi[g]).collect())
+                        .collect(),
+                };
+                (name, rates)
+            })
+            .collect();
+        let absorption: f64 = materials.values().flat_map(|r| &r.absorption).sum();
+        println!("  balance: k {k:.6}, 1/absorption {:.6}", 1.0 / absorption);
+        std::fs::write(
+            output,
+            to_named(&Balance {
+                format: "xlc-balance",
+                k,
+                materials,
+            })?,
+        )?;
     }
     if let Some(range) = range {
         println!("  UFG range {:.4e}〜{:.4e} eV", range[0], range[1]);

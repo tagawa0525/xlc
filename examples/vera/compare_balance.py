@@ -16,7 +16,7 @@ k (ΔP − k ΔA)、中性子束を OpenMC に固定）。全体の差との残�
 σ は OpenMC の世代ごとの値の標準誤差（同じ粒子の追跡による量の間の相関、規格化の生成、範囲の外の項を含む。世代の
 間の相関は含まないので小さめに出る）。範囲の境の既定は 15.03 keV（UFG の範囲の上）、4 eV（下）、0.625 eV。
 
-最後に、燃料の群の間の散乱による移行を、4 eV〜15.03 keV に入る群（範囲の境の引数によらない）で比べる。群 g から
+最後に、物質ごとに、群の間の散乱による移行を、4 eV〜15.03 keV に入る群（範囲の境の引数によらない）で比べる。群 g から
 ほかの群へ出る率を O_g、同じ群に残る率を W_g、中性子束を φ_g（どれも生成 1 あたり）として、群ごとに
 (O_g/φ_g)_xlc / (O_g/φ_g)_OpenMC − 1（W も同じ）と、出る率の不足の計 D = Σ_g [(O_g/φ_g)_xlc φ_g,OpenMC − O_g,OpenMC]
 （xlc の移行の断面積を OpenMC の中性子束に掛けた率と OpenMC の率の差、生成 1 あたり）と D / Σ_g O_g,OpenMC を出す。
@@ -29,7 +29,7 @@ from pathlib import Path
 
 import msgpack
 
-# 燃料の移行を比べる範囲 (eV)
+# 移行を比べる範囲 (eV)
 RESONANCE = (4.0, 15.03e3)
 
 
@@ -171,17 +171,33 @@ def main() -> None:
         f"the rest {rest(mean):+.1f} ± {sigma(rest):.1f}"
     )
 
-    # 燃料の散乱による移行を 4 eV〜15.03 keV の群で比べる
+    # 散乱による移行を 4 eV〜15.03 keV の群で比べる
     low, high = RESONANCE
     resonance = [
         g
         for g in range(groups)
         if bounds[g + 1] >= low * (1 - 1e-9) and bounds[g] <= high * (1 + 1e-9)
     ]
-    fuel = ours["materials"]["fuel"]
-    batches = [b["materials"]["fuel"] for b in reference["batches"]]
-    if "transfer" not in fuel or any("out_scatter" not in b for b in batches):
-        raise SystemExit("the fuel transfer needs `transfer` and batch `out_scatter`")
+    for name in names:
+        compare_transfer(
+            name,
+            ours["materials"][name],
+            [b["materials"][name] for b in reference["batches"]],
+            resonance,
+            bounds,
+        )
+
+
+def compare_transfer(
+    name: str, mine: dict, batches: list[dict], selected: list[int], bounds: list
+) -> None:
+    """物質 `name` の群の間の散乱による移行を、群 `selected` で比べる（モジュールの説明）"""
+    if "transfer" not in mine or any("out_scatter" not in b for b in batches):
+        raise SystemExit(
+            f"{name}: the transfer needs `transfer` and batch `out_scatter`"
+        )
+    n = len(batches)
+    groups = len(bounds) - 1
 
     def mean_of(key: str, g: int) -> float:
         return sum(b[key][g] for b in batches) / n
@@ -198,17 +214,17 @@ def main() -> None:
         return r - 1, r * spread(linear)
 
     print(
-        f"fuel scattering transfer in {low:g}〜{high:g} eV "
+        f"{name} scattering transfer in {bounds[selected[-1] + 1]:g}〜{bounds[selected[0]]:g} eV "
         "(xlc / OpenMC − 1 of rate per flux; σ from batches):"
     )
     deficit = [0.0] * n
     out_total = [0.0] * n
-    for g in resonance:
+    for g in selected:
         out_xs = (
-            sum(fuel["transfer"][g][h] for h in range(groups) if h != g)
-            / fuel["flux"][g]
+            sum(mine["transfer"][g][h] for h in range(groups) if h != g)
+            / mine["flux"][g]
         )
-        within_xs = fuel["transfer"][g][g] / fuel["flux"][g]
+        within_xs = mine["transfer"][g][g] / mine["flux"][g]
         out, out_s = ratio(out_xs, "out_scatter", g)
         within, within_s = ratio(within_xs, "within_scatter", g)
         print(
@@ -221,7 +237,7 @@ def main() -> None:
     d, o = sum(deficit) / n, sum(out_total) / n
     share = [x / o - d * y / o**2 for x, y in zip(deficit, out_total)]
     print(
-        f"  groups {resonance[0] + 1}〜{resonance[-1] + 1}: out-scatter deficit "
+        f"  groups {selected[0] + 1}〜{selected[-1] + 1}: out-scatter deficit "
         f"D {d:+.3e} ± {spread(deficit):.1e} per unit production, "
         f"D / OpenMC out {d / o:+.2%} ± {spread(share):.2%}"
     )
