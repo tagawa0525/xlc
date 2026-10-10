@@ -59,6 +59,15 @@ pub enum GeometryError {
     Sizes,
     #[error("a column or row of {size} cm is not wider than the same-point distance {limit} cm")]
     ThinCell { size: f64, limit: f64 },
+    #[error(
+        "{what} of {size} cm in cell type {cell_type} is not wider than the same-point distance {limit} cm"
+    )]
+    ThinRegion {
+        what: &'static str,
+        cell_type: usize,
+        size: f64,
+        limit: f64,
+    },
     #[error("{rows} rows of cells for {heights} row heights")]
     Rows { rows: usize, heights: usize },
     #[error("row {row} has {cells} cells for {columns} column widths")]
@@ -1178,6 +1187,45 @@ mod tests {
                 b.length
             );
         }
+    }
+
+    #[test]
+    fn regions_thinner_than_the_same_point_distance_are_errors() {
+        // セルの中の区切りの幅（リングの幅、枠の厚さと枠までの幅、格子の幅、ブロックの小さな長方形）が同じ点とみなす
+        // 距離（2 × 2、ピッチ 1.26 の格子で 2.5e-9 cm）以下なら、格子を作るときに止める（#0055）。斜めに浅く横切る
+        // トラックでは区間が残り、体積が黙って過小になる
+        let thin = |pin: PinCell| {
+            matches!(
+                Lattice::new(vec![pin], vec![vec![0; 2]; 2]),
+                Err(GeometryError::ThinRegion { .. })
+            )
+        };
+        assert!(thin(PinCell::new(1.26, vec![0.4, 0.4 + 1e-12]).unwrap()));
+        assert!(thin(PinCell::new(1.26, vec![1e-12]).unwrap()));
+        assert!(thin(
+            PinCell::new(1.26, vec![0.4])
+                .unwrap()
+                .with_frame(1e-12)
+                .unwrap()
+        ));
+        assert!(thin(
+            PinCell::new(1.26, vec![0.58 - 1e-12])
+                .unwrap()
+                .with_frame(0.05)
+                .unwrap()
+        ));
+        assert!(thin(PinCell::grid(1.26, 1_000_000_000).unwrap()));
+        assert!(!thin(PinCell::new(1.26, vec![0.4, 0.4 + 1e-6]).unwrap()));
+        let block = Lattice::rectilinear(
+            vec![1.26; 2],
+            vec![1.26; 2],
+            vec![Cell::Block {
+                nx: 1_000_000_000,
+                ny: 1,
+            }],
+            vec![vec![0; 2]; 2],
+        );
+        assert!(matches!(block, Err(GeometryError::ThinRegion { .. })));
     }
 
     #[test]
