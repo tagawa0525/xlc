@@ -76,6 +76,14 @@ issues: ["#0039"]
   領域の中性子流が、全体を解いた解と MOC の判定（k 1e-7、中性子束 1e-6）以内で一致する
 - `moc::tests::axis_swapping_symmetries_need_a_square_lattice`: 1/4 対称な長方形では、軸を入れ替えない対称性（なし、
   180° 回転、左右と上下の鏡映、その 1/4）は全体の解と一致し、軸を入れ替える操作を含む対称性はエラー
+- `moc::tests::each_symmetry_alone_reproduces_the_full_solution`: 中央のセルの扇形の物質の並びと境界条件で、左右、上下、
+  対角線、反対角線の鏡映、180° 回転、左右と上下の鏡映、2 つの対角線の鏡映、回転、なしのそれぞれだけが成り立つ格子を、物質の
+  参照で判定した対称性で解き、全体の解と一致する（P1）
+- `moc::tests::axis_swapping_symmetries_keep_high_moments`: P2 と P3（l ≥ 2 で (l, m) と (l, -m) が符号つきで入れ替わる）で、
+  軸を入れ替える操作を含む対称性の解が全体の解と一致する
+- `symmetry::tests::identity_holds_even_when_images_cannot_be_found`: 端が外周の角にあるトラックがあっても判定は止まらず、
+  対称性なしになる
+- `symmetry::tests::forced_symmetry_reports_the_failing_operation`: 強制した対称性の成り立たない操作を、名前と理由で示す
 - `moc::tests::octant_result_does_not_depend_on_the_thread_count`: 1/8 で 1、2、5 スレッドの解が同じ
 - `symmetry::tests::detects_every_operation_that_holds`: 自動の判定が、1/8、右と下が真空の対角線の鏡映だけ、右だけ真空の上下の
   鏡映だけ、扇形の物質が風車の形の回転だけ、対角線をはさんで同じ扇形の 2 つの対角線の鏡映、半周ごとに同じ扇形の 180°
@@ -91,7 +99,7 @@ issues: ["#0039"]
 ## 結果
 
 - 自己遮蔽のピンと塊の組も、同じ確かめ方で成り立つと分かった対称操作で作る（ADR-0114）
-- 10 通りの対称性のテストは、`Symmetry` に置き換えた解き方（ADR-0113 の像の集合で解く形）のままで通り、RED にならなかった
+- 10 通りの対称性のテストと、それぞれの対称性だけが成り立つ格子、P2 と P3 のテストは、`Symmetry` に置き換えた解き方（ADR-0113 の像の集合で解く形）のままで通り、RED にならなかった
   （軸を入れ替える操作の像、モーメントの置換、面の向きは、もともと操作の行列から一般に求めていた）。テストの拡張として足した
 - テストの余白つきの 4 × 4 の格子は、間隔 0.05 cm では方位角 10 の 45° のトラックが余白の角のセル（0.04 cm 角）の面を通らず
   `UntrackedFace` になるので、0.03 cm で解く
