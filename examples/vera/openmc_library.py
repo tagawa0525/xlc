@@ -21,7 +21,7 @@ import openmc.data
 FUEL_TEMPERATURES = [600.0, 900.0, 1200.0]
 OTHER_TEMPERATURES = [600.0]
 
-# (名前, ENDF ファイル名)。Hf と He は ADR-0054 のとおり除く
+# (名前, ENDF ファイル名)。Hf と He は ADR-0054 と ADR-0120 のとおり除く
 FUEL = [
     ("U234", "n-092_U_234"),
     ("U235", "n-092_U_235"),

@@ -29,7 +29,7 @@ M3 の計画（docs/plans/m3-core-hzp.md の「検証」）は、新しい物質
 KENO の値は核データが違う（ENDF/B-VII.0）ので、主に比べるのは同じ核データ（ENDF/B-VIII.0）の OpenMC（連続エネルギー）である。
 OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openmc_library.py）も、問題ごとに広げる。
 
-関係する ADR: なし
+関係する ADR: [ADR-0120](../adr/0120-model-insert-helium-as-void.md)
 
 ## 完了の条件
 

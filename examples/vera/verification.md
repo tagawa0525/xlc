@@ -23,7 +23,7 @@ xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC 
 
 置き方は [ADR-0116](../../docs/adr/0116-place-vera-examples-by-problem.md)。組成は仕様書の表 P1-4、P2-4 の個数密度のとおり（2E と 2F の Pyrex の棒の寸法は表 6、配置は図 5。2F は 24 本の案内管すべて。
 2G と 2H の制御棒の寸法は表 8 で、24 本の案内管すべて。B4C の天然の C は C-12 と C-13 に分ける）。Hf（1e-6 /(barn cm) 未満）と
-ギャップ、Pyrex の棒と制御棒の中の He は除き、真空とする（[ADR-0054](../../docs/adr/0054-model-vera-materials.md)）。
+ギャップの He は除いて真空とし（[ADR-0054](../../docs/adr/0054-model-vera-materials.md)）、Pyrex の棒と制御棒の中の He も同じとする（[ADR-0120](../../docs/adr/0120-model-insert-helium-as-void.md)）。
 
 ## 参照解
 

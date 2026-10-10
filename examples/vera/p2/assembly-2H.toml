@@ -1,7 +1,7 @@
 # VERA Problem 2H: 2B の集合体の 24 本の案内管すべてに B4C の制御棒を入れたもの（燃料、被覆管、減速材 600 K、減速材 0.743 g/cc、
 # ホウ素 1300 ppm。仕様書の表 P2-1）。制御棒の寸法は表 8（吸収体の半径 0.373 cm、SS304 の被覆管 0.386〜0.484 cm）、
 # B4C と SS304 の組成は表 P2-4（天然の C は C-12 と C-13 に分ける。ADR-0079）。吸収体と被覆管の間の He は除いて真空にする
-# （ADR-0054）。配置と組成は OpenMC のモデル（openmc_model.py）と同じ。集合体の周りに水のギャップ 0.04 cm（両側で 0.08 cm）。
+# （ADR-0120）。配置と組成は OpenMC のモデル（openmc_model.py）と同じ。集合体の周りに水のギャップ 0.04 cm（両側で 0.08 cm）。
 library = "../vera.msgpack"
 pin-powers = "pins-2H.msgpack"
 pitch = 1.26
