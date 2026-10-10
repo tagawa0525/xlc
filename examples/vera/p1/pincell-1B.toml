@@ -1,6 +1,6 @@
 # VERA Problem 1B: 17×17 型の燃料棒のピンセル（燃料 600 K、被覆管と減速材 600 K、ホウ素 1300 ppm）。
 # 組成は仕様書の表 P1-4（Hf は除き、ギャップは真空）。燃料は自己遮蔽する。個数密度は 1/(barn cm)。
-library = "vera.msgpack"
+library = "../vera.msgpack"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
