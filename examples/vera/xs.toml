@@ -1,6 +1,7 @@
-# VERA Problem 1B〜1D, 2B〜2E の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
-# 燃料の核種と O は 600, 900, 1200 K、被覆管（Zircaloy-4 の Zr, Sn, Fe, Cr）、冷却材の H, B、Pyrex（B, O, Si）と
-# SS304（C, Si, P, Cr, Mn, Fe, Ni。天然の C は C-12 と C-13 に分ける。ADR-0079）は 600 K。
+# VERA Problem 1B〜1D, 2B〜2H の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
+# 燃料の核種と O は 600, 900, 1200 K、被覆管（Zircaloy-4 の Zr, Sn, Fe, Cr）、冷却材の H, B、Pyrex（B, O, Si）、
+# SS304（C, Si, P, Cr, Mn, Fe, Ni。天然の C は C-12 と C-13 に分ける。ADR-0079）、AIC（Ag, In, Cd）は 600 K。
+# B4C は B と C だけなので、足す核種はない。
 output = "vera.msgpack"
 endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -177,4 +178,52 @@ temperatures = [600]
 
 [nuclide.Ni-64]
 endf = "n-028_Ni_064.endf"
+temperatures = [600]
+
+[nuclide.Ag-107]
+endf = "n-047_Ag_107.endf"
+temperatures = [600]
+
+[nuclide.Ag-109]
+endf = "n-047_Ag_109.endf"
+temperatures = [600]
+
+[nuclide.In-113]
+endf = "n-049_In_113.endf"
+temperatures = [600]
+
+[nuclide.In-115]
+endf = "n-049_In_115.endf"
+temperatures = [600]
+
+[nuclide.Cd-106]
+endf = "n-048_Cd_106.endf"
+temperatures = [600]
+
+[nuclide.Cd-108]
+endf = "n-048_Cd_108.endf"
+temperatures = [600]
+
+[nuclide.Cd-110]
+endf = "n-048_Cd_110.endf"
+temperatures = [600]
+
+[nuclide.Cd-111]
+endf = "n-048_Cd_111.endf"
+temperatures = [600]
+
+[nuclide.Cd-112]
+endf = "n-048_Cd_112.endf"
+temperatures = [600]
+
+[nuclide.Cd-113]
+endf = "n-048_Cd_113.endf"
+temperatures = [600]
+
+[nuclide.Cd-114]
+endf = "n-048_Cd_114.endf"
+temperatures = [600]
+
+[nuclide.Cd-116]
+endf = "n-048_Cd_116.endf"
 temperatures = [600]
