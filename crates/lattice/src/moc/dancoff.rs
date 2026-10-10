@@ -9,7 +9,7 @@
 
 use std::f64::consts::PI;
 
-use super::{POLAR_SIN, Sweeper, direction_weight, sum_tallies};
+use super::{POLAR_SIN, Representatives, Sweeper, direction_weight, sum_tallies};
 use crate::cmfd::{CmfdError, CoarseMesh};
 use crate::material::Material;
 use crate::tracking::Tracking;
@@ -184,7 +184,14 @@ fn absorbed_by_black(
         .collect();
     let references: Vec<&Material> = materials.iter().collect();
     let mesh = CoarseMesh::new(tracking);
-    let sweeper = Sweeper::new(tracking, &references, ng, &mesh, &[(0, 0)]);
+    let sweeper = Sweeper::new(
+        tracking,
+        &references,
+        ng,
+        &mesh,
+        &[(0, 0)],
+        Representatives::all(tracking, &mesh, 1),
+    );
     let psi0 = 1.0 / (4.0 * PI);
     let equilibrium: Vec<Vec<f64>> = (0..regions)
         .map(|region| vec![if black[region] { 0.0 } else { psi0 }; ng])
@@ -202,7 +209,7 @@ fn absorbed_by_black(
             .fold(0.0, f64::max);
         std::mem::swap(&mut outgoing, &mut next);
         if change <= options.tolerance * psi0 {
-            return Ok(sum_tallies(&tallies, ng).delta);
+            return Ok(sum_tallies(&sweeper, &tallies).delta);
         }
     }
     Err(DancoffError::NotConverged(options.max_iterations))

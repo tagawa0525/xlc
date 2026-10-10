@@ -8,11 +8,14 @@ use rayon::prelude::*;
 pub mod dancoff;
 pub mod fixed_source;
 mod harmonics;
+mod symmetric;
 
 use crate::cmfd::{CmfdError, CmfdOptions, Coarse, CoarseMesh, FaceCells};
 use crate::material::{Material, MaterialError};
+use crate::symmetry::SymmetryError;
 use crate::tracking::{Boundary, Tracking};
 use harmonics::{planar_moments, real_harmonic};
+use symmetric::{RegionKind, Representatives};
 
 /// 極角求積（Tabuchi-Yamamoto 3点、0 < θ < π/2 の半球で重みの和が 1）
 const POLAR_SIN: [f64; 3] = [0.166_648, 0.537_707, 0.932_954];
@@ -30,6 +33,8 @@ pub struct Options {
     pub flux_tolerance: f64,
     pub max_iterations: usize,
     pub acceleration: Acceleration,
+    /// 解くときに使う格子の対称性（ADR-0113）
+    pub symmetry: Symmetry,
 }
 
 impl Default for Options {
@@ -40,8 +45,21 @@ impl Default for Options {
             flux_tolerance: 1.0e-6,
             max_iterations: 20_000,
             acceleration: Acceleration::Cmfd(CmfdOptions::default()),
+            // 対称性は入力で指定したときだけ使う（ADR-0113）
+            symmetry: Symmetry::None,
         }
     }
+}
+
+/// 解くときに使う格子の対称性（ADR-0113）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Symmetry {
+    /// 全てのトラックをスイープし、全ての領域の状態を持つ
+    None,
+    /// 左右と上下の鏡映（1/4 対称）で移り合うトラックの代表だけをスイープし、領域と粗メッシュのセルの状態も代表の分だけ
+    /// 持つ。形状、境界条件、トラックが、どの鏡映でも移った先と同じで、移り合う領域が同じ物質（`solve` に渡す同じ
+    /// 参照）でなければエラー
+    Quarter,
 }
 
 /// べき乗法の加速。
@@ -121,6 +139,19 @@ pub enum MocError {
     },
     #[error(transparent)]
     Cmfd(#[from] CmfdError),
+    #[error(transparent)]
+    Symmetry(#[from] SymmetryError),
+    #[error(
+        "region {region} and its image {image} under the {operation} refer to different \
+         materials (if self-shielded, they may have been solved separately: lumps split into \
+         sectors are shielded per cell, and pin orbits drop every operation when sectors of a \
+         cell differ in material; #0054)"
+    )]
+    AsymmetricMaterial {
+        operation: &'static str,
+        region: usize,
+        image: usize,
+    },
     #[error("not converged in {iterations} iterations (k = {k})")]
     NotConverged { iterations: usize, k: f64 },
     #[error(
@@ -252,24 +283,36 @@ pub fn solve(
     }
     // 角度中性子束のモーメント (l, m)。0 番目がスカラー中性子束
     let pairs = planar_moments(order);
-    let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs);
+    let representatives = match options.symmetry {
+        Symmetry::None => Representatives::all(tracking, &mesh, pairs.len()),
+        Symmetry::Quarter => Representatives::quarter(tracking, materials, &mesh, &pairs)?,
+    };
+    let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
+    // 状態（中性子束、モーメント、平衡値）は、領域の軌道の代表 `kept[i]` の分だけ持つ（対称性を使わなければ全ての領域）
+    let reduced = &sweeper.representatives;
+    let kept = &reduced.regions.representatives;
+    let states = kept.len();
+    let material = |i: usize| materials[kept[i]];
+    let volume = |i: usize| volumes[kept[i]];
+    // [代表] の軌道の領域の体積の和（生成率は全ての領域の和）
+    let orbit_volumes = reduced.regions.sums(&volumes);
     let production = |flux: &[Vec<f64>]| -> f64 {
         flux.iter()
-            .zip(materials)
-            .zip(&volumes)
-            .map(|((phi, m), v)| {
+            .enumerate()
+            .zip(&orbit_volumes)
+            .map(|((i, phi), v)| {
                 v * phi
                     .iter()
-                    .zip(&m.nu_fission)
+                    .zip(&material(i).nu_fission)
                     .map(|(f, n)| f * n)
                     .sum::<f64>()
             })
             .sum()
     };
 
-    let mut flux = vec![vec![1.0; ng]; regions];
-    // [領域][モーメント (1 番目から)][群] の高次のモーメント
-    let mut higher = vec![vec![0.0; (pairs.len() - 1) * ng]; regions];
+    let mut flux = vec![vec![1.0; ng]; states];
+    // [代表][モーメント (1 番目から)][群] の高次のモーメント
+    let mut higher = vec![vec![0.0; (pairs.len() - 1) * ng]; states];
     let initial = production(&flux);
     if initial <= 0.0 {
         return Err(MocError::NoFission);
@@ -289,12 +332,16 @@ pub fn solve(
 
     for iteration in 1..=options.max_iterations {
         // 線源を Σt で割ったもの（角度中性子束の平衡値）の [モーメント][群] の展開係数
-        let equilibrium: Vec<Vec<f64>> = (0..regions)
-            .map(|i| equilibrium_moments(materials[i], &flux[i], &higher[i], k, &pairs))
+        let equilibrium: Vec<Vec<f64>> = (0..states)
+            .map(|i| equilibrium_moments(material(i), &flux[i], &higher[i], k, &pairs))
             .collect();
 
         sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies)?;
         std::mem::swap(&mut outgoing, &mut next_outgoing);
+        let mut sums = sum_tallies(&sweeper, &tallies);
+        sweeper
+            .representatives
+            .symmetrize(&mut sums, &sweeper.void, ng);
         let Sums {
             delta,
             void_flux,
@@ -303,30 +350,30 @@ pub fn solve(
             face_flux,
             void_current,
             region_current,
-        } = sum_tallies(&tallies, ng);
+        } = sums;
 
-        let mut new_flux: Vec<Vec<f64>> = (0..regions)
+        let mut new_flux: Vec<Vec<f64>> = (0..states)
             .map(|i| {
                 // 真空では、通り抜ける角度中性子束の経路長の積分から求める
-                if let Some(v) = sweeper.void[i] {
+                if let Some(v) = sweeper.void[kept[i]] {
                     return void_flux[v * ng..][..ng]
                         .iter()
-                        .map(|f| f / volumes[i])
+                        .map(|f| f / volume(i))
                         .collect();
                 }
-                let total = &materials[i].total;
+                let total = &material(i).total;
                 let delta = &delta[i * pairs.len() * ng..][..ng];
                 (0..ng)
-                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[g] / (total[g] * volumes[i]))
+                    .map(|g| 4.0 * PI * equilibrium[i][g] + delta[g] / (total[g] * volume(i)))
                     .collect()
             })
             .collect();
         // 高次のモーメント: φ_k = 4π e_k / (2l + 1) + Σ w Y_k Δψ / (Σt V)（真空では散乱しないので使わない）
-        let mut new_higher: Vec<Vec<f64>> = (0..regions)
+        let mut new_higher: Vec<Vec<f64>> = (0..states)
             .map(|i| {
-                let total = &materials[i].total;
+                let total = &material(i).total;
                 let mut values = vec![0.0; (pairs.len() - 1) * ng];
-                if sweeper.void[i].is_some() {
+                if sweeper.void[kept[i]].is_some() {
                     return values;
                 }
                 for (k, &(l, _)) in pairs.iter().enumerate().skip(1) {
@@ -334,7 +381,7 @@ pub fn solve(
                     let e = &equilibrium[i][k * ng..][..ng];
                     for (g, v) in values[(k - 1) * ng..][..ng].iter_mut().enumerate() {
                         *v = 4.0 * PI * e[g] / (2 * l + 1) as f64
-                            + delta[g] / (total[g] * volumes[i]);
+                            + delta[g] / (total[g] * volume(i));
                     }
                 }
                 values
@@ -344,12 +391,12 @@ pub fn solve(
         // モーメント（Y_11 = Ω_x、Y_1,-1 = Ω_y）、0 なら Σ w Ω Δψ / (Σt V)（等方な線源は中性子流を持たない）
         let moment_of = |pair: (usize, isize)| pairs.iter().position(|&q| q == pair);
         let (x_moment, y_moment) = (moment_of((1, 1)), moment_of((1, -1)));
-        let mut new_currents: Vec<Vec<f64>> = (0..regions)
+        let mut new_currents: Vec<Vec<f64>> = (0..states)
             .map(|i| {
-                if let Some(v) = sweeper.void[i] {
+                if let Some(v) = sweeper.void[kept[i]] {
                     return void_current[v * 2 * ng..][..2 * ng]
                         .iter()
-                        .map(|j| j / volumes[i])
+                        .map(|j| j / volume(i))
                         .collect();
                 }
                 match (x_moment, y_moment) {
@@ -358,11 +405,11 @@ pub fn solve(
                         .flat_map(|&k| new_higher[i][(k - 1) * ng..][..ng].to_vec())
                         .collect(),
                     _ => {
-                        let total = &materials[i].total;
+                        let total = &material(i).total;
                         region_current[i * 2 * ng..][..2 * ng]
                             .iter()
                             .enumerate()
-                            .map(|(j, c)| c / (total[j % ng] * volumes[i]))
+                            .map(|(j, c)| c / (total[j % ng] * volume(i)))
                             .collect()
                     }
                 }
@@ -387,7 +434,16 @@ pub fn solve(
         // CMFD: 粗メッシュの固有値問題の解で、k と、セルごと・群ごとの中性子束の比を更新する。
         // 粗メッシュの解は生成率 1 に規格化されているので、更新後も生成率は 1 のまま
         if let Acceleration::Cmfd(cmfd) = &options.acceleration {
-            let coarse = Coarse::homogenize(&mesh, materials, &volumes, &new_flux, &current)?;
+            let cells = &reduced.cells;
+            let coarse = Coarse::homogenize(
+                &mesh,
+                cells,
+                materials,
+                &volumes,
+                &new_flux,
+                &reduced.regions.index,
+                &current,
+            )?;
             // MOC がまだ収束から遠いうちは、CMFD を細かく解いても次のスイープで崩れる。スイープによる変化（CMFD の誤差を
             // 含まない）に合わせて精度を緩める
             let tuned = inexact_cmfd(
@@ -396,16 +452,17 @@ pub fn solve(
                 (new_k - k).abs(),
                 largest_change(&new_flux, &flux),
             );
+            // [代表のセル][群] の比
             let (coarse_k, ratio) = coarse.solve(new_k, &tuned)?;
             new_k = coarse_k;
             // 高次のモーメントも同じ比で（角度分布の形は変えない）
-            for (region, ((f, h), c)) in new_flux
+            for (i, ((f, h), c)) in new_flux
                 .iter_mut()
                 .zip(&mut new_higher)
                 .zip(&mut new_currents)
                 .enumerate()
             {
-                let cell = mesh.cell(region);
+                let cell = cells.index[mesh.cell(kept[i])];
                 for (j, value) in f
                     .iter_mut()
                     .chain(h.iter_mut())
@@ -417,7 +474,9 @@ pub fn solve(
             }
             // トラックの端の角度中性子束も、端のあるセルの比で更新する（領域の中性子束だけを
             // 更新すると、次のスイープで入ってくる流れと食い違う）
-            sweeper.scale_outgoing(&mut outgoing, |region, g| ratio[mesh.cell(region) * ng + g]);
+            sweeper.scale_outgoing(&mut outgoing, |region, g| {
+                ratio[cells.index[mesh.cell(region)] * ng + g]
+            });
         }
         let change = largest_change(&new_flux, &flux);
         // 収束が遅いと1回の変化は小さくても真の解から遠いので、変化の縮小率から
@@ -437,13 +496,13 @@ pub fn solve(
                 .map(|(new, old)| relative_change(*new, *old))
                 .enumerate()
                 .fold((0, 0.0), |a, (i, c)| if c > a.1 { (i, c) } else { a });
-            let (region, group) = (index / ng, index % ng);
+            let (i, group) = (index / ng, index % ng);
             tracing::trace!(
-                region,
-                cell = mesh.cell(region),
+                region = kept[i],
+                cell = mesh.cell(kept[i]),
                 group,
-                old = flux[region][group],
-                new = new_flux[region][group],
+                old = flux[i][group],
+                new = new_flux[i][group],
                 change = largest,
                 "largest flux change"
             );
@@ -482,17 +541,14 @@ pub fn solve(
                 .collect();
             return Ok(Solution {
                 k,
-                flux,
+                flux: reduced.expand(&flux),
                 volumes,
                 leakage: leak,
                 sides: outer_sides(&mesh, &face_fluxes, 1.0, lengths),
                 currents: outer_sides(&mesh, &face_currents, -1.0, lengths),
                 face_fluxes,
                 face_currents,
-                region_currents: new_currents
-                    .iter()
-                    .map(|c| [c[..ng].to_vec(), c[ng..].to_vec()])
-                    .collect(),
+                region_currents: reduced.expand_vectors(&new_currents, ng),
                 size: [lattice.width(), lattice.height()],
                 iterations: iteration,
             });
@@ -578,8 +634,6 @@ struct Sweeper<'a> {
     width: usize,
     /// [領域][群] の全断面積。減衰 1 - exp(-τ) はスイープでトラックごとに計算する
     totals: Vec<f64>,
-    /// 方位角ごとのトラックの番号の範囲
-    azimuths: Vec<std::ops::Range<usize>>,
     /// [領域] の真空の領域の通し番号（真空でなければ `None`）。集計は真空の領域の分だけ持つ
     void: Vec<Option<usize>>,
     /// [方位角][縦の辺, 横の辺][極角] の、外周の辺の上の中性子束の重み
@@ -590,6 +644,8 @@ struct Sweeper<'a> {
     harmonics: Vec<f64>,
     /// 非等方散乱のスイープの作業用の配列（使い回す。中身は方位角ごとに作り直すので、どれを使っても結果は同じ）
     pool: Mutex<Vec<Directional>>,
+    /// スイープするトラック（対称性を使わなければ全て）
+    representatives: Representatives,
 }
 
 /// 非等方散乱のスイープで、方位角ごとに作り直す配列。どちらも [領域][向き][極角][群]。
@@ -607,6 +663,7 @@ impl<'a> Sweeper<'a> {
         ng: usize,
         mesh: &'a CoarseMesh,
         pairs: &[(usize, isize)],
+        representatives: Representatives,
     ) -> Self {
         let width = POLAR_SIN.len() * ng;
         // 順方向は方位角 φ、逆方向は φ + π。z について対称なモーメントだけなので、極角は上半分だけでよい
@@ -630,9 +687,6 @@ impl<'a> Sweeper<'a> {
             ng,
             width,
             totals,
-            azimuths: (0..tracking.azimuths.len())
-                .map(|a| tracking.azimuth_tracks(a))
-                .collect(),
             void: materials
                 .iter()
                 .scan(0, |next, m| {
@@ -658,6 +712,7 @@ impl<'a> Sweeper<'a> {
             moments: pairs.len(),
             harmonics,
             pool: Mutex::new(Vec::new()),
+            representatives,
         }
     }
 
@@ -688,32 +743,50 @@ impl<'a> Sweeper<'a> {
         &self.harmonics[((azimuth * 2 + side) * POLAR_SIN.len() + p) * k..][..k]
     }
 
-    /// 方位角 `azimuth` の方向ごとの平衡値を展開係数 `equilibrium` から作り、減衰の和を 0 にした作業用の配列
-    fn directional(&self, equilibrium: &[Vec<f64>], azimuth: usize) -> Directional {
+    /// 方位角 `azimuth` の方向ごとの平衡値を、代表の領域の展開係数 `equilibrium`（[代表][モーメント][群]）から作り、
+    /// 減衰の和を 0 にした作業用の配列。組のスイープが通る領域 `regions`（組の中の番号の順）の分だけ持つ
+    fn directional(
+        &self,
+        equilibrium: &[Vec<f64>],
+        azimuth: usize,
+        regions: &[usize],
+    ) -> Directional {
         let (ng, width) = (self.ng, self.width);
-        let size = equilibrium.len() * 2 * width;
+        let size = regions.len() * 2 * width;
         let reused = self
             .pool
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .pop();
         let mut d = reused.unwrap_or_else(|| Directional {
-            source: vec![0.0; size],
-            delta: vec![0.0; size],
+            source: Vec::new(),
+            delta: Vec::new(),
         });
-        d.delta.fill(0.0);
-        for (region, e) in equilibrium.iter().enumerate() {
+        // 組ごとに領域の番号の付け方が違うので、前の組の値を残さない（真空の領域は 0 のまま）
+        d.source.clear();
+        d.source.resize(size, 0.0);
+        d.delta.clear();
+        d.delta.resize(size, 0.0);
+        for (local, &region) in regions.iter().enumerate() {
             // 真空の領域はスイープで線源を使わない
             if self.void[region].is_some() {
                 continue;
             }
+            // 代表の値を、代表をこの領域へ移す操作で移す: e_k = s e'_k'
+            let representatives = &self.representatives;
+            let e = &equilibrium[representatives.regions.index[region]];
+            let moments = representatives.moments(region);
             for side in 0..2 {
                 for p in 0..POLAR_SIN.len() {
                     let y = self.harmonics(azimuth, side, p);
                     let out =
-                        &mut d.source[((2 * region + side) * POLAR_SIN.len() + p) * ng..][..ng];
+                        &mut d.source[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
                     for (g, o) in out.iter_mut().enumerate() {
-                        *o = y.iter().enumerate().map(|(k, y)| y * e[k * ng + g]).sum();
+                        *o = y
+                            .iter()
+                            .zip(moments)
+                            .map(|(y, &(k, sign))| y * (sign * e[k * ng + g]))
+                            .sum();
                     }
                 }
             }
@@ -721,14 +794,14 @@ impl<'a> Sweeper<'a> {
         d
     }
 
-    /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [領域][モーメント][群] に足し、作業用の配列を返す
+    /// 方向ごとの減衰の和を、モーメントごとの和 `delta` [組の中の領域][モーメント][群] に足し、作業用の配列を返す
     fn fold(&self, d: Directional, azimuth: usize, delta: &mut [f64]) {
         let (ng, k) = (self.ng, self.moments);
-        for (region, sums) in delta.chunks_mut(k * ng).enumerate() {
+        for (local, sums) in delta.chunks_mut(k * ng).enumerate() {
             for side in 0..2 {
                 for p in 0..POLAR_SIN.len() {
                     let y = self.harmonics(azimuth, side, p);
-                    let values = &d.delta[((2 * region + side) * POLAR_SIN.len() + p) * ng..][..ng];
+                    let values = &d.delta[((2 * local + side) * POLAR_SIN.len() + p) * ng..][..ng];
                     for (sum, y) in sums.chunks_mut(ng).zip(y) {
                         for (s, v) in sum.iter_mut().zip(values) {
                             *s += y * v;
@@ -743,13 +816,19 @@ impl<'a> Sweeper<'a> {
             .push(d);
     }
 
-    /// 出ていく角度中性子束の配列の長さ
-    fn outgoing_len(&self) -> usize {
-        2 * self.tracking.tracks.len() * self.width
+    /// 領域の中性子流を数えるか（等方散乱のとき。非等方では1次のモーメントを使う）
+    fn counts_currents(&self) -> bool {
+        self.moments == 1
     }
 
-    /// トラックのスイープの終わりの区間の領域
-    fn exit_region(&self, track: usize, forward: bool) -> usize {
+    /// 出ていく角度中性子束の配列（[代表][向き][極角][群]）の長さ
+    fn outgoing_len(&self) -> usize {
+        2 * self.representatives.tracks.len() * self.width
+    }
+
+    /// 代表の位置 `representative` のトラックのスイープの終わりの区間の領域
+    fn exit_region(&self, representative: usize, forward: bool) -> usize {
+        let track = self.representatives.tracks[representative];
         let segments = &self.tracking.tracks[track].segments;
         if forward {
             segments[segments.len() - 1].region
@@ -758,12 +837,13 @@ impl<'a> Sweeper<'a> {
         }
     }
 
-    /// スイープの終わりの領域の [領域][群] の中性子束 `flux` が等方に出ていくときの角度中性子束
+    /// スイープの終わりの領域の中性子束（[代表][群] の `flux`）が等方に出ていくときの角度中性子束
     fn isotropic_outgoing(&self, flux: &[Vec<f64>]) -> Vec<f64> {
         let mut outgoing = vec![0.0; self.outgoing_len()];
         for (j, out) in outgoing.chunks_mut(self.width).enumerate() {
             let region = self.exit_region(j / 2, j % 2 == 0);
-            for (o, f) in out.iter_mut().zip(flux[region].iter().cycle()) {
+            let flux = &flux[self.representatives.regions.index[region]];
+            for (o, f) in out.iter_mut().zip(flux.iter().cycle()) {
                 *o = f / (4.0 * PI);
             }
         }
@@ -780,35 +860,61 @@ impl<'a> Sweeper<'a> {
         }
     }
 
-    /// 方位角ごとの部分和の入れ物。方位角ごとに順にスイープし、方位角の順に足すので、結果は
-    /// スレッドの数や仕事の分け方によらない。方位角ごとのトラックの長さの和はほぼ等しく、
-    /// 仕事の量も揃う
+    /// 代表のトラックの組ごとの部分和の入れ物。組ごとに順にスイープし、組の順に足すので、結果は
+    /// スレッドの数や仕事の分け方によらない。組は、対称性を使わなければ方位角ごと（方位角ごとのトラックの長さの和は
+    /// ほぼ等しい）、使えば区間の数の和を揃えたもの
     fn tallies(&self, regions: usize) -> Vec<Tally> {
         let voids = self.void.iter().flatten().count();
-        self.azimuths
+        let representatives = &self.representatives;
+        let tallies: Vec<Tally> = representatives
+            .chunks
             .iter()
             .map(|range| {
-                let segments = self.tracking.tracks[range.clone()]
+                let tracks = &representatives.tracks[range.clone()];
+                let segments = tracks
                     .iter()
-                    .map(|t| t.segments.len())
+                    .map(|&t| self.tracking.tracks[t].segments.len())
                     .max()
                     .unwrap_or(0);
+                // 組のスイープが通る領域だけを持つ（対称性を使うと、組ごとに格子の一部しか通らない）
+                let mut local = vec![NOT_CROSSED; regions];
+                let mut crossed = Vec::new();
+                for &t in tracks {
+                    for s in &self.tracking.tracks[t].segments {
+                        if local[s.region] == NOT_CROSSED {
+                            local[s.region] = 0;
+                            crossed.push(s.region);
+                        }
+                    }
+                }
+                crossed.sort_unstable();
+                for (i, &r) in crossed.iter().enumerate() {
+                    local[r] = i;
+                }
                 Tally::new(
-                    regions * self.moments,
+                    crossed,
+                    local,
+                    self.moments,
                     voids,
                     self.mesh.faces(),
                     self.ng,
                     self.width,
                     segments,
-                    if self.moments == 1 { regions } else { 0 },
+                    self.counts_currents(),
                 )
             })
-            .collect()
+            .collect();
+        tracing::debug!(
+            regions,
+            crossed = tallies.iter().map(|t| t.regions.len()).sum::<usize>(),
+            "regions held by the tallies of the track groups"
+        );
+        tallies
     }
 
     /// 全トラックを両方向に1回ずつスイープする。
     ///
-    /// `equilibrium` は [領域][モーメント][群] の角度中性子束の平衡値（線源 / Σt）の展開係数 e_k
+    /// `equilibrium` は [代表][モーメント][群] の角度中性子束の平衡値（線源 / Σt）の展開係数 e_k
     /// （平衡値は Σ_k Y_k(Ω) e_k。等方なら線源 / 4πΣt）。`tallies` の減衰の和は [領域][モーメント][群]。`incoming` は前回の
     /// スイープで出ていった角度中性子束、`outgoing` には今回出ていく分を書く。どちらも
     /// [トラック][向き (0: 順, 1: 逆)][極角][群] の並びで、各トラックは自分の場所にだけ書くので、
@@ -821,11 +927,11 @@ impl<'a> Sweeper<'a> {
         tallies: &mut [Tally],
     ) -> Result<(), CmfdError> {
         let (ng, width) = (self.ng, self.width);
-        let slot = |track: usize, forward: bool| 2 * track + usize::from(!forward);
-        // 出ていく角度中性子束の配列を、方位角ごとの範囲に分ける
+        let representatives = &self.representatives;
+        // 出ていく角度中性子束の配列を、代表のトラックの組ごとの範囲に分ける
         let mut rest = outgoing;
-        let mut outputs = Vec::with_capacity(self.azimuths.len());
-        for range in &self.azimuths {
+        let mut outputs = Vec::with_capacity(representatives.chunks.len());
+        for range in &representatives.chunks {
             let (head, tail) = rest.split_at_mut(2 * width * range.len());
             outputs.push(head);
             rest = tail;
@@ -833,18 +939,34 @@ impl<'a> Sweeper<'a> {
         tallies
             .par_iter_mut()
             .zip(outputs)
-            .zip(&self.azimuths)
-            .enumerate()
-            .try_for_each(|(azimuth, ((tally, outputs), range))| {
+            .zip(&representatives.chunks)
+            .try_for_each(|((tally, outputs), range)| {
                 tally.clear();
-                // 非等方散乱では、線源と減衰の和を方向ごとに持つ
-                let mut directional =
-                    (self.moments > 1).then(|| self.directional(equilibrium, azimuth));
-                for (index, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
+                // 非等方散乱では、線源と減衰の和を方向ごとに持つ。組の中で方位角が変わるたびに作り直す
+                let mut directional: Option<(usize, Directional)> = None;
+                for (position, out) in range.clone().zip(outputs.chunks_mut(2 * width)) {
+                    let index = representatives.tracks[position];
                     let track = &self.tracking.tracks[index];
-                    let weights: [f64; POLAR_SIN.len()] =
-                        std::array::from_fn(|p| direction_weight(self.tracking, track.azimuth, p));
-                    let side_weights = &self.side_weights[track.azimuth];
+                    if self.moments > 1
+                        && directional
+                            .as_ref()
+                            .is_none_or(|(azimuth, _)| *azimuth != track.azimuth)
+                    {
+                        if let Some((azimuth, d)) = directional.take() {
+                            self.fold(d, azimuth, &mut tally.delta);
+                        }
+                        directional = Some((
+                            track.azimuth,
+                            self.directional(equilibrium, track.azimuth, &tally.regions),
+                        ));
+                    }
+                    // 代表のトラックは、移り合うトラックの数だけ重く数える（ADR-0113）
+                    let multiplicity = representatives.multiplicity[position];
+                    let weights: [f64; POLAR_SIN.len()] = std::array::from_fn(|p| {
+                        multiplicity * direction_weight(self.tracking, track.azimuth, p)
+                    });
+                    let side_weights = &self.side_weights[track.azimuth]
+                        .map(|weights| weights.map(|w| multiplicity * w));
                     // 減衰はトラックの両向きで同じなので、トラックごとに一度求める（真空の区間では使わない）
                     for (s, att) in track
                         .segments
@@ -872,7 +994,9 @@ impl<'a> Sweeper<'a> {
                         match self.tracking.incoming_source(index, forward) {
                             // 出ていくときに境界から戻る分（アルベド）を掛けてある
                             Some(source) => psi.copy_from_slice(
-                                &incoming[slot(source.track, source.forward) * width..][..width],
+                                &incoming
+                                    [representatives.slot(source.track, source.forward) * width..]
+                                    [..width],
                             ),
                             // 真空境界から入ってくる角度中性子束は 0
                             None => psi.fill(0.0),
@@ -927,15 +1051,18 @@ impl<'a> Sweeper<'a> {
                                 continue;
                             }
                             let att = &tally.attenuation[s * width..][..width];
+                            // 組の中の領域の番号
+                            let local = tally.local[region];
                             // 等方なら [群] を全ての極角で使い、非等方なら [極角][群]
-                            let (q, d, stride) = match directional.as_mut() {
+                            let (q, d, stride) = match directional.as_mut().map(|(_, d)| d) {
+                                // スカラーの平衡値はどの操作でも変わらない
                                 None => (
-                                    &equilibrium[region][..ng],
-                                    &mut tally.delta[region * ng..][..ng],
+                                    &equilibrium[representatives.regions.index[region]][..ng],
+                                    &mut tally.delta[local * ng..][..ng],
                                     0,
                                 ),
                                 Some(dir) => {
-                                    let at = (2 * region + usize::from(!forward)) * width;
+                                    let at = (2 * local + usize::from(!forward)) * width;
                                     (
                                         &dir.source[at..][..width],
                                         &mut dir.delta[at..][..width],
@@ -945,7 +1072,7 @@ impl<'a> Sweeper<'a> {
                             };
                             // 等方散乱では、中性子流も減衰の和から数える（非等方では1次のモーメントを使う）
                             let mut current = (stride == 0)
-                                .then(|| &mut tally.region_current[region * 2 * ng..][..2 * ng]);
+                                .then(|| &mut tally.region_current[local * 2 * ng..][..2 * ng]);
                             for (p, weight) in weights.iter().enumerate() {
                                 let (q, d) = (&q[p * stride..][..ng], &mut d[p * stride..][..ng]);
                                 let cosines =
@@ -981,7 +1108,7 @@ impl<'a> Sweeper<'a> {
                         }
                     }
                 }
-                if let Some(d) = directional {
+                if let Some((azimuth, d)) = directional {
                     self.fold(d, azimuth, &mut tally.delta);
                 }
                 Ok(())
@@ -989,9 +1116,17 @@ impl<'a> Sweeper<'a> {
     }
 }
 
-/// スイープで足し込む量（方位角ごとに持ち、スイープの後に足し合わせる）。
+/// 組のスイープが通らない領域の、組の中の番号
+const NOT_CROSSED: usize = usize::MAX;
+
+/// スイープで足し込む量（代表のトラックの組ごとに持ち、スイープの後に足し合わせる）。領域ごとの量は、組のスイープが通る領域
+/// `regions` の分だけ持つ。
 struct Tally {
-    /// [領域][群] の角度中性子束の減衰の重み付き和
+    /// 組のスイープが通る領域（番号の順）
+    regions: Vec<usize>,
+    /// [領域] の組の中の番号（通らなければ `NOT_CROSSED`）
+    local: Vec<usize>,
+    /// [組の中の領域][モーメント][群] の角度中性子束の減衰の重み付き和
     delta: Vec<f64>,
     /// [真空の領域][群] の、真空の領域を通る角度中性子束の経路長の重み付き和
     void_flux: Vec<f64>,
@@ -1003,7 +1138,8 @@ struct Tally {
     face_flux: Vec<f64>,
     /// [真空の領域][x, y][群] の、真空の領域を通る角度中性子束 × 方向の余弦の経路長の重み付き和
     void_current: Vec<f64>,
-    /// [領域][x, y][群] の、減衰の重み付き和 × 方向の余弦（等方散乱のときだけ。非等方では1次のモーメントを使う）
+    /// [組の中の領域][x, y][群] の、減衰の重み付き和 × 方向の余弦（等方散乱のときだけ。非等方では1次のモーメントを
+    /// 使う）
     region_current: Vec<f64>,
     /// スイープ中の角度中性子束 [極角][群]（作業用）
     psi: Vec<f64>,
@@ -1012,21 +1148,27 @@ struct Tally {
 }
 
 impl Tally {
-    /// `currents` は中性子流を数える領域の数（等方散乱なら領域の数、非等方なら 0）
+    /// `regions` は組のスイープが通る領域、`local` はその逆引き、`currents` は領域の中性子流を数えるか（等方散乱のとき）
+    #[allow(clippy::too_many_arguments)]
     fn new(
-        regions: usize,
+        regions: Vec<usize>,
+        local: Vec<usize>,
+        moments: usize,
         voids: usize,
         faces: usize,
         groups: usize,
         width: usize,
         segments: usize,
-        currents: usize,
+        currents: bool,
     ) -> Self {
+        let crossed = regions.len();
         Self {
-            delta: vec![0.0; regions * groups],
+            regions,
+            local,
+            delta: vec![0.0; crossed * moments * groups],
             void_flux: vec![0.0; voids * groups],
             void_current: vec![0.0; voids * 2 * groups],
-            region_current: vec![0.0; currents * 2 * groups],
+            region_current: vec![0.0; if currents { crossed * 2 * groups } else { 0 }],
             leak: vec![0.0; groups],
             face_flux: vec![0.0; faces * groups],
             current: vec![0.0; faces * groups],
@@ -1048,7 +1190,7 @@ impl Tally {
 
 /// 方位角ごとの部分和を足し合わせたもの。
 struct Sums {
-    /// [領域][群] の角度中性子束の減衰の重み付き和
+    /// [代表][モーメント][群] の角度中性子束の減衰の重み付き和（全体をスイープしたときの、代表の領域の値）
     delta: Vec<f64>,
     /// [真空の領域][群] の、真空の領域を通る角度中性子束の経路長の重み付き和
     void_flux: Vec<f64>,
@@ -1060,15 +1202,39 @@ struct Sums {
     face_flux: Vec<f64>,
     /// [真空の領域][x, y][群] の中性子流の経路長の和
     void_current: Vec<f64>,
-    /// [領域][x, y][群] の減衰 × 方向の余弦の和（等方散乱のときだけ）
+    /// [代表][x, y][群] の減衰 × 方向の余弦の和（等方散乱のときだけ）
     region_current: Vec<f64>,
 }
 
-/// 方位角ごとの部分和を方位角の順に足す。
-fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
-    // 要素ごとに並列に足す（1つの要素の中では方位角の順なので、結果は分け方によらない）
-    let sum = |part: fn(&Tally) -> &[f64]| -> Vec<f64> {
-        let mut sum = vec![0.0; part(&tallies[0]).len()];
+/// 組ごとの部分和を組の順に足す。量の大きさはスイープ `sweeper` の代表の領域、真空の領域、面、モーメントの数で決まる
+fn sum_tallies(sweeper: &Sweeper, tallies: &[Tally]) -> Sums {
+    let ng = sweeper.ng;
+    let representatives = &sweeper.representatives;
+    let voids = sweeper.void.iter().flatten().count();
+    let faces = sweeper.mesh.faces();
+    // 領域ごとの量 [代表][幅] を、代表ごとに並列に足す（1つの代表の中では像の順、組の順なので、結果は分け方によらない）。
+    // 対称性を使うときは、代表の領域に移る像の領域の値を集める
+    let spread = |kind: RegionKind, width: usize, part: fn(&Tally) -> &[f64]| -> Vec<f64> {
+        let mut sum = vec![0.0; representatives.regions.representatives.len() * width];
+        if width == 0 {
+            return sum;
+        }
+        let each = |from: usize, f: &mut dyn FnMut(&[f64])| {
+            for tally in tallies {
+                let local = tally.local[from];
+                if local != NOT_CROSSED {
+                    f(&part(tally)[local * width..][..width]);
+                }
+            }
+        };
+        sum.par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(i, chunk)| representatives.gather(i, chunk, kind, &each));
+        sum
+    };
+    // 要素ごとに並列に足す（どの組も長さ `len`）
+    let sum = |len: usize, part: fn(&Tally) -> &[f64]| -> Vec<f64> {
+        let mut sum = vec![0.0; len];
         sum.par_chunks_mut(ng).enumerate().for_each(|(i, chunk)| {
             for tally in tallies {
                 for (a, b) in chunk.iter_mut().zip(&part(tally)[i * ng..][..ng]) {
@@ -1079,13 +1245,17 @@ fn sum_tallies(tallies: &[Tally], ng: usize) -> Sums {
         sum
     };
     Sums {
-        delta: sum(|t| &t.delta),
-        void_flux: sum(|t| &t.void_flux),
-        leak: sum(|t| &t.leak),
-        current: sum(|t| &t.current),
-        face_flux: sum(|t| &t.face_flux),
-        void_current: sum(|t| &t.void_current),
-        region_current: sum(|t| &t.region_current),
+        delta: spread(RegionKind::Moments(ng), sweeper.moments * ng, |t| &t.delta),
+        void_flux: sum(voids * ng, |t| &t.void_flux),
+        leak: sum(ng, |t| &t.leak),
+        current: sum(faces * ng, |t| &t.current),
+        face_flux: sum(faces * ng, |t| &t.face_flux),
+        void_current: sum(voids * 2 * ng, |t| &t.void_current),
+        region_current: spread(
+            RegionKind::Vector(ng),
+            if sweeper.counts_currents() { 2 * ng } else { 0 },
+            |t| &t.region_current,
+        ),
     }
 }
 
@@ -1912,7 +2082,14 @@ mod tests {
         let (f, m) = (fuel(), moderator());
         let materials = [&f, &f, &m, &m, &m, &f, &f, &m];
         let ng = 2;
-        let sweeper = Sweeper::new(&tracking, &materials, ng, &mesh, &[(0, 0)]);
+        let sweeper = Sweeper::new(
+            &tracking,
+            &materials,
+            ng,
+            &mesh,
+            &[(0, 0)],
+            Representatives::all(&tracking, &mesh, 1),
+        );
         let equilibrium: Vec<Vec<f64>> = (0..materials.len())
             .map(|i| {
                 (0..ng)
@@ -1928,7 +2105,7 @@ mod tests {
         sweeper
             .sweep(&equilibrium, &incoming, &mut outgoing, &mut tallies)
             .unwrap();
-        let sums = sum_tallies(&tallies, ng);
+        let sums = sum_tallies(&sweeper, &tallies);
         for cell in 0..mesh.cells() {
             for g in 0..ng {
                 let inside: f64 = lattice
@@ -2550,5 +2727,292 @@ mod tests {
                 check(face, image, 1.0);
             }
         }
+    }
+
+    /// 1/4 対称だが 1/8 対称でない格子と、その領域の物質（燃料 0、水 1、別の燃料 2、真空 3 の番号）。ピンは扇形 8
+    /// （燃料、真空のギャップ、水）。`odd` なら 3 × 3 で、真ん中の列は幅 1.0 の 2 × 2 の水のブロック（左右の鏡映の軸が
+    /// セルの中を通る長方形）、真ん中の行のピンは別の燃料。そうでなければ 4 × 4 で、ピンと 2 × 2 の水を左右と上下で
+    /// 対称に（対角線では非対称に）置き、周りに水の余白を付けたもの（軸がセルの境を通る）
+    fn quarter_lattice(odd: bool) -> (Lattice, Vec<usize>) {
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let lattice = if odd {
+            Lattice::rectilinear(
+                vec![1.26, 1.0, 1.26],
+                vec![1.26; 3],
+                vec![Cell::Pin(pin), Cell::Block { nx: 2, ny: 2 }],
+                vec![vec![0, 1, 0]; 3],
+            )
+            .unwrap()
+        } else {
+            let water = PinCell::grid(1.26, 2).unwrap();
+            let layout = vec![
+                vec![0, 1, 1, 0],
+                vec![0, 0, 0, 0],
+                vec![0, 0, 0, 0],
+                vec![0, 1, 1, 0],
+            ];
+            Lattice::with_margin(vec![pin, water], layout, 0.04).unwrap()
+        };
+        let columns = lattice.columns();
+        let materials = (0..lattice.cells())
+            .flat_map(|cell| match lattice.cell_type(cell) {
+                Cell::Pin(pin) if !pin.is_grid() => {
+                    let fuel = if odd && cell / columns == 1 { 2 } else { 0 };
+                    (0..pin.regions())
+                        .map(|r| [fuel, 3, 1][r / 8])
+                        .collect::<Vec<_>>()
+                }
+                cell => vec![1; cell.regions()],
+            })
+            .collect();
+        (lattice, materials)
+    }
+
+    fn symmetric(scattering_order: usize, symmetry: Symmetry) -> Options {
+        Options {
+            scattering_order,
+            symmetry,
+            ..Options::default()
+        }
+    }
+
+    /// 全体を解いた解 `full` と、対称性を使って解いた解 `reduced` が、反復の判定の程度で一致すること
+    fn assert_same_solution(full: &Solution, reduced: &Solution, options: &Options) {
+        assert!(
+            (full.k - reduced.k).abs() < options.k_tolerance,
+            "k {} vs {}",
+            full.k,
+            reduced.k
+        );
+        // 中性子流は、同じ場所・同じ群の中性子束の大きさに対して比べる（鏡面反射の辺や対称線の上の中性子流は丸めの
+        // 程度の 0 なので、自分の大きさに対しては比べられない）。`scale` は [位置][群] の尺度
+        let close = |a: &[Vec<f64>], b: &[Vec<f64>], scale: &[Vec<f64>], what: &str| {
+            for (i, ((x, y), s)) in a.iter().zip(b).zip(scale).enumerate() {
+                for (g, ((x, y), s)) in x.iter().zip(y).zip(s).enumerate() {
+                    assert!(
+                        (x - y).abs() <= options.flux_tolerance * s.abs(),
+                        "{what} {i} group {g}: {x} vs {y} (scale {s})"
+                    );
+                }
+            }
+        };
+        for (r, (a, b)) in full.flux.iter().zip(&reduced.flux).enumerate() {
+            for (g, (a, b)) in a.iter().zip(b).enumerate() {
+                assert!(
+                    relative_change(*a, *b) < options.flux_tolerance,
+                    "region {r} group {g}: {a} vs {b}"
+                );
+            }
+        }
+        let faces = &full.face_fluxes;
+        close(faces, &reduced.face_fluxes, faces, "face flux");
+        close(
+            &full.face_currents,
+            &reduced.face_currents,
+            faces,
+            "face current",
+        );
+        close(&full.sides, &reduced.sides, &full.sides, "side flux");
+        close(
+            &full.currents,
+            &reduced.currents,
+            &full.sides,
+            "side current",
+        );
+        // 漏れは外周にわたる和なので、辺の中性子束 × 辺の長さの和に対して（辺は左、右、上、下）
+        let [width, height] = full.size;
+        let boundary: Vec<f64> = (0..full.leakage.len())
+            .map(|g| {
+                [height, height, width, width]
+                    .iter()
+                    .zip(&full.sides)
+                    .map(|(l, side)| l * side[g])
+                    .sum()
+            })
+            .collect();
+        close(
+            std::slice::from_ref(&full.leakage),
+            std::slice::from_ref(&reduced.leakage),
+            std::slice::from_ref(&boundary),
+            "leakage",
+        );
+        // 領域の中性子流は、領域の中性子束に対して（[領域][x, y の順に群]）
+        let currents = |s: &Solution| -> Vec<Vec<f64>> {
+            s.region_currents.iter().map(|c| c.concat()).collect()
+        };
+        let fluxes: Vec<Vec<f64>> = full
+            .flux
+            .iter()
+            .map(|f| [&f[..], &f[..]].concat())
+            .collect();
+        close(
+            &currents(full),
+            &currents(reduced),
+            &fluxes,
+            "region current",
+        );
+        assert_eq!(full.volumes, reduced.volumes);
+    }
+
+    #[test]
+    fn quarter_symmetry_reproduces_the_full_solution() {
+        let (f, w, g, void) = (
+            with_p1(fuel()),
+            with_p1(moderator()),
+            with_p1(two_group(
+                [0.55, 1.4],
+                [[0.5, 0.03], [0.0, 1.1]],
+                [0.01, 0.3],
+            )),
+            Material::void(2),
+        );
+        let library = [&f, &w, &g, &void];
+        let vacuum = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            bottom: Boundary::Vacuum,
+        };
+        // 左右だけ真空（1/8 対称ではない）
+        let sides = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        // アルベドの辺（左右と上下で違う値）
+        let albedo = Boundaries {
+            left: Boundary::Albedo(0.3),
+            right: Boundary::Albedo(0.3),
+            top: Boundary::Albedo(0.6),
+            bottom: Boundary::Albedo(0.6),
+        };
+        // 左右がアルベドで上下が鏡面反射
+        let mixed = Boundaries {
+            left: Boundary::Albedo(0.3),
+            right: Boundary::Albedo(0.3),
+            ..Boundaries::REFLECTIVE
+        };
+        // 軸がセルの中を通る長方形と、セルの境を通る正方形。鏡面反射、真空、アルベド、等方散乱と P1
+        for odd in [true, false] {
+            let (lattice, index) = quarter_lattice(odd);
+            let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+            for boundaries in [Boundaries::REFLECTIVE, vacuum, sides, albedo, mixed] {
+                let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
+                for order in [0, 1] {
+                    let full =
+                        solve(&tracking, &materials, &symmetric(order, Symmetry::None)).unwrap();
+                    let options = symmetric(order, Symmetry::Quarter);
+                    let quarter = solve(&tracking, &materials, &options).unwrap();
+                    assert_same_solution(&full, &quarter, &options);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn quarter_symmetry_solves_only_representatives() {
+        // 軸がセルの境を通る格子では、どの領域とセルも 4 つずつ移り合う
+        let (lattice, index) = quarter_lattice(false);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let mesh = CoarseMesh::new(&tracking);
+        let reduced = Representatives::quarter(&tracking, &materials, &mesh, &[(0, 0)]).unwrap();
+        assert_eq!(4 * reduced.regions.representatives.len(), lattice.regions());
+        assert_eq!(4 * reduced.cells.representatives.len(), lattice.cells());
+    }
+
+    #[test]
+    fn quarter_result_does_not_depend_on_the_thread_count() {
+        // 代表のトラックの組と、代表の領域に集める和の順は、スレッドの分け方によらない
+        let (lattice, index) = quarter_lattice(true);
+        let (f, w, void) = (with_p1(fuel()), with_p1(moderator()), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        let options = symmetric(1, Symmetry::Quarter);
+        let solve_on = |threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| solve(&tracking, &materials, &options).unwrap())
+        };
+        let serial = solve_on(1);
+        for threads in [2, 5] {
+            assert_eq!(solve_on(threads), serial, "{threads} threads");
+        }
+    }
+
+    #[test]
+    fn quarter_symmetry_rejects_asymmetric_materials() {
+        // 左上のピンの1つの扇形だけ物質が違う
+        let (lattice, mut index) = quarter_lattice(false);
+        let sector = index.iter().position(|&i| i == 0).unwrap();
+        index[sector] = 2;
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let g = Material {
+            total: vec![0.55, 1.4],
+            ..fuel()
+        };
+        let library = [&f, &w, &g, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(
+            matches!(result, Err(MocError::AsymmetricMaterial { .. })),
+            "{result:?}"
+        );
+        // 操作は番号ではなく名前で示す
+        let message = result.unwrap_err().to_string();
+        assert!(
+            message.contains("under the rotation by 180 degrees")
+                || message.contains("under the mirror across"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn quarter_symmetry_needs_one_material_for_images() {
+        // 値が同じでも別の物質（自己遮蔽で別々に解いたピンにあたる）は、移り合う領域に使えない。値の比較で決めると、
+        // 別々に解いたピンが丸めの違いだけで対称かどうかが変わる
+        let (lattice, index) = quarter_lattice(false);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let copy = fuel();
+        let library = [&f, &w, &f, &void];
+        let mut materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let last = index.iter().rposition(|&i| i == 0).unwrap();
+        materials[last] = &copy;
+        let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
+        assert!(solve(&tracking, &materials, &symmetric(0, Symmetry::None)).is_ok());
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(
+            matches!(result, Err(MocError::AsymmetricMaterial { .. })),
+            "{result:?}"
+        );
+        // 事実（別の物質を指している）を示し、自己遮蔽で別々に解かれた可能性はヒントにとどめる
+        let message = result.unwrap_err().to_string();
+        assert!(
+            message.contains("refer to different materials") && message.contains("#0054"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn quarter_symmetry_rejects_an_asymmetric_boundary() {
+        // 右だけ真空: 上下の鏡映しか残らない
+        let (lattice, index) = quarter_lattice(false);
+        let (f, w, void) = (fuel(), moderator(), Material::void(2));
+        let library = [&f, &w, &f, &void];
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
+        let result = solve(&tracking, &materials, &symmetric(0, Symmetry::Quarter));
+        assert!(matches!(result, Err(MocError::Symmetry(_))), "{result:?}");
     }
 }
