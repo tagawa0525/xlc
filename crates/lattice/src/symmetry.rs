@@ -77,7 +77,7 @@ const SYMMETRIES: [(u8, &str); 10] = [
 impl Symmetry {
     /// 恒等だけ（対称性を使わない）
     pub const NONE: Self = Self(0b0000_0001);
-    /// 左右と上下の鏡映（1/4。軸を入れ替えないので長方形の格子にも使える。ADR-0113）
+    /// 左右と上下の鏡映（1/4。軸を入れ替えないので長方形の格子にも使える）
     pub const QUARTER: Self = Self(0b0011_0101);
     /// 8 つの操作すべて（1/8）
     pub const OCTANT: Self = Self(0b1111_1111);
@@ -600,7 +600,7 @@ fn check_boundaries(tracking: &Tracking, op: &[i64; 4]) -> Result<(), String> {
     Ok(())
 }
 
-/// 対称操作で移り合う組（軌道）。MOC の領域と CMFD のセルは、組の代表の分だけ状態を持つ（ADR-0113）。
+/// 対称操作で移り合う組（軌道）。MOC の領域と CMFD のセルは、組の代表の分だけ状態を持つ（ADR-0112）。
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Orbits {
     /// 組の代表（番号の順）
