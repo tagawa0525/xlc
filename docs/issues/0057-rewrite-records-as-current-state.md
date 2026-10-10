@@ -16,7 +16,7 @@ ADR-0115 で、検証の記録（examples/*/verification.md）は今の結果だ
 節を足し、古い測定を日付つきの注記で打ち消している（examples/vera/verification.md には、前の節を打ち消す注記が 6 か所
 ある）。
 
-関係する ADR: ADR-0115
+関係する ADR: ADR-0115, ADR-0116
 
 ## 完了の条件
 
