@@ -1,0 +1,149 @@
+# 濃縮度の違う集合体の 2×2 のカラーセット（左上と右下が 3.10%、右上と左下が 2.11%。外周は鏡面反射）。集合体ごとの
+# 形と組成は assembly-31.toml、assembly-21.toml と同じ。全体を MOC で解いたピン出力が、2 段階の手法（集合体ごとの格子
+# 計算 → core の NEM → ピン出力の再構成）の参照になる。集合体ごとのノードの少数群定数（このカラーセットの解から作る。
+# ADF は1ノードの NEM。ADR-0094、ADR-0103）も出し、誤差を分ける（#0037）。方位角と間隔は ADR-0111。
+library = "../vera/vera.msgpack"
+pin-powers = "moc-pins.msgpack"
+few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
+  { output = "fg-node-31a.msgpack", columns = [1, 19], rows = [1, 19] },
+  { output = "fg-node-21a.msgpack", columns = [20, 38], rows = [1, 19] },
+  { output = "fg-node-21b.msgpack", columns = [1, 19], rows = [20, 38] },
+  { output = "fg-node-31b.msgpack", columns = [20, 38], rows = [20, 38] },
+] }
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+# 列と行: 余白 0.04、ピン 17、余白 0.04 | 余白 0.04、ピン 17、余白 0.04（集合体の間の水は 0.08）
+widths = [
+  { size = 0.04 }, { size = 1.26, count = 17 }, { size = 0.04 },
+  { size = 0.04 }, { size = 1.26, count = 17 }, { size = 0.04 },
+]
+heights = [
+  { size = 0.04 }, { size = 1.26, count = 17 }, { size = 0.04 },
+  { size = 0.04 }, { size = 1.26, count = 17 }, { size = 0.04 },
+]
+rows = [
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 gt pin31 pin31 gt pin31 pin31 it pin31 pin31 gt pin31 pin31 gt pin31 pin31 w w pin21 pin21 gt pin21 pin21 gt pin21 pin21 it pin21 pin21 gt pin21 pin21 gt pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w",
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w",
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 gt pin21 pin21 gt pin21 pin21 it pin21 pin21 gt pin21 pin21 gt pin21 pin21 w w pin31 pin31 gt pin31 pin31 gt pin31 pin31 it pin31 pin31 gt pin31 pin31 gt pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 w w pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 pin21 w w pin31 pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 gt pin21 pin21 gt pin21 pin21 gt pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 gt pin31 pin31 gt pin31 pin31 gt pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 pin21 w w pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w",
+  "w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w w",
+]
+
+[material.fuel31]
+temperature = 600
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.41459e-02, O-16 = 2.20729e-02, B-10 = 9.52537e-06, B-11 = 3.83408e-05 }
+
+[cell.pin31]
+zones = [
+  { material = "fuel31", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[material.fuel21]
+temperature = 600
+nuclides = { U-234 = 4.04814e-06, U-235 = 4.88801e-04, U-236 = 2.23756e-06, U-238 = 2.23844e-02, O-16 = 4.57591e-02 }
+
+[cell.pin21]
+zones = [
+  { material = "fuel21", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[cell.w]
+zones = [{ material = "water", rings = 1 }]
