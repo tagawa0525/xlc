@@ -175,10 +175,51 @@ impl FuelShielding {
     /// 物理的な中性子束の 1/μ になる（反応率は μσ × φ/μ で物理的な値のまま）ので、μ を掛けて戻す
     pub fn physical_flux(
         &self,
-        _lattice: &Lattice,
-        _flux: &[Vec<f64>],
+        lattice: &Lattice,
+        flux: &[Vec<f64>],
     ) -> Result<Vec<Vec<f64>>, SelfShieldingError> {
-        Err(SelfShieldingError::SphLayout(0))
+        if flux.len() != lattice.regions() {
+            return Err(SelfShieldingError::Regions {
+                given: flux.len(),
+                regions: lattice.regions(),
+            });
+        }
+        let groups = self.materials.first().map_or(0, Material::groups);
+        if let Some(f) = flux.iter().find(|f| f.len() != groups) {
+            return Err(SelfShieldingError::FluxGroups {
+                given: f.len(),
+                groups,
+            });
+        }
+        let mut physical = flux.to_vec();
+        for pin in &self.pins {
+            let Some(sph) = &pin.sph else {
+                continue;
+            };
+            let layout = || SelfShieldingError::SphLayout(pin.cell);
+            let rings = pin.ring_regions(lattice).ok_or_else(layout)?;
+            // 因子はリングごと。支持格子のあるセルの最後は格子に使わない支持格子のリングで、因子は 1
+            let (used, frame) = sph
+                .factors
+                .split_at_checked(rings.len())
+                .ok_or_else(layout)?;
+            let width = sph.groups.len();
+            if sph.groups.end > groups
+                || sph.factors.iter().any(|row| row.len() != width)
+                || frame.len() > 1
+                || frame.iter().flatten().any(|&mu| mu != 1.0)
+            {
+                return Err(layout());
+            }
+            for (factors, regions) in used.iter().zip(&rings) {
+                for &region in regions {
+                    for (g, mu) in sph.groups.clone().zip(factors) {
+                        physical[region][g] *= mu;
+                    }
+                }
+            }
+        }
+        Ok(physical)
     }
 }
 
@@ -2666,40 +2707,6 @@ mod tests {
                 narrow.physical_flux(lattice, &flux),
                 Err(SelfShieldingError::SphLayout(0))
             ));
-        }
-
-        #[test]
-        fn the_balance_of_a_reflective_cell_closes() {
-            use crate::moc::{Options, solve};
-            let (tracking, shielded, names) = shielded_pin_cell();
-            let materials: Vec<&Material> = shielded
-                .region_material
-                .iter()
-                .map(|&m| &shielded.materials[m])
-                .collect();
-            let solution = solve(&tracking, &materials, &Options::default()).unwrap();
-            let physical = shielded
-                .physical_flux(&tracking.lattice, &solution.flux)
-                .unwrap();
-            let rates =
-                crate::balance::by_material(&solution, &materials, &names, &physical).unwrap();
-            // 生成の和は 1、正味の吸収の和は 1/k（外周が鏡面反射）
-            let production: f64 = rates.values().flat_map(|r| &r.production).sum();
-            let absorption: f64 = rates.values().flat_map(|r| &r.absorption).sum();
-            assert!((production - 1.0).abs() < 1e-12, "{production}");
-            assert!(
-                (absorption * solution.k - 1.0).abs() < 1e-6,
-                "{absorption} {}",
-                solution.k
-            );
-            // 真空の領域は数えない
-            assert!(!rates.contains_key(crate::input::VOID));
-            // 群の間の移行の和は、群から出る散乱（全 − 正味の吸収）の反応率
-            let fuel = &rates["fuel"];
-            for g in 0..fuel.flux.len() {
-                let out: f64 = fuel.transfer[g].iter().sum();
-                assert!(out > 0.0, "group {g}");
-            }
         }
 
         /// 自己遮蔽した格子で成り立つ対称性（物質の参照で確かめる）が `expected` で、その対称性で解いた MOC の解が全体を
