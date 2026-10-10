@@ -29,7 +29,7 @@ use crate::input::{MaterialInput, VOID};
 use crate::material::{Material, MaterialError};
 use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_dancoff};
 use crate::sph::{SphError, sph_factors};
-use crate::symmetry::{SymmetryError, cell_orbits};
+use crate::symmetry::{Detected, SymmetryError, detect};
 use crate::tracking::Tracking;
 use crate::ufg::{UfgError, cell_range, slowing_down};
 
@@ -70,6 +70,10 @@ pub enum SelfShieldingError {
         "cell {0}: each ring outside the fuel must be one material, and the outer rings the moderator"
     )]
     CellShape(usize),
+    #[error(
+        "region {0}: a symmetry operation maps its structural lump onto several lumps (internal error)"
+    )]
+    LumpImage(usize),
     #[error("structural body {0} has no Dancoff factor")]
     Body(usize),
     #[error("cell {0}: non-finite shielded cross sections")]
@@ -100,7 +104,8 @@ impl From<LookupError> for SelfShieldingError {
     }
 }
 
-/// 自己遮蔽した物質。燃料はセルごとに、構造材の塊は対称なセルの組と物質ごとに、それ以外は物質ごとに1つずつ持つ。
+/// 自己遮蔽した物質。燃料はピンの組ごとに、構造材の塊は対称操作で移り合う塊の組と物質ごとに、それ以外は物質ごとに
+/// 1つずつ持つ。
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuelShielding {
     pub materials: Vec<Material>,
@@ -115,7 +120,7 @@ pub struct FuelShielding {
 /// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
 #[derive(Debug, Clone, PartialEq)]
 pub struct LumpShielding {
-    /// 塊のあるセル（対称に移り合うセルの組でまとめた塊は、組の代表（最も小さいセル番号））
+    /// 塊のあるセル（対称操作で移り合う塊をまとめた組では、組の代表の領域（最も小さい番号）のセル。ADR-0114）
     pub cell: usize,
     pub material: String,
     /// 塊の領域（組のすべてのセルの分）
@@ -253,8 +258,10 @@ pub fn shield_fuel(
         lumps: Vec::new(),
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
-    // だけを解き、ほかは代表の物質を共有する
-    let orbits = cell_orbits(tracking, &region_index)?;
+    // だけを解き、ほかは代表の物質を共有する。使う操作は、MOC と同じ確かめ方（トラックの像まで）で、領域ごとの入力の
+    // 物質の番号が移り合うものをすべて（ADR-0114）
+    let symmetry = detect(tracking, &region_index)?;
+    let orbits = symmetry.cell_representatives();
     // 解くピンを、下のループと同じ判定（同じ組の代表がもう解かれていれば使い回す）で先に決める。[ピン] の、解く
     // なら `solutions` の番号
     let mut planned: Vec<usize> = Vec::new();
@@ -406,7 +413,7 @@ pub fn shield_fuel(
         tracking,
         materials,
         &region_index,
-        &orbits,
+        &symmetry,
         options,
         &mut shielded,
     )?;
@@ -431,10 +438,11 @@ fn shield_lumps(
     tracking: &Tracking,
     materials: &[MaterialInput],
     region_index: &[usize],
-    orbits: &[usize],
+    symmetry: &Detected,
     options: &ShieldingOptions,
     shielded: &mut FuelShielding,
 ) -> Result<(), SelfShieldingError> {
+    let orbits = symmetry.cell_representatives();
     let lattice = &tracking.lattice;
     let n_regions = region_index.len();
     let is_fuel = |m: &Material| m.nu_fission.iter().any(|&v| v > 0.0);
@@ -490,36 +498,26 @@ fn shield_lumps(
             }
         }
     }
-    // 対称な操作はリングごとの物質が同じセルどうしでしか成り立たない（[`cell_orbits`]）が、扇形を入れ替える。
-    // リングを丸ごと（枠、小さな正方形や長方形のセルではセルを丸ごと）含むまとまりだけが、組のセルで同じ番号の
-    // まとまりに移る。ほかのまとまり（扇形で分かれた四隅など）は、そのセルだけの黒体にする
-    let ring = |region: usize| -> (usize, usize) {
-        let cell = lattice.region_cell(region);
-        let range = lattice.cell_regions(cell);
-        let local = region - range.start;
-        match lattice.cell_type(cell).pin() {
-            Some(pin) if !pin.is_grid() && local < (pin.radii().len() + 1) * pin.sectors() => {
-                (local / pin.sectors(), pin.sectors())
-            }
-            Some(pin) if !pin.is_grid() => (usize::MAX, 1),
-            _ => (0, range.len()),
-        }
-    };
-    let mut counts: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
+    // 使う対称操作で移したまとまりを同じ組にし、組を1つの黒体にする（ADR-0114）。まとまりの像は、まとまりの領域の
+    // 像を含むまとまり（セルの中の接し方は対称操作で保たれるので、まとまりの領域はどれも同じまとまりに移る）。組の
+    // 代表は、像のまとまりの代表の領域の最も小さいもの
+    let mut lump_root = vec![usize::MAX; n_regions];
     for region in (0..n_regions).filter(|&r| candidate[r]) {
-        let (r, size) = ring(region);
-        counts
-            .entry((root(&mut parent, region), r))
-            .or_insert((0, size))
-            .0 += 1;
+        let representative = root(&mut parent, region);
+        let mut least = representative;
+        for image in &symmetry.images {
+            let map = &image.regions;
+            let moved = root(&mut parent, map[region]);
+            // 領域の像のまとまりが、代表の領域の像のまとまりと違えば、対称操作が接し方を保っていない
+            if moved != root(&mut parent, map[representative]) || !candidate[map[region]] {
+                return Err(SelfShieldingError::LumpImage(region));
+            }
+            least = least.min(moved);
+        }
+        lump_root[region] = least;
     }
-    let mut whole: HashMap<usize, bool> = HashMap::new();
-    for (&(root, _), &(n, size)) in &counts {
-        *whole.entry(root).or_insert(true) &= n == size;
-    }
-    // 黒体は (セル, まとまりの代表のセルの中での番号) ごと（セルは、組でまとめるまとまりなら組の代表）、塊は
-    // (黒体, 物質の番号) ごと
-    let mut bodies: HashMap<(usize, usize), usize> = HashMap::new();
+    // 黒体は組の代表ごと（セルは代表の領域のセル）、塊は (黒体, 物質の番号) ごと
+    let mut bodies: HashMap<usize, usize> = HashMap::new();
     // [黒体] の (セル, 核種の組)
     let mut body_of: Vec<(usize, &[&str])> = Vec::new();
     let mut body = vec![None; n_regions];
@@ -527,17 +525,9 @@ fn shield_lumps(
     // [塊] の (黒体, 物質の番号, 領域)
     let mut lump_of: Vec<(usize, usize, Vec<usize>)> = Vec::new();
     for region in (0..n_regions).filter(|&r| candidate[r]) {
-        let cell = lattice.region_cell(region);
-        let first = lattice.cell_regions(cell).start;
-        let representative = root(&mut parent, region);
-        let owner = if whole.get(&representative).copied().unwrap_or(false) {
-            orbits[cell]
-        } else {
-            cell
-        };
-        let key = (owner, representative - first);
+        let key = lump_root[region];
         let b = *bodies.entry(key).or_insert_with(|| {
-            body_of.push((owner, resonant_of(region_index[region])));
+            body_of.push((lattice.region_cell(key), resonant_of(region_index[region])));
             body_of.len() - 1
         });
         body[region] = Some(b);
@@ -1809,7 +1799,7 @@ mod tests {
             let corner = |region: usize| -> Option<usize> {
                 let cell = lattice.region_cell(region);
                 let local = region - lattice.cell_regions(cell).start;
-                (cell % 3 != 0 && local >= 8).then(|| (cell - 1) * 4 + (local % 8) / 2)
+                (!cell.is_multiple_of(3) && local >= 8).then(|| (cell - 1) * 4 + (local % 8) / 2)
             };
             let lump: Vec<Option<usize>> = (0..lattice.regions()).map(corner).collect();
             let black: Vec<bool> = lump.iter().map(Option::is_some).collect();

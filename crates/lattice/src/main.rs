@@ -31,13 +31,14 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_lattice::branches::tables;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
+use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, available_order, solve};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
-use xlc_lattice::symmetry::{Symmetry, check_regions};
+use xlc_lattice::symmetry::{check_regions, detect};
 use xlc_lattice::tracking::Tracking;
 
 fn main() -> ExitCode {
@@ -103,12 +104,22 @@ fn run(path: &Path) -> anyhow::Result<()> {
 
     let tracking =
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
-    // 対称性を使うなら、入力の物質が対称であることを先に確かめる。MOC は移り合う領域が同じ物質であることを確かめるが、
-    // 違えば、入力の違いと、自己遮蔽でピンを別々に解いたことの区別がつかない（ADR-0113）
-    if input.symmetry != Symmetry::NONE {
-        check_regions(&lattice, &input.symmetry.operations(), &region_materials)
-            .with_context(|| format!("{}: input materials", shown(path)))?;
-    }
+    // 使う対称性（ADR-0112）。省略したら、成り立つ対称操作をすべて使う（使った対称性と、外した操作の理由をログに出す）。
+    // 強制したら、入力の物質がその対称性で移り合うことを先に確かめる。MOC は移り合う領域が同じ物質であることを確かめるが、
+    // 違えば、入力の違いと、自己遮蔽でピンを別々に解いたことの区別がつかない
+    let symmetry = match input.symmetry {
+        SymmetryChoice::Detect => {
+            detect(&tracking, &region_materials)
+                .with_context(|| format!("{}: symmetry", shown(path)))?
+                .symmetry
+        }
+        SymmetryChoice::Force(symmetry) => {
+            check_regions(&lattice, &symmetry.operations(), &region_materials)
+                .with_context(|| format!("{}: input materials", shown(path)))?;
+            tracing::info!(symmetry = symmetry.name(), "forced symmetry");
+            symmetry
+        }
+    };
     // 物質の一覧と、領域ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
                    groups: usize|
@@ -211,7 +222,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             scattering_order: input
                 .scattering_order
                 .unwrap_or_else(|| available_order(&materials)),
-            symmetry: input.symmetry,
+            symmetry,
             ..Options::default()
         };
         let solution = solve(&tracking, &materials, &options).with_context(context)?;
