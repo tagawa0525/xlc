@@ -151,25 +151,31 @@ pub struct PinShielding {
     /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。枠のあるセルでは、その外に枠と同じ面積の
     /// 枠のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
-    /// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子（[`crate::sph`]）。その群の領域の物質に掛けてある。
-    /// 枠のあるセルの最後は枠のリングの値で、格子には使わないので 1
-    pub sph: Option<Vec<Vec<f64>>>,
-    /// 等価なセルの減速材のリングの番号（[`PinShielding::ring_regions`] でリングを格子の領域に対応させる）。UFG の範囲が
-    /// なければ `None`
-    pub moderator_ring: Option<usize>,
-    /// `sph` の列の群（ライブラリの群の番号）。UFG の範囲がなければ `None`
-    pub sph_groups: Option<std::ops::Range<usize>>,
+    /// SPH 因子（[`crate::sph`]）。燃料に分離共鳴を持つ核種がなく UFG の範囲がなければ `None`
+    pub sph: Option<Sph>,
+}
+
+/// 等価なセルのリングごと・UFG の範囲の群ごとの SPH 因子。その群の、リングの物質を置いた格子の領域の物質に掛けてある。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Sph {
+    /// [リング][群 − `groups.start`]。枠のあるセルの最後は枠のリングの値で、格子には使わないので 1
+    pub factors: Vec<Vec<f64>>,
+    /// `factors` の列の群（ライブラリの群の番号）
+    pub groups: std::ops::Range<usize>,
+    /// 等価なセルの減速材のリングの番号（リングを格子の領域に対応させる）
+    moderator_ring: usize,
 }
 
 impl PinShielding {
-    /// `sph` のリングごとに、そのリングの物質を置いた格子 `lattice` の領域。UFG の範囲がなければ `None`
+    /// SPH 因子のリングごとに、そのリングの物質を置いた格子 `lattice` の領域（枠のリングは格子に使わないので含めない）。
+    /// UFG の範囲がないか、セルが同心円のセルでなければ `None`
     pub fn ring_regions(&self, lattice: &Lattice) -> Option<Vec<Vec<usize>>> {
-        let start = self.moderator_ring?;
+        let sph = self.sph.as_ref()?;
         let pin = lattice.cell_type(self.cell).pin()?;
         Some(ring_targets(
             pin,
             lattice.cell_regions(self.cell).start,
-            start,
+            sph.moderator_ring,
         ))
     }
 }
@@ -436,9 +442,11 @@ pub fn shield_fuel_with(
             nuclides,
             effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
-            sph: ufg.as_ref().map(|c| c.sph.clone()),
-            moderator_ring: ufg.as_ref().map(|c| c.start),
-            sph_groups: ufg.as_ref().map(|c| c.groups.clone()),
+            sph: ufg.as_ref().map(|c| Sph {
+                factors: c.sph.clone(),
+                groups: c.groups.clone(),
+                moderator_ring: c.start,
+            }),
         };
         let assigned = match ufg {
             // リングごとの物質（真空のリングは真空のまま）
@@ -2395,7 +2403,7 @@ mod tests {
             assert!(shielded.materials[shielded.region_material[3]].is_void());
             // SPH 因子は等価なセルのリング（燃料3、ギャップ、被覆管、減速材）と UFG の範囲の群（1, 2）ごと。
             // 真空のギャップは 1、燃料では 1 と違う
-            let sph = shielded.pins[0].sph.as_ref().unwrap();
+            let sph = &shielded.pins[0].sph.as_ref().unwrap().factors;
             assert_eq!(sph.len(), 6);
             assert!(sph.iter().all(|row| row.len() == 2));
             assert_eq!(sph[3], vec![1.0, 1.0]);
@@ -2446,7 +2454,7 @@ mod tests {
             };
             let (plain, framed) = (shield(false), shield(true));
             // 等価なセルのリング: 燃料、ギャップ、被覆管、減速材と、枠
-            let sph = |s: &FuelShielding| s.pins[0].sph.as_ref().unwrap().len();
+            let sph = |s: &FuelShielding| s.pins[0].sph.as_ref().unwrap().factors.len();
             assert_eq!(sph(&plain), 4);
             assert_eq!(sph(&framed), 5);
             // 枠の影は枠のリングが作るので、減速材のリングは枠のないセルより小さい
@@ -2458,7 +2466,7 @@ mod tests {
                 radius(&plain)
             );
             // 枠のリングの断面積は格子に使わないので、SPH 因子は 1 のまま
-            let rings = framed.pins[0].sph.as_ref().unwrap();
+            let rings = &framed.pins[0].sph.as_ref().unwrap().factors;
             assert!(rings[4].iter().all(|&mu| mu == 1.0), "{rings:?}");
             // 格子の枠は等価なセルのリングの物質で上書きされない（この Zr-90 は分離共鳴を持たないので、
             // 被覆管と同じ物質の無限希釈のまま。被覆管のリングは UFG の物質）
@@ -2523,8 +2531,9 @@ mod tests {
                 let rings = pin.ring_regions(&tracking.lattice).unwrap();
                 assert_eq!(rings.len(), 4, "{rings:?}");
                 // SPH 因子の列は UFG の範囲の群（ライブラリの 1、2 群）
-                assert_eq!(pin.sph_groups, Some(1..3));
                 let sph = pin.sph.as_ref().unwrap();
+                assert_eq!(sph.groups, 1..3);
+                let sph = &sph.factors;
                 assert!(sph.iter().all(|row| row.len() == 2));
                 let mut covered: Vec<usize> = rings.iter().flatten().copied().collect();
                 covered.sort_unstable();
