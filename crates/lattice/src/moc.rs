@@ -153,7 +153,6 @@ pub enum MocError {
 }
 
 /// `materials[i]` は領域 i の物質。
-#[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]
 pub fn solve(
     tracking: &Tracking,
     materials: &[&Material],
@@ -173,6 +172,7 @@ pub fn solve_symmetric(
     solve_with(tracking, materials, options, Some(symmetry))
 }
 
+#[tracing::instrument(name = "moc", skip_all, fields(regions = materials.len(), tracks = tracking.tracks.len()))]
 fn solve_with(
     tracking: &Tracking,
     materials: &[&Material],
