@@ -1482,7 +1482,7 @@ mod tests {
     use super::*;
     use crate::geometry::{Cell, Lattice, PinCell};
     use crate::material::FissionTerm;
-    use crate::symmetry::require;
+    use crate::symmetry::{detect, require};
     use crate::tracking::{Boundaries, Boundary};
 
     fn two_group(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
@@ -3029,6 +3029,131 @@ mod tests {
                         assert_same_solution(&full, &reduced, &options);
                     }
                 }
+            }
+        }
+    }
+
+    /// 3 × 3 の、扇形 8 のピン（燃料、真空のギャップ、水）の中央に、扇形ごとの物質が `pattern`（`library` の番号）の
+    /// 扇形 8 のセルを置いた格子の領域の物質（`octant_lattice(true)` の中央を置き換えたもの）
+    fn patterned<'a>(
+        pattern: [usize; 8],
+        library: &[&'a Material],
+    ) -> (Lattice, Vec<&'a Material>) {
+        let pin = PinCell::with_sectors(1.26, vec![0.35, 0.4096], 8).unwrap();
+        let center = PinCell::with_sectors(1.26, vec![], 8).unwrap();
+        let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+        let lattice = Lattice::new(vec![pin, center], layout).unwrap();
+        let materials = (0..9)
+            .flat_map(|cell| {
+                if cell == 4 {
+                    pattern.iter().map(|&i| library[i]).collect::<Vec<_>>()
+                } else {
+                    (0..24).map(|r| library[[0, 3, 1][r / 8]]).collect()
+                }
+            })
+            .collect();
+        (lattice, materials)
+    }
+
+    #[test]
+    fn each_symmetry_alone_reproduces_the_full_solution() {
+        // それぞれの対称性だけが成り立つ格子（中央のセルの扇形の物質の並びと境界条件で、ほかの操作を外す）を、物質の参照で
+        // 判定した対称性で解き、全体を解いた解と比べる（P1、方位角 10）
+        let (f, w, void) = (with_p1(fuel()), with_p1(moderator()), Material::void(2));
+        let variant =
+            |total: [f64; 2]| with_p1(two_group(total, [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]));
+        let (a, b, c) = (
+            variant([0.65, 2.1]),
+            variant([0.7, 2.2]),
+            variant([0.75, 2.3]),
+        );
+        // 番号: 燃料 0、水 1、水の変種 2、4、5、真空 3（ピンのギャップ）
+        let library = [&f, &w, &a, &void, &b, &c];
+        let (left, right, bottom) = (
+            Boundaries {
+                left: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            },
+            Boundaries {
+                right: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            },
+            Boundaries {
+                bottom: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            },
+        );
+        let corner = Boundaries {
+            right: Boundary::Vacuum,
+            ..bottom
+        };
+        let opposite = Boundaries {
+            left: Boundary::Vacuum,
+            ..bottom
+        };
+        let reflective = Boundaries::REFLECTIVE;
+        let symmetry = |ops: &[usize]| Symmetry::new(ops).unwrap();
+        let cases = [
+            ([1; 8], right, symmetry(&[5])),
+            ([1; 8], bottom, symmetry(&[4])),
+            ([1; 8], corner, symmetry(&[6])),
+            ([1; 8], opposite, symmetry(&[7])),
+            ([1, 2, 4, 5, 1, 2, 4, 5], reflective, symmetry(&[2])),
+            ([1, 2, 2, 1, 1, 2, 2, 1], reflective, Symmetry::QUARTER),
+            ([1, 1, 2, 2, 1, 1, 2, 2], reflective, symmetry(&[2, 6, 7])),
+            ([1, 2, 1, 2, 1, 2, 1, 2], reflective, symmetry(&[1, 2, 3])),
+            ([1, 2, 1, 2, 1, 2, 1, 2], left, Symmetry::NONE),
+        ];
+        let options = order_options(1);
+        for (pattern, boundaries, expected) in cases {
+            let (lattice, materials) = patterned(pattern, &library);
+            let tracking = Tracking::with_boundaries(&lattice, 10, 0.05, boundaries).unwrap();
+            let identity: Vec<usize> = materials
+                .iter()
+                .map(|&m| std::ptr::from_ref(m) as usize)
+                .collect();
+            let detected = detect(&tracking, &identity).unwrap();
+            assert_eq!(
+                detected.symmetry(),
+                expected,
+                "{pattern:?}: {} instead of {}",
+                detected.symmetry().name(),
+                expected.name()
+            );
+            let full = solve(&tracking, &materials, &options).unwrap();
+            let reduced = solve_symmetric(&tracking, &materials, &options, &detected).unwrap();
+            assert_same_solution(&full, &reduced, &options);
+        }
+    }
+
+    #[test]
+    fn axis_swapping_symmetries_keep_high_moments() {
+        // P2 と P3 では、軸を入れ替える操作でモーメント (l, m) と (l, -m) が入れ替わり、符号が付く。1/8 対称な格子を、軸を
+        // 入れ替える操作を含む対称性で解き、全体を解いた解と比べる
+        let (f, w, g, void) = (
+            with_moments(&fuel(), &[0.3, 0.15, 0.05]),
+            with_moments(&moderator(), &[0.4, 0.2, 0.1]),
+            with_moments(&fuel(), &[0.2, 0.1, 0.05]),
+            Material::void(2),
+        );
+        let library = [&f, &w, &g, &void];
+        let (lattice, index) = octant_lattice(true);
+        let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
+        let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
+        let swapping = [
+            Symmetry::new(&[6]).unwrap(),
+            Symmetry::new(&[7]).unwrap(),
+            Symmetry::new(&[2, 6, 7]).unwrap(),
+            Symmetry::new(&[1, 2, 3]).unwrap(),
+            Symmetry::OCTANT,
+        ];
+        for order in [2, 3] {
+            let options = order_options(order);
+            let full = solve(&tracking, &materials, &options).unwrap();
+            for symmetry in swapping {
+                let reduced = solve_as(&tracking, &materials, &options, symmetry)
+                    .unwrap_or_else(|e| panic!("{}: {e}", symmetry.name()));
+                assert_same_solution(&full, &reduced, &options);
             }
         }
     }
