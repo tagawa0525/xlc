@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-10
 supersedes: []
 superseded-by:
@@ -59,13 +59,27 @@ issues: ["#0054"]
 
 ## 確認
 
-実装のブランチで、テストの名前と結果に置き換える。
-
-- (a) 四隅に分かれた構造材の塊と、(b) 扇形で物質の違うセルの格子で、自己遮蔽のあとの MOC が自動の対称性で止まらず、全体を
-  解いた解と一致する
-- 像の塊の Dancoff 係数と平均弦長が、塊ごとに求めて一致する（main の `half_turned_lumps_have_equal_dancoff`、#0055）
-- VERA 2B の k とピンの核分裂率が変わらない
+- `shielding::tests::lattice::corner_lumps_keep_the_symmetry`: 3 × 3 の辺の中央に四隅に分かれた Zr の塊のある格子で、自己
+  遮蔽のあとの物質の参照で判定した対称性が 1/8 で、その対称性の MOC の k と領域の中性子束が全体を解いた解と MOC の判定
+  （k 1e-7、中性子束 1e-6）以内で一致する（#0054 の (a)）
+- `shielding::tests::lattice::sectored_cells_keep_the_symmetry`: 中央が扇形 8 で物質の違う水のセルの 3 × 3 の格子で、角の
+  ピンどうしと上下の辺のピンどうしが同じ物質を共有し、物質の参照で判定した対称性が左右と上下の鏡映の 1/4 で、その解が全体の
+  解と一致する（#0054 の (b)）
+- `shielding::tests::lattice::pieces_split_by_sectors_are_grouped_by_images`: 2 × 2 の格子の四隅に分かれた塊 8 つが、像の組
+  3 つ（領域 4、4、8）になり、組の領域が1つの物質を共有する（前は塊ごとに 8 つの黒体だった）
+- `shielding::tests::lattice::half_turned_lumps_have_equal_dancoff`: 同じ格子で、隅を別々の塊にして `lump_dancoff` で求めた
+  Dancoff 係数と平均弦長が、180° の回転の像どうしで 1e-10 以内で一致する（#0055。自己遮蔽は像の隅を 1 つにまとめるので、
+  隅ごとの値は `lump_dancoff` を直接呼んで比べるように書き換えた）
+- `symmetry::tests::swapping_axes_turns_blocks`、`swapped_blocks_are_images` ほか: 自己遮蔽のピンの組（`Detected` の
+  セルの代表）は、ブロックの像の向き（#0053）、境界条件、物質の違いを `cell_orbits` と同じく扱う
+- VERA 2B を、変更の前の main（dd5d9350）とこのブランチの `symmetry = "none"` で解くと、ピンの核分裂率のファイルはバイト
+  単位で同じ（k 1.186030、解いた燃料ピン 264 本中 39 本。examples/vera/verification.md「成り立つ対称操作をすべて使う」、
+  63370441、2026-10-10）
 
 ## 結果
 
-- 自己遮蔽は、強制の指定によらず確かめた対称操作で組を作る
+- 自己遮蔽は、強制の指定によらず確かめた対称操作で組を作る。`symmetry::cell_orbits` はなくし、ピンの組は `detect` の
+  結果（`Detected::cell_representatives`）から作る
+- 塊の像が 1 つの塊にならないとき（対称操作がセルの中の接し方を保たないとき）は、内部エラー `LumpImage` で止める。接し方は
+  整数の対応で決まり正方形の対称操作で保たれるので届かないはずだが、パニックにしない方針なのでエラーとして残す
+- 自己遮蔽は状態ごとに対称操作を確かめ直す（2B で約 1 秒。#0039）
