@@ -287,13 +287,13 @@ pub fn solve(
     let sweeper = Sweeper::new(tracking, materials, ng, &mesh, &pairs, representatives);
     // 状態（中性子束、モーメント、平衡値）は、領域の軌道の代表 `kept[i]` の分だけ持つ（対称性を使わなければすべての領域）
     let reduced = &sweeper.representatives;
-    let kept = &reduced.regions;
+    let kept = &reduced.regions.representatives;
     let states = kept.len();
     let material = |i: usize| materials[kept[i]];
     let volume = |i: usize| volumes[kept[i]];
     // [代表] の軌道の領域の体積の和（生成率はすべての領域の和）
     let mut orbit_volumes = vec![0.0; states];
-    for (&i, v) in reduced.state.iter().zip(&volumes) {
+    for (&i, v) in reduced.regions.index.iter().zip(&volumes) {
         orbit_volumes[i] += v;
     }
     let production = |flux: &[Vec<f64>]| -> f64 {
@@ -441,7 +441,7 @@ pub fn solve(
                 materials,
                 &volumes,
                 &new_flux,
-                &reduced.state,
+                &reduced.regions.index,
                 &current,
             )?;
             // MOC がまだ収束から遠いうちは、CMFD を細かく解いても次のスイープで崩れる。スイープによる変化（CMFD の誤差を
@@ -774,7 +774,7 @@ impl<'a> Sweeper<'a> {
             }
             // 代表の値を、代表をこの領域へ移す操作で移す: e_k = s e'_k'
             let representatives = &self.representatives;
-            let e = &equilibrium[representatives.state[region]];
+            let e = &equilibrium[representatives.regions.index[region]];
             let moments = representatives.moments(region);
             for side in 0..2 {
                 for p in 0..POLAR_SIN.len() {
@@ -842,7 +842,7 @@ impl<'a> Sweeper<'a> {
         let mut outgoing = vec![0.0; self.outgoing_len()];
         for (j, out) in outgoing.chunks_mut(self.width).enumerate() {
             let region = self.exit_region(j / 2, j % 2 == 0);
-            let flux = &flux[self.representatives.state[region]];
+            let flux = &flux[self.representatives.regions.index[region]];
             for (o, f) in out.iter_mut().zip(flux.iter().cycle()) {
                 *o = f / (4.0 * PI);
             }
@@ -1057,7 +1057,7 @@ impl<'a> Sweeper<'a> {
                             let (q, d, stride) = match directional.as_mut().map(|(_, d)| d) {
                                 // スカラーの平衡値はどの操作でも変わらない
                                 None => (
-                                    &equilibrium[representatives.state[region]][..ng],
+                                    &equilibrium[representatives.regions.index[region]][..ng],
                                     &mut tally.delta[local * ng..][..ng],
                                     0,
                                 ),
@@ -1215,7 +1215,7 @@ fn sum_tallies(sweeper: &Sweeper, tallies: &[Tally]) -> Sums {
     // 領域ごとの量 [代表][幅] を、代表ごとに並列に足す（1つの代表の中では像の順、組の順なので、結果は分け方によらない）。
     // 対称性を使うときは、代表の領域に移る像の領域の値を集める
     let spread = |kind: RegionKind, width: usize, part: fn(&Tally) -> &[f64]| -> Vec<f64> {
-        let mut sum = vec![0.0; representatives.regions.len() * width];
+        let mut sum = vec![0.0; representatives.regions.representatives.len() * width];
         if width == 0 {
             return sum;
         }
@@ -2919,7 +2919,7 @@ mod tests {
         let tracking = Tracking::new(&lattice, 8, 0.05).unwrap();
         let mesh = CoarseMesh::new(&tracking);
         let reduced = Representatives::quarter(&tracking, &materials, &mesh, &[(0, 0)]).unwrap();
-        assert_eq!(4 * reduced.regions.len(), lattice.regions());
+        assert_eq!(4 * reduced.regions.representatives.len(), lattice.regions());
         assert_eq!(4 * reduced.cells.representatives.len(), lattice.cells());
     }
 
