@@ -1,12 +1,12 @@
-"""VERA Problem 1B〜1D（ピンセル）と 2B〜2D（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
+"""VERA Problem 1B〜1D（ピンセル）と 2B〜2E（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
         [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード] [xlc のライブラリ]
 
-<問題> は 1B, 1C, 1D, 2B, 2C, 2D。断面積は openmc_library.py で作ったもの。
+<問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
-ギャップの He は ADR-0054 のとおり除く（ギャップは真空）。被覆管・案内管・計装管と減速材は 600 K。
-2B〜2D は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒の中の He も同じ）。燃料以外は 600 K。
+2B〜2E は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
 xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、1B〜1D では fuel-xs.msgpack に、2B〜2D ではピンごとに
 pin-xs.msgpack に書く（自己遮蔽の検証用）。
@@ -49,6 +49,7 @@ FUEL_TEMPERATURE = {
     "2B": 600.0,
     "2C": 900.0,
     "2D": 1200.0,
+    "2E": 600.0,
 }
 
 # 個数密度 (/(barn cm))
@@ -84,13 +85,52 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 0.661 g/cc、1300 ppm のホウ素
+# 1300 ppm のホウ素。2B〜2D は 0.661 g/cc、2E は 0.743 g/cc（仕様書の表 P2-1）
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
     "B10": 9.52537e-06,
     "B11": 3.83408e-05,
 }
+MODERATOR_DENSE = {
+    "O16": 2.48112e-02,
+    "H1": 4.96224e-02,
+    "B10": 1.07070e-05,
+    "B11": 4.30971e-05,
+}
+PYREX = {
+    "B10": 9.63266e-04,
+    "B11": 3.90172e-03,
+    "O16": 4.67761e-02,
+    "Si28": 1.81980e-02,
+    "Si29": 9.24474e-04,
+    "Si30": 6.10133e-04,
+}
+# 天然の C は天然の存在比 C-12 98.93%、C-13 1.07% で分ける（ADR-0079）
+SS304 = {
+    "C12": 3.17461e-04,
+    "C13": 3.43358e-06,
+    "Si28": 1.58197e-03,
+    "Si29": 8.03653e-05,
+    "Si30": 5.30394e-05,
+    "P31": 6.99938e-05,
+    "Cr50": 7.64915e-04,
+    "Cr52": 1.47506e-02,
+    "Cr53": 1.67260e-03,
+    "Cr54": 4.16346e-04,
+    "Mn55": 1.75387e-03,
+    "Fe54": 3.44776e-03,
+    "Fe56": 5.41225e-02,
+    "Fe57": 1.24992e-03,
+    "Fe58": 1.66342e-04,
+    "Ni58": 5.30854e-03,
+    "Ni60": 2.04484e-03,
+    "Ni61": 8.88879e-05,
+    "Ni62": 2.83413e-04,
+    "Ni64": 7.21770e-05,
+}
+# Pyrex の棒（仕様書の表 6）: 内管の内と外、Pyrex の内と外、被覆管の内と外の半径。内管の中と間は真空
+PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
 
 # 案内管の位置（行, 列。0 始まり）。計装管は中央
 GUIDE_TUBES = [
@@ -120,6 +160,23 @@ GUIDE_TUBES = [
     (14, 11),
 ]
 INSTRUMENT_TUBE = (8, 8)
+# Pyrex の棒を入れる案内管（仕様書の図 5 の 12 本の配置）
+PYREX_RODS = {
+    "2E": [
+        (2, 5),
+        (2, 11),
+        (5, 2),
+        (5, 8),
+        (5, 14),
+        (8, 5),
+        (8, 11),
+        (11, 2),
+        (11, 8),
+        (11, 14),
+        (14, 5),
+        (14, 11),
+    ],
+}
 
 
 def tube(inner: float, outer: float, clad: openmc.Material, water: openmc.Material):
@@ -134,14 +191,45 @@ def tube(inner: float, outer: float, clad: openmc.Material, water: openmc.Materi
     )
 
 
+def pyrex_tube(
+    clad: openmc.Material,
+    water: openmc.Material,
+    pyrex: openmc.Material,
+    steel: openmc.Material,
+) -> openmc.Universe:
+    """Pyrex の棒を入れた案内管のセル。"""
+    inner_in, inner_out, glass_in, glass_out, clad_in, clad_out = (
+        openmc.ZCylinder(r=r) for r in PYREX_RADII
+    )
+    guide_in, guide_out = (
+        openmc.ZCylinder(r=GUIDE_INNER),
+        openmc.ZCylinder(r=GUIDE_OUTER),
+    )
+    return openmc.Universe(
+        cells=[
+            openmc.Cell(fill=None, region=-inner_in),
+            openmc.Cell(fill=steel, region=+inner_in & -inner_out),
+            openmc.Cell(fill=None, region=+inner_out & -glass_in),
+            openmc.Cell(fill=pyrex, region=+glass_in & -glass_out),
+            openmc.Cell(fill=None, region=+glass_out & -clad_in),
+            openmc.Cell(fill=steel, region=+clad_in & -clad_out),
+            openmc.Cell(fill=water, region=+clad_out & -guide_in),
+            openmc.Cell(fill=clad, region=+guide_in & -guide_out),
+            openmc.Cell(fill=water, region=+guide_out),
+        ]
+    )
+
+
 def geometry_of(
     problem: str,
     fuel: openmc.Material,
     clad: openmc.Material,
     water: openmc.Material,
     gap: openmc.Material | None = None,
+    inserts: tuple[openmc.Material, openmc.Material] | None = None,
 ) -> tuple[openmc.Geometry, float]:
-    """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。"""
+    """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。
+    `inserts` は Pyrex の棒の (Pyrex, SS304)。PYREX_RODS にある問題で要る。"""
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
@@ -164,6 +252,14 @@ def geometry_of(
         for i, j in GUIDE_TUBES:
             universes[i][j] = guide
         universes[INSTRUMENT_TUBE[0]][INSTRUMENT_TUBE[1]] = instrument
+        if problem in PYREX_RODS:
+            if inserts is None:
+                raise SystemExit(f"{problem} needs the Pyrex and SS304 materials")
+            pyrex_guide = pyrex_tube(clad, water, *inserts)
+            for i, j in PYREX_RODS[problem]:
+                if (i, j) not in GUIDE_TUBES:
+                    raise SystemExit(f"Pyrex rod at {(i, j)} is not in a guide tube")
+                universes[i][j] = pyrex_guide
         lattice = openmc.RectLattice()
         lattice.pitch = (PITCH, PITCH)
         lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
@@ -228,12 +324,17 @@ def main() -> None:
 
     fuel = material("fuel", FUEL, FUEL_TEMPERATURE[problem])
     clad = material("zircaloy-4", ZIRCALOY, COLD)
-    water = material("moderator", MODERATOR, COLD)
+    dense = problem == "2E"
+    water = material("moderator", MODERATOR_DENSE if dense else MODERATOR, COLD)
     water.add_s_alpha_beta("c_H_in_H2O")
     materials = openmc.Materials([fuel, clad, water])
+    inserts = None
+    if problem in PYREX_RODS:
+        inserts = (material("pyrex", PYREX, COLD), material("ss304", SS304, COLD))
+        materials.extend(inserts)
     materials.cross_sections = str(cross_sections)
 
-    geometry, half = geometry_of(problem, fuel, clad, water)
+    geometry, half = geometry_of(problem, fuel, clad, water, inserts=inserts)
 
     settings = run.settings(half)
     # ライブラリにある温度だけを使う。OpenMC は温度を kT (eV) で持ち、K に直すと丸めで
