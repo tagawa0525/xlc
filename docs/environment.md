@@ -63,7 +63,7 @@ nix develop ../..#references -c sh -c \
 
 ## VERA の参照解
 
-VERA Problem 1B〜1D, 2B〜2I の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
+VERA Problem 1B〜1D, 2B〜2J の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
 データで OpenMC を動かして作る（`examples/vera/`）。データは `references/openmc/endfb80/` に置く:
 
 ```sh
