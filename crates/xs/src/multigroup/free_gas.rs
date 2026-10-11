@@ -151,7 +151,7 @@ pub(super) fn gaussian_law_moments(
     let root = (c * c + 4.0 * b).sqrt();
     let u_lo = alpha_lo.max(0.0).sqrt().max(0.5 * (root - c));
     let u_hi = alpha_hi.sqrt().min(0.5 * (root + c));
-    if !(u_hi > u_lo) {
+    if u_hi <= u_lo {
         return;
     }
     let step = 0.1 / ratio.sqrt().max(1.0);
