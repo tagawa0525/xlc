@@ -2449,9 +2449,9 @@ mod tests {
     }
 
     #[test]
-    fn faces_between_reflector_sites_take_unit_adfs() {
-        // 炉心の形の反射体の位置に置いた物質（`reflectors`）どうしの x と y の面の ADF は、両側とも 1（ADR-0095）。
-        // 燃料と接する面と外周の面は、少数群定数の ADF のまま
+    fn faces_between_reflector_sites_keep_their_adfs() {
+        // 炉心の形の反射体の位置に置いた物質（`reflectors`）どうしの x と y の面も、燃料どうしの面と同じく各側の
+        // 少数群定数の ADF を使う（ADR-0132）
         let mut a = reflector();
         a.adf = vec![
             vec![1.3, 0.8],
@@ -2503,15 +2503,12 @@ mod tests {
             let along = |p: Problem| if turn { to_y(&p) } else { p };
             // a の右（+x）と b の左（−x）の面
             let marked = along(x(vec![1, 2], &a, &b));
-            let expected = along(x(vec![], &unit(&a, 1), &unit(&b, 0)));
-            let (close, k, k_expected) = same(&marked, &expected);
-            assert!(close, "turn {turn}: {k} vs {k_expected}");
             let plain = along(x(vec![], &a, &b));
-            assert!(!same(&marked, &plain).0, "turn {turn}");
-            // 片側だけが反射体の位置なら、少数群定数の ADF のまま
-            let one = along(x(vec![1], &a, &b));
-            let (close, k, k_plain) = same(&one, &plain);
+            let (close, k, k_plain) = same(&marked, &plain);
             assert!(close, "turn {turn}: {k} vs {k_plain}");
+            // ADF は効いている（1 にすれば解が変わる）
+            let unit = along(x(vec![1, 2], &unit(&a, 1), &unit(&b, 0)));
+            assert!(!same(&marked, &unit).0, "turn {turn}");
         }
         // 範囲の外の番号はエラー
         let err = solve(&x(vec![3], &a, &b), &Options::default());
