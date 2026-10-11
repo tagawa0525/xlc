@@ -91,6 +91,10 @@ pub struct Resolved {
     pub potential: f64,
 }
 
+fn nil_or_resolved<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Resolved>, D::Error> {
+    Option::deserialize(d)
+}
+
 /// 1核種の、温度ごとの群定数。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -98,6 +102,9 @@ pub struct NuclideData {
     pub name: String,
     pub za: f64,
     pub awr: f64,
+    /// 分離共鳴を持たない核種は nil を書く。nil でも項目は省けない（`deserialize_with` を付けると、serde は
+    /// 省いた `Option` を `None` にしない）
+    #[serde(deserialize_with = "nil_or_resolved")]
     pub resolved: Option<Resolved>,
     /// 熱中性子散乱を S(α, β) で作った。S(α, β) は評価済みデータの温度にしかないので、その間の温度は
     /// 群定数を温度について線形に内挿する（それ以外の核種は、使う温度そのもので処理しておく）
@@ -1211,6 +1218,34 @@ pub(crate) mod tests {
         assert!(read_modified(|f| f.nuclides[1].awr = f64::NAN).is_err());
         assert!(read_modified(|f| f.group_bounds[0] = f64::INFINITY).is_err());
         assert!(read_modified(|f| f.sigma0[0] = f64::INFINITY).is_err());
+    }
+
+    #[test]
+    fn nuclide_without_the_resolved_field_is_rejected() {
+        // 項目を省いた核種を、「分離共鳴なし」として読まない（ADR-0013）。nil は書ける
+        let bytes = rmp_serde::to_vec_named(&sample_file()).unwrap();
+        let mut value = rmpv::decode::read_value(&mut bytes.as_slice()).unwrap();
+        assert!(Library::from_msgpack(&bytes).is_ok());
+        let rmpv::Value::Map(file) = &mut value else {
+            panic!("a library is a map");
+        };
+        let (_, nuclides) = file
+            .iter_mut()
+            .find(|(k, _)| k.as_str() == Some("nuclides"))
+            .unwrap();
+        let rmpv::Value::Array(nuclides) = nuclides else {
+            panic!("nuclides is an array");
+        };
+        let rmpv::Value::Map(nuclide) = &mut nuclides[0] else {
+            panic!("a nuclide is a map");
+        };
+        nuclide.retain(|(k, _)| k.as_str() != Some("resolved"));
+        let mut bytes = Vec::new();
+        rmpv::encode::write_value(&mut bytes, &value).unwrap();
+        assert!(matches!(
+            Library::from_msgpack(&bytes),
+            Err(LibraryError::Decode(_))
+        ));
     }
 
     #[test]
