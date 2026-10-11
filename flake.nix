@@ -32,6 +32,13 @@
           uncertainties
         ];
       python = pkgs.python3.withPackages pythonPackages;
+      # 計算の段階の駆動（ADR-0123）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
+      # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。dvc の実行ファイルは自分の依存を
+      # ラッパーで見つけるので、実行ファイルだけを入れる
+      dvc = pkgs.runCommand "dvc-${pkgs.dvc.version}" { } ''
+        mkdir -p $out/bin
+        ln -s ${pkgs.dvc}/bin/dvc $out/bin/dvc
+      '';
 
       # 検証用の資産（ADR-0124）。外から取るものは URL と sha256 で固定する
 
@@ -187,14 +194,12 @@
       devShells.${system} = {
         # 開発と検証: Rust のツールと、検証用の Python
         default = pkgs.mkShell {
-          packages = with pkgs; [
+          packages = [
             rust
             python
-            # 計算の段階の駆動（ADR-0123）。references の devShell に入れると、dvc の Python の依存が
-            # PYTHONPATH に入り、OpenMC の Python API の依存と版がぶつかりうるので、python に入れない
             dvc
-            ruff
-            poppler-utils
+            pkgs.ruff
+            pkgs.poppler-utils
           ];
         };
         # 参照の計算: NJOY、OpenMC と、OpenMC の Python API の入った Python（docs/environment.md）
@@ -204,8 +209,9 @@
             openmc
             referencesPython
           ];
-          # 外の shell（direnv で入った default の devShell など）の PYTHONPATH を引き継ぐと、dvc の依存が
-          # referencesPython より先に読まれる。referencesPython は PYTHONPATH なしで自分のパッケージを見つける
+          # 外の shell（direnv で入った default の devShell など）の PYTHONPATH を引き継ぐと、その shell の Python の
+          # パッケージが referencesPython のものより先に読まれる。referencesPython は PYTHONPATH なしで自分の
+          # パッケージを見つける
           shellHook = ''
             unset PYTHONPATH
           '';
