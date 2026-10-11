@@ -524,9 +524,6 @@ def build(problem: str, cross_sections: Path) -> Built:
         instrument_insert = tube(
             layers, INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water
         )
-    # OpenMC は相対パスを Python の作業ディレクトリから絶対パスに直して model.xml に書く（openmc.config の
-    # resolve_paths）。作業ディレクトリは outs だが、statepoint が日時と計算時間を含みバイト単位では再現しないので、
-    # worktree のパスを除いても outs の md5 はそろわない
     materials.cross_sections = str(cross_sections)
 
     # 支持格子は被覆管と同じ組成（仕様書の表 P2-4 の Cladding and Grid）
@@ -577,6 +574,12 @@ def read_run(source: Path) -> dict[str, Any]:
         raise SystemExit(
             f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
         )
+    if problem in ZONED and "effective-xs-groups" in run:
+        # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
+        raise SystemExit(f"{problem} has two fuels; pin cross sections are not written")
+    # 絶対パスにする。OpenMC も相対パスを Python の作業ディレクトリから絶対パスに直す（openmc.config の resolve_paths）
+    # ので、outs の model.xml には worktree の絶対パスが入る。statepoint が日時と計算時間を含み outs はバイト単位では
+    # 再現しないので、それを避ける書き方はしない
     run["cross-sections"] = input_path(source, run["cross-sections"])
     if "effective-xs-groups" in run:
         run["effective-xs-groups"] = input_path(source, run["effective-xs-groups"])
@@ -588,9 +591,6 @@ def solve(source: Path, work: Path) -> None:
     problem = run["problem"]
     library = run.get("effective-xs-groups")
     work.mkdir(parents=True, exist_ok=True)
-    if problem in ZONED and library is not None:
-        # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
-        raise SystemExit(f"{problem} has two fuels; pin cross sections are not written")
     fuel, materials, geometry, half = build(problem, run["cross-sections"])
 
     settings = eigenvalue_settings(
