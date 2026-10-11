@@ -2409,6 +2409,62 @@ mod tests {
     }
 
     #[test]
+    fn normalized_adfs_toward_assembly_layers_take_unit_adfs() {
+        // 反射体の位置の f* の辺が、x と y の面で集合体の位置の核分裂のない層（端栓、プレナム）に向くときは、両側の
+        // ADF を 1 にする（ADR-0132。I 型の定数は燃料と組で作ったもので、核分裂のない層と組で作った定数はない）。
+        // 下の行は燃料と反射体、上の行は核分裂のない集合体の層と反射体
+        let mut star = reflector();
+        star.normalized_adf[0] = true;
+        star.adf[0] = vec![1.3, 0.6];
+        let mut layer = reflector();
+        layer.adf[1] = vec![0.8, 1.4];
+        let problem = |star: FewGroup, layer: FewGroup, reflectors: Vec<usize>| {
+            let mut boundaries = [Boundary::Reflective; 6];
+            boundaries[1] = Boundary::Marshak;
+            plane(
+                vec![20.0, 21.5],
+                vec![20.0, 20.0],
+                vec![material(), star, layer],
+                vec![Some(0), Some(1), Some(2), Some(1)],
+                boundaries,
+                None,
+            )
+            .with_reflectors(reflectors)
+        };
+        let p = problem(star.clone(), layer.clone(), vec![1]);
+        // 上の行の面だけ両側を 1 にした定数（下の行の反射体は f* のまま）
+        let mut unit_layer = layer.clone();
+        unit_layer.adf[1] = vec![1.0, 1.0];
+        let mut unit_star = star.clone();
+        unit_star.normalized_adf[0] = false;
+        unit_star.adf[0] = vec![1.0, 1.0];
+        let mut q = problem(star.clone(), unit_layer, vec![1]);
+        q.materials.push(unit_star);
+        q.node_material[3] = Some(3);
+        let (s, t) = (
+            solve(&p, &Options::default()).unwrap(),
+            solve(&q, &Options::default()).unwrap(),
+        );
+        assert!((s.k - t.k).abs() < 1e-12 * t.k, "{} vs {}", s.k, t.k);
+        for (a, b) in s.flux.iter().flatten().zip(t.flux.iter().flatten()) {
+            assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
+        }
+        // 核分裂のない層が反射体の位置なら、回転を取り違えた定数としてエラー
+        let err = solve(
+            &problem(star.clone(), layer.clone(), vec![1, 2]),
+            &Options::default(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("rotation"), "{err}");
+        // f* の側が反射体の位置でなければ（燃料の位置に置いた反射体の定数）、今のとおりエラー
+        let err = solve(&problem(star, layer, vec![]), &Options::default())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("fission"), "{err}");
+    }
+
+    #[test]
     fn heights_must_match_the_node() {
         // z の厚さを持つ（軸方向の）定数は、z の幅が丸めの範囲で同じノードにだけ置ける（ADR-0128）
         let mut p = cuboid([30.0, 30.0, 30.0], [1, 1, 3], [Boundary::Reflective; 6]);
@@ -2813,5 +2869,12 @@ mod tests {
             Some(Boundary::Vacuum),
         );
         assert!(solve(&p, &Options::default()).is_err());
+    }
+
+    impl Problem {
+        fn with_reflectors(mut self, reflectors: Vec<usize>) -> Self {
+            self.reflectors = reflectors;
+            self
+        }
     }
 }
