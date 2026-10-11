@@ -69,7 +69,8 @@ pub struct Node {
     /// セルの行（上から、0 始まり）の範囲
     pub rows: Range<usize>,
     /// 反射体のノード: 反射体でないノード（燃料）と接する辺の ADF を、その燃料のノードの同じ面の ADF で割った
-    /// f* = f_反射体 / f_燃料 で持つ
+    /// f* = f_反射体 / f_燃料 で持ち、燃料のノードに接する角の点の CDF を燃料の CDF で割って持つ（ADR-0131）。
+    /// 燃料と辺で接しなくてよい
     pub reflector: bool,
 }
 
@@ -149,8 +150,8 @@ pub fn homogenize(
 ///   ノードがあり、辺の長さがそろうこと
 /// - 外周の真空の辺には J/φ_het を持たせる（ADR-0101）
 /// - 反射体のノード（`Node::reflector`）の、反射体でないノードと接する辺の ADF は、その隣のノードの同じ面の
-///   ADF で割った f* とし、`normalized_adf` に印を付ける。反射体のノードは、反射体でないノードと少なくとも
-///   1辺で接すること
+///   ADF で割った f* とし、`normalized_adf` に印を付ける。反射体どうしの辺と、燃料に角の点だけで接する反射体の
+///   ノード（角型の格子の右上。ADR-0095）の辺は f* でない GET の ADF を持つ
 /// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0131）も付ける
 #[allow(clippy::too_many_arguments)]
 pub fn homogenize_nodes(
@@ -248,11 +249,6 @@ pub fn homogenize_nodes(
     for (n, node) in nodes.iter().enumerate() {
         if !node.reflector {
             continue;
-        }
-        if !neighbors[n].iter().flatten().any(|&m| !nodes[m].reflector) {
-            return Err(HomogenizeError::Nodes(format!(
-                "reflector node {n} touches no fuel (non-reflector) node"
-            )));
         }
         // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0131）。核分裂のある反射体のノードは自分の CDF で
         // 割ることになり、core で掛け戻す値と食い違う
