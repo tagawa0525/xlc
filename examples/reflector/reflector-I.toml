@@ -2,17 +2,18 @@
 # セル）の右に、集合体のピッチ 21.50 cm の幅の反射体（燃料との隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm。
 # 仕様書の 1.13 節の表 16）を置く。左、上、下は鏡面反射、右は真空。VERA REF1-2D の東側の1列に当たる。
 # ノードは集合体（列 1〜19、余白の 0.04 cm を含む）と反射体（列 20〜49）。自己遮蔽はしない（無限希釈。真空の辺の
-# Dancoff 係数は #0008 で未決）。
+# Dancoff 係数は #0008 で未決）。ノードごとの形状関数と角の不連続因子を付け（ADR-0125）、MOC のピン出力を書く。
 library = "reflector.msgpack"
 self-shielding = false
 pitch = 1.26
 azimuthal = 32
 spacing = 0.05
 boundary = { right = "vacuum" }
+pin-powers = "moc-pins-I.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
   { output = "fg-I-fuel.msgpack", columns = [1, 19], rows = [1, 19] },
   { output = "fg-I-reflector.msgpack", columns = [20, 49], rows = [1, 19], reflector = true },
-] }
+], pins = true }
 # 列: 余白 0.04、ピン 17、余白 0.04 | 隙間の水 0.19、バッフル 2.85（3 列）、水 18.46（26 列）
 widths = [
   { size = 0.04 }, { size = 1.26, count = 17 }, { size = 0.04 },
