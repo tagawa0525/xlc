@@ -32,6 +32,7 @@
           setuptools
           setuptools-scm
           pip
+          dvc
         ]
       );
     in
