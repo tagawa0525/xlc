@@ -26,6 +26,6 @@ Python は検証用のツール（OpenMC の入力の作成、比較のスクリ
 
 約束事で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 OpenMC は検証にだけ使う外部ツールとする（[ADR-0031](0031-verify-against-openmc-with-same-data.md)）。

@@ -105,7 +105,7 @@ MOC は非等方散乱を解き、散乱の次数が 1 以上なら、解く途�
 - 単一集合体の定数を使う体系で、D の作り方（1/(3Σt)、outflow、B1）ごとに、core の NEM と同じ多群定数の xlc の
   MOC を比べること（4-2D、REF1-2D）は、まだしていない（「結果」）
 
-## 結果
+## 帰結
 
 - 非反射の格子の均質化（反射体とカラーセット、[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-adf.md)）はまだないので、outflow の D は
   `diffusion_coefficients` にあるが、少数群定数の出力（`homogenize`、反射境界だけ）からはまだ使われない

@@ -32,7 +32,7 @@ requires: []
 
 入力の読み込みのテスト（`parses_lattice`、`parses_pin_cell`、`rejects_bad_input` など）。
 
-## 結果
+## 帰結
 
 - 既存の自前のテキスト形式の入力は M2 の中で移行した。xs の入力ファイル（[ADR-0053](0053-read-xs-input-from-file.md)）もこの形式で書く
 - 読み込みの厳密さは [ADR-0013](0013-read-files-strictly.md)

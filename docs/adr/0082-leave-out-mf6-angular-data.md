@@ -45,7 +45,7 @@ MF6 の角度のデータは入れない。
 上の調査（2026-10-08）。影響の大きさは測っていない。2体反応の扱いは `two_body_mf6_level_uses_q_value`、
 `two_body_neutron_law_is_marked`、`isotropic_two_body_neutron_law_is_marked`、`lab_frame_two_body_angles_are_error`。
 
-## 結果
+## 帰結
 
 MF6 の連続的な放出の P1 以上は 0 である（`crates/xs/src/multigroup/scatter.rs` のコメント。LAW=2 の角度のデータを
 読み飛ばすことは `crates/xs/src/endf/mf6.rs`）。

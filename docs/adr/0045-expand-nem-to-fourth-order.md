@@ -26,6 +26,6 @@ requires: []
 均質な直方体炉心の解析解（2群拡散方程式、B² = Σ(π/L)²）との一致（`bare_cuboid_matches_analytic_buckling`、
 `assembly_sized_nodes_converge`）。
 
-## 結果
+## 帰結
 
 CMFD 加速は M3 で入れる（[ADR-0028](0028-accelerate-core-with-nonlinear-cmfd.md)）。

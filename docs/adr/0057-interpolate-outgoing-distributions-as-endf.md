@@ -31,7 +31,7 @@ ENDF のとおりに扱う方針だが、実装していない。
 `incident_interpolation_follows_its_law`、`incident_interpolation_schemes`、`unit_base_keeps_the_shape_between_incident_energies`、
 `corresponding_points_with_equal_grids_are_not_supported`（点の数が等しい対応点はエラーになることを確かめる）。
 
-## 結果
+## 帰結
 
 - INT=2 の分布では、NJOY と補間の仕方が違う
 - 範囲の中のどの区間でも隣り合う分布の点の数が等しい対応点（INT=11 のヒストグラムを除く INT=12〜15）は、ENDF の

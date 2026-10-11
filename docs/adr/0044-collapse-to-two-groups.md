@@ -26,6 +26,6 @@ requires: []
 `two_group_constants_reproduce_k_inf`、`one_group_collapse_preserves_k` は、縮約が k∞ を保つことを確かめる。
 D = 1/(3Σt) の選び方そのものを確かめる比較はない。
 
-## 結果
+## 帰結
 
 なし。

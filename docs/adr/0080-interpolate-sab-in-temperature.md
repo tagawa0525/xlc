@@ -49,7 +49,7 @@ S(α,β) を内挿で作ったものに当たるため。
 `thermal_scattering_is_interpolated_in_temperature`、`other_nuclides_are_not_interpolated`、`temperature_must_be_in_the_library`、
 `temperatures_are_looked_up_exactly`。
 
-## 結果
+## 帰結
 
 - 温度方向に内挿するのは S(α,β) を持つ核種だけで、その核種の表は全体が内挿した値になる。565 K の H-1 の全断面積と、
   減速計算（[ADR-0068](0068-solve-pinwise-slowing-down.md)）が使うポイントワイズの断面積も、565 K で処理した値ではなく 550 K と 573.6 K の内挿である

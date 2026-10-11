@@ -32,6 +32,6 @@ M2 は VERA Problem 1〜2 で検証する。M1 では被覆管を Zr だけで�
 
 OpenMC の参照解の入力（examples/vera/openmc_model.py、examples/vera/openmc_library.py）が同じ組成を使う。
 
-## 結果
+## 帰結
 
 追加する核種で新しく必要になる ENDF の形式は [ADR-0055](0055-reconstruct-r-matrix-limited-subset.md)〜[ADR-0058](0058-read-lrf1-as-lrf2-with-l3.md)。M3 の新しい物質は M3 の計画の範囲で扱う。

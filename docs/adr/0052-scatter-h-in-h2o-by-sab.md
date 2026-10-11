@@ -27,7 +27,7 @@ H in H2O は ENDF の S(α,β)（MF7 の非干渉性非弾性散乱）から散�
 `reads_incoherent_inelastic_scattering`、`sab_matrix_satisfies_detailed_balance`、`sab_ignores_mf3_elastic_below_cutoff`。
 NJOY THERMR との比較（`crates/xs/examples/compare_njoy_thermr.rs`、examples/m1/verification.md）。
 
-## 結果
+## 帰結
 
 - S(α,β) の温度は 283.6〜800 K しかない。温度の選び方と 565 K の扱いは [ADR-0080](0080-interpolate-sab-in-temperature.md)
 - 4 eV 未満では静止した自由原子の散乱核が成り立たないので、減速計算の下限を 4 eV にする（[ADR-0073](0073-store-pointwise-data-in-library.md)、#0001）

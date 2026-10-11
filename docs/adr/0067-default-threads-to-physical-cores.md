@@ -32,6 +32,6 @@ docs/plans/m2-assembly.md、226bdb6 と a60c037、2026-10-08）。
 数値は計画に記録した測定で（docs/plans/m2-assembly.md、226bdb6 と a60c037、2026-10-08）、examples/*/verification.md には
 ない。確かめるテストはない。
 
-## 結果
+## 帰結
 
 なし。

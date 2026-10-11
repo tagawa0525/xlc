@@ -40,7 +40,7 @@ M2（2026-10-06）では、外周の境界条件を鏡面反射と真空（C5G7 
 `albedo_sides_lie_between_vacuum_and_reflection`、`albedo_must_be_a_fraction`、`adf_needs_reflective_sides`。C5G7 との比較
 （examples/c5g7/verification.md）。
 
-## 結果
+## 帰結
 
 - Dancoff 係数の計算での真空やアルベドの境界の扱いは決めていない（#0008）
 - トラッキングは [ADR-0060](0060-track-whole-assembly-cyclically.md)

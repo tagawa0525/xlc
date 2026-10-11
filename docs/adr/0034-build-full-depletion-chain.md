@@ -28,6 +28,6 @@ CRAM は数千核種を解けるよう疎行列で実装する。
 
 まだ実装していない（M4）。
 
-## 結果
+## 帰結
 
 ENDF を読むのは xs だけとする（[ADR-0002](0002-keep-stage-crates-independent.md)）。

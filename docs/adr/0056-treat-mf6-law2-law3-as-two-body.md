@@ -28,7 +28,7 @@ MF3 だけの離散準位と同じく、Q 値による2体の運動学（重心�
 `two_body_mf6_level_uses_q_value`、`two_body_neutron_law_is_marked`、`isotropic_two_body_neutron_law_is_marked`、
 `lab_frame_two_body_angles_are_error`。
 
-## 結果
+## 帰結
 
 M3 で、MF6 の角度のデータを使わないことを P3 の散乱行列のもとで決め直した（[ADR-0082](0082-leave-out-mf6-angular-data.md)）。扱いは同じで、[ADR-0082](0082-leave-out-mf6-angular-data.md) が
 理由を改めて示し、この ADR を置き換える。間の M2 の計画で LAW=2 の角度分布を使うことに一時したが、実装していない

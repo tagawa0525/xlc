@@ -26,6 +26,6 @@ requires: []
 
 `chi_is_normalized`、`fissile_nuclide_needs_normalized_chi`。NJOY GROUPR との比較（examples/m1/verification.md）。
 
-## 結果
+## 帰結
 
 遅発中性子の ν とスペクトルは M4 で加える（[ADR-0033](0033-store-kinetics-and-cooling-data-in-m4-tables.md)）。

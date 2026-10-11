@@ -56,7 +56,7 @@ NEM で ADF を作る）と [ADR-0095](0095-make-reflector-constants-in-2d-with-
   （`vacuum_corner_converges_with_refinement`。4 × 4 で 9.6e-5、8 × 8 で 1.1e-5）、真空の面のノード平均が正でなければ
   エラー（`no_flux_next_to_a_vacuum_face_is_error`）、入力の `parses_vacuum_boundary`
 
-## 結果
+## 帰結
 
 - ADR-0094 と ADR-0095 が求める、入射の部分中性子流が 0 の core の境界と、その境界での横方向の漏れの扱いはこの ADR の
   とおり。ADR-0094 の1ノードの NEM は、格子計算の参照の正味の中性子流から均質な解を作り、真空の辺の ADF を不均質な面の

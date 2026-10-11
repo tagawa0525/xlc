@@ -38,7 +38,7 @@ requires: []
 
 `range_follows_the_resolved_top_of_the_fuel`、`no_range_without_resolved_fuel`。
 
-## 結果
+## 帰結
 
 - 範囲の外は [ADR-0074](0074-shield-outside-range-by-equivalence.md)
 - 下限の 4 eV より下の共鳴の遮蔽は #0001

@@ -157,7 +157,7 @@ trials/pin-reference-assets/compare_tools.sh、Slurm の上で 16 スレッド�
 - `default` の devShell の `PYTHONPATH` は空で、`sys.path` に dvc の依存が入らず、`dvc --version` は 3.67.1 を示す。
   `references` の devShell は、`default` の devShell の中から入っても、`sys.path` が自分の Python の環境だけになる
 
-## 結果
+## 帰結
 
 - main の `references/` には、手でビルドしたツール（`NJOY2016/`、`openmc/src`、`openmc/build`、`openmc/install`、
   `openmc/venv`）と、手で取った `endf/`（zip と展開した木）が残っている。`references/endf` を out-link に置き換えるのは、

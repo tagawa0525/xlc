@@ -64,7 +64,7 @@ deps がなくて止まる（ADR-0123 の「結果」）。これまでは docs/
 - このブランチから使い捨ての worktree を作ると `SHARED: references` が出て、symlink が main の `references/` を指し、
   git は無視した（2026-10-11、レビューで確認）
 
-## 結果
+## 帰結
 
 - `.worktreelink`、CLAUDE.md の「計算」の節、docs/environment.md の手順
 - ADR-0123 の「結果」に書いた「まだない」仕組みは、この ADR で満たす

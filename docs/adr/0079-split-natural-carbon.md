@@ -25,6 +25,6 @@ VERA の天然の C の個数密度は、天然の存在比で C-12 と C-13 に
 
 約束事で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 OpenMC の参照解も同じ分け方にする（[ADR-0031](0031-verify-against-openmc-with-same-data.md)）。
