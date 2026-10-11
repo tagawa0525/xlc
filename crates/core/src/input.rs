@@ -868,7 +868,8 @@ impl Layout {
         let (cols, rows) = (nx / self.split, ny / self.split);
         let mut rates = vec![vec![0.0; cols]; rows];
         for (n, (flux, material)) in solution.flux.iter().zip(&problem.node_material).enumerate() {
-            let Some(m) = material.and_then(|m| problem.materials.get(m)) else {
+            // ノードのない位置は核分裂しない。物質の番号は NEM の解で確かめてある
+            let Some(m) = material.map(|m| &problem.materials[m]) else {
                 continue;
             };
             let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
