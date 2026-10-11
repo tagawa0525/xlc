@@ -1,0 +1,14 @@
+# 角型の格子の形に、I 型の格子の反射体の定数を置く炉心の形（ADR-0132）: 集合体 1 体の +x と +y に I 型の反射体
+# （+y は 90° 回して f* の辺を燃料に向ける）、斜め（+x +y）に角型の右上の反射体。I 型の反射体と角型の右上の反射体の
+# 面は、別の格子の定数どうしの面になる。ピッチと高さは 21.5 cm。
+pitch = 21.5
+height = 21.5
+map = ["I@90  C", "*     I"]
+
+[reflector.I]
+bounds = [0.0, 21.5]
+layers = ["fg-I-reflector.msgpack"]
+
+[reflector.C]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-corner.msgpack"]

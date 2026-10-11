@@ -3,6 +3,11 @@ use crate::nem::{Boundary, Mesh, Options, Problem, solve};
 use std::f64::consts::PI;
 use xlc_format::fewgroup::{FewGroup, Pins};
 
+/// どの位置にもノードを置く物質の並び
+fn placed(materials: impl IntoIterator<Item = usize>) -> Vec<Option<usize>> {
+    materials.into_iter().map(Some).collect()
+}
+
 /// 2群の燃料（χ = (1, 0)、上方散乱なし）。形状関数はセル `cells` × `cells` で 1、角の不連続因子は 1
 fn fuel(width: f64, cells: usize) -> FewGroup {
     let (d1, d2) = (1.4, 0.4);
@@ -48,8 +53,9 @@ fn square(width: f64, nodes: usize, cells: usize, boundary: Boundary) -> Problem
         },
         materials: vec![fuel(h, cells)],
         reflectors: Vec::new(),
-        node_material: vec![0; nodes * nodes],
+        node_material: placed(vec![0; nodes * nodes]),
         boundaries,
+        outline: None,
     }
 }
 
@@ -123,7 +129,7 @@ fn nodes_without_form_functions_are_errors() {
     let mut plain = p.materials[0].clone();
     plain.pins = None;
     p.materials.push(plain);
-    p.node_material[3] = 1;
+    p.node_material[3] = Some(1);
     let s = solve(&p, &Options::default()).unwrap();
     let err = reconstruct(&p, &s).unwrap_err().to_string();
     assert!(err.contains("form functions"), "{err}");
@@ -152,8 +158,9 @@ fn core_rows_join_nodes_from_the_top() {
         },
         materials: vec![fuel(2.0, 2)],
         reflectors: Vec::new(),
-        node_material: vec![0; 4],
+        node_material: placed(vec![0; 4]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     };
     let left = vec![vec![1.0, 0.0], vec![2.0, 0.0]];
     let right = vec![vec![3.0, 0.0], vec![0.0, 0.0]];
@@ -182,7 +189,7 @@ fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
     // 和が 0。CDF（1.3）が ADF（1.2）と違っても、真空の辺の流れは面の条件と同じく ADF で決まる（ADR-0131）
     let mut p = square(86.0, 4, 2, Boundary::Marshak);
     p.mesh.dy = vec![86.0 / 4.0];
-    p.node_material = vec![0; 4];
+    p.node_material = placed(vec![0; 4]);
     p.boundaries[2] = Boundary::Reflective;
     p.boundaries[3] = Boundary::Reflective;
     p.materials[0].adf = vec![vec![1.2, 1.2]; 6];
@@ -197,9 +204,9 @@ fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
     let corners = corner_fluxes(&p, 0, &constants, &models, &conditions, &cdfs).unwrap();
     // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
     let m = &p.materials[0];
-    let mut c = conditions[0].clone();
-    c.corners = corner_values(&corners, 4, 0, 0, &cdfs[0]);
-    let node = models[0].solve(&c);
+    let mut c = conditions[0].clone().unwrap();
+    c.corners = corner_values(&corners, 4, 0, 0, cdfs[0].as_ref().unwrap());
+    let node = models[0].as_ref().unwrap().solve(&c);
     let [a, b] = c.half;
     let grad = node.gradient(-a, -b);
     for g in 0..2 {
@@ -218,7 +225,7 @@ fn vacuum_corners_take_the_ratio_and_adf_of_their_side() {
     // （ADR-0131）。ほかの辺の r と ADF は効かない
     let mut p = square(86.0, 4, 2, Boundary::Vacuum);
     p.mesh.dx = vec![86.0 / 4.0];
-    p.node_material = vec![0; 4];
+    p.node_material = placed(vec![0; 4]);
     p.boundaries[0] = Boundary::Reflective;
     p.boundaries[1] = Boundary::Reflective;
     // 辺（左、右、上、下、−z、+z）
@@ -249,9 +256,9 @@ fn vacuum_corners_take_the_ratio_and_adf_of_their_side() {
     let corners = corner_fluxes(&p, 0, &constants, &models, &conditions, &cdfs).unwrap();
     // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
     let m = &p.materials[0];
-    let mut c = conditions[0].clone();
-    c.corners = corner_values(&corners, 1, 0, 0, &cdfs[0]);
-    let node = models[0].solve(&c);
+    let mut c = conditions[0].clone().unwrap();
+    c.corners = corner_values(&corners, 1, 0, 0, cdfs[0].as_ref().unwrap());
+    let node = models[0].as_ref().unwrap().solve(&c);
     let [a, b] = c.half;
     let grad = node.gradient(-a, -b);
     for g in 0..2 {
@@ -275,7 +282,7 @@ fn layers_without_fission_are_skipped() {
     water.chi = vec![0.0; 2];
     water.pins = None;
     p.materials.push(water);
-    p.node_material = vec![1, 1, 1, 1, 0, 0, 0, 0];
+    p.node_material = placed(vec![1, 1, 1, 1, 0, 0, 0, 0]);
     let s = solve(&p, &Options::default()).unwrap();
     let maps = reconstruct(&p, &s).unwrap();
     assert!(maps[..4].iter().all(Vec::is_empty));
@@ -306,8 +313,9 @@ fn core_rows_merge_halves_of_split_cells() {
         },
         materials: vec![left, right],
         reflectors: Vec::new(),
-        node_material: vec![0, 1],
+        node_material: placed(vec![0, 1]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     };
     let maps = vec![
         vec![vec![1.0, 2.0], vec![1.0, 2.0]],
@@ -326,6 +334,26 @@ fn core_rows_merge_halves_of_split_cells() {
         r.halves = vec![false; 4];
     }
     assert!(core_rows(&one_sided, &maps).is_err());
+    // ノードのない位置（ADR-0132）に面する辺に印があっても、分け合う相手がないのでエラー
+    let mut beside_empty = p.clone();
+    beside_empty.mesh.dy = vec![2.0, 2.0];
+    beside_empty.node_material = vec![Some(0), Some(1), Some(0), None];
+    beside_empty.outline = Some(Boundary::Reflective);
+    let mut maps_empty = maps.clone();
+    maps_empty.push(maps[0].clone());
+    maps_empty.push(Vec::new());
+    let err = core_rows(&beside_empty, &maps_empty).unwrap_err();
+    assert!(err.contains("split"), "{err}");
+    // 印のない辺でも、同じ列の境でほかの行が分け合っていれば、ノードのない位置の 0 と平均することになるのでエラー
+    let mut unmarked = beside_empty.clone();
+    let mut plain = unmarked.materials[0].clone();
+    if let Some(q) = plain.pins.as_mut() {
+        q.halves = vec![false; 4];
+    }
+    unmarked.materials.push(plain);
+    unmarked.node_material[2] = Some(2);
+    let err = core_rows(&unmarked, &maps_empty).unwrap_err();
+    assert!(err.contains("split"), "{err}");
 }
 
 #[test]
@@ -351,8 +379,9 @@ fn cell_sizes_match_to_rounding_between_nodes() {
             with_dx(vec![1.93, 0.629999999999999]),
         ],
         reflectors: Vec::new(),
-        node_material: vec![0, 1],
+        node_material: placed(vec![0, 1]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     };
     let maps = vec![vec![vec![1.0, 2.0]; 2]; 2];
     assert!(core_rows(&p, &maps).is_ok());
@@ -407,8 +436,9 @@ fn fuel_and_reflector(fuel_corners: Vec<Vec<f64>>, reflector: FewGroup) -> Probl
         },
         materials: vec![f, reflector],
         reflectors: Vec::new(),
-        node_material: vec![0, 1],
+        node_material: placed(vec![0, 1]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     }
 }
 
@@ -473,7 +503,7 @@ fn normalized_corners_need_fuel_at_the_corner_point() {
     let mut p = fuel_and_reflector(vec![vec![1.0, 1.0]; 4], a);
     p.materials.push(b);
     p.mesh.dx = vec![21.5; 3];
-    p.node_material = vec![0, 1, 2];
+    p.node_material = placed(vec![0, 1, 2]);
     let s = solve(&p, &Options::default()).unwrap();
     let err = reconstruct(&p, &s).unwrap_err();
     assert!(err.contains("fuel"), "{err}");
@@ -647,4 +677,97 @@ fn reflector_sites_turned_with_the_core_keep_k_and_pins() {
         }
         sites = turned(&sites);
     }
+}
+
+#[test]
+fn outline_faces_reconstruct_like_cuboid_faces() {
+    // 外形（ノードのない位置）に面する真空の辺の流れは、直方体の外周の真空の辺と同じ r f φ_c（ADR-0131、ADR-0132）。
+    // 燃料と反射体の 1 × 2 で、反射体の +x を外周にした問題と、+x にノードのない位置を足した問題は同じ出力になる
+    let mut r = reflector(21.5, 4, vec![vec![1.1, 0.9]; 4], vec![false; 4]);
+    r.adf[1] = vec![1.3, 0.7];
+    r.vacuum_ratio[1] = Some(vec![0.5, 0.35]);
+    let mut cuboid = fuel_and_reflector(vec![vec![1.0, 1.0]; 4], r);
+    cuboid.boundaries[1] = Boundary::Vacuum;
+    let mut stepped = cuboid.clone();
+    stepped.mesh.dx.push(21.5);
+    stepped.node_material.push(None);
+    stepped.boundaries[1] = Boundary::ZeroFlux;
+    stepped.outline = Some(Boundary::Vacuum);
+    let a = solve(&cuboid, &Options::default()).unwrap();
+    let b = solve(&stepped, &Options::default()).unwrap();
+    let (pa, pb) = (
+        reconstruct(&cuboid, &a).unwrap(),
+        reconstruct(&stepped, &b).unwrap(),
+    );
+    assert!(pb[2].is_empty());
+    // ノードのある位置の表は同じ大きさ
+    for n in 0..2 {
+        assert_eq!(pa[n].len(), pb[n].len(), "node {n}");
+        assert!(
+            pa[n].iter().zip(&pb[n]).all(|(x, y)| x.len() == y.len()),
+            "node {n}"
+        );
+    }
+    assert_eq!(pa[0].len(), 4);
+    for (x, y) in pa[0].iter().flatten().zip(pb[0].iter().flatten()) {
+        assert!((x - y).abs() < 1e-9 * x, "{x} vs {y}");
+    }
+    let (ra, rb) = (
+        core_rows(&cuboid, &pa).unwrap(),
+        core_rows(&stepped, &pb).unwrap(),
+    );
+    assert_eq!(ra.len(), rb.len());
+    assert!(ra.iter().zip(&rb).all(|(x, y)| x.len() == y.len()));
+    for (x, y) in ra.iter().flatten().zip(rb.iter().flatten()) {
+        assert!((x - y).abs() < 1e-9 * x.abs().max(1.0), "{x} vs {y}");
+    }
+}
+
+#[test]
+fn concave_outline_corners_keep_the_symmetry() {
+    // 2 × 2 の燃料の位置のうち +x +y にノードを置かない L 字の炉心。外形の凹んだ角の点は 3 つのノードに囲まれ、
+    // 2 本の半分の辺が外形に面する。体系は x と y の入れ替えで対称なので、(1, 0) と (0, 1) のノードの出力は転置で
+    // 一致する。ノードのない位置の出力は空で、炉心全体の表では 0
+    let mut p = square(43.0, 2, 4, Boundary::Marshak);
+    p.boundaries[0] = Boundary::Reflective;
+    p.boundaries[2] = Boundary::Reflective;
+    p.node_material[3] = None;
+    p.outline = Some(Boundary::Marshak);
+    let s = solve(&p, &Options::default()).unwrap();
+    let pins = reconstruct(&p, &s).unwrap();
+    assert!(pins[3].is_empty());
+    for (j, row) in pins[1].iter().enumerate() {
+        for (i, &a) in row.iter().enumerate() {
+            let b = pins[2][i][j];
+            assert!((a - b).abs() < 1e-6 * a, "({i}, {j}): {a} vs {b}");
+        }
+    }
+    let rows = core_rows(&p, &pins).unwrap();
+    assert_eq!((rows.len(), rows[0].len()), (8, 8));
+    // 上の行が +y なので、ノードのない +x +y の位置は上の 4 行の右の 4 列
+    assert!(rows[..4].iter().all(|r| r[4..].iter().all(|&v| v == 0.0)));
+}
+
+#[test]
+fn positions_with_only_some_values_are_errors() {
+    // 層の位置ごとの量（定数、モデル、条件、CDF）は、ノードのある位置ではすべて、ない位置ではどれも持たない。
+    // 一部だけ持つのは配列の作り方の誤りなのでエラー
+    let p = square(43.0, 1, 4, Boundary::Reflective);
+    let s = solve(&p, &Options::default()).unwrap();
+    let rule = gauss_legendre(FACE_POINTS).unwrap();
+    let constants = layer_constants(&p, 0).unwrap();
+    let (models, conditions) = layer(&p, &s, 0, &constants, &rule).unwrap();
+    let cdfs = corner_factors(&p, 0, &constants).unwrap();
+    assert!(
+        parts(0, &constants, &models, &conditions, &cdfs)
+            .unwrap()
+            .is_some()
+    );
+    let none = vec![None];
+    assert!(
+        parts(0, &[None], &none, &[None], &[None])
+            .unwrap()
+            .is_none()
+    );
+    assert!(parts(0, &constants, &models, &conditions, &[None]).is_err());
 }

@@ -881,24 +881,26 @@ fn node_pins(
             }
         })
         .collect();
-    let corner_nodes: Vec<CornerNode> = grid
+    let corner_nodes: Vec<Option<CornerNode>> = grid
         .iter()
-        .map(|&n| CornerNode {
-            model: &models[n],
-            conditions: &conditions[n],
-            diffusion: [fews[n].diffusion[0], fews[n].diffusion[1]],
-            weights: estimates[n],
-            // 外周の真空の辺（面 -x、+x、-y、+y は辺 0、1、3、2）の流れ r f × 均質な角の値（f は f* で割る前の
-            // ADF。core と同じ。ADR-0131）。鏡面反射は 0
-            outflow: std::array::from_fn(|face| {
-                let side = FACES[face];
-                match neighbors[n][side] {
-                    None => fews[n].vacuum_ratio[side]
-                        .as_ref()
-                        .map(|r| std::array::from_fn(|g| r[g] * fews[n].adf[side][g])),
-                    Some(_) => None,
-                }
-            }),
+        .map(|&n| {
+            Some(CornerNode {
+                model: &models[n],
+                conditions: &conditions[n],
+                diffusion: [fews[n].diffusion[0], fews[n].diffusion[1]],
+                weights: estimates[n],
+                // 外周の真空の辺（面 -x、+x、-y、+y は辺 0、1、3、2）の流れ r f × 均質な角の値（f は f* で割る前の
+                // ADF。core と同じ。ADR-0131）。鏡面反射は 0
+                outflow: std::array::from_fn(|face| {
+                    let side = FACES[face];
+                    match neighbors[n][side] {
+                        None => fews[n].vacuum_ratio[side]
+                            .as_ref()
+                            .map(|r| std::array::from_fn(|g| r[g] * fews[n].adf[side][g])),
+                        Some(_) => None,
+                    }
+                }),
+            })
         })
         .collect();
     let scales = corner_balance(nx, ny, &corner_nodes, &vec![false; points]).map_err(error)?;
@@ -2903,18 +2905,20 @@ mod tests {
                 }
             })
             .collect();
-        let corner_nodes: Vec<CornerNode> = (0..nodes.len())
-            .map(|n| CornerNode {
-                model: &models[n],
-                conditions: &conditions[n],
-                diffusion: [fgs[n].diffusion[0], fgs[n].diffusion[1]],
-                weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdf(n, c, g))),
-                outflow: std::array::from_fn(|face| {
-                    let side = [0, 1, 3, 2][face];
-                    fgs[n].vacuum_ratio[side]
-                        .as_ref()
-                        .map(|r| std::array::from_fn(|g| r[g] * fgs[n].adf[side][g]))
-                }),
+        let corner_nodes: Vec<Option<CornerNode>> = (0..nodes.len())
+            .map(|n| {
+                Some(CornerNode {
+                    model: &models[n],
+                    conditions: &conditions[n],
+                    diffusion: [fgs[n].diffusion[0], fgs[n].diffusion[1]],
+                    weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdf(n, c, g))),
+                    outflow: std::array::from_fn(|face| {
+                        let side = [0, 1, 3, 2][face];
+                        fgs[n].vacuum_ratio[side]
+                            .as_ref()
+                            .map(|r| std::array::from_fn(|g| r[g] * fgs[n].adf[side][g]))
+                    }),
+                })
             })
             .collect();
         let zero = vec![false; (nx + 1) * (ny + 1)];
