@@ -101,7 +101,7 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2J）。仕様書の表 P2-1、P2-4
+# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2K）。仕様書の表 P2-1、P2-4
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
@@ -360,6 +360,9 @@ def geometry_of(
                 raise SystemExit(f"{problem} needs its second fuel")
             zoned = rod_of(zoned_fuel)
             kept = ZONED[problem][1]
+            tubes = {*GUIDE_TUBES, INSTRUMENT_TUBE} & kept
+            if tubes:
+                raise SystemExit(f"fuel kept at tube positions {sorted(tubes)}")
             for i in range(N):
                 for j in range(N):
                     if (i, j) not in kept:
