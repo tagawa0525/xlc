@@ -42,6 +42,9 @@ pub struct Mesh {
 pub struct Problem {
     pub mesh: Mesh,
     pub materials: Vec<FewGroup>,
+    /// 炉心の形の反射体の位置に置いた物質の番号。x と y の面で両側のノードの物質がこれに入れば、その面の ADF は
+    /// 両側とも 1（ADR-0095。反射体の定数は I 型、L 型、角型の別の格子から来て、GET の ADF が互いの比にならない）
+    pub reflectors: Vec<usize>,
     /// ノードごとの物質番号。並びは x が最も速く、次に y、z
     pub node_material: Vec<usize>,
     /// [-x, +x, -y, +y, -z, +z]
@@ -256,6 +259,16 @@ impl<'a> Core<'a> {
             ));
         }
         if let Some(&m) = problem
+            .reflectors
+            .iter()
+            .find(|&&m| m >= problem.materials.len())
+        {
+            return Err(format!(
+                "reflector material {m} is out of the {} materials",
+                problem.materials.len()
+            ));
+        }
+        if let Some(&m) = problem
             .node_material
             .iter()
             .find(|&&m| m >= problem.materials.len())
@@ -426,11 +439,23 @@ impl<'a> Core<'a> {
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
     /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1。
     /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
-    /// ないことは `check_normalized_adfs` で確かめてある）
+    /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの x と y の面は 1（`reflectors`）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
         let Some(side) = side_of(d, plus) else {
             return 1.0;
         };
+        let reflector = |n: usize| {
+            self.problem
+                .reflectors
+                .contains(&self.problem.node_material[n])
+        };
+        if reflector(n)
+            && self
+                .neighbor(n, d, if plus { 1 } else { -1 })
+                .is_some_and(reflector)
+        {
+            return 1.0;
+        }
         let material = self.material(n);
         let own = material.adf[side][g];
         if !material.normalized_adf[side] {
