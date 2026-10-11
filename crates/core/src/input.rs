@@ -796,6 +796,10 @@ fn turn_pins(pins: &Pins) -> Pins {
             .iter()
             .filter_map(|&c| pins.corners.get(c).cloned())
             .collect(),
+        normalized_corners: [3, 0, 1, 2]
+            .iter()
+            .filter_map(|&c| pins.normalized_corners.get(c).copied())
+            .collect(),
         // 辺（左、右、上、下）の量: 新しい辺は元の（上、下、右、左）
         halves: [2, 3, 1, 0]
             .iter()

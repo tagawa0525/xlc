@@ -535,6 +535,7 @@ pub fn pin_shapes(
         dy: lattice.heights().iter().rev().copied().collect(),
         form,
         corners,
+        normalized_corners: vec![false; 4],
         halves: vec![false; 4],
     })
 }
@@ -740,6 +741,7 @@ pub fn split_constants(
                         corner(x1, y1),
                         corner(x0, y1),
                     ],
+                    normalized_corners: vec![false; 4],
                     halves: vec![cut_left, cut_right, cut_top, cut_bottom],
                 });
             }
