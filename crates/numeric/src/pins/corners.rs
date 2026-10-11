@@ -2,7 +2,7 @@
 //!
 //! 角の点を囲む小さな箱の中性子の釣り合いを、角の点ごと・群ごとの式とする。箱の辺を通って出ていく流れ
 //! Σ_ノード (s_x J_x + s_y J_y)（s はノードが角の点の正の側にあれば +1、負の側なら −1。J はそのノードの展開の角の点
-//! での値）と、外周の境界の辺を通る流れ（比 × 角の点の不均質な中性子束）の和を 0 とする。ノードの角の均質な値は
+//! での値）と、外周の境界の辺を通る流れ（比 × ノードの均質な角の値）の和を 0 とする。ノードの角の均質な値は
 //! 角の点の未知数 × ノードの角の重みとし、ノードの展開は角の値について線形なので、未知数の連立一次方程式を組んで解く。
 
 use super::node::{Conditions, NodeFlux, NodeModel};
@@ -18,32 +18,27 @@ pub struct CornerNode<'a> {
     pub diffusion: [f64; 2],
     /// [角][群] の、ノードの均質な角の値 / 角の点の未知数
     pub weights: [[f64; 2]; 4],
-    /// [面][群] の、外周の辺を通って出ていく流れ / 角の点の不均質な中性子束。外周でない面と、流れのない
-    /// 外周の面（反射）は `None`
+    /// [面][群] の、外周の辺を通って出ていく流れ / ノードの均質な角の値（真空の辺の比 r × 面の ADF。ADR-0131）。
+    /// 外周でない面と、流れのない外周の面（反射）は `None`
     pub outflow: [Option<[f64; 2]>; 4],
 }
 
 /// nx × ny のノードの層の、[角の点（(nx + 1) × (ny + 1)、x が速い）][群] の未知数。`zero` の角の点（中性子束ゼロの
-/// 外周の角）は 0 とする。
-///
-/// - `known` が `None`: 未知数は角の点の不均質な中性子束で、外周の辺の流れはそれに比を掛けたもの（core）
-/// - `known` が角の点の不均質な中性子束: 外周の辺の流れは既知の量（比 × 既知の値）で、未知数は均質な角の値の
-///   見込みに掛ける大きさ（lattice。ADR-0125）
+/// 外周の角）は 0 とする。ノードの均質な角の値は未知数 × 重みで、外周の辺の流れもそれに比例するので、式は
+/// 均質な角の値だけで決まる。core は未知数を角の点の不均質な中性子束（重み 1/CDF）、lattice は均質な角の値の見込みに
+/// 掛ける大きさ（重みは見込み。ADR-0131）とする
 pub fn corner_balance(
     nx: usize,
     ny: usize,
     nodes: &[CornerNode],
     zero: &[bool],
-    known: Option<&[[f64; 2]]>,
 ) -> Result<Vec<[f64; 2]>, String> {
     let points = (nx + 1) * (ny + 1);
-    if nodes.len() != nx * ny || zero.len() != points || known.is_some_and(|k| k.len() != points) {
+    if nodes.len() != nx * ny || zero.len() != points {
         return Err(format!(
-            "corner balance: {} nodes, {} zero marks and {:?} known corner fluxes for a {nx} × {ny} \
-             layer",
+            "corner balance: {} nodes and {} zero marks for a {nx} × {ny} layer",
             nodes.len(),
             zero.len(),
-            known.map(<[[f64; 2]]>::len)
         ));
     }
     let unknowns = 2 * points;
@@ -100,7 +95,7 @@ pub fn corner_balance(
                     }
                 }
             }
-            // 外周の辺を通る流れ（比 × 角の点の不均質な中性子束）
+            // 外周の辺を通る流れ（比 × ノードの均質な角の値）
             for (face, ratio) in node.outflow.iter().enumerate() {
                 let Some(ratio) = ratio else { continue };
                 // この辺に接するノードの角
@@ -114,10 +109,7 @@ pub fn corner_balance(
                     let (p, _, _) = point(i, j, c);
                     for (g, r) in ratio.iter().enumerate() {
                         let row = 2 * p + g;
-                        match known {
-                            Some(known) => rhs[row] -= r * known[p][g],
-                            None => matrix[row * unknowns + row] += r,
-                        }
+                        matrix[row * unknowns + row] += r * node.weights[c][g];
                     }
                 }
             }
