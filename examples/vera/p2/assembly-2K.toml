@@ -122,7 +122,7 @@ zones = [
 ]
 sectors = 8
 
-# 案内管（中は減速材）
+# 計装管（中は減速材）
 [cell.it]
 zones = [
   { material = "water", radius = 0.559, rings = 3 },
