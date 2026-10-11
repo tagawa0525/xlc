@@ -2544,4 +2544,270 @@ mod tests {
         p.materials[0].normalized_adf[1] = false;
         assert!(solve(&p, &Options::default()).is_ok());
     }
+
+    /// z が1層（20 cm、上下は反射）の nx × ny の格子の問題。`sites` は y の下の行から、各行は x の小さい方から
+    fn plane(
+        dx: Vec<f64>,
+        dy: Vec<f64>,
+        materials: Vec<FewGroup>,
+        sites: Vec<Option<usize>>,
+        boundaries: [Boundary; 6],
+        outline: Option<Boundary>,
+    ) -> Problem {
+        Problem {
+            mesh: Mesh {
+                dx,
+                dy,
+                dz: vec![20.0],
+            },
+            materials,
+            reflectors: Vec::new(),
+            node_material: sites,
+            boundaries,
+            outline,
+        }
+    }
+
+    /// どの辺にも真空の比と、辺ごとに違う ADF を持つ反射体
+    fn sided_reflector() -> FewGroup {
+        let mut r = reflector();
+        r.adf = vec![
+            vec![1.1, 0.8],
+            vec![1.3, 0.7],
+            vec![0.9, 1.2],
+            vec![1.2, 0.6],
+        ];
+        r.vacuum_ratio = vec![
+            Some(vec![0.45, 0.40]),
+            Some(vec![0.50, 0.35]),
+            Some(vec![0.42, 0.38]),
+            Some(vec![0.47, 0.33]),
+        ];
+        r
+    }
+
+    #[test]
+    fn outline_faces_match_the_cuboid_faces() {
+        // ノードのない位置に面する面は、同じノードを直方体の外周に置いて同じ条件にした面と同じ解になる（ADR-0132）。
+        // ノードのない位置の側の直方体の外周の条件は効かない
+        let materials = vec![material(), sided_reflector()];
+        let h = 21.5;
+        for condition in [
+            Boundary::Vacuum,
+            Boundary::Marshak,
+            Boundary::ZeroFlux,
+            Boundary::Reflective,
+        ] {
+            // （直方体だけの問題、ノードのない位置を足した問題、比べる位置の対応）
+            let mut x_plus = [Boundary::Reflective; 6];
+            x_plus[1] = condition;
+            let mut y_plus = [Boundary::Reflective; 6];
+            y_plus[3] = condition;
+            let mut x_minus = [Boundary::Reflective; 6];
+            x_minus[0] = condition;
+            let mut far = [Boundary::Reflective; 6];
+            far[1] = Boundary::ZeroFlux;
+            far[3] = Boundary::ZeroFlux;
+            far[0] = Boundary::ZeroFlux;
+            let cases = [
+                (
+                    plane(
+                        vec![h; 2],
+                        vec![h],
+                        materials.clone(),
+                        placed([0, 1]),
+                        x_plus,
+                        None,
+                    ),
+                    plane(
+                        vec![h; 3],
+                        vec![h],
+                        materials.clone(),
+                        vec![Some(0), Some(1), None],
+                        far,
+                        Some(condition),
+                    ),
+                    vec![0, 1],
+                ),
+                (
+                    plane(
+                        vec![h],
+                        vec![h; 2],
+                        materials.clone(),
+                        placed([0, 1]),
+                        y_plus,
+                        None,
+                    ),
+                    plane(
+                        vec![h],
+                        vec![h; 3],
+                        materials.clone(),
+                        vec![Some(0), Some(1), None],
+                        far,
+                        Some(condition),
+                    ),
+                    vec![0, 1],
+                ),
+                (
+                    plane(
+                        vec![h; 2],
+                        vec![h],
+                        materials.clone(),
+                        placed([1, 0]),
+                        x_minus,
+                        None,
+                    ),
+                    plane(
+                        vec![h; 3],
+                        vec![h],
+                        materials.clone(),
+                        vec![None, Some(1), Some(0)],
+                        far,
+                        Some(condition),
+                    ),
+                    vec![1, 2],
+                ),
+            ];
+            for (cuboid, stepped, sites) in cases {
+                let a = solve(&cuboid, &Options::default()).unwrap();
+                let b = solve(&stepped, &Options::default()).unwrap();
+                assert!(
+                    (a.k - b.k).abs() < 1e-12 * a.k,
+                    "{condition:?}: {} vs {}",
+                    a.k,
+                    b.k
+                );
+                for (n, &site) in sites.iter().enumerate() {
+                    for (x, y) in a.flux[n].iter().zip(&b.flux[site]) {
+                        assert!((x - y).abs() < 1e-10 * x, "{condition:?}: {x} vs {y}");
+                    }
+                }
+                let empty = (0..b.flux.len()).find(|s| !sites.contains(s)).unwrap();
+                assert!(b.flux[empty].is_empty());
+                assert!(b.currents.iter().all(|c| c[empty].is_empty()));
+                for (x, y) in a.leakage.iter().zip(&b.leakage) {
+                    assert!((x - y).abs() < 1e-10 * x.abs().max(1e-12), "{x} vs {y}");
+                }
+            }
+        }
+    }
+
+    /// 4 × 4 の集合体の位置の四隅にノードを置かない、燃料だけの階段の炉心。各位置を `split` × `split` に分ける
+    fn stepped_core(split: usize, outline: Boundary) -> Problem {
+        let n = 4 * split;
+        let corner = |i: usize| i / split == 0 || i / split == 3;
+        let sites = (0..n * n)
+            .map(|s| (!(corner(s % n) && corner(s / n))).then_some(0))
+            .collect();
+        let mut boundaries = [outline; 6];
+        boundaries[4] = Boundary::Reflective;
+        boundaries[5] = Boundary::Reflective;
+        plane(
+            vec![20.0 / split as f64; n],
+            vec![20.0 / split as f64; n],
+            vec![material()],
+            sites,
+            boundaries,
+            Some(outline),
+        )
+    }
+
+    #[test]
+    fn stepped_core_keeps_its_symmetry_and_balance() {
+        // 4 回の回転の対称性を持つ階段の炉心の中性子束は同じ対称性を持ち、生成 = 吸収 + 外周と外形からの漏れ
+        let p = stepped_core(1, Boundary::Marshak);
+        let s = solve(&p, &Options::default()).unwrap();
+        for (site, phi) in s.flux.iter().enumerate() {
+            let (i, j) = (site % 4, site / 4);
+            let turned = &s.flux[(3 - j) + 4 * i];
+            assert_eq!(phi.len(), turned.len());
+            for (a, b) in phi.iter().zip(turned) {
+                assert!((a - b).abs() < 1e-6 * a, "site {site}: {a} vs {b}");
+            }
+        }
+        let m = material();
+        let volume = 20.0 * 20.0 * 20.0;
+        let (mut absorption, mut production) = (0.0, 0.0);
+        for phi in &s.flux {
+            for ((f, a), nf) in phi.iter().zip(&m.absorption).zip(&m.nu_fission) {
+                absorption += volume * a * f;
+                production += volume * nf * f;
+            }
+        }
+        let leakage: f64 = s.leakage.iter().sum();
+        assert!(leakage > 0.0);
+        assert!(
+            (production / s.k - absorption - leakage).abs() < 1e-6 * production,
+            "{production} / {} vs {absorption} + {leakage}",
+            s.k
+        );
+    }
+
+    #[test]
+    fn stepped_core_converges_with_refinement() {
+        // 外形の中性子束ゼロの面は、ノードを細かくすると k が収束する（外形の凹んだ角を含む）
+        let k = |split: usize| {
+            solve(
+                &stepped_core(split, Boundary::ZeroFlux),
+                &Options::default(),
+            )
+            .unwrap()
+            .k
+        };
+        let (k1, k2, k4) = (k(1), k(2), k(4));
+        assert!(
+            (k4 - k2).abs() < 0.5 * (k2 - k1).abs(),
+            "{k1} -> {k2} -> {k4}"
+        );
+    }
+
+    #[test]
+    fn outline_needs_a_condition_and_ratios() {
+        let h = 21.5;
+        // ノードのない位置があるのに外形の条件がない
+        let p = plane(
+            vec![h; 3],
+            vec![h],
+            vec![material(), sided_reflector()],
+            vec![Some(0), Some(1), None],
+            [Boundary::Reflective; 6],
+            None,
+        );
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
+        assert!(err.contains("outline"), "{err}");
+        // ノードのない位置がないのに外形の条件がある
+        let p = plane(
+            vec![h; 2],
+            vec![h],
+            vec![material(), sided_reflector()],
+            placed([0, 1]),
+            [Boundary::Reflective; 6],
+            Some(Boundary::Vacuum),
+        );
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
+        assert!(err.contains("outline"), "{err}");
+        // 外形の真空の面のノードが、その辺の真空の比を持たない
+        let mut r = sided_reflector();
+        r.vacuum_ratio[1] = None;
+        let p = plane(
+            vec![h; 3],
+            vec![h],
+            vec![material(), r],
+            vec![Some(0), Some(1), None],
+            [Boundary::Reflective; 6],
+            Some(Boundary::Vacuum),
+        );
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
+        assert!(err.contains("vacuum ratio"), "{err}");
+        // ノードが1つもない
+        let p = plane(
+            vec![h],
+            vec![h],
+            vec![material()],
+            vec![None],
+            [Boundary::Reflective; 6],
+            Some(Boundary::Vacuum),
+        );
+        assert!(solve(&p, &Options::default()).is_err());
+    }
 }

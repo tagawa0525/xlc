@@ -658,3 +658,62 @@ fn reflector_sites_turned_with_the_core_keep_k_and_pins() {
         sites = turned(&sites);
     }
 }
+
+#[test]
+fn outline_faces_reconstruct_like_cuboid_faces() {
+    // 外形（ノードのない位置）に面する真空の辺の流れは、直方体の外周の真空の辺と同じ r f φ_c（ADR-0131、ADR-0132）。
+    // 燃料と反射体の 1 × 2 で、反射体の +x を外周にした問題と、+x にノードのない位置を足した問題は同じ出力になる
+    let mut r = reflector(21.5, 4, vec![vec![1.1, 0.9]; 4], vec![false; 4]);
+    r.adf[1] = vec![1.3, 0.7];
+    r.vacuum_ratio[1] = Some(vec![0.5, 0.35]);
+    let mut cuboid = fuel_and_reflector(vec![vec![1.0, 1.0]; 4], r);
+    cuboid.boundaries[1] = Boundary::Vacuum;
+    let mut stepped = cuboid.clone();
+    stepped.mesh.dx.push(21.5);
+    stepped.node_material.push(None);
+    stepped.boundaries[1] = Boundary::ZeroFlux;
+    stepped.outline = Some(Boundary::Vacuum);
+    let a = solve(&cuboid, &Options::default()).unwrap();
+    let b = solve(&stepped, &Options::default()).unwrap();
+    let (pa, pb) = (
+        reconstruct(&cuboid, &a).unwrap(),
+        reconstruct(&stepped, &b).unwrap(),
+    );
+    assert!(pb[2].is_empty());
+    for (x, y) in pa[0].iter().flatten().zip(pb[0].iter().flatten()) {
+        assert!((x - y).abs() < 1e-9 * x, "{x} vs {y}");
+    }
+    let (ra, rb) = (
+        core_rows(&cuboid, &pa).unwrap(),
+        core_rows(&stepped, &pb).unwrap(),
+    );
+    assert_eq!(ra.len(), rb.len());
+    for (x, y) in ra.iter().flatten().zip(rb.iter().flatten()) {
+        assert!((x - y).abs() < 1e-9 * x.abs().max(1.0), "{x} vs {y}");
+    }
+}
+
+#[test]
+fn concave_outline_corners_keep_the_symmetry() {
+    // 2 × 2 の燃料の位置のうち +x +y にノードを置かない L 字の炉心。外形の凹んだ角の点は 3 つのノードに囲まれ、
+    // 2 本の半分の辺が外形に面する。体系は x と y の入れ替えで対称なので、(1, 0) と (0, 1) のノードの出力は転置で
+    // 一致する。ノードのない位置の出力は空で、炉心全体の表では 0
+    let mut p = square(43.0, 2, 4, Boundary::Marshak);
+    p.boundaries[0] = Boundary::Reflective;
+    p.boundaries[2] = Boundary::Reflective;
+    p.node_material[3] = None;
+    p.outline = Some(Boundary::Marshak);
+    let s = solve(&p, &Options::default()).unwrap();
+    let pins = reconstruct(&p, &s).unwrap();
+    assert!(pins[3].is_empty());
+    for j in 0..4 {
+        for i in 0..4 {
+            let (a, b) = (pins[1][j][i], pins[2][i][j]);
+            assert!((a - b).abs() < 1e-6 * a, "({i}, {j}): {a} vs {b}");
+        }
+    }
+    let rows = core_rows(&p, &pins).unwrap();
+    assert_eq!((rows.len(), rows[0].len()), (8, 8));
+    // 上の行が +y なので、ノードのない +x +y の位置は上の 4 行の右の 4 列
+    assert!(rows[..4].iter().all(|r| r[4..].iter().all(|&v| v == 0.0)));
+}
