@@ -282,7 +282,8 @@ mod tests {
         use super::super::sab::ThermalSab;
         use super::super::sab::tests::{TEMPERATURE, free_gas_table};
         let data = free_gas_table();
-        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let sab =
+            ThermalSab::new(&data, TEMPERATURE, 1.0, super::super::sab::SabOutside::Zero).unwrap();
         let kt = crate::physics::BK * TEMPERATURE;
         let groups = GroupStructure::wims69();
         for e in [0.0253, 0.1, 0.5] {
