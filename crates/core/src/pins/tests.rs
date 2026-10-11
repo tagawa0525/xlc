@@ -706,9 +706,9 @@ fn concave_outline_corners_keep_the_symmetry() {
     let s = solve(&p, &Options::default()).unwrap();
     let pins = reconstruct(&p, &s).unwrap();
     assert!(pins[3].is_empty());
-    for j in 0..4 {
-        for i in 0..4 {
-            let (a, b) = (pins[1][j][i], pins[2][i][j]);
+    for (j, row) in pins[1].iter().enumerate() {
+        for (i, &a) in row.iter().enumerate() {
+            let b = pins[2][i][j];
             assert!((a - b).abs() < 1e-6 * a, "({i}, {j}): {a} vs {b}");
         }
     }
