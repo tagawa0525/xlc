@@ -890,7 +890,7 @@ fn node_pins(
         tracing::debug!(
             point = p,
             column = p % (nx + 1),
-            row = p / (nx + 1),
+            row_from_bottom = p / (nx + 1),
             scale = ?s,
             heterogeneous = ?f,
             "corner point"
