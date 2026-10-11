@@ -20,9 +20,9 @@
       };
       inherit (pkgs) lib;
       rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-      # rust-toolchain.toml は Rust の段階の deps なので、ビルドとチェックのツールと sysroot に要るもの（rust-src）だけを書く。
-      # ツールチェーンを override もせず（段階をビルドするコンパイラの derivation を変えない）、同じ版の component を
-      # 横に置く。rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
+      # ここで `rust` を override しない。flake.nix は DVC のステージの deps でないので、override すると段階をビルドする
+      # コンパイラが黙って変わる（#0080）。開発のツールは rust-toolchain.toml にも書かず（Rust の段階の deps）、同じ版の
+      # component を横に置く。rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
       rustAnalyzer = rust.availableComponents.rust-analyzer;
       # 検証用のツール（OpenMC の入力の作成と結果の読み出し、比較のスクリプト）が使う Python のパッケージ
       pythonPackages =

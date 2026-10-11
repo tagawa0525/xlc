@@ -8,7 +8,7 @@ blocked-by: []
 resolution:
 ---
 
-# rust-analyzer が計算機と target/debug を DVC のステージや測定と共有する
+# rust-analyzer が計算機を Slurm のジョブと、target/debug を run-checks.sh と共有する
 
 ## 問題
 
@@ -23,7 +23,8 @@ Slurm の外から rust-analyzer を実行する。
 - リポジトリの `rust-analyzer.toml` に `[cargo] targetDir = true` を書く形は、rust-analyzer 1.99.0 では効かなかった
   （`target/rust-analyzer` を作らず、`target/debug` を使い続けた）
 - 親のセッションから worktree に起動したエージェントは親の PATH を引き継ぐので、そのブランチでなく main の devShell の
-  rust-analyzer と sysroot を使う
+  rust-analyzer と sysroot を使う。worktree には `.envrc` がない（git で追跡せず、`.worktreelink` にもない）ので、
+  worktree で起動した Claude Code も devShell に入らない。`.envrc` を `.worktreelink` に足すのが候補
 
 関係する ADR: [ADR-0135](../adr/0135-keep-dev-tools-out-of-rust-toolchain.md)
 
