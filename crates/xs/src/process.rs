@@ -395,6 +395,13 @@ pub fn process_nuclide(
 ) -> Result<NuclideData, ProcessError> {
     if let Some(thermal) = thermal {
         thermal.limits()?;
+        // NJOY THERMR（参照解の OpenMC の S(α, β) を作る）は ln S を 3 点の 2 次式で補間する（thermr.f90 の terpq）。
+        // 評価済みデータの補間則に従い、差は知らせる（ADR-0133）
+        tracing::warn!(
+            nuclide = name,
+            "S(α, β) follows the ENDF interpolation law (ln S linear); NJOY THERMR interpolates ln S \
+             quadratically, which gives H in H2O about 0.2% more scattering at 4-10 eV"
+        );
     }
     let materials = tape.materials();
     let [mat] = materials[..] else {
