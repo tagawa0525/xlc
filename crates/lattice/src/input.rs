@@ -1360,6 +1360,24 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn mixtures_may_follow_both_temperature_axes() {
+        // 減速材の温度の軸が変える成分と、燃料の温度の軸が変える成分を両方持つ混ぜた物質は、両方の軸に挙げる
+        // （ADR-0128。混ぜた物質は成分から作るので、同じ物質を2つの温度の軸に挙げない規則は成分にだけ当てはめる）
+        let text = SLAB.replace(
+            "[cell.fuel]",
+            "[material.pellet]\ntemperature = 600\nnuclides = { U-238 = 2.2e-2 }\n\n\
+             [material.both]\nmix = [{ material = \"pellet\", volume = 0.5 }, { material = \"water\", volume = 0.5 }]\n\n\
+             [cell.fuel]",
+        );
+        let branches = "\n[branches]\n\
+            boron = { ppm = [1300], materials = [\"water\", \"plate\", \"both\"] }\n\
+            moderator = { temperature = [600], density = [0.743], materials = [\"water\", \"ss304\", \"plate\", \"both\"] }\n\
+            fuel = { temperature = [600], materials = [\"fuel\", \"pellet\", \"both\"] }\n";
+        let input = LatticeInput::parse(&format!("{text}{branches}"));
+        assert!(input.is_ok(), "{input:?}");
+    }
+
+    #[test]
     fn single_lattices_may_write_a_medium() {
         // 外周がすべて鏡面反射の格子は、細かい群のまま均質化した媒質を書ける（ADR-0128）
         let with =
