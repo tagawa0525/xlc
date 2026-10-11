@@ -9,8 +9,10 @@
 //! map = ["*  R"]               # 上の行が +y。`*` は集合体を装荷する位置、`-` はノードを置かない位置（炉心の外形の外。
 //!                              # 図の端まで `-` だけをたどって出られること。ADR-0132）、ほかは反射体の種類（`@90` で回す）
 //! [reflector.R]
-//! bounds = [0.0, 406.3]        # 軸方向の層の境界 (cm)。0 から炉心の高さまで
-//! layers = ["reflector.msgpack"]
+//! bounds = [0.0, 50.0, 406.3]  # 軸方向の層の境界 (cm)。0 から炉心の高さまで
+//! # 層ごとの少数群定数。径方向の真空の比 r を持たない定数（軸方向の反射体のスラブの定数）の層は、真空の面を
+//! # Marshak の条件にすることを `vacuum = "marshak"` で明示する（ADR-0132）
+//! layers = [{ file = "water.msgpack", vacuum = "marshak" }, "reflector.msgpack"]
 //! ```
 //!
 //! 台帳（サイクルをまたいで追記する）:
@@ -82,13 +84,38 @@ fn parse_toml<T: DeserializeOwned>(text: &str) -> Result<T, InputError> {
 pub struct Column {
     pub bounds: Vec<f64>,
     pub layers: Vec<PathBuf>,
+    /// 層ごとに、真空の面を Marshak の条件（r = 1/2）にするか。径方向の真空の比 r を持たない定数（軸方向の
+    /// 反射体のスラブの定数）を、真空の面に接する位置に置くときに入力で明示する（ADR-0132）
+    pub marshak: Vec<bool>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ColumnEntry {
     bounds: Vec<f64>,
-    layers: Vec<PathBuf>,
+    layers: Vec<LayerEntry>,
+}
+
+/// 層: ファイルのパスか、`{ file = "...", vacuum = "marshak" }`
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum LayerEntry {
+    File(PathBuf),
+    Table(LayerTable),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LayerTable {
+    file: PathBuf,
+    vacuum: VacuumRule,
+}
+
+/// 層の真空の面の条件。書けるのは Marshak だけ（真空の比 r を使うのは書かないとき）
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum VacuumRule {
+    Marshak,
 }
 
 impl Column {
@@ -101,13 +128,21 @@ impl Column {
                 entry.bounds.len()
             ));
         }
+        let (layers, marshak) = entry
+            .layers
+            .into_iter()
+            .map(|l| match l {
+                LayerEntry::File(file) => (normalized(&base.join(file)), false),
+                LayerEntry::Table(LayerTable {
+                    file,
+                    vacuum: VacuumRule::Marshak,
+                }) => (normalized(&base.join(file)), true),
+            })
+            .unzip();
         Ok(Self {
             bounds: entry.bounds,
-            layers: entry
-                .layers
-                .iter()
-                .map(|l| normalized(&base.join(l)))
-                .collect(),
+            layers,
+            marshak,
         })
     }
 
@@ -502,6 +537,8 @@ pub struct LayoutMaterial {
     pub sub: usize,
     /// 炉心の形の反射体の位置に置いたか（同じファイルでも集合体の位置のものと分ける。ADR-0095）
     pub reflector: bool,
+    /// 真空の面を Marshak の条件にする層か（`Column::marshak`）
+    pub marshak: bool,
 }
 
 /// 4つの入力から組み立てた炉心のノードの並び。
@@ -700,7 +737,9 @@ impl Layout {
                     .bounds
                     .windows(2)
                     .position(|b| b[0] <= z[0] && z[1] <= b[1]);
-                let Some(path) = layer.map(|l| column.layers[l].as_path()) else {
+                let Some((path, marshak)) =
+                    layer.map(|l| (column.layers[l].as_path(), column.marshak[l]))
+                else {
                     return invalid(format!("no layer covers {}..{} cm", z[0], z[1]));
                 };
                 let file = *file_index.entry(path).or_insert_with(|| {
@@ -715,6 +754,7 @@ impl Layout {
                     turns,
                     sub: sub_of(si, sj, turns),
                     reflector: is_reflector,
+                    marshak,
                 };
                 let m = *material_index.entry(material).or_insert_with(|| {
                     materials.push(material);
@@ -780,9 +820,25 @@ impl Layout {
                 .materials
                 .iter()
                 .map(|m| {
-                    rotated(&constants[m.file][m.sub], m.turns).map_err(|e| {
-                        InputError::Invalid(format!("{}: {e}", self.files[m.file].display()))
-                    })
+                    let file = || self.files[m.file].display();
+                    let mut c = rotated(&constants[m.file][m.sub], m.turns)
+                        .map_err(|e| InputError::Invalid(format!("{}: {e}", file())))?;
+                    if m.marshak {
+                        // Marshak の条件は r = 1/2 の真空の条件と同じ式（nem の `face_inputs`）なので、径方向の辺に
+                        // r = 1/2 を置く。格子計算の r を持つ辺があれば、どちらを使うか分からないのでエラー
+                        if c.vacuum_ratio.iter().take(4).any(Option::is_some) {
+                            return invalid(format!(
+                                "{}: the layer is marked vacuum = \"marshak\", but its constants have a \
+                                 vacuum ratio J/phi on a radial side; drop the mark to use the ratio",
+                                file()
+                            ));
+                        }
+                        let groups = c.groups();
+                        for r in c.vacuum_ratio.iter_mut().take(4) {
+                            *r = Some(vec![0.5; groups]);
+                        }
+                    }
+                    Ok(c)
                 })
                 .collect::<Result<_, _>>()?,
             reflectors: (0..self.materials.len())
