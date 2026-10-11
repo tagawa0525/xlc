@@ -2169,7 +2169,7 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: cda2884253049a9d2451d58838de1125.dir
+      md5: df0a98105e6f2cc675293923b2921fad.dir
       size: 96551
       nfiles: 8
     - path: ../../crates/lattice/Cargo.toml
@@ -2178,8 +2178,8 @@ stages:
       size: 568
     - path: ../../crates/lattice/src
       hash: md5
-      md5: 5806d917026dbd78e7b9298aa2b67197.dir
-      size: 922192
+      md5: e3cedefcbf29094295d4a1ef0df35a74.dir
+      size: 925088
       nfiles: 26
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2187,8 +2187,8 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: cc3e81392913408fefc537b0e344a3e1.dir
-      size: 147537
+      md5: 5bab96f2db5113bf73af4f479c23d19a.dir
+      size: 153471
       nfiles: 13
     - path: ../../flake.lock
       hash: md5
