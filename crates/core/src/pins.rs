@@ -5,7 +5,7 @@
 //! （corner point balance）で決める。箱の辺を通って出ていく流れ Σ_ノード (s_x J_x + s_y J_y) と、外周の境界の辺を
 //! 通る流れ（反射は 0、真空は J = r f φ）の和を 0 とする。s はノードが角の点の正の側にあれば +1、負の側なら −1 で、
 //! J はそのノードの展開の角の点での値。不均質な角の中性子束 Φ は角を囲むノードで共通とし、各ノードの均質な値は
-//! Φ / CDF とする。ノードの展開は角の値について線形なので、Φ の連立一次方程式を組んで解く。
+//! Φ / CDF とする（燃料の CDF で割った反射体の角は `corner_factors`。ADR-0125）。ノードの展開は角の値について線形なので、Φ の連立一次方程式を組んで解く。
 //!
 //! セルの出力は Σ_g Σf,g φ̄_g（セルの均質な中性子束の平均）f_g（形状関数）。
 
@@ -25,7 +25,7 @@ const CELL_POINTS: usize = 6;
 
 /// [ノード] のセルの出力 [行（-y から）][列（-x から）]。ノードの並びは NEM と同じ（x が最も速く、次に y、z）。
 /// 核分裂のない軸方向の層（上下の反射体）は出力が 0 なので、空の表にする。核分裂のある層では、どのノードも形状関数を
-/// 持つこと（径方向の反射体の角の CDF は決めていない。#0020）
+/// 持つこと（径方向の反射体のノードは、形状関数 0 と角の不連続因子を持つ。ADR-0125）
 pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec<f64>>>, String> {
     let face_rule = gauss_legendre(FACE_POINTS).map_err(|e| e.to_string())?;
     let cell_rule = gauss_legendre(CELL_POINTS).map_err(|e| e.to_string())?;
@@ -48,14 +48,15 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
             continue;
         }
         let (models, conditions) = layer(problem, solution, k, &face_rule)?;
-        let corners = corner_fluxes(problem, k, &models, &conditions)?;
+        let cdfs = corner_factors(problem, k)?;
+        let corners = corner_fluxes(problem, k, &models, &conditions, &cdfs)?;
         for j in 0..ny {
             for i in 0..nx {
                 let local = i + nx * j;
                 let n = local + nx * ny * k;
                 let (m, pins) = node_constants(problem, n)?;
                 let mut c = conditions[local].clone();
-                c.corners = corner_values(&corners, nx, i, j, pins);
+                c.corners = corner_values(&corners, nx, i, j, &cdfs[local]);
                 let node = models[local].solve(&c);
                 let map = cell_powers(&node, m, pins, c.half, &cell_rule);
                 if map.iter().flatten().any(|v| !v.is_finite()) {
@@ -86,11 +87,10 @@ fn node_constants(problem: &Problem, n: usize) -> Result<(&FewGroup, &Pins), Str
         .get(n)
         .and_then(|&m| problem.materials.get(m))
         .ok_or_else(|| format!("node {n} has no material"))?;
-    let pins = m.pins.as_ref().ok_or_else(|| {
-        format!(
-            "node {n} has no form functions (pins); reflector nodes next to fuel wait for #0020"
-        )
-    })?;
+    let pins = m
+        .pins
+        .as_ref()
+        .ok_or_else(|| format!("node {n} has no form functions (pins)"))?;
     Ok((m, pins))
 }
 
@@ -372,11 +372,59 @@ fn corner_values(
     nx: usize,
     i: usize,
     j: usize,
-    pins: &Pins,
+    cdf: &[[f64; 2]; 4],
 ) -> [[f64; 2]; 4] {
     let at = |ci: usize, cj: usize| corners[ci + (nx + 1) * cj];
     let points = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
-    std::array::from_fn(|c| std::array::from_fn(|g| points[c][g] / pins.corners[c][g]))
+    std::array::from_fn(|c| std::array::from_fn(|g| points[c][g] / cdf[c][g]))
+}
+
+/// 層 k の [ノード（層の中で i + nx j）][角][群] の CDF。燃料の CDF で割った角（`normalized_corners`。ADR-0125）は、
+/// C* × 角の点に接する、割っていない角のノードの、その点の CDF の調和平均とする（定数を作った格子では、割って
+/// いない角のノードは反射体でないノード）
+fn corner_factors(problem: &Problem, k: usize) -> Result<Vec<[[f64; 2]; 4]>, String> {
+    let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
+    let mut pins = Vec::with_capacity(nx * ny);
+    for local in 0..nx * ny {
+        pins.push(node_constants(problem, local + nx * ny * k)?.1);
+    }
+    // ノード (i, j) の角 c の角の点
+    let point = |local: usize, c: usize| {
+        let (i, j) = (local % nx, local / nx);
+        let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
+        ci + (nx + 1) * cj
+    };
+    (0..nx * ny)
+        .map(|local| {
+            let mut cdf = [[0.0; 2]; 4];
+            for (c, out) in cdf.iter_mut().enumerate() {
+                let own = &pins[local].corners[c];
+                if !pins[local].normalized_corners[c] {
+                    *out = [own[0], own[1]];
+                    continue;
+                }
+                let p = point(local, c);
+                let plain: Vec<&Vec<f64>> = (0..nx * ny)
+                    .flat_map(|m| (0..4).map(move |d| (m, d)))
+                    .filter(|&(m, d)| point(m, d) == p && !pins[m].normalized_corners[d])
+                    .map(|(m, d)| &pins[m].corners[d])
+                    .collect();
+                if plain.is_empty() {
+                    return Err(format!(
+                        "node {}: corner {c} is normalized by the fuel factor, but no node at the \
+                         corner point has a plain factor",
+                        local + nx * ny * k
+                    ));
+                }
+                *out = std::array::from_fn(|g| {
+                    let harmonic =
+                        plain.len() as f64 / plain.iter().map(|f| 1.0 / f[g]).sum::<f64>();
+                    own[g] * harmonic
+                });
+            }
+            Ok(cdf)
+        })
+        .collect()
 }
 
 /// 層 k の [角の点（(nx + 1) × (ny + 1)、x が速い）][群] の不均質な中性子束 Φ。各ノードの均質な角の値は Φ / CDF
@@ -385,6 +433,7 @@ fn corner_fluxes(
     k: usize,
     models: &[Rc<NodeModel>],
     conditions: &[Conditions],
+    cdfs: &[[[f64; 2]; 4]],
 ) -> Result<Vec<[f64; 2]>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
     let mut nodes = Vec::with_capacity(nx * ny);
@@ -392,7 +441,7 @@ fn corner_fluxes(
         for i in 0..nx {
             let local = i + nx * j;
             let n = local + nx * ny * k;
-            let (m, pins) = node_constants(problem, n)?;
+            let (m, _) = node_constants(problem, n)?;
             // 外周の真空の辺を通る流れ。真空の辺の比 r は不均質な中性子束に対する比（ADR-0101）で、角の点の不均質な
             // 中性子束は Φ なので r Φ。反射と中性子束ゼロは 0
             let on_boundary = [i == 0, i == nx - 1, j == 0, j == ny - 1];
@@ -418,7 +467,7 @@ fn corner_fluxes(
                 conditions: &conditions[local],
                 diffusion: [m.diffusion[0], m.diffusion[1]],
                 // 均質な角の値は Φ / CDF
-                weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / pins.corners[c][g])),
+                weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdfs[local][c][g])),
                 outflow,
             });
         }

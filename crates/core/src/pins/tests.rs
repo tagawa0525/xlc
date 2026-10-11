@@ -188,12 +188,12 @@ fn vacuum_corners_lose_r_times_the_corner_flux() {
     let s = solve(&p, &Options::default()).unwrap();
     let rule = gauss_legendre(FACE_POINTS).unwrap();
     let (models, conditions) = layer(&p, &s, 0, &rule).unwrap();
-    let corners = corner_fluxes(&p, 0, &models, &conditions).unwrap();
+    let cdfs = corner_factors(&p, 0).unwrap();
+    let corners = corner_fluxes(&p, 0, &models, &conditions, &cdfs).unwrap();
     // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
     let m = &p.materials[0];
-    let pins = m.pins.as_ref().unwrap();
     let mut c = conditions[0].clone();
-    c.corners = corner_values(&corners, 4, 0, 0, pins);
+    c.corners = corner_values(&corners, 4, 0, 0, &cdfs[0]);
     let node = models[0].solve(&c);
     let [a, b] = c.half;
     let grad = node.gradient(-a, -b);
