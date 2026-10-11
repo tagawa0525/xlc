@@ -56,7 +56,7 @@ rustc に対しては、component を分けても版はそろう（devShell の�
 
 ## 確認
 
-6b75c94b（分岐点は main の 5f984f72。2026-10-12）の worktree で確かめた。
+9dcf59ae（分岐点は main の 5f984f72。2026-10-12）の worktree で確かめた。
 
 - devShell の rustc は main の devShell と同じ store パス（`24xl8c07…-rust-minimal-1.99.0`、1.99.0、b940084d7）
 - `rust-analyzer --version` は `rust-analyzer 1.99.0 (b940084 2026-09-28)`。sysroot の libexec に
