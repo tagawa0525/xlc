@@ -225,16 +225,27 @@ def compare_transfer(
             / mine["flux"][g]
         )
         within_xs = mine["transfer"][g][g] / mine["flux"][g]
-        out, out_s = ratio(out_xs, "out_scatter", g)
-        within, within_s = ratio(within_xs, "within_scatter", g)
-        print(
-            f"  {g + 1:3d} {bounds[g + 1]:9.4g}〜{bounds[g]:<9.4g} "
-            f"out {out:+7.2%} ± {out_s:.2%}  within {within:+7.2%} ± {within_s:.2%}"
-        )
+        # 個数密度の小さい核種では、OpenMC がその群の移行を一度も数えないことがある（比を出せない）
+        if mean_of("out_scatter", g) == 0.0 or mean_of("within_scatter", g) == 0.0:
+            print(
+                f"  {g + 1:3d} {bounds[g + 1]:9.4g}〜{bounds[g]:<9.4g} no OpenMC events"
+            )
+        else:
+            out, out_s = ratio(out_xs, "out_scatter", g)
+            within, within_s = ratio(within_xs, "within_scatter", g)
+            print(
+                f"  {g + 1:3d} {bounds[g + 1]:9.4g}〜{bounds[g]:<9.4g} "
+                f"out {out:+7.2%} ± {out_s:.2%}  within {within:+7.2%} ± {within_s:.2%}"
+            )
         for i, b in enumerate(batches):
             deficit[i] += out_xs * b["flux"][g] - b["out_scatter"][g]
             out_total[i] += b["out_scatter"][g]
     d, o = sum(deficit) / n, sum(out_total) / n
+    if o == 0.0:
+        print(
+            f"  groups {selected[0] + 1}〜{selected[-1] + 1}: no OpenMC out-scatter events"
+        )
+        return
     share = [x / o - d * y / o**2 for x, y in zip(deficit, out_total)]
     print(
         f"  groups {selected[0] + 1}〜{selected[-1] + 1}: out-scatter deficit "

@@ -15,6 +15,9 @@
 //! endf = "n-001_H_001.endf"
 //! temperatures = [293.6, 600]
 //! thermal = "tsl-HinH2O.endf"
+//! sab-upper = "evaluated"     # S(α, β) を使う上限: "evaluated"（MF7 MT4 の B(4)）か eV（省略すると "evaluated"）
+//! sab-outside = "sct"         # 表の外: "sct"（THERMR と同じ短時間衝突近似）か "zero"（省略すると "sct"）
+//! free-gas-upper = 9118       # S(α, β) の上限からこの eV まで弾性散乱を自由ガスで（省略すると `DEFAULT_FREE_GAS_UPPER`）
 //!
 //! [nuclide.U-238]
 //! endf = "n-092_U_238.endf"
@@ -23,7 +26,8 @@
 //!
 //! 核種ごとの処理時間はログとして標準エラーに出す（`RUST_LOG=debug` で温度・段階ごとの内訳）。
 //!
-//! `thermal` を指定した核種は、4 eV 未満の弾性散乱を S(α, β) で、ほかは自由ガス模型で扱う。
+//! `thermal` を指定した核種は、`sab-upper` 未満の弾性散乱を S(α, β) で、その上の `free-gas-upper` 未満を自由ガス
+//! 模型で扱う（ADR-0133）。ほかの核種は 4 eV 未満を自由ガス模型で扱う。
 //! 群構造は WIMS 69群、重み関数は軽水炉向けの iwt=4 とする。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
@@ -43,9 +47,11 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{Library, NuclideData, is_nuclide_name};
 use xlc_xs::endf::Tape;
-use xlc_xs::multigroup::Weight;
+use xlc_xs::multigroup::{SabOutside, Weight};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
-use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering, resolved};
+use xlc_xs::process::{
+    SabUpper, Settings, ThermalScattering, process_nuclide, read_thermal_scattering, resolved,
+};
 
 /// 入力ファイルを解釈した結果（パスは入力ファイルのディレクトリで解決済み）。
 #[derive(Debug, Clone, PartialEq)]
@@ -61,7 +67,16 @@ struct NuclideInput {
     name: String,
     endf: PathBuf,
     temperatures: Vec<f64>,
-    thermal: Option<PathBuf>,
+    thermal: Option<ThermalInput>,
+}
+
+/// S(α, β) を持つ核種の熱領域の扱い（ADR-0133）。
+#[derive(Debug, Clone, PartialEq)]
+struct ThermalInput {
+    path: PathBuf,
+    upper: SabUpper,
+    outside: SabOutside,
+    free_gas_upper: f64,
 }
 
 /// 入力ファイルの読み込みエラー。
@@ -89,12 +104,32 @@ struct InputFile {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct NuclideEntry {
     endf: PathBuf,
     temperatures: Vec<f64>,
     /// 省略すると、熱領域の弾性散乱を自由ガス模型で扱う
     thermal: Option<PathBuf>,
+    /// `thermal` を使う核種だけ。省略すると "evaluated"
+    sab_upper: Option<SabUpperEntry>,
+    /// `thermal` を使う核種だけ。省略すると "sct"
+    sab_outside: Option<SabOutsideEntry>,
+    /// `thermal` を使う核種だけ。省略すると `DEFAULT_FREE_GAS_UPPER`
+    free_gas_upper: Option<f64>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum SabUpperEntry {
+    Energy(f64),
+    Name(String),
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum SabOutsideEntry {
+    Sct,
+    Zero,
 }
 
 /// 入力ファイルを読む（パスは `base` で解決する）。
@@ -130,8 +165,45 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
             return invalid(format!("{name}: a temperature is repeated in {t:?}"));
         }
         let thermal = match (&entry.thermal, &file.thermal_directory) {
-            (None, _) => None,
-            (Some(thermal), Some(directory)) => Some(base.join(directory).join(thermal)),
+            (None, _) => {
+                if entry.sab_upper.is_some()
+                    || entry.sab_outside.is_some()
+                    || entry.free_gas_upper.is_some()
+                {
+                    return invalid(format!(
+                        "{name}: `sab-upper`, `sab-outside` and `free-gas-upper` need `thermal`"
+                    ));
+                }
+                None
+            }
+            (Some(thermal), Some(directory)) => {
+                let upper = match &entry.sab_upper {
+                    None => SabUpper::Evaluated,
+                    Some(SabUpperEntry::Name(n)) if n == "evaluated" => SabUpper::Evaluated,
+                    Some(SabUpperEntry::Energy(e)) if positive(e) => SabUpper::Energy(*e),
+                    Some(_) => {
+                        return invalid(format!(
+                            "{name}: `sab-upper` must be \"evaluated\" or a positive energy (eV)"
+                        ));
+                    }
+                };
+                let outside = match entry.sab_outside {
+                    None | Some(SabOutsideEntry::Sct) => SabOutside::ShortCollisionTime,
+                    Some(SabOutsideEntry::Zero) => SabOutside::Zero,
+                };
+                let free_gas_upper = entry.free_gas_upper.unwrap_or(DEFAULT_FREE_GAS_UPPER);
+                if !positive(&free_gas_upper) {
+                    return invalid(format!(
+                        "{name}: `free-gas-upper` must be a positive energy (eV), got {free_gas_upper}"
+                    ));
+                }
+                Some(ThermalInput {
+                    path: base.join(directory).join(thermal),
+                    upper,
+                    outside,
+                    free_gas_upper,
+                })
+            }
             (Some(_), None) => {
                 return invalid(format!("{name}: `thermal` needs `thermal-directory`"));
             }
@@ -301,9 +373,13 @@ fn process_file(
 ) -> anyhow::Result<NuclideData> {
     let name = &nuclide.name;
     let thermal = match &nuclide.thermal {
-        Some(path) => {
-            Some(read_thermal_scattering(&read_tape(path)?).with_context(|| name.clone())?)
-        }
+        Some(input) => Some(ThermalScattering {
+            data: read_thermal_scattering(&read_tape(&input.path)?)
+                .with_context(|| name.clone())?,
+            upper: input.upper,
+            outside: input.outside,
+            free_gas_upper: input.free_gas_upper,
+        }),
         None => None,
     };
     let data = process_nuclide(
@@ -317,8 +393,12 @@ fn process_file(
     Ok(data)
 }
 
-/// この入射エネルギー (eV) 未満の弾性散乱を熱領域の扱いにする（WIMS 69群の熱群の上限）
+/// S(α, β) を持たない核種で、この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う（WIMS 69群の熱群の上限）。
+/// ポイントワイズの断面積（UFG）の範囲の下限もこれで決める
 const THERMAL_CUTOFF: f64 = 4.0;
+
+/// 入力で省略したときの、S(α, β) を持つ核種の弾性散乱を自由ガス模型で扱う上限 (eV)（ADR-0133）
+const DEFAULT_FREE_GAS_UPPER: f64 = 9118.0;
 
 /// 入力で省略したときの、散乱行列のルジャンドルのモーメントの次数（ADR-0076）。MOC の非等方散乱は、格子の入力で
 /// ライブラリにあるこの次数までを選ぶ
@@ -367,7 +447,12 @@ temperatures = [293.6, 900]
                     name: "H-1".into(),
                     endf: PathBuf::from("work/endf/h.endf"),
                     temperatures: vec![293.6, 600.0],
-                    thermal: Some(PathBuf::from("work/tsl/h2o.endf")),
+                    thermal: Some(ThermalInput {
+                        path: PathBuf::from("work/tsl/h2o.endf"),
+                        upper: SabUpper::Evaluated,
+                        outside: SabOutside::ShortCollisionTime,
+                        free_gas_upper: DEFAULT_FREE_GAS_UPPER,
+                    }),
                 },
                 NuclideInput {
                     name: "U-238".into(),
@@ -389,6 +474,60 @@ temperatures = [293.6, 900]
             parse_input(&text, Path::new(".")).unwrap().scattering_order,
             0
         );
+    }
+
+    #[test]
+    fn accepts_the_thermal_scattering_limits() {
+        let text = INPUT.replace(
+            "thermal = \"h2o.endf\"",
+            "thermal = \"h2o.endf\"\nsab-upper = 4\nsab-outside = \"zero\"\nfree-gas-upper = 48.052",
+        );
+        let input = parse_input(&text, Path::new(".")).unwrap();
+        let thermal = input.nuclides[0].thermal.as_ref().unwrap();
+        assert_eq!(thermal.upper, SabUpper::Energy(4.0));
+        assert_eq!(thermal.outside, SabOutside::Zero);
+        assert_eq!(thermal.free_gas_upper, 48.052);
+        let text = INPUT.replace(
+            "thermal = \"h2o.endf\"",
+            "thermal = \"h2o.endf\"\nsab-upper = \"evaluated\"\nsab-outside = \"sct\"",
+        );
+        let input = parse_input(&text, Path::new(".")).unwrap();
+        let thermal = input.nuclides[0].thermal.as_ref().unwrap();
+        assert_eq!(thermal.upper, SabUpper::Evaluated);
+        assert_eq!(thermal.outside, SabOutside::ShortCollisionTime);
+    }
+
+    #[test]
+    fn rejects_bad_thermal_scattering_limits() {
+        let with = |lines: &str| {
+            let text = INPUT.replace(
+                "thermal = \"h2o.endf\"",
+                &format!("thermal = \"h2o.endf\"\n{lines}"),
+            );
+            parse_input(&text, Path::new("."))
+        };
+        for lines in [
+            "sab-upper = \"top\"",
+            "sab-upper = 0",
+            "sab-upper = -4",
+            "sab-outside = \"free-gas\"",
+            "free-gas-upper = 0",
+            "free-gas-upper = \"all\"",
+        ] {
+            assert!(with(lines).is_err(), "{lines}");
+        }
+        // S(α, β) を使わない核種には書けない
+        for key in [
+            "sab-upper = 4",
+            "sab-outside = \"sct\"",
+            "free-gas-upper = 100",
+        ] {
+            let text = INPUT.replace(
+                "temperatures = [293.6, 900]",
+                &format!("temperatures = [293.6, 900]\n{key}"),
+            );
+            assert!(parse_input(&text, Path::new(".")).is_err(), "{key}");
+        }
     }
 
     #[test]

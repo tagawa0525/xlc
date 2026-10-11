@@ -1,0 +1,13 @@
+# ADR-0133 の自由ガスの上限を決める試行: H-1（600 K）だけのライブラリ。free-gas-upper だけを変える
+output = "h1-fg-10.00008.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+thermal-directory = "../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
+sigma0 = [1e10]
+
+[nuclide.H-1]
+endf = "n-001_H_001.endf"
+temperatures = [600]
+thermal = "tsl-HinH2O.endf"
+sab-upper = "evaluated"
+sab-outside = "sct"
+free-gas-upper = 10.00008

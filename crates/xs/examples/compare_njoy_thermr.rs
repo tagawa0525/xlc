@@ -11,7 +11,9 @@ use std::time::Instant;
 
 use xlc_format::group::GroupStructure;
 use xlc_xs::endf::Tape;
-use xlc_xs::multigroup::{Reactions, Thermal, ThermalSab, Weight, scattering_matrix};
+use xlc_xs::multigroup::{
+    FreeGas, Reactions, SabOutside, Thermal, ThermalSab, Weight, scattering_matrix,
+};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::read_thermal_scattering;
 
@@ -30,7 +32,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let elastic = BTreeMap::from([(2, tables.get(&2).ok_or("no MT2")?.clone())]);
     let awr = xlc_xs::endf::Mf3::parse(&tape.section(mat, 3, 2).ok_or("no MF3 MT2")?)?.awr;
     let data = read_thermal_scattering(&read(tsl)?)?;
-    let sab = ThermalSab::new(&data, temperature, cutoff)?;
+    // 表の外は THERMR と同じく短時間衝突近似で補う（ADR-0133）
+    let sab = ThermalSab::new(&data, temperature, cutoff, SabOutside::ShortCollisionTime)?;
 
     let groups = GroupStructure::wims69();
     let ng = groups.len();
@@ -45,7 +48,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             emissions: &BTreeMap::new(),
             angular: &BTreeMap::new(),
         },
-        Some(&Thermal::Sab(sab)),
+        // THERMR の GENDF は上限より上に MT222 を持たないので、自由ガスは続けない
+        Some(&Thermal::Sab {
+            sab,
+            free_gas: FreeGas {
+                kt: xlc_xs::physics::BK * temperature,
+                cutoff,
+            },
+        }),
     )?;
     println!("matrix in {:.1} s", start.elapsed().as_secs_f64());
 
