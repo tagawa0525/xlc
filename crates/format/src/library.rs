@@ -1223,19 +1223,29 @@ pub(crate) mod tests {
     #[test]
     fn nuclide_without_the_resolved_field_is_rejected() {
         // 項目を省いた核種を、「分離共鳴なし」として読まない（ADR-0013）。nil は書ける
-        let file = sample_file();
-        let bytes = rmp_serde::to_vec_named(&file.nuclides[0]).unwrap();
+        let bytes = rmp_serde::to_vec_named(&sample_file()).unwrap();
         let mut value = rmpv::decode::read_value(&mut bytes.as_slice()).unwrap();
-        let rmpv::Value::Map(entries) = &mut value else {
+        assert!(Library::from_msgpack(&bytes).is_ok());
+        let rmpv::Value::Map(file) = &mut value else {
+            panic!("a library is a map");
+        };
+        let (_, nuclides) = file
+            .iter_mut()
+            .find(|(k, _)| k.as_str() == Some("nuclides"))
+            .unwrap();
+        let rmpv::Value::Array(nuclides) = nuclides else {
+            panic!("nuclides is an array");
+        };
+        let rmpv::Value::Map(nuclide) = &mut nuclides[0] else {
             panic!("a nuclide is a map");
         };
-        entries.retain(|(k, _)| k.as_str() != Some("resolved"));
-        // 項目があれば読める（試験が、項目を省いた以外の理由で失敗しないことの確認）
-        let with = rmpv::ext::from_value::<NuclideData>(
-            rmpv::decode::read_value(&mut bytes.as_slice()).unwrap(),
-        );
-        assert!(with.is_ok());
-        assert!(rmpv::ext::from_value::<NuclideData>(value).is_err());
+        nuclide.retain(|(k, _)| k.as_str() != Some("resolved"));
+        let mut bytes = Vec::new();
+        rmpv::encode::write_value(&mut bytes, &value).unwrap();
+        assert!(matches!(
+            Library::from_msgpack(&bytes),
+            Err(LibraryError::Decode(_))
+        ));
     }
 
     #[test]
