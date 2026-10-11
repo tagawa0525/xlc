@@ -40,4 +40,4 @@ s_p が正でなければエラーにする。外周の真空の辺のある格�
   反射体の幅 21.5 cm）で当たるかは、examples/reflector の結果で確かめる
 - 2026-10-11: 原因を切り分け、真空の辺の流れを均質な角の値に r × 面の ADF で課す ADR-0131 にした。小さな格子の系列で
   s_p は 0.92〜1.12、角型の反射体の格子（examples/reflector/reflector-corner.toml）で CDF を作れた
-  （examples/reflector/verification.md、f2046a18、2026-10-11）。I 型の格子はこの扱いでも作れる
+  （examples/reflector/verification.md、2d48538a、2026-10-11）。I 型の格子はこの扱いでも作れる
