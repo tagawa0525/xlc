@@ -864,6 +864,24 @@ mod tests {
     }
 
     #[test]
+    fn scattering_order_sets_the_number_of_moments() {
+        let tape = unresolved_tape();
+        for order in [0, 2] {
+            let settings = Settings {
+                groups: GroupStructure::wims69(),
+                weight: Weight::lwr(),
+                sigma0: vec![1.0e10],
+                thermal_cutoff: 4.0,
+                tolerance: 1.0e-3,
+                pointwise_range: Some((4.0, 1.0e4)),
+                scattering_order: order,
+            };
+            let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+            assert_eq!(data.temperatures[0].scatter.len(), order + 1);
+        }
+    }
+
+    #[test]
     fn processes_each_temperature_and_sigma0() {
         let tape = unresolved_tape();
         let settings = Settings {
