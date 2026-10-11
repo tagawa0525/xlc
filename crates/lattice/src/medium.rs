@@ -1,6 +1,7 @@
 //! 格子を細かい群のまま中性子束と体積で均質化した媒質（ADR-0128）。
 
-use xlc_format::medium::MediumState;
+use xlc_format::medium::{Medium, MediumState};
+use xlc_format::table::Axis;
 
 use crate::fewgroup::HomogenizeError;
 use crate::material::Material;
@@ -110,6 +111,44 @@ pub(crate) fn fine_medium(
         }
     }
     Ok((medium, flux))
+}
+
+/// 平板の格子計算が読む媒質が、ライブラリの群境界 `bounds` と、平板の分岐の軸 `axes`（名前、点、密度、B-10 の
+/// 割合。分岐がなければ空）に一致することを確かめる。分岐の状態ごとに、媒質の同じ状態を使う（ADR-0128）
+pub fn check_medium(medium: &Medium, bounds: &[f64], axes: &[Axis]) -> Result<(), String> {
+    if medium.bounds != bounds {
+        return Err(format!(
+            "the medium has the group bounds {:?}, the library {bounds:?}",
+            medium.bounds
+        ));
+    }
+    if medium.axes != axes {
+        return Err(format!(
+            "the medium has the branch axes {:?}, the lattice {axes:?}; make the medium with the \
+             same branches",
+            medium.axes
+        ));
+    }
+    Ok(())
+}
+
+/// 媒質 `media`（名前）の散乱のモーメントの次数が、ほかの真空でない物質と同じことを確かめる（ADR-0128）。`named` は
+/// 状態の物質の（名前、物質）
+pub fn check_orders(named: &[(String, Material)], media: &[String]) -> Result<(), String> {
+    for (name, medium) in named.iter().filter(|(n, _)| media.contains(n)) {
+        let order = medium.anisotropic.len();
+        if let Some((other, m)) = named
+            .iter()
+            .find(|(_, m)| !m.is_void() && m.anisotropic.len() != order)
+        {
+            return Err(format!(
+                "the medium `{name}` has scattering moments up to P{order}, the material `{other}` \
+                 up to P{}",
+                m.anisotropic.len()
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
