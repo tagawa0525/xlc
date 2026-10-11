@@ -78,4 +78,4 @@ k の値は実機（k∞ 約 1.3）よりかなり低い。主な原因は次の
 
 - 再構成の展開と角の点のバランスを xlc-numeric に移し、格子のノードごとの形状関数と角の不連続因子を加えた
   （[ADR-0125](../../docs/adr/0125-derive-corner-factors-from-lattice-corner-balance.md)）: `dvc repro` で 3 つの段階を流し直し、出力（`wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out`、
-  `core.out`）の md5 は `dvc.lock` の前の値と同じだった（23e3a4a8、2026-10-11）
+  `core.out`）の md5 は `dvc.lock` の前の値と同じだった（df6182db、2026-10-11）

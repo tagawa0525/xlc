@@ -173,7 +173,7 @@ ADR-0096 と ADR-0103 は、反射体の角と平らでない格子の CDF、平
 - 少数群定数の形式: 印の数の検査（format の `pins_are_checked`）、状態の間で同じこと（`pins_round_trip_and_share_cells`）、
   集合体を回すと角と同じく回ること（core の `rotation_turns_pins_counterclockwise`）
 
-比較（examples/reflector/verification.md の「I 型の格子のピン出力の再構成」、23e3a4a8、2026-10-11）:
+比較（examples/reflector/verification.md の「I 型の格子のピン出力の再構成」、df6182db、2026-10-11）:
 
 - I 型の反射体の格子（examples/reflector）を、格子から作った燃料の定数で core が解くと、再構成したピン出力は MOC の
   ピン出力に RMS 0.080%、最大 −0.315%（反射体に接する列で 0.079%、+0.141%）で一致する。残る差の候補は、MOC のピン出力が
