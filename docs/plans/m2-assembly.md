@@ -12,7 +12,7 @@ M1 までの格子計算は、無限希釈の断面積でピンセルを1つ解�
 - VERA Problem 1B〜1D（ピンセル）と 2B〜2D（17×17 集合体、毒物なし）: 減速材と被覆管は 600 K、
   燃料は 600, 900, 1200 K。この温度はすべて M1 のライブラリにある。565 K の 1A, 2A は、
   H in H2O の S(α,β) に 565 K がないので対象にしない
-- 参照解は、同じ核データから手元で作った OpenMC で求める（コード同士の検証。[ADR-0031](../adr/0031-verify-against-openmc-with-same-data.md)）。VERA の公開値（KENO-VI、
+- 参照解は、同じ核データから手元で作った OpenMC で求める（コード同士の検証。[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)）。VERA の公開値（KENO-VI、
   ENDF/B-VII.0）とも比べるが、核データの差を含むので参考とする
 
 ## 決めたこと

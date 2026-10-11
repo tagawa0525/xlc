@@ -69,7 +69,7 @@ ENDF 形式の評価済み核データから出発し、PWR 炉心全体の解�
 （許容の上限は ±150 pcm）、ピン出力の差が rms 0.2% 以内とする（[ADR-0032](../adr/0032-target-lattice-accuracy.md)）。達成の状況は検証の例
 （examples/vera/verification.md など）に記録する。
 
-参照解は、同じ核データから手元で作った OpenMC で求める（[ADR-0031](../adr/0031-verify-against-openmc-with-same-data.md)）。
+参照解は、同じ核データから手元で作った OpenMC で求める（[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)）。
 
 ## 今後の拡張
 
