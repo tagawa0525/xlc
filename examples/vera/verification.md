@@ -121,7 +121,7 @@ S(α,β) の温度を補正したもの）。核データの版（Zr の ENDF/B-
 準位の角度分布は MF4（[ADR-0081](../../docs/adr/0081-use-mf4-angular-distributions.md)）、集合体は成り立つ対称操作をすべて使う（[ADR-0112](../../docs/adr/0112-use-verified-symmetry-in-moc-and-shielding.md)。2A〜2K と 2Q は 1/8）。制御棒の吸収体は 5 リング、計装管のシンブルの中の真空と SS304 は 1 リング、シンブルと計装管の間の水は 2 リング（燃料の外のリングの数は ADR で決めていない。#0059）。
 ピン出力は `compare_pins.py` で、燃料ピン 264 本の平均で規格化して比べる。
 下の表と、この節とその下の節の xlc の値は、[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) の前のライブラリ（H in H2O の S(α,β) の上限 4 eV、表の外は 0、
-その上は静止した標的）のもので、再測定していない（#0068）。ADR-0133 のライブラリでは、1B の k は 1.182383 で、差は +60 pcm
+その上は静止した標的）のもので、再測定していない（#0070）。ADR-0133 のライブラリでは、1B の k は 1.182383 で、差は +60 pcm
 （「k の差の内訳」。8b874f98）。
 
 | 問題     | 燃料の温度 | xlc      | OpenMC   | 差       | ピン出力の差（rms、最大） |
@@ -581,7 +581,7 @@ cargo run --release -p xlc-lattice --example swap_transfer -- examples/vera/p1/p
 ### 2K（Pyrex 24 本と 2 種の燃料）
 
 2K の k の差（+283 pcm）を、1B と同じ方法で分けた。この節の値は、xlc も 1B と比べた値も
-[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) の前のライブラリ（H in H2O の S(α,β) の上限 4 eV）のもので、再測定していない（#0068）。物質は 3.1% の燃料、3.6% の燃料、水、Pyrex、SS304（Pyrex の棒の内管と
+[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) の前のライブラリ（H in H2O の S(α,β) の上限 4 eV）のもので、再測定していない（#0070）。物質は 3.1% の燃料、3.6% の燃料、水、Pyrex、SS304（Pyrex の棒の内管と
 被覆管）、Zircaloy（燃料の被覆管、案内管、計装管）。xlc の `balance` の例は MOC を対称性なしで解き、k は対称性を使う
 `lattice`（ADR-0111 の設定、1/8）と 6 桁まで同じ 1.023391。OpenMC は `openmc_balance.py`（1 世代 100 万粒子・400 世代、
 最初の 100 世代を捨てる、乱数のシード 1。参照解と同じ設定で、k も参照解と同じ 1.020560 ± 0.000049）。OpenMC は f1f3cf0c、
