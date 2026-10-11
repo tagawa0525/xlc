@@ -1,8 +1,6 @@
 /target
 /references
 /trials
-/examples/m0/*.msgpack
-/examples/m0/*.fg
 /examples/m1/*.msgpack
 /examples/m1/*.fg
 /.direnv

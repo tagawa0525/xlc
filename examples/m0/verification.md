@@ -13,14 +13,15 @@ ENDF/B-VIII.0 から、多群ライブラリ（`xs`）、ピンセルの2群定�
 
 ## 実行
 
-ENDF/B-VIII.0 の中性子サブライブラリを `references/endf/ENDF-B-VIII.0_neutrons/` に置いて
-（別の場所なら `xs.toml` の `endf-directory` を書き換えて）実行する。
+ENDF/B-VIII.0 の中性子サブライブラリを `references/endf/ENDF-B-VIII.0_neutrons/` に置いて（`xs.toml` と `dvc.yaml` が
+この場所を指す）、DVC で実行する（ADR-0123）。入力かコードが変わった段階だけが走る。
 
 ```sh
-examples/m0/run.sh
+dvc repro examples/m0/dvc.yaml
 ```
 
-生成物（`wims69.msgpack`, `pincell-fg.msgpack`）はこのディレクトリに書き出す。git では追跡しない。
+生成物（`wims69.msgpack`, `pincell-fg.msgpack`, `core.out`）はこのディレクトリに書き出す。git では追跡せず、DVC の
+キャッシュに置く。各段階の入力・コード・出力の md5 は `dvc.lock` に書かれる。
 
 | ファイル          | 内容                                                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------------------------- |
@@ -30,7 +31,7 @@ examples/m0/run.sh
 | `cycle.toml`      | サイクルの装荷（256 体の ID の並び）                                                                  |
 | `plant.toml`      | 炉心の形（16 × 16 体の位置、ピッチ 21.25 cm、高さ 366 cm）                                            |
 | `assemblies.toml` | 台帳（ピンセルの2群定数の集合体 256 体）                                                              |
-| `run.sh`          | 3段階を順に実行するスクリプト                                                                         |
+| `dvc.yaml`        | 3段階（xs → lattice → core）の入力、コード、出力とコマンド                                            |
 
 ## 結果
 
