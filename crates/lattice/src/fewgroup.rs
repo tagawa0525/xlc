@@ -244,6 +244,26 @@ pub fn homogenize_nodes(
         few.adf = adf;
         adfs.push(few);
     }
+    // 反射体のノードの検査を、形状関数の角の点の釣り合いより先にする（誤りの入力を、バランスの別のエラーで隠さない）
+    for (n, node) in nodes.iter().enumerate() {
+        if !node.reflector {
+            continue;
+        }
+        if !neighbors[n].iter().flatten().any(|&m| !nodes[m].reflector) {
+            return Err(HomogenizeError::Nodes(format!(
+                "reflector node {n} touches no fuel (non-reflector) node"
+            )));
+        }
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。核分裂のある反射体のノードは自分の CDF で
+        // 割ることになり、core で掛け戻す値と食い違う
+        let fissile = is_fissile(&adfs[n].nu_fission)
+            .map_err(|e| HomogenizeError::Nodes(format!("node {n}: {e}")))?;
+        if pins && fissile {
+            return Err(HomogenizeError::Nodes(format!(
+                "reflector node {n} has fission; form functions need reflector nodes without fission"
+            )));
+        }
+    }
     let shapes = if pins {
         Some(node_pins(
             solution,
@@ -272,11 +292,6 @@ pub fn homogenize_nodes(
                     }
                     few.normalized_adf[side] = true;
                 }
-            }
-            if !few.normalized_adf.contains(&true) {
-                return Err(HomogenizeError::Nodes(format!(
-                    "reflector node {n} touches no fuel (non-reflector) node"
-                )));
             }
         }
         result.push(few);
