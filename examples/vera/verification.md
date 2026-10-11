@@ -308,9 +308,9 @@ xlc は `homogeneous` の例（[`crates/lattice/examples/homogeneous.rs`](../../
 c_H_in_H2O）。核種を減らした媒質は、残す核種の個数密度を変えない。8cdbcaab、2026-10-11。
 
 ```sh
-python3 examples/vera/homogeneous_medium.py 1B all.toml [残す核種 ...]   # references/openmc の venv で
+python3 examples/vera/homogeneous_medium.py 1B all.toml [残す核種 ...]   # references の devShell で
 cargo run --release -p xlc-lattice --example homogeneous -- all.toml examples/vera/vera.msgpack
-venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml all.toml work 200000 300 50 1
+python3 ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml all.toml work 200000 300 50 1
 ```
 
 （8cdbcaab の `openmc_homogeneous.py` は k だけを書き、ライブラリの引数がない。いまは作業ディレクトリの次にライブラリを
@@ -340,7 +340,7 @@ statepoint から世代ごとの値を求める）、xlc は `homogeneous` の�
 行を OpenMC の移行の率 / 中性子束に置き換え、正味の吸収と生成は変えない）。cfd29ec7、2026-10-11。
 
 ```sh
-venv/bin/python ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml h-u5-u8.toml work \
+python3 ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml h-u5-u8.toml work \
   ../../examples/vera/vera.msgpack 200000 150 50 1
 cargo run --release -p xlc-lattice --example homogeneous -- h-u5-u8.toml examples/vera/vera.msgpack --balance xlc.msgpack
 python3 examples/vera/compare_balance.py xlc.msgpack work/balance.msgpack examples/vera/vera.msgpack 1e5 15030 4 0.625
@@ -399,8 +399,8 @@ OpenMC との k の差（1B で +295 pcm、#0005）を、物質ごと・群ご�
 
 ```sh
 cargo run --release -p xlc-lattice --example balance -- examples/vera/p1/pincell-1B.toml xlc-1B.msgpack
-# references/openmc で（nix develop ../..#references の中、PATH に install/bin）。16 スレッドで約 1 時間
-venv/bin/python ../../examples/vera/openmc_balance.py endfb80/cross_sections.xml 1B work \
+# references/openmc で（nix develop ../..#references の中）。16 スレッドで約 1 時間
+python3 ../../examples/vera/openmc_balance.py endfb80/cross_sections.xml 1B work \
   ../../examples/vera/vera.msgpack 1000000 250 50 1
 python3 examples/vera/compare_balance.py xlc-1B.msgpack work/balance.msgpack examples/vera/vera.msgpack
 ```
