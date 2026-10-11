@@ -33,6 +33,10 @@ temperatures = [565, 600, 900, 1200]
 endf = "n-001_H_001.endf"
 temperatures = [550, 573.6, 600]
 thermal = "tsl-HinH2O.endf"
+# S(α,β) は評価済みデータの上限まで、表の外は THERMR と同じ短時間衝突近似、その上 9118 eV まで自由ガス（ADR-0133）
+sab-upper = "evaluated"
+sab-outside = "sct"
+free-gas-upper = 9118
 
 [nuclide.B-10]
 endf = "n-005_B_010.endf"
