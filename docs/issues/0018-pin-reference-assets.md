@@ -55,3 +55,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
 - 2026-10-11: `references/parcs/theory.pdf` は PARCS の理論マニュアルでなく、NRC のサーバーが返した「Access Denied」の
   HTML（402 バイト）だった。どの記録も引いていないので docs/specs.sha256 に入れていない。`references/papers/` の
   論文も記録から引かれていないので入れていない
+- 2026-10-11: 仕様書から抜いたテキスト（`references/{vera,c5g7,mox}/spec.txt`）は、記録が引き（examples/vera/compare_keno.py、
+  #0058、examples/m3-nuclides/verification.md）、作る手順（pdftotext の選択肢）がどこにもない。作るスクリプトにするか、
+  ハッシュを記録するかを、参照の結果と一緒に決める。C5G7 と MOX の仕様の PDF は取る先が分からないので、消すと
+  作り直せない
