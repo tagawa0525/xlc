@@ -1,0 +1,1 @@
+/nix/store/qdaa3j64f9vxq06wwvfqny97njj2rlaq-nix-shell
