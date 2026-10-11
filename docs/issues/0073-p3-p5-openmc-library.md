@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-12
-closed:
+closed: 2026-10-12
 milestone: M3
 blocked-by: []
-resolution:
+resolution: ADR-0139
 ---
 
 # Problem 3 と 5-2D の OpenMC のライブラリに Ti と 565 K の構造材の核種を足す
@@ -24,16 +24,17 @@ Problem 3 と 5-2D の参照解の入力（examples/vera/p3/openmc-3A.toml な�
 短い走行（1 世代あたりの時間の測定）は、これらを足したライブラリ（`examples/vera/openmc-library-timing.toml`。
 references/openmc/p3-p5-timing に置いた）で走らせた。足した 29 核種は NJOY で 54 秒（Slurm で並列、2026-10-12）。
 
-関係する ADR: なし
+関係する ADR: ADR-0139
 
 ## 完了の条件
 
 `examples/vera/openmc-library.toml` に、Ti-46〜50 を 565 K と 600 K で、上の核種に 565 K を足し、段階（examples/vera/dvc.yaml の
 openmc-neutron、openmc-index）で作り、`dvc.lock` をコミットする。p3/ と p5/ の入力が走ることを確かめる。
-`examples/vera/openmc-library-timing.toml`（openmc-library.toml の写しに足したもの）は、そのとき消す（時間の記録は、
+`examples/vera/openmc-library-timing.toml`（openmc-library.toml の写しに足したもの）は、そのとき消した（時間の記録は、
 測ったコミットを checkout して再現する。ADR-0122）。
 
 ## 経緯
 
 - 2026-10-12: Problem 3 と 5-2D の OpenMC のモデル（feat/p3-p5-openmc）で見つけた。ライブラリの段階は別の作業で整えて
   いるので、このブランチでは足さない
+- 2026-10-12: openmc-library.toml に足し、openmc-library-timing.toml を消した。段階の再生成は Slurm の共有モード（-c 8）で約 10 分半
