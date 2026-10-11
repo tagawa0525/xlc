@@ -13,7 +13,8 @@ OpenMC の温度の内挿のモードは、温度を 1 つしか持たない核�
 （OpenMC 0.15.2 の src/nuclide.cpp）ので、内挿のモードで解く問題の核種には 2 つ以上の温度を渡す。
 
 出力ディレクトリにすでにある HDF5 は、求める温度をすべて含めば作り直さない（核種を足したときに、足した分だけを
-作る）。HDF5 は一時ファイルに書いてから名前を変えるので、途中で止まっても書きかけのファイルは残らない。
+作る）。含まなければ、求める温度だけで作り直す（持っていた温度でも、渡さなければ消える）ので、温度を足すときは
+持っている温度も並べて渡す。HDF5 は一時ファイルに書いてから名前を変えるので、途中で止まっても書きかけのファイルは残らない。
 """
 
 import argparse
@@ -94,8 +95,8 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("endf", type=Path, help="ENDF/B-VIII.0 のディレクトリ")
     parser.add_argument("out", type=Path, help="出力ディレクトリ")
     parser.add_argument("workers", type=int, help="並列数")
-    for group in ("fuel", "coolant-and-clad", "others", "thermal"):
-        parser.add_argument(f"--{group}", type=float, nargs="+", required=True)
+    for kind in ("fuel", "coolant-and-clad", "others", "thermal"):
+        parser.add_argument(f"--{kind}", type=float, nargs="+", required=True)
     return parser.parse_args()
 
 
@@ -105,7 +106,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     neutrons = endf / "ENDF-B-VIII.0_neutrons"
     hydrogen = sorted({*args.coolant_and_clad, *args.thermal})
-    groups = [
+    kinds = [
         (FUEL, args.fuel),
         ([HYDROGEN], hydrogen),
         (COOLANT_AND_CLAD, args.coolant_and_clad),
@@ -113,7 +114,7 @@ def main() -> None:
     ]
     jobs = [
         (n, neutrons / f"{f}.endf", sorted(temperatures), out)
-        for nuclides, temperatures in groups
+        for nuclides, temperatures in kinds
         for n, f in nuclides
     ]
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
