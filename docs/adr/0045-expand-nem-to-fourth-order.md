@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by: ADR-0102
 issues: []
+requires: []
 ---
 
 # ADR-0045: NEM は4次多項式で展開し、横方向の漏れは2次で近似する

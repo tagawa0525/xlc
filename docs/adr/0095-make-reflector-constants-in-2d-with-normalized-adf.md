@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0095: 径方向の反射体の定数は、不均質な燃料の集合体とバッフル・水を並べた 2D の格子計算で、面の向きの種類ごとに作り、反射体の ADF は燃料の ADF で割って持つ

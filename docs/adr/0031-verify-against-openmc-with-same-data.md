@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by: ADR-0124
 issues: []
+requires: []
 ---
 
 # ADR-0031: 参照解は同じ核データから手元で作った OpenMC で求め、OpenMC は本体の依存に含めない

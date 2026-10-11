@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: ["#0001"]
+requires: []
 ---
 
 # ADR-0073: ライブラリに、ポイントワイズの断面積、分離共鳴の上端、ポテンシャル散乱を持たせる

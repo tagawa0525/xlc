@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0097: M3 の分岐のテーブルは、軸の点のすべての組み合わせを計算し、core は連続の軸を燃料温度を √T にした多重線形で内挿する

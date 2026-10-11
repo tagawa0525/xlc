@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0029: 熱水力のフィードバックは初期のマイルストーンでは扱わない

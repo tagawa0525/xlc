@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: [ADR-0115]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0117: コードには How、テストには What、コミットと ADR には Why、コメントには Why not を書き、記録は今の姿だけを書く

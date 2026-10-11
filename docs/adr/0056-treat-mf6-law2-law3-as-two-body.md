@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by: ADR-0082
 issues: []
+requires: []
 ---
 
 # ADR-0056: MF6 の LAW=2, 3 の離散準位の非弾性散乱は、Q 値による重心系で等方な2体の運動学で扱う

@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: ["#0009", "#0014"]
+requires: []
 ---
 
 # ADR-0076: ライブラリの散乱行列を、Legendre のモーメント P0〜P_L で持つ

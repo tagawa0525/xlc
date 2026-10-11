@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by: ADR-0081
 issues: []
+requires: []
 ---
 
 # ADR-0041: 群の間の移行は、反応ごとの運動学で作る

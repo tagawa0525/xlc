@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: ["#0001"]
+requires: []
 ---
 
 # ADR-0069: セルの減速計算の範囲は、ライブラリのポイントワイズの断面積の下限（4 eV）から燃料の分離共鳴の上端（20 keV まで）とする

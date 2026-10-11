@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by: ADR-0083
 issues: []
+requires: []
 ---
 
 # ADR-0059: 集合体の形状は、正方格子に並べたセルと集合体の外周の水ギャップとする

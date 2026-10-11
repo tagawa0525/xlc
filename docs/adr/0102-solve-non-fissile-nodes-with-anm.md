@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: [ADR-0027, ADR-0045]
 superseded-by:
 issues: ["#0027"]
+requires: []
 ---
 
 # ADR-0102: 核分裂のないノードは2群の解析的ノード法（ANM）で解き、core と1ノードの問題で同じ核を使う

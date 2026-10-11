@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: ["#0015"]
+requires: []
 ---
 
 # ADR-0057: 出射分布の入射エネルギーの補間則は ENDF のとおりに扱う

@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by: ADR-0006
 issues: []
+requires: []
 ---
 
 # ADR-0005: 依存クレートは標準ライブラリを優先し、数値計算は自前で実装する

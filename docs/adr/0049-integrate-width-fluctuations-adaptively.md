@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0049: 幅のゆらぎの期待値は、閉じた式と適応積分で求め、NJOY の Hwang の求積を使わない

@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0018", "#0060"]
+requires: []
 ---
 
 # ADR-0123: 計算の段階は DVC で駆動し、dvc.yaml と dvc.lock をコミットする

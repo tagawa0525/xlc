@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0121: OpenMC の参照解の出力は生成物として git で追跡しない

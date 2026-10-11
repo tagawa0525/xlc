@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: []
 superseded-by: ADR-0117
 issues: ["#0057"]
+requires: []
 ---
 
 # ADR-0115: 検証の記録とコードのコメントは、今の姿だけを書く

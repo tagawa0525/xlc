@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0042: ν は MF1 MT452、χ は MF5 MT18 から取り、χ は核分裂源で重み付けして1本にする

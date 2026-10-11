@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0059, ADR-0061]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0083: 格子を列ごとの幅と行ごとの高さを持つ長方形の格子に一般化し、セルの形を増やす

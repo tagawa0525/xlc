@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: [ADR-0009]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0011: データファイル（プログラムが書いて読むもの）は MessagePack とする

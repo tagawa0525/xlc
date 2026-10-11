@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0041]
 superseded-by:
 issues: ["#0009"]
+requires: []
 ---
 
 # ADR-0081: 群の間の移行は、反応ごとの運動学と MF4 の角度分布で作る

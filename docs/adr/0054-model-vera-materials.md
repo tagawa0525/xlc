@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0054: 材料は VERA の仕様どおりの組成とし、微量の Hf とギャップの He だけを除く

@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: []
 superseded-by: ADR-0112
 issues: ["#0039", "#0054"]
+requires: []
 ---
 
 # ADR-0113: 1/4 対称な格子では、代表のトラックをスイープし、領域とセルの状態も代表だけで持つ

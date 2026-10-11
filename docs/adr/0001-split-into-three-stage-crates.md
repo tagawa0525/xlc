@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0001: 計算を xs・lattice・core の3段階のクレートに分け、ファイルで受け渡す

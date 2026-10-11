@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0020: 核データは ENDF/B-VIII.0 とし、リポジトリに含めない

@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: ["#0012"]
+requires: []
 ---
 
 # ADR-0013: ファイルの読み込みは厳密にし、推測で補わない

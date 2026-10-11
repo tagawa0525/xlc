@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0090: 炉心は対称性を使わず全体を解く

@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: [ADR-0077]
 superseded-by:
 issues: ["#0047", "#0049"]
+requires: []
 ---
 
 # ADR-0111: OpenMC と比べる VERA の集合体の入力を方位角 30・間隔 0.03 cm にする

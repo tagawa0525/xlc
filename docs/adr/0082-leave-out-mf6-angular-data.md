@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0056]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0082: MF6 の角度のデータは散乱行列に入れない

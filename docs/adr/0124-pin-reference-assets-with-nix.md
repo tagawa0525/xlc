@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: [ADR-0031]
 superseded-by:
 issues: ["#0018"]
+requires: []
 ---
 
 # ADR-0124: 参照解のツールと核データは flake で版とハッシュごと固定し、references/ は作り直せる置き場にする

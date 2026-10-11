@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0016: エラーはライブラリ側を thiserror、コマンド側を anyhow とする

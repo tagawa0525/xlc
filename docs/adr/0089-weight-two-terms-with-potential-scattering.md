@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0023]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0089: 等価原理の2項有理近似の重みに、吸収体自身のポテンシャル散乱 σp を入れる

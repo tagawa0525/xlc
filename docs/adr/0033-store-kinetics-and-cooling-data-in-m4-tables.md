@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0033: M4 の分岐テーブルに、動特性と冷却計算が使うデータを入れる

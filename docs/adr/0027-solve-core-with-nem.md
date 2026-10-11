@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by: ADR-0102
 issues: []
+requires: []
 ---
 
 # ADR-0027: 炉心計算は 3D NEM の2群の拡散計算とし、1集合体を径方向に1ノードとする

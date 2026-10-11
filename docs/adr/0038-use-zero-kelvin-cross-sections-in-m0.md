@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by: [ADR-0046, ADR-0048, ADR-0052]
 issues: []
+requires: []
 ---
 
 # ADR-0038: M0 の断面積は 0 K・無限希釈とし、熱中性子の散乱だけ 293.6 K の自由ガスで扱う

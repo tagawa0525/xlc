@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0034: 全核種の燃焼チェーンを作り、輸送計算に使う縮約したチェーンはそこから作る

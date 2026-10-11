@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0037: core の NEM と CMFD は、演算子と固有値の反復を分けておく

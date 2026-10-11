@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: [ADR-0023]
 superseded-by:
 issues: ["#0002", "#0003"]
+requires: []
 ---
 
 # ADR-0068: 共鳴の自己遮蔽は、ピンごとの等価なセルの超微細群（UFG）の減速計算で直接求める

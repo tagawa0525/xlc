@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: [ADR-0005]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0006: 事実上の標準があるものはそのクレートを使い、定番のない数値計算は自前で実装する

@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0055: R-matrix limited 形式（LRF=7）は Fe-54, 57 が使う範囲だけを NJOY RECONR と同じ式で扱う

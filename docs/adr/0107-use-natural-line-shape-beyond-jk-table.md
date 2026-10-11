@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by:
 issues: ["#0035"]
+requires: []
 ---
 
 # ADR-0107: 非分離共鳴の J, K は、θ = Γ/Δ が 10⁶ を超えると Lorentz の線形状の解析式で求める

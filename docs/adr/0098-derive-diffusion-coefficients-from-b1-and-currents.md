@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: [ADR-0044]
 superseded-by: ADR-0104
 issues: ["#0021"]
+requires: []
 ---
 
 # ADR-0098: 少数群の拡散係数は、反射境界の集合体では B1 の基本モードの中性子流から、非反射の格子ではまず outflow の輸送断面積から求める

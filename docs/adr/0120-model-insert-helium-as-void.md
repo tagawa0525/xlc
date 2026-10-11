@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0058"]
+requires: []
 ---
 
 # ADR-0120: 案内管に入れる棒（Pyrex の棒、制御棒）の中の He も真空にする

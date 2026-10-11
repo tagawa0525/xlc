@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0091: MF6 の角度分布を散乱行列に使う（番号だけ残す）

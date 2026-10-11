@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0016"]
+requires: []
 ---
 
 # ADR-0078: 炉心の外の構造は、バッフルと周りの水までを反射体の定数に入れ、バレルより外は除く

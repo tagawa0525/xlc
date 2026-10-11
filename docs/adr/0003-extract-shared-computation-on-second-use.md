@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0003: 段階の間で共有する計算は、2つ目の段階が使う時点で共通のクレートに切り出す
