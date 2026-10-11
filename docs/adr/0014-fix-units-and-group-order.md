@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0014: 単位と群の並びを全体で一つに決める
@@ -25,6 +26,6 @@ issues: []
 
 約束事で、確かめるテストはない（群境界の並びは `bounds_and_sigma0_must_be_descending` で検査する）。
 
-## 結果
+## 帰結
 
 なし。

@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0042: ν は MF1 MT452、χ は MF5 MT18 から取り、χ は核分裂源で重み付けして1本にする
@@ -25,6 +26,6 @@ issues: []
 
 `chi_is_normalized`、`fissile_nuclide_needs_normalized_chi`。NJOY GROUPR との比較（examples/m1/verification.md）。
 
-## 結果
+## 帰結
 
 遅発中性子の ν とスペクトルは M4 で加える（[ADR-0033](0033-store-kinetics-and-cooling-data-in-m4-tables.md)）。

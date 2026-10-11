@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0058: 非分離共鳴の LRF=1 は LRF=2 に読み替え、l=3 は剛体球の式で計算して warn する
@@ -30,6 +31,6 @@ l=3 は分離共鳴と同じ l=3 の剛体球の式を使い、仕様外であ�
 `reads_unresolved_lrf1_with_fission_widths`、`reads_unresolved_lrf1_without_fission_widths`。NJOY UNRESR で l=3 を l=2 に
 すると7桁一致することで、差の原因を確かめた。
 
-## 結果
+## 帰結
 
 NJOY と比べるときは、Fe-58 の非分離共鳴で上の差が残る。

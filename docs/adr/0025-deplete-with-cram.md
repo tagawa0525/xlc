@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0025: 燃焼計算は CRAM で解き、予測子・修正子法で時間を進める
@@ -26,6 +27,6 @@ issues: []
 
 まだ実装していない（M4）。M4 で格子燃焼のベンチマークと比べる。
 
-## 結果
+## 帰結
 
 CRAM の疎行列の LU 分解は faer で解く（[ADR-0007](0007-use-faer-for-linear-algebra.md)）。

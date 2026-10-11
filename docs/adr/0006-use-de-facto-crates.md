@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: [ADR-0005]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0006: 事実上の標準があるものはそのクレートを使い、定番のない数値計算は自前で実装する
@@ -36,7 +37,7 @@ serde、エラーの thiserror と anyhow、ログの tracing など。自前で
 
 方針で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 - 線形代数は [ADR-0007](0007-use-faer-for-linear-algebra.md)、小さな密行列は [ADR-0008](0008-keep-own-small-dense-solvers.md)
 - エラーは [ADR-0016](0016-type-errors-with-thiserror-and-anyhow.md)、ログは [ADR-0018](0018-log-with-tracing-to-stderr.md)

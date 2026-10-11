@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0021: 核データ処理は NJOY と同じ流れとし、共鳴の形式は対象核種で使うものから順に対応する
@@ -38,6 +39,6 @@ ENDF から多群ライブラリを作る処理の流れと、対応する共鳴
 段階ごとに NJOY の出力と比べる例（`crates/xs/examples/compare_njoy_pendf.rs`、`compare_njoy_broadr.rs`、
 `compare_njoy_thermr.rs`、`compare_njoy_gendf.rs`、`compare_njoy_shielding.rs`）。結果は examples/m1/verification.md。
 
-## 結果
+## 帰結
 
 対応していない形式はエラーにする（`unsupported_formalism_is_error`）。

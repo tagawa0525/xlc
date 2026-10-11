@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0064: トラックのスイープは rayon で並列化し、領域ごとの和を方位角ごとに持って方位角の順に足す
@@ -29,6 +30,6 @@ issues: []
 
 `result_does_not_depend_on_the_thread_count`、`anisotropic_result_does_not_depend_on_the_thread_count`。
 
-## 結果
+## 帰結
 
 方位角ごとの集計のメモリが要る（非等方散乱では [ADR-0075](0075-solve-moc-with-anisotropic-scattering.md)）。

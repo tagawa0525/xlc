@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0030: 最初に3つの段階を最小構成で端から端までつなぐ
@@ -26,6 +27,6 @@ issues: []
 M0 の完了条件（ENDF から作った多群ライブラリで、ピンセルの k∞ と均質な炉心の k_eff を、3段階のコマンドを順に実行して
 求められること）。examples/m0/verification.md。
 
-## 結果
+## 帰結
 
 M0 の簡略化は [ADR-0038](0038-use-zero-kelvin-cross-sections-in-m0.md)〜[ADR-0045](0045-expand-nem-to-fourth-order.md)。

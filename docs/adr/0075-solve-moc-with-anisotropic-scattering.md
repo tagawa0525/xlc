@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: [ADR-0040]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0075: MOC を非等方散乱で解き、既定ではライブラリにあるすべての次数（P3）を使う
@@ -41,6 +42,6 @@ k の幅は 10 pcm、ピンの核分裂率でほぼ 0 で、時間の差も小�
 `addition_theorem_holds`、`anisotropic_result_does_not_depend_on_the_thread_count`。VERA 2B〜2D の水の穴のまわりのピンの
 核分裂率を OpenMC と比べる（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 ライブラリの散乱行列のモーメントは [ADR-0076](0076-store-legendre-scattering-moments.md)。SMT のスレッドでのメモリは [ADR-0067](0067-default-threads-to-physical-cores.md)。

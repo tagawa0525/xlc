@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0090: 炉心は対称性を使わず全体を解く
@@ -26,6 +27,6 @@ KENO は 1/4 炉心で解いて −53/−39 pcm を補正している。docs/pla
 
 まだ確かめていない（core の装荷図と全炉心の入力は M3 の作業）。M3 の Problem 5 を、仕様書の実測値と KENO の値と比べて確かめる。
 
-## 結果
+## 帰結
 
 なし。

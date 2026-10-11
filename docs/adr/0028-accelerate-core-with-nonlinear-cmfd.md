@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0028: 炉心計算の固有値は非線形 CMFD で加速する
@@ -24,6 +25,6 @@ issues: []
 
 まだ実装していない（M3）。実装したら、加速の有無で固有値と中性子束が一致し、反復が減ることをテストで確かめる。
 
-## 結果
+## 帰結
 
 演算子と固有値の反復は分けておく（[ADR-0037](0037-separate-operators-from-iterations.md)）。

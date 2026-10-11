@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by: ADR-0124
 issues: []
+requires: []
 ---
 
 # ADR-0031: 参照解は同じ核データから手元で作った OpenMC で求め、OpenMC は本体の依存に含めない
@@ -35,7 +36,7 @@ issues: []
 
 手順は docs/environment.md の「VERA の参照解」、結果は examples/vera/verification.md。
 
-## 結果
+## 帰結
 
 - 3D の全炉心の OpenMC は計算時間が大きいので作らない。Problem 5 は仕様書の実測値（妥当性確認）と KENO の値で比べる
 - 参照解の組成は計算と同じにする（[ADR-0054](0054-model-vera-materials.md)）

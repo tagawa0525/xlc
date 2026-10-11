@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: ["#0001"]
+requires: []
 ---
 
 # ADR-0073: ライブラリに、ポイントワイズの断面積、分離共鳴の上端、ポテンシャル散乱を持たせる
@@ -39,6 +40,6 @@ lattice のピンごとの減速計算（[ADR-0068](0068-solve-pinwise-slowing-d
 `keeps_the_pointwise_data`、`pointwise_data_covers_the_range_on_the_total_grid`、`resolved_range_has_its_top_and_potential_scattering`、
 `rejects_a_zero_s_wave_radius`、`rejects_differing_s_wave_radii`。
 
-## 結果
+## 帰結
 
 4 eV より下の共鳴（WIMS-69 の 2.6〜3.3 eV の群に入る Pu-242 の 2.67 eV など）は減速計算で遮蔽しない（#0001）。

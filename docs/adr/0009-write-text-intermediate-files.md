@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by: ADR-0011
 issues: []
+requires: []
 ---
 
 # ADR-0009: 段階間の中間ファイルは自前のテキスト形式とする
@@ -28,7 +29,7 @@ issues: []
 
 M0 の例（examples/m0/verification.md）で3段階をつないで確かめた。
 
-## 結果
+## 帰結
 
 M2 で、段階間のデータファイルを MessagePack に改め（[ADR-0011](0011-write-data-files-in-messagepack.md)）、自前のテキスト形式は M2 の中で移行した。人が書く入力
 ファイルの形式は、別の決定として TOML にした（[ADR-0010](0010-write-inputs-in-toml.md)）。

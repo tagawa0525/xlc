@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0001: 計算を xs・lattice・core の3段階のクレートに分け、ファイルで受け渡す
@@ -42,7 +43,7 @@ ENDF 形式の評価済み核データから出発し、PWR 炉心全体の解�
 構成の約束事で、確かめるテストはない。xs のライブラリを NJOY の出力と比べる例（`crates/xs/examples/compare_njoy_*.rs`）が、
 段階ごとに単独で検証できることを使っている。
 
-## 結果
+## 帰結
 
 - 段階のクレートの間の依存は [ADR-0002](0002-keep-stage-crates-independent.md) で決める
 - 段階が共有するデータファイルの形式と計算は、共通のクレート（`xlc-format`、`xlc-numeric`）に置く（[ADR-0002](0002-keep-stage-crates-independent.md)、[ADR-0003](0003-extract-shared-computation-on-second-use.md)）

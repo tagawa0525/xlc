@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0018: 計算結果は標準出力に、経過と診断は tracing のログとして標準エラーに出す
@@ -28,6 +29,6 @@ issues: []
 
 約束事で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 なし。

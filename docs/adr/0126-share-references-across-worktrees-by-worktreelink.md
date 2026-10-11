@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0018"]
+requires: []
 ---
 
 # ADR-0126: worktree の references は .worktreelink で main への symlink にして共有する
@@ -13,7 +14,7 @@ issues: ["#0018"]
 `references/`（核データ、ツール、DVC のキャッシュ `references/dvc-cache`）は git で追跡せず、main の worktree にだけ
 実体がある（[ADR-0123](0123-drive-stages-with-dvc.md)、[ADR-0124](0124-pin-reference-assets-with-nix.md)）。
 linked worktree に `references` がないと、DVC は worktree の中に別のキャッシュを黙って作り、ENDF を deps にする段階は
-deps がなくて止まる（ADR-0123 の「結果」）。これまでは docs/environment.md の手順で、人が worktree ごとに symlink を
+deps がなくて止まる（ADR-0123 の「帰結」）。これまでは docs/environment.md の手順で、人が worktree ごとに symlink を
 張っていた。ADR-0123 は、worktree を作るツールで symlink を作る仕組みと、置き場が違えば止める仕組みがまだないと
 書いている。
 
@@ -63,10 +64,10 @@ deps がなくて止まる（ADR-0123 の「結果」）。これまでは docs/
 - このブランチから使い捨ての worktree を作ると `SHARED: references` が出て、symlink が main の `references/` を指し、
   git は無視した（2026-10-11、レビューで確認）
 
-## 結果
+## 帰結
 
 - `.worktreelink`、CLAUDE.md の「計算」の節、docs/environment.md の手順
-- ADR-0123 の「結果」に書いた「まだない」仕組みは、この ADR で満たす
+- ADR-0123 の「帰結」に書いた「まだない」仕組みは、この ADR で満たす
 - `.worktreelink` を足す前に作った worktree（feat/core-cmfd など）は、手で張るまで `cargo test` が落ちる
 - `post-merge-cleanup.sh` は変えない。無視された symlink は `git worktree remove` の妨げにならず、消えるのは symlink
   だけで main の実体は残る（nixfiles のテストで確認）

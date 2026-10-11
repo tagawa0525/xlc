@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0002: 段階のクレートは互いに依存せず、形式と共通の計算のクレートにだけ依存する
@@ -32,7 +33,7 @@ M2 では、データファイルの型のために core が lattice に、latti
 
 各クレートの `Cargo.toml` の依存で確かめる（段階のクレートが別の段階のクレートを依存に持たない）。自動の検査はない。
 
-## 結果
+## 帰結
 
 - 段階の間で共有する計算の扱いは [ADR-0003](0003-extract-shared-computation-on-second-use.md)
 - 燃焼チェーンの作り方は [ADR-0034](0034-build-full-depletion-chain.md)

@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0003: 段階の間で共有する計算は、2つ目の段階が使う時点で共通のクレートに切り出す
@@ -35,7 +36,7 @@ issues: []
 
 構成の約束事で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 - 段階ごとのソルバの設定は、同じ値でも共有しない（[ADR-0004](0004-keep-solver-settings-per-stage.md)）
 - 線形代数は faer で解く（[ADR-0007](0007-use-faer-for-linear-algebra.md)）

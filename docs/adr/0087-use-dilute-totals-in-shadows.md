@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0007"]
+requires: []
 ---
 
 # ADR-0087: 影の計算で、黒体でない物質の全断面積は無限希釈の群平均とする
@@ -40,7 +41,7 @@ issues: ["#0007"]
 
 上の VERA 1B, 2B の比較（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 制御棒の AIC（Ag-109 の 5.2 eV の共鳴が U-238 の 6.67 eV の共鳴に近い）は前提が崩れる候補なので、制御棒を入れた
 ところで、吸収率の重みの実装で再測定する（#0007）。

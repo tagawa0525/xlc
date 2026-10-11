@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by: [ADR-0068, ADR-0074, ADR-0089]
 issues: []
+requires: []
 ---
 
 # ADR-0023: 共鳴の自己遮蔽は Bondarenko の f-table を等価原理の σ0 で引いて扱う
@@ -47,7 +48,7 @@ M2 で次のとおり詳細を決め、実装した（2026-10-07）。
 `isolated_rod_gives_carlvik_coefficients`、`coefficients_are_ordered_and_betas_sum_to_one`、
 `interpolates_shielded_cross_sections_in_ln_sigma0`。VERA のピンセルを OpenMC と比べた（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 分離共鳴の範囲で、ピンごとの UFG の減速計算に置き換えた（[ADR-0068](0068-solve-pinwise-slowing-down.md)）。UFG の重みのライブラリと組み合わせると、
 U-238 の共鳴吸収を +4〜6% 多く見積もった（VERA 1B で −1887 pcm。NR の重みのライブラリのときは誤差が打ち消し合って

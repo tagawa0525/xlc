@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0019: Python は検証用のツールにだけ使い、環境は flake.nix で固定する
@@ -25,6 +26,6 @@ Python は検証用のツール（OpenMC の入力の作成、比較のスクリ
 
 約束事で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 OpenMC は検証にだけ使う外部ツールとする（[ADR-0031](0031-verify-against-openmc-with-same-data.md)）。

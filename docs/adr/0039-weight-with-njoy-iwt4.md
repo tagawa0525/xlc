@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0039: 群定数化の重み関数は NJOY の iwt=4 と同じものにする
@@ -28,6 +29,6 @@ issues: []
 `weight_only_in_maxwellian_region`、`weight_only_in_one_over_e_region`、`group_spanning_weight_breakpoint`。
 NJOY GROUPR との比較（`crates/xs/examples/compare_njoy_gendf.rs`、examples/m1/verification.md）。
 
-## 結果
+## 帰結
 
 分離共鳴の範囲の σ0 ごとの重みは、のちに減速計算で作る（[ADR-0072](0072-weight-shielded-data-by-flux-calculator.md)）。その範囲の外と熱中性子の領域はこの重み関数のまま。
