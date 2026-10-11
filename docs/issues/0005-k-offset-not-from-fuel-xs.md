@@ -147,7 +147,7 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
   未満で自由ガスとして扱い、xlc は静止標的とする（O-16 では (d) と同じ仕組み）。ADR で決めること: S(α,β) の上限（MF7 MT4
   の B(4) 以下で最も高い群の境界）、表の外の扱い（THERMR の SCT と同じ条件）、上限より上の H（と 400 kT 未満のほかの核種）の
   自由ガスの範囲と、自由ガスの核の桁あふれの修正方法、UFG の H を自由原子のままにすること（(b) の結果から）
-- 2026-10-11: 上の候補のうち、ライブラリの散乱行列の側を量った（examples/vera/free_gas_heavy.sh、75ff2785、2026-10-11。
+- 2026-10-11: 上の候補のうち、ライブラリの散乱行列の側を量った（examples/vera/free_gas_heavy.sh、6e06516f、2026-10-11。
   OpenMC は上と同じ）。S(α,β) を持たず質量比が 1 より大きい核種の自由ガスの上限を、4 eV（ADR-0081）から OpenMC と同じ
   400 kT（600 K で 20.7 eV）に上げた（H は (a) と (d)。S(α,β) を使う H-1 のほかは、すべての核種が変わったことを確認した）。
   自由ガスの行は和を弾性散乱断面積に規格化する（crates/xs/src/multigroup/scatter.rs の `elastic_rows`）ので、変わるのは
@@ -159,6 +159,5 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
   k は O-16 で −4.5〜−7.6、すべての核種で +1.6〜−6.0 しか動かず、散乱行列の側では、O-16 を足したときの増え方（+75）も
   1B の +71 も説明しない。どの媒質でも k と 1/A は 6 桁まで一致した（同じビルドの `homogeneous` に `--balance` を付けて確認）。UFG の減速計算の散乱核の側（共鳴の吸収を含む）は
   量っていないので、候補として残る（確認していない）。上の 2 つの試行のツール（sab_residuals.patch、sab_residuals.sh、
-  free_gas_heavy.sh）は main からは消した（ADR-0122）。出し直すには、S(α,β) の候補は 7d628d88、散乱行列の側は
-  6e06516f を checkout して、そのパスのツールを実行する（6e06516f は 75ff2785 と同じ xlc とパッチに、上の確認（変わった
-  核種、`--balance`）の検査を足した版）
+  free_gas_heavy.sh）は main からは消した（ADR-0122）。出し直すには、各項に記した hash を checkout して、そのパスの
+  ツールを実行する
