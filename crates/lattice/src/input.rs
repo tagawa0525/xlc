@@ -17,6 +17,8 @@
 //! #   { output = "fuel.msgpack", columns = [1, 19], rows = [1, 19] },
 //! #   { output = "reflector.msgpack", columns = [20, 30], rows = [1, 19], reflector = true } ] }
 //! pin-powers = "pins.msgpack"     # セルごとの核分裂率（平均が 1）
+//! medium = "fuel.medium"          # 格子全体を細かい群のまま均質化した媒質（library のとき。外周がすべて鏡面反射の
+//!                                 # 格子。軸方向の反射体の平板の燃料にする。ADR-0128）
 //! pitch = 1.26                    # セルのピッチ (cm)
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
@@ -141,6 +143,8 @@ pub struct LatticeInput {
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
+    /// 格子全体を細かい群のまま均質化した媒質の出力（ADR-0128）
+    pub medium: Option<PathBuf>,
     pub pitch: f64,
     pub azimuthal: usize,
     pub spacing: f64,
@@ -225,6 +229,8 @@ struct InputFile {
     few_group: Option<FewGroupEntry>,
     /// 省略するとピン出力を出さない
     pin_powers: Option<PathBuf>,
+    /// 省略すると媒質を出さない
+    medium: Option<PathBuf>,
     pitch: f64,
     azimuthal: usize,
     spacing: f64,
@@ -479,6 +485,11 @@ impl LatticeInput {
                 "`few-group` needs a library (group energies)".into(),
             ));
         }
+        if macroscopic && file.medium.is_some() {
+            return Err(invalid(
+                "`medium` needs a library (group energies and scattering moments)".into(),
+            ));
+        }
         let scattering_order = file.scattering_order;
         if macroscopic && scattering_order.is_some_and(|order| order > 0) {
             return Err(invalid(
@@ -529,6 +540,12 @@ impl LatticeInput {
         {
             return Err(invalid(
                 "`pins` and `split` need a lattice with every side reflective".into(),
+            ));
+        }
+        // 媒質の無限媒質の解が格子の解に一致するのは、外周がすべて鏡面反射のとき（ADR-0128）
+        if file.medium.is_some() && boundaries != Boundaries::REFLECTIVE {
+            return Err(invalid(
+                "`medium` needs a lattice with every side reflective".into(),
             ));
         }
         let entries = file.material.unwrap_or_default();
@@ -630,6 +647,7 @@ impl LatticeInput {
             cross_sections,
             output,
             pin_powers: file.pin_powers,
+            medium: file.medium,
             branches,
             pitch: file.pitch,
             azimuthal: file.azimuthal,
