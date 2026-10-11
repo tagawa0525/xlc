@@ -42,6 +42,10 @@ stages:
       md5: a05c83a31fb91b25ef64c69ff68f55c7.dir
       size: 584476
       nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
       md5: a8a7d4b0bc9b9627affeaa0e74716c82
@@ -72,7 +76,7 @@ stages:
       md5: ba43490f66c0a194f0357a2b3c69fb22
       size: 11516910
   lattice:
-    cmd: cargo run --release -p xlc-lattice -- pincell.toml
+    cmd: cargo run --release -p xlc-lattice -- pincell.toml > lattice.out
     deps:
     - path: ../../.cargo/config.toml
       hash: md5
@@ -113,6 +117,10 @@ stages:
       md5: 062259ba74cb0b4326c4799dfa0470cb.dir
       size: 94710
       nfiles: 6
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
     - path: ../../rust-toolchain.toml
       hash: md5
       md5: 87a81bbb3d955b97621800bbd7d234b7
@@ -126,6 +134,10 @@ stages:
       md5: ba43490f66c0a194f0357a2b3c69fb22
       size: 11516910
     outs:
+    - path: lattice.out
+      hash: md5
+      md5: ae957188e66b2b3d0bb9e636274aa42a
+      size: 11
     - path: pincell-fg.msgpack
       hash: md5
       md5: 7ebf2b8587e36889c1c243acefbc783d
@@ -172,6 +184,10 @@ stages:
       md5: 062259ba74cb0b4326c4799dfa0470cb.dir
       size: 94710
       nfiles: 6
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
     - path: ../../rust-toolchain.toml
       hash: md5
       md5: 87a81bbb3d955b97621800bbd7d234b7
