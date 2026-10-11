@@ -87,7 +87,14 @@ requires: []          # 前提にしている ADR（例: [ADR-0068]）。なけ�
 - 前付けの `issues` には、その ADR のきっかけになった issue と、その ADR で解決する issue だけを書く。issue の側は
   「関係する ADR:」の行に、`issues` にその issue を書いた ADR を挙げ、両方向をそろえる。本文の中で触れるだけの
   issue や ADR は、どちらにも入れなくてよい
-- 番号は、ブランチの上で既存の最大の番号 + 1 を振り、使い回さない。main の履歴（マージしたブランチのコミットを含む）に
-  一度でも現れた番号は、ファイルが残っていなくても使った番号とみなして飛ばす。マージの前に main に rebase し、番号が
-  ぶつかっていたら振り直す（重複は、`cargo test` で走る crates/docs の検査が見つける。#0013）
+- 番号は `design-records new <slug> <title>` が振り、注釈つきのタグ `adr-NNNN`（メッセージは slug）で予約する。
+  番号は、全ブランチの履歴、作業ツリー、タグにある最大の番号 + 1 で、使い回さない（ファイルを消した記録の番号も、
+  履歴にある限り飛ばす）。このリポジトリにはリモートがないので、タグはローカルにだけ打つ。main に残る飛び番は、
+  未マージや放棄のブランチの番号である。予約の仕組みより前に作った未マージの記録は、手で同じ形のタグを打って
+  予約する（`git tag -a adr-NNNN -m <slug> main`）
+- 番号がぶつかったら（rebase の後など）、`design-records check` と crates/docs の検査（`cargo test`。#0013）が見つける。
+  /git-merge が rebase の直後に `design-records -C <worktree> renumber <旧番号>` で振り直す。マージの後は
+  `post-merge-cleanup.sh` が `design-records prune` で、main の履歴に入った記録のタグを消す（slug がタグの
+  メッセージと一致するものだけ。予約の後に slug を変えた記録のタグは手で消す。マージしなかったブランチのタグは
+  残す）。仕組みの決定は nixfiles の ADR-0018
 - 一覧のファイルは作らない。採用中の ADR は `grep -l '^status: accepted$' docs/adr/[0-9]*.md` で探す
