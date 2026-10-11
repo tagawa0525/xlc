@@ -15,6 +15,7 @@ use crate::b1::{B1Error, Medium};
 use crate::cmfd::{horizontal_face, vertical_face};
 use crate::geometry::Lattice;
 use crate::material::Material;
+use crate::medium::fine_medium;
 use crate::moc::Solution;
 use crate::tracking::{Boundaries, Boundary};
 
@@ -1495,66 +1496,22 @@ fn b1_diffusion(
     group_of: &[usize],
     coarse: usize,
 ) -> Result<Vec<f64>, HomogenizeError> {
+    // 媒質の均質化（ADR-0128）と同じ重みの P0 と P1。P1 のモーメントがあることは `diffusion` で確かめてある
+    let (fine, flux) = fine_medium(solution, materials, regions)?;
     let ng = group_of.len();
-    let mut flux = vec![0.0; ng];
-    let mut medium = Medium {
-        total: vec![0.0; ng],
-        scatter: vec![vec![0.0; ng]; ng],
-        scatter1: vec![vec![0.0; ng]; ng],
-        nu_fission: vec![0.0; ng],
-        chi: vec![0.0; ng],
+    let medium = Medium {
+        total: fine.total,
+        scatter1: fine
+            .scatter
+            .get(1)
+            .cloned()
+            .unwrap_or_else(|| vec![vec![0.0; ng]; ng]),
+        scatter: fine.scatter.into_iter().next().unwrap_or_default(),
+        nu_fission: fine.nu_fission,
+        chi: fine.chi,
     };
-    for &region in regions {
-        let (m, phi, volume) = (
-            materials[region],
-            &solution.flux[region],
-            solution.volumes[region],
-        );
-        for g in 0..ng {
-            let w = volume * phi[g];
-            flux[g] += w;
-            medium.total[g] += w * m.total[g];
-            medium.nu_fission[g] += w * m.nu_fission[g];
-            for (to, s) in m.scatter[g].iter().enumerate() {
-                medium.scatter[g][to] += w * s;
-            }
-            // 真空（P1 のモーメントを持たない）は散乱しない
-            if let Some(p1) = m.anisotropic.first() {
-                for (to, s) in p1[g].iter().enumerate() {
-                    medium.scatter1[g][to] += w * s;
-                }
-            }
-        }
-        for term in &m.fission_terms {
-            let rate: f64 = term
-                .nu_fission
-                .iter()
-                .zip(phi)
-                .map(|(n, f)| volume * n * f)
-                .sum();
-            for (c, chi) in term.chi.iter().zip(medium.chi.iter_mut()) {
-                *chi += c * rate;
-            }
-        }
-    }
-    if let Some(g) = flux.iter().position(|&f| f <= 0.0) {
-        return Err(HomogenizeError::NoFineFlux(g));
-    }
-    for (g, f) in flux.iter().enumerate() {
-        medium.total[g] /= f;
-        medium.nu_fission[g] /= f;
-        for v in medium.scatter[g]
-            .iter_mut()
-            .chain(medium.scatter1[g].iter_mut())
-        {
-            *v /= f;
-        }
-    }
     let produced: f64 = medium.chi.iter().sum();
     let (current, weight) = if produced > 0.0 {
-        for c in &mut medium.chi {
-            *c /= produced;
-        }
         let mode = medium.critical()?;
         (mode.current, mode.flux)
     } else {
