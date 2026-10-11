@@ -59,3 +59,8 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   #0058、examples/m3-nuclides/verification.md）、作る手順（pdftotext の選択肢）がどこにもない。作るスクリプトにするか、
   ハッシュを記録するかを、参照の結果と一緒に決める。C5G7 と MOX の仕様の PDF は取る先が分からないので、消すと
   作り直せない
+- 2026-10-11: worktree の `references` は main の `references/` への symlink なので、`references/openmc` に `cd` して
+  `../..` で flake とスクリプトを指すと、worktree でなく main のものが使われる（`nix flake metadata ../..` が main を
+  示した）。docs/environment.md と examples/c5g7/verification.md の手順はリポジトリの直下から走らせる形にした。
+  examples/mox/verification.md と examples/vera/verification.md の手順（「references/openmc で」）はまだこの形で、
+  参照の結果を DVC の段階にするときに直す
