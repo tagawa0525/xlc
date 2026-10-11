@@ -1,0 +1,2234 @@
+schema: '2.0'
+stages:
+  references-shell:
+    cmd: nix eval --raw ../..#devShells.x86_64-linux.references.outPath > 
+      references-shell.txt
+    outs:
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+  openmc-neutron@U234:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml U234 openmc-library/neutron/U234.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+      hash: md5
+      md5: 02d5c7d15b6c3838b4a2439873d6fa25
+      size: 1980104
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.U234:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+    outs:
+    - path: openmc-library/neutron/U234.h5
+      hash: md5
+      md5: 0a4f1783553631f2543ebeb03423e211
+      size: 10870920
+  openmc-neutron@U235:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml U235 openmc-library/neutron/U235.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      hash: md5
+      md5: e72aa70c44180ba3b03342a4a4c37997
+      size: 36883940
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.U235:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+    outs:
+    - path: openmc-library/neutron/U235.h5
+      hash: md5
+      md5: 7c53ac06901b799796440335c12edd7f
+      size: 110646600
+  openmc-neutron@U236:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml U236 openmc-library/neutron/U236.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+      hash: md5
+      md5: 2d3b0b0d3606816b27c03c9b2ce92cc0
+      size: 1359412
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.U236:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+    outs:
+    - path: openmc-library/neutron/U236.h5
+      hash: md5
+      md5: 01d9b5d304f977c77328836af39cd531
+      size: 9869952
+  openmc-neutron@U238:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml U238 openmc-library/neutron/U238.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      hash: md5
+      md5: 6d52fe1a299934af828599b40b0122e7
+      size: 14939396
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.U238:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+    outs:
+    - path: openmc-library/neutron/U238.h5
+      hash: md5
+      md5: 16b36a8f36558b20352c2a9aa8ea74d0
+      size: 85883984
+  openmc-neutron@O16:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml O16 openmc-library/neutron/O16.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      hash: md5
+      md5: 88f659e2ff0ed092bf2ec6a6672fc25e
+      size: 41873568
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.O16:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+    outs:
+    - path: openmc-library/neutron/O16.h5
+      hash: md5
+      md5: e81681c635fe22e71527de8b6d824388
+      size: 7606808
+  openmc-neutron@H1:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml H1 openmc-library/neutron/H1.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      hash: md5
+      md5: a8a7d4b0bc9b9627affeaa0e74716c82
+      size: 671232
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.H1:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+          temperatures:
+          - 550
+          - 565
+          - 573.6
+          - 600
+    outs:
+    - path: openmc-library/neutron/H1.h5
+      hash: md5
+      md5: dabc5210b8df99e4c86636f55cf3052c
+      size: 238432
+  openmc-neutron@B10:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml B10 openmc-library/neutron/B10.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+      hash: md5
+      md5: de4713deb591bde04f4c7ef2446bdc2e
+      size: 873392
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.B10:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/B10.h5
+      hash: md5
+      md5: f683230de72ffc9565424b7c74632d4b
+      size: 1475480
+  openmc-neutron@B11:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml B11 openmc-library/neutron/B11.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+      hash: md5
+      md5: ededbd01d87d3297c377e105f60d59d3
+      size: 659224
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.B11:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/B11.h5
+      hash: md5
+      md5: d2150c85e1e3b9aeca86543fbef7046d
+      size: 2419592
+  openmc-neutron@Zr90:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Zr90 openmc-library/neutron/Zr90.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      hash: md5
+      md5: 845fe13188e04ddaa8957922ca4425e9
+      size: 1370128
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Zr90:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Zr90.h5
+      hash: md5
+      md5: 0c2158e48afb52d70423f2c5fea477e7
+      size: 4108872
+  openmc-neutron@Zr91:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Zr91 openmc-library/neutron/Zr91.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      hash: md5
+      md5: 05504d0c3dc22b27907d13b2427670bc
+      size: 3334576
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Zr91:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Zr91.h5
+      hash: md5
+      md5: 35137434176caa5a1b342f50e381cdc2
+      size: 9232624
+  openmc-neutron@Zr92:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Zr92 openmc-library/neutron/Zr92.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      hash: md5
+      md5: 08f21535331cdfa3e35e6959735519c5
+      size: 2054584
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Zr92:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Zr92.h5
+      hash: md5
+      md5: 56c584e22a6065bbb830f085b0f3ceda
+      size: 5225744
+  openmc-neutron@Zr94:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Zr94 openmc-library/neutron/Zr94.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      hash: md5
+      md5: 81602f01efb0df40c5d34ded3000a975
+      size: 1805000
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Zr94:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Zr94.h5
+      hash: md5
+      md5: 7700a22e487ef4d678bc0662207ce451
+      size: 5993456
+  openmc-neutron@Zr96:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Zr96 openmc-library/neutron/Zr96.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      hash: md5
+      md5: ea8fcd356c8333dd48792e88063ee4b4
+      size: 1403112
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Zr96:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Zr96.h5
+      hash: md5
+      md5: eba9ea036e6e5064f32116d29f8da98b
+      size: 2987024
+  openmc-neutron@Sn112:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn112 openmc-library/neutron/Sn112.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
+      hash: md5
+      md5: 595f36f9195db944c4cf3482eb369e92
+      size: 175864
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn112:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn112.h5
+      hash: md5
+      md5: 0ab30fac9fa25e9b93289ec99eb41f9f
+      size: 2319120
+  openmc-neutron@Sn114:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn114 openmc-library/neutron/Sn114.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
+      hash: md5
+      md5: 8b944d53fcc7d5f89063f053a0e8f53f
+      size: 181640
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn114:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn114.h5
+      hash: md5
+      md5: 8c824097af312aeebe302e9d2c31e072
+      size: 2403264
+  openmc-neutron@Sn115:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn115 openmc-library/neutron/Sn115.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
+      hash: md5
+      md5: 9d8f748af4ac334ed786dbd774bb7d3f
+      size: 159828
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn115:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn115.h5
+      hash: md5
+      md5: e7e73158b7fd8e46123b19d842ae9a5c
+      size: 1736408
+  openmc-neutron@Sn116:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn116 openmc-library/neutron/Sn116.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
+      hash: md5
+      md5: 5d2de1ba6ffd79f575fcc6faed2714f3
+      size: 138700
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn116:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn116.h5
+      hash: md5
+      md5: d8030df45de9313234ff48d5fbfe5607
+      size: 4528864
+  openmc-neutron@Sn117:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn117 openmc-library/neutron/Sn117.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
+      hash: md5
+      md5: 957998ec497ad3d52903e12a1bec5020
+      size: 152456
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn117:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn117.h5
+      hash: md5
+      md5: 09ae8b2c7c92cdfc73dba1c5480828a5
+      size: 2585976
+  openmc-neutron@Sn118:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn118 openmc-library/neutron/Sn118.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
+      hash: md5
+      md5: 9586a6ff74a5b7af5e106020163f27f1
+      size: 115292
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn118:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn118.h5
+      hash: md5
+      md5: 7cd9075f76e76407b508f41d9b35ccb6
+      size: 1317928
+  openmc-neutron@Sn119:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn119 openmc-library/neutron/Sn119.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
+      hash: md5
+      md5: 8dad9918e3854c87b437bbbf3c471852
+      size: 174040
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn119:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn119.h5
+      hash: md5
+      md5: 265c4a21baf3e233ea864257b2174e8d
+      size: 2285192
+  openmc-neutron@Sn120:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn120 openmc-library/neutron/Sn120.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
+      hash: md5
+      md5: 3f89239ea480a4d42c789210d76a0ad5
+      size: 1506016
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn120:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn120.h5
+      hash: md5
+      md5: 72f354d6039a30638880285545efc9cd
+      size: 6327544
+  openmc-neutron@Sn122:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn122 openmc-library/neutron/Sn122.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
+      hash: md5
+      md5: 83e39a2dda8feb62d76efdcb48de77c8
+      size: 136724
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn122:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn122.h5
+      hash: md5
+      md5: ac92996edf25e3f7346089edc8841cad
+      size: 5752728
+  openmc-neutron@Sn124:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Sn124 openmc-library/neutron/Sn124.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
+      hash: md5
+      md5: 8f4ee39c13872485d867ed145ff14476
+      size: 164540
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Sn124:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Sn124.h5
+      hash: md5
+      md5: db9190334d35559db89e4ff289b2a909
+      size: 4180072
+  openmc-neutron@Fe54:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Fe54 openmc-library/neutron/Fe54.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
+      hash: md5
+      md5: 6cc65e9140f60c97daded32a60ba7e0b
+      size: 15451864
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Fe54:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Fe54.h5
+      hash: md5
+      md5: fec653ddd926c737f7a8380cf0915419
+      size: 24855240
+  openmc-neutron@Fe56:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Fe56 openmc-library/neutron/Fe56.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
+      hash: md5
+      md5: 63a54468ec41309d24d849bc95d91450
+      size: 24237844
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Fe56:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Fe56.h5
+      hash: md5
+      md5: fec3542953eac8c884e3d5e1d6cd2de1
+      size: 35356816
+  openmc-neutron@Fe57:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Fe57 openmc-library/neutron/Fe57.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
+      hash: md5
+      md5: 781dfc0da22c68b6ab910ba4828f1dbe
+      size: 13578160
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Fe57:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Fe57.h5
+      hash: md5
+      md5: f1c4e95f77f136fc9c281ac41a61eb28
+      size: 16597120
+  openmc-neutron@Fe58:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Fe58 openmc-library/neutron/Fe58.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
+      hash: md5
+      md5: 371938e3ea66338454e6396d6f898049
+      size: 9280132
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Fe58:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Fe58.h5
+      hash: md5
+      md5: 1de3888232b31193eb8b1d51a1e8b72f
+      size: 19788248
+  openmc-neutron@Cr50:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cr50 openmc-library/neutron/Cr50.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
+      hash: md5
+      md5: 1d54ef6c80fa4e8a01776f2d77a4e51d
+      size: 10644408
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cr50:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cr50.h5
+      hash: md5
+      md5: 8a40863c719eaccc4bee51526854ffa1
+      size: 5822144
+  openmc-neutron@Cr52:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cr52 openmc-library/neutron/Cr52.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
+      hash: md5
+      md5: 19629202c6af02350e7597e4b91f6992
+      size: 10647220
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cr52:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cr52.h5
+      hash: md5
+      md5: a896cc1f788cc6ffdaa84ec6cfb1fa78
+      size: 5737648
+  openmc-neutron@Cr53:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cr53 openmc-library/neutron/Cr53.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
+      hash: md5
+      md5: 8484eb4f0ce055c5139234b3ea855e3e
+      size: 8880068
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cr53:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cr53.h5
+      hash: md5
+      md5: 64c84e3a90414b1b475fde1ffa82dee1
+      size: 5281568
+  openmc-neutron@Cr54:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cr54 openmc-library/neutron/Cr54.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
+      hash: md5
+      md5: 6b447452b7c17a43341ec8416bd7d32e
+      size: 2459512
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cr54:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
+          temperatures:
+          - 565
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cr54.h5
+      hash: md5
+      md5: 4599f13ec07a7177e811a7da25cddaa0
+      size: 3571256
+  openmc-neutron@C12:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml C12 openmc-library/neutron/C12.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
+      hash: md5
+      md5: 562de9bfd12d8f51b15be9e22517b4dc
+      size: 3805168
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.C12:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/C12.h5
+      hash: md5
+      md5: 725cf6fa8f0f93f8e2be21dc81499558
+      size: 1744416
+  openmc-neutron@C13:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml C13 openmc-library/neutron/C13.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
+      hash: md5
+      md5: 55ce34f21e246a66e8b690147f5073f8
+      size: 3464536
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.C13:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/C13.h5
+      hash: md5
+      md5: 86943def4cf10e55f68655d40d3b4f43
+      size: 1724968
+  openmc-neutron@P31:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml P31 openmc-library/neutron/P31.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
+      hash: md5
+      md5: 0a02e5ce323c5a86f2cdf44b8a285a3e
+      size: 1048192
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.P31:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/P31.h5
+      hash: md5
+      md5: 888c78e70c30ae18eac39dcc4f388843
+      size: 491136
+  openmc-neutron@Si28:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Si28 openmc-library/neutron/Si28.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
+      hash: md5
+      md5: bdb40166d13e29a5b39b3cc56346a686
+      size: 1795196
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Si28:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Si28.h5
+      hash: md5
+      md5: 66532263dbe672552bfb368697ece43c
+      size: 3819352
+  openmc-neutron@Si29:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Si29 openmc-library/neutron/Si29.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
+      hash: md5
+      md5: db4bc1d0a95f6dcfcfa333dfad76cf19
+      size: 1766012
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Si29:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Si29.h5
+      hash: md5
+      md5: 6550d788bdeea114387bb592cb6ba6d0
+      size: 3990368
+  openmc-neutron@Si30:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Si30 openmc-library/neutron/Si30.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
+      hash: md5
+      md5: a7cf81f5f6390f2f42ece06b5f87b9d3
+      size: 1496972
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Si30:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Si30.h5
+      hash: md5
+      md5: 34475e19f05dc381e05029f2a78bf770
+      size: 2420736
+  openmc-neutron@Mn55:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Mn55 openmc-library/neutron/Mn55.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
+      hash: md5
+      md5: ea6f74ca887e7fb1baa40c041030eb56
+      size: 5894712
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Mn55:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Mn55.h5
+      hash: md5
+      md5: bbec4f41464ddcca735c306f55a7603c
+      size: 9706888
+  openmc-neutron@Ni58:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Ni58 openmc-library/neutron/Ni58.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
+      hash: md5
+      md5: 78b36ef50a8af7b2e89b8ec47bc5b4e3
+      size: 17997484
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Ni58:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Ni58.h5
+      hash: md5
+      md5: 2aeff58767c9303eb144813c487f86d0
+      size: 8793936
+  openmc-neutron@Ni60:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Ni60 openmc-library/neutron/Ni60.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
+      hash: md5
+      md5: bf9a7698fb617f3f60131d5f0dcbc86f
+      size: 17266744
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Ni60:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Ni60.h5
+      hash: md5
+      md5: 495646929c912a4328e26ee9626429d1
+      size: 7755816
+  openmc-neutron@Ni61:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Ni61 openmc-library/neutron/Ni61.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
+      hash: md5
+      md5: ed122f2d8580455fb785f7a4243a9ad4
+      size: 3914684
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Ni61:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Ni61.h5
+      hash: md5
+      md5: 83b5c75616063fc4246afaf5457e058b
+      size: 6350568
+  openmc-neutron@Ni62:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Ni62 openmc-library/neutron/Ni62.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
+      hash: md5
+      md5: 19ccf0123fa42491f38c39d5dff15dfa
+      size: 3081952
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Ni62:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Ni62.h5
+      hash: md5
+      md5: 2347ab3761b8c4ab669933a2d39b682b
+      size: 5269480
+  openmc-neutron@Ni64:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Ni64 openmc-library/neutron/Ni64.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
+      hash: md5
+      md5: 75438fa6a077cd29010cf433bf45c6a5
+      size: 2878804
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Ni64:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Ni64.h5
+      hash: md5
+      md5: aad47a93ec7d64d895dd9142d33386c9
+      size: 4675568
+  openmc-neutron@Pu238:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Pu238 openmc-library/neutron/Pu238.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      hash: md5
+      md5: b870d3049c559377f6115f7ffbd1d0c4
+      size: 1813208
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pu238:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Pu238.h5
+      hash: md5
+      md5: 10d77510f993dca78e50afb359216ff8
+      size: 4269448
+  openmc-neutron@Pu239:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Pu239 openmc-library/neutron/Pu239.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      hash: md5
+      md5: 24c63293f959312e25f4f3aa48527b29
+      size: 23724464
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pu239:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Pu239.h5
+      hash: md5
+      md5: f16efa48bfa3b567203837e256534d07
+      size: 10329600
+  openmc-neutron@Pu240:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Pu240 openmc-library/neutron/Pu240.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      hash: md5
+      md5: 34845959fef842988cc9c88998ec244e
+      size: 34801768
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pu240:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Pu240.h5
+      hash: md5
+      md5: 243738ea698770fe0f34f756364f602a
+      size: 10855640
+  openmc-neutron@Pu241:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Pu241 openmc-library/neutron/Pu241.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      hash: md5
+      md5: 9b4bdb3861cb0e063f9b3e466ac315de
+      size: 324292
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pu241:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Pu241.h5
+      hash: md5
+      md5: 324f7dca02d873b21a4dfd452eedcfb2
+      size: 1940248
+  openmc-neutron@Pu242:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Pu242 openmc-library/neutron/Pu242.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      hash: md5
+      md5: a7d749550507a3f6e6eef82ddb368102
+      size: 2219352
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pu242:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Pu242.h5
+      hash: md5
+      md5: 5609eccf395aff03870e00345bfb7d61
+      size: 4166104
+  openmc-neutron@Am241:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Am241 openmc-library/neutron/Am241.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      hash: md5
+      md5: 93b74d0b81ef08f5588a4767920fef9c
+      size: 2069860
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Am241:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Am241.h5
+      hash: md5
+      md5: a4719de64881fe5935c8153a79a21ac0
+      size: 7758544
+  openmc-neutron@Ag107:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Ag107 openmc-library/neutron/Ag107.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
+      hash: md5
+      md5: ea7a263aa2627adac725f2828384cc8c
+      size: 522880
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Ag107:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Ag107.h5
+      hash: md5
+      md5: 1858c34e6b823405f829f1ea8c0114b8
+      size: 4183056
+  openmc-neutron@Ag109:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Ag109 openmc-library/neutron/Ag109.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
+      hash: md5
+      md5: 5cce54b6221074a9f151b8b7fd554e1f
+      size: 1744124
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Ag109:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Ag109.h5
+      hash: md5
+      md5: b3aa77791050a1a13438f8bc6c199648
+      size: 6811688
+  openmc-neutron@In113:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml In113 openmc-library/neutron/In113.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
+      hash: md5
+      md5: cf81758f1d4e1a9b6c8a8bcba582b97e
+      size: 207252
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.In113:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/In113.h5
+      hash: md5
+      md5: 0edc57ade64f2045fe2d05cdaa959e9d
+      size: 1975752
+  openmc-neutron@In115:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml In115 openmc-library/neutron/In115.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
+      hash: md5
+      md5: 87091f7ae230f821493b49030bc4681b
+      size: 185972
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.In115:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/In115.h5
+      hash: md5
+      md5: 82cc2aaa3aac694547c52fa16786dc17
+      size: 2964408
+  openmc-neutron@Cd106:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd106 openmc-library/neutron/Cd106.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
+      hash: md5
+      md5: 9fa0aa5948b3d3e7deff78e114e376b6
+      size: 353932
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd106:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd106.h5
+      hash: md5
+      md5: 3955c8b7054515826ad4f360c3a3fd34
+      size: 1983424
+  openmc-neutron@Cd108:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd108 openmc-library/neutron/Cd108.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
+      hash: md5
+      md5: 1f50f32f1ca7897e0f774c6152a18979
+      size: 93708
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd108:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd108.h5
+      hash: md5
+      md5: 01496a43f2814e9366b2470360b81399
+      size: 1274136
+  openmc-neutron@Cd110:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd110 openmc-library/neutron/Cd110.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
+      hash: md5
+      md5: 92e61230a383f47f0333bae18ec70fdb
+      size: 105412
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd110:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd110.h5
+      hash: md5
+      md5: 479e273c0e2d92bdce309bbc3cd7c32b
+      size: 1729688
+  openmc-neutron@Cd111:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd111 openmc-library/neutron/Cd111.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
+      hash: md5
+      md5: 76fe5ec00a380bfcba4794ee7099dd80
+      size: 362672
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd111:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd111.h5
+      hash: md5
+      md5: e7a3129a5e325aa2d64b8a828db9761d
+      size: 2903232
+  openmc-neutron@Cd112:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd112 openmc-library/neutron/Cd112.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
+      hash: md5
+      md5: 5f584c8cb53a2f7cccdcc83321255c17
+      size: 99560
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd112:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd112.h5
+      hash: md5
+      md5: 87f816e6f4dd6720fade431242303e77
+      size: 2029016
+  openmc-neutron@Cd113:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd113 openmc-library/neutron/Cd113.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
+      hash: md5
+      md5: 90e18c567e20606313e299053bf07698
+      size: 691676
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd113:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd113.h5
+      hash: md5
+      md5: 4528bbbfecb19c431b117fd4fa005dfd
+      size: 4647592
+  openmc-neutron@Cd114:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd114 openmc-library/neutron/Cd114.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
+      hash: md5
+      md5: b0906eb984b262d7a947f742390f4f7e
+      size: 96900
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd114:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd114.h5
+      hash: md5
+      md5: 8a3816714f466497aaf637ddcb580403
+      size: 1418984
+  openmc-neutron@Cd116:
+    cmd: nix develop ../..#references -c python3 openmc_library.py neutron 
+      openmc-library.toml Cd116 openmc-library/neutron/Cd116.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
+      hash: md5
+      md5: 10f26f09ddd855c8a73720fe186ca01a
+      size: 89072
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Cd116:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
+          temperatures:
+          - 600
+    outs:
+    - path: openmc-library/neutron/Cd116.h5
+      hash: md5
+      md5: 7d7f339d5330fbb7782d90c7c51896a8
+      size: 988016
+  openmc-thermal@c_H_in_H2O:
+    cmd: nix develop ../..#references -c python3 openmc_library.py thermal 
+      openmc-library.toml c_H_in_H2O openmc-library/thermal/c_H_in_H2O.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      hash: md5
+      md5: a8a7d4b0bc9b9627affeaa0e74716c82
+      size: 671232
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+      hash: md5
+      md5: ff8fb554e0893e672e95bf060817f087
+      size: 17400580
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        thermal.c_H_in_H2O:
+          neutron: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+          thermal: 
+            ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+          temperatures:
+          - 550
+          - 573.6
+          - 600
+    outs:
+    - path: openmc-library/thermal/c_H_in_H2O.h5
+      hash: md5
+      md5: 7f88bd7c54c8054ad69776bf38fc59bb
+      size: 83138520
+  openmc-index:
+    cmd: nix develop ../..#references -c python3 openmc_library.py index 
+      openmc-library.toml openmc-library
+    deps:
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc-library.toml
+      hash: md5
+      md5: 5e916bb45916af3d82cadca159aeae19
+      size: 8356
+    - path: openmc-library/neutron
+      hash: md5
+      md5: 4a0a3b19cd4bb7b5c6a31c6b0bf4f40e.dir
+      size: 535979001
+      nfiles: 62
+    - path: openmc-library/thermal
+      hash: md5
+      md5: 6846a7a3272783940e82e50cd17635b7.dir
+      size: 83138535
+      nfiles: 2
+    - path: openmc_library.py
+      hash: md5
+      md5: 9b67a90e67df8e81f22f040e9d299c90
+      size: 5183
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-library/cross_sections.xml
+      hash: md5
+      md5: d0c0c74292c56e50b8eef5492171f878
+      size: 4403
+  openmc-1B:
+    cmd: nix develop ../..#references -c python3 openmc_model.py run 
+      p1/openmc-1B.toml p1/openmc-1B
+    deps:
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc-library
+      hash: md5
+      md5: a5a87e34eba266fb377f6c8c2936139f.dir
+      size: 619121959
+      nfiles: 66
+    - path: openmc_model.py
+      hash: md5
+      md5: 006aa8077bf8e65445b3c063c323d4d8
+      size: 25166
+    - path: p1/openmc-1B.toml
+      hash: md5
+      md5: 20533ee6041b8f5fe1026dfa81acc192
+      size: 439
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: p1/openmc-1B
+      hash: md5
+      md5: 684384aabea52f5cf9944c5c46f1b50e.dir
+      size: 104078593
+      nfiles: 3
+  openmc-1B-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract 
+      p1/openmc-1B.toml p1/openmc-1B p1/openmc-1B-results
+    deps:
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: openmc_model.py
+      hash: md5
+      md5: 006aa8077bf8e65445b3c063c323d4d8
+      size: 25166
+    - path: p1/openmc-1B
+      hash: md5
+      md5: 684384aabea52f5cf9944c5c46f1b50e.dir
+      size: 104078593
+      nfiles: 3
+    - path: p1/openmc-1B.toml
+      hash: md5
+      md5: 20533ee6041b8f5fe1026dfa81acc192
+      size: 439
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: p1/openmc-1B-results
+      hash: md5
+      md5: df268d96a129f933f63b3bde3d3dca95.dir
+      size: 75
+      nfiles: 1
+  xs:
+    cmd: cargo run --release -p xlc-xs -- xs.toml
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: cda2884253049a9d2451d58838de1125.dir
+      size: 96551
+      nfiles: 8
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: cc3e81392913408fefc537b0e344a3e1.dir
+      size: 147537
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: c694170194a1712c5afc6291bd5ed0a2.dir
+      size: 586307
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons
+      hash: md5
+      md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
+      size: 1212542189
+      nfiles: 561
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs.toml
+      hash: md5
+      md5: bfecca22a07a631dcbbac19cd5527604
+      size: 4727
+    outs:
+    - path: vera.msgpack
+      hash: md5
+      md5: 114c87f98fcfd63c9b7324762113c9ed
+      size: 123378257
+  lattice-1B:
+    cmd: cargo run --release -p xlc-lattice -- p1/pincell-1B.toml > 
+      p1/lattice-1B.out
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: df0a98105e6f2cc675293923b2921fad.dir
+      size: 96551
+      nfiles: 8
+    - path: ../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../crates/lattice/src
+      hash: md5
+      md5: e3cedefcbf29094295d4a1ef0df35a74.dir
+      size: 925088
+      nfiles: 26
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 5bab96f2db5113bf73af4f479c23d19a.dir
+      size: 153471
+      nfiles: 13
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: p1/pincell-1B.toml
+      hash: md5
+      md5: 607599ffb9282261120b82ce84c10a6b
+      size: 1511
+    - path: vera.msgpack
+      hash: md5
+      md5: 114c87f98fcfd63c9b7324762113c9ed
+      size: 123378257
+    outs:
+    - path: p1/lattice-1B.out
+      hash: md5
+      md5: 02be3780689d84de54385fc93c72765b
+      size: 11
+  compare-1B:
+    cmd: python3 compare_k.py p1/lattice-1B.out p1/openmc-1B-results/k.json > 
+      p1/compare-1B.out
+    deps:
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: p1/lattice-1B.out
+      hash: md5
+      md5: 02be3780689d84de54385fc93c72765b
+      size: 11
+    - path: p1/openmc-1B-results/k.json
+      hash: md5
+      md5: 931e0ea03de198b9943afb66685119ee
+      size: 75
+    outs:
+    - path: p1/compare-1B.out
+      hash: md5
+      md5: 0070281175aefa044517143c8b67d735
+      size: 63

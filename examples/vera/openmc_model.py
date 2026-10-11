@@ -1,22 +1,30 @@
 """VERA Problem 1B〜1D（ピンセル）と 2A〜2K、2Q（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
-使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
-        [粒子数/世代] [世代数] [捨てる世代数] [乱数の種] [xlc のライブラリ]
+使い方: python3 openmc_model.py run <入力> <作業ディレクトリ>
+        python3 openmc_model.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
-<問題> は 1B, 1C, 1D, 2A, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
-2G, 2H, 2I, 2J, 2K, 2Q。断面積は openmc_library.py で作ったもの。
+<入力> は p1/openmc-1B.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`）、
+openmc_library.py で作った `cross-sections`（cross_sections.xml）、1 世代の粒子数（`particles`）、世代数（`batches`）、
+捨てる世代数（`inactive`）、乱数の種（`seed`）、スレッド数（`threads`）。燃料の核種ごとの実効断面積を求めるときだけ、
+群構造を読む xlc のライブラリ（`effective-xs-groups`）を書く。パスは入力のファイルからの相対。
+run は OpenMC を解き、作業ディレクトリに statepoint を残す。extract は statepoint から、k を k.json に、下の
+ピン出力と実効断面積を結果のディレクトリに書く（OpenMC を解き直さずに抽出を変えられるよう分ける。ADR-0123）。
+
+問題は 1B, 1C, 1D, 2A, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
+2G, 2H, 2I, 2J, 2K, 2Q。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
 ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ。ADR-0120）。燃料以外は、
 2A と 2Q は 565 K、ほかは 600 K。2Q の支持格子は、各セルの外周の Zircaloy-4 の枠にする（仕様書の表 3 と問題 2 の
 「Geometry」）。2 で始まる問題は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
-xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
+`effective-xs-groups` を書くと、その xlc のライブラリ（msgpack）の群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。2 種の燃料を持つ 2K では書かない（エラーにする）。
 """
 
+import json
 import sys
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import msgpack
 import openmc
@@ -27,7 +35,9 @@ from openmc_common import (
     eigenvalue_settings,
     fuel_tallies,
     group_filter,
+    input_path,
     material,
+    read_input,
 )
 
 SCORES = ["total", "elastic", "fission"]
@@ -473,32 +483,6 @@ def write_pins(sp: openmc.StatePoint, path: Path) -> None:
     )
 
 
-class Run:
-    """コマンドラインの 2〜7 番目の引数: <問題> <作業ディレクトリ> [粒子数/世代] [世代数] [捨てる世代数] [乱数の種]。"""
-
-    def __init__(self, argv: list[str]) -> None:
-        self.problem = argv[2]
-        if any(
-            self.problem not in table
-            for table in (FUEL_TEMPERATURE, MODERATOR_TEMPERATURE, MODERATOR_OF)
-        ):
-            raise SystemExit(
-                f"unknown problem {self.problem}; expected one of {list(FUEL_TEMPERATURE)}"
-            )
-        self.work = Path(argv[3]).resolve()
-        self.particles = int(argv[4]) if len(argv) > 4 else 100_000
-        self.batches = int(argv[5]) if len(argv) > 5 else 300
-        self.inactive = int(argv[6]) if len(argv) > 6 else 50
-        # 統計誤差の見積もりを確かめるには、種を変えて解き直す
-        self.seed = int(argv[7]) if len(argv) > 7 else 1
-
-    def settings(self, half: float) -> openmc.Settings:
-        """世代の数と乱数の種、燃料に一様な初期の中性子源（`half` は外周の箱の半分の幅）。"""
-        return eigenvalue_settings(
-            self.particles, self.batches, self.inactive, self.seed, half
-        )
-
-
 class Built(NamedTuple):
     """問題の物質と形状。`fuel` は（2K では 3.1% の）燃料、`materials` は形状に使うすべての物質。"""
 
@@ -567,18 +551,51 @@ def temperature_settings(problem: str) -> dict:
     return {"method": method, "tolerance": 1.0}
 
 
-def main() -> None:
-    cross_sections = Path(sys.argv[1]).resolve()
-    run = Run(sys.argv)
-    problem, work = run.problem, run.work
-    library = Path(sys.argv[8]).resolve() if len(sys.argv) > 8 else None
-    work.mkdir(parents=True, exist_ok=True)
-    if problem in ZONED and library is not None:
+REQUIRED = {
+    "problem",
+    "cross-sections",
+    "particles",
+    "batches",
+    "inactive",
+    "seed",
+    "threads",
+}
+OPTIONAL = {"effective-xs-groups"}
+
+
+def read_run(source: Path) -> dict[str, Any]:
+    """入力の TOML を読み、問題を確かめ、パスを絶対パスにする。"""
+    run = read_input(source, REQUIRED, OPTIONAL)
+    problem = run["problem"]
+    if any(
+        problem not in table
+        for table in (FUEL_TEMPERATURE, MODERATOR_TEMPERATURE, MODERATOR_OF)
+    ):
+        raise SystemExit(
+            f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
+        )
+    if problem in ZONED and "effective-xs-groups" in run:
         # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
         raise SystemExit(f"{problem} has two fuels; pin cross sections are not written")
-    fuel, materials, geometry, half = build(problem, cross_sections)
+    # 絶対パスにする。OpenMC も相対パスを Python の作業ディレクトリから絶対パスに直す（openmc.config の resolve_paths）
+    # ので、outs の model.xml には worktree の絶対パスが入る。statepoint が日時と計算時間を含み outs はバイト単位では
+    # 再現しないので、それを避ける書き方はしない
+    run["cross-sections"] = input_path(source, run["cross-sections"])
+    if "effective-xs-groups" in run:
+        run["effective-xs-groups"] = input_path(source, run["effective-xs-groups"])
+    return run
 
-    settings = run.settings(half)
+
+def solve(source: Path, work: Path) -> None:
+    run = read_run(source)
+    problem = run["problem"]
+    library = run.get("effective-xs-groups")
+    work.mkdir(parents=True, exist_ok=True)
+    fuel, materials, geometry, half = build(problem, run["cross-sections"])
+
+    settings = eigenvalue_settings(
+        run["particles"], run["batches"], run["inactive"], run["seed"], half
+    )
     settings.temperature = temperature_settings(problem)
 
     tallies = openmc.Tallies()
@@ -603,11 +620,18 @@ def main() -> None:
         tallies.extend(fuel_tallies("fuel", filters, list(FUEL), SCORES))
 
     model = openmc.Model(geometry, materials, settings, tallies)
-    statepoint = model.run(cwd=work, output=False)
-    with openmc.StatePoint(statepoint) as sp:
+    model.run(cwd=work, threads=run["threads"], output=False)
+
+
+def extract(source: Path, work: Path, results: Path) -> None:
+    run = read_run(source)
+    problem = run["problem"]
+    library = run.get("effective-xs-groups")
+    results.mkdir(parents=True, exist_ok=True)
+    with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         k = sp.keff
         if problem.startswith("2"):
-            write_pins(sp, work / "pins.msgpack")
+            write_pins(sp, results / "pins.msgpack")
             if library is not None:
                 # [メッシュ（x が速く、y は下から）][群（昇順）] を [行（上から）][列][群（高いエネルギーから）] にする
                 def pins(values):
@@ -621,7 +645,7 @@ def main() -> None:
                         sp, "pin fuel", FUEL, SCORES, pins
                     ).items()
                 }
-                (work / "pin-xs.msgpack").write_bytes(
+                (results / "pin-xs.msgpack").write_bytes(
                     msgpack.packb({"format": "xlc-pin-xs", "nuclides": xs})
                 )
         if problem.startswith("1") and library is not None:
@@ -632,10 +656,24 @@ def main() -> None:
                     sp, "fuel", FUEL, SCORES, lambda v: v.ravel()[::-1]
                 ).items()
             }
-            (work / "fuel-xs.msgpack").write_bytes(
+            (results / "fuel-xs.msgpack").write_bytes(
                 msgpack.packb({"format": "xlc-fuel-xs", "nuclides": xs})
             )
+    (results / "k.json").write_text(
+        json.dumps({"problem": problem, "k": k.nominal_value, "k-std": k.std_dev})
+        + "\n"
+    )
     print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
+
+
+def main() -> None:
+    match sys.argv[1:]:
+        case ["run", source, work]:
+            solve(Path(source), Path(work))
+        case ["extract", source, work, results]:
+            extract(Path(source), Path(work), Path(results))
+        case _:
+            raise SystemExit(__doc__)
 
 
 if __name__ == "__main__":

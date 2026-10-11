@@ -1,0 +1,9 @@
+# VERA Problem 1B を OpenMC の連続エネルギーモードで解く入力（openmc_model.py）。1 世代 100 万粒子・250 世代、最初の
+# 50 世代を捨て、乱数の種 1（examples/vera/verification.md の「参照解」の 1B）。スレッド数は docs/environment.md の値。
+problem = "1B"
+cross-sections = "../openmc-library/cross_sections.xml"
+particles = 1000000
+batches = 250
+inactive = 50
+seed = 1
+threads = 16
