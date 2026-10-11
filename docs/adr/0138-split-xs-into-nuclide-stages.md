@@ -66,7 +66,7 @@ DVC のステージ（examples/vera/dvc.yaml。`xs.toml` を `vars` にして核
 ### 確認
 
 - 段階に分けて作った `vera.msgpack` が、1 回の実行で作ったものとバイト単位で一致した（md5 3d1a8cc29b76d93cd46fa5e058ff615e、
-  size 123378257。xlc 11a8930e、2026-10-12）
+  size 123378257。xlc 11a8930e、2026-10-12。組み立てに条件の検査を足した xlc 454a170f でも同じ md5）
 - `xs.toml` の Ni-62 の温度を 1 つ足して `dvc repro` すると、`xs-range`、`xs-nuclide@Ni-62`、`xs` だけが走り、`dvc.lock` の
   差は、その 3 段階のものだけだった（`xs-range` の出力は変わらず、足した温度は元に戻して確認した）
 - `Library::merge` と、範囲のファイル、核種ごとの結果の検査（名前と温度、条件）の単体テスト
