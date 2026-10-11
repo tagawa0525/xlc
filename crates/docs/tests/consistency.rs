@@ -48,6 +48,19 @@ impl Repo<'_> {
             .output()
             .map_err(|e| format!("cannot run git {args:?} (is git installed?): {e}").into())
     }
+
+    /// git を実行し、成功したときの標準出力を返す。
+    fn stdout(&self, args: &[&str]) -> Result<String> {
+        let output = self.git(args)?;
+        if !output.status.success() {
+            return Err(format!(
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        Ok(String::from_utf8(output.stdout)?)
+    }
 }
 
 /// git が追跡しているファイルのうち `pathspecs` に当たるもの（`/` 区切りのパス。空ならすべて）。
@@ -348,38 +361,40 @@ fn linked_worktrees_share_references() -> Result<()> {
         root: &root,
         isolated: false,
     };
-    let path_of = |args: &[&str]| -> Result<PathBuf> {
-        let output = repo.git(args)?;
-        if !output.status.success() {
-            return Err(format!(
-                "git {args:?} failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )
-            .into());
-        }
-        Ok(PathBuf::from(String::from_utf8(output.stdout)?.trim_end()))
-    };
-    let git_dir = path_of(&["rev-parse", "--path-format=absolute", "--git-dir"])?;
-    let common_dir = path_of(&["rev-parse", "--path-format=absolute", "--git-common-dir"])?;
-    if git_dir == common_dir {
+    // main の worktree は一覧の先頭（worktree-add.sh と同じ求め方）
+    let list = repo.stdout(&["worktree", "list", "--porcelain"])?;
+    let main_root = list
+        .lines()
+        .next()
+        .and_then(|l| l.strip_prefix("worktree "))
+        .ok_or("git worktree list names no worktree")?;
+    let main_root = PathBuf::from(main_root).canonicalize()?;
+    if main_root == root {
         return Ok(());
     }
-    let main_references = common_dir
-        .parent()
-        .ok_or("the common git dir has no parent")?
-        .join("references");
+    let main_references = main_root.join("references");
+    assert!(
+        main_references.is_dir(),
+        "{} does not exist; build it in the main worktree first (docs/environment.md; ADR-0124)",
+        main_references.display()
+    );
     let references = root.join("references");
     let hint = "link it from the worktree root: \
                 ln -s \"$(git rev-parse --path-format=absolute --git-common-dir)/../references\" references";
-    assert!(
-        fs::symlink_metadata(&references).is_ok_and(|m| m.file_type().is_symlink()),
-        "{} is not a symlink to the main worktree's references/ (ADR-0126); {hint}",
-        references.display()
-    );
+    match fs::symlink_metadata(&references) {
+        Err(_) => panic!("{} is missing (ADR-0126); {hint}", references.display()),
+        Ok(m) => assert!(
+            m.file_type().is_symlink(),
+            "{} exists but is not a symlink to the main worktree's references/ (ADR-0126); \
+             move it away, then {hint}",
+            references.display()
+        ),
+    }
     assert_eq!(
-        fs::canonicalize(&references)?,
-        fs::canonicalize(&main_references)?,
-        "{} does not resolve to {} (ADR-0126); {hint}",
+        fs::canonicalize(&references)
+            .map_err(|e| format!("{} does not resolve ({e}); {hint}", references.display()))?,
+        main_references.canonicalize()?,
+        "{} does not resolve to {} (ADR-0126); remove it, then {hint}",
         references.display(),
         main_references.display()
     );
