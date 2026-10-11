@@ -42,8 +42,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 - 集合体ごとに違う少数群定数（装荷図）と、軸方向の層（燃料、支持格子、プレナム、ノズル、炉心板、上下の水）を
   入力で与える。ノードの定数は状態（ホウ素濃度、温度、制御棒）でテーブルを内挿する
 - NEM に ADF を入れ、CMFD で固有値の反復を加速する（[ADR-0027](../adr/0027-solve-core-with-nem.md)、[ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)。粗メッシュのソルバは [ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）。面の条件の形と外周の真空の境界は [ADR-0101](../adr/0101-impose-transport-current-ratio-at-vacuum-faces.md)（[ADR-0099](../adr/0099-couple-core-nodes-by-get-with-vacuum-boundary.md) を置き換え）
-- 制御棒の先端がノードの途中にあるときの扱い（カスピング）と、ピン出力の再構成の方法は、実装の前に文献で
-  比べて決める
+- 制御棒の先端がノードの途中にあるときの扱い（カスピング）: [ADR-0127](../adr/0127-weight-partially-rodded-nodes-by-axial-fine-mesh-flux.md)（proposed）。ピン出力の再構成: [ADR-0096](../adr/0096-reconstruct-pin-power-analytically.md)
 - 全炉心を解く: [ADR-0090](../adr/0090-solve-full-core.md)
 
 ### 検証
@@ -85,5 +84,6 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
    （ADR-0102）は 204b0fb、装荷図と軸方向の層（ADR-0105。炉心の形、台帳、サイクル、ケースの4つの入力）は
    d4355e5。集合体を分割するノード（ADR-0108。#0033）は鏡面反射の燃料集合体まで済み、反射体の定数の分割は未。炉心の外形に沿った境界（#0034）、CMFD は未。
    テーブルの内挿（ケースの [state]。ADR-0097）は済）
-7. core: 制御棒の部分挿入、ピン出力の再構成 — 作業中（ピン出力の再構成は ADR-0096 で、検証は #0043。制御棒は未着手）
+7. core: 制御棒の部分挿入、ピン出力の再構成 — 作業中（ピン出力の再構成は ADR-0096 で、検証は #0043。制御棒の部分挿入は
+   ADR-0127 で方式を決め、実装は #0063）
 8. Problem 3〜5 の入力と、炉心の結果のまとめ — 未着手
