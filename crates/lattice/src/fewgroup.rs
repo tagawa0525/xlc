@@ -2717,14 +2717,15 @@ mod tests {
             let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
             ci + (nx + 1) * cj
         };
-        // 炉心の CDF: 燃料の CDF で割った角は、角の点に接する燃料のノードの CDF の調和平均を掛ける
+        // 炉心の CDF: 燃料の CDF で割った角は、角の点に接する燃料（核分裂のある）のノードの CDF の調和平均を掛ける
+        let refs_fissile = |f: &FewGroup| f.nu_fission.iter().any(|&v| v > 0.0);
         let cdf = |n: usize, c: usize, g: usize| -> f64 {
             if !pins[n].normalized_corners[c] {
                 return pins[n].corners[c][g];
             }
             let p = point(n, c);
             let fuel: Vec<f64> = (0..nodes.len())
-                .filter(|&m| !nodes[m].reflector)
+                .filter(|&m| refs_fissile(&fgs[m]))
                 .flat_map(|m| {
                     (0..4)
                         .filter(move |&d| point(m, d) == p)

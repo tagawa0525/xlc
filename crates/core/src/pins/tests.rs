@@ -417,3 +417,22 @@ fn normalized_corners_need_a_plain_neighbor() {
     let err = reconstruct(&p, &s).unwrap_err();
     assert!(err.contains("normalized"), "{err}");
 }
+
+#[test]
+fn normalized_corners_need_fuel_at_the_corner_point() {
+    // 燃料の CDF で割った角の点に、燃料（核分裂のある）のノードがなければ、割っていない反射体の角があってもエラー
+    let a = reflector(
+        21.5,
+        2,
+        vec![vec![1.0, 1.0]; 4],
+        vec![false, true, true, false],
+    );
+    let b = reflector(21.5, 2, vec![vec![1.0, 1.0]; 4], vec![false; 4]);
+    let mut p = fuel_and_reflector(vec![vec![1.0, 1.0]; 4], a);
+    p.materials.push(b);
+    p.mesh.dx = vec![21.5; 3];
+    p.node_material = vec![0, 1, 2];
+    let s = solve(&p, &Options::default()).unwrap();
+    let err = reconstruct(&p, &s).unwrap_err();
+    assert!(err.contains("fuel"), "{err}");
+}
