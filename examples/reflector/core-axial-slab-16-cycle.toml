@@ -1,0 +1,4 @@
+# このファイルは axial_slab.py が書く。定数を作った体系の等価性（燃料のノードも平板の定数）の装荷
+plant = "core-axial-plant.toml"
+inventory = "core-axial-assemblies-16.toml"
+loading = ["SLAB-16"]

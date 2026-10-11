@@ -1,0 +1,4 @@
+# このファイルは axial_slab.py が書く。f* の方法（燃料は単一集合体の定数 fg-3A.msgpack）の装荷
+plant = "core-axial-plant.toml"
+inventory = "core-axial-assemblies-32.toml"
+loading = ["FSTAR-32"]
