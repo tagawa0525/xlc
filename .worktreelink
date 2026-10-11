@@ -1,2 +1,2 @@
-# worktree-add.sh が main の worktree への symlink として作る、git で無視されたパス（ADR-0123）
+# worktree-add.sh が main の worktree への symlink として作る、git で無視されたパス（ADR-0126）
 references
