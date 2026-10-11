@@ -10,7 +10,7 @@ ENDF/B-VIII.0 から手元の NJOY で作る（xs と同じ評価済みデータ
 （`neutron`、`thermal`）と温度を書く。パスは入力のファイルからの相対。neutron と thermal は 1 つの核種（散乱則）の
 HDF5 を作り、index は <ライブラリのディレクトリ> の `neutron/<名前>.h5` と `thermal/<名前>.h5` を、入力にあるものだけ
 並べた `cross_sections.xml` を同じディレクトリに書く。核種ごとに分けるのは、DVC の段階を核種ごとにして、足した核種
-だけを作るため（ADR-0127）。`njoy` は PATH から呼ぶ。
+だけを作るため（ADR-0130）。`njoy` は PATH から呼ぶ。
 """
 
 import sys

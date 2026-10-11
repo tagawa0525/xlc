@@ -6,7 +6,7 @@ superseded-by:
 issues: ["#0018"]
 ---
 
-# ADR-0127: 参照の結果は DVC の段階で作り、OpenMC の段階は references の devShell で包む
+# ADR-0130: 参照の結果は DVC の段階で作り、OpenMC の段階は references の devShell で包む
 
 ## 背景
 
