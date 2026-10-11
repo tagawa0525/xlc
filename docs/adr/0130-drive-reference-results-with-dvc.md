@@ -111,22 +111,24 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 ## 確認
 
 examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro examples/vera/dvc.yaml` で Slurm の上で走らせた
-（a9065730、2026-10-11）。xs と lattice は rebase の前の 1 回目（全体で 47 分）で走り、rebase のあと
-`openmc_model.py` と `openmc_library.py` が変わったので、ライブラリと OpenMC 1B を走らせ直した（38 分）。
+（0f0ac24c、2026-10-11、全体で 57 分）。ライブラリの温度は、main が 2A と 2Q のために足した 565 K と S(α,β) の温度を
+含む（`openmc-library.toml`）。
 
 - OpenMC 1B の k は 1.181783 ± 0.000063 で、examples/vera/verification.md の「参照解」の 1B（869bd88f に手で走らせた
-  `references/openmc/vera-1B`、同じ粒子数・世代・種）と一致した。k の推定の差は相対 3e-14（1 回目も 5e-14）、世代ごとの k も最初の世代から
-  同じで、ADR-0124 の「確認」の、同じ道具を 2 回走らせた差と同じ大きさである。model.xml は、手で走らせたものと
-  `cross_sections` のパスだけが違った
-- 核種ごとの段階で作ったライブラリの 62 の HDF5（中性子 61、熱中性子散乱則 1）は、手で作った `references/openmc/endfb80`
-  とバイト単位で一致した（`cmp`。2 回とも）
+  `references/openmc/vera-1B`、同じ粒子数・世代・種）と一致した。k の推定の差は相対 4e-14、世代ごとの k も最初の世代から
+  同じで、ADR-0124 の「確認」の、同じ道具を 2 回走らせた差と同じ大きさである。1B は最も近い温度のモードで 600 K の表だけを
+  使うので、ライブラリに 565 K などの温度が増えても k は変わらない。model.xml は、手で走らせたものと `cross_sections` の
+  パスだけが違った
+- 核種ごとの段階で作ったライブラリの 62 の HDF5（中性子 61、熱中性子散乱則 1）は、手で作った
+  `references/openmc/endfb80-565`（docs/environment.md の引数で作った同じ温度のもの）とバイト単位で一致した（`cmp`）。
+  rebase の前に 600 K だけの温度で走らせたとき（2 回）は、`references/openmc/endfb80` とバイト単位で一致した
 - xlc の 1B の k∞ は 1.184735 で、記録の 64e069de の値と同じ。`compare-1B` は +295 ± 6 pcm を書いた
-- 走らせたあとにもう一度 `dvc repro` すると、`references-shell`（評価だけ）のほかは走らず、`references-shell.txt` も変わらなかった（11 s）。
-  `references` の devShell の store のパスは main と worktree で同じだった
+- 走らせたあとにもう一度 `dvc repro` すると、`references-shell`（評価だけ）のほかは走らず、`references-shell.txt` も
+  変わらなかった（11 s）。`references` の devShell の store のパスは main と worktree で同じだった
 - 入力のキーが足りない、または知らないキーがあると、`openmc_model.py` が両方を挙げて止まることを、手元の小さな入力で
   確かめた（trials/ で、記録しない）
-- 時間（Slurm、32 コア）: ライブラリの 63 段階が約 22 分（逐次）、OpenMC 1B が 16.3 分（statepoint の total。1 回目は 17.9 分）、
-  xs が約 6.7 分（1 回目）
+- 時間（Slurm、32 コア）: ライブラリの 63 段階が約 30 分（逐次）、OpenMC 1B が 17.8 分（statepoint の total）、xs と
+  lattice-1B が約 9 分
 
 ## 帰結
 
@@ -142,7 +144,7 @@ examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro e
   走り直す（2B〜2K は 1 問題 30 分ほど）。核種を足すことが増えたら見直す
 - main の examples/vera/ には DVC を入れる前の `vera.msgpack` が残る。マージのあとに `dvc checkout
   examples/vera/dvc.yaml` で dvc.lock の出力に置き換える（ADR-0123 の M0 と同じ）
-- `references/openmc/` の手で作った作業ディレクトリ（`endfb80`、`vera-*`、`work-*`）は消していない。すべてを段階に
+- `references/openmc/` の手で作った作業ディレクトリ（`endfb80`、`endfb80-565`、`vera-*`、`work-*`）は消していない。すべてを段階に
   するまでは、まだ段階にしていない記録の出し直しに使う
 - `nix develop` と `nix eval` の評価は段階ごとに 1 秒ほどで、ライブラリの 63 段階では 1 分ほどになる
 - `x86_64-linux` を cmd に書いた（flake.nix の `system` と同じ）。ほかの system で走らせるときは直す
