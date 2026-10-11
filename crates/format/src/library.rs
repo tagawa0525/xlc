@@ -230,6 +230,12 @@ impl Library {
         Ok(msgpack::to_named(&file)?)
     }
 
+    /// 同じ群構造、σ0、ポイントワイズの範囲を持つライブラリを、核種を並べて 1 つにする（核種の順は `parts` の順）。
+    pub fn merge(parts: Vec<Library>) -> Result<Library, LibraryError> {
+        let _ = parts;
+        Err(LibraryError::Invalid("merge is not implemented".into()))
+    }
+
     /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。
     pub fn from_msgpack(bytes: &[u8]) -> Result<Self, LibraryError> {
         let value = msgpack::read_value(bytes)?;
@@ -707,6 +713,46 @@ pub(crate) mod tests {
                 nuclide("H-1", false, &[293.6]),
             ],
         }
+    }
+
+    /// `sample()` の核種 `index` だけを持つライブラリ
+    fn part(index: usize) -> Library {
+        let mut library = sample();
+        library.nuclides = vec![library.nuclides.swap_remove(index)];
+        library
+    }
+
+    #[test]
+    #[ignore = "RED: Library::merge is not implemented yet"]
+    fn merge_joins_the_nuclides_in_order() {
+        let merged = Library::merge(vec![part(0), part(1)]).unwrap();
+        assert_eq!(merged, sample());
+        let reversed = Library::merge(vec![part(1), part(0)]).unwrap();
+        let names: Vec<_> = reversed.nuclides.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, ["H-1", "U-235"]);
+    }
+
+    #[test]
+    #[ignore = "RED: Library::merge is not implemented yet"]
+    fn merge_rejects_libraries_that_do_not_share_the_grids() {
+        let mut sigma0 = part(1);
+        sigma0.sigma0 = vec![1.0e10, 5.0];
+        let mut groups = part(1);
+        groups.groups = GroupStructure::new(vec![1.0e7, 1.0, 1.0e-5]).unwrap();
+        let mut range = part(1);
+        range.pointwise_range = Some([4.0, 1.0e3]);
+        let mut no_range = part(1);
+        no_range.pointwise_range = None;
+        for other in [sigma0, groups, range, no_range] {
+            assert!(Library::merge(vec![part(0), other]).is_err());
+        }
+    }
+
+    #[test]
+    #[ignore = "RED: Library::merge is not implemented yet"]
+    fn merge_rejects_a_repeated_nuclide_and_an_empty_list() {
+        assert!(Library::merge(vec![part(0), part(0)]).is_err());
+        assert!(Library::merge(Vec::new()).is_err());
     }
 
     #[test]
