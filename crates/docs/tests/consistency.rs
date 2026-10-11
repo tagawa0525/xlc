@@ -120,6 +120,11 @@ fn is_ancestor(repo: &Repo, hash: &str, head: &str) -> Result<bool> {
     }
 }
 
+/// 今のブランチが main のとき、`trials/` の下で追跡しているファイル。ほかのブランチと detached HEAD では空。
+fn trials_tracked_on_main(_repo: &Repo) -> Result<Vec<String>> {
+    Ok(Vec::new())
+}
+
 #[test]
 fn docs_are_consistent() -> Result<()> {
     let root = repo_root();
@@ -269,6 +274,33 @@ fn branch_commits_count_until_the_branch_is_gone() -> Result<()> {
     assert!(
         t.problem(&stale)?.is_some(),
         "a commit on no branch after the merge"
+    );
+    Ok(())
+}
+
+#[test]
+fn main_reports_trials_left_by_a_merge() -> Result<()> {
+    // ブランチの上では、記録に書いた試行を trials/ に追跡してよい。マージのコミットを作る前（index がマージの
+    // 結果で、HEAD はまだ main）に trials/ が残っていれば見つける
+    let t = TempRepo::new("trials")?;
+    t.commit("chore: base")?;
+    assert_eq!(trials_tracked_on_main(&t.repo())?, Vec::<String>::new());
+    t.run(&["switch", "-q", "-c", "topic"])?;
+    fs::create_dir(t.dir.join("trials"))?;
+    fs::write(t.dir.join("trials/input.toml"), "")?;
+    t.run(&["add", "trials/input.toml"])?;
+    t.commit("docs: record a trial")?;
+    assert_eq!(
+        trials_tracked_on_main(&t.repo())?,
+        Vec::<String>::new(),
+        "a trial on a topic branch"
+    );
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["merge", "-q", "--no-ff", "--no-commit", "topic"])?;
+    assert_eq!(
+        trials_tracked_on_main(&t.repo())?,
+        vec!["trials/input.toml".to_string()],
+        "a trial in the merge result on main"
     );
     Ok(())
 }
