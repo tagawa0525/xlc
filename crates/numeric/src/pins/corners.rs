@@ -128,3 +128,6 @@ pub fn corner_balance(
     }
     Ok((0..points).map(|p| [rhs[2 * p], rhs[2 * p + 1]]).collect())
 }
+
+#[cfg(test)]
+mod tests;
