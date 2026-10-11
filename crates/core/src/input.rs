@@ -58,6 +58,8 @@
 //! # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）。状態が1つ以下のときだけ
 //! # 書ける（この例は状態が2つなので書かない）
 //! # pin-powers = "pins.msgpack"
+//! # 核分裂のある層ごとのピン出力と軸方向の出力（省略すると書かない）
+//! # axial-pin-powers = "layers.msgpack"
 //! # 名前つきの炉心の状態。状態ごとに分岐のテーブルを内挿して解き、名前の順に出す（ADR-0097、ADR-0146）。
 //! # 省略すると、軸のないテーブルだけを使って1つ解く
 //! [state.aro]
@@ -925,7 +927,7 @@ impl Case {
             pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
             partial_rods,
             partial_rods_given,
-            axial_pin_powers: None,
+            axial_pin_powers: file.axial_pin_powers.map(|p| normalized(&base.join(p))),
         })
     }
 }
