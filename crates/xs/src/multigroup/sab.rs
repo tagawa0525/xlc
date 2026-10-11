@@ -289,7 +289,7 @@ pub(crate) mod tests {
     fn free_gas_table_reproduces_free_gas_kernel() {
         // 表の補間（ln S を α, β について線形）の誤差の範囲で、自由ガスの解析式と一致する
         let data = free_gas_table();
-        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0, SabOutside::Zero).unwrap();
         let kt = BK * TEMPERATURE;
         let groups = GroupStructure::wims69();
         for e in [0.01, 0.0253, 0.1, 0.5] {
@@ -318,7 +318,7 @@ pub(crate) mod tests {
         // 自由ガス（A = 1、σfree = 1 b、σb = 4 b）の σ(E→E', μ) = σb/(2kT) √(E'/E) e^(-β/2) S(α, β) を
         // μ で細かく積分した P_l のモーメントと、表から求めたものが、表の補間の誤差の範囲で一致する
         let data = free_gas_table();
-        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0, SabOutside::Zero).unwrap();
         let kt = BK * TEMPERATURE;
         let reference = |e: f64, e_out: f64, l: usize| {
             let n = 200_000;
@@ -354,7 +354,7 @@ pub(crate) mod tests {
     fn kernel_satisfies_detailed_balance() {
         // E σ0(E→E') e^(-E/kT) は E と E' について対称
         let data = free_gas_table();
-        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0, SabOutside::Zero).unwrap();
         let kt = BK * TEMPERATURE;
         for (e, e_out) in [(0.01, 0.05), (0.2, 0.03), (0.0253, 0.026)] {
             let forward = e * sab.kernel(e, e_out) * (-e / kt).exp();
@@ -366,12 +366,131 @@ pub(crate) mod tests {
         }
     }
 
+    /// `free_gas_table` の S を、条件 `zero`(α, β) を満たす格子点で 0 にしたもの
+    fn table_with_zeros(zero: impl Fn(f64, f64) -> bool) -> Mf7Incoherent {
+        let mut data = free_gas_table();
+        let na = data.alpha.len();
+        for (j, &b) in data.beta.iter().enumerate() {
+            for (i, &a) in data.alpha.iter().enumerate() {
+                if zero(a, b) {
+                    data.s[0][j * na + i] = 0.0;
+                }
+            }
+        }
+        data
+    }
+
+    /// σb A/(4E) ∫ e^(-β/2) S(α, β) dα の短時間衝突近似の S（有効温度 `t_eff` K）での値を、α の中点則で求めたもの
+    /// （A = 1、σfree = 1 b、σb = 4 b）
+    fn short_collision_time_kernel(e: f64, e_out: f64, t_eff: f64) -> f64 {
+        let kt = BK * TEMPERATURE;
+        let r = TEMPERATURE / t_eff;
+        let beta = (e_out - e) / kt;
+        let b = beta.abs();
+        let (lo, hi) = (
+            (e.sqrt() - e_out.sqrt()).powi(2) / kt,
+            (e.sqrt() + e_out.sqrt()).powi(2) / kt,
+        );
+        let n = 400_000;
+        let h = (hi - lo) / n as f64;
+        let integral: f64 = (0..n)
+            .map(|i| {
+                let a = lo + (i as f64 + 0.5) * h;
+                (-(a - b).powi(2) * r / (4.0 * a) - 0.5 * b - 0.5 * beta).exp()
+                    / (4.0 * std::f64::consts::PI * a / r).sqrt()
+            })
+            .sum::<f64>()
+            * h;
+        4.0 / (4.0 * e) * integral
+    }
+
+    #[test]
+    fn short_collision_time_fills_alpha_above_the_table() {
+        // α の上限が 1 の表では、0.5 eV からの散乱の大半が表の外にある。有効温度が物質の温度なら短時間衝突近似は
+        // 自由ガスの S と同じなので、自由ガスの核を表の補間の誤差の範囲で再現する
+        let mut data = free_gas_table();
+        let na = data.alpha.len();
+        let keep = data.alpha.partition_point(|&a| a <= 1.0);
+        data.s[0] = (0..data.beta.len())
+            .flat_map(|j| data.s[0][j * na..j * na + keep].to_vec())
+            .collect();
+        data.alpha.truncate(keep);
+        // 0 とするなら、表が下方散乱を覆わないのでエラー
+        assert!(matches!(
+            ThermalSab::new(&data, TEMPERATURE, 1.0, SabOutside::Zero),
+            Err(SabError::Coverage { .. })
+        ));
+        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0, SabOutside::ShortCollisionTime).unwrap();
+        let kt = BK * TEMPERATURE;
+        let groups = GroupStructure::wims69();
+        let e = 0.5;
+        let ours: f64 = sab.group_integrals(&groups, e).iter().sum();
+        let reference: f64 = free_gas_group_integrals(&groups, e, 1.0, kt).iter().sum();
+        assert!(
+            (ours / reference - 1.0).abs() < 2e-3,
+            "{ours} vs {reference}"
+        );
+        for e_out in [0.1, 0.45, 0.55] {
+            let (k, k_ref) = (sab.kernel(e, e_out), free_gas_kernel(e, e_out, 1.0, kt));
+            assert!((k / k_ref - 1.0).abs() < 2e-3, "{e_out}: {k} vs {k_ref}");
+        }
+    }
+
+    #[test]
+    fn short_collision_time_uses_the_effective_temperature() {
+        // 表の α の範囲より大きい α だけに散乱する (E, E') では、核は有効温度の短時間衝突近似そのもの
+        let mut data = free_gas_table();
+        let t_eff = 2.0 * TEMPERATURE;
+        data.effective_temperature = crate::endf::Tab1::linear(vec![TEMPERATURE], vec![t_eff]);
+        let na = data.alpha.len();
+        let keep = data.alpha.partition_point(|&a| a <= 1.0);
+        data.s[0] = (0..data.beta.len())
+            .flat_map(|j| data.s[0][j * na..j * na + keep].to_vec())
+            .collect();
+        data.alpha.truncate(keep);
+        let sab = ThermalSab::new(&data, TEMPERATURE, 4.0, SabOutside::ShortCollisionTime).unwrap();
+        for (e, e_out) in [(3.0, 1.0), (2.0, 0.5), (1.0, 2.0)] {
+            let (k, k_ref) = (
+                sab.kernel(e, e_out),
+                short_collision_time_kernel(e, e_out, t_eff),
+            );
+            assert!(
+                (k / k_ref - 1.0).abs() < 1e-6,
+                "{e} → {e_out}: {k} vs {k_ref}"
+            );
+        }
+    }
+
+    #[test]
+    fn short_collision_time_fills_zeros_only_at_large_alpha_or_beta() {
+        // NJOY THERMR と同じく、S = 0 の格子点に接する区間は α A ≥ 30 か β ≥ 30 のところだけ短時間衝突近似で補う。
+        // 2 → 1.4 eV（β ≈ −24）の S は α ≈ 24 の近くに幅 7 ほどで集まる
+        let kt = BK * TEMPERATURE;
+        let (e, e_out) = (2.0, 1.4);
+        let reference = free_gas_kernel(e, e_out, 1.0, kt);
+        // α ≥ 32 の 0 は補う
+        let data = table_with_zeros(|a, _| a >= 32.0);
+        let sab = ThermalSab::new(&data, TEMPERATURE, 2.5, SabOutside::ShortCollisionTime).unwrap();
+        let k = sab.kernel(e, e_out);
+        assert!((k / reference - 1.0).abs() < 2e-3, "{k} vs {reference}");
+        // α < 30 かつ β < 30 の 0 は補わない
+        let data = table_with_zeros(|a, b| (1.0..=29.0).contains(&a) && b < 29.0);
+        let sab = ThermalSab::new(&data, TEMPERATURE, 2.5, SabOutside::ShortCollisionTime).unwrap();
+        let k = sab.kernel(e, e_out);
+        assert!(k < 0.5 * reference, "{k} vs {reference}");
+        // 0 とするなら、α ≥ 32 の 0 も補わない
+        let data = table_with_zeros(|a, _| a >= 32.0);
+        let sab = ThermalSab::new(&data, TEMPERATURE, 2.5, SabOutside::Zero).unwrap();
+        let k = sab.kernel(e, e_out);
+        assert!(k < 0.95 * reference, "{k} vs {reference}");
+    }
+
     #[test]
     fn empty_grid_is_error() {
         let mut data = free_gas_table();
         data.beta.clear();
         assert!(matches!(
-            ThermalSab::new(&data, TEMPERATURE, 1.0),
+            ThermalSab::new(&data, TEMPERATURE, 1.0, SabOutside::Zero),
             Err(SabError::EmptyGrid)
         ));
     }
@@ -379,8 +498,8 @@ pub(crate) mod tests {
     #[test]
     fn rejects_missing_temperature_and_short_table() {
         let data = free_gas_table();
-        assert!(ThermalSab::new(&data, 600.0, 1.0).is_err());
+        assert!(ThermalSab::new(&data, 600.0, 1.0, SabOutside::Zero).is_err());
         // β の上限 316 は kT ≈ 0.0253 eV で 8 eV 分なので、10 eV までの下方散乱を覆わない
-        assert!(ThermalSab::new(&data, TEMPERATURE, 10.0).is_err());
+        assert!(ThermalSab::new(&data, TEMPERATURE, 10.0, SabOutside::Zero).is_err());
     }
 }
