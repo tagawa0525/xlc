@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-10-12
-requires: [ADR-0122, ADR-0123]
+requires: [ADR-0067, ADR-0122, ADR-0123]
 supersedes: []
 superseded-by:
 issues: ["#0074"]
@@ -27,8 +27,9 @@ ADR-0122 は禁止を文章にしただけで、新しい読み取りを止め�
 - 案 B: examples の選択肢を入力の TOML で受ける。比べる道具の入力は NJOY の出力のパスと核種で、位置の引数で受けている。
   選択肢だけのために TOML を足すと、入力が 2 つに分かれる。DVC の段階にする比べる道具は、`cmd` に選択肢が書かれ
   （`dvc.lock` にも残る）、再現できる
-- 案 C: 選択肢を `--` で始める引数で受ける。引数は `cmd` と履歴に残り、環境のように黙って残らない。書き方は
-  `crates/lattice/examples/homogeneous.rs` の `--swap` と同じ
+- 案 C: 選択肢を `--` で始める引数で受ける。引数は `cmd` と履歴に残り、環境のように黙って残らない。`--` で始まる引数で受ける点は
+  `crates/lattice/examples/homogeneous.rs` の `--balance`、`--swap` と同じ（そちらは値を取る引数で、順も決まっている。
+  比べる道具の選択肢は真偽だけなので、位置の引数から分けて読む）
 - 案 D: 環境変数の読み取りを `clippy.toml` の `disallowed-methods` で禁じる。変数の名前では許せないので、読む場所ごとに
   `#[allow(clippy::disallowed_methods, reason = …)]` を付ける
 
@@ -45,11 +46,14 @@ ADR-0122 は禁止を文章にしただけで、新しい読み取りを止め�
   - `RAYON_NUM_THREADS`（lattice の `use_physical_cores`）: 並列の数だけを選ぶ（ADR-0067。結果が数によらないことは #0060）
   - crates/docs/tests/consistency.rs の `vars_os`: テスト用のリポジトリから、呼び出し元の `GIT_*` を外す
 
-`RAYON_NUM_THREADS` は、結果がスレッド数によらないことを #0060 が確かめるまで、計算の条件でない前提で許す。
+`RAYON_NUM_THREADS` は、結果がスレッド数によらないことを #0060 が確かめるまで、計算の条件でない前提で許す（確認前の
+許しなので、`#[allow]` の理由にもそう書く）。`homogeneous.rs` の `--balance`、`--swap` は、すでに引数なので、そのままにする。
 
 ## 帰結
 
 - 新しい環境変数の読み取りは、clippy（`run-checks.sh`）で止まる。許すには、理由を書いた `#[allow]` が要り、レビューで見える
+- clippy が止めるのは `std::env` の読み取りで、`env!`、`option_env!` と、依存のクレートが自分で環境変数を読む場合は止めない。
+  後者は、読むクレートを入れる時点のレビューで見る
 - 引数の選択肢は `--` で始まる引数を位置の引数から分ける。引数の数や順は変わらない
 - examples/m3-nuclides/verification.md の `XLC_SLOWING_DOWN` は `--slowing-down` に直した
 
