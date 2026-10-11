@@ -700,6 +700,15 @@ fn outline_faces_reconstruct_like_cuboid_faces() {
         reconstruct(&stepped, &b).unwrap(),
     );
     assert!(pb[2].is_empty());
+    // ノードのある位置の表は同じ大きさ
+    for n in 0..2 {
+        assert_eq!(pa[n].len(), pb[n].len(), "node {n}");
+        assert!(
+            pa[n].iter().zip(&pb[n]).all(|(x, y)| x.len() == y.len()),
+            "node {n}"
+        );
+    }
+    assert_eq!(pa[0].len(), 4);
     for (x, y) in pa[0].iter().flatten().zip(pb[0].iter().flatten()) {
         assert!((x - y).abs() < 1e-9 * x, "{x} vs {y}");
     }
@@ -708,6 +717,7 @@ fn outline_faces_reconstruct_like_cuboid_faces() {
         core_rows(&stepped, &pb).unwrap(),
     );
     assert_eq!(ra.len(), rb.len());
+    assert!(ra.iter().zip(&rb).all(|(x, y)| x.len() == y.len()));
     for (x, y) in ra.iter().flatten().zip(rb.iter().flatten()) {
         assert!((x - y).abs() < 1e-9 * x.abs().max(1.0), "{x} vs {y}");
     }
@@ -736,4 +746,28 @@ fn concave_outline_corners_keep_the_symmetry() {
     assert_eq!((rows.len(), rows[0].len()), (8, 8));
     // 上の行が +y なので、ノードのない +x +y の位置は上の 4 行の右の 4 列
     assert!(rows[..4].iter().all(|r| r[4..].iter().all(|&v| v == 0.0)));
+}
+
+#[test]
+fn positions_with_only_some_values_are_errors() {
+    // 層の位置ごとの量（定数、モデル、条件、CDF）は、ノードのある位置ではすべて、ない位置ではどれも持たない。
+    // 一部だけ持つのは配列の作り方の誤りなのでエラー
+    let p = square(43.0, 1, 4, Boundary::Reflective);
+    let s = solve(&p, &Options::default()).unwrap();
+    let rule = gauss_legendre(FACE_POINTS).unwrap();
+    let constants = layer_constants(&p, 0).unwrap();
+    let (models, conditions) = layer(&p, &s, 0, &constants, &rule).unwrap();
+    let cdfs = corner_factors(&p, 0, &constants).unwrap();
+    assert!(
+        parts(0, &constants, &models, &conditions, &cdfs)
+            .unwrap()
+            .is_some()
+    );
+    let none = vec![None];
+    assert!(
+        parts(0, &[None], &none, &[None], &[None])
+            .unwrap()
+            .is_none()
+    );
+    assert!(parts(0, &constants, &models, &conditions, &[None]).is_err());
 }

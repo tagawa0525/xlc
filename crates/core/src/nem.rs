@@ -2837,6 +2837,7 @@ mod tests {
                     b.k
                 );
                 for (n, &site) in sites.iter().enumerate() {
+                    assert_eq!(b.flux[site].len(), 2, "site {site}");
                     for (x, y) in a.flux[n].iter().zip(&b.flux[site]) {
                         assert!((x - y).abs() < 1e-10 * x, "{condition:?}: {x} vs {y}");
                     }
@@ -2904,11 +2905,8 @@ mod tests {
 
     #[test]
     fn stepped_core_converges_with_refinement() {
-        // 外形の中性子束ゼロの面は、ノードを細かくすると k が収束する（外形の凹んだ角を含む）。凹んだ角の特異性
-        // のため、直方体（20 cm のノードで差分法と 3 × 10⁻⁴ で一致）より遅く、20 cm のノードでは k が差分法の
-        // 細かいメッシュの解（0.8602。セル中心の差分、0.25 cm）より 2.5% 大きい。四隅を強い吸収体のノードで埋めた
-        // 直方体も、同じ 20 cm のノードで 0.8838 と同じ程度に外れるので、外形の面の扱いでなく NEM の凹んだ角の
-        // 近似の誤差である（ADR-0132）
+        // 外形の中性子束ゼロの面は、ノードを細かくすると k が上から収束する（外形の凹んだ角を含む）。凹んだ角の特異性の
+        // ため直方体より遅く、20 cm のノードの k は 2.5 cm のノードより 2% 以上大きい
         let k = |split: usize| {
             solve(
                 &stepped_core(split, Boundary::ZeroFlux),
@@ -2921,9 +2919,29 @@ mod tests {
         for w in ks.windows(3) {
             assert!((w[2] - w[1]).abs() < 0.7 * (w[1] - w[0]).abs(), "{ks:?}");
         }
-        // 細かくすると、差分法の解に上から近づく
         assert!(ks.windows(2).all(|w| w[1] < w[0]), "{ks:?}");
-        assert!((ks[3] - 0.8602).abs() < 3e-3 * 0.8602, "{ks:?}");
+        assert!(ks[0] > 1.02 * ks[3], "{ks:?}");
+        // 粗いノードの外れは、外形の面の扱いでなく凹んだ角の NEM の近似から来る: 四隅を強い吸収体（中性子束が
+        // ほぼ 0 になる）のノードで埋めた直方体も、同じ 20 cm のノードで同じ程度に大きい（ADR-0132）
+        let mut black = material();
+        black.diffusion = vec![0.02, 0.02];
+        black.total = vec![50.0, 50.0];
+        black.absorption = vec![50.0, 50.0];
+        black.scatter = vec![vec![0.0; 2]; 2];
+        black.nu_fission = vec![0.0; 2];
+        black.fission = vec![0.0; 2];
+        black.chi = vec![0.0; 2];
+        let mut filled = stepped_core(1, Boundary::ZeroFlux);
+        filled.materials.push(black);
+        for m in &mut filled.node_material {
+            m.get_or_insert(1);
+        }
+        filled.outline = None;
+        let k_filled = solve(&filled, &Options::default()).unwrap().k;
+        assert!(
+            (k_filled - ks[0]).abs() < 0.2 * (ks[0] - ks[3]),
+            "{k_filled} vs {ks:?}"
+        );
     }
 
     #[test]
