@@ -71,8 +71,9 @@ cargo build --release
 
 1. コードと入力の変更をすべてコミットする。記録に書く試行の入力（`trials/`）は `git add -f` でコミットする（スキル verification-record の「記録に書く試行」）。`git status --short` が空であることを確かめる
 2. `git rebase main`。衝突があればここで解く。`dvc.lock` が衝突したら、rebase を終えてからスキル dvc-relock の前半で整える（rebase の途中では dvc を実行しない）。rebase の終わりに post-rewrite hook が記録の hash を付け替えたら、その差分をコミットしてから次へ進む（スキル verification-record の「rebase のあと」）
-3. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
-4. 段階（`dvc.yaml`）で実行するなら、先に `dvc checkout`（スキル dvc-relock の前半 1）。記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD（`dvc.lock` をコミットする前のコミット）、分岐点は `git merge-base HEAD main`
+3. 段階（`dvc.yaml`）で実行するなら、先に `dvc checkout`（スキル dvc-relock の前半 1）。チェックが見る出力と計算の入力を揃えるため、チェックより前に行う
+4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
+5. 記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD（`dvc.lock` をコミットする前のコミット）、分岐点は `git merge-base HEAD main`
 
 計算の待ち時間が長く、その間に main が進んだら、マージ前の rebase で hash が変わる。計算は測り直さず、付け替えは
 commit-refs remap に任せる（ADR-0122。コード、入力、環境が変わらなければ測り直さない）。長い計算が複数のブランチで
