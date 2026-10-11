@@ -31,8 +31,10 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   実行し、手で段階を選ばない。重いときは `dvc repro` 全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（ADR-0123）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
-- `examples/vera/vera.msgpack` は git で追跡しない。worktree では main のものをコピーして使い、核種を足して作り直したら
-  main の場所にも置く
+- `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml の段階の
+  出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0127）。
+  NJOY と OpenMC を使う段階は cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
+  devShell で実行する
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。rebase で hash が変わっても
   測り直さず、ツール（remap-commit-refs.sh）で付け替える。文書やテストの変更で hash が最新でなくなっても測り直さない。
   再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）

@@ -39,10 +39,18 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   仕様書の PDF は docs/specs.sha256 に URL と sha256
 - 済（ADR-0124）: NJOY2016（2016.79 とパッチ）と OpenMC 0.15.2 とその Python API を、版とパッチごとビルドする flake の
   パッケージにする（nixpkgs にはどちらもない）
+- 済（ADR-0127）: 決めた方式を ADR にする（外からの入力とツールは ADR-0124、参照の結果の作り方は ADR-0127）
+- 一部済（ADR-0127）: 参照の結果（NJOY → OpenMC のライブラリ → OpenMC、xlc との比較）を DVC のステージにする。
+  examples/vera/dvc.yaml で、OpenMC のライブラリ（核種ごと）と VERA 1B（OpenMC → 抽出、xs → lattice → 比較）を
+  端から端まで通した。残り（同じ形で足す）:
+  - VERA 1C〜2J の OpenMC と抽出（2B〜2J はピン出力の `pins.msgpack`）、xlc の lattice、比較（`compare_pins.py` を
+    含む）の段階。ADR-0121 の `p2/openmc-<問題>.msgpack` の置き場を、抽出の結果のディレクトリに合わせるかを決める
+  - MOX（examples/mox/openmc_model.py）、C5G7（examples/c5g7/openmc_model.py）、#0005 の均質な媒質
+    （`openmc_homogeneous.py`）、`openmc_balance.py`、`openmc_mg.py` を、計算の条件を入力の TOML で受ける形に直し、
+    段階にする（どれもまだ位置の引数と既定値で受ける）
 - 参照の結果は、作るスクリプト（入力、コマンド、粒子数、乱数のシード、ツールの版）をリポジトリに置き、`references/` は
-  いつ消しても作り直せる作業の置き場にする。`njoy-runs/` も作るスクリプトにまとめ直す
-- 参照の結果（NJOY → OpenMC のライブラリ → OpenMC、xlc との比較）を DVC のステージにする（ADR-0123）
-- 決めた方式を ADR にする（外からの入力とツールは ADR-0124。参照の結果の作り方は次のブランチの ADR）
+  いつ消しても作り直せる作業の置き場にする。`njoy-runs/` も作るスクリプトにまとめ直す。すべてを段階にしたら、
+  `references/openmc/` の手で作った作業ディレクトリ（`endfb80`、`vera-*`、`work-*` など）と手でビルドしたツールを消す
 
 ## 経緯
 
