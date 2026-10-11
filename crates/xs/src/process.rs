@@ -6,8 +6,8 @@ use crate::endf::{
     Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
 use crate::multigroup::{
-    Emission, FreeGas, ReactionAverages, Reactions, SabError, ScatterError, ShieldingError,
-    SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
+    Emission, FreeGas, ReactionAverages, Reactions, SabError, SabOutside, ScatterError,
+    ShieldingError, SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
     fission_spectrum, scattering_moments, shielded_averages, uses_angular,
 };
 use crate::physics::BK;
@@ -23,7 +23,7 @@ pub struct Settings {
     pub weight: Weight,
     /// 背景断面積 (barn)、降順。最初の値を無限希釈とみなす
     pub sigma0: Vec<f64>,
-    /// この入射エネルギー (eV) 未満の弾性散乱を、自由ガス模型か S(α, β) で扱う
+    /// S(α, β) を持たない核種で、この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う
     pub thermal_cutoff: f64,
     /// ポイントワイズの断面積の許容誤差
     pub tolerance: f64,
@@ -31,6 +31,51 @@ pub struct Settings {
     pub pointwise_range: Option<(f64, f64)>,
     /// 散乱行列のルジャンドルのモーメントの次数
     pub scattering_order: usize,
+}
+
+/// S(α, β) を使う入射エネルギーの上限。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SabUpper {
+    /// 評価済みデータの上限（MF7 MT4 の B(4)）
+    Evaluated,
+    /// 評価済みデータの上限以下のエネルギー (eV)
+    Energy(f64),
+}
+
+/// S(α, β) を持つ核種の熱領域の扱い（ADR-0133）。
+#[derive(Debug, Clone)]
+pub struct ThermalScattering {
+    /// MF7 MT4 の S(α, β)
+    pub data: Mf7Incoherent,
+    pub upper: SabUpper,
+    pub outside: SabOutside,
+    /// S(α, β) の上限から、この入射エネルギー (eV) 未満の弾性散乱を自由ガス模型で扱う
+    pub free_gas_upper: f64,
+}
+
+impl ThermalScattering {
+    /// S(α, β) と自由ガスの上限 (eV)。S(α, β) の上限は評価済みデータの上限以下で正、自由ガスの上限は有限で
+    /// S(α, β) の上限以上であること。
+    pub fn limits(&self) -> Result<(f64, f64), ProcessError> {
+        let evaluated = self.data.e_max;
+        let upper = match self.upper {
+            SabUpper::Evaluated => evaluated,
+            SabUpper::Energy(e) if e > 0.0 && e <= evaluated => e,
+            SabUpper::Energy(e) => {
+                return Err(ProcessError::SabUpper {
+                    given: e,
+                    evaluated,
+                });
+            }
+        };
+        if !(self.free_gas_upper.is_finite() && self.free_gas_upper >= upper) {
+            return Err(ProcessError::FreeGasUpper {
+                given: self.free_gas_upper,
+                sab: upper,
+            });
+        }
+        Ok((upper, self.free_gas_upper))
+    }
 }
 
 /// 核種の処理のエラー。
@@ -52,6 +97,10 @@ pub enum ProcessError {
     ThermalElastic,
     #[error("thermal scattering tape has no MF7 MT4")]
     NoIncoherent,
+    #[error("S(α, β) limit {given} eV must be positive and at most the evaluated {evaluated} eV")]
+    SabUpper { given: f64, evaluated: f64 },
+    #[error("free gas limit {given} eV must be finite and at least the S(α, β) limit {sab} eV")]
+    FreeGasUpper { given: f64, sab: f64 },
     #[error("more than one unresolved range")]
     MultipleUnresolved,
     #[error(
@@ -334,15 +383,26 @@ pub fn thermal_correction(elastic: &[f64], elastic_matrix: &[Vec<f64>]) -> Vec<f
 }
 
 /// テープ中の（ただ1つの）物質を、温度 `temperatures` (K) ごとに処理する。
-/// `thermal` があれば cutoff 未満の弾性散乱を S(α, β) で、なければ自由ガス模型で扱う。
+/// `thermal` があれば、その上限まで弾性散乱を S(α, β) と自由ガス模型で、なければ `settings.thermal_cutoff` 未満を
+/// 自由ガス模型で扱う。
 #[tracing::instrument(name = "process", level = "debug", skip_all)]
 pub fn process_nuclide(
     tape: &Tape,
     name: &str,
     temperatures: &[f64],
-    thermal: Option<&Mf7Incoherent>,
+    thermal: Option<&ThermalScattering>,
     settings: &Settings,
 ) -> Result<NuclideData, ProcessError> {
+    if let Some(thermal) = thermal {
+        thermal.limits()?;
+        // NJOY THERMR（参照解の OpenMC の S(α, β) を作る）は ln S を 3 点の 2 次式で補間する（thermr.f90 の terpq）。
+        // 評価済みデータの補間則に従い、差は知らせる（ADR-0133）
+        tracing::warn!(
+            nuclide = name,
+            "S(α, β) follows the ENDF interpolation law (ln S linear); NJOY THERMR interpolates ln S \
+             quadratically, so its scattering cross section differs (ADR-0133)"
+        );
+    }
     let materials = tape.materials();
     let [mat] = materials[..] else {
         return Err(ProcessError::Materials(materials));
@@ -435,7 +495,7 @@ struct Common<'a> {
     q_values: &'a BTreeMap<u32, f64>,
     emissions: &'a BTreeMap<u32, Emission>,
     angular: &'a BTreeMap<u32, Mf4>,
-    thermal: Option<&'a Mf7Incoherent>,
+    thermal: Option<&'a ThermalScattering>,
     settings: &'a Settings,
     /// 0 K の部分反応（温度ごとに広げる）
     cold: &'a ColdParts,
@@ -469,8 +529,15 @@ impl Common<'_> {
 
         // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
         let thermal = match self.thermal {
-            Some(data) => {
-                Thermal::Sab(ThermalSab::new(data, temperature, settings.thermal_cutoff)?)
+            Some(thermal) => {
+                let (upper, free_gas_upper) = thermal.limits()?;
+                Thermal::Sab {
+                    sab: ThermalSab::new(&thermal.data, temperature, upper, thermal.outside)?,
+                    free_gas: FreeGas {
+                        kt: BK * temperature,
+                        cutoff: free_gas_upper,
+                    },
+                }
             }
             None => Thermal::FreeGas(FreeGas {
                 kt: BK * temperature,
@@ -856,6 +923,46 @@ mod tests {
     fn reads_incoherent_inelastic_scattering() {
         let data = read_thermal_scattering(&thermal_tape(false)).unwrap();
         assert_eq!(data.beta, vec![0.0, 2.0]);
+    }
+
+    #[test]
+    fn sab_limits_follow_the_input() {
+        // テープの MF7 MT4 の上限 B(4) は 5 eV
+        let data = read_thermal_scattering(&thermal_tape(false)).unwrap();
+        let thermal = |upper, free_gas_upper| ThermalScattering {
+            data: data.clone(),
+            upper,
+            outside: SabOutside::ShortCollisionTime,
+            free_gas_upper,
+        };
+        assert_eq!(
+            thermal(SabUpper::Evaluated, 1.0e3).limits().unwrap(),
+            (5.0, 1.0e3)
+        );
+        assert_eq!(
+            thermal(SabUpper::Energy(4.0), 4.0).limits().unwrap(),
+            (4.0, 4.0)
+        );
+        // 評価済みデータの上限より上では S(α, β) を使えない
+        for upper in [5.5, 0.0, -1.0, f64::NAN] {
+            assert!(
+                matches!(
+                    thermal(SabUpper::Energy(upper), 1.0e3).limits(),
+                    Err(ProcessError::SabUpper { .. })
+                ),
+                "{upper}"
+            );
+        }
+        // 自由ガスは S(α, β) の上限から続ける
+        for free_gas_upper in [4.9, f64::INFINITY, f64::NAN] {
+            assert!(
+                matches!(
+                    thermal(SabUpper::Evaluated, free_gas_upper).limits(),
+                    Err(ProcessError::FreeGasUpper { .. })
+                ),
+                "{free_gas_upper}"
+            );
+        }
     }
 
     #[test]
