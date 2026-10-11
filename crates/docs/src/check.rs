@@ -67,6 +67,9 @@ impl Docs {
         check_front(&issues, &ISSUE_KEYS, &ISSUE_STATUSES, "opened", &mut out);
         check_headings(&adrs, &mut out);
         check_supersession(&adrs, &adr_numbers, &mut out);
+        for adr in &adrs {
+            front_refs(adr, "requires", adr_refs, "ADR-", &adr_numbers, &mut out);
+        }
         let adr_issues = adr_issues(&adrs, &issue_numbers, &mut out);
         check_issue_states(&issues, &issue_numbers, &adr_issues, &mut out);
         check_adr_issue_links(&adr_issues, &issues, &mut out);
@@ -169,7 +172,14 @@ impl Docs {
 
 const ADR_DIR: &str = "docs/adr/";
 const ISSUE_DIR: &str = "docs/issues/";
-const ADR_KEYS: [&str; 5] = ["status", "date", "supersedes", "superseded-by", "issues"];
+const ADR_KEYS: [&str; 6] = [
+    "status",
+    "date",
+    "supersedes",
+    "superseded-by",
+    "issues",
+    "requires",
+];
 const ADR_STATUSES: [&str; 5] = [
     "proposed",
     "accepted",
@@ -1506,7 +1516,7 @@ mod tests {
         assert_violations(
             files,
             &[
-                "docs/adr/0003-keep-c.md: code fence opened on line 9 is not closed".to_string(),
+                "docs/adr/0003-keep-c.md: code fence opened on line 10 is not closed".to_string(),
                 format!("{ISSUE1}: code fence opened on line 15 is not closed"),
             ],
         );
