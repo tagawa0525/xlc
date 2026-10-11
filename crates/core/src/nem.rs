@@ -2562,17 +2562,22 @@ mod tests {
     /// どの辺にも真空の比と、辺ごとに違う ADF を持つ反射体
     fn sided_reflector() -> FewGroup {
         let mut r = reflector();
+        // 辺（左、右、上、下、−z、+z）
         r.adf = vec![
             vec![1.1, 0.8],
             vec![1.3, 0.7],
             vec![0.9, 1.2],
             vec![1.2, 0.6],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         r.vacuum_ratio = vec![
             Some(vec![0.45, 0.40]),
             Some(vec![0.50, 0.35]),
             Some(vec![0.42, 0.38]),
             Some(vec![0.47, 0.33]),
+            None,
+            None,
         ];
         r
     }
