@@ -76,6 +76,7 @@ from openmc_model import (
 )
 from openmc_run import (
     box_settings,
+    fuel_mean,
     mesh_values,
     run_or_extract,
     write_k,
@@ -368,17 +369,17 @@ def extract(source: Path, work: Path, results: Path) -> None:
     area = np.outer(widths, widths)
     rate = unfold(rate[np.ix_(pins, pins)] / area)
     std = unfold(std[np.ix_(pins, pins)] / area)
-    scale = (rate > 0).sum() / rate.sum()
-    write_pin_powers(results / "pins.msgpack", rate * scale)
-    write_pin_powers(results / "pins-std.msgpack", std * scale)
+    mean = fuel_mean(rate)
+    write_pin_powers(results / "pins.msgpack", rate / mean)
+    write_pin_powers(results / "pins-std.msgpack", std / mean)
 
     # 集合体: 対称面の上の集合体は半分（中心の H8 は 1/4）だけ数えたので、全体に直す
     full = np.ones(len(LOADING))
     full[0] = 2.0
     by, by_std = (unfold(v * np.outer(full, full)) for v in (by, by_std))
-    scale = (by > 0).sum() / by.sum()
-    write_pin_powers(results / "assemblies.msgpack", by * scale)
-    write_pin_powers(results / "assemblies-std.msgpack", by_std * scale)
+    mean = fuel_mean(by)
+    write_pin_powers(results / "assemblies.msgpack", by / mean)
+    write_pin_powers(results / "assemblies-std.msgpack", by_std / mean)
     write_k(results / "k.json", problem, k)
 
 

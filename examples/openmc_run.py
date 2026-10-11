@@ -76,6 +76,11 @@ def write_k(path: Path, problem: str, k) -> None:
     print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
 
 
+def fuel_mean(rows: np.ndarray) -> float:
+    """核分裂のあるセル（値が正のセル）の平均。ピン出力は、これで割って燃料のピンの平均で 1 にする。"""
+    return rows[rows > 0].mean()
+
+
 def write_pin_powers(path: Path, rows: np.ndarray) -> None:
     """セルごとの値（[行（上から）][列]）を、lattice の `pin-powers` と同じ形式（`xlc-pin-powers`）で書く。"""
     path.write_bytes(msgpack.packb({"format": "xlc-pin-powers", "rows": rows.tolist()}))
