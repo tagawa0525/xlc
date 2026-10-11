@@ -1,9 +1,9 @@
 # VERA Problem 2B の集合体（examples/vera/p2/assembly-2B.toml と同じ物質とセル）の単一集合体の格子（外周は鏡面反射）。
 # reflector-I.toml と同じライブラリと自己遮蔽なしで解き、反射体の f* に掛ける単一集合体の燃料の少数群定数（ADF）を
-# 作る（ADR-0095）。
+# 作る（ADR-0095）。形状関数と角の不連続因子も付け、core のピン出力の再構成に使う（ADR-0096）。
 library = "reflector.msgpack"
 self-shielding = false
-few-group = { output = "fg-2B.msgpack", bounds = [1e7, 0.625, 1e-5] }
+few-group = { output = "fg-2B.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
 pitch = 1.26
 azimuthal = 32
 spacing = 0.05
