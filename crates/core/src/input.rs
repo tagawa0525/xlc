@@ -42,7 +42,8 @@
 //! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum、marshak のいずれか）。6面とも書く。
 //! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0128）。
 //! # outline は `map` の `-` に面する面の条件で、`-` があるときだけ、同じ値のどれかを書く（ADR-0132）
-//! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"], outline = "vacuum" }
+//! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"] }
+//! # map に `-` があれば、boundary に outline = "vacuum" のように足す
 //! pin-powers = "pins.msgpack"   # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）
 //! # 炉心の状態（省略すると、軸のないテーブルだけを使う。ADR-0097）
 //! [state]
