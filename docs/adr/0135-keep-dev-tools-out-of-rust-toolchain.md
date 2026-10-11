@@ -51,8 +51,8 @@ DVC のステージは default の devShell で実行する（[ADR-0130](0130-dr
 DVC の deps はビルドの入力を表すので、計算に関係しないツールの変更で段階を changed にしない。段階をビルドする
 コンパイラの derivation は、今と同じく `rust-toolchain.toml` と `flake.lock` だけで決まる形を保ち、override の入り口を
 作らない。後から `flake.nix` でツールチェーンを変えることを機械で止める仕組みはない（帰結）。
-rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot と proc-macro-srv を見つけるので、component を
-分けても版はそろう。
+rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot と proc-macro-srv を見つけるので、同じ devShell の
+rustc に対しては、component を分けても版はそろう（devShell の外から起動した場合は帰結と #0079）。
 
 ## 確認
 
