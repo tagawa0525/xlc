@@ -1,0 +1,954 @@
+schema: '2.0'
+stages:
+  assembly-21:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-21.toml > assembly-21.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-21.toml
+      hash: md5
+      md5: bc16fe0a4169741bc0d973484a1e489d
+      size: 4288
+    outs:
+    - path: assembly-21.out
+      hash: md5
+      md5: ab61278794c7801696438a47f8acf463
+      size: 11
+    - path: lattice/21.msgpack
+      hash: md5
+      md5: 47ba389e7ad9adbc9a03724d0aae8d99
+      size: 7575
+  assembly-26-p16:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-p16.toml > assembly-26-p16.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-p16.toml
+      hash: md5
+      md5: 79f908d17c3701f7ba9f8eb1b9fd849b
+      size: 5628
+    outs:
+    - path: assembly-26-p16.out
+      hash: md5
+      md5: 9d1f6e67bb2b3862465a07f58b93b632
+      size: 11
+    - path: lattice/26-p16.msgpack
+      hash: md5
+      md5: 2b6ff447f4a4d7a505c11bec4acfc5c2
+      size: 7575
+  assembly-26-p20:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-p20.toml > assembly-26-p20.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-p20.toml
+      hash: md5
+      md5: a3d0ffce233f1132c11f0a8dce9ec980
+      size: 5628
+    outs:
+    - path: assembly-26-p20.out
+      hash: md5
+      md5: ce7bb025556ec3838517dc087263699b
+      size: 11
+    - path: lattice/26-p20.msgpack
+      hash: md5
+      md5: eddb562b224614789bed3acf1aac6ea4
+      size: 7575
+  assembly-26-p24:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-p24.toml > assembly-26-p24.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-p24.toml
+      hash: md5
+      md5: 9dbb8a387c45c8b8be30a07fff1c63bc
+      size: 5628
+    outs:
+    - path: assembly-26-p24.out
+      hash: md5
+      md5: 3e9663db86bb0dd5948e368e3ff93ec3
+      size: 11
+    - path: lattice/26-p24.msgpack
+      hash: md5
+      md5: 0d19c0ea6bd75e8d315d267c8c6b4a6b
+      size: 7575
+  assembly-26:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26.toml > assembly-26.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26.toml
+      hash: md5
+      md5: 7a21677de469cb21781d9952fc3a0bac
+      size: 4289
+    outs:
+    - path: assembly-26.out
+      hash: md5
+      md5: 10db4ccedd2e6ac47a6220955c215db1
+      size: 11
+    - path: lattice/26.msgpack
+      hash: md5
+      md5: cce0270e4eafd4fd06414b4893146294
+      size: 7575
+  assembly-31-p12:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p12.toml > assembly-31-p12.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p12.toml
+      hash: md5
+      md5: 1b89593f621851a86c5f0ecbc484a202
+      size: 5627
+    outs:
+    - path: assembly-31-p12.out
+      hash: md5
+      md5: 956ce8676229a985c14ccaf7df0b2e20
+      size: 11
+    - path: lattice/31-p12.msgpack
+      hash: md5
+      md5: 009361ee7d1ac740c69dedc048dc48cc
+      size: 7575
+  assembly-31-p16:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p16.toml > assembly-31-p16.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p16.toml
+      hash: md5
+      md5: 9c0e12c589708e441ac0bc9f6da70f57
+      size: 5627
+    outs:
+    - path: assembly-31-p16.out
+      hash: md5
+      md5: 0384a428479800cf47eabf0b5ec8aff0
+      size: 11
+    - path: lattice/31-p16.msgpack
+      hash: md5
+      md5: e0a6ba0fb1e2214cd497fb904f538a87
+      size: 7575
+  assembly-31-p24:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p24.toml > assembly-31-p24.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p24.toml
+      hash: md5
+      md5: 8ebd6ed5b7f041e2933dc074bb97b876
+      size: 5627
+    outs:
+    - path: assembly-31-p24.out
+      hash: md5
+      md5: 0975ebd06bb4a74ba4579482d7dd5991
+      size: 11
+    - path: lattice/31-p24.msgpack
+      hash: md5
+      md5: 918a1c8590340b1dc75a683184ddaf72
+      size: 7575
+  assembly-31-p8:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p8.toml > assembly-31-p8.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p8.toml
+      hash: md5
+      md5: 24694a36b7d15a998b13692e932e0c05
+      size: 5625
+    outs:
+    - path: assembly-31-p8.out
+      hash: md5
+      md5: 73f84a629416adba0d056bbb16f6639d
+      size: 11
+    - path: lattice/31-p8.msgpack
+      hash: md5
+      md5: d0599c13e248f97cb4d063fae40a9bec
+      size: 7575
+  assembly-31:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31.toml > assembly-31.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31.toml
+      hash: md5
+      md5: 6dd6adf80e8642f5bb325f65afb788cb
+      size: 4288
+    outs:
+    - path: assembly-31.out
+      hash: md5
+      md5: 7009229b9b422883f24bf1fe598928af
+      size: 11
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+  assembly-26-aic:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-aic.toml > assembly-26-aic.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-aic.toml
+      hash: md5
+      md5: 264749ee8a12f4a0d70d034a35b72c3b
+      size: 5611
+    outs:
+    - path: assembly-26-aic.out
+      hash: md5
+      md5: 614f50deeb4ecb6782bd8851c4a7e5c9
+      size: 11
+    - path: lattice/26-aic.msgpack
+      hash: md5
+      md5: 09bfa81de8455a86608632953bfed32a
+      size: 7575
+  assembly-21-b4c:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-21-b4c.toml > assembly-21-b4c.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-21-b4c.toml
+      hash: md5
+      md5: 78e54308a22b958c3e7d99b0ada5ce1d
+      size: 5434
+    outs:
+    - path: assembly-21-b4c.out
+      hash: md5
+      md5: 3c819a5a17743bfd5f275405c3aadd98
+      size: 11
+    - path: lattice/21-b4c.msgpack
+      hash: md5
+      md5: 17454066a83af56205dcefff066fdb09
+      size: 7575
+  assembly-21-aic:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-21-aic.toml > assembly-21-aic.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-21-aic.toml
+      hash: md5
+      md5: a03b25f62aedfcd64ac0941860ced6a8
+      size: 5610
+    outs:
+    - path: assembly-21-aic.out
+      hash: md5
+      md5: f5a64288f033144933a0bb89dce1a5b0
+      size: 11
+    - path: lattice/21-aic.msgpack
+      hash: md5
+      md5: 91fc08eb89548b8ec2c747a057803541
+      size: 7575
+  assembly-26-b4c:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-b4c.toml > assembly-26-b4c.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-b4c.toml
+      hash: md5
+      md5: 47118124d9774ed8b0493ff7a5545cc1
+      size: 5435
+    outs:
+    - path: assembly-26-b4c.out
+      hash: md5
+      md5: 46c1b004c531499da77eda1e8ab37c5b
+      size: 11
+    - path: lattice/26-b4c.msgpack
+      hash: md5
+      md5: 137bd59ba499153c3c80ca394149e08d
+      size: 7575
