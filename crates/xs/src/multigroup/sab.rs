@@ -47,6 +47,9 @@ pub enum SabOutside {
 /// THERMR が S = 0 の格子点に接する区間を短時間衝突近似で補う、α A と β の下限（thermr.f90 の `sig` の test2）
 const SHORT_COLLISION_LIMIT: f64 = 30.0;
 
+/// この値以下の S を 0 とみなす（THERMR の sabflg = −225 で、ln S ≤ −225 を 0 とする。thermr.f90 の calcem）
+const LN_S_ZERO: f64 = -225.0;
+
 /// S(α, β) の表を散乱に使えないときのエラー。
 #[derive(Debug, thiserror::Error)]
 pub enum SabError {
@@ -61,6 +64,8 @@ pub enum SabError {
         temperature: f64,
         available: Vec<f64>,
     },
+    #[error("S(α, β) limit {cutoff} eV is above the evaluated {evaluated} eV")]
+    AboveEvaluated { cutoff: f64, evaluated: f64 },
     #[error("no effective temperature of S(α, β) at {0} K")]
     EffectiveTemperature(f64),
     #[error(
@@ -101,6 +106,12 @@ impl<'a> ThermalSab<'a> {
         let (Some(&alpha_max), Some(&beta_max)) = (data.alpha.last(), data.beta.last()) else {
             return Err(SabError::EmptyGrid);
         };
+        if cutoff > data.e_max {
+            return Err(SabError::AboveEvaluated {
+                cutoff,
+                evaluated: data.e_max,
+            });
+        }
         let short_collision = match outside {
             SabOutside::ShortCollisionTime => {
                 let t_eff = data
@@ -125,7 +136,14 @@ impl<'a> ThermalSab<'a> {
         };
         let ln_s = data.s[t]
             .iter()
-            .map(|&v| if v > 0.0 { v.ln() } else { f64::NEG_INFINITY })
+            .map(|&v| {
+                let ln = v.ln();
+                if ln > LN_S_ZERO {
+                    ln
+                } else {
+                    f64::NEG_INFINITY
+                }
+            })
             .collect();
         let ratio = (data.awr + 1.0) / data.awr;
         Ok(Self {
@@ -223,7 +241,8 @@ impl<'a> ThermalSab<'a> {
                     }
                 } else {
                     let slope = (l1 - l0) / (a1 - a0);
-                    let start = l0 + slope * (x0 - a0);
+                    // e^(-β/2) を指数に入れる（kT が表の kT より小さいと、物質の温度の |β| は表の β の上限を超える）
+                    let start = l0 + slope * (x0 - a0) - 0.5 * beta_actual;
                     let width = x1 - x0;
                     table[0] += if (slope * width).abs() < 1.0e-12 {
                         start.exp() * width
@@ -247,10 +266,9 @@ impl<'a> ThermalSab<'a> {
                 }
             }
         }
-        // 表の分は |β| が表の β の上限（H in H2O で約 395）以下なので、e^(-β/2) は桁あふれしない。短時間衝突近似の分は
-        // e^(-β/2) を含み、dα_表 = dα / (kT_表/kT) なので kT_表/kT を掛けない
+        // どちらの分も e^(-β/2) を含む。短時間衝突近似の分は dα_表 = dα / (kT_表/kT) なので kT_表/kT を掛けない
         let common = self.sigma_bound * d.awr / (4.0 * e);
-        let factor = common * (-0.5 * beta_actual).exp() * self.kt_table / self.kt;
+        let factor = common * self.kt_table / self.kt;
         table
             .iter()
             .zip(&short)
@@ -269,7 +287,8 @@ impl<'a> ThermalSab<'a> {
 
     /// 入射エネルギー e での ∫_g' σ_l(E→E') dE'（[l][群]、l = 0..=order）。
     ///
-    /// 群境界と、核が折れ曲がる E' = E ± β_j kT（表の β の格子点）で区間を分け、
+    /// 群境界と、核が折れ曲がる E' = E ± β_j kT（表の β の格子点）と、短時間衝突近似で補うかどうかが変わる
+    /// E' = E ± 30 kT（表の kT）で区間を分け、
     /// 自由ガスと同じく対数的に細かく分けた区間の Gauss-Legendre 則で積分する。
     pub fn group_moments(&self, groups: &GroupStructure, e: f64, order: usize) -> Vec<Vec<f64>> {
         let reach = e + self.data.beta[self.data.beta.len() - 1] * self.kt_table;
@@ -281,6 +300,7 @@ impl<'a> ThermalSab<'a> {
                 self.data
                     .beta
                     .iter()
+                    .chain(std::iter::once(&SHORT_COLLISION_LIMIT))
                     .flat_map(|&b| [e - b * self.kt_table, e + b * self.kt_table]),
             )
             .chain([0.0, e, reach])
@@ -555,19 +575,18 @@ pub(crate) mod tests {
 
     #[test]
     fn far_downscatter_at_low_temperature_stays_finite() {
-        // LAT=1 の表を kT の小さい温度で引くと、物質の温度の β は表の β の上限を大きく超え、e^(-β/2) を別に
-        // 計算すると桁あふれする。核は有限で、表の外は短時間衝突近似の値
+        // LAT=1 の表を kT の小さい温度で引くと、物質の温度の β は表の値よりずっと大きく、e^(-β/2) を別に計算すると
+        // 桁あふれする。9.5 → 0.5 eV は表の β の上限の外で、短時間衝突近似だけの値
         let mut data = free_gas_table();
         data.lat = 1;
         let temperature = 20.0;
         data.temperatures = vec![temperature];
         data.effective_temperature =
             crate::endf::Tab1::linear(vec![temperature], vec![temperature]);
-        let sab = ThermalSab::new(&data, temperature, 5.0, SabOutside::ShortCollisionTime).unwrap();
-        for (e, e_out) in [(4.0, 0.01), (4.0, 3.9), (0.5, 0.001)] {
-            let k = sab.kernel_moments(e, e_out, 3);
-            assert!(k.iter().all(|v| v.is_finite()), "{e} → {e_out}: {k:?}");
-        }
+        let sab =
+            ThermalSab::new(&data, temperature, 10.0, SabOutside::ShortCollisionTime).unwrap();
+        let k = sab.kernel_moments(9.5, 0.5, 3);
+        assert!(k.iter().all(|v| v.is_finite()), "{k:?}");
     }
 
     #[test]
