@@ -278,6 +278,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         bounds,
                         &boundaries,
                         &nodes,
+                        *pins,
                     )?
                     .into_iter()
                     .map(|few| vec![few])
