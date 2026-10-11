@@ -558,7 +558,8 @@ impl<'a> Core<'a> {
                     return Err(format!(
                         "material {material} has no vacuum ratio J/phi on side {side} for the \
                          vacuum face {name} of node {}; make it in a lattice with that side \
-                         vacuum, or use \"marshak\" for the P1 (Marshak) condition",
+                         vacuum, mark its layer in the plant with vacuum = \"marshak\", or use \
+                         \"marshak\" for the face for the P1 (Marshak) condition",
                         self.site(n)
                     ));
                 }
@@ -631,10 +632,10 @@ impl<'a> Core<'a> {
     /// （`unpaired_face`）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
         let side = side_of(d, plus);
-        let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
         if self.unit_adf[n][d][usize::from(plus)] {
             return 1.0;
         }
+        let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
         let material = self.material(n);
         let own = material.adf[side][g];
         if !material.normalized_adf[side] {

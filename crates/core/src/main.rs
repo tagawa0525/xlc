@@ -117,9 +117,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .collect();
         println!("{}", cells.join(" "));
     }
-    // 格子計算の均質化のノード平均と比べられるように、ノードの順に出す（全体の生成率 1 に規格化）
+    // 格子計算の均質化のノード平均と比べられるように、直方体の位置の番号（x が最も速く、次に y、z）で出す（全体の
+    // 生成率 1 に規格化）。ノードのない位置は出さない
     for (node, flux) in solution.flux.iter().enumerate() {
-        tracing::debug!(node, flux = ?flux, "node average flux");
+        if !flux.is_empty() {
+            tracing::debug!(node, flux = ?flux, "node average flux");
+        }
     }
     // 再構成したピン出力（ADR-0096）
     if let Some(file) = &case.pin_powers {
