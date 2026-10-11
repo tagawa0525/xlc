@@ -6,7 +6,8 @@
 //! ```toml
 //! pitch = 21.5                 # 集合体のピッチ (cm)
 //! height = 406.3               # 炉心の高さ (cm)
-//! map = ["*  R"]               # 上の行が +y。`*` は集合体を装荷する位置、ほかは反射体の種類（`@90` で回す）
+//! map = ["*  R"]               # 上の行が +y。`*` は集合体を装荷する位置、`-` はノードを置かない位置（炉心の外形の外。
+//!                              # 図の端まで `-` だけをたどって出られること。ADR-0132）、ほかは反射体の種類（`@90` で回す）
 //! [reflector.R]
 //! bounds = [0.0, 406.3]        # 軸方向の層の境界 (cm)。0 から炉心の高さまで
 //! layers = ["reflector.msgpack"]
@@ -37,8 +38,9 @@
 //! axial-mesh = [0.0, 11.951, 200.0, 377.711, 406.3]   # 軸方向のノードの境界 (cm)
 //! radial-nodes = 1   # 集合体1体の各方向のノードの数。テーブルの分割の数と同じにする（反射体のある炉心は 1。ADR-0108）
 //! # 各軸の（低い側, 高い側）の境界条件（reflective、zero-flux、vacuum、marshak のいずれか）。6面とも書く。
-//! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0101）
-//! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"] }
+//! # vacuum は少数群定数の真空の辺の比 J/φ を使い、marshak は P1 の関係（J/φ = 1/2）を置く（ADR-0101）。
+//! # outline は `map` の `-` に面する面の条件で、`-` があるときだけ、同じ値のどれかを書く（ADR-0132）
+//! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"], outline = "vacuum" }
 //! pin-powers = "pins.msgpack"   # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）
 //! # 炉心の状態（省略すると、軸のないテーブルだけを使う。ADR-0097）
 //! [state]
@@ -183,6 +185,8 @@ pub enum Site {
     Assembly,
     /// 反射体の種類と、反時計回りの 90° の回数（燃料に面する辺の向きを合わせる）
     Reflector { name: String, turns: u8 },
+    /// ノードを置かない位置（`-`。炉心の外形の外。ADR-0132）
+    Empty,
 }
 
 /// 炉心の形（ADR-0105）。
@@ -235,9 +239,7 @@ impl Plant {
                         _ if cell.starts_with("*@") => invalid(format!(
                             "map: {cell:?}: rotate assemblies in the cycle's loading, not at `*`"
                         )),
-                        "-" => invalid(
-                            "map: `-` (no node) needs boundaries along the core outline (#0034)",
-                        ),
+                        "-" => Ok(Site::Empty),
                         _ => {
                             let (name, turns) = rotation("map", cell)?;
                             if !reflectors.contains_key(name) {
@@ -252,6 +254,7 @@ impl Plant {
                     .collect::<Result<Vec<_>, _>>()
             })
             .collect::<Result<Vec<_>, _>>()?;
+        check_open(&map)?;
         Ok(Self {
             pitch: file.pitch,
             height: file.height,
@@ -259,6 +262,46 @@ impl Plant {
             map,
         })
     }
+}
+
+/// どの `-` も、図の端まで `-` だけを上下左右の隣でたどって出られることを確かめる。ノードに囲まれた `-` は、炉心の
+/// 中に真空の穴を開けることになり、意図した入力と考えにくい（ADR-0132）
+fn check_open(map: &[Vec<Site>]) -> Result<(), InputError> {
+    let rows = map.len();
+    let cols = map.first().map_or(0, Vec::len);
+    let empty = |r: usize, c: usize| map[r][c] == Site::Empty;
+    // 図の端の `-` から、`-` をたどって届く位置
+    let mut reached = vec![vec![false; cols]; rows];
+    let mut stack: Vec<(usize, usize)> = (0..rows)
+        .flat_map(|r| (0..cols).map(move |c| (r, c)))
+        .filter(|&(r, c)| (r == 0 || c == 0 || r + 1 == rows || c + 1 == cols) && empty(r, c))
+        .collect();
+    while let Some((r, c)) = stack.pop() {
+        if reached[r][c] {
+            continue;
+        }
+        reached[r][c] = true;
+        let beside = [
+            r.checked_sub(1).map(|r| (r, c)),
+            (r + 1 < rows).then_some((r + 1, c)),
+            c.checked_sub(1).map(|c| (r, c)),
+            (c + 1 < cols).then_some((r, c + 1)),
+        ];
+        stack.extend(beside.into_iter().flatten().filter(|&(r, c)| empty(r, c)));
+    }
+    for (r, row) in map.iter().enumerate() {
+        for (c, site) in row.iter().enumerate() {
+            if *site == Site::Empty && !reached[r][c] {
+                return invalid(format!(
+                    "map row {} column {}: `-` is enclosed by nodes; it would open a vacuum hole \
+                     in the core",
+                    r + 1,
+                    c + 1
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// 集合体の台帳（ADR-0105）。
@@ -385,6 +428,8 @@ pub struct Case {
     pub radial_nodes: usize,
     /// [-x, +x, -y, +y, -z, +z]
     pub boundaries: [Boundary; 6],
+    /// 炉心の形の `-` に面する面の条件（ADR-0132）
+    pub outline: Option<Boundary>,
     /// 炉心の状態。書けば分岐のテーブルをこの状態で内挿し、書かなければ軸のないテーブルだけを使う（ADR-0097）
     pub state: Option<State>,
     /// 再構成したピン出力を書くファイル（ADR-0096）
@@ -409,6 +454,7 @@ struct BoundaryEntry {
     x: [Condition; 2],
     y: [Condition; 2],
     z: [Condition; 2],
+    outline: Option<Condition>,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -428,17 +474,19 @@ impl Case {
             return invalid("radial-nodes must be positive");
         }
         let b = file.boundary;
-        let boundaries = [b.x[0], b.x[1], b.y[0], b.y[1], b.z[0], b.z[1]].map(|c| match c {
+        let condition = |c: Condition| match c {
             Condition::Reflective => Boundary::Reflective,
             Condition::ZeroFlux => Boundary::ZeroFlux,
             Condition::Vacuum => Boundary::Vacuum,
             Condition::Marshak => Boundary::Marshak,
-        });
+        };
+        let boundaries = [b.x[0], b.x[1], b.y[0], b.y[1], b.z[0], b.z[1]].map(condition);
         Ok(Self {
             cycle: base.join(file.cycle),
             axial_mesh: file.axial_mesh,
             radial_nodes: file.radial_nodes,
             boundaries,
+            outline: b.outline.map(condition),
             state: file.state,
             pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
         })
@@ -469,9 +517,11 @@ pub struct Layout {
     pub node_material: Vec<Option<usize>>,
     /// 集合体の位置を各方向に分けたノードの数（ケースの `radial-nodes`。ADR-0108）
     pub split: usize,
-    /// 上の行（+y）から、位置ごとの集合体の ID（反射体の位置は `None`）
+    /// 上の行（+y）から、位置ごとの集合体の ID（反射体の位置とノードのない位置は `None`）
     pub ids: Vec<Vec<Option<String>>>,
     pub boundaries: [Boundary; 6],
+    /// `-` に面する面の条件（ADR-0132）
+    pub outline: Option<Boundary>,
 }
 
 /// 装荷図の位置に置いたもの。
@@ -509,7 +559,8 @@ impl Layout {
         let mut seen = HashSet::new();
         // 置いた設計と反射体の種類（名前ごとに1回だけ検査する）
         let mut used: BTreeMap<String, &Column> = BTreeMap::new();
-        let mut placements: Vec<Vec<Placement>> = Vec::with_capacity(rows);
+        // ノードのない位置（`-`）は `None`
+        let mut placements: Vec<Vec<Option<Placement>>> = Vec::with_capacity(rows);
         let mut ids = Vec::with_capacity(rows);
         for (r, (sites, loaded)) in plant.map.iter().zip(&cycle.loading).enumerate() {
             let mut row = Vec::with_capacity(cols);
@@ -528,11 +579,11 @@ impl Layout {
                             InputError::Invalid(format!("{at}: unknown design {design:?}"))
                         })?;
                         used.insert(format!("design {design}"), column);
-                        row.push(Placement {
+                        row.push(Some(Placement {
                             column,
                             turns: p.turns,
                             reflector: false,
-                        });
+                        }));
                         id_row.push(Some(p.id.clone()));
                     }
                     (Site::Assembly, None) => {
@@ -543,12 +594,22 @@ impl Layout {
                             InputError::Invalid(format!("{at}: unknown reflector {name:?}"))
                         })?;
                         used.insert(format!("reflector {name}"), column);
-                        row.push(Placement {
+                        row.push(Some(Placement {
                             column,
                             turns: *turns,
                             reflector: true,
-                        });
+                        }));
                         id_row.push(None);
+                    }
+                    (Site::Empty, None) => {
+                        row.push(None);
+                        id_row.push(None);
+                    }
+                    (Site::Empty, Some(p)) => {
+                        return invalid(format!(
+                            "{at}: {} is placed where the plant map has no node (`-`); use `.`",
+                            p.id
+                        ));
                     }
                     (Site::Reflector { name, .. }, Some(p)) => {
                         return invalid(format!(
@@ -562,9 +623,25 @@ impl Layout {
             ids.push(id_row);
         }
 
+        let empty = placements.iter().flatten().any(Option::is_none);
+        match (empty, case.outline) {
+            (true, None) => {
+                return invalid(
+                    "the plant map has positions without nodes (`-`); give the condition of the faces \
+                     next to them as `outline` in the case's boundary",
+                );
+            }
+            (false, Some(_)) => {
+                return invalid(
+                    "the case's boundary has an outline condition, but the plant map has no `-`",
+                );
+            }
+            _ => {}
+        }
+
         // 反射体の定数は、分けた均質な問題の不連続因子をまだ作れない（ADR-0108 の次の段階）
         let split = case.radial_nodes;
-        if split > 1 && placements.iter().flatten().any(|p| p.reflector) {
+        if split > 1 && placements.iter().flatten().flatten().any(|p| p.reflector) {
             return invalid(format!(
                 "radial-nodes = {split}: cores with reflector sites cannot be split yet (ADR-0108)"
             ));
@@ -605,15 +682,19 @@ impl Layout {
                     .flat_map(move |p| (0..split).map(move |si| (p, si, sj)))
             })
         });
-        let sites: Vec<(&Placement, usize, usize)> = sites.collect();
+        let sites: Vec<(&Option<Placement>, usize, usize)> = sites.collect();
         for z in mesh.windows(2) {
             // 図の上の行が +y なので、y は下の行から。集合体の位置の中は部分ノードの行と列
             for &(placement, si, sj) in &sites {
-                let Placement {
+                let Some(Placement {
                     column,
                     turns,
                     reflector: is_reflector,
-                } = *placement;
+                }) = *placement
+                else {
+                    node_material.push(None);
+                    continue;
+                };
                 // 層の境界はメッシュに乗っているので、ノードはどれか1つの層に収まる
                 let layer = column
                     .bounds
@@ -656,6 +737,7 @@ impl Layout {
             split,
             ids,
             boundaries: case.boundaries,
+            outline: case.outline,
         })
     }
 
@@ -708,7 +790,7 @@ impl Layout {
                 .collect(),
             node_material: self.node_material.clone(),
             boundaries: self.boundaries,
-            outline: None,
+            outline: self.outline,
         })
     }
 

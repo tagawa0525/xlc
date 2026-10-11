@@ -204,9 +204,9 @@ fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
     let corners = corner_fluxes(&p, 0, &constants, &models, &conditions, &cdfs).unwrap();
     // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
     let m = &p.materials[0];
-    let mut c = conditions[0].clone();
-    c.corners = corner_values(&corners, 4, 0, 0, &cdfs[0]);
-    let node = models[0].solve(&c);
+    let mut c = conditions[0].clone().unwrap();
+    c.corners = corner_values(&corners, 4, 0, 0, cdfs[0].as_ref().unwrap());
+    let node = models[0].as_ref().unwrap().solve(&c);
     let [a, b] = c.half;
     let grad = node.gradient(-a, -b);
     for g in 0..2 {
@@ -256,9 +256,9 @@ fn vacuum_corners_take_the_ratio_and_adf_of_their_side() {
     let corners = corner_fluxes(&p, 0, &constants, &models, &conditions, &cdfs).unwrap();
     // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
     let m = &p.materials[0];
-    let mut c = conditions[0].clone();
-    c.corners = corner_values(&corners, 1, 0, 0, &cdfs[0]);
-    let node = models[0].solve(&c);
+    let mut c = conditions[0].clone().unwrap();
+    c.corners = corner_values(&corners, 1, 0, 0, cdfs[0].as_ref().unwrap());
+    let node = models[0].as_ref().unwrap().solve(&c);
     let [a, b] = c.half;
     let grad = node.gradient(-a, -b);
     for g in 0..2 {
