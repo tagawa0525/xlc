@@ -74,7 +74,7 @@ THERMR の S(α,β) の補間）による。U-236 の核分裂スペクトル χ
 
 上の表の S(α,β) の行は、H in H2O の 293.6 K を、S(α,β) の上限を評価済みデータの上限 10.00008 eV、表の外を THERMR と同じ
 短時間衝突近似にして（[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)）、THERMR（許容誤差 0.001、上限 10.00008 eV）と GROUPR の
-MF6 MT222 と比べたもの（`compare_njoy_thermr`、references/njoy-runs/thermr/H1-10eV-293.6。6223ca64、2026-10-11）。上限より
+MF6 MT222 と比べたもの（`compare_njoy_thermr`、references/njoy-runs/thermr/H1-10eV-293.6。ecc17676、2026-10-11）。上限より
 下の群で、行の和の差は最大 2.1e-3（3.3〜4 eV）、行の形の差（差の絶対値の和 / 行の和）は最大 1.1e-2（0.996〜1.02 eV）。
 
 ```sh

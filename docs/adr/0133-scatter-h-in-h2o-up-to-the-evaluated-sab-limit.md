@@ -146,7 +146,7 @@ S(α,β) の上限から自由ガスの上限まで自由ガスで、行の和�
 ADR-0052 と ADR-0081 から引き継ぐテストはそのまま（`reads_incoherent_inelastic_scattering`、`sab_matrix_satisfies_detailed_balance`、
 `sab_ignores_mf3_elastic_below_cutoff`、`elastic_angles_move_the_outgoing_energies` など）。
 
-NJOY THERMR との比較（examples/m1/verification.md「S(α,β) の熱中性子散乱（THERMR）」、6223ca64、2026-10-11）: 293.6 K、上限
+NJOY THERMR との比較（examples/m1/verification.md「S(α,β) の熱中性子散乱（THERMR）」、ecc17676、2026-10-11）: 293.6 K、上限
 10.00008 eV で、行の和の差は最大 2.1e-3、行の形の差は最大 1.1e-2（上限 4 eV で比べた ADR-0052 のときと同じ）。600 K の
 4〜9.877 eV の −2.9e-3 の大半は補間の違い（「検討した案」）。
 
