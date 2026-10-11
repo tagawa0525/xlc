@@ -187,6 +187,11 @@ fn dashes_mark_positions_without_nodes() {
         assert!(layout.node_material[3 + 6 * z].is_some());
     }
     assert_eq!(layout.ids[1][0], None);
+    // ノードのない位置は、反射体の位置と分けて示す（上の行が +y）
+    assert_eq!(
+        layout.empty,
+        vec![vec![false, false, false], vec![true, false, false]]
+    );
     let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
     let problem = layout.problem(&unsplit(&constants)).unwrap();
     assert_eq!(problem.outline, Some(Boundary::Vacuum));
