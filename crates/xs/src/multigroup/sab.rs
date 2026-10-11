@@ -554,6 +554,50 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn far_downscatter_at_low_temperature_stays_finite() {
+        // LAT=1 の表を kT の小さい温度で引くと、物質の温度の β は表の β の上限を大きく超え、e^(-β/2) を別に
+        // 計算すると桁あふれする。核は有限で、表の外は短時間衝突近似の値
+        let mut data = free_gas_table();
+        data.lat = 1;
+        let temperature = 20.0;
+        data.temperatures = vec![temperature];
+        data.effective_temperature =
+            crate::endf::Tab1::linear(vec![temperature], vec![temperature]);
+        let sab = ThermalSab::new(&data, temperature, 5.0, SabOutside::ShortCollisionTime).unwrap();
+        for (e, e_out) in [(4.0, 0.01), (4.0, 3.9), (0.5, 0.001)] {
+            let k = sab.kernel_moments(e, e_out, 3);
+            assert!(k.iter().all(|v| v.is_finite()), "{e} → {e_out}: {k:?}");
+        }
+    }
+
+    #[test]
+    fn tiny_s_counts_as_zero_like_thermr() {
+        // THERMR は S ≤ e^-225 を 0 とみなす（thermr.f90 の sabflg）。そのような格子点も、α A ≥ 30 なら補う
+        let kt = BK * TEMPERATURE;
+        let (e, e_out) = (2.0, 1.4);
+        let reference = free_gas_kernel(e, e_out, 1.0, kt);
+        let mut data = table_with_zeros(|a, _| a >= 32.0);
+        for v in data.s[0].iter_mut().filter(|v| **v == 0.0) {
+            *v = 1.0e-120;
+        }
+        let sab = ThermalSab::new(&data, TEMPERATURE, 2.5, SabOutside::ShortCollisionTime).unwrap();
+        let k = sab.kernel(e, e_out);
+        assert!((k / reference - 1.0).abs() < 2e-3, "{k} vs {reference}");
+    }
+
+    #[test]
+    fn cutoff_above_the_evaluated_limit_is_error() {
+        // 表の上限 B(4) より上では S(α, β) を使えない（表の外を補う扱いでも）
+        let data = free_gas_table();
+        for outside in [SabOutside::ShortCollisionTime, SabOutside::Zero] {
+            assert!(matches!(
+                ThermalSab::new(&data, TEMPERATURE, 1.5 * data.e_max, outside),
+                Err(SabError::AboveEvaluated { .. })
+            ));
+        }
+    }
+
+    #[test]
     fn empty_grid_is_error() {
         let mut data = free_gas_table();
         data.beta.clear();
