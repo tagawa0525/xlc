@@ -150,7 +150,7 @@ NJOY THERMR との比較（examples/m1/verification.md「S(α,β) の熱中性�
 10.00008 eV で、行の和の差は最大 2.1e-3、行の形の差は最大 1.1e-2（上限 4 eV で比べた ADR-0052 のときと同じ）。600 K の
 4〜9.877 eV の −2.9e-3 の大半は補間の違い（「検討した案」）。
 
-OpenMC との比較（examples/vera/verification.md「均質な無限媒質」「k の差の内訳」。xlc は 04270b65、OpenMC は 951c9aec、
+OpenMC との比較（examples/vera/verification.md「均質な無限媒質」「k の差の内訳」。xlc は 30efd55a、OpenMC は 951c9aec、
 2026-10-11）。k の差は xlc − OpenMC の、正味の吸収からの 1/A（括弧は k の推定値）で、pcm:
 
 | 体系                    | ADR-0133 の前 | ADR-0133                       |
