@@ -557,6 +557,16 @@ def build(problem: str, cross_sections: Path) -> Built:
     return Built(fuel, materials, geometry, half)
 
 
+def temperature_settings(problem: str) -> dict:
+    """問題の温度の扱い（`openmc.Settings.temperature`）。"""
+    # OpenMC は温度を kT (eV) で持ち、K に直すと丸めでわずかにずれるので、1 K の幅を許す。600 K の問題は、
+    # ライブラリにあるその温度の表だけを使う。565 K の問題は温度の内挿のモードで解き（ADR-0080）、H in H2O の
+    # S(α,β) を 550 K と 573.6 K の表から kT の比で確率的に選ぶ。ほかの核種は 565 K の表を持つので、内挿の
+    # モードでも 565 K の表を使う（OpenMC 0.15.2 の src/nuclide.cpp。#0017）
+    method = "nearest" if MODERATOR_TEMPERATURE[problem] == COLD else "interpolation"
+    return {"method": method, "tolerance": 1.0}
+
+
 def main() -> None:
     cross_sections = Path(sys.argv[1]).resolve()
     run = Run(sys.argv)
@@ -569,12 +579,7 @@ def main() -> None:
     fuel, materials, geometry, half = build(problem, cross_sections)
 
     settings = run.settings(half)
-    # OpenMC は温度を kT (eV) で持ち、K に直すと丸めでわずかにずれるので、1 K の幅を許す。600 K の問題は、
-    # ライブラリにあるその温度の表だけを使う。565 K の問題は温度の内挿のモードで解き（ADR-0080）、H in H2O の
-    # S(α,β) を 550 K と 573.6 K の表から kT の比で確率的に選ぶ。ほかの核種は 565 K の表を持つので、内挿の
-    # モードでも 565 K の表を使う（OpenMC 0.15.2 の src/nuclide.cpp。#0017）
-    method = "nearest" if MODERATOR_TEMPERATURE[problem] == COLD else "interpolation"
-    settings.temperature = {"method": method, "tolerance": 1.0}
+    settings.temperature = temperature_settings(problem)
 
     tallies = openmc.Tallies()
     if problem.startswith("2"):

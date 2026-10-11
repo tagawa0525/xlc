@@ -1,5 +1,8 @@
-"""VERA のピンセル（1B〜1D）と集合体（2B〜2K。形状と物質は openmc_model.py と同じ）を OpenMC の連続エネルギーモードで
-解き、物質ごと・群ごとの中性子束、正味の吸収、生成と、群の間の散乱による移行を書く。
+"""VERA の問題（形状、物質、温度の扱いは openmc_model.py と同じ）を OpenMC の連続エネルギーモードで解き、物質ごと・
+群ごとの中性子束、正味の吸収、生成と、群の間の散乱による移行を書く。
+
+OpenMC の物質は、xlc の入力の物質の名前（NAMES）に 1 つずつ対応しなければ止まる。2J は Pyrex の棒と計装管のシンブルの
+SS304 が別の物質になり、どちらも xlc の ss304 に当たるので止まる。確かめたのは 1B と 2K。
 
 使い方: python3 openmc_balance.py <cross_sections.xml> <問題> <作業ディレクトリ> <xlc のライブラリ>
         [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]
@@ -27,7 +30,7 @@ import openmc
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from openmc_common import eigenvalue_settings, group_filter
-from openmc_model import FUEL_TEMPERATURE, build
+from openmc_model import FUEL_TEMPERATURE, build, temperature_settings
 
 # OpenMC の物質の名前から、xlc の入力（p1/pincell-1B.toml、p2/assembly-2K.toml など）の物質の名前へ
 NAMES = {
@@ -89,7 +92,7 @@ def main() -> None:
     if len(set(names)) != len(names):
         raise SystemExit(f"materials share an xlc name: {names}")
     settings = eigenvalue_settings(particles, batches, inactive, seed, half)
-    settings.temperature = {"method": "nearest", "tolerance": 1.0}
+    settings.temperature = temperature_settings(problem)
     # 世代ごとの値を、続く 2 つの statepoint の和の差から求める
     settings.statepoint = {"batches": list(range(inactive + 1, batches + 1))}
 
