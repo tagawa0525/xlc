@@ -68,8 +68,12 @@ pub fn multiplicity(mt: u32) -> Option<f64> {
 pub enum Thermal<'a> {
     /// 自由ガス模型（温度に拡げた MT2 の断面積に、標的の熱運動による出射分布を掛ける）
     FreeGas(FreeGas),
-    /// S(α, β)（MF3 の弾性散乱断面積は使わず、核そのものが断面積を与える）
-    Sab(ThermalSab<'a>),
+    /// `sab.cutoff()` 未満は S(α, β)（MF3 の弾性散乱断面積は使わず、核そのものが断面積を与える）、その上
+    /// `free_gas.cutoff` 未満は自由ガス模型（ADR-0133）
+    Sab {
+        sab: ThermalSab<'a>,
+        free_gas: FreeGas,
+    },
 }
 
 /// 散乱行列を作るときのエラー。
@@ -77,6 +81,8 @@ pub enum Thermal<'a> {
 pub enum ScatterError {
     #[error("free gas needs positive kT and a finite cutoff (kT {kt}, cutoff {cutoff})")]
     FreeGas { kt: f64, cutoff: f64 },
+    #[error("free gas above S(α, β) must reach at least its limit {sab} eV, got {free_gas} eV")]
+    FreeGasBelowSab { sab: f64, free_gas: f64 },
     #[error("MT{0}: unknown neutron multiplicity")]
     Multiplicity(u32),
     #[error("MT{0}: missing Q value")]
@@ -155,12 +161,20 @@ pub fn scattering_moments(
             return Err(ScatterError::CenterOfMassContinuum(mt));
         }
     }
-    if let Some(Thermal::FreeGas(free_gas)) = thermal
+    if let Some(Thermal::FreeGas(free_gas) | Thermal::Sab { free_gas, .. }) = thermal
         && !(free_gas.kt > 0.0 && free_gas.kt.is_finite() && free_gas.cutoff.is_finite())
     {
         return Err(ScatterError::FreeGas {
             kt: free_gas.kt,
             cutoff: free_gas.cutoff,
+        });
+    }
+    if let Some(Thermal::Sab { sab, free_gas }) = thermal
+        && free_gas.cutoff < sab.cutoff()
+    {
+        return Err(ScatterError::FreeGasBelowSab {
+            sab: sab.cutoff(),
+            free_gas: free_gas.cutoff,
         });
     }
     let ng = groups.len();
@@ -266,8 +280,8 @@ pub fn emits_neutrons(mt: u32) -> bool {
     )
 }
 
-/// 弾性散乱の ∫_g σ(E) w(E) P_l(E→g') dE（[l][g][g']）。`thermal` の cutoff 未満では熱領域の扱い、
-/// それ以上では静止標的との2体反応とする。
+/// 弾性散乱の ∫_g σ(E) w(E) P_l(E→g') dE（[l][g][g']）。`thermal` の S(α, β) と自由ガスの cutoff 未満では熱領域の
+/// 扱い、それ以上では静止標的との2体反応とする。
 fn elastic_rows(
     groups: &GroupStructure,
     weight: &Weight,
@@ -281,14 +295,15 @@ fn elastic_rows(
         return two_body_rows(groups, weight, awr, 0.0, table, angular, order);
     };
     let ng = groups.len();
-    let cutoff = match thermal {
-        Thermal::FreeGas(free_gas) => free_gas.cutoff,
-        Thermal::Sab(sab) => sab.cutoff(),
+    let (sab, free_gas) = match thermal {
+        Thermal::FreeGas(free_gas) => (None, free_gas),
+        Thermal::Sab { sab, free_gas } => (Some(sab), free_gas),
     };
+    let sab_cutoff = sab.map_or(0.0, ThermalSab::cutoff);
     let mut breakpoints = table.x.clone();
     breakpoints.extend(two_body_kinks(groups, awr, 0.0));
     breakpoints.extend(angular.map(Mf4::energies).unwrap_or_default());
-    breakpoints.push(cutoff);
+    breakpoints.extend([sab_cutoff, free_gas.cutoff]);
     let add = |out: &mut [f64], moments: Vec<Vec<f64>>, scale: f64| {
         for (l, row) in moments.into_iter().enumerate() {
             for (o, v) in out[l * ng..(l + 1) * ng].iter_mut().zip(row) {
@@ -298,12 +313,12 @@ fn elastic_rows(
     };
     let rows = group_integrals_multi(groups, weight, &breakpoints, ng * (order + 1), |e, out| {
         let sigma = table.eval(e).unwrap_or(0.0);
-        match thermal {
+        match sab {
             // S(α, β) の核は断面積そのものなので、MF3 の弾性散乱断面積は使わない
-            Thermal::Sab(sab) if e < cutoff => add(out, sab.group_moments(groups, e, order), 1.0),
+            Some(sab) if e < sab_cutoff => add(out, sab.group_moments(groups, e, order), 1.0),
             // 温度に拡げた断面積はすでに熱運動による実効断面積の増加 N(E) を含むので、
             // 出射分布は和 N(E) で規格化する（NJOY THERMR と同じ）
-            Thermal::FreeGas(free_gas) if e < cutoff => {
+            _ if e < free_gas.cutoff => {
                 let moments = free_gas_group_moments(groups, e, awr, free_gas.kt, order);
                 let total: f64 = moments[0].iter().sum();
                 add(out, moments, sigma / total);

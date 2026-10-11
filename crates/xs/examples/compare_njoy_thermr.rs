@@ -11,7 +11,9 @@ use std::time::Instant;
 
 use xlc_format::group::GroupStructure;
 use xlc_xs::endf::Tape;
-use xlc_xs::multigroup::{Reactions, SabOutside, Thermal, ThermalSab, Weight, scattering_matrix};
+use xlc_xs::multigroup::{
+    FreeGas, Reactions, SabOutside, Thermal, ThermalSab, Weight, scattering_matrix,
+};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::read_thermal_scattering;
 
@@ -45,7 +47,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             emissions: &BTreeMap::new(),
             angular: &BTreeMap::new(),
         },
-        Some(&Thermal::Sab(sab)),
+        // THERMR の GENDF は上限より上に MT222 を持たないので、自由ガスは続けない
+        Some(&Thermal::Sab {
+            sab,
+            free_gas: FreeGas {
+                kt: xlc_xs::physics::BK * temperature,
+                cutoff,
+            },
+        }),
     )?;
     println!("matrix in {:.1} s", start.elapsed().as_secs_f64());
 

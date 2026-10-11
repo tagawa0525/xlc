@@ -469,12 +469,13 @@ impl Common<'_> {
 
         // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
         let thermal = match self.thermal {
-            Some(data) => Thermal::Sab(ThermalSab::new(
-                data,
-                temperature,
-                settings.thermal_cutoff,
-                SabOutside::Zero,
-            )?),
+            Some(data) => Thermal::Sab {
+                sab: ThermalSab::new(data, temperature, settings.thermal_cutoff, SabOutside::Zero)?,
+                free_gas: FreeGas {
+                    kt: BK * temperature,
+                    cutoff: settings.thermal_cutoff,
+                },
+            },
             None => Thermal::FreeGas(FreeGas {
                 kt: BK * temperature,
                 cutoff: settings.thermal_cutoff,
