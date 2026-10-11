@@ -1,0 +1,370 @@
+# 軸方向の反射体の平板（ADR-0128）の段階: ENDF → 多群ライブラリ（xs）→ VERA 3A の単一集合体の媒質と少数群定数
+# （assembly-3A）→ 集合体の高さ全体の平板の格子計算（axial-<版>）→ 平板の定数で解く炉心（core-axial-<種類>-<版>）→
+# MOC との比較（compare-axial-<種類>-<版>）と z の辺の ADF（fstar-<版>）。走らせるのは `dvc repro`（ADR-0123）。deps の
+# 書き方は examples/m0/dvc.yaml と同じ（段階の入力と、バイナリを作るコード）。平板と炉心の入力は axial_slab.py が書いて
+# コミットしたもの。I 型の格子（reflector-I.toml）は段階にしていない（verification.md の手順で走らせる）。
+stages:
+  xs:
+    # ライブラリ（reflector.msgpack）は I 型の格子と共有する
+    cmd: cargo run --release -p xlc-xs -- xs.toml
+    deps:
+      - xs.toml
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_046.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_047.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_048.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_049.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_050.endf
+      - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+      - ../../crates/xs/src
+      - ../../crates/xs/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - reflector.msgpack
+  assembly-3A:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- assembly-3A.toml > assembly-3A.out
+    deps:
+      - assembly-3A.toml
+      - reflector.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - medium-3A.msgpack
+      - fg-3A.msgpack
+      - assembly-3A.out
+  axial-16:
+    # 少数群定数はディレクトリに書く（DVC は段階の前に出力を消すので、作ってから走らせる）。MOC の k とノード平均の
+    # 中性子束を比べるため、ログを debug で受ける
+    cmd: mkdir -p axial-16 && RUST_LOG=debug cargo run --release -p xlc-lattice -- axial-3A-16.toml > axial-3A-16.out 2> axial-3A-16.log
+    deps:
+      - axial-3A-16.toml
+      - reflector.msgpack
+      - medium-3A.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - axial-16
+      - axial-3A-16.out
+      - axial-3A-16.log
+  axial-32:
+    # 少数群定数はディレクトリに書く（DVC は段階の前に出力を消すので、作ってから走らせる）。MOC の k とノード平均の
+    # 中性子束を比べるため、ログを debug で受ける
+    cmd: mkdir -p axial-32 && RUST_LOG=debug cargo run --release -p xlc-lattice -- axial-3A-32.toml > axial-3A-32.out 2> axial-3A-32.log
+    deps:
+      - axial-3A-32.toml
+      - reflector.msgpack
+      - medium-3A.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - axial-32
+      - axial-3A-32.out
+      - axial-3A-32.log
+  axial-fine:
+    # 少数群定数はディレクトリに書く（DVC は段階の前に出力を消すので、作ってから走らせる）。MOC の k とノード平均の
+    # 中性子束を比べるため、ログを debug で受ける
+    cmd: mkdir -p axial-fine && RUST_LOG=debug cargo run --release -p xlc-lattice -- axial-3A-fine.toml > axial-3A-fine.out 2> axial-3A-fine.log
+    deps:
+      - axial-3A-fine.toml
+      - reflector.msgpack
+      - medium-3A.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - axial-fine
+      - axial-3A-fine.out
+      - axial-3A-fine.log
+  core-axial-slab-16:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-axial-slab-16.toml > core-axial-slab-16.out 2> core-axial-slab-16.log
+    deps:
+      - core-axial-slab-16.toml
+      - core-axial-slab-16-cycle.toml
+      - core-axial-plant.toml
+      - core-axial-assemblies-16.toml
+      - axial-16
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-axial-slab-16.out
+      - core-axial-slab-16.log
+  compare-axial-slab-16:
+    cmd: python3 compare_axial.py axial-3A-16.log core-axial-slab-16.log > compare-axial-slab-16.out
+    deps:
+      - compare_axial.py
+      - axial-3A-16.log
+      - core-axial-slab-16.log
+    outs:
+      - compare-axial-slab-16.out
+  core-axial-fstar-16:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-axial-fstar-16.toml > core-axial-fstar-16.out 2> core-axial-fstar-16.log
+    deps:
+      - core-axial-fstar-16.toml
+      - core-axial-fstar-16-cycle.toml
+      - core-axial-plant.toml
+      - core-axial-assemblies-16.toml
+      - axial-16
+      - fg-3A.msgpack
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-axial-fstar-16.out
+      - core-axial-fstar-16.log
+  compare-axial-fstar-16:
+    cmd: python3 compare_axial.py axial-3A-16.log core-axial-fstar-16.log > compare-axial-fstar-16.out
+    deps:
+      - compare_axial.py
+      - axial-3A-16.log
+      - core-axial-fstar-16.log
+    outs:
+      - compare-axial-fstar-16.out
+  fstar-16:
+    # 軸方向の反射体の定数の z の辺の ADF と f* の印
+    cmd: python3 compare_axial.py fstar axial-16/*.msgpack > fstar-16.out
+    deps:
+      - compare_axial.py
+      - axial-16
+    outs:
+      - fstar-16.out
+  core-axial-slab-32:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-axial-slab-32.toml > core-axial-slab-32.out 2> core-axial-slab-32.log
+    deps:
+      - core-axial-slab-32.toml
+      - core-axial-slab-32-cycle.toml
+      - core-axial-plant.toml
+      - core-axial-assemblies-32.toml
+      - axial-32
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-axial-slab-32.out
+      - core-axial-slab-32.log
+  compare-axial-slab-32:
+    cmd: python3 compare_axial.py axial-3A-32.log core-axial-slab-32.log > compare-axial-slab-32.out
+    deps:
+      - compare_axial.py
+      - axial-3A-32.log
+      - core-axial-slab-32.log
+    outs:
+      - compare-axial-slab-32.out
+  core-axial-fstar-32:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-axial-fstar-32.toml > core-axial-fstar-32.out 2> core-axial-fstar-32.log
+    deps:
+      - core-axial-fstar-32.toml
+      - core-axial-fstar-32-cycle.toml
+      - core-axial-plant.toml
+      - core-axial-assemblies-32.toml
+      - axial-32
+      - fg-3A.msgpack
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-axial-fstar-32.out
+      - core-axial-fstar-32.log
+  compare-axial-fstar-32:
+    cmd: python3 compare_axial.py axial-3A-32.log core-axial-fstar-32.log > compare-axial-fstar-32.out
+    deps:
+      - compare_axial.py
+      - axial-3A-32.log
+      - core-axial-fstar-32.log
+    outs:
+      - compare-axial-fstar-32.out
+  fstar-32:
+    # 軸方向の反射体の定数の z の辺の ADF と f* の印
+    cmd: python3 compare_axial.py fstar axial-32/*.msgpack > fstar-32.out
+    deps:
+      - compare_axial.py
+      - axial-32
+    outs:
+      - fstar-32.out
+  core-axial-slab-fine:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-axial-slab-fine.toml > core-axial-slab-fine.out 2> core-axial-slab-fine.log
+    deps:
+      - core-axial-slab-fine.toml
+      - core-axial-slab-fine-cycle.toml
+      - core-axial-plant.toml
+      - core-axial-assemblies-fine.toml
+      - axial-fine
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-axial-slab-fine.out
+      - core-axial-slab-fine.log
+  compare-axial-slab-fine:
+    cmd: python3 compare_axial.py axial-3A-fine.log core-axial-slab-fine.log > compare-axial-slab-fine.out
+    deps:
+      - compare_axial.py
+      - axial-3A-fine.log
+      - core-axial-slab-fine.log
+    outs:
+      - compare-axial-slab-fine.out
+  core-axial-fstar-fine:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-axial-fstar-fine.toml > core-axial-fstar-fine.out 2> core-axial-fstar-fine.log
+    deps:
+      - core-axial-fstar-fine.toml
+      - core-axial-fstar-fine-cycle.toml
+      - core-axial-plant.toml
+      - core-axial-assemblies-fine.toml
+      - axial-fine
+      - fg-3A.msgpack
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-axial-fstar-fine.out
+      - core-axial-fstar-fine.log
+  compare-axial-fstar-fine:
+    cmd: python3 compare_axial.py axial-3A-fine.log core-axial-fstar-fine.log > compare-axial-fstar-fine.out
+    deps:
+      - compare_axial.py
+      - axial-3A-fine.log
+      - core-axial-fstar-fine.log
+    outs:
+      - compare-axial-fstar-fine.out
+  fstar-fine:
+    # 軸方向の反射体の定数の z の辺の ADF と f* の印
+    cmd: python3 compare_axial.py fstar axial-fine/*.msgpack > fstar-fine.out
+    deps:
+      - compare_axial.py
+      - axial-fine
+    outs:
+      - fstar-fine.out
