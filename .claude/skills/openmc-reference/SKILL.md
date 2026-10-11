@@ -5,7 +5,7 @@ description: VERA の OpenMC の参照解を作る手順。ライブラリ、入
 
 # VERA の OpenMC の参照解
 
-xs と同じ ENDF/B-VIII.0 から、手元の NJOY で作ったデータで OpenMC を動かす（ADR-0031、ADR-0124）。手順の全体と道具の版は
+xs と同じ ENDF/B-VIII.0 から、手元の NJOY で作ったデータで OpenMC を動かす（ADR-0124）。手順の全体と道具の版は
 docs/environment.md の「OpenMC」「VERA の参照解」。計算の条件（核種と温度、粒子数、世代、捨てる世代、乱数の種、
 スレッド数）は入力の TOML に書き、スクリプトに既定値はない。足りないキーと知らないキーで止まる（ADR-0130）。
 
