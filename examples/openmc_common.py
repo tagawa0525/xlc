@@ -1,19 +1,48 @@
 """OpenMC の参照解のスクリプト（examples/vera と examples/mox の openmc_model.py）で共通に使う部品。
 
-物質、固有値計算の設定、燃料の核種ごとの実効断面積（燃料の領域の反応率 / (個数密度 × 中性子束)）の
+入力の TOML の読み込み、物質、固有値計算の設定、燃料の核種ごとの実効断面積（燃料の領域の反応率 / (個数密度 × 中性子束)）の
 tally と、その statepoint からの取り出し。
 """
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import msgpack
 import numpy as np
 import openmc
+import tomllib
 
 # tally に書く score の名前のうち、statepoint で別の名前になるもの（弾性散乱は "(n,elastic)" になる）と、
 # 書き出す名前と score の名前が違うもの（捕獲は "(n,gamma)"）
 STORED = {"elastic": "(n,elastic)", "capture": "(n,gamma)"}
+
+
+def check_keys(
+    table: dict[str, Any], where: str, required: set[str], optional: set[str]
+) -> None:
+    """`table` に `required` のキーがすべてあり、`required` と `optional` のほかのキーがないことを確かめる。
+
+    計算の条件は入力に書き、既定値を持たない（ADR-0122、ADR-0127）ので、足りないキーも綴りを誤ったキーも止める。
+    """
+    missing = required - table.keys()
+    unknown = table.keys() - required - optional
+    if missing or unknown:
+        raise SystemExit(
+            f"{where}: missing keys {sorted(missing)}, unknown keys {sorted(unknown)}"
+        )
+
+
+def read_input(path: Path, required: set[str], optional: set[str]) -> dict[str, Any]:
+    """入力の TOML を読み、最上位のキーを `check_keys` で確かめる。"""
+    table = tomllib.loads(path.read_text())
+    check_keys(table, str(path), required, optional)
+    return table
+
+
+def input_path(input_file: Path, value: str) -> Path:
+    """入力に書いたパス（入力のファイルからの相対）を、絶対パスにする。"""
+    return (input_file.parent / value).resolve()
 
 
 def material(
