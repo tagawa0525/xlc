@@ -210,6 +210,55 @@ fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
 }
 
 #[test]
+fn vacuum_corners_take_the_ratio_and_adf_of_their_side() {
+    // `vacuum` の外周の辺では、角の点の流れは、その辺（-y は下）の比 r と ADF f を均質な角の値に掛けた r f φ_c
+    // （ADR-0131）。ほかの辺の r と ADF は効かない
+    let mut p = square(86.0, 4, 2, Boundary::Vacuum);
+    p.mesh.dx = vec![86.0 / 4.0];
+    p.node_material = vec![0; 4];
+    p.boundaries[0] = Boundary::Reflective;
+    p.boundaries[1] = Boundary::Reflective;
+    // 辺（左、右、上、下）
+    p.materials[0].adf = vec![
+        vec![1.0, 1.0],
+        vec![1.0, 1.0],
+        vec![0.9, 0.8],
+        vec![1.2, 1.1],
+    ];
+    p.materials[0].vacuum_ratio = vec![None, None, Some(vec![0.45, 0.35]), Some(vec![0.3, 0.4])];
+    if let Some(pins) = p.materials[0].pins.as_mut() {
+        pins.corners = vec![vec![1.3, 1.25]; 4];
+    }
+    let s = solve(&p, &Options::default()).unwrap();
+    let rule = gauss_legendre(FACE_POINTS).unwrap();
+    let constants = layer_constants(&p, 0).unwrap();
+    let (models, conditions) = layer(&p, &s, 0, &constants, &rule).unwrap();
+    let cdfs = corner_factors(&p, 0, &constants).unwrap();
+    let corners = corner_fluxes(&p, 0, &constants, &models, &conditions, &cdfs).unwrap();
+    // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
+    let m = &p.materials[0];
+    let mut c = conditions[0].clone();
+    c.corners = corner_values(&corners, 1, 0, 0, &cdfs[0]);
+    let node = models[0].solve(&c);
+    let [a, b] = c.half;
+    let grad = node.gradient(-a, -b);
+    for g in 0..2 {
+        let outward = m.diffusion[g] * (grad[g][0] + grad[g][1]);
+        let expected = [0.3, 0.4][g] * [1.2, 1.1][g] * corners[0][g] / [1.3, 1.25][g];
+        eprintln!(
+            "implied rf {} gx {} gy {}",
+            outward / (corners[0][g] / [1.3, 1.25][g]),
+            grad[g][0],
+            grad[g][1]
+        );
+        assert!(
+            (outward - expected).abs() < 1e-8 * expected.abs(),
+            "group {g}: {outward} vs {expected}"
+        );
+    }
+}
+
+#[test]
 fn layers_without_fission_are_skipped() {
     // 下の層が反射体（核分裂も形状関数もない）。その層の出力は空で、炉心全体の表は燃料の層だけから作る
     let mut p = square(43.0, 2, 4, Boundary::Reflective);
