@@ -292,8 +292,8 @@ VERA の制御棒は、全引き抜き（230 ステップ）でも吸収体の�
   `normalized_adfs_take_the_neighbor_adf`（x の問題を z に並べ直して同じ解）、`vacuum_needs_ratios`、`heights_must_match_the_node`、
   `normalized_adfs_need_a_fissile_neighbor`（crates/core/src/nem.rs）。燃料と接しない反射体のノードの GET の ADF は
   `reflector_nodes_away_from_fuel_keep_plain_factors`
-- 平板の等価性（examples/reflector/verification.md の「軸方向の反射体の平板の定数を作った体系の再現」、6a6f0fcf、
-  分岐点 a3d5f19a、2026-10-12）: VERA 3A の平板（燃料 16 ノードと 32 ノード、列を半分にしたもの）で、core は平板の MOC の k を −0.0000 pcm、
+- 平板の等価性（examples/reflector/verification.md の「軸方向の反射体の平板の定数を作った体系の再現」、ebb35b2e、
+  分岐点 7bd7b624、2026-10-12）: VERA 3A の平板（燃料 16 ノードと 32 ノード、列を半分にしたもの）で、core は平板の MOC の k を −0.0000 pcm、
   ノード平均の中性子束を相対 5.8 × 10⁻⁷ の内で再現し、閾値の案（k ±1 pcm、相対 10⁻⁵）を満たす。下のギャップと端栓の
   ノードは、Koebke の D が正の面の範囲になく、中性子流で重みづけた D を使った（ADR-0134）
 - f*の方法の誤差（同じ記録）: 燃料のノードを単一集合体の定数にすると、k は −8.9 pcm（燃料 22.86 cm のノード）、−3.6 pcm

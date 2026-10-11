@@ -81,4 +81,4 @@ k の値は実機（k∞ 約 1.3）よりかなり低い。主な原因は次の
   `core.out`）の md5 は `dvc.lock` の前の値と同じだった（df6182db、2026-10-11）
 - 少数群定数の辺を 6 つにして z の厚さを足し、core の z の面を径方向と同じ規則にした（[ADR-0128](../../docs/adr/0128-make-axial-reflector-constants-in-a-full-height-slab.md)）: `dvc repro` で 3 つの
   段階を流し直し、`wims69.msgpack`、`lattice.out`、`core.out` の md5 は前の値と同じだった。`pincell-fg.msgpack` は形式が
-  変わったので md5 が変わる（6a6f0fcf、分岐点 a3d5f19a、2026-10-12）
+  変わったので md5 が変わる（ebb35b2e、分岐点 7bd7b624、2026-10-12）
