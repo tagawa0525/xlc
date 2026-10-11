@@ -556,6 +556,8 @@ pub struct Layout {
     pub split: usize,
     /// 上の行（+y）から、位置ごとの集合体の ID（反射体の位置とノードのない位置は `None`）
     pub ids: Vec<Vec<Option<String>>>,
+    /// 上の行（+y）から、ノードのない位置（`-`。ADR-0132）か
+    pub empty: Vec<Vec<bool>>,
     pub boundaries: [Boundary; 6],
     /// `-` に面する面の条件（ADR-0132）
     pub outline: Option<Boundary>,
@@ -775,6 +777,10 @@ impl Layout {
             materials,
             node_material,
             split,
+            empty: placements
+                .iter()
+                .map(|row| row.iter().map(Option::is_none).collect())
+                .collect(),
             ids,
             boundaries: case.boundaries,
             outline: case.outline,

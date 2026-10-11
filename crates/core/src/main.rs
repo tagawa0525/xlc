@@ -101,10 +101,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
     println!("k-eff {:.6}", solution.k);
     println!("leakage per fission neutron {:.4}", leakage * solution.k);
     println!("assembly fission rates (relative to the assembly mean, top row is +y)");
-    for row in layout.assembly_fission_rates(&problem, &solution) {
+    println!("(`.` is a reflector site, `-` a position without a node)");
+    for (row, empty) in layout
+        .assembly_fission_rates(&problem, &solution)
+        .iter()
+        .zip(&layout.empty)
+    {
         let cells: Vec<String> = row
             .iter()
-            .map(|r| r.map_or_else(|| format!("{:>6}", "."), |r| format!("{r:6.4}")))
+            .zip(empty)
+            .map(|(r, &empty)| match r {
+                Some(r) => format!("{r:6.4}"),
+                None => format!("{:>6}", if empty { "-" } else { "." }),
+            })
             .collect();
         println!("{}", cells.join(" "));
     }
