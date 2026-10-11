@@ -33,7 +33,7 @@ pub enum Equivalence {
     },
 }
 
-/// 収束した根で群 `group` の面の均質な中性子束が正でないときの結果。正の面の点の均質な比の範囲 `range` に不均質な比
+/// 根を挟めないか、収束した根で群 `group` の面の均質な中性子束が正でないときの結果。正の面の点の均質な比の範囲 `range` に不均質な比
 /// `target` が入っていれば、正の面の範囲にも根があるのに別の根に収束したので、エラーにする（黙って中性子流の D に
 /// しない）。入っていなければ `Missing`
 fn negative_root(
@@ -132,40 +132,41 @@ pub fn equivalent_diffusion(
     let ratio: Vec<f64> = (0..ng)
         .map(|g| heterogeneous[2 * d + 1][g] / heterogeneous[2 * d][g])
         .collect();
-    // [群] の、評価した D のうち2つの面の均質な中性子束が正の点の、均質な比の最小と最大
-    let mut seen: Vec<Option<[f64; 2]>> = vec![None; ng];
-    let missing = |group: usize, seen: &[Option<[f64; 2]>]| Equivalence::Missing {
-        group,
-        target: ratio[group],
-        range: seen[group],
-    };
     let mut diffusion = node.diffusion.to_vec();
     // 群 g の残差 φ+ − t φ−（D が根の両側で符号が変わる）
-    let residual = |diffusion: &[f64],
-                    g: usize,
-                    seen: &mut Vec<Option<[f64; 2]>>|
-     -> Result<f64, OneNodeError> {
+    let residual = |diffusion: &[f64], g: usize| -> Result<f64, OneNodeError> {
         let faces = homogeneous_faces(&OneNode { diffusion, ..*node })?;
-        let (minus, plus) = (faces[2 * d][g], faces[2 * d + 1][g]);
-        if minus > 0.0 && plus > 0.0 {
-            let r = plus / minus;
-            seen[g] = Some(seen[g].map_or([r, r], |[lo, hi]| [lo.min(r), hi.max(r)]));
+        Ok(faces[2 * d + 1][g] - ratio[g] * faces[2 * d][g])
+    };
+    // 群 g の D を初めの値の 2⁻ⁿ〜2ⁿ 倍（ほかの群は `diffusion`）にしたうち、2つの面の均質な中性子束が正の点の、均質な
+    // 比の最小と最大（根がない根拠として返す。ADR-0134）
+    let positive_range = |diffusion: &[f64], g: usize| -> Result<Option<[f64; 2]>, OneNodeError> {
+        let mut trial = diffusion.to_vec();
+        let mut range: Option<[f64; 2]> = None;
+        for k in -(BRACKET_STEPS as i32)..=BRACKET_STEPS as i32 {
+            trial[g] = node.diffusion[g] * 2f64.powi(k);
+            let faces = homogeneous_faces(&OneNode {
+                diffusion: &trial,
+                ..*node
+            })?;
+            let (minus, plus) = (faces[2 * d][g], faces[2 * d + 1][g]);
+            if minus > 0.0 && plus > 0.0 {
+                let r = plus / minus;
+                range = Some(range.map_or([r, r], |[lo, hi]| [lo.min(r), hi.max(r)]));
+            }
         }
-        Ok(plus - ratio[g] * minus)
+        Ok(range)
     };
     for _ in 0..MAX_ITERATIONS {
         let mut change: f64 = 0.0;
         for g in 0..ng {
             let start = diffusion[g];
-            let at = |log_d: f64,
-                      diffusion: &mut Vec<f64>,
-                      seen: &mut Vec<Option<[f64; 2]>>|
-             -> Result<f64, OneNodeError> {
+            let at = |log_d: f64, diffusion: &mut Vec<f64>| -> Result<f64, OneNodeError> {
                 diffusion[g] = log_d.exp();
-                residual(diffusion, g, seen)
+                residual(diffusion, g)
             };
             let s0 = start.ln();
-            let f0 = at(s0, &mut diffusion, &mut seen)?;
+            let f0 = at(s0, &mut diffusion)?;
             // 根を挟む区間 [lo, hi]（f(lo) と f(hi) の符号が違う）を、D を 2 倍ずつ両側へ広げて探す
             let mut bracket = (f0 == 0.0).then_some((s0, s0, f0));
             for k in 1..=BRACKET_STEPS {
@@ -176,7 +177,7 @@ pub fn equivalent_diffusion(
                     s0 + k as f64 * std::f64::consts::LN_2,
                     s0 - k as f64 * std::f64::consts::LN_2,
                 ] {
-                    let f = at(s, &mut diffusion, &mut seen)?;
+                    let f = at(s, &mut diffusion)?;
                     if f == 0.0 || f.signum() != f0.signum() {
                         bracket = Some((s0.min(s), s0.max(s), if s < s0 { f } else { f0 }));
                         break;
@@ -184,11 +185,11 @@ pub fn equivalent_diffusion(
                 }
             }
             let Some((mut lo, mut hi, mut f_lo)) = bracket else {
-                return Ok(missing(g, &seen));
+                return negative_root(g, ratio[g], positive_range(&diffusion, g)?);
             };
             while hi - lo > ROOT_WIDTH {
                 let mid = 0.5 * (lo + hi);
-                let f = at(mid, &mut diffusion, &mut seen)?;
+                let f = at(mid, &mut diffusion)?;
                 if f == 0.0 {
                     lo = mid;
                     hi = mid;
@@ -209,7 +210,7 @@ pub fn equivalent_diffusion(
                 ..*node
             })?;
             return match (0..ng).find(|&g| !(faces[2 * d][g] > 0.0 && faces[2 * d + 1][g] > 0.0)) {
-                Some(g) => negative_root(g, ratio[g], seen[g]),
+                Some(g) => negative_root(g, ratio[g], positive_range(&diffusion, g)?),
                 None => Ok(Equivalence::Found(diffusion)),
             };
         }
@@ -517,7 +518,8 @@ mod tests {
         assert_eq!(group, 1);
         assert!((target - 0.005122180891888055 / 0.0054902840607720296).abs() < 1e-12);
         let [low, high] = range.unwrap();
-        assert!(1.0 < low && low <= high, "{low} {high}");
+        // 正の面の点の均質な比は、どれも t より大きい（D を大きくすると上から 1 に近づく）
+        assert!(target < low && low <= high, "{low} {high}");
         let (diffusion, choice) = gap.choose(edges).unwrap();
         assert_eq!(diffusion, gap.diffusion.to_vec());
         assert!(
