@@ -1,19 +1,21 @@
 # 径方向の反射体の角型の格子（ADR-0095）: VERA 2B の集合体（reflector-I.toml と同じ物質とセル）の右と上に、
 # reflector-I.toml と同じ幅の反射体（隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm）を置き、バッフルは
 # 集合体の外側の角で L 字に折る。左と下は鏡面反射、右と上は真空。VERA 5-2D の外周の角（燃料 1 体と反射体 3 つ）に
-# 当たる。ノードは集合体、右と上の反射体（燃料に面で接する）と右上の反射体（燃料に角だけで接し、バッフルの角を含む。
-# 反射体の印は付けない。#0029）。自己遮蔽はしない。2 辺が真空の角でも角の不連続因子を作れることを示す（#0065）。
+# 当たる。ノードは集合体、右と上の反射体（燃料に面で接する）と右上の反射体（燃料に角の点だけで接し、バッフルの角を
+# 含む。角型の定数。#0029）。自己遮蔽はしない。ノードごとの形状関数と角の不連続因子を付け（ADR-0131）、MOC の
+# ピン出力を書く。
 library = "reflector.msgpack"
 self-shielding = false
 pitch = 1.26
 azimuthal = 32
 spacing = 0.05
 boundary = { right = "vacuum", top = "vacuum" }
+pin-powers = "moc-pins-corner.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
   { output = "fg-corner-fuel.msgpack", columns = [1, 19], rows = [31, 49] },
   { output = "fg-corner-right.msgpack", columns = [20, 49], rows = [31, 49], reflector = true },
   { output = "fg-corner-top.msgpack", columns = [1, 19], rows = [1, 30], reflector = true },
-  { output = "fg-corner-corner.msgpack", columns = [20, 49], rows = [1, 30] },
+  { output = "fg-corner-corner.msgpack", columns = [20, 49], rows = [1, 30], reflector = true },
 ], pins = true }
 # 列: 余白 0.04、ピン 17、余白 0.04 | 隙間の水 0.19、バッフル 2.85（3 列）、水 18.46（26 列）。行は上から、その逆
 widths = [
