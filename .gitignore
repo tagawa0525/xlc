@@ -26,3 +26,4 @@
 /examples/reflector/*.txt
 /examples/reflector/vacuum-corner/*.msgpack
 /examples/reflector/vacuum-corner/*.log
+/examples/vera/free-gas-upper/*.msgpack

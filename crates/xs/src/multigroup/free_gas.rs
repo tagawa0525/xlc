@@ -100,9 +100,9 @@ pub fn free_gas_group_moments(
 
 /// 自由ガスの二重微分断面積のルジャンドルのモーメント S_l(E→E') = ∫ S(E→E', μ) P_l(μ) dμ（自由原子の断面積を
 /// 1 としたとき、1/eV）。P0 は解析式（[`free_gas_kernel`]）、P1 以上は
-///   S_l = σb A/(4E) e^(-β/2) ∫ S(α, β) P_l(μ(α)) dα、S(α, β) = e^(-(α²+β²)/(4α))/√(4πα)、σb = ((A+1)/A)²、
+///   S_l = σb A/(4E) ∫ e^(-β/2) S(α, β) P_l(μ(α)) dα、S(α, β) = e^(-(α²+β²)/(4α))/√(4πα)、σb = ((A+1)/A)²、
 ///   μ(α) = (E + E' − α A kT)/(2√(EE'))
-/// を u = √α で積分する（S は α = |β| の近くに幅 2√α で集まり、u では幅 1 ほどの滑らかな形になる）。
+/// を [`gaussian_law_moments`]（T_eff = T）で積分する。
 pub fn free_gas_kernel_moments(e: f64, e_out: f64, awr: f64, kt: f64, order: usize) -> Vec<f64> {
     let mut moments = vec![0.0; order + 1];
     moments[0] = free_gas_kernel(e, e_out, awr, kt);
@@ -111,40 +111,68 @@ pub fn free_gas_kernel_moments(e: f64, e_out: f64, awr: f64, kt: f64, order: usi
     }
     let scale = awr * kt;
     let (root, root_out) = (e.sqrt(), e_out.sqrt());
-    let beta = (e_out - e) / kt;
-    let b = beta.abs();
-    // 指数 (u² − |β|)²/(4u²) が 50 を超える u は寄与しない
-    let c = 50.0_f64.sqrt();
-    let (cut_lo, cut_hi) = ((b + c * c).sqrt() - c, (b + c * c).sqrt() + c);
-    let u_lo = ((root - root_out).abs() / scale.sqrt()).max(cut_lo);
-    let u_hi = ((root + root_out) / scale.sqrt()).min(cut_hi);
-    if u_hi <= u_lo {
-        return moments;
-    }
-    let pieces = ((u_hi - u_lo) / 0.1).ceil().max(1.0) as usize;
-    let step = (u_hi - u_lo) / pieces as f64;
-    // S dα = 2 e^(-(α²+β²)/(4α))/√(4π) du
-    let norm = 2.0 / (4.0 * std::f64::consts::PI).sqrt();
+    let mu = |alpha: f64| (e + e_out - alpha * scale) / (2.0 * root * root_out);
     let mut integrals = vec![0.0; order + 1];
-    for k in 0..pieces {
-        let a = u_lo + k as f64 * step;
-        let half = 0.5 * step;
-        for &(x, w) in &GAUSS_LEGENDRE_8 {
-            let u = a + half * (x + 1.0);
-            let alpha = u * u;
-            let s = norm * (-(alpha * alpha + beta * beta) / (4.0 * alpha)).exp();
-            let mu = (e + e_out - alpha * scale) / (2.0 * root * root_out);
-            for (m, p) in integrals.iter_mut().zip(legendre(mu, order)).skip(1) {
-                *m += w * half * s * p;
-            }
-        }
-    }
+    gaussian_law_moments(
+        (root - root_out).powi(2) / scale,
+        (root + root_out).powi(2) / scale,
+        (e_out - e) / kt,
+        1.0,
+        &mu,
+        &mut integrals,
+    );
     let sigma_bound = ((awr + 1.0) / awr).powi(2);
-    let factor = sigma_bound * awr / (4.0 * e) * (-0.5 * beta).exp();
+    let factor = sigma_bound * awr / (4.0 * e);
     for (m, i) in moments.iter_mut().zip(integrals).skip(1) {
         *m = factor * i;
     }
     moments
+}
+
+/// 短時間衝突近似の形の散乱則
+///   S(α, β) = e^(−(α − |β|)² r/(4α) − |β|/2)/√(4πα/r)、r = T/T_eff
+/// （r = 1 で自由ガスの S）について、∫ e^(−β/2) S(α, β) P_l(μ(α)) dα（α は [alpha_lo, alpha_hi]、l = 0..=moments.len()−1）を
+/// `moments` に足す。α, β は物質の温度 T の値（β は符号つき）、`mu` は α での実験室系の散乱角の余弦。
+///
+/// e^(−β/2) と S を別に計算すると、遠い下方散乱（−β が約 1400 を超える）で e^(−β/2) が桁あふれするので、指数を
+/// まとめた e^(−β/2) S = e^(−(α − |β|)² r/(4α) − (|β| + β)/2)/√(4πα/r) を使う。u = √α で積分する（被積分関数は
+/// u − |β|/u の幅 √(2/r) ほどのガウス形になり、S dα = 2√r e^(...)/√(4π) du）。
+pub(super) fn gaussian_law_moments(
+    alpha_lo: f64,
+    alpha_hi: f64,
+    beta: f64,
+    ratio: f64,
+    mu: &impl Fn(f64) -> f64,
+    moments: &mut [f64],
+) {
+    let b = beta.abs();
+    // 指数 (u − |β|/u)² r/4 が 50 を超える u は寄与しない
+    let c = (200.0 / ratio).sqrt();
+    let root = (c * c + 4.0 * b).sqrt();
+    let u_lo = alpha_lo.max(0.0).sqrt().max(0.5 * (root - c));
+    let u_hi = alpha_hi.sqrt().min(0.5 * (root + c));
+    if u_hi <= u_lo {
+        return;
+    }
+    let step = 0.1 / ratio.sqrt().max(1.0);
+    let pieces = ((u_hi - u_lo) / step).ceil().max(1.0) as usize;
+    let width = (u_hi - u_lo) / pieces as f64;
+    let order = moments.len() - 1;
+    let norm = 2.0 * (ratio / (4.0 * std::f64::consts::PI)).sqrt();
+    let shift = 0.5 * (b + beta);
+    let half = 0.5 * width;
+    for k in 0..pieces {
+        let a = u_lo + k as f64 * width;
+        for &(x, w) in &GAUSS_LEGENDRE_8 {
+            let u = a + half * (x + 1.0);
+            let alpha = u * u;
+            let v = u - b / u;
+            let s = w * half * norm * (-0.25 * v * v * ratio - shift).exp();
+            for (m, p) in moments.iter_mut().zip(legendre(mu(alpha), order)) {
+                *m += s * p;
+            }
+        }
+    }
 }
 
 /// 区間の境界 `points` の間ごとに、ベクトル値の関数 f（長さ n）を積分して群に足す [n][群]。
@@ -254,7 +282,8 @@ mod tests {
         use super::super::sab::ThermalSab;
         use super::super::sab::tests::{TEMPERATURE, free_gas_table};
         let data = free_gas_table();
-        let sab = ThermalSab::new(&data, TEMPERATURE, 1.0).unwrap();
+        let sab =
+            ThermalSab::new(&data, TEMPERATURE, 1.0, super::super::sab::SabOutside::Zero).unwrap();
         let kt = crate::physics::BK * TEMPERATURE;
         let groups = GroupStructure::wims69();
         for e in [0.0253, 0.1, 0.5] {
@@ -265,6 +294,24 @@ mod tests {
             for l in 0..=3 {
                 let (a, b): (f64, f64) = (ours[l].iter().sum(), table[l].iter().sum());
                 assert!((a - b).abs() < 3e-3 * total, "E={e} P{l}: {a} vs {b}");
+            }
+        }
+    }
+
+    #[test]
+    fn moments_far_above_kt_approach_the_target_at_rest() {
+        // E/kT が大きいと、遠い下方散乱でも有限で、静止した標的に近づく。A = 1 の静止した標的は E' が [0, E] で一様、
+        // 実験室系の散乱角の余弦は √(E'/E) なので、P1〜P3 の平均は ∫ P_l(√x) dx（0..1）で 2/3、1/4、0。熱運動による
+        // ずれは kT/E ほど
+        let groups = GroupStructure::wims69();
+        let kt = crate::physics::BK * 600.0;
+        for e in [100.0, 1.0e4] {
+            let moments = free_gas_group_moments(&groups, e, 1.0, kt, 3);
+            assert!(moments.iter().flatten().all(|v| v.is_finite()), "E={e}");
+            let sums: Vec<f64> = moments.iter().map(|m| m.iter().sum()).collect();
+            for (l, expected) in [(1, 2.0 / 3.0), (2, 0.25), (3, 0.0)] {
+                let deviation = (sums[l] / sums[0] - expected).abs();
+                assert!(deviation < 10.0 * kt / e, "E={e} P{l}: {sums:?}");
             }
         }
     }
