@@ -1246,3 +1246,19 @@ fn partial_nodes_away_from_the_z_ends_or_facing_a_mirror_are_accepted() {
     let mirror = "\"reflective\", \"reflective\"";
     assert!(rodded_layout(&rodded_case_with_z(mirror, "{ D = 0 }"), &plant).is_ok());
 }
+
+#[test]
+fn case_may_write_axial_pin_powers() {
+    // 核分裂のある層ごとのピン出力と軸方向の出力のファイル。パスはケースのファイルのあるディレクトリから
+    let text = edited(
+        CASE,
+        "radial-nodes = 1",
+        "radial-nodes = 1\naxial-pin-powers = \"layers.msgpack\"",
+    );
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(
+        c.axial_pin_powers,
+        Some(PathBuf::from("dir/layers.msgpack"))
+    );
+    assert_eq!(case().axial_pin_powers, None);
+}
