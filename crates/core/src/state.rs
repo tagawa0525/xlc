@@ -63,7 +63,7 @@ fn bracket(
     })
 }
 
-/// `w` 倍した少数群定数（群境界と f* の印はそのまま）。項目を足したらここで扱いを決める（`..` を使わない）
+/// `w` 倍した少数群定数（群境界、f* の印、z の厚さはそのまま）。項目を足したらここで扱いを決める（`..` を使わない）
 fn scaled(f: &FewGroup, w: f64) -> FewGroup {
     let FewGroup {
         bounds,
@@ -78,6 +78,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
         adf,
         vacuum_ratio,
         normalized_adf,
+        height,
         pins,
     } = f;
     let v = |x: &[f64]| x.iter().map(|x| w * x).collect::<Vec<_>>();
@@ -94,6 +95,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
         adf: adf.iter().map(|r| v(r)).collect(),
         vacuum_ratio: vacuum_ratio.iter().map(|r| r.as_deref().map(v)).collect(),
         normalized_adf: normalized_adf.clone(),
+        height: *height,
         // セルの境界はそのまま、形状関数と角の不連続因子は w 倍
         pins: pins.as_ref().map(|p| Pins {
             dx: p.dx.clone(),
@@ -110,8 +112,8 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
     }
 }
 
-/// `acc += w * f`。項目を足したらここで扱いを決める（`..` を使わない）。真空の辺、形状関数の有無とセルは
-/// どの状態でも同じはず（テーブルの検査）で、違えばエラー
+/// `acc += w * f`。項目を足したらここで扱いを決める（`..` を使わない）。真空の辺、z の厚さ、形状関数の有無と
+/// セルはどの状態でも同じはず（テーブルの検査）で、違えばエラー
 fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
     let FewGroup {
         bounds: _,
@@ -126,6 +128,7 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
         adf,
         vacuum_ratio,
         normalized_adf: _,
+        height,
         pins,
     } = f;
     acc.k_inf += w * k_inf;
@@ -147,6 +150,9 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
             (None, None) => {}
             _ => return Err("the table states differ in their vacuum sides".into()),
         }
+    }
+    if acc.height != *height {
+        return Err("the table states differ in their height".into());
     }
     match (&mut acc.pins, pins) {
         (Some(a), Some(x))

@@ -11,6 +11,9 @@
 //!
 //! 軸は boron、moderator、fuel の順に並べ、3つとも書く（core は状態を与えるとき3つの軸をすべて求める）。温度の軸が変える物質は名前で挙げ、物質の種類から
 //! 推測しない。同じ物質を2つの温度の軸に挙げられない。
+//!
+//! 体積の割合で混ぜた物質（ADR-0128）は、軸が変える成分を持てばその軸に挙げ、持たなければ挙げない（混ぜた物質は
+//! 状態ごとの成分から作る）。細かい群の媒質は燃料の温度の軸にだけ挙げ、分岐の状態ごとに媒質の同じ状態を使う。
 
 use std::collections::BTreeMap;
 
@@ -18,7 +21,7 @@ use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::{Axis, Table};
 
-use crate::input::MaterialInput;
+use crate::input::{MaterialInput, MediumInput, Mixture};
 use crate::water::borated_water;
 
 /// ホウ酸水で書いた物質の量（ADR-0106）。
@@ -91,11 +94,14 @@ fn check_points(axis: &str, points: &[f64], valid: impl Fn(f64) -> bool) -> Resu
     Ok(())
 }
 
-/// 挙げた物質が空でなく、重ならず、定義されていること。
+/// 挙げた物質が空でなく、重ならず、定義されていること（核種かホウ酸水で書いた物質、混ぜた物質、媒質）。
+/// 混ぜた物質は、軸が変える成分を持つものだけを、すべて挙げること（ADR-0128）
 fn check_materials(
     axis: &str,
     listed: &[String],
     materials: &[MaterialInput],
+    mixtures: &[Mixture],
+    media: &[MediumInput],
 ) -> Result<(), String> {
     if listed.is_empty() {
         return Err(format!("branches.{axis}: list the materials it changes"));
@@ -106,8 +112,51 @@ fn check_materials(
                 "branches.{axis}: material `{name}` is listed twice"
             ));
         }
-        if !materials.iter().any(|m| &m.name == name) {
+        if !materials.iter().any(|m| &m.name == name)
+            && !mixtures.iter().any(|m| &m.name == name)
+            && !media.iter().any(|m| &m.name == name)
+        {
             return Err(format!("branches.{axis}: unknown material `{name}`"));
+        }
+    }
+    for mixture in mixtures {
+        let changed = mixture.parts.iter().any(|(part, _)| listed.contains(part));
+        match (changed, listed.contains(&mixture.name)) {
+            (true, false) => {
+                return Err(format!(
+                    "branches.{axis}: the mixture `{}` has a component it changes; list it too",
+                    mixture.name
+                ));
+            }
+            (false, true) => {
+                return Err(format!(
+                    "branches.{axis}: the mixture `{}` has no component it changes",
+                    mixture.name
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// 媒質は燃料の温度の軸にだけ挙げる（媒質の状態を選ぶ。ADR-0128）
+fn check_media(axis: &str, listed: &[String], media: &[MediumInput]) -> Result<(), String> {
+    for medium in media {
+        match (axis == "fuel", listed.contains(&medium.name)) {
+            (true, false) => {
+                return Err(format!(
+                    "branches.fuel: list the medium `{}` (the branches choose its states)",
+                    medium.name
+                ));
+            }
+            (false, true) => {
+                return Err(format!(
+                    "branches.{axis}: the medium `{}` belongs to the fuel axis only",
+                    medium.name
+                ));
+            }
+            _ => {}
         }
     }
     Ok(())
@@ -179,19 +228,27 @@ enum Change {
 }
 
 impl BranchesEntry {
-    /// 軸を確かめ、軸の直積の順の物質の組を作る。`waters` はホウ酸水で書いた物質の量。
+    /// 軸を確かめ、軸の直積の順の物質の組（核種かホウ酸水で書いた物質）を作る。`waters` はホウ酸水で書いた物質の量、
+    /// `mixtures` と `media` は軸に挙げる規則を確かめるだけ（ADR-0128）。
     pub(crate) fn build(
         self,
         materials: &[MaterialInput],
         waters: &BTreeMap<String, Water>,
+        mixtures: &[Mixture],
+        media: &[MediumInput],
     ) -> Result<Branches, String> {
         let mut axes = Vec::new();
         let mut changes = Vec::new();
         if let Some(b) = self.boron {
             check_points("boron", &b.ppm, |p| (0.0..1.0e6).contains(&p))?;
-            check_materials("boron", &b.materials, materials)?;
+            check_materials("boron", &b.materials, materials, mixtures, media)?;
+            check_media("boron", &b.materials, media)?;
             let mut b10 = None;
-            for name in &b.materials {
+            for name in b
+                .materials
+                .iter()
+                .filter(|n| !mixtures.iter().any(|m| &m.name == *n))
+            {
                 let water = waters.get(name).ok_or_else(|| {
                     format!("branches.boron: material `{name}` is not written as water")
                 })?;
@@ -219,7 +276,8 @@ impl BranchesEntry {
                     m.density
                 ));
             }
-            check_materials("moderator", &m.materials, materials)?;
+            check_materials("moderator", &m.materials, materials, mixtures, media)?;
+            check_media("moderator", &m.materials, media)?;
             check_all_waters("moderator", &m.materials, waters)?;
             if waters.is_empty() {
                 return Err("branches.moderator: no material is written as water".into());
@@ -232,10 +290,15 @@ impl BranchesEntry {
         }
         if let Some(f) = self.fuel {
             check_points("fuel", &f.temperature, |t| t > 0.0)?;
-            check_materials("fuel", &f.materials, materials)?;
+            check_materials("fuel", &f.materials, materials, mixtures, media)?;
+            check_media("fuel", &f.materials, media)?;
             if let Some(Change::Moderator(_, _, listed)) =
                 changes.iter().find(|c| matches!(c, Change::Moderator(..)))
-                && let Some(name) = f.materials.iter().find(|n| listed.contains(n))
+                // 混ぜた物質は成分から作るので、成分の温度が両方の軸で変わってよい
+                && let Some(name) = f
+                    .materials
+                    .iter()
+                    .find(|n| listed.contains(n) && !mixtures.iter().any(|m| &m.name == *n))
             {
                 return Err(format!(
                     "branches: material `{name}` is in both the moderator and the fuel axes"

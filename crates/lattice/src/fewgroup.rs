@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::group::GroupStructure;
-use xlc_numeric::equivalence::equivalent_diffusion;
+use xlc_numeric::equivalence::{Choice, reflector_diffusion};
 use xlc_numeric::nem::{Edge, OneNode, OneNodeError, is_fissile, surface_fluxes};
 use xlc_numeric::pins::corners::{CornerNode, corner_balance, fuel_harmonic_mean, nodes_at_point};
 use xlc_numeric::pins::node::{Conditions, Constants, NodeModel};
@@ -15,6 +15,7 @@ use crate::b1::{B1Error, Medium};
 use crate::cmfd::{horizontal_face, vertical_face};
 use crate::geometry::Lattice;
 use crate::material::Material;
+use crate::medium::fine_medium;
 use crate::moc::Solution;
 use crate::tracking::{Boundaries, Boundary};
 
@@ -59,6 +60,8 @@ pub enum HomogenizeError {
     Nodes(String),
     #[error("pins: {0}")]
     Pins(String),
+    #[error("medium: {0}")]
+    Medium(String),
 }
 
 /// 格子のセルの長方形の範囲で、1つの少数群定数にまとめるもの（ADR-0095）。
@@ -133,7 +136,7 @@ pub fn homogenize(
         &currents,
         edges,
     )?;
-    Ok(few)
+    Ok(with_z_sides(few))
 }
 
 /// 格子をノード `nodes`（格子のセルを重ならずに覆う長方形）に分け、ノードごとに `homogenize` と同じ形で
@@ -151,7 +154,8 @@ pub fn homogenize(
 /// - 外周の真空の辺には J/φ_het を持たせる（ADR-0101）
 /// - 反射体のノード（`Node::reflector`）の、反射体でないノードと接する辺の ADF は、その隣のノードの同じ面の
 ///   ADF で割った f* とし、`normalized_adf` に印を付ける。反射体どうしの辺と、燃料に角の点だけで接する反射体の
-///   ノード（角型の格子の右上。ADR-0095）の辺は f* でない GET の ADF を持つ
+///   ノード（角型の格子の右上。ADR-0095）や燃料と接しない反射体のノード（軸方向のノズル、炉心板、水の層。
+///   ADR-0128）の辺は f* でない GET の ADF を持つ
 /// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0131）も付ける
 #[allow(clippy::too_many_arguments)]
 pub fn homogenize_nodes(
@@ -206,12 +210,13 @@ pub fn homogenize_nodes(
                 None => Edge::Reflective,
             }
         });
-        // 核分裂のないノードの拡散係数は、Koebke の等価理論の D（ADR-0104）。中性子流の重みの D から探す
+        // 核分裂のないノードの拡散係数は、Koebke の等価理論の D（ADR-0104）。中性子流の重みの D から探し、正の面の範囲に
+        // なければ中性子流の重みの D（ADR-0134）
         let mut few = h.few.clone();
         let fissile = is_fissile(&few.nu_fission)
             .map_err(|e| HomogenizeError::OneNode(OneNodeError::Invalid(e.to_string())))?;
         if !fissile {
-            few.diffusion = equivalent_diffusion(
+            let (diffusion, choice) = reflector_diffusion(
                 &OneNode {
                     diffusion: &h.few.diffusion,
                     total: &few.total,
@@ -226,12 +231,27 @@ pub fn homogenize_nodes(
                 },
                 FACES.map(|side| h.heterogeneous[side].as_slice()),
             )?;
-            tracing::info!(
-                node = n,
-                current_weighted = ?h.few.diffusion,
-                equivalent = ?few.diffusion,
-                "equivalent diffusion coefficients"
-            );
+            few.diffusion = diffusion;
+            match choice {
+                Choice::Koebke => tracing::info!(
+                    node = n,
+                    current_weighted = ?h.few.diffusion,
+                    equivalent = ?few.diffusion,
+                    "equivalent diffusion coefficients"
+                ),
+                Choice::CurrentWeighted {
+                    group,
+                    target,
+                    range,
+                } => tracing::info!(
+                    node = n,
+                    current_weighted = ?few.diffusion,
+                    group,
+                    heterogeneous_ratio = target,
+                    homogeneous_ratio_range = ?range,
+                    "no Koebke diffusion coefficient with positive faces; current-weighted (ADR-0134)"
+                ),
+            }
         }
         let adf = discontinuity_factors(
             &few,
@@ -290,7 +310,7 @@ pub fn homogenize_nodes(
                 }
             }
         }
-        result.push(few);
+        result.push(with_z_sides(few));
     }
     Ok(result)
 }
@@ -1113,9 +1133,9 @@ pub fn split_constants(
     for j in 0..n {
         for i in 0..n {
             let mut sub = few.clone();
-            // 辺（左、右、上、下）: 集合体の外周なら区間の値、内側なら 1
-            let outer = [i == 0, i == n - 1, j == n - 1, j == 0];
-            sub.adf = (0..4)
+            // 辺（左、右、上、下、−z、+z）: 集合体の外周なら区間の値、内側と z の辺（`with_z_sides`）なら 1
+            let outer = [i == 0, i == n - 1, j == n - 1, j == 0, false, false];
+            sub.adf = (0..outer.len())
                 .map(|side| {
                     if outer[side] {
                         let q = if side < 2 { j } else { i };
@@ -1183,6 +1203,17 @@ pub fn split_constants(
     Ok(out)
 }
 
+/// 2次元の格子の定数の辺（左、右、上、下）に z の辺（−z、+z）を足す。軸方向に一様な格子では、z の面の不均質な
+/// 中性子束も均質な解も z に平らでノード平均に等しいので、GET の ADF は厳密に 1 になる（ADR-0128）。z の辺は真空の比と
+/// f* の印を持たない
+fn with_z_sides(mut few: FewGroup) -> FewGroup {
+    let coarse = few.groups();
+    few.adf.extend([vec![1.0; coarse], vec![1.0; coarse]]);
+    few.vacuum_ratio.extend([None, None]);
+    few.normalized_adf.extend([false, false]);
+    few
+}
+
 /// 外周の辺（左、右、上、下）の境界条件
 fn sides_of(boundaries: &Boundaries) -> [Boundary; 4] {
     [
@@ -1194,7 +1225,7 @@ fn sides_of(boundaries: &Boundaries) -> [Boundary; 4] {
 }
 
 /// 領域 `regions` を中性子束と体積で重みづけして均質化した少数群定数（ADF と真空の辺の比は空、
-/// `normalized_adf` はすべて false）と、ノード平均の少数群の中性子束。`b1` なら拡散係数を B1 で、
+/// `normalized_adf` は径方向の4辺がすべて false、z の厚さはなし）と、ノード平均の少数群の中性子束。`b1` なら拡散係数を B1 で、
 /// でなければ outflow で作る。
 fn constants(
     solution: &Solution,
@@ -1274,6 +1305,7 @@ fn constants(
         adf: Vec::new(),
         vacuum_ratio: Vec::new(),
         normalized_adf: vec![false; 4],
+        height: None,
         pins: None,
     };
     Ok((few, average))
@@ -1481,66 +1513,22 @@ fn b1_diffusion(
     group_of: &[usize],
     coarse: usize,
 ) -> Result<Vec<f64>, HomogenizeError> {
+    // 媒質の均質化（ADR-0128）と同じ重みの P0 と P1。P1 のモーメントがあることは `diffusion` で確かめてある
+    let (fine, flux) = fine_medium(solution, materials, regions)?;
     let ng = group_of.len();
-    let mut flux = vec![0.0; ng];
-    let mut medium = Medium {
-        total: vec![0.0; ng],
-        scatter: vec![vec![0.0; ng]; ng],
-        scatter1: vec![vec![0.0; ng]; ng],
-        nu_fission: vec![0.0; ng],
-        chi: vec![0.0; ng],
+    let medium = Medium {
+        total: fine.total,
+        scatter1: fine
+            .scatter
+            .get(1)
+            .cloned()
+            .unwrap_or_else(|| vec![vec![0.0; ng]; ng]),
+        scatter: fine.scatter.into_iter().next().unwrap_or_default(),
+        nu_fission: fine.nu_fission,
+        chi: fine.chi,
     };
-    for &region in regions {
-        let (m, phi, volume) = (
-            materials[region],
-            &solution.flux[region],
-            solution.volumes[region],
-        );
-        for g in 0..ng {
-            let w = volume * phi[g];
-            flux[g] += w;
-            medium.total[g] += w * m.total[g];
-            medium.nu_fission[g] += w * m.nu_fission[g];
-            for (to, s) in m.scatter[g].iter().enumerate() {
-                medium.scatter[g][to] += w * s;
-            }
-            // 真空（P1 のモーメントを持たない）は散乱しない
-            if let Some(p1) = m.anisotropic.first() {
-                for (to, s) in p1[g].iter().enumerate() {
-                    medium.scatter1[g][to] += w * s;
-                }
-            }
-        }
-        for term in &m.fission_terms {
-            let rate: f64 = term
-                .nu_fission
-                .iter()
-                .zip(phi)
-                .map(|(n, f)| volume * n * f)
-                .sum();
-            for (c, chi) in term.chi.iter().zip(medium.chi.iter_mut()) {
-                *chi += c * rate;
-            }
-        }
-    }
-    if let Some(g) = flux.iter().position(|&f| f <= 0.0) {
-        return Err(HomogenizeError::NoFineFlux(g));
-    }
-    for (g, f) in flux.iter().enumerate() {
-        medium.total[g] /= f;
-        medium.nu_fission[g] /= f;
-        for v in medium.scatter[g]
-            .iter_mut()
-            .chain(medium.scatter1[g].iter_mut())
-        {
-            *v /= f;
-        }
-    }
     let produced: f64 = medium.chi.iter().sum();
     let (current, weight) = if produced > 0.0 {
-        for c in &mut medium.chi {
-            *c /= produced;
-        }
         let mode = medium.critical()?;
         (mode.current, mode.flux)
     } else {
@@ -1708,7 +1696,7 @@ mod tests {
                 .map(|(f, v)| v * f[g])
                 .sum::<f64>()
                 / volume;
-            for (side, values) in fg.adf.iter().enumerate() {
+            for (side, values) in fg.adf.iter().take(4).enumerate() {
                 let expected = solution.sides[side][g] / average;
                 assert!(
                     (values[g] - expected).abs() < 1e-6 * expected,
@@ -1716,6 +1704,8 @@ mod tests {
                     values[g]
                 );
             }
+            // 2次元の格子の z の辺は 1（ADR-0128）
+            assert_eq!((fg.adf[4][g], fg.adf[5][g]), (1.0, 1.0));
         }
     }
 
@@ -1835,7 +1825,7 @@ mod tests {
             &Boundaries::REFLECTIVE,
         )
         .unwrap();
-        assert_eq!(fg.vacuum_ratio, vec![None; 4]);
+        assert_eq!(fg.vacuum_ratio, vec![None; 6]);
     }
 
     #[test]
@@ -1867,7 +1857,7 @@ mod tests {
         )
         .unwrap();
         assert!(fg.adf[0][1] > 1.0, "{:?}", fg.adf);
-        for side in &fg.adf {
+        for side in &fg.adf[..4] {
             for (a, b) in side.iter().zip(&fg.adf[0]) {
                 assert!((a - b).abs() < 1e-6 * b, "{:?}", fg.adf);
             }
@@ -2507,8 +2497,8 @@ mod tests {
             for value in fg.adf.iter().flatten() {
                 assert!((value - 1.0).abs() < 1e-6, "{:?}", fg.adf);
             }
-            assert_eq!(fg.vacuum_ratio, vec![None; 4]);
-            assert_eq!(fg.normalized_adf, vec![false; 4]);
+            assert_eq!(fg.vacuum_ratio, vec![None; 6]);
+            assert_eq!(fg.normalized_adf, vec![false; 6]);
         }
     }
 
@@ -2674,17 +2664,72 @@ mod tests {
             let expected = solution.face_currents[2][g] / het(2)[g];
             assert!((ratio - expected).abs() < 1e-12 * expected);
         }
-        assert_eq!(fuel.normalized_adf, vec![false; 4]);
-        assert_eq!(reflector.normalized_adf, vec![true, false, false, false]);
-        assert_eq!(fuel.vacuum_ratio, vec![None; 4]);
+        assert_eq!(fuel.normalized_adf, vec![false; 6]);
+        assert_eq!(
+            reflector.normalized_adf,
+            vec![true, false, false, false, false, false]
+        );
+        assert_eq!(fuel.vacuum_ratio, vec![None; 6]);
         assert_eq!(
             reflector
                 .vacuum_ratio
                 .iter()
                 .map(Option::is_some)
                 .collect::<Vec<_>>(),
-            vec![false, true, false, false]
+            vec![false, true, false, false, false, false]
         );
+    }
+
+    #[test]
+    fn reflector_nodes_away_from_fuel_keep_plain_factors() {
+        // 燃料と接しない反射体のノード（軸方向のノズル、炉心板、水の層）は、f* でない GET の ADF を持つ（ADR-0128）。
+        // 燃料と接する反射体のノードだけが、燃料の側の辺に f* の印を持つ
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26],
+            vec![Cell::Pin(pin), Cell::Pin(cell)],
+            vec![vec![0, 1, 1]],
+        )
+        .unwrap();
+        let boundaries = vacuum();
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        let materials = [fuel, water.clone(), water.clone(), water];
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        let fine = fine();
+        let run = |reflector: bool| {
+            let nodes: Vec<Node> = [0..1, 1..2, 2..3]
+                .into_iter()
+                .enumerate()
+                .map(|(n, columns)| Node {
+                    reflector: reflector && n > 0,
+                    ..node(columns, 0..1)
+                })
+                .collect();
+            homogenize_nodes(
+                &solution,
+                &lattice,
+                &refs,
+                &fine,
+                fine.bounds(),
+                &boundaries,
+                &nodes,
+                false,
+            )
+            .unwrap()
+        };
+        let (marked, plain) = (run(true), run(false));
+        assert_eq!(marked[1].normalized_adf[..4], [true, false, false, false]);
+        assert_eq!(marked[2].normalized_adf, vec![false; 6]);
+        assert_eq!(marked[2].adf, plain[2].adf);
+        for g in 0..2 {
+            let back = marked[1].adf[0][g] * plain[0].adf[1][g];
+            assert!((back - plain[1].adf[0][g]).abs() < 1e-14 * back);
+        }
     }
 
     #[test]
@@ -3092,10 +3137,16 @@ mod tests {
             true,
         )
         .unwrap();
-        // 辺は（左、右、上、下）、角は（-x -y、+x -y、+x +y、-x +y）
-        assert_eq!(fgs[1].normalized_adf, vec![true, false, false, false]);
-        assert_eq!(fgs[2].normalized_adf, vec![false, false, false, true]);
-        assert_eq!(fgs[3].normalized_adf, vec![false; 4]);
+        // 辺は（左、右、上、下、−z、+z）、角は（-x -y、+x -y、+x +y、-x +y）
+        assert_eq!(
+            fgs[1].normalized_adf,
+            vec![true, false, false, false, false, false]
+        );
+        assert_eq!(
+            fgs[2].normalized_adf,
+            vec![false, false, false, true, false, false]
+        );
+        assert_eq!(fgs[3].normalized_adf, vec![false; 6]);
         let corners = |n: usize| fgs[n].pins.as_ref().unwrap().normalized_corners.clone();
         assert_eq!(corners(1), vec![true, false, false, true]);
         assert_eq!(corners(2), vec![true, true, false, false]);

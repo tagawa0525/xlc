@@ -1,0 +1,51 @@
+# このファイルは axial_slab.py が書く。平板 axial-3A-16.toml の層の設計
+[design.slab-16]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 89.811, 112.671, 135.531, 158.391, 181.251, 204.111, 226.971, 249.831, 272.691, 295.551, 318.411, 341.271, 364.131, 386.991, 409.851, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-16/lower-water.msgpack",
+  "axial-16/lower-plate.msgpack",
+  "axial-16/bottom-nozzle.msgpack",
+  "axial-16/lower-gap-plug.msgpack",
+  "axial-16/fuel-01.msgpack",
+  "axial-16/fuel-02.msgpack",
+  "axial-16/fuel-03.msgpack",
+  "axial-16/fuel-04.msgpack",
+  "axial-16/fuel-05.msgpack",
+  "axial-16/fuel-06.msgpack",
+  "axial-16/fuel-07.msgpack",
+  "axial-16/fuel-08.msgpack",
+  "axial-16/fuel-09.msgpack",
+  "axial-16/fuel-10.msgpack",
+  "axial-16/fuel-11.msgpack",
+  "axial-16/fuel-12.msgpack",
+  "axial-16/fuel-13.msgpack",
+  "axial-16/fuel-14.msgpack",
+  "axial-16/fuel-15.msgpack",
+  "axial-16/fuel-16.msgpack",
+  "axial-16/plenum.msgpack",
+  "axial-16/upper-plug-gap.msgpack",
+  "axial-16/top-nozzle.msgpack",
+  "axial-16/upper-plate.msgpack",
+  "axial-16/upper-water.msgpack",
+]
+
+[assembly.SLAB-16]
+design = "slab-16"
+
+[design.fstar-16]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-16/lower-water.msgpack",
+  "axial-16/lower-plate.msgpack",
+  "axial-16/bottom-nozzle.msgpack",
+  "axial-16/lower-gap-plug.msgpack",
+  "fg-3A.msgpack",
+  "axial-16/plenum.msgpack",
+  "axial-16/upper-plug-gap.msgpack",
+  "axial-16/top-nozzle.msgpack",
+  "axial-16/upper-plate.msgpack",
+  "axial-16/upper-water.msgpack",
+]
+
+[assembly.FSTAR-16]
+design = "fstar-16"

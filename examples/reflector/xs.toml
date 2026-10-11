@@ -1,7 +1,7 @@
 # 径方向の反射体の格子（燃料の集合体 + ギャップ + SS304 のバッフル + 水。ADR-0095）の多群ライブラリ（ENDF/B-VIII.0、
 # WIMS 69群）。examples/vera/xs.toml の核種に、SS304（VERA の仕様書の表 P2-4）の C、Si、P、Mn、Ni を足し、すべて
-# 600 K だけにしたもの（VERA REF1-2D は 600 K の等温。仕様書の Table M2-1）。核種の入力は examples/vera/xs.toml と
-# examples/m3-nuclides/xs.toml と同じ。生成物は git で追跡しない。
+# 600 K だけにしたもの（VERA REF1-2D は 600 K の等温。仕様書の Table M2-1）。軸方向の反射体の平板（ADR-0128）の
+# Inconel-718 の Ti も足す。核種の入力は examples/vera/xs.toml と examples/m3-nuclides/xs.toml と同じ。
 output = "reflector.msgpack"
 endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -178,4 +178,25 @@ temperatures = [600]
 
 [nuclide.Ni-64]
 endf = "n-028_Ni_064.endf"
+temperatures = [600]
+
+# Inconel-718 の Ti（仕様書の表 P3-3。軸方向の反射体の平板の上の端の支持格子。ADR-0128）
+[nuclide.Ti-46]
+endf = "n-022_Ti_046.endf"
+temperatures = [600]
+
+[nuclide.Ti-47]
+endf = "n-022_Ti_047.endf"
+temperatures = [600]
+
+[nuclide.Ti-48]
+endf = "n-022_Ti_048.endf"
+temperatures = [600]
+
+[nuclide.Ti-49]
+endf = "n-022_Ti_049.endf"
+temperatures = [600]
+
+[nuclide.Ti-50]
+endf = "n-022_Ti_050.endf"
 temperatures = [600]
