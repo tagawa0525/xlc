@@ -31,7 +31,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
 ツールの作り方は [ADR-0031](../adr/0031-verify-against-openmc-with-same-data.md) が「ソースから `references/` に
 ビルドする」と決めている。
 
-関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)
+関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0123](../adr/0123-drive-stages-with-dvc.md)
 
 ## 完了の条件
 
@@ -40,6 +40,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   あれば使えるか確かめる）
 - 参照の結果は、作るスクリプト（入力、コマンド、粒子数、乱数のシード、ツールの版）をリポジトリに置き、`references/` は
   いつ消しても作り直せる作業の置き場にする。`njoy-runs/` も作るスクリプトにまとめ直す
+- 参照の結果（NJOY → OpenMC のライブラリ → OpenMC、xlc との比較）を DVC のステージにする（ADR-0123）
 - 決めた方式を ADR にする。ツールの作り方を変えるなら、その ADR は ADR-0031 を置き換える（supersedes）
 
 ## 経緯
