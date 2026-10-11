@@ -20,6 +20,10 @@
       };
       inherit (pkgs) lib;
       rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      # rust-toolchain.toml は Rust の段階の deps なので、sysroot に要るもの（rust-src）以外の開発のツールは書かない。
+      # ツールチェーンを override もせず（段階をビルドするコンパイラの derivation を変えない）、同じ版の component を
+      # 横に置く。rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
+      rustAnalyzer = rust.availableComponents.rust-analyzer;
       # 検証用のツール（OpenMC の入力の作成と結果の読み出し、比較のスクリプト）が使う Python のパッケージ
       pythonPackages =
         p: with p; [
@@ -196,6 +200,7 @@
         default = pkgs.mkShell {
           packages = [
             rust
+            rustAnalyzer
             python
             dvc
             pkgs.ruff
