@@ -18,8 +18,11 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 `examples/<問題>/dvc.yaml` に書き、`dvc repro examples/<問題>/dvc.yaml` で、入力かコードが変わった段階だけを走らせる。
 各段階の入力・コード・出力の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
 `references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では `references` を main の
-`references/` への symlink にして、キャッシュと核データを共有する。`~/.claude/scripts/worktree-add.sh` が
-`.worktreelink` を読んで作る（出力の `SHARED: references`）。
+`references/` への symlink にして、キャッシュと核データを共有する。`~/.claude/scripts/worktree-add.sh` が、チェックアウトした
+ブランチの `.worktreelink` を読んで作る（出力の `SHARED: references`）。`.worktreelink` のないブランチ（main に rebase する前の
+もの）や、ほかの方法で作った worktree では出ないので、worktree の直下で手で張る:
+`ln -s "$(git rev-parse --path-format=absolute --git-common-dir)/../references" references`。symlink のない linked
+worktree は `cargo test`（crates/docs の `linked_worktrees_share_references`）が止める。
 
 ## 評価済み核データ（ENDF/B-VIII.0）
 
