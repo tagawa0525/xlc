@@ -1,6 +1,14 @@
 //! ENDF ファイルから多群ライブラリを作るコマンド。
 //!
 //! 使い方: xs <入力ファイル>
+//!         xs range <入力ファイル> <範囲のファイル>
+//!         xs nuclide <入力ファイル> <範囲のファイル> <核種> <出力>
+//!         xs assemble <入力ファイル> <核種ごとの結果のディレクトリ>
+//!
+//! 引数が入力ファイルだけのときは、すべての核種を処理して入力の `output` にライブラリを書く。ほかの 3 つは、同じ結果を
+//! 段階に分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
+//! `nuclide` は、その範囲で核種 1 つだけを処理し、1 核種のライブラリを書く。`assemble` は、ディレクトリの
+//! `<核種>.msgpack` を入力の核種の順に 1 つのライブラリにして、入力の `output` に書く。
 //!
 //! 入力ファイルは TOML（パスは入力ファイルのディレクトリからの相対パス）:
 //!
@@ -223,13 +231,28 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
     })
 }
 
+const USAGE: &str = "usage: xs <input file>
+       xs range <input file> <range file>
+       xs nuclide <input file> <range file> <nuclide> <output>
+       xs assemble <input file> <nuclide directory>";
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
         [path] => init_logging()
             .and_then(|()| read_input(Path::new(path)))
             .and_then(|input| run(&input)),
-        _ => Err(anyhow!("usage: xs <input file>")),
+        [command, path, rest @ ..] => init_logging()
+            .and_then(|()| read_input(Path::new(path)))
+            .and_then(|input| match (command.as_str(), rest) {
+                ("range", [out]) => run_range(&input, Path::new(out)),
+                ("nuclide", [range, name, out]) => {
+                    run_nuclide(&input, Path::new(range), name, Path::new(out))
+                }
+                ("assemble", [directory]) => run_assemble(&input, Path::new(directory)),
+                _ => Err(anyhow!(USAGE)),
+            }),
+        _ => Err(anyhow!(USAGE)),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -273,12 +296,10 @@ fn read_input(path: &Path) -> anyhow::Result<Input> {
     parse_input(&text, base).with_context(|| format!("{}", path.display()))
 }
 
-fn run(input: &Input) -> anyhow::Result<()> {
-    let groups = GroupStructure::wims69();
-    // テープの読み込みと、核種ごとの処理は独立なので並列に行う
+/// 入力の核種の ENDF のテープを、並列に読む。
+fn read_tapes(nuclides: &[NuclideInput]) -> anyhow::Result<Vec<Tape>> {
     let tapes: Vec<anyhow::Result<Tape>> = std::thread::scope(|scope| {
-        let handles: Vec<_> = input
-            .nuclides
+        let handles: Vec<_> = nuclides
             .iter()
             .map(|nuclide| scope.spawn(|| read_tape(&nuclide.endf)))
             .collect();
@@ -290,17 +311,40 @@ fn run(input: &Input) -> anyhow::Result<()> {
             })
             .collect()
     });
-    let tapes = tapes.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
-    let pointwise_range = pointwise_range(&input.nuclides, &tapes, &groups)?;
-    let settings = Settings {
-        groups,
+    tapes.into_iter().collect()
+}
+
+fn settings_of(input: &Input, pointwise_range: Option<(f64, f64)>) -> Settings {
+    Settings {
+        groups: GroupStructure::wims69(),
         weight: Weight::lwr(),
         sigma0: input.sigma0.clone(),
         thermal_cutoff: THERMAL_CUTOFF,
         tolerance: DEFAULT_TOLERANCE,
         pointwise_range,
         scattering_order: input.scattering_order,
-    };
+    }
+}
+
+fn library_of(settings: Settings, nuclides: Vec<NuclideData>) -> Library {
+    Library {
+        groups: settings.groups,
+        sigma0: settings.sigma0,
+        pointwise_range: settings.pointwise_range.map(|(low, high)| [low, high]),
+        nuclides,
+    }
+}
+
+fn write_library(library: &Library, path: &Path) -> anyhow::Result<()> {
+    std::fs::write(path, library.to_msgpack()?).with_context(|| format!("{}", path.display()))
+}
+
+/// 入力のすべての核種を処理して、ライブラリを書く。
+fn run(input: &Input) -> anyhow::Result<()> {
+    // テープの読み込みと、核種ごとの処理は独立なので並列に行う
+    let tapes = read_tapes(&input.nuclides)?;
+    let pointwise_range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
+    let settings = settings_of(input, pointwise_range);
     let results: Vec<anyhow::Result<NuclideData>> = std::thread::scope(|scope| {
         let handles: Vec<_> = input
             .nuclides
@@ -317,14 +361,41 @@ fn run(input: &Input) -> anyhow::Result<()> {
             .collect()
     });
     let nuclides = results.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
-    let library = Library {
-        groups: settings.groups,
-        sigma0: settings.sigma0,
-        pointwise_range: pointwise_range.map(|(low, high)| [low, high]),
-        nuclides,
-    };
-    std::fs::write(&input.output, library.to_msgpack()?)
-        .with_context(|| format!("{}", input.output.display()))
+    write_library(&library_of(settings, nuclides), &input.output)
+}
+
+/// すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く（`nuclide` の段階の入力になる）。
+fn run_range(input: &Input, out: &Path) -> anyhow::Result<()> {
+    let tapes = read_tapes(&input.nuclides)?;
+    let range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
+    std::fs::write(out, range_to_toml(range)).with_context(|| format!("{}", out.display()))
+}
+
+/// 核種 `name` だけを、`range` のファイルのポイントワイズの範囲で処理して、1 核種のライブラリを書く。
+fn run_nuclide(input: &Input, range: &Path, name: &str, out: &Path) -> anyhow::Result<()> {
+    let nuclide = input
+        .nuclides
+        .iter()
+        .find(|n| n.name == name)
+        .ok_or_else(|| anyhow!("{name} is not in the input"))?;
+    let text = std::fs::read_to_string(range).with_context(|| format!("{}", range.display()))?;
+    let pointwise_range = range_from_toml(&text).with_context(|| format!("{}", range.display()))?;
+    let settings = settings_of(input, pointwise_range);
+    let data = process_file(nuclide, &read_tape(&nuclide.endf)?, &settings)?;
+    write_library(&library_of(settings, vec![data]), out)
+}
+
+/// `directory` の `<核種>.msgpack`（`nuclide` の結果）を、入力の核種の順に 1 つのライブラリにして書く。
+fn run_assemble(input: &Input, directory: &Path) -> anyhow::Result<()> {
+    let mut parts = Vec::with_capacity(input.nuclides.len());
+    for nuclide in &input.nuclides {
+        let path = directory.join(format!("{}.msgpack", nuclide.name));
+        let bytes = std::fs::read(&path).with_context(|| format!("{}", path.display()))?;
+        let part = Library::from_msgpack(&bytes).with_context(|| format!("{}", path.display()))?;
+        check_part(nuclide, &part).with_context(|| format!("{}", path.display()))?;
+        parts.push(part);
+    }
+    write_library(&Library::merge(parts)?, &input.output)
 }
 
 fn read_tape(path: &Path) -> anyhow::Result<Tape> {
@@ -368,22 +439,56 @@ fn pointwise_range(
     }
 }
 
+/// `range_to_toml` と `range_from_toml` が書く、ポイントワイズの範囲のファイルの中身。
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct RangeFile {
+    /// 範囲がなければ空の配列
+    pointwise_range: Vec<f64>,
+}
+
 /// ポイントワイズの範囲 (eV) を TOML に書く。範囲がなければ空の配列を書く（項目は欠かさない。ADR-0129）。
+/// 浮動小数点数は、読み直して同じ値になる最短の表記（`{:?}`）で書く。
 fn range_to_toml(range: Option<(f64, f64)>) -> String {
-    let _ = range;
-    String::new()
+    match range {
+        Some((low, high)) => format!("pointwise-range = [{low:?}, {high:?}]\n"),
+        None => "pointwise-range = []\n".into(),
+    }
 }
 
 /// `range_to_toml` の形を読む。
 fn range_from_toml(text: &str) -> anyhow::Result<Option<(f64, f64)>> {
-    let _ = text;
-    Err(anyhow!("not implemented"))
+    let file: RangeFile = toml::from_str(text)?;
+    match file.pointwise_range[..] {
+        [] => Ok(None),
+        [low, high] if low > 0.0 && high > low && high.is_finite() => Ok(Some((low, high))),
+        ref other => Err(anyhow!(
+            "pointwise-range must be empty or [low, high] with 0 < low < high, got {other:?}"
+        )),
+    }
 }
 
 /// 核種ごとの結果が、入力のその核種の結果であること（1 核種だけで、名前と温度が入力と同じ）を確かめる。
 fn check_part(nuclide: &NuclideInput, part: &Library) -> anyhow::Result<()> {
-    let _ = (nuclide, part);
-    Err(anyhow!("not implemented"))
+    let [data] = &part.nuclides[..] else {
+        return Err(anyhow!(
+            "{}: expected one nuclide, found {}",
+            nuclide.name,
+            part.nuclides.len()
+        ));
+    };
+    if data.name != nuclide.name {
+        return Err(anyhow!("{}: the result is for {}", nuclide.name, data.name));
+    }
+    let temperatures: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
+    if temperatures != nuclide.temperatures {
+        return Err(anyhow!(
+            "{}: the result has temperatures {temperatures:?}, the input has {:?}",
+            nuclide.name,
+            nuclide.temperatures
+        ));
+    }
+    Ok(())
 }
 
 /// 核種を処理する（処理の時間をログに出す）。
@@ -597,7 +702,6 @@ temperatures = [293.6, 900]
         assert!(err.to_string().contains("line"), "{err}");
     }
     #[test]
-    #[ignore = "RED: the range file is not implemented yet"]
     fn the_pointwise_range_file_round_trips() {
         for range in [Some((4.0, 9118.0)), Some((0.1 + 0.2, 1.0e5)), None] {
             let text = range_to_toml(range);
@@ -607,7 +711,6 @@ temperatures = [293.6, 900]
     }
 
     #[test]
-    #[ignore = "RED: the range file is not implemented yet"]
     fn rejects_a_bad_pointwise_range_file() {
         for text in [
             "",
@@ -649,7 +752,6 @@ temperatures = [293.6, 900]
     }
 
     #[test]
-    #[ignore = "RED: check_part is not implemented yet"]
     fn a_nuclide_result_must_match_its_input() {
         let input = parse_input(INPUT, Path::new(".")).unwrap();
         let uranium = &input.nuclides[1];
