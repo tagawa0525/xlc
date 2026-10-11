@@ -8,6 +8,8 @@ output = "vera.msgpack"
 endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
 sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+# 省略すると 3（ADR-0076）。核種ごとの段階の params にするため、書いておく（ADR-0138）
+scattering-order = 3
 
 [nuclide.U-234]
 endf = "n-092_U_234.endf"

@@ -1,6 +1,15 @@
 //! ENDF ファイルから多群ライブラリを作るコマンド。
 //!
 //! 使い方: xs <入力ファイル>
+//!         xs range <入力ファイル> <範囲のファイル>
+//!         xs nuclide <入力ファイル> <範囲のファイル> <核種> <出力>
+//!         xs assemble <入力ファイル> <範囲のファイル> <核種ごとの結果のディレクトリ>
+//!
+//! 引数が入力ファイルだけのときは、すべての核種を処理して入力の `output` にライブラリを書く。ほかの 3 つは、同じ結果を
+//! 段階に分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
+//! `nuclide` は、その範囲で核種 1 つだけを処理し、1 核種のライブラリを書く。`assemble` は、ディレクトリの
+//! `<核種>.msgpack` を入力の核種の順に、入力と範囲のファイルと同じ条件で作られたことを確かめて、1 つのライブラリにして、
+//! 入力の `output` に書く。
 //!
 //! 入力ファイルは TOML（パスは入力ファイルのディレクトリからの相対パス）:
 //!
@@ -223,14 +232,27 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
     })
 }
 
+const USAGE: &str = "usage: xs <input file>
+       xs range <input file> <range file>
+       xs nuclide <input file> <range file> <nuclide> <output>
+       xs assemble <input file> <range file> <nuclide directory>";
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let result = match args.as_slice() {
-        [path] => init_logging()
-            .and_then(|()| read_input(Path::new(path)))
-            .and_then(|input| run(&input)),
-        _ => Err(anyhow!("usage: xs <input file>")),
-    };
+    let result =
+        init_logging().and_then(
+            |()| match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
+                [path] => read_input(Path::new(path)).and_then(|input| run(&input)),
+                ["range", path, out] => {
+                    read_input(Path::new(path)).and_then(|input| run_range(&input, Path::new(out)))
+                }
+                ["nuclide", path, range, name, out] => read_input(Path::new(path))
+                    .and_then(|input| run_nuclide(&input, Path::new(range), name, Path::new(out))),
+                ["assemble", path, range, directory] => read_input(Path::new(path))
+                    .and_then(|input| run_assemble(&input, Path::new(range), Path::new(directory))),
+                _ => Err(anyhow!(USAGE)),
+            },
+        );
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
@@ -273,12 +295,10 @@ fn read_input(path: &Path) -> anyhow::Result<Input> {
     parse_input(&text, base).with_context(|| format!("{}", path.display()))
 }
 
-fn run(input: &Input) -> anyhow::Result<()> {
-    let groups = GroupStructure::wims69();
-    // テープの読み込みと、核種ごとの処理は独立なので並列に行う
+/// 入力の核種の ENDF のテープを、並列に読む。
+fn read_tapes(nuclides: &[NuclideInput]) -> anyhow::Result<Vec<Tape>> {
     let tapes: Vec<anyhow::Result<Tape>> = std::thread::scope(|scope| {
-        let handles: Vec<_> = input
-            .nuclides
+        let handles: Vec<_> = nuclides
             .iter()
             .map(|nuclide| scope.spawn(|| read_tape(&nuclide.endf)))
             .collect();
@@ -290,17 +310,49 @@ fn run(input: &Input) -> anyhow::Result<()> {
             })
             .collect()
     });
-    let tapes = tapes.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
-    let pointwise_range = pointwise_range(&input.nuclides, &tapes, &groups)?;
-    let settings = Settings {
-        groups,
+    tapes.into_iter().collect()
+}
+
+fn settings_of(input: &Input, pointwise_range: Option<(f64, f64)>) -> Settings {
+    Settings {
+        groups: GroupStructure::wims69(),
         weight: Weight::lwr(),
         sigma0: input.sigma0.clone(),
         thermal_cutoff: THERMAL_CUTOFF,
         tolerance: DEFAULT_TOLERANCE,
         pointwise_range,
         scattering_order: input.scattering_order,
-    };
+    }
+}
+
+fn library_of(settings: Settings, nuclides: Vec<NuclideData>) -> Library {
+    Library {
+        groups: settings.groups,
+        sigma0: settings.sigma0,
+        pointwise_range: settings.pointwise_range.map(|(low, high)| [low, high]),
+        nuclides,
+    }
+}
+
+/// ファイルを書く。DVC は段階の前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
+fn write_file(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
+    let context = || format!("{}", path.display());
+    if let Some(directory) = path.parent() {
+        std::fs::create_dir_all(directory).with_context(context)?;
+    }
+    std::fs::write(path, contents).with_context(context)
+}
+
+fn write_library(library: &Library, path: &Path) -> anyhow::Result<()> {
+    write_file(path, &library.to_msgpack()?)
+}
+
+/// 入力のすべての核種を処理して、ライブラリを書く。
+fn run(input: &Input) -> anyhow::Result<()> {
+    // テープの読み込みと、核種ごとの処理は独立なので並列に行う
+    let tapes = read_tapes(&input.nuclides)?;
+    let pointwise_range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
+    let settings = settings_of(input, pointwise_range);
     let results: Vec<anyhow::Result<NuclideData>> = std::thread::scope(|scope| {
         let handles: Vec<_> = input
             .nuclides
@@ -317,14 +369,50 @@ fn run(input: &Input) -> anyhow::Result<()> {
             .collect()
     });
     let nuclides = results.into_iter().collect::<anyhow::Result<Vec<_>>>()?;
-    let library = Library {
-        groups: settings.groups,
-        sigma0: settings.sigma0,
-        pointwise_range: pointwise_range.map(|(low, high)| [low, high]),
-        nuclides,
-    };
-    std::fs::write(&input.output, library.to_msgpack()?)
-        .with_context(|| format!("{}", input.output.display()))
+    write_library(&library_of(settings, nuclides), &input.output)
+}
+
+/// すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く（`nuclide` の段階の入力になる）。
+fn run_range(input: &Input, out: &Path) -> anyhow::Result<()> {
+    let tapes = read_tapes(&input.nuclides)?;
+    let range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
+    write_file(out, range_to_toml(range).as_bytes())
+}
+
+fn read_range(path: &Path) -> anyhow::Result<Option<(f64, f64)>> {
+    let context = || format!("{}", path.display());
+    let text = std::fs::read_to_string(path).with_context(context)?;
+    range_from_toml(&text).with_context(context)
+}
+
+/// 核種 `name` だけを、`range` のファイルのポイントワイズの範囲で処理して、1 核種のライブラリを書く。
+fn run_nuclide(input: &Input, range: &Path, name: &str, out: &Path) -> anyhow::Result<()> {
+    let nuclide = input
+        .nuclides
+        .iter()
+        .find(|n| n.name == name)
+        .ok_or_else(|| anyhow!("{name} is not in the input"))?;
+    let pointwise_range = read_range(range)?;
+    let settings = settings_of(input, pointwise_range);
+    let data = process_file(nuclide, &read_tape(&nuclide.endf)?, &settings)?;
+    write_library(&library_of(settings, vec![data]), out)
+}
+
+/// `directory` の `<核種>.msgpack`（`nuclide` の結果）を、入力の核種の順に 1 つのライブラリにして書く。
+/// 各結果が入力と `range` のファイルの条件で作られたことを確かめる。
+fn run_assemble(input: &Input, range: &Path, directory: &Path) -> anyhow::Result<()> {
+    let range = read_range(range)?;
+    let mut parts = Vec::with_capacity(input.nuclides.len());
+    for nuclide in &input.nuclides {
+        let path = directory.join(format!("{}.msgpack", nuclide.name));
+        let bytes = std::fs::read(&path).with_context(|| format!("{}", path.display()))?;
+        let part = Library::from_msgpack(&bytes).with_context(|| format!("{}", path.display()))?;
+        check_part(nuclide, &part)
+            .and_then(|()| check_shared(input, range, &part))
+            .with_context(|| format!("{}", path.display()))?;
+        parts.push(part);
+    }
+    write_library(&Library::merge(parts)?, &input.output)
 }
 
 fn read_tape(path: &Path) -> anyhow::Result<Tape> {
@@ -366,6 +454,94 @@ fn pointwise_range(
             "no group bounds between the thermal cutoff {THERMAL_CUTOFF} eV and {top} eV"
         )),
     }
+}
+
+/// `range_to_toml` と `range_from_toml` が書く、ポイントワイズの範囲のファイルの中身。
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct RangeFile {
+    /// 範囲がなければ空の配列
+    pointwise_range: Vec<f64>,
+}
+
+/// ポイントワイズの範囲 (eV) を TOML に書く。範囲がなければ空の配列を書く（項目は欠かさない。ADR-0129）。
+/// 浮動小数点数は、読み直して同じ値になる最短の表記（`{:?}`）で書く。
+fn range_to_toml(range: Option<(f64, f64)>) -> String {
+    match range {
+        Some((low, high)) => format!("pointwise-range = [{low:?}, {high:?}]\n"),
+        None => "pointwise-range = []\n".into(),
+    }
+}
+
+/// `range_to_toml` の形を読む。
+fn range_from_toml(text: &str) -> anyhow::Result<Option<(f64, f64)>> {
+    let file: RangeFile = toml::from_str(text)?;
+    match file.pointwise_range[..] {
+        [] => Ok(None),
+        [low, high] if low > 0.0 && high > low && high.is_finite() => Ok(Some((low, high))),
+        ref other => Err(anyhow!(
+            "pointwise-range must be empty or [low, high] with 0 < low < high, got {other:?}"
+        )),
+    }
+}
+
+/// 核種ごとの結果が、入力のその核種の結果であること（1 核種だけで、名前と温度が入力と同じ）を確かめる。
+fn check_part(nuclide: &NuclideInput, part: &Library) -> anyhow::Result<()> {
+    let [data] = &part.nuclides[..] else {
+        return Err(anyhow!(
+            "{}: expected one nuclide, found {}",
+            nuclide.name,
+            part.nuclides.len()
+        ));
+    };
+    if data.name != nuclide.name {
+        return Err(anyhow!("{}: the result is for {}", nuclide.name, data.name));
+    }
+    let temperatures: Vec<f64> = data.temperatures.iter().map(|t| t.temperature).collect();
+    if temperatures != nuclide.temperatures {
+        return Err(anyhow!(
+            "{}: the result has temperatures {temperatures:?}, the input has {:?}",
+            nuclide.name,
+            nuclide.temperatures
+        ));
+    }
+    Ok(())
+}
+
+/// 核種ごとの結果が、入力と範囲のファイルと同じ条件で作られたこと（群構造、σ0、ポイントワイズの範囲、散乱行列の次数）を
+/// 確かめる。古い結果が残っていても、組み立てが黙って食い違うライブラリを作らないため。
+fn check_shared(input: &Input, range: Option<(f64, f64)>, part: &Library) -> anyhow::Result<()> {
+    if part.groups != GroupStructure::wims69() {
+        return Err(anyhow!("the group structure is not WIMS 69"));
+    }
+    if part.sigma0 != input.sigma0 {
+        return Err(anyhow!(
+            "sigma0 is {:?}, the input has {:?}",
+            part.sigma0,
+            input.sigma0
+        ));
+    }
+    let range = range.map(|(low, high)| [low, high]);
+    if part.pointwise_range != range {
+        return Err(anyhow!(
+            "the pointwise range is {:?}, the range file has {range:?}",
+            part.pointwise_range
+        ));
+    }
+    let orders = input.scattering_order + 1;
+    for data in &part.nuclides {
+        for t in &data.temperatures {
+            if t.scatter.len() != orders {
+                return Err(anyhow!(
+                    "{} at {} K has {} scattering orders, the input has {orders}",
+                    data.name,
+                    t.temperature,
+                    t.scatter.len()
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// 核種を処理する（処理の時間をログに出す）。
@@ -410,6 +586,8 @@ const DEFAULT_SCATTERING_ORDER: usize = 3;
 
 #[cfg(test)]
 mod tests {
+    use xlc_format::library::TemperatureData;
+
     use super::*;
 
     const INPUT: &str = r#"
@@ -575,5 +753,104 @@ temperatures = [293.6, 900]
         // TOML の文法の誤りは位置つきで報告する
         let err = replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1e10, 10").unwrap_err();
         assert!(err.to_string().contains("line"), "{err}");
+    }
+
+    #[test]
+    fn the_pointwise_range_file_round_trips() {
+        for range in [Some((4.0, 9118.0)), Some((0.1 + 0.2, 1.0e5)), None] {
+            let text = range_to_toml(range);
+            assert!(text.contains("pointwise-range"), "{text}");
+            assert_eq!(range_from_toml(&text).unwrap(), range);
+        }
+    }
+
+    #[test]
+    fn rejects_a_bad_pointwise_range_file() {
+        for text in [
+            "",
+            "pointwise-range = [4.0]",
+            "pointwise-range = [4.0, 5.0, 6.0]",
+            "pointwise-range = [5.0, 4.0]",
+            "pointwise-range = [4.0, 4.0]",
+            "pointwise-range = [0.0, 4.0]",
+            "pointwise-range = [4.0, 1e5]\nextra = 1",
+            "pointwise-range = \"4 1e5\"",
+        ] {
+            assert!(range_from_toml(text).is_err(), "{text}");
+        }
+    }
+
+    fn part_of(name: &str, temperatures: &[f64]) -> Library {
+        Library {
+            groups: GroupStructure::wims69(),
+            sigma0: vec![1.0e10],
+            pointwise_range: None,
+            nuclides: vec![NuclideData {
+                name: name.into(),
+                za: 0.0,
+                awr: 1.0,
+                resolved: None,
+                thermal_scattering: false,
+                temperatures: temperatures
+                    .iter()
+                    .map(|&temperature| TemperatureData {
+                        temperature,
+                        chi: Vec::new(),
+                        scatter: Vec::new(),
+                        shielded: Vec::new(),
+                        pointwise: Default::default(),
+                    })
+                    .collect(),
+            }],
+        }
+    }
+
+    #[test]
+    fn a_nuclide_result_must_match_its_input() {
+        let input = parse_input(INPUT, Path::new(".")).unwrap();
+        let uranium = &input.nuclides[1];
+        assert!(check_part(uranium, &part_of("U-238", &[293.6, 900.0])).is_ok());
+        // 名前、温度の値と順、核種の数が入力と違う
+        for part in [
+            part_of("U-235", &[293.6, 900.0]),
+            part_of("U-238", &[293.6]),
+            part_of("U-238", &[900.0, 293.6]),
+            part_of("U-238", &[293.6, 600.0]),
+        ] {
+            assert!(check_part(uranium, &part).is_err());
+        }
+        let mut two = part_of("U-238", &[293.6, 900.0]);
+        two.nuclides.extend(part_of("H-1", &[293.6]).nuclides);
+        assert!(check_part(uranium, &two).is_err());
+        let mut none = part_of("U-238", &[293.6, 900.0]);
+        none.nuclides.clear();
+        assert!(check_part(uranium, &none).is_err());
+    }
+
+    #[test]
+    fn a_nuclide_result_must_share_the_conditions_of_the_input() {
+        let input = parse_input(INPUT, Path::new(".")).unwrap();
+        let range = Some((4.0, 9118.0));
+        let mut part = part_of("U-238", &[293.6, 900.0]);
+        part.sigma0 = input.sigma0.clone();
+        part.pointwise_range = range.map(|(low, high)| [low, high]);
+        for t in &mut part.nuclides[0].temperatures {
+            t.scatter = vec![Vec::new(); input.scattering_order + 1];
+        }
+        assert!(check_shared(&input, range, &part).is_ok());
+        let mut sigma0 = part.clone();
+        sigma0.sigma0 = vec![1.0e10, 5.0, 1.0];
+        let mut groups = part.clone();
+        groups.groups = GroupStructure::new(vec![1.0e7, 1.0, 1.0e-5]).unwrap();
+        let mut order = part.clone();
+        order.nuclides[0].temperatures[1].scatter.pop();
+        let mut other_range = part.clone();
+        other_range.pointwise_range = Some([4.0, 1.0e3]);
+        let mut no_range = part.clone();
+        no_range.pointwise_range = None;
+        for stale in [sigma0, groups, order, other_range, no_range] {
+            assert!(check_shared(&input, range, &stale).is_err());
+        }
+        assert!(check_shared(&input, None, &part).is_err());
     }
 }
