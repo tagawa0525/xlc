@@ -1,7 +1,7 @@
 # VERA の段階: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ（xs）→
 # 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0123）。NJOY と OpenMC を
 # 使う段階は cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps に
-# する（ADR-0127）。Rust の段階の deps は、段階の入力と、そのバイナリを作るコード（ADR-0123。examples/m0/dvc.yaml と同じ並び）。
+# する（ADR-0130）。Rust の段階の deps は、段階の入力と、そのバイナリを作るコード（ADR-0123。examples/m0/dvc.yaml と同じ並び）。
 vars:
   - openmc-library.toml
 stages:
@@ -13,7 +13,7 @@ stages:
       - references-shell.txt:
           cache: false
   openmc-neutron:
-    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ほかの核種の変更で実行しない。ADR-0127）
+    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ほかの核種の変更で実行しない。ADR-0130）
     foreach: ${neutron}
     do:
       cmd: nix develop ../..#references -c python3 openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
@@ -54,7 +54,7 @@ stages:
     outs:
       - openmc-library/cross_sections.xml
   openmc-1B:
-    # ライブラリはディレクトリ全体を deps にする（どの核種が変わっても走るが、組成をコピーした並びの漏れがない。ADR-0127）
+    # ライブラリはディレクトリ全体を deps にする（どの核種が変わっても走るが、組成をコピーした並びの漏れがない。ADR-0130）
     cmd: nix develop ../..#references -c python3 openmc_model.py run p1/openmc-1B.toml p1/openmc-1B
     deps:
       - openmc_model.py
