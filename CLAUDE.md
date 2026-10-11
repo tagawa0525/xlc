@@ -45,6 +45,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 
 - GitHub のリモートはない。PR の代わりに /git-merge でマージする（rebase、チェック、/code-review と指摘への対応、
   `git merge --no-ff`、後片付けを含む）
+- `dvc.yaml` のある例を含むブランチは、/git-merge の rebase のあとに /dvc-relock、マージのあとに同スキルの後半
 - チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する。`checks | tail && git merge`
   のようにつなぐと、失敗してもマージに進む
 - ADR は `design-records check`（`.pre-commit-config.yaml` の hook で、run-checks.sh も `id: design-records` のあるリポジトリで実行する）でも確かめる
