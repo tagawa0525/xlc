@@ -201,7 +201,7 @@ fn pins_round_trip_and_share_cells() {
     }
     let err = table.validate().unwrap_err().to_string();
     assert!(err.contains("pins"), "{err}");
-    // 燃料の CDF で割った角の印も状態の間で同じ（ADR-0125）
+    // 燃料の CDF で割った角の印も状態の間で同じ（ADR-0131）
     let mut table = with_pins(sample());
     if let Some(p) = table.states[1].pins.as_mut() {
         p.normalized_corners[2] = !p.normalized_corners[2];
