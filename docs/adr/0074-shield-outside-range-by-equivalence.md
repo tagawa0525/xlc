@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: [ADR-0023]
 superseded-by:
 issues: ["#0001", "#0006"]
+requires: []
 ---
 
 # ADR-0074: 減速計算の範囲の外は、ライブラリの σ0 の表を等価原理の σ0 で引き、燃料だけを遮蔽する
@@ -60,6 +61,6 @@ docs/plans/m2-assembly.md、256bc5c、2026-10-08）。
 `coefficients_are_ordered_and_betas_sum_to_one`、`black_lattice_has_no_escape`、`isolated_pin_is_not_shadowed`、
 `shields_fuel_and_keeps_moderator_dilute`。被覆管の吸収の OpenMC との比較（上記）。
 
-## 結果
+## 帰結
 
 - 4 eV より下の共鳴の遮蔽の誤差は #0001。構造材の塊への Carlvik の係数の適用は #0006

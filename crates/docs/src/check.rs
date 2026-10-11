@@ -67,6 +67,9 @@ impl Docs {
         check_front(&issues, &ISSUE_KEYS, &ISSUE_STATUSES, "opened", &mut out);
         check_headings(&adrs, &mut out);
         check_supersession(&adrs, &adr_numbers, &mut out);
+        for adr in &adrs {
+            front_refs(adr, "requires", adr_refs, "ADR-", &adr_numbers, &mut out);
+        }
         let adr_issues = adr_issues(&adrs, &issue_numbers, &mut out);
         check_issue_states(&issues, &issue_numbers, &adr_issues, &mut out);
         check_adr_issue_links(&adr_issues, &issues, &mut out);
@@ -169,7 +172,14 @@ impl Docs {
 
 const ADR_DIR: &str = "docs/adr/";
 const ISSUE_DIR: &str = "docs/issues/";
-const ADR_KEYS: [&str; 5] = ["status", "date", "supersedes", "superseded-by", "issues"];
+const ADR_KEYS: [&str; 6] = [
+    "status",
+    "date",
+    "supersedes",
+    "superseded-by",
+    "issues",
+    "requires",
+];
 const ADR_STATUSES: [&str; 5] = [
     "proposed",
     "accepted",
@@ -685,7 +695,7 @@ mod tests {
         format!("#{n:04}")
     }
 
-    /// ADR の本文。見出しは 9 行目。
+    /// ADR の本文。見出しは 10 行目。
     fn adr_text(
         n: u32,
         status: &str,
@@ -700,6 +710,7 @@ mod tests {
             format!("supersedes: {supersedes}"),
             format!("superseded-by: {superseded_by}"),
             format!("issues: {issues}"),
+            "requires: []".to_string(),
             "---".to_string(),
             String::new(),
             format!("# {}: decide something", adr(n)),
@@ -1055,10 +1066,10 @@ mod tests {
         assert_violations(
             files,
             &[
-                format!("{ADR1}:9: first heading must be `# {}: <title>`", adr(1)),
+                format!("{ADR1}:10: first heading must be `# {}: <title>`", adr(1)),
                 format!("{ADR2}: first heading must be `# {}: <title>`", adr(2)),
                 format!(
-                    "docs/adr/0003-keep-c.md:13: first heading must be `# {}: <title>`",
+                    "docs/adr/0003-keep-c.md:14: first heading must be `# {}: <title>`",
                     adr(3)
                 ),
             ],
@@ -1129,6 +1140,44 @@ mod tests {
                 ),
                 format!("{ADR2}: `supersedes` item \"adr-3\" is not ADR-NNNN"),
                 format!("{ADR2}:4: {} does not exist", adr(99)),
+            ],
+        );
+    }
+
+    #[test]
+    fn requires_the_requires_key_on_adrs() {
+        let mut files = base();
+        edit(&mut files, ADR2, "requires: []\n", "");
+        assert_violations(files, &[format!("{ADR2}: front matter has no `requires`")]);
+    }
+
+    #[test]
+    fn accepts_existing_adrs_in_requires() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ADR2,
+            "requires: []",
+            &format!("requires: [{}]", adr(1)),
+        );
+        assert_violations(files, &[]);
+    }
+
+    #[test]
+    fn checks_requires_targets() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ADR2,
+            "requires: []",
+            &format!("requires: [{}, {}, adr-3]", adr(1), adr(99)),
+        );
+        assert_violations(
+            files,
+            &[
+                format!("{ADR2}: `requires` names {}, which does not exist", adr(99)),
+                format!("{ADR2}: `requires` item \"adr-3\" is not ADR-NNNN"),
+                format!("{ADR2}:7: {} does not exist", adr(99)),
             ],
         );
     }
@@ -1467,7 +1516,7 @@ mod tests {
         assert_violations(
             files,
             &[
-                "docs/adr/0003-keep-c.md: code fence opened on line 9 is not closed".to_string(),
+                "docs/adr/0003-keep-c.md: code fence opened on line 10 is not closed".to_string(),
                 format!("{ISSUE1}: code fence opened on line 15 is not closed"),
             ],
         );

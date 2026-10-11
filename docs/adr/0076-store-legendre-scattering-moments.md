@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: ["#0009", "#0014"]
+requires: []
 ---
 
 # ADR-0076: ライブラリの散乱行列を、Legendre のモーメント P0〜P_L で持つ
@@ -46,7 +47,7 @@ M2 の計画はこの項目に、MF6 の角度のデータ（LAW=2 の重心系�
 `free_gas_moments_match_the_s_alpha_beta_table`、`kernel_moments_match_the_free_gas_double_differential`、
 `shielding_scales_every_scattering_moment`、`isotropic_moments_reproduce_p0`。NJOY GROUPR との比較（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 - L は核データの処理の入力にしておらず、xs のコードに 3 で固定してある（`crates/xs/src/main.rs` の `SCATTERING_ORDER`。
   xs.toml に項目がない）。格子計算は、ライブラリにある次数までを入力で選べる。#0014

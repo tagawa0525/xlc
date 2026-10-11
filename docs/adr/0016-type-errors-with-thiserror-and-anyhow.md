@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0016: エラーはライブラリ側を thiserror、コマンド側を anyhow とする
@@ -29,6 +30,6 @@ M2 までのエラーは `String` だった。エラーの種類で分岐でき�
 補助関数には、メッセージを `String` で返して型付きのエラーの variant に包むものがある（例: crates/format/src/library.rs の
 `check`）。
 
-## 結果
+## 帰結
 
 `String` のエラーは M2 の中で移行した。panic しないことは [ADR-0017](0017-forbid-panics-in-production.md)。

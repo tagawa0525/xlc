@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0059, ADR-0061]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0083: 格子を列ごとの幅と行ごとの高さを持つ長方形の格子に一般化し、セルの形を増やす
@@ -43,6 +44,6 @@ M2 の形状は、正方格子に並べたセルと集合体の外周の水ギ�
 `cmfd_accelerates_a_pin_cell`、`cmfd_accelerates_a_lattice_with_a_margin`、`cmfd_accelerates_a_lattice_with_vacuum_sides`、
 `sweep_currents_balance_each_coarse_cell`。
 
-## 結果
+## 帰結
 
 支持格子の枠の遮蔽は [ADR-0086](0086-shield-structural-lumps.md)、[ADR-0088](0088-add-frame-ring-to-equivalent-cell.md)。

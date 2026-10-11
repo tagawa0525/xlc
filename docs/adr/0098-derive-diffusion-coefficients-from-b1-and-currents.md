@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: [ADR-0044]
 superseded-by: ADR-0104
 issues: ["#0021"]
+requires: []
 ---
 
 # ADR-0098: 少数群の拡散係数は、反射境界の集合体では B1 の基本モードの中性子流から、非反射の格子ではまず outflow の輸送断面積から求める
@@ -102,9 +103,9 @@ MOC は非等方散乱を解き、散乱の次数が 1 以上なら、解く途�
   1.446、0.454 cm になった（臨界の B² は 2.82 × 10⁻³、2.85 × 10⁻³ /cm²。examples/vera/verification.md、a9a3e1b、
   2026-10-09）
 - 単一集合体の定数を使う体系で、D の作り方（1/(3Σt)、outflow、B1）ごとに、core の NEM と同じ多群定数の xlc の
-  MOC を比べること（4-2D、REF1-2D）は、まだしていない（「結果」）
+  MOC を比べること（4-2D、REF1-2D）は、まだしていない（「帰結」）
 
-## 結果
+## 帰結
 
 - 非反射の格子の均質化（反射体とカラーセット、[ADR-0095](0095-make-reflector-constants-in-2d-with-normalized-adf.md)）はまだないので、outflow の D は
   `diffusion_coefficients` にあるが、少数群定数の出力（`homogenize`、反射境界だけ）からはまだ使われない

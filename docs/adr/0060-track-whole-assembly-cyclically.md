@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0060: 集合体全体を1組の cyclic tracking で解く
@@ -27,7 +28,7 @@ issues: []
 `lattice_tracks_reflect_at_the_outer_boundary`、`links_join_tracks_at_reflected_points`、`vacuum_sides_have_no_links`、
 `vacuum_lattice_balances_production_with_absorption_and_leakage`。C5G7 との比較（examples/c5g7/verification.md）。
 
-## 結果
+## 帰結
 
 - M3 で、長方形の範囲の cyclic tracking にする（[ADR-0083](0083-generalize-to-rectilinear-lattice.md)）。全体で1組のトラックであることは変わらない
 - 外周の境界条件（鏡面反射、真空、アルベド）は [ADR-0093](0093-choose-lattice-boundary-conditions.md)

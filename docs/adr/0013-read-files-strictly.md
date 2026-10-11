@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: ["#0012"]
+requires: []
 ---
 
 # ADR-0013: ファイルの読み込みは厳密にし、推測で補わない
@@ -35,7 +36,7 @@ issues: ["#0012"]
 `other_formats_are_rejected`、`trailing_bytes_are_rejected`、`non_finite_values_are_rejected`。欠けた `Option` の項目を
 拒むことは確かめておらず、実際に拒まない（#0012）。
 
-## 結果
+## 帰結
 
 - 形式を変えたら古いファイルは読めなくなる（[ADR-0012](0012-drop-backward-compatibility.md)）
 - 多群ライブラリの `NuclideData.resolved` は `Option` で、項目が欠けても `None` として読まれる。この ADR と

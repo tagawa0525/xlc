@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0005", "#0018"]
+requires: []
 ---
 
 # ADR-0122: 記録の数値はコミットと入力で再現し、試行は本番のコードに入力を与えて行う
@@ -91,7 +92,7 @@ docs/adr/README.md）。その hash が何のためにあるか、hash が変わ
   では記録に書いた試行を追跡してよいので、この検査は今のブランチが main のときだけ違反にする
 - そのほかは運用の約束事なので、確かめるテストはない
 
-## 結果
+## 帰結
 
 - #0005 の試行の道具（examples/vera/sab_residuals.patch、sab_residuals.sh、free_gas_heavy.sh）は案 A の形なので、
   main から消す。#0005 の記録はコミットの hash とパスで指しているので、その hash を checkout すれば出し直せる。続けて

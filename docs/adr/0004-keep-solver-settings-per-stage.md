@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0002"]
+requires: []
 ---
 
 # ADR-0004: 段階ごとのソルバの設定は、同じ値でも共有せず段階ごとに持つ
@@ -33,6 +34,6 @@ xs のライブラリの重みの減速計算（`crates/xs/src/multigroup/slowin
 
 xs の値は `finer_grids_do_not_change_the_flux`（xs）で確かめている。lattice の値は確かめていない（#0002）。
 
-## 結果
+## 帰結
 
 - lattice の格子の収束の確認は #0002
