@@ -161,3 +161,7 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
   量っていないので、候補として残る（確認していない）。上の 2 つの試行のツール（sab_residuals.patch、sab_residuals.sh、
   free_gas_heavy.sh）は main からは消した（ADR-0122）。出し直すには、各項に記した hash を checkout して、そのパスの
   ツールを実行する
+- 2026-10-11: 2K（Pyrex 24 本と 2 種の燃料）の k の差（+283 pcm、1/A で +286.3 ± 3.9）を 1B と同じバランスで分けた
+  （examples/vera/verification.md「k の差の内訳」の 2K の節。OpenMC は f1f3cf0c、xlc は 401bac67）。中性子束の差の並びと、水の
+  27 群の群から出る移行の比（+2.42%）は 1B と同じ。水の 14〜27 群の移行を OpenMC のものに置き換えると k は −230 pcm 動いて
+  差は +53 pcm、全群では −303 pcm 動いて差は −20 pcm（1B の k の変化は 27 群 −179、14〜26 群 −98、全群 −348 で、全群で差は −53）。1B と同じ原因が集合体でも大半を占める
