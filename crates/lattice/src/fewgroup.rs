@@ -632,8 +632,8 @@ const CELL_POINTS: usize = 6;
 ///   均質な面の中性子束 = 辺の不均質な中性子束 / ADF、φ̄ はノード平均）
 /// - 均質な角の値を s_p h̃ とし、core と同じ展開（参照のノード平均と辺の正味の中性子流、格子の k）と角の点の
 ///   バランス（`corner_balance`。真空の辺の流れは既知の r Φ_p）で s_p を解く。s_p が正でなければエラー
-/// - CDF = Φ_p / (s_p h̃)。反射体のノードの、角の点が反射体でないノードにも接する角は、それらのノードの CDF の
-///   調和平均で割り、`normalized_corners` に印を付ける
+/// - CDF = Φ_p / (s_p h̃)。反射体のノードの、角の点が燃料（核分裂のある）のノードにも接する角は、それらのノードの
+///   CDF の調和平均で割り、`normalized_corners` に印を付ける
 /// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均（解析的な体積）/（Σf,g × 再構成した均質な中性子束の
 ///   セルの平均）。核分裂のない群とセルは 0
 #[allow(clippy::too_many_arguments)]
@@ -713,13 +713,14 @@ fn node_pins(
             [f[0], f[1]]
         })
         .collect();
+    // [ノード] の並びの位置 (i, j)。どのノードも並びにちょうど 1 回ある（上で確かめた）
+    let mut position = vec![(0, 0); nodes.len()];
+    for (k, &n) in grid.iter().enumerate() {
+        position[n] = (k % nx, k / nx);
+    }
     // ノード n の角 c（-x -y、+x -y、+x +y、-x +y）の角の点
-    let position = |n: usize| {
-        let k = grid.iter().position(|&m| m == n).unwrap_or(0);
-        (k % nx, k / nx)
-    };
     let point = |n: usize, c: usize| {
-        let (i, j) = position(n);
+        let (i, j) = position[n];
         let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
         ci + (nx + 1) * cj
     };
@@ -826,16 +827,22 @@ fn node_pins(
         let mut normalized_corners = vec![false; 4];
         for c in 0..4 {
             let p = point(n, c);
-            // 角の点に接する反射体でないノードの、その点の CDF
-            let fuel: Vec<[f64; 2]> = (0..nodes.len())
-                .filter(|&m| !nodes[m].reflector)
-                .flat_map(|m| {
-                    (0..4)
-                        .filter(move |&d| point(m, d) == p)
-                        .map(move |d| (m, d))
-                })
-                .map(|(m, d)| cdf[m][d])
-                .collect();
+            // 角の点 (ci, cj) を囲む 4 つのノード（左下、右下、右上、左上）のうち燃料（核分裂のある）のノードの、
+            // その点の CDF。core は、どのノードが反射体だったかを知らず、核分裂の有無で燃料を見分ける
+            let (ci, cj) = (p % (nx + 1), p / (nx + 1));
+            let mut fuel: Vec<[f64; 2]> = Vec::with_capacity(4);
+            for (di, dj, d) in [(1, 1, 2), (0, 1, 3), (0, 0, 0), (1, 0, 1)] {
+                let (Some(mi), Some(mj)) = (ci.checked_sub(di), cj.checked_sub(dj)) else {
+                    continue;
+                };
+                if mi >= nx || mj >= ny {
+                    continue;
+                }
+                let m = grid[mi + nx * mj];
+                if is_fissile(&fews[m].nu_fission).map_err(|e| error(format!("node {m}: {e}")))? {
+                    fuel.push(cdf[m][d]);
+                }
+            }
             if node.reflector && !fuel.is_empty() {
                 let harmonic =
                     |g: usize| fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f[g]).sum::<f64>();

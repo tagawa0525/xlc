@@ -380,45 +380,50 @@ fn corner_values(
 }
 
 /// 層 k の [ノード（層の中で i + nx j）][角][群] の CDF。燃料の CDF で割った角（`normalized_corners`。ADR-0125）は、
-/// C* × 角の点に接する、割っていない角のノードの、その点の CDF の調和平均とする（定数を作った格子では、割って
-/// いない角のノードは反射体でないノード）
+/// C* × 角の点に接する燃料（核分裂のある）のノードの、その点の CDF の調和平均とする。印の付いた角の点に燃料の
+/// ノードがなければエラー
 fn corner_factors(problem: &Problem, k: usize) -> Result<Vec<[[f64; 2]; 4]>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
-    let mut pins = Vec::with_capacity(nx * ny);
+    let mut nodes = Vec::with_capacity(nx * ny);
     for local in 0..nx * ny {
-        pins.push(node_constants(problem, local + nx * ny * k)?.1);
+        nodes.push(node_constants(problem, local + nx * ny * k)?);
     }
-    // ノード (i, j) の角 c の角の点
-    let point = |local: usize, c: usize| {
-        let (i, j) = (local % nx, local / nx);
-        let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
-        ci + (nx + 1) * cj
-    };
+    let fissile = |m: &FewGroup| m.nu_fission.iter().any(|&v| v > 0.0);
     (0..nx * ny)
         .map(|local| {
+            let (i, j) = (local % nx, local / nx);
+            let pins = nodes[local].1;
             let mut cdf = [[0.0; 2]; 4];
             for (c, out) in cdf.iter_mut().enumerate() {
-                let own = &pins[local].corners[c];
-                if !pins[local].normalized_corners[c] {
+                let own = &pins.corners[c];
+                if !pins.normalized_corners[c] {
                     *out = [own[0], own[1]];
                     continue;
                 }
-                let p = point(local, c);
-                let plain: Vec<&Vec<f64>> = (0..nx * ny)
-                    .flat_map(|m| (0..4).map(move |d| (m, d)))
-                    .filter(|&(m, d)| point(m, d) == p && !pins[m].normalized_corners[d])
-                    .map(|(m, d)| &pins[m].corners[d])
-                    .collect();
-                if plain.is_empty() {
+                // 角の点 (ci, cj) を囲む 4 つのノード（左下、右下、右上、左上）と、それぞれの、その点の角
+                let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
+                let mut fuel = Vec::with_capacity(4);
+                for (di, dj, d) in [(1, 1, 2), (0, 1, 3), (0, 0, 0), (1, 0, 1)] {
+                    let (Some(mi), Some(mj)) = (ci.checked_sub(di), cj.checked_sub(dj)) else {
+                        continue;
+                    };
+                    if mi >= nx || mj >= ny {
+                        continue;
+                    }
+                    let (m, p) = nodes[mi + nx * mj];
+                    if fissile(m) {
+                        fuel.push(&p.corners[d]);
+                    }
+                }
+                if fuel.is_empty() {
                     return Err(format!(
-                        "node {}: corner {c} is normalized by the fuel factor, but no node at the \
-                         corner point has a plain factor",
+                        "node {}: corner {c} is normalized by the fuel factor, but no fuel node \
+                         touches the corner point",
                         local + nx * ny * k
                     ));
                 }
                 *out = std::array::from_fn(|g| {
-                    let harmonic =
-                        plain.len() as f64 / plain.iter().map(|f| 1.0 / f[g]).sum::<f64>();
+                    let harmonic = fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f[g]).sum::<f64>();
                     own[g] * harmonic
                 });
             }
