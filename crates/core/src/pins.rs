@@ -224,60 +224,8 @@ fn layer(
 /// `halves`。ADR-0108）は、面積で重み付けして1つに戻す。すべて 0 の行と列（集合体の間の余白など）を除き、核分裂の
 /// あるセルの平均で 1 に規格化する（`lattice` の `pin-powers` と同じ規格化）
 pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f64>>, String> {
-    let mesh = &problem.mesh;
-    let (nx, ny, nz) = (mesh.dx.len(), mesh.dy.len(), mesh.dz.len());
-    if maps.len() != nx * ny * nz {
-        return Err(format!(
-            "{} pin maps for {} nodes",
-            maps.len(),
-            nx * ny * nz
-        ));
-    }
-    let (widths, heights) = cell_sizes(problem)?;
-    // [行（-y から）][列] の層の和
-    let mut total: Option<Vec<Vec<f64>>> = None;
-    for k in 0..nz {
-        let layer = &maps[nx * ny * k..nx * ny * (k + 1)];
-        if layer.iter().all(Vec::is_empty) {
-            continue;
-        }
-        let grid = layer_grid(problem, k, layer, (&widths, &heights))?;
-        let sum = total.get_or_insert_with(|| grid.iter().map(|r| vec![0.0; r.len()]).collect());
-        if sum.len() != grid.len() || sum.iter().zip(&grid).any(|(a, b)| a.len() != b.len()) {
-            return Err(format!(
-                "layer {k}: its pin map differs in shape from the other layers"
-            ));
-        }
-        for (s, v) in sum.iter_mut().flatten().zip(grid.iter().flatten()) {
-            *s += mesh.dz[k] * v;
-        }
-    }
-    let total = total.ok_or("no cell has fission")?;
-    // 上の行から
-    let rows: Vec<Vec<f64>> = total.into_iter().rev().collect();
-    let columns = rows.first().map_or(0, Vec::len);
-    let kept: Vec<usize> = (0..columns)
-        .filter(|&c| rows.iter().any(|r| r[c] != 0.0))
-        .collect();
-    let rows: Vec<Vec<f64>> = rows
-        .into_iter()
-        .filter(|r| r.iter().any(|&v| v != 0.0))
-        .map(|r| kept.iter().map(|&c| r[c]).collect())
-        .collect();
-    let fissile: Vec<f64> = rows
-        .iter()
-        .flatten()
-        .copied()
-        .filter(|&v| v > 0.0)
-        .collect();
-    if fissile.is_empty() {
-        return Err("no cell has fission".into());
-    }
-    let mean = fissile.iter().sum::<f64>() / fissile.len() as f64;
-    Ok(rows
-        .into_iter()
-        .map(|r| r.into_iter().map(|v| v / mean).collect())
-        .collect())
+    let fissile = FissileLayers::new(problem, maps)?;
+    Ok(fissile.trim(&fissile.total))
 }
 
 /// 核分裂のある軸方向の層ごとのセルの出力（`axial_rows`）。
@@ -291,9 +239,140 @@ pub struct AxialRows {
     pub layers: Vec<Vec<Vec<f64>>>,
 }
 
-/// 核分裂のある層ごとのセルの出力。
-pub fn axial_rows(_problem: &Problem, _maps: &[Vec<Vec<f64>>]) -> Result<AxialRows, String> {
-    Err("axial pin powers are not implemented".into())
+/// 核分裂のある層ごとのセルの出力。行と列は `core_rows` と同じで、値は線密度（層の値 × 燃料の高さ H / 厚さで重みを
+/// 付けた和の燃料のセルの平均）。厚さで重みを付けた層の平均は `core_rows` の表になる。核分裂のある層は続いていること
+/// （境界を1つの並びで書くため）
+pub fn axial_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<AxialRows, String> {
+    let fissile = FissileLayers::new(problem, maps)?;
+    let dz = &problem.mesh.dz;
+    let ks: Vec<usize> = fissile.layers.iter().map(|(k, _)| *k).collect();
+    if ks.windows(2).any(|w| w[1] != w[0] + 1) {
+        return Err(format!(
+            "the fissile layers {ks:?} are not contiguous, so their bounds are not one sequence"
+        ));
+    }
+    let first = ks.first().copied().ok_or("no cell has fission")?;
+    let mut bounds = vec![dz[..first].iter().sum::<f64>()];
+    for &k in &ks {
+        bounds.push(bounds[bounds.len() - 1] + dz[k]);
+    }
+    let height: f64 = ks.iter().map(|&k| dz[k]).sum();
+    let total = fissile.trim(&fissile.total);
+    let cells = total.iter().flatten().filter(|&&v| v > 0.0).count() as f64;
+    let mut layers = Vec::with_capacity(ks.len());
+    let mut axial = Vec::with_capacity(ks.len());
+    for (_, grid) in &fissile.layers {
+        let layer: Vec<Vec<f64>> = fissile
+            .trim(grid)
+            .into_iter()
+            .map(|r| r.into_iter().map(|v| v * height).collect())
+            .collect();
+        // 燃料のセル（全体の和が正のセル）の平均
+        let sum: f64 = layer
+            .iter()
+            .flatten()
+            .zip(total.iter().flatten())
+            .filter(|(_, t)| **t > 0.0)
+            .map(|(v, _)| v)
+            .sum();
+        axial.push(sum / cells);
+        layers.push(layer);
+    }
+    Ok(AxialRows {
+        bounds,
+        axial,
+        layers,
+    })
+}
+
+/// 核分裂のある層の炉心全体の表と、層の厚さで重みを付けた和
+struct FissileLayers {
+    /// (層の番号, [行（上から）][列])
+    layers: Vec<(usize, Vec<Vec<f64>>)>,
+    /// [行（上から）][列] の厚さで重みを付けた和
+    total: Vec<Vec<f64>>,
+    /// すべて 0 でない行と列
+    rows: Vec<usize>,
+    columns: Vec<usize>,
+    /// 残した行と列の和の、核分裂のあるセルの平均
+    mean: f64,
+}
+
+impl FissileLayers {
+    fn new(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Self, String> {
+        let mesh = &problem.mesh;
+        let (nx, ny, nz) = (mesh.dx.len(), mesh.dy.len(), mesh.dz.len());
+        if maps.len() != nx * ny * nz {
+            return Err(format!(
+                "{} pin maps for {} nodes",
+                maps.len(),
+                nx * ny * nz
+            ));
+        }
+        let (widths, heights) = cell_sizes(problem)?;
+        let mut layers = Vec::new();
+        let mut total: Option<Vec<Vec<f64>>> = None;
+        for k in 0..nz {
+            let layer = &maps[nx * ny * k..nx * ny * (k + 1)];
+            if layer.iter().all(Vec::is_empty) {
+                continue;
+            }
+            // 上の行から
+            let grid: Vec<Vec<f64>> = layer_grid(problem, k, layer, (&widths, &heights))?
+                .into_iter()
+                .rev()
+                .collect();
+            let sum =
+                total.get_or_insert_with(|| grid.iter().map(|r| vec![0.0; r.len()]).collect());
+            if sum.len() != grid.len() || sum.iter().zip(&grid).any(|(a, b)| a.len() != b.len()) {
+                return Err(format!(
+                    "layer {k}: its pin map differs in shape from the other layers"
+                ));
+            }
+            for (s, v) in sum.iter_mut().flatten().zip(grid.iter().flatten()) {
+                *s += mesh.dz[k] * v;
+            }
+            layers.push((k, grid));
+        }
+        let total = total.ok_or("no cell has fission")?;
+        let width = total.first().map_or(0, Vec::len);
+        let columns: Vec<usize> = (0..width)
+            .filter(|&c| total.iter().any(|r| r[c] != 0.0))
+            .collect();
+        let rows: Vec<usize> = (0..total.len())
+            .filter(|&r| total[r].iter().any(|&v| v != 0.0))
+            .collect();
+        let fissile: Vec<f64> = total
+            .iter()
+            .flatten()
+            .copied()
+            .filter(|&v| v > 0.0)
+            .collect();
+        if fissile.is_empty() {
+            return Err("no cell has fission".into());
+        }
+        let mean = fissile.iter().sum::<f64>() / fissile.len() as f64;
+        Ok(Self {
+            layers,
+            total,
+            rows,
+            columns,
+            mean,
+        })
+    }
+
+    /// すべて 0 の行と列を除き、和の燃料のセルの平均で割った表
+    fn trim(&self, grid: &[Vec<f64>]) -> Vec<Vec<f64>> {
+        self.rows
+            .iter()
+            .map(|&r| {
+                self.columns
+                    .iter()
+                    .map(|&c| grid[r][c] / self.mean)
+                    .collect()
+            })
+            .collect()
+    }
 }
 
 /// セルの大きさの並びが、丸めの程度（全体の 1e-9）で等しいか。切ったセルの幅は、回した集合体と回していない集合体で
