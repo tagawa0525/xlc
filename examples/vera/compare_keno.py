@@ -15,6 +15,7 @@ from pathlib import Path
 import msgpack
 
 CAPTIONS = {
+    "2A": "Figure P2-3: Problem 2A (565K) CE KENO-VI Power Distribution Results",
     "2B": "Figure P2-4: Problem 2B (600K) CE KENO-VI Power Distribution Results",
     "2C": "Figure P2-5: Problem 2C (900K) CE KENO-VI Power Distribution Results",
     "2D": "Figure P2-6: Problem 2D (1200K) CE KENO-VI Power Distribution Results",
