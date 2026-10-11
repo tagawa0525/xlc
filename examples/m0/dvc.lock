@@ -30,8 +30,8 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 0d25d3e66a7a6baccad74acc0dd94ba3.dir
-      size: 165669
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
       nfiles: 13
     - path: ../../crates/xs/Cargo.toml
       hash: md5
@@ -39,8 +39,8 @@ stages:
       size: 486
     - path: ../../crates/xs/src
       hash: md5
-      md5: c694170194a1712c5afc6291bd5ed0a2.dir
-      size: 586307
+      md5: 71b36f78bcd6e6bc897c58bf92061c63.dir
+      size: 614786
       nfiles: 38
     - path: ../../flake.lock
       hash: md5
@@ -73,7 +73,7 @@ stages:
     outs:
     - path: wims69.msgpack
       hash: md5
-      md5: ba43490f66c0a194f0357a2b3c69fb22
+      md5: 1943d0c43e0a5023686b829cc4029967
       size: 11516910
   lattice:
     cmd: cargo run --release -p xlc-lattice -- pincell.toml > lattice.out
@@ -105,8 +105,8 @@ stages:
       size: 568
     - path: ../../crates/lattice/src
       hash: md5
-      md5: 5671e594f295dec4cc1810ab21318969.dir
-      size: 986099
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
       nfiles: 30
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -114,8 +114,8 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 0d25d3e66a7a6baccad74acc0dd94ba3.dir
-      size: 165669
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
       nfiles: 13
     - path: ../../flake.lock
       hash: md5
@@ -131,7 +131,7 @@ stages:
       size: 638
     - path: wims69.msgpack
       hash: md5
-      md5: ba43490f66c0a194f0357a2b3c69fb22
+      md5: 1943d0c43e0a5023686b829cc4029967
       size: 11516910
     outs:
     - path: lattice.out
@@ -140,7 +140,7 @@ stages:
       size: 11
     - path: pincell-fg.msgpack
       hash: md5
-      md5: 7651a96cf6e0e348b223bd57762c49d2
+      md5: b444ca6b2da5e1f77bd688e79cb018fb
       size: 476
   core:
     cmd: cargo run --release -p xlc-core -- core.toml > core.out
@@ -163,8 +163,8 @@ stages:
       size: 463
     - path: ../../crates/core/src
       hash: md5
-      md5: a36bfae8d530d78c2b0a99df8919d764.dir
-      size: 230186
+      md5: 46ea20e45031c26d427c7aa1fd989660.dir
+      size: 281980
       nfiles: 9
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -181,8 +181,8 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 0d25d3e66a7a6baccad74acc0dd94ba3.dir
-      size: 165669
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
       nfiles: 13
     - path: ../../flake.lock
       hash: md5
@@ -206,7 +206,7 @@ stages:
       size: 1504
     - path: pincell-fg.msgpack
       hash: md5
-      md5: 7651a96cf6e0e348b223bd57762c49d2
+      md5: b444ca6b2da5e1f77bd688e79cb018fb
       size: 476
     - path: plant.toml
       hash: md5
@@ -215,5 +215,5 @@ stages:
     outs:
     - path: core.out
       hash: md5
-      md5: 14ea60e8e012977ca27df1cd97f06fd0
-      size: 1912
+      md5: a8bbc30d90d1df738b97ab219dc92fe7
+      size: 1969
