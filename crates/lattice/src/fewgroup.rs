@@ -2470,8 +2470,8 @@ mod tests {
                         continue;
                     }
                     let region = lattice.region_at(px - 0.5 * width, py - 0.5 * height);
-                    for g in 0..2 {
-                        want[g] += solution.flux[region][g];
+                    for (w, f) in want.iter_mut().zip(&solution.flux[region]) {
+                        *w += f;
                     }
                     count += 1.0;
                 }
@@ -2507,8 +2507,8 @@ mod tests {
                     let (mut rate, mut area) = ([0.0; 2], 0.0);
                     for region in lattice.cell_regions(cell) {
                         area += volumes[region];
-                        for g in 0..2 {
-                            rate[g] += volumes[region]
+                        for (g, r) in rate.iter_mut().enumerate() {
+                            *r += volumes[region]
                                 * solution.flux[region][g]
                                 * refs[region].fission[g];
                         }
