@@ -39,9 +39,11 @@ pub fn corner_balance(
     let points = (nx + 1) * (ny + 1);
     if nodes.len() != nx * ny || zero.len() != points || known.is_some_and(|k| k.len() != points) {
         return Err(format!(
-            "corner balance: {} nodes and {} corner points for a {nx} × {ny} layer",
+            "corner balance: {} nodes, {} zero marks and {:?} known corner fluxes for a {nx} × {ny} \
+             layer",
             nodes.len(),
-            zero.len()
+            zero.len(),
+            known.map(<[[f64; 2]]>::len)
         ));
     }
     let unknowns = 2 * points;
