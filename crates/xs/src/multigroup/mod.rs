@@ -21,7 +21,7 @@ pub use integrate::{group_integrals, group_integrals_multi};
 pub use outgoing::{AnalyticSpectrum, GroupedLaw, GroupedOutgoing, outgoing_group_integrals};
 #[cfg(test)]
 pub(crate) use sab::tests as sab_tests;
-pub use sab::{SabError, ThermalSab};
+pub use sab::{SabError, SabOutside, ThermalSab};
 pub use scatter::{
     Emission, Reactions, ScatterError, Thermal, emits_neutrons, multiplicity, scattering_matrix,
     scattering_moments, two_body_range, uses_angular,

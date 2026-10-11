@@ -6,8 +6,8 @@ use crate::endf::{
     Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
 };
 use crate::multigroup::{
-    Emission, FreeGas, ReactionAverages, Reactions, SabError, ScatterError, ShieldingError,
-    SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
+    Emission, FreeGas, ReactionAverages, Reactions, SabError, SabOutside, ScatterError,
+    ShieldingError, SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
     fission_spectrum, scattering_moments, shielded_averages, uses_angular,
 };
 use crate::physics::BK;
@@ -469,9 +469,12 @@ impl Common<'_> {
 
         // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
         let thermal = match self.thermal {
-            Some(data) => {
-                Thermal::Sab(ThermalSab::new(data, temperature, settings.thermal_cutoff)?)
-            }
+            Some(data) => Thermal::Sab(ThermalSab::new(
+                data,
+                temperature,
+                settings.thermal_cutoff,
+                SabOutside::Zero,
+            )?),
             None => Thermal::FreeGas(FreeGas {
                 kt: BK * temperature,
                 cutoff: settings.thermal_cutoff,

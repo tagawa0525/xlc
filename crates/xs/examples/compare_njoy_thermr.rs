@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use xlc_format::group::GroupStructure;
 use xlc_xs::endf::Tape;
-use xlc_xs::multigroup::{Reactions, Thermal, ThermalSab, Weight, scattering_matrix};
+use xlc_xs::multigroup::{Reactions, SabOutside, Thermal, ThermalSab, Weight, scattering_matrix};
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::read_thermal_scattering;
 
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let elastic = BTreeMap::from([(2, tables.get(&2).ok_or("no MT2")?.clone())]);
     let awr = xlc_xs::endf::Mf3::parse(&tape.section(mat, 3, 2).ok_or("no MF3 MT2")?)?.awr;
     let data = read_thermal_scattering(&read(tsl)?)?;
-    let sab = ThermalSab::new(&data, temperature, cutoff)?;
+    let sab = ThermalSab::new(&data, temperature, cutoff, SabOutside::Zero)?;
 
     let groups = GroupStructure::wims69();
     let ng = groups.len();

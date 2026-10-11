@@ -968,7 +968,13 @@ mod tests {
         let mut data = coarse_free_gas_table();
         data.temperatures = vec![temperature];
         let cutoff = 1.0;
-        let sab = ThermalSab::new(&data, temperature, cutoff).unwrap();
+        let sab = ThermalSab::new(
+            &data,
+            temperature,
+            cutoff,
+            crate::multigroup::SabOutside::Zero,
+        )
+        .unwrap();
         let tables = BTreeMap::from([(2, constant(elastic))]);
         let m = scattering_matrix(
             &groups,
