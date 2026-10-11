@@ -3,7 +3,8 @@
 xlc の計算は、NJOY（核データ処理）と OpenMC（モンテカルロ計算）の結果と比べて検証する。道具（NJOY、OpenMC と
 その Python API）と評価済み核データは、`flake.nix` の packages で版とハッシュごと固定する（ADR-0124）。
 計算の置き場 `references/` は git で追跡しない。そのうち外から取る入力と道具は、消しても下の手順で作り直せる
-（取る先の分からない仕様書の PDF を除く。道具で作る参照の結果を作り直す段階は #0018 で整える）。
+（取る先の分からない仕様書の PDF を除く）。道具で作る参照の結果は DVC の段階で作り直す（「VERA の参照解」。段階に
+していない問題が残る。#0018）。
 direnv を使う場合は、リポジトリの直下に `use flake` と書いた `.envrc` を置き（手元の設定として git では追跡しない）、
 一度 `direnv allow` すると、`default` の devShell に自動で入る。
 
@@ -83,16 +84,35 @@ nix develop .#references -c sh -c \
 ## VERA の参照解
 
 VERA Problem 1B〜1D, 2A〜2K, 2Q の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
-データで OpenMC を動かして作る（`examples/vera/`）。データは `references/openmc/endfb80/` に置く。温度は核種の組ごとに
-渡す（565 K は燃料、冷却材、被覆管の核種を 565 K でも作り、H in H2O の S(α,β) は 550 K と 573.6 K の内挿。ADR-0080）:
+データで OpenMC を動かして作る（温度は examples/vera/openmc-library.toml。565 K は燃料、冷却材、被覆管の核種を 565 K でも
+作り、H in H2O の S(α,β) は 550 K と 573.6 K の内挿。ADR-0080）。段階は examples/vera/dvc.yaml にあり（ADR-0127）、`default` の devShell で、
+リポジトリ（worktree）の直下から走らせる:
 
 ```sh
-nix develop .#references -c python3 examples/vera/openmc_library.py references/endf references/openmc/endfb80 8 \
-  --fuel 565 600 900 1200 --coolant-and-clad 565 600 --others 600 --thermal 550 573.6 600
-nix develop .#references -c sh -c \
-  'OMP_NUM_THREADS=16 python3 examples/vera/openmc_model.py references/openmc/endfb80/cross_sections.xml 2B \
-     references/openmc/work-2B 1000000 400 100 1'
+dvc repro examples/vera/dvc.yaml              # すべて
+dvc repro examples/vera/dvc.yaml:compare-1B   # 1B の比較と、それに要る段階だけ
 ```
+
+NJOY と OpenMC を使う段階は、cmd が `nix develop ../..#references -c` で `references` の devShell に入るので、
+`dvc repro` を `references` の devShell の中で走らせない（cargo と dvc がない）。1 分を超えるので、`dvc repro` 全体を
+Slurm で流す（CLAUDE.md の「計算」）。
+
+| 段階                                               | 入力                            | 出力（examples/vera/ の下）                                              |
+| -------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
+| `references-shell`                                 | flake                           | `references-shell.txt`（`references` の devShell の store のパス）       |
+| `openmc-neutron@<核種>`、`openmc-thermal@<散乱則>` | `openmc-library.toml`           | `openmc-library/neutron/<核種>.h5`、`openmc-library/thermal/<散乱則>.h5` |
+| `openmc-index`                                     | `openmc-library.toml`           | `openmc-library/cross_sections.xml`                                      |
+| `openmc-1B`                                        | `p1/openmc-1B.toml`             | `p1/openmc-1B/`（statepoint、summary、model.xml）                        |
+| `openmc-1B-extract`                                | `p1/openmc-1B.toml`             | `p1/openmc-1B-results/k.json`                                            |
+| `xs`、`lattice-1B`                                 | `xs.toml`、`p1/pincell-1B.toml` | `vera.msgpack`、`p1/lattice-1B.out`                                      |
+| `compare-1B`                                       |                                 | `p1/compare-1B.out`（xlc と OpenMC の k の差）                           |
+
+計算の条件（核種と温度、粒子数、世代、捨てる世代、乱数の種、スレッド数）は入力の TOML に書く。スクリプトに既定値は
+なく、足りないキーと知らないキーで止まる。出力は `references/dvc-cache` にキャッシュされ、`dvc checkout
+examples/vera/dvc.yaml` で戻せる。ほかの問題（1C〜2K、2A、2Q）は、`p1/openmc-1B.toml` と同じ形の入力と、`openmc-1B`、
+`openmc-1B-extract` と同じ形の段階を足して走らせる（#0018）。段階にするまでは、同じ入力を作って
+`python3 examples/vera/openmc_model.py run <入力> <作業ディレクトリ>` と `extract <入力> <作業ディレクトリ> <結果の
+ディレクトリ>` を `references` の devShell で走らせる。
 
 同じ多群定数で OpenMC の多群モードと比べる（examples/vera/verification.md の「同じ多群定数での OpenMC との比較」）には、
 負にならない散乱核のライブラリと、そこから多群定数を作ってから解く。格子の入力は `library` をそのライブラリに、

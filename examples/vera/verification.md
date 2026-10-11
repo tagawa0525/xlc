@@ -6,7 +6,7 @@ CASL の VERA Core Physics Benchmark Problems（CASL-U-2012-0131-004）のうち
 毒物のない 565 K の集合体（2A）と、2A の各セルに Zircaloy-4 の支持格子を入れた集合体（2Q）。減速材と被覆管は 600 K（ホウ素 1300 ppm。2B〜2D は 0.661 g/cc、2E〜2K は 0.743 g/cc）、燃料は 600、900、1200 K
 （2E〜2K は 600 K）。2A と 2Q は燃料、被覆管、減速材が 565 K、減速材 0.743 g/cc。参照解は、
 xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC を動かして作る（核データの違いを比較から除くため。
-[ADR-0031](../../docs/adr/0031-verify-against-openmc-with-same-data.md)）。手順は docs/environment.md の「VERA の参照解」。
+[ADR-0031](../../docs/adr/0031-verify-against-openmc-with-same-data.md)）。手順は docs/environment.md の「VERA の参照解」で、1B は examples/vera/dvc.yaml の段階（[ADR-0127](../../docs/adr/0127-drive-reference-results-with-dvc.md)）。
 
 | ファイル                        | 内容                                                                                                                                            |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,8 +16,10 @@ xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC 
 | `p2/assembly-2E-empty.toml`     | 2E の Pyrex の棒を抜いたもの（仕様書にない。減速材の密度と吸収体の効果を分けるため）                                                            |
 | `p2/openmc-2B.msgpack` など     | 参照解のピン出力（行は上から、核分裂のあるピンの平均で 1 に規格化。git で追跡しない。ADR-0121）                                                 |
 | `p2/lattice-9x9-vacuum.toml` 他 | 2B の燃料ピンの、右の辺が真空の格子と core の 1 ノードの比較（「真空の辺のある格子の ADF」の節）                                                |
-| `openmc_library.py`             | ENDF/B-VIII.0 から OpenMC の連続エネルギーのデータを作る                                                                                        |
-| `openmc_model.py`               | 1B〜1D、2A〜2K、2Q を OpenMC で解く。ピン出力と、燃料の核種ごとの実効断面積を書く                                                               |
+| `dvc.yaml`、`dvc.lock` | 参照解のライブラリ、OpenMC、xlc、比較の段階（ADR-0127。いまは 1B） |
+| `openmc_library.py` | ENDF/B-VIII.0 から OpenMC の連続エネルギーのデータを作る。入力は `openmc-library.toml` |
+| `openmc_model.py` | 1B〜1D、2A〜2K、2Q を OpenMC で解き（run）、statepoint から k、ピン出力、燃料の核種ごとの実効断面積を抜く（extract）。入力は `p1/openmc-1B.toml` の形 |
+| `compare_k.py` | xlc の格子計算と OpenMC の k を比べる |
 | `compare_h1_temperatures.py`    | 565 K で処理した H-1 と、550 K と 573.6 K の内挿を比べる（「参照解の側の近似」）                                                                |
 | `openmc_mg.py`                  | xlc の多群定数で OpenMC の多群モードを解く                                                                                                      |
 | `compare_pins.py` など          | xlc と OpenMC のピン出力、燃料とピンの実効断面積を比べる                                                                                        |
@@ -397,9 +399,10 @@ xlc は `homogeneous` の例（[`crates/lattice/examples/homogeneous.rs`](../../
 c_H_in_H2O）。核種を減らした媒質は、残す核種の個数密度を変えない。8cdbcaab、2026-10-11。
 
 ```sh
-python3 examples/vera/homogeneous_medium.py 1B all.toml [残す核種 ...]   # references の devShell で
+# リポジトリの直下で。python3 は references の devShell の中、cargo は default の devShell の中
+python3 examples/vera/homogeneous_medium.py 1B all.toml [残す核種 ...]
 cargo run --release -p xlc-lattice --example homogeneous -- all.toml examples/vera/vera.msgpack
-python3 ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml all.toml work 200000 300 50 1
+python3 examples/vera/openmc_homogeneous.py examples/vera/openmc-library/cross_sections.xml all.toml references/openmc/work 200000 300 50 1
 ```
 
 （8cdbcaab の `openmc_homogeneous.py` は k だけを書き、ライブラリの引数がない。いまは作業ディレクトリの次にライブラリを
@@ -429,13 +432,14 @@ statepoint から世代ごとの値を求める）、xlc は `homogeneous` の�
 行を OpenMC の移行の率 / 中性子束に置き換え、正味の吸収と生成は変えない）。cfd29ec7、2026-10-11。
 
 ```sh
-python3 ../../examples/vera/openmc_homogeneous.py endfb80/cross_sections.xml h-u5-u8.toml work \
-  ../../examples/vera/vera.msgpack 200000 150 50 1
+# リポジトリの直下で（上と同じ devShell の使い分け）
+python3 examples/vera/openmc_homogeneous.py examples/vera/openmc-library/cross_sections.xml h-u5-u8.toml references/openmc/work \
+  examples/vera/vera.msgpack 200000 150 50 1
 cargo run --release -p xlc-lattice --example homogeneous -- h-u5-u8.toml examples/vera/vera.msgpack --balance xlc.msgpack
-python3 examples/vera/compare_balance.py xlc.msgpack work/balance.msgpack examples/vera/vera.msgpack 1e5 15030 4 0.625
-python3 examples/vera/compare_groups.py xlc.msgpack work/balance.msgpack examples/vera/vera.msgpack
+python3 examples/vera/compare_balance.py xlc.msgpack references/openmc/work/balance.msgpack examples/vera/vera.msgpack 1e5 15030 4 0.625
+python3 examples/vera/compare_groups.py xlc.msgpack references/openmc/work/balance.msgpack examples/vera/vera.msgpack
 cargo run --release -p xlc-lattice --example homogeneous -- h-u5-u8.toml examples/vera/vera.msgpack \
-  --swap work/balance.msgpack H-1:27-27
+  --swap references/openmc/work/balance.msgpack H-1:27-27
 ```
 
 釣り合いは閉じる: OpenMC の正味の吸収からの 1/A は、H-1・U-235 で 1.888216 ± 0.000023（k の推定値 1.888213 ± 0.000109）、
@@ -487,11 +491,11 @@ OpenMC との k の差（1B で +295 pcm、#0005）を、物質ごと・群ご�
 どちらも 36b35da7 で解いた、2026-10-11。
 
 ```sh
+# リポジトリの直下で。openmc_balance.py は references の devShell の中で、16 スレッドで約 1 時間（Slurm で流す）
 cargo run --release -p xlc-lattice --example balance -- examples/vera/p1/pincell-1B.toml xlc-1B.msgpack
-# references/openmc で（nix develop ../..#references の中）。16 スレッドで約 1 時間
-python3 ../../examples/vera/openmc_balance.py endfb80/cross_sections.xml 1B work \
-  ../../examples/vera/vera.msgpack 1000000 250 50 1
-python3 examples/vera/compare_balance.py xlc-1B.msgpack work/balance.msgpack examples/vera/vera.msgpack
+python3 examples/vera/openmc_balance.py examples/vera/openmc-library/cross_sections.xml 1B references/openmc/work \
+  examples/vera/vera.msgpack 1000000 250 50 1
+python3 examples/vera/compare_balance.py xlc-1B.msgpack references/openmc/work/balance.msgpack examples/vera/vera.msgpack
 ```
 
 σ は OpenMC の世代ごとの値の標準誤差で、同じ粒子の追跡から出る生成、吸収、中性子束の相関、規格化の生成、群の範囲の外の
