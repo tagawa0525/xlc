@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-11
 supersedes: []
 superseded-by:
@@ -12,7 +12,7 @@ issues: ["#0018"]
 
 xlc の計算は、入力のファイルから出力のファイルを作る段階の連なりである（xs → ライブラリ → lattice → core、NJOY →
 OpenMC のライブラリ → OpenMC、xlc と OpenMC の比較）。どの段階を実行するか、もう実行してあるかは、人と run shell
-（examples/m0/run.sh など）が判断していた。何が何から作られたかは、記録に添えたコミットの hash と手順から辿るしかなく、
+（examples/m1/run.sh など）が判断していた。何が何から作られたかは、記録に添えたコミットの hash と手順から辿るしかなく、
 手元の生成物（ライブラリ、OpenMC の結果）がどのコードと入力から作られたものかは、どこにも残っていない。
 
 ADR-0122 は、記録の hash を checkout すれば当時の結果を出し直せることを求め、結果を変えない変更（rebase、文書）では
@@ -98,15 +98,22 @@ ADR-0122 は、記録の hash を checkout すれば当時の結果を出し直�
 
 ## 確認
 
-M0（examples/m0/dvc.yaml の xs → lattice → core）で、次を確かめる（実装の PR で書く）。
+M0（examples/m0/dvc.yaml の xs → lattice → core）で確かめた（599870ee、2026-10-11）。
 
-- 最初の `dvc repro` が 3 段階を順に実行し、`dvc.lock` を書く
-- 2 回目の `dvc repro` が何も実行しない
-- 入力を変えると、その段階と、出力が変わった下流の段階だけが走る
+- 最初の `dvc repro examples/m0/dvc.yaml`（Slurm）が 3 段階を順に走らせ（U-238 の xs が 55 s、core が 9.4 s）、
+  `dvc.lock` を書いた
+- 2 回目は 3 段階とも「didn't change」で何も走らせなかった（1.6 s）
+- `pincell.toml` のピッチを変えると、xs は走らず、lattice と core が走った（k∞ 0.7316 → 0.7415）。戻すと、lattice と
+  core は run-cache から出力を戻して走らず、`dvc.lock` は最初のものとバイト単位で一致した
+- `pincell.toml` のコメントだけを変えると lattice は走ったが、出力の `pincell-fg.msgpack` の md5 が変わらないので、
+  core は走らなかった
+- キャッシュは `references/dvc-cache` にでき、消した `wims69.msgpack` を `dvc checkout` が reflink で戻した（リンク数 1 で、
+  hardlink でない）。reflink のできない tmpfs（/dev/shm）で同じ設定にすると、`dvc checkout` は copy に戻らず
+  「no more link types left to try out」で止まった
 
 ## 結果
 
-- 段階を DVC で実行するのは、この ADR のブランチでは M0 だけである。ほかの例（M1、VERA、MOX など）と、参照の結果
+- 段階を DVC で実行しているのは M0 だけである（M0 の run.sh は消した）。ほかの例（M1、VERA、MOX など）と、参照の結果
   （NJOY → OpenMC のライブラリ → OpenMC、比較）を DVC のステージにするのは #0018 の次のブランチで行う。ツール（NJOY、
   OpenMC）の作り方は ADR-0031 のままで、変えるならそのブランチの ADR が置き換える
 - キャッシュは、同じ出力の古い版も残すので増えていく。`dvc gc` で消す（どの版を残すかは `--workspace`、
