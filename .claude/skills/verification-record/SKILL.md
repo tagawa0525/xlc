@@ -39,7 +39,7 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 
 ## rebase のあと
 
-記録のコミットの hash は、`remap.commitRefs` が true のリポジトリでは、rebase と amend のあとに post-rewrite hook が
+記録のコミットの hash は、`remap.commitRefs` が true のリポジトリでは、rebase のあとに post-rewrite hook が（rebase の途中の amend では呼ばず、rebase の終わりに一度だけ呼ぶ）
 `commit-refs remap` で付け替える。コミットはしないので、`git diff` で付け替えた記録を確かめてコミットする（件名の例:
 `docs: point the records at the rebased commits`）。測り直さない（ADR-0122）。
 
