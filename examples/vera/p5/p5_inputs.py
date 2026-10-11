@@ -729,14 +729,16 @@ map = {grid_text(map_rows)}
 {blocks}"""
 
 
-def case(name: str, comment: str) -> str:
+def case(name: str, comment: str, outline: bool = True) -> str:
+    """計算のケース。`outline` は炉心の形に `-` があること（外形の面の条件を書く。ADR-0132）"""
+    face = ', outline = "vacuum"' if outline else ""
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 {comment}
 cycle = "core-{name}-cycle.toml"
 axial-mesh = [0.0, {HEIGHT}]
 radial-nodes = 1
 pin-powers = "core-{name}-pins.msgpack"
-boundary = {{ x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["reflective", "reflective"], outline = "vacuum" }}
+boundary = {{ x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["reflective", "reflective"]{face} }}
 """
 
 
@@ -872,7 +874,9 @@ def core_files() -> dict[str, str]:
             loading_of(small_designs, 5),
         )
         files[f"core-small-{nxt}.toml"] = case(
-            f"small-{nxt}", "# 最小の入力（small-moc.toml の体系）を core で解く。"
+            f"small-{nxt}",
+            "# 最小の入力（small-moc.toml の体系）を core で解く。外周の直方体は真空、z は鏡面反射。",
+            outline=False,
         )
     step = fuel_set(COUNTS_STEP)
     step_designs = {p: "31" for p in step}
