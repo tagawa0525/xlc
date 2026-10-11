@@ -355,7 +355,7 @@ fn fuel_and_reflector(fuel_corners: Vec<Vec<f64>>, reflector: FewGroup) -> Probl
 
 #[test]
 fn normalized_reflector_corners_take_the_fuel_corner_factor() {
-    // 燃料の CDF で割った反射体の角（ADR-0125）の CDF は、C* × 角の点に接する燃料のノードの CDF（調和平均）。
+    // 燃料の CDF で割った反射体の角（ADR-0131）の CDF は、C* × 角の点に接する燃料のノードの CDF（調和平均）。
     // 同じ値を割らずに書いた反射体と同じ再構成になり、反射体のノードの出力は 0
     let fuel_corners = vec![
         vec![1.1, 0.9],

@@ -144,7 +144,7 @@ pub fn nodes_at_point(nx: usize, ny: usize, ci: usize, cj: usize) -> Vec<(usize,
         .collect()
 }
 
-/// 燃料の CDF で割った角の大きさ H_p: 角の点に接する燃料のノードの CDF の調和平均（ADR-0125）。lattice は CDF を
+/// 燃料の CDF で割った角の大きさ H_p: 角の点に接する燃料のノードの CDF の調和平均（ADR-0131）。lattice は CDF を
 /// これで割り、core はこれを掛ける。燃料がなければ `None`
 pub fn fuel_harmonic_mean(fuel: &[f64]) -> Option<f64> {
     (!fuel.is_empty()).then(|| fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f).sum::<f64>())

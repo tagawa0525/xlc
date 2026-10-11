@@ -476,7 +476,7 @@ fn rotation_turns_pins_counterclockwise() {
             vec![3.0, 3.5]
         ]
     );
-    // 燃料の CDF で割った角の印は角の量と同じく回す（ADR-0125）
+    // 燃料の CDF で割った角の印は角の量と同じく回す（ADR-0131）
     assert_eq!(r.normalized_corners, vec![false, true, false, false]);
     // 分け合ったセルの印は辺の量と同じく回す（右の辺の印は上の辺に来る）
     assert_eq!(r.halves, vec![false, false, true, false]);
