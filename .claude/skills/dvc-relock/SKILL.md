@@ -107,7 +107,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    `$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` の対応表で `commit-refs remap <そのファイル>` を呼び直す
    （詳細は verification-record の「rebase のあと」の節）。手で対応表を作るのは、この対応表が無いときだけ。rebase の前の tip
    （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
-   書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。付け替えのコミットは `docs:` で分ける。
+   書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。再実行した段階の新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
 この後は /git-merge の「チェック」に進む。
 
