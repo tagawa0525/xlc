@@ -20,7 +20,7 @@ OpenMC と比べ直したのは、1B のピンセルと 1B を混ぜた均質な
   差の変化、2K のバランス、離散化の誤差の基準など）
 - `thermal` を使う他の例のライブラリ（examples/m1、mox、reflector、branches の xs.toml。既定値が変わる）と、その記録
 
-関係する ADR: なし（ADR-0133 のフロントマターの `issues` は #0005）
+関係する ADR: なし
 
 ## 完了の条件
 
