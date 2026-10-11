@@ -25,7 +25,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 ## 計算
 
 - 重い計算（OpenMC、NJOY、ライブラリの作り直し、xlc の集合体以上、時間を記録する測定）は、Slurm で 1 本ずつ流す:
-  `sbatch --exclusive --wait --export=ALL -J <名前> -o <ログ> --wrap='<コマンド>'`。直接実行せず、`pgrep` で他の計算を監視しない
+  `~/.claude/scripts/slurm-run.sh -t <見積もり> <名前> '<コマンド>'`（排他で、終わるまで待つ）。直接の `sbatch` は hook が止める。直接実行せず、`pgrep` で他の計算を監視しない。時間を記録しない長い計算は `-c <CPU 数>`（ハードウェアスレッドで数える）を付けて排他なしに流せるが、その時間は記録に書かない。
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）で段階を
   実行し、手で段階を選ばない（rebase のあとに数秒の段階だけ `-s` で再実行する /dvc-relock は例外）。重いときは `dvc repro`
@@ -39,7 +39,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
   コミットと分岐点（main のコミット）を書く。rebase で deps が変わっても走らせ直さず、分岐点から復元する。数秒で終わる
   段階だけは再実行してよい（ADR-0130）。rebase で hash が変わっても
-  測り直さず、ツール（remap-commit-refs.sh）で付け替える。文書やテストの変更で hash が最新でなくなっても測り直さない。
+  測り直さず、ツール（`commit-refs remap`。rebase と amend では、`remap.commitRefs` が true なら post-rewrite hook が自動で呼ぶ（失敗したときだけ手で呼ぶ）。付け替えはコミットされないので、自分でコミットする）で付け替える。文書やテストの変更で hash が最新でなくなっても測り直さない。
   再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）
 
 ## 作業の流れ
