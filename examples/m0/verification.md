@@ -73,3 +73,9 @@ k の値は実機（k∞ 約 1.3）よりかなり低い。主な原因は次の
 | 前の1つの入力（main の 48d7bd2 の core） | 0.723150 | 0.0110                   | —        |
 
 同じ少数群定数（このコミットの lattice で作った `pincell-fg.msgpack`）で、前の入力と k と漏れが一致する。
+
+## 結果を変えないことを確かめた変更
+
+- 再構成の展開と角の点のバランスを xlc-numeric に移し、格子のノードごとの形状関数と角の不連続因子を加えた
+  （[ADR-0125](../../docs/adr/0125-derive-corner-factors-from-lattice-corner-balance.md)）: `dvc repro` で 3 つの段階を流し直し、出力（`wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out`、
+  `core.out`）の md5 は `dvc.lock` の前の値と同じだった（610a1f3f、2026-10-11）
