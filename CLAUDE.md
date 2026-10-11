@@ -35,7 +35,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0130）。
   NJOY と OpenMC を使う段階は cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
   devShell で実行する
-- 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。rebase で hash が変わっても
+- 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
+  コミットと分岐点（main のコミット）を書く。rebase で deps が変わっても走らせ直さず、分岐点から復元する。数秒で終わる
+  段階だけは再実行してよい（ADR-0130）。rebase で hash が変わっても
   測り直さず、ツール（remap-commit-refs.sh）で付け替える。文書やテストの変更で hash が最新でなくなっても測り直さない。
   再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）
 
