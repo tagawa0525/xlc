@@ -15,6 +15,16 @@ pub fn axial(few: &FewGroup, width: f64) -> Result<FewGroup, String> {
         return Err("axial constants have no pins (form functions are radial)".into());
     }
     few.validate().map_err(|e| e.to_string())?;
+    // 上下の辺（炉心の径方向）は鏡面反射で、z の辺は2次元の格子の値（1）であること。違えば横に一様な平板の定数でない
+    if few.vacuum_ratio[2..].iter().any(Option::is_some)
+        || few.normalized_adf[2..].iter().any(|&m| m)
+        || few.adf[4..].iter().flatten().any(|&f| f != 1.0)
+    {
+        return Err(
+            "axial constants need a slab with reflective top and bottom sides and unit z factors"
+                .into(),
+        );
+    }
     let ng = few.groups();
     let mut out = few.clone();
     out.adf = vec![vec![1.0; ng]; 4];
