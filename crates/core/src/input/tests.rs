@@ -1,5 +1,5 @@
 use super::*;
-use crate::nem::Solution;
+use crate::nem::{Boundary, Solution};
 
 const PLANT: &str = r#"
 pitch = 21.5
@@ -165,11 +165,72 @@ fn reflectors_can_be_rotated() {
     );
 }
 
+/// 外形の面の条件を書いたケース（ADR-0132）
+fn outlined_case() -> Case {
+    let text = edited(
+        CASE,
+        "z = [\"reflective\", \"reflective\"] }",
+        "z = [\"reflective\", \"reflective\"], outline = \"vacuum\" }",
+    );
+    Case::parse(&text, base()).unwrap()
+}
+
 #[test]
-fn plant_outline_waits_for_issue_0034() {
-    let err =
-        Plant::parse(&edited(PLANT, "\"R  *  R\",\n]", "\"-  *  R\",\n]"), base()).unwrap_err();
-    assert!(err.to_string().contains("#0034"), "{err}");
+fn dashes_mark_positions_without_nodes() {
+    // `-` はノードを置かない位置（ADR-0132）。サイクルの装荷図ではその位置を `.` にし、ケースに外形の面の条件を書く
+    let p = Plant::parse(&edited(PLANT, "\"R  *  R\",\n]", "\"-  *  R\",\n]"), base()).unwrap();
+    let layout = layout_of(&outlined_case(), &cycle(), &p).unwrap();
+    // 図の下の行（y = 0）の左の列（x = 0）。並びは x が最も速く、次に y、z
+    for z in 0..3 {
+        assert_eq!(layout.node_material[6 * z], None, "z = {z}");
+        assert!(layout.node_material[1 + 6 * z].is_some());
+        assert!(layout.node_material[3 + 6 * z].is_some());
+    }
+    assert_eq!(layout.ids[1][0], None);
+    let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
+    let problem = layout.problem(&unsplit(&constants)).unwrap();
+    assert_eq!(problem.outline, Some(Boundary::Vacuum));
+    assert_eq!(problem.node_material, layout.node_material);
+}
+
+#[test]
+fn invalid_outlines_are_errors() {
+    let dashed =
+        Plant::parse(&edited(PLANT, "\"R  *  R\",\n]", "\"-  *  R\",\n]"), base()).unwrap();
+    // `-` があるのに外形の条件がない、`-` がないのに外形の条件がある
+    let err = layout_of(&case(), &cycle(), &dashed)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("outline"), "{err}");
+    let err = layout_of(&outlined_case(), &cycle(), &plant())
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("outline"), "{err}");
+    // `-` に集合体を置く
+    let loaded = Cycle::parse(
+        &edited(CYCLE, "\".  J02@90   .\"", "\"J03  J02@90   .\""),
+        base(),
+    )
+    .unwrap();
+    let err = layout_of(&outlined_case(), &loaded, &dashed)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("J03"), "{err}");
+    // ノードに囲まれた `-`（図の端まで `-` だけをたどって出られない）は、炉心の中の真空の穴になる
+    let enclosed = edited(
+        PLANT,
+        "map = [\n  \"R  *  R\",\n  \"R  *  R\",\n]",
+        "map = [\n  \"R  *  R\",\n  \"R  -  R\",\n  \"R  *  R\",\n]",
+    );
+    let err = Plant::parse(&enclosed, base()).unwrap_err().to_string();
+    assert!(err.contains("enclosed"), "{err}");
+    // 端まで `-` でつながれば受け付ける
+    let open = edited(
+        PLANT,
+        "map = [\n  \"R  *  R\",\n  \"R  *  R\",\n]",
+        "map = [\n  \"-  -  R\",\n  \"R  -  R\",\n  \"R  *  R\",\n]",
+    );
+    assert!(Plant::parse(&open, base()).is_ok());
 }
 
 #[test]
