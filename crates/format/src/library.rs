@@ -230,6 +230,38 @@ impl Library {
         Ok(msgpack::to_named(&file)?)
     }
 
+    /// 同じ群構造、σ0、ポイントワイズの範囲を持つライブラリを、核種を並べて 1 つにする（核種の順は `parts` の順）。
+    /// 核種ごとに処理した結果を組み立てるのに使う。
+    pub fn merge(parts: Vec<Library>) -> Result<Library, LibraryError> {
+        let mut parts = parts.into_iter();
+        let mut merged = parts
+            .next()
+            .ok_or_else(|| LibraryError::Invalid("no library to merge".into()))?;
+        for part in parts {
+            let differs =
+                |what: &str| LibraryError::Invalid(format!("the libraries differ in {what}"));
+            if part.groups != merged.groups {
+                return Err(differs("the group structure"));
+            }
+            if part.sigma0 != merged.sigma0 {
+                return Err(differs("sigma0"));
+            }
+            if part.pointwise_range != merged.pointwise_range {
+                return Err(differs("the pointwise range"));
+            }
+            for nuclide in part.nuclides {
+                if merged.nuclides.iter().any(|n| n.name == nuclide.name) {
+                    return Err(LibraryError::Invalid(format!(
+                        "nuclide {} appears twice",
+                        nuclide.name
+                    )));
+                }
+                merged.nuclides.push(nuclide);
+            }
+        }
+        Ok(merged)
+    }
+
     /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。
     pub fn from_msgpack(bytes: &[u8]) -> Result<Self, LibraryError> {
         let value = msgpack::read_value(bytes)?;
@@ -707,6 +739,43 @@ pub(crate) mod tests {
                 nuclide("H-1", false, &[293.6]),
             ],
         }
+    }
+
+    /// `sample()` の核種 `index` だけを持つライブラリ
+    fn part(index: usize) -> Library {
+        let mut library = sample();
+        library.nuclides = vec![library.nuclides.swap_remove(index)];
+        library
+    }
+
+    #[test]
+    fn merge_joins_the_nuclides_in_order() {
+        let merged = Library::merge(vec![part(0), part(1)]).unwrap();
+        assert_eq!(merged, sample());
+        let reversed = Library::merge(vec![part(1), part(0)]).unwrap();
+        let names: Vec<_> = reversed.nuclides.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, ["H-1", "U-235"]);
+    }
+
+    #[test]
+    fn merge_rejects_libraries_that_do_not_share_the_grids() {
+        let mut sigma0 = part(1);
+        sigma0.sigma0 = vec![1.0e10, 5.0];
+        let mut groups = part(1);
+        groups.groups = GroupStructure::new(vec![1.0e7, 1.0, 1.0e-5]).unwrap();
+        let mut range = part(1);
+        range.pointwise_range = Some([4.0, 1.0e3]);
+        let mut no_range = part(1);
+        no_range.pointwise_range = None;
+        for other in [sigma0, groups, range, no_range] {
+            assert!(Library::merge(vec![part(0), other]).is_err());
+        }
+    }
+
+    #[test]
+    fn merge_rejects_a_repeated_nuclide_and_an_empty_list() {
+        assert!(Library::merge(vec![part(0), part(0)]).is_err());
+        assert!(Library::merge(Vec::new()).is_err());
     }
 
     #[test]

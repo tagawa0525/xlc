@@ -1,4 +1,3 @@
-schema: '2.0'
 stages:
   references-shell:
     cmd: nix eval --raw ../..#devShells.x86_64-linux.references.outPath > 
@@ -2079,7 +2078,8 @@ stages:
       size: 75
       nfiles: 1
   xs:
-    cmd: cargo run --release -p xlc-xs -- xs.toml
+    cmd: cargo run --release -p xlc-xs -- assemble xs.toml xs-range.toml 
+      xs-nuclides
     deps:
     - path: ../../.cargo/config.toml
       hash: md5
@@ -2099,8 +2099,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
-      size: 114997
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2117,8 +2117,76 @@ stages:
       size: 486
     - path: ../../crates/xs/src
       hash: md5
-      md5: 71b36f78bcd6e6bc897c58bf92061c63.dir
-      size: 614786
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-nuclides
+      hash: md5
+      md5: ee9a7d555b6a130e44aa02f865bd781e.dir
+      size: 123422456
+      nfiles: 56
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    - path: xs.toml
+      hash: md5
+      md5: bb16d23bc8a7419b22724e9faf9e52ca
+      size: 5087
+    outs:
+    - path: vera.msgpack
+      hash: md5
+      md5: 3d1a8cc29b76d93cd46fa5e058ff615e
+      size: 123378257
+  xs-range:
+    cmd: cargo run --release -p xlc-xs -- range xs.toml xs-range.toml
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
       nfiles: 38
     - path: ../../flake.lock
       hash: md5
@@ -2129,6 +2197,70 @@ stages:
       md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
       size: 1212542189
       nfiles: 561
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs.toml
+      hash: md5
+      md5: bb16d23bc8a7419b22724e9faf9e52ca
+      size: 5087
+    outs:
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+  xs-nuclide@Ni-58:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ni-58 
+      xs-nuclides/Ni-58.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
+      hash: md5
+      md5: 78b36ef50a8af7b2e89b8ec47bc5b4e3
+      size: 17997484
     - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
       hash: md5
       md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
@@ -2138,15 +2270,4723 @@ stages:
       hash: md5
       md5: 87a81bbb3d955b97621800bbd7d234b7
       size: 98
-    - path: xs.toml
+    - path: xs-range.toml
       hash: md5
-      md5: d8f41524e1b218c058308d5cda423964
-      size: 4950
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ni-58:
+          endf: n-028_Ni_058.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
     outs:
-    - path: vera.msgpack
+    - path: xs-nuclides/Ni-58.msgpack
       hash: md5
-      md5: 3d1a8cc29b76d93cd46fa5e058ff615e
-      size: 123378257
+      md5: 36f321459405bfaa6c7a0b041ba7d149
+      size: 2073427
+  xs-nuclide@U-235:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml U-235 
+      xs-nuclides/U-235.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      hash: md5
+      md5: e72aa70c44180ba3b03342a4a4c37997
+      size: 36883940
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-235:
+          endf: n-092_U_235.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-235.msgpack
+      hash: md5
+      md5: da3b66fd4b84ff0d58cf46ef12b9e6b1
+      size: 11819600
+  xs-nuclide@B-11:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml B-11 
+      xs-nuclides/B-11.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+      hash: md5
+      md5: ededbd01d87d3297c377e105f60d59d3
+      size: 659224
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.B-11:
+          endf: n-005_B_011.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/B-11.msgpack
+      hash: md5
+      md5: 6fd182c59287c92f9ee544c334963c08
+      size: 427870
+  xs-nuclide@Zr-92:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Zr-92 
+      xs-nuclides/Zr-92.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      hash: md5
+      md5: 08f21535331cdfa3e35e6959735519c5
+      size: 2054584
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-92:
+          endf: n-040_Zr_092.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-92.msgpack
+      hash: md5
+      md5: 061633d8e2e288f40067bd8ecec692b5
+      size: 1683763
+  xs-nuclide@Si-28:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Si-28 
+      xs-nuclides/Si-28.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
+      hash: md5
+      md5: bdb40166d13e29a5b39b3cc56346a686
+      size: 1795196
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Si-28:
+          endf: n-014_Si_028.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Si-28.msgpack
+      hash: md5
+      md5: f2e60b78749bf770d103f0a91e52a92b
+      size: 349162
+  xs-nuclide@Zr-90:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Zr-90 
+      xs-nuclides/Zr-90.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      hash: md5
+      md5: 845fe13188e04ddaa8957922ca4425e9
+      size: 1370128
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-90:
+          endf: n-040_Zr_090.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-90.msgpack
+      hash: md5
+      md5: be1d7a871c74a2c1d6186f6cf73e7ac9
+      size: 1634848
+  xs-nuclide@Cd-116:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-116 
+      xs-nuclides/Cd-116.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
+      hash: md5
+      md5: 10f26f09ddd855c8a73720fe186ca01a
+      size: 89072
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-116:
+          endf: n-048_Cd_116.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-116.msgpack
+      hash: md5
+      md5: 91863d595c9faa495a53911883c28f44
+      size: 606698
+  xs-nuclide@O-16:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml O-16 
+      xs-nuclides/O-16.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      hash: md5
+      md5: 88f659e2ff0ed092bf2ec6a6672fc25e
+      size: 41873568
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.O-16:
+          endf: n-008_O_016.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/O-16.msgpack
+      hash: md5
+      md5: 7ff619dcc11133081a4f91cee875b8fc
+      size: 816067
+  xs-nuclide@Sn-116:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-116 
+      xs-nuclides/Sn-116.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
+      hash: md5
+      md5: 5d2de1ba6ffd79f575fcc6faed2714f3
+      size: 138700
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-116:
+          endf: n-050_Sn_116.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-116.msgpack
+      hash: md5
+      md5: 34e00d9da75fb803b0c75cb7f14a5a76
+      size: 3007259
+  xs-nuclide@Fe-57:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Fe-57 
+      xs-nuclides/Fe-57.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
+      hash: md5
+      md5: 781dfc0da22c68b6ab910ba4828f1dbe
+      size: 13578160
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-57:
+          endf: n-026_Fe_057.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-57.msgpack
+      hash: md5
+      md5: 0f05b1c2e6c183eb1fd38763aea79ba9
+      size: 1466953
+  xs-nuclide@Cr-52:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cr-52 
+      xs-nuclides/Cr-52.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
+      hash: md5
+      md5: 19629202c6af02350e7597e4b91f6992
+      size: 10647220
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-52:
+          endf: n-024_Cr_052.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-52.msgpack
+      hash: md5
+      md5: 4142a6311cdbd7323c391199c30841cb
+      size: 2901058
+  xs-nuclide@Mn-55:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Mn-55 
+      xs-nuclides/Mn-55.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
+      hash: md5
+      md5: ea6f74ca887e7fb1baa40c041030eb56
+      size: 5894712
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Mn-55:
+          endf: n-025_Mn_055.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Mn-55.msgpack
+      hash: md5
+      md5: 881c5068061a6740e072763731fafaea
+      size: 800647
+  xs-nuclide@Cr-53:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cr-53 
+      xs-nuclides/Cr-53.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
+      hash: md5
+      md5: 8484eb4f0ce055c5139234b3ea855e3e
+      size: 8880068
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-53:
+          endf: n-024_Cr_053.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-53.msgpack
+      hash: md5
+      md5: 45f2bf69385e5c760c97aeddc65ab556
+      size: 2435173
+  xs-nuclide@Cd-114:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-114 
+      xs-nuclides/Cd-114.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
+      hash: md5
+      md5: b0906eb984b262d7a947f742390f4f7e
+      size: 96900
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-114:
+          endf: n-048_Cd_114.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-114.msgpack
+      hash: md5
+      md5: 5fe80c108d750337fc89b9e2ad7d1567
+      size: 849698
+  xs-nuclide@Si-29:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Si-29 
+      xs-nuclides/Si-29.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
+      hash: md5
+      md5: db4bc1d0a95f6dcfcfa333dfad76cf19
+      size: 1766012
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Si-29:
+          endf: n-014_Si_029.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Si-29.msgpack
+      hash: md5
+      md5: 0d7c0eb1b657d67bee7aa60eb110c1a1
+      size: 293092
+  xs-nuclide@Cd-106:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-106 
+      xs-nuclides/Cd-106.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
+      hash: md5
+      md5: 9fa0aa5948b3d3e7deff78e114e376b6
+      size: 353932
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-106:
+          endf: n-048_Cd_106.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-106.msgpack
+      hash: md5
+      md5: 6e24c4439cd272f5341ac4dd0ee63f25
+      size: 597878
+  xs-nuclide@Fe-56:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Fe-56 
+      xs-nuclides/Fe-56.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
+      hash: md5
+      md5: 63a54468ec41309d24d849bc95d91450
+      size: 24237844
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-56:
+          endf: n-026_Fe_056.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-56.msgpack
+      hash: md5
+      md5: ff8425c81a9790829e2316f70814eba4
+      size: 3305113
+  xs-nuclide@Zr-91:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Zr-91 
+      xs-nuclides/Zr-91.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      hash: md5
+      md5: 05504d0c3dc22b27907d13b2427670bc
+      size: 3334576
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-91:
+          endf: n-040_Zr_091.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-91.msgpack
+      hash: md5
+      md5: 4d6f6e91964337794753c2a5890cf4b1
+      size: 2052988
+  xs-nuclide@Cd-112:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-112 
+      xs-nuclides/Cd-112.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
+      hash: md5
+      md5: 5f584c8cb53a2f7cccdcc83321255c17
+      size: 99560
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-112:
+          endf: n-048_Cd_112.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-112.msgpack
+      hash: md5
+      md5: b2f7be6648687f342722ade43103ae48
+      size: 1065338
+  xs-nuclide@Cr-50:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cr-50 
+      xs-nuclides/Cr-50.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
+      hash: md5
+      md5: 1d54ef6c80fa4e8a01776f2d77a4e51d
+      size: 10644408
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-50:
+          endf: n-024_Cr_050.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-50.msgpack
+      hash: md5
+      md5: 7f0f35b36f818c4ceba4336f1de998de
+      size: 3358168
+  xs-nuclide@Sn-119:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-119 
+      xs-nuclides/Sn-119.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
+      hash: md5
+      md5: 8dad9918e3854c87b437bbbf3c471852
+      size: 174040
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-119:
+          endf: n-050_Sn_119.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-119.msgpack
+      hash: md5
+      md5: 7269ed8ae8f6a534b7279a8ee4b2ad38
+      size: 840779
+  xs-nuclide@Ag-107:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ag-107 
+      xs-nuclides/Ag-107.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
+      hash: md5
+      md5: ea7a263aa2627adac725f2828384cc8c
+      size: 522880
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ag-107:
+          endf: n-047_Ag_107.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ag-107.msgpack
+      hash: md5
+      md5: e4e361539fd9e254fe5cf0073ed46608
+      size: 2051603
+  xs-nuclide@Sn-117:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-117 
+      xs-nuclides/Sn-117.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
+      hash: md5
+      md5: 957998ec497ad3d52903e12a1bec5020
+      size: 152456
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-117:
+          endf: n-050_Sn_117.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-117.msgpack
+      hash: md5
+      md5: 4c8d4391e9c71f9a3e486c7c2f520cda
+      size: 1319084
+  xs-nuclide@Zr-94:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Zr-94 
+      xs-nuclides/Zr-94.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      hash: md5
+      md5: 81602f01efb0df40c5d34ded3000a975
+      size: 1805000
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-94:
+          endf: n-040_Zr_094.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-94.msgpack
+      hash: md5
+      md5: 08e6c42f01f634af7ff4d104df00cb86
+      size: 1403053
+  xs-nuclide@B-10:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml B-10 
+      xs-nuclides/B-10.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+      hash: md5
+      md5: de4713deb591bde04f4c7ef2446bdc2e
+      size: 873392
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.B-10:
+          endf: n-005_B_010.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/B-10.msgpack
+      hash: md5
+      md5: 9998a192d829bf2aa4b02bdc91084f34
+      size: 432685
+  xs-nuclide@Ni-64:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ni-64 
+      xs-nuclides/Ni-64.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
+      hash: md5
+      md5: 75438fa6a077cd29010cf433bf45c6a5
+      size: 2878804
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ni-64:
+          endf: n-028_Ni_064.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ni-64.msgpack
+      hash: md5
+      md5: c55aa118a44d924684171ada14321995
+      size: 594727
+  xs-nuclide@Ni-62:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ni-62 
+      xs-nuclides/Ni-62.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
+      hash: md5
+      md5: 19ccf0123fa42491f38c39d5dff15dfa
+      size: 3081952
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ni-62:
+          endf: n-028_Ni_062.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ni-62.msgpack
+      hash: md5
+      md5: 859aad597f96b3583836fd5ef09b3724
+      size: 621952
+  xs-nuclide@Cd-113:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-113 
+      xs-nuclides/Cd-113.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
+      hash: md5
+      md5: 90e18c567e20606313e299053bf07698
+      size: 691676
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-113:
+          endf: n-048_Cd_113.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-113.msgpack
+      hash: md5
+      md5: 731d1c8acbc915940b3dc6052398bf6d
+      size: 1578923
+  xs-nuclide@Cr-54:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cr-54 
+      xs-nuclides/Cr-54.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
+      hash: md5
+      md5: 6b447452b7c17a43341ec8416bd7d32e
+      size: 2459512
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-54:
+          endf: n-024_Cr_054.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-54.msgpack
+      hash: md5
+      md5: 3e262e98879dcf81cb1a2b994b13d09d
+      size: 1621978
+  xs-nuclide@P-31:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml P-31 
+      xs-nuclides/P-31.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
+      hash: md5
+      md5: 0a02e5ce323c5a86f2cdf44b8a285a3e
+      size: 1048192
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.P-31:
+          endf: n-015_P_031.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/P-31.msgpack
+      hash: md5
+      md5: 6064230d6d0099c73531d32a6819a9ed
+      size: 210979
+  xs-nuclide@Sn-115:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-115 
+      xs-nuclides/Sn-115.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
+      hash: md5
+      md5: 9d8f748af4ac334ed786dbd774bb7d3f
+      size: 159828
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-115:
+          endf: n-050_Sn_115.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-115.msgpack
+      hash: md5
+      md5: f453a1bbba385d6604e85a37a3a4a7e9
+      size: 555614
+  xs-nuclide@Fe-54:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Fe-54 
+      xs-nuclides/Fe-54.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
+      hash: md5
+      md5: 6cc65e9140f60c97daded32a60ba7e0b
+      size: 15451864
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-54:
+          endf: n-026_Fe_054.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-54.msgpack
+      hash: md5
+      md5: d30630f8f0a677996f4b139bff7b85c8
+      size: 3603643
+  xs-nuclide@Si-30:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Si-30 
+      xs-nuclides/Si-30.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
+      hash: md5
+      md5: a7cf81f5f6390f2f42ece06b5f87b9d3
+      size: 1496972
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Si-30:
+          endf: n-014_Si_030.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Si-30.msgpack
+      hash: md5
+      md5: 97636945bf9cf45e028a01e577b8ac01
+      size: 331882
+  xs-nuclide@Cd-110:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-110 
+      xs-nuclides/Cd-110.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
+      hash: md5
+      md5: 92e61230a383f47f0333bae18ec70fdb
+      size: 105412
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-110:
+          endf: n-048_Cd_110.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-110.msgpack
+      hash: md5
+      md5: f048f14b0011ca3c6a8a6818ece54a43
+      size: 865178
+  xs-nuclide@Sn-112:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-112 
+      xs-nuclides/Sn-112.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
+      hash: md5
+      md5: 595f36f9195db944c4cf3482eb369e92
+      size: 175864
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-112:
+          endf: n-050_Sn_112.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-112.msgpack
+      hash: md5
+      md5: 77eaabe5f4eee0ca95b7b0b647943555
+      size: 758069
+  xs-nuclide@Sn-124:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-124 
+      xs-nuclides/Sn-124.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
+      hash: md5
+      md5: 8f4ee39c13872485d867ed145ff14476
+      size: 164540
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-124:
+          endf: n-050_Sn_124.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-124.msgpack
+      hash: md5
+      md5: 81965d42e4d8d9e89485260e86027647
+      size: 2542679
+  xs-nuclide@Ni-61:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ni-61 
+      xs-nuclides/Ni-61.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
+      hash: md5
+      md5: ed122f2d8580455fb785f7a4243a9ad4
+      size: 3914684
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ni-61:
+          endf: n-028_Ni_061.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ni-61.msgpack
+      hash: md5
+      md5: b5d0032155d4340f900ec560520ee586
+      size: 534472
+  xs-nuclide@U-238:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml U-238 
+      xs-nuclides/U-238.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      hash: md5
+      md5: 6d52fe1a299934af828599b40b0122e7
+      size: 14939396
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-238:
+          endf: n-092_U_238.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-238.msgpack
+      hash: md5
+      md5: 21d9fafbc6fc893cf44f05100df3467a
+      size: 32067965
+  xs-nuclide@In-113:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml In-113 
+      xs-nuclides/In-113.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
+      hash: md5
+      md5: cf81758f1d4e1a9b6c8a8bcba582b97e
+      size: 207252
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.In-113:
+          endf: n-049_In_113.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/In-113.msgpack
+      hash: md5
+      md5: 316de87536d8f346a0a4168eee218c69
+      size: 626228
+  xs-nuclide@Sn-120:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-120 
+      xs-nuclides/Sn-120.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
+      hash: md5
+      md5: 3f89239ea480a4d42c789210d76a0ad5
+      size: 1506016
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-120:
+          endf: n-050_Sn_120.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-120.msgpack
+      hash: md5
+      md5: c50ff764acc844d8e1771c846163e7af
+      size: 2572379
+  xs-nuclide@C-13:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml C-13 
+      xs-nuclides/C-13.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
+      hash: md5
+      md5: 55ce34f21e246a66e8b690147f5073f8
+      size: 3464536
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.C-13:
+          endf: n-006_C_013.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/C-13.msgpack
+      hash: md5
+      md5: 27f2bd8e4fd4dff5c2c6c0f7883295f4
+      size: 204724
+  xs-nuclide@Ni-60:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ni-60 
+      xs-nuclides/Ni-60.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
+      hash: md5
+      md5: bf9a7698fb617f3f60131d5f0dcbc86f
+      size: 17266744
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ni-60:
+          endf: n-028_Ni_060.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ni-60.msgpack
+      hash: md5
+      md5: 55b4a55947f47e7489590baedc7abad9
+      size: 1935862
+  xs-nuclide@Cd-108:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-108 
+      xs-nuclides/Cd-108.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
+      hash: md5
+      md5: 1f50f32f1ca7897e0f774c6152a18979
+      size: 93708
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-108:
+          endf: n-048_Cd_108.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-108.msgpack
+      hash: md5
+      md5: 3d8ca765daa569a1959625545174fa95
+      size: 650888
+  xs-nuclide@U-234:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml U-234 
+      xs-nuclides/U-234.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+      hash: md5
+      md5: 02d5c7d15b6c3838b4a2439873d6fa25
+      size: 1980104
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-234:
+          endf: n-092_U_234.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-234.msgpack
+      hash: md5
+      md5: bfc656491854245dd5458f7f6a67171d
+      size: 4910110
+  xs-nuclide@H-1:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml H-1 
+      xs-nuclides/H-1.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      hash: md5
+      md5: a8a7d4b0bc9b9627affeaa0e74716c82
+      size: 671232
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.H-1:
+          endf: n-001_H_001.endf
+          temperatures:
+          - 550
+          - 573.6
+          - 600
+          thermal: tsl-HinH2O.endf
+          sab-upper: evaluated
+          sab-outside: sct
+          free-gas-upper: 9118
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/H-1.msgpack
+      hash: md5
+      md5: bf6fb4a6671a375318231a1c2a3070fb
+      size: 611730
+  xs-nuclide@Sn-122:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-122 
+      xs-nuclides/Sn-122.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
+      hash: md5
+      md5: 83e39a2dda8feb62d76efdcb48de77c8
+      size: 136724
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-122:
+          endf: n-050_Sn_122.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-122.msgpack
+      hash: md5
+      md5: ef4c21f75a8a86283efa3e5d13520845
+      size: 4052474
+  xs-nuclide@Ag-109:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ag-109 
+      xs-nuclides/Ag-109.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
+      hash: md5
+      md5: 5cce54b6221074a9f151b8b7fd554e1f
+      size: 1744124
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ag-109:
+          endf: n-047_Ag_109.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ag-109.msgpack
+      hash: md5
+      md5: 12121beaa4a2c37a0e0e5cc9656eeaf4
+      size: 2257838
+  xs-nuclide@Zr-96:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Zr-96 
+      xs-nuclides/Zr-96.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      hash: md5
+      md5: ea8fcd356c8333dd48792e88063ee4b4
+      size: 1403112
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-96:
+          endf: n-040_Zr_096.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-96.msgpack
+      hash: md5
+      md5: fb5127395a80827e5fb3afa00fbd501f
+      size: 906343
+  xs-nuclide@Cd-111:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Cd-111 
+      xs-nuclides/Cd-111.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
+      hash: md5
+      md5: 76fe5ec00a380bfcba4794ee7099dd80
+      size: 362672
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cd-111:
+          endf: n-048_Cd_111.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cd-111.msgpack
+      hash: md5
+      md5: f7ffaf0e5b597596c28ad2d427b72363
+      size: 1124828
+  xs-nuclide@U-236:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml U-236 
+      xs-nuclides/U-236.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+      hash: md5
+      md5: 2d3b0b0d3606816b27c03c9b2ce92cc0
+      size: 1359412
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-236:
+          endf: n-092_U_236.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-236.msgpack
+      hash: md5
+      md5: 7a8601f1926a61969aaeae9032c36687
+      size: 4721515
+  xs-nuclide@Sn-114:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-114 
+      xs-nuclides/Sn-114.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
+      hash: md5
+      md5: 8b944d53fcc7d5f89063f053a0e8f53f
+      size: 181640
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-114:
+          endf: n-050_Sn_114.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-114.msgpack
+      hash: md5
+      md5: b7a80e0b969e6f47019c9541044c88a1
+      size: 728144
+  xs-nuclide@Sn-118:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Sn-118 
+      xs-nuclides/Sn-118.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
+      hash: md5
+      md5: 9586a6ff74a5b7af5e106020163f27f1
+      size: 115292
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-118:
+          endf: n-050_Sn_118.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-118.msgpack
+      hash: md5
+      md5: da1d9540a33c4106014d58098b162343
+      size: 629189
+  xs-nuclide@Fe-58:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Fe-58 
+      xs-nuclides/Fe-58.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
+      hash: md5
+      md5: 371938e3ea66338454e6396d6f898049
+      size: 9280132
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-58:
+          endf: n-026_Fe_058.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-58.msgpack
+      hash: md5
+      md5: 0869aa1f417591adb53387cd2acc79e1
+      size: 2392468
+  xs-nuclide@C-12:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml C-12 
+      xs-nuclides/C-12.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
+      hash: md5
+      md5: 562de9bfd12d8f51b15be9e22517b4dc
+      size: 3805168
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.C-12:
+          endf: n-006_C_012.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/C-12.msgpack
+      hash: md5
+      md5: 2440182c149c0516c0ec4dfb248d885b
+      size: 199729
+  xs-nuclide@In-115:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml In-115 
+      xs-nuclides/In-115.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: d98dea58b2f581698c86428421d4e3f6.dir
+      size: 627107
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
+      hash: md5
+      md5: 87091f7ae230f821493b49030bc4681b
+      size: 185972
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.In-115:
+          endf: n-049_In_115.endf
+          temperatures:
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/In-115.msgpack
+      hash: md5
+      md5: 098b05f76e4260d32bf15c08e9304f39
+      size: 1417103
+
   lattice-1B:
     cmd: cargo run --release -p xlc-lattice -- p1/pincell-1B.toml > 
       p1/lattice-1B.out
