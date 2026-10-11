@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, verification]
 opened: 2026-10-10
-closed:
+closed: 2026-10-11
 milestone: M3
 blocked-by: []
-resolution:
+resolution: コミット 9c2955f6
 ---
 
 # VERA 2E〜2K と 2Q の格子計算を、同じ核データの OpenMC と比べる
@@ -86,4 +86,5 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
   rms 0.11%、0.09%、最大 −0.28%、−0.23%。2B からの変化は、減速材の密度 −14 pcm、温度（600 → 565 K）−10 pcm、支持格子 +24 pcm
   で、計 0 pcm（どれも統計誤差を大きめに 12 pcm とした 2 倍の中か端で、0 と区別できるとは言えない）。支持格子による k の
   変化は xlc −901 pcm、OpenMC −924 pcm。OpenMC と KENO-VI の k の差は 2A で +19 pcm、2Q で +119 pcm（原因は確かめていない）。
-  OpenMC は 565 K の核種を足したデータを温度の内挿のモードで解く（#0017）
+  OpenMC は 565 K の核種を足したデータを温度の内挿のモードで解く（#0017）。2Q の OpenMC と KENO-VI のピン出力は rms 0.058%、
+  最大 +0.176%（ee3cd6ec）。2E〜2K と 2Q を解き、2G と 2H のトラック間隔への依存を測ったので、閉じる
