@@ -1,0 +1,11 @@
+# 再配布できない仕様書の PDF の sha256（ADR-0124）。各行の前のコメントが取ってくる URL。
+# リポジトリの直下で `sha256sum -c docs/specs.sha256` と照らす。
+
+# https://corephysics.com/docs/CASL-U-2012-0131-004.pdf
+cb3c7b5ac0bae5be28c778269ba49cb83f4b220009700140ff5d406ac9a46699  references/vera/CASL-U-2012-0131-004.pdf
+# URL 不明（NEA/NSC/DOC(2003)16。https://www.oecd-nea.org/science/docs/2003/nsc-doc2003-16.pdf は 403 で確かめられなかった）
+2f2ae41543cca5137aa3dd6a6de82e316668f5117dbe417d05cdffa46430cbbd  references/c5g7/nsc-doc2003-16.pdf
+# URL 不明（PWR MOX/UO2 Core Transient Benchmark Final Specifications, Revision 2）
+6139996dff7584d45ce91bc33523cd1bba9e9726a88ec1b1d283de1effb5156b  references/mox/spec.pdf
+# https://www.oecd-nea.org/science/docs/pubs/pin_cell.pdf
+7cd76941e565e82ced93309c3f938068f9aa59cd92db230861d2e4765cd23df2  references/mox/pin_cell.pdf
