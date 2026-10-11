@@ -1,7 +1,11 @@
 //! 物質の巨視的断面積。
 
+use std::collections::BTreeMap;
+
 use xlc_format::library::{Library, LookupError, Nuclide};
 use xlc_format::medium::MediumState;
+
+use crate::input::MaterialInput;
 
 /// χ の和と 1 の差の許容値
 const CHI_TOLERANCE: f64 = 1.0e-6;
@@ -12,6 +16,22 @@ pub struct FissionTerm {
     pub chi: Vec<f64>,
     /// νΣf (1/cm)
     pub nu_fission: Vec<f64>,
+}
+
+/// 物質 `parts`（成分と体積の割合）を混ぜた（核種、温度 (K)、個数密度 (1/(barn·cm))）の並び（核種の名前、温度の順）。
+/// 個数密度は成分の個数密度 × 割合の和で、同じ温度の同じ核種は足し、違う温度は別の項にする（ADR-0128）
+pub fn mixed_nuclides(parts: &[(&MaterialInput, f64)]) -> Vec<(String, f64, f64)> {
+    // 温度は正なので、ビット列の順は値の順と同じ
+    let mut sum: BTreeMap<(String, u64), f64> = BTreeMap::new();
+    for (part, fraction) in parts {
+        for (name, density) in &part.composition {
+            *sum.entry((name.clone(), part.temperature.to_bits()))
+                .or_insert(0.0) += density * fraction;
+        }
+    }
+    sum.into_iter()
+        .map(|((name, t), density)| (name, f64::from_bits(t), density))
+        .collect()
 }
 
 /// 物質の多群巨視的断面積 (1/cm)。
@@ -62,6 +82,18 @@ impl Material {
         let nuclides = composition
             .iter()
             .map(|(name, density)| Ok((library.nuclide(name, temperature)?, *density)))
+            .collect::<Result<Vec<_>, MaterialError>>()?;
+        Self::from_nuclides(&nuclides, library.groups.len())
+    }
+
+    /// 物質 `parts` を体積の割合で混ぜた物質（ADR-0128）。成分ごとの温度のライブラリの値を使う（`mixed_nuclides`）。
+    pub fn mixture(
+        library: &Library,
+        parts: &[(&MaterialInput, f64)],
+    ) -> Result<Self, MaterialError> {
+        let nuclides = mixed_nuclides(parts)
+            .into_iter()
+            .map(|(name, temperature, density)| Ok((library.nuclide(&name, temperature)?, density)))
             .collect::<Result<Vec<_>, MaterialError>>()?;
         Self::from_nuclides(&nuclides, library.groups.len())
     }
