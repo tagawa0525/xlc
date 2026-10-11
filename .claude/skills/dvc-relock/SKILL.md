@@ -16,7 +16,7 @@ allowed-tools:
   - Bash(git log*)
   - Bash(git show*)
   - Bash(git merge-base*)
-  - Bash(~/.claude/scripts/remap-commit-refs.sh*)
+  - Bash(commit-refs remap*)
   - Bash(git add*)
   - Bash(git commit*)
 ---
@@ -86,7 +86,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 4. 実行したら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
-   git add examples/<問題>/dvc.lock   # git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す
+   git add examples/<問題>/dvc.lock   # git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
    git commit -F <メッセージのファイル>
    ```
 
@@ -102,9 +102,12 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
      復元が合わなくなる）。実行したコミットが rebase で付け替わっていたら、hash だけを付け替える。記録に実行した
      コミットと分岐点が書かれていなければ、書く（ADR-0130 の「確認」の形）
 
-   hash の付け替えは、手で書き換えず、`~/.claude/scripts/remap-commit-refs.sh` で行う。対応表（「旧 新」の完全な
-   hash）は、rebase の前の tip（`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させて作り、
-   中身を確かめてから渡す（全ファイルを書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。付け替えのコミットは `docs:` で分ける。
+   hash の付け替えは、手で書き換えず、`commit-refs remap` で行う。rebase のあとは、`remap.commitRefs` が true なら
+   post-rewrite hook が自動で呼ぶ（rebase の途中の amend では呼ばず、終わりに一度）（付け替えはコミットされないので、自分でコミットする）。hook が失敗したときは、
+   `$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` の対応表で `commit-refs remap <そのファイル>` を呼び直す
+   （詳細は verification-record の「rebase のあと」の節）。手で対応表を作るのは、この対応表が無いときだけ。rebase の前の tip
+   （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
+   書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。再実行した段階の新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
 この後は /git-merge の「チェック」に進む。
 
