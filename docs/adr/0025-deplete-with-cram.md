@@ -27,6 +27,6 @@ requires: []
 
 まだ実装していない（M4）。M4 で格子燃焼のベンチマークと比べる。
 
-## 結果
+## 帰結
 
 CRAM の疎行列の LU 分解は faer で解く（[ADR-0007](0007-use-faer-for-linear-algebra.md)）。

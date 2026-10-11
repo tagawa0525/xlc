@@ -34,6 +34,6 @@ docs/plans/m3-core-hzp.md、c34b6ea、2026-10-08）。どちらも燃料では U
 `two_terms_are_weighted_by_the_narrow_resonance_flux`。k は 1B〜1D、2B（支持格子なし）で 1 pcm 以内しか変わらない
 （examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 燃料でこの重みが効くのは UFG の範囲の外の群だけである。

@@ -61,7 +61,7 @@ examples/vera/verification.md）。OpenMC とは、中性子束の重みの群�
 扱いの誤差が混ざる）。等価なセルの誤差を、案内管や集合体の端のそばのピンで測るための、集合体全体を UFG の MOC で
 直接解く参照のツールは、M2 の計画の作業にあるがまだ作っていない。
 
-## 結果
+## 帰結
 
 - 範囲は [ADR-0069](0069-cap-cell-slowing-down-at-20-kev.md)、散乱核の近似は [ADR-0070](0070-treat-targets-at-rest.md)、MOC に合わせる SPH 因子は [ADR-0071](0071-correct-with-sph-factors.md)、ライブラリに加えるポイントワイズの断面積は [ADR-0073](0073-store-pointwise-data-in-library.md)、
   範囲の外は [ADR-0074](0074-shield-outside-range-by-equivalence.md)

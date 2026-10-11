@@ -28,7 +28,7 @@ M1（2026-10-06）で、ライブラリの温度の選び方を決める必要�
 
 `temperature_must_be_in_the_library`、`temperatures_are_looked_up_exactly`。
 
-## 結果
+## 帰結
 
 M3 で、565 K の H in H2O の熱中性子の散乱行列は温度で線形に内挿することにし、「温度方向に補間しない」を変えた。
 核種ごとの温度と、ほかの核種の温度の扱いを含めて [ADR-0080](0080-interpolate-sab-in-temperature.md) にまとめ直した。

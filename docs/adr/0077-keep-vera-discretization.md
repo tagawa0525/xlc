@@ -35,7 +35,7 @@ VERA の入力の設定は変えない。細かくしたときの k の変化は
 
 上の収束の測定（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 光学的に非常に厚い領域（無限希釈の共鳴の群）では、k がトラック間隔に対して不規則に動く（ピンセルの P0 で、間隔
 0.012〜0.05 cm で −149〜+91 pcm。燃料を横切るトラックの本数の数え誤差。examples/vera/verification.md、8e2adc7、2026-10-08。計画（docs/plans/m2-assembly.md）には丸めて
