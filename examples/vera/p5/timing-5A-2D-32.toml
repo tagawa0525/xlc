@@ -1,0 +1,8 @@
+# VERA Problem 5A-2D の短い走行（1 世代あたりの時間の測定。examples/vera/verification.md）。ライブラリは openmc-library-timing.toml。32 スレッド
+problem = "5A-2D"
+cross-sections = "../../../references/openmc/p3-p5-timing/cross_sections.xml"
+particles = 1000000
+batches = 15
+inactive = 5
+seed = 1
+threads = 32
