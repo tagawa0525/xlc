@@ -52,5 +52,5 @@ resolution: ADR-0132
   明示する（(A1)。r-z の格子との差は #0072）
 - 2026-10-12: ADR-0132 を実装して accepted にした（外形の `-` と `outline`、反射体どうしの面の各側の ADF、層の
   `vacuum = "marshak"`、f* の辺が集合体の核分裂のない層に向く面の 1）。角型の格子の炉心で外形と反射体どうしの面を
-  確かめた（examples/reflector/verification.md、48042010）。5-2D での確認は #0029、上下の層は #0072、炉外の検出器は
+  確かめた（examples/reflector/verification.md、58ec6b14）。5-2D での確認は #0029、上下の層は #0072、炉外の検出器は
   #0071 に残した
