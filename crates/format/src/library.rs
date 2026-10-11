@@ -231,9 +231,35 @@ impl Library {
     }
 
     /// 同じ群構造、σ0、ポイントワイズの範囲を持つライブラリを、核種を並べて 1 つにする（核種の順は `parts` の順）。
+    /// 核種ごとに処理した結果を組み立てるのに使う。
     pub fn merge(parts: Vec<Library>) -> Result<Library, LibraryError> {
-        let _ = parts;
-        Err(LibraryError::Invalid("merge is not implemented".into()))
+        let mut parts = parts.into_iter();
+        let mut merged = parts
+            .next()
+            .ok_or_else(|| LibraryError::Invalid("no library to merge".into()))?;
+        for part in parts {
+            let differs =
+                |what: &str| LibraryError::Invalid(format!("the libraries differ in {what}"));
+            if part.groups != merged.groups {
+                return Err(differs("the group structure"));
+            }
+            if part.sigma0 != merged.sigma0 {
+                return Err(differs("sigma0"));
+            }
+            if part.pointwise_range != merged.pointwise_range {
+                return Err(differs("the pointwise range"));
+            }
+            for nuclide in part.nuclides {
+                if merged.nuclides.iter().any(|n| n.name == nuclide.name) {
+                    return Err(LibraryError::Invalid(format!(
+                        "nuclide {} appears twice",
+                        nuclide.name
+                    )));
+                }
+                merged.nuclides.push(nuclide);
+            }
+        }
+        Ok(merged)
     }
 
     /// MessagePack から読み、群境界・σ0 の順序と配列の長さを確かめる。
@@ -723,7 +749,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[ignore = "RED: Library::merge is not implemented yet"]
     fn merge_joins_the_nuclides_in_order() {
         let merged = Library::merge(vec![part(0), part(1)]).unwrap();
         assert_eq!(merged, sample());
@@ -733,7 +758,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[ignore = "RED: Library::merge is not implemented yet"]
     fn merge_rejects_libraries_that_do_not_share_the_grids() {
         let mut sigma0 = part(1);
         sigma0.sigma0 = vec![1.0e10, 5.0];
@@ -749,7 +773,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[ignore = "RED: Library::merge is not implemented yet"]
     fn merge_rejects_a_repeated_nuclide_and_an_empty_list() {
         assert!(Library::merge(vec![part(0), part(0)]).is_err());
         assert!(Library::merge(Vec::new()).is_err());
