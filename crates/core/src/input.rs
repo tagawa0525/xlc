@@ -705,6 +705,8 @@ pub struct Case {
     pub partial_rods: PartialRods,
     /// `[partial-rods]` を書いたか（棒のない炉心に書けばエラーにする）
     pub partial_rods_given: bool,
+    /// 核分裂のある層ごとのピン出力と軸方向の出力を書くファイル
+    pub axial_pin_powers: Option<PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -717,6 +719,7 @@ struct CaseFile {
     state: Option<BTreeMap<String, StateEntry>>,
     pin_powers: Option<PathBuf>,
     partial_rods: Option<PartialRodsEntry>,
+    axial_pin_powers: Option<PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -922,6 +925,7 @@ impl Case {
             pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
             partial_rods,
             partial_rods_given,
+            axial_pin_powers: None,
         })
     }
 }
