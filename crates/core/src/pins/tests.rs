@@ -28,6 +28,7 @@ fn fuel(width: f64, cells: usize) -> FewGroup {
             dy: vec![width / cells as f64; cells],
             form: vec![vec![vec![1.0; cells]; cells]; 2],
             corners: vec![vec![1.0, 1.0]; 4],
+            normalized_corners: vec![false; 4],
             halves: vec![false; 4],
         }),
     }
