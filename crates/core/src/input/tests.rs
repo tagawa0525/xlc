@@ -628,7 +628,7 @@ fn reflectors_and_assemblies_may_share_layer_files() {
     assert!(layout.reflector[shared]);
     let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
     let problem = layout.problem(&unsplit(&constants)).unwrap();
-    // 反射体の位置（図の左と右の列）に置いた物質だけが、反射体どうしの面の ADF を 1 にする物質（ADR-0095）。
+    // 反射体の位置（図の左と右の列）に置いた物質だけが、f* の向きを確かめる反射体の物質（ADR-0095）。
     // 同じファイルでも、集合体の位置のものは別の物質
     for (n, m) in problem.node_material.iter().enumerate() {
         assert_eq!(

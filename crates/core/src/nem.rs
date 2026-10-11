@@ -9,8 +9,8 @@
 //! reactor analysis", Prog. Nucl. Energy 17, 303 (1986)）の条件で、不連続因子（ADF）f をかけた
 //! 不均質な中性子束 f φ と正味の中性子流を連続にする。ADF は少数群定数の辺（左、右、上、下、−z、+z）ごとの値で、
 //! x、y、z のどの面も同じ規則で使う（2次元の格子計算の定数の z の辺は 1。軸方向の反射体の定数は平板の格子計算の
-//! 値。ADR-0128）。ただし、炉心の形の反射体の位置どうしの x と y の面は 1 とする（ADR-0095）。外周の真空の面は、
-//! 格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
+//! 値。ADR-0128）。炉心の形の反射体の位置どうしの面も同じ（ADR-0132）。外周の真空の面は、格子計算の真空の辺の比
+//! r = J/φ_het を不均質な中性子束に課す（ADR-0128）。
 //!
 //! ノードは直方体の格子の上に並べ、ノードのない位置（炉心の外形の外）を持てる。ノードのない位置に面する面は、
 //! `Problem::outline` の条件の外周の面として扱う（ADR-0132）。
@@ -46,8 +46,8 @@ pub struct Mesh {
 pub struct Problem {
     pub mesh: Mesh,
     pub materials: Vec<FewGroup>,
-    /// 炉心の形の反射体の位置に置いた物質の番号。x と y の面で両側のノードの物質がこれに入れば、その面の ADF は
-    /// 両側とも 1（ADR-0095。反射体の定数は I 型、L 型、角型の別の格子から来て、GET の ADF が互いの比にならない）
+    /// 炉心の形の反射体の位置に置いた物質の番号。f* の辺がほかの反射体の位置に向く（回転を取り違えた定数）ことを
+    /// 見つけるのに使う（ADR-0095）。面の ADF には効かない（反射体どうしの面も各側の ADF を使う。ADR-0132）
     pub reflectors: Vec<usize>,
     /// 直方体の位置ごとの物質番号。並びは x が最も速く、次に y、z。ノードのない位置は `None`
     pub node_material: Vec<Option<usize>>,
@@ -443,8 +443,8 @@ impl<'a> Core<'a> {
                             "nodes {node} and {other} both have f* on their shared face"
                         ));
                     }
-                    // 反射体の位置どうしの x と y の面の ADF は 1 なので、そこにある f* は使われず、燃料に面する辺が
-                    // 割られていない（回転を取り違えた定数）
+                    // f* は燃料の ADF で割った値なので、径方向で反射体の位置に向く f* は、燃料に面する辺を取り違えた
+                    // （回転を取り違えた）定数である
                     if d < 2 && self.reflector_face(n, m) {
                         return Err(format!(
                             "material {material} has f* on side {side}, but node {node} faces the \
@@ -556,14 +556,11 @@ impl<'a> Core<'a> {
 
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子（辺の対応は `side_of`）。
     /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
-    /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの x と y の面は 1（`reflectors`）
+    /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの面も、燃料どうしの面と同じく
+    /// 各側の ADF を使う（ADR-0132）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
         let side = side_of(d, plus);
         let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
-        // 径方向の反射体の位置どうしの面だけ（z の面は両側の定数の ADF。ADR-0128）
-        if d < 2 && neighbor.is_some_and(|m| self.reflector_face(n, m)) {
-            return 1.0;
-        }
         let material = self.material(n);
         let own = material.adf[side][g];
         if !material.normalized_adf[side] {
@@ -2513,7 +2510,7 @@ mod tests {
         // 範囲の外の番号はエラー
         let err = solve(&x(vec![3], &a, &b), &Options::default());
         assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
-        // f* の辺は燃料の ADF で割った値なので、反射体の位置どうしの面にあれば（回転を取り違えた定数）エラー
+        // f* の辺は燃料の ADF で割った値なので、反射体の位置に向いていれば（回転を取り違えた定数）エラー
         let mut turned = a.clone();
         turned.normalized_adf[1] = true;
         let err = solve(&x(vec![1, 2], &turned, &b), &Options::default());
