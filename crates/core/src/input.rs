@@ -317,8 +317,8 @@ impl Plant {
     }
 }
 
-/// どの `-` も、図の端まで `-` だけを上下左右の隣でたどって出られることを確かめる。ノードに囲まれた `-` は、炉心の
-/// 中に真空の穴を開けることになり、意図した入力と考えにくい（ADR-0132）
+/// どの `-` も、図の端まで `-` だけを上下左右の隣でたどって出られることと、ノードのある位置がひとつながりであることを
+/// 確かめる。ノードに囲まれた `-` は、炉心の中に真空の穴を開けることになり、意図した入力と考えにくい（ADR-0132）
 fn check_open(map: &[Vec<Site>]) -> Result<(), InputError> {
     let rows = map.len();
     let cols = map.first().map_or(0, Vec::len);
@@ -348,6 +348,39 @@ fn check_open(map: &[Vec<Site>]) -> Result<(), InputError> {
                 return invalid(format!(
                     "map row {} column {}: `-` is enclosed by nodes; it would open a vacuum hole \
                      in the core",
+                    r + 1,
+                    c + 1
+                ));
+            }
+        }
+    }
+    // ノードのある位置が、上下左右の隣でひとつながりであること。`-` で切り離されたノードは別の問題になる
+    let mut joined = vec![vec![false; cols]; rows];
+    let start = (0..rows)
+        .flat_map(|r| (0..cols).map(move |c| (r, c)))
+        .find(|&(r, c)| !empty(r, c));
+    let Some(start) = start else {
+        return invalid("map: no position has a node");
+    };
+    let mut stack = vec![start];
+    while let Some((r, c)) = stack.pop() {
+        if joined[r][c] {
+            continue;
+        }
+        joined[r][c] = true;
+        let beside = [
+            r.checked_sub(1).map(|r| (r, c)),
+            (r + 1 < rows).then_some((r + 1, c)),
+            c.checked_sub(1).map(|c| (r, c)),
+            (c + 1 < cols).then_some((r, c + 1)),
+        ];
+        stack.extend(beside.into_iter().flatten().filter(|&(r, c)| !empty(r, c)));
+    }
+    for (r, row) in joined.iter().enumerate() {
+        for (c, &joined) in row.iter().enumerate() {
+            if !empty(r, c) && !joined {
+                return invalid(format!(
+                    "map row {} column {}: the node is cut off from the rest of the core by `-`",
                     r + 1,
                     c + 1
                 ));
