@@ -47,14 +47,15 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
         if !fissile {
             continue;
         }
-        let (models, conditions) = layer(problem, solution, k, &face_rule)?;
-        let cdfs = corner_factors(problem, k)?;
-        let corners = corner_fluxes(problem, k, &models, &conditions, &cdfs)?;
+        let constants = layer_constants(problem, k)?;
+        let (models, conditions) = layer(problem, solution, k, &constants, &face_rule)?;
+        let cdfs = corner_factors(problem, k, &constants)?;
+        let corners = corner_fluxes(problem, k, &constants, &models, &conditions, &cdfs)?;
         for j in 0..ny {
             for i in 0..nx {
                 let local = i + nx * j;
                 let n = local + nx * ny * k;
-                let (m, pins) = node_constants(problem, n)?;
+                let (m, pins) = constants[local];
                 let mut c = conditions[local].clone();
                 c.corners = corner_values(&corners, nx, i, j, &cdfs[local]);
                 let node = models[local].solve(&c);
@@ -70,7 +71,7 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
 }
 
 /// 再構成のノードの展開の定数
-fn constants(m: &FewGroup) -> Constants<'_> {
+fn expansion_constants(m: &FewGroup) -> Constants<'_> {
     Constants {
         total: &m.total,
         scatter: &m.scatter,
@@ -94,12 +95,21 @@ fn node_constants(problem: &Problem, n: usize) -> Result<(&FewGroup, &Pins), Str
     Ok((m, pins))
 }
 
+/// 層 k の [ノード（層の中で i + nx j）] の少数群定数と形状関数
+fn layer_constants(problem: &Problem, k: usize) -> Result<Vec<(&FewGroup, &Pins)>, String> {
+    let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
+    (0..nx * ny)
+        .map(|local| node_constants(problem, local + nx * ny * k))
+        .collect()
+}
+
 /// 層 k の [ノード（層の中で i + nx j）] のモデルと、角の値を 0 にした条件。モデルは物質とノードの大きさで決まるので、
 /// 同じ組のノードで共有する
 fn layer(
     problem: &Problem,
     solution: &Solution,
     k: usize,
+    constants: &[(&FewGroup, &Pins)],
     rule: &[(f64, f64)],
 ) -> Result<(Vec<Rc<NodeModel>>, Vec<Conditions>), String> {
     let mesh = &problem.mesh;
@@ -110,7 +120,7 @@ fn layer(
     for j in 0..ny {
         for i in 0..nx {
             let n = i + nx * (j + ny * k);
-            let (m, pins) = node_constants(problem, n)?;
+            let (m, pins) = constants[i + nx * j];
             for (sizes, width, name) in [
                 (&pins.dx, mesh.dx[i], "width"),
                 (&pins.dy, mesh.dy[j], "height"),
@@ -133,7 +143,7 @@ fn layer(
                 Some(model) => Rc::clone(model),
                 None => {
                     let model = Rc::new(
-                        NodeModel::new(&constants(m), solution.k, half, rule)
+                        NodeModel::new(&expansion_constants(m), solution.k, half, rule)
                             .map_err(|e| format!("node {n}: {e}"))?,
                     );
                     cache.insert(key, Rc::clone(&model));
@@ -382,12 +392,12 @@ fn corner_values(
 /// 層 k の [ノード（層の中で i + nx j）][角][群] の CDF。燃料の CDF で割った角（`normalized_corners`。ADR-0125）は、
 /// C* × 角の点に接する燃料（核分裂のある）のノードの、その点の CDF の調和平均とする。印の付いた角の点に燃料の
 /// ノードがなければエラー
-fn corner_factors(problem: &Problem, k: usize) -> Result<Vec<[[f64; 2]; 4]>, String> {
+fn corner_factors(
+    problem: &Problem,
+    k: usize,
+    nodes: &[(&FewGroup, &Pins)],
+) -> Result<Vec<[[f64; 2]; 4]>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
-    let mut nodes = Vec::with_capacity(nx * ny);
-    for local in 0..nx * ny {
-        nodes.push(node_constants(problem, local + nx * ny * k)?);
-    }
     let fissile = |m: &FewGroup| m.nu_fission.iter().any(|&v| v > 0.0);
     (0..nx * ny)
         .map(|local| {
@@ -436,6 +446,7 @@ fn corner_factors(problem: &Problem, k: usize) -> Result<Vec<[[f64; 2]; 4]>, Str
 fn corner_fluxes(
     problem: &Problem,
     k: usize,
+    constants: &[(&FewGroup, &Pins)],
     models: &[Rc<NodeModel>],
     conditions: &[Conditions],
     cdfs: &[[[f64; 2]; 4]],
@@ -446,7 +457,7 @@ fn corner_fluxes(
         for i in 0..nx {
             let local = i + nx * j;
             let n = local + nx * ny * k;
-            let (m, _) = node_constants(problem, n)?;
+            let (m, _) = constants[local];
             // 外周の真空の辺を通る流れ。真空の辺の比 r は不均質な中性子束に対する比（ADR-0101）で、角の点の不均質な
             // 中性子束は Φ なので r Φ。反射と中性子束ゼロは 0
             let on_boundary = [i == 0, i == nx - 1, j == 0, j == ny - 1];
