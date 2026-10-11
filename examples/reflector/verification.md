@@ -102,7 +102,7 @@ y の漏れが 0（上下が鏡面反射）で上方散乱が小さいので、�
   0.531）では、燃料のノードの中の中性子束の形が単一集合体と大きく違う。REF1-2D の 3×3 で、燃料が反射体の片側にしか
   ないときの誤差を測る
 
-## I 型の格子のピン出力の再構成（23e3a4a8、2026-10-11）
+## I 型の格子のピン出力の再構成（3f000b1c、2026-10-11）
 
 格子のノードごとの形状関数と角の不連続因子（[ADR-0125](../../docs/adr/0125-derive-corner-factors-from-lattice-corner-balance.md)）を付けて `reflector-I.toml` と `assembly-2B.toml` を解き、
 core の2つのケースで再構成したピン出力を、`reflector-I.toml` の MOC のピン出力（`moc-pins-I.msgpack`）と比較した
