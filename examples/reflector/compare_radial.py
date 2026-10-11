@@ -31,6 +31,9 @@ def main() -> None:
         f"k MOC {k_moc:.8f}, core {k_core:.8f}, dk/k {1e5 * (k_core / k_moc - 1):+.4f} pcm"
     )
     worst = [0.0, 0.0]
+    missing = [s for s in sites if s not in nem]
+    if missing:
+        raise SystemExit(f"{core_log}: no node at sites {missing}")
     for n, (b, site) in enumerate(zip(moc, sites)):
         a = [height * x for x in nem[site]]
         d = [x / y - 1 for x, y in zip(a, b)]
