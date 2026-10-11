@@ -270,6 +270,24 @@ mod tests {
     }
 
     #[test]
+    fn moments_far_above_kt_approach_the_target_at_rest() {
+        // E/kT が大きいと、遠い下方散乱でも有限で、静止した標的に近づく。A = 1 の静止した標的は E' が [0, E] で一様、
+        // 実験室系の散乱角の余弦は √(E'/E) なので、P1〜P3 の平均は ∫ P_l(√x) dx（0..1）で 2/3、1/4、0。熱運動による
+        // ずれは kT/E ほど
+        let groups = GroupStructure::wims69();
+        let kt = crate::physics::BK * 600.0;
+        for e in [100.0, 1.0e4] {
+            let moments = free_gas_group_moments(&groups, e, 1.0, kt, 3);
+            assert!(moments.iter().flatten().all(|v| v.is_finite()), "E={e}");
+            let sums: Vec<f64> = moments.iter().map(|m| m.iter().sum()).collect();
+            for (l, expected) in [(1, 2.0 / 3.0), (2, 0.25), (3, 0.0)] {
+                let deviation = (sums[l] / sums[0] - expected).abs();
+                assert!(deviation < 10.0 * kt / e, "E={e} P{l}: {sums:?}");
+            }
+        }
+    }
+
+    #[test]
     fn hydrogen_has_closed_form() {
         // A=1: E' < E では erf(√(E'/kT))/E、E' > E では exp((E-E')/kT) erf(√(E/kT))/E
         let e = 0.05;
