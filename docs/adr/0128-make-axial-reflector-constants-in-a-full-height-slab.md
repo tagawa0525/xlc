@@ -1,7 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-11
-supersedes: []
+supersedes: [ADR-0101]
 superseded-by:
 issues: ["#0030"]
 requires: [ADR-0083, ADR-0095, ADR-0097, ADR-0102, ADR-0103, ADR-0104, ADR-0105, ADR-0127]
@@ -134,7 +134,8 @@ requires: [ADR-0083, ADR-0095, ADR-0097, ADR-0102, ADR-0103, ADR-0104, ADR-0105,
   `mix` と排他）。媒質の群境界がライブラリと違う、散乱のモーメントの次数がほかの物質と違う、平板の分岐の軸（名前、点、
   密度、B-10 の割合）が媒質の軸と一致しない、ときはエラーにする。分岐の状態ごとに、媒質の同じ状態を使う
 - 媒質は自己遮蔽しない（単一集合体の計算で済んでいる）。核種の組成を持たないので、燃料のピンの自己遮蔽の対象に
-  ならない
+  ならない。媒質と混ぜた物質（下の `mix`）のある格子は `self-shielding = false` を書くことを求め、書かなければエラーに
+  する（自己遮蔽の既定は true で、遮蔽しない物質があることを入力に明示させる）
 
 ### 平板の格子
 
@@ -150,7 +151,10 @@ requires: [ADR-0083, ADR-0095, ADR-0097, ADR-0102, ADR-0103, ADR-0104, ADR-0105,
   使う。同じ核種が違う温度の成分にあれば別の項のまま足し、同じ温度なら個数密度を足す。分岐が成分
   （ホウ酸水の密度とホウ素濃度、温度）を変えると、混ぜた物質も変わる。割合は仕様書の寸法から求め、入力のコメントに
   出典と導出を書く。ノズルと炉心板の水の割合は、仕様書の表 P3-3 の H-1 の比（ボトムノズル 0.72077、トップノズル
-  0.80853、炉心板 0.50000。3A と 3B で同じ）と一致する
+  0.80853、炉心板 0.50000。3A と 3B で同じ）と一致する。成分は核種かホウ酸水で書いた物質か真空とし、媒質と混ぜた物質は
+  成分にしない
+- 列は層の厚さを割り切る幅 1 cm 程度にする。0.25 cm 程度（2058 列）では、格子計算の CMFD の粗メッシュの固有値問題が
+  収束しなかった（#0069）。MOC の平坦線源の近似の収束は、列を半分にした平板と比べて確かめる
 - 少数群定数の `few-group` に `axial = true` を書くと、格子の x を炉心の z として定数を書く。各ノードは格子のすべての行に
   わたり、格子の上下の辺は鏡面反射であることを求める（ほかはエラー）
 
@@ -204,7 +208,7 @@ Problem 3A の層（仕様書の 1.1 節の表 1、1.3 節の表 3、1.4 節の�
   面の ADF は 1」は、径方向の反射体のノードどうしの面だけに当てはめる（#0029）
 - z の面の `vacuum` は、その面のノードの物質の z の辺の真空の比 r を使い、径方向と同じ J = r f φ を課す。物質が その辺の r を
   持たなければエラーにし、`marshak` を示す（燃料の層を直接真空に面させるときは `marshak` を書く）
-- `height` を持つ物質を置いたノードの z の幅が `height` と丸めの範囲で等しくなければエラーにする。ADF と Koebke の D は
+- `height` を持つ物質を置いたノードの z の幅が `height` と丸めの範囲（相対 10⁻⁹）で等しくなければエラーにする。ADF と Koebke の D は
   ノードの幅で決まる1ノードの問題の量なので、軸方向の反射体の層を core のメッシュで分けたり、厚さの違う層に置いたり
   すると等価性が崩れる。設計の `bounds` と `axial-mesh` は、反射体の層を1つのノードにするように書く
 
@@ -212,7 +216,9 @@ Problem 3A の層（仕様書の 1.1 節の表 1、1.3 節の表 3、1.4 節の�
 
 - 平板の格子計算は、径方向の反射体と同じく、分岐の状態ごとに解き、ノードごとに軸を持つテーブル（ADR-0097）を書く。
   軸は媒質と同じ3つ（ホウ素濃度、減速材、燃料の温度）。燃料の温度の軸は媒質の状態を選ぶだけで、平板の層の物質は
-  変えない。ホウ素濃度と減速材の軸には、平板のホウ酸水と、それを成分に持つ混ぜた物質を挙げる
+  変えない。ホウ素濃度と減速材の軸には、平板のホウ酸水と、それを成分に持つ混ぜた物質を挙げる。軸ごとに、変える
+  成分を持つ混ぜた物質をすべて挙げ、変える成分を持たない混ぜた物質は挙げない（入力の取り違えをエラーにする）。
+  媒質は燃料の温度の軸にだけ挙げる
 - f* の印と `height` は状態によらないので、状態の間で違えばエラーにする
 
 ### 制御棒の軸
@@ -265,31 +271,37 @@ VERA の制御棒は、全引き抜き（230 ステップ）でも吸収体の�
 
 ## 確認
 
-数値はまだない。実装の PR で、次のテストと比較で確かめる。
-
-- 媒質: 外周が鏡面反射の格子の媒質を、同じライブラリの均質な格子（全体が媒質）で解くと、k が元の格子の k に、細かい
-  群の中性子束が元の格子の平均に、固有値の収束の許容差で一致する。形式の往復と、群境界・次数・軸の不一致のエラー
-- 混ぜた物質: 仕様書の表 P3-3 のトップノズル、ボトムノズル、炉心板の個数密度を、SS304 とホウ酸水（3A の 1300 ppm と
-  3B の 1066 ppm）の `mix` が表の有効数字で再現する。割合の和が 1 でないときのエラー
-- 少数群定数の6つの辺: 2次元の格子計算の z の辺の ADF が 1、`axial = true` の辺の対応、`height` の往復と検査、
-  回転が z の辺を変えないこと。core: z の面の ADF の跳びが x、y と同じ解析解に合う（`side_mapping_matches_two_region_analytic`
-  を z に広げる）、z の `vacuum` の解析解（`vacuum_ratio_matches_analytic` を z に）、z の幅と `height` の不一致、
-  f* の向かいが核分裂のない物質のときのエラー
-- 平板の等価性（examples に Problem 3A の平板を置く）: core の 1 × 1 × N のノード（径方向は鏡面反射）に平板の全ノードの
-  定数（燃料のノードも平板から）を置くと、MOC の k とノード平均の中性子束を再現する。判定の閾値（案）は I 型の結果
-  （k +0.0006 pcm、ノード平均の中性子束の相対 2 × 10⁻⁸ 以内。examples/reflector/verification.md、aa95e62a、2026-10-10）
-  から、k ±1 pcm、ノード平均の中性子束の相対 10⁻⁵
-- f*の方法の誤差: 燃料のノードを単一集合体の定数（z の ADF 1）に替えた k とノード平均の中性子束の差を記録する
-  （I 型は −130.6 pcm、ノード平均の中性子束の差は最大 1.40%。同じ記録、aa95e62a、2026-10-10）。燃料のノードの高さ（core の燃料の端のノードの高さ）を変えたときの f* の変化も記録する
-- Problem 3A と 3B（3B は Pyrex とシンブルプラグの平板）を、core（燃料は単一集合体のテーブル、軸方向は平板のテーブル）
-  で解き、同じ核データの OpenMC（3D）と KENO の値（仕様書の表 P3-4。3A は k 1.175722 ± 0.000005、軸方向の
-  オフセット 0.163%、3B は 1.000154 ± 0.000006、−0.062%。軸方向の出力は付録 D）と比較する。OpenMC との比較はコード
-  同士の検証で、KENO は ENDF/B-VII.0 なので核データの差を含む。判定の閾値（案）: OpenMC に対して k ±100 pcm、
-  集合体の軸方向の出力（KENO の 49 の層）の差の RMS 1%、最大 3%（ユーザーの決定が要る）。支持格子の層（#0011）が
-  ないあいだは、その差を分けて記録する
-- 制御棒の軸: 上の層のテーブルが制御棒の値ごとの状態を持ち、下の層と、トップノズルより上の層が持たないこと。
-  Problem 5 の全引き抜きの状態で、上の層の制御棒の値を棒なしに替えたときの k の差を記録し、反射体の層の棒の効きの
-  大きさを示す（部分挿入の ADR の Problem 5 のバンクの価値の比較とあわせる）
+- 媒質: `medium_reproduces_the_lattice_k_and_spectrum`（crates/lattice/src/medium/tests.rs。外周が鏡面反射のピンセルの媒質を
+  均質なセルで解くと、k が 10⁻⁶ の相対差の内で、平均の中性子束のスペクトルが 10⁻⁵ の内で一致する）、
+  `medium_weights_every_moment_and_fission_by_the_flux`、`medium_needs_a_reflective_lattice`、`materials_come_back_from_the_medium`、
+  `media_must_match_the_library_and_the_branches`、`media_must_have_the_scattering_order_of_the_other_materials`。形式は
+  `round_trips_bit_exactly`、`invalid_media_are_errors`、`reading_is_strict`、`media_without_fission_have_zero_chi`
+  （crates/format/src/medium/tests.rs）。入力は `single_lattices_may_write_a_medium`、`materials_may_be_media_or_mixtures`、
+  `invalid_media_and_mixtures_are_errors`、`branches_list_mixtures_with_their_components`（crates/lattice/src/input.rs）
+- 混ぜた物質: `mixtures_add_number_densities_by_volume`、`mixtures_reproduce_the_vera_nozzle_and_plate_densities`
+  （crates/lattice/src/material.rs）。表 P3-3 のトップノズル、ボトムノズル、炉心板の H-1 と O-16（3A と 3B）を 10⁻⁵、鋼の
+  核種を 10⁻⁴ の相対差の内で再現する（最大 7.3 × 10⁻⁵。表の鋼と水の割合の和が 1 ± 1.1 × 10⁻⁵ のため）。表のノズルと炉心板の
+  B-10 と B-11 は、減速材の値 × 水の割合と 0.05〜0.45% 違い（3A の炉心板で −0.43%、3B で +0.45%）、表そのものが減速材と
+  食い違うので比べない。割合の和が 1 でないときのエラーは `invalid_media_and_mixtures_are_errors`
+- 少数群定数の6つの辺: `sides_include_the_z_faces`、`height_is_positive_when_given`（crates/format/src/fewgroup.rs）、
+  `states_need_the_height_key`、`invalid_tables_are_errors`（crates/format/src/table/tests.rs）、2次元の格子の z の ADF が 1 は
+  `reflective_adfs_divide_by_the_average_flux`（crates/lattice/src/fewgroup.rs）、`axial = true` の辺の対応と `height` は
+  `axial_constants_put_the_lattice_x_on_z`、`axial_nodes_span_every_row`（crates/lattice/src/axial/tests.rs）、
+  `few_group_may_be_axial`、回転が z の辺を変えないことは `rotation_turns_sides_counterclockwise`（crates/core/src/input/tests.rs）。
+  core: `side_mapping_matches_two_region_analytic`（z を含む）、`vacuum_ratio_matches_analytic` と
+  `normalized_adfs_take_the_neighbor_adf`（x の問題を z に並べ直して同じ解）、`vacuum_needs_ratios`、`heights_must_match_the_node`、
+  `normalized_adfs_need_a_fissile_neighbor`（crates/core/src/nem.rs）。燃料と接しない反射体のノードの GET の ADF は
+  `reflector_nodes_away_from_fuel_keep_plain_factors`
+- 平板の等価性（examples/reflector/verification.md の「軸方向の反射体の平板の定数を作った体系の再現」、bb83ee87、
+  2026-10-11）: VERA 3A の平板（燃料 16 ノードと 32 ノード、列を半分にしたもの）で、core は平板の MOC の k を −0.0000 pcm、
+  ノード平均の中性子束を相対 5.8 × 10⁻⁷ の内で再現し、閾値の案（k ±1 pcm、相対 10⁻⁵）を満たす。下のギャップと端栓の
+  ノードは、Koebke の D が正の面の範囲になく、中性子流で重みづけた D を使った（ADR-0134）
+- f*の方法の誤差（同じ記録）: 燃料のノードを単一集合体の定数にすると、k は −8.9 pcm（燃料 22.86 cm のノード）、−3.6 pcm
+  （11.43 cm）、ノード平均の中性子束の差は最大 8.7%、3.5%。f* は燃料の端のノードの高さで変わる（下のギャップと端栓の +z の
+  熱群で 0.768 と 0.855）
+- 平板の列の収束: 列を 1 cm 程度から半分にすると MOC の k が +7.1 pcm 変わる
+- Problem 3A と 3B の core の解を OpenMC（3D）と KENO と比べること、制御棒の軸のテーブル（上の層）は、まだ行っていない
+  （#0030。制御棒の軸は #0063 の実装と同時か後）
 
 ## 帰結
 
@@ -321,3 +333,14 @@ VERA の制御棒は、全引き抜き（230 ステップ）でも吸収体の�
 - Problem 5 の径方向の反射体の位置の、軸方向の反射体の高さの定数（反射体と反射体の角）は決めていない（#0034 とあわせて
   決める）
 - ADR-0095 の軸方向の決定を実装に落とした。ADR-0101 は z の面の扱いを除いて引き継いだ
+- 上の層のテーブルの制御棒の離散の軸（上の「制御棒の軸」）と、媒質の離散の軸の値の選び方は、格子計算の分岐に離散の軸が
+  ないので、まだ実装していない（#0030、#0063）
+- 媒質と混ぜた物質のある格子は自己遮蔽できない（`self-shielding = false` を求める）。#0008 で真空の辺の Dancoff 係数を
+  決めたら見直す
+- 平板の列の幅は、格子計算の CMFD の粗メッシュの収束（#0069）で 1 cm 程度に制限している
+- f* が燃料の端のノードの高さに依存する大きさ（下のギャップと端栓の +z の熱群で、22.86 cm と 11.43 cm で 0.768 と 0.855）は
+  無視できないので、上の帰結のとおり、反射体の定数に隣の燃料のノードの高さを持たせて検査することを #0030 で検討する
+- 炉心のピン出力の再構成は、核分裂のある層に軸方向の定数（形状関数を持たない）のノードが混ざるとエラーになる（層の境の
+  違う設計を並べたとき）。必要になったら、軸方向の定数の層の扱いを決める
+- 径方向の反射体の位置に、軸方向の反射体の高さでも1つの2次元の定数（f*を持つ）を置くと、隣の集合体の軸方向の反射体の
+  層（核分裂しない）に f* が向き、エラーになる。その位置の定数は #0034 で決める
