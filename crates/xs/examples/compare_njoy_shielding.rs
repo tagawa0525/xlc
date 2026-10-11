@@ -1,13 +1,13 @@
 //! 背景断面積 σ0 ごとの群平均断面積を、NJOY (GROUPR) の GENDF と比べる。
 //!
-//! 使い方: compare_njoy_shielding <ENDF> <GENDF> <MAT> <温度 K> [MT...]
+//! 使い方: compare_njoy_shielding [--urr-only] [--slowing-down] <ENDF> <GENDF> <MAT> <温度 K> [MT...]
 //!
 //! 群構造は WIMS 69群、重み関数は iwt=4 とする。GENDF は同じ温度に拡げた PENDF から、
 //! 同じ群構造・重み関数で、σ0 の表を指定して作っておくこと（σ0 は GENDF の MF1 から読む）。
 //! こちらはその温度に拡げたポイントワイズの断面積を使う。反応ごと・σ0 ごとに、全群での相対差の最大値を表示する。
 //! 非分離共鳴があれば、その自己遮蔽（UNRESR に相当）も含める。GENDF も UNRESR を通して作っておくこと。
-//! 環境変数 XLC_URR_ONLY を設定すると、非分離共鳴の範囲にかかる群だけを比べる。
-//! 環境変数 XLC_SLOWING_DOWN を設定すると、分離共鳴の範囲の重みを超微細群の減速計算で作る
+//! `--urr-only` を付けると、非分離共鳴の範囲にかかる群だけを比べる。
+//! `--slowing-down` を付けると、分離共鳴の範囲の重みを超微細群の減速計算で作る
 //! （GROUPR の flux calculator（重み関数の番号が負）と比べるとき）。GROUPR の sigpot は範囲より上の散乱源に
 //! 使うので、こちらの分離共鳴のポテンシャル散乱 4πa²（a は s 波の散乱半径。Reich-Moore で l=0 の APL が
 //! 0 でなければそれ）にそろえる。
@@ -23,9 +23,18 @@ use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::{slowing_down_range, unresolved_shielding};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = std::env::args().collect();
+    let (flags, args): (Vec<String>, Vec<String>) =
+        std::env::args().partition(|arg| arg.starts_with("--"));
+    let (mut urr_only, mut slowing_down) = (false, false);
+    for flag in &flags {
+        match flag.as_str() {
+            "--urr-only" => urr_only = true,
+            "--slowing-down" => slowing_down = true,
+            _ => return Err(format!("unknown flag {flag}").into()),
+        }
+    }
     let [_, endf, gendf, mat, temperature, mts @ ..] = args.as_slice() else {
-        return Err("usage: compare_njoy_shielding <ENDF> <GENDF> <MAT> <K> [MT...]".into());
+        return Err("usage: compare_njoy_shielding [--urr-only] [--slowing-down] <ENDF> <GENDF> <MAT> <K> [MT...]".into());
     };
     let mat: i32 = mat.parse()?;
     let temperature: f64 = temperature.parse()?;
@@ -49,9 +58,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "unresolved shielding in {:.1} s",
         start.elapsed().as_secs_f64()
     );
-    let slowing = match std::env::var_os("XLC_SLOWING_DOWN") {
-        Some(_) => slowing_down_range(&tape, mat, &groups, &Weight::lwr())?,
-        None => None,
+    let slowing = if slowing_down {
+        slowing_down_range(&tape, mat, &groups, &Weight::lwr())?
+    } else {
+        None
     };
     let ours = shielded_averages(
         &groups,
@@ -76,8 +86,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>()
             .join(" ")
     );
-    // 環境変数 XLC_URR_ONLY を設定すると、非分離共鳴の範囲にかかる群だけを比べる
-    let urr_only = std::env::var_os("XLC_URR_ONLY").is_some();
     let in_scope = |g: usize| {
         let (lo, hi) = (groups.bounds()[g + 1], groups.bounds()[g]);
         !urr_only
