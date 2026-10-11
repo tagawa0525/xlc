@@ -1,6 +1,7 @@
 //! 物質の巨視的断面積。
 
 use xlc_format::library::{Library, LookupError, Nuclide};
+use xlc_format::medium::MediumState;
 
 /// χ の和と 1 の差の許容値
 const CHI_TOLERANCE: f64 = 1.0e-6;
@@ -63,6 +64,33 @@ impl Material {
             .map(|(name, density)| Ok((library.nuclide(name, temperature)?, *density)))
             .collect::<Result<Vec<_>, MaterialError>>()?;
         Self::from_nuclides(&nuclides, library.groups.len())
+    }
+
+    /// 細かい群の均質な媒質（ADR-0128）から作る。P0 の散乱を `scatter`、P1 以上を `anisotropic` に、核分裂を
+    /// 媒質の χ の1つの項に持つ（核分裂がなければ項はない）。
+    pub fn from_medium(medium: &MediumState) -> Result<Self, MaterialError> {
+        let ng = medium.groups();
+        let Some((p0, higher)) = medium.scatter.split_first() else {
+            return Err(MaterialError::Groups(ng));
+        };
+        let fissile = medium.nu_fission.iter().any(|&v| v > 0.0);
+        let m = Self {
+            total: medium.total.clone(),
+            scatter: p0.clone(),
+            anisotropic: higher.to_vec(),
+            fission: medium.fission.clone(),
+            nu_fission: medium.nu_fission.clone(),
+            fission_terms: if fissile {
+                vec![FissionTerm {
+                    chi: medium.chi.clone(),
+                    nu_fission: medium.nu_fission.clone(),
+                }]
+            } else {
+                Vec::new()
+            },
+        };
+        m.validate()?;
+        Ok(m)
     }
 
     /// 核種の群定数 (barn) と個数密度 (1/(barn·cm)) の組から作る。

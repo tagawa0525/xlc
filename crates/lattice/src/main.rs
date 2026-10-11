@@ -1,5 +1,5 @@
-//! 格子計算を行い、少数群定数のテーブルとセルごとの核分裂率を書き出すコマンド。入力に分岐（`[branches]`）が
-//! あれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
+//! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
+//! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
 //!
 //! 使い方: lattice <入力ファイル>
 //!
@@ -29,12 +29,14 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
+use xlc_format::medium::Medium;
 use xlc_lattice::branches::tables;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
+use xlc_lattice::medium::homogenize_medium;
 use xlc_lattice::moc::{Options, available_order, solve_symmetric};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel_with};
@@ -177,6 +179,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let states = input.branch_states();
     let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(states.len());
+    // 状態ごとの細かい群の媒質（ADR-0128）
+    let mut media = Vec::new();
     for (state, state_materials) in states.iter().enumerate() {
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
@@ -287,6 +291,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
             };
             per_state.push(fews);
         }
+        if input.medium.is_some() {
+            media.push(
+                homogenize_medium(&solution, &materials, &tracking.boundaries())
+                    .with_context(context)?,
+            );
+        }
         // ピン出力は分岐のないときだけ（入力の読み込みで確かめてある）
         if let Some(file) = &input.pin_powers {
             let rates = cell_fission_rates(&solution, &lattice, &materials)?;
@@ -308,6 +318,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
         );
     }
 
+    if let Some(output) = &input.medium {
+        let groups = groups
+            .as_ref()
+            .ok_or_else(|| anyhow!("a medium needs a library"))?;
+        let medium = Medium {
+            bounds: groups.bounds().to_vec(),
+            axes: axes.to_vec(),
+            states: media,
+        };
+        let output = base.join(output);
+        let bytes = medium.to_msgpack().with_context(|| shown(&output))?;
+        std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+    }
     if let Some(FewGroupOutput { files, split, .. }) = &input.output {
         let outputs: Vec<&Path> = match files {
             FewGroupFiles::Lattice(output) => vec![output],
