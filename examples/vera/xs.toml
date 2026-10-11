@@ -1,7 +1,9 @@
-# VERA Problem 1B〜1D, 2B〜2H の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
-# 燃料の核種と O は 600, 900, 1200 K、被覆管（Zircaloy-4 の Zr, Sn, Fe, Cr）、冷却材の H, B、Pyrex（B, O, Si）、
-# SS304（C, Si, P, Cr, Mn, Fe, Ni。天然の C は C-12 と C-13 に分ける。ADR-0079）、AIC（Ag, In, Cd）は 600 K。
-# B4C は B と C だけなので、足す核種はない。
+# VERA Problem 1B〜1D, 2A〜2J, 2Q の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
+# 燃料の核種と O は 565, 600, 900, 1200 K、被覆管（Zircaloy-4 の Zr, Sn, Fe, Cr）と冷却材の B は 565, 600 K、
+# 冷却材の H は S(α,β) の温度の 550, 573.6 K と 600 K（565 K は lattice が内挿する。ADR-0080。参照解の OpenMC は
+# 565 K で処理した H-1 も作って使う）、
+# Pyrex（B, O, Si）、SS304（C, Si, P, Cr, Mn, Fe, Ni。天然の C は C-12 と C-13 に分ける。ADR-0079）、
+# AIC（Ag, In, Cd）のほかの核種は 600 K。B4C は B と C だけなので、足す核種はない。
 output = "vera.msgpack"
 endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -9,128 +11,128 @@ sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
 
 [nuclide.U-234]
 endf = "n-092_U_234.endf"
-temperatures = [600, 900, 1200]
+temperatures = [565, 600, 900, 1200]
 
 [nuclide.U-235]
 endf = "n-092_U_235.endf"
-temperatures = [600, 900, 1200]
+temperatures = [565, 600, 900, 1200]
 
 [nuclide.U-236]
 endf = "n-092_U_236.endf"
-temperatures = [600, 900, 1200]
+temperatures = [565, 600, 900, 1200]
 
 [nuclide.U-238]
 endf = "n-092_U_238.endf"
-temperatures = [600, 900, 1200]
+temperatures = [565, 600, 900, 1200]
 
 [nuclide.O-16]
 endf = "n-008_O_016.endf"
-temperatures = [600, 900, 1200]
+temperatures = [565, 600, 900, 1200]
 
 [nuclide.H-1]
 endf = "n-001_H_001.endf"
-temperatures = [600]
+temperatures = [550, 573.6, 600]
 thermal = "tsl-HinH2O.endf"
 
 [nuclide.B-10]
 endf = "n-005_B_010.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.B-11]
 endf = "n-005_B_011.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Zr-90]
 endf = "n-040_Zr_090.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Zr-91]
 endf = "n-040_Zr_091.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Zr-92]
 endf = "n-040_Zr_092.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Zr-94]
 endf = "n-040_Zr_094.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Zr-96]
 endf = "n-040_Zr_096.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-112]
 endf = "n-050_Sn_112.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-114]
 endf = "n-050_Sn_114.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-115]
 endf = "n-050_Sn_115.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-116]
 endf = "n-050_Sn_116.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-117]
 endf = "n-050_Sn_117.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-118]
 endf = "n-050_Sn_118.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-119]
 endf = "n-050_Sn_119.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-120]
 endf = "n-050_Sn_120.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-122]
 endf = "n-050_Sn_122.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Sn-124]
 endf = "n-050_Sn_124.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Fe-54]
 endf = "n-026_Fe_054.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Fe-56]
 endf = "n-026_Fe_056.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Fe-57]
 endf = "n-026_Fe_057.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Fe-58]
 endf = "n-026_Fe_058.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Cr-50]
 endf = "n-024_Cr_050.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Cr-52]
 endf = "n-024_Cr_052.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Cr-53]
 endf = "n-024_Cr_053.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.Cr-54]
 endf = "n-024_Cr_054.endf"
-temperatures = [600]
+temperatures = [565, 600]
 
 [nuclide.C-12]
 endf = "n-006_C_012.endf"
