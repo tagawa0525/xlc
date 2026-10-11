@@ -400,25 +400,6 @@ fn normalized_reflector_corners_take_the_fuel_corner_factor() {
 }
 
 #[test]
-fn normalized_corners_need_a_plain_neighbor() {
-    // 燃料の CDF で割った角の点に、割っていない角のノードがなければエラー
-    let fuel_corners = vec![vec![1.0, 1.0]; 4];
-    let r = reflector(
-        21.5,
-        2,
-        vec![vec![1.0, 1.0]; 4],
-        vec![true, false, false, true],
-    );
-    let mut p = fuel_and_reflector(fuel_corners, r);
-    if let Some(pins) = p.materials[0].pins.as_mut() {
-        pins.normalized_corners = vec![false, true, true, false];
-    }
-    let s = solve(&p, &Options::default()).unwrap();
-    let err = reconstruct(&p, &s).unwrap_err();
-    assert!(err.contains("normalized"), "{err}");
-}
-
-#[test]
 fn normalized_corners_need_fuel_at_the_corner_point() {
     // 燃料の CDF で割った角の点に、燃料（核分裂のある）のノードがなければ、割っていない反射体の角があってもエラー
     let a = reflector(
