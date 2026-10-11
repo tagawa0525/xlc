@@ -620,6 +620,8 @@ fn reflector_sites_turned_with_the_core_keep_k_and_pins() {
                 for _ in 0..turns {
                     expected = turned(&expected);
                 }
+                let shape = |m: &[Vec<f64>]| m.iter().map(Vec::len).collect::<Vec<_>>();
+                assert_eq!(shape(&rows), shape(&expected), "{angle}°");
                 for (a, b) in rows.iter().flatten().zip(expected.iter().flatten()) {
                     assert!(
                         (a - b).abs() < 1e-10 * b.abs().max(1.0),
