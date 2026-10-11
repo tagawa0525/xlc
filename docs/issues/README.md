@@ -6,7 +6,7 @@
 
 ## ファイル
 
-`NNNN-short-name.md`（4桁の連番と、英語の短い名前の kebab-case）。番号は作った順に振り、再利用しない。
+`NNNN-short-name.md`（4桁の連番と、英語の短い名前の kebab-case）。番号は `design-records new` が作った順に振り、再利用しない。
 
 ```markdown
 ---
@@ -44,7 +44,8 @@ resolution:           # 閉じるとき: ADR-NNNN | コミット <hash> | wontfi
   コミットする時点では分からないので、ブランチの上のコミットを書いてよい。マージの前にブランチを rebase したら
   hash を書き直す（検査が、HEAD の祖先でない hash を見つける）
 - ブランチ名とコミットの本文で番号を示す（例: ブランチ `fix/0004-frame-gap`、本文に `Refs: #0004`。決定に結びつくなら `Refs: ADR-0002` も）
-- 番号は、ブランチの上で既存の最大の番号 + 1 を振る。マージの前に main に rebase し、番号がぶつかっていたら
-  振り直す（重複は、`cargo test` で走る crates/docs の検査が見つける。#0013）
+- issue は `design-records new --kind issue <slug> <title>` で作る。番号を振ってタグ `issue-NNNN` で予約し、
+  表題の行だけを書くので、フロントマターと節は手で埋める。番号の振り方、衝突の修正方法（`renumber --kind issue`）、タグの
+  解放（`prune`）は ADR と同じ（docs/adr/README.md）。フロントマターの検査は crates/docs が行う（#0013）
 - 一覧のファイルは作らない（手で書く一覧は各ファイルとずれる）。開いている issue は
   `grep -l '^status: open$' docs/issues/[0-9]*.md` で探す
