@@ -2099,17 +2099,17 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: cda2884253049a9d2451d58838de1125.dir
-      size: 96551
-      nfiles: 8
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
       md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: cc3e81392913408fefc537b0e344a3e1.dir
-      size: 147537
+      md5: 0d25d3e66a7a6baccad74acc0dd94ba3.dir
+      size: 165669
       nfiles: 13
     - path: ../../crates/xs/Cargo.toml
       hash: md5
@@ -2117,8 +2117,8 @@ stages:
       size: 486
     - path: ../../crates/xs/src
       hash: md5
-      md5: c694170194a1712c5afc6291bd5ed0a2.dir
-      size: 586307
+      md5: 0a0e7832590a1d9b170566cebc6935ff.dir
+      size: 614637
       nfiles: 38
     - path: ../../flake.lock
       hash: md5
@@ -2140,12 +2140,12 @@ stages:
       size: 98
     - path: xs.toml
       hash: md5
-      md5: bfecca22a07a631dcbbac19cd5527604
-      size: 4727
+      md5: d8f41524e1b218c058308d5cda423964
+      size: 4950
     outs:
     - path: vera.msgpack
       hash: md5
-      md5: 114c87f98fcfd63c9b7324762113c9ed
+      md5: 3d1a8cc29b76d93cd46fa5e058ff615e
       size: 123378257
   lattice-1B:
     cmd: cargo run --release -p xlc-lattice -- p1/pincell-1B.toml > 
@@ -2169,26 +2169,26 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: df0a98105e6f2cc675293923b2921fad.dir
-      size: 96551
-      nfiles: 8
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
     - path: ../../crates/lattice/Cargo.toml
       hash: md5
       md5: 0d52be204d05bbc657bd40ea03831341
       size: 568
     - path: ../../crates/lattice/src
       hash: md5
-      md5: e3cedefcbf29094295d4a1ef0df35a74.dir
-      size: 925088
-      nfiles: 26
+      md5: 5671e594f295dec4cc1810ab21318969.dir
+      size: 986099
+      nfiles: 30
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
       md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 5bab96f2db5113bf73af4f479c23d19a.dir
-      size: 153471
+      md5: 0d25d3e66a7a6baccad74acc0dd94ba3.dir
+      size: 165669
       nfiles: 13
     - path: ../../flake.lock
       hash: md5
@@ -2204,12 +2204,12 @@ stages:
       size: 1511
     - path: vera.msgpack
       hash: md5
-      md5: 114c87f98fcfd63c9b7324762113c9ed
+      md5: 3d1a8cc29b76d93cd46fa5e058ff615e
       size: 123378257
     outs:
     - path: p1/lattice-1B.out
       hash: md5
-      md5: 02be3780689d84de54385fc93c72765b
+      md5: 132bd937833521336f97e91864c8b494
       size: 11
   compare-1B:
     cmd: python3 compare_k.py p1/lattice-1B.out p1/openmc-1B-results/k.json > 
@@ -2221,7 +2221,7 @@ stages:
       size: 1269
     - path: p1/lattice-1B.out
       hash: md5
-      md5: 02be3780689d84de54385fc93c72765b
+      md5: 132bd937833521336f97e91864c8b494
       size: 11
     - path: p1/openmc-1B-results/k.json
       hash: md5
@@ -2230,5 +2230,5 @@ stages:
     outs:
     - path: p1/compare-1B.out
       hash: md5
-      md5: 0070281175aefa044517143c8b67d735
-      size: 63
+      md5: 3bd65dc420b5212cd87a8165f4d84407
+      size: 62
