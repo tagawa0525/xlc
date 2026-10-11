@@ -20,8 +20,8 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 
 ## 計算は Slurm で、時間は排他のジョブのものだけ
 
-数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。CLAUDE.md の `sbatch --exclusive --wait`
-の形は、hook が直接の `sbatch` を止めるので使わない。
+数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。CLAUDE.md が示す
+`-t <見積もり> <名前> '<コマンド>'` の形で流す。直接の `sbatch` は hook が止めるので使わない。
 
 - 記録に書く時間は、排他のジョブの `TIME:` 行の `elapsed`、または OpenMC が statepoint に書く計算時間（total。既存の
   「参照解」はこちら）
