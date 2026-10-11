@@ -3,12 +3,13 @@
 //! 使い方: xs <入力ファイル>
 //!         xs range <入力ファイル> <範囲のファイル>
 //!         xs nuclide <入力ファイル> <範囲のファイル> <核種> <出力>
-//!         xs assemble <入力ファイル> <核種ごとの結果のディレクトリ>
+//!         xs assemble <入力ファイル> <範囲のファイル> <核種ごとの結果のディレクトリ>
 //!
 //! 引数が入力ファイルだけのときは、すべての核種を処理して入力の `output` にライブラリを書く。ほかの 3 つは、同じ結果を
 //! 段階に分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
 //! `nuclide` は、その範囲で核種 1 つだけを処理し、1 核種のライブラリを書く。`assemble` は、ディレクトリの
-//! `<核種>.msgpack` を入力の核種の順に 1 つのライブラリにして、入力の `output` に書く。
+//! `<核種>.msgpack` を入力の核種の順に、入力と範囲のファイルと同じ条件で作られたことを確かめて、1 つのライブラリにして、
+//! 入力の `output` に書く。
 //!
 //! 入力ファイルは TOML（パスは入力ファイルのディレクトリからの相対パス）:
 //!
@@ -234,26 +235,24 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
 const USAGE: &str = "usage: xs <input file>
        xs range <input file> <range file>
        xs nuclide <input file> <range file> <nuclide> <output>
-       xs assemble <input file> <nuclide directory>";
+       xs assemble <input file> <range file> <nuclide directory>";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let result = match args.as_slice() {
-        [path] => init_logging()
-            .and_then(|()| read_input(Path::new(path)))
-            .and_then(|input| run(&input)),
-        [command, path, rest @ ..] => init_logging()
-            .and_then(|()| read_input(Path::new(path)))
-            .and_then(|input| match (command.as_str(), rest) {
-                ("range", [out]) => run_range(&input, Path::new(out)),
-                ("nuclide", [range, name, out]) => {
-                    run_nuclide(&input, Path::new(range), name, Path::new(out))
+    let result =
+        init_logging().and_then(
+            |()| match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
+                [path] => read_input(Path::new(path)).and_then(|input| run(&input)),
+                ["range", path, out] => {
+                    read_input(Path::new(path)).and_then(|input| run_range(&input, Path::new(out)))
                 }
-                ("assemble", [directory]) => run_assemble(&input, Path::new(directory)),
+                ["nuclide", path, range, name, out] => read_input(Path::new(path))
+                    .and_then(|input| run_nuclide(&input, Path::new(range), name, Path::new(out))),
+                ["assemble", path, range, directory] => read_input(Path::new(path))
+                    .and_then(|input| run_assemble(&input, Path::new(range), Path::new(directory))),
                 _ => Err(anyhow!(USAGE)),
-            }),
-        _ => Err(anyhow!(USAGE)),
-    };
+            },
+        );
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
@@ -335,13 +334,17 @@ fn library_of(settings: Settings, nuclides: Vec<NuclideData>) -> Library {
     }
 }
 
-/// ライブラリを書く。DVC は段階の前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
-fn write_library(library: &Library, path: &Path) -> anyhow::Result<()> {
+/// ファイルを書く。DVC は段階の前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
+fn write_file(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
     let context = || format!("{}", path.display());
     if let Some(directory) = path.parent() {
         std::fs::create_dir_all(directory).with_context(context)?;
     }
-    std::fs::write(path, library.to_msgpack()?).with_context(context)
+    std::fs::write(path, contents).with_context(context)
+}
+
+fn write_library(library: &Library, path: &Path) -> anyhow::Result<()> {
+    write_file(path, &library.to_msgpack()?)
 }
 
 /// 入力のすべての核種を処理して、ライブラリを書く。
@@ -373,7 +376,13 @@ fn run(input: &Input) -> anyhow::Result<()> {
 fn run_range(input: &Input, out: &Path) -> anyhow::Result<()> {
     let tapes = read_tapes(&input.nuclides)?;
     let range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;
-    std::fs::write(out, range_to_toml(range)).with_context(|| format!("{}", out.display()))
+    write_file(out, range_to_toml(range).as_bytes())
+}
+
+fn read_range(path: &Path) -> anyhow::Result<Option<(f64, f64)>> {
+    let context = || format!("{}", path.display());
+    let text = std::fs::read_to_string(path).with_context(context)?;
+    range_from_toml(&text).with_context(context)
 }
 
 /// 核種 `name` だけを、`range` のファイルのポイントワイズの範囲で処理して、1 核種のライブラリを書く。
@@ -383,21 +392,24 @@ fn run_nuclide(input: &Input, range: &Path, name: &str, out: &Path) -> anyhow::R
         .iter()
         .find(|n| n.name == name)
         .ok_or_else(|| anyhow!("{name} is not in the input"))?;
-    let text = std::fs::read_to_string(range).with_context(|| format!("{}", range.display()))?;
-    let pointwise_range = range_from_toml(&text).with_context(|| format!("{}", range.display()))?;
+    let pointwise_range = read_range(range)?;
     let settings = settings_of(input, pointwise_range);
     let data = process_file(nuclide, &read_tape(&nuclide.endf)?, &settings)?;
     write_library(&library_of(settings, vec![data]), out)
 }
 
 /// `directory` の `<核種>.msgpack`（`nuclide` の結果）を、入力の核種の順に 1 つのライブラリにして書く。
-fn run_assemble(input: &Input, directory: &Path) -> anyhow::Result<()> {
+/// 各結果が入力と `range` のファイルの条件で作られたことを確かめる。
+fn run_assemble(input: &Input, range: &Path, directory: &Path) -> anyhow::Result<()> {
+    let range = read_range(range)?;
     let mut parts = Vec::with_capacity(input.nuclides.len());
     for nuclide in &input.nuclides {
         let path = directory.join(format!("{}.msgpack", nuclide.name));
         let bytes = std::fs::read(&path).with_context(|| format!("{}", path.display()))?;
         let part = Library::from_msgpack(&bytes).with_context(|| format!("{}", path.display()))?;
-        check_part(nuclide, &part).with_context(|| format!("{}", path.display()))?;
+        check_part(nuclide, &part)
+            .and_then(|()| check_shared(input, range, &part))
+            .with_context(|| format!("{}", path.display()))?;
         parts.push(part);
     }
     write_library(&Library::merge(parts)?, &input.output)
@@ -499,8 +511,37 @@ fn check_part(nuclide: &NuclideInput, part: &Library) -> anyhow::Result<()> {
 /// 核種ごとの結果が、入力と範囲のファイルと同じ条件で作られたこと（群構造、σ0、ポイントワイズの範囲、散乱行列の次数）を
 /// 確かめる。古い結果が残っていても、組み立てが黙って食い違うライブラリを作らないため。
 fn check_shared(input: &Input, range: Option<(f64, f64)>, part: &Library) -> anyhow::Result<()> {
-    let _ = (input, range, part);
-    Err(anyhow!("not implemented"))
+    if part.groups != GroupStructure::wims69() {
+        return Err(anyhow!("the group structure is not WIMS 69"));
+    }
+    if part.sigma0 != input.sigma0 {
+        return Err(anyhow!(
+            "sigma0 is {:?}, the input has {:?}",
+            part.sigma0,
+            input.sigma0
+        ));
+    }
+    let range = range.map(|(low, high)| [low, high]);
+    if part.pointwise_range != range {
+        return Err(anyhow!(
+            "the pointwise range is {:?}, the range file has {range:?}",
+            part.pointwise_range
+        ));
+    }
+    let orders = input.scattering_order + 1;
+    for data in &part.nuclides {
+        for t in &data.temperatures {
+            if t.scatter.len() != orders {
+                return Err(anyhow!(
+                    "{} at {} K has {} scattering orders, the input has {orders}",
+                    data.name,
+                    t.temperature,
+                    t.scatter.len()
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// 核種を処理する（処理の時間をログに出す）。
@@ -787,7 +828,6 @@ temperatures = [293.6, 900]
     }
 
     #[test]
-    #[ignore = "RED: check_shared is not implemented yet"]
     fn a_nuclide_result_must_share_the_conditions_of_the_input() {
         let input = parse_input(INPUT, Path::new(".")).unwrap();
         let range = Some((4.0, 9118.0));
