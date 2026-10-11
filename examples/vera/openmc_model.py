@@ -225,6 +225,9 @@ LOW_ENRICHMENT_2K = {(1, 0), (7, 7), (8, 6), (8, 7), (8, 8)}
 def octant_images(octant: set[tuple[int, int]]) -> set[tuple[int, int]]:
     """1/8 の中の位置（中央からの行と列の数）を、8 つの対称操作で移した集合体の位置（行, 列。0 始まり）にする。"""
     centre = N // 2
+    for a, b in octant:
+        if not 0 <= b <= a <= centre:
+            raise SystemExit(f"{(a, b)} is not in the octant")
     return {
         (centre + si * x, centre + sj * y)
         for a, b in octant
