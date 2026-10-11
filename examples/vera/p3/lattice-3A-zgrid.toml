@@ -1,0 +1,98 @@
+# このファイルは p3_inputs.py が書く。手で直さない。
+# VERA Problem 3A（濃縮度 3.10%、ホウ素 1300 ppm、600 K。表 P3-1、P3-3）の、中間の支持格子（Zircaloy-4）の高さの燃料の単一集合体の格子
+# （外周は鏡面反射）。セルの分け方とトラックは examples/vera/p2 の集合体と同じ（ADR-0111）。Hf とギャップの He は除き
+# （ADR-0054）、Pyrex の棒の中の He も真空（ADR-0120）。
+# 支持格子は 875 g / 6.56 g/cm³ / 381/100 cm を 289 のセルに等しく分け、セルの外周の厚さ 0.024512 cm の枠にする（表 3。2Q と同じ置き方）
+library = "../vera.msgpack"
+few-group = { output = "lattice-3A/zgrid.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin pin pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin pin pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+]
+
+[material.fuel]
+temperature = 600
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.96224e-02, O-16 = 2.48112e-02, B-10 = 1.07070e-05, B-11 = 4.30971e-05 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+frame = { thickness = 0.024512, material = "zircaloy" }
+
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+frame = { thickness = 0.024512, material = "zircaloy" }
+
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+frame = { thickness = 0.024512, material = "zircaloy" }
