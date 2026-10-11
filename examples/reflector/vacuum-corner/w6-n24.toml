@@ -8,10 +8,10 @@ azimuthal = 32
 spacing = 0.05
 boundary = { right = "vacuum", top = "vacuum" }
 few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
-  { output = "w6-n24-fuel.msgpack", columns = [1, 2], rows = [25, 26] },
-  { output = "w6-n24-right.msgpack", columns = [3, 26], rows = [25, 26], reflector = true },
-  { output = "w6-n24-top.msgpack", columns = [1, 2], rows = [1, 24], reflector = true },
-  { output = "w6-n24-corner.msgpack", columns = [3, 26], rows = [1, 24] },
+  { output = "w6-n24.fuel.msgpack", columns = [1, 2], rows = [25, 26] },
+  { output = "w6-n24.right.msgpack", columns = [3, 26], rows = [25, 26], reflector = true },
+  { output = "w6-n24.top.msgpack", columns = [1, 2], rows = [1, 24], reflector = true },
+  { output = "w6-n24.corner.msgpack", columns = [3, 26], rows = [1, 24] },
 ], pins = true }
 widths = [{ size = 1.26, count = 2 }, { size = 0.25, count = 24 }]
 heights = [{ size = 0.25, count = 24 }, { size = 1.26, count = 2 }]
