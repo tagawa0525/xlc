@@ -128,9 +128,10 @@ stages:
       outs:
         - xs-nuclides/${key}.msgpack
   xs:
-    cmd: cargo run --release -p xlc-xs -- assemble xs.toml xs-nuclides
+    cmd: cargo run --release -p xlc-xs -- assemble xs.toml xs-range.toml xs-nuclides
     deps:
       - xs.toml
+      - xs-range.toml
       - xs-nuclides
       - ../../crates/xs/src
       - ../../crates/xs/Cargo.toml
