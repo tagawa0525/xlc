@@ -3,6 +3,8 @@ use crate::geometry::{Lattice, PinCell};
 use crate::material::FissionTerm;
 use crate::moc::{Options, solve};
 use crate::tracking::{Boundary, Tracking};
+use xlc_format::medium::Medium;
+use xlc_format::table::Axis;
 
 /// 2群の物質（P1 と P2 の散乱は P0 の 0.3 倍と 0.1 倍）。核分裂は2つの核種の項に分ける
 fn material(total: [f64; 2], scatter: [[f64; 2]; 2], nu_fission: [f64; 2]) -> Material {
@@ -167,4 +169,67 @@ fn materials_come_back_from_the_medium() {
             .fission_terms
             .is_empty()
     );
+}
+
+#[test]
+fn media_must_match_the_library_and_the_branches() {
+    // 媒質の群境界はライブラリと同じ、軸（名前、点、密度、B-10 の割合）は平板の分岐の軸と同じ（ADR-0128）
+    let (solution, materials) = pin_cell();
+    let refs: Vec<&Material> = materials.iter().collect();
+    let state = homogenize_medium(&solution, &refs, &Boundaries::REFLECTIVE).unwrap();
+    let axes = vec![
+        Axis::Boron {
+            ppm: vec![1300.0],
+            b10: 0.199,
+        },
+        Axis::Moderator {
+            temperature: vec![600.0],
+            density: vec![0.743],
+        },
+        Axis::Fuel {
+            temperature: vec![600.0, 900.0],
+        },
+    ];
+    let bounds = vec![1.0e7, 0.625, 1.0e-5];
+    let medium = Medium {
+        bounds: bounds.clone(),
+        axes: axes.clone(),
+        states: vec![state.clone(), state.clone()],
+    };
+    assert!(check_medium(&medium, &bounds, &axes).is_ok());
+    let err = check_medium(&medium, &[2.0e7, 0.625, 1.0e-5], &axes).unwrap_err();
+    assert!(err.contains("bounds"), "{err}");
+    let mut other = axes.clone();
+    other[1] = Axis::Moderator {
+        temperature: vec![600.0],
+        density: vec![0.7],
+    };
+    for slab in [vec![], other] {
+        let err = check_medium(&medium, &bounds, &slab).unwrap_err();
+        assert!(err.contains("axes"), "{err}");
+    }
+    let single = Medium {
+        bounds: bounds.clone(),
+        axes: vec![],
+        states: vec![state],
+    };
+    assert!(check_medium(&single, &bounds, &[]).is_ok());
+    assert!(check_medium(&single, &bounds, &axes).is_err());
+}
+
+#[test]
+fn media_must_have_the_scattering_order_of_the_other_materials() {
+    let (solution, materials) = pin_cell();
+    let refs: Vec<&Material> = materials.iter().collect();
+    let state = homogenize_medium(&solution, &refs, &Boundaries::REFLECTIVE).unwrap();
+    let fuel = Material::from_medium(&state).unwrap();
+    let mut named = vec![
+        ("fuel".to_string(), fuel.clone()),
+        ("void".to_string(), Material::void(2)),
+        ("water".to_string(), materials[2].clone()),
+    ];
+    assert!(check_orders(&named, &["fuel".to_string()]).is_ok());
+    named[2].1.anisotropic.pop();
+    let err = check_orders(&named, &["fuel".to_string()]).unwrap_err();
+    assert!(err.contains("fuel") && err.contains("water"), "{err}");
 }
