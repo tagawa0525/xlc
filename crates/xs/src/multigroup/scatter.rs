@@ -986,10 +986,86 @@ mod tests {
                 emissions: &BTreeMap::new(),
                 angular: &BTreeMap::new(),
             },
-            Some(&Thermal::Sab(sab)),
+            Some(&Thermal::Sab {
+                sab,
+                free_gas: FreeGas { kt: 0.0253, cutoff },
+            }),
         )
         .unwrap();
         (groups, m, cutoff)
+    }
+
+    /// A = 1 の S(α, β) を 1 eV 未満で使い、その上 `free_gas_upper` (eV) 未満を自由ガスで扱う、一定の弾性散乱断面積
+    /// 20 b の散乱行列
+    fn sab_and_free_gas(free_gas_upper: f64) -> Result<Vec<Vec<f64>>, ScatterError> {
+        use crate::multigroup::sab_tests::coarse_free_gas_table;
+        let kt = 0.0253;
+        let temperature = kt / crate::physics::BK;
+        let mut data = coarse_free_gas_table();
+        data.temperatures = vec![temperature];
+        data.effective_temperature = Tab1::linear(vec![temperature], vec![temperature]);
+        let sab = ThermalSab::new(
+            &data,
+            temperature,
+            1.0,
+            crate::multigroup::SabOutside::ShortCollisionTime,
+        )
+        .unwrap();
+        let tables = BTreeMap::from([(2, constant(20.0))]);
+        scattering_matrix(
+            &GroupStructure::wims69(),
+            &Weight::lwr(),
+            1.0,
+            &Reactions {
+                tables: &tables,
+                q_values: &BTreeMap::new(),
+                emissions: &BTreeMap::new(),
+                angular: &BTreeMap::new(),
+            },
+            Some(&Thermal::Sab {
+                sab,
+                free_gas: FreeGas {
+                    kt,
+                    cutoff: free_gas_upper,
+                },
+            }),
+        )
+    }
+
+    #[test]
+    fn free_gas_continues_above_the_sab_cutoff() {
+        // S(α, β) の上限から自由ガスの上限までは、標的の熱運動で上方散乱があり、行の和は MF3 の弾性散乱断面積に
+        // なる。その上は静止した標的なので上方散乱がない
+        let groups = GroupStructure::wims69();
+        let m = sab_and_free_gas(4.0).unwrap();
+        let weight = Weight::lwr();
+        let table = constant(20.0);
+        let flux = group_integrals(&groups, &weight, &table.x, |_| 1.0);
+        let sigma = group_integrals(&groups, &weight, &table.x, |e| table.eval(e).unwrap());
+        let (mut free_gas, mut at_rest) = (0, 0);
+        for g in 1..groups.len() {
+            let (low, high) = groups.range(g);
+            let up: f64 = m[g][..g].iter().sum();
+            if low >= 1.0 && high <= 4.0 {
+                free_gas += 1;
+                assert!(up > 1e-4 * sigma[g] / flux[g], "group {g}: {up}");
+                let row: f64 = m[g].iter().sum();
+                let expected = sigma[g] / flux[g];
+                assert!(
+                    (row / expected - 1.0).abs() < 1e-9,
+                    "group {g}: {row} vs {expected}"
+                );
+            } else if low >= 4.0 {
+                at_rest += 1;
+                assert_eq!(up, 0.0, "group {g}");
+            }
+        }
+        assert!(free_gas >= 3 && at_rest >= 3);
+        // 自由ガスの上限が S(α, β) の上限より低いのはエラー
+        assert!(matches!(
+            sab_and_free_gas(0.5),
+            Err(ScatterError::FreeGasBelowSab { .. })
+        ));
     }
 
     #[test]
