@@ -235,7 +235,7 @@ KENO-VI の値は仕様書の表 M3-5、集合体の出力（1/8）は付録 J �
 
 ## OpenMC との比較
 
-xlc は e4dbc0de（2026-10-12。実行したのは分岐点 bbe3ccee の上で rebase する前で、rebase で入った main の変更は炉心の外形、少数群定数の出力、lint の注記で、格子計算の k に影響しない）。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`、`compare-1B`）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
+xlc は e4dbc0de（2026-10-12）。main への rebase の後に c4e5002f で `xs`、`lattice-1B`、`compare-1B` を走らせ直し、ライブラリ（vera.msgpack）がバイト単位で同じ、k も同じ 1.182383 になることを確かめた。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`、`compare-1B`）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
 （[ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md)）。燃料 5 リング、扇形 8、散乱は P3（[ADR-0075](../../docs/adr/0075-solve-moc-with-anisotropic-scattering.md)）、自己遮蔽はピンごとの UFG と SPH、弾性散乱と
 準位の角度分布は MF4（[ADR-0081](../../docs/adr/0081-use-mf4-angular-distributions.md)）、H in H2O の S(α,β) は評価済みデータの上限まで、表の外は短時間衝突近似、その上は自由ガス（[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)）、集合体は成り立つ対称操作をすべて使う（[ADR-0112](../../docs/adr/0112-use-verified-symmetry-in-moc-and-shielding.md)。2A〜2K と 2Q は 1/8）。制御棒の吸収体は 5 リング、計装管のシンブルの中の真空と SS304 は 1 リング、シンブルと計装管の間の水は 2 リング（燃料の外のリングの数は ADR で決めていない。#0059）。
 ピン出力は `compare_pins.py` で、燃料ピン 264 本の平均で規格化して比べる。
