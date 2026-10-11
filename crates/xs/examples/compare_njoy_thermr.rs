@@ -32,7 +32,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let elastic = BTreeMap::from([(2, tables.get(&2).ok_or("no MT2")?.clone())]);
     let awr = xlc_xs::endf::Mf3::parse(&tape.section(mat, 3, 2).ok_or("no MF3 MT2")?)?.awr;
     let data = read_thermal_scattering(&read(tsl)?)?;
-    let sab = ThermalSab::new(&data, temperature, cutoff, SabOutside::Zero)?;
+    // 表の外は THERMR と同じく短時間衝突近似で補う（ADR-0133）
+    let sab = ThermalSab::new(&data, temperature, cutoff, SabOutside::ShortCollisionTime)?;
 
     let groups = GroupStructure::wims69();
     let ng = groups.len();
