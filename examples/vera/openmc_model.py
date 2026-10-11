@@ -1,13 +1,14 @@
-"""VERA Problem 1B〜1D（ピンセル）と 2B〜2K（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
+"""VERA Problem 1B〜1D（ピンセル）と 2A〜2K、2Q（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
         [粒子数/世代] [世代数] [捨てる世代数] [乱数の種] [xlc のライブラリ]
 
-<問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
-2G, 2H, 2I, 2J, 2K。断面積は openmc_library.py で作ったもの。
+<問題> は 1B, 1C, 1D, 2A, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
+2G, 2H, 2I, 2J, 2K, 2Q。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
-ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ。ADR-0120）。燃料以外は 600 K。
-2B〜2K は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ。ADR-0120）。燃料以外は、
+2A と 2Q は 565 K、ほかは 600 K。2Q の支持格子は、各セルの外周の Zircaloy-4 の枠にする（仕様書の表 3 と問題 2 の
+「Geometry」）。2 で始まる問題は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
 xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。2 種の燃料を持つ 2K では書かない（エラーにする）。
@@ -41,12 +42,13 @@ GUIDE_INNER = 0.561
 GUIDE_OUTER = 0.602
 INSTRUMENT_INNER = 0.559
 INSTRUMENT_OUTER = 0.605
-# 被覆管と減速材の温度 (K)
+# ライブラリにある温度そのものの問題（1B〜1D、2B〜2K）の被覆管と減速材の温度 (K)。温度のモードの選択に使う
 COLD = 600.0
 FUEL_TEMPERATURE = {
     "1B": 600.0,
     "1C": 900.0,
     "1D": 1200.0,
+    "2A": 565.0,
     "2B": 600.0,
     "2C": 900.0,
     "2D": 1200.0,
@@ -58,7 +60,30 @@ FUEL_TEMPERATURE = {
     "2I": 600.0,
     "2J": 600.0,
     "2K": 600.0,
+    "2Q": 565.0,
 }
+# 被覆管と減速材の温度 (K)。仕様書の表 P2-1（被覆管は減速材の温度）
+MODERATOR_TEMPERATURE = {
+    "1B": 600.0,
+    "1C": 600.0,
+    "1D": 600.0,
+    "2A": 565.0,
+    "2B": 600.0,
+    "2C": 600.0,
+    "2D": 600.0,
+    "2E": 600.0,
+    "2E-empty": 600.0,
+    "2F": 600.0,
+    "2G": 600.0,
+    "2H": 600.0,
+    "2I": 600.0,
+    "2J": 600.0,
+    "2K": 600.0,
+    "2Q": 565.0,
+}
+# 支持格子の枠の厚さ (cm)。中間の支持格子 1 つの Zircaloy-4 875 g（仕様書の表 3、密度 6.56 g/cc、高さ 3.810 cm）を
+# 289 のセルに等しく分けた面積 0.121138 cm² を、ピッチ p の正方形の外周の帯 4pt − 4t² で表す厚さ t
+GRID_FRAME = {"2Q": 0.024512}
 
 # 個数密度 (/(barn cm))
 FUEL = {
@@ -101,7 +126,7 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2K）。仕様書の表 P2-1、P2-4
+# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2A、2E〜2K、2Q）。仕様書の表 P2-1、P2-4
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
@@ -171,6 +196,7 @@ MODERATOR_OF = {
     "1B": MODERATOR,
     "1C": MODERATOR,
     "1D": MODERATOR,
+    "2A": MODERATOR_DENSE,
     "2B": MODERATOR,
     "2C": MODERATOR,
     "2D": MODERATOR,
@@ -182,6 +208,7 @@ MODERATOR_OF = {
     "2I": MODERATOR_DENSE,
     "2J": MODERATOR_DENSE,
     "2K": MODERATOR_DENSE,
+    "2Q": MODERATOR_DENSE,
 }
 # Pyrex の棒（仕様書の表 6）: 内管の内と外、Pyrex の内と外、被覆管の内と外の半径。内管の中と間は真空
 PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
@@ -238,6 +265,23 @@ def octant_images(octant: set[tuple[int, int]]) -> set[tuple[int, int]]:
 
 
 Layers = list[tuple[openmc.Material | None, float]]
+# 支持格子の枠の物質と厚さ (cm)
+Frame = tuple[openmc.Material, float]
+
+
+def outside(
+    region: openmc.Region, water: openmc.Material, frame: Frame | None
+) -> list[openmc.Cell]:
+    """セルの最も外の円の外（`region`）の減速材と、`frame` があればセルの外周の正方形の帯の枠のセル。枠の外側は
+    格子のセルの境界で切り取られる。"""
+    if frame is None:
+        return [openmc.Cell(fill=water, region=region)]
+    material, thickness = frame
+    box = openmc.model.RectangularPrism(PITCH - 2 * thickness, PITCH - 2 * thickness)
+    return [
+        openmc.Cell(fill=water, region=region & -box),
+        openmc.Cell(fill=material, region=+box),
+    ]
 
 
 def tube(
@@ -246,9 +290,10 @@ def tube(
     outer: float,
     clad: openmc.Material,
     water: openmc.Material,
+    frame: Frame | None = None,
 ) -> openmc.Universe:
     """管（案内管・計装管、内と外の半径 `inner`、`outer`）のセル。`layers` は管に入れたもので、中心から外へ
-    (物質, 外側の半径) の並び（None は真空）。その外から管の内側までと、管の外は減速材。"""
+    (物質, 外側の半径) の並び（None は真空）。その外から管の内側までと、管の外は減速材。`frame` は支持格子の枠。"""
     cells = []
     surface = None
     for fill, radius in [*layers, (water, inner), (clad, outer)]:
@@ -256,31 +301,35 @@ def tube(
         region = -boundary if surface is None else +surface & -boundary
         cells.append(openmc.Cell(fill=fill, region=region))
         surface = boundary
-    cells.append(openmc.Cell(fill=water, region=+surface))
+    cells.extend(outside(+surface, water, frame))
     return openmc.Universe(cells=cells)
 
 
-def pyrex_layers() -> Layers:
-    """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。"""
-    pyrex, steel = material("pyrex", PYREX, COLD), material("ss304", SS304, COLD)
+def pyrex_layers(temperature: float) -> Layers:
+    """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。`temperature` は物質の温度 (K)。"""
+    pyrex = material("pyrex", PYREX, temperature)
+    steel = material("ss304", SS304, temperature)
     fills = [None, steel, None, pyrex, None, steel]
     return list(zip(fills, PYREX_RADII))
 
 
-def rod_layers(name: str, nuclides: dict[str, float], radius: float) -> Layers:
-    """制御棒（半径 `radius` の吸収体と SS304 の被覆管。間は真空）の層。"""
-    absorber, steel = material(name, nuclides, COLD), material("ss304", SS304, COLD)
+def rod_layers(
+    name: str, nuclides: dict[str, float], radius: float, temperature: float
+) -> Layers:
+    """制御棒（半径 `radius` の吸収体と SS304 の被覆管。間は真空）の層。`temperature` は物質の温度 (K)。"""
+    absorber = material(name, nuclides, temperature)
+    steel = material("ss304", SS304, temperature)
     clad_in, clad_out = ROD_CLAD
     return [(absorber, radius), (None, clad_in), (steel, clad_out)]
 
 
-def thimble_layers() -> Layers:
-    """計装管のシンブル（中が真空の SS304 の管）の層。"""
+def thimble_layers(temperature: float) -> Layers:
+    """計装管のシンブル（中が真空の SS304 の管）の層。`temperature` は物質の温度 (K)。"""
     inner, outer = THIMBLE_RADII
-    return [(None, inner), (material("ss304", SS304, COLD), outer)]
+    return [(None, inner), (material("ss304", SS304, temperature), outer)]
 
 
-# 案内管に入れるものの層を作る関数と位置。Pyrex の 12 本は仕様書の図 5 の配置
+# 案内管に入れるものの層を作る関数（引数は物質の温度。減速材の温度にする）と位置。Pyrex の 12 本は仕様書の図 5 の配置
 INSERTS = {
     "2E": (
         pyrex_layers,
@@ -301,8 +350,8 @@ INSERTS = {
     ),
     # 24 本はすべての案内管（図 5）
     "2F": (pyrex_layers, GUIDE_TUBES),
-    "2G": (lambda: rod_layers("aic", AIC, 0.382), GUIDE_TUBES),
-    "2H": (lambda: rod_layers("b4c", B4C, 0.373), GUIDE_TUBES),
+    "2G": (lambda t: rod_layers("aic", AIC, 0.382, t), GUIDE_TUBES),
+    "2H": (lambda t: rod_layers("b4c", B4C, 0.373, t), GUIDE_TUBES),
     "2J": (pyrex_layers, GUIDE_TUBES),
     "2K": (pyrex_layers, GUIDE_TUBES),
 }
@@ -321,10 +370,12 @@ def geometry_of(
     insert: openmc.Universe | None = None,
     instrument_insert: openmc.Universe | None = None,
     zoned_fuel: openmc.Material | None = None,
+    frame: Frame | None = None,
 ) -> tuple[openmc.Geometry, float]:
     """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。
     `insert` は案内管に入れるもののセルで、INSERTS にある問題で要る。`instrument_insert` は計装管に入れるものを
-    入れた計装管のセルで、INSTRUMENT_INSERTS にある問題で要る。`zoned_fuel` は 2 種目の燃料で、ZONED にある問題で要る。"""
+    入れた計装管のセルで、INSTRUMENT_INSERTS にある問題で要る。`zoned_fuel` は 2 種目の燃料で、ZONED にある問題で要る。
+    `frame` は、燃料のピン、案内管、計装管のセルに付ける支持格子の枠で、挿入物のある問題では使えない。"""
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
@@ -335,17 +386,19 @@ def geometry_of(
                 openmc.Cell(fill=pellet_fill, region=-pellet),
                 openmc.Cell(fill=gap, region=+pellet & -inner),
                 openmc.Cell(fill=clad, region=+inner & -outer),
-                openmc.Cell(fill=water, region=+outer),
+                *outside(+outer, water, frame),
             ]
         )
 
     rod = rod_of(fuel)
 
+    if frame is not None and (insert is not None or instrument_insert is not None):
+        raise SystemExit("a spacer grid frame is not put on the cells of inserts")
     if problem.startswith("1"):
         half = PITCH / 2
         root = openmc.Cell(fill=rod)
     else:
-        guide = tube([], GUIDE_INNER, GUIDE_OUTER, clad, water)
+        guide = tube([], GUIDE_INNER, GUIDE_OUTER, clad, water, frame)
         if problem in INSTRUMENT_INSERTS:
             if instrument_insert is None:
                 raise SystemExit(
@@ -353,7 +406,9 @@ def geometry_of(
                 )
             instrument = instrument_insert
         else:
-            instrument = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
+            instrument = tube(
+                [], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water, frame
+            )
         universes = [[rod] * N for _ in range(N)]
         if problem in ZONED:
             if zoned_fuel is None:
@@ -422,7 +477,10 @@ class Run:
 
     def __init__(self, argv: list[str]) -> None:
         self.problem = argv[2]
-        if self.problem not in FUEL_TEMPERATURE or self.problem not in MODERATOR_OF:
+        if any(
+            self.problem not in table
+            for table in (FUEL_TEMPERATURE, MODERATOR_TEMPERATURE, MODERATOR_OF)
+        ):
             raise SystemExit(
                 f"unknown problem {self.problem}; expected one of {list(FUEL_TEMPERATURE)}"
             )
@@ -448,8 +506,8 @@ def main() -> None:
     work.mkdir(parents=True, exist_ok=True)
 
     fuel = material("fuel", FUEL, FUEL_TEMPERATURE[problem])
-    clad = material("zircaloy-4", ZIRCALOY, COLD)
-    water = material("moderator", MODERATOR_OF[problem], COLD)
+    clad = material("zircaloy-4", ZIRCALOY, MODERATOR_TEMPERATURE[problem])
+    water = material("moderator", MODERATOR_OF[problem], MODERATOR_TEMPERATURE[problem])
     water.add_s_alpha_beta("c_H_in_H2O")
     materials = openmc.Materials([fuel, clad, water])
 
@@ -472,18 +530,20 @@ def main() -> None:
 
     insert = None
     if problem in INSERTS:
-        layers = INSERTS[problem][0]()
+        layers = INSERTS[problem][0](MODERATOR_TEMPERATURE[problem])
         add_materials(layers)
         insert = tube(layers, GUIDE_INNER, GUIDE_OUTER, clad, water)
     instrument_insert = None
     if problem in INSTRUMENT_INSERTS:
-        layers = INSTRUMENT_INSERTS[problem]()
+        layers = INSTRUMENT_INSERTS[problem](MODERATOR_TEMPERATURE[problem])
         add_materials(layers)
         instrument_insert = tube(
             layers, INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water
         )
     materials.cross_sections = str(cross_sections)
 
+    # 支持格子は被覆管と同じ組成（仕様書の表 P2-4 の Cladding and Grid）
+    frame = (clad, GRID_FRAME[problem]) if problem in GRID_FRAME else None
     geometry, half = geometry_of(
         problem,
         fuel,
@@ -492,12 +552,16 @@ def main() -> None:
         insert=insert,
         instrument_insert=instrument_insert,
         zoned_fuel=zoned_fuel,
+        frame=frame,
     )
 
     settings = run.settings(half)
-    # ライブラリにある温度だけを使う。OpenMC は温度を kT (eV) で持ち、K に直すと丸めで
-    # わずかにずれるので、1 K の幅を許す（ライブラリの温度は 300 K ずつ離れている）
-    settings.temperature = {"method": "nearest", "tolerance": 1.0}
+    # OpenMC は温度を kT (eV) で持ち、K に直すと丸めでわずかにずれるので、1 K の幅を許す。600 K の問題は、
+    # ライブラリにあるその温度の表だけを使う。565 K の問題は温度の内挿のモードで解き（ADR-0080）、H in H2O の
+    # S(α,β) を 550 K と 573.6 K の表から kT の比で確率的に選ぶ。ほかの核種は 565 K の表を持つので、内挿の
+    # モードでも 565 K の表を使う（OpenMC 0.15.2 の src/nuclide.cpp。#0017）
+    method = "nearest" if MODERATOR_TEMPERATURE[problem] == COLD else "interpolation"
+    settings.temperature = {"method": method, "tolerance": 1.0}
 
     tallies = openmc.Tallies()
     if problem.startswith("2"):
