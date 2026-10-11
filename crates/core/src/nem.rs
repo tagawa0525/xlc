@@ -7,9 +7,10 @@
 //!
 //! 面では、一般化等価理論（GET。K. S. Smith, "Assembly homogenization techniques for light water
 //! reactor analysis", Prog. Nucl. Energy 17, 303 (1986)）の条件で、不連続因子（ADF）f をかけた
-//! 不均質な中性子束 f φ と正味の中性子流を連続にする。径方向の ADF は少数群定数の辺ごとの値で、
-//! 2次元の格子計算からは軸方向の ADF は出ない（軸方向に一様な格子では 1）ので、z の面では 1 とする。
-//! 外周の真空の面は、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
+//! 不均質な中性子束 f φ と正味の中性子流を連続にする。ADF は少数群定数の辺（左、右、上、下、−z、+z）ごとの値で、
+//! x、y、z のどの面も同じ規則で使う（2次元の格子計算の定数の z の辺は 1。軸方向の反射体の定数は平板の格子計算の
+//! 値。ADR-0128）。ただし、炉心の形の反射体の位置どうしの x と y の面は 1 とする（ADR-0095）。外周の真空の面は、
+//! 格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
 
 use xlc_format::fewgroup::FewGroup;
 use xlc_numeric::anm::AnmModes;
@@ -337,19 +338,41 @@ impl<'a> Core<'a> {
                 Ok(Some([modes(0)?, modes(1)?, modes(2)?]))
             })
             .collect::<Result<Vec<_>, String>>()?;
+        core.check_heights()?;
         core.check_vacuum_ratios()?;
         core.check_normalized_adfs()?;
         Ok(core)
     }
 
-    /// f* の辺（`normalized_adf`）の面が、隣のノードの f* でない辺と接することを確かめる（ADR-0095）
+    /// z の厚さ（`height`）を持つ定数を置いたノードの z の幅が、丸めの範囲でその厚さに等しいことを確かめる。
+    /// 軸方向の定数の ADF と等価な D は、平板のノードの幅で解いた1ノードの問題の量なので、幅が違えば等価性が
+    /// 崩れる（ADR-0128）
+    fn check_heights(&self) -> Result<(), String> {
+        // 層の境界の差（例えば 61.053 − 55.0）と格子の列の幅の和の丸め（相対 1e-15 程度）を許す
+        const TOLERANCE: f64 = 1.0e-9;
+        for n in 0..self.nodes() {
+            let Some(height) = self.material(n).height else {
+                continue;
+            };
+            let dz = self.width(n, 2);
+            if (dz - height).abs() > TOLERANCE * dz.max(height) {
+                return Err(format!(
+                    "material {} is made for a height of {height} cm, but node {n} is {dz} cm \
+                     high; give the axial reflector layer one node of its height",
+                    self.problem.node_material[n]
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// f* の辺（`normalized_adf`）の面が、核分裂のある隣のノードの f* でない辺と接することを確かめる（ADR-0095）。
+    /// f* は燃料の ADF で割った値なので、核分裂のない隣は、上下や左右を取り違えた定数である（ADR-0128）
     fn check_normalized_adfs(&self) -> Result<(), String> {
         for n in 0..self.nodes() {
-            for d in 0..2 {
+            for d in 0..3 {
                 for plus in [false, true] {
-                    let Some(side) = side_of(d, plus) else {
-                        continue;
-                    };
+                    let side = side_of(d, plus);
                     if !self.material(n).normalized_adf[side] {
                         continue;
                     }
@@ -360,19 +383,23 @@ impl<'a> Core<'a> {
                              but node {n} has no neighbor there"
                         ));
                     };
-                    let facing =
-                        side_of(d, !plus).is_some_and(|s| self.material(m).normalized_adf[s]);
-                    if facing {
+                    if self.material(m).normalized_adf[side_of(d, !plus)] {
                         return Err(format!(
                             "nodes {n} and {m} both have f* on their shared face"
                         ));
                     }
-                    // 反射体の位置どうしの面の ADF は 1 なので、そこにある f* は使われず、燃料に面する辺が
+                    // 反射体の位置どうしの x と y の面の ADF は 1 なので、そこにある f* は使われず、燃料に面する辺が
                     // 割られていない（回転を取り違えた定数）
-                    if self.reflector_face(n, m) {
+                    if d < 2 && self.reflector_face(n, m) {
                         return Err(format!(
                             "material {material} has f* on side {side}, but node {n} faces the \
                              reflector site of node {m} there; check the rotation of the reflector"
+                        ));
+                    }
+                    if !self.fissile[self.problem.node_material[m]] {
+                        return Err(format!(
+                            "material {material} has f* (an ADF over the fuel's) on side {side}, \
+                             but its neighbor node {m} has no fission"
                         ));
                     }
                 }
@@ -381,8 +408,7 @@ impl<'a> Core<'a> {
         Ok(())
     }
 
-    /// `Vacuum` の面のノードの物質が、その面の辺の比を持つことを確かめる。z の面は、2次元の格子計算が
-    /// 比を出さないのでエラー（ADR-0101）
+    /// `Vacuum` の面のノードの物質が、その面の辺の比を持つことを確かめる（ADR-0101。z の面も同じ。ADR-0128）
     fn check_vacuum_ratios(&self) -> Result<(), String> {
         const NAMES: [&str; 6] = ["-x", "+x", "-y", "+y", "-z", "+z"];
         for (face, name) in NAMES.iter().enumerate() {
@@ -390,12 +416,7 @@ impl<'a> Core<'a> {
                 continue;
             }
             let (d, plus) = (face / 2, face % 2 == 1);
-            let Some(side) = side_of(d, plus) else {
-                return Err(format!(
-                    "the {name} face is vacuum, but 2D lattices give no ratio J/phi for z faces; \
-                     use \"marshak\" for the P1 (Marshak) condition"
-                ));
-            };
+            let side = side_of(d, plus);
             for n in 0..self.nodes() {
                 if self.neighbor(n, d, if plus { 1 } else { -1 }).is_some() {
                     continue;
@@ -449,16 +470,14 @@ impl<'a> Core<'a> {
         &self.problem.materials[self.problem.node_material[n]]
     }
 
-    /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
-    /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1。
+    /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子（辺の対応は `side_of`）。
     /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
     /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの x と y の面は 1（`reflectors`）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
-        let Some(side) = side_of(d, plus) else {
-            return 1.0;
-        };
+        let side = side_of(d, plus);
         let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
-        if neighbor.is_some_and(|m| self.reflector_face(n, m)) {
+        // 径方向の反射体の位置どうしの面だけ（z の面は両側の定数の ADF。ADR-0128）
+        if d < 2 && neighbor.is_some_and(|m| self.reflector_face(n, m)) {
             return 1.0;
         }
         let material = self.material(n);
@@ -466,9 +485,9 @@ impl<'a> Core<'a> {
         if !material.normalized_adf[side] {
             return own;
         }
-        neighbor
-            .and_then(|m| side_of(d, !plus).map(|s| own * self.material(m).adf[s][g]))
-            .unwrap_or(f64::NAN)
+        neighbor.map_or(f64::NAN, |m| {
+            own * self.material(m).adf[side_of(d, !plus)][g]
+        })
     }
 
     /// 隣り合うノード n と m が、どちらも炉心の形の反射体の位置か
@@ -482,8 +501,8 @@ impl<'a> Core<'a> {
         match self.problem.boundaries[2 * d + usize::from(plus)] {
             Boundary::Marshak => 0.5,
             // `Vacuum` の面の物質が辺の比を持つことは `check_vacuum_ratios` で確かめてある
-            _ => side_of(d, plus)
-                .and_then(|side| self.material(n).vacuum_ratio[side].as_deref())
+            _ => self.material(n).vacuum_ratio[side_of(d, plus)]
+                .as_deref()
                 .map_or(f64::NAN, |r| r[g]),
         }
     }
@@ -737,15 +756,16 @@ impl<'a> Core<'a> {
     }
 }
 
-/// 方向 d の - 面（`plus` が false）・+ 面（true）に当たる少数群定数の辺（左、右、上、下）の番号。
-/// -x が左、+x が右、-y が下、+y が上。z の面は少数群定数の辺に当たらない
-fn side_of(d: usize, plus: bool) -> Option<usize> {
+/// 方向 d の - 面（`plus` が false）・+ 面（true）に当たる少数群定数の辺（左、右、上、下、−z、+z）の番号。
+/// -x が左、+x が右、-y が下、+y が上
+fn side_of(d: usize, plus: bool) -> usize {
     match (d, plus) {
-        (0, false) => Some(0),
-        (0, true) => Some(1),
-        (1, true) => Some(2),
-        (1, false) => Some(3),
-        _ => None,
+        (0, false) => 0,
+        (0, true) => 1,
+        (1, true) => 2,
+        (1, false) => 3,
+        (_, false) => 4,
+        (_, true) => 5,
     }
 }
 
