@@ -8,6 +8,7 @@
 pub mod fewgroup;
 pub mod group;
 pub mod library;
+pub mod medium;
 pub mod msgpack;
 pub mod pins;
 pub mod table;

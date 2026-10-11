@@ -7,9 +7,10 @@
 //!
 //! 面では、一般化等価理論（GET。K. S. Smith, "Assembly homogenization techniques for light water
 //! reactor analysis", Prog. Nucl. Energy 17, 303 (1986)）の条件で、不連続因子（ADF）f をかけた
-//! 不均質な中性子束 f φ と正味の中性子流を連続にする。径方向の ADF は少数群定数の辺ごとの値で、
-//! 2次元の格子計算からは軸方向の ADF は出ない（軸方向に一様な格子では 1）ので、z の面では 1 とする。
-//! 外周の真空の面は、格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
+//! 不均質な中性子束 f φ と正味の中性子流を連続にする。ADF は少数群定数の辺（左、右、上、下、−z、+z）ごとの値で、
+//! x、y、z のどの面も同じ規則で使う（2次元の格子計算の定数の z の辺は 1。軸方向の反射体の定数は平板の格子計算の
+//! 値。ADR-0128）。ただし、炉心の形の反射体の位置どうしの x と y の面は 1 とする（ADR-0095）。外周の真空の面は、
+//! 格子計算の真空の辺の比 r = J/φ_het を不均質な中性子束に課す（ADR-0101）。
 
 use xlc_format::fewgroup::FewGroup;
 use xlc_numeric::anm::AnmModes;
@@ -337,19 +338,41 @@ impl<'a> Core<'a> {
                 Ok(Some([modes(0)?, modes(1)?, modes(2)?]))
             })
             .collect::<Result<Vec<_>, String>>()?;
+        core.check_heights()?;
         core.check_vacuum_ratios()?;
         core.check_normalized_adfs()?;
         Ok(core)
     }
 
-    /// f* の辺（`normalized_adf`）の面が、隣のノードの f* でない辺と接することを確かめる（ADR-0095）
+    /// z の厚さ（`height`）を持つ定数を置いたノードの z の幅が、丸めの範囲でその厚さに等しいことを確かめる。
+    /// 軸方向の定数の ADF と等価な D は、平板のノードの幅で解いた1ノードの問題の量なので、幅が違えば等価性が
+    /// 崩れる（ADR-0128）
+    fn check_heights(&self) -> Result<(), String> {
+        // 層の境界の差（例えば 61.053 − 55.0）と格子の列の幅の和の丸め（相対 1e-15 程度）を許す
+        const TOLERANCE: f64 = 1.0e-9;
+        for n in 0..self.nodes() {
+            let Some(height) = self.material(n).height else {
+                continue;
+            };
+            let dz = self.width(n, 2);
+            if (dz - height).abs() > TOLERANCE * dz.max(height) {
+                return Err(format!(
+                    "material {} is made for a height of {height} cm, but node {n} is {dz} cm \
+                     high; give the axial reflector layer one node of its height",
+                    self.problem.node_material[n]
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// f* の辺（`normalized_adf`）の面が、核分裂のある隣のノードの f* でない辺と接することを確かめる（ADR-0095）。
+    /// f* は燃料の ADF で割った値なので、核分裂のない隣は、上下や左右を取り違えた定数である（ADR-0128）
     fn check_normalized_adfs(&self) -> Result<(), String> {
         for n in 0..self.nodes() {
-            for d in 0..2 {
+            for d in 0..3 {
                 for plus in [false, true] {
-                    let Some(side) = side_of(d, plus) else {
-                        continue;
-                    };
+                    let side = side_of(d, plus);
                     if !self.material(n).normalized_adf[side] {
                         continue;
                     }
@@ -360,19 +383,23 @@ impl<'a> Core<'a> {
                              but node {n} has no neighbor there"
                         ));
                     };
-                    let facing =
-                        side_of(d, !plus).is_some_and(|s| self.material(m).normalized_adf[s]);
-                    if facing {
+                    if self.material(m).normalized_adf[side_of(d, !plus)] {
                         return Err(format!(
                             "nodes {n} and {m} both have f* on their shared face"
                         ));
                     }
-                    // 反射体の位置どうしの面の ADF は 1 なので、そこにある f* は使われず、燃料に面する辺が
+                    // 反射体の位置どうしの x と y の面の ADF は 1 なので、そこにある f* は使われず、燃料に面する辺が
                     // 割られていない（回転を取り違えた定数）
-                    if self.reflector_face(n, m) {
+                    if d < 2 && self.reflector_face(n, m) {
                         return Err(format!(
                             "material {material} has f* on side {side}, but node {n} faces the \
                              reflector site of node {m} there; check the rotation of the reflector"
+                        ));
+                    }
+                    if !self.fissile[self.problem.node_material[m]] {
+                        return Err(format!(
+                            "material {material} has f* (an ADF over the fuel's) on side {side}, \
+                             but its neighbor node {m} has no fission"
                         ));
                     }
                 }
@@ -381,8 +408,7 @@ impl<'a> Core<'a> {
         Ok(())
     }
 
-    /// `Vacuum` の面のノードの物質が、その面の辺の比を持つことを確かめる。z の面は、2次元の格子計算が
-    /// 比を出さないのでエラー（ADR-0101）
+    /// `Vacuum` の面のノードの物質が、その面の辺の比を持つことを確かめる（ADR-0101。z の面も同じ。ADR-0128）
     fn check_vacuum_ratios(&self) -> Result<(), String> {
         const NAMES: [&str; 6] = ["-x", "+x", "-y", "+y", "-z", "+z"];
         for (face, name) in NAMES.iter().enumerate() {
@@ -390,12 +416,7 @@ impl<'a> Core<'a> {
                 continue;
             }
             let (d, plus) = (face / 2, face % 2 == 1);
-            let Some(side) = side_of(d, plus) else {
-                return Err(format!(
-                    "the {name} face is vacuum, but 2D lattices give no ratio J/phi for z faces; \
-                     use \"marshak\" for the P1 (Marshak) condition"
-                ));
-            };
+            let side = side_of(d, plus);
             for n in 0..self.nodes() {
                 if self.neighbor(n, d, if plus { 1 } else { -1 }).is_some() {
                     continue;
@@ -449,16 +470,14 @@ impl<'a> Core<'a> {
         &self.problem.materials[self.problem.node_material[n]]
     }
 
-    /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
-    /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1。
+    /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子（辺の対応は `side_of`）。
     /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
     /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの x と y の面は 1（`reflectors`）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
-        let Some(side) = side_of(d, plus) else {
-            return 1.0;
-        };
+        let side = side_of(d, plus);
         let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
-        if neighbor.is_some_and(|m| self.reflector_face(n, m)) {
+        // 径方向の反射体の位置どうしの面だけ（z の面は両側の定数の ADF。ADR-0128）
+        if d < 2 && neighbor.is_some_and(|m| self.reflector_face(n, m)) {
             return 1.0;
         }
         let material = self.material(n);
@@ -466,9 +485,9 @@ impl<'a> Core<'a> {
         if !material.normalized_adf[side] {
             return own;
         }
-        neighbor
-            .and_then(|m| side_of(d, !plus).map(|s| own * self.material(m).adf[s][g]))
-            .unwrap_or(f64::NAN)
+        neighbor.map_or(f64::NAN, |m| {
+            own * self.material(m).adf[side_of(d, !plus)][g]
+        })
     }
 
     /// 隣り合うノード n と m が、どちらも炉心の形の反射体の位置か
@@ -482,8 +501,8 @@ impl<'a> Core<'a> {
         match self.problem.boundaries[2 * d + usize::from(plus)] {
             Boundary::Marshak => 0.5,
             // `Vacuum` の面の物質が辺の比を持つことは `check_vacuum_ratios` で確かめてある
-            _ => side_of(d, plus)
-                .and_then(|side| self.material(n).vacuum_ratio[side].as_deref())
+            _ => self.material(n).vacuum_ratio[side_of(d, plus)]
+                .as_deref()
                 .map_or(f64::NAN, |r| r[g]),
         }
     }
@@ -737,15 +756,16 @@ impl<'a> Core<'a> {
     }
 }
 
-/// 方向 d の - 面（`plus` が false）・+ 面（true）に当たる少数群定数の辺（左、右、上、下）の番号。
-/// -x が左、+x が右、-y が下、+y が上。z の面は少数群定数の辺に当たらない
-fn side_of(d: usize, plus: bool) -> Option<usize> {
+/// 方向 d の - 面（`plus` が false）・+ 面（true）に当たる少数群定数の辺（左、右、上、下、−z、+z）の番号。
+/// -x が左、+x が右、-y が下、+y が上
+fn side_of(d: usize, plus: bool) -> usize {
     match (d, plus) {
-        (0, false) => Some(0),
-        (0, true) => Some(1),
-        (1, true) => Some(2),
-        (1, false) => Some(3),
-        _ => None,
+        (0, false) => 0,
+        (0, true) => 1,
+        (1, true) => 2,
+        (1, false) => 3,
+        (_, false) => 4,
+        (_, true) => 5,
     }
 }
 
@@ -807,9 +827,10 @@ mod tests {
             chi: vec![1.0, 0.0],
             diffusion: vec![d1, d2],
             scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
-            adf: vec![vec![1.0, 1.0]; 4],
-            vacuum_ratio: vec![None; 4],
-            normalized_adf: vec![false; 4],
+            adf: vec![vec![1.0, 1.0]; 6],
+            vacuum_ratio: vec![None; 6],
+            normalized_adf: vec![false; 6],
+            height: None,
             pins: None,
         }
     }
@@ -999,6 +1020,8 @@ mod tests {
             vec![0.95, 1.2],
             vec![1.05, 0.85],
             vec![1.0, 1.1],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let mut water = reflector();
         water.adf = vec![
@@ -1006,6 +1029,8 @@ mod tests {
             vec![1.2, 0.7],
             vec![0.9, 1.4],
             vec![1.1, 0.75],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let mut boundaries = [Boundary::Reflective; 6];
         boundaries[1] = Boundary::Marshak;
@@ -1133,9 +1158,10 @@ mod tests {
             chi: vec![1.0],
             diffusion: vec![d],
             scatter: vec![vec![total - absorption]],
-            adf: vec![vec![1.0]; 4],
-            vacuum_ratio: vec![None; 4],
-            normalized_adf: vec![false; 4],
+            adf: vec![vec![1.0]; 6],
+            vacuum_ratio: vec![None; 6],
+            normalized_adf: vec![false; 6],
+            height: None,
             pins: None,
         }
     }
@@ -1189,6 +1215,26 @@ mod tests {
             node_material,
             boundaries,
         }
+    }
+
+    /// x 方向に1列の問題（y と z は1ノード）を z 方向に並べ直した問題。x と z の幅、境界条件、少数群定数の
+    /// 辺（左、右）と（−z、+z）を入れ替える。物質の配置の並びはそのまま（ノードの番号は x でも z でも列の順）
+    fn to_z(p: &Problem) -> Problem {
+        assert_eq!((p.mesh.dy.len(), p.mesh.dz.len()), (1, 1));
+        fn swap<T>(sides: &mut [T]) {
+            sides.swap(0, 4);
+            sides.swap(1, 5);
+        }
+        let mut q = p.clone();
+        q.mesh.dx = p.mesh.dz.clone();
+        q.mesh.dz = p.mesh.dx.clone();
+        swap(&mut q.boundaries);
+        for m in &mut q.materials {
+            swap(&mut m.adf);
+            swap(&mut m.vacuum_ratio);
+            swap(&mut m.normalized_adf);
+        }
+        q
     }
 
     /// x 方向に 6 ノードの平板。燃料と、断面積の違う燃料が交互に並ぶ
@@ -1265,7 +1311,7 @@ mod tests {
         // ADF を入れる前（47c63a7）と同じ反復（a3, a4 を前の反復の a1, a2 から求める。#0025 の修正の前で、
         // 既定の許容差では 47c63a7 の結果に 1e-12 で一致していた）を、許容差を詰めて収束させた値。
         // 既定の許容差の値は反復の道筋で 1e-9 程度変わるので、収束させた値で比べる
-        let p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let p = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         let tight = Options {
             k_tolerance: 1e-14,
             flux_tolerance: 1e-13,
@@ -1294,16 +1340,20 @@ mod tests {
             vec![1.1, 1.25],
             vec![0.9, 1.4],
             vec![0.95, 1.2],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let b = vec![
             vec![0.97, 0.8],
             vec![0.93, 0.85],
             vec![1.02, 0.75],
             vec![0.99, 0.9],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let p = two_material_slab(a.clone(), b.clone());
         assert_interface_conditions(&p);
-        let unit = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let unit = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         let (k, k_unit) = (
             solve(&p, &Options::default()).unwrap().k,
             solve(&unit, &Options::default()).unwrap().k,
@@ -1333,9 +1383,9 @@ mod tests {
             PI / a,
         );
         let mut m_a = one_group();
-        m_a.adf = vec![vec![f_a]; 4];
+        m_a.adf = vec![vec![f_a]; 6];
         let mut m_b = one_group();
-        m_b.adf = vec![vec![f_b]; 4];
+        m_b.adf = vec![vec![f_b]; 6];
         let expected = one_group_k(&m_a, buckling * buckling);
         let p = slab(
             vec![5.0; 16],
@@ -1363,12 +1413,16 @@ mod tests {
             vec![1.1, 1.25],
             vec![0.9, 1.4],
             vec![0.95, 1.2],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let b = vec![
             vec![0.97, 0.8],
             vec![0.93, 0.85],
             vec![1.02, 0.75],
             vec![0.99, 0.9],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         // 群ごとに違う倍率で、すべての物質とすべての辺の ADF を変える
         let scale = |adf: &[Vec<f64>]| -> Vec<Vec<f64>> {
@@ -1476,7 +1530,7 @@ mod tests {
         let mut previous = f64::INFINITY;
         for f in [0.7, 1.0, 1.5, 2.0] {
             let mut m = one_group();
-            m.adf = vec![vec![f]; 4];
+            m.adf = vec![vec![f]; 6];
             let b = marshak_buckling(&m, l, f);
             let expected = one_group_k(&m, b * b);
             let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Marshak);
@@ -1612,7 +1666,7 @@ mod tests {
             let mut previous = f64::INFINITY;
             for r in [0.5, 0.55, 0.6, 0.9] {
                 let mut m = one_group();
-                m.adf = vec![vec![f]; 4];
+                m.adf = vec![vec![f]; 6];
                 let d = m.diffusion[0];
                 let b = smallest_root(
                     |b| (b * l / 2.0).sin() * d * b - r * f * (b * l / 2.0).cos(),
@@ -1625,12 +1679,15 @@ mod tests {
                     vec![0; 8],
                     Boundary::Vacuum,
                 );
-                let s = solve(&p, &Options::default()).unwrap();
-                assert!(
-                    (s.k - expected).abs() < 1e-8 * expected,
-                    "f = {f}, r = {r}: {} vs {expected}",
-                    s.k
-                );
+                // z の面も同じ規則（ADR-0128）
+                for p in [p.clone(), to_z(&p)] {
+                    let s = solve(&p, &Options::default()).unwrap();
+                    assert!(
+                        (s.k - expected).abs() < 1e-8 * expected,
+                        "f = {f}, r = {r}: {} vs {expected}",
+                        s.k
+                    );
+                }
                 assert!(expected < previous, "f = {f}, r = {r}");
                 previous = expected;
             }
@@ -1648,15 +1705,18 @@ mod tests {
         m.vacuum_ratio[0] = Some(vec![0.5, 0.5]);
         let p = slab(vec![5.0; 6], vec![m], vec![0; 6], Boundary::Vacuum);
         assert!(solve(&p, &Options::default()).is_err());
-        // z の面は、2次元の格子計算が比を出さないので、径方向の辺がすべて比を持っていてもエラー
+        // z の面も、その面の辺（+z）の比を使う（ADR-0128）。径方向の辺がすべて比を持っていても、+z の辺が
+        // 持たなければエラー
         let mut m = material();
-        m.vacuum_ratio = vec![Some(vec![0.5, 0.5]); 4];
+        m.vacuum_ratio = (0..6).map(|s| (s < 4).then(|| vec![0.5, 0.5])).collect();
         let mut boundaries = [Boundary::Reflective; 6];
         boundaries[5] = Boundary::Vacuum;
         let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], boundaries);
         p.materials = vec![m];
         let err = solve(&p, &Options::default()).unwrap_err().to_string();
-        assert!(err.contains("z") && err.contains("marshak"), "{err}");
+        assert!(err.contains("side 5") && err.contains("marshak"), "{err}");
+        p.materials[0].vacuum_ratio[5] = Some(vec![0.5, 0.5]);
+        assert!(solve(&p, &Options::default()).is_ok());
     }
 
     #[test]
@@ -1674,30 +1734,19 @@ mod tests {
             );
             one_group_k(&one_group(), buckling * buckling)
         };
-        // 方向ごとの（- 面, + 面）の辺（左、右、上、下の番号）。z の面の ADF は 1 なので跳びはない
-        let cases = [
-            (Some((0, 1)), analytic(f_a, f_b)),
-            (Some((3, 2)), analytic(f_a, f_b)),
-            (None, analytic(1.0, 1.0)),
-        ];
-        for (d, (sides, expected)) in cases.into_iter().enumerate() {
+        // 方向ごとの（- 面, + 面）の辺（左、右、上、下、−z、+z の番号）。z の面も少数群定数の辺の ADF を使う
+        // （ADR-0128）
+        let expected = analytic(f_a, f_b);
+        for (d, (minus, plus)) in [(0, 1), (3, 2), (4, 5)].into_iter().enumerate() {
             let bulk = one_group();
             let mut edge_a = one_group();
             let mut edge_b = one_group();
-            match sides {
-                Some((minus, plus)) => {
-                    edge_a.adf = vec![vec![3.0]; 4];
-                    edge_a.adf[minus] = vec![1.0];
-                    edge_a.adf[plus] = vec![f_a];
-                    edge_b.adf = vec![vec![0.5]; 4];
-                    edge_b.adf[minus] = vec![f_b];
-                    edge_b.adf[plus] = vec![1.0];
-                }
-                None => {
-                    edge_a.adf = vec![vec![f_a]; 4];
-                    edge_b.adf = vec![vec![f_b]; 4];
-                }
-            }
+            edge_a.adf = vec![vec![3.0]; 6];
+            edge_a.adf[minus] = vec![1.0];
+            edge_a.adf[plus] = vec![f_a];
+            edge_b.adf = vec![vec![0.5]; 6];
+            edge_b.adf[minus] = vec![f_b];
+            edge_b.adf[plus] = vec![1.0];
             let mut widths = [vec![20.0], vec![20.0], vec![20.0]];
             widths[d] = vec![5.0; 16];
             let mut boundaries = [Boundary::Reflective; 6];
@@ -1731,12 +1780,12 @@ mod tests {
         // 真空の角にも物質の境がある分離できない問題で、細かいノードの解に近づくこと。
         // 横方向の漏れの真空の面での扱いと、物質の境の ADF を通る
         let mut a = material();
-        a.adf = vec![vec![1.1, 1.3]; 4];
+        a.adf = vec![vec![1.1, 1.3]; 6];
         let mut b = material();
         b.diffusion = vec![1.2, 0.5];
         b.absorption = vec![0.012, 0.10];
         b.nu_fission = vec![0.004, 0.09];
-        b.adf = vec![vec![0.95, 0.8]; 4];
+        b.adf = vec![vec![0.95, 0.8]; 6];
         let k = |n: usize| {
             let mut boundaries = [Boundary::Reflective; 6];
             boundaries[1] = Boundary::Marshak;
@@ -1831,9 +1880,10 @@ mod tests {
                 chi: vec![0.0; ng],
                 diffusion: vec![0.0; ng],
                 scatter: vec![vec![0.0; ng]; ng],
-                adf: vec![vec![1.0; ng]; 4],
-                vacuum_ratio: vec![None; 4],
-                normalized_adf: vec![false; 4],
+                adf: vec![vec![1.0; ng]; 6],
+                vacuum_ratio: vec![None; 6],
+                normalized_adf: vec![false; 6],
+                height: None,
                 pins: None,
             };
             for &n in &members {
@@ -2021,7 +2071,7 @@ mod tests {
         }
         let mut unit = coarse.clone();
         for m in &mut unit.materials {
-            m.adf = vec![vec![1.0; m.groups()]; 4];
+            m.adf = vec![vec![1.0; m.groups()]; 6];
         }
         let k_unit = solve(&unit, &Options::default()).unwrap().k;
         // ADF がなければ、粗いノードの NEM の誤差の分だけ k が外れる
@@ -2141,7 +2191,7 @@ mod tests {
         m.nu_fission = vec![0.0];
         m.fission = vec![0.0];
         m.chi = vec![0.0];
-        m.adf = vec![vec![1.0]; 4];
+        m.adf = vec![vec![1.0]; 6];
         let mut fuel = m.clone();
         fuel.nu_fission = vec![0.02];
         fuel.fission = vec![0.008];
@@ -2229,6 +2279,51 @@ mod tests {
         other.materials[0].adf[1] = fuel.iter().map(|f| 1.1 * f).collect();
         let k = solve(&other, &Options::default()).unwrap().k;
         assert!((k - raw.k).abs() < 1e-12 * raw.k, "{k} vs {}", raw.k);
+        // z の面の f* も同じ（ADR-0128）
+        let s = solve(&to_z(&normalized), &Options::default()).unwrap();
+        assert!((s.k - raw.k).abs() < 1e-12 * raw.k, "{} vs {}", s.k, raw.k);
+        for (a, b) in s.flux.iter().flatten().zip(raw.flux.iter().flatten()) {
+            assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn normalized_adfs_need_a_fissile_neighbor() {
+        // f* は燃料の ADF で割った値なので、隣が核分裂のない物質ならエラー（上下を取り違えた軸方向の反射体の
+        // 定数を見つける。ADR-0128）。x でも z でも同じ
+        let mut star = reflector();
+        star.normalized_adf[0] = true;
+        let p = slab(
+            vec![10.0; 3],
+            vec![material(), star, reflector()],
+            vec![0, 1, 1],
+            Boundary::ZeroFlux,
+        );
+        for p in [p.clone(), to_z(&p)] {
+            let err = solve(&p, &Options::default()).unwrap_err().to_string();
+            assert!(err.contains("fission"), "{err}");
+        }
+        // 燃料に向いていれば解ける
+        let mut q = p.clone();
+        q.node_material = vec![0, 1, 2];
+        for q in [q.clone(), to_z(&q)] {
+            assert!(solve(&q, &Options::default()).is_ok());
+        }
+    }
+
+    #[test]
+    fn heights_must_match_the_node() {
+        // z の厚さを持つ（軸方向の）定数は、z の幅が丸めの範囲で同じノードにだけ置ける（ADR-0128）
+        let mut p = cuboid([30.0, 30.0, 30.0], [1, 1, 3], [Boundary::Reflective; 6]);
+        p.materials[0].height = Some(10.0);
+        assert!(solve(&p, &Options::default()).is_ok());
+        p.materials[0].height = Some(10.0 * (1.0 + 1e-14));
+        assert!(solve(&p, &Options::default()).is_ok());
+        for h in [9.9, 20.0] {
+            p.materials[0].height = Some(h);
+            let err = solve(&p, &Options::default()).unwrap_err().to_string();
+            assert!(err.contains("height"), "{err}");
+        }
     }
 
     /// x 方向の問題を y 方向に並べ直す（x と y の幅、境界条件、少数群定数の辺（左、右）と（下、上）を入れ替える）
@@ -2238,14 +2333,17 @@ mod tests {
         q.mesh.dy = p.mesh.dx.clone();
         q.boundaries.swap(0, 2);
         q.boundaries.swap(1, 3);
+        // 辺は（左、右、上、下、−z、+z）: 新しい下は元の左、新しい上は元の右、新しい左右は元の下と上。z はそのまま
+        fn turn<T: Clone>(sides: &[T]) -> Vec<T> {
+            [3, 2, 1, 0, 4, 5]
+                .iter()
+                .map(|&s| sides[s].clone())
+                .collect()
+        }
         for m in &mut q.materials {
-            // 辺は（左、右、上、下）: 新しい下は元の左、新しい上は元の右、新しい左右は元の下と上
-            let a = m.adf.clone();
-            m.adf = vec![a[3].clone(), a[2].clone(), a[1].clone(), a[0].clone()];
-            let r = m.vacuum_ratio.clone();
-            m.vacuum_ratio = vec![r[3].clone(), r[2].clone(), r[1].clone(), r[0].clone()];
-            let f = m.normalized_adf.clone();
-            m.normalized_adf = vec![f[3], f[2], f[1], f[0]];
+            m.adf = turn(&m.adf);
+            m.vacuum_ratio = turn(&m.vacuum_ratio);
+            m.normalized_adf = turn(&m.normalized_adf);
         }
         q
     }
@@ -2260,6 +2358,8 @@ mod tests {
             vec![0.7, 1.6],
             vec![1.2, 0.9],
             vec![0.85, 1.4],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let mut b = reflector();
         b.adf = vec![
@@ -2267,6 +2367,8 @@ mod tests {
             vec![0.9, 1.2],
             vec![1.05, 0.75],
             vec![0.95, 1.3],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let x = |reflectors: Vec<usize>, a: &FewGroup, b: &FewGroup| {
             let mut p = slab(
@@ -2324,13 +2426,13 @@ mod tests {
     #[test]
     fn normalized_adfs_need_a_plain_neighbor() {
         // f* の辺は隣のノードの ADF を掛けるので、外周の面と、隣も f* の面はエラー
-        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         p.materials[0].normalized_adf[0] = true;
         assert!(matches!(
             solve(&p, &Options::default()),
             Err(NemError::InvalidProblem(_))
         ));
-        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         p.materials[0].normalized_adf[1] = true;
         p.materials[1].normalized_adf[0] = true;
         let err = solve(&p, &Options::default());

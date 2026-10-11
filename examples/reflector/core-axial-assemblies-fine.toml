@@ -1,0 +1,51 @@
+# このファイルは axial_slab.py が書く。平板 axial-3A-fine.toml の層の設計
+[design.slab-fine]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 89.811, 112.671, 135.531, 158.391, 181.251, 204.111, 226.971, 249.831, 272.691, 295.551, 318.411, 341.271, 364.131, 386.991, 409.851, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-fine/lower-water.msgpack",
+  "axial-fine/lower-plate.msgpack",
+  "axial-fine/bottom-nozzle.msgpack",
+  "axial-fine/lower-gap-plug.msgpack",
+  "axial-fine/fuel-01.msgpack",
+  "axial-fine/fuel-02.msgpack",
+  "axial-fine/fuel-03.msgpack",
+  "axial-fine/fuel-04.msgpack",
+  "axial-fine/fuel-05.msgpack",
+  "axial-fine/fuel-06.msgpack",
+  "axial-fine/fuel-07.msgpack",
+  "axial-fine/fuel-08.msgpack",
+  "axial-fine/fuel-09.msgpack",
+  "axial-fine/fuel-10.msgpack",
+  "axial-fine/fuel-11.msgpack",
+  "axial-fine/fuel-12.msgpack",
+  "axial-fine/fuel-13.msgpack",
+  "axial-fine/fuel-14.msgpack",
+  "axial-fine/fuel-15.msgpack",
+  "axial-fine/fuel-16.msgpack",
+  "axial-fine/plenum.msgpack",
+  "axial-fine/upper-plug-gap.msgpack",
+  "axial-fine/top-nozzle.msgpack",
+  "axial-fine/upper-plate.msgpack",
+  "axial-fine/upper-water.msgpack",
+]
+
+[assembly.SLAB-fine]
+design = "slab-fine"
+
+[design.fstar-fine]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-fine/lower-water.msgpack",
+  "axial-fine/lower-plate.msgpack",
+  "axial-fine/bottom-nozzle.msgpack",
+  "axial-fine/lower-gap-plug.msgpack",
+  "fg-3A.msgpack",
+  "axial-fine/plenum.msgpack",
+  "axial-fine/upper-plug-gap.msgpack",
+  "axial-fine/top-nozzle.msgpack",
+  "axial-fine/upper-plate.msgpack",
+  "axial-fine/upper-water.msgpack",
+]
+
+[assembly.FSTAR-fine]
+design = "fstar-fine"

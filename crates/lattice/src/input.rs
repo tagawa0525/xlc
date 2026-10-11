@@ -16,7 +16,11 @@
 //! # few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
 //! #   { output = "fuel.msgpack", columns = [1, 19], rows = [1, 19] },
 //! #   { output = "reflector.msgpack", columns = [20, 30], rows = [1, 19], reflector = true } ] }
+//! # axial = true を足すと、格子の x を炉心の z として定数を書く（軸方向の反射体の平板。上下の辺は鏡面反射で、
+//! # ノードは格子のすべての行にわたる。pins と split とは使えない。ADR-0128）
 //! pin-powers = "pins.msgpack"     # セルごとの核分裂率（平均が 1）
+//! medium = "fuel.medium"          # 格子全体を細かい群のまま均質化した媒質（library のとき。外周がすべて鏡面反射の
+//!                                 # 格子。軸方向の反射体の平板の燃料にする。ADR-0128）
 //! pitch = 1.26                    # セルのピッチ (cm)
 //! azimuthal = 32                  # (0, π) の方位角の数
 //! spacing = 0.05                  # トラック間隔 (cm)
@@ -37,6 +41,12 @@
 //! temperature = 565
 //! # nuclides の代わりに、ホウ酸水の密度 (g/cm³)、ホウ素の質量 ppm、B-10 の原子分率（ADR-0106）
 //! water = { density = 0.743, boron = 1291, b10 = 0.199 }
+//!
+//! # 軸方向の反射体の平板の物質（ADR-0128。どちらも temperature を書かず、self-shielding = false の格子で使う）
+//! [material.assembly]
+//! medium = "fuel.medium"          # 単一集合体の格子計算が書いた細かい群の媒質
+//! [material.plate]                # ほかの物質（核種かホウ酸水で書いたもの、または void）を体積の割合で混ぜる
+//! mix = [{ material = "ss304", volume = 0.5 }, { material = "water", volume = 0.5 }]
 //!
 //! [cell.pin]                      # 帯を内側から。最後の帯は radius を省略してセルの外周まで
 //! zones = [{ material = "fuel", radius = 0.4096, rings = 3 }, { material = "void", radius = 0.418, rings = 1 },
@@ -103,6 +113,22 @@ pub struct MaterialInput {
     pub composition: Vec<(String, f64)>,
 }
 
+/// 細かい群の媒質のファイルを読む物質（ADR-0128）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct MediumInput {
+    pub name: String,
+    /// 媒質のファイル（入力のファイルのあるディレクトリから）
+    pub file: PathBuf,
+}
+
+/// ほかの物質を体積の割合で混ぜた物質（ADR-0128）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mixture {
+    pub name: String,
+    /// 成分の物質の名前（核種かホウ酸水で書いた物質、または `VOID`）と体積の割合。割合の和は 1
+    pub parts: Vec<(String, f64)>,
+}
+
 /// セルの同心円の帯。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Zone {
@@ -141,6 +167,8 @@ pub struct LatticeInput {
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
+    /// 格子全体を細かい群のまま均質化した媒質の出力（ADR-0128）
+    pub medium: Option<PathBuf>,
     pub pitch: f64,
     pub azimuthal: usize,
     pub spacing: f64,
@@ -149,7 +177,12 @@ pub struct LatticeInput {
     pub boundaries: Boundaries,
     /// 解くときに使う格子の対称性の選び方（ADR-0112）
     pub symmetry: SymmetryChoice,
+    /// 核種の組成かホウ酸水で書いた物質
     pub materials: Vec<MaterialInput>,
+    /// 細かい群の媒質の物質（ADR-0128）
+    pub media: Vec<MediumInput>,
+    /// 体積の割合で混ぜた物質（ADR-0128）
+    pub mixtures: Vec<Mixture>,
     pub cells: Vec<CellInput>,
     /// 上の行から順の、セルの名前の配置
     pub rows: Vec<Vec<String>>,
@@ -173,6 +206,8 @@ pub struct FewGroupOutput {
     pub pins: bool,
     /// 格子全体を各方向に分ける部分ノードの数（ADR-0108）
     pub split: usize,
+    /// 格子の x を炉心の z とした軸方向の定数を書く（ADR-0128）
+    pub axial: bool,
 }
 
 /// 少数群定数のファイル。
@@ -225,6 +260,8 @@ struct InputFile {
     few_group: Option<FewGroupEntry>,
     /// 省略するとピン出力を出さない
     pin_powers: Option<PathBuf>,
+    /// 省略すると媒質を出さない
+    medium: Option<PathBuf>,
     pitch: f64,
     azimuthal: usize,
     spacing: f64,
@@ -284,6 +321,8 @@ struct FewGroupEntry {
     pins: Option<bool>,
     /// 省略すると 1
     split: Option<usize>,
+    /// 省略すると false
+    axial: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -301,6 +340,11 @@ impl FewGroupEntry {
     fn into_output(self) -> Result<FewGroupOutput, String> {
         let pins = self.pins.unwrap_or(false);
         let split = self.split.unwrap_or(1);
+        let axial = self.axial.unwrap_or(false);
+        // 形状関数と部分ノードは径方向の量（ADR-0128）
+        if axial && (pins || split > 1) {
+            return Err("`axial` constants take no `pins` or `split`".into());
+        }
         if split == 0 {
             return Err("`split` must be positive".into());
         }
@@ -358,6 +402,7 @@ impl FewGroupEntry {
             files,
             pins,
             split,
+            axial,
         })
     }
 }
@@ -396,11 +441,33 @@ fn condition(value: toml::Value) -> Result<Boundary, String> {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MaterialEntry {
-    temperature: f64,
-    /// `water` と排他
+    /// `nuclides` と `water` で書く物質だけ（媒質と混ぜた物質は持たない）
+    temperature: Option<f64>,
+    /// `nuclides`、`water`、`medium`、`mix` は排他
     nuclides: Option<BTreeMap<String, f64>>,
     water: Option<WaterEntry>,
+    medium: Option<PathBuf>,
+    mix: Option<Vec<MixPartEntry>>,
 }
+
+/// 混ぜた物質の成分
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MixPartEntry {
+    material: String,
+    /// 体積の割合
+    volume: f64,
+}
+
+/// 書き方ごとに分けた物質
+enum MaterialKind {
+    Nuclides(MaterialInput),
+    Medium(MediumInput),
+    Mixture(Mixture),
+}
+
+/// 混ぜた物質の割合の和と 1 の差の許容値（入力の 10 進の割合の和の丸め）
+const VOLUME_TOLERANCE: f64 = 1.0e-12;
 
 /// ホウ酸水（ADR-0106）
 #[derive(Deserialize)]
@@ -479,6 +546,11 @@ impl LatticeInput {
                 "`few-group` needs a library (group energies)".into(),
             ));
         }
+        if macroscopic && file.medium.is_some() {
+            return Err(invalid(
+                "`medium` needs a library (group energies and scattering moments)".into(),
+            ));
+        }
         let scattering_order = file.scattering_order;
         if macroscopic && scattering_order.is_some_and(|order| order > 0) {
             return Err(invalid(
@@ -531,7 +603,32 @@ impl LatticeInput {
                 "`pins` and `split` need a lattice with every side reflective".into(),
             ));
         }
+        // 媒質の無限媒質の解が格子の解に一致するのは、外周がすべて鏡面反射のとき（ADR-0128）
+        if file.medium.is_some() && boundaries != Boundaries::REFLECTIVE {
+            return Err(invalid(
+                "`medium` needs a lattice with every side reflective".into(),
+            ));
+        }
+        // 平板の格子の y は炉心の径方向で、一様（ADR-0128）
+        if output.as_ref().is_some_and(|o| o.axial)
+            && (boundaries.top != Boundary::Reflective || boundaries.bottom != Boundary::Reflective)
+        {
+            return Err(invalid(
+                "`axial` constants need the top and bottom sides reflective".into(),
+            ));
+        }
         let entries = file.material.unwrap_or_default();
+        let self_shielding = !macroscopic && file.self_shielding.unwrap_or(true);
+        // 媒質は核種の組成を持たず、混ぜた物質の遮蔽は決めていない（ADR-0128）
+        if self_shielding
+            && entries
+                .values()
+                .any(|e| e.medium.is_some() || e.mix.is_some())
+        {
+            return Err(invalid(
+                "materials with `medium` or `mix` need `self-shielding = false` (ADR-0128)".into(),
+            ));
+        }
         // ホウ酸水で書いた物質の量（分岐でホウ素濃度と密度を変える）
         let waters: BTreeMap<String, Water> = entries
             .iter()
@@ -546,11 +643,35 @@ impl LatticeInput {
                 })
             })
             .collect();
-        let materials = entries
-            .into_iter()
-            .map(|(name, entry)| entry.into_input(name))
-            .collect::<Result<Vec<_>, String>>()
-            .map_err(invalid)?;
+        let mut materials = Vec::new();
+        let mut media = Vec::new();
+        let mut mixtures = Vec::new();
+        for (name, entry) in entries {
+            match entry.into_input(name).map_err(invalid)? {
+                MaterialKind::Nuclides(m) => materials.push(m),
+                MaterialKind::Medium(m) => media.push(m),
+                MaterialKind::Mixture(m) => mixtures.push(m),
+            }
+        }
+        // 成分は核種かホウ酸水で書いた物質か真空（媒質と混ぜた物質は成分にしない）
+        for mixture in &mixtures {
+            for (part, _) in &mixture.parts {
+                if part != VOID && !materials.iter().any(|m| &m.name == part) {
+                    let kind = if media.iter().any(|m| &m.name == part) {
+                        "a medium"
+                    } else if mixtures.iter().any(|m| &m.name == part) {
+                        "a mixture"
+                    } else {
+                        "not defined"
+                    };
+                    return Err(invalid(format!(
+                        "material `{}`: component `{part}` is {kind}; mix materials written \
+                         with nuclides or water, or `{VOID}`",
+                        mixture.name
+                    )));
+                }
+            }
+        }
         if file.branches.is_some() && matches!(cross_sections, CrossSections::Macroscopic(_)) {
             return Err(invalid(
                 "branches need a library (they change the compositions and temperatures)".into(),
@@ -558,7 +679,7 @@ impl LatticeInput {
         }
         let branches = file
             .branches
-            .map(|b| b.build(&materials, &waters))
+            .map(|b| b.build(&materials, &waters, &mixtures, &media))
             .transpose()
             .map_err(invalid)?;
         if branches.is_some() && file.pin_powers.is_some() {
@@ -626,10 +747,11 @@ impl LatticeInput {
             material: g.material,
         });
         Ok(Self {
-            self_shielding: !macroscopic && file.self_shielding.unwrap_or(true),
+            self_shielding,
             cross_sections,
             output,
             pin_powers: file.pin_powers,
+            medium: file.medium,
             branches,
             pitch: file.pitch,
             azimuthal: file.azimuthal,
@@ -643,12 +765,21 @@ impl LatticeInput {
                 Some(SymmetryEntry::Octant) => SymmetryChoice::Force(Symmetry::OCTANT),
             },
             materials,
+            media,
+            mixtures,
             cells,
             rows,
             widths,
             heights,
             gap,
         })
+    }
+
+    /// 入力で定義した物質の名前か（核種、ホウ酸水、媒質、混ぜた物質のどれか）
+    fn defines(&self, name: &str) -> bool {
+        self.materials.iter().any(|m| m.name == name)
+            || self.media.iter().any(|m| m.name == name)
+            || self.mixtures.iter().any(|m| m.name == name)
     }
 
     /// 形状と、領域ごとの物質の名前。
@@ -680,7 +811,7 @@ impl LatticeInput {
             for material in materials {
                 if let CrossSections::Library(_) = self.cross_sections
                     && material != VOID
-                    && !self.materials.iter().any(|m| &m.name == material)
+                    && !self.defines(material)
                 {
                     return Err(InputError::UndefinedMaterial {
                         cell: cell.name.clone(),
@@ -790,7 +921,7 @@ impl LatticeInput {
         }
         if let Some(gap) = &self.gap {
             if let CrossSections::Library(_) = self.cross_sections
-                && !self.materials.iter().any(|m| m.name == gap.material)
+                && !self.defines(&gap.material)
             {
                 return Err(InputError::UndefinedMaterial {
                     cell: "gap".into(),
@@ -865,30 +996,88 @@ fn check_nuclides(
 }
 
 impl MaterialEntry {
-    fn into_input(self, name: String) -> Result<MaterialInput, String> {
-        if !positive(self.temperature) {
+    fn into_input(self, name: String) -> Result<MaterialKind, String> {
+        let given = [
+            self.nuclides.is_some(),
+            self.water.is_some(),
+            self.medium.is_some(),
+            self.mix.is_some(),
+        ];
+        if given.iter().filter(|&&g| g).count() != 1 {
             return Err(format!(
-                "material `{name}`: invalid temperature {}",
-                self.temperature
+                "material `{name}` needs exactly one of nuclides, water, medium and mix"
             ));
         }
+        if let Some(file) = self.medium {
+            if self.temperature.is_some() {
+                return Err(format!(
+                    "material `{name}`: a medium has no `temperature` (its states follow the branches)"
+                ));
+            }
+            return Ok(MaterialKind::Medium(MediumInput { name, file }));
+        }
+        if let Some(parts) = self.mix {
+            if self.temperature.is_some() {
+                return Err(format!(
+                    "material `{name}`: a mixture has no `temperature` (its components have theirs)"
+                ));
+            }
+            return mixture(name, parts).map(MaterialKind::Mixture);
+        }
+        let temperature = match self.temperature {
+            Some(t) if positive(t) => t,
+            Some(t) => return Err(format!("material `{name}`: invalid temperature {t}")),
+            None => return Err(format!("material `{name}` needs a `temperature`")),
+        };
         let nuclides = match (self.nuclides, self.water) {
-            (Some(nuclides), None) => check_nuclides(&name, nuclides)?,
+            (Some(nuclides), _) => check_nuclides(&name, nuclides)?,
             // 作り方から、名前は正しく、密度は正で、水素と酸素を必ず含む
             (None, Some(water)) => water.composition(&name)?,
             (None, None) => return Err(format!("material `{name}` needs nuclides or water")),
-            (Some(_), Some(_)) => {
-                return Err(format!(
-                    "material `{name}` has both nuclides and water; write one of them"
-                ));
-            }
         };
-        Ok(MaterialInput {
+        Ok(MaterialKind::Nuclides(MaterialInput {
             name,
-            temperature: self.temperature,
+            temperature,
             composition: nuclides.into_iter().collect(),
-        })
+        }))
     }
+}
+
+/// 混ぜた物質の成分を確かめる: 1つ以上あり、重ならず、割合が正で、和が丸めの範囲で 1（ADR-0128）。成分の物質が
+/// 定義されていることは、すべての物質を読んでから確かめる
+fn mixture(name: String, parts: Vec<MixPartEntry>) -> Result<Mixture, String> {
+    if parts.is_empty() {
+        return Err(format!("material `{name}`: `mix` needs components"));
+    }
+    for (i, part) in parts.iter().enumerate() {
+        if !positive(part.volume) {
+            return Err(format!(
+                "material `{name}`: component `{}` needs a positive volume fraction, got {}",
+                part.material, part.volume
+            ));
+        }
+        if parts[..i].iter().any(|p| p.material == part.material) {
+            return Err(format!(
+                "material `{name}`: component `{}` is listed twice",
+                part.material
+            ));
+        }
+    }
+    if parts.iter().all(|p| p.material == VOID) {
+        return Err(format!(
+            "material `{name}`: a mixture of `{VOID}` alone is not a material; write `{VOID}` in the zones"
+        ));
+    }
+    let sum: f64 = parts.iter().map(|p| p.volume).sum();
+    if (sum - 1.0).abs() > VOLUME_TOLERANCE {
+        return Err(format!(
+            "material `{name}`: the volume fractions sum to {sum}, not 1"
+        ));
+    }
+    Ok(Mixture {
+        name,
+        parts: parts.into_iter().map(|p| (p.material, p.volume)).collect(),
+    })
 }
 
 impl CellEntry {
@@ -1026,6 +1215,207 @@ zones = [{ material = "water", rings = 1 }]
         assert!(given("auto").is_err());
     }
 
+    /// 媒質の燃料と、鋼と水を混ぜた板と水を並べた平板（ADR-0128）
+    const SLAB: &str = r#"
+library = "m1.msgpack"
+self-shielding = false
+pitch = 1.26
+azimuthal = 16
+spacing = 0.05
+boundary = { left = "vacuum", right = "vacuum" }
+rows = ["fuel plate water"]
+
+[material.fuel]
+medium = "fuel.medium"
+
+[material.ss304]
+temperature = 600
+nuclides = { Fe-56 = 8.0e-2 }
+
+[material.water]
+temperature = 600
+water = { density = 0.743, boron = 1300, b10 = 0.199 }
+
+[material.plate]
+mix = [{ material = "ss304", volume = 0.5 }, { material = "water", volume = 0.5 }]
+
+[cell.fuel]
+zones = [{ material = "fuel", rings = 1 }]
+
+[cell.plate]
+zones = [{ material = "plate", rings = 1 }]
+
+[cell.water]
+zones = [{ material = "water", rings = 1 }]
+"#;
+
+    #[test]
+    fn materials_may_be_media_or_mixtures() {
+        // 物質は、核種の組成、ホウ酸水、媒質のファイル、ほかの物質を体積の割合で混ぜたもの、のどれか（ADR-0128）
+        let input = LatticeInput::parse(SLAB).unwrap();
+        assert_eq!(
+            input.media,
+            vec![MediumInput {
+                name: "fuel".into(),
+                file: PathBuf::from("fuel.medium"),
+            }]
+        );
+        assert_eq!(
+            input.mixtures,
+            vec![Mixture {
+                name: "plate".into(),
+                parts: vec![("ss304".into(), 0.5), ("water".into(), 0.5)],
+            }]
+        );
+        let names: Vec<&str> = input.materials.iter().map(|m| m.name.as_str()).collect();
+        assert_eq!(names, ["ss304", "water"]);
+        let (_, regions) = input.geometry().unwrap();
+        assert_eq!(regions, ["fuel", "plate", "water"]);
+        // 真空も成分にできる
+        let void = replaced(
+            SLAB,
+            "{ material = \"water\", volume = 0.5 }",
+            "{ material = \"void\", volume = 0.5 }",
+        )
+        .unwrap();
+        assert_eq!(void.mixtures[0].parts[1], ("void".to_string(), 0.5));
+    }
+
+    #[test]
+    fn invalid_media_and_mixtures_are_errors() {
+        let bad = |from: &str, to: &str, word: &str| {
+            let err = replaced(SLAB, from, to).unwrap_err().to_string();
+            assert!(err.contains(word), "{to}: {err}");
+        };
+        let medium = "medium = \"fuel.medium\"";
+        let parts = "mix = [{ material = \"ss304\", volume = 0.5 }, { material = \"water\", volume = 0.5 }]";
+        // 媒質と混ぜた物質は温度を持たず、ほかの書き方と排他
+        bad(
+            medium,
+            &format!("temperature = 600\n{medium}"),
+            "temperature",
+        );
+        bad(parts, &format!("temperature = 600\n{parts}"), "temperature");
+        bad(
+            medium,
+            &format!("{medium}\nnuclides = {{ U-235 = 1e-3 }}"),
+            "fuel",
+        );
+        bad(parts, &format!("{parts}\n{medium}"), "plate");
+        // 割合の和が 1 でない、割合が正でない、成分が空か重なる
+        bad("volume = 0.5 }]", "volume = 0.6 }]", "sum");
+        bad("volume = 0.5 }, {", "volume = -0.5 }, {", "volume");
+        bad(parts, "mix = []", "plate");
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"ss304\", volume = 0.5 }]",
+            "twice",
+        );
+        // 成分は核種かホウ酸水で書いた物質か真空で、知らない物質、媒質、混ぜた物質はエラー
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"steel\", volume = 0.5 }]",
+            "steel",
+        );
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"fuel\", volume = 0.5 }]",
+            "fuel",
+        );
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"plate\", volume = 0.5 }]",
+            "plate",
+        );
+        // 真空だけの混ぜた物質は物質でない（帯に `void` と書く）
+        bad(
+            parts,
+            "mix = [{ material = \"void\", volume = 1.0 }]",
+            "void",
+        );
+        // 媒質と混ぜた物質は自己遮蔽の対象にならないので、平板の格子は自己遮蔽しない（ADR-0128）
+        bad("self-shielding = false\n", "", "self-shielding");
+    }
+
+    #[test]
+    fn branches_list_mixtures_with_their_components() {
+        // 分岐の軸は、変える成分を持つ混ぜた物質を挙げ、媒質は燃料の温度の軸に挙げる（媒質の状態を選ぶ。ADR-0128）
+        let branches = "\n[branches]\n\
+            boron = { ppm = [1300], materials = [\"water\", \"plate\"] }\n\
+            moderator = { temperature = [600], density = [0.743], materials = [\"water\", \"ss304\", \"plate\"] }\n\
+            fuel = { temperature = [600], materials = [\"fuel\"] }\n";
+        let with = |text: String| LatticeInput::parse(&format!("{SLAB}{text}"));
+        assert!(with(branches.into()).is_ok());
+        let bad = |from: &str, to: &str, word: &str| {
+            assert!(branches.contains(from), "{from}");
+            let err = with(branches.replace(from, to)).unwrap_err().to_string();
+            assert!(err.contains(word), "{to}: {err}");
+        };
+        // 変える成分を持つ混ぜた物質が挙がっていない
+        bad("[\"water\", \"plate\"] }", "[\"water\"] }", "plate");
+        bad("\"ss304\", \"plate\"]", "\"ss304\"]", "plate");
+        // 挙げた混ぜた物質に、その軸が変える成分がない
+        bad("[\"fuel\"]", "[\"fuel\", \"plate\"]", "plate");
+        // 媒質は燃料の温度の軸に挙げる（媒質の状態を選ぶ）
+        let without = branches
+            .replace("\"ss304\", \"plate\"]", "\"plate\"]")
+            .replace("[\"fuel\"]", "[\"ss304\", \"plate\"]");
+        let err = with(without).unwrap_err().to_string();
+        assert!(err.contains("medium") && err.contains("fuel"), "{err}");
+        // 媒質を燃料の温度の軸のほかに挙げない
+        bad(
+            "\"ss304\", \"plate\"]",
+            "\"ss304\", \"plate\", \"fuel\"]",
+            "fuel",
+        );
+    }
+
+    #[test]
+    fn mixtures_may_follow_both_temperature_axes() {
+        // 減速材の温度の軸が変える成分と、燃料の温度の軸が変える成分を両方持つ混ぜた物質は、両方の軸に挙げる
+        // （ADR-0128。混ぜた物質は成分から作るので、同じ物質を2つの温度の軸に挙げない規則は成分にだけ当てはめる）
+        let text = SLAB.replace(
+            "[cell.fuel]",
+            "[material.pellet]\ntemperature = 600\nnuclides = { U-238 = 2.2e-2 }\n\n\
+             [material.both]\nmix = [{ material = \"pellet\", volume = 0.5 }, { material = \"water\", volume = 0.5 }]\n\n\
+             [cell.fuel]",
+        );
+        let branches = "\n[branches]\n\
+            boron = { ppm = [1300], materials = [\"water\", \"plate\", \"both\"] }\n\
+            moderator = { temperature = [600], density = [0.743], materials = [\"water\", \"ss304\", \"plate\", \"both\"] }\n\
+            fuel = { temperature = [600], materials = [\"fuel\", \"pellet\", \"both\"] }\n";
+        let input = LatticeInput::parse(&format!("{text}{branches}"));
+        assert!(input.is_ok(), "{input:?}");
+    }
+
+    #[test]
+    fn single_lattices_may_write_a_medium() {
+        // 外周がすべて鏡面反射の格子は、細かい群のまま均質化した媒質を書ける（ADR-0128）
+        let with =
+            |text: &str, extra: &str| replaced(text, "pitch = ", &format!("{extra}\npitch = "));
+        let input = with(PIN_CELL, "medium = \"fuel.medium\"").unwrap();
+        assert_eq!(input.medium, Some(PathBuf::from("fuel.medium")));
+        assert_eq!(LatticeInput::parse(PIN_CELL).unwrap().medium, None);
+        // 鏡面反射でない辺があると、媒質の無限媒質の解が格子の解と一致しない
+        let open = with(
+            PIN_CELL,
+            "medium = \"fuel.medium\"\nboundary = { right = \"vacuum\" }",
+        );
+        let err = open.unwrap_err().to_string();
+        assert!(
+            err.contains("medium") && err.contains("reflective"),
+            "{err}"
+        );
+        // 群のエネルギーと散乱の次数は、ライブラリから来る
+        let macroscopic = replaced(
+            LATTICE,
+            "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+            "medium = \"fuel.medium\"",
+        );
+        let err = macroscopic.unwrap_err().to_string();
+        assert!(err.contains("medium") && err.contains("library"), "{err}");
+    }
+
     #[test]
     fn void_zones_need_no_material() {
         let input = replaced(
@@ -1114,6 +1504,7 @@ zones = [{ material = "water", rings = 1 }]
                 files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
                 pins: false,
                 split: 1,
+                axial: false,
             })
         );
         assert_eq!(input.pin_powers, None);
@@ -1526,6 +1917,7 @@ zones = [{ material = "water", rings = 1 }]
             ]),
             pins: false,
             split: 1,
+            axial: false,
         };
         assert_eq!(input.output, Some(expected));
     }
@@ -1566,6 +1958,32 @@ zones = [{ material = "water", rings = 1 }]
             .unwrap_err()
             .to_string();
         assert!(err.contains("grid"), "{err}");
+    }
+
+    #[test]
+    fn few_group_may_be_axial() {
+        // 格子の x を炉心の z として定数を書く（ADR-0128）。上下の辺は鏡面反射で、形状関数と部分ノードは作らない
+        let slab = |entry: &str, boundary: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!(
+                    "few-group = {{ bounds = [1e7, 1e-5], nodes = [{{ output = \"a\", columns = [1, 1], rows = [1, 1] }}]{entry} }}\nboundary = {boundary}"
+                ),
+            )
+        };
+        let open = "{ left = \"vacuum\", right = \"vacuum\" }";
+        let input = slab(", axial = true", open).unwrap();
+        assert!(input.output.unwrap().axial);
+        assert!(!slab("", open).unwrap().output.unwrap().axial);
+        let err = slab(", axial = true", "{ top = \"vacuum\" }")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("axial") && err.contains("reflective"), "{err}");
+        let err = slab(", axial = true, pins = true", open)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("axial") && err.contains("pins"), "{err}");
     }
 
     #[test]

@@ -18,6 +18,81 @@ const ROOT_WIDTH: f64 = 1.0e-14;
 const CONVERGED: f64 = 1.0e-12;
 const MAX_ITERATIONS: usize = 200;
 
+/// 等価な拡散係数の結果。
+#[derive(Debug, Clone, PartialEq)]
+pub enum Equivalence {
+    /// 2つの面の不連続因子をそろえ、面の均質な中性子束を正にする [群] の拡散係数
+    Found(Vec<f64>),
+    /// 群 `group` で、面の均質な中性子束が正の範囲に、均質な面の比を不均質な比 `target`（t = φ+/φ−）にする D がない。
+    /// `range` は、根を探して評価した D のうち、その群の2つの面の均質な中性子束が正の点の、均質な比の最小と最大
+    /// （そのような点がなければ `None`）
+    Missing {
+        group: usize,
+        target: f64,
+        range: Option<[f64; 2]>,
+    },
+}
+
+/// 根を挟めないか、収束した根で群 `group` の面の均質な中性子束が正でないときの結果。正の面の点の均質な比の範囲 `range` に不均質な比
+/// `target` が入っていれば、正の面の範囲にも根があるのに別の根に収束したので、エラーにする（黙って中性子流の D に
+/// しない）。入っていなければ `Missing`
+fn negative_root(
+    group: usize,
+    target: f64,
+    range: Option<[f64; 2]>,
+) -> Result<Equivalence, OneNodeError> {
+    match range {
+        Some([low, high]) if low <= target && target <= high => {
+            Err(OneNodeError::Invalid(format!(
+                "group {group}: the equivalent diffusion coefficient converged to a root with \
+             non-positive faces, but positive-face ratios {low}..{high} reach the target {target}"
+            )))
+        }
+        _ => Ok(Equivalence::Missing {
+            group,
+            target,
+            range,
+        }),
+    }
+}
+
+/// 核分裂のないノードの拡散係数をどれにしたか（ADR-0134）。
+#[derive(Debug, Clone, PartialEq)]
+pub enum Choice {
+    /// Koebke の等価な D
+    Koebke,
+    /// Koebke の D が正の面の範囲になく、中性子流で重みづけた D（`Equivalence::Missing` の量）
+    CurrentWeighted {
+        group: usize,
+        target: f64,
+        range: Option<[f64; 2]>,
+    },
+}
+
+/// 核分裂のないノードの拡散係数（ADR-0134）: Koebke の等価な D（`equivalent_diffusion`）が面の均質な中性子束を正にする
+/// 範囲にあればそれを、なければ `node` の拡散係数（中性子流で重みづけた D）を、すべての群で使う。中性子流で重みづけた D
+/// で面が正になるかは、呼ぶ側の1ノードの問題（`surface_fluxes`）が確かめる
+pub fn reflector_diffusion(
+    node: &OneNode,
+    heterogeneous: [&[f64]; 4],
+) -> Result<(Vec<f64>, Choice), OneNodeError> {
+    Ok(match equivalent_diffusion(node, heterogeneous)? {
+        Equivalence::Found(d) => (d, Choice::Koebke),
+        Equivalence::Missing {
+            group,
+            target,
+            range,
+        } => (
+            node.diffusion.to_vec(),
+            Choice::CurrentWeighted {
+                group,
+                target,
+                range,
+            },
+        ),
+    })
+}
+
 /// 核分裂のないノードの、等価な [群] の拡散係数。`node` の拡散係数は初めの値で、ほかは1ノードの問題の入力
 /// （ノード平均、面の外向きの正味の流れ、境界）と同じ。`heterogeneous` は [面（-x, +x, -y, +y）][群] の参照の
 /// 不均質な面の中性子束。
@@ -25,12 +100,13 @@ const MAX_ITERATIONS: usize = 200;
 /// 正味の中性子流の大きい方向 d（Σ_g |J+ − J−|、J は面の外向きの正味の流れ）の2つの面で、均質な面の中性子束の比を
 /// 不均質な面の中性子束の比 t_g = φ+/φ− にする D_g を、ほかの群の D を固定して ln D について二分法で探し、群の間で
 /// 収束するまで繰り返す。源のない群では、cosh(κL) = c、c = (1 + r t)/(r + t)（r は向きをそろえた正味の流れの比）の
-/// 閉じた形の解と同じで、c ≤ 1（t が流れの減る向きに増えるなど）なら解がない。解がない、正味の中性子流がない、
-/// 核分裂のあるノードは、どれもエラーにする（黙って別の D にしない）。
+/// 閉じた形の解と同じで、c ≤ 1（t が流れの減る向きに増えるなど）なら解がない。根を挟めないか、収束した D で面の均質な
+/// 中性子束が正でなければ `Equivalence::Missing` を返す（群の源の形と不均質な面の比が逆向きのときに起きる。ADR-0134）。
+/// 正味の中性子流がない、核分裂のあるノード、群の間の反復が収束しないときはエラーにする。
 pub fn equivalent_diffusion(
     node: &OneNode,
     heterogeneous: [&[f64]; 4],
-) -> Result<Vec<f64>, OneNodeError> {
+) -> Result<Equivalence, OneNodeError> {
     let invalid = |what: &str| Err(OneNodeError::Invalid(what.into()));
     let fissile = is_fissile(node.nu_fission).map_err(|e| OneNodeError::Invalid(e.to_string()))?;
     if fissile {
@@ -62,6 +138,25 @@ pub fn equivalent_diffusion(
         let faces = homogeneous_faces(&OneNode { diffusion, ..*node })?;
         Ok(faces[2 * d + 1][g] - ratio[g] * faces[2 * d][g])
     };
+    // 群 g の D を初めの値の 2⁻ⁿ〜2ⁿ 倍（ほかの群は `diffusion`）にしたうち、2つの面の均質な中性子束が正の点の、均質な
+    // 比の最小と最大（根がない根拠として返す。ADR-0134）
+    let positive_range = |diffusion: &[f64], g: usize| -> Result<Option<[f64; 2]>, OneNodeError> {
+        let mut trial = diffusion.to_vec();
+        let mut range: Option<[f64; 2]> = None;
+        for k in -(BRACKET_STEPS as i32)..=BRACKET_STEPS as i32 {
+            trial[g] = node.diffusion[g] * 2f64.powi(k);
+            let faces = homogeneous_faces(&OneNode {
+                diffusion: &trial,
+                ..*node
+            })?;
+            let (minus, plus) = (faces[2 * d][g], faces[2 * d + 1][g]);
+            if minus > 0.0 && plus > 0.0 {
+                let r = plus / minus;
+                range = Some(range.map_or([r, r], |[lo, hi]| [lo.min(r), hi.max(r)]));
+            }
+        }
+        Ok(range)
+    };
     for _ in 0..MAX_ITERATIONS {
         let mut change: f64 = 0.0;
         for g in 0..ng {
@@ -90,7 +185,7 @@ pub fn equivalent_diffusion(
                 }
             }
             let Some((mut lo, mut hi, mut f_lo)) = bracket else {
-                return Err(OneNodeError::NoEquivalentDiffusion { group: g });
+                return negative_root(g, ratio[g], positive_range(&diffusion, g)?);
             };
             while hi - lo > ROOT_WIDTH {
                 let mid = 0.5 * (lo + hi);
@@ -109,7 +204,15 @@ pub fn equivalent_diffusion(
             change = change.max((diffusion[g] - start).abs() / start);
         }
         if change <= CONVERGED {
-            return Ok(diffusion);
+            // 面の均質な中性子束が負になる根は、等価な D として使えない
+            let faces = homogeneous_faces(&OneNode {
+                diffusion: &diffusion,
+                ..*node
+            })?;
+            return match (0..ng).find(|&g| !(faces[2 * d][g] > 0.0 && faces[2 * d + 1][g] > 0.0)) {
+                Some(g) => negative_root(g, ratio[g], positive_range(&diffusion, g)?),
+                None => Ok(Equivalence::Found(diffusion)),
+            };
         }
     }
     Err(OneNodeError::EquivalenceNotConverged(MAX_ITERATIONS))
@@ -193,6 +296,9 @@ mod tests {
             [&het_minus, &het_plus, &flux, &flux],
         )
         .unwrap();
+        let Equivalence::Found(found) = found else {
+            panic!("{found:?}");
+        };
         for g in 0..2 {
             let r = plus[g] / -minus[g];
             let t = het_plus[g] / het_minus[g];
@@ -248,13 +354,16 @@ mod tests {
             [&het[0], &het[1], &het[2], &het[3]],
         )
         .unwrap();
+        let Equivalence::Found(found) = found else {
+            panic!("{found:?}");
+        };
         for g in 0..2 {
             assert!((found[g] - truth[g]).abs() < 1e-9 * truth[g], "{found:?}");
         }
     }
 
     #[test]
-    fn impossible_equivalences_are_errors() {
+    fn impossible_equivalences_are_missing_or_errors() {
         let total = [0.6, 1.7];
         let scatter = vec![vec![0.57, 0.0], vec![0.0, 1.66]];
         let flux = [0.02, 0.01];
@@ -274,10 +383,7 @@ mod tests {
             [&[0.01, 0.005], &[0.012, 0.004], &flux, &flux],
         );
         assert!(
-            matches!(
-                result,
-                Err(OneNodeError::NoEquivalentDiffusion { group: 0 })
-            ),
+            matches!(result, Ok(Equivalence::Missing { group: 0, .. })),
             "{result:?}"
         );
         // 正味の流れがない（対称な位置）: 向きが定まらない
@@ -304,5 +410,182 @@ mod tests {
             matches!(result, Err(OneNodeError::Invalid(_))),
             "{result:?}"
         );
+    }
+
+    /// VERA 3A の軸方向の反射体の平板（ADR-0128）の格子計算のノードの1ノードの問題の入力（2群、x が炉心の z、y は
+    /// 鏡面反射で流れなし。examples/reflector の平板の失敗した実行のログの値、2026-10-11）。`diffusion` は中性子流で
+    /// 重みづけた D
+    struct Slab {
+        diffusion: [f64; 2],
+        total: [f64; 2],
+        scatter: [[f64; 2]; 2],
+        width: f64,
+        flux: [f64; 2],
+        heterogeneous: [[f64; 2]; 2],
+        currents: [[f64; 2]; 2],
+    }
+
+    impl Slab {
+        fn solve(
+            &self,
+            diffusion: &[f64],
+            edges: [Edge<'_>; 2],
+        ) -> Result<[Vec<f64>; 4], OneNodeError> {
+            let scatter: Vec<Vec<f64>> = self.scatter.iter().map(|r| r.to_vec()).collect();
+            let zero = [0.0, 0.0];
+            surface_fluxes(&self.node(diffusion, &scatter, &zero, edges))
+        }
+
+        fn node<'a>(
+            &'a self,
+            diffusion: &'a [f64],
+            scatter: &'a [Vec<f64>],
+            zero: &'a [f64],
+            edges: [Edge<'a>; 2],
+        ) -> OneNode<'a> {
+            OneNode {
+                diffusion,
+                total: &self.total,
+                scatter,
+                nu_fission: &[0.0, 0.0],
+                chi: &[0.0, 0.0],
+                k: 0.6342792405720961,
+                flux: &self.flux,
+                widths: [self.width, 1.0],
+                currents: [&self.currents[0], &self.currents[1], zero, zero],
+                edges: [edges[0], edges[1], Edge::Reflective, Edge::Reflective],
+            }
+        }
+
+        fn choose(&self, edges: [Edge<'_>; 2]) -> Result<(Vec<f64>, Choice), OneNodeError> {
+            let scatter: Vec<Vec<f64>> = self.scatter.iter().map(|r| r.to_vec()).collect();
+            let zero = [0.0, 0.0];
+            let node = self.node(&self.diffusion, &scatter, &zero, edges);
+            let het = &self.heterogeneous;
+            reflector_diffusion(&node, [&het[0], &het[1], &self.flux, &self.flux])
+        }
+    }
+
+    #[test]
+    fn slab_gap_node_has_no_koebke_d_and_takes_the_current_weighted_d() {
+        // 下のギャップと端栓（5.898 cm）: 熱群の源（減速）は燃料側で大きく、均質な面の比 φ+/φ− は正の面の範囲で
+        // 1 より大きいが、不均質な比は t = 0.933。Koebke の D は正の面の範囲になく（ADR-0134）、中性子流で重みづけた D で
+        // 両面の均質な中性子束が正
+        let gap = Slab {
+            diffusion: [1.6820777555877764, 0.763528784067662],
+            total: [0.6440230468091337, 1.7422110599991552],
+            scatter: [
+                [0.6110549967237958, 0.031778774280522885],
+                [0.0008769671192441397, 1.710908156843627],
+            ],
+            width: 5.898,
+            flux: [0.011638191664828096, 0.006595898791517603],
+            heterogeneous: [
+                [0.0073158322245259885, 0.0054902840607720296],
+                [0.0182116903170929, 0.005122180891888055],
+            ],
+            currents: [
+                [0.001712212355002498, 0.00046632128751277076],
+                [-0.0039410907280092, 0.0004972744001251937],
+            ],
+        };
+        let zero = [0.0, 0.0];
+        let edges = [
+            Edge::Neighbor {
+                width: 6.053,
+                leakage: &zero,
+            },
+            Edge::Neighbor {
+                width: 22.86,
+                leakage: &zero,
+            },
+        ];
+        let scatter: Vec<Vec<f64>> = gap.scatter.iter().map(|r| r.to_vec()).collect();
+        let het = &gap.heterogeneous;
+        let found = equivalent_diffusion(
+            &gap.node(&gap.diffusion, &scatter, &zero, edges),
+            [&het[0], &het[1], &gap.flux, &gap.flux],
+        )
+        .unwrap();
+        let Equivalence::Missing {
+            group,
+            target,
+            range,
+        } = found
+        else {
+            panic!("{found:?}");
+        };
+        assert_eq!(group, 1);
+        assert!((target - 0.005122180891888055 / 0.0054902840607720296).abs() < 1e-12);
+        let [low, high] = range.unwrap();
+        // 正の面の点の均質な比は、どれも t より大きい（D を大きくすると上から 1 に近づく）
+        assert!(target < low && low <= high, "{low} {high}");
+        let (diffusion, choice) = gap.choose(edges).unwrap();
+        assert_eq!(diffusion, gap.diffusion.to_vec());
+        assert!(
+            matches!(choice, Choice::CurrentWeighted { group: 1, .. }),
+            "{choice:?}"
+        );
+        let faces = gap.solve(&diffusion, edges).unwrap();
+        assert!(faces.iter().flatten().all(|&f| f > 0.0), "{faces:?}");
+    }
+
+    #[test]
+    fn slab_water_node_at_vacuum_takes_the_koebke_d() {
+        // 下の水（50 cm、−z が真空）: 中性子流で重みづけた D では真空の面の高速群の均質な中性子束が負になるが、Koebke の
+        // D は正の面の範囲にあり、それを選ぶ
+        let water = Slab {
+            diffusion: [1.715312434162542, 0.28771112638663643],
+            total: [0.7026021580140092, 1.948359353059257],
+            scatter: [
+                [0.6554684859649522, 0.045918789357451015],
+                [0.0006212889915745182, 1.913432700752992],
+            ],
+            width: 50.0,
+            flux: [0.00015580362145392823, 0.0001903211822100758],
+            heterogeneous: [
+                [1.247701469451303e-06, 4.3123280070015635e-07],
+                [0.0012443350200998552, 0.0008074493486391072],
+            ],
+            currents: [
+                [8.098077131024756e-07, 2.2708558646791588e-07],
+                [-0.0003620774240241963, 2.512451034251237e-05],
+            ],
+        };
+        let zero = [0.0, 0.0];
+        let edges = [
+            Edge::Vacuum,
+            Edge::Neighbor {
+                width: 5.0,
+                leakage: &zero,
+            },
+        ];
+        assert!(water.solve(&water.diffusion, edges).is_err());
+        let (diffusion, choice) = water.choose(edges).unwrap();
+        assert!(matches!(choice, Choice::Koebke), "{choice:?}");
+        let faces = water.solve(&diffusion, edges).unwrap();
+        assert!(faces.iter().flatten().all(|&f| f > 0.0), "{faces:?}");
+        // 2つの面の ADF は等しい
+        for (g, het) in water.heterogeneous[0].iter().enumerate() {
+            let (a, b) = (het / faces[0][g], water.heterogeneous[1][g] / faces[1][g]);
+            assert!((a - b).abs() < 1e-9 * a, "{a} {b}");
+        }
+    }
+
+    #[test]
+    fn a_negative_face_root_is_missing_only_when_no_positive_ratio_reaches_the_target() {
+        // 根で面の均質な中性子束が負のとき、正の面の点の均質な比の範囲に不均質な比 t が入っていなければ、正の面の範囲に
+        // 根はない（Missing。ADR-0134）。入っていれば、正の面の根があるのに別の根に収束したので、黙って中性子流の D に
+        // しないようエラーにする
+        let missing = negative_root(1, 0.93, Some([1.0002, 11.98])).unwrap();
+        assert!(
+            matches!(missing, Equivalence::Missing { group: 1, .. }),
+            "{missing:?}"
+        );
+        assert!(negative_root(1, 0.93, None).is_ok());
+        assert!(matches!(
+            negative_root(1, 2.0, Some([1.0002, 11.98])),
+            Err(OneNodeError::Invalid(_))
+        ));
     }
 }
