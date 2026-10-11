@@ -18,7 +18,7 @@ resolution:
 自己遮蔽の変化の大きさは測っていない。目安として、等価なセルに支持格子のリングを入れると 1B の k が +210 pcm 動いた
 （支持格子による変化の OpenMC との差が −170 → +40 pcm。examples/vera/verification.md、f54c62d3 と 3964be55 の記録）。
 
-関係する ADR: [ADR-0085](../adr/0085-branch-on-core-states.md)
+関係する ADR: [ADR-0085](../adr/0085-branch-on-core-states.md)、[ADR-0140](../adr/0140-place-spacer-grids-as-axial-layers-of-framed-lattices.md)
 
 ## 完了の条件
 
