@@ -39,7 +39,9 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
             problem
                 .node_material
                 .get(n)
-                .and_then(|&m| problem.materials.get(m))
+                .copied()
+                .flatten()
+                .and_then(|m| problem.materials.get(m))
                 .is_some_and(|m| m.nu_fission.iter().any(|&v| v != 0.0))
         });
         if !fissile {
@@ -84,7 +86,9 @@ fn node_constants(problem: &Problem, n: usize) -> Result<(&FewGroup, &Pins), Str
     let m = problem
         .node_material
         .get(n)
-        .and_then(|&m| problem.materials.get(m))
+        .copied()
+        .flatten()
+        .and_then(|m| problem.materials.get(m))
         .ok_or_else(|| format!("node {n} has no material"))?;
     let pins = m
         .pins
@@ -112,7 +116,7 @@ fn layer(
 ) -> Result<(Vec<Rc<NodeModel>>, Vec<Conditions>), String> {
     let mesh = &problem.mesh;
     let (nx, ny) = (mesh.dx.len(), mesh.dy.len());
-    let mut cache: HashMap<(usize, u64, u64), Rc<NodeModel>> = HashMap::new();
+    let mut cache: HashMap<(Option<usize>, u64, u64), Rc<NodeModel>> = HashMap::new();
     let mut models = Vec::with_capacity(nx * ny);
     let mut conditions = Vec::with_capacity(nx * ny);
     for j in 0..ny {

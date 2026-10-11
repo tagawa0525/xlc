@@ -3,6 +3,11 @@ use crate::nem::{Boundary, Mesh, Options, Problem, solve};
 use std::f64::consts::PI;
 use xlc_format::fewgroup::{FewGroup, Pins};
 
+/// どの位置にもノードを置く物質の並び
+fn placed(materials: impl IntoIterator<Item = usize>) -> Vec<Option<usize>> {
+    materials.into_iter().map(Some).collect()
+}
+
 /// 2群の燃料（χ = (1, 0)、上方散乱なし）。形状関数はセル `cells` × `cells` で 1、角の不連続因子は 1
 fn fuel(width: f64, cells: usize) -> FewGroup {
     let (d1, d2) = (1.4, 0.4);
@@ -48,8 +53,9 @@ fn square(width: f64, nodes: usize, cells: usize, boundary: Boundary) -> Problem
         },
         materials: vec![fuel(h, cells)],
         reflectors: Vec::new(),
-        node_material: vec![0; nodes * nodes],
+        node_material: placed(vec![0; nodes * nodes]),
         boundaries,
+        outline: None,
     }
 }
 
@@ -123,7 +129,7 @@ fn nodes_without_form_functions_are_errors() {
     let mut plain = p.materials[0].clone();
     plain.pins = None;
     p.materials.push(plain);
-    p.node_material[3] = 1;
+    p.node_material[3] = Some(1);
     let s = solve(&p, &Options::default()).unwrap();
     let err = reconstruct(&p, &s).unwrap_err().to_string();
     assert!(err.contains("form functions"), "{err}");
@@ -152,8 +158,9 @@ fn core_rows_join_nodes_from_the_top() {
         },
         materials: vec![fuel(2.0, 2)],
         reflectors: Vec::new(),
-        node_material: vec![0; 4],
+        node_material: placed(vec![0; 4]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     };
     let left = vec![vec![1.0, 0.0], vec![2.0, 0.0]];
     let right = vec![vec![3.0, 0.0], vec![0.0, 0.0]];
@@ -182,7 +189,7 @@ fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
     // 和が 0。CDF（1.3）が ADF（1.2）と違っても、真空の辺の流れは面の条件と同じく ADF で決まる（ADR-0131）
     let mut p = square(86.0, 4, 2, Boundary::Marshak);
     p.mesh.dy = vec![86.0 / 4.0];
-    p.node_material = vec![0; 4];
+    p.node_material = placed(vec![0; 4]);
     p.boundaries[2] = Boundary::Reflective;
     p.boundaries[3] = Boundary::Reflective;
     p.materials[0].adf = vec![vec![1.2, 1.2]; 6];
@@ -218,7 +225,7 @@ fn vacuum_corners_take_the_ratio_and_adf_of_their_side() {
     // （ADR-0131）。ほかの辺の r と ADF は効かない
     let mut p = square(86.0, 4, 2, Boundary::Vacuum);
     p.mesh.dx = vec![86.0 / 4.0];
-    p.node_material = vec![0; 4];
+    p.node_material = placed(vec![0; 4]);
     p.boundaries[0] = Boundary::Reflective;
     p.boundaries[1] = Boundary::Reflective;
     // 辺（左、右、上、下、−z、+z）
@@ -275,7 +282,7 @@ fn layers_without_fission_are_skipped() {
     water.chi = vec![0.0; 2];
     water.pins = None;
     p.materials.push(water);
-    p.node_material = vec![1, 1, 1, 1, 0, 0, 0, 0];
+    p.node_material = placed(vec![1, 1, 1, 1, 0, 0, 0, 0]);
     let s = solve(&p, &Options::default()).unwrap();
     let maps = reconstruct(&p, &s).unwrap();
     assert!(maps[..4].iter().all(Vec::is_empty));
@@ -306,8 +313,9 @@ fn core_rows_merge_halves_of_split_cells() {
         },
         materials: vec![left, right],
         reflectors: Vec::new(),
-        node_material: vec![0, 1],
+        node_material: placed(vec![0, 1]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     };
     let maps = vec![
         vec![vec![1.0, 2.0], vec![1.0, 2.0]],
@@ -351,8 +359,9 @@ fn cell_sizes_match_to_rounding_between_nodes() {
             with_dx(vec![1.93, 0.629999999999999]),
         ],
         reflectors: Vec::new(),
-        node_material: vec![0, 1],
+        node_material: placed(vec![0, 1]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     };
     let maps = vec![vec![vec![1.0, 2.0]; 2]; 2];
     assert!(core_rows(&p, &maps).is_ok());
@@ -407,8 +416,9 @@ fn fuel_and_reflector(fuel_corners: Vec<Vec<f64>>, reflector: FewGroup) -> Probl
         },
         materials: vec![f, reflector],
         reflectors: Vec::new(),
-        node_material: vec![0, 1],
+        node_material: placed(vec![0, 1]),
         boundaries: [Boundary::Reflective; 6],
+        outline: None,
     }
 }
 
@@ -473,7 +483,7 @@ fn normalized_corners_need_fuel_at_the_corner_point() {
     let mut p = fuel_and_reflector(vec![vec![1.0, 1.0]; 4], a);
     p.materials.push(b);
     p.mesh.dx = vec![21.5; 3];
-    p.node_material = vec![0, 1, 2];
+    p.node_material = placed(vec![0, 1, 2]);
     let s = solve(&p, &Options::default()).unwrap();
     let err = reconstruct(&p, &s).unwrap_err();
     assert!(err.contains("fuel"), "{err}");

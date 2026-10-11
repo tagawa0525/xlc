@@ -158,7 +158,7 @@ fn reflectors_can_be_rotated() {
         .is_err()
     );
     let layout = layout_of(&case(), &cycle(), &p).unwrap();
-    let m = layout.materials[layout.node_material[2]];
+    let m = layout.materials[layout.node_material[2].unwrap()];
     assert_eq!(
         (layout.files[m.file].clone(), m.turns),
         (PathBuf::from("dir/r.msgpack"), 2)
@@ -297,7 +297,7 @@ fn split_layout_places_sub_nodes() {
     assert_eq!(layout.mesh.dx, vec![10.75; 4]);
     assert_eq!(layout.mesh.dy, vec![10.75; 2]);
     let at = |x: usize, y: usize| {
-        let m = layout.materials[layout.node_material[x + 4 * y]];
+        let m = layout.materials[layout.node_material[x + 4 * y].unwrap()];
         (m.turns, m.sub)
     };
     assert_eq!(
@@ -340,7 +340,7 @@ fn layout_places_layers_and_rotations() {
     assert_eq!(layout.mesh.dz, vec![4.0, 3.0, 3.0]);
     // ノードの並びは x が最も速く、次に y（下から）、z。図の上の行が +y
     let at = |x: usize, y: usize, z: usize| {
-        let m = layout.materials[layout.node_material[x + 3 * (y + 2 * z)]];
+        let m = layout.materials[layout.node_material[x + 3 * (y + 2 * z)].unwrap()];
         (layout.files[m.file].clone(), m.turns)
     };
     let file = |name: &str| PathBuf::from(format!("dir/{name}"));
@@ -570,7 +570,11 @@ fn reflectors_and_assemblies_may_share_layer_files() {
     // 反射体の位置（図の左と右の列）に置いた物質だけが、反射体どうしの面の ADF を 1 にする物質（ADR-0095）。
     // 同じファイルでも、集合体の位置のものは別の物質
     for (n, m) in problem.node_material.iter().enumerate() {
-        assert_eq!(problem.reflectors.contains(m), n % 3 != 1, "node {n}");
+        assert_eq!(
+            problem.reflectors.contains(&m.unwrap()),
+            n % 3 != 1,
+            "node {n}"
+        );
     }
     let fissile: Vec<FewGroup> = (0..layout.files.len())
         .map(|f| sided(f == shared))
