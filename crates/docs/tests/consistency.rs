@@ -50,9 +50,11 @@ impl Repo<'_> {
     }
 }
 
-/// git が追跡しているファイル（`/` 区切りのパス）。
-fn tracked_files(repo: &Repo) -> Result<Vec<String>> {
-    let output = repo.git(&["ls-files", "-z"])?;
+/// git が追跡しているファイルのうち `pathspecs` に当たるもの（`/` 区切りのパス。空ならすべて）。
+fn tracked_files(repo: &Repo, pathspecs: &[&str]) -> Result<Vec<String>> {
+    let mut args = vec!["ls-files", "-z", "--"];
+    args.extend_from_slice(pathspecs);
+    let output = repo.git(&args)?;
     if !output.status.success() {
         return Err(format!(
             "git ls-files failed: {}",
@@ -120,6 +122,26 @@ fn is_ancestor(repo: &Repo, hash: &str, head: &str) -> Result<bool> {
     }
 }
 
+/// 今のブランチが main のとき、`trials/` の下で追跡しているファイル。ほかのブランチと detached HEAD では空。
+/// ブランチの上では、記録に数値を書いた試行の入力を追跡してよく、マージの前に消す（ADR-0122）。自動のマージで
+/// コミットを作る前の hook では、HEAD はまだ main で、.git/index がマージの結果なので（git 2.55 で確かめた）、
+/// `git ls-files` で残りが見つかる。競合を直して `git commit -a` で締めるときに git が hook に渡す一時的な index は、
+/// run-checks.sh が GIT_INDEX_FILE を外すので読まない
+fn trials_tracked_on_main(repo: &Repo) -> Result<Vec<String>> {
+    let branch = repo.git(&["branch", "--show-current"])?;
+    if !branch.status.success() {
+        return Err(format!(
+            "git branch --show-current failed: {}",
+            String::from_utf8_lossy(&branch.stderr)
+        )
+        .into());
+    }
+    if String::from_utf8(branch.stdout)?.trim() != "main" {
+        return Ok(Vec::new());
+    }
+    tracked_files(repo, &["trials/"])
+}
+
 #[test]
 fn docs_are_consistent() -> Result<()> {
     let root = repo_root();
@@ -129,7 +151,7 @@ fn docs_are_consistent() -> Result<()> {
     };
     let mut texts = BTreeMap::new();
     let mut others = Vec::new();
-    for path in tracked_files(&repo)? {
+    for path in tracked_files(&repo, &[])? {
         let extension = path.rsplit_once('.').map_or("", |(_, e)| e);
         // 追跡していても作業ツリーで消したファイルは、読まずに数えない
         let file = root.join(&path);
@@ -160,6 +182,22 @@ fn docs_are_consistent() -> Result<()> {
         "{} documentation violation(s):\n{}",
         violations.len(),
         violations.join("\n")
+    );
+    Ok(())
+}
+
+#[test]
+fn main_tracks_no_trials() -> Result<()> {
+    let root = repo_root();
+    let repo = Repo {
+        root: &root,
+        isolated: false,
+    };
+    let trials = trials_tracked_on_main(&repo)?;
+    assert!(
+        trials.is_empty(),
+        "main tracks trials (remove them, or git mv the ones to keep into examples/, before the merge; ADR-0122):\n{}",
+        trials.join("\n")
     );
     Ok(())
 }
@@ -269,6 +307,33 @@ fn branch_commits_count_until_the_branch_is_gone() -> Result<()> {
     assert!(
         t.problem(&stale)?.is_some(),
         "a commit on no branch after the merge"
+    );
+    Ok(())
+}
+
+#[test]
+fn main_reports_trials_left_by_a_merge() -> Result<()> {
+    // ブランチの上では、記録に書いた試行を trials/ に追跡してよい。マージのコミットを作る前（index がマージの
+    // 結果で、HEAD はまだ main）に trials/ が残っていれば見つける
+    let t = TempRepo::new("trials")?;
+    t.commit("chore: base")?;
+    assert_eq!(trials_tracked_on_main(&t.repo())?, Vec::<String>::new());
+    t.run(&["switch", "-q", "-c", "topic"])?;
+    fs::create_dir(t.dir.join("trials"))?;
+    fs::write(t.dir.join("trials/input.toml"), "")?;
+    t.run(&["add", "trials/input.toml"])?;
+    t.commit("docs: record a trial")?;
+    assert_eq!(
+        trials_tracked_on_main(&t.repo())?,
+        Vec::<String>::new(),
+        "a trial on a topic branch"
+    );
+    t.run(&["switch", "-q", "main"])?;
+    t.run(&["merge", "-q", "--no-ff", "--no-commit", "topic"])?;
+    assert_eq!(
+        trials_tracked_on_main(&t.repo())?,
+        vec!["trials/input.toml".to_string()],
+        "a trial in the merge result on main"
     );
     Ok(())
 }
