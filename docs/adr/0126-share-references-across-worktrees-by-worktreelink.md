@@ -42,14 +42,15 @@ deps がなくて止まる（ADR-0123 の「結果」）。これまでは docs/
 
 - `.worktreelink` は 1 行 1 パス（`#` はコメント）で、`references` だけを書く。worktree-add.sh は、そのパスが git で
   無視されていること、main で追跡されていないことなどを確かめてから symlink を作り、`SHARED: references` を出す。
-  満たさなければエラーで止まる。仕組みと検討した案は nixfiles の ADR-0016（名前は PostHog Desktop の `.worktreelink`
-  から借りた）にある
+  満たさなければエラーで止まる。仕組みと検討した案は nixfiles の `docs/adr/0016-share-ignored-paths-with-worktreelink.md`
+  （名前は PostHog Desktop の `.worktreelink` から借りた）にある
 - symlink の先は main の worktree の絶対パス。DVC は symlink をたどって中身の md5 を取るので、deps の md5 は main と
   同じになる（ADR-0124）
 - `.worktreelink` のないブランチ（main に rebase する前のもの）や、ほかの方法で作った worktree には symlink が
   できない。そこは crates/docs のテスト `linked_worktrees_share_references` が、`references` が symlink でない、または
-  main の `references/` に解決しないときに落ちて止める。テストは run-checks.sh とマージ前の hook が走らせる。手で
-  張るコマンドは docs/environment.md に残す
+  main の `references/` に解決しないときに落ちて止める。テストは、その worktree の `cargo test` と、/git-merge が
+  マージの前に worktree で走らせる `run-checks.sh --base main` が走らせる。マージ前の hook は main の worktree で
+  走るので、このテストでは止まらない。手で張るコマンドは docs/environment.md に残す
 - main の worktree では `references/` は実体なので、テストは確かめない
 
 案 B と D を退けたのは判断の軸のとおりで、案 A と C は共有されない状態を止められない。
