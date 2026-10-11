@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: []
 superseded-by:
 issues: ["#0043"]
+requires: []
 ---
 
 # ADR-0118: ピン出力の判定の閾値を、再構成だけの誤差と 2 段階の手法の誤差に分けて決める

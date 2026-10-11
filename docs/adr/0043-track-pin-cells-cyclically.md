@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0043: ピンセルの MOC は外周を鏡面反射とし、cyclic tracking で解く

@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: ["#0010"]
+requires: []
 ---
 
 # ADR-0026: 格子計算は燃焼度ごとの2群定数、ADF、ピン出力形状と分岐テーブルを出す

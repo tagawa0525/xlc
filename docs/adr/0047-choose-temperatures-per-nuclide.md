@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by: ADR-0080
 issues: []
+requires: []
 ---
 
 # ADR-0047: ライブラリの温度は核種ごとに指定し、格子計算は温度方向に補間しない

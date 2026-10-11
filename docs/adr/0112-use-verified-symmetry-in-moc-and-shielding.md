@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: [ADR-0113]
 superseded-by:
 issues: ["#0039", "#0054"]
+requires: []
 ---
 
 # ADR-0112: 格子で成り立つ対称操作をトラックの像まで確かめ、MOC と自己遮蔽の両方で使う

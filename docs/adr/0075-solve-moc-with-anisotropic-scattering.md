@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: [ADR-0040]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0075: MOC を非等方散乱で解き、既定ではライブラリにある全ての次数（P3）を使う

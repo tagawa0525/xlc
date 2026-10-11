@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0018"]
+requires: []
 ---
 
 # ADR-0126: worktree の references は .worktreelink で main への symlink にして共有する

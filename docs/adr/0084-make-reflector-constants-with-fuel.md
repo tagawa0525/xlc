@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0008", "#0010"]
+requires: []
 ---
 
 # ADR-0084: 反射体の少数群定数は、燃料の集合体と反射体を並べた格子計算から作る

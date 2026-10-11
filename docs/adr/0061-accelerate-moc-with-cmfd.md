@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by: ADR-0083
 issues: []
+requires: []
 ---
 
 # ADR-0061: MOC の固有値計算を、ピンセル単位の粗メッシュによる CMFD で加速する

@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: [ADR-0038]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0046: ドップラー拡がりは SIGMA1 法で求める

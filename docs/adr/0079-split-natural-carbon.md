@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0079: VERA の天然の C は、天然の存在比で C-12 と C-13 に分ける

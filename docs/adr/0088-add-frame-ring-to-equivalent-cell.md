@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0004"]
+requires: []
 ---
 
 # ADR-0088: 枠のあるピンの等価なセルは、減速材のリングの外に枠の物質のリングを置く

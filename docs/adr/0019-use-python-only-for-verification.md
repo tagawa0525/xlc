@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0019: Python は検証用の道具にだけ使い、環境は flake.nix で固定する

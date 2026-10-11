@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0039: 群定数化の重み関数は NJOY の iwt=4 と同じものにする

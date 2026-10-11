@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0007"]
+requires: []
 ---
 
 # ADR-0087: 影の計算で、黒体でない物質の全断面積は無限希釈の群平均とする

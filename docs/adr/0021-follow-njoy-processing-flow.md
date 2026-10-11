@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0021: 核データ処理は NJOY と同じ流れとし、共鳴の形式は対象核種で使うものから順に対応する

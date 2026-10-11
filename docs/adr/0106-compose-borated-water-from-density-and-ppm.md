@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0106: 格子計算の減速材の組成は、密度、ホウ素の質量 ppm、B-10 の原子分率から AME2020 の原子質量で作る

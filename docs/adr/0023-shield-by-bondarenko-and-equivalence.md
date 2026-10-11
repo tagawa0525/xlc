@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by: [ADR-0068, ADR-0074, ADR-0089]
 issues: []
+requires: []
 ---
 
 # ADR-0023: 共鳴の自己遮蔽は Bondarenko の f-table を等価原理の σ0 で引いて扱う

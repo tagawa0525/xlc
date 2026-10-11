@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by: ADR-0094
 issues: []
+requires: []
 ---
 
 # ADR-0093: 格子計算の外周の境界条件は、辺ごとに鏡面反射、真空、アルベドから選ぶ

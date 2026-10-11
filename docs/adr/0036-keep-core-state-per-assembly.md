@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0036: core のノードごとの状態は、集合体ごとにまとめて集合体に結びつけて保存する

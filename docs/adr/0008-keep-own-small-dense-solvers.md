@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0008: 自前の小さな密行列の解法は faer に置き換えない

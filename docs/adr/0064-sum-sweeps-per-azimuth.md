@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0064: トラックのスイープは rayon で並列化し、領域ごとの和を方位角ごとに持って方位角の順に足す

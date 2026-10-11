@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0005"]
+requires: []
 ---
 
 # ADR-0032: 格子計算の精度の目標を k ±100 pcm、ピン出力 rms 0.2% とする

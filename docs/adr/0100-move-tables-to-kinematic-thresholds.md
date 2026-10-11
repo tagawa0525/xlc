@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by:
 issues: ["#0023", "#0024"]
+requires: []
 ---
 
 # ADR-0100: 運動学的なしきい値より下の断面積は、最初の点をしきい値に移して捨てる

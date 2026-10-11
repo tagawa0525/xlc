@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0070: 減速計算の散乱核は標的を静止として扱い、標的の熱運動は後の段で扱う

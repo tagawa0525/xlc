@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: [ADR-0038]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0048: 非分離共鳴の自己遮蔽は NJOY UNRESR と同じ式で求める

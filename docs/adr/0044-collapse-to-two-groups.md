@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by: ADR-0098
 issues: []
+requires: []
 ---
 
 # ADR-0044: 少数群は境界 0.625 eV の2群とし、拡散係数は D = 1/(3Σt) とする

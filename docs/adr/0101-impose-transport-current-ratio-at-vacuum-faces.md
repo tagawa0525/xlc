@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: [ADR-0099]
 superseded-by:
 issues: ["#0026"]
+requires: []
 ---
 
 # ADR-0101: 炉心の NEM の真空の面は、格子計算の真空の辺の比 r = J/φ を不均質な中性子束に課し、Marshak の条件は入力で明示したときだけ使う

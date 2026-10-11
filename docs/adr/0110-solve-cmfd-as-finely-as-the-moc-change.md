@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: []
 superseded-by:
 issues: ["#0039"]
+requires: []
 ---
 
 # ADR-0110: CMFD を、MOC のスイープによる変化に比例した精度で解く

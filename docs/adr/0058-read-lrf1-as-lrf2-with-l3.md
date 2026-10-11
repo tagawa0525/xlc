@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0058: 非分離共鳴の LRF=1 は LRF=2 に読み替え、l=3 は剛体球の式で計算して warn する

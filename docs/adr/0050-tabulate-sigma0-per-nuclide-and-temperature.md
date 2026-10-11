@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0050: 多群ライブラリは核種・温度ごとに σ0 ごとの群定数を持つ

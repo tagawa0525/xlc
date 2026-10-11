@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: []
 superseded-by:
 issues: ["#0039"]
+requires: []
 ---
 
 # ADR-0109: 開発のマシンの CPU（Zen 5）の命令でコンパイルする

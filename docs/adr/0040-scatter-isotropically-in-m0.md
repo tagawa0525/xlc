@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by: ADR-0075
 issues: []
+requires: []
 ---
 
 # ADR-0040: 散乱は等方（P0）とし、輸送補正はしない

@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0092: 散乱行列の行の和を自己遮蔽した弾性散乱断面積に合わせる（番号だけ残す）
