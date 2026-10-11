@@ -2897,9 +2897,9 @@ mod tests {
         assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 1);
     }
 
-    /// 燃料のピン 2 × 2 の右と上に水のセルを 1 列ずつ並べた 3 × 3（右が真空、ほかは鏡面反射）と、その解。燃料は
-    /// 真空に接しない
-    fn l_shaped() -> (Lattice, Solution, Vec<Material>, Boundaries) {
+    /// 燃料のピン 2 × 2 の右と上に水のセルを 1 列ずつ並べた 3 × 3 と、外周の境界 `boundaries` の解。燃料は右と上の
+    /// 辺に接しない
+    fn l_shaped(boundaries: Boundaries) -> (Lattice, Solution, Vec<Material>, Boundaries) {
         let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
         let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
         let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
@@ -2911,11 +2911,6 @@ mod tests {
             vec![vec![1, 1, 1], vec![0, 0, 1], vec![0, 0, 1]],
         )
         .unwrap();
-        let boundaries = Boundaries {
-            right: Boundary::Vacuum,
-
-            ..Boundaries::REFLECTIVE
-        };
         let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
         // ピンの中心の領域だけ燃料、ほかは水
         let materials: Vec<Material> = (0..lattice.cells())
@@ -2946,7 +2941,7 @@ mod tests {
     fn l_shaped_pins_reproduce_the_lattice() {
         // 燃料のノード（2 × 2 のピン）の上と右に反射体のノード、右上に水のノード（反射体の印なし。燃料に角だけで
         // 接する）。反射体の角は燃料の面と、右上のノードに接する（ADR-0125）
-        let (lattice, solution, materials, boundaries) = l_shaped();
+        let (lattice, solution, materials, boundaries) = l_shaped(vacuum());
         let reflector = |n: Node| Node {
             reflector: true,
             ..n
@@ -2959,6 +2954,43 @@ mod tests {
             node(2..3, 0..1),
         ];
         assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
+    }
+
+    #[test]
+    fn non_positive_corner_scales_are_errors() {
+        // 右と上の 2 辺が真空の格子では、右上の角の点の均質な値の大きさ s_p の熱群が負になる（#0061）。正でない
+        // s_p はエラー（ADR-0125）
+        let (lattice, solution, materials, boundaries) = l_shaped(Boundaries {
+            top: Boundary::Vacuum,
+            ..vacuum()
+        });
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let reflector = |n: Node| Node {
+            reflector: true,
+            ..n
+        };
+        let nodes = [
+            node(0..2, 1..3),
+            reflector(node(2..3, 1..3)),
+            reflector(node(0..2, 0..1)),
+            node(2..3, 0..1),
+        ];
+        let err = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, HomogenizeError::Pins(m) if m.contains("not positive")),
+            "{err:?}"
+        );
     }
 
     #[test]
