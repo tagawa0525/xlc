@@ -1027,6 +1027,34 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn single_lattices_may_write_a_medium() {
+        // 外周がすべて鏡面反射の格子は、細かい群のまま均質化した媒質を書ける（ADR-0128）
+        let with =
+            |text: &str, extra: &str| replaced(text, "pitch = ", &format!("{extra}\npitch = "));
+        let input = with(PIN_CELL, "medium = \"fuel.medium\"").unwrap();
+        assert_eq!(input.medium, Some(PathBuf::from("fuel.medium")));
+        assert_eq!(LatticeInput::parse(PIN_CELL).unwrap().medium, None);
+        // 鏡面反射でない辺があると、媒質の無限媒質の解が格子の解と一致しない
+        let open = with(
+            PIN_CELL,
+            "medium = \"fuel.medium\"\nboundary = { right = \"vacuum\" }",
+        );
+        let err = open.unwrap_err().to_string();
+        assert!(
+            err.contains("medium") && err.contains("reflective"),
+            "{err}"
+        );
+        // 群のエネルギーと散乱の次数は、ライブラリから来る
+        let macroscopic = replaced(
+            LATTICE,
+            "boundary = { right = \"vacuum\", bottom = \"vacuum\" }",
+            "medium = \"fuel.medium\"",
+        );
+        let err = macroscopic.unwrap_err().to_string();
+        assert!(err.contains("medium") && err.contains("library"), "{err}");
+    }
+
+    #[test]
     fn void_zones_need_no_material() {
         let input = replaced(
             PIN_CELL,
