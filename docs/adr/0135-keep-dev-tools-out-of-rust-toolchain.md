@@ -56,7 +56,9 @@ rustc に対しては、component を分けても版はそろう（devShell の�
 
 ## 確認
 
-6b75c94b（分岐点は main の 9f653bdd。2026-10-12）の worktree で確かめた。
+ブランチの上の 11a96896 から 18d99ebd まで（どちらもマージの前の rebase の remap で付け替わった hash。分岐点は main の
+9f653bdd。2026-10-12。間の flake.nix の差はコメントだけ）の worktree で確かめた。手続き型マクロの展開と `target/` の確認は
+18d99ebd、それ以外は 11a96896。
 
 - devShell の rustc は main の devShell と同じ store パス（`24xl8c07…-rust-minimal-1.99.0`、1.99.0、b940084d7）
 - `rust-analyzer --version` は `rust-analyzer 1.99.0 (b940084 2026-09-28)`。sysroot の libexec に
