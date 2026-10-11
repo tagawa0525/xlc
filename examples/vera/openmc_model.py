@@ -477,7 +477,10 @@ class Run:
 
     def __init__(self, argv: list[str]) -> None:
         self.problem = argv[2]
-        if self.problem not in FUEL_TEMPERATURE or self.problem not in MODERATOR_OF:
+        if any(
+            self.problem not in table
+            for table in (FUEL_TEMPERATURE, MODERATOR_TEMPERATURE, MODERATOR_OF)
+        ):
             raise SystemExit(
                 f"unknown problem {self.problem}; expected one of {list(FUEL_TEMPERATURE)}"
             )
