@@ -52,14 +52,16 @@ fn corner_scales_do_not_change_the_homogeneous_corner_values() {
             [None; 4]
         }
     };
-    let nodes = |weights: &dyn Fn(usize, usize, usize) -> f64| -> Vec<CornerNode> {
+    let nodes = |weights: &dyn Fn(usize, usize, usize) -> f64| -> Vec<Option<CornerNode>> {
         (0..2)
-            .map(|n| CornerNode {
-                model: &model,
-                conditions: &conditions[n],
-                diffusion,
-                weights: std::array::from_fn(|c| std::array::from_fn(|g| weights(n, c, g))),
-                outflow: outflow(n),
+            .map(|n| {
+                Some(CornerNode {
+                    model: &model,
+                    conditions: &conditions[n],
+                    diffusion,
+                    weights: std::array::from_fn(|c| std::array::from_fn(|g| weights(n, c, g))),
+                    outflow: outflow(n),
+                })
             })
             .collect()
     };
@@ -213,7 +215,7 @@ fn vacuum_corners_follow_the_fine_mesh_diffusion() {
             weights: [[1.0; 2]; 4],
             outflow: [None, Some([ratio; 2]), None, Some([ratio; 2])],
         };
-        let corners = corner_balance(1, 1, &[node], &[false; 4]).unwrap();
+        let corners = corner_balance(1, 1, &[Some(node)], &[false; 4]).unwrap();
         // 角の点（x が速い）と、参照の角（-x -y、+x -y、+x +y、-x +y）
         for (p, c) in [0, 1, 3, 2].into_iter().enumerate() {
             for g in 0..2 {
