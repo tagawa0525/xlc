@@ -38,7 +38,7 @@ python3 compare_edge.py core-pins-I-fstar.msgpack moc-pins-I.msgpack
 ../../target/release/core core-corner-fstar.toml
 python3 compare_edge.py core-pins-corner.msgpack moc-pins-corner.msgpack
 python3 compare_edge.py core-pins-corner-fstar.msgpack moc-pins-corner.msgpack
-../../target/release/core core-corner-get.toml   # 反射体も集合体の位置（反射体どうしの面の ADF が GET）
+../../target/release/core core-corner-get.toml   # 反射体も集合体の位置（解は core-corner と同じ。ADR-0132）
 python3 compare_edge.py core-pins-corner-get.msgpack moc-pins-corner.msgpack
 ```
 
