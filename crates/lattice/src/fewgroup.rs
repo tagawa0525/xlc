@@ -163,7 +163,11 @@ pub fn homogenize_nodes(
     nodes: &[Node],
     pins: bool,
 ) -> Result<Vec<FewGroup>, HomogenizeError> {
-    let homogenized = node_references(
+    let NodeReferences {
+        references: homogenized,
+        group_of,
+        neighbors,
+    } = node_references(
         solution,
         lattice,
         materials,
@@ -173,9 +177,7 @@ pub fn homogenize_nodes(
         nodes,
     )?;
     let sides = sides_of(boundaries);
-    let group_of = coarse_groups(fine, coarse_bounds)?;
     let coarse = coarse_bounds.len() - 1;
-    let neighbors = node_neighbors(lattice, nodes)?;
     // 横方向の漏れ [ノード][方向（x, y）][少数群]: x の方向の横方向の漏れは y の正味の漏れ（上と下の辺の
     // 外向きの正味の中性子流の和 / 高さ）、y の方向は x の正味の漏れ
     let transverse: Vec<[Vec<f64>; 2]> = homogenized
@@ -293,6 +295,17 @@ pub(crate) struct Reference {
     pub(crate) currents: Vec<Vec<f64>>,
 }
 
+/// ノードの均質化の参照の量と、確かめたノードの並び。
+#[derive(Debug, Clone)]
+pub(crate) struct NodeReferences {
+    /// [ノード]
+    pub(crate) references: Vec<Reference>,
+    /// [ライブラリの群] の少数群
+    pub(crate) group_of: Vec<usize>,
+    /// [ノード][辺（左、右、上、下）] の、辺の向かいのノード（`node_neighbors`）
+    pub(crate) neighbors: Vec<[Option<usize>; 4]>,
+}
+
 /// ノードごとの `Reference`（`homogenize_nodes` の前半）。ノードの並びと、アルベドの辺がないことを確かめる
 pub(crate) fn node_references(
     solution: &Solution,
@@ -302,7 +315,7 @@ pub(crate) fn node_references(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
     nodes: &[Node],
-) -> Result<Vec<Reference>, HomogenizeError> {
+) -> Result<NodeReferences, HomogenizeError> {
     let sides = sides_of(boundaries);
     if sides.iter().any(|b| matches!(b, Boundary::Albedo(_))) {
         return Err(HomogenizeError::Albedo);
@@ -391,7 +404,11 @@ pub(crate) fn node_references(
             currents,
         });
     }
-    Ok(references)
+    Ok(NodeReferences {
+        references,
+        group_of,
+        neighbors,
+    })
 }
 
 /// [ノード][辺（左、右、上、下）] の、辺の向かいのノード（外周の辺は `None`）。ノードが格子のセルを重ならずに
@@ -2751,7 +2768,8 @@ mod tests {
             boundaries,
             nodes,
         )
-        .unwrap();
+        .unwrap()
+        .references;
         let rule = xlc_numeric::quadrature::gauss_legendre(FACE_POINTS).unwrap();
         let cells_rule = xlc_numeric::quadrature::gauss_legendre(6).unwrap();
         let pins: Vec<&Pins> = fgs.iter().map(|f| f.pins.as_ref().unwrap()).collect();
