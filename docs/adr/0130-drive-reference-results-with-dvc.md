@@ -111,9 +111,9 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 ## 確認
 
 examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro examples/vera/dvc.yaml` で Slurm の上で走らせた
-（2026-10-11、全体で 57 分）。走らせたのは main に rebase する前のコミットで、rebase のあとは d682b870 に当たる。d682b870 の
-`dvc.lock` は走らせたときの deps の md5 を持ち、d682b870 の `openmc_model.py`（main が `build` に分けたもの）と xlc の crates とは
-合わない（`dvc status` は openmc-1B、openmc-1B-extract、xs、lattice-1B を changed と示す）。出し直すには d682b870 を checkout して
+（2026-10-11、全体で 57 分）。走らせたのは main に rebase する前のコミットで、rebase のあとは 53d92a76 に当たる。53d92a76 の
+`dvc.lock` は走らせたときの deps の md5 を持ち、53d92a76 の `openmc_model.py`（main が `build` に分けたもの）と xlc の crates とは
+合わない（`dvc status` は openmc-1B、openmc-1B-extract、xs、lattice-1B を changed と示す）。出し直すには 53d92a76 を checkout して
 `dvc repro` し、その段階を走らせ直す。ライブラリの温度は、main が 2A と 2Q のために足した 565 K と S(α,β) の温度を
 含む（`openmc-library.toml`）。
 
