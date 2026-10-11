@@ -30,7 +30,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）で段階を
   実行し、手で段階を選ばない。重いときは `dvc repro` 全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（ADR-0123）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
-  キャッシュと核データを共有する
+  キャッシュと核データを共有する（ADR-0126）
 - `examples/vera/vera.msgpack` は git で追跡しない。worktree では main のものをコピーして使い、核種を足して作り直したら
   main の場所にも置く
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。rebase で hash が変わっても
