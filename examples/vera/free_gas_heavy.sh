@@ -65,11 +65,11 @@ for key in ("group_bounds", "sigma0", "pointwise_range"):
 names = [n["name"] for n in a["nuclides"]]
 if names != [n["name"] for n in b["nuclides"]]:
     raise SystemExit("nuclides differ")
-# 質量比が 1 未満の H-1 は変わらないはず
+# 質量比が 1 未満の H-1 だけが変わらず、ほかはすべて変わるはず（変わらなければ切り替えが効いていない）
 for x, y in zip(a["nuclides"], b["nuclides"]):
     print(f"{x['name']}: {'same' if x == y else 'changed'}")
-    if x["name"] == "H-1" and x != y:
-        raise SystemExit("H-1 changed with XLC_TRIAL_FREE_GAS_HEAVY")
+    if (x["name"] == "H-1") != (x == y):
+        raise SystemExit(f"{x['name']}: unexpected effect of XLC_TRIAL_FREE_GAS_HEAVY")
 i = names.index("O-16")
 a["nuclides"][i] = b["nuclides"][i]
 Path(out).write_bytes(msgpack.packb(a))
@@ -78,7 +78,7 @@ EOF
 # 均質な媒質
 for v in ad ad-o16 ade; do
   for m in h-u5-u8 h-u5-u8-o no-clad all; do
-    k=$("$homogeneous" "$m.toml" "vera-$v.msgpack" | grep 'UFG  ')
+    k=$("$homogeneous" "$m.toml" "vera-$v.msgpack" --balance "bal-$v-$m.msgpack" | grep balance)
     echo "$v $m $k"
   done
 done | tee homogeneous.txt

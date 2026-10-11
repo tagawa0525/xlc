@@ -16,13 +16,15 @@
 #                                  近似（有効温度は MF7）で補う（E' は β の表の範囲で打ち切るので、β の外には届かない）
 #   XLC_TRIAL_UFG_SAB=1            ポイントワイズの断面積（UFG）の H の上限より下の弾性散乱を S(α, β) の散乱断面積にする
 #   XLC_TRIAL_FREE_GAS_UPPER=<eV>  S(α, β) の上限からこの入射エネルギーまでの H の弾性散乱の移行を自由ガスの核にする
+#   XLC_TRIAL_FREE_GAS_HEAVY=1     S(α, β) を持たず質量比が 1 より大きい核種の自由ガスの上限を max(4 eV, 400 kT) にする
+#                                  （free_gas_heavy.sh で使う）
 #   XLC_TRIAL_OUT_WEIGHT=<核種>:<最初の群>-<最後の群>,...（`homogeneous` の例だけ）
 #                                  UFG の範囲の群の P0 の行の、群から出る部分に、静止標的・重心系で等方とした群から
 #                                  出る割合の、UFG の中性子束の重みと 1/E の重みの比を掛ける（行の和は保つ）
 set -euo pipefail
 
 if (($# != 2)); then
-  sed -n '2,21p' "$0" >&2
+  sed -n '2,23p' "$0" >&2
   exit 1
 fi
 repo=$(git rev-parse --show-toplevel)
