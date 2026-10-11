@@ -105,6 +105,8 @@ flake.nix の packages:
   `.git_archival.txt` は `git archive` が埋める雛形のままなので、タグのコミットと版を書いた形に置き換える
 - openmc の Python のパッケージは `ipython` と `matplotlib` に依存すると書くが、使うのは対話と作図だけで、検証の
   スクリプトは使わないので外す（venv にも入っていなかった）
+- `references` の devShell は `PYTHONPATH` を外す。外の shell（direnv で入った `default` の devShell など）から入ると、
+  dvc の依存が `PYTHONPATH` から OpenMC の Python API の環境より先に読まれるため
 - 道具を足しても flake の入力は増やさない。`flake.lock` は M0 の段階の deps なので（ADR-0123）、変えると M0 が走り直す
 
 `references/` の扱い:
@@ -124,8 +126,9 @@ Nix と DVC の役割:
 
 ## 確認
 
-flake の packages を作り、手で取ったもの・手でビルドしたもの（main の `references/`）と比べた（9964088c の
-trials/pin-reference-assets/compare_tools.sh、Slurm の上で 16 スレッド、2026-10-11）。
+flake の packages を作り、手で取ったもの・手でビルドしたもの（main の `references/`）と比べた（e87aeab5 の
+trials/pin-reference-assets/compare_tools.sh、Slurm の上で 16 スレッド、2026-10-11）。flake の側の NJOY と openmc.data は、
+`.#endf`（nix store の読み出し専用のファイル）を読んだ。
 
 - `nix build` は 4 つの zip を取り、NJOY、OpenMC、Python API をビルドして約 1 分 40 秒で終わった（r995）。`nix flake check`
   が通る
@@ -136,13 +139,16 @@ trials/pin-reference-assets/compare_tools.sh、Slurm の上で 16 スレッド�
 - NJOY: references/njoy-runs の B10-acer（moder、reconr、broadr、パッチを通る acer）と O17-groupr（reconr、groupr）で、
   ACE（B10 の tape24、tape25）と GENDF（O17 のバイナリの tape23、テキストの tape24）はバイト単位で一致した。
   バイナリの ENDF と PENDF（B10 の tape21〜23、O17 の tape21、22）は、最初のレコードの 97〜155 バイト目の 6〜9 バイト
-  だけが違う。その値はメモリのアドレス（`0x7ffff7eac4bc` など）で、初期化されない領域がそのまま書かれている。ASLR の
+  だけが違う。その値はメモリのアドレスに見え（`0x7ffff7eac4bc` など）、初期化されない領域がそのまま書かれているのが候補である
+  （NJOY のソースでは確かめていない）。ASLR の
   効いた手元では、同じ手でビルドした `njoy` を 2 回走らせても同じ位置が違った。ほかのバイトは一致した
-- openmc.data（Python API）が NJOY を通して作る H-1 の 600 K の HDF5 は、18 のデータセットのすべてが一致した
+- openmc.data（Python API）が NJOY を通して作る H-1 の 600 K の HDF5 は、手で取った ENDF から作ったものと、18 の
+  データセットのすべてが一致した
 - OpenMC: `openmc --version` は、どちらも 0.15.2、コミット e23760b0 を示した。C5G7（多群、2 万粒子、120 世代、
   種 1）の k は両方とも 1.186062 ± 0.000477、VERA 1B（連続エネルギー、同じ粒子数）は 1.181836 ± 0.000647 で、
-  一致した。世代ごとの k と tally の差は相対で 1e-14 以下で、同じ道具を 2 回走らせた差と同じ大きさだった（スレッドの
-  和の順序による丸め）
+  一致した。世代ごとの k と tally の差は相対で 1e-14 以下、組み合わせた k の推定の差は 3e-11 以下で、同じ道具を 2 回
+  走らせた差と同じ大きさだった（スレッドの和の順序による丸めが候補。確かめていない）
+- references の devShell は、default の devShell の中から入っても、`sys.path` に dvc の依存が入らない
 
 ## 結果
 
