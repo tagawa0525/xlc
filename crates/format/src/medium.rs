@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::group::GroupStructure;
 use crate::msgpack::{self, MsgpackError};
 use crate::table::{Axis, AxisFile, validate_axes};
 
@@ -141,13 +142,8 @@ impl Medium {
     /// 群境界、軸、状態の数、状態の値、状態の間で散乱のモーメントの数が同じことを確かめる。
     pub fn validate(&self) -> Result<(), MediumError> {
         let invalid = |message: String| Err(MediumError::Invalid(message));
-        let b = &self.bounds;
-        if b.len() < 2
-            || !b.windows(2).all(|w| w[0] > w[1])
-            || !b.iter().all(|&x| x > 0.0 && x.is_finite())
-        {
-            return invalid(format!("bounds must be positive and descending, got {b:?}"));
-        }
+        GroupStructure::new(self.bounds.clone())
+            .map_err(|e| MediumError::Invalid(e.to_string()))?;
         validate_axes(&self.axes).map_err(MediumError::Invalid)?;
         let points: usize = self.axes.iter().map(|a| a.points().len()).product();
         if self.states.len() != points {
