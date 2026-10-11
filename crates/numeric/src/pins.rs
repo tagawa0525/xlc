@@ -2,6 +2,7 @@
 //! （ADR-0125）の両方で使う。
 
 mod basis;
+pub mod corners;
 pub mod node;
 
 pub use basis::FACE_POINTS;
