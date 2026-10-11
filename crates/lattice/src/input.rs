@@ -1322,6 +1322,12 @@ zones = [{ material = "water", rings = 1 }]
             "\"plate\", volume = 0.5 }]",
             "plate",
         );
+        // 真空だけの混ぜた物質は物質でない（帯に `void` と書く）
+        bad(
+            parts,
+            "mix = [{ material = \"void\", volume = 1.0 }]",
+            "void",
+        );
         // 媒質と混ぜた物質は自己遮蔽の対象にならないので、平板の格子は自己遮蔽しない（ADR-0128）
         bad("self-shielding = false\n", "", "self-shielding");
     }
