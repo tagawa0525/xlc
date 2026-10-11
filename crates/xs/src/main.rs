@@ -367,7 +367,12 @@ temperatures = [293.6, 900]
                     name: "H-1".into(),
                     endf: PathBuf::from("work/endf/h.endf"),
                     temperatures: vec![293.6, 600.0],
-                    thermal: Some(PathBuf::from("work/tsl/h2o.endf")),
+                    thermal: Some(ThermalInput {
+                        path: PathBuf::from("work/tsl/h2o.endf"),
+                        upper: SabUpper::Evaluated,
+                        outside: SabOutside::ShortCollisionTime,
+                        free_gas_upper: DEFAULT_FREE_GAS_UPPER,
+                    }),
                 },
                 NuclideInput {
                     name: "U-238".into(),
@@ -389,6 +394,60 @@ temperatures = [293.6, 900]
             parse_input(&text, Path::new(".")).unwrap().scattering_order,
             0
         );
+    }
+
+    #[test]
+    fn accepts_the_thermal_scattering_limits() {
+        let text = INPUT.replace(
+            "thermal = \"h2o.endf\"",
+            "thermal = \"h2o.endf\"\nsab-upper = 4\nsab-outside = \"zero\"\nfree-gas-upper = 48.052",
+        );
+        let input = parse_input(&text, Path::new(".")).unwrap();
+        let thermal = input.nuclides[0].thermal.as_ref().unwrap();
+        assert_eq!(thermal.upper, SabUpper::Energy(4.0));
+        assert_eq!(thermal.outside, SabOutside::Zero);
+        assert_eq!(thermal.free_gas_upper, 48.052);
+        let text = INPUT.replace(
+            "thermal = \"h2o.endf\"",
+            "thermal = \"h2o.endf\"\nsab-upper = \"evaluated\"\nsab-outside = \"sct\"",
+        );
+        let input = parse_input(&text, Path::new(".")).unwrap();
+        let thermal = input.nuclides[0].thermal.as_ref().unwrap();
+        assert_eq!(thermal.upper, SabUpper::Evaluated);
+        assert_eq!(thermal.outside, SabOutside::ShortCollisionTime);
+    }
+
+    #[test]
+    fn rejects_bad_thermal_scattering_limits() {
+        let with = |lines: &str| {
+            let text = INPUT.replace(
+                "thermal = \"h2o.endf\"",
+                &format!("thermal = \"h2o.endf\"\n{lines}"),
+            );
+            parse_input(&text, Path::new("."))
+        };
+        for lines in [
+            "sab-upper = \"top\"",
+            "sab-upper = 0",
+            "sab-upper = -4",
+            "sab-outside = \"free-gas\"",
+            "free-gas-upper = 0",
+            "free-gas-upper = \"all\"",
+        ] {
+            assert!(with(lines).is_err(), "{lines}");
+        }
+        // S(α, β) を使わない核種には書けない
+        for key in [
+            "sab-upper = 4",
+            "sab-outside = \"sct\"",
+            "free-gas-upper = 100",
+        ] {
+            let text = INPUT.replace(
+                "temperatures = [293.6, 900]",
+                &format!("temperatures = [293.6, 900]\n{key}"),
+            );
+            assert!(parse_input(&text, Path::new(".")).is_err(), "{key}");
+        }
     }
 
     #[test]
