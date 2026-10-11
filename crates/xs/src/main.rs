@@ -373,6 +373,13 @@ temperatures = [293.6, 900]
     }
 
     #[test]
+    #[ignore = "#0014: the order is not an input"]
+    fn accepts_a_scattering_order() {
+        let text = INPUT.replace("sigma0 =", "scattering-order = 1\nsigma0 =");
+        assert!(parse_input(&text, Path::new(".")).is_ok());
+    }
+
+    #[test]
     fn rejects_bad_input() {
         let base = Path::new(".");
         let replaced = |from: &str, to: &str| {
