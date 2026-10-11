@@ -1063,6 +1063,11 @@ fn mixture(name: String, parts: Vec<MixPartEntry>) -> Result<Mixture, String> {
             ));
         }
     }
+    if parts.iter().all(|p| p.material == VOID) {
+        return Err(format!(
+            "material `{name}`: a mixture of `{VOID}` alone is not a material; write `{VOID}` in the zones"
+        ));
+    }
     let sum: f64 = parts.iter().map(|p| p.volume).sum();
     if (sum - 1.0).abs() > VOLUME_TOLERANCE {
         return Err(format!(
