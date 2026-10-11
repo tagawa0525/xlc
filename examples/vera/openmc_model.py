@@ -21,7 +21,6 @@ run は OpenMC を解き、作業ディレクトリに statepoint を残す。ex
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。2 種の燃料を持つ 2K では書かない（エラーにする）。
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -37,8 +36,11 @@ from openmc_common import (
     group_filter,
     input_path,
     material,
-    read_input,
+    run_or_extract,
+    write_k,
+    write_pin_powers,
 )
+from openmc_common import read_run as common_read_run
 
 SCORES = ["total", "elastic", "fission"]
 
@@ -295,6 +297,26 @@ def outside(
     ]
 
 
+def concentric(
+    layers: Layers, water: openmc.Material, frame: Frame | None = None
+) -> openmc.Universe:
+    """中心から外へ (物質, 外側の半径) の並び（None は真空）の同心円筒と、その外の減速材（`frame` があれば支持格子の
+    枠も）のセル。`layers` が空なら減速材だけ（枠は置けない）。"""
+    if not layers:
+        if frame is not None:
+            raise SystemExit("a spacer grid frame around an empty cell")
+        return openmc.Universe(cells=[openmc.Cell(fill=water)])
+    cells = []
+    surface = None
+    for fill, radius in layers:
+        boundary = openmc.ZCylinder(r=radius)
+        region = -boundary if surface is None else +surface & -boundary
+        cells.append(openmc.Cell(fill=fill, region=region))
+        surface = boundary
+    cells.extend(outside(+surface, water, frame))
+    return openmc.Universe(cells=cells)
+
+
 def tube(
     layers: Layers,
     inner: float,
@@ -305,15 +327,24 @@ def tube(
 ) -> openmc.Universe:
     """管（案内管・計装管、内と外の半径 `inner`、`outer`）のセル。`layers` は管に入れたもので、中心から外へ
     (物質, 外側の半径) の並び（None は真空）。その外から管の内側までと、管の外は減速材。`frame` は支持格子の枠。"""
-    cells = []
-    surface = None
-    for fill, radius in [*layers, (water, inner), (clad, outer)]:
-        boundary = openmc.ZCylinder(r=radius)
-        region = -boundary if surface is None else +surface & -boundary
-        cells.append(openmc.Cell(fill=fill, region=region))
-        surface = boundary
-    cells.extend(outside(+surface, water, frame))
-    return openmc.Universe(cells=cells)
+    return concentric([*layers, (water, inner), (clad, outer)], water, frame)
+
+
+def fuel_layers(fuel: openmc.Material, clad: openmc.Material) -> Layers:
+    """燃料のピンの層（ペレット、真空のギャップ、被覆管）。"""
+    return [(fuel, PELLET), (None, CLAD_INNER), (clad, CLAD_OUTER)]
+
+
+def pin_lattice(
+    universes: list[list[openmc.Universe]], water: openmc.Material
+) -> openmc.RectLattice:
+    """17×17 のセルの格子（中心が原点）。格子の外（集合体の外周の水のギャップ）は減速材。"""
+    lattice = openmc.RectLattice()
+    lattice.pitch = (PITCH, PITCH)
+    lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
+    lattice.universes = universes
+    lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=water)])
+    return lattice
 
 
 def pyrex_layers(temperature: float) -> Layers:
@@ -443,11 +474,7 @@ def geometry_of(
                 if (i, j) not in GUIDE_TUBES:
                     raise SystemExit(f"insert at {(i, j)} is not in a guide tube")
                 universes[i][j] = insert
-        lattice = openmc.RectLattice()
-        lattice.pitch = (PITCH, PITCH)
-        lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
-        lattice.universes = universes
-        lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=water)])
+        lattice = pin_lattice(universes, water)
         half = N * PITCH / 2 + HALF_GAP
         root = openmc.Cell(fill=lattice)
     box = openmc.model.RectangularPrism(2 * half, 2 * half, boundary_type="reflective")
@@ -477,10 +504,7 @@ def pin_rows(sp: openmc.StatePoint, value: str = "mean"):
 def write_pins(sp: openmc.StatePoint, path: Path) -> None:
     """名前が fission の tally を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
     rates = pin_rows(sp)
-    rates = rates / rates[rates > 0].mean()
-    path.write_bytes(
-        msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
-    )
+    write_pin_powers(path, rates / rates[rates > 0].mean())
 
 
 class Built(NamedTuple):
@@ -547,40 +571,27 @@ def temperature_settings(problem: str) -> dict:
     # ライブラリにあるその温度の表だけを使う。565 K の問題は温度の内挿のモードで解き（ADR-0080）、H in H2O の
     # S(α,β) を 550 K と 573.6 K の表から kT の比で確率的に選ぶ。ほかの核種は 565 K の表を持つので、内挿の
     # モードでも 565 K の表を使う（OpenMC 0.15.2 の src/nuclide.cpp。#0017）
-    method = "nearest" if MODERATOR_TEMPERATURE[problem] == COLD else "interpolation"
+    return temperature_mode(MODERATOR_TEMPERATURE[problem])
+
+
+def temperature_mode(temperature: float) -> dict:
+    """被覆管と減速材の温度 `temperature` (K) での温度の扱い（`temperature_settings` の説明のとおり）。"""
+    method = "nearest" if temperature == COLD else "interpolation"
     return {"method": method, "tolerance": 1.0}
 
 
-REQUIRED = {
-    "problem",
-    "cross-sections",
-    "particles",
-    "batches",
-    "inactive",
-    "seed",
-    "threads",
-}
 OPTIONAL = {"effective-xs-groups"}
 
 
 def read_run(source: Path) -> dict[str, Any]:
     """入力の TOML を読み、問題を確かめ、パスを絶対パスにする。"""
-    run = read_input(source, REQUIRED, OPTIONAL)
+    run = common_read_run(source, list(FUEL_TEMPERATURE), OPTIONAL)
     problem = run["problem"]
-    if any(
-        problem not in table
-        for table in (FUEL_TEMPERATURE, MODERATOR_TEMPERATURE, MODERATOR_OF)
-    ):
-        raise SystemExit(
-            f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
-        )
+    if any(problem not in table for table in (MODERATOR_TEMPERATURE, MODERATOR_OF)):
+        raise SystemExit(f"{problem} lacks its moderator in the tables")
     if problem in ZONED and "effective-xs-groups" in run:
         # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
         raise SystemExit(f"{problem} has two fuels; pin cross sections are not written")
-    # 絶対パスにする。OpenMC も相対パスを Python の作業ディレクトリから絶対パスに直す（openmc.config の resolve_paths）
-    # ので、outs の model.xml には worktree の絶対パスが入る。statepoint が日時と計算時間を含み outs はバイト単位では
-    # 再現しないので、それを避ける書き方はしない
-    run["cross-sections"] = input_path(source, run["cross-sections"])
     if "effective-xs-groups" in run:
         run["effective-xs-groups"] = input_path(source, run["effective-xs-groups"])
     return run
@@ -659,22 +670,8 @@ def extract(source: Path, work: Path, results: Path) -> None:
             (results / "fuel-xs.msgpack").write_bytes(
                 msgpack.packb({"format": "xlc-fuel-xs", "nuclides": xs})
             )
-    (results / "k.json").write_text(
-        json.dumps({"problem": problem, "k": k.nominal_value, "k-std": k.std_dev})
-        + "\n"
-    )
-    print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
-
-
-def main() -> None:
-    match sys.argv[1:]:
-        case ["run", source, work]:
-            solve(Path(source), Path(work))
-        case ["extract", source, work, results]:
-            extract(Path(source), Path(work), Path(results))
-        case _:
-            raise SystemExit(__doc__)
+    write_k(results / "k.json", problem, k)
 
 
 if __name__ == "__main__":
-    main()
+    run_or_extract(solve, extract, __doc__)
