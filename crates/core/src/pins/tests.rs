@@ -245,12 +245,6 @@ fn vacuum_corners_take_the_ratio_and_adf_of_their_side() {
     for g in 0..2 {
         let outward = m.diffusion[g] * (grad[g][0] + grad[g][1]);
         let expected = [0.3, 0.4][g] * [1.2, 1.1][g] * corners[0][g] / [1.3, 1.25][g];
-        eprintln!(
-            "implied rf {} gx {} gy {}",
-            outward / (corners[0][g] / [1.3, 1.25][g]),
-            grad[g][0],
-            grad[g][1]
-        );
         assert!(
             (outward - expected).abs() < 1e-8 * expected.abs(),
             "group {g}: {outward} vs {expected}"
