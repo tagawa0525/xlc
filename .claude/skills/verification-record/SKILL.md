@@ -44,9 +44,9 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 `docs: point the records at the rebased commits`）。測り直さない（ADR-0122）。
 
 - hook が失敗したときは、出力の最後に「直し方」が出る。`$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` に
-  対応表が残るので、`commit-refs remap <そのファイル>` で呼び直す。`ERROR:` は、曖昧な語（複数の旧に当たる）か、消えた
-  コミットを指す語があるときで、何も書き換えずに止まる。その語を手で直してから呼ぶ
-- `~/.claude/scripts/remap-commit-refs.sh` は nixfiles から消えた（古い写しが残っていることがある）。`commit-refs` を使う
+  対応表が残るので、`commit-refs remap <そのファイル>` で呼び直す。`ERROR:` は、何も書き換えずに止まったときに出る（対応表の行が読めない、曖昧な語、連鎖など）。
+  理由を読んで、対応表か文書のどちらが誤りかを確かめてから直し、呼び直す
+- `~/.claude/scripts/remap-commit-refs.sh` は使わない（`commit-refs` に置き換わった古い写しで、今も残っている）。`commit-refs` を使う
 - filter-repo のような履歴の書き換えは `commit-refs rewrite-history <対応表>`
 
 ## k の差の内訳（OpenMC との差を物質とエネルギーの範囲に分ける）
