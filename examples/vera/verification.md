@@ -40,9 +40,9 @@ Zircaloy-4 875 g を 289 のセルに等しく分け、セルの外周の厚さ 
 
 ## 参照解
 
-1B は LOCKHASH の examples/vera/dvc.yaml の段階（2026-10-11。dba00ffe（2026-10-07）に手で実行した値と、k の推定が相対 3e-14 で一致した。ADR-0130）、1C〜2D は dba00ffe（2026-10-07）、2E は 2d838c80、2E-empty（2E の Pyrex の棒を抜いたもの）は 6de9fe5a、2F は d6593b9f（2026-10-10）、
+1B は 0f0ac24c の examples/vera/dvc.yaml の段階（2026-10-11。dba00ffe（2026-10-07）に手で実行した値と、k の推定が相対 4e-14 で一致した。ADR-0130）、1C〜2D は dba00ffe（2026-10-07）、2E は 2d838c80、2E-empty（2E の Pyrex の棒を抜いたもの）は 6de9fe5a、2F は d6593b9f（2026-10-10）、
 2G と 2H は 83f37240、2I は f930a397、2J は 194e82df、2K は cfe969f3、2A と 2Q は 4888a4cd（2026-10-11）。1B〜1D は 1 世代 100 万粒子・250 世代（最初の 50 世代を
-捨てる）、2A〜2K と 2Q は 1 世代 100 万粒子・400 世代（最初の 100 世代を捨てる）、乱数のシード 1。16 スレッドで、OpenMC が statepoint に書く計算時間（total）は 1B 16.3 分、2E 33.5 分、2E-empty 30.9 分、
+捨てる）、2A〜2K と 2Q は 1 世代 100 万粒子・400 世代（最初の 100 世代を捨てる）、乱数のシード 1。16 スレッドで、OpenMC が statepoint に書く計算時間（total）は 1B 17.8 分、2E 33.5 分、2E-empty 30.9 分、
 2F 34.2 分、2G 33.0 分、2H 32.4 分、2I 32.8 分、2J 37.0 分、2K 36.2 分、2A 38.5 分、2Q 50.4 分。2A と 2Q は 565 K の核種を足したデータ
 （docs/environment.md の引数で references/openmc/endfb80-565 に作ったもの）を温度の内挿のモードで解く（「参照解の側の近似」）。VERA の公開値は KENO-VI（ENDF/B-VII.0）で、核データの版が違うので
 参考とする。
@@ -115,7 +115,7 @@ S(α,β) の温度を補正したもの）。核データの版（Zr の ENDF/B-
 
 ## OpenMC との比較
 
-1B は LOCKHASH の examples/vera/dvc.yaml の段階（`compare-1B`。d13f57d5 と同じ k）、1C〜2D は d13f57d5、2E と 2E-empty は 1b5dd218、2F は d6593b9f（2026-10-10）、2G と 2H は 83f37240、2I は f930a397、2J は 194e82df、2K は cfe969f3、2A と 2Q は 4888a4cd（2026-10-11）、スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
+1B は 0f0ac24c の examples/vera/dvc.yaml の段階（`compare-1B`。d13f57d5 と同じ k）、1C〜2D は d13f57d5、2E と 2E-empty は 1b5dd218、2F は d6593b9f（2026-10-10）、2G と 2H は 83f37240、2I は f930a397、2J は 194e82df、2K は cfe969f3、2A と 2Q は 4888a4cd（2026-10-11）、スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
 （[ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md)）。燃料 5 リング、扇形 8、散乱は P3（[ADR-0075](../../docs/adr/0075-solve-moc-with-anisotropic-scattering.md)）、自己遮蔽はピンごとの UFG と SPH、弾性散乱と
 準位の角度分布は MF4（[ADR-0081](../../docs/adr/0081-use-mf4-angular-distributions.md)）、集合体は成り立つ対称操作をすべて使う（[ADR-0112](../../docs/adr/0112-use-verified-symmetry-in-moc-and-shielding.md)。2A〜2K と 2Q は 1/8）。制御棒の吸収体は 5 リング、計装管のシンブルの中の真空と SS304 は 1 リング、シンブルと計装管の間の水は 2 リング（燃料の外のリングの数は ADR で決めていない。#0059）。
 ピン出力は `compare_pins.py` で、燃料ピン 264 本の平均で規格化して比べる。
