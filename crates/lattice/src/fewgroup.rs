@@ -2708,20 +2708,12 @@ mod tests {
                 false,
             )
         };
-        let reflector = |n: Node| Node {
-            reflector: true,
-            ..n
-        };
         let cases: Vec<(Vec<Node>, &str)> = vec![
             (vec![], "no nodes"),
             (vec![node(0..1, 0..1)], "not covered"),
             (vec![node(0..2, 0..1), node(1..2, 0..1)], "overlap"),
             (vec![node(0..1, 0..1), node(1..3, 0..1)], "outside"),
             (vec![node(0..1, 0..1), node(1..1, 0..1)], "empty"),
-            (
-                vec![reflector(node(0..1, 0..1)), reflector(node(1..2, 0..1))],
-                "no fuel",
-            ),
         ];
         for (nodes, what) in &cases {
             assert!(
@@ -3068,6 +3060,50 @@ mod tests {
             reflector(node(0..2, 0..1)),
             node(2..3, 0..1),
         ];
+        assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
+    }
+
+    #[test]
+    fn diagonal_reflector_nodes_normalize_only_the_fuel_corner() {
+        // 角型の格子（#0029）: 燃料に角の点だけで接する右上のノードも反射体とする。反射体の f* の印は燃料と接する
+        // 辺だけ（反射体どうしの辺は印なし）、C* の印は燃料のノードに接する角の点だけ（ADR-0095、ADR-0131）。
+        // 定数と形状は、定数を作った体系を再現する
+        let (lattice, solution, materials, boundaries) = l_shaped(Boundaries {
+            top: Boundary::Vacuum,
+            ..vacuum()
+        });
+        let reflector = |n: Node| Node {
+            reflector: true,
+            ..n
+        };
+        // x が速く、-y の行（格子の行 1、2）から
+        let nodes = [
+            node(0..2, 1..3),
+            reflector(node(2..3, 1..3)),
+            reflector(node(0..2, 0..1)),
+            reflector(node(2..3, 0..1)),
+        ];
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let fgs = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+            true,
+        )
+        .unwrap();
+        // 辺は（左、右、上、下）、角は（-x -y、+x -y、+x +y、-x +y）
+        assert_eq!(fgs[1].normalized_adf, vec![true, false, false, false]);
+        assert_eq!(fgs[2].normalized_adf, vec![false, false, false, true]);
+        assert_eq!(fgs[3].normalized_adf, vec![false; 4]);
+        let corners = |n: usize| fgs[n].pins.as_ref().unwrap().normalized_corners.clone();
+        assert_eq!(corners(1), vec![true, false, false, true]);
+        assert_eq!(corners(2), vec![true, true, false, false]);
+        assert_eq!(corners(3), vec![true, false, false, false]);
         assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
     }
 
