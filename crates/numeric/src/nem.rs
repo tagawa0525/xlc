@@ -330,10 +330,6 @@ pub enum OneNodeError {
     Anm(#[from] AnmError),
     #[error("the node has no net current, so the direction of the equivalence is undefined")]
     NoNetCurrent,
-    #[error(
-        "no diffusion coefficient in group {group} gives equal discontinuity factors on both faces"
-    )]
-    NoEquivalentDiffusion { group: usize },
     #[error("the equivalent diffusion coefficients did not converge in {0} iterations")]
     EquivalenceNotConverged(usize),
 }
