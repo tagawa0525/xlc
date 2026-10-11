@@ -335,8 +335,13 @@ fn library_of(settings: Settings, nuclides: Vec<NuclideData>) -> Library {
     }
 }
 
+/// ライブラリを書く。DVC は段階の前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
 fn write_library(library: &Library, path: &Path) -> anyhow::Result<()> {
-    std::fs::write(path, library.to_msgpack()?).with_context(|| format!("{}", path.display()))
+    let context = || format!("{}", path.display());
+    if let Some(directory) = path.parent() {
+        std::fs::create_dir_all(directory).with_context(context)?;
+    }
+    std::fs::write(path, library.to_msgpack()?).with_context(context)
 }
 
 /// 入力のすべての核種を処理して、ライブラリを書く。
