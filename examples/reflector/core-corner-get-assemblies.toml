@@ -1,0 +1,28 @@
+# 角型の格子のノード 4 つを集合体の設計として並べる台帳。右 (E)、上 (N)、右上 (C) の反射体の定数も集合体の位置に置く。
+[design.lattice-corner]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-fuel.msgpack"]
+
+[design.corner-right]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-right.msgpack"]
+
+[design.corner-top]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-top.msgpack"]
+
+[design.corner-corner]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-corner.msgpack"]
+
+[assembly.F03]
+design = "lattice-corner"
+
+[assembly.E]
+design = "corner-right"
+
+[assembly.N]
+design = "corner-top"
+
+[assembly.C]
+design = "corner-corner"
