@@ -2605,10 +2605,12 @@ mod tests {
             y_plus[3] = condition;
             let mut x_minus = [Boundary::Reflective; 6];
             x_minus[0] = condition;
-            let mut far = [Boundary::Reflective; 6];
-            far[1] = Boundary::ZeroFlux;
-            far[3] = Boundary::ZeroFlux;
-            far[0] = Boundary::ZeroFlux;
+            // ノードのない位置の外の、直方体の外周の面だけを変える
+            let far = |face: usize| {
+                let mut b = [Boundary::Reflective; 6];
+                b[face] = Boundary::ZeroFlux;
+                b
+            };
             let cases = [
                 (
                     plane(
@@ -2624,7 +2626,7 @@ mod tests {
                         vec![h],
                         materials.clone(),
                         vec![Some(0), Some(1), None],
-                        far,
+                        far(1),
                         Some(condition),
                     ),
                     vec![0, 1],
@@ -2643,7 +2645,7 @@ mod tests {
                         vec![h; 3],
                         materials.clone(),
                         vec![Some(0), Some(1), None],
-                        far,
+                        far(3),
                         Some(condition),
                     ),
                     vec![0, 1],
@@ -2662,7 +2664,7 @@ mod tests {
                         vec![h],
                         materials.clone(),
                         vec![None, Some(1), Some(0)],
-                        far,
+                        far(0),
                         Some(condition),
                     ),
                     vec![1, 2],
@@ -2745,7 +2747,11 @@ mod tests {
 
     #[test]
     fn stepped_core_converges_with_refinement() {
-        // 外形の中性子束ゼロの面は、ノードを細かくすると k が収束する（外形の凹んだ角を含む）
+        // 外形の中性子束ゼロの面は、ノードを細かくすると k が収束する（外形の凹んだ角を含む）。凹んだ角の特異性
+        // のため、直方体（20 cm のノードで差分法と 3 × 10⁻⁴ で一致）より遅く、20 cm のノードでは k が差分法の
+        // 細かいメッシュの解（0.8602。セル中心の差分、0.25 cm）より 2.5% 大きい。四隅を強い吸収体のノードで埋めた
+        // 直方体も、同じ 20 cm のノードで 0.8838 と同じ程度に外れるので、外形の面の扱いでなく NEM の凹んだ角の
+        // 近似の誤差である（ADR-0132）
         let k = |split: usize| {
             solve(
                 &stepped_core(split, Boundary::ZeroFlux),
@@ -2754,11 +2760,13 @@ mod tests {
             .unwrap()
             .k
         };
-        let (k1, k2, k4) = (k(1), k(2), k(4));
-        assert!(
-            (k4 - k2).abs() < 0.5 * (k2 - k1).abs(),
-            "{k1} -> {k2} -> {k4}"
-        );
+        let ks = [k(1), k(2), k(4), k(8)];
+        for w in ks.windows(3) {
+            assert!((w[2] - w[1]).abs() < 0.7 * (w[1] - w[0]).abs(), "{ks:?}");
+        }
+        // 細かくすると、差分法の解に上から近づく
+        assert!(ks.windows(2).all(|w| w[1] < w[0]), "{ks:?}");
+        assert!((ks[3] - 0.8602).abs() < 3e-3 * 0.8602, "{ks:?}");
     }
 
     #[test]
