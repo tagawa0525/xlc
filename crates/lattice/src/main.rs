@@ -239,13 +239,20 @@ fn run(path: &Path) -> anyhow::Result<()> {
                             .parts
                             .iter()
                             .filter(|(part, _)| part != VOID)
-                            .filter_map(|(part, f)| {
+                            .map(|(part, f)| {
                                 state_materials
                                     .iter()
                                     .find(|m| &m.name == part)
                                     .map(|m| (m, *f))
+                                    .ok_or_else(|| {
+                                        anyhow!(
+                                            "material `{}`: component `{part}` is not in the state",
+                                            mixture.name
+                                        )
+                                    })
                             })
-                            .collect();
+                            .collect::<anyhow::Result<_>>()
+                            .with_context(context)?;
                         let mixed = Material::mixture(library, &parts)
                             .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
                             .with_context(context)?;
