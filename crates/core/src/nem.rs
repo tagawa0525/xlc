@@ -27,7 +27,7 @@ pub enum Boundary {
     /// 境界での中性子束 0
     ZeroFlux,
     /// 真空: 不均質な中性子束 f φ と正味の中性子流に J = r f φ を課す。r は、その面のノードの物質の
-    /// 少数群定数の、その面に当たる辺の `vacuum_ratio`（格子計算の真空の辺の J/φ_het。ADR-0101）
+    /// 少数群定数の、その面に当たる辺の `vacuum_ratio`（格子計算の真空の辺の J/φ_het。ADR-0128）
     Vacuum,
     /// Marshak の条件（不均質な入射の部分中性子流 0）。r = 1/2 の `Vacuum` で、P1 の関係を置くことを
     /// 入力で明示したときだけ使う
@@ -463,8 +463,8 @@ impl<'a> Core<'a> {
         Ok(())
     }
 
-    /// `Vacuum` の面（直方体の外周と外形）のノードの物質が、その面の辺の比を持つことを確かめる（ADR-0101。
-    /// z の面も同じ。ADR-0128）
+    /// `Vacuum` の面（直方体の外周と外形。z の面も同じ）のノードの物質が、その面の辺の比を持つことを確かめる
+    /// （ADR-0128）
     fn check_vacuum_ratios(&self) -> Result<(), String> {
         const NAMES: [&str; 6] = ["-x", "+x", "-y", "+y", "-z", "+z"];
         for n in 0..self.nodes() {
@@ -610,7 +610,7 @@ impl<'a> Core<'a> {
     /// - 反射: 正味の中性子流 0 で、β = 1（f によらない）
     /// - 中性子束ゼロ: f φ = 0 は φ = 0 と同じで、β = -1（f によらない）
     /// - 真空: 格子計算の真空の辺の比 r で J = r f φ、つまり o - i = 2 r f (o + i) から
-    ///   β = (1 - 2rf)/(1 + 2rf)（ADR-0101）
+    ///   β = (1 - 2rf)/(1 + 2rf)（ADR-0128）
     /// - Marshak: r = 1/2 で、不均質な入射の部分中性子流 f φ/4 - (o - i)/2 = 0 と同じ。β = (1 - f)/(1 + f) は
     ///   隣の面の式で f' = 1、o' = 0 としたものに等しく、f = 1 なら 0
     fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
@@ -1681,7 +1681,7 @@ mod tests {
 
     #[test]
     fn half_ratio_vacuum_equals_marshak() {
-        // r = 1/2 の真空の面の条件 J = r f φ は、Marshak の条件 f φ/4 = J/2 と同じ（ADR-0101）
+        // r = 1/2 の真空の面の条件 J = r f φ は、Marshak の条件 f φ/4 = J/2 と同じ（ADR-0128）
         let mut m = material();
         m.adf[0] = vec![1.3, 0.8];
         m.adf[1] = vec![0.7, 1.6];
@@ -2103,7 +2103,7 @@ mod tests {
             // 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上
             for (side, face) in [(0, 0), (1, 1), (2, 3), (3, 2)] {
                 m.adf[side] = (0..ng).map(|g| het[face][g] / surface[face][g]).collect();
-                // 参照の真空の面の比 J/φ_het（ADR-0101。参照は Marshak の条件なので 1/2）
+                // 参照の真空の面の比 J/φ_het（ADR-0128。参照は Marshak の条件なので 1/2）
                 let (d, plus) = (face / 2, face % 2 == 1);
                 if edge(d, plus) == Edge::Vacuum {
                     m.vacuum_ratio[side] =
