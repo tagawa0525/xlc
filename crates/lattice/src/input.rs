@@ -1910,6 +1910,32 @@ zones = [{ material = "water", rings = 1 }]
     }
 
     #[test]
+    fn few_group_may_be_axial() {
+        // 格子の x を炉心の z として定数を書く（ADR-0128）。上下の辺は鏡面反射で、形状関数と部分ノードは作らない
+        let slab = |entry: &str, boundary: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!(
+                    "few-group = {{ bounds = [1e7, 1e-5], nodes = [{{ output = \"a\", columns = [1, 1], rows = [1, 1] }}]{entry} }}\nboundary = {boundary}"
+                ),
+            )
+        };
+        let open = "{ left = \"vacuum\", right = \"vacuum\" }";
+        let input = slab(", axial = true", open).unwrap();
+        assert!(input.output.unwrap().axial);
+        assert!(!slab("", open).unwrap().output.unwrap().axial);
+        let err = slab(", axial = true", "{ top = \"vacuum\" }")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("axial") && err.contains("reflective"), "{err}");
+        let err = slab(", axial = true, pins = true", open)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("axial") && err.contains("pins"), "{err}");
+    }
+
+    #[test]
     fn few_group_may_split_the_lattice() {
         // 格子全体を n × n の部分ノードに分けた定数（ADR-0108）。省略すると 1。nodes とは使えない
         let few_group = |entry: &str| {
