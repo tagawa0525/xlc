@@ -21,7 +21,6 @@ run は OpenMC を解き、作業ディレクトリに statepoint を残す。ex
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。2 種の燃料を持つ 2K では書かない（エラーにする）。
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -37,8 +36,9 @@ from openmc_common import (
     group_filter,
     input_path,
     material,
-    read_input,
 )
+from openmc_run import fuel_mean, mesh_values, run_or_extract, write_k, write_pin_powers
+from openmc_run import read_run as common_read_run
 
 SCORES = ["total", "elastic", "fission"]
 
@@ -256,6 +256,16 @@ GUIDE_TUBES = [
     (14, 11),
 ]
 INSTRUMENT_TUBE = (8, 8)
+# 図 5 の Pyrex の棒の配置（本数ごとの、1/8 の中の位置。中央からの行と列の数）
+PYREX_OCTANTS = {
+    8: {(3, 0), (5, 5)},
+    12: {(3, 0), (6, 3)},
+    16: {(3, 0), (5, 5), (6, 3)},
+    20: {(3, 0), (5, 5), (6, 0), (6, 3)},
+    24: {(3, 0), (3, 3), (5, 5), (6, 0), (6, 3)},
+}
+# 天然の C の同位体の存在比（ADR-0079）
+CARBON = {"C12": 0.9893, "C13": 0.0107}
 # 2K の濃縮度 3.1% のピンの、1/8 の中の位置（中央からの行と列の数。仕様書の図 P2-2）。ほかの燃料ピンは 3.6%
 LOW_ENRICHMENT_2K = {(1, 0), (7, 7), (8, 6), (8, 7), (8, 8)}
 
@@ -273,6 +283,11 @@ def octant_images(octant: set[tuple[int, int]]) -> set[tuple[int, int]]:
         for si in (1, -1)
         for sj in (1, -1)
     }
+
+
+def with_carbon(densities: dict[str, float], carbon: float) -> dict[str, float]:
+    """仕様書の天然の C（6000）の個数密度 `carbon` を、C-12 と C-13 に分けて足す（ADR-0079）。"""
+    return {**densities, **{n: carbon * f for n, f in CARBON.items()}}
 
 
 Layers = list[tuple[openmc.Material | None, float]]
@@ -295,6 +310,26 @@ def outside(
     ]
 
 
+def concentric(
+    layers: Layers, water: openmc.Material, frame: Frame | None = None
+) -> openmc.Universe:
+    """中心から外へ (物質, 外側の半径) の並び（None は真空）の同心円筒と、その外の減速材（`frame` があれば支持格子の
+    枠も）のセル。`layers` が空なら減速材だけ（枠は置けない）。"""
+    if not layers:
+        if frame is not None:
+            raise SystemExit("a spacer grid frame around an empty cell")
+        return openmc.Universe(cells=[openmc.Cell(fill=water)])
+    cells = []
+    surface = None
+    for fill, radius in layers:
+        boundary = openmc.ZCylinder(r=radius)
+        region = -boundary if surface is None else +surface & -boundary
+        cells.append(openmc.Cell(fill=fill, region=region))
+        surface = boundary
+    cells.extend(outside(+surface, water, frame))
+    return openmc.Universe(cells=cells)
+
+
 def tube(
     layers: Layers,
     inner: float,
@@ -305,21 +340,35 @@ def tube(
 ) -> openmc.Universe:
     """管（案内管・計装管、内と外の半径 `inner`、`outer`）のセル。`layers` は管に入れたもので、中心から外へ
     (物質, 外側の半径) の並び（None は真空）。その外から管の内側までと、管の外は減速材。`frame` は支持格子の枠。"""
-    cells = []
-    surface = None
-    for fill, radius in [*layers, (water, inner), (clad, outer)]:
-        boundary = openmc.ZCylinder(r=radius)
-        region = -boundary if surface is None else +surface & -boundary
-        cells.append(openmc.Cell(fill=fill, region=region))
-        surface = boundary
-    cells.extend(outside(+surface, water, frame))
-    return openmc.Universe(cells=cells)
+    return concentric([*layers, (water, inner), (clad, outer)], water, frame)
+
+
+def fuel_layers(fuel: openmc.Material, clad: openmc.Material) -> Layers:
+    """燃料のピンの層（ペレット、真空のギャップ、被覆管）。"""
+    return [(fuel, PELLET), (None, CLAD_INNER), (clad, CLAD_OUTER)]
+
+
+def pin_lattice(
+    universes: list[list[openmc.Universe]], water: openmc.Material
+) -> openmc.RectLattice:
+    """17×17 のセルの格子（中心が原点）。格子の外（集合体の外周の水のギャップ）は減速材。"""
+    lattice = openmc.RectLattice()
+    lattice.pitch = (PITCH, PITCH)
+    lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
+    lattice.universes = universes
+    lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=water)])
+    return lattice
 
 
 def pyrex_layers(temperature: float) -> Layers:
     """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。`temperature` は物質の温度 (K)。"""
     pyrex = material("pyrex", PYREX, temperature)
     steel = material("ss304", SS304, temperature)
+    return pyrex_rod_layers(pyrex, steel)
+
+
+def pyrex_rod_layers(pyrex: openmc.Material, steel: openmc.Material) -> Layers:
+    """Pyrex の棒の毒物の部分の層（物質 `pyrex` と、内管と被覆管の `steel`）。"""
     fills = [None, steel, None, pyrex, None, steel]
     return list(zip(fills, PYREX_RADII))
 
@@ -342,23 +391,7 @@ def thimble_layers(temperature: float) -> Layers:
 
 # 案内管に入れるものの層を作る関数（引数は物質の温度。減速材の温度にする）と位置。Pyrex の 12 本は仕様書の図 5 の配置
 INSERTS = {
-    "2E": (
-        pyrex_layers,
-        [
-            (2, 5),
-            (2, 11),
-            (5, 2),
-            (5, 8),
-            (5, 14),
-            (8, 5),
-            (8, 11),
-            (11, 2),
-            (11, 8),
-            (11, 14),
-            (14, 5),
-            (14, 11),
-        ],
-    ),
+    "2E": (pyrex_layers, sorted(octant_images(PYREX_OCTANTS[12]))),
     # 24 本はすべての案内管（図 5）
     "2F": (pyrex_layers, GUIDE_TUBES),
     "2G": (lambda t: rod_layers("aic", AIC, 0.382, t), GUIDE_TUBES),
@@ -443,11 +476,7 @@ def geometry_of(
                 if (i, j) not in GUIDE_TUBES:
                     raise SystemExit(f"insert at {(i, j)} is not in a guide tube")
                 universes[i][j] = insert
-        lattice = openmc.RectLattice()
-        lattice.pitch = (PITCH, PITCH)
-        lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
-        lattice.universes = universes
-        lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=water)])
+        lattice = pin_lattice(universes, water)
         half = N * PITCH / 2 + HALF_GAP
         root = openmc.Cell(fill=lattice)
     box = openmc.model.RectangularPrism(2 * half, 2 * half, boundary_type="reflective")
@@ -467,20 +496,14 @@ def pin_mesh() -> openmc.RegularMesh:
 def pin_rows(sp: openmc.StatePoint, value: str = "mean"):
     """名前が fission の tally（`pin_mesh` ごと）の `value`（"mean" か "std_dev"）を、lattice と同じく上の行から並べた
     17 × 17 にする。"""
-    values = (
-        sp.get_tally(name="fission").get_values(scores=["fission"], value=value).ravel()
-    )
-    # メッシュは x が速く変わり、y は下から上
-    return values.reshape(N, N)[::-1, :]
+    mean, std = mesh_values(sp, "fission", (N, N))
+    return {"mean": mean, "std_dev": std}[value]
 
 
 def write_pins(sp: openmc.StatePoint, path: Path) -> None:
     """名前が fission の tally を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
     rates = pin_rows(sp)
-    rates = rates / rates[rates > 0].mean()
-    path.write_bytes(
-        msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
-    )
+    write_pin_powers(path, rates / fuel_mean(rates))
 
 
 class Built(NamedTuple):
@@ -547,40 +570,27 @@ def temperature_settings(problem: str) -> dict:
     # ライブラリにあるその温度の表だけを使う。565 K の問題は温度の内挿のモードで解き（ADR-0080）、H in H2O の
     # S(α,β) を 550 K と 573.6 K の表から kT の比で確率的に選ぶ。ほかの核種は 565 K の表を持つので、内挿の
     # モードでも 565 K の表を使う（OpenMC 0.15.2 の src/nuclide.cpp。#0017）
-    method = "nearest" if MODERATOR_TEMPERATURE[problem] == COLD else "interpolation"
+    return temperature_mode(MODERATOR_TEMPERATURE[problem])
+
+
+def temperature_mode(temperature: float) -> dict:
+    """被覆管と減速材の温度 `temperature` (K) での温度の扱い（`temperature_settings` の説明のとおり）。"""
+    method = "nearest" if temperature == COLD else "interpolation"
     return {"method": method, "tolerance": 1.0}
 
 
-REQUIRED = {
-    "problem",
-    "cross-sections",
-    "particles",
-    "batches",
-    "inactive",
-    "seed",
-    "threads",
-}
 OPTIONAL = {"effective-xs-groups"}
 
 
 def read_run(source: Path) -> dict[str, Any]:
     """入力の TOML を読み、問題を確かめ、パスを絶対パスにする。"""
-    run = read_input(source, REQUIRED, OPTIONAL)
+    run = common_read_run(source, list(FUEL_TEMPERATURE), OPTIONAL)
     problem = run["problem"]
-    if any(
-        problem not in table
-        for table in (FUEL_TEMPERATURE, MODERATOR_TEMPERATURE, MODERATOR_OF)
-    ):
-        raise SystemExit(
-            f"unknown problem {problem}; expected one of {list(FUEL_TEMPERATURE)}"
-        )
+    if any(problem not in table for table in (MODERATOR_TEMPERATURE, MODERATOR_OF)):
+        raise SystemExit(f"{problem} lacks its moderator in the tables")
     if problem in ZONED and "effective-xs-groups" in run:
         # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
         raise SystemExit(f"{problem} has two fuels; pin cross sections are not written")
-    # 絶対パスにする。OpenMC も相対パスを Python の作業ディレクトリから絶対パスに直す（openmc.config の resolve_paths）
-    # ので、outs の model.xml には worktree の絶対パスが入る。statepoint が日時と計算時間を含み outs はバイト単位では
-    # 再現しないので、それを避ける書き方はしない
-    run["cross-sections"] = input_path(source, run["cross-sections"])
     if "effective-xs-groups" in run:
         run["effective-xs-groups"] = input_path(source, run["effective-xs-groups"])
     return run
@@ -659,22 +669,8 @@ def extract(source: Path, work: Path, results: Path) -> None:
             (results / "fuel-xs.msgpack").write_bytes(
                 msgpack.packb({"format": "xlc-fuel-xs", "nuclides": xs})
             )
-    (results / "k.json").write_text(
-        json.dumps({"problem": problem, "k": k.nominal_value, "k-std": k.std_dev})
-        + "\n"
-    )
-    print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
-
-
-def main() -> None:
-    match sys.argv[1:]:
-        case ["run", source, work]:
-            solve(Path(source), Path(work))
-        case ["extract", source, work, results]:
-            extract(Path(source), Path(work), Path(results))
-        case _:
-            raise SystemExit(__doc__)
+    write_k(results / "k.json", problem, k)
 
 
 if __name__ == "__main__":
-    main()
+    run_or_extract(solve, extract, __doc__)
