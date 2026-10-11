@@ -21,8 +21,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9a6a41ba1e7bbfccf45fd5334c2bf64d.dir
-      size: 115123
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -30,8 +30,8 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 16d460a0473749f030fe653c656ff065.dir
-      size: 163502
+      md5: f080b9cdd4d52b366dadd14678099ac3.dir
+      size: 165243
       nfiles: 13
     - path: ../../crates/xs/Cargo.toml
       hash: md5
@@ -96,8 +96,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9a6a41ba1e7bbfccf45fd5334c2bf64d.dir
-      size: 115123
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
       nfiles: 10
     - path: ../../crates/lattice/Cargo.toml
       hash: md5
@@ -105,8 +105,8 @@ stages:
       size: 568
     - path: ../../crates/lattice/src
       hash: md5
-      md5: ef7f53a7dcf5907ddc925d08dc9707fc.dir
-      size: 983184
+      md5: 761617670519c427972e0250b1004ae0.dir
+      size: 984568
       nfiles: 30
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -114,8 +114,8 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 16d460a0473749f030fe653c656ff065.dir
-      size: 163502
+      md5: f080b9cdd4d52b366dadd14678099ac3.dir
+      size: 165243
       nfiles: 13
     - path: ../../flake.lock
       hash: md5
@@ -172,8 +172,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9a6a41ba1e7bbfccf45fd5334c2bf64d.dir
-      size: 115123
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -181,8 +181,8 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 16d460a0473749f030fe653c656ff065.dir
-      size: 163502
+      md5: f080b9cdd4d52b366dadd14678099ac3.dir
+      size: 165243
       nfiles: 13
     - path: ../../flake.lock
       hash: md5
