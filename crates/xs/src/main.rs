@@ -420,6 +420,11 @@ temperatures = [293.6, 900]
         // σ0 が降順でない、正でない
         assert!(replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1, 10]").is_err());
         assert!(replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1e10, 0]").is_err());
+        // 散乱行列の次数が負、整数でない、文字列
+        for value in ["-1", "1.5", "\"3\""] {
+            let text = format!("scattering-order = {value}\n{INPUT}");
+            assert!(parse_input(&text, base).is_err(), "{value}");
+        }
         // 温度がない、正でない、重複している
         assert!(replaced("temperatures = [293.6, 900]", "temperatures = []").is_err());
         assert!(replaced("temperatures = [293.6, 900]", "temperatures = [-1]").is_err());
