@@ -21,6 +21,8 @@ DVC の出力（`examples/vera/openmc-library/` など）は worktree では空�
 dvc checkout examples/vera/dvc.yaml
 ```
 
+キャッシュ（`references/dvc-cache`）に出力がなければ戻せない。そのときは、下の `dvc repro` で作る。
+
 ## ライブラリ
 
 `examples/vera/openmc-library/cross_sections.xml` と、`neutron/`、`thermal/` の HDF5 は、`examples/vera/dvc.yaml` の
