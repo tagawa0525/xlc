@@ -143,7 +143,8 @@ pub fn homogenize(
 /// 少数群定数を作る（ADR-0095）。返す定数はノードの順。
 ///
 /// - 断面積は、ノードの領域だけで反応率を保存する。拡散係数は、ノードの4辺がすべて外周の鏡面反射の辺
-///   （格子全体が1つのノード）なら B1、ほかは、核分裂のあるノードではノードの領域の中性子流で重みづけした outflow、
+///   （格子全体が1つのノード）か、領域がすべて1つの媒質（`media` は領域ごとの印。ADR-0141）なら B1、ほかは、核分裂の
+///   あるノードではノードの領域の中性子流で重みづけした outflow、
 ///   核分裂のないノードでは Koebke の等価理論の D（正味の中性子流の向きの2つの面の不連続因子をそろえる。
 ///   ADR-0104）。`k_inf` は格子の k
 /// - 辺の不均質な中性子束と正味の中性子流は、辺の上の粗メッシュの面の値（MOC の `face_fluxes`、
@@ -349,13 +350,20 @@ pub(crate) fn node_references(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
     nodes: &[Node],
-    _media: &[bool],
+    media: &[bool],
 ) -> Result<NodeReferences, HomogenizeError> {
     let sides = sides_of(boundaries);
     if sides.iter().any(|b| matches!(b, Boundary::Albedo(_))) {
         return Err(HomogenizeError::Albedo);
     }
     check_regions(solution, materials)?;
+    if media.len() != materials.len() {
+        return Err(HomogenizeError::Nodes(format!(
+            "{} media flags for {} regions",
+            media.len(),
+            materials.len()
+        )));
+    }
     let group_of = coarse_groups(fine, coarse_bounds)?;
     let coarse = coarse_bounds.len() - 1;
     let neighbors = node_neighbors(lattice, nodes)?;
@@ -370,13 +378,19 @@ pub(crate) fn node_references(
             .flat_map(|cell| lattice.cell_regions(cell))
             .collect();
         let whole = neighbors[n].iter().all(Option::is_none);
+        // 領域がすべて1つの媒質のノードは、その媒質の B1 の D（単一集合体の格子の D と同じ。ADR-0141）。中性子流の
+        // 重みは、反射体の隣でノードの中の向きが変わると打ち消して定まらない
+        let one_medium = regions.iter().all(|&r| media[r])
+            && regions
+                .iter()
+                .all(|&r| std::ptr::eq(materials[r], materials[regions[0]]));
         let (mut few, average) = constants(
             solution,
             materials,
             &regions,
             &group_of,
             coarse_bounds,
-            whole && reflective(boundaries),
+            (whole && reflective(boundaries)) || one_medium,
         )?;
         // 辺の上の面（面の番号、長さ、面の正の向きが外向きなら 1、逆なら -1）
         let (c0, c1, r0, r1) = (
@@ -2560,15 +2574,11 @@ mod tests {
         let with_media = solve_nodes(&[true, true, false]);
         let without = solve_nodes(&no_media(&solution));
         for n in 0..2 {
-            for g in 0..2 {
+            for (g, &b) in b1.iter().enumerate() {
                 let d = with_media[n].diffusion[g];
-                assert!(
-                    (d - b1[g]).abs() < 1e-12 * b1[g],
-                    "node {n}: {d} vs {}",
-                    b1[g]
-                );
+                assert!((d - b).abs() < 1e-12 * b, "node {n}: {d} vs {b}");
                 let other = without[n].diffusion[g];
-                assert!((other - b1[g]).abs() > 1e-3 * b1[g], "node {n}: {other}");
+                assert!((other - b).abs() > 1e-3 * b, "node {n}: {other}");
             }
         }
         // 媒質と媒質でない物質が混ざったノードは、中性子流の重みのまま
@@ -2932,7 +2942,7 @@ mod tests {
             fine.bounds(),
             boundaries,
             nodes,
-            &no_media(&solution),
+            &no_media(solution),
             true,
         )
         .unwrap();
