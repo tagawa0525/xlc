@@ -20,8 +20,8 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 
 ## 計算は Slurm で、時間は排他のジョブのものだけ
 
-数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。CLAUDE.md の `sbatch --exclusive --wait`
-の形は、hook が直接の `sbatch` を止めるので使わない。
+数値を記録に書く計算は、`~/.claude/scripts/slurm-run.sh` で流す（スキル slurm-run）。CLAUDE.md が示す
+`-t <見積もり> <名前> '<コマンド>'` の形で、既定の排他で流す。CLAUDE.md は直接の `sbatch` を使わないと定め、hook が止めるとも書く（hook の所在は確かめていない）。
 
 - 記録に書く時間は、排他のジョブの `TIME:` 行の `elapsed`、または OpenMC が statepoint に書く計算時間（total。既存の
   「参照解」はこちら）
@@ -39,14 +39,14 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 
 ## rebase のあと
 
-記録のコミットの hash は、`remap.commitRefs` が true のリポジトリでは、rebase と amend のあとに post-rewrite hook が
+記録のコミットの hash は、`remap.commitRefs` が true のリポジトリでは、rebase のあとに post-rewrite hook が（rebase の途中の amend では呼ばず、rebase の終わりに一度だけ呼ぶ）
 `commit-refs remap` で付け替える。コミットはしないので、`git diff` で付け替えた記録を確かめてコミットする（件名の例:
 `docs: point the records at the rebased commits`）。測り直さない（ADR-0122）。
 
 - hook が失敗したときは、出力の最後に「直し方」が出る。`$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` に
-  対応表が残るので、`commit-refs remap <そのファイル>` で呼び直す。`ERROR:` は、曖昧な語（複数の旧に当たる）か、消えた
-  コミットを指す語があるときで、何も書き換えずに止まる。その語を手で直してから呼ぶ
-- `~/.claude/scripts/remap-commit-refs.sh` は nixfiles から消えた（古い写しが残っていることがある）。`commit-refs` を使う
+  対応表が残るので、`commit-refs remap <そのファイル>` で呼び直す。`ERROR:` は、何も書き換えずに止まったときに出る。出力の理由を読んでから直す。
+  理由を読んで、対応表か文書のどちらが誤りかを確かめてから直し、呼び直す
+- `~/.claude/scripts/remap-commit-refs.sh` は使わない（`commit-refs` に置き換わった古い写しで、今も残っている）。`commit-refs` を使う
 - filter-repo のような履歴の書き換えは `commit-refs rewrite-history <対応表>`
 
 ## k の差の内訳（OpenMC との差を物質とエネルギーの範囲に分ける）
