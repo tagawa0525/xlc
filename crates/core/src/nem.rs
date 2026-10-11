@@ -362,6 +362,16 @@ impl<'a> Core<'a> {
             }
             _ => {}
         }
+        // ノードのない位置は径方向の図の位置（ADR-0132）なので、z の面には現れない
+        let layer = mesh.dx.len() * mesh.dy.len();
+        if let Some(site) = (layer..sites).find(|&site| {
+            problem.node_material[site].is_none() != problem.node_material[site % layer].is_none()
+        }) {
+            return Err(format!(
+                "position {site} has a node at some heights only; positions without nodes must be \
+                 the same at every height"
+            ));
+        }
         let mut cells = Vec::new();
         let mut slots = Vec::with_capacity(sites);
         let mut material_of = Vec::new();
@@ -530,7 +540,8 @@ impl<'a> Core<'a> {
                              reflector site of node {other} there; check the rotation of the reflector"
                         ));
                     }
-                    if !self.fissile[self.material_of[m]] && !self.unpaired_face(n, m, d) {
+                    if !self.fissile[self.material_of[m]] && !self.unit_adf[n][d][usize::from(plus)]
+                    {
                         return Err(format!(
                             "material {material} has f* (an ADF over the fuel's) on side {side}, \
                              but its neighbor node {other} has no fission"
@@ -647,8 +658,8 @@ impl<'a> Core<'a> {
     }
 
     /// 方向 d で隣り合うノード n と m の面が、反射体の位置の f* の辺と、集合体の位置の核分裂のない軸方向の層（端栓、
-    /// プレナム。z の厚さを持つスラブの定数。ADR-0128）の x か y の面か。f* は燃料の ADF で割った値で、核分裂のない層と組で作った定数はないので、この面は
-    /// 両側の ADF を 1 とする（ADR-0132。近似）
+    /// プレナム。z の厚さを持つスラブの定数。ADR-0128）の x か y の面か。f* は燃料の ADF で割った値で、核分裂のない
+    /// 層と組で作った定数はないので、この面は両側の ADF を 1 とする（ADR-0132。近似）
     fn unpaired_face(&self, n: usize, m: usize, d: usize) -> bool {
         if d >= 2 {
             return false;
