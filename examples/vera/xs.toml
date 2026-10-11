@@ -1,4 +1,4 @@
-# VERA Problem 1B〜1D, 2A〜2J, 2Q の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
+# VERA Problem 1B〜1D, 2A〜2K, 2Q の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
 # 燃料の核種と O は 565, 600, 900, 1200 K、被覆管（Zircaloy-4 の Zr, Sn, Fe, Cr）と冷却材の B は 565, 600 K、
 # 冷却材の H は S(α,β) の温度の 550, 573.6 K と 600 K（565 K は lattice が内挿する。ADR-0080。参照解の OpenMC は
 # 565 K で処理した H-1 も作って使う）、

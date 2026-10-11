@@ -5,7 +5,7 @@ opened: 2026-10-10
 closed: 2026-10-11
 milestone: M3
 blocked-by: []
-resolution: コミット b1eea793
+resolution: コミット 0d385a32
 ---
 
 # VERA 2E〜2K と 2Q の格子計算を、同じ核データの OpenMC と比べる
