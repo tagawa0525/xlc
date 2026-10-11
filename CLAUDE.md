@@ -25,7 +25,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 ## 計算
 
 - 重い計算（OpenMC、NJOY、ライブラリの作り直し、xlc の集合体以上、時間を記録する測定）は、Slurm で 1 本ずつ流す:
-  `sbatch --exclusive --wait --export=ALL -J <名前> -o <ログ> --wrap='<コマンド>'`。直接実行せず、`pgrep` で他の計算を監視しない
+  `~/.claude/scripts/slurm-run.sh -t <見積もり> <名前> '<コマンド>'`（排他で、終わるまで待つ）。直接の `sbatch` は hook が止める。直接実行せず、`pgrep` で他の計算を監視しない。時間を記録しない長い計算は `-c <CPU 数>`（ハードウェアスレッドで数える）を付けて排他なしに流せるが、その時間は記録に書かない。
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）で段階を
   実行し、手で段階を選ばない（rebase のあとに数秒の段階だけ `-s` で再実行する /dvc-relock は例外）。重いときは `dvc repro`
