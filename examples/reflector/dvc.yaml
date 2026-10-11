@@ -2,7 +2,8 @@
 # （assembly-3A）→ 集合体の高さ全体の平板の格子計算（axial-<版>）→ 平板の定数で解く炉心（core-axial-<種類>-<版>）→
 # MOC との比較（compare-axial-<種類>-<版>）と z の辺の ADF（fstar-<版>）。実行するのは `dvc repro`（ADR-0123）。deps の
 # 書き方は examples/m0/dvc.yaml と同じ（段階の入力と、バイナリを作るコード）。平板と炉心の入力は axial_slab.py が書いて
-# コミットしたもの。I 型の格子（reflector-I.toml）は段階にしていない（verification.md の手順で実行する）。
+# コミットしたもの。径方向の反射体の格子（lattice-I、lattice-corner）→ その定数で解く炉心（core-corner-<種類>）→ MOC との
+# 比較（compare-corner-<種類>。ADR-0132）。
 stages:
   xs:
     # ライブラリ（reflector.msgpack）は I 型の格子と共有する
@@ -368,3 +369,164 @@ stages:
       - axial-fine
     outs:
       - fstar-fine.out
+  lattice-I:
+    # I 型の格子（ADR-0095）。MOC の k とノード平均の中性子束を比べるため、ログを debug で受ける
+    cmd: RUST_LOG=debug cargo run --release -p xlc-lattice -- reflector-I.toml > reflector-I.out 2> reflector-I.log
+    deps:
+      - reflector-I.toml
+      - reflector.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - fg-I-fuel.msgpack
+      - fg-I-reflector.msgpack
+      - moc-pins-I.msgpack
+      - reflector-I.out
+      - reflector-I.log
+  lattice-corner:
+    # 角型の格子（ADR-0095、#0029）。MOC の k とノード平均の中性子束を比べるため、ログを debug で受ける
+    cmd: RUST_LOG=debug cargo run --release -p xlc-lattice -- reflector-corner.toml > reflector-corner.out 2> reflector-corner.log
+    deps:
+      - reflector-corner.toml
+      - reflector.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - fg-corner-fuel.msgpack
+      - fg-corner-right.msgpack
+      - fg-corner-top.msgpack
+      - fg-corner-corner.msgpack
+      - moc-pins-corner.msgpack
+      - reflector-corner.out
+      - reflector-corner.log
+  core-corner:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-corner.toml > core-corner.out 2> core-corner.log
+    deps:
+      - core-corner.toml
+      - core-corner-cycle.toml
+      - core-corner-plant.toml
+      - core-assemblies.toml
+      - fg-corner-fuel.msgpack
+      - fg-corner-right.msgpack
+      - fg-corner-top.msgpack
+      - fg-corner-corner.msgpack
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-corner.out
+      - core-corner.log
+      - core-pins-corner.msgpack
+  compare-corner:
+    cmd: python3 compare_radial.py reflector-corner.log core-corner.log 21.5 0 1 2 3 > compare-corner.out && python3 compare_edge.py core-pins-corner.msgpack moc-pins-corner.msgpack >> compare-corner.out
+    deps:
+      - compare_radial.py
+      - compare_axial.py
+      - compare_edge.py
+      - reflector-corner.log
+      - moc-pins-corner.msgpack
+      - core-corner.log
+      - core-pins-corner.msgpack
+    outs:
+      - compare-corner.out
+  core-corner-outline:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-corner-outline.toml > core-corner-outline.out 2> core-corner-outline.log
+    deps:
+      - core-corner-outline.toml
+      - core-corner-outline-cycle.toml
+      - core-corner-outline-plant.toml
+      - core-assemblies.toml
+      - fg-corner-fuel.msgpack
+      - fg-corner-right.msgpack
+      - fg-corner-top.msgpack
+      - fg-corner-corner.msgpack
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-corner-outline.out
+      - core-corner-outline.log
+      - core-pins-corner-outline.msgpack
+  compare-corner-outline:
+    cmd: python3 compare_radial.py reflector-corner.log core-corner-outline.log 21.5 0 1 3 4 > compare-corner-outline.out && python3 compare_edge.py core-pins-corner-outline.msgpack moc-pins-corner.msgpack >> compare-corner-outline.out
+    deps:
+      - compare_radial.py
+      - compare_axial.py
+      - compare_edge.py
+      - reflector-corner.log
+      - moc-pins-corner.msgpack
+      - core-corner-outline.log
+      - core-pins-corner-outline.msgpack
+    outs:
+      - compare-corner-outline.out
+  core-corner-I:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-corner-I.toml > core-corner-I.out 2> core-corner-I.log
+    deps:
+      - core-corner-I.toml
+      - core-corner-I-cycle.toml
+      - core-corner-I-plant.toml
+      - core-assemblies.toml
+      - fg-corner-fuel.msgpack
+      - fg-I-reflector.msgpack
+      - fg-corner-corner.msgpack
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-corner-I.out
+      - core-corner-I.log
+      - core-pins-corner-I.msgpack
+  compare-corner-I:
+    cmd: python3 compare_radial.py reflector-corner.log core-corner-I.log 21.5 0 1 2 3 > compare-corner-I.out && python3 compare_edge.py core-pins-corner-I.msgpack moc-pins-corner.msgpack >> compare-corner-I.out
+    deps:
+      - compare_radial.py
+      - compare_axial.py
+      - compare_edge.py
+      - reflector-corner.log
+      - moc-pins-corner.msgpack
+      - core-corner-I.log
+      - core-pins-corner-I.msgpack
+    outs:
+      - compare-corner-I.out
