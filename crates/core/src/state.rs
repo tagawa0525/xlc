@@ -104,6 +104,7 @@ fn scaled(f: &FewGroup, w: f64) -> FewGroup {
                 .map(|g| g.iter().map(|row| v(row)).collect())
                 .collect(),
             corners: p.corners.iter().map(|c| v(c)).collect(),
+            normalized_corners: p.normalized_corners.clone(),
             halves: p.halves.clone(),
         }),
     }
@@ -148,7 +149,12 @@ fn accumulate(acc: &mut FewGroup, w: f64, f: &FewGroup) -> Result<(), String> {
         }
     }
     match (&mut acc.pins, pins) {
-        (Some(a), Some(x)) if a.dx == x.dx && a.dy == x.dy && a.halves == x.halves => {
+        (Some(a), Some(x))
+            if a.dx == x.dx
+                && a.dy == x.dy
+                && a.normalized_corners == x.normalized_corners
+                && a.halves == x.halves =>
+        {
             for (a, x) in a.form.iter_mut().flatten().zip(x.form.iter().flatten()) {
                 add(a, w, x);
             }
