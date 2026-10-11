@@ -1,0 +1,123 @@
+# VERA の段階: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ（xs）→
+# 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0123）。NJOY と OpenMC を
+# 使う段階は cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps に
+# する（ADR-0127）。Rust の段階の deps は、段階の入力と、そのバイナリを作るコード（ADR-0123。examples/m0/dvc.yaml と同じ並び）。
+vars:
+  - openmc-library.toml
+stages:
+  references-shell:
+    # ツール（NJOY、OpenMC、その Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
+    cmd: nix eval --raw ../..#devShells.x86_64-linux.references.outPath > references-shell.txt
+    always_changed: true
+    outs:
+      - references-shell.txt:
+          cache: false
+  openmc-neutron:
+    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ほかの核種の変更で実行しない。ADR-0127）
+    foreach: ${neutron}
+    do:
+      cmd: nix develop ../..#references -c python3 openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
+      deps:
+        - openmc_library.py
+        - ../openmc_common.py
+        - references-shell.txt
+        - ${item.endf}
+      params:
+        - openmc-library.toml:
+            - neutron.${key}
+      outs:
+        - openmc-library/neutron/${key}.h5
+  openmc-thermal:
+    foreach: ${thermal}
+    do:
+      cmd: nix develop ../..#references -c python3 openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
+      deps:
+        - openmc_library.py
+        - ../openmc_common.py
+        - references-shell.txt
+        - ${item.neutron}
+        - ${item.thermal}
+      params:
+        - openmc-library.toml:
+            - thermal.${key}
+      outs:
+        - openmc-library/thermal/${key}.h5
+  openmc-index:
+    cmd: nix develop ../..#references -c python3 openmc_library.py index openmc-library.toml openmc-library
+    deps:
+      - openmc_library.py
+      - ../openmc_common.py
+      - references-shell.txt
+      - openmc-library.toml
+      - openmc-library/neutron
+      - openmc-library/thermal
+    outs:
+      - openmc-library/cross_sections.xml
+  openmc-1B:
+    # ライブラリはディレクトリ全体を deps にする（どの核種が変わっても走るが、組成をコピーした並びの漏れがない。ADR-0127）
+    cmd: nix develop ../..#references -c python3 openmc_model.py run p1/openmc-1B.toml p1/openmc-1B
+    deps:
+      - openmc_model.py
+      - ../openmc_common.py
+      - references-shell.txt
+      - p1/openmc-1B.toml
+      - openmc-library
+    outs:
+      - p1/openmc-1B
+  openmc-1B-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract p1/openmc-1B.toml p1/openmc-1B p1/openmc-1B-results
+    deps:
+      - openmc_model.py
+      - ../openmc_common.py
+      - references-shell.txt
+      - p1/openmc-1B.toml
+      - p1/openmc-1B
+    outs:
+      - p1/openmc-1B-results
+  xs:
+    # ENDF はディレクトリごと deps にする。sha256 で固定した（ADR-0124）ので変わらず、xs.toml の核種のファイルをコピーせずに済む
+    cmd: cargo run --release -p xlc-xs -- xs.toml
+    deps:
+      - xs.toml
+      - ../../references/endf/ENDF-B-VIII.0_neutrons
+      - ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      - ../../crates/xs/src
+      - ../../crates/xs/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - vera.msgpack
+  lattice-1B:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- p1/pincell-1B.toml > p1/lattice-1B.out
+    deps:
+      - p1/pincell-1B.toml
+      - vera.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - p1/lattice-1B.out
+  compare-1B:
+    cmd: python3 compare_k.py p1/lattice-1B.out p1/openmc-1B-results/k.json > p1/compare-1B.out
+    deps:
+      - compare_k.py
+      - p1/lattice-1B.out
+      - p1/openmc-1B-results/k.json
+    outs:
+      - p1/compare-1B.out
