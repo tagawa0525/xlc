@@ -9,6 +9,7 @@
 //! endf-directory = "../endf/neutrons"         # 核種の ENDF ファイルのディレクトリ
 //! thermal-directory = "../endf/thermal_scatt" # 熱中性子散乱のファイルのディレクトリ（thermal を使うとき）
 //! sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]   # 背景断面積 (barn)、降順（最初が無限希釈）
+//! scattering-order = 3                        # 散乱行列の Legendre の次数 L（省略すると 3。ADR-0076）
 //!
 //! [nuclide.H-1]
 //! endf = "n-001_H_001.endf"
@@ -51,6 +52,7 @@ use xlc_xs::process::{Settings, process_nuclide, read_thermal_scattering, resolv
 struct Input {
     output: PathBuf,
     sigma0: Vec<f64>,
+    scattering_order: usize,
     nuclides: Vec<NuclideInput>,
 }
 
@@ -80,6 +82,8 @@ struct InputFile {
     /// 熱中性子散乱を使う核種がなければ省略できる
     thermal_directory: Option<PathBuf>,
     sigma0: Vec<f64>,
+    /// 省略すると `DEFAULT_SCATTERING_ORDER`
+    scattering_order: Option<usize>,
     /// 名前ごとの核種
     nuclide: BTreeMap<String, NuclideEntry>,
 }
@@ -142,6 +146,7 @@ fn parse_input(text: &str, base: &Path) -> Result<Input, InputError> {
     Ok(Input {
         output: base.join(file.output),
         sigma0: file.sigma0,
+        scattering_order: file.scattering_order.unwrap_or(DEFAULT_SCATTERING_ORDER),
         nuclides,
     })
 }
@@ -218,7 +223,7 @@ fn run(input: &Input) -> anyhow::Result<()> {
         thermal_cutoff: THERMAL_CUTOFF,
         tolerance: DEFAULT_TOLERANCE,
         pointwise_range,
-        scattering_order: SCATTERING_ORDER,
+        scattering_order: input.scattering_order,
     };
     let results: Vec<anyhow::Result<NuclideData>> = std::thread::scope(|scope| {
         let handles: Vec<_> = input
@@ -315,8 +320,9 @@ fn process_file(
 /// この入射エネルギー (eV) 未満の弾性散乱を熱領域の扱いにする（WIMS 69群の熱群の上限）
 const THERMAL_CUTOFF: f64 = 4.0;
 
-/// 散乱行列のルジャンドルのモーメントの次数（MOC の非等方散乱は格子の入力でこの次数まで選ぶ）
-const SCATTERING_ORDER: usize = 3;
+/// 入力で省略したときの、散乱行列のルジャンドルのモーメントの次数（ADR-0076）。MOC の非等方散乱は、格子の入力で
+/// ライブラリにあるこの次数までを選ぶ
+const DEFAULT_SCATTERING_ORDER: usize = 3;
 
 #[cfg(test)]
 mod tests {
@@ -353,6 +359,7 @@ temperatures = [293.6, 900]
         let input = parse_input(INPUT, Path::new("work")).unwrap();
         assert_eq!(input.output, PathBuf::from("work/m1.msgpack"));
         assert_eq!(input.sigma0, vec![1.0e10, 10.0, 1.0]);
+        assert_eq!(input.scattering_order, 3);
         assert_eq!(
             input.nuclides,
             vec![
@@ -373,10 +380,15 @@ temperatures = [293.6, 900]
     }
 
     #[test]
-    #[ignore = "#0014: the order is not an input"]
     fn accepts_a_scattering_order() {
         let text = INPUT.replace("sigma0 =", "scattering-order = 1\nsigma0 =");
-        assert!(parse_input(&text, Path::new(".")).is_ok());
+        let input = parse_input(&text, Path::new(".")).unwrap();
+        assert_eq!(input.scattering_order, 1);
+        let text = INPUT.replace("sigma0 =", "scattering-order = 0\nsigma0 =");
+        assert_eq!(
+            parse_input(&text, Path::new(".")).unwrap().scattering_order,
+            0
+        );
     }
 
     #[test]
