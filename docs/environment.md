@@ -8,10 +8,10 @@ xlc の計算は、NJOY（核データ処理）と OpenMC（モンテカルロ�
 direnv を使う場合は、リポジトリの直下に `use flake` と書いた `.envrc` を置き（手元の設定として git では追跡しない）、
 一度 `direnv allow` すると、`default` の devShell に自動で入る。
 
-| devShell     | 用途                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------- |
-| `default`    | 開発（Rust）、段階の駆動（DVC）と、検証用の Python スクリプト（numpy, h5py など）       |
-| `references` | 参照の計算: `njoy`、`openmc` と、OpenMC の Python API（openmc、endf）の入った `python3` |
+| devShell     | 用途                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `default`    | 開発（Rust と rust-analyzer。ADR-0135）、段階の駆動（DVC）と、検証用の Python スクリプト（numpy, h5py など） |
+| `references` | 参照の計算: `njoy`、`openmc` と、OpenMC の Python API（openmc、endf）の入った `python3`                      |
 
 ## 段階の駆動（DVC）
 
