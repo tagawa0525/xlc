@@ -334,6 +334,16 @@ fn core_rows_merge_halves_of_split_cells() {
         r.halves = vec![false; 4];
     }
     assert!(core_rows(&one_sided, &maps).is_err());
+    // ノードのない位置（ADR-0132）に面する辺に印があっても、分け合う相手がないのでエラー
+    let mut beside_empty = p.clone();
+    beside_empty.mesh.dy = vec![2.0, 2.0];
+    beside_empty.node_material = vec![Some(0), Some(1), Some(0), None];
+    beside_empty.outline = Some(Boundary::Reflective);
+    let mut maps_empty = maps.clone();
+    maps_empty.push(maps[0].clone());
+    maps_empty.push(Vec::new());
+    let err = core_rows(&beside_empty, &maps_empty).unwrap_err();
+    assert!(err.contains("split"), "{err}");
 }
 
 #[test]

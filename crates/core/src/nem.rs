@@ -2437,8 +2437,10 @@ mod tests {
         let mut star = reflector();
         star.normalized_adf[0] = true;
         star.adf[0] = vec![1.3, 0.6];
+        // 集合体の層は軸方向の定数（スラブの z の厚さを持つ。ADR-0128）
         let mut layer = reflector();
         layer.adf[1] = vec![0.8, 1.4];
+        layer.height = Some(20.0);
         let problem = |star: FewGroup, layer: FewGroup, reflectors: Vec<usize>| {
             let mut boundaries = [Boundary::Reflective; 6];
             boundaries[1] = Boundary::Marshak;
@@ -2479,7 +2481,18 @@ mod tests {
         .to_string();
         assert!(err.contains("rotation"), "{err}");
         // f* の側が反射体の位置でなければ（燃料の位置に置いた反射体の定数）、今のとおりエラー
-        let err = solve(&problem(star, layer, vec![]), &Options::default())
+        let err = solve(
+            &problem(star.clone(), layer.clone(), vec![]),
+            &Options::default(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("fission"), "{err}");
+        // 集合体の位置の核分裂のない定数でも、軸方向の層（z の厚さを持つ）でなければ（集合体の位置に置いた径方向の
+        // 反射体の定数）、今のとおりエラー
+        let mut radial = layer;
+        radial.height = None;
+        let err = solve(&problem(star, radial, vec![1]), &Options::default())
             .unwrap_err()
             .to_string();
         assert!(err.contains("fission"), "{err}");
