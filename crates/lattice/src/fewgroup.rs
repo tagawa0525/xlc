@@ -716,6 +716,21 @@ pub fn node_grid(nodes: &[Node]) -> Result<NodeGrid, String> {
     })
 }
 
+/// 角の点の均質な値の大きさ s_p がどれも正であること（ADR-0131）。正でなければ CDF を作れないので、別の値に
+/// 替えずにエラーにする
+fn positive_scales(scales: &[[f64; 2]]) -> Result<(), String> {
+    match scales
+        .iter()
+        .position(|s| s.iter().any(|v| v.is_nan() || *v <= 0.0))
+    {
+        Some(p) => Err(format!(
+            "corner point {p}: the homogeneous corner flux scale {:?} is not positive",
+            scales[p]
+        )),
+        None => Ok(()),
+    }
+}
+
 /// 格子のノードごとの形状関数と角の不連続因子（ADR-0125）。`fews` は ADF（f* で割る前）と拡散係数を決めた
 /// ノードの定数。ノードは格子の上の nx × ny の長方形の並びであること。
 ///
@@ -881,15 +896,7 @@ fn node_pins(
             "corner point"
         );
     }
-    if let Some(p) = scales
-        .iter()
-        .position(|s| s.iter().any(|v| v.is_nan() || *v <= 0.0))
-    {
-        return Err(error(format!(
-            "corner point {p}: the homogeneous corner flux scale {:?} is not positive",
-            scales[p]
-        )));
-    }
+    positive_scales(&scales).map_err(error)?;
     // [ノード][角][群] の CDF
     let cdf: Vec<[[f64; 2]; 4]> = (0..nodes.len())
         .map(|n| {
@@ -3062,6 +3069,16 @@ mod tests {
             node(2..3, 0..1),
         ];
         assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
+    }
+
+    #[test]
+    fn non_positive_corner_scales_are_errors() {
+        // 角の点の大きさ s_p が正でない（0、負、NaN）と CDF を作れないのでエラー（ADR-0131）
+        assert!(positive_scales(&[[1.0, 0.9], [1.1, 1.0]]).is_ok());
+        for bad in [0.0, -0.5, f64::NAN] {
+            let err = positive_scales(&[[1.0, 0.9], [1.1, bad]]).unwrap_err();
+            assert!(err.contains("corner point 1"), "{err}");
+        }
     }
 
     #[test]
