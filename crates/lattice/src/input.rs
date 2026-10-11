@@ -1044,6 +1044,155 @@ zones = [{ material = "water", rings = 1 }]
         assert!(given("auto").is_err());
     }
 
+    /// 媒質の燃料と、鋼と水を混ぜた板と水を並べた平板（ADR-0128）
+    const SLAB: &str = r#"
+library = "m1.msgpack"
+self-shielding = false
+pitch = 1.26
+azimuthal = 16
+spacing = 0.05
+boundary = { left = "vacuum", right = "vacuum" }
+rows = ["fuel plate water"]
+
+[material.fuel]
+medium = "fuel.medium"
+
+[material.ss304]
+temperature = 600
+nuclides = { Fe-56 = 8.0e-2 }
+
+[material.water]
+temperature = 600
+water = { density = 0.743, boron = 1300, b10 = 0.199 }
+
+[material.plate]
+mix = [{ material = "ss304", volume = 0.5 }, { material = "water", volume = 0.5 }]
+
+[cell.fuel]
+zones = [{ material = "fuel", rings = 1 }]
+
+[cell.plate]
+zones = [{ material = "plate", rings = 1 }]
+
+[cell.water]
+zones = [{ material = "water", rings = 1 }]
+"#;
+
+    #[test]
+    fn materials_may_be_media_or_mixtures() {
+        // 物質は、核種の組成、ホウ酸水、媒質のファイル、ほかの物質を体積の割合で混ぜたもの、のどれか（ADR-0128）
+        let input = LatticeInput::parse(SLAB).unwrap();
+        assert_eq!(
+            input.media,
+            vec![MediumInput {
+                name: "fuel".into(),
+                file: PathBuf::from("fuel.medium"),
+            }]
+        );
+        assert_eq!(
+            input.mixtures,
+            vec![Mixture {
+                name: "plate".into(),
+                parts: vec![("ss304".into(), 0.5), ("water".into(), 0.5)],
+            }]
+        );
+        let names: Vec<&str> = input.materials.iter().map(|m| m.name.as_str()).collect();
+        assert_eq!(names, ["ss304", "water"]);
+        let (_, regions) = input.geometry().unwrap();
+        assert_eq!(regions, ["fuel", "plate", "water"]);
+        // 真空も成分にできる
+        let void = replaced(
+            SLAB,
+            "{ material = \"water\", volume = 0.5 }",
+            "{ material = \"void\", volume = 0.5 }",
+        )
+        .unwrap();
+        assert_eq!(void.mixtures[0].parts[1], ("void".to_string(), 0.5));
+    }
+
+    #[test]
+    fn invalid_media_and_mixtures_are_errors() {
+        let bad = |from: &str, to: &str, word: &str| {
+            let err = replaced(SLAB, from, to).unwrap_err().to_string();
+            assert!(err.contains(word), "{to}: {err}");
+        };
+        let medium = "medium = \"fuel.medium\"";
+        let parts = "mix = [{ material = \"ss304\", volume = 0.5 }, { material = \"water\", volume = 0.5 }]";
+        // 媒質と混ぜた物質は温度を持たず、ほかの書き方と排他
+        bad(
+            medium,
+            &format!("temperature = 600\n{medium}"),
+            "temperature",
+        );
+        bad(parts, &format!("temperature = 600\n{parts}"), "temperature");
+        bad(
+            medium,
+            &format!("{medium}\nnuclides = {{ U-235 = 1e-3 }}"),
+            "fuel",
+        );
+        bad(parts, &format!("{parts}\n{medium}"), "plate");
+        // 割合の和が 1 でない、割合が正でない、成分が空か重なる
+        bad("volume = 0.5 }]", "volume = 0.6 }]", "sum");
+        bad("volume = 0.5 }, {", "volume = -0.5 }, {", "volume");
+        bad(parts, "mix = []", "plate");
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"ss304\", volume = 0.5 }]",
+            "twice",
+        );
+        // 成分は核種かホウ酸水で書いた物質か真空で、知らない物質、媒質、混ぜた物質はエラー
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"steel\", volume = 0.5 }]",
+            "steel",
+        );
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"fuel\", volume = 0.5 }]",
+            "fuel",
+        );
+        bad(
+            "\"water\", volume = 0.5 }]",
+            "\"plate\", volume = 0.5 }]",
+            "plate",
+        );
+        // 媒質と混ぜた物質は自己遮蔽の対象にならないので、平板の格子は自己遮蔽しない（ADR-0128）
+        bad("self-shielding = false\n", "", "self-shielding");
+    }
+
+    #[test]
+    fn branches_list_mixtures_with_their_components() {
+        // 分岐の軸は、変える成分を持つ混ぜた物質を挙げ、媒質は燃料の温度の軸に挙げる（媒質の状態を選ぶ。ADR-0128）
+        let branches = "\n[branches]\n\
+            boron = { ppm = [1300], materials = [\"water\", \"plate\"] }\n\
+            moderator = { temperature = [600], density = [0.743], materials = [\"water\", \"ss304\", \"plate\"] }\n\
+            fuel = { temperature = [600], materials = [\"fuel\"] }\n";
+        let with = |text: String| LatticeInput::parse(&format!("{SLAB}{text}"));
+        assert!(with(branches.into()).is_ok());
+        let bad = |from: &str, to: &str, word: &str| {
+            assert!(branches.contains(from), "{from}");
+            let err = with(branches.replace(from, to)).unwrap_err().to_string();
+            assert!(err.contains(word), "{to}: {err}");
+        };
+        // 変える成分を持つ混ぜた物質が挙がっていない
+        bad("[\"water\", \"plate\"] }", "[\"water\"] }", "plate");
+        bad("\"ss304\", \"plate\"]", "\"ss304\"]", "plate");
+        // 挙げた混ぜた物質に、その軸が変える成分がない
+        bad("[\"fuel\"]", "[\"fuel\", \"plate\"]", "plate");
+        // 媒質は燃料の温度の軸に挙げる（媒質の状態を選ぶ）
+        let without = branches
+            .replace("\"ss304\", \"plate\"]", "\"plate\"]")
+            .replace("[\"fuel\"]", "[\"ss304\", \"plate\"]");
+        let err = with(without).unwrap_err().to_string();
+        assert!(err.contains("medium") && err.contains("fuel"), "{err}");
+        // 媒質を燃料の温度の軸のほかに挙げない
+        bad(
+            "\"ss304\", \"plate\"]",
+            "\"ss304\", \"plate\", \"fuel\"]",
+            "fuel",
+        );
+    }
+
     #[test]
     fn single_lattices_may_write_a_medium() {
         // 外周がすべて鏡面反射の格子は、細かい群のまま均質化した媒質を書ける（ADR-0128）
