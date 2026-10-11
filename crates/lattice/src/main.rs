@@ -30,6 +30,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::Medium;
+use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::tables;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
@@ -103,6 +104,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
     let base = path.parent().unwrap_or(Path::new("."));
     let (lattice, region_materials) = input.geometry().with_context(|| shown(path))?;
+    // 軸方向の定数のノードの並びは、MOC を解く前に確かめる（ADR-0128）
+    if let Some(FewGroupOutput {
+        files: FewGroupFiles::Nodes(entries),
+        axial: true,
+        ..
+    }) = &input.output
+    {
+        let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
+        check_nodes(lattice.rows(), &nodes).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+    }
 
     let tracking =
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
@@ -279,6 +290,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             files,
             pins,
             split,
+            axial: along_z,
         }) = &input.output
         {
             let groups = groups
@@ -337,6 +349,29 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     .map(|few| vec![few])
                     .collect()
                 }
+            };
+            // 格子の x を炉心の z にした定数。z の厚さはノードの x の幅（ADR-0128）
+            let fews = if *along_z {
+                let widths = lattice.widths();
+                let node_widths: Vec<f64> = match files {
+                    FewGroupFiles::Lattice(_) => vec![widths.iter().sum()],
+                    FewGroupFiles::Nodes(entries) => entries
+                        .iter()
+                        .map(|(_, node)| widths[node.columns.clone()].iter().sum())
+                        .collect(),
+                };
+                fews.iter()
+                    .zip(node_widths)
+                    .map(|(subs, width)| {
+                        subs.iter()
+                            .map(|few| axial(few, width))
+                            .collect::<Result<Vec<_>, _>>()
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| anyhow!(e))
+                    .with_context(context)?
+            } else {
+                fews
             };
             per_state.push(fews);
         }
