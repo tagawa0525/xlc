@@ -22,8 +22,9 @@ use xlc_numeric::pins::node::{Conditions, Constants, NodeFlux, NodeModel};
 use xlc_numeric::pins::{CELL_POINTS, FACE_POINTS};
 
 /// [ノード] のセルの出力 [行（-y から）][列（-x から）]。ノードの並びは NEM と同じ（x が最も速く、次に y、z）。
-/// 核分裂のない軸方向の層（上下の反射体）は出力が 0 なので、空の表にする。ノードのない位置（ADR-0132）も空の表。核分裂のある層では、どのノードも形状関数を
-/// 持つこと（径方向の反射体のノードは、形状関数 0 と角の不連続因子を持つ。ADR-0131）
+/// 核分裂のない軸方向の層（上下の反射体）は出力が 0 なので、空の表にする。ノードのない位置（ADR-0132）も空の表。
+/// 核分裂のある層では、どのノードも形状関数を持つこと（径方向の反射体のノードは、形状関数 0 と角の不連続因子を
+/// 持つ。ADR-0131）
 pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec<f64>>>, String> {
     let face_rule = gauss_legendre(FACE_POINTS).map_err(|e| e.to_string())?;
     let cell_rule = gauss_legendre(CELL_POINTS).map_err(|e| e.to_string())?;

@@ -9,7 +9,7 @@
 | `xs.toml`                          | 多群ライブラリ（`reflector.msgpack`）の入力。examples/vera の核種に SS304 の核種と Inconel の Ti を足し、600 K だけにした |
 | `reflector-I.toml`                 | I 型の格子（VERA 2B の集合体 + 隙間の水 0.19 cm + SS304 のバッフル 2.85 cm + 水 18.46 cm、右が真空）                      |
 | `reflector-corner.toml`            | 角型の格子（集合体の右と上に I 型と同じ反射体、バッフルは角で L 字、右と上が真空）。5-2D の外周の角                       |
-| `core-corner*.toml`                | 角型の格子の炉心の計算のケース（集合体と反射体 3 つの 2 × 2）。等価性と f* の方法。`-get` を除く                          |
+| `core-corner*.toml`                | 角型の格子の炉心の計算のケース（集合体と反射体 3 つの 2 × 2）。等価性と f* の方法。`-get`、`-outline`、`-I` を除く        |
 | `core-corner-get*.toml`            | 同じ体系で反射体 3 つも集合体の位置に置くケース（#0029。反射体どうしの面は `core-corner` と同じ。ADR-0132）               |
 | `vacuum-corner/`                   | 真空の辺の角の点の大きさの系列（燃料のピン 2 × 2 と水。#0065）                                                            |
 | `assembly-2B.toml`                 | 同じライブラリと自己遮蔽なしの単一集合体（鏡面反射）。f* に掛ける燃料の少数群定数                                         |
