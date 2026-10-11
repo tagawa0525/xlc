@@ -154,7 +154,8 @@ pub fn homogenize(
 /// - 外周の真空の辺には J/φ_het を持たせる（ADR-0101）
 /// - 反射体のノード（`Node::reflector`）の、反射体でないノードと接する辺の ADF は、その隣のノードの同じ面の
 ///   ADF で割った f* とし、`normalized_adf` に印を付ける。反射体どうしの辺と、燃料に角の点だけで接する反射体の
-///   ノード（角型の格子の右上。ADR-0095）の辺は f* でない GET の ADF を持つ
+///   ノード（角型の格子の右上。ADR-0095）や燃料と接しない反射体のノード（軸方向のノズル、炉心板、水の層。
+///   ADR-0128）の辺は f* でない GET の ADF を持つ
 /// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0131）も付ける
 #[allow(clippy::too_many_arguments)]
 pub fn homogenize_nodes(
