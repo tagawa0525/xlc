@@ -1197,6 +1197,26 @@ mod tests {
         }
     }
 
+    /// x 方向に1列の問題（y と z は1ノード）を z 方向に並べ直した問題。x と z の幅、境界条件、少数群定数の
+    /// 辺（左、右）と（−z、+z）を入れ替える。物質の配置の並びはそのまま（ノードの番号は x でも z でも列の順）
+    fn to_z(p: &Problem) -> Problem {
+        assert_eq!((p.mesh.dy.len(), p.mesh.dz.len()), (1, 1));
+        fn swap<T>(sides: &mut [T]) {
+            sides.swap(0, 4);
+            sides.swap(1, 5);
+        }
+        let mut q = p.clone();
+        q.mesh.dx = p.mesh.dz.clone();
+        q.mesh.dz = p.mesh.dx.clone();
+        swap(&mut q.boundaries);
+        for m in &mut q.materials {
+            swap(&mut m.adf);
+            swap(&mut m.vacuum_ratio);
+            swap(&mut m.normalized_adf);
+        }
+        q
+    }
+
     /// x 方向に 6 ノードの平板。燃料と、断面積の違う燃料が交互に並ぶ
     fn two_material_slab(adf_a: Vec<Vec<f64>>, adf_b: Vec<Vec<f64>>) -> Problem {
         let mut a = material();
@@ -1639,12 +1659,15 @@ mod tests {
                     vec![0; 8],
                     Boundary::Vacuum,
                 );
-                let s = solve(&p, &Options::default()).unwrap();
-                assert!(
-                    (s.k - expected).abs() < 1e-8 * expected,
-                    "f = {f}, r = {r}: {} vs {expected}",
-                    s.k
-                );
+                // z の面も同じ規則（ADR-0128）
+                for p in [p.clone(), to_z(&p)] {
+                    let s = solve(&p, &Options::default()).unwrap();
+                    assert!(
+                        (s.k - expected).abs() < 1e-8 * expected,
+                        "f = {f}, r = {r}: {} vs {expected}",
+                        s.k
+                    );
+                }
                 assert!(expected < previous, "f = {f}, r = {r}");
                 previous = expected;
             }
@@ -1662,7 +1685,8 @@ mod tests {
         m.vacuum_ratio[0] = Some(vec![0.5, 0.5]);
         let p = slab(vec![5.0; 6], vec![m], vec![0; 6], Boundary::Vacuum);
         assert!(solve(&p, &Options::default()).is_err());
-        // z の面は、2次元の格子計算が比を出さないので、径方向の辺がすべて比を持っていてもエラー
+        // z の面も、その面の辺（+z）の比を使う（ADR-0128）。径方向の辺がすべて比を持っていても、+z の辺が
+        // 持たなければエラー
         let mut m = material();
         m.vacuum_ratio = (0..6).map(|s| (s < 4).then(|| vec![0.5, 0.5])).collect();
         let mut boundaries = [Boundary::Reflective; 6];
@@ -1670,7 +1694,9 @@ mod tests {
         let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], boundaries);
         p.materials = vec![m];
         let err = solve(&p, &Options::default()).unwrap_err().to_string();
-        assert!(err.contains("z") && err.contains("marshak"), "{err}");
+        assert!(err.contains("side 5") && err.contains("marshak"), "{err}");
+        p.materials[0].vacuum_ratio[5] = Some(vec![0.5, 0.5]);
+        assert!(solve(&p, &Options::default()).is_ok());
     }
 
     #[test]
@@ -1688,30 +1714,19 @@ mod tests {
             );
             one_group_k(&one_group(), buckling * buckling)
         };
-        // 方向ごとの（- 面, + 面）の辺（左、右、上、下の番号）。z の面の ADF は 1 なので跳びはない
-        let cases = [
-            (Some((0, 1)), analytic(f_a, f_b)),
-            (Some((3, 2)), analytic(f_a, f_b)),
-            (None, analytic(1.0, 1.0)),
-        ];
-        for (d, (sides, expected)) in cases.into_iter().enumerate() {
+        // 方向ごとの（- 面, + 面）の辺（左、右、上、下、−z、+z の番号）。z の面も少数群定数の辺の ADF を使う
+        // （ADR-0128）
+        let expected = analytic(f_a, f_b);
+        for (d, (minus, plus)) in [(0, 1), (3, 2), (4, 5)].into_iter().enumerate() {
             let bulk = one_group();
             let mut edge_a = one_group();
             let mut edge_b = one_group();
-            match sides {
-                Some((minus, plus)) => {
-                    edge_a.adf = vec![vec![3.0]; 6];
-                    edge_a.adf[minus] = vec![1.0];
-                    edge_a.adf[plus] = vec![f_a];
-                    edge_b.adf = vec![vec![0.5]; 6];
-                    edge_b.adf[minus] = vec![f_b];
-                    edge_b.adf[plus] = vec![1.0];
-                }
-                None => {
-                    edge_a.adf = vec![vec![f_a]; 6];
-                    edge_b.adf = vec![vec![f_b]; 6];
-                }
-            }
+            edge_a.adf = vec![vec![3.0]; 6];
+            edge_a.adf[minus] = vec![1.0];
+            edge_a.adf[plus] = vec![f_a];
+            edge_b.adf = vec![vec![0.5]; 6];
+            edge_b.adf[minus] = vec![f_b];
+            edge_b.adf[plus] = vec![1.0];
             let mut widths = [vec![20.0], vec![20.0], vec![20.0]];
             widths[d] = vec![5.0; 16];
             let mut boundaries = [Boundary::Reflective; 6];
@@ -2244,6 +2259,51 @@ mod tests {
         other.materials[0].adf[1] = fuel.iter().map(|f| 1.1 * f).collect();
         let k = solve(&other, &Options::default()).unwrap().k;
         assert!((k - raw.k).abs() < 1e-12 * raw.k, "{k} vs {}", raw.k);
+        // z の面の f* も同じ（ADR-0128）
+        let s = solve(&to_z(&normalized), &Options::default()).unwrap();
+        assert!((s.k - raw.k).abs() < 1e-12 * raw.k, "{} vs {}", s.k, raw.k);
+        for (a, b) in s.flux.iter().flatten().zip(raw.flux.iter().flatten()) {
+            assert!((a - b).abs() < 1e-10 * b, "{a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn normalized_adfs_need_a_fissile_neighbor() {
+        // f* は燃料の ADF で割った値なので、隣が核分裂のない物質ならエラー（上下を取り違えた軸方向の反射体の
+        // 定数を見つける。ADR-0128）。x でも z でも同じ
+        let mut star = reflector();
+        star.normalized_adf[0] = true;
+        let p = slab(
+            vec![10.0; 3],
+            vec![material(), star, reflector()],
+            vec![0, 1, 1],
+            Boundary::ZeroFlux,
+        );
+        for p in [p.clone(), to_z(&p)] {
+            let err = solve(&p, &Options::default()).unwrap_err().to_string();
+            assert!(err.contains("fission"), "{err}");
+        }
+        // 燃料に向いていれば解ける
+        let mut q = p.clone();
+        q.node_material = vec![0, 1, 2];
+        for q in [q.clone(), to_z(&q)] {
+            assert!(solve(&q, &Options::default()).is_ok());
+        }
+    }
+
+    #[test]
+    fn heights_must_match_the_node() {
+        // z の厚さを持つ（軸方向の）定数は、z の幅が丸めの範囲で同じノードにだけ置ける（ADR-0128）
+        let mut p = cuboid([30.0, 30.0, 30.0], [1, 1, 3], [Boundary::Reflective; 6]);
+        p.materials[0].height = Some(10.0);
+        assert!(solve(&p, &Options::default()).is_ok());
+        p.materials[0].height = Some(10.0 * (1.0 + 1e-14));
+        assert!(solve(&p, &Options::default()).is_ok());
+        for h in [9.9, 20.0] {
+            p.materials[0].height = Some(h);
+            let err = solve(&p, &Options::default()).unwrap_err().to_string();
+            assert!(err.contains("height"), "{err}");
+        }
     }
 
     /// x 方向の問題を y 方向に並べ直す（x と y の幅、境界条件、少数群定数の辺（左、右）と（下、上）を入れ替える）
