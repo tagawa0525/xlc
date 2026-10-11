@@ -77,10 +77,11 @@ docs/adr/README.md）。その hash が何のためにあるか、hash が変わ
 ## 確認
 
 - `.gitignore` が `/trials` を無視する
-- main が `trials/` を追跡しないことを、`cargo test` で走る crates/docs の検査（crates/docs/tests/consistency.rs）が
-  確かめる。マージのコミットを作る前の hook が run-checks.sh を通して `cargo test` を実行するので、`trials/` を消し
-  忘れたブランチはマージできない。ブランチの上では記録に書いた試行を追跡してよいので、この検査は今のブランチが main の
-  ときだけ違反にする
+- main が `trials/` を追跡しないことを、`cargo test` で走る crates/docs の検査 `main_tracks_no_trials`
+  （crates/docs/tests/consistency.rs）が確かめる。マージのコミットを作る前に残った試行を見つけることは、
+  `main_reports_trials_left_by_a_merge` が一時的なリポジトリで確かめる。マージのコミットを作る前の hook が
+  run-checks.sh を通して `cargo test` を実行するので、`trials/` を消し忘れたブランチはマージできない。ブランチの上
+  では記録に書いた試行を追跡してよいので、この検査は今のブランチが main のときだけ違反にする
 - そのほかは運用の約束事なので、確かめるテストはない
 
 ## 結果
