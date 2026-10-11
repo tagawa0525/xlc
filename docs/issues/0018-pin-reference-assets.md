@@ -76,5 +76,5 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   参照の結果を DVC のステージにするときに直す
 - 2026-10-11: ブランチ feat/reference-stages で、参照の結果を DVC のステージにする方式を決め（ADR-0130）、examples/vera/dvc.yaml
   で OpenMC のライブラリ（核種ごと）と VERA 1B を端から端まで通した。OpenMC 1B の k は手で実行した値と一致し、ライブラリは
-  `references/openmc/endfb80` とバイト単位で一致した。examples/vera/verification.md の手順はリポジトリの直下から実行する形に
+  `references/openmc/endfb80-565`（同じ温度で手で作ったもの）とバイト単位で一致した。examples/vera/verification.md の手順はリポジトリの直下から実行する形に
   直した（examples/mox/verification.md の手順はまだ「references/openmc で」の形で、MOX を段階にするときに直す）
