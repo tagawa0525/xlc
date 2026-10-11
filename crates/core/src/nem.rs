@@ -42,6 +42,9 @@ pub struct Mesh {
 pub struct Problem {
     pub mesh: Mesh,
     pub materials: Vec<FewGroup>,
+    /// 炉心の形の反射体の位置に置いた物質の番号。x と y の面で両側のノードの物質がこれに入れば、その面の ADF は
+    /// 両側とも 1（ADR-0095。反射体の定数は I 型、L 型、角型の別の格子から来て、GET の ADF が互いの比にならない）
+    pub reflectors: Vec<usize>,
     /// ノードごとの物質番号。並びは x が最も速く、次に y、z
     pub node_material: Vec<usize>,
     /// [-x, +x, -y, +y, -z, +z]
@@ -191,6 +194,8 @@ struct Core<'a> {
     groups: usize,
     /// [物質] の核分裂のある物質か（ノードの核を選ぶ。ADR-0102）
     fissile: Vec<bool>,
+    /// [物質] の、炉心の形の反射体の位置に置いた物質か（`Problem::reflectors`）
+    reflector: Vec<bool>,
     /// [ノード] の、核分裂のないノードの方向ごとの ANM のモード（定数と幅で決まるので1回だけ作る）
     anm: Vec<Option<[AnmModes; 3]>>,
 }
@@ -256,6 +261,16 @@ impl<'a> Core<'a> {
             ));
         }
         if let Some(&m) = problem
+            .reflectors
+            .iter()
+            .find(|&&m| m >= problem.materials.len())
+        {
+            return Err(format!(
+                "reflector material {m} is out of the {} materials",
+                problem.materials.len()
+            ));
+        }
+        if let Some(&m) = problem
             .node_material
             .iter()
             .find(|&&m| m >= problem.materials.len())
@@ -303,6 +318,9 @@ impl<'a> Core<'a> {
             counts,
             groups,
             fissile,
+            reflector: (0..problem.materials.len())
+                .map(|m| problem.reflectors.contains(&m))
+                .collect(),
             anm: Vec::new(),
         };
         core.anm = (0..core.nodes())
@@ -347,6 +365,14 @@ impl<'a> Core<'a> {
                     if facing {
                         return Err(format!(
                             "nodes {n} and {m} both have f* on their shared face"
+                        ));
+                    }
+                    // 反射体の位置どうしの面の ADF は 1 なので、そこにある f* は使われず、燃料に面する辺が
+                    // 割られていない（回転を取り違えた定数）
+                    if self.reflector_face(n, m) {
+                        return Err(format!(
+                            "material {material} has f* on side {side}, but node {n} faces the \
+                             reflector site of node {m} there; check the rotation of the reflector"
                         ));
                     }
                 }
@@ -426,19 +452,29 @@ impl<'a> Core<'a> {
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子。
     /// 少数群定数の辺は（左、右、上、下）で、-x が左、+x が右、-y が下、+y が上。z の面は 1。
     /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
-    /// ないことは `check_normalized_adfs` で確かめてある）
+    /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの x と y の面は 1（`reflectors`）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
         let Some(side) = side_of(d, plus) else {
             return 1.0;
         };
+        let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
+        if neighbor.is_some_and(|m| self.reflector_face(n, m)) {
+            return 1.0;
+        }
         let material = self.material(n);
         let own = material.adf[side][g];
         if !material.normalized_adf[side] {
             return own;
         }
-        self.neighbor(n, d, if plus { 1 } else { -1 })
+        neighbor
             .and_then(|m| side_of(d, !plus).map(|s| own * self.material(m).adf[s][g]))
             .unwrap_or(f64::NAN)
+    }
+
+    /// 隣り合うノード n と m が、どちらも炉心の形の反射体の位置か
+    fn reflector_face(&self, n: usize, m: usize) -> bool {
+        let at = |n: usize| self.reflector[self.problem.node_material[n]];
+        at(n) && at(m)
     }
 
     /// ノード n の方向 d の外周の面の、真空の面の比 r = J/φ_het。`Marshak` は 1/2
@@ -795,6 +831,7 @@ mod tests {
                 dz: split(size[2], nodes[2]),
             },
             materials: vec![material()],
+            reflectors: Vec::new(),
             node_material: vec![0; nodes.iter().product()],
             boundaries,
         }
@@ -980,6 +1017,7 @@ mod tests {
                 dz: vec![20.0],
             },
             materials: vec![fuel, water],
+            reflectors: Vec::new(),
             node_material: vec![0, 0, 1, 1, 0, 1, 1, 1],
             boundaries,
         };
@@ -1147,6 +1185,7 @@ mod tests {
                 dz: vec![20.0],
             },
             materials,
+            reflectors: Vec::new(),
             node_material,
             boundaries,
         }
@@ -1668,6 +1707,7 @@ mod tests {
             let p = Problem {
                 mesh: Mesh { dx, dy, dz },
                 materials: vec![bulk, edge_a, edge_b],
+                reflectors: Vec::new(),
                 node_material: (0..16)
                     .map(|i| match i {
                         5 => 1,
@@ -1708,6 +1748,7 @@ mod tests {
                     dz: vec![20.0],
                 },
                 materials: vec![a.clone(), b.clone()],
+                reflectors: Vec::new(),
                 node_material: (0..n * n)
                     .map(|i| usize::from((i % n < n / 2) != (i / n < n / 2)))
                     .collect(),
@@ -1939,6 +1980,7 @@ mod tests {
                 dy: merge(&fine.mesh.dy, by),
                 dz: fine.mesh.dz.clone(),
             },
+            reflectors: Vec::new(),
             node_material: (0..materials.len()).collect(),
             materials,
             // 粗いノードの真空の面は、参照から作った比 J/φ_het を使う
@@ -2017,6 +2059,7 @@ mod tests {
                 dz: vec![20.0],
             },
             materials: three_fuels(),
+            reflectors: Vec::new(),
             node_material: vec![0, 1, 0, 1, 1, 0, 1, 0, 2, 2, 1, 1, 2, 2, 0, 0],
             boundaries,
         };
@@ -2038,6 +2081,7 @@ mod tests {
                 dz: vec![20.0],
             },
             materials: three_fuels(),
+            reflectors: Vec::new(),
             node_material: vec![0, 1, 0, 2, 1, 0, 2, 0, 0, 2, 1, 1, 2, 0, 1, 0],
             boundaries,
         };
@@ -2076,6 +2120,7 @@ mod tests {
                 dz: vec![20.0],
             },
             materials,
+            reflectors: Vec::new(),
             node_material: vec![0, 1, 0, 1, 1, 0, 2, 0, 3, 3, 3, 3, 3, 3, 3, 3],
             boundaries,
         };
@@ -2136,6 +2181,7 @@ mod tests {
                 dz: vec![20.0],
             },
             materials: three_fuels(),
+            reflectors: Vec::new(),
             node_material: (0..64).map(|n| pattern[(n * 5 + n / 8) % 8]).collect(),
             boundaries,
         };
@@ -2157,6 +2203,7 @@ mod tests {
                 dz: vec![20.0],
             },
             materials: three_fuels(),
+            reflectors: Vec::new(),
             node_material: vec![0, 1, 0, 1, 1, 0, 1, 0, 2, 2, 1, 1, 2, 2, 0, 0],
             boundaries,
         };
@@ -2182,6 +2229,96 @@ mod tests {
         other.materials[0].adf[1] = fuel.iter().map(|f| 1.1 * f).collect();
         let k = solve(&other, &Options::default()).unwrap().k;
         assert!((k - raw.k).abs() < 1e-12 * raw.k, "{k} vs {}", raw.k);
+    }
+
+    /// x 方向の問題を y 方向に並べ直す（x と y の幅、境界条件、少数群定数の辺（左、右）と（下、上）を入れ替える）
+    fn to_y(p: &Problem) -> Problem {
+        let mut q = p.clone();
+        q.mesh.dx = p.mesh.dy.clone();
+        q.mesh.dy = p.mesh.dx.clone();
+        q.boundaries.swap(0, 2);
+        q.boundaries.swap(1, 3);
+        for m in &mut q.materials {
+            // 辺は（左、右、上、下）: 新しい下は元の左、新しい上は元の右、新しい左右は元の下と上
+            let a = m.adf.clone();
+            m.adf = vec![a[3].clone(), a[2].clone(), a[1].clone(), a[0].clone()];
+            let r = m.vacuum_ratio.clone();
+            m.vacuum_ratio = vec![r[3].clone(), r[2].clone(), r[1].clone(), r[0].clone()];
+            let f = m.normalized_adf.clone();
+            m.normalized_adf = vec![f[3], f[2], f[1], f[0]];
+        }
+        q
+    }
+
+    #[test]
+    fn faces_between_reflector_sites_take_unit_adfs() {
+        // 炉心の形の反射体の位置に置いた物質（`reflectors`）どうしの x と y の面の ADF は、両側とも 1（ADR-0095）。
+        // 燃料と接する面と外周の面は、少数群定数の ADF のまま
+        let mut a = reflector();
+        a.adf = vec![
+            vec![1.3, 0.8],
+            vec![0.7, 1.6],
+            vec![1.2, 0.9],
+            vec![0.85, 1.4],
+        ];
+        let mut b = reflector();
+        b.adf = vec![
+            vec![1.1, 0.6],
+            vec![0.9, 1.2],
+            vec![1.05, 0.75],
+            vec![0.95, 1.3],
+        ];
+        let x = |reflectors: Vec<usize>, a: &FewGroup, b: &FewGroup| {
+            let mut p = slab(
+                vec![20.0, 21.5, 21.5],
+                vec![material(), a.clone(), b.clone()],
+                vec![0, 1, 2],
+                Boundary::Reflective,
+            );
+            p.boundaries[1] = Boundary::Marshak;
+            p.reflectors = reflectors;
+            p
+        };
+        let unit = |m: &FewGroup, side: usize| {
+            let mut m = m.clone();
+            m.adf[side] = vec![1.0; 2];
+            m
+        };
+        let same = |p: &Problem, q: &Problem| {
+            let (s, t) = (
+                solve(p, &Options::default()).unwrap(),
+                solve(q, &Options::default()).unwrap(),
+            );
+            let close = (s.k - t.k).abs() < 1e-12 * t.k
+                && s.flux
+                    .iter()
+                    .flatten()
+                    .zip(t.flux.iter().flatten())
+                    .all(|(u, v)| (u - v).abs() < 1e-10 * v);
+            (close, s.k, t.k)
+        };
+        for turn in [false, true] {
+            let along = |p: Problem| if turn { to_y(&p) } else { p };
+            // a の右（+x）と b の左（−x）の面
+            let marked = along(x(vec![1, 2], &a, &b));
+            let expected = along(x(vec![], &unit(&a, 1), &unit(&b, 0)));
+            let (close, k, k_expected) = same(&marked, &expected);
+            assert!(close, "turn {turn}: {k} vs {k_expected}");
+            let plain = along(x(vec![], &a, &b));
+            assert!(!same(&marked, &plain).0, "turn {turn}");
+            // 片側だけが反射体の位置なら、少数群定数の ADF のまま
+            let one = along(x(vec![1], &a, &b));
+            let (close, k, k_plain) = same(&one, &plain);
+            assert!(close, "turn {turn}: {k} vs {k_plain}");
+        }
+        // 範囲の外の番号はエラー
+        let err = solve(&x(vec![3], &a, &b), &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
+        // f* の辺は燃料の ADF で割った値なので、反射体の位置どうしの面にあれば（回転を取り違えた定数）エラー
+        let mut turned = a.clone();
+        turned.normalized_adf[1] = true;
+        let err = solve(&x(vec![1, 2], &turned, &b), &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
     }
 
     #[test]

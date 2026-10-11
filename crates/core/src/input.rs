@@ -452,6 +452,8 @@ pub struct LayoutMaterial {
     pub turns: u8,
     /// テーブルの部分ノードの番号（回す前の並び。-y の行から、各行は -x から。ADR-0108）
     pub sub: usize,
+    /// 炉心の形の反射体の位置に置いたか（同じファイルでも集合体の位置のものと分ける。ADR-0095）
+    pub reflector: bool,
 }
 
 /// 4つの入力から組み立てた炉心のノードの並び。
@@ -631,6 +633,7 @@ impl Layout {
                     file,
                     turns,
                     sub: sub_of(si, sj, turns),
+                    reflector: is_reflector,
                 };
                 let m = *material_index.entry(material).or_insert_with(|| {
                     materials.push(material);
@@ -700,6 +703,9 @@ impl Layout {
                     })
                 })
                 .collect::<Result<_, _>>()?,
+            reflectors: (0..self.materials.len())
+                .filter(|&m| self.materials[m].reflector)
+                .collect(),
             node_material: self.node_material.clone(),
             boundaries: self.boundaries,
         })
