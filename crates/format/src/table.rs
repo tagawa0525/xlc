@@ -5,8 +5,8 @@
 //! `points`（昇順。ppm か K）。`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の原子分率）も持つ）,
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
-//! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`pins` は
-//! `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、キーは省けない）。
+//! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`height` は数か nil、`pins` は
+//! `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、どちらもキーは省けない）。
 //! 軸のないテーブルは状態が1つ。
 
 use serde::{Deserialize, Serialize};
@@ -110,9 +110,16 @@ struct StateFile {
     adf: Vec<Vec<f64>>,
     vacuum_ratio: Vec<Option<Vec<f64>>>,
     normalized_adf: Vec<bool>,
+    /// nil を書いても、キーは省けない（ADR-0129）
+    #[serde(deserialize_with = "nil_or_height")]
+    height: Option<f64>,
     /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
     #[serde(deserialize_with = "nil_or_pins")]
     pins: Option<PinsFile>,
+}
+
+fn nil_or_height<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<f64>, D::Error> {
+    Option::deserialize(d)
 }
 
 fn nil_or_pins<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<PinsFile>, D::Error> {
@@ -145,7 +152,7 @@ impl Table {
         self.split * self.split
     }
 
-    /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印、真空の辺）を確かめる。
+    /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印、真空の辺、z の厚さ）を確かめる。
     pub fn validate(&self) -> Result<(), TableError> {
         let invalid = |message: String| Err(TableError::Invalid(message));
         let mut names = Vec::new();
@@ -217,9 +224,10 @@ impl Table {
             if state.bounds != self.states[0].bounds
                 || state.normalized_adf != first.normalized_adf
                 || vacuum(state) != vacuum(first)
+                || state.height != first.height
             {
                 return invalid(format!(
-                    "state {i}: group bounds, f* sides and vacuum sides must equal those of the same sub-node of state 0"
+                    "state {i}: group bounds, f* sides, vacuum sides and the height must equal those of the same sub-node of state 0"
                 ));
             }
             // 形状関数は状態ごとに内挿するので、どの状態も持つか持たないかで、セルの境界も同じ
@@ -281,6 +289,7 @@ impl Table {
                 adf: s.adf.clone(),
                 vacuum_ratio: s.vacuum_ratio.clone(),
                 normalized_adf: s.normalized_adf.clone(),
+                height: s.height,
                 pins: s.pins.as_ref().map(|p| PinsFile {
                     dx: p.dx.clone(),
                     dy: p.dy.clone(),
@@ -339,6 +348,7 @@ impl Table {
                 adf: s.adf,
                 vacuum_ratio: s.vacuum_ratio,
                 normalized_adf: s.normalized_adf,
+                height: s.height,
                 pins: s.pins.map(|p| Pins {
                     dx: p.dx,
                     dy: p.dy,

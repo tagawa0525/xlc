@@ -1,9 +1,10 @@
 //! 均質化した少数群定数（1つの状態）。ファイルでは分岐のテーブル（`table`。ADR-0097）の状態として受け渡す。
 //!
 //! 項目: `bounds`（群境界 (eV)、降順）, `k_inf`, `total`, `absorption`, `nu_fission`, `fission`, `chi`, `diffusion`
-//! （G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下）][群]）, `vacuum_ratio`（[辺][群]。
+//! （G 個ずつ）, `scatter`（[入射の群][出射の群]）, `adf`（[辺（左、右、上、下、−z、+z）][群]）, `vacuum_ratio`（[辺][群]。
 //! 真空の辺だけ値を持ち、ほかの辺は nil。ADR-0101）、`normalized_adf`（[辺]。`adf` が燃料の ADF で割った値 f* の辺。
-//! ADR-0095）、`pins`（ピン出力の再構成の形状関数と角の不連続因子。ないときは nil。ADR-0096）。
+//! ADR-0095）、`height`（z の厚さ (cm)。軸方向の定数だけが持ち、ほかは nil。ADR-0128）、`pins`（ピン出力の再構成の
+//! 形状関数と角の不連続因子。ないときは nil。ADR-0096）。
 
 /// セル全体で均質化した少数群定数。断面積は 1/cm、拡散係数は cm。
 #[derive(Debug, Clone, PartialEq)]
@@ -19,15 +20,19 @@ pub struct FewGroup {
     pub diffusion: Vec<f64>,
     /// [入射の群][出射の群]
     pub scatter: Vec<Vec<f64>>,
-    /// [辺（左、右、上、下）][群] の不連続因子（辺の上の中性子束 / 均質化した中性子束）
+    /// [辺（左、右、上、下、−z、+z）][群] の不連続因子（辺の上の中性子束 / 均質化した中性子束）。2次元の格子計算の
+    /// 定数の z の辺は 1（ADR-0128）
     pub adf: Vec<Vec<f64>>,
-    /// [辺（左、右、上、下）][群] の、格子計算の真空の辺の外向きの正味の中性子流 / 辺の上の不均質な中性子束
+    /// [辺（左、右、上、下、−z、+z）][群] の、格子計算の真空の辺の外向きの正味の中性子流 / 辺の上の不均質な中性子束
     /// （辺にわたる平均の比）。真空でない辺は `None`（ADR-0101）
     pub vacuum_ratio: Vec<Option<Vec<f64>>>,
-    /// [辺（左、右、上、下）] の、`adf` が格子計算で隣の燃料のノードの ADF で割った値
+    /// [辺（左、右、上、下、−z、+z）] の、`adf` が格子計算で隣の燃料のノードの ADF で割った値
     /// f* = f_反射体 / f_燃料 である辺（反射体の定数の、燃料と接する辺。ADR-0095）。core は、その辺の ADF を
     /// f* × 隣のノードの ADF とする
     pub normalized_adf: Vec<bool>,
+    /// z の厚さ (cm)。軸方向の定数（格子の x を炉心の z とした定数）は、その格子のノードの幅を持ち、core は
+    /// それを置くノードの z の幅と比べる。2次元の格子計算の定数は軸方向に一様で、`None`（ADR-0128）
+    pub height: Option<f64>,
     /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。外周がすべて鏡面反射の単一の格子でだけ作る
     pub pins: Option<Pins>,
 }
@@ -53,6 +58,9 @@ pub struct Pins {
     pub halves: Vec<bool>,
 }
 
+/// 辺（左、右、上、下、−z、+z）の数
+pub const SIDES: usize = 6;
+
 /// 少数群定数の値の誤り。
 #[derive(Debug, thiserror::Error)]
 pub enum FewGroupError {
@@ -66,7 +74,7 @@ impl FewGroup {
     }
 
     /// 群境界の順序、配列の長さ、値が有限であること、不連続因子が正であること、真空の辺の比が
-    /// 0 < r ≤ 1 であること、f* の辺が真空の辺でないことを確かめる。
+    /// 0 < r ≤ 1 であること、f* の辺が真空の辺でないこと、z の厚さが正であることを確かめる。
     /// ファイルから読んだ値にも、ファイルを経ずに作った値にも使う。
     pub fn validate(&self) -> Result<(), FewGroupError> {
         let invalid = |message: String| Err(FewGroupError::Invalid(message));
@@ -103,9 +111,9 @@ impl FewGroup {
                 self.scatter.len()
             ));
         }
-        if self.adf.len() != 4 {
+        if self.adf.len() != SIDES {
             return invalid(format!(
-                "`adf` (discontinuity factors) has {} sides, expected 4",
+                "`adf` (discontinuity factors) has {} sides, expected {SIDES}",
                 self.adf.len()
             ));
         }
@@ -116,9 +124,9 @@ impl FewGroup {
                 ));
             }
         }
-        if self.vacuum_ratio.len() != 4 {
+        if self.vacuum_ratio.len() != SIDES {
             return invalid(format!(
-                "`vacuum_ratio` has {} sides, expected 4",
+                "`vacuum_ratio` has {} sides, expected {SIDES}",
                 self.vacuum_ratio.len()
             ));
         }
@@ -130,19 +138,24 @@ impl FewGroup {
                 ));
             }
         }
-        if self.normalized_adf.len() != 4 {
+        if self.normalized_adf.len() != SIDES {
             return invalid(format!(
-                "`normalized_adf` has {} sides, expected 4",
+                "`normalized_adf` has {} sides, expected {SIDES}",
                 self.normalized_adf.len()
             ));
         }
         // f* は燃料と接する辺の値で、外周の真空の辺は燃料と接しない
         if let Some(side) =
-            (0..4).find(|&s| self.normalized_adf[s] && self.vacuum_ratio[s].is_some())
+            (0..SIDES).find(|&s| self.normalized_adf[s] && self.vacuum_ratio[s].is_some())
         {
             return invalid(format!(
                 "`normalized_adf` marks side {side}, which is a vacuum side"
             ));
+        }
+        if let Some(h) = self.height
+            && !(h > 0.0 && h.is_finite())
+        {
+            return invalid(format!("`height` must be positive, got {h}"));
         }
         if !(self.k_inf > 0.0 && self.k_inf.is_finite()) {
             return invalid(format!("invalid k-inf {}", self.k_inf));

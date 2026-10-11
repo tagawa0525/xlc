@@ -20,9 +20,10 @@ fn fuel(width: f64, cells: usize) -> FewGroup {
         chi: vec![1.0, 0.0],
         diffusion: vec![d1, d2],
         scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
-        adf: vec![vec![1.0, 1.0]; 4],
-        vacuum_ratio: vec![None; 4],
-        normalized_adf: vec![false; 4],
+        adf: vec![vec![1.0, 1.0]; 6],
+        vacuum_ratio: vec![None; 6],
+        normalized_adf: vec![false; 6],
+        height: None,
         pins: Some(Pins {
             dx: vec![width / cells as f64; cells],
             dy: vec![width / cells as f64; cells],
@@ -184,7 +185,7 @@ fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
     p.node_material = vec![0; 4];
     p.boundaries[2] = Boundary::Reflective;
     p.boundaries[3] = Boundary::Reflective;
-    p.materials[0].adf = vec![vec![1.2, 1.2]; 4];
+    p.materials[0].adf = vec![vec![1.2, 1.2]; 6];
     if let Some(pins) = p.materials[0].pins.as_mut() {
         pins.corners = vec![vec![1.3, 1.3]; 4];
     }
@@ -220,14 +221,23 @@ fn vacuum_corners_take_the_ratio_and_adf_of_their_side() {
     p.node_material = vec![0; 4];
     p.boundaries[0] = Boundary::Reflective;
     p.boundaries[1] = Boundary::Reflective;
-    // 辺（左、右、上、下）
+    // 辺（左、右、上、下、−z、+z）
     p.materials[0].adf = vec![
         vec![1.0, 1.0],
         vec![1.0, 1.0],
         vec![0.9, 0.8],
         vec![1.2, 1.1],
+        vec![1.0, 1.0],
+        vec![1.0, 1.0],
     ];
-    p.materials[0].vacuum_ratio = vec![None, None, Some(vec![0.45, 0.35]), Some(vec![0.3, 0.4])];
+    p.materials[0].vacuum_ratio = vec![
+        None,
+        None,
+        Some(vec![0.45, 0.35]),
+        Some(vec![0.3, 0.4]),
+        None,
+        None,
+    ];
     if let Some(pins) = p.materials[0].pins.as_mut() {
         pins.corners = vec![vec![1.3, 1.25]; 4];
     }
@@ -368,9 +378,10 @@ fn reflector(width: f64, cells: usize, corners: Vec<Vec<f64>>, normalized: Vec<b
         chi: vec![1.0, 0.0],
         diffusion: vec![d1, d2],
         scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
-        adf: vec![vec![1.0, 1.0]; 4],
-        vacuum_ratio: vec![None; 4],
-        normalized_adf: vec![false; 4],
+        adf: vec![vec![1.0, 1.0]; 6],
+        vacuum_ratio: vec![None; 6],
+        normalized_adf: vec![false; 6],
+        height: None,
         pins: Some(Pins {
             dx: vec![width / cells as f64; cells],
             dy: vec![width / cells as f64; cells],
@@ -490,6 +501,8 @@ fn reflector_sites_turned_with_the_core_keep_k_and_pins() {
         vec![0.99, 1.05],
         vec![1.04, 0.95],
         vec![0.98, 1.03],
+        vec![1.0, 1.0],
+        vec![1.0, 1.0],
     ];
     if let Some(p) = f.pins.as_mut() {
         p.form = (0..2)
@@ -526,8 +539,10 @@ fn reflector_sites_turned_with_the_core_keep_k_and_pins() {
         vec![1.1, 0.6],
         vec![0.9, 1.2],
         vec![1.15, 0.45],
+        vec![1.0, 1.0],
+        vec![1.0, 1.0],
     ];
-    r.normalized_adf = vec![true, false, false, true];
+    r.normalized_adf = vec![true, false, false, true, false, false];
     let base = Path::new("dir");
     let inventory = Inventory::parse(
         "[design.F]\nbounds = [0.0, 30.0]\nlayers = [\"f.msgpack\"]\n\
