@@ -496,6 +496,13 @@ fn check_part(nuclide: &NuclideInput, part: &Library) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// 核種ごとの結果が、入力と範囲のファイルと同じ条件で作られたこと（群構造、σ0、ポイントワイズの範囲、散乱行列の次数）を
+/// 確かめる。古い結果が残っていても、組み立てが黙って食い違うライブラリを作らないため。
+fn check_shared(input: &Input, range: Option<(f64, f64)>, part: &Library) -> anyhow::Result<()> {
+    let _ = (input, range, part);
+    Err(anyhow!("not implemented"))
+}
+
 /// 核種を処理する（処理の時間をログに出す）。
 #[tracing::instrument(name = "nuclide", skip_all, fields(name = %nuclide.name))]
 fn process_file(
@@ -706,6 +713,7 @@ temperatures = [293.6, 900]
         let err = replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1e10, 10").unwrap_err();
         assert!(err.to_string().contains("line"), "{err}");
     }
+
     #[test]
     fn the_pointwise_range_file_round_trips() {
         for range in [Some((4.0, 9118.0)), Some((0.1 + 0.2, 1.0e5)), None] {
@@ -776,5 +784,33 @@ temperatures = [293.6, 900]
         let mut none = part_of("U-238", &[293.6, 900.0]);
         none.nuclides.clear();
         assert!(check_part(uranium, &none).is_err());
+    }
+
+    #[test]
+    #[ignore = "RED: check_shared is not implemented yet"]
+    fn a_nuclide_result_must_share_the_conditions_of_the_input() {
+        let input = parse_input(INPUT, Path::new(".")).unwrap();
+        let range = Some((4.0, 9118.0));
+        let mut part = part_of("U-238", &[293.6, 900.0]);
+        part.sigma0 = input.sigma0.clone();
+        part.pointwise_range = range.map(|(low, high)| [low, high]);
+        for t in &mut part.nuclides[0].temperatures {
+            t.scatter = vec![Vec::new(); input.scattering_order + 1];
+        }
+        assert!(check_shared(&input, range, &part).is_ok());
+        let mut sigma0 = part.clone();
+        sigma0.sigma0 = vec![1.0e10, 5.0, 1.0];
+        let mut groups = part.clone();
+        groups.groups = GroupStructure::new(vec![1.0e7, 1.0, 1.0e-5]).unwrap();
+        let mut order = part.clone();
+        order.nuclides[0].temperatures[1].scatter.pop();
+        let mut other_range = part.clone();
+        other_range.pointwise_range = Some([4.0, 1.0e3]);
+        let mut no_range = part.clone();
+        no_range.pointwise_range = None;
+        for stale in [sigma0, groups, order, other_range, no_range] {
+            assert!(check_shared(&input, range, &stale).is_err());
+        }
+        assert!(check_shared(&input, None, &part).is_err());
     }
 }
