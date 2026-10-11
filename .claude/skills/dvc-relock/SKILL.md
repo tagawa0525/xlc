@@ -102,9 +102,12 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
      復元が合わなくなる）。実行したコミットが rebase で付け替わっていたら、hash だけを付け替える。記録に実行した
      コミットと分岐点が書かれていなければ、書く（ADR-0130 の「確認」の形）
 
-   hash の付け替えは、手で書き換えず、`commit-refs remap` で行う（rebase と amend では、`remap.commitRefs` が true なら post-rewrite hook が自動で呼ぶ。失敗したときだけ手で呼ぶ。付け替えはコミットされないので、自分でコミットする）。対応表（「旧 新」の完全な
-   hash）は、rebase の前の tip（`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させて作り、
-   中身を確かめてから渡す（全ファイルを書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。付け替えのコミットは `docs:` で分ける。
+   hash の付け替えは、手で書き換えず、`commit-refs remap` で行う。rebase と amend では、`remap.commitRefs` が true なら
+   post-rewrite hook が自動で呼ぶ（付け替えはコミットされないので、自分でコミットする）。hook が失敗したときは、
+   `$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` の対応表で `commit-refs remap <そのファイル>` を呼び直す
+   （詳細は verification-record の「rebase のあと」の節）。手で対応表を作るのは、この対応表が無いときだけ。rebase の前の tip
+   （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
+   書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。付け替えのコミットは `docs:` で分ける。
 
 この後は /git-merge の「チェック」に進む。
 
