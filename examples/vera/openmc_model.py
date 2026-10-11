@@ -1,16 +1,16 @@
-"""VERA Problem 1B〜1D（ピンセル）と 2B〜2J（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
+"""VERA Problem 1B〜1D（ピンセル）と 2B〜2K（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
 使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ>
         [粒子数/世代] [世代数] [捨てる世代数] [乱数の種] [xlc のライブラリ]
 
 <問題> は 1B, 1C, 1D, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
-2G, 2H, 2I, 2J。断面積は openmc_library.py で作ったもの。
+2G, 2H, 2I, 2J, 2K。断面積は openmc_library.py で作ったもの。
 組成は仕様書（CASL-U-2012-0131-004）の表 P1-4, P2-4 の個数密度で、Hf（1e-6 /(barn cm) 未満）と
 ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ。ADR-0120）。燃料以外は 600 K。
-2B〜2J は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
+2B〜2K は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
 xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
-問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。
+問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。2 種の燃料を持つ 2K では書かない（エラーにする）。
 """
 
 import sys
@@ -57,6 +57,7 @@ FUEL_TEMPERATURE = {
     "2H": 600.0,
     "2I": 600.0,
     "2J": 600.0,
+    "2K": 600.0,
 }
 
 # 個数密度 (/(barn cm))
@@ -66,6 +67,14 @@ FUEL = {
     "U236": 3.29861e-06,
     "U238": 2.21546e-02,
     "O16": 4.57642e-02,
+}
+# 2K の濃縮度 3.6% の燃料（表 P2-4）
+FUEL_36 = {
+    "U234": 7.21203e-06,
+    "U235": 8.33952e-04,
+    "U236": 3.82913e-06,
+    "U238": 2.20384e-02,
+    "O16": 4.57669e-02,
 }
 ZIRCALOY = {
     "Cr50": 3.30121e-06,
@@ -92,7 +101,7 @@ ZIRCALOY = {
     "Sn122": 2.23417e-05,
     "Sn124": 2.79392e-05,
 }
-# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2J）。仕様書の表 P2-1、P2-4
+# 1300 ppm のホウ素。0.661 g/cc（1B〜1D、2B〜2D）と 0.743 g/cc（2E〜2K）。仕様書の表 P2-1、P2-4
 MODERATOR = {
     "O16": 2.20729e-02,
     "H1": 4.41459e-02,
@@ -172,6 +181,7 @@ MODERATOR_OF = {
     "2H": MODERATOR_DENSE,
     "2I": MODERATOR_DENSE,
     "2J": MODERATOR_DENSE,
+    "2K": MODERATOR_DENSE,
 }
 # Pyrex の棒（仕様書の表 6）: 内管の内と外、Pyrex の内と外、被覆管の内と外の半径。内管の中と間は真空
 PYREX_RADII = (0.214, 0.231, 0.241, 0.427, 0.437, 0.484)
@@ -208,6 +218,23 @@ GUIDE_TUBES = [
     (14, 11),
 ]
 INSTRUMENT_TUBE = (8, 8)
+# 2K の濃縮度 3.1% のピンの、1/8 の中の位置（中央からの行と列の数。仕様書の図 P2-2）。ほかの燃料ピンは 3.6%
+LOW_ENRICHMENT_2K = {(1, 0), (7, 7), (8, 6), (8, 7), (8, 8)}
+
+
+def octant_images(octant: set[tuple[int, int]]) -> set[tuple[int, int]]:
+    """1/8 の中の位置（中央からの行と列の数）を、8 つの対称操作で移した集合体の位置（行, 列。0 始まり）にする。"""
+    centre = N // 2
+    for a, b in octant:
+        if not 0 <= b <= a <= centre:
+            raise SystemExit(f"{(a, b)} is not in the octant")
+    return {
+        (centre + si * x, centre + sj * y)
+        for a, b in octant
+        for x, y in ((a, b), (b, a))
+        for si in (1, -1)
+        for sj in (1, -1)
+    }
 
 
 Layers = list[tuple[openmc.Material | None, float]]
@@ -277,9 +304,12 @@ INSERTS = {
     "2G": (lambda: rod_layers("aic", AIC, 0.382), GUIDE_TUBES),
     "2H": (lambda: rod_layers("b4c", B4C, 0.373), GUIDE_TUBES),
     "2J": (pyrex_layers, GUIDE_TUBES),
+    "2K": (pyrex_layers, GUIDE_TUBES),
 }
 # 計装管に入れるものの層を作る関数
 INSTRUMENT_INSERTS = {"2I": thimble_layers, "2J": thimble_layers}
+# 2 種目の燃料（個数密度）と、元の燃料（FUEL）のまま残すピンの位置
+ZONED = {"2K": (FUEL_36, octant_images(LOW_ENRICHMENT_2K))}
 
 
 def geometry_of(
@@ -290,21 +320,26 @@ def geometry_of(
     gap: openmc.Material | None = None,
     insert: openmc.Universe | None = None,
     instrument_insert: openmc.Universe | None = None,
+    zoned_fuel: openmc.Material | None = None,
 ) -> tuple[openmc.Geometry, float]:
     """問題の形状と、外周の箱の半分の幅 (cm)。外周は鏡面反射。`gap` はペレットと被覆管の間（None なら真空）。
     `insert` は案内管に入れるもののセルで、INSERTS にある問題で要る。`instrument_insert` は計装管に入れるものを
-    入れた計装管のセルで、INSTRUMENT_INSERTS にある問題で要る。"""
+    入れた計装管のセルで、INSTRUMENT_INSERTS にある問題で要る。`zoned_fuel` は 2 種目の燃料で、ZONED にある問題で要る。"""
     pellet, inner, outer = (
         openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
     )
-    rod = openmc.Universe(
-        cells=[
-            openmc.Cell(fill=fuel, region=-pellet),
-            openmc.Cell(fill=gap, region=+pellet & -inner),
-            openmc.Cell(fill=clad, region=+inner & -outer),
-            openmc.Cell(fill=water, region=+outer),
-        ]
-    )
+
+    def rod_of(pellet_fill: openmc.Material) -> openmc.Universe:
+        return openmc.Universe(
+            cells=[
+                openmc.Cell(fill=pellet_fill, region=-pellet),
+                openmc.Cell(fill=gap, region=+pellet & -inner),
+                openmc.Cell(fill=clad, region=+inner & -outer),
+                openmc.Cell(fill=water, region=+outer),
+            ]
+        )
+
+    rod = rod_of(fuel)
 
     if problem.startswith("1"):
         half = PITCH / 2
@@ -320,6 +355,18 @@ def geometry_of(
         else:
             instrument = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
         universes = [[rod] * N for _ in range(N)]
+        if problem in ZONED:
+            if zoned_fuel is None:
+                raise SystemExit(f"{problem} needs its second fuel")
+            zoned = rod_of(zoned_fuel)
+            kept = ZONED[problem][1]
+            tubes = {*GUIDE_TUBES, INSTRUMENT_TUBE} & kept
+            if tubes:
+                raise SystemExit(f"fuel kept at tube positions {sorted(tubes)}")
+            for i in range(N):
+                for j in range(N):
+                    if (i, j) not in kept:
+                        universes[i][j] = zoned
         for i, j in GUIDE_TUBES:
             universes[i][j] = guide
         universes[INSTRUMENT_TUBE[0]][INSTRUMENT_TUBE[1]] = instrument
@@ -411,6 +458,18 @@ def main() -> None:
             if fill is not None and all(fill is not m for m in materials):
                 materials.append(fill)
 
+    zoned_fuel = None
+    if problem in ZONED:
+        if library is not None:
+            # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
+            raise SystemExit(
+                f"{problem} has two fuels; pin cross sections are not written"
+            )
+        zoned_fuel = material(
+            "fuel-zoned", ZONED[problem][0], FUEL_TEMPERATURE[problem]
+        )
+        materials.append(zoned_fuel)
+
     insert = None
     if problem in INSERTS:
         layers = INSERTS[problem][0]()
@@ -432,6 +491,7 @@ def main() -> None:
         water,
         insert=insert,
         instrument_insert=instrument_insert,
+        zoned_fuel=zoned_fuel,
     )
 
     settings = run.settings(half)
