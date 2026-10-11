@@ -742,3 +742,58 @@ fn case_may_write_pin_powers() {
     assert_eq!(c.pin_powers, Some(PathBuf::from("dir/pins.msgpack")));
     assert_eq!(case().pin_powers, None);
 }
+
+#[test]
+fn layers_may_put_marshak_on_their_vacuum_faces() {
+    // 径方向の真空の比 r を持たない層（軸方向の反射体のスラブの定数）は、その層の真空の面を Marshak の条件
+    // （r = 1/2）にすることを入力で明示する（ADR-0132）。r を持たない径方向の辺に r = 1/2 を置く
+    let text = edited(
+        PLANT,
+        "layers = [\"r.msgpack\"]",
+        "layers = [{ file = \"r.msgpack\", vacuum = \"marshak\" }]",
+    );
+    let p = Plant::parse(&text, base()).unwrap();
+    assert_eq!(
+        p.reflectors["R"].layers,
+        vec![PathBuf::from("dir/r.msgpack")]
+    );
+    let layout = layout_of(&case(), &cycle(), &p).unwrap();
+    let plain = |fissile: bool| {
+        let mut m = sided(fissile);
+        m.vacuum_ratio = vec![None; 4];
+        m.normalized_adf = vec![false; 4];
+        m
+    };
+    let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| plain(!r)).collect();
+    let problem = layout.problem(&unsplit(&constants)).unwrap();
+    for (n, m) in problem.node_material.iter().enumerate() {
+        let m = &problem.materials[m.unwrap()];
+        let expected = if n % 3 == 1 {
+            vec![None; 4]
+        } else {
+            vec![Some(vec![0.5, 0.5]); 4]
+        };
+        assert_eq!(m.vacuum_ratio, expected, "node {n}");
+    }
+    // 定数が径方向の辺に r を持てば、Marshak に替えずにエラー
+    let mut with_ratio = constants.clone();
+    for (c, &r) in with_ratio.iter_mut().zip(&layout.reflector) {
+        if r {
+            c.vacuum_ratio[1] = Some(vec![0.4, 0.3]);
+        }
+    }
+    let err = layout
+        .problem(&unsplit(&with_ratio))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("marshak"), "{err}");
+    // 書けるのは marshak だけ。知らない項目はエラー
+    for bad in [
+        "layers = [{ file = \"r.msgpack\", vacuum = \"vacuum\" }]",
+        "layers = [{ file = \"r.msgpack\", vacuum = \"marshak\", size = 1 }]",
+        "layers = [{ vacuum = \"marshak\" }]",
+    ] {
+        let text = edited(PLANT, "layers = [\"r.msgpack\"]", bad);
+        assert!(Plant::parse(&text, base()).is_err(), "{bad}");
+    }
+}
