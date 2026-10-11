@@ -41,6 +41,15 @@ fn round_trips_bit_exactly() {
         Table::from_msgpack(&single.to_msgpack().unwrap()).unwrap(),
         single
     );
+    // z の厚さのない（2次元の格子計算の）定数
+    let flat = Table::single(FewGroup {
+        height: None,
+        ..state(3.5)
+    });
+    assert_eq!(
+        Table::from_msgpack(&flat.to_msgpack().unwrap()).unwrap(),
+        flat
+    );
 }
 
 #[test]
@@ -112,8 +121,12 @@ fn invalid_tables_are_errors() {
     });
     // 群境界、f* の印、真空の辺が状態の間で違う
     bad(|t| t.states[3].bounds = vec![2.0e7, 0.625, 1.0e-5]);
-    bad(|t| t.states[3].normalized_adf = vec![false; 4]);
+    bad(|t| t.states[3].normalized_adf = vec![false; 6]);
     bad(|t| t.states[3].vacuum_ratio[1] = None);
+    bad(|t| t.states[3].vacuum_ratio[5] = None);
+    // z の厚さも状態によらない（ADR-0128）
+    bad(|t| t.states[2].height = None);
+    bad(|t| t.states[2].height = Some(12.0));
     // 状態そのものの誤り
     bad(|t| t.states[1].total[0] = f64::NAN);
 }
@@ -279,4 +292,37 @@ fn split_tables_hold_sub_nodes_per_state() {
     }
     let err = bounds.validate().unwrap_err().to_string();
     assert!(err.contains("bounds"), "{err}");
+}
+
+#[test]
+fn states_need_the_height_key() {
+    // z の厚さのない定数も `height` に nil を書く（ADR-0128、ADR-0129）。キーのないファイルは読まない
+    let table = Table::single(FewGroup {
+        height: None,
+        ..state(3.5)
+    });
+    let mut value = msgpack::read_value(&table.to_msgpack().unwrap()).unwrap();
+    let rmpv::Value::Map(entries) = &mut value else {
+        panic!()
+    };
+    let (_, states) = entries
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("states"))
+        .unwrap();
+    let rmpv::Value::Array(states) = states else {
+        panic!()
+    };
+    let rmpv::Value::Map(fields) = &mut states[0] else {
+        panic!()
+    };
+    assert!(
+        fields
+            .iter()
+            .any(|(k, v)| k.as_str() == Some("height") && v.is_nil())
+    );
+    fields.retain(|(k, _)| k.as_str() != Some("height"));
+    let mut out = Vec::new();
+    rmpv::encode::write_value(&mut out, &value).unwrap();
+    let err = Table::from_msgpack(&out).unwrap_err().to_string();
+    assert!(err.contains("height") || err.contains("missing"), "{err}");
 }
