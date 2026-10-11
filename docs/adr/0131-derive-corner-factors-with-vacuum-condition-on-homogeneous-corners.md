@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-11
 requires: [ADR-0095, ADR-0096, ADR-0101, ADR-0103]
 supersedes: [ADR-0125]
@@ -18,8 +18,8 @@ issues: ["#0065"]
 Φ が未知数なので、流れは r Φ になる。
 
 真空の辺のある格子で、s_p が負になり CDF を作れなかった（#0065）。燃料のピン 2 × 2 の右と上に幅 6 cm の水を置き、
-右と上を真空にした格子（examples/reflector/vacuum-corner。69 群のライブラリ、自己遮蔽なし）で、角の点の s_p は次の
-とおりだった（examples/reflector/verification.md の「真空の辺の角の点の大きさ」、4b34d96e、2026-10-11）。
+右と上を真空にした格子（examples/reflector/vacuum-corner の `w6-n*.toml`。69 群のライブラリ、自己遮蔽なし）で、ADR-0125 の
+式の角の点の s_p は次のとおりだった（4b34d96e、2026-10-11。入力は 22919c3d でコミットしたもの）。
 
 | 水のマスの 1 辺 | 2 辺が真空の角の点の s_p（高速、熱） | その点の Φ_p の熱群 | 1 辺が真空の角の点の s_p の熱群 |
 | --------------- | ------------------------------------ | ------------------- | ------------------------------- |
@@ -30,8 +30,10 @@ issues: ["#0065"]
 
 ノード（燃料 2.52 cm、水 6 cm）は同じで、s_p は水のマスの大きさ、つまり Φ_p の見積もりで大きく動く。Φ_p は角の点に
 接する MOC の領域の中性子束の平均（[ADR-0108](0108-split-assemblies-with-shared-constants.md) の定義）で、真空の辺の近くで中性子束が急に下がるところでは、領域が
-大きいほど点の値より大きい。上の辺を鏡面反射にした同じ格子（1 cm のマス）でも、真空の辺と鏡面反射の辺の角の点の熱群で
-0.039 だった。
+大きいほど点の値より大きい。上の辺を鏡面反射にした同じ格子（1 cm のマス、`w6-n6-top.toml`）でも、真空の辺と鏡面反射の辺の角の点の熱群で
+0.039 だった（同じコミット）。5-2D の外周の角に当たる角型の反射体の格子（examples/reflector/reflector-corner.toml。燃料 1 体と
+反射体 3 つ、右と上が真空）では、2 辺が真空の角の点の s_p が（−0.217, −8.18）、真空の辺と鏡面反射の辺の角の点で
+（0.463, 0.740）だった（同じコミット）。
 
 2 辺が真空の角の点にはノードが 1 つしかなく、CPB は J_x + J_y = (r_x + r_y) Φ_p（J はノードの展開の、角の点での外向きの
 流れ）になる。均質な角の値を上げると、面の平均の流れを保ったまま角の点の外向きの勾配が緩むので、展開の角の点の流れは
@@ -45,7 +47,7 @@ issues: ["#0065"]
 点の値で、比が辺にそって一定なので、ADR-0125 の式もここで決める式も同じになる。したがって負の s_p は、展開がその形を
 表せないことでなく、真空の辺の流れを不均質な点の値で与える CPB の立て方から来る。#0027（4 次の多項式の NEM で面の
 中性子束が負になる）とは仕組みが違う。ここの展開は解析的な関数で、ノードの幅を半分の 3 cm にしても ADR-0125 の式の s_p は
-負のままだった（0.5 cm のマスで熱群 −0.467）。
+負のままだった（`w3-n6.toml`、0.5 cm のマスで熱群 −0.467。同じコミット）。
 
 - 定数を作った体系では、core の再構成が参照の角の不均質な中性子束とピン出力を再現すること（ADR-0125 と同じ）
 - 原理で決まり、手で合わせる係数を持たないこと。MOC の領域の分け方で CDF を作れるかどうかが変わらないこと
@@ -171,4 +173,34 @@ CPB は Φ_ref で満たされる。CPB の解は一つなので、core は Φ_r
 
 ## 確認
 
-（実装で埋める）
+テスト（What）:
+
+- 2 辺が真空の格子でも、格子のノードごとの定数と形状で core の形の CPB（未知数が不均質な角の中性子束、均質な角の値は
+  Φ / CDF、真空の辺の流れは r × ADF × 均質な角の値）を、参照のノード平均と辺の正味の流れで解くと、角の点の不均質な
+  中性子束と再構成したセルの核分裂率が格子の値に相対 10⁻⁹ で一致する（lattice の
+  `two_vacuum_sides_pins_reproduce_the_lattice`。真空の辺が 1 つの `l_shaped_pins_reproduce_the_lattice`、
+  `strip_pins_reproduce_the_lattice` も同じ式で）
+- core の真空の辺の角の点の流れは r f × 均質な角の値（CDF と ADF が違うとき。core の
+  `vacuum_corners_lose_r_times_the_homogeneous_corner_flux`）
+- 未知数の大きさを角の点ごとに変えても、均質な角の値は変わらない（numeric の
+  `corner_scales_do_not_change_the_homogeneous_corner_values`）
+- 拡散の世界で、2 辺が真空の角の CPB の値が細かいメッシュの拡散の解に近い（numeric の
+  `vacuum_corners_follow_the_fine_mesh_diffusion`。背景）
+- s_p が正でなければエラー（lattice の `non_positive_corner_scales_are_errors`）
+- ADR-0125 から変わらない決定のテスト（`one_reflective_node_keeps_the_assembly_pins`、
+  `strip_corner_factors_follow_the_face_discontinuity`、`pins_need_reflector_nodes_without_fission`、
+  `normalized_reflector_corners_take_the_fuel_corner_factor`、`normalized_corners_need_fuel_at_the_corner_point`、
+  format の `pins_are_checked`、`pins_round_trip_and_share_cells`、core の `rotation_turns_pins_counterclockwise`）
+
+比較（examples/reflector/verification.md、f2046a18、2026-10-11）:
+
+- 「真空の辺の角の点の大きさ」: 背景の格子の系列で、s_p はどれも 0.92〜1.12。2 辺が真空の角の点の熱群は、水のマスを
+  1 cm から 0.125 cm にしても 0.947 から 0.922（Φ_p は 3.2 分の 1）で、領域の分け方にほとんど依らない
+- 「角型の反射体の格子の角の不連続因子」: 5-2D の外周の角に当たる角型の格子（燃料 1 体と反射体 3 つ、右と上が真空）で、
+  s_p はどれも正で、CDF を作れた。2 辺が真空の角の点の熱群の s_p は 0.046 で、見込み h̃ がその点で大きく外れる（再現には
+  効かない）
+- 「I 型の格子のピン出力の再構成」: I 型の反射体の格子で、core の再構成（等価性）は MOC のピン出力に RMS 0.080%、
+  最大 −0.315% で、ADR-0125 の式（3f000b1c）と同じ。真空の辺の角の点の CDF だけが変わり、燃料の単一集合体の定数を使う
+  f* の方法は RMS 1.867% から 1.897% になった
+- REF1-2D と 5-2D の再構成の比較は #0043 に残す。判定は ADR-0118 の 2 段階の手法の閾値で、反射体に接する列の RMS と
+  最大を別に記録する
