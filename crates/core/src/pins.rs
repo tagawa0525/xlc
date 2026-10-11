@@ -280,6 +280,22 @@ pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f6
         .collect())
 }
 
+/// 核分裂のある軸方向の層ごとのセルの出力（`axial_rows`）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct AxialRows {
+    /// 核分裂のある層の境界の z (cm、炉心の下端から、下から)
+    pub bounds: Vec<f64>,
+    /// 層ごとの燃料のセルの平均の線密度（燃料の高さでの平均で 1）
+    pub axial: Vec<f64>,
+    /// 層ごと（下から）のセルの線密度 [層][行（上から）][列（左から）]（燃料のセルと燃料の高さでの平均で 1）
+    pub layers: Vec<Vec<Vec<f64>>>,
+}
+
+/// 核分裂のある層ごとのセルの出力。
+pub fn axial_rows(_problem: &Problem, _maps: &[Vec<Vec<f64>>]) -> Result<AxialRows, String> {
+    Err("axial pin powers are not implemented".into())
+}
+
 /// セルの大きさの並びが、丸めの程度（全体の 1e-9）で等しいか。切ったセルの幅は、回した集合体と回していない集合体で
 /// 最後の桁が違いうる（座標の引き算の丸め）
 fn same_sizes(a: &[f64], b: &[f64]) -> bool {

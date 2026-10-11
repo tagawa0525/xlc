@@ -183,6 +183,84 @@ fn core_rows_join_nodes_from_the_top() {
 }
 
 #[test]
+fn axial_rows_keep_each_fissile_layer_as_linear_densities() {
+    // core_rows_join_nodes_from_the_top の 2 × 1 のノードの燃料の 2 層（厚さ 1 と 3 cm）の下に厚さ 5 cm、上に 2 cm の
+    // 核分裂のない層。層ごとの表は core_rows と同じ行と列（上から、すべて 0 の列を除く）で、燃料のセルと燃料の高さ
+    // H = 4 cm の平均で 1 の線密度にする: 層の値 × H / (層の厚さで重みを付けた和の、燃料のセルの平均 14)。軸方向の出力は
+    // 層ごとの燃料のセル（3 つ）の平均で、燃料の高さの平均で 1。境界は炉心の下端からの z
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![2.0, 2.0],
+            dy: vec![2.0],
+            dz: vec![5.0, 1.0, 3.0, 2.0],
+        },
+        materials: vec![fuel(2.0, 2)],
+        reflectors: Vec::new(),
+        node_material: vec![Some(0); 8],
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let left = vec![vec![1.0, 0.0], vec![2.0, 0.0]];
+    let right = vec![vec![3.0, 0.0], vec![0.0, 0.0]];
+    let twice = |m: &Vec<Vec<f64>>| -> Vec<Vec<f64>> {
+        m.iter()
+            .map(|r| r.iter().map(|v| 2.0 * v).collect())
+            .collect()
+    };
+    let maps = vec![
+        Vec::new(),
+        Vec::new(),
+        left.clone(),
+        right.clone(),
+        twice(&left),
+        twice(&right),
+        Vec::new(),
+        Vec::new(),
+    ];
+    let out = axial_rows(&p, &maps).unwrap();
+    assert_eq!(out.bounds, vec![5.0, 6.0, 9.0]);
+    let s = 4.0 / 14.0;
+    assert_eq!(
+        out.layers,
+        vec![
+            vec![vec![2.0 * s, 0.0], vec![s, 3.0 * s]],
+            vec![vec![4.0 * s, 0.0], vec![2.0 * s, 6.0 * s]],
+        ]
+    );
+    let close = |a: f64, b: f64| (a - b).abs() < 1e-12;
+    assert!(close(out.axial[0], 4.0 / 7.0) && close(out.axial[1], 8.0 / 7.0));
+    // 層の厚さで重みを付けた平均は core_rows の表
+    let rows = core_rows(&p, &maps).unwrap();
+    for (r, row) in rows.iter().enumerate() {
+        for (c, v) in row.iter().enumerate() {
+            let mean = (1.0 * out.layers[0][r][c] + 3.0 * out.layers[1][r][c]) / 4.0;
+            assert!(close(mean, *v), "({r}, {c}): {mean} vs {v}");
+        }
+    }
+}
+
+#[test]
+fn axial_rows_need_contiguous_fissile_layers() {
+    // 燃料の層の間に核分裂のない層があると、層の境界を1つの並びで書けない
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![2.0],
+            dy: vec![2.0],
+            dz: vec![1.0, 1.0, 1.0],
+        },
+        materials: vec![fuel(2.0, 2)],
+        reflectors: Vec::new(),
+        node_material: vec![Some(0); 3],
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let map = vec![vec![1.0, 1.0], vec![1.0, 1.0]];
+    let maps = vec![map.clone(), Vec::new(), map];
+    let err = axial_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("contiguous"), "{err}");
+}
+
+#[test]
 fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
     // 平板（x は Marshak、y と z は反射）の左下の角の点の箱は、ノード 0 だけを含み、箱の辺から出ていく流れ
     // J_x + J_y（J = −D∇φ）と、真空の辺から出ていく r f φ_c（r = 1/2、f は面の ADF、φ_c = Φ / CDF は均質な角の値）の
