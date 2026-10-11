@@ -34,6 +34,10 @@ struct Repo<'a> {
 
 impl Repo<'_> {
     /// リポジトリの根で git を実行する。git がなければエラーにする。
+    #[allow(
+        clippy::disallowed_methods,
+        reason = "テスト用のリポジトリに、呼び出し元の GIT_* を持ち込まない"
+    )]
     fn git(&self, args: &[&str]) -> Result<Output> {
         let mut command = Command::new("git");
         command.arg("-C").arg(self.root).args(args);
