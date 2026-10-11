@@ -48,11 +48,17 @@ impl AxialPinPowers {
     /// MessagePack（フィールド名付きの map 形式）で書く。
     pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> {
         #[derive(Serialize)]
-        struct File {
+        struct File<'a> {
             format: &'static str,
+            bounds: &'a [f64],
+            axial: &'a [f64],
+            layers: &'a [Vec<Vec<f64>>],
         }
         msgpack::to_named(&File {
             format: AXIAL_FORMAT,
+            bounds: &self.bounds,
+            axial: &self.axial,
+            layers: &self.layers,
         })
     }
 }
