@@ -247,6 +247,9 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
+    if pins.is_empty() {
+        return Err(anyhow!("no fuel pin has SPH factors"));
+    }
     let order = input.scattering_order;
 
     let base_solved = solve_with(&tracking, &shielded, &names, order, name)?;
@@ -284,9 +287,12 @@ fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    // (A) 元の SPH 因子をそのまま掛ける
+    // (A) 元の SPH 因子をそのまま掛ける（置き換えない物質は元のまま）
     let mut kept_shielding = shielded.clone();
     for (i, (m, mu)) in swapped.iter().zip(&factor_of).enumerate() {
+        if !chosen[i] {
+            continue;
+        }
         kept_shielding.materials[i] = match mu {
             Some(mu) => m.scaled(mu)?,
             None => m.clone(),
@@ -299,7 +305,13 @@ fn main() -> anyhow::Result<()> {
     let mut refit_factor: Vec<Option<Vec<f64>>> = vec![None; shielded.materials.len()];
     let (mut deviation, mut change) = (0.0_f64, 0.0_f64);
     let mut factors_of_cell = BTreeMap::new();
+    // リングの物質が同じピン（対称操作で移り合う組）は、等価なセルも因子も同じなので一度だけ解く
+    let mut solved: BTreeMap<&[usize], Vec<Vec<f64>>> = BTreeMap::new();
     for p in &pins {
+        if let Some(recomputed) = solved.get(p.material.as_slice()) {
+            factors_of_cell.insert(p.pin.cell, recomputed.clone());
+            continue;
+        }
         let geometry = lattice
             .cell_type(p.pin.cell)
             .pin()
@@ -377,7 +389,8 @@ fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        factors_of_cell.insert(p.pin.cell, recomputed);
+        factors_of_cell.insert(p.pin.cell, recomputed.clone());
+        solved.insert(&p.material, recomputed);
     }
     for pin in &mut refit_shielding.pins {
         if let (Some(f), Some(recomputed)) = (&mut pin.sph, factors_of_cell.get(&pin.cell)) {
@@ -388,9 +401,10 @@ fn main() -> anyhow::Result<()> {
     let kept = solve_with(&tracking, &kept_shielding, &names, order, name)?;
     let refitted = solve_with(&tracking, &refit_shielding, &names, order, name)?;
     println!(
-        "groups {first}..={last}; {} pins; SPH factors recomputed from the reference: max |Δμ| \
+        "groups {first}..={last}; {} pins ({} solved); SPH factors recomputed from the reference: max |Δμ| \
          {deviation:.1e}; after the swap: max |μ'/μ − 1| {change:.2e}",
-        pins.len()
+        pins.len(),
+        solved.len()
     );
     println!("OpenMC k {:.6}", reference.k);
     for (label, s) in [
