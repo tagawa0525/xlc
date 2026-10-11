@@ -1,6 +1,6 @@
 //! 無限希釈の群平均断面積を、NJOY (GROUPR) の GENDF と比べる。
 //!
-//! 使い方: compare_njoy_gendf <ENDF> <GENDF> <MAT> [MT...]
+//! 使い方: compare_njoy_gendf [--rows] <ENDF> <GENDF> <MAT> [MT...]
 //!
 //! 群構造は WIMS 69群、重み関数は iwt=4（軽水炉向けの値）とする。GENDF は同じ条件で
 //! 0 K、無限希釈（σ0 = 1e10）として作っておくこと。MT452 は ν̄ を比べる。
@@ -11,7 +11,7 @@
 //! GENDF の MF6（MT18 以外）は、散乱行列を Legendre の次数ごと・行ごとに比べる（行の差の絶対値の和 / P0 の行の和）。
 //! 次数は GENDF にある分（GROUPR の lord）まで。
 //! ENDF に MF6 がなく MF5 がある反応は、MF5 の出射エネルギー分布を使う。
-//! 散乱行列はどちらも MF4 の角度分布を使う。環境変数 XLC_ROWS を設定すると、全群の値を表示する。
+//! 散乱行列はどちらも MF4 の角度分布を使う。`--rows` を付けると、全群の値を表示する。
 
 use std::collections::BTreeMap;
 
@@ -24,9 +24,17 @@ use xlc_xs::multigroup::{
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = std::env::args().collect();
+    let (flags, args): (Vec<String>, Vec<String>) =
+        std::env::args().partition(|arg| arg.starts_with("--"));
+    let mut rows = false;
+    for flag in &flags {
+        match flag.as_str() {
+            "--rows" => rows = true,
+            _ => return Err(format!("unknown flag {flag}").into()),
+        }
+    }
     let [_, endf, gendf, mat, mts @ ..] = args.as_slice() else {
-        return Err("usage: compare_njoy_gendf <ENDF> <GENDF> <MAT> [MT...]".into());
+        return Err("usage: compare_njoy_gendf [--rows] <ENDF> <GENDF> <MAT> [MT...]".into());
     };
     let mat: i32 = mat.parse()?;
     let tape = Tape::parse(&std::fs::read_to_string(endf)?)?;
@@ -190,7 +198,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if diff / sum > worst.0 {
                     worst = (diff / sum, g);
                 }
-                if std::env::var("XLC_ROWS").is_ok() {
+                if rows {
                     println!("  MT{mt} P{l} group {g:2}: {:.2e}", diff / sum);
                 }
             }
