@@ -3,8 +3,8 @@ status: accepted
 date: 2026-10-12
 supersedes: []
 superseded-by:
-issues: []
-requires: [ADR-0123]
+issues: ["#0079", "#0080"]
+requires: [ADR-0123, ADR-0130]
 ---
 
 # ADR-0135: 開発のツールは rust-toolchain.toml でなく devShell に足す
@@ -18,7 +18,7 @@ devShell のツールチェーンは `rust-toolchain.toml`（components は rust
 
 `rust-toolchain.toml` は、Rust を使う DVC のステージすべての deps に入っている（[ADR-0123](0123-drive-stages-with-dvc.md)。
 ツールチェーンが変われば出力が変わりうるため）。`flake.nix` は deps に入っておらず、`flake.lock` だけが入っている。
-DVC のステージは default の devShell で実行する。
+DVC のステージは default の devShell で実行する（[ADR-0130](0130-drive-reference-results-with-dvc.md)）。
 
 ## 検討した案
 
@@ -73,16 +73,17 @@ rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot �
 ## 帰結
 
 - 開発のツールを足しても `rust-toolchain.toml`、`flake.lock`、コンパイラの store パスは変わらず、DVC のステージは
-  changed にならず、cargo のビルドもやり直さない
+  changed にならず、コンパイラが変わったことによる cargo の作り直しもない
 - 段階は default の devShell で走るので、`flake.nix` の shell の設定（shellHook の環境変数、別の C コンパイラなど）を
   変えると、deps に表れずに段階のビルドが変わりうる。これはこの決定の前からある限界で、この決定はツールチェーンの
   derivation だけを `rust-toolchain.toml` と `flake.lock` で決まる形に保つ
 - rust-analyzer は開いたワークスペースで `cargo check` を実行し、`target/debug` を run-checks.sh のテストや clippy と
   共有する（worktree の target/flycheck0/stdout の成果物のパスで確かめた）。ロックの取り合いや作り直しが起きるかは
-  確かめていない。DVC のステージは release なので `target/release` を使う。リポジトリの `rust-analyzer.toml` に
+  確かめていない（#0079）。rust-analyzer は Slurm の外で計算機の CPU とメモリを使うので、時間を記録する測定に重なりうる（#0079）。DVC のステージは release なので `target/release` を使う。リポジトリの `rust-analyzer.toml` に
   `[cargo] targetDir = true` を書く形を試したが、rust-analyzer 1.99.0 は `target/rust-analyzer` を作らず、
   `target/debug` を使い続けた。分けるなら、言語サーバーの起動の設定（lsp-det の `.lsp.json` の initializationOptions）で行う
 - 後から `flake.nix` でツールチェーンを override すると、deps に表れずにコンパイラが変わる。止めるのは flake.nix の
-  コメントだけ
+  コメントだけ（#0080）
 - Claude Code の LSP のサーバーは Claude Code の起動時の PATH を引き継ぐ。devShell の中（direnv の効いた main の
-  worktree、または `nix develop -c claude`）で起動した Claude Code だけが Rust の LSP を使える
+  worktree、または `nix develop -c claude`）で起動した Claude Code だけが Rust の LSP を使える。worktree のエージェントは
+  親の PATH を引き継ぎ、main の devShell の rust-analyzer を使う（#0079）
