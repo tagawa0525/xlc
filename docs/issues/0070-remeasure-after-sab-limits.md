@@ -27,7 +27,7 @@ resolution:
 - examples/reflector/verification.md（dvc.yaml の全段階、排他で約 3 時間。#0034 のマージ後に `dvc repro examples/reflector/dvc.yaml`
   を流し、lattice-I、lattice-corner、core-corner* の比較を今の姿に書き直す。main の `dvc checkout` は `--force` が要る）
 
-関係する ADR: ADR-0133（前付けの `issues` にはこの issue を挙げていない。マージ済みで書き換えない）
+関係する ADR: なし
 
 ## 完了の条件
 
