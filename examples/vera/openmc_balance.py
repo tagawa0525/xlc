@@ -18,6 +18,10 @@ xlc の `balance` の例（crates/lattice/examples/balance.rs）と同じ形式�
 （それぞれの世代のすべてのエネルギーの生成で規格化したもの）を `batches` に書く。移行の行列（nu-scatter、出来事ごとの
 推定）は平均と標準偏差を書き、世代ごとには、入射の群ごとに、ほかの群へ出る分（`out_scatter`）と同じ群に残る分
 （`within_scatter`）だけを書く。
+
+燃料と水でない物質（被覆管、構造材、吸収体）の核種ごとの、群ごとの全反応、弾性散乱、吸収の率を `nuclides` に書く
+（物質の名前、核種の名前（OpenMC の Ag107 など）ごと。平均と標準偏差を、生成 1 あたりで）。物質の中性子束と個数密度で
+割ると、xlc の構造材の塊の実効断面積（`lump_xs` の例）と比べられる。
 """
 
 import sys
@@ -57,6 +61,9 @@ MULTIPLYING = {
 }
 SCORES = ["absorption", "nu-fission", "flux", *MULTIPLYING]
 KEYS = ("flux", "absorption", "production")
+NUCLIDE_SCORES = ["total", "elastic", "absorption"]
+# 核種ごとの率を書かない物質（燃料は compare_fuel_xs.py、水は移行で見る）
+WITHOUT_NUCLIDES = {"fuel", "fuel-zoned", "moderator"}
 
 
 def net_absorption(values: dict[str, np.ndarray]) -> np.ndarray:
@@ -116,8 +123,17 @@ def main() -> None:
         openmc.EnergyoutFilter(groups.values),
     ]
     transfer.scores = ["nu-scatter"]
+    others = [m for m in order if m.name not in WITHOUT_NUCLIDES]
+    listed = sorted({n for m in others for n in m.get_nuclides()})
+    nuclides = openmc.Tally(name="nuclides")
+    nuclides.filters = [openmc.MaterialFilter(others), groups]
+    nuclides.nuclides = listed
+    nuclides.scores = NUCLIDE_SCORES
     model = openmc.Model(
-        geometry, materials, settings, openmc.Tallies([rates, outside, transfer])
+        geometry,
+        materials,
+        settings,
+        openmc.Tallies([rates, outside, transfer, nuclides]),
     )
     model.run(cwd=work, output=False)
 
@@ -145,6 +161,13 @@ def main() -> None:
                 tally = sp.get_tally(name="transfer")
                 mean = tally.get_values(value="mean").reshape(len(order), n, n)
                 std = tally.get_values(value="std_dev").reshape(len(order), n, n)
+                per_nuclide = sp.get_tally(name="nuclides")
+                nuclide_values = {
+                    value: per_nuclide.get_values(value=value).reshape(
+                        len(others), n, len(listed), len(NUCLIDE_SCORES)
+                    )
+                    for value in ("mean", "std_dev")
+                }
         this = (
             now
             if previous is None
@@ -202,6 +225,21 @@ def main() -> None:
         out["materials"][name]["transfer_std"] = (
             std[i][::-1, ::-1] / per_source
         ).tolist()
+    # 核種ごとの率は 1 世代あたりの平均なので、移行の行列と同じく世代の生成の平均で規格化する。物質にない核種は書かない
+    out["nuclides"] = {
+        NAMES[m.name]: {
+            nuclide: {
+                f"{score}{suffix}": (
+                    nuclide_values[value][i, ::-1, j, s] / per_source
+                ).tolist()
+                for s, score in enumerate(NUCLIDE_SCORES)
+                for value, suffix in (("mean", ""), ("std_dev", "_std"))
+            }
+            for j, nuclide in enumerate(listed)
+            if nuclide in m.get_nuclides()
+        }
+        for i, m in enumerate(others)
+    }
     for b in per_batch:
         out["batches"].append(
             {
