@@ -556,24 +556,9 @@ fn corner_fluxes(
     cdfs: &[Option<[[f64; 2]; 4]>],
 ) -> Result<Vec<[f64; 2]>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
-    let present = |i: usize, j: usize| constants[i + nx * j].is_some();
-    // 位置 (i, j) の面（-x、+x、-y、+y）の境界条件。隣にノードがあれば `None`。ノードのない位置に面すれば外形の
-    // 条件（ADR-0132）、直方体の外周ならその面の条件
+    // 位置 (i, j) の面（-x、+x、-y、+y）の境界条件。隣にノードがあれば `None`（NEM と同じ判定。ADR-0132）
     let edge = |i: usize, j: usize, face: usize| -> Result<Option<Boundary>, String> {
-        let beside = match face {
-            0 => i.checked_sub(1).map(|i| (i, j)),
-            1 => (i + 1 < nx).then_some((i + 1, j)),
-            2 => j.checked_sub(1).map(|j| (i, j)),
-            _ => (j + 1 < ny).then_some((i, j + 1)),
-        };
-        match beside {
-            None => Ok(Some(problem.boundaries[face])),
-            Some((bi, bj)) if present(bi, bj) => Ok(None),
-            Some(_) => problem
-                .outline
-                .map(Some)
-                .ok_or_else(|| "positions without nodes need the outline condition".to_string()),
-        }
+        problem.face_condition([i, j, k], face / 2, face % 2 == 1)
     };
     let mut nodes = Vec::with_capacity(nx * ny);
     // 中性子束ゼロの面に接する角の点は Φ = 0

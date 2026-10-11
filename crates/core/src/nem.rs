@@ -57,6 +57,53 @@ pub struct Problem {
     pub outline: Option<Boundary>,
 }
 
+impl Mesh {
+    /// 方向ごとの位置の数
+    pub fn counts(&self) -> [usize; 3] {
+        [self.dx.len(), self.dy.len(), self.dz.len()]
+    }
+
+    /// 位置 p の番号（x が最も速く、次に y、z。`Problem::node_material` と `Solution` の並び）
+    pub fn site(&self, p: [usize; 3]) -> usize {
+        let [nx, ny, _] = self.counts();
+        p[0] + nx * (p[1] + ny * p[2])
+    }
+
+    /// 番号 `site` の位置
+    pub fn position(&self, site: usize) -> [usize; 3] {
+        let [nx, ny, _] = self.counts();
+        [site % nx, (site / nx) % ny, site / (nx * ny)]
+    }
+
+    /// 位置 p から方向 d に `step`（-1 か +1）だけ動いた位置。直方体の外なら `None`
+    pub fn moved(&self, mut p: [usize; 3], d: usize, step: isize) -> Option<[usize; 3]> {
+        p[d] = p[d]
+            .checked_add_signed(step)
+            .filter(|&i| i < self.counts()[d])?;
+        Some(p)
+    }
+}
+
+impl Problem {
+    /// 位置 p の方向 d の - 面（`plus` が false）・+ 面（true）の境界条件。隣の位置にノードがあれば `None`。
+    /// 直方体の外周ならその面の条件、ノードのない位置に面すれば外形の条件（ADR-0132）。外形の条件がなければエラー
+    pub fn face_condition(
+        &self,
+        p: [usize; 3],
+        d: usize,
+        plus: bool,
+    ) -> Result<Option<Boundary>, String> {
+        match self.mesh.moved(p, d, if plus { 1 } else { -1 }) {
+            None => Ok(Some(self.boundaries[2 * d + usize::from(plus)])),
+            Some(q) if self.node_material[self.mesh.site(q)].is_some() => Ok(None),
+            Some(_) => self
+                .outline
+                .map(Some)
+                .ok_or_else(|| "positions without nodes need the outline condition".into()),
+        }
+    }
+}
+
 /// 反復の打ち切り条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Options {
@@ -197,8 +244,6 @@ struct Core<'a> {
     problem: &'a Problem,
     /// 方向ごとのノード幅
     widths: [&'a [f64]; 3],
-    /// 直方体の方向ごとの位置の数
-    counts: [usize; 3],
     /// [ノード] の直方体の位置
     cells: Vec<[usize; 3]>,
     /// [直方体の位置] のノードの番号。ノードのない位置は `None`
@@ -268,8 +313,7 @@ impl<'a> Core<'a> {
         {
             return Err("node widths must be positive".into());
         }
-        let counts = widths.map(<[f64]>::len);
-        let sites: usize = counts.iter().product();
+        let sites: usize = mesh.counts().iter().product();
         if problem.node_material.len() != sites {
             return Err(format!(
                 "{} node materials given for {sites} positions",
@@ -313,11 +357,7 @@ impl<'a> Core<'a> {
         let mut material_of = Vec::new();
         for (site, m) in problem.node_material.iter().enumerate() {
             slots.push(m.map(|m| {
-                cells.push([
-                    site % counts[0],
-                    (site / counts[0]) % counts[1],
-                    site / (counts[0] * counts[1]),
-                ]);
+                cells.push(mesh.position(site));
                 material_of.push(m);
                 cells.len() - 1
             }));
@@ -363,7 +403,6 @@ impl<'a> Core<'a> {
         let mut core = Self {
             problem,
             widths,
-            counts,
             cells,
             slots,
             material_of,
@@ -498,9 +537,7 @@ impl<'a> Core<'a> {
 
     /// ノード n の直方体の位置の番号（`Problem::node_material` と `Solution` の並び）
     fn site(&self, n: usize) -> usize {
-        let [nx, ny, _] = self.counts;
-        let p = self.cells[n];
-        p[0] + nx * (p[1] + ny * p[2])
+        self.problem.mesh.site(self.cells[n])
     }
 
     /// [ノード] の値を [直方体の位置] の並びに置き直す。ノードのない位置は空
@@ -514,12 +551,8 @@ impl<'a> Core<'a> {
 
     /// 方向 d に `step`（-1 か +1）だけ動いた直方体の位置。直方体の外なら `None`
     fn moved(&self, n: usize, d: usize, step: isize) -> Option<usize> {
-        let mut p = self.position(n);
-        p[d] = p[d]
-            .checked_add_signed(step)
-            .filter(|&i| i < self.counts[d])?;
-        let [nx, ny, _] = self.counts;
-        Some(p[0] + nx * (p[1] + ny * p[2]))
+        let mesh = &self.problem.mesh;
+        mesh.moved(self.position(n), d, step).map(|p| mesh.site(p))
     }
 
     /// 方向 d の隣のノード（`step` が -1 なら - 側、+1 なら + 側）。直方体の外周か、ノードのない位置なら `None`。
@@ -534,11 +567,12 @@ impl<'a> Core<'a> {
             .then(|| self.edge(n, d, plus))
     }
 
-    /// 隣にノードのない面の条件: 直方体の外周ならその面の条件、ノードのない位置に面すれば外形の条件
+    /// 隣にノードのない面の条件（`Problem::face_condition`）。隣にノードがある面には使わない
     fn edge(&self, n: usize, d: usize, plus: bool) -> Boundary {
-        match self.moved(n, d, if plus { 1 } else { -1 }) {
-            None => self.problem.boundaries[2 * d + usize::from(plus)],
-            Some(_) => self.outline,
+        // ノードのない位置があれば外形の条件があることは `Core::new` で確かめてある
+        match self.problem.face_condition(self.position(n), d, plus) {
+            Ok(Some(b)) => b,
+            _ => self.outline,
         }
     }
 
@@ -1966,7 +2000,7 @@ mod tests {
         use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
         let (core, solution, state) = solve_state(fine);
         let core = &core;
-        let [nx, ny, nz] = core.counts;
+        let [nx, ny, nz] = core.problem.mesh.counts();
         assert_eq!(nz, 1);
         let [bx, by] = blocks;
         let (cx, cy) = (nx / bx, ny / by);
