@@ -36,7 +36,7 @@ use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
-use xlc_lattice::medium::homogenize_medium;
+use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, available_order, solve_symmetric};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel_with};
@@ -161,6 +161,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
     // 状態の軸の値（エラーとログに付ける）
     let axes = input.branches.as_ref().map_or(&[][..], |b| b.axes());
+    // 平板の物質の媒質（ADR-0128）。ライブラリの群境界と分岐の軸に合うことを解く前に確かめる
+    let media = input
+        .media
+        .iter()
+        .map(|m| {
+            let file = base.join(&m.file);
+            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+            let medium = Medium::from_msgpack(&bytes).with_context(|| shown(&file))?;
+            let bounds = groups.as_ref().map_or(&[][..], |g| g.bounds());
+            check_medium(&medium, bounds, axes)
+                .map_err(|e| anyhow!("{}: material `{}`: {e}", shown(&file), m.name))?;
+            Ok(medium)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let medium_names: Vec<String> = input.media.iter().map(|m| m.name.clone()).collect();
     let values = |state: usize| -> String {
         let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
         let mut rest = state;
@@ -179,8 +194,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let states = input.branch_states();
     let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(states.len());
-    // 状態ごとの細かい群の媒質（ADR-0128）
-    let mut media = Vec::new();
+    // 状態ごとの細かい群の媒質の出力（ADR-0128）
+    let mut written = Vec::new();
     for (state, state_materials) in states.iter().enumerate() {
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
@@ -198,7 +213,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     .with_context(|| format!("{}: self-shielding", context()))?;
                     (shielded.materials, shielded.region_material)
                 } else {
-                    let named = state_materials
+                    let mut named = state_materials
                         .iter()
                         .map(|m| {
                             Material::mix(library, &m.composition, m.temperature)
@@ -206,6 +221,40 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 .map_err(|e| anyhow!("material `{}`: {e}", m.name))
                         })
                         .collect::<anyhow::Result<Vec<_>>>()
+                        .with_context(context)?;
+                    // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
+                    for mixture in &input.mixtures {
+                        let parts: Vec<(&_, f64)> = mixture
+                            .parts
+                            .iter()
+                            .filter(|(part, _)| part != VOID)
+                            .filter_map(|(part, f)| {
+                                state_materials
+                                    .iter()
+                                    .find(|m| &m.name == part)
+                                    .map(|m| (m, *f))
+                            })
+                            .collect();
+                        let mixed = Material::mixture(library, &parts)
+                            .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
+                            .with_context(context)?;
+                        named.push((mixture.name.clone(), mixed));
+                    }
+                    // 媒質は分岐の状態と同じ番号の状態（軸が同じことは確かめてある）
+                    for (m, medium) in input.media.iter().zip(&media) {
+                        let from = medium
+                            .states
+                            .get(state)
+                            .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
+                            .and_then(|s| {
+                                Material::from_medium(s)
+                                    .map_err(|e| anyhow!("material `{}`: {e}", m.name))
+                            })
+                            .with_context(context)?;
+                        named.push((m.name.clone(), from));
+                    }
+                    check_orders(&named, &medium_names)
+                        .map_err(|e| anyhow!(e))
                         .with_context(context)?;
                     by_name(named, library.groups.len())?
                 }
@@ -292,7 +341,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             per_state.push(fews);
         }
         if input.medium.is_some() {
-            media.push(
+            written.push(
                 homogenize_medium(&solution, &materials, &tracking.boundaries())
                     .with_context(context)?,
             );
@@ -325,7 +374,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let medium = Medium {
             bounds: groups.bounds().to_vec(),
             axes: axes.to_vec(),
-            states: media,
+            states: written,
         };
         let output = base.join(output);
         let bytes = medium.to_msgpack().with_context(|| shown(&output))?;
