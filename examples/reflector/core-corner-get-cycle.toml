@@ -1,4 +1,4 @@
-# 角型の格子の 4 つのノードをすべて集合体の位置に置くサイクル（反射体の位置どうしの面の ADF を 1 としない）。
+# 角型の格子の 4 つのノードをすべて集合体の位置に置くサイクル。
 plant = "core-corner-get-plant.toml"
 inventory = "core-corner-get-assemblies.toml"
 loading = ["N    C", "F03  E"]
