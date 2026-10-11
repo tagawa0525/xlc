@@ -86,7 +86,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 4. 走らせたら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
-   git add examples/<問題>/dvc.lock   # git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す
+   git add examples/<問題>/dvc.lock   # git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
    git commit -F <メッセージのファイル>
    ```
 
