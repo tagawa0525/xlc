@@ -25,7 +25,7 @@ resolution: ADR-0137
 crates/docs/tests/consistency.rs の `vars_os`。examples が引数で選ぶ計算の条件（crates/lattice/examples/homogeneous.rs の
 `--swap` など）も入力ファイルで受けるかを一緒に決める。
 
-関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0137](../adr/0137-compute-options-as-input.md)
+関係する ADR: [ADR-0137](../adr/0137-compute-options-as-input.md)
 
 ## 完了の条件
 
