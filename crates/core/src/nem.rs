@@ -575,8 +575,8 @@ impl<'a> Core<'a> {
         })
     }
 
-    /// 方向 d で隣り合うノード n と m の面が、反射体の位置の f* の辺と、集合体の位置の核分裂のない層（端栓、
-    /// プレナム）の x か y の面か。f* は燃料の ADF で割った値で、核分裂のない層と組で作った定数はないので、この面は
+    /// 方向 d で隣り合うノード n と m の面が、反射体の位置の f* の辺と、集合体の位置の核分裂のない軸方向の層（端栓、
+    /// プレナム。z の厚さを持つスラブの定数。ADR-0128）の x か y の面か。f* は燃料の ADF で割った値で、核分裂のない層と組で作った定数はないので、この面は
     /// 両側の ADF を 1 とする（ADR-0132。近似）
     fn unpaired_face(&self, n: usize, m: usize, d: usize) -> bool {
         if d >= 2 {
@@ -587,6 +587,7 @@ impl<'a> Core<'a> {
             self.reflector[self.material_of[a]]
                 && !self.reflector[self.material_of[b]]
                 && !self.fissile[self.material_of[b]]
+                && self.material(b).height.is_some()
                 && self.material(a).normalized_adf[side_of(d, plus)]
         };
         toward(n, m) || toward(m, n)
