@@ -1,5 +1,6 @@
-"""2 つのピン出力（`xlc-pin-powers`）の相対の差 (a / b − 1) を、燃料のピン全体と、右の端の列、上の端の行、
-右上の角のピンに分けてまとめる（I 型の格子では右の列、角型の格子では右の列と上の行が反射体に接する）。どちらも燃料のピン（出力が正のセル）の平均で 1 に規格化し直す（../colorset/compare.py と同じ）。
+"""2 つのピン出力（`xlc-pin-powers`）の相対の差 (a / b − 1) を、燃料のピン全体と、右の端の列、
+上の端の行、右上の角のピンに分けてまとめる（I 型の格子では右の列、角型の格子では右の列と上の行が
+反射体に接する）。どちらも燃料のピン（出力が正のセル）の平均で 1 に規格化し直す（../colorset/compare.py と同じ）。
 
 使い方: python3 compare_edge.py <a.msgpack> <b（参照）.msgpack>
 """
@@ -41,7 +42,10 @@ def main() -> None:
         f"top row (power {b[0, top].min():.3f}–{b[0, top].max():.3f})",
         d[0, top],
     )
-    print(f"top right pin: power {b[0, -1]:.3f}, {100 * d[0, -1]:+.3f}%")
+    if fuel[0, -1]:
+        print(f"top right pin: power {b[0, -1]:.3f}, {100 * d[0, -1]:+.3f}%")
+    else:
+        print("top right cell: no fission")
 
 
 if __name__ == "__main__":
