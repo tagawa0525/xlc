@@ -46,14 +46,7 @@ import openmc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from openmc_common import (
-    box_settings,
-    material,
-    run_or_extract,
-    write_k,
-    write_pin_powers,
-)
-from openmc_common import read_run as common_read_run
+from openmc_common import material
 from openmc_model import (
     AIC,
     B4C,
@@ -67,6 +60,7 @@ from openmc_model import (
     INSTRUMENT_TUBE,
     MODERATOR_DENSE,
     PITCH,
+    PYREX_OCTANTS,
     SS304,
     ZIRCALOY,
     N,
@@ -78,7 +72,16 @@ from openmc_model import (
     rod_layers,
     temperature_mode,
     tube,
+    with_carbon,
 )
+from openmc_run import (
+    box_settings,
+    mesh_values,
+    run_or_extract,
+    write_k,
+    write_pin_powers,
+)
+from openmc_run import read_run as common_read_run
 
 TEMPERATURE = 565.0
 ASSEMBLY_PITCH = N * PITCH + 2 * HALF_GAP
@@ -98,15 +101,16 @@ FUEL_2619 = {
     "U238": 2.22663e-02,
     "O16": 4.57617e-02,
 }
-# 炭素鋼（CS508）。天然の C は C-12 と C-13 に分ける（ADR-0079 の存在比 98.93%、1.07%。仕様書は 3.93598e-3）
-CARBON_STEEL = {
-    "C12": 3.93598e-03 * 0.9893,
-    "C13": 3.93598e-03 * 0.0107,
-    "Fe54": 4.89841e-03,
-    "Fe56": 7.68945e-02,
-    "Fe57": 1.77583e-03,
-    "Fe58": 2.36330e-04,
-}
+# 炭素鋼（CS508）。天然の C は C-12 と C-13 に分ける（ADR-0079）
+CARBON_STEEL = with_carbon(
+    {
+        "Fe54": 4.89841e-03,
+        "Fe56": 7.68945e-02,
+        "Fe57": 1.77583e-03,
+        "Fe58": 2.36330e-04,
+    },
+    3.93598e-03,
+)
 FUELS = {"2.1": FUEL_211, "2.6": FUEL_2619, "3.1": FUEL}
 
 # 図 M3-1 の 1/4 炉心: 行（8〜15）ごとに H 列から（濃縮度, Pyrex の棒の本数）
@@ -122,14 +126,6 @@ LOADING = (
 )  # fmt: skip
 # D バンクの位置（1/4 炉心の行, 列。0 始まり、H8 が (0, 0)。図 M3-1 の右）
 BANK_D = {(0, 0), (0, 4), (4, 0), (4, 4)}
-# 図 5 の Pyrex の棒の配置（本数ごとの、1/8 の中の位置。中央からの行と列の数）
-PYREX_OCTANTS = {
-    8: {(3, 0), (5, 5)},
-    12: {(3, 0), (6, 3)},
-    16: {(3, 0), (5, 5), (6, 3)},
-    20: {(3, 0), (5, 5), (6, 0), (6, 3)},
-    24: {(3, 0), (3, 3), (5, 5), (6, 0), (6, 3)},
-}
 # 制御棒の吸収体（表 8）
 RODS = {"5A-2D": None, "5B-2D": ("aic", AIC, 0.382), "5C-2D": ("b4c", B4C, 0.373)}
 
@@ -365,8 +361,8 @@ def extract(source: Path, work: Path, results: Path) -> None:
     cells = len(edges) - 1
     with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         k = sp.keff
-        rate, std = rows(sp, "fission", cells)
-        by, by_std = rows(sp, "assemblies", len(LOADING))
+        rate, std = mesh_values(sp, "fission", (cells, cells))
+        by, by_std = mesh_values(sp, "assemblies", (len(LOADING), len(LOADING)))
     # 余白を除き、対称面で切れたピン（先頭の行と列）を全体のピンに直す
     widths = np.diff(edges)[pins] / PITCH
     area = np.outer(widths, widths)
@@ -384,16 +380,6 @@ def extract(source: Path, work: Path, results: Path) -> None:
     write_pin_powers(results / "assemblies.msgpack", by * scale)
     write_pin_powers(results / "assemblies-std.msgpack", by_std * scale)
     write_k(results / "k.json", problem, k)
-
-
-def rows(sp: openmc.StatePoint, name: str, n: int):
-    """tally `name`（n × n のメッシュ）の平均と統計誤差を [行（上から。y = 0 の側）][列] にする（メッシュは x が速く、
-    y は下から）。"""
-    tally = sp.get_tally(name=name)
-    return tuple(
-        tally.get_values(scores=["fission"], value=v).reshape(n, n)[::-1, :]
-        for v in ("mean", "std_dev")
-    )
 
 
 if __name__ == "__main__":
