@@ -21,8 +21,9 @@ iterate3.sh、全コミットの検証 verify2.py）は references/history-rewri
 
 ## 完了の条件
 
-書き換えた後の履歴で困ることがないのを見てから、ユーザーに確かめたうえで
-`git reflog expire --expire=now --all && git gc --prune=now` を行う。
+ユーザーが、書き換えた後の履歴で困ることがないと判断したら
+`git reflog expire --expire=now --all && git gc --prune=now` を行う（取り消せないので、行う前にユーザーに確かめる）。
+references/history-rewrite/ の道具は、#0018 で references/ を片付けるときに消さない。
 
 ## 経緯
 
