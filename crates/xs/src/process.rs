@@ -863,6 +863,46 @@ mod tests {
     }
 
     #[test]
+    fn sab_limits_follow_the_input() {
+        // テープの MF7 MT4 の上限 B(4) は 5 eV
+        let data = read_thermal_scattering(&thermal_tape(false)).unwrap();
+        let thermal = |upper, free_gas_upper| ThermalScattering {
+            data: data.clone(),
+            upper,
+            outside: SabOutside::ShortCollisionTime,
+            free_gas_upper,
+        };
+        assert_eq!(
+            thermal(SabUpper::Evaluated, 1.0e3).limits().unwrap(),
+            (5.0, 1.0e3)
+        );
+        assert_eq!(
+            thermal(SabUpper::Energy(4.0), 4.0).limits().unwrap(),
+            (4.0, 4.0)
+        );
+        // 評価済みデータの上限より上では S(α, β) を使えない
+        for upper in [5.5, 0.0, -1.0, f64::NAN] {
+            assert!(
+                matches!(
+                    thermal(SabUpper::Energy(upper), 1.0e3).limits(),
+                    Err(ProcessError::SabUpper { .. })
+                ),
+                "{upper}"
+            );
+        }
+        // 自由ガスは S(α, β) の上限から続ける
+        for free_gas_upper in [4.9, f64::INFINITY, f64::NAN] {
+            assert!(
+                matches!(
+                    thermal(SabUpper::Evaluated, free_gas_upper).limits(),
+                    Err(ProcessError::FreeGasUpper { .. })
+                ),
+                "{free_gas_upper}"
+            );
+        }
+    }
+
+    #[test]
     fn thermal_elastic_scattering_is_rejected() {
         assert!(read_thermal_scattering(&thermal_tape(true)).is_err());
     }
