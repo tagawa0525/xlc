@@ -16,7 +16,7 @@ resolution:
 Gauss-Seidel を1回だけ行って解く（`cmfd::CoarseMesh::solve`、反復の上限 10⁵）。軸方向の反射体の平板（ADR-0128。
 集合体の高さ全体 518.937 cm を1行に並べた格子）を列の幅 0.25 cm 程度（2058 列）で解くと、MOC を 633 秒回したところで
 「the coarse-mesh eigenvalue problem did not converge in 100000 iterations」で止まった（examples/reflector の
-axial-3A-16.toml を、8e79b215 の axial_slab.py の `WIDTH` を 0.25 にして書いた版、2026-10-11）。
+axial-3A-16.toml を、e84653bd の axial_slab.py の `WIDTH` を 0.25 にして書いた版、2026-10-11）。
 
 1次元の拡散の問題を細かいセルの Gauss-Seidel で解くと、滑らかな誤差の縮小率は 1 − Σr h²/(2D) 程度（h はセルの幅）で、
 高速群（Σr ≈ 0.02 /cm、D ≈ 1.3 cm）では h = 0.25 cm で 1 − 5 × 10⁻⁴ になり、10⁻¹⁰ まで約 5 × 10⁴ 回かかる見積もりになる
