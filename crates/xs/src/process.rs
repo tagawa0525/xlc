@@ -400,7 +400,7 @@ pub fn process_nuclide(
         tracing::warn!(
             nuclide = name,
             "S(α, β) follows the ENDF interpolation law (ln S linear); NJOY THERMR interpolates ln S \
-             quadratically, which gives H in H2O about 0.2% more scattering at 4-10 eV"
+             quadratically, so its scattering cross section differs (ADR-0133)"
         );
     }
     let materials = tape.materials();
