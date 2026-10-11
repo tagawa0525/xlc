@@ -760,18 +760,26 @@ fn layers_may_put_marshak_on_their_vacuum_faces() {
     let layout = layout_of(&case(), &cycle(), &p).unwrap();
     let plain = |fissile: bool| {
         let mut m = sided(fissile);
-        m.vacuum_ratio = vec![None; 4];
-        m.normalized_adf = vec![false; 4];
+        m.vacuum_ratio = vec![None; 6];
+        m.normalized_adf = vec![false; 6];
         m
     };
     let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| plain(!r)).collect();
     let problem = layout.problem(&unsplit(&constants)).unwrap();
     for (n, m) in problem.node_material.iter().enumerate() {
         let m = &problem.materials[m.unwrap()];
+        // 径方向の 4 辺だけ。z の辺は変えない
         let expected = if n % 3 == 1 {
-            vec![None; 4]
+            vec![None; 6]
         } else {
-            vec![Some(vec![0.5, 0.5]); 4]
+            vec![
+                Some(vec![0.5, 0.5]),
+                Some(vec![0.5, 0.5]),
+                Some(vec![0.5, 0.5]),
+                Some(vec![0.5, 0.5]),
+                None,
+                None,
+            ]
         };
         assert_eq!(m.vacuum_ratio, expected, "node {n}");
     }
