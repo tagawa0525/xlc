@@ -429,10 +429,10 @@ index 3f661746..49f39654 100644
              // 出射分布は和 N(E) で規格化する（NJOY THERMR と同じ）
              Thermal::FreeGas(free_gas) if e < cutoff => {
 diff --git a/crates/xs/src/process.rs b/crates/xs/src/process.rs
-index 6374c0ab..d8116354 100644
+index 6374c0ab..f72f4cd9 100644
 --- a/crates/xs/src/process.rs
 +++ b/crates/xs/src/process.rs
-@@ -470,7 +470,12 @@ impl Common<'_> {
+@@ -470,11 +470,22 @@ impl Common<'_> {
          // 弾性散乱だけ熱領域の扱いを使い、その実効断面積で全断面積と弾性散乱を補正する
          let thermal = match self.thermal {
              Some(data) => {
@@ -444,9 +444,20 @@ index 6374c0ab..d8116354 100644
 +                };
 +                Thermal::Sab(ThermalSab::new(data, temperature, cutoff)?)
              }
++            // 試行（#0005）: XLC_TRIAL_FREE_GAS_HEAVY=1 なら、質量比が 1 より大きい核種の自由ガスの上限を、OpenMC と
++            // 同じ 400 kT まで上げる（OpenMC はそれより上で標的を静止とする）
              None => Thermal::FreeGas(FreeGas {
                  kt: BK * temperature,
-@@ -534,10 +539,15 @@ impl Common<'_> {
+-                cutoff: settings.thermal_cutoff,
++                cutoff: if std::env::var("XLC_TRIAL_FREE_GAS_HEAVY").is_ok() && self.awr > 1.0 {
++                    settings.thermal_cutoff.max(400.0 * BK * temperature)
++                } else {
++                    settings.thermal_cutoff
++                },
+             }),
+         };
+         let elastic_table = tables.get(&2).ok_or(ProcessError::MissingMf3(2))?;
+@@ -534,10 +545,15 @@ impl Common<'_> {
                  nu_fission: avg.nu_fission.clone().unwrap_or(zeros.clone()),
              })
              .collect();
@@ -463,7 +474,7 @@ index 6374c0ab..d8116354 100644
          Ok(TemperatureData {
              temperature,
              chi,
-@@ -548,6 +558,62 @@ impl Common<'_> {
+@@ -548,6 +564,62 @@ impl Common<'_> {
      }
  }
  
