@@ -1,25 +1,29 @@
-"""VERA Problem 1B〜1D, 2B〜2H と MOX ピンセル（examples/mox）の参照解に使う OpenMC の連続エネルギーのデータを、ENDF/B-VIII.0 から
-手元の NJOY で作る（xs と同じ評価済みデータから作り、核データの違いを比較から除くため）。
+"""VERA Problem 1B〜1D, 2A〜2J, 2Q と MOX ピンセル（examples/mox）の参照解に使う OpenMC の連続エネルギーのデータを、
+ENDF/B-VIII.0 から手元の NJOY で作る（xs と同じ評価済みデータから作り、核データの違いを比較から除くため）。
 
-使い方: python3 openmc_library.py <ENDF/B-VIII.0 のディレクトリ> <出力ディレクトリ> [並列数]
+使い方: python3 openmc_library.py <ENDF/B-VIII.0 のディレクトリ> <出力ディレクトリ> <並列数>
+            --fuel <K>... --coolant-and-clad <K>... --others <K>... --thermal <K>...
 
-`njoy` は PATH から呼ぶ。出力ディレクトリに核種ごとの HDF5 と cross_sections.xml を書く。
-燃料の核種は 600, 900, 1200 K、ほかの核種（MOX の Pu と Am を含む）と H in H2O の S(α,β) は 600 K だけを作る。
+`njoy` は PATH から呼ぶ。出力ディレクトリに核種ごとの HDF5 と cross_sections.xml を書く。温度は核種の組ごとに渡す:
+`--fuel` は燃料の核種と O-16、`--coolant-and-clad` は冷却材と被覆管（Zircaloy-4）の核種（H, B, Zr, Sn, Fe, Cr）、
+`--others` はそのほか（Pyrex、SS304、AIC と MOX の Pu と Am）、`--thermal` は H in H2O の S(α,β)。H-1 は
+`--coolant-and-clad` と `--thermal` の両方の温度で作る（OpenMC は内挿のモードで物質の温度そのものの H-1 を使い、
+S(α,β) の温度の H-1 は、xlc が内挿する H-1 との違いを見積もるのに使う。compare_h1_temperatures.py）。
+OpenMC の温度の内挿のモードは、温度を 1 つしか持たない核種が 1 つでもあると全体を最も近い温度のモードに戻す
+（OpenMC 0.15.2 の src/nuclide.cpp）ので、内挿のモードで解く問題の核種には 2 つ以上の温度を渡す。
+
 出力ディレクトリにすでにある HDF5 は、求める温度をすべて含めば作り直さない（核種を足したときに、足した分だけを
 作る）。HDF5 は一時ファイルに書いてから名前を変えるので、途中で止まっても書きかけのファイルは残らない。
 """
 
+import argparse
 import os
-import sys
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import h5py
 import openmc.data
-
-FUEL_TEMPERATURES = [600.0, 900.0, 1200.0]
-OTHER_TEMPERATURES = [600.0]
 
 # (名前, ENDF ファイル名)。Hf と He は ADR-0054 と ADR-0120 のとおり除く
 FUEL = [
@@ -29,8 +33,10 @@ FUEL = [
     ("U238", "n-092_U_238"),
     ("O16", "n-008_O_016"),
 ]
-OTHERS = (
-    [("H1", "n-001_H_001"), ("B10", "n-005_B_010"), ("B11", "n-005_B_011")]
+HYDROGEN = ("H1", "n-001_H_001")
+# 冷却材（H は HYDROGEN）と被覆管の核種
+COOLANT_AND_CLAD = (
+    [("B10", "n-005_B_010"), ("B11", "n-005_B_011")]
     + [(f"Zr{a}", f"n-040_Zr_{a:03d}") for a in (90, 91, 92, 94, 96)]
     + [
         (f"Sn{a}", f"n-050_Sn_{a:03d}")
@@ -38,7 +44,9 @@ OTHERS = (
     ]
     + [(f"Fe{a}", f"n-026_Fe_{a:03d}") for a in (54, 56, 57, 58)]
     + [(f"Cr{a}", f"n-024_Cr_{a:03d}") for a in (50, 52, 53, 54)]
-    + [("C12", "n-006_C_012"), ("C13", "n-006_C_013"), ("P31", "n-015_P_031")]
+)
+OTHERS = (
+    [("C12", "n-006_C_012"), ("C13", "n-006_C_013"), ("P31", "n-015_P_031")]
     + [(f"Si{a}", f"n-014_Si_{a:03d}") for a in (28, 29, 30)]
     + [("Mn55", "n-025_Mn_055")]
     + [(f"Ni{a}", f"n-028_Ni_{a:03d}") for a in (58, 60, 61, 62, 64)]
@@ -81,27 +89,46 @@ def neutron(args: tuple[str, Path, list[float], Path]) -> Path:
     return path
 
 
+def arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="OpenMC data for the VERA references")
+    parser.add_argument("endf", type=Path, help="ENDF/B-VIII.0 のディレクトリ")
+    parser.add_argument("out", type=Path, help="出力ディレクトリ")
+    parser.add_argument("workers", type=int, help="並列数")
+    for group in ("fuel", "coolant-and-clad", "others", "thermal"):
+        parser.add_argument(f"--{group}", type=float, nargs="+", required=True)
+    return parser.parse_args()
+
+
 def main() -> None:
-    endf = Path(sys.argv[1]).resolve()
-    out = Path(sys.argv[2]).resolve()
-    workers = int(sys.argv[3]) if len(sys.argv) > 3 else 8
+    args = arguments()
+    endf, out = args.endf.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     neutrons = endf / "ENDF-B-VIII.0_neutrons"
-    jobs = [(n, neutrons / f"{f}.endf", FUEL_TEMPERATURES, out) for n, f in FUEL] + [
-        (n, neutrons / f"{f}.endf", OTHER_TEMPERATURES, out) for n, f in OTHERS
+    hydrogen = sorted({*args.coolant_and_clad, *args.thermal})
+    groups = [
+        (FUEL, args.fuel),
+        ([HYDROGEN], hydrogen),
+        (COOLANT_AND_CLAD, args.coolant_and_clad),
+        (OTHERS, args.others),
     ]
-    with ProcessPoolExecutor(max_workers=workers) as pool:
+    jobs = [
+        (n, neutrons / f"{f}.endf", sorted(temperatures), out)
+        for nuclides, temperatures in groups
+        for n, f in nuclides
+    ]
+    with ProcessPoolExecutor(max_workers=args.workers) as pool:
         paths = list(pool.map(neutron, jobs))
 
     thermal_path = out / "c_H_in_H2O.h5"
-    if not has_temperatures(thermal_path, OTHER_TEMPERATURES):
+    thermal_temperatures = sorted(args.thermal)
+    if not has_temperatures(thermal_path, thermal_temperatures):
         thermal = openmc.data.ThermalScattering.from_njoy(
             str(neutrons / "n-001_H_001.endf"),
             str(endf / "ENDF-B-VIII.0_thermal_scatt" / "tsl-HinH2O.endf"),
-            temperatures=OTHER_TEMPERATURES,
+            temperatures=thermal_temperatures,
         )
         export(thermal_path, lambda p: thermal.export_to_hdf5(p, "w"))
-        print(f"{thermal.name}: {OTHER_TEMPERATURES}", flush=True)
+        print(f"{thermal.name}: {thermal_temperatures}", flush=True)
 
     library = openmc.data.DataLibrary()
     for path in [*paths, thermal_path]:
