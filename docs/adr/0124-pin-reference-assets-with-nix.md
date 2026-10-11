@@ -90,6 +90,8 @@ OpenMC の Python API（openmc、endf）の固定:
   差を含むので参考とする
 - 参照解を作るツール（NJOY、OpenMC）は検証にだけ使い、本体の依存に含めない。flake の packages と `references` の
   devShell にだけ置き、`default` の devShell と Cargo のワークスペースには入れない
+- 3D の全炉心の OpenMC は計算時間が大きいので作らない。Problem 5 は仕様書の実測値（妥当性確認）と KENO の値で比べる
+- 参照解の組成は計算と同じにする（[ADR-0054](0054-model-vera-materials.md)）
 
 flake.nix の packages:
 
@@ -105,15 +107,18 @@ flake.nix の packages:
   `.git_archival.txt` は `git archive` が埋めるテンプレートのままなので、タグのコミットと版を書いた形に置き換える
 - openmc の Python のパッケージは `ipython` と `matplotlib` に依存すると書くが、使うのは対話と作図だけで、検証の
   スクリプトは使わないので外す（venv にも入っていなかった）
-- `references` の devShell は `PYTHONPATH` を外す。外の shell（direnv で入った `default` の devShell など）から入ると、
-  dvc の依存が `PYTHONPATH` から OpenMC の Python API の環境より先に読まれるため
+- `default` の devShell には dvc の実行ファイルだけを入れる。`pkgs.dvc` をそのまま入れると、Python の setup hook が
+  dvc の依存を `PYTHONPATH` に足し、検証用の Python のパッケージより先に読まれる。`references` の devShell は
+  `PYTHONPATH` を外し、外の shell の Python のパッケージを読まない
 - ツールを足しても flake の入力は増やさない。`flake.lock` は M0 の段階の deps なので（ADR-0123）、変えると M0 が再実行する
 
 `references/` の扱い:
 
-- `references/` は、いつ消しても作り直せる置き場にする。外から取るものとツールは flake から作る: ENDF は
-  `nix build .#endf -o references/endf`、ツールは `nix develop .#references`（`PATH` に `njoy`、`openmc`、OpenMC の
-  Python API の入った `python3`）。仕様書の PDF は docs/specs.sha256 の URL から手で取り、`sha256sum -c` で照らす
+- `references/` は、消しても作り直せる置き場にする。外から取るものとツールは flake から作る: ENDF は
+  main の checkout で `nix build .#endf -o references/endf`（worktree から実行すると、GC の root が worktree の中の
+  パスで登録され、worktree を消すと外れる）、ツールは `nix develop .#references`（`PATH` に `njoy`、`openmc`、OpenMC の
+  Python API の入った `python3`）。仕様書の PDF は docs/specs.sha256 の URL から手で取り、`sha256sum -c` で照らす。
+  ただし取る先の分からない PDF（「URL 不明」）は作り直せないので、`references/` から消さない
 - ツールで作る参照の結果（NJOY の出力、OpenMC の HDF5 と statepoint）は、#0018 の次のブランチで DVC のステージにする。
   それまでは `references/` に手で置いたものを使う
 
@@ -148,7 +153,8 @@ trials/pin-reference-assets/compare_tools.sh、Slurm の上で 16 スレッド�
   種 1）の k は両方とも 1.186062 ± 0.000477、VERA 1B（連続エネルギー、同じ粒子数）は 1.181836 ± 0.000647 で、
   一致した。世代ごとの k と tally の差は相対で 1e-14 以下、組み合わせた k の推定の差は 3e-11 以下で、同じツールを 2 回
   実行した差と同じ大きさだった（スレッドの和の順序による丸めが候補。確かめていない）
-- references の devShell は、default の devShell の中から入っても、`sys.path` に dvc の依存が入らない
+- `default` の devShell の `PYTHONPATH` は空で、`sys.path` に dvc の依存が入らず、`dvc --version` は 3.67.1 を示す。
+  `references` の devShell は、`default` の devShell の中から入っても、`sys.path` が自分の Python の環境だけになる
 
 ## 結果
 
@@ -157,7 +163,7 @@ trials/pin-reference-assets/compare_tools.sh、Slurm の上で 16 スレッド�
   このブランチをマージしたあとに手で行う（ディレクトリをどけてから `nix build .#endf -o references/endf`）。中身が同じ
   ことは「確認」で確かめたので、M0 の `dvc.lock` は変わらない
 - ツールは devShell の中だけにあり、GC の root がない。`nix-collect-garbage` のあとは、`nix develop .#references` が作り
-  直す（同じ記述から作る。ENDF の取得を含めて約 1 分 40 秒、r995、2026-10-11）
+  直す（同じ記述から作る。2026-10-11 の r995 で、4 つの zip の取得を含めすべての packages の `nix build` が約 1 分 40 秒）
 - OpenMC の Python API の版（`openmc.__version__`）は、venv では 0.0.0 だった（原因は確かめていない）が、0.15.2 になる
 - ADR-0031 はツールを `references/` に手でビルドすると決めていたので、この ADR が置き換える
 - 次のブランチ（#0018）で参照の結果を DVC のステージにするとき、ツールを表す deps（flake.nix、`flake.lock`、
