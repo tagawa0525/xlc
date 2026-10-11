@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [xs, lattice]
 opened: 2026-10-12
-closed:
+closed: 2026-10-12
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0137
 ---
 
 # 計算の条件を環境変数でなく入力で受ける
@@ -25,7 +25,7 @@ resolution:
 crates/docs/tests/consistency.rs の `vars_os`。examples が引数で選ぶ計算の条件（crates/lattice/examples/homogeneous.rs の
 `--swap` など）も入力ファイルで受けるかを一緒に決める。
 
-関係する ADR: なし
+関係する ADR: [ADR-0137](../adr/0137-compute-options-as-input.md)
 
 ## 完了の条件
 
@@ -34,3 +34,4 @@ crates/docs/tests/consistency.rs の `vars_os`。examples が引数で選ぶ計�
 ## 経緯
 
 - 2026-10-11: ADR-0122 の後の作業として決めた（メモリに置いていたものを 2026-10-12 に issue にした）
+- 2026-10-12: ADR-0137 で、examples の選択肢を `--` の引数にし、環境変数の読み取りを clippy で禁じた
