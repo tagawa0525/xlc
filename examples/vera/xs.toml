@@ -1,9 +1,9 @@
-# VERA Problem 1B〜1D, 2A〜2K, 2Q, 5-2D の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
+# VERA Problem 1B〜1D, 2A〜2K, 2Q, 3A, 3B, 5-2D の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群）。OpenMC の参照解と同じ核種と温度:
 # 燃料の核種と O は 565, 600, 900, 1200 K、
 # 冷却材の H は S(α,β) の温度の 550, 573.6 K と 600 K（565 K は lattice が内挿する。ADR-0080。参照解の OpenMC は
 # 565 K で処理した H-1 も作って使う）、ほかの核種（被覆管の Zircaloy-4 の Zr, Sn, Fe, Cr、冷却材の B、Pyrex の B, O, Si、
-# SS304 の C, Si, P, Cr, Mn, Fe, Ni（天然の C は C-12 と C-13 に分ける。ADR-0079）、AIC の Ag, In, Cd）は 565, 600 K
-# （565 K は 5-2D）。B4C は B と C だけなので、足す核種はない。
+# SS304 の C, Si, P, Cr, Mn, Fe, Ni（天然の C は C-12 と C-13 に分ける。ADR-0079）、Inconel-718 の Si, Ti, Cr, Fe, Ni、
+# AIC の Ag, In, Cd）は 565, 600 K（565 K は 3B と 5-2D）。B4C は B と C だけなので、足す核種はない。
 output = "vera.msgpack"
 endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -186,6 +186,27 @@ temperatures = [565, 600]
 
 [nuclide.Ni-64]
 endf = "n-028_Ni_064.endf"
+temperatures = [565, 600]
+
+# Inconel-718 の Ti（仕様書の表 P3-3。Problem 3 の支持格子の端の 2 つ）
+[nuclide.Ti-46]
+endf = "n-022_Ti_046.endf"
+temperatures = [565, 600]
+
+[nuclide.Ti-47]
+endf = "n-022_Ti_047.endf"
+temperatures = [565, 600]
+
+[nuclide.Ti-48]
+endf = "n-022_Ti_048.endf"
+temperatures = [565, 600]
+
+[nuclide.Ti-49]
+endf = "n-022_Ti_049.endf"
+temperatures = [565, 600]
+
+[nuclide.Ti-50]
+endf = "n-022_Ti_050.endf"
 temperatures = [565, 600]
 
 [nuclide.Ag-107]
