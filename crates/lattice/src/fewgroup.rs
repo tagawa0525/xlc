@@ -6,9 +6,9 @@ use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::group::GroupStructure;
 use xlc_numeric::equivalence::equivalent_diffusion;
 use xlc_numeric::nem::{Edge, OneNode, OneNodeError, is_fissile, surface_fluxes};
-use xlc_numeric::pins::FACE_POINTS;
-use xlc_numeric::pins::corners::{CornerNode, corner_balance};
+use xlc_numeric::pins::corners::{CornerNode, corner_balance, fuel_harmonic_mean, nodes_at_point};
 use xlc_numeric::pins::node::{Conditions, Constants, NodeModel};
+use xlc_numeric::pins::{CELL_POINTS, FACE_POINTS};
 use xlc_numeric::quadrature::gauss_legendre;
 
 use crate::b1::{B1Error, Medium};
@@ -638,9 +638,6 @@ fn point_flux(
     sum.iter().map(|s| s / count).collect()
 }
 
-/// セルの平均の Gauss-Legendre の点の数（各方向）。core の再構成（`CELL_POINTS`）と同じ
-const CELL_POINTS: usize = 6;
-
 /// 格子の上の nx × ny の長方形の並びにしたノード。
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeGrid {
@@ -881,29 +878,26 @@ fn node_pins(
         let mut normalized_corners = vec![false; 4];
         for c in 0..4 {
             let p = point(n, c);
-            // 角の点 (ci, cj) を囲む 4 つのノード（左下、右下、右上、左上）のうち燃料（核分裂のある）のノードの、
-            // その点の CDF。core は、どのノードが反射体だったかを知らず、核分裂の有無で燃料を見分ける
+            // 角の点を囲むノードのうち燃料（核分裂のある）のノードの、その点の CDF。core は、どのノードが反射体
+            // だったかを知らず、核分裂の有無で燃料を見分ける
             let (ci, cj) = (p % (nx + 1), p / (nx + 1));
-            let mut fuel: Vec<[f64; 2]> = Vec::with_capacity(4);
-            for (di, dj, d) in [(1, 1, 2), (0, 1, 3), (0, 0, 0), (1, 0, 1)] {
-                let (Some(mi), Some(mj)) = (ci.checked_sub(di), cj.checked_sub(dj)) else {
-                    continue;
-                };
-                if mi >= nx || mj >= ny {
-                    continue;
-                }
-                let m = grid[mi + nx * mj];
+            let mut fuel: Vec<(usize, usize)> = Vec::with_capacity(4);
+            for (k, d) in nodes_at_point(nx, ny, ci, cj) {
+                let m = grid[k];
                 if is_fissile(&fews[m].nu_fission).map_err(|e| error(format!("node {m}: {e}")))? {
-                    fuel.push(cdf[m][d]);
+                    fuel.push((m, d));
                 }
             }
-            if node.reflector && !fuel.is_empty() {
-                let harmonic =
-                    |g: usize| fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f[g]).sum::<f64>();
-                corners.push((0..2).map(|g| cdf[n][c][g] / harmonic(g)).collect());
-                normalized_corners[c] = true;
-            } else {
-                corners.push(cdf[n][c].to_vec());
+            let harmonic = |g: usize| {
+                let factors: Vec<f64> = fuel.iter().map(|&(m, d)| cdf[m][d][g]).collect();
+                fuel_harmonic_mean(&factors)
+            };
+            match (node.reflector, harmonic(0), harmonic(1)) {
+                (true, Some(h0), Some(h1)) => {
+                    corners.push(vec![cdf[n][c][0] / h0, cdf[n][c][1] / h1]);
+                    normalized_corners[c] = true;
+                }
+                _ => corners.push(cdf[n][c].to_vec()),
             }
         }
         // 形状関数: ノードの均質な解の角の値は s_p h̃
