@@ -5,7 +5,7 @@ opened: 2026-10-11
 closed: 2026-10-11
 milestone:
 blocked-by: []
-resolution: コミット 7adeadec
+resolution: コミット 35d5862f
 ---
 
 # ADR のフロントマターの検査が design-records と crates/docs で食い違う（`requires`）
@@ -32,8 +32,9 @@ resolution: コミット 7adeadec
 
 `requires` を採った。crates/docs の `ADR_KEYS` に足し、項目が `ADR-NNNN` の形で存在する ADR であることを検査する。
 既存の ADR すべてに `requires: []` を足した。あわせて、design-records が推奨する節名に合わせ、ADR の `## 結果` を
-`## 帰結` に改名した（本文は変えていない）。`design-records check` の error は status が rejected の ADR 0091 と 0092
-の節の不足だけで、nixfiles 側で必須の節を免除する変更を待つ。`.pre-commit-config.yaml` を足して `design-records check` にオプトインした
+`## 帰結` に改名した（本文は変えていない）。status が rejected の ADR 0091 と 0092 には、必須の節（背景、検討した案、決定と理由）を内容を変えずに足した。
+`design-records check` の error は 0 になった。
+`.pre-commit-config.yaml` を足して `design-records check` にオプトインした
 （run-checks.sh が実行するのは nixfiles 側の変更）。
 
 ## 経緯
