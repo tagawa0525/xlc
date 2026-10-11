@@ -6,12 +6,14 @@ xlc の計算は、NJOY（核データ処理）と OpenMC（モンテカルロ�
 （取る先の分からない仕様書の PDF を除く）。道具で作る参照の結果は DVC の段階で作り直す（「VERA の参照解」。段階に
 していない問題が残る。#0018）。
 direnv を使う場合は、リポジトリの直下に `use flake` と書いた `.envrc` を置き（手元の設定として git では追跡しない）、
-一度 `direnv allow` すると、`default` の devShell に自動で入る。
+一度 `direnv allow` すると、`default` の devShell に自動で入る。Claude Code の LSP のサーバー（rust-analyzer）は Claude Code の
+起動時の PATH を引き継ぐので、Claude Code は devShell の中で起動する（`.envrc` のない worktree では
+`nix develop -c claude`）。devShell が変わったら起動し直す（ADR-0135）。
 
-| devShell     | 用途                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------- |
-| `default`    | 開発（Rust）、段階の駆動（DVC）と、検証用の Python スクリプト（numpy, h5py など）       |
-| `references` | 参照の計算: `njoy`、`openmc` と、OpenMC の Python API（openmc、endf）の入った `python3` |
+| devShell     | 用途                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `default`    | 開発（Rust と rust-analyzer。ADR-0135）、段階の駆動（DVC）と、検証用の Python スクリプト（numpy, h5py など） |
+| `references` | 参照の計算: `njoy`、`openmc` と、OpenMC の Python API（openmc、endf）の入った `python3`                      |
 
 ## 段階の駆動（DVC）
 

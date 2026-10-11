@@ -20,6 +20,10 @@
       };
       inherit (pkgs) lib;
       rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      # ここで `rust` を override しない。flake.nix は DVC の段階の deps でないので、override すると段階をビルドする
+      # コンパイラが黙って変わる（#0080）。開発の道具は rust-toolchain.toml にも書かず（Rust の段階の deps）、同じ版の
+      # component を横に置く。rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
+      rustAnalyzer = rust.availableComponents.rust-analyzer;
       # 検証用の道具（OpenMC の入力の作成と結果の読み出し、比較のスクリプト）が使う Python のパッケージ
       pythonPackages =
         p: with p; [
@@ -196,6 +200,7 @@
         default = pkgs.mkShell {
           packages = [
             rust
+            rustAnalyzer
             python
             dvc
             pkgs.ruff
