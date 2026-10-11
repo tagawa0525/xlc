@@ -36,25 +36,27 @@ extract は結果のディレクトリに次を書く。ピンと集合体の出
 - assemblies-std.msgpack: その統計誤差
 """
 
-import json
 import math
 import sys
-from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
-import msgpack
 import numpy as np
 import openmc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from openmc_common import input_path, material, read_input
+from openmc_common import (
+    box_settings,
+    material,
+    run_or_extract,
+    write_k,
+    write_pin_powers,
+)
+from openmc_common import read_run as common_read_run
 from openmc_model import (
     AIC,
     B4C,
-    CLAD_INNER,
-    CLAD_OUTER,
     FUEL,
     GUIDE_INNER,
     GUIDE_OUTER,
@@ -64,14 +66,17 @@ from openmc_model import (
     INSTRUMENT_OUTER,
     INSTRUMENT_TUBE,
     MODERATOR_DENSE,
-    PELLET,
     PITCH,
     SS304,
     ZIRCALOY,
     N,
+    concentric,
+    fuel_layers,
     octant_images,
+    pin_lattice,
     pyrex_layers,
     rod_layers,
+    temperature_mode,
     tube,
 )
 
@@ -148,17 +153,7 @@ def assembly(
 ) -> openmc.Universe:
     """集合体 1 体のユニバース（中心が原点、外周の水のギャップを含む）。`pyrex` は Pyrex の棒の本数（0 はなし）、
     `rod` は 24 本の案内管に入れる制御棒の案内管のセル。"""
-    pellet, inner, outer = (
-        openmc.ZCylinder(r=r) for r in (PELLET, CLAD_INNER, CLAD_OUTER)
-    )
-    pin = openmc.Universe(
-        cells=[
-            openmc.Cell(fill=fuel, region=-pellet),
-            openmc.Cell(fill=None, region=+pellet & -inner),
-            openmc.Cell(fill=clad, region=+inner & -outer),
-            openmc.Cell(fill=water, region=+outer),
-        ]
-    )
+    pin = concentric(fuel_layers(fuel, clad), water)
     universes = [[pin] * N for _ in range(N)]
     empty = tube([], GUIDE_INNER, GUIDE_OUTER, clad, water)
     poisoned = octant_images(PYREX_OCTANTS[pyrex]) if pyrex else set()
@@ -170,12 +165,7 @@ def assembly(
         universes[i][j] = rod or (pyrex_cell if (i, j) in poisoned else empty)
     i, j = INSTRUMENT_TUBE
     universes[i][j] = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water)
-    lattice = openmc.RectLattice()
-    lattice.pitch = (PITCH, PITCH)
-    lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
-    lattice.universes = universes
-    lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=water)])
-    return openmc.Universe(cells=[openmc.Cell(fill=lattice)])
+    return openmc.Universe(cells=[openmc.Cell(fill=pin_lattice(universes, water))])
 
 
 def row_extents() -> list[tuple[float, float, float]]:
@@ -304,26 +294,18 @@ def pin_mesh() -> openmc.RectilinearMesh:
     return mesh
 
 
-REQUIRED = {
-    "problem",
-    "cross-sections",
-    "particles",
-    "batches",
-    "inactive",
-    "seed",
-    "threads",
-}
+def assembly_mesh() -> openmc.RegularMesh:
+    """1/4 炉心の集合体の格子（H8 の中心が原点）に合わせたメッシュ。H 列と 8 行のビンは、半分が対称面の外にある。"""
+    mesh = openmc.RegularMesh()
+    n = len(LOADING)
+    mesh.lower_left = (-ASSEMBLY_PITCH / 2, -(n - 0.5) * ASSEMBLY_PITCH)
+    mesh.upper_right = ((n - 0.5) * ASSEMBLY_PITCH, ASSEMBLY_PITCH / 2)
+    mesh.dimension = (n, n)
+    return mesh
 
 
 def read_run(source: Path) -> dict[str, Any]:
-    """入力の TOML を読み、問題を確かめ、パスを絶対パスにする。"""
-    run = read_input(source, REQUIRED, set())
-    if run["problem"] not in RODS:
-        raise SystemExit(
-            f"unknown problem {run['problem']}; expected one of {list(RODS)}"
-        )
-    run["cross-sections"] = input_path(source, run["cross-sections"])
-    return run
+    return common_read_run(source, list(RODS))
 
 
 def solve(source: Path, work: Path) -> None:
@@ -345,28 +327,27 @@ def solve(source: Path, work: Path) -> None:
     materials.cross_sections = str(run["cross-sections"])
 
     size = len(LOADING) * ASSEMBLY_PITCH - ASSEMBLY_PITCH / 2
-    settings = openmc.Settings()
-    settings.particles = run["particles"]
-    settings.batches = run["batches"]
-    settings.inactive = run["inactive"]
-    settings.seed = run["seed"]
-    settings.source = openmc.IndependentSource(
-        space=openmc.stats.Box((0.0, -size, -1.0), (size, 0.0, 1.0)),
-        constraints={"fissionable": True},
+    settings = box_settings(
+        run["particles"],
+        run["batches"],
+        run["inactive"],
+        run["seed"],
+        (0.0, -size, -1.0),
+        (size, 0.0, 1.0),
     )
-    # 源の収束を世代ごとに見るためのエントロピー（1/4 炉心の正方形を集合体ごとに分ける）
-    entropy = openmc.RegularMesh()
-    entropy.lower_left = (0.0, -size, -1.0e6)
-    entropy.upper_right = (size, 0.0, 1.0e6)
-    entropy.dimension = (len(LOADING), len(LOADING), 1)
-    settings.entropy_mesh = entropy
-    # 565 K: H in H2O の S(α,β) を 550 K と 573.6 K で内挿する（ADR-0080。openmc_model.py の temperature_settings）
-    settings.temperature = {"method": "interpolation", "tolerance": 1.0}
+    # 源の収束を世代ごとに見るためのエントロピー（集合体ごと）
+    settings.entropy_mesh = assembly_mesh()
+    settings.temperature = temperature_mode(TEMPERATURE)
 
-    tally = openmc.Tally(name="fission")
-    tally.filters = [openmc.MeshFilter(pin_mesh())]
-    tally.scores = ["fission"]
-    model = openmc.Model(geometry, materials, settings, openmc.Tallies([tally]))
+    # ピンと集合体。集合体も別の tally で数えるのは、集合体の中のピンの間の世代ごとの相関を含めた統計誤差を、
+    # OpenMC に世代の値から出させるため（ピンの誤差の二乗和は相関を落とす）
+    tallies = openmc.Tallies()
+    for name, mesh in (("fission", pin_mesh()), ("assemblies", assembly_mesh())):
+        tally = openmc.Tally(name=name)
+        tally.filters = [openmc.MeshFilter(mesh)]
+        tally.scores = ["fission"]
+        tallies.append(tally)
+    model = openmc.Model(geometry, materials, settings, tallies)
     model.run(cwd=work, threads=run["threads"], output=False)
 
 
@@ -374,10 +355,6 @@ def unfold(quarter: np.ndarray) -> np.ndarray:
     """右下の 1/4（[行（上から）][列（左から）]、先頭の行と列が対称面の上）を、鏡面反射で全体に広げる。"""
     rows = np.concatenate([quarter[:0:-1], quarter], axis=0)
     return np.concatenate([rows[:, :0:-1], rows], axis=1)
-
-
-def write_rows(path: Path, rows: np.ndarray) -> None:
-    path.write_bytes(msgpack.packb({"format": "xlc-pin-powers", "rows": rows.tolist()}))
 
 
 def extract(source: Path, work: Path, results: Path) -> None:
@@ -388,53 +365,36 @@ def extract(source: Path, work: Path, results: Path) -> None:
     cells = len(edges) - 1
     with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         k = sp.keff
-        tally = sp.get_tally(name="fission")
-        # メッシュは x が速く、y は下から。[行（上から。y = 0 が先頭）][列] にする
-        rate = tally.get_values(scores=["fission"]).reshape(cells, cells)[::-1, :]
-        std = tally.get_values(scores=["fission"], value="std_dev")
-        std = std.reshape(cells, cells)[::-1, :]
+        rate, std = rows(sp, "fission", cells)
+        by, by_std = rows(sp, "assemblies", len(LOADING))
     # 余白を除き、対称面で切れたピン（先頭の行と列）を全体のピンに直す
     widths = np.diff(edges)[pins] / PITCH
     area = np.outer(widths, widths)
-    rate = rate[np.ix_(pins, pins)] / area
-    std = std[np.ix_(pins, pins)] / area
-    full = unfold(rate)
-    scale = (full > 0).sum() / full.sum()
-    write_rows(results / "pins.msgpack", full * scale)
-    write_rows(results / "pins-std.msgpack", unfold(std) * scale)
+    rate = unfold(rate[np.ix_(pins, pins)] / area)
+    std = unfold(std[np.ix_(pins, pins)] / area)
+    scale = (rate > 0).sum() / rate.sum()
+    write_pin_powers(results / "pins.msgpack", rate * scale)
+    write_pin_powers(results / "pins-std.msgpack", std * scale)
 
-    # 集合体ごとの和を 1/4 の中で求める。対称面の上の集合体は、対称面の上でない行と列を 2 回数える（鏡像は同じ
-    # tally なので、統計誤差も 2 倍）。統計誤差はピンの間の相関を無視した二乗和の平方根
-    weight = np.ones(len(rate))
-    weight[1 : N // 2 + 1] = 2.0
-    blocks = np.cumsum([0, N // 2 + 1] + [N] * (len(LOADING) - 1))
-    by = np.zeros((len(LOADING), len(LOADING)))
-    var = np.zeros_like(by)
-    for a, (r0, r1) in enumerate(pairwise(blocks)):
-        for b, (c0, c1) in enumerate(pairwise(blocks)):
-            w = np.outer(weight[r0:r1], weight[c0:c1])
-            by[a, b] = (w * rate[r0:r1, c0:c1]).sum()
-            var[a, b] = (w**2 * std[r0:r1, c0:c1] ** 2).sum()
-    by, by_std = unfold(by), unfold(np.sqrt(var))
+    # 集合体: 対称面の上の集合体は半分（中心の H8 は 1/4）だけ数えたので、全体に直す
+    full = np.ones(len(LOADING))
+    full[0] = 2.0
+    by, by_std = (unfold(v * np.outer(full, full)) for v in (by, by_std))
     scale = (by > 0).sum() / by.sum()
-    write_rows(results / "assemblies.msgpack", by * scale)
-    write_rows(results / "assemblies-std.msgpack", by_std * scale)
-    (results / "k.json").write_text(
-        json.dumps({"problem": problem, "k": k.nominal_value, "k-std": k.std_dev})
-        + "\n"
+    write_pin_powers(results / "assemblies.msgpack", by * scale)
+    write_pin_powers(results / "assemblies-std.msgpack", by_std * scale)
+    write_k(results / "k.json", problem, k)
+
+
+def rows(sp: openmc.StatePoint, name: str, n: int):
+    """tally `name`（n × n のメッシュ）の平均と統計誤差を [行（上から。y = 0 の側）][列] にする（メッシュは x が速く、
+    y は下から）。"""
+    tally = sp.get_tally(name=name)
+    return tuple(
+        tally.get_values(scores=["fission"], value=v).reshape(n, n)[::-1, :]
+        for v in ("mean", "std_dev")
     )
-    print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
-
-
-def main() -> None:
-    match sys.argv[1:]:
-        case ["run", source, work]:
-            solve(Path(source), Path(work))
-        case ["extract", source, work, results]:
-            extract(Path(source), Path(work), Path(results))
-        case _:
-            raise SystemExit(__doc__)
 
 
 if __name__ == "__main__":
-    main()
+    run_or_extract(solve, extract, __doc__)
