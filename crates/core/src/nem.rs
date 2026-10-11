@@ -2303,6 +2303,11 @@ mod tests {
         // 範囲の外の番号はエラー
         let err = solve(&x(vec![3], &a, &b), &Options::default());
         assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
+        // f* の辺は燃料の ADF で割った値なので、反射体の位置どうしの面にあれば（回転を取り違えた定数）エラー
+        let mut turned = a.clone();
+        turned.normalized_adf[1] = true;
+        let err = solve(&x(vec![1, 2], &turned, &b), &Options::default());
+        assert!(matches!(err, Err(NemError::InvalidProblem(_))), "{err:?}");
     }
 
     #[test]
