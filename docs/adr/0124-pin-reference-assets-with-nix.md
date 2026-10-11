@@ -1,7 +1,6 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-11
-requires: []
 supersedes: [ADR-0031]
 superseded-by:
 issues: ["#0018"]
@@ -125,16 +124,35 @@ Nix と DVC の役割:
 
 ## 確認
 
-flake の NJOY と OpenMC が、手でビルドしたものと同じ結果を出すことを、同じ入力で比べて確かめる（結果は実装の後に書く）。
+flake の packages を作り、手で取ったもの・手でビルドしたもの（main の `references/`）と比べた（9964088c の
+trials/pin-reference-assets/compare_tools.sh、Slurm の上で 16 スレッド、2026-10-11）。
 
-## 帰結
+- `nix build` は 4 つの zip を取り、NJOY、OpenMC、Python API をビルドして約 1 分 40 秒で終わった（r995）。`nix flake check`
+  が通る
+- `.#endf` の木は `references/endf` の展開した木と、4 つのディレクトリ（561、91、3825、35 ファイル）のすべてで
+  `diff -r` が一致した。入力の TOML と dvc.yaml が指すファイルの中身は変わらない
+- docs/specs.sha256 は `sha256sum -c` が 4 つとも通る。VERA と MOX の pin_cell は、書いた URL から取ったファイルの
+  sha256 が一致した
+- NJOY: references/njoy-runs の B10-acer（moder、reconr、broadr、パッチを通る acer）と O17-groupr（reconr、groupr）で、
+  ACE（B10 の tape24、tape25）と GENDF（O17 のバイナリの tape23、テキストの tape24）はバイト単位で一致した。
+  バイナリの ENDF と PENDF（B10 の tape21〜23、O17 の tape21、22）は、最初のレコードの 97〜155 バイト目の 6〜9 バイト
+  だけが違う。その値はメモリのアドレス（`0x7ffff7eac4bc` など）で、初期化されない領域がそのまま書かれている。ASLR の
+  効いた手元では、同じ手でビルドした `njoy` を 2 回走らせても同じ位置が違った。ほかのバイトは一致した
+- openmc.data（Python API）が NJOY を通して作る H-1 の 600 K の HDF5 は、18 のデータセットのすべてが一致した
+- OpenMC: `openmc --version` は、どちらも 0.15.2、コミット e23760b0 を示した。C5G7（多群、2 万粒子、120 世代、
+  種 1）の k は両方とも 1.186062 ± 0.000477、VERA 1B（連続エネルギー、同じ粒子数）は 1.181836 ± 0.000647 で、
+  一致した。世代ごとの k と tally の差は相対で 1e-14 以下で、同じ道具を 2 回走らせた差と同じ大きさだった（スレッドの
+  和の順序による丸め）
+
+## 結果
 
 - main の `references/` には、手でビルドした道具（`NJOY2016/`、`openmc/src`、`openmc/build`、`openmc/install`、
   `openmc/venv`）と、手で取った `endf/`（zip と展開した木）が残っている。`references/endf` を out-link に置き換えるのは、
   このブランチをマージしたあとに手で行う（ディレクトリをどけてから `nix build .#endf -o references/endf`）。中身が同じ
   ことは「確認」で確かめたので、M0 の `dvc.lock` は変わらない
 - 道具は devShell の中だけにあり、GC の root がない。`nix-collect-garbage` のあとは、`nix develop .#references` が作り
-  直す（同じ記述から同じものを作る。時間はかかる）
+  直す（同じ記述から作る。ENDF の取得を含めて約 1 分 40 秒、r995、2026-10-11）
+- OpenMC の Python API の版（`openmc.__version__`）は、venv では 0.0.0 だった（原因は確かめていない）が、0.15.2 になる
 - ADR-0031 は道具を `references/` に手でビルドすると決めていたので、この ADR が置き換える
 - 次のブランチ（#0018）で参照の結果を DVC の段階にするとき、道具を表す deps（flake.nix、`flake.lock`、
   docs/patches/）の並べ方を決める。flake.nix はこの ADR の packages のほか devShell も含むので、そのまま deps にすると
