@@ -41,6 +41,7 @@ extract は結果のディレクトリに次を書く:
 
 import math
 import sys
+from collections.abc import Callable
 from functools import cache
 from itertools import pairwise
 from pathlib import Path
@@ -52,14 +53,7 @@ import openmc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from openmc_common import (
-    box_settings,
-    material,
-    run_or_extract,
-    write_k,
-    write_pin_powers,
-)
-from openmc_common import read_run as common_read_run
+from openmc_common import material
 from openmc_model import (
     CLAD_INNER,
     CLAD_OUTER,
@@ -74,6 +68,7 @@ from openmc_model import (
     MODERATOR_DENSE,
     PITCH,
     PYREX,
+    PYREX_OCTANTS,
     PYREX_RADII,
     SS304,
     ZIRCALOY,
@@ -84,17 +79,18 @@ from openmc_model import (
     fuel_layers,
     octant_images,
     pin_lattice,
+    pyrex_rod_layers,
     temperature_mode,
+    with_carbon,
 )
-
-# 天然の C の同位体の存在比（ADR-0079）
-CARBON = {"C12": 0.9893, "C13": 0.0107}
-
-
-def with_carbon(densities: dict[str, float], carbon: float) -> dict[str, float]:
-    """仕様書の天然の C（6000）の個数密度 `carbon` を C-12 と C-13 に分けて足す。"""
-    return {**densities, **{n: carbon * f for n, f in CARBON.items()}}
-
+from openmc_run import (
+    box_settings,
+    mesh_values,
+    run_or_extract,
+    write_k,
+    write_pin_powers,
+)
+from openmc_run import read_run as common_read_run
 
 # 表 P3-3 の個数密度 (/(barn cm))
 # 3B の濃縮度 2.619% の燃料
@@ -224,8 +220,8 @@ PLUG_RADIUS = 0.538
 PLUG_HEIGHT = 11.0
 PLUG_BOTTOM = 383.31
 
-# 図 5 の 16 本の Pyrex の配置の、1/8 の中の位置（中央からの行と列の数）。案内管のほかの 1/8 の位置は (3, 3) と (6, 0)
-PYREX_16 = octant_images({(3, 0), (5, 5), (6, 3)})
+# 図 5 の 16 本の Pyrex の配置。案内管のほかの 1/8 の位置は (3, 3) と (6, 0)
+PYREX_16 = octant_images(PYREX_OCTANTS[16])
 
 # 表 P3-5 の 49 層の上端の z (cm)。下端は燃料の下端
 LEVEL_TOPS = (
@@ -299,17 +295,6 @@ class Materials:
         for m in (self.water, *self.structures.values()):
             m.add_s_alpha_beta("c_H_in_H2O")
 
-    def all(self) -> list[openmc.Material]:
-        return [
-            self.fuel,
-            self.clad,
-            self.water,
-            self.inconel,
-            self.steel,
-            self.pyrex,
-            *self.structures.values(),
-        ]
-
 
 def frames(m: Materials) -> list[tuple[float, float, Frame]]:
     """支持格子の (下端, 上端, 枠) の並び。"""
@@ -339,8 +324,7 @@ def pyrex_rod(m: Materials, z: float) -> Layers:
     if POISON_BOTTOM - POISON_PLUG <= z < POISON_BOTTOM:
         return [(m.steel, clad_out)]
     if POISON_BOTTOM <= z < poison_top:
-        fills = [None, m.steel, None, m.pyrex, None, m.steel]
-        return list(zip(fills, PYREX_RADII))
+        return pyrex_rod_layers(m.pyrex, m.steel)
     if poison_top <= z < min(poison_top + POISON_PLENUM, NOZZLE_TOP_BOTTOM):
         return [(None, clad_in), (m.steel, clad_out)]
     return []
@@ -367,13 +351,18 @@ def boundaries(problem: str, m: Materials) -> list[float]:
     return zs
 
 
-def lattice_at(problem: str, m: Materials, z: float) -> openmc.RectLattice:
-    """高さ `z`（ノズルの間）の 17×17 の格子。外周の水のギャップは格子の外（`outer`）。"""
+def lattice_at(
+    problem: str, m: Materials, z: float, universes_of: Callable
+) -> openmc.RectLattice:
+    """高さ `z`（ノズルの間）の 17×17 の格子。外周の水のギャップは格子の外（`outer`）。`universes_of(layers, frame)` は
+    セルのユニバースを作る（同じ中身のセルを層の間で再利用する）。"""
     frame = None
     for bottom, top, f in frames(m):
         if bottom <= z < top:
             frame = f
-    universe = cache(lambda layers: concentric(list(layers), m.water, frame))
+
+    def universe(layers: tuple) -> openmc.Universe:
+        return universes_of(layers, frame)
 
     def tube(inside: Layers, inner: float, outer: float) -> openmc.Universe:
         return universe((*inside, (m.water, inner), (m.clad, outer)))
@@ -405,8 +394,10 @@ def geometry_of(problem: str, m: Materials) -> tuple[openmc.Geometry, float]:
         (NOZZLE_BOTTOM_TOP, m.structures["bottom nozzle"]),
     ]
     zs = boundaries(problem, m)
+    universes_of = cache(lambda layers, frame: concentric(list(layers), m.water, frame))
     for lower, upper in pairwise(zs):
-        zones.append((upper, lattice_at(problem, m, (lower + upper) / 2)))
+        z = (lower + upper) / 2
+        zones.append((upper, lattice_at(problem, m, z, universes_of)))
     zones += [
         (NOZZLE_TOP_TOP, m.structures["top nozzle"]),
         (PLATE_TOP, m.structures["core plate"]),
@@ -450,9 +441,9 @@ def solve(source: Path, work: Path) -> None:
     problem = run["problem"]
     work.mkdir(parents=True, exist_ok=True)
     m = Materials(problem)
-    materials = openmc.Materials(m.all())
-    materials.cross_sections = str(run["cross-sections"])
     geometry, half = geometry_of(problem, m)
+    materials = openmc.Materials(geometry.get_all_materials().values())
+    materials.cross_sections = str(run["cross-sections"])
 
     settings = box_settings(
         run["particles"],
@@ -487,16 +478,6 @@ def solve(source: Path, work: Path) -> None:
     model.run(cwd=work, threads=run["threads"], output=False)
 
 
-def values(sp: openmc.StatePoint, name: str, shape: tuple[int, int, int]):
-    """tally `name` の平均と統計誤差を、[層（下から）][行（上から）][列] の形 `shape` にする（メッシュは x が最も速く、
-    次に y（下から）、z（下から））。"""
-    tally = sp.get_tally(name=name)
-    return tuple(
-        tally.get_values(scores=["fission"], value=v).reshape(shape)[:, ::-1, :]
-        for v in ("mean", "std_dev")
-    )
-
-
 def extract(source: Path, work: Path, results: Path) -> None:
     run = read_run(source)
     problem = run["problem"]
@@ -504,9 +485,9 @@ def extract(source: Path, work: Path, results: Path) -> None:
     levels = len(LEVELS) - 1
     with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         k = sp.keff
-        rate, std = values(sp, "fission", (levels, N, N))
-        pins, pins_std = values(sp, "pins", (1, N, N))
-        axial, axial_std = values(sp, "axial", (levels, 1, 1))
+        rate, std = mesh_values(sp, "fission", (levels, N, N))
+        pins, pins_std = mesh_values(sp, "pins", (1, N, N))
+        axial, axial_std = mesh_values(sp, "axial", (levels, 1, 1))
     heights = np.diff(LEVELS)
     pins, pins_std = pins[0], pins_std[0]
     fuel = pins > 0
