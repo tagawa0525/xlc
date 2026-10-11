@@ -59,4 +59,5 @@ ADR-0122 は禁止を文章にしただけで、新しい読み取りを止め�
 
 ### 確認
 
-`cargo clippy --workspace --all-targets` が通ること（`run-checks.sh`）。
+`cargo clippy --workspace --all-targets` が通ること（`run-checks.sh`）。禁止が効くことは、examples に `std::env::var` を
+仮に足して clippy が `disallowed_methods` で警告することで確かめた（2026-10-12。足した行は戻した）。
