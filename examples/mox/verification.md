@@ -27,8 +27,8 @@ OpenMC のデータは examples/vera/openmc_library.py で作る（Pu-238〜242 
 ## 実行
 
 ```sh
-target/release/xs examples/mox/xs.toml                    # mox.msgpack（16 コアで 1 分 49 秒）
-target/release/lattice examples/mox/pincell-mox1.toml     # 7.5 秒
+target/release/xs examples/mox/xs.toml                    # mox.msgpack
+target/release/lattice examples/mox/pincell-mox1.toml
 cargo run --release -p xlc-lattice --example fuel_xs -- examples/mox/pincell-mox1.toml examples/mox/xlc-mox1.msgpack
 # リポジトリの根で（nix develop .#references の中）。ライブラリは examples/vera/dvc.yaml の openmc-index の段階の出力
 python3 examples/mox/openmc_model.py examples/vera/openmc-library/cross_sections.xml MOX-1 references/openmc/mox-1 \
@@ -44,10 +44,14 @@ MOX-2 は 1 を 2 に変えて同じように解く。OpenMC は 1 世代 100 �
 
 ## 結果
 
+xlc は e4dbc0de（分岐点 cde7206f）、2026-10-12。ライブラリの作り直しと格子計算は Slurm の共有モード（`-c 8`）で流したので、計算時間は書かない。
+
 | 問題  | xlc      | OpenMC              | 差       |
 | ----- | -------- | ------------------- | -------- |
-| MOX-1 | 1.211905 | 1.210946 ± 0.000062 | +79 pcm  |
-| MOX-2 | 1.259289 | 1.257050 ± 0.000062 | +178 pcm |
+| MOX-1 | 1.208694 | 1.210946 ± 0.000062 | −225 pcm |
+| MOX-2 | 1.255920 | 1.257050 ± 0.000062 | −113 pcm |
+
+[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) のライブラリで、k の差は +79、+178 pcm から −225、−113 pcm に動いた（燃料の実効断面積の差は変わらない）。
 
 燃料の核種ごとの実効捕獲断面積の差（xlc / OpenMC − 1）。xlc の出力には捕獲がないので全 − 弾性 − 核分裂を
 OpenMC の (n,γ) と比べ、非弾性散乱などのほかの反応がない群だけを比べる（`compare_capture.py`）。ENDF の MF3 の
@@ -97,9 +101,9 @@ OpenMC の (n,γ) と比べ、非弾性散乱などのほかの反応がない�
   共鳴の幅と同じ程度で、NR 近似（ライブラリの重み）が成り立たないことが候補
 - 熱群（57〜69 群）では、Pu-239（+0.1%）を除くどの核種の捕獲も +0.3〜+0.35% 大きく、核分裂も同じ向きなので
   打ち消し合って k には効きにくい（燃料の核種の計で +15 pcm）
-- 燃料の核種の 14〜69 群の差の k の計（MOX-1 −162 pcm、MOX-2 −2 pcm）は、k の差（+79、+178 pcm）を説明しない。
-  残りは MOX-1 で +241 pcm、MOX-2 で +180 pcm で、UO2 のピンセル（examples/vera の 1B で +295 pcm）と同じく
+- 燃料の核種の 14〜69 群の差の k の計（MOX-1 −162 pcm、MOX-2 −2 pcm）は、k の差（−225、−113 pcm）のうち MOX-1 の大半を説明するが、
+  MOX-2 は説明しない。残りは MOX-1 で −63 pcm、MOX-2 で −111 pcm で、UO2 のピンセル（examples/vera の 1B で +60 pcm）と同じく
   断面積の側のほかの誤差（15.03 keV より上の群、被覆管と水、1 次の近似の誤差）を含む
 - 燃料の核種の計は MOX-1 が MOX-2 より 160 pcm 低く、そのほとんどは Pu-242 の差（169 pcm）による。k の差の
-  違いは 99 pcm なので、残りも組成によって 61 pcm 違い（MOX-1 で大きい）、Pu-242 だけでは MOX-1 と MOX-2 の
-  k の差の違いは説明できない
+  違いは 112 pcm（MOX-1 が低い）なので、残りが組成によって逆向きに 48 pcm 違い（MOX-2 で低い）、Pu-242 の差が
+  k の差の違いを超える分を打ち消している
