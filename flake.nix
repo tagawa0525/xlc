@@ -20,7 +20,7 @@
       };
       inherit (pkgs) lib;
       rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-      # rust-toolchain.toml は Rust の段階の deps なので、sysroot に要るもの（rust-src）以外の開発の道具は書かない。
+      # rust-toolchain.toml は Rust の段階の deps なので、ビルドとチェックの道具と sysroot に要るもの（rust-src）だけを書く。
       # ツールチェーンを override もせず（段階をビルドするコンパイラの derivation を変えない）、同じ版の component を
       # 横に置く。rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
       rustAnalyzer = rust.availableComponents.rust-analyzer;
