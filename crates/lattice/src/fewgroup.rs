@@ -2664,6 +2664,58 @@ mod tests {
     }
 
     #[test]
+    fn reflector_nodes_away_from_fuel_keep_plain_factors() {
+        // 燃料と接しない反射体のノード（軸方向のノズル、炉心板、水の層）は、f* でない GET の ADF を持つ（ADR-0128）。
+        // 燃料と接する反射体のノードだけが、燃料の側の辺に f* の印を持つ
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26],
+            vec![Cell::Pin(pin), Cell::Pin(cell)],
+            vec![vec![0, 1, 1]],
+        )
+        .unwrap();
+        let boundaries = vacuum();
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        let materials = [fuel, water.clone(), water.clone(), water];
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        let fine = fine();
+        let run = |reflector: bool| {
+            let nodes: Vec<Node> = [0..1, 1..2, 2..3]
+                .into_iter()
+                .enumerate()
+                .map(|(n, columns)| Node {
+                    reflector: reflector && n > 0,
+                    ..node(columns, 0..1)
+                })
+                .collect();
+            homogenize_nodes(
+                &solution,
+                &lattice,
+                &refs,
+                &fine,
+                fine.bounds(),
+                &boundaries,
+                &nodes,
+                false,
+            )
+            .unwrap()
+        };
+        let (marked, plain) = (run(true), run(false));
+        assert_eq!(marked[1].normalized_adf[..4], [true, false, false, false]);
+        assert_eq!(marked[2].normalized_adf, vec![false; 6]);
+        assert_eq!(marked[2].adf, plain[2].adf);
+        for g in 0..2 {
+            let back = marked[1].adf[0][g] * plain[0].adf[1][g];
+            assert!((back - plain[1].adf[0][g]).abs() < 1e-14 * back);
+        }
+    }
+
+    #[test]
     fn invalid_nodes_are_errors() {
         let (lattice, solution, materials, boundaries) = strip();
         let refs: Vec<&Material> = materials.iter().collect();
