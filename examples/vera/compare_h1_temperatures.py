@@ -9,14 +9,15 @@ H1.h5 は openmc_library.py で、565 K と S(α,β) の温度（550 K と 573.6
 """
 
 import sys
+from itertools import pairwise
 
 import numpy as np
 import openmc.data
 
 # 比べる反応（MT）
 REACTIONS = {"total": 1, "elastic": 2, "capture": 102}
-# エネルギーの範囲 (eV)。4 eV は H in H2O の S(α,β) を使う上限の目安
-RANGES = [(1e-5, 4.0), (4.0, 1e5), (1e5, 2e7)]
+# エネルギーの範囲 (eV) の境界。H in H2O の S(α,β) を使う上限は、xlc が 4 eV（ADR-0052）、OpenMC が 10 eV（#0005）
+BOUNDS = [4.0, 10.0, 1e5]
 
 
 def main() -> None:
@@ -39,7 +40,9 @@ def main() -> None:
         exact = xs["565K"](energy)
         interpolated = (1 - f) * xs["550K"](energy) + f * xs["574K"](energy)
         relative = interpolated / exact - 1
-        for lo, hi in RANGES:
+        # 両端の範囲は格子の端の点を含める
+        edges = [energy[0], *BOUNDS, np.nextafter(energy[-1], np.inf)]
+        for lo, hi in pairwise(edges):
             inside = (energy >= lo) & (energy < hi)
             worst = np.max(np.abs(relative[inside]))
             print(
