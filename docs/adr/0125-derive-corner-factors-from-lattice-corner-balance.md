@@ -168,8 +168,8 @@ ADR-0096 と ADR-0103 は、反射体の角と平らでない格子の CDF、平
   `known_corner_fluxes_scale_the_corner_estimates`）。s_p が正でなければエラー（`non_positive_corner_scales_are_errors`。
   2 辺が真空の格子。#0065）
 - core: 印の付いた反射体の角は、同じ値を割らずに書いた反射体と同じ再構成になり、反射体のノードの出力は 0
-  （`normalized_reflector_corners_take_the_fuel_corner_factor`）。印の付いた角の点に印のない角のノードがないとエラー
-  （`normalized_corners_need_a_plain_neighbor`）
+  （`normalized_reflector_corners_take_the_fuel_corner_factor`）。印の付いた角の点に燃料（核分裂のある）のノードがなければ、
+  印のない反射体の角があってもエラー（`normalized_corners_need_fuel_at_the_corner_point`）
 - 少数群定数の形式: 印の数の検査（format の `pins_are_checked`）、状態の間で同じこと（`pins_round_trip_and_share_cells`）、
   集合体を回すと角と同じく回ること（core の `rotation_turns_pins_counterclockwise`）
 
