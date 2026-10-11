@@ -1,0 +1,7 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 階段の外形の小さな炉心を core で解く（外形と対称性の確認）。
+cycle = "core-small-step-Ly-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "core-small-step-Ly-pins.msgpack"
+boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["reflective", "reflective"], outline = "vacuum" }
