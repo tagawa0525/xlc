@@ -111,7 +111,7 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 ## 確認
 
 examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro examples/vera/dvc.yaml` で Slurm の上で実行した
-（0f0ac24c、2026-10-11、全体で 57 分）。`dvc.lock` の deps はこのコミットの版で、出し直すにはこのコミットを checkout して
+（d682b870、2026-10-11、全体で 57 分）。`dvc.lock` の deps はこのコミットの版で、出し直すにはこのコミットを checkout して
 `dvc repro` する。ライブラリの温度は、main が 2A と 2Q のために足した 565 K と S(α,β) の温度を
 含む（`openmc-library.toml`）。
 
