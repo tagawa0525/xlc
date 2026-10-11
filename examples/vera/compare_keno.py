@@ -15,6 +15,7 @@ from pathlib import Path
 import msgpack
 
 CAPTIONS = {
+    "2A": "Figure P2-3: Problem 2A (565K) CE KENO-VI Power Distribution Results",
     "2B": "Figure P2-4: Problem 2B (600K) CE KENO-VI Power Distribution Results",
     "2C": "Figure P2-5: Problem 2C (900K) CE KENO-VI Power Distribution Results",
     "2D": "Figure P2-6: Problem 2D (1200K) CE KENO-VI Power Distribution Results",
@@ -25,6 +26,7 @@ CAPTIONS = {
     "2I": "Figure P2-11: Problem 2I (Instrument Thimble) CE KENO-VI Power Distribution Results",
     "2J": "Figure P2-12: Problem 2J (Instrument and Pyrex) CE KENO-VI Power Distribution Results",
     "2K": "Figure P2-13: Problem 2K (Zoned and 24 Pyrex) CE KENO-VI Power Distribution Results",
+    "2Q": "Figure P2-19: Problem 2Q (Zircaloy Spacer Grid) CE KENO-VI Power Distribution Results",
 }
 # 1/8 の中の案内管の位置（中央からの行と列の数）。中央 (0, 0) は計装管
 TUBES = {(0, 0), (3, 0), (3, 3), (5, 5), (6, 0), (6, 3)}

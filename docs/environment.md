@@ -82,11 +82,13 @@ nix develop .#references -c sh -c \
 
 ## VERA の参照解
 
-VERA Problem 1B〜1D, 2B〜2K の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
-データで OpenMC を動かして作る（`examples/vera/`）。データは `references/openmc/endfb80/` に置く:
+VERA Problem 1B〜1D, 2A〜2K, 2Q の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
+データで OpenMC を動かして作る（`examples/vera/`）。データは `references/openmc/endfb80/` に置く。温度は核種の組ごとに
+渡す（565 K は燃料、冷却材、被覆管の核種を 565 K でも作り、H in H2O の S(α,β) は 550 K と 573.6 K の内挿。ADR-0080）:
 
 ```sh
-nix develop .#references -c python3 examples/vera/openmc_library.py references/endf references/openmc/endfb80 8
+nix develop .#references -c python3 examples/vera/openmc_library.py references/endf references/openmc/endfb80 8 \
+  --fuel 565 600 900 1200 --coolant-and-clad 565 600 --others 600 --thermal 550 573.6 600
 nix develop .#references -c sh -c \
   'OMP_NUM_THREADS=16 python3 examples/vera/openmc_model.py references/openmc/endfb80/cross_sections.xml 2B \
      references/openmc/work-2B 1000000 400 100 1'
