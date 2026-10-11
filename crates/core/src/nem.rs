@@ -47,7 +47,8 @@ pub struct Problem {
     pub mesh: Mesh,
     pub materials: Vec<FewGroup>,
     /// 炉心の形の反射体の位置に置いた物質の番号。f* の辺がほかの反射体の位置に向く（回転を取り違えた定数）ことを
-    /// 見つけるのに使う（ADR-0095）。面の ADF には効かない（反射体どうしの面も各側の ADF を使う。ADR-0132）
+    /// 見つけるのと（ADR-0095）、f* の辺が集合体の位置の核分裂のない軸方向の層に向く面の ADF を両側 1 にするのに使う
+    /// （ADR-0132）。反射体どうしの面は各側の ADF を使う（ADR-0132）
     pub reflectors: Vec<usize>,
     /// 直方体の位置ごとの物質番号。並びは x が最も速く、次に y、z。ノードのない位置は `None`
     pub node_material: Vec<Option<usize>>,
