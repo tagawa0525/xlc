@@ -45,7 +45,7 @@ pub struct Pins {
     /// [角（-x -y、+x -y、+x +y、-x +y の順）][群] の角の不連続因子（角の不均質な中性子束 / 角の均質な中性子束）
     pub corners: Vec<Vec<f64>>,
     /// [角] の、`corners` が角の点に接する燃料（核分裂のある）のノードの CDF の調和平均で割った値 C* である角
-    /// （反射体の定数の、燃料に接する角。ADR-0125）。core は、その角の CDF を C* × 炉心で角の点に接する燃料のノードの
+    /// （反射体の定数の、燃料に接する角。ADR-0131）。core は、その角の CDF を C* × 炉心で角の点に接する燃料のノードの
     /// CDF の調和平均とする
     pub normalized_corners: Vec<bool>,
     /// [辺（左、右、上、下）] の、その辺に接するセルの列（行）が、隣の部分ノードと分け合った1つのセルの半分か
@@ -275,7 +275,7 @@ mod tests {
         bad(|p| p.corners[3][1] = 0.0, "corners");
         // 辺ごとの、隣の部分ノードと分け合ったセルの印は 4 辺ぶん（ADR-0108）
         bad(|p| p.halves.truncate(3), "halves");
-        // 燃料の CDF で割った角の印は 4 つの角ぶん（ADR-0125）
+        // 燃料の CDF で割った角の印は 4 つの角ぶん（ADR-0131）
         bad(|p| p.normalized_corners.truncate(3), "normalized_corners");
     }
 

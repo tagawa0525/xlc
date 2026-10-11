@@ -1,0 +1,77 @@
+# #0065 の切り分けの格子: 燃料のピン 2 × 2（VERA 2B のピン。examples/reflector/reflector-I.toml と同じ物質とセル）の
+# 右と上に幅 3.0 cm の水を置く。水は 6 × 6 のマス（1 辺 0.5 cm、マスごとに 1 つの領域）に分ける。
+# 左と下は鏡面反射、右と上は真空。ノードは燃料、右の水、上の水（どちらも反射体）と右上の水。
+library = "../reflector.msgpack"
+self-shielding = false
+pitch = 1.26
+azimuthal = 32
+spacing = 0.05
+boundary = { right = "vacuum", top = "vacuum" }
+few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
+  { output = "w3-n6.fuel.msgpack", columns = [1, 2], rows = [7, 8] },
+  { output = "w3-n6.right.msgpack", columns = [3, 8], rows = [7, 8], reflector = true },
+  { output = "w3-n6.top.msgpack", columns = [1, 2], rows = [1, 6], reflector = true },
+  { output = "w3-n6.corner.msgpack", columns = [3, 8], rows = [1, 6] },
+], pins = true }
+widths = [{ size = 1.26, count = 2 }, { size = 0.5, count = 6 }]
+heights = [{ size = 0.5, count = 6 }, { size = 1.26, count = 2 }]
+rows = [
+  "w w w w w w w w",
+  "w w w w w w w w",
+  "w w w w w w w w",
+  "w w w w w w w w",
+  "w w w w w w w w",
+  "w w w w w w w w",
+  "pin pin w w w w w w",
+  "pin pin w w w w w w",
+]
+
+[material.fuel]
+temperature = 600
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.41459e-02, O-16 = 2.20729e-02, B-10 = 9.52537e-06, B-11 = 3.83408e-05 }
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[cell.w]
+zones = [{ material = "water", rings = 1 }]
