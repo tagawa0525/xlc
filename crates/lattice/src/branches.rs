@@ -294,7 +294,11 @@ impl BranchesEntry {
             check_media("fuel", &f.materials, media)?;
             if let Some(Change::Moderator(_, _, listed)) =
                 changes.iter().find(|c| matches!(c, Change::Moderator(..)))
-                && let Some(name) = f.materials.iter().find(|n| listed.contains(n))
+                // 混ぜた物質は成分から作るので、成分の温度が両方の軸で変わってよい
+                && let Some(name) = f
+                    .materials
+                    .iter()
+                    .find(|n| listed.contains(n) && !mixtures.iter().any(|m| &m.name == *n))
             {
                 return Err(format!(
                     "branches: material `{name}` is in both the moderator and the fuel axes"

@@ -33,13 +33,26 @@ pub enum Equivalence {
     },
 }
 
-impl Equivalence {
-    /// 見つかった拡散係数
-    pub fn found(self) -> Option<Vec<f64>> {
-        match self {
-            Self::Found(d) => Some(d),
-            Self::Missing { .. } => None,
+/// 収束した根で群 `group` の面の均質な中性子束が正でないときの結果。正の面の点の均質な比の範囲 `range` に不均質な比
+/// `target` が入っていれば、正の面の範囲にも根があるのに別の根に収束したので、エラーにする（黙って中性子流の D に
+/// しない）。入っていなければ `Missing`
+fn negative_root(
+    group: usize,
+    target: f64,
+    range: Option<[f64; 2]>,
+) -> Result<Equivalence, OneNodeError> {
+    match range {
+        Some([low, high]) if low <= target && target <= high => {
+            Err(OneNodeError::Invalid(format!(
+                "group {group}: the equivalent diffusion coefficient converged to a root with \
+             non-positive faces, but positive-face ratios {low}..{high} reach the target {target}"
+            )))
         }
+        _ => Ok(Equivalence::Missing {
+            group,
+            target,
+            range,
+        }),
     }
 }
 
@@ -195,12 +208,10 @@ pub fn equivalent_diffusion(
                 diffusion: &diffusion,
                 ..*node
             })?;
-            return Ok(
-                match (0..ng).find(|&g| !(faces[2 * d][g] > 0.0 && faces[2 * d + 1][g] > 0.0)) {
-                    Some(g) => missing(g, &seen),
-                    None => Equivalence::Found(diffusion),
-                },
-            );
+            return match (0..ng).find(|&g| !(faces[2 * d][g] > 0.0 && faces[2 * d + 1][g] > 0.0)) {
+                Some(g) => negative_root(g, ratio[g], seen[g]),
+                None => Ok(Equivalence::Found(diffusion)),
+            };
         }
     }
     Err(OneNodeError::EquivalenceNotConverged(MAX_ITERATIONS))
@@ -283,9 +294,10 @@ mod tests {
             ),
             [&het_minus, &het_plus, &flux, &flux],
         )
-        .unwrap()
-        .found()
         .unwrap();
+        let Equivalence::Found(found) = found else {
+            panic!("{found:?}");
+        };
         for g in 0..2 {
             let r = plus[g] / -minus[g];
             let t = het_plus[g] / het_minus[g];
@@ -340,9 +352,10 @@ mod tests {
             ),
             [&het[0], &het[1], &het[2], &het[3]],
         )
-        .unwrap()
-        .found()
         .unwrap();
+        let Equivalence::Found(found) = found else {
+            panic!("{found:?}");
+        };
         for g in 0..2 {
             assert!((found[g] - truth[g]).abs() < 1e-9 * truth[g], "{found:?}");
         }
