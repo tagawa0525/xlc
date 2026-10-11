@@ -173,15 +173,16 @@ fn core_rows_join_nodes_from_the_top() {
 }
 
 #[test]
-fn vacuum_corners_lose_r_times_the_corner_flux() {
+fn vacuum_corners_lose_r_times_the_homogeneous_corner_flux() {
     // 平板（x は Marshak、y と z は反射）の左下の角の点の箱は、ノード 0 だけを含み、箱の辺から出ていく流れ
-    // J_x + J_y（J = −D∇φ）と、真空の辺から出ていく r Φ（r = 1/2、Φ は不均質な角の中性子束）の和が 0。面の ADF（1）と
-    // 違う CDF（1.3）でも、真空の辺の流れは ADF でなく Φ で決まる
+    // J_x + J_y（J = −D∇φ）と、真空の辺から出ていく r f φ_c（r = 1/2、f は面の ADF、φ_c = Φ / CDF は均質な角の値）の
+    // 和が 0。CDF（1.3）が ADF（1.2）と違っても、真空の辺の流れは面の条件と同じく ADF で決まる（ADR-0131）
     let mut p = square(86.0, 4, 2, Boundary::Marshak);
     p.mesh.dy = vec![86.0 / 4.0];
     p.node_material = vec![0; 4];
     p.boundaries[2] = Boundary::Reflective;
     p.boundaries[3] = Boundary::Reflective;
+    p.materials[0].adf = vec![vec![1.2, 1.2]; 4];
     if let Some(pins) = p.materials[0].pins.as_mut() {
         pins.corners = vec![vec![1.3, 1.3]; 4];
     }
@@ -200,7 +201,7 @@ fn vacuum_corners_lose_r_times_the_corner_flux() {
     let grad = node.gradient(-a, -b);
     for g in 0..2 {
         let outward = m.diffusion[g] * (grad[g][0] + grad[g][1]);
-        let expected = 0.5 * corners[0][g];
+        let expected = 0.5 * 1.2 * corners[0][g] / 1.3;
         assert!(
             (outward - expected).abs() < 1e-8 * expected.abs(),
             "group {g}: {outward} vs {expected}"
