@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by: ADR-0072
 issues: []
+requires: []
 ---
 
 # ADR-0051: σ0 ごとの群定数は狭い共鳴の近似の重み w(E)/(σt(E) + σ0) で作る

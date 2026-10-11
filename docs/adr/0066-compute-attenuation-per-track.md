@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0065]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0066: 減衰は前もって表にせず、スイープでトラックごとに計算する

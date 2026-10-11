@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0063: CMFD の後はトラックの端の角度中性子束も更新し、境界の角度中性子束は等方な値から始める

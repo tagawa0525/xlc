@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by: ADR-0101
 issues: []
+requires: []
 ---
 
 # ADR-0099: 炉心の NEM は ADF を GET の面の条件として部分中性子流に入れ、外周に Marshak の真空の境界を加える

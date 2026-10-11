@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by: ADR-0066
 issues: []
+requires: []
 ---
 
 # ADR-0065: 減衰 1 − exp(−τ) は前もって表にする

@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0002: 段階のクレートは互いに依存せず、形式と共通の計算のクレートにだけ依存する

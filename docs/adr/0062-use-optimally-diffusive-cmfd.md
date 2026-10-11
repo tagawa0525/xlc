@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0062: CMFD は、拡散係数に θ(Σt h) h を足す optimally diffusive CMFD とする

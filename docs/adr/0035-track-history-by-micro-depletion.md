@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0035: 燃焼履歴は core のミクロ燃焼と、履歴の変数・履歴の分岐による補正で扱う

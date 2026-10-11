@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: [ADR-0093]
 superseded-by: ADR-0103
 issues: ["#0020", "#0026", "#0027"]
+requires: []
 ---
 
 # ADR-0094: 非反射の格子計算の ADF は、一般化等価理論により、core と同じ NEM で各ノードを1つずつ解いた均質な中性子束から作る

@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0005", "#0018"]
+requires: []
 ---
 
 # ADR-0122: 記録の数値はコミットと入力で再現し、試行は本番のコードに入力を与えて行う

@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: []
 superseded-by: ADR-0111
 issues: []
+requires: []
 ---
 
 # ADR-0077: 離散化の設定は VERA の入力のまま変えず、M3 以降に要る機能を先に揃える

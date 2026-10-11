@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0006", "#0007"]
+requires: []
 ---
 
 # ADR-0086: 燃料のピンの外の構造材の塊は、黒体の Dancoff 係数と平均弦長で、等価原理により遮蔽する

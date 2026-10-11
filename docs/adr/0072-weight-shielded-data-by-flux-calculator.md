@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: [ADR-0051]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0072: ライブラリの σ0 ごとの群定数の重みは、分離共鳴の範囲で減速計算から作る

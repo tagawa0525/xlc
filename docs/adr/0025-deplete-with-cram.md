@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0025: 燃焼計算は CRAM で解き、予測子・修正子法で時間を進める

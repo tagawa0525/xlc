@@ -4,6 +4,7 @@ date: 2026-10-10
 supersedes: []
 superseded-by:
 issues: ["#0057"]
+requires: []
 ---
 
 # ADR-0116: VERA の例は問題ごとのディレクトリに置き、共有するものと検証の記録は上に残す

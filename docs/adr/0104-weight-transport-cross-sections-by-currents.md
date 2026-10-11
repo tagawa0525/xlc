@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: [ADR-0098]
 superseded-by:
 issues: ["#0021"]
+requires: []
 ---
 
 # ADR-0104: 非反射の格子の拡散係数は、核分裂のあるノードでは中性子流で重みづけした outflow の輸送断面積から、核分裂のないノードでは Koebke の等価理論から求める

@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0047]
 superseded-by:
 issues: ["#0017"]
+requires: []
 ---
 
 # ADR-0080: S(α,β) を持つ核種（565 K の H in H2O）は、両側の温度の群定数を温度で線形に内挿する

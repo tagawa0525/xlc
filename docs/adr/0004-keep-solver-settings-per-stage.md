@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0002"]
+requires: []
 ---
 
 # ADR-0004: 段階ごとのソルバの設定は、同じ値でも共有せず段階ごとに持つ

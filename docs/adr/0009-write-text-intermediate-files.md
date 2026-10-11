@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by: ADR-0011
 issues: []
+requires: []
 ---
 
 # ADR-0009: 段階間の中間ファイルは自前のテキスト形式とする

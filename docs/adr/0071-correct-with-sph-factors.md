@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0071: 等価なセルの減速計算のリング間の中性子束の形と平均を再現する SPH 因子で、MOC の角度の扱いの違いを直す
