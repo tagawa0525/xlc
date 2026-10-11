@@ -807,9 +807,10 @@ mod tests {
             chi: vec![1.0, 0.0],
             diffusion: vec![d1, d2],
             scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
-            adf: vec![vec![1.0, 1.0]; 4],
-            vacuum_ratio: vec![None; 4],
-            normalized_adf: vec![false; 4],
+            adf: vec![vec![1.0, 1.0]; 6],
+            vacuum_ratio: vec![None; 6],
+            normalized_adf: vec![false; 6],
+            height: None,
             pins: None,
         }
     }
@@ -999,6 +1000,8 @@ mod tests {
             vec![0.95, 1.2],
             vec![1.05, 0.85],
             vec![1.0, 1.1],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let mut water = reflector();
         water.adf = vec![
@@ -1006,6 +1009,8 @@ mod tests {
             vec![1.2, 0.7],
             vec![0.9, 1.4],
             vec![1.1, 0.75],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let mut boundaries = [Boundary::Reflective; 6];
         boundaries[1] = Boundary::Marshak;
@@ -1133,9 +1138,10 @@ mod tests {
             chi: vec![1.0],
             diffusion: vec![d],
             scatter: vec![vec![total - absorption]],
-            adf: vec![vec![1.0]; 4],
-            vacuum_ratio: vec![None; 4],
-            normalized_adf: vec![false; 4],
+            adf: vec![vec![1.0]; 6],
+            vacuum_ratio: vec![None; 6],
+            normalized_adf: vec![false; 6],
+            height: None,
             pins: None,
         }
     }
@@ -1265,7 +1271,7 @@ mod tests {
         // ADF を入れる前（e3b627c）と同じ反復（a3, a4 を前の反復の a1, a2 から求める。#0025 の修正の前で、
         // 既定の許容差では e3b627c の結果に 1e-12 で一致していた）を、許容差を詰めて収束させた値。
         // 既定の許容差の値は反復の道筋で 1e-9 程度変わるので、収束させた値で比べる
-        let p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let p = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         let tight = Options {
             k_tolerance: 1e-14,
             flux_tolerance: 1e-13,
@@ -1294,16 +1300,20 @@ mod tests {
             vec![1.1, 1.25],
             vec![0.9, 1.4],
             vec![0.95, 1.2],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let b = vec![
             vec![0.97, 0.8],
             vec![0.93, 0.85],
             vec![1.02, 0.75],
             vec![0.99, 0.9],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let p = two_material_slab(a.clone(), b.clone());
         assert_interface_conditions(&p);
-        let unit = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let unit = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         let (k, k_unit) = (
             solve(&p, &Options::default()).unwrap().k,
             solve(&unit, &Options::default()).unwrap().k,
@@ -1333,9 +1343,9 @@ mod tests {
             PI / a,
         );
         let mut m_a = one_group();
-        m_a.adf = vec![vec![f_a]; 4];
+        m_a.adf = vec![vec![f_a]; 6];
         let mut m_b = one_group();
-        m_b.adf = vec![vec![f_b]; 4];
+        m_b.adf = vec![vec![f_b]; 6];
         let expected = one_group_k(&m_a, buckling * buckling);
         let p = slab(
             vec![5.0; 16],
@@ -1363,12 +1373,16 @@ mod tests {
             vec![1.1, 1.25],
             vec![0.9, 1.4],
             vec![0.95, 1.2],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let b = vec![
             vec![0.97, 0.8],
             vec![0.93, 0.85],
             vec![1.02, 0.75],
             vec![0.99, 0.9],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         // 群ごとに違う倍率で、すべての物質とすべての辺の ADF を変える
         let scale = |adf: &[Vec<f64>]| -> Vec<Vec<f64>> {
@@ -1476,7 +1490,7 @@ mod tests {
         let mut previous = f64::INFINITY;
         for f in [0.7, 1.0, 1.5, 2.0] {
             let mut m = one_group();
-            m.adf = vec![vec![f]; 4];
+            m.adf = vec![vec![f]; 6];
             let b = marshak_buckling(&m, l, f);
             let expected = one_group_k(&m, b * b);
             let p = slab(vec![l / 8.0; 8], vec![m], vec![0; 8], Boundary::Marshak);
@@ -1612,7 +1626,7 @@ mod tests {
             let mut previous = f64::INFINITY;
             for r in [0.5, 0.55, 0.6, 0.9] {
                 let mut m = one_group();
-                m.adf = vec![vec![f]; 4];
+                m.adf = vec![vec![f]; 6];
                 let d = m.diffusion[0];
                 let b = smallest_root(
                     |b| (b * l / 2.0).sin() * d * b - r * f * (b * l / 2.0).cos(),
@@ -1650,7 +1664,7 @@ mod tests {
         assert!(solve(&p, &Options::default()).is_err());
         // z の面は、2次元の格子計算が比を出さないので、径方向の辺がすべて比を持っていてもエラー
         let mut m = material();
-        m.vacuum_ratio = vec![Some(vec![0.5, 0.5]); 4];
+        m.vacuum_ratio = (0..6).map(|s| (s < 4).then(|| vec![0.5, 0.5])).collect();
         let mut boundaries = [Boundary::Reflective; 6];
         boundaries[5] = Boundary::Vacuum;
         let mut p = cuboid([30.0, 30.0, 30.0], [2, 2, 2], boundaries);
@@ -1686,16 +1700,16 @@ mod tests {
             let mut edge_b = one_group();
             match sides {
                 Some((minus, plus)) => {
-                    edge_a.adf = vec![vec![3.0]; 4];
+                    edge_a.adf = vec![vec![3.0]; 6];
                     edge_a.adf[minus] = vec![1.0];
                     edge_a.adf[plus] = vec![f_a];
-                    edge_b.adf = vec![vec![0.5]; 4];
+                    edge_b.adf = vec![vec![0.5]; 6];
                     edge_b.adf[minus] = vec![f_b];
                     edge_b.adf[plus] = vec![1.0];
                 }
                 None => {
-                    edge_a.adf = vec![vec![f_a]; 4];
-                    edge_b.adf = vec![vec![f_b]; 4];
+                    edge_a.adf = vec![vec![f_a]; 6];
+                    edge_b.adf = vec![vec![f_b]; 6];
                 }
             }
             let mut widths = [vec![20.0], vec![20.0], vec![20.0]];
@@ -1731,12 +1745,12 @@ mod tests {
         // 真空の角にも物質の境がある分離できない問題で、細かいノードの解に近づくこと。
         // 横方向の漏れの真空の面での扱いと、物質の境の ADF を通る
         let mut a = material();
-        a.adf = vec![vec![1.1, 1.3]; 4];
+        a.adf = vec![vec![1.1, 1.3]; 6];
         let mut b = material();
         b.diffusion = vec![1.2, 0.5];
         b.absorption = vec![0.012, 0.10];
         b.nu_fission = vec![0.004, 0.09];
-        b.adf = vec![vec![0.95, 0.8]; 4];
+        b.adf = vec![vec![0.95, 0.8]; 6];
         let k = |n: usize| {
             let mut boundaries = [Boundary::Reflective; 6];
             boundaries[1] = Boundary::Marshak;
@@ -1831,9 +1845,10 @@ mod tests {
                 chi: vec![0.0; ng],
                 diffusion: vec![0.0; ng],
                 scatter: vec![vec![0.0; ng]; ng],
-                adf: vec![vec![1.0; ng]; 4],
-                vacuum_ratio: vec![None; 4],
-                normalized_adf: vec![false; 4],
+                adf: vec![vec![1.0; ng]; 6],
+                vacuum_ratio: vec![None; 6],
+                normalized_adf: vec![false; 6],
+                height: None,
                 pins: None,
             };
             for &n in &members {
@@ -2021,7 +2036,7 @@ mod tests {
         }
         let mut unit = coarse.clone();
         for m in &mut unit.materials {
-            m.adf = vec![vec![1.0; m.groups()]; 4];
+            m.adf = vec![vec![1.0; m.groups()]; 6];
         }
         let k_unit = solve(&unit, &Options::default()).unwrap().k;
         // ADF がなければ、粗いノードの NEM の誤差の分だけ k が外れる
@@ -2141,7 +2156,7 @@ mod tests {
         m.nu_fission = vec![0.0];
         m.fission = vec![0.0];
         m.chi = vec![0.0];
-        m.adf = vec![vec![1.0]; 4];
+        m.adf = vec![vec![1.0]; 6];
         let mut fuel = m.clone();
         fuel.nu_fission = vec![0.02];
         fuel.fission = vec![0.008];
@@ -2238,14 +2253,17 @@ mod tests {
         q.mesh.dy = p.mesh.dx.clone();
         q.boundaries.swap(0, 2);
         q.boundaries.swap(1, 3);
+        // 辺は（左、右、上、下、−z、+z）: 新しい下は元の左、新しい上は元の右、新しい左右は元の下と上。z はそのまま
+        fn turn<T: Clone>(sides: &[T]) -> Vec<T> {
+            [3, 2, 1, 0, 4, 5]
+                .iter()
+                .map(|&s| sides[s].clone())
+                .collect()
+        }
         for m in &mut q.materials {
-            // 辺は（左、右、上、下）: 新しい下は元の左、新しい上は元の右、新しい左右は元の下と上
-            let a = m.adf.clone();
-            m.adf = vec![a[3].clone(), a[2].clone(), a[1].clone(), a[0].clone()];
-            let r = m.vacuum_ratio.clone();
-            m.vacuum_ratio = vec![r[3].clone(), r[2].clone(), r[1].clone(), r[0].clone()];
-            let f = m.normalized_adf.clone();
-            m.normalized_adf = vec![f[3], f[2], f[1], f[0]];
+            m.adf = turn(&m.adf);
+            m.vacuum_ratio = turn(&m.vacuum_ratio);
+            m.normalized_adf = turn(&m.normalized_adf);
         }
         q
     }
@@ -2260,6 +2278,8 @@ mod tests {
             vec![0.7, 1.6],
             vec![1.2, 0.9],
             vec![0.85, 1.4],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let mut b = reflector();
         b.adf = vec![
@@ -2267,6 +2287,8 @@ mod tests {
             vec![0.9, 1.2],
             vec![1.05, 0.75],
             vec![0.95, 1.3],
+            vec![1.0, 1.0],
+            vec![1.0, 1.0],
         ];
         let x = |reflectors: Vec<usize>, a: &FewGroup, b: &FewGroup| {
             let mut p = slab(
@@ -2324,13 +2346,13 @@ mod tests {
     #[test]
     fn normalized_adfs_need_a_plain_neighbor() {
         // f* の辺は隣のノードの ADF を掛けるので、外周の面と、隣も f* の面はエラー
-        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         p.materials[0].normalized_adf[0] = true;
         assert!(matches!(
             solve(&p, &Options::default()),
             Err(NemError::InvalidProblem(_))
         ));
-        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 4], vec![vec![1.0, 1.0]; 4]);
+        let mut p = two_material_slab(vec![vec![1.0, 1.0]; 6], vec![vec![1.0, 1.0]; 6]);
         p.materials[0].normalized_adf[1] = true;
         p.materials[1].normalized_adf[0] = true;
         let err = solve(&p, &Options::default());

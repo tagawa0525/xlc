@@ -133,7 +133,7 @@ pub fn homogenize(
         &currents,
         edges,
     )?;
-    Ok(few)
+    Ok(with_z_sides(few))
 }
 
 /// 格子をノード `nodes`（格子のセルを重ならずに覆う長方形）に分け、ノードごとに `homogenize` と同じ形で
@@ -290,7 +290,7 @@ pub fn homogenize_nodes(
                 }
             }
         }
-        result.push(few);
+        result.push(with_z_sides(few));
     }
     Ok(result)
 }
@@ -1113,9 +1113,9 @@ pub fn split_constants(
     for j in 0..n {
         for i in 0..n {
             let mut sub = few.clone();
-            // 辺（左、右、上、下）: 集合体の外周なら区間の値、内側なら 1
-            let outer = [i == 0, i == n - 1, j == n - 1, j == 0];
-            sub.adf = (0..4)
+            // 辺（左、右、上、下、−z、+z）: 集合体の外周なら区間の値、内側と z の辺（`with_z_sides`）なら 1
+            let outer = [i == 0, i == n - 1, j == n - 1, j == 0, false, false];
+            sub.adf = (0..outer.len())
                 .map(|side| {
                     if outer[side] {
                         let q = if side < 2 { j } else { i };
@@ -1183,6 +1183,17 @@ pub fn split_constants(
     Ok(out)
 }
 
+/// 2次元の格子の定数の辺（左、右、上、下）に z の辺（−z、+z）を足す。軸方向に一様な格子では、z の面の不均質な
+/// 中性子束も均質な解も z に平らでノード平均に等しいので、GET の ADF は厳密に 1 になる（ADR-0128）。z の辺は真空の比と
+/// f* の印を持たない
+fn with_z_sides(mut few: FewGroup) -> FewGroup {
+    let coarse = few.groups();
+    few.adf.extend([vec![1.0; coarse], vec![1.0; coarse]]);
+    few.vacuum_ratio.extend([None, None]);
+    few.normalized_adf.extend([false, false]);
+    few
+}
+
 /// 外周の辺（左、右、上、下）の境界条件
 fn sides_of(boundaries: &Boundaries) -> [Boundary; 4] {
     [
@@ -1194,7 +1205,7 @@ fn sides_of(boundaries: &Boundaries) -> [Boundary; 4] {
 }
 
 /// 領域 `regions` を中性子束と体積で重みづけして均質化した少数群定数（ADF と真空の辺の比は空、
-/// `normalized_adf` はすべて false）と、ノード平均の少数群の中性子束。`b1` なら拡散係数を B1 で、
+/// `normalized_adf` は径方向の4辺がすべて false、z の厚さはなし）と、ノード平均の少数群の中性子束。`b1` なら拡散係数を B1 で、
 /// でなければ outflow で作る。
 fn constants(
     solution: &Solution,
@@ -1274,6 +1285,7 @@ fn constants(
         adf: Vec::new(),
         vacuum_ratio: Vec::new(),
         normalized_adf: vec![false; 4],
+        height: None,
         pins: None,
     };
     Ok((few, average))
@@ -1708,7 +1720,7 @@ mod tests {
                 .map(|(f, v)| v * f[g])
                 .sum::<f64>()
                 / volume;
-            for (side, values) in fg.adf.iter().enumerate() {
+            for (side, values) in fg.adf.iter().take(4).enumerate() {
                 let expected = solution.sides[side][g] / average;
                 assert!(
                     (values[g] - expected).abs() < 1e-6 * expected,
@@ -1716,6 +1728,8 @@ mod tests {
                     values[g]
                 );
             }
+            // 2次元の格子の z の辺は 1（ADR-0128）
+            assert_eq!((fg.adf[4][g], fg.adf[5][g]), (1.0, 1.0));
         }
     }
 
@@ -1835,7 +1849,7 @@ mod tests {
             &Boundaries::REFLECTIVE,
         )
         .unwrap();
-        assert_eq!(fg.vacuum_ratio, vec![None; 4]);
+        assert_eq!(fg.vacuum_ratio, vec![None; 6]);
     }
 
     #[test]
@@ -1867,7 +1881,7 @@ mod tests {
         )
         .unwrap();
         assert!(fg.adf[0][1] > 1.0, "{:?}", fg.adf);
-        for side in &fg.adf {
+        for side in &fg.adf[..4] {
             for (a, b) in side.iter().zip(&fg.adf[0]) {
                 assert!((a - b).abs() < 1e-6 * b, "{:?}", fg.adf);
             }
@@ -2507,8 +2521,8 @@ mod tests {
             for value in fg.adf.iter().flatten() {
                 assert!((value - 1.0).abs() < 1e-6, "{:?}", fg.adf);
             }
-            assert_eq!(fg.vacuum_ratio, vec![None; 4]);
-            assert_eq!(fg.normalized_adf, vec![false; 4]);
+            assert_eq!(fg.vacuum_ratio, vec![None; 6]);
+            assert_eq!(fg.normalized_adf, vec![false; 6]);
         }
     }
 
@@ -2674,16 +2688,19 @@ mod tests {
             let expected = solution.face_currents[2][g] / het(2)[g];
             assert!((ratio - expected).abs() < 1e-12 * expected);
         }
-        assert_eq!(fuel.normalized_adf, vec![false; 4]);
-        assert_eq!(reflector.normalized_adf, vec![true, false, false, false]);
-        assert_eq!(fuel.vacuum_ratio, vec![None; 4]);
+        assert_eq!(fuel.normalized_adf, vec![false; 6]);
+        assert_eq!(
+            reflector.normalized_adf,
+            vec![true, false, false, false, false, false]
+        );
+        assert_eq!(fuel.vacuum_ratio, vec![None; 6]);
         assert_eq!(
             reflector
                 .vacuum_ratio
                 .iter()
                 .map(Option::is_some)
                 .collect::<Vec<_>>(),
-            vec![false, true, false, false]
+            vec![false, true, false, false, false, false]
         );
     }
 
@@ -3092,10 +3109,16 @@ mod tests {
             true,
         )
         .unwrap();
-        // 辺は（左、右、上、下）、角は（-x -y、+x -y、+x +y、-x +y）
-        assert_eq!(fgs[1].normalized_adf, vec![true, false, false, false]);
-        assert_eq!(fgs[2].normalized_adf, vec![false, false, false, true]);
-        assert_eq!(fgs[3].normalized_adf, vec![false; 4]);
+        // 辺は（左、右、上、下、−z、+z）、角は（-x -y、+x -y、+x +y、-x +y）
+        assert_eq!(
+            fgs[1].normalized_adf,
+            vec![true, false, false, false, false, false]
+        );
+        assert_eq!(
+            fgs[2].normalized_adf,
+            vec![false, false, false, true, false, false]
+        );
+        assert_eq!(fgs[3].normalized_adf, vec![false; 6]);
         let corners = |n: usize| fgs[n].pins.as_ref().unwrap().normalized_corners.clone();
         assert_eq!(corners(1), vec![true, false, false, true]);
         assert_eq!(corners(2), vec![true, true, false, false]);
