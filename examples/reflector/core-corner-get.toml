@@ -1,5 +1,5 @@
-# 角型の格子（reflector-corner.toml）を core-corner.toml と同じ境界で解くケース。反射体 3 つも集合体の位置に置き、
-# 反射体の位置どうしの面の ADF を 1 とせず、格子の GET の ADF を使う（#0029）。
+# 角型の格子（reflector-corner.toml）を core-corner.toml と同じ境界で解くケース。反射体 3 つも集合体の位置に置く
+# （#0029）。反射体どうしの面は、core-corner.toml と同じく各側の ADF を使う（ADR-0132）。
 cycle = "core-corner-get-cycle.toml"
 axial-mesh = [0.0, 21.5]
 radial-nodes = 1
