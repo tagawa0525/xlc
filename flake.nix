@@ -142,10 +142,12 @@
         version = openmcVersion;
         pyproject = true;
         src = openmcSrc;
-        # openmc.lib は、パッケージの中の libopenmc.so を読み込む
-        postPatch = openmcArchival + ''
+        # openmc.lib は、パッケージの中の libopenmc.so を読み込む。symlink にしても wheel を作るときに
+        # コピーされるので、コピーして置く
+        postPatch = ''
           cp ${openmc}/lib/libopenmc.so openmc/lib/
         '';
+        # setuptools-scm は .git がないと版を決められない
         env.SETUPTOOLS_SCM_PRETEND_VERSION = openmcVersion;
         build-system = with pkgs.python3.pkgs; [
           setuptools
@@ -202,6 +204,11 @@
             openmc
             referencesPython
           ];
+          # 外の shell（direnv で入った default の devShell など）の PYTHONPATH を引き継ぐと、dvc の依存が
+          # referencesPython より先に読まれる。referencesPython は PYTHONPATH なしで自分のパッケージを見つける
+          shellHook = ''
+            unset PYTHONPATH
+          '';
         };
       };
     };
