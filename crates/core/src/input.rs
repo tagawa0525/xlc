@@ -96,12 +96,30 @@ struct ColumnEntry {
     layers: Vec<LayerEntry>,
 }
 
-/// 層: ファイルのパスか、`{ file = "...", vacuum = "marshak" }`
+/// 層: ファイルのパスか、`{ file = "...", vacuum = "marshak" }`。`#[serde(untagged)]` は書き誤りの原因（どの値が
+/// 悪いか）を捨てるので、文字列かテーブルかで分けて読む
 #[derive(Deserialize)]
-#[serde(untagged)]
+#[serde(try_from = "toml::Value")]
 enum LayerEntry {
     File(PathBuf),
     Table(LayerTable),
+}
+
+impl TryFrom<toml::Value> for LayerEntry {
+    type Error = String;
+
+    fn try_from(value: toml::Value) -> Result<Self, String> {
+        match value {
+            toml::Value::String(path) => Ok(Self::File(PathBuf::from(path))),
+            table @ toml::Value::Table(_) => table
+                .try_into()
+                .map(Self::Table)
+                .map_err(|e| format!("layer {{ file, vacuum = \"marshak\" }}: {e}")),
+            other => Err(format!(
+                "a layer is a file path or {{ file = \"...\", vacuum = \"marshak\" }}, got {other}"
+            )),
+        }
+    }
 }
 
 #[derive(Deserialize)]
