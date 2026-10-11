@@ -111,10 +111,10 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 ## 確認
 
 examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro examples/vera/dvc.yaml` で Slurm の上で走らせた
-（2026-10-11、全体で 57 分）。走らせたコミットは 53d92a76（rebase の remap で付け替わった hash。以後も付け替わる）、そのときの
+（2026-10-11、全体で 57 分）。走らせたコミットは 2ff665e4（rebase の remap で付け替わった hash。以後も付け替わる）、そのときの
 分岐点は main の 1aab726a。`dvc.lock` の openmc-* と xs の段階の deps は、その状態の md5 である。復元は、分岐点にそこまでの
 ブランチのコミットを当て直し、`dvc status` で md5 が合うことを確かめてから行う（衝突を手で解いたコミットは差分が変わり
-うるので、md5 で確かめる）。lattice-1B（数秒）は rebase のあとに 6c0d133c（分岐点 635563b2）で
+うるので、md5 で確かめる）。lattice-1B（数秒）は rebase のあとに 446db86d（分岐点 635563b2）で
 走らせ直し、その lock をコミットした。ライブラリの温度は、main が 2A と 2Q のために足した 565 K と S(α,β) の温度を
 含む（`openmc-library.toml`）。
 
@@ -127,7 +127,7 @@ examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro e
   `references/openmc/endfb80-565`（`openmc_library.py` に温度を引数で渡して作った、同じ温度のもの）とバイト単位で一致した（`cmp`）。
   rebase の前に 600 K だけの温度で走らせたとき（2 回）は、`references/openmc/endfb80` とバイト単位で一致した
 - xlc の 1B の k∞ は 1.184735 で、記録の 64e069de の値と同じ。`compare-1B` は +295 ± 6 pcm を書いた。rebase のあとに
-  6c0d133c で走らせ直した lattice-1B も k∞ 1.184735 で、`compare-1B` の入力の md5 が変わらないので走らなかった
+  446db86d で走らせ直した lattice-1B も k∞ 1.184735 で、`compare-1B` の入力の md5 が変わらないので走らなかった
 - 走らせたあとにもう一度 `dvc repro` すると、`references-shell`（評価だけ）のほかは走らず、`references-shell.txt` も
   変わらなかった（11 s）。`references` の devShell の store のパスは main と worktree で同じだった
 - 入力のキーが足りない、または知らないキーがあると、`openmc_model.py` が両方を挙げて止まることを、手元の小さな入力で
