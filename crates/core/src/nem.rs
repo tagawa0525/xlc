@@ -558,7 +558,7 @@ impl<'a> Core<'a> {
                     return Err(format!(
                         "material {material} has no vacuum ratio J/phi on side {side} for the \
                          vacuum face {name} of node {}; make it in a lattice with that side \
-                         vacuum, mark its layer in the plant with vacuum = \"marshak\", or use \
+                         vacuum, mark its layer (plant or inventory) with vacuum = \"marshak\", or use \
                          \"marshak\" for the face for the P1 (Marshak) condition",
                         self.site(n)
                     ));

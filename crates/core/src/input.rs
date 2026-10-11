@@ -602,7 +602,7 @@ pub struct Layout {
     /// ファイルごとに、反射体（の種類のどれか）に使う層か
     pub reflector: Vec<bool>,
     pub materials: Vec<LayoutMaterial>,
-    /// 位置ごとの物質の番号。並びは x が最も速く、次に y（下から）、z
+    /// 位置ごとの物質の番号。並びは x が最も速く、次に y（下から）、z。ノードのない位置（`-`）は `None`
     pub node_material: Vec<Option<usize>>,
     /// 集合体の位置を各方向に分けたノードの数（ケースの `radial-nodes`。ADR-0108）
     pub split: usize,
@@ -909,7 +909,7 @@ impl Layout {
     }
 
     /// 集合体の位置ごとの、軸方向に積分した核分裂率（集合体の位置の平均で割る）。上の行（+y）から、反射体の
-    /// 位置は `None`。`problem` はこの並びから作った問題、`solution` はその解
+    /// 位置とノードのない位置（`empty`）は `None`。`problem` はこの並びから作った問題、`solution` はその解
     pub fn assembly_fission_rates(
         &self,
         problem: &Problem,
