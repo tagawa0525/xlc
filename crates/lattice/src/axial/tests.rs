@@ -88,3 +88,18 @@ fn axial_nodes_span_every_row() {
     let err = check_nodes(2, &[node(0..3, 0..2), node(3..5, 0..1), node(3..5, 1..2)]).unwrap_err();
     assert!(err.contains("row"), "{err}");
 }
+
+#[test]
+fn axial_constants_need_a_laterally_uniform_slab() {
+    // 上下の辺が真空の比や f* の印を持つ定数、z の辺の ADF が 1 でない定数は、横に一様な平板のものでないのでエラー
+    // （黙って捨てない）
+    let mut top_vacuum = radial();
+    top_vacuum.vacuum_ratio[2] = Some(vec![0.5, 0.5]);
+    let mut bottom_mark = radial();
+    bottom_mark.normalized_adf[3] = true;
+    let mut z_factor = radial();
+    z_factor.adf[5] = vec![1.1, 1.0];
+    for few in [top_vacuum, bottom_mark, z_factor] {
+        assert!(axial(&few, 6.053).is_err());
+    }
+}
