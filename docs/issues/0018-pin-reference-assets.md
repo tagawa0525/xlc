@@ -47,6 +47,10 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
     含む）の段階。ADR-0121 の `p2/openmc-<問題>.msgpack` の置き場を、抽出の結果のディレクトリに合わせるかを決める
   - 燃料の実効断面積の tally（`effective-xs-groups`）を使う段階。xlc のライブラリを deps にすると xs のコードを変えるたびに
     OpenMC が再実行するので、群構造だけを入力に書くかを決める（ADR-0130 の「帰結」）
+  - `openmc-library.toml` の H-1 の温度は、冷却材と被覆管の温度と S(α,β) の温度を合わせたものを手でコピーしている（main の
+    `openmc_library.py` は和集合を計算していた）。食い違いを止める検査を足す
+  - `compare_k.py` は lattice の出力が k.json と同じ問題のものかを確かめない。1C 以降の比較の段階を足すときに、問題を
+    照らす
   - MOX（examples/mox/openmc_model.py）、C5G7（examples/c5g7/openmc_model.py）、#0005 の均質な媒質
     （`openmc_homogeneous.py`）、`openmc_balance.py`、`openmc_mg.py` を、計算の条件を入力の TOML で受ける形に直し、
     段階にする（どれもまだ位置の引数と既定値で受ける）

@@ -40,11 +40,11 @@ Zircaloy-4 875 g を 289 のセルに等しく分け、セルの外周の厚さ 
 
 ## 参照解
 
-1B は 0f0ac24c の examples/vera/dvc.yaml の段階（2026-10-11。dba00ffe（2026-10-07）に手で実行した値と、k の推定が相対 4e-14 で一致した。ADR-0130）、1C〜2D は dba00ffe（2026-10-07）、2E は 2d838c80、2E-empty（2E の Pyrex の棒を抜いたもの）は 6de9fe5a、2F は d6593b9f（2026-10-10）、
+1B は 0f0ac24c の examples/vera/dvc.yaml の段階（2026-10-11。`dvc.lock` の deps はそのコミットの版で、出し直すにはそのコミットを checkout して `dvc repro`。dba00ffe（2026-10-07）に手で実行した値と、k の推定が相対 4e-14 で一致した。ADR-0130）、1C〜2D は dba00ffe（2026-10-07）、2E は 2d838c80、2E-empty（2E の Pyrex の棒を抜いたもの）は 6de9fe5a、2F は d6593b9f（2026-10-10）、
 2G と 2H は 83f37240、2I は f930a397、2J は 194e82df、2K は cfe969f3、2A と 2Q は 4888a4cd（2026-10-11）。1B〜1D は 1 世代 100 万粒子・250 世代（最初の 50 世代を
 捨てる）、2A〜2K と 2Q は 1 世代 100 万粒子・400 世代（最初の 100 世代を捨てる）、乱数のシード 1。16 スレッドで、OpenMC が statepoint に書く計算時間（total）は 1B 17.8 分、2E 33.5 分、2E-empty 30.9 分、
 2F 34.2 分、2G 33.0 分、2H 32.4 分、2I 32.8 分、2J 37.0 分、2K 36.2 分、2A 38.5 分、2Q 50.4 分。2A と 2Q は 565 K の核種を足したデータ
-（docs/environment.md の引数で references/openmc/endfb80-565 に作ったもの）を温度の内挿のモードで解く（「参照解の側の近似」）。VERA の公開値は KENO-VI（ENDF/B-VII.0）で、核データの版が違うので
+（openmc_library.py に温度を引数で渡して references/openmc/endfb80-565 に作ったもの。いまの examples/vera/openmc-library.toml と同じ温度で、その openmc-index の段階の出力とバイト単位で一致する。ADR-0130）を温度の内挿のモードで解く（「参照解の側の近似」）。VERA の公開値は KENO-VI（ENDF/B-VII.0）で、核データの版が違うので
 参考とする。
 
 | 問題     | 燃料の温度 | OpenMC（ENDF/B-VIII.0） | KENO-VI（ENDF/B-VII.0） | 差       |

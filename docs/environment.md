@@ -89,8 +89,7 @@ VERA Problem 1B〜1D, 2A〜2K, 2Q の参照解は、ENDF/B-VIII.0 から手元�
 リポジトリ（worktree）の直下から実行する:
 
 ```sh
-dvc repro examples/vera/dvc.yaml              # すべて
-dvc repro examples/vera/dvc.yaml:compare-1B   # 1B の比較と、それに要る段階だけ
+dvc repro examples/vera/dvc.yaml
 ```
 
 NJOY と OpenMC を使う段階は、cmd が `nix develop ../..#references -c` で `references` の devShell に入るので、
@@ -109,7 +108,9 @@ Slurm で流す（CLAUDE.md の「計算」）。
 
 計算の条件（核種と温度、粒子数、世代、非アクティブバッチ、乱数のシード、スレッド数）は入力の TOML に書く。スクリプトに既定値は
 なく、足りないキーと知らないキーで止まる。出力は `references/dvc-cache` にキャッシュされ、`dvc checkout
-examples/vera/dvc.yaml` で戻せる。ほかの問題（1C〜2K、2A、2Q）は、`p1/openmc-1B.toml` と同じ形の入力と、`openmc-1B`、
+examples/vera/dvc.yaml` で戻せる。`dvc.lock` は、記録した実行の deps（スクリプト、入力、ツール）から出力を作ったことの記録で、
+あとのコミットで deps が変わると `dvc status` は changed を示す。記録の結果を出し直すときは、記録に書いたコミットを
+checkout して `dvc repro` する（ADR-0130）。ほかの問題（1C〜2K、2E-empty、2Q）は、`p1/openmc-1B.toml` と同じ形の入力と、`openmc-1B`、
 `openmc-1B-extract` と同じ形の段階を足して実行する（#0018）。段階にするまでは、同じ入力を作って
 `python3 examples/vera/openmc_model.py run <入力> <作業ディレクトリ>` と `extract <入力> <作業ディレクトリ> <結果の
 ディレクトリ>` を `references` の devShell で実行する。
