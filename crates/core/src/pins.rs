@@ -169,13 +169,15 @@ fn layer(
 ) -> Result<Layer, String> {
     let mesh = &problem.mesh;
     let (nx, ny) = (mesh.dx.len(), mesh.dy.len());
-    let mut cache: HashMap<(Option<usize>, u64, u64), Rc<NodeModel>> = HashMap::new();
+    let mut cache: HashMap<(usize, u64, u64), Rc<NodeModel>> = HashMap::new();
     let mut models = Vec::with_capacity(nx * ny);
     let mut conditions = Vec::with_capacity(nx * ny);
     for j in 0..ny {
         for i in 0..nx {
             let n = i + nx * (j + ny * k);
-            let Some((m, pins)) = constants[i + nx * j] else {
+            let (Some((m, pins)), Some(material)) =
+                (constants[i + nx * j], problem.node_material[n])
+            else {
                 models.push(None);
                 conditions.push(None);
                 continue;
@@ -193,11 +195,7 @@ fn layer(
                 }
             }
             let half = [0.5 * mesh.dx[i], 0.5 * mesh.dy[j]];
-            let key = (
-                problem.node_material[n],
-                half[0].to_bits(),
-                half[1].to_bits(),
-            );
+            let key = (material, half[0].to_bits(), half[1].to_bits());
             let model = match cache.get(&key) {
                 Some(model) => Rc::clone(model),
                 None => {
@@ -425,7 +423,7 @@ fn layer_grid(
             for i in 0..nx {
                 let map = &layer[i + nx * j];
                 // ノードのない位置のセルは 0
-                if pins(i, j)?.is_none() {
+                if problem.node_material[i + nx * (j + ny * k)].is_none() {
                     row.extend(std::iter::repeat_n(0.0, widths[i].len()));
                     continue;
                 }
@@ -539,8 +537,7 @@ fn corner_factors(
                 let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
                 let fuel: Vec<(&Pins, usize)> = nodes_at_point(nx, ny, ci, cj)
                     .into_iter()
-                    .filter(|&(m, _)| fissile[m])
-                    .filter_map(|(m, d)| nodes[m].map(|(_, p)| (p, d)))
+                    .filter_map(|(m, d)| nodes[m].filter(|_| fissile[m]).map(|(_, p)| (p, d)))
                     .collect();
                 for (g, o) in out.iter_mut().enumerate() {
                     let factors: Vec<f64> = fuel.iter().map(|&(p, d)| p.corners[d][g]).collect();
