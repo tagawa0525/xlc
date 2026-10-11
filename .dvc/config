@@ -1,0 +1,6 @@
+[core]
+    analytics = false
+    check_update = false
+[cache]
+    type = reflink
+    dir = ../references/dvc-cache

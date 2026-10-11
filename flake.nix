@@ -42,6 +42,9 @@
           packages = with pkgs; [
             rust
             python
+            # 計算の段階の駆動（ADR-0123）。references の devShell に入れると OpenMC の venv
+            # （--system-site-packages）に dvc の依存が見えて版がぶつかりうるので、python に入れない
+            dvc
             ruff
             poppler-utils
           ];
