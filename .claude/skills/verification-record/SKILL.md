@@ -10,6 +10,8 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 
 ## 数値を出す前
 
+- 記録に書く計算は、流す前に main に rebase する（スキル topic-start の「記録に書く計算の前に main に rebase する」）。
+  計算のあとの rebase は hash の付け替えと relock を増やす
 - 数値を出すコードと入力は、コミットしてから実行する。`git status --short` が空であることを確かめる（追跡しない
   ファイルは無視される）。作業ツリーが汚れていると、記録のコミットを checkout しても同じ結果が出ない
 - 記録に書くコミットは `git rev-parse --short=8 HEAD`（8 桁。既存の記録と同じ）。日付は実行した日
