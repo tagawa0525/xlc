@@ -21,8 +21,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 3bc4e360d8ed04253da433f0acd9847d.dir
-      size: 93491
+      md5: a075c6df5b27d3eb571dbbbabeffd972.dir
+      size: 95005
       nfiles: 8
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -30,9 +30,9 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 062259ba74cb0b4326c4799dfa0470cb.dir
-      size: 94710
-      nfiles: 6
+      md5: 714c14c6c99d14c2dfcffde7554c9ebb.dir
+      size: 146112
+      nfiles: 13
     - path: ../../crates/xs/Cargo.toml
       hash: md5
       md5: 7a6ddb0747fdf35dd52283f2584e62c6
@@ -96,8 +96,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 3bc4e360d8ed04253da433f0acd9847d.dir
-      size: 93491
+      md5: a075c6df5b27d3eb571dbbbabeffd972.dir
+      size: 95005
       nfiles: 8
     - path: ../../crates/lattice/Cargo.toml
       hash: md5
@@ -105,8 +105,8 @@ stages:
       size: 568
     - path: ../../crates/lattice/src
       hash: md5
-      md5: f16474cca74cb043bd6adec9e52ac639.dir
-      size: 883812
+      md5: 023df6ddc033971cb84c71e8cf6e843f.dir
+      size: 920446
       nfiles: 26
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -114,9 +114,9 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 062259ba74cb0b4326c4799dfa0470cb.dir
-      size: 94710
-      nfiles: 6
+      md5: 714c14c6c99d14c2dfcffde7554c9ebb.dir
+      size: 146112
+      nfiles: 13
     - path: ../../flake.lock
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa
@@ -163,17 +163,17 @@ stages:
       size: 463
     - path: ../../crates/core/src
       hash: md5
-      md5: 9378209aee7712ec3d07c4313ad8b640.dir
-      size: 244602
-      nfiles: 13
+      md5: a2133c4781b12c5002997183b3f9f2c8.dir
+      size: 209196
+      nfiles: 9
     - path: ../../crates/format/Cargo.toml
       hash: md5
       md5: 27e5dbce41ebc5a30c5ed0c9861db610
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 3bc4e360d8ed04253da433f0acd9847d.dir
-      size: 93491
+      md5: a075c6df5b27d3eb571dbbbabeffd972.dir
+      size: 95005
       nfiles: 8
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -181,9 +181,9 @@ stages:
       size: 150
     - path: ../../crates/numeric/src
       hash: md5
-      md5: 062259ba74cb0b4326c4799dfa0470cb.dir
-      size: 94710
-      nfiles: 6
+      md5: 714c14c6c99d14c2dfcffde7554c9ebb.dir
+      size: 146112
+      nfiles: 13
     - path: ../../flake.lock
       hash: md5
       md5: 83437230048eadb7a5c2f626d4ea10aa

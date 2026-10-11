@@ -11,14 +11,26 @@
 //! で決める。面の微分の重み付きの和は ∮∂ψ/∂n = μ∫ψ で平均と結びつき、μ → 0 では平均を決めなくなるので、和の代わりに
 //! 平均を使う。NEM の解はノードの釣り合いを満たすので、外した和も再現する。
 
-use xlc_format::fewgroup::FewGroup;
-use xlc_numeric::lu::Lu;
+use crate::lu::Lu;
 
 use super::basis::Basis;
 
+/// ノードの均質化した2群の定数（核分裂のスペクトルと拡散係数を含む）。
+#[derive(Debug, Clone, Copy)]
+pub struct Constants<'a> {
+    /// [群] の全断面積
+    pub total: &'a [f64],
+    /// [出る群][入る群] の散乱
+    pub scatter: &'a [Vec<f64>],
+    pub nu_fission: &'a [f64],
+    pub chi: &'a [f64],
+    /// [群] の拡散係数
+    pub diffusion: &'a [f64],
+}
+
 /// ノードの条件。群は 2、角は（-x -y、+x -y、+x +y、-x +y）、面は（-x、+x、-y、+y）の順。
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Conditions {
+pub struct Conditions {
     /// ノードの半幅 [a, b] (cm)。ノードの中心を原点とする
     pub half: [f64; 2],
     /// [群] のノード平均の均質な中性子束
@@ -33,7 +45,7 @@ pub(crate) struct Conditions {
 
 /// ノードの定数と大きさで決まる部分（モード、条件の行列の LU、特解の条件の値）。条件の値を変えて何度も解く。
 #[derive(Debug, Clone)]
-pub(crate) struct NodeModel {
+pub struct NodeModel {
     modes: [Basis; 2],
     lus: [Lu; 2],
     /// [モード][関数] の列の大きさ
@@ -50,7 +62,7 @@ pub(crate) struct NodeModel {
 
 /// ノードの中の均質な中性子束（モデルと、条件の値から解いた係数）。
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct NodeFlux<'a> {
+pub struct NodeFlux<'a> {
     model: &'a NodeModel,
     coefficients: [[f64; 8]; 2],
     /// [モード] の特解の係数 r_m
@@ -58,16 +70,17 @@ pub(crate) struct NodeFlux<'a> {
 }
 
 impl NodeModel {
-    pub(crate) fn new(
-        m: &FewGroup,
-        k: f64,
-        half: [f64; 2],
-        rule: &[(f64, f64)],
-    ) -> Result<Self, String> {
-        if m.groups() != 2 {
+    pub fn new(m: &Constants, k: f64, half: [f64; 2], rule: &[(f64, f64)]) -> Result<Self, String> {
+        let groups = m.total.len();
+        if groups != 2
+            || [m.nu_fission, m.chi, m.diffusion]
+                .iter()
+                .any(|v| v.len() != groups)
+            || m.scatter.len() != groups
+            || m.scatter.iter().any(|row| row.len() != groups)
+        {
             return Err(format!(
-                "pin power reconstruction needs 2 groups, got {}",
-                m.groups()
+                "pin power reconstruction needs 2 groups, got {groups}"
             ));
         }
         let a = |g: usize, h: usize| {
@@ -168,7 +181,7 @@ impl NodeModel {
     }
 
     /// 条件の値からノードの中の中性子束を求める。`c.half` はこのモデルの大きさに等しいこと
-    pub(crate) fn solve(&self, c: &Conditions) -> NodeFlux<'_> {
+    pub fn solve(&self, c: &Conditions) -> NodeFlux<'_> {
         let to_mode = |f: [f64; 2]| -> [f64; 2] {
             std::array::from_fn(|m| self.inverse[m][0] * f[0] + self.inverse[m][1] * f[1])
         };
@@ -232,7 +245,7 @@ impl NodeFlux<'_> {
     }
 
     /// (x, y) での [群][∂/∂x, ∂/∂y]
-    pub(crate) fn gradient(&self, x: f64, y: f64) -> [[f64; 2]; 2] {
+    pub fn gradient(&self, x: f64, y: f64) -> [[f64; 2]; 2] {
         let per_mode: [[f64; 2]; 2] = std::array::from_fn(|m| {
             let g = self.model.modes[m].gradients(x, y);
             let p = self.model.modes[m].particular_gradient(x, y);
@@ -254,14 +267,7 @@ impl NodeFlux<'_> {
     }
 
     /// 長方形 [x0, x1] × [y0, y1] の上の [群] の平均
-    pub(crate) fn average(
-        &self,
-        x0: f64,
-        x1: f64,
-        y0: f64,
-        y1: f64,
-        rule: &[(f64, f64)],
-    ) -> [f64; 2] {
+    pub fn average(&self, x0: f64, x1: f64, y0: f64, y1: f64, rule: &[(f64, f64)]) -> [f64; 2] {
         let psi: [f64; 2] = std::array::from_fn(|m| {
             let v = self.model.modes[m].averages(x0, x1, y0, y1, rule);
             let sum: f64 = v

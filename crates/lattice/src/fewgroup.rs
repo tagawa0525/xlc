@@ -6,6 +6,10 @@ use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::group::GroupStructure;
 use xlc_numeric::equivalence::equivalent_diffusion;
 use xlc_numeric::nem::{Edge, OneNode, OneNodeError, is_fissile, surface_fluxes};
+use xlc_numeric::pins::corners::{CornerNode, corner_balance, fuel_harmonic_mean, nodes_at_point};
+use xlc_numeric::pins::node::{Conditions, Constants, NodeModel};
+use xlc_numeric::pins::{CELL_POINTS, FACE_POINTS};
+use xlc_numeric::quadrature::gauss_legendre;
 
 use crate::b1::{B1Error, Medium};
 use crate::cmfd::{horizontal_face, vertical_face};
@@ -147,6 +151,8 @@ pub fn homogenize(
 /// - 反射体のノード（`Node::reflector`）の、反射体でないノードと接する辺の ADF は、その隣のノードの同じ面の
 ///   ADF で割った f* とし、`normalized_adf` に印を付ける。反射体のノードは、反射体でないノードと少なくとも
 ///   1辺で接すること
+/// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0125）も付ける
+#[allow(clippy::too_many_arguments)]
 pub fn homogenize_nodes(
     solution: &Solution,
     lattice: &Lattice,
@@ -155,7 +161,176 @@ pub fn homogenize_nodes(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
     nodes: &[Node],
+    pins: bool,
 ) -> Result<Vec<FewGroup>, HomogenizeError> {
+    let NodeReferences {
+        references: homogenized,
+        group_of,
+        neighbors,
+    } = node_references(
+        solution,
+        lattice,
+        materials,
+        fine,
+        coarse_bounds,
+        boundaries,
+        nodes,
+    )?;
+    let sides = sides_of(boundaries);
+    let coarse = coarse_bounds.len() - 1;
+    // 横方向の漏れ [ノード][方向（x, y）][少数群]: x の方向の横方向の漏れは y の正味の漏れ（上と下の辺の
+    // 外向きの正味の流れの和 / 高さ）、y の方向は x の正味の漏れ
+    let transverse: Vec<[Vec<f64>; 2]> = homogenized
+        .iter()
+        .map(|h| {
+            let net = |a: usize, b: usize, width: f64| -> Vec<f64> {
+                (0..coarse)
+                    .map(|g| (h.currents[a][g] + h.currents[b][g]) / width)
+                    .collect()
+            };
+            [net(2, 3, h.size[1]), net(0, 1, h.size[0])]
+        })
+        .collect();
+    let mut adfs = Vec::with_capacity(nodes.len());
+    for (n, h) in homogenized.iter().enumerate() {
+        let edges: [Edge; 4] = FACES.map(|side| {
+            // 左右の辺は x の方向
+            let d = usize::from(side >= 2);
+            match neighbors[n][side] {
+                Some(m) => Edge::Neighbor {
+                    width: homogenized[m].size[d],
+                    leakage: &transverse[m][d],
+                },
+                None if sides[side] == Boundary::Vacuum => Edge::Vacuum,
+                None => Edge::Reflective,
+            }
+        });
+        // 核分裂のないノードの拡散係数は、Koebke の等価理論の D（ADR-0104）。中性子流の重みの D から探す
+        let mut few = h.few.clone();
+        let fissile = is_fissile(&few.nu_fission)
+            .map_err(|e| HomogenizeError::OneNode(OneNodeError::Invalid(e.to_string())))?;
+        if !fissile {
+            few.diffusion = equivalent_diffusion(
+                &OneNode {
+                    diffusion: &h.few.diffusion,
+                    total: &few.total,
+                    scatter: &few.scatter,
+                    nu_fission: &few.nu_fission,
+                    chi: &few.chi,
+                    k: solution.k,
+                    flux: &h.average,
+                    widths: h.size,
+                    currents: FACES.map(|side| h.currents[side].as_slice()),
+                    edges,
+                },
+                FACES.map(|side| h.heterogeneous[side].as_slice()),
+            )?;
+            tracing::info!(
+                node = n,
+                current_weighted = ?h.few.diffusion,
+                equivalent = ?few.diffusion,
+                "equivalent diffusion coefficients"
+            );
+        }
+        let adf = discontinuity_factors(
+            &few,
+            solution.k,
+            &h.average,
+            h.size,
+            &h.heterogeneous,
+            &h.currents,
+            edges,
+        )?;
+        few.adf = adf;
+        adfs.push(few);
+    }
+    // 反射体のノードの検査を、形状関数の角の点の釣り合いより先にする（誤りの入力を、釣り合いの別のエラーで隠さない）
+    for (n, node) in nodes.iter().enumerate() {
+        if !node.reflector {
+            continue;
+        }
+        if !neighbors[n].iter().flatten().any(|&m| !nodes[m].reflector) {
+            return Err(HomogenizeError::Nodes(format!(
+                "reflector node {n} touches no fuel (non-reflector) node"
+            )));
+        }
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。核分裂のある反射体のノードは自分の CDF で
+        // 割ることになり、core で掛け戻す値と食い違う
+        let fissile = is_fissile(&adfs[n].nu_fission)
+            .map_err(|e| HomogenizeError::Nodes(format!("node {n}: {e}")))?;
+        if pins && fissile {
+            return Err(HomogenizeError::Nodes(format!(
+                "reflector node {n} has fission; form functions need reflector nodes without fission"
+            )));
+        }
+    }
+    let shapes = if pins {
+        Some(node_pins(
+            solution,
+            lattice,
+            materials,
+            &group_of,
+            nodes,
+            &neighbors,
+            &homogenized,
+            &adfs,
+        )?)
+    } else {
+        None
+    };
+    let mut result = Vec::with_capacity(nodes.len());
+    for (n, node) in nodes.iter().enumerate() {
+        let mut few = adfs[n].clone();
+        few.pins = shapes.as_ref().map(|p| p[n].clone());
+        if node.reflector {
+            for side in 0..4 {
+                if let Some(m) = neighbors[n][side]
+                    && !nodes[m].reflector
+                {
+                    for (f, fuel) in few.adf[side].iter_mut().zip(&adfs[m].adf[OPPOSITE[side]]) {
+                        *f /= fuel;
+                    }
+                    few.normalized_adf[side] = true;
+                }
+            }
+        }
+        result.push(few);
+    }
+    Ok(result)
+}
+
+/// ノードの均質化の参照の量: ノードの少数群定数（ADF は空）、ノード平均の中性子束、ノードの幅と高さ、辺（左、右、上、
+/// 下）の不均質な中性子束と外向きの正味の中性子流。
+#[derive(Debug, Clone)]
+pub(crate) struct Reference {
+    pub(crate) few: FewGroup,
+    pub(crate) average: Vec<f64>,
+    pub(crate) size: [f64; 2],
+    pub(crate) heterogeneous: Vec<Vec<f64>>,
+    pub(crate) currents: Vec<Vec<f64>>,
+}
+
+/// ノードの均質化の参照の量と、確かめたノードの並び。
+#[derive(Debug, Clone)]
+pub(crate) struct NodeReferences {
+    /// [ノード]
+    pub(crate) references: Vec<Reference>,
+    /// [ライブラリの群] の少数群
+    pub(crate) group_of: Vec<usize>,
+    /// [ノード][辺（左、右、上、下）] の、辺の向かいのノード（`node_neighbors`）
+    pub(crate) neighbors: Vec<[Option<usize>; 4]>,
+}
+
+/// ノードごとの `Reference`（`homogenize_nodes` の前半）。ノードの並びと、アルベドの辺がないことを確かめる
+pub(crate) fn node_references(
+    solution: &Solution,
+    lattice: &Lattice,
+    materials: &[&Material],
+    fine: &GroupStructure,
+    coarse_bounds: &[f64],
+    boundaries: &Boundaries,
+    nodes: &[Node],
+) -> Result<NodeReferences, HomogenizeError> {
     let sides = sides_of(boundaries);
     if sides.iter().any(|b| matches!(b, Boundary::Albedo(_))) {
         return Err(HomogenizeError::Albedo);
@@ -166,16 +341,7 @@ pub fn homogenize_nodes(
     let neighbors = node_neighbors(lattice, nodes)?;
     let (widths, heights) = (lattice.widths(), lattice.heights());
     let (columns, rows) = (lattice.columns(), lattice.rows());
-
-    // ノードごとの定数、ノード平均の中性子束、辺（左、右、上、下）の不均質な中性子束と外向きの正味の中性子流
-    struct Homogenized {
-        few: FewGroup,
-        average: Vec<f64>,
-        size: [f64; 2],
-        heterogeneous: Vec<Vec<f64>>,
-        currents: Vec<Vec<f64>>,
-    }
-    let mut homogenized = Vec::with_capacity(nodes.len());
+    let mut references = Vec::with_capacity(nodes.len());
     for (n, node) in nodes.iter().enumerate() {
         let regions: Vec<usize> = node
             .rows
@@ -245,7 +411,7 @@ pub fn homogenize_nodes(
         });
         few.vacuum_ratio = vacuum_ratios(&node_sides, &heterogeneous, &currents)?;
         tracing::info!(node = n, average_flux = ?average, "node");
-        homogenized.push(Homogenized {
+        references.push(Reference {
             few,
             average,
             size: [widths[c0..c1].iter().sum(), heights[r0..r1].iter().sum()],
@@ -253,95 +419,11 @@ pub fn homogenize_nodes(
             currents,
         });
     }
-    // 横方向の漏れ [ノード][方向（x, y）][少数群]: x の方向の横方向の漏れは y の正味の漏れ（上と下の辺の
-    // 外向きの正味の流れの和 / 高さ）、y の方向は x の正味の漏れ
-    let transverse: Vec<[Vec<f64>; 2]> = homogenized
-        .iter()
-        .map(|h| {
-            let net = |a: usize, b: usize, width: f64| -> Vec<f64> {
-                (0..coarse)
-                    .map(|g| (h.currents[a][g] + h.currents[b][g]) / width)
-                    .collect()
-            };
-            [net(2, 3, h.size[1]), net(0, 1, h.size[0])]
-        })
-        .collect();
-    let mut adfs = Vec::with_capacity(nodes.len());
-    for (n, h) in homogenized.iter().enumerate() {
-        let edges: [Edge; 4] = FACES.map(|side| {
-            // 左右の辺は x の方向
-            let d = usize::from(side >= 2);
-            match neighbors[n][side] {
-                Some(m) => Edge::Neighbor {
-                    width: homogenized[m].size[d],
-                    leakage: &transverse[m][d],
-                },
-                None if sides[side] == Boundary::Vacuum => Edge::Vacuum,
-                None => Edge::Reflective,
-            }
-        });
-        // 核分裂のないノードの拡散係数は、Koebke の等価理論の D（ADR-0104）。中性子流の重みの D から探す
-        let mut few = h.few.clone();
-        let fissile = is_fissile(&few.nu_fission)
-            .map_err(|e| HomogenizeError::OneNode(OneNodeError::Invalid(e.to_string())))?;
-        if !fissile {
-            few.diffusion = equivalent_diffusion(
-                &OneNode {
-                    diffusion: &h.few.diffusion,
-                    total: &few.total,
-                    scatter: &few.scatter,
-                    nu_fission: &few.nu_fission,
-                    chi: &few.chi,
-                    k: solution.k,
-                    flux: &h.average,
-                    widths: h.size,
-                    currents: FACES.map(|side| h.currents[side].as_slice()),
-                    edges,
-                },
-                FACES.map(|side| h.heterogeneous[side].as_slice()),
-            )?;
-            tracing::info!(
-                node = n,
-                current_weighted = ?h.few.diffusion,
-                equivalent = ?few.diffusion,
-                "equivalent diffusion coefficients"
-            );
-        }
-        let adf = discontinuity_factors(
-            &few,
-            solution.k,
-            &h.average,
-            h.size,
-            &h.heterogeneous,
-            &h.currents,
-            edges,
-        )?;
-        few.adf = adf;
-        adfs.push(few);
-    }
-    let mut result = Vec::with_capacity(nodes.len());
-    for (n, node) in nodes.iter().enumerate() {
-        let mut few = adfs[n].clone();
-        if node.reflector {
-            for side in 0..4 {
-                if let Some(m) = neighbors[n][side]
-                    && !nodes[m].reflector
-                {
-                    for (f, fuel) in few.adf[side].iter_mut().zip(&adfs[m].adf[OPPOSITE[side]]) {
-                        *f /= fuel;
-                    }
-                    few.normalized_adf[side] = true;
-                }
-            }
-            if !few.normalized_adf.contains(&true) {
-                return Err(HomogenizeError::Nodes(format!(
-                    "reflector node {n} touches no fuel (non-reflector) node"
-                )));
-            }
-        }
-        result.push(few);
-    }
-    Ok(result)
+    Ok(NodeReferences {
+        references,
+        group_of,
+        neighbors,
+    })
 }
 
 /// [ノード][辺（左、右、上、下）] の、辺の向かいのノード（外周の辺は `None`）。ノードが格子のセルを重ならずに
@@ -443,7 +525,8 @@ fn node_neighbors(
 }
 
 /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。格子全体を1つのノードとし、外周がすべて鏡面反射
-/// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は #0020）。
+/// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は `nodes` の
+/// 形状関数。ADR-0125）。
 ///
 /// - セルの大きさは、格子の列の幅と行の高さ（行は下から）
 /// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均 / ノードの少数群 g の核分裂率の平均。核分裂のないセルは 0。
@@ -461,7 +544,7 @@ pub fn pin_shapes(
 ) -> Result<Pins, HomogenizeError> {
     if !reflective(boundaries) {
         return Err(HomogenizeError::Pins(
-            "form functions need a lattice with every side reflective (other lattices: #0020)"
+            "form functions of the whole lattice need every side reflective (other lattices: `nodes` with `pins`, ADR-0125)"
                 .into(),
         ));
     }
@@ -535,8 +618,358 @@ pub fn pin_shapes(
         dy: lattice.heights().iter().rev().copied().collect(),
         form,
         corners,
+        normalized_corners: vec![false; 4],
         halves: vec![false; 4],
     })
+}
+
+/// 点 (x, y)（格子の -x、-y の辺から）の [少数群] の不均質な中性子束: 点を頂点とする 4 つの象限のうち格子の中にある
+/// ものの領域の中性子束の平均（ADR-0108）
+fn point_flux(
+    solution: &Solution,
+    lattice: &Lattice,
+    group_of: &[usize],
+    coarse: usize,
+    x: f64,
+    y: f64,
+) -> Vec<f64> {
+    let (width, height) = (
+        lattice.widths().iter().sum::<f64>(),
+        lattice.heights().iter().sum::<f64>(),
+    );
+    let e = 1e-9 * width.max(height);
+    let mut sum = vec![0.0; coarse];
+    let mut count = 0.0;
+    for (sx, sy) in [(1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)] {
+        let (px, py) = (x + sx * e, y + sy * e);
+        if px <= 0.0 || px >= width || py <= 0.0 || py >= height {
+            continue;
+        }
+        let region = lattice.region_at(px - 0.5 * width, py - 0.5 * height);
+        for (g, &big) in group_of.iter().enumerate() {
+            sum[big] += solution.flux[region][g];
+        }
+        count += 1.0;
+    }
+    sum.iter().map(|s| s / count).collect()
+}
+
+/// 格子の上の nx × ny の長方形の並びにしたノード。
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeGrid {
+    /// 列の切れ目（格子の列は左から）
+    pub column_cuts: Vec<usize>,
+    /// 行の切れ目（格子の行は上から）
+    pub row_cuts: Vec<usize>,
+    pub nx: usize,
+    pub ny: usize,
+    /// [i + nx j]（j は -y から）のノードの番号
+    pub grid: Vec<usize>,
+}
+
+/// ノードの列と行の範囲の切れ目で、ノードが nx × ny の長方形の並びをちょうど 1 回ずつ埋めることを確かめる
+/// （形状関数と角の不連続因子の角の点の釣り合い。ADR-0125）
+pub fn node_grid(nodes: &[Node]) -> Result<NodeGrid, String> {
+    let cuts = |ranges: &mut dyn Iterator<Item = &Range<usize>>| -> Vec<usize> {
+        let mut c: Vec<usize> = ranges.flat_map(|r| [r.start, r.end]).collect();
+        c.sort_unstable();
+        c.dedup();
+        c
+    };
+    let column_cuts = cuts(&mut nodes.iter().map(|n| &n.columns));
+    let row_cuts = cuts(&mut nodes.iter().map(|n| &n.rows));
+    if column_cuts.len() < 2 || row_cuts.len() < 2 {
+        return Err("the nodes do not make a grid".into());
+    }
+    let (nx, ny) = (column_cuts.len() - 1, row_cuts.len() - 1);
+    let mut grid = vec![None; nx * ny];
+    for (n, node) in nodes.iter().enumerate() {
+        let i = column_cuts.iter().position(|&c| c == node.columns.start);
+        let r = row_cuts.iter().position(|&c| c == node.rows.start);
+        let slot = match (i, r) {
+            (Some(i), Some(r))
+                if column_cuts.get(i + 1) == Some(&node.columns.end)
+                    && row_cuts.get(r + 1) == Some(&node.rows.end) =>
+            {
+                &mut grid[i + nx * (ny - 1 - r)]
+            }
+            _ => {
+                return Err(format!(
+                    "node {n} is not one rectangle of the grid that the nodes make"
+                ));
+            }
+        };
+        if slot.replace(n).is_some() {
+            return Err(format!("node {n} overlaps another node of the grid"));
+        }
+    }
+    let grid = grid
+        .into_iter()
+        .collect::<Option<Vec<usize>>>()
+        .ok_or_else(|| "the nodes do not fill the grid".to_string())?;
+    Ok(NodeGrid {
+        column_cuts,
+        row_cuts,
+        nx,
+        ny,
+        grid,
+    })
+}
+
+/// 格子のノードごとの形状関数と角の不連続因子（ADR-0125）。`fews` は ADF（f* で割る前）と拡散係数を決めた
+/// ノードの定数。ノードは格子の上の nx × ny の長方形の並びであること。
+///
+/// - 角の点 p の不均質な中性子束 Φ_p は `point_flux`
+/// - ノード n の角 c の均質な値の見込みは h̃ = φ_x φ_y / φ̄（φ_x、φ_y は角 c を含む x と y の辺の、1ノードの問題の
+///   均質な面の中性子束 = 辺の不均質な中性子束 / ADF、φ̄ はノード平均）
+/// - 均質な角の値を s_p h̃ とし、core と同じ展開（参照のノード平均と辺の正味の流れ、格子の k）と角の点の
+///   釣り合い（`corner_balance`。真空の辺の流れは既知の r Φ_p）で s_p を解く。s_p が正でなければエラー
+/// - CDF = Φ_p / (s_p h̃)。反射体のノードの、角の点が燃料（核分裂のある）のノードにも接する角は、それらのノードの
+///   CDF の調和平均で割り、`normalized_corners` に印を付ける
+/// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均（解析的な体積）/（Σf,g × 再構成した均質な中性子束の
+///   セルの平均）。核分裂のない群とセルは 0
+#[allow(clippy::too_many_arguments)]
+fn node_pins(
+    solution: &Solution,
+    lattice: &Lattice,
+    materials: &[&Material],
+    group_of: &[usize],
+    nodes: &[Node],
+    neighbors: &[[Option<usize>; 4]],
+    references: &[Reference],
+    fews: &[FewGroup],
+) -> Result<Vec<Pins>, HomogenizeError> {
+    let error = |message: String| HomogenizeError::Pins(message);
+    let coarse = references.first().map_or(0, |r| r.average.len());
+    if coarse != 2 {
+        return Err(error(format!(
+            "corner discontinuity factors need 2 few groups, got {coarse}"
+        )));
+    }
+    let (widths, heights) = (lattice.widths(), lattice.heights());
+    let columns = lattice.columns();
+    let NodeGrid {
+        column_cuts,
+        row_cuts,
+        nx,
+        ny,
+        grid,
+    } = node_grid(nodes).map_err(error)?;
+    // 角の点の座標（-x、-y の辺から）
+    let x_at: Vec<f64> = column_cuts
+        .iter()
+        .map(|&c| widths[..c].iter().sum())
+        .collect();
+    let height: f64 = heights.iter().sum();
+    let y_at: Vec<f64> = row_cuts
+        .iter()
+        .rev()
+        .map(|&r| height - heights[..r].iter().sum::<f64>())
+        .collect();
+    let points = (nx + 1) * (ny + 1);
+    let phi: Vec<[f64; 2]> = (0..points)
+        .map(|p| {
+            let f = point_flux(
+                solution,
+                lattice,
+                group_of,
+                coarse,
+                x_at[p % (nx + 1)],
+                y_at[p / (nx + 1)],
+            );
+            [f[0], f[1]]
+        })
+        .collect();
+    // [ノード] の並びの位置 (i, j)。どのノードも並びにちょうど 1 回ある（上で確かめた）
+    let mut position = vec![(0, 0); nodes.len()];
+    for (k, &n) in grid.iter().enumerate() {
+        position[n] = (k % nx, k / nx);
+    }
+    // ノード n の角 c（-x -y、+x -y、+x +y、-x +y）の角の点
+    let point = |n: usize, c: usize| {
+        let (i, j) = position[n];
+        let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
+        ci + (nx + 1) * cj
+    };
+    // [ノード][角][群] の見込み h̃。辺（左、右、上、下）の均質な面の中性子束は不均質な中性子束 / ADF
+    let estimates: Vec<[[f64; 2]; 4]> = references
+        .iter()
+        .zip(fews)
+        .map(|(r, f)| {
+            let face = |side: usize, g: usize| r.heterogeneous[side][g] / f.adf[side][g];
+            // 角の x の辺と y の辺
+            let corner_sides = [(0, 3), (1, 3), (1, 2), (0, 2)];
+            std::array::from_fn(|c| {
+                let (xs, ys) = corner_sides[c];
+                std::array::from_fn(|g| face(xs, g) * face(ys, g) / r.average[g])
+            })
+        })
+        .collect();
+    let rule = gauss_legendre(FACE_POINTS).map_err(|e| error(e.to_string()))?;
+    fn constants(f: &FewGroup) -> Constants<'_> {
+        Constants {
+            total: &f.total,
+            scatter: &f.scatter,
+            nu_fission: &f.nu_fission,
+            chi: &f.chi,
+            diffusion: &f.diffusion,
+        }
+    }
+    let models: Vec<NodeModel> = references
+        .iter()
+        .zip(fews)
+        .enumerate()
+        .map(|(n, (r, f))| {
+            NodeModel::new(
+                &constants(f),
+                solution.k,
+                [0.5 * r.size[0], 0.5 * r.size[1]],
+                &rule,
+            )
+            .map_err(|e| error(format!("node {n}: {e}")))
+        })
+        .collect::<Result<_, _>>()?;
+    let conditions: Vec<Conditions> = references
+        .iter()
+        .map(|r| {
+            // 辺（左、右、上、下）の外向きの流れを、面（-x、+x、-y、+y）の座標の正の向きの流れにする
+            let current =
+                |side: usize, sign: f64| [sign * r.currents[side][0], sign * r.currents[side][1]];
+            Conditions {
+                half: [0.5 * r.size[0], 0.5 * r.size[1]],
+                average: [r.average[0], r.average[1]],
+                corners: [[0.0; 2]; 4],
+                currents: [
+                    current(0, -1.0),
+                    current(1, 1.0),
+                    current(3, -1.0),
+                    current(2, 1.0),
+                ],
+                axial_leakage: [0.0; 2],
+            }
+        })
+        .collect();
+    let corner_nodes: Vec<CornerNode> = grid
+        .iter()
+        .map(|&n| CornerNode {
+            model: &models[n],
+            conditions: &conditions[n],
+            diffusion: [fews[n].diffusion[0], fews[n].diffusion[1]],
+            weights: estimates[n],
+            // 外周の真空の辺（面 -x、+x、-y、+y は辺 0、1、3、2）の流れ r Φ。鏡面反射は 0
+            outflow: std::array::from_fn(|face| {
+                let side = FACES[face];
+                match neighbors[n][side] {
+                    None => fews[n].vacuum_ratio[side].as_ref().map(|r| [r[0], r[1]]),
+                    Some(_) => None,
+                }
+            }),
+        })
+        .collect();
+    let scales =
+        corner_balance(nx, ny, &corner_nodes, &vec![false; points], Some(&phi)).map_err(error)?;
+    if let Some(p) = scales
+        .iter()
+        .position(|s| s.iter().any(|v| v.is_nan() || *v <= 0.0))
+    {
+        return Err(error(format!(
+            "corner point {p}: the homogeneous corner flux scale {:?} is not positive",
+            scales[p]
+        )));
+    }
+    // [ノード][角][群] の CDF
+    let cdf: Vec<[[f64; 2]; 4]> = (0..nodes.len())
+        .map(|n| {
+            std::array::from_fn(|c| {
+                let p = point(n, c);
+                std::array::from_fn(|g| phi[p][g] / (scales[p][g] * estimates[n][c][g]))
+            })
+        })
+        .collect();
+    let volumes = lattice.volumes();
+    let cell_rule = gauss_legendre(CELL_POINTS).map_err(|e| error(e.to_string()))?;
+    let mut out = Vec::with_capacity(nodes.len());
+    for (n, node) in nodes.iter().enumerate() {
+        let mut corners = Vec::with_capacity(4);
+        let mut normalized_corners = vec![false; 4];
+        for c in 0..4 {
+            let p = point(n, c);
+            // 角の点を囲むノードのうち燃料（核分裂のある）のノードの、その点の CDF。core は、どのノードが反射体
+            // だったかを知らず、核分裂の有無で燃料を見分ける
+            let (ci, cj) = (p % (nx + 1), p / (nx + 1));
+            let mut fuel: Vec<(usize, usize)> = Vec::with_capacity(4);
+            for (k, d) in nodes_at_point(nx, ny, ci, cj) {
+                let m = grid[k];
+                if is_fissile(&fews[m].nu_fission).map_err(|e| error(format!("node {m}: {e}")))? {
+                    fuel.push((m, d));
+                }
+            }
+            let harmonic = |g: usize| {
+                let factors: Vec<f64> = fuel.iter().map(|&(m, d)| cdf[m][d][g]).collect();
+                fuel_harmonic_mean(&factors)
+            };
+            match (node.reflector, harmonic(0), harmonic(1)) {
+                (true, Some(h0), Some(h1)) => {
+                    corners.push(vec![cdf[n][c][0] / h0, cdf[n][c][1] / h1]);
+                    normalized_corners[c] = true;
+                }
+                _ => corners.push(cdf[n][c].to_vec()),
+            }
+        }
+        // 形状関数: ノードの均質な解の角の値は s_p h̃
+        let mut c = conditions[n].clone();
+        c.corners = std::array::from_fn(|k| {
+            let p = point(n, k);
+            std::array::from_fn(|g| scales[p][g] * estimates[n][k][g])
+        });
+        let flux = models[n].solve(&c);
+        let dx: Vec<f64> = widths[node.columns.clone()].to_vec();
+        let dy: Vec<f64> = heights[node.rows.clone()].iter().rev().copied().collect();
+        let [a, b] = c.half;
+        let mut form = vec![vec![vec![0.0; dx.len()]; dy.len()]; 2];
+        let mut y0 = -b;
+        for (j, h) in dy.iter().enumerate() {
+            let mut x0 = -a;
+            for (i, w) in dx.iter().enumerate() {
+                // 行は -y から（格子の行は上から）
+                let cell = (node.rows.end - 1 - j) * columns + node.columns.start + i;
+                let (mut rate, mut area) = ([0.0; 2], 0.0);
+                for region in lattice.cell_regions(cell) {
+                    area += volumes[region];
+                    for (g, &big) in group_of.iter().enumerate() {
+                        rate[big] += volumes[region]
+                            * solution.flux[region][g]
+                            * materials[region].fission[g];
+                    }
+                }
+                let average = flux.average(x0, x0 + w, y0, y0 + h, &cell_rule);
+                for g in 0..2 {
+                    let rate = rate[g] / area;
+                    if rate == 0.0 {
+                        continue;
+                    }
+                    let denominator = fews[n].fission[g] * average[g];
+                    if denominator.is_nan() || denominator <= 0.0 {
+                        return Err(error(format!(
+                            "node {n} cell ({j}, {i}) group {g}: Σf × homogeneous flux is {denominator}"
+                        )));
+                    }
+                    form[g][j][i] = rate / denominator;
+                }
+                x0 += w;
+            }
+            y0 += h;
+        }
+        out.push(Pins {
+            dx,
+            dy,
+            form,
+            corners,
+            normalized_corners,
+            halves: vec![false; 4],
+        });
+    }
+    Ok(out)
 }
 
 /// 集合体を n × n に分けた部分ノードの少数群定数（ADR-0108）。並びは -y の行から、各行は -x から。外周がすべて
@@ -638,24 +1071,8 @@ pub fn split_constants(
         }
         sum.iter().map(|s| s / (hi - lo)).collect()
     };
-    // 点 (x, y)（-x、-y の辺から）の不均質な中性子束: 格子の中の象限の領域の平均
-    let point = |x: f64, y: f64| -> Vec<f64> {
-        let e = 1e-9 * width.max(height);
-        let mut sum = vec![0.0; coarse];
-        let mut count = 0.0;
-        for (sx, sy) in [(1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)] {
-            let (px, py) = (x + sx * e, y + sy * e);
-            if px <= 0.0 || px >= width || py <= 0.0 || py >= height {
-                continue;
-            }
-            let region = lattice.region_at(px - 0.5 * width, py - 0.5 * height);
-            for (g, &big) in group_of.iter().enumerate() {
-                sum[big] += solution.flux[region][g];
-            }
-            count += 1.0;
-        }
-        sum.iter().map(|s| s / count).collect()
-    };
+    // 点 (x, y)（-x、-y の辺から）の不均質な中性子束
+    let point = |x: f64, y: f64| point_flux(solution, lattice, &group_of, coarse, x, y);
     let tolerance = 1e-9 * width.max(height);
     // 区間 [lo, hi] に重なるセルの (番号, 重なる大きさ) と、両端がセルの途中か
     // 丸ごと入るセルは元の大きさをそのまま使う（境界の座標の引き算の丸めを入れない）
@@ -740,6 +1157,7 @@ pub fn split_constants(
                         corner(x1, y1),
                         corner(x0, y1),
                     ],
+                    normalized_corners: vec![false; 4],
                     halves: vec![cut_left, cut_right, cut_top, cut_bottom],
                 });
             }
@@ -2054,6 +2472,7 @@ mod tests {
             fine.bounds(),
             &Boundaries::REFLECTIVE,
             &nodes,
+            false,
         )
         .unwrap();
         assert_eq!(fgs.len(), 2);
@@ -2099,6 +2518,7 @@ mod tests {
             fine.bounds(),
             &boundaries,
             &nodes,
+            false,
         )
         .unwrap();
         let (fuel, reflector) = (&fgs[0], &fgs[1]);
@@ -2265,6 +2685,7 @@ mod tests {
                 fine.bounds(),
                 boundaries,
                 nodes,
+                false,
             )
         };
         let reflector = |n: Node| Node {
@@ -2311,11 +2732,486 @@ mod tests {
             fine.bounds(),
             &Boundaries::REFLECTIVE,
             &[node(0..1, 0..2), node(1..2, 0..1), node(1..2, 1..2)],
+            false,
         );
         assert!(
             matches!(misaligned, Err(HomogenizeError::Nodes(_))),
             "{misaligned:?}"
         );
+    }
+
+    /// `nodes`（x が速く、-y の行から並べた nx × ny の格子）の定数と形状（ADR-0125）で、core の形の角の点の釣り合い
+    /// （未知数が角の点の不均質な中性子束、均質な角の値は Φ / CDF）を解くと、格子の角の点の不均質な中性子束（角の点に
+    /// 接する領域の中性子束の平均）に戻り、再構成したセルの出力（Σf × 均質な中性子束のセルの平均 × 形状関数）が
+    /// MOC のセルの核分裂率に戻ることを確かめる。ノード平均と面の正味の流れは、core の NEM が GET で再現する参照の値
+    fn assert_pins_reproduce(
+        lattice: &Lattice,
+        solution: &Solution,
+        materials: &[Material],
+        boundaries: &Boundaries,
+        nodes: &[Node],
+        nx: usize,
+        ny: usize,
+    ) {
+        use xlc_numeric::pins::FACE_POINTS;
+        use xlc_numeric::pins::corners::{CornerNode, corner_balance};
+        use xlc_numeric::pins::node::{Conditions, Constants, NodeModel};
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let fgs = homogenize_nodes(
+            solution,
+            lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            boundaries,
+            nodes,
+            true,
+        )
+        .unwrap();
+        let references = node_references(
+            solution,
+            lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            boundaries,
+            nodes,
+        )
+        .unwrap()
+        .references;
+        let rule = xlc_numeric::quadrature::gauss_legendre(FACE_POINTS).unwrap();
+        let cells_rule = xlc_numeric::quadrature::gauss_legendre(6).unwrap();
+        let pins: Vec<&Pins> = fgs.iter().map(|f| f.pins.as_ref().unwrap()).collect();
+        // ノード n の角 c の角の点（x が速い (nx + 1) × (ny + 1)）
+        let point = |n: usize, c: usize| {
+            let (i, j) = (n % nx, n / nx);
+            let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
+            ci + (nx + 1) * cj
+        };
+        // 炉心の CDF: 燃料の CDF で割った角は、角の点に接する燃料（核分裂のある）のノードの CDF の調和平均を掛ける
+        let refs_fissile = |f: &FewGroup| f.nu_fission.iter().any(|&v| v > 0.0);
+        let cdf = |n: usize, c: usize, g: usize| -> f64 {
+            if !pins[n].normalized_corners[c] {
+                return pins[n].corners[c][g];
+            }
+            let p = point(n, c);
+            let fuel: Vec<f64> = (0..nodes.len())
+                .filter(|&m| refs_fissile(&fgs[m]))
+                .flat_map(|m| {
+                    (0..4)
+                        .filter(move |&d| point(m, d) == p)
+                        .map(move |d| (m, d))
+                })
+                .map(|(m, d)| pins[m].corners[d][g])
+                .collect();
+            assert!(!fuel.is_empty(), "node {n} corner {c}");
+            let harmonic = fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f).sum::<f64>();
+            pins[n].corners[c][g] * harmonic
+        };
+        let models: Vec<NodeModel> = references
+            .iter()
+            .zip(&fgs)
+            .map(|(r, f)| {
+                let constants = Constants {
+                    total: &f.total,
+                    scatter: &f.scatter,
+                    nu_fission: &f.nu_fission,
+                    chi: &f.chi,
+                    diffusion: &f.diffusion,
+                };
+                NodeModel::new(
+                    &constants,
+                    solution.k,
+                    [0.5 * r.size[0], 0.5 * r.size[1]],
+                    &rule,
+                )
+                .unwrap()
+            })
+            .collect();
+        let conditions: Vec<Conditions> = references
+            .iter()
+            .map(|r| {
+                // 辺（左、右、上、下）の外向きの流れを、面（-x、+x、-y、+y）の座標の正の向きの流れにする
+                let current = |side: usize, sign: f64| {
+                    [sign * r.currents[side][0], sign * r.currents[side][1]]
+                };
+                Conditions {
+                    half: [0.5 * r.size[0], 0.5 * r.size[1]],
+                    average: [r.average[0], r.average[1]],
+                    corners: [[0.0; 2]; 4],
+                    currents: [
+                        current(0, -1.0),
+                        current(1, 1.0),
+                        current(3, -1.0),
+                        current(2, 1.0),
+                    ],
+                    axial_leakage: [0.0; 2],
+                }
+            })
+            .collect();
+        let corner_nodes: Vec<CornerNode> = (0..nodes.len())
+            .map(|n| CornerNode {
+                model: &models[n],
+                conditions: &conditions[n],
+                diffusion: [fgs[n].diffusion[0], fgs[n].diffusion[1]],
+                weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdf(n, c, g))),
+                outflow: std::array::from_fn(|face| {
+                    fgs[n].vacuum_ratio[[0, 1, 3, 2][face]]
+                        .as_ref()
+                        .map(|r| [r[0], r[1]])
+                }),
+            })
+            .collect();
+        let zero = vec![false; (nx + 1) * (ny + 1)];
+        let phi = corner_balance(nx, ny, &corner_nodes, &zero, None).unwrap();
+        // 角の点の不均質な中性子束: 角の点に接する格子の中の領域の中性子束の平均（少数群は 2 群のまま）
+        let (width, height): (f64, f64) = (
+            lattice.widths().iter().sum(),
+            lattice.heights().iter().sum(),
+        );
+        let x_edges: Vec<f64> = (0..=nx)
+            .map(|i| nodes[..i].iter().map(|m| r_width(lattice, m)).sum())
+            .collect();
+        let y_edges: Vec<f64> = (0..=ny)
+            .map(|j| (0..j).map(|jj| r_height(lattice, &nodes[jj * nx])).sum())
+            .collect();
+        for cj in 0..=ny {
+            for ci in 0..=nx {
+                let (x, y) = (x_edges[ci], y_edges[cj]);
+                let e = 1e-9 * width.max(height);
+                let mut want = [0.0; 2];
+                let mut count = 0.0;
+                for (sx, sy) in [(1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)] {
+                    let (px, py) = (x + sx * e, y + sy * e);
+                    if px <= 0.0 || px >= width || py <= 0.0 || py >= height {
+                        continue;
+                    }
+                    let region = lattice.region_at(px - 0.5 * width, py - 0.5 * height);
+                    for (w, f) in want.iter_mut().zip(&solution.flux[region]) {
+                        *w += f;
+                    }
+                    count += 1.0;
+                }
+                let got = phi[ci + (nx + 1) * cj];
+                for g in 0..2 {
+                    let want = want[g] / count;
+                    assert!(
+                        (got[g] - want).abs() < 1e-9 * want,
+                        "corner point ({ci}, {cj}) group {g}: {} vs {want}",
+                        got[g]
+                    );
+                }
+            }
+        }
+        // セルの出力が MOC のセルの核分裂率（解析的な体積で平均）に戻る
+        let volumes = lattice.volumes();
+        for (n, node) in nodes.iter().enumerate() {
+            let mut c = conditions[n].clone();
+            c.corners = std::array::from_fn(|k| {
+                let p = phi[point(n, k)];
+                std::array::from_fn(|g| p[g] / cdf(n, k, g))
+            });
+            let flux = models[n].solve(&c);
+            let [a, b] = c.half;
+            let mut y0 = -b;
+            for (j, dy) in pins[n].dy.iter().enumerate() {
+                let mut x0 = -a;
+                for (i, dx) in pins[n].dx.iter().enumerate() {
+                    let average = flux.average(x0, x0 + dx, y0, y0 + dy, &cells_rule);
+                    // 行は -y から（格子の行は上から）
+                    let row = node.rows.end - 1 - j;
+                    let cell = row * lattice.columns() + node.columns.start + i;
+                    let (mut rate, mut area) = ([0.0; 2], 0.0);
+                    for region in lattice.cell_regions(cell) {
+                        area += volumes[region];
+                        for (g, r) in rate.iter_mut().enumerate() {
+                            *r += volumes[region]
+                                * solution.flux[region][g]
+                                * refs[region].fission[g];
+                        }
+                    }
+                    for g in 0..2 {
+                        let want = rate[g] / area;
+                        let got = fgs[n].fission[g] * average[g] * pins[n].form[g][j][i];
+                        assert!(
+                            (got - want).abs() < 1e-9 * want.max(1e-12),
+                            "node {n} cell ({j}, {i}) group {g}: {got} vs {want}"
+                        );
+                    }
+                    x0 += dx;
+                }
+                y0 += dy;
+            }
+        }
+    }
+
+    /// ノードの幅と高さ
+    fn r_width(lattice: &Lattice, node: &Node) -> f64 {
+        lattice.widths()[node.columns.clone()].iter().sum()
+    }
+
+    fn r_height(lattice: &Lattice, node: &Node) -> f64 {
+        lattice.heights()[node.rows.clone()].iter().sum()
+    }
+
+    #[test]
+    fn strip_pins_reproduce_the_lattice() {
+        // 燃料と水の帯（右が真空）を燃料と反射体のノードに分けた定数と形状は、定数を作った体系の角の中性子束と
+        // セルの核分裂率を再現する（ADR-0125）
+        let (lattice, solution, materials, boundaries) = strip();
+        let nodes = [
+            node(0..1, 0..1),
+            Node {
+                reflector: true,
+                ..node(1..2, 0..1)
+            },
+        ];
+        assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 1);
+    }
+
+    /// 燃料のピン 2 × 2 の右と上に水のセルを 1 列ずつ並べた 3 × 3 と、外周の境界 `boundaries` の解。燃料は右と上の
+    /// 辺に接しない
+    fn l_shaped(boundaries: Boundaries) -> (Lattice, Solution, Vec<Material>, Boundaries) {
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26; 3],
+            vec![Cell::Pin(pin), Cell::Pin(cell)],
+            vec![vec![1, 1, 1], vec![0, 0, 1], vec![0, 0, 1]],
+        )
+        .unwrap();
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        // ピンの中心の領域だけ燃料、ほかは水
+        let materials: Vec<Material> = (0..lattice.cells())
+            .flat_map(|cell| {
+                let fuelled = lattice
+                    .cell_type(cell)
+                    .pin()
+                    .is_some_and(|p| !p.radii().is_empty());
+                lattice
+                    .cell_regions(cell)
+                    .enumerate()
+                    .map(|(k, _)| {
+                        if fuelled && k == 0 {
+                            fuel.clone()
+                        } else {
+                            water.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        (lattice, solution, materials, boundaries)
+    }
+
+    #[test]
+    fn l_shaped_pins_reproduce_the_lattice() {
+        // 燃料のノード（2 × 2 のピン）の上と右に反射体のノード、右上に水のノード（反射体の印なし。燃料に角だけで
+        // 接する）。反射体の角は燃料の面と、右上のノードに接する（ADR-0125）
+        let (lattice, solution, materials, boundaries) = l_shaped(vacuum());
+        let reflector = |n: Node| Node {
+            reflector: true,
+            ..n
+        };
+        // x が速く、-y の行（格子の行 1、2）から
+        let nodes = [
+            node(0..2, 1..3),
+            reflector(node(2..3, 1..3)),
+            reflector(node(0..2, 0..1)),
+            node(2..3, 0..1),
+        ];
+        assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
+    }
+
+    #[test]
+    fn non_positive_corner_scales_are_errors() {
+        // 右と上の 2 辺が真空の格子では、右上の角の点の均質な値の大きさ s_p の熱群が負になる（#0065）。正でない
+        // s_p はエラー（ADR-0125）
+        let (lattice, solution, materials, boundaries) = l_shaped(Boundaries {
+            top: Boundary::Vacuum,
+            ..vacuum()
+        });
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let reflector = |n: Node| Node {
+            reflector: true,
+            ..n
+        };
+        let nodes = [
+            node(0..2, 1..3),
+            reflector(node(2..3, 1..3)),
+            reflector(node(0..2, 0..1)),
+            node(2..3, 0..1),
+        ];
+        let err = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, HomogenizeError::Pins(m) if m.contains("not positive")),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn pins_need_reflector_nodes_without_fission() {
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。反射体の印のノードに核分裂があると、
+        // 自分の CDF で割ることになり、core で掛け戻す値と食い違うので、形状関数を作るときはエラー
+        let (lattice, solution, materials, boundaries) = strip();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let nodes = [
+            Node {
+                reflector: true,
+                ..node(0..1, 0..1)
+            },
+            node(1..2, 0..1),
+        ];
+        let err = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, HomogenizeError::Nodes(m) if m.contains("fission")),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn strip_corner_factors_follow_the_face_discontinuity() {
+        // 帯（上と下は鏡面反射）では均質な解が x にしか変わらず、境の角の均質な値の見込みは境の面の均質な中性子束に
+        // なる。反射体の燃料に接する角の C* は、境の面の f* に一致する（ADR-0125）
+        let (lattice, solution, materials, boundaries) = strip();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let nodes = [
+            node(0..1, 0..1),
+            Node {
+                reflector: true,
+                ..node(1..2, 0..1)
+            },
+        ];
+        let fgs = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+            true,
+        )
+        .unwrap();
+        let reflector = &fgs[1];
+        let pins = reflector.pins.as_ref().unwrap();
+        // 燃料に接する角は -x -y と -x +y
+        assert_eq!(pins.normalized_corners, vec![true, false, false, true]);
+        assert!(
+            !fgs[0]
+                .pins
+                .as_ref()
+                .unwrap()
+                .normalized_corners
+                .contains(&true)
+        );
+        for c in [0, 3] {
+            for g in 0..2 {
+                let (got, want) = (pins.corners[c][g], reflector.adf[0][g]);
+                assert!(
+                    (got - want).abs() < 1e-6 * want,
+                    "corner {c} group {g}: {got} vs {want}"
+                );
+            }
+        }
+        // 反射体の形状関数は 0
+        assert!(pins.form.iter().flatten().flatten().all(|&f| f == 0.0));
+    }
+
+    #[test]
+    fn one_reflective_node_keeps_the_assembly_pins() {
+        // 外周がすべて鏡面反射の格子を1つのノードにすると、均質な解は平らで、CDF は角の不均質な中性子束 /
+        // ノード平均（`pin_shapes`）に一致する。形状関数の分母は Σf × 均質な中性子束（トラックの体積で平均した
+        // ノード平均）で、`pin_shapes` の分母（解析的な体積で平均した核分裂率）との比だけ違う
+        let (lattice, solution, materials) = margined(0.04);
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let assembly = pin_shapes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        let fgs = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+            &[node(0..4, 0..4)],
+            true,
+        )
+        .unwrap();
+        let pins = fgs[0].pins.as_ref().unwrap();
+        assert_eq!((&pins.dx, &pins.dy), (&assembly.dx, &assembly.dy));
+        // 平らさは MOC の鏡面反射の辺の正味の流れ（収束の許容差の程度で 0）の程度
+        let flat = |got: f64, want: f64| (got - want).abs() < 1e-6 * want;
+        for (got, want) in pins
+            .corners
+            .iter()
+            .flatten()
+            .zip(assembly.corners.iter().flatten())
+        {
+            assert!(flat(*got, *want), "{got} vs {want}");
+        }
+        let volumes = lattice.volumes();
+        let area: f64 = volumes.iter().sum();
+        let (track_volume, track) = (solution.volumes.iter().sum::<f64>(), &solution.volumes);
+        for g in 0..2 {
+            let analytic = (0..refs.len())
+                .map(|r| volumes[r] * solution.flux[r][g] * refs[r].fission[g])
+                .sum::<f64>()
+                / area;
+            let average = (0..refs.len())
+                .map(|r| track[r] * solution.flux[r][g])
+                .sum::<f64>()
+                / track_volume;
+            let ratio = analytic / (fgs[0].fission[g] * average);
+            for (got, want) in pins.form[g]
+                .iter()
+                .flatten()
+                .zip(assembly.form[g].iter().flatten())
+            {
+                assert!(
+                    (got - want * ratio).abs() < 1e-6 * want.max(1e-3),
+                    "group {g}: {got} vs {want} × {ratio}"
+                );
+            }
+        }
+        assert_eq!(pins.normalized_corners, vec![false; 4]);
     }
 
     /// 2×2 のピン（対角に燃料）の周りに幅 0.04 の余白を付けた格子、領域ごとの物質、鏡面反射の解
@@ -2444,7 +3340,7 @@ mod tests {
                 boundaries,
             )
         };
-        // 外周が鏡面反射でない格子の角の均質な中性子束は決めていない（#0020）
+        // 格子全体の形状関数は外周がすべて鏡面反射の格子でだけ作る（ほかの格子は `nodes`。ADR-0125）
         let err = shapes(&vacuum()).unwrap_err().to_string();
         assert!(err.contains("reflective"), "{err}");
         // 角の中性子束は余白の角のセルで取る

@@ -10,6 +10,7 @@
 | `assembly-2B.toml`                 | 同じライブラリと自己遮蔽なしの単一集合体（鏡面反射）。f* に掛ける燃料の少数群定数                        |
 | `core-I.toml`、`core-I-fstar.toml` | 炉心の計算のケース（集合体と反射体の2ノード）。等価性と f* の方法。入力の形は ADR-0105                   |
 | `core-I-cycle.toml` など           | サイクル、炉心の形（`core-I-plant.toml`）、台帳（`core-I-assemblies.toml`）                              |
+| `compare_edge.py`                  | ピン出力の差を、燃料のピン全体と反射体に接する列に分けてまとめる                                         |
 
 生成物（ライブラリ、少数群定数）は git で追跡しない。
 
@@ -18,6 +19,8 @@ target/release/xs examples/reflector/xs.toml          # 2 分 40 秒（32 スレ
 cd examples/reflector && ../../target/release/lattice reflector-I.toml && ../../target/release/lattice assembly-2B.toml
 ../../target/release/core core-I.toml         # 等価性（格子から作った集合体の定数）
 ../../target/release/core core-I-fstar.toml   # f* の方法（単一集合体の定数）
+python3 compare_edge.py core-pins-I.msgpack moc-pins-I.msgpack         # 再構成したピン出力と MOC
+python3 compare_edge.py core-pins-I-fstar.msgpack moc-pins-I.msgpack
 ```
 
 ## I 型の格子の1ノードの問題（68ff251、2026-10-09）
@@ -98,3 +101,24 @@ y の漏れが 0（上下が鏡面反射）で上方散乱が小さいので、�
   REF1-2D の閾値の案（k ±50 pcm）より大きく、自己遮蔽なしの燃料の I 型の格子（反射体の隣に燃料1体だけで、その k は
   0.531）では、燃料のノードの中の中性子束の形が単一集合体と大きく違う。REF1-2D の 3×3 で、燃料が反射体の片側にしか
   ないときの誤差を測る
+
+## I 型の格子のピン出力の再構成（3f000b1c、2026-10-11）
+
+格子のノードごとの形状関数と角の不連続因子（[ADR-0125](../../docs/adr/0125-derive-corner-factors-from-lattice-corner-balance.md)）を付けて `reflector-I.toml` と `assembly-2B.toml` を解き、
+core の2つのケースで再構成したピン出力を、`reflector-I.toml` の MOC のピン出力（`moc-pins-I.msgpack`）と比較した
+（`compare_edge.py`。どちらも燃料のピンの平均で 1 に規格化）。反射体の格子の CPB の角の点の大きさ s_p はどれも正で、
+CDF を作れた。MOC の k（0.531075）と core の2つのケースの k（0.531075、0.530381）は、前の節と 6 桁まで同じ。
+
+| 燃料のノードの定数      | 燃料のピン 264 本の RMS | 最大    | 反射体に接する列（17 本、出力 0.58〜0.61）の RMS | 最大    |
+| ----------------------- | ----------------------- | ------- | ------------------------------------------------ | ------- |
+| I 型の格子（等価性）    | 0.080%                  | −0.315% | 0.079%                                           | +0.141% |
+| 単一集合体（f* の方法） | 1.867%                  | −5.280% | 4.874%                                           | −5.280% |
+
+- 等価性: ADR-0125 は、定数を作った体系で core が格子のセルの核分裂率を再現するように作る（lattice のテストでは相対
+  10⁻⁹）。残る 0.08% の差の原因の候補は、MOC のピン出力（`pin-powers`）がトラックから推定した体積で、形状関数が解析的な
+  体積で平均していること（#0041。単一集合体の 2B でも、再構成と `pin-powers` が最大 0.17% 違った。ADR-0096）。確かめて
+  いない
+- f* の方法: 出力 0.8 以上のピンの最大は 1.506%（`../colorset/compare.py`）。ADR-0118 の 2 段階の手法の閾値（RMS 1%、
+  出力 0.8 以上の最大 3%）に照らすと、RMS が超える。反射体に接する列はどれも出力 0.8 未満で、その最大の判定から外れる。
+  前の節のとおり、この格子の燃料は自己遮蔽なしで k が 0.531 と小さく、燃料のノードの中の形が単一集合体と大きく違う。
+  REF1-2D の比較は #0043 に残す
