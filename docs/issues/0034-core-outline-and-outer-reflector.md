@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core, lattice]
 opened: 2026-10-09
-closed:
+closed: 2026-10-12
 milestone: M3
 blocked-by: []
-resolution:
+resolution: ADR-0132
 ---
 
 # 炉心の外形に沿った境界と、燃料に接しない反射体の定数
@@ -50,3 +50,7 @@ resolution:
   燃料どうしと同じく各側の ADF を使う（格子の識別子は要らない）。径方向の反射体の列の上下の層は、バッフルのある
   高さに径方向の定数を伸ばし、ノズル、炉心板、水の高さに ADR-0128 のスラブの定数を置き、その真空の面は Marshak を
   明示する（(A1)。r-z の格子との差は #0072）
+- 2026-10-12: ADR-0132 を実装して accepted にした（外形の `-` と `outline`、反射体どうしの面の各側の ADF、層の
+  `vacuum = "marshak"`、f* の辺が集合体の核分裂のない層に向く面の 1）。角型の格子の炉心で外形と反射体どうしの面を
+  確かめた（examples/reflector/verification.md、d6e8b9aa）。5-2D での確認は #0029、上下の層は #0072、炉外の検出器は
+  #0071 に残した
