@@ -8,26 +8,26 @@ CASL の VERA Core Physics Benchmark Problems（CASL-U-2012-0131-004）のうち
 xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC を動かして作る（核データの違いを比較から除くため。
 [ADR-0031](../../docs/adr/0031-verify-against-openmc-with-same-data.md)）。手順は docs/environment.md の「VERA の参照解」。
 
-| ファイル                        | 内容                                                                                                          |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `xs.toml`                       | xlc の多群ライブラリ（`vera.msgpack`。git で追跡しない）の入力。参照解と同じ核種と温度                        |
-| `p1/pincell-1B.toml` など       | ピンセルの格子計算の入力                                                                                      |
-| `p2/assembly-2B.toml` など      | 集合体の格子計算の入力（周りに水のギャップ 0.04 cm）                                                          |
-| `p2/assembly-2E-empty.toml`     | 2E の Pyrex の棒を抜いたもの（仕様書にない。減速材の密度と吸収体の効果を分けるため）                          |
-| `p2/openmc-2B.msgpack` など     | 参照解のピン出力（行は上から、核分裂のあるピンの平均で 1 に規格化。git で追跡しない。ADR-0121）               |
-| `p2/lattice-9x9-vacuum.toml` 他 | 2B の燃料ピンの、右の辺が真空の格子と core の 1 ノードの比較（「真空の辺のある格子の ADF」の節）              |
-| `openmc_library.py`             | ENDF/B-VIII.0 から OpenMC の連続エネルギーのデータを作る                                                      |
-| `openmc_model.py`               | 1B〜1D、2A〜2K、2Q を OpenMC で解く。ピン出力と、燃料の核種ごとの実効断面積を書く                             |
-| `compare_h1_temperatures.py`    | 565 K で処理した H-1 と、550 K と 573.6 K の内挿を比べる（「参照解の側の近似」）                              |
-| `openmc_mg.py`                  | xlc の多群定数で OpenMC の多群モードを解く                                                                    |
-| `compare_pins.py` など          | xlc と OpenMC のピン出力、燃料とピンの実効断面積を比べる                                                      |
-| `compare_keno.py`               | OpenMC のピン出力を、仕様書の KENO-VI の分布（1/8 の表）と比べる                                              |
-| `compare_neighbours.py`         | 1 つのセルの上下左右の隣のピンで、xlc と OpenMC の差と OpenMC の変化を統計誤差つきで出す                      |
-| `compare_cells.py`              | 格子の入力のセルの種類（2K の濃縮度など）ごとに、xlc と OpenMC の差と変化を統計誤差つきで出す                 |
-| `openmc_balance.py`             | 1B〜1D、2B〜2K を OpenMC で解き、物質ごと・群ごとの中性子束、正味の吸収、生成、移行を書く（「k の差の内訳」） |
-| `compare_balance.py`            | xlc（`balance` の例）と OpenMC の正味の吸収と生成を比べ、k の差を物質と範囲に分ける                           |
-| `homogeneous_medium.py`         | 1B を体積比で混ぜた均質な無限媒質の入力を書く（核種を減らせる。「均質な無限媒質」）                           |
-| `openmc_homogeneous.py`         | 均質な無限媒質を OpenMC で解く（xlc は `homogeneous` の例）                                                   |
+| ファイル                        | 内容                                                                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `xs.toml`                       | xlc の多群ライブラリ（`vera.msgpack`。git で追跡しない）の入力。参照解と同じ核種と温度                                 |
+| `p1/pincell-1B.toml` など       | ピンセルの格子計算の入力                                                                                               |
+| `p2/assembly-2B.toml` など      | 集合体の格子計算の入力（周りに水のギャップ 0.04 cm）                                                                   |
+| `p2/assembly-2E-empty.toml`     | 2E の Pyrex の棒を抜いたもの（仕様書にない。減速材の密度と吸収体の効果を分けるため）                                   |
+| `p2/openmc-2B.msgpack` など     | 参照解のピン出力（行は上から、核分裂のあるピンの平均で 1 に規格化。git で追跡しない。ADR-0121）                        |
+| `p2/lattice-9x9-vacuum.toml` 他 | 2B の燃料ピンの、右の辺が真空の格子と core の 1 ノードの比較（「真空の辺のある格子の ADF」の節）                       |
+| `openmc_library.py`             | ENDF/B-VIII.0 から OpenMC の連続エネルギーのデータを作る                                                               |
+| `openmc_model.py`               | 1B〜1D、2A〜2K、2Q を OpenMC で解く。ピン出力と、燃料の核種ごとの実効断面積を書く                                      |
+| `compare_h1_temperatures.py`    | 565 K で処理した H-1 と、550 K と 573.6 K の内挿を比べる（「参照解の側の近似」）                                       |
+| `openmc_mg.py`                  | xlc の多群定数で OpenMC の多群モードを解く                                                                             |
+| `compare_pins.py` など          | xlc と OpenMC のピン出力、燃料とピンの実効断面積を比べる                                                               |
+| `compare_keno.py`               | OpenMC のピン出力を、仕様書の KENO-VI の分布（1/8 の表）と比べる                                                       |
+| `compare_neighbours.py`         | 1 つのセルの上下左右の隣のピンで、xlc と OpenMC の差と OpenMC の変化を統計誤差つきで出す                               |
+| `compare_cells.py`              | 格子の入力のセルの種類（2K の濃縮度など）ごとに、xlc と OpenMC の差と変化を統計誤差つきで出す                          |
+| `openmc_balance.py`             | VERA の問題（2J を除く）を OpenMC で解き、物質ごと・群ごとの中性子束、正味の吸収、生成、移行を書く（「k の差の内訳」） |
+| `compare_balance.py`            | xlc（`balance` の例）と OpenMC の正味の吸収と生成を比べ、k の差を物質と範囲に分ける                                    |
+| `homogeneous_medium.py`         | 1B を体積比で混ぜた均質な無限媒質の入力を書く（核種を減らせる。「均質な無限媒質」）                                    |
+| `openmc_homogeneous.py`         | 均質な無限媒質を OpenMC で解く（xlc は `homogeneous` の例）                                                            |
 
 置き方は [ADR-0116](../../docs/adr/0116-place-vera-examples-by-problem.md)。組成は仕様書の表 P1-4、P2-4 の個数密度のとおり（2E と 2F の Pyrex の棒の寸法は表 6、配置は図 5。2F は 24 本の案内管すべて。
 2G と 2H の制御棒の寸法は表 8 で、24 本の案内管すべて。B4C の天然の C は C-12 と C-13 に分ける。2I の計装管のシンブルは表 10 で、
