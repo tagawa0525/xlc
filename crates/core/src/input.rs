@@ -465,8 +465,8 @@ pub struct Layout {
     /// ファイルごとに、反射体（の種類のどれか）に使う層か
     pub reflector: Vec<bool>,
     pub materials: Vec<LayoutMaterial>,
-    /// ノードごとの物質の番号。並びは x が最も速く、次に y（下から）、z
-    pub node_material: Vec<usize>,
+    /// 位置ごとの物質の番号。並びは x が最も速く、次に y（下から）、z
+    pub node_material: Vec<Option<usize>>,
     /// 集合体の位置を各方向に分けたノードの数（ケースの `radial-nodes`。ADR-0108）
     pub split: usize,
     /// 上の行（+y）から、位置ごとの集合体の ID（反射体の位置は `None`）
@@ -639,7 +639,7 @@ impl Layout {
                     materials.push(material);
                     materials.len() - 1
                 });
-                node_material.push(m);
+                node_material.push(Some(m));
             }
         }
 
@@ -708,6 +708,7 @@ impl Layout {
                 .collect(),
             node_material: self.node_material.clone(),
             boundaries: self.boundaries,
+            outline: None,
         })
     }
 
@@ -722,9 +723,11 @@ impl Layout {
         // 集合体の位置の数（部分ノードを足し合わせる）
         let (cols, rows) = (nx / self.split, ny / self.split);
         let mut rates = vec![vec![0.0; cols]; rows];
-        for (n, flux) in solution.flux.iter().enumerate() {
+        for (n, (flux, material)) in solution.flux.iter().zip(&problem.node_material).enumerate() {
+            let Some(m) = material.and_then(|m| problem.materials.get(m)) else {
+                continue;
+            };
             let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
-            let m = &problem.materials[problem.node_material[n]];
             let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
             let fission: f64 = m.fission.iter().zip(flux).map(|(f, phi)| f * phi).sum();
             // 図の上の行が +y
