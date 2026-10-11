@@ -1,0 +1,69 @@
+# M0 の段階: ENDF → 多群ライブラリ（xs）→ ピンセルの2群定数（lattice）→ 炉心の k_eff（core）。
+# 走らせるのは `dvc repro`（ADR-0123）。deps には、段階の入力と、そのバイナリを作るコード（クレートと、パスで
+# 依存するクレートの src と Cargo.toml、ワークスペースの Cargo.toml と Cargo.lock、ツールチェーンとコンパイルの設定、
+# リンクする glibc を決める flake.lock）を並べる。ビルドしたバイナリを deps にしないのは、バイナリに worktree の
+# 絶対パスが埋まり、同じコードでも worktree ごとに md5 が変わるため（ADR-0123）。
+stages:
+  xs:
+    cmd: cargo run --release -p xlc-xs -- xs.toml
+    deps:
+      - xs.toml
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      - ../../crates/xs/src
+      - ../../crates/xs/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - wims69.msgpack
+  lattice:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- pincell.toml > lattice.out
+    deps:
+      - pincell.toml
+      - wims69.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - pincell-fg.msgpack
+      - lattice.out
+  core:
+    # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-core -- core.toml > core.out
+    deps:
+      - core.toml
+      - cycle.toml
+      - plant.toml
+      - assemblies.toml
+      - pincell-fg.msgpack
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core.out
