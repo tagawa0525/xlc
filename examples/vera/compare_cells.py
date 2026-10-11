@@ -1,5 +1,6 @@
 """燃料ピンを格子の入力のセルの名前（2K の 3.1% の `pin` と 3.6% の `pin36` など）で分け、セルの種類ごとに、xlc と
-OpenMC の核分裂率の差の平均と、基準の計算からの変化の平均を、OpenMC の統計誤差つきで表示する。
+OpenMC の核分裂率の差の平均と、基準の計算からの変化の平均と、xlc と OpenMC の
+変化の比の平均を、OpenMC の統計誤差つきで表示する。
 
 使い方: python3 compare_cells.py <格子の入力> <xlc の pins.msgpack> <OpenMC の pins.msgpack> <OpenMC の作業ディレクトリ>
         [<基準の xlc の pins.msgpack> <基準の OpenMC の pins.msgpack> <基準の OpenMC の作業ディレクトリ>]
@@ -71,6 +72,12 @@ def main() -> None:
             )
             change = np.mean([xlc[p] / base_xlc[p] for p in cells]) - 1
             print(f"  xlc / base - 1: mean {100 * change:+.3f} %")
+            # xlc の分布は誤差を持たないとするので、変化の比の統計誤差は OpenMC の 2 つの計算のものだけ
+            summary(
+                "  (xlc / base) / (OpenMC / base) - 1",
+                [(xlc[p] / base_xlc[p]) / (pins[p] / base[p]) for p in cells],
+                [np.hypot(sigma[p], base_sigma[p]) for p in cells],
+            )
 
 
 if __name__ == "__main__":
