@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0018"]
+requires: [ADR-0122, ADR-0123, ADR-0124, ADR-0126]
 ---
 
 # ADR-0130: 参照の結果は DVC のステージで作り、OpenMC の段階は references の devShell で包む
@@ -111,6 +112,6 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 
 （実装のあとに書く: VERA 1B の新しい段階の OpenMC の k と examples/vera/verification.md の 1B の値の比較）
 
-## 結果
+## 帰結
 
 （実装のあとに書く）
