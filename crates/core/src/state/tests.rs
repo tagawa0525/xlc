@@ -18,9 +18,17 @@ fn few(ppm: f64, tm: f64, tf: f64) -> FewGroup {
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4 * v, 0.4 * v],
         scatter: vec![vec![0.47 * v, 0.02 * v], vec![0.0, 0.92 * v]],
-        adf: vec![vec![v, 2.0 * v]; 4],
-        vacuum_ratio: vec![None, Some(vec![0.5 * v / 3.0, 0.4 * v / 3.0]), None, None],
-        normalized_adf: vec![false; 4],
+        adf: vec![vec![v, 2.0 * v]; 6],
+        vacuum_ratio: vec![
+            None,
+            Some(vec![0.5 * v / 3.0, 0.4 * v / 3.0]),
+            None,
+            None,
+            None,
+            None,
+        ],
+        normalized_adf: vec![false; 6],
+        height: None,
         // 形状関数と角の不連続因子も内挿し、セルの境界はそのまま（ADR-0096）
         pins: Some(Pins {
             dx: vec![1.0, 1.0],
