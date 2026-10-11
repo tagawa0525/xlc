@@ -2750,8 +2750,8 @@ mod tests {
         );
     }
 
-    /// `nodes`（x が速く、-y の行から並べた nx × ny の格子）の定数と形状（ADR-0125）で、core の形の角の点の釣り合い
-    /// （未知数が角の点の不均質な中性子束、均質な角の値は Φ / CDF）を解くと、格子の角の点の不均質な中性子束（角の点に
+    /// `nodes`（x が速く、-y の行から並べた nx × ny の格子）の定数と形状（ADR-0131）で、core の形の角の点の釣り合い
+    /// （未知数が角の点の不均質な中性子束、均質な角の値は Φ / CDF、真空の辺の流れは r × ADF × 均質な角の値）を解くと、格子の角の点の不均質な中性子束（角の点に
     /// 接する領域の中性子束の平均）に戻り、再構成したセルの出力（Σf × 均質な中性子束のセルの平均 × 形状関数）が
     /// MOC のセルの核分裂率に戻ることを確かめる。ノード平均と面の正味の流れは、core の NEM が GET で再現する参照の値
     fn assert_pins_reproduce(
@@ -2867,9 +2867,10 @@ mod tests {
                 diffusion: [fgs[n].diffusion[0], fgs[n].diffusion[1]],
                 weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdf(n, c, g))),
                 outflow: std::array::from_fn(|face| {
-                    fgs[n].vacuum_ratio[[0, 1, 3, 2][face]]
+                    let side = [0, 1, 3, 2][face];
+                    fgs[n].vacuum_ratio[side]
                         .as_ref()
-                        .map(|r| [r[0], r[1]])
+                        .map(|r| std::array::from_fn(|g| r[g] * fgs[n].adf[side][g]))
                 }),
             })
             .collect();
@@ -3040,15 +3041,13 @@ mod tests {
     }
 
     #[test]
-    fn non_positive_corner_scales_are_errors() {
-        // 右と上の 2 辺が真空の格子では、右上の角の点の均質な値の大きさ s_p の熱群が負になる（#0065）。正でない
-        // s_p はエラー（ADR-0125）
+    fn two_vacuum_sides_pins_reproduce_the_lattice() {
+        // 右と上の 2 辺が真空の格子でも、真空の辺の流れを均質な角の値に課す角の点の釣り合いで、定数と形状は定数を
+        // 作った体系を再現する（ADR-0131。#0065）
         let (lattice, solution, materials, boundaries) = l_shaped(Boundaries {
             top: Boundary::Vacuum,
             ..vacuum()
         });
-        let refs: Vec<&Material> = materials.iter().collect();
-        let fine = fine();
         let reflector = |n: Node| Node {
             reflector: true,
             ..n
@@ -3059,21 +3058,7 @@ mod tests {
             reflector(node(0..2, 0..1)),
             node(2..3, 0..1),
         ];
-        let err = homogenize_nodes(
-            &solution,
-            &lattice,
-            &refs,
-            &fine,
-            fine.bounds(),
-            &boundaries,
-            &nodes,
-            true,
-        )
-        .unwrap_err();
-        assert!(
-            matches!(&err, HomogenizeError::Pins(m) if m.contains("not positive")),
-            "{err:?}"
-        );
+        assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
     }
 
     #[test]
