@@ -1,7 +1,6 @@
 ---
 name: dvc-relock
 description: DVC の段階（examples/*/dvc.yaml）を含むブランチのマージの前後の手順。rebase のあとに dvc.lock を整え、マージのあとに main の出力を置き換える。/git-merge の rebase の段の後とマージの後に使う。
-argument-hint: [before|after]
 allowed-tools:
   - Bash(nix develop -c dvc checkout examples/*)
   - Bash(nix develop -c dvc checkout)
@@ -14,6 +13,7 @@ allowed-tools:
   - Bash(git log*)
   - Bash(git show*)
   - Bash(git merge-base*)
+  - Bash(~/.claude/scripts/remap-commit-refs.sh*)
   - Bash(git add*)
   - Bash(git commit*)
 ---
@@ -26,6 +26,11 @@ ADR-0130 の「帰結」、規則は CLAUDE.md の「計算」にある。
 - 記録（verification.md、ADR）の数値には、走らせたコミットと分岐点（main のコミット）を書く
 - rebase で deps が変わっても、重い段階は走らせ直さない。分岐点にそこまでのブランチのコミットを当て直して復元する
 - 数秒で終わる段階だけは走らせ直してよい
+
+手順は前半（rebase のあと。ブランチの worktree）と後半（マージのあと。main の worktree）に分かれる。呼ばれたときの
+worktree と、マージ済みかどうかで、どちらかを選ぶ。
+
+/git-merge のレビューの指摘を直して再び rebase したときは、前半をもう一度行う（分岐点が変わるので、下の 5 も直す）。
 
 `dvc` は `default` の devShell にある。リポジトリ（worktree）の直下で `nix develop -c dvc ...` と書く（direnv で
 入っていれば `nix develop -c` は要らない）。`references` の devShell の中では走らせない（ADR-0130）。
@@ -71,28 +76,32 @@ ADR-0130 の「帰結」、規則は CLAUDE.md の「計算」にある。
    nix develop -c dvc repro -s <段階>
    ```
 
-   `-s` は指定した段階だけを走らせ、上流の段階を巻き込まない（上流が古いときは、古い出力から作ることになるので、
-   上流が `dvc status` で changed の段階には使わない）。
+   CLAUDE.md の「計算」は手で段階を選ばないと定めるが、rebase のあとの relock は ADR-0130 の例外で、重い段階を
+   巻き込まないために `-s` を使う。`-s` は上流を走らせない。上流が `dvc status` で changed の段階には使わない
+   （古い出力から作ることになる）。走らせた段階の出力を deps にする下流の段階（lattice-1B なら `compare-1B`）も
+   changed になるので、同じように数秒なら続けて走らせ、重いなら走らせない。
 
 4. 走らせたら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
    git add examples/<問題>/dvc.lock
-   git commit   # 件名: chore: relock <段階> after the rebase
+   git commit -F <メッセージのファイル>
    ```
 
-   本文に、なぜ走らせ直したか（deps の何が変わったか）、走らせたコミット、分岐点（`git merge-base HEAD main`）を書く。
-   `Refs: ADR-0130` を添える。
+   件名は `chore: relock <段階> after the rebase`。本文に、なぜ走らせ直したか（deps の何が変わったか）、分岐点
+   （`git merge-base HEAD main`）を書き、`Refs: ADR-0130` と、/git-commit の規則の末尾（Co-Authored-By など）を
+   添える。走らせたコミットはこのコミット自身なので、記録には、このコミットか、その結果を出したコード（道具を含む）を
+   含む最初のコミットを書く。
 
-5. 走らせなかった段階は、記録に、走らせたコミットと分岐点が書かれていることを確かめる。分岐点は
-   `git merge-base HEAD main` で、rebase の直後の main のコミットになる。記録が rebase 前の hash を指していれば、
-   指している先が今のブランチに残っているかを `git log` で見て、書き直す（記録の hash は再現のためで、checkout すれば
-   当時の結果が出ること）。
+5. 記録（verification.md、ADR）の hash と分岐点を直す。段階で分ける:
 
-   - verification.md の結果ごとの「測ったときの xlc のコミットと日付」
-   - ADR の「確認」の、走らせたコミットと分岐点
+   - 走らせ直した段階: 走らせたコミットを 4 のコミットに、分岐点を今の `git merge-base HEAD main` にする
+   - 走らせなかった段階: 分岐点は、結果を出したときの main のコミットのまま変えない（今の merge-base に変えると、
+     復元が合わなくなる）。走らせたコミットが rebase で付け替わっていたら、hash だけを付け替える。記録に走らせた
+     コミットと分岐点が書かれていなければ、書く（ADR-0130 の「確認」の形）
 
-   測り直さずに、道具や文書の変更で付け替える。付け替えたコミットは `chore:` や `docs:` で分ける。
+   hash の付け替えは、手で書き換えず、`~/.claude/scripts/remap-commit-refs.sh`（rebase の対応表、post-rewrite hook の
+   入力の形）で行う。測り直しはしない（記録の hash は再現のため）。付け替えのコミットは `docs:` で分ける。
 
 この後は /git-merge の「チェック」に進む。
 
@@ -109,7 +118,8 @@ nix develop -c dvc status examples/<問題>/dvc.yaml
 ```
 
 `-P` ではなく、ブランチが `dvc.yaml` を足した、または変えた例ごとに行う。`dvc status` の changed が、前半で走らせ
-なかった段階（deps が `dvc.lock` と合わない段階）だけであることを確かめる。ほかの段階が changed なら、
+なかった段階（deps が `dvc.lock` と合わない段階）と、その下流の段階だけであることを確かめる。`references-shell`
+（`always_changed`）は常に出るので数えない。ほかの段階が changed なら、
 出力が足りない、またはキャッシュにない。`dvc checkout` が失敗したら止めて、原因を調べる（推測で `dvc repro` を走らせない）。
 
 走らせなかった段階の changed は、そのままでよい。`dvc.lock` は、どの deps から出力を作ったかの記録であり、結果が
