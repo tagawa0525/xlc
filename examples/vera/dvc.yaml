@@ -60,6 +60,7 @@ stages:
     deps:
       - openmc_model.py
       - ../openmc_common.py
+      - ../openmc_run.py
       - references-shell.txt
       - p1/openmc-1B.toml
       - openmc-library
@@ -70,6 +71,7 @@ stages:
     deps:
       - openmc_model.py
       - ../openmc_common.py
+      - ../openmc_run.py
       - references-shell.txt
       - p1/openmc-1B.toml
       - p1/openmc-1B
