@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0070: 減速計算の散乱核は標的を静止として扱い、標的の熱運動は後の段で扱う
@@ -42,6 +43,6 @@ issues: []
 `heavy_absorber_scatters_without_losing_energy`、`hydrogen_slowing_down_matches_the_analytic_solution`。OpenMC との群ごとの
 吸収の比較（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 1200 K の燃料で k の差が負に開く分が残る。

@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0067: スレッド数の既定は物理コアの数とする
@@ -31,6 +32,6 @@ docs/plans/m2-assembly.md、447e421 と ae658a1、2026-10-08）。
 数値は計画に記録した測定で（docs/plans/m2-assembly.md、447e421 と ae658a1、2026-10-08）、examples/*/verification.md には
 ない。確かめるテストはない。
 
-## 結果
+## 帰結
 
 なし。

@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0035: 燃焼履歴は core のミクロ燃焼と、履歴の変数・履歴の分岐による補正で扱う
@@ -31,7 +32,7 @@ core で燃焼度と主要な核種（U、Np、Pu、Am、Xe、Sm、Gd など）�
 
 まだ実装していない（M4）。M4 で VERA Problem 6 以降と比べる。
 
-## 結果
+## 帰結
 
 - lattice は主要な核種の微視的断面積と数密度、履歴の補正のデータを出す（[ADR-0026](0026-output-two-group-tables-from-lattice.md)）
 - ノードの状態の持ち方は [ADR-0036](0036-keep-core-state-per-assembly.md)、燃焼のソルバは [ADR-0003](0003-extract-shared-computation-on-second-use.md)

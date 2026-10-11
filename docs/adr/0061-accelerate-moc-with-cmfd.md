@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by: ADR-0083
 issues: []
+requires: []
 ---
 
 # ADR-0061: MOC の固有値計算を、ピンセル単位の粗メッシュによる CMFD で加速する
@@ -28,7 +29,7 @@ MOC の固有値計算を、ピンセル単位の粗メッシュによる CMFD �
 `cmfd_accelerates_a_pin_cell`、`cmfd_accelerates_a_lattice_with_a_margin`、`cmfd_accelerates_a_lattice_with_vacuum_sides`、
 `sweep_currents_balance_each_coarse_cell`。
 
-## 結果
+## 帰結
 
 - CMFD の拡散係数の定め方は [ADR-0062](0062-use-optimally-diffusive-cmfd.md)、CMFD の後の更新は [ADR-0063](0063-update-angular-flux-after-cmfd.md)
 - M3 で格子を長方形の格子に一般化したとき、粗メッシュのセルをピンセルから格子のセルに変えた（[ADR-0083](0083-generalize-to-rectilinear-lattice.md)）。CMFD で加速する

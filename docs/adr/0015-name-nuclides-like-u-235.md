@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0015: 核種の名前は `U-235`、`Am-242m` の形とする
@@ -29,6 +30,6 @@ metastableIndex に合わせる）。この形は名前を記号で略しただ�
 
 `nuclide_names_follow_the_convention`、`library_nuclide_names_are_checked`。
 
-## 結果
+## 帰結
 
 GNDS や OpenMC の `U235`, `Am242_m1` とは、受け渡すときに文字列の変換で対応させる。

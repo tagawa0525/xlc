@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0062: CMFD は、拡散係数に θ(Σt h) h を足す optimally diffusive CMFD とする
@@ -34,6 +35,6 @@ C5G7 で比べた反復回数（括弧内は水のセルを 4×4 に分けた場
 `cmfd_converges_with_an_optically_thick_reflector`、`artificial_diffusion_follows_the_optically_thick_fit`。C5G7 の反復回数
 （上の比較）。
 
-## 結果
+## 帰結
 
 細かい分割で反復が足を引っ張るようになったら lpCMFD を見直す。

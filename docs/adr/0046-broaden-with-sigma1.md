@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: [ADR-0038]
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0046: ドップラー拡がりは SIGMA1 法で求める
@@ -33,6 +34,6 @@ M1 の計画は、この項目に温度の組（293.6, 600, 900, 1200 K）も書
 `constant_cross_section_matches_analytic_broadening`、`one_over_v_is_unchanged`。NJOY BROADR との比較
 （`crates/xs/examples/compare_njoy_broadr.rs`、examples/m1/verification.md）。
 
-## 結果
+## 帰結
 
 温度の選び方は [ADR-0047](0047-choose-temperatures-per-nuclide.md)（M1）と、それを置き換えた [ADR-0080](0080-interpolate-sab-in-temperature.md)。

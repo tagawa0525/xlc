@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0006", "#0007"]
+requires: []
 ---
 
 # ADR-0086: 燃料のピンの外の構造材の塊は、黒体の Dancoff 係数と平均弦長で、等価原理により遮蔽する
@@ -42,7 +43,7 @@ l̄ = V / R_iso）を求め、黒体の中の物質ごとに燃料と同じ Carl
 `connected_frames_see_only_their_open_faces`、`isolated_annulus_has_its_own_chord`。遮蔽した 1B の枠の吸収断面積は、OpenMC の
 枠の中性子束で重みづけした平均で 0.00195 /cm（OpenMC 0.00194 /cm。examples/vera/verification.md、1116f15、2026-10-08）。
 
-## 結果
+## 帰結
 
 - 核種ごとに黒体を分ける方式は、必要になったところで見直す
 - 円筒でない塊への Carlvik の係数の適用は #0006、AIC は #0007

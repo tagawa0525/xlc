@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0004"]
+requires: []
 ---
 
 # ADR-0088: 支持格子のあるピンの等価なセルは、減速材のリングの外に支持格子の物質のリングを置く
@@ -32,6 +33,6 @@ issues: ["#0004"]
 2B で −126 → +38 pcm になった（examples/vera/verification.md、3964be5、2026-10-08）。OpenMC の2つの計算の差の統計誤差は
 1σ で約 10 pcm。
 
-## 結果
+## 帰結
 
 残りの +40 pcm（約 4σ）の原因は分けていない（#0004）。

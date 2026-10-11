@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: []
 superseded-by:
 issues: ["#0005"]
+requires: []
 ---
 
 # ADR-0032: 格子計算の精度の目標を k ±100 pcm、ピン出力 rms 0.2% とする
@@ -29,7 +30,7 @@ M2 で k が届いていない分は、原因の調査を後に回し、M3 以�
 
 達成の状況は検証の例（examples/vera/verification.md など）に記録する。
 
-## 結果
+## 帰結
 
 - 離散化の設定は VERA の入力のまま進める（[ADR-0077](0077-keep-vera-discretization.md)）
 - 燃料の断面積で説明できない k の差の調査は #0005

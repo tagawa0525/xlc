@@ -4,6 +4,7 @@ date: 2026-10-09
 supersedes: []
 superseded-by:
 issues: ["#0035"]
+requires: []
 ---
 
 # ADR-0107: 非分離共鳴の J, K は、θ = Γ/Δ が 10⁶ を超えると Lorentz の線形状の解析式で求める
@@ -34,7 +35,7 @@ J = π/(2aβ)、K = 2J − ∫ψ²/(ψ + β)² dx = 2J − π/(4a³β²)。解�
 より小さい（crates/xs/src/resonance/line_shape.rs の `table_uses_natural_line_shape_above_its_theta_range`）。
 Fe-58 の 550 K でライブラリを作れる。
 
-## 結果
+## 帰結
 
 - 低温（550 K）の構造材を含むライブラリを作れる
 - J, K の表を作る時間が増える（行が 28% 増える）

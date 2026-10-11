@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0020: 核データは ENDF/B-VIII.0 とし、リポジトリに含めない
@@ -25,7 +26,7 @@ issues: []
 
 約束事で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 - 参照解の OpenMC も同じ ENDF/B-VIII.0 から作る（[ADR-0031](0031-verify-against-openmc-with-same-data.md)）
 - ENDF/B-VIII.0 にないもの（O in H2O、天然の C など）は、それぞれの ADR で扱う（[ADR-0052](0052-scatter-h-in-h2o-by-sab.md)、[ADR-0079](0079-split-natural-carbon.md)）

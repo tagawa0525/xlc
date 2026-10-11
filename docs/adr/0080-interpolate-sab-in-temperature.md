@@ -4,6 +4,7 @@ date: 2026-10-08
 supersedes: [ADR-0047]
 superseded-by:
 issues: ["#0017"]
+requires: []
 ---
 
 # ADR-0080: S(α,β) を持つ核種（565 K の H in H2O）は、両側の温度の群定数を温度で線形に内挿する
@@ -48,7 +49,7 @@ S(α,β) を内挿で作ったものに当たるため。
 `thermal_scattering_is_interpolated_in_temperature`、`other_nuclides_are_not_interpolated`、`temperature_must_be_in_the_library`、
 `temperatures_are_looked_up_exactly`。
 
-## 結果
+## 帰結
 
 - 温度方向に内挿するのは S(α,β) を持つ核種だけで、その核種の表は全体が内挿した値になる。565 K の H-1 の全断面積と、
   減速計算（[ADR-0068](0068-solve-pinwise-slowing-down.md)）が使うポイントワイズの断面積も、565 K で処理した値ではなく 550 K と 573.6 K の内挿である

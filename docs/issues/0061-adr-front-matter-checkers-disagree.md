@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs]
 opened: 2026-10-11
-closed:
+closed: 2026-10-11
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 35d5862f
 ---
 
 # ADR のフロントマターの検査が design-records と crates/docs で食い違う（`requires`）
@@ -23,10 +23,21 @@ resolution:
 ## 完了の条件
 
 - `requires` を採るなら、crates/docs の `ADR_KEYS` に足し、既存の ADR のフロントマターに `requires: []` を足して、
-  チェック（run-checks.sh）で `design-records check` を実行する
+  `.pre-commit-config.yaml` に `id: design-records` の hook を足して `design-records check` にオプトインする
+  （nixfiles の ADR-0009。run-checks.sh はその hook があるリポジトリでだけ実行する）
 - 採らないなら、nixfiles 側で `requires` を任意のキーにする（nixfiles の issue）
 - どちらにするかは、`requires` が何のためのキーか（nixfiles の design-records の文書）を確かめて決める
+
+## 結末
+
+`requires` を採った。crates/docs の `ADR_KEYS` に足し、項目が `ADR-NNNN` の形で存在する ADR であることを検査する。
+既存の ADR すべてに `requires: []` を足した。あわせて、design-records が推奨する節名に合わせ、ADR の `## 結果` を
+`## 帰結` に改名した（本文は変えていない）。status が rejected の ADR 0091 と 0092 には、必須の節（背景、検討した案、決定と理由）を内容を変えずに足した。
+`design-records check` の error は 0 になった。
+`.pre-commit-config.yaml` を足して `design-records check` にオプトインした
+（run-checks.sh が実行するのは nixfiles 側の変更）。
 
 ## 経緯
 
 - 2026-10-11: ADR-0126 を `design-records new` で作ったときに気づいた
+- 2026-10-11: `requires` を採ると決めた（ユーザーの判断）。ADR のフロントマターと検査、節名を直して閉じた

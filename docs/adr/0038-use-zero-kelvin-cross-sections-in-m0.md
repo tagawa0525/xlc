@@ -4,6 +4,7 @@ date: 2026-10-06
 supersedes: []
 superseded-by: [ADR-0046, ADR-0048, ADR-0052]
 issues: []
+requires: []
 ---
 
 # ADR-0038: M0 の断面積は 0 K・無限希釈とし、熱中性子の散乱だけ 293.6 K の自由ガスで扱う
@@ -29,7 +30,7 @@ M0 は3段階を最小構成でつなぐ縦切りで（[ADR-0030](0030-build-a-v
 
 M0 の例で、同じ条件の NJOY（RECONR, GROUPR）の結果と比べた（examples/m0/verification.md）。
 
-## 結果
+## 帰結
 
 M1 で、ドップラー拡がり（[ADR-0046](0046-broaden-with-sigma1.md)）、非分離共鳴の自己遮蔽（[ADR-0048](0048-shield-unresolved-like-unresr.md)）、H in H2O の S(α,β)（[ADR-0052](0052-scatter-h-in-h2o-by-sab.md)）に
 置き換えた。4 eV 未満の弾性散乱を自由ガスで扱うことは、S(α,β) を持たない核種で残る（[ADR-0081](0081-use-mf4-angular-distributions.md)）。

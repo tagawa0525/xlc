@@ -4,6 +4,7 @@ date: 2026-10-11
 supersedes: []
 superseded-by:
 issues: ["#0018", "#0060"]
+requires: []
 ---
 
 # ADR-0123: 計算の段階は DVC で駆動し、dvc.yaml と dvc.lock をコミットする
@@ -117,7 +118,7 @@ M0（examples/m0/dvc.yaml の xs → lattice → core）で確かめた（fef295
   hardlink でない）。reflink のできない tmpfs（/dev/shm）で同じ設定にすると、`dvc checkout` は copy に戻らず
   「no more link types left to try out」で止まった
 
-## 結果
+## 帰結
 
 - 段階を DVC で実行しているのは M0 だけである（M0 の run.sh は消した）。ほかの例（M1、VERA、MOX など）と、参照の結果
   （NJOY → OpenMC のライブラリ → OpenMC、比較）を DVC のステージにするのは #0018 の次のブランチで行う。ツール（NJOY、

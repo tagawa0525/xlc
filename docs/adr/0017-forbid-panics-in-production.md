@@ -4,6 +4,7 @@ date: 2026-10-07
 supersedes: []
 superseded-by:
 issues: []
+requires: []
 ---
 
 # ADR-0017: 本番のコードは panic しない
@@ -27,6 +28,6 @@ issues: []
 clippy の lint でワークスペース全体を検査する（`Cargo.toml` の `[workspace.lints.clippy]` と `clippy.toml`。
 テストでは許す）。
 
-## 結果
+## 帰結
 
 数値の失敗もエラーとして返す（`huge_count_is_error_not_abort`、`nan_pivot_is_singular` など）。
