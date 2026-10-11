@@ -19,7 +19,7 @@ resolution: コミット 4e747b2
 作業用の小さなプログラムで確認。リポジトリのテストはない）。分離共鳴の範囲を持つ核種のファイルからこの項目が欠けても、
 黙って「範囲なし」として読まれる。同じファイルの `pointwise_range` は、空の配列で「なし」を表して `Option` を避けている。
 
-関係する ADR: [ADR-0013](../adr/0013-read-files-strictly.md)
+関係する ADR: [ADR-0013](../adr/0013-read-files-strictly.md)、[ADR-0129](../adr/0129-write-absent-values-as-explicit-nil.md)
 
 ## 完了の条件
 
@@ -34,3 +34,4 @@ resolution: コミット 4e747b2
   `fewgroup.rs` の `Pins` の `Option` も同じ方式（table.rs の `nil_or_pins`）。table.rs の `AxisFile` の
   `density` / `b10` は軸の名前で必須の項目が決まり、欠けは別のエラーになる（`reading_rejects_wrong_axis_fields`）。table の `pins` の欠けは `states_need_the_pins_key` が拒む。ADR-0013 の「帰結」の食い違いの記述は、
   ADR が確定済みなのでそのまま残す
+  この方式は [ADR-0129](../adr/0129-write-absent-values-as-explicit-nil.md) に決定として記録した
