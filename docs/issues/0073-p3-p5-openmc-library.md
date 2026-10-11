@@ -30,6 +30,8 @@ references/openmc/p3-p5-timing に置いた）で実行した。足した 29 核
 
 `examples/vera/openmc-library.toml` に、Ti-46〜50 を 565 K と 600 K で、上の核種に 565 K を足し、段階（examples/vera/dvc.yaml の
 openmc-neutron、openmc-index）で作り、`dvc.lock` をコミットする。p3/ と p5/ の入力が走ることを確かめる。
+`examples/vera/openmc-library-timing.toml`（openmc-library.toml のコピーに足したもの）は、そのとき消す（時間の記録は、
+測ったコミットを checkout して再現する。ADR-0122）。
 
 ## 経緯
 
