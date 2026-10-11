@@ -9,34 +9,36 @@
 | `xs.toml`                          | 多群ライブラリ（`reflector.msgpack`）の入力。examples/vera の核種に SS304 の核種と Inconel の Ti を足し、600 K だけにした |
 | `reflector-I.toml`                 | I 型の格子（VERA 2B の集合体 + 隙間の水 0.19 cm + SS304 のバッフル 2.85 cm + 水 18.46 cm、右が真空）                      |
 | `reflector-corner.toml`            | 角型の格子（集合体の右と上に I 型と同じ反射体、バッフルは角で L 字、右と上が真空）。5-2D の外周の角                       |
-| `core-corner*.toml`                | 角型の格子の炉心の計算のケース（集合体と反射体 3 つの 2 × 2）。等価性と f* の方法。`-get` を除く                          |
-| `core-corner-get*.toml`            | 同じ体系で反射体 3 つも集合体の位置に置くケース（反射体どうしの面に格子の GET の ADF を使う。#0029）                      |
+| `core-corner*.toml`                | 角型の格子の炉心の計算のケース（集合体と反射体 3 つの 2 × 2）。等価性と f* の方法。`-get`、`-outline`、`-I` を除く        |
+| `core-corner-get*.toml`            | 同じ体系で反射体 3 つも集合体の位置に置くケース（#0029。反射体どうしの面は `core-corner` と同じ。ADR-0132）               |
 | `vacuum-corner/`                   | 真空の辺の角の点の大きさの系列（燃料のピン 2 × 2 と水。#0065）                                                            |
 | `assembly-2B.toml`                 | 同じライブラリと自己遮蔽なしの単一集合体（鏡面反射）。f* に掛ける燃料の少数群定数                                         |
 | `core-I.toml`、`core-I-fstar.toml` | 炉心の計算のケース（集合体と反射体の2ノード）。等価性と f* の方法。入力の形は ADR-0105                                    |
 | `core-I-cycle.toml` など           | サイクル、炉心の形（`core-I-plant.toml`）、台帳（`core-assemblies.toml`。I 型と角型で共通）                               |
 | `compare_edge.py`                  | ピン出力の差を、燃料のピン全体、右の列、上の行、右上のピンに分けてまとめる                                                |
+| `core-corner-outline*.toml`        | `core-corner.toml` の右の列と上の行に `-` を足し、反射体の外側を外形の真空の面にしたケース（ADR-0132）                    |
+| `core-corner-I*.toml`              | 角型の格子の右と上の位置に I 型の格子の反射体の定数を置いたケース（別の格子の反射体どうしの面。ADR-0132）                 |
+| `compare_radial.py`                | 径方向の格子の MOC と炉心の k とノード平均の中性子束の比較（格子のノードに当たる炉心の位置を並べる）                      |
 | `assembly-3A.toml`                 | VERA 3A の単一集合体（自己遮蔽なし）。平板の燃料の媒質（`medium-3A.msgpack`）と f* の方法の燃料の定数                     |
 | `axial_slab.py`                    | 軸方向の反射体の平板（`axial-3A-*.toml`）と、それを解く炉心の入力（`core-axial-*.toml`）を書く                            |
 | `axial-3A-16.toml` など            | 集合体の高さ全体の平板。燃料 16 ノード（`16`）、32 ノード（`32`）、`16` の列を半分にしたもの（`fine`）                    |
 | `compare_axial.py`                 | 平板の MOC と炉心の k とノード平均の中性子束の比較、z の辺の ADF の一覧                                                   |
-| `dvc.yaml`、`dvc.lock`             | 軸方向の反射体の段階（xs → assembly-3A → 平板 → 炉心 → 比較。ADR-0123）                                                   |
+| `dvc.yaml`、`dvc.lock`             | 段階（xs → assembly-3A → 平板 → 炉心 → 比較、xs → I 型と角型の格子 → 炉心 → 比較。ADR-0123）                              |
 
-生成物（ライブラリ、少数群定数）は git で追跡しない。軸方向の反射体は `dvc repro examples/reflector/dvc.yaml` で
-実行し、I 型と角型の格子は次の手順で実行する。
+生成物（ライブラリ、少数群定数）は git で追跡しない。軸方向の反射体、I 型と角型の格子（`lattice-I`、`lattice-corner`）、
+ADR-0132 の炉心（`core-corner`、`core-corner-outline`、`core-corner-I` と比較）は `dvc repro examples/reflector/dvc.yaml`
+で実行する。ほかの炉心は、段階の定数で次の手順で実行する。
 
 ```sh
-target/release/xs examples/reflector/xs.toml          # 2 分 40 秒（32 スレッド）
-cd examples/reflector && ../../target/release/lattice reflector-I.toml && ../../target/release/lattice assembly-2B.toml
+cd examples/reflector && ../../target/release/lattice assembly-2B.toml
 ../../target/release/core core-I.toml         # 等価性（格子から作った集合体の定数）
 ../../target/release/core core-I-fstar.toml   # f* の方法（単一集合体の定数）
 python3 compare_edge.py core-pins-I.msgpack moc-pins-I.msgpack         # 再構成したピン出力と MOC
 python3 compare_edge.py core-pins-I-fstar.msgpack moc-pins-I.msgpack
-../../target/release/lattice reflector-corner.toml
-../../target/release/core core-corner.toml && ../../target/release/core core-corner-fstar.toml
+../../target/release/core core-corner-fstar.toml
 python3 compare_edge.py core-pins-corner.msgpack moc-pins-corner.msgpack
 python3 compare_edge.py core-pins-corner-fstar.msgpack moc-pins-corner.msgpack
-../../target/release/core core-corner-get.toml   # 反射体も集合体の位置（反射体どうしの面の ADF が GET）
+../../target/release/core core-corner-get.toml   # 反射体も集合体の位置（解は core-corner と同じ。ADR-0132）
 python3 compare_edge.py core-pins-corner-get.msgpack moc-pins-corner.msgpack
 ```
 
@@ -238,6 +240,29 @@ k、4 つのノードのノード平均の中性子束（2 群）は、格子の
 - f* の方法: 燃料のノードを単一集合体の定数にすると、右上のピン（出力 0.353）で −19%、燃料のピン全体の RMS が 3.6% に
   なる。I 型（RMS 1.9%）より大きいのは、燃料が 2 辺で反射体に接し、ノードの中の中性子束の形が単一集合体からさらに
   離れるためと考えるが、確かめていない（候補）。この格子の燃料は自己遮蔽なしで k が 0.46 と小さい
+
+## 外形の面と、反射体どうしの面の ADF（17bec182、分岐点 5f984f72、2026-10-12）
+
+格子の段階は 04db6a2c（分岐点 d3052068。Slurm、xs から全段階で 1 時間 19 分）、炉心と比較の段階は見出しのコミットで
+実行した。角型の格子（`reflector-corner.toml`。格子の k = 0.45997592。ライブラリは
+ADR-0133 の S(α,β) の上限のもの）と I 型の格子（k = 0.528342）を解き、その定数で次の 3 つの炉心を解いて、角型の格子の
+MOC と比べた（`compare-corner*.out`）。どれも、反射体どうしの面に各側の少数群定数の ADF を使う（ADR-0132）。ノード平均の
+中性子束は格子のノード（集合体、右、上、右上の反射体）の順。
+
+| 炉心                                            | Δk/k (pcm) | 集合体（高速、熱）   | 右と上の反射体 | 右上の反射体   | ピン RMS（全体、右の列） | 右上のピン |
+| ----------------------------------------------- | ---------- | -------------------- | -------------- | -------------- | ------------------------ | ---------- |
+| 角型の格子のノード（`core-corner`）             | +0.0013    | −2 × 10⁻⁹、+1 × 10⁻⁹ | 10⁻⁸ 未満      | 4 × 10⁻⁸ 未満  | 0.072%、0.083%           | +0.230%    |
+| 同じ、外側を外形の面に（`core-corner-outline`） | +0.0013    | 上と同じ             | 上と同じ       | 上と同じ       | 0.072%、0.083%           | +0.230%    |
+| 右と上に I 型の格子の反射体（`core-corner-I`）  | +161.2     | −0.018%、+0.009%     | −3.35%、−1.07% | +0.24%、+9.00% | 1.868%、5.192%           | +15.569%   |
+
+- 角型の格子のノードだけの炉心は、定数を作った体系で、k を 0.002 pcm、ノード平均を 4 × 10⁻⁸ 以内で再現する。反射体
+  どうしの 2 面（右と右上、上と右上）も格子の GET の ADF のまま使うので、その面で差が生まれない。ピン出力の残りの差
+  （RMS 0.072%）は、I 型の等価性と同じ程度の再構成の差とみる（確かめていない）
+- 外形の `-` を足した炉心は、反射体の外側の面を直方体の外周でなく外形の面にしても、k、ノード平均、ピン出力が同じ
+  （比較の出力が一致）
+- I 型の格子の反射体を角型の右上の隣に置くと、右上のピンが +15.6%、k が +161 pcm 違う。I 型の反射体のノードの上の辺
+  （I 型の格子では鏡面反射）は、炉心では角型の右上の反射体に接し、定数を作った体系と環境が違う。5-2D の角型の位置に
+  隣る I 型の位置の定数の選び方は #0029 で比べる
 
 ## 軸方向の反射体の平板の定数を作った体系の再現（ecd77a16、分岐点 7bd7b624、2026-10-12）
 

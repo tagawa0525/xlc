@@ -23,14 +23,15 @@ pub struct CornerNode<'a> {
     pub outflow: [Option<[f64; 2]>; 4],
 }
 
-/// nx × ny のノードの層の、[角の点（(nx + 1) × (ny + 1)、x が速い）][群] の未知数。`zero` の角の点（中性子束ゼロの
-/// 外周の角）は 0 とする。ノードの均質な角の値は未知数 × 重みで、外周の辺の流れもそれに比例するので、式は
+/// nx × ny の位置の層の、[角の点（(nx + 1) × (ny + 1)、x が速い）][群] の未知数。`nodes` の `None` はノードのない
+/// 位置（炉心の外形の外。ADR-0132）で、その位置に面するノードの辺は外周の辺として `outflow` に流れを持つ。`zero` の
+/// 角の点（中性子束ゼロの外周の角）と、どのノードにも接しない角の点は 0 とする。ノードの均質な角の値は未知数 × 重みで、外周の辺の流れもそれに比例するので、式は
 /// 均質な角の値だけで決まる。core は未知数を角の点の不均質な中性子束（重み 1/CDF）、lattice は均質な角の値の見込みに
 /// 掛ける大きさ（重みは見込み。ADR-0131）とする
 pub fn corner_balance(
     nx: usize,
     ny: usize,
-    nodes: &[CornerNode],
+    nodes: &[Option<CornerNode>],
     zero: &[bool],
 ) -> Result<Vec<[f64; 2]>, String> {
     let points = (nx + 1) * (ny + 1);
@@ -51,9 +52,16 @@ pub fn corner_balance(
         let sy = if cj == j { 1.0 } else { -1.0 };
         (ci + (nx + 1) * cj, sx, sy)
     };
+    // ノードに接する角の点
+    let mut touched = vec![false; points];
     for j in 0..ny {
         for i in 0..nx {
-            let node = &nodes[i + nx * j];
+            let Some(node) = &nodes[i + nx * j] else {
+                continue;
+            };
+            for c in 0..4 {
+                touched[point(i, j, c).0] = true;
+            }
             let (model, base) = (node.model, node.conditions);
             // 角の値が 0 のときの勾配と、角 c の群 h の値を 1 にしたときの増分。[角の点の角][群][軸]
             let gradients = |flux: &NodeFlux| -> [[[f64; 2]; 2]; 4] {
@@ -115,7 +123,7 @@ pub fn corner_balance(
             }
         }
     }
-    for (p, _) in zero.iter().enumerate().filter(|(_, z)| **z) {
+    for p in (0..points).filter(|&p| zero[p] || !touched[p]) {
         for g in 0..2 {
             let row = 2 * p + g;
             matrix[row * unknowns..(row + 1) * unknowns].fill(0.0);

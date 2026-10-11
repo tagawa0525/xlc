@@ -1,6 +1,6 @@
-# 角型の格子（reflector-corner.toml）を、集合体と反射体 3 つの 2 × 2 の NEM で解くケース（ADR-0095 の等価性と、
-# 反射体の位置どうしの面の ADF を 1 とする近似）。-x、-y、±z は反射、+x と +y は真空（反射体の少数群定数の真空の
-# 辺の J/φ。ADR-0101）。z の高さは結果に効かない。
+# 角型の格子（reflector-corner.toml）を、集合体と反射体 3 つの 2 × 2 の NEM で解くケース（ADR-0095 の等価性。
+# 反射体どうしの面も各側の ADF を使う。ADR-0132）。-x、-y、±z は反射、+x と +y は真空（反射体の少数群定数の真空の
+# 辺の J/φ。ADR-0128）。z の高さは結果に効かない。
 cycle = "core-corner-cycle.toml"
 axial-mesh = [0.0, 21.5]
 radial-nodes = 1
