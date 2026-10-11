@@ -22,7 +22,7 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 ブランチの `.worktreelink` を読んで作る（出力の `SHARED: references`）。`.worktreelink` のないブランチ（main に rebase する前の
 もの）や、ほかの方法で作った worktree では出ないので、worktree の直下で手で張る:
 `ln -s "$(git rev-parse --path-format=absolute --git-common-dir)/../references" references`。symlink のない linked
-worktree は `cargo test`（crates/docs の `linked_worktrees_share_references`）が止める。
+worktree は `cargo test`（crates/docs の `linked_worktrees_share_references`）が止める（ADR-0126）。
 
 ## 評価済み核データ（ENDF/B-VIII.0）
 

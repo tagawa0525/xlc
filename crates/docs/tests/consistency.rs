@@ -339,7 +339,7 @@ fn main_reports_trials_left_by_a_merge() -> Result<()> {
 }
 
 /// linked worktree の `references` は、main の worktree の `references/` を指す symlink でなければならない。
-/// ないと DVC が worktree の中に別のキャッシュを黙って作り、ENDF を deps にする段階が止まる（ADR-0123）。
+/// ないと DVC が worktree の中に別のキャッシュを黙って作り、ENDF を deps にする段階が止まる（ADR-0123、ADR-0126）。
 /// main の worktree では `references/` は実体なので、確かめることはない。
 #[test]
 fn linked_worktrees_share_references() -> Result<()> {
@@ -373,13 +373,13 @@ fn linked_worktrees_share_references() -> Result<()> {
                 ln -s \"$(git rev-parse --path-format=absolute --git-common-dir)/../references\" references";
     assert!(
         fs::symlink_metadata(&references).is_ok_and(|m| m.file_type().is_symlink()),
-        "{} is not a symlink to the main worktree's references/ (ADR-0123); {hint}",
+        "{} is not a symlink to the main worktree's references/ (ADR-0126); {hint}",
         references.display()
     );
     assert_eq!(
         fs::canonicalize(&references)?,
         fs::canonicalize(&main_references)?,
-        "{} does not resolve to {} (ADR-0123); {hint}",
+        "{} does not resolve to {} (ADR-0126); {hint}",
         references.display(),
         main_references.display()
     );
