@@ -1,0 +1,3 @@
+# worktree-add.sh が、ここに書いたパス（git で無視されたもの）を main の worktree への symlink として作る
+# 核データ、NJOY、OpenMC、DVC のキャッシュ（references/dvc-cache）を worktree の間で共有する（ADR-0123）
+references
