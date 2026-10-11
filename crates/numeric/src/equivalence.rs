@@ -192,6 +192,8 @@ mod tests {
             ),
             [&het_minus, &het_plus, &flux, &flux],
         )
+        .unwrap()
+        .found()
         .unwrap();
         for g in 0..2 {
             let r = plus[g] / -minus[g];
@@ -247,6 +249,8 @@ mod tests {
             ),
             [&het[0], &het[1], &het[2], &het[3]],
         )
+        .unwrap()
+        .found()
         .unwrap();
         for g in 0..2 {
             assert!((found[g] - truth[g]).abs() < 1e-9 * truth[g], "{found:?}");
@@ -254,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn impossible_equivalences_are_errors() {
+    fn impossible_equivalences_are_missing_or_errors() {
         let total = [0.6, 1.7];
         let scatter = vec![vec![0.57, 0.0], vec![0.0, 1.66]];
         let flux = [0.02, 0.01];
@@ -274,10 +278,7 @@ mod tests {
             [&[0.01, 0.005], &[0.012, 0.004], &flux, &flux],
         );
         assert!(
-            matches!(
-                result,
-                Err(OneNodeError::NoEquivalentDiffusion { group: 0 })
-            ),
+            matches!(result, Ok(Equivalence::Missing { group: 0, .. })),
             "{result:?}"
         );
         // 正味の流れがない（対称な位置）: 向きが定まらない
@@ -304,5 +305,164 @@ mod tests {
             matches!(result, Err(OneNodeError::Invalid(_))),
             "{result:?}"
         );
+    }
+
+    /// VERA 3A の軸方向の反射体の平板（ADR-0128）の格子計算のノードの1ノードの問題の入力（2群、x が炉心の z、y は
+    /// 鏡面反射で流れなし。examples/reflector の平板の失敗した実行のログの値、2026-10-11）。`diffusion` は中性子流で
+    /// 重みづけた D
+    struct Slab {
+        diffusion: [f64; 2],
+        total: [f64; 2],
+        scatter: [[f64; 2]; 2],
+        width: f64,
+        flux: [f64; 2],
+        heterogeneous: [[f64; 2]; 2],
+        currents: [[f64; 2]; 2],
+    }
+
+    impl Slab {
+        fn solve(
+            &self,
+            diffusion: &[f64],
+            edges: [Edge<'_>; 2],
+        ) -> Result<[Vec<f64>; 4], OneNodeError> {
+            let scatter: Vec<Vec<f64>> = self.scatter.iter().map(|r| r.to_vec()).collect();
+            let zero = [0.0, 0.0];
+            surface_fluxes(&self.node(diffusion, &scatter, &zero, edges))
+        }
+
+        fn node<'a>(
+            &'a self,
+            diffusion: &'a [f64],
+            scatter: &'a [Vec<f64>],
+            zero: &'a [f64],
+            edges: [Edge<'a>; 2],
+        ) -> OneNode<'a> {
+            OneNode {
+                diffusion,
+                total: &self.total,
+                scatter,
+                nu_fission: &[0.0, 0.0],
+                chi: &[0.0, 0.0],
+                k: 0.6342792405720961,
+                flux: &self.flux,
+                widths: [self.width, 1.0],
+                currents: [&self.currents[0], &self.currents[1], zero, zero],
+                edges: [edges[0], edges[1], Edge::Reflective, Edge::Reflective],
+            }
+        }
+
+        fn choose(&self, edges: [Edge<'_>; 2]) -> Result<(Vec<f64>, Choice), OneNodeError> {
+            let scatter: Vec<Vec<f64>> = self.scatter.iter().map(|r| r.to_vec()).collect();
+            let zero = [0.0, 0.0];
+            let node = self.node(&self.diffusion, &scatter, &zero, edges);
+            let het = &self.heterogeneous;
+            reflector_diffusion(&node, [&het[0], &het[1], &self.flux, &self.flux])
+        }
+    }
+
+    #[test]
+    fn slab_gap_node_has_no_koebke_d_and_takes_the_current_weighted_d() {
+        // 下のギャップと端栓（5.898 cm）: 熱群の源（減速）は燃料側で大きく、均質な面の比 φ+/φ− は正の面の範囲で
+        // 1 より大きいが、不均質な比は t = 0.933。Koebke の D は正の面の範囲になく（ADR-0134）、中性子流で重みづけた D で
+        // 両面の均質な中性子束が正
+        let gap = Slab {
+            diffusion: [1.6820777555877764, 0.763528784067662],
+            total: [0.6440230468091337, 1.7422110599991552],
+            scatter: [
+                [0.6110549967237958, 0.031778774280522885],
+                [0.0008769671192441397, 1.710908156843627],
+            ],
+            width: 5.898,
+            flux: [0.011638191664828096, 0.006595898791517603],
+            heterogeneous: [
+                [0.0073158322245259885, 0.0054902840607720296],
+                [0.0182116903170929, 0.005122180891888055],
+            ],
+            currents: [
+                [0.001712212355002498, 0.00046632128751277076],
+                [-0.0039410907280092, 0.0004972744001251937],
+            ],
+        };
+        let zero = [0.0, 0.0];
+        let edges = [
+            Edge::Neighbor {
+                width: 6.053,
+                leakage: &zero,
+            },
+            Edge::Neighbor {
+                width: 22.86,
+                leakage: &zero,
+            },
+        ];
+        let scatter: Vec<Vec<f64>> = gap.scatter.iter().map(|r| r.to_vec()).collect();
+        let het = &gap.heterogeneous;
+        let found = equivalent_diffusion(
+            &gap.node(&gap.diffusion, &scatter, &zero, edges),
+            [&het[0], &het[1], &gap.flux, &gap.flux],
+        )
+        .unwrap();
+        let Equivalence::Missing {
+            group,
+            target,
+            range,
+        } = found
+        else {
+            panic!("{found:?}");
+        };
+        assert_eq!(group, 1);
+        assert!((target - 0.005122180891888055 / 0.0054902840607720296).abs() < 1e-12);
+        let [low, high] = range.unwrap();
+        assert!(1.0 < low && low <= high, "{low} {high}");
+        let (diffusion, choice) = gap.choose(edges).unwrap();
+        assert_eq!(diffusion, gap.diffusion.to_vec());
+        assert!(
+            matches!(choice, Choice::CurrentWeighted { group: 1, .. }),
+            "{choice:?}"
+        );
+        let faces = gap.solve(&diffusion, edges).unwrap();
+        assert!(faces.iter().flatten().all(|&f| f > 0.0), "{faces:?}");
+    }
+
+    #[test]
+    fn slab_water_node_at_vacuum_takes_the_koebke_d() {
+        // 下の水（50 cm、−z が真空）: 中性子流で重みづけた D では真空の面の高速群の均質な中性子束が負になるが、Koebke の
+        // D は正の面の範囲にあり、それを選ぶ
+        let water = Slab {
+            diffusion: [1.715312434162542, 0.28771112638663643],
+            total: [0.7026021580140092, 1.948359353059257],
+            scatter: [
+                [0.6554684859649522, 0.045918789357451015],
+                [0.0006212889915745182, 1.913432700752992],
+            ],
+            width: 50.0,
+            flux: [0.00015580362145392823, 0.0001903211822100758],
+            heterogeneous: [
+                [1.247701469451303e-06, 4.3123280070015635e-07],
+                [0.0012443350200998552, 0.0008074493486391072],
+            ],
+            currents: [
+                [8.098077131024756e-07, 2.2708558646791588e-07],
+                [-0.0003620774240241963, 2.512451034251237e-05],
+            ],
+        };
+        let zero = [0.0, 0.0];
+        let edges = [
+            Edge::Vacuum,
+            Edge::Neighbor {
+                width: 5.0,
+                leakage: &zero,
+            },
+        ];
+        assert!(water.solve(&water.diffusion, edges).is_err());
+        let (diffusion, choice) = water.choose(edges).unwrap();
+        assert!(matches!(choice, Choice::Koebke), "{choice:?}");
+        let faces = water.solve(&diffusion, edges).unwrap();
+        assert!(faces.iter().flatten().all(|&f| f > 0.0), "{faces:?}");
+        // 2つの面の ADF は等しい
+        for (g, het) in water.heterogeneous[0].iter().enumerate() {
+            let (a, b) = (het / faces[0][g], water.heterogeneous[1][g] / faces[1][g]);
+            assert!((a - b).abs() < 1e-9 * a, "{a} {b}");
+        }
     }
 }
