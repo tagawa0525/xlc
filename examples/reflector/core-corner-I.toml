@@ -1,0 +1,7 @@
+# 角型の格子（reflector-corner.toml）の MOC と比べる、I 型の反射体と角型の右上の反射体を組んだ炉心（ADR-0132 の
+# 反射体どうしの面の ADF の確認）。境界は core-corner.toml と同じ。
+cycle = "core-corner-I-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "core-pins-corner-I.msgpack"
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "vacuum"], z = ["reflective", "reflective"] }
