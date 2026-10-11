@@ -123,8 +123,10 @@ fn is_ancestor(repo: &Repo, hash: &str, head: &str) -> Result<bool> {
 }
 
 /// 今のブランチが main のとき、`trials/` の下で追跡しているファイル。ほかのブランチと detached HEAD では空。
-/// ブランチの上では、記録に数値を書いた試行の入力を追跡してよく、マージの前に消す（ADR-0122）。マージのコミットを
-/// 作る前の hook では、HEAD はまだ main で、index がマージの結果なので、index を読む `git ls-files` で残りが見つかる
+/// ブランチの上では、記録に数値を書いた試行の入力を追跡してよく、マージの前に消す（ADR-0122）。自動のマージで
+/// コミットを作る前の hook では、HEAD はまだ main で、.git/index がマージの結果なので（git 2.55 で確かめた）、
+/// `git ls-files` で残りが見つかる。競合を直して `git commit -a` で締めるときに git が hook に渡す一時的な index は、
+/// run-checks.sh が GIT_INDEX_FILE を外すので読まない
 fn trials_tracked_on_main(repo: &Repo) -> Result<Vec<String>> {
     let branch = repo.git(&["branch", "--show-current"])?;
     if !branch.status.success() {
