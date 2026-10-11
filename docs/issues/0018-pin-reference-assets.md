@@ -31,7 +31,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
 外からの入力とツールの固定、`references/` への見せ方は [ADR-0124](../adr/0124-pin-reference-assets-with-nix.md) で
 決めた（ADR-0031 を置き換えた）。
 
-関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0123](../adr/0123-drive-stages-with-dvc.md)、[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、[ADR-0126](../adr/0126-share-references-across-worktrees-by-worktreelink.md)、[ADR-0127](../adr/0127-drive-reference-results-with-dvc.md)
+関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0123](../adr/0123-drive-stages-with-dvc.md)、[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、[ADR-0126](../adr/0126-share-references-across-worktrees-by-worktreelink.md)、[ADR-0130](../adr/0130-drive-reference-results-with-dvc.md)
 
 ## 完了の条件
 
@@ -39,8 +39,8 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   仕様書の PDF は docs/specs.sha256 に URL と sha256
 - 済（ADR-0124）: NJOY2016（2016.79 とパッチ）と OpenMC 0.15.2 とその Python API を、版とパッチごとビルドする flake の
   パッケージにする（nixpkgs にはどちらもない）
-- 済（ADR-0127）: 決めた方式を ADR にする（外からの入力とツールは ADR-0124、参照の結果の作り方は ADR-0127）
-- 一部済（ADR-0127）: 参照の結果（NJOY → OpenMC のライブラリ → OpenMC、xlc との比較）を DVC のステージにする。
+- 済（ADR-0130）: 決めた方式を ADR にする（外からの入力とツールは ADR-0124、参照の結果の作り方は ADR-0130）
+- 一部済（ADR-0130）: 参照の結果（NJOY → OpenMC のライブラリ → OpenMC、xlc との比較）を DVC のステージにする。
   examples/vera/dvc.yaml で、OpenMC のライブラリ（核種ごと）と VERA 1B（OpenMC → 抽出、xs → lattice → 比較）を
   端から端まで通した。残り（同じ形で足す）:
   - VERA 1C〜2J の OpenMC と抽出（2B〜2J はピン出力の `pins.msgpack`）、xlc の lattice、比較（`compare_pins.py` を

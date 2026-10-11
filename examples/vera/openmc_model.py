@@ -3,7 +3,7 @@
 使い方: python3 openmc_model.py run <入力> <作業ディレクトリ>
         python3 openmc_model.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
-<入力> は p1/openmc-1B.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0127）: 問題（`problem`）、
+<入力> は p1/openmc-1B.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`）、
 openmc_library.py で作った `cross-sections`（cross_sections.xml）、1 世代の粒子数（`particles`）、世代数（`batches`）、
 非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）。燃料の核種ごとの実効断面積を求めるときだけ、
 群構造を読む xlc のライブラリ（`effective-xs-groups`）を書く。パスは入力のファイルからの相対。

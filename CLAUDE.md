@@ -32,7 +32,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
 - `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml の段階の
-  出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0127）。
+  出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0130）。
   NJOY と OpenMC を使う段階は cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
   devShell で実行する
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。rebase で hash が変わっても

@@ -23,7 +23,7 @@ def check_keys(
 ) -> None:
     """`table` に `required` のキーがすべてあり、`required` と `optional` のほかのキーがないことを確かめる。
 
-    計算の条件は入力に書き、既定値を持たない（ADR-0122、ADR-0127）ので、足りないキーも綴りを誤ったキーも止める。
+    計算の条件は入力に書き、既定値を持たない（ADR-0122、ADR-0130）ので、足りないキーも綴りを誤ったキーも止める。
     """
     missing = required - table.keys()
     unknown = table.keys() - required - optional
