@@ -65,7 +65,7 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
-use crate::fewgroup::Node;
+use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
@@ -308,6 +308,7 @@ impl FewGroupEntry {
                 "`split` (sub-nodes) needs `output` (the whole lattice), not `nodes`".into(),
             );
         }
+        let groups = self.bounds.len().saturating_sub(1);
         let files = match (self.output, self.nodes) {
             (Some(output), None) => FewGroupFiles::Lattice(output),
             (None, Some(nodes)) => {
@@ -331,6 +332,16 @@ impl FewGroupEntry {
                         reflector: entry.reflector.unwrap_or(false),
                     };
                     files.push((entry.output, node));
+                }
+                // 形状関数と角の不連続因子は、2 群で、ノードが格子の上の長方形の並びのときに作る（ADR-0125）
+                if pins {
+                    if groups != 2 {
+                        return Err(format!(
+                            "`pins` with `nodes` needs 2 few groups, got {groups}"
+                        ));
+                    }
+                    let nodes: Vec<Node> = files.iter().map(|(_, n)| n.clone()).collect();
+                    node_grid(&nodes).map_err(|e| format!("`pins` with `nodes`: {e}"))?;
                 }
                 FewGroupFiles::Nodes(files)
             }
