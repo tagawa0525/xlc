@@ -37,8 +37,8 @@ from openmc_common import (
     input_path,
     material,
 )
+from openmc_run import fuel_mean, mesh_values, run_or_extract, write_k, write_pin_powers
 from openmc_run import read_run as common_read_run
-from openmc_run import run_or_extract, write_k, write_pin_powers
 
 SCORES = ["total", "elastic", "fission"]
 
@@ -391,23 +391,7 @@ def thimble_layers(temperature: float) -> Layers:
 
 # 案内管に入れるものの層を作る関数（引数は物質の温度。減速材の温度にする）と位置。Pyrex の 12 本は仕様書の図 5 の配置
 INSERTS = {
-    "2E": (
-        pyrex_layers,
-        [
-            (2, 5),
-            (2, 11),
-            (5, 2),
-            (5, 8),
-            (5, 14),
-            (8, 5),
-            (8, 11),
-            (11, 2),
-            (11, 8),
-            (11, 14),
-            (14, 5),
-            (14, 11),
-        ],
-    ),
+    "2E": (pyrex_layers, sorted(octant_images(PYREX_OCTANTS[12]))),
     # 24 本はすべての案内管（図 5）
     "2F": (pyrex_layers, GUIDE_TUBES),
     "2G": (lambda t: rod_layers("aic", AIC, 0.382, t), GUIDE_TUBES),
@@ -512,17 +496,14 @@ def pin_mesh() -> openmc.RegularMesh:
 def pin_rows(sp: openmc.StatePoint, value: str = "mean"):
     """名前が fission の tally（`pin_mesh` ごと）の `value`（"mean" か "std_dev"）を、lattice と同じく上の行から並べた
     17 × 17 にする。"""
-    values = (
-        sp.get_tally(name="fission").get_values(scores=["fission"], value=value).ravel()
-    )
-    # メッシュは x が速く変わり、y は下から上
-    return values.reshape(N, N)[::-1, :]
+    mean, std = mesh_values(sp, "fission", (N, N))
+    return {"mean": mean, "std_dev": std}[value]
 
 
 def write_pins(sp: openmc.StatePoint, path: Path) -> None:
     """名前が fission の tally を、lattice と同じ形式のピンの核分裂率（平均 1）にして書く。"""
     rates = pin_rows(sp)
-    write_pin_powers(path, rates / rates[rates > 0].mean())
+    write_pin_powers(path, rates / fuel_mean(rates))
 
 
 class Built(NamedTuple):
