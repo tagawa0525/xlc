@@ -525,7 +525,8 @@ fn node_neighbors(
 }
 
 /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。格子全体を1つのノードとし、外周がすべて鏡面反射
-/// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は #0020）。
+/// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は `nodes` の
+/// 形状関数。ADR-0125）。
 ///
 /// - セルの大きさは、格子の列の幅と行の高さ（行は下から）
 /// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均 / ノードの少数群 g の核分裂率の平均。核分裂のないセルは 0。
@@ -543,7 +544,7 @@ pub fn pin_shapes(
 ) -> Result<Pins, HomogenizeError> {
     if !reflective(boundaries) {
         return Err(HomogenizeError::Pins(
-            "form functions need a lattice with every side reflective (other lattices: #0020)"
+            "form functions of the whole lattice need every side reflective (other lattices: `nodes` with `pins`, ADR-0125)"
                 .into(),
         ));
     }
@@ -3339,7 +3340,7 @@ mod tests {
                 boundaries,
             )
         };
-        // 外周が鏡面反射でない格子の角の均質な中性子束は決めていない（#0020）
+        // 格子全体の形状関数は外周がすべて鏡面反射の格子でだけ作る（ほかの格子は `nodes`。ADR-0125）
         let err = shapes(&vacuum()).unwrap_err().to_string();
         assert!(err.contains("reflective"), "{err}");
         // 角の中性子束は余白の角のセルで取る
