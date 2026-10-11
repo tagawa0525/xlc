@@ -4,10 +4,13 @@ description: DVC のステージ（examples/*/dvc.yaml）を含むブランチ�
 allowed-tools:
   - Bash(nix develop -c dvc checkout examples/*)
   - Bash(nix develop -c dvc checkout)
+  - Bash(nix develop -c dvc status)
   - Bash(nix develop -c dvc status examples/*)
   - Bash(nix develop -c dvc status --json*)
   - Bash(nix develop -c dvc repro -s *)
   - Bash(realpath*)
+  - Bash(git reflog*)
+  - Bash(git range-diff*)
   - Bash(git status*)
   - Bash(git diff*)
   - Bash(git log*)
@@ -74,15 +77,16 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    nix develop -c dvc repro -s <段階>
    ```
 
-   CLAUDE.md の「計算」は手で段階を選ばないと定めるが、rebase のあとの relock は ADR-0130 の例外で、重い段階を
+   CLAUDE.md の「計算」は手で段階を選ばないと定めるが、rebase のあとの relock は ADR-0130 の「数秒で終わる段階だけ再実行してよい」の手段として、重い段階を
    巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed の段階には使わない
-   （古い出力から作ることになる）。実行した段階の出力を deps にする下流の段階（lattice-1B なら `compare-1B`）も
+   （古い出力から作ることになる）。lattice-1B の上流の xs が changed のときは、xs を実行しないので lattice-1B も
+   実行しない（xs を含む約 9 分は、数秒の段階にならない）。実行した段階の出力を deps にする下流の段階（lattice-1B なら `compare-1B`）も
    changed になるので、同じように数秒なら続けて実行し、重いなら実行しない。
 
 4. 実行したら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
-   git add examples/<問題>/dvc.lock
+   git add examples/<問題>/dvc.lock   # git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す
    git commit -F <メッセージのファイル>
    ```
 
@@ -98,8 +102,9 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
      復元が合わなくなる）。実行したコミットが rebase で付け替わっていたら、hash だけを付け替える。記録に実行した
      コミットと分岐点が書かれていなければ、書く（ADR-0130 の「確認」の形）
 
-   hash の付け替えは、手で書き換えず、`~/.claude/scripts/remap-commit-refs.sh`（rebase の対応表、post-rewrite hook の
-   入力の形）で行う。測り直しはしない（記録の hash は再現のため）。付け替えのコミットは `docs:` で分ける。
+   hash の付け替えは、手で書き換えず、`~/.claude/scripts/remap-commit-refs.sh` で行う。対応表（「旧 新」の完全な
+   hash）は、rebase の前の tip（`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させて作り、
+   中身を確かめてから渡す（全ファイルを書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。付け替えのコミットは `docs:` で分ける。
 
 この後は /git-merge の「チェック」に進む。
 
