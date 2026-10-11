@@ -99,7 +99,7 @@ Problem 5 の 3D の炉心では、反射体の列の燃料より上と下の層
 ### 反射体のノードどうしの面の ADF
 
 - ADR-0095 のとおり両側とも 1 にする: 根拠は「差が小さいと見込む」だけである。この ADR の前の core の規則（main
-  bbe3ccee の core。2026-10-12）で、examples/reflector の段階の定数（d6e8b9aa の `dvc repro`）を角型の格子の MOC と
+  bbe3ccee の core。2026-10-12）で、examples/reflector の段階の定数（302751a6 の `dvc repro`）を角型の格子の MOC と
   比べた（各側の ADF の値は examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」）:
 
 | 炉心                        | 規則       | Δk/k (pcm) | 集合体（高速、熱） | 右と上の反射体 | 右上の反射体   | ピン RMS | 右上のピン |
@@ -292,7 +292,7 @@ M3 では作らない。Problem 5 の実測の値（表 P5-7）は臨界ホウ�
   凹んだ角の特異性のため、直方体より遅い。20 cm のノードの k（0.8816）は、細かいメッシュの差分法の解（0.8602。
   セル中心の差分、0.25 cm）より 2.5% 大きく、2.5 cm のノードで +0.2%。四隅を強い吸収体のノードで埋めた直方体も
   20 cm のノードで 0.8838 と同じ程度外れるので、外形の面の扱いでなく、凹んだ角の NEM の近似の誤差である
-  （1a26310d で測った。2026-10-12）
+  （e331ddf6 で測った。2026-10-12）
 - `outline_needs_a_condition_and_ratios`、`invalid_outlines_are_errors`、`dashes_mark_positions_without_nodes`:
   エラー（`-` があり `outline` がない、`-` がなく `outline` がある、`vacuum` の `-` に面する辺に r がない、ノードが
   ない、ノードに囲まれた `-`、`-` に置いた ID）と、`-` の位置にノードを置かないこと
@@ -304,7 +304,7 @@ M3 では作らない。Problem 5 の実測の値（表 P5-7）は臨界ホウ�
 - `normalized_adfs_toward_assembly_layers_take_unit_adfs`: 反射体の位置の f*の辺が集合体の位置の核分裂のない層に
   向く x と y の面は両側 1、反射体の位置に向くか、f* の側が反射体の位置でなければエラー
 
-比較（examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」、d6e8b9aa、2026-10-12。段階
+比較（examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」、302751a6、2026-10-12。段階
 `core-corner`、`core-corner-outline`、`core-corner-I`）:
 
 - 角型の格子のノードだけの炉心は、反射体どうしの面に各側の ADF を使って、角型の格子の MOC の k を +0.0013 pcm、
