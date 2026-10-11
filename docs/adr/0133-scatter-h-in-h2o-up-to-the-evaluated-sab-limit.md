@@ -62,7 +62,7 @@ S(α,β) の上限より上の H の弾性散乱の移行:
 - THERMR と同じく ln S を 3 点の 2 次式で補間する（thermr.f90 の `terpq`。隣の点との差が 2 を超える区間は線形）: 参照解と
   そろうが、評価済みデータが指定する補間則と違う。600 K の H in H2O の散乱断面積は、同じ表と同じ SCT で、ENDF の補間則より
   3.6 eV で 0.17%、5〜9 eV で 0.22〜0.25% 大きく、1.1 eV で 0.04%、0.05 eV で −0.15% 違う（examples/m1/sab_interpolation.py、
-  14c70e60、2026-10-11）
+  fbbb9feb、2026-10-11）
 - ENDF の補間則（ln S を α と β について線形。採用）
 
 試して採らなかったもの（#0005。どれも上限を 9.877 eV にし、(a) の SCT を入れた上での試算。7d628d88）:
@@ -102,7 +102,7 @@ S(α,β) を持つ核種の熱領域の扱いを、xs の入力（xs.toml）の�
   MF4 の角度分布（ADR-0081）。自由ガスの核の重心系は等方で、MF4 を落とす。2 体反応は熱運動を落とす。熱運動による移行の
   変化は kT/E ほどで下がり、MF4 の P1 の係数は E にほぼ比例して上がるので、両者が同じ程度になるエネルギーで切り替えると、
   落とす効果は最も小さい。H-1 だけの 600 K のライブラリを、自由ガスの上限を S(α,β) の上限（自由ガスなし）と 1 MeV にして
-  作り、行を比べた（examples/vera/free-gas-upper、a332de2c、2026-10-11）。群から出る割合の差は、熱運動の効果の大きい 10 eV〜
+  作り、行を比べた（examples/vera/free-gas-upper、12c0b883、2026-10-11）。群から出る割合の差は、熱運動の効果の大きい 10 eV〜
   1 keV で −2.1e-3〜−4.9e-6 と E とともに小さくなり、2.2〜5.5 keV の −3.2e-6〜−3.5e-6 を底に、MF4 を落とす効果で 5.5 keV より
   上で大きくなる（0.5〜0.82 MeV で −2.0e-4）。平均の余弦の差は、熱運動で負（0.91〜1.4 keV で −8.1e-5）、MF4 を落とす効果で正
   （0.5〜0.82 MeV で +1.7e-4）で、15 keV の近くで符号が変わる。両方の差の大きい方が最も小さい
@@ -146,11 +146,11 @@ S(α,β) の上限から自由ガスの上限まで自由ガスで、行の和�
 ADR-0052 と ADR-0081 から引き継ぐテストはそのまま（`reads_incoherent_inelastic_scattering`、`sab_matrix_satisfies_detailed_balance`、
 `sab_ignores_mf3_elastic_below_cutoff`、`elastic_angles_move_the_outgoing_energies` など）。
 
-NJOY THERMR との比較（examples/m1/verification.md「S(α,β) の熱中性子散乱（THERMR）」、c9246058、2026-10-11）: 293.6 K、上限
+NJOY THERMR との比較（examples/m1/verification.md「S(α,β) の熱中性子散乱（THERMR）」、b1f42faf、2026-10-11）: 293.6 K、上限
 10.00008 eV で、行の和の差は最大 2.1e-3、行の形の差は最大 1.1e-2（上限 4 eV で比べた ADR-0052 のときと同じ）。600 K の
 4〜9.877 eV の −2.9e-3 の大半は補間の違い（「検討した案」）。
 
-OpenMC との比較（examples/vera/verification.md「均質な無限媒質」「k の差の内訳」。xlc は 8b874f98、OpenMC は 25bcc092、
+OpenMC との比較（examples/vera/verification.md「均質な無限媒質」「k の差の内訳」。xlc は 04270b65、OpenMC は 25bcc092、
 2026-10-11）。k の差は xlc − OpenMC の、正味の吸収からの 1/A（括弧は k の推定値）で、pcm:
 
 | 体系                    | ADR-0133 の前 | ADR-0133                       |
