@@ -28,7 +28,8 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   `sbatch --exclusive --wait --export=ALL -J <名前> -o <ログ> --wrap='<コマンド>'`。直接実行せず、`pgrep` で他の計算を監視しない
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）で段階を
-  実行し、手で段階を選ばない。重いときは `dvc repro` 全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（ADR-0123）
+  実行し、手で段階を選ばない（rebase のあとに数秒の段階だけ `-s` で再実行する /dvc-relock は例外）。重いときは `dvc repro`
+  全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（ADR-0123）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
 - `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml の段階の
