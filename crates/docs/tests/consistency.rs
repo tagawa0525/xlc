@@ -337,3 +337,51 @@ fn main_reports_trials_left_by_a_merge() -> Result<()> {
     );
     Ok(())
 }
+
+/// linked worktree の `references` は、main の worktree の `references/` を指す symlink でなければならない。
+/// ないと DVC が worktree の中に別のキャッシュを黙って作り、ENDF を deps にする段階が止まる（ADR-0123）。
+/// main の worktree では `references/` は実体なので、確かめることはない。
+#[test]
+fn linked_worktrees_share_references() -> Result<()> {
+    let root = repo_root().canonicalize()?;
+    let repo = Repo {
+        root: &root,
+        isolated: false,
+    };
+    let path_of = |args: &[&str]| -> Result<PathBuf> {
+        let output = repo.git(args)?;
+        if !output.status.success() {
+            return Err(format!(
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        Ok(PathBuf::from(String::from_utf8(output.stdout)?.trim_end()))
+    };
+    let git_dir = path_of(&["rev-parse", "--path-format=absolute", "--git-dir"])?;
+    let common_dir = path_of(&["rev-parse", "--path-format=absolute", "--git-common-dir"])?;
+    if git_dir == common_dir {
+        return Ok(());
+    }
+    let main_references = common_dir
+        .parent()
+        .ok_or("the common git dir has no parent")?
+        .join("references");
+    let references = root.join("references");
+    let hint = "link it from the worktree root: \
+                ln -s \"$(git rev-parse --path-format=absolute --git-common-dir)/../references\" references";
+    assert!(
+        fs::symlink_metadata(&references).is_ok_and(|m| m.file_type().is_symlink()),
+        "{} is not a symlink to the main worktree's references/ (ADR-0123); {hint}",
+        references.display()
+    );
+    assert_eq!(
+        fs::canonicalize(&references)?,
+        fs::canonicalize(&main_references)?,
+        "{} does not resolve to {} (ADR-0123); {hint}",
+        references.display(),
+        main_references.display()
+    );
+    Ok(())
+}
