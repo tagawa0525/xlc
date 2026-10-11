@@ -48,6 +48,19 @@ impl Repo<'_> {
             .output()
             .map_err(|e| format!("cannot run git {args:?} (is git installed?): {e}").into())
     }
+
+    /// git を走らせ、成功したときの標準出力を返す。
+    fn stdout(&self, args: &[&str]) -> Result<String> {
+        let output = self.git(args)?;
+        if !output.status.success() {
+            return Err(format!(
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        Ok(String::from_utf8(output.stdout)?)
+    }
 }
 
 /// git が追跡しているファイルのうち `pathspecs` に当たるもの（`/` 区切りのパス。空ならすべて）。
@@ -334,6 +347,56 @@ fn main_reports_trials_left_by_a_merge() -> Result<()> {
         trials_tracked_on_main(&t.repo())?,
         vec!["trials/input.toml".to_string()],
         "a trial in the merge result on main"
+    );
+    Ok(())
+}
+
+/// linked worktree の `references` は、main の worktree の `references/` を指す symlink でなければならない。
+/// ないと DVC が worktree の中に別のキャッシュを黙って作り、ENDF を deps にする段階が止まる（ADR-0123、ADR-0126）。
+/// main の worktree では `references/` は実体なので、確かめることはない。
+#[test]
+fn linked_worktrees_share_references() -> Result<()> {
+    let root = repo_root().canonicalize()?;
+    let repo = Repo {
+        root: &root,
+        isolated: false,
+    };
+    // main の worktree は一覧の先頭（worktree-add.sh と同じ求め方）
+    let list = repo.stdout(&["worktree", "list", "--porcelain"])?;
+    let main_root = list
+        .lines()
+        .next()
+        .and_then(|l| l.strip_prefix("worktree "))
+        .ok_or("git worktree list names no worktree")?;
+    let main_root = PathBuf::from(main_root).canonicalize()?;
+    if main_root == root {
+        return Ok(());
+    }
+    let main_references = main_root.join("references");
+    assert!(
+        main_references.is_dir(),
+        "{} does not exist; build it in the main worktree first (docs/environment.md; ADR-0124)",
+        main_references.display()
+    );
+    let references = root.join("references");
+    let hint = "link it from the worktree root: \
+                ln -s \"$(git rev-parse --path-format=absolute --git-common-dir)/../references\" references";
+    match fs::symlink_metadata(&references) {
+        Err(_) => panic!("{} is missing (ADR-0126); {hint}", references.display()),
+        Ok(m) => assert!(
+            m.file_type().is_symlink(),
+            "{} exists but is not a symlink to the main worktree's references/ (ADR-0126); \
+             move it away, then {hint}",
+            references.display()
+        ),
+    }
+    assert_eq!(
+        fs::canonicalize(&references)
+            .map_err(|e| format!("{} does not resolve ({e}); {hint}", references.display()))?,
+        main_references.canonicalize()?,
+        "{} does not resolve to {} (ADR-0126); remove it, then {hint}",
+        references.display(),
+        main_references.display()
     );
     Ok(())
 }
