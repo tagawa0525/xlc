@@ -7,10 +7,11 @@ fn rule() -> Vec<(f64, f64)> {
 }
 
 #[test]
-fn known_corner_fluxes_scale_the_corner_estimates() {
-    // core の形（未知数が角の点の不均質な中性子束 Φ、ノードの均質な角の値は Φ / C）で解いた Φ を既知とし、ノードの
-    // 均質な角の値を s_p × 見込み（見込みのノードの間の比は 1/C と同じ、角の点ごとの大きさは任意の t_p）として解くと、
-    // 外周の真空の辺の流れ r Φ は既知の量になり、s_p t_p が Φ_p に戻る（ADR-0125）
+fn corner_scales_do_not_change_the_homogeneous_corner_values() {
+    // core の形（未知数が角の点の不均質な中性子束 Φ、ノードの均質な角の値は Φ / C）で解いた Φ と、ノードの均質な角の
+    // 値を s_p × 見込み（見込みのノードの間の比は 1/C と同じ、角の点ごとの大きさは任意の t_p）として解いた s_p は、
+    // s_p t_p = Φ_p を満たす。外周の真空の辺の流れも均質な角の値に比例するので、式は均質な角の値だけで決まる
+    // （lattice の CPB。ADR-0131）
     let total = [1.0 / (3.0 * 1.4), 1.0 / (3.0 * 0.4)];
     let scatter = vec![
         vec![total[0] - 0.010 - 0.017, 0.017],
@@ -63,7 +64,7 @@ fn known_corner_fluxes_scale_the_corner_estimates() {
             .collect()
     };
     let zero = vec![false; 6];
-    let phi = corner_balance(2, 1, &nodes(&|n, c, g| 1.0 / cdf(n, c, g)), &zero, None).unwrap();
+    let phi = corner_balance(2, 1, &nodes(&|n, c, g| 1.0 / cdf(n, c, g)), &zero).unwrap();
     // ノード n の角 c の角の点（x が速い 3 × 2）
     let point = |n: usize, c: usize| [n, n + 1, n + 4, n + 3][c];
     let t = |p: usize| 1.0 + 0.1 * p as f64;
@@ -72,7 +73,6 @@ fn known_corner_fluxes_scale_the_corner_estimates() {
         1,
         &nodes(&|n, c, g| t(point(n, c)) / cdf(n, c, g)),
         &zero,
-        Some(&phi),
     )
     .unwrap();
     for p in 0..6 {
@@ -207,7 +207,7 @@ fn vacuum_corners_follow_the_fine_mesh_diffusion() {
             weights: [[1.0; 2]; 4],
             outflow: [None, Some([ratio; 2]), None, Some([ratio; 2])],
         };
-        let corners = corner_balance(1, 1, &[node], &[false; 4], None).unwrap();
+        let corners = corner_balance(1, 1, &[node], &[false; 4]).unwrap();
         // 角の点（x が速い）と、参照の角（-x -y、+x -y、+x +y、-x +y）
         for (p, c) in [0, 1, 3, 2].into_iter().enumerate() {
             let limit = if c == 2 { bound } else { 0.01 };

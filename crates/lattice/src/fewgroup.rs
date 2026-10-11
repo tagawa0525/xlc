@@ -723,7 +723,8 @@ pub fn node_grid(nodes: &[Node]) -> Result<NodeGrid, String> {
 /// - ノード n の角 c の均質な値の見込みは h̃ = φ_x φ_y / φ̄（φ_x、φ_y は角 c を含む x と y の辺の、1ノードの問題の
 ///   均質な面の中性子束 = 辺の不均質な中性子束 / ADF、φ̄ はノード平均）
 /// - 均質な角の値を s_p h̃ とし、core と同じ展開（参照のノード平均と辺の正味の中性子流、格子の k）と角の点の
-///   バランス（`corner_balance`。真空の辺の流れは既知の r Φ_p）で s_p を解く。s_p が正でなければエラー
+///   バランス（`corner_balance`。真空の辺の流れは r × ADF × 均質な角の値。ADR-0131）で s_p を解く。s_p が正で
+///   なければエラー
 /// - CDF = Φ_p / (s_p h̃)。反射体のノードの、角の点が燃料（核分裂のある）のノードにも接する角は、それらのノードの
 ///   CDF の調和平均で割り、`normalized_corners` に印を付ける
 /// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均（解析的な体積）/（Σf,g × 再構成した均質な中性子束の
@@ -856,18 +857,20 @@ fn node_pins(
             conditions: &conditions[n],
             diffusion: [fews[n].diffusion[0], fews[n].diffusion[1]],
             weights: estimates[n],
-            // 外周の真空の辺（面 -x、+x、-y、+y は辺 0、1、3、2）の流れ r Φ。鏡面反射は 0
+            // 外周の真空の辺（面 -x、+x、-y、+y は辺 0、1、3、2）の流れ r f × 均質な角の値（f は f* で割る前の
+            // ADF。core と同じ。ADR-0131）。鏡面反射は 0
             outflow: std::array::from_fn(|face| {
                 let side = FACES[face];
                 match neighbors[n][side] {
-                    None => fews[n].vacuum_ratio[side].as_ref().map(|r| [r[0], r[1]]),
+                    None => fews[n].vacuum_ratio[side]
+                        .as_ref()
+                        .map(|r| std::array::from_fn(|g| r[g] * fews[n].adf[side][g])),
                     Some(_) => None,
                 }
             }),
         })
         .collect();
-    let scales =
-        corner_balance(nx, ny, &corner_nodes, &vec![false; points], Some(&phi)).map_err(error)?;
+    let scales = corner_balance(nx, ny, &corner_nodes, &vec![false; points]).map_err(error)?;
     for (p, (s, f)) in scales.iter().zip(&phi).enumerate() {
         tracing::debug!(
             point = p,
@@ -2875,7 +2878,7 @@ mod tests {
             })
             .collect();
         let zero = vec![false; (nx + 1) * (ny + 1)];
-        let phi = corner_balance(nx, ny, &corner_nodes, &zero, None).unwrap();
+        let phi = corner_balance(nx, ny, &corner_nodes, &zero).unwrap();
         // 角の点の不均質な中性子束: 角の点に接する格子の中の領域の中性子束の平均（少数群は 2 群のまま）
         let (width, height): (f64, f64) = (
             lattice.widths().iter().sum(),

@@ -452,25 +452,29 @@ fn corner_fluxes(
             let local = i + nx * j;
             let n = local + nx * ny * k;
             let (m, _) = constants[local];
-            // 外周の真空の辺を通る流れ。真空の辺の比 r は不均質な中性子束に対する比（ADR-0101）で、角の点の不均質な
-            // 中性子束は Φ なので r Φ。反射と中性子束ゼロは 0
+            // 外周の真空の辺を通る流れ r f φ_c。面の条件（ADR-0101 の J = r f φ）を均質な角の値 φ_c = Φ / CDF に
+            // 課す（ADR-0131）。不均質な Φ に r を掛けないのは、均質な角の値を均質な量だけで決めるため。反射と
+            // 中性子束ゼロは 0
             let on_boundary = [i == 0, i == nx - 1, j == 0, j == ny - 1];
             let mut outflow = [None; 4];
             for (face, out) in outflow.iter_mut().enumerate() {
                 if !on_boundary[face] {
                     continue;
                 }
-                *out = match problem.boundaries[face] {
-                    Boundary::Reflective | Boundary::ZeroFlux => None,
-                    Boundary::Marshak => Some([0.5; 2]),
-                    // 辺（左、右、上、下）の番号は、面（-x、+x、-y、+y）の順に 0、1、3、2
+                // 辺（左、右、上、下）の番号は、面（-x、+x、-y、+y）の順に 0、1、3、2
+                let side = [0, 1, 3, 2][face];
+                let ratio = match problem.boundaries[face] {
+                    Boundary::Reflective | Boundary::ZeroFlux => continue,
+                    Boundary::Marshak => [0.5; 2],
                     Boundary::Vacuum => {
-                        let r = m.vacuum_ratio[[0, 1, 3, 2][face]]
+                        let r = m.vacuum_ratio[side]
                             .as_ref()
                             .ok_or_else(|| format!("node {n}: vacuum side without a ratio"))?;
-                        Some([r[0], r[1]])
+                        [r[0], r[1]]
                     }
                 };
+                // 外周の辺に f* がないことは、NEM の解で確かめてある（`check_normalized_adfs`）
+                *out = Some(std::array::from_fn(|g| ratio[g] * m.adf[side][g]));
             }
             nodes.push(CornerNode {
                 model: &models[local],
@@ -494,7 +498,7 @@ fn corner_fluxes(
             })
         })
         .collect();
-    corner_balance(nx, ny, &nodes, &zero, None)
+    corner_balance(nx, ny, &nodes, &zero)
 }
 
 /// セルの出力 Σ_g Σf,g φ̄_g f_g（[行（-y から）][列]）
