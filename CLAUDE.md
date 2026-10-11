@@ -44,6 +44,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する。`checks | tail && git merge`
   のようにつなぐと、失敗してもマージに進む
 - ADR は `design-records check`（`.pre-commit-config.yaml` の hook で、run-checks.sh も `id: design-records` のあるリポジトリで実行する）でも確かめる
+- ADR と issue の番号は `design-records new [--kind issue]` で振る（タグで予約。docs/adr/README.md）。手で最大の番号 + 1 を振らない
 - worktree は `~/.claude/scripts/worktree-add.sh <branch>` で作る（/tmp に作ると gitleaks の hook が失敗する）
 - 実装を始めたあとでテストだけをコミットするときは、テストの部分だけをステージする（`git stash` は他のセッションと
   共有なので使わない）
