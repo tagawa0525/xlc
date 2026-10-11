@@ -306,7 +306,7 @@ M3 では作らない。Problem 5 の実測の値（表 P5-7）は臨界ホウ�
 - `normalized_adfs_toward_assembly_layers_take_unit_adfs`: 反射体の位置の f*の辺が集合体の位置の核分裂のない層に
   向く x と y の面は両側 1、反射体の位置に向くか、f* の側が反射体の位置でなければエラー
 
-比較（examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」、fa4fbbc2、2026-10-12。段階
+比較（examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」、e2384b2a、2026-10-12。段階
 `core-corner`、`core-corner-outline`、`core-corner-I`）:
 
 - 角型の格子のノードだけの炉心は、反射体どうしの面に各側の ADF を使って、角型の格子の MOC の k を +0.0013 pcm、
