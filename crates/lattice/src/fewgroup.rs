@@ -2552,53 +2552,66 @@ mod tests {
         assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 1);
     }
 
-    /// 燃料のピンと水のセルを市松に並べた 2 × 2（右と上が真空）と、その解。行は上から
-    fn checkerboard() -> (Lattice, Solution, Vec<Material>, Boundaries) {
+    /// 燃料のピン 2 × 2 の右と上に水のセルを 1 列ずつ並べた 3 × 3（右が真空、ほかは鏡面反射）と、その解。燃料は
+    /// 真空に接しない
+    fn l_shaped() -> (Lattice, Solution, Vec<Material>, Boundaries) {
         let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
         let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
         let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
         let cell = PinCell::new(1.26, vec![]).unwrap();
         let lattice = Lattice::rectilinear(
-            vec![1.26; 2],
-            vec![1.26; 2],
+            vec![1.26; 3],
+            vec![1.26; 3],
             vec![Cell::Pin(pin), Cell::Pin(cell)],
-            vec![vec![1, 0], vec![0, 1]],
+            vec![vec![1, 1, 1], vec![0, 0, 1], vec![0, 0, 1]],
         )
         .unwrap();
         let boundaries = Boundaries {
             right: Boundary::Vacuum,
-            top: Boundary::Vacuum,
+
             ..Boundaries::REFLECTIVE
         };
         let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
-        // 領域: 上の行（水、燃料のピンの 2 領域）、下の行（燃料のピンの 2 領域、水）
-        let materials = vec![
-            water.clone(),
-            fuel.clone(),
-            water.clone(),
-            fuel,
-            water.clone(),
-            water,
-        ];
+        // ピンの中心の領域だけ燃料、ほかは水
+        let materials: Vec<Material> = (0..lattice.cells())
+            .flat_map(|cell| {
+                let fuelled = lattice
+                    .cell_type(cell)
+                    .pin()
+                    .is_some_and(|p| !p.radii().is_empty());
+                lattice
+                    .cell_regions(cell)
+                    .enumerate()
+                    .map(|(k, _)| {
+                        if fuelled && k == 0 {
+                            fuel.clone()
+                        } else {
+                            water.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
         let refs: Vec<&Material> = materials.iter().collect();
         let solution = solve(&tracking, &refs, &Options::default()).unwrap();
         (lattice, solution, materials, boundaries)
     }
 
     #[test]
-    fn checkerboard_pins_reproduce_the_lattice() {
-        // 2 × 2 の、燃料と反射体（水）の市松。反射体の角は 2 つの燃料の面と、斜めの燃料に接する（ADR-0125）
-        let (lattice, solution, materials, boundaries) = checkerboard();
+    fn l_shaped_pins_reproduce_the_lattice() {
+        // 燃料のノード（2 × 2 のピン）の上と右に反射体のノード、右上に水のノード（反射体の印なし。燃料に角だけで
+        // 接する）。反射体の角は燃料の面と、右上のノードに接する（ADR-0125）
+        let (lattice, solution, materials, boundaries) = l_shaped();
         let reflector = |n: Node| Node {
             reflector: true,
             ..n
         };
-        // x が速く、-y の行（格子の下の行、行の番号 1）から
+        // x が速く、-y の行（格子の行 1、2）から
         let nodes = [
-            node(0..1, 1..2),
-            reflector(node(1..2, 1..2)),
-            reflector(node(0..1, 0..1)),
-            node(1..2, 0..1),
+            node(0..2, 1..3),
+            reflector(node(2..3, 1..3)),
+            reflector(node(0..2, 0..1)),
+            node(2..3, 0..1),
         ];
         assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
     }
@@ -2656,8 +2669,8 @@ mod tests {
     #[test]
     fn one_reflective_node_keeps_the_assembly_pins() {
         // 外周がすべて鏡面反射の格子を1つのノードにすると、均質な解は平らで、CDF は角の不均質な中性子束 /
-        // ノード平均（`pin_shapes`）に一致する。形状関数の分母は Σf × 均質な中性子束で、`pin_shapes` の解析的な
-        // 体積の核分裂率の平均との差は、トラックの体積との差の程度
+        // ノード平均（`pin_shapes`）に一致する。形状関数の分母は Σf × 均質な中性子束（トラックの体積で平均した
+        // ノード平均）で、`pin_shapes` の分母（解析的な体積で平均した核分裂率）との比だけ違う
         let (lattice, solution, materials) = margined(0.04);
         let refs: Vec<&Material> = materials.iter().collect();
         let fine = fine();
@@ -2683,25 +2696,39 @@ mod tests {
         .unwrap();
         let pins = fgs[0].pins.as_ref().unwrap();
         assert_eq!((&pins.dx, &pins.dy), (&assembly.dx, &assembly.dy));
+        // 平らさは MOC の鏡面反射の辺の正味の中性子流（収束の許容差の程度で 0）の程度
+        let flat = |got: f64, want: f64| (got - want).abs() < 1e-6 * want;
         for (got, want) in pins
             .corners
             .iter()
             .flatten()
             .zip(assembly.corners.iter().flatten())
         {
-            assert!((got - want).abs() < 1e-6 * want, "{got} vs {want}");
+            assert!(flat(*got, *want), "{got} vs {want}");
         }
-        for (got, want) in pins
-            .form
-            .iter()
-            .flatten()
-            .flatten()
-            .zip(assembly.form.iter().flatten().flatten())
-        {
-            assert!(
-                (got - want).abs() < 1e-5 * want.max(1e-3),
-                "{got} vs {want}"
-            );
+        let volumes = lattice.volumes();
+        let area: f64 = volumes.iter().sum();
+        let (track_volume, track) = (solution.volumes.iter().sum::<f64>(), &solution.volumes);
+        for g in 0..2 {
+            let analytic = (0..refs.len())
+                .map(|r| volumes[r] * solution.flux[r][g] * refs[r].fission[g])
+                .sum::<f64>()
+                / area;
+            let average = (0..refs.len())
+                .map(|r| track[r] * solution.flux[r][g])
+                .sum::<f64>()
+                / track_volume;
+            let ratio = analytic / (fgs[0].fission[g] * average);
+            for (got, want) in pins.form[g]
+                .iter()
+                .flatten()
+                .zip(assembly.form[g].iter().flatten())
+            {
+                assert!(
+                    (got - want * ratio).abs() < 1e-6 * want.max(1e-3),
+                    "group {g}: {got} vs {want} × {ratio}"
+                );
+            }
         }
         assert_eq!(pins.normalized_corners, vec![false; 4]);
     }
