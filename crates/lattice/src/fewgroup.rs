@@ -2056,6 +2056,7 @@ mod tests {
             fine.bounds(),
             &Boundaries::REFLECTIVE,
             &nodes,
+            false,
         )
         .unwrap();
         assert_eq!(fgs.len(), 2);
@@ -2101,6 +2102,7 @@ mod tests {
             fine.bounds(),
             &boundaries,
             &nodes,
+            false,
         )
         .unwrap();
         let (fuel, reflector) = (&fgs[0], &fgs[1]);
@@ -2267,6 +2269,7 @@ mod tests {
                 fine.bounds(),
                 boundaries,
                 nodes,
+                false,
             )
         };
         let reflector = |n: Node| Node {
@@ -2313,11 +2316,394 @@ mod tests {
             fine.bounds(),
             &Boundaries::REFLECTIVE,
             &[node(0..1, 0..2), node(1..2, 0..1), node(1..2, 1..2)],
+            false,
         );
         assert!(
             matches!(misaligned, Err(HomogenizeError::Nodes(_))),
             "{misaligned:?}"
         );
+    }
+
+    /// `nodes`（x が速く、-y の行から並べた nx × ny の格子）の定数と形状（ADR-0125）で、core の形の角の点の釣り合い
+    /// （未知数が角の点の不均質な中性子束、均質な角の値は Φ / CDF）を解くと、格子の角の点の不均質な中性子束（角の点に
+    /// 接する領域の中性子束の平均）に戻り、再構成したセルの出力（Σf × 均質な中性子束のセルの平均 × 形状関数）が
+    /// MOC のセルの核分裂率に戻ることを確かめる。ノード平均と面の正味の中性子流は、core の NEM が GET で再現する参照の値
+    fn assert_pins_reproduce(
+        lattice: &Lattice,
+        solution: &Solution,
+        materials: &[Material],
+        boundaries: &Boundaries,
+        nodes: &[Node],
+        nx: usize,
+        ny: usize,
+    ) {
+        use xlc_numeric::pins::FACE_POINTS;
+        use xlc_numeric::pins::corners::{CornerNode, corner_balance};
+        use xlc_numeric::pins::node::{Conditions, Constants, NodeModel};
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let fgs = homogenize_nodes(
+            solution,
+            lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            boundaries,
+            nodes,
+            true,
+        )
+        .unwrap();
+        let references = node_references(
+            solution,
+            lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            boundaries,
+            nodes,
+        )
+        .unwrap();
+        let rule = xlc_numeric::quadrature::gauss_legendre(FACE_POINTS).unwrap();
+        let cells_rule = xlc_numeric::quadrature::gauss_legendre(6).unwrap();
+        let pins: Vec<&Pins> = fgs.iter().map(|f| f.pins.as_ref().unwrap()).collect();
+        // ノード n の角 c の角の点（x が速い (nx + 1) × (ny + 1)）
+        let point = |n: usize, c: usize| {
+            let (i, j) = (n % nx, n / nx);
+            let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
+            ci + (nx + 1) * cj
+        };
+        // 炉心の CDF: 燃料の CDF で割った角は、角の点に接する燃料のノードの CDF の調和平均を掛ける
+        let cdf = |n: usize, c: usize, g: usize| -> f64 {
+            if !pins[n].normalized_corners[c] {
+                return pins[n].corners[c][g];
+            }
+            let p = point(n, c);
+            let fuel: Vec<f64> = (0..nodes.len())
+                .filter(|&m| !nodes[m].reflector)
+                .flat_map(|m| {
+                    (0..4)
+                        .filter(move |&d| point(m, d) == p)
+                        .map(move |d| (m, d))
+                })
+                .map(|(m, d)| pins[m].corners[d][g])
+                .collect();
+            assert!(!fuel.is_empty(), "node {n} corner {c}");
+            let harmonic = fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f).sum::<f64>();
+            pins[n].corners[c][g] * harmonic
+        };
+        let models: Vec<NodeModel> = references
+            .iter()
+            .zip(&fgs)
+            .map(|(r, f)| {
+                let constants = Constants {
+                    total: &f.total,
+                    scatter: &f.scatter,
+                    nu_fission: &f.nu_fission,
+                    chi: &f.chi,
+                    diffusion: &f.diffusion,
+                };
+                NodeModel::new(
+                    &constants,
+                    solution.k,
+                    [0.5 * r.size[0], 0.5 * r.size[1]],
+                    &rule,
+                )
+                .unwrap()
+            })
+            .collect();
+        let conditions: Vec<Conditions> = references
+            .iter()
+            .map(|r| {
+                // 辺（左、右、上、下）の外向きの流れを、面（-x、+x、-y、+y）の座標の正の向きの流れにする
+                let current = |side: usize, sign: f64| {
+                    [sign * r.currents[side][0], sign * r.currents[side][1]]
+                };
+                Conditions {
+                    half: [0.5 * r.size[0], 0.5 * r.size[1]],
+                    average: [r.average[0], r.average[1]],
+                    corners: [[0.0; 2]; 4],
+                    currents: [
+                        current(0, -1.0),
+                        current(1, 1.0),
+                        current(3, -1.0),
+                        current(2, 1.0),
+                    ],
+                    axial_leakage: [0.0; 2],
+                }
+            })
+            .collect();
+        let corner_nodes: Vec<CornerNode> = (0..nodes.len())
+            .map(|n| CornerNode {
+                model: &models[n],
+                conditions: &conditions[n],
+                diffusion: [fgs[n].diffusion[0], fgs[n].diffusion[1]],
+                weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdf(n, c, g))),
+                outflow: std::array::from_fn(|face| {
+                    fgs[n].vacuum_ratio[[0, 1, 3, 2][face]]
+                        .as_ref()
+                        .map(|r| [r[0], r[1]])
+                }),
+            })
+            .collect();
+        let zero = vec![false; (nx + 1) * (ny + 1)];
+        let phi = corner_balance(nx, ny, &corner_nodes, &zero, None).unwrap();
+        // 角の点の不均質な中性子束: 角の点に接する格子の中の領域の中性子束の平均（少数群は 2 群のまま）
+        let (width, height): (f64, f64) = (
+            lattice.widths().iter().sum(),
+            lattice.heights().iter().sum(),
+        );
+        let x_edges: Vec<f64> = (0..=nx)
+            .map(|i| nodes[..i].iter().map(|m| r_width(lattice, m)).sum())
+            .collect();
+        let y_edges: Vec<f64> = (0..=ny)
+            .map(|j| (0..j).map(|jj| r_height(lattice, &nodes[jj * nx])).sum())
+            .collect();
+        for cj in 0..=ny {
+            for ci in 0..=nx {
+                let (x, y) = (x_edges[ci], y_edges[cj]);
+                let e = 1e-9 * width.max(height);
+                let mut want = [0.0; 2];
+                let mut count = 0.0;
+                for (sx, sy) in [(1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)] {
+                    let (px, py) = (x + sx * e, y + sy * e);
+                    if px <= 0.0 || px >= width || py <= 0.0 || py >= height {
+                        continue;
+                    }
+                    let region = lattice.region_at(px - 0.5 * width, py - 0.5 * height);
+                    for g in 0..2 {
+                        want[g] += solution.flux[region][g];
+                    }
+                    count += 1.0;
+                }
+                let got = phi[ci + (nx + 1) * cj];
+                for g in 0..2 {
+                    let want = want[g] / count;
+                    assert!(
+                        (got[g] - want).abs() < 1e-9 * want,
+                        "corner point ({ci}, {cj}) group {g}: {} vs {want}",
+                        got[g]
+                    );
+                }
+            }
+        }
+        // セルの出力が MOC のセルの核分裂率（解析的な体積で平均）に戻る
+        let volumes = lattice.volumes();
+        for (n, node) in nodes.iter().enumerate() {
+            let mut c = conditions[n].clone();
+            c.corners = std::array::from_fn(|k| {
+                let p = phi[point(n, k)];
+                std::array::from_fn(|g| p[g] / cdf(n, k, g))
+            });
+            let flux = models[n].solve(&c);
+            let [a, b] = c.half;
+            let mut y0 = -b;
+            for (j, dy) in pins[n].dy.iter().enumerate() {
+                let mut x0 = -a;
+                for (i, dx) in pins[n].dx.iter().enumerate() {
+                    let average = flux.average(x0, x0 + dx, y0, y0 + dy, &cells_rule);
+                    // 行は -y から（格子の行は上から）
+                    let row = node.rows.end - 1 - j;
+                    let cell = row * lattice.columns() + node.columns.start + i;
+                    let (mut rate, mut area) = ([0.0; 2], 0.0);
+                    for region in lattice.cell_regions(cell) {
+                        area += volumes[region];
+                        for g in 0..2 {
+                            rate[g] += volumes[region]
+                                * solution.flux[region][g]
+                                * refs[region].fission[g];
+                        }
+                    }
+                    for g in 0..2 {
+                        let want = rate[g] / area;
+                        let got = fgs[n].fission[g] * average[g] * pins[n].form[g][j][i];
+                        assert!(
+                            (got - want).abs() < 1e-9 * want.max(1e-12),
+                            "node {n} cell ({j}, {i}) group {g}: {got} vs {want}"
+                        );
+                    }
+                    x0 += dx;
+                }
+                y0 += dy;
+            }
+        }
+    }
+
+    /// ノードの幅と高さ
+    fn r_width(lattice: &Lattice, node: &Node) -> f64 {
+        lattice.widths()[node.columns.clone()].iter().sum()
+    }
+
+    fn r_height(lattice: &Lattice, node: &Node) -> f64 {
+        lattice.heights()[node.rows.clone()].iter().sum()
+    }
+
+    #[test]
+    fn strip_pins_reproduce_the_lattice() {
+        // 燃料と水の帯（右が真空）を燃料と反射体のノードに分けた定数と形状は、定数を作った体系の角の中性子束と
+        // セルの核分裂率を再現する（ADR-0125）
+        let (lattice, solution, materials, boundaries) = strip();
+        let nodes = [
+            node(0..1, 0..1),
+            Node {
+                reflector: true,
+                ..node(1..2, 0..1)
+            },
+        ];
+        assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 1);
+    }
+
+    /// 燃料のピンと水のセルを市松に並べた 2 × 2（右と上が真空）と、その解。行は上から
+    fn checkerboard() -> (Lattice, Solution, Vec<Material>, Boundaries) {
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 2],
+            vec![1.26; 2],
+            vec![Cell::Pin(pin), Cell::Pin(cell)],
+            vec![vec![1, 0], vec![0, 1]],
+        )
+        .unwrap();
+        let boundaries = Boundaries {
+            right: Boundary::Vacuum,
+            top: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        // 領域: 上の行（水、燃料のピンの 2 領域）、下の行（燃料のピンの 2 領域、水）
+        let materials = vec![
+            water.clone(),
+            fuel.clone(),
+            water.clone(),
+            fuel,
+            water.clone(),
+            water,
+        ];
+        let refs: Vec<&Material> = materials.iter().collect();
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        (lattice, solution, materials, boundaries)
+    }
+
+    #[test]
+    fn checkerboard_pins_reproduce_the_lattice() {
+        // 2 × 2 の、燃料と反射体（水）の市松。反射体の角は 2 つの燃料の面と、斜めの燃料に接する（ADR-0125）
+        let (lattice, solution, materials, boundaries) = checkerboard();
+        let reflector = |n: Node| Node {
+            reflector: true,
+            ..n
+        };
+        // x が速く、-y の行（格子の下の行、行の番号 1）から
+        let nodes = [
+            node(0..1, 1..2),
+            reflector(node(1..2, 1..2)),
+            reflector(node(0..1, 0..1)),
+            node(1..2, 0..1),
+        ];
+        assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
+    }
+
+    #[test]
+    fn strip_corner_factors_follow_the_face_discontinuity() {
+        // 帯（上と下は鏡面反射）では均質な解が x にしか変わらず、境の角の均質な値の見込みは境の面の均質な中性子束に
+        // なる。反射体の燃料に接する角の C* は、境の面の f* に一致する（ADR-0125）
+        let (lattice, solution, materials, boundaries) = strip();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let nodes = [
+            node(0..1, 0..1),
+            Node {
+                reflector: true,
+                ..node(1..2, 0..1)
+            },
+        ];
+        let fgs = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+            true,
+        )
+        .unwrap();
+        let reflector = &fgs[1];
+        let pins = reflector.pins.as_ref().unwrap();
+        // 燃料に接する角は -x -y と -x +y
+        assert_eq!(pins.normalized_corners, vec![true, false, false, true]);
+        assert!(
+            !fgs[0]
+                .pins
+                .as_ref()
+                .unwrap()
+                .normalized_corners
+                .contains(&true)
+        );
+        for c in [0, 3] {
+            for g in 0..2 {
+                let (got, want) = (pins.corners[c][g], reflector.adf[0][g]);
+                assert!(
+                    (got - want).abs() < 1e-6 * want,
+                    "corner {c} group {g}: {got} vs {want}"
+                );
+            }
+        }
+        // 反射体の形状関数は 0
+        assert!(pins.form.iter().flatten().flatten().all(|&f| f == 0.0));
+    }
+
+    #[test]
+    fn one_reflective_node_keeps_the_assembly_pins() {
+        // 外周がすべて鏡面反射の格子を1つのノードにすると、均質な解は平らで、CDF は角の不均質な中性子束 /
+        // ノード平均（`pin_shapes`）に一致する。形状関数の分母は Σf × 均質な中性子束で、`pin_shapes` の解析的な
+        // 体積の核分裂率の平均との差は、トラックの体積との差の程度
+        let (lattice, solution, materials) = margined(0.04);
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let assembly = pin_shapes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+        )
+        .unwrap();
+        let fgs = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &Boundaries::REFLECTIVE,
+            &[node(0..4, 0..4)],
+            true,
+        )
+        .unwrap();
+        let pins = fgs[0].pins.as_ref().unwrap();
+        assert_eq!((&pins.dx, &pins.dy), (&assembly.dx, &assembly.dy));
+        for (got, want) in pins
+            .corners
+            .iter()
+            .flatten()
+            .zip(assembly.corners.iter().flatten())
+        {
+            assert!((got - want).abs() < 1e-6 * want, "{got} vs {want}");
+        }
+        for (got, want) in pins
+            .form
+            .iter()
+            .flatten()
+            .flatten()
+            .zip(assembly.form.iter().flatten().flatten())
+        {
+            assert!(
+                (got - want).abs() < 1e-5 * want.max(1e-3),
+                "{got} vs {want}"
+            );
+        }
+        assert_eq!(pins.normalized_corners, vec![false; 4]);
     }
 
     /// 2×2 のピン（対角に燃料）の周りに幅 0.04 の余白を付けた格子、領域ごとの物質、鏡面反射の解
