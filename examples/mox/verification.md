@@ -30,8 +30,8 @@ OpenMC のデータは examples/vera/openmc_library.py で作る（Pu-238〜242 
 target/release/xs examples/mox/xs.toml                    # mox.msgpack（16 コアで 1 分 49 秒）
 target/release/lattice examples/mox/pincell-mox1.toml     # 7.5 秒
 cargo run --release -p xlc-lattice --example fuel_xs -- examples/mox/pincell-mox1.toml examples/mox/xlc-mox1.msgpack
-# references/openmc で（nix develop ../..#references の中、PATH に install/bin）
-venv/bin/python ../../examples/mox/openmc_model.py endfb80/cross_sections.xml MOX-1 mox-1 \
+# references/openmc で（nix develop ../..#references の中）
+python3 ../../examples/mox/openmc_model.py endfb80/cross_sections.xml MOX-1 mox-1 \
   ../../examples/mox/mox.msgpack 1000000 250 50 1
 cp mox-1/fuel-xs.msgpack ../../examples/mox/openmc-mox1.msgpack
 # リポジトリの根で（下の表はこの出力から）
