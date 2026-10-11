@@ -17,11 +17,8 @@ use xlc_numeric::lu::Lu;
 use xlc_numeric::quadrature::gauss_legendre;
 
 use crate::nem::{Boundary, Problem, Solution};
-use basis::FACE_POINTS;
-use node::{Conditions, NodeFlux, NodeModel};
-
-mod basis;
-mod node;
+use xlc_numeric::pins::FACE_POINTS;
+use xlc_numeric::pins::node::{Conditions, Constants, NodeFlux, NodeModel};
 
 /// セルの平均の Gauss-Legendre の点の数（各方向）。ピンのセル（1.26 cm）の中で κh ≲ 1 なので、6 点の誤差は 1e-12 より小さい
 const CELL_POINTS: usize = 6;
@@ -69,6 +66,17 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
         }
     }
     Ok(out)
+}
+
+/// 再構成のノードの展開の定数
+fn constants(m: &FewGroup) -> Constants<'_> {
+    Constants {
+        total: &m.total,
+        scatter: &m.scatter,
+        nu_fission: &m.nu_fission,
+        chi: &m.chi,
+        diffusion: &m.diffusion,
+    }
 }
 
 /// ノード n の少数群定数と形状関数
@@ -125,7 +133,7 @@ fn layer(
                 Some(model) => Rc::clone(model),
                 None => {
                     let model = Rc::new(
-                        NodeModel::new(m, solution.k, half, rule)
+                        NodeModel::new(&constants(m), solution.k, half, rule)
                             .map_err(|e| format!("node {n}: {e}"))?,
                     );
                     cache.insert(key, Rc::clone(&model));
