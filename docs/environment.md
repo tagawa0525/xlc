@@ -3,7 +3,7 @@
 xlc の計算は、NJOY（核データ処理）と OpenMC（モンテカルロ計算）の結果と比べて検証する。道具（NJOY、OpenMC と
 その Python API）と評価済み核データは、`flake.nix` の packages で版とハッシュごと固定する（ADR-0124）。
 計算の置き場 `references/` は git で追跡しない。そのうち外から取る入力と道具は、消しても下の手順で作り直せる
-（道具で作る参照の結果を作り直す段階は #0018 で整える）。
+（取る先の分からない仕様書の PDF を除く。道具で作る参照の結果を作り直す段階は #0018 で整える）。
 direnv を使う場合は、リポジトリの直下に `use flake` と書いた `.envrc` を置き（手元の設定として git では追跡しない）、
 一度 `direnv allow` すると、`default` の devShell に自動で入る。
 
@@ -30,6 +30,9 @@ NNDC の zip（neutrons、thermal_scatt、decay、nfy）を URL と sha256 で�
 nix build .#endf -o references/endf
 ```
 
+`references/endf` に手で取った木（ディレクトリ）があると `nix build` は symlink を作れないので、先にどける。worktree の
+`references` は main の `references/` を指すので、ほかの worktree で ENDF を読む計算が走っていないときに行う。
+
 入力の TOML と dvc.yaml は `references/endf/ENDF-B-VIII.0_<part>/...` を指す。
 
 ## 仕様書の PDF
@@ -40,6 +43,8 @@ VERA、C5G7、MOX の仕様書は再配布できないので、URL と sha256 �
 ```sh
 sha256sum -c docs/specs.sha256
 ```
+
+「URL 不明」の PDF（C5G7 と MOX の仕様）は取り直す先がないので、`references/` から消さない。
 
 ## NJOY2016（2016.79）
 
