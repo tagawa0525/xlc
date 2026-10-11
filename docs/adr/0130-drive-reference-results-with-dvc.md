@@ -111,7 +111,8 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 ## 確認
 
 examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro examples/vera/dvc.yaml` で Slurm の上で走らせた
-（0f0ac24c、2026-10-11、全体で 57 分）。ライブラリの温度は、main が 2A と 2Q のために足した 565 K と S(α,β) の温度を
+（0f0ac24c、2026-10-11、全体で 57 分）。`dvc.lock` の deps はこのコミットの版で、出し直すにはこのコミットを checkout して
+`dvc repro` する。ライブラリの温度は、main が 2A と 2Q のために足した 565 K と S(α,β) の温度を
 含む（`openmc-library.toml`）。
 
 - OpenMC 1B の k は 1.181783 ± 0.000063 で、examples/vera/verification.md の「参照解」の 1B（869bd88f に手で走らせた
@@ -132,6 +133,11 @@ examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro e
 
 ## 帰結
 
+- rebase やあとのコミットで deps（スクリプト、入力、コード）が変わると、`dvc.lock` は HEAD と合わなくなり、`dvc status` は
+  changed を示す。`dvc.lock` は、どの deps から出力を作ったかの記録なので、そのままでよい。HEAD で `dvc repro` すれば
+  変わった段階が走り直すので、結果が要るときだけ流す
+- ライブラリと OpenMC の段階はディレクトリを deps にする（案 I）ので、どの段階の outs でもないファイル（入力から消した
+  核種の HDF5、試しに置いたファイル）がディレクトリに残ると、そのハッシュが変わって走り直す。消した核種の HDF5 は手で消す
 - 段階にしたのは、ライブラリと VERA 1B だけである。1C〜2K、MOX、C5G7、#0005 の均質な媒質（`openmc_homogeneous.py`）、
   `openmc_balance.py`、`openmc_mg.py` は、同じ形（入力の TOML と段階）で足す（#0018）。`openmc_mg.py` は、
   `openmc_model.py` から移した位置の引数の読み方（既定値あり）を、それまで持つ
