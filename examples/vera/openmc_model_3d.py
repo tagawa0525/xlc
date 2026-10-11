@@ -19,8 +19,8 @@ openmc_model.py から import する。軸方向の層の並びと、層ごと�
 - 案内管と計装管は下部ノズルの上から上部ノズルの下まで（6.053〜397.51）
 - 支持格子は、表 3 の質量を 289 のセルに等しく分け、セルの外周の正方形の帯の枠にする（2Q と同じ。端の 2 つは
   Inconel-718、中間の 6 つは Zircaloy-4）
-- 3B の Pyrex の棒（16 本、図 5）は、下の端栓（SS304 の中実の棒、半径は被覆管の外側、2.54 cm）、毒物（15.761 から
-  360.68 cm）、プレナム（22.2 cm、被覆管の中は真空）で、上部ノズルの下端で切る（ノズルの中は均質な組成）。
+- 3B の Pyrex の棒（16 本、図 5）は、下の端栓（SS304 の中実の棒、半径は被覆管の外側、2.54 cm）、毒物（15.761〜376.441 cm、
+  高さ 360.68 cm）、プレナム（22.2 cm、被覆管の中は真空）で、上部ノズルの下端で切る（ノズルの中は均質な組成）。
   端栓の高さ 2.54 cm は下の端栓とする（毒物の上のプレナムの上端 398.641 cm が上部ノズルの中にあるので）。
   プレナムの内管は寸法がないので置かない
 - 3B のシンブルプラグ（Pyrex の棒のない 8 本の案内管）は SS304 の中実の棒で、表 9 の位置 383.31 cm を下端とする
@@ -39,7 +39,6 @@ extract は結果のディレクトリに次を書く:
   その統計誤差
 """
 
-import json
 import math
 import sys
 from functools import cache
@@ -53,7 +52,14 @@ import openmc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from openmc_common import input_path, material, read_input
+from openmc_common import (
+    box_settings,
+    material,
+    run_or_extract,
+    write_k,
+    write_pin_powers,
+)
+from openmc_common import read_run as common_read_run
 from openmc_model import (
     CLAD_INNER,
     CLAD_OUTER,
@@ -66,7 +72,6 @@ from openmc_model import (
     INSTRUMENT_OUTER,
     INSTRUMENT_TUBE,
     MODERATOR_DENSE,
-    PELLET,
     PITCH,
     PYREX,
     PYREX_RADII,
@@ -75,8 +80,11 @@ from openmc_model import (
     Frame,
     Layers,
     N,
+    concentric,
+    fuel_layers,
     octant_images,
-    outside,
+    pin_lattice,
+    temperature_mode,
 )
 
 # 天然の C の同位体の存在比（ADR-0079）
@@ -276,26 +284,6 @@ if not math.isclose(LEVELS[-1], FUEL_TOP):
     raise SystemExit("the axial levels do not end at the top of the fuel")
 
 
-def concentric(
-    layers: Layers, water: openmc.Material, frame: Frame | None
-) -> openmc.Universe:
-    """中心から外へ (物質, 外側の半径) の並び（None は真空）の円筒と、その外の減速材（`frame` があれば支持格子の枠）の
-    ユニバース。`layers` が空なら減速材だけ（燃料棒のない高さで、支持格子はない）。"""
-    if not layers:
-        if frame is not None:
-            raise SystemExit("a spacer grid frame around an empty cell")
-        return openmc.Universe(cells=[openmc.Cell(fill=water)])
-    cells = []
-    surface = None
-    for fill, radius in layers:
-        boundary = openmc.ZCylinder(r=radius)
-        region = -boundary if surface is None else +surface & -boundary
-        cells.append(openmc.Cell(fill=fill, region=region))
-        surface = boundary
-    cells.extend(outside(+surface, water, frame))
-    return openmc.Universe(cells=cells)
-
-
 class Materials:
     """問題の物質。"""
 
@@ -338,7 +326,7 @@ def fuel_rod(m: Materials, z: float) -> Layers:
     if ROD_BOTTOM <= z < FUEL_BOTTOM or PLENUM_TOP <= z < ROD_TOP:
         return [(m.clad, CLAD_OUTER)]
     if FUEL_BOTTOM <= z < FUEL_TOP:
-        return [(m.fuel, PELLET), (None, CLAD_INNER), (m.clad, CLAD_OUTER)]
+        return fuel_layers(m.fuel, m.clad)
     if FUEL_TOP <= z < PLENUM_TOP:
         return [(None, CLAD_INNER), (m.clad, CLAD_OUTER)]
     return []
@@ -399,12 +387,7 @@ def lattice_at(problem: str, m: Materials, z: float) -> openmc.RectLattice:
         universes[i][j] = tube(inside, GUIDE_INNER, GUIDE_OUTER)
     i, j = INSTRUMENT_TUBE
     universes[i][j] = tube([], INSTRUMENT_INNER, INSTRUMENT_OUTER)
-    lattice = openmc.RectLattice()
-    lattice.pitch = (PITCH, PITCH)
-    lattice.lower_left = (-N * PITCH / 2, -N * PITCH / 2)
-    lattice.universes = universes
-    lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=m.water)])
-    return lattice
+    return pin_lattice(universes, m.water)
 
 
 def geometry_of(problem: str, m: Materials) -> tuple[openmc.Geometry, float]:
@@ -439,36 +422,27 @@ def geometry_of(problem: str, m: Materials) -> tuple[openmc.Geometry, float]:
     return openmc.Geometry(cells), half
 
 
-def pin_mesh() -> openmc.RectilinearMesh:
-    """ピンのセルと表 P3-5 の 49 層に一致するメッシュ。"""
+def pin_mesh(z_grid: list[float]) -> openmc.RectilinearMesh:
+    """ピンのセルに一致し、z を `z_grid` で分けるメッシュ。"""
     edges = [(k - N / 2) * PITCH for k in range(N + 1)]
     mesh = openmc.RectilinearMesh()
     mesh.x_grid = edges
     mesh.y_grid = edges
+    mesh.z_grid = z_grid
+    return mesh
+
+
+def axial_mesh(half: float) -> openmc.RectilinearMesh:
+    """集合体の全体を表 P3-5 の 49 層に分けるメッシュ。"""
+    mesh = openmc.RectilinearMesh()
+    mesh.x_grid = [-half, half]
+    mesh.y_grid = [-half, half]
     mesh.z_grid = list(LEVELS)
     return mesh
 
 
-REQUIRED = {
-    "problem",
-    "cross-sections",
-    "particles",
-    "batches",
-    "inactive",
-    "seed",
-    "threads",
-}
-
-
 def read_run(source: Path) -> dict[str, Any]:
-    """入力の TOML を読み、問題を確かめ、パスを絶対パスにする。"""
-    run = read_input(source, REQUIRED, set())
-    if run["problem"] not in TEMPERATURE:
-        raise SystemExit(
-            f"unknown problem {run['problem']}; expected one of {list(TEMPERATURE)}"
-        )
-    run["cross-sections"] = input_path(source, run["cross-sections"])
-    return run
+    return common_read_run(source, list(TEMPERATURE))
 
 
 def solve(source: Path, work: Path) -> None:
@@ -480,14 +454,13 @@ def solve(source: Path, work: Path) -> None:
     materials.cross_sections = str(run["cross-sections"])
     geometry, half = geometry_of(problem, m)
 
-    settings = openmc.Settings()
-    settings.particles = run["particles"]
-    settings.batches = run["batches"]
-    settings.inactive = run["inactive"]
-    settings.seed = run["seed"]
-    settings.source = openmc.IndependentSource(
-        space=openmc.stats.Box((-half, -half, FUEL_BOTTOM), (half, half, FUEL_TOP)),
-        constraints={"fissionable": True},
+    settings = box_settings(
+        run["particles"],
+        run["batches"],
+        run["inactive"],
+        run["seed"],
+        (-half, -half, FUEL_BOTTOM),
+        (half, half, FUEL_TOP),
     )
     # 軸方向の源の収束を世代ごとに見るためのエントロピー（燃料の範囲を 4×4×48 に分ける）
     entropy = openmc.RegularMesh()
@@ -495,75 +468,69 @@ def solve(source: Path, work: Path) -> None:
     entropy.upper_right = (half, half, FUEL_TOP)
     entropy.dimension = (4, 4, 48)
     settings.entropy_mesh = entropy
-    # 温度の扱いは openmc_model.py の temperature_settings と同じ（600 K の問題はその温度の表、565 K の問題は H in H2O
-    # の S(α,β) を 550 K と 573.6 K で内挿する。ADR-0080）
-    method = "nearest" if TEMPERATURE[problem] == 600.0 else "interpolation"
-    settings.temperature = {"method": method, "tolerance": 1.0}
+    settings.temperature = temperature_mode(TEMPERATURE[problem])
 
-    tally = openmc.Tally(name="fission")
-    tally.filters = [openmc.MeshFilter(pin_mesh())]
-    tally.scores = ["fission"]
-    model = openmc.Model(geometry, materials, settings, openmc.Tallies([tally]))
+    # 層ごとのピン、全長で積分したピン、層ごとの集合体全体。積分した値も別の tally で数えるのは、ピンや層の間の世代
+    # ごとの相関を含めた統計誤差を、OpenMC に世代の値から出させるため（層ごとのピンの誤差の二乗和は相関を落とす）
+    meshes = {
+        "fission": pin_mesh(list(LEVELS)),
+        "pins": pin_mesh([FUEL_BOTTOM, FUEL_TOP]),
+        "axial": axial_mesh(half),
+    }
+    tallies = openmc.Tallies()
+    for name, mesh in meshes.items():
+        tally = openmc.Tally(name=name)
+        tally.filters = [openmc.MeshFilter(mesh)]
+        tally.scores = ["fission"]
+        tallies.append(tally)
+    model = openmc.Model(geometry, materials, settings, tallies)
     model.run(cwd=work, threads=run["threads"], output=False)
 
 
-def pin_powers(path: Path, rows: np.ndarray) -> None:
-    path.write_bytes(msgpack.packb({"format": "xlc-pin-powers", "rows": rows.tolist()}))
+def values(sp: openmc.StatePoint, name: str, shape: tuple[int, int, int]):
+    """tally `name` の平均と統計誤差を、[層（下から）][行（上から）][列] の形 `shape` にする（メッシュは x が最も速く、
+    次に y（下から）、z（下から））。"""
+    tally = sp.get_tally(name=name)
+    return tuple(
+        tally.get_values(scores=["fission"], value=v).reshape(shape)[:, ::-1, :]
+        for v in ("mean", "std_dev")
+    )
 
 
 def extract(source: Path, work: Path, results: Path) -> None:
     run = read_run(source)
     problem = run["problem"]
     results.mkdir(parents=True, exist_ok=True)
+    levels = len(LEVELS) - 1
     with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         k = sp.keff
-        tally = sp.get_tally(name="fission")
-        # メッシュは x が最も速く、次に y（下から）、z（下から）。[層（下から）][行（上から）][列] にする
-        shape = (len(LEVELS) - 1, N, N)
-        rate = tally.get_values(scores=["fission"]).reshape(shape)[:, ::-1, :]
-        std = tally.get_values(scores=["fission"], value="std_dev").reshape(shape)
-        std = std[:, ::-1, :]
-    heights = np.diff(LEVELS)[:, None, None]
-    fuel = rate.sum(axis=0) > 0
-    total = rate.sum()
+        rate, std = values(sp, "fission", (levels, N, N))
+        pins, pins_std = values(sp, "pins", (1, N, N))
+        axial, axial_std = values(sp, "axial", (levels, 1, 1))
+    heights = np.diff(LEVELS)
+    pins, pins_std = pins[0], pins_std[0]
+    fuel = pins > 0
+    height = LEVELS[-1] - LEVELS[0]
 
     # 全長で積分したピン: 燃料のピンの平均で 1
-    pins = rate.sum(axis=0)
-    scale = fuel.sum() / total
-    pin_powers(results / "pins.msgpack", pins * scale)
-    pin_powers(results / "pins-std.msgpack", np.sqrt((std**2).sum(axis=0)) * scale)
+    scale = fuel.sum() / pins.sum()
+    write_pin_powers(results / "pins.msgpack", pins * scale)
+    write_pin_powers(results / "pins-std.msgpack", pins_std * scale)
 
-    # 線密度: 燃料の全長 H での平均で 1
-    height = LEVELS[-1] - LEVELS[0]
-    axial_scale = height / total
-    axial = rate.sum(axis=(1, 2)) / heights[:, 0, 0] * axial_scale
-    axial_std = np.sqrt((std**2).sum(axis=(1, 2))) / heights[:, 0, 0] * axial_scale
-    layer_scale = height * fuel.sum() / total
+    # 線密度: 燃料の全長 H での平均で 1（層ごとのピンは、燃料のピンと全長での平均で 1）
+    axial_scale = height / axial.sum() / heights
+    layer_scale = height * fuel.sum() / rate.sum() / heights[:, None, None]
     layers = {
         "format": "xlc-axial-pin-powers",
         "bounds": list(LEVELS),
-        "axial": axial.tolist(),
-        "axial-std": axial_std.tolist(),
-        "layers": (rate / heights * layer_scale).tolist(),
-        "layers-std": (std / heights * layer_scale).tolist(),
+        "axial": (axial.ravel() * axial_scale).tolist(),
+        "axial-std": (axial_std.ravel() * axial_scale).tolist(),
+        "layers": (rate * layer_scale).tolist(),
+        "layers-std": (std * layer_scale).tolist(),
     }
     (results / "layers.msgpack").write_bytes(msgpack.packb(layers))
-    (results / "k.json").write_text(
-        json.dumps({"problem": problem, "k": k.nominal_value, "k-std": k.std_dev})
-        + "\n"
-    )
-    print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
-
-
-def main() -> None:
-    match sys.argv[1:]:
-        case ["run", source, work]:
-            solve(Path(source), Path(work))
-        case ["extract", source, work, results]:
-            extract(Path(source), Path(work), Path(results))
-        case _:
-            raise SystemExit(__doc__)
+    write_k(results / "k.json", problem, k)
 
 
 if __name__ == "__main__":
-    main()
+    run_or_extract(solve, extract, __doc__)
