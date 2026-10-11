@@ -31,4 +31,4 @@ CDF（角の不均質な中性子束 / 角の均質な中性子束）は、外�
 - 2026-10-11: PARCS v3.0 Theory Manual（5.1 節）、MPACT Theory Manual 4.3（13.1.3 節）、RENUS と Scarabee の角の扱いを調べ、
   格子の中で core と同じ角の点のバランスを解いて CDF を作る ADR-0125 を下書きした（proposed）
 - 2026-10-11: ADR-0125 を実装した。I 型の反射体の格子で、core の再構成が MOC のピン出力を RMS 0.080% で再現する
-  （examples/reflector/verification.md、610a1f3f）。REF1-2D と 5-2D の比較は残る（#0043、#0029、#0061）
+  （examples/reflector/verification.md、23e3a4a8）。REF1-2D と 5-2D の比較は残る（#0043、#0029、#0061）
