@@ -32,5 +32,5 @@ resolution: コミット 4e747b2
 - 2026-10-11: `resolved` に `deserialize_with` を付け、項目の欠けをエラーにした（コミット 4e747b2）。型は `Option` のまま、
   なしは nil で書く。形式（map のキーと nil）は変わらず、既存のライブラリ（examples/vera/vera.msgpack）は読める。
   `fewgroup.rs` の `Pins` の `Option` も同じ方式（table.rs の `nil_or_pins`）。table.rs の `AxisFile` の
-  `density` / `b10` は軸の名前で必須の項目が決まり、欠けは別のエラーになる。ADR-0013 の「結果」の食い違いの記述は、
+  `density` / `b10` は軸の名前で必須の項目が決まり、欠けは別のエラーになる（`reading_rejects_wrong_axis_fields`）。table の `pins` の欠けは `states_need_the_pins_key` が拒む。ADR-0013 の「結果」の食い違いの記述は、
   ADR が確定済みなのでそのまま残す
