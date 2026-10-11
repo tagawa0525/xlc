@@ -42,7 +42,7 @@ GUIDE_INNER = 0.561
 GUIDE_OUTER = 0.602
 INSTRUMENT_INNER = 0.559
 INSTRUMENT_OUTER = 0.605
-# 600 K の問題の被覆管と減速材と、案内管に入れるもの（Pyrex の棒、制御棒、計装管のシンブル。2E〜2J だけ）の温度 (K)
+# ライブラリにある温度そのものの問題（1B〜1D、2B〜2K）の被覆管と減速材の温度 (K)。温度のモードの選択に使う
 COLD = 600.0
 FUEL_TEMPERATURE = {
     "1B": 600.0,
@@ -305,27 +305,31 @@ def tube(
     return openmc.Universe(cells=cells)
 
 
-def pyrex_layers() -> Layers:
-    """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。"""
-    pyrex, steel = material("pyrex", PYREX, COLD), material("ss304", SS304, COLD)
+def pyrex_layers(temperature: float) -> Layers:
+    """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。`temperature` は物質の温度 (K)。"""
+    pyrex = material("pyrex", PYREX, temperature)
+    steel = material("ss304", SS304, temperature)
     fills = [None, steel, None, pyrex, None, steel]
     return list(zip(fills, PYREX_RADII))
 
 
-def rod_layers(name: str, nuclides: dict[str, float], radius: float) -> Layers:
-    """制御棒（半径 `radius` の吸収体と SS304 の被覆管。間は真空）の層。"""
-    absorber, steel = material(name, nuclides, COLD), material("ss304", SS304, COLD)
+def rod_layers(
+    name: str, nuclides: dict[str, float], radius: float, temperature: float
+) -> Layers:
+    """制御棒（半径 `radius` の吸収体と SS304 の被覆管。間は真空）の層。`temperature` は物質の温度 (K)。"""
+    absorber = material(name, nuclides, temperature)
+    steel = material("ss304", SS304, temperature)
     clad_in, clad_out = ROD_CLAD
     return [(absorber, radius), (None, clad_in), (steel, clad_out)]
 
 
-def thimble_layers() -> Layers:
-    """計装管のシンブル（中が真空の SS304 の管）の層。"""
+def thimble_layers(temperature: float) -> Layers:
+    """計装管のシンブル（中が真空の SS304 の管）の層。`temperature` は物質の温度 (K)。"""
     inner, outer = THIMBLE_RADII
-    return [(None, inner), (material("ss304", SS304, COLD), outer)]
+    return [(None, inner), (material("ss304", SS304, temperature), outer)]
 
 
-# 案内管に入れるものの層を作る関数と位置。Pyrex の 12 本は仕様書の図 5 の配置
+# 案内管に入れるものの層を作る関数（引数は物質の温度。減速材の温度にする）と位置。Pyrex の 12 本は仕様書の図 5 の配置
 INSERTS = {
     "2E": (
         pyrex_layers,
@@ -346,8 +350,8 @@ INSERTS = {
     ),
     # 24 本はすべての案内管（図 5）
     "2F": (pyrex_layers, GUIDE_TUBES),
-    "2G": (lambda: rod_layers("aic", AIC, 0.382), GUIDE_TUBES),
-    "2H": (lambda: rod_layers("b4c", B4C, 0.373), GUIDE_TUBES),
+    "2G": (lambda t: rod_layers("aic", AIC, 0.382, t), GUIDE_TUBES),
+    "2H": (lambda t: rod_layers("b4c", B4C, 0.373, t), GUIDE_TUBES),
     "2J": (pyrex_layers, GUIDE_TUBES),
     "2K": (pyrex_layers, GUIDE_TUBES),
 }
@@ -523,12 +527,12 @@ def main() -> None:
 
     insert = None
     if problem in INSERTS:
-        layers = INSERTS[problem][0]()
+        layers = INSERTS[problem][0](MODERATOR_TEMPERATURE[problem])
         add_materials(layers)
         insert = tube(layers, GUIDE_INNER, GUIDE_OUTER, clad, water)
     instrument_insert = None
     if problem in INSTRUMENT_INSERTS:
-        layers = INSTRUMENT_INSERTS[problem]()
+        layers = INSTRUMENT_INSERTS[problem](MODERATOR_TEMPERATURE[problem])
         add_materials(layers)
         instrument_insert = tube(
             layers, INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water
