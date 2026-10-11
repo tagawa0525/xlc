@@ -16,6 +16,7 @@ xlc のライブラリ（msgpack）を渡すと、その群構造で燃料の核
 
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 import msgpack
 import openmc
@@ -498,13 +499,17 @@ class Run:
         )
 
 
-def main() -> None:
-    cross_sections = Path(sys.argv[1]).resolve()
-    run = Run(sys.argv)
-    problem, work = run.problem, run.work
-    library = Path(sys.argv[8]).resolve() if len(sys.argv) > 8 else None
-    work.mkdir(parents=True, exist_ok=True)
+class Built(NamedTuple):
+    """問題の物質と形状。`fuel` は（2K では 3.1% の）燃料、`materials` は形状に使うすべての物質。"""
 
+    fuel: openmc.Material
+    materials: openmc.Materials
+    geometry: openmc.Geometry
+    half: float
+
+
+def build(problem: str, cross_sections: Path) -> Built:
+    """問題の物質と形状を作る（外周の箱の半分の幅 `half` とともに）。"""
     fuel = material("fuel", FUEL, FUEL_TEMPERATURE[problem])
     clad = material("zircaloy-4", ZIRCALOY, MODERATOR_TEMPERATURE[problem])
     water = material("moderator", MODERATOR_OF[problem], MODERATOR_TEMPERATURE[problem])
@@ -518,11 +523,6 @@ def main() -> None:
 
     zoned_fuel = None
     if problem in ZONED:
-        if library is not None:
-            # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
-            raise SystemExit(
-                f"{problem} has two fuels; pin cross sections are not written"
-            )
         zoned_fuel = material(
             "fuel-zoned", ZONED[problem][0], FUEL_TEMPERATURE[problem]
         )
@@ -554,14 +554,32 @@ def main() -> None:
         zoned_fuel=zoned_fuel,
         frame=frame,
     )
+    return Built(fuel, materials, geometry, half)
 
-    settings = run.settings(half)
+
+def temperature_settings(problem: str) -> dict:
+    """問題の温度の扱い（`openmc.Settings.temperature`）。"""
     # OpenMC は温度を kT (eV) で持ち、K に直すと丸めでわずかにずれるので、1 K の幅を許す。600 K の問題は、
     # ライブラリにあるその温度の表だけを使う。565 K の問題は温度の内挿のモードで解き（ADR-0080）、H in H2O の
     # S(α,β) を 550 K と 573.6 K の表から kT の比で確率的に選ぶ。ほかの核種は 565 K の表を持つので、内挿の
     # モードでも 565 K の表を使う（OpenMC 0.15.2 の src/nuclide.cpp。#0017）
     method = "nearest" if MODERATOR_TEMPERATURE[problem] == COLD else "interpolation"
-    settings.temperature = {"method": method, "tolerance": 1.0}
+    return {"method": method, "tolerance": 1.0}
+
+
+def main() -> None:
+    cross_sections = Path(sys.argv[1]).resolve()
+    run = Run(sys.argv)
+    problem, work = run.problem, run.work
+    library = Path(sys.argv[8]).resolve() if len(sys.argv) > 8 else None
+    work.mkdir(parents=True, exist_ok=True)
+    if problem in ZONED and library is not None:
+        # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
+        raise SystemExit(f"{problem} has two fuels; pin cross sections are not written")
+    fuel, materials, geometry, half = build(problem, cross_sections)
+
+    settings = run.settings(half)
+    settings.temperature = temperature_settings(problem)
 
     tallies = openmc.Tallies()
     if problem.startswith("2"):
