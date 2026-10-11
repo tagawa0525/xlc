@@ -1,0 +1,74 @@
+schema: '2.0'
+stages:
+  lattice-3A-fuel:
+    cmd: mkdir -p lattice-3A && cargo run --release -p xlc-lattice -- 
+      lattice-3A-fuel.toml > lattice-3A-fuel.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: df308ed55b254e80fb67cf81821dd3eb.dir
+      size: 117109
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: e2077bfcd6ad72f750d5141957ce330c
+      size: 137534769
+    - path: lattice-3A-fuel.toml
+      hash: md5
+      md5: fa77632b802738344097ce031fb5adc3
+      size: 3565
+    outs:
+    - path: lattice-3A-fuel.out
+      hash: md5
+      md5: 8a1e0d4a42610c2798d20f2d3143bdd6
+      size: 11
+    - path: lattice-3A/fuel.msgpack
+      hash: md5
+      md5: 11864252e7d67fc64e5b3ee9c98b45bc
+      size: 7575
+    - path: medium-3A-fuel.msgpack
+      hash: md5
+      md5: f004696360f9c537d0229058da2c13ec
+      size: 175444
