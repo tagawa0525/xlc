@@ -1214,6 +1214,25 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[ignore = "#0012: a missing resolved is read as None"]
+    fn nuclide_without_the_resolved_field_is_rejected() {
+        // 項目を省いた核種を、「分離共鳴なし」として読まない（ADR-0013）。nil は書ける
+        let file = sample_file();
+        let bytes = rmp_serde::to_vec_named(&file.nuclides[0]).unwrap();
+        let mut value = rmpv::decode::read_value(&mut bytes.as_slice()).unwrap();
+        let rmpv::Value::Map(entries) = &mut value else {
+            panic!("a nuclide is a map");
+        };
+        entries.retain(|(k, _)| k.as_str() != Some("resolved"));
+        // 項目があれば読める（試験が、項目を省いた以外の理由で失敗しないことの確認）
+        let with = rmpv::ext::from_value::<NuclideData>(
+            rmpv::decode::read_value(&mut bytes.as_slice()).unwrap(),
+        );
+        assert!(with.is_ok());
+        assert!(rmpv::ext::from_value::<NuclideData>(value).is_err());
+    }
+
+    #[test]
     fn duplicate_nuclides_and_temperatures_are_rejected() {
         assert!(read_modified(|f| f.nuclides[1].name = "U-235".into()).is_err());
         assert!(read_modified(|f| f.nuclides[0].temperatures[1].temperature = 293.6).is_err());
