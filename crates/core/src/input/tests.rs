@@ -418,10 +418,18 @@ fn sided(fissile: bool) -> FewGroup {
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4, 0.4],
         scatter: vec![vec![0.47, 0.02], vec![0.0, 0.92]],
-        // 辺（左、右、上、下）
-        adf: (1..=4).map(|s| vec![s as f64, 10.0 * s as f64]).collect(),
-        vacuum_ratio: vec![None, Some(vec![0.4, 0.3]), None, None],
-        normalized_adf: vec![true, false, false, false],
+        // 辺（左、右、上、下、−z、+z）
+        adf: (1..=6).map(|s| vec![s as f64, 10.0 * s as f64]).collect(),
+        vacuum_ratio: vec![
+            None,
+            Some(vec![0.4, 0.3]),
+            None,
+            None,
+            Some(vec![0.2, 0.1]),
+            None,
+        ],
+        normalized_adf: vec![true, false, false, false, false, true],
+        height: None,
         pins: None,
     }
 }
@@ -430,11 +438,24 @@ fn sided(fissile: bool) -> FewGroup {
 fn rotation_turns_sides_counterclockwise() {
     let m = sided(true);
     let r = rotated(&m, 1).unwrap();
-    // 90° 回すと、右の辺が上に、上が左に、左が下に、下が右に来る
+    // 90° 回すと、右の辺が上に、上が左に、左が下に、下が右に来る。z の辺は変わらない（ADR-0128）
     let order = |v: &[Vec<f64>]| v.iter().map(|g| g[0]).collect::<Vec<_>>();
-    assert_eq!(order(&r.adf), vec![3.0, 4.0, 2.0, 1.0]);
-    assert_eq!(r.vacuum_ratio, vec![None, None, Some(vec![0.4, 0.3]), None]);
-    assert_eq!(r.normalized_adf, vec![false, false, false, true]);
+    assert_eq!(order(&r.adf), vec![3.0, 4.0, 2.0, 1.0, 5.0, 6.0]);
+    assert_eq!(
+        r.vacuum_ratio,
+        vec![
+            None,
+            None,
+            Some(vec![0.4, 0.3]),
+            None,
+            Some(vec![0.2, 0.1]),
+            None
+        ]
+    );
+    assert_eq!(
+        r.normalized_adf,
+        vec![false, false, false, true, false, true]
+    );
     assert_eq!(rotated(&m, 0).unwrap(), m);
     assert_eq!(rotated(&rotated(&m, 1).unwrap(), 3).unwrap(), m);
     assert_eq!(rotated(&rotated(&m, 2).unwrap(), 2).unwrap(), m);
