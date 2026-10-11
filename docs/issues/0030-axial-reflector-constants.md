@@ -26,7 +26,7 @@ ADR-0095 は、軸方向の反射体（下: 炉心板、ボトムノズル、端
   制御棒の値を棒なしに替えた k の差を測り、KENO との差に比べて無視できなければ、棒のセルを中性子束で均質化した媒質を
   混ぜる形を ADR にする
 
-関係する ADR: [ADR-0128](../adr/0128-make-axial-reflector-constants-in-a-full-height-slab.md)
+関係する ADR: [ADR-0128](../adr/0128-make-axial-reflector-constants-in-a-full-height-slab.md)、[ADR-0134](../adr/0134-use-current-weighted-d-where-koebke-has-no-root.md)
 
 ## 完了の条件
 
