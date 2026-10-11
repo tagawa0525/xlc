@@ -368,6 +368,24 @@ fn pointwise_range(
     }
 }
 
+/// ポイントワイズの範囲 (eV) を TOML に書く。範囲がなければ空の配列を書く（項目は欠かさない。ADR-0129）。
+fn range_to_toml(range: Option<(f64, f64)>) -> String {
+    let _ = range;
+    String::new()
+}
+
+/// `range_to_toml` の形を読む。
+fn range_from_toml(text: &str) -> anyhow::Result<Option<(f64, f64)>> {
+    let _ = text;
+    Err(anyhow!("not implemented"))
+}
+
+/// 核種ごとの結果が、入力のその核種の結果であること（1 核種だけで、名前と温度が入力と同じ）を確かめる。
+fn check_part(nuclide: &NuclideInput, part: &Library) -> anyhow::Result<()> {
+    let _ = (nuclide, part);
+    Err(anyhow!("not implemented"))
+}
+
 /// 核種を処理する（処理の時間をログに出す）。
 #[tracing::instrument(name = "nuclide", skip_all, fields(name = %nuclide.name))]
 fn process_file(
@@ -410,6 +428,8 @@ const DEFAULT_SCATTERING_ORDER: usize = 3;
 
 #[cfg(test)]
 mod tests {
+    use xlc_format::library::TemperatureData;
+
     use super::*;
 
     const INPUT: &str = r#"
@@ -575,5 +595,79 @@ temperatures = [293.6, 900]
         // TOML の文法の誤りは位置つきで報告する
         let err = replaced("sigma0 = [1e10, 10, 1]", "sigma0 = [1e10, 10").unwrap_err();
         assert!(err.to_string().contains("line"), "{err}");
+    }
+    #[test]
+    #[ignore = "RED: the range file is not implemented yet"]
+    fn the_pointwise_range_file_round_trips() {
+        for range in [Some((4.0, 9118.0)), Some((0.1 + 0.2, 1.0e5)), None] {
+            let text = range_to_toml(range);
+            assert!(text.contains("pointwise-range"), "{text}");
+            assert_eq!(range_from_toml(&text).unwrap(), range);
+        }
+    }
+
+    #[test]
+    #[ignore = "RED: the range file is not implemented yet"]
+    fn rejects_a_bad_pointwise_range_file() {
+        for text in [
+            "",
+            "pointwise-range = [4.0]",
+            "pointwise-range = [4.0, 5.0, 6.0]",
+            "pointwise-range = [5.0, 4.0]",
+            "pointwise-range = [4.0, 4.0]",
+            "pointwise-range = [0.0, 4.0]",
+            "pointwise-range = [4.0, 1e5]\nextra = 1",
+            "pointwise-range = \"4 1e5\"",
+        ] {
+            assert!(range_from_toml(text).is_err(), "{text}");
+        }
+    }
+
+    fn part_of(name: &str, temperatures: &[f64]) -> Library {
+        Library {
+            groups: GroupStructure::wims69(),
+            sigma0: vec![1.0e10],
+            pointwise_range: None,
+            nuclides: vec![NuclideData {
+                name: name.into(),
+                za: 0.0,
+                awr: 1.0,
+                resolved: None,
+                thermal_scattering: false,
+                temperatures: temperatures
+                    .iter()
+                    .map(|&temperature| TemperatureData {
+                        temperature,
+                        chi: Vec::new(),
+                        scatter: Vec::new(),
+                        shielded: Vec::new(),
+                        pointwise: Default::default(),
+                    })
+                    .collect(),
+            }],
+        }
+    }
+
+    #[test]
+    #[ignore = "RED: check_part is not implemented yet"]
+    fn a_nuclide_result_must_match_its_input() {
+        let input = parse_input(INPUT, Path::new(".")).unwrap();
+        let uranium = &input.nuclides[1];
+        assert!(check_part(uranium, &part_of("U-238", &[293.6, 900.0])).is_ok());
+        // 名前、温度の値と順、核種の数が入力と違う
+        for part in [
+            part_of("U-235", &[293.6, 900.0]),
+            part_of("U-238", &[293.6]),
+            part_of("U-238", &[900.0, 293.6]),
+            part_of("U-238", &[293.6, 600.0]),
+        ] {
+            assert!(check_part(uranium, &part).is_err());
+        }
+        let mut two = part_of("U-238", &[293.6, 900.0]);
+        two.nuclides.extend(part_of("H-1", &[293.6]).nuclides);
+        assert!(check_part(uranium, &two).is_err());
+        let mut none = part_of("U-238", &[293.6, 900.0]);
+        none.nuclides.clear();
+        assert!(check_part(uranium, &none).is_err());
     }
 }
