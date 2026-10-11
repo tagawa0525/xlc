@@ -14,7 +14,7 @@
 use std::f64::consts::FRAC_1_SQRT_2;
 
 /// 面の平均の Gauss-Legendre の点の数。集合体の幅で κ L ≈ 10 の指数関数を 1e-12 より細かく積分する
-pub(crate) const FACE_POINTS: usize = 24;
+pub const FACE_POINTS: usize = 24;
 
 /// C（偶）か S（奇）
 #[derive(Debug, Clone, Copy, PartialEq)]

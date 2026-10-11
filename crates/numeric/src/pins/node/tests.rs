@@ -1,32 +1,47 @@
 use super::*;
-use crate::pins::basis::FACE_POINTS;
-use xlc_format::fewgroup::FewGroup;
+use crate::pins::FACE_POINTS;
 
 fn rule() -> Vec<(f64, f64)> {
-    xlc_numeric::quadrature::gauss_legendre(FACE_POINTS).unwrap()
+    crate::quadrature::gauss_legendre(FACE_POINTS).unwrap()
+}
+
+/// テストの2群の定数
+#[derive(Debug, Clone)]
+struct Fuel {
+    total: Vec<f64>,
+    absorption: Vec<f64>,
+    nu_fission: Vec<f64>,
+    chi: Vec<f64>,
+    diffusion: Vec<f64>,
+    scatter: Vec<Vec<f64>>,
+}
+
+impl Fuel {
+    fn constants(&self) -> Constants<'_> {
+        Constants {
+            total: &self.total,
+            scatter: &self.scatter,
+            nu_fission: &self.nu_fission,
+            chi: &self.chi,
+            diffusion: &self.diffusion,
+        }
+    }
 }
 
 /// 2群の燃料（χ = (1, 0)、上方散乱なし）
-fn fuel() -> FewGroup {
+fn fuel() -> Fuel {
     let (d1, d2) = (1.4, 0.4);
     let (a1, a2) = (0.010, 0.080);
     let s12 = 0.017;
     let (nf1, nf2) = (0.006, 0.11);
     let total = [1.0 / (3.0 * d1), 1.0 / (3.0 * d2)];
-    FewGroup {
-        bounds: vec![1.0e7, 0.625, 1.0e-5],
-        k_inf: 1.0,
+    Fuel {
         total: total.to_vec(),
         absorption: vec![a1, a2],
         nu_fission: vec![nf1, nf2],
-        fission: vec![nf1 / 2.4, nf2 / 2.4],
         chi: vec![1.0, 0.0],
         diffusion: vec![d1, d2],
         scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
-        adf: vec![vec![1.0, 1.0]; 4],
-        vacuum_ratio: vec![None; 4],
-        normalized_adf: vec![false; 4],
-        pins: None,
     }
 }
 
@@ -37,7 +52,7 @@ struct Exact<'a> {
 }
 
 /// 厳密な解の、ノードの条件（角、平均、面の正味の流れ、軸方向の漏れ）
-fn conditions_of(exact: &Exact, m: &FewGroup, half: [f64; 2], axial: [f64; 2]) -> Conditions {
+fn conditions_of(exact: &Exact, m: &Fuel, half: [f64; 2], axial: [f64; 2]) -> Conditions {
     let [a, b] = half;
     let rule = rule();
     let corners = [(-a, -b), (a, -b), (a, b), (-a, b)].map(|(x, y)| (exact.flux)(x, y));
@@ -90,7 +105,7 @@ fn flat_conditions_give_a_flat_flux() {
     // k は k∞（無限の媒質で平らな解が釣り合う）
     let k = (m.nu_fission[0] + m.nu_fission[1] * m.scatter[0][1] / m.absorption[1])
         / (m.absorption[0] + m.scatter[0][1]);
-    let model = NodeModel::new(&m, k, conditions.half, &rule()).unwrap();
+    let model = NodeModel::new(&m.constants(), k, conditions.half, &rule()).unwrap();
     let node = model.solve(&conditions);
     for (x, y) in [(0.0, 0.0), (5.0, -3.0), (10.75, 10.75)] {
         let f = node.flux(x, y);
@@ -165,7 +180,7 @@ fn solutions_in_the_span_are_reproduced() {
         }),
     };
     let conditions = conditions_of(&exact, &m, half, axial);
-    let model = NodeModel::new(&m, k, conditions.half, &rule()).unwrap();
+    let model = NodeModel::new(&m.constants(), k, conditions.half, &rule()).unwrap();
     let node = model.solve(&conditions);
     for (x, y) in [(0.0, 0.0), (3.1, -7.2), (-10.0, 7.9), (10.75, 8.0)] {
         let (got, want) = (node.flux(x, y), (exact.flux)(x, y));
@@ -219,9 +234,9 @@ fn invalid_nodes_are_errors() {
     // 2群でない
     let mut three = m.clone();
     three.total.push(1.0);
-    assert!(NodeModel::new(&three, 1.0, conditions.half, &rule()).is_err());
+    assert!(NodeModel::new(&three.constants(), 1.0, conditions.half, &rule()).is_err());
     // 固有値が複素数。非対角の項が負でない物理的な定数では起きない（M の非対角の積が負でない）ので、負の散乱で作る
     let mut complex = m.clone();
     complex.scatter[1][0] = -0.5;
-    assert!(NodeModel::new(&complex, 1.0, conditions.half, &rule()).is_err());
+    assert!(NodeModel::new(&complex.constants(), 1.0, conditions.half, &rule()).is_err());
 }
