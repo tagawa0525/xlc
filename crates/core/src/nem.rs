@@ -247,12 +247,12 @@ struct Core<'a> {
     widths: [&'a [f64]; 3],
     /// [ノード] の直方体の位置
     cells: Vec<[usize; 3]>,
-    /// [直方体の位置] のノードの番号。ノードのない位置は `None`
-    slots: Vec<Option<usize>>,
     /// [ノード] の物質番号
     material_of: Vec<usize>,
-    /// ノードのない位置に面する面の条件（`Problem::outline`）
-    outline: Boundary,
+    /// [ノード][方向][- 面、+ 面] の隣（隣のノードか、境界の条件。`Problem::face_condition`）
+    faces: Vec<[[Face; 2]; 3]>,
+    /// [ノード][方向][- 面、+ 面] の、ADF を 1 にする面か（`unpaired_face`）
+    unit_adf: Vec<[[bool; 2]; 3]>,
     groups: usize,
     /// [物質] の核分裂のある物質か（ノードの核を選ぶ。ADR-0102）
     fissile: Vec<bool>,
@@ -260,6 +260,15 @@ struct Core<'a> {
     reflector: Vec<bool>,
     /// [ノード] の、核分裂のないノードの方向ごとの ANM のモード（定数と幅で決まるので1回だけ作る）
     anm: Vec<Option<[AnmModes; 3]>>,
+}
+
+/// ノードの面の隣。
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Face {
+    /// 隣のノード
+    Node(usize),
+    /// 直方体の外周か、ノードのない位置に面する面の境界条件
+    Edge(Boundary),
 }
 
 /// 反復で更新する量。
@@ -366,6 +375,27 @@ impl<'a> Core<'a> {
         if cells.is_empty() {
             return Err("no position has a node".into());
         }
+        let faces = cells
+            .iter()
+            .map(|&p| {
+                let face = |d: usize, plus: bool| -> Result<Face, String> {
+                    Ok(match problem.face_condition(p, d, plus)? {
+                        Some(b) => Face::Edge(b),
+                        // 隣にノードがある（`face_condition` が確かめた）
+                        None => mesh
+                            .moved(p, d, if plus { 1 } else { -1 })
+                            .and_then(|q| slots[mesh.site(q)])
+                            .map(Face::Node)
+                            .ok_or("a face with a neighbor has no neighbor node")?,
+                    })
+                };
+                let mut out = [[Face::Edge(Boundary::Reflective); 2]; 3];
+                for (d, sides) in out.iter_mut().enumerate() {
+                    *sides = [face(d, false)?, face(d, true)?];
+                }
+                Ok(out)
+            })
+            .collect::<Result<Vec<_>, String>>()?;
         let groups = problem.materials.first().ok_or("no materials")?.groups();
         for (i, m) in problem.materials.iter().enumerate() {
             // 長さ、有限であること、不連続因子は少数群定数の検査（ファイルの読み込みと同じ）
@@ -405,10 +435,9 @@ impl<'a> Core<'a> {
             problem,
             widths,
             cells,
-            slots,
             material_of,
-            // ノードのない位置がなければ使わない（ある問題が外形の条件を持つことは上で確かめた）
-            outline: problem.outline.unwrap_or(Boundary::Reflective),
+            faces,
+            unit_adf: Vec::new(),
             groups,
             fissile,
             reflector: (0..problem.materials.len())
@@ -431,6 +460,16 @@ impl<'a> Core<'a> {
             })
             .collect::<Result<Vec<_>, String>>()?;
         core.check_heights()?;
+        core.unit_adf = (0..core.nodes())
+            .map(|n| {
+                std::array::from_fn(|d| {
+                    std::array::from_fn(|side| match core.faces[n][d][side] {
+                        Face::Node(m) => core.unpaired_face(n, m, d),
+                        Face::Edge(_) => false,
+                    })
+                })
+            })
+            .collect();
         core.check_vacuum_ratios()?;
         core.check_normalized_adfs()?;
         Ok(core)
@@ -543,37 +582,33 @@ impl<'a> Core<'a> {
 
     /// [ノード] の値を [直方体の位置] の並びに置き直す。ノードのない位置は空
     fn on_sites<T>(&self, values: Vec<Vec<T>>) -> Vec<Vec<T>> {
-        let mut out: Vec<Vec<T>> = (0..self.slots.len()).map(|_| Vec::new()).collect();
+        let mut out: Vec<Vec<T>> = (0..self.problem.node_material.len())
+            .map(|_| Vec::new())
+            .collect();
         for (n, v) in values.into_iter().enumerate() {
             out[self.site(n)] = v;
         }
         out
     }
 
-    /// 方向 d に `step`（-1 か +1）だけ動いた直方体の位置。直方体の外なら `None`
-    fn moved(&self, n: usize, d: usize, step: isize) -> Option<usize> {
-        let mesh = &self.problem.mesh;
-        mesh.moved(self.position(n), d, step).map(|p| mesh.site(p))
+    /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の隣
+    fn face(&self, n: usize, d: usize, plus: bool) -> Face {
+        self.faces[n][d][usize::from(plus)]
     }
 
     /// 方向 d の隣のノード（`step` が -1 なら - 側、+1 なら + 側）。直方体の外周か、ノードのない位置なら `None`。
     fn neighbor(&self, n: usize, d: usize, step: isize) -> Option<usize> {
-        self.slots[self.moved(n, d, step)?]
+        match self.face(n, d, step > 0) {
+            Face::Node(m) => Some(m),
+            Face::Edge(_) => None,
+        }
     }
 
-    /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の境界条件。隣にノードがあれば `None`
+    /// ノード n の方向 d の - 面・+ 面の境界条件。隣にノードがあれば `None`
     fn boundary(&self, n: usize, d: usize, plus: bool) -> Option<Boundary> {
-        self.neighbor(n, d, if plus { 1 } else { -1 })
-            .is_none()
-            .then(|| self.edge(n, d, plus))
-    }
-
-    /// 隣にノードのない面の条件（`Problem::face_condition`）。隣にノードがある面には使わない
-    fn edge(&self, n: usize, d: usize, plus: bool) -> Boundary {
-        // ノードのない位置があれば外形の条件があることは `Core::new` で確かめてある
-        match self.problem.face_condition(self.position(n), d, plus) {
-            Ok(Some(b)) => b,
-            _ => self.outline,
+        match self.face(n, d, plus) {
+            Face::Node(_) => None,
+            Face::Edge(b) => Some(b),
         }
     }
 
@@ -597,7 +632,7 @@ impl<'a> Core<'a> {
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
         let side = side_of(d, plus);
         let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
-        if neighbor.is_some_and(|m| self.unpaired_face(n, m, d)) {
+        if self.unit_adf[n][d][usize::from(plus)] {
             return 1.0;
         }
         let material = self.material(n);
@@ -634,9 +669,9 @@ impl<'a> Core<'a> {
         at(n) && at(m)
     }
 
-    /// ノード n の方向 d の外周の面の、真空の面の比 r = J/φ_het。`Marshak` は 1/2
-    fn vacuum_ratio(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
-        match self.edge(n, d, plus) {
+    /// ノード n の方向 d の、条件 `boundary` の外周の面の、真空の面の比 r = J/φ_het。`Marshak` は 1/2
+    fn vacuum_ratio(&self, n: usize, d: usize, plus: bool, boundary: Boundary, g: usize) -> f64 {
+        match boundary {
             Boundary::Marshak => 0.5,
             // `Vacuum` の面の物質が辺の比を持つことは `check_vacuum_ratios` で確かめてある
             _ => self.material(n).vacuum_ratio[side_of(d, plus)]
@@ -671,8 +706,8 @@ impl<'a> Core<'a> {
     /// - Marshak: r = 1/2 で、不均質な入射の部分中性子流 f φ/4 - (o - i)/2 = 0 と同じ。β = (1 - f)/(1 + f) は
     ///   隣の面の式で f' = 1、o' = 0 としたものに等しく、f = 1 なら 0
     fn face_inputs(&self, state: &State, n: usize, d: usize, g: usize) -> ((f64, f64), (f64, f64)) {
-        let face = |step: isize| match self.neighbor(n, d, step) {
-            Some(m) => {
+        let face = |step: isize| match self.face(n, d, step > 0) {
+            Face::Node(m) => {
                 let plus = step > 0;
                 let (own, other) = (self.adf(n, d, plus, g), self.adf(m, d, !plus, g));
                 let out = if plus {
@@ -685,12 +720,12 @@ impl<'a> Core<'a> {
                     2.0 * other * out / (own + other),
                 )
             }
-            None => match self.edge(n, d, step > 0) {
+            Face::Edge(boundary) => match boundary {
                 Boundary::Reflective => (1.0, 0.0),
                 Boundary::ZeroFlux => (-1.0, 0.0),
                 Boundary::Vacuum | Boundary::Marshak => {
                     let plus = step > 0;
-                    let rf = self.vacuum_ratio(n, d, plus, g) * self.adf(n, d, plus, g);
+                    let rf = self.vacuum_ratio(n, d, plus, boundary, g) * self.adf(n, d, plus, g);
                     ((1.0 - 2.0 * rf) / (1.0 + 2.0 * rf), 0.0)
                 }
             },
@@ -824,12 +859,12 @@ impl<'a> Core<'a> {
         };
         let h = self.width(n, d);
         let side = |step: isize| {
-            Ok(match self.neighbor(n, d, step) {
-                Some(m) => Beside::Node {
+            Ok(match self.face(n, d, step > 0) {
+                Face::Node(m) => Beside::Node {
                     width: self.width(m, d),
                     leakage: transverse(m),
                 },
-                None => match self.edge(n, d, step > 0) {
+                Face::Edge(boundary) => match boundary {
                     Boundary::Reflective => Beside::Node {
                         width: h,
                         leakage: transverse(n),
@@ -2010,10 +2045,9 @@ mod tests {
         // [粗いノード] の定数、ノード平均、面（-x, +x, -y, +y）の不均質な中性子束と外向きの正味の中性子流、幅
         let mut nodes = Vec::new();
         for (cj, ci) in (0..cy).flat_map(|j| (0..cx).map(move |i| (j, i))) {
+            // どの位置にもノードがあるので、ノードの番号は位置の番号
             let members: Vec<usize> = (cj * by..(cj + 1) * by)
-                .flat_map(|j| {
-                    (ci * bx..(ci + 1) * bx).map(move |i| core.slots[i + nx * j].unwrap())
-                })
+                .flat_map(|j| (ci * bx..(ci + 1) * bx).map(move |i| i + nx * j))
                 .collect();
             // 反応率を保存する均質化（D は中性子束の重みの平均。GET の ADF が差を吸収する）
             let mut volume = 0.0;
@@ -2205,6 +2239,7 @@ mod tests {
         let cx = nx / bx;
         for (c, phi) in s.flux.iter().enumerate() {
             let (ci, cj) = (c % cx, c / cx);
+            // どの位置にもノードがあるので、ノードの番号は位置の番号
             let members: Vec<usize> = (cj * by..(cj + 1) * by)
                 .flat_map(|j| (ci * bx..(ci + 1) * bx).map(move |i| i + nx * j))
                 .collect();
@@ -2516,7 +2551,7 @@ mod tests {
         .unwrap_err()
         .to_string();
         assert!(err.contains("rotation"), "{err}");
-        // f* の側が反射体の位置でなければ（燃料の位置に置いた反射体の定数）、今のとおりエラー
+        // f* の側が反射体の位置でなければ（燃料の位置に置いた反射体の定数）、エラー
         let err = solve(
             &problem(star.clone(), layer.clone(), vec![]),
             &Options::default(),
@@ -2525,7 +2560,7 @@ mod tests {
         .to_string();
         assert!(err.contains("fission"), "{err}");
         // 集合体の位置の核分裂のない定数でも、軸方向の層（z の厚さを持つ）でなければ（集合体の位置に置いた径方向の
-        // 反射体の定数）、今のとおりエラー
+        // 反射体の定数）、エラー
         let mut radial = layer;
         radial.height = None;
         let err = solve(&problem(star, radial, vec![1]), &Options::default())
