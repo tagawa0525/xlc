@@ -30,3 +30,5 @@ resolution:
 - 2026-10-11: VERA 2G（AIC の制御棒 24 本）で、xlc と OpenMC の k の差は +27 pcm、吸収体のない 2E-empty（+247 pcm）から −220 pcm
   動く（examples/vera/verification.md の「OpenMC との比較」、c0662d26）。B4C は逆に +100 pcm と正の向きに動かす（Pyrex 24 本の +41 pcm は、統計誤差とトラック間隔の振れと区別できない）。
   xlc が AIC の吸収を多く見積もるかは、吸収体の中の反応率を OpenMC と比べていないので確かめていない
+- 2026-10-12: ブランチ feat/dancoff-potential には、自動レビューの指摘 10 件が未対応のまま残っている。測り直しに使うときに
+  対応する

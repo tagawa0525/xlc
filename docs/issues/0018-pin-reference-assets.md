@@ -85,3 +85,6 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   で OpenMC のライブラリ（核種ごと）と VERA 1B を端から端まで通した。OpenMC 1B の k は手で走らせた値と一致し、ライブラリは
   `references/openmc/endfb80-565`（同じ温度で手で作ったもの）とバイト単位で一致した。examples/vera/verification.md と examples/mox/verification.md の手順は
   リポジトリの直下から走らせる形に直した
+- 2026-10-12: 手でビルドした `references/NJOY2016` と `references/openmc/{src,build,install,venv}` は、参照の結果をすべて段階に
+  するまで残す。消すのは派生物（build、install、venv）だけにし、git clone（src）は原本なので残すかをユーザーに確かめる。
+  `references/openmc/endfb80-565`（565 K を含む endfb80 の上位集合）で `endfb80` を置き換えるかは決めていない

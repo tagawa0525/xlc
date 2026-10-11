@@ -1,0 +1,31 @@
+---
+status: open
+labels: [core]
+opened: 2026-10-12
+closed:
+milestone: M3
+blocked-by: []
+resolution:
+---
+
+# 炉心の CMFD の要否を Problem 3〜5 の反復の回数と時間で決める
+
+## 問題
+
+炉心の NEM をノードの CMFD で加速する案は、ブランチ feat/core-cmfd の ADR-0119（proposed の下書き。2c162bc9）にある。
+ユーザーの方針で、この作業は止めている。CMFD なしで VERA Problem 3〜5 を解き、外側の反復の回数と時間を測ってから
+要否を決める。
+
+feat/core-cmfd の worktree には、コミットしていない実装の途中（crates/numeric/src/cmfd.rs と crates/numeric/src/lib.rs の
+1 行）がある。粗メッシュのソルバを共通のクレートに切り出す計画（docs/plans/m3-core-hzp.md の項目 6）と関係する。
+
+関係する ADR: なし（ADR-0119 は未マージ）
+
+## 完了の条件
+
+Problem 3〜5 を CMFD なしで解いた反復の回数と時間を記録し、CMFD を入れるかを決める。入れるなら ADR-0119 を
+書き直してマージし、入れないなら ADR-0119 を rejected にしてブランチと worktree を片付ける。
+
+## 経緯
+
+- 2026-10-12: ユーザーが CMFD を止めると決めた方針と、ブランチに残る作業をメモリから issue に移した
