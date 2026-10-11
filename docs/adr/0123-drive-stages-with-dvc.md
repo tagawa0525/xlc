@@ -96,7 +96,7 @@ ADR-0122 は、記録の hash を checkout すれば当時の結果を出し直�
 - `dvc.yaml` と `dvc.lock` をコミットする。記録の hash を checkout すれば、`dvc.lock` が、どの出力がどの入力とコードから
   作られたかを示す。`dvc checkout` でキャッシュから出力を戻し、キャッシュになければ `dvc repro` で作り直す。これが
   ADR-0122 の「hash から出し直せる」の手段になる
-- DVC の利用状況の送信（`core.analytics`）は、`.dvc/config` で切る
+- DVC の利用状況の送信（`core.analytics`）と更新の問い合わせ（`core.check_update`）は、`.dvc/config` で切る
 
 内容の md5 で判定するので、ADR-0122 の「結果を変えない変更で流し直さない」が、道具の判定として成り立つ。`dvc.lock` は
 テキストなので、何が変わって走ったかを git の差分で読める。
@@ -106,7 +106,8 @@ ADR-0122 は、記録の hash を checkout すれば当時の結果を出し直�
 M0（examples/m0/dvc.yaml の xs → lattice → core）で確かめた（24c7d356、2026-10-11）。
 
 - 最初の `dvc repro examples/m0/dvc.yaml`（Slurm）が 3 段階を順に走らせ（U-238 の xs が 55 s、core が 9.4 s）、
-  `dvc.lock` を書いた。同じ設定で xs から走らせ直した 2 回の、3 つの出力の md5 は一致した
+  `dvc.lock` を書いた。`wims69.msgpack`、`pincell-fg.msgpack`、`core.out` の md5 は、xs から走らせた 1d42f35c の
+  1 回目と一致した（2 回とも Slurm の上で同じスレッド数）
 - 2 回目は 3 段階とも「didn't change」で何も走らせなかった（1.6 s）
 - `pincell.toml` のピッチを 1.26 から 1.27 cm に変えると、xs は走らず、lattice と core が走った（k∞ 0.731552 →
   0.741536）。戻すと、lattice と core は run-cache から出力を戻して走らず、`dvc.lock` は最初のものとバイト単位で一致した
@@ -137,6 +138,9 @@ M0（examples/m0/dvc.yaml の xs → lattice → core）で確かめた（24c7d3
   効くのは次の 3 つである: 上流を走らせ直したときに下流の段階まで走る連鎖、`dvc.lock` の意味のない差分（ブランチの
   間の衝突）、DVC の外で走らせた出力の「changed outs」。本筋の対策は、xlc の出力をスレッド数によらずビット一致させる
   ことである（和の順序の固定。MOC のスイープは ADR-0064 で固定している）。段階の出力でそれを確かめるのは #0060
+- DVC の排他（`.dvc/tmp/lock`）は worktree ごとなので、共有のキャッシュに 2 つの worktree から同時に `dvc repro` や
+  `dvc gc` を走らせると、互いに排他されない。重い段階は Slurm の排他で 1 本ずつ流すので重ならないが、手元で走らせる
+  ときと `dvc gc` は、ほかの worktree で DVC が動いていないときに行う
 - 共有のキャッシュは、worktree で `references` を main への symlink にすることに頼っている。symlink がないと、DVC は
   worktree の中に別のキャッシュを黙って作る（2026-10-11 に一時的なリポジトリで確かめた。ENDF を deps にする段階は、deps がなくて止まる）。worktree を作る道具で
   symlink を作るか、置き場が違えば止める仕組みは、まだない

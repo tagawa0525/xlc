@@ -16,7 +16,8 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 `examples/<問題>/dvc.yaml` に書き、`dvc repro examples/<問題>/dvc.yaml` で、入力かコードが変わった段階だけを走らせる。
 各段階の入力・コード・出力の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
 `references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では、
-`ln -s ../xlc/references references` で main の `references/` を指して、キャッシュと核データを共有する。
+worktree の直下で `ln -s "$(git rev-parse --path-format=absolute --git-common-dir)/../references" references` とし、main の
+`references/` を指して、キャッシュと核データを共有する。
 
 ## 評価済み核データ（ENDF/B-VIII.0）
 
