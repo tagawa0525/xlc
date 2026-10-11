@@ -524,6 +524,9 @@ def build(problem: str, cross_sections: Path) -> Built:
         instrument_insert = tube(
             layers, INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water
         )
+    # OpenMC は相対パスを Python の作業ディレクトリから絶対パスに直して model.xml に書く（openmc.config の
+    # resolve_paths）。作業ディレクトリは outs だが、statepoint が日時と計算時間を含みバイト単位では再現しないので、
+    # worktree のパスを除いても outs の md5 はそろわない
     materials.cross_sections = str(cross_sections)
 
     # 支持格子は被覆管と同じ組成（仕様書の表 P2-4 の Cladding and Grid）

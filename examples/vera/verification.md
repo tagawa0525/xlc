@@ -566,7 +566,7 @@ xlc の中性子束は物理的な値（SPH 因子を掛けた領域と群では
 | 水、全群               | −348     | −53           |
 
 ```sh
-cargo run --release -p xlc-lattice --example swap_transfer -- examples/vera/p1/pincell-1B.toml work/balance.msgpack water 27 27
+cargo run --release -p xlc-lattice --example swap_transfer -- examples/vera/p1/pincell-1B.toml references/openmc/work/balance.msgpack water 27 27
 ```
 
 結論:
