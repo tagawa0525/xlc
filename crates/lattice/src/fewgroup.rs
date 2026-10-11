@@ -3021,7 +3021,7 @@ mod tests {
 
     #[test]
     fn non_positive_corner_scales_are_errors() {
-        // 右と上の 2 辺が真空の格子では、右上の角の点の均質な値の大きさ s_p の熱群が負になる（#0061）。正でない
+        // 右と上の 2 辺が真空の格子では、右上の角の点の均質な値の大きさ s_p の熱群が負になる（#0065）。正でない
         // s_p はエラー（ADR-0125）
         let (lattice, solution, materials, boundaries) = l_shaped(Boundaries {
             top: Boundary::Vacuum,
