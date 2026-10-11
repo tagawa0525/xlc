@@ -36,11 +36,9 @@ from openmc_common import (
     group_filter,
     input_path,
     material,
-    run_or_extract,
-    write_k,
-    write_pin_powers,
 )
-from openmc_common import read_run as common_read_run
+from openmc_run import read_run as common_read_run
+from openmc_run import run_or_extract, write_k, write_pin_powers
 
 SCORES = ["total", "elastic", "fission"]
 
@@ -258,6 +256,16 @@ GUIDE_TUBES = [
     (14, 11),
 ]
 INSTRUMENT_TUBE = (8, 8)
+# 図 5 の Pyrex の棒の配置（本数ごとの、1/8 の中の位置。中央からの行と列の数）
+PYREX_OCTANTS = {
+    8: {(3, 0), (5, 5)},
+    12: {(3, 0), (6, 3)},
+    16: {(3, 0), (5, 5), (6, 3)},
+    20: {(3, 0), (5, 5), (6, 0), (6, 3)},
+    24: {(3, 0), (3, 3), (5, 5), (6, 0), (6, 3)},
+}
+# 天然の C の同位体の存在比（ADR-0079）
+CARBON = {"C12": 0.9893, "C13": 0.0107}
 # 2K の濃縮度 3.1% のピンの、1/8 の中の位置（中央からの行と列の数。仕様書の図 P2-2）。ほかの燃料ピンは 3.6%
 LOW_ENRICHMENT_2K = {(1, 0), (7, 7), (8, 6), (8, 7), (8, 8)}
 
@@ -275,6 +283,11 @@ def octant_images(octant: set[tuple[int, int]]) -> set[tuple[int, int]]:
         for si in (1, -1)
         for sj in (1, -1)
     }
+
+
+def with_carbon(densities: dict[str, float], carbon: float) -> dict[str, float]:
+    """仕様書の天然の C（6000）の個数密度 `carbon` を、C-12 と C-13 に分けて足す（ADR-0079）。"""
+    return {**densities, **{n: carbon * f for n, f in CARBON.items()}}
 
 
 Layers = list[tuple[openmc.Material | None, float]]
@@ -351,6 +364,11 @@ def pyrex_layers(temperature: float) -> Layers:
     """Pyrex の棒（内管、Pyrex、被覆管。内管の中と間は真空）の層。`temperature` は物質の温度 (K)。"""
     pyrex = material("pyrex", PYREX, temperature)
     steel = material("ss304", SS304, temperature)
+    return pyrex_rod_layers(pyrex, steel)
+
+
+def pyrex_rod_layers(pyrex: openmc.Material, steel: openmc.Material) -> Layers:
+    """Pyrex の棒の毒物の部分の層（物質 `pyrex` と、内管と被覆管の `steel`）。"""
     fills = [None, steel, None, pyrex, None, steel]
     return list(zip(fills, PYREX_RADII))
 
