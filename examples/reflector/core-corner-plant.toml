@@ -1,0 +1,16 @@
+# 角型の格子の炉心の形: 集合体 1 体の +x に反射体 E、+y に反射体 N、斜め（+x +y）に反射体 C。ピッチと高さは 21.5 cm。
+pitch = 21.5
+height = 21.5
+map = ["N  C", "*  E"]
+
+[reflector.E]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-right.msgpack"]
+
+[reflector.N]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-top.msgpack"]
+
+[reflector.C]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-corner.msgpack"]

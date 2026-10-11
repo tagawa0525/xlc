@@ -1,0 +1,4 @@
+# 角型の格子から作った集合体の定数（F03）を置くサイクル（等価性）。
+plant = "core-corner-plant.toml"
+inventory = "core-I-assemblies.toml"
+loading = [".    .", "F03  ."]
