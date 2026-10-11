@@ -35,7 +35,7 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
 
 - 2E〜2K と 2Q を xlc と OpenMC で解き、k とピンの核分裂率の差を examples/vera/verification.md に書く（差が大きければ、
   誤差の内訳を調べて記録する）
-- 2G と 2H で、k のトラック間隔への依存を測る（ADR-0111 の結果の節の見直し）
+- 2G と 2H で、k のトラック間隔への依存を測る（ADR-0111 の帰結の節の見直し）
 
 ## 経緯
 
