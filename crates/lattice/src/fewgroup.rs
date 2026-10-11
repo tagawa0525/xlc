@@ -624,6 +624,68 @@ fn point_flux(
 /// セルの平均の Gauss-Legendre の点の数（各方向）。core の再構成（`CELL_POINTS`）と同じ
 const CELL_POINTS: usize = 6;
 
+/// 格子の上の nx × ny の長方形の並びにしたノード。
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeGrid {
+    /// 列の切れ目（格子の列は左から）
+    pub column_cuts: Vec<usize>,
+    /// 行の切れ目（格子の行は上から）
+    pub row_cuts: Vec<usize>,
+    pub nx: usize,
+    pub ny: usize,
+    /// [i + nx j]（j は -y から）のノードの番号
+    pub grid: Vec<usize>,
+}
+
+/// ノードの列と行の範囲の切れ目で、ノードが nx × ny の長方形の並びをちょうど 1 回ずつ埋めることを確かめる
+/// （形状関数と角の不連続因子の角の点の釣り合い。ADR-0125）
+pub fn node_grid(nodes: &[Node]) -> Result<NodeGrid, String> {
+    let cuts = |ranges: &mut dyn Iterator<Item = &Range<usize>>| -> Vec<usize> {
+        let mut c: Vec<usize> = ranges.flat_map(|r| [r.start, r.end]).collect();
+        c.sort_unstable();
+        c.dedup();
+        c
+    };
+    let column_cuts = cuts(&mut nodes.iter().map(|n| &n.columns));
+    let row_cuts = cuts(&mut nodes.iter().map(|n| &n.rows));
+    if column_cuts.len() < 2 || row_cuts.len() < 2 {
+        return Err("the nodes do not make a grid".into());
+    }
+    let (nx, ny) = (column_cuts.len() - 1, row_cuts.len() - 1);
+    let mut grid = vec![None; nx * ny];
+    for (n, node) in nodes.iter().enumerate() {
+        let i = column_cuts.iter().position(|&c| c == node.columns.start);
+        let r = row_cuts.iter().position(|&c| c == node.rows.start);
+        let slot = match (i, r) {
+            (Some(i), Some(r))
+                if column_cuts.get(i + 1) == Some(&node.columns.end)
+                    && row_cuts.get(r + 1) == Some(&node.rows.end) =>
+            {
+                &mut grid[i + nx * (ny - 1 - r)]
+            }
+            _ => {
+                return Err(format!(
+                    "node {n} is not one rectangle of the grid that the nodes make"
+                ));
+            }
+        };
+        if slot.replace(n).is_some() {
+            return Err(format!("node {n} overlaps another node of the grid"));
+        }
+    }
+    let grid = grid
+        .into_iter()
+        .collect::<Option<Vec<usize>>>()
+        .ok_or_else(|| "the nodes do not fill the grid".to_string())?;
+    Ok(NodeGrid {
+        column_cuts,
+        row_cuts,
+        nx,
+        ny,
+        grid,
+    })
+}
+
 /// 格子のノードごとの形状関数と角の不連続因子（ADR-0125）。`fews` は ADF（f* で割る前）と拡散係数を決めた
 /// ノードの定数。ノードは格子の上の nx × ny の長方形の並びであること。
 ///
@@ -656,38 +718,13 @@ fn node_pins(
     }
     let (widths, heights) = (lattice.widths(), lattice.heights());
     let columns = lattice.columns();
-    // ノードの並びの列と行の切れ目（格子の列は左から、行は上から）
-    let cuts = |ranges: &mut dyn Iterator<Item = &Range<usize>>| -> Vec<usize> {
-        let mut c: Vec<usize> = ranges.flat_map(|r| [r.start, r.end]).collect();
-        c.sort_unstable();
-        c.dedup();
-        c
-    };
-    let column_cuts = cuts(&mut nodes.iter().map(|n| &n.columns));
-    let row_cuts = cuts(&mut nodes.iter().map(|n| &n.rows));
-    let (nx, ny) = (column_cuts.len() - 1, row_cuts.len() - 1);
-    // [i + nx j]（j は -y から）のノード
-    let mut grid = vec![None; nx * ny];
-    for (n, node) in nodes.iter().enumerate() {
-        let i = column_cuts.iter().position(|&c| c == node.columns.start);
-        let r = row_cuts.iter().position(|&c| c == node.rows.start);
-        match (i, r) {
-            (Some(i), Some(r))
-                if column_cuts[i + 1] == node.columns.end && row_cuts[r + 1] == node.rows.end =>
-            {
-                grid[i + nx * (ny - 1 - r)] = Some(n);
-            }
-            _ => {
-                return Err(error(format!(
-                    "node {n} is not one rectangle of the grid that the nodes make"
-                )));
-            }
-        }
-    }
-    let grid: Vec<usize> = grid
-        .into_iter()
-        .collect::<Option<Vec<usize>>>()
-        .ok_or_else(|| error("the nodes do not make a grid".into()))?;
+    let NodeGrid {
+        column_cuts,
+        row_cuts,
+        nx,
+        ny,
+        grid,
+    } = node_grid(nodes).map_err(error)?;
     // 角の点の座標（-x、-y の辺から）
     let x_at: Vec<f64> = column_cuts
         .iter()
