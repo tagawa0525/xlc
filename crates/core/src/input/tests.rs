@@ -236,6 +236,14 @@ fn invalid_outlines_are_errors() {
         "map = [\n  \"-  -  R\",\n  \"R  -  R\",\n  \"R  *  R\",\n]",
     );
     assert!(Plant::parse(&open, base()).is_ok());
+    // `-` で炉心のほかのノードから切り離されたノードは、別の問題になる
+    let cut = edited(
+        PLANT,
+        "map = [\n  \"R  *  R\",\n  \"R  *  R\",\n]",
+        "map = [\n  \"R  -  R\",\n  \"-  -  *\",\n]",
+    );
+    let err = Plant::parse(&cut, base()).unwrap_err().to_string();
+    assert!(err.contains("cut off"), "{err}");
 }
 
 #[test]
