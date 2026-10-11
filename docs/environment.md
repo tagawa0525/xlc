@@ -2,7 +2,8 @@
 
 xlc の計算は、NJOY（核データ処理）と OpenMC（モンテカルロ計算）の結果と比べて検証する。ツール（NJOY、OpenMC と
 その Python API）と評価済み核データは、`flake.nix` の packages で版とハッシュごと固定する（ADR-0124）。
-計算の置き場 `references/` は git で追跡せず、いつ消しても下の手順で作り直せる。
+計算の置き場 `references/` は git で追跡しない。そのうち外から取る入力とツールは、消しても下の手順で作り直せる
+（ツールで作る参照の結果を作り直す段階は #0018 で整える）。
 direnv を使う場合は、リポジトリの直下に `use flake` と書いた `.envrc` を置き（手元の設定として git では追跡しない）、
 一度 `direnv allow` すると、`default` の devShell に自動で入る。
 
@@ -61,7 +62,7 @@ Python。どちらも `references` の devShell に入る。スクリプトは `
 たとえば C5G7 の参照解は:
 
 ```sh
-cd references/openmc
+mkdir -p references/openmc && cd references/openmc
 nix develop ../..#references -c sh -c \
   'OMP_NUM_THREADS=16 python3 ../../examples/c5g7/openmc_model.py work 1000000 400 100 2'
 ```
@@ -72,7 +73,7 @@ VERA Problem 1B〜1D, 2B〜2J の参照解は、ENDF/B-VIII.0 から手元の NJ
 データで OpenMC を動かして作る（`examples/vera/`）。データは `references/openmc/endfb80/` に置く:
 
 ```sh
-cd references/openmc
+mkdir -p references/openmc && cd references/openmc
 nix develop ../..#references -c python3 ../../examples/vera/openmc_library.py ../endf endfb80 8
 nix develop ../..#references -c sh -c \
   'OMP_NUM_THREADS=16 python3 ../../examples/vera/openmc_model.py endfb80/cross_sections.xml 2B work-2B 1000000 400 100 1'
