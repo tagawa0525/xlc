@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-12
 supersedes: []
 superseded-by:
@@ -53,8 +53,15 @@ rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot �
 
 ## 確認
 
-実装のコミットで、devShell の rustc が main と同じ store パスのままか、rust-analyzer の版、`flake.nix` が DVC の deps に
-ないこと、新しく起動した Claude Code から Rust の LSP が結果を返すかを確かめる。
+6b75c94b（分岐点は main の 5f984f72。2026-10-12）の worktree で確かめた。
+
+- devShell の rustc は main の devShell と同じ store パス（`24xl8c07…-rust-minimal-1.99.0`、1.99.0、b940084d7）
+- `rust-analyzer --version` は `rust-analyzer 1.99.0 (b940084 2026-09-28)`。sysroot の libexec に
+  `rust-analyzer-proc-macro-srv` がある
+- `grep flake.nix examples/*/dvc.yaml` は空で、`flake.nix` は DVC の deps にない
+- worktree で `nix develop -c claude -p` として起動した Claude Code から、LSP の findReferences を
+  crates/numeric/src/lu.rs の `Lu` に投げ、7 ファイルの 23 件の参照が返った（lsp-det 経由。crates/lattice/src/b1.rs、
+  cmfd.rs、crates/numeric/src/pins/node.rs など）
 
 ## 帰結
 
