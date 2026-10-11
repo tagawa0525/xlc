@@ -151,7 +151,7 @@ pub fn homogenize(
 /// - 反射体のノード（`Node::reflector`）の、反射体でないノードと接する辺の ADF は、その隣のノードの同じ面の
 ///   ADF で割った f* とし、`normalized_adf` に印を付ける。反射体のノードは、反射体でないノードと少なくとも
 ///   1辺で接すること
-/// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0125）も付ける
+/// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0131）も付ける
 #[allow(clippy::too_many_arguments)]
 pub fn homogenize_nodes(
     solution: &Solution,
@@ -254,7 +254,7 @@ pub fn homogenize_nodes(
                 "reflector node {n} touches no fuel (non-reflector) node"
             )));
         }
-        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。核分裂のある反射体のノードは自分の CDF で
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0131）。核分裂のある反射体のノードは自分の CDF で
         // 割ることになり、core で掛け戻す値と食い違う
         let fissile = is_fissile(&adfs[n].nu_fission)
             .map_err(|e| HomogenizeError::Nodes(format!("node {n}: {e}")))?;
@@ -526,7 +526,7 @@ fn node_neighbors(
 
 /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。格子全体を1つのノードとし、外周がすべて鏡面反射
 /// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は `nodes` の
-/// 形状関数。ADR-0125）。
+/// 形状関数。ADR-0131）。
 ///
 /// - セルの大きさは、格子の列の幅と行の高さ（行は下から）
 /// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均 / ノードの少数群 g の核分裂率の平均。核分裂のないセルは 0。
@@ -544,7 +544,7 @@ pub fn pin_shapes(
 ) -> Result<Pins, HomogenizeError> {
     if !reflective(boundaries) {
         return Err(HomogenizeError::Pins(
-            "form functions of the whole lattice need every side reflective (other lattices: `nodes` with `pins`, ADR-0125)"
+            "form functions of the whole lattice need every side reflective (other lattices: `nodes` with `pins`, ADR-0131)"
                 .into(),
         ));
     }
@@ -668,7 +668,7 @@ pub struct NodeGrid {
 }
 
 /// ノードの列と行の範囲の切れ目で、ノードが nx × ny の長方形の並びをちょうど 1 回ずつ埋めることを確かめる
-/// （形状関数と角の不連続因子の角の点の釣り合い。ADR-0125）
+/// （形状関数と角の不連続因子の角の点の釣り合い。ADR-0131）
 pub fn node_grid(nodes: &[Node]) -> Result<NodeGrid, String> {
     let cuts = |ranges: &mut dyn Iterator<Item = &Range<usize>>| -> Vec<usize> {
         let mut c: Vec<usize> = ranges.flat_map(|r| [r.start, r.end]).collect();
@@ -731,7 +731,7 @@ fn positive_scales(scales: &[[f64; 2]]) -> Result<(), String> {
     }
 }
 
-/// 格子のノードごとの形状関数と角の不連続因子（ADR-0125）。`fews` は ADF（f* で割る前）と拡散係数を決めた
+/// 格子のノードごとの形状関数と角の不連続因子（ADR-0131）。`fews` は ADF（f* で割る前）と拡散係数を決めた
 /// ノードの定数。ノードは格子の上の nx × ny の長方形の並びであること。
 ///
 /// - 角の点 p の不均質な中性子束 Φ_p は `point_flux`
@@ -2979,7 +2979,7 @@ mod tests {
     #[test]
     fn strip_pins_reproduce_the_lattice() {
         // 燃料と水の帯（右が真空）を燃料と反射体のノードに分けた定数と形状は、定数を作った体系の角の中性子束と
-        // セルの核分裂率を再現する（ADR-0125）
+        // セルの核分裂率を再現する（ADR-0131）
         let (lattice, solution, materials, boundaries) = strip();
         let nodes = [
             node(0..1, 0..1),
@@ -3034,7 +3034,7 @@ mod tests {
     #[test]
     fn l_shaped_pins_reproduce_the_lattice() {
         // 燃料のノード（2 × 2 のピン）の上と右に反射体のノード、右上に水のノード（反射体の印なし。燃料に角だけで
-        // 接する）。反射体の角は燃料の面と、右上のノードに接する（ADR-0125）
+        // 接する）。反射体の角は燃料の面と、右上のノードに接する（ADR-0131）
         let (lattice, solution, materials, boundaries) = l_shaped(vacuum());
         let reflector = |n: Node| Node {
             reflector: true,
@@ -3083,7 +3083,7 @@ mod tests {
 
     #[test]
     fn pins_need_reflector_nodes_without_fission() {
-        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。反射体の印のノードに核分裂があると、
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0131）。反射体の印のノードに核分裂があると、
         // 自分の CDF で割ることになり、core で掛け戻す値と食い違うので、形状関数を作るときはエラー
         let (lattice, solution, materials, boundaries) = strip();
         let refs: Vec<&Material> = materials.iter().collect();
@@ -3115,7 +3115,7 @@ mod tests {
     #[test]
     fn strip_corner_factors_follow_the_face_discontinuity() {
         // 帯（上と下は鏡面反射）では均質な解が x にしか変わらず、境の角の均質な値の見込みは境の面の均質な中性子束に
-        // なる。反射体の燃料に接する角の C* は、境の面の f* に一致する（ADR-0125）
+        // なる。反射体の燃料に接する角の C* は、境の面の f* に一致する（ADR-0131）
         let (lattice, solution, materials, boundaries) = strip();
         let refs: Vec<&Material> = materials.iter().collect();
         let fine = fine();
@@ -3355,7 +3355,7 @@ mod tests {
                 boundaries,
             )
         };
-        // 格子全体の形状関数は外周がすべて鏡面反射の格子でだけ作る（ほかの格子は `nodes`。ADR-0125）
+        // 格子全体の形状関数は外周がすべて鏡面反射の格子でだけ作る（ほかの格子は `nodes`。ADR-0131）
         let err = shapes(&vacuum()).unwrap_err().to_string();
         assert!(err.contains("reflective"), "{err}");
         // 角の中性子束は余白の角のセルで取る
