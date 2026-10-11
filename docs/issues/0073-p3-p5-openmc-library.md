@@ -24,6 +24,8 @@ Problem 3 と 5-2D の参照解の入力（examples/vera/p3/openmc-3A.toml な�
 短い走行（1 世代あたりの時間の測定）は、これらを足したライブラリ（`examples/vera/openmc-library-timing.toml`。
 references/openmc/p3-p5-timing に置いた）で走らせた。足した 29 核種は NJOY で 54 秒（Slurm で並列、2026-10-12）。
 
+関係する ADR: なし
+
 ## 完了の条件
 
 `examples/vera/openmc-library.toml` に、Ti-46〜50 を 565 K と 600 K で、上の核種に 565 K を足し、段階（examples/vera/dvc.yaml の
