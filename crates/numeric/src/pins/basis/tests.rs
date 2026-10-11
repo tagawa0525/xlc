@@ -17,7 +17,7 @@ fn mus() -> Vec<f64> {
 
 /// 面の平均の Gauss-Legendre の点と重み
 fn rule() -> Vec<(f64, f64)> {
-    xlc_numeric::quadrature::gauss_legendre(FACE_POINTS).unwrap()
+    crate::quadrature::gauss_legendre(FACE_POINTS).unwrap()
 }
 
 fn points() -> Vec<(f64, f64)> {
@@ -137,8 +137,7 @@ fn node_conditions_determine_the_coefficients() {
                 }
             }
             let mut x = vec![1.0; 8];
-            let lu =
-                xlc_numeric::lu::Lu::new(scaled, 8).unwrap_or_else(|| panic!("μ {mu} singular"));
+            let lu = crate::lu::Lu::new(scaled, 8).unwrap_or_else(|| panic!("μ {mu} singular"));
             lu.solve(&mut x);
             assert!(
                 x.iter().all(|v| v.is_finite() && v.abs() < 1e6),
