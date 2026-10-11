@@ -16,7 +16,8 @@ import openmc.data
 
 # 比べる反応（MT）
 REACTIONS = {"total": 1, "elastic": 2, "capture": 102}
-# エネルギーの範囲 (eV) の境界。H in H2O の S(α,β) を使う上限は、xlc が 4 eV（ADR-0052）、OpenMC が 10 eV（#0005）
+# エネルギーの範囲 (eV) の境界。H in H2O の S(α,β) を使う上限は、xlc の散乱行列も OpenMC も 10 eV（ADR-0133）。
+# xlc の UFG のポイントワイズの断面積は 4 eV から自由原子のまま
 BOUNDS = [4.0, 10.0, 1e5]
 
 
