@@ -18,6 +18,7 @@ resolution:
 
 feat/core-cmfd の worktree には、コミットしていない実装の途中（crates/numeric/src/cmfd.rs と crates/numeric/src/lib.rs の
 1 行）がある。粗メッシュのソルバを共通のクレートに切り出す計画（docs/plans/m3-core-hzp.md の項目 6）と関係する。
+lattice の `cmfd::CoarseMesh::solve` の解き方を変える #0069 と同じソルバに触るので、切り出すときは #0069 の変更に合わせる。
 
 関係する ADR: なし
 
