@@ -16,6 +16,8 @@
 //! # few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
 //! #   { output = "fuel.msgpack", columns = [1, 19], rows = [1, 19] },
 //! #   { output = "reflector.msgpack", columns = [20, 30], rows = [1, 19], reflector = true } ] }
+//! # axial = true を足すと、格子の x を炉心の z として定数を書く（軸方向の反射体の平板。上下の辺は鏡面反射で、
+//! # ノードは格子のすべての行にわたる。pins と split とは使えない。ADR-0128）
 //! pin-powers = "pins.msgpack"     # セルごとの核分裂率（平均が 1）
 //! medium = "fuel.medium"          # 格子全体を細かい群のまま均質化した媒質（library のとき。外周がすべて鏡面反射の
 //!                                 # 格子。軸方向の反射体の平板の燃料にする。ADR-0128）
@@ -204,6 +206,8 @@ pub struct FewGroupOutput {
     pub pins: bool,
     /// 格子全体を各方向に分ける部分ノードの数（ADR-0108）
     pub split: usize,
+    /// 格子の x を炉心の z とした軸方向の定数を書く（ADR-0128）
+    pub axial: bool,
 }
 
 /// 少数群定数のファイル。
@@ -317,6 +321,8 @@ struct FewGroupEntry {
     pins: Option<bool>,
     /// 省略すると 1
     split: Option<usize>,
+    /// 省略すると false
+    axial: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -334,6 +340,11 @@ impl FewGroupEntry {
     fn into_output(self) -> Result<FewGroupOutput, String> {
         let pins = self.pins.unwrap_or(false);
         let split = self.split.unwrap_or(1);
+        let axial = self.axial.unwrap_or(false);
+        // 形状関数と部分ノードは径方向の量（ADR-0128）
+        if axial && (pins || split > 1) {
+            return Err("`axial` constants take no `pins` or `split`".into());
+        }
         if split == 0 {
             return Err("`split` must be positive".into());
         }
@@ -391,6 +402,7 @@ impl FewGroupEntry {
             files,
             pins,
             split,
+            axial,
         })
     }
 }
@@ -595,6 +607,14 @@ impl LatticeInput {
         if file.medium.is_some() && boundaries != Boundaries::REFLECTIVE {
             return Err(invalid(
                 "`medium` needs a lattice with every side reflective".into(),
+            ));
+        }
+        // 平板の格子の y は炉心の径方向で、一様（ADR-0128）
+        if output.as_ref().is_some_and(|o| o.axial)
+            && (boundaries.top != Boundary::Reflective || boundaries.bottom != Boundary::Reflective)
+        {
+            return Err(invalid(
+                "`axial` constants need the top and bottom sides reflective".into(),
             ));
         }
         let entries = file.material.unwrap_or_default();
@@ -1455,6 +1475,7 @@ zones = [{ material = "water", rings = 1 }]
                 files: FewGroupFiles::Lattice(PathBuf::from("pincell.fg.msgpack")),
                 pins: false,
                 split: 1,
+                axial: false,
             })
         );
         assert_eq!(input.pin_powers, None);
@@ -1867,6 +1888,7 @@ zones = [{ material = "water", rings = 1 }]
             ]),
             pins: false,
             split: 1,
+            axial: false,
         };
         assert_eq!(input.output, Some(expected));
     }
