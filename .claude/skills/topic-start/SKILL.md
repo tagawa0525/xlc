@@ -67,12 +67,13 @@ cargo build --release
 
 記録（examples/*/verification.md、dvc.lock）に書く数値を出す計算を Slurm に流す前に、ブランチを main に rebase する。
 計算のあとに rebase すると、記録の hash の付け替え（commit-refs remap）と dvc.lock の整え直し（dvc-relock）が要り、
-場合によっては計算のやり直しになる。先に rebase すれば、マージ時の rebase はたいてい何もせず、記録の hash がそのまま残る。
+場合によっては計算のやり直しになる。先に rebase すれば、マージ時の rebase で記録の hash が変わる場面を減らせる。
 
 1. コードと入力の変更をすべてコミットする。`git status --short` が空であることを確かめる
-2. `git rebase main`。衝突があればここで解く
-3. `~/.claude/skills/language-checks/scripts/run-checks.sh` を通す（下の「チェック」）
-4. 記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD
+2. `git rebase main`。衝突があればここで解く。`dvc.lock` が衝突したら、スキル dvc-relock の前半で整える。rebase の終わりに
+   post-rewrite hook が記録の hash を付け替えたら、その差分をコミットしてから次へ進む（スキル verification-record の「rebase のあと」）
+3. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（下の「チェック」と同じ検査）
+4. 記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD（`dvc.lock` をコミットする前のコミット）
 
 計算の待ち時間が長く、その間に main が進んだら、マージ前の rebase で hash が変わる。計算は測り直さず、付け替えは
 commit-refs remap に任せる（ADR-0122。コード、入力、環境が変わらなければ測り直さない）。長い計算が複数のブランチで
