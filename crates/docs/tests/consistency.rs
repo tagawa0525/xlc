@@ -121,8 +121,24 @@ fn is_ancestor(repo: &Repo, hash: &str, head: &str) -> Result<bool> {
 }
 
 /// 今のブランチが main のとき、`trials/` の下で追跡しているファイル。ほかのブランチと detached HEAD では空。
-fn trials_tracked_on_main(_repo: &Repo) -> Result<Vec<String>> {
-    Ok(Vec::new())
+/// ブランチの上では、記録に数値を書いた試行の入力を追跡してよく、マージの前に消す（ADR-0122）。マージのコミットを
+/// 作る前の hook では、HEAD はまだ main で、index がマージの結果なので、index を読む `git ls-files` で残りが見つかる
+fn trials_tracked_on_main(repo: &Repo) -> Result<Vec<String>> {
+    let branch = repo.git(&["branch", "--show-current"])?;
+    if !branch.status.success() {
+        return Err(format!(
+            "git branch --show-current failed: {}",
+            String::from_utf8_lossy(&branch.stderr)
+        )
+        .into());
+    }
+    if String::from_utf8(branch.stdout)?.trim() != "main" {
+        return Ok(Vec::new());
+    }
+    Ok(tracked_files(repo)?
+        .into_iter()
+        .filter(|path| path.starts_with("trials/"))
+        .collect())
 }
 
 #[test]
@@ -165,6 +181,22 @@ fn docs_are_consistent() -> Result<()> {
         "{} documentation violation(s):\n{}",
         violations.len(),
         violations.join("\n")
+    );
+    Ok(())
+}
+
+#[test]
+fn main_tracks_no_trials() -> Result<()> {
+    let root = repo_root();
+    let repo = Repo {
+        root: &root,
+        isolated: false,
+    };
+    let trials = trials_tracked_on_main(&repo)?;
+    assert!(
+        trials.is_empty(),
+        "main tracks trials (remove them, or git mv the ones to keep into examples/, before the merge; ADR-0122):\n{}",
+        trials.join("\n")
     );
     Ok(())
 }
