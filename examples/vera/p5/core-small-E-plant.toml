@@ -1,0 +1,31 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 最小の入力（small-moc.toml の体系）の炉心の形。角型の位置に隣る I 型の位置は、角型の格子の右と上の反射体。
+pitch = 21.5
+height = 21.5
+map = [
+  "C@90  E@90  I@90  N     C",
+  "N@90  *     *     *     E",
+  "I@180 *     *     *     I",
+  "E@180 *     *     *     N@270",
+  "C@180 N@180 I@270 E@270 C@270",
+]
+
+# 角型の格子の右上の反射体（燃料が −x −y の対角）
+[reflector.C]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner.msgpack"]
+
+# 角型の格子の右の反射体（燃料が −x、角型が +y）
+[reflector.E]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-right.msgpack"]
+
+# I 型の格子の反射体（燃料が −x）
+[reflector.I]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-I.msgpack"]
+
+# 角型の格子の上の反射体（燃料が −y、角型が +x）
+[reflector.N]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-top.msgpack"]
