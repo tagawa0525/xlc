@@ -29,7 +29,7 @@ M0 の縦切り（2026-10-06）で、散乱行列（群の間の移行）を、�
 `hydrogen_elastic_matrix`、`discrete_inelastic_uses_q_value`、`free_gas_rows_sum_to_the_broadened_elastic_cross_section`、
 `mf6_multiplicity_scales_the_row`。NJOY GROUPR との比較（examples/m1/verification.md）。
 
-## 結果
+## 帰結
 
 M3 で、2体の反応と MF5 の連続的な放出に MF4 の角度分布を入れる決定に置き換えた（[ADR-0081](0081-use-mf4-angular-distributions.md)）。まだ有効な部分
 （4 eV を境にした弾性散乱の扱い、離散準位の Q 値の2体反応、MF6 LAW=1 のエネルギー分布と多重度）は [ADR-0081](0081-use-mf4-angular-distributions.md) に

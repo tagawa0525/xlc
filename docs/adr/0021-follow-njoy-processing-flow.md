@@ -39,6 +39,6 @@ ENDF から多群ライブラリを作る処理の流れと、対応する共鳴
 段階ごとに NJOY の出力と比べる例（`crates/xs/examples/compare_njoy_pendf.rs`、`compare_njoy_broadr.rs`、
 `compare_njoy_thermr.rs`、`compare_njoy_gendf.rs`、`compare_njoy_shielding.rs`）。結果は examples/m1/verification.md。
 
-## 結果
+## 帰結
 
 対応していない形式はエラーにする（`unsupported_formalism_is_error`）。

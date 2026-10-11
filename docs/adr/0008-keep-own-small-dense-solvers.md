@@ -35,6 +35,6 @@ requires: []
 上の測定。自前の解法の正しさは `lu_solves_with_pivoting`、`solves_a_system_that_needs_pivoting`、
 `solve_rejects_singular_and_overflowing_systems` などで確かめている。
 
-## 結果
+## 帰結
 
 疎行列の LU 分解とクリロフ法は faer を使う（[ADR-0007](0007-use-faer-for-linear-algebra.md)）。

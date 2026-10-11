@@ -118,7 +118,7 @@ M0（examples/m0/dvc.yaml の xs → lattice → core）で確かめた（24c7d3
   hardlink でない）。reflink のできない tmpfs（/dev/shm）で同じ設定にすると、`dvc checkout` は copy に戻らず
   「no more link types left to try out」で止まった
 
-## 結果
+## 帰結
 
 - 段階を DVC で走らせているのは M0 だけである（M0 の run.sh は消した）。ほかの例（M1、VERA、MOX など）と、参照の結果
   （NJOY → OpenMC のライブラリ → OpenMC、比較）を DVC の段階にするのは #0018 の次のブランチで行う。道具（NJOY、

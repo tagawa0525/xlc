@@ -40,7 +40,7 @@ NJOY RECONR の 0 K のポイントワイズの断面積と比べた。Fe-54, 57
 2026-10-07）。テストは `r_matrix_limited_adds_level_inelastic_scattering`、`rejects_r_matrix_limited_other_than_reich_moore`、
 `rejects_charged_pairs`、`rejects_shift_factor`、`rejects_width_of_a_channel_closed_at_the_resonance`。
 
-## 結果
+## 帰結
 
 以上（ADR-0055〜[ADR-0058](0058-read-lrf1-as-lrf2-with-l3.md)）で、Zircaloy-4 の天然の同位体（Zr, Sn, Fe, Cr の 23 核種）をすべて処理できる。Zr と Sn の
 ほかの同位体と Fe-56 はそのまま処理できた。

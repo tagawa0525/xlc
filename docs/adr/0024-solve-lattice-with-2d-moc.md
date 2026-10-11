@@ -27,6 +27,6 @@ M0 で、均質なセルの解析解（無限媒質の多群固有値）との�
 （`homogeneous_cell_matches_infinite_medium`、`refinement_converges`）。M2 で C5G7 と VERA Problem 1〜2 と比べた
 （examples/c5g7/verification.md、examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 トラッキングは [ADR-0043](0043-track-pin-cells-cyclically.md)、[ADR-0060](0060-track-whole-assembly-cyclically.md)、反復の加速は [ADR-0083](0083-generalize-to-rectilinear-lattice.md)（M2 では [ADR-0061](0061-accelerate-moc-with-cmfd.md)）。

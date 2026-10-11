@@ -30,7 +30,7 @@ NJOY RECONR と同じ式で共鳴パラメータから求める。
 `lssf1_scales_by_shielding_factor`。NJOY UNRESR との比較（`crates/xs/examples/compare_njoy_shielding.rs`、
 examples/m1/verification.md）。
 
-## 結果
+## 帰結
 
 - 幅のゆらぎの期待値の求め方は [ADR-0049](0049-integrate-width-fluctuations-adaptively.md)
 - LRF=1 は [ADR-0058](0058-read-lrf1-as-lrf2-with-l3.md)

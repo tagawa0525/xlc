@@ -36,7 +36,7 @@ SPH 因子（Hébert の SPH 等価）で直す。リング r・群 g の反応�
 `factors_reproduce_the_reference_shape`、`consistent_reference_needs_no_correction`、`rejects_references_without_flux`、
 `rejects_rings_without_flux`。VERA のピンセルの結果（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 - 範囲の外の群では、どのリングにも掛けない（[ADR-0074](0074-shield-outside-range-by-equivalence.md)）
 - 枠のリングの SPH 因子は 1 のままにする（[ADR-0088](0088-add-frame-ring-to-equivalent-cell.md)）

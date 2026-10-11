@@ -27,6 +27,6 @@ core の NEM と CMFD は、演算子と固有値の反復を分けておく。�
 
 構造の約束事で、まだ確かめるテストはない。
 
-## 結果
+## 帰結
 
 粗メッシュのソルバは共通のクレートに置く（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）。

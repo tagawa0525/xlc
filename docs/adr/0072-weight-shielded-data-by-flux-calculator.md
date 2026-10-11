@@ -46,7 +46,7 @@ NJOY GROUPR の flux calculator（重み関数の番号を負にする）と 1e-
 `slowing_down_weight_changes_only_groups_in_its_range`、`below_the_slowing_down_range_the_flux_is_the_weight`、
 `finer_grids_do_not_change_the_flux`。
 
-## 結果
+## 帰結
 
 - 散乱核の近似（標的は静止）は [ADR-0070](0070-treat-targets-at-rest.md)
 - 格子の細かさは [ADR-0004](0004-keep-solver-settings-per-stage.md)

@@ -39,7 +39,7 @@ requires: []
 xlc の入力（examples/vera/p2/assembly-2E.toml〜assembly-2H.toml）と OpenMC のモデル（examples/vera/openmc_model.py）が、
 棒の中の He の領域を真空にする。確かめる数値はない約束事。
 
-## 結果
+## 帰結
 
 - KENO-VI とは He の扱いが違う。上の見積もりでは、OpenMC と KENO-VI の差（2G で +129 pcm。examples/vera/verification.md、
   c0662d26、2026-10-11）を説明する大きさにはならない

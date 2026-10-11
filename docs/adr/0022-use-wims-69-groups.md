@@ -25,7 +25,7 @@ requires: []
 
 `wims69_bounds`、`wims69_passes_the_checks`。
 
-## 結果
+## 帰結
 
 - より細かい群構造が必要になったら追加する
 - 4 eV より下の共鳴の扱いは、群の幅に効く（#0001）

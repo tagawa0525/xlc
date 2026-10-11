@@ -26,7 +26,7 @@ requires: []
 
 範囲の判断で、確かめるテストはない。
 
-## 結果
+## 帰結
 
 - 熱水力のフィードバックを含む BEAVRS との比較は、M4 の後に検討する
 - 分岐の軸は、燃料温度や減速材密度を足せる形にしておく（[ADR-0033](0033-store-kinetics-and-cooling-data-in-m4-tables.md)）

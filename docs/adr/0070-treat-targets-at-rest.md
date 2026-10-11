@@ -43,6 +43,6 @@ requires: []
 `heavy_absorber_scatters_without_losing_energy`、`hydrogen_slowing_down_matches_the_analytic_solution`。OpenMC との群ごとの
 吸収の比較（examples/vera/verification.md）。
 
-## 結果
+## 帰結
 
 1200 K の燃料で k の差が負に開く分が残る。
