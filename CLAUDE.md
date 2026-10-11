@@ -29,9 +29,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - `examples/vera/vera.msgpack` は git で追跡しない。worktree では main のものをコピーして使い、核種を足して作り直したら
   main の場所にも置く
-- 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。rebase や文書の変更で hash が
-  変わっても測り直さず、ツール（remap-commit-refs.sh）で付け替える。再測定するのは計算（コード、入力、環境）を変えたとき
-  だけ（ADR-0122）
+- 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。rebase で hash が変わっても
+  測り直さず、ツール（remap-commit-refs.sh）で付け替える。文書やテストの変更で hash が最新でなくなっても測り直さない。
+  再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）
 
 ## 作業の流れ
 
