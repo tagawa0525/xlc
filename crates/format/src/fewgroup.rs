@@ -203,7 +203,7 @@ impl Pins {
     }
 }
 
-/// テストの少数群定数（2群、真空の辺と f* の辺を1つずつ持つ）
+/// テストの少数群定数（2群、径方向と z の真空の辺を1つずつと、f* の辺を1つ持つ。z の厚さを持つ）
 #[cfg(test)]
 pub(crate) fn sample() -> FewGroup {
     // 10 進で短く書けない値にして、ビット単位の往復を確かめる
@@ -218,9 +218,17 @@ pub(crate) fn sample() -> FewGroup {
         chi: vec![1.0, 0.0],
         diffusion: vec![x(4.1), x(1.2)],
         scatter: vec![vec![x(1.5), x(0.05)], vec![x(0.002), x(1.9)]],
-        adf: vec![vec![x(3.0), x(3.3)]; 4],
-        vacuum_ratio: vec![None, Some(vec![x(1.6), x(1.7)]), None, None],
-        normalized_adf: vec![true, false, false, false],
+        adf: vec![vec![x(3.0), x(3.3)]; 6],
+        vacuum_ratio: vec![
+            None,
+            Some(vec![x(1.6), x(1.7)]),
+            None,
+            None,
+            None,
+            Some(vec![x(1.4), x(1.1)]),
+        ],
+        normalized_adf: vec![true, false, false, false, false, false],
+        height: Some(x(17.0)),
         pins: None,
     }
 }
@@ -327,8 +335,43 @@ mod tests {
         assert!(fg.validate().is_err());
         // 真空の辺がなければ、どの辺も持たない
         let mut fg = sample();
-        fg.vacuum_ratio = vec![None; 4];
+        fg.vacuum_ratio = vec![None; 6];
         assert!(fg.validate().is_ok());
+    }
+
+    #[test]
+    fn sides_include_the_z_faces() {
+        // 辺は（左、右、上、下、−z、+z）の 6 つ（ADR-0128）。ADF、真空の比、f* の印のどれも 6 辺ぶん
+        let bad = |change: fn(&mut FewGroup), word: &str| {
+            let mut fg = sample();
+            change(&mut fg);
+            let err = fg.validate().unwrap_err().to_string();
+            assert!(err.contains(word), "{err}");
+        };
+        bad(|f| f.adf.truncate(4), "adf");
+        bad(|f| f.vacuum_ratio.truncate(4), "vacuum_ratio");
+        bad(|f| f.normalized_adf.truncate(4), "normalized_adf");
+        bad(|f| f.adf[5][1] = 0.0, "discontinuity");
+        bad(|f| f.vacuum_ratio[5] = Some(vec![1.5, 0.5]), "vacuum_ratio");
+        // z の真空の辺にも f* の印は付けない
+        bad(|f| f.normalized_adf[5] = true, "normalized_adf");
+        let mut fg = sample();
+        fg.normalized_adf[4] = true;
+        assert!(fg.validate().is_ok());
+    }
+
+    #[test]
+    fn height_is_positive_when_given() {
+        // z の厚さは軸方向の定数だけが持ち（ADR-0128）、持つなら正
+        let mut fg = sample();
+        fg.height = None;
+        assert!(fg.validate().is_ok());
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let mut fg = sample();
+            fg.height = Some(bad);
+            let err = fg.validate().unwrap_err().to_string();
+            assert!(err.contains("height"), "{err}");
+        }
     }
 
     #[test]
