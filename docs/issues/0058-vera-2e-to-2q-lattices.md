@@ -88,7 +88,7 @@ OpenMC のモデル（examples/vera/openmc_model.py）と核種の処理（openm
   変化は xlc −901 pcm、OpenMC −924 pcm。OpenMC と KENO-VI の k の差は 2A で +19 pcm、2Q で +119 pcm（原因は確かめていない）。
   OpenMC は 565 K の核種を足したデータを温度の内挿のモードで解く（#0017）。2Q の OpenMC と KENO-VI のピン出力は rms 0.058%、
   最大 +0.176%（3e3cf00c）。2E〜2K と 2Q を解き、2G と 2H のトラック間隔への依存を測ったので、閉じる
-- 2026-10-11: 2K の間隔の幅を測った（examples/vera/verification.md「吸収体を入れた集合体のトラック間隔」、75b39b4d）。幅 29.2 pcm
+- 2026-10-11: 2K の間隔の幅を測った（examples/vera/verification.md「吸収体を入れた集合体のトラック間隔」、401bac67）。幅 29.2 pcm
   で、7 点とも 2F と 0.4 pcm 以内。2E-empty を基準にした +36 pcm は判定の範囲 60.1 pcm の中、2F を基準にした −4.4 pcm は
   86.1 pcm の中で、どちらも 0 と区別できない。k の差の内訳（「k の差の内訳」の 2K の節）では、水の 14〜27 群の移行の置き換えで
   差が +283 から +53 pcm になり、Pyrex の断面積の差による分（1 次の近似）は −14.7 pcm
