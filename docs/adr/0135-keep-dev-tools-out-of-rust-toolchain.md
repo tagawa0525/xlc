@@ -29,11 +29,12 @@ DVC のステージは default の devShell で実行する。
   `rust-toolchain.toml` を `lib.importTOML` で読み直して components に足す形は、rust-overlay が解いた一覧を二重に読む。
   `override (old: …)` で `old.extensions` に足す形はそれを避けるが、どちらも段階をビルドするツールチェーンの derivation を
   変える（版は同じでも store パスが変わる）。その変更は `flake.nix` にあって deps に表れないので、同じ override に後から
-  targets などを足すとコンパイラが黙って変わる。防ぐのは文書の規則だけになる
+  targets などを足すとコンパイラが黙って変わる。override を書くこと自体が、その変更の入り口を作る
 - 案 C: ビルド用と開発用の devShell を分け、DVC のステージと Slurm のジョブはビルド用で実行する。段階のビルドが開発のツールから
   切り離されるが、すべての段階の cmd を `nix develop ..#build -c` で包み直し、direnv の shell と段階の shell を
-  使い分ける手間が増える。開発のツールがコンパイラを変えないなら、ビルドする rustc は案 E と同じ。shell の設定の変更
-（帰結）から段階を切り離せる利点はあるが、それはこの決定の前からある別の問題で、言語サーバーを足すことには要らない
+  使い分ける手間が増える。開発のツールがコンパイラを変えないなら、ビルドする rustc は案 E と同じ。shell の設定の
+  変更から段階を切り離せる利点はある（帰結の 2 つ目）が、それはこの決定の前からある別の問題で、言語サーバーを
+  足すことには要らない
 - 案 D: nixpkgs の rust-analyzer を入れる。手続き型マクロの展開はツールチェーンの sysroot の proc-macro-srv を使うので
   動くが、rust-analyzer の版が nixpkgs の更新で動き、ツールチェーンの版と別に変わる
 - 案 E（採用）: ツールチェーンはそのままにし、rust-overlay の同じ版の `rust-analyzer` の component
@@ -48,7 +49,8 @@ DVC のステージは default の devShell で実行する。
 足すためには cmd の包み直しと shell の使い分けが増えるだけのため。
 
 DVC の deps はビルドの入力を表すので、計算に関係しないツールの変更で段階を changed にしない。段階をビルドする
-コンパイラの derivation は `rust-toolchain.toml` と `flake.lock` だけで決まる形を保ち、`flake.nix` の文書の規則に頼らない。
+コンパイラの derivation は、今と同じく `rust-toolchain.toml` と `flake.lock` だけで決まる形を保ち、override の入り口を
+作らない。後から `flake.nix` でツールチェーンを変えることを機械で止める仕組みはない（帰結）。
 rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot と proc-macro-srv を見つけるので、component を
 分けても版はそろう。
 
@@ -65,8 +67,8 @@ rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot �
   cmfd.rs、crates/numeric/src/pins/node.rs など）
 - 同じ方法で、crates/numeric/src/lu.rs の `Vec` の goToDefinition が sysroot の
   `lib/rustlib/src/rust/library/alloc/src/vec/mod.rs` を返した（rust-src が sysroot から読まれる）
-- 手続き型マクロの展開（proc-macro-srv）は確かめていない。derive した構造体への goToImplementation は構造体の位置を
-  返すだけで、展開したかを見分けられなかった
+- 手続き型マクロの展開: `rust-analyzer analysis-stats .` で、型の分からない式（`??ty` と `?ty`）が 251332 個中 89 個。
+  `--disable-proc-macros` では 244411 個中 1184 個で、展開ありでは serde の derive の式が増え、型の分からない式が減る
 
 ## 帰結
 
@@ -75,7 +77,12 @@ rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot �
 - 段階は default の devShell で走るので、`flake.nix` の shell の設定（shellHook の環境変数、別の C コンパイラなど）を
   変えると、deps に表れずに段階のビルドが変わりうる。これはこの決定の前からある限界で、この決定はツールチェーンの
   derivation だけを `rust-toolchain.toml` と `flake.lock` で決まる形に保つ
-- rust-analyzer は開いたワークスペースで `cargo check` を実行し、既定では同じ `target/` を使う。run-checks.sh の
-  clippy やテストとビルドのロックを取り合いうる（確かめていない）
-- 走っている Claude Code の LSP のサーバーは起動時の PATH を引き継ぐので、direnv で devShell を読み直してから
-  Claude Code を起動し直すと Rust の LSP が使える
+- rust-analyzer は開いたワークスペースで `cargo check` を実行し、`target/debug` を run-checks.sh のテストや clippy と
+  共有する（worktree の target/flycheck0/stdout の成果物のパスで確かめた）。ロックの取り合いや作り直しが起きるかは
+  確かめていない。DVC のステージは release なので `target/release` を使う。リポジトリの `rust-analyzer.toml` に
+  `[cargo] targetDir = true` を書く形を試したが、rust-analyzer 1.99.0 は `target/rust-analyzer` を作らず、
+  `target/debug` を使い続けた。分けるなら、言語サーバーの起動の設定（lsp-det の `.lsp.json` の initializationOptions）で行う
+- 後から `flake.nix` でツールチェーンを override すると、deps に表れずにコンパイラが変わる。止めるのは flake.nix の
+  コメントだけ
+- Claude Code の LSP のサーバーは Claude Code の起動時の PATH を引き継ぐ。devShell の中（direnv の効いた main の
+  worktree、または `nix develop -c claude`）で起動した Claude Code だけが Rust の LSP を使える
