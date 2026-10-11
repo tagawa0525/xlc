@@ -1000,24 +1000,8 @@ pub fn split_constants(
         }
         sum.iter().map(|s| s / (hi - lo)).collect()
     };
-    // 点 (x, y)（-x、-y の辺から）の不均質な中性子束: 格子の中の象限の領域の平均
-    let point = |x: f64, y: f64| -> Vec<f64> {
-        let e = 1e-9 * width.max(height);
-        let mut sum = vec![0.0; coarse];
-        let mut count = 0.0;
-        for (sx, sy) in [(1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)] {
-            let (px, py) = (x + sx * e, y + sy * e);
-            if px <= 0.0 || px >= width || py <= 0.0 || py >= height {
-                continue;
-            }
-            let region = lattice.region_at(px - 0.5 * width, py - 0.5 * height);
-            for (g, &big) in group_of.iter().enumerate() {
-                sum[big] += solution.flux[region][g];
-            }
-            count += 1.0;
-        }
-        sum.iter().map(|s| s / count).collect()
-    };
+    // 点 (x, y)（-x、-y の辺から）の不均質な中性子束
+    let point = |x: f64, y: f64| point_flux(solution, lattice, &group_of, coarse, x, y);
     let tolerance = 1e-9 * width.max(height);
     // 区間 [lo, hi] に重なるセルの (番号, 重なる大きさ) と、両端がセルの途中か
     // 丸ごと入るセルは元の大きさをそのまま使う（境界の座標の引き算の丸めを入れない）
