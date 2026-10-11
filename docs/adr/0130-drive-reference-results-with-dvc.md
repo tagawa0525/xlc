@@ -111,20 +111,22 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 ## 確認
 
 examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro examples/vera/dvc.yaml` で Slurm の上で実行した
-（7da182f0、2026-10-11、全体で 47 分）。
+（a9065730、2026-10-11）。xs と lattice は rebase の前の 1 回目（全体で 47 分）で走り、rebase のあと
+`openmc_model.py` と `openmc_library.py` が変わったので、ライブラリと OpenMC 1B を再実行した（38 分）。
 
 - OpenMC 1B の k は 1.181783 ± 0.000063 で、examples/vera/verification.md の「参照解」の 1B（dba00ffe に手で実行した
-  `references/openmc/vera-1B`、同じ粒子数・世代・種）と一致した。k の推定の差は相対 5e-14、世代ごとの k も最初の世代から
+  `references/openmc/vera-1B`、同じ粒子数・世代・種）と一致した。k の推定の差は相対 3e-14（1 回目も 5e-14）、世代ごとの k も最初の世代から
   同じで、ADR-0124 の「確認」の、同じツールを 2 回実行した差と同じ大きさである。model.xml は、手で実行したものと
   `cross_sections` のパスだけが違った
 - 核種ごとの段階で作ったライブラリの 62 の HDF5（中性子 61、熱中性子散乱則 1）は、手で作った `references/openmc/endfb80`
-  とバイト単位で一致した（`cmp`）
+  とバイト単位で一致した（`cmp`。2 回とも）
 - xlc の 1B の k∞ は 1.184735 で、記録の d13f57d5 の値と同じ。`compare-1B` は +295 ± 6 pcm を書いた
-- 2 回目の `dvc repro` は `references-shell`（評価だけ）のほかは走らず、`references-shell.txt` も変わらなかった（9.6 s）。
+- 実行したあとにもう一度 `dvc repro` すると、`references-shell`（評価だけ）のほかは走らず、`references-shell.txt` も変わらなかった（11 s）。
   `references` の devShell の store のパスは main と worktree で同じだった
 - 入力のキーが足りない、または知らないキーがあると、`openmc_model.py` が両方を挙げて止まることを、手元の小さな入力で
   確かめた（trials/ で、記録しない）
-- 時間（Slurm、32 コア）: ライブラリの 63 段階が約 22 分（逐次）、OpenMC 1B が 17.9 分（statepoint の total）、xs が約 6.7 分
+- 時間（Slurm、32 コア）: ライブラリの 63 段階が約 22 分（逐次）、OpenMC 1B が 16.3 分（statepoint の total。1 回目は 17.9 分）、
+  xs が約 6.7 分（1 回目）
 
 ## 帰結
 
