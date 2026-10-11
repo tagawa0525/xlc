@@ -55,12 +55,13 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
             for i in 0..nx {
                 let local = i + nx * j;
                 let n = local + nx * ny * k;
-                let (Some((m, pins)), Some(model), Some(base)) =
-                    (constants[local], &models[local], &conditions[local])
+                let Some(Parts {
+                    constants: (m, pins),
+                    model,
+                    conditions: base,
+                    cdf,
+                }) = parts(local, &constants, &models, &conditions, &cdfs)?
                 else {
-                    continue;
-                };
-                let Some(cdf) = &cdfs[local] else {
                     continue;
                 };
                 let mut c = base.clone();
@@ -75,6 +76,42 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
         }
     }
     Ok(out)
+}
+
+/// 層の位置ごとの、再構成に使う量の組
+struct Parts<'a, 'b> {
+    constants: (&'a FewGroup, &'a Pins),
+    model: &'b Rc<NodeModel>,
+    conditions: &'b Conditions,
+    cdf: &'b [[f64; 2]; 4],
+}
+
+/// 層の位置 `local` の量の組。ノードのない位置（どれも `None`）は `None`。一部だけ `None` なら、層の配列の作り方の
+/// 誤りなのでエラー
+fn parts<'a, 'b>(
+    local: usize,
+    constants: &[Option<(&'a FewGroup, &'a Pins)>],
+    models: &'b [Option<Rc<NodeModel>>],
+    conditions: &'b [Option<Conditions>],
+    cdfs: &'b [Option<[[f64; 2]; 4]>],
+) -> Result<Option<Parts<'a, 'b>>, String> {
+    match (
+        constants[local],
+        &models[local],
+        &conditions[local],
+        &cdfs[local],
+    ) {
+        (Some(constants), Some(model), Some(conditions), Some(cdf)) => Ok(Some(Parts {
+            constants,
+            model,
+            conditions,
+            cdf,
+        })),
+        (None, None, None, None) => Ok(None),
+        _ => Err(format!(
+            "position {local} of the layer has a node in some of the reconstruction arrays only"
+        )),
+    }
 }
 
 /// 再構成のノードの展開の定数
@@ -545,12 +582,13 @@ fn corner_fluxes(
         for i in 0..nx {
             let local = i + nx * j;
             let n = local + nx * ny * k;
-            let (Some((m, _)), Some(model), Some(base), Some(cdf)) = (
-                constants[local],
-                &models[local],
-                &conditions[local],
-                &cdfs[local],
-            ) else {
+            let Some(Parts {
+                constants: (m, _),
+                model,
+                conditions: base,
+                cdf,
+            }) = parts(local, constants, models, conditions, cdfs)?
+            else {
                 nodes.push(None);
                 continue;
             };
