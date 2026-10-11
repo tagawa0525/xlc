@@ -3,6 +3,7 @@
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
+pub mod axial;
 pub mod b1;
 pub mod balance;
 pub mod branches;
