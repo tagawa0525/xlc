@@ -79,6 +79,11 @@ cargo build --release
 commit-refs remap に任せる（ADR-0122。コード、入力、環境が変わらなければ測り直さない）。長い計算が複数のブランチで
 並ぶときも、流す直前に rebase する。
 
+ジョブは開始したときに worktree のコードや入力を読むので、開始の時刻が分からないあいだは、その worktree を変えない（rebase、
+checkout、編集、`cargo build`）。待っている間に進めたい作業は別の worktree で行う。ジョブが終わったら、流した HEAD を
+記録に書いたまま、`dvc.lock` と記録の差分を別のコミットにし、そのあと rebase する。main の変更がコード、入力、環境を変えて
+いたら、付け替えではなく計算を再実行する（ADR-0122）。
+
 ## チェック
 
 ```sh
