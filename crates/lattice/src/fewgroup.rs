@@ -868,6 +868,16 @@ fn node_pins(
         .collect();
     let scales =
         corner_balance(nx, ny, &corner_nodes, &vec![false; points], Some(&phi)).map_err(error)?;
+    for (p, (s, f)) in scales.iter().zip(&phi).enumerate() {
+        tracing::debug!(
+            point = p,
+            column = p % (nx + 1),
+            row = p / (nx + 1),
+            scale = ?s,
+            heterogeneous = ?f,
+            "corner point"
+        );
+    }
     if let Some(p) = scales
         .iter()
         .position(|s| s.iter().any(|v| v.is_nan() || *v <= 0.0))
