@@ -1,0 +1,7 @@
+# core-corner.toml と同じ体系を、反射体の外側を外形（`-`）の真空の面にして解くケース（ADR-0132）。直方体の外周の
+# +x と +y は `-` の外なので効かない（中性子束ゼロにしておく）。core-corner.toml と同じ解になる。
+cycle = "core-corner-outline-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "core-pins-corner-outline.msgpack"
+boundary = { x = ["reflective", "zero-flux"], y = ["reflective", "zero-flux"], z = ["reflective", "reflective"], outline = "vacuum" }
