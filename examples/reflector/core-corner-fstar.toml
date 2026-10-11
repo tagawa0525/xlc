@@ -1,0 +1,7 @@
+# 角型の格子の体系を、単一集合体の定数と反射体の定数（f* と C*）の NEM で解くケース（ADR-0095、ADR-0131）。
+# 境界は core-corner.toml と同じ。
+cycle = "core-corner-fstar-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "core-pins-corner-fstar.msgpack"
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "vacuum"], z = ["reflective", "reflective"] }
