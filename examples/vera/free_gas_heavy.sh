@@ -65,7 +65,7 @@ for key in ("group_bounds", "sigma0", "pointwise_range"):
 names = [n["name"] for n in a["nuclides"]]
 if names != [n["name"] for n in b["nuclides"]]:
     raise SystemExit("nuclides differ")
-# 質量比が 1 未満の H-1 だけが変わらず、ほかはすべて変わるはず（変わらなければ切り替えが効いていない）
+# S(α, β) を使う H-1 のほかは、すべて変わるはず（変わらなければ切り替えが効いていない）
 for x, y in zip(a["nuclides"], b["nuclides"]):
     print(f"{x['name']}: {'same' if x == y else 'changed'}")
     if (x["name"] == "H-1") != (x == y):
