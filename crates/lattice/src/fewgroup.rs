@@ -3051,6 +3051,37 @@ mod tests {
     }
 
     #[test]
+    fn pins_need_reflector_nodes_without_fission() {
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。反射体の印のノードに核分裂があると、
+        // 自分の CDF で割ることになり、core で掛け戻す値と食い違うので、形状関数を作るときはエラー
+        let (lattice, solution, materials, boundaries) = strip();
+        let refs: Vec<&Material> = materials.iter().collect();
+        let fine = fine();
+        let nodes = [
+            Node {
+                reflector: true,
+                ..node(0..1, 0..1)
+            },
+            node(1..2, 0..1),
+        ];
+        let err = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &nodes,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, HomogenizeError::Nodes(m) if m.contains("fission")),
+            "{err:?}"
+        );
+    }
+
+    #[test]
     fn strip_corner_factors_follow_the_face_discontinuity() {
         // 帯（上と下は鏡面反射）では均質な解が x にしか変わらず、境の角の均質な値の見込みは境の面の均質な中性子束に
         // なる。反射体の燃料に接する角の C* は、境の面の f* に一致する（ADR-0125）
