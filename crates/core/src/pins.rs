@@ -325,7 +325,21 @@ fn layer_grid(
      -> Result<bool, String> {
         let mut marked: Option<bool> = None;
         for (a, b) in pairs {
-            let (Some(a), Some(b)) = (a, b) else { continue };
+            let (a, b) = match (a, b) {
+                (Some(a), Some(b)) => (a, b),
+                // 分け合う相手のないノードの辺に印があれば、セルの半分を 0 と平均することになる
+                (Some(p), None) if p.halves[a_side] => {
+                    return Err(format!(
+                        "layer {k}: a split cell faces a position without a node"
+                    ));
+                }
+                (None, Some(p)) if p.halves[b_side] => {
+                    return Err(format!(
+                        "layer {k}: a split cell faces a position without a node"
+                    ));
+                }
+                _ => continue,
+            };
             let m = shared(a, a_side, b, b_side)?;
             if marked.is_some_and(|f| f != m) {
                 return Err(format!("layer {k}: split cells differ along the {what}"));
