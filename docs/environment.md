@@ -98,15 +98,16 @@ NJOY と OpenMC を使う段階は、cmd が `nix develop ../..#references -c` �
 `dvc repro` を `references` の devShell の中で走らせない（cargo と dvc がない）。1 分を超えるので、`dvc repro` 全体を
 Slurm で流す（CLAUDE.md の「計算」）。
 
-| 段階                                               | 入力                            | 出力（examples/vera/ の下）                                              |
-| -------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
-| `references-shell`                                 | flake                           | `references-shell.txt`（`references` の devShell の store のパス）       |
-| `openmc-neutron@<核種>`、`openmc-thermal@<散乱則>` | `openmc-library.toml`           | `openmc-library/neutron/<核種>.h5`、`openmc-library/thermal/<散乱則>.h5` |
-| `openmc-index`                                     | `openmc-library.toml`           | `openmc-library/cross_sections.xml`                                      |
-| `openmc-1B`                                        | `p1/openmc-1B.toml`             | `p1/openmc-1B/`（statepoint、summary、model.xml）                        |
-| `openmc-1B-extract`                                | `p1/openmc-1B.toml`             | `p1/openmc-1B-results/k.json`                                            |
-| `xs`、`lattice-1B`                                 | `xs.toml`、`p1/pincell-1B.toml` | `vera.msgpack`、`p1/lattice-1B.out`                                      |
-| `compare-1B`                                       |                                 | `p1/compare-1B.out`（xlc と OpenMC の k の差）                           |
+| 段階                                               | 入力                  | 出力（examples/vera/ の下）                                              |
+| -------------------------------------------------- | --------------------- | ------------------------------------------------------------------------ |
+| `references-shell`                                 | flake                 | `references-shell.txt`（`references` の devShell の store のパス）       |
+| `openmc-neutron@<核種>`、`openmc-thermal@<散乱則>` | `openmc-library.toml` | `openmc-library/neutron/<核種>.h5`、`openmc-library/thermal/<散乱則>.h5` |
+| `openmc-index`                                     | `openmc-library.toml` | `openmc-library/cross_sections.xml`                                      |
+| `openmc-1B`                                        | `p1/openmc-1B.toml`   | `p1/openmc-1B/`（statepoint、summary、model.xml）                        |
+| `openmc-1B-extract`                                | `p1/openmc-1B.toml`   | `p1/openmc-1B-results/k.json`                                            |
+| `xs-range`、`xs-nuclide@<核種>`、`xs`              | `xs.toml`             | `xs-range.toml`、`xs-nuclides/<核種>.msgpack`、`vera.msgpack`            |
+| `lattice-1B`                                       | `p1/pincell-1B.toml`  | `p1/lattice-1B.out`                                                      |
+| `compare-1B`                                       |                       | `p1/compare-1B.out`（xlc と OpenMC の k の差）                           |
 
 計算の条件（核種と温度、粒子数、世代、捨てる世代、乱数の種、スレッド数）は入力の TOML に書く。スクリプトに既定値は
 なく、足りないキーと知らないキーで止まる。出力は `references/dvc-cache` にキャッシュされ、`dvc checkout
