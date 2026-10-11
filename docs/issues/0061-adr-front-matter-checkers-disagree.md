@@ -23,7 +23,8 @@ resolution: コミット 7adeadec
 ## 完了の条件
 
 - `requires` を採るなら、crates/docs の `ADR_KEYS` に足し、既存の ADR のフロントマターに `requires: []` を足して、
-  チェック（run-checks.sh）で `design-records check` を実行する
+  `.pre-commit-config.yaml` に `id: design-records` の hook を足して `design-records check` にオプトインする
+  （nixfiles の ADR-0009。run-checks.sh はその hook があるリポジトリでだけ実行する）
 - 採らないなら、nixfiles 側で `requires` を任意のキーにする（nixfiles の issue）
 - どちらにするかは、`requires` が何のためのキーか（nixfiles の design-records の文書）を確かめて決める
 
@@ -32,8 +33,8 @@ resolution: コミット 7adeadec
 `requires` を採った。crates/docs の `ADR_KEYS` に足し、項目が `ADR-NNNN` の形で存在する ADR であることを検査する。
 既存の ADR すべてに `requires: []` を足した。あわせて、design-records が推奨する節名に合わせ、ADR の `## 結果` を
 `## 帰結` に改名した（本文は変えていない）。`design-records check` の error は status が rejected の ADR 0091 と 0092
-の節の不足だけで、nixfiles 側で必須の節を免除する変更を待つ。`design-records check` を run-checks.sh で実行することは、
-このリポジトリの外（`~/.claude`）の変更なので、ここでは入れていない。
+の節の不足だけで、nixfiles 側で必須の節を免除する変更を待つ。`.pre-commit-config.yaml` を足して `design-records check` にオプトインした
+（run-checks.sh が実行するのは nixfiles 側の変更）。
 
 ## 経緯
 
