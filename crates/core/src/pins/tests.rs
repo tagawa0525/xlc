@@ -467,3 +467,167 @@ fn normalized_corners_need_fuel_at_the_corner_point() {
     let err = reconstruct(&p, &s).unwrap_err();
     assert!(err.contains("fuel"), "{err}");
 }
+
+/// 行列（上の行から）を反時計回りに 90° 回す
+fn turned<T: Clone>(grid: &[Vec<T>]) -> Vec<Vec<T>> {
+    let (rows, cols) = (grid.len(), grid[0].len());
+    (0..cols)
+        .map(|i| (0..rows).map(|j| grid[j][cols - 1 - i].clone()).collect())
+        .collect()
+}
+
+#[test]
+fn reflector_sites_turned_with_the_core_keep_k_and_pins() {
+    // L 型の反射体（燃料と左と下の辺で接し、角の 3 つの点で燃料に接する。f* と C* の印を持つ）と燃料 3 体の 2 × 2 を、
+    // 装荷図の回転（ADR-0105）で東西南北の 4 つの向きに置く。燃料も同じだけ回せば、k は向きによらず、ピン出力は
+    // 炉心ごと回したものになる（辺、角、形状関数、f* と C* の印を同じ規則で回す）
+    use crate::input::{Case, Cycle, Inventory, Layout, Plant};
+    use std::path::Path;
+    let cells = 3;
+    let mut f = fuel(21.5, cells);
+    f.adf = vec![
+        vec![1.02, 0.97],
+        vec![0.99, 1.05],
+        vec![1.04, 0.95],
+        vec![0.98, 1.03],
+    ];
+    if let Some(p) = f.pins.as_mut() {
+        p.form = (0..2)
+            .map(|g| {
+                (0..cells)
+                    .map(|j| {
+                        (0..cells)
+                            .map(|i| 1.0 + 0.05 * ((g + 3 * i + 7 * j) % 5) as f64)
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect();
+        p.corners = vec![
+            vec![1.1, 0.9],
+            vec![1.2, 0.8],
+            vec![1.25, 0.85],
+            vec![1.05, 0.95],
+        ];
+    }
+    let mut r = reflector(
+        21.5,
+        cells,
+        vec![
+            vec![0.8, 1.3],
+            vec![0.75, 1.35],
+            vec![1.1, 0.7],
+            vec![0.7, 1.4],
+        ],
+        vec![true, true, false, true],
+    );
+    r.adf = vec![
+        vec![1.2, 0.4],
+        vec![1.1, 0.6],
+        vec![0.9, 1.2],
+        vec![1.15, 0.45],
+    ];
+    r.normalized_adf = vec![true, false, false, true];
+    let base = Path::new("dir");
+    let inventory = Inventory::parse(
+        "[design.F]\nbounds = [0.0, 30.0]\nlayers = [\"f.msgpack\"]\n\
+         [assembly.J01]\ndesign = \"F\"\n[assembly.J02]\ndesign = \"F\"\n\
+         [assembly.J03]\ndesign = \"F\"\n",
+        base,
+    )
+    .unwrap();
+    let case = Case::parse(
+        "cycle = \"cycle.toml\"\naxial-mesh = [0.0, 30.0]\nradial-nodes = 1\n\
+         boundary = { x = [\"reflective\", \"reflective\"], y = [\"reflective\", \"reflective\"], \
+         z = [\"reflective\", \"reflective\"] }\n",
+        base,
+    )
+    .unwrap();
+    // 向き 0: 反射体は右上（東の列の北）、燃料は左上、左下、右下
+    let mut sites = vec![
+        vec![("*", "J01"), ("R", ".")],
+        vec![("*", "J02"), ("*", "J03")],
+    ];
+    let mut reference: Option<(f64, Vec<Vec<f64>>)> = None;
+    for turns in 0..4 {
+        let angle = 90 * turns;
+        let row = |cells: &[(&str, &str)], site: bool| {
+            cells
+                .iter()
+                .map(|&(s, id)| {
+                    let name = if site { s } else { id };
+                    match name {
+                        "*" | "." => name.to_string(),
+                        _ => format!("{name}@{angle}"),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("  ")
+        };
+        let quoted = |site: bool| {
+            sites
+                .iter()
+                .map(|cells| format!("\"{}\"", row(cells, site)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let plant = Plant::parse(
+            &format!(
+                "pitch = 21.5\nheight = 30.0\nmap = [{}]\n[reflector.R]\nbounds = [0.0, 30.0]\n\
+                 layers = [\"r.msgpack\"]\n",
+                quoted(true)
+            ),
+            base,
+        )
+        .unwrap();
+        let cycle = Cycle::parse(
+            &format!(
+                "plant = \"plant.toml\"\ninventory = \"assemblies.toml\"\nloading = [{}]\n",
+                quoted(false)
+            ),
+            base,
+        )
+        .unwrap();
+        let layout = Layout::new(&case, &cycle, &plant, &inventory).unwrap();
+        let constants: Vec<Vec<FewGroup>> = layout
+            .files
+            .iter()
+            .map(|file| match file.to_str() {
+                Some("dir/f.msgpack") => vec![f.clone()],
+                Some("dir/r.msgpack") => vec![r.clone()],
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        let problem = layout.problem(&constants).unwrap();
+        // 向きで反復の道筋が変わるので、許容差を詰めて収束させた解で比べる
+        let tight = Options {
+            k_tolerance: 1e-14,
+            flux_tolerance: 1e-13,
+            ..Options::default()
+        };
+        let solution = solve(&problem, &tight).unwrap();
+        let maps = reconstruct(&problem, &solution).unwrap();
+        let rows = core_rows(&problem, &maps).unwrap();
+        match &reference {
+            None => reference = Some((solution.k, rows)),
+            Some((k, expected)) => {
+                assert!(
+                    (solution.k - k).abs() < 1e-12 * k,
+                    "{angle}°: {} vs {k}",
+                    solution.k
+                );
+                let mut expected = expected.clone();
+                for _ in 0..turns {
+                    expected = turned(&expected);
+                }
+                for (a, b) in rows.iter().flatten().zip(expected.iter().flatten()) {
+                    assert!(
+                        (a - b).abs() < 1e-10 * b.abs().max(1.0),
+                        "{angle}°: {a} vs {b}"
+                    );
+                }
+            }
+        }
+        sites = turned(&sites);
+    }
+}
