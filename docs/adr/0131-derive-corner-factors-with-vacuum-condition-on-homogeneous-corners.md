@@ -19,7 +19,7 @@ issues: ["#0065"]
 
 真空の辺のある格子で、s_p が負になり CDF を作れなかった（#0065）。燃料のピン 2 × 2 の右と上に幅 6 cm の水を置き、
 右と上を真空にした格子（examples/reflector/vacuum-corner の `w6-n*.toml`。69 群のライブラリ、自己遮蔽なし）で、ADR-0125 の
-式の角の点の s_p は次のとおりだった（4b34d96e、2026-10-11。入力は 22919c3d でコミットしたもの）。
+式の角の点の s_p は次のとおりだった（4b34d96e、2026-10-11。入力はあとの 2d48538a にあるもの）。
 
 | 水のマスの 1 辺 | 2 辺が真空の角の点の s_p（高速、熱） | その点の Φ_p の熱群 | 1 辺が真空の角の点の s_p の熱群 |
 | --------------- | ------------------------------------ | ------------------- | ------------------------------- |
@@ -181,7 +181,8 @@ CPB は Φ_ref で満たされる。CPB の解は一つなので、core は Φ_r
   `two_vacuum_sides_pins_reproduce_the_lattice`。真空の辺が 1 つの `l_shaped_pins_reproduce_the_lattice`、
   `strip_pins_reproduce_the_lattice` も同じ式で）
 - core の真空の辺の角の点の流れは r f × 均質な角の値（CDF と ADF が違うとき。core の
-  `vacuum_corners_lose_r_times_the_homogeneous_corner_flux`）
+  `vacuum_corners_lose_r_times_the_homogeneous_corner_flux`）。r と f はその角の点が乗る外周の辺のもの（core の
+  `vacuum_corners_take_the_ratio_and_adf_of_their_side`）
 - 未知数の大きさを角の点ごとに変えても、均質な角の値は変わらない（numeric の
   `corner_scales_do_not_change_the_homogeneous_corner_values`）
 - 拡散の世界で、2 辺が真空の角の CPB の値が細かいメッシュの拡散の解に近い（numeric の
@@ -192,7 +193,7 @@ CPB は Φ_ref で満たされる。CPB の解は一つなので、core は Φ_r
   `normalized_reflector_corners_take_the_fuel_corner_factor`、`normalized_corners_need_fuel_at_the_corner_point`、
   format の `pins_are_checked`、`pins_round_trip_and_share_cells`、core の `rotation_turns_pins_counterclockwise`）
 
-比較（examples/reflector/verification.md、f2046a18、2026-10-11）:
+比較（examples/reflector/verification.md、2026-10-11。数値を出したコミットは各節に書く）:
 
 - 「真空の辺の角の点の大きさ」: 背景の格子の系列で、s_p はどれも 0.92〜1.12。2 辺が真空の角の点の熱群は、水のマスを
   1 cm から 0.125 cm にしても 0.947 から 0.922（Φ_p は 3.2 分の 1）で、領域の分け方にほとんど依らない
