@@ -1,6 +1,14 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-panic-in-tests = true
+# 環境変数は入力ファイルにも DVC の deps にも残らないので、計算の条件を読ませない（ADR-0137）。ログの量などの
+# 計算の結果を変えない設定は、読む関数に #[allow(clippy::disallowed_methods)] と理由を付ける
+disallowed-methods = [
+    { path = "std::env::var", reason = "read computation options from the input file (ADR-0137)" },
+    { path = "std::env::var_os", reason = "read computation options from the input file (ADR-0137)" },
+    { path = "std::env::vars", reason = "read computation options from the input file (ADR-0137)" },
+    { path = "std::env::vars_os", reason = "read computation options from the input file (ADR-0137)" },
+]
 # 本番のコードでの assert! 系（テストのビルドでは各クレートの入口で許す）
 disallowed-macros = [
     { path = "std::assert", reason = "return an error instead of panicking" },

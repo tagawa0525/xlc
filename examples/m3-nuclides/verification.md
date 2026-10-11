@@ -75,7 +75,7 @@ NJOY 2016.79（docs/environment.md）で、核種ごとに次の2つを作り（
 - 0 K、無限希釈: RECONR（許容誤差 1e-3）、GROUPR（WIMS 69 群、iwt=4、Legendre の次数 3、全反応と全散乱行列）
 - 565 K、σ0 9 点: RECONR、BROADR、非分離共鳴があれば UNRESR、GROUPR。分離共鳴を持つ核種は flux calculator
   （iwt=−4、fehi は分離共鳴の上端以下で最も高い群の境界、sigpot はライブラリのポテンシャル散乱、nflmax 2e6）で、
-  `XLC_SLOWING_DOWN` を付けて比べる（[ADR-0072](../../docs/adr/0072-weight-shielded-data-by-flux-calculator.md)）
+  `--slowing-down` を付けて比べる（[ADR-0072](../../docs/adr/0072-weight-shielded-data-by-flux-calculator.md)）
 
 全群での相対差の最大値と、その群（WIMS、1 始まり）。σ0 の列は、9 点の σ0 のうち最大のもの（群、σ0 b）。散乱行列は
 行の差の絶対値の和 / P0 の行の和の最大値。

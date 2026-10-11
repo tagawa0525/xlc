@@ -32,16 +32,26 @@ struct Repo<'a> {
     isolated: bool,
 }
 
+/// 呼び出し元の環境にある `GIT_*` の名前。
+#[allow(
+    clippy::disallowed_methods,
+    reason = "テスト用のリポジトリに、呼び出し元の GIT_* を持ち込まない（ADR-0137）"
+)]
+fn inherited_git_variables() -> Vec<std::ffi::OsString> {
+    std::env::vars_os()
+        .map(|(key, _)| key)
+        .filter(|key| key.to_string_lossy().starts_with("GIT_"))
+        .collect()
+}
+
 impl Repo<'_> {
     /// リポジトリの根で git を走らせる。git がなければエラーにする。
     fn git(&self, args: &[&str]) -> Result<Output> {
         let mut command = Command::new("git");
         command.arg("-C").arg(self.root).args(args);
         if self.isolated {
-            for (key, _) in std::env::vars_os() {
-                if key.to_string_lossy().starts_with("GIT_") {
-                    command.env_remove(key);
-                }
+            for key in inherited_git_variables() {
+                command.env_remove(key);
             }
         }
         command

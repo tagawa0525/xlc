@@ -1,10 +1,10 @@
 //! S(α, β) による熱中性子の散乱行列を、NJOY（THERMR, GROUPR）の GENDF の MF6 MT222 と比べる。
 //!
-//! 使い方: compare_njoy_thermr <ENDF> <熱中性子散乱の ENDF> <GENDF> <MAT> <温度 K> <上限 eV>
+//! 使い方: compare_njoy_thermr [--rows] <ENDF> <熱中性子散乱の ENDF> <GENDF> <MAT> <温度 K> <上限 eV>
 //!
 //! 群構造は WIMS 69群、重み関数は iwt=4。GENDF は同じ温度・上限で THERMR（iinc=2）を通して作っておくこと。
 //! 上限より下の群ごとに、行の和（非弾性散乱の群断面積）の相対差と、行の差の絶対値の和 / 行の和を表示する。
-//! 環境変数 XLC_ROWS を設定すると、全群の値を表示する。
+//! `--rows` を付けると、全群の値を表示する。
 
 use std::collections::BTreeMap;
 use std::time::Instant;
@@ -18,9 +18,19 @@ use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct_at};
 use xlc_xs::process::read_thermal_scattering;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = std::env::args().collect();
+    let (flags, args): (Vec<String>, Vec<String>) =
+        std::env::args().partition(|arg| arg.starts_with("--"));
+    let mut rows = false;
+    for flag in &flags {
+        match flag.as_str() {
+            "--rows" => rows = true,
+            _ => return Err(format!("unknown flag {flag}").into()),
+        }
+    }
     let [_, endf, tsl, gendf, mat, temperature, cutoff] = args.as_slice() else {
-        return Err("usage: compare_njoy_thermr <ENDF> <TSL> <GENDF> <MAT> <K> <cutoff eV>".into());
+        return Err(
+            "usage: compare_njoy_thermr [--rows] <ENDF> <TSL> <GENDF> <MAT> <K> <cutoff eV>".into(),
+        );
     };
     let (mat, temperature, cutoff): (i32, f64, f64) =
         (mat.parse()?, temperature.parse()?, cutoff.parse()?);
@@ -74,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|(a, b)| (a - b).abs())
             .sum::<f64>()
             / njoy_sum;
-        if std::env::var("XLC_ROWS").is_ok() {
+        if rows {
             println!(
                 "group {g:2} [{:.3e}, {:.3e}]: row sum ours {ours_sum:.5e} njoy {njoy_sum:.5e} ({sum_diff:.1e}), |diff|/sum {shape:.1e}",
                 groups.range(g).0,
