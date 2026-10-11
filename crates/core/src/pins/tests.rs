@@ -344,6 +344,16 @@ fn core_rows_merge_halves_of_split_cells() {
     maps_empty.push(Vec::new());
     let err = core_rows(&beside_empty, &maps_empty).unwrap_err();
     assert!(err.contains("split"), "{err}");
+    // 印のない辺でも、同じ列の境でほかの行が分け合っていれば、ノードのない位置の 0 と平均することになるのでエラー
+    let mut unmarked = beside_empty.clone();
+    let mut plain = unmarked.materials[0].clone();
+    if let Some(q) = plain.pins.as_mut() {
+        q.halves = vec![false; 4];
+    }
+    unmarked.materials.push(plain);
+    unmarked.node_material[2] = Some(2);
+    let err = core_rows(&unmarked, &maps_empty).unwrap_err();
+    assert!(err.contains("split"), "{err}");
 }
 
 #[test]
