@@ -59,6 +59,8 @@ pub enum HomogenizeError {
     Nodes(String),
     #[error("pins: {0}")]
     Pins(String),
+    #[error("medium: {0}")]
+    Medium(String),
 }
 
 /// 格子のセルの長方形の範囲で、1つの少数群定数にまとめるもの（ADR-0095）。
