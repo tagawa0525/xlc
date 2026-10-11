@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 examples の dvc.yaml（examples/m0、vera、reflector）で、xs は `xs.toml` の全核種を 1 つの段階で処理する。1 つの核種の
-入力や扱いを変えただけでも全核種を処理し直し、下流の lattice もすべて走り直す。OpenMC のライブラリの段階は、すでに
+入力や扱いを変えただけでも全核種を処理し直す（ライブラリが変わるので、下流の lattice が走り直すのは分けても同じ）。OpenMC のライブラリの段階は、すでに
 核種ごとの段階（`openmc-neutron`、`openmc-thermal`）と組み立て（`openmc-index`）に分けてある（[ADR-0130](../adr/0130-drive-reference-results-with-dvc.md)）。段階の駆動は [ADR-0123](../adr/0123-drive-stages-with-dvc.md)。
 
 関係する ADR: なし

@@ -87,4 +87,5 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   リポジトリの直下から走らせる形に直した
 - 2026-10-12: 手でビルドした `references/NJOY2016` と `references/openmc/{src,build,install,venv}` は、参照の結果をすべて段階に
   するまで残す。消すのは派生物（build、install、venv）だけにし、git clone（src）は原本なので残すかをユーザーに確かめる。
-  `references/openmc/endfb80-565`（565 K を含む endfb80 の上位集合）で `endfb80` を置き換えるかは決めていない
+  `references/openmc/endfb80-565`（565 K を含む endfb80 の上位集合）で `endfb80` を置き換えるかは決めていない。
+  `references/history-rewrite/` は #0077 が閉じるまで消さない
