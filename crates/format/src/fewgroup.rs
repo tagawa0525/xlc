@@ -44,7 +44,7 @@ pub struct Pins {
     pub form: Vec<Vec<Vec<f64>>>,
     /// [角（-x -y、+x -y、+x +y、-x +y の順）][群] の角の不連続因子（角の不均質な中性子束 / 角の均質な中性子束）
     pub corners: Vec<Vec<f64>>,
-    /// [角] の、`corners` が角の点に接する燃料（反射体でない）のノードの CDF の調和平均で割った値 C* である角
+    /// [角] の、`corners` が角の点に接する燃料（核分裂のある）のノードの CDF の調和平均で割った値 C* である角
     /// （反射体の定数の、燃料に接する角。ADR-0125）。core は、その角の CDF を C* × 炉心で角の点に接する燃料のノードの
     /// CDF の調和平均とする
     pub normalized_corners: Vec<bool>,
