@@ -556,4 +556,21 @@ mod tests {
             assert!((a - b).abs() < 1e-9 * a, "{a} {b}");
         }
     }
+
+    #[test]
+    fn a_negative_face_root_is_missing_only_when_no_positive_ratio_reaches_the_target() {
+        // 根で面の均質な中性子束が負のとき、正の面の点の均質な比の範囲に不均質な比 t が入っていなければ、正の面の範囲に
+        // 根はない（Missing。ADR-0134）。入っていれば、正の面の根があるのに別の根に収束したので、黙って中性子流の D に
+        // しないようエラーにする
+        let missing = negative_root(1, 0.93, Some([1.0002, 11.98])).unwrap();
+        assert!(
+            matches!(missing, Equivalence::Missing { group: 1, .. }),
+            "{missing:?}"
+        );
+        assert!(negative_root(1, 0.93, None).is_ok());
+        assert!(matches!(
+            negative_root(1, 2.0, Some([1.0002, 11.98])),
+            Err(OneNodeError::Invalid(_))
+        ));
+    }
 }
