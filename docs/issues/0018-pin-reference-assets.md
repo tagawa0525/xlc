@@ -31,7 +31,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
 道具の作り方は [ADR-0031](../adr/0031-verify-against-openmc-with-same-data.md) が「ソースから `references/` に
 ビルドする」と決めている。
 
-関係する ADR: なし
+関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)
 
 ## 完了の条件
 

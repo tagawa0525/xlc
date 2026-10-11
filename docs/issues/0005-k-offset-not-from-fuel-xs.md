@@ -16,7 +16,7 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
 核種の断面積の差から見積もった k の差（MOX-1 −162 pcm、MOX-2 −2 pcm）を除いても、+241 pcm（MOX-1）と
 +180 pcm（MOX-2）が残る（examples/mox/verification.md）。同じ原因の疑いがある。
 
-関係する ADR: [ADR-0032](../adr/0032-target-lattice-accuracy.md)
+関係する ADR: [ADR-0032](../adr/0032-target-lattice-accuracy.md)、[ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)
 
 ## 完了の条件
 
@@ -110,7 +110,7 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
   使う。H-1 は質量比が 1 未満なので、OpenMC は上限より上をどのエネルギーでも自由ガス（600 K）として扱う。ENDF/B-VIII.0 の
   H in H2O の表は α ≤ 1581、β ≤ 395.26 で、600 K の 70374 個の格子点のうち 19464 個が S = 0。xlc は S = 0 の格子点に
   接する区間を 0 として積分する
-- 2026-10-11: 残る差の候補を、仮の変更（examples/vera/sab_residuals.patch。本番のソースには入れていない）を当てた xlc で
+- 2026-10-11: 残る差の候補を、仮の変更（examples/vera/sab_residuals.patch。本番のソースには入れていない。道具は main からは消した。散乱行列の側を量った項の最後を参照）を当てた xlc で
   1 つずつ量った（examples/vera/sab_residuals.sh、acdcf9d3、2026-10-11。OpenMC は作り直さず、均質な媒質は cfd29ec7 の
   balance、1B のピンセルは 36b35da7 の 1/A 1.181810 ± 0.000044、核種を足した媒質は 8cdbcaab の k を使う）。どれも
   S(α,β) の上限を 9.877 eV にしたうえでの変更で、k の差（xlc − OpenMC の 1/A、pcm）は H-1・U-235（± 2.3）、
@@ -147,7 +147,7 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
   未満で自由ガスとして扱い、xlc は静止標的とする（O-16 では (d) と同じ仕組み）。ADR で決めること: S(α,β) の上限（MF7 MT4
   の B(4) 以下で最も高い群の境界）、表の外の扱い（THERMR の SCT と同じ条件）、上限より上の H（と 400 kT 未満のほかの核種）の
   自由ガスの範囲と、自由ガスの核の桁あふれの直し方、UFG の H を自由原子のままにすること（(b) の結果から）
-- 2026-10-11: 上の候補のうち、ライブラリの散乱行列の側を量った（examples/vera/free_gas_heavy.sh、97d23184、2026-10-11。
+- 2026-10-11: 上の候補のうち、ライブラリの散乱行列の側を量った（examples/vera/free_gas_heavy.sh、c75a4d60、2026-10-11。
   OpenMC は上と同じ）。S(α,β) を持たず質量比が 1 より大きい核種の自由ガスの上限を、4 eV（ADR-0081）から OpenMC と同じ
   400 kT（600 K で 20.7 eV）に上げた（H は (a) と (d)。S(α,β) を使う H-1 のほかは、すべての核種が変わったことを確認した）。
   自由ガスの行は和を弾性散乱断面積に規格化する（crates/xs/src/multigroup/scatter.rs の `elastic_rows`）ので、変わるのは
@@ -158,4 +158,6 @@ VERA 1B の k は OpenMC より +295 pcm 高い（examples/vera/verification.md�
   すべての核種を自由ガスにする: −25.6、+41.5、+95.5、+118.7、+68.0。
   k は O-16 で −4.5〜−7.6、すべての核種で +1.6〜−6.0 しか動かず、散乱行列の側では、O-16 を足したときの増え方（+75）も
   1B の +71 も説明しない。どの媒質でも k と 1/A は 6 桁まで一致した（同じビルドの `homogeneous` に `--balance` を付けて確認）。UFG の減速計算の散乱核の側（共鳴の吸収を含む）は
-  量っていないので、候補として残る（確認していない）
+  量っていないので、候補として残る（確認していない）。上の 2 つの試行の道具（sab_residuals.patch、sab_residuals.sh、
+  free_gas_heavy.sh）は main からは消した（ADR-0122）。出し直すには、各項に記した hash を checkout して、そのパスの
+  道具を走らせる

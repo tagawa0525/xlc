@@ -48,8 +48,8 @@ issues: []            # きっかけになった、またはこの ADR で解決
 
 ## 書き方
 
-- 測った数値は、その時点の値として、出典のファイルと、数値を記録したコミットと日付を添える。例:
-  「VERA 1B で −3080 pcm（examples/vera/verification.md、fcd48f1、2026-10-07）」。コミットが簡単に分からなければ、
+- 測った数値は、その時点の値として、出典のファイルと、数値を出したコミット（checkout すれば再現できるもの。
+  ADR-0122）と日付を添える。例: 「VERA 1B で −3080 pcm（examples/vera/verification.md、fcd48f1、2026-10-07）」。コミットが簡単に分からなければ、
   ファイルと日付を書く
 - 測った数値の詳細は examples/*/verification.md に置き、ADR からは参照する
 - 同じ核データ（ENDF/B-VIII.0 を NJOY で処理したもの）の OpenMC との比較は、コード同士の検証（verification）であり、
