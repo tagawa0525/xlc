@@ -31,7 +31,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
 外からの入力と道具の固定、`references/` への見せ方は [ADR-0124](../adr/0124-pin-reference-assets-with-nix.md) で
 決めた（ADR-0031 を置き換えた）。
 
-関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0123](../adr/0123-drive-stages-with-dvc.md)、[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、[ADR-0126](../adr/0126-share-references-across-worktrees-by-worktreelink.md)
+関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0123](../adr/0123-drive-stages-with-dvc.md)、[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、[ADR-0126](../adr/0126-share-references-across-worktrees-by-worktreelink.md)、[ADR-0127](../adr/0127-drive-reference-results-with-dvc.md)
 
 ## 完了の条件
 
