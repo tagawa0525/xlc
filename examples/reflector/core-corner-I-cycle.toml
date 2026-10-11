@@ -1,0 +1,4 @@
+# 角型の格子から作った集合体の定数（F03）を、I 型の反射体と組んだ炉心の形に置くサイクル。
+plant = "core-corner-I-plant.toml"
+inventory = "core-assemblies.toml"
+loading = [".    .", "F03  ."]

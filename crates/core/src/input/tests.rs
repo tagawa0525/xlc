@@ -1,5 +1,5 @@
 use super::*;
-use crate::nem::Solution;
+use crate::nem::{Boundary, Solution};
 
 const PLANT: &str = r#"
 pitch = 21.5
@@ -158,18 +158,92 @@ fn reflectors_can_be_rotated() {
         .is_err()
     );
     let layout = layout_of(&case(), &cycle(), &p).unwrap();
-    let m = layout.materials[layout.node_material[2]];
+    let m = layout.materials[layout.node_material[2].unwrap()];
     assert_eq!(
         (layout.files[m.file].clone(), m.turns),
         (PathBuf::from("dir/r.msgpack"), 2)
     );
 }
 
+/// 外形の面の条件を書いたケース（ADR-0132）
+fn outlined_case() -> Case {
+    let text = edited(
+        CASE,
+        "z = [\"reflective\", \"reflective\"] }",
+        "z = [\"reflective\", \"reflective\"], outline = \"vacuum\" }",
+    );
+    Case::parse(&text, base()).unwrap()
+}
+
 #[test]
-fn plant_outline_waits_for_issue_0034() {
-    let err =
-        Plant::parse(&edited(PLANT, "\"R  *  R\",\n]", "\"-  *  R\",\n]"), base()).unwrap_err();
-    assert!(err.to_string().contains("#0034"), "{err}");
+fn dashes_mark_positions_without_nodes() {
+    // `-` はノードを置かない位置（ADR-0132）。サイクルの装荷図ではその位置を `.` にし、ケースに外形の面の条件を書く
+    let p = Plant::parse(&edited(PLANT, "\"R  *  R\",\n]", "\"-  *  R\",\n]"), base()).unwrap();
+    let layout = layout_of(&outlined_case(), &cycle(), &p).unwrap();
+    // 図の下の行（y = 0）の左の列（x = 0）。並びは x が最も速く、次に y、z
+    for z in 0..3 {
+        assert_eq!(layout.node_material[6 * z], None, "z = {z}");
+        assert!(layout.node_material[1 + 6 * z].is_some());
+        assert!(layout.node_material[3 + 6 * z].is_some());
+    }
+    assert_eq!(layout.ids[1][0], None);
+    // ノードのない位置は、反射体の位置と分けて示す（上の行が +y）
+    assert_eq!(
+        layout.empty,
+        vec![vec![false, false, false], vec![true, false, false]]
+    );
+    let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
+    let problem = layout.problem(&unsplit(&constants)).unwrap();
+    assert_eq!(problem.outline, Some(Boundary::Vacuum));
+    assert_eq!(problem.node_material, layout.node_material);
+}
+
+#[test]
+fn invalid_outlines_are_errors() {
+    let dashed =
+        Plant::parse(&edited(PLANT, "\"R  *  R\",\n]", "\"-  *  R\",\n]"), base()).unwrap();
+    // `-` があるのに外形の条件がない、`-` がないのに外形の条件がある
+    let err = layout_of(&case(), &cycle(), &dashed)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("outline"), "{err}");
+    let err = layout_of(&outlined_case(), &cycle(), &plant())
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("outline"), "{err}");
+    // `-` に集合体を置く
+    let loaded = Cycle::parse(
+        &edited(CYCLE, "\".  J02@90   .\"", "\"J03  J02@90   .\""),
+        base(),
+    )
+    .unwrap();
+    let err = layout_of(&outlined_case(), &loaded, &dashed)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("J03"), "{err}");
+    // ノードに囲まれた `-`（図の端まで `-` だけをたどって出られない）は、炉心の中の真空の穴になる
+    let enclosed = edited(
+        PLANT,
+        "map = [\n  \"R  *  R\",\n  \"R  *  R\",\n]",
+        "map = [\n  \"R  *  R\",\n  \"R  -  R\",\n  \"R  *  R\",\n]",
+    );
+    let err = Plant::parse(&enclosed, base()).unwrap_err().to_string();
+    assert!(err.contains("enclosed"), "{err}");
+    // 端まで `-` でつながれば受け付ける
+    let open = edited(
+        PLANT,
+        "map = [\n  \"R  *  R\",\n  \"R  *  R\",\n]",
+        "map = [\n  \"-  -  R\",\n  \"R  -  R\",\n  \"R  *  R\",\n]",
+    );
+    assert!(Plant::parse(&open, base()).is_ok());
+    // `-` で炉心のほかのノードから切り離されたノードは、別の問題になる
+    let cut = edited(
+        PLANT,
+        "map = [\n  \"R  *  R\",\n  \"R  *  R\",\n]",
+        "map = [\n  \"R  -  R\",\n  \"-  -  *\",\n]",
+    );
+    let err = Plant::parse(&cut, base()).unwrap_err().to_string();
+    assert!(err.contains("cut off"), "{err}");
 }
 
 #[test]
@@ -297,7 +371,7 @@ fn split_layout_places_sub_nodes() {
     assert_eq!(layout.mesh.dx, vec![10.75; 4]);
     assert_eq!(layout.mesh.dy, vec![10.75; 2]);
     let at = |x: usize, y: usize| {
-        let m = layout.materials[layout.node_material[x + 4 * y]];
+        let m = layout.materials[layout.node_material[x + 4 * y].unwrap()];
         (m.turns, m.sub)
     };
     assert_eq!(
@@ -340,7 +414,7 @@ fn layout_places_layers_and_rotations() {
     assert_eq!(layout.mesh.dz, vec![4.0, 3.0, 3.0]);
     // ノードの並びは x が最も速く、次に y（下から）、z。図の上の行が +y
     let at = |x: usize, y: usize, z: usize| {
-        let m = layout.materials[layout.node_material[x + 3 * (y + 2 * z)]];
+        let m = layout.materials[layout.node_material[x + 3 * (y + 2 * z)].unwrap()];
         (layout.files[m.file].clone(), m.turns)
     };
     let file = |name: &str| PathBuf::from(format!("dir/{name}"));
@@ -567,10 +641,14 @@ fn reflectors_and_assemblies_may_share_layer_files() {
     assert!(layout.reflector[shared]);
     let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
     let problem = layout.problem(&unsplit(&constants)).unwrap();
-    // 反射体の位置（図の左と右の列）に置いた物質だけが、反射体どうしの面の ADF を 1 にする物質（ADR-0095）。
+    // 反射体の位置（図の左と右の列）に置いた物質だけが、f* の向きを確かめる反射体の物質（ADR-0095）。
     // 同じファイルでも、集合体の位置のものは別の物質
     for (n, m) in problem.node_material.iter().enumerate() {
-        assert_eq!(problem.reflectors.contains(m), n % 3 != 1, "node {n}");
+        assert_eq!(
+            problem.reflectors.contains(&m.unwrap()),
+            n % 3 != 1,
+            "node {n}"
+        );
     }
     let fissile: Vec<FewGroup> = (0..layout.files.len())
         .map(|f| sided(f == shared))
@@ -676,4 +754,75 @@ fn case_may_write_pin_powers() {
     let c = Case::parse(&text, base()).unwrap();
     assert_eq!(c.pin_powers, Some(PathBuf::from("dir/pins.msgpack")));
     assert_eq!(case().pin_powers, None);
+}
+
+#[test]
+fn layers_may_put_marshak_on_their_vacuum_faces() {
+    // 径方向の真空の比 r を持たない層（軸方向の反射体のスラブの定数）は、その層の真空の面を Marshak の条件
+    // （r = 1/2）にすることを入力で明示する（ADR-0132）。r を持たない径方向の辺に r = 1/2 を置く
+    let text = edited(
+        PLANT,
+        "layers = [\"r.msgpack\"]",
+        "layers = [{ file = \"r.msgpack\", vacuum = \"marshak\" }]",
+    );
+    let p = Plant::parse(&text, base()).unwrap();
+    assert_eq!(
+        p.reflectors["R"].layers,
+        vec![PathBuf::from("dir/r.msgpack")]
+    );
+    let layout = layout_of(&case(), &cycle(), &p).unwrap();
+    let plain = |fissile: bool| {
+        let mut m = sided(fissile);
+        m.vacuum_ratio = vec![None; 6];
+        m.normalized_adf = vec![false; 6];
+        m
+    };
+    let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| plain(!r)).collect();
+    let problem = layout.problem(&unsplit(&constants)).unwrap();
+    for (n, m) in problem.node_material.iter().enumerate() {
+        let m = &problem.materials[m.unwrap()];
+        // 径方向の 4 辺だけ。z の辺は変えない
+        let expected = if n % 3 == 1 {
+            vec![None; 6]
+        } else {
+            vec![
+                Some(vec![0.5, 0.5]),
+                Some(vec![0.5, 0.5]),
+                Some(vec![0.5, 0.5]),
+                Some(vec![0.5, 0.5]),
+                None,
+                None,
+            ]
+        };
+        assert_eq!(m.vacuum_ratio, expected, "node {n}");
+    }
+    // 定数が径方向の辺に r を持てば、Marshak に替えずにエラー
+    let mut with_ratio = constants.clone();
+    for (c, &r) in with_ratio.iter_mut().zip(&layout.reflector) {
+        if r {
+            c.vacuum_ratio[1] = Some(vec![0.4, 0.3]);
+        }
+    }
+    let err = layout
+        .problem(&unsplit(&with_ratio))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("marshak"), "{err}");
+    // 書けるのは marshak だけ。知らない項目はエラー
+    for bad in [
+        "layers = [{ file = \"r.msgpack\", vacuum = \"vacuum\" }]",
+        "layers = [{ file = \"r.msgpack\", vacuum = \"marshak\", size = 1 }]",
+        "layers = [{ vacuum = \"marshak\" }]",
+    ] {
+        let text = edited(PLANT, "layers = [\"r.msgpack\"]", bad);
+        assert!(Plant::parse(&text, base()).is_err(), "{bad}");
+    }
+    // 誤りのメッセージは、どの値が悪いかを示す
+    let text = edited(
+        PLANT,
+        "layers = [\"r.msgpack\"]",
+        "layers = [{ file = \"r.msgpack\", vacuum = \"marshal\" }]",
+    );
+    let err = Plant::parse(&text, base()).unwrap_err().to_string();
+    assert!(err.contains("marshal") && err.contains("marshak"), "{err}");
 }
