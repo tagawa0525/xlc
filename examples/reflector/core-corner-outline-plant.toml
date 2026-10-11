@@ -1,0 +1,17 @@
+# 角型の格子の炉心の形（core-corner-plant.toml）の +x の列と +y の行に、ノードを置かない位置（`-`）を足した形
+# （ADR-0132）。反射体の外側の面は、直方体の外周でなく外形の面になる。
+pitch = 21.5
+height = 21.5
+map = ["-  -  -", "N  C  -", "*  E  -"]
+
+[reflector.E]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-right.msgpack"]
+
+[reflector.N]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-top.msgpack"]
+
+[reflector.C]
+bounds = [0.0, 21.5]
+layers = ["fg-corner-corner.msgpack"]
