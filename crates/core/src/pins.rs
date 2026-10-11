@@ -22,7 +22,7 @@ use xlc_numeric::pins::node::{Conditions, Constants, NodeFlux, NodeModel};
 use xlc_numeric::pins::{CELL_POINTS, FACE_POINTS};
 
 /// [ノード] のセルの出力 [行（-y から）][列（-x から）]。ノードの並びは NEM と同じ（x が最も速く、次に y、z）。
-/// 核分裂のない軸方向の層（上下の反射体）は出力が 0 なので、空の表にする。核分裂のある層では、どのノードも形状関数を
+/// 核分裂のない軸方向の層（上下の反射体）は出力が 0 なので、空の表にする。ノードのない位置（ADR-0132）も空の表。核分裂のある層では、どのノードも形状関数を
 /// 持つこと（径方向の反射体のノードは、形状関数 0 と角の不連続因子を持つ。ADR-0131）
 pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec<f64>>>, String> {
     let face_rule = gauss_legendre(FACE_POINTS).map_err(|e| e.to_string())?;
@@ -55,10 +55,17 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
             for i in 0..nx {
                 let local = i + nx * j;
                 let n = local + nx * ny * k;
-                let (m, pins) = constants[local];
-                let mut c = conditions[local].clone();
-                c.corners = corner_values(&corners, nx, i, j, &cdfs[local]);
-                let node = models[local].solve(&c);
+                let (Some((m, pins)), Some(model), Some(base)) =
+                    (constants[local], &models[local], &conditions[local])
+                else {
+                    continue;
+                };
+                let Some(cdf) = &cdfs[local] else {
+                    continue;
+                };
+                let mut c = base.clone();
+                c.corners = corner_values(&corners, nx, i, j, cdf);
+                let node = model.solve(&c);
                 let map = cell_powers(&node, m, pins, c.half, &cell_rule);
                 if map.iter().flatten().any(|v| !v.is_finite()) {
                     return Err(format!("node {n}: a reconstructed pin power is not finite"));
@@ -97,23 +104,32 @@ fn node_constants(problem: &Problem, n: usize) -> Result<(&FewGroup, &Pins), Str
     Ok((m, pins))
 }
 
-/// 層 k の [ノード（層の中で i + nx j）] の少数群定数と形状関数
-fn layer_constants(problem: &Problem, k: usize) -> Result<Vec<(&FewGroup, &Pins)>, String> {
+/// 層 k の [位置（層の中で i + nx j）] の少数群定数と形状関数。ノードのない位置は `None`
+fn layer_constants(problem: &Problem, k: usize) -> Result<Vec<Option<(&FewGroup, &Pins)>>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
     (0..nx * ny)
-        .map(|local| node_constants(problem, local + nx * ny * k))
+        .map(|local| {
+            let n = local + nx * ny * k;
+            match problem.node_material.get(n) {
+                Some(None) => Ok(None),
+                _ => node_constants(problem, n).map(Some),
+            }
+        })
         .collect()
 }
 
-/// 層 k の [ノード（層の中で i + nx j）] のモデルと、角の値を 0 にした条件。モデルは物質とノードの大きさで決まるので、
+/// [位置] のノードのモデルと条件。ノードのない位置は `None`
+type Layer = (Vec<Option<Rc<NodeModel>>>, Vec<Option<Conditions>>);
+
+/// 層 k の [位置（層の中で i + nx j）] のモデルと、角の値を 0 にした条件。モデルは物質とノードの大きさで決まるので、
 /// 同じ組のノードで共有する
 fn layer(
     problem: &Problem,
     solution: &Solution,
     k: usize,
-    constants: &[(&FewGroup, &Pins)],
+    constants: &[Option<(&FewGroup, &Pins)>],
     rule: &[(f64, f64)],
-) -> Result<(Vec<Rc<NodeModel>>, Vec<Conditions>), String> {
+) -> Result<Layer, String> {
     let mesh = &problem.mesh;
     let (nx, ny) = (mesh.dx.len(), mesh.dy.len());
     let mut cache: HashMap<(Option<usize>, u64, u64), Rc<NodeModel>> = HashMap::new();
@@ -122,7 +138,11 @@ fn layer(
     for j in 0..ny {
         for i in 0..nx {
             let n = i + nx * (j + ny * k);
-            let (m, pins) = constants[i + nx * j];
+            let Some((m, pins)) = constants[i + nx * j] else {
+                models.push(None);
+                conditions.push(None);
+                continue;
+            };
             for (sizes, width, name) in [
                 (&pins.dx, mesh.dx[i], "width"),
                 (&pins.dy, mesh.dy[j], "height"),
@@ -152,18 +172,18 @@ fn layer(
                     model
                 }
             };
-            models.push(model);
+            models.push(Some(model));
             let current = |d: usize, side: usize| -> [f64; 2] {
                 std::array::from_fn(|g| solution.currents[d][n][g][side])
             };
             let (z_minus, z_plus) = (current(2, 0), current(2, 1));
-            conditions.push(Conditions {
+            conditions.push(Some(Conditions {
                 half,
                 average: [solution.flux[n][0], solution.flux[n][1]],
                 corners: [[0.0; 2]; 4],
                 currents: [current(0, 0), current(0, 1), current(1, 0), current(1, 1)],
                 axial_leakage: std::array::from_fn(|g| (z_plus[g] - z_minus[g]) / mesh.dz[k]),
-            });
+            }));
         }
     }
     Ok((models, conditions))
@@ -244,35 +264,52 @@ fn layer_grid(
 ) -> Result<Vec<Vec<f64>>, String> {
     let mesh = &problem.mesh;
     let (nx, ny) = (mesh.dx.len(), mesh.dy.len());
-    let pins = |i: usize, j: usize| -> Result<&Pins, String> {
-        node_constants(problem, i + nx * (j + ny * k)).map(|(_, p)| p)
+    // ノードのない位置（ADR-0132）は `None`
+    let pins = |i: usize, j: usize| -> Result<Option<&Pins>, String> {
+        let n = i + nx * (j + ny * k);
+        match problem.node_material.get(n) {
+            Some(None) => Ok(None),
+            _ => node_constants(problem, n).map(|(_, p)| Some(p)),
+        }
     };
     // ノードの列ごとのセルの幅と、ノードの行ごとのセルの高さは、その列（行）のどのノードでも同じ
     let mut widths: Vec<&[f64]> = Vec::with_capacity(nx);
     for i in 0..nx {
-        let first = &pins(i, 0)?.dx;
+        let mut first: Option<&[f64]> = None;
         for j in 0..ny {
-            if !same_sizes(&pins(i, j)?.dx, first) {
-                return Err(format!(
-                    "layer {k}: the nodes of column {i} have different cell widths"
-                ));
+            let Some(p) = pins(i, j)? else { continue };
+            match first {
+                None => first = Some(&p.dx),
+                Some(f) if !same_sizes(&p.dx, f) => {
+                    return Err(format!(
+                        "layer {k}: the nodes of column {i} have different cell widths"
+                    ));
+                }
+                Some(_) => {}
             }
         }
-        widths.push(first);
+        // ノードのない列はセルを持たない
+        widths.push(first.unwrap_or(&[]));
     }
     let mut heights: Vec<&[f64]> = Vec::with_capacity(ny);
     for j in 0..ny {
-        let first = &pins(0, j)?.dy;
+        let mut first: Option<&[f64]> = None;
         for i in 0..nx {
-            if !same_sizes(&pins(i, j)?.dy, first) {
-                return Err(format!(
-                    "layer {k}: the nodes of row {j} have different cell heights"
-                ));
+            let Some(p) = pins(i, j)? else { continue };
+            match first {
+                None => first = Some(&p.dy),
+                Some(f) if !same_sizes(&p.dy, f) => {
+                    return Err(format!(
+                        "layer {k}: the nodes of row {j} have different cell heights"
+                    ));
+                }
+                Some(_) => {}
             }
         }
-        heights.push(first);
+        heights.push(first.unwrap_or(&[]));
     }
-    // ノードの列 i と i + 1（行 j と j + 1）の間で分け合ったセルがあるか。両側の印がそろうこと
+    // ノードの列 i と i + 1（行 j と j + 1）の間で分け合ったセルがあるか。両側にノードのある組で、両側の印が
+    // そろうこと。そのような組がなければ分け合っていない
     let shared = |a: &Pins, a_side: usize, b: &Pins, b_side: usize| -> Result<bool, String> {
         if a.halves[a_side] != b.halves[b_side] {
             return Err(format!(
@@ -281,29 +318,40 @@ fn layer_grid(
         }
         Ok(a.halves[a_side])
     };
+    let boundary_halves = |pairs: Vec<(Option<&Pins>, Option<&Pins>)>,
+                           a_side: usize,
+                           b_side: usize,
+                           what: &str|
+     -> Result<bool, String> {
+        let mut marked: Option<bool> = None;
+        for (a, b) in pairs {
+            let (Some(a), Some(b)) = (a, b) else { continue };
+            let m = shared(a, a_side, b, b_side)?;
+            if marked.is_some_and(|f| f != m) {
+                return Err(format!("layer {k}: split cells differ along the {what}"));
+            }
+            marked = Some(m);
+        }
+        Ok(marked.unwrap_or(false))
+    };
     let mut merge_x = Vec::with_capacity(nx.saturating_sub(1));
     for i in 0..nx.saturating_sub(1) {
-        let first = shared(pins(i, 0)?, 1, pins(i + 1, 0)?, 0)?;
-        for j in 1..ny {
-            if shared(pins(i, j)?, 1, pins(i + 1, j)?, 0)? != first {
-                return Err(format!(
-                    "layer {k}: split cells differ along the column boundary {i}"
-                ));
-            }
-        }
-        merge_x.push(first);
+        let pairs = (0..ny)
+            .map(|j| Ok((pins(i, j)?, pins(i + 1, j)?)))
+            .collect::<Result<Vec<_>, String>>()?;
+        merge_x.push(boundary_halves(
+            pairs,
+            1,
+            0,
+            &format!("column boundary {i}"),
+        )?);
     }
     let mut merge_y = Vec::with_capacity(ny.saturating_sub(1));
     for j in 0..ny.saturating_sub(1) {
-        let first = shared(pins(0, j)?, 2, pins(0, j + 1)?, 3)?;
-        for i in 1..nx {
-            if shared(pins(i, j)?, 2, pins(i, j + 1)?, 3)? != first {
-                return Err(format!(
-                    "layer {k}: split cells differ along the row boundary {j}"
-                ));
-            }
-        }
-        merge_y.push(first);
+        let pairs = (0..nx)
+            .map(|i| Ok((pins(i, j)?, pins(i, j + 1)?)))
+            .collect::<Result<Vec<_>, String>>()?;
+        merge_y.push(boundary_halves(pairs, 2, 3, &format!("row boundary {j}"))?);
     }
     // 分ける前の全体の表と、列の幅、行の高さ
     let mut grid: Vec<Vec<f64>> = Vec::new();
@@ -312,6 +360,11 @@ fn layer_grid(
             let mut row = Vec::new();
             for i in 0..nx {
                 let map = &layer[i + nx * j];
+                // ノードのない位置のセルは 0
+                if pins(i, j)?.is_none() {
+                    row.extend(std::iter::repeat_n(0.0, widths[i].len()));
+                    continue;
+                }
                 let cells = map
                     .get(r)
                     .filter(|cells| cells.len() == widths[i].len())
@@ -391,25 +444,27 @@ fn corner_values(
     std::array::from_fn(|c| std::array::from_fn(|g| points[c][g] / cdf[c][g]))
 }
 
-/// 層 k の [ノード（層の中で i + nx j）][角][群] の CDF。燃料の CDF で割った角（`normalized_corners`。ADR-0131）は、
+/// 層 k の [位置（層の中で i + nx j）][角][群] の CDF。燃料の CDF で割った角（`normalized_corners`。ADR-0131）は、
 /// C* × 角の点に接する燃料（核分裂のある）のノードの、その点の CDF の調和平均とする。印の付いた角の点に燃料の
-/// ノードがなければエラー
+/// ノードがなければエラー。ノードのない位置は `None`
 fn corner_factors(
     problem: &Problem,
     k: usize,
-    nodes: &[(&FewGroup, &Pins)],
-) -> Result<Vec<[[f64; 2]; 4]>, String> {
+    nodes: &[Option<(&FewGroup, &Pins)>],
+) -> Result<Vec<Option<[[f64; 2]; 4]>>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
     // 燃料は核分裂のあるノード（lattice が C* を割るときと同じ判定。ADR-0131）
     let fissile: Vec<bool> = nodes
         .iter()
-        .map(|(m, _)| is_fissile(&m.nu_fission))
+        .map(|node| node.map_or(Ok(false), |(m, _)| is_fissile(&m.nu_fission)))
         .collect::<Result<_, _>>()
         .map_err(|e| e.to_string())?;
     (0..nx * ny)
         .map(|local| {
             let (i, j) = (local % nx, local / nx);
-            let pins = nodes[local].1;
+            let Some((_, pins)) = nodes[local] else {
+                return Ok(None);
+            };
             let mut cdf = [[0.0; 2]; 4];
             for (c, out) in cdf.iter_mut().enumerate() {
                 let own = &pins.corners[c];
@@ -418,13 +473,13 @@ fn corner_factors(
                     continue;
                 }
                 let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
-                let fuel: Vec<(usize, usize)> = nodes_at_point(nx, ny, ci, cj)
+                let fuel: Vec<(&Pins, usize)> = nodes_at_point(nx, ny, ci, cj)
                     .into_iter()
                     .filter(|&(m, _)| fissile[m])
+                    .filter_map(|(m, d)| nodes[m].map(|(_, p)| (p, d)))
                     .collect();
                 for (g, o) in out.iter_mut().enumerate() {
-                    let factors: Vec<f64> =
-                        fuel.iter().map(|&(m, d)| nodes[m].1.corners[d][g]).collect();
+                    let factors: Vec<f64> = fuel.iter().map(|&(p, d)| p.corners[d][g]).collect();
                     let harmonic = fuel_harmonic_mean(&factors).ok_or_else(|| {
                         format!(
                             "node {}: corner {c} is normalized by the fuel factor, but no fuel node \
@@ -435,7 +490,7 @@ fn corner_factors(
                     *o = own[g] * harmonic;
                 }
             }
-            Ok(cdf)
+            Ok(Some(cdf))
         })
         .collect()
 }
@@ -444,31 +499,72 @@ fn corner_factors(
 fn corner_fluxes(
     problem: &Problem,
     k: usize,
-    constants: &[(&FewGroup, &Pins)],
-    models: &[Rc<NodeModel>],
-    conditions: &[Conditions],
-    cdfs: &[[[f64; 2]; 4]],
+    constants: &[Option<(&FewGroup, &Pins)>],
+    models: &[Option<Rc<NodeModel>>],
+    conditions: &[Option<Conditions>],
+    cdfs: &[Option<[[f64; 2]; 4]>],
 ) -> Result<Vec<[f64; 2]>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
+    let present = |i: usize, j: usize| constants[i + nx * j].is_some();
+    // 位置 (i, j) の面（-x、+x、-y、+y）の境界条件。隣にノードがあれば `None`。ノードのない位置に面すれば外形の
+    // 条件（ADR-0132）、直方体の外周ならその面の条件
+    let edge = |i: usize, j: usize, face: usize| -> Result<Option<Boundary>, String> {
+        let beside = match face {
+            0 => i.checked_sub(1).map(|i| (i, j)),
+            1 => (i + 1 < nx).then_some((i + 1, j)),
+            2 => j.checked_sub(1).map(|j| (i, j)),
+            _ => (j + 1 < ny).then_some((i, j + 1)),
+        };
+        match beside {
+            None => Ok(Some(problem.boundaries[face])),
+            Some((bi, bj)) if present(bi, bj) => Ok(None),
+            Some(_) => problem
+                .outline
+                .map(Some)
+                .ok_or_else(|| "positions without nodes need the outline condition".to_string()),
+        }
+    };
     let mut nodes = Vec::with_capacity(nx * ny);
+    // 中性子束ゼロの面に接する角の点は Φ = 0
+    let mut zero = vec![false; (nx + 1) * (ny + 1)];
     for j in 0..ny {
         for i in 0..nx {
             let local = i + nx * j;
             let n = local + nx * ny * k;
-            let (m, _) = constants[local];
-            // 外周の真空の辺を通る流れ r f φ_c。面の条件（ADR-0101 の J = r f φ）を均質な角の値 φ_c = Φ / CDF に
-            // 課す（ADR-0131）。不均質な Φ に r を掛けないのは、均質な角の値を均質な量だけで決めるため。反射と
-            // 中性子束ゼロは 0
-            let on_boundary = [i == 0, i == nx - 1, j == 0, j == ny - 1];
+            let (Some((m, _)), Some(model), Some(base), Some(cdf)) = (
+                constants[local],
+                &models[local],
+                &conditions[local],
+                &cdfs[local],
+            ) else {
+                nodes.push(None);
+                continue;
+            };
+            // 外周（直方体の外周と外形）の真空の辺を通る流れ r f φ_c。面の条件（ADR-0101 の J = r f φ）を
+            // 均質な角の値 φ_c = Φ / CDF に課す（ADR-0131）。不均質な Φ に r を掛けないのは、均質な角の値を均質な
+            // 量だけで決めるため。反射と中性子束ゼロは 0
             let mut outflow = [None; 4];
             for (face, out) in outflow.iter_mut().enumerate() {
-                if !on_boundary[face] {
+                let Some(boundary) = edge(i, j, face)? else {
                     continue;
-                }
+                };
                 // 辺（左、右、上、下）の番号は、面（-x、+x、-y、+y）の順に 0、1、3、2
                 let side = [0, 1, 3, 2][face];
-                let ratio = match problem.boundaries[face] {
-                    Boundary::Reflective | Boundary::ZeroFlux => continue,
+                let ratio = match boundary {
+                    Boundary::Reflective => continue,
+                    Boundary::ZeroFlux => {
+                        // 面の両端の角の点
+                        let ends = match face {
+                            0 => [(i, j), (i, j + 1)],
+                            1 => [(i + 1, j), (i + 1, j + 1)],
+                            2 => [(i, j), (i + 1, j)],
+                            _ => [(i, j + 1), (i + 1, j + 1)],
+                        };
+                        for (ci, cj) in ends {
+                            zero[ci + (nx + 1) * cj] = true;
+                        }
+                        continue;
+                    }
                     Boundary::Marshak => [0.5; 2],
                     Boundary::Vacuum => {
                         let r = m.vacuum_ratio[side]
@@ -480,28 +576,16 @@ fn corner_fluxes(
                 // 外周の辺に f* がないことは、NEM の解で確かめてある（`check_normalized_adfs`）
                 *out = Some(std::array::from_fn(|g| ratio[g] * m.adf[side][g]));
             }
-            nodes.push(CornerNode {
-                model: &models[local],
-                conditions: &conditions[local],
+            nodes.push(Some(CornerNode {
+                model,
+                conditions: base,
                 diffusion: [m.diffusion[0], m.diffusion[1]],
                 // 均質な角の値は Φ / CDF
-                weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdfs[local][c][g])),
+                weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdf[c][g])),
                 outflow,
-            });
+            }));
         }
     }
-    // 中性子束ゼロの外周の角は Φ = 0
-    let b = &problem.boundaries;
-    let zero: Vec<bool> = (0..=ny)
-        .flat_map(|cj| {
-            (0..=nx).map(move |ci| {
-                (ci == 0 && b[0] == Boundary::ZeroFlux)
-                    || (ci == nx && b[1] == Boundary::ZeroFlux)
-                    || (cj == 0 && b[2] == Boundary::ZeroFlux)
-                    || (cj == ny && b[3] == Boundary::ZeroFlux)
-            })
-        })
-        .collect();
     corner_balance(nx, ny, &nodes, &zero)
 }
 

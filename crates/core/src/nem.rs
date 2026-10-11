@@ -308,9 +308,6 @@ impl<'a> Core<'a> {
             }
             _ => {}
         }
-        if absent {
-            return Err("positions without nodes are not supported yet (#0034)".into());
-        }
         let mut cells = Vec::new();
         let mut slots = Vec::with_capacity(sites);
         let mut material_of = Vec::new();
