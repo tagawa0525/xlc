@@ -18,6 +18,68 @@ const ROOT_WIDTH: f64 = 1.0e-14;
 const CONVERGED: f64 = 1.0e-12;
 const MAX_ITERATIONS: usize = 200;
 
+/// 等価な拡散係数の結果。
+#[derive(Debug, Clone, PartialEq)]
+pub enum Equivalence {
+    /// 2つの面の不連続因子をそろえ、面の均質な中性子束を正にする [群] の拡散係数
+    Found(Vec<f64>),
+    /// 群 `group` で、面の均質な中性子束が正の範囲に、均質な面の比を不均質な比 `target`（t = φ+/φ−）にする D がない。
+    /// `range` は、根を探して評価した D のうち、その群の2つの面の均質な中性子束が正の点の、均質な比の最小と最大
+    /// （そのような点がなければ `None`）
+    Missing {
+        group: usize,
+        target: f64,
+        range: Option<[f64; 2]>,
+    },
+}
+
+impl Equivalence {
+    /// 見つかった拡散係数
+    pub fn found(self) -> Option<Vec<f64>> {
+        match self {
+            Self::Found(d) => Some(d),
+            Self::Missing { .. } => None,
+        }
+    }
+}
+
+/// 核分裂のないノードの拡散係数をどれにしたか（ADR-0134）。
+#[derive(Debug, Clone, PartialEq)]
+pub enum Choice {
+    /// Koebke の等価な D
+    Koebke,
+    /// Koebke の D が正の面の範囲になく、中性子流で重みづけた D（`Equivalence::Missing` の量）
+    CurrentWeighted {
+        group: usize,
+        target: f64,
+        range: Option<[f64; 2]>,
+    },
+}
+
+/// 核分裂のないノードの拡散係数（ADR-0134）: Koebke の等価な D（`equivalent_diffusion`）が面の均質な中性子束を正にする
+/// 範囲にあればそれを、なければ `node` の拡散係数（中性子流で重みづけた D）を、すべての群で使う。中性子流で重みづけた D
+/// で面が正になるかは、呼ぶ側の1ノードの問題（`surface_fluxes`）が確かめる
+pub fn reflector_diffusion(
+    node: &OneNode,
+    heterogeneous: [&[f64]; 4],
+) -> Result<(Vec<f64>, Choice), OneNodeError> {
+    Ok(match equivalent_diffusion(node, heterogeneous)? {
+        Equivalence::Found(d) => (d, Choice::Koebke),
+        Equivalence::Missing {
+            group,
+            target,
+            range,
+        } => (
+            node.diffusion.to_vec(),
+            Choice::CurrentWeighted {
+                group,
+                target,
+                range,
+            },
+        ),
+    })
+}
+
 /// 核分裂のないノードの、等価な [群] の拡散係数。`node` の拡散係数は初めの値で、ほかは1ノードの問題の入力
 /// （ノード平均、面の外向きの正味の中性子流、境界）と同じ。`heterogeneous` は [面（-x, +x, -y, +y）][群] の参照の
 /// 不均質な面の中性子束。
@@ -25,12 +87,13 @@ const MAX_ITERATIONS: usize = 200;
 /// 正味の中性子流の大きい方向 d（Σ_g |J+ − J−|、J は面の外向きの正味の中性子流）の2つの面で、均質な面の中性子束の比を
 /// 不均質な面の中性子束の比 t_g = φ+/φ− にする D_g を、ほかの群の D を固定して ln D について二分法で探し、群の間で
 /// 収束するまで繰り返す。源のない群では、cosh(κL) = c、c = (1 + r t)/(r + t)（r は向きをそろえた正味の中性子流の比）の
-/// 閉じた形の解と同じで、c ≤ 1（t が流れの減る向きに増えるなど）なら解がない。解がない、正味の中性子流がない、
-/// 核分裂のあるノードは、どれもエラーにする（黙って別の D にしない）。
+/// 閉じた形の解と同じで、c ≤ 1（t が流れの減る向きに増えるなど）なら解がない。根を挟めないか、収束した D で面の均質な
+/// 中性子束が正でなければ `Equivalence::Missing` を返す（群の源の形と不均質な面の比が逆向きのときに起きる。ADR-0134）。
+/// 正味の中性子流がない、核分裂のあるノード、群の間の反復が収束しないときはエラーにする。
 pub fn equivalent_diffusion(
     node: &OneNode,
     heterogeneous: [&[f64]; 4],
-) -> Result<Vec<f64>, OneNodeError> {
+) -> Result<Equivalence, OneNodeError> {
     let invalid = |what: &str| Err(OneNodeError::Invalid(what.into()));
     let fissile = is_fissile(node.nu_fission).map_err(|e| OneNodeError::Invalid(e.to_string()))?;
     if fissile {
@@ -56,22 +119,40 @@ pub fn equivalent_diffusion(
     let ratio: Vec<f64> = (0..ng)
         .map(|g| heterogeneous[2 * d + 1][g] / heterogeneous[2 * d][g])
         .collect();
+    // [群] の、評価した D のうち2つの面の均質な中性子束が正の点の、均質な比の最小と最大
+    let mut seen: Vec<Option<[f64; 2]>> = vec![None; ng];
+    let missing = |group: usize, seen: &[Option<[f64; 2]>]| Equivalence::Missing {
+        group,
+        target: ratio[group],
+        range: seen[group],
+    };
     let mut diffusion = node.diffusion.to_vec();
     // 群 g の残差 φ+ − t φ−（D が根の両側で符号が変わる）
-    let residual = |diffusion: &[f64], g: usize| -> Result<f64, OneNodeError> {
+    let residual = |diffusion: &[f64],
+                    g: usize,
+                    seen: &mut Vec<Option<[f64; 2]>>|
+     -> Result<f64, OneNodeError> {
         let faces = homogeneous_faces(&OneNode { diffusion, ..*node })?;
-        Ok(faces[2 * d + 1][g] - ratio[g] * faces[2 * d][g])
+        let (minus, plus) = (faces[2 * d][g], faces[2 * d + 1][g]);
+        if minus > 0.0 && plus > 0.0 {
+            let r = plus / minus;
+            seen[g] = Some(seen[g].map_or([r, r], |[lo, hi]| [lo.min(r), hi.max(r)]));
+        }
+        Ok(plus - ratio[g] * minus)
     };
     for _ in 0..MAX_ITERATIONS {
         let mut change: f64 = 0.0;
         for g in 0..ng {
             let start = diffusion[g];
-            let at = |log_d: f64, diffusion: &mut Vec<f64>| -> Result<f64, OneNodeError> {
+            let at = |log_d: f64,
+                      diffusion: &mut Vec<f64>,
+                      seen: &mut Vec<Option<[f64; 2]>>|
+             -> Result<f64, OneNodeError> {
                 diffusion[g] = log_d.exp();
-                residual(diffusion, g)
+                residual(diffusion, g, seen)
             };
             let s0 = start.ln();
-            let f0 = at(s0, &mut diffusion)?;
+            let f0 = at(s0, &mut diffusion, &mut seen)?;
             // 根を挟む区間 [lo, hi]（f(lo) と f(hi) の符号が違う）を、D を 2 倍ずつ両側へ広げて探す
             let mut bracket = (f0 == 0.0).then_some((s0, s0, f0));
             for k in 1..=BRACKET_STEPS {
@@ -82,7 +163,7 @@ pub fn equivalent_diffusion(
                     s0 + k as f64 * std::f64::consts::LN_2,
                     s0 - k as f64 * std::f64::consts::LN_2,
                 ] {
-                    let f = at(s, &mut diffusion)?;
+                    let f = at(s, &mut diffusion, &mut seen)?;
                     if f == 0.0 || f.signum() != f0.signum() {
                         bracket = Some((s0.min(s), s0.max(s), if s < s0 { f } else { f0 }));
                         break;
@@ -90,11 +171,11 @@ pub fn equivalent_diffusion(
                 }
             }
             let Some((mut lo, mut hi, mut f_lo)) = bracket else {
-                return Err(OneNodeError::NoEquivalentDiffusion { group: g });
+                return Ok(missing(g, &seen));
             };
             while hi - lo > ROOT_WIDTH {
                 let mid = 0.5 * (lo + hi);
-                let f = at(mid, &mut diffusion)?;
+                let f = at(mid, &mut diffusion, &mut seen)?;
                 if f == 0.0 {
                     lo = mid;
                     hi = mid;
@@ -109,7 +190,17 @@ pub fn equivalent_diffusion(
             change = change.max((diffusion[g] - start).abs() / start);
         }
         if change <= CONVERGED {
-            return Ok(diffusion);
+            // 面の均質な中性子束が負になる根は、等価な D として使えない
+            let faces = homogeneous_faces(&OneNode {
+                diffusion: &diffusion,
+                ..*node
+            })?;
+            return Ok(
+                match (0..ng).find(|&g| !(faces[2 * d][g] > 0.0 && faces[2 * d + 1][g] > 0.0)) {
+                    Some(g) => missing(g, &seen),
+                    None => Equivalence::Found(diffusion),
+                },
+            );
         }
     }
     Err(OneNodeError::EquivalenceNotConverged(MAX_ITERATIONS))

@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::group::GroupStructure;
-use xlc_numeric::equivalence::equivalent_diffusion;
+use xlc_numeric::equivalence::{Choice, reflector_diffusion};
 use xlc_numeric::nem::{Edge, OneNode, OneNodeError, is_fissile, surface_fluxes};
 use xlc_numeric::pins::corners::{CornerNode, corner_balance, fuel_harmonic_mean, nodes_at_point};
 use xlc_numeric::pins::node::{Conditions, Constants, NodeModel};
@@ -210,12 +210,13 @@ pub fn homogenize_nodes(
                 None => Edge::Reflective,
             }
         });
-        // 核分裂のないノードの拡散係数は、Koebke の等価理論の D（ADR-0104）。中性子流の重みの D から探す
+        // 核分裂のないノードの拡散係数は、Koebke の等価理論の D（ADR-0104）。中性子流の重みの D から探し、正の面の範囲に
+        // なければ中性子流の重みの D（ADR-0134）
         let mut few = h.few.clone();
         let fissile = is_fissile(&few.nu_fission)
             .map_err(|e| HomogenizeError::OneNode(OneNodeError::Invalid(e.to_string())))?;
         if !fissile {
-            few.diffusion = equivalent_diffusion(
+            let (diffusion, choice) = reflector_diffusion(
                 &OneNode {
                     diffusion: &h.few.diffusion,
                     total: &few.total,
@@ -230,12 +231,27 @@ pub fn homogenize_nodes(
                 },
                 FACES.map(|side| h.heterogeneous[side].as_slice()),
             )?;
-            tracing::info!(
-                node = n,
-                current_weighted = ?h.few.diffusion,
-                equivalent = ?few.diffusion,
-                "equivalent diffusion coefficients"
-            );
+            few.diffusion = diffusion;
+            match choice {
+                Choice::Koebke => tracing::info!(
+                    node = n,
+                    current_weighted = ?h.few.diffusion,
+                    equivalent = ?few.diffusion,
+                    "equivalent diffusion coefficients"
+                ),
+                Choice::CurrentWeighted {
+                    group,
+                    target,
+                    range,
+                } => tracing::info!(
+                    node = n,
+                    current_weighted = ?few.diffusion,
+                    group,
+                    heterogeneous_ratio = target,
+                    homogeneous_ratio_range = ?range,
+                    "no Koebke diffusion coefficient with positive faces; current-weighted (ADR-0134)"
+                ),
+            }
         }
         let adf = discontinuity_factors(
             &few,
