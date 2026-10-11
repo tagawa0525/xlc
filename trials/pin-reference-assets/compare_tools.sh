@@ -7,7 +7,7 @@
 #   new: この worktree の flake の references の devShell のツール
 # NJOY は references/njoy-runs の入力（B10-acer は ACER のパッチを通る）、OpenMC は C5G7（多群）と VERA 1B（連続
 # エネルギー、references/openmc/endfb80）を、同じ粒子数・乱数のシード・スレッド数で解く。同じツールを 2 回実行した差と
-# 比べるため、old と new をそれぞれ 2 回実行する。openmc.data（Python API）が NJOY を通して作る H-1 の HDF5 も比べる。
+# 比べるため、old と new をそれぞれ 2 回実行する。openmc.data（Python API）が NJOY を通して作る H-1 の HDF5 も比べる（new は flake の .#endf を読む）。
 set -euo pipefail
 
 main=$(realpath "$1")
@@ -18,6 +18,9 @@ mkdir -p "$work"
 old() { nix develop "$main#references" -c env PATH="$main/references/openmc/install/bin:$main/references/NJOY2016/build:$PATH" "$@"; }
 new() { nix develop "$here#references" -c "$@"; }
 python_of() { if [[ $1 == old ]]; then echo "$main/references/openmc/venv/bin/python"; else echo python3; fi; }
+# old は手で取った ENDF、new は flake の .#endf（nix store の読み出し専用のファイル）を読む
+nix build "$here#endf" -o "$work/endf"
+endf_of() { if [[ $1 == old ]]; then echo "$main/references/endf"; else echo "$work/endf"; fi; }
 
 for side in old new; do
   for run in 1 2; do
@@ -33,7 +36,7 @@ for side in old new; do
       $here/examples/vera/openmc_model.py $main/references/openmc/endfb80/cross_sections.xml 1B vera-1B-$side$run \
       20000 120 20 1 > vera-1B-$side$run.log"
     $side sh -c "cd $work && $(python_of $side) $here/trials/pin-reference-assets/openmc_data_h1.py \
-      $main/references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf h1-$side$run.h5 > h1-$side$run.log"
+      $(endf_of $side)/ENDF-B-VIII.0_neutrons/n-001_H_001.endf h1-$side$run.h5 > h1-$side$run.log"
   done
 done
 
