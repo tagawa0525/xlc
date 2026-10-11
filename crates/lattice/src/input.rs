@@ -11,7 +11,8 @@
 //! # （外周がすべて鏡面反射の格子。nodes とは使えない。ADR-0108）
 //! # 格子をノードに分けるときは output の代わりに nodes を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と列を
 //! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
-//! # ADF を燃料の ADF で割る。省略すると false）
+//! # ADF と、燃料のノードに接する角の点の CDF を燃料の値で割る。燃料に角の点だけで接するノードにも付ける。
+//! # 省略すると false）
 //! # few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
 //! #   { output = "fuel.msgpack", columns = [1, 19], rows = [1, 19] },
 //! #   { output = "reflector.msgpack", columns = [20, 30], rows = [1, 19], reflector = true } ] }
