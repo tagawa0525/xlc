@@ -10,6 +10,14 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 | `default`    | 開発（Rust）と、検証用の Python スクリプト（numpy, h5py など）                  |
 | `references` | NJOY と OpenMC のビルド（GCC 13。OpenMC 0.15.2 は GCC 16 でコンパイルできない） |
 
+## 段階の駆動（DVC）
+
+入力から出力を作る段階は DVC（`default` の devShell に入っている）で実行する（ADR-0123）。段階は
+`examples/<問題>/dvc.yaml` に書き、`dvc repro examples/<問題>/dvc.yaml` で、入力かコードが変わった段階だけを実行する。
+各段階の入力・コード・出力の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
+`references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では、
+`ln -s ../xlc/references references` で main の `references/` を指して、キャッシュと核データを共有する。
+
 ## 評価済み核データ（ENDF/B-VIII.0）
 
 ```sh
