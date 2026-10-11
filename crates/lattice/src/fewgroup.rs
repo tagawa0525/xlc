@@ -166,6 +166,7 @@ pub fn homogenize_nodes(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
     nodes: &[Node],
+    media: &[bool],
     pins: bool,
 ) -> Result<Vec<FewGroup>, HomogenizeError> {
     let NodeReferences {
@@ -180,6 +181,7 @@ pub fn homogenize_nodes(
         coarse_bounds,
         boundaries,
         nodes,
+        media,
     )?;
     let sides = sides_of(boundaries);
     let coarse = coarse_bounds.len() - 1;
@@ -338,6 +340,7 @@ pub(crate) struct NodeReferences {
 }
 
 /// ノードごとの `Reference`（`homogenize_nodes` の前半）。ノードの並びと、アルベドの辺がないことを確かめる
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn node_references(
     solution: &Solution,
     lattice: &Lattice,
@@ -346,6 +349,7 @@ pub(crate) fn node_references(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
     nodes: &[Node],
+    _media: &[bool],
 ) -> Result<NodeReferences, HomogenizeError> {
     let sides = sides_of(boundaries);
     if sides.iter().any(|b| matches!(b, Boundary::Albedo(_))) {
@@ -2049,6 +2053,11 @@ mod tests {
         GroupStructure::new(vec![1.0e7, 0.625, 1.0e-5]).unwrap()
     }
 
+    /// どの領域も媒質でない
+    fn no_media(solution: &Solution) -> Vec<bool> {
+        vec![false; solution.volumes.len()]
+    }
+
     fn vacuum() -> Boundaries {
         Boundaries {
             right: Boundary::Vacuum,
@@ -2480,6 +2489,7 @@ mod tests {
             fine.bounds(),
             &Boundaries::REFLECTIVE,
             &nodes,
+            &no_media(&solution),
             false,
         )
         .unwrap();
@@ -2505,6 +2515,103 @@ mod tests {
     }
 
     #[test]
+    fn nodes_of_one_medium_take_its_b1_diffusion() {
+        // 均質な燃料のセル 2 つと水のセル（右が真空）。燃料のセルの領域が媒質なら、燃料のノードの D は媒質そのものの
+        // B1 の D（ADR-0141）で、ノードの中性子流の重みに依らない。媒質でなければ中性子流で重みづけした outflow の D
+        let fuel = two_group([0.5, 1.2], [[0.45, 0.02], [0.0, 0.9]], [0.008, 0.25]);
+        let water = two_group([0.6, 2.0], [[0.5, 0.098], [0.002, 1.97]], [0.0, 0.0]);
+        let cell = PinCell::new(1.26, vec![]).unwrap();
+        let lattice = Lattice::rectilinear(
+            vec![1.26; 3],
+            vec![1.26],
+            vec![Cell::Pin(cell)],
+            vec![vec![0, 0, 0]],
+        )
+        .unwrap();
+        let boundaries = vacuum();
+        let tracking = Tracking::with_boundaries(&lattice, 32, 0.02, boundaries).unwrap();
+        let refs = vec![&fuel, &fuel, &water];
+        let solution = solve(&tracking, &refs, &Options::default()).unwrap();
+        let fine = fine();
+        let nodes = [
+            node(0..1, 0..1),
+            node(1..2, 0..1),
+            Node {
+                reflector: true,
+                ..node(2..3, 0..1)
+            },
+        ];
+        let solve_nodes = |media: &[bool]| {
+            homogenize_nodes(
+                &solution,
+                &lattice,
+                &refs,
+                &fine,
+                fine.bounds(),
+                &boundaries,
+                &nodes,
+                media,
+                false,
+            )
+            .unwrap()
+        };
+        let group_of = coarse_groups(&fine, fine.bounds()).unwrap();
+        let b1 = b1_diffusion(&solution, &[&fuel], &[0], &group_of, 2).unwrap();
+        let with_media = solve_nodes(&[true, true, false]);
+        let without = solve_nodes(&no_media(&solution));
+        for n in 0..2 {
+            for g in 0..2 {
+                let d = with_media[n].diffusion[g];
+                assert!(
+                    (d - b1[g]).abs() < 1e-12 * b1[g],
+                    "node {n}: {d} vs {}",
+                    b1[g]
+                );
+                let other = without[n].diffusion[g];
+                assert!((other - b1[g]).abs() > 1e-3 * b1[g], "node {n}: {other}");
+            }
+        }
+        // 媒質と媒質でない物質が混ざったノードは、中性子流の重みのまま
+        let mixed = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &[
+                node(0..2, 0..1),
+                Node {
+                    reflector: true,
+                    ..node(2..3, 0..1)
+                },
+            ],
+            &[true, false, false],
+            false,
+        )
+        .unwrap();
+        let whole = homogenize_nodes(
+            &solution,
+            &lattice,
+            &refs,
+            &fine,
+            fine.bounds(),
+            &boundaries,
+            &[
+                node(0..2, 0..1),
+                Node {
+                    reflector: true,
+                    ..node(2..3, 0..1)
+                },
+            ],
+            &no_media(&solution),
+            false,
+        )
+        .unwrap();
+        assert_eq!(mixed[0].diffusion, whole[0].diffusion);
+    }
+
+    #[test]
     fn strip_nodes_make_get_constants_and_normalized_adfs() {
         // 燃料と水の帯を、燃料のノードと反射体のノードに分ける（ADR-0095）
         use xlc_numeric::nem::{Edge, OneNode, surface_fluxes};
@@ -2526,6 +2633,7 @@ mod tests {
             fine.bounds(),
             &boundaries,
             &nodes,
+            &no_media(&solution),
             false,
         )
         .unwrap();
@@ -2720,6 +2828,7 @@ mod tests {
                 fine.bounds(),
                 &boundaries,
                 &nodes,
+                &no_media(&solution),
                 false,
             )
             .unwrap()
@@ -2748,6 +2857,7 @@ mod tests {
                 fine.bounds(),
                 boundaries,
                 nodes,
+                &no_media(&solution),
                 false,
             )
         };
@@ -2787,6 +2897,7 @@ mod tests {
             fine.bounds(),
             &Boundaries::REFLECTIVE,
             &[node(0..1, 0..2), node(1..2, 0..1), node(1..2, 1..2)],
+            &no_media(&solution),
             false,
         );
         assert!(
@@ -2821,6 +2932,7 @@ mod tests {
             fine.bounds(),
             boundaries,
             nodes,
+            &no_media(&solution),
             true,
         )
         .unwrap();
@@ -2832,6 +2944,7 @@ mod tests {
             fine.bounds(),
             boundaries,
             nodes,
+            &no_media(solution),
         )
         .unwrap()
         .references;
@@ -3138,6 +3251,7 @@ mod tests {
             fine.bounds(),
             &boundaries,
             &nodes,
+            &no_media(&solution),
             true,
         )
         .unwrap();
@@ -3190,6 +3304,7 @@ mod tests {
             fine.bounds(),
             &boundaries,
             &nodes,
+            &no_media(&solution),
             true,
         )
         .unwrap_err();
@@ -3221,6 +3336,7 @@ mod tests {
             fine.bounds(),
             &boundaries,
             &nodes,
+            &no_media(&solution),
             true,
         )
         .unwrap();
@@ -3274,6 +3390,7 @@ mod tests {
             fine.bounds(),
             &Boundaries::REFLECTIVE,
             &[node(0..4, 0..4)],
+            &no_media(&solution),
             true,
         )
         .unwrap();
