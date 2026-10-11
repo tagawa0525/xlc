@@ -112,6 +112,7 @@ fn fine_mesh_diffusion(
         };
         let mut phi = vec![0.0; n * n];
         let omega = 2.0 / (1.0 + (std::f64::consts::PI / n as f64).sin());
+        let mut converged = false;
         for _ in 0..20000 {
             let mut change: f64 = 0.0;
             for j in 0..n {
@@ -138,14 +139,19 @@ fn fine_mesh_diffusion(
                         diagonal += ratio * wx * h;
                     }
                     let new = (1.0 - omega) * phi[i + n * j] + omega * sum / diagonal;
-                    change = change.max((new - phi[i + n * j]).abs());
+                    change = change.max((new - phi[i + n * j]).abs() / new.abs());
                     phi[i + n * j] = new;
                 }
             }
-            if change < 1e-13 {
+            if change < 1e-12 {
+                converged = true;
                 break;
             }
         }
+        assert!(
+            converged,
+            "the fine-mesh diffusion of group {g} did not converge"
+        );
         let total: f64 = (0..n * n)
             .map(|k| weight(k % n) * weight(k / n) * phi[k])
             .sum::<f64>()
@@ -168,8 +174,8 @@ fn fine_mesh_diffusion(
 #[test]
 fn vacuum_corners_follow_the_fine_mesh_diffusion() {
     // 2 辺が真空の、核分裂のないノードで、面の平均の量から角の点の釣り合いで解いた均質な角の値は正で、細かい
-    // メッシュの拡散の解の角の値に近い。真空の 2 辺の角は展開が表しきれず、拡散距離（熱群 4.3 cm）に比べてノードが
-    // 大きいほど誤差が大きい（#0065）
+    // メッシュの拡散の解の角の値に近い。真空の 2 辺の角は展開が表しきれず過大になり、拡散距離（熱群 4.3 cm）に比べて
+    // ノードが大きいほど誤差が大きい（#0065）
     let (diffusion, removal, transfer, ratio) = ([1.4, 0.37], [0.03, 0.02], 0.025, 0.5);
     let total = [1.0 / (3.0 * diffusion[0]), 1.0 / (3.0 * diffusion[1])];
     let scatter = vec![
@@ -210,11 +216,16 @@ fn vacuum_corners_follow_the_fine_mesh_diffusion() {
         let corners = corner_balance(1, 1, &[node], &[false; 4]).unwrap();
         // 角の点（x が速い）と、参照の角（-x -y、+x -y、+x +y、-x +y）
         for (p, c) in [0, 1, 3, 2].into_iter().enumerate() {
-            let limit = if c == 2 { bound } else { 0.01 };
             for g in 0..2 {
                 let (got, want) = (corners[p][g], reference[g].3[c]);
+                let error = got / want - 1.0;
+                let within = if c == 2 {
+                    error > 0.0 && error < bound
+                } else {
+                    error.abs() < 0.01
+                };
                 assert!(
-                    got > 0.0 && (got / want - 1.0).abs() < limit,
+                    got > 0.0 && within,
                     "half width {a}, corner {c}, group {g}: {got} vs {want}"
                 );
             }
