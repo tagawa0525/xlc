@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-11
 supersedes: []
 superseded-by:
@@ -110,8 +110,34 @@ statepoint と抽出の分け方は ADR-0123 の案 M のとおりにする。
 
 ## 確認
 
-（実装のあとに書く: VERA 1B の新しい段階の OpenMC の k と examples/vera/verification.md の 1B の値の比較）
+examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro examples/vera/dvc.yaml` で Slurm の上で走らせた
+（7da182f0、2026-10-11、全体で 47 分）。
+
+- OpenMC 1B の k は 1.181783 ± 0.000063 で、examples/vera/verification.md の「参照解」の 1B（869bd88f に手で走らせた
+  `references/openmc/vera-1B`、同じ粒子数・世代・種）と一致した。k の推定の差は相対 5e-14、世代ごとの k も最初の世代から
+  同じで、ADR-0124 の「確認」の、同じ道具を 2 回走らせた差と同じ大きさである。model.xml は、手で走らせたものと
+  `cross_sections` のパスだけが違った
+- 核種ごとの段階で作ったライブラリの 62 の HDF5（中性子 61、熱中性子散乱則 1）は、手で作った `references/openmc/endfb80`
+  とバイト単位で一致した（`cmp`）
+- xlc の 1B の k∞ は 1.184735 で、記録の 64e069de の値と同じ。`compare-1B` は +295 ± 6 pcm を書いた
+- 2 回目の `dvc repro` は `references-shell`（評価だけ）のほかは走らず、`references-shell.txt` も変わらなかった（9.6 s）。
+  `references` の devShell の store のパスは main と worktree で同じだった
+- 入力のキーが足りない、または知らないキーがあると、`openmc_model.py` が両方を挙げて止まることを、手元の小さな入力で
+  確かめた（trials/ で、記録しない）
+- 時間（Slurm、32 コア）: ライブラリの 63 段階が約 22 分（逐次）、OpenMC 1B が 17.9 分（statepoint の total）、xs が約 6.7 分
 
 ## 帰結
 
-（実装のあとに書く）
+- 段階にしたのは、ライブラリと VERA 1B だけである。1C〜2J、MOX、C5G7、#0005 の均質な媒質（`openmc_homogeneous.py`）、
+  `openmc_balance.py`、`openmc_mg.py` は、同じ形（入力の TOML と段階）で足す（#0018）。`openmc_mg.py` は、
+  `openmc_model.py` から移した位置の引数の読み方（既定値あり）を、それまで持つ
+- 2B〜2J の抽出の段階は、ピン出力を結果のディレクトリの `pins.msgpack` に書く。比べる道具と ADR-0121 の置き場
+  （`p2/openmc-<問題>.msgpack`）との合わせ方は、2B〜2J を段階にするブランチで決める
+- ライブラリのディレクトリ全体を OpenMC の段階の deps にするので（案 I）、核種を 1 つ足すとすべての OpenMC の段階が
+  走り直す（2B〜2J は 1 問題 30 分ほど）。核種を足すことが増えたら見直す
+- main の examples/vera/ には DVC を入れる前の `vera.msgpack` が残る。マージのあとに `dvc checkout
+  examples/vera/dvc.yaml` で dvc.lock の出力に置き換える（ADR-0123 の M0 と同じ）
+- `references/openmc/` の手で作った作業ディレクトリ（`endfb80`、`vera-*`、`work-*`）は消していない。すべてを段階に
+  するまでは、まだ段階にしていない記録の出し直しに使う
+- `nix develop` と `nix eval` の評価は段階ごとに 1 秒ほどで、ライブラリの 63 段階では 1 分ほどになる
+- `x86_64-linux` を cmd に書いた（flake.nix の `system` と同じ）。ほかの system で走らせるときは直す
