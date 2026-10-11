@@ -50,9 +50,11 @@ impl Repo<'_> {
     }
 }
 
-/// git が追跡しているファイル（`/` 区切りのパス）。
-fn tracked_files(repo: &Repo) -> Result<Vec<String>> {
-    let output = repo.git(&["ls-files", "-z"])?;
+/// git が追跡しているファイルのうち `pathspecs` に当たるもの（`/` 区切りのパス。空ならすべて）。
+fn tracked_files(repo: &Repo, pathspecs: &[&str]) -> Result<Vec<String>> {
+    let mut args = vec!["ls-files", "-z", "--"];
+    args.extend_from_slice(pathspecs);
+    let output = repo.git(&args)?;
     if !output.status.success() {
         return Err(format!(
             "git ls-files failed: {}",
@@ -135,10 +137,7 @@ fn trials_tracked_on_main(repo: &Repo) -> Result<Vec<String>> {
     if String::from_utf8(branch.stdout)?.trim() != "main" {
         return Ok(Vec::new());
     }
-    Ok(tracked_files(repo)?
-        .into_iter()
-        .filter(|path| path.starts_with("trials/"))
-        .collect())
+    tracked_files(repo, &["trials/"])
 }
 
 #[test]
@@ -150,7 +149,7 @@ fn docs_are_consistent() -> Result<()> {
     };
     let mut texts = BTreeMap::new();
     let mut others = Vec::new();
-    for path in tracked_files(&repo)? {
+    for path in tracked_files(&repo, &[])? {
         let extension = path.rsplit_once('.').map_or("", |(_, e)| e);
         // 追跡していても作業ツリーで消したファイルは、読まずに数えない
         let file = root.join(&path);
