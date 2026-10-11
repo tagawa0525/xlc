@@ -43,8 +43,10 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
 - 一部済（ADR-0130）: 参照の結果（NJOY → OpenMC のライブラリ → OpenMC、xlc との比較）を DVC の段階にする。
   examples/vera/dvc.yaml で、OpenMC のライブラリ（核種ごと）と VERA 1B（OpenMC → 抽出、xs → lattice → 比較）を
   端から端まで通した。残り（同じ形で足す）:
-  - VERA 1C〜2J の OpenMC と抽出（2B〜2J はピン出力の `pins.msgpack`）、xlc の lattice、比較（`compare_pins.py` を
+  - VERA 1C〜2K の OpenMC と抽出（2B〜2K はピン出力の `pins.msgpack`）、xlc の lattice、比較（`compare_pins.py` を
     含む）の段階。ADR-0121 の `p2/openmc-<問題>.msgpack` の置き場を、抽出の結果のディレクトリに合わせるかを決める
+  - 燃料の実効断面積の tally（`effective-xs-groups`）を使う段階。xlc のライブラリを deps にすると xs のコードを変えるたびに
+    OpenMC が走り直すので、群構造だけを入力に書くかを決める（ADR-0130 の「帰結」）
   - MOX（examples/mox/openmc_model.py）、C5G7（examples/c5g7/openmc_model.py）、#0005 の均質な媒質
     （`openmc_homogeneous.py`）、`openmc_balance.py`、`openmc_mg.py` を、計算の条件を入力の TOML で受ける形に直し、
     段階にする（どれもまだ位置の引数と既定値で受ける）
