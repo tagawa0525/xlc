@@ -91,6 +91,10 @@ pub struct Resolved {
     pub potential: f64,
 }
 
+fn nil_or_resolved<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Resolved>, D::Error> {
+    Option::deserialize(d)
+}
+
 /// 1核種の、温度ごとの群定数。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -98,6 +102,9 @@ pub struct NuclideData {
     pub name: String,
     pub za: f64,
     pub awr: f64,
+    /// 分離共鳴を持たない核種は nil を書く。nil でも項目は省けない（`deserialize_with` を付けると、serde は
+    /// 省いた `Option` を `None` にしない）
+    #[serde(deserialize_with = "nil_or_resolved")]
     pub resolved: Option<Resolved>,
     /// 熱中性子散乱を S(α, β) で作った。S(α, β) は評価済みデータの温度にしかないので、その間の温度は
     /// 群定数を温度について線形に内挿する（それ以外の核種は、使う温度そのもので処理しておく）
@@ -1214,7 +1221,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    #[ignore = "#0012: a missing resolved is read as None"]
     fn nuclide_without_the_resolved_field_is_rejected() {
         // 項目を省いた核種を、「分離共鳴なし」として読まない（ADR-0013）。nil は書ける
         let file = sample_file();
