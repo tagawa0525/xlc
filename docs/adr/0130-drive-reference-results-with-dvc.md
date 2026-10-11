@@ -128,13 +128,16 @@ examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro e
 
 ## 帰結
 
-- 段階にしたのは、ライブラリと VERA 1B だけである。1C〜2J、MOX、C5G7、#0005 の均質な媒質（`openmc_homogeneous.py`）、
+- 段階にしたのは、ライブラリと VERA 1B だけである。1C〜2K、MOX、C5G7、#0005 の均質な媒質（`openmc_homogeneous.py`）、
   `openmc_balance.py`、`openmc_mg.py` は、同じ形（入力の TOML と段階）で足す（#0018）。`openmc_mg.py` は、
   `openmc_model.py` から移した位置の引数の読み方（既定値あり）を、それまで持つ
-- 2B〜2J の抽出の段階は、ピン出力を結果のディレクトリの `pins.msgpack` に書く。比べるツールと ADR-0121 の置き場
-  （`p2/openmc-<問題>.msgpack`）との合わせ方は、2B〜2J を段階にするブランチで決める
+- 2B〜2K の抽出の段階は、ピン出力を結果のディレクトリの `pins.msgpack` に書く。比べるツールと ADR-0121 の置き場
+  （`p2/openmc-<問題>.msgpack`）との合わせ方は、2B〜2K を段階にするブランチで決める
+- 入力の `effective-xs-groups`（燃料の実効断面積の tally の群構造を読む xlc のライブラリ）は、まだどの段階も使わない。
+  使う段階は、そのファイルを deps に足す（dvc.yaml のコメント）。xlc のライブラリは xs のコードを変えるたびに作り直されるので、
+  そのたびに OpenMC が再実行する。群構造だけを入力に書くかは、使う段階を足すときに決める（#0018）
 - ライブラリのディレクトリ全体を OpenMC の段階の deps にするので（案 I）、核種を 1 つ足すとすべての OpenMC の段階が
-  再実行する（2B〜2J は 1 問題 30 分ほど）。核種を足すことが増えたら見直す
+  再実行する（2B〜2K は 1 問題 30 分ほど）。核種を足すことが増えたら見直す
 - main の examples/vera/ には DVC を入れる前の `vera.msgpack` が残る。マージのあとに `dvc checkout
   examples/vera/dvc.yaml` で dvc.lock の出力に置き換える（ADR-0123 の M0 と同じ）
 - `references/openmc/` の手で作った作業ディレクトリ（`endfb80`、`vera-*`、`work-*`）は消していない。すべてを段階に
