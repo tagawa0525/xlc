@@ -19,9 +19,11 @@ resolution:
 - crates/xs/examples/compare_njoy_gendf.rs、compare_njoy_thermr.rs: `XLC_ROWS`
 
 環境変数は入力ファイルにも DVC の deps（ADR-0123）にも残らないので、同じ入力から違う結果が出る。clippy.toml の
-`disallowed-methods` で `std::env::var` と `var_os` を禁じれば、新しく足すことも止められる。許すのは `RUST_LOG`（crates/{xs,lattice,core}/src/main.rs のログの設定）と
-`RAYON_NUM_THREADS`（crates/lattice/src/main.rs）だけにする候補。位置の引数と既定値で受ける examples の引数
-（`--swap` など）も同じ扱いにするかを一緒に決める。
+`disallowed-methods` で `std::env` の読み取り（`var`、`var_os`、`vars`、`vars_os`）を禁じれば、新しく足すことも止められる。
+`disallowed-methods` は変数の名前で許せないので、残す読み取りには場所ごとに `#[allow]` と理由を付ける。残す候補は
+`RUST_LOG`（crates/{xs,lattice,core}/src/main.rs のログの設定）、`RAYON_NUM_THREADS`（crates/lattice/src/main.rs）、
+crates/docs/tests/consistency.rs の `vars_os`。examples が引数で選ぶ計算の条件（crates/lattice/examples/homogeneous.rs の
+`--swap` など）も入力ファイルで受けるかを一緒に決める。
 
 関係する ADR: なし
 
