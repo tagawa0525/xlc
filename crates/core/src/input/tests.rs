@@ -809,4 +809,12 @@ fn layers_may_put_marshak_on_their_vacuum_faces() {
         let text = edited(PLANT, "layers = [\"r.msgpack\"]", bad);
         assert!(Plant::parse(&text, base()).is_err(), "{bad}");
     }
+    // 誤りのメッセージは、どの値が悪いかを示す
+    let text = edited(
+        PLANT,
+        "layers = [\"r.msgpack\"]",
+        "layers = [{ file = \"r.msgpack\", vacuum = \"marshal\" }]",
+    );
+    let err = Plant::parse(&text, base()).unwrap_err().to_string();
+    assert!(err.contains("marshal") && err.contains("marshak"), "{err}");
 }
