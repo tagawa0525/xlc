@@ -5,8 +5,9 @@
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
-//! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（外周がすべて鏡面反射で、角に余白の
-//! # ある格子。nodes とは使えない。ADR-0096）。split = n を足すと、格子全体を n × n の部分ノードに分けた定数を書く
+//! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
+//! # 角に余白のある格子。ADR-0096。nodes ではどの格子でも、ノードが格子の上の長方形の並びであること。ADR-0125）。
+//! # split = n を足すと、格子全体を n × n の部分ノードに分けた定数を書く
 //! # （外周がすべて鏡面反射の格子。nodes とは使えない。ADR-0108）
 //! # 格子をノードに分けるときは output の代わりに nodes を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と列を
 //! # 含む）の 1 から数えた最初と最後。ノードは格子を重ならずに覆う。reflector は反射体のノード（燃料と接する辺の
@@ -64,7 +65,7 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
-use crate::fewgroup::Node;
+use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
@@ -167,7 +168,7 @@ pub struct FewGroupOutput {
     /// 群境界 (eV)
     pub bounds: Vec<f64>,
     pub files: FewGroupFiles,
-    /// 格子全体の定数に、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
+    /// 定数に、ピン出力の再構成の形状関数と角の不連続因子を付ける（格子全体は ADR-0096、ノードごとは ADR-0125）
     pub pins: bool,
     /// 格子全体を各方向に分ける部分ノードの数（ADR-0108）
     pub split: usize,
@@ -307,11 +308,7 @@ impl FewGroupEntry {
                 "`split` (sub-nodes) needs `output` (the whole lattice), not `nodes`".into(),
             );
         }
-        if pins && self.nodes.is_some() {
-            return Err(
-                "`pins` (form functions) needs `output` (the whole lattice), not `nodes`".into(),
-            );
-        }
+        let groups = self.bounds.len().saturating_sub(1);
         let files = match (self.output, self.nodes) {
             (Some(output), None) => FewGroupFiles::Lattice(output),
             (None, Some(nodes)) => {
@@ -335,6 +332,16 @@ impl FewGroupEntry {
                         reflector: entry.reflector.unwrap_or(false),
                     };
                     files.push((entry.output, node));
+                }
+                // 形状関数と角の不連続因子は、2 群で、ノードが格子の上の長方形の並びのときに作る（ADR-0125）
+                if pins {
+                    if groups != 2 {
+                        return Err(format!(
+                            "`pins` with `nodes` needs 2 few groups, got {groups}"
+                        ));
+                    }
+                    let nodes: Vec<Node> = files.iter().map(|(_, n)| n.clone()).collect();
+                    node_grid(&nodes).map_err(|e| format!("`pins` with `nodes`: {e}"))?;
                 }
                 FewGroupFiles::Nodes(files)
             }
@@ -511,8 +518,12 @@ impl LatticeInput {
             .map(FewGroupEntry::into_output)
             .transpose()
             .map_err(invalid)?;
-        // 形状関数と部分ノードは、外周がすべて鏡面反射の格子でだけ作る（ADR-0096、ADR-0108）。MOC を解く前に止める
-        if output.as_ref().is_some_and(|o| o.pins || o.split > 1)
+        // 格子全体の形状関数と部分ノードは、外周がすべて鏡面反射の格子でだけ作る（ADR-0096、ADR-0108。格子のノード
+        // ごとの形状関数はどの格子でも作る。ADR-0125）。MOC を解く前に止める
+        let whole = |o: &FewGroupOutput| matches!(o.files, FewGroupFiles::Lattice(_));
+        if output
+            .as_ref()
+            .is_some_and(|o| (o.pins && whole(o)) || o.split > 1)
             && boundaries != Boundaries::REFLECTIVE
         {
             return Err(invalid(
@@ -1520,7 +1531,7 @@ zones = [{ material = "water", rings = 1 }]
 
     #[test]
     fn few_group_may_ask_for_pin_form_functions() {
-        // 格子全体の定数にだけ、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
+        // ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
         let few_group = |entry: &str| {
             replaced(
                 PIN_CELL,
@@ -1532,9 +1543,28 @@ zones = [{ material = "water", rings = 1 }]
         assert!(input.output.is_some_and(|o| o.pins));
         let input = few_group(", output = \"a\", pins = false").unwrap();
         assert!(input.output.is_some_and(|o| !o.pins));
-        let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], pins = true";
-        let err = few_group(nodes).unwrap_err().to_string();
-        assert!(err.contains("pins"), "{err}");
+        // 格子のノードごとの定数にも形状関数と角の不連続因子を付けられる（ADR-0125）。2 群で、ノードが格子の上の
+        // 長方形の並びであることを、MOC を解く前に確かめる
+        let with_nodes = |bounds: &str, nodes: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = {bounds}, nodes = [{nodes}], pins = true }}"),
+            )
+        };
+        let one = "{ output = \"a\", columns = [1, 1], rows = [1, 1] }";
+        let input = with_nodes("[1e7, 0.625, 1e-5]", one).unwrap();
+        assert!(input.output.is_some_and(|o| o.pins));
+        let err = with_nodes("[1e7, 1e-5]", one).unwrap_err().to_string();
+        assert!(err.contains("2 few groups"), "{err}");
+        // 左のノードが 2 行にまたがり、右は 1 行ずつ: 列と行の切れ目の長方形の並びにならない
+        let uneven = "{ output = \"a\", columns = [1, 1], rows = [1, 2] }, \
+                      { output = \"b\", columns = [2, 2], rows = [1, 1] }, \
+                      { output = \"c\", columns = [2, 2], rows = [2, 2] }";
+        let err = with_nodes("[1e7, 0.625, 1e-5]", uneven)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("grid"), "{err}");
     }
 
     #[test]

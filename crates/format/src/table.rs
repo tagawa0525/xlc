@@ -6,7 +6,7 @@
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
 //! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`pins` は
-//! `dx`、`dy`、`form`、`corners`、`halves` を持つ map か nil で、キーは省けない）。
+//! `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、キーは省けない）。
 //! 軸のないテーブルは状態が1つ。
 
 use serde::{Deserialize, Serialize};
@@ -126,6 +126,7 @@ struct PinsFile {
     dy: Vec<f64>,
     form: Vec<Vec<Vec<f64>>>,
     corners: Vec<Vec<f64>>,
+    normalized_corners: Vec<bool>,
     halves: Vec<bool>,
 }
 
@@ -223,9 +224,14 @@ impl Table {
             }
             // 形状関数は状態ごとに内挿するので、どの状態も持つか持たないかで、セルの境界も同じ
             let cells = |s: &FewGroup| {
-                s.pins
-                    .as_ref()
-                    .map(|p| (p.dx.clone(), p.dy.clone(), p.halves.clone()))
+                s.pins.as_ref().map(|p| {
+                    (
+                        p.dx.clone(),
+                        p.dy.clone(),
+                        p.normalized_corners.clone(),
+                        p.halves.clone(),
+                    )
+                })
             };
             if cells(state) != cells(first) {
                 return invalid(format!(
@@ -280,6 +286,7 @@ impl Table {
                     dy: p.dy.clone(),
                     form: p.form.clone(),
                     corners: p.corners.clone(),
+                    normalized_corners: p.normalized_corners.clone(),
                     halves: p.halves.clone(),
                 }),
             })
@@ -337,6 +344,7 @@ impl Table {
                     dy: p.dy,
                     form: p.form,
                     corners: p.corners,
+                    normalized_corners: p.normalized_corners,
                     halves: p.halves,
                 }),
             })

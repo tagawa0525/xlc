@@ -28,6 +28,7 @@ fn fuel(width: f64, cells: usize) -> FewGroup {
             dy: vec![width / cells as f64; cells],
             form: vec![vec![vec![1.0; cells]; cells]; 2],
             corners: vec![vec![1.0, 1.0]; 4],
+            normalized_corners: vec![false; 4],
             halves: vec![false; 4],
         }),
     }
@@ -186,13 +187,14 @@ fn vacuum_corners_lose_r_times_the_corner_flux() {
     }
     let s = solve(&p, &Options::default()).unwrap();
     let rule = gauss_legendre(FACE_POINTS).unwrap();
-    let (models, conditions) = layer(&p, &s, 0, &rule).unwrap();
-    let corners = corner_fluxes(&p, 0, &models, &conditions).unwrap();
+    let constants = layer_constants(&p, 0).unwrap();
+    let (models, conditions) = layer(&p, &s, 0, &constants, &rule).unwrap();
+    let cdfs = corner_factors(&p, 0, &constants).unwrap();
+    let corners = corner_fluxes(&p, 0, &constants, &models, &conditions, &cdfs).unwrap();
     // 左下の角の点（番号 0）と、ノード 0 の展開の角の点の勾配
     let m = &p.materials[0];
-    let pins = m.pins.as_ref().unwrap();
     let mut c = conditions[0].clone();
-    c.corners = corner_values(&corners, 4, 0, 0, pins);
+    c.corners = corner_values(&corners, 4, 0, 0, &cdfs[0]);
     let node = models[0].solve(&c);
     let [a, b] = c.half;
     let grad = node.gradient(-a, -b);
@@ -300,4 +302,119 @@ fn cell_sizes_match_to_rounding_between_nodes() {
         pins.dx = vec![1.929, 0.631];
     }
     assert!(core_rows(&p, &maps).is_err());
+}
+
+/// 核分裂のない2群の反射体。形状関数は 0（`cells` × `cells`）、角の不連続因子は `corners`
+fn reflector(width: f64, cells: usize, corners: Vec<Vec<f64>>, normalized: Vec<bool>) -> FewGroup {
+    let (d1, d2) = (1.2, 0.2);
+    let (a1, a2) = (0.001, 0.02);
+    let s12 = 0.03;
+    let total = [1.0 / (3.0 * d1), 1.0 / (3.0 * d2)];
+    FewGroup {
+        bounds: vec![1.0e7, 0.625, 1.0e-5],
+        k_inf: 1.0,
+        total: total.to_vec(),
+        absorption: vec![a1, a2],
+        nu_fission: vec![0.0, 0.0],
+        fission: vec![0.0, 0.0],
+        chi: vec![1.0, 0.0],
+        diffusion: vec![d1, d2],
+        scatter: vec![vec![total[0] - a1 - s12, s12], vec![0.0, total[1] - a2]],
+        adf: vec![vec![1.0, 1.0]; 4],
+        vacuum_ratio: vec![None; 4],
+        normalized_adf: vec![false; 4],
+        pins: Some(Pins {
+            dx: vec![width / cells as f64; cells],
+            dy: vec![width / cells as f64; cells],
+            form: vec![vec![vec![0.0; cells]; cells]; 2],
+            corners,
+            normalized_corners: normalized,
+            halves: vec![false; 4],
+        }),
+    }
+}
+
+/// 燃料（-x）と反射体（+x）の 1 × 2 のノード（外周は鏡面反射）。燃料の角の不連続因子は `fuel_corners`
+fn fuel_and_reflector(fuel_corners: Vec<Vec<f64>>, reflector: FewGroup) -> Problem {
+    let mut f = fuel(21.5, 4);
+    if let Some(p) = f.pins.as_mut() {
+        p.corners = fuel_corners;
+    }
+    Problem {
+        mesh: Mesh {
+            dx: vec![21.5; 2],
+            dy: vec![21.5],
+            dz: vec![30.0],
+        },
+        materials: vec![f, reflector],
+        node_material: vec![0, 1],
+        boundaries: [Boundary::Reflective; 6],
+    }
+}
+
+#[test]
+fn normalized_reflector_corners_take_the_fuel_corner_factor() {
+    // 燃料の CDF で割った反射体の角（ADR-0125）の CDF は、C* × 角の点に接する燃料のノードの CDF（調和平均）。
+    // 同じ値を割らずに書いた反射体と同じ再構成になり、反射体のノードの出力は 0
+    let fuel_corners = vec![
+        vec![1.1, 0.9],
+        vec![1.2, 0.8],
+        vec![1.25, 0.85],
+        vec![1.05, 0.95],
+    ];
+    let star = [vec![0.8, 1.3], vec![0.7, 1.4]];
+    let outer = vec![1.1, 0.7];
+    let normalized = reflector(
+        21.5,
+        2,
+        vec![
+            star[0].clone(),
+            outer.clone(),
+            outer.clone(),
+            star[1].clone(),
+        ],
+        vec![true, false, false, true],
+    );
+    // 反射体の -x -y の角は燃料の +x -y の角、-x +y の角は燃料の +x +y の角に接する
+    let times = |s: &[f64], f: &[f64]| vec![s[0] * f[0], s[1] * f[1]];
+    let plain = reflector(
+        21.5,
+        2,
+        vec![
+            times(&star[0], &fuel_corners[1]),
+            outer.clone(),
+            outer,
+            times(&star[1], &fuel_corners[2]),
+        ],
+        vec![false; 4],
+    );
+    let run = |r: FewGroup| {
+        let p = fuel_and_reflector(fuel_corners.clone(), r);
+        let s = solve(&p, &Options::default()).unwrap();
+        reconstruct(&p, &s).unwrap()
+    };
+    let (a, b) = (run(normalized), run(plain));
+    for (x, y) in a[0].iter().flatten().zip(b[0].iter().flatten()) {
+        assert!((x - y).abs() < 1e-12 * y.abs(), "{x} vs {y}");
+    }
+    assert!(a[1].iter().flatten().all(|&v| v == 0.0));
+}
+
+#[test]
+fn normalized_corners_need_fuel_at_the_corner_point() {
+    // 燃料の CDF で割った角の点に、燃料（核分裂のある）のノードがなければ、割っていない反射体の角があってもエラー
+    let a = reflector(
+        21.5,
+        2,
+        vec![vec![1.0, 1.0]; 4],
+        vec![false, true, true, false],
+    );
+    let b = reflector(21.5, 2, vec![vec![1.0, 1.0]; 4], vec![false; 4]);
+    let mut p = fuel_and_reflector(vec![vec![1.0, 1.0]; 4], a);
+    p.materials.push(b);
+    p.mesh.dx = vec![21.5; 3];
+    p.node_material = vec![0, 1, 2];
+    let s = solve(&p, &Options::default()).unwrap();
+    let err = reconstruct(&p, &s).unwrap_err();
+    assert!(err.contains("fuel"), "{err}");
 }
