@@ -194,6 +194,8 @@ struct Core<'a> {
     groups: usize,
     /// [物質] の核分裂のある物質か（ノードの核を選ぶ。ADR-0102）
     fissile: Vec<bool>,
+    /// [物質] の、炉心の形の反射体の位置に置いた物質か（`Problem::reflectors`）
+    reflector: Vec<bool>,
     /// [ノード] の、核分裂のないノードの方向ごとの ANM のモード（定数と幅で決まるので1回だけ作る）
     anm: Vec<Option<[AnmModes; 3]>>,
 }
@@ -316,6 +318,9 @@ impl<'a> Core<'a> {
             counts,
             groups,
             fissile,
+            reflector: (0..problem.materials.len())
+                .map(|m| problem.reflectors.contains(&m))
+                .collect(),
             anm: Vec::new(),
         };
         core.anm = (0..core.nodes())
@@ -360,6 +365,14 @@ impl<'a> Core<'a> {
                     if facing {
                         return Err(format!(
                             "nodes {n} and {m} both have f* on their shared face"
+                        ));
+                    }
+                    // 反射体の位置どうしの面の ADF は 1 なので、そこにある f* は使われず、燃料に面する辺が
+                    // 割られていない（回転を取り違えた定数）
+                    if self.reflector_face(n, m) {
+                        return Err(format!(
+                            "material {material} has f* on side {side}, but node {n} faces the \
+                             reflector site of node {m} there; check the rotation of the reflector"
                         ));
                     }
                 }
@@ -444,16 +457,8 @@ impl<'a> Core<'a> {
         let Some(side) = side_of(d, plus) else {
             return 1.0;
         };
-        let reflector = |n: usize| {
-            self.problem
-                .reflectors
-                .contains(&self.problem.node_material[n])
-        };
-        if reflector(n)
-            && self
-                .neighbor(n, d, if plus { 1 } else { -1 })
-                .is_some_and(reflector)
-        {
+        let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
+        if neighbor.is_some_and(|m| self.reflector_face(n, m)) {
             return 1.0;
         }
         let material = self.material(n);
@@ -461,9 +466,15 @@ impl<'a> Core<'a> {
         if !material.normalized_adf[side] {
             return own;
         }
-        self.neighbor(n, d, if plus { 1 } else { -1 })
+        neighbor
             .and_then(|m| side_of(d, !plus).map(|s| own * self.material(m).adf[s][g]))
             .unwrap_or(f64::NAN)
+    }
+
+    /// 隣り合うノード n と m が、どちらも炉心の形の反射体の位置か
+    fn reflector_face(&self, n: usize, m: usize) -> bool {
+        let at = |n: usize| self.reflector[self.problem.node_material[n]];
+        at(n) && at(m)
     }
 
     /// ノード n の方向 d の外周の面の、真空の面の比 r = J/φ_het。`Marshak` は 1/2
