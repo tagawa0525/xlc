@@ -5,8 +5,8 @@
 //! `points`（昇順。ppm か K）。`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の原子分率）も持つ）,
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
-//! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`pins` は
-//! `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、キーは省けない）。
+//! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`height` は数か nil、`pins` は
+//! `dx`、`dy`、`form`、`corners`、`normalized_corners`、`halves` を持つ map か nil で、どちらもキーは省けない）。
 //! 軸のないテーブルは状態が1つ。
 
 use serde::{Deserialize, Serialize};
@@ -43,6 +43,50 @@ impl Axis {
             Self::Moderator { temperature, .. } | Self::Fuel { temperature } => temperature,
         }
     }
+}
+
+/// 軸の並びを確かめる: 同じ軸が2つなく、点が範囲の中で増え、減速材の密度が点ごとに正で、B-10 の割合が 0〜1。
+pub fn validate_axes(axes: &[Axis]) -> Result<(), String> {
+    let mut names = Vec::new();
+    for axis in axes {
+        let name = axis.name();
+        if names.contains(&name) {
+            return Err(format!("axis {name} appears twice"));
+        }
+        names.push(name);
+        let points = axis.points();
+        // ホウ素濃度は 0 を含み、温度は正
+        let valid = |p: f64| match axis {
+            Axis::Boron { .. } => p >= 0.0 && p.is_finite(),
+            Axis::Moderator { .. } | Axis::Fuel { .. } => p > 0.0 && p.is_finite(),
+        };
+        if points.is_empty()
+            || !points.iter().all(|&p| valid(p))
+            || !points.windows(2).all(|w| w[0] < w[1])
+        {
+            return Err(format!(
+                "axis {name}: points must be valid and increasing, got {points:?}"
+            ));
+        }
+        match axis {
+            Axis::Boron { b10, .. } if !(0.0..=1.0).contains(b10) => {
+                return Err(format!("axis boron: invalid B-10 atom fraction {b10}"));
+            }
+            Axis::Moderator {
+                temperature,
+                density,
+            } if density.len() != temperature.len()
+                || !density.iter().all(|&d| d > 0.0 && d.is_finite()) =>
+            {
+                return Err(format!(
+                    "axis moderator: {} positive densities are needed, got {density:?}",
+                    temperature.len()
+                ));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 /// 分岐のテーブル。
@@ -85,15 +129,53 @@ struct TableFile {
     states: Vec<StateFile>,
 }
 
+/// ファイルの軸（テーブルと媒質で共有する。ADR-0128）
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AxisFile {
+pub(crate) struct AxisFile {
     name: String,
     points: Vec<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     density: Option<Vec<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     b10: Option<f64>,
+}
+
+impl From<&Axis> for AxisFile {
+    fn from(axis: &Axis) -> Self {
+        Self {
+            name: axis.name().into(),
+            points: axis.points().to_vec(),
+            density: match axis {
+                Axis::Moderator { density, .. } => Some(density.clone()),
+                _ => None,
+            },
+            b10: match axis {
+                Axis::Boron { b10, .. } => Some(*b10),
+                _ => None,
+            },
+        }
+    }
+}
+
+impl TryFrom<AxisFile> for Axis {
+    type Error = String;
+
+    fn try_from(a: AxisFile) -> Result<Self, String> {
+        match (a.name.as_str(), a.density, a.b10) {
+            ("boron", None, Some(b10)) => Ok(Axis::Boron { ppm: a.points, b10 }),
+            ("moderator", Some(density), None) => Ok(Axis::Moderator {
+                temperature: a.points,
+                density,
+            }),
+            ("fuel", None, None) => Ok(Axis::Fuel {
+                temperature: a.points,
+            }),
+            (name, ..) => Err(format!(
+                "axis {name}: unknown name or wrong fields (boron has b10, moderator has density)"
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -110,12 +192,18 @@ struct StateFile {
     adf: Vec<Vec<f64>>,
     vacuum_ratio: Vec<Option<Vec<f64>>>,
     normalized_adf: Vec<bool>,
+    /// nil を書いても、キーは省けない（ADR-0129）
+    #[serde(deserialize_with = "nil_or")]
+    height: Option<f64>,
     /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
-    #[serde(deserialize_with = "nil_or_pins")]
+    #[serde(deserialize_with = "nil_or")]
     pins: Option<PinsFile>,
 }
 
-fn nil_or_pins<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<PinsFile>, D::Error> {
+/// nil を `None` に読み、キーの欠けはエラーにする（ADR-0129）
+fn nil_or<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
     Option::deserialize(d)
 }
 
@@ -145,48 +233,10 @@ impl Table {
         self.split * self.split
     }
 
-    /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印、真空の辺）を確かめる。
+    /// 軸、状態の数、状態の値、状態の間で共通であるべき量（群境界、f* の印、真空の辺、z の厚さ）を確かめる。
     pub fn validate(&self) -> Result<(), TableError> {
         let invalid = |message: String| Err(TableError::Invalid(message));
-        let mut names = Vec::new();
-        for axis in &self.axes {
-            let name = axis.name();
-            if names.contains(&name) {
-                return invalid(format!("axis {name} appears twice"));
-            }
-            names.push(name);
-            let points = axis.points();
-            // ホウ素濃度は 0 を含み、温度は正
-            let valid = |p: f64| match axis {
-                Axis::Boron { .. } => p >= 0.0 && p.is_finite(),
-                Axis::Moderator { .. } | Axis::Fuel { .. } => p > 0.0 && p.is_finite(),
-            };
-            if points.is_empty()
-                || !points.iter().all(|&p| valid(p))
-                || !points.windows(2).all(|w| w[0] < w[1])
-            {
-                return invalid(format!(
-                    "axis {name}: points must be valid and increasing, got {points:?}"
-                ));
-            }
-            match axis {
-                Axis::Boron { b10, .. } if !(0.0..=1.0).contains(b10) => {
-                    return invalid(format!("axis boron: invalid B-10 atom fraction {b10}"));
-                }
-                Axis::Moderator {
-                    temperature,
-                    density,
-                } if density.len() != temperature.len()
-                    || !density.iter().all(|&d| d > 0.0 && d.is_finite()) =>
-                {
-                    return invalid(format!(
-                        "axis moderator: {} positive densities are needed, got {density:?}",
-                        temperature.len()
-                    ));
-                }
-                _ => {}
-            }
-        }
+        validate_axes(&self.axes).map_err(TableError::Invalid)?;
         if self.split == 0 {
             return invalid("split must be positive".into());
         }
@@ -217,9 +267,10 @@ impl Table {
             if state.bounds != self.states[0].bounds
                 || state.normalized_adf != first.normalized_adf
                 || vacuum(state) != vacuum(first)
+                || state.height != first.height
             {
                 return invalid(format!(
-                    "state {i}: group bounds, f* sides and vacuum sides must equal those of the same sub-node of state 0"
+                    "state {i}: group bounds, f* sides, vacuum sides and the height must equal those of the same sub-node of state 0"
                 ));
             }
             // 形状関数は状態ごとに内挿するので、どの状態も持つか持たないかで、セルの境界も同じ
@@ -250,22 +301,7 @@ impl Table {
             .first()
             .map(|s| s.bounds.clone())
             .unwrap_or_default();
-        let axes = self
-            .axes
-            .iter()
-            .map(|axis| AxisFile {
-                name: axis.name().into(),
-                points: axis.points().to_vec(),
-                density: match axis {
-                    Axis::Moderator { density, .. } => Some(density.clone()),
-                    _ => None,
-                },
-                b10: match axis {
-                    Axis::Boron { b10, .. } => Some(*b10),
-                    _ => None,
-                },
-            })
-            .collect();
+        let axes = self.axes.iter().map(AxisFile::from).collect();
         let states = self
             .states
             .iter()
@@ -281,6 +317,7 @@ impl Table {
                 adf: s.adf.clone(),
                 vacuum_ratio: s.vacuum_ratio.clone(),
                 normalized_adf: s.normalized_adf.clone(),
+                height: s.height,
                 pins: s.pins.as_ref().map(|p| PinsFile {
                     dx: p.dx.clone(),
                     dy: p.dy.clone(),
@@ -309,20 +346,9 @@ impl Table {
         let axes = file
             .axes
             .into_iter()
-            .map(|a| match (a.name.as_str(), a.density, a.b10) {
-                ("boron", None, Some(b10)) => Ok(Axis::Boron { ppm: a.points, b10 }),
-                ("moderator", Some(density), None) => Ok(Axis::Moderator {
-                    temperature: a.points,
-                    density,
-                }),
-                ("fuel", None, None) => Ok(Axis::Fuel {
-                    temperature: a.points,
-                }),
-                (name, ..) => Err(TableError::Invalid(format!(
-                    "axis {name}: unknown name or wrong fields (boron has b10, moderator has density)"
-                ))),
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(Axis::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(TableError::Invalid)?;
         let states = file
             .states
             .into_iter()
@@ -339,6 +365,7 @@ impl Table {
                 adf: s.adf,
                 vacuum_ratio: s.vacuum_ratio,
                 normalized_adf: s.normalized_adf,
+                height: s.height,
                 pins: s.pins.map(|p| Pins {
                     dx: p.dx,
                     dy: p.dy,

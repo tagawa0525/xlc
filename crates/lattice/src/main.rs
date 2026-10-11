@@ -1,5 +1,5 @@
-//! 格子計算を行い、少数群定数のテーブルとセルごとの核分裂率を書き出すコマンド。入力に分岐（`[branches]`）が
-//! あれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
+//! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
+//! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
 //!
 //! 使い方: lattice <入力ファイル>
 //!
@@ -29,12 +29,15 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
+use xlc_format::medium::Medium;
+use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::tables;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
+use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, available_order, solve_symmetric};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingOptions, shield_fuel_with};
@@ -101,6 +104,16 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let input = LatticeInput::parse(&text).with_context(|| shown(path))?;
     let base = path.parent().unwrap_or(Path::new("."));
     let (lattice, region_materials) = input.geometry().with_context(|| shown(path))?;
+    // 軸方向の定数のノードの並びは、MOC を解く前に確かめる（ADR-0128）
+    if let Some(FewGroupOutput {
+        files: FewGroupFiles::Nodes(entries),
+        axial: true,
+        ..
+    }) = &input.output
+    {
+        let nodes: Vec<Node> = entries.iter().map(|(_, node)| node.clone()).collect();
+        check_nodes(lattice.rows(), &nodes).map_err(|e| anyhow!("{}: {e}", shown(path)))?;
+    }
 
     let tracking =
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;
@@ -159,6 +172,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
     // 状態の軸の値（エラーとログに付ける）
     let axes = input.branches.as_ref().map_or(&[][..], |b| b.axes());
+    // 平板の物質の媒質（ADR-0128）。ライブラリの群境界と分岐の軸に合うことを解く前に確かめる
+    let media = input
+        .media
+        .iter()
+        .map(|m| {
+            let file = base.join(&m.file);
+            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+            let medium = Medium::from_msgpack(&bytes).with_context(|| shown(&file))?;
+            let bounds = groups.as_ref().map_or(&[][..], |g| g.bounds());
+            check_medium(&medium, bounds, axes)
+                .map_err(|e| anyhow!("{}: material `{}`: {e}", shown(&file), m.name))?;
+            Ok(medium)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let medium_names: Vec<String> = input.media.iter().map(|m| m.name.clone()).collect();
     let values = |state: usize| -> String {
         let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
         let mut rest = state;
@@ -177,6 +205,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
     let states = input.branch_states();
     let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(states.len());
+    // 状態ごとの細かい群の媒質の出力（ADR-0128）
+    let mut written = Vec::new();
     for (state, state_materials) in states.iter().enumerate() {
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
@@ -194,7 +224,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     .with_context(|| format!("{}: self-shielding", context()))?;
                     (shielded.materials, shielded.region_material)
                 } else {
-                    let named = state_materials
+                    let mut named = state_materials
                         .iter()
                         .map(|m| {
                             Material::mix(library, &m.composition, m.temperature)
@@ -202,6 +232,47 @@ fn run(path: &Path) -> anyhow::Result<()> {
                                 .map_err(|e| anyhow!("material `{}`: {e}", m.name))
                         })
                         .collect::<anyhow::Result<Vec<_>>>()
+                        .with_context(context)?;
+                    // 混ぜた物質は、この状態の成分から作る（真空の成分は核種を持たない。ADR-0128）
+                    for mixture in &input.mixtures {
+                        let parts: Vec<(&_, f64)> = mixture
+                            .parts
+                            .iter()
+                            .filter(|(part, _)| part != VOID)
+                            .map(|(part, f)| {
+                                state_materials
+                                    .iter()
+                                    .find(|m| &m.name == part)
+                                    .map(|m| (m, *f))
+                                    .ok_or_else(|| {
+                                        anyhow!(
+                                            "material `{}`: component `{part}` is not in the state",
+                                            mixture.name
+                                        )
+                                    })
+                            })
+                            .collect::<anyhow::Result<_>>()
+                            .with_context(context)?;
+                        let mixed = Material::mixture(library, &parts)
+                            .map_err(|e| anyhow!("material `{}`: {e}", mixture.name))
+                            .with_context(context)?;
+                        named.push((mixture.name.clone(), mixed));
+                    }
+                    // 媒質は分岐の状態と同じ番号の状態（軸が同じことは確かめてある）
+                    for (m, medium) in input.media.iter().zip(&media) {
+                        let from = medium
+                            .states
+                            .get(state)
+                            .ok_or_else(|| anyhow!("material `{}`: no state {state}", m.name))
+                            .and_then(|s| {
+                                Material::from_medium(s)
+                                    .map_err(|e| anyhow!("material `{}`: {e}", m.name))
+                            })
+                            .with_context(context)?;
+                        named.push((m.name.clone(), from));
+                    }
+                    check_orders(&named, &medium_names)
+                        .map_err(|e| anyhow!(e))
                         .with_context(context)?;
                     by_name(named, library.groups.len())?
                 }
@@ -226,6 +297,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             files,
             pins,
             split,
+            axial: along_z,
         }) = &input.output
         {
             let groups = groups
@@ -285,7 +357,36 @@ fn run(path: &Path) -> anyhow::Result<()> {
                     .collect()
                 }
             };
+            // 格子の x を炉心の z にした定数。z の厚さはノードの x の幅（ADR-0128）
+            let fews = if *along_z {
+                let widths = lattice.widths();
+                let node_widths: Vec<f64> = match files {
+                    FewGroupFiles::Lattice(_) => vec![widths.iter().sum()],
+                    FewGroupFiles::Nodes(entries) => entries
+                        .iter()
+                        .map(|(_, node)| widths[node.columns.clone()].iter().sum())
+                        .collect(),
+                };
+                fews.iter()
+                    .zip(node_widths)
+                    .map(|(subs, width)| {
+                        subs.iter()
+                            .map(|few| axial(few, width))
+                            .collect::<Result<Vec<_>, _>>()
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| anyhow!(e))
+                    .with_context(context)?
+            } else {
+                fews
+            };
             per_state.push(fews);
+        }
+        if input.medium.is_some() {
+            written.push(
+                homogenize_medium(&solution, &materials, &tracking.boundaries())
+                    .with_context(context)?,
+            );
         }
         // ピン出力は分岐のないときだけ（入力の読み込みで確かめてある）
         if let Some(file) = &input.pin_powers {
@@ -308,6 +409,19 @@ fn run(path: &Path) -> anyhow::Result<()> {
         );
     }
 
+    if let Some(output) = &input.medium {
+        let groups = groups
+            .as_ref()
+            .ok_or_else(|| anyhow!("a medium needs a library"))?;
+        let medium = Medium {
+            bounds: groups.bounds().to_vec(),
+            axes: axes.to_vec(),
+            states: written,
+        };
+        let output = base.join(output);
+        let bytes = medium.to_msgpack().with_context(|| shown(&output))?;
+        std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+    }
     if let Some(FewGroupOutput { files, split, .. }) = &input.output {
         let outputs: Vec<&Path> = match files {
             FewGroupFiles::Lattice(output) => vec![output],

@@ -756,12 +756,12 @@ impl Layout {
 }
 
 /// 少数群定数の辺ごとの量（ADF、真空の辺の比、f* の印）と、ピンの形状（ADR-0096）を、反時計回りに 90° × `turns`
-/// 回す。辺の並びは（左、右、上、下）。90° 回すと、右の辺が上に、上が左に、左が下に、下が右に来る。
-/// 配列の長さは `FewGroup::validate` で先に確かめる。
+/// 回す。辺の並びは（左、右、上、下、−z、+z）。90° 回すと、右の辺が上に、上が左に、左が下に、下が右に来て、
+/// z の辺は変わらない（ADR-0128）。配列の長さは `FewGroup::validate` で先に確かめる。
 pub fn rotated(constants: &FewGroup, turns: u8) -> Result<FewGroup, String> {
     fn turn<T: Clone>(sides: &[T]) -> Vec<T> {
-        // 新しい（左、右、上、下）は、元の（上、下、右、左）
-        [2, 3, 1, 0]
+        // 新しい（左、右、上、下、−z、+z）は、元の（上、下、右、左、−z、+z）
+        [2, 3, 1, 0, 4, 5]
             .iter()
             .filter_map(|&s| sides.get(s).cloned())
             .collect()

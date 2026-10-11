@@ -265,9 +265,10 @@ fn tables_collect_each_output_over_the_states() {
         chi: vec![1.0, 0.0],
         diffusion: vec![1.4, 0.4],
         scatter: vec![vec![0.47, 0.02], vec![0.0, 0.92]],
-        adf: vec![vec![1.0, 1.0]; 4],
-        vacuum_ratio: vec![None; 4],
-        normalized_adf: vec![false; 4],
+        adf: vec![vec![1.0, 1.0]; 6],
+        vacuum_ratio: vec![None; 6],
+        normalized_adf: vec![false; 6],
+        height: None,
         pins: None,
     };
     let per_state: Vec<Vec<_>> = (0..12)

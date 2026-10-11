@@ -1,0 +1,67 @@
+# このファイルは axial_slab.py が書く。平板 axial-3A-32.toml の層の設計
+[design.slab-32]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 78.381, 89.811, 101.241, 112.671, 124.101, 135.531, 146.961, 158.391, 169.821, 181.251, 192.681, 204.111, 215.541, 226.971, 238.401, 249.831, 261.261, 272.691, 284.121, 295.551, 306.981, 318.411, 329.841, 341.271, 352.701, 364.131, 375.561, 386.991, 398.421, 409.851, 421.281, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-32/lower-water.msgpack",
+  "axial-32/lower-plate.msgpack",
+  "axial-32/bottom-nozzle.msgpack",
+  "axial-32/lower-gap-plug.msgpack",
+  "axial-32/fuel-01.msgpack",
+  "axial-32/fuel-02.msgpack",
+  "axial-32/fuel-03.msgpack",
+  "axial-32/fuel-04.msgpack",
+  "axial-32/fuel-05.msgpack",
+  "axial-32/fuel-06.msgpack",
+  "axial-32/fuel-07.msgpack",
+  "axial-32/fuel-08.msgpack",
+  "axial-32/fuel-09.msgpack",
+  "axial-32/fuel-10.msgpack",
+  "axial-32/fuel-11.msgpack",
+  "axial-32/fuel-12.msgpack",
+  "axial-32/fuel-13.msgpack",
+  "axial-32/fuel-14.msgpack",
+  "axial-32/fuel-15.msgpack",
+  "axial-32/fuel-16.msgpack",
+  "axial-32/fuel-17.msgpack",
+  "axial-32/fuel-18.msgpack",
+  "axial-32/fuel-19.msgpack",
+  "axial-32/fuel-20.msgpack",
+  "axial-32/fuel-21.msgpack",
+  "axial-32/fuel-22.msgpack",
+  "axial-32/fuel-23.msgpack",
+  "axial-32/fuel-24.msgpack",
+  "axial-32/fuel-25.msgpack",
+  "axial-32/fuel-26.msgpack",
+  "axial-32/fuel-27.msgpack",
+  "axial-32/fuel-28.msgpack",
+  "axial-32/fuel-29.msgpack",
+  "axial-32/fuel-30.msgpack",
+  "axial-32/fuel-31.msgpack",
+  "axial-32/fuel-32.msgpack",
+  "axial-32/plenum.msgpack",
+  "axial-32/upper-plug-gap.msgpack",
+  "axial-32/top-nozzle.msgpack",
+  "axial-32/upper-plate.msgpack",
+  "axial-32/upper-water.msgpack",
+]
+
+[assembly.SLAB-32]
+design = "slab-32"
+
+[design.fstar-32]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-32/lower-water.msgpack",
+  "axial-32/lower-plate.msgpack",
+  "axial-32/bottom-nozzle.msgpack",
+  "axial-32/lower-gap-plug.msgpack",
+  "fg-3A.msgpack",
+  "axial-32/plenum.msgpack",
+  "axial-32/upper-plug-gap.msgpack",
+  "axial-32/top-nozzle.msgpack",
+  "axial-32/upper-plate.msgpack",
+  "axial-32/upper-water.msgpack",
+]
+
+[assembly.FSTAR-32]
+design = "fstar-32"
