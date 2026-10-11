@@ -16,12 +16,10 @@ use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_numeric::quadrature::gauss_legendre;
 
 use crate::nem::{Boundary, Problem, Solution};
-use xlc_numeric::pins::FACE_POINTS;
-use xlc_numeric::pins::corners::{CornerNode, corner_balance};
+use xlc_numeric::nem::is_fissile;
+use xlc_numeric::pins::corners::{CornerNode, corner_balance, fuel_harmonic_mean, nodes_at_point};
 use xlc_numeric::pins::node::{Conditions, Constants, NodeFlux, NodeModel};
-
-/// セルの平均の Gauss-Legendre の点の数（各方向）。ピンのセル（1.26 cm）の中で κh ≲ 1 なので、6 点の誤差は 1e-12 より小さい
-const CELL_POINTS: usize = 6;
+use xlc_numeric::pins::{CELL_POINTS, FACE_POINTS};
 
 /// [ノード] のセルの出力 [行（-y から）][列（-x から）]。ノードの並びは NEM と同じ（x が最も速く、次に y、z）。
 /// 核分裂のない軸方向の層（上下の反射体）は出力が 0 なので、空の表にする。核分裂のある層では、どのノードも形状関数を
@@ -398,7 +396,12 @@ fn corner_factors(
     nodes: &[(&FewGroup, &Pins)],
 ) -> Result<Vec<[[f64; 2]; 4]>, String> {
     let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
-    let fissile = |m: &FewGroup| m.nu_fission.iter().any(|&v| v > 0.0);
+    // 燃料は核分裂のあるノード（lattice が C* を割るときと同じ判定。ADR-0125）
+    let fissile: Vec<bool> = nodes
+        .iter()
+        .map(|(m, _)| is_fissile(&m.nu_fission))
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
     (0..nx * ny)
         .map(|local| {
             let (i, j) = (local % nx, local / nx);
@@ -410,32 +413,23 @@ fn corner_factors(
                     *out = [own[0], own[1]];
                     continue;
                 }
-                // 角の点 (ci, cj) を囲む 4 つのノード（左下、右下、右上、左上）と、それぞれの、その点の角
                 let (ci, cj) = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)][c];
-                let mut fuel = Vec::with_capacity(4);
-                for (di, dj, d) in [(1, 1, 2), (0, 1, 3), (0, 0, 0), (1, 0, 1)] {
-                    let (Some(mi), Some(mj)) = (ci.checked_sub(di), cj.checked_sub(dj)) else {
-                        continue;
-                    };
-                    if mi >= nx || mj >= ny {
-                        continue;
-                    }
-                    let (m, p) = nodes[mi + nx * mj];
-                    if fissile(m) {
-                        fuel.push(&p.corners[d]);
-                    }
+                let fuel: Vec<(usize, usize)> = nodes_at_point(nx, ny, ci, cj)
+                    .into_iter()
+                    .filter(|&(m, _)| fissile[m])
+                    .collect();
+                for (g, o) in out.iter_mut().enumerate() {
+                    let factors: Vec<f64> =
+                        fuel.iter().map(|&(m, d)| nodes[m].1.corners[d][g]).collect();
+                    let harmonic = fuel_harmonic_mean(&factors).ok_or_else(|| {
+                        format!(
+                            "node {}: corner {c} is normalized by the fuel factor, but no fuel node \
+                             touches the corner point",
+                            local + nx * ny * k
+                        )
+                    })?;
+                    *o = own[g] * harmonic;
                 }
-                if fuel.is_empty() {
-                    return Err(format!(
-                        "node {}: corner {c} is normalized by the fuel factor, but no fuel node \
-                         touches the corner point",
-                        local + nx * ny * k
-                    ));
-                }
-                *out = std::array::from_fn(|g| {
-                    let harmonic = fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f[g]).sum::<f64>();
-                    own[g] * harmonic
-                });
             }
             Ok(cdf)
         })

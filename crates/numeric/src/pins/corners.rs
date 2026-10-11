@@ -139,5 +139,24 @@ pub fn corner_balance(
     Ok((0..points).map(|p| [rhs[2 * p], rhs[2 * p + 1]]).collect())
 }
 
+/// nx × ny のノードの層で、角の点 (ci, cj) を囲むノード（[i + nx j]）と、そのノードの、その点の角（-x -y、+x -y、
+/// +x +y、-x +y）。層の外は除く
+pub fn nodes_at_point(nx: usize, ny: usize, ci: usize, cj: usize) -> Vec<(usize, usize)> {
+    // 角の点の左下、右下、右上、左上のノードと、それぞれの +x +y、-x +y、-x -y、+x -y の角
+    [(1, 1, 2), (0, 1, 3), (0, 0, 0), (1, 0, 1)]
+        .into_iter()
+        .filter_map(|(di, dj, corner)| {
+            let (i, j) = (ci.checked_sub(di)?, cj.checked_sub(dj)?);
+            (i < nx && j < ny).then_some((i + nx * j, corner))
+        })
+        .collect()
+}
+
+/// 燃料の CDF で割った角の大きさ H_p: 角の点に接する燃料のノードの CDF の調和平均（ADR-0125）。lattice は CDF を
+/// これで割り、core はこれを掛ける。燃料がなければ `None`
+pub fn fuel_harmonic_mean(fuel: &[f64]) -> Option<f64> {
+    (!fuel.is_empty()).then(|| fuel.len() as f64 / fuel.iter().map(|f| 1.0 / f).sum::<f64>())
+}
+
 #[cfg(test)]
 mod tests;
