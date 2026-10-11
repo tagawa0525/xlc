@@ -18,7 +18,7 @@ resolution:
 自己遮蔽の変化の大きさは測っていない。目安として、等価なセルに枠のリングを入れると 1B の k が +210 pcm 動いた
 （枠による変化の OpenMC との差が −170 → +40 pcm。examples/vera/verification.md、9fb742cd と 1d4606fc の記録）。
 
-関係する ADR: [ADR-0085](../adr/0085-branch-on-core-states.md)
+関係する ADR: [ADR-0085](../adr/0085-branch-on-core-states.md)、[ADR-0140](../adr/0140-place-spacer-grids-as-axial-layers-of-framed-lattices.md)
 
 ## 完了の条件
 

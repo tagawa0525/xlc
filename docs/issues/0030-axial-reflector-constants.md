@@ -29,7 +29,7 @@ ADR-0128 で、軸方向の反射体の定数を、単一集合体から書き�
   混ぜる形を ADR にする
 - 平板の列の幅は、格子計算の CMFD の収束（#0069）で 1 cm 程度に制限している
 
-関係する ADR: [ADR-0128](../adr/0128-make-axial-reflector-constants-in-a-full-height-slab.md)、[ADR-0134](../adr/0134-use-current-weighted-d-where-koebke-has-no-root.md)
+関係する ADR: [ADR-0128](../adr/0128-make-axial-reflector-constants-in-a-full-height-slab.md)、[ADR-0134](../adr/0134-use-current-weighted-d-where-koebke-has-no-root.md)、[ADR-0140](../adr/0140-place-spacer-grids-as-axial-layers-of-framed-lattices.md)
 
 ## 完了の条件
 
