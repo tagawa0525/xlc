@@ -451,7 +451,7 @@ impl<'a> Core<'a> {
                              reflector site of node {other} there; check the rotation of the reflector"
                         ));
                     }
-                    if !self.fissile[self.material_of[m]] {
+                    if !self.fissile[self.material_of[m]] && !self.unpaired_face(n, m, d) {
                         return Err(format!(
                             "material {material} has f* (an ADF over the fuel's) on side {side}, \
                              but its neighbor node {other} has no fission"
@@ -557,10 +557,14 @@ impl<'a> Core<'a> {
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子（辺の対応は `side_of`）。
     /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
     /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの面も、燃料どうしの面と同じく
-    /// 各側の ADF を使う（ADR-0132）
+    /// 各側の ADF を使う（ADR-0132）。反射体の位置の f* の辺が集合体の位置の核分裂のない層に向く面は 1
+    /// （`unpaired_face`）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
         let side = side_of(d, plus);
         let neighbor = self.neighbor(n, d, if plus { 1 } else { -1 });
+        if neighbor.is_some_and(|m| self.unpaired_face(n, m, d)) {
+            return 1.0;
+        }
         let material = self.material(n);
         let own = material.adf[side][g];
         if !material.normalized_adf[side] {
@@ -569,6 +573,23 @@ impl<'a> Core<'a> {
         neighbor.map_or(f64::NAN, |m| {
             own * self.material(m).adf[side_of(d, !plus)][g]
         })
+    }
+
+    /// 方向 d で隣り合うノード n と m の面が、反射体の位置の f* の辺と、集合体の位置の核分裂のない層（端栓、
+    /// プレナム）の x か y の面か。f* は燃料の ADF で割った値で、核分裂のない層と組で作った定数はないので、この面は
+    /// 両側の ADF を 1 とする（ADR-0132。近似）
+    fn unpaired_face(&self, n: usize, m: usize, d: usize) -> bool {
+        if d >= 2 {
+            return false;
+        }
+        let toward = |a: usize, b: usize| {
+            let plus = self.position(b)[d] > self.position(a)[d];
+            self.reflector[self.material_of[a]]
+                && !self.reflector[self.material_of[b]]
+                && !self.fissile[self.material_of[b]]
+                && self.material(a).normalized_adf[side_of(d, plus)]
+        };
+        toward(n, m) || toward(m, n)
     }
 
     /// 隣り合うノード n と m が、どちらも炉心の形の反射体の位置か
