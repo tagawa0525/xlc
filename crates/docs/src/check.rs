@@ -685,7 +685,7 @@ mod tests {
         format!("#{n:04}")
     }
 
-    /// ADR の本文。見出しは 9 行目。
+    /// ADR の本文。見出しは 10 行目。
     fn adr_text(
         n: u32,
         status: &str,
@@ -700,6 +700,7 @@ mod tests {
             format!("supersedes: {supersedes}"),
             format!("superseded-by: {superseded_by}"),
             format!("issues: {issues}"),
+            "requires: []".to_string(),
             "---".to_string(),
             String::new(),
             format!("# {}: decide something", adr(n)),
@@ -1055,10 +1056,10 @@ mod tests {
         assert_violations(
             files,
             &[
-                format!("{ADR1}:9: first heading must be `# {}: <title>`", adr(1)),
+                format!("{ADR1}:10: first heading must be `# {}: <title>`", adr(1)),
                 format!("{ADR2}: first heading must be `# {}: <title>`", adr(2)),
                 format!(
-                    "docs/adr/0003-keep-c.md:13: first heading must be `# {}: <title>`",
+                    "docs/adr/0003-keep-c.md:14: first heading must be `# {}: <title>`",
                     adr(3)
                 ),
             ],
@@ -1129,6 +1130,44 @@ mod tests {
                 ),
                 format!("{ADR2}: `supersedes` item \"adr-3\" is not ADR-NNNN"),
                 format!("{ADR2}:4: {} does not exist", adr(99)),
+            ],
+        );
+    }
+
+    #[test]
+    fn requires_the_requires_key_on_adrs() {
+        let mut files = base();
+        edit(&mut files, ADR2, "requires: []\n", "");
+        assert_violations(files, &[format!("{ADR2}: front matter has no `requires`")]);
+    }
+
+    #[test]
+    fn accepts_existing_adrs_in_requires() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ADR2,
+            "requires: []",
+            &format!("requires: [{}]", adr(1)),
+        );
+        assert_violations(files, &[]);
+    }
+
+    #[test]
+    fn checks_requires_targets() {
+        let mut files = base();
+        edit(
+            &mut files,
+            ADR2,
+            "requires: []",
+            &format!("requires: [{}, {}, adr-3]", adr(1), adr(99)),
+        );
+        assert_violations(
+            files,
+            &[
+                format!("{ADR2}: `requires` names {}, which does not exist", adr(99)),
+                format!("{ADR2}: `requires` item \"adr-3\" is not ADR-NNNN"),
+                format!("{ADR2}:7: {} does not exist", adr(99)),
             ],
         );
     }
