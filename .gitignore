@@ -16,10 +16,13 @@
 /examples/m3-nuclides/*.msgpack
 /examples/m3-nuclides/xs.log
 /examples/reflector/*.msgpack
-/examples/reflector/xs.log
 /examples/branches/*.msgpack
 /examples/branches/*.log
 /examples/split/*.msgpack
 /examples/split/*.log
 /examples/colorset/*.msgpack
 /examples/colorset/*.log
+/examples/reflector/*.log
+/examples/reflector/*.txt
+/examples/reflector/vacuum-corner/*.msgpack
+/examples/reflector/vacuum-corner/*.log

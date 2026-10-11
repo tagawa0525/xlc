@@ -151,7 +151,7 @@ pub fn homogenize(
 /// - 反射体のノード（`Node::reflector`）の、反射体でないノードと接する辺の ADF は、その隣のノードの同じ面の
 ///   ADF で割った f* とし、`normalized_adf` に印を付ける。反射体のノードは、反射体でないノードと少なくとも
 ///   1辺で接すること
-/// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0125）も付ける
+/// - `pins` なら、形状関数と角の不連続因子（`node_pins`。ADR-0131）も付ける
 #[allow(clippy::too_many_arguments)]
 pub fn homogenize_nodes(
     solution: &Solution,
@@ -254,7 +254,7 @@ pub fn homogenize_nodes(
                 "reflector node {n} touches no fuel (non-reflector) node"
             )));
         }
-        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。核分裂のある反射体のノードは自分の CDF で
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0131）。核分裂のある反射体のノードは自分の CDF で
         // 割ることになり、core で掛け戻す値と食い違う
         let fissile = is_fissile(&adfs[n].nu_fission)
             .map_err(|e| HomogenizeError::Nodes(format!("node {n}: {e}")))?;
@@ -526,7 +526,7 @@ fn node_neighbors(
 
 /// ピン出力の再構成の形状関数と角の不連続因子（ADR-0096）。格子全体を1つのノードとし、外周がすべて鏡面反射
 /// の格子でだけ作る（均質な解が平らなので、角の均質な中性子束はノード平均。ADR-0094。ほかの格子は `nodes` の
-/// 形状関数。ADR-0125）。
+/// 形状関数。ADR-0131）。
 ///
 /// - セルの大きさは、格子の列の幅と行の高さ（行は下から）
 /// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均 / ノードの少数群 g の核分裂率の平均。核分裂のないセルは 0。
@@ -544,7 +544,7 @@ pub fn pin_shapes(
 ) -> Result<Pins, HomogenizeError> {
     if !reflective(boundaries) {
         return Err(HomogenizeError::Pins(
-            "form functions of the whole lattice need every side reflective (other lattices: `nodes` with `pins`, ADR-0125)"
+            "form functions of the whole lattice need every side reflective (other lattices: `nodes` with `pins`, ADR-0131)"
                 .into(),
         ));
     }
@@ -668,7 +668,7 @@ pub struct NodeGrid {
 }
 
 /// ノードの列と行の範囲の切れ目で、ノードが nx × ny の長方形の並びをちょうど 1 回ずつ埋めることを確かめる
-/// （形状関数と角の不連続因子の角の点のバランス。ADR-0125）
+/// （形状関数と角の不連続因子の角の点のバランス。ADR-0131）
 pub fn node_grid(nodes: &[Node]) -> Result<NodeGrid, String> {
     let cuts = |ranges: &mut dyn Iterator<Item = &Range<usize>>| -> Vec<usize> {
         let mut c: Vec<usize> = ranges.flat_map(|r| [r.start, r.end]).collect();
@@ -716,14 +716,30 @@ pub fn node_grid(nodes: &[Node]) -> Result<NodeGrid, String> {
     })
 }
 
-/// 格子のノードごとの形状関数と角の不連続因子（ADR-0125）。`fews` は ADF（f* で割る前）と拡散係数を決めた
+/// 角の点の均質な値の大きさ s_p がどれも正であること（ADR-0131）。正でなければ CDF を作れないので、別の値に
+/// 替えずにエラーにする
+fn positive_scales(scales: &[[f64; 2]]) -> Result<(), String> {
+    match scales
+        .iter()
+        .position(|s| s.iter().any(|v| v.is_nan() || *v <= 0.0))
+    {
+        Some(p) => Err(format!(
+            "corner point {p}: the homogeneous corner flux scale {:?} is not positive",
+            scales[p]
+        )),
+        None => Ok(()),
+    }
+}
+
+/// 格子のノードごとの形状関数と角の不連続因子（ADR-0131）。`fews` は ADF（f* で割る前）と拡散係数を決めた
 /// ノードの定数。ノードは格子の上の nx × ny の長方形の並びであること。
 ///
 /// - 角の点 p の不均質な中性子束 Φ_p は `point_flux`
 /// - ノード n の角 c の均質な値の見込みは h̃ = φ_x φ_y / φ̄（φ_x、φ_y は角 c を含む x と y の辺の、1ノードの問題の
 ///   均質な面の中性子束 = 辺の不均質な中性子束 / ADF、φ̄ はノード平均）
 /// - 均質な角の値を s_p h̃ とし、core と同じ展開（参照のノード平均と辺の正味の中性子流、格子の k）と角の点の
-///   バランス（`corner_balance`。真空の辺の流れは既知の r Φ_p）で s_p を解く。s_p が正でなければエラー
+///   バランス（`corner_balance`。真空の辺の流れは r × ADF × 均質な角の値。ADR-0131）で s_p を解く。s_p が正で
+///   なければエラー
 /// - CDF = Φ_p / (s_p h̃)。反射体のノードの、角の点が燃料（核分裂のある）のノードにも接する角は、それらのノードの
 ///   CDF の調和平均で割り、`normalized_corners` に印を付ける
 /// - 形状関数 f_g（セル）= セルの少数群 g の核分裂率の平均（解析的な体積）/（Σf,g × 再構成した均質な中性子束の
@@ -856,27 +872,31 @@ fn node_pins(
             conditions: &conditions[n],
             diffusion: [fews[n].diffusion[0], fews[n].diffusion[1]],
             weights: estimates[n],
-            // 外周の真空の辺（面 -x、+x、-y、+y は辺 0、1、3、2）の流れ r Φ。鏡面反射は 0
+            // 外周の真空の辺（面 -x、+x、-y、+y は辺 0、1、3、2）の流れ r f × 均質な角の値（f は f* で割る前の
+            // ADF。core と同じ。ADR-0131）。鏡面反射は 0
             outflow: std::array::from_fn(|face| {
                 let side = FACES[face];
                 match neighbors[n][side] {
-                    None => fews[n].vacuum_ratio[side].as_ref().map(|r| [r[0], r[1]]),
+                    None => fews[n].vacuum_ratio[side]
+                        .as_ref()
+                        .map(|r| std::array::from_fn(|g| r[g] * fews[n].adf[side][g])),
                     Some(_) => None,
                 }
             }),
         })
         .collect();
-    let scales =
-        corner_balance(nx, ny, &corner_nodes, &vec![false; points], Some(&phi)).map_err(error)?;
-    if let Some(p) = scales
-        .iter()
-        .position(|s| s.iter().any(|v| v.is_nan() || *v <= 0.0))
-    {
-        return Err(error(format!(
-            "corner point {p}: the homogeneous corner flux scale {:?} is not positive",
-            scales[p]
-        )));
+    let scales = corner_balance(nx, ny, &corner_nodes, &vec![false; points]).map_err(error)?;
+    for (p, (s, f)) in scales.iter().zip(&phi).enumerate() {
+        tracing::debug!(
+            point = p,
+            column = p % (nx + 1),
+            row_from_bottom = p / (nx + 1),
+            scale = ?s,
+            heterogeneous = ?f,
+            "corner point"
+        );
     }
+    positive_scales(&scales).map_err(error)?;
     // [ノード][角][群] の CDF
     let cdf: Vec<[[f64; 2]; 4]> = (0..nodes.len())
         .map(|n| {
@@ -2740,8 +2760,8 @@ mod tests {
         );
     }
 
-    /// `nodes`（x が速く、-y の行から並べた nx × ny の格子）の定数と形状（ADR-0125）で、core の形の角の点の釣り合い
-    /// （未知数が角の点の不均質な中性子束、均質な角の値は Φ / CDF）を解くと、格子の角の点の不均質な中性子束（角の点に
+    /// `nodes`（x が速く、-y の行から並べた nx × ny の格子）の定数と形状（ADR-0131）で、core の形の角の点の釣り合い
+    /// （未知数が角の点の不均質な中性子束、均質な角の値は Φ / CDF、真空の辺の流れは r × ADF × 均質な角の値）を解くと、格子の角の点の不均質な中性子束（角の点に
     /// 接する領域の中性子束の平均）に戻り、再構成したセルの出力（Σf × 均質な中性子束のセルの平均 × 形状関数）が
     /// MOC のセルの核分裂率に戻ることを確かめる。ノード平均と面の正味の中性子流は、core の NEM が GET で再現する参照の値
     fn assert_pins_reproduce(
@@ -2857,14 +2877,15 @@ mod tests {
                 diffusion: [fgs[n].diffusion[0], fgs[n].diffusion[1]],
                 weights: std::array::from_fn(|c| std::array::from_fn(|g| 1.0 / cdf(n, c, g))),
                 outflow: std::array::from_fn(|face| {
-                    fgs[n].vacuum_ratio[[0, 1, 3, 2][face]]
+                    let side = [0, 1, 3, 2][face];
+                    fgs[n].vacuum_ratio[side]
                         .as_ref()
-                        .map(|r| [r[0], r[1]])
+                        .map(|r| std::array::from_fn(|g| r[g] * fgs[n].adf[side][g]))
                 }),
             })
             .collect();
         let zero = vec![false; (nx + 1) * (ny + 1)];
-        let phi = corner_balance(nx, ny, &corner_nodes, &zero, None).unwrap();
+        let phi = corner_balance(nx, ny, &corner_nodes, &zero).unwrap();
         // 角の点の不均質な中性子束: 角の点に接する格子の中の領域の中性子束の平均（少数群は 2 群のまま）
         let (width, height): (f64, f64) = (
             lattice.widths().iter().sum(),
@@ -2958,7 +2979,7 @@ mod tests {
     #[test]
     fn strip_pins_reproduce_the_lattice() {
         // 燃料と水の帯（右が真空）を燃料と反射体のノードに分けた定数と形状は、定数を作った体系の角の中性子束と
-        // セルの核分裂率を再現する（ADR-0125）
+        // セルの核分裂率を再現する（ADR-0131）
         let (lattice, solution, materials, boundaries) = strip();
         let nodes = [
             node(0..1, 0..1),
@@ -3013,7 +3034,7 @@ mod tests {
     #[test]
     fn l_shaped_pins_reproduce_the_lattice() {
         // 燃料のノード（2 × 2 のピン）の上と右に反射体のノード、右上に水のノード（反射体の印なし。燃料に角だけで
-        // 接する）。反射体の角は燃料の面と、右上のノードに接する（ADR-0125）
+        // 接する）。反射体の角は燃料の面と、右上のノードに接する（ADR-0131）
         let (lattice, solution, materials, boundaries) = l_shaped(vacuum());
         let reflector = |n: Node| Node {
             reflector: true,
@@ -3030,15 +3051,13 @@ mod tests {
     }
 
     #[test]
-    fn non_positive_corner_scales_are_errors() {
-        // 右と上の 2 辺が真空の格子では、右上の角の点の均質な値の大きさ s_p の熱群が負になる（#0065）。正でない
-        // s_p はエラー（ADR-0125）
+    fn two_vacuum_sides_pins_reproduce_the_lattice() {
+        // 右と上の 2 辺が真空の格子でも、真空の辺の流れを均質な角の値に課す角の点のバランスで、定数と形状は定数を
+        // 作った体系を再現する（ADR-0131。#0065）
         let (lattice, solution, materials, boundaries) = l_shaped(Boundaries {
             top: Boundary::Vacuum,
             ..vacuum()
         });
-        let refs: Vec<&Material> = materials.iter().collect();
-        let fine = fine();
         let reflector = |n: Node| Node {
             reflector: true,
             ..n
@@ -3049,26 +3068,22 @@ mod tests {
             reflector(node(0..2, 0..1)),
             node(2..3, 0..1),
         ];
-        let err = homogenize_nodes(
-            &solution,
-            &lattice,
-            &refs,
-            &fine,
-            fine.bounds(),
-            &boundaries,
-            &nodes,
-            true,
-        )
-        .unwrap_err();
-        assert!(
-            matches!(&err, HomogenizeError::Pins(m) if m.contains("not positive")),
-            "{err:?}"
-        );
+        assert_pins_reproduce(&lattice, &solution, &materials, &boundaries, &nodes, 2, 2);
+    }
+
+    #[test]
+    fn non_positive_corner_scales_are_errors() {
+        // 角の点の大きさ s_p が正でない（0、負、NaN）と CDF を作れないのでエラー（ADR-0131）
+        assert!(positive_scales(&[[1.0, 0.9], [1.1, 1.0]]).is_ok());
+        for bad in [0.0, -0.5, f64::NAN] {
+            let err = positive_scales(&[[1.0, 0.9], [1.1, bad]]).unwrap_err();
+            assert!(err.contains("corner point 1"), "{err}");
+        }
     }
 
     #[test]
     fn pins_need_reflector_nodes_without_fission() {
-        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0125）。反射体の印のノードに核分裂があると、
+        // 燃料の CDF で割る角は、核分裂のあるノードを燃料とする（ADR-0131）。反射体の印のノードに核分裂があると、
         // 自分の CDF で割ることになり、core で掛け戻す値と食い違うので、形状関数を作るときはエラー
         let (lattice, solution, materials, boundaries) = strip();
         let refs: Vec<&Material> = materials.iter().collect();
@@ -3100,7 +3115,7 @@ mod tests {
     #[test]
     fn strip_corner_factors_follow_the_face_discontinuity() {
         // 帯（上と下は鏡面反射）では均質な解が x にしか変わらず、境の角の均質な値の見込みは境の面の均質な中性子束に
-        // なる。反射体の燃料に接する角の C* は、境の面の f* に一致する（ADR-0125）
+        // なる。反射体の燃料に接する角の C* は、境の面の f* に一致する（ADR-0131）
         let (lattice, solution, materials, boundaries) = strip();
         let refs: Vec<&Material> = materials.iter().collect();
         let fine = fine();
@@ -3340,7 +3355,7 @@ mod tests {
                 boundaries,
             )
         };
-        // 格子全体の形状関数は外周がすべて鏡面反射の格子でだけ作る（ほかの格子は `nodes`。ADR-0125）
+        // 格子全体の形状関数は外周がすべて鏡面反射の格子でだけ作る（ほかの格子は `nodes`。ADR-0131）
         let err = shapes(&vacuum()).unwrap_err().to_string();
         assert!(err.contains("reflective"), "{err}");
         // 角の中性子束は余白の角のセルで取る
