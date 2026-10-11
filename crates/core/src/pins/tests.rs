@@ -46,6 +46,7 @@ fn square(width: f64, nodes: usize, cells: usize, boundary: Boundary) -> Problem
             dz: vec![30.0],
         },
         materials: vec![fuel(h, cells)],
+        reflectors: Vec::new(),
         node_material: vec![0; nodes * nodes],
         boundaries,
     }
@@ -149,6 +150,7 @@ fn core_rows_join_nodes_from_the_top() {
             dz: vec![1.0, 3.0],
         },
         materials: vec![fuel(2.0, 2)],
+        reflectors: Vec::new(),
         node_material: vec![0; 4],
         boundaries: [Boundary::Reflective; 6],
     };
@@ -293,6 +295,7 @@ fn core_rows_merge_halves_of_split_cells() {
             dz: vec![1.0],
         },
         materials: vec![left, right],
+        reflectors: Vec::new(),
         node_material: vec![0, 1],
         boundaries: [Boundary::Reflective; 6],
     };
@@ -337,6 +340,7 @@ fn cell_sizes_match_to_rounding_between_nodes() {
             with_dx(vec![1.93, 0.6300000000000008]),
             with_dx(vec![1.93, 0.629999999999999]),
         ],
+        reflectors: Vec::new(),
         node_material: vec![0, 1],
         boundaries: [Boundary::Reflective; 6],
     };
@@ -391,6 +395,7 @@ fn fuel_and_reflector(fuel_corners: Vec<Vec<f64>>, reflector: FewGroup) -> Probl
             dz: vec![30.0],
         },
         materials: vec![f, reflector],
+        reflectors: Vec::new(),
         node_material: vec![0, 1],
         boundaries: [Boundary::Reflective; 6],
     }
