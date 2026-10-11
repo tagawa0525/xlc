@@ -85,6 +85,7 @@ from openmc_model import (
 )
 from openmc_run import (
     box_settings,
+    fuel_mean,
     mesh_values,
     run_or_extract,
     write_k,
@@ -490,17 +491,16 @@ def extract(source: Path, work: Path, results: Path) -> None:
         axial, axial_std = mesh_values(sp, "axial", (levels, 1, 1))
     heights = np.diff(LEVELS)
     pins, pins_std = pins[0], pins_std[0]
-    fuel = pins > 0
     height = LEVELS[-1] - LEVELS[0]
 
     # 全長で積分したピン: 燃料のピンの平均で 1
-    scale = fuel.sum() / pins.sum()
-    write_pin_powers(results / "pins.msgpack", pins * scale)
-    write_pin_powers(results / "pins-std.msgpack", pins_std * scale)
+    mean = fuel_mean(pins)
+    write_pin_powers(results / "pins.msgpack", pins / mean)
+    write_pin_powers(results / "pins-std.msgpack", pins_std / mean)
 
     # 線密度: 燃料の全長 H での平均で 1（層ごとのピンは、燃料のピンと全長での平均で 1）
     axial_scale = height / axial.sum() / heights
-    layer_scale = height * fuel.sum() / rate.sum() / heights[:, None, None]
+    layer_scale = height / fuel_mean(rate.sum(axis=0)) / heights[:, None, None]
     layers = {
         "format": "xlc-axial-pin-powers",
         "bounds": list(LEVELS),
