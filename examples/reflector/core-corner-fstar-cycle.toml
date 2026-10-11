@@ -1,4 +1,4 @@
 # 単一集合体の定数（F02）を置くサイクル（f* の方法）。
 plant = "core-corner-plant.toml"
-inventory = "core-I-assemblies.toml"
+inventory = "core-assemblies.toml"
 loading = [".    .", "F02  ."]
