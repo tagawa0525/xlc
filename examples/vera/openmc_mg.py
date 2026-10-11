@@ -18,13 +18,50 @@ from pathlib import Path
 import msgpack
 import numpy as np
 import openmc
-from openmc_model import COLD, FUEL_TEMPERATURE, Run, geometry_of, pin_mesh, write_pins
+from openmc_model import (
+    COLD,
+    FUEL_TEMPERATURE,
+    MODERATOR_OF,
+    MODERATOR_TEMPERATURE,
+    geometry_of,
+    pin_mesh,
+    write_pins,
+)
 from positive_library import minimum
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from openmc_common import eigenvalue_settings
 
 # 物質の名前（xlc の格子の入力と同じ）
 FUEL, CLAD, WATER = "fuel", "zircaloy", "water"
 # 断面積がすべて 0 の物質の名前
 VOID = "void"
+
+
+class Run:
+    """コマンドラインの 2〜7 番目の引数: <問題> <作業ディレクトリ> [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]。"""
+
+    def __init__(self, argv: list[str]) -> None:
+        self.problem = argv[2]
+        if any(
+            self.problem not in table
+            for table in (FUEL_TEMPERATURE, MODERATOR_TEMPERATURE, MODERATOR_OF)
+        ):
+            raise SystemExit(
+                f"unknown problem {self.problem}; expected one of {list(FUEL_TEMPERATURE)}"
+            )
+        self.work = Path(argv[3]).resolve()
+        self.particles = int(argv[4]) if len(argv) > 4 else 100_000
+        self.batches = int(argv[5]) if len(argv) > 5 else 300
+        self.inactive = int(argv[6]) if len(argv) > 6 else 50
+        # 統計誤差の見積もりを確かめるには、種を変えて解き直す
+        self.seed = int(argv[7]) if len(argv) > 7 else 1
+
+    def settings(self, half: float) -> openmc.Settings:
+        """世代の数と乱数のシード、燃料に一様な初期の中性子源（`half` は外周の箱の半分の幅）。"""
+        return eigenvalue_settings(
+            self.particles, self.batches, self.inactive, self.seed, half
+        )
 
 
 def check_positive(name: str, scatter: np.ndarray) -> None:
