@@ -361,6 +361,9 @@ fn layer_grid(
                            what: &str|
      -> Result<bool, String> {
         let mut marked: Option<bool> = None;
+        // ノードとノードのない位置の組があるか。この境で分け合うなら、そのノードの辺のセルをノードのない位置の 0 と
+        // 平均することになる
+        let mut beside_empty = false;
         for (a, b) in pairs {
             let (a, b) = match (a, b) {
                 (Some(a), Some(b)) => (a, b),
@@ -375,7 +378,11 @@ fn layer_grid(
                         "layer {k}: a split cell faces a position without a node"
                     ));
                 }
-                _ => continue,
+                (Some(_), None) | (None, Some(_)) => {
+                    beside_empty = true;
+                    continue;
+                }
+                (None, None) => continue,
             };
             let m = shared(a, a_side, b, b_side)?;
             if marked.is_some_and(|f| f != m) {
@@ -383,7 +390,13 @@ fn layer_grid(
             }
             marked = Some(m);
         }
-        Ok(marked.unwrap_or(false))
+        let merged = marked.unwrap_or(false);
+        if beside_empty && merged {
+            return Err(format!(
+                "layer {k}: a split cell along the {what} faces a position without a node"
+            ));
+        }
+        Ok(merged)
     };
     let mut merge_x = Vec::with_capacity(nx.saturating_sub(1));
     for i in 0..nx.saturating_sub(1) {
