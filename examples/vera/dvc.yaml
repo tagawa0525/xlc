@@ -1,9 +1,10 @@
-# VERA の段階: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ（xs）→
-# 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0123）。NJOY と OpenMC を
+# VERA の段階: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ
+# （範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）→ 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0123）。NJOY と OpenMC を
 # 使う段階は cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps に
 # する（ADR-0130）。Rust の段階の deps は、段階の入力と、そのバイナリを作るコード（ADR-0123。examples/m0/dvc.yaml と同じ並び）。
 vars:
   - openmc-library.toml
+  - xs.toml
 stages:
   references-shell:
     # ツール（NJOY、OpenMC、その Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
@@ -77,13 +78,60 @@ stages:
       - p1/openmc-1B
     outs:
       - p1/openmc-1B-results
-  xs:
-    # ENDF はディレクトリごと deps にする。sha256 で固定した（ADR-0124）ので変わらず、xs.toml の核種のファイルをコピーせずに済む
-    cmd: cargo run --release -p xlc-xs -- xs.toml
+  xs-range:
+    # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとの段階の入力にするため、先に求める
+    # （ADR-0138）。ENDF はディレクトリごと deps にする。sha256 で固定した（ADR-0124）ので変わらない
+    cmd: cargo run --release -p xlc-xs -- range xs.toml xs-range.toml
     deps:
       - xs.toml
       - ../../references/endf/ENDF-B-VIII.0_neutrons
-      - ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      - ../../crates/xs/src
+      - ../../crates/xs/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - xs-range.toml:
+          cache: false
+  xs-nuclide:
+    # 核種ごとの段階は、入力のうちその核種の項目と、全核種に共通の項目だけを params で deps にする（ほかの核種の変更で
+    # 実行しない。ADR-0138）。熱中性子散乱の ENDF は、固定した（ADR-0124）ディレクトリごと deps にする
+    foreach: ${nuclide}
+    do:
+      cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml ${key} xs-nuclides/${key}.msgpack
+      deps:
+        - xs-range.toml
+        - ${endf-directory}/${item.endf}
+        - ${thermal-directory}
+        - ../../crates/xs/src
+        - ../../crates/xs/Cargo.toml
+        - ../../crates/numeric/src
+        - ../../crates/numeric/Cargo.toml
+        - ../../crates/format/src
+        - ../../crates/format/Cargo.toml
+        - ../../Cargo.toml
+        - ../../Cargo.lock
+        - ../../rust-toolchain.toml
+        - ../../.cargo/config.toml
+        - ../../flake.lock
+      params:
+        - xs.toml:
+            - sigma0
+            - scattering-order
+            - nuclide.${key}
+      outs:
+        - xs-nuclides/${key}.msgpack
+  xs:
+    cmd: cargo run --release -p xlc-xs -- assemble xs.toml xs-nuclides
+    deps:
+      - xs.toml
+      - xs-nuclides
       - ../../crates/xs/src
       - ../../crates/xs/Cargo.toml
       - ../../crates/numeric/src
