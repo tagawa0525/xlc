@@ -2983,6 +2983,18 @@ mod tests {
         );
         let err = solve(&p, &Options::default()).unwrap_err().to_string();
         assert!(err.contains("vacuum ratio"), "{err}");
+        // ノードのない位置は径方向の図の位置なので、どの高さでも同じ（z の層ごとに違えばエラー）
+        let mut p = plane(
+            vec![h; 2],
+            vec![h],
+            vec![material(), sided_reflector()],
+            vec![Some(0), Some(1), Some(0), None],
+            [Boundary::Reflective; 6],
+            Some(Boundary::Vacuum),
+        );
+        p.mesh.dz = vec![10.0, 10.0];
+        let err = solve(&p, &Options::default()).unwrap_err().to_string();
+        assert!(err.contains("height"), "{err}");
         // ノードが1つもない
         let p = plane(
             vec![h],
