@@ -24,7 +24,7 @@ xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC 
 | `compare_keno.py`               | OpenMC のピン出力を、仕様書の KENO-VI の分布（1/8 の表）と比べる                                      |
 | `compare_neighbours.py`         | 1 つのセルの上下左右の隣のピンで、xlc と OpenMC の差と OpenMC の変化を統計誤差つきで出す              |
 | `compare_cells.py`              | 格子の入力のセルの種類（2K の濃縮度など）ごとに、xlc と OpenMC の差と変化を統計誤差つきで出す         |
-| `openmc_balance.py`             | 1B〜1D を OpenMC で解き、物質ごと・群ごとの中性子束、正味の吸収、生成、移行を書く（「k の差の内訳」） |
+| `openmc_balance.py`             | 1B〜1D、2B〜2K を OpenMC で解き、物質ごと・群ごとの中性子束、正味の吸収、生成、移行を書く（「k の差の内訳」） |
 | `compare_balance.py`            | xlc（`balance` の例）と OpenMC の正味の吸収と生成を比べ、k の差を物質と範囲に分ける                   |
 | `homogeneous_medium.py`         | 1B を体積比で混ぜた均質な無限媒質の入力を書く（核種を減らせる。「均質な無限媒質」）                   |
 | `openmc_homogeneous.py`         | 均質な無限媒質を OpenMC で解く（xlc は `homogeneous` の例）                                           |
