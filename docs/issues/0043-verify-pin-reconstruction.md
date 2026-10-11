@@ -4,7 +4,7 @@ labels: [core, verification]
 opened: 2026-10-09
 closed:
 milestone: M3
-blocked-by: []
+blocked-by: ["#0067"]
 resolution:
 ---
 
@@ -45,3 +45,6 @@ VERA 4-2D、REF1-2D、5-2D の比較を検証の記録に書き、ADR-0118 の�
   の集合体を含む 3 × 3）はまだない
 - 2026-10-11: ADR-0131 が ADR-0125 を置き換え、真空の辺の角の点の扱いが変わった。I 型の格子の等価性は変わらず（RMS 0.080%）、
   f* の方法は RMS 1.897%、反射体に接する列で 4.946%（examples/reflector/verification.md、4ead99cb）
+- 2026-10-11: REF1-2D の仕様（北、西、南の鏡面反射を集合体の中心に置き、中央の行と列のピンを境界の線が通る。付録 I の
+  KENO のピン出力は 9 × 9、17 × 9、9 × 17 の部分の集合体を含む）を、lattice の MOC も core も表せない（#0067）。REF1-2D の
+  比較は #0067 の後
