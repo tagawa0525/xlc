@@ -16,7 +16,7 @@ OECD/NEA の C5G7 MOX ベンチマーク（NEA/NSC/DOC(2003)16）の2次元の�
 一致し、入力（断面積の変換と配置）が正しいことを確かめた。ピン出力の統計誤差（相対標準偏差）は中央値 0.18%、最大 0.36%。
 
 ```sh
-cd references/openmc
+mkdir -p references/openmc && cd references/openmc
 nix develop ../..#references -c sh -c \
   'OMP_NUM_THREADS=16 python3 ../../examples/c5g7/openmc_model.py work 1000000 400 100 2'
 ```
