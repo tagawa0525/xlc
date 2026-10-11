@@ -92,7 +92,7 @@ fn init_logging() -> anyhow::Result<()> {
 /// 物理コアの数はマシン全体の値なので、このプロセスに許された CPU の数（論理）で抑える。
 #[allow(
     clippy::disallowed_methods,
-    reason = "RAYON_NUM_THREADS は並列の数だけを選び、結果を変えない（ADR-0067）"
+    reason = "RAYON_NUM_THREADS は並列の数だけを選ぶ。出力が数によらないかは未確認（#0060、ADR-0137）"
 )]
 fn use_physical_cores() -> anyhow::Result<()> {
     if std::env::var_os("RAYON_NUM_THREADS").is_none() {
