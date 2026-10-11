@@ -1532,9 +1532,28 @@ zones = [{ material = "water", rings = 1 }]
         assert!(input.output.is_some_and(|o| o.pins));
         let input = few_group(", output = \"a\", pins = false").unwrap();
         assert!(input.output.is_some_and(|o| !o.pins));
-        // 格子のノードごとの定数にも形状関数と角の不連続因子を付けられる（ADR-0125）
-        let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], pins = true";
-        assert!(few_group(nodes).unwrap().output.is_some_and(|o| o.pins));
+        // 格子のノードごとの定数にも形状関数と角の不連続因子を付けられる（ADR-0125）。2 群で、ノードが格子の上の
+        // 長方形の並びであることを、MOC を解く前に確かめる
+        let with_nodes = |bounds: &str, nodes: &str| {
+            replaced(
+                PIN_CELL,
+                "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
+                &format!("few-group = {{ bounds = {bounds}, nodes = [{nodes}], pins = true }}"),
+            )
+        };
+        let one = "{ output = \"a\", columns = [1, 1], rows = [1, 1] }";
+        let input = with_nodes("[1e7, 0.625, 1e-5]", one).unwrap();
+        assert!(input.output.is_some_and(|o| o.pins));
+        let err = with_nodes("[1e7, 1e-5]", one).unwrap_err().to_string();
+        assert!(err.contains("2 few groups"), "{err}");
+        // 左のノードが 2 行にまたがり、右は 1 行ずつ: 列と行の切れ目の長方形の並びにならない
+        let uneven = "{ output = \"a\", columns = [1, 1], rows = [1, 2] }, \
+                      { output = \"b\", columns = [2, 2], rows = [1, 1] }, \
+                      { output = \"c\", columns = [2, 2], rows = [2, 2] }";
+        let err = with_nodes("[1e7, 0.625, 1e-5]", uneven)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("grid"), "{err}");
     }
 
     #[test]
