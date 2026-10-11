@@ -6,7 +6,7 @@
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
-//! # 角に余白のある格子。ADR-0096。nodes ではどの格子でも、ノードが格子の上の長方形の並びであること。ADR-0125）。
+//! # 角に余白のある格子。ADR-0096。nodes ではどの格子でも、ノードが格子の上の長方形の並びであること。ADR-0131）。
 //! # split = n を足すと、格子全体を n × n の部分ノードに分けた定数を書く
 //! # （外周がすべて鏡面反射の格子。nodes とは使えない。ADR-0108）
 //! # 格子をノードに分けるときは output の代わりに nodes を書く（ADR-0095）。列と行は格子のセル（余白の薄い行と列を
@@ -168,7 +168,7 @@ pub struct FewGroupOutput {
     /// 群境界 (eV)
     pub bounds: Vec<f64>,
     pub files: FewGroupFiles,
-    /// 定数に、ピン出力の再構成の形状関数と角の不連続因子を付ける（格子全体は ADR-0096、ノードごとは ADR-0125）
+    /// 定数に、ピン出力の再構成の形状関数と角の不連続因子を付ける（格子全体は ADR-0096、ノードごとは ADR-0131）
     pub pins: bool,
     /// 格子全体を各方向に分ける部分ノードの数（ADR-0108）
     pub split: usize,
@@ -333,7 +333,7 @@ impl FewGroupEntry {
                     };
                     files.push((entry.output, node));
                 }
-                // 形状関数と角の不連続因子は、2 群で、ノードが格子の上の長方形の並びのときに作る（ADR-0125）
+                // 形状関数と角の不連続因子は、2 群で、ノードが格子の上の長方形の並びのときに作る（ADR-0131）
                 if pins {
                     if groups != 2 {
                         return Err(format!(
@@ -519,7 +519,7 @@ impl LatticeInput {
             .transpose()
             .map_err(invalid)?;
         // 格子全体の形状関数と部分ノードは、外周がすべて鏡面反射の格子でだけ作る（ADR-0096、ADR-0108。格子のノード
-        // ごとの形状関数はどの格子でも作る。ADR-0125）。MOC を解く前に止める
+        // ごとの形状関数はどの格子でも作る。ADR-0131）。MOC を解く前に止める
         let whole = |o: &FewGroupOutput| matches!(o.files, FewGroupFiles::Lattice(_));
         if output
             .as_ref()
@@ -1543,7 +1543,7 @@ zones = [{ material = "water", rings = 1 }]
         assert!(input.output.is_some_and(|o| o.pins));
         let input = few_group(", output = \"a\", pins = false").unwrap();
         assert!(input.output.is_some_and(|o| !o.pins));
-        // 格子のノードごとの定数にも形状関数と角の不連続因子を付けられる（ADR-0125）。2 群で、ノードが格子の上の
+        // 格子のノードごとの定数にも形状関数と角の不連続因子を付けられる（ADR-0131）。2 群で、ノードが格子の上の
         // 長方形の並びであることを、MOC を解く前に確かめる
         let with_nodes = |bounds: &str, nodes: &str| {
             replaced(
