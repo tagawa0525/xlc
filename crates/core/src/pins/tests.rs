@@ -749,6 +749,49 @@ fn concave_outline_corners_keep_the_symmetry() {
 }
 
 #[test]
+fn nodes_without_fission_take_the_cells_of_the_fuel_beside_them() {
+    // 階段の外形の炉心では、燃料の列（行）に、セルの幅の違う反射体のノード（向きの違う I 型、角型）が並ぶ。核分裂の
+    // ないノードのセルは 0 なので、その列と行のセルは燃料のノードから取り、反射体のノードは 0 で埋める。燃料の
+    // ない列と行は、反射体のノードどうしでセルの大きさがそろうこと
+    let mut p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5, 21.5],
+            dy: vec![21.5, 21.5],
+            dz: vec![1.0],
+        },
+        materials: vec![
+            fuel(21.5, 4),
+            reflector(21.5, 3, vec![vec![1.0, 1.0]; 4], vec![false; 4]),
+        ],
+        reflectors: Vec::new(),
+        // (0, 0) が燃料、ほかの 3 つが反射体
+        node_material: placed(vec![0, 1, 1, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let fuel_map: Vec<Vec<f64>> = (0..4)
+        .map(|r| (0..4).map(|c| 1.0 + (4 * r + c) as f64).collect())
+        .collect();
+    let zeros = vec![vec![0.0; 3]; 3];
+    let maps = vec![fuel_map.clone(), zeros.clone(), zeros.clone(), zeros];
+    let rows = core_rows(&p, &maps).unwrap();
+    let mean = fuel_map.iter().flatten().sum::<f64>() / 16.0;
+    let expected: Vec<Vec<f64>> = fuel_map
+        .iter()
+        .rev()
+        .map(|r| r.iter().map(|v| v / mean).collect())
+        .collect();
+    assert_eq!(rows, expected);
+    // 燃料のない列で反射体のノードのセルの幅が違えばエラー
+    p.materials
+        .push(reflector(21.5, 2, vec![vec![1.0, 1.0]; 4], vec![false; 4]));
+    p.node_material[3] = Some(2);
+    let mut maps = maps;
+    maps[3] = vec![vec![0.0; 2]; 2];
+    assert!(core_rows(&p, &maps).is_err());
+}
+
+#[test]
 fn positions_with_only_some_values_are_errors() {
     // 層の位置ごとの量（定数、モデル、条件、CDF）は、ノードのある位置ではすべて、ない位置ではどれも持たない。
     // 一部だけ持つのは配列の作り方の誤りなのでエラー
