@@ -30,6 +30,8 @@ NNDC の zip（neutrons、thermal_scatt、decay、nfy）を URL と sha256 で�
 nix build .#endf -o references/endf
 ```
 
+main の checkout の直下で実行する。worktree から実行すると、GC の root が worktree の中のパス（symlink の
+`references` を通したパス）で登録され、worktree を消すと root が外れて、ENDF の木が GC で消えうる。
 `references/endf` に手で取った木（ディレクトリ）があると `nix build` は symlink を作れないので、先にどける。worktree の
 `references` は main の `references/` を指すので、ほかの worktree で ENDF を読む計算が走っていないときに行う。
 
@@ -64,12 +66,14 @@ NJOY の入力と出力は `references/njoy-runs/` に置き、`crates/xs/exampl
 `.#openmc` は OpenMC 0.15.2 を OpenMP つきでビルドしたもの（同梱の fmt が GCC 16 でコンパイルできないので GCC 13）。
 `.#openmc-python` は、同じソースから作った openmc の Python API と endf 0.1.12 を、検証のスクリプトの依存に足した
 Python。どちらも `references` の devShell に入る。スクリプトは `openmc` と `njoy` を `PATH` から呼ぶ。
-たとえば C5G7 の参照解は:
+
+コマンドはリポジトリ（worktree）の直下で実行し、作業のディレクトリを引数で渡す。worktree の `references` は main の
+`references/` への symlink なので、`references/openmc` に `cd` してから `../..` で flake やスクリプトを指すと、
+worktree でなく main の flake とスクリプトが使われる。たとえば C5G7 の参照解は:
 
 ```sh
-mkdir -p references/openmc && cd references/openmc
-nix develop ../..#references -c sh -c \
-  'OMP_NUM_THREADS=16 python3 ../../examples/c5g7/openmc_model.py work 1000000 400 100 2'
+nix develop .#references -c sh -c \
+  'OMP_NUM_THREADS=16 python3 examples/c5g7/openmc_model.py references/openmc/work 1000000 400 100 2'
 ```
 
 ## VERA の参照解
@@ -78,10 +82,10 @@ VERA Problem 1B〜1D, 2B〜2J の参照解は、ENDF/B-VIII.0 から手元の NJ
 データで OpenMC を動かして作る（`examples/vera/`）。データは `references/openmc/endfb80/` に置く:
 
 ```sh
-mkdir -p references/openmc && cd references/openmc
-nix develop ../..#references -c python3 ../../examples/vera/openmc_library.py ../endf endfb80 8
-nix develop ../..#references -c sh -c \
-  'OMP_NUM_THREADS=16 python3 ../../examples/vera/openmc_model.py endfb80/cross_sections.xml 2B work-2B 1000000 400 100 1'
+nix develop .#references -c python3 examples/vera/openmc_library.py references/endf references/openmc/endfb80 8
+nix develop .#references -c sh -c \
+  'OMP_NUM_THREADS=16 python3 examples/vera/openmc_model.py references/openmc/endfb80/cross_sections.xml 2B \
+     references/openmc/work-2B 1000000 400 100 1'
 ```
 
 同じ多群定数で OpenMC の多群モードと比べる（examples/vera/verification.md の「同じ多群定数での OpenMC との比較」）には、
@@ -89,9 +93,10 @@ nix develop ../..#references -c sh -c \
 `self-shielding = false` と `scattering-order` を同じ次数にしたもの:
 
 ```sh
-cd references/openmc
-nix develop ../..#references -c python3 ../../examples/vera/positive_library.py ../../examples/vera/vera.msgpack positive-P3.msgpack 3
-cargo run --release -p xlc-lattice --example mg_materials -- <格子の入力> mg-2B.msgpack
-nix develop ../..#references -c sh -c \
-  'OMP_NUM_THREADS=16 python3 ../../examples/vera/openmc_mg.py mg-2B.msgpack 2B work-mg-2B 1000000 300 50 1'
+nix develop .#references -c python3 examples/vera/positive_library.py examples/vera/vera.msgpack \
+  references/openmc/positive-P3.msgpack 3
+cargo run --release -p xlc-lattice --example mg_materials -- <格子の入力> references/openmc/mg-2B.msgpack
+nix develop .#references -c sh -c \
+  'OMP_NUM_THREADS=16 python3 examples/vera/openmc_mg.py references/openmc/mg-2B.msgpack 2B \
+     references/openmc/work-mg-2B 1000000 300 50 1'
 ```
