@@ -74,7 +74,7 @@ THERMR の S(α,β) の補間）による。U-236 の核分裂スペクトル χ
 
 上の表の S(α,β) の行は、H in H2O の 293.6 K を、S(α,β) の上限を評価済みデータの上限 10.00008 eV、表の外を THERMR と同じ
 短時間衝突近似にして（[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)）、THERMR（許容誤差 0.001、上限 10.00008 eV）と GROUPR の
-MF6 MT222 と比べたもの（`compare_njoy_thermr`、references/njoy-runs/thermr/H1-10eV-293.6。ecc17676、2026-10-11）。上限より
+MF6 MT222 と比べたもの（`compare_njoy_thermr`、references/njoy-runs/thermr/H1-10eV-293.6。e3bf1009、2026-10-11）。上限より
 下の群で、行の和の差は最大 2.1e-3（3.3〜4 eV）、行の形の差（差の絶対値の和 / 行の和）は最大 1.1e-2（0.996〜1.02 eV）。
 
 ```sh
@@ -86,7 +86,7 @@ cargo run --release -p xlc-xs --example compare_njoy_thermr -- references/njoy-r
 小さい）、0.97〜1.12 eV で +1.1〜+1.5e-3。4〜10 eV の差の大半は補間の違いによる: THERMR は ln S を 3 点の 2 次式で補間し
 （thermr.f90 の `terpq`）、xlc は ENDF の補間則（ln S を α、β について線形）に従う（ADR-0133）。同じ表と同じ短時間衝突近似で
 両方の補間の散乱断面積を求めると、THERMR の補間の方が 3.6 eV で 0.17%、4.5 eV で 0.21%、7 eV で 0.25%、9.8 eV で 0.21% 大きく、
-1.1 eV で 0.04%、0.05 eV で −0.15% 違う（`sab_interpolation.py`、77b7485a、2026-10-11）。THERMR の許容誤差を 1e-4 にしても、
+1.1 eV で 0.04%、0.05 eV で −0.15% 違う（`sab_interpolation.py`、e717c8dc、2026-10-11）。THERMR の許容誤差を 1e-4 にしても、
 THERMR の散乱断面積は 0.05〜9.8 eV で 0.02% 以内しか変わらない（H1-10eV-600-tight の PENDF。GROUPR は止まった）ので、
 許容誤差による差ではない。1 eV より下の差（±1.5e-3）は補間の違いだけでは説明できず、確かめていない。
 

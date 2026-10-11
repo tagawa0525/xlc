@@ -122,7 +122,7 @@ S(α,β) の温度を補正したもの）。核データの版（Zr の ENDF/B-
 ピン出力は `compare_pins.py` で、燃料ピン 264 本の平均で規格化して比べる。
 下の表と、この節とその下の節の xlc の値は、[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) の前のライブラリ（H in H2O の S(α,β) の上限 4 eV、表の外は 0、
 その上は静止した標的）のもので、測り直していない（#0070）。ADR-0133 のライブラリでは、1B の k は 1.182383 で、差は +60 pcm
-（「k の差の内訳」。ecc17676）。
+（「k の差の内訳」。e3bf1009）。
 
 | 問題     | 燃料の温度 | xlc      | OpenMC   | 差       | ピン出力の差（rms、最大） |
 | -------- | ---------- | -------- | -------- | -------- | ------------------------- |
@@ -402,7 +402,7 @@ OpenMC を、核種ごと・群ごとの中性子の釣り合いで比べた。�
 c_H_in_H2O。世代ごとの statepoint から世代ごとの値を求める）。比較は `compare_balance.py`（範囲の境 100 keV、15.03 keV、
 9.877 eV、4 eV、0.625 eV）。核種を減らした媒質は、残す核種の個数密度を変えない。xlc のライブラリは
 [ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) の H-1（S(α,β) は評価済みデータの上限 10.00008 eV まで、表の外は短時間衝突近似、その上
-9118 eV まで自由ガス）で ecc17676 に作ったもの、OpenMC は 951c9aec、2026-10-11。
+9118 eV まで自由ガス）で e3bf1009 に作ったもの、OpenMC は 951c9aec、2026-10-11。
 
 ```sh
 # リポジトリの直下で。python3 は references の devShell の中、cargo は default の devShell の中
@@ -474,7 +474,7 @@ OpenMC との k の差を、物質ごと・群ごとの正味の吸収（吸収�
 なり、k の差は −k_xlc k_OpenMC ΣΔA として物質と範囲に厳密に分かれる。xlc は `balance` の例
 （[`xlc_lattice::balance`](../../crates/lattice/src/balance.rs)。対称性なし、方位角 64・間隔 0.02 cm。ピンセルの設定は [ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md) で変えなかったもの）、OpenMC は `openmc_balance.py`
 （1 世代 100 万粒子・250 世代、最初の 50 世代を捨てる、乱数の種 1。世代ごとの statepoint から世代ごとの値を求める）。
-1B の xlc は [ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) のライブラリ（ecc17676）、OpenMC は 951c9aec、2026-10-11（OpenMC は 16 スレッドで 59 分）。
+1B の xlc は [ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) のライブラリ（e3bf1009）、OpenMC は 951c9aec、2026-10-11（OpenMC は 16 スレッドで 59 分）。
 
 ```sh
 # リポジトリの直下で。openmc_balance.py は references の devShell の中で、16 スレッドで約 1 時間（Slurm で流す）
@@ -553,7 +553,7 @@ xlc の中性子束は物理的な値（SPH 因子を掛けた領域と群では
 移行の差の k への影響を、物質の散乱行列の行を OpenMC の移行の率 / 中性子束に置き換えて解き直して測った（`swap_transfer`
 の例。行の要素ごとに OpenMC / xlc の比を等価なセルのリングの行に掛け、全断面積は行の和の変化だけ動かして正味の吸収と
 生成は変えない。SPH 因子をそのまま使っても、置き換えた行列で求め直しても、k は 0.1 pcm 以内で同じ）。k の差は k の推定値で、
-ecc17676 のライブラリ、2026-10-11:
+e3bf1009 のライブラリ、2026-10-11:
 
 | 置き換えた行           | k の変化 | OpenMC との差 |
 | ---------------------- | -------- | ------------- |
