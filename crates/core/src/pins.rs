@@ -435,7 +435,7 @@ fn corner_fluxes(
             })
         })
         .collect();
-    corner_balance(nx, ny, &nodes, &zero)
+    corner_balance(nx, ny, &nodes, &zero, None)
 }
 
 /// セルの出力 Σ_g Σf,g φ̄_g f_g（[行（-y から）][列]）

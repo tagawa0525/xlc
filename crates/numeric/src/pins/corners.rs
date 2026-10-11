@@ -24,15 +24,20 @@ pub struct CornerNode<'a> {
 }
 
 /// nx × ny のノードの層の、[角の点（(nx + 1) × (ny + 1)、x が速い）][群] の未知数。`zero` の角の点（中性子束ゼロの
-/// 外周の角）は 0 とする。未知数は角の点の不均質な中性子束で、外周の辺の流れの比はそれに掛ける
+/// 外周の角）は 0 とする。
+///
+/// - `known` が `None`: 未知数は角の点の不均質な中性子束で、外周の辺の流れはそれに比を掛けたもの（core）
+/// - `known` が角の点の不均質な中性子束: 外周の辺の流れは既知の量（比 × 既知の値）で、未知数は均質な角の値の
+///   見込みに掛ける大きさ（lattice。ADR-0125）
 pub fn corner_balance(
     nx: usize,
     ny: usize,
     nodes: &[CornerNode],
     zero: &[bool],
+    known: Option<&[[f64; 2]]>,
 ) -> Result<Vec<[f64; 2]>, String> {
     let points = (nx + 1) * (ny + 1);
-    if nodes.len() != nx * ny || zero.len() != points {
+    if nodes.len() != nx * ny || zero.len() != points || known.is_some_and(|k| k.len() != points) {
         return Err(format!(
             "corner balance: {} nodes and {} corner points for a {nx} × {ny} layer",
             nodes.len(),
@@ -107,7 +112,10 @@ pub fn corner_balance(
                     let (p, _, _) = point(i, j, c);
                     for (g, r) in ratio.iter().enumerate() {
                         let row = 2 * p + g;
-                        matrix[row * unknowns + row] += r;
+                        match known {
+                            Some(known) => rhs[row] -= r * known[p][g],
+                            None => matrix[row * unknowns + row] += r,
+                        }
                     }
                 }
             }
