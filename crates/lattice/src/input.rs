@@ -1520,7 +1520,7 @@ zones = [{ material = "water", rings = 1 }]
 
     #[test]
     fn few_group_may_ask_for_pin_form_functions() {
-        // 格子全体の定数にだけ、ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
+        // ピン出力の再構成の形状関数と角の不連続因子を付ける（ADR-0096）
         let few_group = |entry: &str| {
             replaced(
                 PIN_CELL,
@@ -1532,9 +1532,9 @@ zones = [{ material = "water", rings = 1 }]
         assert!(input.output.is_some_and(|o| o.pins));
         let input = few_group(", output = \"a\", pins = false").unwrap();
         assert!(input.output.is_some_and(|o| !o.pins));
+        // 格子のノードごとの定数にも形状関数と角の不連続因子を付けられる（ADR-0125）
         let nodes = ", nodes = [{ output = \"a\", columns = [1, 1], rows = [1, 1] }], pins = true";
-        let err = few_group(nodes).unwrap_err().to_string();
-        assert!(err.contains("pins"), "{err}");
+        assert!(few_group(nodes).unwrap().output.is_some_and(|o| o.pins));
     }
 
     #[test]
