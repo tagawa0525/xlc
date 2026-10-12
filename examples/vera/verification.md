@@ -247,8 +247,8 @@ dvc repro examples/vera/p5/dvc.yaml
 python3 examples/vera/compare_p5.py openmc examples/vera/p5/core-5A.out examples/vera/p5/core-5A-pins.msgpack <結果のディレクトリ>
 ```
 
-計算: ライブラリ（xs）と集合体の格子は 9520d318（rebase の前の a57dcfdd で走らせた。コード、入力、xs.toml は同じ）、反射体の
-格子と 3 × 3 の MOC は 62860f06、炉心と比較は 62860f06 と 49725595（2026-10-12、分岐点 93868246）。
+計算: ライブラリ（xs）と集合体の格子は 9a632264（rebase の前の a57dcfdd で走らせた。コード、入力、xs.toml は同じ）、反射体の
+格子と 3 × 3 の MOC は cea403cb、炉心と比較は cea403cb と bba0a133（2026-10-12、分岐点 93868246）。
 
 ### 入力の構成
 
@@ -284,7 +284,7 @@ python3 examples/vera/compare_p5.py openmc examples/vera/p5/core-5A.out examples
   鏡映では、L 型の位置の I 型の定数の向きのため対称でない（集合体 0.9%、ピン 7.7%。f\* の辺の向きを入れ替えた 2 つは鏡映で
   移り合い、k は同じ 1.095764）
 - 階段の外形の炉心では、燃料の列（行）に、向きの違う I 型と角型の反射体のノード（セルの幅が違う）が並ぶ。ピン出力の表を
-  燃料のノードのセルで作り、反射体のノードを 0 で埋めるように core を直した（d9d4deb2）
+  燃料のノードのセルで作り、反射体のノードを 0 で埋めるように core を直した（e4d549ab）
 - 差の大部分は f\* の方法（燃料のノードに単一集合体の定数を置くこと）から来る。反射体の格子そのものを core で解くと
   （`compare-lattice-*.out`）、格子の燃料のノードの定数では k が 6 桁で一致し、単一集合体の定数では I 型の格子で +580.2 pcm、
   角型の格子で +1639.0 pcm 違う
