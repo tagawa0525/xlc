@@ -115,7 +115,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             return Err(anyhow!("{}", errors.join("\n"))).with_context(inputs);
         }
         for (state, s) in case.states.iter().zip(&solved) {
-            let _span = tracing::info_span!("state", name = %state.name).entered();
+            let _span = tracing::info_span!("report", state = %state.name).entered();
             println!("state {}", state.name);
             report(&layout, &s.problem, &s.solution);
             write_pin_powers(&case, &s.problem, &s.solution)?;
