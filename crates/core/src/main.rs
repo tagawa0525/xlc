@@ -4,7 +4,7 @@
 //!
 //! k_eff、漏れ、集合体の位置ごとの核分裂率は標準出力に、経過（反復の回数、時間）はログとして標準エラーに
 //! 出す（`RUST_LOG=debug` で反復ごとの k と変化）。ケースに名前つきの状態があれば、状態を並列に解き、名前の順に
-//! `state <名前>` の行に続けて状態ごとに出す（ADR-0146）。
+//! `state <名前>` の行に続けて状態ごとに出す（探索した状態は求めたホウ素濃度も。ADR-0145、ADR-0146）。
 //!
 //! 入力のパスは、それを書いたファイルのあるディレクトリからの相対パス。
 
@@ -110,6 +110,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 Ok(s) => {
                     let _span = tracing::info_span!("report", state = %state.name).entered();
                     println!("state {}", state.name);
+                    if let Some(searched) = s.searched {
+                        println!(
+                            "boron {:.4} ppm (searched in {} solves)",
+                            searched.ppm, searched.solves
+                        );
+                    }
                     report(&layout, &s.problem, &s.solution);
                     write_pin_powers(&case, &s.problem, &s.solution)?;
                 }

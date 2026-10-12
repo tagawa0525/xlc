@@ -570,8 +570,35 @@ impl CaseState {
         let boron = match (entry.boron, entry.search) {
             (Some(ppm), None) => Boron::Given(ppm),
             (None, Some(search)) => {
-                let _ = search;
-                todo!()
+                let [low, high] = search.boron;
+                if !(low >= 0.0 && low < high && high.is_finite()) {
+                    return what(format!(
+                        "search boron must be a range from low to high ppm, got {:?}",
+                        search.boron
+                    ));
+                }
+                if !(search.k > 0.0 && search.k.is_finite()) {
+                    return what(format!("search k must be positive, got {}", search.k));
+                }
+                if !(search.tolerance > 0.0 && search.tolerance.is_finite()) {
+                    return what(format!(
+                        "search tolerance must be positive, got {}",
+                        search.tolerance
+                    ));
+                }
+                // 範囲の両端だけでは探せない
+                if search.max_solves < 2 {
+                    return what(format!(
+                        "search max-solves must be at least 2 (the two ends), got {}",
+                        search.max_solves
+                    ));
+                }
+                Boron::Search(BoronSearch {
+                    bracket: search.boron,
+                    k: search.k,
+                    tolerance: search.tolerance,
+                    max_solves: search.max_solves,
+                })
             }
             (Some(_), Some(_)) => return what("give boron or search, not both".into()),
             (None, None) => return what("give boron or search".into()),
