@@ -9,3 +9,4 @@ batches = 2500
 inactive = 500
 seed = 1
 threads = 16
+statepoint-interval = 100
