@@ -30,8 +30,8 @@ clippy の `too_many_lines`（100 行）を超える関数が、main（14793ea7�
 
 ## 完了の条件
 
-- 閉じる時点の `cargo clippy --workspace --all-targets -- -W clippy::too_many_lines` が本番のコードに出す関数を、段ごとに
-  分けてある（テストと examples の関数は、分けるかをここで判断する）
+- `cargo clippy --workspace --all-targets -- -W clippy::too_many_lines` が本番のコードに 100 行を超える関数を出さないか、
+  出る関数ごとに分けない理由がここに書いてある（テストと examples の関数は、分けるかをここで判断する）
 - 長い関数が再び育つのを止めるか（clippy の `too_many_lines` を拒否にし、残る関数に `#[expect]` を付ける案など）を、
   ADR で決めてある
 - 本番のコードを分けたブランチ（ADR-0144 の「確認」に書く最初のブランチを除く）ごとに、ADR-0144 の判定（全桁の msgpack のビット一致と、時間の比較）の結果がここにある

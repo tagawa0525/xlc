@@ -4,7 +4,7 @@ labels: [performance, lattice, core, xs]
 opened: 2026-10-12
 closed:
 milestone:
-blocked-by: ["#0089"]
+blocked-by: []
 resolution:
 ---
 
@@ -29,7 +29,8 @@ e4dbc0de、2026-10-12）。自己遮蔽の中は、VERA 2B の 1 状態の perf 
 
 ## 完了の条件
 
-（`blocked-by` の #0089 は、ソースを変える高速化のためのもので、perf の測定とビルドの設定は待たない）
+（ソースを変える高速化は、同じファイルに触るテストの移動 #0089 のあとに行う。perf の測定とビルドの設定は待たないので、
+`blocked-by` には入れない）
 
 - xs、lattice（自己遮蔽を含む）、core の例の入力で、perf の時間の内訳を測って記録する
 - 内訳の上位の箇所とビルドの設定について、出力を変えない高速化を ADR-0144 の判定で入れるか、効かないと判断する
