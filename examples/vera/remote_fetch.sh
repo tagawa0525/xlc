@@ -13,9 +13,18 @@ if [[ $# -ne 3 || $1 == --help || $1 == -h ]]; then
   sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 fi
-# 最後の世代の statepoint は、世代数が入力ごとに違うので、最大の番号のものを VM で選ぶ
+# 完了（done が 0）した結果だけ、最後の世代の statepoint（最大の番号）と summary.h5 を戻す。失敗または途中の結果は、
+# 途中の statepoint を戻さず、done の値を示して止める
 rsync "${flags[@]}" --exclude='run/statepoint.*.h5' "$1:$2/results/" "$3/"
+status=0
 for name in $(ssh "$1" "ls $2/results"); do
-  last=$(ssh "$1" "ls $2/results/$name/run | grep -E '^statepoint\\.[0-9]+\\.h5$' | sort -t. -k2 -n | tail -1" || true)
-  [[ -n $last ]] && rsync "${flags[@]}" "$1:$2/results/$name/run/$last" "$3/$name/run/"
+  code=$(ssh "$1" "cat $2/results/$name/done 2>/dev/null" || true)
+  if [[ $code != 0 ]]; then
+    echo "$name: 完了していません（done: ${code:-なし}）。statepoint は戻しません" >&2
+    status=1
+    continue
+  fi
+  last=$(ssh "$1" "ls $2/results/$name/run | grep -E '^statepoint\\.[0-9]+\\.h5\$' | sort -t. -k2 -n | tail -1")
+  rsync "${flags[@]}" "$1:$2/results/$name/run/$last" "$3/$name/run/"
 done
+exit $status
