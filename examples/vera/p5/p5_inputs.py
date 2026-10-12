@@ -13,6 +13,8 @@
   - `5A-Inext`: 5A の、角型の位置に隣る I 型の位置に、角型の格子の右と上の定数でなく I 型の定数を置いたもの
   - `small-E`、`small-I`: `small-moc.toml` と同じ体系を、角型の位置に隣る位置に角型の格子の右と上の定数を置いて、
     または I 型の定数を置いて解いたもの
+  - `lattice-I-equivalence`、`lattice-I-fstar`、`lattice-corner-equivalence`、`lattice-corner-fstar`: 反射体の格子と同じ
+    体系を、燃料のノードに格子の燃料のノードの定数（等価性）か単一集合体の定数（f* の方法）を置いて解いたもの
   - `small-step-Lx`、`small-step-Ly`: 階段の外形（L 型、角型、`-`）を持つ小さな炉心（集合体 21 体）。L 型の位置の
     f* の辺の向きを変えた 2 つ
 - `dvc.yaml`: 段階（ADR-0123）
@@ -740,8 +742,13 @@ map = {grid_text(map_rows)}
 {blocks}"""
 
 
-def case(name: str, comment: str, outline: bool = True) -> str:
-    """計算のケース。`outline` は炉心の形に `-` があること（外形の面の条件を書く。ADR-0132）"""
+def case(
+    name: str,
+    comment: str,
+    outline: bool = True,
+    xy: str = 'x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"]',
+) -> str:
+    """計算のケース。`outline` は炉心の形に `-` があること（外形の面の条件を書く。ADR-0132）、`xy` は x と y の境界"""
     face = ', outline = "vacuum"' if outline else ""
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 {comment}
@@ -749,7 +756,7 @@ cycle = "core-{name}-cycle.toml"
 axial-mesh = [0.0, {HEIGHT}]
 radial-nodes = 1
 pin-powers = "core-{name}-pins.msgpack"
-boundary = {{ x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["reflective", "reflective"]{face} }}
+boundary = {{ {xy}, z = ["reflective", "reflective"]{face} }}
 """
 
 
@@ -885,6 +892,57 @@ def core_files() -> dict[str, str]:
                 f"{square}-{nxt}",
                 f"# 正方形の炉心（{square}-moc.toml の体系）を core で解く。外周の直方体は真空、z は鏡面反射。",
                 outline=False,
+            )
+    # 反射体の格子そのもの: 燃料のノードに、格子のノードの定数（等価性）か単一集合体の定数（f* の方法）を置く
+    designs = {
+        "reflector-I-fuel": "I 型の格子の燃料のノード",
+        "reflector-corner-fuel": "角型の格子の燃料のノード",
+        "31": "単一集合体",
+    }
+    files["core-lattice-assemblies.toml"] = (
+        "# このファイルは p5_inputs.py が書く。手で直さない。\n"
+        "# 反射体の格子の燃料のノードの定数と、単一集合体の定数の台帳\n"
+        + "".join(
+            f'\n# {what}\n[design.{d}]\nbounds = [0.0, {HEIGHT}]\nlayers = ["lattice/{d}.msgpack"]\n\n[assembly.{d}]\ndesign = "{d}"\n'
+            for d, what in designs.items()
+        )
+    )
+    shapes = {
+        "I": (
+            [["*", "I"]],
+            'x = ["reflective", "vacuum"], y = ["reflective", "reflective"]',
+        ),
+        "corner": (
+            [["N", "C"], ["*", "E"]],
+            'x = ["reflective", "vacuum"], y = ["reflective", "vacuum"]',
+        ),
+    }
+    for shape, (map_rows, xy) in shapes.items():
+        files[f"core-lattice-{shape}-plant.toml"] = plant(
+            map_rows,
+            f"# reflector-{shape}.toml の格子をノードに分けた炉心の形（燃料の位置と、格子の反射体のノード）。",
+        )
+        for kind, fuel in (("equivalence", f"reflector-{shape}-fuel"), ("fstar", "31")):
+            name = f"lattice-{shape}-{kind}"
+            loading = [["." for _ in row] for row in map_rows]
+            loading[-1][0] = fuel
+            files[f"core-{name}-cycle.toml"] = cycle(
+                name,
+                f"core-lattice-{shape}-plant.toml",
+                "core-lattice-assemblies.toml",
+                loading,
+            )
+            files[f"core-{name}.toml"] = case(
+                name,
+                f"# reflector-{shape}.toml の格子と同じ体系を、燃料のノードに"
+                + (
+                    "格子の燃料のノードの定数（等価性）"
+                    if kind == "equivalence"
+                    else "単一集合体の定数（f* の方法）"
+                )
+                + "を置いて解く。",
+                outline=False,
+                xy=xy,
             )
     step = fuel_set(COUNTS_STEP)
     step_designs = {p: "31" for p in step}
@@ -1039,6 +1097,17 @@ def pipeline(files: dict[str, str]) -> str:
                 [f"compare-{name}.out"],
             )
         )
+    for shape in ["I", "corner"]:
+        for kind in ["equivalence", "fstar"]:
+            name = f"lattice-{shape}-{kind}"
+            stages.append(
+                stage(
+                    f"compare-{name}",
+                    f"python3 ../compare_p5.py k reflector-{shape}.out core-{name}.out > compare-{name}.out",
+                    ["../compare_p5.py", f"reflector-{shape}.out", f"core-{name}.out"],
+                    [f"compare-{name}.out"],
+                )
+            )
     for name in ["5A", "5A-Ly", "5A-Inext", "5B", "5C"]:
         problem = name.split("-")[0]
         stages.append(
