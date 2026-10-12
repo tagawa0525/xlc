@@ -170,3 +170,26 @@ fn errors_are_reported_per_state() {
     assert!(solved[0].is_ok());
     assert!(matches!(solved[1], Err(CaseError::State(_))));
 }
+
+#[test]
+fn states_give_the_same_k_on_one_and_many_threads() {
+    let (layout, tables) = core();
+    let options = Options::default();
+    let states = [
+        given("aro-1100", 1100.0, 565.0),
+        given("aro-1300", 1300.0, 565.0),
+        given("cold", 1100.0, 560.0),
+        given("hot", 1100.0, 570.0),
+    ];
+    let k = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| solve_states(&layout, &tables, &states, &options))
+            .into_iter()
+            .map(|s| s.unwrap().solution.k)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(k(1), k(4));
+}
