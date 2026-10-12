@@ -1,0 +1,4 @@
+# このファイルは rods_cases.py が書く。
+plant = "plant.toml"
+inventory = "assemblies.toml"
+loading = ["F01"]
