@@ -57,8 +57,7 @@ worktree 間の `target` の共有:
 
 ## 確認
 
-devShell の wrapper で確かめた（ブランチ feat/0079-target-dir の worktree、2026-10-12。flake.nix の変更と同じ
-コミット）。
+devShell の wrapper で確かめた（ブランチ feat/0079-target-dir の worktree、27930a6d、2026-10-12。各 1 回の実行）。
 
 - LSP（initialize、initialized、`didSave`）を stdio で rust-analyzer に与えると、flycheck が 43 秒で終わり、
   `target/rust-analyzer/{debug,flycheck0}` ができ、`target/debug` はできなかった
@@ -75,4 +74,6 @@ devShell の wrapper で確かめた（ブランチ feat/0079-target-dir の wor
 - rust-analyzer の索引と flycheck の CPU とメモリの負荷は残る。時間を記録する測定への影響の扱いは #0094 で続ける
 - 計算機側の cargo は今まで通り `target/debug`。flycheck が `target/debug` の fingerprint を壊すことはなくなる
 - worktree ごとに `target/rust-analyzer` が増える（check だけの成果物なので `target/debug` より小さい）
+- ADR-0135 の帰結のうち、flycheck が `target/debug` を共有することと、分けるならクライアントの設定で行うという部分は、この
+  ADR で置き換わる（ADR-0135 は accepted のまま書き換えない）
 - worktree-add.sh（nixfiles 側）に手を入れる必要はない。wrapper は git の最上位を実行時に見る
