@@ -129,3 +129,7 @@ VERA の集合体で確かめる。
 - 燃焼度の軸、履歴の分岐、HDF5 への移行は M4 で設計し直す（[ADR-0011](0011-write-data-files-in-messagepack.md)、[ADR-0085](0085-branch-on-core-states.md)）
 - 細部は、xlc の格子計算（MOC）の結果との比較を通じて段階的に詰め、新しい ADR か issue に記録する（2026-10-08 の
   ユーザーの方針）
+
+## 補足
+
+- 2026-10-12: ケースの状態は、名前つきの `[state.<名前>]` を複数書く形になった（[ADR-0146](0146-solve-named-states-of-a-case-in-parallel.md)）
