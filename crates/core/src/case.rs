@@ -69,6 +69,12 @@ pub fn solve_at(
     })
 }
 
+/// 探索の状態の、解く前にできる検査。
+pub fn check_search(state: &CaseState, options: &Options) -> Result<(), CaseError> {
+    let _ = (state, options);
+    todo!()
+}
+
 /// ケースの状態を1つ解く。探索の状態は、k が目標になるホウ素濃度を探す（ADR-0145）。
 pub fn solve_state(
     layout: &Layout,

@@ -62,6 +62,24 @@ fn a_bracket_without_the_target_is_an_error() {
 }
 
 #[test]
+fn the_last_bracket_reports_the_evaluated_values() {
+    // Illinois 法が残った端の値を半分にしたあとでも、エラーはその端で評価した値を示す
+    let error = find([0.0, 3000.0], 1.0, 1.0e-10, 6, values(curved)).unwrap_err();
+    let SearchError::NotConverged {
+        low,
+        high,
+        at_low,
+        at_high,
+        ..
+    } = error
+    else {
+        panic!("{error}");
+    };
+    assert_eq!(at_low, curved(low));
+    assert_eq!(at_high, curved(high));
+}
+
+#[test]
 fn exceeding_the_solves_is_an_error() {
     let error = find([0.0, 3000.0], 1.0, 1.0e-10, 4, values(curved)).unwrap_err();
     assert!(
