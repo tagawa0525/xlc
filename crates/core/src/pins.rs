@@ -35,16 +35,10 @@ pub fn reconstruct(problem: &Problem, solution: &Solution) -> Result<Vec<Vec<Vec
     );
     let mut out = vec![Vec::new(); nx * ny * nz];
     for k in 0..nz {
-        let fissile = (0..nx * ny).any(|local| {
-            let n = local + nx * ny * k;
-            problem
-                .node_material
-                .get(n)
-                .copied()
-                .flatten()
-                .and_then(|m| problem.materials.get(m))
-                .is_some_and(|m| m.nu_fission.iter().any(|&v| v != 0.0))
-        });
+        let mut fissile = false;
+        for local in 0..nx * ny {
+            fissile |= fissile_node(problem, local + nx * ny * k)?;
+        }
         if !fissile {
             continue;
         }
@@ -452,20 +446,27 @@ fn layer_grid(
         merge_y.push(boundary_halves(pairs, 2, 3, &format!("row boundary {j}"))?);
     }
     // 分ける前の全体の表と、列の幅、行の高さ
+    // 位置ごとの核分裂の有無（層の中で i + nx j）。ノードのない位置と、核分裂のないノードのセルは 0。核分裂のない
+    // ノードの出力に 0 でない値があれば、形状関数か再構成の誤りなので、0 で埋めずにエラーにする
+    let mut fissile = Vec::with_capacity(nx * ny);
+    for j in 0..ny {
+        for i in 0..nx {
+            let f = fissile_node(problem, i + nx * (j + ny * k))?;
+            if !f && layer[i + nx * j].iter().flatten().any(|&v| v != 0.0) {
+                return Err(format!(
+                    "layer {k}: node ({i}, {j}) has no fission but nonzero pin powers"
+                ));
+            }
+            fissile.push(f);
+        }
+    }
     let mut grid: Vec<Vec<f64>> = Vec::new();
     for j in 0..ny {
         for r in 0..heights[j].len() {
             let mut row = Vec::new();
             for i in 0..nx {
                 let map = &layer[i + nx * j];
-                // ノードのない位置と、核分裂のないノードのセルは 0。核分裂のないノードの出力に 0 でない値があれば、
-                // 形状関数か再構成の誤りなので、0 で埋めずにエラーにする
-                if !fissile_node(problem, i + nx * (j + ny * k))? {
-                    if map.iter().flatten().any(|&v| v != 0.0) {
-                        return Err(format!(
-                            "layer {k}: node ({i}, {j}) has no fission but nonzero pin powers"
-                        ));
-                    }
+                if !fissile[i + nx * j] {
                     row.extend(std::iter::repeat_n(0.0, widths[i].len()));
                     continue;
                 }
