@@ -32,7 +32,7 @@ fn curved_values_converge_within_the_tolerance() {
     assert!((found.value - 1.0).abs() <= 1.0e-10, "{}", found.value);
     assert!((found.x - 1000.0).abs() < 1.0e-6, "{}", found.x);
     assert_eq!(found.value, curved(found.x));
-    // Illinois 法は超 1 次で収束する（この関数と範囲で、片方の端が残る regula falsi は 16 回、二分法は 35 回）
+    // Illinois 法は超 1 次で収束する（この関数と範囲で、片方の端が残る regula falsi は 16 回、二分法は 33 回）
     assert!(found.solves <= 12, "{} solves", found.solves);
 }
 
@@ -75,8 +75,24 @@ fn the_last_bracket_reports_the_evaluated_values() {
     else {
         panic!("{error}");
     };
+    assert!(low < high, "{low} {high}");
     assert_eq!(at_low, curved(low));
     assert_eq!(at_high, curved(high));
+}
+
+#[test]
+fn values_that_are_not_finite_are_errors() {
+    for bad in [0.0, 3000.0] {
+        let error = find(
+            [0.0, 3000.0],
+            1.0,
+            1.0e-10,
+            10,
+            values(move |x| if x == bad { f64::NAN } else { curved(x) }),
+        )
+        .unwrap_err();
+        assert!(matches!(error, SearchError::NotFinite { .. }), "{error}");
+    }
 }
 
 #[test]
