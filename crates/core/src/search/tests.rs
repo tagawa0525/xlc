@@ -97,7 +97,7 @@ fn values_that_are_not_finite_are_errors() {
 
 #[test]
 fn a_bracket_error_reports_the_evaluated_values() {
-    let k = |x: f64| 0.99999999999999989 - 1.0e-6 * x / 3000.0;
+    let k = |x: f64| (1.0 - f64::EPSILON / 2.0) - 1.0e-6 * x / 3000.0;
     let error = find([0.0, 3000.0], 1.0, 1.0e-17, 10, values(k)).unwrap_err();
     let SearchError::NotBracketed {
         at_low, at_high, ..
