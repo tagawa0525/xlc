@@ -361,6 +361,7 @@ fn named(name: &str, boron: f64, temperature: f64) -> CaseState {
         b10: 0.199,
         moderator: temperature,
         fuel: temperature,
+        banks: Default::default(),
     }
 }
 
@@ -388,6 +389,7 @@ fn parses_boron_searches() {
             b10: 0.199,
             moderator: 565.0,
             fuel: 565.0,
+            banks: Default::default(),
         }]
     );
     assert_eq!(
@@ -968,9 +970,19 @@ fn rodded_plant() -> Plant {
 /// 炉心の状態とバンクの位置（ステップ）を書いたケース
 fn rodded_case(banks: &str) -> Case {
     let text = format!(
-        "{CASE}\n[state]\nboron = 1291\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = {banks}\n"
+        "{CASE}\n[state.hzp]\nboron = 1291\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = {banks}\n"
     );
     Case::parse(&text, base()).unwrap()
+}
+
+/// 状態のバンクの位置で制御棒を入れた並び（ケースの最初の状態）
+fn rodded_layout(case: &Case, plant: &Plant) -> Result<Layout, InputError> {
+    let banks = case
+        .states
+        .first()
+        .map(|s| s.banks.clone())
+        .unwrap_or_default();
+    Layout::new(case, &cycle(), plant, &inventory())?.with_banks(&banks)
 }
 
 #[test]
@@ -1030,7 +1042,7 @@ fn invalid_rods_are_errors() {
 #[test]
 fn cases_read_bank_steps_and_partial_rod_options() {
     let c = rodded_case("{ D = 6 }");
-    assert_eq!(c.banks, BTreeMap::from([("D".to_string(), 6)]));
+    assert_eq!(c.states[0].banks, BTreeMap::from([("D".to_string(), 6)]));
     // 混ぜ方と細かいメッシュの幅は ADR-0127 の値が既定
     assert_eq!(c.partial_rods, PartialRods::default());
     assert_eq!(c.partial_rods.weighting, Weighting::Flux);
@@ -1062,13 +1074,7 @@ fn cases_read_bank_steps_and_partial_rod_options() {
 #[test]
 fn rods_split_nodes_into_uniform_intervals() {
     // 6 ステップで先端は 4 cm（ノードの境）。ノード [4, 7] は AIC 2 cm と B4C 1 cm の部分挿入、[7, 10] は B4C
-    let layout = Layout::new(
-        &rodded_case("{ D = 6 }"),
-        &cycle(),
-        &rodded_plant(),
-        &inventory(),
-    )
-    .unwrap();
+    let layout = rodded_layout(&rodded_case("{ D = 6 }"), &rodded_plant()).unwrap();
     let rod_of = |site: usize| {
         let m = layout.materials[layout.node_material[site].unwrap()];
         layout.tables[m.table].rod.clone()
@@ -1110,7 +1116,7 @@ fn rods_split_nodes_into_uniform_intervals() {
 
 #[test]
 fn bank_positions_must_match_the_plant_rods() {
-    let layout = |case: &Case, plant: &Plant| Layout::new(case, &cycle(), plant, &inventory());
+    let layout = rodded_layout;
     // 棒のある炉心に状態がない、バンクの位置がない、知らないバンク、最大を超えるステップ
     assert!(layout(&case(), &rodded_plant()).is_err());
     assert!(layout(&rodded_case("{}"), &rodded_plant()).is_err());
@@ -1145,7 +1151,7 @@ fn rod_tips_on_node_faces_make_no_slivers() {
     let text = edited(&format!("{PLANT}{RODS}"), "step = 0.5", "step = 0.1");
     let text = edited(&text, "steps = 16", "steps = 90");
     let plant = Plant::parse(&text, base()).unwrap();
-    let layout = Layout::new(&rodded_case("{ D = 30 }"), &cycle(), &plant, &inventory()).unwrap();
+    let layout = rodded_layout(&rodded_case("{ D = 30 }"), &plant).unwrap();
     assert_eq!(layout.partial.len(), 1);
     assert_eq!(layout.partial[0].segments.len(), 2);
 }
