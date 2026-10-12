@@ -22,8 +22,9 @@ main（14793ea7、2026-10-12）で、`crates/*/src` の 64 個のファイルが
 
 - crates/docs の検査が、本番のファイルの中のテストのコードを見つけて失敗し、移したあとの main で通る
 - 64 個のファイルのテストと 4 個の項目が `tests.rs` にあり、ADR-0143 の「確認」に実際の結果（実行ファイルのビット一致、
-  node.rs の差分が `#[cfg(test)]` の項目だけであること、`passed` の件数）を書いて `status: accepted` にしてある
+  node.rs の差分が `#[cfg(test)]` の項目だけであること、テストの名前の一覧）を書いて `status: accepted` にしてある
   （docs/adr/README.md の「運用」）
+- proposed の ADR と開いた issue に書いたテストの場所のパスが、`tests.rs` に直してある
 
 ## 経緯
 
