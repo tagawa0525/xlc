@@ -1160,8 +1160,8 @@ stages:
       size: 145303076
     - path: small-moc.toml
       hash: md5
-      md5: 096a29d5ae7d2fb0e44d4130d94ce58e
-      size: 80820
+      md5: f3d0792b5b5af09612f047e313cf032c
+      size: 80779
     outs:
     - path: small-moc-pins.msgpack
       hash: md5
@@ -1525,12 +1525,12 @@ stages:
       size: 275
     - path: core-small-I-plant.toml
       hash: md5
-      md5: 5e7d47371bbd3f91b0708779a209a369
-      size: 689
+      md5: 48b79ec155c39ecf8ebb04f049bb412f
+      size: 692
     - path: core-small-I.toml
       hash: md5
-      md5: 8a9bdded368e64e5ad9c2d2dc2afe4a4
-      size: 407
+      md5: 1ec703fa6f33826310cde5433f40e9cc
+      size: 410
     - path: core-small-assemblies.toml
       hash: md5
       md5: 3c35347ac5283cf83815abc825def9ef
@@ -1913,12 +1913,12 @@ stages:
       size: 275
     - path: core-small-E-plant.toml
       hash: md5
-      md5: bbb8cafbbe89bd4e08a3d0d9a4104929
-      size: 1022
+      md5: aca5cb9855192dee500752dfaebf0aed
+      size: 1025
     - path: core-small-E.toml
       hash: md5
-      md5: c4f27afc1a5d2f41667b4d1cff62230e
-      size: 407
+      md5: 72654f45a92d0a43d6a08b344c2b34c8
+      size: 410
     - path: core-small-assemblies.toml
       hash: md5
       md5: 3c35347ac5283cf83815abc825def9ef
