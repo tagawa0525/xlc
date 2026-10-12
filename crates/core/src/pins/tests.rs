@@ -800,6 +800,35 @@ fn nodes_without_fission_take_the_cells_of_the_fuel_beside_them() {
 }
 
 #[test]
+fn split_cells_between_fuel_and_reflector_are_errors() {
+    // 燃料と反射体の 2 × 2。列 1 は燃料（下）と反射体（上）。上の行で燃料の列 0 と反射体の列 1 が分け合うセルを
+    // 持つと、燃料の半分のセルを反射体の 0 と平均することになるのでエラー
+    let mut f = fuel(21.5, 4);
+    let mut r = reflector(21.5, 4, vec![vec![1.0, 1.0]; 4], vec![false; 4]);
+    if let (Some(a), Some(b)) = (f.pins.as_mut(), r.pins.as_mut()) {
+        a.halves[1] = true;
+        a.halves[0] = true;
+        b.halves[0] = true;
+    }
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5, 21.5],
+            dy: vec![21.5, 21.5],
+            dz: vec![1.0],
+        },
+        materials: vec![f, r],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 0, 0, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let ones = vec![vec![1.0; 4]; 4];
+    let maps = vec![ones.clone(), ones.clone(), ones, vec![vec![0.0; 4]; 4]];
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("split cell"), "{err}");
+}
+
+#[test]
 fn split_cells_beside_columns_without_fission_are_errors() {
     // 核分裂のないノードだけの列はセルを持たないので、そこと分け合うセル（`halves`）は戻せずエラー
     let mut f = fuel(21.5, 4);
