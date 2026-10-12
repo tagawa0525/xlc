@@ -51,10 +51,75 @@ pub fn find<T, E>(
     target: f64,
     tolerance: f64,
     max_solves: usize,
-    evaluate: impl FnMut(f64) -> Result<(f64, T), E>,
+    mut evaluate: impl FnMut(f64) -> Result<(f64, T), E>,
 ) -> Result<Found<T>, SearchError<E>> {
-    let _ = (bracket, target, tolerance, max_solves, evaluate);
-    todo!()
+    let [mut low, mut high] = bracket;
+    let mut solves = 0;
+    // 目標からの差 f と、その点の評価
+    let mut at = |x: f64, solves: &mut usize| {
+        *solves += 1;
+        evaluate(x)
+            .map(|(value, t)| (value - target, value, t))
+            .map_err(SearchError::Solve)
+    };
+    let found = |x, value, solves, at| Found {
+        x,
+        value,
+        solves,
+        at,
+    };
+    let (mut f_low, value, t) = at(low, &mut solves)?;
+    if f_low.abs() <= tolerance {
+        return Ok(found(low, value, solves, t));
+    }
+    let not_converged = |solves, low, high, f_low: f64, f_high: f64| {
+        Err(SearchError::NotConverged {
+            tolerance,
+            target,
+            solves,
+            low,
+            high,
+            at_low: f_low + target,
+            at_high: f_high + target,
+        })
+    };
+    if solves >= max_solves {
+        return not_converged(solves, low, high, f_low, f64::NAN);
+    }
+    let (mut f_high, value, t) = at(high, &mut solves)?;
+    if f_high.abs() <= tolerance {
+        return Ok(found(high, value, solves, t));
+    }
+    if f_low.signum() == f_high.signum() {
+        return Err(SearchError::NotBracketed {
+            low,
+            high,
+            at_low: f_low + target,
+            at_high: f_high + target,
+            target,
+        });
+    }
+    // `high` は最後に評価した点、`low` は符号の違う残った端。残った端が2回続けて残れば、その f を半分にして
+    // 割線を残った端に寄せる（Dowell and Jarratt, BIT 11, 168 (1971)）。f を半分にしても符号は変わらないので、
+    // 新しい点はいつも2つの端の間にある
+    loop {
+        if solves >= max_solves {
+            return not_converged(solves, low, high, f_low, f_high);
+        }
+        let x = high - f_high * (high - low) / (f_high - f_low);
+        let (f, value, t) = at(x, &mut solves)?;
+        if f.abs() <= tolerance {
+            return Ok(found(x, value, solves, t));
+        }
+        if f.signum() == f_high.signum() {
+            f_low /= 2.0;
+        } else {
+            low = high;
+            f_low = f_high;
+        }
+        high = x;
+        f_high = f;
+    }
 }
 
 #[cfg(test)]
