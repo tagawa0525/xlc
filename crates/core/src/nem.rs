@@ -159,17 +159,55 @@ pub enum NemError {
 
 #[tracing::instrument(name = "nem", skip_all)]
 pub fn solve(problem: &Problem, options: &Options) -> Result<Solution, NemError> {
-    let core = Core::new(problem).map_err(NemError::InvalidProblem)?;
-    iterate(&core, options).map(|(solution, _)| solution)
+    let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
+    iterate(&mut core, options, None).map(|(solution, _)| solution)
 }
 
-/// べき乗法の反復。収束した解と、そのときの部分中性子流などの状態を返す。
-fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError> {
+/// 外側の反復のたびに、いくつかの物質の定数を作り直すもの（制御棒の部分挿入のノード。ADR-0127）。
+pub trait Refresh {
+    /// 定数を作るのに要るノードの直方体の位置（`Problem::node_material` の並び）
+    fn sites(&self) -> &[usize];
+    /// そのときの k と、`sites` の順のノードの量から、置き換える（物質の番号, 定数）の組。置き換えた物質は、
+    /// 元の物質と群の数、核分裂の有無、f* の辺、真空の辺、z の厚さが同じであること
+    fn refresh(&mut self, k: f64, nodes: &[NodeSnapshot])
+    -> Result<Vec<(usize, FewGroup)>, String>;
+}
+
+/// `Refresh` に渡す、外側の反復の始めのノードの量。
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeSnapshot {
+    /// [群] のノード平均の中性子束
+    pub flux: Vec<f64>,
+    /// [群] の、z の向きの式の横方向の漏れ（x と y の正味の漏れの和、単位体積あたり）の、ノード平均と f1、f2 の
+    /// 係数（NEM の z の向きの式と同じ2次式）
+    pub transverse: Vec<[f64; 3]>,
+}
+
+/// `solve` に、外側の反復（全群のスイープ）の前ごとに `refresh` で物質を置き換えることを加えたもの。解と、最後に
+/// 置き換えたあとの物質の定数（`Problem::materials` の並び）を返す。
+#[tracing::instrument(name = "nem", skip_all)]
+pub fn solve_with(
+    problem: &Problem,
+    options: &Options,
+    refresh: &mut dyn Refresh,
+) -> Result<(Solution, Vec<FewGroup>), NemError> {
+    let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
+    let (solution, _) = iterate(&mut core, options, Some(refresh))?;
+    Ok((solution, core.materials))
+}
+
+/// べき乗法の反復。収束した解と、そのときの部分中性子流などの状態を返す。`refresh` があれば、反復の始めごとに
+/// 物質を置き換える。
+fn iterate(
+    core: &mut Core,
+    options: &Options,
+    mut refresh: Option<&mut dyn Refresh>,
+) -> Result<(Solution, State), NemError> {
     let ng = core.groups;
     let nodes = core.nodes();
     let mut state = State::new(nodes, ng);
     let mut k = 1.0;
-    let production = |state: &State| -> f64 {
+    let production = |core: &Core, state: &State| -> f64 {
         (0..nodes)
             .map(|n| {
                 let m = core.material(n);
@@ -180,7 +218,7 @@ fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError
             })
             .sum()
     };
-    let initial = production(&state);
+    let initial = production(core, &state);
     if initial <= 0.0 {
         return Err(NemError::NoFission);
     }
@@ -188,13 +226,39 @@ fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError
     let mut k_history = Remaining::default();
     let mut flux_history = Remaining::default();
 
+    // `Refresh::sites` のノードの番号
+    let refreshed: Vec<usize> = match &refresh {
+        Some(r) => r
+            .sites()
+            .iter()
+            .map(|&site| {
+                (0..nodes)
+                    .find(|&n| core.site(n) == site)
+                    .ok_or_else(|| NemError::InvalidProblem(format!("position {site} has no node")))
+            })
+            .collect::<Result<_, _>>()?,
+        None => Vec::new(),
+    };
+
     for iteration in 1..=options.max_iterations {
         let previous = state.flux.clone();
+        if let Some(r) = refresh.as_deref_mut() {
+            let snapshots = refreshed
+                .iter()
+                .map(|&n| core.snapshot(&state, n))
+                .collect::<Result<Vec<_>, _>>()?;
+            for (material, constants) in
+                r.refresh(k, &snapshots).map_err(NemError::InvalidProblem)?
+            {
+                core.replace_material(material, constants)
+                    .map_err(NemError::InvalidProblem)?;
+            }
+        }
         for g in 0..ng {
             core.sweep_group(&mut state, g, k)?;
         }
         // べき乗法: 生成率の比で k を更新し、全体を生成率 1 に規格化する
-        let rate = production(&state);
+        let rate = production(core, &state);
         let new_k = k * rate;
         state.scale(1.0 / rate);
         let change = state
@@ -244,6 +308,8 @@ fn iterate(core: &Core, options: &Options) -> Result<(Solution, State), NemError
 /// （x が最も速く、次に y、z）の順に詰めた番号で数える。
 struct Core<'a> {
     problem: &'a Problem,
+    /// [物質] の定数。部分挿入のノードの物質は、外側の反復のたびに `Refresh` が置き換える（ADR-0127）
+    materials: Vec<FewGroup>,
     /// 方向ごとのノード幅
     widths: [&'a [f64]; 3],
     /// [ノード] の直方体の位置
@@ -444,6 +510,7 @@ impl<'a> Core<'a> {
             .map_err(|e| e.to_string())?;
         let mut core = Self {
             problem,
+            materials: problem.materials.clone(),
             widths,
             cells,
             material_of,
@@ -462,7 +529,7 @@ impl<'a> Core<'a> {
                 if core.fissile[material] {
                     return Ok(None);
                 }
-                let m = &problem.materials[material];
+                let m = &core.materials[material];
                 let modes = |d: usize| {
                     AnmModes::new(&m.diffusion, &m.total, &m.scatter, core.width(n, d))
                         .map_err(|e| format!("material {material} in node {}: {e}", core.site(n)))
@@ -566,7 +633,7 @@ impl<'a> Core<'a> {
                 }
                 let side = side_of(d, plus);
                 let material = self.material_of[n];
-                if self.problem.materials[material].vacuum_ratio[side].is_none() {
+                if self.materials[material].vacuum_ratio[side].is_none() {
                     return Err(format!(
                         "material {material} has no vacuum ratio J/phi on side {side} for the \
                          vacuum face {name} of node {}; make it in a lattice with that side \
@@ -582,6 +649,77 @@ impl<'a> Core<'a> {
 
     fn nodes(&self) -> usize {
         self.cells.len()
+    }
+
+    /// ノード n の `NodeSnapshot`
+    fn snapshot(&self, state: &State, n: usize) -> Result<NodeSnapshot, NemError> {
+        let transverse = (0..self.groups)
+            .map(|g| {
+                let leakage = |i: usize| -> [f64; 3] {
+                    std::array::from_fn(|d| self.net_leakage(state, i, d, g))
+                };
+                let (l1, l2) = self.transverse_shape(state, &leakage, n, 2, g)?;
+                let own = leakage(n);
+                Ok([own[0] + own[1], l1, l2])
+            })
+            .collect::<Result<_, NemError>>()?;
+        Ok(NodeSnapshot {
+            flux: state.flux[n].clone(),
+            transverse,
+        })
+    }
+
+    /// 物質 `material` の定数を置き換える（`Refresh`）。`Core::new` の検査の前提（群の数、核分裂の有無、f* の辺、
+    /// 真空の辺、z の厚さ）を変える定数はエラー。核分裂のないノードの ANM のモードは作り直す
+    fn replace_material(&mut self, material: usize, constants: FewGroup) -> Result<(), String> {
+        let old = self
+            .materials
+            .get(material)
+            .ok_or_else(|| format!("material {material} does not exist"))?;
+        constants
+            .validate()
+            .map_err(|e| format!("material {material}: {e}"))?;
+        let vacuum = |m: &FewGroup| {
+            m.vacuum_ratio
+                .iter()
+                .map(Option::is_some)
+                .collect::<Vec<_>>()
+        };
+        let fissile = is_fissile(&constants.nu_fission).map_err(|e| e.to_string())?;
+        if constants.groups() != self.groups
+            || fissile != self.fissile[material]
+            || constants.normalized_adf != old.normalized_adf
+            || vacuum(&constants) != vacuum(old)
+            || constants.height != old.height
+        {
+            return Err(format!(
+                "material {material}: the refreshed constants change the groups, the fission, the f* \
+                 sides, the vacuum sides or the height"
+            ));
+        }
+        if constants.diffusion.iter().any(|&d| d.is_nan() || d <= 0.0)
+            || (0..self.groups).any(|g| {
+                let removal = constants.total[g] - constants.scatter[g][g];
+                removal.is_nan() || removal <= 0.0
+            })
+        {
+            return Err(format!(
+                "material {material}: diffusion and removal cross sections must be positive"
+            ));
+        }
+        self.materials[material] = constants;
+        for n in 0..self.nodes() {
+            if self.material_of[n] != material || self.anm[n].is_none() {
+                continue;
+            }
+            let m = &self.materials[material];
+            let modes = |d: usize| {
+                AnmModes::new(&m.diffusion, &m.total, &m.scatter, self.width(n, d))
+                    .map_err(|e| format!("material {material} in node {}: {e}", self.site(n)))
+            };
+            self.anm[n] = Some([modes(0)?, modes(1)?, modes(2)?]);
+        }
+        Ok(())
     }
 
     fn position(&self, n: usize) -> [usize; 3] {
@@ -634,7 +772,7 @@ impl<'a> Core<'a> {
     }
 
     fn material(&self, n: usize) -> &FewGroup {
-        &self.problem.materials[self.material_of[n]]
+        &self.materials[self.material_of[n]]
     }
 
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子（辺の対応は `side_of`）。
@@ -1272,14 +1410,14 @@ mod tests {
             max_iterations: 10_000,
         };
         let converged = solve(&p, &tight).unwrap();
-        let core = Core::new(&p).unwrap();
+        let mut core = Core::new(&p).unwrap();
         // 許容差 0 では収束しないので、上限の回数まで反復を続ける
         let long = Options {
             k_tolerance: 0.0,
             flux_tolerance: 0.0,
             max_iterations: 2000,
         };
-        match iterate(&core, &long) {
+        match iterate(&mut core, &long, None) {
             Err(NemError::NotConverged { k, .. }) => assert!(
                 (k - converged.k).abs() < 1e-12 * converged.k,
                 "{k} vs {}",
@@ -1450,8 +1588,8 @@ mod tests {
 
     /// 収束した状態も返す
     fn solve_state(p: &Problem) -> (Core<'_>, Solution, State) {
-        let core = Core::new(p).unwrap();
-        let (s, state) = iterate(&core, &Options::default()).unwrap();
+        let mut core = Core::new(p).unwrap();
+        let (s, state) = iterate(&mut core, &Options::default(), None).unwrap();
         (core, s, state)
     }
 
