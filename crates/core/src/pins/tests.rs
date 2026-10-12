@@ -749,6 +749,162 @@ fn concave_outline_corners_keep_the_symmetry() {
 }
 
 #[test]
+fn nodes_without_fission_take_the_cells_of_the_fuel_beside_them() {
+    // 階段の外形の炉心では、燃料の列（行）に、セルの幅の違う反射体のノード（向きの違う I 型、角型）が並ぶ。核分裂の
+    // ないノードのセルは 0 なので、その列と行のセルは燃料のノードから取り、反射体のノードは 0 で埋める
+    let mut p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5, 21.5],
+            dy: vec![21.5, 21.5],
+            dz: vec![1.0],
+        },
+        materials: vec![
+            fuel(21.5, 4),
+            reflector(21.5, 3, vec![vec![1.0, 1.0]; 4], vec![false; 4]),
+        ],
+        reflectors: Vec::new(),
+        // (0, 0) が燃料、ほかの 3 つが反射体
+        node_material: placed(vec![0, 1, 1, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let fuel_map: Vec<Vec<f64>> = (0..4)
+        .map(|r| (0..4).map(|c| 1.0 + (4 * r + c) as f64).collect())
+        .collect();
+    let zeros = vec![vec![0.0; 3]; 3];
+    let maps = vec![fuel_map.clone(), zeros.clone(), zeros.clone(), zeros];
+    let rows = core_rows(&p, &maps).unwrap();
+    let mean = fuel_map.iter().flatten().sum::<f64>() / 16.0;
+    let expected: Vec<Vec<f64>> = fuel_map
+        .iter()
+        .rev()
+        .map(|r| r.iter().map(|v| v / mean).collect())
+        .collect();
+    assert_eq!(rows, expected);
+    // 燃料のない列と行はすべて 0 で表に残らないので、そこに並ぶ反射体のノードのセルの大きさは違ってよい
+    p.materials
+        .push(reflector(21.5, 2, vec![vec![1.0, 1.0]; 4], vec![false; 4]));
+    p.node_material[3] = Some(2);
+    let mut maps = maps;
+    maps[3] = vec![vec![0.0; 2]; 2];
+    assert_eq!(core_rows(&p, &maps).unwrap(), expected);
+    // 核分裂のないノードの出力に 0 でない値があれば、0 で埋めずにエラー
+    maps[1][0][0] = 1.0e-3;
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("no fission but nonzero"), "{err}");
+    // 燃料のない列と行にある反射体のノードでも同じ
+    maps[1][0][0] = 0.0;
+    maps[3][0][0] = 1.0e-3;
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("no fission but nonzero"), "{err}");
+}
+
+#[test]
+fn split_cells_between_fuel_and_reflector_are_errors() {
+    // 燃料と反射体の 2 × 2。列 1 は燃料（下）と反射体（上）。上の行で燃料の列 0 と反射体の列 1 が分け合うセルを
+    // 持つと、燃料の半分のセルを反射体の 0 と平均することになるのでエラー
+    let mut f = fuel(21.5, 4);
+    let mut r = reflector(21.5, 4, vec![vec![1.0, 1.0]; 4], vec![false; 4]);
+    if let (Some(a), Some(b)) = (f.pins.as_mut(), r.pins.as_mut()) {
+        a.halves[1] = true;
+        a.halves[0] = true;
+        b.halves[0] = true;
+    }
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5, 21.5],
+            dy: vec![21.5, 21.5],
+            dz: vec![1.0],
+        },
+        materials: vec![f, r],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 0, 0, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let ones = vec![vec![1.0; 4]; 4];
+    let maps = vec![ones.clone(), ones.clone(), ones, vec![vec![0.0; 4]; 4]];
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("split cell"), "{err}");
+}
+
+#[test]
+fn split_cells_between_columns_without_fission_are_dropped() {
+    // 燃料と反射体 2 つの 3 × 1。核分裂のないノードだけの列はセルを持たず、反射体どうしが分け合うセル（`halves`）は
+    // どちらも 0 なので、戻すものがなく表は燃料だけ
+    let mut left = reflector(21.5, 4, vec![vec![1.0, 1.0]; 4], vec![false; 4]);
+    let mut right = left.clone();
+    if let (Some(a), Some(b)) = (left.pins.as_mut(), right.pins.as_mut()) {
+        a.halves[1] = true;
+        b.halves[0] = true;
+    }
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5; 3],
+            dy: vec![21.5],
+            dz: vec![1.0],
+        },
+        materials: vec![fuel(21.5, 4), left, right],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 1, 2]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let zeros = vec![vec![0.0; 4]; 4];
+    let maps = vec![vec![vec![1.0; 4]; 4], zeros.clone(), zeros];
+    assert_eq!(core_rows(&p, &maps).unwrap(), vec![vec![1.0; 4]; 4]);
+}
+
+#[test]
+fn fission_nodes_of_a_column_need_one_cell_size_across_layers() {
+    // 1 × 1 × 2 のノードで、層ごとに燃料のセルの数が違えば、炉心全体の表の列のセルが決まらずエラー
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5],
+            dy: vec![21.5],
+            dz: vec![1.0, 1.0],
+        },
+        materials: vec![fuel(21.5, 4), fuel(21.5, 3)],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let maps = vec![vec![vec![1.0; 4]; 4], vec![vec![1.0; 3]; 3]];
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("different cell sizes"), "{err}");
+}
+
+#[test]
+fn layers_take_the_cells_of_the_fuel_in_any_layer() {
+    // 2 × 1 × 2 のノード。層 0 は燃料が 2 つ、層 1 は燃料と、セルの数の違う反射体。列 1 のセルは、層 1 でも層 0 の
+    // 燃料のものを使い、層の表の形がそろう
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5, 21.5],
+            dy: vec![21.5],
+            dz: vec![1.0, 1.0],
+        },
+        materials: vec![
+            fuel(21.5, 4),
+            reflector(21.5, 3, vec![vec![1.0, 1.0]; 4], vec![false; 4]),
+        ],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 0, 0, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let ones = vec![vec![1.0; 4]; 4];
+    let maps = vec![ones.clone(), ones.clone(), ones, vec![vec![0.0; 3]; 3]];
+    let rows = core_rows(&p, &maps).unwrap();
+    // 層の和は、列 0 のセルが 2、列 1 のセルが 1（層 1 の反射体は 0）。平均 1.5 で規格化する
+    assert_eq!(
+        rows,
+        vec![[vec![2.0 / 1.5; 4], vec![1.0 / 1.5; 4]].concat(); 4]
+    );
+}
+
+#[test]
 fn positions_with_only_some_values_are_errors() {
     // 層の位置ごとの量（定数、モデル、条件、CDF）は、ノードのある位置ではすべて、ない位置ではどれも持たない。
     // 一部だけ持つのは配列の作り方の誤りなのでエラー

@@ -1,0 +1,7 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# reflector-I.toml の格子と同じ体系を、燃料のノードに単一集合体の定数（f* の方法）を置いて解く。
+cycle = "core-lattice-I-fstar-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "core-lattice-I-fstar-pins.msgpack"
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
