@@ -458,6 +458,7 @@ pub fn shield_fuel_with(
                 dilute_materials,
                 factors,
                 &carlvik,
+                |inputs| cell_range(library, inputs),
             )?;
             Ok(PinSolution { carlvik, ufg })
         })
@@ -753,7 +754,8 @@ fn shield_lumps(
         };
         let material = &materials[index];
         let tables = shield_material(library, material, &equivalence, options, cell)?;
-        // 棒は、UFG の範囲を塊の Dancoff 係数を合わせた等価なセルの減速計算で遮蔽する（ADR-0142）
+        // 棒は、UFG の範囲を塊の Dancoff 係数を合わせた等価なセルの減速計算で遮蔽し、リングごとに SPH 因子を掛けた
+        // 群定数を置く（燃料のピンと同じ。ADR-0142）
         let rod = match rod_rings(lattice, cell, &lump_regions) {
             Some(rings) => {
                 let pin = PinRings {
@@ -763,44 +765,68 @@ fn shield_lumps(
                     region_index,
                     void: materials.len(),
                 };
-                solve_equivalent_cell(
+                shield_cell(
                     library,
                     &pin,
                     materials,
                     &shielded.materials,
                     &found.dancoff,
+                    &tables,
                     |_| material_range(library, material),
                 )?
-                .map(|e| (center_average(&tables, &e, rings), e.radius))
+                .map(|c| (c, rings))
             }
             None => None,
         };
         let (tables, equivalent) = match rod {
-            Some((tables, radius)) => (tables, Some(radius)),
-            None => (tables, None),
-        };
-        let nuclides = material
-            .composition
-            .iter()
-            .zip(&tables)
-            .map(|((name, density), s)| {
-                Ok((
-                    shielded_nuclide(library, name, material.temperature, s)?,
-                    *density,
-                ))
-            })
-            .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-        let mixed = Material::from_nuclides(&nuclides, ng).map_err(|source| {
-            SelfShieldingError::Material {
-                name: material.name.clone(),
-                source,
+            Some((c, rings)) => {
+                // 棒のリングの物質。塊の領域のリングは、その領域のセル（対称操作の像）の中の番号から求める
+                let mut ring_material = Vec::with_capacity(rings);
+                for m in c.rings.into_iter().take(rings) {
+                    let m = m.ok_or(SelfShieldingError::CellShape(cell))?;
+                    shielded.materials.push(m);
+                    ring_material.push(shielded.materials.len() - 1);
+                }
+                for &region in &lump_regions {
+                    let home = lattice.region_cell(region);
+                    let sectors = lattice
+                        .cell_type(home)
+                        .pin()
+                        .ok_or(SelfShieldingError::CellShape(home))?
+                        .sectors();
+                    let ring = (region - lattice.cell_regions(home).start) / sectors;
+                    shielded.region_material[region] = *ring_material
+                        .get(ring)
+                        .ok_or(SelfShieldingError::CellShape(home))?;
+                }
+                (c.effective, Some(c.radius))
             }
-        })?;
-        shielded.materials.push(mixed);
-        let m = shielded.materials.len() - 1;
-        for &region in &lump_regions {
-            shielded.region_material[region] = m;
-        }
+            None => {
+                let nuclides = material
+                    .composition
+                    .iter()
+                    .zip(&tables)
+                    .map(|((name, density), s)| {
+                        Ok((
+                            shielded_nuclide(library, name, material.temperature, s)?,
+                            *density,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+                let mixed = Material::from_nuclides(&nuclides, ng).map_err(|source| {
+                    SelfShieldingError::Material {
+                        name: material.name.clone(),
+                        source,
+                    }
+                })?;
+                shielded.materials.push(mixed);
+                let m = shielded.materials.len() - 1;
+                for &region in &lump_regions {
+                    shielded.region_material[region] = m;
+                }
+                (tables, None)
+            }
+        };
         shielded.lumps.push(LumpShielding {
             cell,
             material: material.name.clone(),
@@ -1101,12 +1127,11 @@ fn shield_cell(
     dilute: &[Material],
     dancoff: &[f64],
     carlvik: &[Shielded],
+    range_of: impl FnOnce(&[Option<&MaterialInput>]) -> Result<Option<[f64; 2]>, UfgError>,
 ) -> Result<Option<CellShielding>, SelfShieldingError> {
     let cell = pin.cell;
     let Some(equivalent) =
-        solve_equivalent_cell(library, pin, materials, dilute, dancoff, |inputs| {
-            cell_range(library, inputs)
-        })?
+        solve_equivalent_cell(library, pin, materials, dilute, dancoff, range_of)?
     else {
         return Ok(None);
     };
