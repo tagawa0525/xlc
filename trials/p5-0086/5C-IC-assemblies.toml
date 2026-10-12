@@ -1,0 +1,630 @@
+[design.21]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/21.msgpack"]
+
+[design.21-b4c]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/21-b4c.msgpack"]
+
+[design.26-b4c]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/26-b4c.msgpack"]
+
+[design.26-p16]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/26-p16.msgpack"]
+
+[design.26-p20]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/26-p20.msgpack"]
+
+[design.26-p24]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/26-p24.msgpack"]
+
+[design.31]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/31.msgpack"]
+
+[design.31-p12]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/31-p12.msgpack"]
+
+[design.31-p16]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/31-p16.msgpack"]
+
+[design.31-p24]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/31-p24.msgpack"]
+
+[design.31-p8]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/31-p8.msgpack"]
+
+[design.C-reflector-corner-fuel]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-corner-fuel.msgpack"]
+
+[design.I-reflector-I-fuel]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-I-fuel.msgpack"]
+
+[assembly.L01]
+design = "C-reflector-corner-fuel"
+
+[assembly.K01]
+design = "31-p8"
+
+[assembly.J01]
+design = "I-reflector-I-fuel"
+
+[assembly.H01]
+design = "31-p12"
+
+[assembly.G01]
+design = "I-reflector-I-fuel"
+
+[assembly.F01]
+design = "31-p8"
+
+[assembly.E01]
+design = "C-reflector-corner-fuel"
+
+[assembly.N02]
+design = "C-reflector-corner-fuel"
+
+[assembly.M02]
+design = "I-reflector-I-fuel"
+
+[assembly.L02]
+design = "31-p16"
+
+[assembly.K02]
+design = "21"
+
+[assembly.J02]
+design = "31-p24"
+
+[assembly.H02]
+design = "21"
+
+[assembly.G02]
+design = "31-p24"
+
+[assembly.F02]
+design = "21"
+
+[assembly.E02]
+design = "31-p16"
+
+[assembly.D02]
+design = "I-reflector-I-fuel"
+
+[assembly.C02]
+design = "C-reflector-corner-fuel"
+
+[assembly.P03]
+design = "C-reflector-corner-fuel"
+
+[assembly.N03]
+design = "31-p12"
+
+[assembly.M03]
+design = "26-p24"
+
+[assembly.L03]
+design = "21"
+
+[assembly.K03]
+design = "26-p16"
+
+[assembly.J03]
+design = "21"
+
+[assembly.H03]
+design = "26-p20"
+
+[assembly.G03]
+design = "21"
+
+[assembly.F03]
+design = "26-p16"
+
+[assembly.E03]
+design = "21"
+
+[assembly.D03]
+design = "26-p24"
+
+[assembly.C03]
+design = "31-p12"
+
+[assembly.B03]
+design = "C-reflector-corner-fuel"
+
+[assembly.P04]
+design = "I-reflector-I-fuel"
+
+[assembly.N04]
+design = "26-p24"
+
+[assembly.M04]
+design = "26-b4c"
+
+[assembly.L04]
+design = "26-p20"
+
+[assembly.K04]
+design = "21"
+
+[assembly.J04]
+design = "26-p20"
+
+[assembly.H04]
+design = "21-b4c"
+
+[assembly.G04]
+design = "26-p20"
+
+[assembly.F04]
+design = "21"
+
+[assembly.E04]
+design = "26-p20"
+
+[assembly.D04]
+design = "26-b4c"
+
+[assembly.C04]
+design = "26-p24"
+
+[assembly.B04]
+design = "I-reflector-I-fuel"
+
+[assembly.R05]
+design = "C-reflector-corner-fuel"
+
+[assembly.P05]
+design = "31-p16"
+
+[assembly.N05]
+design = "21"
+
+[assembly.M05]
+design = "26-p20"
+
+[assembly.L05]
+design = "21"
+
+[assembly.K05]
+design = "26-p20"
+
+[assembly.J05]
+design = "21"
+
+[assembly.H05]
+design = "26-p20"
+
+[assembly.G05]
+design = "21"
+
+[assembly.F05]
+design = "26-p20"
+
+[assembly.E05]
+design = "21"
+
+[assembly.D05]
+design = "26-p20"
+
+[assembly.C05]
+design = "21"
+
+[assembly.B05]
+design = "31-p16"
+
+[assembly.A05]
+design = "C-reflector-corner-fuel"
+
+[assembly.R06]
+design = "31-p8"
+
+[assembly.P06]
+design = "21"
+
+[assembly.N06]
+design = "26-p16"
+
+[assembly.M06]
+design = "21"
+
+[assembly.L06]
+design = "26-p20"
+
+[assembly.K06]
+design = "21"
+
+[assembly.J06]
+design = "26-p24"
+
+[assembly.H06]
+design = "21"
+
+[assembly.G06]
+design = "26-p24"
+
+[assembly.F06]
+design = "21"
+
+[assembly.E06]
+design = "26-p20"
+
+[assembly.D06]
+design = "21"
+
+[assembly.C06]
+design = "26-p16"
+
+[assembly.B06]
+design = "21"
+
+[assembly.A06]
+design = "31-p8"
+
+[assembly.R07]
+design = "I-reflector-I-fuel"
+
+[assembly.P07]
+design = "31-p24"
+
+[assembly.N07]
+design = "21"
+
+[assembly.M07]
+design = "26-p20"
+
+[assembly.L07]
+design = "21"
+
+[assembly.K07]
+design = "26-p24"
+
+[assembly.J07]
+design = "21"
+
+[assembly.H07]
+design = "26-p20"
+
+[assembly.G07]
+design = "21"
+
+[assembly.F07]
+design = "26-p24"
+
+[assembly.E07]
+design = "21"
+
+[assembly.D07]
+design = "26-p20"
+
+[assembly.C07]
+design = "21"
+
+[assembly.B07]
+design = "31-p24"
+
+[assembly.A07]
+design = "I-reflector-I-fuel"
+
+[assembly.R08]
+design = "31-p12"
+
+[assembly.P08]
+design = "21"
+
+[assembly.N08]
+design = "26-p20"
+
+[assembly.M08]
+design = "21-b4c"
+
+[assembly.L08]
+design = "26-p20"
+
+[assembly.K08]
+design = "21"
+
+[assembly.J08]
+design = "26-p20"
+
+[assembly.H08]
+design = "21-b4c"
+
+[assembly.G08]
+design = "26-p20"
+
+[assembly.F08]
+design = "21"
+
+[assembly.E08]
+design = "26-p20"
+
+[assembly.D08]
+design = "21-b4c"
+
+[assembly.C08]
+design = "26-p20"
+
+[assembly.B08]
+design = "21"
+
+[assembly.A08]
+design = "31-p12"
+
+[assembly.R09]
+design = "I-reflector-I-fuel"
+
+[assembly.P09]
+design = "31-p24"
+
+[assembly.N09]
+design = "21"
+
+[assembly.M09]
+design = "26-p20"
+
+[assembly.L09]
+design = "21"
+
+[assembly.K09]
+design = "26-p24"
+
+[assembly.J09]
+design = "21"
+
+[assembly.H09]
+design = "26-p20"
+
+[assembly.G09]
+design = "21"
+
+[assembly.F09]
+design = "26-p24"
+
+[assembly.E09]
+design = "21"
+
+[assembly.D09]
+design = "26-p20"
+
+[assembly.C09]
+design = "21"
+
+[assembly.B09]
+design = "31-p24"
+
+[assembly.A09]
+design = "I-reflector-I-fuel"
+
+[assembly.R10]
+design = "31-p8"
+
+[assembly.P10]
+design = "21"
+
+[assembly.N10]
+design = "26-p16"
+
+[assembly.M10]
+design = "21"
+
+[assembly.L10]
+design = "26-p20"
+
+[assembly.K10]
+design = "21"
+
+[assembly.J10]
+design = "26-p24"
+
+[assembly.H10]
+design = "21"
+
+[assembly.G10]
+design = "26-p24"
+
+[assembly.F10]
+design = "21"
+
+[assembly.E10]
+design = "26-p20"
+
+[assembly.D10]
+design = "21"
+
+[assembly.C10]
+design = "26-p16"
+
+[assembly.B10]
+design = "21"
+
+[assembly.A10]
+design = "31-p8"
+
+[assembly.R11]
+design = "C-reflector-corner-fuel"
+
+[assembly.P11]
+design = "31-p16"
+
+[assembly.N11]
+design = "21"
+
+[assembly.M11]
+design = "26-p20"
+
+[assembly.L11]
+design = "21"
+
+[assembly.K11]
+design = "26-p20"
+
+[assembly.J11]
+design = "21"
+
+[assembly.H11]
+design = "26-p20"
+
+[assembly.G11]
+design = "21"
+
+[assembly.F11]
+design = "26-p20"
+
+[assembly.E11]
+design = "21"
+
+[assembly.D11]
+design = "26-p20"
+
+[assembly.C11]
+design = "21"
+
+[assembly.B11]
+design = "31-p16"
+
+[assembly.A11]
+design = "C-reflector-corner-fuel"
+
+[assembly.P12]
+design = "I-reflector-I-fuel"
+
+[assembly.N12]
+design = "26-p24"
+
+[assembly.M12]
+design = "26-b4c"
+
+[assembly.L12]
+design = "26-p20"
+
+[assembly.K12]
+design = "21"
+
+[assembly.J12]
+design = "26-p20"
+
+[assembly.H12]
+design = "21-b4c"
+
+[assembly.G12]
+design = "26-p20"
+
+[assembly.F12]
+design = "21"
+
+[assembly.E12]
+design = "26-p20"
+
+[assembly.D12]
+design = "26-b4c"
+
+[assembly.C12]
+design = "26-p24"
+
+[assembly.B12]
+design = "I-reflector-I-fuel"
+
+[assembly.P13]
+design = "C-reflector-corner-fuel"
+
+[assembly.N13]
+design = "31-p12"
+
+[assembly.M13]
+design = "26-p24"
+
+[assembly.L13]
+design = "21"
+
+[assembly.K13]
+design = "26-p16"
+
+[assembly.J13]
+design = "21"
+
+[assembly.H13]
+design = "26-p20"
+
+[assembly.G13]
+design = "21"
+
+[assembly.F13]
+design = "26-p16"
+
+[assembly.E13]
+design = "21"
+
+[assembly.D13]
+design = "26-p24"
+
+[assembly.C13]
+design = "31-p12"
+
+[assembly.B13]
+design = "C-reflector-corner-fuel"
+
+[assembly.N14]
+design = "C-reflector-corner-fuel"
+
+[assembly.M14]
+design = "I-reflector-I-fuel"
+
+[assembly.L14]
+design = "31-p16"
+
+[assembly.K14]
+design = "21"
+
+[assembly.J14]
+design = "31-p24"
+
+[assembly.H14]
+design = "21"
+
+[assembly.G14]
+design = "31-p24"
+
+[assembly.F14]
+design = "21"
+
+[assembly.E14]
+design = "31-p16"
+
+[assembly.D14]
+design = "I-reflector-I-fuel"
+
+[assembly.C14]
+design = "C-reflector-corner-fuel"
+
+[assembly.L15]
+design = "C-reflector-corner-fuel"
+
+[assembly.K15]
+design = "31-p8"
+
+[assembly.J15]
+design = "I-reflector-I-fuel"
+
+[assembly.H15]
+design = "31-p12"
+
+[assembly.G15]
+design = "I-reflector-I-fuel"
+
+[assembly.F15]
+design = "31-p8"
+
+[assembly.E15]
+design = "C-reflector-corner-fuel"

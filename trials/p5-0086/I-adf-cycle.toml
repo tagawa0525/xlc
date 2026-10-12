@@ -1,0 +1,3 @@
+plant = "../../examples/vera/p5/core-lattice-I-plant.toml"
+inventory = "I-adf-assemblies.toml"
+loading = ["f ."]
