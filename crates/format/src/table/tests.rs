@@ -326,3 +326,83 @@ fn states_need_the_height_key() {
     let err = Table::from_msgpack(&out).unwrap_err().to_string();
     assert!(err.contains("height") || err.contains("missing"), "{err}");
 }
+
+/// sample の 3 つの連続の軸に、制御棒の離散の軸（なし、AIC、B4C）を足したもの（ADR-0097、ADR-0127）
+fn rodded() -> Table {
+    let mut table = sample();
+    table.axes.push(Axis::Rod {
+        values: vec!["out".into(), "aic".into(), "b4c".into()],
+    });
+    table.states = (0..12).map(|i| state(3.0 + f64::from(i))).collect();
+    table
+}
+
+#[test]
+fn rod_axes_round_trip_with_named_values() {
+    let table = rodded();
+    assert_eq!(table.axes[3].name(), "rod");
+    assert_eq!(table.axes[3].len(), 3);
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+}
+
+#[test]
+fn rod_axes_need_distinct_nonempty_values() {
+    let bad = |values: Vec<&str>| {
+        let mut table = rodded();
+        table.axes[3] = Axis::Rod {
+            values: values.into_iter().map(String::from).collect(),
+        };
+        table.states.truncate(4 * table.axes[3].len().max(1));
+        assert!(table.validate().is_err());
+    };
+    bad(vec![]);
+    bad(vec!["out", "out"]);
+    bad(vec!["out", ""]);
+    bad(vec!["out", "a b"]);
+}
+
+/// ファイルの値の、axes の n 番目の軸の map
+fn axis_fields(value: &mut rmpv::Value, n: usize) -> &mut Vec<(rmpv::Value, rmpv::Value)> {
+    let rmpv::Value::Map(entries) = value else {
+        panic!()
+    };
+    let (_, axes) = entries
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("axes"))
+        .unwrap();
+    let rmpv::Value::Array(axes) = axes else {
+        panic!()
+    };
+    let rmpv::Value::Map(fields) = &mut axes[n] else {
+        panic!()
+    };
+    fields
+}
+
+#[test]
+fn reading_rejects_points_on_rod_axes_and_values_on_continuous_axes() {
+    let edit = |change: fn(&mut rmpv::Value)| {
+        let bytes = rodded().to_msgpack().unwrap();
+        let mut value = msgpack::read_value(&bytes).unwrap();
+        change(&mut value);
+        let mut out = Vec::new();
+        rmpv::encode::write_value(&mut out, &value).unwrap();
+        Table::from_msgpack(&out)
+    };
+    assert!(edit(|_| {}).is_ok());
+    // 制御棒の軸に点がある、値がない
+    assert!(
+        edit(|v| axis_fields(v, 3).push(("points".into(), vec![rmpv::Value::from(1.0)].into())))
+            .is_err()
+    );
+    assert!(edit(|v| axis_fields(v, 3).retain(|(k, _)| k.as_str() != Some("values"))).is_err());
+    // 連続の軸に値の名前がある、点がない
+    assert!(
+        edit(|v| axis_fields(v, 2).push(("values".into(), vec![rmpv::Value::from("out")].into())))
+            .is_err()
+    );
+    assert!(edit(|v| axis_fields(v, 2).retain(|(k, _)| k.as_str() != Some("points"))).is_err());
+}
