@@ -64,7 +64,8 @@ issues: ["#0089"]
   の `sample`、`sample_pins`、crates/numeric/src/pins/node.rs の `modes_at`、`flux` がこれにあたる。ほかのモジュールの
   テストが使う項目（`sample`、`sample_pins` は crates/format/src/table/tests.rs が使う）は、`pub(crate) mod tests;` の中に置き、
   呼び出し側は `crate::fewgroup::tests::sample` のように `tests` を通して引く
-- 本番のファイルに残る `#[cfg(test)]` は、`mod tests;` の宣言と、パスが `tests` のモジュールを通る `use`（ほかの
+- 本番のファイル（`crates/*/src` の `tests.rs` 以外のファイル）に残る `#[cfg(test)]` は、`mod tests;` の宣言（`main.rs` では
+  `#[path]` を付けたもの）と、パスが `tests` のモジュールを通る `use`（ほかの
   モジュールのテストの補助を引くもの。2026-10-12 には crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`、
   `pub(crate) use tape::tests::rec;`、crates/xs/src/resonance/mod.rs と crates/xs/src/multigroup/mod.rs の同じ形の
   `use`）だけにする。クレートの入口（`lib.rs`、`main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
