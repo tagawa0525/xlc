@@ -162,6 +162,8 @@ def case_states(path: Path, cases: dict[int, dict]) -> dict[str, int]:
     states = tomllib.loads(path.read_text()).get("state", {})
     out = {}
     for name, state in states.items():
+        if not isinstance(state, dict):
+            raise SystemExit(f"{path}: state {name}: name each state as [state.<name>]")
         m = re.fullmatch(r"case-([1-9]\d*)", name)
         if not m or int(m.group(1)) not in cases:
             raise SystemExit(f"{path}: state {name}: name it case-<n> (Table P5-2)")
