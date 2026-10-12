@@ -37,8 +37,8 @@ VERA 5A-2D を全炉心（ADR-0090）で、単一集合体の定数と I 型・�
 確かめようとして止まったこと:
 
 - 5 × 5 の集合体と反射体の輪を、自己遮蔽ありの MOC で解く入力は、メモリが 82 GB を超えて止まった（3 × 3 では 37 GB。
-  9453d8be の examples/vera/p5/p5_inputs.py の `medium`、2026-10-12）
-- 同じ入力を自己遮蔽なしで解くと（835b01d5 の trials/p5/nss/）、角型の格子が止まった。2 辺が真空の角の点 8 で、均質な
+  3040e32e の examples/vera/p5/p5_inputs.py の `medium`、2026-10-12）
+- 同じ入力を自己遮蔽なしで解くと（1f491617 の trials/p5/nss/）、角型の格子が止まった。2 辺が真空の角の点 8 で、均質な
   角の中性子束の大きさが熱群で負になった（`corner point 8: the homogeneous corner flux scale [2.078, -0.0563] is not positive`。
   #0065 と同じ種類）
 
