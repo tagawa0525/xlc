@@ -381,8 +381,11 @@ fn parses_named_states_in_name_order() {
 fn invalid_states_are_errors() {
     let bad =
         |from: &str, to: &str| Case::parse(&edited(&with_states(), from, to), base()).is_err();
-    // 4つとも必須で、知らない項目はエラー
+    // 4つとも必須で、知らない項目はエラー。エラーはケースのファイルの行を示す
     assert!(bad("boron = 1170\n", ""));
+    let error =
+        Case::parse(&edited(&with_states(), "fuel = 560", "fule = 560"), base()).unwrap_err();
+    assert!(error.to_string().contains("line"), "{error}");
     assert!(bad("b10 = 0.199\nmoderator = 560", "moderator = 560"));
     assert!(bad("fuel = 560", "fuel = 560\nrods = 1"));
     // 名前は図の記号と区別できること
