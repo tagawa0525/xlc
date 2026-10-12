@@ -239,6 +239,7 @@ pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f6
             nx * ny * nz
         ));
     }
+    let (widths, heights) = cell_sizes(problem)?;
     // [行（-y から）][列] の層の和
     let mut total: Option<Vec<Vec<f64>>> = None;
     for k in 0..nz {
@@ -246,7 +247,7 @@ pub fn core_rows(problem: &Problem, maps: &[Vec<Vec<f64>>]) -> Result<Vec<Vec<f6
         if layer.iter().all(Vec::is_empty) {
             continue;
         }
-        let grid = layer_grid(problem, k, layer)?;
+        let grid = layer_grid(problem, k, layer, (&widths, &heights))?;
         let sum = total.get_or_insert_with(|| grid.iter().map(|r| vec![0.0; r.len()]).collect());
         if sum.len() != grid.len() || sum.iter().zip(&grid).any(|(a, b)| a.len() != b.len()) {
             return Err(format!(
@@ -292,11 +293,76 @@ fn same_sizes(a: &[f64], b: &[f64]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| (x - y).abs() <= 1e-9 * scale)
 }
 
-/// 層 k の炉心全体のセルの出力 [行（-y から）][列]。分け合ったセルは面積で重み付けして1つに戻す
+/// 核分裂のあるノードか（ノードのない位置は核分裂なし）
+fn fissile_node(problem: &Problem, n: usize) -> Result<bool, String> {
+    match problem.node_material.get(n).copied().flatten() {
+        None => Ok(false),
+        Some(m) => {
+            let material = problem
+                .materials
+                .get(m)
+                .ok_or_else(|| format!("node {n} has no material"))?;
+            is_fissile(&material.nu_fission).map_err(|e| format!("node {n}: {e}"))
+        }
+    }
+}
+
+/// ノードの列ごとのセルの幅と、ノードの行ごとのセルの高さ。どの層でも、その列（行）の核分裂のあるノードのセルで、
+/// それらはそろうこと。核分裂のないノード（反射体）のセルは 0 なので、表ではセルの大きさによらず 0 で埋める。
+/// 階段の外形の炉心では、燃料の列に、セルの幅の違う向きの反射体のノードが並ぶ（ADR-0132）。核分裂のあるノードの
+/// ない列（行）はすべて 0 で、表に残らないので、セルを持たない
+fn cell_sizes(problem: &Problem) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>), String> {
+    let mesh = &problem.mesh;
+    let (nx, ny, nz) = (mesh.dx.len(), mesh.dy.len(), mesh.dz.len());
+    let sizes = |count: usize,
+                 across: usize,
+                 at: &dyn Fn(usize, usize, usize) -> usize,
+                 size: fn(&Pins) -> &[f64],
+                 what: &str|
+     -> Result<Vec<Vec<f64>>, String> {
+        (0..count)
+            .map(|c| {
+                let mut first: Option<&[f64]> = None;
+                for k in 0..nz {
+                    for a in 0..across {
+                        let n = at(c, a, k);
+                        if !fissile_node(problem, n)? {
+                            continue;
+                        }
+                        let (_, p) = node_constants(problem, n)?;
+                        match first {
+                            None => first = Some(size(p)),
+                            Some(f) if !same_sizes(size(p), f) => {
+                                return Err(format!(
+                                    "the fission nodes of {what} {c} have different cell sizes"
+                                ));
+                            }
+                            Some(_) => {}
+                        }
+                    }
+                }
+                Ok(first.map_or_else(Vec::new, <[f64]>::to_vec))
+            })
+            .collect()
+    };
+    let widths = sizes(
+        nx,
+        ny,
+        &|i, j, k| i + nx * (j + ny * k),
+        |p| &p.dx,
+        "column",
+    )?;
+    let heights = sizes(ny, nx, &|j, i, k| i + nx * (j + ny * k), |p| &p.dy, "row")?;
+    Ok((widths, heights))
+}
+
+/// 層 k の炉心全体のセルの出力 [行（-y から）][列]。`sizes` は `cell_sizes` の列の幅と行の高さ。分け合ったセルは
+/// 面積で重み付けして1つに戻す
 fn layer_grid(
     problem: &Problem,
     k: usize,
     layer: &[Vec<Vec<f64>>],
+    sizes: (&[Vec<f64>], &[Vec<f64>]),
 ) -> Result<Vec<Vec<f64>>, String> {
     let mesh = &problem.mesh;
     let (nx, ny) = (mesh.dx.len(), mesh.dy.len());
@@ -308,51 +374,8 @@ fn layer_grid(
             _ => node_constants(problem, n).map(|(_, p)| Some(p)),
         }
     };
-    // 核分裂のあるノード。核分裂のないノード（反射体）のセルは 0 なので、表ではセルの大きさによらず 0 で埋める
-    let fissile = |i: usize, j: usize| -> bool {
-        problem.node_material[i + nx * (j + ny * k)]
-            .and_then(|m| problem.materials.get(m))
-            .is_some_and(|m| m.nu_fission.iter().any(|&v| v > 0.0))
-    };
-    // ノードの列ごとのセルの幅（行ごとの高さ）は、その列（行）の核分裂のあるノードで同じで、それを使う。核分裂の
-    // あるノードのない列（行）では、ノードのどれでも同じで、それを使う。階段の外形の炉心では、燃料の列に、セルの
-    // 幅の違う向きの反射体のノードが並ぶ（ADR-0132）
-    let sizes = |count: usize,
-                 at: &dyn Fn(usize) -> (usize, usize),
-                 size: fn(&Pins) -> &[f64],
-                 what: &str|
-     -> Result<&[f64], String> {
-        for only_fissile in [true, false] {
-            let mut first: Option<&[f64]> = None;
-            for c in 0..count {
-                let (i, j) = at(c);
-                if only_fissile && !fissile(i, j) {
-                    continue;
-                }
-                let Some(p) = pins(i, j)? else { continue };
-                match first {
-                    None => first = Some(size(p)),
-                    Some(f) if !same_sizes(size(p), f) => {
-                        return Err(format!(
-                            "layer {k}: the nodes of {what} have different cell sizes"
-                        ));
-                    }
-                    Some(_) => {}
-                }
-            }
-            if let Some(f) = first {
-                return Ok(f);
-            }
-        }
-        // ノードのない列（行）はセルを持たない
-        Ok(&[])
-    };
-    let widths = (0..nx)
-        .map(|i| sizes(ny, &|j| (i, j), |p| &p.dx, &format!("column {i}")))
-        .collect::<Result<Vec<_>, String>>()?;
-    let heights = (0..ny)
-        .map(|j| sizes(nx, &|i| (i, j), |p| &p.dy, &format!("row {j}")))
-        .collect::<Result<Vec<_>, String>>()?;
+    let widths: Vec<&[f64]> = sizes.0.iter().map(Vec::as_slice).collect();
+    let heights: Vec<&[f64]> = sizes.1.iter().map(Vec::as_slice).collect();
     // ノードの列 i と i + 1（行 j と j + 1）の間で分け合ったセルがあるか。両側にノードのある組で、両側の印が
     // そろうこと。そのような組がなければ分け合っていない
     let shared = |a: &Pins, a_side: usize, b: &Pins, b_side: usize| -> Result<bool, String> {
@@ -432,10 +455,21 @@ fn layer_grid(
             let mut row = Vec::new();
             for i in 0..nx {
                 let map = &layer[i + nx * j];
-                // ノードのない位置と、核分裂のないノードのセルは 0
-                if !fissile(i, j) {
+                // ノードのない位置と、核分裂のないノードのセルは 0。核分裂のないノードの出力に 0 でない値があれば、
+                // 形状関数か再構成の誤りなので、0 で埋めずにエラーにする
+                if !fissile_node(problem, i + nx * (j + ny * k))? {
+                    if map.iter().flatten().any(|&v| v != 0.0) {
+                        return Err(format!(
+                            "layer {k}: node ({i}, {j}) has no fission but nonzero pin powers"
+                        ));
+                    }
                     row.extend(std::iter::repeat_n(0.0, widths[i].len()));
                     continue;
+                }
+                if map.len() != heights[j].len() {
+                    return Err(format!(
+                        "layer {k}: node ({i}, {j}) has a pin map of a wrong size"
+                    ));
                 }
                 let cells = map
                     .get(r)
