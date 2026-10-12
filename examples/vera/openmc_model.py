@@ -5,8 +5,8 @@
 
 <入力> は p1/openmc-1B.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`）、
 openmc_library.py で作った `cross-sections`（cross_sections.xml）、1 世代の粒子数（`particles`）、世代数（`batches`）、
-非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）。燃料の核種ごとの実効断面積を求めるときだけ、
-群構造を読む xlc のライブラリ（`effective-xs-groups`）を書く。パスは入力のファイルからの相対。
+非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）。パスは入力のファイルからの相対。
+標準のタリーの組（openmc_tallies.py、ADR-0152）を入れ、`standard-tallies = false` と書いたときだけ入れない。
 run は OpenMC を解き、作業ディレクトリに statepoint を残す。extract は statepoint から、k を k.json に、下の
 ピン出力と実効断面積を結果のディレクトリに書く（OpenMC を解き直さずに抽出を変えられるよう分ける。ADR-0123）。
 
@@ -16,9 +16,9 @@ run は OpenMC を解き、作業ディレクトリに statepoint を残す。ex
 ギャップの He は ADR-0054 のとおり除く（ギャップは真空。Pyrex の棒と制御棒の中の He も同じ。ADR-0120）。燃料以外は、
 2A と 2Q は 565 K、ほかは 600 K。2Q の支持格子は、各セルの外周の Zircaloy-4 の枠にする（仕様書の表 3 と問題 2 の
 「Geometry」）。2 で始まる問題は lattice と同じ形式のピンごとの核分裂率を pins.msgpack に書く。
-`effective-xs-groups` を書くと、その xlc のライブラリ（msgpack）の群構造で燃料の核種ごとの実効断面積
+標準のタリーの組を入れたときは、その WIMS 69 群（xlc のライブラリの群構造）の燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を、ピンセル（1 で始まる問題）では fuel-xs.msgpack に、集合体（2 で始まる
-問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用）。2 種の燃料を持つ 2K では書かない（エラーにする）。
+問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用。燃料のないセルは 0）。
 """
 
 import sys
@@ -26,17 +26,12 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 import msgpack
+import numpy as np
 import openmc
+import openmc_tallies
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from openmc_common import (
-    effective_xs,
-    eigenvalue_settings,
-    fuel_tallies,
-    group_filter,
-    input_path,
-    material,
-)
+from openmc_common import STORED, eigenvalue_settings, material
 from openmc_run import fuel_mean, mesh_values, run_or_extract, write_k, write_pin_powers
 from openmc_run import read_run as common_read_run
 
@@ -579,29 +574,96 @@ def temperature_mode(temperature: float) -> dict:
     return {"method": method, "tolerance": 1.0}
 
 
-OPTIONAL = {"effective-xs-groups"}
-
-
 def read_run(source: Path) -> dict[str, Any]:
     """入力の TOML を読み、問題を確かめ、パスを絶対パスにする。"""
-    run = common_read_run(source, list(FUEL_TEMPERATURE), OPTIONAL)
+    run = common_read_run(source, list(FUEL_TEMPERATURE), openmc_tallies.OPTIONAL)
     problem = run["problem"]
     if any(problem not in table for table in (MODERATOR_TEMPERATURE, MODERATOR_OF)):
         raise SystemExit(f"{problem} lacks its moderator in the tables")
-    if problem in ZONED and "effective-xs-groups" in run:
-        # 実効断面積の tally は 1 つの燃料の物質と個数密度を前提にする
-        raise SystemExit(f"{problem} has two fuels; pin cross sections are not written")
-    if "effective-xs-groups" in run:
-        run["effective-xs-groups"] = input_path(source, run["effective-xs-groups"])
     return run
+
+
+def fuels_of(materials: openmc.Materials) -> list[openmc.Material]:
+    """燃料の物質（2K は 2 種）。"""
+    return [m for m in materials if m.name in ("fuel", "fuel-zoned")]
+
+
+def standard_tallies(problem: str, materials: openmc.Materials) -> list[openmc.Tally]:
+    """問題の種類（ピンセルか集合体）の標準のタリーの組（ADR-0152）。"""
+    if problem.startswith("1"):
+        return openmc_tallies.pincell(list(materials))
+    half = N * PITCH / 2 + HALF_GAP
+    return openmc_tallies.assembly(
+        list(materials), fuels_of(materials), pin_mesh(), half, HALF_GAP
+    )
+
+
+def without_outside(groups: np.ndarray) -> np.ndarray:
+    """標準のタリーの組の 71 のビン（昇順、範囲の外の 2 つを含む）を、xlc と同じく高いエネルギーから並べた 69 群にする。"""
+    return groups[..., 1:-1][..., ::-1]
+
+
+def fuel_xs(sp: openmc.StatePoint, fuel: openmc.Material) -> dict:
+    """ピンセルの燃料の核種ごとの実効断面積（標準のタリーの組の `nuclides` と `material groups` から）。"""
+    bins = {"filters": [openmc.MaterialFilter], "filter_bins": [(fuel.id,)]}
+    flux = sp.get_tally(name=openmc_tallies.name("material groups"))
+    phi = flux.get_values(scores=["flux"], **bins).ravel()
+    rates = sp.get_tally(name=openmc_tallies.name("nuclides"))
+    densities = fuel.get_nuclide_atom_densities()
+    xs = {}
+    for nuclide, density in densities.items():
+        xs[nuclide] = {}
+        for score in SCORES:
+            rate = rates.get_values(
+                scores=[STORED.get(score, score)], nuclides=[nuclide], **bins
+            ).ravel()
+            # 範囲の外のビン（捨てる）には中性子束が 0 のものがある
+            value = np.divide(
+                rate, density * phi, out=np.zeros_like(rate), where=phi > 0
+            )
+            xs[nuclide][score] = without_outside(value).tolist()
+    return xs
+
+
+def pin_xs(sp: openmc.StatePoint, fuels: list[openmc.Material]) -> dict:
+    """集合体のピンごとの燃料の核種の実効断面積（標準のタリーの組の `pin nuclides` から）。
+
+    1 つのピンには 1 種の燃料しかないので、燃料の物質についての和で割る（反応率の和 / Σ 個数密度 × 中性子束）。
+    燃料のないセルは 0。"""
+
+    # [メッシュ（x が速く、y は下から）][燃料][ビン] を [行（上から）][列][燃料][ビン] にする
+    def pins(values: np.ndarray) -> np.ndarray:
+        return values.reshape(N, N, len(fuels), -1)[::-1]
+
+    phi = pins(
+        sp.get_tally(name=openmc_tallies.name("pin nuclides flux")).get_values(
+            scores=["flux"]
+        )
+    )
+    rates = sp.get_tally(name=openmc_tallies.name("pin nuclides"))
+    xs = {}
+    for nuclide in FUEL:
+        density = np.array([f.get_nuclide_atom_densities()[nuclide] for f in fuels])[
+            :, None
+        ]
+        reacting = (density * phi).sum(axis=2)
+        xs[nuclide] = {}
+        for score in SCORES:
+            rate = pins(
+                rates.get_values(scores=[STORED.get(score, score)], nuclides=[nuclide])
+            ).sum(axis=2)
+            value = np.divide(
+                rate, reacting, out=np.zeros_like(rate), where=reacting > 0
+            )
+            xs[nuclide][score] = without_outside(value).tolist()
+    return xs
 
 
 def solve(source: Path, work: Path) -> None:
     run = read_run(source)
     problem = run["problem"]
-    library = run.get("effective-xs-groups")
     work.mkdir(parents=True, exist_ok=True)
-    fuel, materials, geometry, half = build(problem, run["cross-sections"])
+    _, materials, geometry, half = build(problem, run["cross-sections"])
 
     settings = eigenvalue_settings(
         run["particles"], run["batches"], run["inactive"], run["seed"], half
@@ -615,19 +677,9 @@ def solve(source: Path, work: Path) -> None:
         tally.filters = [openmc.MeshFilter(mesh)]
         tally.scores = ["fission"]
         tallies.append(tally)
-        # ピンごとの燃料の核種の実効断面積（メッシュはピンのセルと一致する）
-        if library is not None:
-            pin_filters = [
-                openmc.MeshFilter(mesh),
-                openmc.MaterialFilter([fuel]),
-                group_filter(library),
-            ]
-            tallies.extend(fuel_tallies("pin fuel", pin_filters, list(FUEL), SCORES))
-
-    # 燃料の核種ごとの実効断面積（群構造は xlc のライブラリから。OpenMC の境界は昇順）
-    if problem.startswith("1") and library is not None:
-        filters = [openmc.MaterialFilter([fuel]), group_filter(library)]
-        tallies.extend(fuel_tallies("fuel", filters, list(FUEL), SCORES))
+    if openmc_tallies.enabled(run):
+        tallies.extend(standard_tallies(problem, materials))
+        openmc_tallies.quiet(settings)
 
     model = openmc.Model(geometry, materials, settings, tallies)
     model.run(cwd=work, threads=run["threads"], output=False)
@@ -636,39 +688,22 @@ def solve(source: Path, work: Path) -> None:
 def extract(source: Path, work: Path, results: Path) -> None:
     run = read_run(source)
     problem = run["problem"]
-    library = run.get("effective-xs-groups")
     results.mkdir(parents=True, exist_ok=True)
     with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         k = sp.keff
         if problem.startswith("2"):
             write_pins(sp, results / "pins.msgpack")
-            if library is not None:
-                # [メッシュ（x が速く、y は下から）][群（昇順）] を [行（上から）][列][群（高いエネルギーから）] にする
-                def pins(values):
-                    groups = values.size // (N * N)
-                    return values.reshape(N, N, groups)[::-1, :, ::-1]
-
-                # 燃料のないセルは 0
-                xs = {
-                    nuclide: {score: value.tolist() for score, value in by.items()}
-                    for nuclide, by in effective_xs(
-                        sp, "pin fuel", FUEL, SCORES, pins
-                    ).items()
-                }
-                (results / "pin-xs.msgpack").write_bytes(
-                    msgpack.packb({"format": "xlc-pin-xs", "nuclides": xs})
-                )
-        if problem.startswith("1") and library is not None:
-            # 群は xlc と同じく高いエネルギーから並べる
-            xs = {
-                nuclide: {score: value.tolist() for score, value in by.items()}
-                for nuclide, by in effective_xs(
-                    sp, "fuel", FUEL, SCORES, lambda v: v.ravel()[::-1]
-                ).items()
-            }
-            (results / "fuel-xs.msgpack").write_bytes(
-                msgpack.packb({"format": "xlc-fuel-xs", "nuclides": xs})
-            )
+        if openmc_tallies.enabled(run):
+            # 物質は summary.h5（statepoint が読む）から、run の物質と同じ ID で取る
+            materials = list(sp.summary.materials)
+            if problem.startswith("1"):
+                (fuel,) = fuels_of(materials)
+                path, form = results / "fuel-xs.msgpack", "xlc-fuel-xs"
+                xs = fuel_xs(sp, fuel)
+            else:
+                path, form = results / "pin-xs.msgpack", "xlc-pin-xs"
+                xs = pin_xs(sp, fuels_of(materials))
+            path.write_bytes(msgpack.packb({"format": form, "nuclides": xs}))
     write_k(results / "k.json", problem, k)
 
 
