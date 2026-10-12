@@ -242,4 +242,4 @@ M3 の残り（Problem 4、5 の 3D の炉心、制御棒の部分挿入、2G �
 
 ## 公開
 
-参照解と核データの公開は、別に決める公開の方針の ADR（Zenodo、Hugging Face など）に従う。
+参照解と核データの公開は [ADR-0148](../adr/0148-publish-references-on-zenodo.md)（proposed）に従う。
