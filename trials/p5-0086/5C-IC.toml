@@ -1,0 +1,8 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# VERA Problem 5C-2D（D バンク（H8、D8、H12、D12 と鏡映の位置の 9 体）に B4C の制御棒）の全炉心の 2D の計算。外周の直方体と外形の面は真空（ADR-0132）、z は鏡面反射。
+# 制御棒の位置はまだ入力にない（ADR-0105 の `rods`）ので、制御棒の入った集合体は台帳で別の設計にする。
+cycle = "5C-IC-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "5C-IC-pins.msgpack"
+boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["reflective", "reflective"], outline = "vacuum" }

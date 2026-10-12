@@ -1,0 +1,6 @@
+[design.f]
+bounds = [0.0, 21.5]
+layers = ["tables/I-adf.msgpack"]
+
+[assembly.f]
+design = "f"
