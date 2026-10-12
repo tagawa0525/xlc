@@ -1046,12 +1046,15 @@ fn cases_read_bank_steps_and_partial_rod_options() {
     // 混ぜ方と細かいメッシュの幅は ADR-0127 の値が既定
     assert_eq!(c.partial_rods, PartialRods::default());
     assert_eq!(c.partial_rods.weighting, Weighting::Flux);
-    let text = format!("{CASE}\n[partial-rods]\nweighting = \"volume\"\nfine-mesh = 0.25\n");
+    let text = format!("{CASE}\n[partial-rods]\nweighting = \"volume\"\n");
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(c.partial_rods.weighting, Weighting::Volume);
+    let text = format!("{CASE}\n[partial-rods]\nfine-mesh = 0.25\n");
     let c = Case::parse(&text, base()).unwrap();
     assert_eq!(
         c.partial_rods,
         PartialRods {
-            weighting: Weighting::Volume,
+            weighting: Weighting::Flux,
             fine_mesh: 0.25
         }
     );
@@ -1177,4 +1180,11 @@ fn axial_fission_fractions_sum_the_planes() {
     for (got, want) in fractions.iter().zip(rates) {
         assert!((got - want / total).abs() < 1e-12, "{fractions:?}");
     }
+}
+
+#[test]
+fn fine_mesh_with_volume_weighting_is_an_error() {
+    // 体積の重みは細かいメッシュを使わないので、幅を書くのは誤り
+    let text = format!("{CASE}\n[partial-rods]\nweighting = \"volume\"\nfine-mesh = 0.1\n");
+    assert!(Case::parse(&text, base()).is_err());
 }
