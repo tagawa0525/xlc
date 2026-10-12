@@ -30,8 +30,7 @@ Slurm の外から rust-analyzer を実行する。
 
 ## 完了の条件
 
-flycheck の置き場を `target/` の外の専用のディレクトリにし（lsp-det の `.lsp.json` の initializationOptions の
-`cargo.targetDir` などが候補）、時間を記録する測定の間に rust-analyzer を止めるか、止めずに済む根拠を数値で示す。
+flycheck の置き場を `target/debug` と分ける。時間を記録する測定への影響と worktree の `.envrc` は #0094 に移した。
 
 ## 経緯
 
