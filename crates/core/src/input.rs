@@ -45,7 +45,8 @@
 //! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"] }
 //! # map に `-` があれば、boundary に outline = "vacuum" のように足す
 //! # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）。状態が1つ以下のときだけ
-//! pin-powers = "pins.msgpack"
+//! # 書ける（この例は状態が2つなので書かない）
+//! # pin-powers = "pins.msgpack"
 //! # 名前つきの炉心の状態。状態ごとに分岐のテーブルを内挿して解き、名前の順に出す（ADR-0097、ADR-0146）。
 //! # 省略すると、軸のないテーブルだけを使って1つ解く
 //! [state.aro]
@@ -538,38 +539,8 @@ struct CaseFile {
     axial_mesh: Vec<f64>,
     radial_nodes: usize,
     boundary: BoundaryEntry,
-    state: Option<BTreeMap<String, StateEntry>>,
+    state: Option<BTreeMap<String, State>>,
     pin_powers: Option<PathBuf>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct StateEntry {
-    boron: f64,
-    b10: f64,
-    moderator: f64,
-    fuel: f64,
-}
-
-impl CaseState {
-    fn new(name: String, entry: StateEntry) -> Result<Self, InputError> {
-        check_name("state", &name)?;
-        let StateEntry {
-            boron,
-            b10,
-            moderator,
-            fuel,
-        } = entry;
-        Ok(Self {
-            name,
-            state: State {
-                boron,
-                b10,
-                moderator,
-                fuel,
-            },
-        })
-    }
 }
 
 /// 各軸の（低い側, 高い側）
@@ -613,7 +584,10 @@ impl Case {
             }
             Some(states) => states
                 .into_iter()
-                .map(|(name, entry)| CaseState::new(name, entry))
+                .map(|(name, state)| {
+                    check_name("state", &name)?;
+                    Ok::<_, InputError>(CaseState { name, state })
+                })
                 .collect::<Result<Vec<_>, _>>()?,
         };
         if file.pin_powers.is_some() && states.len() > 1 {
