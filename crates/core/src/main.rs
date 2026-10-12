@@ -103,8 +103,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
     } else {
         // 状態をすべて並列に解いてから、名前の順に出す（ADR-0146）
         // 解く前にできる検査は、長い計算を始める前に済ませる
-        for state in &case.states {
-            check_search(state, &options).map_err(|e| anyhow!("state {}: {e}", state.name))?;
+        let invalid: Vec<String> = case
+            .states
+            .iter()
+            .filter_map(|state| {
+                check_search(state, &options)
+                    .err()
+                    .map(|e| format!("state {}: {e}", state.name))
+            })
+            .collect();
+        if !invalid.is_empty() {
+            return Err(anyhow!("{}", invalid.join("\n")));
         }
         let results = solve_states(&layout, &tables, &case.states, &options);
         // 解けた状態は出し、解けなかった状態のエラーは最後にまとめて返す（長い計算のほかの状態の結果を捨てない）
