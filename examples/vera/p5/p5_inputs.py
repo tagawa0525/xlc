@@ -6,13 +6,12 @@
   鏡面反射）。少数群定数（形状関数つき）を `lattice/<種類>.msgpack` に書く
 - `reflector-I.toml`、`reflector-corner.toml`: 径方向の反射体の I 型と角型の格子（ADR-0095、ADR-0132）。燃料は外周の
   集合体の代表の 3.10%、Pyrex の棒なし（ADR-0084）。ノードごとの少数群定数を `lattice/` に書く
-- `small-moc.toml`、`medium-moc.toml`: 3 × 3（最小の入力）と 5 × 5 の 3.10% の集合体と反射体の輪の 2D の全体を、真空の
-  外周で MOC で解く格子（正方形の炉心の参照）
+- `small-moc.toml`: 3 × 3 の 3.10% の集合体と反射体の輪の 2D の全体を、真空の外周で MOC で解く格子（最小の入力の参照）
 - `core-<ケース>.toml` ほか（ADR-0105 の 4 つ）: 全炉心（ADR-0090）の炉心の計算。ケースは次のとおり
   - `5A`、`5B`、`5C`: 5A-2D（制御棒なし）、5B-2D（D バンクに AIC）、5C-2D（D バンクに B4C）
   - `5A-Ly`: 5A の L 型の位置の I 型の定数の f* の辺を、もう一方の燃料の面に向けたもの（L 型の近似の大きさの見積もり）
   - `5A-Inext`: 5A の、角型の位置に隣る I 型の位置に、角型の格子の右と上の定数でなく I 型の定数を置いたもの
-  - `small-E`、`small-I`、`medium-E`、`medium-I`: `small-moc.toml`、`medium-moc.toml` と同じ体系を、角型の位置に隣る位置に角型の格子の右と上の定数を置いて、
+  - `small-E`、`small-I`: `small-moc.toml` と同じ体系を、角型の位置に隣る位置に角型の格子の右と上の定数を置いて、
     または I 型の定数を置いて解いたもの
   - `small-step-Lx`、`small-step-Ly`: 階段の外形（L 型、角型、`-`）を持つ小さな炉心（集合体 21 体）。L 型の位置の
     f* の辺の向きを変えた 2 つ
@@ -565,8 +564,8 @@ def square_moc(name: str) -> str:
     )
 
 
-# 正方形の炉心（集合体 n × n と反射体の輪）: 最小の入力（3 × 3）と、炉心の中に反射体から離れた集合体のある 5 × 5
-SQUARES = {"small": 3, "medium": 5}
+# 正方形の炉心（集合体 n × n と反射体の輪）: 最小の入力（3 × 3）。5 × 5 は自己遮蔽で 82 GB を超えて止まった（#0086）
+SQUARES = {"small": 3}
 
 
 def square_kinds(n: int) -> list[list[str]]:

@@ -330,25 +330,6 @@ stages:
     outs:
       - small-moc-pins.msgpack
       - small-moc.out
-  medium-moc:
-    cmd: cargo run --release -p xlc-lattice -- medium-moc.toml > medium-moc.out
-    deps:
-      - medium-moc.toml
-      - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
-    outs:
-      - medium-moc-pins.msgpack
-      - medium-moc.out
   core-5A:
     cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5A.toml > core-5A.out 2> core-5A.log
     deps:
@@ -529,58 +510,6 @@ stages:
       - core-5C.out
       - core-5C.log
       - core-5C-pins.msgpack
-  core-medium-E:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-medium-E.toml > core-medium-E.out 2> core-medium-E.log
-    deps:
-      - core-medium-E.toml
-      - core-medium-E-cycle.toml
-      - core-medium-E-plant.toml
-      - core-medium-assemblies.toml
-      - lattice/31.msgpack
-      - lattice/reflector-I.msgpack
-      - lattice/reflector-corner-right.msgpack
-      - lattice/reflector-corner-top.msgpack
-      - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
-    outs:
-      - core-medium-E.out
-      - core-medium-E.log
-      - core-medium-E-pins.msgpack
-  core-medium-I:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-medium-I.toml > core-medium-I.out 2> core-medium-I.log
-    deps:
-      - core-medium-I.toml
-      - core-medium-I-cycle.toml
-      - core-medium-I-plant.toml
-      - core-medium-assemblies.toml
-      - lattice/31.msgpack
-      - lattice/reflector-I.msgpack
-      - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
-    outs:
-      - core-medium-I.out
-      - core-medium-I.log
-      - core-medium-I-pins.msgpack
   core-small-E:
     cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-E.toml > core-small-E.out 2> core-small-E.log
     deps:
@@ -707,26 +636,6 @@ stages:
       - core-small-I-pins.msgpack
     outs:
       - compare-small-I.out
-  compare-medium-E:
-    cmd: python3 ../compare_p5.py moc medium-moc.out medium-moc-pins.msgpack core-medium-E.out core-medium-E-pins.msgpack > compare-medium-E.out
-    deps:
-      - ../compare_p5.py
-      - medium-moc.out
-      - medium-moc-pins.msgpack
-      - core-medium-E.out
-      - core-medium-E-pins.msgpack
-    outs:
-      - compare-medium-E.out
-  compare-medium-I:
-    cmd: python3 ../compare_p5.py moc medium-moc.out medium-moc-pins.msgpack core-medium-I.out core-medium-I-pins.msgpack > compare-medium-I.out
-    deps:
-      - ../compare_p5.py
-      - medium-moc.out
-      - medium-moc-pins.msgpack
-      - core-medium-I.out
-      - core-medium-I-pins.msgpack
-    outs:
-      - compare-medium-I.out
   compare-small-step-Lx:
     cmd: python3 ../compare_p5.py symmetry core-small-step-Lx.out core-small-step-Lx-pins.msgpack > compare-small-step-Lx.out
     deps:
