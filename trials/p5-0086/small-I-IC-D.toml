@@ -1,0 +1,7 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 正方形の炉心（small-moc.toml の体系）を core で解く。外周の直方体は真空、z は鏡面反射。
+cycle = "small-I-IC-D-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "small-I-IC-D-pins.msgpack"
+boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["reflective", "reflective"] }

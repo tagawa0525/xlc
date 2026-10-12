@@ -1,0 +1,4 @@
+cycle = "I-xsD-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }

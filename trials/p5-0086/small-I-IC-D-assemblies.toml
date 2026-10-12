@@ -1,0 +1,38 @@
+[design.31]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/31.msgpack"]
+
+[design.C-corner-D]
+bounds = [0.0, 21.5]
+layers = ["tables/corner-D.msgpack"]
+
+[design.I-I-D]
+bounds = [0.0, 21.5]
+layers = ["tables/I-D.msgpack"]
+
+[assembly.J07]
+design = "C-corner-D"
+
+[assembly.H07]
+design = "I-I-D"
+
+[assembly.G07]
+design = "C-corner-D"
+
+[assembly.J08]
+design = "I-I-D"
+
+[assembly.H08]
+design = "31"
+
+[assembly.G08]
+design = "I-I-D"
+
+[assembly.J09]
+design = "C-corner-D"
+
+[assembly.H09]
+design = "I-I-D"
+
+[assembly.G09]
+design = "C-corner-D"
