@@ -33,6 +33,13 @@ pub fn solve_at(
     state: Option<&State>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
+    if tables.len() != layout.files.len() {
+        return Err(CaseError::State(format!(
+            "{} tables for {} few-group constant files",
+            tables.len(),
+            layout.files.len()
+        )));
+    }
     let constants = tables
         .iter()
         .zip(&layout.files)
