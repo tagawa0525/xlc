@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-12
-closed:
+closed: 2026-10-12
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0147
 ---
 
 # rust-analyzer が計算機を Slurm のジョブと、target/debug を run-checks.sh と共有する
@@ -26,7 +26,7 @@ Slurm の外から rust-analyzer を走らせる。
   rust-analyzer と sysroot を使う。worktree には `.envrc` がない（git で追跡せず、`.worktreelink` にもない）ので、
   worktree で起動した Claude Code も devShell に入らない。`.envrc` を `.worktreelink` に足すのが候補
 
-関係する ADR: [ADR-0135](../adr/0135-keep-dev-tools-out-of-rust-toolchain.md)
+関係する ADR: [ADR-0135](../adr/0135-keep-dev-tools-out-of-rust-toolchain.md)、[ADR-0147](../adr/0147-separate-rust-analyzer-target-dir.md)
 
 ## 完了の条件
 
@@ -36,3 +36,4 @@ flycheck の置き場を `target/` の外の専用のディレクトリにし（
 ## 経緯
 
 - 2026-10-12: ADR-0135 のレビューで挙がった
+- 2026-10-12: build の置き場を ADR-0147 で `target/rust-analyzer` に分けて閉じた。CPU の負荷と worktree の `.envrc` は #0094 に移した
