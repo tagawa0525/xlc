@@ -22,9 +22,9 @@ crates/lattice/examples/swap_transfer.rs の `main`（273 行）、crates/lattic
 crates/lattice/src/input.rs の `parse`（244 行）。
 
 時間の内訳: 格子計算の時間の大半は MOC でなく自己遮蔽にある。VERA 2A の 1 状態は 118 秒で、自己遮蔽 110 秒、MOC 7.3 秒
-（examples/vera/verification.md、e4dbc0de、2026-10-12）。自己遮蔽の大半は代表のピンの等価なセルの衝突確率で、perf で
-`cp::Cylinder::tracks` 45%、`cp::interpolate` 23% だった（examples/vera/verification.md の「対称性」。2026-10-10 の
-測定で、コミットは記録になく、118 秒の測定とは別の時点）。
+（examples/vera/verification.md、e4dbc0de、2026-10-12）。自己遮蔽の大半は代表のピンの等価なセルの衝突確率で、VERA 2B の
+1 状態（自己遮蔽 約 110 秒）の perf で `cp::Cylinder::tracks` 45%、`cp::interpolate` 23% だった
+（examples/vera/verification.md の「対称性」。2026-10-10 の測定で、コミットは記録になく、2A の 118 秒とは別の状態と時点）。
 MOC は 1 状態の 6% なので、レビューが挙げた MOC の関数を整えても、全体の時間にはほとんど効かない。
 
 結果を変えずに済むかの前提:
