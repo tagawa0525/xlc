@@ -390,7 +390,8 @@ fn invalid_states_are_errors() {
     assert!(bad("[state.cold]", "[state.\"*\"]"));
     // 名前のない1つの [state] と、中身のない [state]
     let single = "[state]\nboron = 1170\nb10 = 0.199\nmoderator = 565\nfuel = 565\n";
-    assert!(Case::parse(&format!("{CASE}{single}"), base()).is_err());
+    let error = Case::parse(&format!("{CASE}{single}"), base()).unwrap_err();
+    assert!(error.to_string().contains("[state.<name>]"), "{error}");
     assert!(Case::parse(&format!("{CASE}[state]\n"), base()).is_err());
 }
 
