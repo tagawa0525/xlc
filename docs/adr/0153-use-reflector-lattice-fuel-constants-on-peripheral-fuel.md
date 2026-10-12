@@ -29,7 +29,7 @@ f\* で持つ（[ADR-0084](0084-make-reflector-constants-with-fuel.md)、[ADR-00
 
 ## 検討した案
 
-試行は examples/vera/verification.md の「外周の燃料の定数の切り分け」（d39cf873 の trials/p5-0086、2026-10-12）。I 型の
+試行は examples/vera/verification.md の「外周の燃料の定数の切り分け」（65fb2b43 の trials/p5-0086、2026-10-12）。I 型の
 格子は格子の MOC の k と、3 × 3 の集合体と反射体の輪は同じ多群定数の MOC と、5A は OpenMC（同じ ENDF/B-VIII.0。「Problem
 5-2D の参照解」）と比べた。置き換えは外周の 3.10%（Pyrex なし）の位置だけで、Pyrex のある外周の 12 体は単一集合体の定数のまま。
 
@@ -42,7 +42,7 @@ f\* で持つ（[ADR-0084](0084-make-reflector-constants-with-fuel.md)、[ADR-00
 | 断面積と拡散係数を格子のもの             | 0.0 pcm        | +29.8 pcm、2.22%       | +19.5 pcm、1.87%、+4.8%   |
 | 格子の燃料のノードの定数（すべて。採用） | 0.0 pcm        | +11.6 pcm、1.74%       | +13.8 pcm、1.72%、+4.5%   |
 
-Pyrex のある外周の位置にもその種類の I 型の格子の定数を置いた実装（ee8195a2）では、5A の OpenMC との差は k −5.7 pcm、
+Pyrex のある外周の位置にもその種類の I 型の格子の定数を置いた実装（ad997b4d）では、5A の OpenMC との差は k −5.7 pcm、
 集合体 RMS 1.66%、最大 +4.6% になった（examples/vera/verification.md の「Problem 5-2D の炉心の計算」）。
 
 - 単一集合体の定数と f\*（ADR-0095 の方法。今までの方式）: 格子計算は集合体の種類ごとの単一集合体と、代表の燃料の
