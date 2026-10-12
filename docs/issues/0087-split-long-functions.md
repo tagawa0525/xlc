@@ -32,7 +32,7 @@ clippy の `too_many_lines`（100 行）を超える関数が、main（14793ea7�
 
 - `too_many_lines` を拒否にする lint があり、36 個の関数の `#[expect(clippy::too_many_lines, reason = "#0087")]` がすべて
   外れている
-- 分けたブランチごとに、ADR-0144 の判定（DVC のステージの出力のビット一致と、hyperfine の時間の比較）の結果がここにある
+- 分けたブランチごとに、ADR-0144 の判定（DVC のステージの出力のビット一致と、時間の比較）の結果がここにある
 
 ## 経緯
 
