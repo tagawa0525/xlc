@@ -829,9 +829,9 @@ fn split_cells_between_fuel_and_reflector_are_errors() {
 }
 
 #[test]
-fn split_cells_beside_columns_without_fission_are_errors() {
-    // 燃料と反射体 2 つの 3 × 1。核分裂のないノードだけの列はセルを持たないので、反射体どうしが分け合うセル
-    // （`halves`）も戻せずエラー
+fn split_cells_between_columns_without_fission_are_dropped() {
+    // 燃料と反射体 2 つの 3 × 1。核分裂のないノードだけの列はセルを持たず、反射体どうしが分け合うセル（`halves`）は
+    // どちらも 0 なので、戻すものがなく表は燃料だけ
     let mut left = reflector(21.5, 4, vec![vec![1.0, 1.0]; 4], vec![false; 4]);
     let mut right = left.clone();
     if let (Some(a), Some(b)) = (left.pins.as_mut(), right.pins.as_mut()) {
@@ -852,8 +852,7 @@ fn split_cells_beside_columns_without_fission_are_errors() {
     };
     let zeros = vec![vec![0.0; 4]; 4];
     let maps = vec![vec![vec![1.0; 4]; 4], zeros.clone(), zeros];
-    let err = core_rows(&p, &maps).unwrap_err();
-    assert!(err.contains("without fission nodes"), "{err}");
+    assert_eq!(core_rows(&p, &maps).unwrap(), vec![vec![1.0; 4]; 4]);
 }
 
 #[test]
