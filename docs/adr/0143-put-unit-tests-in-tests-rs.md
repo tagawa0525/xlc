@@ -64,8 +64,8 @@ issues: ["#0089"]
   の `sample`、`sample_pins`、crates/numeric/src/pins/node.rs の `modes_at`、`flux` がこれにあたる。ほかのモジュールの
   テストが使う項目（`sample`、`sample_pins` は crates/format/src/table/tests.rs が使う）は、`pub(crate) mod tests;` の中に置き、
   呼び出し側は `crate::fewgroup::tests::sample` のように `tests` を通して引く
-- 本番のファイル（`crates/*/src` の `tests.rs` 以外のファイル）に残る `#[cfg(test)]` は、`mod tests;` の宣言（`main.rs` では
-  `#[path]` を付けたもの）と、パスが `tests` のモジュールを通る `use`（ほかの
+- 本番のファイル（`crates/*/src` の `tests.rs` 以外のファイル）に残る `#[cfg(test)]` は、`mod tests;` と `pub(crate) mod tests;`
+  の宣言（`main.rs` では `#[path]` を付けたもの）と、パスが `tests` のモジュールを通る `use`（ほかの
   モジュールのテストの補助を引くもの。2026-10-12 には crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`、
   `pub(crate) use tape::tests::rec;`、crates/xs/src/resonance/mod.rs と crates/xs/src/multigroup/mod.rs の同じ形の
   `use`）だけにする。クレートの入口（`lib.rs`、`main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
@@ -74,8 +74,9 @@ issues: ["#0089"]
   `cfg_attr`、`cfg!`）を持たないことを、`run-checks.sh` で走る検査で確かめる。検査の置き場所、照合の方法、残すものを
   減らせるか（補助の `use` を `tests.rs` に移すなど）は、実装のブランチ（#0089）で検査のテストとともに決める
 
-案 D を採らないのは、古くなった段階の走らせ直しは ADR-0123 で許した費用で、そのためにモジュールの規則から外れた
-置き方をすべてのテストに求めるのは釣り合わないからである。
+案 D を採らないのは、古くなった段階を走らせ直す費用（テストを変えたときだけ）のために、モジュールの規則から外れた
+`#[path]` をすべてのモジュールに求めるのは釣り合わないからである。案 C で `#[path]` を使うのは、`lib.rs` とぶつかる
+`main.rs` の 1 か所だけである。
 
 しきい値を置かないのは、根拠のある値がなく、すべてで分ければ検査が「本番のファイルにテストがない」の 1 つで済むから
 である。小さなファイルではファイルが 1 つ増えるが、パスで区別できる利点は大きさによらない。
@@ -84,7 +85,8 @@ issues: ["#0089"]
 
 - 検査が、本番のファイルの中のテストのコードを見つけて失敗し、移したあとの main で通ること
 - 移す前後で、release の実行ファイルが変わらないこと（変わるなら、`#[cfg(test)]` の項目を消して後ろの本体の行番号が
-  ずれたことによる位置の情報だけであること）と、実行されるテストの集まりが変わらないこと。確認の方法は実装のブランチ
+  ずれたことによる位置の情報だけであること。2026-10-12 には、ずれるのは本体の途中のテストだけの項目を持つ
+  crates/format/src/fewgroup.rs と crates/numeric/src/pins/node.rs）と、実行されるテストの集まりが変わらないこと。確認の方法は実装のブランチ
   （#0089）で決め、結果はこの節に書く
 
 ## 帰結
@@ -95,9 +97,10 @@ issues: ["#0089"]
 - ADR と issue には、テストの場所をファイルのパスで書いたものがある（例: ADR-0132 の crates/core/src/nem.rs）。
   採用済みの ADR は直せない（docs/adr/README.md の「運用」で、直せるのは誤字、リンク、`status` と `superseded-by` だけ）ので、決めた時点の
   場所の記録として残る。proposed の ADR と開いた issue のパスは、移すブランチで `tests.rs` に直す
-- `examples/*/dvc.yaml` の段階は deps に `crates/*/src` のディレクトリを持つので、テストを移すと、出力が変わらなくても
-  deps の md5 が変わり、段階が古くなる。ADR-0123（案 H）のとおり、これを許す。移すブランチは段階を走らせず、
-  段階は、その段階の deps のコードを変えるブランチが自分の計算として走らせるときに、あわせて新しくなる。コードを
-  変えない段階は、`dvc repro -P` で走らせるまで古いままである（走らせ直した出力がビット一致するかは #0060 で確かめていない）。古い上流の段階が残ると、ほかのブランチが /dvc-relock で数秒の下流の段階だけを走らせ直すことができず、上流から走らせることになる。
-  `dvc commit` で deps だけを取り込むことはしない（ADR-0130 の案 L と同じく、`dvc.lock` が、記録した deps から
-  作っていない出力を指す）
+- `examples/*/dvc.yaml` の段階は deps に `crates/*/src` のディレクトリを持つので、テストを移すと deps の md5 が変わり、
+  xs、lattice、core の段階がほぼすべて古くなる。移すブランチで `dvc repro -P` を Slurm で 1 回流し、`dvc.lock` を
+  コミットする（ADR-0123 の「走らせて `dvc.lock` をコミットする」のとおり）。出力の md5 が移す前と変わったら、移動でなく
+  並列の和の順序（#0060）などの原因を調べる。流す時期は、CPU の使用の計画を持つ実装の担当が決める
+- 古いまま許すこと（ADR-0123 の案 H）はしない。古い上流の段階が main に残ると、ほかのブランチが /dvc-relock で数秒の
+  下流の段階だけを走らせ直すことができず、上流から走らせることになる。`dvc commit` で deps だけを取り込むこともしない。
+  `dvc.lock` が、記録した deps のコードで走らせていない出力を指すことになる（ADR-0130 の案 L と同じ形）
