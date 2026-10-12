@@ -71,8 +71,16 @@ pub fn solve_at(
 
 /// 探索の状態の、解く前にできる検査。
 pub fn check_search(state: &CaseState, options: &Options) -> Result<(), CaseError> {
-    let _ = (state, options);
-    todo!()
+    if let Boron::Search(search) = &state.boron
+        // 固有値の反復の判定より細かい許容は区別できない（判定を超えても k の誤差を抑える保証ではない。ADR-0145）
+        && search.tolerance <= options.k_tolerance
+    {
+        return Err(CaseError::Search(format!(
+            "tolerance {} must exceed the eigenvalue tolerance {}",
+            search.tolerance, options.k_tolerance
+        )));
+    }
+    Ok(())
 }
 
 /// ケースの状態を1つ解く。探索の状態は、k が目標になるホウ素濃度を探す（ADR-0145）。
@@ -86,13 +94,7 @@ pub fn solve_state(
         Boron::Given(ppm) => return solve_at(layout, tables, Some(&state.at(*ppm)), options),
         Boron::Search(search) => search,
     };
-    // 固有値の反復が k を区別できる幅より細かい許容では、収束を判定できない
-    if search.tolerance <= options.k_tolerance {
-        return Err(CaseError::Search(format!(
-            "tolerance {} must exceed the eigenvalue tolerance {}",
-            search.tolerance, options.k_tolerance
-        )));
-    }
+    check_search(state, options)?;
     let found = find(
         search.bracket,
         search.k,

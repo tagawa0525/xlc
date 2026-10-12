@@ -72,23 +72,25 @@ pub fn find<T, E>(
     if f_low.abs() <= tolerance {
         return Ok(found(low, value, solves, t));
     }
-    let not_converged = |solves, low, high, f_low: f64, f_high: f64| {
+    // エラーで示す端の値は評価した値（Illinois 法が半分にした f ではない）
+    let not_converged = |solves, low, high, at_low, at_high| {
         Err(SearchError::NotConverged {
             tolerance,
             target,
             solves,
             low,
             high,
-            at_low: f_low + target,
-            at_high: f_high + target,
+            at_low,
+            at_high,
         })
     };
+    let mut value_low = value;
     if solves >= max_solves {
-        return not_converged(solves, low, high, f_low, f64::NAN);
+        return not_converged(solves, low, high, value_low, f64::NAN);
     }
-    let (mut f_high, value, t) = at(high, &mut solves)?;
+    let (mut f_high, mut value_high, t) = at(high, &mut solves)?;
     if f_high.abs() <= tolerance {
-        return Ok(found(high, value, solves, t));
+        return Ok(found(high, value_high, solves, t));
     }
     if f_low.signum() == f_high.signum() {
         return Err(SearchError::NotBracketed {
@@ -104,7 +106,7 @@ pub fn find<T, E>(
     // 新しい点はいつも2つの端の間にある
     loop {
         if solves >= max_solves {
-            return not_converged(solves, low, high, f_low, f_high);
+            return not_converged(solves, low, high, value_low, value_high);
         }
         let x = high - f_high * (high - low) / (f_high - f_low);
         let (f, value, t) = at(x, &mut solves)?;
@@ -116,9 +118,11 @@ pub fn find<T, E>(
         } else {
             low = high;
             f_low = f_high;
+            value_low = value_high;
         }
         high = x;
         f_high = f;
+        value_high = value;
     }
 }
 
