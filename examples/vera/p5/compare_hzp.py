@@ -151,6 +151,8 @@ def core_results(path: Path) -> dict[str, dict]:
         elif line.startswith("k-eff "):
             if name is None:
                 raise SystemExit(f"{path}: k-eff before any `state <name>` line")
+            if "k" in results[name]:
+                raise SystemExit(f"{path}: state {name} has two k-eff lines")
             results[name]["k"] = float(line.split()[1])
     if not results or any("k" not in r for r in results.values()):
         raise SystemExit(f"{path}: expected `state <name>` blocks with k-eff")
@@ -204,7 +206,7 @@ def main() -> None:
         )
 
     print(
-        "\nk by case                    xlc    KENO-VI   xlc-KENO (pcm)  xlc-critical (pcm)"
+        "\nk by case                      xlc    KENO-VI   xlc-KENO (pcm)  xlc-critical (pcm)"
     )
     k = {}
     for name, n in sorted(states.items(), key=lambda s: s[1]):
@@ -214,7 +216,7 @@ def main() -> None:
         # 反応度 1/k の標準偏差は σ_k / k²
         sigma = cases[n]["sigma"] / keno**2 * 1e5
         print(
-            f"case {n:2d} {'':12s} {k[n]:.6f}  {keno:.6f}  {rho(keno, k[n]):+8.1f} ± {sigma:.1f}  {critical}"
+            f"case {n:2d} {'':12s} {k[n]:.8f}  {keno:.6f}  {rho(keno, k[n]):+8.1f} ± {sigma:.1f}  {critical}"
         )
 
     ours = worths(k, cases)
