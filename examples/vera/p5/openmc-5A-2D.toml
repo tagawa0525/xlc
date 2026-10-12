@@ -1,6 +1,6 @@
 # VERA Problem 5A-2D（2D の 1/4 炉心）を OpenMC の連続エネルギーモードで解く入力（openmc_core_2d.py）。1 世代 100 万粒子・2300 世代、
 # 最初の 300 世代を捨て、乱数の種 1。粒子数と世代数の決め方は examples/vera/verification.md の「Problem 5-2D の参照解」。
-# スレッド数 24 は、24 + 24 が 32 を超えて本番が 1 本ずつ走り、残り 8 スレッドが空くため（Slurm の -c 24。verification.md）。ライブラリには 565 K の構造材と吸収体の核種が要る（#0073）
+# スレッド数 24 は Slurm の -c 24（共有モード。先に走らせた 1 本で、ほかは 16。verification.md）。ライブラリには 565 K の構造材と吸収体の核種が要る（#0073）
 problem = "5A-2D"
 cross-sections = "../openmc-library/cross_sections.xml"
 particles = 1000000
