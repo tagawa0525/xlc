@@ -29,6 +29,8 @@ pub enum SearchError<E> {
         at_high: f64,
         target: f64,
     },
+    #[error("the value at {x} is {value}, not a finite number")]
+    NotFinite { x: f64, value: f64 },
     #[error(
         "no value within {tolerance} of the target {target} in {solves} solves; the last bracket \
          is {low} to {high} with values {at_low} and {at_high}"
