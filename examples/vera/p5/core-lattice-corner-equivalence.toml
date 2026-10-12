@@ -1,0 +1,7 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# reflector-corner.toml の格子と同じ体系を、燃料のノードに格子の燃料のノードの定数（等価性）を置いて解く。
+cycle = "core-lattice-corner-equivalence-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+pin-powers = "core-lattice-corner-equivalence-pins.msgpack"
+boundary = { x = ["reflective", "vacuum"], y = ["reflective", "vacuum"], z = ["reflective", "reflective"] }

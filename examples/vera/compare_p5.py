@@ -5,6 +5,7 @@
   python3 compare_p5.py openmc <core の標準出力> <core の pins.msgpack> <OpenMC の結果のディレクトリ>
   python3 compare_p5.py moc <lattice の標準出力> <lattice の pins.msgpack> <core の標準出力> <core の pins.msgpack>
   python3 compare_p5.py symmetry <core の標準出力> <core の pins.msgpack>
+  python3 compare_p5.py k <lattice の標準出力> <core の標準出力>
 
 - k: core の標準出力の `k-eff`。KENO-VI は付録 J の表（差は (k_xlc / k_ref − 1) × 1e5 pcm）、OpenMC は結果の k.json、
   MOC は lattice の標準出力の `k`（外周が真空の格子では実効増倍率）
@@ -289,6 +290,10 @@ def main() -> None:
             moc(lattice_out, lattice_pins, out, pins)
         case ["symmetry", out, pins]:
             symmetry(out, pins)
+        case ["k", lattice_out, out]:
+            k_ref = lattice_k(lattice_out)
+            k, _ = core_output(out)
+            print(f"k: core {k:.6f}, MOC {k_ref:.6f}, {1e5 * (k / k_ref - 1):+.1f} pcm")
         case _:
             raise SystemExit(__doc__)
 

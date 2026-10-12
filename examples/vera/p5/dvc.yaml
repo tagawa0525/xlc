@@ -510,6 +510,114 @@ stages:
       - core-5C.out
       - core-5C.log
       - core-5C-pins.msgpack
+  core-lattice-I-equivalence:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-I-equivalence.toml > core-lattice-I-equivalence.out 2> core-lattice-I-equivalence.log
+    deps:
+      - core-lattice-I-equivalence.toml
+      - core-lattice-I-equivalence-cycle.toml
+      - core-lattice-I-plant.toml
+      - core-lattice-assemblies.toml
+      - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
+      - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
+      - ../../../crates/core/src
+      - ../../../crates/core/Cargo.toml
+      - ../../../crates/numeric/src
+      - ../../../crates/numeric/Cargo.toml
+      - ../../../crates/format/src
+      - ../../../crates/format/Cargo.toml
+      - ../../../Cargo.toml
+      - ../../../Cargo.lock
+      - ../../../rust-toolchain.toml
+      - ../../../.cargo/config.toml
+      - ../../../flake.lock
+    outs:
+      - core-lattice-I-equivalence.out
+      - core-lattice-I-equivalence.log
+      - core-lattice-I-equivalence-pins.msgpack
+  core-lattice-I-fstar:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-I-fstar.toml > core-lattice-I-fstar.out 2> core-lattice-I-fstar.log
+    deps:
+      - core-lattice-I-fstar.toml
+      - core-lattice-I-fstar-cycle.toml
+      - core-lattice-I-plant.toml
+      - core-lattice-assemblies.toml
+      - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
+      - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
+      - ../../../crates/core/src
+      - ../../../crates/core/Cargo.toml
+      - ../../../crates/numeric/src
+      - ../../../crates/numeric/Cargo.toml
+      - ../../../crates/format/src
+      - ../../../crates/format/Cargo.toml
+      - ../../../Cargo.toml
+      - ../../../Cargo.lock
+      - ../../../rust-toolchain.toml
+      - ../../../.cargo/config.toml
+      - ../../../flake.lock
+    outs:
+      - core-lattice-I-fstar.out
+      - core-lattice-I-fstar.log
+      - core-lattice-I-fstar-pins.msgpack
+  core-lattice-corner-equivalence:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-corner-equivalence.toml > core-lattice-corner-equivalence.out 2> core-lattice-corner-equivalence.log
+    deps:
+      - core-lattice-corner-equivalence.toml
+      - core-lattice-corner-equivalence-cycle.toml
+      - core-lattice-corner-plant.toml
+      - core-lattice-assemblies.toml
+      - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
+      - lattice/reflector-corner-fuel.msgpack
+      - lattice/reflector-corner-right.msgpack
+      - lattice/reflector-corner-top.msgpack
+      - lattice/reflector-corner.msgpack
+      - ../../../crates/core/src
+      - ../../../crates/core/Cargo.toml
+      - ../../../crates/numeric/src
+      - ../../../crates/numeric/Cargo.toml
+      - ../../../crates/format/src
+      - ../../../crates/format/Cargo.toml
+      - ../../../Cargo.toml
+      - ../../../Cargo.lock
+      - ../../../rust-toolchain.toml
+      - ../../../.cargo/config.toml
+      - ../../../flake.lock
+    outs:
+      - core-lattice-corner-equivalence.out
+      - core-lattice-corner-equivalence.log
+      - core-lattice-corner-equivalence-pins.msgpack
+  core-lattice-corner-fstar:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-corner-fstar.toml > core-lattice-corner-fstar.out 2> core-lattice-corner-fstar.log
+    deps:
+      - core-lattice-corner-fstar.toml
+      - core-lattice-corner-fstar-cycle.toml
+      - core-lattice-corner-plant.toml
+      - core-lattice-assemblies.toml
+      - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
+      - lattice/reflector-corner-fuel.msgpack
+      - lattice/reflector-corner-right.msgpack
+      - lattice/reflector-corner-top.msgpack
+      - lattice/reflector-corner.msgpack
+      - ../../../crates/core/src
+      - ../../../crates/core/Cargo.toml
+      - ../../../crates/numeric/src
+      - ../../../crates/numeric/Cargo.toml
+      - ../../../crates/format/src
+      - ../../../crates/format/Cargo.toml
+      - ../../../Cargo.toml
+      - ../../../Cargo.lock
+      - ../../../rust-toolchain.toml
+      - ../../../.cargo/config.toml
+      - ../../../flake.lock
+    outs:
+      - core-lattice-corner-fstar.out
+      - core-lattice-corner-fstar.log
+      - core-lattice-corner-fstar-pins.msgpack
   core-small-E:
     cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-E.toml > core-small-E.out 2> core-small-E.log
     deps:
@@ -652,6 +760,38 @@ stages:
       - core-small-step-Ly-pins.msgpack
     outs:
       - compare-small-step-Ly.out
+  compare-lattice-I-equivalence:
+    cmd: python3 ../compare_p5.py k reflector-I.out core-lattice-I-equivalence.out > compare-lattice-I-equivalence.out
+    deps:
+      - ../compare_p5.py
+      - reflector-I.out
+      - core-lattice-I-equivalence.out
+    outs:
+      - compare-lattice-I-equivalence.out
+  compare-lattice-I-fstar:
+    cmd: python3 ../compare_p5.py k reflector-I.out core-lattice-I-fstar.out > compare-lattice-I-fstar.out
+    deps:
+      - ../compare_p5.py
+      - reflector-I.out
+      - core-lattice-I-fstar.out
+    outs:
+      - compare-lattice-I-fstar.out
+  compare-lattice-corner-equivalence:
+    cmd: python3 ../compare_p5.py k reflector-corner.out core-lattice-corner-equivalence.out > compare-lattice-corner-equivalence.out
+    deps:
+      - ../compare_p5.py
+      - reflector-corner.out
+      - core-lattice-corner-equivalence.out
+    outs:
+      - compare-lattice-corner-equivalence.out
+  compare-lattice-corner-fstar:
+    cmd: python3 ../compare_p5.py k reflector-corner.out core-lattice-corner-fstar.out > compare-lattice-corner-fstar.out
+    deps:
+      - ../compare_p5.py
+      - reflector-corner.out
+      - core-lattice-corner-fstar.out
+    outs:
+      - compare-lattice-corner-fstar.out
   compare-5A:
     cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack > compare-5A.out
     deps:
