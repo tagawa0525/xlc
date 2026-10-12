@@ -185,27 +185,48 @@ def materials(problem: str, names: list[str]) -> str:
     return "\n\n".join(blocks[n] for n in names)
 
 
-# 17×17 の配置（行は上から）。案内管の位置のうち、3B で Pyrex の棒を入れる 16 本（図 5 の 1/8 の (3, 0)、(5, 5)、(6, 3)）を
-# `P`、シンブルプラグを入れる 8 本（(3, 3)、(6, 0)）を `T`、計装管を `I` とする（openmc_model.py の PYREX_OCTANTS）
-LAYOUT = [
-    ".................",
-    ".................",
-    ".....P..T..P.....",
-    "...T.........T...",
-    ".................",
-    "..P..P.....P..P..",
-    ".................",
-    ".................",
-    "..T..P..I..P..T..",
-    ".................",
-    ".................",
-    "..P..P.....P..P..",
-    ".................",
-    "...T.........T...",
-    ".....P..T..P.....",
-    ".................",
-    ".................",
-]
+# 17×17 の配置（行は上から）。案内管 24 本の位置（仕様書の図 1。openmc_model.py の GUIDE_TUBES）のうち、3B で Pyrex の棒を
+# 入れる 16 本（図 5 の 1/8 の中の、中央からの (3, 0)、(5, 5)、(6, 3)）を `P`、シンブルプラグを入れる 8 本（(3, 3)、
+# (6, 0)）を `T`、中央の計装管を `I` とする（openmc_model.py の PYREX_OCTANTS と octant_images）
+GUIDE_TUBES = [
+    (2, 5), (2, 8), (2, 11), (3, 3), (3, 13), (5, 2), (5, 5), (5, 8), (5, 11), (5, 14), (8, 2), (8, 5),
+    (8, 11), (8, 14), (11, 2), (11, 5), (11, 8), (11, 11), (11, 14), (13, 3), (13, 13), (14, 5), (14, 8), (14, 11),
+]  # fmt: skip
+PYREX_OCTANT = {(3, 0), (5, 5), (6, 3)}
+
+
+def octant_images(octant: set[tuple[int, int]]) -> set[tuple[int, int]]:
+    """1/8 の中の位置（中央からの行と列の数）を、8 つの対称操作で移した位置（行, 列。0 始まり）"""
+    return {
+        (8 + si * x, 8 + sj * y)
+        for a, b in octant
+        for x, y in ((a, b), (b, a))
+        for si in (1, -1)
+        for sj in (1, -1)
+    }
+
+
+def layout() -> list[str]:
+    pyrex = octant_images(PYREX_OCTANT)
+    if not pyrex <= set(GUIDE_TUBES) or len(pyrex) != 16:
+        raise SystemExit("the Pyrex rods are not 16 guide tubes")
+    rows = []
+    for i in range(17):
+        row = ""
+        for j in range(17):
+            if (i, j) == (8, 8):
+                row += "I"
+            elif (i, j) in pyrex:
+                row += "P"
+            elif (i, j) in GUIDE_TUBES:
+                row += "T"
+            else:
+                row += "."
+        rows.append(row)
+    return rows
+
+
+LAYOUT = layout()
 
 # 2D の格子のセル（帯は内側から。examples/vera/p2 の 2A、2F と同じ分け方）
 CELLS = {
