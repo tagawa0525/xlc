@@ -86,7 +86,7 @@ nix develop .#references -c sh -c \
 ## 外部の計算機（AWS）
 
 r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討段階）。c7a は vCPU が物理コアで、
-x86_64 の nix のクロージャをそのまま送れる。起動、実行、回収、削除のツールは未実装（feat/0073-openmc-library のブランチで作業中）。
+x86_64 の nix のクロージャをそのまま送れる。送る、実行、回収のツール（SSH の接続先が決まった VM 用）は次の節。起動と削除のツールは未実装。
 
 ユーザーが用意するもの:
 
@@ -106,6 +106,47 @@ x86_64 の nix のクロージャをそのまま送れる。起動、実行、�
 - 1 本ずつ別の VM で、並列に実行する（スレッド数は VM の物理コア数に合わせる）
 - 結果（数十 MB）を回収する
 - VM を削除する（方式 B）
+
+## 外部の計算機での参照解（Problem 3、5-2D）
+
+Problem 3 と 5-2D の本番（数時間の実行を 5 本）は、r995 でなく外部の VM（AWS、GCP など）で流す。VM には Nix だけを入れ、
+OpenMC と Python API は手元でビルドしたクロージャを送る（VM で再ビルドしない）。Slurm は使わない。VM は中断されうる（スポット）ので、
+入力の `statepoint-interval` で途中の statepoint を書き、中断のあとは `--restart` で再開する。
+
+1. VM に Nix を入れる（単一ユーザーの構成でよい）: `sh <(curl -L https://nixos.org/nix/install) --no-daemon`。`~/.nix-profile/etc/profile.d/nix.sh`
+   を読み込む。`nix copy --to ssh://` は VM の `nix-store` を ssh で呼ぶので、非対話の ssh のシェルでも `nix-store` が PATH にあるように
+   する（`~/.ssh/environment` でなく `~/.bashrc` の先頭か `/etc/environment`）。`rsync` も VM に要る
+2. 手元（リポジトリの直下）から送る。`--dry-run` は、クロージャのパス（62 個、約 800 MB）と rsync の一覧だけ出して何も送らない:
+
+   ```sh
+   dvc checkout examples/vera/dvc.yaml          # examples/vera/openmc-library（約 630 MB）
+   examples/vera/remote_send.sh --dry-run <ssh の接続先> <VM の作業ディレクトリ>
+   examples/vera/remote_send.sh <ssh の接続先> <VM の作業ディレクトリ>
+   ```
+
+   クロージャ（flake の `.#openmc` と `.#openmc-python`）は `nix copy --to ssh://<接続先>`、ライブラリ、入力（p3、p5）、スクリプトは
+   rsync で `<VM の作業ディレクトリ>` の下に同じ配置で送る。VM 上のツールの場所は `tools.env` に書く。VM の CPU は x86_64 の Linux
+   （クロージャが x86_64-linux のため）
+3. VM で、作業ディレクトリの直下から流す。1 本あたりのスレッド数は `--cores`（物理コア数）を入力の数で割った値。vCPU は SMT の
+   スレッドなので、物理コアは vCPU 数の半分（`lscpu` で確かめる）。切り離して走るので、ssh を切ってよい:
+
+   ```sh
+   examples/vera/run_remote.sh --cores <物理コア数> examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml \
+     examples/vera/p5/openmc-5B-2D.toml examples/vera/p5/openmc-5C-2D.toml
+   tail -n 3 results/*/log; ls results/*/done     # 進み具合と完了
+   ```
+
+   run が終わると続けて extract も走り、`results/<名前>/` に k.json、pins.msgpack、layers.msgpack などができる
+4. 中断されたら、VM を戻して同じコマンドに `--restart` を足す。最新の statepoint（`results/<名前>/run/statepoint.<世代>.h5`。最新の
+   2 個を残す）から `openmc -r` で再開する。入力は同じものを使う（`--threads` だけ変えてよい）
+5. 結果を手元に戻す。k.json、pins.msgpack などと最後の世代の statepoint（手元で extract し直すため。途中の statepoint は戻さない）:
+
+   ```sh
+   examples/vera/remote_fetch.sh --dry-run <ssh の接続先> <VM の作業ディレクトリ> references/openmc/remote
+   examples/vera/remote_fetch.sh <ssh の接続先> <VM の作業ディレクトリ> references/openmc/remote
+   ```
+
+記録には、VM の機種、vCPU 数と物理コア数、`threads` を書き、時間は書かない（共有の環境で、スポットの中断もありうる）。
 
 ## VERA の参照解
 
