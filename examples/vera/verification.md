@@ -249,7 +249,7 @@ python3 examples/vera/compare_p5.py openmc examples/vera/p5/core-5A.out examples
 
 計算（格子は Slurm の共有モード）: 集合体の格子は 6658f17e（rebase の前の a57dcfdd で実行した。コード、入力、xs.toml は
 同じ。2026-10-12、分岐点 cde7206f）、反射体の格子と 3 × 3 の MOC は a21ece00（2026-10-12、分岐点 4487fa27）。炉心と比較は
-1ae37870（2026-10-12、分岐点 ea5c90b7）。ライブラリは、main の核種ごとの xs の段階（ADR-0138）で c9be8fc7（2026-10-12、
+f1c60786（2026-10-12、分岐点 3358bfc7）。ライブラリは、main の核種ごとの xs の段階（ADR-0138）で c9be8fc7（2026-10-12、
 分岐点 14793ea7）に作り直し、格子が読んだものと md5 が同じ。k の差はどれも Δk/k（(k / k_参照 − 1) × 10⁵ pcm）。
 
 ### 入力の構成
