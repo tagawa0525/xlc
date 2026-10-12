@@ -139,7 +139,7 @@ OpenMC と Python API は手元でビルドしたクロージャを送る（VM �
    run が終わると続けて extract も走り、`results/<名前>/` に k.json、pins.msgpack、layers.msgpack などができる
 4. 中断されたら、VM を戻して同じコマンドに `--restart` を足す。最新の statepoint（`results/<名前>/run/statepoint.<世代>.h5`。最新の
    2 個を残す）から `openmc -r` で再開する。入力は同じものを使う（`--threads` だけ変えてよい）
-5. 結果を手元に戻す。k.json、pins.msgpack などと最後の世代の statepoint（手元で extract し直すため。途中の statepoint は戻さない）:
+5. 結果を手元に戻す。k.json、pins.msgpack などと最後の世代の statepoint と summary.h5（一次の成果物。手元で extract し直す。途中の statepoint は戻さない）:
 
    ```sh
    examples/vera/remote_fetch.sh --dry-run <ssh の接続先> <VM の作業ディレクトリ> references/openmc/remote
