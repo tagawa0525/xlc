@@ -10,6 +10,7 @@ workspace = true
 xlc-format = { path = "../format" }
 xlc-numeric = { path = "../numeric" }
 anyhow.workspace = true
+rayon.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true

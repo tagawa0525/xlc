@@ -8,7 +8,7 @@ use serde::Deserialize;
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{Axis, Table};
 
-/// 炉心の状態（ケースの `[state]`）。
+/// 炉心の状態（ケースの `[state.<名前>]`。ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct State {
@@ -187,7 +187,9 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>
     let sub = table.sub_nodes();
     let Some(state) = state else {
         if !table.axes.is_empty() {
-            return Err("the table has branch axes; give the core [state]".into());
+            return Err(
+                "the table has branch axes; give the case named states [state.<name>]".into(),
+            );
         }
         if table.states.len() != sub || sub == 0 {
             return Err("the table has no states".into());

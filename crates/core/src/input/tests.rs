@@ -336,6 +336,78 @@ fn invalid_cases_are_errors() {
     assert!(bad("\"vacuum\", \"vacuum\"", "\"vacuum\""));
 }
 
+const STATES: &str = r#"
+[state.cold]
+boron = 1170
+b10 = 0.199
+moderator = 560
+fuel = 560
+
+[state.aro]
+boron = 1291
+b10 = 0.199
+moderator = 565
+fuel = 565
+"#;
+
+fn with_states() -> String {
+    format!("{CASE}{STATES}")
+}
+
+fn named(name: &str, boron: f64, temperature: f64) -> CaseState {
+    CaseState {
+        name: name.into(),
+        state: State {
+            boron,
+            b10: 0.199,
+            moderator: temperature,
+            fuel: temperature,
+        },
+    }
+}
+
+#[test]
+fn parses_named_states_in_name_order() {
+    let c = Case::parse(&with_states(), base()).unwrap();
+    assert_eq!(
+        c.states,
+        vec![named("aro", 1291.0, 565.0), named("cold", 1170.0, 560.0)]
+    );
+    // 状態を書かなければ、軸のないテーブルで1つ解く
+    assert!(case().states.is_empty());
+}
+
+#[test]
+fn invalid_states_are_errors() {
+    let bad =
+        |from: &str, to: &str| Case::parse(&edited(&with_states(), from, to), base()).is_err();
+    // 4つとも必須で、知らない項目はエラー。エラーはケースのファイルの行を示す
+    assert!(bad("boron = 1170\n", ""));
+    let error =
+        Case::parse(&edited(&with_states(), "fuel = 560", "fule = 560"), base()).unwrap_err();
+    assert!(error.to_string().contains("line"), "{error}");
+    assert!(bad("b10 = 0.199\nmoderator = 560", "moderator = 560"));
+    assert!(bad("fuel = 560", "fuel = 560\nrods = 1"));
+    // 名前は図の記号と区別できること
+    assert!(bad("[state.cold]", "[state.\"a b\"]"));
+    assert!(bad("[state.cold]", "[state.\"*\"]"));
+    // 名前のない1つの [state] と、中身のない [state]
+    let single = "[state]\nboron = 1170\nb10 = 0.199\nmoderator = 565\nfuel = 565\n";
+    let error = Case::parse(&format!("{CASE}{single}"), base()).unwrap_err();
+    assert!(error.to_string().contains("[state.<name>]"), "{error}");
+    assert!(Case::parse(&format!("{CASE}[state]\n"), base()).is_err());
+}
+
+#[test]
+fn pin_powers_need_at_most_one_state() {
+    let pins = "pin-powers = \"pins.msgpack\"\n";
+    assert!(Case::parse(&format!("{CASE}{pins}{STATES}"), base()).is_err());
+    let one = &STATES[..STATES.find("[state.aro]").unwrap()];
+    let c = Case::parse(&format!("{CASE}{pins}{one}"), base()).unwrap();
+    assert_eq!(c.states, vec![named("cold", 1170.0, 560.0)]);
+    assert_eq!(c.pin_powers, Some(PathBuf::from("dir/pins.msgpack")));
+}
+
 #[test]
 fn split_nodes_wait_for_reflector_constants() {
     // 反射体の定数の分割（ADR-0108 の次の段階）まで、反射体のある炉心は分けられない
@@ -722,25 +794,6 @@ fn assembly_fission_rates_follow_the_map() {
             }
         }
     }
-}
-
-#[test]
-fn case_reads_the_core_state() {
-    let text = format!("{CASE}\n[state]\nboron = 1291\nb10 = 0.199\nmoderator = 565\nfuel = 565\n");
-    let c = Case::parse(&text, base()).unwrap();
-    assert_eq!(
-        c.state,
-        Some(State {
-            boron: 1291.0,
-            b10: 0.199,
-            moderator: 565.0,
-            fuel: 565.0
-        })
-    );
-    assert_eq!(case().state, None);
-    // 4つとも必須
-    let partial = format!("{CASE}\n[state]\nboron = 1291\nmoderator = 565\nfuel = 565\n");
-    assert!(Case::parse(&partial, base()).is_err());
 }
 
 #[test]
