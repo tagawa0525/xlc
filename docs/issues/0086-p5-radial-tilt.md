@@ -14,7 +14,7 @@ resolution:
 
 VERA 5A-2D を全炉心（ADR-0090）で、単一集合体の定数と I 型・角型の反射体の定数（f\* の方法。ADR-0095、ADR-0132）で
 解くと、k は KENO-VI より +235 pcm 大きい。集合体出力は中心で低く、外周で高い（H8 で −4.5%、G8 で −6.8%、B12 で +10.4%。
-193 体の RMS は 4.1%。examples/vera/verification.md の「Problem 5-2D の炉心の計算」）。5B-2D と 5C-2D も同じ形
+193 体の RMS は 4.1%。examples/vera/verification.md の「Problem 5-2D の炉心の計算」、b9f8049d、2026-10-12）。5B-2D と 5C-2D も同じ形
 （RMS 4.8%）。KENO-VI の参照（付録 J の Case 1）と xlc の反射体（Case 2 の形）の違いは、表 J-1 では集合体出力の最大の差が
 −0.57% で、この大きさを説明しない。
 
