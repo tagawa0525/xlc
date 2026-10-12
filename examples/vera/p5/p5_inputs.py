@@ -6,12 +6,13 @@
   鏡面反射）。少数群定数（形状関数つき）を `lattice/<種類>.msgpack` に書く
 - `reflector-I.toml`、`reflector-corner.toml`: 径方向の反射体の I 型と角型の格子（ADR-0095、ADR-0132）。燃料は外周の
   集合体の代表の 3.10%、Pyrex の棒なし（ADR-0084）。ノードごとの少数群定数を `lattice/` に書く
-- `small-moc.toml`: 3 × 3 の 3.10% の集合体と反射体の輪の 2D の全体を、真空の外周で MOC で解く格子（最小の入力の参照）
+- `small-moc.toml`、`medium-moc.toml`: 3 × 3（最小の入力）と 5 × 5 の 3.10% の集合体と反射体の輪の 2D の全体を、真空の
+  外周で MOC で解く格子（正方形の炉心の参照）
 - `core-<ケース>.toml` ほか（ADR-0105 の 4 つ）: 全炉心（ADR-0090）の炉心の計算。ケースは次のとおり
   - `5A`、`5B`、`5C`: 5A-2D（制御棒なし）、5B-2D（D バンクに AIC）、5C-2D（D バンクに B4C）
   - `5A-Ly`: 5A の L 型の位置の I 型の定数の f* の辺を、もう一方の燃料の面に向けたもの（L 型の近似の大きさの見積もり）
   - `5A-Inext`: 5A の、角型の位置に隣る I 型の位置に、角型の格子の右と上の定数でなく I 型の定数を置いたもの
-  - `small-E`、`small-I`: `small-moc.toml` と同じ体系を、角型の位置に隣る位置に角型の格子の右と上の定数を置いて、
+  - `small-E`、`small-I`、`medium-E`、`medium-I`: `small-moc.toml`、`medium-moc.toml` と同じ体系を、角型の位置に隣る位置に角型の格子の右と上の定数を置いて、
     または I 型の定数を置いて解いたもの
   - `small-step-Lx`、`small-step-Ly`: 階段の外形（L 型、角型、`-`）を持つ小さな炉心（集合体 21 体）。L 型の位置の
     f* の辺の向きを変えた 2 つ
@@ -551,21 +552,29 @@ def reflector_lattices() -> dict[str, str]:
     return out
 
 
-def small_moc() -> str:
-    kinds = [list(line) for line in SMALL_KINDS]
+def square_moc(name: str) -> str:
+    n = SQUARES[name]
     return block_lattice(
-        kinds,
+        square_kinds(n),
         '{ left = "vacuum", right = "vacuum", top = "vacuum", bottom = "vacuum" }',
         "",
-        "# 最小の入力の参照: 3.10% の集合体（Pyrex の棒なし）3 × 3 と反射体の輪（I 型の位置 12、角型の位置 4）の 2D の全体を、\n"
-        "# 外周を真空にして MOC で解く。反射体の寸法とバッフルの形は reflector-I.toml、reflector-corner.toml と同じ。\n"
-        "# core の small-E、small-I と比べる（セルごとの核分裂率）。",
-        'pin-powers = "small-moc-pins.msgpack"\n',
+        f"# 正方形の炉心の参照: 3.10% の集合体（Pyrex の棒なし）{n} × {n} と反射体の輪の 2D の全体を、外周を真空にして\n"
+        "# MOC で解く。反射体の寸法とバッフルの形は reflector-I.toml、reflector-corner.toml と同じ。\n"
+        f"# core の {name}-E、{name}-I と比べる（セルごとの核分裂率）。",
+        f'pin-powers = "{name}-moc-pins.msgpack"\n',
     )
 
 
-# 最小の入力の 3 × 3 の集合体と反射体の輪（F は燃料、R は反射体）
-SMALL_KINDS = ["RRRRR", "RFFFR", "RFFFR", "RFFFR", "RRRRR"]
+# 正方形の炉心（集合体 n × n と反射体の輪）: 最小の入力（3 × 3）と、炉心の中に反射体から離れた集合体のある 5 × 5
+SQUARES = {"small": 3, "medium": 5}
+
+
+def square_kinds(n: int) -> list[list[str]]:
+    """F は燃料、R は反射体"""
+    return [
+        ["F" if 0 < i <= n and 0 < j <= n else "R" for j in range(n + 2)]
+        for i in range(n + 2)
+    ]
 
 
 def fuel_set(counts: list[int]) -> set[tuple[int, int]]:
@@ -854,33 +863,30 @@ def core_files() -> dict[str, str]:
                 f"# VERA Problem {name}-2D（{what}）の全炉心の 2D の計算。外周の直方体と外形の面は真空（ADR-0132）、z は鏡面反射。\n"
                 "# 制御棒の位置はまだ入力にない（ADR-0105 の `rods`）ので、制御棒の入った集合体は台帳で別の設計にする。",
             )
-    # 最小の入力: 3 × 3 の集合体と反射体の輪
-    small = {
-        (i - 2, j - 2)
-        for i, line in enumerate(SMALL_KINDS)
-        for j, k in enumerate(line)
-        if k == "F"
-    }
-    small_designs = {p: "31" for p in small}
-    files["core-small-assemblies.toml"] = inventory(small_designs)
-    for nxt in ["E", "I"]:
-        files[f"core-small-{nxt}-plant.toml"] = plant(
-            reflector_map(small, 5, "x", nxt),
-            "# 最小の入力（small-moc.toml の体系）の炉心の形。角型の位置に隣る I 型の位置は、"
-            + ("角型の格子の右と上の反射体" if nxt == "E" else "I 型の格子の反射体")
-            + "。",
-        )
-        files[f"core-small-{nxt}-cycle.toml"] = cycle(
-            f"small-{nxt}",
-            f"core-small-{nxt}-plant.toml",
-            "core-small-assemblies.toml",
-            loading_of(small_designs, 5),
-        )
-        files[f"core-small-{nxt}.toml"] = case(
-            f"small-{nxt}",
-            "# 最小の入力（small-moc.toml の体系）を core で解く。外周の直方体は真空、z は鏡面反射。",
-            outline=False,
-        )
+    # 正方形の炉心: 集合体 n × n と反射体の輪
+    for square, n in SQUARES.items():
+        h = n // 2 + 1
+        fuel_sites = {(i, j) for i in range(-h + 1, h) for j in range(-h + 1, h)}
+        designs = {p: "31" for p in fuel_sites}
+        files[f"core-{square}-assemblies.toml"] = inventory(designs)
+        for nxt in ["E", "I"]:
+            files[f"core-{square}-{nxt}-plant.toml"] = plant(
+                reflector_map(fuel_sites, n + 2, "x", nxt),
+                f"# 正方形の炉心（{square}-moc.toml の体系）の炉心の形。角型の位置に隣る I 型の位置は、"
+                + ("角型の格子の右と上の反射体" if nxt == "E" else "I 型の格子の反射体")
+                + "。",
+            )
+            files[f"core-{square}-{nxt}-cycle.toml"] = cycle(
+                f"{square}-{nxt}",
+                f"core-{square}-{nxt}-plant.toml",
+                f"core-{square}-assemblies.toml",
+                loading_of(designs, n + 2),
+            )
+            files[f"core-{square}-{nxt}.toml"] = case(
+                f"{square}-{nxt}",
+                f"# 正方形の炉心（{square}-moc.toml の体系）を core で解く。外周の直方体は真空、z は鏡面反射。",
+                outline=False,
+            )
     step = fuel_set(COUNTS_STEP)
     step_designs = {p: "31" for p in step}
     files["core-small-step-assemblies.toml"] = inventory(step_designs)
@@ -967,14 +973,15 @@ def pipeline(files: dict[str, str]) -> str:
                 [*(f"lattice/{o}.msgpack" for o in outs), f"{stem}.out"],
             )
         )
-    stages.append(
-        stage(
-            "small-moc",
-            "cargo run --release -p xlc-lattice -- small-moc.toml > small-moc.out",
-            ["small-moc.toml", "../vera.msgpack", *code("lattice")],
-            ["small-moc-pins.msgpack", "small-moc.out"],
+    for square in SQUARES:
+        stages.append(
+            stage(
+                f"{square}-moc",
+                f"cargo run --release -p xlc-lattice -- {square}-moc.toml > {square}-moc.out",
+                [f"{square}-moc.toml", "../vera.msgpack", *code("lattice")],
+                [f"{square}-moc-pins.msgpack", f"{square}-moc.out"],
+            )
         )
-    )
     cases = [
         f[5:-5]
         for f in files
@@ -1008,15 +1015,16 @@ def pipeline(files: dict[str, str]) -> str:
                 [f"core-{name}.out", f"core-{name}.log", f"core-{name}-pins.msgpack"],
             )
         )
-    for name in ["small-E", "small-I"]:
+    for name in [f"{s}-{v}" for s in SQUARES for v in "EI"]:
+        moc = name.split("-")[0] + "-moc"
         stages.append(
             stage(
                 f"compare-{name}",
-                f"python3 ../compare_p5.py moc small-moc.out small-moc-pins.msgpack core-{name}.out core-{name}-pins.msgpack > compare-{name}.out",
+                f"python3 ../compare_p5.py moc {moc}.out {moc}-pins.msgpack core-{name}.out core-{name}-pins.msgpack > compare-{name}.out",
                 [
                     "../compare_p5.py",
-                    "small-moc.out",
-                    "small-moc-pins.msgpack",
+                    f"{moc}.out",
+                    f"{moc}-pins.msgpack",
                     f"core-{name}.out",
                     f"core-{name}-pins.msgpack",
                 ],
@@ -1061,7 +1069,8 @@ def main() -> None:
     for name, (fuel, pyrex, rod) in assembly_types().items():
         files[f"assembly-{name}.toml"] = assembly(name, fuel, pyrex, rod)
     files.update(reflector_lattices())
-    files["small-moc.toml"] = small_moc()
+    for square in SQUARES:
+        files[f"{square}-moc.toml"] = square_moc(square)
     files["dvc.yaml"] = pipeline(files)
     for name, text in files.items():
         (HERE / name).write_text(text)
