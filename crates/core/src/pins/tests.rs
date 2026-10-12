@@ -751,8 +751,7 @@ fn concave_outline_corners_keep_the_symmetry() {
 #[test]
 fn nodes_without_fission_take_the_cells_of_the_fuel_beside_them() {
     // 階段の外形の炉心では、燃料の列（行）に、セルの幅の違う反射体のノード（向きの違う I 型、角型）が並ぶ。核分裂の
-    // ないノードのセルは 0 なので、その列と行のセルは燃料のノードから取り、反射体のノードは 0 で埋める。燃料の
-    // ない列と行は、反射体のノードどうしでセルの大きさがそろうこと
+    // ないノードのセルは 0 なので、その列と行のセルは燃料のノードから取り、反射体のノードは 0 で埋める
     let mut p = Problem {
         mesh: Mesh {
             dx: vec![21.5, 21.5],
@@ -816,7 +815,11 @@ fn layers_take_the_cells_of_the_fuel_in_any_layer() {
     let ones = vec![vec![1.0; 4]; 4];
     let maps = vec![ones.clone(), ones.clone(), ones, vec![vec![0.0; 3]; 3]];
     let rows = core_rows(&p, &maps).unwrap();
-    assert_eq!((rows.len(), rows[0].len()), (4, 8));
+    // 層の和は、列 0 のセルが 2、列 1 のセルが 1（層 1 の反射体は 0）。平均 1.5 で規格化する
+    assert_eq!(
+        rows,
+        vec![[vec![2.0 / 1.5; 4], vec![1.0 / 1.5; 4]].concat(); 4]
+    );
 }
 
 #[test]
