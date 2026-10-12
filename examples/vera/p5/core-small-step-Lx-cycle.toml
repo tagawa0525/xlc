@@ -2,11 +2,11 @@
 plant = "core-small-step-Lx-plant.toml"
 inventory = "core-small-step-assemblies.toml"
 loading = [
-  ".   .   .   .   .   .   .",
-  ".   .   J06 H06 G06 .   .",
-  ".   K07 J07 H07 G07 F07 .",
-  ".   K08 J08 H08 G08 F08 .",
-  ".   K09 J09 H09 G09 F09 .",
-  ".   .   J10 H10 G10 .   .",
-  ".   .   .   .   .   .   .",
+  ".       .       .       .       .       .       .",
+  ".       .       J06@90  H06@90  G06     .       .",
+  ".       K07@90  J07     H07     G07     F07     .",
+  ".       K08@180 J08     H08     G08     F08     .",
+  ".       K09@180 J09     H09     G09     F09@270 .",
+  ".       .       J10@180 H10@270 G10@270 .       .",
+  ".       .       .       .       .       .       .",
 ]

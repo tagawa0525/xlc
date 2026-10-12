@@ -5,9 +5,14 @@
 - `assembly-<種類>.toml`: 集合体の種類（濃縮度と、Pyrex の棒の本数か D バンクの制御棒）ごとの単一集合体の格子（外周は
   鏡面反射）。少数群定数（形状関数つき）を `lattice/<種類>.msgpack` に書く
 - `reflector-I.toml`、`reflector-corner.toml`: 径方向の反射体の I 型と角型の格子（ADR-0095、ADR-0132）。燃料は外周の
-  集合体の代表の 3.10%、Pyrex の棒なし（ADR-0084）。ノードごとの少数群定数を `lattice/` に書く
+  集合体の代表の 3.10%、Pyrex の棒なし（ADR-0084）。ノードごとの少数群定数を `lattice/` に書く。反射体のノードの定数は
+  炉心のすべての反射体の位置に、燃料のノードの定数は外周のこの種類の位置に置く
+- `reflector-<形>-<種類>.toml`: 外周の位置に代表と違う種類の集合体（5-2D では Pyrex のある 3.10%）があるときの、その種類の
+  燃料の反射体の格子。燃料のノードの定数を、その位置に置く（ADR-0153）
 - `small-moc.toml`: 3 × 3 の 3.10% の集合体と反射体の輪の 2D の全体を、真空の外周で MOC で解く格子（最小の入力の参照）
-- `core-<ケース>.toml` ほか（ADR-0105 の 4 つ）: 全炉心（ADR-0090）の炉心の計算。ケースは次のとおり
+- `core-<ケース>.toml` ほか（ADR-0105 の 4 つ）: 全炉心（ADR-0090）の炉心の計算。燃料のノードの定数は、反射体に 1 面で
+  面する位置は I 型、隣り合う 2 面で面する位置は角型の反射体の格子の燃料のノードのもの、ほかは単一集合体のもの（ADR-0153）。
+  ケースは次のとおり
   - `5A`、`5B`、`5C`: 5A-2D（制御棒なし）、5B-2D（D バンクに AIC）、5C-2D（D バンクに B4C）
   - `5A-Ly`: 5A の L 型の位置の I 型の定数の f* の辺を、もう一方の燃料の面に向けたもの（L 型の近似の大きさの見積もり）
   - `5A-Inext`: 5A の、角型の位置に隣る I 型の位置に、角型の格子の右と上の定数でなく I 型の定数を置いたもの
@@ -160,6 +165,9 @@ BANK_D = {(0, 0), (0, 4), (4, 0), (4, 4)}
 # 制御棒（表 8。吸収体の半径、被覆管は SS304 の 0.386〜0.484 cm、吸収体と被覆管の間は真空。ADR-0120）
 RODS = {"aic": ("AIC", AIC, 0.382), "b4c": ("B4C", B4C, 0.373)}
 CASES = {"5A": None, "5B": "aic", "5C": "b4c"}
+# 反射体の定数を作る燃料（外周の集合体の代表。ADR-0084）。I 型と角型の格子の反射体のノードの定数を、炉心のすべての
+# 反射体の位置に置く。燃料のノードの定数は、外周のこの種類の位置に置く（ADR-0153）
+REPRESENTATIVE = "31"
 # 全炉心の列の名前（西から。I、O、Q は使わない）
 COLUMNS = "RPNMLKJHGFEDCBA"
 
@@ -330,7 +338,10 @@ def rows_toml(rows: list[list[str]]) -> str:
     )
 
 
-def assembly(name: str, fuel: str, pyrex: int, rod: str | None) -> str:
+def assembly_parts(
+    fuel: str, pyrex: int, rod: str | None
+) -> tuple[str, list[str], list[str]]:
+    """集合体の種類の説明、物質の名前、セル"""
     what = f"濃縮度 {ENRICHMENT[fuel]}"
     if pyrex:
         what += f"、Pyrex の棒 {pyrex} 本（図 5 の配置）"
@@ -346,6 +357,11 @@ def assembly(name: str, fuel: str, pyrex: int, rod: str | None) -> str:
     if rod:
         names.append(rod)
         cells.append(rod_cell(rod))
+    return what, names, cells
+
+
+def assembly(name: str, fuel: str, pyrex: int, rod: str | None) -> str:
+    what, names, cells = assembly_parts(fuel, pyrex, rod)
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 # VERA Problem 5-2D の集合体（{what}）の単一集合体の格子（外周は鏡面反射）。燃料、被覆管、減速材は 565 K、
 # 減速材 0.743 g/cc、ホウ素 1300 ppm（表 M3-1、M3-4）。ほかは examples/vera/p2 の 2A、2E、2G、2H と同じ形。少数群定数は
@@ -479,15 +495,23 @@ def side_list(fuel_at: list[bool]) -> list[str]:
 
 
 def block_lattice(
-    kinds: list[list[str]], boundary: str, few_group: str, comment: str, extra: str = ""
+    kinds: list[list[str]],
+    boundary: str,
+    few_group: str,
+    comment: str,
+    extra: str = "",
+    design: str = REPRESENTATIVE,
 ) -> str:
-    """3.10% の集合体と反射体を `kinds` のとおり並べた格子"""
+    """集合体の種類 `design` と反射体を `kinds` のとおり並べた格子"""
     n_rows, n_cols = len(kinds), len(kinds[0])
     col_fuel = [any(kinds[i][j] == "F" for i in range(n_rows)) for j in range(n_cols)]
     row_fuel = [any(kinds[i][j] == "F" for j in range(n_cols)) for i in range(n_rows)]
-    rows = core_lattice_rows(pin_rows("31"), kinds)
-    names = ["fuel31", "zircaloy", "water", "ss304"]
-    cells = [pin_cell("31"), TUBE_CELLS["gt"], TUBE_CELLS["it"], REFLECTOR_CELLS]
+    fuel, pyrex, rod = assembly_types()[design]
+    rows = core_lattice_rows(pin_rows(fuel, pyrex, rod), kinds)
+    _, names, cells = assembly_parts(fuel, pyrex, rod)
+    if "ss304" not in names:
+        names.append("ss304")
+    cells.append(REFLECTOR_CELLS)
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 {comment}
 library = "../vera.msgpack"
@@ -515,58 +539,74 @@ def node_ranges(sides: list[str]) -> list[tuple[int, int]]:
     return out
 
 
-def reflector_lattices() -> dict[str, str]:
+def reflector_stem(shape: str, design: str) -> str:
+    """反射体の格子の名前（`reflector-<形>`、代表の燃料でなければ `reflector-<形>-<集合体の種類>`）"""
+    return f"reflector-{shape}" + ("" if design == REPRESENTATIVE else f"-{design}")
+
+
+# 反射体の格子の、形ごとのノード（名前の末尾、ノードの位置の列と行の番号、反射体か）。名前は格子の名前に続ける
+LATTICE_NODES = {
+    "I": [("-fuel", 0, 0, False), ("", 1, 0, True)],
+    "corner": [
+        ("-fuel", 0, 1, False),
+        ("-right", 1, 1, True),
+        ("-top", 0, 0, True),
+        ("", 1, 0, True),
+    ],
+}
+
+
+def reflector_lattice(shape: str, design: str) -> str:
+    fuel, pyrex, rod = assembly_types()[design]
+    what = assembly_parts(fuel, pyrex, rod)[0] + (
+        "" if pyrex or rod else "、Pyrex の棒なし"
+    )
+    stem = reflector_stem(shape, design)
     common = (
-        "# 燃料は外周の集合体の代表として 3.10%、Pyrex の棒なし（examples/vera/p2/assembly-2A.toml と同じ物質とセル。\n"
-        "# ADR-0084）。反射体は燃料側から、集合体の外周からの隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm\n"
-        "# （仕様書の 1.13 節の表 16。集合体のピッチ 21.50 cm の幅）。ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。"
+        f"# 燃料は{what}。燃料のノードの定数を、外周のこの種類の位置に置く（ADR-0153）。\n"
+        "# 反射体は燃料側から、集合体の外周からの隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm（仕様書の 1.13 節の\n"
+        "# 表 16。集合体のピッチ 21.50 cm の幅）。ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。"
     )
-    out = {}
-    kinds = [["F", "R"]]
-    cols = node_ranges(["fuel", "after"])
-    rws = node_ranges(["fuel"])
-    fg = (
-        f"few-group = {{ bounds = {BOUNDS}, nodes = [\n"
-        f'  {{ output = "lattice/reflector-I-fuel.msgpack", columns = [{cols[0][0]}, {cols[0][1]}], rows = [{rws[0][0]}, {rws[0][1]}] }},\n'
-        f'  {{ output = "lattice/reflector-I.msgpack", columns = [{cols[1][0]}, {cols[1][1]}], rows = [{rws[0][0]}, {rws[0][1]}], reflector = true }},\n'
-        "], pins = true }\n"
-    )
-    out["reflector-I.toml"] = block_lattice(
-        kinds,
-        '{ right = "vacuum" }',
-        fg,
-        "# 径方向の反射体の I 型の格子（ADR-0095）: VERA Problem 5-2D の燃料の集合体の右に反射体を置く。左、上、下は鏡面\n"
-        "# 反射、右は真空（examples/reflector/reflector-I.toml と同じ形）。\n" + common,
-    )
-    kinds = [["R", "R"], ["F", "R"]]
-    cols = node_ranges(["fuel", "after"])
-    rws = node_ranges(["before", "fuel"])
-    nodes = [
-        ("corner-fuel", cols[0], rws[1], False),
-        ("corner-right", cols[1], rws[1], True),
-        ("corner-top", cols[0], rws[0], True),
-        ("corner", cols[1], rws[0], True),
-    ]
+    if design == REPRESENTATIVE:
+        common += "\n# 反射体のノードの定数は、炉心のすべての反射体の位置に置く（ADR-0084、ADR-0153）。"
+    if shape == "I":
+        kinds = [["F", "R"]]
+        cols, rws = node_ranges(["fuel", "after"]), node_ranges(["fuel"])
+        boundary = '{ right = "vacuum" }'
+        title = (
+            "# 径方向の反射体の I 型の格子（ADR-0095）: VERA Problem 5-2D の燃料の集合体の右に反射体を置く。左、上、下は鏡面\n"
+            "# 反射、右は真空（examples/reflector/reflector-I.toml と同じ形）。\n"
+        )
+    else:
+        kinds = [["R", "R"], ["F", "R"]]
+        cols, rws = node_ranges(["fuel", "after"]), node_ranges(["before", "fuel"])
+        boundary = '{ right = "vacuum", top = "vacuum" }'
+        title = (
+            "# 径方向の反射体の角型の格子（ADR-0095、ADR-0132）: VERA Problem 5-2D の燃料の集合体の右と上に反射体を置き、バッフルは\n"
+            "# 集合体の外側の角で L 字に折る。左と下は鏡面反射、右と上は真空（examples/reflector/reflector-corner.toml と同じ形）。\n"
+            "# ノードは集合体、右と上の反射体（燃料に面で接する）、右上の反射体（燃料に角の点だけで接する）。\n"
+        )
     fg = (
         f"few-group = {{ bounds = {BOUNDS}, nodes = [\n"
         + "".join(
-            f'  {{ output = "lattice/reflector-{n}.msgpack", columns = [{c[0]}, {c[1]}], rows = [{r[0]}, {r[1]}]'
+            f'  {{ output = "lattice/{stem}{n}.msgpack", columns = [{cols[c][0]}, {cols[c][1]}], rows = [{rws[r][0]}, {rws[r][1]}]'
             + (", reflector = true" if refl else "")
             + " },\n"
-            for n, c, r, refl in nodes
+            for n, c, r, refl in LATTICE_NODES[shape]
         )
         + "], pins = true }\n"
     )
-    out["reflector-corner.toml"] = block_lattice(
-        kinds,
-        '{ right = "vacuum", top = "vacuum" }',
-        fg,
-        "# 径方向の反射体の角型の格子（ADR-0095、ADR-0132）: VERA Problem 5-2D の燃料の集合体の右と上に反射体を置き、バッフルは\n"
-        "# 集合体の外側の角で L 字に折る。左と下は鏡面反射、右と上は真空（examples/reflector/reflector-corner.toml と同じ形）。\n"
-        "# ノードは集合体、右と上の反射体（燃料に面で接する）、右上の反射体（燃料に角の点だけで接する）。\n"
-        + common,
-    )
-    return out
+    return block_lattice(kinds, boundary, fg, title + common, design=design)
+
+
+def reflector_lattices() -> dict[str, str]:
+    """反射体の格子: 代表の燃料（ADR-0084）の I 型と角型と、外周のほかの種類の燃料の、その位置の形の格子（ADR-0153）"""
+    return {
+        f"{reflector_stem(shape, design)}.toml": reflector_lattice(shape, design)
+        for shape, design in sorted(
+            peripheral_lattices() | {("I", REPRESENTATIVE), ("corner", REPRESENTATIVE)}
+        )
+    }
 
 
 def square_moc(name: str) -> str:
@@ -808,27 +848,86 @@ def core_5_2d(rod: str | None) -> tuple[dict[tuple[int, int], str], str]:
     return designs, inventory(designs)
 
 
+def periphery(fuel: set[tuple[int, int]]) -> dict[tuple[int, int], tuple[str, int]]:
+    """反射体に面する燃料の位置（中心が (0, 0)、行は下が正）ごとの、反射体の格子の形と回転（反時計回りの 90° の回数）。
+    1 面で面する位置は I 型（格子の燃料は +x に反射体）、隣り合う 2 面で面する位置は角型（+x と +y に反射体）。
+    反射体の位置に角の点だけで接する燃料と、反射体に面しない燃料は含めない（単一集合体の定数。ADR-0153）"""
+    out = {}
+    for i, j in fuel:
+        faces = [d for d, (di, dj) in enumerate(STEPS) if (i + di, j + dj) not in fuel]
+        if len(faces) == 1:
+            out[(i, j)] = ("I", faces[0])
+        elif len(faces) == 2 and (faces[1] - faces[0]) % 4 in (1, 3):
+            first = faces[0] if (faces[1] - faces[0]) % 4 == 1 else faces[1]
+            out[(i, j)] = ("corner", first)
+        elif faces:
+            raise SystemExit(f"fuel at {(i, j)} faces the reflector on sides {faces}")
+    return out
+
+
+def site_design(design: str, shape: str | None) -> str:
+    """台帳の設計の名前: 反射体に面しない位置は集合体の種類、面する位置は `<種類>-<形>`"""
+    return design if shape is None else f"{design}-{shape}"
+
+
 def inventory(designs: dict[tuple[int, int], str]) -> str:
-    used = sorted(set(designs.values()))
+    """台帳。反射体に面する位置の設計は、その種類の燃料とその位置の形の反射体の格子の燃料のノードの定数（ADR-0153）"""
+    edge = periphery(set(designs))
+    sites = {
+        p: site_design(d, edge[p][0] if p in edge else None) for p, d in designs.items()
+    }
+    layers = {}
+    for p, d in designs.items():
+        if p in edge:
+            layers[sites[p]] = f"lattice/{reflector_stem(edge[p][0], d)}-fuel.msgpack"
+        else:
+            layers[d] = f"lattice/{d}.msgpack"
     text = "# このファイルは p5_inputs.py が書く。手で直さない。\n"
-    text += "# 集合体の台帳。設計は集合体の種類の単一集合体の格子の定数（f* の方法）。ID は全炉心の位置（列の名前と行の番号）\n"
+    text += (
+        "# 集合体の台帳。ID は全炉心の位置（列の名前と行の番号）。設計は、反射体に面しない位置は集合体の種類の単一集合体の\n"
+        "# 格子の定数、反射体に 1 面で面する位置（<種類>-I）と 2 面で面する位置（<種類>-corner）は、その種類の燃料の I 型と角型の\n"
+        "# 反射体の格子の燃料のノードの定数（ADR-0153。燃料の向きは装荷で回す）\n"
+    )
     text += "".join(
-        f'\n[design.{d}]\nbounds = [0.0, {HEIGHT}]\nlayers = ["lattice/{d}.msgpack"]\n'
-        for d in used
+        f'\n[design.{d}]\nbounds = [0.0, {HEIGHT}]\nlayers = ["{layers[d]}"]\n'
+        for d in sorted(layers)
     )
     text += "".join(
         f'\n[assembly.{assembly_id(i, j)}]\ndesign = "{d}"\n'
-        for (i, j), d in sorted(designs.items())
+        for (i, j), d in sorted(sites.items())
     )
     return text
 
 
 def loading_of(designs: dict[tuple[int, int], str], size: int) -> list[list[str]]:
+    """装荷。反射体に面する位置の集合体は、反射体の格子の燃料の反射体の向きを、その位置の反射体の向きに回す"""
+    edge = periphery(set(designs))
     h = size // 2
     return [
-        [assembly_id(i, j) if (i, j) in designs else "." for j in range(-h, h + 1)]
+        [
+            turned(assembly_id(i, j), edge[(i, j)][1] if (i, j) in edge else 0)
+            if (i, j) in designs
+            else "."
+            for j in range(-h, h + 1)
+        ]
         for i in range(-h, h + 1)
     ]
+
+
+def peripheral_lattices() -> set[tuple[str, str]]:
+    """炉心の入力が使う、反射体の格子の（形, 集合体の種類）"""
+    out = set()
+    sets = [core_5_2d(rod)[0] for rod in CASES.values()]
+    sets.append({p: REPRESENTATIVE for p in fuel_set(COUNTS_STEP)})
+    for n in SQUARES.values():
+        h = n // 2 + 1
+        sets.append(
+            {(i, j): REPRESENTATIVE for i in range(-h + 1, h) for j in range(-h + 1, h)}
+        )
+    for designs in sets:
+        for p, (shape, _) in periphery(set(designs)).items():
+            out.add((shape, designs[p]))
+    return out
 
 
 # 5-2D の 1/4 の行ごとの燃料の数（8〜15 行。H8 を含む。図 M3-1）
@@ -1026,24 +1125,19 @@ def pipeline(files: dict[str, str]) -> str:
                 [f"lattice/{name}.msgpack", f"{stem}.out"],
             )
         )
-    for stem, outs in [
-        ("reflector-I", ["reflector-I-fuel", "reflector-I"]),
-        (
-            "reflector-corner",
-            [
-                "reflector-corner-fuel",
-                "reflector-corner-right",
-                "reflector-corner-top",
-                "reflector-corner",
-            ],
-        ),
-    ]:
+    for shape, design in sorted(
+        peripheral_lattices() | {("I", REPRESENTATIVE), ("corner", REPRESENTATIVE)}
+    ):
+        stem = reflector_stem(shape, design)
         stages.append(
             stage(
                 stem,
                 f"mkdir -p lattice && cargo run --release -p xlc-lattice -- {stem}.toml > {stem}.out",
                 [f"{stem}.toml", "../vera.msgpack", *code("lattice")],
-                [*(f"lattice/{o}.msgpack" for o in outs), f"{stem}.out"],
+                [
+                    *(f"lattice/{stem}{n}.msgpack" for n, *_ in LATTICE_NODES[shape]),
+                    f"{stem}.out",
+                ],
             )
         )
     for square in SQUARES:

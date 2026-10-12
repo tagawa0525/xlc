@@ -1,0 +1,167 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 径方向の反射体の I 型の格子（ADR-0095）: VERA Problem 5-2D の燃料の集合体の右に反射体を置く。左、上、下は鏡面
+# 反射、右は真空（examples/reflector/reflector-I.toml と同じ形）。
+# 燃料は濃縮度 3.10%、Pyrex の棒 8 本（図 5 の配置）。燃料のノードの定数を、外周のこの種類の位置に置く（ADR-0153）。
+# 反射体は燃料側から、集合体の外周からの隙間の水 0.19 cm、SS304 のバッフル 2.85 cm、水 18.46 cm（仕様書の 1.13 節の
+# 表 16。集合体のピッチ 21.50 cm の幅）。ノードごとの形状関数と角の不連続因子を付ける（ADR-0131）。
+library = "../vera.msgpack"
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+boundary = { right = "vacuum" }
+few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
+  { output = "lattice/reflector-I-31-p8-fuel.msgpack", columns = [1, 19], rows = [1, 19] },
+  { output = "lattice/reflector-I-31-p8.msgpack", columns = [20, 47], rows = [1, 19], reflector = true },
+], pins = true }
+widths = [
+  { size = 0.04 },
+  { size = 1.26, count = 17 },
+  { size = 0.04 },
+  { size = 0.19 },
+  { size = 2.85 },
+  { size = 0.71, count = 26 },
+]
+heights = [
+  { size = 0.04 },
+  { size = 1.26, count = 17 },
+  { size = 0.04 },
+]
+rows = [
+  "w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 py    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 py    pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 py    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 gt    pin31 pin31 py    pin31 pin31 it    pin31 pin31 py    pin31 pin31 gt    pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 py    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 py    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 py    pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+]
+
+[material.fuel31]
+temperature = 565
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 565
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 565
+nuclides = { H-1 = 4.96224e-02, O-16 = 2.48112e-02, B-10 = 1.07070e-05, B-11 = 4.30971e-05 }
+
+[material.ss304]
+temperature = 565
+
+[material.ss304.nuclides]
+C-12 = 3.17461e-04
+C-13 = 3.43358e-06
+Si-28 = 1.58197e-03
+Si-29 = 8.03653e-05
+Si-30 = 5.30394e-05
+P-31 = 6.99938e-05
+Cr-50 = 7.64915e-04
+Cr-52 = 1.47506e-02
+Cr-53 = 1.67260e-03
+Cr-54 = 4.16346e-04
+Mn-55 = 1.75387e-03
+Fe-54 = 3.44776e-03
+Fe-56 = 5.41225e-02
+Fe-57 = 1.24992e-03
+Fe-58 = 1.66342e-04
+Ni-58 = 5.30854e-03
+Ni-60 = 2.04484e-03
+Ni-61 = 8.88879e-05
+Ni-62 = 2.83413e-04
+Ni-64 = 7.21770e-05
+
+[material.pyrex]
+temperature = 565
+nuclides = { B-10 = 9.63266e-04, B-11 = 3.90172e-03, O-16 = 4.67761e-02, Si-28 = 1.81980e-02, Si-29 = 9.24474e-04, Si-30 = 6.10133e-04 }
+
+[cell.pin31]
+zones = [
+  { material = "fuel31", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+# 計装管（中は減速材。シンブルは入れない。仕様書の問題 5-2D）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+# Pyrex の棒を入れた案内管（表 6。内管の中と、Pyrex の内外の隙間は真空。ADR-0120）
+[cell.py]
+zones = [
+  { material = "void", radius = 0.214, rings = 1 },
+  { material = "ss304", radius = 0.231, rings = 1 },
+  { material = "void", radius = 0.241, rings = 1 },
+  { material = "pyrex", radius = 0.427, rings = 2 },
+  { material = "void", radius = 0.437, rings = 1 },
+  { material = "ss304", radius = 0.484, rings = 1 },
+  { material = "water", radius = 0.561, rings = 1 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+# 反射体の均質なマス（ピッチに合わないマスは長方形のセルになる）
+[cell.w]
+zones = [{ material = "water", rings = 1 }]
+
+# バッフルは厚さ 2.85 cm の 1 列（行）のセルにし、セルの中を 3 × 3 に分ける。構造材の塊（ADR-0086）はセルの中で
+# まとめるので、厚さを 3 列に分けると中の列のセルが SS304 に囲まれ、露出した面のない塊になる（#0085）
+[cell.ss]
+zones = [{ material = "ss304", rings = 1 }]
+grid = 3
