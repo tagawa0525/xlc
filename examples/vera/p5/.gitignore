@@ -43,3 +43,15 @@
 /compare-5A-Inext.out
 /compare-5C.out
 /compare-5B.out
+/core-lattice-I-fstar.out
+/core-lattice-I-fstar-pins.msgpack
+/core-lattice-I-equivalence.out
+/core-lattice-I-equivalence-pins.msgpack
+/compare-lattice-I-equivalence.out
+/core-lattice-corner-fstar.out
+/core-lattice-corner-fstar-pins.msgpack
+/compare-lattice-corner-fstar.out
+/core-lattice-corner-equivalence.out
+/core-lattice-corner-equivalence-pins.msgpack
+/compare-lattice-corner-equivalence.out
+/compare-lattice-I-fstar.out
