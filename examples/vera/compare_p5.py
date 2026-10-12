@@ -288,6 +288,9 @@ def openmc(core_out: str, core_pins: str, results: str) -> None:
     pins_std = np.array(
         msgpack.unpackb((Path(results) / "pins-std.msgpack").read_bytes())["rows"]
     )
+    # xlc の表と同じく、燃料のない行と列を除いてから規格化する（統計誤差も同じ行と列）
+    keep_r, keep_c = pins.any(axis=1), pins.any(axis=0)
+    pins, pins_std = (m[keep_r][:, keep_c] for m in (pins, pins_std))
     mean = pins[pins > 0].mean()
     compare_pins(read_pins(core_pins), pins / mean, pins_std / mean)
 
