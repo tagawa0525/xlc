@@ -49,7 +49,7 @@ pub enum SearchError<E> {
 }
 
 /// `bracket` の両端で `evaluate` の値が `target` を挟むとき、|値 − `target`| ≤ `tolerance` になる点を探す。
-/// 評価は `max_solves` 回まで（両端を含む）。
+/// 評価は `max_solves` 回まで（両端を含む。2 未満はエラー）。
 pub fn find<T, E>(
     bracket: [f64; 2],
     target: f64,
@@ -57,6 +57,9 @@ pub fn find<T, E>(
     max_solves: usize,
     mut evaluate: impl FnMut(f64) -> Result<(f64, T), E>,
 ) -> Result<Found<T>, SearchError<E>> {
+    if max_solves < 2 {
+        return Err(SearchError::TooFewSolves { max_solves });
+    }
     let [mut low, mut high] = bracket;
     let mut solves = 0;
     // 目標からの差 f と、その点の評価
@@ -98,9 +101,6 @@ pub fn find<T, E>(
         })
     };
     let mut value_low = value;
-    if solves >= max_solves {
-        return not_converged(solves, low, high, value_low, f64::NAN);
-    }
     let (mut f_high, mut value_high, t) = at(high, &mut solves)?;
     if f_high.abs() <= tolerance {
         return Ok(found(high, value_high, solves, t));
@@ -109,8 +109,8 @@ pub fn find<T, E>(
         return Err(SearchError::NotBracketed {
             low,
             high,
-            at_low: f_low + target,
-            at_high: f_high + target,
+            at_low: value_low,
+            at_high: value_high,
             target,
         });
     }

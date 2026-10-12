@@ -7,7 +7,7 @@
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{Axis, Table};
 
-/// 炉心の状態（ケースの `[state.<名前>]`。ADR-0146）。
+/// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct State {
     /// ホウ素濃度 (ppm)
