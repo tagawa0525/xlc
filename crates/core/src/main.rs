@@ -3,7 +3,8 @@
 //! 使い方: core <ケースのファイル>（ケース、サイクル、炉心の形、台帳の4つの入力。ADR-0105）
 //!
 //! k_eff、漏れ、集合体の位置ごとの核分裂率は標準出力に、経過（反復の回数、時間）はログとして標準エラーに
-//! 出す（`RUST_LOG=debug` で反復ごとの k と変化）。
+//! 出す（`RUST_LOG=debug` で反復ごとの k と変化）。ケースに名前つきの状態があれば、状態を並列に解き、名前の順に
+//! `state <名前>` の行に続けて状態ごとに出す（ADR-0146）。
 //!
 //! 入力のパスは、それを書いたファイルのあるディレクトリからの相対パス。
 
@@ -20,10 +21,10 @@ use anyhow::{Context, anyhow};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+use xlc_core::case::{CaseError, solve_at, solve_states};
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
-use xlc_core::nem::{Options, solve};
+use xlc_core::nem::{Options, Problem, Solution};
 use xlc_core::pins::{core_rows, reconstruct};
-use xlc_core::state::interpolate;
 use xlc_format::pins::PinPowers;
 use xlc_format::table::Table;
 
@@ -86,24 +87,67 @@ fn run(path: &Path) -> anyhow::Result<()> {
         )
     };
     let layout = Layout::new(&case, &cycle, &plant, &inventory).with_context(inputs)?;
-    let constants = layout
+    let tables = layout
         .files
         .iter()
         .map(|file| {
             let bytes = std::fs::read(file).with_context(|| shown(file))?;
-            let table = Table::from_msgpack(&bytes).with_context(|| shown(file))?;
-            interpolate(&table, case.state.as_ref()).map_err(|e| anyhow!("{}: {e}", shown(file)))
+            Table::from_msgpack(&bytes).with_context(|| shown(file))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let problem = layout.problem(&constants).with_context(inputs)?;
-    let solution = solve(&problem, &Options::default())?;
+    let options = Options::default();
+    if case.states.is_empty() {
+        let s = solve_at(&layout, &tables, None, &options).map_err(|e| in_inputs(e, inputs()))?;
+        report(&layout, &s.problem, &s.solution);
+        write_pin_powers(&case, &s.problem, &s.solution)?;
+    } else {
+        // 状態をすべて並列に解いてから、名前の順に出す（ADR-0146）
+        let results = solve_states(&layout, &tables, &case.states, &options);
+        // 解けた状態は出し、解けなかった状態のエラーは最後にまとめて返す（長い計算のほかの状態の結果を捨てない）
+        let mut errors = Vec::new();
+        for (state, result) in case.states.iter().zip(results) {
+            match result {
+                Ok(s) => {
+                    let _span = tracing::info_span!("report", state = %state.name).entered();
+                    println!("state {}", state.name);
+                    report(&layout, &s.problem, &s.solution);
+                    write_pin_powers(&case, &s.problem, &s.solution)?;
+                }
+                Err(e) => errors.push(format!(
+                    "state {}: {:#}",
+                    state.name,
+                    in_inputs(e, inputs())
+                )),
+            }
+        }
+        if !errors.is_empty() {
+            return Err(anyhow!("{}", errors.join("\n")));
+        }
+    }
+    tracing::info!(seconds = start.elapsed().as_secs_f64(), "core");
+    Ok(())
+}
+
+/// 4つの入力の組み合わせの誤り（`CaseError::Input`）にだけ、どのファイルかを添える。内挿や固有値の反復の
+/// エラーは入力の組み合わせの誤りではないので、そのまま返す
+fn in_inputs(error: CaseError, inputs: String) -> anyhow::Error {
+    match error {
+        CaseError::Input(e) => anyhow::Error::new(e).context(inputs),
+        e => e.into(),
+    }
+}
+
+/// k_eff、漏れ、集合体の位置ごとの核分裂率を標準出力に出す。
+fn report(layout: &Layout, problem: &Problem, solution: &Solution) {
     let leakage: f64 = solution.leakage.iter().sum();
-    println!("k-eff {:.6}", solution.k);
+    // 状態の間の k の差（価値、係数）を出力から取るので、丸めの誤差が固有値の反復の判定（1e-8）より小さくなる
+    // 桁まで出す。k の誤差そのものは反復の収束で決まる（ADR-0146）
+    println!("k-eff {:.8}", solution.k);
     println!("leakage per fission neutron {:.4}", leakage * solution.k);
     println!("assembly fission rates (relative to the assembly mean, top row is +y)");
     println!("(`.` is a reflector site, `-` a position without a node)");
     for (row, empty) in layout
-        .assembly_fission_rates(&problem, &solution)
+        .assembly_fission_rates(problem, solution)
         .iter()
         .zip(&layout.empty)
     {
@@ -124,24 +168,24 @@ fn run(path: &Path) -> anyhow::Result<()> {
             tracing::debug!(node, flux = ?flux, "node average flux");
         }
     }
-    // 再構成したピン出力（ADR-0096）
-    if let Some(file) = &case.pin_powers {
-        let reconstructed = Instant::now();
-        let maps = reconstruct(&problem, &solution).map_err(|e| anyhow!("pin powers: {e}"))?;
-        let rows = core_rows(&problem, &maps).map_err(|e| anyhow!("pin powers: {e}"))?;
-        let bytes = PinPowers { rows }
-            .to_msgpack()
-            .with_context(|| shown(file))?;
-        std::fs::write(file, bytes).with_context(|| shown(file))?;
-        tracing::info!(
-            seconds = reconstructed.elapsed().as_secs_f64(),
-            "pin power reconstruction"
-        );
-    }
+    tracing::info!(iterations = solution.iterations, "eigenvalue");
+}
+
+/// 再構成したピン出力（ADR-0096）を、ケースが指定していれば書く。
+fn write_pin_powers(case: &Case, problem: &Problem, solution: &Solution) -> anyhow::Result<()> {
+    let Some(file) = &case.pin_powers else {
+        return Ok(());
+    };
+    let reconstructed = Instant::now();
+    let maps = reconstruct(problem, solution).map_err(|e| anyhow!("pin powers: {e}"))?;
+    let rows = core_rows(problem, &maps).map_err(|e| anyhow!("pin powers: {e}"))?;
+    let bytes = PinPowers { rows }
+        .to_msgpack()
+        .with_context(|| shown(file))?;
+    std::fs::write(file, bytes).with_context(|| shown(file))?;
     tracing::info!(
-        iterations = solution.iterations,
-        seconds = start.elapsed().as_secs_f64(),
-        "core"
+        seconds = reconstructed.elapsed().as_secs_f64(),
+        "pin power reconstruction"
     );
     Ok(())
 }
