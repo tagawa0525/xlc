@@ -9,4 +9,5 @@ pub mod case;
 pub mod input;
 pub mod nem;
 pub mod pins;
+pub mod search;
 pub mod state;

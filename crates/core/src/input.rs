@@ -54,11 +54,12 @@
 //! b10 = 0.199         # ホウ素の中の B-10 の原子分率（テーブルと同じ値）
 //! moderator = 565     # 減速材の温度 (K)
 //! fuel = 565          # 燃料の温度 (K)
-//! [state.cold]
-//! boron = 1291
+//! [state.critical]    # boron の代わりに、k が目標になるホウ素濃度を探す（ADR-0145）
 //! b10 = 0.199
-//! moderator = 560
-//! fuel = 560
+//! moderator = 565
+//! fuel = 565
+//! # 範囲 (ppm。両端の k が目標を挟む)、目標の k、|k − 目標| の許容、固有値計算の回数の上限（両端を含む）
+//! search = { boron = [1100.0, 1400.0], k = 1.0, tolerance = 1.0e-6, max-solves = 20 }
 //! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -539,8 +540,50 @@ struct CaseFile {
     axial_mesh: Vec<f64>,
     radial_nodes: usize,
     boundary: BoundaryEntry,
-    state: Option<BTreeMap<String, State>>,
+    state: Option<BTreeMap<String, StateEntry>>,
     pin_powers: Option<PathBuf>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StateEntry {
+    boron: Option<f64>,
+    b10: f64,
+    moderator: f64,
+    fuel: f64,
+    search: Option<SearchEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct SearchEntry {
+    boron: [f64; 2],
+    k: f64,
+    tolerance: f64,
+    max_solves: usize,
+}
+
+impl CaseState {
+    fn new(name: String, entry: StateEntry) -> Result<Self, InputError> {
+        check_name("state", &name)?;
+        let what = |message: String| invalid(format!("state {name}: {message}"));
+        let boron = match (entry.boron, entry.search) {
+            (Some(ppm), None) => Boron::Given(ppm),
+            (None, Some(search)) => {
+                let _ = search;
+                todo!()
+            }
+            (Some(_), Some(_)) => return what("give boron or search, not both".into()),
+            (None, None) => return what("give boron or search".into()),
+        };
+        Ok(Self {
+            name,
+            boron,
+            b10: entry.b10,
+            moderator: entry.moderator,
+            fuel: entry.fuel,
+        })
+    }
 }
 
 /// 各軸の（低い側, 高い側）
@@ -595,10 +638,7 @@ impl Case {
             }
             Some(states) => states
                 .into_iter()
-                .map(|(name, state)| {
-                    check_name("state", &name)?;
-                    Ok(CaseState { name, state })
-                })
+                .map(|(name, entry)| CaseState::new(name, entry))
                 .collect::<Result<Vec<_>, InputError>>()?,
         };
         if file.pin_powers.is_some() && states.len() > 1 {
@@ -623,7 +663,46 @@ impl Case {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CaseState {
     pub name: String,
-    pub state: State,
+    pub boron: Boron,
+    /// ホウ素の中の B-10 の原子分率（テーブルと同じ値）
+    pub b10: f64,
+    /// 減速材の温度 (K)
+    pub moderator: f64,
+    /// 燃料の温度 (K)
+    pub fuel: f64,
+}
+
+/// 状態のホウ素濃度: 与えた値か、探索（ADR-0145）。
+#[derive(Debug, Clone, PartialEq)]
+pub enum Boron {
+    /// ppm
+    Given(f64),
+    Search(BoronSearch),
+}
+
+/// k が目標になるホウ素濃度の探索（ADR-0145）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoronSearch {
+    /// 探す範囲 (ppm)。下端 < 上端
+    pub bracket: [f64; 2],
+    /// 目標の k
+    pub k: f64,
+    /// |k − 目標| の許容
+    pub tolerance: f64,
+    /// 固有値計算の回数の上限（範囲の両端を含む）
+    pub max_solves: usize,
+}
+
+impl CaseState {
+    /// ホウ素濃度を `boron` (ppm) にした、テーブルを内挿する状態。
+    pub fn at(&self, boron: f64) -> State {
+        State {
+            boron,
+            b10: self.b10,
+            moderator: self.moderator,
+            fuel: self.fuel,
+        }
+    }
 }
 
 /// ノードの物質: 少数群定数のファイルの番号と、反時計回りの 90° の回数。
