@@ -2868,6 +2868,24 @@ mod tests {
         }
 
         #[test]
+        fn physical_flux_restores_the_rod_sph_factors() {
+            // 棒のリングにも SPH 因子を掛けるので、MOC の中性子束がどこも 1 なら、棒の領域の物理的な中性子束は UFG の
+            // 範囲の群（1, 2）で 1 と違い、範囲の外の群で 1
+            let (library, _, shielded) = rod_lattice();
+            let lattice = &shielded.lattice;
+            let flux = vec![vec![1.0; library.groups.len()]; lattice.regions()];
+            let physical = shielded.physical_flux(lattice, &flux).unwrap();
+            for region in [12, 13] {
+                assert_eq!(physical[region][0], 1.0, "region {region}");
+                assert!(
+                    (physical[region][1] - 1.0).abs() > 1e-6,
+                    "region {region}: {:?}",
+                    physical[region]
+                );
+            }
+        }
+
+        #[test]
         fn physical_flux_restores_the_sph_factors() {
             // MOC の中性子束がどこも 1 なら、物理的な中性子束は、リングの領域の UFG の範囲の群でそのリングの因子、
             // ほかは 1（枠の領域を含む）
