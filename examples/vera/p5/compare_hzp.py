@@ -1,10 +1,12 @@
-"""VERA Problem 5（零出力試験）の xlc の結果を、仕様書の実測値と KENO-VI の値と比べる（ADR-0146）。
+"""VERA Problem 5（零出力試験）の xlc の結果を、仕様書の実測値と KENO-VI の値と比べる（ADR-0145、ADR-0146）。
 
 使い方: python3 compare_hzp.py <spec.txt> <ケースの TOML> <core の出力>
 
-ケースの状態は、仕様書の表 P5-2 の場合の番号で `case-<n>` と名付ける。ツールは、状態のホウ素濃度、温度、B-10 の
-割合が表の場合と同じことを確かめてから、core の出力の k で次を求める。反応度の差は仕様書と同じく ρ = (1/k₁ − 1/k₂) × 10⁵ pcm。
+ケースの状態は、仕様書の表 P5-2 の場合の番号で `case-<n>`（ホウ素濃度を与える）か `case-<n>-boron`（k = 1 になる
+ホウ素濃度を探す。ADR-0145）と名付ける。ツールは、状態のホウ素濃度、温度、B-10 の割合が表の場合と同じことを確かめて
+から、core の出力で次を求める。反応度の差は仕様書と同じく ρ = (1/k₁ − 1/k₂) × 10⁵ pcm。
 
+- 臨界ホウ素濃度（`case-<n>-boron`）: 表の場合のホウ素濃度（実測の臨界）との差
 - k（`case-<n>`）: 臨界の場合 1〜10 は実測の臨界（k = 1）と、すべての場合は表 P5-6 の KENO-VI の k と、反応度で比べる
 - バンクの価値: 場合 11（1170 ppm の ARO）と場合 12〜19 の差。合計も
 - 微分ホウ素価値（DBW）: 場合 2 と 11 の差をホウ素濃度の差で割る（pcm/ppm）
@@ -139,7 +141,7 @@ def check_keno_definitions(
 
 
 def core_results(path: Path) -> dict[str, dict]:
-    """core の出力の、状態ごとの k。"""
+    """core の出力の、状態ごとの k と探索したホウ素濃度。"""
     results: dict[str, dict] = {}
     name = None
     for line in path.read_text().splitlines():
@@ -148,6 +150,10 @@ def core_results(path: Path) -> dict[str, dict]:
             if name in results:
                 raise SystemExit(f"{path}: state {name} appears twice")
             results[name] = {}
+        elif line.startswith("boron "):
+            if name is None or "boron" in results[name]:
+                raise SystemExit(f"{path}: boron line outside a state block or twice")
+            results[name]["boron"] = float(line.split()[1])
         elif line.startswith("k-eff "):
             if name is None:
                 raise SystemExit(f"{path}: k-eff before any `state <name>` line")
@@ -159,35 +165,44 @@ def core_results(path: Path) -> dict[str, dict]:
     return results
 
 
-def case_states(path: Path, cases: dict[int, dict]) -> dict[str, int]:
-    """ケースの状態の名前ごとの場合の番号。状態が表の場合と違えば止める。"""
+def case_states(path: Path, cases: dict[int, dict]) -> dict[str, tuple[int, bool]]:
+    """ケースの状態の名前ごとに (場合の番号, 探索か)。状態が表の場合と違えば止める。"""
     states = tomllib.loads(path.read_text()).get("state", {})
     out = {}
     for name, state in states.items():
         if not isinstance(state, dict):
             raise SystemExit(f"{path}: state {name}: name each state as [state.<name>]")
-        m = re.fullmatch(r"case-([1-9]\d*)", name)
+        m = re.fullmatch(r"case-([1-9]\d*)(-boron)?", name)
         if not m or int(m.group(1)) not in cases:
-            raise SystemExit(f"{path}: state {name}: name it case-<n> (Table P5-2)")
-        n = int(m.group(1))
+            raise SystemExit(
+                f"{path}: state {name}: name it case-<n> or case-<n>-boron (Table P5-2)"
+            )
+        n, search = int(m.group(1)), m.group(2) is not None
         case = cases[n]
         if any(steps != WITHDRAWN for steps in case["banks"].values()):
             # バンクの位置を状態に書く形（ADR-0127、#0063）が入るまで、挿入した場合は状態で表せない
             raise SystemExit(
                 f"{path}: state {name}: case {n} inserts banks, which states cannot hold yet (#0063)"
             )
+        if search != ("search" in state) or (
+            search and state["search"].get("k") != 1.0
+        ):
+            raise SystemExit(
+                f"{path}: state {name}: -boron states search the boron for k = 1, others give it"
+            )
         wanted = {
-            "boron": case["boron"],
             "b10": B10,
             "moderator": case["temperature"],
             "fuel": case["temperature"],
         }
+        if not search:
+            wanted["boron"] = case["boron"]
         for key, value in wanted.items():
             if state.get(key) != value:
                 raise SystemExit(
                     f"{path}: state {name}: {key} {state.get(key)} differs from case {n} ({value})"
                 )
-        out[name] = n
+        out[name] = (n, search)
     return out
 
 
@@ -205,11 +220,22 @@ def main() -> None:
             f"states of the case {sorted(states)} differ from the output {sorted(results)}"
         )
 
+    print("\ncritical boron (ppm)        xlc  measured   diff")
+    for name, (n, search) in sorted(states.items(), key=lambda s: s[1]):
+        if search:
+            ppm = results[name]["boron"]
+            measured = cases[n]["boron"]
+            print(
+                f"case {n:2d} {'':14s} {ppm:9.2f} {measured:9.2f} {ppm - measured:+6.2f}"
+            )
+
     print(
         "\nk by case                      xlc    KENO-VI   xlc-KENO (pcm)  xlc-critical (pcm)"
     )
     k = {}
-    for name, n in sorted(states.items(), key=lambda s: s[1]):
+    for name, (n, search) in sorted(states.items(), key=lambda s: s[1]):
+        if search:
+            continue
         k[n] = results[name]["k"]
         keno = cases[n]["k"]
         critical = f"{rho(1.0, k[n]):+8.1f}" if n <= 10 else ""
