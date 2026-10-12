@@ -599,6 +599,9 @@ impl Case {
                 })
                 .collect::<Result<Vec<_>, InputError>>()?,
         };
+        // toml::Table の並びは toml の feature（preserve_order）で変わるので、名前の順を自分で決める
+        let mut states = states;
+        states.sort_by(|a, b| a.name.cmp(&b.name));
         if file.pin_powers.is_some() && states.len() > 1 {
             return invalid(format!(
                 "pin-powers needs at most one state, got {}",

@@ -101,13 +101,18 @@ fn run(path: &Path) -> anyhow::Result<()> {
         report(&layout, &s.problem, &s.solution);
         write_pin_powers(&case, &s.problem, &s.solution)?;
     } else {
-        // 状態を並列に解き、すべて解けてから名前の順に出す（ADR-0146）
+        // 状態をすべて並列に解いてから、名前の順に出す（ADR-0146）
         let results = solve_states(&layout, &tables, &case.states, &options);
-        let mut solved = Vec::with_capacity(results.len());
+        // 解けた状態は出し、解けなかった状態のエラーは最後にまとめて返す（長い計算のほかの状態の結果を捨てない）
         let mut errors = Vec::new();
         for (state, result) in case.states.iter().zip(results) {
             match result {
-                Ok(s) => solved.push(s),
+                Ok(s) => {
+                    let _span = tracing::info_span!("report", state = %state.name).entered();
+                    println!("state {}", state.name);
+                    report(&layout, &s.problem, &s.solution);
+                    write_pin_powers(&case, &s.problem, &s.solution)?;
+                }
                 Err(e) => errors.push(format!(
                     "state {}: {:#}",
                     state.name,
@@ -117,12 +122,6 @@ fn run(path: &Path) -> anyhow::Result<()> {
         }
         if !errors.is_empty() {
             return Err(anyhow!("{}", errors.join("\n")));
-        }
-        for (state, s) in case.states.iter().zip(&solved) {
-            let _span = tracing::info_span!("report", state = %state.name).entered();
-            println!("state {}", state.name);
-            report(&layout, &s.problem, &s.solution);
-            write_pin_powers(&case, &s.problem, &s.solution)?;
         }
     }
     tracing::info!(seconds = start.elapsed().as_secs_f64(), "core");
