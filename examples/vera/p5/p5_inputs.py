@@ -1058,7 +1058,6 @@ def pipeline(files: dict[str, str]) -> str:
         f[5:-5]
         for f in files
         if f.startswith("core-")
-        and f.count("-") >= 1
         and not any(
             f.endswith(s) for s in ("-cycle.toml", "-plant.toml", "-assemblies.toml")
         )
@@ -1095,6 +1094,7 @@ def pipeline(files: dict[str, str]) -> str:
                 f"python3 ../compare_p5.py moc {moc}.out {moc}-pins.msgpack core-{name}.out core-{name}-pins.msgpack > compare-{name}.out",
                 [
                     "../compare_p5.py",
+                    "../compare_k.py",
                     f"{moc}.out",
                     f"{moc}-pins.msgpack",
                     f"core-{name}.out",
@@ -1119,7 +1119,12 @@ def pipeline(files: dict[str, str]) -> str:
                 stage(
                     f"compare-{name}",
                     f"python3 ../compare_p5.py k reflector-{shape}.out core-{name}.out > compare-{name}.out",
-                    ["../compare_p5.py", f"reflector-{shape}.out", f"core-{name}.out"],
+                    [
+                        "../compare_p5.py",
+                        "../compare_k.py",
+                        f"reflector-{shape}.out",
+                        f"core-{name}.out",
+                    ],
                     [f"compare-{name}.out"],
                 )
             )
