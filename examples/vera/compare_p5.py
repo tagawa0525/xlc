@@ -31,8 +31,9 @@ import compare_k
 
 # 付録 J の見出し（Problem 5-2D ENDF/B-VII.0 Assembly Power Results）
 ASSEMBLY_TABLE = "{problem}-2D Assembly Powers"
-# 表 M3-6 の最大のピン出力
-KENO_MAX_PIN = {"5A": 1.44402, "5B": 1.60240, "5C": 1.62997}
+# 表 M3-6 の見出しと、問題の列の順
+POWER_TABLE = "Table M3-6: Problem 5-2D Reference Solution Power Statistics"
+PROBLEMS = ["5A", "5B", "5C"]
 QUARTER = 8
 # 付録 J の 1/8 の表の行（8〜15 行）ごとの集合体の数（H 列から。図 M3-1 の 1/4 炉心の下三角）
 OCTANT_ROWS = [1, 2, 3, 4, 5, 6, 6, 4]
@@ -87,6 +88,32 @@ def keno_k(spec: list[str], problem: str) -> tuple[float, float]:
         if m:
             return float(m.group(1)), float(m.group(2))
     raise SystemExit(f"KENO-VI k of {problem}-2D not found")
+
+
+def keno_max_pin(spec: list[str], problem: str) -> float:
+    """表 M3-6 のピン出力の最大（集合体の最大の行の次の `Maximum` の行）"""
+    # 目次にも同じ見出しがあるので、`Maximum` の行が続くものを取る
+    start = next(
+        (
+            i
+            for i, line in enumerate(spec)
+            if POWER_TABLE in line
+            and any(l.split()[:1] == ["Maximum"] for l in spec[i : i + 4])
+        ),
+        None,
+    )
+    if start is None:
+        raise SystemExit(f"{POWER_TABLE} not found")
+    rows = [
+        line.split()[1:]
+        for line in spec[start : start + 12]
+        if line.split()[:1] == ["Maximum"] and line.split()[1] != "Uncertainty"
+    ]
+    if len(rows) != 2 or len(rows[1]) != len(PROBLEMS):
+        raise SystemExit(
+            f"{POWER_TABLE}: expected two Maximum rows of {len(PROBLEMS)} values"
+        )
+    return float(rows[1][PROBLEMS.index(problem)])
 
 
 def keno_assemblies(spec: list[str], problem: str) -> np.ndarray:
@@ -237,7 +264,9 @@ def keno(problem: str, spec_path: str, core_out: str, core_pins: str) -> None:
     )
     compare_assemblies(rates, keno_assemblies(spec, problem))
     pins = read_pins(core_pins)
-    print(f"max pin power: xlc {pins.max():.5f}, KENO-VI {KENO_MAX_PIN[problem]:.5f}")
+    print(
+        f"max pin power: xlc {pins.max():.5f}, KENO-VI {keno_max_pin(spec, problem):.5f}"
+    )
 
 
 def openmc(core_out: str, core_pins: str, results: str) -> None:
