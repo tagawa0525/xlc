@@ -508,6 +508,7 @@ name = "xlc-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "rayon",
  "serde",
  "thiserror",
  "toml",

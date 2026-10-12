@@ -4,7 +4,7 @@ axial-mesh = [0.0, 21.5]
 radial-nodes = 1
 boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
 
-[state]
+[state.b1500]
 boron = 1500
 b10 = 0.199
 moderator = 565
