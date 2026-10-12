@@ -14,7 +14,7 @@ if [[ $# -ne 3 || $1 == --help || $1 == -h ]]; then
   exit 2
 fi
 # 最後の世代の statepoint は、世代数が入力ごとに違うので、最大の番号のものを VM で選ぶ
-rsync "${flags[@]}" --exclude='run/statepoint.*.h5' --exclude='run/summary.h5' "$1:$2/results/" "$3/"
+rsync "${flags[@]}" --exclude='run/statepoint.*.h5' "$1:$2/results/" "$3/"
 for name in $(ssh "$1" "ls $2/results"); do
   last=$(ssh "$1" "ls $2/results/$name/run | grep -E '^statepoint\\.[0-9]+\\.h5$' | sort -t. -k2 -n | tail -1" || true)
   [[ -n $last ]] && rsync "${flags[@]}" "$1:$2/results/$name/run/$last" "$3/$name/run/"
