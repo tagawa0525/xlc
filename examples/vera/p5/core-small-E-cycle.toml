@@ -2,9 +2,9 @@
 plant = "core-small-E-plant.toml"
 inventory = "core-small-assemblies.toml"
 loading = [
-  ".   .   .   .   .",
-  ".   J07 H07 G07 .",
-  ".   J08 H08 G08 .",
-  ".   J09 H09 G09 .",
-  ".   .   .   .   .",
+  ".       .       .       .       .",
+  ".       J07@90  H07@90  G07     .",
+  ".       J08@180 H08     G08     .",
+  ".       J09@180 H09@270 G09@270 .",
+  ".       .       .       .       .",
 ]
