@@ -39,7 +39,7 @@ issues: ["#0089"]
 ## 検討した案
 
 - 案 A: 今のまま、置き方を決めない。2 つの書き方が残り、大きなファイルは大きいまま
-- 案 B: しきい値（例えば 1000 行。超えるのは 13 個）を超えるファイルだけ分ける。変更は少ないが、しきい値に根拠がなく、
+- 案 B: しきい値（例えば 1000 行。テストを中に持つ 64 個のうち超えるのは 13 個）を超えるファイルだけ分ける。変更は少ないが、しきい値に根拠がなく、
   ファイルが育ってしきい値を超えるたびに移す作業が出る。2 つの書き方が残る
 - 案 C: テストを持つすべてのモジュールで `<モジュール>/tests.rs` に分け、本番のファイルの中のテストのコードを検査で禁じる。
   `#[cfg(test)] mod tests;` の子モジュールは `use super::*;` で非公開の項目に触れられるので、単体テストとしての扱いは
@@ -62,7 +62,7 @@ issues: ["#0089"]
 - テストだけが使う項目（試料を作る関数、テストだけが呼ぶメソッド）も `tests.rs` に置く。メソッドは `tests.rs` の中の
   `impl` に書ける（固有の `impl` は同じクレートのどのモジュールにも置ける）。2026-10-12 には、crates/format/src/fewgroup.rs
   の `sample`、`sample_pins`、crates/numeric/src/pins/node.rs の `modes_at`、`flux` がこれにあたる。ほかのモジュールの
-  テストが使う項目（`sample` は crates/format/src/table/tests.rs が使う）は、`pub(crate) mod tests;` の中に置き、
+  テストが使う項目（`sample`、`sample_pins` は crates/format/src/table/tests.rs が使う）は、`pub(crate) mod tests;` の中に置き、
   呼び出し側は `crate::fewgroup::tests::sample` のように `tests` を通して引く
 - 本番のファイルに残る `#[cfg(test)]` は、`mod tests;` の宣言と、パスが `tests` のモジュールを通る `use`（ほかの
   モジュールのテストの補助を引くもの。2026-10-12 には crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`、
@@ -91,13 +91,14 @@ issues: ["#0089"]
   worktree の絶対パスが入る（examples/m0/dvc.yaml の注記。ADR-0123）ので、前後の 2 つのコミットは同じ worktree で
   checkout してビルドする。比べる前に、移す前のコミットを、間に `cargo clean` を挟んで 2 回ビルドし、実行ファイルが一致することを確かめる（同じ
   パスでのビルドし直しがビット一致するかは、ADR-0123 の案 I で確かめていない）。一致しなければ、比べ方を実装の
-  ブランチで決め直す
+  ブランチで決め直し、2 回のビルドの結果は #0089 に書く
 - テストだけの項目のうち、本体の途中にあるもの（2026-10-12 には crates/numeric/src/pins/node.rs の `modes_at`、`flux`。
   後ろに本番の `gradient`、`average` が続き、lattice と core の実行ファイルに入る）を移すと、後ろの本体の行番号がずれ、
   実行ファイルの位置の情報だけが変わる。これは別のコミットにし、そのコミットの本番のファイルの差分が `#[cfg(test)]` の
   項目を消す行だけであることを、差分で確かめる。release のビルドに入らない項目を消しただけなので、出力は変わらない。
   この確認のために DVC の段階を走らせることはしない（段階は、下の「帰結」のとおり次の `dvc repro` で走る）
-- 移す前後で、`cargo test --workspace` が出す `passed` の件数の和が同じこと
+- 移す前後で、`cargo test --workspace -- --list` が出すテストの名前の一覧（整列したもの）が、モジュールのパスの変わらない
+  ものとして同じこと。宣言を忘れてどこからも読まれない `tests.rs` も、これで見つかる
 
 ## 帰結
 
@@ -108,6 +109,7 @@ issues: ["#0089"]
   採用済みの ADR は直せない（docs/adr/README.md の「運用」で、直せるのは誤字、リンク、`status` と `superseded-by` だけ）ので、決めた時点の
   場所の記録として残る。proposed の ADR と開いた issue のパスは、移すブランチで `tests.rs` に直す
 - `examples/*/dvc.yaml` の段階は deps に `crates/*/src` のディレクトリを持つので、テストを移すと、出力が変わらなくても
-  deps の md5 が変わり、段階が古くなる。ADR-0123（案 H）のとおり、これを許し、次の `dvc repro` で走らせる。
+  deps の md5 が変わり、段階が古くなる。ADR-0123（案 H）のとおり、これを許す。移すブランチは段階を走らせず、
+  段階は、その段階の deps のコードを変えるブランチが自分の計算として走らせるときに、あわせて新しくなる。
   `dvc commit` で deps だけを取り込むことはしない（ADR-0130 の案 L と同じく、`dvc.lock` が、記録した deps から
   作っていない出力を指す）
