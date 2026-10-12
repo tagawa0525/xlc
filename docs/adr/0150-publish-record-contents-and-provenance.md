@@ -18,7 +18,9 @@ ADR-0148 は、公開と引用の置き場を Zenodo にした。Zenodo は 1 �
 手元にあるもの（2026-10-12 の `du`、`ls`）:
 
 - OpenMC の参照解（`references/openmc/vera-*`、`work-2F` など）: 1 問題が model.xml、summary.h5 と statepoint（約 100 MB）。
-  `balance-1B` は 20 GB、`balance-2G` は 9.8 GB（バランスの tally を持つ statepoint）
+  statepoint の大半は源の粒子のバンク（100 万粒子 × 104 バイト = 104 MB。再開と世代の追加に要る）で、標準のタリーの組
+  （ADR-0152）を入れた参照解では、それに 集合体で十数〜二十数 MB（小さな実行で測った値。ADR-0152） が加わる。
+  `balance-1B` は 20 GB、`balance-2G` は 9.8 GB（世代ごとの statepoint がそれぞれ源の粒子のバンクを持つ。#0096）
 - 連続エネルギーのライブラリ: `endfb80`（461 MB）、`endfb80-565`（591 MB）。ENDF/B-VIII.0 から NJOY 2016.79（ACER の
   パッチつき。docs/environment.md）で作った HDF5 の 62〜63 ファイル
 - xlc のライブラリ `examples/vera/vera.msgpack`（139 MB。git で追跡しない）と、verification.md が引く結果
@@ -42,10 +44,16 @@ ADR-0148 は、公開と引用の置き場を Zenodo にした。Zenodo は 1 �
 
 statepoint:
 
-- 案 D（採用）: 1 問題が約 100 MB の statepoint は含める。他の人が別の tally を再抽出できる。バランス（balance）の statepoint
-  （20 GB と 9.8 GB）は含めず、抽出した msgpack だけを含める。総量は、アーカイブを作って測り、50 GB を超えるならレコードを
-  分けるか増量を申請する（総量は未測定）
-- 案 E: statepoint を含めない。小さくなるが、tally を足したい人は 16〜37 分の計算をやり直す
+- 案 D（採用）: 最後の世代の statepoint（`statepoint.<世代数>.h5`）、summary.h5、model.xml を一次の成果物にする。statepoint は
+  標準のタリーの組（ADR-0152）を持ち、xlc に限らず群ごと、物質ごと、核種ごと、面の量を、読む人が statepoint から
+  抜き出せる。model.xml は計算の入力そのもので、summary.h5 は statepoint のフィルタの物質とセルを読むのに要る。抽出した
+  結果（`k.json`、`pins.msgpack`、`fuel-xs.msgpack`、`pin-xs.msgpack`、`layers.msgpack`、`assemblies.msgpack` など）は派生物とし、
+  作った `extract` のコマンドとコミットをデータカードに書いて添える（statepoint から作り直せる）。途中の世代の statepoint
+  （再開のためのもの）は含めない。バランス（balance）の statepoint（20 GB と 9.8 GB）は含めず、抽出した msgpack だけを含める
+  （#0096）。総量は、アーカイブを作って測り、50 GB を超えるならレコードを分けるか増量を申請する（総量は未測定。1 問題 100〜
+  130 MB で、参照解が 20 問題ほどなら数 GB の見込み）
+- 案 E: statepoint を含めず、抽出した結果だけを一次にする。小さくなるが、抽出していない量が要る人は計算をやり直す
+  （2D の集合体で 30〜50 分、Problem 3 と 5-2D で 1 本 5〜6 時間）
 - 案 F: balance の statepoint も含める。200 GB の増量でも 1 問題で 1/10 を占め、利用の見込みがない
 
 連続エネルギーのライブラリ（ENDF/B-VIII.0 から NJOY で作った HDF5）:
@@ -82,8 +90,9 @@ xlc のコードのライセンスは、このリポジトリに LICENSE がな�
 
 - xlc のコミット（checkout すれば再現できるもの。ADR-0122）と、`dvc.lock` の md5（その段階の deps と outs）
 - OpenMC の版（0.15.2）と NJOY の版（2016.79）とパッチ（docs/patches/）、`flake.lock` の rev、ENDF/B の版と各ファイルの sha256
-- 入力: model.xml と入力の TOML、粒子数、世代数、非アクティブバッチ、乱数のシード、スレッド数
-- 結果: k と統計誤差、ファイルの一覧と各ファイルの sha256
+- 入力: model.xml と入力の TOML、粒子数、世代数、非アクティブバッチ、乱数のシード、スレッド数、標準のタリーの組の版（ADR-0152）
+- 結果: k と統計誤差、ファイルの一覧と各ファイルの sha256、一次（statepoint、summary.h5、model.xml）と派生（抽出した結果と、
+  作ったコマンド）の別
 - 計算機: ホスト名ではなく種類（CPU、コア数、メモリ。ツールが `lscpu` と `/proc/meminfo` から書き、ジョブを流した環境は Slurm のジョブから取る。手元の r995 か、クラウドの機種か）、作った日付。
   外部の計算機で作った結果にも同じ項目を書く（機種が違うと浮動小数点の結果が変わりうるかは確かめていない。同じ種と入力で
   機種が違う k の差を、最初の外部の計算のときに測る）
