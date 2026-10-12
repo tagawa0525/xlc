@@ -504,6 +504,16 @@ fn layer_grid(
         }
         out
     };
+    // 核分裂のあるノードのない列（行）はセルを持たない（`cell_sizes`）ので、そこと分け合うセルは戻せない
+    for (sizes, merge, what) in [(&widths, &merge_x, "column"), (&heights, &merge_y, "row")] {
+        for (n, _) in merge.iter().enumerate().filter(|(_, m)| **m) {
+            if sizes[n].is_empty() || sizes[n + 1].is_empty() {
+                return Err(format!(
+                    "layer {k}: a split cell on {what} boundary {n} faces a {what} without fission nodes"
+                ));
+            }
+        }
+    }
     let column_pairs = pairs(&widths, &merge_x);
     let row_pairs = pairs(&heights, &merge_y);
     let merge = |values: &[f64], sizes: &[f64], pairs: &[usize]| -> Vec<f64> {
