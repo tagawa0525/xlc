@@ -587,9 +587,9 @@ impl CaseState {
                     ));
                 }
                 // 範囲の両端だけでは探せない
-                if search.max_solves < 2 {
+                if search.max_solves < 3 {
                     return what(format!(
-                        "search max-solves must be at least 2 (the two ends), got {}",
+                        "search max-solves must be at least 3 (the two ends and a point between), got {}",
                         search.max_solves
                     ));
                 }

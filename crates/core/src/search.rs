@@ -60,9 +60,12 @@ pub fn find<T, E>(
     // 目標からの差 f と、その点の評価
     let mut at = |x: f64, solves: &mut usize| {
         *solves += 1;
-        evaluate(x)
-            .map(|(value, t)| (value - target, value, t))
-            .map_err(SearchError::Solve)
+        let (value, t) = evaluate(x).map_err(SearchError::Solve)?;
+        // NaN は符号の比較を黙って通り、割線の点も NaN にする
+        if !value.is_finite() {
+            return Err(SearchError::NotFinite { x, value });
+        }
+        Ok((value - target, value, t))
     };
     let found = |x, value, solves, at| Found {
         x,
@@ -75,7 +78,13 @@ pub fn find<T, E>(
         return Ok(found(low, value, solves, t));
     }
     // エラーで示す端の値は評価した値（Illinois 法が半分にした f ではない）
-    let not_converged = |solves, low, high, at_low, at_high| {
+    // 入れ替えのあとの `low` は残った端で、`high` より大きいことがあるので、示すときに並べ直す
+    let not_converged = |solves, a: f64, b: f64, at_a, at_b| {
+        let ((low, at_low), (high, at_high)) = if a <= b {
+            ((a, at_a), (b, at_b))
+        } else {
+            ((b, at_b), (a, at_a))
+        };
         Err(SearchError::NotConverged {
             tolerance,
             target,
