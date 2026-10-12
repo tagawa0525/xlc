@@ -96,6 +96,33 @@ fn values_that_are_not_finite_are_errors() {
 }
 
 #[test]
+fn a_bracket_error_reports_the_evaluated_values() {
+    let k = |x: f64| 0.99999999999999989 - 1.0e-6 * x / 3000.0;
+    let error = find([0.0, 3000.0], 1.0, 1.0e-17, 10, values(k)).unwrap_err();
+    let SearchError::NotBracketed {
+        at_low, at_high, ..
+    } = error
+    else {
+        panic!("{error}");
+    };
+    assert_eq!((at_low, at_high), (k(0.0), k(3000.0)));
+}
+
+#[test]
+fn fewer_than_two_solves_are_errors_before_any_solve() {
+    for max_solves in [0, 1] {
+        let mut solves = 0;
+        let error = find([0.0, 3000.0], 1.0, 1.0e-10, max_solves, |x| {
+            solves += 1;
+            Ok::<_, String>((curved(x), ()))
+        })
+        .unwrap_err();
+        assert!(matches!(error, SearchError::TooFewSolves { .. }), "{error}");
+        assert_eq!(solves, 0);
+    }
+}
+
+#[test]
 fn exceeding_the_solves_is_an_error() {
     let error = find([0.0, 3000.0], 1.0, 1.0e-10, 4, values(curved)).unwrap_err();
     assert!(
