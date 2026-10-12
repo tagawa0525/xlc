@@ -2205,7 +2205,7 @@ mod tests {
             right: Boundary::Vacuum,
             ..Boundaries::REFLECTIVE
         };
-        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let tracking = Tracking::with_boundaries(&lattice, 8, 0.1, boundaries).unwrap();
         let (f, m) = (fuel(), moderator());
         // セルの順にピン（燃料と水）と水、その後に余白の 4 × 3 + 4 領域は水
         let mut materials = Vec::new();
