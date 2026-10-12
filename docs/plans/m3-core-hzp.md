@@ -44,6 +44,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
 - NEM に ADF を入れ、CMFD で固有値の反復を加速する（[ADR-0027](../adr/0027-solve-core-with-nem.md)、[ADR-0028](../adr/0028-accelerate-core-with-nonlinear-cmfd.md)。粗メッシュのソルバは [ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）。面の条件の形と外周の真空の境界は [ADR-0101](../adr/0101-impose-transport-current-ratio-at-vacuum-faces.md)（[ADR-0099](../adr/0099-couple-core-nodes-by-get-with-vacuum-boundary.md) を置き換え）
 - 制御棒の先端がノードの途中にあるときの扱い（カスピング）: [ADR-0127](../adr/0127-weight-partially-rodded-nodes-by-axial-fine-mesh-flux.md)（proposed）。ピン出力の再構成: [ADR-0096](../adr/0096-reconstruct-pin-power-analytically.md)
 - 全炉心を解く: [ADR-0090](../adr/0090-solve-full-core.md)
+- Problem 5 の計算: 1 つのケースに名前つきの状態を複数書いて並列に解き、バンクの価値、DBW、ITC は比較のツールが状態の k の差から求める（[ADR-0146](../adr/0146-solve-named-states-of-a-case-in-parallel.md)）
 
 ### 検証
 
@@ -86,7 +87,8 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
    7bda1ce。反射体の定数を装荷図の回転で東西南北に置くことの確認（4 つの向きで k とピン出力が
    同じ）は済み（#0029）。集合体を分割するノード（ADR-0108。#0033）は鏡面反射の燃料集合体まで済み、反射体の定数の分割は未。炉心の外形に沿った境界と、反射体どうしの面に各側の ADF を使う扱い（ADR-0132）は
    済み（#0034。5-2D での確認は #0029、反射体の列の上下の層は #0072）。CMFD は要否を Problem 3〜5 で決めるまで止めている（#0076）。
-   テーブルの内挿（ケースの [state]。ADR-0097）は済）
+   テーブルの内挿（ケースの状態。ADR-0097、ADR-0146）は済）
 7. core: 制御棒の部分挿入、ピン出力の再構成 — 作業中（ピン出力の再構成は ADR-0096 で、検証は #0043。制御棒の部分挿入は
    ADR-0127 で方式を決め、実装は #0063）
-8. Problem 3〜5 の入力と、炉心の結果のまとめ — 未着手
+8. Problem 3〜5 の入力と、炉心の結果のまとめ — 作業中（Problem 5 の計算の仕組み: 名前つきの状態を並列に解くケースと、実測値と KENO-VI の値と比べるツール examples/vera/p5/compare_hzp.py
+   （ADR-0146）は済。3D の全炉心の入力（炉心の形、軸方向の層、定数、バンクの位置）は #0092）
