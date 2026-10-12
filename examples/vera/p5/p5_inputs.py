@@ -3,7 +3,7 @@
 このファイルのある場所に次を書く。寸法と組成の出典は下の定数のコメントにあり、書いた入力のコメントにも写す。
 
 - `assembly-<種類>.toml`: 集合体の種類（濃縮度と、Pyrex の棒の本数か D バンクの制御棒）ごとの単一集合体の格子（外周は
-  鏡面反射）。少数群定数（形状関数つき）を `lattice/<種類>.msgpack` に書く
+  鏡面反射）。反射体に面しない位置にある種類だけ。少数群定数（形状関数つき）を `lattice/<種類>.msgpack` に書く
 - `reflector-I.toml`、`reflector-corner.toml`: 径方向の反射体の I 型と角型の格子（ADR-0095、ADR-0132）。燃料は外周の
   集合体の代表の 3.10%、Pyrex の棒なし（ADR-0084）。ノードごとの少数群定数を `lattice/` に書く。反射体のノードの定数は
   炉心のすべての反射体の位置に、燃料のノードの定数は外周のこの種類の位置に置く
@@ -367,7 +367,7 @@ def assembly(name: str, fuel: str, pyrex: int, rod: str | None) -> str:
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 # VERA Problem 5-2D の集合体（{what}）の単一集合体の格子（外周は鏡面反射）。燃料、被覆管、減速材は 565 K、
 # 減速材 0.743 g/cc、ホウ素 1300 ppm（表 M3-1、M3-4）。ほかは examples/vera/p2 の 2A、2E、2G、2H と同じ形。少数群定数は
-# 形状関数と角の不連続因子つき（ADR-0096）で、炉心の燃料のノードの定数（f* の方法）にする。
+# 形状関数と角の不連続因子つき（ADR-0096）で、炉心の反射体に面しない位置の燃料のノードの定数にする（ADR-0153）。
 library = "../vera.msgpack"
 few-group = {{ output = "lattice/{name}.msgpack", bounds = {BOUNDS}, pins = true }}
 pitch = 1.26
@@ -601,13 +601,11 @@ def reflector_lattice(shape: str, design: str) -> str:
     return block_lattice(kinds, boundary, fg, title + common, design=design)
 
 
-def reflector_lattices() -> dict[str, str]:
+def reflector_lattices(lattices: list[tuple[str, str]]) -> dict[str, str]:
     """反射体の格子: 代表の燃料（ADR-0084）の I 型と角型と、外周のほかの種類の燃料の、その位置の形の格子（ADR-0153）"""
     return {
         f"{reflector_stem(shape, design)}.toml": reflector_lattice(shape, design)
-        for shape, design in sorted(
-            peripheral_lattices() | {("I", REPRESENTATIVE), ("corner", REPRESENTATIVE)}
-        )
+        for shape, design in lattices
     }
 
 
@@ -916,20 +914,19 @@ def loading_of(designs: dict[tuple[int, int], str], size: int) -> list[list[str]
     ]
 
 
-def peripheral_lattices() -> set[tuple[str, str]]:
-    """炉心の入力が使う、反射体の格子の（形, 集合体の種類）"""
-    out = set()
-    sets = [core_5_2d(rod)[0] for rod in CASES.values()]
-    sets.append({p: REPRESENTATIVE for p in fuel_set(COUNTS_STEP)})
-    for n in SQUARES.values():
-        h = n // 2 + 1
-        sets.append(
-            {(i, j): REPRESENTATIVE for i in range(-h + 1, h) for j in range(-h + 1, h)}
+def used_lattices(files: dict[str, str]) -> tuple[list[str], list[tuple[str, str]]]:
+    """炉心の入力（炉心の形と台帳の `layers`）が読む、単一集合体の格子の種類と、反射体の格子の（形, 集合体の種類）"""
+    used = {f for name, text in files.items() for f in layer_files(text)}
+    singles = sorted(d for d in assembly_types() if f"lattice/{d}.msgpack" in used)
+    lattices = sorted(
+        (shape, d)
+        for shape, nodes in LATTICE_NODES.items()
+        for d in assembly_types()
+        if any(
+            f"lattice/{reflector_stem(shape, d)}{n}.msgpack" in used for n, *_ in nodes
         )
-    for designs in sets:
-        for p, (shape, _) in periphery(set(designs)).items():
-            out.add((shape, designs[p]))
-    return out
+    )
+    return singles, lattices
 
 
 # 5-2D の 1/4 の行ごとの燃料の数（8〜15 行。H8 を含む。図 M3-1）
@@ -1115,9 +1112,11 @@ def layer_files(text: str) -> list[str]:
     )
 
 
-def pipeline(files: dict[str, str]) -> str:
+def pipeline(
+    files: dict[str, str], singles: list[str], lattices: list[tuple[str, str]]
+) -> str:
     stages = []
-    for name in assembly_types():
+    for name in singles:
         stem = f"assembly-{name}"
         stages.append(
             stage(
@@ -1127,9 +1126,7 @@ def pipeline(files: dict[str, str]) -> str:
                 [f"lattice/{name}.msgpack", f"{stem}.out"],
             )
         )
-    for shape, design in sorted(
-        peripheral_lattices() | {("I", REPRESENTATIVE), ("corner", REPRESENTATIVE)}
-    ):
+    for shape, design in lattices:
         stem = reflector_stem(shape, design)
         stages.append(
             stage(
@@ -1274,12 +1271,14 @@ def pipeline(files: dict[str, str]) -> str:
 
 def main() -> None:
     files = core_files()
-    for name, (fuel, pyrex, rod) in assembly_types().items():
-        files[f"assembly-{name}.toml"] = assembly(name, fuel, pyrex, rod)
-    files.update(reflector_lattices())
+    # 格子は、炉心の入力が読むものだけを作る（5-2D の 31-p8 は外周にだけあり、単一集合体の格子は使わない）
+    singles, lattices = used_lattices(files)
+    for name in singles:
+        files[f"assembly-{name}.toml"] = assembly(name, *assembly_types()[name])
+    files.update(reflector_lattices(lattices))
     for square in SQUARES:
         files[f"{square}-moc.toml"] = square_moc(square)
-    files["dvc.yaml"] = pipeline(files)
+    files["dvc.yaml"] = pipeline(files, singles, lattices)
     for name, text in files.items():
         (HERE / name).write_text(text)
 
