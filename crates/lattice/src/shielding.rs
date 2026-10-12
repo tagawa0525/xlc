@@ -2479,6 +2479,92 @@ mod tests {
         }
 
         #[test]
+        fn absorber_rods_are_shielded_by_slowing_down() {
+            // 燃料のピンに囲まれた、分離共鳴を持つ U-238 だけの（核分裂しない）棒。UFG の範囲の群（1, 2）の棒の
+            // 実効断面積は、塊の Dancoff 係数を合わせた等価なセルの減速計算を、棒のリングの中性子束と体積で平均したもの
+            let library = resonant_library();
+            let material = |name: &str, composition: &[(&str, f64)]| MaterialInput {
+                name: name.into(),
+                temperature: T,
+                composition: composition.iter().map(|&(n, d)| (n.into(), d)).collect(),
+            };
+            let materials = vec![
+                material(
+                    "fuel",
+                    &[("U-238", 0.022), ("U-235", 5.0e-4), ("O-16", 0.045)],
+                ),
+                material("absorber", &[("U-238", 0.02)]),
+                material("clad", &[("Zr-90", 0.043)]),
+                material("water", &[("H-1", 0.05), ("O-16", 0.025)]),
+            ];
+            let pin = PinCell::new(1.26, vec![0.4096, 0.475]).unwrap();
+            let rod = PinCell::new(1.26, vec![0.2, 0.38, 0.48]).unwrap();
+            let layout = vec![vec![0, 0, 0], vec![0, 1, 0], vec![0, 0, 0]];
+            let names = |t: usize| -> Vec<String> {
+                let names = match t {
+                    0 => "fuel clad water",
+                    _ => "absorber absorber clad water",
+                };
+                names.split(' ').map(String::from).collect()
+            };
+            let regions: Vec<String> = layout.iter().flatten().flat_map(|&t| names(t)).collect();
+            let lattice = Lattice::new(vec![pin, rod], layout).unwrap();
+            let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+            let shielded = shield_fuel(
+                &library,
+                &tracking,
+                &materials,
+                &regions,
+                &ShieldingOptions::default(),
+            )
+            .unwrap();
+            let lump = shielded
+                .lumps
+                .iter()
+                .find(|l| l.material == "absorber")
+                .unwrap();
+            // 棒のセル（セル 4）の領域は 12〜15 で、棒は 12 と 13
+            assert_eq!(lump.regions, vec![12, 13]);
+            let dilute = |name: &str| {
+                let m = materials.iter().find(|m| m.name == name).unwrap();
+                Material::mix(&library, &m.composition, T).unwrap().total
+            };
+            let (clad, water) = (dilute("clad"), dilute("water"));
+            let ufg = [1, 2];
+            let radius = ufg
+                .iter()
+                .map(|&g| {
+                    crate::equivalent::equivalent_radius(
+                        &[0.38, 0.48],
+                        &[0.0, clad[g], water[g]],
+                        None,
+                        lump.dancoff[g].max(MIN_DANCOFF),
+                    )
+                    .unwrap()
+                })
+                .sum::<f64>()
+                / ufg.len() as f64;
+            let cylinder = Cylinder::new(vec![0.2, 0.38, 0.48, radius]).unwrap();
+            let rings: Vec<Option<&MaterialInput>> =
+                [1, 1, 2, 3].map(|i| Some(&materials[i])).to_vec();
+            let spectrum = slowing_down(&library, &cylinder, &rings, [4.0, 1.0e4]).unwrap();
+            assert_eq!(spectrum.groups, 1..3);
+            let volumes = cylinder.volumes();
+            for g in ufg {
+                let weights = [0, 1].map(|j| spectrum.flux[j][g - 1] * volumes[j]);
+                let expected = (0..2)
+                    .map(|j| weights[j] * spectrum.nuclides[j][0].total[g - 1])
+                    .sum::<f64>()
+                    / weights.iter().sum::<f64>();
+                let total = lump.effective[0].total[g];
+                assert!(
+                    (total - expected).abs() < 1e-9 * expected,
+                    "group {g}: {total} vs {expected}"
+                );
+            }
+        }
+
+        #[test]
         fn frames_are_the_outer_ring_of_the_cell() {
             let library = resonant_library();
             let materials = vec![
