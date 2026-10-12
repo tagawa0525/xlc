@@ -225,13 +225,30 @@ def main() -> None:
             f"states of the case {sorted(states)} differ from the output {sorted(results)}"
         )
 
+    searches = {
+        name: state["search"]
+        for name, state in tomllib.loads(Path(sys.argv[2]).read_text())["state"].items()
+        if "search" in state
+    }
+    for name in states:
+        if (name in searches) != ("boron" in results[name]):
+            raise SystemExit(
+                f"state {name}: the output has a boron line only for -boron states"
+            )
+        # 探索の状態の k は、ケースに書いた許容の中で 1（ADR-0145）
+        if (
+            name in searches
+            and abs(results[name]["k"] - 1.0) > searches[name]["tolerance"]
+        ):
+            raise SystemExit(
+                f"state {name}: searched k {results[name]['k']} is not within the tolerance of 1"
+            )
+
     print("\ncritical boron (ppm)        xlc  measured   diff")
+    if not any(search for _, search in states.values()):
+        print("not computed (needs case-<n>-boron states)")
     for name, (n, search) in sorted(states.items(), key=lambda s: s[1]):
         if search:
-            if "boron" not in results[name]:
-                raise SystemExit(
-                    f"state {name} searches the boron, but the output has no boron line"
-                )
             ppm = results[name]["boron"]
             measured = cases[n]["boron"]
             print(
