@@ -445,7 +445,6 @@ fn layer_grid(
             .collect::<Result<Vec<_>, String>>()?;
         merge_y.push(boundary_halves(pairs, 2, 3, &format!("row boundary {j}"))?);
     }
-    // 分ける前の全体の表と、列の幅、行の高さ
     // 位置ごとの核分裂の有無（層の中で i + nx j）。ノードのない位置と、核分裂のないノードのセルは 0。核分裂のない
     // ノードの出力に 0 でない値があれば、形状関数か再構成の誤りなので、0 で埋めずにエラーにする
     let mut fissile = Vec::with_capacity(nx * ny);
@@ -519,18 +518,17 @@ fn layer_grid(
             }
         }
     }
-    // 核分裂のあるノードのない列（行）はセルを持たない（`cell_sizes`）ので、そこと分け合うセルは戻せない
-    for (sizes, merge, what) in [(&widths, &merge_x, "column"), (&heights, &merge_y, "row")] {
-        for (n, _) in merge.iter().enumerate().filter(|(_, m)| **m) {
-            if sizes[n].is_empty() || sizes[n + 1].is_empty() {
-                return Err(format!(
-                    "layer {k}: a split cell on {what} boundary {n} faces a {what} without fission nodes"
-                ));
-            }
-        }
-    }
-    let column_pairs = pairs(&widths, &merge_x);
-    let row_pairs = pairs(&heights, &merge_y);
+    // 核分裂のあるノードのない列（行）はセルを持たない（`cell_sizes`）。そこと分け合うセルは、上で核分裂のある
+    // ノードとの組をエラーにしたので、両側とも核分裂のないノードで 0 になり、戻すものがない
+    let joined = |sizes: &[&[f64]], merge: &[bool]| -> Vec<bool> {
+        merge
+            .iter()
+            .enumerate()
+            .map(|(n, &m)| m && !sizes[n].is_empty() && !sizes[n + 1].is_empty())
+            .collect()
+    };
+    let column_pairs = pairs(&widths, &joined(&widths, &merge_x));
+    let row_pairs = pairs(&heights, &joined(&heights, &merge_y));
     let merge = |values: &[f64], sizes: &[f64], pairs: &[usize]| -> Vec<f64> {
         let mut out = Vec::with_capacity(values.len());
         let mut c = 0;
