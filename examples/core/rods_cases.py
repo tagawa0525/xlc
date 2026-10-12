@@ -55,7 +55,7 @@ def case(name, steps, axial, partial=None):
         "radial-nodes = 1",
         'boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["marshak", "marshak"] }',
         "",
-        "[state]",
+        "[state.hzp]",
         "boron = 1300",
         "b10 = 0.199",
         "moderator = 600",
