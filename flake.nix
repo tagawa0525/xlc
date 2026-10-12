@@ -23,7 +23,17 @@
       # ここで `rust` を override しない。flake.nix は DVC の段階の deps でないので、override すると段階をビルドする
       # コンパイラが黙って変わる（#0080）。開発の道具は rust-toolchain.toml にも書かず（Rust の段階の deps）、同じ版の
       # component を横に置く。rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
-      rustAnalyzer = rust.availableComponents.rust-analyzer;
+      rustAnalyzerBin = rust.availableComponents.rust-analyzer;
+      # rust-analyzer の flycheck（cargo check）と build script の成果物を target/rust-analyzer に分ける（ADR-0147）。
+      # `cargo.targetDir` は rust-analyzer.toml では効かず（#0079）、クライアントの設定は git で追跡できないので、
+      # 起動する rust-analyzer の環境で CARGO_TARGET_DIR を決める。run-checks.sh や cargo を直接走らせる shell には
+      # 設定しない。git の外で起動したら git が失敗して止まる
+      rustAnalyzer = pkgs.writeShellScriptBin "rust-analyzer" ''
+        set -euo pipefail
+        CARGO_TARGET_DIR="$(${pkgs.git}/bin/git rev-parse --show-toplevel)/target/rust-analyzer"
+        export CARGO_TARGET_DIR
+        exec ${rustAnalyzerBin}/bin/rust-analyzer "$@"
+      '';
       # 検証用の道具（OpenMC の入力の作成と結果の読み出し、比較のスクリプト）が使う Python のパッケージ
       pythonPackages =
         p: with p; [
