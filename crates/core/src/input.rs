@@ -539,7 +539,7 @@ struct CaseFile {
     axial_mesh: Vec<f64>,
     radial_nodes: usize,
     boundary: BoundaryEntry,
-    state: Option<BTreeMap<String, State>>,
+    state: Option<toml::Table>,
     pin_powers: Option<PathBuf>,
 }
 
@@ -584,11 +584,20 @@ impl Case {
             }
             Some(states) => states
                 .into_iter()
-                .map(|(name, state)| {
+                .map(|(name, value)| {
+                    // 名前のない `[state]` に項目を書いた入力は、項目の名前が状態の名前に見えるので、修正方法を示す
+                    if !value.is_table() {
+                        return invalid(format!(
+                            "[state] has a value {name:?}; name each state as [state.<name>] (ADR-0146)"
+                        ));
+                    }
                     check_name("state", &name)?;
-                    Ok::<_, InputError>(CaseState { name, state })
+                    let state = value
+                        .try_into()
+                        .map_err(|e| InputError::Invalid(format!("state {name}: {e}")))?;
+                    Ok(CaseState { name, state })
                 })
-                .collect::<Result<Vec<_>, _>>()?,
+                .collect::<Result<Vec<_>, InputError>>()?,
         };
         if file.pin_powers.is_some() && states.len() > 1 {
             return invalid(format!(
