@@ -43,15 +43,24 @@ def core_output(path: str) -> tuple[float, np.ndarray]:
     reading = False
     for line in Path(path).read_text().splitlines():
         if line.startswith("k-eff"):
+            if k is not None:
+                raise SystemExit(f"{path}: more than one k-eff")
             k = float(line.split()[1])
         elif line.startswith("(`.` is a reflector site"):
             reading = True
         elif reading and line.strip():
-            rows.append(
-                [float(x) if x not in (".", "-") else np.nan for x in line.split()]
-            )
+            try:
+                rows.append(
+                    [float(x) if x not in (".", "-") else np.nan for x in line.split()]
+                )
+            except ValueError:
+                raise SystemExit(
+                    f"{path}: not a row of assembly fission rates: {line}"
+                ) from None
     if k is None or not rows:
         raise SystemExit(f"{path}: no k-eff or assembly fission rates")
+    if len({len(r) for r in rows}) != 1:
+        raise SystemExit(f"{path}: assembly rows differ in length")
     return k, np.array(rows)
 
 
