@@ -1,0 +1,12 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# reflector-I.toml の格子をノードに分けた炉心の形（燃料の位置と、格子の反射体のノード）。
+pitch = 21.5
+height = 21.5
+map = [
+  "* I",
+]
+
+# I 型の格子の反射体（燃料が −x）
+[reflector.I]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-I.msgpack"]

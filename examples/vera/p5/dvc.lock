@@ -1,0 +1,3011 @@
+schema: '2.0'
+stages:
+  assembly-21:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-21.toml > assembly-21.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-21.toml
+      hash: md5
+      md5: bc16fe0a4169741bc0d973484a1e489d
+      size: 4288
+    outs:
+    - path: assembly-21.out
+      hash: md5
+      md5: ab61278794c7801696438a47f8acf463
+      size: 11
+    - path: lattice/21.msgpack
+      hash: md5
+      md5: 47ba389e7ad9adbc9a03724d0aae8d99
+      size: 7575
+  assembly-26-p16:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-p16.toml > assembly-26-p16.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-p16.toml
+      hash: md5
+      md5: 79f908d17c3701f7ba9f8eb1b9fd849b
+      size: 5628
+    outs:
+    - path: assembly-26-p16.out
+      hash: md5
+      md5: 9d1f6e67bb2b3862465a07f58b93b632
+      size: 11
+    - path: lattice/26-p16.msgpack
+      hash: md5
+      md5: 2b6ff447f4a4d7a505c11bec4acfc5c2
+      size: 7575
+  assembly-26-p20:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-p20.toml > assembly-26-p20.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-p20.toml
+      hash: md5
+      md5: a3d0ffce233f1132c11f0a8dce9ec980
+      size: 5628
+    outs:
+    - path: assembly-26-p20.out
+      hash: md5
+      md5: ce7bb025556ec3838517dc087263699b
+      size: 11
+    - path: lattice/26-p20.msgpack
+      hash: md5
+      md5: eddb562b224614789bed3acf1aac6ea4
+      size: 7575
+  assembly-26-p24:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-p24.toml > assembly-26-p24.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-p24.toml
+      hash: md5
+      md5: 9dbb8a387c45c8b8be30a07fff1c63bc
+      size: 5628
+    outs:
+    - path: assembly-26-p24.out
+      hash: md5
+      md5: 3e9663db86bb0dd5948e368e3ff93ec3
+      size: 11
+    - path: lattice/26-p24.msgpack
+      hash: md5
+      md5: 0d19c0ea6bd75e8d315d267c8c6b4a6b
+      size: 7575
+  assembly-26:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26.toml > assembly-26.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26.toml
+      hash: md5
+      md5: 7a21677de469cb21781d9952fc3a0bac
+      size: 4289
+    outs:
+    - path: assembly-26.out
+      hash: md5
+      md5: 10db4ccedd2e6ac47a6220955c215db1
+      size: 11
+    - path: lattice/26.msgpack
+      hash: md5
+      md5: cce0270e4eafd4fd06414b4893146294
+      size: 7575
+  assembly-31-p12:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p12.toml > assembly-31-p12.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p12.toml
+      hash: md5
+      md5: 1b89593f621851a86c5f0ecbc484a202
+      size: 5627
+    outs:
+    - path: assembly-31-p12.out
+      hash: md5
+      md5: 956ce8676229a985c14ccaf7df0b2e20
+      size: 11
+    - path: lattice/31-p12.msgpack
+      hash: md5
+      md5: 009361ee7d1ac740c69dedc048dc48cc
+      size: 7575
+  assembly-31-p16:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p16.toml > assembly-31-p16.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p16.toml
+      hash: md5
+      md5: 9c0e12c589708e441ac0bc9f6da70f57
+      size: 5627
+    outs:
+    - path: assembly-31-p16.out
+      hash: md5
+      md5: 0384a428479800cf47eabf0b5ec8aff0
+      size: 11
+    - path: lattice/31-p16.msgpack
+      hash: md5
+      md5: e0a6ba0fb1e2214cd497fb904f538a87
+      size: 7575
+  assembly-31-p24:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p24.toml > assembly-31-p24.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p24.toml
+      hash: md5
+      md5: 8ebd6ed5b7f041e2933dc074bb97b876
+      size: 5627
+    outs:
+    - path: assembly-31-p24.out
+      hash: md5
+      md5: 0975ebd06bb4a74ba4579482d7dd5991
+      size: 11
+    - path: lattice/31-p24.msgpack
+      hash: md5
+      md5: 918a1c8590340b1dc75a683184ddaf72
+      size: 7575
+  assembly-31-p8:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31-p8.toml > assembly-31-p8.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31-p8.toml
+      hash: md5
+      md5: 24694a36b7d15a998b13692e932e0c05
+      size: 5625
+    outs:
+    - path: assembly-31-p8.out
+      hash: md5
+      md5: 73f84a629416adba0d056bbb16f6639d
+      size: 11
+    - path: lattice/31-p8.msgpack
+      hash: md5
+      md5: d0599c13e248f97cb4d063fae40a9bec
+      size: 7575
+  assembly-31:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-31.toml > assembly-31.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-31.toml
+      hash: md5
+      md5: 6dd6adf80e8642f5bb325f65afb788cb
+      size: 4288
+    outs:
+    - path: assembly-31.out
+      hash: md5
+      md5: 7009229b9b422883f24bf1fe598928af
+      size: 11
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+  assembly-26-aic:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-aic.toml > assembly-26-aic.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-aic.toml
+      hash: md5
+      md5: 264749ee8a12f4a0d70d034a35b72c3b
+      size: 5611
+    outs:
+    - path: assembly-26-aic.out
+      hash: md5
+      md5: 614f50deeb4ecb6782bd8851c4a7e5c9
+      size: 11
+    - path: lattice/26-aic.msgpack
+      hash: md5
+      md5: 09bfa81de8455a86608632953bfed32a
+      size: 7575
+  assembly-21-b4c:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-21-b4c.toml > assembly-21-b4c.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-21-b4c.toml
+      hash: md5
+      md5: 78e54308a22b958c3e7d99b0ada5ce1d
+      size: 5434
+    outs:
+    - path: assembly-21-b4c.out
+      hash: md5
+      md5: 3c819a5a17743bfd5f275405c3aadd98
+      size: 11
+    - path: lattice/21-b4c.msgpack
+      hash: md5
+      md5: 17454066a83af56205dcefff066fdb09
+      size: 7575
+  assembly-21-aic:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-21-aic.toml > assembly-21-aic.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-21-aic.toml
+      hash: md5
+      md5: a03b25f62aedfcd64ac0941860ced6a8
+      size: 5610
+    outs:
+    - path: assembly-21-aic.out
+      hash: md5
+      md5: f5a64288f033144933a0bb89dce1a5b0
+      size: 11
+    - path: lattice/21-aic.msgpack
+      hash: md5
+      md5: 91fc08eb89548b8ec2c747a057803541
+      size: 7575
+  assembly-26-b4c:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      assembly-26-b4c.toml > assembly-26-b4c.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: assembly-26-b4c.toml
+      hash: md5
+      md5: 47118124d9774ed8b0493ff7a5545cc1
+      size: 5435
+    outs:
+    - path: assembly-26-b4c.out
+      hash: md5
+      md5: 46c1b004c531499da77eda1e8ab37c5b
+      size: 11
+    - path: lattice/26-b4c.msgpack
+      hash: md5
+      md5: 137bd59ba499153c3c80ca394149e08d
+      size: 7575
+  reflector-I:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      reflector-I.toml > reflector-I.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: reflector-I.toml
+      hash: md5
+      md5: 127c9af91cda785f786ed6ce21cf46ba
+      size: 9451
+    outs:
+    - path: lattice/reflector-I-fuel.msgpack
+      hash: md5
+      md5: 69f55fc12ce136899d8ff28cb12ab152
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: reflector-I.out
+      hash: md5
+      md5: ec2990b8e2d0e5c84628f4583f81158c
+      size: 11
+  reflector-corner:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
+      reflector-corner.toml > reflector-corner.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: reflector-corner.toml
+      hash: md5
+      md5: 893c427d13c504cf7cff46742e9e1417
+      size: 17917
+    outs:
+    - path: lattice/reflector-corner-fuel.msgpack
+      hash: md5
+      md5: 564533fab9917a99f5c0ef914d149ea5
+      size: 7575
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    - path: reflector-corner.out
+      hash: md5
+      md5: f4af96df78b73a7f9757203469d1a410
+      size: 11
+  small-moc:
+    cmd: cargo run --release -p xlc-lattice -- small-moc.toml > small-moc.out
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 81a924772f0d22894952209bc7eaad7e
+      size: 14136
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
+      size: 114997
+      nfiles: 10
+    - path: ../../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 0d52be204d05bbc657bd40ea03831341
+      size: 568
+    - path: ../../../crates/lattice/src
+      hash: md5
+      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
+      size: 986615
+      nfiles: 30
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 15ad8736167522c5ff73f47dfe324551.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 1850d83f3a1bc3c8296311833e3551d7
+      size: 145303076
+    - path: small-moc.toml
+      hash: md5
+      md5: f3d0792b5b5af09612f047e313cf032c
+      size: 80779
+    outs:
+    - path: small-moc-pins.msgpack
+      hash: md5
+      md5: 72cca63666d0902b42b722bb7674172b
+      size: 23593
+    - path: small-moc.out
+      hash: md5
+      md5: 932320cc98a67a4c960fa2d2a62cc7bf
+      size: 11
+  core-5A-Ly:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5A-Ly.toml > 
+      core-5A-Ly.out 2> core-5A-Ly.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-5A-Ly-cycle.toml
+      hash: md5
+      md5: 45dbece331a33e6b36ba7a0e803b0f28
+      size: 1359
+    - path: core-5A-Ly.toml
+      hash: md5
+      md5: b3e0c67e4d708b6c2447a5a22a814b2a
+      size: 601
+    - path: core-5A-assemblies.toml
+      hash: md5
+      md5: a86030e355cb3487516cbaad85489ef9
+      size: 7100
+    - path: core-plant-Ly.toml
+      hash: md5
+      md5: be6fcc663bb2104bfc62509c9057131d
+      size: 2902
+    - path: lattice/21.msgpack
+      hash: md5
+      md5: 47ba389e7ad9adbc9a03724d0aae8d99
+      size: 7575
+    - path: lattice/26-p16.msgpack
+      hash: md5
+      md5: 2b6ff447f4a4d7a505c11bec4acfc5c2
+      size: 7575
+    - path: lattice/26-p20.msgpack
+      hash: md5
+      md5: eddb562b224614789bed3acf1aac6ea4
+      size: 7575
+    - path: lattice/26-p24.msgpack
+      hash: md5
+      md5: 0d19c0ea6bd75e8d315d267c8c6b4a6b
+      size: 7575
+    - path: lattice/26.msgpack
+      hash: md5
+      md5: cce0270e4eafd4fd06414b4893146294
+      size: 7575
+    - path: lattice/31-p12.msgpack
+      hash: md5
+      md5: 009361ee7d1ac740c69dedc048dc48cc
+      size: 7575
+    - path: lattice/31-p16.msgpack
+      hash: md5
+      md5: e0a6ba0fb1e2214cd497fb904f538a87
+      size: 7575
+    - path: lattice/31-p24.msgpack
+      hash: md5
+      md5: 918a1c8590340b1dc75a683184ddaf72
+      size: 7575
+    - path: lattice/31-p8.msgpack
+      hash: md5
+      md5: d0599c13e248f97cb4d063fae40a9bec
+      size: 7575
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-5A-Ly-pins.msgpack
+      hash: md5
+      md5: 4b55b4b4cf09666fd18ed9aed3583bfb
+      size: 586021
+    - path: core-5A-Ly.log
+      hash: md5
+      md5: 20a039cd87481d6f92dc106e894a2790
+      size: 596681
+    - path: core-5A-Ly.out
+      hash: md5
+      md5: 80f4bf800bf2ea8f12771cd531fcf4b8
+      size: 2202
+  compare-5A-Ly:
+    cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt 
+      core-5A-Ly.out core-5A-Ly-pins.msgpack > compare-5A-Ly.out
+    deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-5A-Ly-pins.msgpack
+      hash: md5
+      md5: 4b55b4b4cf09666fd18ed9aed3583bfb
+      size: 586021
+    - path: core-5A-Ly.out
+      hash: md5
+      md5: 80f4bf800bf2ea8f12771cd531fcf4b8
+      size: 2202
+    outs:
+    - path: compare-5A-Ly.out
+      hash: md5
+      md5: d648977bf480d2aff247160c9362cfcf
+      size: 1312
+  core-5A:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5A.toml > 
+      core-5A.out 2> core-5A.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-5A-assemblies.toml
+      hash: md5
+      md5: a86030e355cb3487516cbaad85489ef9
+      size: 7100
+    - path: core-5A-cycle.toml
+      hash: md5
+      md5: 6df97779c1983f2b5480f1c63eb95bd2
+      size: 1356
+    - path: core-5A.toml
+      hash: md5
+      md5: 25de12ef2fe9770faad20b85aee62100
+      size: 595
+    - path: core-plant.toml
+      hash: md5
+      md5: 801bbac849271c5666c56dbfba2049a3
+      size: 2913
+    - path: lattice/21.msgpack
+      hash: md5
+      md5: 47ba389e7ad9adbc9a03724d0aae8d99
+      size: 7575
+    - path: lattice/26-p16.msgpack
+      hash: md5
+      md5: 2b6ff447f4a4d7a505c11bec4acfc5c2
+      size: 7575
+    - path: lattice/26-p20.msgpack
+      hash: md5
+      md5: eddb562b224614789bed3acf1aac6ea4
+      size: 7575
+    - path: lattice/26-p24.msgpack
+      hash: md5
+      md5: 0d19c0ea6bd75e8d315d267c8c6b4a6b
+      size: 7575
+    - path: lattice/26.msgpack
+      hash: md5
+      md5: cce0270e4eafd4fd06414b4893146294
+      size: 7575
+    - path: lattice/31-p12.msgpack
+      hash: md5
+      md5: 009361ee7d1ac740c69dedc048dc48cc
+      size: 7575
+    - path: lattice/31-p16.msgpack
+      hash: md5
+      md5: e0a6ba0fb1e2214cd497fb904f538a87
+      size: 7575
+    - path: lattice/31-p24.msgpack
+      hash: md5
+      md5: 918a1c8590340b1dc75a683184ddaf72
+      size: 7575
+    - path: lattice/31-p8.msgpack
+      hash: md5
+      md5: d0599c13e248f97cb4d063fae40a9bec
+      size: 7575
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-5A-pins.msgpack
+      hash: md5
+      md5: 9ab1e099d56bc9a8cbe681d3d23b5cd1
+      size: 586021
+    - path: core-5A.log
+      hash: md5
+      md5: 217a5e10e041f1855449b220217f3978
+      size: 596646
+    - path: core-5A.out
+      hash: md5
+      md5: 2be836fec002f376862d8beb0ec93405
+      size: 2202
+  core-small-I:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-I.toml > 
+      core-small-I.out 2> core-small-I.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-small-I-cycle.toml
+      hash: md5
+      md5: b6ba991f8ffdaf67a4d0ccfa243d437c
+      size: 275
+    - path: core-small-I-plant.toml
+      hash: md5
+      md5: 48b79ec155c39ecf8ebb04f049bb412f
+      size: 692
+    - path: core-small-I.toml
+      hash: md5
+      md5: 1ec703fa6f33826310cde5433f40e9cc
+      size: 410
+    - path: core-small-assemblies.toml
+      hash: md5
+      md5: 3c35347ac5283cf83815abc825def9ef
+      size: 572
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-small-I-pins.msgpack
+      hash: md5
+      md5: 71a3f8a995ccb27e1abce4277eefadcf
+      size: 23593
+    - path: core-small-I.log
+      hash: md5
+      md5: 6da12c953765005a8f36f0f4a83a5b14
+      size: 22762
+    - path: core-small-I.out
+      hash: md5
+      md5: df07872ef155238001c032f4f7940b0b
+      size: 354
+  core-small-step-Lx:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- 
+      core-small-step-Lx.toml > core-small-step-Lx.out 2> core-small-step-Lx.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-small-step-Lx-cycle.toml
+      hash: md5
+      md5: bcdad5510d01fcfeebb5ddb4c7480348
+      size: 388
+    - path: core-small-step-Lx-plant.toml
+      hash: md5
+      md5: efb186f923584647902f63d46fe04079
+      size: 1294
+    - path: core-small-step-Lx.toml
+      hash: md5
+      md5: b038671fa58e09b24861a6aa3aee8500
+      size: 410
+    - path: core-small-step-assemblies.toml
+      hash: md5
+      md5: df3c9f398c7236d91a9a0cb63ab64b3f
+      size: 932
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-small-step-Lx-pins.msgpack
+      hash: md5
+      md5: 84da654acb56aac3d5059f718915402e
+      size: 65311
+    - path: core-small-step-Lx.log
+      hash: md5
+      md5: 69cebcc15cb108a86a8e8e1ddbf30b26
+      size: 43755
+    - path: core-small-step-Lx.out
+      hash: md5
+      md5: d98d5e4b4e8ae404bc5fe8e3ac4c8b31
+      size: 522
+  compare-5A:
+    cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt 
+      core-5A.out core-5A-pins.msgpack > compare-5A.out
+    deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-5A-pins.msgpack
+      hash: md5
+      md5: 9ab1e099d56bc9a8cbe681d3d23b5cd1
+      size: 586021
+    - path: core-5A.out
+      hash: md5
+      md5: 2be836fec002f376862d8beb0ec93405
+      size: 2202
+    outs:
+    - path: compare-5A.out
+      hash: md5
+      md5: 359f8c7029a7558cd4d65079c4eae10e
+      size: 1315
+  compare-small-step-Lx:
+    cmd: python3 ../compare_p5.py symmetry core-small-step-Lx.out 
+      core-small-step-Lx-pins.msgpack > compare-small-step-Lx.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-small-step-Lx-pins.msgpack
+      hash: md5
+      md5: 84da654acb56aac3d5059f718915402e
+      size: 65311
+    - path: core-small-step-Lx.out
+      hash: md5
+      md5: d98d5e4b4e8ae404bc5fe8e3ac4c8b31
+      size: 522
+    outs:
+    - path: compare-small-step-Lx.out
+      hash: md5
+      md5: 833c8f2266d0734b49a27f9db2a2e298
+      size: 588
+  core-small-step-Ly:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- 
+      core-small-step-Ly.toml > core-small-step-Ly.out 2> core-small-step-Ly.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-small-step-Ly-cycle.toml
+      hash: md5
+      md5: a91913448dd08711eeeaaefd6814cc92
+      size: 388
+    - path: core-small-step-Ly-plant.toml
+      hash: md5
+      md5: 2209447d11eebe19b967ce753339c29c
+      size: 1294
+    - path: core-small-step-Ly.toml
+      hash: md5
+      md5: 97e62b5007f6a006379da0f5a5f350f6
+      size: 410
+    - path: core-small-step-assemblies.toml
+      hash: md5
+      md5: df3c9f398c7236d91a9a0cb63ab64b3f
+      size: 932
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-small-step-Ly-pins.msgpack
+      hash: md5
+      md5: bc440577c19b4149fdcbbea3e06e7566
+      size: 65311
+    - path: core-small-step-Ly.log
+      hash: md5
+      md5: 9f8af03aa775d32d80a2caa7958b1086
+      size: 43716
+    - path: core-small-step-Ly.out
+      hash: md5
+      md5: 244399d9407d737d847a4a787d137970
+      size: 522
+  compare-small-I:
+    cmd: python3 ../compare_p5.py moc small-moc.out small-moc-pins.msgpack 
+      core-small-I.out core-small-I-pins.msgpack > compare-small-I.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-small-I-pins.msgpack
+      hash: md5
+      md5: 71a3f8a995ccb27e1abce4277eefadcf
+      size: 23593
+    - path: core-small-I.out
+      hash: md5
+      md5: df07872ef155238001c032f4f7940b0b
+      size: 354
+    - path: small-moc-pins.msgpack
+      hash: md5
+      md5: 72cca63666d0902b42b722bb7674172b
+      size: 23593
+    - path: small-moc.out
+      hash: md5
+      md5: 932320cc98a67a4c960fa2d2a62cc7bf
+      size: 11
+    outs:
+    - path: compare-small-I.out
+      hash: md5
+      md5: afae07bdd5563ee3c40254a92967c019
+      size: 636
+  compare-small-step-Ly:
+    cmd: python3 ../compare_p5.py symmetry core-small-step-Ly.out 
+      core-small-step-Ly-pins.msgpack > compare-small-step-Ly.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-small-step-Ly-pins.msgpack
+      hash: md5
+      md5: bc440577c19b4149fdcbbea3e06e7566
+      size: 65311
+    - path: core-small-step-Ly.out
+      hash: md5
+      md5: 244399d9407d737d847a4a787d137970
+      size: 522
+    outs:
+    - path: compare-small-step-Ly.out
+      hash: md5
+      md5: 833c8f2266d0734b49a27f9db2a2e298
+      size: 588
+  core-small-E:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-E.toml > 
+      core-small-E.out 2> core-small-E.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-small-E-cycle.toml
+      hash: md5
+      md5: 9eb34accc188735d1c150c924a602837
+      size: 275
+    - path: core-small-E-plant.toml
+      hash: md5
+      md5: aca5cb9855192dee500752dfaebf0aed
+      size: 1025
+    - path: core-small-E.toml
+      hash: md5
+      md5: 72654f45a92d0a43d6a08b344c2b34c8
+      size: 410
+    - path: core-small-assemblies.toml
+      hash: md5
+      md5: 3c35347ac5283cf83815abc825def9ef
+      size: 572
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-small-E-pins.msgpack
+      hash: md5
+      md5: b46ddab830b23c4cd5b69bc32dddd90a
+      size: 23593
+    - path: core-small-E.log
+      hash: md5
+      md5: a7d62a53aa0164eea1700c795c64f46b
+      size: 22770
+    - path: core-small-E.out
+      hash: md5
+      md5: 89f22d4f6ddcbf31f6745eafffe65122
+      size: 354
+  compare-small-E:
+    cmd: python3 ../compare_p5.py moc small-moc.out small-moc-pins.msgpack 
+      core-small-E.out core-small-E-pins.msgpack > compare-small-E.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-small-E-pins.msgpack
+      hash: md5
+      md5: b46ddab830b23c4cd5b69bc32dddd90a
+      size: 23593
+    - path: core-small-E.out
+      hash: md5
+      md5: 89f22d4f6ddcbf31f6745eafffe65122
+      size: 354
+    - path: small-moc-pins.msgpack
+      hash: md5
+      md5: 72cca63666d0902b42b722bb7674172b
+      size: 23593
+    - path: small-moc.out
+      hash: md5
+      md5: 932320cc98a67a4c960fa2d2a62cc7bf
+      size: 11
+    outs:
+    - path: compare-small-E.out
+      hash: md5
+      md5: 804f1a59275e8707b59fe74e81564849
+      size: 639
+  core-5B:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5B.toml > 
+      core-5B.out 2> core-5B.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-5B-assemblies.toml
+      hash: md5
+      md5: 464923ddf03e2593c74301ce6a5da50b
+      size: 7218
+    - path: core-5B-cycle.toml
+      hash: md5
+      md5: 1b0097fe39f257ade682f3e0341aa7b7
+      size: 1356
+    - path: core-5B.toml
+      hash: md5
+      md5: 76fbd8fb192fb86237b078ea9680ce1c
+      size: 664
+    - path: core-plant.toml
+      hash: md5
+      md5: 801bbac849271c5666c56dbfba2049a3
+      size: 2913
+    - path: lattice/21-aic.msgpack
+      hash: md5
+      md5: 91fc08eb89548b8ec2c747a057803541
+      size: 7575
+    - path: lattice/21.msgpack
+      hash: md5
+      md5: 47ba389e7ad9adbc9a03724d0aae8d99
+      size: 7575
+    - path: lattice/26-aic.msgpack
+      hash: md5
+      md5: 09bfa81de8455a86608632953bfed32a
+      size: 7575
+    - path: lattice/26-p16.msgpack
+      hash: md5
+      md5: 2b6ff447f4a4d7a505c11bec4acfc5c2
+      size: 7575
+    - path: lattice/26-p20.msgpack
+      hash: md5
+      md5: eddb562b224614789bed3acf1aac6ea4
+      size: 7575
+    - path: lattice/26-p24.msgpack
+      hash: md5
+      md5: 0d19c0ea6bd75e8d315d267c8c6b4a6b
+      size: 7575
+    - path: lattice/31-p12.msgpack
+      hash: md5
+      md5: 009361ee7d1ac740c69dedc048dc48cc
+      size: 7575
+    - path: lattice/31-p16.msgpack
+      hash: md5
+      md5: e0a6ba0fb1e2214cd497fb904f538a87
+      size: 7575
+    - path: lattice/31-p24.msgpack
+      hash: md5
+      md5: 918a1c8590340b1dc75a683184ddaf72
+      size: 7575
+    - path: lattice/31-p8.msgpack
+      hash: md5
+      md5: d0599c13e248f97cb4d063fae40a9bec
+      size: 7575
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-5B-pins.msgpack
+      hash: md5
+      md5: 54c9186f85a1cedeae8bcd3395daf05d
+      size: 586021
+    - path: core-5B.log
+      hash: md5
+      md5: 06439eb931ca1243d35265c2d613f578
+      size: 697440
+    - path: core-5B.out
+      hash: md5
+      md5: cee636d04ce3f8c9069d18fbf9867691
+      size: 2202
+  core-5C:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5C.toml > 
+      core-5C.out 2> core-5C.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-5C-assemblies.toml
+      hash: md5
+      md5: 5a0e41d137df196e8988b1dd9703bc0b
+      size: 7218
+    - path: core-5C-cycle.toml
+      hash: md5
+      md5: e7f452aaf4a04306b52fdb5fe72406ad
+      size: 1356
+    - path: core-5C.toml
+      hash: md5
+      md5: f3a9805210519499b5a2349d11e089ca
+      size: 664
+    - path: core-plant.toml
+      hash: md5
+      md5: 801bbac849271c5666c56dbfba2049a3
+      size: 2913
+    - path: lattice/21-b4c.msgpack
+      hash: md5
+      md5: 17454066a83af56205dcefff066fdb09
+      size: 7575
+    - path: lattice/21.msgpack
+      hash: md5
+      md5: 47ba389e7ad9adbc9a03724d0aae8d99
+      size: 7575
+    - path: lattice/26-b4c.msgpack
+      hash: md5
+      md5: 137bd59ba499153c3c80ca394149e08d
+      size: 7575
+    - path: lattice/26-p16.msgpack
+      hash: md5
+      md5: 2b6ff447f4a4d7a505c11bec4acfc5c2
+      size: 7575
+    - path: lattice/26-p20.msgpack
+      hash: md5
+      md5: eddb562b224614789bed3acf1aac6ea4
+      size: 7575
+    - path: lattice/26-p24.msgpack
+      hash: md5
+      md5: 0d19c0ea6bd75e8d315d267c8c6b4a6b
+      size: 7575
+    - path: lattice/31-p12.msgpack
+      hash: md5
+      md5: 009361ee7d1ac740c69dedc048dc48cc
+      size: 7575
+    - path: lattice/31-p16.msgpack
+      hash: md5
+      md5: e0a6ba0fb1e2214cd497fb904f538a87
+      size: 7575
+    - path: lattice/31-p24.msgpack
+      hash: md5
+      md5: 918a1c8590340b1dc75a683184ddaf72
+      size: 7575
+    - path: lattice/31-p8.msgpack
+      hash: md5
+      md5: d0599c13e248f97cb4d063fae40a9bec
+      size: 7575
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-5C-pins.msgpack
+      hash: md5
+      md5: 3b5e11008f193bece2c86e256bea949e
+      size: 586021
+    - path: core-5C.log
+      hash: md5
+      md5: cb830d094f4fbb28c87dfb2ce55656b1
+      size: 715492
+    - path: core-5C.out
+      hash: md5
+      md5: ea272631011ed2b2cc1efba02e5f6dce
+      size: 2202
+  core-5A-Inext:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5A-Inext.toml > 
+      core-5A-Inext.out 2> core-5A-Inext.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-5A-Inext-cycle.toml
+      hash: md5
+      md5: 42a43c3facd89c9ef70444c732681e65
+      size: 1362
+    - path: core-5A-Inext.toml
+      hash: md5
+      md5: e4b056d0677b05b4ea2ac276ce22451b
+      size: 607
+    - path: core-5A-assemblies.toml
+      hash: md5
+      md5: a86030e355cb3487516cbaad85489ef9
+      size: 7100
+    - path: core-plant-Inext.toml
+      hash: md5
+      md5: b718fb28dac61e0e2847204e05c43328
+      size: 2569
+    - path: lattice/21.msgpack
+      hash: md5
+      md5: 47ba389e7ad9adbc9a03724d0aae8d99
+      size: 7575
+    - path: lattice/26-p16.msgpack
+      hash: md5
+      md5: 2b6ff447f4a4d7a505c11bec4acfc5c2
+      size: 7575
+    - path: lattice/26-p20.msgpack
+      hash: md5
+      md5: eddb562b224614789bed3acf1aac6ea4
+      size: 7575
+    - path: lattice/26-p24.msgpack
+      hash: md5
+      md5: 0d19c0ea6bd75e8d315d267c8c6b4a6b
+      size: 7575
+    - path: lattice/26.msgpack
+      hash: md5
+      md5: cce0270e4eafd4fd06414b4893146294
+      size: 7575
+    - path: lattice/31-p12.msgpack
+      hash: md5
+      md5: 009361ee7d1ac740c69dedc048dc48cc
+      size: 7575
+    - path: lattice/31-p16.msgpack
+      hash: md5
+      md5: e0a6ba0fb1e2214cd497fb904f538a87
+      size: 7575
+    - path: lattice/31-p24.msgpack
+      hash: md5
+      md5: 918a1c8590340b1dc75a683184ddaf72
+      size: 7575
+    - path: lattice/31-p8.msgpack
+      hash: md5
+      md5: d0599c13e248f97cb4d063fae40a9bec
+      size: 7575
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-5A-Inext-pins.msgpack
+      hash: md5
+      md5: eb1e436325fbce492ea3a99bee299888
+      size: 586021
+    - path: core-5A-Inext.log
+      hash: md5
+      md5: 69f9e504c5c7a8b557452e090aba87bf
+      size: 598367
+    - path: core-5A-Inext.out
+      hash: md5
+      md5: 1ac13c0e4091c8a6f57a2e863d637dc8
+      size: 2202
+  compare-5A-Inext:
+    cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt 
+      core-5A-Inext.out core-5A-Inext-pins.msgpack > compare-5A-Inext.out
+    deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-5A-Inext-pins.msgpack
+      hash: md5
+      md5: eb1e436325fbce492ea3a99bee299888
+      size: 586021
+    - path: core-5A-Inext.out
+      hash: md5
+      md5: 1ac13c0e4091c8a6f57a2e863d637dc8
+      size: 2202
+    outs:
+    - path: compare-5A-Inext.out
+      hash: md5
+      md5: 073fe74695e02aeb45014bb9f631430f
+      size: 1315
+  compare-5C:
+    cmd: python3 ../compare_p5.py keno 5C ../../../references/vera/spec.txt 
+      core-5C.out core-5C-pins.msgpack > compare-5C.out
+    deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-5C-pins.msgpack
+      hash: md5
+      md5: 3b5e11008f193bece2c86e256bea949e
+      size: 586021
+    - path: core-5C.out
+      hash: md5
+      md5: ea272631011ed2b2cc1efba02e5f6dce
+      size: 2202
+    outs:
+    - path: compare-5C.out
+      hash: md5
+      md5: 7805fe6838826dbef80b41a37cc2fd16
+      size: 1314
+  compare-5B:
+    cmd: python3 ../compare_p5.py keno 5B ../../../references/vera/spec.txt 
+      core-5B.out core-5B-pins.msgpack > compare-5B.out
+    deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-5B-pins.msgpack
+      hash: md5
+      md5: 54c9186f85a1cedeae8bcd3395daf05d
+      size: 586021
+    - path: core-5B.out
+      hash: md5
+      md5: cee636d04ce3f8c9069d18fbf9867691
+      size: 2202
+    outs:
+    - path: compare-5B.out
+      hash: md5
+      md5: 366f3f116f177ddaf910c704d02e6d81
+      size: 1314
+  core-lattice-I-fstar:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- 
+      core-lattice-I-fstar.toml > core-lattice-I-fstar.out 2> 
+      core-lattice-I-fstar.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-lattice-I-fstar-cycle.toml
+      hash: md5
+      md5: 84c88725cf3f823c289c924dab77a492
+      size: 174
+    - path: core-lattice-I-fstar.toml
+      hash: md5
+      md5: ab03e7b3d42421dc84549e669490f0fc
+      size: 450
+    - path: core-lattice-I-plant.toml
+      hash: md5
+      md5: abaf5b82a0166353c4e486c1c3191851
+      size: 368
+    - path: core-lattice-assemblies.toml
+      hash: md5
+      md5: 66e6ddc9dc284eeac012c92bdcb0b626
+      size: 673
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I-fuel.msgpack
+      hash: md5
+      md5: 69f55fc12ce136899d8ff28cb12ab152
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-fuel.msgpack
+      hash: md5
+      md5: 564533fab9917a99f5c0ef914d149ea5
+      size: 7575
+    outs:
+    - path: core-lattice-I-fstar-pins.msgpack
+      hash: md5
+      md5: 492c107425d3d1cd4c91f17f549b79e9
+      size: 2683
+    - path: core-lattice-I-fstar.log
+      hash: md5
+      md5: d648141fa78f68bff075b5c502855030
+      size: 4198
+    - path: core-lattice-I-fstar.out
+      hash: md5
+      md5: 75e7215497aa1ce84ca650651af95bdc
+      size: 193
+  core-lattice-I-equivalence:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- 
+      core-lattice-I-equivalence.toml > core-lattice-I-equivalence.out 2> 
+      core-lattice-I-equivalence.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-lattice-I-equivalence-cycle.toml
+      hash: md5
+      md5: fcdf7d1e625e710a4db512f6f8e061e7
+      size: 188
+    - path: core-lattice-I-equivalence.toml
+      hash: md5
+      md5: 50c2c1866483ab2e6f461e700d4856b5
+      size: 471
+    - path: core-lattice-I-plant.toml
+      hash: md5
+      md5: abaf5b82a0166353c4e486c1c3191851
+      size: 368
+    - path: core-lattice-assemblies.toml
+      hash: md5
+      md5: 66e6ddc9dc284eeac012c92bdcb0b626
+      size: 673
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I-fuel.msgpack
+      hash: md5
+      md5: 69f55fc12ce136899d8ff28cb12ab152
+      size: 7575
+    - path: lattice/reflector-I.msgpack
+      hash: md5
+      md5: 080c1c5ce3f228d5b9f3570487776aa0
+      size: 10752
+    - path: lattice/reflector-corner-fuel.msgpack
+      hash: md5
+      md5: 564533fab9917a99f5c0ef914d149ea5
+      size: 7575
+    outs:
+    - path: core-lattice-I-equivalence-pins.msgpack
+      hash: md5
+      md5: a78f1133474e907357b2639d5e2bba8c
+      size: 2683
+    - path: core-lattice-I-equivalence.log
+      hash: md5
+      md5: 390e125c8df8bb14c4bfc9bb2ccddc95
+      size: 4055
+    - path: core-lattice-I-equivalence.out
+      hash: md5
+      md5: bd053e400430f7bd6b39db279e3e4eb8
+      size: 193
+  compare-lattice-I-equivalence:
+    cmd: python3 ../compare_p5.py k reflector-I.out 
+      core-lattice-I-equivalence.out > compare-lattice-I-equivalence.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-lattice-I-equivalence.out
+      hash: md5
+      md5: bd053e400430f7bd6b39db279e3e4eb8
+      size: 193
+    - path: reflector-I.out
+      hash: md5
+      md5: ec2990b8e2d0e5c84628f4583f81158c
+      size: 11
+    outs:
+    - path: compare-lattice-I-equivalence.out
+      hash: md5
+      md5: 2cab53c678494e4fdc0ce42f57cfc89a
+      size: 41
+  core-lattice-corner-fstar:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- 
+      core-lattice-corner-fstar.toml > core-lattice-corner-fstar.out 2> 
+      core-lattice-corner-fstar.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-lattice-assemblies.toml
+      hash: md5
+      md5: 66e6ddc9dc284eeac012c92bdcb0b626
+      size: 673
+    - path: core-lattice-corner-fstar-cycle.toml
+      hash: md5
+      md5: f6d85d7b414e443df51c15e94c8b5f6c
+      size: 189
+    - path: core-lattice-corner-fstar.toml
+      hash: md5
+      md5: f5cfa54c68f3d1050c321262cebd16ef
+      size: 461
+    - path: core-lattice-corner-plant.toml
+      hash: md5
+      md5: 0466be5d72960c57432af32918fe3cfc
+      size: 728
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I-fuel.msgpack
+      hash: md5
+      md5: 69f55fc12ce136899d8ff28cb12ab152
+      size: 7575
+    - path: lattice/reflector-corner-fuel.msgpack
+      hash: md5
+      md5: 564533fab9917a99f5c0ef914d149ea5
+      size: 7575
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-lattice-corner-fstar-pins.msgpack
+      hash: md5
+      md5: 07f3ac3465955d8c91d2a3c45d11f3e2
+      size: 2683
+    - path: core-lattice-corner-fstar.log
+      hash: md5
+      md5: f0fed716aa21c178caa13824a843ceaa
+      size: 5025
+    - path: core-lattice-corner-fstar.out
+      hash: md5
+      md5: 666a07f48c2869680d02b3cb0eaba89a
+      size: 207
+  compare-lattice-corner-fstar:
+    cmd: python3 ../compare_p5.py k reflector-corner.out 
+      core-lattice-corner-fstar.out > compare-lattice-corner-fstar.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-lattice-corner-fstar.out
+      hash: md5
+      md5: 666a07f48c2869680d02b3cb0eaba89a
+      size: 207
+    - path: reflector-corner.out
+      hash: md5
+      md5: f4af96df78b73a7f9757203469d1a410
+      size: 11
+    outs:
+    - path: compare-lattice-corner-fstar.out
+      hash: md5
+      md5: 45db06fac67bcef97928dc7cc81a12d6
+      size: 44
+  core-lattice-corner-equivalence:
+    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- 
+      core-lattice-corner-equivalence.toml > core-lattice-corner-equivalence.out
+      2> core-lattice-corner-equivalence.log
+    deps:
+    - path: ../../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../../crates/core/Cargo.toml
+      hash: md5
+      md5: ede5c16b28dfa4c90dfb436ed2935e14
+      size: 486
+    - path: ../../../crates/core/src
+      hash: md5
+      md5: 737728db65bec096c444c45e0cf67c1f.dir
+      size: 328708
+      nfiles: 13
+    - path: ../../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../../crates/format/src
+      hash: md5
+      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
+      size: 117795
+      nfiles: 10
+    - path: ../../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: core-lattice-assemblies.toml
+      hash: md5
+      md5: 66e6ddc9dc284eeac012c92bdcb0b626
+      size: 673
+    - path: core-lattice-corner-equivalence-cycle.toml
+      hash: md5
+      md5: a466790f678e91c7ad3814a2f90c30e3
+      size: 227
+    - path: core-lattice-corner-equivalence.toml
+      hash: md5
+      md5: 52a1ca66a0d763310eae60d36a9102dc
+      size: 482
+    - path: core-lattice-corner-plant.toml
+      hash: md5
+      md5: 0466be5d72960c57432af32918fe3cfc
+      size: 728
+    - path: lattice/31.msgpack
+      hash: md5
+      md5: 829cd5708c6376c644ff340c4c5ecdb7
+      size: 7575
+    - path: lattice/reflector-I-fuel.msgpack
+      hash: md5
+      md5: 69f55fc12ce136899d8ff28cb12ab152
+      size: 7575
+    - path: lattice/reflector-corner-fuel.msgpack
+      hash: md5
+      md5: 564533fab9917a99f5c0ef914d149ea5
+      size: 7575
+    - path: lattice/reflector-corner-right.msgpack
+      hash: md5
+      md5: 730ead86c6a7205cb8c976dfce08b096
+      size: 10752
+    - path: lattice/reflector-corner-top.msgpack
+      hash: md5
+      md5: bb4fa5b42d0eb9f033f479e36bc3d9ab
+      size: 10806
+    - path: lattice/reflector-corner.msgpack
+      hash: md5
+      md5: 7b7ab79ac97cb618307db0e30c622a0f
+      size: 15441
+    outs:
+    - path: core-lattice-corner-equivalence-pins.msgpack
+      hash: md5
+      md5: cbfac9da626c4ce214d9b206e4a681dd
+      size: 2683
+    - path: core-lattice-corner-equivalence.log
+      hash: md5
+      md5: 0e3f1ed758afa2bf99f9821381dced49
+      size: 4880
+    - path: core-lattice-corner-equivalence.out
+      hash: md5
+      md5: 26448071dc936d737a928e129a8c071c
+      size: 207
+  compare-lattice-corner-equivalence:
+    cmd: python3 ../compare_p5.py k reflector-corner.out 
+      core-lattice-corner-equivalence.out > 
+      compare-lattice-corner-equivalence.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-lattice-corner-equivalence.out
+      hash: md5
+      md5: 26448071dc936d737a928e129a8c071c
+      size: 207
+    - path: reflector-corner.out
+      hash: md5
+      md5: f4af96df78b73a7f9757203469d1a410
+      size: 11
+    outs:
+    - path: compare-lattice-corner-equivalence.out
+      hash: md5
+      md5: f0b5ae8bfa98ada14cc2d0f10d96e6bd
+      size: 41
+  compare-lattice-I-fstar:
+    cmd: python3 ../compare_p5.py k reflector-I.out core-lattice-I-fstar.out > 
+      compare-lattice-I-fstar.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: core-lattice-I-fstar.out
+      hash: md5
+      md5: 75e7215497aa1ce84ca650651af95bdc
+      size: 193
+    - path: reflector-I.out
+      hash: md5
+      md5: ec2990b8e2d0e5c84628f4583f81158c
+      size: 11
+    outs:
+    - path: compare-lattice-I-fstar.out
+      hash: md5
+      md5: c54a162ccb116403f7add92dff969b26
+      size: 43

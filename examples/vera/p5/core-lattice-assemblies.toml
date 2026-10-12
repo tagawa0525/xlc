@@ -1,0 +1,26 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 反射体の格子の燃料のノードの定数と、単一集合体の定数の台帳
+
+# I 型の格子の燃料のノード
+[design.reflector-I-fuel]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-I-fuel.msgpack"]
+
+[assembly.reflector-I-fuel]
+design = "reflector-I-fuel"
+
+# 角型の格子の燃料のノード
+[design.reflector-corner-fuel]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-fuel.msgpack"]
+
+[assembly.reflector-corner-fuel]
+design = "reflector-corner-fuel"
+
+# 単一集合体
+[design.31]
+bounds = [0.0, 21.5]
+layers = ["lattice/31.msgpack"]
+
+[assembly.31]
+design = "31"

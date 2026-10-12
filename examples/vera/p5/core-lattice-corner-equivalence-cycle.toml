@@ -1,0 +1,7 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+plant = "core-lattice-corner-plant.toml"
+inventory = "core-lattice-assemblies.toml"
+loading = [
+  ".                     .",
+  "reflector-corner-fuel .",
+]

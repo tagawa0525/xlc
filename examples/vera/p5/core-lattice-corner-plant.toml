@@ -1,0 +1,23 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# reflector-corner.toml の格子をノードに分けた炉心の形（燃料の位置と、格子の反射体のノード）。
+pitch = 21.5
+height = 21.5
+map = [
+  "N C",
+  "* E",
+]
+
+# 角型の格子の右上の反射体（燃料が −x −y の対角）
+[reflector.C]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner.msgpack"]
+
+# 角型の格子の右の反射体（燃料が −x、角型が +y）
+[reflector.E]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-right.msgpack"]
+
+# 角型の格子の上の反射体（燃料が −y、角型が +x）
+[reflector.N]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-top.msgpack"]
