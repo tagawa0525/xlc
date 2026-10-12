@@ -97,8 +97,9 @@ def rho(k_from: float, k_to: float) -> float:
     return (1.0 / k_from - 1.0 / k_to) * 1.0e5
 
 
-def worths(k: dict[int, float]) -> dict[str, float]:
-    """場合ごとの k から、バンクの価値 (pcm)、DBW (pcm/ppm)、ITC (pcm/°F)。要る場合がなければその量を含めない。"""
+def worths(k: dict[int, float], cases: dict[int, dict]) -> dict[str, float]:
+    """場合ごとの k から、バンクの価値 (pcm)、DBW (pcm/ppm)、ITC (pcm/°F)。割る量は表の場合の値から取る。要る場合が
+    なければその量を含めない。"""
     out = {}
     for i, bank in enumerate(BANKS):
         if 11 in k and 12 + i in k:
@@ -106,10 +107,14 @@ def worths(k: dict[int, float]) -> dict[str, float]:
     if all(bank in out for bank in BANKS):
         out["total"] = sum(out[bank] for bank in BANKS)
     if 2 in k and 11 in k:
-        out["DBW"] = rho(k[11], k[2]) / (1291.0 - 1170.0)
+        out["DBW"] = rho(k[11], k[2]) / (cases[2]["boron"] - cases[11]["boron"])
     if 20 in k and 21 in k:
         # 1 K = 1.8 °F
-        out["ITC"] = rho(k[20], k[21]) / (570.0 - 560.0) / 1.8
+        out["ITC"] = (
+            rho(k[20], k[21])
+            / (cases[21]["temperature"] - cases[20]["temperature"])
+            / 1.8
+        )
     return out
 
 
@@ -117,7 +122,7 @@ def check_keno_definitions(
     cases: dict[int, dict], table: dict[str, tuple[float, float]]
 ) -> None:
     """表 P5-6 の KENO-VI の k から、表 P5-7 の KENO-VI の価値と DBW を再現することを確かめる。"""
-    computed = worths({n: c["k"] for n, c in cases.items()})
+    computed = worths({n: c["k"] for n, c in cases.items()}, cases)
     # k は 6 桁で丸めてあり（反応度で 0.1 pcm 以下）、価値は整数、DBW は小数 2 桁で丸めてある
     margins = {name: 1.0 for name in [*BANKS, "total"]} | {"DBW": 0.01}
     for name, margin in margins.items():
@@ -153,7 +158,7 @@ def case_states(path: Path, cases: dict[int, dict]) -> dict[str, int]:
     states = tomllib.loads(path.read_text()).get("state", {})
     out = {}
     for name, state in states.items():
-        m = re.fullmatch(r"case-(\d+)", name)
+        m = re.fullmatch(r"case-([1-9]\d*)", name)
         if not m or int(m.group(1)) not in cases:
             raise SystemExit(f"{path}: state {name}: name it case-<n> (Table P5-2)")
         n = int(m.group(1))
@@ -204,7 +209,7 @@ def main() -> None:
             f"case {n:2d} {'':12s} {k[n]:.6f}  {keno:.6f}  {rho(keno, k[n]):+8.1f} ± {cases[n]['sigma'] * 1e5:.1f}  {critical}"
         )
 
-    ours = worths(k)
+    ours = worths(k, cases)
     print(
         "\nquantity                    xlc  measured   KENO-VI  vs measured  vs KENO-VI"
     )
