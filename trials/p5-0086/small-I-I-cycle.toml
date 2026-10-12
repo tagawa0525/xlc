@@ -1,9 +1,0 @@
-plant = "../../examples/vera/p5/core-small-I-plant.toml"
-inventory = "small-I-I-assemblies.toml"
-loading = [
-  ".       .       .       .       .",
-  ".       J07     H07@90  G07     .",
-  ".       J08@180 H08     G08     .",
-  ".       J09     H09@270 G09     .",
-  ".       .       .       .       .",
-]

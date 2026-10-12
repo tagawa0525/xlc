@@ -1,6 +1,0 @@
-[design.f]
-bounds = [0.0, 21.5]
-layers = ["tables/I-D.msgpack"]
-
-[assembly.f]
-design = "f"
