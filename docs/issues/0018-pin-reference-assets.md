@@ -45,8 +45,8 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   端から端まで通した。残り（同じ形で足す）:
   - VERA 1C〜2K の OpenMC と抽出（2B〜2K はピン出力の `pins.msgpack`）、xlc の lattice、比較（`compare_pins.py` を
     含む）の段階。ADR-0121 の `p2/openmc-<問題>.msgpack` の置き場を、抽出の結果のディレクトリに合わせるかを決める
-  - 燃料の実効断面積の tally（`effective-xs-groups`）を使う段階。xlc のライブラリを deps にすると xs のコードを変えるたびに
-    OpenMC が走り直すので、群構造だけを入力に書くかを決める（ADR-0130 の「帰結」）
+  - 済（ADR-0152）: 燃料の実効断面積の tally は、標準のタリーの組の WIMS 69 群（モジュールの定数）に入り、xlc のライブラリを
+    deps にしない。入力の `effective-xs-groups` はなくした
   - OpenMC の段階を「入力とスクリプト → model.xml」と「model.xml とライブラリ → statepoint」に分け、スクリプトを作り直しても
     model.xml が同じなら OpenMC が走り直さないようにする（ライブラリの段階も同じく分ける）。分けたあと 1B を一度走らせ直せば、
     記録の「走らせたコミットと分岐点からの復元」（ADR-0130）は要らなくなる
