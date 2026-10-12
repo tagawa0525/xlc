@@ -10,6 +10,11 @@
 
 set -euo pipefail
 
+if (( $# == 0 )); then
+  echo "ERROR: 確かめる dvc.lock が無い（引数に lock を渡す。空のまま通すと、何も確かめずに成功する）" >&2
+  exit 2
+fi
+
 status=0
 for lock in "$@"; do
   dvc stage list "$(dirname -- "$lock")/dvc.yaml" >/dev/null || {

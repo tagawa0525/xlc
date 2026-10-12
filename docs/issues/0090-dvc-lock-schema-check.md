@@ -23,8 +23,8 @@ d3af514b（chore: relock the staged xs stages on top of main）で作り直し�
   2 段階の dvc.yaml）では、`dvc status`、`dvc commit -f`、`dvc repro -s` がすべて同じ検証エラーで止まり、lock は消えた
   ままだった。dvc が lock を作るときは、この行を必ず出す。
 - したがって欠落は、dvc の外での書き込みで起きた。候補は、main の lock と実行した lock の段階を手で合わせた書き換え。
-  d3af514b の作業の記録は残っていない。ただし d3af514b の diff は、先頭の行だけが消え、段階の書式は dvc のものである（手で段階を
-  組み合わせた形と合う）。どの操作で組み合わせたかは確かめていない。`dvc-relock` の手順には、lock を手で書く箇所はない。
+  d3af514b の作業の記録は残っていない。ただし d3af514b の diff は、ヘッダの schema 行が消え、xs の一つの段階が範囲と核種ごとの段階に置き換わっている（手で段階を
+  組み合わせた形と合う）。段階の書式は dvc のものである。どの操作で組み合わせたかは確かめていない。`dvc-relock` の手順には、lock を手で書く箇所はない。
 
 検査に使うツール:
 
@@ -76,3 +76,5 @@ d3af514b（chore: relock the staged xs stages on top of main）で作り直し�
 
 - 2026-10-12: d3af514b で欠落し、1f143004 で 1 行を足して直した（マージ 56de8d8f）。ADR-0123（段階の駆動）、ADR-0138（xs の
   段階の分割）、#0075（核種ごとの段階）の作業で起きた。
+- hook と script は、ハッシュの誤りを見ない。`dvc stage list` は lock を読めるかだけを見るので、schema 行を残したまま md5 が
+  違う lock は通る。その差は `dvc status`（約 27 秒）でしか見つからない。
