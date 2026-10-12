@@ -390,9 +390,20 @@ def core_lattice_rows(
     fuel_rows: list[list[str]], kinds: list[list[str]]
 ) -> list[list[str]]:
     """集合体と反射体を並べた格子のセルの名前。`kinds` は位置ごとの "F"（燃料）、"R"（反射体）で、行は上から。
-    バッフルは燃料の外周から隙間 0.19 cm をおいた帯で、燃料の階段の形に沿い、角では帯が直角に会う
-    （openmc_core_2d.py の、集合体の外周を正方形で太らせた形と同じ）。"""
+    バッフルは燃料の外周から隙間 0.19 cm をおいた帯で、角では帯が直角に会う（openmc_core_2d.py の、集合体の外周を
+    正方形で太らせた形と同じ）。燃料の行と列の両方にある反射体の位置（L 型）は、列の幅と行の高さが燃料のピンの
+    ものになり、バッフルを仕様の寸法で置けないのでエラーにする（#0068）"""
     n_rows, n_cols = len(kinds), len(kinds[0])
+    for i in range(n_rows):
+        for j in range(n_cols):
+            if (
+                kinds[i][j] == "R"
+                and any(kinds[i][c] == "F" for c in range(n_cols))
+                and any(kinds[r][j] == "F" for r in range(n_rows))
+            ):
+                raise SystemExit(
+                    f"reflector at {(i, j)} is in a fuel row and a fuel column (#0068)"
+                )
     col_sides = side_list(
         [any(kinds[i][j] == "F" for i in range(n_rows)) for j in range(n_cols)]
     )
@@ -615,6 +626,10 @@ def classify(fuel: set[tuple[int, int]], size: int) -> dict[tuple[int, int], tup
             if len(faces) == 1:
                 out[(i, j)] = ("I", faces[0])
             elif len(faces) == 2:
+                if (faces[0] - faces[1]) % 2 == 0:
+                    raise SystemExit(
+                        f"reflector at {(i, j)} lies between fuel on opposite sides"
+                    )
                 out[(i, j)] = ("L", *faces)
             elif len(faces) > 2:
                 raise SystemExit(
@@ -851,8 +866,8 @@ def core_files() -> dict[str, str]:
         files[f"core-{name}-assemblies.toml"] = inv
         what = {
             None: "制御棒なし",
-            "aic": "D バンク（H8、D8、H12、D12 と鏡映の位置の 16 体）に AIC の制御棒",
-            "b4c": "D バンク（H8、D8、H12、D12 と鏡映の位置の 16 体）に B4C の制御棒",
+            "aic": "D バンク（H8、D8、H12、D12 と鏡映の位置の 9 体）に AIC の制御棒",
+            "b4c": "D バンク（H8、D8、H12、D12 と鏡映の位置の 9 体）に B4C の制御棒",
         }[rod]
         variants = [("", "")] + (
             [("-Ly", "-Ly"), ("-Inext", "-Inext")] if name == "5A" else []
