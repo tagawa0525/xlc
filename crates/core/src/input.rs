@@ -75,7 +75,7 @@
 //! # banks = { D = 167 }
 //! # 部分挿入のノードの扱い（ADR-0127。省略すると中性子束の重みと ADR-0127 の細かいメッシュの幅）
 //! [partial-rods]
-//! weighting = "volume" # flux（ADR-0127）か volume（採らなかった体積の重み。比べるときだけ）
+//! weighting = "flux"   # flux（ADR-0127）か volume（採らなかった体積の重み。比べるときだけで、fine-mesh は書かない）
 //! fine-mesh = 0.25     # 細かいメッシュの幅の上限 (cm)
 //! ```
 
