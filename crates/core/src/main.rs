@@ -21,7 +21,7 @@ use anyhow::{Context, anyhow};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use xlc_core::case::{CaseError, solve_at, solve_states};
+use xlc_core::case::{CaseError, check_search, solve_at, solve_states};
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, Problem, Solution};
 use xlc_core::pins::{core_rows, reconstruct};
@@ -102,6 +102,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         write_pin_powers(&case, &s.problem, &s.solution)?;
     } else {
         // 状態をすべて並列に解いてから、名前の順に出す（ADR-0146）
+        // 解く前にできる検査は、長い計算を始める前に済ませる
+        for state in &case.states {
+            check_search(state, &options).map_err(|e| anyhow!("state {}: {e}", state.name))?;
+        }
         let results = solve_states(&layout, &tables, &case.states, &options);
         // 解けた状態は出し、解けなかった状態のエラーは最後にまとめて返す（長い計算のほかの状態の結果を捨てない）
         let mut errors = Vec::new();
