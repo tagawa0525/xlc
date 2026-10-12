@@ -2,7 +2,7 @@
 # ライブラリの入力（openmc_library.py）。核種は xs.toml（VERA）の核種に examples/mox/xs.toml の Pu と Am と、Problem 3、5-2D の
 # Inconel の Ti を足したもの。Hf と He は ADR-0054 と ADR-0120 のとおり除く。温度（K）は、燃料の核種と O-16 が 565, 600, 900,
 # 1200、冷却材、被覆管、構造材、吸収体の核種（B, Zr, Sn, Fe, Cr, Ti, C, P, Si, Mn, Ni, Ag, In, Cd）が 565, 600、H-1 はそれに
-# H in H2O の S(α,β) の温度 550, 573.6 を足したもの、そのほか（Pyrex、AIC と MOX の Pu と Am の一部）が 600、S(α,β) が
+# H in H2O の S(α,β) の温度 550, 573.6 を足したもの、そのほか（MOX の Pu と Am）が 600、S(α,β) が
 # 550, 573.6, 600（565 K は S(α,β) の内挿。ADR-0080）。H-1 を S(α,β) の温度でも作るのは、xlc が内挿する H-1 との違いを
 # 見積もるため（compare_h1_temperatures.py）。OpenMC の温度の内挿のモードは、温度を 1 つしか持たない核種が 1 つでもあると
 # 全体を最も近い温度のモードに戻す（OpenMC 0.15.2 の src/nuclide.cpp）ので、内挿のモードで解く問題（2A、2Q、3B、5A〜5C-2D）の
