@@ -519,6 +519,8 @@ pub struct Case {
     pub outline: Option<Boundary>,
     /// 炉心の状態。書けば分岐のテーブルをこの状態で内挿し、書かなければ軸のないテーブルだけを使う（ADR-0097）
     pub state: Option<State>,
+    /// 名前つきの状態（`[state.<名前>]`。名前の順）。空なら軸のないテーブルで1つ解く（ADR-0146）
+    pub states: Vec<CaseState>,
     /// 再構成したピン出力を書くファイル（ADR-0096）
     pub pin_powers: Option<PathBuf>,
 }
@@ -575,9 +577,17 @@ impl Case {
             boundaries,
             outline: b.outline.map(condition),
             state: file.state,
+            states: Vec::new(),
             pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
         })
     }
+}
+
+/// ケースの名前つきの状態（ADR-0146）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaseState {
+    pub name: String,
+    pub state: State,
 }
 
 /// ノードの物質: 少数群定数のファイルの番号と、反時計回りの 90° の回数。
