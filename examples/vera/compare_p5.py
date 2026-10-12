@@ -26,6 +26,9 @@ from pathlib import Path
 import msgpack
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import compare_k
+
 # 付録 J の見出し（Problem 5-2D ENDF/B-VII.0 Assembly Power Results）
 ASSEMBLY_TABLE = "{problem}-2D Assembly Powers"
 # 表 M3-6 の最大のピン出力
@@ -241,11 +244,7 @@ def openmc(core_out: str, core_pins: str, results: str) -> None:
 
 
 def lattice_k(path: str) -> float:
-    for line in Path(path).read_text().splitlines():
-        m = re.match(r"k\s+([\d.]+)$", line.strip())
-        if m:
-            return float(m.group(1))
-    raise SystemExit(f"{path}: no k")
+    return compare_k.lattice_k(Path(path))
 
 
 def moc(lattice_out: str, lattice_pins: str, core_out: str, core_pins: str) -> None:
