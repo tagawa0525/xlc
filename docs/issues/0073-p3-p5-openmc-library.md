@@ -38,3 +38,4 @@ openmc-neutron、openmc-index）で作り、`dvc.lock` をコミットする。p
 - 2026-10-12: Problem 3 と 5-2D の OpenMC のモデル（feat/p3-p5-openmc）で見つけた。ライブラリの段階は別の作業で整えて
   いるので、このブランチでは足さない
 - 2026-10-12: openmc-library.toml に足し、openmc-library-timing.toml を消した。段階の再生成は Slurm の共有モード（-c 8）で約 10 分半
+- 2026-10-12: 5A-2D だけ r995 で流した。3A、3B、5B-2D、5C-2D は外部の VM で流す（手順は docs/environment.md。タリーを足す feat/openmc-standard-tallies のマージのあと）。結果は verification.md の表に書く
