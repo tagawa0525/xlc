@@ -21,7 +21,7 @@ use anyhow::{Context, anyhow};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use xlc_core::case::{solve_at, solve_states};
+use xlc_core::case::{CaseError, solve_at, solve_states};
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, Problem, Solution};
 use xlc_core::pins::{core_rows, reconstruct};
@@ -97,7 +97,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
         .collect::<anyhow::Result<Vec<_>>>()?;
     let options = Options::default();
     if case.states.is_empty() {
-        let s = solve_at(&layout, &tables, None, &options).with_context(inputs)?;
+        let s = solve_at(&layout, &tables, None, &options).map_err(|e| in_inputs(e, inputs()))?;
         report(&layout, &s.problem, &s.solution);
         write_pin_powers(&case, &s.problem, &s.solution)?;
     } else {
@@ -108,11 +108,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
         for (state, result) in case.states.iter().zip(results) {
             match result {
                 Ok(s) => solved.push(s),
-                Err(e) => errors.push(format!("state {}: {e}", state.name)),
+                Err(e) => errors.push(format!(
+                    "state {}: {:#}",
+                    state.name,
+                    in_inputs(e, inputs())
+                )),
             }
         }
         if !errors.is_empty() {
-            return Err(anyhow!("{}", errors.join("\n"))).with_context(inputs);
+            return Err(anyhow!("{}", errors.join("\n")));
         }
         for (state, s) in case.states.iter().zip(&solved) {
             let _span = tracing::info_span!("report", state = %state.name).entered();
@@ -125,10 +129,20 @@ fn run(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// 4つの入力の組み合わせの誤り（`CaseError::Input`）にだけ、どのファイルかを添える。内挿や固有値の反復の
+/// エラーは入力の組み合わせの誤りではないので、そのまま返す
+fn in_inputs(error: CaseError, inputs: String) -> anyhow::Error {
+    match error {
+        CaseError::Input(e) => anyhow::Error::new(e).context(inputs),
+        e => e.into(),
+    }
+}
+
 /// k_eff、漏れ、集合体の位置ごとの核分裂率を標準出力に出す。
 fn report(layout: &Layout, problem: &Problem, solution: &Solution) {
     let leakage: f64 = solution.leakage.iter().sum();
-    // 状態の間の k の差（価値、係数）を出力から取るので、固有値の反復の判定（1e-8）の桁まで出す（ADR-0146）
+    // 状態の間の k の差（価値、係数）を出力から取るので、丸めの誤差が固有値の反復の判定（1e-8）より小さくなる
+    // 桁まで出す。k の誤差そのものは反復の収束で決まる（ADR-0146）
     println!("k-eff {:.8}", solution.k);
     println!("leakage per fission neutron {:.4}", leakage * solution.k);
     println!("assembly fission rates (relative to the assembly mean, top row is +y)");
