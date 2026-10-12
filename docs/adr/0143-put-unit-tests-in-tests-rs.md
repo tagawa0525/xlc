@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-10-12
-requires: [ADR-0130]
+requires: [ADR-0123, ADR-0130]
 supersedes: []
 superseded-by:
 issues: ["#0089"]
@@ -51,8 +51,10 @@ issues: ["#0089"]
 案 C を採る。
 
 - テストは `#[cfg(test)] mod tests;`（ほかのモジュールのテストが使う補助を持つなら `pub(crate) mod tests;`）で宣言し、
-  中身は Rust のモジュールの規則が探す `tests.rs` に置く。`foo.rs` のテストは `foo/tests.rs`、`lib.rs`、`main.rs`、
-  `mod.rs` のテストは同じディレクトリの `tests.rs`
+  中身は Rust のモジュールの規則が探す `tests.rs` に置く。`foo.rs` のテストは `foo/tests.rs`、`lib.rs` と `mod.rs` の
+  テストは同じディレクトリの `tests.rs`。`main.rs` のテストは `#[path = "main/tests.rs"]` で `src/main/tests.rs` に置く
+  （xs、lattice、core は `src` に `lib.rs` と `main.rs` の両方を持ち、どちらも `mod tests;` だと同じ `src/tests.rs` を
+  指してぶつかる）。大きな `tests.rs` は、その下の `tests/` のファイルに分けてよい
 - テストだけが使う項目（試料を作る関数、テストだけが呼ぶメソッド）も `tests.rs` に置く。メソッドは `tests.rs` の中の
   `impl` に書ける（固有の `impl` は同じクレートのどのモジュールにも置ける）。2026-10-12 には、crates/format/src/fewgroup.rs
   の `sample`、`sample_pins`、crates/numeric/src/pins/node.rs の `modes_at`、`flux` がこれにあたる。ほかのモジュールの
@@ -60,11 +62,12 @@ issues: ["#0089"]
   呼び出し側は `crate::fewgroup::tests::sample` のように `tests` を通して引く
 - 本番のファイルに残る `#[cfg(test)]` は、`mod tests;` の宣言と、パスが `tests` のモジュールを通る `use`（ほかの
   モジュールのテストの補助を引くもの。例: crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`、
-  `pub(crate) use tape::tests::rec;`）だけにする。クレートの入口（`lib.rs`、
-  `main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
+  `pub(crate) use tape::tests::rec;`）だけにする。クレートの入口（`lib.rs`、`main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
   lint の注記）は、テストのコードでなく lint の設定なので残す
-- crates/docs の一貫性の検査（#0013）に、`crates/*/src` の `tests.rs` 以外のファイルが、上の 2 つ以外の `#[cfg(test)]`
-  の項目と `cfg!(test)` を持たないことを確かめるテストを足す
+- crates/docs の一貫性の検査（#0013）に、`crates/*/src` の本番のファイル（`tests.rs` と `tests/` の下のファイル以外）を
+  文字列で調べるテストを足す。条件に `test` を含む `#[cfg(…)]`、`#[cfg_attr(…)]`、`cfg!(…)`（`any`、`all`、`not` の中を
+  含み、項目、文、フィールドのどれに付いたものも）を、上の `mod tests;` の宣言、`tests` を通る `use`、入口の lint の
+  属性、`main.rs` の `#[path]` を除いて拒む
 
 しきい値を置かないのは、根拠のある値がなく、すべてで分ければ検査が「本番のファイルにテストがない」の 1 つで済むから
 である。小さなファイルではファイルが 1 つ増えるが、パスで区別できる利点は大きさによらない。
@@ -76,25 +79,24 @@ issues: ["#0089"]
 - 移すのはテストのコードだけで、`#[cfg(test)]` の項目は release のビルドに入らない。ファイルの末尾の `mod tests { … }`
   だけを移すコミットでは、本体の行番号（`tracing` の位置の情報に入る）も変わらないので、移す前後で
   `cargo build --release` の xs、lattice、core の実行ファイルがビット単位で同じことを確かめる。実行ファイルには
-  worktree の絶対パスが入る（examples/m0/dvc.yaml の注記）ので、前後の 2 つのコミットは同じ worktree で checkout して
-  ビルドする
+  worktree の絶対パスが入る（examples/m0/dvc.yaml の注記。ADR-0123）ので、前後の 2 つのコミットは同じ worktree で
+  checkout してビルドする
 - テストだけの項目のうち、本体の途中にあるもの（2026-10-12 には crates/numeric/src/pins/node.rs の `modes_at`、`flux`。
-  後ろに本番の `gradient`、`average` が続く）を移すと、後ろの本体の行番号がずれ、実行ファイルの位置の情報が変わる。
-  これは別のコミットにし、その関数を通る DVC の段階（ピン出力を再構成する examples/reflector の `core-corner`。
-  examples/m0 の炉心はピン出力を再構成しないので通らない）を走らせ直して、出力（`*.log` を除く）の md5 が変わらない
-  ことで確かめる
+  後ろに本番の `gradient`、`average` が続き、lattice と core の実行ファイルに入る）を移すと、後ろの本体の行番号がずれ、
+  実行ファイルの位置の情報だけが変わる。これは別のコミットにし、そのコミットの本番のファイルの差分が `#[cfg(test)]` の
+  項目を消す行だけであることを、差分で確かめる。release のビルドに入らない項目を消しただけなので、出力は変わらない。
+  DVC の段階は走らせ直さない
 - 移す前後で、`cargo test --workspace` が出す `passed` の件数の和が同じこと
 
 ## 帰結
 
 - 実装（64 個のファイルの移動と検査）は、この ADR のあとの別のブランチで行う（#0089）。テストの移動と検査の追加を別のコミットにする
-- xs、lattice、core は `src` に `lib.rs` と `main.rs` の両方を持ち、両方がテストを持つと、どちらの `mod tests;` も
-  `src/tests.rs` を指してぶつかる。2026-10-12 には、テストを持つのは xs の `main.rs` だけ（`src/tests.rs` になる）で、
-  ぶつからない。ぶつかったときに置き方を決める。crates/docs は `lib.rs` だけなので、そのテストは `src/tests.rs` になる
+- 2026-10-12 に入口でテストを持つのは、xs の `main.rs`（`src/main/tests.rs` になる）と crates/docs の `lib.rs`
+  （`src/tests.rs` になる）である
 - ADR と issue には、テストの場所をファイルのパスで書いたものがある（例: ADR-0132 の crates/core/src/nem.rs）。
   採用済みの ADR は直せない（docs/adr/README.md の「運用」で、直せるのは誤字、リンク、status だけ）ので、決めた時点の
   場所の記録として残る。proposed の ADR と開いた issue のパスは、移すブランチで `tests.rs` に直す
 - `examples/*/dvc.yaml` の段階は deps に `crates/*/src` のディレクトリを持つので、テストを移すと、出力が変わらなくても
   deps の md5 が変わる。扱いは /dvc-relock（ADR-0130）に従う。末尾の `mod tests` だけを移すコミットは実行ファイルが
-  同じことで、本体の途中の項目を移すコミットは `core-corner` の出力が同じことで、走らせ直しても出力が変わらないことを
-  確かめる
+  同じことで、本体の途中の項目を移すコミットは差分が `#[cfg(test)]` の項目だけであることで、走らせ直しても出力が
+  変わらないことを確かめてある
