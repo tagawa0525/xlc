@@ -266,3 +266,20 @@ fn partial_nodes_without_fission_are_errors() {
     problem.materials[m].fission = vec![0.0, 0.0];
     assert!(solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).is_err());
 }
+
+#[test]
+fn duplicated_partial_nodes_are_errors() {
+    // 同じ位置の部分挿入のノードが 2 つあれば、どちらの区間を使うか分からない
+    let (problem, mut partial) = column(128.0, 1.6, false);
+    partial.push(partial[0].clone());
+    assert!(
+        solve_rodded(
+            &problem,
+            partial,
+            Weighting::Volume,
+            0.5,
+            &Options::default()
+        )
+        .is_err()
+    );
+}
