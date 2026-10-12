@@ -1,4 +1,4 @@
-# VERA Problem 3A の短い実行（1 世代あたりの時間の測定。examples/vera/verification.md）。ライブラリは openmc-library-timing.toml。16 スレッド
+# VERA Problem 3A の短い実行（1 世代あたりの時間の測定。examples/vera/verification.md）。ライブラリは試しのライブラリ（references/openmc/p3-p5-timing。#0073）。16 スレッド
 problem = "3A"
 cross-sections = "../../../references/openmc/p3-p5-timing/cross_sections.xml"
 particles = 1000000
