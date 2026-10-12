@@ -4,7 +4,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::table::Axis;
 
 use super::*;
-use crate::input::{Case, Cycle, Inventory, Plant};
+use crate::input::{Boron, BoronSearch, Case, Cycle, Inventory, Plant};
 
 const PLANT: &str = r#"
 pitch = 20.0
@@ -121,12 +121,80 @@ fn core() -> (Layout, Vec<Table>) {
 fn given(name: &str, boron: f64, temperature: f64) -> CaseState {
     CaseState {
         name: name.into(),
-        state: State {
-            boron,
-            b10: 0.199,
-            moderator: temperature,
-            fuel: temperature,
-        },
+        boron: Boron::Given(boron),
+        b10: 0.199,
+        moderator: temperature,
+        fuel: temperature,
+    }
+}
+
+fn searching(bracket: [f64; 2], tolerance: f64) -> CaseState {
+    CaseState {
+        name: "critical".into(),
+        boron: Boron::Search(BoronSearch {
+            bracket,
+            k: 1.0,
+            tolerance,
+            max_solves: 20,
+        }),
+        b10: 0.199,
+        moderator: 565.0,
+        fuel: 565.0,
+    }
+}
+
+#[test]
+fn boron_search_converges_to_the_target_k() {
+    let (layout, tables) = core();
+    let options = Options::default();
+    let state = searching([1000.0, 1500.0], 1.0e-7);
+    let solved = solve_state(&layout, &tables, &state, &options).unwrap();
+    let searched = solved.searched.unwrap();
+    assert!(
+        (solved.solution.k - 1.0).abs() <= 1.0e-7,
+        "{}",
+        solved.solution.k
+    );
+    assert!(
+        1000.0 < searched.ppm && searched.ppm < 1500.0,
+        "{}",
+        searched.ppm
+    );
+    // この定数の k は範囲の中で 1.13 から 0.88 まで曲がって下がる。傾き（約 −4.6e-4 /ppm）から、二分法では許容に
+    // 入るまで範囲を 2e-4 ppm まで狭める（両端と約 21 回）。Illinois 法はその半分より少ない
+    assert!(searched.solves <= 10, "{} solves", searched.solves);
+    // 求めたホウ素濃度で解き直しても同じ k
+    let direct = solve_at(&layout, &tables, Some(&state.at(searched.ppm)), &options).unwrap();
+    assert_eq!(direct.solution.k, solved.solution.k);
+}
+
+#[test]
+fn search_errors_are_reported() {
+    let (layout, tables) = core();
+    let options = Options::default();
+    let fails = |state: &CaseState| solve_state(&layout, &tables, state, &options).is_err();
+    // 範囲がテーブルの外（内挿のエラー）、範囲が解を挟まない、固有値の判定より細かい許容
+    assert!(fails(&searching([900.0, 1500.0], 1.0e-7)));
+    assert!(fails(&searching([1400.0, 1500.0], 1.0e-7)));
+    assert!(fails(&searching([1000.0, 1500.0], options.k_tolerance)));
+}
+
+#[test]
+fn searched_states_solved_together_match_solved_alone() {
+    let (layout, tables) = core();
+    let options = Options::default();
+    let states = [
+        given("aro", 1100.0, 565.0),
+        searching([1000.0, 1500.0], 1.0e-7),
+    ];
+    for (state, solved) in states
+        .iter()
+        .zip(solve_states(&layout, &tables, &states, &options))
+    {
+        let solved = solved.unwrap();
+        let alone = solve_state(&layout, &tables, state, &options).unwrap();
+        assert_eq!(solved.solution.k, alone.solution.k, "{}", state.name);
+        assert_eq!(solved.searched, alone.searched, "{}", state.name);
     }
 }
 
@@ -145,7 +213,7 @@ fn states_solved_together_match_states_solved_alone() {
     let mut k = Vec::new();
     for (state, solved) in states.iter().zip(together) {
         let solved = solved.unwrap();
-        let alone = solve_at(&layout, &tables, Some(&state.state), &options).unwrap();
+        let alone = solve_state(&layout, &tables, state, &options).unwrap();
         assert_eq!(solved.solution.k, alone.solution.k, "{}", state.name);
         k.push(solved.solution.k);
     }
@@ -200,7 +268,7 @@ fn tables_must_match_the_layout_files() {
     let options = Options::default();
     let state = given("aro", 1100.0, 565.0);
     tables.push(tables[0].clone());
-    assert!(solve_at(&layout, &tables, Some(&state.state), &options).is_err());
+    assert!(solve_at(&layout, &tables, Some(&state.at(1100.0)), &options).is_err());
     tables.truncate(layout.files.len() - 1);
-    assert!(solve_at(&layout, &tables, Some(&state.state), &options).is_err());
+    assert!(solve_at(&layout, &tables, Some(&state.at(1100.0)), &options).is_err());
 }

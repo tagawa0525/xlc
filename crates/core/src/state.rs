@@ -4,13 +4,11 @@
 //! 外挿しない。点が1つの軸は、状態がその値に等しいときだけ使える。状態を与えるときはテーブルが3つの軸をすべて
 //! 持ち、与えないときは軸のないテーブルだけを使う。
 
-use serde::Deserialize;
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{Axis, Table};
 
 /// 炉心の状態（ケースの `[state.<名前>]`。ADR-0146）。
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct State {
     /// ホウ素濃度 (ppm)
     pub boron: f64,
