@@ -4,7 +4,7 @@ labels: [refactor, lattice, core, xs]
 opened: 2026-10-12
 closed:
 milestone:
-blocked-by: []
+blocked-by: ["#0089"]
 resolution:
 ---
 
