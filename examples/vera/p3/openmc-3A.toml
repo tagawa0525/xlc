@@ -1,6 +1,6 @@
 # VERA Problem 3A（3D の集合体）を OpenMC の連続エネルギーモードで解く入力（openmc_model_3d.py）。1 世代 100 万粒子・2500 世代、
 # 最初の 500 世代を捨て（仕様書の KENO-VI と同じ数。軸方向の源の収束が遅い）、乱数のシード 1。粒子数と世代数の決め方は
-# examples/vera/verification.md の「Problem 3 の参照解」。スレッド数 24 は、24 + 24 が 32 を超えて本番が 1 本ずつ走り、残り 8 スレッドが空くため（Slurm の -c 24。verification.md）。
+# examples/vera/verification.md の「Problem 3 の参照解」。スレッド数 16 は Slurm の -c 16（物理コア 8。共有モードで、ほかの短い計算と物理コアを分ける。verification.md）。
 # ライブラリには Inconel の Ti と、565 K の構造材の核種が要る（#0073）
 problem = "3A"
 cross-sections = "../openmc-library/cross_sections.xml"
@@ -8,4 +8,4 @@ particles = 1000000
 batches = 2500
 inactive = 500
 seed = 1
-threads = 24
+threads = 16
