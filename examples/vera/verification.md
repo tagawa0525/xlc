@@ -298,7 +298,7 @@ python3 examples/vera/compare_p5.py openmc examples/vera/p5/core-5A.out examples
 ### 結果（KENO-VI との比較）
 
 `compare-5A.out` など。集合体出力は 193 体の平均で 1、KENO-VI の値は付録 J の 1/8 の表を H 列と 8 行で鏡映して広げたもの。
-制御棒の価値は (1/k_5A − 1/k_5B) × 10⁵ pcm。
+制御棒の価値は (1/k_5B − 1/k_5A) × 10⁵ pcm（5C も同じ）。
 
 | 問題  | xlc の k | KENO-VI の k | Δk/k (pcm) | 制御棒の価値（xlc、KENO-VI） | 集合体 RMS、最大の相対差 | 最大のピン出力（xlc、KENO-VI） |
 | ----- | -------- | ------------ | ---------- | ---------------------------- | ------------------------ | ------------------------------ |
