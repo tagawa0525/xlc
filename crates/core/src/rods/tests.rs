@@ -1,5 +1,5 @@
 use super::*;
-use crate::nem::{Boundary, Mesh, Options, Problem, Solution, solve};
+use crate::nem::{Boundary, Mesh, NodeSnapshot, Options, Problem, Solution, solve};
 
 /// 2群の燃料（χ = (1, 0)、上方散乱なし）。`absorber` 倍の吸収を足すと、制御棒の入った定数の代わりになる
 fn fuel(absorber: f64) -> FewGroup {
@@ -282,4 +282,24 @@ fn duplicated_partial_nodes_are_errors() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn one_node_z_problems_with_nan_do_not_converge() {
+    // 群 0 の変化が NaN、群 1 が有限でも、収束したとしない（後の有限の値で NaN を消さない）
+    let m = fuel(1.0);
+    let snapshot = NodeSnapshot {
+        flux: vec![f64::NAN, 1.0],
+        transverse: vec![[0.0; 3]; 2],
+    };
+    let result = homogeneous_faces(
+        &m,
+        1.0,
+        20.0,
+        &[f64::NAN, 1.0],
+        &[0.0, 0.0],
+        &[0.0, 0.0],
+        &snapshot,
+    );
+    assert!(result.is_err(), "{result:?}");
 }
