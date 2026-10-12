@@ -1,0 +1,192 @@
+# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）の段階（ADR-0123）: ENDF → 多群ライブラリ（xs）→
+# 制御棒の値ごとの格子計算（lattice-<値>）→ 制御棒の軸を持つ 1 つのテーブル（table。#0093 までのつなぎ）→ ケースごとの
+# 炉心（core-<ケース>）→ 比較（compare）。実行するのは `dvc repro examples/core/dvc.yaml`
+vars:
+  - cases.yaml
+stages:
+  xs:
+    cmd: cargo run --release -p xlc-xs -- xs.toml
+    deps:
+      - xs.toml
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
+      - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+      - ../../crates/xs/src
+      - ../../crates/xs/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - rods.msgpack
+  lattice:
+    foreach: [out, aic, b4c]
+    do:
+      # 結果の k∞ は標準出力に出るので、ファイルに受ける
+      cmd: cargo run --release -p xlc-lattice -- assembly-${item}.toml > lattice-${item}.out
+      deps:
+        - assembly-${item}.toml
+        - rods.msgpack
+        - ../../crates/lattice/src
+        - ../../crates/lattice/Cargo.toml
+        - ../../crates/numeric/src
+        - ../../crates/numeric/Cargo.toml
+        - ../../crates/format/src
+        - ../../crates/format/Cargo.toml
+        - ../../Cargo.toml
+        - ../../Cargo.lock
+        - ../../rust-toolchain.toml
+        - ../../.cargo/config.toml
+        - ../../flake.lock
+      outs:
+        - fg-${item}.msgpack
+        - lattice-${item}.out
+  table:
+    cmd: python3 rod_table.py table-rods.msgpack out=fg-out.msgpack aic=fg-aic.msgpack b4c=fg-b4c.msgpack
+    deps:
+      - rod_table.py
+      - fg-out.msgpack
+      - fg-aic.msgpack
+      - fg-b4c.msgpack
+    outs:
+      - table-rods.msgpack
+  core:
+    foreach: ${cases}
+    do:
+      # DVC は出力の親のディレクトリを作らないので、作ってから実行する
+      cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/${item}.toml > out/${item}.out
+      deps:
+        - cases/${item}.toml
+        - plant.toml
+        - assemblies.toml
+        - cycle.toml
+        - table-rods.msgpack
+        - ../../crates/core/src
+        - ../../crates/core/Cargo.toml
+        - ../../crates/numeric/src
+        - ../../crates/numeric/Cargo.toml
+        - ../../crates/format/src
+        - ../../crates/format/Cargo.toml
+        - ../../Cargo.toml
+        - ../../Cargo.lock
+        - ../../rust-toolchain.toml
+        - ../../.cargo/config.toml
+        - ../../flake.lock
+      outs:
+        - out/${item}.out
+  compare:
+    cmd: python3 compare_rods.py > compare.out
+    deps:
+      - compare_rods.py
+      - rods_cases.py
+      - out/flux-116.out
+      - out/volume-116.out
+      - out/split-116.out
+      - out/flux-118.out
+      - out/volume-118.out
+      - out/split-118.out
+      - out/flux-120.out
+      - out/volume-120.out
+      - out/split-120.out
+      - out/flux-122.out
+      - out/volume-122.out
+      - out/split-122.out
+      - out/flux-124.out
+      - out/volume-124.out
+      - out/split-124.out
+      - out/flux-126.out
+      - out/volume-126.out
+      - out/split-126.out
+      - out/flux-128.out
+      - out/volume-128.out
+      - out/split-128.out
+      - out/flux-20.out
+      - out/volume-20.out
+      - out/split-20.out
+      - out/flux-60.out
+      - out/volume-60.out
+      - out/split-60.out
+      - out/flux-90.out
+      - out/volume-90.out
+      - out/split-90.out
+      - out/flux-150.out
+      - out/volume-150.out
+      - out/split-150.out
+      - out/flux-180.out
+      - out/volume-180.out
+      - out/split-180.out
+      - out/flux-200.out
+      - out/volume-200.out
+      - out/split-200.out
+      - out/fine-2-116.out
+      - out/fine-2-122.out
+      - out/fine-2-180.out
+      - out/fine-1-116.out
+      - out/fine-1-122.out
+      - out/fine-1-180.out
+      - out/fine-0.25-116.out
+      - out/fine-0.25-122.out
+      - out/fine-0.25-180.out
+      - out/fine-0.125-116.out
+      - out/fine-0.125-122.out
+      - out/fine-0.125-180.out
+    outs:
+      - compare.out

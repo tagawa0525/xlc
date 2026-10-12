@@ -1,0 +1,7 @@
+# このファイルは rods_cases.py が書く。燃料の層は制御棒の軸を持つテーブル（rod_table.py）
+[design.fuel]
+bounds = [0.0, 365.76]
+layers = ["table-rods.msgpack"]
+
+[assembly.F01]
+design = "fuel"

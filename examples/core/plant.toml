@@ -1,0 +1,17 @@
+# このファイルは rods_cases.py が書く。集合体1体の燃料の列と VERA の制御棒（仕様書の表 8）
+pitch = 21.5
+height = 365.76
+map = ["*"]
+
+[rods]
+step = 1.5875
+bottom = 0.0
+steps = 230
+top = 365.76
+map = ["D"]
+
+[rods.bank.D]
+type = "rcca"
+
+[rods.type.rcca]
+segments = [{ value = "aic", length = 101.6 }, { value = "b4c", length = 259.08 }]
