@@ -404,6 +404,11 @@ def core_lattice_rows(
                 raise SystemExit(
                     f"reflector at {(i, j)} is in a fuel row and a fuel column (#0068)"
                 )
+    # 反射体の列（行）は、燃料の片側にだけ並ぶこと（燃料に挟まれた反射体の列には、隙間とバッフルを両側に置けない）
+    for line in [*kinds, *zip(*kinds)]:
+        fuel_at = [k for k, mark in enumerate(line) if mark == "F"]
+        if fuel_at and any(line[k] != "F" for k in range(fuel_at[0], fuel_at[-1] + 1)):
+            raise SystemExit(f"reflector between fuel in {''.join(line)}")
     col_sides = side_list(
         [any(kinds[i][j] == "F" for i in range(n_rows)) for j in range(n_cols)]
     )
