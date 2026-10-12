@@ -89,7 +89,6 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 
    ```bash
    git add examples/<問題>/dvc.lock   # git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
-   scripts/check-dvc-lock.sh examples/<問題>/dvc.lock   # 先頭が schema を欠く lock は、ここで止めてコミットしない（手順 6 の確認も行う）
    git commit -F <メッセージのファイル>
    ```
 
