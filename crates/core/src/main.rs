@@ -180,6 +180,17 @@ fn report(layout: &Layout, problem: &Problem, solution: &Solution) {
             .collect();
         println!("{}", cells.join(" "));
     }
+    // メッシュの違う計算を面の和で比べられるように、z の面の境界と核分裂率の割合（下から、和が 1）
+    println!("axial fission fractions (bottom first: z from, z to (cm), fraction)");
+    let mut z = 0.0;
+    for (fraction, dz) in layout
+        .axial_fission_fractions(problem, solution)
+        .iter()
+        .zip(&problem.mesh.dz)
+    {
+        println!("{z:.6} {:.6} {fraction:.8e}", z + dz);
+        z += dz;
+    }
     // 格子計算の均質化のノード平均と比べられるように、直方体の位置の番号（x が最も速く、次に y、z）で出す（全体の
     // 生成率 1 に規格化）。ノードのない位置は出さない
     for (node, flux) in solution.flux.iter().enumerate() {
