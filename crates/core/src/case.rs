@@ -56,7 +56,7 @@ pub fn solve_at(
         .iter()
         .zip(&layout.files)
         .map(|(table, file)| {
-            interpolate(table, state)
+            interpolate(table, state, None)
                 .map_err(|e| CaseError::State(format!("{}: {e}", file.display())))
         })
         .collect::<Result<Vec<_>, _>>()?;
