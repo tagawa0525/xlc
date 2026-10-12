@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-12
 requires: [ADR-0104, ADR-0128]
 supersedes: []
@@ -60,7 +60,9 @@ VERA Problem 3A の軸方向の反射体の平板（ADR-0128）で、燃料の�
 - `nodes_of_one_medium_take_its_b1_diffusion`（crates/lattice/src/fewgroup.rs）: 均質な燃料のセル 2 つと水のセル（右が
   真空）の格子で、燃料のセルを媒質とすると燃料のノードの D が物質の B1 の D に 10⁻¹² の内で一致し、媒質としなければ
   中性子流の重みの D（B1 と 10⁻³ 以上違う）になる。媒質とほかの物質が混ざるノードの D は、媒質の印のない場合と同じ
-- 平板の等価性と、Problem 3 の炉心の解（examples/vera/verification.md の「Problem 3」）
+- 平板の等価性（examples/vera/verification.md の「Problem 3 の炉心の計算」、394b4342、2026-10-12）: 燃料のノードを 49 層
+  （3B は 52）に分けた 3A と 3B の平板で格子計算が止まらず、core は平板の MOC の k を +0.0000 pcm、ノード平均の中性子束を
+  相対 3.1 × 10⁻⁷ の内で再現する
 
 ## 帰結
 
