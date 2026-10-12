@@ -11,14 +11,14 @@ spacing = 0.03
 boundary = { right = "vacuum" }
 few-group = { bounds = [1e7, 0.625, 1e-5], nodes = [
   { output = "lattice/reflector-I-fuel.msgpack", columns = [1, 19], rows = [1, 19] },
-  { output = "lattice/reflector-I.msgpack", columns = [20, 49], rows = [1, 19], reflector = true },
+  { output = "lattice/reflector-I.msgpack", columns = [20, 47], rows = [1, 19], reflector = true },
 ], pins = true }
 widths = [
   { size = 0.04 },
   { size = 1.26, count = 17 },
   { size = 0.04 },
   { size = 0.19 },
-  { size = 0.95, count = 3 },
+  { size = 2.85 },
   { size = 0.71, count = 26 },
 ]
 heights = [
@@ -27,25 +27,25 @@ heights = [
   { size = 0.04 },
 ]
 rows = [
-  "w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 it    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
-  "w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     ss    ss    ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 it    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
+  "w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     ss    w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w     w",
 ]
 
 [material.fuel31]
@@ -141,5 +141,8 @@ sectors = 8
 [cell.w]
 zones = [{ material = "water", rings = 1 }]
 
+# バッフルは厚さ 2.85 cm の 1 列（行）のセルにし、セルの中を 3 × 3 に分ける。構造材の塊（ADR-0086）はセルの中で
+# まとめるので、厚さを 3 列に分けると中の列のセルが SS304 に囲まれ、露出した面のない塊になる（#0085）
 [cell.ss]
 zones = [{ material = "ss304", rings = 1 }]
+grid = 3
