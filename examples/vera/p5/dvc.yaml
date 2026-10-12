@@ -750,6 +750,7 @@ stages:
     cmd: python3 ../compare_p5.py symmetry core-small-step-Lx.out core-small-step-Lx-pins.msgpack > compare-small-step-Lx.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - core-small-step-Lx.out
       - core-small-step-Lx-pins.msgpack
     outs:
@@ -758,6 +759,7 @@ stages:
     cmd: python3 ../compare_p5.py symmetry core-small-step-Ly.out core-small-step-Ly-pins.msgpack > compare-small-step-Ly.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - core-small-step-Ly.out
       - core-small-step-Ly-pins.msgpack
     outs:
@@ -802,6 +804,7 @@ stages:
     cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack > compare-5A.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - ../../../references/vera/spec.txt
       - core-5A.out
       - core-5A-pins.msgpack
@@ -811,6 +814,7 @@ stages:
     cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt core-5A-Ly.out core-5A-Ly-pins.msgpack > compare-5A-Ly.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - ../../../references/vera/spec.txt
       - core-5A-Ly.out
       - core-5A-Ly-pins.msgpack
@@ -820,6 +824,7 @@ stages:
     cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt core-5A-Inext.out core-5A-Inext-pins.msgpack > compare-5A-Inext.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - ../../../references/vera/spec.txt
       - core-5A-Inext.out
       - core-5A-Inext-pins.msgpack
@@ -829,6 +834,7 @@ stages:
     cmd: python3 ../compare_p5.py keno 5B ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack > compare-5B.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - ../../../references/vera/spec.txt
       - core-5B.out
       - core-5B-pins.msgpack
@@ -838,6 +844,7 @@ stages:
     cmd: python3 ../compare_p5.py keno 5C ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack > compare-5C.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - ../../../references/vera/spec.txt
       - core-5C.out
       - core-5C-pins.msgpack

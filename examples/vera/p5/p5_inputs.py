@@ -775,7 +775,7 @@ boundary = {{ {xy}, z = ["reflective", "reflective"]{face} }}
 """
 
 
-def cycle(name: str, plant_file: str, inventory: str, loading: list[list[str]]) -> str:
+def cycle(plant_file: str, inventory: str, loading: list[list[str]]) -> str:
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 plant = "{plant_file}"
 inventory = "{inventory}"
@@ -874,7 +874,6 @@ def core_files() -> dict[str, str]:
         )
         for v, p in variants:
             files[f"core-{name}{v}-cycle.toml"] = cycle(
-                name,
                 f"core-plant{p}.toml",
                 f"core-{name}-assemblies.toml",
                 loading_of(designs, size),
@@ -898,7 +897,6 @@ def core_files() -> dict[str, str]:
                 + "。",
             )
             files[f"core-{square}-{nxt}-cycle.toml"] = cycle(
-                f"{square}-{nxt}",
                 f"core-{square}-{nxt}-plant.toml",
                 f"core-{square}-assemblies.toml",
                 loading_of(designs, n + 2),
@@ -942,7 +940,6 @@ def core_files() -> dict[str, str]:
             loading = [["." for _ in row] for row in map_rows]
             loading[-1][0] = fuel
             files[f"core-{name}-cycle.toml"] = cycle(
-                name,
                 f"core-lattice-{shape}-plant.toml",
                 "core-lattice-assemblies.toml",
                 loading,
@@ -970,7 +967,6 @@ def core_files() -> dict[str, str]:
             f"# 南西の象限で {rule} の向き。角型の位置に隣る I 型の位置は角型の格子の右と上の反射体。",
         )
         files[f"core-{name}-cycle.toml"] = cycle(
-            name,
             f"core-{name}-plant.toml",
             "core-small-step-assemblies.toml",
             loading_of(step_designs, 7),
@@ -1108,7 +1104,12 @@ def pipeline(files: dict[str, str]) -> str:
             stage(
                 f"compare-{name}",
                 f"python3 ../compare_p5.py symmetry core-{name}.out core-{name}-pins.msgpack > compare-{name}.out",
-                ["../compare_p5.py", f"core-{name}.out", f"core-{name}-pins.msgpack"],
+                [
+                    "../compare_p5.py",
+                    "../compare_k.py",
+                    f"core-{name}.out",
+                    f"core-{name}-pins.msgpack",
+                ],
                 [f"compare-{name}.out"],
             )
         )
@@ -1136,6 +1137,7 @@ def pipeline(files: dict[str, str]) -> str:
                 f"python3 ../compare_p5.py keno {problem} ../../../references/vera/spec.txt core-{name}.out core-{name}-pins.msgpack > compare-{name}.out",
                 [
                     "../compare_p5.py",
+                    "../compare_k.py",
                     "../../../references/vera/spec.txt",
                     f"core-{name}.out",
                     f"core-{name}-pins.msgpack",
