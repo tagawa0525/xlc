@@ -2975,7 +2975,7 @@ mod tests {
             let (lattice, index) = quarter_lattice(odd);
             let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
             for boundaries in [Boundaries::REFLECTIVE, vacuum, sides, albedo, mixed] {
-                let tracking = Tracking::with_boundaries(&lattice, 8, 0.05, boundaries).unwrap();
+                let tracking = Tracking::with_boundaries(&lattice, 8, 0.07, boundaries).unwrap();
                 for order in [0, 1] {
                     let full =
                         solve_as(&tracking, &materials, &order_options(order), Symmetry::NONE)
