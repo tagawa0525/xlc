@@ -6,7 +6,8 @@
 //! Carlvik の2項有理近似）で遮蔽し、被覆管と減速材は無限希釈とする。
 //!
 //! 燃料のピンの等価なセルに入らない構造材（支持格子の枠、案内管など）のうち分離共鳴を持つ核種を含むものは、
-//! 塊ごとに Dancoff 係数と平均弦長を求め、燃料と同じ等価原理で遮蔽する（[`shield_lumps`]）。
+//! 塊ごとに Dancoff 係数と平均弦長を求め、燃料と同じ等価原理で遮蔽する（[`shield_lumps`]）。ピンセルの内側のリングを
+//! 埋める塊（制御棒の吸収体などの棒）は、UFG の範囲を燃料のピンと同じく等価なセルの減速計算で遮蔽する（ADR-0142）。
 //!
 //! 等価原理では、燃料の脱出確率を P(x) = Σ_i β_i x / (x + α_i)（x = Σt l̄）で近似し、核種 k の背景断面積を
 //! σ0,i = (Σ_{j≠k} N_j σt,j + α_i / l̄) / N_k とする。実効断面積は、2つの σ0 でのライブラリの値を、
@@ -31,7 +32,7 @@ use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_danc
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
-use crate::ufg::{CellSpectrum, UfgError, cell_range, slowing_down};
+use crate::ufg::{CellSpectrum, UfgError, cell_range, material_range, slowing_down};
 
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -139,7 +140,10 @@ pub struct LumpShielding {
     pub dancoff: Vec<f64>,
     /// 平均弦長 (cm)
     pub chord: f64,
-    /// 物質の核種ごとの実効断面積（物質の組成の順）
+    /// 棒（ピンセルの内側のリングを埋める塊）を UFG の範囲で遮蔽した等価なセルの減速材のリングの外半径 (cm)。
+    /// 棒でない塊と、分離共鳴を持つ核種のない棒は `None`（ADR-0142）
+    pub equivalent: Option<f64>,
+    /// 物質の核種ごとの実効断面積（物質の組成の順）。棒の UFG の範囲の群は、棒のリングの減速計算の平均
     pub effective: Vec<Shielded>,
 }
 
@@ -570,7 +574,9 @@ pub fn shield_fuel_with(
 /// （[`Cell::adjacent`](crate::geometry::Cell::adjacent)）組の同じ領域のひとまとまりを1つの黒体とし、組ごとに
 /// その組の物質の領域（ピンの等価なセルで遮蔽した被覆管なども含む）を同時に黒体にして、黒体ごとの Dancoff 係数と
 /// 平均弦長を求める（[`lump_dancoff`]。組の違う物質は影を作らない）。黒体の中の物質ごとの領域を塊とし、
-/// 黒体の Dancoff 係数と平均弦長で遮蔽する。対称に移り合うセルの組の対応する黒体は1つにする。
+/// 黒体の Dancoff 係数と平均弦長で遮蔽する。対称に移り合うセルの組の対応する黒体は1つにする。塊が棒（[`rod_rings`]）
+/// なら、UFG の範囲の群は、塊の Dancoff 係数を合わせた等価なセルの減速計算の、棒のリングの平均にする（範囲は
+/// [`material_range`]。棒の物質の核種で決める）。
 fn shield_lumps(
     library: &Library,
     tracking: &Tracking,
@@ -747,6 +753,32 @@ fn shield_lumps(
         };
         let material = &materials[index];
         let tables = shield_material(library, material, &equivalence, options, cell)?;
+        // 棒は、UFG の範囲を塊の Dancoff 係数を合わせた等価なセルの減速計算で遮蔽する（ADR-0142）
+        let rod = match rod_rings(lattice, cell, &lump_regions) {
+            Some(rings) => {
+                let pin = PinRings {
+                    lattice,
+                    cell,
+                    rings,
+                    region_index,
+                    void: materials.len(),
+                };
+                solve_equivalent_cell(
+                    library,
+                    &pin,
+                    materials,
+                    &shielded.materials,
+                    &found.dancoff,
+                    |_| material_range(library, material),
+                )?
+                .map(|e| (center_average(&tables, &e, rings), e.radius))
+            }
+            None => None,
+        };
+        let (tables, equivalent) = match rod {
+            Some((tables, radius)) => (tables, Some(radius)),
+            None => (tables, None),
+        };
         let nuclides = material
             .composition
             .iter()
@@ -775,6 +807,7 @@ fn shield_lumps(
             regions: lump_regions,
             dancoff: found.dancoff.clone(),
             chord: found.chord,
+            equivalent,
             effective: tables,
         });
     }
@@ -848,11 +881,11 @@ fn ring_targets(geometry: &PinCell, first: usize, start: usize) -> Vec<Vec<usize
         .collect()
 }
 
-/// 燃料のあるピンのセルと、その領域の物質
+/// 中心の物質（燃料か、燃料でない棒の物質）のリングのあるピンのセルと、その領域の物質
 struct PinRings<'a> {
     lattice: &'a Lattice,
     cell: usize,
-    /// 燃料のリングの数
+    /// 中心の物質のリングの数
     rings: usize,
     /// [領域] の物質の番号
     region_index: &'a [usize],
@@ -1032,6 +1065,29 @@ fn center_average(base: &[Shielded], equivalent: &EquivalentCell, rings: usize) 
             s
         })
         .collect()
+}
+
+/// 塊の領域 `regions` が、セル `cell` のピンセルの内側のリングを（扇形すべてで）ちょうど埋めていれば、そのリングの数
+/// （塊は棒）。
+fn rod_rings(lattice: &Lattice, cell: usize, regions: &[usize]) -> Option<usize> {
+    let geometry = lattice.cell_type(cell).pin()?;
+    if geometry.is_grid() {
+        return None;
+    }
+    let first = lattice.cell_regions(cell).start;
+    let sectors = geometry.sectors();
+    let mut here: Vec<usize> = regions
+        .iter()
+        .copied()
+        .filter(|&r| lattice.region_cell(r) == cell)
+        .collect();
+    here.sort_unstable();
+    let rings = here.len() / sectors;
+    (rings > 0
+        && rings <= geometry.radii().len()
+        && here.len().is_multiple_of(sectors)
+        && here.iter().copied().eq(first..first + rings * sectors))
+    .then_some(rings)
 }
 
 /// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
