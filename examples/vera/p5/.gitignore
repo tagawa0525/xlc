@@ -58,3 +58,6 @@
 /core-*.log
 /reflector-I-31-p12.out
 /reflector-I-31-p8.out
+/compare-5A-openmc.out
+/compare-5A-Ly-openmc.out
+/compare-5A-Inext-openmc.out
