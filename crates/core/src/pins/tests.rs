@@ -856,6 +856,26 @@ fn split_cells_between_columns_without_fission_are_dropped() {
 }
 
 #[test]
+fn fission_nodes_of_a_column_need_one_cell_size_across_layers() {
+    // 1 × 1 × 2 のノードで、層ごとに燃料のセルの数が違えば、炉心全体の表の列のセルが決まらずエラー
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5],
+            dy: vec![21.5],
+            dz: vec![1.0, 1.0],
+        },
+        materials: vec![fuel(21.5, 4), fuel(21.5, 3)],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let maps = vec![vec![vec![1.0; 4]; 4], vec![vec![1.0; 3]; 3]];
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("different cell sizes"), "{err}");
+}
+
+#[test]
 fn layers_take_the_cells_of_the_fuel_in_any_layer() {
     // 2 × 1 × 2 のノード。層 0 は燃料が 2 つ、層 1 は燃料と、セルの数の違う反射体。列 1 のセルは、層 1 でも層 0 の
     // 燃料のものを使い、層の表の形がそろう
