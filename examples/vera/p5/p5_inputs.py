@@ -288,8 +288,11 @@ REFLECTOR_CELLS = """# 反射体の均質なマス（ピッチに合わないマ
 [cell.w]
 zones = [{ material = "water", rings = 1 }]
 
+# バッフルは厚さ 2.85 cm の 1 列（行）のセルにし、セルの中を 3 × 3 に分ける。構造材の塊（ADR-0086）はセルの中で
+# まとめるので、厚さを 3 列に分けると中の列のセルが SS304 に囲まれ、露出した面のない塊になる（#0085）
 [cell.ss]
-zones = [{ material = "ss304", rings = 1 }]"""
+zones = [{ material = "ss304", rings = 1 }]
+grid = 3"""
 
 
 def pin_rows(fuel: str, pyrex: int = 0, rod: str | None = None) -> list[list[str]]:
@@ -361,13 +364,13 @@ gap = {{ width = 0.04, material = "water" }}
 
 def columns_of(side: str) -> list[str]:
     """燃料の集合体 1 体の幅（余白 0.04、ピン 17、余白 0.04）と、反射体 1 つの幅（燃料側から隙間の水 0.19、
-    SS304 のバッフル 2.85 cm（0.95 × 3）、水 18.46 cm（0.71 × 26））。仕様書の 1.13 節の表 16。
+    SS304 のバッフル 2.85 cm、水 18.46 cm（0.71 × 26））。仕様書の 1.13 節の表 16。
     `side` は "fuel"、"after"（燃料の右か下の反射体）、"before"（左か上）"""
     if side == "fuel":
         return ["{ size = 0.04 }", "{ size = 1.26, count = 17 }", "{ size = 0.04 }"]
     after = [
         "{ size = 0.19 }",
-        "{ size = 0.95, count = 3 }",
+        "{ size = 2.85 }",
         "{ size = 0.71, count = 26 }",
     ]
     return after if side == "after" else after[::-1]
@@ -377,7 +380,7 @@ def cell_marks(side: str) -> list[str]:
     """`columns_of` のセルの並びの種類: 余白 m、ピン p、隙間 g、バッフル b、外の水 w"""
     if side == "fuel":
         return ["m"] + ["p"] * 17 + ["m"]
-    after = ["g"] + ["b"] * 3 + ["w"] * 26
+    after = ["g", "b"] + ["w"] * 26
     return after if side == "after" else after[::-1]
 
 
@@ -395,7 +398,7 @@ def core_lattice_rows(
         [any(kinds[i][j] == "F" for j in range(n_cols)) for i in range(n_rows)]
     )
     # セルの中心の座標（集合体のピッチを 1 とする）と、燃料の正方形の和からの距離で、隙間とバッフルを決める
-    widths = {"m": 0.04, "p": 1.26, "g": 0.19, "b": 0.95, "w": 0.71}
+    widths = {"m": 0.04, "p": 1.26, "g": 0.19, "b": 2.85, "w": 0.71}
 
     def centres(side_list: list[str]) -> list[tuple[int, float, str]]:
         out = []
