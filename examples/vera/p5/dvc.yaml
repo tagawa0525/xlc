@@ -250,25 +250,6 @@ stages:
     outs:
       - lattice/31-p24.msgpack
       - assembly-31-p24.out
-  assembly-31-p8:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-31-p8.toml > assembly-31-p8.out
-    deps:
-      - assembly-31-p8.toml
-      - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
-    outs:
-      - lattice/31-p8.msgpack
-      - assembly-31-p8.out
   reflector-I:
     cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-I.toml > reflector-I.out
     deps:
