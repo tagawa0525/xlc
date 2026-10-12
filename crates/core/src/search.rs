@@ -119,9 +119,9 @@ pub fn find<T, E>(
             target,
         });
     }
-    // `high` は最後に評価した点、`low` は符号の違う残った端。残った端が2回続けて残れば、その f を半分にして
-    // 割線を残った端に寄せる（Dowell and Jarratt, BIT 11, 168 (1971)）。f を半分にしても符号は変わらないので、
-    // 新しい点はいつも2つの端の間にある
+    // `high` は最後に評価した点、`low` は符号の違う残った端。新しい点が直前の点と同じ側（f が同じ符号）なら、残った
+    // 端の f を半分にして割線を残った端に寄せる（Dowell and Jarratt, BIT 11, 168 (1971)）。f を半分にしても符号は
+    // 変わらないので、新しい点はいつも2つの端の間にある
     loop {
         if solves >= max_solves {
             return not_converged(solves, low, high, value_low, value_high);
