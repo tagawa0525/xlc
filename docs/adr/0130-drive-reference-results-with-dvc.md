@@ -163,3 +163,7 @@ examples/vera/dvc.yaml の全段階を、`default` の devShell の `dvc repro e
   するまでは、まだ段階にしていない記録の出し直しに使う
 - `nix develop` と `nix eval` の評価は段階ごとに 1 秒ほどで、ライブラリの 63 段階では 1 分ほどになる
 - `x86_64-linux` を cmd に書いた（flake.nix の `system` と同じ）。ほかの system で実行するときは直す
+
+## 補足
+
+- 2026-10-12: 入力の `effective-xs-groups` は ADR-0152 でなくした。燃料の実効断面積は、標準のタリーの組の WIMS 69 群（モジュールの定数）から抜き出し、xlc のライブラリを OpenMC の段階の deps にしない
