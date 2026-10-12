@@ -147,7 +147,13 @@ fn check_partial(problem: &Problem, partial: &[PartialNode]) -> Result<(), Strin
     // 区間の長さは層の境界と制御棒の位置の差の和なので、丸めを許す
     const TOLERANCE: f64 = 1.0e-9;
     let [nx, ny, _] = problem.mesh.counts();
-    for p in partial {
+    for (i, p) in partial.iter().enumerate() {
+        if partial[..i].iter().any(|q| q.site == p.site) {
+            return Err(format!(
+                "position {} has two partially rodded nodes",
+                p.site
+            ));
+        }
         let at = format!("partially rodded node at position {}", p.site);
         if problem.node_material.get(p.site).copied().flatten() != Some(p.material) {
             return Err(format!(
@@ -856,8 +862,10 @@ fn homogeneous_faces(
                 .zip(faces(&coefficients[g], average[g]))
             {
                 let relative = (new - old).abs() / average[g];
-                // NaN も収束していないとみなす
-                change = if relative <= change { change } else { relative };
+                // NaN も収束していないとみなす（一度 NaN になれば、あとの比較で消さない）
+                if relative.is_nan() || relative > change {
+                    change = relative;
+                }
             }
             coefficients[g] = updated;
         }

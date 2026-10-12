@@ -897,6 +897,12 @@ impl Case {
                         "partial-rods: fine-mesh must be positive, got {fine}"
                     ));
                 }
+                // 体積の重みは細かいメッシュを解かないので、幅を書いても結果は変わらない
+                if partial_rods.weighting == Weighting::Volume {
+                    return invalid(
+                        "partial-rods: fine-mesh has no effect with weighting = \"volume\"",
+                    );
+                }
                 partial_rods.fine_mesh = fine;
             }
         }
@@ -1211,7 +1217,8 @@ impl Layout {
             None if !banks.is_empty() => {
                 return invalid("bank steps are given, but the plant has no rods");
             }
-            None => {}
+            // 棒のない炉心の並びは状態によらない
+            None => return Ok(self.clone()),
         }
         Self::build(case, cycle, plant, inventory, Some(banks))
     }

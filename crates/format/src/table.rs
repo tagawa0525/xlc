@@ -99,9 +99,9 @@ pub fn validate_axes(axes: &[Axis]) -> Result<(), String> {
         // ホウ素濃度は 0 を含み、温度は正
         let valid = |p: f64| match axis {
             Axis::Boron { .. } => p >= 0.0 && p.is_finite(),
-            Axis::Moderator { .. } | Axis::Fuel { .. } | Axis::Rod { .. } => {
-                p > 0.0 && p.is_finite()
-            }
+            Axis::Moderator { .. } | Axis::Fuel { .. } => p > 0.0 && p.is_finite(),
+            // 制御棒の軸は点を持たない（上で値の名前を確かめて次の軸に進む）
+            Axis::Rod { .. } => false,
         };
         if points.is_empty()
             || !points.iter().all(|&p| valid(p))
