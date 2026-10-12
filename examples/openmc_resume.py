@@ -41,6 +41,22 @@ def statepoints(work: Path) -> list[Path]:
     return [p for _, p in sorted(found)]
 
 
+def latest_readable(found: list[Path]) -> Path:
+    """最新の読める statepoint。書いている途中で中断されて壊れたものは消し、その前のものを使う。"""
+    while found:
+        try:
+            with openmc.StatePoint(found[-1]):
+                return found[-1].resolve()
+        except (
+            OSError,
+            KeyError,
+            ValueError,
+        ) as error:  # h5py が壊れたファイルで出す例外
+            print(f"removing unreadable {found[-1].name}: {error}", flush=True)
+            found.pop().unlink()
+    raise SystemExit("no readable statepoint to restart from")
+
+
 def set_statepoints(settings: openmc.Settings, run: dict[str, Any]) -> None:
     """入力の `statepoint-interval` ごと（と最後）の世代に statepoint を書く。"""
     interval = run.get("statepoint-interval")
@@ -63,12 +79,14 @@ def run_model(
 ) -> None:
     """`model` を `work` で解く。`options.restart` なら最新の statepoint から再開する。"""
     restart_file = None
+    found = statepoints(work)
     if options.restart:
-        found = statepoints(work)
-        if not found:
-            raise SystemExit(f"no statepoint to restart from in {work}")
-        restart_file = found[-1].resolve()
+        restart_file = latest_readable(found)
         print(f"restart from {restart_file}", flush=True)
+    elif found:
+        raise SystemExit(
+            f"{work} already has statepoints ({found[-1].name}); add --restart to continue, or remove them to start over"
+        )
     stop = threading.Event()
 
     def prune_while_running() -> None:
