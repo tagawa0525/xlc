@@ -28,8 +28,8 @@ resolution: コミット 329efb44
 
 検査に使うツール:
 
-- `dvc status` は出力のハッシュを計算し、vera では約 27 秒かかる（examples/vera の worktree。m0 と reflector は 1.5 秒以内）。
-- `dvc stage list <dvc.yaml>` は lock を読み込んで検証し、ハッシュを計算しない。vera で約 2 秒。壊れた lock では終了コード 255。
+- `dvc status` は出力のハッシュを計算し、vera では約 27 秒かかる（examples/vera の worktree。m0 と reflector は 1.5 秒以内。2026-10-12、xlc 329efb44 の作業ツリー）。
+- `dvc stage list <dvc.yaml>` は lock を読み込んで検証し、ハッシュを計算しない。vera で約 2 秒。壊れた lock では終了コード 255（同じ条件での測定）。
 
 関係する ADR: なし
 
@@ -57,6 +57,8 @@ resolution: コミット 329efb44
   `dvc stage list` の検証エラーと FAILED の行）。元に戻すと通る。
 - 手順は、`sed -i '/^schema/d' examples/vera/dvc.lock` のあと `prek run dvc-lock --files examples/vera/dvc.lock`、
   それから `git checkout -- examples/vera/dvc.lock`。
+
+引数の無い呼び出しは終了コード 2 で止まる（c1aaa9f6 で追加し、そこで確かめた）。
 
 テストは書いていない。リポジトリに shell の検査のテストの仕組みがなく（crates/docs のテストは Markdown の決まりを見る）、
 作るには dvc の実行を含むテストが要るため。上の手順を、lock を変えるたびに手で行う。
