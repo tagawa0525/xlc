@@ -54,7 +54,7 @@ issues: ["#0089"]
   中身は Rust のモジュールの規則が探す `tests.rs` に置く。`foo.rs` のテストは `foo/tests.rs`、`lib.rs` と `mod.rs` の
   テストは同じディレクトリの `tests.rs`。`main.rs` のテストは `#[path = "main/tests.rs"]` で `src/main/tests.rs` に置く
   （xs、lattice、core は `src` に `lib.rs` と `main.rs` の両方を持ち、どちらも `mod tests;` だと同じ `src/tests.rs` を
-  指してぶつかる）。大きな `tests.rs` は、その下の `tests/` のファイルに分けてよい
+  指してぶつかる）
 - テストだけが使う項目（試料を作る関数、テストだけが呼ぶメソッド）も `tests.rs` に置く。メソッドは `tests.rs` の中の
   `impl` に書ける（固有の `impl` は同じクレートのどのモジュールにも置ける）。2026-10-12 には、crates/format/src/fewgroup.rs
   の `sample`、`sample_pins`、crates/numeric/src/pins/node.rs の `modes_at`、`flux` がこれにあたる。ほかのモジュールの
@@ -64,10 +64,10 @@ issues: ["#0089"]
   モジュールのテストの補助を引くもの。例: crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`、
   `pub(crate) use tape::tests::rec;`）だけにする。クレートの入口（`lib.rs`、`main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
   lint の注記）は、テストのコードでなく lint の設定なので残す
-- crates/docs の一貫性の検査（#0013）に、`crates/*/src` の本番のファイル（`tests.rs` と `tests/` の下のファイル以外）を
-  文字列で調べるテストを足す。条件に `test` を含む `#[cfg(…)]`、`#[cfg_attr(…)]`、`cfg!(…)`（`any`、`all`、`not` の中を
-  含み、項目、文、フィールドのどれに付いたものも）を、上の `mod tests;` の宣言、`tests` を通る `use`、入口の lint の
-  属性、`main.rs` の `#[path]` を除いて拒む
+- crates/docs の一貫性の検査（#0013）に、`crates/*/src` の `tests.rs` 以外のファイルが、上で残すもの以外のテストの
+  コード（`#[test]`、`mod tests { … }`、条件に `test` を含む `cfg`、`cfg_attr`、`cfg!`）を持たないことを確かめるテストを
+  足す。照合の方法と、残すものを減らせるか（補助の `use` を `tests.rs` に移すなど）は、実装のブランチ（#0089）で
+  検査のテストとともに決める
 
 しきい値を置かないのは、根拠のある値がなく、すべてで分ければ検査が「本番のファイルにテストがない」の 1 つで済むから
 である。小さなファイルではファイルが 1 つ増えるが、パスで区別できる利点は大きさによらない。
@@ -94,9 +94,10 @@ issues: ["#0089"]
 - 2026-10-12 に入口でテストを持つのは、xs の `main.rs`（`src/main/tests.rs` になる）と crates/docs の `lib.rs`
   （`src/tests.rs` になる）である
 - ADR と issue には、テストの場所をファイルのパスで書いたものがある（例: ADR-0132 の crates/core/src/nem.rs）。
-  採用済みの ADR は直せない（docs/adr/README.md の「運用」で、直せるのは誤字、リンク、status だけ）ので、決めた時点の
+  採用済みの ADR は直せない（docs/adr/README.md の「運用」で、直せるのは誤字、リンク、`status` と `superseded-by` だけ）ので、決めた時点の
   場所の記録として残る。proposed の ADR と開いた issue のパスは、移すブランチで `tests.rs` に直す
 - `examples/*/dvc.yaml` の段階は deps に `crates/*/src` のディレクトリを持つので、テストを移すと、出力が変わらなくても
-  deps の md5 が変わる。扱いは /dvc-relock（ADR-0130）に従う。末尾の `mod tests` だけを移すコミットは実行ファイルが
-  同じことで、本体の途中の項目を移すコミットは差分が `#[cfg(test)]` の項目だけであることで、再実行しても出力が
-  変わらないことを確かめてある
+  deps の md5 が変わる。「確認」の 2 つ（末尾の `mod tests` だけを移すコミットの実行ファイルのビット一致と、本体の途中の
+  項目を移すコミットの差分）が成り立てば、計算の出力は変わらないので、走らせ直さずに `dvc commit` で deps の md5 だけを
+  更新する（ADR-0123 の「実行して `dvc.lock` をコミットする」の例外。時間の入る `*.log` は実行するたびに変わるので、
+  再実行すると差分が出る）
