@@ -59,6 +59,9 @@ pub fn find<T, E>(
     max_solves: usize,
     mut evaluate: impl FnMut(f64) -> Result<(f64, T), E>,
 ) -> Result<Found<T>, SearchError<E>> {
+    if tolerance.is_nan() || tolerance <= 0.0 {
+        return Err(SearchError::Tolerance { tolerance });
+    }
     if max_solves < 2 {
         return Err(SearchError::TooFewSolves { max_solves });
     }
