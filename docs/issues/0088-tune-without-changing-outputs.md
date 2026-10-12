@@ -4,7 +4,7 @@ labels: [performance, lattice, core, xs]
 opened: 2026-10-12
 closed:
 milestone:
-blocked-by: ["#0089"]
+blocked-by: []
 resolution:
 ---
 
@@ -17,7 +17,8 @@ resolution:
 テストを含めて 483 個）が、どれがホットな経路かは測っていない。
 
 分かっている時間の内訳: VERA 2A の 1 状態は 118 秒で、自己遮蔽 110 秒、MOC 7.3 秒（examples/vera/verification.md、
-e4dbc0de、2026-10-12）。xs と core の時間は記録がない。ワークスペースの Cargo.toml に `[profile.release]` の設定はなく
+e4dbc0de、2026-10-12）。自己遮蔽の中は、perf で `cp::Cylinder::tracks` 45%、`cp::interpolate` 23%（同じファイルの
+「対称性」、2026-10-10）。xs と core の時間は記録がない。ワークスペースの Cargo.toml に `[profile.release]` の設定はなく
 （LTO と `codegen-units` は既定）、CPU の指定は ADR-0109 の `target-cpu=znver5` だけである。
 
 結果を変える高速化（#0039 の、衝突確率を少数の全断面積から内挿する案など）は、ここでは扱わない。
