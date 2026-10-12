@@ -3065,14 +3065,14 @@ mod tests {
             bottom: Boundary::Albedo(0.3),
         };
         // 1/8 対称な格子では 10 通りの対称性がどれも成り立つ。方位角 8（45° なし）は等方散乱で、10（45° あり）は P1 で。間隔
-        // 0.05 cm では、方位角 10 の 45° のトラックが余白の角のセル（0.04 cm 角）の面を通らないので 0.03 cm にする
+        // 0.05 cm では、方位角 10 の 45° のトラックが余白の角のセル（0.04 cm 角）の面を通らないので 0.04 cm にする（0.04 cm で通ることを確かめた）
         for odd in [true, false] {
             let (lattice, index) = octant_lattice(odd);
             let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
             for boundaries in [Boundaries::REFLECTIVE, vacuum, albedo] {
-                for (azimuths, order) in [(8, 0), (10, 1)] {
+                for (azimuths, order, spacing) in [(8, 0, 0.05), (10, 1, 0.04)] {
                     let tracking =
-                        Tracking::with_boundaries(&lattice, azimuths, 0.03, boundaries).unwrap();
+                        Tracking::with_boundaries(&lattice, azimuths, spacing, boundaries).unwrap();
                     let full =
                         solve_as(&tracking, &materials, &order_options(order), Symmetry::NONE)
                             .unwrap();
