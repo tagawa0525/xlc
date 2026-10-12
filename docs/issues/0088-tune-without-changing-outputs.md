@@ -4,7 +4,7 @@ labels: [performance, lattice, core, xs]
 opened: 2026-10-12
 closed:
 milestone:
-blocked-by: []
+blocked-by: ["#0089"]
 resolution:
 ---
 
@@ -18,8 +18,8 @@ resolution:
 
 分かっている時間の内訳: VERA 2A の 1 状態は 118 秒で、自己遮蔽 110 秒、MOC 7.3 秒（examples/vera/verification.md、
 1f4fcaaf、2026-10-12）。自己遮蔽の中は、VERA 2B の 1 状態の perf で `cp::Cylinder::tracks` 45%、`cp::interpolate` 23%（同じ
-ファイルの「対称性」、2026-10-10）。自己遮蔽の時間の内訳を測って速くする方法を決めることは #0039 と同じ作業なので、
-自己遮蔽の内訳は #0039 で測って記録し、ここからはそれを引く。ここで扱うのは、そのうち出力を変えない高速化である。xs の時間は、examples/branches/verification.md（13 分、32 スレッド）と examples/m3-nuclides/verification.md（29 核種 × 4 温度で
+ファイルの「対称性」、2026-10-10）。自己遮蔽の時間の内訳を測ることは #0039 と同じ作業なので、
+ここで測った記録を #0039 からも引く。ここで扱うのは、そのうち出力を変えない高速化である。xs の時間は、examples/branches/verification.md（13 分、32 スレッド）と examples/m3-nuclides/verification.md（29 核種 × 4 温度で
 57 秒）にある。core の時間は記録がない。ワークスペースの Cargo.toml に `[profile.release]` の設定はなく
 （LTO と `codegen-units` は既定）、CPU の指定は ADR-0109 の `target-cpu=znver5` だけである。
 
@@ -29,7 +29,9 @@ resolution:
 
 ## 完了の条件
 
-- xs、lattice（自己遮蔽を除く。自己遮蔽は #0039 の記録を引く）、core の例の入力で、perf の時間の内訳を測って記録する
+（`blocked-by` の #0089 は、ソースを変える高速化のためのもので、perf の測定とビルドの設定は待たない）
+
+- xs、lattice（自己遮蔽を含む）、core の例の入力で、perf の時間の内訳を測って記録する
 - 内訳の上位の箇所とビルドの設定について、出力を変えない高速化を ADR-0144 の判定で入れるか、効かないと判断する
 - 入れたブランチ（ADR-0144 の「確認」に書く最初のブランチを除く）ごとに、ADR-0144 の判定（全桁の msgpack のビット
   一致と、時間の比較）の結果がここにある
