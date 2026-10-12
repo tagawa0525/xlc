@@ -165,6 +165,8 @@ BANK_D = {(0, 0), (0, 4), (4, 0), (4, 4)}
 # 制御棒（表 8。吸収体の半径、被覆管は SS304 の 0.386〜0.484 cm、吸収体と被覆管の間は真空。ADR-0120）
 RODS = {"aic": ("AIC", AIC, 0.382), "b4c": ("B4C", B4C, 0.373)}
 CASES = {"5A": None, "5B": "aic", "5C": "b4c"}
+# OpenMC の参照解と比べるケース → 問題（参照解のあるものだけ。5B-2D と 5C-2D は #0073）
+OPENMC = {"5A": "5A", "5A-Ly": "5A", "5A-Inext": "5A"}
 # 反射体の定数を作る燃料（外周の集合体の代表。ADR-0084）。I 型と角型の格子の反射体のノードの定数を、炉心のすべての
 # 反射体の位置に置く。燃料のノードの定数は、外周のこの種類の位置に置く（ADR-0153）
 REPRESENTATIVE = "31"
@@ -1244,11 +1246,28 @@ def pipeline(files: dict[str, str]) -> str:
                 [f"compare-{name}.out"],
             )
         )
+    # OpenMC の参照解（openmc_core_2d.py extract の結果のディレクトリ。examples/vera/verification.md の「Problem 5-2D の参照解」）
+    for name, problem in OPENMC.items():
+        results = f"../../../references/openmc/vera-{problem}-2D-results"
+        stages.append(
+            stage(
+                f"compare-{name}-openmc",
+                f"python3 ../compare_p5.py openmc core-{name}.out core-{name}-pins.msgpack {results} > compare-{name}-openmc.out",
+                [
+                    "../compare_p5.py",
+                    "../compare_k.py",
+                    results,
+                    f"core-{name}.out",
+                    f"core-{name}-pins.msgpack",
+                ],
+                [f"compare-{name}-openmc.out"],
+            )
+        )
     return (
         "# このファイルは p5_inputs.py が書く。手で直さない。\n"
         "# VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、\n"
         "# 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、\n"
-        "# 最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
+        "# OpenMC、最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
         "stages:\n" + "".join(stages)
     )
 
