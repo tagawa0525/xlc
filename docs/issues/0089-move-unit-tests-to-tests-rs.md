@@ -14,7 +14,7 @@ resolution:
 
 main（14793ea7、2026-10-12）で、`crates/*/src` の 64 個のファイルがテストをファイルの中に持つ。テストだけの項目が
 本番のファイルに 4 個ある（crates/format/src/fewgroup.rs の `sample`、`sample_pins`、crates/numeric/src/pins/node.rs の
-`modes_at`、`flux`）。置き方と、移したあとに成り立つべきことは ADR-0143 で決めた。確認の方法と検査の置き場所は、このブランチで決める。
+`modes_at`、`flux`）。置き方と、移したあとに成り立つべきことは ADR-0143 で決めた。確認の方法と検査の置き場所は、移す実装のブランチで決める。
 
 関係する ADR: [ADR-0143](../adr/0143-put-unit-tests-in-tests-rs.md)
 
