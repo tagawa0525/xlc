@@ -145,8 +145,12 @@ def core_results(path: Path) -> dict[str, dict]:
     for line in path.read_text().splitlines():
         if line.startswith("state "):
             name = line.split()[1]
+            if name in results:
+                raise SystemExit(f"{path}: state {name} appears twice")
             results[name] = {}
-        elif name and line.startswith("k-eff "):
+        elif line.startswith("k-eff "):
+            if name is None:
+                raise SystemExit(f"{path}: k-eff before any `state <name>` line")
             results[name]["k"] = float(line.split()[1])
     if not results or any("k" not in r for r in results.values()):
         raise SystemExit(f"{path}: expected `state <name>` blocks with k-eff")
@@ -205,8 +209,10 @@ def main() -> None:
         k[n] = results[name]["k"]
         keno = cases[n]["k"]
         critical = f"{rho(1.0, k[n]):+8.1f}" if n <= 10 else ""
+        # 反応度 1/k の標準偏差は σ_k / k²
+        sigma = cases[n]["sigma"] / keno**2 * 1e5
         print(
-            f"case {n:2d} {'':12s} {k[n]:.6f}  {keno:.6f}  {rho(keno, k[n]):+8.1f} ± {cases[n]['sigma'] * 1e5:.1f}  {critical}"
+            f"case {n:2d} {'':12s} {k[n]:.6f}  {keno:.6f}  {rho(keno, k[n]):+8.1f} ± {sigma:.1f}  {critical}"
         )
 
     ours = worths(k, cases)
