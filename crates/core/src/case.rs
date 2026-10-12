@@ -1,10 +1,11 @@
 //! ケースの状態ごとの固有値計算（ADR-0146）と、臨界ホウ素濃度の探索（ADR-0145）。
 
 use rayon::prelude::*;
-use xlc_format::table::Table;
+use xlc_format::table::{Axis, Table};
 
 use crate::input::{Boron, CaseState, InputError, Layout};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
+use crate::rods::solve_rodded;
 use crate::search::{SearchError, find};
 use crate::state::{State, interpolate};
 
@@ -38,7 +39,9 @@ pub enum CaseError {
     Search(String),
 }
 
-/// テーブル（`layout.files` の順）を状態 `state`（`None` なら軸のないテーブル）で内挿し、炉心を解く。
+/// テーブル（`layout.files` の順）を状態 `state`（`None` なら軸のないテーブル）で、テーブルの使い方（`layout.tables`。
+/// 制御棒の区間の値）ごとに内挿し、炉心を解く。部分挿入のノードは `layout.partial_rods` の方法で混ぜた定数で解き、
+/// 返す問題の物質はその定数にする（核分裂率とピン出力に使う。ADR-0127）
 pub fn solve_at(
     layout: &Layout,
     tables: &[Table],
@@ -52,19 +55,45 @@ pub fn solve_at(
             layout.files.len()
         )));
     }
-    let constants = tables
+    let constants = layout
+        .tables
         .iter()
-        .zip(&layout.files)
-        .map(|(table, file)| {
-            interpolate(table, state, None)
-                .map_err(|e| CaseError::State(format!("{}: {e}", file.display())))
+        .map(|t| {
+            let file = layout.files[t.file].display();
+            let table = &tables[t.file];
+            if t.cut && table.axes.iter().any(|a| matches!(a, Axis::Rod { .. })) {
+                return Err(CaseError::State(format!(
+                    "{file}: the layer above the rod top has a rod axis; rods are cut at the top \
+                     only where the layer tables have none (ADR-0128)"
+                )));
+            }
+            interpolate(table, state, t.rod.as_deref())
+                .map_err(|e| CaseError::State(format!("{file}: {e}")))
         })
         .collect::<Result<Vec<_>, _>>()?;
     let problem = layout.problem(&constants)?;
-    let solution = solve(&problem, options)?;
+    let partial = layout.partial_nodes(&constants)?;
+    if partial.is_empty() {
+        let solution = solve(&problem, options)?;
+        return Ok(Solved {
+            searched: None,
+            problem,
+            solution,
+        });
+    }
+    let (solution, materials) = solve_rodded(
+        &problem,
+        partial,
+        layout.partial_rods.weighting,
+        layout.partial_rods.fine_mesh,
+        options,
+    )?;
     Ok(Solved {
         searched: None,
-        problem,
+        problem: Problem {
+            materials,
+            ..problem
+        },
         solution,
     })
 }
@@ -90,6 +119,9 @@ pub fn solve_state(
     state: &CaseState,
     options: &Options,
 ) -> Result<Solved, CaseError> {
+    // 状態のバンクの位置で制御棒を入れた並び（ADR-0127）
+    let rodded = layout.with_banks(&state.banks)?;
+    let layout = &rodded;
     let search = match &state.boron {
         Boron::Given(ppm) => return solve_at(layout, tables, Some(&state.at(*ppm)), options),
         Boron::Search(search) => search,
