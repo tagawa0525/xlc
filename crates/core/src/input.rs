@@ -539,7 +539,7 @@ struct CaseFile {
     axial_mesh: Vec<f64>,
     radial_nodes: usize,
     boundary: BoundaryEntry,
-    state: Option<toml::Table>,
+    state: Option<BTreeMap<String, State>>,
     pin_powers: Option<PathBuf>,
 }
 
@@ -564,6 +564,16 @@ enum Condition {
 
 impl Case {
     pub fn parse(text: &str, base: &Path) -> Result<Self, InputError> {
+        // 名前のない `[state]` に項目を書いた入力は、項目の名前が状態の名前に見え、型のエラーでは修正方法が分からないので、
+        // 先に見つけて示す（状態の中身のエラーは、行を示す toml の読み込みに任せる）
+        let raw: toml::Table = parse_toml(text)?;
+        if let Some(toml::Value::Table(states)) = raw.get("state")
+            && let Some((name, _)) = states.iter().find(|(_, v)| !v.is_table())
+        {
+            return invalid(format!(
+                "[state] has a value {name:?}; name each state as [state.<name>] (ADR-0146)"
+            ));
+        }
         let file: CaseFile = parse_toml(text)?;
         check_heights("axial-mesh", &file.axial_mesh)?;
         if file.radial_nodes == 0 {
@@ -577,6 +587,7 @@ impl Case {
             Condition::Marshak => Boundary::Marshak,
         };
         let boundaries = [b.x[0], b.x[1], b.y[0], b.y[1], b.z[0], b.z[1]].map(condition);
+        // BTreeMap なので名前の順
         let states = match file.state {
             None => Vec::new(),
             Some(states) if states.is_empty() => {
@@ -584,24 +595,12 @@ impl Case {
             }
             Some(states) => states
                 .into_iter()
-                .map(|(name, value)| {
-                    // 名前のない `[state]` に項目を書いた入力は、項目の名前が状態の名前に見えるので、修正方法を示す
-                    if !value.is_table() {
-                        return invalid(format!(
-                            "[state] has a value {name:?}; name each state as [state.<name>] (ADR-0146)"
-                        ));
-                    }
+                .map(|(name, state)| {
                     check_name("state", &name)?;
-                    let state = value
-                        .try_into()
-                        .map_err(|e| InputError::Invalid(format!("state {name}: {e}")))?;
                     Ok(CaseState { name, state })
                 })
                 .collect::<Result<Vec<_>, InputError>>()?,
         };
-        // toml::Table の並びは toml の feature（preserve_order）で変わるので、名前の順を自分で決める
-        let mut states = states;
-        states.sort_by(|a, b| a.name.cmp(&b.name));
         if file.pin_powers.is_some() && states.len() > 1 {
             return invalid(format!(
                 "pin-powers needs at most one state, got {}",
