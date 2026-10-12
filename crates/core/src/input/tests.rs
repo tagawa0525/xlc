@@ -408,6 +408,12 @@ fn invalid_boron_searches_are_errors() {
     };
     // boron と search はどちらか一方
     assert!(bad("search = {", "boron = 1200\nsearch = {"));
+    let neither = edited(&format!("{CASE}{SEARCH}"), "search = {", "# search = {");
+    let error = Case::parse(&neither, base()).unwrap_err();
+    assert!(
+        error.to_string().contains("give boron or search"),
+        "{error}"
+    );
     // 探索の範囲、目標、許容、回数
     assert!(bad("[1000.0, 1400.0]", "[1400.0, 1000.0]"));
     assert!(bad("[1000.0, 1400.0]", "[1000.0, 1000.0]"));
