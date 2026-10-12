@@ -172,11 +172,26 @@ fn boron_search_converges_to_the_target_k() {
 fn search_errors_are_reported() {
     let (layout, tables) = core();
     let options = Options::default();
-    let fails = |state: &CaseState| solve_state(&layout, &tables, state, &options).is_err();
+    let error = |state: &CaseState| solve_state(&layout, &tables, state, &options).unwrap_err();
     // 範囲がテーブルの外（内挿のエラー）、範囲が解を挟まない、固有値の判定より細かい許容
-    assert!(fails(&searching([900.0, 1500.0], 1.0e-7)));
-    assert!(fails(&searching([1400.0, 1500.0], 1.0e-7)));
-    assert!(fails(&searching([1000.0, 1500.0], options.k_tolerance)));
+    let e = error(&searching([900.0, 1500.0], 1.0e-7));
+    assert!(
+        matches!(e, CaseError::State(ref m) if m.contains("outside")),
+        "{e}"
+    );
+    let e = error(&searching([1400.0, 1500.0], 1.0e-7));
+    assert!(
+        matches!(e, CaseError::Search(ref m) if m.contains("do not bracket")),
+        "{e}"
+    );
+    let e = error(&searching([1000.0, 1500.0], options.k_tolerance));
+    assert!(
+        matches!(e, CaseError::Search(ref m) if m.contains("eigenvalue tolerance")),
+        "{e}"
+    );
+    // 許容の検査は解く前にできる
+    assert!(check_search(&searching([1000.0, 1500.0], options.k_tolerance), &options).is_err());
+    assert!(check_search(&searching([1000.0, 1500.0], 1.0e-7), &options).is_ok());
 }
 
 #[test]
