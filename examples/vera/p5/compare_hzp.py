@@ -184,8 +184,13 @@ def case_states(path: Path, cases: dict[int, dict]) -> dict[str, tuple[int, bool
             raise SystemExit(
                 f"{path}: state {name}: case {n} inserts banks, which states cannot hold yet (#0063)"
             )
-        if search != ("search" in state) or (
-            search and state["search"].get("k") != 1.0
+        if search and n > 10:
+            raise SystemExit(
+                f"{path}: state {name}: only the critical cases 1 to 10 search the boron"
+            )
+        target = state.get("search")
+        if search != (target is not None) or (
+            search and (not isinstance(target, dict) or target.get("k") != 1.0)
         ):
             raise SystemExit(
                 f"{path}: state {name}: -boron states search the boron for k = 1, others give it"
@@ -223,6 +228,10 @@ def main() -> None:
     print("\ncritical boron (ppm)        xlc  measured   diff")
     for name, (n, search) in sorted(states.items(), key=lambda s: s[1]):
         if search:
+            if "boron" not in results[name]:
+                raise SystemExit(
+                    f"state {name} searches the boron, but the output has no boron line"
+                )
             ppm = results[name]["boron"]
             measured = cases[n]["boron"]
             print(
