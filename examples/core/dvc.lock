@@ -534,8 +534,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -543,8 +543,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -586,7 +586,7 @@ stages:
     outs:
     - path: out/volume-20.out
       hash: md5
-      md5: 94bbcc14109494dc97e2258f9fcad029
+      md5: 7d0d65294ed992288c64f38e7c38a25a
       size: 830
   core@volume-180:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -610,8 +610,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -619,8 +619,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -662,7 +662,7 @@ stages:
     outs:
     - path: out/volume-180.out
       hash: md5
-      md5: 7d7bc122e913e89192aab3e8b6d580ea
+      md5: 9d0b6c7dc6c01fe55b19ac157d3a7247
       size: 830
   core@split-124:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-124.toml
@@ -686,8 +686,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -695,8 +695,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -738,7 +738,7 @@ stages:
     outs:
     - path: out/split-124.out
       hash: md5
-      md5: 7e177eeab6c056c5da8c8ff265599ced
+      md5: 2dc4673355fe02e4520efd38e436d6ba
       size: 902
   core@volume-116:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -762,8 +762,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -771,8 +771,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -814,7 +814,7 @@ stages:
     outs:
     - path: out/volume-116.out
       hash: md5
-      md5: eb0086438d1584906355eeb6e32794de
+      md5: 0cfcfc6aa4ea9d6ac70da629a8b75e04
       size: 830
   core@volume-126:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -838,8 +838,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -847,8 +847,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -890,7 +890,7 @@ stages:
     outs:
     - path: out/volume-126.out
       hash: md5
-      md5: 163fe332a47c95e9158c308b68481703
+      md5: 58529dec90853d5e588b2a3009b202e1
       size: 830
   core@volume-118:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -914,8 +914,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -923,8 +923,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -966,7 +966,7 @@ stages:
     outs:
     - path: out/volume-118.out
       hash: md5
-      md5: 6c44dbda0e8ef16136904e7bda8293da
+      md5: 9434c8d4507485ca7c6690257ed2b3e4
       size: 830
   core@flux-120:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-120.toml 
@@ -990,8 +990,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -999,8 +999,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1042,7 +1042,7 @@ stages:
     outs:
     - path: out/flux-120.out
       hash: md5
-      md5: c92e47164839f44e98845a28bdba30a7
+      md5: 1f9584976494058097a635389f568071
       size: 830
   core@volume-90:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/volume-90.toml
@@ -1066,8 +1066,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1075,8 +1075,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1118,7 +1118,7 @@ stages:
     outs:
     - path: out/volume-90.out
       hash: md5
-      md5: ecb417e2aba0aea0930ab3dbe8225ce4
+      md5: 82b6bc1a722ccc25224bbaa683915af5
       size: 830
   core@flux-118:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-118.toml 
@@ -1142,8 +1142,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1151,8 +1151,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1194,7 +1194,7 @@ stages:
     outs:
     - path: out/flux-118.out
       hash: md5
-      md5: 3d86df28cee52a7189474ff89efd9b97
+      md5: dc6fce3f89513f1bbeac2b1bbe57713a
       size: 830
   core@volume-120:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -1218,8 +1218,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1227,8 +1227,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1270,7 +1270,7 @@ stages:
     outs:
     - path: out/volume-120.out
       hash: md5
-      md5: 77031a302e354882fa1b800d40ad53cb
+      md5: e99a883797e8fa906831eeaec6743e5a
       size: 830
   core@flux-124:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-124.toml 
@@ -1294,8 +1294,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1303,8 +1303,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1346,7 +1346,7 @@ stages:
     outs:
     - path: out/flux-124.out
       hash: md5
-      md5: 9ed489c1b651de8a3c211fc022033fd1
+      md5: 9caac93b9dce38b8bc73a9197ca1df30
       size: 830
   core@split-120:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-120.toml
@@ -1370,8 +1370,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1379,8 +1379,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1422,7 +1422,7 @@ stages:
     outs:
     - path: out/split-120.out
       hash: md5
-      md5: 9861bc6d04c03fdb52bf093da34d2e97
+      md5: f266483abb06e4aa5a0e16bca7943eb8
       size: 902
   core@flux-126:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-126.toml 
@@ -1446,8 +1446,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1455,8 +1455,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1498,7 +1498,7 @@ stages:
     outs:
     - path: out/flux-126.out
       hash: md5
-      md5: 117f1a1bbf2459aa78a1a6ea7628441c
+      md5: 0b56982305b8cf924f47b59ef913c3d1
       size: 830
   core@split-126:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-126.toml
@@ -1522,8 +1522,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1531,8 +1531,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1574,7 +1574,7 @@ stages:
     outs:
     - path: out/split-126.out
       hash: md5
-      md5: f1ab6f9917c076955004cb16a7f7860c
+      md5: 431db8362662271b5d71b6c8fa746904
       size: 902
   core@fine-2-122:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -1598,8 +1598,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1607,8 +1607,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1650,7 +1650,7 @@ stages:
     outs:
     - path: out/fine-2-122.out
       hash: md5
-      md5: 28af19a1150bc8f1a33f5a4b646b6225
+      md5: ef611385c8fdc9f5dfc3de271b80d783
       size: 830
   core@fine-1-116:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -1674,8 +1674,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1683,8 +1683,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1726,7 +1726,7 @@ stages:
     outs:
     - path: out/fine-1-116.out
       hash: md5
-      md5: 86a3f69ac0e0063dde7d6d847fa34a11
+      md5: 05a571e42a5f482489603881dcfb1105
       size: 830
   core@volume-122:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -1750,8 +1750,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1759,8 +1759,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1802,7 +1802,7 @@ stages:
     outs:
     - path: out/volume-122.out
       hash: md5
-      md5: cf8452eb119bb519cc9131f89d7ef117
+      md5: ab1f1098f0179c94960436a978be6825
       size: 830
   core@split-116:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-116.toml
@@ -1826,8 +1826,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1835,8 +1835,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1878,7 +1878,7 @@ stages:
     outs:
     - path: out/split-116.out
       hash: md5
-      md5: 13b9ec05a9fb8e8bfa41fa906e035055
+      md5: 20bdac2396cfb87e207f12318f3f142d
       size: 902
   core@split-128:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-128.toml
@@ -1902,8 +1902,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1911,8 +1911,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -1954,7 +1954,7 @@ stages:
     outs:
     - path: out/split-128.out
       hash: md5
-      md5: d356448723514ac365664db0c80674c3
+      md5: 129ab6f8facd65b53f8377cf909082ec
       size: 902
   core@fine-0.125-122:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -1978,8 +1978,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -1987,8 +1987,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2030,7 +2030,7 @@ stages:
     outs:
     - path: out/fine-0.125-122.out
       hash: md5
-      md5: 97cf43240509154735b4c32977305a91
+      md5: bae853e2cd97430a23f8fc90a51a1f62
       size: 830
   core@split-20:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-20.toml 
@@ -2054,8 +2054,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2063,8 +2063,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2106,7 +2106,7 @@ stages:
     outs:
     - path: out/split-20.out
       hash: md5
-      md5: 40fb81b0da4fed926eb63bf2a81717a5
+      md5: ed0a28cdfd0e7a23f1c9f05fae6e5a7e
       size: 900
   core@flux-128:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-128.toml 
@@ -2130,8 +2130,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2139,8 +2139,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2182,7 +2182,7 @@ stages:
     outs:
     - path: out/flux-128.out
       hash: md5
-      md5: 31fa983e9452e91721c903a706ed1cf0
+      md5: a570766ed9bb0d36f8aca1e046686786
       size: 830
   core@split-150:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-150.toml
@@ -2206,8 +2206,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2215,8 +2215,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2258,7 +2258,7 @@ stages:
     outs:
     - path: out/split-150.out
       hash: md5
-      md5: deadca285ac9d4ae2af3f02cbd861498
+      md5: 681121075991c74a0c8692f626095548
       size: 902
   core@fine-0.25-122:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -2282,8 +2282,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2291,8 +2291,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2334,7 +2334,7 @@ stages:
     outs:
     - path: out/fine-0.25-122.out
       hash: md5
-      md5: 891ccfcd981c71b5c10929075bd95064
+      md5: 24d035bb1e487844f7f7f19f0df569a1
       size: 830
   core@split-122:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-122.toml
@@ -2358,8 +2358,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2367,8 +2367,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2410,7 +2410,7 @@ stages:
     outs:
     - path: out/split-122.out
       hash: md5
-      md5: ec6e7a95d768c5a359eee1cc63ba86c2
+      md5: 53bc8ead75be7b1ba84fadae70fb8175
       size: 902
   core@flux-116:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-116.toml 
@@ -2434,8 +2434,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2443,8 +2443,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2486,7 +2486,7 @@ stages:
     outs:
     - path: out/flux-116.out
       hash: md5
-      md5: ba36b0091d7a49b496bb6c190439d7e4
+      md5: 1fcca83f063961e2cacaee321a7c7529
       size: 830
   core@split-118:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-118.toml
@@ -2510,8 +2510,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2519,8 +2519,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2562,7 +2562,7 @@ stages:
     outs:
     - path: out/split-118.out
       hash: md5
-      md5: 201287ed6a7cf29a175d2025d6d666ea
+      md5: 4509a990ab2555b6f8b987fbd7b1c368
       size: 902
   core@flux-122:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-122.toml 
@@ -2586,8 +2586,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2595,8 +2595,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2638,7 +2638,7 @@ stages:
     outs:
     - path: out/flux-122.out
       hash: md5
-      md5: 66a51e9b9ecc088a9b6b4cc8f292b82c
+      md5: 048227abeaf87a53d37fa8119addaf93
       size: 830
   core@volume-124:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -2662,8 +2662,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2671,8 +2671,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2714,7 +2714,7 @@ stages:
     outs:
     - path: out/volume-124.out
       hash: md5
-      md5: e23320c00845f8d8ea4cef958da822d6
+      md5: a8cf44e6b71915efb8916c03fc1384a6
       size: 830
   core@volume-128:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -2738,8 +2738,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2747,8 +2747,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2790,7 +2790,7 @@ stages:
     outs:
     - path: out/volume-128.out
       hash: md5
-      md5: b7f6c66b52fbf287f60196908af21360
+      md5: 309cd834337f55791ff4501b24c48253
       size: 830
   core@flux-20:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-20.toml >
@@ -2814,8 +2814,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2823,8 +2823,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2866,7 +2866,7 @@ stages:
     outs:
     - path: out/flux-20.out
       hash: md5
-      md5: 1b984c08a9be08909edd42bc91f7734b
+      md5: b6921c3fb55a873c50cb745f6ce64b3e
       size: 830
   core@flux-60:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-60.toml >
@@ -2890,8 +2890,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2899,8 +2899,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2942,7 +2942,7 @@ stages:
     outs:
     - path: out/flux-60.out
       hash: md5
-      md5: 00a15711ab683a304f120e42e3c7bdd5
+      md5: 597033fc35bd3fee17809a0da84eb84c
       size: 831
   core@volume-60:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/volume-60.toml
@@ -2966,8 +2966,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -2975,8 +2975,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3018,7 +3018,7 @@ stages:
     outs:
     - path: out/volume-60.out
       hash: md5
-      md5: 91a9366c31de97f61beb068903280a1c
+      md5: 36113da74c4c050131e35583f0818cc5
       size: 831
   core@split-60:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-60.toml 
@@ -3042,8 +3042,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3051,8 +3051,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3094,7 +3094,7 @@ stages:
     outs:
     - path: out/split-60.out
       hash: md5
-      md5: 8d57a6cced0eaf9561bc0658527908ce
+      md5: 3ae840ca8abe2f66601fa35ddd5ea05b
       size: 901
   core@flux-90:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-90.toml >
@@ -3118,8 +3118,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3127,8 +3127,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3170,7 +3170,7 @@ stages:
     outs:
     - path: out/flux-90.out
       hash: md5
-      md5: 80022a0602f2b50407df7cf5f1ffaaaf
+      md5: 1d3b10ad0423a5ffb61d2c2006ba6e9a
       size: 830
   core@split-90:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-90.toml 
@@ -3194,8 +3194,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3203,8 +3203,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3246,7 +3246,7 @@ stages:
     outs:
     - path: out/split-90.out
       hash: md5
-      md5: 94948cb1d689fbe2a69208e0ea466676
+      md5: 971d79fcbdb88ea1e64f30b63e86968f
       size: 902
   core@flux-150:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-150.toml 
@@ -3270,8 +3270,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3279,8 +3279,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3322,7 +3322,7 @@ stages:
     outs:
     - path: out/flux-150.out
       hash: md5
-      md5: baa25d5f6549a092fd06df111535aeaa
+      md5: 3e3f20e0af4d7826b2bea024335b07b9
       size: 830
   core@volume-150:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -3346,8 +3346,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3355,8 +3355,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3398,7 +3398,7 @@ stages:
     outs:
     - path: out/volume-150.out
       hash: md5
-      md5: 2316ad98d0daf7babe2ab7aa60b9b6c2
+      md5: 5b6e056af2d66a616dbe1921af6caf90
       size: 830
   core@flux-180:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-180.toml 
@@ -3422,8 +3422,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3431,8 +3431,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3474,7 +3474,7 @@ stages:
     outs:
     - path: out/flux-180.out
       hash: md5
-      md5: 97c472c77ff40e81cf3831ce65bd4d4e
+      md5: f6f7c426a57c2dc2186462339ec2536e
       size: 830
   core@split-180:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-180.toml
@@ -3498,8 +3498,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3507,8 +3507,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3550,7 +3550,7 @@ stages:
     outs:
     - path: out/split-180.out
       hash: md5
-      md5: 89d6244c4a00e0887a12bdf8f70b4c8f
+      md5: 4e1b7d943d06522571aacb614b92dd14
       size: 866
   core@flux-200:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/flux-200.toml 
@@ -3574,8 +3574,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3583,8 +3583,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3626,7 +3626,7 @@ stages:
     outs:
     - path: out/flux-200.out
       hash: md5
-      md5: f7df853dbbd3afa5d0d3f0df6863be2a
+      md5: 797520bcc45fe6a8e8f83d66dd43b0aa
       size: 830
   core@volume-200:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -3650,8 +3650,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3659,8 +3659,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3702,7 +3702,7 @@ stages:
     outs:
     - path: out/volume-200.out
       hash: md5
-      md5: 10eb6dedaaf1447fa690ecc0117cdfa3
+      md5: 16b87a4c0ff4d075821cc2155af0fc15
       size: 830
   core@split-200:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/split-200.toml
@@ -3726,8 +3726,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3735,8 +3735,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3778,7 +3778,7 @@ stages:
     outs:
     - path: out/split-200.out
       hash: md5
-      md5: 5399015b61db6ecaff21a02b75b50e08
+      md5: dc0db11b8688c2a866bce5c4defabfdf
       size: 866
   core@fine-2-116:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -3802,8 +3802,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3811,8 +3811,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3854,7 +3854,7 @@ stages:
     outs:
     - path: out/fine-2-116.out
       hash: md5
-      md5: 9d699aea726e190e55c0c53fb3d9288b
+      md5: 6f28f2e0798a3678d75e4dcf82893390
       size: 830
   core@fine-2-180:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -3878,8 +3878,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3887,8 +3887,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3930,7 +3930,7 @@ stages:
     outs:
     - path: out/fine-2-180.out
       hash: md5
-      md5: 7655d66a7ab0390926cf2351417fd3eb
+      md5: fcc47dcd0fc5a13cde5862b18dc3fac6
       size: 830
   core@fine-1-122:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -3954,8 +3954,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -3963,8 +3963,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4006,7 +4006,7 @@ stages:
     outs:
     - path: out/fine-1-122.out
       hash: md5
-      md5: 8e1de15be3330c474158ce0924147a0b
+      md5: 4e7a264d93785c36278aa16b32a60100
       size: 830
   core@fine-1-180:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -4030,8 +4030,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -4039,8 +4039,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4082,7 +4082,7 @@ stages:
     outs:
     - path: out/fine-1-180.out
       hash: md5
-      md5: 735baa00afb5be699fd0c0247f594f7c
+      md5: 62f0a81b3f50c8f3481b3e58017552ed
       size: 830
   core@fine-0.25-116:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -4106,8 +4106,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -4115,8 +4115,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4158,7 +4158,7 @@ stages:
     outs:
     - path: out/fine-0.25-116.out
       hash: md5
-      md5: 7227143312cb0d123ce02520db655d80
+      md5: 52ccd0ac15b1ca193bd285de06f8a9c4
       size: 830
   core@fine-0.25-180:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -4182,8 +4182,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -4191,8 +4191,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4234,7 +4234,7 @@ stages:
     outs:
     - path: out/fine-0.25-180.out
       hash: md5
-      md5: df4ce8c357d72245c8a4c6a32a55a371
+      md5: 5136afddbbd92529038152463f2f3aa6
       size: 830
   core@fine-0.125-116:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -4258,8 +4258,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -4267,8 +4267,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4310,7 +4310,7 @@ stages:
     outs:
     - path: out/fine-0.125-116.out
       hash: md5
-      md5: b09f70459213a1d991c7cc3d6f894a3e
+      md5: c6aeb17a133d03b616e26ba2328c3ccf
       size: 830
   core@fine-0.125-180:
     cmd: mkdir -p out && cargo run --release -p xlc-core -- 
@@ -4334,8 +4334,8 @@ stages:
       size: 486
     - path: ../../crates/core/src
       hash: md5
-      md5: 5bbaa187d9e715aa7b74094c409158f6.dir
-      size: 422989
+      md5: 307a4c59c9c458cd89789c4150161b64.dir
+      size: 425598
       nfiles: 15
     - path: ../../crates/format/Cargo.toml
       hash: md5
@@ -4343,8 +4343,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 87b79b33b0c6aceb3ecb3c5dc724ff49.dir
-      size: 123478
+      md5: bcc30c16c4725d5fd05c7c2123a808e0.dir
+      size: 123576
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4386,7 +4386,7 @@ stages:
     outs:
     - path: out/fine-0.125-180.out
       hash: md5
-      md5: 83c7b1ed39d766c5950178ceadebf8e8
+      md5: 0af49ffe5b8777a837b632c23a85d016
       size: 830
   compare:
     cmd: python3 compare_rods.py > compare.out
@@ -4397,207 +4397,207 @@ stages:
       size: 4757
     - path: out/fine-0.125-116.out
       hash: md5
-      md5: b09f70459213a1d991c7cc3d6f894a3e
+      md5: c6aeb17a133d03b616e26ba2328c3ccf
       size: 830
     - path: out/fine-0.125-122.out
       hash: md5
-      md5: 97cf43240509154735b4c32977305a91
+      md5: bae853e2cd97430a23f8fc90a51a1f62
       size: 830
     - path: out/fine-0.125-180.out
       hash: md5
-      md5: 83c7b1ed39d766c5950178ceadebf8e8
+      md5: 0af49ffe5b8777a837b632c23a85d016
       size: 830
     - path: out/fine-0.25-116.out
       hash: md5
-      md5: 7227143312cb0d123ce02520db655d80
+      md5: 52ccd0ac15b1ca193bd285de06f8a9c4
       size: 830
     - path: out/fine-0.25-122.out
       hash: md5
-      md5: 891ccfcd981c71b5c10929075bd95064
+      md5: 24d035bb1e487844f7f7f19f0df569a1
       size: 830
     - path: out/fine-0.25-180.out
       hash: md5
-      md5: df4ce8c357d72245c8a4c6a32a55a371
+      md5: 5136afddbbd92529038152463f2f3aa6
       size: 830
     - path: out/fine-1-116.out
       hash: md5
-      md5: 86a3f69ac0e0063dde7d6d847fa34a11
+      md5: 05a571e42a5f482489603881dcfb1105
       size: 830
     - path: out/fine-1-122.out
       hash: md5
-      md5: 8e1de15be3330c474158ce0924147a0b
+      md5: 4e7a264d93785c36278aa16b32a60100
       size: 830
     - path: out/fine-1-180.out
       hash: md5
-      md5: 735baa00afb5be699fd0c0247f594f7c
+      md5: 62f0a81b3f50c8f3481b3e58017552ed
       size: 830
     - path: out/fine-2-116.out
       hash: md5
-      md5: 9d699aea726e190e55c0c53fb3d9288b
+      md5: 6f28f2e0798a3678d75e4dcf82893390
       size: 830
     - path: out/fine-2-122.out
       hash: md5
-      md5: 28af19a1150bc8f1a33f5a4b646b6225
+      md5: ef611385c8fdc9f5dfc3de271b80d783
       size: 830
     - path: out/fine-2-180.out
       hash: md5
-      md5: 7655d66a7ab0390926cf2351417fd3eb
+      md5: fcc47dcd0fc5a13cde5862b18dc3fac6
       size: 830
     - path: out/flux-116.out
       hash: md5
-      md5: ba36b0091d7a49b496bb6c190439d7e4
+      md5: 1fcca83f063961e2cacaee321a7c7529
       size: 830
     - path: out/flux-118.out
       hash: md5
-      md5: 3d86df28cee52a7189474ff89efd9b97
+      md5: dc6fce3f89513f1bbeac2b1bbe57713a
       size: 830
     - path: out/flux-120.out
       hash: md5
-      md5: c92e47164839f44e98845a28bdba30a7
+      md5: 1f9584976494058097a635389f568071
       size: 830
     - path: out/flux-122.out
       hash: md5
-      md5: 66a51e9b9ecc088a9b6b4cc8f292b82c
+      md5: 048227abeaf87a53d37fa8119addaf93
       size: 830
     - path: out/flux-124.out
       hash: md5
-      md5: 9ed489c1b651de8a3c211fc022033fd1
+      md5: 9caac93b9dce38b8bc73a9197ca1df30
       size: 830
     - path: out/flux-126.out
       hash: md5
-      md5: 117f1a1bbf2459aa78a1a6ea7628441c
+      md5: 0b56982305b8cf924f47b59ef913c3d1
       size: 830
     - path: out/flux-128.out
       hash: md5
-      md5: 31fa983e9452e91721c903a706ed1cf0
+      md5: a570766ed9bb0d36f8aca1e046686786
       size: 830
     - path: out/flux-150.out
       hash: md5
-      md5: baa25d5f6549a092fd06df111535aeaa
+      md5: 3e3f20e0af4d7826b2bea024335b07b9
       size: 830
     - path: out/flux-180.out
       hash: md5
-      md5: 97c472c77ff40e81cf3831ce65bd4d4e
+      md5: f6f7c426a57c2dc2186462339ec2536e
       size: 830
     - path: out/flux-20.out
       hash: md5
-      md5: 1b984c08a9be08909edd42bc91f7734b
+      md5: b6921c3fb55a873c50cb745f6ce64b3e
       size: 830
     - path: out/flux-200.out
       hash: md5
-      md5: f7df853dbbd3afa5d0d3f0df6863be2a
+      md5: 797520bcc45fe6a8e8f83d66dd43b0aa
       size: 830
     - path: out/flux-60.out
       hash: md5
-      md5: 00a15711ab683a304f120e42e3c7bdd5
+      md5: 597033fc35bd3fee17809a0da84eb84c
       size: 831
     - path: out/flux-90.out
       hash: md5
-      md5: 80022a0602f2b50407df7cf5f1ffaaaf
+      md5: 1d3b10ad0423a5ffb61d2c2006ba6e9a
       size: 830
     - path: out/split-116.out
       hash: md5
-      md5: 13b9ec05a9fb8e8bfa41fa906e035055
+      md5: 20bdac2396cfb87e207f12318f3f142d
       size: 902
     - path: out/split-118.out
       hash: md5
-      md5: 201287ed6a7cf29a175d2025d6d666ea
+      md5: 4509a990ab2555b6f8b987fbd7b1c368
       size: 902
     - path: out/split-120.out
       hash: md5
-      md5: 9861bc6d04c03fdb52bf093da34d2e97
+      md5: f266483abb06e4aa5a0e16bca7943eb8
       size: 902
     - path: out/split-122.out
       hash: md5
-      md5: ec6e7a95d768c5a359eee1cc63ba86c2
+      md5: 53bc8ead75be7b1ba84fadae70fb8175
       size: 902
     - path: out/split-124.out
       hash: md5
-      md5: 7e177eeab6c056c5da8c8ff265599ced
+      md5: 2dc4673355fe02e4520efd38e436d6ba
       size: 902
     - path: out/split-126.out
       hash: md5
-      md5: f1ab6f9917c076955004cb16a7f7860c
+      md5: 431db8362662271b5d71b6c8fa746904
       size: 902
     - path: out/split-128.out
       hash: md5
-      md5: d356448723514ac365664db0c80674c3
+      md5: 129ab6f8facd65b53f8377cf909082ec
       size: 902
     - path: out/split-150.out
       hash: md5
-      md5: deadca285ac9d4ae2af3f02cbd861498
+      md5: 681121075991c74a0c8692f626095548
       size: 902
     - path: out/split-180.out
       hash: md5
-      md5: 89d6244c4a00e0887a12bdf8f70b4c8f
+      md5: 4e1b7d943d06522571aacb614b92dd14
       size: 866
     - path: out/split-20.out
       hash: md5
-      md5: 40fb81b0da4fed926eb63bf2a81717a5
+      md5: ed0a28cdfd0e7a23f1c9f05fae6e5a7e
       size: 900
     - path: out/split-200.out
       hash: md5
-      md5: 5399015b61db6ecaff21a02b75b50e08
+      md5: dc0db11b8688c2a866bce5c4defabfdf
       size: 866
     - path: out/split-60.out
       hash: md5
-      md5: 8d57a6cced0eaf9561bc0658527908ce
+      md5: 3ae840ca8abe2f66601fa35ddd5ea05b
       size: 901
     - path: out/split-90.out
       hash: md5
-      md5: 94948cb1d689fbe2a69208e0ea466676
+      md5: 971d79fcbdb88ea1e64f30b63e86968f
       size: 902
     - path: out/volume-116.out
       hash: md5
-      md5: eb0086438d1584906355eeb6e32794de
+      md5: 0cfcfc6aa4ea9d6ac70da629a8b75e04
       size: 830
     - path: out/volume-118.out
       hash: md5
-      md5: 6c44dbda0e8ef16136904e7bda8293da
+      md5: 9434c8d4507485ca7c6690257ed2b3e4
       size: 830
     - path: out/volume-120.out
       hash: md5
-      md5: 77031a302e354882fa1b800d40ad53cb
+      md5: e99a883797e8fa906831eeaec6743e5a
       size: 830
     - path: out/volume-122.out
       hash: md5
-      md5: cf8452eb119bb519cc9131f89d7ef117
+      md5: ab1f1098f0179c94960436a978be6825
       size: 830
     - path: out/volume-124.out
       hash: md5
-      md5: e23320c00845f8d8ea4cef958da822d6
+      md5: a8cf44e6b71915efb8916c03fc1384a6
       size: 830
     - path: out/volume-126.out
       hash: md5
-      md5: 163fe332a47c95e9158c308b68481703
+      md5: 58529dec90853d5e588b2a3009b202e1
       size: 830
     - path: out/volume-128.out
       hash: md5
-      md5: b7f6c66b52fbf287f60196908af21360
+      md5: 309cd834337f55791ff4501b24c48253
       size: 830
     - path: out/volume-150.out
       hash: md5
-      md5: 2316ad98d0daf7babe2ab7aa60b9b6c2
+      md5: 5b6e056af2d66a616dbe1921af6caf90
       size: 830
     - path: out/volume-180.out
       hash: md5
-      md5: 7d7bc122e913e89192aab3e8b6d580ea
+      md5: 9d0b6c7dc6c01fe55b19ac157d3a7247
       size: 830
     - path: out/volume-20.out
       hash: md5
-      md5: 94bbcc14109494dc97e2258f9fcad029
+      md5: 7d0d65294ed992288c64f38e7c38a25a
       size: 830
     - path: out/volume-200.out
       hash: md5
-      md5: 10eb6dedaaf1447fa690ecc0117cdfa3
+      md5: 16b87a4c0ff4d075821cc2155af0fc15
       size: 830
     - path: out/volume-60.out
       hash: md5
-      md5: 91a9366c31de97f61beb068903280a1c
+      md5: 36113da74c4c050131e35583f0818cc5
       size: 831
     - path: out/volume-90.out
       hash: md5
-      md5: ecb417e2aba0aea0930ab3dbe8225ce4
+      md5: 82b6bc1a722ccc25224bbaa683915af5
       size: 830
     - path: rods_cases.py
       hash: md5
