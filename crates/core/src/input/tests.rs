@@ -417,6 +417,7 @@ fn invalid_boron_searches_are_errors() {
     assert!(bad("tolerance = 1.0e-6", "tolerance = 0.0"));
     assert!(bad("tolerance = 1.0e-6", "tolerance = nan"));
     assert!(bad("max-solves = 20", "max-solves = 1"));
+    assert!(bad("max-solves = 20", "max-solves = 2"));
     assert!(bad("max-solves = 20", "max-solve = 20"));
 }
 
