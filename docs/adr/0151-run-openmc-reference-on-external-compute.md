@@ -4,7 +4,7 @@ date: 2026-10-12
 requires: []
 supersedes: []
 superseded-by:
-issues: ["#0073"]
+issues: []
 ---
 
 # ADR-0151: Run OpenMC reference solutions on AWS EC2 c7a spot instances
