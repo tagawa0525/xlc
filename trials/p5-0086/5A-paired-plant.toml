@@ -1,0 +1,45 @@
+pitch = 21.5
+height = 21.5
+map = [
+  "-          -          -          -          C@90       E@90       I31p8@90   I@90       I31p12@90  I@90       I31p8@90   N          C          -          -          -          -",
+  "-          -          C@90       E@90       I@90       *          *          *          *          *          *          *          I          N          C          -          -",
+  "-          C@90       I@90       *          *          *          *          *          *          *          *          *          *          *          I          C          -",
+  "-          N@90       *          *          *          *          *          *          *          *          *          *          *          *          *          E          -",
+  "C@90       I@90       *          *          *          *          *          *          *          *          *          *          *          *          *          I          C",
+  "N@90       *          *          *          *          *          *          *          *          *          *          *          *          *          *          *          E",
+  "I31p8@180  *          *          *          *          *          *          *          *          *          *          *          *          *          *          *          I31p8",
+  "I@180      *          *          *          *          *          *          *          *          *          *          *          *          *          *          *          I",
+  "I31p12@180 *          *          *          *          *          *          *          *          *          *          *          *          *          *          *          I31p12",
+  "I@180      *          *          *          *          *          *          *          *          *          *          *          *          *          *          *          I",
+  "I31p8@180  *          *          *          *          *          *          *          *          *          *          *          *          *          *          *          I31p8",
+  "E@180      *          *          *          *          *          *          *          *          *          *          *          *          *          *          *          N@270",
+  "C@180      I@180      *          *          *          *          *          *          *          *          *          *          *          *          *          I@270      C@270",
+  "-          E@180      *          *          *          *          *          *          *          *          *          *          *          *          *          N@270      -",
+  "-          C@180      I@180      *          *          *          *          *          *          *          *          *          *          *          I@270      C@270      -",
+  "-          -          C@180      N@180      I@180      *          *          *          *          *          *          *          I@270      E@270      C@270      -          -",
+  "-          -          -          -          C@180      N@180      I31p8@270  I@270      I31p12@270 I@270      I31p8@270  E@270      C@270      -          -          -          -",
+]
+
+[reflector.C]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-corner.msgpack"]
+
+[reflector.E]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-corner-right.msgpack"]
+
+[reflector.I]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-I.msgpack"]
+
+[reflector.N]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-corner-top.msgpack"]
+
+[reflector.I31p12]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-I-31-p12.msgpack"]
+
+[reflector.I31p8]
+bounds = [0.0, 21.5]
+layers = ["../../examples/vera/p5/lattice/reflector-I-31-p8.msgpack"]
