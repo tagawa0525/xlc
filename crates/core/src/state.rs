@@ -217,6 +217,8 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>
                 bracket("moderator", temperature, state.moderator, |x| x)?
             }
             Axis::Fuel { temperature } => bracket("fuel", temperature, state.fuel, f64::sqrt)?,
+            // 制御棒の値の選び方はまだない
+            Axis::Rod { .. } => return Err("the table has a rod axis; the core cannot select it".into()),
         });
     }
 
@@ -230,7 +232,7 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>
         let mut weight = 1.0;
         for (k, (axis, b)) in table.axes.iter().zip(&brackets).enumerate() {
             let upper = corner >> (brackets.len() - 1 - k) & 1 == 1;
-            index = index * axis.points().len() + if upper { b.high } else { b.low };
+            index = index * axis.len() + if upper { b.high } else { b.low };
             weight *= if upper { b.weight } else { 1.0 - b.weight };
         }
         if weight == 0.0 {
