@@ -1,4 +1,4 @@
-# VERA Problem 3B の短い走行（1 世代あたりの時間の測定。examples/vera/verification.md）。ライブラリは openmc-library-timing.toml。32 スレッド
+# VERA Problem 3B の短い走行（1 世代あたりの時間の測定。examples/vera/verification.md）。ライブラリは試しのライブラリ（references/openmc/p3-p5-timing。#0073）。32 スレッド
 problem = "3B"
 cross-sections = "../../../references/openmc/p3-p5-timing/cross_sections.xml"
 particles = 1000000

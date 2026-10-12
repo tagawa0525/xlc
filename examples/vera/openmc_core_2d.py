@@ -1,10 +1,11 @@
 """VERA Problem 5A-2D、5B-2D、5C-2D（炉心の高さの中央の 2D の 1/4 炉心、零出力）を OpenMC の連続エネルギーモードで解く。
 
-使い方: python3 openmc_core_2d.py run <入力> <作業ディレクトリ>
+使い方: python3 openmc_core_2d.py run [--restart] [--threads N] <入力> <作業ディレクトリ>
         python3 openmc_core_2d.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
 <入力> は p5/openmc-5A-2D.toml の形の TOML で、openmc_model.py の入力と同じキー（`problem`、`cross-sections`、
-`particles`、`batches`、`inactive`、`seed`、`threads`）をすべて書く（既定値はない。ADR-0130）。run と extract の分け方も
+`particles`、`batches`、`inactive`、`seed`、`threads`）をすべて書く（既定値はない。ADR-0130）。途中の statepoint を書く間隔は、任意のキー `statepoint-interval`（世代数）。
+`--restart` と `--threads` は openmc_resume.py。run と extract の分け方も
 openmc_model.py と同じ（ADR-0123）。
 
 集合体の径方向の形（ピン、案内管、計装管、Pyrex の棒と制御棒の寸法）と、問題 2 と同じ組成は openmc_model.py から
@@ -74,11 +75,17 @@ from openmc_model import (
     tube,
     with_carbon,
 )
+from openmc_resume import (
+    OPTIONAL,
+    Options,
+    run_model,
+    run_or_extract,
+    set_statepoints,
+)
 from openmc_run import (
     box_settings,
     fuel_mean,
     mesh_values,
-    run_or_extract,
     write_k,
     write_pin_powers,
 )
@@ -302,10 +309,10 @@ def assembly_mesh() -> openmc.RegularMesh:
 
 
 def read_run(source: Path) -> dict[str, Any]:
-    return common_read_run(source, list(RODS))
+    return common_read_run(source, list(RODS), OPTIONAL)
 
 
-def solve(source: Path, work: Path) -> None:
+def solve(source: Path, work: Path, options: Options) -> None:
     run = read_run(source)
     problem = run["problem"]
     work.mkdir(parents=True, exist_ok=True)
@@ -334,6 +341,7 @@ def solve(source: Path, work: Path) -> None:
     )
     # 源の収束を世代ごとに見るためのエントロピー（集合体ごと）
     settings.entropy_mesh = assembly_mesh()
+    set_statepoints(settings, run)
     settings.temperature = temperature_mode(TEMPERATURE)
 
     # ピンと集合体。集合体も別の tally で数えるのは、集合体の中のピンの間の世代ごとの相関を含めた統計誤差を、
@@ -345,7 +353,7 @@ def solve(source: Path, work: Path) -> None:
         tally.scores = ["fission"]
         tallies.append(tally)
     model = openmc.Model(geometry, materials, settings, tallies)
-    model.run(cwd=work, threads=run["threads"], output=False)
+    run_model(model, run, work, options)
 
 
 def unfold(quarter: np.ndarray) -> np.ndarray:
