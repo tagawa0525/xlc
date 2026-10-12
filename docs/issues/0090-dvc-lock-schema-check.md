@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [dvc, tooling]
 opened: 2026-10-12
-closed:
+closed: 2026-10-12
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 329efb44
 ---
 
 # dvc.lock の schema 行を検査する
@@ -47,6 +47,9 @@ eed4106a（chore: relock the staged xs stages on top of main）で作り直し�
 （vera で約 2 秒。`dvc status` は約 27 秒）。
 
 ## 確かめた結果
+
+完了の条件（schema のない lock で hook が止まる）は、コミット 329efb44 の上で確かめた: `prek run dvc-lock --files examples/vera/dvc.lock` は、
+先頭の schema を消した lock で終了コード 1、戻すと 0。
 
 - `scripts/check-dvc-lock.sh` と pre-commit の hook（`prek run dvc-lock --files ...`）は、現在の m0、reflector、vera の lock を
   通す（終了コード 0）。
