@@ -728,6 +728,7 @@ stages:
     cmd: python3 ../compare_p5.py moc small-moc.out small-moc-pins.msgpack core-small-E.out core-small-E-pins.msgpack > compare-small-E.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - small-moc.out
       - small-moc-pins.msgpack
       - core-small-E.out
@@ -738,6 +739,7 @@ stages:
     cmd: python3 ../compare_p5.py moc small-moc.out small-moc-pins.msgpack core-small-I.out core-small-I-pins.msgpack > compare-small-I.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - small-moc.out
       - small-moc-pins.msgpack
       - core-small-I.out
@@ -764,6 +766,7 @@ stages:
     cmd: python3 ../compare_p5.py k reflector-I.out core-lattice-I-equivalence.out > compare-lattice-I-equivalence.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - reflector-I.out
       - core-lattice-I-equivalence.out
     outs:
@@ -772,6 +775,7 @@ stages:
     cmd: python3 ../compare_p5.py k reflector-I.out core-lattice-I-fstar.out > compare-lattice-I-fstar.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - reflector-I.out
       - core-lattice-I-fstar.out
     outs:
@@ -780,6 +784,7 @@ stages:
     cmd: python3 ../compare_p5.py k reflector-corner.out core-lattice-corner-equivalence.out > compare-lattice-corner-equivalence.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - reflector-corner.out
       - core-lattice-corner-equivalence.out
     outs:
@@ -788,6 +793,7 @@ stages:
     cmd: python3 ../compare_p5.py k reflector-corner.out core-lattice-corner-fstar.out > compare-lattice-corner-fstar.out
     deps:
       - ../compare_p5.py
+      - ../compare_k.py
       - reflector-corner.out
       - core-lattice-corner-fstar.out
     outs:
