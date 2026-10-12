@@ -4,13 +4,11 @@
 //! 外挿しない。点が1つの軸は、状態がその値に等しいときだけ使える。状態を与えるときはテーブルが3つの軸をすべて
 //! 持ち、与えないときは軸のないテーブルだけを使う。
 
-use serde::Deserialize;
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{Axis, Table};
 
-/// 炉心の状態（ケースの `[state]`）。
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
-#[serde(deny_unknown_fields)]
+/// 炉心の状態（ケースの `[state.<名前>]` から作る。ADR-0146）。
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct State {
     /// ホウ素濃度 (ppm)
     pub boron: f64,
@@ -187,7 +185,9 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>
     let sub = table.sub_nodes();
     let Some(state) = state else {
         if !table.axes.is_empty() {
-            return Err("the table has branch axes; give the core [state]".into());
+            return Err(
+                "the table has branch axes; give the case named states [state.<name>]".into(),
+            );
         }
         if table.states.len() != sub || sub == 0 {
             return Err("the table has no states".into());

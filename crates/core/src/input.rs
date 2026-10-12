@@ -44,13 +44,20 @@
 //! # outline は `map` の `-` に面する面の条件で、`-` があるときだけ、同じ値のどれかを書く（ADR-0132）
 //! boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"] }
 //! # map に `-` があれば、boundary に outline = "vacuum" のように足す
-//! pin-powers = "pins.msgpack"   # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）
-//! # 炉心の状態（省略すると、軸のないテーブルだけを使う。ADR-0097）
-//! [state]
+//! # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）。状態が1つ以下のときだけ
+//! pin-powers = "pins.msgpack"
+//! # 名前つきの炉心の状態。状態ごとに分岐のテーブルを内挿して解き、名前の順に出す（ADR-0097、ADR-0146）。
+//! # 省略すると、軸のないテーブルだけを使って1つ解く
+//! [state.aro]
 //! boron = 1291        # ホウ素濃度 (ppm)
 //! b10 = 0.199         # ホウ素の中の B-10 の原子分率（テーブルと同じ値）
 //! moderator = 565     # 減速材の温度 (K)
 //! fuel = 565          # 燃料の温度 (K)
+//! [state.cold]
+//! boron = 1291
+//! b10 = 0.199
+//! moderator = 560
+//! fuel = 560
 //! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -517,11 +524,10 @@ pub struct Case {
     pub boundaries: [Boundary; 6],
     /// 炉心の形の `-` に面する面の条件（ADR-0132）
     pub outline: Option<Boundary>,
-    /// 炉心の状態。書けば分岐のテーブルをこの状態で内挿し、書かなければ軸のないテーブルだけを使う（ADR-0097）
-    pub state: Option<State>,
-    /// 名前つきの状態（`[state.<名前>]`。名前の順）。空なら軸のないテーブルで1つ解く（ADR-0146）
+    /// 名前つきの状態（`[state.<名前>]`。名前の順）。状態ごとに分岐のテーブルを内挿して解く（ADR-0097）。空なら
+    /// 軸のないテーブルだけを使って1つ解く（ADR-0146）
     pub states: Vec<CaseState>,
-    /// 再構成したピン出力を書くファイル（ADR-0096）
+    /// 再構成したピン出力を書くファイル（ADR-0096）。状態が1つ以下のときだけ
     pub pin_powers: Option<PathBuf>,
 }
 
@@ -532,8 +538,38 @@ struct CaseFile {
     axial_mesh: Vec<f64>,
     radial_nodes: usize,
     boundary: BoundaryEntry,
-    state: Option<State>,
+    state: Option<BTreeMap<String, StateEntry>>,
     pin_powers: Option<PathBuf>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StateEntry {
+    boron: f64,
+    b10: f64,
+    moderator: f64,
+    fuel: f64,
+}
+
+impl CaseState {
+    fn new(name: String, entry: StateEntry) -> Result<Self, InputError> {
+        check_name("state", &name)?;
+        let StateEntry {
+            boron,
+            b10,
+            moderator,
+            fuel,
+        } = entry;
+        Ok(Self {
+            name,
+            state: State {
+                boron,
+                b10,
+                moderator,
+                fuel,
+            },
+        })
+    }
 }
 
 /// 各軸の（低い側, 高い側）
@@ -570,14 +606,29 @@ impl Case {
             Condition::Marshak => Boundary::Marshak,
         };
         let boundaries = [b.x[0], b.x[1], b.y[0], b.y[1], b.z[0], b.z[1]].map(condition);
+        let states = match file.state {
+            None => Vec::new(),
+            Some(states) if states.is_empty() => {
+                return invalid("[state] has no states; name each as [state.<name>]");
+            }
+            Some(states) => states
+                .into_iter()
+                .map(|(name, entry)| CaseState::new(name, entry))
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+        if file.pin_powers.is_some() && states.len() > 1 {
+            return invalid(format!(
+                "pin-powers needs at most one state, got {}",
+                states.len()
+            ));
+        }
         Ok(Self {
             cycle: base.join(file.cycle),
             axial_mesh: file.axial_mesh,
             radial_nodes: file.radial_nodes,
             boundaries,
             outline: b.outline.map(condition),
-            state: file.state,
-            states: Vec::new(),
+            states,
             pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
         })
     }
