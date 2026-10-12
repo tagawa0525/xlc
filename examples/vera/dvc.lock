@@ -1,3 +1,4 @@
+schema: '2.0'
 stages:
   references-shell:
     cmd: nix eval --raw ../..#devShells.x86_64-linux.references.outPath > 
