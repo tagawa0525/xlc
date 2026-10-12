@@ -34,6 +34,8 @@ ASSEMBLY_TABLE = "{problem}-2D Assembly Powers"
 # 表 M3-6 の最大のピン出力
 KENO_MAX_PIN = {"5A": 1.44402, "5B": 1.60240, "5C": 1.62997}
 QUARTER = 8
+# 付録 J の 1/8 の表の行（8〜15 行）ごとの集合体の数（H 列から。図 M3-1 の 1/4 炉心の下三角）
+OCTANT_ROWS = [1, 2, 3, 4, 5, 6, 6, 4]
 
 
 def core_output(path: str) -> tuple[float, np.ndarray]:
@@ -98,6 +100,10 @@ def keno_assemblies(spec: list[str], problem: str) -> np.ndarray:
     octant = []
     for line in spec[start + 2 : start + 2 + QUARTER]:
         values = [float(x) for x in re.findall(r"(?<![\d.])(\d\.\d{5})(?![\d%])", line)]
+        if len(values) != OCTANT_ROWS[len(octant)]:
+            raise SystemExit(
+                f"{title}: row {8 + len(octant)} has {len(values)} values, expected {OCTANT_ROWS[len(octant)]}"
+            )
         octant.append(values)
     quarter = np.full((QUARTER, QUARTER), np.nan)
     for r, values in enumerate(octant):
@@ -277,6 +283,10 @@ def symmetry(core_out: str, core_pins: str) -> None:
     a = np.nan_to_num(fuel_assemblies(rates))
     p = read_pins(core_pins)
     for name, m in (("assemblies", a), ("pins", p)):
+        if m.shape[0] != m.shape[1]:
+            raise SystemExit(
+                f"{name}: the map is not square ({m.shape}), so it has no 90-degree symmetry to check"
+            )
         scale = np.abs(m).max()
         for op, image in (
             ("rotation by 90", np.rot90(m)),
