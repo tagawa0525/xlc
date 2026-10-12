@@ -505,6 +505,20 @@ fn layer_grid(
         }
         out
     };
+    // 核分裂のあるノードと核分裂のないノードが分け合うセルは、燃料の半分のセルを反射体の 0 と平均することになる
+    for (merge, along, step) in [(&merge_x, ny, (1, 0)), (&merge_y, nx, (0, 1))] {
+        for (n, _) in merge.iter().enumerate().filter(|(_, m)| **m) {
+            for a in 0..along {
+                let (i, j) = if step.0 == 1 { (n, a) } else { (a, n) };
+                let (fa, fb) = (fissile[i + nx * j], fissile[i + step.0 + nx * (j + step.1)]);
+                if fa != fb {
+                    return Err(format!(
+                        "layer {k}: a split cell between ({i}, {j}) and its neighbour joins fission and no fission"
+                    ));
+                }
+            }
+        }
+    }
     // 核分裂のあるノードのない列（行）はセルを持たない（`cell_sizes`）ので、そこと分け合うセルは戻せない
     for (sizes, merge, what) in [(&widths, &merge_x, "column"), (&heights, &merge_y, "row")] {
         for (n, _) in merge.iter().enumerate().filter(|(_, m)| **m) {
