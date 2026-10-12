@@ -782,13 +782,41 @@ fn nodes_without_fission_take_the_cells_of_the_fuel_beside_them() {
         .map(|r| r.iter().map(|v| v / mean).collect())
         .collect();
     assert_eq!(rows, expected);
-    // 燃料のない列で反射体のノードのセルの幅が違えばエラー
+    // 燃料のない列と行はすべて 0 で表に残らないので、そこに並ぶ反射体のノードのセルの大きさは違ってよい
     p.materials
         .push(reflector(21.5, 2, vec![vec![1.0, 1.0]; 4], vec![false; 4]));
     p.node_material[3] = Some(2);
     let mut maps = maps;
     maps[3] = vec![vec![0.0; 2]; 2];
+    assert_eq!(core_rows(&p, &maps).unwrap(), expected);
+    // 核分裂のないノードの出力に 0 でない値があれば、0 で埋めずにエラー
+    maps[1][0][0] = 1.0e-3;
     assert!(core_rows(&p, &maps).is_err());
+}
+
+#[test]
+fn layers_take_the_cells_of_the_fuel_in_any_layer() {
+    // 2 × 1 × 2 のノード。層 0 は燃料が 2 つ、層 1 は燃料と、セルの数の違う反射体。列 1 のセルは、層 1 でも層 0 の
+    // 燃料のものを使い、層の表の形がそろう
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5, 21.5],
+            dy: vec![21.5],
+            dz: vec![1.0, 1.0],
+        },
+        materials: vec![
+            fuel(21.5, 4),
+            reflector(21.5, 3, vec![vec![1.0, 1.0]; 4], vec![false; 4]),
+        ],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 0, 0, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let ones = vec![vec![1.0; 4]; 4];
+    let maps = vec![ones.clone(), ones.clone(), ones, vec![vec![0.0; 3]; 3]];
+    let rows = core_rows(&p, &maps).unwrap();
+    assert_eq!((rows.len(), rows[0].len()), (4, 8));
 }
 
 #[test]
