@@ -112,7 +112,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。走らせ直した段階の新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
 6. 作り直した `dvc.lock` を確かめる。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
-   読めず、書くことも ない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻してから 4 のコミットを直す）。続けて
+   読めず、書くことも ない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、4 のコミットを `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、5 の付け替えのコミットは rebase のあとに積み直す）。続けて
    `scripts/check-dvc-lock.sh examples/<問題>/dvc.lock` が終了コード 0 で終わること（dvc が lock を読めるかの検査は、この道具が
    唯一の定義。pre-commit の hook `dvc-lock` も同じ道具を呼ぶ。issue #0090）。
 
