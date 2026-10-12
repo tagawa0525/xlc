@@ -72,7 +72,7 @@ pub fn solve_at(
 /// 探索の状態の、解く前にできる検査。
 pub fn check_search(state: &CaseState, options: &Options) -> Result<(), CaseError> {
     if let Boron::Search(search) = &state.boron
-        // 固有値の反復の判定より細かい許容は区別できない（判定を超えても k の誤差を抑える保証ではない。ADR-0145）
+        // 固有値の反復の判定（見積もった残りの誤差）より細かい許容は区別できない（判定を超えても保証ではない。ADR-0145）
         && search.tolerance <= options.k_tolerance
     {
         return Err(CaseError::Search(format!(
