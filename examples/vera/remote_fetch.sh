@@ -3,7 +3,7 @@
 #
 # 使い方: examples/vera/remote_fetch.sh [--dry-run] <ssh の接続先> <VM の作業ディレクトリ> <手元の置き場>
 #
-# results/<入力の名前>/ の k.json、pins.msgpack、layers.msgpack などと、最後の世代の statepoint（extract をやり直すため）、
+# results/<入力の名前>/ の k.json、pins.msgpack、layers.msgpack などと、最後の世代の statepoint と summary.h5（一次の成果物。extract をやり直すため）、
 # log、done を戻す。途中の statepoint（再開用）は戻さない。手元で extract し直すには:
 #   python3 examples/vera/openmc_model_3d.py extract <入力> <手元の置き場>/<名前>/run <結果のディレクトリ>
 set -euo pipefail
