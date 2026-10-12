@@ -1,5 +1,6 @@
 # VERA Problem 5（WBN1 の初装荷の零出力試験）の 3D の全炉心のケース。状態の名前は仕様書の表 P5-2 の場合の番号。
-# 状態どうしの k の差（価値、係数）は比較の道具が取る（ADR-0146）。
+# `case-<n>-boron` は k = 1 になるホウ素濃度を探す（ADR-0145）。状態どうしの k の差（価値、係数）は比較の道具が取る
+# （ADR-0146）。
 # 比べるのは compare_hzp.py（実測値と KENO-VI の値）。
 #
 # まだ解けない（#0092）: サイクル、炉心の形、台帳（5-2D の装荷図と Problem 3 の軸方向の層）と、軸方向のメッシュと
@@ -10,6 +11,13 @@
 # axial-mesh = [...]
 # radial-nodes = 1
 # boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"], outline = "vacuum" }
+
+# ARO の臨界ホウ素濃度（実測 1291 ppm）。範囲はホウ素の軸の格子点（#0038）の中に置く（ADR-0145）
+[state.case-2-boron]
+b10 = 0.199
+moderator = 565
+fuel = 565
+search = { boron = [1100.0, 1400.0], k = 1.0, tolerance = 1.0e-6, max-solves = 20 }
 
 # 微分ホウ素価値（場合 2 と 11）
 [state.case-2]
