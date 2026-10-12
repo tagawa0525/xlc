@@ -792,6 +792,11 @@ fn nodes_without_fission_take_the_cells_of_the_fuel_beside_them() {
     maps[1][0][0] = 1.0e-3;
     let err = core_rows(&p, &maps).unwrap_err();
     assert!(err.contains("no fission but nonzero"), "{err}");
+    // 燃料のない列と行にある反射体のノードでも同じ
+    maps[1][0][0] = 0.0;
+    maps[3][0][0] = 1.0e-3;
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("no fission but nonzero"), "{err}");
 }
 
 #[test]
