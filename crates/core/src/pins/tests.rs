@@ -790,7 +790,34 @@ fn nodes_without_fission_take_the_cells_of_the_fuel_beside_them() {
     assert_eq!(core_rows(&p, &maps).unwrap(), expected);
     // 核分裂のないノードの出力に 0 でない値があれば、0 で埋めずにエラー
     maps[1][0][0] = 1.0e-3;
-    assert!(core_rows(&p, &maps).is_err());
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("no fission but nonzero"), "{err}");
+}
+
+#[test]
+fn split_cells_beside_columns_without_fission_are_errors() {
+    // 核分裂のないノードだけの列はセルを持たないので、そこと分け合うセル（`halves`）は戻せずエラー
+    let mut f = fuel(21.5, 4);
+    let mut r = reflector(21.5, 4, vec![vec![1.0, 1.0]; 4], vec![false; 4]);
+    if let (Some(a), Some(b)) = (f.pins.as_mut(), r.pins.as_mut()) {
+        a.halves[1] = true;
+        b.halves[0] = true;
+    }
+    let p = Problem {
+        mesh: Mesh {
+            dx: vec![21.5, 21.5],
+            dy: vec![21.5],
+            dz: vec![1.0],
+        },
+        materials: vec![f, r],
+        reflectors: Vec::new(),
+        node_material: placed(vec![0, 1]),
+        boundaries: [Boundary::Reflective; 6],
+        outline: None,
+    };
+    let maps = vec![vec![vec![1.0; 4]; 4], vec![vec![0.0; 4]; 4]];
+    let err = core_rows(&p, &maps).unwrap_err();
+    assert!(err.contains("split cell"), "{err}");
 }
 
 #[test]
