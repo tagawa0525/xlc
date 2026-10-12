@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-10-12
-requires: []
+requires: [ADR-0130]
 supersedes: []
 superseded-by:
 issues: []
@@ -12,7 +12,7 @@ issues: []
 ## 背景
 
 単体テストの置き方が 2 つ混ざっている。2026-10-12 の main（14793ea7）では、`crates/*/src` でテストを持つファイルのうち
-58 個がファイルの末尾に `mod tests { … }` を書き、11 個が `#[cfg(test)] mod tests;` で `<モジュール>/tests.rs` に
+64 個がファイルの末尾に `mod tests { … }`（または `pub(crate) mod tests { … }`）を書き、11 個が `#[cfg(test)] mod tests;` で `<モジュール>/tests.rs` に
 分けている（例: crates/lattice/src/branches/tests.rs、crates/format/src/table/tests.rs）。
 
 ファイルの中に置いたテストは、大きなファイルで本体より長い。
@@ -25,8 +25,8 @@ issues: []
 | crates/lattice/src/shielding.rs | 3019 | 1710（56%）          |
 | crates/lattice/src/input.rs     | 2153 | 1015（47%）          |
 
-行数は 3668 から数百まで切れ目なく並び、分ける・分けないのしきい値を置く自然な位置がない（テストを中に持つ 58 個の
-本体の行数の中央値は 248）。
+行数は 3668 から数百まで切れ目なく並び、分ける・分けないのしきい値を置く自然な位置がない（テストを中に持つ 64 個の
+本体の行数の中央値は 310）。
 
 判断の軸:
 
@@ -39,7 +39,7 @@ issues: []
 ## 検討した案
 
 - 案 A: 今のまま、置き方を決めない。2 つの書き方が残り、大きなファイルは大きいまま
-- 案 B: しきい値（例えば 1000 行。超えるのは 12 個）を超えるファイルだけ分ける。変更は少ないが、しきい値に根拠がなく、
+- 案 B: しきい値（例えば 1000 行。超えるのは 13 個）を超えるファイルだけ分ける。変更は少ないが、しきい値に根拠がなく、
   ファイルが育ってしきい値を超えるたびに移す作業が出る。2 つの書き方が残る
 - 案 C: テストを持つすべてのモジュールで `<モジュール>/tests.rs` に分け、本番のファイルの中のテストのコードを検査で禁じる。
   `#[cfg(test)] mod tests;` の子モジュールは `use super::*;` で非公開の項目に触れられるので、単体テストとしての扱いは
@@ -57,9 +57,11 @@ issues: []
   `impl` に書ける（固有の `impl` は同じクレートのどのモジュールにも置ける）。2026-10-12 には、crates/format/src/fewgroup.rs
   の `sample`、`sample_pins`、crates/numeric/src/pins/node.rs の `modes_at`、`flux` がこれにあたる
 - 本番のファイルに残る `#[cfg(test)]` は、`mod tests;` の宣言と、ほかのモジュールのテストの補助を引く `use`
-  （例: crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`）だけにする
+  （例: crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`）だけにする。クレートの入口（`lib.rs`、
+  `main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
+  lint の注記）は、テストのコードでなく lint の設定なので残す
 - crates/docs の一貫性の検査（#0013）に、`crates/*/src` の `tests.rs` 以外のファイルが、上の 2 つ以外の `#[cfg(test)]`
-  の項目を持たないことを確かめるテストを足す
+  の項目と `cfg!(test)` を持たないことを確かめるテストを足す
 
 しきい値を置かないのは、根拠のある値がなく、すべてで分ければ検査が「本番のファイルにテストがない」の 1 つで済むから
 である。小さなファイルではファイルが 1 つ増えるが、パスで区別できる利点は大きさによらない。
@@ -68,16 +70,24 @@ issues: []
 
 - crates/docs の検査が、本番のファイルの中の `mod tests { … }` とテストだけの項目を見つけて失敗すること（検査のテストで、
   そうしたファイルを与えて確かめる）。移したあとの main で検査が通ること
-- 移すのはテストのコードだけで、本番のビルドは変わらない。本体はテストより前にあるので、移しても本体の行番号（`tracing`
-  の位置の情報に入る）は変わらない。移す前後で `cargo build --release` の xs、lattice、core の実行ファイルが
-  ビット単位で同じことを確かめる
+- 移すのはテストのコードだけで、`#[cfg(test)]` の項目は release のビルドに入らない。ファイルの末尾の `mod tests { … }`
+  だけを移すコミットでは、本体の行番号（`tracing` の位置の情報に入る）も変わらないので、移す前後で
+  `cargo build --release` の xs、lattice、core の実行ファイルがビット単位で同じことを確かめる
+- テストだけの項目のうち、本体の途中にあるもの（2026-10-12 には crates/numeric/src/pins/node.rs の `modes_at`、`flux`。
+  後ろに本番の `gradient`、`average` が続く）を移すと、後ろの本体の行番号がずれ、実行ファイルの位置の情報が変わる。
+  これは別のコミットにし、examples/m0 の DVC のステージ（数秒）を再実行して、出力（`*.log` を除く）の md5 が変わらない
+  ことで確かめる
 - `cargo test --workspace` のテストの件数（2026-10-12 に `#[test]` は 896 個）が、移す前後で同じこと
 
 ## 帰結
 
-- 実装（58 個のファイルの移動と検査）は、この ADR のあとの別のブランチで行う。テストの移動と検査の追加を別のコミットにする
-- crates/xs/src の `main.rs` のテストは `src/tests.rs` になる。同じディレクトリの `lib.rs` もテストを持つようになると
-  同じパスを求めてぶつかる。2026-10-12 には xs、lattice、core の `lib.rs` にテストがないので、ぶつかったときに置き方を決める
+- 実装（64 個のファイルの移動と検査）は、この ADR のあとの別のブランチで行う。テストの移動と検査の追加を別のコミットにする
+- xs、lattice、core は `src` に `lib.rs` と `main.rs` の両方を持ち、両方がテストを持つと、どちらの `mod tests;` も
+  `src/tests.rs` を指してぶつかる。2026-10-12 には、テストを持つのは xs の `main.rs` だけ（`src/tests.rs` になる）で、
+  ぶつからない。ぶつかったときに置き方を決める。crates/docs は `lib.rs` だけなので、そのテストは `src/tests.rs` になる
+- ADR と issue には、テストの場所をファイルのパスで書いたものがある（例: ADR-0132 の crates/core/src/nem.rs）。移す
+  ブランチで、それらのパスを `tests.rs` に直す。採用済みの ADR でも、参照の直しとして直してよい（docs/adr/README.md の
+  「運用」）
 - `examples/*/dvc.yaml` の段階は deps に `crates/*/src` のディレクトリを持つので、テストを移すと、出力が変わらなくても
   deps の md5 が変わる。扱いは /dvc-relock（ADR-0130）に従う。実行ファイルが同じことを確かめてあるので、再実行しても
   出力は変わらない
