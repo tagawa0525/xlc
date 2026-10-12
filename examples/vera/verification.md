@@ -248,7 +248,7 @@ python3 examples/vera/compare_p5.py openmc examples/vera/p5/core-5A.out examples
 ```
 
 計算: 集合体の格子は 0e189aa5（rebase の前の a57dcfdd で走らせた。コード、入力、xs.toml は同じ）、反射体の格子と 3 × 3 の
-MOC は ba2bf1a9（2026-10-12、分岐点 93868246）。炉心と比較は 44d05e3b（2026-10-12、分岐点 8a60d8c9）。ライブラリは、main の
+MOC は ba2bf1a9（2026-10-12、分岐点 93868246）。炉心と比較は 2e1da9bb（2026-10-12、分岐点 d9c528b4）。ライブラリは、main の
 核種ごとの xs の段階（ADR-0138）で d5fed456（分岐点 1842033d）に作り直し、格子が読んだものと md5 が同じ。k の差はどれも
 Δk/k（(k / k_参照 − 1) × 10⁵ pcm）。
 
