@@ -51,6 +51,7 @@ from typing import Any
 import msgpack
 import numpy as np
 import openmc
+import openmc_tallies
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -441,7 +442,9 @@ def axial_mesh(half: float) -> openmc.RectilinearMesh:
 
 
 def read_run(source: Path) -> dict[str, Any]:
-    return common_read_run(source, list(TEMPERATURE), OPTIONAL)
+    return common_read_run(
+        source, list(TEMPERATURE), OPTIONAL | openmc_tallies.OPTIONAL
+    )
 
 
 def solve(source: Path, work: Path, options: Options) -> None:
@@ -483,6 +486,22 @@ def solve(source: Path, work: Path, options: Options) -> None:
         tally.filters = [openmc.MeshFilter(mesh)]
         tally.scores = ["fission"]
         tallies.append(tally)
+    if openmc_tallies.enabled(run):
+        # 層は、燃料の下と上の構造（炉心板、ノズル、端栓、プレナム）の境と、表 P3-5 の 49 層
+        below = [PLATE_BOTTOM - WATER, PLATE_BOTTOM, NOZZLE_BOTTOM_TOP, ROD_BOTTOM]
+        above = [PLENUM_TOP, ROD_TOP, NOZZLE_TOP_BOTTOM, NOZZLE_TOP_TOP, PLATE_TOP]
+        tallies.extend(
+            openmc_tallies.assembly_3d(
+                list(materials),
+                [m.fuel],
+                # 上の tally と別のメッシュにする（同じメッシュのフィルタを OpenMC がまとめるときに ID の警告が出る）
+                pin_mesh([FUEL_BOTTOM, FUEL_TOP]),
+                half,
+                HALF_GAP,
+                [*below, *LEVELS, *above, PLATE_TOP + WATER],
+            )
+        )
+        openmc_tallies.quiet(settings)
     model = openmc.Model(geometry, materials, settings, tallies)
     run_model(model, run, work, options)
 

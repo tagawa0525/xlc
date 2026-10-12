@@ -56,10 +56,10 @@ stages:
       - openmc-library/cross_sections.xml
   openmc-1B:
     # ライブラリはディレクトリ全体を deps にする（どの核種が変わっても走るが、組成を写した並びの漏れがない。ADR-0130）
-    # 入力に effective-xs-groups（群構造を読む xlc のライブラリ）を書く段階は、そのファイルも deps に足す
     cmd: nix develop ../..#references -c python3 openmc_model.py run p1/openmc-1B.toml p1/openmc-1B
     deps:
       - openmc_model.py
+      - openmc_tallies.py
       - ../openmc_common.py
       - ../openmc_run.py
       - references-shell.txt
@@ -71,6 +71,7 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract p1/openmc-1B.toml p1/openmc-1B p1/openmc-1B-results
     deps:
       - openmc_model.py
+      - openmc_tallies.py
       - ../openmc_common.py
       - ../openmc_run.py
       - references-shell.txt
