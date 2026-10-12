@@ -50,7 +50,7 @@ def numbers(values):
 def case(name, steps, axial, partial=None):
     lines = [
         f"{NOTE}{name}",
-        'cycle = "cycle.toml"',
+        'cycle = "../cycle.toml"',
         f"axial-mesh = {numbers(axial)}",
         "radial-nodes = 1",
         'boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["marshak", "marshak"] }',
