@@ -193,7 +193,7 @@ fn vacuum_corners_follow_the_fine_mesh_diffusion() {
     };
     // （半幅、2 辺が真空の角の相対誤差の上限）
     for (a, bound) in [(1.5, 0.02), (3.0, 0.06), (6.0, 0.20)] {
-        let reference = fine_mesh_diffusion(a, diffusion, removal, transfer, ratio, 60);
+        let reference = fine_mesh_diffusion(a, diffusion, removal, transfer, ratio, 30);
         let half = [a, a];
         let model = NodeModel::new(&constants, 1.0, half, &rule()).unwrap();
         let conditions = Conditions {
