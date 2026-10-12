@@ -31,7 +31,7 @@ use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_danc
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
-use crate::ufg::{UfgError, cell_range, slowing_down};
+use crate::ufg::{CellSpectrum, UfgError, cell_range, slowing_down};
 
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -877,18 +877,33 @@ struct CellShielding {
     groups: std::ops::Range<usize>,
 }
 
-/// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
-/// リング（ギャップ、被覆管）、減速材（セルの外側の物質。等価なセルでは1つのリング）のそれぞれの核種に、そのリングの
-/// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、燃料は等価原理の値（`carlvik`）、それ以外は無限希釈。
-/// 燃料に分離共鳴を持つ核種がなければ `None`。
-fn shield_cell(
+/// 等価なセルの減速計算（[`solve_equivalent_cell`]）
+struct EquivalentCell<'a> {
+    /// 減速材のリングの外半径 (cm)
+    radius: f64,
+    cylinder: Cylinder,
+    /// リングごとの物質（真空は `None`）。中心の物質のリング、減速材の前までの帯、減速材、枠があれば枠
+    inputs: Vec<Option<&'a MaterialInput>>,
+    /// 減速材のリングの始まり
+    start: usize,
+    /// 最後のリングが枠か
+    frame: bool,
+    /// 減速計算した群
+    groups: std::ops::Range<usize>,
+    spectrum: CellSpectrum,
+}
+
+/// セル `pin.cell` の内側の `pin.rings` のリング（どれも同じ物質）を中心に、群ごとの Dancoff 係数 `dancoff` を合わせた
+/// 円筒の等価なセルを作り、減速計算を解く。範囲は `range_of`（等価なセルのリングごとの物質から決める）で、`None` なら
+/// 解かずに `None`。リングの扇形はどれも同じ物質で、減速材（セルのいちばん外の物質）は真空でないこと。
+fn solve_equivalent_cell<'a>(
     library: &Library,
     pin: &PinRings,
-    materials: &[MaterialInput],
+    materials: &'a [MaterialInput],
     dilute: &[Material],
     dancoff: &[f64],
-    carlvik: &[Shielded],
-) -> Result<Option<CellShielding>, SelfShieldingError> {
+    range_of: impl FnOnce(&[Option<&MaterialInput>]) -> Result<Option<[f64; 2]>, UfgError>,
+) -> Result<Option<EquivalentCell<'a>>, SelfShieldingError> {
     let cell = pin.cell;
     let geometry = pin
         .lattice
@@ -918,19 +933,19 @@ fn shield_cell(
         return Err(SelfShieldingError::CellShape(cell));
     }
     let input = |index: usize| (index != pin.void).then(|| &materials[index]);
-    let fuel = &materials[ring_index[0]];
+    let center = &materials[ring_index[0]];
     // 外周の枠: (物質の番号, 面積)。等価なセルでは減速材のリングの外に同じ面積のリングとして置く（枠の影と、
     // 支持格子の物質が減速材の中性子束を変える効果を入れるため）
     let frame = geometry
         .frame()
         .map(|(region, area)| (pin.region_index[first + region], area));
     let inputs: Vec<Option<&MaterialInput>> = (0..pin.rings)
-        .map(|_| Some(fuel))
+        .map(|_| Some(center))
         .chain(ring_index[pin.rings..start].iter().map(|&i| input(i)))
         .chain([input(moderator)])
         .chain(frame.map(|(i, _)| input(i)))
         .collect();
-    let Some(range) = cell_range(library, &inputs)? else {
+    let Some(range) = range_of(&inputs)? else {
         return Ok(None);
     };
     let bounds = library.groups.bounds();
@@ -975,7 +990,81 @@ fn shield_cell(
             .collect(),
     )?;
     let spectrum = slowing_down(library, &cylinder, &inputs, range)?;
+    Ok(Some(EquivalentCell {
+        radius,
+        cylinder,
+        inputs,
+        start,
+        frame: frame.is_some(),
+        groups: top..bottom,
+        spectrum,
+    }))
+}
+
+/// 中心のリングの群定数の平均: `base` の核種ごとの値の、UFG の範囲の群を、中心の `rings` のリングの値を中性子束と体積で
+/// 平均したものに置き換える（範囲の外の群は `base` のまま）。
+fn center_average(base: &[Shielded], equivalent: &EquivalentCell, rings: usize) -> Vec<Shielded> {
+    let EquivalentCell {
+        cylinder,
+        groups,
+        spectrum,
+        ..
+    } = equivalent;
     let volumes = cylinder.volumes();
+    base.iter()
+        .enumerate()
+        .map(|(k, c)| {
+            let mut s = c.clone();
+            for g in groups.clone() {
+                let weight = |j: usize| spectrum.flux[j][g - groups.start] * volumes[j];
+                let total_weight: f64 = (0..rings).map(weight).sum();
+                let average = |x: fn(&Shielded) -> &Vec<f64>| -> f64 {
+                    (0..rings)
+                        .map(|j| weight(j) * x(&spectrum.nuclides[j][k])[g - groups.start])
+                        .sum::<f64>()
+                        / total_weight
+                };
+                s.total[g] = average(|v| &v.total);
+                s.elastic[g] = average(|v| &v.elastic);
+                s.fission[g] = average(|v| &v.fission);
+                s.nu_fission[g] = average(|v| &v.nu_fission);
+            }
+            s
+        })
+        .collect()
+}
+
+/// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
+/// リング（ギャップ、被覆管）、減速材（セルの外側の物質。等価なセルでは1つのリング）のそれぞれの核種に、そのリングの
+/// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、燃料は等価原理の値（`carlvik`）、それ以外は無限希釈。
+/// 燃料に分離共鳴を持つ核種がなければ `None`。
+fn shield_cell(
+    library: &Library,
+    pin: &PinRings,
+    materials: &[MaterialInput],
+    dilute: &[Material],
+    dancoff: &[f64],
+    carlvik: &[Shielded],
+) -> Result<Option<CellShielding>, SelfShieldingError> {
+    let cell = pin.cell;
+    let Some(equivalent) =
+        solve_equivalent_cell(library, pin, materials, dilute, dancoff, |inputs| {
+            cell_range(library, inputs)
+        })?
+    else {
+        return Ok(None);
+    };
+    let EquivalentCell {
+        radius,
+        cylinder,
+        inputs,
+        start,
+        frame,
+        groups,
+        spectrum,
+    } = &equivalent;
+    let (top, bottom) = (groups.start, groups.end);
+    let bounds = library.groups.bounds();
 
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
@@ -1026,13 +1115,11 @@ fn shield_cell(
     let above: Vec<f64> = (0..top).map(|g| (bounds[g] / bounds[g + 1]).ln()).collect();
     // 支持格子のリングの断面積は格子に使わないので、因子を掛けない
     let mut fixed = vec![false; multigroup.len()];
-    if frame.is_some()
-        && let Some(last) = fixed.last_mut()
-    {
+    if *frame && let Some(last) = fixed.last_mut() {
         *last = true;
     }
     let sph = sph_factors(
-        &cylinder,
+        cylinder,
         &multigroup,
         &fixed,
         top..bottom,
@@ -1053,37 +1140,16 @@ fn shield_cell(
     }
 
     // 支持格子のリングの物質は格子に使わない（枠は塊として遮蔽する）
-    if frame.is_some() {
+    if *frame {
         rings.pop();
     }
 
     // 燃料の平均: 燃料のリングの中性子束と体積の重み
-    let effective = carlvik
-        .iter()
-        .enumerate()
-        .map(|(k, c)| {
-            let mut s = c.clone();
-            for g in top..bottom {
-                let weight = |j: usize| spectrum.flux[j][g - top] * volumes[j];
-                let total_weight: f64 = (0..pin.rings).map(weight).sum();
-                let average = |x: fn(&Shielded) -> &Vec<f64>| -> f64 {
-                    (0..pin.rings)
-                        .map(|j| weight(j) * x(&spectrum.nuclides[j][k])[g - top])
-                        .sum::<f64>()
-                        / total_weight
-                };
-                s.total[g] = average(|v| &v.total);
-                s.elastic[g] = average(|v| &v.elastic);
-                s.fission[g] = average(|v| &v.fission);
-                s.nu_fission[g] = average(|v| &v.nu_fission);
-            }
-            s
-        })
-        .collect();
+    let effective = center_average(carlvik, &equivalent, pin.rings);
     Ok(Some(CellShielding {
-        radius,
+        radius: *radius,
         rings,
-        start,
+        start: *start,
         effective,
         sph,
         groups: top..bottom,
