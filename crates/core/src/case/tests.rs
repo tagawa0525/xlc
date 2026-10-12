@@ -193,3 +193,14 @@ fn states_give_the_same_k_on_one_and_many_threads() {
     };
     assert_eq!(k(1), k(4));
 }
+
+#[test]
+fn tables_must_match_the_layout_files() {
+    let (layout, mut tables) = core();
+    let options = Options::default();
+    let state = given("aro", 1100.0, 565.0);
+    tables.push(tables[0].clone());
+    assert!(solve_at(&layout, &tables, Some(&state.state), &options).is_err());
+    tables.truncate(layout.files.len() - 1);
+    assert!(solve_at(&layout, &tables, Some(&state.state), &options).is_err());
+}
