@@ -150,7 +150,10 @@ def compare_assemblies(
     if not np.array_equal(fuel, ~np.isnan(ours)):
         raise SystemExit("assembly maps differ in fuel positions")
     ours = ours / ours[fuel].mean()
-    reference = reference / reference[fuel].mean()
+    mean = reference[fuel].mean()
+    reference = reference / mean
+    if std is not None:
+        std = std / mean
     rel = ours[fuel] / reference[fuel] - 1
     absolute = ours[fuel] - reference[fuel]
     where = np.argwhere(fuel)
