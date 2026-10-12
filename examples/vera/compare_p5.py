@@ -163,7 +163,9 @@ def compare_assemblies(
         print(
             f"reference relative std: median {100 * np.median(s):.3f}%, max {100 * s.max():.3f}%"
         )
-    print("quarter (rows 8-15 from the top, columns H-A), xlc / reference:")
+    print(
+        "lower-right quarter from the centre row and column (rows 8-15, columns H-A in 5-2D), xlc / reference:"
+    )
     n = fuel.shape[0] // 2
     for r in range(n, fuel.shape[0]):
         print(
