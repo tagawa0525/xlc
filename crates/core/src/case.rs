@@ -5,6 +5,7 @@ use xlc_format::table::Table;
 
 use crate::input::{Boron, CaseState, InputError, Layout};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
+use crate::search::{SearchError, find};
 use crate::state::{State, interpolate};
 
 /// 状態を解いた結果。
@@ -79,8 +80,35 @@ pub fn solve_state(
         Boron::Given(ppm) => return solve_at(layout, tables, Some(&state.at(*ppm)), options),
         Boron::Search(search) => search,
     };
-    let _ = search;
-    todo!()
+    // 固有値の反復が k を区別できる幅より細かい許容では、収束を判定できない
+    if search.tolerance <= options.k_tolerance {
+        return Err(CaseError::Search(format!(
+            "tolerance {} must exceed the eigenvalue tolerance {}",
+            search.tolerance, options.k_tolerance
+        )));
+    }
+    let found = find(
+        search.bracket,
+        search.k,
+        search.tolerance,
+        search.max_solves,
+        |ppm| {
+            let solved = solve_at(layout, tables, Some(&state.at(ppm)), options)?;
+            tracing::debug!(ppm, k = solved.solution.k, "boron search");
+            Ok((solved.solution.k, solved))
+        },
+    )
+    .map_err(|e| match e {
+        SearchError::Solve(e) => e,
+        e => CaseError::Search(e.to_string()),
+    })?;
+    Ok(Solved {
+        searched: Some(Searched {
+            ppm: found.x,
+            solves: found.solves,
+        }),
+        ..found.at
+    })
 }
 
 /// ケースの状態を並列に解く（結果は `states` の順）。各状態の解は1つのスレッドで解くので、スレッドの数によらない。
