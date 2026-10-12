@@ -2600,10 +2600,9 @@ mod tests {
             assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
         }
 
-        #[test]
-        fn absorber_rods_are_shielded_by_slowing_down() {
-            // 燃料のピンに囲まれた、分離共鳴を持つ U-238 だけの（核分裂しない）棒。UFG の範囲の群（1, 2）の棒の
-            // 実効断面積は、塊の Dancoff 係数を合わせた等価なセルの減速計算を、棒のリングの中性子束と体積で平均したもの
+        /// 燃料のピンに囲まれた、分離共鳴を持つ U-238 だけの（核分裂しない）棒（中央のセル 4 の内側の 2 リング）の
+        /// 3 × 3 の格子を遮蔽する
+        fn rod_lattice() -> (Library, Vec<MaterialInput>, FuelShielding) {
             let library = resonant_library();
             let material = |name: &str, composition: &[(&str, f64)]| MaterialInput {
                 name: name.into(),
@@ -2640,6 +2639,14 @@ mod tests {
                 &ShieldingOptions::default(),
             )
             .unwrap();
+            (library, materials, shielded)
+        }
+
+        #[test]
+        fn absorber_rods_are_shielded_by_slowing_down() {
+            // UFG の範囲の群（1, 2）の棒の実効断面積は、塊の Dancoff 係数を合わせた等価なセルの減速計算を、棒の
+            // リングの中性子束と体積で平均したもの
+            let (library, materials, shielded) = rod_lattice();
             let lump = shielded
                 .lumps
                 .iter()
@@ -2684,6 +2691,22 @@ mod tests {
                     "group {g}: {total} vs {expected}"
                 );
             }
+        }
+
+        #[test]
+        fn absorber_rod_rings_take_their_own_cross_sections() {
+            // 棒のリングは、等価なセルのリングの群定数に SPH 因子を掛けたもの（燃料のピンと同じ）。UFG の範囲の群では
+            // 内側のリングほど共鳴が遮蔽される
+            let (_, _, shielded) = rod_lattice();
+            let total = |region: usize, g: usize| {
+                shielded.materials[shielded.region_material[region]].total[g]
+            };
+            assert!(
+                total(12, 1) < total(13, 1),
+                "{} vs {}",
+                total(12, 1),
+                total(13, 1)
+            );
         }
 
         #[test]
