@@ -123,6 +123,20 @@ fn fewer_than_two_solves_are_errors_before_any_solve() {
 }
 
 #[test]
+fn tolerances_that_are_not_positive_are_errors_before_any_solve() {
+    for tolerance in [0.0, -1.0e-6, f64::NAN] {
+        let mut solves = 0;
+        let error = find([0.0, 3000.0], 1.0, tolerance, 10, |x| {
+            solves += 1;
+            Ok::<_, String>((curved(x), ()))
+        })
+        .unwrap_err();
+        assert!(matches!(error, SearchError::Tolerance { .. }), "{error}");
+        assert_eq!(solves, 0);
+    }
+}
+
+#[test]
 fn exceeding_the_solves_is_an_error() {
     let error = find([0.0, 3000.0], 1.0, 1.0e-10, 4, values(curved)).unwrap_err();
     assert!(
