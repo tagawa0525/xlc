@@ -143,8 +143,19 @@ pub struct LumpShielding {
     /// 棒（ピンセルの内側のリングを埋める塊）を UFG の範囲で遮蔽した等価なセルの減速材のリングの外半径 (cm)。
     /// 棒でない塊と、分離共鳴を持つ核種のない棒は `None`（ADR-0142）
     pub equivalent: Option<f64>,
+    /// 棒のリングの SPH 因子（[棒のリング][群 − `groups.start`]）と、その群。棒でない塊は `None`
+    pub sph: Option<(Vec<Vec<f64>>, std::ops::Range<usize>)>,
     /// 物質の核種ごとの実効断面積（物質の組成の順）。棒の UFG の範囲の群は、棒のリングの減速計算の平均
     pub effective: Vec<Shielded>,
+}
+
+impl LumpShielding {
+    /// 塊の領域 `region` の、セルの中のリングの番号
+    fn ring_of(lattice: &Lattice, region: usize) -> Option<usize> {
+        let home = lattice.region_cell(region);
+        let sectors = lattice.cell_type(home).pin()?.sectors();
+        Some((region - lattice.cell_regions(home).start) / sectors)
+    }
 }
 
 /// 1本のピンの燃料の自己遮蔽の結果。格子の対称性で移り合うピンは、組の代表（最も小さいセル番号）の結果を
@@ -180,7 +191,7 @@ pub struct Sph {
 
 impl FuelShielding {
     /// MOC の中性子束 `flux`（[領域][群]）を物理的な中性子束にする。SPH 因子 μ を掛けた領域と群では、MOC の中性子束は
-    /// 物理的な中性子束の 1/μ になる（反応率は μσ × φ/μ で物理的な値のまま）ので、μ を掛けて戻す
+    /// 物理的な中性子束の 1/μ になる（反応率は μσ × φ/μ で物理的な値のまま）ので、μ を掛けて戻す（燃料のピンの等価なセルのリングと、棒の塊のリング）
     pub fn physical_flux(
         &self,
         lattice: &Lattice,
@@ -230,6 +241,26 @@ impl FuelShielding {
                     for (g, mu) in sph.groups.clone().zip(factors) {
                         physical[region][g] *= mu;
                     }
+                }
+            }
+        }
+        // 棒のリングの因子（ADR-0142）
+        for lump in &self.lumps {
+            let Some((factors, range)) = &lump.sph else {
+                continue;
+            };
+            let layout = || SelfShieldingError::SphLayout(lump.cell);
+            if range.end > groups {
+                return Err(layout());
+            }
+            for &region in &lump.regions {
+                let ring = LumpShielding::ring_of(lattice, region).ok_or_else(layout)?;
+                let row = factors.get(ring).ok_or_else(layout)?;
+                if row.len() != range.len() {
+                    return Err(layout());
+                }
+                for (g, mu) in range.clone().zip(row) {
+                    physical[region][g] *= mu;
                 }
             }
         }
@@ -778,7 +809,7 @@ fn shield_lumps(
             }
             None => None,
         };
-        let (tables, equivalent) = match rod {
+        let (tables, equivalent, sph) = match rod {
             Some((c, rings)) => {
                 // 棒のリングの物質。塊の領域のリングは、その領域のセル（対称操作の像）の中の番号から求める
                 let mut ring_material = Vec::with_capacity(rings);
@@ -788,18 +819,13 @@ fn shield_lumps(
                     ring_material.push(shielded.materials.len() - 1);
                 }
                 for &region in &lump_regions {
-                    let home = lattice.region_cell(region);
-                    let sectors = lattice
-                        .cell_type(home)
-                        .pin()
-                        .ok_or(SelfShieldingError::CellShape(home))?
-                        .sectors();
-                    let ring = (region - lattice.cell_regions(home).start) / sectors;
-                    shielded.region_material[region] = *ring_material
-                        .get(ring)
-                        .ok_or(SelfShieldingError::CellShape(home))?;
+                    let shape = || SelfShieldingError::CellShape(lattice.region_cell(region));
+                    let ring = LumpShielding::ring_of(lattice, region).ok_or_else(shape)?;
+                    shielded.region_material[region] =
+                        *ring_material.get(ring).ok_or_else(shape)?;
                 }
-                (c.effective, Some(c.radius))
+                let factors = c.sph.into_iter().take(rings).collect();
+                (c.effective, Some(c.radius), Some((factors, c.groups)))
             }
             None => {
                 let nuclides = material
@@ -824,7 +850,7 @@ fn shield_lumps(
                 for &region in &lump_regions {
                     shielded.region_material[region] = m;
                 }
-                (tables, None)
+                (tables, None, None)
             }
         };
         shielded.lumps.push(LumpShielding {
@@ -834,6 +860,7 @@ fn shield_lumps(
             dancoff: found.dancoff.clone(),
             chord: found.chord,
             equivalent,
+            sph,
             effective: tables,
         });
     }
