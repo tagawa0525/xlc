@@ -1,8 +1,9 @@
 //! 少数群定数の分岐のテーブル（`lattice` から `core` に渡すファイル。ADR-0097）。
 //!
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
-//! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`boron`、`moderator`、`fuel`）と
-//! `points`（昇順。ppm か K）。`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の原子分率）も持つ）,
+//! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`boron`、`moderator`、`fuel`、`rod`）。
+//! 連続の軸は `points`（昇順。ppm か K）を持ち、`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の
+//! 原子分率）も持つ。離散の軸の `rod` は `points` の代わりに `values`（制御棒の値の名前の列。`out` は棒のない状態）を持つ）,
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
 //! -y の行から、各行は -x から）。各状態は少数群定数の `bounds` 以外の項目。`height` は数か nil、`pins` は
@@ -26,7 +27,13 @@ pub enum Axis {
     },
     /// 燃料の温度 (K)
     Fuel { temperature: Vec<f64> },
+    /// 制御棒（離散の軸。ADR-0097、ADR-0127）: 値の名前の列。棒のない状態は `out`、ほかは棒の区間の材料の名前
+    /// （炉心の形の制御棒の型が使う名前）。core は内挿せず、ノードの区間の値で選ぶ
+    Rod { values: Vec<String> },
 }
+
+/// 制御棒の軸の、棒のない状態の値の名前
+pub const ROD_OUT: &str = "out";
 
 impl Axis {
     pub fn name(&self) -> &'static str {
@@ -34,14 +41,30 @@ impl Axis {
             Self::Boron { .. } => "boron",
             Self::Moderator { .. } => "moderator",
             Self::Fuel { .. } => "fuel",
+            Self::Rod { .. } => "rod",
         }
     }
 
+    /// 連続の軸の格子点。離散の軸（`Rod`）は空で、値の数は `len`
     pub fn points(&self) -> &[f64] {
         match self {
             Self::Boron { ppm, .. } => ppm,
             Self::Moderator { temperature, .. } | Self::Fuel { temperature } => temperature,
+            Self::Rod { .. } => &[],
         }
+    }
+
+    /// 軸の格子点（離散の軸は値）の数
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Rod { values } => values.len(),
+            _ => self.points().len(),
+        }
+    }
+
+    /// 格子点も値もないか（`validate_axes` はエラーにする）
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -54,11 +77,31 @@ pub fn validate_axes(axes: &[Axis]) -> Result<(), String> {
             return Err(format!("axis {name} appears twice"));
         }
         names.push(name);
+        if let Axis::Rod { values } = axis {
+            // 値は名前で選ぶので、空でなく、区切りの空白を含まず、重ならない
+            let distinct = values
+                .iter()
+                .enumerate()
+                .all(|(i, v)| !values[..i].contains(v));
+            if values.is_empty()
+                || !distinct
+                || values
+                    .iter()
+                    .any(|v| v.is_empty() || v.chars().any(char::is_whitespace))
+            {
+                return Err(format!(
+                    "axis rod: values must be distinct names without spaces, got {values:?}"
+                ));
+            }
+            continue;
+        }
         let points = axis.points();
         // ホウ素濃度は 0 を含み、温度は正
         let valid = |p: f64| match axis {
             Axis::Boron { .. } => p >= 0.0 && p.is_finite(),
-            Axis::Moderator { .. } | Axis::Fuel { .. } => p > 0.0 && p.is_finite(),
+            Axis::Moderator { .. } | Axis::Fuel { .. } | Axis::Rod { .. } => {
+                p > 0.0 && p.is_finite()
+            }
         };
         if points.is_empty()
             || !points.iter().all(|&p| valid(p))
@@ -134,7 +177,10 @@ struct TableFile {
 #[serde(deny_unknown_fields)]
 pub(crate) struct AxisFile {
     name: String,
-    points: Vec<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    points: Option<Vec<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    values: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     density: Option<Vec<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -145,7 +191,14 @@ impl From<&Axis> for AxisFile {
     fn from(axis: &Axis) -> Self {
         Self {
             name: axis.name().into(),
-            points: axis.points().to_vec(),
+            points: match axis {
+                Axis::Rod { .. } => None,
+                _ => Some(axis.points().to_vec()),
+            },
+            values: match axis {
+                Axis::Rod { values } => Some(values.clone()),
+                _ => None,
+            },
             density: match axis {
                 Axis::Moderator { density, .. } => Some(density.clone()),
                 _ => None,
@@ -162,17 +215,17 @@ impl TryFrom<AxisFile> for Axis {
     type Error = String;
 
     fn try_from(a: AxisFile) -> Result<Self, String> {
-        match (a.name.as_str(), a.density, a.b10) {
-            ("boron", None, Some(b10)) => Ok(Axis::Boron { ppm: a.points, b10 }),
-            ("moderator", Some(density), None) => Ok(Axis::Moderator {
-                temperature: a.points,
+        match (a.name.as_str(), a.points, a.values, a.density, a.b10) {
+            ("boron", Some(ppm), None, None, Some(b10)) => Ok(Axis::Boron { ppm, b10 }),
+            ("moderator", Some(temperature), None, Some(density), None) => Ok(Axis::Moderator {
+                temperature,
                 density,
             }),
-            ("fuel", None, None) => Ok(Axis::Fuel {
-                temperature: a.points,
-            }),
+            ("fuel", Some(temperature), None, None, None) => Ok(Axis::Fuel { temperature }),
+            ("rod", None, Some(values), None, None) => Ok(Axis::Rod { values }),
             (name, ..) => Err(format!(
-                "axis {name}: unknown name or wrong fields (boron has b10, moderator has density)"
+                "axis {name}: unknown name or wrong fields (boron, moderator and fuel have points, \
+                 boron has b10, moderator has density, rod has values instead of points)"
             )),
         }
     }
@@ -240,7 +293,7 @@ impl Table {
         if self.split == 0 {
             return invalid("split must be positive".into());
         }
-        let points: usize = self.axes.iter().map(|a| a.points().len()).product();
+        let points: usize = self.axes.iter().map(Axis::len).product();
         let sub = self.sub_nodes();
         if self.states.len() != points * sub {
             return invalid(format!(
