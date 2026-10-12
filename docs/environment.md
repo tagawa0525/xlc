@@ -83,6 +83,30 @@ nix develop .#references -c sh -c \
   'OMP_NUM_THREADS=16 python3 examples/c5g7/openmc_model.py references/openmc/work 1000000 400 100 2'
 ```
 
+## 外部の計算機（AWS）
+
+r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討段階）。c7a は vCPU が物理コアで、
+x86_64 の nix のクロージャをそのまま送れる。起動、実行、回収、削除のツールは未実装（feat/0073-openmc-library のブランチで作業中）。
+
+ユーザーが用意するもの:
+
+- AWS アカウントと支払い方法
+- 予算アラート（AWS Budgets）
+- スポットの vCPU クォータ（承認に日数がかかるので最初に申請する。4 本並列で 64 vCPU。"All Standard Spot Instance Requests"。リージョンごと。既定値は確認していないので、足りなければ引き上げを申請する）
+- リージョン（us-east-1 か us-east-2 を既定にする）
+- 次の方式のどちらか
+  - 方式 A（SSH の接続先を渡す）: Ubuntu の c7a を起動し（1 本に c7a.4xlarge を 1 台）、SSH 鍵と、自分の IP からの SSH を許可するセキュリティグループを用意して、ホスト名とユーザー名を渡す。VM の削除と、スポット中断後の再起動はユーザーが行う
+  - 方式 B（認証情報を渡す）: EC2 の起動、停止、終了、describe に絞った IAM ユーザー（またはロール）のアクセスキーを渡す。起動には `iam:PassRole` を使う場合のほか、キーペア、セキュリティグループ、スポットの要求の権限も要るので、最小の権限はツールを作るときに決める。予算上限を設定し、使い終わったら失効させる。起動、再起動、削除までこちらで行える
+
+こちらで行うこと:
+
+- VM に nix を入れる
+- `nix copy --to ssh-ng://<host> .#openmc .#openmc-python` でクロージャを送る
+- 核データ（591 MB）と入力、スクリプトを送る
+- 1 本ずつ別の VM で、並列に実行する（スレッド数は VM の物理コア数に合わせる）
+- 結果（数十 MB）を回収する
+- VM を削除する（方式 B）
+
 ## VERA の参照解
 
 VERA Problem 1B〜1D, 2A〜2K, 2Q の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
