@@ -357,13 +357,67 @@ fn with_states() -> String {
 fn named(name: &str, boron: f64, temperature: f64) -> CaseState {
     CaseState {
         name: name.into(),
-        state: State {
-            boron,
-            b10: 0.199,
-            moderator: temperature,
-            fuel: temperature,
-        },
+        boron: Boron::Given(boron),
+        b10: 0.199,
+        moderator: temperature,
+        fuel: temperature,
     }
+}
+
+const SEARCH: &str = r#"
+[state.critical]
+b10 = 0.199
+moderator = 565
+fuel = 565
+search = { boron = [1000.0, 1400.0], k = 1.0, tolerance = 1.0e-6, max-solves = 20 }
+"#;
+
+#[test]
+fn parses_boron_searches() {
+    let c = Case::parse(&format!("{CASE}{SEARCH}"), base()).unwrap();
+    assert_eq!(
+        c.states,
+        vec![CaseState {
+            name: "critical".into(),
+            boron: Boron::Search(BoronSearch {
+                bracket: [1000.0, 1400.0],
+                k: 1.0,
+                tolerance: 1.0e-6,
+                max_solves: 20,
+            }),
+            b10: 0.199,
+            moderator: 565.0,
+            fuel: 565.0,
+        }]
+    );
+    assert_eq!(
+        c.states[0].at(1200.0),
+        State {
+            boron: 1200.0,
+            b10: 0.199,
+            moderator: 565.0,
+            fuel: 565.0,
+        }
+    );
+}
+
+#[test]
+fn invalid_boron_searches_are_errors() {
+    let bad = |from: &str, to: &str| {
+        Case::parse(&edited(&format!("{CASE}{SEARCH}"), from, to), base()).is_err()
+    };
+    // boron と search はどちらか一方
+    assert!(bad("search = {", "boron = 1200\nsearch = {"));
+    // 探索の範囲、目標、許容、回数
+    assert!(bad("[1000.0, 1400.0]", "[1400.0, 1000.0]"));
+    assert!(bad("[1000.0, 1400.0]", "[1000.0, 1000.0]"));
+    assert!(bad("[1000.0, 1400.0]", "[-1.0, 1400.0]"));
+    assert!(bad("[1000.0, 1400.0]", "[1000.0, inf]"));
+    assert!(bad("k = 1.0", "k = 0.0"));
+    assert!(bad("tolerance = 1.0e-6", "tolerance = 0.0"));
+    assert!(bad("tolerance = 1.0e-6", "tolerance = nan"));
+    assert!(bad("max-solves = 20", "max-solves = 1"));
+    assert!(bad("max-solves = 20", "max-solve = 20"));
 }
 
 #[test]

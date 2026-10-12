@@ -1,17 +1,26 @@
-//! ケースの状態ごとの固有値計算（ADR-0146）。
+//! ケースの状態ごとの固有値計算（ADR-0146）と、臨界ホウ素濃度の探索（ADR-0145）。
 
 use rayon::prelude::*;
 use xlc_format::table::Table;
 
-use crate::input::{CaseState, InputError, Layout};
+use crate::input::{Boron, CaseState, InputError, Layout};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::state::{State, interpolate};
 
 /// 状態を解いた結果。
 #[derive(Debug, Clone)]
 pub struct Solved {
+    /// 探索したホウ素濃度（探索した状態だけ）
+    pub searched: Option<Searched>,
     pub problem: Problem,
     pub solution: Solution,
+}
+
+/// 探索したホウ素濃度と、そのための固有値計算の回数。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Searched {
+    pub ppm: f64,
+    pub solves: usize,
 }
 
 /// 状態を解くときのエラー。
@@ -24,6 +33,8 @@ pub enum CaseError {
     Input(#[from] InputError),
     #[error(transparent)]
     Nem(#[from] NemError),
+    #[error("boron search: {0}")]
+    Search(String),
 }
 
 /// テーブル（`layout.files` の順）を状態 `state`（`None` なら軸のないテーブル）で内挿し、炉心を解く。
@@ -50,7 +61,26 @@ pub fn solve_at(
         .collect::<Result<Vec<_>, _>>()?;
     let problem = layout.problem(&constants)?;
     let solution = solve(&problem, options)?;
-    Ok(Solved { problem, solution })
+    Ok(Solved {
+        searched: None,
+        problem,
+        solution,
+    })
+}
+
+/// ケースの状態を1つ解く。探索の状態は、k が目標になるホウ素濃度を探す（ADR-0145）。
+pub fn solve_state(
+    layout: &Layout,
+    tables: &[Table],
+    state: &CaseState,
+    options: &Options,
+) -> Result<Solved, CaseError> {
+    let search = match &state.boron {
+        Boron::Given(ppm) => return solve_at(layout, tables, Some(&state.at(*ppm)), options),
+        Boron::Search(search) => search,
+    };
+    let _ = search;
+    todo!()
 }
 
 /// ケースの状態を並列に解く（結果は `states` の順）。各状態の解は1つのスレッドで解くので、スレッドの数によらない。
@@ -64,7 +94,7 @@ pub fn solve_states(
         .par_iter()
         .map(|state| {
             let _span = tracing::info_span!("state", name = %state.name).entered();
-            solve_at(layout, tables, Some(&state.state), options)
+            solve_state(layout, tables, state, options)
         })
         .collect()
 }
