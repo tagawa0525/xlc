@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-10-12
-requires: [ADR-0123]
+requires: [ADR-0123, ADR-0130]
 supersedes: []
 superseded-by:
 issues: ["#0089"]
@@ -26,7 +26,7 @@ issues: ["#0089"]
 | crates/lattice/src/input.rs     | 2153 | 1015（47%）          |
 
 行数は 3668 から数百まで切れ目なく並び、分ける・分けないのしきい値を置く自然な位置がない（テストを中に持つ 64 個の
-本体の行数の中央値は 310）。
+ファイルで、テストのモジュールの `#[cfg(test)]` より前の行数の中央値は 308.5）。
 
 判断の軸:
 
@@ -65,8 +65,9 @@ issues: ["#0089"]
   テストが使う項目（`sample` は crates/format/src/table/tests.rs が使う）は、`pub(crate) mod tests;` の中に置き、
   呼び出し側は `crate::fewgroup::tests::sample` のように `tests` を通して引く
 - 本番のファイルに残る `#[cfg(test)]` は、`mod tests;` の宣言と、パスが `tests` のモジュールを通る `use`（ほかの
-  モジュールのテストの補助を引くもの。例: crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`、
-  `pub(crate) use tape::tests::rec;`）だけにする。クレートの入口（`lib.rs`、`main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
+  モジュールのテストの補助を引くもの。2026-10-12 には crates/xs/src/endf/mod.rs の `pub(crate) use mf5::tests as mf5_tests;`、
+  `pub(crate) use tape::tests::rec;`、crates/xs/src/resonance/mod.rs と crates/xs/src/multigroup/mod.rs の同じ形の
+  `use`）だけにする。クレートの入口（`lib.rs`、`main.rs`）の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`（テストのビルドで `assert!` を許す。Cargo.toml の
   lint の注記）は、テストのコードでなく lint の設定なので残す
 - crates/docs の一貫性の検査（#0013）に、`crates/*/src` の `tests.rs` 以外のファイルが、上で残すもの以外のテストの
   コード（`#[test]`、`mod tests { … }`、条件に `test` を含む `cfg`、`cfg_attr`、`cfg!`）を持たないことを確かめるテストを
@@ -84,17 +85,18 @@ issues: ["#0089"]
 - crates/docs の検査が、本番のファイルの中の `mod tests { … }` とテストだけの項目を見つけて失敗すること（検査のテストで、
   そうしたファイルを与えて確かめる）。移したあとの main で検査が通ること
 - 移すのはテストのコードだけで、`#[cfg(test)]` の項目は release のビルドに入らない。ファイルの末尾の `mod tests { … }`
-  だけを移すコミットでは、本体の行番号（`tracing` の位置の情報に入る）も変わらないので、移す前後で
+  と、後ろに本番の項目が続かないテストだけの項目（crates/format/src/fewgroup.rs の `sample`、`sample_pins`）だけを移す
+  コミットでは、本体の行番号（`tracing` の位置の情報に入る）も変わらないので、移す前後で
   `cargo build --release` の xs、lattice、core の実行ファイルがビット単位で同じことを確かめる。実行ファイルには
   worktree の絶対パスが入る（examples/m0/dvc.yaml の注記。ADR-0123）ので、前後の 2 つのコミットは同じ worktree で
-  checkout してビルドする。比べる前に、移す前のコミットを 2 回ビルドして実行ファイルが一致することを確かめる（同じ
+  checkout してビルドする。比べる前に、移す前のコミットを、間に `cargo clean` を挟んで 2 回ビルドし、実行ファイルが一致することを確かめる（同じ
   パスでのビルドし直しがビット一致するかは、ADR-0123 の案 I で確かめていない）。一致しなければ、比べ方を実装の
   ブランチで決め直す
 - テストだけの項目のうち、本体の途中にあるもの（2026-10-12 には crates/numeric/src/pins/node.rs の `modes_at`、`flux`。
   後ろに本番の `gradient`、`average` が続き、lattice と core の実行ファイルに入る）を移すと、後ろの本体の行番号がずれ、
   実行ファイルの位置の情報だけが変わる。これは別のコミットにし、そのコミットの本番のファイルの差分が `#[cfg(test)]` の
   項目を消す行だけであることを、差分で確かめる。release のビルドに入らない項目を消しただけなので、出力は変わらない。
-  DVC の段階は走らせ直さない
+  この確認のために DVC の段階を走らせることはしない（段階は、下の「帰結」のとおり次の `dvc repro` で走る）
 - 移す前後で、`cargo test --workspace` が出す `passed` の件数の和が同じこと
 
 ## 帰結
