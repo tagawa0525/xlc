@@ -293,6 +293,9 @@ fn same_sizes(a: &[f64], b: &[f64]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| (x - y).abs() <= 1e-9 * scale)
 }
 
+/// ノードの列（行）ごとのセルの大きさ (cm)
+type CellSizes = Vec<Vec<f64>>;
+
 /// 核分裂のあるノードか（ノードのない位置は核分裂なし）
 fn fissile_node(problem: &Problem, n: usize) -> Result<bool, String> {
     match problem.node_material.get(n).copied().flatten() {
@@ -311,7 +314,7 @@ fn fissile_node(problem: &Problem, n: usize) -> Result<bool, String> {
 /// それらはそろうこと。核分裂のないノード（反射体）のセルは 0 なので、表ではセルの大きさによらず 0 で埋める。
 /// 階段の外形の炉心では、燃料の列に、セルの幅の違う向きの反射体のノードが並ぶ（ADR-0132）。核分裂のあるノードの
 /// ない列（行）はすべて 0 で、表に残らないので、セルを持たない
-fn cell_sizes(problem: &Problem) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>), String> {
+fn cell_sizes(problem: &Problem) -> Result<(CellSizes, CellSizes), String> {
     let mesh = &problem.mesh;
     let (nx, ny, nz) = (mesh.dx.len(), mesh.dy.len(), mesh.dz.len());
     let sizes = |count: usize,
@@ -319,7 +322,7 @@ fn cell_sizes(problem: &Problem) -> Result<(Vec<Vec<f64>>, Vec<Vec<f64>>), Strin
                  at: &dyn Fn(usize, usize, usize) -> usize,
                  size: fn(&Pins) -> &[f64],
                  what: &str|
-     -> Result<Vec<Vec<f64>>, String> {
+     -> Result<CellSizes, String> {
         (0..count)
             .map(|c| {
                 let mut first: Option<&[f64]> = None;
