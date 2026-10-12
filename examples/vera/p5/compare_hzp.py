@@ -235,10 +235,11 @@ def main() -> None:
             raise SystemExit(
                 f"state {name}: the output has a boron line only for -boron states"
             )
-        # 探索の状態の k は、ケースに書いた許容の中で 1（ADR-0145）
+        # 探索の状態の k は、ケースに書いた許容の中で 1（ADR-0145）。出力の k は小数 8 桁に丸めてある
+        rounding = 0.5e-8
         if (
             name in searches
-            and abs(results[name]["k"] - 1.0) > searches[name]["tolerance"]
+            and abs(results[name]["k"] - 1.0) > searches[name]["tolerance"] + rounding
         ):
             raise SystemExit(
                 f"state {name}: searched k {results[name]['k']} is not within the tolerance of 1"
