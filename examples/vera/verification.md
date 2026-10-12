@@ -247,8 +247,9 @@ dvc repro examples/vera/p5/dvc.yaml
 python3 examples/vera/compare_p5.py openmc examples/vera/p5/core-5A.out examples/vera/p5/core-5A-pins.msgpack <結果のディレクトリ>
 ```
 
-計算: ライブラリ（xs）と集合体の格子は 9a632264（rebase の前の a57dcfdd で実行した。コード、入力、xs.toml は同じ）、反射体の
-格子と 3 × 3 の MOC は cea403cb、炉心と比較は cea403cb と bba0a133（2026-10-12、分岐点 4487fa27）。
+計算: 集合体の格子は 9a632264（rebase の前の a57dcfdd で実行した。コード、入力、xs.toml は同じ）、反射体の格子と 3 × 3 の
+MOC は cea403cb、炉心と比較は cea403cb と bba0a133（2026-10-12、分岐点 4487fa27）。ライブラリは、main の核種ごとの xs の
+段階（ADR-0138）で 2d649063（分岐点 14793ea7）に作り直し、格子が読んだものと md5 が同じ。
 
 ### 入力の構成
 
