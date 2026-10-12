@@ -4,7 +4,7 @@ date: 2026-10-12
 requires: [ADR-0097, ADR-0105, ADR-0122, ADR-0127]
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0092"]
 ---
 
 # ADR-0146: 1 つのケースに名前つきの状態を複数書いて並列に解き、価値と係数は比較の道具が k の差から求める
