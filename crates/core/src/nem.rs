@@ -228,15 +228,18 @@ fn iterate(
 
     // `Refresh::sites` のノードの番号
     let refreshed: Vec<usize> = match &refresh {
-        Some(r) => r
-            .sites()
-            .iter()
-            .map(|&site| {
-                (0..nodes)
-                    .find(|&n| core.site(n) == site)
-                    .ok_or_else(|| NemError::InvalidProblem(format!("position {site} has no node")))
-            })
-            .collect::<Result<_, _>>()?,
+        Some(r) => {
+            let node_of: std::collections::HashMap<usize, usize> =
+                (0..nodes).map(|n| (core.site(n), n)).collect();
+            r.sites()
+                .iter()
+                .map(|site| {
+                    node_of.get(site).copied().ok_or_else(|| {
+                        NemError::InvalidProblem(format!("position {site} has no node"))
+                    })
+                })
+                .collect::<Result<_, _>>()?
+        }
         None => Vec::new(),
     };
 
