@@ -29,6 +29,8 @@ pub enum SearchError<E> {
         at_high: f64,
         target: f64,
     },
+    #[error("max solves {max_solves} cannot reach both ends of the bracket")]
+    TooFewSolves { max_solves: usize },
     #[error("the value at {x} is {value}, not a finite number")]
     NotFinite { x: f64, value: f64 },
     #[error(
