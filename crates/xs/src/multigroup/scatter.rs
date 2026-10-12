@@ -931,7 +931,16 @@ mod tests {
         // 重み関数の熱領域（0.1 eV 以下）は kT = 0.0253 eV の Maxwell 分布なので、
         // 同じ温度の自由ガスなら群間でも φ_g σ(g→g') = φ_g' σ(g'→g) が成り立つ。
         // 自由原子の断面積 4 b を温度に拡げた 4 N(E) を与える（表の補間誤差は 1e-7 以下）
-        let groups = GroupStructure::wims69();
+        // 熱領域だけを使うため WIMS 69群の 0.2 eV 以下に絞る。群構造の外へ散乱した分は端の群に入る（free_gas.rs）ので、最上位の群はバランスの対象にならず、対象の群（0.1 eV 以下）より上に1群以上を残す
+        let groups = GroupStructure::new(
+            GroupStructure::wims69()
+                .bounds()
+                .iter()
+                .copied()
+                .filter(|&e| e <= 0.2)
+                .collect(),
+        )
+        .unwrap();
         let weight = Weight::lwr();
         let tables = BTreeMap::from([(2, broadened_constant(4.0, 15.86, 0.0253))]);
         let thermal = FreeGas {
