@@ -356,11 +356,24 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
     let (table, exact) = (solve(Collision::default()), solve(Collision::Exact));
     for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
         for (k, (t, e)) in t.iter().zip(e).enumerate() {
-            for (g, (a, b)) in t.total.iter().zip(&e.total).enumerate() {
-                assert!(
-                    (a / b - 1.0).abs() < 1e-6,
-                    "ring {ring} nuclide {k} group {g}: {a} vs {b}"
-                );
+            let fields = [
+                (&t.total, &e.total),
+                (&t.elastic, &e.elastic),
+                (&t.fission, &e.fission),
+                (&t.nu_fission, &e.nu_fission),
+            ];
+            for (f, (a, b)) in fields.into_iter().enumerate() {
+                for (g, (a, b)) in a.iter().zip(b).enumerate() {
+                    let d = if *b == 0.0 {
+                        a.abs()
+                    } else {
+                        (a / b - 1.0).abs()
+                    };
+                    assert!(
+                        d < 1e-6,
+                        "ring {ring} nuclide {k} field {f} group {g}: {a} vs {b}"
+                    );
+                }
             }
         }
     }
