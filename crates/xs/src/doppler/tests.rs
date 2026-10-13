@@ -267,6 +267,7 @@ fn mlbw() -> RangeKind {
     RangeKind::Mlbw(crate::endf::Mlbw {
         spi: 0.0,
         ap: 0.9,
+        ap_energy: None,
         naps: 0,
         l_values: vec![],
     })

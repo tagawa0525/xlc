@@ -107,6 +107,8 @@ pub enum ProcessError {
         "the R-matrix limited range has no s-wave elastic channel for the potential scattering"
     )]
     NoSWaveRadius,
+    #[error("the scattering radius table does not cover {energy} eV")]
+    RadiusTable { energy: f64 },
     #[error("s-wave scattering radius {0} must be positive")]
     SWaveRadius(f64),
     #[error("s-wave elastic channels have different radii {0:?}")]
@@ -307,8 +309,9 @@ pub fn pointwise_within(
 }
 
 /// 分離共鳴の上端と、ポテンシャル散乱断面積 4π a² (barn)。上端は分離共鳴の範囲の上端のうち最も高いもの。
-/// a はその範囲の、s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。
-/// R-matrix limited は弾性散乱の l=0 のチャネルの APE）。分離共鳴がなければ `None`。
+/// a はその範囲の、s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP、エネルギーの表が
+/// あれば範囲の上端の値（範囲より上へつなぐ。ADR-0167）。R-matrix limited は弾性散乱の l=0 のチャネルの APE）。
+/// 分離共鳴がなければ `None`。
 pub fn resolved(tape: &Tape, mat: i32) -> Result<Option<Resolved>, ProcessError> {
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
@@ -326,22 +329,25 @@ fn resolved_in(mf2: &Mf2) -> Result<Option<Resolved>, ProcessError> {
     else {
         return Ok(None);
     };
-    let radius = s_wave_radius(&range.kind)?;
+    let radius = s_wave_radius(&range.kind, range.eh)?;
     Ok(Some(Resolved {
         top: range.eh,
         potential: 4.0 * std::f64::consts::PI * radius * radius,
     }))
 }
 
-/// 分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。
-fn s_wave_radius(kind: &RangeKind) -> Result<f64, ProcessError> {
+/// 上端が `top` (eV) の分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。エネルギーによるなら上端の値。
+fn s_wave_radius(kind: &RangeKind, top: f64) -> Result<f64, ProcessError> {
     let radius = match kind {
         RangeKind::ReichMoore(rm) => rm
             .l_values
             .iter()
             .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
             .map_or(rm.ap, |lv| lv.apl),
-        RangeKind::Mlbw(bw) => bw.ap,
+        // 表は範囲を覆い、不連続を持たない（MF2 を読むときに確かめる）
+        RangeKind::Mlbw(bw) => bw
+            .scattering_radius(top)
+            .ok_or(ProcessError::RadiusTable { energy: top })?,
         RangeKind::RMatrixLimited(rml) => {
             // l=0 の弾性散乱のチャネルはどれも同じ半径であること（違えば、どれを使うかの根拠がない）
             let mut radii: Vec<f64> = rml
@@ -403,6 +409,56 @@ pub fn process_nuclide(
              quadratically, so its scattering cross section differs (ADR-0133)"
         );
     }
+    let evaluation = read_evaluation(tape, settings.tolerance)?;
+    let common = Common {
+        tape,
+        evaluation: &evaluation,
+        thermal,
+        settings,
+    };
+    let temperatures = temperatures
+        .iter()
+        .map(|&t| {
+            common
+                .at_temperature(t)
+                .map_err(|source| ProcessError::Temperature {
+                    temperature: t,
+                    source: Box::new(source),
+                })
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(NuclideData {
+        name: name.to_string(),
+        za: evaluation.za,
+        awr: evaluation.awr,
+        resolved: resolved(tape, evaluation.mat)?,
+        thermal_scattering: thermal.is_some(),
+        temperatures,
+    })
+}
+
+/// 温度によらない、1核種の評価の読み込み（多群の処理の前に `process_nuclide` が読むもの）。
+#[derive(Debug, Clone)]
+pub struct Evaluation {
+    pub mat: i32,
+    /// 最初の MF3 の見出しの ZA と AWR
+    pub za: f64,
+    pub awr: f64,
+    pub nubar: Option<Tab1>,
+    /// 0 K の部分反応（許容誤差 `tolerance` で再構成したもの）
+    pub cold: ColdParts,
+    /// 核分裂スペクトル（MF5 MT18）
+    pub mf5: Option<Mf5>,
+    /// 離散準位の非弾性散乱（MT51〜90）の Q 値
+    pub q_values: BTreeMap<u32, f64>,
+    /// 中性子を放出する反応（弾性散乱と核分裂を除く）の出射の分布
+    pub emissions: BTreeMap<u32, Emission>,
+    /// 散乱行列に使う角度分布（MF4）
+    pub angular: BTreeMap<u32, Mf4>,
+}
+
+/// テープ中の（ただ1つの）物質を読み、0 K のポイントワイズの断面積を許容誤差 `tolerance` で再構成する。
+pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, ProcessError> {
     let materials = tape.materials();
     let [mat] = materials[..] else {
         return Err(ProcessError::Materials(materials));
@@ -419,7 +475,7 @@ pub fn process_nuclide(
         Some(section) => Some(parse_nubar(&section)?),
         None => None,
     };
-    let cold = ColdParts::read(tape, mat, settings.tolerance)?;
+    let cold = ColdParts::read(tape, mat, tolerance)?;
     let mf5 = match tape.section(mat, 5, 18) {
         Some(section) => Some(Mf5::parse(&section)?),
         None => None,
@@ -451,54 +507,25 @@ pub fn process_nuclide(
             angular.insert(mt, Mf4::parse(&section)?);
         }
     }
-    let common = Common {
-        tape,
+    Ok(Evaluation {
         mat,
-        awr: head.awr,
-        nubar: nubar.as_ref(),
-        mf5: mf5.as_ref(),
-        q_values: &q_values,
-        emissions: &emissions,
-        angular: &angular,
-        thermal,
-        settings,
-        cold: &cold,
-    };
-    let temperatures = temperatures
-        .iter()
-        .map(|&t| {
-            common
-                .at_temperature(t)
-                .map_err(|source| ProcessError::Temperature {
-                    temperature: t,
-                    source: Box::new(source),
-                })
-        })
-        .collect::<Result<_, _>>()?;
-    Ok(NuclideData {
-        name: name.to_string(),
         za: head.za,
         awr: head.awr,
-        resolved: resolved(tape, mat)?,
-        thermal_scattering: thermal.is_some(),
-        temperatures,
+        nubar,
+        cold,
+        mf5,
+        q_values,
+        emissions,
+        angular,
     })
 }
 
 /// 温度によらない、1核種の処理の材料。
 struct Common<'a> {
     tape: &'a Tape,
-    mat: i32,
-    awr: f64,
-    nubar: Option<&'a Tab1>,
-    mf5: Option<&'a Mf5>,
-    q_values: &'a BTreeMap<u32, f64>,
-    emissions: &'a BTreeMap<u32, Emission>,
-    angular: &'a BTreeMap<u32, Mf4>,
+    evaluation: &'a Evaluation,
     thermal: Option<&'a ThermalScattering>,
     settings: &'a Settings,
-    /// 0 K の部分反応（温度ごとに広げる）
-    cold: &'a ColdParts,
 }
 
 impl Common<'_> {
@@ -507,19 +534,28 @@ impl Common<'_> {
         let settings = self.settings;
         let (groups, weight) = (&settings.groups, &settings.weight);
         let ng = groups.len();
-        let tables = self.cold.at(temperature);
-        let shielding = unresolved_shielding(self.tape, self.mat, temperature, &settings.sigma0)?;
-        let slowing = slowing_down_range(self.tape, self.mat, groups, weight)?;
+        let tables = self.evaluation.cold.at(temperature);
+        let shielding = unresolved_shielding(
+            self.tape,
+            self.evaluation.mat,
+            temperature,
+            &settings.sigma0,
+        )?;
+        let slowing = slowing_down_range(self.tape, self.evaluation.mat, groups, weight)?;
         let averages = shielded_averages(
             groups,
             weight,
             &tables,
-            self.nubar,
+            self.evaluation.nubar.as_ref(),
             &settings.sigma0,
             shielding.as_ref(),
             slowing.as_ref(),
         )?;
-        let chi = match (tables.get(&18), self.nubar, self.mf5) {
+        let chi = match (
+            tables.get(&18),
+            self.evaluation.nubar.as_ref(),
+            self.evaluation.mf5.as_ref(),
+        ) {
             (None, ..) => vec![0.0; ng],
             (Some(fission), Some(nu), Some(mf5)) => {
                 fission_spectrum(groups, weight, fission, nu, mf5)
@@ -555,12 +591,12 @@ impl Common<'_> {
         let elastic = scattering_moments(
             groups,
             weight,
-            self.awr,
+            self.evaluation.awr,
             &Reactions {
                 tables: &elastic_only,
-                q_values: self.q_values,
-                emissions: self.emissions,
-                angular: self.angular,
+                q_values: &self.evaluation.q_values,
+                emissions: &self.evaluation.emissions,
+                angular: &self.evaluation.angular,
             },
             Some(&thermal),
             order,
@@ -568,12 +604,12 @@ impl Common<'_> {
         let mut scatter = scattering_moments(
             groups,
             weight,
-            self.awr,
+            self.evaluation.awr,
             &Reactions {
                 tables: &others,
-                q_values: self.q_values,
-                emissions: self.emissions,
-                angular: self.angular,
+                q_values: &self.evaluation.q_values,
+                emissions: &self.evaluation.emissions,
+                angular: &self.evaluation.angular,
             },
             None,
             order,
@@ -602,7 +638,7 @@ impl Common<'_> {
             })
             .collect();
         let pointwise = match settings.pointwise_range {
-            Some(range) => pointwise_within(&tables, self.nubar, range)?,
+            Some(range) => pointwise_within(&tables, self.evaluation.nubar.as_ref(), range)?,
             None => Pointwise::default(),
         };
         Ok(TemperatureData {
