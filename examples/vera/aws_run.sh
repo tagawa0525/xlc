@@ -51,7 +51,13 @@ run_prefix=s3://$XLC_BUCKET/runs/$name
 # タグ Name が <host> の終了前のインスタンスの ID（なければ空）
 live_instance() {
   aws ec2 describe-instances --filters "Name=tag:Name,Values=$1" \
-    "Name=instance-state-name,Values=pending,running,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text
+    "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text
+}
+
+# VM は AWS CLI を cache.nixos.org から取る（自前の cache は AWS CLI がないと取れない）。なければ VM は S3 に何も置けずに止まる
+require_public_awscli() {
+  nix path-info --store https://cache.nixos.org "$1" > /dev/null 2>&1 ||
+    { echo "$1 が cache.nixos.org にありません（VM が AWS CLI を取れない）" >&2; exit 1; }
 }
 
 if ((${#inputs[@]})); then
@@ -67,7 +73,11 @@ if ((${#inputs[@]})); then
   for input in "${inputs[@]}"; do
     # VM の作業ディレクトリに同じ相対パスで置くので、絶対パスと .. は受け付けない
     [[ $input != /* && /$input/ != */../* ]] || { echo "$input: リポジトリの直下からの相対パスにしてください" >&2; exit 1; }
+    [[ $input =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "$input: 使えない文字があります（英数字と ._/-）" >&2; exit 1; }
     [[ -f $input ]] || { echo "$input がありません" >&2; exit 1; }
+    # run_remote.sh が受け付ける名前（VM に上げてから断られないように、置く前に確かめる）
+    [[ $(job_name "$input") =~ ^openmc-(3.|5.-2D)$ ]] ||
+      { echo "$input: Problem 3（openmc-3?）か 5-2D（openmc-5?-2D）の入力ではありません" >&2; exit 1; }
     jobs+=("$(job_name "$input")")
     [[ -z $(live_instance "$name-${jobs[-1]}") ]] || { echo "$name-${jobs[-1]} の VM が走っています" >&2; exit 1; }
   done
@@ -76,6 +86,7 @@ if ((${#inputs[@]})); then
 
   mapfile -t outs < <(nix build .#openmc .#openmc-python --no-link --print-out-paths)
   awscli=$(nix build --inputs-from . nixpkgs#awscli2 --no-link --print-out-paths)
+  require_public_awscli "$awscli"
   openmc=${outs[0]}
   python=${outs[1]}
   # 鍵は内容のハッシュ。同じクロージャと核データは 1 度だけ置く
@@ -112,10 +123,11 @@ ENV
   cat "$src/launch.env"
 
   if ((!dry)); then
-    # 毎回作って sync する（手元で約 2 秒。sync は S3 にあるものを送らない）。途中で切れた置き場を「ある」と見なさない
+    # 毎回作って sync する（手元で約 2 秒）。途中で切れた置き場を「ある」と見なさない
     cache=$(mktemp -d)
     nix copy --quiet --to "file://$cache?compression=zstd" "$openmc" "$python"
-    aws s3 sync --only-show-errors "$cache" "s3://$XLC_BUCKET/store/nix/$closure"
+    # ファイル名は内容で決まるので大きさだけで比べる（作り直した cache は mtime が新しく、既定の比較では全部を送り直す）
+    aws s3 sync --only-show-errors --size-only "$cache" "s3://$XLC_BUCKET/store/nix/$closure"
     rm -rf "$cache"
     aws s3 sync --only-show-errors examples/vera/openmc-library "s3://$XLC_BUCKET/store/openmc-library/$library"
     aws s3 sync --only-show-errors --exclude launch.env "$src" "$run_prefix/src"
@@ -130,6 +142,7 @@ else
   read_launch_env "$name"
   openmc=$(launch_env_value OPENMC) python=$(launch_env_value PYTHON) awscli=$(launch_env_value AWSCLI)
   closure=$(launch_env_value CLOSURE) library=$(launch_env_value LIBRARY)
+  require_public_awscli "$awscli"
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   todo=()
   restart_flags=()
