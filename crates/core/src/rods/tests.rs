@@ -382,6 +382,18 @@ fn partial_nodes_without_fission_are_errors() {
 }
 
 #[test]
+fn partial_nodes_with_f_star_on_a_z_side_are_errors() {
+    // 混ぜた定数の z の辺は細かいメッシュの不連続因子で置き換えるので、f*（燃料の ADF で割った値）を持てない
+    let (mut problem, mut partial) = column(128.0, 1.6, false);
+    for s in &mut partial[0].segments {
+        s.constants.normalized_adf[4] = true;
+    }
+    let m = partial[0].material;
+    problem.materials[m].normalized_adf[4] = true;
+    assert!(solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).is_err());
+}
+
+#[test]
 fn duplicated_partial_nodes_are_errors() {
     // 同じ位置の部分挿入のノードが 2 つあれば、どちらの区間を使うか分からない
     let (problem, mut partial) = column(128.0, 1.6, false);
