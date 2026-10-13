@@ -71,9 +71,8 @@ nix develop ../..#references -c python3 compare_chain_depletion.py chain-cases.t
 
 ### 計算
 
-6b4bb452（分岐点は main の 98c36637）、2026-10-14。チェーンの段階は `bin/chain`（md5 3efd29fb）と OpenMC 0.15.2 の
-`Chain.from_endf`（ENDF/B-VIII.0 の decay 3,821、nfy 31、neutrons 557）。`bin/chain` は 1 スレッドで約 1.2 秒、`Chain.from_endf` は
-約 10 秒（手元。排他のジョブではない）。
+90d7f755（分岐点は main の 98c36637）、2026-10-14。チェーンの段階は `bin/chain`（md5 f0bd44da）と OpenMC 0.15.2 の
+`Chain.from_endf`（ENDF/B-VIII.0 の decay 3,821、nfy 31、neutrons 557）。
 
 ### チェーンの比較
 
