@@ -399,31 +399,33 @@ const FINE: f64 = 8192.0;
 const COARSE: f64 = 1024.0;
 const MAX: f64 = 48.0;
 
-/// 表の点での (Ki1, Ki2, Ki3)
+/// Ki_n（n = 2, 3）の表。点ごとに、値と、刻みを掛けた導関数 −Ki_{n−1} × 刻み（補間の式の係数）を並べる
 struct Bickley {
-    fine: Vec<[f64; 3]>,
-    coarse: Vec<[f64; 3]>,
+    fine: [Vec<[f64; 2]>; 2],
+    coarse: [Vec<[f64; 2]>; 2],
 }
 
 fn table() -> &'static Bickley {
     static TABLE: OnceLock<Bickley> = OnceLock::new();
     TABLE.get_or_init(|| {
-        let nodes = |count: f64, start: f64, step: f64| -> Vec<[f64; 3]> {
+        let nodes = |n: i32, count: f64, start: f64, step: f64| -> Vec<[f64; 2]> {
             (0..=count as usize)
                 .map(|i| {
                     let x = start + i as f64 * step;
-                    [bickley(1, x), bickley(2, x), bickley(3, x)]
+                    [bickley(n, x), -bickley(n - 1, x) * step]
                 })
                 .collect()
         };
+        let both = |count: f64, start: f64, step: f64| [2, 3].map(|n| nodes(n, count, start, step));
         Bickley {
-            fine: nodes(FINE, 0.0, 1.0 / FINE),
-            coarse: nodes((MAX - 1.0) * COARSE, 1.0, 1.0 / COARSE),
+            fine: both(FINE, 0.0, 1.0 / FINE),
+            coarse: both((MAX - 1.0) * COARSE, 1.0, 1.0 / COARSE),
         }
     })
 }
 
 /// Bickley 関数 Ki3(x) = ∫_0^{π/2} cos²θ exp(−x/cosθ) dθ
+#[inline]
 pub fn ki3(x: f64) -> f64 {
     interpolate(x, 3)
 }
@@ -434,21 +436,21 @@ fn ki2(x: f64) -> f64 {
 }
 
 /// Ki_n(x)（n = 2, 3）を、表の値と導関数 −Ki_{n−1} の3次 Hermite 補間で求める
+#[inline]
 fn interpolate(x: f64, n: usize) -> f64 {
     let table = table();
-    let (nodes, start, step) = if x < 1.0 {
-        (&table.fine, 0.0, 1.0 / FINE)
+    // 刻みは2の冪なので、刻みで割る代わりに点の数を掛けても同じ値になる
+    let (nodes, start, per) = if x < 1.0 {
+        (&table.fine[n - 2], 0.0, FINE)
     } else if x < MAX {
-        (&table.coarse, 1.0, 1.0 / COARSE)
+        (&table.coarse[n - 2], 1.0, COARSE)
     } else {
         return bickley(n as i32, x);
     };
-    let s = (x - start) / step;
+    let s = (x - start) * per;
     let i = (s as usize).min(nodes.len() - 2);
     let t = s - i as f64;
-    let (a, b) = (&nodes[i], &nodes[i + 1]);
-    let (f0, f1) = (a[n - 1], b[n - 1]);
-    let (d0, d1) = (-a[n - 2] * step, -b[n - 2] * step);
+    let ([f0, d0], [f1, d1]) = (nodes[i], nodes[i + 1]);
     let (t2, t3) = (t * t, t * t * t);
     (2.0 * t3 - 3.0 * t2 + 1.0) * f0
         + (t3 - 2.0 * t2 + t) * d0
