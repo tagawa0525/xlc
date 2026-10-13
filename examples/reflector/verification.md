@@ -234,7 +234,9 @@ VERA Problem 3A の集合体の高さ全体（下の水の外端から上の水�
 トップノズル、上の炉心板、上の水）の軸方向の定数で、1 × 1 × N の炉心（径方向は反射、z の両端は真空で平板の真空の辺の
 比 J/φ）を解いた。燃料は単一集合体（`assembly-3A.toml`。k∞ = 0.633098）の媒質で、自己遮蔽なし。燃料のノードの拡散係数は
 媒質の B1 の D（ADR-0141）。列の幅は 1 cm 程度（#0069）。ライブラリは ADR-0133 の S(α,β) の上限のもの。
-`dvc repro examples/reflector/dvc.yaml` を Slurm で排他で流した（時間は格子計算の `total_seconds`）。k は MOC の全桁
+`dvc repro examples/reflector/dvc.yaml` を Slurm で排他で流した（時間は格子計算の `total_seconds`）。そのあとの
+このブランチの変更（核分裂のない媒質のノードの D、媒質の見分け方）は、媒質が燃料の `medium-3A.msgpack` だけなので
+この節の結果を変えない。k は MOC の全桁
 （1ノードの問題のログ）と core の最後の反復の値、ノード平均の中性子束は格子の `node` と core の `node average flux`
 （炉心のピッチを平板の行の高さ 1 cm にして規格化をそろえた）。
 
