@@ -71,6 +71,10 @@ pub enum UfgError {
         "ring {0}: the total cross section is 0 at some lethargy point, so the track table cannot cover it (use `track-table = false`)"
     )]
     ZeroTotal(usize),
+    #[error(
+        "the track table needs {nodes} nodes, not fewer than the {points} lethargy points (use a smaller `track-table` or `track-table = false`)"
+    )]
+    TableTooLarge { nodes: usize, points: usize },
 }
 
 /// セルの減速計算の結果。
@@ -485,15 +489,15 @@ fn track_table(
             range[1] = range[1].max(t);
         }
     }
-    let table = TrackTable::new(cell, classes, &ranges, density)?;
-    if table.nodes() >= points.len() {
-        tracing::warn!(
-            nodes = table.nodes(),
-            points = points.len(),
-            "the track table has as many nodes as the lethargy points; `track-table = false` would be no slower"
-        );
+    // 格子点ごとに求めるより多くの衝突確率を求める表は、作る意味がなく、メモリも大きいので、作る前に止める
+    let nodes = TrackTable::count(&ranges, density)?;
+    if nodes >= points.len() {
+        return Err(UfgError::TableTooLarge {
+            nodes,
+            points: points.len(),
+        });
     }
-    Ok((table, first))
+    Ok((TrackTable::new(cell, classes, &ranges, density)?, first))
 }
 
 /// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step` より広いところは点を足す。
