@@ -63,7 +63,7 @@ M4 の前に決めてあるもの:
 
 - 燃焼のソルバ: CRAM と予測子・修正子法（[ADR-0025](../adr/0025-deplete-with-cram.md)）。共通のクレートに置く（[ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）
 - 燃焼鎖: 全核種の鎖を xs が作り、輸送計算に使う鎖はそこから縮約する（[ADR-0034](../adr/0034-build-full-depletion-chain.md)）。全核種の鎖の規則
-  （[ADR-0164](../adr/0164-build-full-chain-from-endf.md)）、鎖を作るクレートと鎖の形式（[ADR-0166](../adr/0166-build-chain-in-its-own-crate.md)）、縮約の方式（[ADR-0165](../adr/0165-reduce-chain-by-contribution-and-folding.md)。proposed、#0116）
+  （[ADR-0164](../adr/0164-build-full-chain-from-endf.md)）、鎖を作るクレートと鎖の形式（[ADR-0166](../adr/0166-build-chain-in-its-own-crate.md)）
 - 燃焼の履歴: core のミクロ燃焼と、履歴の変数・履歴の分岐による補正（[ADR-0035](../adr/0035-track-history-by-micro-depletion.md)）
 - core のノードの状態は集合体ごとに持つ（[ADR-0036](../adr/0036-keep-core-state-per-assembly.md)）
 - 格子計算の出力: 燃焼度ごとの 2 群定数、ADF、ピン出力の形状、分岐のテーブル、ミクロ燃焼の核種の微視的断面積と数密度
