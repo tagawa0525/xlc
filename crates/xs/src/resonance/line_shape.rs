@@ -153,7 +153,8 @@ fn in_parallel<T: Send, E: Send>(
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
 /// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
-/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。
+/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。θ が表より小さければ（β は表の範囲）、ガウス形の
+/// 線形状の J, K を返す（`gaussian_jk`）。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
     let (lb, lt) = (beta.log10(), theta.log10());
     if lb > LOG_BETA.1 {
@@ -162,6 +163,9 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
     }
     if lt > LOG_THETA.1 {
         return Ok(natural_jk(beta));
+    }
+    if lt < LOG_THETA.0 && lb >= LOG_BETA.0 {
+        return Ok(gaussian_jk(beta, theta));
     }
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
         return Err(UrrError::JkTable { beta, theta });
@@ -180,6 +184,30 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
     }
     Ok((ln_j.exp(), ln_k.exp()))
 }
+
+/// ドップラー幅に比べて自然幅が無視できる線形状 ψ = (√π θ/2) e^{-u²}（u = θx/2）の (J, K)。θ が表より小さいときに使う。
+/// b = 2β/(√π θ)、g = e^{-u²} として J = (2/θ) ∫₀^∞ g/(g + b) du、K = (2/θ) ∫₀^∞ g(g + 2b)/(g + b)² du を 1/b の冪に展開し、
+/// ∫₀^∞ gⁿ du = √π/(2√n) で項ごとに積分する:
+/// J = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ b⁻ⁿ/√n、K = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ (n + 1) b⁻ⁿ/√n。
+/// 表の下限（θ = 10⁻¹⁰）より下で β ≥ 10⁻⁶ なら b > 10⁴ なので、級数は数項で倍精度に収束する。
+/// Voigt の線形状のローレンツの裾による差は相対で θ の程度（表の下限で 1e-10 以下。`quadrature_approaches_the_gaussian_limit_for_narrow_lines`）
+fn gaussian_jk(beta: f64, theta: f64) -> (f64, f64) {
+    let b = 2.0 * beta / (std::f64::consts::PI.sqrt() * theta);
+    let (mut j, mut k) = (0.0, 0.0);
+    let mut power = 1.0;
+    for n in 1..=SERIES_TERMS {
+        let nf = f64::from(n);
+        power /= b;
+        let sign = if n % 2 == 1 { 1.0 } else { -1.0 };
+        j += sign * power / nf.sqrt();
+        k += sign * (nf + 1.0) * power / nf.sqrt();
+    }
+    let scale = std::f64::consts::PI.sqrt() / theta;
+    (scale * j, scale * k)
+}
+
+/// `gaussian_jk` の級数の項の数。b > 10⁴ では 5 項目が 1e-20 より小さい
+const SERIES_TERMS: u32 = 5;
 
 /// ドップラー拡がりのない Lorentz の線形状 ψ = 1/(1 + x²) の (J, K)。a² = (1 + β)/β として
 /// J = π/(2aβ)、K = 2J − ∫₀^∞ ψ²/(ψ + β)² dx = 2J − π/(4a³β²)。θ が表より大きいとき（自然幅がドップラー幅より
