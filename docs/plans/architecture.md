@@ -11,7 +11,7 @@ ENDF 形式の評価済み核データから出発し、PWR 炉心全体の解�
 （`xlc-format`、`xlc-numeric`、`xlc-depletion`）に置く。
 
 - 段階のクレートとファイルでの受け渡し: [ADR-0001](../adr/0001-split-into-three-stage-crates.md)
-- 段階のクレートの間の依存: [ADR-0162](../adr/0162-add-depletion-crate.md)（[ADR-0002](../adr/0002-keep-stage-crates-independent.md) を置き換え）
+- 段階のクレートの間の依存: [ADR-0166](../adr/0166-build-chain-in-its-own-crate.md)（[ADR-0162](../adr/0162-add-depletion-crate.md) を置き換え）
 - 共有する計算の切り出し: [ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)
 - 段階ごとのソルバの設定: [ADR-0004](../adr/0004-keep-solver-settings-per-stage.md)
 - 依存クレート: [ADR-0006](../adr/0006-use-de-facto-crates.md)（[ADR-0005](../adr/0005-prefer-std-and-own-numerics.md) を置き換え）
