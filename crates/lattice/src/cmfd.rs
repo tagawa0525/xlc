@@ -393,6 +393,10 @@ pub enum CmfdError {
     NonAdjacent { from: usize, to: usize },
     #[error("the coarse-mesh matrix of cell {0} is singular")]
     Singular(usize),
+    #[error(
+        "cell {cell} of a one-row or one-column lattice couples to cell {other}, which is not next to it"
+    )]
+    Unchained { cell: usize, other: usize },
     #[error("the coarse-mesh eigenvalue problem did not converge in {0} iterations")]
     NotConverged(usize),
 }
@@ -432,6 +436,153 @@ pub(crate) struct Coarse {
     /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)。方程式は
     /// A_c φ_c + Σ 係数 φ_隣 = V F φ_c / k
     neighbors: Vec<Vec<(usize, Vec<f64>)>>,
+    /// 結合がチェーンのとき（`Chain`）、ブロック三重対角の直接解法の係数
+    chain: Option<Chain>,
+}
+
+/// 代表のセル c の隣が c − 1 と c + 1 だけの結合（1 行か 1 列の格子）。行列はブロック三重対角になる。
+#[derive(Debug, Clone)]
+struct Chain {
+    /// [代表] の対角のブロック A_c（群×群、行優先）
+    matrices: Vec<Vec<f64>>,
+    /// [代表][群] の c − 1 との結合の係数（c = 0 では 0）
+    lower: Vec<f64>,
+    /// [代表][群] の c + 1 との結合の係数（最後の代表では 0）
+    upper: Vec<f64>,
+}
+
+impl Chain {
+    /// 1 行か 1 列の格子（`line`）で、代表が 2 つ以上あるとき。代表が 1 つなら Gauss-Seidel の 1 回が直接解法と同じ。
+    /// 2 次元の格子は、対称性で代表がチェーンになっても Gauss-Seidel のまま（ADR-0158）
+    fn new(
+        line: bool,
+        groups: usize,
+        cells_of: &[usize],
+        matrices: &[Vec<f64>],
+        neighbors: &[Vec<(usize, Vec<f64>)>],
+    ) -> Result<Option<Self>, CmfdError> {
+        let cells = matrices.len();
+        if !line || cells < 2 {
+            return Ok(None);
+        }
+        let mut lower = vec![0.0; cells * groups];
+        let mut upper = vec![0.0; cells * groups];
+        // 代表は行か列の順に並び、対称線をはさむ隣は自分の像として対角に入っている
+        for (c, list) in neighbors.iter().enumerate() {
+            for (o, coefficients) in list {
+                let side = match *o {
+                    o if o + 1 == c => &mut lower,
+                    o if o == c + 1 => &mut upper,
+                    o => {
+                        return Err(CmfdError::Unchained {
+                            cell: cells_of[c],
+                            other: cells_of[o],
+                        });
+                    }
+                };
+                for (s, a) in side[c * groups..][..groups].iter_mut().zip(coefficients) {
+                    *s += a;
+                }
+            }
+        }
+        Ok(Some(Self {
+            matrices: matrices.to_vec(),
+            lower,
+            upper,
+        }))
+    }
+
+    /// A − μ F（F は [代表] の核分裂源 χ νΣf）をブロック LU に分解する。対角のブロック S_c = B_c − L_c X_(c−1)
+    /// （B_c = A_c − μ F_c、L_c は c − 1 との結合の対角行列）の LU 分解と、X_c = S_c⁻¹ U_c（U_c は c + 1 との結合の
+    /// 対角行列）を持つ
+    fn factor(
+        &self,
+        groups: usize,
+        fission: &[Vec<Spectrum>],
+        shift: f64,
+        cells: &[usize],
+    ) -> Result<ChainFactors, CmfdError> {
+        let ng = groups;
+        let n = self.matrices.len();
+        let mut pivots = Vec::with_capacity(n);
+        let mut eliminations: Vec<Vec<f64>> = Vec::with_capacity(n - 1);
+        let mut column = vec![0.0; ng];
+        for c in 0..n {
+            let mut s = self.matrices[c].clone();
+            if shift != 0.0 {
+                for spectrum in &fission[c] {
+                    for (i, x) in spectrum.chi.iter().enumerate() {
+                        for (j, f) in spectrum.nu_fission.iter().enumerate() {
+                            s[i * ng + j] -= shift * x * f;
+                        }
+                    }
+                }
+            }
+            if let Some(previous) = eliminations.last() {
+                let lower = &self.lower[c * ng..][..ng];
+                for (i, l) in lower.iter().enumerate() {
+                    for j in 0..ng {
+                        s[i * ng + j] -= l * previous[i * ng + j];
+                    }
+                }
+            }
+            let lu = Lu::new(s, ng).ok_or(CmfdError::Singular(cells[c]))?;
+            if c + 1 < n {
+                let mut x = vec![0.0; ng * ng];
+                for (j, u) in self.upper[c * ng..][..ng].iter().enumerate() {
+                    column.fill(0.0);
+                    column[j] = *u;
+                    lu.solve(&mut column);
+                    for (i, v) in column.iter().enumerate() {
+                        x[i * ng + j] = *v;
+                    }
+                }
+                eliminations.push(x);
+            }
+            pivots.push(lu);
+        }
+        Ok(ChainFactors {
+            pivots,
+            eliminations,
+        })
+    }
+
+    /// `b`（[代表][群]）を (A − μ F) φ = b の解 φ で置き換える
+    fn substitute(&self, groups: usize, factors: &ChainFactors, b: &mut [f64]) {
+        let ng = groups;
+        let n = factors.pivots.len();
+        for c in 0..n {
+            if c > 0 {
+                let (done, rest) = b.split_at_mut(c * ng);
+                let previous = &done[(c - 1) * ng..];
+                for ((r, l), y) in rest[..ng]
+                    .iter_mut()
+                    .zip(&self.lower[c * ng..][..ng])
+                    .zip(previous)
+                {
+                    *r -= l * y;
+                }
+            }
+            factors.pivots[c].solve(&mut b[c * ng..][..ng]);
+        }
+        for c in (0..n - 1).rev() {
+            let (head, tail) = b.split_at_mut((c + 1) * ng);
+            let next = &tail[..ng];
+            let x = &factors.eliminations[c];
+            for (i, r) in head[c * ng..].iter_mut().enumerate() {
+                let sum: f64 = x[i * ng..][..ng].iter().zip(next).map(|(a, y)| a * y).sum();
+                *r -= sum;
+            }
+        }
+    }
+}
+
+/// `Chain::factor` の分解
+struct ChainFactors {
+    /// [代表] の S_c の LU 分解
+    pivots: Vec<Lu>,
+    /// [代表（最後を除く）] の X_c = S_c⁻¹ U_c（群×群、行優先）
+    eliminations: Vec<Vec<f64>>,
 }
 
 impl Coarse {
@@ -591,6 +742,7 @@ impl Coarse {
             })
             .collect();
         Self::assemble(
+            mesh.rows() == 1 || mesh.columns() == 1,
             ng,
             orbits.representatives.clone(),
             orbits.sums(&vec![1.0; orbits.index.len()]),
@@ -601,8 +753,11 @@ impl Coarse {
         )
     }
 
-    /// 均質化した値から問題を組み立てる。`matrices` は [代表] の対角のブロック（群×群、行優先）
+    /// 均質化した値から問題を組み立てる。`matrices` は [代表] の対角のブロック（群×群、行優先）、`line` は格子が
+    /// 1 行か 1 列であること
+    #[allow(clippy::too_many_arguments)]
     fn assemble(
+        line: bool,
         groups: usize,
         cells: Vec<usize>,
         sizes: Vec<f64>,
@@ -611,6 +766,7 @@ impl Coarse {
         matrices: Vec<Vec<f64>>,
         neighbors: Vec<Vec<(usize, Vec<f64>)>>,
     ) -> Result<Self, CmfdError> {
+        let chain = Chain::new(line, groups, &cells, &matrices, &neighbors)?;
         let blocks = matrices
             .into_iter()
             .zip(&cells)
@@ -624,13 +780,95 @@ impl Coarse {
             fission,
             blocks,
             neighbors,
+            chain,
         })
+    }
+
+    /// [代表のセル][群] の中性子束 `phi` の、すべてのセルの生成率の和（代表のセルは組のセルの数だけ数える）
+    fn production(&self, phi: &[f64]) -> f64 {
+        let ng = self.groups;
+        (0..self.blocks.len())
+            .flat_map(|c| {
+                let p = &phi[c * ng..][..ng];
+                let size = self.sizes[c];
+                self.fission[c]
+                    .iter()
+                    .map(move |s| size * (s.chi_sum * s.rate(p)))
+            })
+            .sum()
     }
 
     /// 固有値問題を `k` から解き始め、k と [代表のセル][群] の中性子束の比（解 / 均質化した中性子束、
     /// どちらも生成率 1 に規格化）を返す。
     pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
-        self.solve_gauss_seidel(k, options)
+        match &self.chain {
+            Some(chain) => self.solve_chain(chain, k, options),
+            None => self.solve_gauss_seidel(k, options),
+        }
+    }
+
+    /// 結合がチェーンのとき、べき乗法の各反復で (A − μ F) φ = F φ_前 をブロック三重対角の直接解法で解く（逆反復）
+    fn solve_chain(
+        &self,
+        chain: &Chain,
+        k: f64,
+        options: &CmfdOptions,
+    ) -> Result<(f64, Vec<f64>), CmfdError> {
+        let ng = self.groups;
+        let cells = self.blocks.len();
+        let start = self.production(&self.flux);
+        let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
+        let mut k = k;
+        let shift = 0.0;
+        let factors = chain.factor(ng, &self.fission, shift, &self.cells)?;
+        let mut k_history = Remaining::default();
+        let mut flux_history = Remaining::default();
+        let mut next = vec![0.0; cells * ng];
+        for iteration in 1..=options.max_iterations {
+            for c in 0..cells {
+                let rhs = &mut next[c * ng..][..ng];
+                rhs.fill(0.0);
+                for s in &self.fission[c] {
+                    let rate = s.rate(&phi[c * ng..][..ng]);
+                    for (r, x) in rhs.iter_mut().zip(&s.chi) {
+                        *r += x * rate;
+                    }
+                }
+            }
+            chain.substitute(ng, &factors, &mut next);
+            // next ≈ φ / (1/k − μ)
+            let rate = self.production(&next);
+            let new_k = 1.0 / (shift + 1.0 / rate);
+            for f in &mut next {
+                *f /= rate;
+            }
+            if let Some(j) = next.iter().position(|&f| f <= 0.0 || !f.is_finite()) {
+                return Err(CmfdError::NonPositiveSolution {
+                    cell: self.cells[j / ng],
+                    group: j % ng,
+                    flux: next[j],
+                });
+            }
+            let change = next
+                .iter()
+                .zip(&phi)
+                .map(|(a, b)| (a - b).abs() / a.abs().max(b.abs()))
+                .fold(0.0, f64::max);
+            std::mem::swap(&mut phi, &mut next);
+            let k_remaining = k_history.update((new_k - k).abs());
+            let flux_remaining = flux_history.update(change);
+            k = new_k;
+            if k_remaining < options.k_tolerance && flux_remaining < options.flux_tolerance {
+                let ratio = phi
+                    .iter()
+                    .zip(&self.flux)
+                    .map(|(new, old)| new / (old / start))
+                    .collect();
+                tracing::debug!(iterations = iteration, k, "coarse-mesh eigenvalue");
+                return Ok((k, ratio));
+            }
+        }
+        Err(CmfdError::NotConverged(options.max_iterations))
     }
 
     /// べき乗法の各反復で、ブロック Gauss-Seidel をセルの順に1回だけ行う。収束すると
@@ -642,19 +880,7 @@ impl Coarse {
     ) -> Result<(f64, Vec<f64>), CmfdError> {
         let ng = self.groups;
         let cells = self.blocks.len();
-        // 生成率はすべてのセルの和（代表のセルは組のセルの数だけ数える）
-        let production = |phi: &[f64]| -> f64 {
-            (0..cells)
-                .flat_map(|c| {
-                    let p = &phi[c * ng..][..ng];
-                    let size = self.sizes[c];
-                    self.fission[c]
-                        .iter()
-                        .map(move |s| size * (s.chi_sum * s.rate(p)))
-                })
-                .sum()
-        };
-        let start = production(&self.flux);
+        let start = self.production(&self.flux);
         let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
         let mut k = k;
         let mut k_history = Remaining::default();
@@ -679,7 +905,7 @@ impl Coarse {
                 self.blocks[c].solve(&mut rhs);
                 phi[c * ng..][..ng].copy_from_slice(&rhs);
             }
-            let rate = production(&phi);
+            let rate = self.production(&phi);
             let new_k = k * rate;
             for f in &mut phi {
                 *f /= rate;
