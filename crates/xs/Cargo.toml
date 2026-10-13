@@ -22,3 +22,7 @@ tracing-subscriber.workspace = true
 [[bin]]
 name = "xs"
 path = "src/main.rs"
+
+[dev-dependencies]
+# examples/survey_neutrons.rs が燃焼チェーンの msgpack の値の木を読む
+rmpv.workspace = true
