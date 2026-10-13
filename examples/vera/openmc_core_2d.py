@@ -44,6 +44,7 @@ from typing import Any
 
 import numpy as np
 import openmc
+import openmc_tallies
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -309,7 +310,7 @@ def assembly_mesh() -> openmc.RegularMesh:
 
 
 def read_run(source: Path) -> dict[str, Any]:
-    return common_read_run(source, list(RODS), OPTIONAL)
+    return common_read_run(source, list(RODS), OPTIONAL | openmc_tallies.OPTIONAL)
 
 
 def solve(source: Path, work: Path, options: Options) -> None:
@@ -352,6 +353,11 @@ def solve(source: Path, work: Path, options: Options) -> None:
         tally.filters = [openmc.MeshFilter(mesh)]
         tally.scores = ["fission"]
         tallies.append(tally)
+    if openmc_tallies.enabled(run):
+        tallies.extend(
+            openmc_tallies.core_2d(list(materials), assembly_mesh(), HALF_GAP)
+        )
+        openmc_tallies.quiet(settings)
     model = openmc.Model(geometry, materials, settings, tallies)
     run_model(model, run, work, options)
 
