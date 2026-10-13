@@ -85,6 +85,7 @@ stages:
     deps:
       - openmc_core_2d.py
       - openmc_model.py
+      - openmc_tallies.py
       - ../openmc_common.py
       - ../openmc_resume.py
       - ../openmc_run.py
