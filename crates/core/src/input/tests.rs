@@ -1224,7 +1224,7 @@ fn partial_nodes_facing_a_marshak_or_vacuum_z_end_are_errors() {
     let InputError::Invalid(message) = err else {
         panic!("{err:?}")
     };
-    assert!(message.contains("axial reflector"), "{message}");
+    assert!(message.contains("axial reflector layer"), "{message}");
     let vacuum = "\"vacuum\", \"reflective\"";
     assert!(rodded_layout(&rodded_case_with_z(vacuum, "{ D = 0 }"), &plant).is_err());
     // 最上段のノード [7, 10] の途中で棒が切れる

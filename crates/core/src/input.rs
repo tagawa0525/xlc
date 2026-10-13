@@ -1407,7 +1407,8 @@ impl Layout {
             })
         });
         let sites: Vec<(&Option<Placement>, usize, usize)> = sites.collect();
-        for z in mesh.windows(2) {
+        let last_plane = mesh.len() - 2;
+        for (plane, z) in mesh.windows(2).enumerate() {
             // 図の上の行が +y なので、y は下の行から。集合体の位置の中は部分ノードの行と列
             for &(placement, si, sj) in &sites {
                 let Some(Placement {
@@ -1459,6 +1460,22 @@ impl Layout {
                     })
                 };
                 if let [_, _, ..] = intervals.as_slice() {
+                    // 棒のない区間が真空側にある 1 ノードの問題は、z の面の不連続因子が負になって解けない（#0102）
+                    let faces = [(0, 4), (last_plane, 5)];
+                    if let Some(&(_, face)) = faces.iter().find(|&&(p, f)| {
+                        p == plane
+                            && matches!(case.boundaries[f], Boundary::Vacuum | Boundary::Marshak)
+                    }) {
+                        return invalid(format!(
+                            "a partially rodded node ({}..{} cm) faces the {} z end of the core, \
+                             which is a vacuum or Marshak boundary; put an axial reflector layer \
+                             between the rods and that end (the solve stops on a negative z-face \
+                             discontinuity factor there, #0102)",
+                            z[0],
+                            z[1],
+                            if face == 4 { "lower" } else { "upper" }
+                        ));
+                    }
                     partial.push(LayoutPartial {
                         site: node_material.len(),
                         segments: intervals
