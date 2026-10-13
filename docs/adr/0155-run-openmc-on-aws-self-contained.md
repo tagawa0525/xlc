@@ -101,7 +101,8 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
 - VM は起動すると、最長時間の shutdown を予約し、Nix を入れ、AWS CLI を cache.nixos.org から、クロージャと核データと入力を S3 から取る。
   `run_remote.sh` で流し、決まった間隔（既定 5 分）ごとに作業ディレクトリ（最新の statepoint、summary.h5、ログ）を
   `aws s3 sync --delete` で S3 にコピーする。完了したら、最後の世代のほかの statepoint を消し、sha256 の manifest を書いて同期し、
-  電源を切る（terminate）。どこで失敗しても、ログを S3 に置いてから電源を切る
+  電源を切る（terminate）。どこで失敗しても、ログと終了コードの `done` を S3 に置いてから電源を切る。SIGTERM（中断）では `done` を置かず、
+  起動し直せるようにする
 - 書いている途中の statepoint が同期されても、再開の `latest_readable`（examples/openmc_resume.py）が壊れたものを消して 1 つ前から
   続ける。S3 には作業ディレクトリの statepoint がそのまま写る（実行中に最新の `KEEP` 個へ間引くはずの処理が効いていない。#0106）
 - インスタンスプロファイルのロール `xlc-openmc-vm` は、そのバケットの一覧（`store/`、`runs/`）、`store/` の読み取り、`runs/` の

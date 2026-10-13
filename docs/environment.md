@@ -147,29 +147,31 @@ S3 の置き場:
 | `runs/<名前>/launch.env`、`src/` | 起動の記録（コミット、store のパス、鍵、入力）と、VM が使うスクリプトと入力                 | 30 日で失効 |
 | `runs/<名前>/<ジョブ>/`          | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot.log`、`done`  | 30 日で失効 |
 
-鍵は内容のハッシュ（クロージャは store のパスの組、核データはファイルの sha256 の一覧）で、同じものは 1 度だけ置く。`aws_run.sh` は
-`launch.env` を最後に置く（あれば `src/` と `store/` はそろっている）。
+鍵は内容のハッシュ（クロージャは store のパスの組、核データはファイルの sha256 の一覧）。`aws_run.sh` は毎回 `aws s3 sync` で置き、S3 に
+あるものは送らない。`launch.env` は最後に置く（あれば `src/` と `store/` はそろっている）。入力はリポジトリの直下からの相対パス
+（`..` を含まない）で、VM の作業ディレクトリにも同じ相対パスで置く。
 
 VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init が root で実行する）:
 
 1. `shutdown -h +<--max-hours × 60>`（既定 14 時間）を予約する。起動は `--instance-initiated-shutdown-behavior terminate` なので、
    電源が切れると終了する。時間切れでも statepoint は S3 にあるので、`aws_run.sh <名前>` で続けられる
-2. 終わり方によらず、作業ディレクトリと `/var/log/xlc-job.log` を `runs/<名前>/<ジョブ>/`（ログは `boot.log`）に置いてから電源を切る
-   （`trap finish EXIT`）
+2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot.log`）、`done` の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る
+   （`trap finish EXIT`）。user-data が途中で失敗したら、その終了コードを `done` に書く。SIGTERM（スポットの回収、最長時間の
+   shutdown、手元からの終了）と同期の失敗では `done` を置かず、中断として起動し直せる
 3. Nix を入れる（試走と同じ Determinate の installer）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。クロージャを
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
 4. 再開なら、S3 の `runs/<名前>/<ジョブ>/` を作業ディレクトリに戻す。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
 5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync --delete` で作業ディレクトリを S3 にコピーする（作業ディレクトリの statepoint が
    そのまま写る。実行中の間引きは効いていない。#0106。書いている途中のものが写っても、再開は壊れたものを消して 1 つ前から続ける）
-6. 完了したら、最後の世代のほかの statepoint を消し、`SHA256SUMS`（ジョブのディレクトリの全ファイル）を書いて同期し、最後に `done`
-   （run と extract の終了コード）を置く。S3 に `done` があれば、ほかのファイルはすべて置いてある
+6. 完了したら、最後の世代のほかの statepoint を消し、`SHA256SUMS`（ジョブのディレクトリの全ファイル）を書き、2 の順に置く。`done` は
+   run と extract の終了コード。S3 に `done` があれば、ほかのファイルはすべて置いてある
 
 VM にはキーペアを付けず、VPC の既定のセキュリティグループ（同じグループのインスタンスからの通信だけ）で起動し、IMDSv2 を必須にする。
 様子は `aws_status.sh`、S3 の `boot.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
 
 起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`done` が 0 の
-ジョブは飛ばし、0 でないジョブがあれば止まる（`boot.log` を見て、別の名前でやり直す）。同じ名前の VM が走っていれば止まる。
+ジョブと、VM が走っているジョブは飛ばす。0 でないジョブがあれば何も起動せずに止まる（`boot.log` を見て、別の名前でやり直す）。
 中断の自動の再起動はない（ADR-0155）ので、`aws_status.sh` で VM が消えて `done` のないジョブを見つけたら起動し直す。
 
 `aws_fetch.sh` は `references/openmc/aws/<名前>/`（`--dest` で変えられる）に、`src/` と完了したジョブの結果を写し、`SHA256SUMS` で
