@@ -14,7 +14,7 @@ use serde::Serialize;
 use xlc_format::library::Library;
 use xlc_format::msgpack::to_named;
 use xlc_lattice::input::{CrossSections, LatticeInput};
-use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
+use xlc_lattice::shielding::shield_fuel;
 use xlc_lattice::tracking::Tracking;
 
 /// [行][列][群]
@@ -53,7 +53,7 @@ fn main() -> anyhow::Result<()> {
         &tracking,
         &input.materials,
         &regions,
-        &ShieldingOptions::default(),
+        &input.shielding_options(),
     )?;
     // ピンセルのある行と列（余白の行と列を除く）での位置
     let columns = lattice.columns();
