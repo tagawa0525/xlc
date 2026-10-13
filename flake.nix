@@ -204,6 +204,16 @@
       referencesPython = pkgs.python3.withPackages (p: pythonPackages p ++ [ openmcPython ]);
     in
     {
+      # 段階の cmd の python3 が、dvc の PATH でなく検証用の Python になること（#0101）
+      checks.${system}.dvc-stage-python = pkgs.runCommand "dvc-stage-python" { } ''
+        export PATH=${dvc}/bin:${python}/bin:${pkgs.coreutils}/bin HOME=$TMPDIR DVC_SITE_CACHE_DIR=$TMPDIR/dvc-site
+        cd $TMPDIR
+        dvc init --no-scm
+        dvc stage add -n t -o out.txt "python3 -c 'import msgpack, numpy' && echo ok > out.txt"
+        dvc repro
+        cp out.txt $out
+      '';
+
       packages.${system} = {
         endf-neutrons = endfZips.neutrons;
         endf-thermal-scatt = endfZips.thermal_scatt;
