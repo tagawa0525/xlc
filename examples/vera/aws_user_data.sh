@@ -2,17 +2,19 @@
 # aws_run.sh が source する。1 つのジョブを自己完結に流す VM の user-data（cloud-init のシェルスクリプト）を標準出力に書く
 # （ADR-0155）。AWS を呼ばないので、単体の検査（test_aws_user_data.sh）でも source できる。
 #
-# aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <閉包の鍵> <openmc> <python> <awscli>
+# aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <閉包の鍵> <openmc> <python> <awscli> <間隔>
 #   <job>      results/ の下の名前（入力の basename から .toml を除いたもの。run_remote.sh と同じ）
 #   <入力>     作業ディレクトリ（S3 の runs/<run>/src/ を写したもの）からの相対
 #   <ライブラリの鍵>、<閉包の鍵>  S3 の store/openmc-library/<鍵>/、store/nix/<鍵>/
+#   <間隔>     入力の statepoint-interval を上書きする世代数（正の整数。空なら上書きしない。ADR-0168）
 aws_user_data() {
-  (($# == 13)) || { echo "aws_user_data: 引数は 13 個（$# 個）" >&2; return 2; }
+  (($# == 14)) || { echo "aws_user_data: 引数は 14 個（$# 個）" >&2; return 2; }
   local region=$1 bucket=$2 run=$3 job=$4 input=$5 restart=$6 minutes=$7 seconds=$8 library=$9
-  local closure=${10} openmc=${11} python=${12} awscli=${13} v
+  local closure=${10} openmc=${11} python=${12} awscli=${13} interval=${14} v
   [[ $restart == 0 || $restart == 1 ]] || { echo "aws_user_data: 再開は 0 か 1（$restart）" >&2; return 2; }
   [[ $minutes =~ ^[1-9][0-9]*$ && $seconds =~ ^[1-9][0-9]*$ ]] ||
     { echo "aws_user_data: 最長の分と同期の秒は正の整数（$minutes、$seconds）" >&2; return 2; }
+  [[ $interval =~ ^([1-9][0-9]*)?$ ]] || { echo "aws_user_data: 間隔は正の整数か空（$interval）" >&2; return 2; }
   for v in "$openmc" "$python" "$awscli"; do
     [[ $v =~ ^/nix/store/[a-z0-9]{32}-[^/[:space:]]+$ ]] || { echo "aws_user_data: store のパスではない: $v" >&2; return 2; }
   done
@@ -49,16 +51,21 @@ statepoints() {
 }
 sync_out() {
   ((READY)) || return 0
-  local filters=() delete=(--delete) f all
-  # ジョブが走っている間は、最新の statepoint（OpenMC が書いている途中でありうる）と、一覧の後に書き始めたものを写さない。
-  # 写すのは、一覧の時点で最新でない（書き終えた）ものだけ。ジョブが成功した（done が 0）ときだけすべて写す（失敗や中断では、
-  # 最新の statepoint は書いている途中で止まったかもしれない）。そのあいだは --delete もしない（一覧のあとに statepoint が
+  local filters=() delete=(--delete) f all mtime
+  # ジョブが走っている間は、一覧の後に書き始めたものと、書いている途中でありうるものを写さない。写すのは、一覧の時点で最新で
+  # ないもの（書き終えた）と、最新でも mtime が 120 秒より古いもの（OpenMC は数秒で書き終え、書く間は mtime が進む。ADR-0168）。
+  # ジョブが成功した（done が 0）ときだけ、時刻によらずすべて写す（失敗や中断の直後は、最新の statepoint が書いている途中で
+  # 止まったかもしれず、mtime が新しいので除かれる）。そのあいだは --delete もしない（一覧のあとに statepoint が
   # 消されると、含めたはずのものを S3 から消すため）
   if ((INTERRUPTED)) || [[ \$(cat "\$WORK/\$OUT/done" 2> /dev/null) != 0 ]]; then
     delete=()
     filters=(--exclude 'run/statepoint.*')
     all=\$(statepoints "\$WORK/\$OUT/run")
     for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done
+    f=\$(tail -n 1 <<< "\$all")
+    if [[ -n \$f ]] && mtime=\$(stat -c %Y "\$WORK/\$OUT/run/\$f" 2> /dev/null) && ((\$(date +%s) - mtime > 120)); then
+      filters+=(--include "run/\$f")
+    fi
   fi
   # --delete のときは、先に消さずに写してから消す（途中で失敗しても、S3 から statepoint が消えて最後のものもない、にならない）
   "\$AWS" s3 sync --only-show-errors --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
@@ -132,11 +139,11 @@ if [[ \$keys != None ]]; then
 fi
 READY=1
 USERDATA
-  if ((restart)); then
-    echo "bash examples/vera/run_remote.sh --restart $input"
-  else
-    echo "bash examples/vera/run_remote.sh $input"
-  fi
+  local flags=
+  ((restart)) && flags=" --restart"
+  [[ -z $interval ]] || flags="$flags --statepoint-interval $interval"
+  echo "bash examples/vera/run_remote.sh$flags $input"
+
   cat <<USERDATA
 # run_remote.sh は done を 1 回の echo で書くので、空のうちに読まないよう数字になるまで待つ
 # 10 秒ごとに done とジョブを見て、$seconds 秒ごとに同期する。run_remote.sh が切り離したジョブ（bash -c job ... results/<job>
