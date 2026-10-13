@@ -8,7 +8,7 @@ use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, expectation_vec, width_ratios};
 use super::line_shape::jk_interpolated;
-use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof};
+use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof, scattering_radius_at};
 use crate::numeric::NumericError;
 use crate::physics::{BK, wave_number_factor};
 
@@ -199,10 +199,8 @@ impl UnresolvedXs<'_> {
 
     /// 位相シフトに使う散乱半径（NRO=1 なら表から補間する）。
     fn scattering_radius(&self, e: f64) -> Result<f64, UrrError> {
-        match &self.urr.ap_energy {
-            Some(table) => table.eval(e).ok_or(UrrError::RadiusTable { energy: e }),
-            None => Ok(self.urr.ap),
-        }
+        scattering_radius_at(self.urr.ap, self.urr.ap_energy.as_ref(), e)
+            .ok_or(UrrError::RadiusTable { energy: e })
     }
 
     /// 透過因子に使うチャネル半径（NAPS で選ぶ）。

@@ -20,7 +20,7 @@ pub use mf1::parse_nubar;
 pub use mf2::{
     BwLValue, BwResonance, Mf2, Mlbw, OrbitalL, ParticlePair, RMatrixLimited, RangeKind,
     ReichMoore, ResonanceRange, RmLValue, RmResonance, RmlChannel, RmlResonance, SpinGroup,
-    Unresolved, UrrJValue, UrrLValue, UrrPoint, WidthDof,
+    Unresolved, UrrJValue, UrrLValue, UrrPoint, WidthDof, scattering_radius_at,
 };
 pub use mf3::Mf3;
 pub use mf4::{AngleTables, Angular, Distribution, LegendreTable, Mf4};
