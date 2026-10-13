@@ -42,7 +42,7 @@ fn run(dir: &Path, tracks: &str) -> (f64, Vec<f64>) {
         .arg(dir.join("in.toml"))
         .status()
         .unwrap();
-    assert!(status.success());
+    assert!(status.success(), "lattice with `{tracks}` failed: {status}");
     let few = Table::from_msgpack(&std::fs::read(dir.join("fg.msgpack")).unwrap()).unwrap();
     let medium = Medium::from_msgpack(&std::fs::read(dir.join("medium.msgpack")).unwrap()).unwrap();
     let state = &medium.states[0];
