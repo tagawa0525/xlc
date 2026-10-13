@@ -36,7 +36,9 @@ NIX=/nix/var/nix/profiles/default/bin
 WORK=/var/lib/xlc
 OUT=results/$job
 
-# 同期: done と boot.log は finish が最後に置く（S3 に done があれば、ほかのファイルはすべて置いてある）。
+# 起動ごとのログの名前（起動し直しで前の VM のログを上書きしない）
+BOOTLOG=boot-\$(date -u +%Y%m%dT%H%M%SZ).log
+# 同期: done とログは finish が最後に置く（S3 に done があれば、ほかのファイルはすべて置いてある）。
 # READY（作業ディレクトリが S3 の内容を含むようになった）までは同期しない。再開で S3 から戻す前に --delete で写すと、
 # S3 の statepoint を消すため
 READY=0
@@ -54,11 +56,12 @@ sync_out() {
     all=\$(statepoints "\$WORK/\$OUT/run")
     for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done
   fi
-  "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
+  "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
 }
 # 終わるときに、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
-# この user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も含む）に置く。
-# SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）では書かず、中断として aws_run.sh で起動し直せるようにする。
+# READY のあとでこの user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も
+# 含む）に置く。SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）と READY の前の失敗（準備。S3 のジョブには
+# 触れていない）では書かず、中断として aws_run.sh で起動し直せるようにする（原因は boot-*.log に残る）。
 # SIGTERM のときの同期とログは、シャットダウンの途中で間に合わないことがある（確かめた範囲では置かれなかった）。中断で残るのは
 # 決まった間隔の同期の分。同期に 3 回失敗したら、S3 の結果がそろわないので done を置かない
 finish() {
@@ -68,7 +71,7 @@ finish() {
   set +e
   trap '' PIPE TERM
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
-  if ((code != 0 && code != 143)); then
+  if ((READY && code != 0 && code != 143)); then
     mkdir -p "\$WORK/\$OUT"
     echo "\$code" > "\$WORK/\$OUT/done"
   fi
@@ -77,8 +80,8 @@ finish() {
       sync_out && { synced=1; break; }
       sleep 10
     done
-    "\$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "\$PREFIX/boot.log" || true
-    if ((synced && code != 143)); then
+    "\$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "\$PREFIX/\$BOOTLOG" || true
+    if ((synced && code != 143)) && [[ -f \$WORK/\$OUT/done ]]; then
       "\$AWS" s3 cp --only-show-errors "\$WORK/\$OUT/done" "\$PREFIX/done" || true
     fi
   fi
@@ -87,7 +90,8 @@ finish() {
 trap finish EXIT
 trap 'exit 143' TERM
 
-curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm
+# installer の版を固定する（起動し直しの VM でも同じ Nix になる）。v3.23.1 は 2026-10-13 の確認で入った版
+curl -fsSL https://install.determinate.systems/nix/tag/v3.23.1 | sh -s -- install --no-confirm
 # AWS CLI は cache.nixos.org から（自前の cache を取るのに要る）
 "\$NIX/nix-store" --realise $awscli > /dev/null
 
@@ -104,7 +108,7 @@ USERDATA
   if ((restart)); then
     cat <<USERDATA
 # 再開: S3 の statepoint とログを戻す
-"\$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "\$PREFIX" "\$OUT"
+"\$AWS" s3 sync --only-show-errors --exclude 'boot-*.log' --exclude done "\$PREFIX" "\$OUT"
 READY=1
 bash examples/vera/run_remote.sh --restart $input
 USERDATA
