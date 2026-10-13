@@ -161,7 +161,7 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
 2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot-<起動の時刻>.log`。起動し直しで前のログを上書きしない）、`done`
    の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る（`trap finish EXIT`）。ジョブを始めたあと（READY のあと）に user-data が失敗
    したら、その終了コードを `done` に書く。SIGTERM を受けたときは、シャットダウンでジョブが殺されて書いた `done` も消して中断として扱う（ジョブ自身がシグナルで落ちたのは失敗として残す）。準備（Nix、閉包、核データ、入力の取得。S3 のジョブには触れない）での失敗、SIGTERM（スポットの
-   回収、最長時間の shutdown、手元からの終了）、同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM ではログも置かれないことがある
+   回収、最長時間の shutdown、手元からの終了）、同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM ではログも置かれないことがある（#0107）
    （確認で、手元から終了したときは置かれなかった。原因は確かめていない。候補はシャットダウンでのネットワークの停止と、ログの tee が
    先に消えたときの SIGPIPE で、後者は finish で無視するようにした）
 3. Nix を入れる（試走と同じ Determinate の installer。版は v3.23.1 に固定）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。閉包を
@@ -179,7 +179,8 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 様子は `aws_status.sh`、S3 の `boot-*.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
 
 起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`done` が 0 の
-ジョブと、VM が走っているジョブは飛ばす。0 でないジョブがあれば何も起動せずに止まる（`boot-*.log` を見て、別の名前でやり直す）。最後の世代の statepoint があって `done` が
+ジョブと、VM が走っているジョブは飛ばす。0 でないジョブ（失敗）は飛ばして示し、ほかのジョブは起動する（終わりの状態は 1。`boot-*.log` を見て、原因を直してから
+`aws s3 rm s3://<バケット>/runs/<名前>/<ジョブ>/done` で `done` を消すと、そのジョブも起動し直せる）。最後の世代の statepoint があって `done` が
 ないジョブ（完了のあと `done` を置く前に止まった）は起動せず、`SHA256SUMS` とログを確かめて手で `done` を置くよう示す。
 中断の自動の再起動はない（ADR-0155）ので、`aws_status.sh` で VM が消えて `done` のないジョブを見つけたら起動し直す。
 
@@ -187,7 +188,7 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 入れる前（Nix の installer、cache.nixos.org）の失敗で、起動し直しても同じように消えるなら、終了から約 1 時間のうちに
 `aws ec2 get-console-output --instance-id <ID> --latest` で cloud-init の出力を見る。
 
-`aws_fetch.sh` は `references/openmc/aws/<名前>/`（`--dest` で変えられる）に、`src/` と完了したジョブの結果を写し、`SHA256SUMS` で
+`aws_fetch.sh` は `references/openmc/aws/<名前>/`（`--dest` で変えられる）に、`src/`、`launch.env`、`launches/` と完了したジョブの結果を写し、`SHA256SUMS` で
 検証する。`--verify` は、取り出した statepoint から VM と同じ Python（`launch.env` の store のパス。手元になければそのコミットで
 `nix build .#openmc-python`）で extract し、VM の結果とバイト一致を確かめる。置き場は S3 の写しにする（前の取り出しの残りは消す）。
 `--delete` は `--verify` が通り、すべてのジョブが完了したときだけ S3 の `runs/<名前>/` を消す。消し忘れても 30 日で失効する。

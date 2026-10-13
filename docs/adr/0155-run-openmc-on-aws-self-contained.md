@@ -4,7 +4,7 @@ date: 2026-10-13
 requires: [ADR-0151]
 supersedes: []
 superseded-by:
-issues: ["#0106"]
+issues: ["#0106", "#0107"]
 ---
 
 # ADR-0155: Run OpenMC on AWS self-contained with user-data, S3 and self-termination
@@ -122,7 +122,7 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
   からの分。走っている間は最新の statepoint を写さないので、最大で入力の `statepoint-interval` の約 2 倍と同期の間隔
 - 費用（2026-10-13 の公開の単価。docs/environment.md）: S3 の保存は $0.023/GB・月で、`store/`（zstd の閉包 212 MB と核データ 631 MB、
   約 0.85 GB。2026-10-13 の `du`、xlc のコミット bf7d2439）は月約 $0.02。取り出しは月 100 GB まで無料。EC2 と EBS は VM が動いている間だけ
-- VM が S3 にいつ何を書いたかは、起動ごとのログ（`runs/<名前>/<ジョブ>/boot-<起動の時刻>.log`）に残る。中断（SIGTERM）では最後の同期とログが置かれないことがあり、
+- VM が S3 にいつ何を書いたかは、起動ごとのログ（`runs/<名前>/<ジョブ>/boot-<起動の時刻>.log`）に残る。中断（SIGTERM）では最後の同期とログが置かれないことがあり（#0107）、
   残るのは決まった間隔の同期の分。AWS CLI の取得は cache.nixos.org に頼る
 - 手元から ssh で進める道具（remote_send.sh、run_remote.sh、remote_fetch.sh、aws_launch.sh など）は残す。run_remote.sh は
   VM の中でも使う
