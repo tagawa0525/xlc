@@ -3,6 +3,11 @@
 //!
 //! examples/vera/vera.msgpack（DVC の段階の出力で git で追跡しない。ADR-0130）を読むので、既定では走らせない。
 //! 走らせ方: `cargo test --release -p xlc-lattice --test track_table -- --ignored`
+#![allow(
+    clippy::unwrap_used,
+    clippy::disallowed_macros,
+    reason = "a test: a failed file or run should stop it with the message"
+)]
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
