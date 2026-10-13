@@ -3,8 +3,8 @@
 使い方: python3 compare_hzp.py <spec.txt> <ケースの TOML> <core の出力>
 
 ケースの状態は、仕様書の表 P5-2 の場合の番号で `case-<n>`（ホウ素濃度を与える）か `case-<n>-boron`（k = 1 になる
-ホウ素濃度を探す。ADR-0145）と名付ける。ツールは、状態のホウ素濃度、温度、B-10 の割合が表の場合と同じことを確かめて
-から、core の出力で次を求める。反応度の差は仕様書と同じく ρ = (1/k₁ − 1/k₂) × 10⁵ pcm。
+ホウ素濃度を探す。ADR-0145）と名付ける。ツールは、状態のホウ素濃度、温度、B-10 の割合、バンクの位置（ステップ。
+ADR-0127）が表の場合と同じことを確かめてから、core の出力で次を求める。反応度の差は仕様書と同じく ρ = (1/k₁ − 1/k₂) × 10⁵ pcm。
 
 - 臨界ホウ素濃度（`case-<n>-boron`）: 表の場合のホウ素濃度（実測の臨界）との差
 - k（`case-<n>`）: 臨界の場合 1〜10 は実測の臨界（k = 1）と、すべての場合は表 P5-6 の KENO-VI の k と、反応度で比べる
@@ -179,12 +179,9 @@ def case_states(path: Path, cases: dict[int, dict]) -> dict[str, tuple[int, bool
             )
         n, search = int(m.group(1)), m.group(2) is not None
         case = cases[n]
-        if any(steps != WITHDRAWN for steps in case["banks"].values()):
-            # 状態はバンクの位置を持てる（ADR-0127）が、棒は燃料の上の軸方向の反射体の層にも入るので、その層の
-            # 制御棒の軸（#0030）と格子計算の制御棒の分岐（#0093）が入るまで、挿入した場合は解けない
+        if state.get("banks") != case["banks"]:
             raise SystemExit(
-                f"{path}: state {name}: case {n} inserts banks, which need the rod axis of the "
-                "layers above the fuel (#0030) and the rod branches of the lattice (#0093)"
+                f"{path}: state {name}: banks {state.get('banks')} differ from case {n} ({case['banks']})"
             )
         if search and n > 10:
             raise SystemExit(
