@@ -60,7 +60,7 @@ M0 の xs で、案 4 の 3 つのビルドは、どれも今までの速い配�
 
 ## 確認
 
-examples/build-alignment/verification.md の測定（d3e3178f、ジョブ 313、317、319、2026-10-14）で、b873a967 のソースにこの設定を
+examples/build-alignment/verification.md の測定（d640a2db、ジョブ 313、317、319、2026-10-14）で、b873a967 のソースにこの設定を
 足したビルドの M0 の xs、lattice、core と VERA 1B、2A の出力が、設定なしとバイト単位で一致し、M0 の xs の置き場所による
 案 4 の 3 つのビルドのどれも遅い置き場所に当たらなかった。
 
