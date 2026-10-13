@@ -1,0 +1,56 @@
+# ADR-0157 の測定の入力: examples/vera/p1/pincell-1B.toml に少数群定数の全桁の出力（few-group）を足したもの
+# VERA Problem 1B: 17×17 型の燃料棒のピンセル（燃料 600 K、被覆管と減速材 600 K、ホウ素 1300 ppm）。
+# 組成は仕様書の表 P1-4（Hf は除き、ギャップは真空）。燃料は自己遮蔽する。個数密度は 1/(barn cm)。
+library = "../vera/vera.msgpack"
+pitch = 1.26
+azimuthal = 64
+spacing = 0.02
+rows = ["pin"]
+few-group = { output = "pincell-1B-fg.msgpack", bounds = [1e7, 0.625, 1e-5] }
+
+[material.fuel]
+temperature = 600
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.41459e-02, O-16 = 2.20729e-02, B-10 = 9.52537e-06, B-11 = 3.83408e-05 }
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
