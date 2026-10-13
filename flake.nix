@@ -47,11 +47,22 @@
         ];
       python = pkgs.python3.withPackages pythonPackages;
       # 計算の段階の駆動（ADR-0123）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
-      # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。dvc の実行ファイルは自分の依存を
-      # ラッパーで見つけるので、実行ファイルだけを入れる
+      # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。pkgs.dvc の bin/dvc（makeWrapper）も
+      # 使わない: PATH の先頭に素の python3 を足し、段階の cmd の python3 が検証用の Python でなくなる（#0101）。
+      # 中の .dvc-wrapped は自分の依存の site のディレクトリを自分で足すので、PATH を変えずに直接呼ぶ。
+      # .dvc-wrapped は nixpkgs の Python のラッパーの中の名前なので、無ければビルドで止める
       dvc = pkgs.runCommand "dvc-${pkgs.dvc.version}" { } ''
+        test -x ${pkgs.dvc}/bin/.dvc-wrapped || {
+          echo "pkgs.dvc に bin/.dvc-wrapped が無い（#0101）" >&2
+          exit 1
+        }
         mkdir -p $out/bin
-        ln -s ${pkgs.dvc}/bin/dvc $out/bin/dvc
+        cat > $out/bin/dvc <<EOF
+        #!${pkgs.runtimeShell}
+        export PYTHONNOUSERSITE=true
+        exec ${pkgs.dvc}/bin/.dvc-wrapped "\$@"
+        EOF
+        chmod +x $out/bin/dvc
       '';
 
       # 検証用の資産（ADR-0124）。外から取るものは URL と sha256 で固定する
@@ -196,6 +207,17 @@
       referencesPython = pkgs.python3.withPackages (p: pythonPackages p ++ [ openmcPython ]);
     in
     {
+      # 段階の cmd の python3 が、dvc の PATH でなく検証用の Python になること（#0101）
+      checks.${system}.dvc-stage-python = pkgs.runCommand "dvc-stage-python" { } ''
+        export PATH=${dvc}/bin:${python}/bin:${pkgs.coreutils}/bin HOME=$TMPDIR DVC_SITE_CACHE_DIR=$TMPDIR/dvc-site
+        export DVC_NO_ANALYTICS=1
+        cd $TMPDIR
+        dvc init --no-scm
+        dvc stage add -n t -o out.txt "python3 -c 'import msgpack, numpy' && echo ok > out.txt"
+        dvc repro
+        cp out.txt $out
+      '';
+
       packages.${system} = {
         endf-neutrons = endfZips.neutrons;
         endf-thermal-scatt = endfZips.thermal_scatt;
