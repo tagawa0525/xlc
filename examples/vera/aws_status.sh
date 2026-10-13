@@ -10,6 +10,9 @@ source "$(dirname "$0")/aws_common.sh"
 
 now=$(date +%s)
 found=0
+# 失敗で止まるよう、一覧を先に取る（< <(...) の失敗は set -e で止まらない）
+listing=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" \
+  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,InstanceType,State.Name,PublicIpAddress,LaunchTime,Placement.AvailabilityZone]' --output text)
 while read -r id name type state ip launch az; do
   found=1
   hours=$(awk -v n="$now" -v l="$(date -d "$launch" +%s)" 'BEGIN {printf "%.2f", (n - l) / 3600}')
@@ -17,8 +20,7 @@ while read -r id name type state ip launch az; do
     --start-time "$(date -u +%FT%TZ)" --query 'SpotPriceHistory[0].SpotPrice' --output text)
   [[ $price != None ]] || { echo "$name $id $type $state $ip スポット価格を取得できません（$az）"; continue; }
   echo "$name $id $type $state $ip 起動から ${hours} 時間、スポット価格 \$${price}/時間（直近の市場価格（その AZ）。1 台あたり約 \$$(awk -v h="$hours" -v p="$price" 'BEGIN {printf "%.3f", h * p}')）"
-done < <(aws ec2 describe-instances --filters "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" \
-  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,InstanceType,State.Name,PublicIpAddress,LaunchTime,Placement.AvailabilityZone]' --output text)
+done <<< "$listing"
 ((found)) || echo "走っているインスタンスはありません"
 
 echo "== S3 の実行（s3://$XLC_BUCKET/runs/）"

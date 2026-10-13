@@ -23,13 +23,15 @@ done
 # <name> または <name>-<数字> に厳密に一致するものと、XlcRun が <name> のものだけ（xlc で xlc-ssh-test を巻き込まない）
 ids=()
 hosts=()
+# 失敗で止まるよう、一覧を先に取る（< <(...) の失敗は set -e で止まらない）
+listing=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$name,$name-*" \
+  "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,Tags[?Key==`XlcRun`]|[0].Value]' --output text)
 while read -r id host run; do
   [[ $host == "$name" || $host =~ ^$name-[0-9]+$ || $run == "$name" ]] || continue
   ids+=("$id")
   hosts+=("$host")
-done < <(aws ec2 describe-instances --filters "Name=tag:Name,Values=$name,$name-*" \
-  "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,Tags[?Key==`XlcRun`]|[0].Value]' --output text)
+done <<< "$listing"
 echo "対象: ${ids[*]:-なし}（${hosts[*]:-}）"
 ((dry)) && exit 0
 if ((${#ids[@]})); then
