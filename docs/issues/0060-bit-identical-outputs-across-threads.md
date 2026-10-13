@@ -47,3 +47,9 @@ DVC（ADR-0123）は、段階の出力を md5、つまりバイトの一致で�
 
 - 2026-10-11: ADR-0123 で段階を DVC で駆動し、出力をバイトの一致で記録することにしたので起こした。M0 の lattice は、
   同じスレッド数で 2 回実行して `pincell-fg.msgpack` の md5 が一致した（ADR-0123 の確認）
+- 2026-10-14: feat/0060-dvc-examples（worktree /home/tagawa/github/xlc-feat-0060-dvc-examples、HEAD 5a1baf44 とそのあとの docs コミット）に m1、mox、
+  c5g7、colorset、split、m3-nuclides の dvc.yaml と OpenMC の run/extract の書き換えをコミットした。dvc.lock は未作成（Slurm の
+  ジョブ 262〜267 は、格子の高速化で出力が変わるため取り消した。colorset は 36 分で中断）。再開は、deps を release の実行ファイルに
+  する ADR と高速化のマージのあとに main へ rebase し、`dvc checkout examples/vera/dvc.yaml` のうえで各例を
+  `slurm-run.sh dvc-<例> 'nix develop -c dvc repro examples/<例>/dvc.yaml'` で流し、dvc.lock と verification.md の数値
+  （実行したコミットと分岐点）を書いて /git-merge する。verification.md の「実行」の節は書き換え済み
