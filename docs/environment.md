@@ -204,6 +204,12 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 - EC2 と EBS は VM が動いている間だけ（下の「道具を使う手順」の見積もり）。最長の時間で止まるので、1 台あたりの上限は
   14 時間 × スポット価格
 
+起動の前にどのリージョンと AZ が安いかは、`examples/vera/aws_spot_prices.sh [--type T] [--hours H] [--regions R1,R2] [--running]` で見る。
+直近 H 時間（既定 1）の `DescribeSpotPriceHistory` を引き、AZ ごとの最新のスポット価格を昇順に、最安に対する比とオンデマンド価格
+（pricing API。取れなければ省く）に対する比とともに出す。`--running` は、タグ XlcRun の走っているインスタンスの AZ に印を付ける。組織の SCP が
+拒むリージョン（2026-10-13 の時点で許されるのは us-east-1 と us-west-2 だけ）は表の後に 1 行にまとめ、それ以外のエラーは止まる。
+`aws_run.sh` は AZ を選べないので、この表は参考の情報で、起動する AZ を決めるものではない（`aws_run.sh` はバケットと同じリージョンでしか起動しない）。
+
 #### 自己完結な実行の確認（2026-10-13）
 
 c7a.large のスポットで、examples/vera/aws-check/openmc-3A.toml（粒子 1 万・200 世代・捨てる 50・間隔 20）を `--type c7a.large --sync-minutes 1`
