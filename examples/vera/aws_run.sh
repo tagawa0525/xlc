@@ -283,7 +283,7 @@ else
       restart_flags+=(0)
     fi
     if [[ -n $retry_code ]]; then
-      echo "$job: done=$retry_code を消して起動する（--retry-failed。原因は $run_prefix/$job/log と boot-*.log で確かめたもの）"
+      echo "$job: done=$retry_code を消して起動する（--retry-failed${dry:+、--dry-run なので消さない}。原因は $run_prefix/$job/log と boot-*.log で確かめたもの）"
       clear_done+=("$job")
     fi
     todo+=("$input")
@@ -349,15 +349,15 @@ for i in "${!todo[@]}"; do
     echo "$host: 起動の引数は有効（再開 ${restart_flags[$i]}、user-data $(wc -c <<< "$user_data") バイト）"
   else
     id=$(aws ec2 run-instances "${args[@]}")
-    # 起動できてから消す（起動に失敗したときに、失敗の印を失わない）
-    if grep -Fxq -- "$job" <<< "$(printf '%s\n' "${clear_done[@]:-}")"; then
-      aws s3 rm --only-show-errors "$run_prefix/$job/done"
-    fi
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
     # 起動ごとの記録（user-data を作るツールと、起動し直しで src/ に置き直すツールは TOOLS_COMMIT のもの。AMI、機種もこの起動のもの）。起動できたものだけ書く
     printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\nSTATEPOINT_INTERVAL=%s\n' "$tools" "$ami" \
       "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$az" "$market" "$interval" |
       aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
+    # 起動の記録を書いてから消す（起動に失敗したときに、失敗の印を失わない）
+    if grep -Fxq -- "$job" <<< "$(printf '%s\n' "${clear_done[@]:-}")"; then
+      aws s3 rm --only-show-errors "$run_prefix/$job/done"
+    fi
   fi
 done
 ((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
