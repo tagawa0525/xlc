@@ -344,7 +344,7 @@ fn reactions(
                     channels.push(Channel {
                         final_state: Some(FinalState {
                             mf: entry.mf,
-                            lfs: entry.lfs,
+                            lfs: Some(entry.lfs),
                         }),
                         products,
                     });
