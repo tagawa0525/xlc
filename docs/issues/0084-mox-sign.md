@@ -28,7 +28,7 @@ resolution:
 - 熱群の水の移行（ADR-0133 で変わったもの）と、Pu の熱群の大きな共鳴（0.3 eV）のあるスペクトルでの散乱行列の群の中の重み
 - MOX-2 の残り −111 pcm は、水と被覆管の吸収と移行の差（MOX では balance を取っていない）
 
-関係する ADR: [ADR-0133](../adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)
+関係する ADR: なし
 
 ## 完了の条件
 
