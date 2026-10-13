@@ -24,6 +24,7 @@ done
 [[ -n $ip ]] || ip=$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')
 [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "IPv4 として読めません: $ip" >&2; exit 1; }
 want="$ip/32"
+ssh_sg_id
 
 mapfile -t have < <(aws ec2 describe-security-groups --group-ids "$SG_ID" \
   --query 'SecurityGroups[0].IpPermissions[?FromPort==`22` && ToPort==`22` && IpProtocol==`tcp`].IpRanges[].CidrIp' --output text | tr '\t' '\n' | sed '/^$/d')
