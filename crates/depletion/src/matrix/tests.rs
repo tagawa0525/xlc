@@ -72,3 +72,12 @@ fn rejects_non_finite_entries() {
         "{error}"
     );
 }
+
+#[test]
+fn rejects_entries_that_overflow_when_summed() {
+    let error = DepletionMatrix::from_triplets(2, &[(1, 0, 1e308), (1, 0, 1e308)]).unwrap_err();
+    assert!(
+        matches!(error, DepletionError::NonFiniteEntry { row: 1, col: 0, .. }),
+        "{error}"
+    );
+}
