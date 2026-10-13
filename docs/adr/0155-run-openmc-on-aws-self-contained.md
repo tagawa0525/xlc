@@ -118,9 +118,10 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
 
 - 手元が落ちても、計算は最後まで進み、結果は S3 に残り、VM は終了する。中断と時間切れで失うのは、最後の同期と最後の statepoint
   からの分（入力の `statepoint-interval` と同期の間隔の大きい方まで）
-- 費用（2026-10-13 の公開の単価。docs/environment.md）: S3 の保存は $0.023/GB・月で、`store/`（クロージャと核データ約 1.4 GB）は月
-  約 $0.03。取り出しは月 100 GB まで無料。EC2 と EBS は VM が動いている間だけ
-- VM が S3 にいつ何を書いたかは、ログ（`runs/<名前>/<ジョブ>/boot.log`）に残る。AWS CLI の取得は cache.nixos.org に頼る
+- 費用（2026-10-13 の公開の単価。docs/environment.md）: S3 の保存は $0.023/GB・月で、`store/`（zstd のクロージャ 212 MB と核データ 631 MB、
+  約 0.85 GB。2026-10-13 の `du`、xlc のコミット df72096a）は月約 $0.02。取り出しは月 100 GB まで無料。EC2 と EBS は VM が動いている間だけ
+- VM が S3 にいつ何を書いたかは、ログ（`runs/<名前>/<ジョブ>/boot.log`）に残る。中断（SIGTERM）では最後の同期とログが置かれないことがあり、
+  残るのは決まった間隔の同期の分。AWS CLI の取得は cache.nixos.org に頼る
 - 手元から ssh で進めるツール（remote_send.sh、run_remote.sh、remote_fetch.sh、aws_launch.sh など）は残す。run_remote.sh は
   VM の中でも使う
 
