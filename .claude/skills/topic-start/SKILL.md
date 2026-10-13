@@ -41,10 +41,12 @@ git で追跡しない生成物は worktree に無い。使うものを main か
 ```sh
 cp --reflink=auto ~/github/xlc/examples/vera/vera.msgpack examples/vera/
 cp --reflink=auto ~/github/xlc/examples/vera/p2/openmc-2K.msgpack examples/vera/p2/    # 比べる道具が読む参照解のピン出力（ADR-0121）
+dvc checkout dvc.yaml                                                                 # 段階が呼ぶ bin/ の実行ファイル（ADR-0159）
 dvc checkout examples/vera/dvc.yaml                                                   # DVC の段階の出力が要るとき（openmc-library/ など）
 ```
 
-そのあと、worktree でビルドする。`target/` は worktree ごとにあり、最初は全体を作るので数分かかる（手元でよい。ADR-0026）:
+そのあと、worktree でビルドする。`target/` は worktree ごとにあり、最初は全体を作るので数分かかる（手元でよい。ADR-0026）。
+DVC の段階が呼ぶ実行ファイルは、これとは別に `dvc repro` の `build` が `target/dvc` に作る（ADR-0159）:
 
 ```sh
 cargo build --release
@@ -119,5 +121,5 @@ worktree から /git-merge を呼ぶときは、**ブランチ名を引数に渡
   cp --reflink=auto examples/vera/vera.msgpack ~/github/xlc/examples/vera/vera.msgpack
   ```
 
-  DVC の段階の出力を入れたブランチをマージしたあとは、main で `dvc checkout examples/vera/dvc.yaml` して `dvc.lock` の
-  出力に合わせる（ADR-0123、ADR-0130）
+  DVC の段階の出力を入れたブランチをマージしたあとは、main で `dvc checkout dvc.yaml` と `dvc checkout examples/vera/dvc.yaml`
+  をして `dvc.lock` の出力に合わせる（ADR-0130、ADR-0159。手順はスキル dvc-relock の後半）
