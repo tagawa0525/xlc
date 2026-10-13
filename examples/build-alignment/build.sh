@@ -24,6 +24,12 @@ declare -A flags=(
   [v2]='"-C","llvm-args=-align-all-functions=6","-C","llvm-args=-align-all-nofallthru-blocks=6"'
   [v3]='"-C","llvm-args=-align-loops=64"'
 )
+# 環境変数の rustflags は設定ファイルと --config の rustflags を上書きし、設定ごとの差が消えるので止める（scripts/build-binaries.sh と同じ確認）
+flags='^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTFLAGS|CARGO_PROFILE_[A-Z0-9_]+|CARGO_TARGET_[A-Z0-9_]+_(RUSTFLAGS|LINKER))='
+if env | grep -qE "$flags"; then
+  echo "compile or link settings are set in the environment: $(env | grep -oE "$flags" | tr '\n' ' ')" >&2
+  exit 1
+fi
 mkdir -p "$work" "$here/bin"
 for c in "$@"; do
   rm -rf "$work/src-$c"; mkdir -p "$work/src-$c"
@@ -33,7 +39,7 @@ for c in "$@"; do
     cfg=()
     [ -n "$f" ] && cfg=(--config "target.x86_64-unknown-linux-gnu.rustflags=[$f]")
     # コミットごとに target を分ける（同じ target を使い回すと、パッケージの名前が同じなので作り直さないことがある）
-    (cd "$work/src-$c" && cargo build -q --release -p xlc-xs -p xlc-lattice -p xlc-core \
+    (cd "$work/src-$c" && cargo build -q --release --locked -p xlc-xs -p xlc-lattice -p xlc-core \
       --target-dir "$work/target-$c-$v" "${cfg[@]}")
     for b in xs lattice core; do cp "$work/target-$c-$v/release/$b" "$here/bin/$b-$c-$v"; done
   done
