@@ -49,10 +49,13 @@
       # 計算の段階の駆動（ADR-0123）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
       # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。pkgs.dvc の bin/dvc（makeWrapper）も
       # 使わない: PATH の先頭に素の python3 を足し、段階の cmd の python3 が検証用の Python でなくなる（#0101）。
-      # 中の .dvc-wrapped は自分の依存の site のディレクトリを自分で足すので、PATH を変えずに直接呼ぶ
+      # 中の .dvc-wrapped は自分の依存の site のディレクトリを自分で足すので、PATH を変えずに直接呼ぶ。
       # .dvc-wrapped は nixpkgs の Python のラッパーの中の名前なので、無ければビルドで止める
       dvc = pkgs.runCommand "dvc-${pkgs.dvc.version}" { } ''
-        test -x ${pkgs.dvc}/bin/.dvc-wrapped
+        test -x ${pkgs.dvc}/bin/.dvc-wrapped || {
+          echo "pkgs.dvc に bin/.dvc-wrapped が無い（#0101）" >&2
+          exit 1
+        }
         mkdir -p $out/bin
         cat > $out/bin/dvc <<EOF
         #!${pkgs.runtimeShell}
