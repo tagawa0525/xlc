@@ -15,7 +15,7 @@
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）。auto なら、aws_types.toml の候補の機種と直近 1 時間のスポット価格から、
 #              1 本の費用（価格 ÷ 速度）の安い (機種, AZ) の順に起動を試す（ADR-0171。空き、クォータ、価格で失敗したら次へ。
 #              全部失敗なら 1 で終わり、起動し直しで再試行できる）。--az と併用すると AZ を固定して機種だけ選ぶ。--on-demand とは
-#              併用できない。起動し直しでは、auto のとき最後の起動の記録の AZ を引き継がない
+#              併用できない。起動し直しでは、最後の起動が auto の選択なら --type 省略も auto になり、auto のとき記録の AZ を引き継がない
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
 #   --statepoint-interval  起動し直しで、その起動の OpenMC の走行だけ、入力の statepoint-interval を N 世代に上書きする（中断が続くとき、
@@ -37,7 +37,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
@@ -230,6 +230,8 @@ else
   [[ -n $last_key ]] || ((${#jobs[@]} == 0)) || echo "警告: --job のジョブに起動の記録がないので、既定の設定で起動する（--type などで指定する）" >&2
   if [[ -n $last_key ]]; then
     last=$(aws s3 cp "s3://$XLC_BUCKET/$last_key" -)
+    # 最後の起動が auto の選択なら、起動し直しも auto にする（同じ機種と AZ に固定すると、中断された空きの池を試し直すだけになる）
+    if [[ -z $type ]] && grep -Fxq SELECTION=auto <<< "$last"; then type=auto; fi
     type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
     max_hours=${max_hours:-$(sed -n 's/^MAX_HOURS=//p' <<< "$last")}
     sync_minutes=${sync_minutes:-$(sed -n 's/^SYNC_MINUTES=//p' <<< "$last")}
@@ -308,10 +310,13 @@ market=${market:-spot}
 # 起動を試す候補を「順位 費用 タイプ AZ 価格 速度」で 1 行ずつ（cands）。auto でなければ指定の 1 つ（AZ は空なら AWS が選ぶ）
 cands=()
 if [[ $type == auto ]]; then
-  [[ $market == spot ]] || { echo "--type auto はスポットの価格で並べるので --on-demand と併用できない" >&2; exit 2; }
+  [[ $market == spot ]] || { echo "--type auto はスポットの価格で並べるので --on-demand と併用できない（最後の起動の記録がオンデマンドなら --spot を付ける）" >&2; exit 2; }
   types_file=${XLC_AWS_TYPES:-$here/aws_types.toml}
   [[ -z $az ]] || az_subnet_id "$az"
-  mapfile -t cands < <(auto_candidates "$types_file" "$az" | awk '{print NR, $0}')
+  # 先に変数へ取る（< <(...) の中の失敗は止まらず、設定や認証の誤りが「空きがない」に化ける）
+  cand_text=$(auto_candidates "$types_file" "$az" | awk '{print NR, $0}')
+  mapfile -t cands <<< "$cand_text"
+  [[ -n $cand_text ]] || cands=()
   ((${#cands[@]})) || { echo "候補のスポット価格がありません（$types_file の機種が ${az:-どの AZ}にない）。空きがない" >&2; exit 1; }
   echo "== 候補（1 本の費用 = 価格 ÷ 速度の昇順。速度は $types_file の見積もりで測っていない）"
   printf '%-4s %12s  %-14s %-12s %10s %6s\n' 順位 '費用$/時間' タイプ AZ '価格$/時間' 速度
@@ -380,7 +385,7 @@ for i in "${!todo[@]}"; do
       break
     fi
     if out=$(aws ec2 run-instances "${args[@]}" 2>&1); then
-      id=$(grep -Eo '^i-[0-9a-f]+$' <<< "$out" | head -1)
+      id=$(grep -Eo '^i-[0-9a-f]+$' <<< "$out" | head -1 || true)
       [[ -n $id ]] || { echo "run-instances の出力にインスタンス ID がない: $out" >&2; exit 1; }
       echo "$host: $id を起動（$ctype ${caz:-AZ 指定なし}、再開 ${restart_flags[$i]}）"
       auto_record=
