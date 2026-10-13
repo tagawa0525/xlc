@@ -127,6 +127,7 @@ examples/vera/aws_run.sh m3 examples/vera/p3/openmc-3A.toml examples/vera/p3/ope
 examples/vera/aws_status.sh            # 走っている VM と、S3 の runs/ のジョブごとの done と最新の statepoint
 examples/vera/aws_run.sh m3            # 中断のあと: done のないジョブを起動し直す（statepoint があれば --restart）
 examples/vera/aws_fetch.sh --verify --delete m3   # 取り出し、manifest と手元の extract で検証し、S3 の runs/m3/ を消す
+examples/vera/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m3 の VM。S3 の statepoint から aws_run.sh m3 で続けられる）
 ```
 
 用意するもの（2026-10-13 に作成済み。バケットは管理者が作った）:
@@ -149,7 +150,8 @@ S3 の置き場:
 
 鍵は内容のハッシュ（閉包は store のパスの組、核データはファイルの sha256 の一覧）。`aws_run.sh` は毎回 `aws s3 sync` で置き、S3 に
 あるものは送らない。`launch.env` は最後に置く（あれば `src/` と `store/` はそろっている）。入力はリポジトリの直下からの相対パス
-（`..` を含まない）で、VM の作業ディレクトリにも同じ相対パスで置く。
+（`..` を含まない）で、VM の作業ディレクトリにも同じ相対パスで置く。名前は `run_remote.sh` が受け付ける `openmc-3?` か
+`openmc-5?-2D` に限り、S3 に置く前に確かめる。VM が取る AWS CLI が cache.nixos.org にあることも先に確かめる。
 
 VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init が root で走らせる）:
 
