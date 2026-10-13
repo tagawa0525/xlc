@@ -164,9 +164,20 @@ fn decay_products(
         (Ok(0), _) => {}
         (Ok(z), Ok(a)) => {
             let daughter = (z, a, mode.final_state);
-            match index.get(daughter) {
-                Some(i) => products.push(Product { nuclide: i, count: 1 }),
-                None => warnings.push(format!(
+            // decay にない準安定状態は基底状態へ（収率と MF8 の状態と同じ規則。ADR-0164）
+            let ground = (z, a, 0);
+            match (index.get(daughter), index.get(ground)) {
+                (Some(i), _) => products.push(Product { nuclide: i, count: 1 }),
+                (None, Some(i)) if mode.final_state > 0 => {
+                    warnings.push(format!(
+                        "{parent}: the daughter {} of {} is not in the decay data; sent to {}",
+                        name(daughter)?,
+                        mode_name(&mode.steps),
+                        name(ground)?
+                    ));
+                    products.push(Product { nuclide: i, count: 1 });
+                }
+                _ => warnings.push(format!(
                     "{parent}: the daughter {} of {} is not in the decay data; the branch produces no daughter",
                     name(daughter)?,
                     mode_name(&mode.steps)
@@ -415,6 +426,7 @@ fn reactions(
                     let mut products = Vec::new();
                     match index.get(k) {
                         Some(i) => products.push(Product { nuclide: i, count: 1 }),
+                        None if z == 0 => {}
                         None => warnings.push(format!(
                             "{parent}: the product {} of MT{} is not in the decay data; the channel produces no residual",
                             name(k)?,
@@ -433,6 +445,8 @@ fn reactions(
                 let mut products = Vec::new();
                 match index.get((z, a, 0)) {
                     Some(i) => products.push(Product { nuclide: i, count: 1 }),
+                    // 残りが中性子だけ（Z = 0。H-2 の (n,p)）なら、β−n の中性子と同じく追わない
+                    None if z == 0 => {}
                     None => warnings.push(format!(
                         "{parent}: the product {} of MT{} is not in the decay data; the reaction produces no residual",
                         name((z, a, 0))?,
@@ -601,6 +615,15 @@ pub fn build(
 
     let mut yield_evaluations: Vec<&YieldEvaluation> = yields.iter().collect();
     yield_evaluations.sort_by_key(|y| key(&y.material));
+    if let Some(w) = yield_evaluations
+        .windows(2)
+        .find(|w| key(&w[0].material) == key(&w[1].material))
+    {
+        bail!(
+            "{} appears twice in the fission yield data",
+            name(key(&w[0].material))?
+        );
+    }
     for y in &yield_evaluations {
         if index.get(key(&y.material)).is_none() {
             bail!(
@@ -610,6 +633,7 @@ pub fn build(
         }
     }
     let mut fissionable = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     // 中性子そのものの評価（n + n）も鎖に入れない
     for evaluation in neutrons.iter().filter(|n| n.material.z > 0) {
         let k = key(&evaluation.material);
@@ -619,7 +643,7 @@ pub fn build(
                 name(k).unwrap_or_default()
             )
         })?;
-        if !nuclides[i].reactions.is_empty() {
+        if !seen.insert(i) {
             bail!("{} appears twice in the neutron data", nuclides[i].name);
         }
         let parent = nuclides[i].name.clone();
@@ -630,6 +654,18 @@ pub fn build(
         }
     }
     fissionable.sort_unstable();
+    // nfy の評価は核分裂する核種のもの（自分の収率になり、借りる先にもなる）
+    for y in &yield_evaluations {
+        let k = key(&y.material);
+        if !fissionable.iter().any(|&i| index.get(k) == Some(i)) {
+            bail!(
+                "fission yields for {}, which has no fission in the neutron data",
+                name(k)?
+            );
+        }
+    }
+    // 収率の表は評価ごとに 1 度だけ作り（警告も 1 度）、借りる核種には写す
+    let mut tables: HashMap<usize, Fission> = HashMap::new();
     for i in fissionable {
         let k = (nuclides[i].z, nuclides[i].a, nuclides[i].state);
         let source = nearest_yields(k, &yield_evaluations)
@@ -642,7 +678,14 @@ pub fn build(
                 nuclides[i].name
             ));
         }
-        let fission = fission_yields(&source_name, evaluation, &index, &nuclides, &mut warnings)?;
+        let fission = match tables.get(&source) {
+            Some(f) => f.clone(),
+            None => {
+                let f = fission_yields(&source_name, evaluation, &index, &nuclides, &mut warnings)?;
+                tables.insert(source, f.clone());
+                f
+            }
+        };
         nuclides[i].fission = Some(fission);
     }
 

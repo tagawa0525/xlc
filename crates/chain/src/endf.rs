@@ -124,12 +124,12 @@ fn count(value: i64, what: &str, line: usize) -> Result<u32> {
     u32::try_from(value).map_err(|_| anyhow!("line {line}: invalid {what} {value}"))
 }
 
-/// MF1/MT451 から評価の対象を読む。テープの最初の物質だけを読む。
+/// MF1/MT451 から評価の対象を読む。テープは物質を 1 つだけ持つ。
 pub fn read_material(tape: &Tape) -> Result<Material> {
-    let mat = *tape
-        .materials()
-        .first()
-        .ok_or_else(|| anyhow!("the tape has no material"))?;
+    let mat = match tape.materials()[..] {
+        [mat] => mat,
+        ref other => bail!("the tape must hold one material, found {other:?}"),
+    };
     let section = tape
         .section(mat, 1, 451)
         .ok_or_else(|| anyhow!("MAT {mat} has no MF1/MT451"))?;
