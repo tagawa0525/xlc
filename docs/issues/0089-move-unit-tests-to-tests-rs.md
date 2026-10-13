@@ -25,7 +25,7 @@ main（14793ea7、2026-10-12）で、`crates/*/src` の 64 個のファイルが
   実行されるテストの集まりが変わらないことを確かめ、ADR-0143 の「確認」に実際の確認の方法と結果を書いて、
   `status: accepted` と `date` をその日にしてある
   （docs/adr/README.md の「運用」）
-- `dvc repro -P` を流して `dvc.lock` をコミットしてある（流す時期は、実装の担当が CPU の使用の計画で決める）
+- build の段階が作る strip した実行ファイルの md5 が、移す前の main の `dvc.lock` と一致する（ADR-0159、ADR-0160）。一致すれば計算の段階は古くならず、`dvc repro -P` は流さない
 - proposed の ADR と開いた issue に書いたテストの場所のパスが、`tests.rs` に直してある
 
 ## 経緯
