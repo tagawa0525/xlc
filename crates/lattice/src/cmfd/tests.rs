@@ -186,6 +186,32 @@ fn a_slab_solves_from_a_k_far_below_the_eigenvalue() {
 }
 
 #[test]
+fn a_slab_with_a_positive_coupling_is_solved_without_the_shift() {
+    // 補正の D̂ で結合が正になると Z 行列でなくなり、シフトが固有値の下にあることを最初の解の符号で判定できない
+    let Solver::Chain(chain) = slab(20, 2.0, true).solver else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    assert!(chain.z_matrix);
+    // 2 群目の結合が正の 2 セルのチェーン
+    let Solver::Chain(rebuilt) = Coarse::assemble(
+        true,
+        2,
+        (0..2).collect(),
+        vec![1.0; 2],
+        vec![1.0; 4],
+        vec![Vec::new(); 2],
+        vec![vec![2.0, 0.0, -0.1, 2.0], vec![2.0, 0.0, -0.1, 2.0]],
+        vec![vec![(1, vec![-0.5, 0.2])], vec![(0, vec![-0.5, 0.2])]],
+    )
+    .unwrap()
+    .solver
+    else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    assert!(!rebuilt.z_matrix);
+}
+
+#[test]
 fn artificial_diffusion_follows_the_optically_thick_fit() {
     // Zhu ら (2016): 光学的に薄いと 0（従来の CMFD）、厚いと 0.127 に飽和し、Σt h = 4 で約 0.1
     assert_eq!(artificial_diffusion(0.5), 0.0);
