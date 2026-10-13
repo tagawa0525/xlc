@@ -20,7 +20,8 @@ fn scaled_error(got: &[f64], exact: &[f64], n0: &[f64]) -> f64 {
     got.iter()
         .zip(exact)
         .map(|(g, e)| (g - e).abs())
-        .fold(0.0, f64::max)
+        // f64::max は NaN を捨てるので、NaN の項（参照か結果の誤り）を誤差 0 と数えないよう、比べて畳む
+        .fold(0.0, |m: f64, d| if d.is_nan() || d > m { d } else { m })
         / scale
 }
 
@@ -28,7 +29,12 @@ fn scaled_error(got: &[f64], exact: &[f64], n0: &[f64]) -> f64 {
 /// （孫は λ2 t か λ1 t が 10 以上のときに打ち消しが小さい）
 fn parent_daughter_stable(l1: f64, l2: f64, t: f64) -> [f64; 3] {
     let parent = (-l1 * t).exp();
-    let daughter = l1 * parent * (-(-(l2 - l1) * t).exp_m1()) / (l2 - l1);
+    // 遅い方の指数を外に出し、exp_m1 の引数を負に保つ（速い方を外に出すと 0 × ∞ になる）
+    let daughter = if l2 > l1 {
+        l1 / (l2 - l1) * parent * -(-(l2 - l1) * t).exp_m1()
+    } else {
+        l1 / (l1 - l2) * (-l2 * t).exp() * -(-(l1 - l2) * t).exp_m1()
+    };
     let stable = (l2 * -(-l1 * t).exp_m1() - l1 * -(-l2 * t).exp_m1()) / (l2 - l1);
     [parent, daughter, stable]
 }
