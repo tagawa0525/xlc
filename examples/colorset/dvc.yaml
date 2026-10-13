@@ -1,0 +1,209 @@
+# 濃縮度の違う集合体の 2×2 のカラーセットの段階: 単一集合体の格子計算（lattice-31、lattice-21）とカラーセット全体の MOC
+# （colorset。約 16 分）→ core（単一集合体の定数、カラーセットのノードの定数、不連続因子を外した定数）と細かいメッシュの
+# 拡散 → ピン出力の比較（compare）。ライブラリは examples/vera/dvc.yaml の xs の出力で、先に
+# `dvc checkout examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは `dvc repro`（ADR-0123）。
+stages:
+  lattice-31:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- assembly-31.toml > lattice-31.out
+    deps:
+      - assembly-31.toml
+      - ../vera/vera.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - fg-31.msgpack
+      - lattice-pins-31.msgpack
+      - lattice-31.out
+  lattice-21:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- assembly-21.toml > lattice-21.out
+    deps:
+      - assembly-21.toml
+      - ../vera/vera.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - fg-21.msgpack
+      - lattice-pins-21.msgpack
+      - lattice-21.out
+  colorset:
+    # カラーセット全体の MOC。結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- colorset.toml > colorset.out
+    deps:
+      - colorset.toml
+      - ../vera/vera.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - moc-pins.msgpack
+      - fg-node-31a.msgpack
+      - fg-node-21a.msgpack
+      - fg-node-21b.msgpack
+      - fg-node-31b.msgpack
+      - colorset.out
+  without-df-31:
+    cmd: python3 without_df.py fg-31.msgpack fg-31-nodf.msgpack
+    deps:
+      - without_df.py
+      - fg-31.msgpack
+    outs:
+      - fg-31-nodf.msgpack
+  without-df-21:
+    cmd: python3 without_df.py fg-21.msgpack fg-21-nodf.msgpack
+    deps:
+      - without_df.py
+      - fg-21.msgpack
+    outs:
+      - fg-21-nodf.msgpack
+  core:
+    # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-core -- case.toml > core.out
+    deps:
+      - case.toml
+      - cycle.toml
+      - assemblies.toml
+      - fg-31.msgpack
+      - fg-21.msgpack
+      - plant.toml
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-pins.msgpack
+      - core.out
+  core-node:
+    # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-core -- case-node.toml > core-node.out
+    deps:
+      - case-node.toml
+      - cycle-node.toml
+      - assemblies-node.toml
+      - fg-node-31a.msgpack
+      - fg-node-21a.msgpack
+      - fg-node-21b.msgpack
+      - fg-node-31b.msgpack
+      - plant.toml
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-node.out
+  core-nodf:
+    # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-core -- case-nodf.toml > core-nodf.out
+    deps:
+      - case-nodf.toml
+      - cycle-nodf.toml
+      - assemblies-nodf.toml
+      - fg-31-nodf.msgpack
+      - fg-21-nodf.msgpack
+      - plant.toml
+      - ../../crates/core/src
+      - ../../crates/core/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - core-pins-nodf.msgpack
+      - core-nodf.out
+  diffusion-4:
+    cmd: python3 diffusion.py case.toml diffusion-4.msgpack 4 > diffusion-4.out
+    deps:
+      - diffusion.py
+      - case.toml
+      - cycle.toml
+      - assemblies.toml
+      - fg-31.msgpack
+      - fg-21.msgpack
+      - plant.toml
+    outs:
+      - diffusion-4.msgpack
+      - diffusion-4.out
+  diffusion-8:
+    cmd: python3 diffusion.py case.toml diffusion-8.msgpack 8 > diffusion-8.out
+    deps:
+      - diffusion.py
+      - case.toml
+      - cycle.toml
+      - assemblies.toml
+      - fg-31.msgpack
+      - fg-21.msgpack
+      - plant.toml
+    outs:
+      - diffusion-8.msgpack
+      - diffusion-8.out
+  diffusion-nodf-8:
+    cmd: python3 diffusion.py case-nodf.toml diffusion-nodf-8.msgpack 8 > diffusion-nodf-8.out
+    deps:
+      - diffusion.py
+      - case-nodf.toml
+      - cycle-nodf.toml
+      - assemblies-nodf.toml
+      - fg-31-nodf.msgpack
+      - fg-21-nodf.msgpack
+      - plant.toml
+    outs:
+      - diffusion-nodf-8.msgpack
+      - diffusion-nodf-8.out
+  compare:
+    cmd: "{ echo '== core-pins.msgpack vs diffusion-8.msgpack（再構成だけ）'; python3 compare.py core-pins.msgpack diffusion-8.msgpack --blocks 2; echo '== core-pins-nodf.msgpack vs diffusion-nodf-8.msgpack（再構成だけ（不連続因子なし））'; python3 compare.py core-pins-nodf.msgpack diffusion-nodf-8.msgpack --blocks 2; echo '== diffusion-4.msgpack vs diffusion-8.msgpack（拡散のメッシュの収束）'; python3 compare.py diffusion-4.msgpack diffusion-8.msgpack --blocks 2; echo '== core-pins.msgpack vs moc-pins.msgpack（2 段階の手法）'; python3 compare.py core-pins.msgpack moc-pins.msgpack --blocks 2; echo '== core-pins-nodf.msgpack vs moc-pins.msgpack（2 段階の手法（不連続因子なし））'; python3 compare.py core-pins-nodf.msgpack moc-pins.msgpack --blocks 2; echo '== diffusion-8.msgpack vs moc-pins.msgpack（拡散と MOC）'; python3 compare.py diffusion-8.msgpack moc-pins.msgpack --blocks 2; echo '== core-pins-nodf.msgpack vs core-pins.msgpack（不連続因子の影響）'; python3 compare.py core-pins-nodf.msgpack core-pins.msgpack --blocks 2; } > compare.out"
+    deps:
+      - compare.py
+      - core-pins-nodf.msgpack
+      - core-pins.msgpack
+      - diffusion-4.msgpack
+      - diffusion-8.msgpack
+      - diffusion-nodf-8.msgpack
+      - moc-pins.msgpack
+    outs:
+      - compare.out
