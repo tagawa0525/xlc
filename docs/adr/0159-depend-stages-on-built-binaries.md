@@ -67,13 +67,17 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
 
 ビルドの置き場:
 
-- 案 T1（採用）: `cargo build --release --locked --target-dir target/dvc`。cargo はリンクの環境（`NIX_LDFLAGS`、ホームの設定の
-  リンカ）を fingerprint に含めない（devShell の変数を変えても `cargo build` はリンクし直さなかった。2026-10-14）。手で
-  使う `target/release` と分けると、前の環境でリンクした実行ファイルや手で試したビルドを `build` が拾わない（この決定の
-  あとに作る `target/dvc` は、今の環境でリンクされる）。ワークスペース全体をビルドするのは、`-p` で選ぶと機能の統合が
-  変わりうるので、手で `cargo build --release` したものと同じ実行ファイルにするため
-- 案 T2: `target/release` を使う。ビルドは 1 つで済むが、上の理由で、別の環境でリンクした実行ファイルや、手で試した
-  ビルドが段階に入りうる
+- 案 T1（採用）: 手で使う `target/release` と分けた `target/dvc` で、xlc-xs、xlc-lattice、xlc-core を毎回
+  `cargo clean -p` してから `cargo build --release --locked` する。cargo はリンクの環境（`NIX_LDFLAGS`、ホームの設定の
+  リンカ）を fingerprint に含めない（devShell の変数を変えても `cargo build` はリンクし直さなかった。2026-10-14）ので、
+  消さなければ、前の環境でリンクした実行ファイルが残る。3 つのパッケージのコンパイルとリンクは毎回今の環境でやり直し、
+  依存のクレートは再利用する（sccache なしで 5 秒、CPU 45 秒）。分けた置き場なので、手で試したビルド（`cargo build --config`
+  でコンパイルの設定を変えたものなど）も拾わない。ワークスペース全体をビルドするのは、`-p` で選ぶと機能の統合が変わりうる
+  ので、手で `cargo build --release` したものと同じ実行ファイルにするため
+- 案 T2: `target/release` をそのまま使う。ビルドは 1 つで済むが、上の理由で、別の環境でリンクした実行ファイルや、手で
+  試したビルドが段階に入りうる
+- 案 T3: 毎回空のターゲットのディレクトリから全体をビルドする。依存のクレートも今の環境でコンパイルし直すが、ビルドが
+  毎回 12 秒（CPU 100 秒。sccache なし）になる。依存のクレートの rlib はリンクの環境を使わない
 
 ## 決定と理由
 
@@ -92,7 +96,7 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
 - DVC の `core.analytics` と `core.check_update` は切る
 
 `build` の段階（リポジトリの直下の `dvc.yaml`）は `scripts/build-binaries.sh` を呼ぶ。スクリプトは、default の devShell の
-中で走っていること（`NIX_NO_SELF_RPATH` が 1）を確かめ、`target/dvc` に release でビルドし、worktree のパスが埋まって
+中で走っていること（`NIX_NO_SELF_RPATH` が 1）を確かめ、`target/dvc` に案 T1 のとおり release でビルドし、worktree のパスが埋まって
 いないことを確かめてから `bin/` にコピーする。どちらかが成り立たなければエラーで止まる（黙って md5 の違う実行ファイルを
 作らない）。`bin/` の実行ファイルは DVC の outs で、git では追跡しない（DVC が `bin/.gitignore` を書く）。
 
@@ -134,7 +138,8 @@ strip した版も同じ場所から違った。違いは RUNPATH の先頭の `
   100 秒）
 - 一時の worktree で e67c79cb の 1 つ前のソースにしてビルドしたあと、0268e5aa のソースに戻して incremental にビルドした
   もの（sccache あり、なしの両方。なしでは、ソースの変わった xlc-core と xlc-lattice だけをコンパイルし直した）
-- `dvc repro -s build`（`scripts/build-binaries.sh` の `target/dvc`）
+- `dvc repro -s build` と `dvc repro -f -s build`（`scripts/build-binaries.sh` の `target/dvc`。3 つのパッケージを消して
+  コンパイルし直し、リンクし直したもの。sccache なしでも同じ）
 
 (c) 実行ファイルが変わるかの感度（`dvc repro -s build` で作り直し、戻して元の md5 に戻ることも見た）:
 
