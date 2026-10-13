@@ -49,16 +49,18 @@ statepoints() {
 }
 sync_out() {
   ((READY)) || return 0
-  local filters=() f all
+  local filters=() delete=(--delete) f all
   # ジョブが走っている間は、最新の statepoint（OpenMC が書いている途中でありうる）と、一覧の後に書き始めたものをコピーしない。
   # コピーするのは、一覧の時点で最新でない（書き終えた）ものだけ。ジョブが成功した（done が 0）ときだけすべてコピーする（失敗や中断では、
-  # 最新の statepoint は書いている途中で止まったかもしれない）
+  # 最新の statepoint は書いている途中で止まったかもしれない）。そのあいだは --delete もしない（一覧のあとに statepoint が
+  # 消されると、含めたはずのものを S3 から消すため）
   if ((INTERRUPTED)) || [[ \$(cat "\$WORK/\$OUT/done" 2> /dev/null) != 0 ]]; then
+    delete=()
     filters=(--exclude 'run/statepoint.*')
     all=\$(statepoints "\$WORK/\$OUT/run")
     for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done
   fi
-  "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
+  "\$AWS" s3 sync --only-show-errors "\${delete[@]}" --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
 }
 # 終わるときに、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
 # READY のあとでこの user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も
