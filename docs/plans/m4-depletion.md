@@ -84,7 +84,7 @@ M4 の前に決めてあるもの:
   CASMO、Polaris、MPACT の鎖の大きさ）の出典は #0116
 - xs が処理できる核種の制約: ENDF/B-VIII.0 の中性子のデータ（557 の評価。中性子そのものを除く 556 が燃焼鎖の核種）を
   `crates/xs/examples/survey_neutrons.rs` で調べると（MF2 のすべての範囲の見出しと、0 K の再構成、MF1 MT452、MF4〜6 の読み込み、
-  分離共鳴の上端、565 K の非分離共鳴の自己遮蔽まで。多群の処理は走らせない。65ccbd82、2026-10-14）、546 が読め、11 が読めない。
+  分離共鳴の上端、565 K の非分離共鳴の自己遮蔽まで。多群の処理は走らせない。c0d7b4dd、2026-10-14）、546 が読め、11 が読めない。
   最初の範囲の形式は MLBW 399、Reich-Moore 49、R-matrix limited 10、非分離共鳴だけ 31、共鳴のデータなし 68。分離共鳴の
   MLBW で散乱半径がエネルギーの表で与えられる 52 評価（NRO = 1。I-133、Nd-149 など）は、[ADR-0167](../adr/0167-evaluate-mlbw-energy-dependent-radius.md) で読めるようにした。
   読めない理由は下の表。MF6 の角度のデータは入れない（[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）、運動学のしきい値から反応を始める（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
