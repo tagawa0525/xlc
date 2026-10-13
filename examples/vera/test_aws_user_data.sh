@@ -54,12 +54,15 @@ for name in fresh restart; do
   before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' \
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
   # 同期に失敗したときと SIGTERM（中断）では done を置かない。失敗の終了では終了コードを done に書く
-  contains "$text" '    if ((synced && code != 143)) && [[ -f $WORK/$OUT/done ]]; then' "$name"
+  contains "$text" '    if ((synced && code < 128)) && [[ -f $WORK/$OUT/done ]]; then' "$name"
   # READY の前の失敗（準備）では done を書かない（S3 のジョブに触れておらず、起動し直せる）
-  contains "$text" '  if ((READY && code != 0 && code != 143)); then' "$name"
+  contains "$text" '  if ((READY && code != 0 && code < 128)); then' "$name"
   contains "$text" 'until [[ -f $OUT/done && $(cat "$OUT/done") =~ ^[0-9]+$ ]]; do' "$name"
   contains "$text" '    echo "$code" > "$WORK/$OUT/done"' "$name"
   contains "$text" "trap 'exit 143' TERM" "$name"
+  # シグナルでの終わり（ジョブが殺されたときの done を含む）は中断として扱う
+  contains "$text" '  if ((code >= 128)); then' "$name"
+  before "$text" '    wait "$TEE" 2> /dev/null || sleep 1' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' "$name"
   # finish の中の失敗で止まると、電源が切れない
   before "$text" 'finish() {' '  set +e' "$name"
   lacks "$text" '"$AWS" s3 cp --only-show-errors "$OUT/done" "$PREFIX/done"' "$name"
