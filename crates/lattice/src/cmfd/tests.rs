@@ -110,6 +110,7 @@ fn slab(cells: usize, width: f64) -> Coarse {
         cells
     ];
     Coarse::assemble(
+        true,
         2,
         (0..cells).collect(),
         vec![1.0; cells],
