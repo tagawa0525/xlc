@@ -18,10 +18,42 @@ resolution:
 計算の段階が古くなり、xs の段階（60 を超える）を走らせ直すことになる。このため ADR-0166 は鎖の型を `xlc-format` でなく
 `xlc-depletion` に置いた。共通のクレートに型や関数を足すたびに同じことが起きうる。
 
+試したモジュール（`crates/format/src/chain.rs` に書き、`lib.rs` に `pub mod chain;` を足して、default の devShell で
+`scripts/build-binaries.sh`）:
+
+```rust
+use serde::{Deserialize, Serialize};
+use crate::msgpack::{self, MsgpackError};
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Product { pub nuclide: u32, pub count: u32 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Decay { pub mode: String, pub ratio: f64, pub products: Vec<Product> }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Nuclide { pub name: String, pub half_life: Option<f64>, pub decays: Vec<Decay> }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Chain { pub format: String, pub nuclides: Vec<Nuclide> }
+impl Chain {
+    pub fn to_msgpack(&self) -> Result<Vec<u8>, MsgpackError> { msgpack::to_named(self) }
+    pub fn from_msgpack(bytes: &[u8]) -> Result<Self, MsgpackError> {
+        let v = msgpack::read_value(bytes)?;
+        let c: Chain = msgpack::from_value(v)?;
+        for n in &c.nuclides { for d in &n.decays { for p in &d.products {
+            if p.nuclide as usize >= c.nuclides.len() { return Err(MsgpackError::NotMap); } } } }
+        Ok(c)
+    }
+}
+```
+
+md5 は xs: e77257b3 → f84383de、lattice: 03b6048d → 260f3d16、core: fe2d8761 → 0c2b88d6。
+
 原因の候補（確かめていない）: codegen unit の分け方（release は LTO なし、codegen unit は既定の 16）で、モジュールを足すと
 既存の関数の入る codegen unit が変わる。
 
-関係する ADR: なし
+関係する ADR: ADR-0166
 
 ## 完了の条件
 

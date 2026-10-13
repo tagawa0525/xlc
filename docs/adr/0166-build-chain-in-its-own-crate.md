@@ -4,7 +4,7 @@ date: 2026-10-14
 requires: [ADR-0001, ADR-0003, ADR-0011, ADR-0013, ADR-0034, ADR-0159, ADR-0163]
 supersedes: [ADR-0162]
 superseded-by:
-issues: []
+issues: ["#0117"]
 ---
 
 # ADR-0166: 燃焼鎖を xlc-chain で作り、鎖の型を xlc-depletion に置いて MessagePack で渡す
@@ -17,7 +17,8 @@ issues: []
 同じ ADR は、燃焼のコードの変更で、燃焼を使わない xs の実行ファイルと段階（60 を超える）が変わらないことを軸にした。
 DVC の計算の段階は、呼ぶ実行ファイル（strip したもの）のバイトが変わると走る（[ADR-0159](0159-depend-stages-on-built-binaries.md)）。
 
-測ったこと（このブランチ、main の 60d8e217 の作業ツリー、2026-10-14。コミットしていない試し）: `xlc-format` に、serde の
+測ったこと（main の 60d8e217 の作業ツリー、2026-10-14。コミットしていない試しで、コミットからは再現できない。足したモジュールと
+手順は #0117 に写した）: `xlc-format` に、serde の
 構造体と読み書きの関数だけの鎖のモジュール（xs、lattice、core のどれも使わない）を足して `scripts/build-binaries.sh` で
 ビルドすると、`bin/xs`、`bin/lattice`、`bin/core` の md5 がすべて変わった（xs: e77257b3 → f84383de、lattice: 03b6048d → 260f3d16、
 core: fe2d8761 → 0c2b88d6）。モジュールを外すと元に戻る。依存するクレートに使わないモジュールを足すだけで、実行ファイルが
@@ -65,9 +66,10 @@ core: fe2d8761 → 0c2b88d6）。モジュールを外すと元に戻る。依�
 - xs の段階は `xlc-xs` と `xlc-chain` の 2 つのクレートからなる。`xlc-chain` は `xlc-xs` のライブラリ（ENDF の読み口）と
   共通のクレートに依存してよく、ほかのクレートは `xlc-chain` に依存しない。ENDF を読むのは xs の段階のクレートだけとする
   （燃焼鎖も xs の段階が作る。[ADR-0034](0034-build-full-depletion-chain.md)）
+- 段階の間を渡る燃焼の型のうち、燃焼点の状態など鎖のほかのものは、分岐計算の流し方を決めるときに決める（[ADR-0003](0003-extract-shared-computation-on-second-use.md)）
 - 段階の間を渡るデータファイルの型と MessagePack の厳密な読み書きは `xlc-format` に置く。ただし燃焼鎖の型は `xlc-depletion`
   に置く（`xlc-format` に足すと、鎖を使わない実行ファイルが変わるため）。燃焼のソルバ（[ADR-0161](0161-solve-depletion-with-ipf-cram.md)）と、鎖と反応率から燃焼行列を
-  組み立てるコードも `xlc-depletion` に置く。`xlc-depletion` は `xlc-format` に依存してよい
+  組み立てるコードも `xlc-depletion` に置く。`xlc-depletion` は `xlc-format` に依存してよい（MessagePack の読み書きに使う。ADR-0162 では依存しなかった）
 - 鎖のファイル: フィールド名付きの map 形式の MessagePack（[ADR-0011](0011-write-data-files-in-messagepack.md)）。`format` は `"xlc-chain"`。読むときは、核種の添字の
   範囲、名前の形、核種の並び（(Z, A, 状態) の昇順）を確かめる
 - 段階: examples/depletion/dvc.yaml の `chain` が `bin/chain chain.toml` で `chain.msgpack`（DVC の出力。git で追跡しない）を作る。
@@ -80,7 +82,7 @@ core: fe2d8761 → 0c2b88d6）。モジュールを外すと元に戻る。依�
 - 鎖の型を足したこのブランチ（feat/depletion-chain-type、main の 60d8e217 の上、2026-10-14）で `dvc repro -s build` を走らせた
   `bin/xs`、`bin/lattice`、`bin/core` の md5（e77257b3、03b6048d、fe2d8761）が、main の dvc.lock と同じ
 - `xlc-chain` を足し、`bin/chain` を別の cargo で作っても 3 つの md5 が変わらないことは、`xlc-chain` を足すブランチ
-  （feat/depletion-chain）で確かめた（同じ 3 つの md5。2026-10-14）
+  （feat/depletion-chain）のマージの前に、そのブランチの `build` で確かめる
 - 鎖の読み書き: crates/depletion/src/chain/tests.rs（`round_trips_bit_exactly`、`written_as_a_map_with_the_format_name`、
   `rejects_another_format`、`rejects_nested_structs_written_as_arrays`、`rejects_an_omitted_decay` ほか）
 - 依存の向き: 各クレートの `Cargo.toml`（`xlc-depletion` は `xlc-format` に依存し、xs、lattice、core は `xlc-depletion` に
