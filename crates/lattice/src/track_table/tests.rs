@@ -56,7 +56,13 @@ fn worst(table: &TrackTable) -> f64 {
     let cell = cell();
     samples()
         .iter()
-        .map(|s| difference(s, &table.tracks(s), &cell.tracks(&totals(s)).unwrap()))
+        .map(|s| {
+            difference(
+                s,
+                &table.tracks(s).unwrap(),
+                &cell.tracks(&totals(s)).unwrap(),
+            )
+        })
         .fold(0.0, f64::max)
 }
 
@@ -76,7 +82,7 @@ fn interpolated_tracks_keep_the_neutrons() {
     let volumes = cell.volumes();
     let table = TrackTable::new(&cell, CLASSES.to_vec(), &RANGES, DEFAULT_DENSITY).unwrap();
     for s in samples() {
-        let t = table.tracks(&s);
+        let t = table.tracks(&s).unwrap();
         let sigma = totals(&s);
         for (i, v) in volumes.iter().enumerate() {
             let collided: f64 = (0..RADII.len()).map(|j| t[j][i] * sigma[j]).sum();
@@ -94,7 +100,11 @@ fn tracks_at_the_nodes_are_the_cell_tracks() {
     let cell = cell();
     let table = TrackTable::new(&cell, CLASSES.to_vec(), &RANGES, DEFAULT_DENSITY).unwrap();
     for s in [[0.3, 0.25, 1.2], [3000.0, 2.0, 1.6]] {
-        let d = difference(&s, &table.tracks(&s), &cell.tracks(&totals(&s)).unwrap());
+        let d = difference(
+            &s,
+            &table.tracks(&s).unwrap(),
+            &cell.tracks(&totals(&s)).unwrap(),
+        );
         assert!(d <= 1e-12, "{s:?}: {d}");
     }
 }
@@ -106,7 +116,11 @@ fn constant_materials_need_no_axis() {
     let ranges = [[0.3, 3000.0], [0.9, 0.9], [1.4, 1.4]];
     let table = TrackTable::new(&cell, CLASSES.to_vec(), &ranges, DEFAULT_DENSITY).unwrap();
     let s = [3000.0, 0.9, 1.4];
-    let d = difference(&s, &table.tracks(&s), &cell.tracks(&totals(&s)).unwrap());
+    let d = difference(
+        &s,
+        &table.tracks(&s).unwrap(),
+        &cell.tracks(&totals(&s)).unwrap(),
+    );
     assert!(d <= 1e-12, "{d}");
 }
 
@@ -136,4 +150,32 @@ fn rejects_bad_ranges_and_densities() {
         short,
         Err(TableError::Rings { given: 5, rings: 6 })
     ));
+}
+
+#[test]
+fn tracks_reject_sigmas_off_the_table() {
+    // 物質の数が違う全断面積と、表の範囲の外の全断面積は、内挿せずに止める
+    let table = TrackTable::new(&cell(), CLASSES.to_vec(), &RANGES, DEFAULT_DENSITY).unwrap();
+    assert!(matches!(
+        table.tracks(&[1.0, 1.0]),
+        Err(TableError::Materials {
+            given: 2,
+            materials: 3
+        })
+    ));
+    assert!(matches!(
+        table.tracks(&[3001.0, 1.0, 1.4]),
+        Err(TableError::Outside { material: 0, .. })
+    ));
+}
+
+#[test]
+fn rejects_tables_too_large_to_count() {
+    // 格子点の組の数が usize に収まらない細かさは止める
+    let result = TrackTable::new(&cell(), CLASSES.to_vec(), &RANGES, usize::MAX / 4);
+    assert!(
+        matches!(result, Err(TableError::Size)),
+        "{:?}",
+        result.err()
+    );
 }
