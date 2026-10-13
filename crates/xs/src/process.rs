@@ -345,12 +345,9 @@ fn s_wave_radius(kind: &RangeKind, top: f64) -> Result<f64, ProcessError> {
             .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
             .map_or(rm.ap, |lv| lv.apl),
         // 表は範囲を覆い、不連続を持たない（MF2 を読むときに確かめる）
-        RangeKind::Mlbw(bw) => match &bw.ap_energy {
-            Some(t) => t
-                .eval(top)
-                .ok_or(ProcessError::RadiusTable { energy: top })?,
-            None => bw.ap,
-        },
+        RangeKind::Mlbw(bw) => bw
+            .scattering_radius(top)
+            .ok_or(ProcessError::RadiusTable { energy: top })?,
         RangeKind::RMatrixLimited(rml) => {
             // l=0 の弾性散乱のチャネルはどれも同じ半径であること（違えば、どれを使うかの根拠がない）
             let mut radii: Vec<f64> = rml

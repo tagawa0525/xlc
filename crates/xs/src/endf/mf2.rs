@@ -48,6 +48,22 @@ pub struct ReichMoore {
     pub l_values: Vec<RmLValue>,
 }
 
+/// 位相シフトに使う散乱半径 (10^-12 cm)。エネルギーの表（NRO=1）があれば e での値（表の外は `None`。外挿しない）、
+/// なければ一定の `ap`。
+pub fn scattering_radius_at(ap: f64, table: Option<&Tab1>, e: f64) -> Option<f64> {
+    match table {
+        Some(table) => table.eval(e),
+        None => Some(ap),
+    }
+}
+
+impl Mlbw {
+    /// エネルギー e (eV) で位相シフトに使う散乱半径（[`scattering_radius_at`]）。
+    pub fn scattering_radius(&self, e: f64) -> Option<f64> {
+        scattering_radius_at(self.ap, self.ap_energy.as_ref(), e)
+    }
+}
+
 impl RangeKind {
     /// 分離共鳴の範囲か。
     pub fn is_resolved(&self) -> bool {

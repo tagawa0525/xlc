@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift, shift};
-use crate::endf::{Mlbw, OrbitalL, Tab1};
+use crate::endf::{Mlbw, OrbitalL, Tab1, scattering_radius_at};
 use crate::physics::wave_number_factor;
 
 /// 断面積の計算に使う形に前処理した MLBW パラメータ。
@@ -94,10 +94,8 @@ impl MlbwXs {
 
     /// エネルギー e (eV) での断面積。散乱半径の表（NRO=1）が e を覆わなければエラー。
     pub fn cross_sections(&self, e: f64) -> Result<Sigma, MlbwError> {
-        let radius = match &self.radius_table {
-            Some(table) => table.eval(e).ok_or(MlbwError::RadiusTable { energy: e })?,
-            None => self.scattering_radius,
-        };
+        let radius = scattering_radius_at(self.scattering_radius, self.radius_table.as_ref(), e)
+            .ok_or(MlbwError::RadiusTable { energy: e })?;
         let mut sum = Sigma::default();
         for lv in &self.l_values {
             let k = wave_number_factor() * lv.arat * e.abs().sqrt();
