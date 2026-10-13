@@ -24,6 +24,8 @@ examples/openmc_resume.py の `run_model` は、走行中に 30 秒ごとに `pr
 影響: 本番（間隔 100、2500 世代）では、走行中に約 25 個の statepoint が VM の EBS（40 GB）と S3 の `runs/` にたまる（1 個の大きさは
 本番の粒子数で確かめていない）。完了すれば消えるので結果には影響しない。
 
+関係する ADR: ADR-0155
+
 ## 完了の条件
 
 走行中に statepoint が最新の `KEEP` 個に保たれる（例: `run_model` で `work` を絶対パスにする）ことを、テストで確かめる。
