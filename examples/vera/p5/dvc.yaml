@@ -1748,6 +1748,18 @@ stages:
       - hzp/axial-31-p8
       - hzp/axial-31-p8.out
       - hzp/axial-31-p8.log
+  hzp-interp-31:
+    cmd: cd hzp && ../../../../bin/core interp-31.toml > interp-31.out 2> interp-31.log
+    deps:
+      - hzp/interp-31.toml
+      - hzp/interp-31-cycle.toml
+      - hzp/interp-31-plant.toml
+      - hzp/interp-31-assemblies.toml
+      - hzp/lattice/31-fuel.msgpack
+      - ../../../bin/core
+    outs:
+      - hzp/interp-31.out
+      - hzp/interp-31.log
   hzp-small:
     cmd: cd hzp && ../../../../bin/core small.toml > small.out 2> small.log
     deps:
@@ -1928,6 +1940,15 @@ stages:
     outs:
       - hzp/core-hzp.out
       - hzp/core-hzp.log
+  hzp-compare-interp-31:
+    cmd: python3 ../compare_p5.py k assembly-31.out hzp/interp-31.out > hzp/compare-interp-31.out
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - assembly-31.out
+      - hzp/interp-31.out
+    outs:
+      - hzp/compare-interp-31.out
   hzp-compare-small-half:
     cmd: python3 ../compare_p5.py symmetry hzp/small-half.out hzp/small-half-pins.msgpack > hzp/compare-small-half.out
     deps:

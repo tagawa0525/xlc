@@ -1355,10 +1355,10 @@ ROD_STEPS = 230
 ROD_SEGMENTS = [("aic", Fraction("101.6")), ("b4c", Fraction("259.08"))]
 
 # 分岐の格子点（ADR-0097）: ホウ素は表 P5-2 の場合（1170〜1291 ppm）と探索の範囲（ADR-0145）を囲う 2 点。温度は
-# 等温の状態（表 P5-2 の 560、565、570 K）を燃料と減速材の別々の軸で持つ。減速材の密度は付録 G の表 G-2（565 K の
-# 仕様の 0.743 g/cc は表 P5-1）
+# 等温の状態の両端（表 P5-2 の 560、570 K）を燃料と減速材の別々の軸で持ち、565 K は内挿する。減速材の密度は付録 G の
+# 表 G-2。内挿した 565 K の定数の密度は約 0.7425 g/cc で、表 P5-1 の 0.743 g/cc との差の効きは interp-31 で測る
 HZP_BORON = [1100, 1400]
-HZP_TEMPERATURES = [(565, "0.743")]
+HZP_TEMPERATURES = [(560, "0.75207"), (570, "0.73294")]
 B10_FRACTION = "0.199"
 
 INCONEL = """Si-28 = 4.04885e-03
@@ -2278,6 +2278,26 @@ def hzp_small_files() -> dict[str, str]:
         "# 最小の入力の 3D の半分の挿入（ピン出力の 90° の回転の対称性を見る）",
         pins="small-half-pins.msgpack",
     )
+    # 分岐のテーブルの内挿: 3.10% の支持格子のない層のテーブルを 565 K、1300 ppm で内挿した k∞ を、同じ状態を直接解いた
+    # 5-2D の単一集合体の格子（../assembly-31.toml。冷却材は表 M3-4 の個数密度、0.743 g/cc）の k と比べる
+    files["interp-31-plant.toml"] = (
+        "# このファイルは p5_inputs.py が書く。手で直さない。\n# 集合体 1 体（外周は鏡面反射）\n"
+        f'pitch = {PITCH}\nheight = {HEIGHT}\nmap = ["*"]\n'
+    )
+    files["interp-31-assemblies.toml"] = (
+        "# このファイルは p5_inputs.py が書く。手で直さない。\n"
+        f'[design.31]\nbounds = [0.0, {HEIGHT}]\nlayers = ["lattice/31-fuel.msgpack"]\n\n[assembly.A]\ndesign = "31"\n'
+    )
+    files["interp-31-cycle.toml"] = cycle(
+        "interp-31-plant.toml", "interp-31-assemblies.toml", [["A"]]
+    )
+    files["interp-31.toml"] = (
+        "# このファイルは p5_inputs.py が書く。手で直さない。\n"
+        "# 分岐のテーブルを 565 K、1300 ppm で内挿した単一集合体の k∞（5-2D の assembly-31 と比べる）\n"
+        'cycle = "interp-31-cycle.toml"\naxial-mesh = [0.0, 21.5]\nradial-nodes = 1\n'
+        'boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }\n'
+        + state_text("hzp", TEMPERATURE, {}, 1300).replace("banks = {  }\n", "")
+    )
     # 2D: 燃料の支持格子のない層の定数を、高さ 21.5 cm の 1 層に置く。制御棒は 1 ステップで層を抜ける棒
     for rod in ["aic", "b4c"]:
         edge = periphery(set(sites))
@@ -2462,6 +2482,7 @@ def hzp_pipeline(
             )
         )
     for case_name in [
+        "interp-31",
         "small",
         "small-half",
         "small-2d-aic",
@@ -2495,6 +2516,19 @@ def hzp_pipeline(
                 outs,
             )
         )
+    stages.append(
+        stage(
+            "hzp-compare-interp-31",
+            "python3 ../compare_p5.py k assembly-31.out hzp/interp-31.out > hzp/compare-interp-31.out",
+            [
+                "../compare_p5.py",
+                "../compare_k.py",
+                "assembly-31.out",
+                "hzp/interp-31.out",
+            ],
+            ["hzp/compare-interp-31.out"],
+        )
+    )
     stages.append(
         stage(
             "hzp-compare-small-half",
