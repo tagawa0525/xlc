@@ -146,7 +146,7 @@ S3 の置き場:
 | `store/nix/<鍵>/`                | クロージャ（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）                            | 残す        |
 | `store/openmc-library/<鍵>/`     | `examples/vera/openmc-library`                                                                                         | 残す        |
 | `runs/<名前>/launch.env`、`src/` | 起動の記録（コミット。追跡していない入力や変更があれば `-dirty`。store のパス、鍵、入力）と、VM が使うスクリプトと入力 | 30 日で失効 |
-| `runs/<名前>/<ジョブ>/`          | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot.log`、`done`                             | 30 日で失効 |
+| `runs/<名前>/<ジョブ>/`          | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot-<時刻>.log`、`done`                      | 30 日で失効 |
 
 鍵は内容のハッシュ（クロージャは store のパスの組、核データはファイルの sha256 の一覧）。`aws_run.sh` は毎回 `aws s3 sync` で置き、S3 に
 あるものは送らない。`launch.env` は最後に置く（あれば `src/` と `store/` はそろっている）。入力はリポジトリの直下からの相対パス
@@ -157,12 +157,13 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
 
 1. `shutdown -h +<--max-hours × 60>`（既定 14 時間）を予約する。起動は `--instance-initiated-shutdown-behavior terminate` なので、
    電源が切れると終了する。時間切れでも statepoint は S3 にあるので、`aws_run.sh <名前>` で続けられる
-2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot.log`）、`done` の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る
-   （`trap finish EXIT`）。user-data が途中で失敗したら、その終了コードを `done` に書く。SIGTERM（スポットの回収、最長時間の
-   shutdown、手元からの終了）と同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM では `boot.log` も置かれないことがある
+2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot-<起動の時刻>.log`。起動し直しで前のログを上書きしない）、`done`
+   の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る（`trap finish EXIT`）。ジョブを始めたあと（READY のあと）に user-data が失敗
+   したら、その終了コードを `done` に書く。準備（Nix、クロージャ、核データ、入力の取得。S3 のジョブには触れない）での失敗、SIGTERM（スポットの
+   回収、最長時間の shutdown、手元からの終了）、同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM ではログも置かれないことがある
    （確認で、手元から終了したときは置かれなかった。原因は確かめていない。候補はシャットダウンでのネットワークの停止と、ログの tee が
    先に消えたときの SIGPIPE で、後者は finish で無視するようにした）
-3. Nix を入れる（試走と同じ Determinate の installer）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。クロージャを
+3. Nix を入れる（試走と同じ Determinate の installer。版は v3.23.1 に固定）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。クロージャを
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
 4. 再開なら、S3 の `runs/<名前>/<ジョブ>/` を作業ディレクトリに戻す。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
@@ -174,16 +175,16 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
    run と extract の終了コード。S3 に `done` があれば、ほかのファイルはすべて置いてある
 
 VM にはキーペアを付けず、VPC の既定のセキュリティグループ（同じグループのインスタンスからの通信だけ）で起動し、IMDSv2 を必須にする。
-様子は `aws_status.sh`、S3 の `boot.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
+様子は `aws_status.sh`、S3 の `boot-*.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
 
 起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`done` が 0 の
-ジョブと、VM が走っているジョブは飛ばす。0 でないジョブがあれば何も起動せずに止まる（`boot.log` を見て、別の名前でやり直す）。
+ジョブと、VM が走っているジョブは飛ばす。0 でないジョブがあれば何も起動せずに止まる（`boot-*.log` を見て、別の名前でやり直す）。最後の世代の statepoint があって `done` が
+ないジョブ（完了のあと `done` を置く前に止まった）は起動せず、`SHA256SUMS` とログを確かめて手で `done` を置くよう示す。
 中断の自動の再起動はない（ADR-0155）ので、`aws_status.sh` で VM が消えて `done` のないジョブを見つけたら起動し直す。
 
-`done` も `boot.log` もないまま VM が消えるのは、中断のほかに、AWS CLI を入れる前（Nix の installer、cache.nixos.org）の失敗がある。
-起動し直しても同じように消えるなら、終了から約 1 時間のうちに `aws ec2 get-console-output --instance-id <ID> --latest` で cloud-init の
-出力を見る。AWS CLI を入れたあとの準備（クロージャ、核データ、入力の取得）での失敗は、S3 の statepoint に触らずに `done` に終了コードを
-置く。原因を直したあと、そのジョブを続けるには `aws s3 rm s3://<バケット>/runs/<名前>/<ジョブ>/done` で `done` を消して起動し直す。
+`done` のないまま VM が消えるのは、中断のほかに準備での失敗がある。新しい `boot-*.log` を見る。ログもないのは、中断か、AWS CLI を
+入れる前（Nix の installer、cache.nixos.org）の失敗で、起動し直しても同じように消えるなら、終了から約 1 時間のうちに
+`aws ec2 get-console-output --instance-id <ID> --latest` で cloud-init の出力を見る。
 
 `aws_fetch.sh` は `references/openmc/aws/<名前>/`（`--dest` で変えられる）に、`src/` と完了したジョブの結果を写し、`SHA256SUMS` で
 検証する。`--verify` は、取り出した statepoint から VM と同じ Python（`launch.env` の store のパス。手元になければそのコミットで
