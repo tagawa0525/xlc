@@ -38,16 +38,23 @@ OUT=results/$job
 
 # 同期: done と boot.log は finish が最後に置く（S3 に done があれば、ほかのファイルはすべて置いてある）。
 # READY（作業ディレクトリが S3 の内容を含むようになった）までは同期しない。再開で S3 から戻す前に --delete で写すと、
-# S3 の statepoint を消すため。60 秒以内に書かれた最新の statepoint は、OpenMC が書いている途中でありうるので写さない
+# S3 の statepoint を消すため
 READY=0
+# <ディレクトリ> の statepoint のファイル名を世代の順に
+statepoints() {
+  ls "\$1" 2> /dev/null | grep -E '^statepoint\.[0-9]+\.h5\$' | sort -t. -k2 -n || true
+}
 sync_out() {
   ((READY)) || return 0
-  local newest skip=()
-  newest=\$(ls "\$WORK/\$OUT/run" 2> /dev/null | grep -E '^statepoint\.[0-9]+\.h5\$' | sort -t. -k2 -n | tail -1 || true)
-  if [[ -n \$newest ]] && ((\$(date +%s) - \$(stat -c %Y "\$WORK/\$OUT/run/\$newest") < 60)); then
-    skip=(--exclude "run/\$newest")
+  local filters=() f all
+  # ジョブが走っている間は、最新の statepoint（OpenMC が書いている途中でありうる）と、一覧の後に書き始めたものを写さない。
+  # 写すのは、一覧の時点で最新でない（書き終えた）ものだけ。done があれば（ジョブが終わった）すべて写す
+  if [[ ! -f \$WORK/\$OUT/done ]]; then
+    filters=(--exclude 'run/statepoint.*')
+    all=\$(statepoints "\$WORK/\$OUT/run")
+    for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done
   fi
-  "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\${skip[@]}" "\$WORK/\$OUT" "\$PREFIX"
+  "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
 }
 # 終わるときに、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
 # この user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も含む）に置く。
@@ -57,9 +64,9 @@ sync_out() {
 finish() {
   local code=\$? synced=0 try
   # ここで止まると電源が切れないので、途中の失敗では止めない。シャットダウンで tee が先に消えても、
-  # 出力の SIGPIPE で止まらない
+  # 出力の SIGPIPE で止まらない。finish の途中の SIGTERM（最長時間、手元からの終了）で exit 143 に飛ばない
   set +e
-  trap '' PIPE
+  trap '' PIPE TERM
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
   if ((code != 0 && code != 143)); then
     mkdir -p "\$WORK/\$OUT"
@@ -131,7 +138,7 @@ done
 code=\$(cat "\$OUT/done")
 if [[ \$code == 0 ]]; then
   # 完了: 最後の世代のほかの statepoint を消し、manifest を書く
-  last=\$(ls "\$OUT/run" | grep -E '^statepoint\.[0-9]+\.h5\$' | sort -t. -k2 -n | tail -1)
+  last=\$(statepoints "\$OUT/run" | tail -1)
   find "\$OUT/run" -name 'statepoint.*.h5' ! -name "\$last" -delete
   (cd "\$OUT" && find . -type f ! -name SHA256SUMS ! -name done -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS)
 fi

@@ -49,7 +49,7 @@ for name in fresh restart; do
   # done を書かずにジョブが消えたら、最長の時間まで待たずに失敗で終わる
   contains "$text" '  if ! pgrep -f -- " $OUT(/run)?( |$)" > /dev/null; then' "$name"
   # 同期は done と boot.log を除く。finish が同期、boot.log、done の順に置く（done があれば、ほかはそろっている）
-  contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "${skip[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
+  contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "${filters[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
   before "$text" '      sync_out && { synced=1; break; }' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' "$name"
   before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' \
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
@@ -64,7 +64,7 @@ for name in fresh restart; do
   lacks "$text" '"$AWS" s3 cp --only-show-errors "$OUT/done" "$PREFIX/done"' "$name"
   contains "$text" 'READY=0' "$name"
   contains "$text" '  ((READY)) || return 0' "$name"
-  contains "$text" "  trap '' PIPE" "$name"
+  contains "$text" "  trap '' PIPE TERM" "$name"
   # 終わりは必ず電源を切る（finish が最後に shutdown -h now）
   contains "$text" '  shutdown -h now' "$name"
 done
@@ -78,6 +78,39 @@ lacks "$fresh" '"$AWS" s3 sync --only-show-errors --exclude boot.log --exclude d
 contains "$restart" 'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
 before "$restart" '"$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "$PREFIX" "$OUT"' \
   'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
+
+# sync_out の振る舞い: 生成した statepoints と sync_out を、aws の代わりに引数を出す関数で走らせる
+functions=$(sed -n '/^statepoints() {$/,/^}$/p; /^sync_out() {$/,/^}$/p' <<< "$fresh")
+sync_args() { # <done を置くか 0|1> <statepoint の世代>... : sync_out が aws に渡す引数を 1 行に 1 つ
+  local put_done=$1 dir g
+  shift
+  dir=$(mktemp -d)
+  mkdir -p "$dir/results/openmc-3A/run"
+  for g in "$@"; do touch "$dir/results/openmc-3A/run/statepoint.$g.h5"; done
+  ((put_done)) && echo 0 > "$dir/results/openmc-3A/done"
+  (
+    # shellcheck disable=SC2034 # eval した sync_out が使う
+    WORK=$dir OUT=results/openmc-3A PREFIX=s3://b/runs/trial/openmc-3A READY=1
+    # shellcheck disable=SC2034 # eval した sync_out が使う
+    AWS=aws_stub
+    aws_stub() { printf '%s\n' "$@"; }
+    eval "$functions"
+    sync_out
+  )
+  rm -rf "$dir"
+}
+# 走っている間は、最新（書いている途中でありうる）を除き、書き終えたものだけを含める
+running=$(sync_args 0 020 040 060)
+grep -qxF 'run/statepoint.*' <<< "$running" || fail "sync_out: 走っている間に statepoint を除いていない"
+grep -qxF 'run/statepoint.020.h5' <<< "$running" && grep -qxF 'run/statepoint.040.h5' <<< "$running" ||
+  fail "sync_out: 書き終えた statepoint を含めていない"
+! grep -qxF 'run/statepoint.060.h5' <<< "$running" || fail "sync_out: 最新の statepoint を含めている"
+# done のあとは除かない（最後の世代の statepoint を写す）
+finished=$(sync_args 1 200)
+! grep -qF 'run/statepoint' <<< "$finished" || fail "sync_out: done のあとに statepoint を除いている: $finished"
+# statepoint がないときも走る
+none=$(sync_args 0)
+grep -qxF -- '--delete' <<< "$none" || fail "sync_out: statepoint がないときに aws s3 sync を呼ばない"
 
 # 怪しい引数は user-data を作らずに止まる
 rejects() { # <名前> <引数>...
