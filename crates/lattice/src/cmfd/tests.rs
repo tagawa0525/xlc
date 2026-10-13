@@ -72,8 +72,8 @@ fn homogeneous_cell_gives_the_infinite_medium_k() {
 }
 
 /// 2 群の拡散の平板（`cells` 個の幅 `width` cm のセル、両端は真空）の粗メッシュの問題。面の流れの補正 D̂ はなく、
-/// 内側の面の結合は D/h、真空の面は入射なし（Marshak）の 2D/(h + 4D)
-fn slab(cells: usize, width: f64) -> Coarse {
+/// 内側の面の結合は D/h、真空の面は入射なし（Marshak）の 2D/(h + 4D)。`line` は 1 行の格子として組み立てること
+fn slab(cells: usize, width: f64, line: bool) -> Coarse {
     let d = [1.3, 0.4];
     let (removal, transfer, absorption) = (0.025, 0.015, 0.08);
     let nu_fission = [0.005, 0.1];
@@ -110,7 +110,7 @@ fn slab(cells: usize, width: f64) -> Coarse {
         cells
     ];
     Coarse::assemble(
-        true,
+        line,
         2,
         (0..cells).collect(),
         vec![1.0; cells],
@@ -130,26 +130,26 @@ fn a_slab_of_thin_cells_converges_within_a_few_hundred_iterations() {
         max_iterations: 500,
         ..CmfdOptions::default()
     };
-    let coarse = slab(200, 0.5);
     let unlimited = CmfdOptions {
         max_iterations: 1_000_000,
         ..CmfdOptions::default()
     };
-    let (reference_k, reference) = coarse.solve_gauss_seidel(1.0, &unlimited).unwrap();
-    let (k, ratio) = coarse.solve(1.0, &budget).unwrap();
+    // 2 次元の格子として組み立てると Gauss-Seidel で解く
+    let (reference_k, reference) = slab(200, 0.5, false).solve(1.0, &unlimited).unwrap();
+    let (k, ratio) = slab(200, 0.5, true).solve(1.0, &budget).unwrap();
     assert!((k - reference_k).abs() < 1e-9, "{k} vs {reference_k}");
     for (a, b) in ratio.iter().zip(&reference) {
         assert!((a - b).abs() < 1e-6 * b, "{a} vs {b}");
     }
     // 4 倍細かくしても同じ回数の中で解ける
-    assert!(slab(800, 0.125).solve(1.0, &budget).is_ok());
+    assert!(slab(800, 0.125, true).solve(1.0, &budget).is_ok());
 }
 
 #[test]
 fn a_slab_with_a_close_second_mode_converges_quickly_from_a_nearby_k() {
     // 400 cm の平板は 2 番目の固有値が近く（優位比 0.97 程度）、シフトのない逆反復は約 700 回かかる。k の近くに
     // シフトすると、2 つの固有値の差に比べて近いほど速く収束する
-    let coarse = slab(800, 0.5);
+    let coarse = slab(800, 0.5, true);
     let unlimited = CmfdOptions {
         max_iterations: 1_000_000,
         ..CmfdOptions::default()
@@ -174,7 +174,7 @@ fn a_slab_with_a_close_second_mode_converges_quickly_from_a_nearby_k() {
 #[test]
 fn a_slab_solves_from_a_k_far_below_the_eigenvalue() {
     // k が固有値より大きく下にあると、シフトが 2 番目以降の固有値に近くなる。シフトなしで解き直す
-    let coarse = slab(800, 0.5);
+    let coarse = slab(800, 0.5, true);
     let unlimited = CmfdOptions {
         max_iterations: 1_000_000,
         ..CmfdOptions::default()
