@@ -86,7 +86,7 @@ nix develop .#references -c sh -c \
 ## 外部の計算機（AWS）
 
 r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討段階）。c7a は vCPU が物理コアで、
-x86_64 の nix の閉包をそのまま送れる。送る、実行、回収の道具（SSH の接続先が決まった VM 用）は次の節。起動と削除の道具は未実装。
+x86_64 の nix の閉包をそのまま送れる。送る、実行、回収の道具（SSH の接続先が決まった VM 用）は次の節。起動と削除の道具は未実装（試走で通した起動の手順は「試走」の節）。
 
 ユーザーが用意するもの:
 
@@ -113,9 +113,17 @@ Problem 3 と 5-2D の本番（数時間の走行を 5 本）は、r995 でな�
 OpenMC と Python API は手元でビルドした閉包を送る（VM で再ビルドしない）。Slurm は使わない。VM は中断されうる（スポット）ので、
 入力の `statepoint-interval` で途中の statepoint を書き、中断のあとは `--restart` で再開する。
 
-1. VM に Nix を入れる（単一ユーザーの構成でよい）: `sh <(curl -L https://nixos.org/nix/install) --no-daemon`。`~/.nix-profile/etc/profile.d/nix.sh`
-   を読み込む。`nix copy --to ssh://` は VM の `nix-store` を ssh で呼ぶので、非対話の ssh のシェルでも `nix-store` が PATH にあるように
-   する（`~/.ssh/environment` でなく `~/.bashrc` の先頭か `/etc/environment`）。`rsync` も VM に要る
+1. VM に Nix を入れる。試走（2026-10-13、Ubuntu 24.04、c7a.large）で通した手順は Determinate Systems の installer（multi-user）。
+   約 10 秒。`nix copy --to ssh://` は未署名のパスを送るので、VM の ssh のユーザーを信頼するユーザーにする。非対話の ssh でも
+   `nix-store` が PATH にある（`/nix/var/nix/profiles/default/bin`）ので、PATH の追加は要らない。`rsync` は Ubuntu の AMI に入っている:
+
+   ```sh
+   ssh <接続先> 'curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm'
+   ssh <接続先> 'echo "trusted-users = root $USER" | sudo tee /etc/nix/nix.custom.conf; sudo systemctl restart nix-daemon'
+   ```
+
+   接続先は `~/.ssh/config` の Host（`HostName`、`User ubuntu`、`IdentityFile ~/.ssh/xlc-aws.pem`、`IdentitiesOnly yes`）にしておくと、
+   `nix copy` と rsync にも同じ設定が効く（IP はインスタンスごとに変わるので、起動のたびに書き換える）
 2. 手元（リポジトリの直下）から送る。`--dry-run` は、閉包のパス（62 個、約 800 MB）と rsync の一覧だけ出して何も送らない:
 
    ```sh
@@ -126,9 +134,10 @@ OpenMC と Python API は手元でビルドした閉包を送る（VM で再ビ�
 
    閉包（flake の `.#openmc` と `.#openmc-python`）は `nix copy --to ssh://<接続先>`、ライブラリ、入力（p3、p5）、スクリプトは
    rsync で `<VM の作業ディレクトリ>` の下に同じ配置で送る。VM 上の道具の場所は `tools.env` に書く。VM の CPU は x86_64 の Linux
-   （閉包が x86_64-linux のため）
-3. VM で、作業ディレクトリの直下から流す。1 本あたりのスレッド数は `--cores`（物理コア数）を入力の数で割った値。vCPU は SMT の
-   スレッドなので、物理コアは vCPU 数の半分（`lscpu` で確かめる）。切り離して走るので、ssh を切ってよい:
+   （閉包が x86_64-linux のため）。試走の時間: 閉包 800 MB と核データ 630 MB の送信は合わせて 2 分 36 秒（手元から us-east-1 へ）
+3. VM で、作業ディレクトリの直下から流す。1 本あたりのスレッド数は `--cores`（物理コア数）を入力の数で割った値。省略すると `lscpu` から数える。
+   c7a は SMT がなく vCPU が物理コア（c7a.large は 2、`lscpu` の Thread(s) per core が 1。試走で確認）。SMT のある機種では物理コアは
+   vCPU 数の半分になる。切り離して走るので、ssh を切ってよい:
 
    ```sh
    examples/vera/run_remote.sh --cores <物理コア数> examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml \
@@ -145,6 +154,23 @@ OpenMC と Python API は手元でビルドした閉包を送る（VM で再ビ�
    examples/vera/remote_fetch.sh --dry-run <ssh の接続先> <VM の作業ディレクトリ> references/openmc/remote
    examples/vera/remote_fetch.sh <ssh の接続先> <VM の作業ディレクトリ> references/openmc/remote
    ```
+
+### 試走（2026-10-13）
+
+c7a.large のスポット（2 vCPU = 2 物理コア）で、上の 1〜5 を通した（xlc のコミット 6b39ad13 のスクリプト）。入力は本番の写しで粒子数 1 万・20 世代・捨てる 5・
+`statepoint-interval = 5`（`cross-sections` はリポジトリの `examples/vera/openmc-library` を指す）。
+
+- 起動: キーペア `xlc-aws`（秘密鍵 `~/.ssh/xlc-aws.pem`）、セキュリティグループ `xlc-ssh`（手元のグローバル IP の 22/tcp だけ）を作り、
+  AMI は `aws ec2 describe-images --owners 099720109477 --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"`
+  に `--query 'sort_by(Images,&CreationDate)[-1].ImageId'` を付けた最新（このアカウントは SCP で SSM の公開パラメータが引けない）を `aws ec2 run-instances --instance-type c7a.large
+  --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'` で起動。EBS は gp3 40 GB。起動から ssh が通るまで約 40 秒。終わったら `aws ec2 terminate-instances` で終了する（EBS は DeleteOnTermination で消える。
+  キーペアとセキュリティグループは残す）
+- 3A と 5A-2D を `run_remote.sh`（`--cores` を省略。物理コア 2 を数え、2 本で 1 スレッドずつ）で同時に流し、約 1 分で k.json などまで
+  できた。statepoint は 5 世代ごとに書かれ、最新の 2 個（15、20）が残る
+- 3A を `--threads 2` で流して世代 10 の statepoint の後に殺し、`--restart` で再開すると、世代 10 から続けて完了し、最初の走行と k が
+  一致した（1.172117 ± 0.002783）。殺すと `done` は書かれない
+- `remote_fetch.sh` で戻した statepoint から手元で extract すると、k.json と pins.msgpack がバイト一致した（`openmc-python` の
+  python で走らせる。`nix develop .#references` でもよい）
 
 記録には、VM の機種、vCPU 数と物理コア数、`threads` を書き、時間は書かない（共有の環境で、スポットの中断もありうる）。
 
