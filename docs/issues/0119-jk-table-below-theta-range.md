@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-燃焼鎖の核種の棚卸し（`crates/chain/examples/survey_neutrons.rs`、17cbe1e7、2026-10-14。docs/plans/m4-depletion.md の「核データ」）で、
+燃焼鎖の核種の棚卸し（`crates/chain/examples/survey_neutrons.rs`、6548fca7、2026-10-14。docs/plans/m4-depletion.md の「核データ」）で、
 VERA の燃料の温度（565、600、900、1200 K）と σ0 の 9 点の非分離共鳴の自己遮蔽が、10 評価で `β=…, θ=… is outside the J, K table`
 で止まる。θ = Γ/Δ は温度とともに小さくなるので、高い温度だけで止まるものがある。止まった最初の点:
 
