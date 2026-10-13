@@ -63,7 +63,7 @@ M4 の前に決めてあるもの:
 
 - 燃焼のソルバ: CRAM と予測子・修正子法（[ADR-0025](../adr/0025-deplete-with-cram.md)）。共通のクレートに置く（[ADR-0003](../adr/0003-extract-shared-computation-on-second-use.md)）
 - 燃焼チェーン: 全核種のチェーンを xs が作り、輸送計算に使うチェーンはそこから縮約する（[ADR-0034](../adr/0034-build-full-depletion-chain.md)）。全核種のチェーンの規則
-  （[ADR-0164](../adr/0164-build-full-chain-from-endf.md)）、チェーンを作るクレートとチェーンの形式（[ADR-0166](../adr/0166-build-chain-in-its-own-crate.md)）
+  （[ADR-0164](../adr/0164-build-full-chain-from-endf.md)）、チェーンを作るクレートとチェーンの形式（[ADR-0166](../adr/0166-build-chain-in-its-own-crate.md)）、縮約の方式（[ADR-0165](../adr/0165-reduce-chain-by-contribution-and-folding.md)。proposed、#0116）
 - 燃焼の履歴: core のミクロ燃焼と、履歴の変数・履歴の分岐による補正（[ADR-0035](../adr/0035-track-history-by-micro-depletion.md)）
 - core のノードの状態は集合体ごとに持つ（[ADR-0036](../adr/0036-keep-core-state-per-assembly.md)）
 - 格子計算の出力: 燃焼度ごとの 2 群定数、ADF、ピン出力の形状、分岐のテーブル、ミクロ燃焼の核種の微視的断面積と数密度
@@ -80,9 +80,8 @@ M4 の前に決めてあるもの:
   してある（[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、docs/environment.md）。チェーンの形式、収率のエネルギー依存、準安定状態への分岐の出所は
   [ADR-0164](../adr/0164-build-full-chain-from-endf.md) と [ADR-0166](../adr/0166-build-chain-in-its-own-crate.md) で決めた。準安定状態への分岐は、MF8〜10 の状態ごとのチャネルの群の断面積を xs が作る（「進め方」3）。
   ADR で決める: 核分裂の Q 値と捕獲のエネルギー（出力の規格化。「進め方」5）
-- 輸送に使う縮約したチェーン: ADR で決める: 何核種を追うか（重核種と核分裂生成物の選び方、縮約の基準と、その誤差を k と
-  ピン出力で測る方法）、明示しない核分裂生成物を擬似核種にまとめるか。先行事例（OpenMC が配る PWR 向けのチェーン、
-  CASMO、Polaris、MPACT のチェーンの大きさ）は調べてから出典を書く
+- 輸送に使う縮約したチェーン: 方式は [ADR-0165](../adr/0165-reduce-chain-by-contribution-and-folding.md)（proposed）。閾値と実装、先行事例（OpenMC が配る PWR 向けのチェーン、
+  CASMO、Polaris、MPACT のチェーンの大きさ）の出典は #0116
 - xs が処理できる核種の制約: 分離共鳴で NRO ≠ 0（散乱半径のエネルギー依存）を xs は読めない（crates/xs/src/endf/mf2.rs）。
   ENDF/B-VIII.0 の中性子のデータの MF2 の最初のエネルギー範囲を手元で走査すると（2026-10-12。コミットしたツールではないので、チェーンの ADR でツールにして
   数え直す）、少なくとも 52 核種がこれにあたる（2 つ目以降の範囲は見ていないので下限）
@@ -249,7 +248,7 @@ ADR で決める。外部の計算機（クラウド。別に選ぶ）のコア�
    倍率 s とライブラリの記憶量を測り、参照解の物理コア時間を見積もり直す。外部の計算機を選ぶ検討の入力にする — 未着手
 2. 燃焼チェーン: xs が decay と nfy から全核種のチェーンを作り（ADR-0034）、OpenMC のチェーンと比べる。縮約したチェーンの方式を ADR で決める
    — 全核種のチェーンは済（feat/depletion-chain-type と feat/depletion-chain のマージ。ADR-0164、ADR-0166。記録は
-   examples/depletion/verification.md の「燃焼チェーン」）。縮約したチェーンの方式は未着手
+   examples/depletion/verification.md の「燃焼チェーン」）。縮約の方式は ADR-0165（proposed）で決め、実装と閾値は #0116
 3. 燃焼チェーンの核種の断面積: xs の制約（NRO、分離共鳴の形式）の扱いと、ポイントワイズを持たせる核種の基準を決め、ライブラリを
    作る。チェーンの反応のチャネル（MF8〜10 の状態ごと。ADR-0164）の群の断面積も作る。M3 の #0001（4 eV より下の共鳴。MOX のピンセルで検証）を先に済ませる — 未着手
 4. CRAM と燃焼のソルバ（共通のクレート）と、解析解・OpenMC のソルバとの比較 — 済（feat/cram-depletion-solver のマージ。ADR-0161、
