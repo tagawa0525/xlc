@@ -1,0 +1,74 @@
+schema: '2.0'
+stages:
+  references-shell:
+    cmd: nix eval --raw ../..#devShells.x86_64-linux.references.outPath > 
+      references-shell.txt
+    outs:
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+  openmc-chain:
+    cmd: nix develop ../..#references -c python3 openmc_chain.py 
+      ../../references/endf openmc-chain.xml
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_decay
+      hash: md5
+      md5: cd9527b605466e5ab21efa3e6ca54be2.dir
+      size: 65900954
+      nfiles: 3825
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons
+      hash: md5
+      md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
+      size: 1212542189
+      nfiles: 561
+    - path: ../../references/endf/ENDF-B-VIII.0_nfy
+      hash: md5
+      md5: 528c1361afed7122fa619130226950ac.dir
+      size: 8269842
+      nfiles: 35
+    - path: openmc_chain.py
+      hash: md5
+      md5: e51a6d5c7cbdb1749493b4bd07e2da04
+      size: 1080
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: openmc-chain.xml
+      hash: md5
+      md5: 2a2bc167be1a6ba81a132ab5c25204bf
+      size: 27513870
+  chain:
+    cmd: ../../bin/chain chain.toml
+    deps:
+    - path: ../../bin/chain
+      hash: md5
+      md5: f85f7ce766c5cd219b211f87b2130b36
+      size: 1867280
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_decay
+      hash: md5
+      md5: cd9527b605466e5ab21efa3e6ca54be2.dir
+      size: 65900954
+      nfiles: 3825
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons
+      hash: md5
+      md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
+      size: 1212542189
+      nfiles: 561
+    - path: ../../references/endf/ENDF-B-VIII.0_nfy
+      hash: md5
+      md5: 528c1361afed7122fa619130226950ac.dir
+      size: 8269842
+      nfiles: 35
+    - path: chain.toml
+      hash: md5
+      md5: 8645b3ab8f82b5d64733f23f997ae7ff
+      size: 340
+    outs:
+    - path: chain.msgpack
+      hash: md5
+      md5: 120d74352f99e1a78b5d9df77d992378
+      size: 4612727

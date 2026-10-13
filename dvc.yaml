@@ -17,3 +17,4 @@ stages:
       - bin/xs
       - bin/lattice
       - bin/core
+      - bin/chain
