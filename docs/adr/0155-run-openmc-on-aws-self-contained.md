@@ -100,7 +100,7 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
 - 1 つのジョブ（入力）に 1 台。中断と失敗の影響が 1 本に閉じる（ADR-0151）
 - VM は起動すると、最長時間の shutdown を予約し、Nix を入れ、AWS CLI を cache.nixos.org から、閉包と核データと入力を S3 から取る。
   `run_remote.sh` で流し、決まった間隔（既定 5 分）ごとに作業ディレクトリ（書き終えた statepoint、summary.h5、ログ）を
-  `aws s3 sync --delete` で S3 に写す。完了したら、最後の世代のほかの statepoint を消し、sha256 の manifest を書いて同期し、
+  `aws s3 sync` で S3 に写す（`--delete` は完了のあとだけ）。完了したら、最後の世代のほかの statepoint を消し、sha256 の manifest を書いて同期し、
   電源を切る（terminate）。終わるときは起動ごとのログを S3 に置く。ジョブを始めたあとの失敗では終了コードを `done` に置く。
   準備（Nix、閉包、核データ、入力の取得）での失敗と、SIGTERM を受けたとき（中断）では `done` を置かず、起動し直せるようにする
 - ジョブが走っている間は、最新の statepoint（書いている途中でありうる）と同期の一覧の後に書き始めたものを同期しない。写ったものが壊れていても、再開の
