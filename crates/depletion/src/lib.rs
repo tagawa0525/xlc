@@ -35,6 +35,8 @@ pub enum DepletionError {
     SymbolicFactorization(#[source] faer::sparse::FaerError),
     #[error("numeric sparse LU of the CRAM system failed")]
     NumericFactorization(#[source] faer::sparse::linalg::LuError),
-    #[error("CRAM gave a non-finite density for nuclide {0}")]
+    #[error(
+        "CRAM gave a non-finite density for nuclide {0} (the intermediate of the IPF product overflows above about 1e262)"
+    )]
     NonFiniteResult(usize),
 }

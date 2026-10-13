@@ -8,8 +8,10 @@
 //! order <16|48>
 //! t <時間 s>
 //! n0 <数密度 n 個>
-//! entry <行> <列> <値>     # 何行でも。行が生まれる核種、列が親（DepletionMatrix::from_triplets）
+//! entry <行> <列> <値>
 //! ```
+//!
+//! `entry` は何行でもよく、行が生まれる核種、列が親（DepletionMatrix::from_triplets）。注釈の書き方はない。
 
 use std::io::Read;
 

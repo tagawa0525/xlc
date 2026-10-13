@@ -10,6 +10,11 @@ const COMPLEX_SPECTRUM_TOL_16: f64 = 1e-10;
 const COMPLEX_SPECTRUM_TOL_48: f64 = 1e-13;
 const SMALL_DAUGHTER_RTOL: f64 = 1e-12;
 
+/// 比べた誤差を書き出す（`cargo test -p xlc-depletion -- --nocapture` で examples/depletion/verification.md の値を読む）
+fn report(test: &str, order: CramOrder, case: &str, error: f64) {
+    eprintln!("ERROR {test} {order:?} {case} {error:e}");
+}
+
 fn matrix(n: usize, entries: &[(usize, usize, f64)]) -> DepletionMatrix {
     DepletionMatrix::from_triplets(n, entries).unwrap()
 }
@@ -51,6 +56,7 @@ fn one_nuclide_decays_exponentially() {
             let x = 10f64.powf(f64::from(step) / 10.0);
             let got = deplete(&a, &[1.0], x, order).unwrap();
             let error = scaled_error(&got, &[(-x).exp()], &[1.0]);
+            report("decay", order, &format!("x={x}"), error);
             assert!(error <= REAL_SPECTRUM_TOL, "{order:?} x={x}: {error:e}");
         }
     }
@@ -80,6 +86,7 @@ fn a_chain_matches_bateman() {
             let got = deplete(&chain3(l1, l2), &[1.0, 0.0, 0.0], t, order).unwrap();
             let exact = parent_daughter_stable(l1, l2, t);
             let error = scaled_error(&got, &exact, &[1.0]);
+            report("chain", order, &format!("{l1} {l2} {t}"), error);
             assert!(
                 error <= REAL_SPECTRUM_TOL,
                 "{order:?} {l1} {l2} {t}: {error:e}"
@@ -96,6 +103,7 @@ fn a_small_daughter_keeps_its_relative_accuracy() {
         let got = deplete(&chain3(l1, l2), &[1.0, 0.0, 0.0], t, order).unwrap();
         let exact = parent_daughter_stable(l1, l2, t);
         let relative = ((got[1] - exact[1]) / exact[1]).abs();
+        report("small-daughter", order, "relative", relative);
         assert!(relative <= SMALL_DAUGHTER_RTOL, "{order:?}: {relative:e}");
     }
 }
@@ -120,6 +128,7 @@ fn a_branching_decay_splits_by_the_ratios() {
     for order in ORDERS {
         let got = deplete(&a, &[1.0, 0.0, 0.0, 0.0], t, order).unwrap();
         let error = scaled_error(&got, &exact, &[1.0]);
+        report("branching", order, "", error);
         assert!(error <= REAL_SPECTRUM_TOL, "{order:?}: {error:e}");
     }
 }
@@ -153,6 +162,7 @@ fn a_cycle_with_complex_eigenvalues_matches_the_closed_form() {
                 })
                 .collect();
             let error = scaled_error(&got, &exact, &[1.0]);
+            report("cycle", order, &format!("kt={kt}"), error);
             assert!(error <= tol, "{order:?} kt={kt}: {error:e}");
         }
     }
