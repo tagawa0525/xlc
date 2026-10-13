@@ -22,7 +22,7 @@ resolution: ADR-0142
 [ADR-0086](../adr/0086-shield-structural-lumps.md)、UFG の範囲の下の In-115 の 1.46 eV。#0007、#0001）、影の計算の全断面積（[ADR-0087](../adr/0087-use-dilute-totals-in-shadows.md)）、
 トラック間隔（[ADR-0111](../adr/0111-use-30-azimuths-for-vera-assemblies.md)）、等価セルの枠（[ADR-0088](../adr/0088-add-frame-ring-to-equivalent-cell.md)）、2 項有理近似の重み（[ADR-0089](../adr/0089-weight-two-terms-with-potential-scattering.md)）、MF4 の角度分布（[ADR-0133](../adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)）。
 
-関係する ADR: [ADR-0086](../adr/0086-shield-structural-lumps.md)
+関係する ADR: [ADR-0142](../adr/0142-shield-absorber-rods-by-slowing-down.md)
 
 ## 完了の条件
 
