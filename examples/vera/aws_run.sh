@@ -89,6 +89,10 @@ if ((${#inputs[@]})); then
     # run_remote.sh が受け付ける名前（VM に上げてから断られないように、置く前に確かめる）
     [[ -n $(job_script "$(job_name "$input")") ]] ||
       { echo "$input: Problem 3（openmc-3?）か 5-2D（openmc-5?-2D）の入力ではありません" >&2; exit 1; }
+    # VM に置くのは examples/vera/openmc-library だけなので、入力の cross-sections はそこを指すこと
+    xs=$(sed -n 's/^cross-sections *= *"\(.*\)"$/\1/p' "$input")
+    [[ $(realpath -m "$(dirname "$input")/$xs") == "$(realpath examples/vera/openmc-library/cross_sections.xml)" ]] ||
+      { echo "$input: cross-sections（$xs）が examples/vera/openmc-library/cross_sections.xml を指しません" >&2; exit 1; }
     jobs+=("$(job_name "$input")")
     live=$(live_instance "$name-${jobs[-1]}")
     [[ -z $live ]] || { echo "$name-${jobs[-1]} の VM が走っています" >&2; exit 1; }
@@ -111,7 +115,8 @@ if ((${#inputs[@]})); then
   fi
 
   src=$(mktemp -d)
-  trap 'rm -rf "$src"' EXIT
+  cache=$(mktemp -d)
+  trap 'rm -rf "$src" "$cache"' EXIT
   files=(
     examples/openmc_common.py
     examples/openmc_run.py
@@ -139,11 +144,9 @@ ENV
 
   if ((!dry)); then
     # 毎回作って sync する（手元で約 2 秒）。途中で切れた置き場を「ある」と見なさない
-    cache=$(mktemp -d)
     nix copy --quiet --to "file://$cache?compression=zstd" "$openmc" "$python"
     # ファイル名は内容で決まるので大きさだけで比べる（作り直した cache は mtime が新しく、既定の比較では全部を送り直す）
     aws s3 sync --only-show-errors --size-only "$cache" "s3://$XLC_BUCKET/store/nix/$closure"
-    rm -rf "$cache"
     aws s3 sync --only-show-errors --size-only examples/vera/openmc-library "s3://$XLC_BUCKET/store/openmc-library/$library"
     aws s3 sync --only-show-errors --exclude launch.env "$src" "$run_prefix/src"
     # launch.env は最後に置く（あれば src/ と store/ はそろっている）
