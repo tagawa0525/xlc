@@ -4,7 +4,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 root=$(pwd)
+# examples/m0 の DVC の出力（wims69.msgpack、pincell-fg.msgpack）を上書きしないよう、あれば止める
+for f in ../m0/wims69.msgpack ../m0/pincell-fg.msgpack; do
+  if [ -e "$f" ]; then echo "$f exists; run this in a worktree without the M0 outputs" >&2; exit 1; fi
+done
 rm -rf out/xs; mkdir -p out/xs
+trap 'rm -f ../m0/wims69.msgpack' EXIT
 for round in 1 2; do
   for v in v0 v1 v2 v3; do
     for c in b873a967 ebe7c100 d39c5db3; do

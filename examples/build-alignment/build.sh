@@ -9,7 +9,15 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$here" rev-parse --show-toplevel)
 work=$1; shift
-case "$(realpath -m "$work")/" in "$repo"/*) echo "work directory must be outside $repo" >&2; exit 1;; esac
+# 作業ディレクトリの上に .cargo/config.toml があれば止める（ホームの ~/.cargo/config.toml はどのビルドにも効くので除く）
+d=$(realpath -m "$work")
+while [ "$d" != / ]; do
+  if [ "$d" != "$HOME" ] && [ -e "$d/.cargo/config.toml" ]; then
+    echo "$d/.cargo/config.toml would add its rustflags; use a work directory outside it" >&2
+    exit 1
+  fi
+  d=$(dirname "$d")
+done
 declare -A flags=(
   [v0]=''
   [v1]='"-C","llvm-args=-align-all-functions=6"'
