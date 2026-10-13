@@ -5,7 +5,7 @@ opened: 2026-10-12
 closed: 2026-10-14
 milestone:
 blocked-by: []
-resolution: コミット e0323140
+resolution: コミット 99fe62f2
 ---
 
 # 単体テストを tests.rs に移し、本番のファイルのテストのコードを検査で止める
