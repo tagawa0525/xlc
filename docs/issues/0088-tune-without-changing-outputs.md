@@ -44,8 +44,8 @@ e4dbc0de、2026-10-12）。自己遮蔽の中は、VERA 2B の 1 状態の perf 
 `xs::resonance::line_shape` の J, K の表（β 641 点 × θ 361 点、θ の行ごとに適応 Gauss-Kronrod 積分）を、θ の行について
 `std::thread::scope` のスレッド（使える CPU の数）で並列に作る（ブランチ perf/0088-line-shape-table）。行どうしで和を
 取らないので、各点の値はスレッド数によらない。この表の構築が #0091 の遅いテストの時間を決めていた。本番の xs の時間の
-内訳を perf で測って選んだ箇所ではなく、release の構築は 0.27 秒で本番にはほとんど効かない（下の判定）。得るのは
-テストの時間である。
+内訳を perf で測って選んだ箇所ではなく、release の構築は 0.27 秒以下で本番にはほとんど効かない（ADR-0144 の「確認」）。
+得るのはテストの時間である。
 
 比べた候補:
 
@@ -55,11 +55,13 @@ e4dbc0de、2026-10-12）。自己遮蔽の中は、VERA 2B の 1 状態の perf 
     xs は今 rayon を使わないが、#0088 で xs の処理を rayon で並列にすると起きうる。xs にとって新しい依存でもあり、
     並列の `collect` は、複数の行が失敗したときに返すエラーがスレッドの進み方で変わる
   - `std::thread::scope` で、各スレッドが共有のカウンタから次の行を取る形にした。行の重さは θ で違うので、前もって
-    等分しない。エラーは θ の小さい順に最初のものを返す（逐次の版と同じ）
+    等分しない。行が失敗したら新しい行を取らずに止め、θ の最も小さいエラーを返す（逐次の版と同じ）
+  - スレッドの数は入力で選べず、使える論理 CPU の数（`available_parallelism`。r995 で 32）。lattice は物理コアの数に
+    絞っており、揃えるかは決めていない
 - (b) 適応積分の許容誤差（1e-12）や表の間隔（`STEP`）を変える。値が変わるので ADR-0144 の範囲の外。採らない
 - (c) 表を事前に計算してリポジトリに持つ。ln J, ln K の 2 × 641 × 361 点の f64 で約 3.7 MB になり、読み込みの形式、
   コードから作り直した表と一致するかの検査（それ自体が今の構築の時間を払う）、積分のコードを変えたときの作り直しの手順が要る。
-  release の構築は 0.27 秒で本番にはほとんど効かず、得るのはテストの時間だけなので採らない
+  release の構築は 0.27 秒以下で本番にはほとんど効かず、得るのはテストの時間だけなので採らない
 - (d) 必要な点だけ遅延で作る。表の補間は 4 × 4 点を引くので、θ の行（β の全点を 1 回の積分で求める）単位の遅延になり、
   行ごとの `OnceLock` と排他が要る。`table_matches_direct_integration` は乱数の 400 点で θ の広い範囲を引き、ほかの
   テストと本番でどれだけの行を引くかは測っていないので効きが読めず、(a) で足りるので採らない
@@ -71,16 +73,16 @@ ADR-0144 の判定の結果（出力のビット一致と、xs の段階と表�
 基準を、同じ実行ファイルの 2 回の実行の幅を超えて遅いこととした（ADR-0144 が実装のブランチに任せた手順）。
 
 debug のテスト（手元、`cargo test -p xlc-xs --lib -- --exact <テスト>`、2026-10-13。分岐点 b873a967 は load average 3〜4、
-変更後 98074f72 は 5〜6 で測った。排他でない手元の時間で、相対の目安）:
+変更後 ebe7c100 は 7〜9 で測った。排他でない手元の時間で、相対の目安）:
 
 | テスト                                                                                | 分岐点（秒） | 変更後（秒） |
 | ------------------------------------------------------------------------------------- | ------------ | ------------ |
-| `line_shape` の 8 本（`cargo test -p xlc-xs --lib line_shape`）                       | 7.5〜8.1     | 2.50         |
-| `line_shape::tests::table_matches_direct_integration`                                 | 7.42         | 0.62         |
-| `unresolved::tests::capture_is_shielded_more_at_small_background_and_low_temperature` | 7.36         | 0.55         |
-| `process::tests::unresolved_shielding_lowers_capture_at_small_background`             | 7.61         | 0.61         |
-| `process::tests::processes_each_temperature_and_sigma0`                               | 15.93        | 3.44         |
-| `process::tests::scattering_order_sets_the_number_of_moments`                         | 11.99        | 4.37         |
+| `line_shape` のテスト（`cargo test -p xlc-xs --lib line_shape`。変更後は 10 本）      | 7.5〜8.1     | 2.87         |
+| `line_shape::tests::table_matches_direct_integration`                                 | 7.42         | 0.72         |
+| `unresolved::tests::capture_is_shielded_more_at_small_background_and_low_temperature` | 7.36         | 0.58         |
+| `process::tests::unresolved_shielding_lowers_capture_at_small_background`             | 7.61         | 0.76         |
+| `process::tests::processes_each_temperature_and_sigma0`                               | 15.93        | 4.15         |
+| `process::tests::scattering_order_sets_the_number_of_moments`                         | 11.99        | 5.08         |
 
 1 本ずつ実行した時間で、nextest がこれらを同時に実行すると、各プロセスが CPU の数のスレッドで表を作るので、縮み方は
 これより小さい（測っていない）。
