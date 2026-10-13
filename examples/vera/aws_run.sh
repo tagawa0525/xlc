@@ -183,10 +183,13 @@ else
     latest=$(job_latest_statepoint "$name" "$job")
     # 最後の世代の statepoint があって done がないのは、完了したあと done を置く前に止まったとき。OpenMC はそこから再開
     # できない（世代が残っていない）ので、起動しない
-    src_input=$(aws s3 cp "$run_prefix/src/$input" -)
-    batches=$(sed -n 's/^batches *= *\([0-9]*\).*/\1/p' <<< "$src_input")
-    [[ -n $batches ]] || { echo "$run_prefix/src/$input に batches がありません" >&2; exit 1; }
-    if [[ $latest == "statepoint.$batches.h5" ]]; then
+    batches=
+    if [[ -n $latest ]]; then
+      src_input=$(aws s3 cp "$run_prefix/src/$input" -)
+      batches=$(sed -n 's/^batches *= *\([0-9]*\).*/\1/p' <<< "$src_input")
+      [[ -n $batches ]] || { echo "$run_prefix/src/$input に batches がありません" >&2; exit 1; }
+    fi
+    if [[ -n $batches && $latest == "statepoint.$batches.h5" ]]; then
       echo "$job: 最後の世代の statepoint があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
         "SHA256SUMS と boot-*.log を確かめ、そろっていれば echo 0 | aws s3 cp - $run_prefix/$job/done で完了にする" >&2
       stuck=1
@@ -215,7 +218,7 @@ if ((!dry)); then
   [[ -z $(git -C "$here" status --porcelain) ]] || tools="$tools-dirty"
   printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOBS="%s"\nRESTART="%s"\n' "$tools" "$ami" "$type" \
     "$max_hours" "$sync_minutes" "${todo[*]}" "${restart_flags[*]}" |
-    aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%SZ).env"
+    aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ).env"
 fi
 
 for i in "${!todo[@]}"; do
