@@ -71,6 +71,10 @@ pub fn deplete(
     if !(t.is_finite() && t >= 0.0) {
         return Err(DepletionError::InvalidTime(t));
     }
+    // exp(0) = I。CRAM の r(0) は 1 から近似の誤差だけずれるので、当てない
+    if t == 0.0 {
+        return Ok(n0.to_vec());
+    }
 
     let col_ptr = a.col_ptr();
     let row_idx = a.row_idx();
