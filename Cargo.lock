@@ -1051,6 +1051,7 @@ dependencies = [
 name = "xlc-depletion"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "faer",
  "num-complex",
  "thiserror 2.0.21",

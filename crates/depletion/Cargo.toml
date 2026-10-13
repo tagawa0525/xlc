@@ -10,3 +10,6 @@ workspace = true
 faer.workspace = true
 num-complex.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
