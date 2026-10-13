@@ -714,3 +714,71 @@ fn merges_a_daughter_that_is_also_the_emitted_light_nuclide() {
         two_alphas
     );
 }
+
+#[test]
+fn rejects_yields_of_a_nuclide_without_fission() {
+    let yields = YieldEvaluation {
+        material: material(92, 235, 0, 0.0),
+        tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
+    };
+    assert!(build(&fp_decays(), &[neutron(92, 235, 0, &[102])], &[yields]).is_err());
+}
+
+#[test]
+fn rejects_repeated_yield_and_neutron_evaluations() {
+    let neutrons = [neutron(92, 235, 0, &[18])];
+    assert!(build(&fp_decays(), &neutrons, &[u235_yields(), u235_yields()]).is_err());
+    // チェーンの反応を持たない評価の重なりも止める
+    let twice = [neutron(92, 238, 0, &[2]), neutron(92, 238, 0, &[2])];
+    assert!(build(&fp_decays(), &twice, &[]).is_err());
+}
+
+#[test]
+fn drops_a_neutron_residual_without_a_warning() {
+    // H-1 (n,p) の残りは中性子
+    let built = build(&with_light(vec![]), &[neutron(1, 1, 0, &[103])], &[]).unwrap();
+    assert_eq!(
+        find(&built, "H-1").reactions[0].channels[0].products,
+        vec![one(&built, "H-1")]
+    );
+    assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+}
+
+#[test]
+fn warns_once_per_borrowed_yield_table() {
+    let neutrons = [
+        neutron(92, 235, 0, &[18]),
+        neutron(92, 238, 0, &[18]),
+        neutron(92, 239, 0, &[18]),
+    ];
+    let built = build(&fp_decays(), &neutrons, &[u235_yields()]).unwrap();
+    let moved = built
+        .warnings
+        .iter()
+        .filter(|w| w.contains("moved"))
+        .count();
+    assert_eq!(moved, 1, "{:?}", built.warnings);
+}
+
+#[test]
+fn sends_a_missing_isomeric_daughter_to_the_ground_state() {
+    let decays = with_light(vec![
+        unstable(53, 135, 0, 2.4e4, vec![mode(&[Step::BetaMinus], 1, 1.0)]),
+        stable(54, 135),
+    ]);
+    let built = build(&decays, &[], &[]).unwrap();
+    let modes = &find(&built, "I-135").decay.as_ref().unwrap().modes;
+    assert_eq!(modes[0].products, vec![one(&built, "Xe-135")]);
+    assert!(
+        built.warnings.iter().any(|w| w.contains("Xe-135m")),
+        "{:?}",
+        built.warnings
+    );
+}
+
+#[test]
+fn reads_the_reactions_the_chain_type_accepts() {
+    let mut mts: Vec<u32> = REACTIONS.iter().map(|r| r.mt).collect();
+    mts.sort_unstable();
+    assert_eq!(mts, xlc_depletion::chain::REACTION_MTS);
+}
