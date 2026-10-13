@@ -1,0 +1,11 @@
+# LWR MOX ピンセル MOX-1 を OpenMC の連続エネルギーモードで解く入力（openmc_model.py）。1 世代 100 万粒子・250 世代、最初の
+# 50 世代を捨て、乱数の種 1（examples/mox/verification.md の「結果」）。スレッド数は docs/environment.md の値。
+# 燃料の核種ごとの実効断面積は、xlc のライブラリ mox.msgpack の群構造で数える。
+problem = "MOX-1"
+cross-sections = "../vera/openmc-library/cross_sections.xml"
+effective-xs-groups = "mox.msgpack"
+particles = 1000000
+batches = 250
+inactive = 50
+seed = 1
+threads = 16
