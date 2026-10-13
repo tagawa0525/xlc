@@ -19,7 +19,7 @@ ADR-0148 は、公開と引用の置き場を Zenodo にした。Zenodo は 1 �
 
 - OpenMC の参照解（`references/openmc/vera-*`、`work-2F` など）: 1 問題が model.xml、summary.h5 と statepoint（約 100 MB）。
   statepoint の大半は源の粒子のバンク（100 万粒子 × 104 バイト = 104 MB。再開と世代の追加に要る）で、標準のタリーの組
-  （ADR-0152）を入れた参照解では、それに 集合体で十数〜二十数 MB（小さな走行で測った値。ADR-0152） が加わる。
+  （ADR-0152）を入れた参照解では、それに 11〜24 MB（100 万粒子 15 世代の走行で測った値。ADR-0152） が加わる。
   `balance-1B` は 20 GB、`balance-2G` は 9.8 GB（世代ごとの statepoint がそれぞれ源の粒子のバンクを持つ。#0096）
 - 連続エネルギーのライブラリ: `endfb80`（461 MB）、`endfb80-565`（591 MB）。ENDF/B-VIII.0 から NJOY 2016.79（ACER の
   パッチつき。docs/environment.md）で作った HDF5 の 62〜63 ファイル
