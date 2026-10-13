@@ -5,10 +5,11 @@
 #
 # 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
-#   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対）。1 つにつき 1 台。
+#   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。クロージャ、核データ、スクリプトと入力を S3 に置く
 #              入力を省くと起動し直し: S3 の runs/<name>/launch.env と src/ を使い（手元の作業ツリーは読まない）、
-#              done のないジョブを起動する。statepoint があれば --restart で続ける。done が 0 でないジョブがあれば止まる
+#              done のないジョブを起動する。statepoint があれば --restart で続ける。VM が走っているジョブは飛ばす。
+#              done が 0 でないジョブ（失敗）があれば、何も起動せずに止まる
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）
@@ -16,12 +17,8 @@
 # バケットは XLC_BUCKET（既定 xlc-openmc-118645514640）、インスタンスプロファイルは xlc-openmc-vm。
 set -euo pipefail
 here=$(dirname "$0")
-# shellcheck source=aws_common.sh
-source "$here/aws_common.sh"
-# shellcheck source=aws_user_data.sh
-source "$here/aws_user_data.sh"
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=c7a.4xlarge
 max_hours=14
@@ -44,8 +41,18 @@ done
 [[ $name =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "name は英小文字、数字、- だけ: $name" >&2; exit 2; }
 [[ $max_hours =~ ^[1-9][0-9]*$ && $sync_minutes =~ ^[1-9][0-9]*$ ]] ||
   { echo "--max-hours と --sync-minutes は正の整数" >&2; exit 2; }
+# shellcheck source=aws_common.sh
+source "$here/aws_common.sh"
+# shellcheck source=aws_user_data.sh
+source "$here/aws_user_data.sh"
 
 run_prefix=s3://$XLC_BUCKET/runs/$name
+
+# タグ Name が <host> の終了前のインスタンスの ID（なければ空）
+live_instance() {
+  aws ec2 describe-instances --filters "Name=tag:Name,Values=$1" \
+    "Name=instance-state-name,Values=pending,running,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text
+}
 
 if ((${#inputs[@]})); then
   # 新しい実行
@@ -58,8 +65,11 @@ if ((${#inputs[@]})); then
   fi
   jobs=()
   for input in "${inputs[@]}"; do
+    # VM の作業ディレクトリに同じ相対パスで置くので、絶対パスと .. は受け付けない
+    [[ $input != /* && /$input/ != */../* ]] || { echo "$input: リポジトリの直下からの相対パスにしてください" >&2; exit 1; }
     [[ -f $input ]] || { echo "$input がありません" >&2; exit 1; }
-    jobs+=("$(basename "$input" .toml)")
+    jobs+=("$(job_name "$input")")
+    [[ -z $(live_instance "$name-${jobs[-1]}") ]] || { echo "$name-${jobs[-1]} の VM が走っています" >&2; exit 1; }
   done
   dup=$(printf '%s\n' "${jobs[@]}" | sort | uniq -d)
   [[ -z $dup ]] || { echo "ジョブの名前（入力の basename）が重なります: $dup" >&2; exit 1; }
@@ -102,14 +112,11 @@ ENV
   cat "$src/launch.env"
 
   if ((!dry)); then
-    if aws s3 ls "s3://$XLC_BUCKET/store/nix/$closure/nix-cache-info" > /dev/null 2>&1; then
-      echo "クロージャ $closure は S3 にあります"
-    else
-      cache=$(mktemp -d)
-      nix copy --to "file://$cache?compression=zstd" "$openmc" "$python"
-      aws s3 sync --only-show-errors "$cache" "s3://$XLC_BUCKET/store/nix/$closure"
-      rm -rf "$cache"
-    fi
+    # 毎回作って sync する（手元で約 2 秒。sync は S3 にあるものを送らない）。途中で切れた置き場を「ある」と見なさない
+    cache=$(mktemp -d)
+    nix copy --quiet --to "file://$cache?compression=zstd" "$openmc" "$python"
+    aws s3 sync --only-show-errors "$cache" "s3://$XLC_BUCKET/store/nix/$closure"
+    rm -rf "$cache"
     aws s3 sync --only-show-errors examples/vera/openmc-library "s3://$XLC_BUCKET/store/openmc-library/$library"
     aws s3 sync --only-show-errors --exclude launch.env "$src" "$run_prefix/src"
     # launch.env は最後に置く（あれば src/ と store/ はそろっている）
@@ -120,21 +127,24 @@ ENV
   for _ in "${todo[@]}"; do restart_flags+=(0); done
 else
   # 起動し直し
-  env=$(aws s3 cp "$run_prefix/launch.env" -) || { echo "$run_prefix/launch.env がありません" >&2; exit 1; }
-  get() { sed -n "s/^$1=//p" <<< "$env" | tr -d '"'; }
-  openmc=$(get OPENMC) python=$(get PYTHON) awscli=$(get AWSCLI) closure=$(get CLOSURE) library=$(get LIBRARY)
-  read -r -a all <<< "$(get INPUTS)"
-  echo "== 起動し直し $name（$(get COMMIT)）"
+  read_launch_env "$name"
+  openmc=$(launch_env_value OPENMC) python=$(launch_env_value PYTHON) awscli=$(launch_env_value AWSCLI)
+  closure=$(launch_env_value CLOSURE) library=$(launch_env_value LIBRARY)
+  echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   todo=()
   restart_flags=()
-  for input in "${all[@]}"; do
-    job=$(basename "$input" .toml)
-    code=$(aws s3 cp "$run_prefix/$job/done" - 2> /dev/null || true)
+  for input in "${RUN_INPUTS[@]}"; do
+    job=$(job_name "$input")
+    code=$(job_done "$name" "$job")
     if [[ $code == 0 ]]; then
       echo "$job: 完了"
       continue
     fi
     [[ -z $code ]] || { echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot.log を見てください" >&2; exit 1; }
+    if [[ -n $(live_instance "$name-$job") ]]; then
+      echo "$job: VM が走っているので飛ばす"
+      continue
+    fi
     # grep -q が先に閉じると aws が SIGPIPE で失敗し、pipefail で「ない」と読まれるので、一覧を先に取る
     listing=$(aws s3 ls "$run_prefix/$job/run/" || true)
     if grep -qE ' statepoint\.[0-9]+\.h5$' <<< "$listing"; then
@@ -146,7 +156,7 @@ else
     fi
     todo+=("$input")
   done
-  ((${#todo[@]})) || { echo "すべて完了しています（aws_fetch.sh $name）"; exit 0; }
+  ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit 0; }
 fi
 
 ami=$(aws ec2 describe-images --owners 099720109477 \
@@ -156,11 +166,8 @@ echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_min
 
 for i in "${!todo[@]}"; do
   input=${todo[$i]}
-  job=$(basename "$input" .toml)
+  job=$(job_name "$input")
   host=$name-$job
-  live=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$host" \
-    "Name=instance-state-name,Values=pending,running,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text)
-  [[ -z $live ]] || { echo "$host はまだ走っています: $live" >&2; exit 1; }
   user_data=$(aws_user_data "$XLC_BUCKET" "$name" "$job" "$input" "${restart_flags[$i]}" $((max_hours * 60)) \
     $((sync_minutes * 60)) "$library" "$closure" "$openmc" "$python" "$awscli")
   args=(--image-id "$ami" --instance-type "$type" --count 1

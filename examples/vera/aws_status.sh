@@ -25,13 +25,15 @@ echo "== S3 の実行（s3://$XLC_BUCKET/runs/）"
 mapfile -t runs < <(aws s3 ls "s3://$XLC_BUCKET/runs/" | sed -n 's#^ *PRE \(.*\)/$#\1#p')
 ((${#runs[@]})) || echo "ありません"
 for run in "${runs[@]}"; do
-  prefix=s3://$XLC_BUCKET/runs/$run
-  env=$(aws s3 cp "$prefix/launch.env" - 2> /dev/null) || { echo "$run: launch.env がありません（置いている途中か失敗）"; continue; }
-  read -r -a inputs <<< "$(sed -n 's/^INPUTS=//p' <<< "$env" | tr -d '"')"
-  for input in "${inputs[@]}"; do
-    job=$(basename "$input" .toml)
-    code=$(aws s3 cp "$prefix/$job/done" - 2> /dev/null || true)
-    last=$(aws s3 ls "$prefix/$job/run/" 2> /dev/null | sed -n 's/.* \(statepoint\.[0-9]*\.h5\)$/\1/p' | sort -t. -k2 -n | tail -1)
+  # launch.env がない実行（置いている途中か失敗）は、read_launch_env が止めるので、先に確かめる
+  aws s3 ls "s3://$XLC_BUCKET/runs/$run/launch.env" > /dev/null 2>&1 || { echo "$run: launch.env がありません"; continue; }
+  read_launch_env "$run"
+  for input in "${RUN_INPUTS[@]}"; do
+    job=$(job_name "$input")
+    code=$(job_done "$run" "$job")
+    # 最初の同期の前は run/ がなく、aws s3 ls が 1 で終わる
+    listing=$(aws s3 ls "s3://$XLC_BUCKET/runs/$run/$job/run/" 2> /dev/null || true)
+    last=$(sed -n 's/.* \(statepoint\.[0-9]*\.h5\)$/\1/p' <<< "$listing" | sort -t. -k2 -n | tail -1)
     echo "$run/$job: done ${code:-なし}、最新の statepoint ${last:-なし}"
   done
 done
