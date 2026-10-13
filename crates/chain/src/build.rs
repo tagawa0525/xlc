@@ -377,18 +377,18 @@ fn reactions(
         }
         let (z, a) = shifted(m.z, m.a, spec.dz, spec.da)
             .ok_or_else(|| anyhow!("{parent}: MT{} leaves no nucleus", spec.mt))?;
-        let light: Vec<Product> = spec
-            .light
-            .map(|(lz, la)| {
-                let nuclide = if (lz, la) == (1, 1) {
-                    index.h1
-                } else {
-                    index.he4
-                };
-                Product { nuclide, count: 1 }
-            })
-            .into_iter()
-            .collect();
+        let light: Vec<Product> = match spec.light {
+            None => Vec::new(),
+            Some((lz, la)) => {
+                let nuclide = index.get((lz, la, 0)).ok_or_else(|| {
+                    anyhow!(
+                        "the light product of MT{} is not in the decay data",
+                        spec.mt
+                    )
+                })?;
+                vec![Product { nuclide, count: 1 }]
+            }
+        };
         let states = evaluation
             .final_states
             .iter()
