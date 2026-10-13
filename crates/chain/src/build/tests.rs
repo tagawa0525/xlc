@@ -548,3 +548,9 @@ fn borrows_from_the_nearest_element_when_the_element_has_no_yields() {
         "U-235"
     );
 }
+
+#[test]
+fn ignores_neutron_data_of_the_neutron_itself() {
+    let built = build(&with_light(vec![]), &[neutron(0, 1, 0, &[2])], &[]).unwrap();
+    assert_eq!(built.chain.nuclides.len(), 2);
+}
