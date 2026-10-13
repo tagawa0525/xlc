@@ -179,3 +179,12 @@ fn rejects_tables_too_large_to_count() {
         result.err()
     );
 }
+
+#[test]
+fn node_count_is_known_before_building() {
+    // 作る前に数えた格子点の組の数は、作った表の数と同じ
+    for density in [4, 8, 16] {
+        let table = TrackTable::new(&cell(), CLASSES.to_vec(), &RANGES, density).unwrap();
+        assert_eq!(TrackTable::count(&RANGES, density).unwrap(), table.nodes());
+    }
+}

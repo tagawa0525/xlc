@@ -394,3 +394,39 @@ fn non_finite_totals_stop_with_the_table_as_without() {
         );
     }
 }
+
+#[test]
+fn zero_totals_stop_the_table_with_their_ring() {
+    // ln Σ の格子は Σ = 0 を覆えないので、表にできないリングを番号で示して止める
+    // 燃料は U-238 だけにして、共鳴の頂点の 1 点で全断面積を 0 にする
+    let (lib, _, water) = resonant_cell(0.0);
+    let fuel = material(&[("U-238", 0.022)]);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], Collision::default());
+    assert!(
+        matches!(result, Err(UfgError::ZeroTotal(0))),
+        "{:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn tables_with_as_many_nodes_as_points_are_refused() {
+    // 格子点ごとに求めるより点の多い表は、作る前に止める（10 倍あたり 10 万点で、燃料の全断面積の 3 桁ほどの範囲に約 27 万点。格子点は U-238 の散乱の窓で決まり、その数より多い）
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let result = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e4],
+        Collision::Table { density: 100_000 },
+    );
+    assert!(
+        matches!(result, Err(UfgError::TableTooLarge { .. })),
+        "{:?}",
+        result.err()
+    );
+}
