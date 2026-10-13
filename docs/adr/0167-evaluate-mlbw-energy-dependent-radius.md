@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-14
 requires: [ADR-0164]
 supersedes: []
@@ -61,13 +61,18 @@ NAPS = 2 は透過因子とシフト因子に見出しの AP、位相シフト�
 
 ## 確認
 
-- MF2 の読み込みの単体テスト（crates/xs/src/endf/mf2/tests.rs）: NRO = 1 の MLBW の範囲の表を読むこと、表が範囲を覆わない、
-  NAPS ≠ 0、Reich-Moore の NRO ≠ 0 をエラーにすること
-- 断面積の単体テスト（crates/xs/src/resonance/mlbw/tests.rs）: 各エネルギーで、AP(E) の表を持つ範囲の断面積が、その
-  エネルギーの AP(E) を一定の AP にした範囲の断面積と一致すること
-- ポテンシャル散乱の単体テスト（crates/xs/src/process/tests.rs）: AP(EH) の 4π a²
-- NJOY との比較: 0 K の再構成を、同じ評価の NJOY2016 RECONR の PENDF と `compare_njoy_pendf` で比べる（実装で測ってここに書く）
-- 棚卸しの道具で、NRO = 1 の 52 評価が読めるようになること
+- MF2 の読み込みの単体テスト（crates/xs/src/endf/mf2/tests.rs）: `reads_energy_dependent_radius_of_mlbw_range`、
+  `rejects_mlbw_radius_table_short_of_the_range`、`rejects_energy_dependent_mlbw_radius_unless_naps_is_zero`、
+  `energy_dependent_radius_in_reich_moore_is_error`
+- 断面積の単体テスト（crates/xs/src/resonance/mlbw/tests.rs）: `energy_dependent_radius_sets_the_s_wave_phase_shift_at_each_energy`
+  （共鳴から遠いエネルギーで、弾性散乱が s 波の硬球散乱 (4π/k²) sin²(k AP(E)) に 1e-9 で一致する）
+- ポテンシャル散乱の単体テスト（crates/xs/src/process/tests.rs）: `potential_uses_the_radius_at_the_top_of_an_energy_dependent_range`
+- NJOY との比較（xlc 65ccbd82、2026-10-14）: 0 K の再構成を、NJOY2016 RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で
+  比べた。Nd-149、I-133 と、範囲の中の AP(E) の変化が最大の Sm-146 で、全断面積、弾性散乱、捕獲の NJOY の全格子点での
+  相対差の最大は 9.1e-4〜1.0e-3 で、許容誤差の 2 倍を超える点はない（NJOY の入力は手元の `trials/`。RECONR の入力は
+  references/njoy-runs/U238/input と同じ形で MAT だけが違う）
+- 棚卸しの道具（`crates/xs/examples/survey_neutrons.rs`、同じコミット）で、NRO = 1 の 52 評価が読めるようになり、読める評価が
+  494 から 546 になった
 
 ## 帰結
 
