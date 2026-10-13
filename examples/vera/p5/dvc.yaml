@@ -609,3 +609,1340 @@ stages:
       - core-5A-Inext-pins.msgpack
     outs:
       - compare-5A-Inext-openmc.out
+  hzp-21-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel.toml > 21-fuel.out
+    deps:
+      - hzp/21-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/21-fuel.msgpack
+      - hzp/media/21-fuel.msgpack
+      - hzp/21-fuel.out
+  hzp-21-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel-aic.toml > 21-fuel-aic.out
+    deps:
+      - hzp/21-fuel-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/21-fuel-aic.msgpack
+      - hzp/21-fuel-aic.out
+  hzp-21-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel-b4c.toml > 21-fuel-b4c.out
+    deps:
+      - hzp/21-fuel-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/21-fuel-b4c.msgpack
+      - hzp/21-fuel-b4c.out
+  hzp-21-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-igrid.toml > 21-igrid.out
+    deps:
+      - hzp/21-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/21-igrid.msgpack
+      - hzp/21-igrid.out
+  hzp-21-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-zgrid.toml > 21-zgrid.out
+    deps:
+      - hzp/21-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/21-zgrid.msgpack
+      - hzp/21-zgrid.out
+  hzp-21-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-zgrid-aic.toml > 21-zgrid-aic.out
+    deps:
+      - hzp/21-zgrid-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/21-zgrid-aic.msgpack
+      - hzp/21-zgrid-aic.out
+  hzp-21-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-zgrid-b4c.toml > 21-zgrid-b4c.out
+    deps:
+      - hzp/21-zgrid-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/21-zgrid-b4c.msgpack
+      - hzp/21-zgrid-b4c.out
+  hzp-26-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel.toml > 26-fuel.out
+    deps:
+      - hzp/26-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-fuel.msgpack
+      - hzp/media/26-fuel.msgpack
+      - hzp/26-fuel.out
+  hzp-26-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel-aic.toml > 26-fuel-aic.out
+    deps:
+      - hzp/26-fuel-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-fuel-aic.msgpack
+      - hzp/26-fuel-aic.out
+  hzp-26-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-fuel-b4c.toml > 26-fuel-b4c.out
+    deps:
+      - hzp/26-fuel-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-fuel-b4c.msgpack
+      - hzp/26-fuel-b4c.out
+  hzp-26-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-igrid.toml > 26-igrid.out
+    deps:
+      - hzp/26-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-igrid.msgpack
+      - hzp/26-igrid.out
+  hzp-26-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-zgrid.toml > 26-zgrid.out
+    deps:
+      - hzp/26-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-zgrid.msgpack
+      - hzp/26-zgrid.out
+  hzp-26-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-zgrid-aic.toml > 26-zgrid-aic.out
+    deps:
+      - hzp/26-zgrid-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-zgrid-aic.msgpack
+      - hzp/26-zgrid-aic.out
+  hzp-26-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-zgrid-b4c.toml > 26-zgrid-b4c.out
+    deps:
+      - hzp/26-zgrid-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-zgrid-b4c.msgpack
+      - hzp/26-zgrid-b4c.out
+  hzp-26-p16-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-empty.toml > 26-p16-empty.out
+    deps:
+      - hzp/26-p16-empty.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-empty.msgpack
+      - hzp/media/26-p16-empty.msgpack
+      - hzp/26-p16-empty.out
+  hzp-26-p16-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-empty-igrid.toml > 26-p16-empty-igrid.out
+    deps:
+      - hzp/26-p16-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-empty-igrid.msgpack
+      - hzp/26-p16-empty-igrid.out
+  hzp-26-p16-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-plenum.toml > 26-p16-plenum.out
+    deps:
+      - hzp/26-p16-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-plenum.msgpack
+      - hzp/media/26-p16-plenum.msgpack
+      - hzp/26-p16-plenum.out
+  hzp-26-p16-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-plug.toml > 26-p16-plug.out
+    deps:
+      - hzp/26-p16-plug.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-plug.msgpack
+      - hzp/media/26-p16-plug.msgpack
+      - hzp/26-p16-plug.out
+  hzp-26-p16-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-plug-igrid.toml > 26-p16-plug-igrid.out
+    deps:
+      - hzp/26-p16-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-plug-igrid.msgpack
+      - hzp/26-p16-plug-igrid.out
+  hzp-26-p16-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-poison.toml > 26-p16-poison.out
+    deps:
+      - hzp/26-p16-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-poison.msgpack
+      - hzp/media/26-p16-poison.msgpack
+      - hzp/26-p16-poison.out
+  hzp-26-p16-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-poison-igrid.toml > 26-p16-poison-igrid.out
+    deps:
+      - hzp/26-p16-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-poison-igrid.msgpack
+      - hzp/26-p16-poison-igrid.out
+  hzp-26-p16-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p16-poison-zgrid.toml > 26-p16-poison-zgrid.out
+    deps:
+      - hzp/26-p16-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p16-poison-zgrid.msgpack
+      - hzp/26-p16-poison-zgrid.out
+  hzp-26-p20-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-empty.toml > 26-p20-empty.out
+    deps:
+      - hzp/26-p20-empty.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-empty.msgpack
+      - hzp/media/26-p20-empty.msgpack
+      - hzp/26-p20-empty.out
+  hzp-26-p20-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-empty-igrid.toml > 26-p20-empty-igrid.out
+    deps:
+      - hzp/26-p20-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-empty-igrid.msgpack
+      - hzp/26-p20-empty-igrid.out
+  hzp-26-p20-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-plenum.toml > 26-p20-plenum.out
+    deps:
+      - hzp/26-p20-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-plenum.msgpack
+      - hzp/media/26-p20-plenum.msgpack
+      - hzp/26-p20-plenum.out
+  hzp-26-p20-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-plug.toml > 26-p20-plug.out
+    deps:
+      - hzp/26-p20-plug.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-plug.msgpack
+      - hzp/media/26-p20-plug.msgpack
+      - hzp/26-p20-plug.out
+  hzp-26-p20-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-plug-igrid.toml > 26-p20-plug-igrid.out
+    deps:
+      - hzp/26-p20-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-plug-igrid.msgpack
+      - hzp/26-p20-plug-igrid.out
+  hzp-26-p20-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-poison.toml > 26-p20-poison.out
+    deps:
+      - hzp/26-p20-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-poison.msgpack
+      - hzp/media/26-p20-poison.msgpack
+      - hzp/26-p20-poison.out
+  hzp-26-p20-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-poison-igrid.toml > 26-p20-poison-igrid.out
+    deps:
+      - hzp/26-p20-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-poison-igrid.msgpack
+      - hzp/26-p20-poison-igrid.out
+  hzp-26-p20-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p20-poison-zgrid.toml > 26-p20-poison-zgrid.out
+    deps:
+      - hzp/26-p20-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p20-poison-zgrid.msgpack
+      - hzp/26-p20-poison-zgrid.out
+  hzp-26-p24-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-empty.toml > 26-p24-empty.out
+    deps:
+      - hzp/26-p24-empty.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-empty.msgpack
+      - hzp/media/26-p24-empty.msgpack
+      - hzp/26-p24-empty.out
+  hzp-26-p24-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-empty-igrid.toml > 26-p24-empty-igrid.out
+    deps:
+      - hzp/26-p24-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-empty-igrid.msgpack
+      - hzp/26-p24-empty-igrid.out
+  hzp-26-p24-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-plenum.toml > 26-p24-plenum.out
+    deps:
+      - hzp/26-p24-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-plenum.msgpack
+      - hzp/media/26-p24-plenum.msgpack
+      - hzp/26-p24-plenum.out
+  hzp-26-p24-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-plug.toml > 26-p24-plug.out
+    deps:
+      - hzp/26-p24-plug.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-plug.msgpack
+      - hzp/media/26-p24-plug.msgpack
+      - hzp/26-p24-plug.out
+  hzp-26-p24-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-plug-igrid.toml > 26-p24-plug-igrid.out
+    deps:
+      - hzp/26-p24-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-plug-igrid.msgpack
+      - hzp/26-p24-plug-igrid.out
+  hzp-26-p24-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-poison.toml > 26-p24-poison.out
+    deps:
+      - hzp/26-p24-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-poison.msgpack
+      - hzp/media/26-p24-poison.msgpack
+      - hzp/26-p24-poison.out
+  hzp-26-p24-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-poison-igrid.toml > 26-p24-poison-igrid.out
+    deps:
+      - hzp/26-p24-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-poison-igrid.msgpack
+      - hzp/26-p24-poison-igrid.out
+  hzp-26-p24-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 26-p24-poison-zgrid.toml > 26-p24-poison-zgrid.out
+    deps:
+      - hzp/26-p24-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/26-p24-poison-zgrid.msgpack
+      - hzp/26-p24-poison-zgrid.out
+  hzp-31-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-fuel.toml > 31-fuel.out
+    deps:
+      - hzp/31-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-fuel.msgpack
+      - hzp/media/31-fuel.msgpack
+      - hzp/31-fuel.out
+  hzp-31-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-fuel-aic.toml > 31-fuel-aic.out
+    deps:
+      - hzp/31-fuel-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-fuel-aic.msgpack
+      - hzp/31-fuel-aic.out
+  hzp-31-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-fuel-b4c.toml > 31-fuel-b4c.out
+    deps:
+      - hzp/31-fuel-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-fuel-b4c.msgpack
+      - hzp/31-fuel-b4c.out
+  hzp-31-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-igrid.toml > 31-igrid.out
+    deps:
+      - hzp/31-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-igrid.msgpack
+      - hzp/31-igrid.out
+  hzp-31-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-zgrid.toml > 31-zgrid.out
+    deps:
+      - hzp/31-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-zgrid.msgpack
+      - hzp/31-zgrid.out
+  hzp-31-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-zgrid-aic.toml > 31-zgrid-aic.out
+    deps:
+      - hzp/31-zgrid-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-zgrid-aic.msgpack
+      - hzp/31-zgrid-aic.out
+  hzp-31-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-zgrid-b4c.toml > 31-zgrid-b4c.out
+    deps:
+      - hzp/31-zgrid-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-zgrid-b4c.msgpack
+      - hzp/31-zgrid-b4c.out
+  hzp-31-p12-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-empty.toml > 31-p12-empty.out
+    deps:
+      - hzp/31-p12-empty.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-empty.msgpack
+      - hzp/media/31-p12-empty.msgpack
+      - hzp/31-p12-empty.out
+  hzp-31-p12-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-empty-igrid.toml > 31-p12-empty-igrid.out
+    deps:
+      - hzp/31-p12-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-empty-igrid.msgpack
+      - hzp/31-p12-empty-igrid.out
+  hzp-31-p12-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-plenum.toml > 31-p12-plenum.out
+    deps:
+      - hzp/31-p12-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-plenum.msgpack
+      - hzp/media/31-p12-plenum.msgpack
+      - hzp/31-p12-plenum.out
+  hzp-31-p12-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-plug.toml > 31-p12-plug.out
+    deps:
+      - hzp/31-p12-plug.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-plug.msgpack
+      - hzp/media/31-p12-plug.msgpack
+      - hzp/31-p12-plug.out
+  hzp-31-p12-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-plug-igrid.toml > 31-p12-plug-igrid.out
+    deps:
+      - hzp/31-p12-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-plug-igrid.msgpack
+      - hzp/31-p12-plug-igrid.out
+  hzp-31-p12-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-poison.toml > 31-p12-poison.out
+    deps:
+      - hzp/31-p12-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-poison.msgpack
+      - hzp/media/31-p12-poison.msgpack
+      - hzp/31-p12-poison.out
+  hzp-31-p12-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-poison-igrid.toml > 31-p12-poison-igrid.out
+    deps:
+      - hzp/31-p12-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-poison-igrid.msgpack
+      - hzp/31-p12-poison-igrid.out
+  hzp-31-p12-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p12-poison-zgrid.toml > 31-p12-poison-zgrid.out
+    deps:
+      - hzp/31-p12-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p12-poison-zgrid.msgpack
+      - hzp/31-p12-poison-zgrid.out
+  hzp-31-p16-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-empty.toml > 31-p16-empty.out
+    deps:
+      - hzp/31-p16-empty.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-empty.msgpack
+      - hzp/media/31-p16-empty.msgpack
+      - hzp/31-p16-empty.out
+  hzp-31-p16-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-empty-igrid.toml > 31-p16-empty-igrid.out
+    deps:
+      - hzp/31-p16-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-empty-igrid.msgpack
+      - hzp/31-p16-empty-igrid.out
+  hzp-31-p16-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-plenum.toml > 31-p16-plenum.out
+    deps:
+      - hzp/31-p16-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-plenum.msgpack
+      - hzp/media/31-p16-plenum.msgpack
+      - hzp/31-p16-plenum.out
+  hzp-31-p16-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-plug.toml > 31-p16-plug.out
+    deps:
+      - hzp/31-p16-plug.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-plug.msgpack
+      - hzp/media/31-p16-plug.msgpack
+      - hzp/31-p16-plug.out
+  hzp-31-p16-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-plug-igrid.toml > 31-p16-plug-igrid.out
+    deps:
+      - hzp/31-p16-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-plug-igrid.msgpack
+      - hzp/31-p16-plug-igrid.out
+  hzp-31-p16-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-poison.toml > 31-p16-poison.out
+    deps:
+      - hzp/31-p16-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-poison.msgpack
+      - hzp/media/31-p16-poison.msgpack
+      - hzp/31-p16-poison.out
+  hzp-31-p16-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-poison-igrid.toml > 31-p16-poison-igrid.out
+    deps:
+      - hzp/31-p16-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-poison-igrid.msgpack
+      - hzp/31-p16-poison-igrid.out
+  hzp-31-p16-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p16-poison-zgrid.toml > 31-p16-poison-zgrid.out
+    deps:
+      - hzp/31-p16-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p16-poison-zgrid.msgpack
+      - hzp/31-p16-poison-zgrid.out
+  hzp-31-p24-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-empty.toml > 31-p24-empty.out
+    deps:
+      - hzp/31-p24-empty.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-empty.msgpack
+      - hzp/media/31-p24-empty.msgpack
+      - hzp/31-p24-empty.out
+  hzp-31-p24-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-empty-igrid.toml > 31-p24-empty-igrid.out
+    deps:
+      - hzp/31-p24-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-empty-igrid.msgpack
+      - hzp/31-p24-empty-igrid.out
+  hzp-31-p24-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-plenum.toml > 31-p24-plenum.out
+    deps:
+      - hzp/31-p24-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-plenum.msgpack
+      - hzp/media/31-p24-plenum.msgpack
+      - hzp/31-p24-plenum.out
+  hzp-31-p24-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-plug.toml > 31-p24-plug.out
+    deps:
+      - hzp/31-p24-plug.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-plug.msgpack
+      - hzp/media/31-p24-plug.msgpack
+      - hzp/31-p24-plug.out
+  hzp-31-p24-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-plug-igrid.toml > 31-p24-plug-igrid.out
+    deps:
+      - hzp/31-p24-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-plug-igrid.msgpack
+      - hzp/31-p24-plug-igrid.out
+  hzp-31-p24-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-poison.toml > 31-p24-poison.out
+    deps:
+      - hzp/31-p24-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-poison.msgpack
+      - hzp/media/31-p24-poison.msgpack
+      - hzp/31-p24-poison.out
+  hzp-31-p24-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-poison-igrid.toml > 31-p24-poison-igrid.out
+    deps:
+      - hzp/31-p24-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-poison-igrid.msgpack
+      - hzp/31-p24-poison-igrid.out
+  hzp-31-p24-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p24-poison-zgrid.toml > 31-p24-poison-zgrid.out
+    deps:
+      - hzp/31-p24-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p24-poison-zgrid.msgpack
+      - hzp/31-p24-poison-zgrid.out
+  hzp-31-p8-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-empty.toml > 31-p8-empty.out
+    deps:
+      - hzp/31-p8-empty.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p8-empty.msgpack
+      - hzp/media/31-p8-empty.msgpack
+      - hzp/31-p8-empty.out
+  hzp-31-p8-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-plenum.toml > 31-p8-plenum.out
+    deps:
+      - hzp/31-p8-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p8-plenum.msgpack
+      - hzp/media/31-p8-plenum.msgpack
+      - hzp/31-p8-plenum.out
+  hzp-31-p8-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-plug.toml > 31-p8-plug.out
+    deps:
+      - hzp/31-p8-plug.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p8-plug.msgpack
+      - hzp/media/31-p8-plug.msgpack
+      - hzp/31-p8-plug.out
+  hzp-31-p8-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 31-p8-poison.toml > 31-p8-poison.out
+    deps:
+      - hzp/31-p8-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/31-p8-poison.msgpack
+      - hzp/media/31-p8-poison.msgpack
+      - hzp/31-p8-poison.out
+  hzp-reflector-I-31-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-fuel.toml > reflector-I-31-fuel.out
+    deps:
+      - hzp/reflector-I-31-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel.msgpack
+      - hzp/reflector-I-31-fuel.out
+  hzp-reflector-I-31-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-fuel-aic.toml > reflector-I-31-fuel-aic.out
+    deps:
+      - hzp/reflector-I-31-fuel-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-fuel-aic-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel-aic.msgpack
+      - hzp/reflector-I-31-fuel-aic.out
+  hzp-reflector-I-31-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-fuel-b4c.toml > reflector-I-31-fuel-b4c.out
+    deps:
+      - hzp/reflector-I-31-fuel-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-fuel-b4c-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel-b4c.msgpack
+      - hzp/reflector-I-31-fuel-b4c.out
+  hzp-reflector-I-31-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-igrid.toml > reflector-I-31-igrid.out
+    deps:
+      - hzp/reflector-I-31-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-igrid.msgpack
+      - hzp/reflector-I-31-igrid.out
+  hzp-reflector-I-31-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-zgrid.toml > reflector-I-31-zgrid.out
+    deps:
+      - hzp/reflector-I-31-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid.msgpack
+      - hzp/reflector-I-31-zgrid.out
+  hzp-reflector-I-31-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-zgrid-aic.toml > reflector-I-31-zgrid-aic.out
+    deps:
+      - hzp/reflector-I-31-zgrid-aic.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-zgrid-aic-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-aic.msgpack
+      - hzp/reflector-I-31-zgrid-aic.out
+  hzp-reflector-I-31-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-zgrid-b4c.toml > reflector-I-31-zgrid-b4c.out
+    deps:
+      - hzp/reflector-I-31-zgrid-b4c.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-b4c.msgpack
+      - hzp/reflector-I-31-zgrid-b4c.out
+  hzp-reflector-I-31-p12-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-empty-igrid.toml > reflector-I-31-p12-empty-igrid.out
+    deps:
+      - hzp/reflector-I-31-p12-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-empty-igrid.msgpack
+      - hzp/reflector-I-31-p12-empty-igrid.out
+  hzp-reflector-I-31-p12-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-plenum.toml > reflector-I-31-p12-plenum.out
+    deps:
+      - hzp/reflector-I-31-p12-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p12-plenum-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-plenum.msgpack
+      - hzp/reflector-I-31-p12-plenum.out
+  hzp-reflector-I-31-p12-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-plug-igrid.toml > reflector-I-31-p12-plug-igrid.out
+    deps:
+      - hzp/reflector-I-31-p12-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-plug-igrid.msgpack
+      - hzp/reflector-I-31-p12-plug-igrid.out
+  hzp-reflector-I-31-p12-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-poison.toml > reflector-I-31-p12-poison.out
+    deps:
+      - hzp/reflector-I-31-p12-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p12-poison-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-poison.msgpack
+      - hzp/reflector-I-31-p12-poison.out
+  hzp-reflector-I-31-p12-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-poison-igrid.toml > reflector-I-31-p12-poison-igrid.out
+    deps:
+      - hzp/reflector-I-31-p12-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p12-poison-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-poison-igrid.msgpack
+      - hzp/reflector-I-31-p12-poison-igrid.out
+  hzp-reflector-I-31-p12-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p12-poison-zgrid.toml > reflector-I-31-p12-poison-zgrid.out
+    deps:
+      - hzp/reflector-I-31-p12-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-poison-zgrid.msgpack
+      - hzp/reflector-I-31-p12-poison-zgrid.out
+  hzp-reflector-I-31-p8-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-empty-igrid.toml > reflector-I-31-p8-empty-igrid.out
+    deps:
+      - hzp/reflector-I-31-p8-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-empty-igrid.msgpack
+      - hzp/reflector-I-31-p8-empty-igrid.out
+  hzp-reflector-I-31-p8-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-plenum.toml > reflector-I-31-p8-plenum.out
+    deps:
+      - hzp/reflector-I-31-p8-plenum.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p8-plenum-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-plenum.msgpack
+      - hzp/reflector-I-31-p8-plenum.out
+  hzp-reflector-I-31-p8-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-plug-igrid.toml > reflector-I-31-p8-plug-igrid.out
+    deps:
+      - hzp/reflector-I-31-p8-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-plug-igrid.msgpack
+      - hzp/reflector-I-31-p8-plug-igrid.out
+  hzp-reflector-I-31-p8-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-poison.toml > reflector-I-31-p8-poison.out
+    deps:
+      - hzp/reflector-I-31-p8-poison.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p8-poison-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-poison.msgpack
+      - hzp/reflector-I-31-p8-poison.out
+  hzp-reflector-I-31-p8-poison-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-poison-igrid.toml > reflector-I-31-p8-poison-igrid.out
+    deps:
+      - hzp/reflector-I-31-p8-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p8-poison-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-poison-igrid.msgpack
+      - hzp/reflector-I-31-p8-poison-igrid.out
+  hzp-reflector-I-31-p8-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-I-31-p8-poison-zgrid.toml > reflector-I-31-p8-poison-zgrid.out
+    deps:
+      - hzp/reflector-I-31-p8-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-poison-zgrid.msgpack
+      - hzp/reflector-I-31-p8-poison-zgrid.out
+  hzp-reflector-corner-31-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-corner-31-fuel.toml > reflector-corner-31-fuel.out
+    deps:
+      - hzp/reflector-corner-31-fuel.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      - hzp/lattice/reflector-corner-31-fuel.msgpack
+      - hzp/reflector-corner-31-fuel.out
+  hzp-reflector-corner-31-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-corner-31-igrid.toml > reflector-corner-31-igrid.out
+    deps:
+      - hzp/reflector-corner-31-igrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-igrid-right.msgpack
+      - hzp/lattice/reflector-corner-31-igrid-top.msgpack
+      - hzp/lattice/reflector-corner-31-igrid.msgpack
+      - hzp/reflector-corner-31-igrid.out
+  hzp-reflector-corner-31-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice reflector-corner-31-zgrid.toml > reflector-corner-31-zgrid.out
+    deps:
+      - hzp/reflector-corner-31-zgrid.toml
+      - ../vera.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-zgrid-right.msgpack
+      - hzp/lattice/reflector-corner-31-zgrid-top.msgpack
+      - hzp/lattice/reflector-corner-31-zgrid.msgpack
+      - hzp/reflector-corner-31-zgrid.out
+  hzp-table-21-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/21-fuel-rods.msgpack out=lattice/21-fuel.msgpack aic=lattice/21-fuel-aic.msgpack b4c=lattice/21-fuel-b4c.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/21-fuel.msgpack
+      - hzp/lattice/21-fuel-aic.msgpack
+      - hzp/lattice/21-fuel-b4c.msgpack
+    outs:
+      - hzp/tables/21-fuel-rods.msgpack
+  hzp-table-21-zgrid:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/21-zgrid-rods.msgpack out=lattice/21-zgrid.msgpack aic=lattice/21-zgrid-aic.msgpack b4c=lattice/21-zgrid-b4c.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/21-zgrid.msgpack
+      - hzp/lattice/21-zgrid-aic.msgpack
+      - hzp/lattice/21-zgrid-b4c.msgpack
+    outs:
+      - hzp/tables/21-zgrid-rods.msgpack
+  hzp-table-26-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/26-fuel-rods.msgpack out=lattice/26-fuel.msgpack aic=lattice/26-fuel-aic.msgpack b4c=lattice/26-fuel-b4c.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/26-fuel.msgpack
+      - hzp/lattice/26-fuel-aic.msgpack
+      - hzp/lattice/26-fuel-b4c.msgpack
+    outs:
+      - hzp/tables/26-fuel-rods.msgpack
+  hzp-table-26-zgrid:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/26-zgrid-rods.msgpack out=lattice/26-zgrid.msgpack aic=lattice/26-zgrid-aic.msgpack b4c=lattice/26-zgrid-b4c.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/26-zgrid.msgpack
+      - hzp/lattice/26-zgrid-aic.msgpack
+      - hzp/lattice/26-zgrid-b4c.msgpack
+    outs:
+      - hzp/tables/26-zgrid-rods.msgpack
+  hzp-table-31-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/31-fuel-rods.msgpack out=lattice/31-fuel.msgpack aic=lattice/31-fuel-aic.msgpack b4c=lattice/31-fuel-b4c.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/31-fuel.msgpack
+      - hzp/lattice/31-fuel-aic.msgpack
+      - hzp/lattice/31-fuel-b4c.msgpack
+    outs:
+      - hzp/tables/31-fuel-rods.msgpack
+  hzp-table-31-zgrid:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/31-zgrid-rods.msgpack out=lattice/31-zgrid.msgpack aic=lattice/31-zgrid-aic.msgpack b4c=lattice/31-zgrid-b4c.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/31-zgrid.msgpack
+      - hzp/lattice/31-zgrid-aic.msgpack
+      - hzp/lattice/31-zgrid-b4c.msgpack
+    outs:
+      - hzp/tables/31-zgrid-rods.msgpack
+  hzp-table-reflector-I-31-fuel-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/reflector-I-31-fuel-fuel-rods.msgpack out=lattice/reflector-I-31-fuel-fuel.msgpack aic=lattice/reflector-I-31-fuel-aic-fuel.msgpack b4c=lattice/reflector-I-31-fuel-b4c-fuel.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel-aic-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel-b4c-fuel.msgpack
+    outs:
+      - hzp/tables/reflector-I-31-fuel-fuel-rods.msgpack
+  hzp-table-reflector-I-31-zgrid-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py tables/reflector-I-31-zgrid-fuel-rods.msgpack out=lattice/reflector-I-31-zgrid-fuel.msgpack aic=lattice/reflector-I-31-zgrid-aic-fuel.msgpack b4c=lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
+    deps:
+      - ../../core/rod_table.py
+      - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-aic-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
+    outs:
+      - hzp/tables/reflector-I-31-zgrid-fuel-rods.msgpack
+  hzp-axial-21:
+    cmd: cd hzp && mkdir -p axial-21 && ../../../../bin/lattice axial-21.toml > axial-21.out 2> axial-21.log
+    deps:
+      - hzp/axial-21.toml
+      - ../vera.msgpack
+      - hzp/media/21-fuel.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-21
+      - hzp/axial-21.out
+      - hzp/axial-21.log
+  hzp-axial-21-rcca:
+    cmd: cd hzp && mkdir -p axial-21-rcca && ../../../../bin/lattice axial-21-rcca.toml > axial-21-rcca.out 2> axial-21-rcca.log
+    deps:
+      - hzp/axial-21-rcca.toml
+      - ../vera.msgpack
+      - hzp/media/21-fuel.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-21-rcca
+      - hzp/axial-21-rcca.out
+      - hzp/axial-21-rcca.log
+  hzp-axial-26-rcca:
+    cmd: cd hzp && mkdir -p axial-26-rcca && ../../../../bin/lattice axial-26-rcca.toml > axial-26-rcca.out 2> axial-26-rcca.log
+    deps:
+      - hzp/axial-26-rcca.toml
+      - ../vera.msgpack
+      - hzp/media/26-fuel.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-26-rcca
+      - hzp/axial-26-rcca.out
+      - hzp/axial-26-rcca.log
+  hzp-axial-26-p16:
+    cmd: cd hzp && mkdir -p axial-26-p16 && ../../../../bin/lattice axial-26-p16.toml > axial-26-p16.out 2> axial-26-p16.log
+    deps:
+      - hzp/axial-26-p16.toml
+      - ../vera.msgpack
+      - hzp/media/26-p16-empty.msgpack
+      - hzp/media/26-p16-plenum.msgpack
+      - hzp/media/26-p16-plug.msgpack
+      - hzp/media/26-p16-poison.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-26-p16
+      - hzp/axial-26-p16.out
+      - hzp/axial-26-p16.log
+  hzp-axial-26-p20:
+    cmd: cd hzp && mkdir -p axial-26-p20 && ../../../../bin/lattice axial-26-p20.toml > axial-26-p20.out 2> axial-26-p20.log
+    deps:
+      - hzp/axial-26-p20.toml
+      - ../vera.msgpack
+      - hzp/media/26-p20-empty.msgpack
+      - hzp/media/26-p20-plenum.msgpack
+      - hzp/media/26-p20-plug.msgpack
+      - hzp/media/26-p20-poison.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-26-p20
+      - hzp/axial-26-p20.out
+      - hzp/axial-26-p20.log
+  hzp-axial-26-p24:
+    cmd: cd hzp && mkdir -p axial-26-p24 && ../../../../bin/lattice axial-26-p24.toml > axial-26-p24.out 2> axial-26-p24.log
+    deps:
+      - hzp/axial-26-p24.toml
+      - ../vera.msgpack
+      - hzp/media/26-p24-empty.msgpack
+      - hzp/media/26-p24-plenum.msgpack
+      - hzp/media/26-p24-plug.msgpack
+      - hzp/media/26-p24-poison.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-26-p24
+      - hzp/axial-26-p24.out
+      - hzp/axial-26-p24.log
+  hzp-axial-31:
+    cmd: cd hzp && mkdir -p axial-31 && ../../../../bin/lattice axial-31.toml > axial-31.out 2> axial-31.log
+    deps:
+      - hzp/axial-31.toml
+      - ../vera.msgpack
+      - hzp/media/31-fuel.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-31
+      - hzp/axial-31.out
+      - hzp/axial-31.log
+  hzp-axial-31-rcca:
+    cmd: cd hzp && mkdir -p axial-31-rcca && ../../../../bin/lattice axial-31-rcca.toml > axial-31-rcca.out 2> axial-31-rcca.log
+    deps:
+      - hzp/axial-31-rcca.toml
+      - ../vera.msgpack
+      - hzp/media/31-fuel.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-31-rcca
+      - hzp/axial-31-rcca.out
+      - hzp/axial-31-rcca.log
+  hzp-axial-31-p12:
+    cmd: cd hzp && mkdir -p axial-31-p12 && ../../../../bin/lattice axial-31-p12.toml > axial-31-p12.out 2> axial-31-p12.log
+    deps:
+      - hzp/axial-31-p12.toml
+      - ../vera.msgpack
+      - hzp/media/31-p12-empty.msgpack
+      - hzp/media/31-p12-plenum.msgpack
+      - hzp/media/31-p12-plug.msgpack
+      - hzp/media/31-p12-poison.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-31-p12
+      - hzp/axial-31-p12.out
+      - hzp/axial-31-p12.log
+  hzp-axial-31-p16:
+    cmd: cd hzp && mkdir -p axial-31-p16 && ../../../../bin/lattice axial-31-p16.toml > axial-31-p16.out 2> axial-31-p16.log
+    deps:
+      - hzp/axial-31-p16.toml
+      - ../vera.msgpack
+      - hzp/media/31-p16-empty.msgpack
+      - hzp/media/31-p16-plenum.msgpack
+      - hzp/media/31-p16-plug.msgpack
+      - hzp/media/31-p16-poison.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-31-p16
+      - hzp/axial-31-p16.out
+      - hzp/axial-31-p16.log
+  hzp-axial-31-p24:
+    cmd: cd hzp && mkdir -p axial-31-p24 && ../../../../bin/lattice axial-31-p24.toml > axial-31-p24.out 2> axial-31-p24.log
+    deps:
+      - hzp/axial-31-p24.toml
+      - ../vera.msgpack
+      - hzp/media/31-p24-empty.msgpack
+      - hzp/media/31-p24-plenum.msgpack
+      - hzp/media/31-p24-plug.msgpack
+      - hzp/media/31-p24-poison.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-31-p24
+      - hzp/axial-31-p24.out
+      - hzp/axial-31-p24.log
+  hzp-axial-31-p8:
+    cmd: cd hzp && mkdir -p axial-31-p8 && ../../../../bin/lattice axial-31-p8.toml > axial-31-p8.out 2> axial-31-p8.log
+    deps:
+      - hzp/axial-31-p8.toml
+      - ../vera.msgpack
+      - hzp/media/31-p8-empty.msgpack
+      - hzp/media/31-p8-plenum.msgpack
+      - hzp/media/31-p8-plug.msgpack
+      - hzp/media/31-p8-poison.msgpack
+      - ../../../bin/lattice
+    outs:
+      - hzp/axial-31-p8
+      - hzp/axial-31-p8.out
+      - hzp/axial-31-p8.log
+  hzp-small:
+    cmd: cd hzp && ../../../../bin/core small.toml > small.out 2> small.log
+    deps:
+      - hzp/small.toml
+      - hzp/small-cycle.toml
+      - hzp/small-plant.toml
+      - hzp/small-assemblies.toml
+      - hzp/axial-31
+      - hzp/axial-31-rcca
+      - hzp/lattice/31-igrid.msgpack
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel.msgpack
+      - hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      - hzp/lattice/reflector-corner-31-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      - hzp/tables/31-fuel-rods.msgpack
+      - hzp/tables/31-zgrid-rods.msgpack
+      - ../../../bin/core
+    outs:
+      - hzp/small.out
+      - hzp/small.log
+  hzp-small-half:
+    cmd: cd hzp && ../../../../bin/core small-half.toml > small-half.out 2> small-half.log
+    deps:
+      - hzp/small-half.toml
+      - hzp/small-cycle.toml
+      - hzp/small-plant.toml
+      - hzp/small-assemblies.toml
+      - hzp/axial-31
+      - hzp/axial-31-rcca
+      - hzp/lattice/31-igrid.msgpack
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel.msgpack
+      - hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      - hzp/lattice/reflector-corner-31-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      - hzp/tables/31-fuel-rods.msgpack
+      - hzp/tables/31-zgrid-rods.msgpack
+      - ../../../bin/core
+    outs:
+      - hzp/small-half.out
+      - hzp/small-half.log
+      - hzp/small-half-pins.msgpack
+  hzp-small-2d-aic:
+    cmd: cd hzp && ../../../../bin/core small-2d-aic.toml > small-2d-aic.out 2> small-2d-aic.log
+    deps:
+      - hzp/small-2d-aic.toml
+      - hzp/small-2d-aic-cycle.toml
+      - hzp/small-2d-aic-plant.toml
+      - hzp/small-2d-assemblies.toml
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      - hzp/lattice/reflector-corner-31-fuel.msgpack
+      - hzp/tables/31-fuel-rods.msgpack
+      - ../../../bin/core
+    outs:
+      - hzp/small-2d-aic.out
+      - hzp/small-2d-aic.log
+  hzp-small-2d-b4c:
+    cmd: cd hzp && ../../../../bin/core small-2d-b4c.toml > small-2d-b4c.out 2> small-2d-b4c.log
+    deps:
+      - hzp/small-2d-b4c.toml
+      - hzp/small-2d-b4c-cycle.toml
+      - hzp/small-2d-b4c-plant.toml
+      - hzp/small-2d-assemblies.toml
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      - hzp/lattice/reflector-corner-31-fuel.msgpack
+      - hzp/tables/31-fuel-rods.msgpack
+      - ../../../bin/core
+    outs:
+      - hzp/small-2d-b4c.out
+      - hzp/small-2d-b4c.log
+  hzp-core-hzp:
+    cmd: cd hzp && ../../../../bin/core core-hzp.toml > core-hzp.out 2> core-hzp.log
+    deps:
+      - hzp/core-hzp.toml
+      - hzp/core-hzp-cycle.toml
+      - hzp/core-hzp-plant.toml
+      - hzp/core-hzp-assemblies.toml
+      - hzp/axial-21
+      - hzp/axial-21-rcca
+      - hzp/axial-26-p16
+      - hzp/axial-26-p20
+      - hzp/axial-26-p24
+      - hzp/axial-26-rcca
+      - hzp/axial-31
+      - hzp/axial-31-p12
+      - hzp/axial-31-p16
+      - hzp/axial-31-p24
+      - hzp/axial-31-p8
+      - hzp/axial-31-rcca
+      - hzp/lattice/21-fuel.msgpack
+      - hzp/lattice/21-igrid.msgpack
+      - hzp/lattice/21-zgrid.msgpack
+      - hzp/lattice/26-igrid.msgpack
+      - hzp/lattice/26-p16-empty-igrid.msgpack
+      - hzp/lattice/26-p16-plenum.msgpack
+      - hzp/lattice/26-p16-plug-igrid.msgpack
+      - hzp/lattice/26-p16-poison-igrid.msgpack
+      - hzp/lattice/26-p16-poison-zgrid.msgpack
+      - hzp/lattice/26-p16-poison.msgpack
+      - hzp/lattice/26-p20-empty-igrid.msgpack
+      - hzp/lattice/26-p20-plenum.msgpack
+      - hzp/lattice/26-p20-plug-igrid.msgpack
+      - hzp/lattice/26-p20-poison-igrid.msgpack
+      - hzp/lattice/26-p20-poison-zgrid.msgpack
+      - hzp/lattice/26-p20-poison.msgpack
+      - hzp/lattice/26-p24-empty-igrid.msgpack
+      - hzp/lattice/26-p24-plenum.msgpack
+      - hzp/lattice/26-p24-plug-igrid.msgpack
+      - hzp/lattice/26-p24-poison-igrid.msgpack
+      - hzp/lattice/26-p24-poison-zgrid.msgpack
+      - hzp/lattice/26-p24-poison.msgpack
+      - hzp/lattice/31-p12-empty-igrid.msgpack
+      - hzp/lattice/31-p12-plenum.msgpack
+      - hzp/lattice/31-p12-plug-igrid.msgpack
+      - hzp/lattice/31-p12-poison-igrid.msgpack
+      - hzp/lattice/31-p12-poison-zgrid.msgpack
+      - hzp/lattice/31-p12-poison.msgpack
+      - hzp/lattice/31-p16-empty-igrid.msgpack
+      - hzp/lattice/31-p16-plenum.msgpack
+      - hzp/lattice/31-p16-plug-igrid.msgpack
+      - hzp/lattice/31-p16-poison-igrid.msgpack
+      - hzp/lattice/31-p16-poison-zgrid.msgpack
+      - hzp/lattice/31-p16-poison.msgpack
+      - hzp/lattice/31-p24-empty-igrid.msgpack
+      - hzp/lattice/31-p24-plenum.msgpack
+      - hzp/lattice/31-p24-plug-igrid.msgpack
+      - hzp/lattice/31-p24-poison-igrid.msgpack
+      - hzp/lattice/31-p24-poison-zgrid.msgpack
+      - hzp/lattice/31-p24-poison.msgpack
+      - hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-I-31-fuel.msgpack
+      - hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-plenum-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-poison-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-poison-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-plenum-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-poison-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-poison-igrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      - hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      - hzp/lattice/reflector-corner-31-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      - hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      - hzp/tables/21-fuel-rods.msgpack
+      - hzp/tables/21-zgrid-rods.msgpack
+      - hzp/tables/26-fuel-rods.msgpack
+      - hzp/tables/26-zgrid-rods.msgpack
+      - hzp/tables/reflector-I-31-fuel-fuel-rods.msgpack
+      - hzp/tables/reflector-I-31-zgrid-fuel-rods.msgpack
+      - ../../../bin/core
+    outs:
+      - hzp/core-hzp.out
+      - hzp/core-hzp.log
+  hzp-compare-small-half:
+    cmd: python3 ../compare_p5.py symmetry hzp/small-half.out hzp/small-half-pins.msgpack > hzp/compare-small-half.out
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - hzp/small-half.out
+      - hzp/small-half-pins.msgpack
+    outs:
+      - hzp/compare-small-half.out
+  hzp-compare:
+    cmd: python3 compare_hzp.py ../../../references/vera/spec.txt hzp/core-hzp.toml hzp/core-hzp.out > hzp/compare-hzp.out
+    deps:
+      - compare_hzp.py
+      - ../../../references/vera/spec.txt
+      - hzp/core-hzp.toml
+      - hzp/core-hzp.out
+    outs:
+      - hzp/compare-hzp.out

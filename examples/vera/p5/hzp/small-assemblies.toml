@@ -1,0 +1,114 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 集合体の台帳。設計は集合体の種類、制御棒の入る位置（-rcca）、反射体に 1 面で面する位置（-I）と 2 面で面する位置
+# （-corner。燃料の層は反射体の格子の燃料のノードの定数。ADR-0153）。燃料の上と下は種類ごとの平板（ADR-0128）
+
+[design.31-I]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31/lower-water.msgpack",
+  "axial-31/lower-plate.msgpack",
+  "axial-31/bottom-nozzle.msgpack",
+  "axial-31/lower-gap-plug.msgpack",
+  "lattice/reflector-I-31-igrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "axial-31/plenum.msgpack",
+  "axial-31/upper-plug-gap.msgpack",
+  "axial-31/top-nozzle.msgpack",
+  "axial-31/upper-plate.msgpack",
+  "axial-31/upper-water.msgpack",
+]
+
+[design.31-corner]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31/lower-water.msgpack",
+  "axial-31/lower-plate.msgpack",
+  "axial-31/bottom-nozzle.msgpack",
+  "axial-31/lower-gap-plug.msgpack",
+  "lattice/reflector-corner-31-igrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "axial-31/plenum.msgpack",
+  "axial-31/upper-plug-gap.msgpack",
+  "axial-31/top-nozzle.msgpack",
+  "axial-31/upper-plate.msgpack",
+  "axial-31/upper-water.msgpack",
+]
+
+[design.31-rcca]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31-rcca/lower-water.msgpack",
+  "axial-31-rcca/lower-plate.msgpack",
+  "axial-31-rcca/bottom-nozzle.msgpack",
+  "axial-31-rcca/lower-gap-plug.msgpack",
+  "lattice/31-igrid.msgpack",
+  "tables/31-fuel-rods.msgpack",
+  "tables/31-zgrid-rods.msgpack",
+  "tables/31-fuel-rods.msgpack",
+  "tables/31-zgrid-rods.msgpack",
+  "tables/31-fuel-rods.msgpack",
+  "tables/31-zgrid-rods.msgpack",
+  "tables/31-fuel-rods.msgpack",
+  "tables/31-zgrid-rods.msgpack",
+  "tables/31-fuel-rods.msgpack",
+  "tables/31-zgrid-rods.msgpack",
+  "tables/31-fuel-rods.msgpack",
+  "tables/31-zgrid-rods.msgpack",
+  "tables/31-fuel-rods.msgpack",
+  "axial-31-rcca/plenum.msgpack",
+  "axial-31-rcca/upper-plug-gap.msgpack",
+  "axial-31-rcca/top-nozzle.msgpack",
+  "axial-31-rcca/upper-plate.msgpack",
+  "axial-31-rcca/upper-water.msgpack",
+]
+
+[assembly.G07]
+design = "31-corner"
+
+[assembly.G08]
+design = "31-I"
+
+[assembly.G09]
+design = "31-corner"
+
+[assembly.H07]
+design = "31-I"
+
+[assembly.H08]
+design = "31-rcca"
+
+[assembly.H09]
+design = "31-I"
+
+[assembly.J07]
+design = "31-corner"
+
+[assembly.J08]
+design = "31-I"
+
+[assembly.J09]
+design = "31-corner"

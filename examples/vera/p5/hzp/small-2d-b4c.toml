@@ -1,0 +1,20 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 最小の入力の 2D（z は鏡面反射）の、中央の B4C の制御棒の全挿入と全引き抜き
+cycle = "small-2d-b4c-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["reflective", "reflective"] }
+
+[state.out]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 1 }
+
+[state.in]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+banks = { D = 0 }
