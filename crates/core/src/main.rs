@@ -209,7 +209,8 @@ fn write_pin_powers(case: &Case, problem: &Problem, solution: &Solution) -> anyh
     }
     let reconstructed = Instant::now();
     let maps = reconstruct(problem, solution).map_err(|e| anyhow!("pin powers: {e}"))?;
-    // 両方を作ってから書く（後のものが失敗したとき、先のものだけが新しくならないように）
+    // 両方を作ってから書く（後のものの再構成か直列化が失敗したとき、先のものだけが新しくならないように。書き込みの
+    // 失敗は防がない）
     let mut outputs = Vec::new();
     if let Some(file) = &case.pin_powers {
         let rows = core_rows(problem, &maps).map_err(|e| anyhow!("pin powers: {e}"))?;
