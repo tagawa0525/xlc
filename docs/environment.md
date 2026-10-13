@@ -86,7 +86,7 @@ nix develop .#references -c sh -c \
 ## 外部の計算機（AWS）
 
 r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討段階）。c7a は vCPU が物理コアで、
-x86_64 の nix のクロージャをそのまま送れる。送る、実行、回収のツール（SSH の接続先が決まった VM 用）は次の節。起動と削除のツールは未実装（試走で通した起動の手順は「試走」の節）。
+x86_64 の nix のクロージャをそのまま送れる。起動、終了、送る、実行、回収のツールは次の節（方式 A の変種で、起動と終了もツールで行う）。
 
 ユーザーが用意するもの:
 
@@ -113,6 +113,45 @@ Problem 3 と 5-2D の本番（数時間の実行を 5 本）は、r995 でな�
 OpenMC と Python API は手元でビルドしたクロージャを送る（VM で再ビルドしない）。Slurm は使わない。VM は中断されうる（スポット）ので、
 入力の `statepoint-interval` で途中の statepoint を書き、中断のあとは `--restart` で再開する。
 
+### ツールを使う手順
+
+ツールは `examples/vera/` にある。リージョンは us-east-1（`AWS_DEFAULT_REGION` で変えられる）、認証は `aws sts get-caller-identity` が通る状態。
+キーペア `xlc-aws`（`~/.ssh/xlc-aws.pem`）とセキュリティグループ `xlc-ssh`（22/tcp を手元の IP の /32 だけ）は作成済みで、残してある。
+
+```sh
+examples/vera/aws_launch.sh xlc3 --count 2          # 起動。c7a.4xlarge のスポット（one-time、gp3 40 GB）を xlc3-1、xlc3-2 の名前で
+examples/vera/remote_send.sh --allow-ip xlc3-1 /home/ubuntu/xlc   # 送る（各 VM に。下の「VM に Nix を入れる」を先に）
+examples/vera/aws_status.sh                         # 走っている VM、起動からの時間、スポット価格
+examples/vera/remote_fetch.sh --allow-ip xlc3-1 /home/ubuntu/xlc references/openmc/remote/xlc3-1   # 戻す
+examples/vera/aws_terminate.sh xlc3                 # 終了（terminated を待ち、~/.ssh/config の Host を消す）
+```
+
+- `aws_launch.sh` は、AMI（Ubuntu 24.04 の最新。SCP で SSM の公開パラメータが引けないので `describe-images --owners 099720109477`）を引き、
+  スポットで起動して public IP を待ち、`~/.ssh/config` に `# BEGIN xlc-aws <名前>` から `# END` までの Host（`User ubuntu`、`IdentityFile`、
+  `StrictHostKeyChecking accept-new`）を書く（同名は置き換え）。起動後に `lscpu` と `free -g` を出すので、物理コア数（Thread(s) per core が 1 であること）と
+  メモリを `--cores` と記録に使う。同名のインスタンスが残っていれば止まる
+- IP の許可: 手元のグローバル IP が変わると SSH が通らなくなる。`aws_allow_ip.sh` が `xlc-ssh` の 22/tcp を今の IP の /32 だけにする（古い規則は消す。一致なら何もしない）。
+  `aws_launch.sh` は起動の前に必ず呼ぶ（新しい VM に入れないと意味がないため）。`remote_send.sh` と `remote_fetch.sh` は `--allow-ip` を付けたときだけ呼ぶ。
+  この 2 つは AWS 以外の VM（GCP など）にも使うこと、セキュリティグループの変更は外から見える副作用なので、黙って呼ばず明示にした。
+  ssh が通らなくなったら、`aws_allow_ip.sh` を単体で実行するか、`--allow-ip` を付ける
+- 中断（スポットの回収）: `aws_status.sh` で消えたことを見て、同じ名前で `aws_launch.sh` を再実行する（IP が変わるので Host も更新される）。
+  Nix を入れ直し、`remote_send.sh` で送り直してから、`run_remote.sh --restart` で最新の statepoint から再開する。statepoint は VM の EBS にあり、
+  one-time のスポットが回収されると消える。再開できるのは、中断前に `remote_fetch.sh` で戻した statepoint を送り返した場合（作業ディレクトリの `results/<名前>/run/`）だけで、
+  戻していなければその 1 本をやり直す
+- 終わったら必ず `aws_terminate.sh`。`aws_status.sh` で空であることを確認する（実行したままだと課金が続く）
+
+費用の見積もり: 台数 × 起動から終了までの時間（時間）× スポット価格（`aws_status.sh` が出す $/時間。c7a.4xlarge は 2026-10 に確認していない。
+ADR-0151 の c7a.16xlarge の $0.015〜0.023/物理コア時間 × 16 コア ≒ $0.24〜0.37/時間を目安にする）。EBS は gp3 40 GB × 起動時間（月 $0.08/GB なので 1 日あたり約 $0.1）で、終了で消える。
+本番は 2 台 × 2 回 × 約 6 時間なら約 $6〜9。試走（c7a.large、`aws_launch.sh` から `aws_terminate.sh` まで約 1 分）は 1 セント未満。
+
+#### ツールの確認（2026-10-13、xlc のコミット 419ebc31 のスクリプト。以降のレビューの修正のあと、同じ往復をもう一度通した）
+
+c7a.large を 1 台、`aws_launch.sh`（約 30 秒。AMI の検索から ssh が通って `lscpu` を出すまで）→ `aws_allow_ip.sh --ip 203.0.113.7`（わざと別の IP にすると ssh は
+タイムアウト）→ `aws_allow_ip.sh`（戻すと ssh が通る）→ `aws_terminate.sh`（約 37 秒、terminated を確認、Host が消えて `~/.ssh/config` が元に戻る）の往復を通した。
+c7a.4xlarge は起動していない。
+
+### VM に Nix を入れる、送る、流す、戻す
+
 1. VM に Nix を入れる。試走（2026-10-13、Ubuntu 24.04、c7a.large）で通した手順は Determinate Systems の installer（multi-user）。
    約 10 秒。`nix copy --to ssh://` は未署名のパスを送るので、VM の ssh のユーザーを信頼するユーザーにする。非対話の ssh でも
    `nix-store` が PATH にある（`/nix/var/nix/profiles/default/bin`）ので、PATH の追加は要らない。`rsync` は Ubuntu の AMI に入っている:
@@ -122,8 +161,7 @@ OpenMC と Python API は手元でビルドしたクロージャを送る（VM �
    ssh <接続先> 'echo "trusted-users = root $USER" | sudo tee /etc/nix/nix.custom.conf; sudo systemctl restart nix-daemon'
    ```
 
-   接続先は `~/.ssh/config` の Host（`HostName`、`User ubuntu`、`IdentityFile ~/.ssh/xlc-aws.pem`、`IdentitiesOnly yes`）にしておくと、
-   `nix copy` と rsync にも同じ設定が効く（IP はインスタンスごとに変わるので、起動のたびに書き換える）
+   接続先は `~/.ssh/config` の Host にしておくと、`nix copy` と rsync にも同じ設定が効く（`aws_launch.sh` が書く）
 2. 手元（リポジトリの直下）から送る。`--dry-run` は、クロージャのパス（62 個、約 800 MB）と rsync の一覧だけ出して何も送らない:
 
    ```sh
@@ -146,7 +184,7 @@ OpenMC と Python API は手元でビルドしたクロージャを送る（VM �
    ```
 
    run が終わると続けて extract も走り、`results/<名前>/` に k.json、pins.msgpack、layers.msgpack などができる
-4. 中断されたら、VM を戻して同じコマンドに `--restart` を足す。最新の statepoint（`results/<名前>/run/statepoint.<世代>.h5`。最新の
+4. 中断されたら、VM を起動し直し（上の「中断」）、同じコマンドに `--restart` を足す。最新の statepoint（`results/<名前>/run/statepoint.<世代>.h5`。最新の
    2 個を残す）から `openmc -r` で再開する。入力は同じものを使う（`--threads` だけ変えてよい）
 5. 結果を手元に戻す。k.json、pins.msgpack などと最後の世代の statepoint と summary.h5（一次の成果物。手元で extract し直す。途中の statepoint は戻さない）:
 
@@ -160,7 +198,7 @@ OpenMC と Python API は手元でビルドしたクロージャを送る（VM �
 c7a.large のスポット（2 vCPU = 2 物理コア）で、上の 1〜5 を通した（xlc のコミット b873a967 のスクリプト）。入力は本番のコピーで粒子数 1 万・20 世代・捨てる 5・
 `statepoint-interval = 5`（`cross-sections` はリポジトリの `examples/vera/openmc-library` を指す）。
 
-- 起動: キーペア `xlc-aws`（秘密鍵 `~/.ssh/xlc-aws.pem`）、セキュリティグループ `xlc-ssh`（手元のグローバル IP の 22/tcp だけ）を作り、
+- 起動（今は `aws_launch.sh` が行う。試走のときの手順）: キーペア `xlc-aws`（秘密鍵 `~/.ssh/xlc-aws.pem`）、セキュリティグループ `xlc-ssh`（手元のグローバル IP の 22/tcp だけ）を作り、
   AMI は `aws ec2 describe-images --owners 099720109477 --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"`
   に `--query 'sort_by(Images,&CreationDate)[-1].ImageId'` を付けた最新（このアカウントは SCP で SSM の公開パラメータが引けない）を `aws ec2 run-instances --instance-type c7a.large
   --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'` で起動。EBS は gp3 40 GB。起動から ssh が通るまで約 40 秒。終わったら `aws ec2 terminate-instances` で終了する（EBS は DeleteOnTermination で消える。
