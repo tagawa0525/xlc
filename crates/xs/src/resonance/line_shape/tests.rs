@@ -158,7 +158,7 @@ fn table_uses_natural_line_shape_above_its_theta_range() {
 #[test]
 fn table_rejects_points_outside_its_range() {
     assert!(jk_interpolated(1.0e-8, 1.0).is_err());
-    assert!(jk_interpolated(1.0, 1.0e-12).is_err());
+    assert!(jk_interpolated(1.0e-8, 1.0e-13).is_err());
 }
 
 #[test]
@@ -171,6 +171,52 @@ fn table_covers_resonances_narrower_than_a_thousandth_of_the_doppler_width() {
             let direct = jk_integrals(&[beta], theta).unwrap()[0];
             assert_rel(j, direct.0, 1e-6);
             assert_rel(k, direct.1, 1e-6);
+        }
+    }
+}
+
+/// θ → 0 の線形状（ガウス形 ψ = (√π θ/2) e^{-u²}、u = θx/2）の (J, K)。b = 2β/(√π θ) > 1 で、g = e^{-u²} について
+/// g/(g + b) と g(g + 2b)/(g + b)² を 1/b の冪に展開し、∫₀^∞ gⁿ du = √π/(2√n) で項ごとに積分した級数
+fn gaussian_limit(beta: f64, theta: f64) -> (f64, f64) {
+    let b = 2.0 * beta / (PI.sqrt() * theta);
+    assert!(b > 1.0, "the series needs b > 1, got {b}");
+    let scale = 2.0 / theta * 0.5 * PI.sqrt();
+    let (mut j, mut k) = (0.0, 0.0);
+    for n in 1..200 {
+        let nf = n as f64;
+        let sign = if n % 2 == 1 { 1.0 } else { -1.0 };
+        let power = b.powi(-n);
+        j += sign * power / nf.sqrt();
+        k += sign * (nf + 1.0) * power / nf.sqrt();
+        if (nf + 2.0) * power < 1.0e-18 {
+            break;
+        }
+    }
+    (scale * j, scale * k)
+}
+
+#[test]
+fn quadrature_approaches_the_gaussian_limit_for_narrow_lines() {
+    // ローレンツの裾による差は θ の程度。b = 2β/(√π θ) が 1 に近い芯の形まで、積分と級数が θ の数倍の内で合う
+    for theta in [1.0e-6, 1.0e-8, 1.0e-10] {
+        for beta in [2.5 * theta, 10.0 * theta, 1.0e3 * theta, 1.0] {
+            let direct = jk_integrals(&[beta], theta).unwrap()[0];
+            let (j, k) = gaussian_limit(beta, theta);
+            assert_rel(direct.0, j, 10.0 * theta + 1.0e-11);
+            assert_rel(direct.1, k, 10.0 * theta + 1.0e-11);
+        }
+    }
+}
+
+#[test]
+fn table_takes_the_gaussian_limit_below_its_theta_range() {
+    // Au-197 の非分離共鳴は Γγ = 1e-9 eV の系列を持ち、θ ≈ 1e-10 になる（#0119）。それより狭い線にも下限を置かない
+    for theta in [9.0e-11, 1.0e-13, 1.0e-20] {
+        for beta in [1.0e-6, 1.0, 1.0e8] {
+            let (j, k) = jk_interpolated(beta, theta).unwrap();
+            let (jg, kg) = gaussian_limit(beta, theta);
+            assert_rel(j, jg, 1.0e-12);
+            assert_rel(k, kg, 1.0e-12);
         }
     }
 }
