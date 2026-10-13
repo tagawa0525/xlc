@@ -184,7 +184,7 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
 VM にはキーペアを付けず、VPC の既定のセキュリティグループ（同じグループのインスタンスからの通信だけ）で起動し、IMDSv2 を必須にする。
 様子は `aws_status.sh`、S3 の `boot-*.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
 
-起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`--type`、`--max-hours`、
+起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` の入力を使う。ツール（`run_remote.sh`、`openmc_*.py`。新しい実行が `src/` に置くものと同じ）は手元の作業ツリーの版を `src/` に置き直してから起動する（入力は変えない。ツールの版は `launches/` の `TOOLS_COMMIT`、リポジトリの直下から実行する。#0122）。`--type`、`--max-hours`、
 `--sync-minutes`、`--az`、`--on-demand`（スポットに戻すのは `--spot`）は、指定がなければ最後の起動の記録（`launches/`）の値を使う。
 `--statepoint-interval <世代>` は、その起動の OpenMC の実行だけ、入力の `statepoint-interval` を上書きする（S3 の `src/` の入力は
 書き換えない。中断が続くときに失う分を縮める。ADR-0168）。記録から引き継がず毎回明示し、指定がなければ入力の値になる。

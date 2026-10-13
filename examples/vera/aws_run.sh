@@ -7,9 +7,11 @@
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。クロージャ、核データ、スクリプトと入力を S3 に置く
-#              入力を省くと起動し直し: S3 の runs/<name>/launch.env と src/ を使い（手元の作業ツリーは読まない）、
-#              done のないジョブを起動する。statepoint があれば --restart で続ける。VM が走っているジョブは飛ばす。
-#              done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のないジョブは飛ばして示し、1 で終わる
+#              入力を省くと起動し直し: S3 の runs/<name>/launch.env と入力を使い、ツール（run_remote.sh、openmc_*.py。新しい実行が
+#              src/ に置くものと同じ）は手元の作業ツリーの版を src/ に置き直してから、done のないジョブを起動する（入力と
+#              launch.env は書き換えない。ツールの版は launches/ の TOOLS_COMMIT）。statepoint があれば --restart で続ける。
+#              VM が走っているジョブは飛ばす。done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のない
+#              ジョブは飛ばして示し、1 で終わる。リポジトリの直下から実行する
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
@@ -28,7 +30,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
@@ -95,6 +97,18 @@ require_public_awscli() {
     { echo "$1 が cache.nixos.org にありません（VM が AWS CLI を取れない）" >&2; exit 1; }
 }
 
+# VM が実行するツール（src/ に置く。新しい実行も起動し直しも同じ集合）
+tool_files=(
+  examples/openmc_common.py
+  examples/openmc_run.py
+  examples/openmc_resume.py
+  examples/vera/openmc_tallies.py
+  examples/vera/openmc_model.py
+  examples/vera/openmc_model_3d.py
+  examples/vera/openmc_core_2d.py
+  examples/vera/run_remote.sh
+)
+
 if ((${#inputs[@]})); then
   # 新しい実行
   [[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から実行してください" >&2; exit 1; }
@@ -151,17 +165,7 @@ if ((${#inputs[@]})); then
   src=$(mktemp -d)
   cache=$(mktemp -d)
   trap 'rm -rf "$src" "$cache"' EXIT
-  files=(
-    examples/openmc_common.py
-    examples/openmc_run.py
-    examples/openmc_resume.py
-    examples/vera/openmc_tallies.py
-    examples/vera/openmc_model.py
-    examples/vera/openmc_model_3d.py
-    examples/vera/openmc_core_2d.py
-    examples/vera/run_remote.sh
-    "${inputs[@]}"
-  )
+  files=("${tool_files[@]}" "${inputs[@]}")
   for f in "${files[@]}"; do [[ -f $f ]] || { echo "$f がありません" >&2; exit 1; }; done
   cp --parents "${files[@]}" "$src/"
   cat > "$src/launch.env" <<ENV
@@ -267,6 +271,18 @@ else
     todo+=("$input")
   done
   ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit "$stuck"; }
+  # ツールは手元の版に合わせる（S3 の src/ は最初の起動の版で、新しい引数を知らない。入力と launch.env は実行の定義なので書き換えない）
+  root=$(cd "$here/../.." && pwd)
+  [[ -f $root/flake.nix && -d $root/examples/vera ]] || { echo "リポジトリの中の aws_run.sh を使ってください（$root）" >&2; exit 1; }
+  for f in "${tool_files[@]}"; do [[ -f $root/$f ]] || { echo "$root/$f がありません" >&2; exit 1; }; done
+  if ((dry)); then
+    echo "ツール ${#tool_files[@]} 個を $run_prefix/src/ に置き直す（--dry-run なので置かない）"
+  else
+    tools_src=$(mktemp -d)
+    trap 'rm -rf "$tools_src"' EXIT
+    (cd "$root" && cp --parents "${tool_files[@]}" "$tools_src/")
+    aws s3 sync --only-show-errors "$tools_src" "$run_prefix/src"
+  fi
 fi
 
 # 既定（ADR-0155）。起動し直しでは、指定も記録もないときだけ
@@ -313,7 +329,7 @@ for i in "${!todo[@]}"; do
   else
     id=$(aws ec2 run-instances "${args[@]}")
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
-    # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作るツール、AMI、機種はこの起動のもの）。起動できたものだけ書く
+    # 起動ごとの記録（user-data を作るツールと、起動し直しで src/ に置き直すツールは TOOLS_COMMIT のもの。AMI、機種もこの起動のもの）。起動できたものだけ書く
     printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\nSTATEPOINT_INTERVAL=%s\n' "$tools" "$ami" \
       "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$az" "$market" "$interval" |
       aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
