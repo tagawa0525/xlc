@@ -348,12 +348,18 @@ fn solve_with(
             .map(|i| equilibrium_moments(material(i), &flux[i], &higher[i], k, &pairs))
             .collect();
 
-        sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies)?;
+        // 段の時間は trace の区間で測る（main.rs の FmtSpan::CLOSE で、閉じるときに time.busy を出す）
+        tracing::trace_span!("sweep").in_scope(|| {
+            sweeper.sweep(&equilibrium, &outgoing, &mut next_outgoing, &mut tallies)
+        })?;
         std::mem::swap(&mut outgoing, &mut next_outgoing);
-        let mut sums = sum_tallies(&sweeper, &tallies);
-        sweeper
-            .representatives
-            .symmetrize(&mut sums, &sweeper.void, ng);
+        let sums = tracing::trace_span!("tallies").in_scope(|| {
+            let mut sums = sum_tallies(&sweeper, &tallies);
+            sweeper
+                .representatives
+                .symmetrize(&mut sums, &sweeper.void, ng);
+            sums
+        });
         let Sums {
             delta,
             void_flux,
@@ -447,15 +453,17 @@ fn solve_with(
         // 粗メッシュの解は生成率 1 に規格化されているので、更新後も生成率は 1 のまま
         if let Acceleration::Cmfd(cmfd) = &options.acceleration {
             let cells = &reduced.cells;
-            let coarse = Coarse::homogenize(
-                &mesh,
-                cells,
-                materials,
-                &volumes,
-                &new_flux,
-                &reduced.regions.index,
-                &current,
-            )?;
+            let coarse = tracing::trace_span!("homogenize").in_scope(|| {
+                Coarse::homogenize(
+                    &mesh,
+                    cells,
+                    materials,
+                    &volumes,
+                    &new_flux,
+                    &reduced.regions.index,
+                    &current,
+                )
+            })?;
             // MOC がまだ収束から遠いうちは、CMFD を細かく解いても次のスイープで崩れる。スイープによる変化（CMFD の誤差を
             // 含まない）に合わせて精度を緩める
             let tuned = inexact_cmfd(
@@ -465,7 +473,8 @@ fn solve_with(
                 largest_change(&new_flux, &flux),
             );
             // [代表のセル][群] の比
-            let (coarse_k, ratio) = coarse.solve(new_k, &tuned)?;
+            let (coarse_k, ratio) =
+                tracing::trace_span!("coarse").in_scope(|| coarse.solve(new_k, &tuned))?;
             new_k = coarse_k;
             // 高次のモーメントも同じ比で（角度分布の形は変えない）
             for (i, ((f, h), c)) in new_flux
