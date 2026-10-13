@@ -29,14 +29,24 @@ if env | grep -qE "$flags"; then
   exit 1
 fi
 
-cargo clean --release --target-dir target/dvc -p xlc-xs -p xlc-lattice -p xlc-core
+# 実行ファイルの名前（パッケージは xlc-<名前>）。clean、build、コピーする先で同じ並びを使う
+names=(xs lattice core)
+packages=()
+for name in "${names[@]}"; do
+  packages+=(-p "xlc-$name")
+done
+
+cargo clean --release --target-dir target/dvc "${packages[@]}"
 # 記号表（.symtab、.strtab）は、計算に使わない内部の記号の名前（`.llvm.<数>` の添字）が、テストを tests.rs に移すと変わった
 # （モジュールの構成で決まると見ているが、確かめていない）。計算する節は同じでも md5 が変わるので、リンクのときに記号を
 # 落とす（ADR-0160）。手で使う target/release は記号を残す
-cargo build --release --locked --target-dir target/dvc --config 'profile.release.strip="symbols"'
+# ワークスペースの全体でなく 3 つのパッケージだけを 1 回の cargo でビルドする。全体をビルドすると、実行ファイルが依存しない
+# クレートの依存が共有の依存の feature を足し、実行ファイルのバイトが変わる。3 つを別々の cargo にしないのは、3 つの間の
+# feature の統合で今の実行ファイルが決まっているため（ADR-0163）
+cargo build --release --locked "${packages[@]}" --target-dir target/dvc --config 'profile.release.strip="symbols"'
 
 mkdir -p bin
-for name in xs lattice core; do
+for name in "${names[@]}"; do
   built="target/dvc/release/$name"
   # worktree のパスや、devShell に入ったディレクトリの outputs/out/lib（入ったのが別の場所なら $top を含まない）が埋まった
   # 実行ファイルは、ほかの worktree と md5 が合わず、段階を再実行することになる

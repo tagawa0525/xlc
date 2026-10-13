@@ -52,6 +52,12 @@ DVC のステージが呼ぶ実行ファイルは、これとは別に `dvc repr
 cargo build --release
 ```
 
+ワークスペースの全体のビルドは、`build` の 3 つのパッケージだけのビルドと共有の依存の feature の統合が違いうるので、
+`target/release` の実行ファイルは `bin/` と同じバイトとは限らない。段階と feature の統合を揃えたいとき（perf、段階の
+パニックの再実行）は、`cargo clean --release -p xlc-xs -p xlc-lattice -p xlc-core` のあと `cargo build --release --locked -p xlc-xs -p xlc-lattice -p xlc-core`
+で作り直す（cargo はリンクの環境を fingerprint に含めないので先に消す。ADR-0159。strip の設定が違うので、`bin/` と同じ機械語に
+なるかは確かめていない。ADR-0163）。
+
 ## TDD のコミット
 
 テストを先に書いて、失敗することを確かめてからコミットする。実装は別のコミットにする。
