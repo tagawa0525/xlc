@@ -2124,8 +2124,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2155,22 +2155,22 @@ stages:
       size: 98
     - path: xs-nuclides
       hash: md5
-      md5: 92c6a07911f3649bc1d47bfa3688e839.dir
-      size: 145347275
-      nfiles: 56
+      md5: eba508cc7489dec78cedbadc0eaf58da.dir
+      size: 151348225
+      nfiles: 61
     - path: xs-range.toml
       hash: md5
       md5: 74fbedef2186ca159d4e33c92bd3d4ff
       size: 35
     - path: xs.toml
       hash: md5
-      md5: 346e0565bf8ce471f0fdf9792063d94d
-      size: 5224
+      md5: 79c6c40bf4bcf71030d1bc20e0397b48
+      size: 5716
     outs:
     - path: vera.msgpack
       hash: md5
-      md5: 1850d83f3a1bc3c8296311833e3551d7
-      size: 145303076
+      md5: 55be71c9f6c2f2f5bdeba172d59665b2
+      size: 151299936
   xs-range:
     cmd: cargo run --release -p xlc-xs -- range xs.toml xs-range.toml
     deps:
@@ -2192,8 +2192,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2228,8 +2228,8 @@ stages:
       size: 98
     - path: xs.toml
       hash: md5
-      md5: 346e0565bf8ce471f0fdf9792063d94d
-      size: 5224
+      md5: 79c6c40bf4bcf71030d1bc20e0397b48
+      size: 5716
     outs:
     - path: xs-range.toml
       hash: md5
@@ -2257,8 +2257,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2344,8 +2344,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2433,8 +2433,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2520,8 +2520,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2607,8 +2607,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2694,8 +2694,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2781,8 +2781,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2868,8 +2868,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -2957,8 +2957,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3044,8 +3044,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3131,8 +3131,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3218,8 +3218,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3305,8 +3305,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3392,8 +3392,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3479,8 +3479,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3566,8 +3566,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3653,8 +3653,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3740,8 +3740,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3827,8 +3827,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -3914,8 +3914,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4001,8 +4001,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4088,8 +4088,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4175,8 +4175,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4262,8 +4262,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4349,8 +4349,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4436,8 +4436,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4523,8 +4523,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4610,8 +4610,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4697,8 +4697,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4784,8 +4784,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4871,8 +4871,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -4958,8 +4958,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5045,8 +5045,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5132,8 +5132,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5219,8 +5219,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5306,8 +5306,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5393,8 +5393,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5480,8 +5480,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5569,8 +5569,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5656,8 +5656,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5743,8 +5743,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5830,8 +5830,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -5917,8 +5917,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6004,8 +6004,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6093,8 +6093,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6185,8 +6185,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6272,8 +6272,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6359,8 +6359,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6446,8 +6446,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6533,8 +6533,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6622,8 +6622,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6709,8 +6709,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6796,8 +6796,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6883,8 +6883,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -6970,8 +6970,8 @@ stages:
       size: 221
     - path: ../../crates/format/src
       hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
       nfiles: 10
     - path: ../../crates/numeric/Cargo.toml
       hash: md5
@@ -7328,3 +7328,438 @@ stages:
       md5: 18eb1cfa6705b3d3f406150a71d41770.dir
       size: 1176258
       nfiles: 5
+  xs-nuclide@Ti-49:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ti-49 
+      xs-nuclides/Ti-49.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: ad3be473f5e54de49d437e1c07992bed.dir
+      size: 627589
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_049.endf
+      hash: md5
+      md5: 82a69c41d3f0a045aded83495c5f991b
+      size: 1160748
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ti-49:
+          endf: n-022_Ti_049.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ti-49.msgpack
+      hash: md5
+      md5: b4b82903ae7d74f23778da8788ecf444
+      size: 978838
+  xs-nuclide@Ti-46:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ti-46 
+      xs-nuclides/Ti-46.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: ad3be473f5e54de49d437e1c07992bed.dir
+      size: 627589
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_046.endf
+      hash: md5
+      md5: 810ca8757a22f1f664fe872ff090ec34
+      size: 1582472
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ti-46:
+          endf: n-022_Ti_046.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ti-46.msgpack
+      hash: md5
+      md5: c8aebdd99868f75edfd02e0d8c94274b
+      size: 1739653
+  xs-nuclide@Ti-47:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ti-47 
+      xs-nuclides/Ti-47.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: ad3be473f5e54de49d437e1c07992bed.dir
+      size: 627589
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_047.endf
+      hash: md5
+      md5: 3bb87a33b59f7b853dd57b2fbeabdde0
+      size: 1129588
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ti-47:
+          endf: n-022_Ti_047.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ti-47.msgpack
+      hash: md5
+      md5: 250b0a4292380e66d489bda969d13ddd
+      size: 853108
+  xs-nuclide@Ti-48:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ti-48 
+      xs-nuclides/Ti-48.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: ad3be473f5e54de49d437e1c07992bed.dir
+      size: 627589
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_048.endf
+      hash: md5
+      md5: 14095c767eea46637b6af758cfac3683
+      size: 1687428
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ti-48:
+          endf: n-022_Ti_048.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ti-48.msgpack
+      hash: md5
+      md5: 000a7fff2802a07593bc39653bb41e49
+      size: 1619908
+  xs-nuclide@Ti-50:
+    cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml Ti-50 
+      xs-nuclides/Ti-50.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: c317644f97a7592a6b1f390d40275be4.dir
+      size: 125688
+      nfiles: 10
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
+      size: 166212
+      nfiles: 13
+    - path: ../../crates/xs/Cargo.toml
+      hash: md5
+      md5: 7a6ddb0747fdf35dd52283f2584e62c6
+      size: 486
+    - path: ../../crates/xs/src
+      hash: md5
+      md5: ad3be473f5e54de49d437e1c07992bed.dir
+      size: 627589
+      nfiles: 38
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_050.endf
+      hash: md5
+      md5: 2e3e0a532daaca1fdf4a15f2c1972c99
+      size: 752628
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ti-50:
+          endf: n-022_Ti_050.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ti-50.msgpack
+      hash: md5
+      md5: a2e6060a298a60a4af506355d1e18303
+      size: 809368

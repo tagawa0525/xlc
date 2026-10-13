@@ -472,6 +472,30 @@ fn pin_powers_need_at_most_one_state() {
 }
 
 #[test]
+fn pin_powers_and_axial_pin_powers_need_different_files() {
+    // 2つは形式の違うファイルで、同じパスなら後に書くほうが先のものを消す
+    let text = edited(
+        CASE,
+        "radial-nodes = 1",
+        "radial-nodes = 1\npin-powers = \"p.msgpack\"\naxial-pin-powers = \"p.msgpack\"",
+    );
+    assert!(Case::parse(&text, base()).is_err());
+}
+
+#[test]
+fn axial_pin_powers_need_at_most_one_state() {
+    let layers = "axial-pin-powers = \"layers.msgpack\"\n";
+    assert!(Case::parse(&format!("{CASE}{layers}{STATES}"), base()).is_err());
+    let one = &STATES[..STATES.find("[state.aro]").unwrap()];
+    let c = Case::parse(&format!("{CASE}{layers}{one}"), base()).unwrap();
+    assert_eq!(c.states, vec![named("cold", 1170.0, 560.0)]);
+    assert_eq!(
+        c.axial_pin_powers,
+        Some(PathBuf::from("dir/layers.msgpack"))
+    );
+}
+
+#[test]
 fn split_nodes_wait_for_reflector_constants() {
     // 反射体の定数の分割（ADR-0108 の次の段階）まで、反射体のある炉心は分けられない
     let c = Case::parse(
@@ -1245,4 +1269,20 @@ fn partial_nodes_away_from_the_z_ends_or_facing_a_mirror_are_accepted() {
     // 反射の端は 1 ノードの問題の限界に当たらない
     let mirror = "\"reflective\", \"reflective\"";
     assert!(rodded_layout(&rodded_case_with_z(mirror, "{ D = 0 }"), &plant).is_ok());
+}
+
+#[test]
+fn case_may_write_axial_pin_powers() {
+    // 核分裂のある層ごとのピン出力と軸方向の出力のファイル。パスはケースのファイルのあるディレクトリから
+    let text = edited(
+        CASE,
+        "radial-nodes = 1",
+        "radial-nodes = 1\naxial-pin-powers = \"layers.msgpack\"",
+    );
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(
+        c.axial_pin_powers,
+        Some(PathBuf::from("dir/layers.msgpack"))
+    );
+    assert_eq!(case().axial_pin_powers, None);
 }
