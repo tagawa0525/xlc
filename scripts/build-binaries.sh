@@ -33,7 +33,10 @@ cargo clean --release --target-dir target/dvc -p xlc-xs -p xlc-lattice -p xlc-co
 # 記号表（.symtab、.strtab）は、計算に使わない内部の記号の名前（`.llvm.<数>` の添字）が、テストを tests.rs に移すと変わった
 # （モジュールの構成で決まると見ているが、確かめていない）。計算する節は同じでも md5 が変わるので、リンクのときに記号を
 # 落とす（ADR-0160）。手で使う target/release は記号を残す
-cargo build --release --locked --target-dir target/dvc --config 'profile.release.strip="symbols"'
+# ワークスペースの全体でなく 3 つのパッケージだけを 1 回の cargo でビルドする。全体をビルドすると、実行ファイルが依存しない
+# クレートの依存が共有の依存の feature を足し、実行ファイルのバイトが変わる。3 つを別々の cargo にしないのは、3 つの間の
+# feature の統合で今の実行ファイルが決まっているため（ADR-0163）
+cargo build --release --locked -p xlc-xs -p xlc-lattice -p xlc-core --target-dir target/dvc --config 'profile.release.strip="symbols"'
 
 mkdir -p bin
 for name in xs lattice core; do
