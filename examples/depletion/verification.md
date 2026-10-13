@@ -1,0 +1,54 @@
+# 燃焼のソルバ（CRAM）
+
+`xlc_depletion::deplete`（[ADR-0161](../../docs/adr/0161-solve-depletion-with-ipf-cram.md)）を、解析解のある小さな鎖と、OpenMC の
+`openmc.deplete.cram` と比べる。範囲と作業の順序は [M4 の計画](../../docs/plans/m4-depletion.md) の進め方の 4。
+
+| ファイル                                          | 内容                                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `cases.toml`                                      | OpenMC と比べる燃焼行列（例示の PWR の燃料の鎖、複素の固有値の環、硬い鎖、300 核種の乱数） |
+| `compare_openmc.py`                               | 同じ行列を OpenMC の `CRAM16`、`CRAM48` と xlc に与えて差を出す（references の devShell）  |
+| `../../crates/depletion/examples/deplete_text.rs` | 行列を文字で受け取って `deplete` を呼ぶ（`compare_openmc.py` が呼ぶ）                      |
+
+誤差と差は、絶対値の最大を初期の数密度の最大で割ったもの（ADR-0161 の「確認」）。
+
+## 解析解との比較
+
+`cargo test -p xlc-depletion`（crates/depletion/src/cram/tests.rs）。閾値は ADR-0161 の「確認」。
+
+### 計算
+
+ed0ee697（分岐点は main の 5c21dfed）、2026-10-14。`cargo test -p xlc-depletion --release -- --nocapture` の `ERROR` の行の、
+テストと次数ごとの最大。
+
+| 鎖                                          | 次数 16 | 次数 48 |
+| ------------------------------------------- | ------- | ------- |
+| 1 核種の崩壊（x ∈ [1e-6, 1e5]）             | 1.1e-15 | 2.2e-15 |
+| 直列の 3 核種（‖A t‖ = 1e9 の硬い鎖を含む） | 1.9e-15 | 1.9e-15 |
+| 分岐                                        | 2.2e-16 | 7.2e-16 |
+| 複素の固有値の環（kt = 0.1〜100）           | 6.1e-12 | 1.0e-15 |
+| 親の 1e-9 倍の娘（相対誤差）                | 1.7e-15 | 4.1e-16 |
+
+次数 16 は、固有値が負の実軸から離れた環でだけ誤差が開く。
+
+## OpenMC との比較
+
+```sh
+cargo build --release -p xlc-depletion --example deplete_text
+nix develop .#references -c python3 examples/depletion/compare_openmc.py \
+    examples/depletion/cases.toml target/release/examples/deplete_text
+```
+
+### 計算
+
+743f1246（分岐点は main の 5c21dfed）、2026-10-14。Slurm のジョブ 314（2 CPU、排他でない）。
+
+| 行列                                                          | 次数 16 の差 | 次数 48 の差 | OpenMC の 16 と 48 の差 |
+| ------------------------------------------------------------- | ------------ | ------------ | ----------------------- |
+| pwr-fuel（14 核種、Pu-239 の α 崩壊の環、30 日）              | 1.8e-18      | 3.2e-16      | 3.2e-16                 |
+| cycle（固有値が複素の環、kt = 10）                            | 5.6e-16      | 2.8e-16      | 6.1e-12                 |
+| stiff（‖A t‖ = 1e9 の鎖）                                     | 4.4e-16      | 3.9e-16      | 1.0e-15                 |
+| random-300（300 核種、環を含む乱数の行列、5 列に 100 個の娘） | 1.6e-16      | 4.1e-16      | 5.1e-16                 |
+
+すべて閾値 1e-13 の内にある。値が初期の最大の 1e-12 倍より大きい核種の相対差の最大は、random-300 で 1.8e-9（16）と
+2.3e-10（48）、ほかは 6.8e-13 以下。random-300 の相対差は、初期の最大の 1e-12 倍に近い小さな核種で、絶対の差（丸めの水準）を
+小さな値で割ったもの。OpenMC の 16 と 48 の差は環の行列でだけ 6.1e-12 に開き、解析解の環の次数 16 の誤差（6.1e-12）と合う。
