@@ -9,11 +9,11 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$here" rev-parse --show-toplevel)
 work=$1; shift
-# 作業ディレクトリの上に .cargo/config.toml があれば止める（ホームの ~/.cargo/config.toml はどのビルドにも効くので除く）
+# 作業ディレクトリの上に .cargo/config.toml か .cargo/config があれば止める（ホームの ~/.cargo/config.toml はどのビルドにも効くので除く）
 d=$(realpath -m "$work")
 while [ "$d" != / ]; do
-  if [ "$d" != "$HOME" ] && [ -e "$d/.cargo/config.toml" ]; then
-    echo "$d/.cargo/config.toml would add its rustflags; use a work directory outside it" >&2
+  if [ "$d" != "$HOME" ] && { [ -e "$d/.cargo/config.toml" ] || [ -e "$d/.cargo/config" ]; }; then
+    echo "$d/.cargo/config(.toml) would add its rustflags; use a work directory outside it" >&2
     exit 1
   fi
   d=$(dirname "$d")
@@ -26,7 +26,8 @@ declare -A flags=(
 )
 # 環境変数の rustflags は設定ファイルと --config の rustflags を上書きし、設定ごとの差が消えるので止める（scripts/build-binaries.sh と同じ確認）
 env_flags='^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTFLAGS|CARGO_PROFILE_[A-Z0-9_]+|CARGO_TARGET_[A-Z0-9_]+_(RUSTFLAGS|LINKER))='
-if env | grep -qE "$env_flags"; then
+# grep -q は最初の一致で抜け、pipefail の下で env の SIGPIPE がパイプラインを失敗にするので、-q を使わない
+if env | grep -E "$env_flags" >/dev/null; then
   echo "compile or link settings are set in the environment: $(env | grep -oE "$env_flags" | tr '\n' ' ')" >&2
   exit 1
 fi

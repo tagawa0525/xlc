@@ -15,7 +15,7 @@ for round in 1 2; do
     for c in 6b39ad13 ab7c70b3 b501c22e; do
       tag=$c-$v-$round
       s=$(date +%s.%N)
-      (cd ../m0 && "$root/bin/xs-$c-$v" xs.toml 2>/dev/null)
+      (cd ../m0 && "$root/bin/xs-$c-$v" xs.toml 2>>"$root/out/xs/$tag.log")
       e=$(date +%s.%N)
       mv ../m0/wims69.msgpack "out/xs/$tag.msgpack"
       echo "TIME $c $v $round $(echo "$e - $s" | bc)"

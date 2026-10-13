@@ -9,7 +9,7 @@ rm -rf out/2A; mkdir -p out/2A
 for round in 1 2 3 4 5 6; do
   for v in v0 v3; do
     s=$(date +%s.%N)
-    "$root/bin/lattice-$c-$v" assembly-2A.toml > "out/2A/$v-$round.out" 2>/dev/null
+    "$root/bin/lattice-$c-$v" assembly-2A.toml > "out/2A/$v-$round.out" 2>"out/2A/$v-$round.log"
     e=$(date +%s.%N)
     echo "TIME 2A $v $round $(echo "$e - $s" | bc)"
     mv assembly-2A-fg.msgpack "out/2A/fg-$v-$round.msgpack"
