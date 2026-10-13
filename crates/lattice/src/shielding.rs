@@ -456,10 +456,12 @@ pub fn shield_fuel_with(
         .filter(|(_, p)| p.is_some())
         .map(|(&(cell, _, index, rings), _)| (cell, index, rings))
         .collect();
+    // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
+    let shielding = tracing::Span::current();
     let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> = solving
         .par_iter()
         .map(|&(cell, index, rings)| {
-            let _pin = tracing::debug_span!("pin", cell).entered();
+            let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
             let factors = factors[cell]
                 .as_ref()
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
