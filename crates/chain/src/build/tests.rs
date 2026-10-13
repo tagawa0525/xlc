@@ -735,10 +735,15 @@ fn rejects_repeated_yield_and_neutron_evaluations() {
 
 #[test]
 fn drops_a_neutron_residual_without_a_warning() {
-    // H-1 (n,p) の残りは中性子
-    let built = build(&with_light(vec![]), &[neutron(1, 1, 0, &[103])], &[]).unwrap();
+    // H-2 (n,p) の残りは中性子だけ（Z = 0）
+    let built = build(
+        &with_light(vec![stable(1, 2)]),
+        &[neutron(1, 2, 0, &[103])],
+        &[],
+    )
+    .unwrap();
     assert_eq!(
-        find(&built, "H-1").reactions[0].channels[0].products,
+        find(&built, "H-2").reactions[0].channels[0].products,
         vec![one(&built, "H-1")]
     );
     assert!(built.warnings.is_empty(), "{:?}", built.warnings);
