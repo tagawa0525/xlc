@@ -1,6 +1,21 @@
 use super::*;
 use std::f64::consts::PI;
 
+#[test]
+fn parallel_rows_come_back_in_index_order() {
+    let rows: Result<Vec<usize>, ()> = in_parallel(1000, |i| Ok(i * i));
+    assert_eq!(rows.unwrap(), (0..1000).map(|i| i * i).collect::<Vec<_>>());
+}
+
+#[test]
+fn parallel_rows_return_the_error_of_the_lowest_index() {
+    for _ in 0..20 {
+        let rows: Result<Vec<usize>, usize> =
+            in_parallel(1000, |i| if i % 97 == 50 { Err(i) } else { Ok(i) });
+        assert_eq!(rows, Err(50));
+    }
+}
+
 fn assert_rel(actual: f64, expected: f64, tol: f64) {
     assert!(
         (actual - expected).abs() <= tol * expected.abs(),
