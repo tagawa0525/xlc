@@ -1,4 +1,4 @@
-//! 燃焼鎖の型（ADR-0034、ADR-0166）。鎖のファイルの読み書きと、鎖と反応率から燃焼行列を組み立てるコードを持つ。
+//! 燃焼鎖の型（ADR-0164、ADR-0166）。鎖のファイルの読み書きと、鎖と反応率から燃焼行列を組み立てるコードを持つ。
 //!
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //!
@@ -140,7 +140,7 @@ pub struct FinalState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fission {
-    /// 収率を取った核種（自分の収率がなければ、鎖を作る規則で選んだ別の核種）
+    /// 収率を取った核種（自分の収率がなければ、ADR-0164 の規則で選んだ別の核種）
     pub yield_source: String,
     /// 収率の入射エネルギー (eV)、昇順
     pub energies: Vec<f64>,
@@ -180,7 +180,7 @@ where
 /// 形式の名前
 const FORMAT: &str = "xlc-chain";
 
-/// 崩壊の分岐比の和の、1 からのずれの許容。鎖を作るときに比で割り直すので、和の丸め（数十項で数 ε）より十分大きく、
+/// 崩壊の分岐比の和の、1 からのずれの許容。鎖を作るときに比で割り直す（ADR-0164）ので、和の丸め（数十項で数 ε）より十分大きく、
 /// 割り直しを忘れた鎖（ずれは ENDF/B-VIII.0 の decay で最大 9e-7。Ba-114）を止める大きさ
 const RATIO_SUM_TOLERANCE: f64 = 1e-12;
 
@@ -330,7 +330,7 @@ impl Chain {
                     if !steps.iter().all(|s| DECAY_STEPS.contains(s)) {
                         return invalid(format!("{name}: unknown decay mode {}", mode.mode));
                     }
-                    // 自発核分裂は核を壊し、核分裂片は追わない（核分裂片の収率の評価を鎖の元に含めない）
+                    // 自発核分裂は核を壊し、核分裂片は追わない（ADR-0164）
                     if steps.contains(&"sf") && !mode.products.is_empty() {
                         return invalid(format!("{name}: {} has products", mode.mode));
                     }
@@ -577,7 +577,7 @@ impl Chain {
 }
 
 impl Fission {
-    /// 収率のエネルギーの点ごとの区間の、内側の境界 (eV)。隣の点の幾何平均で区切る。点が k 個なら k − 1 個
+    /// 収率のエネルギーの点ごとの区間の、内側の境界 (eV)。隣の点の幾何平均で区切る（ADR-0164）。点が k 個なら k − 1 個
     pub fn yield_bounds(&self) -> Vec<f64> {
         self.energies
             .windows(2)
