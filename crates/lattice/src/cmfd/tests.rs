@@ -147,8 +147,8 @@ fn a_slab_of_thin_cells_converges_within_a_few_hundred_iterations() {
 
 #[test]
 fn a_slab_with_a_close_second_mode_converges_quickly_from_a_nearby_k() {
-    // 400 cm の平板は 2 番目の固有値が近く（優位比 0.97 程度）、シフトのない逆反復は約 700 回かかる。k の近くに
-    // シフトすると、2 つの固有値の差に比べて近いほど速く収束する
+    // 400 cm の平板は 2 番目の固有値が近く、シフトのない逆反復は 100 回で収束しない。k の近くにシフトすると、
+    // 2 つの固有値の差に比べて近いほど速く収束する
     let coarse = slab(200, 2.0, true);
     let unlimited = CmfdOptions {
         max_iterations: 1_000_000,
@@ -160,6 +160,13 @@ fn a_slab_with_a_close_second_mode_converges_quickly_from_a_nearby_k() {
         max_iterations: 100,
         ..CmfdOptions::default()
     };
+    let Solver::Chain(chain) = &coarse.solver else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    assert!(matches!(
+        coarse.inverse_iteration(chain, 1.0, 0.0, &budget),
+        Err(CmfdError::NotConverged(100))
+    ));
     for start in [0.95, 1.0] {
         let (k, ratio) = coarse.solve(start, &budget).unwrap();
         assert!(
@@ -180,9 +187,18 @@ fn a_slab_solves_from_a_k_far_below_the_eigenvalue() {
         max_iterations: 1_000_000,
         ..CmfdOptions::default()
     };
-    let (near, _) = coarse.solve(1.0, &unlimited).unwrap();
+    let Solver::Chain(chain) = &coarse.solver else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    let shift = 1.0 / (0.5 * (1.0 + WIELANDT));
+    assert!(matches!(
+        coarse.inverse_iteration(chain, 0.5, shift, &unlimited),
+        Err(CmfdError::ShiftBelowEigenvalue)
+    ));
+    // 2 次元の格子として組み立てると Gauss-Seidel で解く
+    let (reference, _) = slab(200, 2.0, false).solve(1.0, &unlimited).unwrap();
     let (far, _) = coarse.solve(0.5, &unlimited).unwrap();
-    assert!((far - near).abs() < 1e-9, "{far} vs {near}");
+    assert!((far - reference).abs() < 1e-9, "{far} vs {reference}");
 }
 
 #[test]
