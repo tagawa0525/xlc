@@ -147,7 +147,7 @@ pub fn solve_rodded(
 
 /// 部分挿入のノードの入力を確かめる: 位置にノードがあり、物質がそのノードだけのもので、区間が 2 つ以上、長さが正で
 /// 和がノードの幅、区間の定数が核分裂を持ち（核分裂のない層の部分挿入は、軸方向の反射体の層の制御棒の軸（#0030）
-/// とともに扱う）、群、f* の辺、z の厚さ、真空の辺、ピンのセルが区間の間で同じ。
+/// とともに扱う）、z の辺に f* がなく、群、f* の辺、z の厚さ、真空の辺、ピンのセルが区間の間で同じ。
 fn check_partial(problem: &Problem, partial: &[PartialNode]) -> Result<(), String> {
     // 区間の長さは層の境界と制御棒の位置の差の和なので、丸めを許す
     const TOLERANCE: f64 = 1.0e-9;
@@ -191,6 +191,12 @@ fn check_partial(problem: &Problem, partial: &[PartialNode]) -> Result<(), Strin
             ));
         }
         let first = &p.segments[0].constants;
+        // 混ぜた定数の z の辺は細かいメッシュの不連続因子で置き換えるので、燃料の ADF で割った f* の印を残せない
+        if first.normalized_adf[4] || first.normalized_adf[5] {
+            return Err(format!(
+                "{at}: the intervals have f* on a z side, which the mixed z-face factors replace"
+            ));
+        }
         let vacuum = |m: &FewGroup| {
             m.vacuum_ratio
                 .iter()
