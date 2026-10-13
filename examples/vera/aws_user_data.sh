@@ -2,17 +2,19 @@
 # aws_run.sh が source する。1 つのジョブを自己完結に流す VM の user-data（cloud-init のシェルスクリプト）を標準出力に書く
 # （ADR-0155）。AWS を呼ばないので、単体の検査（test_aws_user_data.sh）でも source できる。
 #
-# aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <クロージャの鍵> <openmc> <python> <awscli>
+# aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <クロージャの鍵> <openmc> <python> <awscli> <間隔>
 #   <job>      results/ の下の名前（入力の basename から .toml を除いたもの。run_remote.sh と同じ）
 #   <入力>     作業ディレクトリ（S3 の runs/<run>/src/ をコピーしたもの）からの相対
 #   <ライブラリの鍵>、<クロージャの鍵>  S3 の store/openmc-library/<鍵>/、store/nix/<鍵>/
+#   <間隔>     入力の statepoint-interval を上書きする世代数（正の整数。空なら上書きしない。ADR-0168）
 aws_user_data() {
-  (($# == 13)) || { echo "aws_user_data: 引数は 13 個（$# 個）" >&2; return 2; }
+  (($# == 14)) || { echo "aws_user_data: 引数は 14 個（$# 個）" >&2; return 2; }
   local region=$1 bucket=$2 run=$3 job=$4 input=$5 restart=$6 minutes=$7 seconds=$8 library=$9
-  local closure=${10} openmc=${11} python=${12} awscli=${13} v
+  local closure=${10} openmc=${11} python=${12} awscli=${13} interval=${14} v
   [[ $restart == 0 || $restart == 1 ]] || { echo "aws_user_data: 再開は 0 か 1（$restart）" >&2; return 2; }
   [[ $minutes =~ ^[1-9][0-9]*$ && $seconds =~ ^[1-9][0-9]*$ ]] ||
     { echo "aws_user_data: 最長の分と同期の秒は正の整数（$minutes、$seconds）" >&2; return 2; }
+ [[ $interval =~ ^([1-9][0-9]*)?$ ]] || { echo "aws_user_data: 間隔は正の整数か空（$interval）" >&2; return 2; }
   for v in "$openmc" "$python" "$awscli"; do
     [[ $v =~ ^/nix/store/[a-z0-9]{32}-[^/[:space:]]+$ ]] || { echo "aws_user_data: store のパスではない: $v" >&2; return 2; }
   done
@@ -137,11 +139,10 @@ if [[ \$keys != None ]]; then
 fi
 READY=1
 USERDATA
-  if ((restart)); then
-    echo "bash examples/vera/run_remote.sh --restart $input"
-  else
-    echo "bash examples/vera/run_remote.sh $input"
-  fi
+  local flags=
+  ((restart)) && flags=" --restart"
+  [[ -z $interval ]] || flags="$flags --statepoint-interval $interval"
+  echo "bash examples/vera/run_remote.sh$flags $input"
 
   cat <<USERDATA
 # run_remote.sh は done を 1 回の echo で書くので、空のうちに読まないよう数字になるまで待つ

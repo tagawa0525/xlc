@@ -145,13 +145,13 @@ examples/vera/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m
 
 S3 の置き場:
 
-| 接頭辞                                     | 中身                                                                                                                                       | 期間        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| `store/nix/<鍵>/`                          | クロージャ（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）                                                | 残す        |
-| `store/openmc-library/<鍵>/`               | `examples/vera/openmc-library`                                                                                                             | 残す        |
-| `runs/<名前>/launch.env`、`src/`           | 起動の記録（コミット。追跡していない入力や変更があれば `-dirty`。store のパス、鍵、入力）と、VM が使うスクリプトと入力                     | 30 日で失効 |
-| `runs/<名前>/launches/<時刻>-<ジョブ>.env` | 起動できた VM ごと（起動し直しを含む）の、user-data を作ったツールのコミット、AMI、機種、最長時間、同期の間隔、再開の有無、インスタンス ID | 30 日で失効 |
-| `runs/<名前>/<ジョブ>/`                    | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot-<時刻>.log`、`done`                                          | 30 日で失効 |
+| 接頭辞                                     | 中身                                                                                                                                                                        | 期間        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `store/nix/<鍵>/`                          | クロージャ（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）                                                                                 | 残す        |
+| `store/openmc-library/<鍵>/`               | `examples/vera/openmc-library`                                                                                                                                              | 残す        |
+| `runs/<名前>/launch.env`、`src/`           | 起動の記録（コミット。追跡していない入力や変更があれば `-dirty`。store のパス、鍵、入力）と、VM が使うスクリプトと入力                                                      | 30 日で失効 |
+| `runs/<名前>/launches/<時刻>-<ジョブ>.env` | 起動できた VM ごと（起動し直しを含む）の、user-data を作ったツールのコミット、AMI、機種、最長時間、同期の間隔、再開の有無、インスタンス ID、AZ、市場、`STATEPOINT_INTERVAL` | 30 日で失効 |
+| `runs/<名前>/<ジョブ>/`                    | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot-<時刻>.log`、`done`                                                                           | 30 日で失効 |
 
 鍵は内容のハッシュ（クロージャは store のパスの組、核データはファイルの sha256 の一覧）。`aws_run.sh` は毎回 `aws s3 sync` で置き、S3 に
 あるものは送らない。`launch.env` は最後に置く（あれば `src/` と `store/` はそろっている）。入力はリポジトリの直下からの相対パス
@@ -185,7 +185,11 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 様子は `aws_status.sh`、S3 の `boot-*.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
 
 起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`--type`、`--max-hours`、
-`--sync-minutes`、`--az`、`--on-demand`（スポットに戻すのは `--spot`）は、指定がなければ最後の起動の記録（`launches/`）の値を使う。`done` が 0 の
+`--sync-minutes`、`--az`、`--on-demand`（スポットに戻すのは `--spot`）は、指定がなければ最後の起動の記録（`launches/`）の値を使う。
+`--statepoint-interval <世代>` は、その起動の OpenMC の実行だけ、入力の `statepoint-interval` を上書きする（S3 の `src/` の入力は
+書き換えない。中断が続くときに失う分を縮める。ADR-0168）。記録から引き継がず毎回明示し、指定がなければ入力の値になる。
+参照解の statepoint の間隔は物理の結果に影響しないが、記録には起動し直しで使った間隔を書く（`launches/` の `STATEPOINT_INTERVAL`）。
+起動し直しの VM は、そのときの手元の `aws_run.sh` が作る user-data で起動する（`TOOLS_COMMIT`）。走っている VM は古いまま。`done` が 0 の
 ジョブと、VM が走っているジョブは飛ばす。0 でないジョブ（失敗）は飛ばして示し、ほかのジョブは起動する（終わりの状態は 1。`boot-*.log` を見て、原因を直してから
 `aws s3 rm s3://<バケット>/runs/<名前>/<ジョブ>/done` で `done` を消すと、そのジョブも起動し直せる）。最後の世代の statepoint があって `done` が
 ないジョブ（完了のあと `done` を置く前に止まった）は起動せず、`SHA256SUMS` とログを確かめて手で `done` を置くよう示す。

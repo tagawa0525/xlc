@@ -1,11 +1,11 @@
 """VERA Problem 3A と 3B（3D の 17×17 集合体、零出力）を OpenMC の連続エネルギーモードで解く。
 
-使い方: python3 openmc_model_3d.py run [--restart] [--threads N] <入力> <作業ディレクトリ>
+使い方: python3 openmc_model_3d.py run [--restart] [--threads N] [--statepoint-interval N] <入力> <作業ディレクトリ>
         python3 openmc_model_3d.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
 <入力> は p3/openmc-3A.toml の形の TOML で、openmc_model.py の入力と同じキー（`problem`、`cross-sections`、`particles`、
 `batches`、`inactive`、`seed`、`threads`）をすべて書く（既定値はない。ADR-0130）。途中の statepoint を書く間隔は、任意のキー `statepoint-interval`（世代数）。
-`--restart` と `--threads` は openmc_resume.py。run と extract の分け方も openmc_model.py
+`--restart`、`--threads`、`--statepoint-interval` は openmc_resume.py。run と extract の分け方も openmc_model.py
 と同じ（ADR-0123）。
 
 径方向の形（ピン、案内管、計装管、Pyrex の棒の寸法と配置、支持格子の枠の置き方）と、問題 2 と同じ組成は
@@ -470,7 +470,7 @@ def solve(source: Path, work: Path, options: Options) -> None:
     entropy.upper_right = (half, half, FUEL_TOP)
     entropy.dimension = (4, 4, 48)
     settings.entropy_mesh = entropy
-    set_statepoints(settings, run)
+    set_statepoints(settings, run, options)
     settings.temperature = temperature_mode(TEMPERATURE[problem])
 
     # 層ごとのピン、全長で積分したピン、層ごとの集合体全体。積分した値も別の tally で数えるのは、ピンや層の間の世代
