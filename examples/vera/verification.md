@@ -350,6 +350,8 @@ Pyrex のある外周の 12 体は単一集合体の定数のまま）。断面�
 
 ```sh
 # リポジトリの直下で、433f89ff（pairing.py は 20bad649）を checkout して。python3 は references の devShell の中
+# references/openmc/vera-5A-2D-results は、段階 openmc-5A-2D-extract の出力 examples/vera/p5/openmc-5A-2D-results と
+# バイト単位で同じ（手で extract を実行して書いたもの）
 python3 trials/p5-0086/trial_inputs.py      # tables/ と、置き換えた入力を書く
 cargo run --release -p xlc-core -- trials/p5-0086/5A-IC-xs.toml > trials/p5-0086/5A-IC-xs.out
 python3 examples/vera/compare_p5.py openmc trials/p5-0086/5A-IC-xs.out trials/p5-0086/5A-IC-xs-pins.msgpack \
