@@ -3,7 +3,7 @@
 # VM は user-data（aws_user_data.sh）で Nix とクロージャ、核データ、入力を S3 から取り、run_remote.sh で流し、S3 の
 # runs/<name>/<ジョブ>/ に同期し、終わると自分を終了する。手元はこのコマンドのあと要らない。
 #
-# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] <name> [<入力>...]
+# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--az AZ] [--on-demand | --spot] <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。クロージャ、核データ、スクリプトと入力を S3 に置く
@@ -13,21 +13,30 @@
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
+#   --az       AZ を固定する（例 us-east-1b）。その AZ の default サブネットで起動する。無指定は AWS が選ぶ。起動し直しでは、
+#              指定がなければ最後の起動の記録の値（固定を外すのは --az any）
+#   --on-demand  スポットでなくオンデマンドで起動する（中断が続くときの逃げ道。価格は約 2.5 倍）。起動し直しでは、
+#              指定がなければ最後の起動の記録の値。スポットに戻すのは --spot
 #   --dry-run  S3 に置かず起動もせず、ジョブごとの起動の引数（aws の --dry-run で検証）と user-data の要約を出す
 # バケットは XLC_BUCKET（既定 xlc-openmc-118645514640）、インスタンスプロファイルは xlc-openmc-vm。
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
 sync_minutes=
+az=
+market=
 name=""
 inputs=()
 while (($#)); do
   case $1 in
     --help | -h) usage; exit 0 ;;
+    --az) az=${2:?--az に値が要ります}; shift ;;
+    --on-demand) [[ $market != spot ]] || { echo "--on-demand と --spot は同時に指定できない" >&2; exit 2; }; market=on-demand ;;
+    --spot) [[ $market != on-demand ]] || { echo "--on-demand と --spot は同時に指定できない" >&2; exit 2; }; market=spot ;;
     --dry-run) dry=1 ;;
     --type) type=$2; shift ;;
     --max-hours) max_hours=$2; shift ;;
@@ -45,6 +54,8 @@ done
 source "$here/aws_common.sh"
 # shellcheck source=aws_user_data.sh
 source "$here/aws_user_data.sh"
+# 置く前に確かめる（誤った AZ で S3 に半端な実行を残さない。起動し直しの値は後で確かめる）
+[[ -z $az || $az == any ]] || az_subnet_id "$az"
 
 run_prefix=s3://$XLC_BUCKET/runs/$name
 # VM はバケットと同じリージョンで起動する（VM と S3 の間の転送を無料にし、user-data の AWS CLI のリージョンを合わせる）
@@ -179,6 +190,9 @@ else
     type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
     max_hours=${max_hours:-$(sed -n 's/^MAX_HOURS=//p' <<< "$last")}
     sync_minutes=${sync_minutes:-$(sed -n 's/^SYNC_MINUTES=//p' <<< "$last")}
+    az=${az:-$(sed -n 's/^AZ=//p' <<< "$last")}
+    market=${market:-$(sed -n 's/^MARKET=//p' <<< "$last")}
+    [[ $market != on-demand ]] || echo "警告: 最後の起動はオンデマンド（約 2.5 倍）。スポットに戻すなら --spot" >&2
     echo "最後の起動（${last_key##*/}）の設定を引き継ぐ（指定がなければ）"
   fi
   todo=()
@@ -232,8 +246,16 @@ fi
 type=${type:-c7a.4xlarge}
 max_hours=${max_hours:-14}
 sync_minutes=${sync_minutes:-5}
+market=${market:-spot}
+[[ $market == spot || $market == on-demand ]] || { echo "起動の記録の MARKET が spot でも on-demand でもない: $market" >&2; exit 1; }
+[[ $az != any ]] || az=
+subnet_args=()
+if [[ -n $az ]]; then
+  az_subnet_id "$az"
+  subnet_args=(--subnet-id "$SUBNET_ID")
+fi
 ami=$(ubuntu_ami)
-echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと"
+echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと、市場: $market、AZ: ${az:-指定なし}"
 
 if ((!dry)); then
   # user-data を作ったこのスクリプトのチェックアウト（作業ディレクトリでなく）
@@ -251,11 +273,12 @@ for i in "${!todo[@]}"; do
     --iam-instance-profile Name=xlc-openmc-vm
     --instance-initiated-shutdown-behavior terminate
     --metadata-options 'HttpTokens=required,HttpEndpoint=enabled'
-    --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'
     --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true}'
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$host},{Key=Project,Value=xlc},{Key=XlcRun,Value=$name}]"
     --user-data "$user_data"
+    "${subnet_args[@]}"
     --query 'Instances[0].InstanceId' --output text)
+  if [[ $market == spot ]]; then args+=(--instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'); fi
   if ((dry)); then
     out=$(aws ec2 run-instances "${args[@]}" --dry-run 2>&1 || true)
     [[ $out == *DryRunOperation* ]] || { echo "$out" >&2; exit 1; }
@@ -264,8 +287,8 @@ for i in "${!todo[@]}"; do
     id=$(aws ec2 run-instances "${args[@]}")
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
     # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作るツール、AMI、機種はこの起動のもの）。起動できたものだけ書く
-    printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\n' "$tools" "$ami" \
-      "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" |
+    printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\n' "$tools" "$ami" \
+      "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$az" "$market" |
       aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
   fi
 done
