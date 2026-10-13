@@ -21,7 +21,7 @@ Cargo は、1 回のビルドで選んだパッケージの全体で、共有す
 全体をビルドすると、3 つの実行ファイルの md5 がすべて変わった（xs: e77257b3 → 563bfe80、lattice: 85a3c566 → 9846663c、
 core: fe2d8761 → 6cf69103）。crates/depletion を外し、Cargo.toml と Cargo.lock を main に戻すと元の md5 に戻る（#0114）。
 原因の候補は feature の統合で、`cargo tree --workspace -e features` では faer-traits が num-complex に `bytemuck` を足し、libm が
-入る。レビューで、syn v2 に `default` の feature が足されることも見つかった（42ed150e で全体と 3 つの `-p` を比べた差は、
+入る。レビューで、syn v2 に `default` の feature が足されることも見つかった（feat/cram-depletion-solver を 5c21dfed に rebase したもので、全体と 3 つの `-p` を比べた差は、
 num-complex の `bytemuck` と syn v2 の `default` の 2 つ）。syn v2 は proc-macro の tracing-attributes を通じて 3 つのすべてが
 依存するので、num-complex に依存しない lattice と core が変わる経路の候補になる（確かめていない）。
 
@@ -39,6 +39,9 @@ num-complex の `bytemuck` と syn v2 の `default` の 2 つ）。syn v2 は pr
   依存の木の中に閉じる。crates/depletion を含めたブランチ（feat/cram-depletion-solver を 5c21dfed に rebase したもの）の作業ツリーで、
   スクリプトをコミットせずに書き換えて試し、3 つの md5 が元と一致した（2026-10-14。案 C の測定とともに、コミットからは再現
   できない。今の main の上の再現は「確認」）。3 つの間の統合は残るので、1 つの依存の変更がほかの 2 つを変えうる（採用）
+- 案 D: ワークスペースの `default-members` を 3 つのパッケージにする。手で打つ `cargo build --release` も同じ集合で統合されるが、
+  `cargo test` や `cargo clippy`（run-checks.sh を含む）が `--workspace` なしでは 3 つしか見なくなり、共通のクレートと crates/docs
+  の検査が黙って抜けうる
 - 案 C: 3 つを別々の cargo（`-p` を 1 つずつ）でビルドする。3 つの間の統合もなくなる。捨てたブランチ fix/build-only-stage-binaries
   （5c21dfed の上）の作業ツリーで、コミットせずに試すと、
   lattice（85a3c566 → 90e3f50c）と core（fe2d8761 → 7aa410c7）の md5 が全体のビルドと変わった（xs は変わらない）。今は
@@ -63,12 +66,12 @@ ADR-0159 の案 T1 のうち、ワークスペースの全体をビルドして�
 このブランチ（b3d8a4a3、分岐点は main の 0ceb6fe3、2026-10-14）で、変更の前（全体のビルド。0ceb6fe3）と後（3 つの `-p`）の
 `bin/` の md5 が一致する（xs e77257b3、lattice 03b6048d、core fe2d8761）。main の dvc.lock の lattice（85a3c566）は 0ceb6fe3 の前のもので、0ceb6fe3 が
 lattice を変えたあと `build` を走らせ直していない（そのマージの本文のとおり、lattice の段階はあとで測り直す）。
-crates/depletion を含めたときに md5 が変わらないことは、上の捨てたブランチ（5c21dfed）で確かめた。今の main の上では、
+crates/depletion を含めたときに md5 が変わらないことは、案 B に書いた feat/cram-depletion-solver の作業ツリーの試し（5c21dfed）で見た。今の main の上では、
 feat/cram-depletion-solver のマージの前に確かめ、#0114 を閉じる。
 
 ## 帰結
 
 - 手で `cargo build --release`（ワークスペースの全体）した `target/release` の実行ファイルは、`bin/` と feature の統合が違いうる。
-  perf などで `target/release` を使うとき（ADR-0160）、同じ機械語にしたければ `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core`
-  で作る（docs/environment.md）
+  perf などで `target/release` を使うとき（ADR-0160）、feature の統合を `bin/` と揃えるには `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core`
+  で作る（docs/environment.md）。strip の設定などが違うので、`bin/` と同じ機械語になるかは確かめていない
 - 3 つの間の feature の統合は残るので、3 つのどれかの依存の変更は、ほかの 2 つの実行ファイルも変えうる（案 C の測定）
