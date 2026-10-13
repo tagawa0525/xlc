@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [build, dvc]
 opened: 2026-10-14
-closed:
+closed: 2026-10-14
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0163
 ---
 
 # faer を依存に持つクレートを足すと、build の段階の 3 つの実行ファイルがすべて変わる
@@ -50,3 +50,4 @@ ADR-0160）が崩れる。ADR-0159 を置き換える決定になる。3 つを 
 
 - 2026-10-14: feat/cram-depletion-solver の rebase のあと、`dvc repro -s build` で見つけた。`-p` の 2 つの形を試して捨てた
 - 2026-10-14: (b)（3 つを 1 回の cargo）に決めた（ADR-0163）。T1 の「`target/release` と同じ実行ファイル」は置き換え、perf のときの作り方を docs/environment.md に書いた。「根本の解決ではない」の指摘には、3 つの間の結びつきが問題になったときに (c) に移ると ADR-0163 で答えた。完了の条件の 2 つ目（feat/cram-depletion-solver での確認）が残る
+- 2026-10-14: feat/cram-depletion-solver を main の 34294723 に rebase し（83caa202）、`dvc repro -s build` で 3 つの md5 が main の dvc.lock と一致することを確かめた（xs e77257b3、lattice 03b6048d、core fe2d8761）。閉じる

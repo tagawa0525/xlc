@@ -8,6 +8,8 @@ edition = "2024"
 
 [workspace.dependencies]
 anyhow = "1.0.104"
+# 燃焼の CRAM の疎な複素 LU（ADR-0007、ADR-0161）。faer の並列（rayon）は切る。材料ごとの並列は呼ぶ側が持つ
+faer = { version = "0.24.4", default-features = false, features = ["std", "sparse-linalg"] }
 num-complex = "0.4.6"
 num_cpus = "1.17.0"
 rayon = "1.12.0"
