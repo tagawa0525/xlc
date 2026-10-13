@@ -58,8 +58,9 @@ pub(crate) struct Window {
 }
 
 /// 列の z の位置ごとの部分挿入のノードの印から、窓を作る（ADR-0127 の「窓」）。部分挿入のノードが続く範囲に、
-/// 上と下の一様なノードを 1 つずつ加え、同じ一様なノードを端に持つ 2 つの窓は 1 つにまとめる。どちらの端にも一様な
-/// ノードを加えられない窓は、細かいメッシュの解の大きさが決まらないのでエラー。
+/// 上と下の一様なノードを 1 つずつ加え、同じ一様なノードを端に持つ 2 つの窓は 1 つにまとめる（まとめると両端が炉心の
+/// 端になるときは、まとめない）。どちらの端にも一様なノードを加えられない窓は、細かいメッシュの解の大きさが決まらない
+/// のでエラー。
 pub(crate) fn windows(partial: &[bool]) -> Result<Vec<Window>, String> {
     let n = partial.len();
     let mut out: Vec<Window> = Vec::new();
@@ -78,8 +79,12 @@ pub(crate) fn windows(partial: &[bool]) -> Result<Vec<Window>, String> {
             constrained: [start > 0, z < n],
         };
         match out.last_mut() {
-            // 前の窓の上端の一様なノードが、この窓の下端の一様なノードと同じ
-            Some(last) if window.nodes.start < last.nodes.end => {
+            // 前の窓の上端の一様なノードが、この窓の下端の一様なノードと同じ。まとめると両端が炉心の端になるときは、
+            // まとめずに、共有するノードでそれぞれを拘束する（同じノードが 2 つの窓に入る）
+            Some(last)
+                if window.nodes.start < last.nodes.end
+                    && (last.constrained[0] || window.constrained[1]) =>
+            {
                 last.nodes.end = window.nodes.end;
                 last.constrained[1] = window.constrained[1];
             }
