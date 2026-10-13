@@ -147,6 +147,8 @@ strip した版も同じ場所から違った。違いは RUNPATH の先頭の `
 - crates/lattice/src/moc.rs の先頭にコメントの行を足す: lattice だけが変わり（`99b8a12c…`）、xs と core は変わらない。
   原因の候補は、`tracing` の呼び出しの位置とパニックの位置として、ソースのパスと行番号が実行ファイルに入ること
   （lattice の実行ファイルは文字列 `crates/lattice/src/moc.rs` を含む。行番号が入ることは確かめていない。#0110）
+- default の devShell の `packages` に `pkgs.libxml2`（`NIX_LDFLAGS` に `-L` が増える）と `pkgs.hello` を足し、`dvc repro -f -s build`
+  で作り直す: 3 つとも変わらない（d46ca620 の上で。下の (f)）
 
 (d) DVC の振る舞い（DVC 3.67.1。一時のリポジトリで、ルートの `build` とサブディレクトリの計算の段階の組）:
 `dvc repro <サブディレクトリ>/dvc.yaml` は、上流のルートの `build` も走らせた。`build` のソースを、出力を変えないように
@@ -162,6 +164,11 @@ examples/reflector の xs）を `dvc commit` した。`dvc.lock` の差分は、
 比べた）。残る 1 つの examples/core の `compare`（deps の rods_cases.py が変わった。数秒）は `dvc repro -s` で走らせ直し、
 `compare.out` の md5 は変わらなかった（`a4a1c8e6…`）。そのあとの `dvc status` は、切り替えの前と同じ 127 項目を示した。
 
+(f) マージの前に main の d46ca620（#0039 の自己遮蔽の高速化で crates/lattice が変わった）に rebase し、`build` を走らせ直した。
+lattice は `bfe45232…` に変わり、xs と core は (a) と同じだった。lattice の段階はすべて切り替えの前から changed だったので、
+changed の段階は増えなかった（127 項目のまま）。移行の `dvc commit` は 387743fc の上で行ったもので、その段階は xs の
+段階と reflector の xs だけである。
+
 ## 帰結
 
 - 出力を変えない変更のうち、実行ファイルのバイトを変えないもの（テストの変更、`src` の外の変更、開発の道具の追加、
@@ -175,8 +182,14 @@ examples/reflector の xs）を `dvc commit` した。`dvc.lock` の差分は、
 - `dvc status examples/<問題>/dvc.yaml` は上流の `build` を示さない。ソースの変更で古くなったかは、`dvc status`（引数なし）か
   `--with-deps` で見る。どの計算の段階が古くなったかは、`build` を走らせるまで分からない（実行ファイルが変わったかで
   決まる）。rebase のあとの手順（/dvc-relock）は、先に `build` を走らせる
+- リポジトリの直下の `dvc.lock` は、最後に `build` を走らせたときの実行ファイルを記録する。計算の段階を走らせたら、
+  例の `dvc.lock` と一緒にコミットする（例の `dvc.lock` が記録する実行ファイルの md5 と揃えるため）。コードだけを変える
+  ブランチは、ほかの段階と同じく（ADR-0130）`build` を古いまま残してよい。その main で `dvc checkout dvc.yaml` が戻すのは
+  古いソースの実行ファイルで、`dvc repro` すれば `build` が作り直す
 - `bin/` の実行ファイルは worktree ごとにあり、`dvc checkout` でキャッシュから戻る。ある commit の `dvc.lock` が指す実行ファイルが
-  キャッシュにあれば、出力を作った実行ファイルそのものを戻せる。キャッシュは、作った実行ファイルの版ごとに約 13 MB
+  キャッシュにあれば、出力を作った実行ファイルそのものを戻せる。実行ファイルは動的にリンクしていて、RUNPATH と ELF の
+  インタープリタが nix store の glibc などを指すので、走らせるにはその store のパスが要る（nix の GC で消えたら、その
+  commit の `flake.lock` で devShell に入れば戻る）。キャッシュは、作った実行ファイルの版ごとに約 13 MB
   （3 つの合計）ずつ増える。消し方は ADR-0123 の帰結のとおり `dvc gc --all-commits`
 - Slurm で流すときは、`nix develop -c dvc repro …` のジョブの中で `build` が走る（ビルドの時間がジョブに入る）。`build` は
   default の devShell の中でしか走らない。`NIX_NO_SELF_RPATH` は devShell に入ったときに決まるので、この変更より前に入った
