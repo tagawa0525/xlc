@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# build-binaries.sh — DVC の build の段階（リポジトリの直下の dvc.yaml）。xs、lattice、core の release の実行ファイルを
-# 記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
+# build-binaries.sh — DVC の build の段階（リポジトリの直下の dvc.yaml）。xs、lattice、core と、xs の段階の燃焼チェーンの
+# chain（ADR-0166）の release の実行ファイルを記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
 #
 # Usage: scripts/build-binaries.sh（リポジトリの直下で、default の devShell の中から。dvc repro が呼ぶ）
 #
 # cargo はリンクの環境（NIX_LDFLAGS、ホームの設定のリンカ）を fingerprint に含めず、環境だけが変わってもリンクし直さない。
-# そのため、手で使う target/release と分けた target/dvc で、実行ファイルの 3 つのパッケージを毎回消してからビルドする
+# そのため、手で使う target/release と分けた target/dvc で、実行ファイルのパッケージ（xs、lattice、core、chain）を毎回消してからビルドする
 # （コンパイルとリンクを今の環境でやり直す。依存のクレートは再利用する）。
 
 set -euo pipefail
@@ -29,14 +29,22 @@ if env | grep -qE "$flags"; then
   exit 1
 fi
 
-# 実行ファイルの名前（パッケージは xlc-<名前>）。clean、build、コピーする先で同じ並びを使う
+# 1 回の cargo で作る実行ファイルの名前（パッケージは xlc-<名前>）。下の separate と合わせて、clean、build、コピーする先に使う
 names=(xs lattice core)
 packages=()
 for name in "${names[@]}"; do
   packages+=(-p "xlc-$name")
 done
 
-cargo clean --release --target-dir target/dvc "${packages[@]}"
+# chain は xlc-depletion（faer）に依存するので、3 つと同じ cargo に入れると共有の依存の feature が統合され、3 つの
+# 実行ファイルが変わる（ADR-0163 の背景の測定）。別の cargo でビルドする（ADR-0166）
+separate=(chain)
+cleaned=("${packages[@]}")
+for name in "${separate[@]}"; do
+  cleaned+=(-p "xlc-$name")
+done
+
+cargo clean --release --target-dir target/dvc "${cleaned[@]}"
 # 記号表（.symtab、.strtab）は、計算に使わない内部の記号の名前（`.llvm.<数>` の添字）が、テストを tests.rs に移すと変わった
 # （モジュールの構成で決まると見ているが、確かめていない）。計算する節は同じでも md5 が変わるので、リンクのときに記号を
 # 落とす（ADR-0160）。手で使う target/release は記号を残す
@@ -44,9 +52,12 @@ cargo clean --release --target-dir target/dvc "${packages[@]}"
 # クレートの依存が共有の依存の feature を足し、実行ファイルのバイトが変わる。3 つを別々の cargo にしないのは、3 つの間の
 # feature の統合で今の実行ファイルが決まっているため（ADR-0163）
 cargo build --release --locked "${packages[@]}" --target-dir target/dvc --config 'profile.release.strip="symbols"'
+for name in "${separate[@]}"; do
+  cargo build --release --locked -p "xlc-$name" --target-dir target/dvc --config 'profile.release.strip="symbols"'
+done
 
 mkdir -p bin
-for name in "${names[@]}"; do
+for name in "${names[@]}" "${separate[@]}"; do
   built="target/dvc/release/$name"
   # worktree のパスや、devShell に入ったディレクトリの outputs/out/lib（入ったのが別の場所なら $top を含まない）が埋まった
   # 実行ファイルは、ほかの worktree と md5 が合わず、段階を再実行することになる

@@ -1,0 +1,32 @@
+# 燃焼チェーンの段階: ENDF/B-VIII.0 の decay、nfy、neutrons → xlc の全核種のチェーン（ADR-0164。bin/chain、ADR-0166）と、比べる
+# OpenMC のチェーン（Chain.from_endf）。実行するのは default の devShell の `dvc repro`（ADR-0159）。OpenMC を使う段階は cmd を
+# references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps にする（ADR-0130）。
+# ENDF はディレクトリごと deps にする（sha256 で固定した。ADR-0124）
+stages:
+  references-shell:
+    # ツール（OpenMC とその Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
+    cmd: nix eval --raw ../..#devShells.x86_64-linux.references.outPath > references-shell.txt
+    always_changed: true
+    outs:
+      - references-shell.txt:
+          cache: false
+  chain:
+    cmd: ../../bin/chain chain.toml
+    deps:
+      - chain.toml
+      - ../../references/endf/ENDF-B-VIII.0_decay
+      - ../../references/endf/ENDF-B-VIII.0_nfy
+      - ../../references/endf/ENDF-B-VIII.0_neutrons
+      - ../../bin/chain
+    outs:
+      - chain.msgpack
+  openmc-chain:
+    cmd: nix develop ../..#references -c python3 openmc_chain.py ../../references/endf openmc-chain.xml
+    deps:
+      - openmc_chain.py
+      - references-shell.txt
+      - ../../references/endf/ENDF-B-VIII.0_decay
+      - ../../references/endf/ENDF-B-VIII.0_nfy
+      - ../../references/endf/ENDF-B-VIII.0_neutrons
+    outs:
+      - openmc-chain.xml
