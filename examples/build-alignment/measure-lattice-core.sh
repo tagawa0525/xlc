@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ADR-0157 の lattice と core の測定（ジョブ 287）: b873a967 の 4 つの整列の設定の lattice と core を、M0 のピンセルと炉心、
+# ADR-0157 の lattice と core の測定（ジョブ 305）: b873a967 の 4 つの整列の設定の lattice と core を、M0 のピンセルと炉心、
 # VERA 1B のピンセル、2A の集合体で 2 回ずつ実行し、出力と時間を比べる。先に build.sh と measure-xs.sh（M0 の
 # ライブラリを使う）。examples/vera/vera.msgpack が要る。Slurm の排他のジョブで実行する
 set -euo pipefail

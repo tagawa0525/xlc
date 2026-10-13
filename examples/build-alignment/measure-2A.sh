@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ADR-0157 の 2A の追加の測定: b873a967 の整列なし（v0）と -align-loops=64（v3）の lattice を、VERA 2A の集合体で
+# ADR-0157 の 2A の追加の測定（ジョブ 307）: b873a967 の整列なし（v0）と -align-loops=64（v3）の lattice を、VERA 2A の集合体で
 # 交互に 6 回ずつ実行し、出力と時間を比べる。先に build.sh。Slurm の排他のジョブで実行する
 set -euo pipefail
 cd "$(dirname "$0")"
