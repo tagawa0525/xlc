@@ -11,7 +11,7 @@
 #              src/ に置くものと同じ）は手元の作業ツリーの版を src/ に置き直してから、done のないジョブを起動する（入力と
 #              launch.env は書き換えない。道具の版は launches/ の TOOLS_COMMIT）。statepoint があれば --restart で続ける。
 #              VM が走っているジョブは飛ばす。done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のない
-#              ジョブは飛ばして示し、1 で終わる。リポジトリの直下から走らせる
+#              ジョブは飛ばして示し、1 で終わる
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
@@ -240,6 +240,7 @@ else
     # --job があれば、それ以外のジョブは対象にしない（状態も示さない）
     ((${#jobs[@]} == 0)) || grep -Fxq -- "$job" <<< "$(printf '%s\n' "${jobs[@]}")" || continue
     code=$(job_done "$name" "$job")
+    retry_code=
     if [[ $code == 0 ]]; then
       echo "$job: 完了"
       continue
@@ -247,8 +248,7 @@ else
     if [[ -n $code ]]; then
       # 失敗したジョブは飛ばし、ほかのジョブは起動する（影響を 1 本に閉じる）。終わりの状態は 1
       if ((retry)) && grep -Fxq -- "$job" <<< "$(printf '%s\n' "${jobs[@]}")"; then
-        echo "$job: done=$code を消して起動する（--retry-failed。原因は $run_prefix/$job/log と boot-*.log で確かめたもの）"
-        clear_done+=("$job")
+        retry_code=$code
       else
         echo "$job: 失敗しています（done: $code）。$run_prefix/$job/log と boot-*.log で原因を確かめる。直ったなら" \
           "--job $job --retry-failed で done を消して起動し直す" >&2
@@ -282,21 +282,13 @@ else
       echo "$job: 最初から"
       restart_flags+=(0)
     fi
+    if [[ -n $retry_code ]]; then
+      echo "$job: done=$retry_code を消して起動する（--retry-failed。原因は $run_prefix/$job/log と boot-*.log で確かめたもの）"
+      clear_done+=("$job")
+    fi
     todo+=("$input")
   done
   ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit "$stuck"; }
-  # 道具は手元の版に合わせる（S3 の src/ は最初の起動の版で、新しい引数を知らない。入力と launch.env は実行の定義なので書き換えない）
-  root=$(cd "$here/../.." && pwd)
-  [[ -f $root/flake.nix && -d $root/examples/vera ]] || { echo "リポジトリの中の aws_run.sh を使ってください（$root）" >&2; exit 1; }
-  for f in "${tool_files[@]}"; do [[ -f $root/$f ]] || { echo "$root/$f がありません" >&2; exit 1; }; done
-  if ((dry)); then
-    echo "道具 ${#tool_files[@]} 個を $run_prefix/src/ に置き直す（--dry-run なので置かない）"
-  else
-    tools_src=$(mktemp -d)
-    trap 'rm -rf "$tools_src"' EXIT
-    (cd "$root" && cp --parents "${tool_files[@]}" "$tools_src/")
-    aws s3 sync --only-show-errors "$tools_src" "$run_prefix/src"
-  fi
 fi
 
 # 既定（ADR-0155）。起動し直しでは、指定も記録もないときだけ
@@ -320,6 +312,21 @@ if ((!dry)); then
   [[ -z $(git -C "$here" status --porcelain) ]] || tools="$tools-dirty"
 fi
 
+if ((${#inputs[@]} == 0)); then
+  # 道具は手元の版に合わせる（S3 の src/ は最初の起動の版で、新しい引数を知らない。入力と launch.env は実行の定義なので書き換えない）
+  root=$(cd "$here/../.." && pwd)
+  [[ -f $root/flake.nix && -d $root/examples/vera ]] || { echo "リポジトリの中の aws_run.sh を使ってください（$root）" >&2; exit 1; }
+  for f in "${tool_files[@]}"; do [[ -f $root/$f ]] || { echo "$root/$f がありません" >&2; exit 1; }; done
+  if ((dry)); then
+    echo "道具 ${#tool_files[@]} 個を $run_prefix/src/ に置き直す（--dry-run なので置かない）"
+  else
+    tools_src=$(mktemp -d)
+    trap 'rm -rf "$tools_src"' EXIT
+    (cd "$root" && cp --parents "${tool_files[@]}" "$tools_src/")
+    aws s3 sync --only-show-errors "$tools_src" "$run_prefix/src"
+  fi
+fi
+
 for i in "${!todo[@]}"; do
   input=${todo[$i]}
   job=$(job_name "$input")
@@ -341,10 +348,11 @@ for i in "${!todo[@]}"; do
     [[ $out == *DryRunOperation* ]] || { echo "$out" >&2; exit 1; }
     echo "$host: 起動の引数は有効（再開 ${restart_flags[$i]}、user-data $(wc -c <<< "$user_data") バイト）"
   else
+    id=$(aws ec2 run-instances "${args[@]}")
+    # 起動できてから消す（起動に失敗したときに、失敗の印を失わない）
     if grep -Fxq -- "$job" <<< "$(printf '%s\n' "${clear_done[@]:-}")"; then
       aws s3 rm --only-show-errors "$run_prefix/$job/done"
     fi
-    id=$(aws ec2 run-instances "${args[@]}")
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
     # 起動ごとの記録（user-data を作る道具と、起動し直しで src/ に置き直す道具は TOOLS_COMMIT のもの。AMI、機種もこの起動のもの）。起動できたものだけ書く
     printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\nSTATEPOINT_INTERVAL=%s\n' "$tools" "$ami" \
