@@ -186,9 +186,9 @@ impl Cylinder {
         let n = self.radii.len();
         let mut tracks = vec![vec![0.0; n]; n];
         let mut escapes = vec![0.0; n];
-        // 弦の上の区間の境界の対 (p, q) の間の光学的距離 τ_p + … + τ_{q−1} の Ki3。弦ごとに必要になった対だけ求める
-        // （NaN は未計算）。光学的距離は区間 p から順に足す（弦の始めから足した和の差にすると、厚い区間の後で丸めが
-        // 大きくなる）。`between`（区間 a+1 から b−1 まで順に足したもの）は (a+1, b) の和と同じ順に足している
+        // 弦の上の区間の境界の対 (p, q) の間の光学的距離 τ_p + … + τ_{q−1} の Ki3 を [p * longest + q] に置く。
+        // 光学的距離は区間 p から順に足す（弦の始めから足した和の差にすると、厚い区間の後で丸めが大きくなる）。
+        // `between`（区間 a+1 から b−1 まで順に足したもの）は (a+1, b) の和と同じ順に足している
         let longest = self
             .chords
             .iter()
@@ -196,11 +196,12 @@ impl Cylinder {
             .max()
             .unwrap_or(0)
             + 1;
-        let mut memo = vec![f64::NAN; longest * longest];
+        let mut memo = vec![0.0; longest * longest];
         let mut memo2 = vec![f64::NAN; longest * longest];
         // 弦ごとに作り直さず再利用する
         let mut path: Vec<Path> = Vec::with_capacity(longest);
         let mut collided: Vec<f64> = Vec::with_capacity(longest);
+        let mut taus: Vec<f64> = Vec::with_capacity(longest);
         for chord in &self.chords {
             let weight = 2.0 * chord.weight;
             path.clear();
@@ -211,20 +212,30 @@ impl Cylinder {
                 tau: totals[ring] * length,
             }));
             let last = path.len() - 1;
-            memo[..(path.len() + 1) * longest].fill(f64::NAN);
             // Ki2 は真空の区間のある弦でだけ使う
             if path.iter().any(|p| p.tau == 0.0) {
                 memo2[..(path.len() + 1) * longest].fill(f64::NAN);
             }
-            let taus: Vec<f64> = path.iter().map(|p| p.tau).collect();
-            let mut k3 = |p: usize, q: usize| -> f64 {
-                let slot = &mut memo[p * longest + q];
-                if slot.is_nan() {
-                    let optical: f64 = taus[p..q].iter().sum();
-                    *slot = small(ki3, optical);
+            taus.clear();
+            taus.extend(path.iter().map(|p| p.tau));
+            // 区間の対 (a, b) は a + b ≤ L − 1 なので、使う境界の対 (p, q) は q ≤ L + 1 − p（下のループの4項）。
+            // 光学的距離は q について増えるだけなので、表の範囲を超えたら先はどれも 0
+            for p in 0..=path.len() {
+                let row = &mut memo[p * longest..(p + 1) * longest];
+                let end = (path.len() + 1 - p).min(path.len());
+                let mut optical = 0.0;
+                for q in p..=end {
+                    if q > p {
+                        optical += taus[q - 1];
+                    }
+                    if optical >= NEGLIGIBLE {
+                        row[q..=end].fill(0.0);
+                        break;
+                    }
+                    row[q] = ki3(optical);
                 }
-                *slot
-            };
+            }
+            let k3 = |p: usize, q: usize| -> f64 { memo[p * longest + q] };
             // 真空と組になる対の Ki2 も、境界の対ごとに1回だけ求める（区間 b が真空のときの引数 (a, b) は区間 a から
             // 足すので、between + τa と足す順が違い、最後の桁が違いうる）
             let mut k2 = |p: usize, q: usize| -> f64 {
@@ -388,31 +399,33 @@ const FINE: f64 = 8192.0;
 const COARSE: f64 = 1024.0;
 const MAX: f64 = 48.0;
 
-/// 表の点での (Ki1, Ki2, Ki3)
+/// Ki_n（n = 2, 3）の表。点ごとに、値と、刻みを掛けた導関数 −Ki_{n−1} × 刻み（補間の式の係数）を並べる
 struct Bickley {
-    fine: Vec<[f64; 3]>,
-    coarse: Vec<[f64; 3]>,
+    fine: [Vec<[f64; 2]>; 2],
+    coarse: [Vec<[f64; 2]>; 2],
 }
 
 fn table() -> &'static Bickley {
     static TABLE: OnceLock<Bickley> = OnceLock::new();
     TABLE.get_or_init(|| {
-        let nodes = |count: f64, start: f64, step: f64| -> Vec<[f64; 3]> {
+        let nodes = |n: i32, count: f64, start: f64, step: f64| -> Vec<[f64; 2]> {
             (0..=count as usize)
                 .map(|i| {
                     let x = start + i as f64 * step;
-                    [bickley(1, x), bickley(2, x), bickley(3, x)]
+                    [bickley(n, x), -bickley(n - 1, x) * step]
                 })
                 .collect()
         };
+        let both = |count: f64, start: f64, step: f64| [2, 3].map(|n| nodes(n, count, start, step));
         Bickley {
-            fine: nodes(FINE, 0.0, 1.0 / FINE),
-            coarse: nodes((MAX - 1.0) * COARSE, 1.0, 1.0 / COARSE),
+            fine: both(FINE, 0.0, 1.0 / FINE),
+            coarse: both((MAX - 1.0) * COARSE, 1.0, 1.0 / COARSE),
         }
     })
 }
 
 /// Bickley 関数 Ki3(x) = ∫_0^{π/2} cos²θ exp(−x/cosθ) dθ
+#[inline]
 pub fn ki3(x: f64) -> f64 {
     interpolate(x, 3)
 }
@@ -423,21 +436,21 @@ fn ki2(x: f64) -> f64 {
 }
 
 /// Ki_n(x)（n = 2, 3）を、表の値と導関数 −Ki_{n−1} の3次 Hermite 補間で求める
+#[inline]
 fn interpolate(x: f64, n: usize) -> f64 {
     let table = table();
-    let (nodes, start, step) = if x < 1.0 {
-        (&table.fine, 0.0, 1.0 / FINE)
+    // 刻みは2の冪なので、刻みで割る代わりに点の数を掛けても同じ値になる
+    let (nodes, start, per) = if x < 1.0 {
+        (&table.fine[n - 2], 0.0, FINE)
     } else if x < MAX {
-        (&table.coarse, 1.0, 1.0 / COARSE)
+        (&table.coarse[n - 2], 1.0, COARSE)
     } else {
         return bickley(n as i32, x);
     };
-    let s = (x - start) / step;
+    let s = (x - start) * per;
     let i = (s as usize).min(nodes.len() - 2);
     let t = s - i as f64;
-    let (a, b) = (&nodes[i], &nodes[i + 1]);
-    let (f0, f1) = (a[n - 1], b[n - 1]);
-    let (d0, d1) = (-a[n - 2] * step, -b[n - 2] * step);
+    let ([f0, d0], [f1, d1]) = (nodes[i], nodes[i + 1]);
     let (t2, t3) = (t * t, t * t * t);
     (2.0 * t3 - 3.0 * t2 + 1.0) * f0
         + (t3 - 2.0 * t2 + t) * d0
