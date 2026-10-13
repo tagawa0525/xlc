@@ -133,7 +133,7 @@ neutrons のサブライブラリ（[ADR-0124](0124-pin-reference-assets-with-ni
   `removes_the_parent_without_products_by_spontaneous_fission`、`rescales_decay_ratios_that_sum_close_to_one`、
   `matches_excited_states_to_isomers_by_the_nearest_energy`、`keeps_the_remainder_when_mf8_lists_only_isomers`、
   `borrows_yields_from_the_nearest_mass_of_the_same_element` ほか）と、ENDF の読み口の crates/chain/src/endf/tests.rs
-- OpenMC との比較（examples/depletion/verification.md の「燃焼鎖」、38cae2f9、2026-10-14）: 核種の集合（3,820）、半減期、
+- OpenMC との比較（examples/depletion/verification.md の「燃焼鎖」、caeb4a20、2026-10-14）: 核種の集合（3,820）、半減期、
   自分の収率（31 核種）が一致し、崩壊の分岐、反応、借りる収率の違いは、すべてこの ADR の規則で説明がつく。同じ 1 群の反応率で
   全核種の鎖の 1 ステップを解くと、U-238 → Pu-239、I-135 → Xe-135、Pm-149 → Sm-149 の経路の核種が 1e-14 の水準で一致する
 
