@@ -32,7 +32,7 @@ build)
     (cd "$work/src-$tag" && cargo clean -q --release --locked --target-dir "$work/target-$tag" -p xlc-xs &&
       cargo build -q --release --locked -p xlc-xs --target-dir "$work/target-$tag")
     cp "$work/target-$tag/release/xs" "bin-compare/xs-$tag"
-    test=$(cd "$work/src-$tag" && cargo test -q --release --locked -p xlc-xs --lib --no-run --target-dir "$work/target-$tag" 2>&1 |
+    test=$(cd "$work/src-$tag" && cargo test --release --locked -p xlc-xs --lib --no-run --target-dir "$work/target-$tag" 2>&1 |
       grep -oE "$work/target-$tag/release/deps/xlc_xs-[0-9a-f]+" | head -1)
     cp "$test" "bin-compare/xs-test-$tag"
     echo "$tag $c $(md5sum < "bin-compare/xs-$tag")"
