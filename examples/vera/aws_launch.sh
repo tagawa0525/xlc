@@ -2,12 +2,14 @@
 # AWS EC2 のスポットで Ubuntu 24.04 の VM を起動し、~/.ssh/config に Host を書く（docs/environment.md の「外部の計算機（AWS）」）。
 # 起動の前に aws_allow_ip.sh を呼ぶ（新しい VM に入れなければ意味がないため）。
 #
-# 使い方: examples/vera/aws_launch.sh [--dry-run] <name> [--count N] [--type c7a.4xlarge]
+# 使い方: examples/vera/aws_launch.sh [--dry-run] <name> [--count N] [--type c7a.4xlarge] [--az AZ] [--on-demand]
 #   <name>   タグ Name と ssh の Host。--count が 2 以上なら <name>-1 ... <name>-N
 #   --count  台数（既定 1）
 #   --type   インスタンスタイプ（既定 c7a.4xlarge。16 物理コア、SMT なし、32 GB）
+#   --az     AZ を固定する（例 us-east-1b）。その AZ の default サブネットで起動する
+#   --on-demand  スポットでなくオンデマンドで起動する（価格は約 2.5 倍）
 #   --dry-run  AMI と起動の引数を検証（aws の --dry-run）するだけで、起動しない
-# スポット（one-time）、EBS は gp3 40 GB、キーペア xlc-aws、セキュリティグループ xlc-ssh。
+# 既定はスポット（one-time）、EBS は gp3 40 GB、キーペア xlc-aws、セキュリティグループ xlc-ssh。
 # 起動後に lscpu の物理コア数と free -g を出す。
 set -euo pipefail
 # shellcheck source=aws_common.sh
@@ -17,23 +19,32 @@ dry=0
 name=""
 count=1
 type=c7a.4xlarge
+az=
+on_demand=0
 while (($#)); do
   case $1 in
-    --help | -h) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help | -h) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --dry-run) dry=1 ;;
     --count) count=$2; shift ;;
     --type) type=$2; shift ;;
+    --az) az=${2:?--az に値が要ります}; shift ;;
+    --on-demand) on_demand=1 ;;
     -*) echo "知らない引数 $1" >&2; exit 2 ;;
     *) [[ -z $name ]] || { echo "name は 1 つ" >&2; exit 2; }; name=$1 ;;
   esac
   shift
 done
-[[ -n $name ]] || { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[[ -n $name ]] || { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 [[ $count =~ ^[1-9][0-9]*$ ]] || { echo "--count は正の整数" >&2; exit 2; }
 ssh_sg_id
+subnet_args=()
+if [[ -n $az ]]; then
+  az_subnet_id "$az"
+  subnet_args=(--subnet-id "$SUBNET_ID")
+fi
 
 ami=$(ubuntu_ami)
-echo "AMI: $ami、タイプ: $type、台数: $count"
+echo "AMI: $ami、タイプ: $type、台数: $count、市場: $( ((on_demand)) && echo on-demand || echo spot )、AZ: ${az:-指定なし}"
 
 names=()
 for ((i = 1; i <= count; i++)); do
@@ -47,9 +58,10 @@ for n in "${names[@]}"; do
 done
 
 run_args=(--image-id "$ami" --instance-type "$type" --count 1 --key-name xlc-aws --security-group-ids "$SG_ID"
-  --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'
+  "${subnet_args[@]}"
   --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true}'
   --query 'Instances[0].InstanceId' --output text)
+if ((!on_demand)); then run_args+=(--instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'); fi
 if ((dry)); then
   out=$(aws ec2 run-instances "${run_args[@]}" --dry-run 2>&1 || true)
   [[ $out == *DryRunOperation* ]] || { echo "$out" >&2; exit 1; }
