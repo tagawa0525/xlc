@@ -41,7 +41,12 @@ for c in "$@"; do
   rm -rf "$work/src-$c"; mkdir -p "$work/src-$c"
   git -C "$repo" archive "$c" | tar -x -C "$work/src-$c"
   # ADR-0157 のあとのコミットは、そのコミットの設定に整列が入っており、v0 が「なし」にならないので止める
-  if grep -q 'align' "$work/src-$c/.cargo/config.toml"; then
+  config="$work/src-$c/.cargo/config.toml"
+  if [ ! -e "$config" ]; then
+    echo "$c has no .cargo/config.toml; the settings below assume its target-cpu=znver5" >&2
+    exit 1
+  fi
+  if grep -v '^[[:space:]]*#' "$config" | grep -E 'llvm-args=-align' >/dev/null; then
     echo "$c already sets an alignment in .cargo/config.toml; v0 would not be the build without it" >&2
     exit 1
   fi
@@ -51,7 +56,7 @@ for c in "$@"; do
     [ -n "$f" ] && cfg=(--config "target.x86_64-unknown-linux-gnu.rustflags=[$f]")
     # コミットごとに target を分ける（同じ target を再利用すると、パッケージの名前が同じなので作り直さないことがある）
     # cargo はリンクの環境を fingerprint に含めないので、再利用する target でも 3 つのパッケージを消してから作る
-    (cd "$work/src-$c" && cargo clean -q --release --target-dir "$work/target-$c-$v" -p xlc-xs -p xlc-lattice -p xlc-core)
+    (cd "$work/src-$c" && cargo clean -q --release --locked --target-dir "$work/target-$c-$v" -p xlc-xs -p xlc-lattice -p xlc-core)
     (cd "$work/src-$c" && cargo build -q --release --locked -p xlc-xs -p xlc-lattice -p xlc-core \
       --target-dir "$work/target-$c-$v" "${cfg[@]}")
     for b in xs lattice core; do cp "$work/target-$c-$v/release/$b" "$here/bin/$b-$c-$v"; done

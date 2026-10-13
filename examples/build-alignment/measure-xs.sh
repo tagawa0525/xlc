@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ADR-0157 の xs の測定（ジョブ 302）: 3 つのコミットと 4 つの整列の設定の xs を examples/m0/xs.toml で 2 回ずつ実行し、
+# ADR-0157 の xs の測定（ジョブ 313）: 3 つのコミットと 4 つの整列の設定の xs を examples/m0/xs.toml で 2 回ずつ実行し、
 # 出力と時間を比べる。先に build.sh <作業ディレクトリ> b873a967 ebe7c100 d39c5db3。Slurm の排他のジョブで実行する
 set -euo pipefail
 cd "$(dirname "$0")"
