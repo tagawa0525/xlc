@@ -67,7 +67,7 @@ NAPS = 2 は透過因子とシフト因子に見出しの AP、位相シフト�
 - 断面積の単体テスト（crates/xs/src/resonance/mlbw/tests.rs）: `energy_dependent_radius_sets_the_s_wave_phase_shift_at_each_energy`
   （共鳴から遠いエネルギーで、弾性散乱が s 波の硬球散乱 (4π/k²) sin²(k AP(E)) に 1e-9 で一致する）
 - ポテンシャル散乱の単体テスト（crates/xs/src/process/tests.rs）: `potential_uses_the_radius_at_the_top_of_an_energy_dependent_range`
-- NJOY との比較（xlc 65ccbd82、2026-10-14）: 0 K の再構成を、NJOY2016 RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で
+- NJOY との比較（xlc c0d7b4dd、2026-10-14）: 0 K の再構成を、NJOY2016 RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で
   比べた。Nd-149、I-133 と、範囲の中の AP(E) の変化が最大の Sm-146 で、全断面積、弾性散乱、捕獲の NJOY の全格子点での
   相対差の最大は 9.1e-4〜1.0e-3 で、許容誤差の 2 倍を超える点はない（NJOY の入力は手元の `trials/`。RECONR の入力は
   references/njoy-runs/U238/input と同じ形で MAT だけが違う）
