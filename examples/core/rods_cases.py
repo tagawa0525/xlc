@@ -125,25 +125,9 @@ loading = ["F01"]
     )
 
 
-CODE = {
-    "xs": ["xs", "numeric", "format"],
-    "lattice": ["lattice", "numeric", "format"],
-    "core": ["core", "numeric", "format"],
-}
-
-
 def code(stage):
-    crates = []
-    for crate in CODE[stage]:
-        crates += [f"../../crates/{crate}/src", f"../../crates/{crate}/Cargo.toml"]
-    common = [
-        "../../Cargo.toml",
-        "../../Cargo.lock",
-        "../../rust-toolchain.toml",
-        "../../.cargo/config.toml",
-        "../../flake.lock",
-    ]
-    return crates + common
+    """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../dvc.yaml の build が作る。ADR-0159）"""
+    return [f"../../bin/{stage}"]
 
 
 def listed(items, indent):
@@ -166,7 +150,7 @@ vars:
   - cases.yaml
 stages:
   xs:
-    cmd: cargo run --release -p xlc-xs -- xs.toml
+    cmd: ../../bin/xs xs.toml
     deps:
       - xs.toml
 {listed(endf_deps + code("xs"), 6)}    outs:
@@ -175,7 +159,7 @@ stages:
     foreach: [out, aic, b4c]
     do:
       # 結果の k∞ は標準出力に出るので、ファイルに受ける
-      cmd: cargo run --release -p xlc-lattice -- assembly-${{item}}.toml > lattice-${{item}}.out
+      cmd: ../../bin/lattice assembly-${{item}}.toml > lattice-${{item}}.out
       deps:
         - assembly-${{item}}.toml
         - rods.msgpack
@@ -195,7 +179,7 @@ stages:
     foreach: ${{cases}}
     do:
       # DVC は出力の親のディレクトリを作らないので、作ってから走らせる
-      cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/${{item}}.toml > out/${{item}}.out
+      cmd: mkdir -p out && ../../bin/core cases/${{item}}.toml > out/${{item}}.out
       deps:
         - cases/${{item}}.toml
         - plant.toml

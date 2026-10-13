@@ -1097,20 +1097,8 @@ def core_files() -> dict[str, str]:
 
 
 def code(crate: str) -> list[str]:
-    """Rust の段階の deps のうち、バイナリを作るコード（examples/m0/dvc.yaml と同じ並び。ADR-0123）"""
-    return [
-        f"../../../crates/{crate}/src",
-        f"../../../crates/{crate}/Cargo.toml",
-        "../../../crates/numeric/src",
-        "../../../crates/numeric/Cargo.toml",
-        "../../../crates/format/src",
-        "../../../crates/format/Cargo.toml",
-        "../../../Cargo.toml",
-        "../../../Cargo.lock",
-        "../../../rust-toolchain.toml",
-        "../../../.cargo/config.toml",
-        "../../../flake.lock",
-    ]
+    """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
+    return [f"../../../bin/{crate}"]
 
 
 def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
@@ -1143,7 +1131,7 @@ def pipeline(
         stages.append(
             stage(
                 stem,
-                f"mkdir -p lattice && cargo run --release -p xlc-lattice -- {stem}.toml > {stem}.out",
+                f"mkdir -p lattice && ../../../bin/lattice {stem}.toml > {stem}.out",
                 [f"{stem}.toml", "../vera.msgpack", *code("lattice")],
                 [f"lattice/{name}.msgpack", f"{stem}.out"],
             )
@@ -1153,7 +1141,7 @@ def pipeline(
         stages.append(
             stage(
                 stem,
-                f"mkdir -p lattice && cargo run --release -p xlc-lattice -- {stem}.toml > {stem}.out",
+                f"mkdir -p lattice && ../../../bin/lattice {stem}.toml > {stem}.out",
                 [f"{stem}.toml", "../vera.msgpack", *code("lattice")],
                 [
                     *(f"lattice/{stem}{n}.msgpack" for n, *_ in LATTICE_NODES[shape]),
@@ -1165,7 +1153,7 @@ def pipeline(
         stages.append(
             stage(
                 f"{square}-moc",
-                f"cargo run --release -p xlc-lattice -- {square}-moc.toml > {square}-moc.out",
+                f"../../../bin/lattice {square}-moc.toml > {square}-moc.out",
                 [f"{square}-moc.toml", "../vera.msgpack", *code("lattice")],
                 [f"{square}-moc-pins.msgpack", f"{square}-moc.out"],
             )
@@ -1190,7 +1178,7 @@ def pipeline(
         stages.append(
             stage(
                 f"core-{name}",
-                f"RUST_LOG=debug cargo run --release -p xlc-core -- core-{name}.toml > core-{name}.out 2> core-{name}.log",
+                f"RUST_LOG=debug ../../../bin/core core-{name}.toml > core-{name}.out 2> core-{name}.log",
                 [
                     f"core-{name}.toml",
                     cyc,

@@ -706,20 +706,8 @@ def core_files(problem: str) -> dict[str, str]:
 
 
 def code(crate: str) -> list[str]:
-    """Rust の段階の deps のうち、バイナリを作るコード（examples/m0/dvc.yaml と同じ並び。ADR-0123）"""
-    return [
-        f"../../../crates/{crate}/src",
-        f"../../../crates/{crate}/Cargo.toml",
-        "../../../crates/numeric/src",
-        "../../../crates/numeric/Cargo.toml",
-        "../../../crates/format/src",
-        "../../../crates/format/Cargo.toml",
-        "../../../Cargo.toml",
-        "../../../Cargo.lock",
-        "../../../rust-toolchain.toml",
-        "../../../.cargo/config.toml",
-        "../../../flake.lock",
-    ]
+    """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
+    return [f"../../../bin/{crate}"]
 
 
 def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
@@ -747,7 +735,7 @@ def pipeline() -> str:
             stages.append(
                 stage(
                     stem,
-                    f"mkdir -p lattice-{problem} && cargo run --release -p xlc-lattice -- {stem}.toml > {stem}.out",
+                    f"mkdir -p lattice-{problem} && ../../../bin/lattice {stem}.toml > {stem}.out",
                     [f"{stem}.toml", "../vera.msgpack", *code("lattice")],
                     outs,
                 )
@@ -758,7 +746,7 @@ def pipeline() -> str:
         stages.append(
             stage(
                 axial,
-                f"mkdir -p {axial} && RUST_LOG=debug cargo run --release -p xlc-lattice -- {axial}.toml > {axial}.out 2> {axial}.log",
+                f"mkdir -p {axial} && RUST_LOG=debug ../../../bin/lattice {axial}.toml > {axial}.out 2> {axial}.log",
                 [f"{axial}.toml", "../vera.msgpack", *media, *code("lattice")],
                 [axial, f"{axial}.out", f"{axial}.log"],
             )
@@ -780,7 +768,7 @@ def pipeline() -> str:
             stages.append(
                 stage(
                     stem,
-                    f"RUST_LOG=debug cargo run --release -p xlc-core -- {stem}.toml > {stem}.out 2> {stem}.log",
+                    f"RUST_LOG=debug ../../../bin/core {stem}.toml > {stem}.out 2> {stem}.log",
                     [*inputs, axial, *used, *code("core")],
                     outs,
                 )
@@ -818,7 +806,7 @@ def pipeline() -> str:
         "# VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
         "# 少数群定数と、平板の燃料の媒質）→ 軸方向の反射体の平板（axial-<問題>）→ 炉心（平板の定数だけの等価性\n"
         "# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI）。走らせるのは `dvc repro`\n"
-        "# （ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、バイナリを作るコード）\n"
+        "# （ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）\n"
         "stages:\n" + "".join(stages)
     )
 
