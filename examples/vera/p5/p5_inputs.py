@@ -859,6 +859,12 @@ def periphery(fuel: set[tuple[int, int]]) -> dict[tuple[int, int], tuple[str, in
             out[(i, j)] = ("I", faces[0])
         elif len(faces) == 2 and (faces[1] - faces[0]) % 4 in (1, 3):
             first = faces[0] if (faces[1] - faces[0]) % 4 == 1 else faces[1]
+            (ai, aj), (bi, bj) = STEPS[first], STEPS[(first + 1) % 4]
+            # 角型の格子は 2 面の間の対角も反射体なので、対角が燃料の位置（凹んだ外形）には置けない
+            if (i + ai + bi, j + aj + bj) in fuel:
+                raise SystemExit(
+                    f"fuel at {(i, j)} faces the reflector on sides {faces} around fuel"
+                )
             out[(i, j)] = ("corner", first)
         elif faces:
             raise SystemExit(f"fuel at {(i, j)} faces the reflector on sides {faces}")
