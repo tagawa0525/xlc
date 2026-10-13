@@ -73,11 +73,11 @@ NAPS = 2 は透過因子とシフト因子に見出しの AP、位相シフト�
   一定の AP にした範囲と一致する）、`energy_outside_the_radius_table_is_error`
 - 再構成の単体テスト（crates/xs/src/pointwise/tests.rs）: `mlbw_tables_have_points_at_the_breaks_of_the_radius_table`
 - ポテンシャル散乱の単体テスト（crates/xs/src/process/tests.rs）: `potential_uses_the_radius_at_the_top_of_an_energy_dependent_range`
-- NJOY との比較（xlc b40d447f、2026-10-14）: 0 K の再構成を、NJOY2016 RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で
+- NJOY との比較（xlc 9947bc92、2026-10-14）: 0 K の再構成を、NJOY2016 RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で
   比べた。Nd-149、I-133 と、範囲の中の AP(E) の変化が最大の Sm-146 で、全断面積、弾性散乱、捕獲の NJOY の全格子点での
   相対差の最大は 9.1e-4〜1.0e-3 で、許容誤差の 2 倍を超える点はない（NJOY の入力は手元の `trials/`。RECONR の入力は
   references/njoy-runs/U238/input と同じ形で MAT だけが違う）
-- 棚卸しのツール（`crates/chain/examples/survey_neutrons.rs`、17cbe1e7、2026-10-14）で、NRO = 1 の 52 評価がすべて読める
+- 棚卸しのツール（`crates/chain/examples/survey_neutrons.rs`、32b15cd8、2026-10-14）で、NRO = 1 の 52 評価がすべて読める
   （読めない理由に NRO が現れない）
 
 ## 帰結

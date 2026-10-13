@@ -85,7 +85,7 @@ M4 の前に決めてあるもの:
 - xs が処理できる核種の制約: ENDF/B-VIII.0 の中性子のデータ（557 の評価。中性子そのものを除く 556 が燃焼チェーンの核種）を
   `crates/chain/examples/survey_neutrons.rs` で調べると（MF2 のすべての範囲の見出しと、xs が多群の処理の前に読むもの（0 K の再構成、
   MF1 MT452、MF3〜6）、分離共鳴の上端、VERA の燃料の温度 565〜1200 K と σ0 の 9 点の非分離共鳴の自己遮蔽まで。散乱行列と群定数は
-  作らない。17cbe1e7、2026-10-14）、541 が読め、16 が読めない。
+  作らない。32b15cd8、2026-10-14）、541 が読め、16 が読めない。
   最初の範囲の形式は MLBW 399、Reich-Moore 49、R-matrix limited 10、非分離共鳴だけ 31、共鳴のデータなし 68。分離共鳴の
   MLBW で散乱半径がエネルギーの表で与えられる 52 評価（NRO = 1。I-133、Nd-149 など）は、[ADR-0167](../adr/0167-evaluate-mlbw-energy-dependent-radius.md) で読めるようにした。
   読めない理由は下の表。MF6 の角度のデータは入れない（[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）、運動学のしきい値から反応を始める（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
