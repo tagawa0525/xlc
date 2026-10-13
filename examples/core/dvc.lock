@@ -4601,8 +4601,8 @@ stages:
       size: 830
     - path: rods_cases.py
       hash: md5
-      md5: 6b3e89b655e189f9fdcbe44d86286bda
-      size: 7709
+      md5: c4eb12949a6dd52cab92778d13fd482a
+      size: 7334
     outs:
     - path: compare.out
       hash: md5
