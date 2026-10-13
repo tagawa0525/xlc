@@ -94,12 +94,14 @@ if ((${#inputs[@]})); then
   dup=$(printf '%s\n' "${jobs[@]}" | sort | uniq -d)
   [[ -z $dup ]] || { echo "ジョブの名前（入力の basename）が重なります: $dup" >&2; exit 1; }
 
-  mapfile -t outs < <(nix build .#openmc .#openmc-python --no-link --print-out-paths)
   # パスだけが要る（VM が cache.nixos.org から取る）ので、手元に 422 MB のクロージャを取らない
   awscli=$(nix eval --raw --inputs-from . nixpkgs#awscli2.outPath)
   require_public_awscli "$awscli"
-  openmc=${outs[0]}
-  python=${outs[1]}
+  # 1 つずつ取る（1 回の build の出力の順に頼らない。$(...) なので失敗で止まる）
+  openmc=$(nix build .#openmc --no-link --print-out-paths)
+  python=$(nix build .#openmc-python --no-link --print-out-paths)
+  [[ $openmc =~ ^/nix/store/[^[:space:]]+$ && $python =~ ^/nix/store/[^[:space:]]+$ ]] ||
+    { echo "クロージャの出力が 1 つの store のパスでない: $openmc $python" >&2; exit 1; }
   # 鍵は内容のハッシュ。同じクロージャと核データは 1 度だけ置く
   closure=$(printf '%s\n' "$openmc" "$python" | sha256sum | cut -c1-16)
   library=$(cd examples/vera/openmc-library && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16)
@@ -167,7 +169,12 @@ else
       echo "$job: 完了"
       continue
     fi
-    [[ -z $code ]] || { echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot-*.log を見てください" >&2; exit 1; }
+    if [[ -n $code ]]; then
+      # 失敗したジョブは飛ばし、ほかのジョブは起動する（影響を 1 本に閉じる）。終わりの状態は 1
+      echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot-*.log を見る。続けるなら原因を直して done を消す" >&2
+      stuck=1
+      continue
+    fi
     live=$(live_instance "$name-$job")
     if [[ -n $live ]]; then
       echo "$job: VM が走っているので飛ばす"
@@ -203,8 +210,9 @@ echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_min
 if ((!dry)); then
   # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作るツールと AMI はこの起動のもの）。途中の run-instances が
   # 失敗しても、先に起動した VM の記録が残るように、起動の前に置く
-  tools=$(git rev-parse HEAD 2> /dev/null || echo unknown)
-  [[ -z $(git status --porcelain 2> /dev/null) ]] || tools="$tools-dirty"
+  # user-data を作ったこのスクリプトのチェックアウト（作業ディレクトリでなく）
+  tools=$(git -C "$here" rev-parse HEAD)
+  [[ -z $(git -C "$here" status --porcelain) ]] || tools="$tools-dirty"
   printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOBS="%s"\nRESTART="%s"\n' "$tools" "$ami" "$type" \
     "$max_hours" "$sync_minutes" "${todo[*]}" "${restart_flags[*]}" |
     aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%SZ).env"
