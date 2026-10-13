@@ -1199,3 +1199,51 @@ fn fine_mesh_with_volume_weighting_is_an_error() {
     let text = format!("{CASE}\n[partial-rods]\nweighting = \"volume\"\nfine-mesh = 0.1\n");
     assert!(Case::parse(&text, base()).is_err());
 }
+
+/// z の両端を `z` にしたケースで、先端が最下段のノードの途中（D = 0 は先端 1 cm）か最上段のノードの途中にある棒
+fn rodded_case_with_z(z: &str, banks: &str) -> Case {
+    let case = rodded_case(banks);
+    let text = edited(
+        &format!(
+            "{CASE}\n[state.hzp]\nboron = 1291\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = {banks}\n"
+        ),
+        "z = [\"reflective\", \"reflective\"]",
+        &format!("z = [{z}]"),
+    );
+    drop(case);
+    Case::parse(&text, base()).unwrap()
+}
+
+#[test]
+fn partial_nodes_facing_a_marshak_or_vacuum_z_end_are_errors() {
+    // #0102: 1 ノードの問題が z の面の不連続因子を負にして止まる形は、入力の検査で止める
+    let plant = rodded_plant();
+    let marshak = "\"marshak\", \"marshak\"";
+    // 先端 1 cm は最下段のノード [0, 4] の途中
+    let err = rodded_layout(&rodded_case_with_z(marshak, "{ D = 0 }"), &plant).unwrap_err();
+    let InputError::Invalid(message) = err else {
+        panic!("{err:?}")
+    };
+    assert!(message.contains("axial reflector"), "{message}");
+    let vacuum = "\"vacuum\", \"reflective\"";
+    assert!(rodded_layout(&rodded_case_with_z(vacuum, "{ D = 0 }"), &plant).is_err());
+    // 最上段のノード [7, 10] の途中で棒が切れる
+    let top = "\"reflective\", \"marshak\"";
+    let cut = Plant::parse(
+        &edited(&format!("{PLANT}{RODS}"), "top = 10.0", "top = 8.0"),
+        base(),
+    )
+    .unwrap();
+    assert!(rodded_layout(&rodded_case_with_z(top, "{ D = 6 }"), &cut).is_err());
+}
+
+#[test]
+fn partial_nodes_away_from_the_z_ends_or_facing_a_mirror_are_accepted() {
+    let plant = rodded_plant();
+    // 先端 4 cm の部分挿入のノードは中段 [4, 7]
+    let marshak = "\"marshak\", \"marshak\"";
+    assert!(rodded_layout(&rodded_case_with_z(marshak, "{ D = 6 }"), &plant).is_ok());
+    // 反射の端は 1 ノードの問題の限界に当たらない
+    let mirror = "\"reflective\", \"reflective\"";
+    assert!(rodded_layout(&rodded_case_with_z(mirror, "{ D = 0 }"), &plant).is_ok());
+}
