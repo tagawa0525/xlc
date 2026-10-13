@@ -8,6 +8,7 @@ fn single(l: OrbitalL, spi: f64, aj: f64, er: f64, (gn, gg, gf): (f64, f64, f64)
     Mlbw {
         spi,
         ap: AP,
+        ap_energy: None,
         naps: 1,
         l_values: vec![BwLValue {
             awri: AWRI,

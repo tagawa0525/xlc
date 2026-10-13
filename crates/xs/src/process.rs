@@ -307,8 +307,9 @@ pub fn pointwise_within(
 }
 
 /// 分離共鳴の上端と、ポテンシャル散乱断面積 4π a² (barn)。上端は分離共鳴の範囲の上端のうち最も高いもの。
-/// a はその範囲の、s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP。
-/// R-matrix limited は弾性散乱の l=0 のチャネルの APE）。分離共鳴がなければ `None`。
+/// a はその範囲の、s 波の位相シフトに使う散乱半径（Reich-Moore は l=0 の APL、0 なら AP。MLBW は AP、エネルギーの表が
+/// あれば範囲の上端の値（範囲より上へつなぐ。ADR-0167）。R-matrix limited は弾性散乱の l=0 のチャネルの APE）。
+/// 分離共鳴がなければ `None`。
 pub fn resolved(tape: &Tape, mat: i32) -> Result<Option<Resolved>, ProcessError> {
     let Some(section) = tape.section(mat, 2, 151) else {
         return Ok(None);
@@ -326,22 +327,22 @@ fn resolved_in(mf2: &Mf2) -> Result<Option<Resolved>, ProcessError> {
     else {
         return Ok(None);
     };
-    let radius = s_wave_radius(&range.kind)?;
+    let radius = s_wave_radius(&range.kind, range.eh)?;
     Ok(Some(Resolved {
         top: range.eh,
         potential: 4.0 * std::f64::consts::PI * radius * radius,
     }))
 }
 
-/// 分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。
-fn s_wave_radius(kind: &RangeKind) -> Result<f64, ProcessError> {
+/// 上端が `top` (eV) の分離共鳴の範囲の、s 波の位相シフトに使う散乱半径 (10^-12 cm)。エネルギーによるなら上端の値。
+fn s_wave_radius(kind: &RangeKind, top: f64) -> Result<f64, ProcessError> {
     let radius = match kind {
         RangeKind::ReichMoore(rm) => rm
             .l_values
             .iter()
             .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
             .map_or(rm.ap, |lv| lv.apl),
-        RangeKind::Mlbw(bw) => bw.ap,
+        RangeKind::Mlbw(bw) => bw.ap_energy.as_ref().map_or(bw.ap, |t| t.eval(top)),
         RangeKind::RMatrixLimited(rml) => {
             // l=0 の弾性散乱のチャネルはどれも同じ半径であること（違えば、どれを使うかの根拠がない）
             let mut radii: Vec<f64> = rml
