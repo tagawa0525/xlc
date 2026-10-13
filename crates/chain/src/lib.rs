@@ -6,5 +6,4 @@
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
 pub mod build;
-pub mod elements;
 pub mod endf;
