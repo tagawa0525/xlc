@@ -143,7 +143,7 @@ pub fn homogenize(
 /// 少数群定数を作る（ADR-0095）。返す定数はノードの順。
 ///
 /// - 断面積は、ノードの領域だけで反応率を保存する。拡散係数は、ノードの4辺がすべて外周の鏡面反射の辺
-///   （格子全体が1つのノード）か、領域がすべて1つの核分裂のある媒質（`media` は領域ごとの印。ADR-0141）なら B1、ほかは、核分裂の
+///   （格子全体が1つのノード）か、領域がすべて1つの核分裂のある媒質（`media` は領域ごとの媒質の番号、媒質でなければ `None`。ADR-0141）なら B1、ほかは、核分裂の
 ///   あるノードではノードの領域の中性子流で重みづけした outflow、
 ///   核分裂のないノードでは Koebke の等価理論の D（正味の中性子流の向きの2つの面の不連続因子をそろえる。
 ///   ADR-0104）。`k_inf` は格子の k
@@ -167,7 +167,7 @@ pub fn homogenize_nodes(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
     nodes: &[Node],
-    media: &[bool],
+    media: &[Option<usize>],
     pins: bool,
 ) -> Result<Vec<FewGroup>, HomogenizeError> {
     let NodeReferences {
@@ -350,7 +350,7 @@ pub(crate) fn node_references(
     coarse_bounds: &[f64],
     boundaries: &Boundaries,
     nodes: &[Node],
-    media: &[bool],
+    media: &[Option<usize>],
 ) -> Result<NodeReferences, HomogenizeError> {
     let sides = sides_of(boundaries);
     if sides.iter().any(|b| matches!(b, Boundary::Albedo(_))) {
@@ -359,7 +359,7 @@ pub(crate) fn node_references(
     check_regions(solution, materials)?;
     if media.len() != materials.len() {
         return Err(HomogenizeError::Nodes(format!(
-            "{} media flags for {} regions",
+            "{} medium entries for {} regions",
             media.len(),
             materials.len()
         )));
@@ -381,10 +381,8 @@ pub(crate) fn node_references(
         // 領域がすべて1つの核分裂のある媒質のノードは、その媒質の B1 の D（単一集合体の格子の D と同じ。ADR-0141）。
         // 中性子流の重みは、反射体の隣でノードの中の向きが変わると打ち消して定まらない。核分裂のない媒質のノードは、
         // 媒質でないノードと同じく後で Koebke の D を中性子流の重みの D から探す（ADR-0104、ADR-0134）
-        let one_medium = regions.iter().all(|&r| media[r])
-            && regions
-                .iter()
-                .all(|&r| std::ptr::eq(materials[r], materials[regions[0]]))
+        let one_medium = media[regions[0]].is_some()
+            && regions.iter().all(|&r| media[r] == media[regions[0]])
             && is_fissile(&materials[regions[0]].nu_fission)
                 .map_err(|e| HomogenizeError::Nodes(format!("node {n}: {e}")))?;
         let (mut few, average) = constants(
@@ -2071,8 +2069,8 @@ mod tests {
     }
 
     /// どの領域も媒質でない
-    fn no_media(solution: &Solution) -> Vec<bool> {
-        vec![false; solution.volumes.len()]
+    fn no_media(solution: &Solution) -> Vec<Option<usize>> {
+        vec![None; solution.volumes.len()]
     }
 
     fn vacuum() -> Boundaries {
@@ -2558,7 +2556,7 @@ mod tests {
                 ..node(2..3, 0..1)
             },
         ];
-        let solve_nodes = |media: &[bool]| {
+        let solve_nodes = |media: &[Option<usize>]| {
             homogenize_nodes(
                 &solution,
                 &lattice,
@@ -2574,7 +2572,7 @@ mod tests {
         };
         let group_of = coarse_groups(&fine, fine.bounds()).unwrap();
         let b1 = b1_diffusion(&solution, &[&fuel], &[0], &group_of, 2).unwrap();
-        let with_media = solve_nodes(&[true, true, false]);
+        let with_media = solve_nodes(&[Some(0), Some(0), None]);
         let without = solve_nodes(&no_media(&solution));
         for n in 0..2 {
             for (g, &b) in b1.iter().enumerate() {
@@ -2599,7 +2597,7 @@ mod tests {
                     ..node(2..3, 0..1)
                 },
             ],
-            &[true, false, false],
+            &[Some(0), None, None],
             false,
         )
         .unwrap();
@@ -2624,7 +2622,7 @@ mod tests {
         assert_eq!(mixed[0].diffusion, whole[0].diffusion);
         // 核分裂のない媒質のノードは、媒質の印に依らず ADR-0104 と ADR-0134 の D（Koebke の D を中性子流の重みの D から
         // 探す）
-        let water_medium = solve_nodes(&[false, false, true]);
+        let water_medium = solve_nodes(&[None, None, Some(0)]);
         assert_eq!(water_medium[2].diffusion, without[2].diffusion);
     }
 
