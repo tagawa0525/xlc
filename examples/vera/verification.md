@@ -252,22 +252,18 @@ KENO-VI の値は仕様書の表 M3-5、集合体の出力（1/8）は付録 J �
 (OpenMC − KENO-VI)/KENO-VI で、統計誤差は 2.0 pcm（KENO-VI の 0.8 pcm と合わせて 2.1 pcm）。KENO-VI は ENDF/B-VII.0 なので、差には
 核データの違いが入る。統計誤差（`pins-std.msgpack`、`assemblies-std.msgpack` の標準偏差を値で割ったもの。ピン 50952 本、
 集合体 193 体。世代の間の相関を含む）: ピン出力は中央値 0.19%、最大 0.51%、集合体の出力は中央値 0.031%、最大 0.057%、
-軸方向の出力はない（2D）。短い実行からの見積もり（上）と同じ程度。結果は `p5/openmc-5A-2D.msgpack`（ピン、255 × 255）、
-`p5/openmc-5A-2D-assemblies.msgpack`（集合体、15 × 15）と、それぞれの `-pins-std`、`-assemblies-std`（どれも 590 KB 以下で、
-git で追跡しない。ADR-0121）。statepoint（100 MB）は `references/openmc/vera-5A-2D/` に置く。
+軸方向の出力はない（2D）。短い実行からの見積もり（上）と同じ程度。statepoint（100 MB）は `references/openmc/vera-5A-2D/` に
+置き、k、ピン出力（255 × 255）、集合体の出力（15 × 15）とその統計誤差は、段階 `openmc-5A-2D-extract`（`dvc.yaml`）が
+`p5/openmc-5A-2D-results/` に抜く（git で追跡しない。ADR-0130）。
 
 ## Problem 5-2D の炉心の計算
 
 5A-2D、5B-2D、5C-2D を xlc で解き、OpenMC（5A-2D。同じ ENDF/B-VIII.0）と KENO-VI（ENDF/B-VII.0）と比べた。段階は
 `p5/dvc.yaml`（`p5/p5_inputs.py` が書く）で、xs から比較まで `dvc repro examples/vera/p5/dvc.yaml` で実行する。OpenMC との
-比較は、参照解の statepoint から `openmc_core_2d.py extract` で書いた結果のディレクトリ（`references/openmc/vera-5A-2D-results`。
-集合体とピンの出力は `p5/openmc-5A-2D*.msgpack` とバイト単位で同じ）を読む。
+比較は、参照解の statepoint から段階 `openmc-5A-2D-extract` が抜いた `p5/openmc-5A-2D-results/` を読む。
 
 ```sh
-# リポジトリの直下で。OpenMC の結果のディレクトリ（references の devShell の中）
-python3 examples/vera/openmc_core_2d.py extract examples/vera/p5/openmc-5A-2D.toml references/openmc/vera-5A-2D \
-  references/openmc/vera-5A-2D-results
-# default の devShell の中。格子は Slurm で流す（自己遮蔽ありの 3 × 3 の MOC は 37 GB）
+# リポジトリの直下で、default の devShell の中。格子は Slurm で流す（自己遮蔽ありの 3 × 3 の MOC は 37 GB）
 dvc repro examples/vera/p5/dvc.yaml
 ```
 
@@ -283,7 +279,8 @@ dvc repro examples/vera/p5/dvc.yaml
   部分ノード（ADR-0108）も、反射体のある炉心ではエラーにする。このため、1/4 の装荷図を鏡映で広げた全炉心
   （15 × 15 の 193 体と反射体の輪の 17 × 17、ADR-0090）を解く。装荷図は鏡映で対称で、全炉心の解は 1/4 炉心の解と同じ問題になる
 - 燃料: 集合体の種類（濃縮度 2.11%、2.619%、3.10% と Pyrex の棒 0、8、12、16、20、24 本、D バンクの AIC と B4C）のうち、
-  反射体に面しない位置にある 13 の種類の単一集合体の格子（3.10%、Pyrex 8 本は外周にだけある）（565 K、0.743 g/cc、1300 ppm、方位角 30・間隔 0.03 cm。ADR-0111）。制御棒の位置はまだ入力に
+  反射体に面しない位置にある 12 の種類の単一集合体の格子（3.10% の Pyrex なしと Pyrex 8 本は外周にだけある。3.10% の
+  Pyrex なしの単一集合体の格子は、下の最小の入力と反射体の格子の確認に使う）（565 K、0.743 g/cc、1300 ppm、方位角 30・間隔 0.03 cm。ADR-0111）。制御棒の位置はまだ入力に
   ない（ADR-0105 の `rods`）ので、5B と 5C は D バンクの 9 体を台帳で別の設計にする
 - 外周の燃料（ADR-0153）: 反射体に 1 面で面する位置（28 体）には、その種類の燃料の I 型の格子（`reflector-I.toml`、
   `reflector-I-31-p8.toml`、`reflector-I-31-p12.toml`）の燃料のノードの定数を、隣り合う 2 面で面する位置（16 体。どれも
@@ -327,7 +324,7 @@ core と比べた（`compare-small-*.out`）。燃料のピン 2376 本は、ど
 ### 外周の燃料の定数の切り分け
 
 外周の燃料のノードの定数の項（断面積、拡散係数、ADF）を 1 つずつ、単一集合体のものから反射体の格子の燃料のノードのものに
-替えた試行（65fb2b43 の trials/p5-0086、2026-10-12。ADR-0153 の前の入力で、外周の 3.10%、Pyrex なしの位置だけを替え、
+替えた試行（65fb2b43 の trials/p5-0086、2026-10-12、分岐点 db212cb1。ADR-0153 の前の入力で、外周の 3.10%、Pyrex なしの位置だけを替え、
 Pyrex のある外周の 12 体は単一集合体の定数のまま）。断面積は total、absorption、nu_fission、fission、chi、scatter。I 型の格子は
 格子の MOC の k と、3 × 3 は MOC と、5A は OpenMC と比べた。
 
@@ -348,7 +345,7 @@ Pyrex のある外周の 12 体は単一集合体の定数のまま）。断面�
   差には、定義の違い（単一集合体は B1、反射体の格子の燃料のノードは中性子流で重みづけした outflow。ADR-0104）も入り、
   2 つを分けることは確かめていない
 - 反射体のノードの定数の燃料の種類への依存: Pyrex のある燃料に面する 12 の反射体の位置に、その燃料の I 型の格子の反射体の
-  ノードの定数を置くと（18a270bd の trials/p5-0086/pairing.py、2026-10-12。ADR-0153 の入力の炉心の形だけを替えた）、5A の
+  ノードの定数を置くと（18a270bd の trials/p5-0086/pairing.py、2026-10-12、分岐点 db212cb1。ADR-0153 の入力の炉心の形だけを替えた）、5A の
   OpenMC との差は k −9.2 pcm、集合体 RMS 1.73%（代表の定数では −5.7 pcm、1.66%）
 
 ```sh
