@@ -986,6 +986,17 @@ fn rodded_layout(case: &Case, plant: &Plant) -> Result<Layout, InputError> {
 }
 
 #[test]
+fn rod_tips_without_the_bank_step_are_errors() {
+    // バンクの位置の書き漏れを棒なしとして扱わない
+    let plant = rodded_plant();
+    assert!(rod_tips(&plant, Some(&BTreeMap::new())).is_err());
+    let banks = BTreeMap::from([("D".to_string(), 4)]);
+    let tips = rod_tips(&plant, Some(&banks)).unwrap();
+    assert_eq!(tips[0][1].map(|(tip, _)| tip), Some(3.0));
+    assert!(tips[0][0].is_none());
+}
+
+#[test]
 fn plants_read_rod_banks_and_types() {
     let rods = rodded_plant().rods.unwrap();
     assert_eq!(rods.step, 0.5);
