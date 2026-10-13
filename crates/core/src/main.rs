@@ -209,12 +209,14 @@ fn write_pin_powers(case: &Case, problem: &Problem, solution: &Solution) -> anyh
     }
     let reconstructed = Instant::now();
     let maps = reconstruct(problem, solution).map_err(|e| anyhow!("pin powers: {e}"))?;
+    // 両方を作ってから書く（後のものが失敗したとき、先のものだけが新しくならないように）
+    let mut outputs = Vec::new();
     if let Some(file) = &case.pin_powers {
         let rows = core_rows(problem, &maps).map_err(|e| anyhow!("pin powers: {e}"))?;
         let bytes = PinPowers { rows }
             .to_msgpack()
             .with_context(|| shown(file))?;
-        std::fs::write(file, bytes).with_context(|| shown(file))?;
+        outputs.push((file, bytes));
     }
     if let Some(file) = &case.axial_pin_powers {
         let layers = axial_rows(problem, &maps).map_err(|e| anyhow!("axial pin powers: {e}"))?;
@@ -225,6 +227,9 @@ fn write_pin_powers(case: &Case, problem: &Problem, solution: &Solution) -> anyh
         }
         .to_msgpack()
         .with_context(|| shown(file))?;
+        outputs.push((file, bytes));
+    }
+    for (file, bytes) in outputs {
         std::fs::write(file, bytes).with_context(|| shown(file))?;
     }
     tracing::info!(
