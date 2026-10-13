@@ -291,7 +291,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
         };
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
-        // 媒質（ADR-0128）の領域。領域がすべて1つの媒質のノードの拡散係数は、その媒質の B1 の D（ADR-0141）
+        // 媒質（ADR-0128）の領域。領域がすべて1つの核分裂のある媒質のノードの拡散係数は、その媒質の B1 の D（ADR-0141）
         let media_regions: Vec<bool> = region_materials
             .iter()
             .map(|name| input.media.iter().any(|m| &m.name == name))
