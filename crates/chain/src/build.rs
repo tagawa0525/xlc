@@ -525,7 +525,8 @@ pub fn build(
         }
     }
     let mut fissionable = Vec::new();
-    for evaluation in neutrons {
+    // 中性子そのものの評価（n + n）もチェーンに入れない
+    for evaluation in neutrons.iter().filter(|n| n.material.z > 0) {
         let k = key(&evaluation.material);
         let i = index.get(k).ok_or_else(|| {
             anyhow!(
