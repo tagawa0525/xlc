@@ -17,7 +17,9 @@ t() { # <out> <tag> <dir> <command...>
   s=$(date +%s.%N)
   (cd "$dir" && "$@" 2>"$root/${out%.out}.log") > "$root/$out"
   e=$(date +%s.%N)
-  echo "TIME $tag $(echo "$e - $s" | bc)" >&2
+  local dt
+  dt=$(echo "$e - $s" | bc)
+  echo "TIME $tag $dt" >&2
 }
 cp out/xs/$c-v0-1.msgpack ../m0/wims69.msgpack
 trap 'rm -f ../m0/wims69.msgpack ../m0/pincell-fg.msgpack' EXIT

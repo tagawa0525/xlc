@@ -11,7 +11,8 @@ for round in 1 2 3 4 5 6; do
     s=$(date +%s.%N)
     "$root/bin/lattice-$c-$v" assembly-2A.toml > "out/2A/$v-$round.out" 2>"out/2A/$v-$round.log"
     e=$(date +%s.%N)
-    echo "TIME 2A $v $round $(echo "$e - $s" | bc)"
+    dt=$(echo "$e - $s" | bc)
+    echo "TIME 2A $v $round $dt"
     mv assembly-2A-fg.msgpack "out/2A/fg-$v-$round.msgpack"
     mv pins-2A.msgpack "out/2A/pins-$v-$round.msgpack"
   done
