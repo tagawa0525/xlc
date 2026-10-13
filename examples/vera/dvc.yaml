@@ -1,5 +1,5 @@
 # VERA の段階: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ
-# （範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）→ 格子計算（lattice）、両者の k の比較。走らせるのは default の devShell の `dvc repro`（ADR-0123）。NJOY と OpenMC を
+# （範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）→ 格子計算（lattice）、両者の k の比較。走らせるのは default の devShell の `dvc repro`（ADR-0159）。NJOY と OpenMC を
 # 使う段階は cmd を references の devShell で包み、その devShell の store のパス（references-shell.txt）を道具の deps に
 # する（ADR-0130）。Rust の段階の deps は、段階の入力と、段階が呼ぶ実行ファイル（ADR-0159。examples/m0/dvc.yaml と同じ並び）。
 vars:
