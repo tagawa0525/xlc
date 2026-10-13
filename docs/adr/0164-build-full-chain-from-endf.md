@@ -16,7 +16,8 @@ issues: []
 （docs/plans/m4-depletion.md の「核データ」と「進め方」2）。元のデータは、flake で固定した ENDF/B-VIII.0 の decay、nfy、
 neutrons のサブライブラリ（[ADR-0124](0124-pin-reference-assets-with-nix.md)）。
 
-手元で数えたデータの形（OpenMC 0.15.2 の `openmc.data` で読んだ。trials のツール、2026-10-14。実装の確認で数え直す）:
+データの形（OpenMC 0.15.2 の `openmc.data` で読んで数え、2026-10-14、`chain` の警告と examples/depletion/verification.md の比較で
+数え直した）:
 
 - decay: 3,821 の評価（中性子そのものを除いて 3,820。安定 245）。崩壊の分岐比の和の 1 からのずれは最大 9e-7（Ba-114）。
   不安定（NST = 0）なのに半減期が 0 のものが 14（Xe-136、Te-130 など。二重 β 崩壊の型）。娘が decay にない崩壊が 9
