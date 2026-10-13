@@ -103,8 +103,9 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
   `aws s3 sync --delete` で S3 にコピーする。完了したら、最後の世代のほかの statepoint を消し、sha256 の manifest を書いて同期し、
   電源を切る（terminate）。どこで失敗しても、ログと終了コードの `done` を S3 に置いてから電源を切る。SIGTERM（中断）では `done` を置かず、
   起動し直せるようにする
-- 書いている途中の statepoint が同期されても、再開の `latest_readable`（examples/openmc_resume.py）が壊れたものを消して 1 つ前から
-  続ける。S3 には作業ディレクトリの statepoint がそのまま写る（実行中に最新の `KEEP` 個へ間引くはずの処理が効いていない。#0106）
+- 書かれて 60 秒たたない最新の statepoint は、書いている途中でありうるので同期しない。写ったものが壊れていても、再開の
+  `latest_readable`（examples/openmc_resume.py）が壊れたものを消して 1 つ前から続ける。再開の VM は、S3 から作業ディレクトリに
+  戻し終えるまで同期しない（`--delete` で S3 の statepoint を消さないため）。S3 には作業ディレクトリの statepoint がそのまま写る（実行中に最新の `KEEP` 個へ間引くはずの処理が効いていない。#0106）
 - インスタンスプロファイルのロール `xlc-openmc-vm` は、そのバケットの一覧（`store/`、`runs/`）、`store/` の読み取り、`runs/` の
   読み書きと削除だけ。EC2 の権限は持たない。バケットはツールの変数 `XLC_BUCKET`（既定 xlc-openmc-118645514640）で選ぶ
 - 中断のあとは手元から同じ名前で起動し直し、`done` のないジョブを `--restart` で続ける。起動し直すときは、最初の起動で S3 に置いた
