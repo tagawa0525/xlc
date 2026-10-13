@@ -267,9 +267,9 @@ KENO-VI の値は仕様書の表 M3-5、集合体の出力（1/8）は付録 J �
 dvc repro examples/vera/p5/dvc.yaml
 ```
 
-計算: 格子（単一集合体、反射体、3 × 3 の MOC）、炉心、KENO-VI との比較は ad997b4d（その rebase の前の ee8195a2 で
+計算: 格子（単一集合体、反射体、3 × 3 の MOC）、炉心、KENO-VI との比較は ce2192d9（その rebase の前の ee8195a2 で
 走らせた。2026-10-12、分岐点 4fcc54fc。単一集合体の格子と 3 × 3 の MOC の出力は、前の記録（584c741b ほか）とバイト単位で
-同じ）。OpenMC との比較は ea7115d1（2026-10-12、分岐点 c70e1364）。ライブラリは main の核種ごとの xs の段階（ADR-0138）の
+同じ）。OpenMC との比較は 47fdc3aa（2026-10-12、分岐点 c70e1364）。ライブラリは main の核種ごとの xs の段階（ADR-0138）の
 もので、md5 は 1850d83f。k の差はどれも Δk/k（(k / k_参照 − 1) × 10⁵ pcm）。
 
 ### 入力の構成
@@ -324,7 +324,7 @@ core と比べた（`compare-small-*.out`）。燃料のピン 2376 本は、ど
 ### 外周の燃料の定数の切り分け
 
 外周の燃料のノードの定数の項（断面積、拡散係数、ADF）を 1 つずつ、単一集合体のものから反射体の格子の燃料のノードのものに
-替えた試行（65fb2b43 の trials/p5-0086、2026-10-12、分岐点 4fcc54fc。ADR-0153 の前の入力で、外周の 3.10%、Pyrex なしの位置だけを替え、
+替えた試行（92345525 の trials/p5-0086、2026-10-12、分岐点 4fcc54fc。ADR-0153 の前の入力で、外周の 3.10%、Pyrex なしの位置だけを替え、
 Pyrex のある外周の 12 体は単一集合体の定数のまま）。断面積は total、absorption、nu_fission、fission、chi、scatter。I 型の格子は
 格子の MOC の k と、3 × 3 は MOC と、5A は OpenMC と比べた。
 
@@ -345,11 +345,11 @@ Pyrex のある外周の 12 体は単一集合体の定数のまま）。断面�
   差には、定義の違い（単一集合体は B1、反射体の格子の燃料のノードは中性子流で重みづけした outflow。ADR-0104）も入り、
   2 つを分けることは確かめていない
 - 反射体のノードの定数の燃料の種類への依存: Pyrex のある燃料に面する 12 の反射体の位置に、その燃料の I 型の格子の反射体の
-  ノードの定数を置くと（18a270bd の trials/p5-0086/pairing.py、2026-10-12、分岐点 4fcc54fc。ADR-0153 の入力の炉心の形だけを替えた）、5A の
+  ノードの定数を置くと（1801d5c4 の trials/p5-0086/pairing.py、2026-10-12、分岐点 4fcc54fc。ADR-0153 の入力の炉心の形だけを替えた）、5A の
   OpenMC との差は k −9.2 pcm、集合体 RMS 1.73%（代表の定数では −5.7 pcm、1.66%）
 
 ```sh
-# リポジトリの直下で、65fb2b43（pairing.py は 18a270bd）を checkout して。python3 は references の devShell の中
+# リポジトリの直下で、92345525（pairing.py は 1801d5c4）を checkout して。python3 は references の devShell の中
 python3 trials/p5-0086/trial_inputs.py      # tables/ と、置き換えた入力を書く
 cargo run --release -p xlc-core -- trials/p5-0086/5A-IC-xs.toml > trials/p5-0086/5A-IC-xs.out
 python3 examples/vera/compare_p5.py openmc trials/p5-0086/5A-IC-xs.out trials/p5-0086/5A-IC-xs-pins.msgpack \
