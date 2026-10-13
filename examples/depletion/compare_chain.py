@@ -24,7 +24,8 @@ REACTIONS = {
     103: "(n,p)",
     107: "(n,a)",
 }
-LIGHT = {"H1", "He4"}
+# 反応の放出する軽い核種
+LIGHT_OF = {103: "H1", 107: "He4"}
 
 
 def openmc_name(name: str) -> str:
@@ -155,11 +156,16 @@ def main():
         for r in xlc[name]["reactions"]:
             targets = []
             for c in r["channels"]:
-                heavy = [
-                    names[p["nuclide"]]
-                    for p in c["products"]
-                    if names[p["nuclide"]] not in LIGHT or r["mt"] in (16, 17, 37, 102)
-                ]
+                # 生成物から、反応の放出する軽い核種（(n,p) の H-1、(n,α) の He-4）を 1 つ除いた残りの核
+                light = LIGHT_OF.get(r["mt"])
+                heavy = []
+                for p in c["products"]:
+                    product = names[p["nuclide"]]
+                    count = p["count"]
+                    if product == light:
+                        count -= 1
+                        light = None
+                    heavy += [product] * count
                 targets.append(heavy[0] if heavy else None)
             xr[REACTIONS[r["mt"]]] = targets
         orx = {}
