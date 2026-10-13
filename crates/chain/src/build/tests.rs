@@ -787,3 +787,26 @@ fn reads_the_reactions_the_chain_type_accepts() {
     mts.sort_unstable();
     assert_eq!(mts, xlc_depletion::chain::REACTION_MTS);
 }
+
+#[test]
+fn warns_about_a_residual_with_fewer_nucleons_than_protons() {
+    // H-2 の (n,3n) の残り（Z = 1、A = 0）は核種でない
+    let built = build(
+        &with_light(vec![stable(1, 2)]),
+        &[neutron(1, 2, 0, &[17])],
+        &[],
+    )
+    .unwrap();
+    assert!(
+        built.warnings.iter().any(|w| w.contains("H-2")),
+        "{:?}",
+        built.warnings
+    );
+}
+
+#[test]
+fn rejects_decay_modes_of_a_stable_evaluation() {
+    let mut fe56 = stable(26, 56);
+    fe56.decay.modes = vec![mode(&[Step::BetaMinus], 0, 1.0)];
+    assert!(build(&with_light(vec![fe56, stable(27, 56)]), &[], &[]).is_err());
+}
