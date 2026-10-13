@@ -224,8 +224,8 @@ medium = "media/31-p8-plug.msgpack"
 medium = "media/31-p8-poison.msgpack"
 
 [material.water]
-temperature = 565
-water = { density = 0.743, boron = 1100, b10 = 0.199 }
+temperature = 560
+water = { density = 0.75207, boron = 1100, b10 = 0.199 }
 
 [material.zircaloy]
 temperature = 565
@@ -344,8 +344,8 @@ mix = [{ material = "zircaloy", volume = 0.00814154 }, { material = "ss304", vol
 
 [branches]
 boron = { ppm = [1100, 1400], materials = ["water", "mix-plate", "mix-bnozzle", "mix-tnozzle", "mix-s6_053", "mix-s10_281", "mix-s377_711", "mix-s383_31", "mix-s386_267", "mix-s390_133", "mix-s393_711", "mix-s394_31", "mix-s395_381"] }
-moderator = { temperature = [565], density = [0.743], materials = ["water", "zircaloy", "ss304", "inconel", "mix-plate", "mix-bnozzle", "mix-tnozzle", "mix-s6_053", "mix-s10_281", "mix-s377_711", "mix-s383_31", "mix-s386_267", "mix-s390_133", "mix-s393_711", "mix-s394_31", "mix-s395_381"] }
-fuel = { temperature = [565], materials = ["medium-empty", "medium-plenum", "medium-plug", "medium-poison"] }
+moderator = { temperature = [560, 570], density = [0.75207, 0.73294], materials = ["water", "zircaloy", "ss304", "inconel", "mix-plate", "mix-bnozzle", "mix-tnozzle", "mix-s6_053", "mix-s10_281", "mix-s377_711", "mix-s383_31", "mix-s386_267", "mix-s390_133", "mix-s393_711", "mix-s394_31", "mix-s395_381"] }
+fuel = { temperature = [560, 570], materials = ["medium-empty", "medium-plenum", "medium-plug", "medium-poison"] }
 
 [cell.water]
 zones = [{ material = "water", rings = 1 }]

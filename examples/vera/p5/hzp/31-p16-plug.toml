@@ -61,8 +61,8 @@ Sn-122 = 2.23417e-05
 Sn-124 = 2.79392e-05
 
 [material.water]
-temperature = 565
-water = { density = 0.743, boron = 1100, b10 = 0.199 }
+temperature = 560
+water = { density = 0.75207, boron = 1100, b10 = 0.199 }
 
 [material.ss304]
 temperature = 565
@@ -91,8 +91,8 @@ Ni-64 = 7.21770e-05
 
 [branches]
 boron = { ppm = [1100, 1400], materials = ["water"] }
-moderator = { temperature = [565], density = [0.743], materials = ["zircaloy", "water", "ss304"] }
-fuel = { temperature = [565], materials = ["fuel31"] }
+moderator = { temperature = [560, 570], density = [0.75207, 0.73294], materials = ["zircaloy", "water", "ss304"] }
+fuel = { temperature = [560, 570], materials = ["fuel31"] }
 
 [cell.pin31]
 zones = [
