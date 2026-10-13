@@ -129,11 +129,17 @@ def offset(bounds: list[float], axial: list[float]) -> float:
 def axial_report(
     name: str, bounds: list[float], ours: list[float], ref: list[float]
 ) -> None:
+    if not (len(ours) == len(ref) == len(bounds) - 1):
+        raise SystemExit(
+            f"{len(ours)} xlc and {len(ref)} {name} levels for {len(bounds) - 1} layers"
+        )
     diffs = [a - b for a, b in zip(ours, ref)]
     rms = math.sqrt(sum(d * d for d in diffs) / len(diffs))
+    # 層ごとの相対差 (xlc / 参照 − 1) の RMS
+    relative = math.sqrt(sum((a / b - 1) ** 2 for a, b in zip(ours, ref)) / len(ref))
     worst = max(range(len(diffs)), key=lambda i: abs(diffs[i]))
     print(
-        f"axial vs {name}: rms {rms:.4f}, max {diffs[worst]:+.4f} at level {worst + 1} "
+        f"axial vs {name}: rms {rms:.4f} (relative {100 * relative:.2f}%), max {diffs[worst]:+.4f} at level {worst + 1} "
         f"({bounds[worst]:.3f}-{bounds[worst + 1]:.3f} cm above the fuel bottom), "
         f"AO xlc {100 * offset(bounds, ours):+.3f}% {name} {100 * offset(bounds, ref):+.3f}%"
     )
@@ -146,7 +152,9 @@ def axial_report(
 def pin_stats(
     ours: list[list[float]], ref: list[list[float]]
 ) -> tuple[float, float, tuple]:
-    """燃料のピン（どちらも正）の (xlc / 参照 − 1) の RMS、最大、その位置（行, 列）"""
+    """燃料のピン（どちらも正）の (xlc / 参照 − 1) の RMS、最大、その位置（行, 列）。2つの表は同じ形であること"""
+    if len(ours) != len(ref) or any(len(a) != len(b) for a, b in zip(ours, ref)):
+        raise SystemExit("the two pin maps differ in shape")
     diffs = [
         (a / b - 1, (i, j))
         for i, (ra, rb) in enumerate(zip(ours, ref))
@@ -238,6 +246,10 @@ def main() -> None:
         rms, worst, at = pin_stats(pins, ref_pins)
         print(f"pins vs OpenMC: rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}")
         ours_layers = coarsen(layers["bounds"], layers["layers"], ref_bounds)
+        if len(reference["layers"]) != len(ours_layers):
+            raise SystemExit(
+                f"{len(reference['layers'])} OpenMC layer maps for {len(ours_layers)} layers"
+            )
         overall = None
         for k_level, (a, b) in enumerate(zip(ours_layers, reference["layers"])):
             rms, worst, at = pin_stats(a, b)
