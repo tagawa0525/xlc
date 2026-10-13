@@ -1,0 +1,5 @@
+# 全核種の燃焼チェーン（ADR-0164）を ENDF/B-VIII.0 から作る入力。dvc.yaml の chain の段階が bin/chain で読む
+output = "chain.msgpack"
+decay-directory = "../../references/endf/ENDF-B-VIII.0_decay"
+nfy-directory = "../../references/endf/ENDF-B-VIII.0_nfy"
+neutron-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
