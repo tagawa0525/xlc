@@ -58,6 +58,9 @@
 //! # 再構成したピン出力（省略すると書かない。どのノードも形状関数を持つこと。ADR-0096）。状態が1つ以下のときだけ
 //! # 書ける（この例は状態が2つなので書かない）
 //! # pin-powers = "pins.msgpack"
+//! # 核分裂のある層ごとのピン出力と軸方向の出力（省略すると書かない）。pin-powers と同じく、状態が1つ以下のときだけ
+//! # 書ける
+//! # axial-pin-powers = "layers.msgpack"
 //! # 名前つきの炉心の状態。状態ごとに分岐のテーブルを内挿して解き、名前の順に出す（ADR-0097、ADR-0146）。
 //! # 省略すると、軸のないテーブルだけを使って1つ解く
 //! [state.aro]
@@ -705,6 +708,8 @@ pub struct Case {
     pub partial_rods: PartialRods,
     /// `[partial-rods]` を書いたか（棒のない炉心に書けばエラーにする）
     pub partial_rods_given: bool,
+    /// 核分裂のある層ごとのピン出力と軸方向の出力を書くファイル。状態が1つ以下のときだけ
+    pub axial_pin_powers: Option<PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -717,6 +722,7 @@ struct CaseFile {
     state: Option<BTreeMap<String, StateEntry>>,
     pin_powers: Option<PathBuf>,
     partial_rods: Option<PartialRodsEntry>,
+    axial_pin_powers: Option<PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -912,6 +918,22 @@ impl Case {
                 states.len()
             ));
         }
+        if file.axial_pin_powers.is_some() && states.len() > 1 {
+            return invalid(format!(
+                "axial-pin-powers needs at most one state, got {}",
+                states.len()
+            ));
+        }
+        let pin_powers = file.pin_powers.map(|p| normalized(&base.join(p)));
+        let axial_pin_powers = file.axial_pin_powers.map(|p| normalized(&base.join(p)));
+        if let (Some(a), Some(b)) = (&pin_powers, &axial_pin_powers)
+            && a == b
+        {
+            return invalid(format!(
+                "pin-powers and axial-pin-powers name the same file {}",
+                a.display()
+            ));
+        }
         Ok(Self {
             cycle: base.join(file.cycle),
             axial_mesh: file.axial_mesh,
@@ -919,9 +941,10 @@ impl Case {
             boundaries,
             outline: b.outline.map(condition),
             states,
-            pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
+            pin_powers,
             partial_rods,
             partial_rods_given,
+            axial_pin_powers,
         })
     }
 }

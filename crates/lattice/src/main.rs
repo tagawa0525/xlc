@@ -291,6 +291,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
             }
         };
         let materials: Vec<&Material> = region_index.iter().map(|&i| &unique[i]).collect();
+        // 媒質（ADR-0128）の領域。領域がすべて1つの核分裂のある媒質のノードの拡散係数は、その媒質の B1 の D（ADR-0141）
+        let media_regions: Vec<Option<usize>> = region_materials
+            .iter()
+            .map(|name| input.media.iter().position(|m| &m.name == name))
+            .collect();
 
         let options = Options {
             scattering_order: input
@@ -358,6 +363,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         bounds,
                         &boundaries,
                         &nodes,
+                        &media_regions,
                         *pins,
                     )?
                     .into_iter()
