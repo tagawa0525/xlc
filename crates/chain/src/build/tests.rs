@@ -363,43 +363,143 @@ fn splits_reactions_into_the_final_states_of_mf8() {
     let built = build(&decays, &[am241], &[]).unwrap();
     let channels = &find(&built, "Am-241").reactions[0].channels;
     assert_eq!(channels.len(), 2);
-    assert_eq!(channels[0].final_state, Some(FinalState { mf: 9, lfs: 0 }));
+    assert_eq!(
+        channels[0].final_state,
+        Some(FinalState {
+            mf: 9,
+            lfs: Some(0)
+        })
+    );
     assert_eq!(channels[0].products, vec![one(&built, "Am-242")]);
-    assert_eq!(channels[1].final_state, Some(FinalState { mf: 9, lfs: 2 }));
+    assert_eq!(
+        channels[1].final_state,
+        Some(FinalState {
+            mf: 9,
+            lfs: Some(2)
+        })
+    );
     assert_eq!(channels[1].products, vec![one(&built, "Am-242m")]);
 }
 
+fn entry(za: u32, excitation: f64, mf: u32, lfs: u32) -> FinalStateEntry {
+    FinalStateEntry {
+        za,
+        excitation,
+        mf,
+        lfs,
+    }
+}
+
 #[test]
-fn sends_a_final_state_outside_the_decay_data_to_the_ground_state() {
-    // decay にない準位（短寿命で、即発の γ で基底状態に落ちる）
+fn sends_a_final_state_to_the_ground_state_when_the_product_has_no_isomer() {
+    // decay に準安定状態のない生成物の準位（短寿命で、即発の γ で基底状態に落ちる）
     let decays = with_light(vec![stable(95, 241), stable(95, 242)]);
     let mut am241 = neutron(95, 241, 0, &[102]);
     am241.final_states = vec![(
         102,
-        vec![
-            FinalStateEntry {
-                za: 95242,
-                excitation: 0.0,
-                mf: 10,
-                lfs: 0,
-            },
-            FinalStateEntry {
-                za: 95242,
-                excitation: 3e5,
-                mf: 10,
-                lfs: 3,
-            },
-        ],
+        vec![entry(95242, 0.0, 10, 0), entry(95242, 3e5, 10, 3)],
     )];
     let built = build(&decays, &[am241], &[]).unwrap();
     let channels = &find(&built, "Am-241").reactions[0].channels;
-    assert_eq!(channels[1].final_state, Some(FinalState { mf: 10, lfs: 3 }));
+    assert_eq!(
+        channels[1].final_state,
+        Some(FinalState {
+            mf: 10,
+            lfs: Some(3)
+        })
+    );
     assert_eq!(channels[1].products, vec![one(&built, "Am-242")]);
     assert!(
         built.warnings.iter().any(|w| w.contains("Am-241")),
         "{:?}",
         built.warnings
     );
+}
+
+/// Ir-190 の基底状態と 2 つの準安定状態（26.1 keV と 376.4 keV）
+fn ir190_decays() -> Vec<DecayEvaluation> {
+    let isomer = |state, excitation| DecayEvaluation {
+        material: material(77, 190, state, excitation),
+        ..unstable(
+            77,
+            190,
+            state,
+            1.0,
+            vec![mode(&[Step::IsomericTransition], 0, 1.0)],
+        )
+    };
+    with_light(vec![
+        stable(77, 191),
+        stable(77, 190),
+        isomer(1, 26_100.0),
+        isomer(2, 376_400.0),
+    ])
+}
+
+#[test]
+fn matches_excited_states_to_isomers_by_the_nearest_energy() {
+    // ENDF/B-VIII.0 の Ir-191 (n,2n) の形: 26.0 keV と 376.4 keV は準安定状態、36.15 keV は decay にない準位
+    let mut ir191 = neutron(77, 191, 0, &[16]);
+    ir191.final_states = vec![(
+        16,
+        vec![
+            entry(77190, 0.0, 10, 0),
+            entry(77190, 26_000.0, 10, 1),
+            entry(77190, 36_150.0, 10, 2),
+            entry(77190, 376_400.0, 10, 3),
+        ],
+    )];
+    let built = build(&ir190_decays(), &[ir191], &[]).unwrap();
+    let products: Vec<_> = find(&built, "Ir-191").reactions[0]
+        .channels
+        .iter()
+        .map(|c| c.products.clone())
+        .collect();
+    assert_eq!(
+        products,
+        vec![
+            vec![one(&built, "Ir-190")],
+            vec![one(&built, "Ir-190m")],
+            vec![one(&built, "Ir-190")],
+            vec![one(&built, "Ir-190m2")],
+        ]
+    );
+    // 26.0 keV と 26.1 keV の違い（1e-3 を超える）と、36.15 keV の準位を基底状態に落としたことを示す
+    let warnings = built.warnings.join("\n");
+    assert!(warnings.contains("26000"), "{warnings}");
+    assert!(warnings.contains("36150"), "{warnings}");
+}
+
+#[test]
+fn keeps_the_remainder_when_mf8_lists_only_isomers() {
+    // ENDF/B-VIII.0 の In-115 (n,γ) の形: MF8 は準安定状態だけを挙げ、残りが基底状態
+    let decays = with_light(vec![
+        stable(49, 115),
+        unstable(49, 116, 0, 14.0, vec![mode(&[Step::BetaMinus], 0, 1.0)]),
+        DecayEvaluation {
+            material: material(49, 116, 1, 127_267.0),
+            ..unstable(49, 116, 1, 3.3e3, vec![mode(&[Step::BetaMinus], 0, 1.0)])
+        },
+        stable(50, 116),
+    ]);
+    let mut in115 = neutron(49, 115, 0, &[102]);
+    in115.final_states = vec![(102, vec![entry(49116, 127_269.7, 9, 1)])];
+    let built = build(&decays, &[in115], &[]).unwrap();
+    let channels = &find(&built, "In-115").reactions[0].channels;
+    assert_eq!(channels.len(), 2);
+    assert_eq!(
+        channels[0].final_state,
+        Some(FinalState {
+            mf: 9,
+            lfs: Some(1)
+        })
+    );
+    assert_eq!(channels[0].products, vec![one(&built, "In-116m")]);
+    assert_eq!(
+        channels[1].final_state,
+        Some(FinalState { mf: 9, lfs: None })
+    );
+    assert_eq!(channels[1].products, vec![one(&built, "In-116")]);
 }
 
 #[test]
