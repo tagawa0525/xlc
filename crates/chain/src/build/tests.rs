@@ -687,3 +687,30 @@ fn ignores_neutron_data_of_the_neutron_itself() {
     let built = build(&with_light(vec![]), &[neutron(0, 1, 0, &[2])], &[]).unwrap();
     assert_eq!(built.chain.nuclides.len(), 2);
 }
+
+#[test]
+fn merges_a_daughter_that_is_also_the_emitted_light_nuclide() {
+    // Li-8 の β−α は娘も He-4、Be-7 の (n,α) は残りの核も He-4
+    let decays = with_light(vec![
+        unstable(
+            3,
+            8,
+            0,
+            0.84,
+            vec![mode(&[Step::BetaMinus, Step::Alpha], 0, 1.0)],
+        ),
+        unstable(4, 7, 0, 4.6e6, vec![mode(&[Step::EcBetaPlus], 0, 1.0)]),
+        stable(3, 7),
+    ]);
+    let built = build(&decays, &[neutron(4, 7, 0, &[107])], &[]).unwrap();
+    let two_alphas = vec![Product {
+        nuclide: index(&built, "He-4"),
+        count: 2,
+    }];
+    let li8 = find(&built, "Li-8").decay.as_ref().unwrap();
+    assert_eq!(li8.modes[0].products, two_alphas);
+    assert_eq!(
+        find(&built, "Be-7").reactions[0].channels[0].products,
+        two_alphas
+    );
+}
