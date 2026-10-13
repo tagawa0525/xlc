@@ -1,0 +1,15 @@
+[package]
+name = "xlc-depletion"
+version.workspace = true
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+faer.workspace = true
+num-complex.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
