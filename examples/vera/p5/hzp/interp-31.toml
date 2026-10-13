@@ -1,0 +1,12 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 分岐のテーブルを 565 K、1300 ppm で内挿した単一集合体の k∞（5-2D の assembly-31 と比べる）
+cycle = "interp-31-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.hzp]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
