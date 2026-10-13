@@ -21,6 +21,7 @@ pub mod power;
 pub mod shielding;
 pub mod sph;
 pub mod symmetry;
+pub mod track_table;
 pub mod tracking;
 pub mod ufg;
 pub mod water;

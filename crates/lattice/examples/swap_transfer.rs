@@ -28,7 +28,7 @@ use xlc_lattice::cp::Cylinder;
 use xlc_lattice::input::{CrossSections, LatticeInput};
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, available_order, solve};
-use xlc_lattice::shielding::{FuelShielding, PinShielding, ShieldingOptions, Sph, shield_fuel};
+use xlc_lattice::shielding::{FuelShielding, PinShielding, Sph, shield_fuel};
 use xlc_lattice::sph::{multigroup_flux, sph_factors};
 use xlc_lattice::tracking::{Boundaries, Tracking};
 
@@ -188,7 +188,7 @@ fn main() -> anyhow::Result<()> {
         &tracking,
         &input.materials,
         &names,
-        &ShieldingOptions::default(),
+        &input.shielding_options(),
     )?;
     if !names.iter().any(|n| n == name) {
         return Err(anyhow!("`{name}` is not in the lattice"));

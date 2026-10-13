@@ -319,6 +319,51 @@ fn self_shielding_is_on_unless_turned_off() {
 }
 
 #[test]
+fn track_table_defaults_to_the_adr_density() {
+    // ADR-0156: 既定は 10 倍あたり 16 点、整数で細かさを選び、false で格子点ごとに求める
+    let density = |line: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{line}"),
+        )
+        .map(|input| input.collision)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL).unwrap().collision,
+        Collision::Table { density: 16 }
+    );
+    assert_eq!(
+        density("track-table = 32").unwrap(),
+        Collision::Table { density: 32 }
+    );
+    assert_eq!(density("track-table = false").unwrap(), Collision::Exact);
+    for bad in ["track-table = true", "track-table = 0", "track-table = -4"] {
+        assert!(density(bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn track_table_needs_self_shielding() {
+    // 飛程の表は自己遮蔽の減速計算でだけ使うので、自己遮蔽しない入力に書くと止める
+    let off = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\ntrack-table = 32",
+    );
+    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+    let macroscopic = replaced(
+        LATTICE,
+        "cross-sections = \"c5g7.toml\"",
+        "cross-sections = \"c5g7.toml\"\ntrack-table = false",
+    );
+    assert!(
+        matches!(macroscopic, Err(InputError::Invalid(_))),
+        "{macroscopic:?}"
+    );
+}
+
+#[test]
 fn self_shielding_needs_a_library() {
     let result = replaced(
         LATTICE,

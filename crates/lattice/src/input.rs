@@ -3,6 +3,8 @@
 //! ```toml
 //! library = "m1.msgpack"          # 多群ライブラリ（cross-sections と排他）
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
+//! track-table = 16               # 自己遮蔽の減速計算の飛程の表の、ln Σ の 10 倍あたりの格子点の数（省略すると 16。
+//!                                 # false で格子点ごとに求める。ADR-0156）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
@@ -78,8 +80,10 @@ use xlc_format::library::is_nuclide_name;
 use crate::branches::{Branches, BranchesEntry, Water};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
+use crate::shielding::ShieldingOptions;
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
+use crate::ufg::Collision;
 use crate::water::borated_water;
 
 /// 解くときに使う格子の対称性の選び方（ADR-0112）。
@@ -164,6 +168,8 @@ pub struct LatticeInput {
     pub cross_sections: CrossSections,
     /// 燃料（核分裂する核種を含む物質）をピンごとに自己遮蔽する（ライブラリのとき）
     pub self_shielding: bool,
+    /// 自己遮蔽の UFG の減速計算の飛程の求め方（ADR-0156）
+    pub collision: Collision,
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
@@ -249,12 +255,22 @@ pub enum InputError {
     Geometry(#[from] GeometryError),
 }
 
+/// `track-table` の値: 10 倍あたりの格子点の数か、false（格子点ごとに求める）
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum TrackTableEntry {
+    Density(i64),
+    Exact(bool),
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct InputFile {
     library: Option<PathBuf>,
     /// 省略すると、ライブラリのときは true
     self_shielding: Option<bool>,
+    /// 省略すると ADR-0156 の既定の細かさ
+    track_table: Option<TrackTableEntry>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
     few_group: Option<FewGroupEntry>,
@@ -520,6 +536,14 @@ fn positive(v: f64) -> bool {
 }
 
 impl LatticeInput {
+    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）だけで、ほかは既定の値
+    pub fn shielding_options(&self) -> ShieldingOptions {
+        ShieldingOptions {
+            collision: self.collision,
+            ..ShieldingOptions::default()
+        }
+    }
+
     pub fn parse(text: &str) -> Result<Self, InputError> {
         let file: InputFile = toml::from_str(text)?;
         let invalid = |message: String| InputError::Invalid(message);
@@ -619,6 +643,25 @@ impl LatticeInput {
         }
         let entries = file.material.unwrap_or_default();
         let self_shielding = !macroscopic && file.self_shielding.unwrap_or(true);
+        // 飛程の表は自己遮蔽の減速計算でだけ使う
+        if !self_shielding && file.track_table.is_some() {
+            return Err(invalid(
+                "`track-table` is used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
+        let collision = match file.track_table {
+            None => Collision::default(),
+            Some(TrackTableEntry::Exact(false)) => Collision::Exact,
+            Some(TrackTableEntry::Density(density)) if density > 0 => Collision::Table {
+                density: density as usize,
+            },
+            Some(other) => {
+                return Err(invalid(format!(
+                    "`track-table` must be a positive number of points per decade or false, not {other:?}"
+                )));
+            }
+        };
         // 媒質は核種の組成を持たず、混ぜた物質の遮蔽は決めていない（ADR-0128）
         if self_shielding
             && entries
@@ -748,6 +791,7 @@ impl LatticeInput {
         });
         Ok(Self {
             self_shielding,
+            collision,
             cross_sections,
             output,
             pin_powers: file.pin_powers,

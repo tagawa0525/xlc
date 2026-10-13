@@ -1238,7 +1238,7 @@ mod lattice {
             / ufg.len() as f64;
         let cylinder = Cylinder::new(vec![0.2, 0.38, 0.48, radius]).unwrap();
         let rings: Vec<Option<&MaterialInput>> = [1, 1, 2, 3].map(|i| Some(&materials[i])).to_vec();
-        let spectrum = slowing_down(&library, &cylinder, &rings, [4.0, 1.0e4]).unwrap();
+        let spectrum = crate::ufg::slowing_down(&library, &cylinder, &rings, [4.0, 1.0e4]).unwrap();
         assert_eq!(spectrum.groups, 1..3);
         let volumes = cylinder.volumes();
         for g in ufg {

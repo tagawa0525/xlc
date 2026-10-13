@@ -32,7 +32,9 @@ use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_danc
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
-use crate::ufg::{CellSpectrum, UfgError, cell_range, material_range, slowing_down};
+use crate::ufg::{
+    CellSpectrum, Collision, UfgError, cell_range, material_range, slowing_down_with,
+};
 
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -41,6 +43,8 @@ pub struct ShieldingOptions {
     pub tolerance: f64,
     pub max_iterations: usize,
     pub dancoff: DancoffOptions,
+    /// 燃料のピンと棒の UFG の減速計算の飛程の求め方
+    pub collision: Collision,
 }
 
 impl Default for ShieldingOptions {
@@ -49,6 +53,7 @@ impl Default for ShieldingOptions {
             tolerance: 1.0e-6,
             max_iterations: 100,
             dancoff: DancoffOptions::default(),
+            collision: Collision::default(),
         }
     }
 }
@@ -486,6 +491,7 @@ pub fn shield_fuel_with(
                 rings,
                 region_index: &region_index,
                 void,
+                collision: options.collision,
             };
             let ufg = shield_cell(
                 library,
@@ -779,43 +785,59 @@ fn shield_lumps(
             found[b] = Some(result);
         }
     }
-    for (b, index, lump_regions) in lump_of {
+    // 塊の遮蔽は互いに独立なので並列に解く（ピンと同じ）。解くときに読む物質は、ここまでに足した物質（ピンの結果を
+    // 含む）で、塊の結果の物質は下のループで塊の順に足すので、逐次に解いたときと同じ番号と値になる。エラーも塊の順に返す
+    let parent = tracing::Span::current();
+    let dilute: &[Material] = &shielded.materials;
+    let solutions: Vec<Result<LumpSolution, SelfShieldingError>> = lump_of
+        .par_iter()
+        .map(|(b, index, lump_regions)| {
+            let _lump = tracing::debug_span!(parent: &parent, "lump", body = b).entered();
+            let cell = body_of[*b].0;
+            let found = found[*b].as_ref().ok_or(SelfShieldingError::Body(*b))?;
+            let equivalence = Equivalence {
+                chord: found.chord,
+                terms: found
+                    .dancoff
+                    .iter()
+                    .map(|&c| carlvik(c))
+                    .collect::<Result<_, _>>()?,
+            };
+            let material = &materials[*index];
+            let tables = shield_material(library, material, &equivalence, options, cell)?;
+            // 棒は、UFG の範囲を塊の Dancoff 係数を合わせた等価なセルの減速計算で遮蔽し、リングごとに SPH 因子を掛けた
+            // 群定数を置く（燃料のピンと同じ。ADR-0142）
+            let rod = match rod_rings(lattice, cell, lump_regions) {
+                Some(rings) => {
+                    let pin = PinRings {
+                        lattice,
+                        cell,
+                        rings,
+                        region_index,
+                        void: materials.len(),
+                        collision: options.collision,
+                    };
+                    shield_cell(
+                        library,
+                        &pin,
+                        materials,
+                        dilute,
+                        &found.dancoff,
+                        &tables,
+                        |_| material_range(library, material),
+                    )?
+                    .map(|c| (c, rings))
+                }
+                None => None,
+            };
+            Ok(LumpSolution { tables, rod })
+        })
+        .collect();
+    for ((b, index, lump_regions), solution) in lump_of.into_iter().zip(solutions) {
         let cell = body_of[b].0;
         let found = found[b].as_ref().ok_or(SelfShieldingError::Body(b))?;
-        let equivalence = Equivalence {
-            chord: found.chord,
-            terms: found
-                .dancoff
-                .iter()
-                .map(|&c| carlvik(c))
-                .collect::<Result<_, _>>()?,
-        };
         let material = &materials[index];
-        let tables = shield_material(library, material, &equivalence, options, cell)?;
-        // 棒は、UFG の範囲を塊の Dancoff 係数を合わせた等価なセルの減速計算で遮蔽し、リングごとに SPH 因子を掛けた
-        // 群定数を置く（燃料のピンと同じ。ADR-0142）
-        let rod = match rod_rings(lattice, cell, &lump_regions) {
-            Some(rings) => {
-                let pin = PinRings {
-                    lattice,
-                    cell,
-                    rings,
-                    region_index,
-                    void: materials.len(),
-                };
-                shield_cell(
-                    library,
-                    &pin,
-                    materials,
-                    &shielded.materials,
-                    &found.dancoff,
-                    &tables,
-                    |_| material_range(library, material),
-                )?
-                .map(|c| (c, rings))
-            }
-            None => None,
-        };
+        let LumpSolution { tables, rod } = solution?;
         let (tables, equivalent, sph) = match rod {
             Some((c, rings)) => {
                 // 棒のリングの物質。塊の領域のリングは、その領域のセル（対称操作の像）の中の番号から求める
@@ -951,6 +973,14 @@ struct PinRings<'a> {
     region_index: &'a [usize],
     /// 真空の物質の番号
     void: usize,
+    /// 減速計算の飛程の求め方
+    collision: Collision,
+}
+
+/// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
+struct LumpSolution {
+    tables: Vec<Shielded>,
+    rod: Option<(CellShielding, usize)>,
 }
 
 /// ピンのセルの UFG の減速計算の結果
@@ -1082,7 +1112,7 @@ fn solve_equivalent_cell<'a>(
             .chain(frame.map(|(_, area)| outer_radius(radius, area)))
             .collect(),
     )?;
-    let spectrum = slowing_down(library, &cylinder, &inputs, range)?;
+    let spectrum = slowing_down_with(library, &cylinder, &inputs, range, pin.collision)?;
     Ok(Some(EquivalentCell {
         radius,
         cylinder,
