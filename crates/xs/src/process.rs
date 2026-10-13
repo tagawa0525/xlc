@@ -107,6 +107,8 @@ pub enum ProcessError {
         "the R-matrix limited range has no s-wave elastic channel for the potential scattering"
     )]
     NoSWaveRadius,
+    #[error("the scattering radius table does not cover {energy} eV")]
+    RadiusTable { energy: f64 },
     #[error("s-wave scattering radius {0} must be positive")]
     SWaveRadius(f64),
     #[error("s-wave elastic channels have different radii {0:?}")]
@@ -342,8 +344,13 @@ fn s_wave_radius(kind: &RangeKind, top: f64) -> Result<f64, ProcessError> {
             .iter()
             .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
             .map_or(rm.ap, |lv| lv.apl),
-        // 上端で表が段差を持てば、範囲の内側（左）の極限
-        RangeKind::Mlbw(bw) => bw.ap_energy.as_ref().map_or(bw.ap, |t| left_limit(t, top)),
+        // 表は範囲を覆い、不連続を持たない（MF2 を読むときに確かめる）
+        RangeKind::Mlbw(bw) => match &bw.ap_energy {
+            Some(t) => t
+                .eval(top)
+                .ok_or(ProcessError::RadiusTable { energy: top })?,
+            None => bw.ap,
+        },
         RangeKind::RMatrixLimited(rml) => {
             // l=0 の弾性散乱のチャネルはどれも同じ半径であること（違えば、どれを使うかの根拠がない）
             let mut radii: Vec<f64> = rml

@@ -750,6 +750,13 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> R
                 format!("the scattering radius table must cover the range {el}..{eh} eV"),
             ));
         }
+        // 不連続では、その点の半径と、範囲の上端での内側の値が決まらない（VIII.0 の表にはない）
+        if table.x.windows(2).any(|w| w[0] == w[1]) {
+            return Err(Error::new(
+                table_line,
+                "the scattering radius table must not have discontinuities",
+            ));
+        }
         Some(table)
     } else {
         None
