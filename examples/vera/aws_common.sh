@@ -130,3 +130,47 @@ Host $host
 # END xlc-aws $host
 EOT
 }
+
+# 機種の設定（aws_types.toml）の [speed] の "タイプ" = 速度 を「タイプ 速度」で 1 行ずつ出す。書き方が違う行は止まる
+# （速度は c7a.4xlarge を 1 とした見積もりの値。ADR-0171）
+auto_types_read() {
+  local file=$1 line type speed in_speed=0 n=0 seen=' '
+  [[ -f $file ]] || { echo "機種の設定 $file がありません" >&2; exit 1; }
+  while IFS= read -r line; do
+    [[ $line =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    if [[ $line =~ ^\[speed\][[:space:]]*(#.*)?$ ]]; then in_speed=1; continue; fi
+    if ((in_speed)) && [[ $line =~ ^\"([a-z0-9-]+\.[a-z0-9-]+)\"[[:space:]]*=[[:space:]]*([0-9]+(\.[0-9]+)?)[[:space:]]*(#.*)?$ ]]; then
+      type=${BASH_REMATCH[1]} speed=${BASH_REMATCH[2]}
+      # 0 や 0.0 は速度にならない
+      if [[ $speed =~ [1-9] ]]; then
+        [[ $seen != *" $type "* ]] || { echo "$file: $type が重複しています" >&2; exit 1; }
+        seen="$seen$type "
+        echo "$type $speed"
+        n=$((n + 1))
+        continue
+      fi
+    fi
+    echo "$file: 読めない行です（[speed] の下に \"タイプ\" = 速度 だけ）: $line" >&2
+    exit 1
+  done < "$file"
+  ((n)) || { echo "$file: 候補の機種がありません" >&2; exit 1; }
+}
+
+# 機種の設定 <file> の候補について、直近 1 時間のスポット価格を AZ ごとに引き（aws_spot_prices.sh と同じく AZ ごとの最新）、
+# 1 本の費用 = 価格 ÷ 速度 の昇順に「費用 タイプ AZ 価格 速度」を 1 行ずつ出す。<az> があればその AZ だけ。価格のない
+# （その AZ に提供のない）組み合わせは出ない
+auto_candidates() {
+  local file=$1 only_az=${2:-} speeds types prices start
+  speeds=$(auto_types_read "$file")
+  types=$(awk '{print $1}' <<< "$speeds" | tr '\n' ' ')
+  start=$(date -u -d '1 hours ago' +%FT%TZ)
+  # shellcheck disable=SC2086 # types は空白区切りの複数引数
+  prices=$(aws ec2 describe-spot-price-history --instance-types $types --product-descriptions Linux/UNIX --start-time "$start" \
+    --query 'SpotPriceHistory[].[InstanceType,AvailabilityZone,Timestamp,SpotPrice]' --output text) ||
+    { echo "スポット価格を引けません" >&2; exit 1; }
+  [[ -n $prices ]] || return 0
+  sort -k1,1 -k2,2 -k3,3r <<< "$prices" | awk -v speeds="$speeds" -v only="$only_az" '
+    BEGIN { n = split(speeds, l, "\n"); for (i = 1; i <= n; i++) { split(l[i], f, " "); sp[f[1]] = f[2] } }
+    !seen[$1 " " $2]++ && (only == "" || $2 == only) && sp[$1] > 0 { printf "%.6f %s %s %s %s\n", $4 / sp[$1], $1, $2, $4, sp[$1] }' |
+    LC_ALL=C sort -k1,1g -k2,2 -k3,3
+}
