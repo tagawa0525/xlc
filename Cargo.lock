@@ -1120,6 +1120,7 @@ dependencies = [
  "anyhow",
  "num-complex",
  "num_cpus",
+ "rmpv",
  "serde",
  "thiserror 2.0.21",
  "toml",
