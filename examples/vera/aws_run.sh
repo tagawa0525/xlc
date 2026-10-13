@@ -47,6 +47,11 @@ source "$here/aws_common.sh"
 source "$here/aws_user_data.sh"
 
 run_prefix=s3://$XLC_BUCKET/runs/$name
+# VM はバケットと同じリージョンで起動する（VM と S3 の間の転送を無料にし、user-data の AWS CLI のリージョンを合わせる）
+bucket_region=$(aws s3api get-bucket-location --bucket "$XLC_BUCKET" --query LocationConstraint --output text)
+[[ $bucket_region != None ]] || bucket_region=us-east-1
+[[ $bucket_region == "$AWS_DEFAULT_REGION" ]] ||
+  { echo "バケット $XLC_BUCKET は $bucket_region、起動のリージョンは $AWS_DEFAULT_REGION（AWS_DEFAULT_REGION を合わせる）" >&2; exit 1; }
 
 # タグ Name が <host> の終了前のインスタンスの ID（なければ空）
 live_instance() {
@@ -65,7 +70,8 @@ if ((${#inputs[@]})); then
   [[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から実行してください" >&2; exit 1; }
   [[ -f examples/vera/openmc-library/cross_sections.xml ]] ||
     { echo "examples/vera/openmc-library がありません（dvc checkout examples/vera/dvc.yaml）" >&2; exit 1; }
-  if aws s3 ls "$run_prefix/launch.env" > /dev/null 2>&1; then
+  keys=$(s3_keys "runs/$name/")
+  if [[ -n $keys ]]; then
     echo "$run_prefix/ はすでにあります。起動し直すなら入力を省く。やり直すなら aws_fetch.sh $name --delete か別の名前" >&2
     exit 1
   fi
@@ -76,7 +82,7 @@ if ((${#inputs[@]})); then
     [[ $input =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "$input: 使えない文字があります（英数字と ._/-）" >&2; exit 1; }
     [[ -f $input ]] || { echo "$input がありません" >&2; exit 1; }
     # run_remote.sh が受け付ける名前（VM に上げてから断られないように、置く前に確かめる）
-    [[ $(job_name "$input") =~ ^openmc-(3.|5.-2D)$ ]] ||
+    [[ -n $(job_script "$(job_name "$input")") ]] ||
       { echo "$input: Problem 3（openmc-3?）か 5-2D（openmc-5?-2D）の入力ではありません" >&2; exit 1; }
     jobs+=("$(job_name "$input")")
     [[ -z $(live_instance "$name-${jobs[-1]}") ]] || { echo "$name-${jobs[-1]} の VM が走っています" >&2; exit 1; }
@@ -93,7 +99,10 @@ if ((${#inputs[@]})); then
   closure=$(printf '%s\n' "$openmc" "$python" | sha256sum | cut -c1-16)
   library=$(cd examples/vera/openmc-library && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16)
   commit=$(git rev-parse HEAD)
-  [[ -z $(git status --porcelain) ]] || commit="$commit-dirty"
+  # 追跡していない入力（trials/ など。git status は無視したファイルを出さない）もコミットから再現できないので dirty
+  if [[ -n $(git status --porcelain) ]] || ! git ls-files --error-unmatch "${inputs[@]}" > /dev/null 2>&1; then
+    commit="$commit-dirty"
+  fi
 
   src=$(mktemp -d)
   trap 'rm -rf "$src"' EXIT
@@ -129,7 +138,7 @@ ENV
     # ファイル名は内容で決まるので大きさだけで比べる（作り直した cache は mtime が新しく、既定の比較では全部を送り直す）
     aws s3 sync --only-show-errors --size-only "$cache" "s3://$XLC_BUCKET/store/nix/$closure"
     rm -rf "$cache"
-    aws s3 sync --only-show-errors examples/vera/openmc-library "s3://$XLC_BUCKET/store/openmc-library/$library"
+    aws s3 sync --only-show-errors --size-only examples/vera/openmc-library "s3://$XLC_BUCKET/store/openmc-library/$library"
     aws s3 sync --only-show-errors --exclude launch.env "$src" "$run_prefix/src"
     # launch.env は最後に置く（あれば src/ と store/ はそろっている）
     aws s3 cp --only-show-errors "$src/launch.env" "$run_prefix/launch.env"
@@ -158,10 +167,9 @@ else
       echo "$job: VM が走っているので飛ばす"
       continue
     fi
-    # grep -q が先に閉じると aws が SIGPIPE で失敗し、pipefail で「ない」と読まれるので、一覧を先に取る
-    listing=$(aws s3 ls "$run_prefix/$job/run/" || true)
-    if grep -qE ' statepoint\.[0-9]+\.h5$' <<< "$listing"; then
-      echo "$job: statepoint から再開"
+    latest=$(job_latest_statepoint "$name" "$job")
+    if [[ -n $latest ]]; then
+      echo "$job: $latest から再開"
       restart_flags+=(1)
     else
       echo "$job: 最初から"
@@ -172,16 +180,14 @@ else
   ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit 0; }
 fi
 
-ami=$(aws ec2 describe-images --owners 099720109477 \
-  --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
-  --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)
+ami=$(ubuntu_ami)
 echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと"
 
 for i in "${!todo[@]}"; do
   input=${todo[$i]}
   job=$(job_name "$input")
   host=$name-$job
-  user_data=$(aws_user_data "$XLC_BUCKET" "$name" "$job" "$input" "${restart_flags[$i]}" $((max_hours * 60)) \
+  user_data=$(aws_user_data "$bucket_region" "$XLC_BUCKET" "$name" "$job" "$input" "${restart_flags[$i]}" $((max_hours * 60)) \
     $((sync_minutes * 60)) "$library" "$closure" "$openmc" "$python" "$awscli")
   args=(--image-id "$ami" --instance-type "$type" --count 1
     --iam-instance-profile Name=xlc-openmc-vm
