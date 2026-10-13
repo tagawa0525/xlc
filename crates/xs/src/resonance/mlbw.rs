@@ -4,13 +4,15 @@ use std::f64::consts::PI;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift, shift};
-use crate::endf::{Mlbw, OrbitalL};
+use crate::endf::{ClampedTab1, Mlbw, OrbitalL};
 use crate::physics::wave_number_factor;
 
 /// 断面積の計算に使う形に前処理した MLBW パラメータ。
 #[derive(Debug, Clone)]
 pub struct MlbwXs {
     spi: f64,
+    /// エネルギー依存の散乱半径（NRO=1）。範囲を覆うことは MF2 を読むときに確かめてあるので、範囲の中では端の値に丸めない
+    radius_table: Option<ClampedTab1>,
     l_values: Vec<LValue>,
 }
 
@@ -20,7 +22,7 @@ struct LValue {
     arat: f64,
     /// 透過因子・シフト因子に使うチャネル半径
     channel_radius: f64,
-    /// 位相シフトに使う散乱半径
+    /// 位相シフトに使う散乱半径（`radius_table` がなければ）
     scattering_radius: f64,
     resonances: Vec<Resonance>,
 }
@@ -78,6 +80,7 @@ impl MlbwXs {
             .collect();
         Self {
             spi: data.spi,
+            radius_table: data.ap_energy.clone(),
             l_values,
         }
     }
@@ -89,7 +92,11 @@ impl MlbwXs {
             let pifac = PI / (k * k);
             let rho = k * lv.channel_radius;
             let (se, pe) = (shift(lv.l, rho), penetrability(lv.l, rho));
-            let phi = phase_shift(lv.l, k * lv.scattering_radius);
+            let radius = self
+                .radius_table
+                .as_ref()
+                .map_or(lv.scattering_radius, |t| t.eval(e));
+            let phi = phase_shift(lv.l, k * radius);
             // 1 - cos 2φ は低エネルギーで桁落ちするので 2 sin²φ で求める
             let cos2p = 2.0 * phi.sin().powi(2);
             let sin2p = (2.0 * phi).sin();
