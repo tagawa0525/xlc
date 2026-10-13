@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-燃焼チェーンの核種の棚卸し（`crates/xs/examples/survey_neutrons.rs`、65ccbd82、2026-10-14。docs/plans/m4-depletion.md の「核データ」）で、
+燃焼チェーンの核種の棚卸し（`crates/xs/examples/survey_neutrons.rs`、c0d7b4dd、2026-10-14。docs/plans/m4-depletion.md の「核データ」）で、
 565 K の非分離共鳴の自己遮蔽が、5 評価で `β=…, θ=… is outside the J, K table` で止まる:
 
 | 核種   | β（止まった点） | θ      |
