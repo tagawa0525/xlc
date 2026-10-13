@@ -2548,6 +2548,10 @@ def hzp_pipeline(
             "python3 compare_hzp.py ../../../references/vera/spec.txt hzp/core-hzp.toml hzp/core-hzp.out > hzp/compare-hzp.out",
             [
                 "compare_hzp.py",
+                "../compare_p3.py",
+                "../compare_p5.py",
+                "../compare_keno.py",
+                "../compare_k.py",
                 "../../../references/vera/spec.txt",
                 "hzp/core-hzp.toml",
                 "hzp/core-hzp.out",
