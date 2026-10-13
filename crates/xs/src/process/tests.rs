@@ -106,6 +106,33 @@ fn resolved_range_has_its_top_and_potential_scattering() {
 }
 
 #[test]
+fn potential_uses_the_radius_at_the_top_of_an_energy_dependent_range() {
+    use crate::endf::rec;
+    // MLBW の範囲（1e-5 eV〜20 keV、NRO=1）で AP(E) が 0.95 から 0.90 へ。範囲より上へつなぐ上端の AP(EH) を使う
+    let text = [
+        rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["9.223800+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["1.0-5", "2.0+4", "1", "2", "1", "0"], 1, 2, 151),
+        rec(["0.0", "0.0", "0", "0", "1", "2"], 1, 2, 151),
+        rec(["2", "2", "", "", "", ""], 1, 2, 151),
+        rec(["1.0-5", "0.95", "2.0+4", "0.90", "", ""], 1, 2, 151),
+        rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["2.360060+2", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+        rec(
+            ["6.674", "0.5", "2.6e-2", "1.5e-3", "2.3e-2", "0.0"],
+            1,
+            2,
+            151,
+        ),
+        rec(["", "", "", "", "", ""], 1, 2, 0),
+    ]
+    .concat();
+    let range = resolved(&Tape::parse(&text).unwrap(), 1).unwrap().unwrap();
+    let expected = 4.0 * std::f64::consts::PI * 0.90 * 0.90;
+    assert!((range.potential - expected).abs() < 1e-12 * expected);
+}
+
+#[test]
 fn rejects_a_zero_s_wave_radius() {
     use crate::endf::{ReichMoore, RmLValue};
     let rm = RangeKind::ReichMoore(ReichMoore {

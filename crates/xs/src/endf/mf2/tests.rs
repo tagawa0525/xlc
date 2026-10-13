@@ -455,6 +455,47 @@ fn reads_mlbw_range() {
     );
 }
 
+/// MLBW の範囲（1e-5〜50 eV、NRO=1）。`naps` は範囲の見出しの NAPS、`radius` は AP(E) の TAB1 の (E, AP) の 2 点
+fn mlbw_with_radius(naps: &str, radius: [&str; 4]) -> Result<Mf2, Error> {
+    mf2(&[
+        ["6.014900+4", "1.476409+2", "0", "0", "1", "0"],
+        ["6.014900+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "5.0+1", "1", "2", "1", naps],
+        // AP(E) の TAB1: 0 0 0 0 NR NP、補間の区切り、(E, AP) の組
+        ["0.0", "0.0", "0", "0", "1", "2"],
+        ["2", "2", "", "", "", ""],
+        [radius[0], radius[1], radius[2], radius[3], "", ""],
+        ["3.5", "0.0", "0", "0", "1", "0"],
+        ["1.476409+2", "0.0", "0", "0", "6", "1"],
+        ["2.0", "3.0", "0.1", "0.05", "0.05", "0.0"],
+    ])
+}
+
+#[test]
+fn reads_energy_dependent_radius_of_mlbw_range() {
+    let data = mlbw_with_radius("0", ["1.0-5", "0.70", "5.0+1", "0.60"]).unwrap();
+    let RangeKind::Mlbw(bw) = &data.ranges[0].kind else {
+        panic!("expected MLBW");
+    };
+    assert_eq!((bw.spi, bw.naps), (3.5, 0));
+    assert_eq!(bw.l_values[0].resonances[0].er, 2.0);
+}
+
+#[test]
+fn rejects_mlbw_radius_table_short_of_the_range() {
+    // 範囲の外へ外挿しない
+    let err = mlbw_with_radius("0", ["1.0-5", "0.70", "1.0+1", "0.60"]).unwrap_err();
+    assert_eq!(err.line, 4);
+}
+
+#[test]
+fn rejects_energy_dependent_mlbw_radius_unless_naps_is_zero() {
+    for naps in ["1", "2"] {
+        let err = mlbw_with_radius(naps, ["1.0-5", "0.70", "5.0+1", "0.60"]).unwrap_err();
+        assert_eq!(err.line, 3, "NAPS={naps}");
+    }
+}
+
 #[test]
 fn competitive_width_is_error() {
     let err = mf2(&[
