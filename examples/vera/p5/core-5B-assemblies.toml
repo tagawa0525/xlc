@@ -1,5 +1,7 @@
 # このファイルは p5_inputs.py が書く。手で直さない。
-# 集合体の台帳。設計は集合体の種類の単一集合体の格子の定数（f* の方法）。ID は全炉心の位置（列の名前と行の番号）
+# 集合体の台帳。ID は全炉心の位置（列の名前と行の番号）。設計は、反射体に面しない位置は集合体の種類の単一集合体の
+# 格子の定数、反射体に 1 面で面する位置（<種類>-I）と 2 面で面する位置（<種類>-corner）は、その種類の燃料の I 型と角型の
+# 反射体の格子の燃料のノードの定数（ADR-0153。燃料の向きは装荷で回す）
 
 [design.21]
 bounds = [0.0, 21.5]
@@ -25,13 +27,21 @@ layers = ["lattice/26-p20.msgpack"]
 bounds = [0.0, 21.5]
 layers = ["lattice/26-p24.msgpack"]
 
-[design.31]
+[design.31-I]
 bounds = [0.0, 21.5]
-layers = ["lattice/31.msgpack"]
+layers = ["lattice/reflector-I-fuel.msgpack"]
+
+[design.31-corner]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-fuel.msgpack"]
 
 [design.31-p12]
 bounds = [0.0, 21.5]
 layers = ["lattice/31-p12.msgpack"]
+
+[design.31-p12-I]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-I-31-p12-fuel.msgpack"]
 
 [design.31-p16]
 bounds = [0.0, 21.5]
@@ -41,36 +51,36 @@ layers = ["lattice/31-p16.msgpack"]
 bounds = [0.0, 21.5]
 layers = ["lattice/31-p24.msgpack"]
 
-[design.31-p8]
+[design.31-p8-I]
 bounds = [0.0, 21.5]
-layers = ["lattice/31-p8.msgpack"]
+layers = ["lattice/reflector-I-31-p8-fuel.msgpack"]
 
 [assembly.L01]
-design = "31"
+design = "31-corner"
 
 [assembly.K01]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.J01]
-design = "31"
+design = "31-I"
 
 [assembly.H01]
-design = "31-p12"
+design = "31-p12-I"
 
 [assembly.G01]
-design = "31"
+design = "31-I"
 
 [assembly.F01]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.E01]
-design = "31"
+design = "31-corner"
 
 [assembly.N02]
-design = "31"
+design = "31-corner"
 
 [assembly.M02]
-design = "31"
+design = "31-I"
 
 [assembly.L02]
 design = "31-p16"
@@ -94,13 +104,13 @@ design = "21"
 design = "31-p16"
 
 [assembly.D02]
-design = "31"
+design = "31-I"
 
 [assembly.C02]
-design = "31"
+design = "31-corner"
 
 [assembly.P03]
-design = "31"
+design = "31-corner"
 
 [assembly.N03]
 design = "31-p12"
@@ -136,10 +146,10 @@ design = "26-p24"
 design = "31-p12"
 
 [assembly.B03]
-design = "31"
+design = "31-corner"
 
 [assembly.P04]
-design = "31"
+design = "31-I"
 
 [assembly.N04]
 design = "26-p24"
@@ -175,10 +185,10 @@ design = "26-aic"
 design = "26-p24"
 
 [assembly.B04]
-design = "31"
+design = "31-I"
 
 [assembly.R05]
-design = "31"
+design = "31-corner"
 
 [assembly.P05]
 design = "31-p16"
@@ -220,10 +230,10 @@ design = "21"
 design = "31-p16"
 
 [assembly.A05]
-design = "31"
+design = "31-corner"
 
 [assembly.R06]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.P06]
 design = "21"
@@ -265,10 +275,10 @@ design = "26-p16"
 design = "21"
 
 [assembly.A06]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.R07]
-design = "31"
+design = "31-I"
 
 [assembly.P07]
 design = "31-p24"
@@ -310,10 +320,10 @@ design = "21"
 design = "31-p24"
 
 [assembly.A07]
-design = "31"
+design = "31-I"
 
 [assembly.R08]
-design = "31-p12"
+design = "31-p12-I"
 
 [assembly.P08]
 design = "21"
@@ -355,10 +365,10 @@ design = "26-p20"
 design = "21"
 
 [assembly.A08]
-design = "31-p12"
+design = "31-p12-I"
 
 [assembly.R09]
-design = "31"
+design = "31-I"
 
 [assembly.P09]
 design = "31-p24"
@@ -400,10 +410,10 @@ design = "21"
 design = "31-p24"
 
 [assembly.A09]
-design = "31"
+design = "31-I"
 
 [assembly.R10]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.P10]
 design = "21"
@@ -445,10 +455,10 @@ design = "26-p16"
 design = "21"
 
 [assembly.A10]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.R11]
-design = "31"
+design = "31-corner"
 
 [assembly.P11]
 design = "31-p16"
@@ -490,10 +500,10 @@ design = "21"
 design = "31-p16"
 
 [assembly.A11]
-design = "31"
+design = "31-corner"
 
 [assembly.P12]
-design = "31"
+design = "31-I"
 
 [assembly.N12]
 design = "26-p24"
@@ -529,10 +539,10 @@ design = "26-aic"
 design = "26-p24"
 
 [assembly.B12]
-design = "31"
+design = "31-I"
 
 [assembly.P13]
-design = "31"
+design = "31-corner"
 
 [assembly.N13]
 design = "31-p12"
@@ -568,13 +578,13 @@ design = "26-p24"
 design = "31-p12"
 
 [assembly.B13]
-design = "31"
+design = "31-corner"
 
 [assembly.N14]
-design = "31"
+design = "31-corner"
 
 [assembly.M14]
-design = "31"
+design = "31-I"
 
 [assembly.L14]
 design = "31-p16"
@@ -598,28 +608,28 @@ design = "21"
 design = "31-p16"
 
 [assembly.D14]
-design = "31"
+design = "31-I"
 
 [assembly.C14]
-design = "31"
+design = "31-corner"
 
 [assembly.L15]
-design = "31"
+design = "31-corner"
 
 [assembly.K15]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.J15]
-design = "31"
+design = "31-I"
 
 [assembly.H15]
-design = "31-p12"
+design = "31-p12-I"
 
 [assembly.G15]
-design = "31"
+design = "31-I"
 
 [assembly.F15]
-design = "31-p8"
+design = "31-p8-I"
 
 [assembly.E15]
-design = "31"
+design = "31-corner"

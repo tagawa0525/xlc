@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, core, verification]
 opened: 2026-10-12
-closed:
+closed: 2026-10-12
 milestone: M3
 blocked-by: []
-resolution:
+resolution: ADR-0153
 ---
 
 # 5-2D の集合体出力が KENO-VI より平らになる（中心で −5%、外周で +10%）
@@ -47,7 +47,7 @@ VERA 5A-2D を全炉心（ADR-0090）で、単一集合体の定数と I 型・�
   角の中性子束の大きさが熱群で負になった（`corner point 8: the homogeneous corner flux scale [2.078, -0.0563] is not positive`。
   #0065 と同じ種類）
 
-関係する ADR: なし
+関係する ADR: ADR-0153
 
 ## 完了の条件
 
@@ -58,3 +58,12 @@ VERA 5A-2D を全炉心（ADR-0090）で、単一集合体の定数と I 型・�
 ## 経緯
 
 - 2026-10-12: feat/p5-2d で 5-2D を KENO-VI と比べて分かった
+- 2026-10-12: OpenMC の 5A-2D の参照解（同じ ENDF/B-VIII.0。#0073）と比べると、k の差は +97.9 pcm、集合体出力の RMS は 4.68%
+  で、傾きは核データの版の違いからでない（KENO-VI との k の差 +235 pcm のうち +137 pcm は OpenMC と KENO-VI の差）
+- 2026-10-12: 外周の燃料のノードの定数の項を 1 つずつ反射体の格子のものに替えて切り分けた（433f89ff の trials/p5-0086。
+  examples/vera/verification.md の「外周の燃料の定数の切り分け」）。5A の OpenMC との差は、ADF だけでは 4.52%、拡散係数だけで
+  3.83%、断面積だけで 2.48%、すべてで k +13.8 pcm、1.72% になった。原因は外周の燃料の断面積と拡散係数の環境依存で、f\* は
+  ADF しか補わない。外周の燃料に、その種類の燃料と反射体を並べた格子の燃料のノードの定数を置くと決め（ADR-0153）、
+  5A の OpenMC との差は k −5.7 pcm、集合体 RMS 1.66%、ピン RMS 3.17% になった（32d6a399 と b87892c3、2026-10-12）。
+  `compare_p5.py openmc` の段階を p5/dvc.yaml に足した。残りの差のうち L 型の近似は #0029、ほかは #0097 に移した
+- 2026-10-12: 5 × 5 の MOC と自己遮蔽なしの試行（上の「確かめようとして止まったこと」）は、切り分けに使わなかった
