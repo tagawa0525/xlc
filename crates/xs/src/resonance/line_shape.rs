@@ -92,19 +92,20 @@ fn table() -> Result<&'static JkTable, NumericError> {
     table.as_ref().map_err(Clone::clone)
 }
 
-/// `f(i)`（i = 0..n）を、使える CPU の数のスレッドで並列に求め、i の順に並べて返す。
+/// `f(i)`（i = 0..n）を、物理コアの数（ADR-0067。このプロセスに許された CPU の数で抑える）のスレッドで並列に求め、
+/// i の順に並べて返す。
 /// 行の重さは θ で違うので、各スレッドは次の i を共有のカウンタから取る。
 /// rayon を使わないのは、`OnceLock` の初期化の中で rayon のプールを待つと止まりうるため（#0088）。
 ///
-/// エラーが出たら新しい i を取らずに止め、i の最も小さいエラーを返す。カウンタは増える一方なので、エラーの i より
-/// 小さい i はすべて取られて最後まで求められており、返すエラーはスレッドの進み方によらない。
+/// エラーが出たら、各スレッドは次に i を取る前にそれを見て止まる（見たあとに取った i は、スレッドごとに多くとも 1 つ
+/// 余分に求める）。返すのは i の最も小さいエラーで、カウンタは増える一方なので、エラーの i より小さい i はすべて
+/// 取られて最後まで求められており、返すエラーはスレッドの進み方によらない。
 fn in_parallel<T: Send, E: Send>(
     n: usize,
     f: impl Fn(usize) -> Result<T, E> + Sync,
 ) -> Result<Vec<T>, E> {
-    let threads = std::thread::available_parallelism()
-        .map_or(1, std::num::NonZeroUsize::get)
-        .min(n);
+    let allowed = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+    let threads = num_cpus::get_physical().min(allowed).min(n);
     let next = AtomicUsize::new(0);
     let failed = AtomicBool::new(false);
     let mut done: Vec<(usize, Result<T, E>)> = std::thread::scope(|scope| {
