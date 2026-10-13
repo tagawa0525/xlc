@@ -181,7 +181,7 @@ where
 const FORMAT: &str = "xlc-chain";
 
 /// 崩壊の分岐比の和の、1 からのずれの許容。チェーンを作るときに比で割り直すので、和の丸め（数十項で数 ε）より十分大きく、
-/// 割り直しを忘れたチェーン（ずれは評価で最大 9e-7）を止める大きさ
+/// 割り直しを忘れたチェーン（ずれは ENDF/B-VIII.0 の decay で最大 9e-7。Ba-114）を止める大きさ
 const RATIO_SUM_TOLERANCE: f64 = 1e-12;
 
 /// 収率の重みの和の、1 からのずれの許容。重みは呼ぶ側が区間の核分裂率を和で割って作る（k 個の点で丸めは (k + 1) ε
@@ -206,8 +206,11 @@ const SYMBOLS: [&str; 118] = [
     "Fl", "Mc", "Lv", "Ts", "Og",
 ];
 
-/// ADR-0015 の形の核種名（`U-235`、`Am-242m`、`Hf-178m2`）。Z が範囲の外なら `None`。
+/// ADR-0015 の形の核種名（`U-235`、`Am-242m`、`Hf-178m2`）。Z が範囲の外か、A が 0 か Z より小さければ `None`。
 pub fn nuclide_name(z: u32, a: u32, state: u32) -> Option<String> {
+    if a < z || a == 0 {
+        return None;
+    }
     let symbol = SYMBOLS.get(usize::try_from(z).ok()?.checked_sub(1)?)?;
     Some(match state {
         0 => format!("{symbol}-{a}"),
@@ -260,9 +263,13 @@ impl Chain {
     pub fn check(&self) -> Result<(), ChainError> {
         let n = self.nuclides.len();
         let invalid = |message: String| Err(ChainError::Invalid(message));
-        let products_in_range =
-            |products: &[Product]| products.iter().all(|p| p.nuclide < n && p.count > 0);
         for (k, nuclide) in self.nuclides.iter().enumerate() {
+            // 親そのものを生む項は、行列の対角で消滅と打ち消し合う
+            let products_in_range = |products: &[Product]| {
+                products
+                    .iter()
+                    .all(|p| p.nuclide < n && p.nuclide != k && p.count > 0)
+            };
             let name = &nuclide.name;
             let expected = nuclide_name(nuclide.z, nuclide.a, nuclide.state);
             if expected.as_ref() != Some(name) {
@@ -344,12 +351,16 @@ impl Chain {
                         "{name}: MT{mt} final states must come from MF9 or MF10"
                     ));
                 }
-                if states
-                    .iter()
-                    .enumerate()
-                    .any(|(i, f)| states[..i].contains(f))
+                // 状態の割合は 1 つの評価のファイルから取り、同じ状態を 2 度数えない。残り（LFS が nil）は基底状態へ行くので、
+                // LFS 0 と並ばない
+                if states.iter().any(|f| f.mf != states[0].mf) {
+                    return invalid(format!("{name}: MT{mt} mixes MF9 and MF10"));
+                }
+                let lfs: Vec<Option<u32>> = states.iter().map(|f| f.lfs).collect();
+                if lfs.iter().enumerate().any(|(i, l)| lfs[..i].contains(l))
+                    || (lfs.contains(&None) && lfs.contains(&Some(0)))
                 {
-                    return invalid(format!("{name}: MT{mt} repeats a final state"));
+                    return invalid(format!("{name}: MT{mt} counts a final state twice"));
                 }
                 if reaction.channels.is_empty() {
                     return invalid(format!("{name}: MT{mt} has no channels"));
@@ -371,9 +382,16 @@ impl Chain {
                 }
             }
             if let Some(fission) = &nuclide.fission {
-                if !self.nuclides.iter().any(|m| m.name == fission.yield_source) {
+                // 収率を借りた先は、自分の収率を持つ核分裂する核種
+                let source = self
+                    .nuclides
+                    .iter()
+                    .find(|m| m.name == fission.yield_source);
+                if !source
+                    .is_some_and(|m| m.fission.as_ref().is_some_and(|f| f.yield_source == m.name))
+                {
                     return invalid(format!(
-                        "{name}: yield source {} is not in the chain",
+                        "{name}: yield source {} is not a nuclide of the chain with its own yields",
                         fission.yield_source
                     ));
                 }
@@ -394,10 +412,12 @@ impl Chain {
                     ));
                 }
                 for table in &fission.yields {
-                    if !table
-                        .iter()
-                        .all(|y| y.nuclide < n && y.value.is_finite() && y.value > 0.0)
-                    {
+                    if table.is_empty() {
+                        return invalid(format!("{name}: an empty yield table"));
+                    }
+                    if !table.iter().all(|y| {
+                        y.nuclide < n && y.nuclide != k && y.value.is_finite() && y.value > 0.0
+                    }) {
                         return invalid(format!(
                             "{name}: a yield is outside the chain or not positive"
                         ));
