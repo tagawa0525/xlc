@@ -94,8 +94,8 @@ pub fn deplete(
     }
     let symbolic =
         SymbolicSparseColMat::new_checked(n, n, col_ptr.to_vec(), None, row_idx.to_vec());
-    let lu_symbolic = SymbolicLu::try_new(symbolic.as_ref())
-        .map_err(|e| DepletionError::Factorization(format!("{e:?}")))?;
+    let lu_symbolic =
+        SymbolicLu::try_new(symbolic.as_ref()).map_err(DepletionError::SymbolicFactorization)?;
 
     let Coefficients {
         theta,
@@ -113,7 +113,7 @@ pub fn deplete(
         }
         let system = SparseColMatRef::new(symbolic.as_ref(), &values);
         let lu = Lu::try_new_with_symbolic(lu_symbolic.clone(), system)
-            .map_err(|e| DepletionError::Factorization(format!("{e:?}")))?;
+            .map_err(DepletionError::NumericFactorization)?;
         let mut x = Mat::from_fn(n, 1, |i, _| Complex64::new(y[i], 0.0));
         lu.solve_in_place(x.as_mut());
         for (i, yi) in y.iter_mut().enumerate() {
