@@ -472,6 +472,17 @@ fn pin_powers_need_at_most_one_state() {
 }
 
 #[test]
+fn pin_powers_and_axial_pin_powers_need_different_files() {
+    // 2つは形式の違うファイルで、同じパスなら後に書くほうが先のものを消す
+    let text = edited(
+        CASE,
+        "radial-nodes = 1",
+        "radial-nodes = 1\npin-powers = \"p.msgpack\"\naxial-pin-powers = \"p.msgpack\"",
+    );
+    assert!(Case::parse(&text, base()).is_err());
+}
+
+#[test]
 fn axial_pin_powers_need_at_most_one_state() {
     let layers = "axial-pin-powers = \"layers.msgpack\"\n";
     assert!(Case::parse(&format!("{CASE}{layers}{STATES}"), base()).is_err());
