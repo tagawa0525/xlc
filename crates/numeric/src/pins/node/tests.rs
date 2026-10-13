@@ -1,6 +1,29 @@
 use super::*;
 use crate::pins::FACE_POINTS;
 
+impl NodeFlux<'_> {
+    /// [モード] の ψ_m(x, y)
+    fn modes_at(&self, x: f64, y: f64) -> [f64; 2] {
+        std::array::from_fn(|m| {
+            let v = self.model.modes[m].values(x, y);
+            let sum: f64 = v
+                .iter()
+                .zip(&self.coefficients[m])
+                .map(|(b, c)| b * c)
+                .sum();
+            sum + self.sources[m] * self.model.modes[m].particular(x, y)
+        })
+    }
+
+    /// (x, y) での [群] の均質な中性子束
+    fn flux(&self, x: f64, y: f64) -> [f64; 2] {
+        let psi = self.modes_at(x, y);
+        std::array::from_fn(|g| {
+            self.model.vectors[0][g] * psi[0] + self.model.vectors[1][g] * psi[1]
+        })
+    }
+}
+
 fn rule() -> Vec<(f64, f64)> {
     crate::quadrature::gauss_legendre(FACE_POINTS).unwrap()
 }
