@@ -298,7 +298,8 @@ fn windows_reaching_both_core_edges_keep_the_shared_uniform_node_as_their_ends()
 
 #[test]
 fn partial_nodes_at_both_ends_around_one_uniform_node_match_the_split_mesh() {
-    // 3 ノードの列の下と上のノードが部分挿入（下は 10 cm、上は 5 cm より上に棒）
+    // 3 ノードの列の下と上のノードが部分挿入（下は 10 cm、上は 5 cm より上に棒）。z の両端は反射（炉心の
+    // Marshak の端の部分挿入のノードは #0102）
     let problem_of = |dz: Vec<f64>, node_material: Vec<Option<usize>>, materials| Problem {
         mesh: Mesh {
             dx: vec![PITCH],
@@ -313,8 +314,8 @@ fn partial_nodes_at_both_ends_around_one_uniform_node_match_the_split_mesh() {
             Boundary::Reflective,
             Boundary::Reflective,
             Boundary::Reflective,
-            Boundary::Marshak,
-            Boundary::Marshak,
+            Boundary::Reflective,
+            Boundary::Reflective,
         ],
         outline: None,
     };
