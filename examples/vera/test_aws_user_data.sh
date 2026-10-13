@@ -54,14 +54,14 @@ for name in fresh restart; do
   before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' \
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
   # 同期に失敗したときと SIGTERM（中断）では done を置かない。失敗の終了では終了コードを done に書く
-  contains "$text" '    if ((synced && code < 128)) && [[ -f $WORK/$OUT/done ]]; then' "$name"
+  contains "$text" '    if ((synced && !INTERRUPTED)) && [[ -f $WORK/$OUT/done ]]; then' "$name"
   # READY の前の失敗（準備）では done を書かない（S3 のジョブに触れておらず、起動し直せる）
-  contains "$text" '  if ((READY && code != 0 && code < 128)); then' "$name"
+  contains "$text" '  if ((READY && code != 0 && !INTERRUPTED)); then' "$name"
   contains "$text" 'until [[ -f $OUT/done && $(cat "$OUT/done") =~ ^[0-9]+$ ]]; do' "$name"
   contains "$text" '    echo "$code" > "$WORK/$OUT/done"' "$name"
-  contains "$text" "trap 'exit 143' TERM" "$name"
-  # シグナルでの終わり（ジョブが殺されたときの done を含む）は中断として扱う
-  contains "$text" '  if ((code >= 128)); then' "$name"
+  contains "$text" "trap 'INTERRUPTED=1; exit 143' TERM" "$name"
+  # SIGTERM を受けたときだけ中断として扱う（ジョブ自身のシグナルでの失敗は done に残す）
+  contains "$text" '  if ((INTERRUPTED)); then' "$name"
   before "$text" '    wait "$TEE" 2> /dev/null || sleep 1' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' "$name"
   # finish の中の失敗で止まると、電源が切れない
   before "$text" 'finish() {' '  set +e' "$name"
@@ -76,9 +76,11 @@ done
 contains "$fresh" 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
 # 作業ディレクトリが S3 の内容を含むまで同期しない（再開では S3 から戻したあと）
 before "$fresh" 'READY=1' 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
-before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' 'READY=1' restart
+# S3 のジョブ（statepoint、前の起動のログ）を戻してから同期を始める（再開でなくても、--delete で S3 のものを消さない）
+for name in fresh restart; do
+  before "${!name}" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' 'READY=1' "$name"
+done
 lacks "$fresh" '--restart' fresh
-lacks "$fresh" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' fresh
 contains "$restart" 'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
 before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' \
   'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
