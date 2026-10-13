@@ -222,14 +222,14 @@ impl Cylinder {
             // 光学的距離は q について増えるだけなので、表の範囲を超えたら先はどれも 0
             for p in 0..=path.len() {
                 let row = &mut memo[p * longest..(p + 1) * longest];
-                // 空の和から足し始める（`sum` と同じ初めの値で、同じ順に足す）
-                let mut optical: f64 = taus[p..p].iter().sum();
-                for q in p..=(path.len() + 1 - p).min(path.len()) {
+                let end = (path.len() + 1 - p).min(path.len());
+                let mut optical = 0.0;
+                for q in p..=end {
                     if q > p {
                         optical += taus[q - 1];
                     }
                     if optical >= NEGLIGIBLE {
-                        row[q..=(path.len() + 1 - p).min(path.len())].fill(0.0);
+                        row[q..=end].fill(0.0);
                         break;
                     }
                     row[q] = ki3(optical);
