@@ -72,12 +72,12 @@ finish() {
   set +e
   trap '' PIPE TERM
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
-  # シグナルでの終わり（128 以上。SIGTERM の 143、シャットダウンでジョブが殺されたときの done の値）は中断として扱い、
-  # done を置かない。ジョブの done も消して、同期が書いている途中の statepoint を除くようにする
-  if ((code >= 128)); then
+  # SIGTERM を受けた（中断）ときは done を置かない。シャットダウンでジョブが殺されて書いた done も消し、同期が書いている途中の
+  # statepoint を除くようにする。ジョブ自身がシグナルで落ちた（OOM の 137 など）のは失敗として done に残す
+  if ((INTERRUPTED)); then
     rm -f "\$WORK/\$OUT/done"
   fi
-  if ((READY && code != 0 && code < 128)); then
+  if ((READY && code != 0 && !INTERRUPTED)); then
     mkdir -p "\$WORK/\$OUT"
     echo "\$code" > "\$WORK/\$OUT/done"
   fi
@@ -90,14 +90,15 @@ finish() {
     exec > /dev/null 2>&1
     wait "\$TEE" 2> /dev/null || sleep 1
     "\$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "\$PREFIX/\$BOOTLOG" || true
-    if ((synced && code < 128)) && [[ -f \$WORK/\$OUT/done ]]; then
+    if ((synced && !INTERRUPTED)) && [[ -f \$WORK/\$OUT/done ]]; then
       "\$AWS" s3 cp --only-show-errors "\$WORK/\$OUT/done" "\$PREFIX/done" || true
     fi
   fi
   shutdown -h now
 }
 trap finish EXIT
-trap 'exit 143' TERM
+INTERRUPTED=0
+trap 'INTERRUPTED=1; exit 143' TERM
 
 # installer の版を固定する（起動し直しの VM でも同じ Nix になる）。v3.23.1 は 2026-10-13 の確認で入った版
 curl -fsSL https://install.determinate.systems/nix/tag/v3.23.1 | sh -s -- install --no-confirm
@@ -113,19 +114,14 @@ rm -rf cache
 "\$AWS" s3 sync --only-show-errors "s3://\$BUCKET/runs/$run/src" .
 printf 'OPENMC_BIN=%s\nPYTHON=%s\n' $openmc/bin $python/bin/python3 > tools.env
 
-USERDATA
-  if ((restart)); then
-    cat <<USERDATA
-# 再開: S3 の statepoint とログを戻す
+# S3 のジョブ（再開なら statepoint、前の起動のログなど）を戻してから同期を始める（--delete で S3 のものを消さない）
 "\$AWS" s3 sync --only-show-errors --exclude 'boot-*.log' --exclude done "\$PREFIX" "\$OUT"
 READY=1
-bash examples/vera/run_remote.sh --restart $input
 USERDATA
+  if ((restart)); then
+    echo "bash examples/vera/run_remote.sh --restart $input"
   else
-    cat <<USERDATA
-READY=1
-bash examples/vera/run_remote.sh $input
-USERDATA
+    echo "bash examples/vera/run_remote.sh $input"
   fi
   cat <<USERDATA
 # run_remote.sh は done を 1 回の echo で書くので、空のうちに読まないよう数字になるまで待つ
