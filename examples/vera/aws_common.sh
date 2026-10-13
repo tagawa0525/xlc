@@ -75,6 +75,16 @@ job_script() {
   esac
 }
 
+# AZ <az> の default サブネットの ID を SUBNET_ID に入れる（現在のリージョンの AZ でなければ、なければ止まる）。
+# AZ を固定して起動するための --subnet-id に渡す
+az_subnet_id() {
+  [[ $1 =~ ^[a-z]{2}(-[a-z]+)+-[0-9][a-z]$ ]] || { echo "AZ の名前でない: $1" >&2; exit 2; }
+  SUBNET_ID=$(aws ec2 describe-subnets --filters Name=default-for-az,Values=true "Name=availability-zone,Values=$1" \
+    --query 'Subnets[0].SubnetId' --output text)
+  [[ $SUBNET_ID == subnet-* ]] ||
+    { echo "AZ $1 の default サブネットが ${AWS_REGION:-$AWS_DEFAULT_REGION} にありません（AZ のリージョンは AWS_REGION、なければ AWS_DEFAULT_REGION と同じ）" >&2; exit 1; }
+}
+
 # タグ Name が <host> の終了前（終了中を含む）のインスタンスの ID（なければ空）
 live_instance() {
   aws ec2 describe-instances --filters "Name=tag:Name,Values=$1" \
