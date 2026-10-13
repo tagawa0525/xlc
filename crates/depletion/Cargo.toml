@@ -7,9 +7,12 @@ edition.workspace = true
 workspace = true
 
 [dependencies]
+xlc-format = { path = "../format" }
 faer.workspace = true
 num-complex.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+rmp-serde.workspace = true
