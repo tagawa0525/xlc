@@ -27,9 +27,10 @@ cargo build --release --locked --target-dir target/dvc
 mkdir -p bin
 for name in xs lattice core; do
   built="target/dvc/release/$name"
-  # worktree のパスが埋まった実行ファイルは、ほかの worktree と md5 が合わず、段階を走らせ直すことになる
-  if grep -qaF -- "$top" "$built"; then
-    echo "ERROR: $built に worktree のパス $top が埋まっている（ADR-0159）" >&2
+  # worktree のパスや、devShell に入ったディレクトリの outputs/out/lib（入ったのが別の場所なら $top を含まない）が埋まった
+  # 実行ファイルは、ほかの worktree と md5 が合わず、段階を走らせ直すことになる
+  if grep -qaF -e "$top" -e /outputs/out/lib -- "$built"; then
+    echo "ERROR: $built に worktree のパスか outputs/out/lib が埋まっている（ADR-0159）" >&2
     exit 1
   fi
   cp -- "$built" "bin/$name"
