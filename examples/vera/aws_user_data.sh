@@ -48,6 +48,8 @@ sync_out() {
 # 決まった間隔の同期の分。同期に失敗したら、S3 の結果がそろわないので done を置かない
 finish() {
   local code=\$? synced=0
+  # ここで止まると電源が切れないので、途中の失敗では止めない
+  set +e
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
   if ((code != 0 && code != 143)); then
     mkdir -p "\$WORK/\$OUT"
