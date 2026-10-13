@@ -119,7 +119,7 @@ OpenMC と Python API は手元でビルドしたクロージャを送る（VM �
 
    ```sh
    ssh <接続先> 'curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm'
-   ssh <接続先> 'echo "trusted-users = root ubuntu" | sudo tee -a /etc/nix/nix.custom.conf; sudo systemctl restart nix-daemon'
+   ssh <接続先> 'echo "trusted-users = root $USER" | sudo tee /etc/nix/nix.custom.conf; sudo systemctl restart nix-daemon'
    ```
 
    接続先は `~/.ssh/config` の Host（`HostName`、`User ubuntu`、`IdentityFile ~/.ssh/xlc-aws.pem`、`IdentitiesOnly yes`）にしておくと、
@@ -157,13 +157,14 @@ OpenMC と Python API は手元でビルドしたクロージャを送る（VM �
 
 ### 試走（2026-10-13）
 
-c7a.large のスポット（2 vCPU = 2 物理コア）で、上の 1〜5 を通した。入力は本番のコピーで粒子数 1 万・20 世代・捨てる 5・
+c7a.large のスポット（2 vCPU = 2 物理コア）で、上の 1〜5 を通した（xlc のコミット b873a967 のスクリプト）。入力は本番のコピーで粒子数 1 万・20 世代・捨てる 5・
 `statepoint-interval = 5`（`cross-sections` はリポジトリの `examples/vera/openmc-library` を指す）。
 
 - 起動: キーペア `xlc-aws`（秘密鍵 `~/.ssh/xlc-aws.pem`）、セキュリティグループ `xlc-ssh`（手元のグローバル IP の 22/tcp だけ）を作り、
   AMI は `aws ec2 describe-images --owners 099720109477 --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"`
-  の最新（このアカウントは SCP で SSM の公開パラメータが引けない）を `aws ec2 run-instances --instance-type c7a.large
-  --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'` で起動。EBS は gp3 40 GB。起動から ssh が通るまで約 40 秒
+  に `--query 'sort_by(Images,&CreationDate)[-1].ImageId'` を付けた最新（このアカウントは SCP で SSM の公開パラメータが引けない）を `aws ec2 run-instances --instance-type c7a.large
+  --instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'` で起動。EBS は gp3 40 GB。起動から ssh が通るまで約 40 秒。終わったら `aws ec2 terminate-instances` で終了する（EBS は DeleteOnTermination で消える。
+  キーペアとセキュリティグループは残す）
 - 3A と 5A-2D を `run_remote.sh`（`--cores` を省略。物理コア 2 を数え、2 本で 1 スレッドずつ）で同時に流し、約 1 分で k.json などまで
   できた。statepoint は 5 世代ごとに書かれ、最新の 2 個（15、20）が残る
 - 3A を `--threads 2` で流して世代 10 の statepoint の後に殺し、`--restart` で再開すると、世代 10 から続けて完了し、最初の実行と k が
