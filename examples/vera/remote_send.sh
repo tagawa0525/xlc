@@ -39,6 +39,7 @@ files=(
   examples/vera/openmc_model.py
   examples/vera/openmc_model_3d.py
   examples/vera/openmc_core_2d.py
+  examples/vera/openmc_tallies.py
   examples/vera/run_remote.sh
   examples/vera/p3
   examples/vera/p5
