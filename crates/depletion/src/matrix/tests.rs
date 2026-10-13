@@ -81,3 +81,26 @@ fn rejects_entries_that_overflow_when_summed() {
         "{error}"
     );
 }
+
+#[test]
+fn accepts_contributions_that_cancel_to_rounding() {
+    // 0.3 − 0.1 − 0.2 は丸めで −2.8e-17 になる。寄与の大きさに比べて丸めの水準の負は 0 とみなす
+    let a =
+        DepletionMatrix::from_triplets(2, &[(0, 0, -1.0), (1, 0, 0.3), (1, 0, -0.1), (1, 0, -0.2)])
+            .unwrap();
+    let got = deplete(&a, &[1.0, 0.0], 1.0, CramOrder::Order48).unwrap();
+    assert!(got[1].abs() <= 1e-15, "{got:?}");
+}
+
+#[test]
+fn rejects_a_negative_sum_beyond_rounding() {
+    let error =
+        DepletionMatrix::from_triplets(2, &[(0, 0, -1.0), (1, 0, 0.3), (1, 0, -0.31)]).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            DepletionError::NegativeProduction { row: 1, col: 0, .. }
+        ),
+        "{error}"
+    );
+}
