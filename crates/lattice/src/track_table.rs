@@ -1,9 +1,21 @@
 //! 円筒のセルの飛程の表（ADR-0156）。
+//!
+//! 同じ物質のリングは同じ全断面積を持つので、セルの飛程 W は物質ごとの全断面積 Σ_m の関数になる。物質ごとに ln Σ の
+//! 等間隔の格子をとり、格子点の組で W を求めておき、4 点の Lagrange 補間（物質ごとの積）で内挿する。
+//!
+//! 内挿するのは R_ij = W_ij Σ_j（真空のリング j は W_ij のまま）。真空でない列についての R の行の和は体積 V_i
+//! （白色境界ではどこかで必ず衝突する）で、補間の重みの和は 1 なので、内挿した R も中性子の保存を丸めの範囲で満たす。
+//! W は R_ij/Σ_j で戻す。
+
+use rayon::prelude::*;
 
 use crate::cp::{CpError, Cylinder};
 
 /// 表の細かさの既定（ln Σ の 10 倍あたりの格子点の数。ADR-0156）
 pub const DEFAULT_DENSITY: usize = 16;
+
+/// 1つの物質の内挿に使う格子点の数（4 点の Lagrange 補間）
+const STENCIL: usize = 4;
 
 /// 表を作るときのエラー。
 #[derive(Debug, thiserror::Error)]
@@ -18,25 +30,196 @@ pub enum TableError {
     Cp(#[from] CpError),
 }
 
+/// 1つの物質の ln Σ の等間隔の格子
+struct Axis {
+    start: f64,
+    step: f64,
+    count: usize,
+}
+
+impl Axis {
+    /// [min, max] を覆う格子。幅が 0 なら 1 点、それ以外は 10 倍あたり `density` 点以上で、最低 [`STENCIL`] 点
+    fn new(min: f64, max: f64, density: usize) -> Self {
+        let (start, span) = (min.ln(), max.ln() - min.ln());
+        if span == 0.0 {
+            return Self {
+                start,
+                step: 0.0,
+                count: 1,
+            };
+        }
+        let step = std::f64::consts::LN_10 / density as f64;
+        let count = ((span / step).ceil() as usize + 1).max(STENCIL);
+        Self {
+            start,
+            step: span / (count - 1) as f64,
+            count,
+        }
+    }
+
+    fn sigma(&self, k: usize) -> f64 {
+        (self.start + k as f64 * self.step).exp()
+    }
+
+    /// `sigma` の内挿に使う最初の格子点と、点ごとの重み（使う点の数は `count` と [`STENCIL`] の小さいほう）
+    fn stencil(&self, sigma: f64) -> (usize, [f64; STENCIL]) {
+        if self.count == 1 {
+            return (0, [1.0, 0.0, 0.0, 0.0]);
+        }
+        let s = (sigma.ln() - self.start) / self.step;
+        // 点 s を囲む 4 点（端では内側に寄せる）
+        let last = (self.count - STENCIL) as f64;
+        let first = (s.floor() - 1.0).clamp(0.0, last) as usize;
+        let x = s - first as f64;
+        // 点 0, 1, 2, 3 の Lagrange の基底
+        let weights = [
+            -(x - 1.0) * (x - 2.0) * (x - 3.0) / 6.0,
+            x * (x - 2.0) * (x - 3.0) / 2.0,
+            -x * (x - 1.0) * (x - 3.0) / 2.0,
+            x * (x - 1.0) * (x - 2.0) / 6.0,
+        ];
+        (first, weights)
+    }
+
+    fn width(&self) -> usize {
+        self.count.min(STENCIL)
+    }
+}
+
 /// 物質ごとの全断面積の格子での飛程の表。
-pub struct TrackTable {}
+pub struct TrackTable {
+    /// [リング] の物質の番号（真空は `None`）
+    classes: Vec<Option<usize>>,
+    axes: Vec<Axis>,
+    /// [格子点の組 × リング × リング] の R_ij（格子点の組は最初の物質がいちばん速く変わる）
+    values: Vec<f64>,
+}
 
 impl TrackTable {
     /// `classes` はリングごとの物質の番号（真空は `None`）、`ranges` は物質ごとの全断面積の [最小, 最大] (1/cm)、
     /// `density` は ln Σ の 10 倍あたりの格子点の数。
     pub fn new(
-        _cell: &Cylinder,
-        _classes: Vec<Option<usize>>,
-        _ranges: &[[f64; 2]],
-        _density: usize,
+        cell: &Cylinder,
+        classes: Vec<Option<usize>>,
+        ranges: &[[f64; 2]],
+        density: usize,
     ) -> Result<Self, TableError> {
-        todo!()
+        if density == 0 {
+            return Err(TableError::Density);
+        }
+        let rings = cell.volumes().len();
+        if classes.len() != rings {
+            return Err(TableError::Rings {
+                given: classes.len(),
+                rings,
+            });
+        }
+        let axes = ranges
+            .iter()
+            .enumerate()
+            .map(|(material, &[min, max])| {
+                if !(min > 0.0 && min <= max && max.is_finite()) {
+                    return Err(TableError::Range {
+                        material,
+                        range: [min, max],
+                    });
+                }
+                Ok(Axis::new(min, max, density))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let nodes: usize = axes.iter().map(|a| a.count).product();
+        let blocks = (0..nodes)
+            .into_par_iter()
+            .map(|node| {
+                let mut rest = node;
+                let sigma: Vec<f64> = axes
+                    .iter()
+                    .map(|a| {
+                        let k = rest % a.count;
+                        rest /= a.count;
+                        a.sigma(k)
+                    })
+                    .collect();
+                let totals = totals(&classes, &sigma);
+                let w = cell.tracks(&totals)?;
+                let mut r = Vec::with_capacity(rings * rings);
+                for row in &w {
+                    r.extend(
+                        row.iter()
+                            .zip(&totals)
+                            .map(|(w, &t)| if t > 0.0 { w * t } else { *w }),
+                    );
+                }
+                Ok(r)
+            })
+            .collect::<Result<Vec<_>, CpError>>()?;
+        tracing::debug!(nodes, "track table");
+        Ok(Self {
+            classes,
+            axes,
+            values: blocks.concat(),
+        })
     }
 
     /// 物質ごとの全断面積 `sigma` での飛程 T[j][i]（リング i の単位の線源密度あたりの、リング j の中を飛ぶ長さ）。
-    pub fn tracks(&self, _sigma: &[f64]) -> Vec<Vec<f64>> {
-        todo!()
+    /// `sigma` は表の範囲の中にあること（範囲の外は外挿になる）。
+    pub fn tracks(&self, sigma: &[f64]) -> Vec<Vec<f64>> {
+        let n = self.classes.len();
+        let stencils: Vec<(usize, [f64; STENCIL])> = self
+            .axes
+            .iter()
+            .zip(sigma)
+            .map(|(a, &s)| a.stencil(s))
+            .collect();
+        let mut r = vec![0.0; n * n];
+        // 物質ごとの内挿の点の組を、最初の物質がいちばん速く変わる順に回る
+        let mut offsets = vec![0usize; self.axes.len()];
+        'combos: loop {
+            let (mut node, mut stride, mut weight) = (0, 1, 1.0);
+            for ((axis, &(first, w)), &k) in self.axes.iter().zip(&stencils).zip(&offsets) {
+                node += (first + k) * stride;
+                stride *= axis.count;
+                weight *= w[k];
+            }
+            for (x, v) in r
+                .iter_mut()
+                .zip(&self.values[node * n * n..(node + 1) * n * n])
+            {
+                *x += weight * v;
+            }
+            for (k, axis) in offsets.iter_mut().zip(&self.axes) {
+                *k += 1;
+                if *k < axis.width() {
+                    continue 'combos;
+                }
+                *k = 0;
+            }
+            break;
+        }
+        let totals = totals(&self.classes, sigma);
+        (0..n)
+            .map(|j| {
+                let t = totals[j];
+                (0..n)
+                    .map(|i| {
+                        if t > 0.0 {
+                            r[i * n + j] / t
+                        } else {
+                            r[i * n + j]
+                        }
+                    })
+                    .collect()
+            })
+            .collect()
     }
+}
+
+/// [リング] の全断面積（真空は 0）
+fn totals(classes: &[Option<usize>], sigma: &[f64]) -> Vec<f64> {
+    classes
+        .iter()
+        .map(|m| m.map_or(0.0, |m| sigma[m]))
+        .collect()
 }
 
 #[cfg(test)]
