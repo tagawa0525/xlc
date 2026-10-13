@@ -70,7 +70,7 @@ neutrons のサブライブラリ（[ADR-0124](0124-pin-reference-assets-with-ni
 - MF8 の状態と decay の状態の対応:
   - 励起エネルギーの一致（相対 1e-3）で引く: チェーンを作って試すと、Am-243 (n,γ) の Am-244m（MF8 は 72.9 keV、decay は 86.1 keV）、
     Np-237 (n,2n) の Np-236m（185 keV と 56 keV）など 12 件が一致せず、評価が生成を与えた準安定状態を基底状態に落とした
-    （このブランチの be04a248〜32a84b22、2026-10-14）
+    （このブランチの 68d9b3a2〜abd78f93、2026-10-14）
   - LFS を準安定状態の番号とみなす: LFS は準位の番号で、Am-241 (n,γ) の Am-242m は LFS = 2
   - 励起状態を decay の準安定状態に、励起エネルギーの相対の差の小さい組から 1 対 1 で対応させ、余った状態は基底状態にする
     （採用）。MF8 の励起状態は、評価が生成を与えた準安定状態を指すので、エネルギーの食い違いより対応の有無を重く見る。余るのは、
@@ -133,7 +133,7 @@ neutrons のサブライブラリ（[ADR-0124](0124-pin-reference-assets-with-ni
   `removes_the_parent_without_products_by_spontaneous_fission`、`rescales_decay_ratios_that_sum_close_to_one`、
   `matches_excited_states_to_isomers_by_the_nearest_energy`、`keeps_the_remainder_when_mf8_lists_only_isomers`、
   `borrows_yields_from_the_nearest_mass_of_the_same_element` ほか）と、ENDF の読み口の crates/chain/src/endf/tests.rs
-- OpenMC との比較（examples/depletion/verification.md の「燃焼チェーン」、1fca26b0、2026-10-14）: 核種の集合（3,820）、半減期、
+- OpenMC との比較（examples/depletion/verification.md の「燃焼チェーン」、10d063ab、2026-10-14）: 核種の集合（3,820）、半減期、
   自分の収率（31 核種）が一致し、崩壊の分岐、反応、借りる収率の違いは、すべてこの ADR の規則で説明がつく。同じ 1 群の反応率で
   全核種のチェーンの 1 ステップを解くと、U-238 → Pu-239、I-135 → Xe-135、Pm-149 → Sm-149 の経路の核種が 1e-14 の水準で一致する
 
