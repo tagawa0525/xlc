@@ -75,7 +75,7 @@ NAPS = 2 は透過因子とシフト因子に見出しの AP、位相シフト�
 - ポテンシャル散乱の単体テスト（crates/xs/src/process/tests.rs）: `potential_uses_the_radius_at_the_top_of_an_energy_dependent_range`
 - NJOY との比較（xlc 46ba7a41、2026-10-14）: 0 K の再構成を、NJOY2016 RECONR（許容誤差 1e-3）の PENDF と `compare_njoy_pendf` で
   比べた。Nd-149、I-133 と、範囲の中の AP(E) の変化が最大の Sm-146 で、全断面積、弾性散乱、捕獲の NJOY の全格子点での
-  相対差の最大は 9.1e-4〜1.0e-3 で、許容誤差の 2 倍を超える点はない（NJOY の入力は手元の `trials/`。RECONR の入力は
+  相対差の最大は 9.1e-4〜1.0e-3 で、許容誤差の 2 倍を超える点はない（NJOY の入力と出力は references/njoy-runs/nro/<核種>/。git で追跡しない。RECONR の入力は
   references/njoy-runs/U238/input と同じ形で MAT だけが違う）
 - 棚卸しの道具（`crates/chain/examples/survey_neutrons.rs`、6548fca7、2026-10-14）で、NRO = 1 の 52 評価がすべて読める
   （読めない理由に NRO が現れない）
