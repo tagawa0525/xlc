@@ -5,7 +5,7 @@
 # Usage: scripts/build-binaries.sh（リポジトリの直下で、default の devShell の中から。dvc repro が呼ぶ）
 #
 # cargo はリンクの環境（NIX_LDFLAGS、ホームの設定のリンカ）を fingerprint に含めず、環境だけが変わってもリンクし直さない。
-# そのため、手で使う target/release と分けた target/dvc で、実行ファイルの 3 つのパッケージを毎回消してからビルドする
+# そのため、手で使う target/release と分けた target/dvc で、実行ファイルのパッケージ（xs、lattice、core、chain）を毎回消してからビルドする
 # （コンパイルとリンクを今の環境でやり直す。依存のクレートは再利用する）。
 
 set -euo pipefail
@@ -29,7 +29,7 @@ if env | grep -qE "$flags"; then
   exit 1
 fi
 
-# 実行ファイルの名前（パッケージは xlc-<名前>）。clean、build、コピーする先で同じ並びを使う
+# 1 回の cargo で作る実行ファイルの名前（パッケージは xlc-<名前>）。下の separate と合わせて、clean、build、コピーする先に使う
 names=(xs lattice core)
 packages=()
 for name in "${names[@]}"; do
