@@ -14,7 +14,7 @@
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
 #   --az       AZ を固定する（例 us-east-1b）。その AZ の default サブネットで起動する。無指定は AWS が選ぶ。起動し直しでは、
-#              指定がなければ最後の起動の記録の値（固定を外すのは --az any）
+#              指定がなければ最後の起動の記録の値（--job があれば、そのジョブの記録。固定を外すのは --az any）
 #   --on-demand  スポットでなくオンデマンドで起動する（中断が続くときの逃げ道。価格は約 2.5 倍）。起動し直しでは、
 #              指定がなければ最後の起動の記録の値。スポットに戻すのは --spot
 #   --job      起動し直しで、このジョブだけを対象にする（例 --job openmc-3A。複数回指定できる。無指定は全部）。名前は launch.env の
@@ -190,7 +190,13 @@ else
   require_public_awscli "$awscli"
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   # 指定のない --type、--max-hours、--sync-minutes は、最後の起動の記録の値を使う（起動し直しで黙って設定を変えない）
-  last_key=$(s3_keys "runs/$name/launches/" | sort | tail -1)
+  # --job があれば、そのジョブの記録だけから引き継ぐ（別のジョブの AZ や市場を黙って持ち込まない）。複数なら、その中で最後のもの
+  last_keys=$(s3_keys "runs/$name/launches/" | sort)
+  if ((${#jobs[@]})); then
+    pattern=$(printf '%s\n' "${jobs[@]}" | sed 's/[][\.*^$/]/\\&/g' | paste -sd'|')
+    last_keys=$(grep -E -- "-($pattern)\.env\$" <<< "$last_keys" || true)
+  fi
+  last_key=$(tail -1 <<< "$last_keys")
   if [[ -n $last_key ]]; then
     last=$(aws s3 cp "s3://$XLC_BUCKET/$last_key" -)
     type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
@@ -207,12 +213,12 @@ else
   all_jobs=()
   for input in "${RUN_INPUTS[@]}"; do all_jobs+=("$(job_name "$input")"); done
   for want in "${jobs[@]}"; do
-    [[ " ${all_jobs[*]} " == *" $want "* ]] || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
+    printf '%s\n' "${all_jobs[@]}" | grep -Fxq -- "$want" || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
   done
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
     # --job があれば、それ以外のジョブは対象にしない（状態も示さない）
-    ((${#jobs[@]} == 0)) || [[ " ${jobs[*]} " == *" $job "* ]] || continue
+    ((${#jobs[@]} == 0)) || printf '%s\n' "${jobs[@]}" | grep -Fxq -- "$job" || continue
     code=$(job_done "$name" "$job")
     if [[ $code == 0 ]]; then
       echo "$job: 完了"
