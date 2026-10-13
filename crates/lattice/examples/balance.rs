@@ -18,7 +18,7 @@ use xlc_lattice::balance::by_material;
 use xlc_lattice::input::{CrossSections, LatticeInput};
 use xlc_lattice::material::Material;
 use xlc_lattice::moc::{Options, available_order, solve};
-use xlc_lattice::shielding::{ShieldingOptions, shield_fuel};
+use xlc_lattice::shielding::shield_fuel;
 use xlc_lattice::tracking::{Boundaries, Tracking};
 
 #[derive(Serialize)]
@@ -64,7 +64,7 @@ fn main() -> anyhow::Result<()> {
         &tracking,
         &input.materials,
         &names,
-        &ShieldingOptions::default(),
+        &input.shielding_options(),
     )?;
     let materials: Vec<&Material> = shielded
         .region_material
