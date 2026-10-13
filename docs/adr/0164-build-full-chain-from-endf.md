@@ -108,7 +108,7 @@ neutrons のサブライブラリ（[ADR-0124](0124-pin-reference-assets-with-ni
 - 核種: decay の評価のすべて（中性子を除く）。状態は MF1/MT451 の (ZA, LISO) で決め、名前は [ADR-0015](0015-name-nuclides-like-u-235.md) の形。並びは
   (Z, A, LISO) の順
 - 崩壊（decay の MF8/MT457）: 半減期、平均の崩壊エネルギー（軽い粒子、電磁、重い粒子の 3 つ）、崩壊の型（RTYP の各桁を
-  順に当てる）と娘の状態（RFS）、分岐比。α は He-4、陽子の放出は H-1 を、桁の数だけ生む。β−n などの中性子は追わない。
+  順に当てる）と娘の状態（RFS）、分岐比。α は He-4、陽子の放出は H-1 を、桁の数だけ生む（娘も同じ核種なら 1 つにまとめて個数を足す。Li-8 の β−α）。β−n などの中性子は追わない。
   分岐比の和が 1 から 1e-5 を超えてずれればエラー、その内なら比で割り直す。SF の分岐は親を減らし、生成物を持たない。
   不安定で半減期が 0 なら安定とみなす。娘が decay になければ、その分岐は娘を生まない（α の He-4 などは生む）
 - 反応（neutrons、MF1/MT451 の (ZA, LISO) で decay の核種に対応させる）: MF3 に (n,γ) 102、(n,2n) 16 と 875〜891、(n,3n) 17、
@@ -133,7 +133,7 @@ neutrons のサブライブラリ（[ADR-0124](0124-pin-reference-assets-with-ni
   `removes_the_parent_without_products_by_spontaneous_fission`、`rescales_decay_ratios_that_sum_close_to_one`、
   `matches_excited_states_to_isomers_by_the_nearest_energy`、`keeps_the_remainder_when_mf8_lists_only_isomers`、
   `borrows_yields_from_the_nearest_mass_of_the_same_element` ほか）と、ENDF の読み口の crates/chain/src/endf/tests.rs
-- OpenMC との比較（examples/depletion/verification.md の「燃焼チェーン」、10d063ab、2026-10-14）: 核種の集合（3,820）、半減期、
+- OpenMC との比較（examples/depletion/verification.md の「燃焼チェーン」、6b4bb452、2026-10-14）: 核種の集合（3,820）、半減期、
   自分の収率（31 核種）が一致し、崩壊の分岐、反応、借りる収率の違いは、すべてこの ADR の規則で説明がつく。同じ 1 群の反応率で
   全核種のチェーンの 1 ステップを解くと、U-238 → Pu-239、I-135 → Xe-135、Pm-149 → Sm-149 の経路の核種が 1e-14 の水準で一致する
 

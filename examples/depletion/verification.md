@@ -71,7 +71,7 @@ nix develop ../..#references -c python3 compare_chain_depletion.py chain-cases.t
 
 ### 計算
 
-10d063ab（分岐点は main の 1f50ae7a）、2026-10-14。チェーンの段階は同じ `bin/chain`（md5 db8179c6）と OpenMC 0.15.2 の
+6b4bb452（分岐点は main の 98c36637）、2026-10-14。チェーンの段階は `bin/chain`（md5 3efd29fb）と OpenMC 0.15.2 の
 `Chain.from_endf`（ENDF/B-VIII.0 の decay 3,821、nfy 31、neutrons 557）。`bin/chain` は 1 スレッドで約 1.2 秒、`Chain.from_endf` は
 約 10 秒（手元。排他のジョブではない）。
 
@@ -112,7 +112,7 @@ nix develop ../..#references -c python3 compare_chain_depletion.py chain-cases.t
 
 | 場合                    | 差 / 初期の最大 | 経路の核種の相対差の最大                                         | 相対差の最大（全核種） |
 | ----------------------- | --------------- | ---------------------------------------------------------------- | ---------------------- |
-| U-238 の捕獲、30 日     | 2.8e-15         | 2.8e-15（U-239、Np-239、Pu-239）                                 | 1.4e-11（U-235m）      |
+| U-238 の捕獲、30 日     | 2.5e-15         | 2.7e-15（U-239、Np-239、Pu-239）                                 | 1.4e-11（U-235m）      |
 | U-235 の核分裂、10 時間 | 6.5e-15         | 9.6e-15（I-135、Xe-135、Pm-149、Sm-149、Cs-135、Xe-136、Sm-150） | 1.0e-7（Ge-81m）       |
 | U-235 の核分裂、30 日   | 1.4e-13         | 9.3e-15（同上）                                                  | 1.0e-7（Ge-81m）       |
 | Pu-239 の核分裂、30 日  | 4.5e-13         | 1.1e-15（Pu-239 と同上）                                         | 1.0e-7（Ge-81m）       |
