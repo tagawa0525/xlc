@@ -57,15 +57,12 @@ fn one_nuclide_decays_exponentially() {
 }
 
 #[test]
-fn zero_time_keeps_the_densities() {
+fn zero_time_keeps_the_densities_exactly() {
+    // exp(0) = I なので、r(0) ≠ 1 の近似の誤差（1e-16 の水準）を足さずに返す
     let a = chain3(1e-3, 1e-5);
     let n0 = [2.0, 1.0, 0.5];
     for order in ORDERS {
-        let got = deplete(&a, &n0, 0.0, order).unwrap();
-        assert!(
-            scaled_error(&got, &n0, &n0) <= REAL_SPECTRUM_TOL,
-            "{order:?}: {got:?}"
-        );
+        assert_eq!(deplete(&a, &n0, 0.0, order).unwrap(), n0, "{order:?}");
     }
 }
 
