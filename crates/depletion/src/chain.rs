@@ -1,5 +1,4 @@
-//! 燃焼鎖（ADR-0034、ADR-0166）。xs の段階の `chain`（crates/chain）が ENDF から作って書き、lattice と core が読んで
-//! 燃焼行列を組み立てる。
+//! 燃焼鎖の型（ADR-0034、ADR-0166）。鎖のファイルの読み書きと、鎖と反応率から燃焼行列を組み立てるコードを持つ。
 //!
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
 //!
@@ -16,7 +15,6 @@
 //! 核種は (z, a, state) の昇順に並び、生成物は核種の添字で指す。
 
 use serde::{Deserialize, Serialize};
-use xlc_format::library::is_nuclide_name;
 use xlc_format::msgpack::{self, MsgpackError};
 
 use crate::{DepletionError, DepletionMatrix};
@@ -168,7 +166,9 @@ pub struct NuclideRates {
     pub yield_weights: Vec<f64>,
 }
 
-/// `Option` を、値か nil からだけ読む（serde の derive は、省いた `Option` を `None` にするため）
+/// `Option` を、値か nil からだけ読む（serde の derive は、省いた `Option` を `None` にするため）。xlc-format の
+/// table.rs と library.rs にも同じ関数があるが、`xlc_format::msgpack` に移すと段階の実行ファイルが変わる（#0117）ので、
+/// 移さずに持つ
 fn nil_or<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -180,12 +180,51 @@ where
 /// 形式の名前
 const FORMAT: &str = "xlc-chain";
 
-/// 分岐比の和と収率の重みの和の、1 からのずれの許容。鎖を作るときに比で割り直すので、和の丸め
-/// （数十項で数 ε）より十分大きく、割り直しを忘れた鎖（ずれは評価で最大 9e-7）を止める大きさ
-const SUM_TOLERANCE: f64 = 1e-12;
+/// 崩壊の分岐比の和の、1 からのずれの許容。鎖を作るときに比で割り直すので、和の丸め（数十項で数 ε）より十分大きく、
+/// 割り直しを忘れた鎖（ずれは評価で最大 9e-7）を止める大きさ
+const RATIO_SUM_TOLERANCE: f64 = 1e-12;
 
-/// ファイルの中身（フィールド名付きの map 形式で書く）
-#[derive(Serialize, Deserialize)]
+/// 収率の重みの和の、1 からのずれの許容。重みは呼ぶ側が区間の核分裂率を和で割って作る（k 個の点で丸めは (k + 1) ε
+/// 程度。点は 4 個まで）ので、それより十分大きく、割り忘れ（ずれは 1 の桁）を止める大きさ
+const WEIGHT_SUM_TOLERANCE: f64 = 1e-12;
+
+/// 鎖の反応の MT（核分裂を除く）
+pub const REACTION_MTS: [u32; 6] = [16, 17, 37, 102, 103, 107];
+
+/// 崩壊の型の段の名前
+const DECAY_STEPS: [&str; 7] = ["beta-", "ec/beta+", "IT", "alpha", "n", "sf", "p"];
+
+/// 原子番号 1〜118 の元素記号（添字は Z − 1）
+const SYMBOLS: [&str; 118] = [
+    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl",
+    "Ar", "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As",
+    "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In",
+    "Sn", "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb",
+    "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl",
+    "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk",
+    "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh",
+    "Fl", "Mc", "Lv", "Ts", "Og",
+];
+
+/// ADR-0015 の形の核種名（`U-235`、`Am-242m`、`Hf-178m2`）。Z が範囲の外なら `None`。
+pub fn nuclide_name(z: u32, a: u32, state: u32) -> Option<String> {
+    let symbol = SYMBOLS.get(usize::try_from(z).ok()?.checked_sub(1)?)?;
+    Some(match state {
+        0 => format!("{symbol}-{a}"),
+        1 => format!("{symbol}-{a}m"),
+        s => format!("{symbol}-{a}m{s}"),
+    })
+}
+
+/// 書くファイルの中身（フィールド名付きの map 形式）
+#[derive(Serialize)]
+struct ChainFileRef<'a> {
+    format: &'a str,
+    nuclides: &'a [Nuclide],
+}
+
+/// 読むファイルの中身
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ChainFile {
     format: String,
@@ -196,9 +235,9 @@ impl Chain {
     /// MessagePack（フィールド名付きの map 形式）で書く。読むときと同じ検査をして、壊れた鎖を書かない。
     pub fn to_msgpack(&self) -> Result<Vec<u8>, ChainError> {
         self.check()?;
-        Ok(msgpack::to_named(&ChainFile {
-            format: FORMAT.into(),
-            nuclides: self.nuclides.clone(),
+        Ok(msgpack::to_named(&ChainFileRef {
+            format: FORMAT,
+            nuclides: &self.nuclides,
         })?)
     }
 
@@ -217,7 +256,7 @@ impl Chain {
         Ok(chain)
     }
 
-    /// 名前、並び、添字の範囲、分岐比の和、収率の形を確かめる。
+    /// 名前と (z, a, state) の一致、並び、添字の範囲、崩壊の型、分岐比の和、反応と状態の重なり、収率の形と出所を確かめる。
     pub fn check(&self) -> Result<(), ChainError> {
         let n = self.nuclides.len();
         let invalid = |message: String| Err(ChainError::Invalid(message));
@@ -225,9 +264,11 @@ impl Chain {
             |products: &[Product]| products.iter().all(|p| p.nuclide < n && p.count > 0);
         for (k, nuclide) in self.nuclides.iter().enumerate() {
             let name = &nuclide.name;
-            if !is_nuclide_name(name) {
+            let expected = nuclide_name(nuclide.z, nuclide.a, nuclide.state);
+            if expected.as_ref() != Some(name) {
                 return invalid(format!(
-                    "nuclide name `{name}` is not of the form U-235, Am-242m"
+                    "nuclide name `{name}` does not match z = {}, a = {}, state = {} ({expected:?})",
+                    nuclide.z, nuclide.a, nuclide.state
                 ));
             }
             if k > 0 {
@@ -271,14 +312,45 @@ impl Chain {
                             mode.mode
                         ));
                     }
+                    let steps: Vec<&str> = mode.mode.split(',').collect();
+                    if !steps.iter().all(|s| DECAY_STEPS.contains(s)) {
+                        return invalid(format!("{name}: unknown decay mode {}", mode.mode));
+                    }
+                    // 自発核分裂は核を壊し、核分裂片を追わない（ADR-0034 の鎖の規則）
+                    if steps.contains(&"sf") && !mode.products.is_empty() {
+                        return invalid(format!("{name}: {} has products", mode.mode));
+                    }
                     sum += mode.ratio;
                 }
-                if (sum - 1.0).abs() > SUM_TOLERANCE {
+                if !sum.is_finite() || (sum - 1.0).abs() > RATIO_SUM_TOLERANCE {
                     return invalid(format!("{name}: decay ratios sum to {sum}"));
                 }
             }
-            for reaction in &nuclide.reactions {
+            for (r, reaction) in nuclide.reactions.iter().enumerate() {
                 let mt = reaction.mt;
+                if !REACTION_MTS.contains(&mt) {
+                    return invalid(format!("{name}: MT{mt} is not a reaction of the chain"));
+                }
+                if nuclide.reactions[..r].iter().any(|other| other.mt == mt) {
+                    return invalid(format!("{name}: MT{mt} appears twice"));
+                }
+                let states: Vec<FinalState> = reaction
+                    .channels
+                    .iter()
+                    .filter_map(|c| c.final_state)
+                    .collect();
+                if states.iter().any(|f| f.mf != 9 && f.mf != 10) {
+                    return invalid(format!(
+                        "{name}: MT{mt} final states must come from MF9 or MF10"
+                    ));
+                }
+                if states
+                    .iter()
+                    .enumerate()
+                    .any(|(i, f)| states[..i].contains(f))
+                {
+                    return invalid(format!("{name}: MT{mt} repeats a final state"));
+                }
                 if reaction.channels.is_empty() {
                     return invalid(format!("{name}: MT{mt} has no channels"));
                 }
@@ -299,6 +371,12 @@ impl Chain {
                 }
             }
             if let Some(fission) = &nuclide.fission {
+                if !self.nuclides.iter().any(|m| m.name == fission.yield_source) {
+                    return invalid(format!(
+                        "{name}: yield source {} is not in the chain",
+                        fission.yield_source
+                    ));
+                }
                 let energies = &fission.energies;
                 if energies.is_empty()
                     || !energies.iter().all(|e| e.is_finite() && *e > 0.0)
@@ -343,7 +421,9 @@ impl Chain {
                 fission: 0.0,
                 yield_weights: nuclide.fission.as_ref().map_or_else(Vec::new, |f| {
                     let mut weights = vec![0.0; f.energies.len()];
-                    weights[0] = 1.0;
+                    if let Some(first) = weights.first_mut() {
+                        *first = 1.0;
+                    }
                     weights
                 }),
             })
@@ -351,11 +431,13 @@ impl Chain {
     }
 
     /// 燃焼行列の項（行が生まれる核種、列が親。`DepletionMatrix::from_triplets` の形）。崩壊は ln 2 / 半減期に分岐比を、
-    /// 反応は経路の反応率を、核分裂は核分裂率に、収率のエネルギーの点ごとの重みで足した収率を掛ける。
+    /// 反応は経路の反応率を、核分裂は核分裂率に、収率のエネルギーの点ごとの重みで足した収率を掛ける。鎖を `check` で
+    /// 確かめてから組み立て、反応率が 0 の項は入れない（疎な LU の非零を増やさないため）。
     pub fn matrix_entries(
         &self,
         rates: &[NuclideRates],
     ) -> Result<Vec<(usize, usize, f64)>, ChainError> {
+        self.check()?;
         if rates.len() != self.nuclides.len() {
             return Err(ChainError::Rates(format!(
                 "{} rates for {} nuclides",
@@ -403,8 +485,10 @@ impl Chain {
                     if !valid(r) {
                         return bad(format!("invalid rate {r} of MT{}", reaction.mt));
                     }
-                    entries.push((j, j, -r));
-                    gain(&mut entries, j, &channel.products, r);
+                    if r > 0.0 {
+                        entries.push((j, j, -r));
+                        gain(&mut entries, j, &channel.products, r);
+                    }
                 }
             }
             if !valid(rate.fission) {
@@ -428,8 +512,11 @@ impl Chain {
                         ));
                     }
                     let sum: f64 = weights.iter().sum();
-                    if (sum - 1.0).abs() > SUM_TOLERANCE {
+                    if !sum.is_finite() || (sum - 1.0).abs() > WEIGHT_SUM_TOLERANCE {
                         return bad(format!("yield weights sum to {sum}"));
+                    }
+                    if rate.fission == 0.0 {
+                        continue;
                     }
                     entries.push((j, j, -rate.fission));
                     for (&w, table) in weights.iter().zip(&fission.yields) {
