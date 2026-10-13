@@ -46,6 +46,15 @@ fn main() -> Result<()> {
     let mut n0 = vec![0.0; chain.nuclides.len()];
     let mut order = None;
     let mut t = None;
+    // 同じ核種と反応を 2 度書いた行（打ち間違い）は止める
+    let mut given = std::collections::HashSet::new();
+    let mut once = |key: String| {
+        if given.insert(key.clone()) {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("{key} is given twice"))
+        }
+    };
     let mut text = String::new();
     std::io::stdin().read_to_string(&mut text)?;
     for line in text.lines() {
@@ -55,8 +64,12 @@ fn main() -> Result<()> {
             ["order", "16"] => set(&mut order, "order", CramOrder::Order16)?,
             ["order", "48"] => set(&mut order, "order", CramOrder::Order48)?,
             ["t", value] => set(&mut t, "t", value.parse::<f64>()?)?,
-            ["n0", name, value] => n0[find(name)?] = value.parse()?,
+            ["n0", name, value] => {
+                once(format!("n0 {name}"))?;
+                n0[find(name)?] = value.parse()?;
+            }
             ["reaction", name, mt, value] => {
+                once(format!("reaction {name} {mt}"))?;
                 let i = find(name)?;
                 let mt: u32 = mt.parse()?;
                 let k = chain.nuclides[i]
@@ -70,6 +83,7 @@ fn main() -> Result<()> {
                 rates[i].reactions[k][0] = value.parse()?;
             }
             ["fission", name, value, ref weights @ ..] => {
+                once(format!("fission {name}"))?;
                 let i = find(name)?;
                 rates[i].fission = value.parse()?;
                 rates[i].yield_weights = weights
