@@ -1,0 +1,55 @@
+schema: '2.0'
+stages:
+  build:
+    cmd: scripts/build-binaries.sh
+    deps:
+    - path: .cargo/config.toml
+      hash: md5
+      md5: ac2b3155530983cb9f0391811a6dc2b3
+      size: 483
+    - path: Cargo.lock
+      hash: md5
+      md5: 6a2e4152003aa7d273385abb56540396
+      size: 14146
+    - path: Cargo.toml
+      hash: md5
+      md5: b7d2e13457a53c1f163a27769d18fb26
+      size: 917
+    - path: crates
+      hash: md5
+      md5: e4c40ebeb2cb35f33a430087af86bf37.dir
+      size: 2561133
+      nfiles: 128
+    - path: flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: flake.nix
+      hash: md5
+      md5: b41389bdb0cbdd9b36d849c0792af114
+      size: 11606
+    - path: rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: scripts/build-binaries.sh
+      hash: md5
+      md5: bbd474fb626d73b01d27d2636f3a9782
+      size: 1720
+      isexec: true
+    outs:
+    - path: bin/core
+      hash: md5
+      md5: 2f2040124f184b8ea932ab68575ab8ef
+      size: 3963672
+      isexec: true
+    - path: bin/lattice
+      hash: md5
+      md5: d9811966468f9b9275ffaa009c014f2b
+      size: 5282400
+      isexec: true
+    - path: bin/xs
+      hash: md5
+      md5: 8376dbece22a0885875abf5d0839adcb
+      size: 3490336
+      isexec: true

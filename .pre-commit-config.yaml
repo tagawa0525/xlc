@@ -13,5 +13,5 @@ repos:
         name: dvc.lock is readable by dvc
         entry: scripts/check-dvc-lock.sh
         language: system
-        files: ^examples/.*dvc\.lock$
+        files: ^(examples/.*)?dvc\.lock$
         verbose: true
