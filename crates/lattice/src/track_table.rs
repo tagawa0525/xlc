@@ -153,9 +153,12 @@ impl TrackTable {
             .try_fold(rings * rings, |n, a| n.checked_mul(a.count))
             .ok_or(TableError::Size)?
             / (rings * rings);
-        let blocks = (0..nodes)
-            .into_par_iter()
-            .map(|node| {
+        // 格子点の組ごとの R をその場の並びに書く（組ごとの小さな確保と、集めてからつなぐ写しを避ける）
+        let mut values = vec![0.0; nodes * rings * rings];
+        values
+            .par_chunks_mut(rings * rings)
+            .enumerate()
+            .try_for_each(|(node, r)| {
                 let mut rest = node;
                 let sigma: Vec<f64> = axes
                     .iter()
@@ -167,23 +170,24 @@ impl TrackTable {
                     .collect();
                 let totals = totals(&classes, &sigma);
                 let w = cell.tracks(&totals)?;
-                let mut r = Vec::with_capacity(rings * rings);
-                for row in &w {
-                    r.extend(
-                        row.iter()
-                            .zip(&totals)
-                            .map(|(w, &t)| if t > 0.0 { w * t } else { *w }),
-                    );
+                for (row, out) in w.iter().zip(r.chunks_mut(rings)) {
+                    for ((x, w), &t) in out.iter_mut().zip(row).zip(&totals) {
+                        *x = if t > 0.0 { w * t } else { *w };
+                    }
                 }
-                Ok(r)
-            })
-            .collect::<Result<Vec<_>, CpError>>()?;
+                Ok::<(), CpError>(())
+            })?;
         tracing::debug!(nodes, "track table");
         Ok(Self {
             classes,
             axes,
-            values: blocks.concat(),
+            values,
         })
+    }
+
+    /// 格子点の組の数
+    pub fn nodes(&self) -> usize {
+        self.axes.iter().map(|a| a.count).product()
     }
 
     /// 物質ごとの全断面積 `sigma` での飛程 T[j][i]（リング i の単位の線源密度あたりの、リング j の中を飛ぶ長さ）。
