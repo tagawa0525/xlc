@@ -49,7 +49,7 @@ for name in fresh restart; do
   # done を書かずにジョブが消えたら、最長の時間まで待たずに失敗で終わる
   contains "$text" '  if ! pgrep -f -- " $OUT(/run)?( |$)" > /dev/null; then' "$name"
   # 同期は done とログを除く。finish が同期、ログ、done の順に置く（done があれば、ほかはそろっている）
-  contains "$text" '  "$AWS" s3 sync --only-show-errors "${delete[@]}" --exclude done --exclude '\''boot-*.log'\'' "${filters[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
+  contains "$text" '  "$AWS" s3 sync --only-show-errors --exclude done --exclude '\''boot-*.log'\'' "${filters[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
   before "$text" '      sync_out && { synced=1; break; }' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' "$name"
   before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' \
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
@@ -78,11 +78,11 @@ contains "$fresh" 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' f
 before "$fresh" 'READY=1' 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
 # S3 のジョブ（statepoint、前の起動のログ）を戻してから同期を始める（再開でなくても、--delete で S3 のものを消さない）
 for name in fresh restart; do
-  before "${!name}" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' 'READY=1' "$name"
+  before "${!name}" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done --exclude '\''run/statepoint.*'\'' "$PREFIX" "$OUT"' 'READY=1' "$name"
 done
 lacks "$fresh" '--restart' fresh
 contains "$restart" 'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
-before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' \
+before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done --exclude '\''run/statepoint.*'\'' "$PREFIX" "$OUT"' \
   'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
 
 # sync_out の振る舞い: 生成した statepoints と sync_out を、aws の代わりに引数を出す関数で実行する

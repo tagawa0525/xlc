@@ -60,7 +60,11 @@ sync_out() {
     all=\$(statepoints "\$WORK/\$OUT/run")
     for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done
   fi
-  "\$AWS" s3 sync --only-show-errors "\${delete[@]}" --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
+  # --delete のときは、先に消さずにコピーしてから消す（途中で失敗しても、S3 から statepoint が消えて最後のものもない、にならない）
+  "\$AWS" s3 sync --only-show-errors --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
+  if ((\${#delete[@]})); then
+    "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude 'boot-*.log' "\$WORK/\$OUT" "\$PREFIX"
+  fi
 }
 # 終わるときに、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
 # READY のあとでこの user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も
@@ -117,8 +121,15 @@ rm -rf cache
 "\$AWS" s3 sync --only-show-errors "s3://\$BUCKET/runs/$run/src" .
 printf 'OPENMC_BIN=%s\nPYTHON=%s\n' $openmc/bin $python/bin/python3 > tools.env
 
-# S3 のジョブ（再開なら statepoint、前の起動のログなど）を戻してから同期を始める（--delete で S3 のものを消さない）
-"\$AWS" s3 sync --only-show-errors --exclude 'boot-*.log' --exclude done "\$PREFIX" "\$OUT"
+# S3 のジョブ（前の起動のログなど）を戻してから同期を始める。statepoint は最新の 2 個だけ戻す（再開に要るのは最新の読めるもの。
+# 走っている間の同期は S3 の statepoint を消さないので、全部を戻すと EBS を使う）
+"\$AWS" s3 sync --only-show-errors --exclude 'boot-*.log' --exclude done --exclude 'run/statepoint.*' "\$PREFIX" "\$OUT"
+keys=\$("\$AWS" s3api list-objects-v2 --bucket "\$BUCKET" --prefix "runs/$run/$job/run/statepoint." --query 'Contents[].Key' --output text)
+if [[ \$keys != None ]]; then
+  for key in \$(tr '\t' '\n' <<< "\$keys" | sort -t. -k2 -n | tail -2); do
+    "\$AWS" s3 cp --only-show-errors "s3://\$BUCKET/\$key" "\$OUT/run/\${key##*/}"
+  done
+fi
 READY=1
 USERDATA
   if ((restart)); then
