@@ -704,6 +704,22 @@ fn cmfd_accelerates_a_lattice_with_vacuum_sides() {
 }
 
 #[test]
+fn cmfd_accelerates_a_one_row_slab_with_vacuum_ends() {
+    // 軸方向の平板（ADR-0128）と同じく、均質なセルの 1 行の両端が真空で上下が鏡面反射
+    let lattice =
+        Lattice::rectilinear(vec![1.0; 8], vec![1.0], vec![Cell::BLOCK], vec![vec![0; 8]]).unwrap();
+    let boundaries = Boundaries {
+        left: Boundary::Vacuum,
+        right: Boundary::Vacuum,
+        ..Boundaries::REFLECTIVE
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+    let (f, m) = (fuel(), moderator());
+    let materials = [&m, &m, &f, &f, &f, &f, &m, &m];
+    assert_cmfd_accelerates(&tracking, &materials);
+}
+
+#[test]
 fn cmfd_accelerates_a_lattice_with_a_margin() {
     // 集合体の間の水のギャップのように、格子の周りに余白がある。縁のセルの粗メッシュは余白の分だけ広い
     let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
