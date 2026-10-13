@@ -89,7 +89,7 @@ stages:
       - ../openmc_run.py
       - references-shell.txt
       - p5/openmc-5A-2D.toml
-      - ../../references/openmc/vera-5A-2D/statepoint.2300.h5
+      - ../../references/openmc/vera-5A-2D
     outs:
       - p5/openmc-5A-2D-results
   xs-range:
