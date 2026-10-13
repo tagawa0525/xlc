@@ -2,8 +2,8 @@
 使う、計算の流れの部品: 入力の読み込み、run と extract のコマンド、初期の中性子源、メッシュの tally の取り出し、k と
 ピン出力の書き出し。
 
-ライブラリの段階（openmc_library.py）が deps にする openmc_common.py と分けるのは、モデルの側の変更で、核種ごとの
-ライブラリの段階を DVC が古いとみなさないようにするため（ADR-0130）。
+ライブラリの段階（openmc_library.py）が deps にする openmc_input.py と分けるのは、モデルの側の変更で、核種ごとの
+ライブラリの段階を DVC が古いとみなさないようにするため（ADR-0130、ADR-0136）。
 """
 
 import json
@@ -15,7 +15,7 @@ from typing import Any
 import msgpack
 import numpy as np
 import openmc
-from openmc_common import input_path, read_input
+from openmc_input import input_path, read_input
 
 
 def box_settings(
@@ -60,9 +60,7 @@ def read_run(
         raise SystemExit(
             f"unknown problem {run['problem']}; expected one of {problems}"
         )
-    # 絶対パスにする。OpenMC も相対パスを Python の作業ディレクトリから絶対パスに直す（openmc.config の resolve_paths）
-    # ので、outs の model.xml には worktree の絶対パスが入る。statepoint が日時と計算時間を含み outs はバイト単位では
-    # 再現しないので、それを避ける書き方はしない
+    # 絶対パスにする（OpenMC は作業ディレクトリで走り、環境変数のパスを相対のまま読むため。ADR-0136）
     run["cross-sections"] = input_path(source, run["cross-sections"])
     return run
 
@@ -86,15 +84,18 @@ def write_pin_powers(path: Path, rows: np.ndarray) -> None:
     path.write_bytes(msgpack.packb({"format": "xlc-pin-powers", "rows": rows.tolist()}))
 
 
-def run_or_extract(
-    solve: Callable[[Path, Path], None],
+def model_run_extract(
+    model: Callable[[Path, Path], None],
+    solve: Callable[[Path, Path, Path], None],
     extract: Callable[[Path, Path, Path], None],
     usage: str,
 ) -> None:
-    """コマンドの引数で、run（OpenMC を解く）か extract（statepoint から結果を抜く）を呼ぶ（ADR-0123）。"""
+    """コマンドの引数で、model（model.xml を書く）、run（その model.xml を解く）、extract を呼ぶ（ADR-0136）。"""
     match sys.argv[1:]:
-        case ["run", source, work]:
-            solve(Path(source), Path(work))
+        case ["model", source, directory]:
+            model(Path(source), Path(directory))
+        case ["run", source, directory, work]:
+            solve(Path(source), Path(directory), Path(work))
         case ["extract", source, work, results]:
             extract(Path(source), Path(work), Path(results))
         case _:

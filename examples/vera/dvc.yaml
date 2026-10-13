@@ -20,7 +20,7 @@ stages:
       cmd: nix develop ../..#references -c python3 openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
       deps:
         - openmc_library.py
-        - ../openmc_common.py
+        - ../openmc_input.py
         - references-shell.txt
         - ${item.endf}
       params:
@@ -34,7 +34,7 @@ stages:
       cmd: nix develop ../..#references -c python3 openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
       deps:
         - openmc_library.py
-        - ../openmc_common.py
+        - ../openmc_input.py
         - references-shell.txt
         - ${item.neutron}
         - ${item.thermal}
@@ -47,24 +47,40 @@ stages:
     cmd: nix develop ../..#references -c python3 openmc_library.py index openmc-library.toml openmc-library
     deps:
       - openmc_library.py
-      - ../openmc_common.py
+      - ../openmc_input.py
       - references-shell.txt
       - openmc-library.toml
       - openmc-library/neutron
       - openmc-library/thermal
     outs:
       - openmc-library/cross_sections.xml
-  openmc-1B:
-    # ライブラリはディレクトリ全体を deps にする（どの核種が変わっても走るが、組成をコピーした並びの漏れがない。ADR-0130）
-    cmd: nix develop ../..#references -c python3 openmc_model.py run p1/openmc-1B.toml p1/openmc-1B
+  openmc-1B-model:
+    # 問題の物質、形状、設定を model.xml に書く。model.xml はライブラリのパスもスレッド数も含まないので、スクリプトを
+    # 直してもモデルが同じなら変わらず、下の openmc-1B は再実行しない（ADR-0136）
+    cmd: nix develop ../..#references -c python3 openmc_model.py model p1/openmc-1B.toml p1/openmc-1B-model
     deps:
       - openmc_model.py
       - openmc_tallies.py
       - ../openmc_common.py
       - ../openmc_run.py
+      - ../openmc_input.py
       - references-shell.txt
       - p1/openmc-1B.toml
+    outs:
+      - p1/openmc-1B-model
+  openmc-1B:
+    # ライブラリはディレクトリ全体を deps にする（どの核種が変わっても走るが、組成をコピーした並びの漏れがない。ADR-0130）。
+    # スクリプトを deps にしない（モデルを変えない直しで再実行しないため。ADR-0136）。入力は、このスクリプトが読む
+    # ライブラリのパスとスレッド数だけを params にする
+    cmd: nix develop ../..#references -c python3 openmc_model.py run p1/openmc-1B.toml p1/openmc-1B-model p1/openmc-1B
+    deps:
+      - references-shell.txt
+      - p1/openmc-1B-model/model.xml
       - openmc-library
+    params:
+      - p1/openmc-1B.toml:
+          - cross-sections
+          - threads
     outs:
       - p1/openmc-1B
   openmc-1B-extract:
@@ -74,6 +90,7 @@ stages:
       - openmc_tallies.py
       - ../openmc_common.py
       - ../openmc_run.py
+      - ../openmc_input.py
       - references-shell.txt
       - p1/openmc-1B.toml
       - p1/openmc-1B
@@ -87,6 +104,7 @@ stages:
       - openmc_model.py
       - openmc_tallies.py
       - ../openmc_common.py
+      - ../openmc_input.py
       - ../openmc_resume.py
       - ../openmc_run.py
       - references-shell.txt
