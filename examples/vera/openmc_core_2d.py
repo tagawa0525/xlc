@@ -365,7 +365,6 @@ def unfold(quarter: np.ndarray) -> np.ndarray:
 def extract(source: Path, work: Path, results: Path) -> None:
     run = read_run(source)
     problem = run["problem"]
-    results.mkdir(parents=True, exist_ok=True)
     edges, pins = pin_edges()
     cells = len(edges) - 1
     path = work / f"statepoint.{run['batches']}.h5"
@@ -383,6 +382,7 @@ def extract(source: Path, work: Path, results: Path) -> None:
         k = sp.keff
         rate, std = mesh_values(sp, "fission", (cells, cells))
         by, by_std = mesh_values(sp, "assemblies", (len(LOADING), len(LOADING)))
+    results.mkdir(parents=True, exist_ok=True)
     # 余白を除き、対称面で切れたピン（先頭の行と列）を全体のピンに直す
     widths = np.diff(edges)[pins] / PITCH
     area = np.outer(widths, widths)
