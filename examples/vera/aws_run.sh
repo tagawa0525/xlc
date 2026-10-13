@@ -200,6 +200,16 @@ fi
 ami=$(ubuntu_ami)
 echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと"
 
+if ((!dry)); then
+  # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作る道具と AMI はこの起動のもの）。途中の run-instances が
+  # 失敗しても、先に起動した VM の記録が残るように、起動の前に置く
+  tools=$(git rev-parse HEAD 2> /dev/null || echo unknown)
+  [[ -z $(git status --porcelain 2> /dev/null) ]] || tools="$tools-dirty"
+  printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOBS="%s"\nRESTART="%s"\n' "$tools" "$ami" "$type" \
+    "$max_hours" "$sync_minutes" "${todo[*]}" "${restart_flags[*]}" |
+    aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%SZ).env"
+fi
+
 for i in "${!todo[@]}"; do
   input=${todo[$i]}
   job=$(job_name "$input")
@@ -224,13 +234,5 @@ for i in "${!todo[@]}"; do
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
   fi
 done
-if ((!dry)); then
-  # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作る道具と AMI はこの起動のもの）
-  tools=$(git rev-parse HEAD 2> /dev/null || echo unknown)
-  [[ -z $(git status --porcelain 2> /dev/null) ]] || tools="$tools-dirty"
-  printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOBS="%s"\nRESTART="%s"\n' "$tools" "$ami" "$type" \
-    "$max_hours" "$sync_minutes" "${todo[*]}" "${restart_flags[*]}" |
-    aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%SZ).env"
-  echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
-fi
+((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
 exit "${stuck:-0}"
