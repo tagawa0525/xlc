@@ -1,0 +1,19 @@
+# xlc の実行ファイルを作る段階（ADR-0159）。examples/*/dvc.yaml の Rust の段階は、ここで作った bin/ の実行ファイルを
+# deps にして呼ぶ。deps は実行ファイルを作りうるもの（コード、依存、ツールチェーン、コンパイルの設定、devShell）の
+# すべてで、どれかが変わると build だけが走る。作った実行ファイルのバイトが変わらなければ、計算の段階は走らない。
+stages:
+  build:
+    cmd: scripts/build-binaries.sh
+    deps:
+      - scripts/build-binaries.sh
+      - crates
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .cargo/config.toml
+      - flake.nix
+      - flake.lock
+    outs:
+      - bin/xs
+      - bin/lattice
+      - bin/core

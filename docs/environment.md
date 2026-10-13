@@ -17,9 +17,12 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 
 ## 段階の駆動（DVC）
 
-入力から出力を作る段階は DVC（`default` の devShell に入っている）で走らせる（ADR-0123）。段階は
-`examples/<問題>/dvc.yaml` に書き、`dvc repro examples/<問題>/dvc.yaml` で、入力かコードが変わった段階だけを走らせる。
-各段階の入力・コード・出力の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
+入力から出力を作る段階は DVC（`default` の devShell に入っている）で走らせる（ADR-0159）。段階は
+`examples/<問題>/dvc.yaml` に書き、`dvc repro examples/<問題>/dvc.yaml` で、入力か、段階が呼ぶ実行ファイルが変わった段階だけを
+走らせる。実行ファイル（`bin/xs`、`bin/lattice`、`bin/core`）は、リポジトリの直下の `dvc.yaml` の `build` が
+`scripts/build-binaries.sh` で作る。コードを変えると `build` が走り、実行ファイルのバイトが変わったときだけ計算の段階が走る。
+`dvc status examples/<問題>/dvc.yaml` は上流の `build` を示さないので、`dvc status`（引数なし）か `--with-deps` で見る。
+各段階の入力と出力（Rust の段階は実行ファイルを含む）の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
 `references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では `references` を main の
 `references/` への symlink にして、キャッシュと核データを共有する。`~/.claude/scripts/worktree-add.sh` が、チェックアウトした
 ブランチの `.worktreelink` を読んで作る（出力の `SHARED: references`）。`.worktreelink` のないブランチ（main に rebase する前の

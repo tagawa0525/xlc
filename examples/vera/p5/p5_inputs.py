@@ -23,7 +23,7 @@
     体系を、燃料のノードに格子の燃料のノードの定数（等価性）か単一集合体の定数（f* の方法）を置いて解いたもの
   - `small-step-Lx`、`small-step-Ly`: 階段の外形（L 型、角型、`-`）を持つ小さな炉心（集合体 21 体）。L 型の位置の
     f* の辺の向きを変えた 2 つ
-- `dvc.yaml`: 段階（ADR-0123）
+- `dvc.yaml`: 段階（ADR-0159）
 
 炉心の図（`map`、`loading`）は上の行が北（1 行）、左の列が西（R 列）。全炉心の装荷は、図 M3-1 の 1/4（H〜A 列、8〜15 行）を
 H 列と 8 行の中心を通る 2 つの対称面で鏡映して広げる（openmc_core_2d.py と同じ解釈）。xlc は対称面がピンの中心を
@@ -1097,20 +1097,8 @@ def core_files() -> dict[str, str]:
 
 
 def code(crate: str) -> list[str]:
-    """Rust の段階の deps のうち、バイナリを作るコード（examples/m0/dvc.yaml と同じ並び。ADR-0123）"""
-    return [
-        f"../../../crates/{crate}/src",
-        f"../../../crates/{crate}/Cargo.toml",
-        "../../../crates/numeric/src",
-        "../../../crates/numeric/Cargo.toml",
-        "../../../crates/format/src",
-        "../../../crates/format/Cargo.toml",
-        "../../../Cargo.toml",
-        "../../../Cargo.lock",
-        "../../../rust-toolchain.toml",
-        "../../../.cargo/config.toml",
-        "../../../flake.lock",
-    ]
+    """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
+    return [f"../../../bin/{crate}"]
 
 
 def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
@@ -1143,7 +1131,7 @@ def pipeline(
         stages.append(
             stage(
                 stem,
-                f"mkdir -p lattice && cargo run --release -p xlc-lattice -- {stem}.toml > {stem}.out",
+                f"mkdir -p lattice && ../../../bin/lattice {stem}.toml > {stem}.out",
                 [f"{stem}.toml", "../vera.msgpack", *code("lattice")],
                 [f"lattice/{name}.msgpack", f"{stem}.out"],
             )
@@ -1153,7 +1141,7 @@ def pipeline(
         stages.append(
             stage(
                 stem,
-                f"mkdir -p lattice && cargo run --release -p xlc-lattice -- {stem}.toml > {stem}.out",
+                f"mkdir -p lattice && ../../../bin/lattice {stem}.toml > {stem}.out",
                 [f"{stem}.toml", "../vera.msgpack", *code("lattice")],
                 [
                     *(f"lattice/{stem}{n}.msgpack" for n, *_ in LATTICE_NODES[shape]),
@@ -1165,7 +1153,7 @@ def pipeline(
         stages.append(
             stage(
                 f"{square}-moc",
-                f"cargo run --release -p xlc-lattice -- {square}-moc.toml > {square}-moc.out",
+                f"../../../bin/lattice {square}-moc.toml > {square}-moc.out",
                 [f"{square}-moc.toml", "../vera.msgpack", *code("lattice")],
                 [f"{square}-moc-pins.msgpack", f"{square}-moc.out"],
             )
@@ -1190,7 +1178,7 @@ def pipeline(
         stages.append(
             stage(
                 f"core-{name}",
-                f"RUST_LOG=debug cargo run --release -p xlc-core -- core-{name}.toml > core-{name}.out 2> core-{name}.log",
+                f"RUST_LOG=debug ../../../bin/core core-{name}.toml > core-{name}.out 2> core-{name}.log",
                 [
                     f"core-{name}.toml",
                     cyc,
@@ -1286,7 +1274,7 @@ def pipeline(
         "# このファイルは p5_inputs.py が書く。手で直さない。\n"
         "# VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、\n"
         "# 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、\n"
-        "# OpenMC、最小の入力の MOC、対称性）。走らせるのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
+        "# OpenMC、最小の入力の MOC、対称性）。走らせるのは `dvc repro`（ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
         "stages:\n" + "".join(stages)
     )
 
