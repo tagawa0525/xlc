@@ -12,7 +12,10 @@
 #              launch.env は書き換えない。道具の版は launches/ の TOOLS_COMMIT）。statepoint があれば --restart で続ける。
 #              VM が走っているジョブは飛ばす。done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のない
 #              ジョブは飛ばして示し、1 で終わる
-#   --type     インスタンスタイプ（既定 c7a.4xlarge）
+#   --type     インスタンスタイプ（既定 c7a.4xlarge）。auto なら、aws_types.toml の候補の機種と直近 1 時間のスポット価格から、
+#              1 本の費用（価格 ÷ 速度）の安い (機種, AZ) の順に起動を試す（ADR-0171。空き、クォータ、価格で失敗したら次へ。
+#              全部失敗なら 1 で終わり、起動し直しで再試行できる）。--az と併用すると AZ を固定して機種だけ選ぶ。--on-demand とは
+#              併用できない。起動し直しでは、auto のとき最後の起動の記録の AZ を引き継がない
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
 #   --statepoint-interval  起動し直しで、その起動の OpenMC の走行だけ、入力の statepoint-interval を N 世代に上書きする（中断が続くとき、
@@ -28,12 +31,13 @@
 #   --retry-failed  起動し直しで、--job で指定したジョブの done が 0 でないとき、その done を S3 から消してから起動し直す
 #              （--job の指定が要る。指定のないジョブは今までどおり飛ばす）。失敗の原因を S3 の runs/<name>/<ジョブ>/log と
 #              boot-*.log で確かめ、直ったと分かってから使う（原因が残っていれば同じ失敗を繰り返す）
-#   --dry-run  S3 に置かず起動もせず、ジョブごとの起動の引数（aws の --dry-run で検証）と user-data の要約を出す
+#   --dry-run  S3 に置かず起動もせず、ジョブごとの起動の引数（aws の --dry-run で検証）と user-data の要約を出す。--type auto では
+#              候補の表（費用順）を出し、最初の候補の引数を検証する
 # バケットは XLC_BUCKET（既定 xlc-openmc-118645514640）、インスタンスプロファイルは xlc-openmc-vm。
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
@@ -72,6 +76,7 @@ done
   { echo "--retry-failed は起動し直し（入力を省く形）で、--job と一緒にだけ指定できる" >&2; exit 2; }
 ((${#inputs[@]} == 0)) || [[ -z $interval ]] ||
   { echo "--statepoint-interval は起動し直し（入力を省く形）でだけ指定できる（新しい実行は入力の statepoint-interval）" >&2; exit 2; }
+[[ $type != auto || $market != on-demand ]] || { echo "--type auto はスポットの価格で並べるので --on-demand と併用できない" >&2; exit 2; }
 # shellcheck source=aws_common.sh
 source "$here/aws_common.sh"
 # shellcheck source=aws_user_data.sh
@@ -228,7 +233,8 @@ else
     type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
     max_hours=${max_hours:-$(sed -n 's/^MAX_HOURS=//p' <<< "$last")}
     sync_minutes=${sync_minutes:-$(sed -n 's/^SYNC_MINUTES=//p' <<< "$last")}
-    az=${az:-$(sed -n 's/^AZ=//p' <<< "$last")}
+    # auto は AZ も選ぶので、記録の AZ（前に選んだもの）で固定しない
+    [[ $type == auto ]] || az=${az:-$(sed -n 's/^AZ=//p' <<< "$last")}
     market=${market:-$(sed -n 's/^MARKET=//p' <<< "$last")}
     [[ $market != on-demand ]] || echo "警告: 最後の起動はオンデマンド（約 2.5 倍）。スポットに戻すなら --spot" >&2
     echo "最後の起動（${last_key##*/}）の設定を引き継ぐ（指定がなければ）"
@@ -299,10 +305,22 @@ sync_minutes=${sync_minutes:-5}
 market=${market:-spot}
 [[ $market == spot || $market == on-demand ]] || { echo "起動の記録の MARKET が spot でも on-demand でもない: $market" >&2; exit 1; }
 [[ $az != any ]] || az=
-subnet_args=()
-if [[ -n $az ]]; then
-  az_subnet_id "$az"
-  subnet_args=(--subnet-id "$SUBNET_ID")
+# 起動を試す候補を「順位 費用 タイプ AZ 価格 速度」で 1 行ずつ（cands）。auto でなければ指定の 1 つ（AZ は空なら AWS が選ぶ）
+cands=()
+if [[ $type == auto ]]; then
+  [[ $market == spot ]] || { echo "--type auto はスポットの価格で並べるので --on-demand と併用できない" >&2; exit 2; }
+  types_file=${XLC_AWS_TYPES:-$here/aws_types.toml}
+  [[ -z $az ]] || az_subnet_id "$az"
+  mapfile -t cands < <(auto_candidates "$types_file" "$az" | awk '{print NR, $0}')
+  ((${#cands[@]})) || { echo "候補のスポット価格がありません（$types_file の機種が ${az:-どの AZ}にない）。空きがない" >&2; exit 1; }
+  echo "== 候補（1 本の費用 = 価格 ÷ 速度の昇順。速度は $types_file の見積もりで測っていない）"
+  printf '%-4s %12s  %-14s %-12s %10s %6s\n' 順位 '費用$/時間' タイプ AZ '価格$/時間' 速度
+  for c in "${cands[@]}"; do
+    read -r rank cost ctype caz cprice cspeed <<< "$c"
+    printf '%-4s %12s  %-14s %-12s %10s %6s\n' "$rank" "$cost" "$ctype" "$caz" "$cprice" "$cspeed"
+  done
+else
+  cands=("1 - $type ${az:--} - -")
 fi
 ami=$(ubuntu_ami)
 echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと、市場: $market、AZ: ${az:-指定なし}、statepoint の間隔: ${interval:-入力のまま}"
@@ -328,38 +346,72 @@ if ((${#inputs[@]} == 0)); then
   fi
 fi
 
+no_capacity=0
 for i in "${!todo[@]}"; do
   input=${todo[$i]}
   job=$(job_name "$input")
   host=$name-$job
   user_data=$(aws_user_data "$bucket_region" "$XLC_BUCKET" "$name" "$job" "$input" "${restart_flags[$i]}" $((max_hours * 60)) \
     $((sync_minutes * 60)) "$library" "$closure" "$openmc" "$python" "$awscli" "$interval")
-  args=(--image-id "$ami" --instance-type "$type" --count 1
-    --iam-instance-profile Name=xlc-openmc-vm
-    --instance-initiated-shutdown-behavior terminate
-    --metadata-options 'HttpTokens=required,HttpEndpoint=enabled'
-    --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true}'
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$host},{Key=Project,Value=xlc},{Key=XlcRun,Value=$name}]"
-    --user-data "$user_data"
-    "${subnet_args[@]}"
-    --query 'Instances[0].InstanceId' --output text)
-  if [[ $market == spot ]]; then args+=(--instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'); fi
-  if ((dry)); then
-    out=$(aws ec2 run-instances "${args[@]}" --dry-run 2>&1 || true)
-    [[ $out == *DryRunOperation* ]] || { echo "$out" >&2; exit 1; }
-    echo "$host: 起動の引数は有効（再開 ${restart_flags[$i]}、user-data $(wc -c <<< "$user_data") バイト）"
-  else
-    id=$(aws ec2 run-instances "${args[@]}")
-    echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
-    # 起動ごとの記録（user-data を作る道具と、起動し直しで src/ に置き直す道具は TOOLS_COMMIT のもの。AMI、機種もこの起動のもの）。起動できたものだけ書く
-    printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\nSTATEPOINT_INTERVAL=%s\n' "$tools" "$ami" \
-      "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$az" "$market" "$interval" |
-      aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
-    # 起動の記録を書いてから消す（起動に失敗したときに、失敗の印を失わない）
-    if grep -Fxq -- "$job" <<< "$(printf '%s\n' "${clear_done[@]:-}")"; then
-      aws s3 rm --only-show-errors "$run_prefix/$job/done"
+  launched=0
+  for c in "${cands[@]}"; do
+    read -r rank cost ctype caz cprice cspeed <<< "$c"
+    [[ $caz != - ]] || caz=
+    subnet_args=()
+    if [[ -n $caz ]]; then
+      az_subnet_id "$caz"
+      subnet_args=(--subnet-id "$SUBNET_ID")
     fi
+    args=(--image-id "$ami" --instance-type "$ctype" --count 1
+      --iam-instance-profile Name=xlc-openmc-vm
+      --instance-initiated-shutdown-behavior terminate
+      --metadata-options 'HttpTokens=required,HttpEndpoint=enabled'
+      --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true}'
+      --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$host},{Key=Project,Value=xlc},{Key=XlcRun,Value=$name}]"
+      --user-data "$user_data"
+      "${subnet_args[@]}"
+      --query 'Instances[0].InstanceId' --output text)
+    if [[ $market == spot ]]; then args+=(--instance-market-options 'MarketType=spot,SpotOptions={SpotInstanceType=one-time}'); fi
+    if ((dry)); then
+      out=$(aws ec2 run-instances "${args[@]}" --dry-run 2>&1 || true)
+      [[ $out == *DryRunOperation* ]] || { echo "$out" >&2; exit 1; }
+      echo "$host: 起動の引数は有効（$ctype ${caz:-AZ 指定なし}、再開 ${restart_flags[$i]}、user-data $(wc -c <<< "$user_data") バイト）"
+      launched=1
+      break
+    fi
+    if out=$(aws ec2 run-instances "${args[@]}" 2>&1); then
+      id=$(grep -Eo '^i-[0-9a-f]+$' <<< "$out" | head -1)
+      [[ -n $id ]] || { echo "run-instances の出力にインスタンス ID がない: $out" >&2; exit 1; }
+      echo "$host: $id を起動（$ctype ${caz:-AZ 指定なし}、再開 ${restart_flags[$i]}）"
+      auto_record=
+      if [[ $type == auto ]]; then
+        auto_record=$(printf 'SELECTION=auto\nSELECTION_RANK=%s/%s\nSPOT_PRICE=%s\nSPEED=%s\nCOST_PER_SPEED=%s\n' "$rank" "${#cands[@]}" "$cprice" "$cspeed" "$cost")
+      fi
+      # 起動ごとの記録（user-data を作る道具と、起動し直しで src/ に置き直す道具は TOOLS_COMMIT のもの。AMI、機種もこの起動のもの）。起動できたものだけ書く。
+      # auto は選んだ機種と AZ、その価格と順位を残す（ADR-0171）
+      printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\nSTATEPOINT_INTERVAL=%s\n%s' "$tools" "$ami" \
+        "$ctype" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$caz" "$market" "$interval" "${auto_record:+$auto_record$'\n'}" |
+        aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
+      # 起動の記録を書いてから消す（起動に失敗したときに、失敗の印を失わない）
+      if grep -Fxq -- "$job" <<< "$(printf '%s\n' "${clear_done[@]:-}")"; then
+        aws s3 rm --only-show-errors "$run_prefix/$job/done"
+      fi
+      launched=1
+      break
+    fi
+    # auto の空き、クォータ、価格の失敗は次の候補へ。それ以外（と auto でない起動）の失敗は止まる
+    if [[ $type == auto ]] && grep -Eq 'InsufficientInstanceCapacity|MaxSpotInstanceCountExceeded|VcpuLimitExceeded|SpotMaxPriceTooLow' <<< "$out"; then
+      echo "$host: $ctype $caz は起動できない（$(grep -Eo 'InsufficientInstanceCapacity|MaxSpotInstanceCountExceeded|VcpuLimitExceeded|SpotMaxPriceTooLow' <<< "$out" | head -1)）。次の候補へ" >&2
+      continue
+    fi
+    echo "$out" >&2
+    exit 1
+  done
+  if ((!launched)); then
+    echo "$host: 候補 ${#cands[@]} 個のどれにも空きがない（起動し直しで再試行: aws_run.sh --type auto --job $job $name）" >&2
+    no_capacity=1
   fi
 done
 ((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
+((!no_capacity)) || exit 1
 exit "${stuck:-0}"
