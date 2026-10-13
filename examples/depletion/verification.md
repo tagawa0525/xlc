@@ -17,7 +17,7 @@
 
 ### 計算
 
-ab4d4cef（分岐点は main の 5c21dfed）、2026-10-14。`cargo test -p xlc-depletion --release -- --nocapture` の `ERROR` の行の、
+ed0ee697（分岐点は main の 5c21dfed）、2026-10-14。`cargo test -p xlc-depletion --release -- --nocapture` の `ERROR` の行の、
 テストと次数ごとの最大。
 
 | 鎖                                          | 次数 16 | 次数 48 |
@@ -40,7 +40,7 @@ nix develop .#references -c python3 examples/depletion/compare_openmc.py \
 
 ### 計算
 
-70668967（分岐点は main の 5c21dfed）、2026-10-14。Slurm のジョブ 314（2 CPU、排他でない）。
+743f1246（分岐点は main の 5c21dfed）、2026-10-14。Slurm のジョブ 314（2 CPU、排他でない）。
 
 | 行列                                                          | 次数 16 の差 | 次数 48 の差 | OpenMC の 16 と 48 の差 |
 | ------------------------------------------------------------- | ------------ | ------------ | ----------------------- |
