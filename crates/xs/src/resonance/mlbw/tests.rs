@@ -1,5 +1,5 @@
 use super::*;
-use crate::endf::{BwLValue, BwResonance};
+use crate::endf::{BwLValue, BwResonance, Tab1};
 use crate::physics::wave_number_factor;
 use crate::resonance::reich_moore_tests::{AP, AWRI, single_level_exact};
 use std::f64::consts::PI;
@@ -8,6 +8,7 @@ fn single(l: OrbitalL, spi: f64, aj: f64, er: f64, (gn, gg, gf): (f64, f64, f64)
     Mlbw {
         spi,
         ap: AP,
+        ap_energy: None,
         naps: 1,
         l_values: vec![BwLValue {
             awri: AWRI,
@@ -31,7 +32,7 @@ fn single_s_wave_level_matches_exact_breit_wigner() {
     let xs = MlbwXs::new(&single(OrbitalL::S, 0.0, 0.5, 6.674, widths));
     for e in [1.0e-3, 1.0, 6.674, 6.7, 100.0] {
         let (a, b) = (
-            xs.cross_sections(e),
+            xs.cross_sections(e).unwrap(),
             single_level_exact(e, widths.0, widths.1, widths.2),
         );
         assert_close(a.elastic, b.elastic, &format!("elastic at {e}"));
@@ -51,7 +52,7 @@ fn missing_spin_states_add_hard_sphere_scattering() {
     let rho = k * AP;
     let phi = rho - rho.atan();
     let expected = 4.0 * PI / (k * k) * 3.0 * phi.sin().powi(2);
-    let sigma = xs.cross_sections(e);
+    let sigma = xs.cross_sections(e).unwrap();
     assert!(
         (sigma.elastic - expected).abs() <= 1e-6 * expected,
         "{} vs {expected}",
@@ -68,5 +69,104 @@ fn level_shift_vanishes_at_resonance_energy() {
     let g = 2.0;
     let width = gn + gg;
     let expected = PI * g * gn * gg / (k * k * width * width / 4.0);
-    assert_close(xs.cross_sections(er).capture, expected, "capture peak");
+    assert_close(
+        xs.cross_sections(er).unwrap().capture,
+        expected,
+        "capture peak",
+    );
+}
+
+#[test]
+fn energy_dependent_radius_sets_the_s_wave_phase_shift_at_each_energy() {
+    use crate::endf::{Mf2, RangeKind, Tape, rec};
+    // 1e-5〜50 eV の MLBW（NRO=1、NAPS=0）。AP(E) は 0.70 から 0.60 へ lin-lin。共鳴は遠く幅も小さいので、弾性散乱は
+    // s 波の硬球散乱 (4π/k²) sin²(k AP(E)) に等しい
+    let awri = 147.6409;
+    let text: String = [
+        ["6.014900+4", "1.476409+2", "0", "0", "1", "0"],
+        ["6.014900+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "5.0+1", "1", "2", "1", "0"],
+        ["0.0", "0.0", "0", "0", "1", "2"],
+        ["2", "2", "", "", "", ""],
+        ["1.0-5", "0.70", "5.0+1", "0.60", "", ""],
+        ["0.0", "0.0", "0", "0", "1", "0"],
+        ["1.476409+2", "0.0", "0", "0", "6", "1"],
+        ["1.0+4", "0.5", "2.0-9", "1.0-9", "1.0-9", "0.0"],
+    ]
+    .iter()
+    .map(|f| rec(*f, 6046, 2, 151))
+    .collect();
+    let tape = Tape::parse(&text).unwrap();
+    let mf2 = Mf2::parse(&tape.section(6046, 2, 151).unwrap()).unwrap();
+    let RangeKind::Mlbw(bw) = &mf2.ranges[0].kind else {
+        panic!("expected MLBW");
+    };
+    let xs = MlbwXs::new(bw);
+    for e in [1.0e-3, 0.5, 6.0, 25.0, 50.0] {
+        let radius = 0.70 + (0.60 - 0.70) * (e - 1.0e-5) / (50.0 - 1.0e-5);
+        let k = wave_number_factor() * awri / (awri + 1.0) * f64::sqrt(e);
+        let expected = 4.0 * PI / (k * k) * (k * radius).sin().powi(2);
+        assert_close(
+            xs.cross_sections(e).unwrap().elastic,
+            expected,
+            &format!("elastic at {e}"),
+        );
+    }
+}
+
+#[test]
+fn energy_dependent_radius_keeps_the_awri_channel_radius_near_a_p_wave_resonance() {
+    use crate::endf::{Mf2, RangeKind, Tape, rec};
+    // NAPS=0 では、透過因子とシフト因子は AWRI のチャネル半径のまま、位相シフトだけが AP(E)。各エネルギーで、
+    // その AP(E) を一定の AP にした範囲と同じ断面積になる（共鳴の近くで、l=1 の透過因子とシフトが効く）
+    let text: String = [
+        ["6.014900+4", "1.476409+2", "0", "0", "1", "0"],
+        ["6.014900+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "5.0+1", "1", "2", "1", "0"],
+        ["0.0", "0.0", "0", "0", "1", "2"],
+        ["2", "2", "", "", "", ""],
+        ["1.0-5", "0.70", "5.0+1", "0.60", "", ""],
+        ["0.0", "0.0", "0", "0", "1", "0"],
+        ["1.476409+2", "0.0", "1", "0", "6", "1"],
+        ["2.0+1", "1.5", "0.3", "0.2", "0.1", "0.0"],
+    ]
+    .iter()
+    .map(|f| rec(*f, 6046, 2, 151))
+    .collect();
+    let tape = Tape::parse(&text).unwrap();
+    let mf2 = Mf2::parse(&tape.section(6046, 2, 151).unwrap()).unwrap();
+    let RangeKind::Mlbw(bw) = &mf2.ranges[0].kind else {
+        panic!("expected MLBW");
+    };
+    let xs = MlbwXs::new(bw);
+    for e in [19.0, 19.9, 20.0, 20.1, 21.0] {
+        let radius = 0.70 + (0.60 - 0.70) * (e - 1.0e-5) / (50.0 - 1.0e-5);
+        let constant = MlbwXs::new(&Mlbw {
+            ap: radius,
+            ap_energy: None,
+            ..bw.clone()
+        });
+        let (a, b) = (
+            xs.cross_sections(e).unwrap(),
+            constant.cross_sections(e).unwrap(),
+        );
+        assert_close(a.elastic, b.elastic, &format!("elastic at {e}"));
+        assert_close(a.capture, b.capture, &format!("capture at {e}"));
+        assert_close(a.total, b.total, &format!("total at {e}"));
+    }
+}
+
+#[test]
+fn energy_outside_the_radius_table_is_error() {
+    // 散乱半径の表は範囲を覆うものだけを MF2 から読むが、表の外のエネルギーを外挿しない
+    let data = Mlbw {
+        ap_energy: Some(Tab1::linear(vec![1.0, 10.0], vec![0.7, 0.6])),
+        ..single(OrbitalL::S, 0.0, 0.5, 6.674, (1.5e-3, 2.3e-2, 0.0))
+    };
+    let xs = MlbwXs::new(&data);
+    assert!(xs.cross_sections(5.0).is_ok());
+    assert!(matches!(
+        xs.cross_sections(20.0),
+        Err(MlbwError::RadiusTable { energy }) if energy == 20.0
+    ));
 }
