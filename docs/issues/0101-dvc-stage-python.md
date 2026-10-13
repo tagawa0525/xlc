@@ -13,7 +13,8 @@ resolution: コミット fa1a769a
 ## 問題
 
 default の devShell の `dvc`（flake.nix。pkgs.dvc の `bin/dvc` へのリンク）は、nixpkgs の makeWrapper のラッパーで、
-`PATH` の先頭に dvc の依存の bin と素の python3（`python3-3.14.7/bin`）、git、bash を足してから本体を呼ぶ。段階の cmd は
+`PATH` の先頭に dvc の依存の Python のパッケージの bin、nettle、git-minimal と素の python3（`python3-3.14.7/bin`）を足してから
+本体を呼ぶ。段階の cmd は
 この `PATH` で走るので、`python3 ../compare_p5.py ...` のような段階は、devShell の検証用の Python（`withPackages`）でなく
 素の python3 で走り、`ModuleNotFoundError: No module named 'msgpack'` で止まる。
 
@@ -28,6 +29,17 @@ feat/0086-periphery-constants で examples/vera/p5/dvc.yaml の比較の段階�
 
 devShell の `dvc` を、ラッパーの中の `.dvc-wrapped` を直接呼ぶ小さなスクリプトにする。`.dvc-wrapped` は自分の依存の site の
 ディレクトリを自分で足すので、`PATH` を変えなくても動く。ラッパーが付けていた `PYTHONNOUSERSITE=true` は残す。
+`.dvc-wrapped` は nixpkgs の Python のラッパーの中の名前なので、無ければ devShell のビルドで止める。git-minimal は
+`PATH` から外れるが、空の環境で git を `PATH` に置かずに `dvc status` と `dvc repro --dry` が動くことを確かめた（レビュー）。
+
+採らなかった案:
+
+- 段階の cmd を `nix develop ..#default -c` で包む: すべての段階の cmd と deps が変わり、段階ごとに shell の評価の時間が
+  かかる。原因（dvc の `PATH`）が残る
+- pkgs.dvc を `overridePythonAttrs` の `makeWrapperArgs` で `--suffix PATH` にする: dvc を作り直すことになり、nixpkgs の
+  キャッシュが使えない
+- 段階の python3 が検証用の Python であることを確かめる flake の check: 段階を実行する check は devShell の外で
+  dvc と Python を組む必要があり、今回は足さない。また入ったら、比較の段階が ModuleNotFoundError で止まるので気付ける
 
 関係する ADR: なし
 
