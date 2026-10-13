@@ -71,6 +71,79 @@ fn homogeneous_cell_gives_the_infinite_medium_k() {
     assert_eq!(ratio.len(), 2);
 }
 
+/// 2 群の拡散の平板（`cells` 個の幅 `width` cm のセル、両端は真空）の粗メッシュの問題。面の流れの補正 D̂ はなく、
+/// 内側の面の結合は D/h、真空の面は入射なし（Marshak）の 2D/(h + 4D)
+fn slab(cells: usize, width: f64) -> Coarse {
+    let d = [1.3, 0.4];
+    let (removal, transfer, absorption) = (0.025, 0.015, 0.08);
+    let nu_fission = [0.005, 0.1];
+    let vacuum = |g: usize| 2.0 * d[g] / (width + 4.0 * d[g]);
+    let matrices = (0..cells)
+        .map(|c| {
+            let mut a = vec![removal * width, 0.0, -transfer * width, absorption * width];
+            for g in 0..2 {
+                let sides = [c > 0, c + 1 < cells];
+                a[g * 2 + g] += sides
+                    .iter()
+                    .map(|&inner| if inner { d[g] / width } else { vacuum(g) })
+                    .sum::<f64>();
+            }
+            a
+        })
+        .collect();
+    let coupling = vec![-d[0] / width, -d[1] / width];
+    let neighbors = (0..cells)
+        .map(|c| {
+            [c.checked_sub(1), (c + 1 < cells).then_some(c + 1)]
+                .into_iter()
+                .flatten()
+                .map(|o| (o, coupling.clone()))
+                .collect()
+        })
+        .collect();
+    let fission = vec![
+        vec![Spectrum {
+            chi: vec![1.0, 0.0],
+            chi_sum: 1.0,
+            nu_fission: nu_fission.iter().map(|n| n * width).collect(),
+        }];
+        cells
+    ];
+    Coarse::assemble(
+        2,
+        (0..cells).collect(),
+        vec![1.0; cells],
+        vec![1.0; cells * 2],
+        fission,
+        matrices,
+        neighbors,
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_slab_of_thin_cells_converges_within_a_few_hundred_iterations() {
+    // ブロック Gauss-Seidel は滑らかな誤差を 1 回に 1 − O(h²) しか減らさないので、1 回だけ行うべき乗法では
+    // 細かい平板の反復の数が列の数の 2 乗で増える（#0069）。1 行の平板の結合は、列の数によらない回数で解く
+    let budget = CmfdOptions {
+        max_iterations: 500,
+        ..CmfdOptions::default()
+    };
+    let coarse = slab(200, 0.5);
+    let unlimited = CmfdOptions {
+        max_iterations: 1_000_000,
+        ..CmfdOptions::default()
+    };
+    let (reference_k, reference) = coarse.solve_gauss_seidel(1.0, &unlimited).unwrap();
+    let (k, ratio) = coarse.solve(1.0, &budget).unwrap();
+    assert!((k - reference_k).abs() < 1e-9, "{k} vs {reference_k}");
+    for (a, b) in ratio.iter().zip(&reference) {
+        assert!((a - b).abs() < 1e-6 * b, "{a} vs {b}");
+    }
+    // 4 倍細かくしても同じ回数の中で解ける
+    assert!(slab(800, 0.125).solve(1.0, &budget).is_ok());
+}
+
 #[test]
 fn artificial_diffusion_follows_the_optically_thick_fit() {
     // Zhu ら (2016): 光学的に薄いと 0（従来の CMFD）、厚いと 0.127 に飽和し、Σt h = 4 で約 0.1
