@@ -3,12 +3,15 @@
 VERA Problem 2E〜2K、3〜5 の物質（Pyrex、AIC、B4C、SS304、Inconel、ノズル、炉心板）に要る新しい核種の多群ライブラリ
 （`xs`）を作り、NJOY と比べる例。範囲と作業の順序は [M3 の計画](../../docs/plans/m3-core-hzp.md) の手順2。
 
-| ファイル  | 内容                                                                                                 |
-| --------- | ---------------------------------------------------------------------------------------------------- |
-| `xs.toml` | 多群ライブラリ（`m3-nuclides.msgpack`）の入力（29 核種、4 温度、σ0 9 点）。生成物は git で追跡しない |
+| ファイル   | 内容                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| `dvc.yaml` | 段階（`xs` だけ）                                                                                    |
+| `xs.toml`  | 多群ライブラリ（`m3-nuclides.msgpack`）の入力（29 核種、4 温度、σ0 9 点）。生成物は git で追跡しない |
+
+ライブラリは DVC の段階 `xs` で作る（ADR-0123）。NJOY との比較は `crates/xs/examples/` の比較プログラムで行い、段階にしない:
 
 ```sh
-target/release/xs examples/m3-nuclides/xs.toml
+~/.claude/scripts/slurm-run.sh -t 10 dvc-m3-nuclides 'nix develop -c dvc repro examples/m3-nuclides/dvc.yaml'
 ```
 
 ## 核種

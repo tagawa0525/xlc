@@ -15,10 +15,15 @@ OECD/NEA の C5G7 MOX ベンチマーク（NEA/NSC/DOC(2003)16）の2次元の�
 400 世代（最初の 100 世代を捨てる）、乱数の種 2 で解くと k = 1.186552 ± 0.000045 で、参照解の 1.186550 と
 一致し、入力（断面積の変換と配置）が正しいことを確かめた。ピン出力の統計誤差（相対標準偏差）は中央値 0.18%、最大 0.36%。
 
+段階は DVC で走らせる（ADR-0123）。OpenMC の道具は examples/vera/dvc.yaml の `references-shell` の出力なので、先に戻す（ADR-0130）:
+
 ```sh
-nix develop .#references -c sh -c \
-  'OMP_NUM_THREADS=16 python3 examples/c5g7/openmc_model.py references/openmc/work 1000000 400 100 2'
+dvc checkout examples/vera/dvc.yaml
+~/.claude/scripts/slurm-run.sh -t 50 dvc-c5g7 'nix develop -c dvc repro examples/c5g7/dvc.yaml'
 ```
+
+段階は `lattice-coarse`（`c5g7.toml`）、`lattice-fine`（`c5g7-fine.toml`）、`openmc`、`openmc-extract`（入力は `openmc-c5g7.toml`）、
+`compare-coarse`、`compare-fine`（参照解の MCNP と OpenMC との比較）。
 
 なお、1 世代 20 万粒子（同じ世代数、種 1）の結果とはピン出力が二乗平均で 0.50% 違い、そのピンの相対標準偏差
 （中央値 0.41%）より少し大きい。世代間の相関で、統計誤差が小さめに見積もられるためと考えられる。

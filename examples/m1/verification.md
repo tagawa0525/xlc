@@ -16,20 +16,22 @@ ENDF/B-VIII.0 から、M1 の対象核種（U-234, U-235, U-236, U-238, O-16, O-
 
 ENDF/B-VIII.0 の中性子と熱中性子散乱のサブライブラリを `references/endf/ENDF-B-VIII.0_neutrons/` と
 `references/endf/ENDF-B-VIII.0_thermal_scatt/` に置いて（別の場所なら `xs.toml` の `endf-directory` と
-`thermal-directory` を書き換えて）実行する。
+`thermal-directory` を書き換えて）、段階を DVC で走らせる（ADR-0123）。`xs` は 1 コアでなく 32 スレッドで数分〜十数分かかるので、
+Slurm に流す（CLAUDE.md の「計算」）:
 
 ```sh
-examples/m1/run.sh
+~/.claude/scripts/slurm-run.sh -t 45 dvc-m1 'nix develop -c dvc repro examples/m1/dvc.yaml'
 ```
 
-生成物（`m1.msgpack`, `pincell-fg.msgpack`）はこのディレクトリに書き出す。git では追跡しない。
+段階は `xs`（`m1.msgpack`）、`lattice`（`pincell-fg.msgpack`、`lattice.out`）、`lattice-temperatures@<温度>`（燃料と減速材の温度を
+変えたピンセル）。生成物は `examples/m1/` に書き出す。
 
 | ファイル             | 内容                                                                               |
 | -------------------- | ---------------------------------------------------------------------------------- |
+| `dvc.yaml`           | 段階（xs、lattice、lattice-temperatures）                                          |
 | `xs.toml`            | 多群ライブラリの入力（14 核種、核種ごとの温度、σ0 9 点、H in H2O の S(α,β)）       |
 | `pincell.toml`       | ピンセルの入力（M0 と同じ 3.1 wt% UO2 と水、被覆管なし。燃料 900 K、減速材 600 K） |
 | `pincell-f*-m*.toml` | `pincell.toml` の燃料と減速材の温度を変えたもの（`f` が燃料、`m` が減速材の温度）  |
-| `run.sh`             | 2段階を順に実行するスクリプト                                                      |
 
 ## 結果
 
