@@ -56,12 +56,10 @@ def build_random(seed, n, fissile, yields, initial):
     rng = random.Random(seed)
     entries = []
     for col in range(n):
-        if col < fissile:
-            daughters = rng.sample(range(n), yields)
-        else:
-            daughters = rng.sample(range(n), rng.randint(1, 3))
+        others = [i for i in range(n) if i != col]
+        count = yields if col < fissile else rng.randint(1, 3)
+        daughters = rng.sample(others, count)
         rate = 10.0 ** rng.uniform(-12.0, 2.0)
-        daughters = [d for d in daughters if d != col]
         entries.append((col, col, -rate))
         for d in daughters:
             entries.append((d, col, rate / len(daughters)))
@@ -109,8 +107,13 @@ def main():
             scaled = np.max(diff) / scale
             big = np.abs(ref[order]) > 1e-12 * scale
             rel = np.max(diff[big] / np.abs(ref[order][big]))
-            mark = "" if scaled <= SCALED_TOL else "  FAIL"
-            failed |= scaled > SCALED_TOL
+            ok = bool(
+                np.isfinite(got).all()
+                and np.isfinite(ref[order]).all()
+                and scaled <= SCALED_TOL
+            )
+            mark = "" if ok else "  FAIL"
+            failed |= not ok
             print(
                 f"{case['name']:12} {order:>5} {scaled:>18.3e} {rel:>25.3e} {order_gap:>22.3e}{mark}"
             )
