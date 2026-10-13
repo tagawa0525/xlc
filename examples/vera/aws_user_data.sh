@@ -52,7 +52,8 @@ sync_out() {
   local filters=() f all
   # ジョブが走っている間は、最新の statepoint（OpenMC が書いている途中でありうる）と、一覧の後に書き始めたものを写さない。
   # 写すのは、一覧の時点で最新でない（書き終えた）ものだけ。done があれば（ジョブが終わった）すべて写す
-  if [[ ! -f \$WORK/\$OUT/done ]]; then
+  # 中断（SIGTERM）のあとにジョブが書いた done では外さない
+  if ((INTERRUPTED)) || [[ ! -f \$WORK/\$OUT/done ]]; then
     filters=(--exclude 'run/statepoint.*')
     all=\$(statepoints "\$WORK/\$OUT/run")
     for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done

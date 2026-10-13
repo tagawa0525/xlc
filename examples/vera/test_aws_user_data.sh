@@ -87,16 +87,16 @@ before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'
 
 # sync_out の振る舞い: 生成した statepoints と sync_out を、aws の代わりに引数を出す関数で走らせる
 functions=$(sed -n '/^statepoints() {$/,/^}$/p; /^sync_out() {$/,/^}$/p' <<< "$fresh")
-sync_args() { # <done を置くか 0|1> <statepoint の世代>... : sync_out が aws に渡す引数を 1 行に 1 つ
-  local put_done=$1 dir g
-  shift
+sync_args() { # <done を置くか 0|1> <SIGTERM を受けたか 0|1> <statepoint の世代>... : sync_out が aws に渡す引数を 1 行に 1 つ
+  local put_done=$1 interrupted=$2 dir g
+  shift 2
   dir=$(mktemp -d)
   mkdir -p "$dir/results/openmc-3A/run"
   for g in "$@"; do touch "$dir/results/openmc-3A/run/statepoint.$g.h5"; done
   ((put_done)) && echo 0 > "$dir/results/openmc-3A/done"
   (
     # shellcheck disable=SC2034 # eval した sync_out が使う
-    WORK=$dir OUT=results/openmc-3A PREFIX=s3://b/runs/trial/openmc-3A READY=1
+    WORK=$dir OUT=results/openmc-3A PREFIX=s3://b/runs/trial/openmc-3A READY=1 INTERRUPTED=$interrupted
     # shellcheck disable=SC2034 # eval した sync_out が使う
     AWS=aws_stub
     aws_stub() { printf '%s\n' "$@"; }
@@ -106,16 +106,20 @@ sync_args() { # <done を置くか 0|1> <statepoint の世代>... : sync_out が
   rm -rf "$dir"
 }
 # 走っている間は、最新（書いている途中でありうる）を除き、書き終えたものだけを含める
-running=$(sync_args 0 020 040 060)
+running=$(sync_args 0 0 020 040 060)
 grep -qxF 'run/statepoint.*' <<< "$running" || fail "sync_out: 走っている間に statepoint を除いていない"
 grep -qxF 'run/statepoint.020.h5' <<< "$running" && grep -qxF 'run/statepoint.040.h5' <<< "$running" ||
   fail "sync_out: 書き終えた statepoint を含めていない"
 ! grep -qxF 'run/statepoint.060.h5' <<< "$running" || fail "sync_out: 最新の statepoint を含めている"
 # done のあとは除かない（最後の世代の statepoint を写す）
-finished=$(sync_args 1 200)
+finished=$(sync_args 1 0 200)
 ! grep -qF 'run/statepoint' <<< "$finished" || fail "sync_out: done のあとに statepoint を除いている: $finished"
 # statepoint がないときも走る
-none=$(sync_args 0)
+none=$(sync_args 0 0)
+# 中断のあとにジョブが書いた done では、statepoint を除くのをやめない
+killed=$(sync_args 1 1 020 040 060)
+! grep -qxF 'run/statepoint.060.h5' <<< "$killed" && grep -qxF 'run/statepoint.*' <<< "$killed" ||
+  fail "sync_out: 中断のあとの done で最新の statepoint を写している"
 grep -qxF -- '--delete' <<< "$none" || fail "sync_out: statepoint がないときに aws s3 sync を呼ばない"
 
 # 怪しい引数は user-data を作らずに止まる
