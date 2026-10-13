@@ -31,6 +31,11 @@ devShell の `dvc` を、ラッパーの中の `.dvc-wrapped` を直接呼ぶ小
 ディレクトリを自分で足すので、`PATH` を変えなくても動く。ラッパーが付けていた `PYTHONNOUSERSITE=true` は残す。
 `.dvc-wrapped` は nixpkgs の Python のラッパーの中の名前なので、無ければ devShell のビルドで止める。git-minimal は
 `PATH` から外れるが、空の環境で git を `PATH` に置かずに `dvc status` と `dvc repro --dry` が動くことを確かめた（レビュー）。
+flake の check `dvc-stage-python` が、devShell の dvc で msgpack と numpy を読む段階を走らせる（nixpkgs のラッパーの dvc では
+ModuleNotFoundError で止まることを確かめた）。
+
+default の devShell は外の shell の PYTHONPATH を外さない（references の devShell は外す）。PYTHONPATH の残った shell で
+`dvc repro` を走らせると、段階の python3 はそのパッケージを先に読む。ジョブ 247 が通った理由がこれかは確かめていない。
 
 採らなかった案:
 
@@ -38,8 +43,6 @@ devShell の `dvc` を、ラッパーの中の `.dvc-wrapped` を直接呼ぶ小
   かかる。原因（dvc の `PATH`）が残る
 - pkgs.dvc を `overridePythonAttrs` の `makeWrapperArgs` で `--suffix PATH` にする: dvc を作り直すことになり、nixpkgs の
   キャッシュが使えない
-- 段階の python3 が検証用の Python であることを確かめる flake の check: 段階を走らせる check は devShell の外で
-  dvc と Python を組む必要があり、今回は足さない。また入ったら、比較の段階が ModuleNotFoundError で止まるので気付ける
 
 関係する ADR: なし
 
@@ -49,4 +52,5 @@ default の devShell の `dvc repro` で、`python3` を呼ぶ段階が検証用
 
 ## 経緯
 
-- 2026-10-13: 見つけて、devShell の `dvc` を `.dvc-wrapped` を呼ぶスクリプトにした（fa1a769a）
+- 2026-10-13: 見つけて、devShell の `dvc` を `.dvc-wrapped` を呼ぶスクリプトにした（fa1a769a）。`.dvc-wrapped` が無ければ
+  ビルドで止め（161395df）、flake の check を足した（6f41d100）
