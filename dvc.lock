@@ -34,8 +34,8 @@ stages:
       size: 98
     - path: scripts/build-binaries.sh
       hash: md5
-      md5: 18e3c654478a40d3c007d49477742cab
-      size: 2253
+      md5: 52e6a278cbf97db4225b3847467f4246
+      size: 2828
       isexec: true
     outs:
     - path: bin/core
