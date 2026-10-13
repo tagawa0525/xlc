@@ -5,6 +5,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 root=$(pwd)
+# examples/m0 の DVC の出力（wims69.msgpack、pincell-fg.msgpack）を上書きしないよう、あれば止める
+for f in ../m0/wims69.msgpack ../m0/pincell-fg.msgpack; do
+  if [ -e "$f" ]; then echo "$f exists; run this in a worktree without the M0 outputs" >&2; exit 1; fi
+done
 c=6b39ad13
 rm -rf out/lc; mkdir -p out/lc
 t() { # <out> <tag> <dir> <command...>
@@ -16,6 +20,7 @@ t() { # <out> <tag> <dir> <command...>
   echo "TIME $tag $(echo "$e - $s" | bc)" >&2
 }
 cp out/xs/$c-v0-1.msgpack ../m0/wims69.msgpack
+trap 'rm -f ../m0/wims69.msgpack ../m0/pincell-fg.msgpack' EXIT
 for round in 1 2; do
   for v in v0 v1 v2 v3; do
     t "out/lc/m0-lattice-$v-$round.out" "m0-lattice $v $round" ../m0 "$root/bin/lattice-$c-$v" pincell.toml
@@ -31,6 +36,6 @@ done
 for p in m0-fg 1B-fg 2A-fg 2A-pins; do
   for f in out/lc/$p-*.msgpack; do cmp -s out/lc/$p-v0-1.msgpack $f && echo "SAME $f" || echo "DIFFER $f"; done
 done
-for p in m0-core 1B 2A; do
+for p in m0-lattice m0-core 1B 2A; do
   for f in out/lc/$p-v*.out; do cmp -s out/lc/$p-v0-1.out $f && echo "SAME $f" || echo "DIFFER $f"; done
 done
