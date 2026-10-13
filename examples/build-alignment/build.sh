@@ -40,6 +40,11 @@ mkdir -p "$work" "$here/bin"
 for c in "$@"; do
   rm -rf "$work/src-$c"; mkdir -p "$work/src-$c"
   git -C "$repo" archive "$c" | tar -x -C "$work/src-$c"
+  # ADR-0157 のあとのコミットは、そのコミットの設定に整列が入っており、v0 が「なし」にならないので止める
+  if grep -q 'align' "$work/src-$c/.cargo/config.toml"; then
+    echo "$c already sets an alignment in .cargo/config.toml; v0 would not be the build without it" >&2
+    exit 1
+  fi
   for v in v0 v1 v2 v3; do
     f=${flags[$v]}
     cfg=()

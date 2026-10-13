@@ -18,7 +18,8 @@ for round in 1 2; do
       (cd ../m0 && "$root/bin/xs-$c-$v" xs.toml 2>>"$root/out/xs/$tag.log")
       e=$(date +%s.%N)
       mv ../m0/wims69.msgpack "out/xs/$tag.msgpack"
-      echo "TIME $c $v $round $(echo "$e - $s" | bc)"
+      dt=$(echo "$e - $s" | bc)
+      echo "TIME $c $v $round $dt"
     done
   done
 done
