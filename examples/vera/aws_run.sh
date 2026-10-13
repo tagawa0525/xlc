@@ -3,13 +3,15 @@
 # VM は user-data（aws_user_data.sh）で Nix と閉包、核データ、入力を S3 から取り、run_remote.sh で流し、S3 の
 # runs/<name>/<ジョブ>/ に同期し、終わると自分を終了する。手元はこのコマンドのあと要らない。
 #
-# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--statepoint-interval N] [--az AZ] [--on-demand | --spot] [--job J]... <name> [<入力>...]
+# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--statepoint-interval N] [--az AZ] [--on-demand | --spot] [--job J]... [--retry-failed] <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。閉包、核データ、スクリプトと入力を S3 に置く
-#              入力を省くと起動し直し: S3 の runs/<name>/launch.env と src/ を使い（手元の作業ツリーは読まない）、
-#              done のないジョブを起動する。statepoint があれば --restart で続ける。VM が走っているジョブは飛ばす。
-#              done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のないジョブは飛ばして示し、1 で終わる
+#              入力を省くと起動し直し: S3 の runs/<name>/launch.env と入力を使い、道具（run_remote.sh、openmc_*.py。新しい実行が
+#              src/ に置くものと同じ）は手元の作業ツリーの版を src/ に置き直してから、done のないジョブを起動する（入力と
+#              launch.env は書き換えない。道具の版は launches/ の TOOLS_COMMIT）。statepoint があれば --restart で続ける。
+#              VM が走っているジョブは飛ばす。done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のない
+#              ジョブは飛ばして示し、1 で終わる
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
@@ -23,12 +25,15 @@
 #   --job      起動し直しで、このジョブだけを対象にする（例 --job openmc-3A。複数回指定できる。無指定は全部）。名前は launch.env の
 #              INPUTS のジョブ名で、なければエラー。新しい実行では指定できない。done のあるジョブと VM が走っているジョブは今までどおり飛ばす。
 #              目的: 監視のスクリプトが、中断されたジョブごとに別の AZ やオンデマンドを選んで起動し直すため
+#   --retry-failed  起動し直しで、--job で指定したジョブの done が 0 でないとき、その done を S3 から消してから起動し直す
+#              （--job の指定が要る。指定のないジョブは今までどおり飛ばす）。失敗の原因を S3 の runs/<name>/<ジョブ>/log と
+#              boot-*.log で確かめ、直ったと分かってから使う（原因が残っていれば同じ失敗を繰り返す）
 #   --dry-run  S3 に置かず起動もせず、ジョブごとの起動の引数（aws の --dry-run で検証）と user-data の要約を出す
 # バケットは XLC_BUCKET（既定 xlc-openmc-118645514640）、インスタンスプロファイルは xlc-openmc-vm。
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
@@ -36,6 +41,7 @@ sync_minutes=
 interval=
 az=
 market=
+retry=0
 name=""
 inputs=()
 jobs=()
@@ -47,6 +53,7 @@ while (($#)); do
     --spot) [[ $market != on-demand ]] || { echo "--on-demand と --spot は同時に指定できない" >&2; exit 2; }; market=spot ;;
     --job) jobs+=("${2:?--job に値が要ります}"); shift ;;
     --dry-run) dry=1 ;;
+    --retry-failed) retry=1 ;;
     --type) type=$2; shift ;;
     --max-hours) max_hours=$2; shift ;;
     --sync-minutes) sync_minutes=$2; shift ;;
@@ -61,6 +68,8 @@ done
 ((${#inputs[@]} == 0 || ${#jobs[@]} == 0)) || { echo "--job は起動し直し（入力を省く形）でだけ指定できる" >&2; exit 2; }
 [[ $max_hours =~ ^([1-9][0-9]*)?$ && $sync_minutes =~ ^([1-9][0-9]*)?$ && $interval =~ ^([1-9][0-9]*)?$ ]] ||
   { echo "--max-hours、--sync-minutes、--statepoint-interval は正の整数" >&2; exit 2; }
+((!retry || (${#jobs[@]} > 0 && ${#inputs[@]} == 0))) ||
+  { echo "--retry-failed は起動し直し（入力を省く形）で、--job と一緒にだけ指定できる" >&2; exit 2; }
 ((${#inputs[@]} == 0)) || [[ -z $interval ]] ||
   { echo "--statepoint-interval は起動し直し（入力を省く形）でだけ指定できる（新しい実行は入力の statepoint-interval）" >&2; exit 2; }
 # shellcheck source=aws_common.sh
@@ -94,6 +103,19 @@ require_public_awscli() {
   nix path-info --store https://cache.nixos.org "$1" > /dev/null 2>&1 ||
     { echo "$1 が cache.nixos.org にありません（VM が AWS CLI を取れない）" >&2; exit 1; }
 }
+
+clear_done=()
+# VM が実行する道具（src/ に置く。新しい実行も起動し直しも同じ集合）
+tool_files=(
+  examples/openmc_common.py
+  examples/openmc_run.py
+  examples/openmc_resume.py
+  examples/vera/openmc_tallies.py
+  examples/vera/openmc_model.py
+  examples/vera/openmc_model_3d.py
+  examples/vera/openmc_core_2d.py
+  examples/vera/run_remote.sh
+)
 
 if ((${#inputs[@]})); then
   # 新しい実行
@@ -151,17 +173,7 @@ if ((${#inputs[@]})); then
   src=$(mktemp -d)
   cache=$(mktemp -d)
   trap 'rm -rf "$src" "$cache"' EXIT
-  files=(
-    examples/openmc_common.py
-    examples/openmc_run.py
-    examples/openmc_resume.py
-    examples/vera/openmc_tallies.py
-    examples/vera/openmc_model.py
-    examples/vera/openmc_model_3d.py
-    examples/vera/openmc_core_2d.py
-    examples/vera/run_remote.sh
-    "${inputs[@]}"
-  )
+  files=("${tool_files[@]}" "${inputs[@]}")
   for f in "${files[@]}"; do [[ -f $f ]] || { echo "$f がありません" >&2; exit 1; }; done
   cp --parents "${files[@]}" "$src/"
   cat > "$src/launch.env" <<ENV
@@ -228,15 +240,21 @@ else
     # --job があれば、それ以外のジョブは対象にしない（状態も示さない）
     ((${#jobs[@]} == 0)) || grep -Fxq -- "$job" <<< "$(printf '%s\n' "${jobs[@]}")" || continue
     code=$(job_done "$name" "$job")
+    retry_code=
     if [[ $code == 0 ]]; then
       echo "$job: 完了"
       continue
     fi
     if [[ -n $code ]]; then
       # 失敗したジョブは飛ばし、ほかのジョブは起動する（影響を 1 本に閉じる）。終わりの状態は 1
-      echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot-*.log を見る。続けるなら原因を直して done を消す" >&2
-      stuck=1
-      continue
+      if ((retry)) && grep -Fxq -- "$job" <<< "$(printf '%s\n' "${jobs[@]}")"; then
+        retry_code=$code
+      else
+        echo "$job: 失敗しています（done: $code）。$run_prefix/$job/log と boot-*.log で原因を確かめる。直ったなら" \
+          "--job $job --retry-failed で done を消して起動し直す" >&2
+        stuck=1
+        continue
+      fi
     fi
     live=$(live_instance "$name-$job")
     if [[ -n $live ]]; then
@@ -264,6 +282,10 @@ else
       echo "$job: 最初から"
       restart_flags+=(0)
     fi
+    if [[ -n $retry_code ]]; then
+      echo "$job: done=$retry_code を消して起動する（--retry-failed${dry:+、--dry-run なので消さない}。原因は $run_prefix/$job/log と boot-*.log で確かめたもの）"
+      clear_done+=("$job")
+    fi
     todo+=("$input")
   done
   ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit "$stuck"; }
@@ -290,6 +312,21 @@ if ((!dry)); then
   [[ -z $(git -C "$here" status --porcelain) ]] || tools="$tools-dirty"
 fi
 
+if ((${#inputs[@]} == 0)); then
+  # 道具は手元の版に合わせる（S3 の src/ は最初の起動の版で、新しい引数を知らない。入力と launch.env は実行の定義なので書き換えない）
+  root=$(cd "$here/../.." && pwd)
+  [[ -f $root/flake.nix && -d $root/examples/vera ]] || { echo "リポジトリの中の aws_run.sh を使ってください（$root）" >&2; exit 1; }
+  for f in "${tool_files[@]}"; do [[ -f $root/$f ]] || { echo "$root/$f がありません" >&2; exit 1; }; done
+  if ((dry)); then
+    echo "道具 ${#tool_files[@]} 個を $run_prefix/src/ に置き直す（--dry-run なので置かない）"
+  else
+    tools_src=$(mktemp -d)
+    trap 'rm -rf "$tools_src"' EXIT
+    (cd "$root" && cp --parents "${tool_files[@]}" "$tools_src/")
+    aws s3 sync --only-show-errors "$tools_src" "$run_prefix/src"
+  fi
+fi
+
 for i in "${!todo[@]}"; do
   input=${todo[$i]}
   job=$(job_name "$input")
@@ -313,10 +350,14 @@ for i in "${!todo[@]}"; do
   else
     id=$(aws ec2 run-instances "${args[@]}")
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
-    # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作る道具、AMI、機種はこの起動のもの）。起動できたものだけ書く
+    # 起動ごとの記録（user-data を作る道具と、起動し直しで src/ に置き直す道具は TOOLS_COMMIT のもの。AMI、機種もこの起動のもの）。起動できたものだけ書く
     printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\nSTATEPOINT_INTERVAL=%s\n' "$tools" "$ami" \
       "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$az" "$market" "$interval" |
       aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
+    # 起動の記録を書いてから消す（起動に失敗したときに、失敗の印を失わない）
+    if grep -Fxq -- "$job" <<< "$(printf '%s\n' "${clear_done[@]:-}")"; then
+      aws s3 rm --only-show-errors "$run_prefix/$job/done"
+    fi
   fi
 done
 ((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
