@@ -80,6 +80,7 @@ use xlc_format::library::is_nuclide_name;
 use crate::branches::{Branches, BranchesEntry, Water};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
+use crate::shielding::ShieldingOptions;
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
 use crate::ufg::Collision;
@@ -535,6 +536,14 @@ fn positive(v: f64) -> bool {
 }
 
 impl LatticeInput {
+    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）だけで、ほかは既定の値
+    pub fn shielding_options(&self) -> ShieldingOptions {
+        ShieldingOptions {
+            collision: self.collision,
+            ..ShieldingOptions::default()
+        }
+    }
+
     pub fn parse(text: &str) -> Result<Self, InputError> {
         let file: InputFile = toml::from_str(text)?;
         let invalid = |message: String| InputError::Invalid(message);
