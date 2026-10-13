@@ -1145,8 +1145,8 @@ fn rod_rings(lattice: &Lattice, cell: usize, regions: &[usize]) -> Option<usize>
 
 /// ピンのセルを、Dancoff 係数を合わせた円筒の等価なセルの UFG の減速計算で自己遮蔽する。燃料、燃料と減速材の間の
 /// リング（ギャップ、被覆管）、減速材（セルの外側の物質。等価なセルでは1つのリング）のそれぞれの核種に、そのリングの
-/// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、燃料は等価原理の値（`carlvik`）、それ以外は無限希釈。
-/// 燃料に分離共鳴を持つ核種がなければ `None`。
+/// 中性子束で縮約した群定数を与える。UFG の範囲の外の群は、中心の物質（燃料か棒）は等価原理の値（`carlvik`）、それ以外は無限希釈。
+/// `range_of` が中心の物質の UFG の範囲を返さなければ（分離共鳴を持つ核種がなければ）`None`。
 fn shield_cell(
     library: &Library,
     pin: &PinRings,
@@ -1252,7 +1252,7 @@ fn shield_cell(
         rings.pop();
     }
 
-    // 燃料の平均: 燃料のリングの中性子束と体積の重み
+    // 中心の物質（燃料か棒）の平均: そのリングの中性子束と体積の重み
     let effective = center_average(carlvik, &equivalent, pin.rings);
     Ok(Some(CellShielding {
         radius: *radius,
