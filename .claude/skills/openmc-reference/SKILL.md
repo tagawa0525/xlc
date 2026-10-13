@@ -40,7 +40,7 @@ dvc checkout examples/vera/dvc.yaml
 段階は `openmc-1B-model`（スクリプトと入力 → model.xml。数秒）と `openmc-1B`（model.xml とライブラリ → statepoint）に分かれる
 （ADR-0136）。スクリプトを直してモデルが変わらなければ model.xml の md5 が同じで、`openmc-1B` は走り直さない。model.xml が変わる
 直し（タリーを足すなど）は、`openmc-1B` を走らせ直す。`model.xml` の生成だけを確かめるときは、
-`dvc repro -s examples/vera/dvc.yaml:openmc-1B-model`（上流がなく、数秒で手元でよい）。
+`dvc repro -s examples/vera/dvc.yaml:openmc-1B-model`（上流は `references-shell` だけで、数秒。手元でよい）。
 
 `dvc repro` は `default` の devShell で走らせる（`references` の devShell の中では cargo と dvc がない）。ライブラリの
 63 段階を含み、全体で 40〜60 分かかるので、全体を Slurm で流す:
