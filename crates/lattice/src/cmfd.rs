@@ -394,6 +394,10 @@ pub enum CmfdError {
     #[error("the coarse-mesh matrix of cell {0} is singular")]
     Singular(usize),
     #[error(
+        "the coarse-mesh block of cell {0} after eliminating the cells before it in the line is singular"
+    )]
+    SingularElimination(usize),
+    #[error(
         "cell {cell} of a one-row or one-column lattice couples to cell {other}, which is not next to it"
     )]
     Unchained { cell: usize, other: usize },
@@ -467,7 +471,8 @@ struct Chain {
     lower: Vec<f64>,
     /// [代表][群] の c + 1 との結合の係数（最後の代表では 0）
     upper: Vec<f64>,
-    /// 対角の外の成分（結合とブロックの対角の外）がどれも 0 以下（Z 行列）で、隣との結合が負（既約）。
+    /// 対角の外の成分（結合とブロックの対角の外）がどれも 0 以下（Z 行列）で、隣との結合がどの群でも負（空間で切れて
+    /// いない。群の間が散乱と核分裂でつながることは確かめない）。
     /// シフトの条件（ADR-0158）
     z_matrix: bool,
 }
@@ -501,7 +506,7 @@ impl Chain {
                 }
             }
         }
-        // 隣との結合がどの群でも負（0 なら鎖が切れて既約でなくなり、最初の解の符号で判定できない）
+        // 隣との結合がどの群でも負（0 なら鎖が空間で切れて既約でなくなり、最初の解の符号で判定できない）
         let z_matrix = lower[groups..].iter().all(|&a| a < 0.0)
             && upper[..(cells - 1) * groups].iter().all(|&a| a < 0.0)
             && matrices.iter().all(|a| {
@@ -551,7 +556,7 @@ impl Chain {
                     }
                 }
             }
-            let lu = Lu::new(s, ng).ok_or(CmfdError::Singular(cells[c]))?;
+            let lu = Lu::new(s, ng).ok_or(CmfdError::SingularElimination(cells[c]))?;
             if c + 1 < n {
                 let mut x = vec![0.0; ng * ng];
                 for (j, u) in self.upper[c * ng..][..ng].iter().enumerate() {
@@ -879,7 +884,7 @@ impl Coarse {
         let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
         let mut k = k;
         let factors = match chain.factor(&self.fission, shift, &self.cells) {
-            Err(CmfdError::Singular(_)) if shift != 0.0 => {
+            Err(CmfdError::SingularElimination(_)) if shift != 0.0 => {
                 return Err(CmfdError::ShiftBelowEigenvalue);
             }
             factors => factors?,
