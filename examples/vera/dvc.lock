@@ -7285,10 +7285,11 @@ stages:
       p5/openmc-5A-2D.toml ../../references/openmc/vera-5A-2D 
       p5/openmc-5A-2D-results
     deps:
-    - path: ../../references/openmc/vera-5A-2D/statepoint.2300.h5
+    - path: ../../references/openmc/vera-5A-2D
       hash: md5
-      md5: eb55feae848b52df40c1233957e48818
-      size: 104373728
+      md5: fa3fa550645fd9e26125cd21c0ba5722.dir
+      size: 107319045
+      nfiles: 4
     - path: ../openmc_common.py
       hash: md5
       md5: 05811a60c35fb357329770bf76c9bc8c
@@ -7303,7 +7304,7 @@ stages:
       size: 4498
     - path: openmc_core_2d.py
       hash: md5
-      md5: ae995c83bf0d76da40f2d2b2e8392e4e
+      md5: 704f74e6941731aef6b4020acbd52f02
       size: 17877
     - path: openmc_model.py
       hash: md5
