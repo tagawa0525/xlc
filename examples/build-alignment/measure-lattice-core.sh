@@ -15,7 +15,7 @@ t() { # <out> <tag> <dir> <command...>
   local out=$1 tag=$2 dir=$3; shift 3
   local s e
   s=$(date +%s.%N)
-  (cd "$dir" && "$@" 2>/dev/null) > "$root/$out"
+  (cd "$dir" && "$@" 2>"$root/${out%.out}.log") > "$root/$out"
   e=$(date +%s.%N)
   echo "TIME $tag $(echo "$e - $s" | bc)" >&2
 }
