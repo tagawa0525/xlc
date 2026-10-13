@@ -32,9 +32,7 @@ done
 [[ $count =~ ^[1-9][0-9]*$ ]] || { echo "--count は正の整数" >&2; exit 2; }
 ssh_sg_id
 
-ami=$(aws ec2 describe-images --owners 099720109477 \
-  --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
-  --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)
+ami=$(ubuntu_ami)
 echo "AMI: $ami、タイプ: $type、台数: $count"
 
 names=()
