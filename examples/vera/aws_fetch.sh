@@ -4,7 +4,7 @@
 #
 # 使い方: examples/vera/aws_fetch.sh [--dry-run] [--verify] [--delete] [--dest <置き場>] <name>
 #   取り出す: S3 の runs/<name>/ の src/（VM が使ったスクリプトと入力）と、完了したジョブの結果（最後の世代の statepoint、
-#            summary.h5、k.json など、log、boot.log）を <置き場>/ に写し、ジョブごとの SHA256SUMS で検証する
+#            summary.h5、k.json など、log、boot-*.log）を <置き場>/ に写し、ジョブごとの SHA256SUMS で検証する
 #   --verify  さらに、VM と同じ Python（launch.env の PYTHON。手元の store にあること）で取り出した statepoint から extract し、
 #             VM の結果とバイト一致を確かめる
 #   --delete  すべてのジョブが完了し、--verify が通ったら、S3 の runs/<name>/ を消す（--verify が要る）
