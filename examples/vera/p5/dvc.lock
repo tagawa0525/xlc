@@ -3159,13 +3159,8 @@ stages:
       size: 11
   compare-5A-openmc:
     cmd: python3 ../compare_p5.py openmc core-5A.out core-5A-pins.msgpack 
-      ../../../references/openmc/vera-5A-2D-results > compare-5A-openmc.out
+      openmc-5A-2D-results > compare-5A-openmc.out
     deps:
-    - path: ../../../references/openmc/vera-5A-2D-results
-      hash: md5
-      md5: 18eb1cfa6705b3d3f406150a71d41770.dir
-      size: 1176258
-      nfiles: 5
     - path: ../compare_k.py
       hash: md5
       md5: f2197502bb8efebcf8748fac405e9638
@@ -3182,6 +3177,11 @@ stages:
       hash: md5
       md5: aa81c1b3a526249ac64952a27b3ff914
       size: 2202
+    - path: openmc-5A-2D-results
+      hash: md5
+      md5: 18eb1cfa6705b3d3f406150a71d41770.dir
+      size: 1176258
+      nfiles: 5
     outs:
     - path: compare-5A-openmc.out
       hash: md5
@@ -3189,13 +3189,8 @@ stages:
       size: 1600
   compare-5A-Ly-openmc:
     cmd: python3 ../compare_p5.py openmc core-5A-Ly.out core-5A-Ly-pins.msgpack 
-      ../../../references/openmc/vera-5A-2D-results > compare-5A-Ly-openmc.out
+      openmc-5A-2D-results > compare-5A-Ly-openmc.out
     deps:
-    - path: ../../../references/openmc/vera-5A-2D-results
-      hash: md5
-      md5: 18eb1cfa6705b3d3f406150a71d41770.dir
-      size: 1176258
-      nfiles: 5
     - path: ../compare_k.py
       hash: md5
       md5: f2197502bb8efebcf8748fac405e9638
@@ -3212,6 +3207,11 @@ stages:
       hash: md5
       md5: 66fa51318a93c50b2ea08948f0dbb2a8
       size: 2202
+    - path: openmc-5A-2D-results
+      hash: md5
+      md5: 18eb1cfa6705b3d3f406150a71d41770.dir
+      size: 1176258
+      nfiles: 5
     outs:
     - path: compare-5A-Ly-openmc.out
       hash: md5
@@ -3219,14 +3219,9 @@ stages:
       size: 1600
   compare-5A-Inext-openmc:
     cmd: python3 ../compare_p5.py openmc core-5A-Inext.out 
-      core-5A-Inext-pins.msgpack ../../../references/openmc/vera-5A-2D-results >
+      core-5A-Inext-pins.msgpack openmc-5A-2D-results > 
       compare-5A-Inext-openmc.out
     deps:
-    - path: ../../../references/openmc/vera-5A-2D-results
-      hash: md5
-      md5: 18eb1cfa6705b3d3f406150a71d41770.dir
-      size: 1176258
-      nfiles: 5
     - path: ../compare_k.py
       hash: md5
       md5: f2197502bb8efebcf8748fac405e9638
@@ -3243,6 +3238,11 @@ stages:
       hash: md5
       md5: f2a70960f18968ea943381f1b04314ef
       size: 2202
+    - path: openmc-5A-2D-results
+      hash: md5
+      md5: 18eb1cfa6705b3d3f406150a71d41770.dir
+      size: 1176258
+      nfiles: 5
     outs:
     - path: compare-5A-Inext-openmc.out
       hash: md5
