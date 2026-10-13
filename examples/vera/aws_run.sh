@@ -3,7 +3,7 @@
 # VM は user-data（aws_user_data.sh）で Nix とクロージャ、核データ、入力を S3 から取り、run_remote.sh で流し、S3 の
 # runs/<name>/<ジョブ>/ に同期し、終わると自分を終了する。手元はこのコマンドのあと要らない。
 #
-# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--az AZ] [--on-demand | --spot] [--job J]... <name> [<入力>...]
+# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--statepoint-interval N] [--az AZ] [--on-demand | --spot] [--job J]... <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。クロージャ、核データ、スクリプトと入力を S3 に置く
@@ -13,6 +13,9 @@
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
+#   --statepoint-interval  起動し直しで、その起動の OpenMC の実行だけ、入力の statepoint-interval を N 世代に上書きする（中断が続くとき、
+#              失う分を縮める。S3 の src/ の入力は書き換えない。物理の結果には影響しない）。毎回明示する（launches/ の記録から引き継がず、
+#              指定がなければ入力の値）。記録には STATEPOINT_INTERVAL= を残す。新しい実行では指定できない（入力に書く）
 #   --az       AZ を固定する（例 us-east-1b）。その AZ の default サブネットで起動する。無指定は AWS が選ぶ。起動し直しでは、
 #              指定がなければ最後の起動の記録の値（--job があれば、そのジョブの記録。固定を外すのは --az any）
 #   --on-demand  スポットでなくオンデマンドで起動する（中断が続くときの逃げ道。価格は約 2.5 倍）。起動し直しでは、
@@ -25,11 +28,12 @@
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
 sync_minutes=
+interval=
 az=
 market=
 name=""
@@ -46,6 +50,7 @@ while (($#)); do
     --type) type=$2; shift ;;
     --max-hours) max_hours=$2; shift ;;
     --sync-minutes) sync_minutes=$2; shift ;;
+    --statepoint-interval) interval=${2:?--statepoint-interval に値が要ります}; shift ;;
     -*) echo "知らない引数 $1" >&2; exit 2 ;;
     *) if [[ -z $name ]]; then name=$1; else inputs+=("$1"); fi ;;
   esac
@@ -54,8 +59,10 @@ done
 [[ -n $name ]] || { usage; exit 2; }
 [[ $name =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "name は英小文字、数字、- だけ: $name" >&2; exit 2; }
 ((${#inputs[@]} == 0 || ${#jobs[@]} == 0)) || { echo "--job は起動し直し（入力を省く形）でだけ指定できる" >&2; exit 2; }
-[[ $max_hours =~ ^([1-9][0-9]*)?$ && $sync_minutes =~ ^([1-9][0-9]*)?$ ]] ||
-  { echo "--max-hours と --sync-minutes は正の整数" >&2; exit 2; }
+[[ $max_hours =~ ^([1-9][0-9]*)?$ && $sync_minutes =~ ^([1-9][0-9]*)?$ && $interval =~ ^([1-9][0-9]*)?$ ]] ||
+  { echo "--max-hours、--sync-minutes、--statepoint-interval は正の整数" >&2; exit 2; }
+((${#inputs[@]} == 0)) || [[ -z $interval ]] ||
+  { echo "--statepoint-interval は起動し直し（入力を省く形）でだけ指定できる（新しい実行は入力の statepoint-interval）" >&2; exit 2; }
 # shellcheck source=aws_common.sh
 source "$here/aws_common.sh"
 # shellcheck source=aws_user_data.sh
@@ -275,7 +282,7 @@ if [[ -n $az ]]; then
   subnet_args=(--subnet-id "$SUBNET_ID")
 fi
 ami=$(ubuntu_ami)
-echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと、市場: $market、AZ: ${az:-指定なし}"
+echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと、市場: $market、AZ: ${az:-指定なし}、statepoint の間隔: ${interval:-入力のまま}"
 
 if ((!dry)); then
   # user-data を作ったこのスクリプトのチェックアウト（作業ディレクトリでなく）
@@ -288,7 +295,7 @@ for i in "${!todo[@]}"; do
   job=$(job_name "$input")
   host=$name-$job
   user_data=$(aws_user_data "$bucket_region" "$XLC_BUCKET" "$name" "$job" "$input" "${restart_flags[$i]}" $((max_hours * 60)) \
-    $((sync_minutes * 60)) "$library" "$closure" "$openmc" "$python" "$awscli")
+    $((sync_minutes * 60)) "$library" "$closure" "$openmc" "$python" "$awscli" "$interval")
   args=(--image-id "$ami" --instance-type "$type" --count 1
     --iam-instance-profile Name=xlc-openmc-vm
     --instance-initiated-shutdown-behavior terminate
@@ -307,8 +314,8 @@ for i in "${!todo[@]}"; do
     id=$(aws ec2 run-instances "${args[@]}")
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
     # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作るツール、AMI、機種はこの起動のもの）。起動できたものだけ書く
-    printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\n' "$tools" "$ami" \
-      "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$az" "$market" |
+    printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\nAZ=%s\nMARKET=%s\nSTATEPOINT_INTERVAL=%s\n' "$tools" "$ami" \
+      "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" "$az" "$market" "$interval" |
       aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
   fi
 done
