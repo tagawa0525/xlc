@@ -67,7 +67,7 @@ e4dbc0de、2026-10-12）。自己遮蔽の中は、VERA 2B の 1 状態の perf 
 - 候補の外: テストの debug ビルドだけ xs を最適化する（`[profile.dev.package.xlc-xs]`）。ワークスペースの設定で、
   デバッグのしやすさも変わるので、ここでは試していない
 
-ADR-0144 の判定（b9481c8e、分岐点 eea55794、2026-10-14、r995 の Slurm の排他のジョブ 327）: examples/build-alignment/compare-xs.sh
+ADR-0144 の判定（64947347、分岐点 eea55794、2026-10-14、r995 の Slurm の排他のジョブ 327）: examples/build-alignment/compare-xs.sh
 で、分岐点と変更後の release の `xs` を default の devShell の中で作り（ADR-0157 のループの整列を含む）、examples/m0/xs.toml
 （H-1, O-16, U-235, U-238、293.6 K、σ0 = 1e10。U-235 と U-238 の非分離共鳴で表を引く）で交互に 2 回ずつ実行した。表を作る
 スレッドの数は物理コアの数（16）で、変更後は `taskset -c 0` で 1 CPU に縛っても 1 回実行した。
