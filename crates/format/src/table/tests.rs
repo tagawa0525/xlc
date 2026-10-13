@@ -3,7 +3,7 @@ use super::*;
 fn state(k: f64) -> FewGroup {
     FewGroup {
         k_inf: k / 3.0,
-        ..crate::fewgroup::sample()
+        ..crate::fewgroup::tests::sample()
     }
 }
 
@@ -190,7 +190,7 @@ fn pins_round_trip_and_share_cells() {
     // 形状関数と角の不連続因子も状態ごとに持ち、セルの境界はすべての状態で同じ（ADR-0096）
     let with_pins = |mut table: Table| {
         for (i, s) in table.states.iter_mut().enumerate() {
-            let mut pins = crate::fewgroup::sample_pins();
+            let mut pins = crate::fewgroup::tests::sample_pins();
             pins.form[0][1][1] += f64::from(u8::try_from(i).unwrap()) / 7.0;
             s.pins = Some(pins);
         }
