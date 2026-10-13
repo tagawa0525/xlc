@@ -634,6 +634,13 @@ impl LatticeInput {
         }
         let entries = file.material.unwrap_or_default();
         let self_shielding = !macroscopic && file.self_shielding.unwrap_or(true);
+        // 飛程の表は自己遮蔽の減速計算でだけ使う
+        if !self_shielding && file.track_table.is_some() {
+            return Err(invalid(
+                "`track-table` is used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
         let collision = match file.track_table {
             None => Collision::default(),
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,

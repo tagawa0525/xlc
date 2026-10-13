@@ -26,6 +26,16 @@ pub enum TableError {
     Range { material: usize, range: [f64; 2] },
     #[error("{given} ring materials for {rings} rings")]
     Rings { given: usize, rings: usize },
+    #[error("the number of table nodes overflows")]
+    Size,
+    #[error("{given} total cross sections for {materials} materials")]
+    Materials { given: usize, materials: usize },
+    #[error("material {material}: total cross section {sigma} is outside the table {range:?}")]
+    Outside {
+        material: usize,
+        sigma: f64,
+        range: [f64; 2],
+    },
     #[error(transparent)]
     Cp(#[from] CpError),
 }
@@ -35,25 +45,36 @@ struct Axis {
     start: f64,
     step: f64,
     count: usize,
+    /// 覆う全断面積の [最小, 最大]
+    range: [f64; 2],
 }
 
 impl Axis {
     /// [min, max] を覆う格子。幅が 0 なら 1 点、それ以外は 10 倍あたり `density` 点以上で、最低 [`STENCIL`] 点
     fn new(min: f64, max: f64, density: usize) -> Self {
         let (start, span) = (min.ln(), max.ln() - min.ln());
+        let range = [min, max];
         if span == 0.0 {
             return Self {
                 start,
                 step: 0.0,
                 count: 1,
+                range,
             };
         }
         let step = std::f64::consts::LN_10 / density as f64;
-        let count = ((span / step).ceil() as usize + 1).max(STENCIL);
+        // 細かさが大きすぎると点の数が usize を超える。そのときは usize::MAX にして、組の数の検査で止める
+        let intervals = (span / step).ceil();
+        let count = if intervals < usize::MAX as f64 {
+            (intervals as usize).saturating_add(1).max(STENCIL)
+        } else {
+            usize::MAX
+        };
         Self {
             start,
             step: span / (count - 1) as f64,
             count,
+            range,
         }
     }
 
@@ -127,7 +148,11 @@ impl TrackTable {
                 Ok(Axis::new(min, max, density))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let nodes: usize = axes.iter().map(|a| a.count).product();
+        let nodes = axes
+            .iter()
+            .try_fold(rings * rings, |n, a| n.checked_mul(a.count))
+            .ok_or(TableError::Size)?
+            / (rings * rings);
         let blocks = (0..nodes)
             .into_par_iter()
             .map(|node| {
@@ -162,8 +187,23 @@ impl TrackTable {
     }
 
     /// 物質ごとの全断面積 `sigma` での飛程 T[j][i]（リング i の単位の線源密度あたりの、リング j の中を飛ぶ長さ）。
-    /// `sigma` は表の範囲の中にあること（範囲の外は外挿になる）。
-    pub fn tracks(&self, sigma: &[f64]) -> Vec<Vec<f64>> {
+    /// 表の範囲の外（外挿になる）と、物質の数の違う `sigma` はエラー。
+    pub fn tracks(&self, sigma: &[f64]) -> Result<Vec<Vec<f64>>, TableError> {
+        if sigma.len() != self.axes.len() {
+            return Err(TableError::Materials {
+                given: sigma.len(),
+                materials: self.axes.len(),
+            });
+        }
+        for (material, (axis, &s)) in self.axes.iter().zip(sigma).enumerate() {
+            if !(axis.range[0] <= s && s <= axis.range[1]) {
+                return Err(TableError::Outside {
+                    material,
+                    sigma: s,
+                    range: axis.range,
+                });
+            }
+        }
         let n = self.classes.len();
         let stencils: Vec<(usize, [f64; STENCIL])> = self
             .axes
@@ -197,7 +237,7 @@ impl TrackTable {
             break;
         }
         let totals = totals(&self.classes, sigma);
-        (0..n)
+        Ok((0..n)
             .map(|j| {
                 let t = totals[j];
                 (0..n)
@@ -210,7 +250,7 @@ impl TrackTable {
                     })
                     .collect()
             })
-            .collect()
+            .collect())
     }
 }
 
