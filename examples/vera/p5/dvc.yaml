@@ -1,7 +1,7 @@
 # このファイルは p5_inputs.py が書く。手で直さない。
 # VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、
 # 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、
-# 最小の入力の MOC、対称性）。走らせるのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ
+# OpenMC、最小の入力の MOC、対称性）。走らせるのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ
 stages:
   assembly-21:
     cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-21.toml > assembly-21.out
@@ -250,25 +250,6 @@ stages:
     outs:
       - lattice/31-p24.msgpack
       - assembly-31-p24.out
-  assembly-31-p8:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-31-p8.toml > assembly-31-p8.out
-    deps:
-      - assembly-31-p8.toml
-      - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
-    outs:
-      - lattice/31-p8.msgpack
-      - assembly-31-p8.out
   reflector-I:
     cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-I.toml > reflector-I.out
     deps:
@@ -289,6 +270,46 @@ stages:
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
       - reflector-I.out
+  reflector-I-31-p12:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-I-31-p12.toml > reflector-I-31-p12.out
+    deps:
+      - reflector-I-31-p12.toml
+      - ../vera.msgpack
+      - ../../../crates/lattice/src
+      - ../../../crates/lattice/Cargo.toml
+      - ../../../crates/numeric/src
+      - ../../../crates/numeric/Cargo.toml
+      - ../../../crates/format/src
+      - ../../../crates/format/Cargo.toml
+      - ../../../Cargo.toml
+      - ../../../Cargo.lock
+      - ../../../rust-toolchain.toml
+      - ../../../.cargo/config.toml
+      - ../../../flake.lock
+    outs:
+      - lattice/reflector-I-31-p12-fuel.msgpack
+      - lattice/reflector-I-31-p12.msgpack
+      - reflector-I-31-p12.out
+  reflector-I-31-p8:
+    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-I-31-p8.toml > reflector-I-31-p8.out
+    deps:
+      - reflector-I-31-p8.toml
+      - ../vera.msgpack
+      - ../../../crates/lattice/src
+      - ../../../crates/lattice/Cargo.toml
+      - ../../../crates/numeric/src
+      - ../../../crates/numeric/Cargo.toml
+      - ../../../crates/format/src
+      - ../../../crates/format/Cargo.toml
+      - ../../../Cargo.toml
+      - ../../../Cargo.lock
+      - ../../../rust-toolchain.toml
+      - ../../../.cargo/config.toml
+      - ../../../flake.lock
+    outs:
+      - lattice/reflector-I-31-p8-fuel.msgpack
+      - lattice/reflector-I-31-p8.msgpack
+      - reflector-I-31-p8.out
   reflector-corner:
     cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-corner.toml > reflector-corner.out
     deps:
@@ -345,9 +366,11 @@ stages:
       - lattice/31-p12.msgpack
       - lattice/31-p16.msgpack
       - lattice/31-p24.msgpack
-      - lattice/31-p8.msgpack
-      - lattice/31.msgpack
+      - lattice/reflector-I-31-p12-fuel.msgpack
+      - lattice/reflector-I-31-p8-fuel.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
@@ -381,9 +404,11 @@ stages:
       - lattice/31-p12.msgpack
       - lattice/31-p16.msgpack
       - lattice/31-p24.msgpack
-      - lattice/31-p8.msgpack
-      - lattice/31.msgpack
+      - lattice/reflector-I-31-p12-fuel.msgpack
+      - lattice/reflector-I-31-p8-fuel.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner.msgpack
       - ../../../crates/core/src
       - ../../../crates/core/Cargo.toml
@@ -415,9 +440,11 @@ stages:
       - lattice/31-p12.msgpack
       - lattice/31-p16.msgpack
       - lattice/31-p24.msgpack
-      - lattice/31-p8.msgpack
-      - lattice/31.msgpack
+      - lattice/reflector-I-31-p12-fuel.msgpack
+      - lattice/reflector-I-31-p8-fuel.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
@@ -452,9 +479,11 @@ stages:
       - lattice/31-p12.msgpack
       - lattice/31-p16.msgpack
       - lattice/31-p24.msgpack
-      - lattice/31-p8.msgpack
-      - lattice/31.msgpack
+      - lattice/reflector-I-31-p12-fuel.msgpack
+      - lattice/reflector-I-31-p8-fuel.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
@@ -489,9 +518,11 @@ stages:
       - lattice/31-p12.msgpack
       - lattice/31-p16.msgpack
       - lattice/31-p24.msgpack
-      - lattice/31-p8.msgpack
-      - lattice/31.msgpack
+      - lattice/reflector-I-31-p12-fuel.msgpack
+      - lattice/reflector-I-31-p8-fuel.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
@@ -626,7 +657,9 @@ stages:
       - core-small-E-plant.toml
       - core-small-assemblies.toml
       - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
@@ -653,7 +686,9 @@ stages:
       - core-small-I-plant.toml
       - core-small-assemblies.toml
       - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner.msgpack
       - ../../../crates/core/src
       - ../../../crates/core/Cargo.toml
@@ -678,7 +713,9 @@ stages:
       - core-small-step-Lx-plant.toml
       - core-small-step-assemblies.toml
       - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
@@ -705,7 +742,9 @@ stages:
       - core-small-step-Ly-plant.toml
       - core-small-step-assemblies.toml
       - lattice/31.msgpack
+      - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
+      - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
@@ -850,3 +889,33 @@ stages:
       - core-5C-pins.msgpack
     outs:
       - compare-5C.out
+  compare-5A-openmc:
+    cmd: python3 ../compare_p5.py openmc core-5A.out core-5A-pins.msgpack openmc-5A-2D-results > compare-5A-openmc.out
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - openmc-5A-2D-results
+      - core-5A.out
+      - core-5A-pins.msgpack
+    outs:
+      - compare-5A-openmc.out
+  compare-5A-Ly-openmc:
+    cmd: python3 ../compare_p5.py openmc core-5A-Ly.out core-5A-Ly-pins.msgpack openmc-5A-2D-results > compare-5A-Ly-openmc.out
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - openmc-5A-2D-results
+      - core-5A-Ly.out
+      - core-5A-Ly-pins.msgpack
+    outs:
+      - compare-5A-Ly-openmc.out
+  compare-5A-Inext-openmc:
+    cmd: python3 ../compare_p5.py openmc core-5A-Inext.out core-5A-Inext-pins.msgpack openmc-5A-2D-results > compare-5A-Inext-openmc.out
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - openmc-5A-2D-results
+      - core-5A-Inext.out
+      - core-5A-Inext-pins.msgpack
+    outs:
+      - compare-5A-Inext-openmc.out

@@ -15,7 +15,6 @@
 /assembly-31-p12.out
 /assembly-31-p16.out
 /assembly-31-p24.out
-/assembly-31-p8.out
 /core-5A-Ly.out
 /core-5A-Ly-pins.msgpack
 /compare-5A-Ly.out
@@ -56,3 +55,9 @@
 /compare-lattice-corner-equivalence.out
 /compare-lattice-I-fstar.out
 /core-*.log
+/reflector-I-31-p12.out
+/reflector-I-31-p8.out
+/compare-5A-openmc.out
+/compare-5A-Ly-openmc.out
+/compare-5A-Inext-openmc.out
+/openmc-5A-2D-results
