@@ -30,12 +30,12 @@ feat/0086-periphery-constants で examples/vera/p5/dvc.yaml の比較の段階�
 devShell の `dvc` を、ラッパーの中の `.dvc-wrapped` を直接呼ぶ小さなスクリプトにする。`.dvc-wrapped` は自分の依存の site の
 ディレクトリを自分で足すので、`PATH` を変えなくても動く。ラッパーが付けていた `PYTHONNOUSERSITE=true` は残す。
 `.dvc-wrapped` は nixpkgs の Python のラッパーの中の名前なので、無ければ devShell のビルドで止める。git-minimal は
-`PATH` から外れるが、空の環境で git を `PATH` に置かずに `dvc status` と `dvc repro --dry` が動くことを確かめた（レビュー）。
+`PATH` から外れるが、空の環境で git を `PATH` に置かずに `dvc status` と `dvc repro --dry` が動くことを確かめた（2026-10-13、fa1a769a の devShell）。
 flake の check `dvc-stage-python` が、devShell の dvc で msgpack と numpy を読む段階を走らせる（nixpkgs のラッパーの dvc では
 ModuleNotFoundError で止まることを確かめた）。
 
-default の devShell は外の shell の PYTHONPATH を外さない（references の devShell は外す）。PYTHONPATH の残った shell で
-`dvc repro` を走らせると、段階の python3 はそのパッケージを先に読む。ジョブ 247 が通った理由がこれかは確かめていない。
+ADR-0124 の「`default` の devShell には dvc の実行ファイルだけを入れる」は変えない（入れるのは今も実行ファイル 1 つで、
+dvc の setup hook は shell に入らない）。default の devShell が外の `PYTHONPATH` を外さないことは #0103 に分けた。
 
 採らなかった案:
 
