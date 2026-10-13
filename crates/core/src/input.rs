@@ -924,6 +924,16 @@ impl Case {
                 states.len()
             ));
         }
+        let pin_powers = file.pin_powers.map(|p| normalized(&base.join(p)));
+        let axial_pin_powers = file.axial_pin_powers.map(|p| normalized(&base.join(p)));
+        if let (Some(a), Some(b)) = (&pin_powers, &axial_pin_powers)
+            && a == b
+        {
+            return invalid(format!(
+                "pin-powers and axial-pin-powers name the same file {}",
+                a.display()
+            ));
+        }
         Ok(Self {
             cycle: base.join(file.cycle),
             axial_mesh: file.axial_mesh,
@@ -931,10 +941,10 @@ impl Case {
             boundaries,
             outline: b.outline.map(condition),
             states,
-            pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
+            pin_powers,
             partial_rods,
             partial_rods_given,
-            axial_pin_powers: file.axial_pin_powers.map(|p| normalized(&base.join(p))),
+            axial_pin_powers,
         })
     }
 }
