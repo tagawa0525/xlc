@@ -16,7 +16,7 @@ resolution:
 6.67 eV に近い。影の計算の全断面積を無限希釈にする近似（[ADR-0087](../adr/0087-use-dilute-totals-in-shadows.md)）の前提も、ここで崩れる
 おそれがある。In-115 の 1.46 eV は UFG の範囲の下にある（#0001）。
 
-関係する ADR: [ADR-0086](../adr/0086-shield-structural-lumps.md)、[ADR-0087](../adr/0087-use-dilute-totals-in-shadows.md)
+関係する ADR: [ADR-0086](../adr/0086-shield-structural-lumps.md)、[ADR-0087](../adr/0087-use-dilute-totals-in-shadows.md)、[ADR-0142](../adr/0142-shield-absorber-rods-by-slowing-down.md)
 
 ## 完了の条件
 

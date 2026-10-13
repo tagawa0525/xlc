@@ -103,9 +103,26 @@ pub fn cell_range(
             top = Some(top.map_or(r.top, |t| t.max(r.top)));
         }
     }
-    let Some(top) = top else {
-        return Ok(None);
-    };
+    top.map(|top| range_below(library, top)).transpose()
+}
+
+/// 物質 `material` の UFG の範囲 [下限, 上限] (eV)。[`cell_range`] と同じ決め方で、上限を燃料でなく `material` の核種
+/// （核分裂するかによらない）の分離共鳴の上端から決める（燃料でない棒の遮蔽に使う）。分離共鳴を持つ核種がなければ `None`。
+pub fn material_range(
+    library: &Library,
+    material: &MaterialInput,
+) -> Result<Option<[f64; 2]>, UfgError> {
+    let mut top: Option<f64> = None;
+    for (name, _) in &material.composition {
+        if let Some(r) = &library.lookup(name, material.temperature)?.0.resolved {
+            top = Some(top.map_or(r.top, |t| t.max(r.top)));
+        }
+    }
+    top.map(|top| range_below(library, top)).transpose()
+}
+
+/// 分離共鳴の上端 `top` (eV) からの UFG の範囲（[`cell_range`]）。
+fn range_below(library: &Library, top: f64) -> Result<[f64; 2], UfgError> {
     let pointwise = library.pointwise_range.ok_or(UfgError::NoPointwise)?;
     let top = top.min(MAX_TOP).min(pointwise[1]);
     let low = pointwise[0];
@@ -120,7 +137,7 @@ pub fn cell_range(
             range: [low, top],
             pointwise: Some(pointwise),
         })?;
-    Ok(Some([low, high]))
+    Ok([low, high])
 }
 
 /// 1つの核種（名前と温度の組）の減速計算のデータ
