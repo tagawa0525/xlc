@@ -133,6 +133,43 @@ fn potential_uses_the_radius_at_the_top_of_an_energy_dependent_range() {
 }
 
 #[test]
+fn potential_takes_the_radius_inside_the_range_at_a_step_on_its_top() {
+    use crate::endf::rec;
+    // AP(E) の表が範囲の上端 20 keV で 0.90 から 0.80 へ段差を持ち、その先へ続く。範囲の内側の 0.90 を使う
+    let text = [
+        rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["9.223800+4", "1.0", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["1.0-5", "2.0+4", "1", "2", "1", "0"], 1, 2, 151),
+        rec(["0.0", "0.0", "0", "0", "1", "4"], 1, 2, 151),
+        rec(["4", "2", "", "", "", ""], 1, 2, 151),
+        rec(
+            ["1.0-5", "0.95", "2.0+4", "0.90", "2.0+4", "0.80"],
+            1,
+            2,
+            151,
+        ),
+        rec(["1.0+5", "0.80", "", "", "", ""], 1, 2, 151),
+        rec(["0.0", "0.948", "0", "0", "1", "0"], 1, 2, 151),
+        rec(["2.360060+2", "0.0", "0", "0", "6", "1"], 1, 2, 151),
+        rec(
+            ["6.674", "0.5", "2.6e-2", "1.5e-3", "2.3e-2", "0.0"],
+            1,
+            2,
+            151,
+        ),
+        rec(["", "", "", "", "", ""], 1, 2, 0),
+    ]
+    .concat();
+    let range = resolved(&Tape::parse(&text).unwrap(), 1).unwrap().unwrap();
+    let expected = 4.0 * std::f64::consts::PI * 0.90 * 0.90;
+    assert!(
+        (range.potential - expected).abs() < 1e-12 * expected,
+        "{} vs {expected}",
+        range.potential
+    );
+}
+
+#[test]
 fn rejects_a_zero_s_wave_radius() {
     use crate::endf::{ReichMoore, RmLValue};
     let rm = RangeKind::ReichMoore(ReichMoore {

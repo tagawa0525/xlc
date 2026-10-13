@@ -109,3 +109,42 @@ fn energy_dependent_radius_sets_the_s_wave_phase_shift_at_each_energy() {
         );
     }
 }
+
+#[test]
+fn energy_dependent_radius_keeps_the_awri_channel_radius_near_a_p_wave_resonance() {
+    use crate::endf::{Mf2, RangeKind, Tape, rec};
+    // NAPS=0 では、透過因子とシフト因子は AWRI のチャネル半径のまま、位相シフトだけが AP(E)。各エネルギーで、
+    // その AP(E) を一定の AP にした範囲と同じ断面積になる（共鳴の近くで、l=1 の透過因子とシフトが効く）
+    let text: String = [
+        ["6.014900+4", "1.476409+2", "0", "0", "1", "0"],
+        ["6.014900+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "5.0+1", "1", "2", "1", "0"],
+        ["0.0", "0.0", "0", "0", "1", "2"],
+        ["2", "2", "", "", "", ""],
+        ["1.0-5", "0.70", "5.0+1", "0.60", "", ""],
+        ["0.0", "0.0", "0", "0", "1", "0"],
+        ["1.476409+2", "0.0", "1", "0", "6", "1"],
+        ["2.0+1", "1.5", "0.3", "0.2", "0.1", "0.0"],
+    ]
+    .iter()
+    .map(|f| rec(*f, 6046, 2, 151))
+    .collect();
+    let tape = Tape::parse(&text).unwrap();
+    let mf2 = Mf2::parse(&tape.section(6046, 2, 151).unwrap()).unwrap();
+    let RangeKind::Mlbw(bw) = &mf2.ranges[0].kind else {
+        panic!("expected MLBW");
+    };
+    let xs = MlbwXs::new(bw);
+    for e in [19.0, 19.9, 20.0, 20.1, 21.0] {
+        let radius = 0.70 + (0.60 - 0.70) * (e - 1.0e-5) / (50.0 - 1.0e-5);
+        let constant = MlbwXs::new(&Mlbw {
+            ap: radius,
+            ap_energy: None,
+            ..bw.clone()
+        });
+        let (a, b) = (xs.cross_sections(e), constant.cross_sections(e));
+        assert_close(a.elastic, b.elastic, &format!("elastic at {e}"));
+        assert_close(a.capture, b.capture, &format!("capture at {e}"));
+        assert_close(a.total, b.total, &format!("total at {e}"));
+    }
+}
