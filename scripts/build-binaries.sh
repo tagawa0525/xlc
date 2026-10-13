@@ -21,6 +21,14 @@ if [[ "${NIX_NO_SELF_RPATH:-}" != 1 ]]; then
   exit 1
 fi
 
+# シェルで設定したコンパイルとリンクの設定（手で試すときの RUSTFLAGS など）は、DVC の deps に表れないまま実行ファイルを
+# 変えるので、設定されていれば止める
+flags='^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTFLAGS|CARGO_PROFILE_[A-Z0-9_]+|CARGO_TARGET_[A-Z0-9_]+_(RUSTFLAGS|LINKER))='
+if env | grep -qE "$flags"; then
+  echo "ERROR: コンパイルかリンクの設定が環境変数にある（$(env | grep -oE "$flags" | tr '\n' ' ')）。外してから走らせる（ADR-0159）" >&2
+  exit 1
+fi
+
 cargo clean --release --target-dir target/dvc -p xlc-xs -p xlc-lattice -p xlc-core
 cargo build --release --locked --target-dir target/dvc
 
