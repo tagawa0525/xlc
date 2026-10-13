@@ -1,0 +1,220 @@
+# LWR MOX ピンセル（NEA）の段階: ENDF → 多群ライブラリ（xs）→ 格子計算（lattice-mox<N>）と燃料の実効断面積（fuel-xs-mox<N>）、
+# OpenMC の参照解（openmc-mox<N>、openmc-mox<N>-extract）→ k の比較（compare-k-mox<N>）と捕獲・核分裂断面積の比較
+# （compare-capture-mox<N>）。OpenMC のライブラリとツールは examples/vera/dvc.yaml の段階の出力なので、先に
+# `dvc checkout examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは default の devShell の `dvc repro`（ADR-0123）。
+stages:
+  xs:
+    cmd: cargo run --release -p xlc-xs -- xs.toml
+    deps:
+      - xs.toml
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      - ../../crates/xs/src
+      - ../../crates/xs/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - mox.msgpack
+  lattice-mox1:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- pincell-mox1.toml > lattice-mox1.out
+    deps:
+      - pincell-mox1.toml
+      - mox.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - lattice-mox1.out
+  fuel-xs-mox1:
+    # OpenMC と比べる、xlc の自己遮蔽した燃料の核種ごとの実効断面積
+    cmd: cargo run --release -p xlc-lattice --example fuel_xs -- pincell-mox1.toml xlc-mox1.msgpack
+    deps:
+      - pincell-mox1.toml
+      - mox.msgpack
+      - ../../crates/lattice/examples/fuel_xs.rs
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - xlc-mox1.msgpack
+  openmc-mox1:
+    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml の段階の出力（ADR-0130）
+    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox1.toml openmc-mox1
+    deps:
+      - openmc_model.py
+      - ../openmc_common.py
+      - ../openmc_run.py
+      - ../vera/references-shell.txt
+      - openmc-mox1.toml
+      - mox.msgpack
+      - ../vera/openmc-library
+    outs:
+      - openmc-mox1
+  openmc-mox1-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract openmc-mox1.toml openmc-mox1 openmc-mox1-results
+    deps:
+      - openmc_model.py
+      - ../openmc_common.py
+      - ../openmc_run.py
+      - ../vera/references-shell.txt
+      - openmc-mox1.toml
+      - mox.msgpack
+      - openmc-mox1
+    outs:
+      - openmc-mox1-results
+  compare-k-mox1:
+    cmd: python3 ../vera/compare_k.py lattice-mox1.out openmc-mox1-results/k.json > compare-k-mox1.out
+    deps:
+      - ../vera/compare_k.py
+      - lattice-mox1.out
+      - openmc-mox1-results/k.json
+    outs:
+      - compare-k-mox1.out
+  compare-capture-mox1:
+    # しきい値を ENDF の MF3 から読むので、比べる核種の ENDF も deps にする
+    cmd: python3 compare_capture.py xs.toml xlc-mox1.msgpack openmc-mox1-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 Pu238 Am241 O16 > compare-capture-mox1.out
+    deps:
+      - compare_capture.py
+      - xs.toml
+      - mox.msgpack
+      - xlc-mox1.msgpack
+      - openmc-mox1-results/fuel-xs.msgpack
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+    outs:
+      - compare-capture-mox1.out
+  lattice-mox2:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: cargo run --release -p xlc-lattice -- pincell-mox2.toml > lattice-mox2.out
+    deps:
+      - pincell-mox2.toml
+      - mox.msgpack
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - lattice-mox2.out
+  fuel-xs-mox2:
+    # OpenMC と比べる、xlc の自己遮蔽した燃料の核種ごとの実効断面積
+    cmd: cargo run --release -p xlc-lattice --example fuel_xs -- pincell-mox2.toml xlc-mox2.msgpack
+    deps:
+      - pincell-mox2.toml
+      - mox.msgpack
+      - ../../crates/lattice/examples/fuel_xs.rs
+      - ../../crates/lattice/src
+      - ../../crates/lattice/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - xlc-mox2.msgpack
+  openmc-mox2:
+    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox2.toml openmc-mox2
+    deps:
+      - openmc_model.py
+      - ../openmc_common.py
+      - ../openmc_run.py
+      - ../vera/references-shell.txt
+      - openmc-mox2.toml
+      - mox.msgpack
+      - ../vera/openmc-library
+    outs:
+      - openmc-mox2
+  openmc-mox2-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract openmc-mox2.toml openmc-mox2 openmc-mox2-results
+    deps:
+      - openmc_model.py
+      - ../openmc_common.py
+      - ../openmc_run.py
+      - ../vera/references-shell.txt
+      - openmc-mox2.toml
+      - mox.msgpack
+      - openmc-mox2
+    outs:
+      - openmc-mox2-results
+  compare-k-mox2:
+    cmd: python3 ../vera/compare_k.py lattice-mox2.out openmc-mox2-results/k.json > compare-k-mox2.out
+    deps:
+      - ../vera/compare_k.py
+      - lattice-mox2.out
+      - openmc-mox2-results/k.json
+    outs:
+      - compare-k-mox2.out
+  compare-capture-mox2:
+    cmd: python3 compare_capture.py xs.toml xlc-mox2.msgpack openmc-mox2-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 Pu238 Am241 O16 > compare-capture-mox2.out
+    deps:
+      - compare_capture.py
+      - xs.toml
+      - mox.msgpack
+      - xlc-mox2.msgpack
+      - openmc-mox2-results/fuel-xs.msgpack
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+    outs:
+      - compare-capture-mox2.out

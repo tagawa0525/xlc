@@ -1,9 +1,14 @@
 """LWR MOX ピンセル（MOX-1, MOX-2）を OpenMC の連続エネルギーモードで解く。
 
-使い方: python3 openmc_model.py <cross_sections.xml> <問題> <作業ディレクトリ> <xlc のライブラリ>
-        [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]
+使い方: python3 openmc_model.py run <入力> <作業ディレクトリ>
+        python3 openmc_model.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
-<問題> は MOX-1, MOX-2。断面積は examples/vera/openmc_library.py で作ったもの。
+<入力> は openmc-mox1.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`。MOX-1 か
+MOX-2）、examples/vera/openmc_library.py で作った `cross-sections`（cross_sections.xml）、1 世代の粒子数（`particles`）、
+世代数（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）、群構造を読む xlc の
+ライブラリ（`effective-xs-groups`）。パスは入力のファイルからの相対。
+run は OpenMC を解いて作業ディレクトリに statepoint を残し、extract は statepoint から k を k.json に、
+燃料の実効断面積を fuel-xs.msgpack に結果のディレクトリへ書く（ADR-0123）。
 組成は pin_cell.pdf の付録 2 の個数密度で、セルは同じ面積の正方形（ピッチ 1.26 cm、外周は鏡面反射）、
 温度はすべて 600 K にする（verification.md）。xlc のライブラリ（msgpack）の群構造で、燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を fuel-xs.msgpack に書く（examples/vera/openmc_model.py と
@@ -26,8 +31,11 @@ from openmc_common import (
     eigenvalue_settings,
     fuel_tallies,
     group_filter,
+    input_path,
     material,
+    read_input,
 )
+from openmc_run import RUN_KEYS, run_or_extract, write_k
 
 SCORES = ["total", "elastic", "fission", "capture"]
 
@@ -108,26 +116,29 @@ def write_fuel_xs(statepoint: Path, path: Path, densities: dict[str, float]) -> 
     path.write_bytes(msgpack.packb(data))
 
 
-def main() -> None:
-    cross_sections = Path(sys.argv[1]).resolve()
-    problem = sys.argv[2]
-    if problem not in FUEL:
-        raise SystemExit(f"unknown problem {problem}; expected one of {list(FUEL)}")
-    work = Path(sys.argv[3]).resolve()
-    library = Path(sys.argv[4]).resolve()
-    particles = int(sys.argv[5]) if len(sys.argv) > 5 else 100_000
-    batches = int(sys.argv[6]) if len(sys.argv) > 6 else 300
-    inactive = int(sys.argv[7]) if len(sys.argv) > 7 else 50
-    seed = int(sys.argv[8]) if len(sys.argv) > 8 else 1
+def read_run(source: Path) -> dict:
+    """入力の TOML を読み、問題を確かめ、パスを絶対パスにする。"""
+    run = read_input(source, RUN_KEYS | {"effective-xs-groups"}, set())
+    if run["problem"] not in FUEL:
+        raise SystemExit(
+            f"unknown problem {run['problem']}; expected one of {list(FUEL)}"
+        )
+    run["cross-sections"] = input_path(source, run["cross-sections"])
+    run["effective-xs-groups"] = input_path(source, run["effective-xs-groups"])
+    return run
+
+
+def solve(source: Path, work: Path) -> None:
+    run = read_run(source)
+    densities = FUEL[run["problem"]]
     work.mkdir(parents=True, exist_ok=True)
 
-    densities = FUEL[problem]
     fuel = material("fuel", densities, TEMPERATURE)
     clad = material("zirconium", ZIRCONIUM, TEMPERATURE)
     water = material("water", WATER, TEMPERATURE)
     water.add_s_alpha_beta("c_H_in_H2O")
     materials = openmc.Materials([fuel, clad, water])
-    materials.cross_sections = str(cross_sections)
+    materials.cross_sections = str(run["cross-sections"])
 
     pellet, outer = openmc.ZCylinder(r=PELLET), openmc.ZCylinder(r=CLAD_OUTER)
     box = openmc.model.RectangularPrism(PITCH, PITCH, boundary_type="reflective")
@@ -139,12 +150,17 @@ def main() -> None:
         ]
     )
 
-    settings = eigenvalue_settings(particles, batches, inactive, seed, PITCH / 2)
+    settings = eigenvalue_settings(
+        run["particles"], run["batches"], run["inactive"], run["seed"], PITCH / 2
+    )
     # ライブラリの温度だけを使う（kT から K に直すときの丸めのために 1 K の幅を許す）
     settings.temperature = {"method": "nearest", "tolerance": 1.0}
 
     # 燃料の核種ごとの実効断面積（群構造は xlc のライブラリから）
-    filters = [openmc.MaterialFilter([fuel]), group_filter(library)]
+    filters = [
+        openmc.MaterialFilter([fuel]),
+        group_filter(run["effective-xs-groups"]),
+    ]
     tallies = fuel_tallies("fuel", filters, list(densities), SCORES)
 
     # 核種の吸収率の差を k の差に換算するための、セル全体の吸収と生成
@@ -153,12 +169,17 @@ def main() -> None:
     tallies.append(balance)
 
     model = openmc.Model(geometry, materials, settings, openmc.Tallies(tallies))
-    statepoint = model.run(cwd=work, output=False)
-    write_fuel_xs(statepoint, work / "fuel-xs.msgpack", densities)
+    model.run(cwd=work, threads=run["threads"], output=False)
+
+
+def extract(source: Path, work: Path, results: Path) -> None:
+    run = read_run(source)
+    results.mkdir(parents=True, exist_ok=True)
+    statepoint = work / f"statepoint.{run['batches']}.h5"
+    write_fuel_xs(statepoint, results / "fuel-xs.msgpack", FUEL[run["problem"]])
     with openmc.StatePoint(statepoint) as sp:
-        k = sp.keff
-    print(f"{problem} k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
+        write_k(results / "k.json", run["problem"], sp.keff)
 
 
 if __name__ == "__main__":
-    main()
+    run_or_extract(solve, extract, __doc__)
