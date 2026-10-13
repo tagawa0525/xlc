@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 # VM で流した参照解の結果を手元に戻す（docs/environment.md の「外部の計算機での参照解」）。
 #
-# 使い方: examples/vera/remote_fetch.sh [--dry-run] <ssh の接続先> <VM の作業ディレクトリ> <手元の置き場>
+# 使い方: examples/vera/remote_fetch.sh [--dry-run] [--allow-ip] <ssh の接続先> <VM の作業ディレクトリ> <手元の置き場>
 #
+# --allow-ip は、戻す前に aws_allow_ip.sh でセキュリティグループを今の IP にする（AWS の VM のとき。--dry-run では呼ばない）。
 # results/<入力の名前>/ の k.json、pins.msgpack、layers.msgpack などと、最後の世代の statepoint と summary.h5（一次の成果物。extract をやり直すため）、
 # log、done を戻す。途中の statepoint（再開用）は戻さない。手元で extract し直すには:
 #   python3 examples/vera/openmc_model_3d.py extract <入力> <手元の置き場>/<名前>/run <結果のディレクトリ>
 set -euo pipefail
 flags=(-a --partial --info=stats1 --prune-empty-dirs)
-if [[ ${1:-} == --dry-run ]]; then flags+=(--dry-run --itemize-changes); shift; fi
+dry=0
+allow=0
+while [[ ${1:-} == --dry-run || ${1:-} == --allow-ip ]]; do
+  if [[ $1 == --dry-run ]]; then dry=1; flags+=(--dry-run --itemize-changes); else allow=1; fi
+  shift
+done
 if [[ $# -ne 3 || $1 == --help || $1 == -h ]]; then
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 fi
+if ((allow && !dry)); then "$(dirname "$0")/aws_allow_ip.sh"; fi
 # 完了（done が 0）した結果だけ、最後の世代の statepoint（最大の番号）と summary.h5 を戻す。失敗または途中の結果は、
 # 途中の statepoint を戻さず、done の値を示して止める
 rsync "${flags[@]}" --exclude='run/statepoint.*.h5' "$1:$2/results/" "$3/"
