@@ -45,8 +45,8 @@ stages:
     deps:
     - path: ../../bin/chain
       hash: md5
-      md5: db8179c66be623070d90418457be6c5f
-      size: 1852984
+      md5: 3efd29fb24ecd57ff651a02b0e000557
+      size: 1853928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
@@ -70,5 +70,5 @@ stages:
     outs:
     - path: chain.msgpack
       hash: md5
-      md5: 77154f59975197f9098af702acfd2db6
-      size: 4612795
+      md5: 120d74352f99e1a78b5d9df77d992378
+      size: 4612727
