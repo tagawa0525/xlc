@@ -14,7 +14,7 @@ aws_user_data() {
   [[ $restart == 0 || $restart == 1 ]] || { echo "aws_user_data: 再開は 0 か 1（$restart）" >&2; return 2; }
   [[ $minutes =~ ^[1-9][0-9]*$ && $seconds =~ ^[1-9][0-9]*$ ]] ||
     { echo "aws_user_data: 最長の分と同期の秒は正の整数（$minutes、$seconds）" >&2; return 2; }
- [[ $interval =~ ^([1-9][0-9]*)?$ ]] || { echo "aws_user_data: 間隔は正の整数か空（$interval）" >&2; return 2; }
+  [[ $interval =~ ^([1-9][0-9]*)?$ ]] || { echo "aws_user_data: 間隔は正の整数か空（$interval）" >&2; return 2; }
   for v in "$openmc" "$python" "$awscli"; do
     [[ $v =~ ^/nix/store/[a-z0-9]{32}-[^/[:space:]]+$ ]] || { echo "aws_user_data: store のパスではない: $v" >&2; return 2; }
   done

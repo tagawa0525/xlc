@@ -64,7 +64,9 @@ def set_statepoints(
     settings: openmc.Settings, run: dict[str, Any], options: Options
 ) -> None:
     """`statepoint-interval`（`options` の指定が入力より先）ごと（と最後）の世代に statepoint を書く。"""
-    interval = options.statepoint_interval or run.get("statepoint-interval")
+    interval = options.statepoint_interval
+    if interval is None:
+        interval = run.get("statepoint-interval")
     if interval is None:
         return
     if interval <= 0:
@@ -129,9 +131,13 @@ def run_or_extract(
             match rest:
                 case ["--restart", *tail]:
                     restart = True
-                case ["--threads", n, *tail] if n.isdigit() and int(n) > 0:
+                case ["--threads", n, *tail] if (
+                    n.isascii() and n.isdigit() and int(n) > 0
+                ):
                     threads = int(n)
-                case ["--statepoint-interval", n, *tail] if n.isdigit() and int(n) > 0:
+                case ["--statepoint-interval", n, *tail] if (
+                    n.isascii() and n.isdigit() and int(n) > 0
+                ):
                     interval = int(n)
                 case _:
                     raise SystemExit(usage)

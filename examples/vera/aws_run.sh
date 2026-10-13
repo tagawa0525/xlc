@@ -61,7 +61,7 @@ done
 ((${#inputs[@]} == 0 || ${#jobs[@]} == 0)) || { echo "--job は起動し直し（入力を省く形）でだけ指定できる" >&2; exit 2; }
 [[ $max_hours =~ ^([1-9][0-9]*)?$ && $sync_minutes =~ ^([1-9][0-9]*)?$ && $interval =~ ^([1-9][0-9]*)?$ ]] ||
   { echo "--max-hours、--sync-minutes、--statepoint-interval は正の整数" >&2; exit 2; }
-((${#inputs[@]} == 0 )) || [[ -z $interval ]] ||
+((${#inputs[@]} == 0)) || [[ -z $interval ]] ||
   { echo "--statepoint-interval は起動し直し（入力を省く形）でだけ指定できる（新しい実行は入力の statepoint-interval）" >&2; exit 2; }
 # shellcheck source=aws_common.sh
 source "$here/aws_common.sh"
