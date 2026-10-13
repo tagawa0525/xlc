@@ -31,8 +31,10 @@ pub enum DepletionError {
     InvalidTime(f64),
     #[error("depletion matrix times the time step overflows at entry ({row}, {col})")]
     Overflow { row: usize, col: usize },
-    #[error("sparse LU of the CRAM system failed: {0}")]
-    Factorization(String),
+    #[error("symbolic sparse LU of the CRAM system failed")]
+    SymbolicFactorization(#[source] faer::sparse::FaerError),
+    #[error("numeric sparse LU of the CRAM system failed")]
+    NumericFactorization(#[source] faer::sparse::linalg::LuError),
     #[error("CRAM gave a non-finite density for nuclide {0}")]
     NonFiniteResult(usize),
 }
