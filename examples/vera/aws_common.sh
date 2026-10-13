@@ -134,7 +134,7 @@ EOT
 # 機種の設定（aws_types.toml）の [speed] の "タイプ" = 速度 を「タイプ 速度」で 1 行ずつ出す。書き方が違う行は止まる
 # （速度は c7a.4xlarge を 1 とした見積もりの値。ADR-0171）
 auto_types_read() {
-  local file=$1 line type speed in_speed=0 n=0
+  local file=$1 line type speed in_speed=0 n=0 seen=' '
   [[ -f $file ]] || { echo "機種の設定 $file がありません" >&2; exit 1; }
   while IFS= read -r line; do
     [[ $line =~ ^[[:space:]]*(#.*)?$ ]] && continue
@@ -143,6 +143,8 @@ auto_types_read() {
       type=${BASH_REMATCH[1]} speed=${BASH_REMATCH[2]}
       # 0 や 0.0 は速度にならない
       if [[ $speed =~ [1-9] ]]; then
+        [[ $seen != *" $type "* ]] || { echo "$file: $type が重複しています" >&2; exit 1; }
+        seen="$seen$type "
         echo "$type $speed"
         n=$((n + 1))
         continue
