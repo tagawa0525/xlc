@@ -35,7 +35,7 @@ for name in fresh restart; do
   # 最長の時間の shutdown は、ほかの何よりも先に（失敗しうる命令の前に）予約する
   before "$text" 'set -euo pipefail' 'shutdown -h +840' "$name"
   before "$text" 'shutdown -h +840' 'trap finish EXIT' "$name"
-  before "$text" 'trap finish EXIT' 'curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm' "$name"
+  before "$text" 'trap finish EXIT' 'curl -fsSL https://install.determinate.systems/nix/tag/v3.23.1 | sh -s -- install --no-confirm' "$name"
   contains "$text" 'export HOME=/root AWS_DEFAULT_REGION=us-east-2' "$name"
   contains "$text" 'BUCKET=xlc-openmc-test' "$name"
   contains "$text" 'PREFIX=s3://$BUCKET/runs/trial/openmc-3A' "$name"
@@ -48,14 +48,15 @@ for name in fresh restart; do
   contains "$text" '  if ((waited >= 300)); then' "$name"
   # done を書かずにジョブが消えたら、最長の時間まで待たずに失敗で終わる
   contains "$text" '  if ! pgrep -f -- " $OUT(/run)?( |$)" > /dev/null; then' "$name"
-  # 同期は done と boot.log を除く。finish が同期、boot.log、done の順に置く（done があれば、ほかはそろっている）
-  contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "${filters[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
-  before "$text" '      sync_out && { synced=1; break; }' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' "$name"
-  before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' \
+  # 同期は done とログを除く。finish が同期、ログ、done の順に置く（done があれば、ほかはそろっている）
+  contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude '\''boot-*.log'\'' "${filters[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
+  before "$text" '      sync_out && { synced=1; break; }' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' "$name"
+  before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' \
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
   # 同期に失敗したときと SIGTERM（中断）では done を置かない。失敗の終了では終了コードを done に書く
-  contains "$text" '    if ((synced && code != 143)); then' "$name"
-  contains "$text" '  if ((code != 0 && code != 143)); then' "$name"
+  contains "$text" '    if ((synced && code != 143)) && [[ -f $WORK/$OUT/done ]]; then' "$name"
+  # READY の前の失敗（準備）では done を書かない（S3 のジョブに触れておらず、起動し直せる）
+  contains "$text" '  if ((READY && code != 0 && code != 143)); then' "$name"
   contains "$text" 'until [[ -f $OUT/done && $(cat "$OUT/done") =~ ^[0-9]+$ ]]; do' "$name"
   contains "$text" '    echo "$code" > "$WORK/$OUT/done"' "$name"
   contains "$text" "trap 'exit 143' TERM" "$name"
@@ -72,11 +73,11 @@ done
 contains "$fresh" 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
 # 作業ディレクトリが S3 の内容を含むまで同期しない（再開では S3 から戻したあと）
 before "$fresh" 'READY=1' 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
-before "$restart" '"$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "$PREFIX" "$OUT"' 'READY=1' restart
+before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' 'READY=1' restart
 lacks "$fresh" '--restart' fresh
-lacks "$fresh" '"$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "$PREFIX" "$OUT"' fresh
+lacks "$fresh" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' fresh
 contains "$restart" 'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
-before "$restart" '"$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "$PREFIX" "$OUT"' \
+before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done "$PREFIX" "$OUT"' \
   'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
 
 # sync_out の振る舞い: 生成した statepoints と sync_out を、aws の代わりに引数を出す関数で実行する
