@@ -14,6 +14,7 @@ found=0
 listing=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" \
   --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,InstanceType,State.Name,PublicIpAddress,LaunchTime,Placement.AvailabilityZone]' --output text)
 while read -r id name type state ip launch az; do
+  [[ -n $id ]] || continue # 空の一覧は 1 行の空行になる
   found=1
   hours=$(awk -v n="$now" -v l="$(date -d "$launch" +%s)" 'BEGIN {printf "%.2f", (n - l) / 3600}')
   price=$(aws ec2 describe-spot-price-history --instance-types "$type" --availability-zone "$az" --product-descriptions Linux/UNIX \
