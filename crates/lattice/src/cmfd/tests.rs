@@ -71,6 +71,189 @@ fn homogeneous_cell_gives_the_infinite_medium_k() {
     assert_eq!(ratio.len(), 2);
 }
 
+/// 2 群の拡散の平板（`cells` 個の幅 `width` cm のセル、両端は真空）の粗メッシュの問題。面の流れの補正 D̂ はなく、
+/// 内側の面の結合は D/h、真空の面は入射なし（Marshak）の 2D/(h + 4D)。`line` は 1 行の格子として組み立てること
+fn slab(cells: usize, width: f64, line: bool) -> Coarse {
+    let d = [1.3, 0.4];
+    let (removal, transfer, absorption) = (0.025, 0.015, 0.08);
+    let nu_fission = [0.005, 0.1];
+    let vacuum = |g: usize| 2.0 * d[g] / (width + 4.0 * d[g]);
+    let matrices = (0..cells)
+        .map(|c| {
+            let mut a = vec![removal * width, 0.0, -transfer * width, absorption * width];
+            for g in 0..2 {
+                let sides = [c > 0, c + 1 < cells];
+                a[g * 2 + g] += sides
+                    .iter()
+                    .map(|&inner| if inner { d[g] / width } else { vacuum(g) })
+                    .sum::<f64>();
+            }
+            a
+        })
+        .collect();
+    let coupling = vec![-d[0] / width, -d[1] / width];
+    let neighbors = (0..cells)
+        .map(|c| {
+            [c.checked_sub(1), (c + 1 < cells).then_some(c + 1)]
+                .into_iter()
+                .flatten()
+                .map(|o| (o, coupling.clone()))
+                .collect()
+        })
+        .collect();
+    let fission = vec![
+        vec![Spectrum {
+            chi: vec![1.0, 0.0],
+            chi_sum: 1.0,
+            nu_fission: nu_fission.iter().map(|n| n * width).collect(),
+        }];
+        cells
+    ];
+    Coarse::assemble(
+        line,
+        2,
+        (0..cells).collect(),
+        vec![1.0; cells],
+        vec![1.0; cells * 2],
+        fission,
+        matrices,
+        neighbors,
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_slab_of_thin_cells_converges_within_a_few_hundred_iterations() {
+    // ブロック Gauss-Seidel は滑らかな誤差を 1 回に 1 − O(h²) しか減らさないので、1 回だけ行うべき乗法では
+    // 細かい平板の反復の数が列の数の 2 乗で増える（#0069）。1 行の平板の結合は、列の数によらない回数で解く
+    let budget = CmfdOptions {
+        max_iterations: 500,
+        ..CmfdOptions::default()
+    };
+    let unlimited = CmfdOptions {
+        max_iterations: 1_000_000,
+        ..CmfdOptions::default()
+    };
+    // 2 次元の格子として組み立てると Gauss-Seidel で解く
+    let (reference_k, reference) = slab(200, 0.5, false).solve(1.0, &unlimited).unwrap();
+    let (k, ratio) = slab(200, 0.5, true).solve(1.0, &budget).unwrap();
+    assert!((k - reference_k).abs() < 1e-9, "{k} vs {reference_k}");
+    for (a, b) in ratio.iter().zip(&reference) {
+        assert!((a - b).abs() < 1e-6 * b, "{a} vs {b}");
+    }
+    // 4 倍細かくしても同じ回数の中で解ける
+    assert!(slab(800, 0.125, true).solve(1.0, &budget).is_ok());
+}
+
+#[test]
+fn a_slab_with_a_close_second_mode_converges_quickly_from_a_nearby_k() {
+    // 400 cm の平板は 2 番目の固有値が近く、シフトのない逆反復は 100 回で収束しない。k の近くにシフトすると、
+    // 2 つの固有値の差に比べて近いほど速く収束する
+    let coarse = slab(200, 2.0, true);
+    let unlimited = CmfdOptions {
+        max_iterations: 1_000_000,
+        ..CmfdOptions::default()
+    };
+    // 2 次元の格子として組み立てると Gauss-Seidel で解く
+    let (reference_k, reference) = slab(200, 2.0, false).solve(1.0, &unlimited).unwrap();
+    let budget = CmfdOptions {
+        max_iterations: 100,
+        ..CmfdOptions::default()
+    };
+    let Solver::Chain(chain) = &coarse.solver else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    assert!(matches!(
+        coarse.inverse_iteration(chain, 1.0, 0.0, &budget),
+        Err(CmfdError::NotConverged(100))
+    ));
+    for start in [0.95, 1.0] {
+        let (k, ratio) = coarse.solve(start, &budget).unwrap();
+        assert!(
+            (k - reference_k).abs() < 1e-9,
+            "{start}: {k} vs {reference_k}"
+        );
+        for (a, b) in ratio.iter().zip(&reference) {
+            assert!((a - b).abs() < 1e-6 * b, "{start}: {a} vs {b}");
+        }
+    }
+}
+
+#[test]
+fn a_slab_solves_from_a_k_far_below_the_eigenvalue() {
+    // k が固有値より大きく下にあると、シフトした k_s も固有値より下になる。シフトなしで解き直す
+    let coarse = slab(200, 2.0, true);
+    let unlimited = CmfdOptions {
+        max_iterations: 1_000_000,
+        ..CmfdOptions::default()
+    };
+    let Solver::Chain(chain) = &coarse.solver else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    let shift = 1.0 / (0.5 * (1.0 + WIELANDT));
+    assert!(matches!(
+        coarse.inverse_iteration(chain, 0.5, shift, &unlimited),
+        Err(CmfdError::ShiftBelowEigenvalue)
+    ));
+    // 2 次元の格子として組み立てると Gauss-Seidel で解く
+    let (reference, _) = slab(200, 2.0, false).solve(1.0, &unlimited).unwrap();
+    let (far, _) = coarse.solve(0.5, &unlimited).unwrap();
+    assert!((far - reference).abs() < 1e-9, "{far} vs {reference}");
+}
+
+#[test]
+fn a_slab_with_a_positive_coupling_is_solved_without_the_shift() {
+    // 補正の D̂ で結合が正になると Z 行列でなくなり、シフトが固有値の下にあることを最初の解の符号で判定できない
+    let Solver::Chain(chain) = slab(20, 2.0, true).solver else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    assert!(chain.z_matrix);
+    // 2 群目の結合が正（補正の D̂ が拡散の結合より大きい）の、核分裂のある 3 セルのチェーン
+    let build = |line: bool| {
+        let fission = vec![
+            vec![Spectrum {
+                chi: vec![1.0, 0.0],
+                chi_sum: 1.0,
+                nu_fission: vec![0.01, 0.2],
+            }];
+            3
+        ];
+        let neighbors = vec![
+            vec![(1, vec![-0.5, 0.005])],
+            vec![(0, vec![-0.5, 0.005]), (2, vec![-0.5, 0.005])],
+            vec![(1, vec![-0.5, 0.005])],
+        ];
+        Coarse::assemble(
+            line,
+            2,
+            (0..3).collect(),
+            vec![1.0; 3],
+            vec![1.0; 6],
+            fission,
+            vec![vec![1.2, 0.0, -0.02, 0.15]; 3],
+            neighbors,
+        )
+        .unwrap()
+    };
+    let positive = build(true);
+    let Solver::Chain(rebuilt) = &positive.solver else {
+        panic!("a one-row slab is solved as a chain");
+    };
+    assert!(!rebuilt.z_matrix);
+    let options = CmfdOptions::default();
+    let (k, ratio) = positive.solve(1.0, &options).unwrap();
+    // シフトなしの逆反復と同じ演算
+    let unshifted = positive
+        .inverse_iteration(rebuilt, 1.0, 0.0, &options)
+        .unwrap();
+    assert_eq!((k, &ratio), (unshifted.0, &unshifted.1));
+    let (reference_k, reference) = build(false).solve(1.0, &options).unwrap();
+    assert!((k - reference_k).abs() < 1e-9, "{k} vs {reference_k}");
+    for (a, b) in ratio.iter().zip(&reference) {
+        assert!((a - b).abs() < 1e-6 * b, "{a} vs {b}");
+    }
+}
+
 #[test]
 fn artificial_diffusion_follows_the_optically_thick_fit() {
     // Zhu ら (2016): 光学的に薄いと 0（従来の CMFD）、厚いと 0.127 に飽和し、Σt h = 4 で約 0.1
