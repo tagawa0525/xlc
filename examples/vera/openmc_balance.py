@@ -89,7 +89,8 @@ def main() -> None:
     seed = int(sys.argv[8]) if len(sys.argv) > 8 else 1
     work.mkdir(parents=True, exist_ok=True)
 
-    _, materials, geometry, half = build(problem, cross_sections)
+    _, materials, geometry, half = build(problem)
+    materials.cross_sections = str(cross_sections)
     order = list(materials)
     unknown = [m.name for m in order if m.name not in NAMES]
     if unknown:
