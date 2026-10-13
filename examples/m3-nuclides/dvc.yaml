@@ -1,0 +1,49 @@
+# M3 の新しい核種の段階: ENDF → 多群ライブラリ（xs）。NJOY との比較は crates/xs/examples の比較プログラムで行い、
+# 段階にしない（NJOY の出力は references/njoy-runs にある）。走らせるのは `dvc repro`（ADR-0123）。
+stages:
+  xs:
+    cmd: cargo run --release -p xlc-xs -- xs.toml
+    deps:
+      - xs.toml
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_046.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_047.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_048.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_049.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_050.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
+      - ../../crates/xs/src
+      - ../../crates/xs/Cargo.toml
+      - ../../crates/numeric/src
+      - ../../crates/numeric/Cargo.toml
+      - ../../crates/format/src
+      - ../../crates/format/Cargo.toml
+      - ../../Cargo.toml
+      - ../../Cargo.lock
+      - ../../rust-toolchain.toml
+      - ../../.cargo/config.toml
+      - ../../flake.lock
+    outs:
+      - m3-nuclides.msgpack
