@@ -5,7 +5,7 @@ opened: 2026-10-13
 closed: 2026-10-13
 milestone:
 blocked-by: []
-resolution: コミット fa1a769a
+resolution: コミット 2733b747
 ---
 
 # DVC のステージの python3 が検証用の Python でなく dvc のラッパーの素の python3 になる
@@ -30,7 +30,7 @@ feat/0086-periphery-constants で examples/vera/p5/dvc.yaml の比較の段階�
 devShell の `dvc` を、ラッパーの中の `.dvc-wrapped` を直接呼ぶ小さなスクリプトにする。`.dvc-wrapped` は自分の依存の site の
 ディレクトリを自分で足すので、`PATH` を変えなくても動く。ラッパーが付けていた `PYTHONNOUSERSITE=true` は残す。
 `.dvc-wrapped` は nixpkgs の Python のラッパーの中の名前なので、無ければ devShell のビルドで止める。git-minimal は
-`PATH` から外れるが、空の環境で git を `PATH` に置かずに `dvc status` と `dvc repro --dry` が動くことを確かめた（2026-10-13、fa1a769a の devShell）。
+`PATH` から外れるが、空の環境で git を `PATH` に置かずに `dvc status` と `dvc repro --dry` が動くことを確かめた（2026-10-13、2733b747 の devShell）。
 flake の check `dvc-stage-python` が、devShell の dvc で msgpack と numpy を読む段階を実行する（nixpkgs のラッパーの dvc では
 ModuleNotFoundError で止まることを確かめた）。
 
@@ -52,5 +52,5 @@ default の devShell の `dvc repro` で、`python3` を呼ぶ段階が検証用
 
 ## 経緯
 
-- 2026-10-13: 見つけて、devShell の `dvc` を `.dvc-wrapped` を呼ぶスクリプトにした（fa1a769a）。`.dvc-wrapped` が無ければ
-  ビルドで止め（161395df）、flake の check を足した（6f41d100）
+- 2026-10-13: 見つけて、devShell の `dvc` を `.dvc-wrapped` を呼ぶスクリプトにした（2733b747）。`.dvc-wrapped` が無ければ
+  ビルドで止め（cb97b8f0）、flake の check を足した（847af602）
