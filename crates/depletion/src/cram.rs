@@ -10,7 +10,7 @@ mod coefficients;
 use faer::Mat;
 use faer::linalg::solvers::Solve;
 use faer::sparse::linalg::solvers::{Lu, SymbolicLu};
-use faer::sparse::{SparseColMat, SymbolicSparseColMat};
+use faer::sparse::{SparseColMatRef, SymbolicSparseColMat};
 use num_complex::Complex64;
 
 use crate::{DepletionError, DepletionMatrix};
@@ -99,15 +99,16 @@ pub fn deplete(
         alpha0,
     } = order.coefficients();
     let mut y = n0.to_vec();
+    // 極ごとに変わるのは対角だけなので、非対角は 1 回だけ複素にし、対角を書き換える
+    let mut values: Vec<Complex64> = scaled.iter().map(|&s| Complex64::new(s, 0.0)).collect();
     for (&(theta_re, theta_im), &(alpha_re, alpha_im)) in theta.iter().zip(alpha) {
         let theta = Complex64::new(theta_re, theta_im);
         let alpha = Complex64::new(alpha_re, alpha_im);
-        let mut values: Vec<Complex64> = scaled.iter().map(|&s| Complex64::new(s, 0.0)).collect();
         for &k in a.diagonal() {
-            values[k] -= theta;
+            values[k] = Complex64::new(scaled[k], 0.0) - theta;
         }
-        let system = SparseColMat::new(symbolic.clone(), values);
-        let lu = Lu::try_new_with_symbolic(lu_symbolic.clone(), system.as_ref())
+        let system = SparseColMatRef::new(symbolic.as_ref(), &values);
+        let lu = Lu::try_new_with_symbolic(lu_symbolic.clone(), system)
             .map_err(|e| DepletionError::Factorization(format!("{e:?}")))?;
         let mut x = Mat::from_fn(n, 1, |i, _| Complex64::new(y[i], 0.0));
         lu.solve_in_place(x.as_mut());
