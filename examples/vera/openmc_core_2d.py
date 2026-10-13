@@ -368,7 +368,18 @@ def extract(source: Path, work: Path, results: Path) -> None:
     results.mkdir(parents=True, exist_ok=True)
     edges, pins = pin_edges()
     cells = len(edges) - 1
-    with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
+    path = work / f"statepoint.{run['batches']}.h5"
+    with openmc.StatePoint(path) as sp:
+        # run を段階にしない問題では、入力を変えても statepoint は古いまま残るので、走らせた設定と入力を突き合わせる
+        ran = {
+            "particles": int(sp.n_particles),
+            "batches": int(sp.n_batches),
+            "inactive": int(sp.n_inactive),
+            "seed": int(sp.seed),
+        }
+        expected = {key: run[key] for key in ran}
+        if ran != expected:
+            raise SystemExit(f"{path} was run with {ran}, but {source} says {expected}")
         k = sp.keff
         rate, std = mesh_values(sp, "fission", (cells, cells))
         by, by_std = mesh_values(sp, "assemblies", (len(LOADING), len(LOADING)))
