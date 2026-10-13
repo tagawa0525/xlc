@@ -78,6 +78,20 @@ stages:
       - p1/openmc-1B
     outs:
       - p1/openmc-1B-results
+  openmc-5A-2D-extract:
+    # run は段階にしない（本番は手で Slurm に流した。verification.md の「Problem 5-2D の参照解」）。その statepoint を deps にして結果を抜く
+    cmd: nix develop ../..#references -c python3 openmc_core_2d.py extract p5/openmc-5A-2D.toml ../../references/openmc/vera-5A-2D p5/openmc-5A-2D-results
+    deps:
+      - openmc_core_2d.py
+      - openmc_model.py
+      - ../openmc_common.py
+      - ../openmc_resume.py
+      - ../openmc_run.py
+      - references-shell.txt
+      - p5/openmc-5A-2D.toml
+      - ../../references/openmc/vera-5A-2D/statepoint.2300.h5
+    outs:
+      - p5/openmc-5A-2D-results
   xs-range:
     # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとの段階の入力にするため、先に求める
     # （ADR-0138）。ENDF はディレクトリごと deps にする。sha256 で固定した（ADR-0124）ので変わらない

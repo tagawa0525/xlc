@@ -1249,9 +1249,9 @@ def pipeline(
                 [f"compare-{name}.out"],
             )
         )
-    # OpenMC の参照解（openmc_core_2d.py extract の結果のディレクトリ。examples/vera/verification.md の「Problem 5-2D の参照解」）
+    # OpenMC の参照解（../dvc.yaml の openmc-<問題>-2D-extract の出力。examples/vera/verification.md の「Problem 5-2D の参照解」）
     for name, problem in OPENMC.items():
-        results = f"../../../references/openmc/vera-{problem}-2D-results"
+        results = f"openmc-{problem}-2D-results"
         stages.append(
             stage(
                 f"compare-{name}-openmc",
