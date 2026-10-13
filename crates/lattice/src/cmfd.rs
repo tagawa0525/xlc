@@ -578,7 +578,7 @@ impl Coarse {
                 }
             }
         }
-        let blocks = (0..cells)
+        let matrices = (0..cells)
             .map(|c| {
                 let mut a: Vec<f64> = scatter[c * ng * ng..][..ng * ng]
                     .iter()
@@ -587,14 +587,40 @@ impl Coarse {
                 for g in 0..ng {
                     a[g * ng + g] += diagonal[c * ng + g];
                 }
-                Lu::new(a, ng).ok_or(CmfdError::Singular(orbits.representatives[c]))
+                a
             })
+            .collect();
+        Self::assemble(
+            ng,
+            orbits.representatives.clone(),
+            orbits.sums(&vec![1.0; orbits.index.len()]),
+            phi,
+            fission,
+            matrices,
+            neighbors,
+        )
+    }
+
+    /// 均質化した値から問題を組み立てる。`matrices` は [代表] の対角のブロック（群×群、行優先）
+    fn assemble(
+        groups: usize,
+        cells: Vec<usize>,
+        sizes: Vec<f64>,
+        flux: Vec<f64>,
+        fission: Vec<Vec<Spectrum>>,
+        matrices: Vec<Vec<f64>>,
+        neighbors: Vec<Vec<(usize, Vec<f64>)>>,
+    ) -> Result<Self, CmfdError> {
+        let blocks = matrices
+            .into_iter()
+            .zip(&cells)
+            .map(|(a, &cell)| Lu::new(a, groups).ok_or(CmfdError::Singular(cell)))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
-            groups: ng,
-            cells: orbits.representatives.clone(),
-            sizes: orbits.sums(&vec![1.0; orbits.index.len()]),
-            flux: phi,
+            groups,
+            cells,
+            sizes,
+            flux,
             fission,
             blocks,
             neighbors,
@@ -603,10 +629,17 @@ impl Coarse {
 
     /// 固有値問題を `k` から解き始め、k と [代表のセル][群] の中性子束の比（解 / 均質化した中性子束、
     /// どちらも生成率 1 に規格化）を返す。
-    ///
+    pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
+        self.solve_gauss_seidel(k, options)
+    }
+
     /// べき乗法の各反復で、ブロック Gauss-Seidel をセルの順に1回だけ行う。収束すると
     /// Gauss-Seidel でも解が変わらないので、内側の反復を収束させなくても固有値問題の解になる。
-    pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
+    fn solve_gauss_seidel(
+        &self,
+        k: f64,
+        options: &CmfdOptions,
+    ) -> Result<(f64, Vec<f64>), CmfdError> {
         let ng = self.groups;
         let cells = self.blocks.len();
         // 生成率はすべてのセルの和（代表のセルは組のセルの数だけ数える）
