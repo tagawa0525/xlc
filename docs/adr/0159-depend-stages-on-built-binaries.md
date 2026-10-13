@@ -120,7 +120,7 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
 ## 確認
 
 測ったのは main の 0268e5aa のソース（ツールチェーン 1.99.0、ホームの設定は sccache、clang、mold）で、2026-10-14。
-`NIX_NO_SELF_RPATH` を足したあとの測定は、0268e5aa にこのブランチの adf77759 の devShell の変更を当てたもの。
+`NIX_NO_SELF_RPATH` を足したあとの測定は、0268e5aa にこのブランチの 5d3c25ca の devShell の変更を当てたもの。
 
 (a) 同じコミットを、パスの違う 2 つの worktree（`xlc-feat-0159-dvc-binary-deps` と、一時の `xlc-tmp-0159-repro`）で、
 それぞれの直下から `nix develop -c cargo build --release` した。xs はバイト 25、lattice と core はバイト 577 から違った。
