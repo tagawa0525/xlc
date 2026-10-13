@@ -143,7 +143,7 @@ pub fn homogenize(
 /// 少数群定数を作る（ADR-0095）。返す定数はノードの順。
 ///
 /// - 断面積は、ノードの領域だけで反応率を保存する。拡散係数は、ノードの4辺がすべて外周の鏡面反射の辺
-///   （格子全体が1つのノード）か、領域がすべて1つの媒質（`media` は領域ごとの印。ADR-0141）なら B1、ほかは、核分裂の
+///   （格子全体が1つのノード）か、領域がすべて1つの核分裂のある媒質（`media` は領域ごとの印。ADR-0141）なら B1、ほかは、核分裂の
 ///   あるノードではノードの領域の中性子流で重みづけした outflow、
 ///   核分裂のないノードでは Koebke の等価理論の D（正味の中性子流の向きの2つの面の不連続因子をそろえる。
 ///   ADR-0104）。`k_inf` は格子の k
@@ -378,12 +378,15 @@ pub(crate) fn node_references(
             .flat_map(|cell| lattice.cell_regions(cell))
             .collect();
         let whole = neighbors[n].iter().all(Option::is_none);
-        // 領域がすべて1つの媒質のノードは、その媒質の B1 の D（単一集合体の格子の D と同じ。ADR-0141）。中性子流の
-        // 重みは、反射体の隣でノードの中の向きが変わると打ち消して定まらない
+        // 領域がすべて1つの核分裂のある媒質のノードは、その媒質の B1 の D（単一集合体の格子の D と同じ。ADR-0141）。
+        // 中性子流の重みは、反射体の隣でノードの中の向きが変わると打ち消して定まらない。核分裂のない媒質のノードは、
+        // 媒質でないノードと同じく後で Koebke の D を中性子流の重みの D から探す（ADR-0104、ADR-0134）
         let one_medium = regions.iter().all(|&r| media[r])
             && regions
                 .iter()
-                .all(|&r| std::ptr::eq(materials[r], materials[regions[0]]));
+                .all(|&r| std::ptr::eq(materials[r], materials[regions[0]]))
+            && is_fissile(&materials[regions[0]].nu_fission)
+                .map_err(|e| HomogenizeError::Nodes(format!("node {n}: {e}")))?;
         let (mut few, average) = constants(
             solution,
             materials,
