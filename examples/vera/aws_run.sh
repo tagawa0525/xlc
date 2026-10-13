@@ -187,6 +187,11 @@ else
   read_launch_env "$name"
   openmc=$(launch_env_value OPENMC) python=$(launch_env_value PYTHON) awscli=$(launch_env_value AWSCLI)
   closure=$(launch_env_value CLOSURE) library=$(launch_env_value LIBRARY)
+  all_jobs=()
+  for input in "${RUN_INPUTS[@]}"; do all_jobs+=("$(job_name "$input")"); done
+  for want in "${jobs[@]}"; do
+    grep -Fxq -- "$want" <<< "$(printf '%s\n' "${all_jobs[@]}")" || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
+  done
   require_public_awscli "$awscli"
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   # 指定のない --type、--max-hours、--sync-minutes は、最後の起動の記録の値を使う（起動し直しで黙って設定を変えない）
@@ -197,6 +202,7 @@ else
     last_keys=$(grep -E -- "-($pattern)\.env\$" <<< "$last_keys" || true)
   fi
   last_key=$(tail -1 <<< "$last_keys")
+  [[ -n $last_key ]] || ((${#jobs[@]} == 0)) || echo "警告: --job のジョブに起動の記録がないので、既定の設定で起動する（--type などで指定する）" >&2
   if [[ -n $last_key ]]; then
     last=$(aws s3 cp "s3://$XLC_BUCKET/$last_key" -)
     type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
@@ -210,15 +216,10 @@ else
   todo=()
   restart_flags=()
   stuck=0
-  all_jobs=()
-  for input in "${RUN_INPUTS[@]}"; do all_jobs+=("$(job_name "$input")"); done
-  for want in "${jobs[@]}"; do
-    printf '%s\n' "${all_jobs[@]}" | grep -Fxq -- "$want" || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
-  done
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
     # --job があれば、それ以外のジョブは対象にしない（状態も示さない）
-    ((${#jobs[@]} == 0)) || printf '%s\n' "${jobs[@]}" | grep -Fxq -- "$job" || continue
+    ((${#jobs[@]} == 0)) || grep -Fxq -- "$job" <<< "$(printf '%s\n' "${jobs[@]}")" || continue
     code=$(job_done "$name" "$job")
     if [[ $code == 0 ]]; then
       echo "$job: 完了"
