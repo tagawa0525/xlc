@@ -22,7 +22,7 @@ openmc=/nix/store/00000000000000000000000000000000-openmc-0.15.2
 python=/nix/store/11111111111111111111111111111111-python3-env
 awscli=/nix/store/22222222222222222222222222222222-awscli2-2.35.11
 args=(us-east-2 xlc-openmc-test trial openmc-3A trials/aws/openmc-3A.toml)
-tail_args=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli")
+tail_args=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli" "")
 
 fresh=$(aws_user_data "${args[@]}" 0 "${tail_args[@]}")
 restart=$(aws_user_data "${args[@]}" 1 "${tail_args[@]}")
@@ -150,12 +150,12 @@ rejects() { # <名前> <引数>...
   if aws_user_data "$@" > /dev/null 2>&1; then fail "$name: 受け付けた"; fi
 }
 rejects "再開が 2" "${args[@]}" 2 "${tail_args[@]}"
-rejects "最長の分が 0" "${args[@]}" 0 0 300 lib nix "$openmc" "$python" "$awscli"
-rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python" "$awscli"
+rejects "最長の分が 0" "${args[@]}" 0 0 300 lib nix "$openmc" "$python" "$awscli" ""
+rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python" "$awscli" ""
 rejects "空白を含む入力" us-east-2 xlc-openmc-test trial openmc-3A 'a b.toml' 0 "${tail_args[@]}"
 rejects "引数が足りない" "${args[@]}" 0 840
 
-# 起動し直しで statepoint の間隔を上書きする（ADR-0168）。実装の前なので、呼ばずに置く（skip）
+# 起動し直しで statepoint の間隔を上書きする（ADR-0168）
 interval_tests() {
   local fresh_50 restart_50 base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli")
   fresh_50=$(aws_user_data "${args[@]}" 0 "${base[@]}" 50)
@@ -166,6 +166,8 @@ interval_tests() {
   rejects "間隔が 0" "${args[@]}" 0 "${base[@]}" 0
   rejects "間隔が数でない" "${args[@]}" 0 "${base[@]}" 5x
 }
+
+interval_tests
 
 if ((failures)); then
   echo "$failures 件の失敗" >&2
