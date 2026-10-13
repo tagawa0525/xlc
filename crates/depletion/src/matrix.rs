@@ -54,6 +54,10 @@ impl DepletionMatrix {
             }
             let start = col_ptr[col];
             for (k, (&row, &value)) in row_idx[start..].iter().zip(&values[start..]).enumerate() {
+                // 1 つずつは有限でも、同じ位置の和があふれうる
+                if !value.is_finite() {
+                    return Err(DepletionError::NonFiniteEntry { row, col, value });
+                }
                 if row == col {
                     if value > 0.0 {
                         return Err(DepletionError::PositiveLoss {
