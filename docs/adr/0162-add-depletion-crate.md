@@ -1,8 +1,8 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-14
 requires: [ADR-0001, ADR-0002, ADR-0003, ADR-0007, ADR-0025, ADR-0034, ADR-0159, ADR-0160]
-supersedes: []
+supersedes: [ADR-0002]
 superseded-by:
 issues: []
 ---
@@ -65,9 +65,14 @@ crates/depletion を作り、この ADR を accepted にするときに結ぶ。
 crates/depletion を足すブランチで、直下の dvc.yaml の `build` を実行して `bin/` の実行ファイルが変わらないことを確かめる
 （Cargo.lock の共有の依存が変わらないことを含む）。lattice と core が依存するブランチでも同じく、xs が変わらないことを確かめる。
 
+crates/depletion を足したブランチ（feat/cram-depletion-solver、main の 321efe1c に rebase したもの、2026-10-14）では、Cargo.lock の
+共有の依存の版は変わらなかったが、3 つの実行ファイルの md5 がすべて変わった。ワークスペースの全体のビルドで共有の依存の
+feature が統合されるため（候補。num-complex に faer-traits の `bytemuck` が足される）で、案 B の但し書きの「依存の変更」に
+あたる。扱いは #0114 で決める。
+
 ## 帰結
 
 - `xlc-depletion` は CRAM の実装（計画の「進め方」4）で作る。lattice の燃焼（5）で lattice が、core の燃焼（7）で core が依存する
-- accepted にするときに、docs/plans/architecture.md の共通のクレートの一覧と [ADR-0002](0002-keep-stage-crates-independent.md) へのリンクを直す
+- 依存を足すときに実行ファイルが変わる問題は #0114
 - 段階の間で共有する計算の扱いは [ADR-0003](0003-extract-shared-computation-on-second-use.md)、燃焼チェーンの作り方は [ADR-0034](0034-build-full-depletion-chain.md)
 - 共通のクレートをさらに足すときは、この ADR を置き換えて一覧を直す
