@@ -12,7 +12,7 @@
 #              done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のないジョブは飛ばして示し、1 で終わる
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
-#   --sync-minutes  S3 に同期する間隔（既定 5）
+#   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
 #   --dry-run  S3 に置かず起動もせず、ジョブごとの起動の引数（aws の --dry-run で検証）と user-data の要約を出す
 # バケットは XLC_BUCKET（既定 xlc-openmc-118645514640）、インスタンスプロファイルは xlc-openmc-vm。
 set -euo pipefail
@@ -20,9 +20,9 @@ here=$(dirname "$0")
 
 usage() { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
-type=c7a.4xlarge
-max_hours=14
-sync_minutes=5
+type=
+max_hours=
+sync_minutes=
 name=""
 inputs=()
 while (($#)); do
@@ -39,7 +39,7 @@ while (($#)); do
 done
 [[ -n $name ]] || { usage; exit 2; }
 [[ $name =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "name は英小文字、数字、- だけ: $name" >&2; exit 2; }
-[[ $max_hours =~ ^[1-9][0-9]*$ && $sync_minutes =~ ^[1-9][0-9]*$ ]] ||
+[[ $max_hours =~ ^([1-9][0-9]*)?$ && $sync_minutes =~ ^([1-9][0-9]*)?$ ]] ||
   { echo "--max-hours と --sync-minutes は正の整数" >&2; exit 2; }
 # shellcheck source=aws_common.sh
 source "$here/aws_common.sh"
@@ -50,10 +50,22 @@ run_prefix=s3://$XLC_BUCKET/runs/$name
 # VM はバケットと同じリージョンで起動する（VM と S3 の間の転送を無料にし、user-data の AWS CLI のリージョンを合わせる）
 bucket_region=$(aws s3api get-bucket-location --bucket "$XLC_BUCKET" --query LocationConstraint --output text)
 [[ $bucket_region != None ]] || bucket_region=us-east-1
-[[ $bucket_region == "$AWS_DEFAULT_REGION" ]] ||
-  { echo "バケット $XLC_BUCKET は $bucket_region、起動のリージョンは $AWS_DEFAULT_REGION（AWS_DEFAULT_REGION を合わせる）" >&2; exit 1; }
+# AWS CLI は AWS_REGION を AWS_DEFAULT_REGION より先に読む
+launch_region=${AWS_REGION:-$AWS_DEFAULT_REGION}
+[[ $bucket_region == "$launch_region" ]] ||
+  { echo "バケット $XLC_BUCKET は $bucket_region、起動のリージョンは $launch_region（AWS_REGION か AWS_DEFAULT_REGION を合わせる）" >&2; exit 1; }
 
 # VM は AWS CLI を cache.nixos.org から取る（自前の cache は AWS CLI がないと取れない）。なければ VM は S3 に何も置けずに止まる
+# 標準入力の TOML（入力）から、<key> = <値> の行の値を読む。値は <正規表現> の形（と行末のコメント）に限り、それ以外の書き方
+# （2_500、複数行など。TOML として正しくても）は読み違えないよう止まる。読むのは起動の前の確認だけで、VM は tomllib で読む
+input_value() { # <名前（表示用）> <key> <値の正規表現>
+  local line
+  line=$(grep -E "^$2[[:space:]]*=" || true)
+  [[ $(wc -l <<< "$line") == 1 && $line =~ ^$2[[:space:]]*=[[:space:]]*($3)[[:space:]]*(#.*)?$ ]] ||
+    { echo "$1: $2 の行を読めません（$line）" >&2; exit 1; }
+  echo "${BASH_REMATCH[1]}"
+}
+
 require_public_awscli() {
   nix path-info --store https://cache.nixos.org "$1" > /dev/null 2>&1 ||
     { echo "$1 が cache.nixos.org にありません（VM が AWS CLI を取れない）" >&2; exit 1; }
@@ -84,7 +96,8 @@ if ((${#inputs[@]})); then
     [[ -n $(job_script "$(job_name "$input")") ]] ||
       { echo "$input: Problem 3（openmc-3?）か 5-2D（openmc-5?-2D）の入力ではありません" >&2; exit 1; }
     # VM に置くのは examples/vera/openmc-library だけなので、入力の cross-sections はそこを指すこと
-    xs=$(sed -n 's/^cross-sections *= *"\(.*\)"$/\1/p' "$input")
+    xs=$(input_value "$input" cross-sections '"[^"\\]*"' < "$input")
+    xs=${xs//\"/}
     [[ $(realpath -m "$(dirname "$input")/$xs") == "$(realpath examples/vera/openmc-library/cross_sections.xml)" ]] ||
       { echo "$input: cross-sections（$xs）が examples/vera/openmc-library/cross_sections.xml を指しません" >&2; exit 1; }
     jobs+=("$(job_name "$input")")
@@ -159,6 +172,15 @@ else
   closure=$(launch_env_value CLOSURE) library=$(launch_env_value LIBRARY)
   require_public_awscli "$awscli"
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
+  # 指定のない --type、--max-hours、--sync-minutes は、最後の起動の記録の値を使う（起動し直しで黙って設定を変えない）
+  last_key=$(s3_keys "runs/$name/launches/" | sort | tail -1)
+  if [[ -n $last_key ]]; then
+    last=$(aws s3 cp "s3://$XLC_BUCKET/$last_key" -)
+    type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
+    max_hours=${max_hours:-$(sed -n 's/^MAX_HOURS=//p' <<< "$last")}
+    sync_minutes=${sync_minutes:-$(sed -n 's/^SYNC_MINUTES=//p' <<< "$last")}
+    echo "最後の起動（${last_key##*/}）の設定を引き継ぐ（指定がなければ）"
+  fi
   todo=()
   restart_flags=()
   stuck=0
@@ -186,8 +208,7 @@ else
     batches=
     if [[ -n $latest ]]; then
       src_input=$(aws s3 cp "$run_prefix/src/$input" -)
-      batches=$(sed -n 's/^batches *= *\([0-9]*\).*/\1/p' <<< "$src_input")
-      [[ -n $batches ]] || { echo "$run_prefix/src/$input に batches がありません" >&2; exit 1; }
+      batches=$(input_value "$run_prefix/src/$input" batches '[1-9][0-9]*' <<< "$src_input")
     fi
     if [[ -n $batches && $latest == "statepoint.$batches.h5" ]]; then
       echo "$job: 最後の世代の statepoint があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
@@ -207,18 +228,17 @@ else
   ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit "$stuck"; }
 fi
 
+# 既定（ADR-0155）。起動し直しでは、指定も記録もないときだけ
+type=${type:-c7a.4xlarge}
+max_hours=${max_hours:-14}
+sync_minutes=${sync_minutes:-5}
 ami=$(ubuntu_ami)
 echo "AMI: $ami、タイプ: $type、最長 $max_hours 時間、同期 $sync_minutes 分ごと"
 
 if ((!dry)); then
-  # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作る道具と AMI はこの起動のもの）。途中の run-instances が
-  # 失敗しても、先に起動した VM の記録が残るように、起動の前に置く
   # user-data を作ったこのスクリプトのチェックアウト（作業ディレクトリでなく）
   tools=$(git -C "$here" rev-parse HEAD)
   [[ -z $(git -C "$here" status --porcelain) ]] || tools="$tools-dirty"
-  printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOBS="%s"\nRESTART="%s"\n' "$tools" "$ami" "$type" \
-    "$max_hours" "$sync_minutes" "${todo[*]}" "${restart_flags[*]}" |
-    aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ).env"
 fi
 
 for i in "${!todo[@]}"; do
@@ -243,6 +263,10 @@ for i in "${!todo[@]}"; do
   else
     id=$(aws ec2 run-instances "${args[@]}")
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
+    # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作る道具、AMI、機種はこの起動のもの）。起動できたものだけ書く
+    printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOB=%s\nRESTART=%s\nINSTANCE=%s\n' "$tools" "$ami" \
+      "$type" "$max_hours" "$sync_minutes" "$job" "${restart_flags[$i]}" "$id" |
+      aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%S.%NZ)-$job.env"
   fi
 done
 ((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
