@@ -88,7 +88,7 @@ M4 の前に決めてあるもの:
   （I-133、I-134、Nd-149、Pm-150、Te-131 など、短寿命の核分裂生成物が多い）。最初の範囲がほかの形式のものは、MLBW 347、
   Reich-Moore 49、R-matrix limited 10、非分離共鳴だけ 31、共鳴のデータなし 68（合わせて 557。2 つ目以降の範囲は数えていない）。R-matrix limited は一部だけを再構成する
   （[ADR-0055](../adr/0055-reconstruct-r-matrix-limited-subset.md)）。MF6 の角度のデータは入れない（[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）、運動学のしきい値から反応を始める（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
-  ADR で決める: 縮約した鎖の核種で読めないものの扱い（NRO と、ADR-0055 が再構成しない R-matrix limited の範囲の実装か、鎖からの除外か）
+  ADR で決める: 縮約した鎖の核種で読めないものの扱い（NRO と、ADR-0055 が再構成しない R-matrix limited の範囲の実装か、鎖からの除外か）。縮約した鎖のうち読めない核種は #0116 で挙げる
 - ライブラリの大きさ: examples/vera/dvc.lock の `xs` の段階の出力 vera.msgpack は 55 核種で 123 MB（ポイントワイズの断面積と、
   複数の温度を含む）。同じ割合なら 300 核種で約 0.7 GB（見積もり）。核分裂生成物の多くは自己遮蔽が小さいので、
   ポイントワイズを持たせる核種を絞れる見込み。ADR で決める: ポイントワイズの断面積と σ0 の表を持たせる核種の基準
