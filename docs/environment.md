@@ -157,7 +157,8 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
    電源が切れると終了する。時間切れでも statepoint は S3 にあるので、`aws_run.sh <名前>` で続けられる
 2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot.log`）、`done` の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る
    （`trap finish EXIT`）。user-data が途中で失敗したら、その終了コードを `done` に書く。SIGTERM（スポットの回収、最長時間の
-   shutdown、手元からの終了）と同期の失敗では `done` を置かず、中断として起動し直せる
+   shutdown、手元からの終了）と同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM では `boot.log` も置かれないことがある
+   （確認で、手元から終了したときは置かれなかった）
 3. Nix を入れる（試走と同じ Determinate の installer）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。クロージャを
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
 4. 再開なら、S3 の `runs/<名前>/<ジョブ>/` を作業ディレクトリに戻す。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
@@ -196,7 +197,8 @@ c7a.large のスポットで、examples/vera/aws-check/openmc-3A.toml（粒子 1
 - `aws_fetch.sh --verify --delete` で SHA256SUMS と手元の extract が一致し、S3 の `runs/<名前>/` が消えた
 - statepoint 100 が S3 に写ったあと手元から終了し、`aws_run.sh <名前>` で起動し直すと、statepoint 100 から再開して完了した。k は
   途中で止めなかった実行と一致した
-- 費用は 4 台、合わせて約 21 分で約 $0.013（c7a.large のスポット $0.0365/時間）
+- レビューの修正のあと（xlc のコミット 7a172cb0）、終了と起動し直しをもう一度通した。VM が走っている間の起動し直しは、そのジョブを飛ばした
+- 費用は 6 台、合わせて約 31 分で約 $0.02（c7a.large のスポット $0.0365/時間）
 
 ### ツールを使う手順
 
