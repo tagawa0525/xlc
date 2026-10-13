@@ -922,7 +922,7 @@ def loading_of(designs: dict[tuple[int, int], str], size: int) -> list[list[str]
 
 def used_lattices(files: dict[str, str]) -> tuple[list[str], list[tuple[str, str]]]:
     """炉心の入力（炉心の形と台帳の `layers`）が読む、単一集合体の格子の種類と、反射体の格子の（形, 集合体の種類）"""
-    used = {f for name, text in files.items() for f in layer_files(text)}
+    used = {f for text in files.values() for f in layer_files(text)}
     singles = sorted(d for d in assembly_types() if f"lattice/{d}.msgpack" in used)
     lattices = sorted(
         (shape, d)
@@ -932,6 +932,15 @@ def used_lattices(files: dict[str, str]) -> tuple[list[str], list[tuple[str, str
             f"lattice/{reflector_stem(shape, d)}{n}.msgpack" in used for n, *_ in nodes
         )
     )
+    made = {f"lattice/{d}.msgpack" for d in singles} | {
+        f"lattice/{reflector_stem(shape, d)}{n}.msgpack"
+        for shape, d in lattices
+        for n, *_ in LATTICE_NODES[shape]
+    }
+    if missing := sorted(used - made):
+        raise SystemExit(
+            f"the core inputs read lattices that no stage writes: {missing}"
+        )
     return singles, lattices
 
 
