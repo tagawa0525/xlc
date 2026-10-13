@@ -55,7 +55,7 @@ ADR-0159 は、計算の段階の deps をビルドした実行ファイル（`b
 
 ## 確認
 
-main の 06706725 と refactor/0089-move-tests の 851fa11a（06706725 の上）を、それぞれ `scripts/build-binaries.sh`（ADR-0159
+main の 06706725 と refactor/0089-move-tests の dd0aef10（06706725 の上）を、それぞれ `scripts/build-binaries.sh`（ADR-0159
 の版）でビルドして比べた（2026-10-14）。
 
 - strip しない md5: main は xs `8376dbec…`、lattice `bfe45232…`、core `2f204012…`（main の `dvc.lock` と同じ）、#0089 は
