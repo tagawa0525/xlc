@@ -31,9 +31,46 @@ job_name() {
   basename "$1" .toml
 }
 
-# S3 の runs/<name>/<job>/done の中身（run と extract の終了コード）。なければ空
+# バケットの <接頭辞> で始まるキーを 1 行ずつ。ないときは何も出さず、S3 に届かないなどの失敗では止まる
+# （aws s3 ls は「ない」と失敗のどちらも 1 で終わり、区別できない）
+s3_keys() {
+  local out
+  out=$(aws s3api list-objects-v2 --bucket "$XLC_BUCKET" --prefix "$1" --query 'Contents[].Key' --output text) ||
+    { echo "s3://$XLC_BUCKET/$1 を一覧できません" >&2; exit 1; }
+  [[ $out == None ]] || tr '\t' '\n' <<< "$out"
+}
+
+# S3 の runs/<name>/<job>/done の中身（run と extract の終了コード）。なければ空。読めなければ止まる
+# （呼ぶ側は code=$(job_done ...) の代入で受け、失敗を set -e で止める）
 job_done() {
-  aws s3 cp "s3://$XLC_BUCKET/runs/$1/$2/done" - 2> /dev/null || true
+  local key=runs/$1/$2/done keys
+  keys=$(s3_keys "$key")
+  if grep -qxF "$key" <<< "$keys"; then
+    aws s3 cp "s3://$XLC_BUCKET/$key" - || { echo "s3://$XLC_BUCKET/$key を読めません" >&2; exit 1; }
+  fi
+}
+
+# S3 の runs/<name>/<job>/run/ の statepoint のうち最新のファイル名。なければ空
+job_latest_statepoint() {
+  local keys
+  keys=$(s3_keys "runs/$1/$2/run/statepoint.")
+  sed -n 's#.*/\(statepoint\.[0-9]*\.h5\)$#\1#p' <<< "$keys" | sort -t. -k2 -n | tail -1
+}
+
+# ジョブの名前から、run と extract を行うスクリプト（run_remote.sh の case と同じ対応。VM の上では run_remote.sh が選ぶ）。
+# 知らない名前なら空
+job_script() {
+  case $1 in
+    openmc-3?) echo examples/vera/openmc_model_3d.py ;;
+    openmc-5?-2D) echo examples/vera/openmc_core_2d.py ;;
+  esac
+}
+
+# Ubuntu 24.04 の最新の AMI（このアカウントは SCP で SSM の公開パラメータが引けないので describe-images）
+ubuntu_ami() {
+  aws ec2 describe-images --owners 099720109477 \
+    --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
+    --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text
 }
 
 # ~/.ssh/config の「# BEGIN xlc-aws <host>」から「# END xlc-aws <host>」までを消す（なければ何もしない）

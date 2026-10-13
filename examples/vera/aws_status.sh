@@ -26,14 +26,13 @@ mapfile -t runs < <(aws s3 ls "s3://$XLC_BUCKET/runs/" | sed -n 's#^ *PRE \(.*\)
 ((${#runs[@]})) || echo "ありません"
 for run in "${runs[@]}"; do
   # launch.env がない実行（置いている途中か失敗）は、read_launch_env が止めるので、先に確かめる
-  aws s3 ls "s3://$XLC_BUCKET/runs/$run/launch.env" > /dev/null 2>&1 || { echo "$run: launch.env がありません"; continue; }
+  keys=$(s3_keys "runs/$run/launch.env")
+  [[ -n $keys ]] || { echo "$run: launch.env がありません"; continue; }
   read_launch_env "$run"
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
     code=$(job_done "$run" "$job")
-    # 最初の同期の前は run/ がなく、aws s3 ls が 1 で終わる
-    listing=$(aws s3 ls "s3://$XLC_BUCKET/runs/$run/$job/run/" 2> /dev/null || true)
-    last=$(sed -n 's/.* \(statepoint\.[0-9]*\.h5\)$/\1/p' <<< "$listing" | sort -t. -k2 -n | tail -1)
+    last=$(job_latest_statepoint "$run" "$job")
     echo "$run/$job: done ${code:-なし}、最新の statepoint ${last:-なし}"
   done
 done
