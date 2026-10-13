@@ -31,21 +31,33 @@ fn samples() -> Vec<[f64; 3]> {
     out
 }
 
-/// 内挿した飛程と、格子点ごとに求めた飛程の相対差の最大（リングの組と試料について）
-fn worst(table: &TrackTable) -> f64 {
-    let cell = cell();
+/// 内挿した飛程 T[j][i] と格子点ごとに求めた飛程 W[i][j] の差。真空でない列は衝突確率の差 |ΔW_ij| Σ_j / V_i、
+/// 真空の列はその列の最大の飛程との比（黒い燃料の奥のリングからの飛程は 1e-20 の程度になり、相対差では比べられない）
+fn difference(sigma: &[f64], got: &[Vec<f64>], exact: &[Vec<f64>]) -> f64 {
+    let volumes = cell().volumes();
+    let totals = totals(sigma);
     let mut worst: f64 = 0.0;
-    for s in samples() {
-        let exact = cell.tracks(&totals(&s)).unwrap();
-        let got = table.tracks(&s);
-        for i in 0..RADII.len() {
-            for j in 0..RADII.len() {
-                let d = (got[j][i] - exact[i][j]).abs() / exact[i][j].abs();
-                worst = worst.max(d);
-            }
+    for (i, v) in volumes.iter().enumerate() {
+        for (j, &t) in totals.iter().enumerate() {
+            let d = (got[j][i] - exact[i][j]).abs();
+            let scale = if t > 0.0 {
+                v / t
+            } else {
+                exact.iter().map(|row| row[j]).fold(0.0, f64::max)
+            };
+            worst = worst.max(d / scale);
         }
     }
     worst
+}
+
+/// 試料の全断面積の組での [`difference`] の最大
+fn worst(table: &TrackTable) -> f64 {
+    let cell = cell();
+    samples()
+        .iter()
+        .map(|s| difference(s, &table.tracks(s), &cell.tracks(&totals(s)).unwrap()))
+        .fold(0.0, f64::max)
 }
 
 #[test]
@@ -82,19 +94,8 @@ fn tracks_at_the_nodes_are_the_cell_tracks() {
     let cell = cell();
     let table = TrackTable::new(&cell, CLASSES.to_vec(), &RANGES, DEFAULT_DENSITY).unwrap();
     for s in [[0.3, 0.25, 1.2], [3000.0, 2.0, 1.6]] {
-        let exact = cell.tracks(&totals(&s)).unwrap();
-        let got = table.tracks(&s);
-        for i in 0..RADII.len() {
-            for j in 0..RADII.len() {
-                let d = (got[j][i] - exact[i][j]).abs() / exact[i][j].abs();
-                assert!(
-                    d <= 1e-12,
-                    "{s:?} ({i}, {j}): {} vs {}",
-                    got[j][i],
-                    exact[i][j]
-                );
-            }
-        }
+        let d = difference(&s, &table.tracks(&s), &cell.tracks(&totals(&s)).unwrap());
+        assert!(d <= 1e-12, "{s:?}: {d}");
     }
 }
 
@@ -105,9 +106,8 @@ fn constant_materials_need_no_axis() {
     let ranges = [[0.3, 3000.0], [0.9, 0.9], [1.4, 1.4]];
     let table = TrackTable::new(&cell, CLASSES.to_vec(), &ranges, DEFAULT_DENSITY).unwrap();
     let s = [3000.0, 0.9, 1.4];
-    let exact = cell.tracks(&totals(&s)).unwrap();
-    let got = table.tracks(&s);
-    assert!((got[5][0] - exact[0][5]).abs() <= 1e-12 * exact[0][5]);
+    let d = difference(&s, &table.tracks(&s), &cell.tracks(&totals(&s)).unwrap());
+    assert!(d <= 1e-12, "{d}");
 }
 
 #[test]
