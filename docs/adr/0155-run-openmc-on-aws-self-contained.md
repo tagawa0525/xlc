@@ -4,7 +4,7 @@ date: 2026-10-13
 requires: [ADR-0151]
 supersedes: []
 superseded-by:
-issues: ["#0106", "#0107"]
+issues: ["#0106", "#0107", "#0109"]
 ---
 
 # ADR-0155: Run OpenMC on AWS self-contained with user-data, S3 and self-termination
@@ -144,6 +144,8 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
   残るのは決まった間隔の同期の分。AWS CLI の取得は cache.nixos.org に頼る
 - 手元から ssh で進める道具（remote_send.sh、run_remote.sh、remote_fetch.sh、aws_launch.sh など）は残す。run_remote.sh は
   VM の中でも使う
+
+- 道具の整理（テストの書き方、重複、状態の一覧の呼び出しの数など）の残りは #0109
 
 ## 確認
 
