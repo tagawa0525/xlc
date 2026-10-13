@@ -1156,26 +1156,39 @@ fn check_state_banks(rods: &Rods, banks: &BTreeMap<String, u32>) -> Result<(), I
 }
 
 /// 位置ごと（炉心の形の図の行と列）の、制御棒の先端の高さ (cm) と型の区間。`banks` が `None` なら棒を入れない
-/// （`Layout::new` の並び。状態ごとの並びは `Layout::with_banks`）
+/// （`Layout::new` の並び。状態ごとの並びは `Layout::with_banks`）。棒の位置のバンクの位置か型がなければエラー
 #[allow(clippy::type_complexity)]
 fn rod_tips<'a>(
     plant: &'a Plant,
     banks: Option<&BTreeMap<String, u32>>,
-) -> Vec<Vec<Option<(f64, &'a [(String, f64)])>>> {
+) -> Result<Vec<Vec<Option<(f64, &'a [(String, f64)])>>>, InputError> {
     let rows = plant.map.len();
     let cols = plant.map.first().map_or(0, Vec::len);
     let (Some(rods), Some(banks)) = (&plant.rods, banks) else {
-        return vec![vec![None; cols]; rows];
+        return Ok(vec![vec![None; cols]; rows]);
     };
     rods.map
         .iter()
         .map(|row| {
             row.iter()
                 .map(|bank| {
-                    let bank = bank.as_ref()?;
-                    let steps = f64::from(*banks.get(bank)?);
-                    let kind = rods.types.get(rods.banks.get(bank)?)?;
-                    Some((rods.bottom + steps * rods.step, kind.as_slice()))
+                    let Some(bank) = bank else {
+                        return Ok(None);
+                    };
+                    let steps = banks
+                        .get(bank)
+                        .ok_or_else(|| InputError::Invalid(format!("bank {bank} has no step")))?;
+                    let kind = rods
+                        .banks
+                        .get(bank)
+                        .and_then(|t| rods.types.get(t))
+                        .ok_or_else(|| {
+                            InputError::Invalid(format!("bank {bank} has no rod type"))
+                        })?;
+                    Ok(Some((
+                        rods.bottom + f64::from(*steps) * rods.step,
+                        kind.as_slice(),
+                    )))
                 })
                 .collect()
         })
@@ -1238,7 +1251,7 @@ impl Layout {
             ));
         }
         // 制御棒の先端の高さ（位置ごと、上の行から）と型の区間
-        let rod_tips = rod_tips(plant, banks);
+        let rod_tips = rod_tips(plant, banks)?;
         let rows = plant.map.len();
         let cols = plant.map.first().map_or(0, Vec::len);
         if cycle.loading.len() != rows || cycle.loading.iter().any(|r| r.len() != cols) {
