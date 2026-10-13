@@ -2,7 +2,7 @@
 
 statepoint には実行する前に定義したタリーしか入らないので、xlc と細かく比べるのに要る量を、問題の種類ごとに決まった
 組としてすべての参照解に入れる。組の中身（名前、フィルタ、スコア）を変えたら `VERSION` を上げる。タリーの名前は
-`standard-<版>/<名前>` で、statepoint、summary.h5、model.xml（tallies）から版が分かる。
+`standard-<版>/<名前>` で、statepoint、summary.h5、段階の model.xml（`openmc-1B-model` の出力。ADR-0136）から版が分かる。
 
 群は xlc のライブラリの群構造（WIMS 69 群）の下と上に、範囲の外の 2 つのビン（0〜1e-5 eV と 10 MeV〜1e10 eV）を足した
 71 のビン（`XLC_BINS`。昇順）。細かい群は ECCO 1968 群（`FINE_BINS`。範囲の外は数えない）。
