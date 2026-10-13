@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# タグ Name が <name>（または <name>-N）のインスタンスを終了し、terminated を待って ~/.ssh/config の Host を消す
+# タグ Name が <name>（または <name>-N）のインスタンスと、aws_run.sh の実行 <name> のインスタンス（タグ XlcRun が <name>）を終了し、terminated を待って ~/.ssh/config の Host を消す
 # （docs/environment.md の「外部の計算機（AWS）」）。EBS は DeleteOnTermination で消える。
 #
 # 使い方: examples/vera/aws_terminate.sh [--dry-run] <name>
@@ -20,16 +20,16 @@ while (($#)); do
 done
 [[ -n $name ]] || { sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
-# <name> または <name>-<数字> に厳密に一致するものだけ（xlc で xlc-ssh-test を巻き込まない）
+# <name> または <name>-<数字> に厳密に一致するものと、XlcRun が <name> のものだけ（xlc で xlc-ssh-test を巻き込まない）
 ids=()
 hosts=()
-while read -r id host; do
-  [[ $host == "$name" || $host =~ ^$name-[0-9]+$ ]] || continue
+while read -r id host run; do
+  [[ $host == "$name" || $host =~ ^$name-[0-9]+$ || $run == "$name" ]] || continue
   ids+=("$id")
   hosts+=("$host")
 done < <(aws ec2 describe-instances --filters "Name=tag:Name,Values=$name,$name-*" \
   "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value]' --output text)
+  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,Tags[?Key==`XlcRun`]|[0].Value]' --output text)
 echo "対象: ${ids[*]:-なし}（${hosts[*]:-}）"
 ((dry)) && exit 0
 if ((${#ids[@]})); then
