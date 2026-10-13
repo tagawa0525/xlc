@@ -1,0 +1,7 @@
+# C5G7（2D）を OpenMC の多群モードで解く入力（openmc_model.py）。1 世代 100 万粒子・400 世代、最初の 100 世代を捨て、
+# 乱数の種 2（examples/c5g7/verification.md）。スレッド数は docs/environment.md の値。
+particles = 1000000
+batches = 400
+inactive = 100
+seed = 2
+threads = 16
