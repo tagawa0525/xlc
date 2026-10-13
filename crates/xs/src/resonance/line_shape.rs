@@ -4,6 +4,8 @@
 //! ψ(x, θ) = √π (θ/2) Re w(θx/2 + iθ/2)（θ → ∞ で 1/(1 + x²)）。
 //! J(β, θ) = ∫₀^∞ ψ/(ψ + β) dx、K(β, θ) = ∫₀^∞ ψ(ψ + 2β)/(ψ + β)² dx。
 
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
 use num_complex::Complex64;
 
 use super::quadrature::gauss_kronrod;
@@ -76,17 +78,63 @@ fn table() -> Result<&'static JkTable, NumericError> {
         let betas: Vec<f64> = (0..n_beta)
             .map(|i| 10f64.powf(LOG_BETA.0 + STEP * i as f64))
             .collect();
-        let (mut ln_j, mut ln_k) = (Vec::new(), Vec::new());
-        for t in 0..n_theta {
-            let theta = 10f64.powf(LOG_THETA.0 + STEP * t as f64);
-            for (j, k) in jk_integrals(&betas, theta)? {
-                ln_j.push(j.ln());
-                ln_k.push(k.ln());
-            }
-        }
+        // θ の行は互いに独立に積分するので、並列に作っても各点の値はスレッド数によらない（行どうしで和を取らない）
+        let rows = in_parallel(n_theta, |t| {
+            jk_integrals(&betas, 10f64.powf(LOG_THETA.0 + STEP * t as f64))
+        })?;
+        let (ln_j, ln_k) = rows
+            .iter()
+            .flatten()
+            .map(|&(j, k)| (j.ln(), k.ln()))
+            .unzip();
         Ok(JkTable { n_beta, ln_j, ln_k })
     });
     table.as_ref().map_err(Clone::clone)
+}
+
+/// `f(i)`（i = 0..n）を、物理コアの数（ADR-0067。このプロセスに許された CPU の数で抑える）のスレッドで並列に求め、
+/// i の順に並べて返す。
+/// 行の重さは θ で違うので、各スレッドは次の i を共有のカウンタから取る。
+/// rayon を使わないのは、`OnceLock` の初期化の中で rayon のプールを待つと止まりうるため（#0088）。
+///
+/// エラーが出たら、各スレッドは次に i を取る前にそれを見て止まる（見たあとに取った i は、スレッドごとに多くとも 1 つ
+/// 余分に求める）。返すのは i の最も小さいエラーで、カウンタは増える一方なので、エラーの i より小さい i はすべて
+/// 取られて最後まで求められており、返すエラーはスレッドの進み方によらない。
+fn in_parallel<T: Send, E: Send>(
+    n: usize,
+    f: impl Fn(usize) -> Result<T, E> + Sync,
+) -> Result<Vec<T>, E> {
+    let allowed = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+    let threads = num_cpus::get_physical().min(allowed).min(n);
+    let next = AtomicUsize::new(0);
+    let failed = AtomicBool::new(false);
+    let mut done: Vec<(usize, Result<T, E>)> = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..threads)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut done = Vec::new();
+                    while !failed.load(Ordering::Relaxed) {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        if i >= n {
+                            break;
+                        }
+                        let value = f(i);
+                        if value.is_err() {
+                            failed.store(true, Ordering::Relaxed);
+                        }
+                        done.push((i, value));
+                    }
+                    done
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap_or_else(|e| std::panic::resume_unwind(e)))
+            .collect()
+    });
+    done.sort_unstable_by_key(|&(i, _)| i);
+    done.into_iter().map(|(_, value)| value).collect()
 }
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
