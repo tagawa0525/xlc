@@ -2,10 +2,12 @@
 //!
 //! 使い方: survey_neutrons <中性子の ENDF のディレクトリ> <燃焼鎖の msgpack> [スレッド数]
 //!
-//! 評価ごとに 1 行（タブ区切り）を書く: 核種、燃焼鎖にあるか、範囲（LRU/LRF/NRO/NAPS と el〜eh）、xs の読み込みの結果。
-//! 読み込みは、0 K のポイントワイズの再構成（MF2 と MF3）、`process_nuclide` が読む MF1 MT452、MF4、MF5、MF6、
-//! 分離共鳴の上端とポテンシャル散乱、非分離共鳴の自己遮蔽（VERA のライブラリの最も低い温度 565 K、無限希釈の 1 点）までで、多群の処理は走らせない。
-//! 最後に、最初の範囲の形式、NRO ≠ 0 の範囲、読めない理由ごとの数を書く。
+//! 評価ごとに 1 行（タブ区切り）を書く: ファイル、燃焼鎖の核種の名前（なければ `-`）、範囲（LRU/LRF/NRO/NAPS と el〜eh）、
+//! xs の読み込みの結果。読み込みは、`process_nuclide` が多群の処理の前に読むもの（`read_evaluation`。0 K の再構成、MF1 MT452、
+//! MF3〜6）、分離共鳴の上端とポテンシャル散乱、非分離共鳴の自己遮蔽（VERA の燃料の温度 565、600、900、1200 K と、
+//! examples/vera/xs.toml の σ0 の 9 点）までで、散乱行列と群定数は作らない。
+//! 最後に、最初の範囲の形式、NRO ≠ 0 の範囲、読めない理由ごとの数を書く。非分離共鳴の自己遮蔽が時間の大半で、557 評価に
+//! 6 スレッドで約 1 時間かかる（2026-10-14、ほかの計算と重なった実行）ので、Slurm で流す。
 //!
 //! MF2 の範囲の見出しは、xs の `Mf2::parse`（読めない形式でエラーにして止まる）を通さずに、レコードを読み飛ばして
 //! すべての範囲について集める。
@@ -15,13 +17,20 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use xlc_xs::endf::{Mf4, Mf5, Mf6, Reader, Tape, parse_nubar};
-use xlc_xs::multigroup::{Emission, emits_neutrons, uses_angular};
-use xlc_xs::pointwise::{ColdParts, DEFAULT_TOLERANCE};
-use xlc_xs::process::{resolved, unresolved_shielding};
+use xlc_chain::endf::read_material;
+use xlc_depletion::chain::Chain;
+use xlc_xs::endf::{Reader, Tape};
+use xlc_xs::pointwise::DEFAULT_TOLERANCE;
+use xlc_xs::process::{read_evaluation, resolved, unresolved_shielding};
 
-/// 核種の (Z, A, 状態)。
-type State = (i64, i64, i64);
+/// 非分離共鳴の自己遮蔽を確かめる温度 (K)。VERA の燃料の核種の温度（examples/vera/xs.toml）
+const TEMPERATURES: [f64; 4] = [565.0, 600.0, 900.0, 1200.0];
+
+/// 非分離共鳴の自己遮蔽を確かめる σ0 (barn)。examples/vera/xs.toml と同じ
+const SIGMA0: [f64; 9] = [1e10, 1e5, 1e4, 1e3, 300.0, 100.0, 30.0, 10.0, 1.0];
+
+/// 核種の (Z, A, 状態) と名前。
+type Names = BTreeMap<(u32, u32, u32), String>;
 
 /// MF2 の範囲の見出し。
 #[derive(Debug, Clone)]
@@ -54,8 +63,9 @@ impl RangeHead {
 }
 
 struct Survey {
-    name: String,
-    in_chain: bool,
+    file: String,
+    /// 燃焼鎖の核種の名前（鎖になければ `None`）
+    nuclide: Option<String>,
     ranges: Result<Vec<RangeHead>, String>,
     /// 読めない理由（読めれば空）
     failures: Vec<String>,
@@ -72,7 +82,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
     };
-    let chain = chain_states(Path::new(chain))?;
+    let chain = Chain::from_msgpack(&std::fs::read(chain)?)?;
+    let names: Names = chain
+        .nuclides
+        .iter()
+        .map(|n| ((n.z, n.a, n.state), n.name.clone()))
+        .collect();
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)?
         .map(|e| e.map(|e| e.path()))
         .collect::<Result<_, _>>()?;
@@ -87,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some(path) = files.get(i) else { break };
-                    let survey = survey(path, &chain);
+                    let survey = survey(path, &names);
                     results
                         .lock()
                         .unwrap_or_else(|e| e.into_inner())
@@ -99,7 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut results = results.into_inner().unwrap_or_else(|e| e.into_inner());
     results.sort_by_key(|(i, _)| *i);
 
-    println!("nuclide\tin_chain\tranges\tstatus");
+    println!("file\tnuclide\tranges\tstatus");
     for (_, s) in &results {
         let ranges = match &s.ranges {
             Ok(r) => r.iter().map(RangeHead::label).collect::<Vec<_>>().join(" "),
@@ -110,82 +125,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             s.failures.join("; ")
         };
-        println!("{}\t{}\t{ranges}\t{status}", s.name, s.in_chain);
+        let nuclide = s.nuclide.as_deref().unwrap_or("-");
+        println!("{}\t{nuclide}\t{ranges}\t{status}", s.file);
     }
     summarize(&results.into_iter().map(|(_, s)| s).collect::<Vec<_>>());
     Ok(())
 }
 
-/// 燃焼鎖の核種の (Z, A, 状態)。
-fn chain_states(path: &Path) -> Result<Vec<State>, Box<dyn std::error::Error>> {
-    let value = xlc_format::msgpack::read_value(&std::fs::read(path)?)?;
-    let top = xlc_format::msgpack::map(&value)?;
-    let field = |entries: &[(rmpv::Value, rmpv::Value)], key: &str| {
-        entries
-            .iter()
-            .find(|(k, _)| k.as_str() == Some(key))
-            .and_then(|(_, v)| v.as_i64())
-            .ok_or_else(|| format!("chain nuclide without integer {key}"))
-    };
-    xlc_format::msgpack::array(top, "nuclides")
-        .iter()
-        .map(|n| {
-            let entries = xlc_format::msgpack::map(n)?;
-            Ok((
-                field(entries, "z")?,
-                field(entries, "a")?,
-                field(entries, "state")?,
-            ))
-        })
-        .collect()
-}
-
-fn survey(path: &Path, chain: &[State]) -> Survey {
-    let name = path
+fn survey(path: &Path, names: &Names) -> Survey {
+    let file = path
         .file_stem()
         .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    let failed = |file: String, what: String| Survey {
+        file,
+        nuclide: None,
+        ranges: Err(what.clone()),
+        failures: vec![what],
+    };
     let tape = match std::fs::read_to_string(path)
         .map_err(|e| e.to_string())
         .and_then(|t| Tape::parse(&t).map_err(|e| e.to_string()))
     {
         Ok(t) => t,
-        Err(e) => {
-            return Survey {
-                name,
-                in_chain: false,
-                ranges: Err(e.clone()),
-                failures: vec![format!("tape: {e}")],
-            };
-        }
+        Err(e) => return failed(file, format!("tape: {e}")),
     };
-    let materials = tape.materials();
-    let [mat] = materials[..] else {
-        return Survey {
-            name,
-            in_chain: false,
-            ranges: Err("not one material".into()),
-            failures: vec![format!("materials {materials:?}")],
-        };
+    let material = match read_material(&tape) {
+        Ok(m) => m,
+        Err(e) => return failed(file, format!("MF1 MT451: {e}")),
     };
-    let in_chain = identity(&tape, mat).is_some_and(|id| chain.contains(&id));
-    let ranges = range_heads(&tape, mat);
-    let failures = read_failures(&tape, mat);
+    let nuclide = names
+        .get(&(material.z, material.a, material.state))
+        .cloned();
     Survey {
-        name,
-        in_chain,
-        ranges,
-        failures,
+        file,
+        nuclide,
+        ranges: range_heads(&tape, material.mat),
+        failures: read_failures(&tape, material.mat),
     }
-}
-
-/// MF1 MT451 の (Z, A, LISO)。
-fn identity(tape: &Tape, mat: i32) -> Option<State> {
-    let section = tape.section(mat, 1, 451)?;
-    let mut r = section.reader();
-    let head = r.cont().ok()?;
-    let second = r.cont().ok()?;
-    let za = head.c1.round() as i64;
-    Some((za / 1000, za % 1000, second.l2))
 }
 
 /// MF2 MT151 のすべての範囲の見出し。本体はレコードの形だけを読み飛ばす。
@@ -279,52 +255,16 @@ fn skip_range(r: &mut Reader<'_>, h: &RangeHead, lfw: i64) -> Result<(), String>
 /// xs の読み込みを順に試し、失敗したものの理由を返す。
 fn read_failures(tape: &Tape, mat: i32) -> Vec<String> {
     let mut failures = Vec::new();
-    if let Err(err) = ColdParts::read(tape, mat, DEFAULT_TOLERANCE) {
-        failures.push(format!("reconstruct: {err}"));
-    }
-    if let Some(section) = tape.section(mat, 1, 452)
-        && let Err(err) = parse_nubar(&section)
-    {
-        failures.push(format!("MF1 MT452: {err}"));
-    }
-    if let Some(section) = tape.section(mat, 5, 18)
-        && let Err(err) = Mf5::parse(&section)
-    {
-        failures.push(format!("MF5 MT18: {err}"));
-    }
-    let mut emissions = BTreeMap::new();
-    for (mt, section) in tape.sections(mat, 6) {
-        if mt != 2 && emits_neutrons(mt) {
-            match Mf6::parse(&section) {
-                Ok(mf6) => {
-                    emissions.insert(mt, Emission::Mf6(mf6));
-                }
-                Err(err) => failures.push(format!("MF6 MT{mt}: {err}")),
-            }
-        }
-    }
-    for (mt, section) in tape.sections(mat, 5) {
-        if mt != 2 && emits_neutrons(mt) && !emissions.contains_key(&mt) {
-            match Mf5::parse(&section) {
-                Ok(mf5) => {
-                    emissions.insert(mt, Emission::Mf5(mf5));
-                }
-                Err(err) => failures.push(format!("MF5 MT{mt}: {err}")),
-            }
-        }
-    }
-    for (mt, section) in tape.sections(mat, 4) {
-        if uses_angular(mt, emissions.get(&mt))
-            && let Err(err) = Mf4::parse(&section)
-        {
-            failures.push(format!("MF4 MT{mt}: {err}"));
-        }
+    if let Err(err) = read_evaluation(tape, DEFAULT_TOLERANCE) {
+        failures.push(format!("evaluation: {err}"));
     }
     if let Err(err) = resolved(tape, mat) {
         failures.push(format!("resolved top: {err}"));
     }
-    if let Err(err) = unresolved_shielding(tape, mat, 565.0, &[1e10]) {
-        failures.push(format!("unresolved: {err}"));
+    for t in TEMPERATURES {
+        if let Err(err) = unresolved_shielding(tape, mat, t, &SIGMA0) {
+            failures.push(format!("unresolved at {t} K: {err}"));
+        }
     }
     failures
 }
@@ -333,7 +273,7 @@ fn summarize(surveys: &[Survey]) {
     let count = |f: &dyn Fn(&Survey) -> bool| surveys.iter().filter(|s| f(s)).count();
     println!();
     println!("evaluations: {}", surveys.len());
-    println!("in chain: {}", count(&|s| s.in_chain));
+    println!("in chain: {}", count(&|s| s.nuclide.is_some()));
     println!("readable: {}", count(&|s| s.failures.is_empty()));
 
     let mut first = BTreeMap::<String, usize>::new();
@@ -349,7 +289,7 @@ fn summarize(surveys: &[Survey]) {
         *first.entry(key).or_default() += 1;
         for h in ranges.iter().filter(|h| h.nro != 0) {
             let key = format!("LRU={} LRF={} NRO={} NAPS={}", h.lru, h.lrf, h.nro, h.naps);
-            nro.entry(key).or_default().push(&s.name);
+            nro.entry(key).or_default().push(label(s));
         }
     }
     println!("first range:");
@@ -365,7 +305,7 @@ fn summarize(surveys: &[Survey]) {
     let mut reasons = BTreeMap::<String, Vec<&str>>::new();
     for s in surveys {
         for f in &s.failures {
-            reasons.entry(reason_class(f)).or_default().push(&s.name);
+            reasons.entry(reason_class(f)).or_default().push(label(s));
         }
     }
     println!("failures by reason:");
@@ -374,22 +314,27 @@ fn summarize(surveys: &[Survey]) {
     }
 }
 
+/// 評価の表示名（鎖の核種の名前、なければファイル）。
+fn label(s: &Survey) -> &str {
+    s.nuclide.as_deref().unwrap_or(&s.file)
+}
+
+/// 理由の分類: 行番号を除き、数（小数点と指数を含む）の並びを 1 つの `#` にまとめる。
 fn reason_class(failure: &str) -> String {
     let without_line = failure
         .split_once("line ")
         .and_then(|(head, rest)| rest.split_once(": ").map(|(_, msg)| format!("{head}{msg}")))
         .unwrap_or_else(|| failure.to_string());
-    without_line
-        .chars()
-        .map(|c| {
-            if c.is_ascii_digit() || c == '.' {
-                '#'
-            } else {
-                c
-            }
-        })
-        .collect::<String>()
-        .split("##")
-        .collect::<Vec<_>>()
-        .join("#")
+    let mut class = String::with_capacity(without_line.len());
+    let mut in_number = false;
+    for c in without_line.chars() {
+        let numeric = c.is_ascii_digit() || (in_number && matches!(c, '.' | 'e' | '-' | '+'));
+        if !numeric {
+            class.push(c);
+        } else if !in_number {
+            class.push('#');
+        }
+        in_number = numeric;
+    }
+    class
 }
