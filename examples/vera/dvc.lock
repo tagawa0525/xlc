@@ -7280,3 +7280,46 @@ stages:
       hash: md5
       md5: 498d853e22bb1f03021165e4e9dd7426
       size: 2201376
+  openmc-5A-2D-extract:
+    cmd: nix develop ../..#references -c python3 openmc_core_2d.py extract 
+      p5/openmc-5A-2D.toml ../../references/openmc/vera-5A-2D 
+      p5/openmc-5A-2D-results
+    deps:
+    - path: ../../references/openmc/vera-5A-2D/statepoint.2300.h5
+      hash: md5
+      md5: eb55feae848b52df40c1233957e48818
+      size: 104373728
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 05811a60c35fb357329770bf76c9bc8c
+      size: 4695
+    - path: ../openmc_resume.py
+      hash: md5
+      md5: 88d4dc0c68315d0cce33883531883615
+      size: 5210
+    - path: ../openmc_run.py
+      hash: md5
+      md5: b9bf01276c11f99b531ae918d93946cd
+      size: 4498
+    - path: openmc_core_2d.py
+      hash: md5
+      md5: 0daeb007412d5e452a663633a8daa834
+      size: 17340
+    - path: openmc_model.py
+      hash: md5
+      md5: ace7409d2ead2656743251ea28a0ecd4
+      size: 26730
+    - path: p5/openmc-5A-2D.toml
+      hash: md5
+      md5: 327a21d95fe0dc0a6ef6fa1c9a5adfd1
+      size: 679
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    outs:
+    - path: p5/openmc-5A-2D-results
+      hash: md5
+      md5: 18eb1cfa6705b3d3f406150a71d41770.dir
+      size: 1176258
+      nfiles: 5
