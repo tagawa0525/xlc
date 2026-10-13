@@ -218,8 +218,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 3a0a30affc26805760577dda847e4368
-      size: 3868840
+      md5: e97a1b3bf44909effc882c6be5728e68
+      size: 3924224
       isexec: true
     - path: assembly-3A.toml
       hash: md5
@@ -248,8 +248,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 3a0a30affc26805760577dda847e4368
-      size: 3868840
+      md5: e97a1b3bf44909effc882c6be5728e68
+      size: 3924224
       isexec: true
     - path: axial-3A-16.toml
       hash: md5
@@ -271,8 +271,8 @@ stages:
       nfiles: 25
     - path: axial-3A-16.log
       hash: md5
-      md5: 135ca4b098ae2f4dcf2e86af1916ed0a
-      size: 120764
+      md5: 49b3cf55b016d06d5b6595741339e417
+      size: 119882
     - path: axial-3A-16.out
       hash: md5
       md5: c54714742ed756ca180559c6079fb575
@@ -283,8 +283,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 3a0a30affc26805760577dda847e4368
-      size: 3868840
+      md5: e97a1b3bf44909effc882c6be5728e68
+      size: 3924224
       isexec: true
     - path: axial-3A-32.toml
       hash: md5
@@ -306,8 +306,8 @@ stages:
       nfiles: 41
     - path: axial-3A-32.log
       hash: md5
-      md5: a9ddfd825c951b170f45d3f519fbd7b0
-      size: 155760
+      md5: b5fd4f7cf2fde892637fd9bed49d3c28
+      size: 154879
     - path: axial-3A-32.out
       hash: md5
       md5: c54714742ed756ca180559c6079fb575
@@ -318,8 +318,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 3a0a30affc26805760577dda847e4368
-      size: 3868840
+      md5: e97a1b3bf44909effc882c6be5728e68
+      size: 3924224
       isexec: true
     - path: axial-3A-fine.toml
       hash: md5
@@ -336,8 +336,8 @@ stages:
     outs:
     - path: axial-3A-fine.log
       hash: md5
-      md5: 308b7b2aa132373bed8e8f82afb25412
-      size: 121183
+      md5: 6ad40c3ee5383aa21ff0fd0492762113
+      size: 120297
     - path: axial-3A-fine.out
       hash: md5
       md5: 31491656b965a3a2963e083b39d3fbe6
@@ -392,8 +392,8 @@ stages:
     deps:
     - path: axial-3A-16.log
       hash: md5
-      md5: 135ca4b098ae2f4dcf2e86af1916ed0a
-      size: 120764
+      md5: 49b3cf55b016d06d5b6595741339e417
+      size: 119882
     - path: compare_axial.py
       hash: md5
       md5: 4f88660ac0c3526724741123ef086009
@@ -456,8 +456,8 @@ stages:
     deps:
     - path: axial-3A-16.log
       hash: md5
-      md5: 135ca4b098ae2f4dcf2e86af1916ed0a
-      size: 120764
+      md5: 49b3cf55b016d06d5b6595741339e417
+      size: 119882
     - path: compare_axial.py
       hash: md5
       md5: 4f88660ac0c3526724741123ef086009
@@ -533,8 +533,8 @@ stages:
     deps:
     - path: axial-3A-32.log
       hash: md5
-      md5: a9ddfd825c951b170f45d3f519fbd7b0
-      size: 155760
+      md5: b5fd4f7cf2fde892637fd9bed49d3c28
+      size: 154879
     - path: compare_axial.py
       hash: md5
       md5: 4f88660ac0c3526724741123ef086009
@@ -597,8 +597,8 @@ stages:
     deps:
     - path: axial-3A-32.log
       hash: md5
-      md5: a9ddfd825c951b170f45d3f519fbd7b0
-      size: 155760
+      md5: b5fd4f7cf2fde892637fd9bed49d3c28
+      size: 154879
     - path: compare_axial.py
       hash: md5
       md5: 4f88660ac0c3526724741123ef086009
@@ -674,8 +674,8 @@ stages:
     deps:
     - path: axial-3A-fine.log
       hash: md5
-      md5: 308b7b2aa132373bed8e8f82afb25412
-      size: 121183
+      md5: 6ad40c3ee5383aa21ff0fd0492762113
+      size: 120297
     - path: compare_axial.py
       hash: md5
       md5: 4f88660ac0c3526724741123ef086009
@@ -738,8 +738,8 @@ stages:
     deps:
     - path: axial-3A-fine.log
       hash: md5
-      md5: 308b7b2aa132373bed8e8f82afb25412
-      size: 121183
+      md5: 6ad40c3ee5383aa21ff0fd0492762113
+      size: 120297
     - path: compare_axial.py
       hash: md5
       md5: 4f88660ac0c3526724741123ef086009
@@ -776,8 +776,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 3a0a30affc26805760577dda847e4368
-      size: 3868840
+      md5: e97a1b3bf44909effc882c6be5728e68
+      size: 3924224
       isexec: true
     - path: reflector-corner.toml
       hash: md5
@@ -810,7 +810,7 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 8fc3e0709078685061f844af0ca15e1f
+      md5: d414f61d40b29cdbd6c5819e27eeb5bd
       size: 23170
     - path: reflector-corner.out
       hash: md5
@@ -876,8 +876,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: 3a0a30affc26805760577dda847e4368
-      size: 3868840
+      md5: e97a1b3bf44909effc882c6be5728e68
+      size: 3924224
       isexec: true
     - path: reflector-I.toml
       hash: md5
@@ -902,8 +902,8 @@ stages:
       size: 2683
     - path: reflector-I.log
       hash: md5
-      md5: a9edba91248b35e082c461c48b9477cb
-      size: 17470
+      md5: 4bb39cfe7d1e1d0fd61bb2a900c86d34
+      size: 17471
     - path: reflector-I.out
       hash: md5
       md5: 9f5197d46e1bbb740378d4c0649f108e
@@ -1043,7 +1043,7 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 8fc3e0709078685061f844af0ca15e1f
+      md5: d414f61d40b29cdbd6c5819e27eeb5bd
       size: 23170
     outs:
     - path: compare-corner.out
@@ -1081,7 +1081,7 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 8fc3e0709078685061f844af0ca15e1f
+      md5: d414f61d40b29cdbd6c5819e27eeb5bd
       size: 23170
     outs:
     - path: compare-corner-I.out
@@ -1120,7 +1120,7 @@ stages:
       size: 2683
     - path: reflector-corner.log
       hash: md5
-      md5: 8fc3e0709078685061f844af0ca15e1f
+      md5: d414f61d40b29cdbd6c5819e27eeb5bd
       size: 23170
     outs:
     - path: compare-corner-outline.out
