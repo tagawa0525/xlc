@@ -36,27 +36,40 @@ NIX=/nix/var/nix/profiles/default/bin
 WORK=/var/lib/xlc
 OUT=results/$job
 
-# 同期: done と boot.log は finish が最後に置く（S3 に done があれば、ほかのファイルはすべて置いてある）
+# 同期: done と boot.log は finish が最後に置く（S3 に done があれば、ほかのファイルはすべて置いてある）。
+# READY（作業ディレクトリが S3 の内容を含むようになった）までは同期しない。再開で S3 から戻す前に --delete でコピーすると、
+# S3 の statepoint を消すため。60 秒以内に書かれた最新の statepoint は、OpenMC が書いている途中でありうるのでコピーしない
+READY=0
 sync_out() {
-  [[ -d \$WORK/\$OUT ]] || return 0
-  "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\$WORK/\$OUT" "\$PREFIX"
+  ((READY)) || return 0
+  local newest skip=()
+  newest=\$(ls "\$WORK/\$OUT/run" 2> /dev/null | grep -E '^statepoint\.[0-9]+\.h5\$' | sort -t. -k2 -n | tail -1 || true)
+  if [[ -n \$newest ]] && ((\$(date +%s) - \$(stat -c %Y "\$WORK/\$OUT/run/\$newest") < 60)); then
+    skip=(--exclude "run/\$newest")
+  fi
+  "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\${skip[@]}" "\$WORK/\$OUT" "\$PREFIX"
 }
 # 終わるときに、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
 # この user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も含む）に置く。
 # SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）では書かず、中断として aws_run.sh で起動し直せるようにする。
 # SIGTERM のときの同期とログは、シャットダウンの途中で間に合わないことがある（確かめた範囲では置かれなかった）。中断で残るのは
-# 決まった間隔の同期の分。同期に失敗したら、S3 の結果がそろわないので done を置かない
+# 決まった間隔の同期の分。同期に 3 回失敗したら、S3 の結果がそろわないので done を置かない
 finish() {
-  local code=\$? synced=0
-  # ここで止まると電源が切れないので、途中の失敗では止めない
+  local code=\$? synced=0 try
+  # ここで止まると電源が切れないので、途中の失敗では止めない。シャットダウンで tee が先に消えても、
+  # 出力の SIGPIPE で止まらない
   set +e
+  trap '' PIPE
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
   if ((code != 0 && code != 143)); then
     mkdir -p "\$WORK/\$OUT"
     echo "\$code" > "\$WORK/\$OUT/done"
   fi
   if [[ -x \$AWS ]]; then
-    sync_out && synced=1
+    for try in 1 2 3; do
+      sync_out && { synced=1; break; }
+      sleep 10
+    done
     "\$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "\$PREFIX/boot.log" || true
     if ((synced && code != 143)); then
       "\$AWS" s3 cp --only-show-errors "\$WORK/\$OUT/done" "\$PREFIX/done" || true
@@ -85,10 +98,12 @@ USERDATA
     cat <<USERDATA
 # 再開: S3 の statepoint とログを戻す
 "\$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "\$PREFIX" "\$OUT"
+READY=1
 bash examples/vera/run_remote.sh --restart $input
 USERDATA
   else
     cat <<USERDATA
+READY=1
 bash examples/vera/run_remote.sh $input
 USERDATA
   fi
