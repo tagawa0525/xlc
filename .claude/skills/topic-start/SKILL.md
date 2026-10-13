@@ -52,6 +52,10 @@ DVC のステージが呼ぶ実行ファイルは、これとは別に `dvc repr
 cargo build --release
 ```
 
+ワークスペースの全体のビルドは、`build` の 3 つのパッケージだけのビルドと共有の依存の feature の統合が違いうるので、
+`target/release` の実行ファイルは `bin/` と同じバイトとは限らない。段階と同じ機械語が要るとき（perf、段階のパニックの
+再実行）は `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` で作り直す（ADR-0163）。
+
 ## TDD のコミット
 
 テストを先に書いて、失敗することを確かめてからコミットする。実装は別のコミットにする。
