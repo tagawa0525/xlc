@@ -456,6 +456,10 @@ enum Solver {
 /// 代表のセル c の隣が c − 1 と c + 1 だけの結合（1 行か 1 列の格子）。行列はブロック三重対角になる。
 #[derive(Debug, Clone)]
 struct Chain {
+    /// 群の数
+    groups: usize,
+    /// [代表] のセル（エラーの表示用）
+    cells: Vec<usize>,
     /// [代表] の対角のブロック A_c（群×群、行優先）
     matrices: Vec<Vec<f64>>,
     /// [代表][群] の c − 1 との結合の係数（c = 0 では 0）
@@ -470,7 +474,7 @@ impl Chain {
     /// [代表] の対角のブロック `matrices` と隣との結合 `neighbors`（`Coarse` と同じ形）から作る
     fn new(
         groups: usize,
-        cells_of: &[usize],
+        cells_of: Vec<usize>,
         matrices: Vec<Vec<f64>>,
         neighbors: &[Vec<(usize, Vec<f64>)>],
     ) -> Result<Self, CmfdError> {
@@ -495,14 +499,15 @@ impl Chain {
                 }
             }
         }
-        let ng = groups;
         let z_matrix = lower.iter().chain(&upper).all(|&a| a <= 0.0)
             && matrices.iter().all(|a| {
                 a.iter()
                     .enumerate()
-                    .all(|(index, &v)| index / ng == index % ng || v <= 0.0)
+                    .all(|(index, &v)| index / groups == index % groups || v <= 0.0)
             });
         Ok(Self {
+            groups,
+            cells: cells_of,
             matrices,
             lower,
             upper,
@@ -513,22 +518,16 @@ impl Chain {
     /// A − μ F（F は [代表] の核分裂源 χ νΣf）をブロック LU に分解する。対角のブロック S_c = B_c − L_c X_(c−1)
     /// （B_c = A_c − μ F_c、L_c は c − 1 との結合の対角行列）の LU 分解と、X_c = S_c⁻¹ U_c（U_c は c + 1 との結合の
     /// 対角行列）を持つ
-    fn factor(
-        &self,
-        groups: usize,
-        fission: &[Vec<Spectrum>],
-        shift: f64,
-        cells: &[usize],
-    ) -> Result<ChainFactors, CmfdError> {
-        let ng = groups;
+    fn factor(&self, fission: &[Vec<Spectrum>], shift: f64) -> Result<ChainFactors, CmfdError> {
+        let ng = self.groups;
         let n = self.matrices.len();
         let mut pivots = Vec::with_capacity(n);
         let mut eliminations: Vec<Vec<f64>> = Vec::with_capacity(n - 1);
         let mut column = vec![0.0; ng];
-        for c in 0..n {
-            let mut s = self.matrices[c].clone();
+        for (c, (matrix, spectra)) in self.matrices.iter().zip(fission).enumerate() {
+            let mut s = matrix.clone();
             if shift != 0.0 {
-                for spectrum in &fission[c] {
+                for spectrum in spectra {
                     for (i, x) in spectrum.chi.iter().enumerate() {
                         for (j, f) in spectrum.nu_fission.iter().enumerate() {
                             s[i * ng + j] -= shift * x * f;
@@ -544,7 +543,7 @@ impl Chain {
                     }
                 }
             }
-            let lu = Lu::new(s, ng).ok_or(CmfdError::Singular(cells[c]))?;
+            let lu = Lu::new(s, ng).ok_or(CmfdError::Singular(self.cells[c]))?;
             if c + 1 < n {
                 let mut x = vec![0.0; ng * ng];
                 for (j, u) in self.upper[c * ng..][..ng].iter().enumerate() {
@@ -566,8 +565,8 @@ impl Chain {
     }
 
     /// `b`（[代表][群]）を (A − μ F) φ = b の解 φ で置き換える
-    fn substitute(&self, groups: usize, factors: &ChainFactors, b: &mut [f64]) {
-        let ng = groups;
+    fn substitute(&self, factors: &ChainFactors, b: &mut [f64]) {
+        let ng = self.groups;
         let n = factors.pivots.len();
         for c in 0..n {
             if c > 0 {
@@ -787,7 +786,7 @@ impl Coarse {
         // 代表が 1 つなら Gauss-Seidel の 1 回が直接解法と同じ。2 次元の格子は、対称性で代表がチェーンになっても
         // Gauss-Seidel のまま（ADR-0158）
         let solver = if line && cells.len() >= 2 {
-            Solver::Chain(Chain::new(groups, &cells, matrices, &neighbors)?)
+            Solver::Chain(Chain::new(groups, cells.clone(), matrices, &neighbors)?)
         } else {
             let blocks = matrices
                 .into_iter()
@@ -844,6 +843,7 @@ impl Coarse {
         options: &CmfdOptions,
     ) -> Result<(f64, Vec<f64>), CmfdError> {
         if !chain.z_matrix {
+            tracing::debug!("coarse-mesh matrix is not a Z-matrix; solving unshifted");
             return self.inverse_iteration(chain, k, 0.0, options);
         }
         let shift = 1.0 / (k * (1.0 + WIELANDT));
@@ -870,7 +870,7 @@ impl Coarse {
         let start = self.production(&self.flux);
         let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
         let mut k = k;
-        let factors = chain.factor(ng, &self.fission, shift, &self.cells)?;
+        let factors = chain.factor(&self.fission, shift)?;
         let mut k_history = Remaining::default();
         let mut flux_history = Remaining::default();
         let mut next = vec![0.0; cells * ng];
@@ -885,7 +885,7 @@ impl Coarse {
                     }
                 }
             }
-            chain.substitute(ng, &factors, &mut next);
+            chain.substitute(&factors, &mut next);
             // 割る前の解が正であることを確かめる（負の生成率で割ると、負の解も正に見える）
             let rate = self.production(&next);
             let new_k = 1.0 / (shift + 1.0 / rate);
