@@ -70,8 +70,11 @@ core: fe2d8761 → 0c2b88d6）。モジュールを外すと元に戻る。依�
 - 段階の間を渡るデータファイルの型と MessagePack の厳密な読み書きは `xlc-format` に置く。ただし燃焼チェーンの型は `xlc-depletion`
   に置く（`xlc-format` に足すと、チェーンを使わない実行ファイルが変わるため）。燃焼のソルバ（[ADR-0161](0161-solve-depletion-with-ipf-cram.md)）と、チェーンと反応率から燃焼行列を
   組み立てるコードも `xlc-depletion` に置く。`xlc-depletion` は `xlc-format` に依存してよい（MessagePack の読み書きに使う。ADR-0162 では依存しなかった）
-- チェーンのファイル: フィールド名付きの map 形式の MessagePack（[ADR-0011](0011-write-data-files-in-messagepack.md)）。`format` は `"xlc-chain"`。読むときは、核種の添字の
-  範囲、名前の形、核種の並び（(Z, A, 状態) の昇順）を確かめる
+- チェーンのファイル: フィールド名付きの map 形式の MessagePack（[ADR-0011](0011-write-data-files-in-messagepack.md)）。`format` は `"xlc-chain"`。書く前と読むときに、
+  核種の添字の範囲、名前と (Z, A, 状態) の一致、核種の並び（(Z, A, 状態) の昇順）、崩壊の型、分岐比の和、生成物の重なりと
+  親そのものの生成、反応の MT（(n,γ)、(n,2n)、(n,3n)、(n,4n)、(n,p)、(n,α)）と状態の重なりを確かめる。反応を生成物の状態に
+  分けるときは、1 つの反応の状態の割合を MF9 か MF10 のどちらか 1 つから取る（ENDF/B-VIII.0 の MF8 は 1 つの反応で LMF を
+  混ぜない。MF8 の LMF = 3、6 の状態は割合を与えないので、チェーンの状態にしない）
 - 段階: examples/depletion/dvc.yaml の `chain` が `bin/chain chain.toml` で `chain.msgpack`（DVC の出力。git で追跡しない）を作る。
   比べる OpenMC のチェーンは、同じ dvc.yaml の `openmc-chain` が `Chain.from_endf` で作る
 - ビルド: `scripts/build-binaries.sh` は、3 つの実行ファイルを 1 回の cargo で作ったあと（ADR-0163）、`bin/chain` を別の
@@ -84,7 +87,8 @@ core: fe2d8761 → 0c2b88d6）。モジュールを外すと元に戻る。依�
 - `xlc-chain` を足し、`bin/chain` を別の cargo で作っても 3 つの md5 が変わらないことは、`xlc-chain` を足すブランチ
   （feat/depletion-chain）のマージの前に、そのブランチの `build` で確かめる
 - チェーンの読み書き: crates/depletion/src/chain/tests.rs（`round_trips_bit_exactly`、`written_as_a_map_with_the_format_name`、
-  `rejects_another_format`、`rejects_nested_structs_written_as_arrays`、`rejects_an_omitted_decay` ほか）
+  `rejects_another_format`、`rejects_a_nested_struct_written_as_an_array`、`rejects_an_omitted_decay`、
+  `rejects_the_same_state_in_two_channels` ほか）
 - 依存の向き: 各クレートの `Cargo.toml`（`xlc-depletion` は `xlc-format` に依存し、xs、lattice、core は `xlc-depletion` に
   依存しない）。自動の検査はない
 

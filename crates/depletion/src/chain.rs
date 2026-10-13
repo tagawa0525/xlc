@@ -34,9 +34,9 @@ pub enum ChainError {
     Depletion(#[from] DepletionError),
 }
 
-/// 燃焼チェーン。核種は (z, a, state) の昇順。
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+/// 燃焼チェーン。核種は (z, a, state) の昇順。ファイルは `to_msgpack` と `from_msgpack` だけで読み書きする（形式の名前と
+/// 検査を飛ばさないため、serde の derive を持たない）。
+#[derive(Debug, Clone, PartialEq)]
 pub struct Chain {
     pub nuclides: Vec<Nuclide>,
 }
@@ -167,7 +167,7 @@ pub struct NuclideRates {
 }
 
 /// `Option` を、値か nil からだけ読む（serde の derive は、省いた `Option` を `None` にするため）。xlc-format の
-/// table.rs と library.rs にも同じ関数があるが、`xlc_format::msgpack` に移すと段階の実行ファイルが変わる（#0117）ので、
+/// table.rs に同じ関数（library.rs に型を決めた同じもの）があるが、`xlc_format::msgpack` に移すと段階の実行ファイルが変わる（#0117）ので、
 /// 移さずに持つ
 fn nil_or<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
 where
@@ -206,9 +206,9 @@ const SYMBOLS: [&str; 118] = [
     "Fl", "Mc", "Lv", "Ts", "Og",
 ];
 
-/// ADR-0015 の形の核種名（`U-235`、`Am-242m`、`Hf-178m2`）。Z が範囲の外か、A が 0 か Z より小さければ `None`。
+/// ADR-0015 の形の核種名（`U-235`、`Am-242m`、`Hf-178m2`）。Z が範囲の外か、A が Z より小さければ `None`。
 pub fn nuclide_name(z: u32, a: u32, state: u32) -> Option<String> {
-    if a < z || a == 0 {
+    if a < z {
         return None;
     }
     let symbol = SYMBOLS.get(usize::try_from(z).ok()?.checked_sub(1)?)?;
@@ -265,10 +265,14 @@ impl Chain {
         let invalid = |message: String| Err(ChainError::Invalid(message));
         for (k, nuclide) in self.nuclides.iter().enumerate() {
             // 親そのものを生む項は、行列の対角で消滅と打ち消し合う
+            // 同じ核種を 2 度挙げない（個数は count で書く）
             let products_in_range = |products: &[Product]| {
-                products
-                    .iter()
-                    .all(|p| p.nuclide < n && p.nuclide != k && p.count > 0)
+                products.iter().enumerate().all(|(i, p)| {
+                    p.nuclide < n
+                        && p.nuclide != k
+                        && p.count > 0
+                        && products[..i].iter().all(|q| q.nuclide != p.nuclide)
+                })
             };
             let name = &nuclide.name;
             let expected = nuclide_name(nuclide.z, nuclide.a, nuclide.state);
@@ -288,7 +292,10 @@ impl Chain {
                     ));
                 }
             }
-            if !(nuclide.excitation.is_finite() && nuclide.excitation >= 0.0) {
+            // 準安定状態の励起エネルギーは評価が与えないことがある（0 と書く）ので、基底状態だけを確かめる
+            if !(nuclide.excitation.is_finite() && nuclide.excitation >= 0.0)
+                || (nuclide.state == 0 && nuclide.excitation != 0.0)
+            {
                 return invalid(format!("{name}: invalid excitation {}", nuclide.excitation));
             }
             if let Some(decay) = &nuclide.decay {
@@ -323,7 +330,7 @@ impl Chain {
                     if !steps.iter().all(|s| DECAY_STEPS.contains(s)) {
                         return invalid(format!("{name}: unknown decay mode {}", mode.mode));
                     }
-                    // 自発核分裂は核を壊し、核分裂片を追わない（ADR-0034 のチェーンの規則）
+                    // 自発核分裂は核を壊し、核分裂片は追わない（核分裂片の収率の評価をチェーンの元に含めない）
                     if steps.contains(&"sf") && !mode.products.is_empty() {
                         return invalid(format!("{name}: {} has products", mode.mode));
                     }
@@ -414,6 +421,13 @@ impl Chain {
                 for table in &fission.yields {
                     if table.is_empty() {
                         return invalid(format!("{name}: an empty yield table"));
+                    }
+                    if table
+                        .iter()
+                        .enumerate()
+                        .any(|(i, y)| table[..i].iter().any(|z| z.nuclide == y.nuclide))
+                    {
+                        return invalid(format!("{name}: a yield table lists a product twice"));
                     }
                     if !table.iter().all(|y| {
                         y.nuclide < n && y.nuclide != k && y.value.is_finite() && y.value > 0.0
