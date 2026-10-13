@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # aws_*.sh が source する共通の定義（docs/environment.md の「外部の計算機（AWS）」）。単体では実行しない。
 export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
 SSH_CONFIG=${SSH_CONFIG:-$HOME/.ssh/config}
