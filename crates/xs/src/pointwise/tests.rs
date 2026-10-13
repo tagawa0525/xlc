@@ -656,3 +656,41 @@ fn r_matrix_limited_adds_level_inelastic_scattering() {
     assert!(tables[&102].eval(2.0e3).unwrap() > 0.0);
     assert!(tables[&2].eval(2.0e3).unwrap() > 1.0);
 }
+
+#[test]
+fn mlbw_tables_have_points_at_the_breaks_of_the_radius_table() {
+    use crate::endf::rec;
+    // AP(E) は 25 eV で折れる。位相シフトも折れるので、中点の判定だけでは折れ目の点が入らないことがある
+    let full = ["1.0-5", "2.0+7"];
+    let mf2: String = [
+        ["1.001000+3", "1.0", "0", "0", "1", "0"],
+        ["1.001000+3", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "5.0+1", "1", "2", "1", "0"],
+        ["0.0", "0.0", "0", "0", "1", "3"],
+        ["3", "2", "", "", "", ""],
+        ["1.0-5", "0.70", "2.5+1", "0.60", "5.0+1", "0.70"],
+        ["0.0", "0.0", "0", "0", "1", "0"],
+        ["1.0", "0.0", "0", "0", "6", "1"],
+        ["1.0+4", "0.5", "2.0-9", "1.0-9", "1.0-9", "0.0"],
+        ["", "", "", "", "", ""],
+    ]
+    .iter()
+    .enumerate()
+    .map(|(i, f)| {
+        if i == 9 {
+            rec(*f, 1, 2, 0)
+        } else {
+            rec(*f, 1, 2, 151)
+        }
+    })
+    .collect();
+    let text = [
+        mf2,
+        mf3_section(1, full, ["1.0", "1.0"]),
+        mf3_section(2, full, ["1.0", "1.0"]),
+        mf3_section(102, full, ["0.0", "0.0"]),
+    ]
+    .concat();
+    let tables = reconstruct(&Tape::parse(&text).unwrap(), 1, 1.0e-3).unwrap();
+    assert!(tables[&2].x.contains(&25.0), "{:?}", tables[&2].x);
+}

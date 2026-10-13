@@ -1,6 +1,6 @@
 //! MF2 MT151（共鳴パラメータ）セクション。
 //!
-//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）、MLBW 形式（LRU=1, LRF=2）、R-matrix limited 形式
+//! 分離共鳴の Reich-Moore 形式（LRU=1, LRF=3）、MLBW 形式（LRU=1, LRF=2。散乱半径のエネルギーの表 NRO=1 は NAPS=0 だけ）、R-matrix limited 形式
 //! （LRU=1, LRF=7。Reich-Moore で幅を与えるものだけ）、
 //! 非分離共鳴（LRU=2 の LRF=1, 2）を扱う。それ以外の形式はエラーにする。
 
@@ -46,6 +46,22 @@ pub struct ReichMoore {
     /// 透過因子に使うチャネル半径の選び方（NAPS）
     pub naps: i64,
     pub l_values: Vec<RmLValue>,
+}
+
+/// 位相シフトに使う散乱半径 (10^-12 cm)。エネルギーの表（NRO=1）があれば e での値（表の外は `None`。外挿しない）、
+/// なければ一定の `ap`。
+pub fn scattering_radius_at(ap: f64, table: Option<&Tab1>, e: f64) -> Option<f64> {
+    match table {
+        Some(table) => table.eval(e),
+        None => Some(ap),
+    }
+}
+
+impl Mlbw {
+    /// エネルギー e (eV) で位相シフトに使う散乱半径（[`scattering_radius_at`]）。
+    pub fn scattering_radius(&self, e: f64) -> Option<f64> {
+        scattering_radius_at(self.ap, self.ap_energy.as_ref(), e)
+    }
 }
 
 impl RangeKind {
@@ -122,6 +138,8 @@ pub struct Mlbw {
     pub spi: f64,
     /// 散乱半径 (10^-12 cm)
     pub ap: f64,
+    /// エネルギー依存の散乱半径（NRO=1。NAPS=0 だけ）。あれば位相シフトにはこちらを使う。範囲を覆う
+    pub ap_energy: Option<Tab1>,
     pub naps: i64,
     pub l_values: Vec<BwLValue>,
 }
@@ -241,13 +259,19 @@ impl Mf2 {
                     let cont = r.cont()?;
                     RangeKind::ScatteringRadius { ap: cont.c2 }
                 }
-                1 if nro != 0 => {
-                    return unsupported(
-                        "energy-dependent radius (NRO≠0) in the resolved range".into(),
-                    );
+                // VIII.0 で NRO≠0 の分離共鳴はどれも MLBW の NAPS=0。ほかの組み合わせは NJOY の扱いが式と
+                // 食い違い、比べる参照がないので読まない（ADR-0167）
+                1 if nro != 0 && !(lrf == 2 && nro == 1 && range.n2 == 0) => {
+                    return unsupported(format!(
+                        "energy-dependent radius (NRO={nro}) in the resolved range is supported \
+                         only for MLBW (LRF=2) with NAPS=0, got LRF={lrf} NAPS={}",
+                        range.n2
+                    ));
                 }
                 1 if lrf == 3 => RangeKind::ReichMoore(read_reich_moore(&mut r, range.n2)?),
-                1 if lrf == 2 => RangeKind::Mlbw(read_mlbw(&mut r, range.n2)?),
+                1 if lrf == 2 => {
+                    RangeKind::Mlbw(read_mlbw(&mut r, range.n2, nro, (range.c1, range.c2))?)
+                }
                 1 if lrf == 7 => RangeKind::RMatrixLimited(read_r_matrix_limited(&mut r)?),
                 1 => return unsupported(format!("resolved LRF={lrf} is not supported")),
                 2 if lrf == 1 || lrf == 2 => {
@@ -726,7 +750,33 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
     })
 }
 
-fn read_mlbw(r: &mut Reader<'_>, naps: i64) -> Result<Mlbw, Error> {
+/// MLBW の範囲 [el, eh] のパラメータ。`nro` が 1 なら、先に散乱半径の TAB1 を読む。
+fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> Result<Mlbw, Error> {
+    let ap_energy = if nro == 1 {
+        let table_line = r.line() + 1;
+        // 補間の区切りと x の並びは TAB1 を読むときに確かめる。範囲の外へ外挿しないので、範囲を覆うことを確かめる
+        let table = r.tab1()?.table;
+        let covers = matches!(
+            (table.x.first(), table.x.last()),
+            (Some(&first), Some(&last)) if first <= el && last >= eh
+        );
+        if !covers {
+            return Err(Error::new(
+                table_line,
+                format!("the scattering radius table must cover the range {el}..{eh} eV"),
+            ));
+        }
+        // 不連続では、その点の半径と、範囲の上端での内側の値が決まらない（VIII.0 の表にはない）
+        if table.x.windows(2).any(|w| w[0] == w[1]) {
+            return Err(Error::new(
+                table_line,
+                "the scattering radius table must not have discontinuities",
+            ));
+        }
+        Some(table)
+    } else {
+        None
+    };
     let cont = r.cont()?;
     let spi = cont.c1;
     let nls = usize::try_from(cont.n1)
@@ -779,6 +829,7 @@ fn read_mlbw(r: &mut Reader<'_>, naps: i64) -> Result<Mlbw, Error> {
     Ok(Mlbw {
         spi,
         ap: cont.c2,
+        ap_energy,
         naps,
         l_values,
     })

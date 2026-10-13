@@ -10,7 +10,7 @@ mod r_matrix_limited;
 mod reich_moore;
 mod unresolved;
 
-pub use mlbw::MlbwXs;
+pub use mlbw::{MlbwError, MlbwXs};
 pub use r_matrix_limited::{RMatrixLimitedXs, RmlError};
 pub use reich_moore::{ReichMooreError, ReichMooreXs};
 pub use unresolved::{
