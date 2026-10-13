@@ -147,7 +147,7 @@ fn rejects_a_zero_s_wave_radius() {
         }],
     });
     assert!(matches!(
-        s_wave_radius(&rm),
+        s_wave_radius(&rm, 2.0e4),
         Err(ProcessError::SWaveRadius(_))
     ));
 }
@@ -186,9 +186,9 @@ fn rejects_differing_s_wave_radii() {
             spin_groups: vec![group(1.0, 0.63), group(2.0, second)],
         })
     };
-    assert_eq!(s_wave_radius(&rml(0.63)).unwrap(), 0.63);
+    assert_eq!(s_wave_radius(&rml(0.63), 2.0e4).unwrap(), 0.63);
     assert!(matches!(
-        s_wave_radius(&rml(0.70)),
+        s_wave_radius(&rml(0.70), 2.0e4),
         Err(ProcessError::SWaveRadii(_))
     ));
 }
