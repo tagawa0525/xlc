@@ -145,7 +145,11 @@ impl Medium {
         GroupStructure::new(self.bounds.clone())
             .map_err(|e| MediumError::Invalid(e.to_string()))?;
         validate_axes(&self.axes).map_err(MediumError::Invalid)?;
-        let points: usize = self.axes.iter().map(|a| a.points().len()).product();
+        // 制御棒の値の定数は、平板の連続の軸の各値で同じ媒質の状態を使って作る（ADR-0128）
+        if self.axes.iter().any(|a| matches!(a, Axis::Rod { .. })) {
+            return invalid("media have no rod axis (ADR-0128)".into());
+        }
+        let points: usize = self.axes.iter().map(Axis::len).product();
         if self.states.len() != points {
             return invalid(format!(
                 "{} states for axes of {points} points in all",

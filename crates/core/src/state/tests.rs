@@ -89,7 +89,7 @@ fn close(a: f64, b: f64) -> bool {
 #[test]
 fn grid_points_return_the_lattice_states() {
     let t = table();
-    let got = interpolate(&t, Some(&state(1300.0, 580.0, 900.0)))
+    let got = interpolate(&t, Some(&state(1300.0, 580.0, 900.0)), None)
         .unwrap()
         .remove(0);
     assert_eq!(got, few(1300.0, 580.0, 900.0));
@@ -103,7 +103,7 @@ fn multilinear_quantities_are_reproduced_between_points() {
         (1291.0, 570.0, 565.0),
         (1650.0, 551.0, 899.0),
     ] {
-        let got = interpolate(&t, Some(&state(ppm, tm, tf)))
+        let got = interpolate(&t, Some(&state(ppm, tm, tf)), None)
             .unwrap()
             .remove(0);
         let want = few(ppm, tm, tf);
@@ -145,7 +145,7 @@ fn multilinear_quantities_are_reproduced_between_points() {
 fn fuel_temperature_is_interpolated_in_its_square_root() {
     // 燃料の温度だけを変えると、量は √T について線形に変わる
     let t = table();
-    let got = interpolate(&t, Some(&state(1300.0, 565.0, 700.0)))
+    let got = interpolate(&t, Some(&state(1300.0, 565.0, 700.0)), None)
         .unwrap()
         .remove(0);
     let w = (700f64.sqrt() - 550f64.sqrt()) / (900f64.sqrt() - 550f64.sqrt());
@@ -156,7 +156,7 @@ fn fuel_temperature_is_interpolated_in_its_square_root() {
 #[test]
 fn invalid_states_are_errors() {
     let t = table();
-    let err = |s: Option<&State>, table: &Table| interpolate(table, s).unwrap_err();
+    let err = |s: Option<&State>, table: &Table| interpolate(table, s, None).unwrap_err();
     // 範囲の外（外挿しない）
     assert!(err(Some(&state(800.0, 565.0, 600.0)), &t).contains("boron"));
     assert!(err(Some(&state(1300.0, 590.0, 600.0)), &t).contains("moderator"));
@@ -184,21 +184,21 @@ fn single_point_axes_need_that_value() {
         temperature: vec![550.0],
     };
     t.states = t.states.iter().step_by(2).cloned().collect();
-    let got = interpolate(&t, Some(&state(1300.0, 565.0, 550.0)))
+    let got = interpolate(&t, Some(&state(1300.0, 565.0, 550.0)), None)
         .unwrap()
         .remove(0);
     assert_eq!(got, few(1300.0, 565.0, 550.0));
-    assert!(interpolate(&t, Some(&state(1300.0, 565.0, 551.0))).is_err());
+    assert!(interpolate(&t, Some(&state(1300.0, 565.0, 551.0)), None).is_err());
 }
 
 #[test]
 fn tables_without_axes_need_no_state() {
     let single = Table::single(few(1300.0, 565.0, 565.0));
     assert_eq!(
-        interpolate(&single, None).unwrap()[0],
+        interpolate(&single, None, None).unwrap()[0],
         few(1300.0, 565.0, 565.0)
     );
-    assert!(interpolate(&single, Some(&state(1300.0, 565.0, 565.0))).is_err());
+    assert!(interpolate(&single, Some(&state(1300.0, 565.0, 565.0)), None).is_err());
 }
 
 #[test]
@@ -206,13 +206,13 @@ fn states_differing_in_pins_are_errors() {
     // テーブルの検査を経ずに作ったテーブルでも、形状関数の有無やセルが状態で違えば黙って内挿しない
     let mut t = table();
     t.states[1].pins = None;
-    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0))).unwrap_err();
+    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0)), None).unwrap_err();
     assert!(err.contains("pins"), "{err}");
     let mut t = table();
     if let Some(p) = t.states[1].pins.as_mut() {
         p.dx[0] = 1.5;
     }
-    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0))).unwrap_err();
+    let err = interpolate(&t, Some(&state(900.0, 550.0, 700.0)), None).unwrap_err();
     assert!(err.contains("pins"), "{err}");
 }
 
@@ -232,7 +232,7 @@ fn split_tables_interpolate_each_sub_node() {
             })
         })
         .collect();
-    let got = interpolate(&t, Some(&state(1291.0, 570.0, 565.0))).unwrap();
+    let got = interpolate(&t, Some(&state(1291.0, 570.0, 565.0)), None).unwrap();
     assert_eq!(got.len(), 4);
     let want = few(1291.0, 570.0, 565.0).k_inf;
     for (q, sub) in got.iter().enumerate() {
@@ -243,4 +243,69 @@ fn split_tables_interpolate_each_sub_node() {
             sub.k_inf
         );
     }
+}
+
+/// table() の軸の間（ホウ素の次）に制御棒の軸（なし、AIC、B4C）を挟んだテーブル。棒の値ごとに量を
+/// 1、0.5、0.25 倍にする
+fn rodded_table() -> Table {
+    let factors = [1.0, 0.5, 0.25];
+    let mut states = Vec::new();
+    for ppm in PPM {
+        for factor in factors {
+            for tm in TM {
+                for tf in TF {
+                    let mut f = few(ppm, tm, tf);
+                    f.absorption.iter_mut().for_each(|a| *a *= factor);
+                    states.push(f);
+                }
+            }
+        }
+    }
+    let mut t = table();
+    t.axes.insert(
+        1,
+        Axis::Rod {
+            values: vec!["out".into(), "aic".into(), "b4c".into()],
+        },
+    );
+    t.states = states;
+    t
+}
+
+#[test]
+fn rod_axes_select_the_named_value_and_out_without_a_rod() {
+    let t = rodded_table();
+    let s = state(1100.0, 560.0, 700.0);
+    let plain = interpolate(&table(), Some(&s), None).unwrap();
+    let out = interpolate(&t, Some(&s), None).unwrap();
+    let aic = interpolate(&t, Some(&s), Some("aic")).unwrap();
+    let b4c = interpolate(&t, Some(&s), Some("b4c")).unwrap();
+    for g in 0..2 {
+        let a = plain[0].absorption[g];
+        assert!(close(out[0].absorption[g], a));
+        assert!(close(aic[0].absorption[g], 0.5 * a));
+        assert!(close(b4c[0].absorption[g], 0.25 * a));
+    }
+    // 制御棒の軸のほかの量は同じ内挿
+    assert!(close(b4c[0].total[1], plain[0].total[1]));
+}
+
+#[test]
+fn rod_values_the_table_cannot_select_are_errors() {
+    let t = rodded_table();
+    let s = state(1100.0, 560.0, 700.0);
+    // 知らない値
+    assert!(interpolate(&t, Some(&s), Some("hafnium")).is_err());
+    // 制御棒の軸のないテーブルの層に棒がある（黙って棒のない値にしない）
+    assert!(interpolate(&table(), Some(&s), Some("aic")).is_err());
+    // 棒のない状態（out）を持たない軸
+    let mut always = rodded_table();
+    always.axes[1] = Axis::Rod {
+        values: vec!["aic".into(), "b4c".into(), "plenum".into()],
+    };
+    assert!(interpolate(&always, Some(&s), None).is_err());
+    assert!(interpolate(&always, Some(&s), Some("plenum")).is_ok());
+    // 軸のないテーブルは棒を選べない
+    let single = Table::single(few(1300.0, 565.0, 565.0));
+    assert!(interpolate(&single, None, Some("aic")).is_err());
 }

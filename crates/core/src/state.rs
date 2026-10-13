@@ -2,10 +2,11 @@
 //!
 //! 軸ごとに隣の2点で線形に内挿する（ホウ素濃度は ppm、減速材は温度、燃料は √T）。格子点の範囲の外はエラーにし、
 //! 外挿しない。点が1つの軸は、状態がその値に等しいときだけ使える。状態を与えるときはテーブルが3つの軸をすべて
-//! 持ち、与えないときは軸のないテーブルだけを使う。
+//! 持ち、与えないときは軸のないテーブルだけを使う。制御棒の離散の軸は内挿せず、値の名前で選ぶ（棒がなければ
+//! `out`。ADR-0127）。
 
 use xlc_format::fewgroup::{FewGroup, Pins};
-use xlc_format::table::{Axis, Table};
+use xlc_format::table::{Axis, ROD_OUT, Table};
 
 /// テーブルを内挿する炉心の状態（ケースの状態 `input::CaseState` のホウ素濃度を決めたもの。ADR-0145、ADR-0146）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -180,9 +181,21 @@ fn add(acc: &mut [f64], w: f64, x: &[f64]) {
 }
 
 /// テーブルを炉心の状態で内挿した、部分ノードごと（`Table::states` の部分ノードの順。分けていなければ1つ）の少数群
-/// 定数。`state` が `None` なら、軸のないテーブルの状態をそのまま返す。
-pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>, String> {
+/// 定数。`state` が `None` なら、軸のないテーブルの状態をそのまま返す。`rod` は制御棒の区間の材料の名前で、`None`
+/// は棒のない区間（制御棒の軸があれば `out` を選ぶ）。棒のある区間は、その値を持つ制御棒の軸が要る。
+pub fn interpolate(
+    table: &Table,
+    state: Option<&State>,
+    rod: Option<&str>,
+) -> Result<Vec<FewGroup>, String> {
     let sub = table.sub_nodes();
+    if let Some(rod) = rod
+        && !table.axes.iter().any(|a| matches!(a, Axis::Rod { .. }))
+    {
+        return Err(format!(
+            "the rod value {rod:?} is in a layer whose table has no rod axis"
+        ));
+    }
     let Some(state) = state else {
         if !table.axes.is_empty() {
             return Err(
@@ -217,6 +230,17 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>
                 bracket("moderator", temperature, state.moderator, |x| x)?
             }
             Axis::Fuel { temperature } => bracket("fuel", temperature, state.fuel, f64::sqrt)?,
+            Axis::Rod { values } => {
+                let wanted = rod.unwrap_or(ROD_OUT);
+                let i = values.iter().position(|v| v == wanted).ok_or_else(|| {
+                    format!("rod: the table has the values {values:?}, not {wanted:?}")
+                })?;
+                Bracket {
+                    low: i,
+                    high: i,
+                    weight: 0.0,
+                }
+            }
         });
     }
 
@@ -230,7 +254,7 @@ pub fn interpolate(table: &Table, state: Option<&State>) -> Result<Vec<FewGroup>
         let mut weight = 1.0;
         for (k, (axis, b)) in table.axes.iter().zip(&brackets).enumerate() {
             let upper = corner >> (brackets.len() - 1 - k) & 1 == 1;
-            index = index * axis.points().len() + if upper { b.high } else { b.low };
+            index = index * axis.len() + if upper { b.high } else { b.low };
             weight *= if upper { b.weight } else { 1.0 - b.weight };
         }
         if weight == 0.0 {

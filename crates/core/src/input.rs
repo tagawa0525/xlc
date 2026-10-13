@@ -13,6 +13,17 @@
 //! # 層ごとの少数群定数。径方向の真空の比 r を持たない定数（軸方向の反射体のスラブの定数）の層は、真空の面を
 //! # Marshak の条件にすることを `vacuum = "marshak"` で明示する（ADR-0132）
 //! layers = [{ file = "water.msgpack", vacuum = "marshak" }, "reflector.msgpack"]
+//! # 制御棒（ADR-0127。棒のない炉心は書かない）。先端の高さは bottom + ステップ × step (cm)
+//! [rods]
+//! step = 1.5875                # 1 ステップの長さ (cm)
+//! bottom = 17.031              # 0 ステップの先端の高さ (cm)
+//! steps = 230                  # 最大のステップ
+//! top = 448.711                # 棒の区間を切る高さ (cm)。上の層のテーブルは制御棒の軸を持たない（ADR-0128）
+//! map = [".  ."]               # `map` と同じ行と列。`*` の位置にバンクの名前か `.`
+//! [rods.bank.D]
+//! type = "rcca"
+//! [rods.type.rcca]             # 先端から上への区間: テーブルの制御棒の軸の値と長さ (cm)
+//! segments = [{ value = "aic", length = 101.6 }, { value = "b4c", length = 259.08 }]
 //! ```
 //!
 //! 台帳（サイクルをまたいで追記する）:
@@ -60,6 +71,12 @@
 //! fuel = 565
 //! # 範囲 (ppm。両端の k が目標を挟む)、目標の k、|k − 目標| の許容、固有値計算の回数の上限（両端を含む）
 //! search = { boron = [1100.0, 1400.0], k = 1.0, tolerance = 1.0e-6, max-solves = 20 }
+//! # 炉心の形に制御棒があれば、どの状態にもバンクの位置（ステップ）をすべて書く（ADR-0127）:
+//! # banks = { D = 167 }
+//! # 部分挿入のノードの扱い（ADR-0127。省略すると中性子束の重みと ADR-0127 の細かいメッシュの幅）
+//! [partial-rods]
+//! weighting = "flux"   # flux（ADR-0127）か volume（採らなかった体積の重み。比べるときだけで、fine-mesh は書かない）
+//! fine-mesh = 0.25     # 細かいメッシュの幅の上限 (cm)
 //! ```
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -68,8 +85,10 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use xlc_format::fewgroup::{FewGroup, Pins};
+use xlc_format::table::ROD_OUT;
 
 use crate::nem::{Boundary, Mesh, Problem, Solution};
+use crate::rods::{PartialNode, Segment, Weighting};
 use crate::state::State;
 
 /// 入力ファイルの読み込みエラー。
@@ -260,6 +279,27 @@ pub struct Plant {
     pub reflectors: BTreeMap<String, Column>,
     /// 上の行（+y）から
     pub map: Vec<Vec<Site>>,
+    /// 制御棒の位置、バンク、型（ADR-0127）。棒のない炉心は `None`
+    pub rods: Option<Rods>,
+}
+
+/// 炉心の形の制御棒（ADR-0127）。位置 (cm) は下の炉心の端からの高さ。
+#[derive(Debug, Clone, PartialEq)]
+pub struct Rods {
+    /// 1 ステップの長さ (cm)
+    pub step: f64,
+    /// 0 ステップの先端の高さ (cm)
+    pub bottom: f64,
+    /// 最大のステップ（全引き抜き）
+    pub steps: u32,
+    /// 棒の区間を切る高さ (cm)。その上の層のテーブルは制御棒の軸を持たない（ADR-0128 の「制御棒の軸」）
+    pub top: f64,
+    /// 上の行（+y）から、位置ごとのバンクの名前（棒のない位置は `None`）
+    pub map: Vec<Vec<Option<String>>>,
+    /// バンク → 型の名前
+    pub banks: BTreeMap<String, String>,
+    /// 型 → 先端から上への区間（制御棒の軸の値の名前、長さ (cm)）
+    pub types: BTreeMap<String, Vec<(String, f64)>>,
 }
 
 #[derive(Deserialize)]
@@ -270,6 +310,134 @@ struct PlantFile {
     map: Vec<String>,
     #[serde(default)]
     reflector: BTreeMap<String, ColumnEntry>,
+    rods: Option<RodsFile>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RodsFile {
+    step: f64,
+    bottom: f64,
+    steps: u32,
+    top: f64,
+    map: Vec<String>,
+    bank: BTreeMap<String, BankEntry>,
+    #[serde(rename = "type")]
+    types: BTreeMap<String, RodTypeEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BankEntry {
+    #[serde(rename = "type")]
+    kind: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RodTypeEntry {
+    segments: Vec<RodSegmentEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RodSegmentEntry {
+    value: String,
+    length: f64,
+}
+
+impl Rods {
+    /// 制御棒の入力を確かめて読む。`sites` は炉心の形の図
+    fn new(file: RodsFile, sites: &[Vec<Site>]) -> Result<Self, InputError> {
+        if !(file.step > 0.0 && file.step.is_finite()) || file.steps == 0 {
+            return invalid(format!(
+                "rods: step must be positive and steps at least 1, got {} cm and {}",
+                file.step, file.steps
+            ));
+        }
+        if !(file.bottom.is_finite() && file.top.is_finite() && file.top > file.bottom) {
+            return invalid(format!(
+                "rods: bottom and top must be finite with top above bottom, got {} and {}",
+                file.bottom, file.top
+            ));
+        }
+        let mut types = BTreeMap::new();
+        for (name, entry) in file.types {
+            check_name("rod type", &name)?;
+            let segments: Vec<(String, f64)> = entry
+                .segments
+                .into_iter()
+                .map(|s| (s.value, s.length))
+                .collect();
+            if segments.is_empty()
+                || segments.iter().any(|(value, length)| {
+                    !(*length > 0.0 && length.is_finite())
+                        || value.is_empty()
+                        || value == ROD_OUT
+                        || value.chars().any(char::is_whitespace)
+                })
+            {
+                return invalid(format!(
+                    "rod type {name}: needs segments of positive lengths whose values are names \
+                     other than {ROD_OUT:?}"
+                ));
+            }
+            types.insert(name, segments);
+        }
+        let mut banks = BTreeMap::new();
+        for (name, entry) in file.bank {
+            check_name("bank", &name)?;
+            if !types.contains_key(&entry.kind) {
+                return invalid(format!("bank {name}: unknown rod type {:?}", entry.kind));
+            }
+            banks.insert(name, entry.kind);
+        }
+        let cells = split_rows("rods map", &file.map)?;
+        if cells.len() != sites.len() || cells.iter().zip(sites).any(|(c, s)| c.len() != s.len()) {
+            return invalid("rods map must have the rows and columns of the plant map");
+        }
+        let mut used = HashSet::new();
+        let map = cells
+            .iter()
+            .zip(sites)
+            .enumerate()
+            .map(|(r, (row, sites))| {
+                row.iter()
+                    .zip(sites)
+                    .enumerate()
+                    .map(|(c, (&cell, site))| match (cell, site) {
+                        (".", _) => Ok(None),
+                        (bank, Site::Assembly) if banks.contains_key(bank) => {
+                            used.insert(bank.to_string());
+                            Ok(Some(bank.to_string()))
+                        }
+                        (bank, Site::Assembly) => invalid(format!(
+                            "rods map row {} column {}: unknown bank {bank:?}",
+                            r + 1,
+                            c + 1
+                        )),
+                        (bank, _) => invalid(format!(
+                            "rods map row {} column {}: bank {bank:?} is not at an assembly site (`*`)",
+                            r + 1,
+                            c + 1
+                        )),
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if let Some(bank) = banks.keys().find(|b| !used.contains(*b)) {
+            return invalid(format!("bank {bank} has no position in the rods map"));
+        }
+        Ok(Self {
+            step: file.step,
+            bottom: file.bottom,
+            steps: file.steps,
+            top: file.top,
+            map,
+            banks,
+            types,
+        })
+    }
 }
 
 impl Plant {
@@ -318,11 +486,13 @@ impl Plant {
             })
             .collect::<Result<Vec<_>, _>>()?;
         check_open(&map)?;
+        let rods = file.rods.map(|r| Rods::new(r, &map)).transpose()?;
         Ok(Self {
             pitch: file.pitch,
             height: file.height,
             reflectors,
             map,
+            rods,
         })
     }
 }
@@ -531,6 +701,10 @@ pub struct Case {
     pub states: Vec<CaseState>,
     /// 再構成したピン出力を書くファイル（ADR-0096）。状態が1つ以下のときだけ
     pub pin_powers: Option<PathBuf>,
+    /// 部分挿入のノードの扱い（`[partial-rods]`）。書かなければ ADR-0127 の値
+    pub partial_rods: PartialRods,
+    /// `[partial-rods]` を書いたか（棒のない炉心に書けばエラーにする）
+    pub partial_rods_given: bool,
 }
 
 #[derive(Deserialize)]
@@ -542,6 +716,7 @@ struct CaseFile {
     boundary: BoundaryEntry,
     state: Option<BTreeMap<String, StateEntry>>,
     pin_powers: Option<PathBuf>,
+    partial_rods: Option<PartialRodsEntry>,
 }
 
 #[derive(Deserialize)]
@@ -552,6 +727,44 @@ struct StateEntry {
     moderator: f64,
     fuel: f64,
     search: Option<SearchEntry>,
+    /// バンク → 位置（ステップ）。棒のない炉心は書かない（`Layout::new` が確かめる）
+    #[serde(default)]
+    banks: BTreeMap<String, u32>,
+}
+
+/// 部分挿入のノードの細かいメッシュの幅 (cm)。ADR-0127 で収束を測って決めた値
+pub const FINE_MESH: f64 = 0.5;
+
+/// 部分挿入のノードの扱い（ADR-0127）。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PartialRods {
+    /// 区間の定数の混ぜ方。体積の重みは ADR-0127 で採らなかった案で、比べるときだけ書く
+    pub weighting: Weighting,
+    /// 細かいメッシュの幅の上限 (cm)
+    pub fine_mesh: f64,
+}
+
+impl Default for PartialRods {
+    fn default() -> Self {
+        Self {
+            weighting: Weighting::Flux,
+            fine_mesh: FINE_MESH,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct PartialRodsEntry {
+    weighting: Option<WeightingEntry>,
+    fine_mesh: Option<f64>,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum WeightingEntry {
+    Flux,
+    Volume,
 }
 
 #[derive(Deserialize)]
@@ -609,6 +822,7 @@ impl CaseState {
             b10: entry.b10,
             moderator: entry.moderator,
             fuel: entry.fuel,
+            banks: entry.banks,
         })
     }
 }
@@ -668,6 +882,30 @@ impl Case {
                 .map(|(name, entry)| CaseState::new(name, entry))
                 .collect::<Result<Vec<_>, InputError>>()?,
         };
+        let mut partial_rods = PartialRods::default();
+        let partial_rods_given = file.partial_rods.is_some();
+        if let Some(entry) = file.partial_rods {
+            if let Some(w) = entry.weighting {
+                partial_rods.weighting = match w {
+                    WeightingEntry::Flux => Weighting::Flux,
+                    WeightingEntry::Volume => Weighting::Volume,
+                };
+            }
+            if let Some(fine) = entry.fine_mesh {
+                if !(fine > 0.0 && fine.is_finite()) {
+                    return invalid(format!(
+                        "partial-rods: fine-mesh must be positive, got {fine}"
+                    ));
+                }
+                // 体積の重みは細かいメッシュを解かないので、幅を書いても結果は変わらない
+                if partial_rods.weighting == Weighting::Volume {
+                    return invalid(
+                        "partial-rods: fine-mesh has no effect with weighting = \"volume\"",
+                    );
+                }
+                partial_rods.fine_mesh = fine;
+            }
+        }
         if file.pin_powers.is_some() && states.len() > 1 {
             return invalid(format!(
                 "pin-powers needs at most one state, got {}",
@@ -682,6 +920,8 @@ impl Case {
             outline: b.outline.map(condition),
             states,
             pin_powers: file.pin_powers.map(|p| normalized(&base.join(p))),
+            partial_rods,
+            partial_rods_given,
         })
     }
 }
@@ -697,6 +937,8 @@ pub struct CaseState {
     pub moderator: f64,
     /// 燃料の温度 (K)
     pub fuel: f64,
+    /// バンク → 位置（ステップ）。炉心の形に制御棒があれば、そのバンクをすべて書く（ADR-0127）
+    pub banks: BTreeMap<String, u32>,
 }
 
 /// 状態のホウ素濃度: 与えた値か、探索（ADR-0145）。
@@ -736,6 +978,8 @@ impl CaseState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LayoutMaterial {
     pub file: usize,
+    /// テーブルの使い方（`Layout::tables`）の番号
+    pub table: usize,
     pub turns: u8,
     /// テーブルの部分ノードの番号（回す前の並び。-y の行から、各行は -x から。ADR-0108）
     pub sub: usize,
@@ -745,16 +989,44 @@ pub struct LayoutMaterial {
     pub marshak: bool,
 }
 
+/// テーブルの使い方: ファイルと、制御棒の区間の値。
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TableUse {
+    /// `Layout::files` の番号
+    pub file: usize,
+    /// 制御棒の区間の材料（制御棒の軸の値）。棒のない区間は `None`（軸があれば `out` を選ぶ）
+    pub rod: Option<String>,
+    /// 棒を切る高さ（`Rods::top`）より上の区間か。棒はあるが、層のテーブルは制御棒の軸を持たないこと
+    pub cut: bool,
+}
+
+/// 部分挿入のノード（ADR-0127）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayoutPartial {
+    /// 直方体の位置
+    pub site: usize,
+    /// 下からの区間の（テーブルの使い方の番号, 長さ (cm)）
+    pub segments: Vec<(usize, f64)>,
+    pub turns: u8,
+    pub sub: usize,
+    pub marshak: bool,
+}
+
 /// 4つの入力から組み立てた炉心のノードの並び。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Layout {
     pub mesh: Mesh,
     /// 少数群定数のファイル（現れた順）
     pub files: Vec<PathBuf>,
+    /// テーブルの使い方（現れた順）。`problem` と `partial_nodes` の定数はこの並び
+    pub tables: Vec<TableUse>,
+    /// 部分挿入のノード。物質の番号は `materials` の後ろに、この順に続く
+    pub partial: Vec<LayoutPartial>,
     /// ファイルごとに、反射体（の種類のどれか）に使う層か
     pub reflector: Vec<bool>,
     pub materials: Vec<LayoutMaterial>,
-    /// 位置ごとの物質の番号。並びは x が最も速く、次に y（下から）、z。ノードのない位置（`-`）は `None`
+    /// 位置ごとの物質の番号。並びは x が最も速く、次に y（下から）、z。ノードのない位置（`-`）は `None`。
+    /// 部分挿入のノードの番号は `materials.len()` 以上（`partial` の順）
     pub node_material: Vec<Option<usize>>,
     /// 集合体の位置を各方向に分けたノードの数（ケースの `radial-nodes`。ADR-0108）
     pub split: usize,
@@ -765,6 +1037,9 @@ pub struct Layout {
     pub boundaries: [Boundary; 6],
     /// `-` に面する面の条件（ADR-0132）
     pub outline: Option<Boundary>,
+    /// 部分挿入のノードの扱い（ケースの `[partial-rods]`）
+    pub partial_rods: PartialRods,
+    inputs: Box<LayoutInputs>,
 }
 
 /// 装荷図の位置に置いたもの。
@@ -775,14 +1050,198 @@ struct Placement<'a> {
     turns: u8,
     /// 反射体の種類か
     reflector: bool,
+    /// 制御棒の先端の高さ (cm) と型の区間
+    rod: Option<(f64, &'a [(String, f64)])>,
+}
+
+/// ノードの中の、制御棒の状態が一様な区間の値
+#[derive(Debug, Clone, PartialEq)]
+enum RodState {
+    Out,
+    In(String),
+    Cut,
+}
+
+/// 高さ [z0, z1] のノードを、先端 `tip` から上に `segments` が並ぶ棒（`top` より上は切る）で、状態が一様な区間
+/// （下から、長さ）に分ける。ノードの面から相対 1e-9 より近い境界は面に寄せる（先端の高さはステップの和なので、
+/// 丸めで面からずれた境界が非常に細い区間を作らないように）
+fn rod_intervals(
+    tip: f64,
+    segments: &[(String, f64)],
+    top: f64,
+    z0: f64,
+    z1: f64,
+) -> Vec<(RodState, f64)> {
+    let eps = 1.0e-9 * (z1 - z0);
+    let mut points = vec![tip];
+    for (_, length) in segments {
+        let last = points[points.len() - 1];
+        points.push(last + length);
+    }
+    let state_at = |z: f64| {
+        if z >= top {
+            return RodState::Cut;
+        }
+        match points.windows(2).position(|w| w[0] <= z && z < w[1]) {
+            Some(i) => RodState::In(segments[i].0.clone()),
+            None => RodState::Out,
+        }
+    };
+    let mut bounds = vec![z0];
+    let mut inner: Vec<f64> = points
+        .iter()
+        .chain(std::iter::once(&top))
+        .copied()
+        .filter(|&p| p > z0 + eps && p < z1 - eps)
+        .collect();
+    inner.sort_by(f64::total_cmp);
+    bounds.extend(inner);
+    bounds.push(z1);
+    let mut out: Vec<(RodState, f64)> = Vec::new();
+    for w in bounds.windows(2) {
+        let state = state_at(0.5 * (w[0] + w[1]));
+        match out.last_mut() {
+            Some((last, length)) if *last == state => *length += w[1] - w[0],
+            _ => out.push((state, w[1] - w[0])),
+        }
+    }
+    out
+}
+
+/// 炉心の形の制御棒とケースの状態のバンクの位置が合うことを確かめる: 棒のある炉心は状態を持ち、どの状態もバンクを
+/// ちょうどすべて書き、ステップが範囲の中にある。棒のない炉心にバンクの位置や `[partial-rods]` を書けばエラー
+fn check_banks(case: &Case, plant: &Plant) -> Result<(), InputError> {
+    let Some(rods) = &plant.rods else {
+        if let Some(state) = case.states.iter().find(|s| !s.banks.is_empty()) {
+            return invalid(format!(
+                "state {}: gives bank steps, but the plant has no rods",
+                state.name
+            ));
+        }
+        if case.partial_rods_given {
+            return invalid("the case has [partial-rods], but the plant has no rods");
+        }
+        return Ok(());
+    };
+    if case.states.is_empty() {
+        return invalid(
+            "the plant has rods; give the core states with the bank steps \
+             ([state.<name>] with banks = { name = steps })",
+        );
+    }
+    for state in &case.states {
+        check_state_banks(rods, &state.banks).map_err(|e| match e {
+            InputError::Invalid(m) => InputError::Invalid(format!("state {}: {m}", state.name)),
+            e => e,
+        })?;
+    }
+    Ok(())
+}
+
+/// バンクの位置が炉心の形の制御棒のバンクをちょうどすべて書き、ステップが範囲の中にあること
+fn check_state_banks(rods: &Rods, banks: &BTreeMap<String, u32>) -> Result<(), InputError> {
+    if let Some(bank) = rods.banks.keys().find(|b| !banks.contains_key(*b)) {
+        return invalid(format!("banks: no steps for bank {bank}"));
+    }
+    if let Some(bank) = banks.keys().find(|b| !rods.banks.contains_key(*b)) {
+        return invalid(format!("banks: unknown bank {bank}"));
+    }
+    if let Some((bank, steps)) = banks.iter().find(|(_, s)| **s > rods.steps) {
+        return invalid(format!(
+            "banks: bank {bank} at {steps} steps is beyond the {} steps of the rods",
+            rods.steps
+        ));
+    }
+    Ok(())
+}
+
+/// 位置ごと（炉心の形の図の行と列）の、制御棒の先端の高さ (cm) と型の区間。`banks` が `None` なら棒を入れない
+/// （`Layout::new` の並び。状態ごとの並びは `Layout::with_banks`）。棒の位置のバンクの位置か型がなければエラー
+#[allow(clippy::type_complexity)]
+fn rod_tips<'a>(
+    plant: &'a Plant,
+    banks: Option<&BTreeMap<String, u32>>,
+) -> Result<Vec<Vec<Option<(f64, &'a [(String, f64)])>>>, InputError> {
+    let rows = plant.map.len();
+    let cols = plant.map.first().map_or(0, Vec::len);
+    let (Some(rods), Some(banks)) = (&plant.rods, banks) else {
+        return Ok(vec![vec![None; cols]; rows]);
+    };
+    rods.map
+        .iter()
+        .map(|row| {
+            row.iter()
+                .map(|bank| {
+                    let Some(bank) = bank else {
+                        return Ok(None);
+                    };
+                    let steps = banks
+                        .get(bank)
+                        .ok_or_else(|| InputError::Invalid(format!("bank {bank} has no step")))?;
+                    let kind = rods
+                        .banks
+                        .get(bank)
+                        .and_then(|t| rods.types.get(t))
+                        .ok_or_else(|| {
+                            InputError::Invalid(format!("bank {bank} has no rod type"))
+                        })?;
+                    Ok(Some((
+                        rods.bottom + f64::from(*steps) * rods.step,
+                        kind.as_slice(),
+                    )))
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// `Layout::with_banks` が並びを作り直すための入力
+#[derive(Debug, Clone, PartialEq)]
+struct LayoutInputs {
+    case: Case,
+    cycle: Cycle,
+    plant: Plant,
+    inventory: Inventory,
 }
 
 impl Layout {
+    /// 4つの入力からノードの並びを作る。制御棒は入れない（状態ごとのバンクの位置で `with_banks` が入れる）が、
+    /// 炉心の形の制御棒とケースの状態のバンクの位置が合うことは、ここで確かめる
     pub fn new(
         case: &Case,
         cycle: &Cycle,
         plant: &Plant,
         inventory: &Inventory,
+    ) -> Result<Self, InputError> {
+        check_banks(case, plant)?;
+        Self::build(case, cycle, plant, inventory, None)
+    }
+
+    /// バンクの位置 `banks`（ケースの状態の `banks`）で制御棒を入れた並び（ADR-0127）
+    pub fn with_banks(&self, banks: &BTreeMap<String, u32>) -> Result<Self, InputError> {
+        let LayoutInputs {
+            case,
+            cycle,
+            plant,
+            inventory,
+        } = &*self.inputs;
+        match &plant.rods {
+            Some(rods) => check_state_banks(rods, banks)?,
+            None if !banks.is_empty() => {
+                return invalid("bank steps are given, but the plant has no rods");
+            }
+            // 棒のない炉心の並びは状態によらない
+            None => return Ok(self.clone()),
+        }
+        Self::build(case, cycle, plant, inventory, Some(banks))
+    }
+
+    fn build(
+        case: &Case,
+        cycle: &Cycle,
+        plant: &Plant,
+        inventory: &Inventory,
+        banks: Option<&BTreeMap<String, u32>>,
     ) -> Result<Self, InputError> {
         let mesh_height = case.axial_mesh.last().copied().unwrap_or(0.0);
         if mesh_height != plant.height {
@@ -791,6 +1250,8 @@ impl Layout {
                 plant.height
             ));
         }
+        // 制御棒の先端の高さ（位置ごと、上の行から）と型の区間
+        let rod_tips = rod_tips(plant, banks)?;
         let rows = plant.map.len();
         let cols = plant.map.first().map_or(0, Vec::len);
         if cycle.loading.len() != rows || cycle.loading.iter().any(|r| r.len() != cols) {
@@ -826,6 +1287,7 @@ impl Layout {
                             column,
                             turns: p.turns,
                             reflector: false,
+                            rod: rod_tips[r][c],
                         }));
                         id_row.push(Some(p.id.clone()));
                     }
@@ -841,6 +1303,7 @@ impl Layout {
                             column,
                             turns: *turns,
                             reflector: true,
+                            rod: None,
                         }));
                         id_row.push(None);
                     }
@@ -905,9 +1368,27 @@ impl Layout {
             }
         }
 
+        // 棒を切る高さがノードの途中にあれば、1 つのノードに切った区間と切らない区間ができ、切った区間の層の
+        // テーブルが制御棒の軸を持たないことと合わない
+        if let Some(rods) = &plant.rods
+            && rods.top > 0.0
+            && rods.top < plant.height
+            && !mesh.contains(&rods.top)
+        {
+            return invalid(format!(
+                "rods: top {} cm is not on the axial-mesh",
+                rods.top
+            ));
+        }
+
         let mut files: Vec<PathBuf> = Vec::new();
         let mut reflector: Vec<bool> = Vec::new();
         let mut file_index: HashMap<&Path, usize> = HashMap::new();
+        let mut tables: Vec<TableUse> = Vec::new();
+        let mut table_index: HashMap<TableUse, usize> = HashMap::new();
+        let mut partial: Vec<LayoutPartial> = Vec::new();
+        // 部分挿入のノードの、node_material の位置（物質の番号は物質を数え終えてから付ける）
+        let mut pending: Vec<usize> = Vec::new();
         let mut materials = Vec::new();
         let mut material_index: HashMap<LayoutMaterial, usize> = HashMap::new();
         let mut node_material = Vec::with_capacity(rows * cols * split * split * (mesh.len() - 1));
@@ -933,6 +1414,7 @@ impl Layout {
                     column,
                     turns,
                     reflector: is_reflector,
+                    rod,
                 }) = *placement
                 else {
                     node_material.push(None);
@@ -955,8 +1437,46 @@ impl Layout {
                 });
                 // 軸方向の反射体の層などは、反射体と集合体の設計で同じファイルを使ってよい
                 reflector[file] |= is_reflector;
+                let intervals = match rod {
+                    Some((tip, segments)) => {
+                        let top = plant.rods.as_ref().map_or(f64::INFINITY, |r| r.top);
+                        rod_intervals(tip, segments, top, z[0], z[1])
+                    }
+                    None => vec![(RodState::Out, z[1] - z[0])],
+                };
+                let mut use_of = |state: &RodState| {
+                    let key = TableUse {
+                        file,
+                        rod: match state {
+                            RodState::In(value) => Some(value.clone()),
+                            RodState::Out | RodState::Cut => None,
+                        },
+                        cut: *state == RodState::Cut,
+                    };
+                    *table_index.entry(key.clone()).or_insert_with(|| {
+                        tables.push(key);
+                        tables.len() - 1
+                    })
+                };
+                if let [_, _, ..] = intervals.as_slice() {
+                    partial.push(LayoutPartial {
+                        site: node_material.len(),
+                        segments: intervals
+                            .iter()
+                            .map(|(state, length)| (use_of(state), *length))
+                            .collect(),
+                        turns,
+                        sub: sub_of(si, sj, turns),
+                        marshak,
+                    });
+                    pending.push(node_material.len());
+                    node_material.push(None);
+                    continue;
+                }
+                let table = use_of(&intervals[0].0);
                 let material = LayoutMaterial {
                     file,
+                    table,
                     turns,
                     sub: sub_of(si, sj, turns),
                     reflector: is_reflector,
@@ -969,6 +1489,9 @@ impl Layout {
                 node_material.push(Some(m));
             }
         }
+        for (i, &site) in pending.iter().enumerate() {
+            node_material[site] = Some(materials.len() + i);
+        }
 
         Ok(Self {
             mesh: Mesh {
@@ -977,6 +1500,8 @@ impl Layout {
                 dz: mesh.windows(2).map(|w| w[1] - w[0]).collect(),
             },
             files,
+            tables,
+            partial,
             reflector,
             materials,
             node_material,
@@ -988,20 +1513,30 @@ impl Layout {
             ids,
             boundaries: case.boundaries,
             outline: case.outline,
+            partial_rods: case.partial_rods,
+            inputs: Box::new(LayoutInputs {
+                case: case.clone(),
+                cycle: cycle.clone(),
+                plant: plant.clone(),
+                inventory: inventory.clone(),
+            }),
         })
     }
 
-    /// `files` の順の少数群定数から、NEM の問題を作る。反射体の層が核分裂すればエラー。
+    /// `tables` の順（テーブルの使い方ごと）の、部分ノードごとの少数群定数から、NEM の問題を作る。反射体の層が
+    /// 核分裂すればエラー。部分挿入のノードの物質は、最初の区間の定数を置いておく（`partial_nodes` の定数で
+    /// 置き換えて解く。`rods::solve_rodded`）
     pub fn problem(&self, constants: &[Vec<FewGroup>]) -> Result<Problem, InputError> {
-        if constants.len() != self.files.len() {
+        if constants.len() != self.tables.len() {
             return invalid(format!(
-                "{} few-group constants for {} files",
+                "{} few-group constants for {} table uses",
                 constants.len(),
-                self.files.len()
+                self.tables.len()
             ));
         }
         let sub = self.split * self.split;
-        for (subs, path) in constants.iter().zip(&self.files) {
+        for (subs, t) in constants.iter().zip(&self.tables) {
+            let path = &self.files[t.file];
             if subs.len() != sub {
                 return invalid(format!(
                     "{} has {} sub-nodes per state; radial-nodes = {} needs {sub} (ADR-0108)",
@@ -1010,10 +1545,7 @@ impl Layout {
                     self.split
                 ));
             }
-        }
-        for ((subs, path), &is_reflector) in constants.iter().zip(&self.files).zip(&self.reflector)
-        {
-            if is_reflector
+            if self.reflector[t.file]
                 && subs
                     .iter()
                     .any(|c| c.nu_fission.iter().any(|&nf| nf != 0.0))
@@ -1024,33 +1556,21 @@ impl Layout {
                 ));
             }
         }
+        let mut materials = self
+            .materials
+            .iter()
+            .map(|m| self.constants_of(constants, m.table, m.turns, m.sub, m.marshak))
+            .collect::<Result<Vec<_>, _>>()?;
+        for p in &self.partial {
+            let &(first, _) = p
+                .segments
+                .first()
+                .ok_or_else(|| InputError::Invalid("a partial node has no intervals".into()))?;
+            materials.push(self.constants_of(constants, first, p.turns, p.sub, p.marshak)?);
+        }
         Ok(Problem {
             mesh: self.mesh.clone(),
-            materials: self
-                .materials
-                .iter()
-                .map(|m| {
-                    let file = || self.files[m.file].display();
-                    let mut c = rotated(&constants[m.file][m.sub], m.turns)
-                        .map_err(|e| InputError::Invalid(format!("{}: {e}", file())))?;
-                    if m.marshak {
-                        // Marshak の条件は r = 1/2 の真空の条件と同じ式（nem の `face_inputs`）なので、径方向の辺に
-                        // r = 1/2 を置く。格子計算の r を持つ辺があれば、どちらを使うか分からないのでエラー
-                        if c.vacuum_ratio.iter().take(4).any(Option::is_some) {
-                            return invalid(format!(
-                                "{}: the layer is marked vacuum = \"marshak\", but its constants have a \
-                                 vacuum ratio J/phi on a radial side; drop the mark to use the ratio",
-                                file()
-                            ));
-                        }
-                        let groups = c.groups();
-                        for r in c.vacuum_ratio.iter_mut().take(4) {
-                            *r = Some(vec![0.5; groups]);
-                        }
-                    }
-                    Ok(c)
-                })
-                .collect::<Result<_, _>>()?,
+            materials,
             reflectors: (0..self.materials.len())
                 .filter(|&m| self.materials[m].reflector)
                 .collect(),
@@ -1058,6 +1578,86 @@ impl Layout {
             boundaries: self.boundaries,
             outline: self.outline,
         })
+    }
+
+    /// 部分挿入のノードと、その区間の定数（`problem` と同じ `constants`）。物質の番号は `problem` の並び
+    pub fn partial_nodes(
+        &self,
+        constants: &[Vec<FewGroup>],
+    ) -> Result<Vec<PartialNode>, InputError> {
+        self.partial
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                Ok(PartialNode {
+                    site: p.site,
+                    material: self.materials.len() + i,
+                    segments: p
+                        .segments
+                        .iter()
+                        .map(|&(table, length)| {
+                            Ok(Segment {
+                                constants: self
+                                    .constants_of(constants, table, p.turns, p.sub, p.marshak)?,
+                                length,
+                            })
+                        })
+                        .collect::<Result<_, InputError>>()?,
+                })
+            })
+            .collect()
+    }
+
+    /// テーブルの使い方 `table` の部分ノード `sub` の定数を、`turns` 回して、Marshak の層なら径方向の辺に
+    /// r = 1/2 を置いたもの
+    fn constants_of(
+        &self,
+        constants: &[Vec<FewGroup>],
+        table: usize,
+        turns: u8,
+        sub: usize,
+        marshak: bool,
+    ) -> Result<FewGroup, InputError> {
+        let file = || self.files[self.tables[table].file].display();
+        let source = constants
+            .get(table)
+            .and_then(|subs| subs.get(sub))
+            .ok_or_else(|| InputError::Invalid(format!("{}: no constants", file())))?;
+        let mut c =
+            rotated(source, turns).map_err(|e| InputError::Invalid(format!("{}: {e}", file())))?;
+        if marshak {
+            // Marshak の条件は r = 1/2 の真空の条件と同じ式（nem の `face_inputs`）なので、径方向の辺に
+            // r = 1/2 を置く。格子計算の r を持つ辺があれば、どちらを使うか分からないのでエラー
+            if c.vacuum_ratio.iter().take(4).any(Option::is_some) {
+                return invalid(format!(
+                    "{}: the layer is marked vacuum = \"marshak\", but its constants have a \
+                     vacuum ratio J/phi on a radial side; drop the mark to use the ratio",
+                    file()
+                ));
+            }
+            let groups = c.groups();
+            for r in c.vacuum_ratio.iter_mut().take(4) {
+                *r = Some(vec![0.5; groups]);
+            }
+        }
+        Ok(c)
+    }
+
+    /// z の面ごとの、核分裂率の割合（下から。全体の和が 1）。メッシュの違う計算を、面を足し合わせて比べるのに使う
+    pub fn axial_fission_fractions(&self, problem: &Problem, solution: &Solution) -> Vec<f64> {
+        let (nx, ny) = (problem.mesh.dx.len(), problem.mesh.dy.len());
+        let mut rates = vec![0.0; problem.mesh.dz.len()];
+        for (n, (flux, material)) in solution.flux.iter().zip(&problem.node_material).enumerate() {
+            let Some(m) = material.map(|m| &problem.materials[m]) else {
+                continue;
+            };
+            let (x, y, z) = (n % nx, (n / nx) % ny, n / (nx * ny));
+            let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
+            let fission: f64 = m.fission.iter().zip(flux).map(|(f, phi)| f * phi).sum();
+            rates[z] += fission * volume;
+        }
+        let total: f64 = rates.iter().sum();
+        rates.iter().map(|r| r / total).collect()
     }
 
     /// 集合体の位置ごとの、軸方向に積分した核分裂率（集合体の位置の平均で割る）。上の行（+y）から、反射体の
