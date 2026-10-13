@@ -5,6 +5,7 @@
 //! J(β, θ) = ∫₀^∞ ψ/(ψ + β) dx、K(β, θ) = ∫₀^∞ ψ(ψ + 2β)/(ψ + β)² dx。
 
 use num_complex::Complex64;
+use rayon::prelude::*;
 
 use super::quadrature::gauss_kronrod;
 use super::unresolved::UrrError;
@@ -76,14 +77,18 @@ fn table() -> Result<&'static JkTable, NumericError> {
         let betas: Vec<f64> = (0..n_beta)
             .map(|i| 10f64.powf(LOG_BETA.0 + STEP * i as f64))
             .collect();
-        let (mut ln_j, mut ln_k) = (Vec::new(), Vec::new());
-        for t in 0..n_theta {
-            let theta = 10f64.powf(LOG_THETA.0 + STEP * t as f64);
-            for (j, k) in jk_integrals(&betas, theta)? {
-                ln_j.push(j.ln());
-                ln_k.push(k.ln());
-            }
-        }
+        // θ の行は互いに独立に積分するので、並列に作っても各点の値はスレッド数によらない
+        // （行どうしで和を取らない）。`collect` は θ の順を保つ。rayon のプールの外のスレッドが作り始め、プールの
+        // ワーカーが `TABLE` を待って止まると、この並列の仕事を実行するワーカーがなくなる。xs は rayon の中から表を引かない
+        let rows: Vec<Vec<(f64, f64)>> = (0..n_theta)
+            .into_par_iter()
+            .map(|t| jk_integrals(&betas, 10f64.powf(LOG_THETA.0 + STEP * t as f64)))
+            .collect::<Result<_, _>>()?;
+        let (ln_j, ln_k) = rows
+            .iter()
+            .flatten()
+            .map(|&(j, k)| (j.ln(), k.ln()))
+            .unzip();
         Ok(JkTable { n_beta, ln_j, ln_k })
     });
     table.as_ref().map_err(Clone::clone)
