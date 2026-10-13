@@ -98,6 +98,8 @@ def main():
         if x is not None:
             rel.append((abs(x["half_life"] - o) / o, name))
     rel.sort(reverse=True)
+    if not rel:
+        sys.exit("no unstable nuclide in both chains")
     print(f"安定と不安定の食い違い {len(stable_mismatch)} {stable_mismatch[:10]}")
     print(
         f"不安定 {len(rel)} 核種の半減期の相対差の最大 {rel[0][0]:.3e}（{rel[0][1]}）"
@@ -140,6 +142,8 @@ def main():
                 kinds["OpenMC だけの型"] += 1
                 examples["OpenMC だけの型"].append(f"{name} {key}")
     ratio_diffs.sort(reverse=True)
+    if not ratio_diffs:
+        sys.exit("no decay branch in both chains")
     print(
         f"型と娘が同じ分岐 {len(ratio_diffs)}、分岐比の差の最大 {ratio_diffs[0][0]:.3e}（{ratio_diffs[0][1]} {ratio_diffs[0][2]}）"
     )
