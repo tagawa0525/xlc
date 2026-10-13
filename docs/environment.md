@@ -141,16 +141,16 @@ examples/vera/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m
 
 S3 の置き場:
 
-| 接頭辞                           | 中身                                                                                       | 期間        |
-| -------------------------------- | ------------------------------------------------------------------------------------------ | ----------- |
-| `store/nix/<鍵>/`                | 閉包（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）      | 残す        |
-| `store/openmc-library/<鍵>/`     | `examples/vera/openmc-library`                                                             | 残す        |
-| `runs/<名前>/launch.env`、`src/` | 起動の記録（コミット、store のパス、鍵、入力）と、VM が使うスクリプトと入力                | 30 日で失効 |
-| `runs/<名前>/<ジョブ>/`          | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot.log`、`done` | 30 日で失効 |
+| 接頭辞                           | 中身                                                                                                                   | 期間        |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `store/nix/<鍵>/`                | 閉包（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）                                  | 残す        |
+| `store/openmc-library/<鍵>/`     | `examples/vera/openmc-library`                                                                                         | 残す        |
+| `runs/<名前>/launch.env`、`src/` | 起動の記録（コミット。追跡していない入力や変更があれば `-dirty`。store のパス、鍵、入力）と、VM が使うスクリプトと入力 | 30 日で失効 |
+| `runs/<名前>/<ジョブ>/`          | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot.log`、`done`                             | 30 日で失効 |
 
 鍵は内容のハッシュ（閉包は store のパスの組、核データはファイルの sha256 の一覧）。`aws_run.sh` は毎回 `aws s3 sync` で置き、S3 に
 あるものは送らない。`launch.env` は最後に置く（あれば `src/` と `store/` はそろっている）。入力はリポジトリの直下からの相対パス
-（`..` を含まない）で、VM の作業ディレクトリにも同じ相対パスで置く。名前は `run_remote.sh` が受け付ける `openmc-3?` か
+（`..` を含まない）で、VM の作業ディレクトリにも同じ相対パスで置く。VM はバケットと同じリージョン（`AWS_DEFAULT_REGION` がバケットと違えば止まる）で起動する。名前は `run_remote.sh` が受け付ける `openmc-3?` か
 `openmc-5?-2D` に限り、S3 に置く前に確かめる。VM が取る AWS CLI が cache.nixos.org にあることも先に確かめる。
 
 VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init が root で走らせる）:
@@ -166,7 +166,8 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
 4. 再開なら、S3 の `runs/<名前>/<ジョブ>/` を作業ディレクトリに戻す。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
 5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync --delete` で作業ディレクトリを S3 に写す（作業ディレクトリの statepoint が
-   そのまま写る。走行中の間引きは効いていない。#0106。書いている途中のものが写っても、再開は壊れたものを消して 1 つ前から続ける）
+   そのまま写る。走行中の間引きは効いていない。#0106。書いている途中のものが写っても、再開は壊れたものを消して 1 つ前から続ける）。
+   `done` とジョブのプロセスは 10 秒ごとに見て、ジョブが `done` を書かずに消えたら失敗で終わる
 6. 完了したら、最後の世代のほかの statepoint を消し、`SHA256SUMS`（ジョブのディレクトリの全ファイル）を書き、2 の順に置く。`done` は
    run と extract の終了コード。S3 に `done` があれば、ほかのファイルはすべて置いてある
 
