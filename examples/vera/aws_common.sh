@@ -1,6 +1,8 @@
 # shellcheck shell=bash
 # aws_*.sh が source する共通の定義（docs/environment.md の「外部の計算機（AWS）」）。単体では走らせない。
 export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+# $(...) の中の失敗でも止める（既定では command substitution の中で set -e が切れ、S3 の失敗が空の結果に化ける）
+shopt -s inherit_errexit
 SSH_CONFIG=${SSH_CONFIG:-$HOME/.ssh/config}
 # 自己完結な実行（aws_run.sh、aws_fetch.sh。ADR-0155）の S3 のバケット
 XLC_BUCKET=${XLC_BUCKET:-xlc-openmc-118645514640}
@@ -41,19 +43,26 @@ s3_keys() {
 }
 
 # S3 の runs/<name>/<job>/done の中身（run と extract の終了コード）。なければ空。読めなければ止まる
-# （呼ぶ側は code=$(job_done ...) の代入で受け、失敗を set -e で止める）
 job_done() {
   local key=runs/$1/$2/done keys
-  keys=$(s3_keys "$key")
+  keys=$(s3_keys "$key") || exit 1
   if grep -qxF "$key" <<< "$keys"; then
     aws s3 cp "s3://$XLC_BUCKET/$key" - || { echo "s3://$XLC_BUCKET/$key を読めません" >&2; exit 1; }
   fi
 }
 
+# S3 の runs/ の下の実行の名前を 1 行ずつ。失敗では止まる
+s3_runs() {
+  local out
+  out=$(aws s3api list-objects-v2 --bucket "$XLC_BUCKET" --prefix runs/ --delimiter / \
+    --query 'CommonPrefixes[].Prefix' --output text) || { echo "s3://$XLC_BUCKET/runs/ を一覧できません" >&2; exit 1; }
+  [[ $out == None ]] || tr '\t' '\n' <<< "$out" | sed 's#^runs/##; s#/$##'
+}
+
 # S3 の runs/<name>/<job>/run/ の statepoint のうち最新のファイル名。なければ空
 job_latest_statepoint() {
   local keys
-  keys=$(s3_keys "runs/$1/$2/run/statepoint.")
+  keys=$(s3_keys "runs/$1/$2/run/statepoint.") || exit 1
   sed -n 's#.*/\(statepoint\.[0-9]*\.h5\)$#\1#p' <<< "$keys" | sort -t. -k2 -n | tail -1
 }
 

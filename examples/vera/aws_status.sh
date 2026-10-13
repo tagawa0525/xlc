@@ -22,7 +22,8 @@ done < <(aws ec2 describe-instances --filters "Name=instance-state-name,Values=p
 ((found)) || echo "走っているインスタンスはありません"
 
 echo "== S3 の実行（s3://$XLC_BUCKET/runs/）"
-mapfile -t runs < <(aws s3 ls "s3://$XLC_BUCKET/runs/" | sed -n 's#^ *PRE \(.*\)/$#\1#p')
+runs_text=$(s3_runs)
+mapfile -t runs < <(sed '/^$/d' <<< "$runs_text")
 ((${#runs[@]})) || echo "ありません"
 for run in "${runs[@]}"; do
   # launch.env がない実行（置いている途中か失敗）は、read_launch_env が止めるので、先に確かめる

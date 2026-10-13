@@ -70,9 +70,14 @@ if ((${#inputs[@]})); then
   [[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から走らせてください" >&2; exit 1; }
   [[ -f examples/vera/openmc-library/cross_sections.xml ]] ||
     { echo "examples/vera/openmc-library がありません（dvc checkout examples/vera/dvc.yaml）" >&2; exit 1; }
+  # 一部だけ checkout されたライブラリを置かない（VM で OpenMC が核データを読むときに初めて失敗する）
+  while read -r f; do
+    [[ -f examples/vera/openmc-library/$f ]] || { echo "examples/vera/openmc-library/$f がありません（dvc checkout examples/vera/dvc.yaml）" >&2; exit 1; }
+  done < <(sed -n 's/.* path="\([^"]*\)".*/\1/p' examples/vera/openmc-library/cross_sections.xml)
   keys=$(s3_keys "runs/$name/")
   if [[ -n $keys ]]; then
-    echo "$run_prefix/ はすでにあります。起動し直すなら入力を省く。やり直すなら aws_fetch.sh $name --delete か別の名前" >&2
+    echo "$run_prefix/ はすでにあります。起動し直すなら入力を省く。やり直すなら別の名前にする（古い実行を消すなら" \
+      "取り出してから aws_fetch.sh --verify --delete $name、完了していなければ aws s3 rm --recursive $run_prefix/）" >&2
     exit 1
   fi
   jobs=()
@@ -85,7 +90,8 @@ if ((${#inputs[@]})); then
     [[ -n $(job_script "$(job_name "$input")") ]] ||
       { echo "$input: Problem 3（openmc-3?）か 5-2D（openmc-5?-2D）の入力ではありません" >&2; exit 1; }
     jobs+=("$(job_name "$input")")
-    [[ -z $(live_instance "$name-${jobs[-1]}") ]] || { echo "$name-${jobs[-1]} の VM が走っています" >&2; exit 1; }
+    live=$(live_instance "$name-${jobs[-1]}")
+    [[ -z $live ]] || { echo "$name-${jobs[-1]} の VM が走っています" >&2; exit 1; }
   done
   dup=$(printf '%s\n' "${jobs[@]}" | sort | uniq -d)
   [[ -z $dup ]] || { echo "ジョブの名前（入力の basename）が重なります: $dup" >&2; exit 1; }
@@ -163,7 +169,8 @@ else
       continue
     fi
     [[ -z $code ]] || { echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot.log を見てください" >&2; exit 1; }
-    if [[ -n $(live_instance "$name-$job") ]]; then
+    live=$(live_instance "$name-$job")
+    if [[ -n $live ]]; then
       echo "$job: VM が走っているので飛ばす"
       continue
     fi
