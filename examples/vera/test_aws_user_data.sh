@@ -87,12 +87,14 @@ before "$restart" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'
 
 # sync_out の振る舞い: 生成した statepoints と sync_out を、aws の代わりに引数を出す関数で走らせる
 functions=$(sed -n '/^statepoints() {$/,/^}$/p; /^sync_out() {$/,/^}$/p' <<< "$fresh")
+# 最新の statepoint の経過秒は LATEST_AGE（既定 5 秒）。それ以前のものは 1 時間前に書き終えたとする
 sync_args() { # <done の中身（- なら置かない）> <SIGTERM を受けたか 0|1> <statepoint の世代>... : sync_out が aws に渡す引数を 1 行に 1 つ
-  local done_code=$1 interrupted=$2 dir g
+  local done_code=$1 interrupted=$2 dir g last
   shift 2
   dir=$(mktemp -d)
   mkdir -p "$dir/results/openmc-3A/run"
-  for g in "$@"; do touch "$dir/results/openmc-3A/run/statepoint.$g.h5"; done
+  for g in "$@"; do touch -d '1 hour ago' "$dir/results/openmc-3A/run/statepoint.$g.h5"; last=$g; done
+  [[ $# == 0 ]] || touch -d "${LATEST_AGE:-5} seconds ago" "$dir/results/openmc-3A/run/statepoint.$last.h5"
   [[ $done_code == - ]] || echo "$done_code" > "$dir/results/openmc-3A/done"
   (
     # shellcheck disable=SC2034 # eval した sync_out が使う
@@ -111,6 +113,17 @@ grep -qxF 'run/statepoint.*' <<< "$running" || fail "sync_out: 走っている�
 grep -qxF 'run/statepoint.020.h5' <<< "$running" && grep -qxF 'run/statepoint.040.h5' <<< "$running" ||
   fail "sync_out: 書き終えた statepoint を含めていない"
 ! grep -qxF 'run/statepoint.060.h5' <<< "$running" || fail "sync_out: 最新の statepoint を含めている"
+# 書き終えた最新の statepoint を写す検査（ADR-0168）。実装の前なので、呼ばずに置く（skip）
+latest_sync_tests() {
+  # 最新も、mtime が 120 秒より古ければ（書き終えている）含める。120 秒以内は除く
+  old=$(LATEST_AGE=121 sync_args - 0 020 040 060)
+  grep -qxF 'run/statepoint.060.h5' <<< "$old" || fail "sync_out: 書き終えた最新の statepoint を含めていない"
+  edge=$(LATEST_AGE=119 sync_args - 0 020 040 060)
+  ! grep -qxF 'run/statepoint.060.h5' <<< "$edge" || fail "sync_out: 120 秒以内の最新の statepoint を含めている"
+  only=$(LATEST_AGE=300 sync_args - 0 020)
+  grep -qxF 'run/statepoint.020.h5' <<< "$only" || fail "sync_out: statepoint が 1 つのときに、書き終えたものを含めていない"
+  ! grep -qxF -- '--delete' <<< "$old" || fail "sync_out: 最新を写すときに走っている間の --delete をしている"
+}
 # done のあとは除かない（最後の世代の statepoint を写す）
 finished=$(sync_args 0 0 200)
 ! grep -qF 'run/statepoint' <<< "$finished" || fail "sync_out: done のあとに statepoint を除いている: $finished"
