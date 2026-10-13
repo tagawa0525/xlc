@@ -46,7 +46,7 @@
           uncertainties
         ];
       python = pkgs.python3.withPackages pythonPackages;
-      # 計算の段階の駆動（ADR-0123）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
+      # 計算の段階の駆動（ADR-0159）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
       # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。pkgs.dvc の bin/dvc（makeWrapper）も
       # 使わない: PATH の先頭に素の python3 を足し、段階の cmd の python3 が検証用の Python でなくなる（#0101）。
       # 中の .dvc-wrapped は自分の依存の site のディレクトリを自分で足すので、PATH を変えずに直接呼ぶ。

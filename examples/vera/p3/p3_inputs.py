@@ -806,7 +806,7 @@ def pipeline() -> str:
         "# VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
         "# 少数群定数と、平板の燃料の媒質）→ 軸方向の反射体の平板（axial-<問題>）→ 炉心（平板の定数だけの等価性\n"
         "# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI）。実行するのは `dvc repro`\n"
-        "# （ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）\n"
+        "# （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）\n"
         "stages:\n" + "".join(stages)
     )
 
