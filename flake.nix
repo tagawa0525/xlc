@@ -20,9 +20,9 @@
       };
       inherit (pkgs) lib;
       rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-      # ここで `rust` を override しない。flake.nix は DVC の段階の deps でないので、override すると段階をビルドする
-      # コンパイラが黙って変わる（#0080）。開発の道具は rust-toolchain.toml にも書かず（Rust の段階の deps）、同じ版の
-      # component を横に置く。rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
+      # ここで `rust` を override しない。override すると段階の実行ファイルをビルドするコンパイラが変わる（#0080）。
+      # 開発の道具は rust-toolchain.toml にも書かず（DVC の build の段階の deps）、同じ版の component を横に置く。
+      # rust-analyzer は sysroot を `rustc --print sysroot` で見つける（ADR-0135）
       rustAnalyzerBin = rust.availableComponents.rust-analyzer;
       # rust-analyzer の flycheck（cargo check）と build script の成果物を target/rust-analyzer に分ける（ADR-0147）。
       # `cargo.targetDir` は rust-analyzer.toml では効かず（#0079）、クライアントの設定は git で追跡できないので、
@@ -245,6 +245,9 @@
             pkgs.ruff
             pkgs.poppler-utils
           ];
+          # stdenv が RUNPATH に足す、devShell に入ったディレクトリの outputs/out/lib を止める。足すと同じソースでも
+          # worktree ごとに実行ファイルのバイトが変わり、DVC の段階が走り直す（ADR-0159）。そこに置くライブラリはない
+          NIX_NO_SELF_RPATH = "1";
         };
         # 参照の計算: NJOY、OpenMC と、OpenMC の Python API の入った Python（docs/environment.md）
         references = pkgs.mkShell {
