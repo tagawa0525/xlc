@@ -402,8 +402,8 @@ pub enum CmfdError {
 }
 
 /// 1 行か 1 列の格子の粗メッシュの逆反復のシフト k_s = k (1 + WIELANDT) の幅（ADR-0158）。収束の比は
-/// (1/k₀ − 1/k_s) / (1/k₁ − 1/k_s)（k₀ > k₁ は 1 番目と 2 番目の固有値）。k が k₀ を下回る割合がおよそ
-/// WIELANDT + (k₀/k₁ − 1)/2 を超えると、シフトが 1/k₁ に近くなる
+/// (1/k₀ − 1/k_s) / (1/k₁ − 1/k_s)（k₀ > k₁ は 1 番目と 2 番目の固有値）。k が k₀ / (1 + WIELANDT) 以下なら
+/// k_s ≤ k₀ になり、シフトなしで解き直す（`Coarse::solve_chain`）
 const WIELANDT: f64 = 0.01;
 
 /// 粗メッシュのセルの、同じ核分裂スペクトルの項の和。核分裂源は χ (νΣf · φ)
@@ -462,6 +462,8 @@ struct Chain {
     lower: Vec<f64>,
     /// [代表][群] の c + 1 との結合の係数（最後の代表では 0）
     upper: Vec<f64>,
+    /// 対角の外の成分（結合とブロックの対角の外）がどれも 0 以下（Z 行列）。シフトの条件（ADR-0158）
+    z_matrix: bool,
 }
 
 impl Chain {
@@ -493,10 +495,18 @@ impl Chain {
                 }
             }
         }
+        let ng = groups;
+        let z_matrix = lower.iter().chain(&upper).all(|&a| a <= 0.0)
+            && matrices.iter().all(|a| {
+                a.iter()
+                    .enumerate()
+                    .all(|(index, &v)| index / ng == index % ng || v <= 0.0)
+            });
         Ok(Self {
             matrices,
             lower,
             upper,
+            z_matrix,
         })
     }
 
@@ -821,15 +831,21 @@ impl Coarse {
         }
     }
 
-    /// 結合が鎖のとき、`k` の少し上の k_s = k (1 + `WIELANDT`) にシフトした逆反復で解く。シフトが 2 番目以降の
-    /// 固有値に近い（`k` が固有値より大きく下にある）と、解が正にならないか、シフトした行列が特異になるので、
-    /// シフトなしで解き直す（ADR-0158）
+    /// 結合が鎖のとき、`k` の少し上の k_s = k (1 + `WIELANDT`) にシフトした逆反復で解く（ADR-0158）。
+    ///
+    /// 行列が Z 行列なら、A − F/k_s も Z 行列で、k_s が固有値 k₀ より上のときだけ正則な M 行列になる。そのとき
+    /// (A − F/k_s)⁻¹ は非負で、正の右辺 F φ の解は正。k_s が k₀ 以下なら、正の解 ψ があると (A − F/k_s) ψ ≥ 0 から
+    /// M 行列になって矛盾するので、最初の反復の解が正にならないか、行列が特異になる。そのときはシフトなしで解き
+    /// 直す。Z 行列でなければ（補正の D̂ で結合が正になる）、この判定ができないので、シフトしない
     fn solve_chain(
         &self,
         chain: &Chain,
         k: f64,
         options: &CmfdOptions,
     ) -> Result<(f64, Vec<f64>), CmfdError> {
+        if !chain.z_matrix {
+            return self.inverse_iteration(chain, k, 0.0, options);
+        }
         let shift = 1.0 / (k * (1.0 + WIELANDT));
         match self.inverse_iteration(chain, k, shift, options) {
             Err(error @ (CmfdError::NonPositiveSolution { .. } | CmfdError::Singular(_))) => {
@@ -870,18 +886,18 @@ impl Coarse {
                 }
             }
             chain.substitute(ng, &factors, &mut next);
-            // k_s が固有値より下（μ > 1/k₀）でも、いちばん近い固有値に収束する。そのとき p は負で、割ると正に戻る
+            // 割る前の解が正であることを確かめる（負の生成率で割ると、負の解も正に見える）
             let rate = self.production(&next);
             let new_k = 1.0 / (shift + 1.0 / rate);
-            for f in &mut next {
-                *f /= rate;
-            }
             if let Some(j) = next.iter().position(|&f| f <= 0.0 || !f.is_finite()) {
                 return Err(CmfdError::NonPositiveSolution {
                     cell: self.cells[j / ng],
                     group: j % ng,
                     flux: next[j],
                 });
+            }
+            for f in &mut next {
+                *f /= rate;
             }
             let change = next
                 .iter()

@@ -174,7 +174,7 @@ fn a_slab_with_a_close_second_mode_converges_quickly_from_a_nearby_k() {
 
 #[test]
 fn a_slab_solves_from_a_k_far_below_the_eigenvalue() {
-    // k が固有値より大きく下にあると、シフトが 2 番目以降の固有値に近くなる。シフトなしで解き直す
+    // k が固有値より大きく下にあると、シフトした k_s も固有値より下になる。シフトなしで解き直す
     let coarse = slab(200, 2.0, true);
     let unlimited = CmfdOptions {
         max_iterations: 1_000_000,
