@@ -704,6 +704,58 @@ fn cmfd_accelerates_a_lattice_with_vacuum_sides() {
 }
 
 #[test]
+fn cmfd_accelerates_a_one_row_slab_with_vacuum_ends() {
+    // 軸方向の平板（ADR-0128）と同じく、均質なセルの 1 行の両端が真空で上下が鏡面反射
+    let lattice =
+        Lattice::rectilinear(vec![1.0; 8], vec![1.0], vec![Cell::BLOCK], vec![vec![0; 8]]).unwrap();
+    let boundaries = Boundaries {
+        left: Boundary::Vacuum,
+        right: Boundary::Vacuum,
+        ..Boundaries::REFLECTIVE
+    };
+    let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+    let (f, m) = (fuel(), moderator());
+    let materials = [&m, &m, &f, &f, &f, &f, &m, &m];
+    assert_cmfd_accelerates(&tracking, &materials);
+}
+
+#[test]
+fn a_mirrored_slab_matches_the_full_slab() {
+    // 左右対称な 1 行の平板を鏡映で解くと、粗メッシュの代表の鎖の中央で、奇数の列では中央のセルの両隣が同じ代表に、
+    // 偶数の列では中央の面の隣が自分の像になる（ADR-0158）。1 列に立てた平板も同じ
+    let (f, m) = (fuel(), moderator());
+    for (count, row) in [(7, true), (8, true), (7, false), (8, false)] {
+        let (widths, heights, layout) = if row {
+            (vec![1.0; count], vec![1.0], vec![vec![0; count]])
+        } else {
+            (vec![1.0], vec![1.0; count], vec![vec![0]; count])
+        };
+        let lattice = Lattice::rectilinear(widths, heights, vec![Cell::BLOCK], layout).unwrap();
+        let boundaries = if row {
+            Boundaries {
+                left: Boundary::Vacuum,
+                right: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            }
+        } else {
+            Boundaries {
+                top: Boundary::Vacuum,
+                bottom: Boundary::Vacuum,
+                ..Boundaries::REFLECTIVE
+            }
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let materials: Vec<&Material> = (0..count)
+            .map(|c| if c == 0 || c + 1 == count { &m } else { &f })
+            .collect();
+        let options = Options::default();
+        let full = solve_as(&tracking, &materials, &options, Symmetry::NONE).unwrap();
+        let mirrored = solve_as(&tracking, &materials, &options, Symmetry::QUARTER).unwrap();
+        assert_same_solution(&full, &mirrored, &options);
+    }
+}
+
+#[test]
 fn cmfd_accelerates_a_lattice_with_a_margin() {
     // 集合体の間の水のギャップのように、格子の周りに余白がある。縁のセルの粗メッシュは余白の分だけ広い
     let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
