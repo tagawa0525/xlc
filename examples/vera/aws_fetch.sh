@@ -5,14 +5,15 @@
 # 使い方: examples/vera/aws_fetch.sh [--dry-run] [--verify] [--delete] [--dest <置き場>] <name>
 #   取り出す: S3 の runs/<name>/ の src/（VM が使ったスクリプトと入力）と、完了したジョブの結果（最後の世代の statepoint、
 #            summary.h5、k.json など、log、boot.log）を <置き場>/ に写し、ジョブごとの SHA256SUMS で検証する
-#   --verify  さらに、手元（flake の .#openmc-python）で取り出した statepoint から extract し、VM の結果とバイト一致を確かめる
+#   --verify  さらに、VM と同じ Python（launch.env の PYTHON。手元の store にあること）で取り出した statepoint から extract し、
+#             VM の結果とバイト一致を確かめる
 #   --delete  すべてのジョブが完了し、--verify が通ったら、S3 の runs/<name>/ を消す（--verify が要る）
 #   --dest    置き場（既定 references/openmc/aws/<name>）
 #   --dry-run  何もコピーせず、ジョブの状態（done）だけ出す
 # 完了していないジョブ（done がないか 0 でない）があれば、取り出せる分を取り出したうえで 1 で終わる。
 set -euo pipefail
 
-usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 verify=0
 delete=0
@@ -51,28 +52,32 @@ for input in "${RUN_INPUTS[@]}"; do
 done
 ((!dry)) || exit "$status"
 
-aws s3 sync --only-show-errors "$run_prefix/src" "$dest/src"
+# --delete: 同じ名前の前の取り出しの残りを SHA256SUMS の検証に混ぜない（置き場は S3 のコピーにする）
+aws s3 sync --only-show-errors --delete "$run_prefix/src" "$dest/src"
 for input in "${done_inputs[@]}"; do
   job=$(job_name "$input")
-  aws s3 sync --only-show-errors "$run_prefix/$job" "$dest/$job"
+  aws s3 sync --only-show-errors --delete "$run_prefix/$job" "$dest/$job"
   (cd "$dest/$job" && sha256sum --quiet -c SHA256SUMS) || { echo "$job: SHA256SUMS が合いません" >&2; exit 1; }
   echo "$job: 取り出して SHA256SUMS が一致（$dest/$job）"
 done
 
 if ((verify)); then
-  python=$(nix build .#openmc-python --no-link --print-out-paths)/bin/python3
+  # VM と同じ Python（launch.env の store のパス）で extract する。手元になければ、そのコミットで nix build .#openmc-python する
+  python=$(launch_env_value PYTHON)/bin/python3
+  [[ -x $python ]] || { echo "$python が手元にありません（git checkout $(launch_env_value COMMIT) で nix build .#openmc-python）" >&2; exit 1; }
+  check=$(mktemp -d)
+  trap 'rm -rf "$check"' EXIT
   for input in "${done_inputs[@]}"; do
     job=$(job_name "$input")
     script=$(job_script "$job")
     [[ -n $script ]] || { echo "$job: extract のツールが分かりません" >&2; exit 1; }
-    check=$(mktemp -d)
+    rm -rf "${check:?}"/*
     "$python" "$dest/src/$script" extract "$dest/src/$input" "$dest/$job/run" "$check" > /dev/null
     n=0
     while IFS= read -r -d '' f; do
       cmp -s "$check/$f" "$dest/$job/$f" || { echo "$job: $f が VM の結果と違います" >&2; exit 1; }
       n=$((n + 1))
     done < <(cd "$check" && find . -type f -printf '%P\0')
-    rm -rf "$check"
     ((n)) || { echo "$job: extract が何も書きませんでした" >&2; exit 1; }
     echo "$job: 手元の extract の $n 個のファイルが VM の結果とバイト一致"
   done
