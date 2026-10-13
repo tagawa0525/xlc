@@ -41,6 +41,7 @@ echo "..."
 
 files=(
   examples/openmc_common.py
+  examples/openmc_input.py
   examples/openmc_run.py
   examples/openmc_resume.py
   examples/vera/openmc_model.py

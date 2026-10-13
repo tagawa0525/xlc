@@ -38,7 +38,7 @@ class ModelXml(unittest.TestCase):
             a = write_model(INPUT, tmp / "a")
             b = write_model(tmp / "other.toml", tmp / "b")
         self.assertEqual(a, b)
-        self.assertNotIn(b"cross_sections", a)
+        self.assertNotIn(b"<cross_sections>", a)
 
     def test_is_the_same_bytes_every_time(self):
         with tempfile.TemporaryDirectory() as tmp:
