@@ -8,7 +8,7 @@ ADR-0157（ループの先頭を 64 バイトに揃えてビルドする）を�
 - スクリプトと入力: このディレクトリの `build.sh`、`measure-xs.sh`、`measure-lattice-core.sh`、`measure-2A.sh`、
   `pincell-1B.toml`、`assembly-2A.toml`（examples/vera/p1/pincell-1B.toml と examples/vera/p2/assembly-2A.toml に、少数群定数の
   全桁の出力 `few-group` を足したもの）
-- 走らせたコミット 9f0b18dd、分岐点 45eeb641（main）、2026-10-14。r995 の Slurm の排他のジョブ 302（xs）、305（lattice と
+- 走らせたコミット c029a27c、分岐点 45eeb641（main）、2026-10-14。r995 の Slurm の排他のジョブ 302（xs）、305（lattice と
   core）、307（2A の繰り返し）
 - 測った実行ファイル: 3 つのコミットのソースを `build.sh` で release でビルドしたもの。6b39ad13（main）、ab7c70b3 と b501c22e
   （ブランチ perf/0088-line-shape-table のコミット。タグ `record/adr-0157-fast-placement` と `record/adr-0157-slow-placement`）。
