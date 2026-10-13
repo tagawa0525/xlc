@@ -29,11 +29,12 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）で段階を
   実行し、手で段階を選ばない（rebase のあとに数秒の段階だけ `-s` で再実行する /dvc-relock は例外）。重いときは `dvc repro`
-  全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（ADR-0123）
+  全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（ADR-0159）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
 - `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml の段階の
-  出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0130）。
+  出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0130）。段階が呼ぶ
+  `bin/` の実行ファイルは、リポジトリの直下の `dvc.yaml` の `build` の出力で、`dvc checkout dvc.yaml` で戻す（ADR-0159）。
   NJOY と OpenMC を使う段階は cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
   devShell で実行する
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
