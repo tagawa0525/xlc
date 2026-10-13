@@ -7,6 +7,9 @@ allowed-tools:
   - Bash(nix develop -c dvc status)
   - Bash(nix develop -c dvc status examples/*)
   - Bash(nix develop -c dvc status --json*)
+  - Bash(nix develop -c scripts/check-dvc-lock.sh*)
+  - Bash(scripts/check-dvc-lock.sh*)
+  - Bash(head -1 examples/*/dvc.lock)
   - Bash(nix develop -c dvc repro -s *)
   - Bash(realpath*)
   - Bash(git reflog*)
@@ -108,6 +111,11 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    （詳細は verification-record の「rebase のあと」の節）。手で対応表を作るのは、この対応表が無いときだけ。rebase の前の tip
    （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
    書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。走らせ直した段階の新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
+
+6. 作り直した `dvc.lock` を確かめる。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
+   読めず、書くこともない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、4 のコミットを `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、5 の付け替えのコミットは rebase のあとに積み直す）。続けて
+   `nix develop -c scripts/check-dvc-lock.sh examples/<問題>/dvc.lock`（direnv で入っていれば `nix develop -c` は要らない）が終了コード 0 で終わること（dvc が lock を読めるかの検査は、この道具が
+   唯一の定義。pre-commit の hook `dvc-lock` も同じ道具を呼ぶ。issue #0090）。
 
 この後は /git-merge の「チェック」に進む。
 
