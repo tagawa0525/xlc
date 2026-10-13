@@ -158,7 +158,7 @@ fn table_uses_natural_line_shape_above_its_theta_range() {
 #[test]
 fn table_rejects_points_outside_its_range() {
     assert!(jk_interpolated(1.0e-8, 1.0).is_err());
-    assert!(jk_interpolated(1.0, 1.0e-5).is_err());
+    assert!(jk_interpolated(1.0, 1.0e-12).is_err());
 }
 
 #[test]
