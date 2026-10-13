@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [lattice, performance]
 opened: 2026-10-13
-closed:
+closed: 2026-10-14
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0158
 ---
 
 # 軸方向の平板の格子計算が 32 スレッドでも 1 コアしか使わない
@@ -72,3 +72,5 @@ crates/lattice/src/moc.rs の `sweep` は rayon の `par_iter_mut` で、代表�
   CMFD の均質化と tally の和は 5 秒以下。1080 列と 540 列の 3316 秒と 465 秒の比（2.8 乗）も同じ伸び方。1 コアに見えたのは、
   逐次のブロック Gauss-Seidel（#0069）が時間のほとんどを占めるため。候補 3 が原因で、候補 1 と 2 ではない
 - 2026-10-14: ADR-0158 で、1 行か 1 列の格子の粗メッシュをブロック三重対角の直接解法とシフトした逆反復で解くことにした
+- 2026-10-14: 閉じた。平板の時間は、540 列で 459 秒から 48 秒、1080 列で 3292 秒から 85 秒（examples/reflector/verification.md、
+  b8f6c15e、排他）。残る時間は、スイープ（並列）、粗メッシュの分解、MOC の反復の回数（約 180 回）
