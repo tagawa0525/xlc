@@ -1,5 +1,5 @@
-//! VERA 1B のピンセルで、飛程を表から内挿した格子計算（ADR-0156 の既定の細かさ）が、格子点ごとに求めた計算と
-//! k と吸収断面積で ADR-0156 の表の差の中に収まること。
+//! VERA 1B のピンセルで、飛程を表から内挿した格子計算（`track-table` を書かない既定。ADR-0156）が、格子点ごとに
+//! 求めた計算（`track-table = false`）と、k の差（絶対値）と吸収断面積の相対差で ADR-0156 の表の差の中に収まること。
 //!
 //! examples/vera/vera.msgpack（DVC の段階の出力で git で追跡しない。ADR-0130）を読むので、既定では走らせない。
 //! 走らせ方: `cargo test --release -p xlc-lattice --test track_table -- --ignored`
@@ -59,7 +59,7 @@ fn run(dir: &Path, tracks: &str) -> (f64, Vec<f64>) {
 #[ignore = "needs examples/vera/vera.msgpack (a DVC output, ADR-0130)"]
 fn table_tracks_stay_within_the_adr_differences_in_1b() {
     let dir = std::env::temp_dir().join(format!("xlc-track-table-{}", std::process::id()));
-    let (k, absorption) = run(&dir.join("table"), "track-table = 16");
+    let (k, absorption) = run(&dir.join("table"), "");
     let (k_exact, exact) = run(&dir.join("exact"), "track-table = false");
     std::fs::remove_dir_all(&dir).unwrap();
     assert!((k - k_exact).abs() < K_LIMIT, "k {k} vs {k_exact}");
