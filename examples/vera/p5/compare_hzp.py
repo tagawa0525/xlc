@@ -180,9 +180,11 @@ def case_states(path: Path, cases: dict[int, dict]) -> dict[str, tuple[int, bool
         n, search = int(m.group(1)), m.group(2) is not None
         case = cases[n]
         if any(steps != WITHDRAWN for steps in case["banks"].values()):
-            # バンクの位置を状態に書く形（ADR-0127、#0063）が入るまで、挿入した場合は状態で表せない
+            # 状態はバンクの位置を持てる（ADR-0127）が、棒は燃料の上の軸方向の反射体の層にも入るので、その層の
+            # 制御棒の軸（#0030）と格子計算の制御棒の分岐（#0093）が入るまで、挿入した場合は解けない
             raise SystemExit(
-                f"{path}: state {name}: case {n} inserts banks, which states cannot hold yet (#0063)"
+                f"{path}: state {name}: case {n} inserts banks, which need the rod axis of the "
+                "layers above the fuel (#0030) and the rod branches of the lattice (#0093)"
             )
         if search and n > 10:
             raise SystemExit(

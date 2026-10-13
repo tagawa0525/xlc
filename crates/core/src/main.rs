@@ -163,6 +163,18 @@ fn report(layout: &Layout, problem: &Problem, solution: &Solution) {
     // 桁まで出す。k の誤差そのものは反復の収束で決まる（ADR-0146）
     println!("k-eff {:.8}", solution.k);
     println!("leakage per fission neutron {:.4}", leakage * solution.k);
+    // メッシュの違う計算を面の和で比べられるように、z の面の境界と核分裂率の割合（下から、和が 1）。集合体の表の
+    // 後ろに置かないのは、比べるツール（examples/vera/compare_p5.py）が表の見出しから後をすべて表の行として読むため
+    println!("axial fission fractions (bottom first: z from, z to (cm), fraction)");
+    let mut z = 0.0;
+    for (fraction, dz) in layout
+        .axial_fission_fractions(problem, solution)
+        .iter()
+        .zip(&problem.mesh.dz)
+    {
+        println!("{z:.6} {:.6} {fraction:.8e}", z + dz);
+        z += dz;
+    }
     println!("assembly fission rates (relative to the assembly mean, top row is +y)");
     println!("(`.` is a reflector site, `-` a position without a node)");
     for (row, empty) in layout

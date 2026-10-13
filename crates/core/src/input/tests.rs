@@ -361,6 +361,7 @@ fn named(name: &str, boron: f64, temperature: f64) -> CaseState {
         b10: 0.199,
         moderator: temperature,
         fuel: temperature,
+        banks: Default::default(),
     }
 }
 
@@ -388,6 +389,7 @@ fn parses_boron_searches() {
             b10: 0.199,
             moderator: 565.0,
             fuel: 565.0,
+            banks: Default::default(),
         }]
     );
     assert_eq!(
@@ -939,4 +941,261 @@ fn layers_may_put_marshak_on_their_vacuum_faces() {
     );
     let err = Plant::parse(&text, base()).unwrap_err().to_string();
     assert!(err.contains("marshal") && err.contains("marshak"), "{err}");
+}
+
+/// 上の行の集合体の位置に制御棒（バンク D）を置いた炉心の形。先端は 1 + 0.5 × ステップ (cm)、先端から AIC 2 cm、
+/// その上に B4C
+const RODS: &str = r#"
+[rods]
+step = 0.5
+bottom = 1.0
+steps = 16
+top = 10.0
+map = [
+  ".  D  .",
+  ".  .  .",
+]
+
+[rods.bank.D]
+type = "rcca"
+
+[rods.type.rcca]
+segments = [{ value = "aic", length = 2.0 }, { value = "b4c", length = 20.0 }]
+"#;
+
+fn rodded_plant() -> Plant {
+    Plant::parse(&format!("{PLANT}{RODS}"), base()).unwrap()
+}
+
+/// 炉心の状態とバンクの位置（ステップ）を書いたケース
+fn rodded_case(banks: &str) -> Case {
+    let text = format!(
+        "{CASE}\n[state.hzp]\nboron = 1291\nb10 = 0.199\nmoderator = 565\nfuel = 565\nbanks = {banks}\n"
+    );
+    Case::parse(&text, base()).unwrap()
+}
+
+/// 状態のバンクの位置で制御棒を入れた並び（ケースの最初の状態）
+fn rodded_layout(case: &Case, plant: &Plant) -> Result<Layout, InputError> {
+    let banks = case
+        .states
+        .first()
+        .map(|s| s.banks.clone())
+        .unwrap_or_default();
+    Layout::new(case, &cycle(), plant, &inventory())?.with_banks(&banks)
+}
+
+#[test]
+fn rod_tips_without_the_bank_step_are_errors() {
+    // バンクの位置の書き漏れを棒なしとして扱わない
+    let plant = rodded_plant();
+    assert!(rod_tips(&plant, Some(&BTreeMap::new())).is_err());
+    let banks = BTreeMap::from([("D".to_string(), 4)]);
+    let tips = rod_tips(&plant, Some(&banks)).unwrap();
+    assert_eq!(tips[0][1].map(|(tip, _)| tip), Some(3.0));
+    assert!(tips[0][0].is_none());
+}
+
+#[test]
+fn plants_read_rod_banks_and_types() {
+    let rods = rodded_plant().rods.unwrap();
+    assert_eq!(rods.step, 0.5);
+    assert_eq!(rods.bottom, 1.0);
+    assert_eq!(rods.steps, 16);
+    assert_eq!(rods.top, 10.0);
+    assert_eq!(
+        rods.map,
+        vec![
+            vec![None, Some("D".to_string()), None],
+            vec![None, None, None]
+        ]
+    );
+    assert_eq!(rods.banks["D"], "rcca");
+    assert_eq!(
+        rods.types["rcca"],
+        vec![("aic".to_string(), 2.0), ("b4c".to_string(), 20.0)]
+    );
+    assert_eq!(plant().rods, None);
+}
+
+#[test]
+fn invalid_rods_are_errors() {
+    let bad = |from: &str, to: &str| {
+        Plant::parse(&edited(&format!("{PLANT}{RODS}"), from, to), base()).is_err()
+    };
+    // 反射体の位置の棒、知らないバンク、図の形の違い
+    assert!(bad(
+        "\".  D  .\",\n  \".  .  .\"",
+        "\"D  D  .\",\n  \".  .  .\""
+    ));
+    assert!(bad(
+        "\".  D  .\",\n  \".  .  .\"",
+        "\".  C  .\",\n  \".  .  .\""
+    ));
+    assert!(bad("\".  D  .\",\n  \".  .  .\"", "\".  D  .\""));
+    // 知らない型、棒のない状態の名前を区間に使う、正でない長さ、区間がない
+    assert!(bad("type = \"rcca\"", "type = \"gray\""));
+    assert!(bad("value = \"aic\"", "value = \"out\""));
+    assert!(bad("length = 2.0", "length = 0.0"));
+    assert!(bad(
+        "segments = [{ value = \"aic\", length = 2.0 }, { value = \"b4c\", length = 20.0 }]",
+        "segments = []"
+    ));
+    // ステップの長さ、最大のステップ、高さ
+    assert!(bad("step = 0.5", "step = 0.0"));
+    assert!(bad("steps = 16", "steps = 0"));
+    assert!(bad("bottom = 1.0", "bottom = nan"));
+    assert!(bad("top = 10.0", "top = 0.5"));
+    // 知らないキー
+    assert!(bad("step = 0.5", "step = 0.5\nspeed = 1"));
+}
+
+#[test]
+fn cases_read_bank_steps_and_partial_rod_options() {
+    let c = rodded_case("{ D = 6 }");
+    assert_eq!(c.states[0].banks, BTreeMap::from([("D".to_string(), 6)]));
+    // 混ぜ方と細かいメッシュの幅は ADR-0127 の値が既定
+    assert_eq!(c.partial_rods, PartialRods::default());
+    assert_eq!(c.partial_rods.weighting, Weighting::Flux);
+    let text = format!("{CASE}\n[partial-rods]\nweighting = \"volume\"\n");
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(c.partial_rods.weighting, Weighting::Volume);
+    let text = format!("{CASE}\n[partial-rods]\nfine-mesh = 0.25\n");
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(
+        c.partial_rods,
+        PartialRods {
+            weighting: Weighting::Flux,
+            fine_mesh: 0.25
+        }
+    );
+    assert!(
+        Case::parse(
+            &format!("{CASE}\n[partial-rods]\nfine-mesh = 0.0\n"),
+            base()
+        )
+        .is_err()
+    );
+    assert!(
+        Case::parse(
+            &format!("{CASE}\n[partial-rods]\nweighting = \"area\"\n"),
+            base()
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn rods_split_nodes_into_uniform_intervals() {
+    // 6 ステップで先端は 4 cm（ノードの境）。ノード [4, 7] は AIC 2 cm と B4C 1 cm の部分挿入、[7, 10] は B4C
+    let layout = rodded_layout(&rodded_case("{ D = 6 }"), &rodded_plant()).unwrap();
+    let rod_of = |site: usize| {
+        let m = layout.materials[layout.node_material[site].unwrap()];
+        layout.tables[m.table].rod.clone()
+    };
+    // J01 は (x, y) = (1, 1)
+    let site = |z: usize| 1 + 3 * (1 + 2 * z);
+    assert_eq!(rod_of(site(0)), None);
+    assert_eq!(rod_of(site(2)), Some("b4c".to_string()));
+    // 棒のない J02 は (1, 0)
+    assert_eq!(rod_of(1 + 3 * 2), None);
+    assert_eq!(layout.partial.len(), 1);
+    let p = &layout.partial[0];
+    assert_eq!(p.site, site(1));
+    let segments: Vec<(Option<String>, f64)> = p
+        .segments
+        .iter()
+        .map(|&(t, length)| (layout.tables[t].rod.clone(), length))
+        .collect();
+    assert_eq!(
+        segments,
+        vec![
+            (Some("aic".to_string()), 2.0),
+            (Some("b4c".to_string()), 1.0)
+        ]
+    );
+    // 部分挿入のノードは自分だけの物質を持ち、区間の定数はテーブルの使い方ごとに渡す
+    let constants: Vec<Vec<FewGroup>> = layout
+        .tables
+        .iter()
+        .map(|t| vec![sided(!layout.reflector[t.file])])
+        .collect();
+    let problem = layout.problem(&constants).unwrap();
+    let partial = layout.partial_nodes(&constants).unwrap();
+    assert_eq!(partial.len(), 1);
+    assert_eq!(partial[0].site, site(1));
+    assert_eq!(problem.node_material[site(1)], Some(partial[0].material));
+    assert_eq!(partial[0].segments[1].length, 1.0);
+}
+
+#[test]
+fn bank_positions_must_match_the_plant_rods() {
+    let layout = rodded_layout;
+    // 棒のある炉心に状態がない、バンクの位置がない、知らないバンク、最大を超えるステップ
+    assert!(layout(&case(), &rodded_plant()).is_err());
+    assert!(layout(&rodded_case("{}"), &rodded_plant()).is_err());
+    assert!(layout(&rodded_case("{ D = 6, C = 2 }"), &rodded_plant()).is_err());
+    assert!(layout(&rodded_case("{ D = 17 }"), &rodded_plant()).is_err());
+    // 棒のない炉心にバンクの位置を書く
+    assert!(layout(&rodded_case("{ D = 6 }"), &plant()).is_err());
+    // 部分挿入の選択を、棒のない炉心に書く
+    let text = format!("{CASE}\n[partial-rods]\nweighting = \"volume\"\n");
+    assert!(layout(&Case::parse(&text, base()).unwrap(), &plant()).is_err());
+    // 棒を切る高さがノードの途中にある
+    let cut = Plant::parse(
+        &edited(&format!("{PLANT}{RODS}"), "top = 10.0", "top = 8.0"),
+        base(),
+    )
+    .unwrap();
+    assert!(layout(&rodded_case("{ D = 6 }"), &cut).is_err());
+    // 切る高さがノードの境なら、その上は棒を切った区間（テーブルに制御棒の軸がないこと）
+    let cut = Plant::parse(
+        &edited(&format!("{PLANT}{RODS}"), "top = 10.0", "top = 7.0"),
+        base(),
+    )
+    .unwrap();
+    let l = layout(&rodded_case("{ D = 6 }"), &cut).unwrap();
+    let m = l.materials[l.node_material[1 + 3 * (1 + 2 * 2)].unwrap()];
+    assert!(l.tables[m.table].cut);
+}
+
+#[test]
+fn rod_tips_on_node_faces_make_no_slivers() {
+    // 先端 1 + 0.5 × 6 = 4 は和で求めるので、丸めでノードの境から外れても、細い区間を作らない
+    let text = edited(&format!("{PLANT}{RODS}"), "step = 0.5", "step = 0.1");
+    let text = edited(&text, "steps = 16", "steps = 90");
+    let plant = Plant::parse(&text, base()).unwrap();
+    let layout = rodded_layout(&rodded_case("{ D = 30 }"), &plant).unwrap();
+    assert_eq!(layout.partial.len(), 1);
+    assert_eq!(layout.partial[0].segments.len(), 2);
+}
+
+#[test]
+fn axial_fission_fractions_sum_the_planes() {
+    let layout = layout_of(&case(), &cycle(), &plant()).unwrap();
+    let constants: Vec<FewGroup> = layout.reflector.iter().map(|&r| sided(!r)).collect();
+    let problem = layout.problem(&unsplit(&constants)).unwrap();
+    let solution = Solution {
+        k: 1.0,
+        flux: (0..layout.node_material.len())
+            .map(|n| vec![n as f64 + 1.0, 0.0])
+            .collect(),
+        leakage: vec![0.0, 0.0],
+        currents: std::array::from_fn(|_| Vec::new()),
+        iterations: 1,
+    };
+    // 集合体の位置は面ごとに J02（1, 7, 13）と J01（4, 10, 16）。各面の (2 + 5) × 4、(8 + 11) × 3、(14 + 17) × 3
+    let rates = [28.0, 57.0, 93.0];
+    let total: f64 = rates.iter().sum();
+    let fractions = layout.axial_fission_fractions(&problem, &solution);
+    for (got, want) in fractions.iter().zip(rates) {
+        assert!((got - want / total).abs() < 1e-12, "{fractions:?}");
+    }
+}
+
+#[test]
+fn fine_mesh_with_volume_weighting_is_an_error() {
+    // 体積の重みは細かいメッシュを使わないので、幅を書くのは誤り
+    let text = format!("{CASE}\n[partial-rods]\nweighting = \"volume\"\nfine-mesh = 0.1\n");
+    assert!(Case::parse(&text, base()).is_err());
 }
