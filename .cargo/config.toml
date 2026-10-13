@@ -2,4 +2,5 @@
 # Zen 5 の命令を持たない CPU では動かないので、別のマシンでは値を変える。ホームの設定のターゲット別の rustflags は
 # [build] の rustflags より優先されるので、同じターゲット別の項目に書く（配列はつながる）
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-cpu=znver5"]
+# ループの先頭を 64 バイトに揃え、関数の置き場所で時間が変わらないようにする（ADR-0157）
+rustflags = ["-C", "target-cpu=znver5", "-C", "llvm-args=-align-loops=64"]
