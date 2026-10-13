@@ -70,3 +70,41 @@ fn level_shift_vanishes_at_resonance_energy() {
     let expected = PI * g * gn * gg / (k * k * width * width / 4.0);
     assert_close(xs.cross_sections(er).capture, expected, "capture peak");
 }
+
+#[test]
+fn energy_dependent_radius_sets_the_s_wave_phase_shift_at_each_energy() {
+    use crate::endf::{Mf2, RangeKind, Tape, rec};
+    // 1e-5〜50 eV の MLBW（NRO=1、NAPS=0）。AP(E) は 0.70 から 0.60 へ lin-lin。共鳴は遠く幅も小さいので、弾性散乱は
+    // s 波の硬球散乱 (4π/k²) sin²(k AP(E)) に等しい
+    let awri = 147.6409;
+    let text: String = [
+        ["6.014900+4", "1.476409+2", "0", "0", "1", "0"],
+        ["6.014900+4", "1.0", "0", "0", "1", "0"],
+        ["1.0-5", "5.0+1", "1", "2", "1", "0"],
+        ["0.0", "0.0", "0", "0", "1", "2"],
+        ["2", "2", "", "", "", ""],
+        ["1.0-5", "0.70", "5.0+1", "0.60", "", ""],
+        ["0.0", "0.0", "0", "0", "1", "0"],
+        ["1.476409+2", "0.0", "0", "0", "6", "1"],
+        ["1.0+4", "0.5", "2.0-9", "1.0-9", "1.0-9", "0.0"],
+    ]
+    .iter()
+    .map(|f| rec(*f, 6046, 2, 151))
+    .collect();
+    let tape = Tape::parse(&text).unwrap();
+    let mf2 = Mf2::parse(&tape.section(6046, 2, 151).unwrap()).unwrap();
+    let RangeKind::Mlbw(bw) = &mf2.ranges[0].kind else {
+        panic!("expected MLBW");
+    };
+    let xs = MlbwXs::new(bw);
+    for e in [1.0e-3, 0.5, 6.0, 25.0, 50.0] {
+        let radius = 0.70 + (0.60 - 0.70) * (e - 1.0e-5) / (50.0 - 1.0e-5);
+        let k = wave_number_factor() * awri / (awri + 1.0) * f64::sqrt(e);
+        let expected = 4.0 * PI / (k * k) * (k * radius).sin().powi(2);
+        assert_close(
+            xs.cross_sections(e).elastic,
+            expected,
+            &format!("elastic at {e}"),
+        );
+    }
+}
