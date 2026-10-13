@@ -11,10 +11,8 @@
 #   --dry-run  何もコピーせず、ジョブの状態（done）だけ出す
 # 完了していないジョブ（done がないか 0 でない）があれば、取り出せる分を取り出したうえで 1 で終わる。
 set -euo pipefail
-# shellcheck source=aws_common.sh
-source "$(dirname "$0")/aws_common.sh"
 
-usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 verify=0
 delete=0
@@ -35,18 +33,19 @@ done
 [[ -n $name ]] || { usage; exit 2; }
 ((!delete || verify)) || { echo "--delete には --verify が要ります（検証してから消す）" >&2; exit 2; }
 [[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から実行してください" >&2; exit 1; }
+# shellcheck source=aws_common.sh
+source "$(dirname "$0")/aws_common.sh"
 dest=${dest:-references/openmc/aws/$name}
 run_prefix=s3://$XLC_BUCKET/runs/$name
 
-env=$(aws s3 cp "$run_prefix/launch.env" -) || { echo "$run_prefix/launch.env がありません" >&2; exit 1; }
-read -r -a inputs <<< "$(sed -n 's/^INPUTS=//p' <<< "$env" | tr -d '"')"
-echo "== $name（$(sed -n 's/^COMMIT=//p' <<< "$env")）"
+read_launch_env "$name"
+echo "== $name（$(launch_env_value COMMIT)）"
 
 done_inputs=()
 status=0
-for input in "${inputs[@]}"; do
-  job=$(basename "$input" .toml)
-  code=$(aws s3 cp "$run_prefix/$job/done" - 2> /dev/null || true)
+for input in "${RUN_INPUTS[@]}"; do
+  job=$(job_name "$input")
+  code=$(job_done "$name" "$job")
   echo "$job: done ${code:-なし}"
   if [[ $code == 0 ]]; then done_inputs+=("$input"); else status=1; fi
 done
@@ -54,7 +53,7 @@ done
 
 aws s3 sync --only-show-errors "$run_prefix/src" "$dest/src"
 for input in "${done_inputs[@]}"; do
-  job=$(basename "$input" .toml)
+  job=$(job_name "$input")
   aws s3 sync --only-show-errors "$run_prefix/$job" "$dest/$job"
   (cd "$dest/$job" && sha256sum --quiet -c SHA256SUMS) || { echo "$job: SHA256SUMS が合いません" >&2; exit 1; }
   echo "$job: 取り出して SHA256SUMS が一致（$dest/$job）"
@@ -63,7 +62,7 @@ done
 if ((verify)); then
   python=$(nix build .#openmc-python --no-link --print-out-paths)/bin/python3
   for input in "${done_inputs[@]}"; do
-    job=$(basename "$input" .toml)
+    job=$(job_name "$input")
     case $job in
       openmc-3?) script=examples/vera/openmc_model_3d.py ;;
       openmc-5?-2D) script=examples/vera/openmc_core_2d.py ;;

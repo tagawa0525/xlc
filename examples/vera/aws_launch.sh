@@ -30,6 +30,7 @@ while (($#)); do
 done
 [[ -n $name ]] || { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 [[ $count =~ ^[1-9][0-9]*$ ]] || { echo "--count は正の整数" >&2; exit 2; }
+ssh_sg_id
 
 ami=$(aws ec2 describe-images --owners 099720109477 \
   --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
