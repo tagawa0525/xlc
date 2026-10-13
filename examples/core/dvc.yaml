@@ -1,11 +1,11 @@
-# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）の段階（ADR-0123）: ENDF → 多群ライブラリ（xs）→
+# このファイルは rods_cases.py が書く。制御棒の部分挿入の例（ADR-0127）の段階（ADR-0159）: ENDF → 多群ライブラリ（xs）→
 # 制御棒の値ごとの格子計算（lattice-<値>）→ 制御棒の軸を持つ 1 つのテーブル（table。#0093 までのつなぎ）→ ケースごとの
 # 炉心（core-<ケース>）→ 比較（compare）。実行するのは `dvc repro examples/core/dvc.yaml`
 vars:
   - cases.yaml
 stages:
   xs:
-    cmd: cargo run --release -p xlc-xs -- xs.toml
+    cmd: ../../bin/xs xs.toml
     deps:
       - xs.toml
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
@@ -64,38 +64,18 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
       - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
-      - ../../crates/xs/src
-      - ../../crates/xs/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/xs
     outs:
       - rods.msgpack
   lattice:
     foreach: [out, aic, b4c]
     do:
       # 結果の k∞ は標準出力に出るので、ファイルに受ける
-      cmd: cargo run --release -p xlc-lattice -- assembly-${item}.toml > lattice-${item}.out
+      cmd: ../../bin/lattice assembly-${item}.toml > lattice-${item}.out
       deps:
         - assembly-${item}.toml
         - rods.msgpack
-        - ../../crates/lattice/src
-        - ../../crates/lattice/Cargo.toml
-        - ../../crates/numeric/src
-        - ../../crates/numeric/Cargo.toml
-        - ../../crates/format/src
-        - ../../crates/format/Cargo.toml
-        - ../../Cargo.toml
-        - ../../Cargo.lock
-        - ../../rust-toolchain.toml
-        - ../../.cargo/config.toml
-        - ../../flake.lock
+        - ../../bin/lattice
       outs:
         - fg-${item}.msgpack
         - lattice-${item}.out
@@ -112,24 +92,14 @@ stages:
     foreach: ${cases}
     do:
       # DVC は出力の親のディレクトリを作らないので、作ってから実行する
-      cmd: mkdir -p out && cargo run --release -p xlc-core -- cases/${item}.toml > out/${item}.out
+      cmd: mkdir -p out && ../../bin/core cases/${item}.toml > out/${item}.out
       deps:
         - cases/${item}.toml
         - plant.toml
         - assemblies.toml
         - cycle.toml
         - table-rods.msgpack
-        - ../../crates/core/src
-        - ../../crates/core/Cargo.toml
-        - ../../crates/numeric/src
-        - ../../crates/numeric/Cargo.toml
-        - ../../crates/format/src
-        - ../../crates/format/Cargo.toml
-        - ../../Cargo.toml
-        - ../../Cargo.lock
-        - ../../rust-toolchain.toml
-        - ../../.cargo/config.toml
-        - ../../flake.lock
+        - ../../bin/core
       outs:
         - out/${item}.out
   compare:

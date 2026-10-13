@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-dvc-lock.sh — 渡された dvc.lock を dvc が読めるかを確かめる（.pre-commit-config.yaml の dvc-lock が呼ぶ）
 #
-# Usage: check-dvc-lock.sh <examples/<問題>/dvc.lock>...
+# Usage: check-dvc-lock.sh <dvc.lock | examples/<問題>/dvc.lock>...
 #
 # dvc stage list は dvc.lock を読み込んで検証する。先頭の schema: '2.0' が無いと終了コード 255 で止まる。
 # dvc status は出力のハッシュを計算するので vera で約 27 秒かかるため使わない。stage list は約 2 秒。
