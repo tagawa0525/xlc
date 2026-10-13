@@ -22,7 +22,8 @@ resolution:
 
 `xs::resonance::line_shape` の J, K の表（`table()`、`OnceLock`）は、最初に使うときに一度だけ作る。表は
 β 641 点 × θ 361 点で、各点で適応 Gauss-Kronrod 積分する。debug ビルドでは作るのに 15 秒ほどかかり、次のテストの時間は
-ほぼこの構築で決まる。
+ほぼこの構築で決まっていた（下の時間は 2026-10-12 のもの）。θ の行を並列に作るようにして、1 本ずつ実行した時間は 1〜4 秒に
+なった（#0088 の「入れた高速化」）。
 
 - `process::tests::processes_each_temperature_and_sigma0`（21 秒）
 - `process::tests::scattering_order_sets_the_number_of_moments`（23 秒）
@@ -59,4 +60,4 @@ J, K の表の構築を速くする（または nextest の各プロセスで構
 ## 経緯
 
 - 2026-10-12: ブランチ test/shrink-slow-tests で、入力を縮められるテストは縮め、縮められないものをここに書いた
-- 2026-10-13: J, K の表の構築を θ の行について rayon で並列にし、上の 5 本の debug の時間が縮んだ（数値は #0088 の「入れた高速化」）
+- 2026-10-13: J, K の表の構築を θ の行について並列にし、上の 5 本の debug の時間が縮んだ（数値は #0088 の「入れた高速化」）
