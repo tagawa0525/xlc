@@ -26,6 +26,10 @@ examples/openmc_resume.py の `run_model` は、走行中に 30 秒ごとに `pr
 
 関係する ADR: ADR-0155
 
+S3 の側: ADR-0155 の同期は、走っている間 statepoint を `--delete` の対象から外す（書いている途中のものを写さないため）ので、
+VM での間引きを直しても、S3 の `runs/` の statepoint は完了まで増える。起動し直しはそれをすべて VM に戻す。直すときは、同期で
+書き終えた古い statepoint を S3 から消すことも合わせて考える。
+
 ## 完了の条件
 
 走行中に statepoint が最新の `KEEP` 個に保たれる（例: `run_model` で `work` を絶対パスにする）ことを、テストで確かめる。
