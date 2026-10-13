@@ -5,7 +5,7 @@ opened: 2026-10-13
 closed: 2026-10-13
 milestone:
 blocked-by: []
-resolution: コミット 06c33a86
+resolution: コミット fa1a769a
 ---
 
 # DVC の段階の python3 が検証用の Python でなく dvc のラッパーの素の python3 になる
@@ -37,4 +37,4 @@ default の devShell の `dvc repro` で、`python3` を呼ぶ段階が検証用
 
 ## 経緯
 
-- 2026-10-13: 見つけて、devShell の `dvc` を `.dvc-wrapped` を呼ぶスクリプトにした（06c33a86）
+- 2026-10-13: 見つけて、devShell の `dvc` を `.dvc-wrapped` を呼ぶスクリプトにした（fa1a769a）
