@@ -57,8 +57,8 @@ stages:
       size: 145303076
     - path: assembly-21.toml
       hash: md5
-      md5: bc16fe0a4169741bc0d973484a1e489d
-      size: 4288
+      md5: 33e459a8e64c029c04ce0e4267533cd4
+      size: 4317
     outs:
     - path: assembly-21.out
       hash: md5
@@ -125,8 +125,8 @@ stages:
       size: 145303076
     - path: assembly-26-p16.toml
       hash: md5
-      md5: 79f908d17c3701f7ba9f8eb1b9fd849b
-      size: 5628
+      md5: 55ece6c24139276fc74226037b3d3d1e
+      size: 5657
     outs:
     - path: assembly-26-p16.out
       hash: md5
@@ -193,8 +193,8 @@ stages:
       size: 145303076
     - path: assembly-26-p20.toml
       hash: md5
-      md5: a3d0ffce233f1132c11f0a8dce9ec980
-      size: 5628
+      md5: 2964dfaba3d5c514beccfc94f12a5755
+      size: 5657
     outs:
     - path: assembly-26-p20.out
       hash: md5
@@ -261,8 +261,8 @@ stages:
       size: 145303076
     - path: assembly-26-p24.toml
       hash: md5
-      md5: 9dbb8a387c45c8b8be30a07fff1c63bc
-      size: 5628
+      md5: 995a79aebf66edca4a55e352c5523703
+      size: 5657
     outs:
     - path: assembly-26-p24.out
       hash: md5
@@ -329,8 +329,8 @@ stages:
       size: 145303076
     - path: assembly-26.toml
       hash: md5
-      md5: 7a21677de469cb21781d9952fc3a0bac
-      size: 4289
+      md5: 339cac9a53d0ee3740d8952a5629bc65
+      size: 4318
     outs:
     - path: assembly-26.out
       hash: md5
@@ -397,8 +397,8 @@ stages:
       size: 145303076
     - path: assembly-31-p12.toml
       hash: md5
-      md5: 1b89593f621851a86c5f0ecbc484a202
-      size: 5627
+      md5: 4f641e3e99dc5b702e43e8e900a1e598
+      size: 5656
     outs:
     - path: assembly-31-p12.out
       hash: md5
@@ -465,8 +465,8 @@ stages:
       size: 145303076
     - path: assembly-31-p16.toml
       hash: md5
-      md5: 9c0e12c589708e441ac0bc9f6da70f57
-      size: 5627
+      md5: b2cb5082c4034b17cbac20ecc665c42c
+      size: 5656
     outs:
     - path: assembly-31-p16.out
       hash: md5
@@ -533,8 +533,8 @@ stages:
       size: 145303076
     - path: assembly-31-p24.toml
       hash: md5
-      md5: 8ebd6ed5b7f041e2933dc074bb97b876
-      size: 5627
+      md5: 13cc3c099abd329a54c692923bce01bb
+      size: 5656
     outs:
     - path: assembly-31-p24.out
       hash: md5
@@ -543,74 +543,6 @@ stages:
     - path: lattice/31-p24.msgpack
       hash: md5
       md5: 918a1c8590340b1dc75a683184ddaf72
-      size: 7575
-  assembly-31-p8:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
-      assembly-31-p8.toml > assembly-31-p8.out
-    deps:
-    - path: ../../../.cargo/config.toml
-      hash: md5
-      md5: ac2b3155530983cb9f0391811a6dc2b3
-      size: 483
-    - path: ../../../Cargo.lock
-      hash: md5
-      md5: 6a2e4152003aa7d273385abb56540396
-      size: 14146
-    - path: ../../../Cargo.toml
-      hash: md5
-      md5: b7d2e13457a53c1f163a27769d18fb26
-      size: 917
-    - path: ../../../crates/format/Cargo.toml
-      hash: md5
-      md5: 27e5dbce41ebc5a30c5ed0c9861db610
-      size: 221
-    - path: ../../../crates/format/src
-      hash: md5
-      md5: 9e67937f659a53e023ed5ff5a0826f8e.dir
-      size: 117795
-      nfiles: 10
-    - path: ../../../crates/lattice/Cargo.toml
-      hash: md5
-      md5: 0d52be204d05bbc657bd40ea03831341
-      size: 568
-    - path: ../../../crates/lattice/src
-      hash: md5
-      md5: 6e206dc5904bffe2e5b361d9b22963cf.dir
-      size: 986681
-      nfiles: 30
-    - path: ../../../crates/numeric/Cargo.toml
-      hash: md5
-      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
-      size: 150
-    - path: ../../../crates/numeric/src
-      hash: md5
-      md5: 1a5c9523e90e748405c70a2a4e815aea.dir
-      size: 166212
-      nfiles: 13
-    - path: ../../../flake.lock
-      hash: md5
-      md5: 83437230048eadb7a5c2f626d4ea10aa
-      size: 1108
-    - path: ../../../rust-toolchain.toml
-      hash: md5
-      md5: 87a81bbb3d955b97621800bbd7d234b7
-      size: 98
-    - path: ../vera.msgpack
-      hash: md5
-      md5: 1850d83f3a1bc3c8296311833e3551d7
-      size: 145303076
-    - path: assembly-31-p8.toml
-      hash: md5
-      md5: 24694a36b7d15a998b13692e932e0c05
-      size: 5625
-    outs:
-    - path: assembly-31-p8.out
-      hash: md5
-      md5: 73f84a629416adba0d056bbb16f6639d
-      size: 11
-    - path: lattice/31-p8.msgpack
-      hash: md5
-      md5: d0599c13e248f97cb4d063fae40a9bec
       size: 7575
   assembly-31:
     cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- 
@@ -669,8 +601,8 @@ stages:
       size: 145303076
     - path: assembly-31.toml
       hash: md5
-      md5: 6dd6adf80e8642f5bb325f65afb788cb
-      size: 4288
+      md5: b00721671c70d2f7c367d227372b206f
+      size: 4317
     outs:
     - path: assembly-31.out
       hash: md5
@@ -737,8 +669,8 @@ stages:
       size: 145303076
     - path: assembly-26-aic.toml
       hash: md5
-      md5: 264749ee8a12f4a0d70d034a35b72c3b
-      size: 5611
+      md5: 784546c8dbb57259064714c53f5fbaa9
+      size: 5640
     outs:
     - path: assembly-26-aic.out
       hash: md5
@@ -805,8 +737,8 @@ stages:
       size: 145303076
     - path: assembly-21-b4c.toml
       hash: md5
-      md5: 78e54308a22b958c3e7d99b0ada5ce1d
-      size: 5434
+      md5: 54ab70d01d2ef5d4ac409877e72d6559
+      size: 5463
     outs:
     - path: assembly-21-b4c.out
       hash: md5
@@ -873,8 +805,8 @@ stages:
       size: 145303076
     - path: assembly-21-aic.toml
       hash: md5
-      md5: a03b25f62aedfcd64ac0941860ced6a8
-      size: 5610
+      md5: 432913d8396b9274e58642a419f8d806
+      size: 5639
     outs:
     - path: assembly-21-aic.out
       hash: md5
@@ -941,8 +873,8 @@ stages:
       size: 145303076
     - path: assembly-26-b4c.toml
       hash: md5
-      md5: 47118124d9774ed8b0493ff7a5545cc1
-      size: 5435
+      md5: 6c8c61a2cecf0cf23520aa0a98adb307
+      size: 5464
     outs:
     - path: assembly-26-b4c.out
       hash: md5
