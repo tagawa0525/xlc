@@ -12,11 +12,15 @@ now=$(date +%s)
 found=0
 # 失敗で止まるよう、一覧を先に取る（< <(...) の失敗は set -e で止まらない）
 listing=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" \
-  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,InstanceType,State.Name,PublicIpAddress,LaunchTime,Placement.AvailabilityZone]' --output text)
-while read -r id name type state ip launch az; do
+  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value,InstanceType,State.Name,PublicIpAddress,LaunchTime,Placement.AvailabilityZone,InstanceLifecycle||`on-demand`]' --output text)
+while read -r id name type state ip launch az lifecycle; do
   [[ -n $id ]] || continue # 空の一覧は 1 行の空行になる
   found=1
   hours=$(awk -v n="$now" -v l="$(date -d "$launch" +%s)" 'BEGIN {printf "%.2f", (n - l) / 3600}')
+  if [[ $lifecycle != spot ]]; then
+    echo "$name $id $type $state $ip 起動から ${hours} 時間、オンデマンド（スポット価格の目安は出さない）"
+    continue
+  fi
   price=$(aws ec2 describe-spot-price-history --instance-types "$type" --availability-zone "$az" --product-descriptions Linux/UNIX \
     --start-time "$(date -u +%FT%TZ)" --query 'SpotPriceHistory[0].SpotPrice' --output text)
   [[ $price != None ]] || { echo "$name $id $type $state $ip スポット価格を取得できません（$az）"; continue; }
