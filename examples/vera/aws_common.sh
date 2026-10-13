@@ -2,6 +2,8 @@
 # aws_*.sh が source する共通の定義（docs/environment.md の「外部の計算機（AWS）」）。単体では走らせない。
 export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
 SSH_CONFIG=${SSH_CONFIG:-$HOME/.ssh/config}
+# 自己完結な実行（aws_run.sh、aws_fetch.sh。ADR-0155）の S3 のバケット
+XLC_BUCKET=${XLC_BUCKET:-xlc-openmc-118645514640}
 SG_ID=$(aws ec2 describe-security-groups --filters Name=group-name,Values=xlc-ssh \
   --query 'SecurityGroups[0].GroupId' --output text)
 [[ $SG_ID == sg-* ]] || { echo "セキュリティグループ xlc-ssh が $AWS_DEFAULT_REGION にありません" >&2; exit 1; }
