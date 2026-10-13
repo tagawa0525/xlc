@@ -108,33 +108,24 @@ CRAM は定番のない数値計算として自前で書く（ADR-0006）。
 （CRAM の誤差は、近似の一様誤差 × 初期の大きさで抑えられるため）。閾値は、テストより前の試作で測った値（2026-10-14）に
 数十倍の余裕を持たせたもの:
 
-| テスト                                                     | 閾値                 | 次数 16    | 次数 48    |
-| ---------------------------------------------------------- | -------------------- | ---------- | ---------- |
-| `one_nuclide_decays_exponentially`（x ∈ [1e-6, 1e5]）      | 1e-13                | 1.1e-15    | 2.2e-15    |
-| `a_chain_matches_bateman`（‖A t‖ = 1e9 の硬い鎖を含む）    | 1e-13                | 1.9e-15    | 1.9e-15    |
-| `a_branching_decay_splits_by_the_ratios`                   | 1e-13                | 9e-16 以下 | 9e-16 以下 |
-| `a_cycle_with_complex_eigenvalues_matches_the_closed_form` | 16: 1e-10、48: 1e-13 | 6.1e-12    | 1.0e-15    |
-| `a_small_daughter_keeps_its_relative_accuracy`（相対誤差） | 1e-12                | 1.7e-15    | 4.1e-16    |
+| テスト                                                     | 閾値                 |
+| ---------------------------------------------------------- | -------------------- |
+| `one_nuclide_decays_exponentially`（x ∈ [1e-6, 1e5]）      | 1e-13                |
+| `a_chain_matches_bateman`（‖A t‖ = 1e9 の硬い鎖を含む）    | 1e-13                |
+| `a_branching_decay_splits_by_the_ratios`                   | 1e-13                |
+| `a_cycle_with_complex_eigenvalues_matches_the_closed_form` | 16: 1e-10、48: 1e-13 |
+| `a_small_daughter_keeps_its_relative_accuracy`（相対誤差） | 1e-12                |
 
 最後の行は、親の 1e-9 倍で釣り合う短寿命の娘（Xe-135 の型）の相対誤差で、小さな核種も相対的に精度を保つことを見る。ほかに
-`zero_time_keeps_the_densities`、`the_densities_scale_with_the_initial_densities`（2 の冪で拡大するとちょうど同じ倍）、入力の検査の
-テスト（crates/depletion/src/matrix/tests.rs と cram/tests.rs の `rejects_*`）。
+`zero_time_keeps_the_densities_exactly`、`the_densities_scale_with_the_initial_densities`（2 の冪で拡大するとちょうど同じ倍）、
+入力の検査のテスト（crates/depletion/src/matrix/tests.rs と cram/tests.rs の `rejects_*`）。
 
 OpenMC との比較（examples/depletion/compare_openmc.py、入力は examples/depletion/cases.toml）: `openmc.deplete.cram` の
 `CRAM16`、`CRAM48` と xlc に同じ行列を与え、差の絶対値の最大を初期の数密度の最大で割ったものが 1e-13 以下であること
-（同じ有理近似を同じ係数で当てるので、差は線形の解法の丸めだけ）。結果（a1ea7afa、分岐点は main の 903ba01c、2026-10-14。
-Slurm のジョブ 309）:
+（同じ有理近似を同じ係数で当てるので、差は線形の解法の丸めだけ）。
 
-| 行列                                                          | 次数 16 の差 | 次数 48 の差 | OpenMC の 16 と 48 の差 |
-| ------------------------------------------------------------- | ------------ | ------------ | ----------------------- |
-| pwr-fuel（14 核種、Pu-239 の α 崩壊の環、30 日）              | 1.8e-18      | 3.2e-16      | 3.2e-16                 |
-| cycle（固有値が複素の環、kt = 10）                            | 5.6e-16      | 2.8e-16      | 6.1e-12                 |
-| stiff（‖A t‖ = 1e9 の鎖）                                     | 4.4e-16      | 3.9e-16      | 1.0e-15                 |
-| random-300（300 核種、環を含む乱数の行列、5 列に 100 個の娘） | 1.4e-16      | 7.9e-16      | 3.2e-16                 |
-
-すべて閾値 1e-13 の内にある。値が初期の最大の 1e-12 倍より大きい核種の相対差の最大は、random-300 で 4.7e-11（16）と
-3.5e-12（48）、ほかは 6.8e-13 以下。OpenMC の 16 と 48 の差は、環の行列でだけ 6.1e-12 に開き、解析解との比較（次数 16 の環の
-誤差 6.1e-12）と合う。
+測った値は examples/depletion/verification.md。2026-10-14 の測定で、解析解の誤差は次数 48 ですべて 2.2e-15 以下、次数 16 は
+実の固有値の鎖で 1.9e-15 以下、環で 6.1e-12、OpenMC との差は 8e-16 以下で、すべて閾値の内にある。
 
 ## 帰結
 
