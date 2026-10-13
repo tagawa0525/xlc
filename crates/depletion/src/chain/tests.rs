@@ -484,6 +484,83 @@ fn rejects_repeated_final_states_or_other_files() {
 }
 
 #[test]
+fn rejects_the_same_state_in_two_channels() {
+    // 同じ状態を別のファイルから、または基底状態を LFS 0 と残りの両方で数えない
+    invalid(&split_capture(&[(9, Some(1)), (10, Some(1))]));
+    invalid(&split_capture(&[(9, Some(0)), (9, None)]));
+    invalid(&split_capture(&[(9, Some(1)), (9, None), (10, None)]));
+}
+
+#[test]
+fn rejects_products_that_are_the_parent() {
+    let mut chain = small_chain();
+    chain.nuclides[U235].reactions[0].channels[0].products[0].nuclide = U235;
+    invalid(&chain);
+    let mut chain = small_chain();
+    chain.nuclides[I135].decay.as_mut().unwrap().modes[0].products[0].nuclide = I135;
+    invalid(&chain);
+    let mut chain = small_chain();
+    chain.nuclides[U235].fission.as_mut().unwrap().yields[0][0].nuclide = U235;
+    invalid(&chain);
+}
+
+#[test]
+fn rejects_empty_yield_tables_and_sources_without_fission() {
+    let mut chain = small_chain();
+    chain.nuclides[U235].fission.as_mut().unwrap().yields[1].clear();
+    invalid(&chain);
+    let mut chain = small_chain();
+    chain.nuclides[U235].fission.as_mut().unwrap().yield_source = "U-236".into();
+    invalid(&chain);
+}
+
+#[test]
+fn rejects_a_mass_number_below_one() {
+    let mut chain = small_chain();
+    chain.nuclides[0].a = 0;
+    chain.nuclides[0].name = "H-0".into();
+    invalid(&chain);
+}
+
+#[test]
+fn rejects_a_nested_struct_written_as_an_array() {
+    // 最上位は map のまま、崩壊のエネルギー（入れ子の構造体）だけを配列にする
+    let bytes = small_chain().to_msgpack().unwrap();
+    let mut value = xlc_format::msgpack::read_value(&bytes).unwrap();
+    let rmpv::Value::Map(top) = &mut value else {
+        panic!("not a map")
+    };
+    let nuclides = top
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("nuclides"))
+        .unwrap();
+    let rmpv::Value::Array(nuclides) = &mut nuclides.1 else {
+        panic!("not an array")
+    };
+    let rmpv::Value::Map(i135) = &mut nuclides[I135] else {
+        panic!("not a map")
+    };
+    let decay = i135
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("decay"))
+        .unwrap();
+    let rmpv::Value::Map(decay) = &mut decay.1 else {
+        panic!("not a map")
+    };
+    let energy = decay
+        .iter_mut()
+        .find(|(k, _)| k.as_str() == Some("energy"))
+        .unwrap();
+    energy.1 = rmpv::Value::Array(vec![1e5.into(), 2e5.into(), 0.0.into()]);
+    let mut changed = Vec::new();
+    rmpv::encode::write_value(&mut changed, &value).unwrap();
+    assert!(matches!(
+        Chain::from_msgpack(&changed),
+        Err(ChainError::Msgpack(MsgpackError::NotMap))
+    ));
+}
+
+#[test]
 fn rejects_unknown_decay_modes_and_products_of_spontaneous_fission() {
     let mut chain = small_chain();
     chain.nuclides[I135].decay.as_mut().unwrap().modes[0].mode = "beta".into();
