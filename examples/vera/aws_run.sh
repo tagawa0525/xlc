@@ -135,7 +135,9 @@ else
       continue
     fi
     [[ -z $code ]] || { echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot.log を見てください" >&2; exit 1; }
-    if aws s3 ls "$run_prefix/$job/run/" | grep -qE ' statepoint\.[0-9]+\.h5$'; then
+    # grep -q が先に閉じると aws が SIGPIPE で失敗し、pipefail で「ない」と読まれるので、一覧を先に取る
+    listing=$(aws s3 ls "$run_prefix/$job/run/" || true)
+    if grep -qE ' statepoint\.[0-9]+\.h5$' <<< "$listing"; then
       echo "$job: statepoint から再開"
       restart_flags+=(1)
     else
