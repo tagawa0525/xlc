@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [verification]
 opened: 2026-10-12
-closed:
+closed: 2026-10-14
 milestone:
 blocked-by: []
-resolution:
+resolution: ADR-0159
 ---
 
 # 段階を実行する devShell の設定が DVC の deps に表れない
@@ -18,7 +18,7 @@ DVC のステージは default の devShell で走る（[ADR-0130](../adr/0130-d
 override したりすると、段階のビルドが変わっても段階は changed にならない。ツールチェーンの override を止めているのは
 flake.nix のコメントだけ（ADR-0135）で、shell の設定の変更を止めるものはない。
 
-関係する ADR: [ADR-0135](../adr/0135-keep-dev-tools-out-of-rust-toolchain.md)
+関係する ADR: [ADR-0135](../adr/0135-keep-dev-tools-out-of-rust-toolchain.md)、[ADR-0159](../adr/0159-depend-stages-on-built-binaries.md)
 
 ## 完了の条件
 
@@ -30,3 +30,6 @@ flake.nix のコメントだけ（ADR-0135）で、shell の設定の変更を�
 ## 経緯
 
 - 2026-10-12: ADR-0135 のレビューで、ADR-0123 の前からある限界として挙がった
+- 2026-10-14: ADR-0159 で、計算の段階の deps をビルドした実行ファイルにし、`flake.nix` を実行ファイルを作る `build` の段階の
+  deps にした。devShell の設定やツールチェーンの変更は、実行ファイルを変えれば計算の段階を実行し、開発のツールの追加のように
+  実行ファイルを変えなければ実行しない

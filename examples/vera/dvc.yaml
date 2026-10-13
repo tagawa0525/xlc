@@ -1,7 +1,7 @@
 # VERA の段階: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ
-# （範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）→ 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0123）。NJOY と OpenMC を
+# （範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）→ 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0159）。NJOY と OpenMC を
 # 使う段階は cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps に
-# する（ADR-0130）。Rust の段階の deps は、段階の入力と、そのバイナリを作るコード（ADR-0123。examples/m0/dvc.yaml と同じ並び）。
+# する（ADR-0130）。Rust の段階の deps は、段階の入力と、段階が呼ぶ実行ファイル（ADR-0159。examples/m0/dvc.yaml と同じ並び）。
 vars:
   - openmc-library.toml
   - xs.toml
@@ -97,21 +97,11 @@ stages:
   xs-range:
     # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとの段階の入力にするため、先に求める
     # （ADR-0138）。ENDF はディレクトリごと deps にする。sha256 で固定した（ADR-0124）ので変わらない
-    cmd: cargo run --release -p xlc-xs -- range xs.toml xs-range.toml
+    cmd: ../../bin/xs range xs.toml xs-range.toml
     deps:
       - xs.toml
       - ../../references/endf/ENDF-B-VIII.0_neutrons
-      - ../../crates/xs/src
-      - ../../crates/xs/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/xs
     outs:
       - xs-range.toml:
           cache: false
@@ -120,22 +110,12 @@ stages:
     # 実行しない。ADR-0138）。熱中性子散乱の ENDF は、固定した（ADR-0124）ディレクトリごと deps にする
     foreach: ${nuclide}
     do:
-      cmd: cargo run --release -p xlc-xs -- nuclide xs.toml xs-range.toml ${key} xs-nuclides/${key}.msgpack
+      cmd: ../../bin/xs nuclide xs.toml xs-range.toml ${key} xs-nuclides/${key}.msgpack
       deps:
         - xs-range.toml
         - ${endf-directory}/${item.endf}
         - ${thermal-directory}
-        - ../../crates/xs/src
-        - ../../crates/xs/Cargo.toml
-        - ../../crates/numeric/src
-        - ../../crates/numeric/Cargo.toml
-        - ../../crates/format/src
-        - ../../crates/format/Cargo.toml
-        - ../../Cargo.toml
-        - ../../Cargo.lock
-        - ../../rust-toolchain.toml
-        - ../../.cargo/config.toml
-        - ../../flake.lock
+        - ../../bin/xs
       params:
         - xs.toml:
             - sigma0
@@ -144,41 +124,21 @@ stages:
       outs:
         - xs-nuclides/${key}.msgpack
   xs:
-    cmd: cargo run --release -p xlc-xs -- assemble xs.toml xs-range.toml xs-nuclides
+    cmd: ../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
     deps:
       - xs.toml
       - xs-range.toml
       - xs-nuclides
-      - ../../crates/xs/src
-      - ../../crates/xs/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/xs
     outs:
       - vera.msgpack
   lattice-1B:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- p1/pincell-1B.toml > p1/lattice-1B.out
+    cmd: ../../bin/lattice p1/pincell-1B.toml > p1/lattice-1B.out
     deps:
       - p1/pincell-1B.toml
       - vera.msgpack
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - p1/lattice-1B.out
   compare-1B:
