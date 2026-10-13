@@ -49,8 +49,8 @@ for name in fresh restart; do
   # done を書かずにジョブが消えたら、最長の時間まで待たずに失敗で終わる
   contains "$text" '  if ! pgrep -f -- " $OUT(/run)?( |$)" > /dev/null; then' "$name"
   # 同期は done と boot.log を除く。finish が同期、boot.log、done の順に置く（done があれば、ほかはそろっている）
-  contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "$WORK/$OUT" "$PREFIX"' "$name"
-  before "$text" '    sync_out && synced=1' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' "$name"
+  contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "${skip[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
+  before "$text" '      sync_out && { synced=1; break; }' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' "$name"
   before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' \
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
   # 同期に失敗したときと SIGTERM（中断）では done を置かない。失敗の終了では終了コードを done に書く
@@ -62,11 +62,17 @@ for name in fresh restart; do
   # finish の中の失敗で止まると、電源が切れない
   before "$text" 'finish() {' '  set +e' "$name"
   lacks "$text" '"$AWS" s3 cp --only-show-errors "$OUT/done" "$PREFIX/done"' "$name"
+  contains "$text" 'READY=0' "$name"
+  contains "$text" '  ((READY)) || return 0' "$name"
+  contains "$text" "  trap '' PIPE" "$name"
   # 終わりは必ず電源を切る（finish が最後に shutdown -h now）
   contains "$text" '  shutdown -h now' "$name"
 done
 
 contains "$fresh" 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
+# 作業ディレクトリが S3 の内容を含むまで同期しない（再開では S3 から戻したあと）
+before "$fresh" 'READY=1' 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
+before "$restart" '"$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "$PREFIX" "$OUT"' 'READY=1' restart
 lacks "$fresh" '--restart' fresh
 lacks "$fresh" '"$AWS" s3 sync --only-show-errors --exclude boot.log --exclude done "$PREFIX" "$OUT"' fresh
 contains "$restart" 'bash examples/vera/run_remote.sh --restart trials/aws/openmc-3A.toml' restart
