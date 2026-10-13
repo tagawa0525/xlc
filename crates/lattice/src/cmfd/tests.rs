@@ -192,23 +192,45 @@ fn a_slab_with_a_positive_coupling_is_solved_without_the_shift() {
         panic!("a one-row slab is solved as a chain");
     };
     assert!(chain.z_matrix);
-    // 2 群目の結合が正の 2 セルの鎖
-    let Solver::Chain(rebuilt) = Coarse::assemble(
-        true,
-        2,
-        (0..2).collect(),
-        vec![1.0; 2],
-        vec![1.0; 4],
-        vec![Vec::new(); 2],
-        vec![vec![2.0, 0.0, -0.1, 2.0], vec![2.0, 0.0, -0.1, 2.0]],
-        vec![vec![(1, vec![-0.5, 0.2])], vec![(0, vec![-0.5, 0.2])]],
-    )
-    .unwrap()
-    .solver
-    else {
+    // 2 群目の結合が正（補正の D̂ が拡散の結合より大きい）の、核分裂のある 3 セルの鎖
+    let build = |line: bool| {
+        let fission = vec![
+            vec![Spectrum {
+                chi: vec![1.0, 0.0],
+                chi_sum: 1.0,
+                nu_fission: vec![0.01, 0.2],
+            }];
+            3
+        ];
+        let neighbors = vec![
+            vec![(1, vec![-0.5, 0.005])],
+            vec![(0, vec![-0.5, 0.005]), (2, vec![-0.5, 0.005])],
+            vec![(1, vec![-0.5, 0.005])],
+        ];
+        Coarse::assemble(
+            line,
+            2,
+            (0..3).collect(),
+            vec![1.0; 3],
+            vec![1.0; 6],
+            fission,
+            vec![vec![1.2, 0.0, -0.02, 0.15]; 3],
+            neighbors,
+        )
+        .unwrap()
+    };
+    let positive = build(true);
+    let Solver::Chain(rebuilt) = &positive.solver else {
         panic!("a one-row slab is solved as a chain");
     };
     assert!(!rebuilt.z_matrix);
+    let options = CmfdOptions::default();
+    let (k, ratio) = positive.solve(1.0, &options).unwrap();
+    let (reference_k, reference) = build(false).solve(1.0, &options).unwrap();
+    assert!((k - reference_k).abs() < 1e-9, "{k} vs {reference_k}");
+    for (a, b) in ratio.iter().zip(&reference) {
+        assert!((a - b).abs() < 1e-6 * b, "{a} vs {b}");
+    }
 }
 
 #[test]
