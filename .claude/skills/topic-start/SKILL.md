@@ -53,8 +53,10 @@ cargo build --release
 ```
 
 ワークスペースの全体のビルドは、`build` の 3 つのパッケージだけのビルドと共有の依存の feature の統合が違いうるので、
-`target/release` の実行ファイルは `bin/` と同じバイトとは限らない。段階と同じ機械語が要るとき（perf、段階のパニックの
-再実行）は `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` で作り直す（ADR-0163）。
+`target/release` の実行ファイルは `bin/` と同じバイトとは限らない。段階と feature の統合を揃えたいとき（perf、段階の
+パニックの再実行）は、`cargo clean --release -p xlc-xs -p xlc-lattice -p xlc-core` のあと `cargo build --release --locked -p xlc-xs -p xlc-lattice -p xlc-core`
+で作り直す（cargo はリンクの環境を fingerprint に含めないので先に消す。ADR-0159。strip の設定が違うので、`bin/` と同じ機械語に
+なるかは確かめていない。ADR-0163）。
 
 ## TDD のコミット
 
