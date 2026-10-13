@@ -7,6 +7,7 @@ allowed-tools:
   - Bash(nix develop -c dvc status)
   - Bash(nix develop -c dvc status examples/*)
   - Bash(nix develop -c dvc status --json*)
+  - Bash(nix develop -c dvc status --with-deps examples/*)
   - Bash(nix develop -c scripts/check-dvc-lock.sh*)
   - Bash(scripts/check-dvc-lock.sh*)
   - Bash(head -1 examples/*/dvc.lock)
@@ -56,15 +57,22 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
    上流の段階を所有するブランチか main の記録を確かめてから、ユーザーに聞く。
 
-2. deps の変わった段階を挙げる:
+2. 実行ファイルを作り直してから、deps の変わった段階を挙げる:
 
    ```bash
+   nix develop -c dvc repro -s build
    nix develop -c dvc status
    ```
 
+   計算の段階の deps は `bin/` の実行ファイルで（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
+   戻す。先に `build`（リポジトリの直下の `dvc.yaml`。ビルドは数秒〜十数秒で、手元でよい）を実行しないと、ソースが変わった
+   段階も changed に出ず、3 の `-s` が古い実行ファイルで走る。`build` が「didn't change」なら、ソースは変わっていない。
+   作り直した実行ファイルが `dvc.lock` と同じバイトなら、計算の段階は changed にならない。`build` を実行したら、
+   リポジトリの直下の `dvc.lock` も 4 でコミットする
+
    対象は `changed deps` の段階だけ。`changed outs` や `.dvc` ファイルの変更が混ざるので、`--json` のキーを
    そのまま段階の一覧にしない（`deps` の項目を持つ段階を読む）。`changed outs` だけの段階は、出力が手元で変わっている
-   ので実行せず、原因を調べる。ブランチが触れた例だけを見るなら、`dvc status examples/<問題>/dvc.yaml`。
+   ので実行せず、原因を調べる。ブランチが触れた例だけを見るなら、`dvc status --with-deps examples/<問題>/dvc.yaml`（`--with-deps` がないと、上流の `build` を示さない）。
    `dvc status` が失敗したら（`dvc.lock` が読めない、キャッシュの参照が切れた、など）止める。
 
 3. 段階ごとに、再実行するかを決める。目安（所要時間は ADR-0130 の「確認」の値）:
@@ -73,6 +81,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    - 実行しない: xs（約 9 分）、OpenMC（40〜60 分）、ライブラリ（核種ごと、逐次で約 30 分）、数分かかる lattice の問題
      （Slurm で流す重さ。CLAUDE.md の「計算」）
    - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す
+   - `build` は 2 で走らせ終えている
 
    数秒で終わると分かっている段階だけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、段階を指定する:
 
@@ -89,7 +98,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 4. 実行したら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
 
    ```bash
-   git add examples/<問題>/dvc.lock   # git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
+   git add examples/<問題>/dvc.lock dvc.lock   # dvc.lock はリポジトリの直下の build の分。git status で、dvc が書き換えたほかの追跡ファイル（.gitignore など）も足す。rebase の hook が付け替えた記録は足さない（5 で別のコミットにする）
    git commit -F <メッセージのファイル>
    ```
 
@@ -124,11 +133,12 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 ブランチの worktree ではなく、main の worktree の直下で行う（出力を置き換える先が main）。
 
 main の出力は、DVC を入れる前のもの（`vera.msgpack` など）か、前のマージの時点のものが残っている。dvc.lock の出力に
-置き換える:
+置き換える。`bin/` の実行ファイル（リポジトリの直下の `dvc.yaml` の build。ADR-0159）も戻す:
 
 ```bash
+nix develop -c dvc checkout dvc.yaml
 nix develop -c dvc checkout examples/<問題>/dvc.yaml
-nix develop -c dvc status examples/<問題>/dvc.yaml
+nix develop -c dvc status --with-deps examples/<問題>/dvc.yaml
 ```
 
 `-P` ではなく、ブランチが `dvc.yaml` を足した、または変えた例ごとに行う。`dvc status` の changed が、前半で走らせ
