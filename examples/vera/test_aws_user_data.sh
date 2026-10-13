@@ -49,7 +49,7 @@ for name in fresh restart; do
   # done を書かずにジョブが消えたら、最長の時間まで待たずに失敗で終わる
   contains "$text" '  if ! pgrep -f -- " $OUT(/run)?( |$)" > /dev/null; then' "$name"
   # 同期は done とログを除く。finish が同期、ログ、done の順に置く（done があれば、ほかはそろっている）
-  contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude '\''boot-*.log'\'' "${filters[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
+  contains "$text" '  "$AWS" s3 sync --only-show-errors "${delete[@]}" --exclude done --exclude '\''boot-*.log'\'' "${filters[@]}" "$WORK/$OUT" "$PREFIX"' "$name"
   before "$text" '      sync_out && { synced=1; break; }' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' "$name"
   before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/$BOOTLOG" || true' \
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
@@ -124,7 +124,10 @@ failed=$(sync_args 137 0 020 040 060)
   fail "sync_out: 失敗のあとに最新の statepoint を写している"
 ! grep -qxF 'run/statepoint.060.h5' <<< "$killed" && grep -qxF 'run/statepoint.*' <<< "$killed" ||
   fail "sync_out: 中断のあとの done で最新の statepoint を写している"
-grep -qxF -- '--delete' <<< "$none" || fail "sync_out: statepoint がないときに aws s3 sync を呼ばない"
+grep -qxF -- 'sync' <<< "$none" || fail "sync_out: statepoint がないときに aws s3 sync を呼ばない"
+# 走っている間は --delete しない（一覧のあとに消えた statepoint を S3 から消さない）。成功のあとは S3 を写しにする
+! grep -qxF -- '--delete' <<< "$running" || fail "sync_out: 走っている間に --delete している"
+grep -qxF -- '--delete' <<< "$finished" || fail "sync_out: 成功のあとに --delete していない"
 
 # 怪しい引数は user-data を作らずに止まる
 rejects() { # <名前> <引数>...
