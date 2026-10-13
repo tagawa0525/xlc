@@ -21,7 +21,7 @@ before() { # <text> <先の行> <後の行> <名前>
 openmc=/nix/store/00000000000000000000000000000000-openmc-0.15.2
 python=/nix/store/11111111111111111111111111111111-python3-env
 awscli=/nix/store/22222222222222222222222222222222-awscli2-2.35.11
-args=(xlc-openmc-test trial openmc-3A trials/aws/openmc-3A.toml)
+args=(us-east-2 xlc-openmc-test trial openmc-3A trials/aws/openmc-3A.toml)
 tail_args=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli")
 
 fresh=$(aws_user_data "${args[@]}" 0 "${tail_args[@]}")
@@ -36,6 +36,7 @@ for name in fresh restart; do
   before "$text" 'set -euo pipefail' 'shutdown -h +840' "$name"
   before "$text" 'shutdown -h +840' 'trap finish EXIT' "$name"
   before "$text" 'trap finish EXIT' 'curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm' "$name"
+  contains "$text" 'export HOME=/root AWS_DEFAULT_REGION=us-east-2' "$name"
   contains "$text" 'BUCKET=xlc-openmc-test' "$name"
   contains "$text" 'PREFIX=s3://$BUCKET/runs/trial/openmc-3A' "$name"
   contains "$text" "AWS=$awscli/bin/aws" "$name"
@@ -44,7 +45,9 @@ for name in fresh restart; do
   contains "$text" "\"\$NIX/nix\" copy --no-check-sigs --from \"file://\$WORK/cache\" $openmc $python" "$name"
   contains "$text" '"$AWS" s3 sync --only-show-errors "s3://$BUCKET/store/openmc-library/lib0123456789abcd" examples/vera/openmc-library' "$name"
   contains "$text" "printf 'OPENMC_BIN=%s\\nPYTHON=%s\\n' $openmc/bin $python/bin/python3 > tools.env" "$name"
-  contains "$text" '  sleep 300' "$name"
+  contains "$text" '  if ((waited >= 300)); then' "$name"
+  # done を書かずにジョブが消えたら、最長の時間まで待たずに失敗で終わる
+  contains "$text" '  if ! pgrep -f -- " $OUT(/run)?( |$)" > /dev/null; then' "$name"
   # 同期は done と boot.log を除く。finish が同期、boot.log、done の順に置く（done があれば、ほかはそろっている）
   contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "$WORK/$OUT" "$PREFIX"' "$name"
   before "$text" '    sync_out && synced=1' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' "$name"
@@ -77,7 +80,7 @@ rejects() { # <名前> <引数>...
 rejects "再開が 2" "${args[@]}" 2 "${tail_args[@]}"
 rejects "最長の分が 0" "${args[@]}" 0 0 300 lib nix "$openmc" "$python" "$awscli"
 rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python" "$awscli"
-rejects "空白を含む入力" xlc-openmc-test trial openmc-3A 'a b.toml' 0 "${tail_args[@]}"
+rejects "空白を含む入力" us-east-2 xlc-openmc-test trial openmc-3A 'a b.toml' 0 "${tail_args[@]}"
 rejects "引数が足りない" "${args[@]}" 0 840
 
 if ((failures)); then

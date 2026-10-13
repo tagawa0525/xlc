@@ -2,21 +2,21 @@
 # aws_run.sh が source する。1 つのジョブを自己完結に流す VM の user-data（cloud-init のシェルスクリプト）を標準出力に書く
 # （ADR-0155）。AWS を呼ばないので、単体の検査（test_aws_user_data.sh）でも source できる。
 #
-# aws_user_data <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <クロージャの鍵> <openmc> <python> <awscli>
+# aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <クロージャの鍵> <openmc> <python> <awscli>
 #   <job>      results/ の下の名前（入力の basename から .toml を除いたもの。run_remote.sh と同じ）
 #   <入力>     作業ディレクトリ（S3 の runs/<run>/src/ をコピーしたもの）からの相対
 #   <ライブラリの鍵>、<クロージャの鍵>  S3 の store/openmc-library/<鍵>/、store/nix/<鍵>/
 aws_user_data() {
-  (($# == 12)) || { echo "aws_user_data: 引数は 12 個（$# 個）" >&2; return 2; }
-  local bucket=$1 run=$2 job=$3 input=$4 restart=$5 minutes=$6 seconds=$7 library=$8 closure=$9
-  local openmc=${10} python=${11} awscli=${12} v
+  (($# == 13)) || { echo "aws_user_data: 引数は 13 個（$# 個）" >&2; return 2; }
+  local region=$1 bucket=$2 run=$3 job=$4 input=$5 restart=$6 minutes=$7 seconds=$8 library=$9
+  local closure=${10} openmc=${11} python=${12} awscli=${13} v
   [[ $restart == 0 || $restart == 1 ]] || { echo "aws_user_data: 再開は 0 か 1（$restart）" >&2; return 2; }
   [[ $minutes =~ ^[1-9][0-9]*$ && $seconds =~ ^[1-9][0-9]*$ ]] ||
     { echo "aws_user_data: 最長の分と同期の秒は正の整数（$minutes、$seconds）" >&2; return 2; }
   for v in "$openmc" "$python" "$awscli"; do
     [[ $v =~ ^/nix/store/[a-z0-9]{32}-[^/[:space:]]+$ ]] || { echo "aws_user_data: store のパスではない: $v" >&2; return 2; }
   done
-  for v in "$bucket" "$run" "$job" "$input" "$library" "$closure"; do
+  for v in "$region" "$bucket" "$run" "$job" "$input" "$library" "$closure"; do
     [[ $v =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "aws_user_data: 使えない文字: $v" >&2; return 2; }
   done
   cat <<USERDATA
@@ -28,7 +28,7 @@ shutdown -h +$minutes
 exec > >(tee -a /var/log/xlc-job.log) 2>&1
 echo "xlc: start \$(date -u +%FT%TZ)"
 
-export HOME=/root AWS_DEFAULT_REGION=us-east-1
+export HOME=/root AWS_DEFAULT_REGION=$region
 BUCKET=$bucket
 PREFIX=s3://\$BUCKET/runs/$run/$job
 AWS=$awscli/bin/aws
@@ -41,9 +41,11 @@ sync_out() {
   [[ -d \$WORK/\$OUT ]] || return 0
   "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\$WORK/\$OUT" "\$PREFIX"
 }
-# どこで終わっても、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
-# この user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も含む）に置く。SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）
-# では書かず、中断として aws_run.sh で起動し直せるようにする。同期に失敗したら、S3 の結果がそろわないので done を置かない
+# 終わるときに、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
+# この user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も含む）に置く。
+# SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）では書かず、中断として aws_run.sh で起動し直せるようにする。
+# SIGTERM のときの同期とログは、シャットダウンの途中で間に合わないことがある（確かめた範囲では置かれなかった）。中断で残るのは
+# 決まった間隔の同期の分。同期に失敗したら、S3 の結果がそろわないので done を置かない
 finish() {
   local code=\$? synced=0
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
@@ -90,9 +92,24 @@ USERDATA
   fi
   cat <<USERDATA
 # run_remote.sh は done を 1 回の echo で書くので、空のうちに読まないよう数字になるまで待つ
+# 10 秒ごとに done とジョブを見て、$seconds 秒ごとに同期する。run_remote.sh が切り離したジョブ（bash -c job ... results/<job>
+# と python ... results/<job>/run）が done を書かずに消えたら失敗とする（最長の時間まで待たない）
+waited=0
 until [[ -f \$OUT/done && \$(cat "\$OUT/done") =~ ^[0-9]+\$ ]]; do
-  sleep $seconds
-  sync_out || echo "xlc: sync failed \$(date -u +%FT%TZ)"
+  # 2 度見る（done を書いた直後に消えた場合と、起動の直後でまだ exec していない場合）
+  if ! pgrep -f -- " \$OUT(/run)?( |\$)" > /dev/null; then
+    sleep 5
+    if [[ ! -f \$OUT/done ]] && ! pgrep -f -- " \$OUT(/run)?( |\$)" > /dev/null; then
+      echo "xlc: the job ended without done \$(date -u +%FT%TZ)"
+      exit 1
+    fi
+  fi
+  sleep 10
+  waited=\$((waited + 10))
+  if ((waited >= $seconds)); then
+    waited=0
+    sync_out || echo "xlc: sync failed \$(date -u +%FT%TZ)"
+  fi
 done
 code=\$(cat "\$OUT/done")
 if [[ \$code == 0 ]]; then
