@@ -8,7 +8,7 @@ ADR-0157（ループの先頭を 64 バイトに揃えてビルドする）を�
 - スクリプトと入力: このディレクトリの `build.sh`、`measure-xs.sh`、`measure-lattice-core.sh`、`measure-2A.sh`、
   `pincell-1B.toml`、`assembly-2A.toml`（examples/vera/p1/pincell-1B.toml と examples/vera/p2/assembly-2A.toml に、少数群定数の
   全桁の出力 `few-group` を足したもの）
-- 実行したコミット c029a27c、分岐点 eb667f66（main）、2026-10-14。r995 の Slurm の排他のジョブ 302（xs）、305（lattice と
+- 実行したコミット 103c12df、分岐点 eb667f66（main）、2026-10-14。r995 の Slurm の排他のジョブ 302（xs）、305（lattice と
   core）、307（2A の繰り返し）
 - 測った実行ファイル: 3 つのコミットのソースを `build.sh` で release でビルドしたもの。b873a967（main）、ebe7c100 と d39c5db3
   （ブランチ perf/0088-line-shape-table のコミット。タグ `record/adr-0157-fast-placement` と `record/adr-0157-slow-placement`）。
@@ -53,7 +53,7 @@ M0 の xs（2 回、秒）。
 
 277 では、同じ実行ファイルの 2 回の差は 0.42 秒以下だった。v1 は 3 つのコミットのどれでも、遅い方の v3 より速い方の v1 が
 遅く（55.45 と 54.29、55.56 と 53.91、55.46 と 53.99 秒）、平均で 1.4〜1.7 秒遅い。302 でも v1（56.15〜58.06 秒）は
-v3（54.10〜54.91 秒）より遅い。277 を再現するには、c029a27c の `build.sh` で実行ファイルを作り（上の md5 になる）、
+v3（54.10〜54.91 秒）より遅い。277 を再現するには、103c12df の `build.sh` で実行ファイルを作り（上の md5 になる）、
 `measure-xs.sh` を実行する。
 
 ## lattice と core の時間
