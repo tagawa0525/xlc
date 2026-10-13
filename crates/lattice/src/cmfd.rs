@@ -436,7 +436,7 @@ pub(crate) struct Coarse {
     /// [セル] の核分裂源 V χ νΣf を、核分裂のスペクトルごとの項の和として持つ（密な群×群の行列にすると、
     /// 右辺の計算が群の数の2乗になる）
     fission: Vec<Vec<Spectrum>>,
-    /// [セル] の対角のブロック（群×群）の LU 分解
+    /// [セル] の対角のブロック（群×群）の LU 分解（Gauss-Seidel で解くとき。`chain` があれば空）
     blocks: Vec<Lu>,
     /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)。方程式は
     /// A_c φ_c + Σ 係数 φ_隣 = V F φ_c / k
@@ -457,19 +457,14 @@ struct Chain {
 }
 
 impl Chain {
-    /// 1 行か 1 列の格子（`line`）で、代表が 2 つ以上あるとき。代表が 1 つなら Gauss-Seidel の 1 回が直接解法と同じ。
-    /// 2 次元の格子は、対称性で代表がチェーンになっても Gauss-Seidel のまま（ADR-0158）
+    /// [代表] の対角のブロック `matrices` と隣との結合 `neighbors`（`Coarse` と同じ形）から作る
     fn new(
-        line: bool,
         groups: usize,
         cells_of: &[usize],
-        matrices: &[Vec<f64>],
+        matrices: Vec<Vec<f64>>,
         neighbors: &[Vec<(usize, Vec<f64>)>],
-    ) -> Result<Option<Self>, CmfdError> {
+    ) -> Result<Self, CmfdError> {
         let cells = matrices.len();
-        if !line || cells < 2 {
-            return Ok(None);
-        }
         let mut lower = vec![0.0; cells * groups];
         let mut upper = vec![0.0; cells * groups];
         // 代表は行か列の順に並び、対称線をはさむ隣は自分の像として対角に入っている
@@ -490,11 +485,11 @@ impl Chain {
                 }
             }
         }
-        Ok(Some(Self {
-            matrices: matrices.to_vec(),
+        Ok(Self {
+            matrices,
             lower,
             upper,
-        }))
+        })
     }
 
     /// A − μ F（F は [代表] の核分裂源 χ νΣf）をブロック LU に分解する。対角のブロック S_c = B_c − L_c X_(c−1)
@@ -771,12 +766,19 @@ impl Coarse {
         matrices: Vec<Vec<f64>>,
         neighbors: Vec<Vec<(usize, Vec<f64>)>>,
     ) -> Result<Self, CmfdError> {
-        let chain = Chain::new(line, groups, &cells, &matrices, &neighbors)?;
-        let blocks = matrices
-            .into_iter()
-            .zip(&cells)
-            .map(|(a, &cell)| Lu::new(a, groups).ok_or(CmfdError::Singular(cell)))
-            .collect::<Result<Vec<_>, _>>()?;
+        // 代表が 1 つなら Gauss-Seidel の 1 回が直接解法と同じ。2 次元の格子は、対称性で代表がチェーンになっても
+        // Gauss-Seidel のまま（ADR-0158）
+        let (blocks, chain) = if line && cells.len() >= 2 {
+            let chain = Chain::new(groups, &cells, matrices, &neighbors)?;
+            (Vec::new(), Some(chain))
+        } else {
+            let blocks = matrices
+                .into_iter()
+                .zip(&cells)
+                .map(|(a, &cell)| Lu::new(a, groups).ok_or(CmfdError::Singular(cell)))
+                .collect::<Result<Vec<_>, _>>()?;
+            (blocks, None)
+        };
         Ok(Self {
             groups,
             cells,
@@ -792,7 +794,7 @@ impl Coarse {
     /// [代表のセル][群] の中性子束 `phi` の、すべてのセルの生成率の和（代表のセルは組のセルの数だけ数える）
     fn production(&self, phi: &[f64]) -> f64 {
         let ng = self.groups;
-        (0..self.blocks.len())
+        (0..self.cells.len())
             .flat_map(|c| {
                 let p = &phi[c * ng..][..ng];
                 let size = self.sizes[c];
@@ -841,7 +843,7 @@ impl Coarse {
         options: &CmfdOptions,
     ) -> Result<(f64, Vec<f64>), CmfdError> {
         let ng = self.groups;
-        let cells = self.blocks.len();
+        let cells = self.cells.len();
         let start = self.production(&self.flux);
         let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
         let mut k = k;
@@ -861,7 +863,7 @@ impl Coarse {
                 }
             }
             chain.substitute(ng, &factors, &mut next);
-            // シフトが固有値より上（μ > 1/k）でも、いちばん近い固有値に収束する。p は負になり、割ると正に戻る
+            // k_s が固有値より下（μ > 1/k₀）でも、いちばん近い固有値に収束する。そのとき p は負で、割ると正に戻る
             let rate = self.production(&next);
             let new_k = 1.0 / (shift + 1.0 / rate);
             for f in &mut next {
