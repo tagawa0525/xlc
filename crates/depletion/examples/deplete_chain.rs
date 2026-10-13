@@ -69,9 +69,9 @@ fn main() -> Result<()> {
                 n0[find(name)?] = value.parse()?;
             }
             ["reaction", name, mt, value] => {
-                once(format!("reaction {name} {mt}"))?;
                 let i = find(name)?;
                 let mt: u32 = mt.parse()?;
+                once(format!("reaction {name} MT{mt}"))?;
                 let k = chain.nuclides[i]
                     .reactions
                     .iter()
