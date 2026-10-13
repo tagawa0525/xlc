@@ -107,7 +107,8 @@ fn doppler_dominated_line_matches_direct_integration() {
 
 #[test]
 fn table_matches_direct_integration() {
-    // 表の範囲から決まった疑似乱数で選んだ点で、補間と直接の積分の相対差が 1e-6 以下
+    // 表の範囲から決まった疑似乱数で選んだ点で、補間と直接の積分の相対差が 1e-6 以下。燃料の主な核種の θ を含む
+    // 10⁻³〜10⁶ と、その下の 10⁻¹⁰〜10⁻³ で別に選び、上の範囲の点の数を下の範囲に食わせない
     let mut seed: u64 = 12345;
     let mut uniform = || {
         seed = seed
@@ -115,15 +116,17 @@ fn table_matches_direct_integration() {
             .wrapping_add(1_442_695_040_888_963_407);
         (seed >> 11) as f64 / (1u64 << 53) as f64
     };
-    for _ in 0..400 {
-        let beta = 10f64.powf(LOG_BETA.0 + (LOG_BETA.1 - LOG_BETA.0) * uniform());
-        let theta = 10f64.powf(LOG_THETA.0 + (LOG_THETA.1 - LOG_THETA.0) * uniform());
-        let (j, k) = jk_interpolated(beta, theta).unwrap();
-        let [(jd, kd)] = jk_integrals(&[beta], theta).unwrap()[..] else {
-            panic!("one β")
-        };
-        assert_rel(j, jd, 1e-6);
-        assert_rel(k, kd, 1e-6);
+    for (low, high, count) in [(-3.0, LOG_THETA.1, 400), (LOG_THETA.0, -3.0, 200)] {
+        for _ in 0..count {
+            let beta = 10f64.powf(LOG_BETA.0 + (LOG_BETA.1 - LOG_BETA.0) * uniform());
+            let theta = 10f64.powf(low + (high - low) * uniform());
+            let (j, k) = jk_interpolated(beta, theta).unwrap();
+            let [(jd, kd)] = jk_integrals(&[beta], theta).unwrap()[..] else {
+                panic!("one β")
+            };
+            assert_rel(j, jd, 1e-6);
+            assert_rel(k, kd, 1e-6);
+        }
     }
 }
 
