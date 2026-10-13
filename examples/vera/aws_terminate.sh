@@ -11,20 +11,25 @@ dry=0
 name=""
 while (($#)); do
   case $1 in
-    --help | -h) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help | -h) sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --dry-run) dry=1 ;;
     -*) echo "知らない引数 $1" >&2; exit 2 ;;
     *) name=$1 ;;
   esac
   shift
 done
-[[ -n $name ]] || { sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[[ -n $name ]] || { sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
-mapfile -t ids < <(aws ec2 describe-instances --filters "Name=tag:Name,Values=$name,$name-*" \
-  "Name=instance-state-name,Values=pending,running,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text | tr '\t' '\n' | sed '/^$/d')
-mapfile -t hosts < <(aws ec2 describe-instances --filters "Name=tag:Name,Values=$name,$name-*" \
+# <name> または <name>-<数字> に厳密に一致するものだけ（xlc で xlc-ssh-test を巻き込まない）
+ids=()
+hosts=()
+while read -r id host; do
+  [[ $host == "$name" || $host =~ ^$name-[0-9]+$ ]] || continue
+  ids+=("$id")
+  hosts+=("$host")
+done < <(aws ec2 describe-instances --filters "Name=tag:Name,Values=$name,$name-*" \
   "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-  --query 'Reservations[].Instances[].Tags[?Key==`Name`].Value' --output text | tr '\t' '\n' | sed '/^$/d')
+  --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`]|[0].Value]' --output text)
 echo "対象: ${ids[*]:-なし}（${hosts[*]:-}）"
 ((dry)) && exit 0
 if ((${#ids[@]})); then
