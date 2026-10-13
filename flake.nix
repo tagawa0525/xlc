@@ -220,7 +220,7 @@
         '';
         # 自己完結な実行の VM の user-data（examples/vera/aws_user_data.sh。ADR-0155）
         aws-user-data = pkgs.runCommand "aws-user-data" { } ''
-          export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin
+          export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin
           bash ${./examples/vera/test_aws_user_data.sh} ${./examples/vera/aws_user_data.sh} > $out
         '';
       };
