@@ -43,8 +43,7 @@ issues: []
 
 ## 決定と理由
 
-[ADR-0002](0002-keep-stage-crates-independent.md) を置き換え、まだ有効な部分を含めて次のとおりにする（フロントマターの `supersedes` と [ADR-0002](0002-keep-stage-crates-independent.md) の `superseded-by` は、
-crates/depletion を作り、この ADR を accepted にするときに結ぶ。それまでは [ADR-0002](0002-keep-stage-crates-independent.md) が有効）。
+[ADR-0002](0002-keep-stage-crates-independent.md) を置き換え、まだ有効な部分を含めて次のとおりにする。
 
 - 段階のクレートは互いに依存しない。後で冷却計算をクレートにするときは、段階のクレートとして扱う。依存してよいのは、データファイルの形式のクレート（`xlc-format`）と、共通の計算のクレート
   （`xlc-numeric` と `xlc-depletion`）だけとする。段階の間の依存をファイル形式だけにする（[ADR-0001](0001-split-into-three-stage-crates.md)）ことを、クレートの依存でも
