@@ -16,7 +16,8 @@
 //! 核種は (z, a, state) の昇順に並び、生成物は核種の添字で指す。
 
 use serde::{Deserialize, Serialize};
-use xlc_format::msgpack::MsgpackError;
+use xlc_format::library::is_nuclide_name;
+use xlc_format::msgpack::{self, MsgpackError};
 
 use crate::{DepletionError, DepletionMatrix};
 
@@ -174,33 +175,273 @@ where
     Option::deserialize(d)
 }
 
+/// 形式の名前
+const FORMAT: &str = "xlc-chain";
+
+/// 分岐比の和と収率の重みの和の、1 からのずれの許容。鎖を作るときに比で割り直す（ADR-0164）ので、和の丸め
+/// （数十項で数 ε）より十分大きく、割り直しを忘れた鎖（ずれは評価で最大 9e-7）を止める大きさ
+const SUM_TOLERANCE: f64 = 1e-12;
+
+/// ファイルの中身（フィールド名付きの map 形式で書く）
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChainFile {
+    format: String,
+    nuclides: Vec<Nuclide>,
+}
+
 impl Chain {
-    /// MessagePack（フィールド名付きの map 形式）で書く。読むときと同じ検査をする。
+    /// MessagePack（フィールド名付きの map 形式）で書く。読むときと同じ検査をして、壊れた鎖を書かない。
     pub fn to_msgpack(&self) -> Result<Vec<u8>, ChainError> {
-        Err(ChainError::Invalid("not written".into()))
+        self.check()?;
+        Ok(msgpack::to_named(&ChainFile {
+            format: FORMAT.into(),
+            nuclides: self.nuclides.clone(),
+        })?)
     }
 
     /// MessagePack から読み、`check` で確かめる。
-    pub fn from_msgpack(_bytes: &[u8]) -> Result<Self, ChainError> {
-        Err(ChainError::Invalid("not read".into()))
+    pub fn from_msgpack(bytes: &[u8]) -> Result<Self, ChainError> {
+        let value = msgpack::read_value(bytes)?;
+        require_maps(&value)?;
+        let file: ChainFile = msgpack::from_value(value)?;
+        if file.format != FORMAT {
+            return Err(ChainError::Format(file.format));
+        }
+        let chain = Self {
+            nuclides: file.nuclides,
+        };
+        chain.check()?;
+        Ok(chain)
     }
 
     /// 名前、並び、添字の範囲、分岐比の和、収率の形を確かめる。
     pub fn check(&self) -> Result<(), ChainError> {
+        let n = self.nuclides.len();
+        let invalid = |message: String| Err(ChainError::Invalid(message));
+        let products_in_range =
+            |products: &[Product]| products.iter().all(|p| p.nuclide < n && p.count > 0);
+        for (k, nuclide) in self.nuclides.iter().enumerate() {
+            let name = &nuclide.name;
+            if !is_nuclide_name(name) {
+                return invalid(format!(
+                    "nuclide name `{name}` is not of the form U-235, Am-242m"
+                ));
+            }
+            if k > 0 {
+                let previous = &self.nuclides[k - 1];
+                if (previous.z, previous.a, previous.state) >= (nuclide.z, nuclide.a, nuclide.state)
+                {
+                    return invalid(format!(
+                        "{name} is not after {} in (z, a, state)",
+                        previous.name
+                    ));
+                }
+            }
+            if !(nuclide.excitation.is_finite() && nuclide.excitation >= 0.0) {
+                return invalid(format!("{name}: invalid excitation {}", nuclide.excitation));
+            }
+            if let Some(decay) = &nuclide.decay {
+                if !(decay.half_life.is_finite() && decay.half_life > 0.0) {
+                    return invalid(format!("{name}: invalid half-life {}", decay.half_life));
+                }
+                let e = decay.energy;
+                if ![e.light, e.electromagnetic, e.heavy]
+                    .iter()
+                    .all(|v| v.is_finite() && *v >= 0.0)
+                {
+                    return invalid(format!("{name}: invalid decay energy {e:?}"));
+                }
+                if decay.modes.is_empty() {
+                    return invalid(format!("{name}: an unstable nuclide without decay modes"));
+                }
+                let mut sum = 0.0;
+                for mode in &decay.modes {
+                    if !(mode.ratio.is_finite() && mode.ratio > 0.0) {
+                        return invalid(format!(
+                            "{name}: invalid ratio {} of {}",
+                            mode.ratio, mode.mode
+                        ));
+                    }
+                    if !products_in_range(&mode.products) {
+                        return invalid(format!(
+                            "{name}: a product of {} is outside the chain",
+                            mode.mode
+                        ));
+                    }
+                    sum += mode.ratio;
+                }
+                if (sum - 1.0).abs() > SUM_TOLERANCE {
+                    return invalid(format!("{name}: decay ratios sum to {sum}"));
+                }
+            }
+            for reaction in &nuclide.reactions {
+                let mt = reaction.mt;
+                if reaction.channels.is_empty() {
+                    return invalid(format!("{name}: MT{mt} has no channels"));
+                }
+                // 状態に分けた反応は、どの経路も割合の出所を持つ（反応率を経路ごとに与えるため）
+                if reaction.channels.len() > 1
+                    && reaction.channels.iter().any(|c| c.final_state.is_none())
+                {
+                    return invalid(format!(
+                        "{name}: MT{mt} has several channels without final states"
+                    ));
+                }
+                if !reaction
+                    .channels
+                    .iter()
+                    .all(|c| products_in_range(&c.products))
+                {
+                    return invalid(format!("{name}: a product of MT{mt} is outside the chain"));
+                }
+            }
+            if let Some(fission) = &nuclide.fission {
+                let energies = &fission.energies;
+                if energies.is_empty()
+                    || !energies.iter().all(|e| e.is_finite() && *e > 0.0)
+                    || !energies.windows(2).all(|w| w[0] < w[1])
+                {
+                    return invalid(format!(
+                        "{name}: yield energies must be positive and ascending, got {energies:?}"
+                    ));
+                }
+                if fission.yields.len() != energies.len() {
+                    return invalid(format!(
+                        "{name}: {} yield tables for {} energies",
+                        fission.yields.len(),
+                        energies.len()
+                    ));
+                }
+                for table in &fission.yields {
+                    if !table
+                        .iter()
+                        .all(|y| y.nuclide < n && y.value.is_finite() && y.value > 0.0)
+                    {
+                        return invalid(format!(
+                            "{name}: a yield is outside the chain or not positive"
+                        ));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
-    /// 反応率がすべて 0 の、鎖の形に合った反応率。
+    /// 反応率がすべて 0 の、鎖の形に合った反応率。収率の重みは最初のエネルギーの点に 1 を置く。
     pub fn zero_rates(&self) -> Vec<NuclideRates> {
-        Vec::new()
+        self.nuclides
+            .iter()
+            .map(|nuclide| NuclideRates {
+                reactions: nuclide
+                    .reactions
+                    .iter()
+                    .map(|r| vec![0.0; r.channels.len()])
+                    .collect(),
+                fission: 0.0,
+                yield_weights: nuclide.fission.as_ref().map_or_else(Vec::new, |f| {
+                    let mut weights = vec![0.0; f.energies.len()];
+                    weights[0] = 1.0;
+                    weights
+                }),
+            })
+            .collect()
     }
 
-    /// 燃焼行列の項（行が生まれる核種、列が親。`DepletionMatrix::from_triplets` の形）。
+    /// 燃焼行列の項（行が生まれる核種、列が親。`DepletionMatrix::from_triplets` の形）。崩壊は ln 2 / 半減期に分岐比を、
+    /// 反応は経路の反応率を、核分裂は核分裂率に、収率のエネルギーの点ごとの重みで足した収率を掛ける。
     pub fn matrix_entries(
         &self,
-        _rates: &[NuclideRates],
+        rates: &[NuclideRates],
     ) -> Result<Vec<(usize, usize, f64)>, ChainError> {
-        Ok(Vec::new())
+        if rates.len() != self.nuclides.len() {
+            return Err(ChainError::Rates(format!(
+                "{} rates for {} nuclides",
+                rates.len(),
+                self.nuclides.len()
+            )));
+        }
+        let mut entries = Vec::new();
+        let gain = |entries: &mut Vec<(usize, usize, f64)>,
+                    col: usize,
+                    products: &[Product],
+                    rate: f64| {
+            for p in products {
+                entries.push((p.nuclide, col, f64::from(p.count) * rate));
+            }
+        };
+        for (j, (nuclide, rate)) in self.nuclides.iter().zip(rates).enumerate() {
+            let name = &nuclide.name;
+            let bad = |message: String| Err(ChainError::Rates(format!("{name}: {message}")));
+            let valid = |r: f64| r.is_finite() && r >= 0.0;
+            if let Some(decay) = &nuclide.decay {
+                let lambda = std::f64::consts::LN_2 / decay.half_life;
+                entries.push((j, j, -lambda));
+                for mode in &decay.modes {
+                    gain(&mut entries, j, &mode.products, mode.ratio * lambda);
+                }
+            }
+            if rate.reactions.len() != nuclide.reactions.len() {
+                return bad(format!(
+                    "{} reaction rates for {} reactions",
+                    rate.reactions.len(),
+                    nuclide.reactions.len()
+                ));
+            }
+            for (reaction, channel_rates) in nuclide.reactions.iter().zip(&rate.reactions) {
+                if channel_rates.len() != reaction.channels.len() {
+                    return bad(format!(
+                        "{} channel rates for the {} channels of MT{}",
+                        channel_rates.len(),
+                        reaction.channels.len(),
+                        reaction.mt
+                    ));
+                }
+                for (channel, &r) in reaction.channels.iter().zip(channel_rates) {
+                    if !valid(r) {
+                        return bad(format!("invalid rate {r} of MT{}", reaction.mt));
+                    }
+                    entries.push((j, j, -r));
+                    gain(&mut entries, j, &channel.products, r);
+                }
+            }
+            if !valid(rate.fission) {
+                return bad(format!("invalid fission rate {}", rate.fission));
+            }
+            match &nuclide.fission {
+                None => {
+                    if rate.fission != 0.0 || !rate.yield_weights.is_empty() {
+                        return bad(
+                            "fission rate or yield weights for a nuclide without fission".into(),
+                        );
+                    }
+                }
+                Some(fission) => {
+                    let weights = &rate.yield_weights;
+                    if weights.len() != fission.energies.len() || !weights.iter().all(|&w| valid(w))
+                    {
+                        return bad(format!(
+                            "yield weights {weights:?} for {} energies",
+                            fission.energies.len()
+                        ));
+                    }
+                    let sum: f64 = weights.iter().sum();
+                    if (sum - 1.0).abs() > SUM_TOLERANCE {
+                        return bad(format!("yield weights sum to {sum}"));
+                    }
+                    entries.push((j, j, -rate.fission));
+                    for (&w, table) in weights.iter().zip(&fission.yields) {
+                        if w == 0.0 {
+                            continue;
+                        }
+                        for y in table {
+                            entries.push((y.nuclide, j, rate.fission * w * y.value));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(entries)
     }
 
     /// 燃焼行列。
@@ -215,8 +456,61 @@ impl Chain {
 impl Fission {
     /// 収率のエネルギーの点ごとの区間の、内側の境界 (eV)。隣の点の幾何平均で区切る（ADR-0164）。点が k 個なら k − 1 個
     pub fn yield_bounds(&self) -> Vec<f64> {
-        Vec::new()
+        self.energies
+            .windows(2)
+            .map(|w| (w[0] * w[1]).sqrt())
+            .collect()
     }
+}
+
+/// 構造体が入る位置の値がすべて map であることを確かめる（serde は構造体を配列からも読むため）
+fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
+    use msgpack::{array, map};
+    let products = |owner: &rmpv::Value| -> Result<(), MsgpackError> {
+        for product in array(map(owner)?, "products") {
+            map(product)?;
+        }
+        Ok(())
+    };
+    for nuclide in array(map(value)?, "nuclides") {
+        let entries = map(nuclide)?;
+        for (key, item) in entries {
+            match key.as_str() {
+                Some("decay") if !item.is_nil() => {
+                    let decay = map(item)?;
+                    for (k, v) in decay {
+                        if k.as_str() == Some("energy") {
+                            map(v)?;
+                        }
+                    }
+                    for mode in array(decay, "modes") {
+                        products(mode)?;
+                    }
+                }
+                Some("reactions") => {
+                    for reaction in item.as_array().map_or(&[][..], Vec::as_slice) {
+                        for channel in array(map(reaction)?, "channels") {
+                            products(channel)?;
+                            for (k, v) in map(channel)? {
+                                if k.as_str() == Some("final_state") && !v.is_nil() {
+                                    map(v)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                Some("fission") if !item.is_nil() => {
+                    for table in array(map(item)?, "yields") {
+                        for y in table.as_array().map_or(&[][..], Vec::as_slice) {
+                            map(y)?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

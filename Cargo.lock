@@ -1055,6 +1055,7 @@ dependencies = [
  "faer",
  "num-complex",
  "rmp-serde",
+ "rmpv",
  "serde",
  "thiserror 2.0.21",
  "xlc-format",
