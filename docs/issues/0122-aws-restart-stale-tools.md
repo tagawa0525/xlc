@@ -1,0 +1,37 @@
+---
+status: closed
+labels: [aws]
+opened: 2026-10-14
+closed: 2026-10-14
+milestone:
+blocked-by: []
+resolution: コミット f00c77e2
+---
+
+# 起動し直しが S3 の src/ の古い道具で動き、新しい引数で失敗した
+
+## 問題
+
+ADR-0168 の `aws_run.sh --statepoint-interval N` を足した（11b8cca1）あと、本番 m3 を起動し直したとき（2026-10-14 06:23〜06:30）、
+ジョブ openmc-3A と openmc-5C-2D が「知らない引数 --statepoint-interval」で exit 2 になり、`done` に 2 が書かれて失敗になった
+（S3 の `runs/m3/openmc-3A/log` と `boot-*.log`。VM は自己終了済み）。
+
+原因: 起動し直しの user-data は手元の `aws_user_data.sh` から作られ、新しい引数を `run_remote.sh` に渡す。しかし VM が実行する
+`run_remote.sh` と `openmc_resume.py` は S3 の `runs/<名前>/src/` から取り、それは最初の起動のときに置いた版のままだった。
+ADR-0168 の帰結は、この `src/` の道具が最初の起動の版で固定されることを見落としていた（ADR は accepted なので書き換えない）。
+`aws_run.sh` は `done` が 0 でないジョブを失敗として飛ばすので、そのままでは起動し直せなかった。
+
+関係する ADR: なし（本文の ADR は accepted で、この issue を前付けに挙げられない）
+
+## 完了の条件
+
+- 起動し直しが、手元の道具を `src/` に置き直してから起動する（入力と `launch.env` は書き換えない）
+- 失敗したジョブを、原因を確かめたうえで起動し直せる
+
+## 経緯
+
+- 2026-10-14: 起動し直しで道具（`run_remote.sh`、`openmc_*.py`。新しい実行が `src/` に置くものと同じ集合）を手元の版に置き直す
+  ようにした。入力は実行の定義なので変えない。道具の版は `launches/` の `TOOLS_COMMIT` で追える（docs/environment.md「自己完結な実行」）
+- 2026-10-14: `--job` と併用する `--retry-failed` を足した。指定したジョブの `done` が 0 でないとき、起動の直前に S3 から消す。
+  `--dry-run` は S3 に書かない。検討した代わりの案: `done` を手で `aws s3 rm` する（今までの手順。原因の確認を促す場所がない）。
+  全ジョブに自動で適用する案は、原因が残る失敗を繰り返すので採らなかった
