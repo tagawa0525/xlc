@@ -178,6 +178,12 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 ジョブと、VM が走っているジョブは飛ばす。0 でないジョブがあれば何も起動せずに止まる（`boot.log` を見て、別の名前でやり直す）。
 中断の自動の再起動はない（ADR-0155）ので、`aws_status.sh` で VM が消えて `done` のないジョブを見つけたら起動し直す。
 
+`done` も `boot.log` もないまま VM が消えるのは、中断のほかに、AWS CLI を入れる前（Nix の installer、cache.nixos.org）の失敗がある。
+起動し直しても同じように消えるなら、終了から約 1 時間のうちに `aws ec2 get-console-output --instance-id <ID> --latest` で cloud-init の
+出力を見る。最初の statepoint が書いている途中で写され、そのあと中断されると、起動し直しの `--restart` は読める statepoint がなく
+失敗する（`done` が 0 でない）。そのジョブは `aws s3 rm --recursive s3://<バケット>/runs/<名前>/<ジョブ>/` で消してから起動し直すと、
+最初から流れる。
+
 `aws_fetch.sh` は `references/openmc/aws/<名前>/`（`--dest` で変えられる）に、`src/` と完了したジョブの結果を写し、`SHA256SUMS` で
 検証する。`--verify` は、取り出した statepoint から手元（`.#openmc-python`）で extract し、VM の結果とバイト一致を確かめる。
 `--delete` は `--verify` が通り、すべてのジョブが完了したときだけ S3 の `runs/<名前>/` を消す。消し忘れても 30 日で失効する。
