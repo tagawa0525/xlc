@@ -1,21 +1,31 @@
 # このファイルは p5_inputs.py が書く。手で直さない。
-# 集合体の台帳。設計は集合体の種類の単一集合体の格子の定数（f* の方法）。ID は全炉心の位置（列の名前と行の番号）
+# 集合体の台帳。ID は全炉心の位置（列の名前と行の番号）。設計は、反射体に面しない位置は集合体の種類の単一集合体の
+# 格子の定数、反射体に 1 面で面する位置（<種類>-I）と 2 面で面する位置（<種類>-corner）は、その種類の燃料の I 型と角型の
+# 反射体の格子の燃料のノードの定数（ADR-0153。燃料の向きは装荷で回す）
 
 [design.31]
 bounds = [0.0, 21.5]
 layers = ["lattice/31.msgpack"]
 
+[design.31-I]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-I-fuel.msgpack"]
+
+[design.31-corner]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-fuel.msgpack"]
+
 [assembly.J06]
-design = "31"
+design = "31-corner"
 
 [assembly.H06]
-design = "31"
+design = "31-I"
 
 [assembly.G06]
-design = "31"
+design = "31-corner"
 
 [assembly.K07]
-design = "31"
+design = "31-corner"
 
 [assembly.J07]
 design = "31"
@@ -27,10 +37,10 @@ design = "31"
 design = "31"
 
 [assembly.F07]
-design = "31"
+design = "31-corner"
 
 [assembly.K08]
-design = "31"
+design = "31-I"
 
 [assembly.J08]
 design = "31"
@@ -42,10 +52,10 @@ design = "31"
 design = "31"
 
 [assembly.F08]
-design = "31"
+design = "31-I"
 
 [assembly.K09]
-design = "31"
+design = "31-corner"
 
 [assembly.J09]
 design = "31"
@@ -57,13 +67,13 @@ design = "31"
 design = "31"
 
 [assembly.F09]
-design = "31"
+design = "31-corner"
 
 [assembly.J10]
-design = "31"
+design = "31-corner"
 
 [assembly.H10]
-design = "31"
+design = "31-I"
 
 [assembly.G10]
-design = "31"
+design = "31-corner"
