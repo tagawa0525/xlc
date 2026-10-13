@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-binaries.sh — DVC の build の段階（リポジトリの直下の dvc.yaml）。xs、lattice、core の release の実行ファイルを
-# ビルドして bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
+# 記号を落としてビルドし、bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
 #
 # Usage: scripts/build-binaries.sh（リポジトリの直下で、default の devShell の中から。dvc repro が呼ぶ）
 #
@@ -30,7 +30,10 @@ if env | grep -qE "$flags"; then
 fi
 
 cargo clean --release --target-dir target/dvc -p xlc-xs -p xlc-lattice -p xlc-core
-cargo build --release --locked --target-dir target/dvc
+# 記号表（.symtab、.strtab）は、計算に使わない内部の記号の名前（`.llvm.<数>` の添字）が、テストを tests.rs に移すと変わった
+# （モジュールの構成で決まると見ているが、確かめていない）。計算する節は同じでも md5 が変わるので、リンクのときに記号を
+# 落とす（ADR-0160）。手で使う target/release は記号を残す
+cargo build --release --locked --target-dir target/dvc --config 'profile.release.strip="symbols"'
 
 mkdir -p bin
 for name in xs lattice core; do
