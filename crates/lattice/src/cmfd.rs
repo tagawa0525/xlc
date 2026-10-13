@@ -397,6 +397,9 @@ pub enum CmfdError {
         "cell {cell} of a one-row or one-column lattice couples to cell {other}, which is not next to it"
     )]
     Unchained { cell: usize, other: usize },
+    /// シフトした逆反復の分解が特異か、最初の解が正でない（`Coarse::solve_chain` がシフトなしで解き直す）
+    #[error("the Wielandt shift of the coarse-mesh eigenvalue problem is not above the eigenvalue")]
+    ShiftBelowEigenvalue,
     #[error("the coarse-mesh eigenvalue problem did not converge in {0} iterations")]
     NotConverged(usize),
 }
@@ -458,15 +461,14 @@ enum Solver {
 struct Chain {
     /// 群の数
     groups: usize,
-    /// [代表] のセル（エラーの表示用）
-    cells: Vec<usize>,
     /// [代表] の対角のブロック A_c（群×群、行優先）
     matrices: Vec<Vec<f64>>,
     /// [代表][群] の c − 1 との結合の係数（c = 0 では 0）
     lower: Vec<f64>,
     /// [代表][群] の c + 1 との結合の係数（最後の代表では 0）
     upper: Vec<f64>,
-    /// 対角の外の成分（結合とブロックの対角の外）がどれも 0 以下（Z 行列）。シフトの条件（ADR-0158）
+    /// 対角の外の成分（結合とブロックの対角の外）がどれも 0 以下（Z 行列）で、隣との結合が負（既約）。
+    /// シフトの条件（ADR-0158）
     z_matrix: bool,
 }
 
@@ -474,7 +476,7 @@ impl Chain {
     /// [代表] の対角のブロック `matrices` と隣との結合 `neighbors`（`Coarse` と同じ形）から作る
     fn new(
         groups: usize,
-        cells_of: Vec<usize>,
+        cells_of: &[usize],
         matrices: Vec<Vec<f64>>,
         neighbors: &[Vec<(usize, Vec<f64>)>],
     ) -> Result<Self, CmfdError> {
@@ -499,7 +501,9 @@ impl Chain {
                 }
             }
         }
-        let z_matrix = lower.iter().chain(&upper).all(|&a| a <= 0.0)
+        // 隣との結合がどの群でも負（0 なら鎖が切れて既約でなくなり、最初の解の符号で判定できない）
+        let z_matrix = lower[groups..].iter().all(|&a| a < 0.0)
+            && upper[..(cells - 1) * groups].iter().all(|&a| a < 0.0)
             && matrices.iter().all(|a| {
                 a.iter()
                     .enumerate()
@@ -507,7 +511,6 @@ impl Chain {
             });
         Ok(Self {
             groups,
-            cells: cells_of,
             matrices,
             lower,
             upper,
@@ -518,7 +521,12 @@ impl Chain {
     /// A − μ F（F は [代表] の核分裂源 χ νΣf）をブロック LU に分解する。対角のブロック S_c = B_c − L_c X_(c−1)
     /// （B_c = A_c − μ F_c、L_c は c − 1 との結合の対角行列）の LU 分解と、X_c = S_c⁻¹ U_c（U_c は c + 1 との結合の
     /// 対角行列）を持つ
-    fn factor(&self, fission: &[Vec<Spectrum>], shift: f64) -> Result<ChainFactors, CmfdError> {
+    fn factor(
+        &self,
+        fission: &[Vec<Spectrum>],
+        shift: f64,
+        cells: &[usize],
+    ) -> Result<ChainFactors, CmfdError> {
         let ng = self.groups;
         let n = self.matrices.len();
         let mut pivots = Vec::with_capacity(n);
@@ -543,7 +551,7 @@ impl Chain {
                     }
                 }
             }
-            let lu = Lu::new(s, ng).ok_or(CmfdError::Singular(self.cells[c]))?;
+            let lu = Lu::new(s, ng).ok_or(CmfdError::Singular(cells[c]))?;
             if c + 1 < n {
                 let mut x = vec![0.0; ng * ng];
                 for (j, u) in self.upper[c * ng..][..ng].iter().enumerate() {
@@ -786,7 +794,7 @@ impl Coarse {
         // 代表が 1 つなら Gauss-Seidel の 1 回が直接解法と同じ。2 次元の格子は、対称性で代表が鎖になっても
         // Gauss-Seidel のまま（ADR-0158）
         let solver = if line && cells.len() >= 2 {
-            Solver::Chain(Chain::new(groups, cells.clone(), matrices, &neighbors)?)
+            Solver::Chain(Chain::new(groups, &cells, matrices, &neighbors)?)
         } else {
             let blocks = matrices
                 .into_iter()
@@ -843,13 +851,13 @@ impl Coarse {
         options: &CmfdOptions,
     ) -> Result<(f64, Vec<f64>), CmfdError> {
         if !chain.z_matrix {
-            tracing::debug!("coarse-mesh matrix is not a Z-matrix; solving unshifted");
+            tracing::debug!("coarse-mesh matrix is not an irreducible Z-matrix; solving unshifted");
             return self.inverse_iteration(chain, k, 0.0, options);
         }
         let shift = 1.0 / (k * (1.0 + WIELANDT));
         match self.inverse_iteration(chain, k, shift, options) {
-            Err(error @ (CmfdError::NonPositiveSolution { .. } | CmfdError::Singular(_))) => {
-                tracing::debug!(%error, "coarse-mesh shift below the eigenvalue; solving unshifted");
+            Err(CmfdError::ShiftBelowEigenvalue) => {
+                tracing::debug!("coarse-mesh shift below the eigenvalue; solving unshifted");
                 self.inverse_iteration(chain, k, 0.0, options)
             }
             result => result,
@@ -870,7 +878,12 @@ impl Coarse {
         let start = self.production(&self.flux);
         let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
         let mut k = k;
-        let factors = chain.factor(&self.fission, shift)?;
+        let factors = match chain.factor(&self.fission, shift, &self.cells) {
+            Err(CmfdError::Singular(_)) if shift != 0.0 => {
+                return Err(CmfdError::ShiftBelowEigenvalue);
+            }
+            factors => factors?,
+        };
         let mut k_history = Remaining::default();
         let mut flux_history = Remaining::default();
         let mut next = vec![0.0; cells * ng];
@@ -890,6 +903,10 @@ impl Coarse {
             let rate = self.production(&next);
             let new_k = 1.0 / (shift + 1.0 / rate);
             if let Some(j) = next.iter().position(|&f| f <= 0.0 || !f.is_finite()) {
+                // Z 行列なら、k_s が固有値より上のときの解は正なので、最初の解の符号でシフトを判定する
+                if shift != 0.0 && iteration == 1 {
+                    return Err(CmfdError::ShiftBelowEigenvalue);
+                }
                 return Err(CmfdError::NonPositiveSolution {
                     cell: self.cells[j / ng],
                     group: j % ng,
