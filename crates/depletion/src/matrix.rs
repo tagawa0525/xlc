@@ -2,6 +2,25 @@
 
 use crate::DepletionError;
 
+/// 同じ位置の寄与の和を 0 とみなす、寄与の絶対値の和に対する割合。m 個の和の丸めは (m − 1) ε × 絶対値の和で
+/// 抑えられるので、16 ε は 17 個までの寄与を覆う（1 つの位置の寄与は、崩壊と反応の数種）
+const ROUNDING: f64 = 16.0 * f64::EPSILON;
+
+/// 行の順に並んだ (行, 値) を行ごとに足し、(行, 和, 寄与の絶対値の和) にする
+fn sum_by_row(column: &[(usize, f64)]) -> Vec<(usize, f64, f64)> {
+    let mut sums: Vec<(usize, f64, f64)> = Vec::new();
+    for &(row, value) in column {
+        match sums.last_mut() {
+            Some(last) if last.0 == row => {
+                last.1 += value;
+                last.2 += value.abs();
+            }
+            _ => sums.push((row, value, value.abs())),
+        }
+    }
+    sums
+}
+
 /// 燃焼行列 A。列 j が親の核種、行 i が生まれる核種で、A[i][j] は核種 j の 1 個が単位時間に核種 i を生む割合
 /// （1/s）。対角は核種の消える割合の符号を変えたもの。OpenMC の `A[j, i]`（i から j へ）と同じ向き。
 ///
@@ -42,22 +61,17 @@ impl DepletionMatrix {
         col_ptr.push(0);
         for (col, mut column) in columns.into_iter().enumerate() {
             column.sort_by_key(|&(row, _)| row);
-            for (row, value) in column {
-                if row_idx.len() > col_ptr[col] && row_idx.last() == Some(&row) {
-                    if let Some(last) = values.last_mut() {
-                        *last += value;
-                    }
-                } else {
-                    row_idx.push(row);
-                    values.push(value);
-                }
-            }
-            let start = col_ptr[col];
-            for (k, (&row, &value)) in row_idx[start..].iter().zip(&values[start..]).enumerate() {
+            for (row, value, magnitude) in sum_by_row(&column) {
                 // 1 つずつは有限でも、同じ位置の和があふれうる
                 if !value.is_finite() {
                     return Err(DepletionError::NonFiniteEntry { row, col, value });
                 }
+                // 打ち消し合う寄与の和は、寄与の大きさの丸め（数 ε）だけ符号を外れうるので、その分は 0 とみなす
+                let value = if value.abs() <= ROUNDING * magnitude {
+                    0.0
+                } else {
+                    value
+                };
                 if row == col {
                     if value > 0.0 {
                         return Err(DepletionError::PositiveLoss {
@@ -65,10 +79,12 @@ impl DepletionMatrix {
                             value,
                         });
                     }
-                    diagonal.push(start + k);
+                    diagonal.push(row_idx.len());
                 } else if value < 0.0 {
                     return Err(DepletionError::NegativeProduction { row, col, value });
                 }
+                row_idx.push(row);
+                values.push(value);
             }
             col_ptr.push(row_idx.len());
         }
