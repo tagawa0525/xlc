@@ -1,11 +1,11 @@
 ---
-status: closed
+status: open
 labels: [build, dvc]
 opened: 2026-10-14
-closed: 2026-10-14
+closed:
 milestone: M4
 blocked-by: []
-resolution: ADR-0163
+resolution:
 ---
 
 # faer を依存に持つクレートを足すと、build の段階の 3 つの実行ファイルがすべて変わる
@@ -23,14 +23,14 @@ resolution: ADR-0163
 `bytemuck`（faer-traits から）が足され、libm が入る。xs は num-complex に依存するが、lattice と core は依存しないので、lattice と
 core が変わる経路は確かめていない。
 
-試したこと（ブランチ fix/build-only-stage-binaries、捨てた。2026-10-14）:
+試したこと（ブランチ fix/build-only-stage-binaries。ブランチは捨て、1 つ目の形を ADR-0163 で採った。2026-10-14）:
 
 - `cargo build --release --locked -p xlc-xs -p xlc-lattice -p xlc-core`（3 つを 1 回の cargo で）: `xlc-depletion` を含めたまま、
   3 つの md5 が main の dvc.lock と一致した。main（321efe1c）でも一致する
 - 3 つを別々の cargo（`-p` を 1 つずつ）: main で xs は一致、lattice（85a3c566 → 90e3f50c）と core（fe2d8761 → 7aa410c7）が変わる。
   xs の依存の feature が、今も lattice と core のバイトを決めている
 
-捨てた理由（レビュー）: ADR-0159 の案 T1 は、手で作る `cargo build --release` の `target/release` と同じ実行ファイルにするために
+そのブランチを捨てたときの理由（レビュー）: ADR-0159 の案 T1 は、手で作る `cargo build --release` の `target/release` と同じ実行ファイルにするために
 ワークスペースの全体をビルドすると決めており、`-p` にするとその性質（perf などで `target/release` を使う。docs/environment.md、
 ADR-0160）が崩れる。ADR-0159 を置き換える決定になる。3 つを 1 回の cargo にしても、lattice と core のどちらかが新しい依存を
 持てば残りの 2 つも変わりうる（別々の cargo の測定のとおり結びついている）ので、根本の解決ではない。別々の cargo は結びつきを
@@ -48,4 +48,4 @@ ADR-0160）が崩れる。ADR-0159 を置き換える決定になる。3 つを 
 ## 経緯
 
 - 2026-10-14: feat/cram-depletion-solver の rebase のあと、`dvc repro -s build` で見つけた。`-p` の 2 つの形を試して捨てた
-- 2026-10-14: (b)（3 つを 1 回の cargo）に決めた（ADR-0163）。T1 の「`target/release` と同じ実行ファイル」は置き換え、perf のときの作り方を docs/environment.md に書いた
+- 2026-10-14: (b)（3 つを 1 回の cargo）に決めた（ADR-0163）。T1 の「`target/release` と同じ実行ファイル」は置き換え、perf のときの作り方を docs/environment.md に書いた。「根本の解決ではない」の指摘には、3 つの間の結びつきが問題になったときに (c) に移ると ADR-0163 で答えた。完了の条件の 2 つ目（feat/cram-depletion-solver での確認）が残る
