@@ -261,8 +261,8 @@ KENO-VI の値は仕様書の表 M3-5、集合体の出力（1/8）は付録 J �
 5A-2D、5B-2D、5C-2D を xlc で解き、OpenMC（5A-2D。同じ ENDF/B-VIII.0）と KENO-VI（ENDF/B-VII.0）と比べた。段階は
 `p5/dvc.yaml`（`p5/p5_inputs.py` が書く）で、xs から比較まで `dvc repro examples/vera/p5/dvc.yaml` で実行する。OpenMC との
 比較は、参照解の statepoint から段階 `openmc-5A-2D-extract` が抜いた `p5/openmc-5A-2D-results/` を読む。OpenMC の実行は段階
-でない（手で Slurm に流した。「Problem 5-2D の参照解」）ので、`references/openmc/vera-5A-2D/` が無い環境では、この段階と
-OpenMC との比較の段階は止まる。
+でない（手で Slurm に流した。「Problem 5-2D の参照解」）ので、`references/openmc/vera-5A-2D/` が無い環境では、`dvc repro` は
+この段階の deps の欠けで止まる（ほかの段階は `--keep-going` で実行する）。
 
 ```sh
 # リポジトリの直下で、default の devShell の中。格子は Slurm で流す（自己遮蔽ありの 3 × 3 の MOC は 37 GB）
