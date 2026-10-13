@@ -4,16 +4,25 @@ use std::f64::consts::PI;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift, shift};
-use crate::endf::{ClampedTab1, Mlbw, OrbitalL};
+use crate::endf::{Mlbw, OrbitalL, Tab1};
 use crate::physics::wave_number_factor;
 
 /// 断面積の計算に使う形に前処理した MLBW パラメータ。
 #[derive(Debug, Clone)]
 pub struct MlbwXs {
     spi: f64,
-    /// エネルギー依存の散乱半径（NRO=1）。範囲を覆うことは MF2 を読むときに確かめてあるので、範囲の中では端の値に丸めない
-    radius_table: Option<ClampedTab1>,
+    /// 位相シフトに使う散乱半径 (10^-12 cm)（`radius_table` がなければ）
+    scattering_radius: f64,
+    /// エネルギー依存の散乱半径（NRO=1）
+    radius_table: Option<Tab1>,
     l_values: Vec<LValue>,
+}
+
+/// MLBW の断面積の計算のエラー。
+#[derive(Debug, thiserror::Error)]
+pub enum MlbwError {
+    #[error("the scattering radius table does not cover {energy} eV")]
+    RadiusTable { energy: f64 },
 }
 
 #[derive(Debug, Clone)]
@@ -22,8 +31,6 @@ struct LValue {
     arat: f64,
     /// 透過因子・シフト因子に使うチャネル半径
     channel_radius: f64,
-    /// 位相シフトに使う散乱半径（`radius_table` がなければ）
-    scattering_radius: f64,
     resonances: Vec<Resonance>,
 }
 
@@ -73,29 +80,30 @@ impl MlbwXs {
                     l: lv.l,
                     arat,
                     channel_radius,
-                    scattering_radius: data.ap,
                     resonances,
                 }
             })
             .collect();
         Self {
             spi: data.spi,
+            scattering_radius: data.ap,
             radius_table: data.ap_energy.clone(),
             l_values,
         }
     }
 
-    pub fn cross_sections(&self, e: f64) -> Sigma {
+    /// エネルギー e (eV) での断面積。散乱半径の表（NRO=1）が e を覆わなければエラー。
+    pub fn cross_sections(&self, e: f64) -> Result<Sigma, MlbwError> {
+        let radius = match &self.radius_table {
+            Some(table) => table.eval(e).ok_or(MlbwError::RadiusTable { energy: e })?,
+            None => self.scattering_radius,
+        };
         let mut sum = Sigma::default();
         for lv in &self.l_values {
             let k = wave_number_factor() * lv.arat * e.abs().sqrt();
             let pifac = PI / (k * k);
             let rho = k * lv.channel_radius;
             let (se, pe) = (shift(lv.l, rho), penetrability(lv.l, rho));
-            let radius = self
-                .radius_table
-                .as_ref()
-                .map_or(lv.scattering_radius, |t| t.eval(e));
             let phi = phase_shift(lv.l, k * radius);
             // 1 - cos 2φ は低エネルギーで桁落ちするので 2 sin²φ で求める
             let cos2p = 2.0 * phi.sin().powi(2);
@@ -136,7 +144,7 @@ impl MlbwXs {
             sum.capture += 2.0 * pifac * capture;
         }
         sum.total = sum.elastic + sum.fission + sum.capture;
-        sum
+        Ok(sum)
     }
 }
 

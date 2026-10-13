@@ -5,7 +5,7 @@
 //! 非分離共鳴（LRU=2 の LRF=1, 2）を扱う。それ以外の形式はエラーにする。
 
 use super::tape::{Reader, Section};
-use super::{ClampedTab1, Error, Interpolation, Tab1};
+use super::{Error, Interpolation, Tab1};
 
 /// 1核種（同位体1つ）の共鳴パラメータ。
 #[derive(Debug, Clone, PartialEq)]
@@ -123,7 +123,7 @@ pub struct Mlbw {
     /// 散乱半径 (10^-12 cm)
     pub ap: f64,
     /// エネルギー依存の散乱半径（NRO=1。NAPS=0 だけ）。あれば位相シフトにはこちらを使う。範囲を覆う
-    pub ap_energy: Option<ClampedTab1>,
+    pub ap_energy: Option<Tab1>,
     pub naps: i64,
     pub l_values: Vec<BwLValue>,
 }
@@ -738,15 +738,18 @@ fn read_reich_moore(r: &mut Reader<'_>, naps: i64) -> Result<ReichMoore, Error> 
 fn read_mlbw(r: &mut Reader<'_>, naps: i64, nro: i64, (el, eh): (f64, f64)) -> Result<Mlbw, Error> {
     let ap_energy = if nro == 1 {
         let table_line = r.line() + 1;
+        // 補間の区切りと x の並びは TAB1 を読むときに確かめる。範囲の外へ外挿しないので、範囲を覆うことを確かめる
         let table = r.tab1()?.table;
-        // 範囲の外へ外挿しない
-        let covers = matches!((table.x.first(), table.x.last()), (Some(&first), Some(&last)) if first <= el && last >= eh);
-        let table = ClampedTab1::new(table).filter(|_| covers).ok_or_else(|| {
-            Error::new(
+        let covers = matches!(
+            (table.x.first(), table.x.last()),
+            (Some(&first), Some(&last)) if first <= el && last >= eh
+        );
+        if !covers {
+            return Err(Error::new(
                 table_line,
                 format!("the scattering radius table must cover the range {el}..{eh} eV"),
-            )
-        })?;
+            ));
+        }
         Some(table)
     } else {
         None
