@@ -32,7 +32,9 @@ use crate::moc::dancoff::{DancoffError, DancoffOptions, Lump, dancoff, lump_danc
 use crate::sph::{SphError, sph_factors};
 use crate::symmetry::{Detected, Image, SymmetryError, detect};
 use crate::tracking::Tracking;
-use crate::ufg::{CellSpectrum, UfgError, cell_range, material_range, slowing_down};
+use crate::ufg::{
+    CellSpectrum, Collision, UfgError, cell_range, material_range, slowing_down_with,
+};
 
 /// 格子の燃料の自己遮蔽の反復の条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -41,6 +43,8 @@ pub struct ShieldingOptions {
     pub tolerance: f64,
     pub max_iterations: usize,
     pub dancoff: DancoffOptions,
+    /// 燃料のピンと棒の UFG の減速計算の飛程の求め方
+    pub collision: Collision,
 }
 
 impl Default for ShieldingOptions {
@@ -49,6 +53,7 @@ impl Default for ShieldingOptions {
             tolerance: 1.0e-6,
             max_iterations: 100,
             dancoff: DancoffOptions::default(),
+            collision: Collision::default(),
         }
     }
 }
@@ -486,6 +491,7 @@ pub fn shield_fuel_with(
                 rings,
                 region_index: &region_index,
                 void,
+                collision: options.collision,
             };
             let ufg = shield_cell(
                 library,
@@ -802,6 +808,7 @@ fn shield_lumps(
                     rings,
                     region_index,
                     void: materials.len(),
+                    collision: options.collision,
                 };
                 shield_cell(
                     library,
@@ -951,6 +958,8 @@ struct PinRings<'a> {
     region_index: &'a [usize],
     /// 真空の物質の番号
     void: usize,
+    /// 減速計算の飛程の求め方
+    collision: Collision,
 }
 
 /// ピンのセルの UFG の減速計算の結果
@@ -1082,7 +1091,7 @@ fn solve_equivalent_cell<'a>(
             .chain(frame.map(|(_, area)| outer_radius(radius, area)))
             .collect(),
     )?;
-    let spectrum = slowing_down(library, &cylinder, &inputs, range)?;
+    let spectrum = slowing_down_with(library, &cylinder, &inputs, range, pin.collision)?;
     Ok(Some(EquivalentCell {
         radius,
         cylinder,

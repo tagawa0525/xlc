@@ -227,7 +227,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         state_materials,
                         &region_materials,
                         chosen.shielding(),
-                        &ShieldingOptions::default(),
+                        &ShieldingOptions {
+                            collision: input.collision,
+                            ..ShieldingOptions::default()
+                        },
                     )
                     .with_context(|| format!("{}: self-shielding", context()))?;
                     (shielded.materials, shielded.region_material)
