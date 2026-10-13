@@ -1,10 +1,10 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-13
 requires: [ADR-0151]
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0106"]
 ---
 
 # ADR-0155: Run OpenMC on AWS self-contained with user-data, S3 and self-termination
@@ -103,7 +103,7 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
   `aws s3 sync --delete` で S3 にコピーする。完了したら、最後の世代のほかの statepoint を消し、sha256 の manifest を書いて同期し、
   電源を切る（terminate）。どこで失敗しても、ログを S3 に置いてから電源を切る
 - 書いている途中の statepoint が同期されても、再開の `latest_readable`（examples/openmc_resume.py）が壊れたものを消して 1 つ前から
-  続ける。S3 には最新の 2 個（`KEEP`）が写る
+  続ける。S3 には作業ディレクトリの statepoint がそのまま写る（実行中に最新の `KEEP` 個へ間引くはずの処理が効いていない。#0106）
 - インスタンスプロファイルのロール `xlc-openmc-vm` は、そのバケットの一覧（`store/`、`runs/`）、`store/` の読み取り、`runs/` の
   読み書きと削除だけ。EC2 の権限は持たない。バケットはツールの変数 `XLC_BUCKET`（既定 xlc-openmc-118645514640）で選ぶ
 - 中断のあとは手元から同じ名前で起動し直し、`done` のないジョブを `--restart` で続ける。起動し直すときは、最初の起動で S3 に置いた
@@ -125,7 +125,16 @@ OpenMC の本番は、user-data で自己完結する VM で流す。手元の�
 
 ## 確認
 
-- c7a.large のスポット 1 台で、起動から自己終了までを、手元から ssh せずに通す。小さい入力（粒子 1 万・20 世代・間隔 5）
-- 途中で手元から終了し、起動し直しが `--restart` で続きを実行すること
-- `aws_fetch.sh --verify --delete` で取り出し、manifest と extract が一致し、S3 の `runs/<名前>/` が消えること
-- user-data の生成は、flake の check（`aws-user-data`）で固定する
+2026-10-13、xlc のコミット 6360a566 のスクリプト（3 の起動し直しは、起動のツールだけ 93c36f8c。VM は S3 の `src/` の 6360a566 のスクリプト）、c7a.large のスポット（us-east-1a、
+$0.0365/時間）、examples/vera/aws-check/openmc-3A.toml（粒子 1 万・200 世代・捨てる 50・間隔 20）、`--sync-minutes 1`。手元から
+ssh はしていない（VM にキーペアがない）。
+
+1. 自己終了: 起動から約 9 分 20 秒で、VM が自分で電源を切り terminated になった（`describe-instances` の StateReason が
+   `Client.InstanceInitiatedShutdown`）。user-data の開始から run の開始まで約 1 分 30 秒（Nix、AWS CLI、クロージャ、核データ、入力の取得）。
+   インスタンスプロファイル `xlc-openmc-vm` で S3 の `store/` の読み取りと `runs/` の書き込みが通った
+2. 取り出し: `aws_fetch.sh --verify --delete` で SHA256SUMS が一致し、手元の extract の 4 ファイルが VM の結果とバイト一致し、
+   S3 の `runs/check1/` が消えた
+3. 再開: 別の実行で statepoint 100 が S3 に写ったあと手元から終了し、`aws_run.sh <名前>` で起動し直すと、`--restart` で
+   statepoint 100 から続けて完了し、自己終了した。k は 1 の実行と 1e-15 の相対差で一致した（1.175018 ± 0.000747）。この確認で、
+   起動し直しが statepoint を見落として最初から起動する誤り（`aws s3 ls | grep -q` が pipefail で失敗）を見つけて直した
+4. 費用: 4 台（誤って起動して 1 分で終了した 1 台を含む）で合わせて約 21 分、約 $0.013。S3 は 1 セント未満
