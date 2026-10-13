@@ -106,7 +106,11 @@ def main():
             diff = np.abs(got - ref[order])
             scaled = np.max(diff) / scale
             big = np.abs(ref[order]) > 1e-12 * scale
-            rel = np.max(diff[big] / np.abs(ref[order][big]))
+            rel = (
+                np.max(diff[big] / np.abs(ref[order][big]))
+                if big.any()
+                else float("nan")
+            )
             ok = bool(
                 np.isfinite(got).all()
                 and np.isfinite(ref[order]).all()
