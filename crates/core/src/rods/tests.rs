@@ -146,6 +146,38 @@ fn identical_intervals_reproduce_the_uniform_node() {
 }
 
 #[test]
+fn f_star_below_a_partial_node_keeps_the_split_mesh_k() {
+    // 部分挿入のノードの下の一様なノードが +z の辺に f*（燃料の ADF で割った値。ADR-0095）を持つとき、その面は
+    // f* × 接する区間の ADF でつながり、混ぜた定数の z の面の不連続因子を掛けない。先端をノードの境に置いた参照との
+    // k の差は、f* のない列（flux_weighting_reproduces_the_mesh_split_at_the_tip）と同じく小さい
+    let with_adfs = |(mut problem, mut partial): (Problem, Vec<PartialNode>)| {
+        for m in &mut problem.materials {
+            m.adf[4] = vec![0.8, 0.7];
+            m.adf[5] = vec![0.8, 0.7];
+        }
+        for p in &mut partial {
+            for s in &mut p.segments {
+                s.constants.adf[4] = vec![0.8, 0.7];
+                s.constants.adf[5] = vec![0.8, 0.7];
+            }
+        }
+        let mut below = problem.materials[0].clone();
+        below.adf[5] = vec![1.3, 1.5];
+        below.normalized_adf[5] = true;
+        problem.materials.push(below);
+        problem.node_material[0] = Some(problem.materials.len() - 1);
+        (problem, partial)
+    };
+    let (plain, _) = with_adfs(column(28.0, 1.6, true));
+    let expected = solve(&plain, &Options::default()).unwrap();
+    let (problem, partial) = with_adfs(column(28.0, 1.6, false));
+    let (solution, _) =
+        solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
+    let dk = pcm(solution.k, expected.k);
+    assert!(dk.abs() < 10.0, "{dk} pcm");
+}
+
+#[test]
 fn volume_weighting_mixes_by_the_rodded_fraction() {
     let (problem, partial) = column(128.0, 1.6, false);
     let (_, materials) = solve_rodded(
