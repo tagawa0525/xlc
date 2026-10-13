@@ -104,6 +104,8 @@ def main():
             if abs(o) > 1e-12 * scale
         ]
         big.sort(reverse=True)
+        if not big:
+            sys.exit(f"{case['name']}: no nuclide above 1e-12 of the initial maximum")
         print(f"## {case['name']}（t = {case['t']:g} s）")
         print(
             f"差の最大 / 初期の最大 {scaled:.3e}、初期の最大の 1e-12 倍を超える核種 {len(big)}、その相対差の最大 {big[0][0]:.3e}（{big[0][1]}）"
