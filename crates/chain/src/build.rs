@@ -255,7 +255,8 @@ fn decay(
     }))
 }
 
-/// 反応の生成物の状態を、decay の同じ (Z, A) の状態に励起エネルギーで合わせる
+/// 反応の生成物の状態を、decay の同じ (Z, A) の状態に励起エネルギーで合わせる。decay にない準位は、即発の γ で
+/// 基底状態に落ちるので基底状態にし、`true` を返す（基底状態もなければ `None`）
 fn final_state(
     parent: &str,
     mt: u32,
@@ -263,7 +264,7 @@ fn final_state(
     expected: (u32, u32),
     evaluations: &[&DecayEvaluation],
     index: &Index,
-) -> Result<usize> {
+) -> Result<(Option<usize>, bool)> {
     if entry.za != 1000 * expected.0 + expected.1 {
         bail!(
             "{parent}: MF8/MT{mt} names product ZA {}, expected {}",
@@ -276,17 +277,10 @@ fn final_state(
         (m.z, m.a) == expected
             && (m.excitation - entry.excitation).abs() <= EXCITATION_TOLERANCE * entry.excitation
     });
-    match matched {
-        Some(e) => index
-            .get(key(&e.material))
-            .ok_or_else(|| anyhow!("{parent}: final state is not indexed")),
-        None => bail!(
-            "{parent}: MF8/MT{mt} final state LFS {} at {} eV matches no state of {} in the decay data",
-            entry.lfs,
-            entry.excitation,
-            name((expected.0, expected.1, 0))?
-        ),
-    }
+    Ok(match matched {
+        Some(e) => (index.get(key(&e.material)), false),
+        None => (index.get((expected.0, expected.1, 0)), true),
+    })
 }
 
 fn reactions(
@@ -326,24 +320,45 @@ fn reactions(
             .find(|(mt, _)| *mt == spec.mt)
             .map(|(_, entries)| entries);
         let channels = match states {
-            Some(entries) => entries
-                .iter()
-                .map(|entry| {
-                    let product = final_state(parent, spec.mt, entry, (z, a), evaluations, index)?;
-                    let mut products = vec![Product {
-                        nuclide: product,
-                        count: 1,
-                    }];
+            Some(entries) => {
+                let mut grounded = Vec::new();
+                let mut channels = Vec::new();
+                for entry in entries {
+                    let (product, to_ground) =
+                        final_state(parent, spec.mt, entry, (z, a), evaluations, index)?;
+                    if to_ground {
+                        grounded.push(format!("LFS {} at {} eV", entry.lfs, entry.excitation));
+                    }
+                    let mut products: Vec<Product> = product
+                        .map(|nuclide| Product { nuclide, count: 1 })
+                        .into_iter()
+                        .collect();
+                    if product.is_none() {
+                        warnings.push(format!(
+                            "{parent}: the product {} of MT{} is not in the decay data; the reaction produces no residual",
+                            name((z, a, 0))?,
+                            spec.mt
+                        ));
+                    }
                     products.extend(light.iter().copied());
-                    Ok(Channel {
+                    channels.push(Channel {
                         final_state: Some(FinalState {
                             mf: entry.mf,
                             lfs: entry.lfs,
                         }),
                         products,
-                    })
-                })
-                .collect::<Result<_>>()?,
+                    });
+                }
+                if !grounded.is_empty() {
+                    warnings.push(format!(
+                        "{parent}: MF8/MT{} final states not in the decay data go to the ground state of {}: {}",
+                        spec.mt,
+                        name((z, a, 0))?,
+                        grounded.join(", ")
+                    ));
+                }
+                channels
+            }
             None => {
                 let mut products = Vec::new();
                 match index.get((z, a, 0)) {
