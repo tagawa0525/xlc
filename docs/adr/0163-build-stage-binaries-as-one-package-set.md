@@ -21,7 +21,9 @@ Cargo は、1 回のビルドで選んだパッケージの全体で、共有す
 全体をビルドすると、3 つの実行ファイルの md5 がすべて変わった（xs: e77257b3 → 563bfe80、lattice: 85a3c566 → 9846663c、
 core: fe2d8761 → 6cf69103）。crates/depletion を外し、Cargo.toml と Cargo.lock を main に戻すと元の md5 に戻る（#0114）。
 原因の候補は feature の統合で、`cargo tree --workspace -e features` では faer-traits が num-complex に `bytemuck` を足し、libm が
-入る。lattice と core は num-complex に依存しないので、この 2 つが変わる経路は確かめていない。
+入る。レビューで、syn v2 に `default` の feature が足されることも見つかった（42ed150e で全体と 3 つの `-p` を比べた差は、
+num-complex の `bytemuck` と syn v2 の `default` の 2 つ）。syn v2 は proc-macro の tracing-attributes を通じて 3 つのすべてが
+依存するので、num-complex に依存しない lattice と core が変わる経路の候補になる（確かめていない）。
 
 判断の軸:
 
@@ -34,9 +36,11 @@ core: fe2d8761 → 6cf69103）。crates/depletion を外し、Cargo.toml と Car
 - 案 A: ワークスペースの全体をビルドしたまま、依存を足すたびに段階を走らせ直す（ADR-0159 の T1）。実行ファイルの依存の外の
   クレートが実行ファイルを変え、そのたびに計算の段階がすべて古くなる
 - 案 B: 3 つのパッケージを 1 回の cargo で `-p xlc-xs -p xlc-lattice -p xlc-core` としてビルドする。feature の統合は 3 つとその
-  依存の木の中に閉じる。crates/depletion を含めたブランチ（捨てたブランチ fix/build-only-stage-binaries で、main の 5c21dfed の
-  上、2026-10-14）で、3 つの md5 が元と一致した。3 つの間の統合は残るので、1 つの依存の変更がほかの 2 つを変えうる（採用）
-- 案 C: 3 つを別々の cargo（`-p` を 1 つずつ）でビルドする。3 つの間の統合もなくなる。同じ捨てたブランチ（5c21dfed の上）で、
+  依存の木の中に閉じる。crates/depletion を含めたブランチ（feat/cram-depletion-solver を 5c21dfed に rebase したもの）の作業ツリーで、
+  スクリプトをコミットせずに書き換えて試し、3 つの md5 が元と一致した（2026-10-14。案 C の測定とともに、コミットからは再現
+  できない。今の main の上の再現は「確認」）。3 つの間の統合は残るので、1 つの依存の変更がほかの 2 つを変えうる（採用）
+- 案 C: 3 つを別々の cargo（`-p` を 1 つずつ）でビルドする。3 つの間の統合もなくなる。捨てたブランチ fix/build-only-stage-binaries
+  （5c21dfed の上）の作業ツリーで、コミットせずに試すと、
   lattice（85a3c566 → 90e3f50c）と core（fe2d8761 → 7aa410c7）の md5 が全体のビルドと変わった（xs は変わらない）。今は
   examples/*/dvc.lock に `bin/lattice` と `bin/core` を deps に記録した段階がない（2026-10-14、0ceb6fe3。lattice と core の段階は
   ADR-0159 のあと一度も lock されていない）ので、走らせ直す費用はまだ生じない
