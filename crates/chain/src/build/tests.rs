@@ -370,16 +370,49 @@ fn splits_reactions_into_the_final_states_of_mf8() {
 }
 
 #[test]
-fn rejects_a_final_state_that_matches_no_decay_state() {
+fn sends_a_final_state_outside_the_decay_data_to_the_ground_state() {
+    // decay にない準位（短寿命で、即発の γ で基底状態に落ちる）
     let decays = with_light(vec![stable(95, 241), stable(95, 242)]);
     let mut am241 = neutron(95, 241, 0, &[102]);
     am241.final_states = vec![(
         102,
+        vec![
+            FinalStateEntry {
+                za: 95242,
+                excitation: 0.0,
+                mf: 10,
+                lfs: 0,
+            },
+            FinalStateEntry {
+                za: 95242,
+                excitation: 3e5,
+                mf: 10,
+                lfs: 3,
+            },
+        ],
+    )];
+    let built = build(&decays, &[am241], &[]).unwrap();
+    let channels = &find(&built, "Am-241").reactions[0].channels;
+    assert_eq!(channels[1].final_state, Some(FinalState { mf: 10, lfs: 3 }));
+    assert_eq!(channels[1].products, vec![one(&built, "Am-242")]);
+    assert!(
+        built.warnings.iter().any(|w| w.contains("Am-241")),
+        "{:?}",
+        built.warnings
+    );
+}
+
+#[test]
+fn rejects_a_final_state_of_another_nuclide() {
+    let decays = with_light(vec![stable(95, 241), stable(95, 242), stable(95, 240)]);
+    let mut am241 = neutron(95, 241, 0, &[102]);
+    am241.final_states = vec![(
+        102,
         vec![FinalStateEntry {
-            za: 95242,
-            excitation: 3e5,
+            za: 95240,
+            excitation: 0.0,
             mf: 9,
-            lfs: 3,
+            lfs: 0,
         }],
     )];
     assert!(build(&decays, &[am241], &[]).is_err());
