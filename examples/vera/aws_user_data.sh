@@ -36,22 +36,32 @@ NIX=/nix/var/nix/profiles/default/bin
 WORK=/var/lib/xlc
 OUT=results/$job
 
-# 同期: done は最後に別に置く（S3 に done があれば、ほかのファイルはすべて置いてある）。boot.log は finish が置く。boot.log は finish が置く
+# 同期: done と boot.log は finish が最後に置く（S3 に done があれば、ほかのファイルはすべて置いてある）
 sync_out() {
   [[ -d \$WORK/\$OUT ]] || return 0
   "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\$WORK/\$OUT" "\$PREFIX"
 }
-# どこで終わっても、結果とログを S3 に置いてから電源を切る
+# どこで終わっても、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
+# この user-data が失敗したとき（終了コードを書く）に置く。SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）
+# では書かず、中断として aws_run.sh で起動し直せるようにする。同期に失敗したら、S3 の結果がそろわないので done を置かない
 finish() {
-  local code=\$?
+  local code=\$? synced=0
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
+  if ((code != 143)) && [[ ! -f \$WORK/\$OUT/done ]]; then
+    mkdir -p "\$WORK/\$OUT"
+    echo "\$code" > "\$WORK/\$OUT/done"
+  fi
   if [[ -x \$AWS ]]; then
-    sync_out || true
+    sync_out && synced=1
     "\$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "\$PREFIX/boot.log" || true
+    if ((synced && code != 143)); then
+      "\$AWS" s3 cp --only-show-errors "\$WORK/\$OUT/done" "\$PREFIX/done" || true
+    fi
   fi
   shutdown -h now
 }
 trap finish EXIT
+trap 'exit 143' TERM
 
 curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm
 # AWS CLI は cache.nixos.org から（自前の cache を取るのに要る）
@@ -90,8 +100,6 @@ if [[ \$code == 0 ]]; then
   find "\$OUT/run" -name 'statepoint.*.h5' ! -name "\$last" -delete
   (cd "\$OUT" && find . -type f ! -name SHA256SUMS ! -name done -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS)
 fi
-sync_out
-"\$AWS" s3 cp --only-show-errors "\$OUT/done" "\$PREFIX/done"
 exit "\$code"
 USERDATA
 }
