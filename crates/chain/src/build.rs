@@ -92,8 +92,10 @@ fn key(m: &Material) -> Key {
     (m.z, m.a, m.state)
 }
 
+/// 核種の名前。名前のない (Z, A)（A < Z など）は警告とエラーの文に使えるよう、数で書く（チェーンの核種なら `Chain::check` が止める）
 fn name(key: Key) -> Result<String> {
-    nuclide_name(key.0, key.1, key.2).ok_or_else(|| anyhow!("no element symbol for Z = {}", key.0))
+    Ok(nuclide_name(key.0, key.1, key.2)
+        .unwrap_or_else(|| format!("(Z = {}, A = {}, state {})", key.0, key.1, key.2)))
 }
 
 fn step_name(step: Step) -> &'static str {
@@ -232,6 +234,9 @@ fn decay(
 ) -> Result<Option<Decay>> {
     let data = &evaluation.decay;
     if data.stable {
+        if !data.modes.is_empty() {
+            bail!("{parent}: a stable evaluation lists decay modes");
+        }
         return Ok(None);
     }
     if data.half_life == 0.0 {
