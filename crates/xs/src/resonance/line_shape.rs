@@ -211,6 +211,22 @@ mod tests {
         }
     }
 
+    #[test]
+    fn parallel_rows_stop_taking_rows_after_a_failure() {
+        let calls = AtomicUsize::new(0);
+        let rows: Result<Vec<usize>, usize> = in_parallel(100_000, |i| {
+            calls.fetch_add(1, Ordering::Relaxed);
+            if i == 0 {
+                return Err(i);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            Ok(i)
+        });
+        assert_eq!(rows, Err(0));
+        let calls = calls.into_inner();
+        assert!(calls < 1000, "{calls} rows after the first failed");
+    }
+
     fn assert_rel(actual: f64, expected: f64, tol: f64) {
         assert!(
             (actual - expected).abs() <= tol * expected.abs(),
