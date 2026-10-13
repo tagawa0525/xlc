@@ -15,7 +15,7 @@ issues: []
 ENDF/B-VIII.0 の中性子のデータを読めなければならない。xs は、分離共鳴の範囲で散乱半径がエネルギーの表で与えられたもの
 （MF2 の範囲の見出しの NRO ≠ 0）を読めず、エラーにする（crates/xs/src/endf/mf2.rs）。
 
-中性子のサブライブラリの 557 の評価を `crates/xs/examples/survey_neutrons.rs` で調べると（表は docs/plans/m4-depletion.md の
+中性子のサブライブラリの 557 の評価を `crates/chain/examples/survey_neutrons.rs` で調べると（表は docs/plans/m4-depletion.md の
 「核データ」）、分離共鳴の範囲で NRO = 1 のものは 52 評価で、すべて MLBW（LRF = 2）、NAPS = 0 だった。Reich-Moore と
 R-matrix limited に NRO ≠ 0 はない。52 評価は、短寿命の核分裂生成物（I-133、I-134、Te-131、Nd-149、Pm-150 など）と、
 Ag-108〜117、Gd-159、Pu-245 などで、範囲はどれも 1 keV 以下にある。非分離共鳴の NRO = 1（Au-197、U-238）は、すでに読める。
@@ -71,8 +71,8 @@ NAPS = 2 は透過因子とシフト因子に見出しの AP、位相シフト�
   比べた。Nd-149、I-133 と、範囲の中の AP(E) の変化が最大の Sm-146 で、全断面積、弾性散乱、捕獲の NJOY の全格子点での
   相対差の最大は 9.1e-4〜1.0e-3 で、許容誤差の 2 倍を超える点はない（NJOY の入力は手元の `trials/`。RECONR の入力は
   references/njoy-runs/U238/input と同じ形で MAT だけが違う）
-- 棚卸しの道具（`crates/xs/examples/survey_neutrons.rs`、同じコミット）で、NRO = 1 の 52 評価が読めるようになり、読める評価が
-  494 から 546 になった
+- 棚卸しの道具（`crates/chain/examples/survey_neutrons.rs`、17cbe1e7、2026-10-14）で、NRO = 1 の 52 評価がすべて読める
+  （読めない理由に NRO が現れない）
 
 ## 帰結
 
