@@ -4,328 +4,158 @@
 # OpenMC、最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ
 stages:
   assembly-21:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-21.toml > assembly-21.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-21.toml > assembly-21.out
     deps:
       - assembly-21.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/21.msgpack
       - assembly-21.out
   assembly-21-aic:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-21-aic.toml > assembly-21-aic.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-21-aic.toml > assembly-21-aic.out
     deps:
       - assembly-21-aic.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/21-aic.msgpack
       - assembly-21-aic.out
   assembly-21-b4c:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-21-b4c.toml > assembly-21-b4c.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-21-b4c.toml > assembly-21-b4c.out
     deps:
       - assembly-21-b4c.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/21-b4c.msgpack
       - assembly-21-b4c.out
   assembly-26:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-26.toml > assembly-26.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-26.toml > assembly-26.out
     deps:
       - assembly-26.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/26.msgpack
       - assembly-26.out
   assembly-26-aic:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-26-aic.toml > assembly-26-aic.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-aic.toml > assembly-26-aic.out
     deps:
       - assembly-26-aic.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/26-aic.msgpack
       - assembly-26-aic.out
   assembly-26-b4c:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-26-b4c.toml > assembly-26-b4c.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-b4c.toml > assembly-26-b4c.out
     deps:
       - assembly-26-b4c.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/26-b4c.msgpack
       - assembly-26-b4c.out
   assembly-26-p16:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-26-p16.toml > assembly-26-p16.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-p16.toml > assembly-26-p16.out
     deps:
       - assembly-26-p16.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/26-p16.msgpack
       - assembly-26-p16.out
   assembly-26-p20:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-26-p20.toml > assembly-26-p20.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-p20.toml > assembly-26-p20.out
     deps:
       - assembly-26-p20.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/26-p20.msgpack
       - assembly-26-p20.out
   assembly-26-p24:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-26-p24.toml > assembly-26-p24.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-26-p24.toml > assembly-26-p24.out
     deps:
       - assembly-26-p24.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/26-p24.msgpack
       - assembly-26-p24.out
   assembly-31:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-31.toml > assembly-31.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-31.toml > assembly-31.out
     deps:
       - assembly-31.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/31.msgpack
       - assembly-31.out
   assembly-31-p12:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-31-p12.toml > assembly-31-p12.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-31-p12.toml > assembly-31-p12.out
     deps:
       - assembly-31-p12.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/31-p12.msgpack
       - assembly-31-p12.out
   assembly-31-p16:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-31-p16.toml > assembly-31-p16.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-31-p16.toml > assembly-31-p16.out
     deps:
       - assembly-31-p16.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/31-p16.msgpack
       - assembly-31-p16.out
   assembly-31-p24:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- assembly-31-p24.toml > assembly-31-p24.out
+    cmd: mkdir -p lattice && ../../../bin/lattice assembly-31-p24.toml > assembly-31-p24.out
     deps:
       - assembly-31-p24.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/31-p24.msgpack
       - assembly-31-p24.out
   reflector-I:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-I.toml > reflector-I.out
+    cmd: mkdir -p lattice && ../../../bin/lattice reflector-I.toml > reflector-I.out
     deps:
       - reflector-I.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
       - reflector-I.out
   reflector-I-31-p12:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-I-31-p12.toml > reflector-I-31-p12.out
+    cmd: mkdir -p lattice && ../../../bin/lattice reflector-I-31-p12.toml > reflector-I-31-p12.out
     deps:
       - reflector-I-31-p12.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/reflector-I-31-p12-fuel.msgpack
       - lattice/reflector-I-31-p12.msgpack
       - reflector-I-31-p12.out
   reflector-I-31-p8:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-I-31-p8.toml > reflector-I-31-p8.out
+    cmd: mkdir -p lattice && ../../../bin/lattice reflector-I-31-p8.toml > reflector-I-31-p8.out
     deps:
       - reflector-I-31-p8.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/reflector-I-31-p8-fuel.msgpack
       - lattice/reflector-I-31-p8.msgpack
       - reflector-I-31-p8.out
   reflector-corner:
-    cmd: mkdir -p lattice && cargo run --release -p xlc-lattice -- reflector-corner.toml > reflector-corner.out
+    cmd: mkdir -p lattice && ../../../bin/lattice reflector-corner.toml > reflector-corner.out
     deps:
       - reflector-corner.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner-right.msgpack
@@ -333,26 +163,16 @@ stages:
       - lattice/reflector-corner.msgpack
       - reflector-corner.out
   small-moc:
-    cmd: cargo run --release -p xlc-lattice -- small-moc.toml > small-moc.out
+    cmd: ../../../bin/lattice small-moc.toml > small-moc.out
     deps:
       - small-moc.toml
       - ../vera.msgpack
-      - ../../../crates/lattice/src
-      - ../../../crates/lattice/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/lattice
     outs:
       - small-moc-pins.msgpack
       - small-moc.out
   core-5A:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5A.toml > core-5A.out 2> core-5A.log
+    cmd: RUST_LOG=debug ../../../bin/core core-5A.toml > core-5A.out 2> core-5A.log
     deps:
       - core-5A.toml
       - core-5A-cycle.toml
@@ -374,23 +194,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-5A.out
       - core-5A.log
       - core-5A-pins.msgpack
   core-5A-Inext:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5A-Inext.toml > core-5A-Inext.out 2> core-5A-Inext.log
+    cmd: RUST_LOG=debug ../../../bin/core core-5A-Inext.toml > core-5A-Inext.out 2> core-5A-Inext.log
     deps:
       - core-5A-Inext.toml
       - core-5A-Inext-cycle.toml
@@ -410,23 +220,13 @@ stages:
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-5A-Inext.out
       - core-5A-Inext.log
       - core-5A-Inext-pins.msgpack
   core-5A-Ly:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5A-Ly.toml > core-5A-Ly.out 2> core-5A-Ly.log
+    cmd: RUST_LOG=debug ../../../bin/core core-5A-Ly.toml > core-5A-Ly.out 2> core-5A-Ly.log
     deps:
       - core-5A-Ly.toml
       - core-5A-Ly-cycle.toml
@@ -448,23 +248,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-5A-Ly.out
       - core-5A-Ly.log
       - core-5A-Ly-pins.msgpack
   core-5B:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5B.toml > core-5B.out 2> core-5B.log
+    cmd: RUST_LOG=debug ../../../bin/core core-5B.toml > core-5B.out 2> core-5B.log
     deps:
       - core-5B.toml
       - core-5B-cycle.toml
@@ -487,23 +277,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-5B.out
       - core-5B.log
       - core-5B-pins.msgpack
   core-5C:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-5C.toml > core-5C.out 2> core-5C.log
+    cmd: RUST_LOG=debug ../../../bin/core core-5C.toml > core-5C.out 2> core-5C.log
     deps:
       - core-5C.toml
       - core-5C-cycle.toml
@@ -526,23 +306,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-5C.out
       - core-5C.log
       - core-5C-pins.msgpack
   core-lattice-I-equivalence:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-I-equivalence.toml > core-lattice-I-equivalence.out 2> core-lattice-I-equivalence.log
+    cmd: RUST_LOG=debug ../../../bin/core core-lattice-I-equivalence.toml > core-lattice-I-equivalence.out 2> core-lattice-I-equivalence.log
     deps:
       - core-lattice-I-equivalence.toml
       - core-lattice-I-equivalence-cycle.toml
@@ -552,23 +322,13 @@ stages:
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-lattice-I-equivalence.out
       - core-lattice-I-equivalence.log
       - core-lattice-I-equivalence-pins.msgpack
   core-lattice-I-fstar:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-I-fstar.toml > core-lattice-I-fstar.out 2> core-lattice-I-fstar.log
+    cmd: RUST_LOG=debug ../../../bin/core core-lattice-I-fstar.toml > core-lattice-I-fstar.out 2> core-lattice-I-fstar.log
     deps:
       - core-lattice-I-fstar.toml
       - core-lattice-I-fstar-cycle.toml
@@ -578,23 +338,13 @@ stages:
       - lattice/reflector-I-fuel.msgpack
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-lattice-I-fstar.out
       - core-lattice-I-fstar.log
       - core-lattice-I-fstar-pins.msgpack
   core-lattice-corner-equivalence:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-corner-equivalence.toml > core-lattice-corner-equivalence.out 2> core-lattice-corner-equivalence.log
+    cmd: RUST_LOG=debug ../../../bin/core core-lattice-corner-equivalence.toml > core-lattice-corner-equivalence.out 2> core-lattice-corner-equivalence.log
     deps:
       - core-lattice-corner-equivalence.toml
       - core-lattice-corner-equivalence-cycle.toml
@@ -606,23 +356,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-lattice-corner-equivalence.out
       - core-lattice-corner-equivalence.log
       - core-lattice-corner-equivalence-pins.msgpack
   core-lattice-corner-fstar:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-lattice-corner-fstar.toml > core-lattice-corner-fstar.out 2> core-lattice-corner-fstar.log
+    cmd: RUST_LOG=debug ../../../bin/core core-lattice-corner-fstar.toml > core-lattice-corner-fstar.out 2> core-lattice-corner-fstar.log
     deps:
       - core-lattice-corner-fstar.toml
       - core-lattice-corner-fstar-cycle.toml
@@ -634,23 +374,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-lattice-corner-fstar.out
       - core-lattice-corner-fstar.log
       - core-lattice-corner-fstar-pins.msgpack
   core-small-E:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-E.toml > core-small-E.out 2> core-small-E.log
+    cmd: RUST_LOG=debug ../../../bin/core core-small-E.toml > core-small-E.out 2> core-small-E.log
     deps:
       - core-small-E.toml
       - core-small-E-cycle.toml
@@ -663,23 +393,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-small-E.out
       - core-small-E.log
       - core-small-E-pins.msgpack
   core-small-I:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-I.toml > core-small-I.out 2> core-small-I.log
+    cmd: RUST_LOG=debug ../../../bin/core core-small-I.toml > core-small-I.out 2> core-small-I.log
     deps:
       - core-small-I.toml
       - core-small-I-cycle.toml
@@ -690,23 +410,13 @@ stages:
       - lattice/reflector-I.msgpack
       - lattice/reflector-corner-fuel.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-small-I.out
       - core-small-I.log
       - core-small-I-pins.msgpack
   core-small-step-Lx:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-step-Lx.toml > core-small-step-Lx.out 2> core-small-step-Lx.log
+    cmd: RUST_LOG=debug ../../../bin/core core-small-step-Lx.toml > core-small-step-Lx.out 2> core-small-step-Lx.log
     deps:
       - core-small-step-Lx.toml
       - core-small-step-Lx-cycle.toml
@@ -719,23 +429,13 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-small-step-Lx.out
       - core-small-step-Lx.log
       - core-small-step-Lx-pins.msgpack
   core-small-step-Ly:
-    cmd: RUST_LOG=debug cargo run --release -p xlc-core -- core-small-step-Ly.toml > core-small-step-Ly.out 2> core-small-step-Ly.log
+    cmd: RUST_LOG=debug ../../../bin/core core-small-step-Ly.toml > core-small-step-Ly.out 2> core-small-step-Ly.log
     deps:
       - core-small-step-Ly.toml
       - core-small-step-Ly-cycle.toml
@@ -748,17 +448,7 @@ stages:
       - lattice/reflector-corner-right.msgpack
       - lattice/reflector-corner-top.msgpack
       - lattice/reflector-corner.msgpack
-      - ../../../crates/core/src
-      - ../../../crates/core/Cargo.toml
-      - ../../../crates/numeric/src
-      - ../../../crates/numeric/Cargo.toml
-      - ../../../crates/format/src
-      - ../../../crates/format/Cargo.toml
-      - ../../../Cargo.toml
-      - ../../../Cargo.lock
-      - ../../../rust-toolchain.toml
-      - ../../../.cargo/config.toml
-      - ../../../flake.lock
+      - ../../../bin/core
     outs:
       - core-small-step-Ly.out
       - core-small-step-Ly.log
