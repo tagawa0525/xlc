@@ -225,6 +225,24 @@ fn main_tracks_no_trials() -> Result<()> {
     Ok(())
 }
 
+/// 本番のファイル（`crates/*/src` の `tests.rs` 以外）にテストのコードがない（ADR-0143、#0089）。
+#[test]
+fn production_sources_hold_no_test_code() -> Result<()> {
+    let root = repo_root();
+    let output = Command::new("bash")
+        .arg(root.join("scripts/check-no-inline-tests.sh"))
+        .arg(&root)
+        .output()
+        .map_err(|e| format!("cannot run scripts/check-no-inline-tests.sh: {e}"))?;
+    assert!(
+        output.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(())
+}
+
 /// テストで作る一時的なリポジトリ。落ちたときも含めて、片付けで消す。
 struct TempRepo {
     dir: PathBuf,

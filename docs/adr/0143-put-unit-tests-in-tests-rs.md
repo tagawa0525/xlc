@@ -1,7 +1,7 @@
 ---
-status: proposed
-date: 2026-10-12
-requires: [ADR-0123, ADR-0130]
+status: accepted
+date: 2026-10-13
+requires: [ADR-0130, ADR-0159, ADR-0160]
 supersedes: []
 superseded-by:
 issues: ["#0089"]
@@ -83,11 +83,24 @@ issues: ["#0089"]
 
 ## 確認
 
-- 検査が、本番のファイルの中のテストのコードを見つけて失敗し、移したあとの main で通ること
-- 移す前後で、release の実行ファイルが変わらないこと（変わるなら、`#[cfg(test)]` の項目を消して後ろの本体の行番号が
-  ずれたことによる位置の情報だけであること。2026-10-12 には、テストだけの項目の後ろに本体が続き、行がずれるのは
-  crates/numeric/src/pins/node.rs だけ）と、実行されるテストの集まりが変わらないこと。確認の方法は実装のブランチ
-  （#0089）で決め、結果はこの節に書く
+実装のブランチ（#0089、refactor/0089-move-tests。分岐点は main の 0268e5aa）で確認した（2026-10-13。b873a967 から rebase し直して、数と strip の比較をやり直した）。
+
+- 検査: scripts/check-no-inline-tests.sh を、`.pre-commit-config.yaml` の hook `no-inline-tests` と、
+  crates/docs/tests/consistency.rs の `production_sources_hold_no_test_code`（`cargo test` に含まれるので `run-checks.sh` でも走る。
+  `run-checks.sh` は pre-commit の設定のうち design-records の hook しか実行しない）から呼ぶ。分岐点（64 個のファイルにテストがある）では
+  失敗し、移したあとでは通る。照合は行単位の awk で、`#[test]`、`#[should_panic]`、`mod tests {`、test を含む `cfg` と `cfg_attr`、
+  `cfg!(` を禁じ、決定で残すもの（`#[cfg(test)]` の次の行が `mod tests;`、`pub(crate) mod tests;`、`#[path = "…tests.rs"]` に続く
+  `mod tests;`、パスが `tests` を通る `pub(crate) use`。入口の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`）だけを許す。補助の
+  `pub(crate) use` を `tests.rs` に移して残すものを減らすことは、しなかった（呼び出し側が `crate::endf::mf5_tests` のように引いているため）
+- 実行されるテスト: クレートごとに `cargo test -p xlc-<crate> -- --list` の並べ替えた出力が、移す前後で完全に同じ（core 151、docs 57
+  （単体 52 と統合 5）、format 66、lattice 334、numeric 40、xs 315（単体 305 と main.rs の 10））
+- 実行ファイル: 分岐点と移したあとの `cargo build --release --workspace` の xs、lattice、core を `strip` して比べると、3 つともバイト単位で
+  一致した（`.text` と `.rodata` は strip の前でも一致）。位置の情報の差は strip で消える。ADR-0159 の build の段階（strip なし）の実行ファイルは、
+  main の 06706725 と一致しなかった。節ごとに比べると、`.text` などの割り当てられる節は一致し、`.symtab` と `.strtab` の
+  シンボル名の `.llvm.<数字>` の添字だけが違った。この差を ADR-0160 が strip で取り除き、3278ea89 の build の段階が作る実行ファイルの md5
+  （xs `e77257b3…`、lattice `85a3c566…`、core `fe2d8761…`）が、移したあとでも main の `dvc.lock` と一致した（2026-10-14）
+- テストだけの項目 4 個（format の `sample`、`sample_pins`、numeric の `modes_at`、`flux`）は、それぞれ fewgroup/tests.rs（`pub(crate) mod tests;`）と
+  pins/node/tests.rs の `impl` に移した
 
 ## 帰結
 
@@ -97,11 +110,10 @@ issues: ["#0089"]
 - ADR と issue には、テストの場所をファイルのパスで書いたものがある（例: ADR-0132 の crates/core/src/nem.rs）。
   採用済みの ADR は直せない（docs/adr/README.md の「運用」で、直せるのは誤字、リンク、`status` と `superseded-by` だけ）ので、決めた時点の
   場所の記録として残る。proposed の ADR と開いた issue のパスは、移すブランチで `tests.rs` に直す
-- `examples/*/dvc.yaml` の段階は deps に `crates/*/src` のディレクトリを持つので、テストを移すと deps の md5 が変わり、
-  xs、lattice、core の段階がほぼすべて古くなる。移すブランチで `dvc repro -P` を Slurm で 1 回流し、`dvc.lock` を
-  コミットする（ADR-0123 の「実行して `dvc.lock` をコミットする」のとおり）。出力の md5 が移す前と変わったら、移動でなく
-  並列の和の順序（#0060）などの原因を調べる。流す時期は、CPU の使用の計画を持つ実装の担当が決める
-- ADR-0123（案 H）はテストの変更で段階が古くなることを許したが、この移動はすべての段階を一度に古くするので、古いまま
-  残さない。古い上流の段階が main に残ると、ほかのブランチが /dvc-relock で数秒の
-  下流の段階だけを再実行することができず、上流から実行することになる。`dvc commit` で deps だけを取り込むこともしない。
-  `dvc.lock` が、記録した deps のコードで実行していない出力を指すことになる（ADR-0130 の案 L と同じ形）
+- DVC の計算の段階は、deps に `crates/*/src` でなく、build の段階（直下の dvc.yaml）がビルドして `bin/` に置く実行ファイルを持つ
+  （ADR-0159）。テストを移しても、strip した実行ファイルがバイト単位で変わらなければ（ADR-0160。「確認」のとおり一致した）、
+  計算の段階は古くならない。移すブランチで `dvc repro -P` は流さない。直下の dvc.lock は、build の段階の deps（`crates`）の md5 だけが
+  変わり、outs（`bin/` の md5）は main のまま変わらない
+- 実行ファイルが一致しなければ、移動でなく、実行ファイルを変えた別の原因（並列の和の順序（#0060）、ビルドの設定など）を調べる。
+  古い段階を `dvc commit` で deps だけ取り込むこともしない。`dvc.lock` が、記録した deps のコードで実行していない出力を指すことに
+  なる（ADR-0130 の案 L と同じ形）

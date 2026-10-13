@@ -1,0 +1,310 @@
+use super::*;
+use xlc_format::group::GroupStructure;
+use xlc_format::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
+
+const TEMPERATURE: f64 = 600.0;
+const BOUNDS: [f64; 7] = [2.0e7, 2.0e4, 1.0e4, 1.0e3, 1.0e2, 4.0, 1.0e-5];
+
+/// ポイントワイズの断面積 (energy, total, elastic, fission) を持つ核種。群定数は 1/E の重みの平均
+struct Spec {
+    name: &'static str,
+    awr: f64,
+    top: Option<f64>,
+    points: Vec<[f64; 4]>,
+}
+
+fn constant(name: &'static str, awr: f64, total: f64, elastic: f64, fission: f64) -> Spec {
+    let points = [4.0, 2.0e4].map(|e| [e, total, elastic, fission]).to_vec();
+    Spec {
+        name,
+        awr,
+        top: None,
+        points,
+    }
+}
+
+fn library(specs: Vec<Spec>) -> Library {
+    let groups = GroupStructure::new(BOUNDS.to_vec()).unwrap();
+    let ng = BOUNDS.len() - 1;
+    let nuclides = specs
+        .into_iter()
+        .map(|spec| {
+            let column = |k: usize| spec.points.iter().map(|p| p[k]).collect::<Vec<_>>();
+            // 群定数はポイントワイズの断面積の両端の値を使う（範囲の外の減速源に使う）
+            let first = spec.points[0];
+            let group = |k: usize| vec![first[k]; ng];
+            NuclideData {
+                name: spec.name.into(),
+                za: 0.0,
+                awr: spec.awr,
+                resolved: spec.top.map(|top| Resolved {
+                    top,
+                    potential: 10.0,
+                }),
+                thermal_scattering: false,
+                temperatures: vec![TemperatureData {
+                    temperature: TEMPERATURE,
+                    chi: vec![0.0; ng],
+                    scatter: vec![vec![vec![0.0; ng]; ng]],
+                    shielded: vec![Shielded {
+                        total: group(1),
+                        elastic: group(2),
+                        fission: group(3),
+                        nu_fission: group(3).iter().map(|f| 2.4 * f).collect(),
+                    }],
+                    pointwise: Pointwise {
+                        energy: column(0),
+                        total: column(1),
+                        elastic: column(2),
+                        fission: column(3),
+                        nu_fission: column(3).iter().map(|f| 2.4 * f).collect(),
+                    },
+                }],
+            }
+        })
+        .collect();
+    Library {
+        groups,
+        sigma0: vec![1.0e10],
+        pointwise_range: Some([4.0, 2.0e4]),
+        nuclides,
+    }
+}
+
+fn material(composition: &[(&str, f64)]) -> MaterialInput {
+    MaterialInput {
+        name: "m".into(),
+        temperature: TEMPERATURE,
+        composition: composition
+            .iter()
+            .map(|&(n, d)| (n.to_string(), d))
+            .collect(),
+    }
+}
+
+/// 燃料・ギャップ・被覆管・水
+const RADII: [f64; 4] = [0.4096, 0.418, 0.475, 0.711];
+
+#[test]
+fn range_follows_the_resolved_top_of_the_fuel() {
+    let fuel = material(&[("U-235", 0.01)]);
+    let clad = material(&[("Zr-90", 0.04)]);
+    let water = material(&[("H-1", 0.05)]);
+    let range = |top: f64| {
+        let mut fissile = constant("U-235", 233.0, 10.0, 8.0, 1.0);
+        fissile.top = Some(top);
+        // 燃料の外の核種の分離共鳴は範囲を決めない
+        let mut zirconium = constant("Zr-90", 89.0, 6.0, 6.0, 0.0);
+        zirconium.top = Some(1.0e6);
+        let lib = library(vec![
+            fissile,
+            zirconium,
+            constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        ]);
+        cell_range(&lib, &[Some(&fuel), None, Some(&clad), Some(&water)])
+            .unwrap()
+            .unwrap()
+    };
+    // 上端以下で最も高い群の境界
+    assert_eq!(range(3.0e3), [4.0, 1.0e3]);
+    // 20 keV で頭打ちにする
+    assert_eq!(range(5.0e4), [4.0, 2.0e4]);
+}
+
+#[test]
+fn no_range_without_resolved_fuel() {
+    // 燃料がない、または燃料に分離共鳴を持つ核種がなければ、減速計算する範囲はない
+    let lib = library(vec![
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        constant("U-235", 233.0, 10.0, 8.0, 1.0),
+    ]);
+    let water = material(&[("H-1", 0.05)]);
+    let fuel = material(&[("U-235", 0.01)]);
+    assert_eq!(cell_range(&lib, &[Some(&water)]).unwrap(), None);
+    assert_eq!(
+        cell_range(&lib, &[Some(&fuel), Some(&water)]).unwrap(),
+        None
+    );
+}
+
+#[test]
+fn resolved_fuel_needs_pointwise_data() {
+    // 燃料に分離共鳴があるのにポイントワイズの断面積のないライブラリはエラー。燃料のないセルは範囲がないだけでよい
+    let mut fissile = constant("U-235", 233.0, 10.0, 8.0, 1.0);
+    fissile.top = Some(3.0e3);
+    let mut lib = library(vec![fissile, constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+    lib.pointwise_range = None;
+    let water = material(&[("H-1", 0.05)]);
+    let fuel = material(&[("U-235", 0.01)]);
+    assert_eq!(cell_range(&lib, &[Some(&water)]).unwrap(), None);
+    assert!(matches!(
+        cell_range(&lib, &[Some(&fuel), Some(&water)]),
+        Err(UfgError::NoPointwise)
+    ));
+}
+
+#[test]
+fn scatterers_keep_the_asymptotic_spectrum() {
+    // 吸収がなく断面積が一定なら、どのリングでも中性子束はレサジーあたり一定（1/E）のまま。減速材は、窓が
+    // 群の上端（中性子のない範囲）まで届かない H-2 にする（H-1 では範囲の上からの線源が e^{−7.6} だけ足りない）
+    let lib = library(vec![
+        constant("U-238", 236.0, 11.0, 11.0, 0.0),
+        constant("Zr-90", 89.0, 6.5, 6.5, 0.0),
+        constant("H-2", 1.9968, 3.4, 3.4, 0.0),
+        constant("O-16", 15.86, 3.8, 3.8, 0.0),
+    ]);
+    let fuel = material(&[("U-238", 0.022), ("O-16", 0.045)]);
+    let clad = material(&[("Zr-90", 0.043)]);
+    let water = material(&[("H-2", 0.05), ("O-16", 0.025)]);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let spectrum = slowing_down(
+        &lib,
+        &cell,
+        &[Some(&fuel), None, Some(&clad), Some(&water)],
+        [4.0, 1.0e4],
+    )
+    .unwrap();
+    assert_eq!(spectrum.groups, 2..5);
+    for (ring, flux) in spectrum.flux.iter().enumerate() {
+        for (k, f) in flux.iter().enumerate() {
+            let g = spectrum.groups.start + k;
+            let per_lethargy = f / (BOUNDS[g] / BOUNDS[g + 1]).ln();
+            assert!(
+                (per_lethargy - 1.0).abs() < 1e-9,
+                "{ring} {g}: {per_lethargy}"
+            );
+        }
+    }
+    // 群定数はポイントワイズの断面積の値のまま
+    assert!((spectrum.nuclides[0][0].total[1] - 11.0).abs() < 1e-12);
+    assert!(spectrum.nuclides[1].is_empty());
+}
+
+#[test]
+fn discontinuities_keep_both_limits() {
+    // 500 eV で 10 b から 20 b に跳ぶ微量の核種: 中性子束は 1/E のままなので、群平均は両側の値の
+    // レサジーの重みの平均になる
+    let step = Spec {
+        name: "Pu-239",
+        awr: 236.999,
+        top: None,
+        points: vec![
+            [4.0, 10.0, 0.0, 0.0],
+            [500.0, 10.0, 0.0, 0.0],
+            [500.0, 20.0, 0.0, 0.0],
+            [2.0e4, 20.0, 0.0, 0.0],
+        ],
+    };
+    let lib = library(vec![
+        constant("U-238", 236.0, 11.0, 11.0, 0.0),
+        constant("H-2", 1.9968, 3.4, 3.4, 0.0),
+        step,
+    ]);
+    let fuel = material(&[("U-238", 0.022), ("Pu-239", 1.0e-12)]);
+    let water = material(&[("H-2", 0.05)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let spectrum = slowing_down(&lib, &cell, &[Some(&fuel), Some(&water)], [4.0, 1.0e4]).unwrap();
+    // 1 keV〜100 eV の群
+    let k = 3 - spectrum.groups.start;
+    let expected = (10.0 * 5.0f64.ln() + 20.0 * 2.0f64.ln()) / 10.0f64.ln();
+    let total = spectrum.nuclides[0][1].total[k];
+    assert!(
+        (total - expected).abs() < 1e-9 * expected,
+        "{total} vs {expected}"
+    );
+}
+
+#[test]
+fn hydrogen_slowing_down_matches_the_analytic_solution() {
+    // H と吸収だけの核種の均質な媒質: 衝突密度 q は dq/du = −r q で減る。
+    // r = 1 − Σs/((1 − α)Σt)、q(0) は範囲の上（中性子束 1/E、群の上端より上は 0）からの散乱
+    let awr: f64 = 0.99917;
+    let lib = library(vec![
+        constant("H-1", awr, 20.0, 20.0, 0.0),
+        constant("Pu-240", 238.0, 2.0, 0.0, 0.0),
+    ]);
+    let mix = material(&[("H-1", 0.05), ("Pu-240", 0.01)]);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let spectrum = slowing_down(&lib, &cell, &[Some(&mix); 4], [4.0, 1.0e4]).unwrap();
+    let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
+    let (sigma_s, sigma_t) = (0.05 * 20.0, 0.05 * 20.0 + 0.01 * 2.0);
+    let r = 1.0 - sigma_s / ((1.0 - alpha) * sigma_t);
+    let q0 = sigma_s * (1.0 - 1.0e4 / 2.0e7) / (1.0 - alpha);
+    for flux in &spectrum.flux {
+        for (k, f) in flux.iter().enumerate() {
+            let g = spectrum.groups.start + k;
+            let (ua, ub) = ((1.0e4 / BOUNDS[g]).ln(), (1.0e4 / BOUNDS[g + 1]).ln());
+            let expected = q0 / (sigma_t * r) * ((-r * ua).exp() - (-r * ub).exp());
+            assert!(
+                (f - expected).abs() < 1e-7 * expected,
+                "{g}: {f} vs {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn resonance_is_shielded_more_inside_the_fuel() {
+    // 200 eV の強い吸収の共鳴: 燃料の内側ほど中性子束がへこみ、実効断面積が小さい
+    let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
+    let mut energies: Vec<f64> = (0..=400).map(|k| 180.0 + 0.1 * k as f64).collect();
+    energies.splice(0..0, [4.0, 100.0]);
+    energies.extend([1.0e3, 2.0e4]);
+    let points = energies
+        .iter()
+        .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.0])
+        .collect();
+    let lib = library(vec![
+        Spec {
+            name: "U-238",
+            awr: 236.0,
+            top: Some(2.0e4),
+            points,
+        },
+        constant("U-235", 233.0, 10.0, 8.0, 1.0),
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        constant("O-16", 15.86, 3.8, 3.8, 0.0),
+    ]);
+    let fuel = material(&[("U-238", 0.022), ("U-235", 0.0005), ("O-16", 0.045)]);
+    let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let spectrum = slowing_down(&lib, &cell, &rings, [4.0, 1.0e4]).unwrap();
+    // 100 eV〜1 keV の群
+    let k = 3 - spectrum.groups.start;
+    let total = |ring: usize| spectrum.nuclides[ring][0].total[k];
+    // 無限希釈（1/E の重み）の平均
+    let dilute = {
+        let (mut rate, mut flux) = (0.0, 0.0);
+        for w in energies
+            .windows(2)
+            .filter(|w| w[0] >= 100.0 && w[1] <= 1.0e3)
+        {
+            let du = (w[1] / w[0]).ln();
+            rate += 0.5 * du * (resonance(w[0]) + resonance(w[1]));
+            flux += du;
+        }
+        11.0 + rate / flux
+    };
+    assert!(
+        total(0) < total(1) && total(1) < total(2),
+        "{:?}",
+        [total(0), total(1), total(2)]
+    );
+    assert!(total(2) < dilute, "{} vs {dilute}", total(2));
+}
+
+#[test]
+fn rejects_a_range_off_the_group_bounds() {
+    let lib = library(vec![constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+    let water = material(&[("H-1", 0.05)]);
+    let cell = Cylinder::new(vec![0.5]).unwrap();
+    for range in [[4.0, 5.0e3], [3.0, 1.0e4], [1.0e2, 1.0e2]] {
+        assert!(
+            slowing_down(&lib, &cell, &[Some(&water)], range).is_err(),
+            "{range:?}"
+        );
+    }
+    // リングの数が合わない
+    assert!(slowing_down(&lib, &cell, &[Some(&water); 2], [4.0, 1.0e4]).is_err());
+}
