@@ -231,7 +231,7 @@ else
   if [[ -n $last_key ]]; then
     last=$(aws s3 cp "s3://$XLC_BUCKET/$last_key" -)
     # 最後の起動が auto の選択なら、起動し直しも auto にする（同じ機種と AZ に固定すると、中断された空きの池を試し直すだけになる）
-    if [[ -z $type ]] && grep -Fxq SELECTION=auto <<< "$last"; then type=auto; fi
+    if [[ -z $type && $market != on-demand ]] && grep -Fxq SELECTION=auto <<< "$last"; then type=auto; fi
     type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
     max_hours=${max_hours:-$(sed -n 's/^MAX_HOURS=//p' <<< "$last")}
     sync_minutes=${sync_minutes:-$(sed -n 's/^SYNC_MINUTES=//p' <<< "$last")}
