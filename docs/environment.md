@@ -160,13 +160,13 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
    電源が切れると終了する。時間切れでも statepoint は S3 にあるので、`aws_run.sh <名前>` で続けられる
 2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot-<起動の時刻>.log`。起動し直しで前のログを上書きしない）、`done`
    の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る（`trap finish EXIT`）。ジョブを始めたあと（READY のあと）に user-data が失敗
-   したら、その終了コードを `done` に書く。シグナルでの終わり（128 以上。シャットダウンでジョブが殺されたときを含む）は中断として扱う。準備（Nix、閉包、核データ、入力の取得。S3 のジョブには触れない）での失敗、SIGTERM（スポットの
+   したら、その終了コードを `done` に書く。SIGTERM を受けたときは、シャットダウンでジョブが殺されて書いた `done` も消して中断として扱う（ジョブ自身がシグナルで落ちたのは失敗として残す）。準備（Nix、閉包、核データ、入力の取得。S3 のジョブには触れない）での失敗、SIGTERM（スポットの
    回収、最長時間の shutdown、手元からの終了）、同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM ではログも置かれないことがある
    （確認で、手元から終了したときは置かれなかった。原因は確かめていない。候補はシャットダウンでのネットワークの停止と、ログの tee が
    先に消えたときの SIGPIPE で、後者は finish で無視するようにした）
 3. Nix を入れる（試走と同じ Determinate の installer。版は v3.23.1 に固定）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。閉包を
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
-4. 再開なら、S3 の `runs/<名前>/<ジョブ>/` を作業ディレクトリに戻す。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
+4. S3 の `runs/<名前>/<ジョブ>/`（再開なら statepoint、前の起動のログなど）を作業ディレクトリに戻してから同期を始める。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
 5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync --delete` で作業ディレクトリを S3 に写す（作業ディレクトリの statepoint が
    そのまま写る。走行中の間引きは効いていない。#0106。ジョブが走っている間は、最新の statepoint（書いている途中でありうる）と同期の一覧の後に書き始めたものを写さない（done のあとはすべて写す）。
