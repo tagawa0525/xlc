@@ -15,3 +15,10 @@ repos:
         language: system
         files: ^(examples/.*)?dvc\.lock$
         verbose: true
+      - id: no-inline-tests
+        name: no test code in the production sources
+        entry: scripts/check-no-inline-tests.sh
+        language: system
+        files: ^crates/.*\.rs$
+        pass_filenames: false # 渡されたファイルでなく、crates/*/src 全体を見る
+        verbose: true
