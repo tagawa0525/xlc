@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-13
+status: accepted
+date: 2026-10-14
 requires: [ADR-0062, ADR-0110, ADR-0128]
 supersedes: []
 superseded-by:
@@ -88,8 +88,12 @@ examples/reflector/verification.md）の比 7.1 は 2.8 乗で、同じ伸び方
   k で 10⁻⁶、中性子束で相対 10⁻⁵ の内で一致する
 - 2 次元の格子が変わらないこと: VERA 1B のピンセル、2A の集合体、2B の真空の辺のある集合体で、lattice の出力（標準出力、
   ピン出力、少数群定数）が 74b6944f と f2e7d904 でバイト単位で同じ（2026-10-14）
-- 平板の時間と、k とノード平均の中性子束が変わらないこと（ADR-0128 の閾値 k ±1 pcm、相対 10⁻⁵ より十分小さい）:
-  examples/reflector/verification.md の「軸方向の反射体の平板」
+- 平板の k とノード平均の中性子束が変わらないこと（ADR-0128 の閾値 k ±1 pcm、相対 10⁻⁵ より十分小さい）: 540 列の平板で、
+  Gauss-Seidel（74b6944f）との差は k で −1.5 × 10⁻⁶ pcm、ノード平均の中性子束で相対 2.6 × 10⁻⁷ 以下（trials/slab-cmfd の
+  nodes.py、2026-10-13）
+- 平板の時間（examples/reflector/verification.md の「軸方向の反射体の平板」、b8f6c15e、2026-10-14、排他）: 540 列の `16` と
+  `32` が 459 秒と 465 秒から 48 秒と 49 秒、1080 列の `fine` が 3292 秒から 85 秒。2 次元の格子（I 型と角型）の段階の出力は
+  dvc.lock の md5 が変わらない
 
 ## 帰結
 
