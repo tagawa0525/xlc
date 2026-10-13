@@ -7,7 +7,7 @@
 //! MF3〜6）、分離共鳴の上端とポテンシャル散乱、非分離共鳴の自己遮蔽（VERA の燃料の温度 565、600、900、1200 K と、
 //! examples/vera/xs.toml の σ0 の 9 点）までで、散乱行列と群定数は作らない。
 //! 最後に、最初の範囲の形式、NRO ≠ 0 の範囲、読めない理由ごとの数を書く。非分離共鳴の自己遮蔽が時間の大半で、557 評価に
-//! 6 スレッドで約 1 時間かかる（2026-10-14、ほかの計算と重なった実行）ので、Slurm で流す。
+//! 数十分かかるので、Slurm で流す。
 //!
 //! MF2 の範囲の見出しは、xs の `Mf2::parse`（読めない形式でエラーにして止まる）を通さずに、レコードを読み飛ばして
 //! すべての範囲について集める。
@@ -23,10 +23,10 @@ use xlc_xs::endf::{Reader, Tape};
 use xlc_xs::pointwise::DEFAULT_TOLERANCE;
 use xlc_xs::process::{read_evaluation, resolved, unresolved_shielding};
 
-/// 非分離共鳴の自己遮蔽を確かめる温度 (K)。VERA の燃料の核種の温度（examples/vera/xs.toml）
+/// 非分離共鳴の自己遮蔽を確かめる温度 (K)。VERA の燃料の核種の温度（examples/vera/xs.toml の値をコピーしたもの。変えたら合わせる）
 const TEMPERATURES: [f64; 4] = [565.0, 600.0, 900.0, 1200.0];
 
-/// 非分離共鳴の自己遮蔽を確かめる σ0 (barn)。examples/vera/xs.toml と同じ
+/// 非分離共鳴の自己遮蔽を確かめる σ0 (barn)。examples/vera/xs.toml の値をコピーしたもの
 const SIGMA0: [f64; 9] = [1e10, 1e5, 1e4, 1e3, 300.0, 100.0, 30.0, 10.0, 1.0];
 
 /// 核種の (Z, A, 状態) と名前。
@@ -102,7 +102,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some(path) = files.get(i) else { break };
-                    let survey = survey(path, &names);
+                    // 1 つの評価の panic で全体の結果を失わないよう、その評価の読めない理由にする
+                    let survey =
+                        std::panic::catch_unwind(|| survey(path, &names)).unwrap_or_else(|_| {
+                            Survey {
+                                file: path.display().to_string(),
+                                nuclide: None,
+                                ranges: Err("panicked".into()),
+                                failures: vec!["panicked".into()],
+                            }
+                        });
                     results
                         .lock()
                         .unwrap_or_else(|e| e.into_inner())
@@ -254,10 +263,11 @@ fn skip_range(r: &mut Reader<'_>, h: &RangeHead, lfw: i64) -> Result<(), String>
 
 /// xs の読み込みを順に試し、失敗したものの理由を返す。
 fn read_failures(tape: &Tape, mat: i32) -> Vec<String> {
-    let mut failures = Vec::new();
+    // 読み込みが止まれば、同じ MF2 を読むあとの確認も同じ理由で止まるので、理由を 1 つにする
     if let Err(err) = read_evaluation(tape, DEFAULT_TOLERANCE) {
-        failures.push(format!("evaluation: {err}"));
+        return vec![format!("evaluation: {err}")];
     }
+    let mut failures = Vec::new();
     if let Err(err) = resolved(tape, mat) {
         failures.push(format!("resolved top: {err}"));
     }
