@@ -47,11 +47,12 @@
         ];
       python = pkgs.python3.withPackages pythonPackages;
       # 計算の段階の駆動（ADR-0123）。pkgs.dvc をそのまま shell に入れると、Python の setup hook が dvc の依存を
-      # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。dvc の実行ファイルは自分の依存を
-      # ラッパーで見つけるので、実行ファイルだけを入れる
-      dvc = pkgs.runCommand "dvc-${pkgs.dvc.version}" { } ''
-        mkdir -p $out/bin
-        ln -s ${pkgs.dvc}/bin/dvc $out/bin/dvc
+      # PYTHONPATH に足し、検証用の Python のパッケージより先に読まれる。pkgs.dvc の bin/dvc（makeWrapper）も
+      # 使わない: PATH の先頭に素の python3 を足し、段階の cmd の python3 が検証用の Python でなくなる（#0101）。
+      # 中の .dvc-wrapped は自分の依存の site のディレクトリを自分で足すので、PATH を変えずに直接呼ぶ
+      dvc = pkgs.writeShellScriptBin "dvc" ''
+        export PYTHONNOUSERSITE=true
+        exec ${pkgs.dvc}/bin/.dvc-wrapped "$@"
       '';
 
       # 検証用の資産（ADR-0124）。外から取るものは URL と sha256 で固定する
