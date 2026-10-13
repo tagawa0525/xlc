@@ -86,7 +86,7 @@ nix develop .#references -c sh -c \
 ## 外部の計算機（AWS）
 
 r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討段階）。c7a は vCPU が物理コアで、
-x86_64 の nix の閉包をそのまま送れる。起動、終了、送る、実行、回収の道具は次の節（方式 A の変種で、起動と終了も道具で行う）。
+x86_64 の nix の閉包をそのまま送れる。本番は次の節の「自己完結な実行」（ADR-0155）で流す。手元から ssh で起動、終了、送る、実行、回収する道具も次の節にある。
 
 ユーザーが用意するもの:
 
@@ -112,6 +112,111 @@ x86_64 の nix の閉包をそのまま送れる。起動、終了、送る、�
 Problem 3 と 5-2D の本番（数時間の走行を 5 本）は、r995 でなく外部の VM（AWS、GCP など）で流す。VM には Nix だけを入れ、
 OpenMC と Python API は手元でビルドした閉包を送る（VM で再ビルドしない）。Slurm は使わない。VM は中断されうる（スポット）ので、
 入力の `statepoint-interval` で途中の statepoint を書き、中断のあとは `--restart` で再開する。
+
+AWS の本番は、次の「自己完結な実行」で流す（ADR-0155）。手元から ssh で進める「道具を使う手順」以下は、AWS 以外の VM と、
+VM の上で調べたいときに使う。
+
+### 自己完結な実行（AWS の本番）
+
+`aws_run.sh` が 1 つの入力に 1 台のスポットを起動し、VM は user-data だけで最後まで進む（手元の PC が落ちても、AWS に接続
+できなくてもよい）。結果は S3 に残り、VM は自分で終了する（EBS も消える）。
+
+```sh
+examples/vera/aws_run.sh --dry-run m3 examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml   # 起動の引数の検証だけ
+examples/vera/aws_run.sh m3 examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml             # 起動（c7a.4xlarge を 2 台）
+examples/vera/aws_status.sh            # 走っている VM と、S3 の runs/ のジョブごとの done と最新の statepoint
+examples/vera/aws_run.sh m3            # 中断のあと: done のないジョブを起動し直す（statepoint があれば --restart）
+examples/vera/aws_fetch.sh --verify --delete m3   # 取り出し、manifest と手元の extract で検証し、S3 の runs/m3/ を消す
+examples/vera/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m3 の VM。S3 の statepoint から aws_run.sh m3 で続けられる）
+```
+
+用意するもの（2026-10-13 に作成済み。バケットは管理者が作った）:
+
+- S3 のバケット `xlc-openmc-118645514640`（us-east-1。道具の変数 `XLC_BUCKET` で変えられる）。パブリックアクセスなし、バージョニング
+  なし、ライフサイクルで `runs/` を 30 日で失効し、`runs/` の完了しなかったマルチパートのアップロードを 2 日で消す。このアカウントは組織の SCP が
+  `s3:CreateBucket` を拒むので、管理者が作る
+- インスタンスプロファイルとロール `xlc-openmc-vm`（信頼は ec2.amazonaws.com）。インラインポリシー `s3-bucket` は、そのバケットの
+  一覧（接頭辞 `store/`、`runs/`）、`store/*` の読み取り、`runs/*` の読み書きと削除だけ。EC2 の権限は持たない（自分の終了は
+  `shutdown`。下の流れ）。手元の起動は今の AccountFullAccessRole で行う（`iam:PassRole` を含む）
+
+S3 の置き場:
+
+| 接頭辞                                     | 中身                                                                                                                                     | 期間        |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `store/nix/<鍵>/`                          | 閉包（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）                                                    | 残す        |
+| `store/openmc-library/<鍵>/`               | `examples/vera/openmc-library`                                                                                                           | 残す        |
+| `runs/<名前>/launch.env`、`src/`           | 起動の記録（コミット。追跡していない入力や変更があれば `-dirty`。store のパス、鍵、入力）と、VM が使うスクリプトと入力                   | 30 日で失効 |
+| `runs/<名前>/launches/<時刻>-<ジョブ>.env` | 起動できた VM ごと（起動し直しを含む）の、user-data を作った道具のコミット、AMI、機種、最長時間、同期の間隔、再開の有無、インスタンス ID | 30 日で失効 |
+| `runs/<名前>/<ジョブ>/`                    | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot-<時刻>.log`、`done`                                        | 30 日で失効 |
+
+鍵は内容のハッシュ（閉包は store のパスの組、核データはファイルの sha256 の一覧）。`aws_run.sh` は毎回 `aws s3 sync` で置き、S3 に
+あるものは送らない。`launch.env` は最後に置く（あれば `src/` と `store/` はそろっている）。入力はリポジトリの直下からの相対パス
+（`..` を含まない）で、VM の作業ディレクトリにも同じ相対パスで置く。VM はバケットと同じリージョン（`AWS_DEFAULT_REGION` がバケットと違えば止まる）で起動する。名前は `run_remote.sh` が受け付ける `openmc-3?` か
+`openmc-5?-2D` に限り、S3 に置く前に確かめる。VM が取る AWS CLI が cache.nixos.org にあることも先に確かめる。
+
+VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init が root で走らせる）:
+
+1. `shutdown -h +<--max-hours × 60>`（既定 14 時間）を予約する。起動は `--instance-initiated-shutdown-behavior terminate` なので、
+   電源が切れると終了する。時間切れでも statepoint は S3 にあるので、`aws_run.sh <名前>` で続けられる
+2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot-<起動の時刻>.log`。起動し直しで前のログを上書きしない）、`done`
+   の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る（`trap finish EXIT`）。ジョブを始めたあと（READY のあと）に user-data が失敗
+   したら、その終了コードを `done` に書く。SIGTERM を受けたときは、シャットダウンでジョブが殺されて書いた `done` も消して中断として扱う（ジョブ自身がシグナルで落ちたのは失敗として残す）。準備（Nix、閉包、核データ、入力の取得。S3 のジョブには触れない）での失敗、SIGTERM（スポットの
+   回収、最長時間の shutdown、手元からの終了）、同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM ではログも置かれないことがある（#0107）
+   （確認で、手元から終了したときは置かれなかった。原因は確かめていない。候補はシャットダウンでのネットワークの停止と、ログの tee が
+   先に消えたときの SIGPIPE で、後者は finish で無視するようにした）
+3. Nix を入れる（試走と同じ Determinate の installer。版は v3.23.1 に固定）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。閉包を
+   S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
+4. S3 の `runs/<名前>/<ジョブ>/`（前の起動のログなど。statepoint は最新の 2 個だけ）を作業ディレクトリに戻してから同期を始める。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
+   `lscpu` の物理コア数）
+5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync` で作業ディレクトリを S3 に写す。ジョブが走っている間は、最新の statepoint
+   （書いている途中でありうる）と同期の一覧の後に書き始めたものを写さず、`--delete` もしない（S3 の statepoint は完了まで増える。#0106）。
+   ジョブが成功した（`done` が 0）ときだけ、すべてを写してから `--delete` で S3 を結果の写しにする（途中で失敗しても statepoint が消えない順）。
+   写ったものが壊れていても、再開は壊れたものを消して 1 つ前から続ける）。
+   `done` とジョブのプロセスは 10 秒ごとに見て、ジョブが `done` を書かずに消えたら失敗で終わる
+6. 完了したら、最後の世代のほかの statepoint を消し、`SHA256SUMS`（ジョブのディレクトリの全ファイル）を書き、2 の順に置く。`done` は
+   run と extract の終了コード。S3 に `done` があれば、ほかのファイルはすべて置いてある
+
+VM にはキーペアを付けず、VPC の既定のセキュリティグループ（同じグループのインスタンスからの通信だけ）で起動し、IMDSv2 を必須にする。
+様子は `aws_status.sh`、S3 の `boot-*.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
+
+起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`--type`、`--max-hours`、
+`--sync-minutes` は、指定がなければ最後の起動の記録（`launches/`）の値を使う。`done` が 0 の
+ジョブと、VM が走っているジョブは飛ばす。0 でないジョブ（失敗）は飛ばして示し、ほかのジョブは起動する（終わりの状態は 1。`boot-*.log` を見て、原因を直してから
+`aws s3 rm s3://<バケット>/runs/<名前>/<ジョブ>/done` で `done` を消すと、そのジョブも起動し直せる）。最後の世代の statepoint があって `done` が
+ないジョブ（完了のあと `done` を置く前に止まった）は起動せず、`SHA256SUMS` とログを確かめて手で `done` を置くよう示す。
+中断の自動の再起動はない（ADR-0155）ので、`aws_status.sh` で VM が消えて `done` のないジョブを見つけたら起動し直す。
+
+`done` のないまま VM が消えるのは、中断のほかに準備での失敗がある。新しい `boot-*.log` を見る。ログもないのは、中断か、AWS CLI を
+入れる前（Nix の installer、cache.nixos.org）の失敗で、起動し直しても同じように消えるなら、終了から約 1 時間のうちに
+`aws ec2 get-console-output --instance-id <ID> --latest` で cloud-init の出力を見る。
+
+`aws_fetch.sh` は `references/openmc/aws/<名前>/`（`--dest` で変えられる）に、`src/`、`launch.env`、`launches/` と完了したジョブの結果を写し、`SHA256SUMS` で
+検証する。`--verify` は、取り出した statepoint から VM と同じ Python（`launch.env` の store のパス。手元になければそのコミットで
+`nix build .#openmc-python`）で extract し、VM の結果とバイト一致を確かめる。置き場は S3 の写しにする（前の取り出しの残りは消す）。
+`--delete` は `--verify` が通り、すべてのジョブが完了したときだけ S3 の `runs/<名前>/` を消す。消し忘れても 30 日で失効する。
+
+費用（2026-10-13 の公開の単価。us-east-1）:
+
+- S3 の保存は $0.023/GB・月。`store/`（閉包 212 MB と核データ 631 MB、約 0.85 GB）は置いたままで月約 $0.02。`runs/` は 1 本の
+  最後の statepoint と summary.h5（数百 MB の見込み、確かめていない）が取り出して消すまで
+- S3 から手元への取り出しは月 100 GB まで無料（ADR-0151）。VM と S3 の間（同じリージョン）は無料。PUT と GET の要求の料金は 1 本で
+  数百回で、1 セント未満
+- EC2 と EBS は VM が動いている間だけ（下の「道具を使う手順」の見積もり）。最長の時間で止まるので、1 台あたりの上限は
+  14 時間 × スポット価格
+
+#### 自己完結な実行の確認（2026-10-13）
+
+c7a.large のスポットで、examples/vera/aws-check/openmc-3A.toml（粒子 1 万・200 世代・捨てる 50・間隔 20）を `--type c7a.large --sync-minutes 1`
+で流した（xlc のコミット 7154ac6e のスクリプト。結果の詳細は ADR-0155 の「確認」）。手元から ssh はしていない。
+
+- 起動から自己終了（terminated）まで約 9 分 20 秒。user-data の開始から run の開始までの準備は約 1 分 30 秒
+- `aws_fetch.sh --verify --delete` で SHA256SUMS と手元の extract が一致し、S3 の `runs/<名前>/` が消えた
+- statepoint 100 が S3 に写ったあと手元から終了し、`aws_run.sh <名前>` で起動し直すと、statepoint 100 から再開して完了した。k は
+  途中で止めなかった走行と一致した
+- レビューの修正のあと（xlc のコミット 75331390）、終了と起動し直しをもう一度通した。VM が走っている間の起動し直しは、そのジョブを飛ばした
+- 最後の版（xlc のコミット 71bf5fd8）では、起動し直した VM が実際のスポットの中断を受け、もう 1 度の起動し直しが S3 の statepoint 160
+  から再開して完了した。起動し直しは最後の起動の記録から機種と同期の間隔を引き継いだ
+- 費用は c7a.large のスポット（$0.0365/時間）を 23 台、合わせて約 2.1 時間で約 $0.09（EC2 約 $0.08、EBS 約 $0.01）
 
 ### 道具を使う手順
 
