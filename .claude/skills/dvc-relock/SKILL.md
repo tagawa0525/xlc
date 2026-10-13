@@ -6,7 +6,6 @@ allowed-tools:
   - Bash(nix develop -c dvc checkout)
   - Bash(nix develop -c dvc checkout dvc.yaml)
   - Bash(nix develop -c dvc status)
-  - Bash(nix develop -c dvc status examples/*)
   - Bash(nix develop -c dvc status --json*)
   - Bash(nix develop -c dvc status --with-deps examples/*)
   - Bash(nix develop -c scripts/check-dvc-lock.sh*)
@@ -59,7 +58,8 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
    上流の段階を所有するブランチか main の記録を確かめてから、ユーザーに聞く。
 
-2. 実行ファイルを作り直してから、deps の変わった段階を挙げる:
+2. 実行ファイルを作り直してから、deps の変わった段階を挙げる（rebase でリポジトリの直下の `dvc.lock` が衝突したら、
+   main の版を取って rebase を終え、ここで `build` を走らせて書き直す。手で行を選んで混ぜない）:
 
    ```bash
    nix develop -c dvc repro -s build
@@ -145,7 +145,8 @@ nix develop -c dvc status --with-deps examples/<問題>/dvc.yaml
 
 `-P` ではなく、ブランチが `dvc.yaml` を足した、または変えた例ごとに行う。`dvc status` の changed が、前半で走らせ
 なかった段階（deps が `dvc.lock` と合わない段階）と、その下流の段階だけであることを確かめる。`references-shell`
-（`always_changed`）は常に出るので数えない。ほかの段階が changed なら、
+（`always_changed`）は常に出るので数えない。ブランチが `build` を走らせずにコードを変えたなら、`build` とその下流も出る
+（ADR-0159 の帰結。`dvc repro` で作り直すまで、そのままでよい）。ほかの段階が changed なら、
 出力が足りない、またはキャッシュにない。`dvc checkout` が失敗したら止めて、原因を調べる（推測で `dvc repro` を走らせない）。
 
 走らせなかった段階の changed は、そのままでよい。`dvc.lock` は、どの deps から出力を作ったかの記録であり、結果が
