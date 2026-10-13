@@ -86,7 +86,8 @@ def read_layers(path: Path) -> dict:
 
 def coarsen(bounds: list[float], values: list, reference: list[float]) -> list:
     """`bounds` の層の値（数か、数の入れ子の表）を、`reference` の層ごとに厚さで重みを付けて平均する。境界は燃料の
-    下端から。`reference` の境界は、どれも `bounds` の境界であること"""
+    下端から。`reference` の境界は、どれも `bounds` の境界で、両端が `bounds` の両端と同じこと（燃料の高さが同じ。
+    層を捨てると、燃料の高さの平均で 1 にした規格化がそろわない）"""
     origin = bounds[0]
     z = [b - origin for b in bounds]
     index = []
@@ -97,6 +98,10 @@ def coarsen(bounds: list[float], values: list, reference: list[float]) -> list:
                 f"the reference bound {r} is not a bound of the xlc layers"
             )
         index.append(k)
+    if index[0] != 0 or index[-1] != len(z) - 1:
+        raise SystemExit(
+            f"the reference layers span {reference[0]}-{reference[-1]} cm, the xlc layers {z[0]}-{z[-1]} cm"
+        )
 
     def weighted(a: int, b: int):
         total = z[b] - z[a]
@@ -150,6 +155,8 @@ def pin_stats(
     ]
     if any((a > 0) != (b > 0) for ra, rb in zip(ours, ref) for a, b in zip(ra, rb)):
         raise SystemExit("the two maps have fission in different cells")
+    if not diffs:
+        raise SystemExit("the two maps have no cell with fission")
     rms = math.sqrt(sum(d * d for d, _ in diffs) / len(diffs))
     worst = max(diffs, key=lambda d: abs(d[0]))
     return rms, worst[0], worst[1]
@@ -231,16 +238,18 @@ def main() -> None:
         rms, worst, at = pin_stats(pins, ref_pins)
         print(f"pins vs OpenMC: rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}")
         ours_layers = coarsen(layers["bounds"], layers["layers"], ref_bounds)
-        overall = (0.0, None)
+        overall = None
         for k_level, (a, b) in enumerate(zip(ours_layers, reference["layers"])):
             rms, worst, at = pin_stats(a, b)
             print(
                 f"  level {k_level + 1:2}: pins rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}"
             )
-            if abs(worst) > abs(overall[0]):
-                overall = (worst, (k_level + 1, at))
+            if overall is None or abs(worst) > abs(overall[0]):
+                overall = (worst, k_level + 1, at)
+        if overall is None:
+            raise SystemExit("the OpenMC results have no layers")
         print(
-            f"layer pins vs OpenMC: max {100 * overall[0]:+.3f}% at level {overall[1][0]} {overall[1][1]}"
+            f"layer pins vs OpenMC: max {100 * overall[0]:+.3f}% at level {overall[1]} {overall[2]}"
         )
 
 
