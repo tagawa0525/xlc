@@ -203,7 +203,7 @@ KENO-VI の値は仕様書の表 P3-4、径方向のピン出力（1/8）は付�
 
 3A と 3B（3D の単一集合体、零出力）を xlc の格子計算と炉心の計算（NEM）で解き、仕様書の KENO-VI（ENDF/B-VII.0）の値と
 比べる。入力と段階は `p3/p3_inputs.py` が書き、`dvc repro examples/vera/p3/dvc.yaml` で実行する（ADR-0123）。数値は
-d7944df4（分岐点 5bf22a6e）、2026-10-13。ライブラリ（`../dvc.yaml` の xs）とともに Slurm で排他で流した。
+a0951e05（分岐点 5bf22a6e）、2026-10-13。ライブラリ（`../dvc.yaml` の xs）とともに Slurm で排他で流した。
 
 ### 構成
 
