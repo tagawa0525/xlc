@@ -22,7 +22,7 @@ direnv を使う場合は、リポジトリの直下に `use flake` と書いた
 走らせる。実行ファイル（`bin/xs`、`bin/lattice`、`bin/core`）は、リポジトリの直下の `dvc.yaml` の `build` が
 `scripts/build-binaries.sh` で作る。コードを変えると `build` が走り、実行ファイルのバイトが変わったときだけ計算の段階が走る。
 `dvc status examples/<問題>/dvc.yaml` は上流の `build` を示さないので、`dvc status`（引数なし）か `--with-deps` で見る。
-`bin/` の実行ファイルは strip してあり記号がないので、perf などで関数の名前が要るときは `cargo build --release` の `target/release` を使う（ADR-0160）。
+`build` は xs、lattice、core の 3 つのパッケージだけを 1 回の cargo でビルドする（ADR-0163）。`bin/` の実行ファイルは strip してあり記号がないので、perf などで関数の名前が要るときは `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` の `target/release` を使う（ADR-0160。ワークスペースの全体をビルドすると feature の統合が `bin/` と違いうる。ADR-0163）。
 各段階の入力と出力（Rust の段階は実行ファイルを含む）の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
 `references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では `references` を main の
 `references/` への symlink にして、キャッシュと核データを共有する。`~/.claude/scripts/worktree-add.sh` が、チェックアウトした
