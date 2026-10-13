@@ -23,7 +23,7 @@
     体系を、燃料のノードに格子の燃料のノードの定数（等価性）か単一集合体の定数（f* の方法）を置いて解いたもの
   - `small-step-Lx`、`small-step-Ly`: 階段の外形（L 型、角型、`-`）を持つ小さな炉心（集合体 21 体）。L 型の位置の
     f* の辺の向きを変えた 2 つ
-- `dvc.yaml`: 段階（ADR-0123）
+- `dvc.yaml`: 段階（ADR-0159）
 
 炉心の図（`map`、`loading`）は上の行が北（1 行）、左の列が西（R 列）。全炉心の装荷は、図 M3-1 の 1/4（H〜A 列、8〜15 行）を
 H 列と 8 行の中心を通る 2 つの対称面で鏡映して広げる（openmc_core_2d.py と同じ解釈）。xlc は対称面がピンの中心を
@@ -1274,7 +1274,7 @@ def pipeline(
         "# このファイルは p5_inputs.py が書く。手で直さない。\n"
         "# VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、\n"
         "# 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、\n"
-        "# OpenMC、最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
+        "# OpenMC、最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
         "stages:\n" + "".join(stages)
     )
 

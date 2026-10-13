@@ -1,6 +1,6 @@
 # 軸方向の反射体の平板（ADR-0128）の段階: ENDF → 多群ライブラリ（xs）→ VERA 3A の単一集合体の媒質と少数群定数
 # （assembly-3A）→ 集合体の高さ全体の平板の格子計算（axial-<版>）→ 平板の定数で解く炉心（core-axial-<種類>-<版>）→
-# MOC との比較（compare-axial-<種類>-<版>）と z の辺の ADF（fstar-<版>）。実行するのは `dvc repro`（ADR-0123）。deps の
+# MOC との比較（compare-axial-<種類>-<版>）と z の辺の ADF（fstar-<版>）。実行するのは `dvc repro`（ADR-0159）。deps の
 # 書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）。平板と炉心の入力は axial_slab.py が書いて
 # コミットしたもの。径方向の反射体の格子（lattice-I、lattice-corner）→ その定数で解く炉心（core-corner-<種類>）→ MOC との
 # 比較（compare-corner-<種類>。ADR-0132）。
