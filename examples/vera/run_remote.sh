@@ -5,7 +5,7 @@
 # 使い方: run_remote.sh [--restart] [--cores <物理コア数>] [--threads <1 本あたりのスレッド数>] <入力>...
 #   <入力>   examples/vera/p3/openmc-3A.toml など（作業ディレクトリからの相対）。1 つにつき 1 本のジョブを並列に流す
 #   --cores  VM の物理コア数。1 本あたりのスレッド数 = 物理コア数 / ジョブの数（切り捨て、最小 1）。省略すると lscpu の物理コア数。
-#            VM の vCPU は SMT のスレッドなので、物理コアの数え方を確かめる。--threads があればそちらを使う
+#            c7a は SMT がなく vCPU が物理コア。SMT のある機種では lscpu の物理コア数が vCPU の半分。--threads があればそちらを使う
 #   --threads  1 本あたりのスレッド数（入力の `threads` を上書きする。openmc_resume.py の `run --threads`）
 #   --restart  作業ディレクトリ（results/<入力の名前>/run）の最新の statepoint から再開する（スポットの中断のあと）
 #
