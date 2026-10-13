@@ -65,6 +65,6 @@ M0 の xs で、置き場所による 40% の差が消え、どのコミット�
 
 ### 確認
 
-examples/build-alignment/verification.md の測定（c029a27c、ジョブ 302、305、307、2026-10-14）で、6b39ad13 のソースにこの設定を
+examples/build-alignment/verification.md の測定（103c12df、ジョブ 302、305、307、2026-10-14）で、6b39ad13 のソースにこの設定を
 足したビルドの M0 の xs、lattice、core と VERA 1B、2A の出力が、設定なしとバイト単位で一致し、M0 の xs の置き場所による
 差が消えた。
