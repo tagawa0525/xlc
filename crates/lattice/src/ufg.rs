@@ -15,6 +15,7 @@
 
 use std::borrow::Cow;
 use std::ops::Range;
+use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
 
@@ -163,6 +164,7 @@ impl Data<'_> {
 }
 
 /// セル `cell` の、範囲 `range`（[`cell_range`]）の減速計算。`rings` はリングごとの物質（真空は `None`）。
+#[tracing::instrument(name = "ufg", level = "debug", skip_all)]
 pub fn slowing_down(
     library: &Library,
     cell: &Cylinder,
@@ -297,7 +299,10 @@ pub fn slowing_down(
     };
 
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
+    // 段ごとの壁時計の時間（ログの内訳。衝突確率は格子点の間で並列に求める）
+    let mut times = [Duration::ZERO; 3];
     for start in (0..u.len()).step_by(CHUNK) {
+        let clock = Instant::now();
         let chunk = start..(start + CHUNK).min(u.len());
         // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf]
         let mut values: Vec<Vec<[f64; 4]>> = Vec::with_capacity(chunk.len());
@@ -309,6 +314,7 @@ pub fn slowing_down(
                 .collect::<Result<Vec<_>, _>>()?;
             values.push(row);
         }
+        let evaluated = Instant::now();
         let tracks = values
             .par_iter()
             .map(|row| {
@@ -319,6 +325,7 @@ pub fn slowing_down(
                 cell.tracks(&totals)
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let collided = Instant::now();
         for ((m, row), w) in chunk.zip(values).zip(&tracks) {
             let (e, below) = points[m];
             sweep.point(m, row, w, e)?;
@@ -327,7 +334,12 @@ pub fn slowing_down(
                 sweep.group += 1;
             }
         }
+        times[0] += evaluated - clock;
+        times[1] += collided - evaluated;
+        times[2] += collided.elapsed();
     }
+    let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
+    tracing::debug!(evaluate, collision, slowing, "UFG time (s)");
 
     // 群定数
     let mut nuclides = Vec::with_capacity(n);
