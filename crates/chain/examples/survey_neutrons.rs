@@ -68,7 +68,8 @@ struct Survey {
     nuclide: Option<String>,
     ranges: Result<Vec<RangeHead>, String>,
     /// 読めない理由（読めれば空）
-    failures: Vec<String>,
+    /// 読めない理由（確かめた段階と、エラーの文）。読めれば空
+    failures: Vec<(String, String)>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -106,10 +107,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let survey =
                         std::panic::catch_unwind(|| survey(path, &names)).unwrap_or_else(|_| {
                             Survey {
-                                file: path.display().to_string(),
+                                file: file_stem(path),
                                 nuclide: None,
                                 ranges: Err("panicked".into()),
-                                failures: vec!["panicked".into()],
+                                failures: vec![("survey".into(), "panicked".into())],
                             }
                         });
                     results
@@ -132,7 +133,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let status = if s.failures.is_empty() {
             "ok".to_string()
         } else {
-            s.failures.join("; ")
+            s.failures
+                .iter()
+                .map(|(stage, message)| format!("{stage}: {message}"))
+                .collect::<Vec<_>>()
+                .join("; ")
         };
         let nuclide = s.nuclide.as_deref().unwrap_or("-");
         println!("{}\t{nuclide}\t{ranges}\t{status}", s.file);
@@ -142,25 +147,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn survey(path: &Path, names: &Names) -> Survey {
-    let file = path
-        .file_stem()
-        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
-    let failed = |file: String, what: String| Survey {
+    let file = file_stem(path);
+    let failed = |file: String, stage: &str, what: String| Survey {
         file,
         nuclide: None,
         ranges: Err(what.clone()),
-        failures: vec![what],
+        failures: vec![(stage.into(), what)],
     };
     let tape = match std::fs::read_to_string(path)
         .map_err(|e| e.to_string())
         .and_then(|t| Tape::parse(&t).map_err(|e| e.to_string()))
     {
         Ok(t) => t,
-        Err(e) => return failed(file, format!("tape: {e}")),
+        Err(e) => return failed(file, "tape", e),
     };
     let material = match read_material(&tape) {
         Ok(m) => m,
-        Err(e) => return failed(file, format!("MF1 MT451: {e}")),
+        Err(e) => return failed(file, "MF1 MT451", e.to_string()),
     };
     let nuclide = names
         .get(&(material.z, material.a, material.state))
@@ -262,21 +265,27 @@ fn skip_range(r: &mut Reader<'_>, h: &RangeHead, lfw: i64) -> Result<(), String>
 }
 
 /// xs の読み込みを順に試し、失敗したものの理由を返す。
-fn read_failures(tape: &Tape, mat: i32) -> Vec<String> {
-    // 読み込みが止まれば、同じ MF2 を読むあとの確認も同じ理由で止まるので、理由を 1 つにする
-    if let Err(err) = read_evaluation(tape, DEFAULT_TOLERANCE) {
-        return vec![format!("evaluation: {err}")];
-    }
+fn read_failures(tape: &Tape, mat: i32) -> Vec<(String, String)> {
+    // 先の確認で止まっても、あとの確認を続ける（ほかの理由を隠さない）。同じ理由は `summarize` が評価ごとに 1 つに数える
     let mut failures = Vec::new();
+    if let Err(err) = read_evaluation(tape, DEFAULT_TOLERANCE) {
+        failures.push(("evaluation".into(), err.to_string()));
+    }
     if let Err(err) = resolved(tape, mat) {
-        failures.push(format!("resolved top: {err}"));
+        failures.push(("resolved top".into(), err.to_string()));
     }
     for t in TEMPERATURES {
         if let Err(err) = unresolved_shielding(tape, mat, t, &SIGMA0) {
-            failures.push(format!("unresolved at {t} K: {err}"));
+            failures.push((format!("unresolved at {t} K"), err.to_string()));
         }
     }
     failures
+}
+
+/// ファイルの名前（拡張子を除く）。
+fn file_stem(path: &Path) -> String {
+    path.file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned())
 }
 
 fn summarize(surveys: &[Survey]) {
@@ -311,11 +320,13 @@ fn summarize(surveys: &[Survey]) {
         println!("  {k}: {} ({})", names.len(), names.join(" "));
     }
 
-    // 理由の分類: エラーの文から行番号と数値を除いた形でまとめる
+    // 理由の分類: エラーの文（段階を除く）から行番号と数値を除いた形でまとめ、評価ごとに 1 つに数える
     let mut reasons = BTreeMap::<String, Vec<&str>>::new();
     for s in surveys {
-        for f in &s.failures {
-            reasons.entry(reason_class(f)).or_default().push(label(s));
+        let classes: std::collections::BTreeSet<String> =
+            s.failures.iter().map(|(_, m)| reason_class(m)).collect();
+        for class in classes {
+            reasons.entry(class).or_default().push(label(s));
         }
     }
     println!("failures by reason:");
