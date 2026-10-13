@@ -135,26 +135,11 @@ impl TrackTable {
                 rings,
             });
         }
-        let axes = ranges
-            .iter()
-            .enumerate()
-            .map(|(material, &[min, max])| {
-                if !(min > 0.0 && min <= max && max.is_finite()) {
-                    return Err(TableError::Range {
-                        material,
-                        range: [min, max],
-                    });
-                }
-                Ok(Axis::new(min, max, density))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let nodes = axes
-            .iter()
-            .try_fold(rings * rings, |n, a| n.checked_mul(a.count))
-            .ok_or(TableError::Size)?
-            / (rings * rings);
+        let axes = axes(ranges, density)?;
+        let nodes = count(&axes)?;
+        let size = nodes.checked_mul(rings * rings).ok_or(TableError::Size)?;
         // 格子点の組ごとの R をその場の並びに書く（組ごとの小さな確保と、集めてからつなぐコピーを避ける）
-        let mut values = vec![0.0; nodes * rings * rings];
+        let mut values = vec![0.0; size];
         values
             .par_chunks_mut(rings * rings)
             .enumerate()
@@ -188,6 +173,11 @@ impl TrackTable {
     /// 格子点の組の数
     pub fn nodes(&self) -> usize {
         self.axes.iter().map(|a| a.count).product()
+    }
+
+    /// `ranges` と `density` で作る表の格子点の組の数（作る前に、表にする価値があるかを見る）
+    pub fn count(ranges: &[[f64; 2]], density: usize) -> Result<usize, TableError> {
+        count(&axes(ranges, density)?)
     }
 
     /// 物質ごとの全断面積 `sigma` での飛程 T[j][i]（リング i の単位の線源密度あたりの、リング j の中を飛ぶ長さ）。
@@ -256,6 +246,33 @@ impl TrackTable {
             })
             .collect())
     }
+}
+
+/// 物質ごとの ln Σ の格子
+fn axes(ranges: &[[f64; 2]], density: usize) -> Result<Vec<Axis>, TableError> {
+    if density == 0 {
+        return Err(TableError::Density);
+    }
+    ranges
+        .iter()
+        .enumerate()
+        .map(|(material, &[min, max])| {
+            if !(min > 0.0 && min <= max && max.is_finite()) {
+                return Err(TableError::Range {
+                    material,
+                    range: [min, max],
+                });
+            }
+            Ok(Axis::new(min, max, density))
+        })
+        .collect()
+}
+
+/// 格子点の組の数（usize に収まらなければエラー）
+fn count(axes: &[Axis]) -> Result<usize, TableError> {
+    axes.iter()
+        .try_fold(1usize, |n, a| n.checked_mul(a.count))
+        .ok_or(TableError::Size)
 }
 
 /// [リング] の全断面積（真空は 0）
