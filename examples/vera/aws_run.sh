@@ -95,7 +95,8 @@ if ((${#inputs[@]})); then
   [[ -z $dup ]] || { echo "ジョブの名前（入力の basename）が重なります: $dup" >&2; exit 1; }
 
   mapfile -t outs < <(nix build .#openmc .#openmc-python --no-link --print-out-paths)
-  awscli=$(nix build --inputs-from . nixpkgs#awscli2 --no-link --print-out-paths)
+  # パスだけが要る（VM が cache.nixos.org から取る）ので、手元に 422 MB のクロージャを取らない
+  awscli=$(nix eval --raw --inputs-from . nixpkgs#awscli2.outPath)
   require_public_awscli "$awscli"
   openmc=${outs[0]}
   python=${outs[1]}
@@ -158,6 +159,7 @@ else
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   todo=()
   restart_flags=()
+  stuck=0
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
     code=$(job_done "$name" "$job")
@@ -180,6 +182,7 @@ else
     if [[ $latest == "statepoint.$batches.h5" ]]; then
       echo "$job: 最後の世代の statepoint があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
         "SHA256SUMS と boot-*.log を確かめ、そろっていれば echo 0 | aws s3 cp - $run_prefix/$job/done で完了にする" >&2
+      stuck=1
       continue
     fi
     if [[ -n $latest ]]; then
@@ -191,7 +194,7 @@ else
     fi
     todo+=("$input")
   done
-  ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit 0; }
+  ((${#todo[@]})) || { echo "起動するジョブはありません（aws_status.sh、aws_fetch.sh $name）"; exit "$stuck"; }
 fi
 
 ami=$(ubuntu_ami)
@@ -221,4 +224,13 @@ for i in "${!todo[@]}"; do
     echo "$host: $id を起動（再開 ${restart_flags[$i]}）"
   fi
 done
-((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
+if ((!dry)); then
+  # 起動ごとの記録（起動し直しは S3 の src/ を使うが、user-data を作るツールと AMI はこの起動のもの）
+  tools=$(git rev-parse HEAD 2> /dev/null || echo unknown)
+  [[ -z $(git status --porcelain 2> /dev/null) ]] || tools="$tools-dirty"
+  printf 'TOOLS_COMMIT=%s\nAMI=%s\nTYPE=%s\nMAX_HOURS=%s\nSYNC_MINUTES=%s\nJOBS="%s"\nRESTART="%s"\n' "$tools" "$ami" "$type" \
+    "$max_hours" "$sync_minutes" "${todo[*]}" "${restart_flags[*]}" |
+    aws s3 cp --only-show-errors - "$run_prefix/launches/$(date -u +%Y%m%dT%H%M%SZ).env"
+  echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
+fi
+exit "${stuck:-0}"
