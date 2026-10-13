@@ -344,6 +344,26 @@ fn track_table_defaults_to_the_adr_density() {
 }
 
 #[test]
+fn track_table_needs_self_shielding() {
+    // 飛程の表は自己遮蔽の減速計算でだけ使うので、自己遮蔽しない入力に書くと止める
+    let off = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\ntrack-table = 32",
+    );
+    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+    let macroscopic = replaced(
+        LATTICE,
+        "cross-sections = \"c5g7.toml\"",
+        "cross-sections = \"c5g7.toml\"\ntrack-table = false",
+    );
+    assert!(
+        matches!(macroscopic, Err(InputError::Invalid(_))),
+        "{macroscopic:?}"
+    );
+}
+
+#[test]
 fn self_shielding_needs_a_library() {
     let result = replaced(
         LATTICE,
