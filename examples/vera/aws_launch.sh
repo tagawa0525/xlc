@@ -42,8 +42,7 @@ done
 
 # 同名が走っていたら止める（ssh の Host を取り違えるため）
 for n in "${names[@]}"; do
-  live=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$n" \
-    "Name=instance-state-name,Values=pending,running,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text)
+  live=$(live_instance "$n")
   [[ -z $live ]] || { echo "$n はすでにあります: $live（aws_terminate.sh）" >&2; exit 1; }
 done
 

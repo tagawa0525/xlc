@@ -75,6 +75,12 @@ job_script() {
   esac
 }
 
+# タグ Name が <host> の終了前（終了中を含む）のインスタンスの ID（なければ空）
+live_instance() {
+  aws ec2 describe-instances --filters "Name=tag:Name,Values=$1" \
+    "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text
+}
+
 # Ubuntu 24.04 の最新の AMI（このアカウントは SCP で SSM の公開パラメータが引けないので describe-images）
 ubuntu_ami() {
   aws ec2 describe-images --owners 099720109477 \

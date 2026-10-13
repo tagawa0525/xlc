@@ -53,12 +53,6 @@ bucket_region=$(aws s3api get-bucket-location --bucket "$XLC_BUCKET" --query Loc
 [[ $bucket_region == "$AWS_DEFAULT_REGION" ]] ||
   { echo "バケット $XLC_BUCKET は $bucket_region、起動のリージョンは $AWS_DEFAULT_REGION（AWS_DEFAULT_REGION を合わせる）" >&2; exit 1; }
 
-# タグ Name が <host> の終了前のインスタンスの ID（なければ空）
-live_instance() {
-  aws ec2 describe-instances --filters "Name=tag:Name,Values=$1" \
-    "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[].Instances[].InstanceId' --output text
-}
-
 # VM は AWS CLI を cache.nixos.org から取る（自前の cache は AWS CLI がないと取れない）。なければ VM は S3 に何も置けずに止まる
 require_public_awscli() {
   nix path-info --store https://cache.nixos.org "$1" > /dev/null 2>&1 ||
@@ -171,13 +165,23 @@ else
       echo "$job: 完了"
       continue
     fi
-    [[ -z $code ]] || { echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot.log を見てください" >&2; exit 1; }
+    [[ -z $code ]] || { echo "$job: 失敗しています（done: $code）。$run_prefix/$job/boot-*.log を見てください" >&2; exit 1; }
     live=$(live_instance "$name-$job")
     if [[ -n $live ]]; then
       echo "$job: VM が走っているので飛ばす"
       continue
     fi
     latest=$(job_latest_statepoint "$name" "$job")
+    # 最後の世代の statepoint があって done がないのは、完了したあと done を置く前に止まったとき。OpenMC はそこから再開
+    # できない（世代が残っていない）ので、起動しない
+    src_input=$(aws s3 cp "$run_prefix/src/$input" -)
+    batches=$(sed -n 's/^batches *= *\([0-9]*\).*/\1/p' <<< "$src_input")
+    [[ -n $batches ]] || { echo "$run_prefix/src/$input に batches がありません" >&2; exit 1; }
+    if [[ $latest == "statepoint.$batches.h5" ]]; then
+      echo "$job: 最後の世代の statepoint があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
+        "SHA256SUMS と boot-*.log を確かめ、そろっていれば echo 0 | aws s3 cp - $run_prefix/$job/done で完了にする" >&2
+      continue
+    fi
     if [[ -n $latest ]]; then
       echo "$job: $latest から再開"
       restart_flags+=(1)
