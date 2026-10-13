@@ -389,3 +389,9 @@ fn rejects_a_yield_count_that_differs_from_the_header() {
     );
     assert!(read_yields(&text).is_err());
 }
+
+#[test]
+fn rejects_a_tape_with_several_materials() {
+    let second = am242m_decay().replace("3580", "3581").replace(TAPE_ID, "");
+    assert!(read_decay(&(am242m_decay() + &second)).is_err());
+}
