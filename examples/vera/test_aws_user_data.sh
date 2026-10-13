@@ -45,12 +45,19 @@ for name in fresh restart; do
   contains "$text" '"$AWS" s3 sync --only-show-errors "s3://$BUCKET/store/openmc-library/lib0123456789abcd" examples/vera/openmc-library' "$name"
   contains "$text" "printf 'OPENMC_BIN=%s\\nPYTHON=%s\\n' $openmc/bin $python/bin/python3 > tools.env" "$name"
   contains "$text" '  sleep 300' "$name"
-  # done は、ほかのファイルを同期したあとに別に置く
+  # 同期は done と boot.log を除く。finish が同期、boot.log、done の順に置く（done があれば、ほかはそろっている）
   contains "$text" '  "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "$WORK/$OUT" "$PREFIX"' "$name"
-  before "$text" 'sync_out' '"$AWS" s3 cp --only-show-errors "$OUT/done" "$PREFIX/done"' "$name"
+  before "$text" '    sync_out && synced=1' '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' "$name"
+  before "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' \
+    '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
+  # 同期に失敗したときと SIGTERM（中断）では done を置かない。失敗の終了では終了コードを done に書く
+  contains "$text" '    if ((synced && code != 143)); then' "$name"
+  contains "$text" '  if ((code != 143)) && [[ ! -f $WORK/$OUT/done ]]; then' "$name"
+  contains "$text" '    echo "$code" > "$WORK/$OUT/done"' "$name"
+  contains "$text" "trap 'exit 143' TERM" "$name"
+  lacks "$text" '"$AWS" s3 cp --only-show-errors "$OUT/done" "$PREFIX/done"' "$name"
   # 終わりは必ず電源を切る（finish が最後に shutdown -h now）
   contains "$text" '  shutdown -h now' "$name"
-  contains "$text" '    "$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "$PREFIX/boot.log" || true' "$name"
 done
 
 contains "$fresh" 'bash examples/vera/run_remote.sh trials/aws/openmc-3A.toml' fresh
