@@ -4,7 +4,7 @@
 #
 # Usage: check-no-inline-tests.sh [リポジトリの根]
 #
-# 見つけるもの: `#[test]`、`mod tests { … }`、条件に test を含む cfg / cfg_attr / cfg!、`#[should_panic]`。
+# 見つけるもの: `#[test]`（`#[tokio::test]`、`#[bench]` などの形を含む）、`mod tests { … }`、条件に test を含む cfg / cfg_attr / cfg!、`#[should_panic]`。コメントの行は見ない。
 # 許すもの（ADR-0143 の「決定と理由」）:
 #   - `#[cfg(test)]` の次の行にある `mod tests;`、`pub(crate) mod tests;`、`#[path = "…/tests.rs"]`（main.rs。続く行が
 #     `mod tests;`）、パスが tests を通る `pub(crate) use …;`
@@ -43,9 +43,10 @@ awk '
       prev = ""
     }
     if (allowed) next
+    if (line ~ /^[[:space:]]*\/\//) next # コメントの行は見ない
     if (line ~ /^#\[cfg\(test\)\]$/) { prev = "cfg_test"; next }
     if (line ~ /^#!\[cfg_attr\(test, allow\(clippy::disallowed_macros\)\)\]$/) next
-    if (line ~ /#\[test\]|#\[should_panic|mod tests[[:space:]]*\{/) flag("テストのコード")
+    if (line ~ /#\[([a-z_]+::)*(test|bench|test_case|rstest)(\]|\()|#\[should_panic|mod tests?[[:space:]]*\{/) flag("テストのコード")
     else if (line ~ /(cfg|cfg_attr)[(!][^)]*test/ || line ~ /cfg!\(/) flag("test に関わる cfg")
   }
   END { if (prev != "") { printf "%s: ファイルの末尾が #[cfg(test)] または #[path] で終わる\n", last; bad = 1 } exit bad }

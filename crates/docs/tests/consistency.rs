@@ -229,7 +229,8 @@ fn main_tracks_no_trials() -> Result<()> {
 #[test]
 fn production_sources_hold_no_test_code() -> Result<()> {
     let root = repo_root();
-    let output = Command::new(root.join("scripts/check-no-inline-tests.sh"))
+    let output = Command::new("bash")
+        .arg(root.join("scripts/check-no-inline-tests.sh"))
         .arg(&root)
         .output()
         .map_err(|e| format!("cannot run scripts/check-no-inline-tests.sh: {e}"))?;
