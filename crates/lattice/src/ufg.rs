@@ -296,6 +296,9 @@ pub fn slowing_down(
             .iter()
             .map(|ring| vec![vec![[0.0; 4]; ng]; ring.len()])
             .collect(),
+        known: Vec::new(),
+        own: entries.iter().map(|ring| vec![0.0; ring.len()]).collect(),
+        slabs: vec![(0.0, Vec::new()); data.len()],
     };
 
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
@@ -521,6 +524,11 @@ struct Sweep<'a> {
     group_flux: Vec<Vec<f64>>,
     /// [リング][項][群] の反応率 ∫ F σ du [全, 弾性散乱, 核分裂, νσf]
     rates: Vec<Vec<Vec<[f64; 4]>>>,
+    /// 格子点ごとに使い回す作業用の配列: [リング][項] の窓の積分の既知の部分と、その点の F_i の係数
+    known: Vec<Vec<f64>>,
+    own: Vec<Vec<f64>>,
+    /// [核種] の、窓の下端の区間の積分の範囲の上の部分と、格子点の値の重み
+    slabs: Vec<(f64, Vec<(usize, f64)>)>,
 }
 
 impl Sweep<'_> {
@@ -537,33 +545,35 @@ impl Sweep<'_> {
             column.push(v[1]);
         }
         // 窓の積分のうち既知の部分 [リング][項] と、その点の F_i の係数
-        let mut known = self.windows.clone();
-        let mut own = vec![vec![0.0; 0]; n];
+        let known = &mut self.known;
+        known.clone_from(&self.windows);
+        let own = &mut self.own;
         if m > 0 {
             let (u0, u1) = (self.u[m - 1], self.u[m]);
             let decay = (-(u1 - u0)).exp();
             let (ca, cb) = segment(u0, u1, u1);
             // 核種ごとの窓の下端の区間 [u0 − Δ, u1 − Δ] の積分の、格子点の値の重み（範囲の上の部分は値で）
             let above = self.above;
-            let slabs: Vec<(f64, Vec<(usize, f64)>)> = self
+            for ((d, lower), (outside, weights)) in self
                 .data
                 .iter()
                 .zip(self.lower.iter_mut())
-                .map(|(d, lower)| {
-                    let (a, b) = (u0 - d.width, u1 - d.width);
-                    let outside = if a < 0.0 {
-                        above.integral(d, a, b.min(0.0), u1)
-                    } else {
-                        0.0
-                    };
-                    (outside, slab(self.u, a, b, u1, lower))
-                })
-                .collect();
+                .zip(self.slabs.iter_mut())
+            {
+                let (a, b) = (u0 - d.width, u1 - d.width);
+                *outside = if a < 0.0 {
+                    above.integral(d, a, b.min(0.0), u1)
+                } else {
+                    0.0
+                };
+                slab(self.u, a, b, u1, lower, weights);
+            }
             for (i, ring) in self.entries.iter().enumerate() {
                 let f = &self.flux[i];
-                own[i] = ring.iter().map(|&(k, _)| cb * self.elastic[k][m]).collect();
+                own[i].clear();
+                own[i].extend(ring.iter().map(|&(k, _)| cb * self.elastic[k][m]));
                 for (e, &(k, _)) in ring.iter().enumerate() {
-                    let (outside, weights) = &slabs[k];
+                    let (outside, weights) = &self.slabs[k];
                     let leaving: f64 = outside
                         + weights
                             .iter()
@@ -574,11 +584,9 @@ impl Sweep<'_> {
                 }
             }
         } else {
-            own = self
-                .entries
-                .iter()
-                .map(|ring| vec![0.0; ring.len()])
-                .collect();
+            for row in own.iter_mut() {
+                row.fill(0.0);
+            }
         }
         // F_j V_j − Σ_i c_i F_i W_ij = Σ_i k_i W_ij
         let source = |i: usize, terms: &[f64]| -> f64 {
@@ -634,12 +642,12 @@ impl Sweep<'_> {
 }
 
 /// 窓の下端が [a, b] を動くときに窓から出る ∫ σs F e^{−(U − u')} du'（σs F は格子点の間で線形）のうち、範囲の中
-/// （u ≥ 0）の部分を、格子点の σs F にかける重みで返す。`lower` は下端を含む区間の始まりの格子点（進めていく）。
-fn slab(u: &[f64], a: f64, b: f64, big_u: f64, lower: &mut usize) -> Vec<(usize, f64)> {
-    let mut weights = Vec::new();
+/// （u ≥ 0）の部分を、格子点の σs F にかける重みで `weights` に置く。`lower` は下端を含む区間の始まりの格子点（進めていく）。
+fn slab(u: &[f64], a: f64, b: f64, big_u: f64, lower: &mut usize, weights: &mut Vec<(usize, f64)>) {
+    weights.clear();
     let mut x = a.max(0.0);
     if b <= x {
-        return weights;
+        return;
     }
     while *lower + 1 < u.len() && u[*lower + 1] <= x {
         *lower += 1;
@@ -658,7 +666,6 @@ fn slab(u: &[f64], a: f64, b: f64, big_u: f64, lower: &mut usize) -> Vec<(usize,
         x = y;
         q += 1;
     }
-    weights
 }
 
 #[cfg(test)]
