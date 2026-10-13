@@ -503,6 +503,23 @@ impl Refresh for Cusping {
         }
         Ok(out)
     }
+
+    /// 部分挿入のノードの z の面で f* が掛けるのは、その面に接する区間（下の面は最初、上の面は最後の区間）の ADF
+    fn f_star_partners(&self) -> Vec<(usize, [Vec<f64>; 2])> {
+        self.windows
+            .iter()
+            .flat_map(|w| &w.nodes)
+            .filter_map(|node| {
+                let i = node.partial?;
+                let first = &node.segments.first()?.constants;
+                let last = &node.segments.last()?.constants;
+                Some((
+                    self.materials[i],
+                    [first.adf[4].clone(), last.adf[5].clone()],
+                ))
+            })
+            .collect()
+    }
 }
 
 /// 窓の細かいメッシュの解。
@@ -529,16 +546,19 @@ impl WindowProblem {
         2.0 * self.constants(c).diffusion[g] / self.cells[c].width
     }
 
-    /// セル c と c + 1 の面の f。区間の境界（ノードの中）は 1、ノードの面は接する区間の z の辺の ADF
+    /// セル c と c + 1 の面の f。区間の境界（ノードの中）は 1、ノードの面は接する区間の z の辺の ADF。f* の辺
+    /// （`normalized_adf`）は、core（`Core::adf`）と同じく f* × 向かいの区間の ADF（ADR-0095。両側が f* でない
+    /// ことは core が確かめる）
     fn interface_adfs(&self, c: usize, g: usize) -> [f64; 2] {
         if self.cells[c].node == self.cells[c + 1].node {
-            [1.0, 1.0]
-        } else {
-            [
-                face_adf(self.constants(c), true, g),
-                face_adf(self.constants(c + 1), false, g),
-            ]
+            return [1.0, 1.0];
         }
+        let (below, above) = (self.constants(c), self.constants(c + 1));
+        let (fb, fa) = (face_adf(below, true, g), face_adf(above, false, g));
+        [
+            if below.normalized_adf[5] { fb * fa } else { fb },
+            if above.normalized_adf[4] { fa * fb } else { fa },
+        ]
     }
 
     /// セル c と c + 1 の面の J = α φ_c − β φ_{c+1}（+z の向き）の [α, β] と、不均質な面の中性子束

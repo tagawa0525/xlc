@@ -171,6 +171,10 @@ pub trait Refresh {
     /// 元の物質と群の数、核分裂の有無、f* の辺、真空の辺、z の厚さが同じであること
     fn refresh(&mut self, k: f64, nodes: &[NodeSnapshot])
     -> Result<Vec<(usize, FewGroup)>, String>;
+    /// 置き換える物質の z の面で、隣の f* の辺（`normalized_adf`）が掛ける ADF の（物質の番号, [−z、+z][群]）。
+    /// 置き換えた定数の z の面の不連続因子は、ノードの中を混ぜたことによる不連続を表し、f*（燃料の格子計算の ADF
+    /// で割った値。ADR-0095）の相手の ADF ではないので、`Core::adf` はこの値を掛ける
+    fn f_star_partners(&self) -> Vec<(usize, [Vec<f64>; 2])>;
 }
 
 /// `Refresh` に渡す、外側の反復の始めのノードの量。
@@ -192,6 +196,10 @@ pub fn solve_with(
     refresh: &mut dyn Refresh,
 ) -> Result<(Solution, Vec<FewGroup>), NemError> {
     let mut core = Core::new(problem).map_err(NemError::InvalidProblem)?;
+    for (material, adfs) in refresh.f_star_partners() {
+        core.set_f_star_partner(material, adfs)
+            .map_err(NemError::InvalidProblem)?;
+    }
     let (solution, _) = iterate(&mut core, options, Some(refresh))?;
     Ok((solution, core.materials))
 }
@@ -323,6 +331,9 @@ struct Core<'a> {
     faces: Vec<[[Face; 2]; 3]>,
     /// [ノード][方向][- 面、+ 面] の、ADF を 1 にする面か（`unpaired_face`）
     unit_adf: Vec<[[bool; 2]; 3]>,
+    /// [物質] の、隣の f* の辺が z の面で掛ける [−z、+z][群] の ADF（`Refresh::f_star_partners`）。`None` は
+    /// その物質の z の辺の ADF
+    f_star_partner: Vec<Option<[Vec<f64>; 2]>>,
     groups: usize,
     /// [物質] の核分裂のある物質か（ノードの核を選ぶ。ADR-0102）
     fissile: Vec<bool>,
@@ -519,6 +530,7 @@ impl<'a> Core<'a> {
             material_of,
             faces,
             unit_adf: Vec::new(),
+            f_star_partner: vec![None; problem.materials.len()],
             groups,
             fissile,
             reflector: (0..problem.materials.len())
@@ -780,7 +792,8 @@ impl<'a> Core<'a> {
 
     /// ノード n の方向 d の - 面（`plus` が false）・+ 面（true）の不連続因子（辺の対応は `side_of`）。
     /// f* の辺（`normalized_adf`）は、f* × 隣のノードの同じ面の ADF（ADR-0095。隣があり、隣の辺が f* で
-    /// ないことは `check_normalized_adfs` で確かめてある）。反射体の位置どうしの面も、燃料どうしの面と同じく
+    /// ないことは `check_normalized_adfs` で確かめてある）。z の面で隣の物質に `f_star_partner` があれば、隣の
+    /// ADF の代わりにその値を掛ける（ADR-0127）。反射体の位置どうしの面も、燃料どうしの面と同じく
     /// 各側の ADF を使う（ADR-0132）。反射体の位置の f* の辺が集合体の位置の核分裂のない層に向く面は 1
     /// （`unpaired_face`）
     fn adf(&self, n: usize, d: usize, plus: bool, g: usize) -> f64 {
@@ -795,8 +808,29 @@ impl<'a> Core<'a> {
             return own;
         }
         neighbor.map_or(f64::NAN, |m| {
-            own * self.material(m).adf[side_of(d, !plus)][g]
+            let facing = side_of(d, !plus);
+            let partner = match &self.f_star_partner[self.material_of[m]] {
+                Some(z) if d == 2 => z[usize::from(!plus)][g],
+                _ => self.material(m).adf[facing][g],
+            };
+            own * partner
         })
+    }
+
+    /// 物質 `material` の z の面で、隣の f* の辺が掛ける [−z、+z][群] の ADF を `adfs` にする
+    fn set_f_star_partner(&mut self, material: usize, adfs: [Vec<f64>; 2]) -> Result<(), String> {
+        if material >= self.materials.len()
+            || adfs
+                .iter()
+                .any(|a| a.len() != self.groups || a.iter().any(|&f| !(f > 0.0 && f.is_finite())))
+        {
+            return Err(format!(
+                "material {material}: the ADFs for f* neighbors must exist and be positive in every \
+                 group, got {adfs:?}"
+            ));
+        }
+        self.f_star_partner[material] = Some(adfs);
+        Ok(())
     }
 
     /// 方向 d で隣り合うノード n と m の面が、反射体の位置の f* の辺と、集合体の位置の核分裂のない軸方向の層（端栓、
