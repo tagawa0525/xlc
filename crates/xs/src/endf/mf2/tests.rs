@@ -479,13 +479,23 @@ fn reads_energy_dependent_radius_of_mlbw_range() {
     };
     assert_eq!((bw.spi, bw.naps), (3.5, 0));
     assert_eq!(bw.l_values[0].resonances[0].er, 2.0);
+    let radius = bw.ap_energy.as_ref().unwrap();
+    assert_eq!(
+        (radius.x.clone(), radius.y.clone()),
+        (vec![1.0e-5, 50.0], vec![0.70, 0.60])
+    );
 }
 
 #[test]
 fn rejects_mlbw_radius_table_short_of_the_range() {
     // 範囲の外へ外挿しない
-    let err = mlbw_with_radius("0", ["1.0-5", "0.70", "1.0+1", "0.60"]).unwrap_err();
-    assert_eq!(err.line, 4);
+    for radius in [
+        ["1.0-5", "0.70", "1.0+1", "0.60"],
+        ["1.0", "0.70", "5.0+1", "0.60"],
+    ] {
+        let err = mlbw_with_radius("0", radius).unwrap_err();
+        assert_eq!(err.line, 4, "{radius:?}");
+    }
 }
 
 #[test]
