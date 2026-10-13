@@ -31,3 +31,7 @@ main（1842033d、2026-10-12）で、`crates/*/src` の 64 個のファイルが
 ## 経緯
 
 - 2026-10-12: コードのレビューで、大きなファイルの半分以上がテストと分かった。ADR-0143 で置き方を決めた
+- 2026-10-13: refactor/0089-move-tests で移した（crate ごとの移動は xs 32、lattice 20、numeric 5、format 4、docs 2、core 1 のファイル）。
+  確認の方法と結果は ADR-0143 の「確認」に書いた。検査の置き場所は、`.pre-commit-config.yaml` の hook と cargo test（consistency.rs）の
+  両方にした。proposed の ADR と開いた issue には、テストの場所をパスで書いたものが crates/core/src/rods/tests.rs の 1 件
+  （すでに `tests.rs`）だけで、直すものはなかった
