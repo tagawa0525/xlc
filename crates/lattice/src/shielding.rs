@@ -399,7 +399,8 @@ pub fn shield_fuel_with(
         }
         pins.push((cell, fuel_regions, index, rings));
     }
-    let factors = dancoff(tracking, &totals, &fuel, &options.dancoff)?;
+    let factors = tracing::debug_span!("dancoff")
+        .in_scope(|| dancoff(tracking, &totals, &fuel, &options.dancoff))?;
 
     let mut shielded = FuelShielding {
         materials: dilute,
@@ -455,9 +456,12 @@ pub fn shield_fuel_with(
         .filter(|(_, p)| p.is_some())
         .map(|(&(cell, _, index, rings), _)| (cell, index, rings))
         .collect();
+    // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
+    let shielding = tracing::Span::current();
     let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> = solving
         .par_iter()
         .map(|&(cell, index, rings)| {
+            let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
             let factors = factors[cell]
                 .as_ref()
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
@@ -474,7 +478,8 @@ pub fn shield_fuel_with(
                     .collect::<Result<_, _>>()?,
             };
             let material = &materials[index];
-            let carlvik = shield_material(library, material, &equivalence, options, cell)?;
+            let carlvik = tracing::debug_span!("carlvik")
+                .in_scope(|| shield_material(library, material, &equivalence, options, cell))?;
             let pin_cell = PinRings {
                 lattice,
                 cell,
@@ -582,15 +587,17 @@ pub fn shield_fuel_with(
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
     }
-    shield_lumps(
-        library,
-        tracking,
-        materials,
-        &region_index,
-        (symmetry.images(), &orbits),
-        options,
-        &mut shielded,
-    )?;
+    tracing::debug_span!("lumps").in_scope(|| {
+        shield_lumps(
+            library,
+            tracking,
+            materials,
+            &region_index,
+            (symmetry.images(), &orbits),
+            options,
+            &mut shielded,
+        )
+    })?;
     tracing::info!(
         pins = shielded.pins.len(),
         solved = solved.len(),
@@ -1226,14 +1233,16 @@ fn shield_cell(
     if *frame && let Some(last) = fixed.last_mut() {
         *last = true;
     }
-    let sph = sph_factors(
-        cylinder,
-        &multigroup,
-        &fixed,
-        top..bottom,
-        &above,
-        &spectrum.flux,
-    )?;
+    let sph = tracing::debug_span!("sph").in_scope(|| {
+        sph_factors(
+            cylinder,
+            &multigroup,
+            &fixed,
+            top..bottom,
+            &above,
+            &spectrum.flux,
+        )
+    })?;
     for (ring, (material, mu)) in rings.iter_mut().zip(&sph).enumerate() {
         if let Some(m) = material {
             let mut all = vec![1.0; ng];
