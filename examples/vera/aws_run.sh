@@ -108,6 +108,7 @@ clear_done=()
 # VM が実行する道具（src/ に置く。新しい実行も起動し直しも同じ集合）
 tool_files=(
   examples/openmc_common.py
+  examples/openmc_input.py
   examples/openmc_run.py
   examples/openmc_resume.py
   examples/vera/openmc_tallies.py

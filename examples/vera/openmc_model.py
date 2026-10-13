@@ -1,14 +1,18 @@
 """VERA Problem 1B〜1D（ピンセル）と 2A〜2K、2Q（17×17 集合体）を OpenMC の連続エネルギーモードで解く。
 
-使い方: python3 openmc_model.py run <入力> <作業ディレクトリ>
+使い方: python3 openmc_model.py model <入力> <モデルのディレクトリ>
+        python3 openmc_model.py run <入力> <モデルのディレクトリ> <作業ディレクトリ>
         python3 openmc_model.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
 <入力> は p1/openmc-1B.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`）、
 openmc_library.py で作った `cross-sections`（cross_sections.xml）、1 世代の粒子数（`particles`）、世代数（`batches`）、
 捨てる世代数（`inactive`）、乱数の種（`seed`）、スレッド数（`threads`）。パスは入力のファイルからの相対。
 標準のタリーの組（openmc_tallies.py、ADR-0152）を入れ、`standard-tallies = false` と書いたときだけ入れない。
-run は OpenMC を解き、作業ディレクトリに statepoint を残す。extract は statepoint から、k を k.json に、下の
-ピン出力と実効断面積を結果のディレクトリに書く（OpenMC を解き直さずに抽出を変えられるよう分ける。ADR-0123）。
+model は問題の物質、形状、設定、tally を <モデルのディレクトリ>/model.xml に書く。model.xml は断面積のライブラリの
+パスもスレッド数も含まない（このスクリプトを直しても、モデルが同じなら model.xml はバイト単位で変わらず、OpenMC を
+走り直さずに済む。ADR-0136）。run はそのモデルを `cross-sections` のライブラリとスレッド数で解き、作業ディレクトリに
+statepoint を残す。extract は statepoint から、k を k.json に、下のピン出力と実効断面積を結果のディレクトリに書く
+（OpenMC を解き直さずに抽出を変えられるよう分ける。ADR-0123）。
 
 問題は 1B, 1C, 1D, 2A, 2B, 2C, 2D, 2E, 2E-empty（2E の Pyrex の棒を抜いたもの。吸収体と減速材の密度の効果を分けるため）, 2F,
 2G, 2H, 2I, 2J, 2K, 2Q。
@@ -21,6 +25,7 @@ run は OpenMC を解き、作業ディレクトリに statepoint を残す。ex
 問題）ではピンごとに pin-xs.msgpack に書く（自己遮蔽の検証用。燃料のないセルは 0）。
 """
 
+import os
 import sys
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -32,7 +37,13 @@ import openmc_tallies
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from openmc_common import STORED, eigenvalue_settings, material
-from openmc_run import fuel_mean, mesh_values, run_or_extract, write_k, write_pin_powers
+from openmc_run import (
+    fuel_mean,
+    mesh_values,
+    model_run_extract,
+    write_k,
+    write_pin_powers,
+)
 from openmc_run import read_run as common_read_run
 
 SCORES = ["total", "elastic", "fission"]
@@ -510,7 +521,7 @@ class Built(NamedTuple):
     half: float
 
 
-def build(problem: str, cross_sections: Path) -> Built:
+def build(problem: str) -> Built:
     """問題の物質と形状を作る（外周の箱の半分の幅 `half` とともに）。"""
     fuel = material("fuel", FUEL, FUEL_TEMPERATURE[problem])
     clad = material("zircaloy-4", ZIRCALOY, MODERATOR_TEMPERATURE[problem])
@@ -542,7 +553,6 @@ def build(problem: str, cross_sections: Path) -> Built:
         instrument_insert = tube(
             layers, INSTRUMENT_INNER, INSTRUMENT_OUTER, clad, water
         )
-    materials.cross_sections = str(cross_sections)
 
     # 支持格子は被覆管と同じ組成（仕様書の表 P2-4 の Cladding and Grid）
     frame = (clad, GRID_FRAME[problem]) if problem in GRID_FRAME else None
@@ -659,11 +669,11 @@ def pin_xs(sp: openmc.StatePoint, fuels: list[openmc.Material]) -> dict:
     return xs
 
 
-def solve(source: Path, work: Path) -> None:
+def model(source: Path, directory: Path) -> None:
+    """問題の model.xml を `directory` に書く。"""
     run = read_run(source)
     problem = run["problem"]
-    work.mkdir(parents=True, exist_ok=True)
-    _, materials, geometry, half = build(problem, run["cross-sections"])
+    _, materials, geometry, half = build(problem)
 
     settings = eigenvalue_settings(
         run["particles"], run["batches"], run["inactive"], run["seed"], half
@@ -681,8 +691,24 @@ def solve(source: Path, work: Path) -> None:
         tallies.extend(standard_tallies(problem, materials))
         openmc_tallies.quiet(settings)
 
-    model = openmc.Model(geometry, materials, settings, tallies)
-    model.run(cwd=work, threads=run["threads"], output=False)
+    directory.mkdir(parents=True, exist_ok=True)
+    openmc.Model(geometry, materials, settings, tallies).export_to_model_xml(
+        directory / "model.xml"
+    )
+
+
+def solve(source: Path, directory: Path, work: Path) -> None:
+    """`directory` の model.xml を、入力の `cross-sections` のライブラリとスレッド数で解く。"""
+    run = read_run(source)
+    work.mkdir(parents=True, exist_ok=True)
+    # model.xml にライブラリのパスを書かないので、環境変数で渡す（OpenMC は materials の cross_sections がなければ読む）
+    os.environ["OPENMC_CROSS_SECTIONS"] = str(run["cross-sections"])
+    openmc.run(
+        threads=run["threads"],
+        output=False,
+        cwd=work,
+        path_input=str((directory / "model.xml").resolve()),
+    )
 
 
 def extract(source: Path, work: Path, results: Path) -> None:
@@ -708,4 +734,4 @@ def extract(source: Path, work: Path, results: Path) -> None:
 
 
 if __name__ == "__main__":
-    run_or_extract(solve, extract, __doc__)
+    model_run_extract(model, solve, extract, __doc__)

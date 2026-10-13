@@ -37,6 +37,11 @@ dvc checkout examples/vera/dvc.yaml
 
 ## 段階にしてある問題（1B）
 
+段階は `openmc-1B-model`（スクリプトと入力 → model.xml。数秒）と `openmc-1B`（model.xml とライブラリ → statepoint）に分かれる
+（ADR-0136）。スクリプトを直してモデルが変わらなければ model.xml の md5 が同じで、`openmc-1B` は走り直さない。model.xml が変わる
+直し（タリーを足すなど）は、`openmc-1B` を走らせ直す。`model.xml` の生成だけを確かめるときは、
+`dvc repro -s examples/vera/dvc.yaml:openmc-1B-model`（上流は `references-shell` だけで、数秒。手元でよい）。
+
 `dvc repro` は `default` の devShell で走らせる（`references` の devShell の中では cargo と dvc がない）。ライブラリの
 63 段階を含み、全体で 40〜60 分かかるので、全体を Slurm で流す:
 
@@ -57,14 +62,17 @@ dvc checkout examples/vera/dvc.yaml
 | 2A〜2K、2Q | 1000000   | 400     | 100      | 1    | 16      |
 
 ```sh
-nix develop .#references -c python3 examples/vera/openmc_model.py run examples/vera/p2/openmc-2A.toml references/openmc/vera-2A
+nix develop .#references -c python3 examples/vera/openmc_model.py model examples/vera/p2/openmc-2A.toml references/openmc/vera-2A-model
+nix develop .#references -c python3 examples/vera/openmc_model.py run examples/vera/p2/openmc-2A.toml \
+  references/openmc/vera-2A-model references/openmc/vera-2A
 nix develop .#references -c python3 examples/vera/openmc_model.py extract examples/vera/p2/openmc-2A.toml \
   references/openmc/vera-2A references/openmc/vera-2A-results
 cp references/openmc/vera-2A-results/pins.msgpack examples/vera/p2/openmc-2A.msgpack
 ```
 
-- `run` は作業ディレクトリに statepoint を残し、`extract` が k を `k.json` に、2 で始まる問題のピン出力を `pins.msgpack` に
-  書く。抽出だけを変えるときは `run` を走らせ直さない（ADR-0159）
+- `model` は `model.xml` を書く（ライブラリのパスとスレッド数を含まない。ADR-0136）。`run` はそれを解いて作業ディレクトリに
+  statepoint を残し、`extract` が k を `k.json` に、2 で始まる問題のピン出力を `pins.msgpack` に書く。抽出だけを変えるときは
+  `run` を走らせ直さない（ADR-0159）
 - `p2/openmc-<問題>.msgpack` は git で追跡しない（ADR-0121）。worktree では main のものをコピーして使う
 - 2E-empty は 2E の Pyrex の棒を抜いたもの。問題の名前は `openmc_model.py` の docstring にある一覧
 - k は `k.json` の `k` と標準偏差 `k-std`（xlc との差は `compare_k.py <lattice の出力> <k.json>`）。記録の書き方は、スキル verification-record

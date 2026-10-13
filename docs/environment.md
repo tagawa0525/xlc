@@ -353,25 +353,31 @@ NJOY と OpenMC を使う段階は、cmd が `nix develop ../..#references -c` �
 `dvc repro` を `references` の devShell の中で走らせない（cargo と dvc がない）。1 分を超えるので、`dvc repro` 全体を
 Slurm で流す（CLAUDE.md の「計算」）。
 
-| 段階                                               | 入力                  | 出力（examples/vera/ の下）                                              |
-| -------------------------------------------------- | --------------------- | ------------------------------------------------------------------------ |
-| `references-shell`                                 | flake                 | `references-shell.txt`（`references` の devShell の store のパス）       |
-| `openmc-neutron@<核種>`、`openmc-thermal@<散乱則>` | `openmc-library.toml` | `openmc-library/neutron/<核種>.h5`、`openmc-library/thermal/<散乱則>.h5` |
-| `openmc-index`                                     | `openmc-library.toml` | `openmc-library/cross_sections.xml`                                      |
-| `openmc-1B`                                        | `p1/openmc-1B.toml`   | `p1/openmc-1B/`（statepoint、summary、model.xml）                        |
-| `openmc-1B-extract`                                | `p1/openmc-1B.toml`   | `p1/openmc-1B-results/k.json`                                            |
-| `xs-range`、`xs-nuclide@<核種>`、`xs`              | `xs.toml`             | `xs-range.toml`、`xs-nuclides/<核種>.msgpack`、`vera.msgpack`            |
-| `lattice-1B`                                       | `p1/pincell-1B.toml`  | `p1/lattice-1B.out`                                                      |
-| `compare-1B`                                       |                       | `p1/compare-1B.out`（xlc と OpenMC の k の差）                           |
+| 段階                                               | 入力                    | 出力（examples/vera/ の下）                                              |
+| -------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------ |
+| `references-shell`                                 | flake                   | `references-shell.txt`（`references` の devShell の store のパス）       |
+| `openmc-neutron@<核種>`、`openmc-thermal@<散乱則>` | `openmc-library.toml`   | `openmc-library/neutron/<核種>.h5`、`openmc-library/thermal/<散乱則>.h5` |
+| `openmc-index`                                     | `openmc-library.toml`   | `openmc-library/cross_sections.xml`                                      |
+| `openmc-1B-model`                                  | `p1/openmc-1B.toml`     | `p1/openmc-1B-model/model.xml`（ライブラリのパスとスレッド数を含まない） |
+| `openmc-1B`                                        | `model.xml`、ライブラリ | `p1/openmc-1B/`（statepoint、summary）                                   |
+| `openmc-1B-extract`                                | `p1/openmc-1B.toml`     | `p1/openmc-1B-results/k.json`                                            |
+| `xs-range`、`xs-nuclide@<核種>`、`xs`              | `xs.toml`               | `xs-range.toml`、`xs-nuclides/<核種>.msgpack`、`vera.msgpack`            |
+| `lattice-1B`                                       | `p1/pincell-1B.toml`    | `p1/lattice-1B.out`                                                      |
+| `compare-1B`                                       |                         | `p1/compare-1B.out`（xlc と OpenMC の k の差）                           |
 
 計算の条件（核種と温度、粒子数、世代、捨てる世代、乱数の種、スレッド数）は入力の TOML に書く。スクリプトに既定値は
 なく、足りないキーと知らないキーで止まる。出力は `references/dvc-cache` にキャッシュされ、`dvc checkout
 examples/vera/dvc.yaml` で戻せる。`dvc.lock` は、記録した実行の deps（スクリプト、入力、道具）から出力を作ったことの記録で、
 あとのコミットで deps が変わると `dvc status` は changed を示す。記録の結果を出し直すときは、記録に書いたコミットを
-checkout して `dvc repro` する（ADR-0130）。ほかの問題（1C〜2K、2E-empty、2Q）は、`p1/openmc-1B.toml` と同じ形の入力と、`openmc-1B`、
-`openmc-1B-extract` と同じ形の段階を足して走らせる（#0018）。段階にするまでは、同じ入力を作って
-`python3 examples/vera/openmc_model.py run <入力> <作業ディレクトリ>` と `extract <入力> <作業ディレクトリ> <結果の
-ディレクトリ>` を `references` の devShell で走らせる。
+checkout して `dvc repro` する（ADR-0130）。
+
+走行の段階 `openmc-1B` は、スクリプトでなく `model.xml` とライブラリ（と入力の `cross-sections`、`threads`）を deps にする
+（ADR-0136）。スクリプトを直しても、`openmc-1B-model` が書く model.xml の md5 が同じなら、OpenMC は走り直さない。
+モデルを変える直し（物質、形状、タリー、設定）は model.xml を変えるので、走行の段階も古くなる。ほかの問題（1C〜2K、
+2E-empty、2Q）は、`p1/openmc-1B.toml` と同じ形の入力と、`openmc-1B-model`、`openmc-1B`、`openmc-1B-extract` と同じ形の
+段階を足して走らせる（#0018）。段階にするまでは、同じ入力を作って
+`python3 examples/vera/openmc_model.py model <入力> <モデルのディレクトリ>`、`run <入力> <モデルのディレクトリ> <作業ディレクトリ>`、
+`extract <入力> <作業ディレクトリ> <結果のディレクトリ>` を `references` の devShell で走らせる。
 
 同じ多群定数で OpenMC の多群モードと比べる（examples/vera/verification.md の「同じ多群定数での OpenMC との比較」）には、
 負にならない散乱核のライブラリと、そこから多群定数を作ってから解く。格子の入力は `library` をそのライブラリに、

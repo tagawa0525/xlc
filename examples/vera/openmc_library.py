@@ -21,7 +21,7 @@ from typing import Any
 import openmc.data
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from openmc_common import check_keys, input_path, read_input
+from openmc_input import check_keys, input_path, read_input
 
 KINDS = {
     "neutron": {"endf", "temperatures"},
