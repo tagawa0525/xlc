@@ -86,6 +86,11 @@ S(α,β) の温度を補正したもの）。核データの版（Zr の ENDF/B-
 +129 pcm は 2B〜2F（+6〜+87 pcm）より大きい。候補は AIC の核種（Ag、In、Cd）の ENDF/B-VII.0 と VIII.0 の違いと、KENO-VI が
 制御棒の中の隙間を He で扱うこと（[ADR-0120](../../docs/adr/0120-model-insert-helium-as-void.md)。見積もりでは He で起きる衝突は全体の 1e-5 未満で、この大きさには足りない）だが、確かめていない。
 
+標準のタリーの組（[ADR-0152](../../docs/adr/0152-define-standard-openmc-tallies.md)、版 1。タリーの名前は `standard-1/…`）: 上の表の参照解（1B〜2Q）は、
+組を決める前に走らせたもので、statepoint に組がない。Problem 3 と 5-2D の参照解と、これから走らせ直す参照解は組を持つ
+（`openmc_model.py`、`openmc_model_3d.py`、`openmc_core_2d.py` が入れる。中身は `openmc_tallies.py`）。燃料の核種ごとの実効断面積
+（`fuel-xs.msgpack`、`pin-xs.msgpack`）は、組を持つ statepoint から `openmc_model.py extract` が書く。
+
 参照解の側の近似:
 
 - OpenMC は、出射エネルギーの分布が片対数（INT=4）の区間を線形として扱う（ACE から読むときに置き換える）。対象の核種
