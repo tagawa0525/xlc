@@ -12,7 +12,7 @@ resolution: ADR-0163
 
 ## 問題
 
-燃焼のソルバのクレート `xlc-depletion`（ADR-0161、ADR-0162。faer に依存し、どの段階のクレートもまだ依存しない）を足した
+燃焼のソルバのクレート `xlc-depletion`（ADR-0162。faer に依存し、どの段階のクレートもまだ依存しない）を足した
 ブランチ feat/cram-depletion-solver（main の 5c21dfed に rebase したもの、2026-10-14）で、直下の dvc.yaml の `build` を走らせると、
 3 つの実行ファイルの md5 がすべて変わった（xs: e77257b3 → 563bfe80、lattice: 85a3c566 → 9846663c、core: fe2d8761 → 6cf69103）。
 `crates/depletion` を外し、`Cargo.toml` と `Cargo.lock` を main に戻すと、main の dvc.lock と同じ md5 に戻る。このままマージすると、
