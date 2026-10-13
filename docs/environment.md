@@ -172,8 +172,9 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
 4. S3 の `runs/<名前>/<ジョブ>/`（前の起動のログなど。statepoint は最新の 2 個だけ）を作業ディレクトリに戻してから同期を始める。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
-5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync` で作業ディレクトリを S3 にコピーする。ジョブが走っている間は、最新の statepoint
-   （書いている途中でありうる）と同期の一覧の後に書き始めたものをコピーせず、`--delete` もしない（S3 の statepoint は完了まで増える。#0106）。
+5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync` で作業ディレクトリを S3 にコピーする。ジョブが走っている間は、同期の一覧の後に
+   書き始めたものと、最新の statepoint のうち mtime が今から 120 秒以内のもの（書いている途中でありうる）をコピーせず（書き終えた最新はコピーする。
+   ADR-0168）、`--delete` もしない（S3 の statepoint は完了まで増える。#0106）。
    ジョブが成功した（`done` が 0）ときだけ、すべてをコピーしてから `--delete` で S3 を結果のコピーにする（途中で失敗しても statepoint が消えない順）。
    写ったものが壊れていても、再開は壊れたものを消して 1 つ前から続ける）。
    `done` とジョブのプロセスは 10 秒ごとに見て、ジョブが `done` を書かずに消えたら失敗で終わる

@@ -49,16 +49,21 @@ statepoints() {
 }
 sync_out() {
   ((READY)) || return 0
-  local filters=() delete=(--delete) f all
-  # ジョブが走っている間は、最新の statepoint（OpenMC が書いている途中でありうる）と、一覧の後に書き始めたものをコピーしない。
-  # コピーするのは、一覧の時点で最新でない（書き終えた）ものだけ。ジョブが成功した（done が 0）ときだけすべてコピーする（失敗や中断では、
-  # 最新の statepoint は書いている途中で止まったかもしれない）。そのあいだは --delete もしない（一覧のあとに statepoint が
+  local filters=() delete=(--delete) f all mtime
+  # ジョブが走っている間は、一覧の後に書き始めたものと、書いている途中でありうるものをコピーしない。コピーするのは、一覧の時点で最新で
+  # ないもの（書き終えた）と、最新でも mtime が 120 秒より古いもの（OpenMC は数秒で書き終え、書く間は mtime が進む。ADR-0168）。
+  # ジョブが成功した（done が 0）ときだけ、時刻によらずすべてコピーする（失敗や中断の直後は、最新の statepoint が書いている途中で
+  # 止まったかもしれず、mtime が新しいので除かれる）。そのあいだは --delete もしない（一覧のあとに statepoint が
   # 消されると、含めたはずのものを S3 から消すため）
   if ((INTERRUPTED)) || [[ \$(cat "\$WORK/\$OUT/done" 2> /dev/null) != 0 ]]; then
     delete=()
     filters=(--exclude 'run/statepoint.*')
     all=\$(statepoints "\$WORK/\$OUT/run")
     for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done
+    f=\$(tail -n 1 <<< "\$all")
+    if [[ -n \$f ]] && mtime=\$(stat -c %Y "\$WORK/\$OUT/run/\$f" 2> /dev/null) && ((\$(date +%s) - mtime > 120)); then
+      filters+=(--include "run/\$f")
+    fi
   fi
   # --delete のときは、先に消さずにコピーしてから消す（途中で失敗しても、S3 から statepoint が消えて最後のものもない、にならない）
   "\$AWS" s3 sync --only-show-errors --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
@@ -137,6 +142,7 @@ USERDATA
   else
     echo "bash examples/vera/run_remote.sh $input"
   fi
+
   cat <<USERDATA
 # run_remote.sh は done を 1 回の echo で書くので、空のうちに読まないよう数字になるまで待つ
 # 10 秒ごとに done とジョブを見て、$seconds 秒ごとに同期する。run_remote.sh が切り離したジョブ（bash -c job ... results/<job>
