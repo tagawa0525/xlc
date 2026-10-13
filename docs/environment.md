@@ -141,13 +141,13 @@ examples/vera/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m
 
 S3 の置き場:
 
-| 接頭辞                            | 中身                                                                                                                   | 期間        |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `store/nix/<鍵>/`                 | 閉包（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）                                  | 残す        |
-| `store/openmc-library/<鍵>/`      | `examples/vera/openmc-library`                                                                                         | 残す        |
-| `runs/<名前>/launch.env`、`src/`  | 起動の記録（コミット。追跡していない入力や変更があれば `-dirty`。store のパス、鍵、入力）と、VM が使うスクリプトと入力 | 30 日で失効 |
-| `runs/<名前>/launches/<時刻>.env` | 起動ごと（起動し直しを含む）の、user-data を作った道具のコミット、AMI、機種、ジョブと再開の有無                        | 30 日で失効 |
-| `runs/<名前>/<ジョブ>/`           | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot-<時刻>.log`、`done`                      | 30 日で失効 |
+| 接頭辞                                     | 中身                                                                                                                                     | 期間        |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `store/nix/<鍵>/`                          | 閉包（`.#openmc`、`.#openmc-python`）の binary cache（`nix copy --to file://`、zstd）                                                    | 残す        |
+| `store/openmc-library/<鍵>/`               | `examples/vera/openmc-library`                                                                                                           | 残す        |
+| `runs/<名前>/launch.env`、`src/`           | 起動の記録（コミット。追跡していない入力や変更があれば `-dirty`。store のパス、鍵、入力）と、VM が使うスクリプトと入力                   | 30 日で失効 |
+| `runs/<名前>/launches/<時刻>-<ジョブ>.env` | 起動できた VM ごと（起動し直しを含む）の、user-data を作った道具のコミット、AMI、機種、最長時間、同期の間隔、再開の有無、インスタンス ID | 30 日で失効 |
+| `runs/<名前>/<ジョブ>/`                    | 作業ディレクトリ（`run/` の statepoint、summary.h5、log、k.json など）、`boot-<時刻>.log`、`done`                                        | 30 日で失効 |
 
 鍵は内容のハッシュ（閉包は store のパスの組、核データはファイルの sha256 の一覧）。`aws_run.sh` は毎回 `aws s3 sync` で置き、S3 に
 あるものは送らない。`launch.env` は最後に置く（あれば `src/` と `store/` はそろっている）。入力はリポジトリの直下からの相対パス
@@ -166,11 +166,11 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
    先に消えたときの SIGPIPE で、後者は finish で無視するようにした）
 3. Nix を入れる（試走と同じ Determinate の installer。版は v3.23.1 に固定）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。閉包を
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
-4. S3 の `runs/<名前>/<ジョブ>/`（再開なら statepoint、前の起動のログなど）を作業ディレクトリに戻してから同期を始める。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
+4. S3 の `runs/<名前>/<ジョブ>/`（前の起動のログなど。statepoint は最新の 2 個だけ）を作業ディレクトリに戻してから同期を始める。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
 5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync` で作業ディレクトリを S3 に写す。ジョブが走っている間は、最新の statepoint
    （書いている途中でありうる）と同期の一覧の後に書き始めたものを写さず、`--delete` もしない（S3 の statepoint は完了まで増える。#0106）。
-   ジョブが成功した（`done` が 0）ときだけ、すべてを `--delete` つきで写し、S3 を結果の写しにする。
+   ジョブが成功した（`done` が 0）ときだけ、すべてを写してから `--delete` で S3 を結果の写しにする（途中で失敗しても statepoint が消えない順）。
    写ったものが壊れていても、再開は壊れたものを消して 1 つ前から続ける）。
    `done` とジョブのプロセスは 10 秒ごとに見て、ジョブが `done` を書かずに消えたら失敗で終わる
 6. 完了したら、最後の世代のほかの statepoint を消し、`SHA256SUMS`（ジョブのディレクトリの全ファイル）を書き、2 の順に置く。`done` は
@@ -179,7 +179,8 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
 VM にはキーペアを付けず、VPC の既定のセキュリティグループ（同じグループのインスタンスからの通信だけ）で起動し、IMDSv2 を必須にする。
 様子は `aws_status.sh`、S3 の `boot-*.log`、`aws ec2 get-console-output --instance-id <ID>` で見る。
 
-起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`done` が 0 の
+起動し直し（`aws_run.sh <名前>`、入力を省く）は、S3 の `launch.env` と `src/` を使い、手元の作業ツリーを読まない。`--type`、`--max-hours`、
+`--sync-minutes` は、指定がなければ最後の起動の記録（`launches/`）の値を使う。`done` が 0 の
 ジョブと、VM が走っているジョブは飛ばす。0 でないジョブ（失敗）は飛ばして示し、ほかのジョブは起動する（終わりの状態は 1。`boot-*.log` を見て、原因を直してから
 `aws s3 rm s3://<バケット>/runs/<名前>/<ジョブ>/done` で `done` を消すと、そのジョブも起動し直せる）。最後の世代の statepoint があって `done` が
 ないジョブ（完了のあと `done` を置く前に止まった）は起動せず、`SHA256SUMS` とログを確かめて手で `done` を置くよう示す。
