@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-12
 requires: [ADR-0068, ADR-0086]
 supersedes: []
@@ -40,7 +40,10 @@ OpenMC に固定した 1 次の近似で k に −212 pcm 効く。同じ群の 
   ときは +0.6%）、AIC のその範囲の吸収の差は k で −131 pcm 残り、2G の k の差は −113 pcm（k の推定値）にとどまった
   （OpenMC は ea8aa99b、2026-10-12）。平坦な群定数で解く MOC の空間の自己遮蔽が、減速計算の中性子束の形と合わないため。
   等価原理の +15% の断面積は、この中性子束の誤差を打ち消していた
-- 棒のリングごとの UFG の群定数に SPH 因子を掛ける（燃料のピンと同じ。採用）
+- 棒のリングごとの UFG の群定数に SPH 因子を掛ける（燃料のピンと同じ。採用）。c33c5135 で、2G の k の差は +63 pcm、AIC の
+  4〜9.877 eV の正味の吸収の差は k で −24 pcm、中性子束の差は −0.8%、AIC の核種の 4〜15.03 keV の計は +24 pcm になった（OpenMC は
+  c582b3ba の `openmc_balance.py`、2026-10-12）。3 つの版の 2G の k の差は、等価原理 −212 pcm、棒の平均を全リングに −102 pcm、
+  リングごと +63 pcm（xlc は順に e4dbc0de、2b83441b、c33c5135。参照解 0.848986 との差）
 
 ## 決定と理由
 
@@ -61,9 +64,16 @@ OpenMC に固定した 1 次の近似で k に −212 pcm 効く。同じ群の 
 
 ### 帰結
 
+- 2G の k の差は −212 pcm から +63 pcm になり、吸収体のない 2E-empty（+45 pcm）からの変化は −257 pcm から +18 pcm になった。
+  2H（B4C）は分離共鳴の核種を持たず、0.789520 のまま。ピン出力の差は 2G で rms 0.12%、最大 −0.38%（(9, 8)）
+- 吸収体のリングの数は k に効く（5 リングは収束した値より 2G で約 −9 pcm。2G は等面積の 5、10、20 リングで 0.849616、0.849682、
+  0.849699）。リングの数は #0059 で扱う
 - 範囲の下（4 eV より下）の In-115 の 1.46 eV の共鳴の翼（28 群 +14%、31 群 +11%。k で −94 pcm）は残る（#0001）
 - 等価なセルの外の燃料の共鳴が、棒に入る中性子束に作るくぼみは入らない（燃料のピンの等価なセルと同じ近似）
 
 ### 確認
 
-`absorber_rods_are_shielded_by_slowing_down`、`absorber_rod_rings_take_their_own_cross_sections`。2G の内訳は examples/vera/verification.md の「k の差の内訳」の 2G の節。
+`absorber_rods_are_shielded_by_slowing_down`、`absorber_rod_rings_take_their_own_cross_sections`、`physical_flux_restores_the_rod_sph_factors`。
+
+2G の k は 0.849616、OpenMC（参照解）は 0.848986 ± 0.000050 で、差は +63 pcm（xlc は c33c5135、2026-10-13。#0082 の作業で
+rebase の前後とも同じ値）。2G の内訳は examples/vera/verification.md の「k の差の内訳」の 2G の節。
