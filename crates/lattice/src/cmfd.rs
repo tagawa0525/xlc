@@ -436,13 +436,21 @@ pub(crate) struct Coarse {
     /// [セル] の核分裂源 V χ νΣf を、核分裂のスペクトルごとの項の和として持つ（密な群×群の行列にすると、
     /// 右辺の計算が群の数の2乗になる）
     fission: Vec<Vec<Spectrum>>,
-    /// [セル] の対角のブロック（群×群）の LU 分解（Gauss-Seidel で解くとき。`chain` があれば空）
-    blocks: Vec<Lu>,
-    /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)。方程式は
-    /// A_c φ_c + Σ 係数 φ_隣 = V F φ_c / k
-    neighbors: Vec<Vec<(usize, Vec<f64>)>>,
-    /// 結合がチェーンのとき（`Chain`）、ブロック三重対角の直接解法の係数
-    chain: Option<Chain>,
+    solver: Solver,
+}
+
+/// 粗メッシュの行列と、その解き方。方程式は A_c φ_c + Σ 係数 φ_隣 = V F φ_c / k
+#[derive(Debug, Clone)]
+enum Solver {
+    /// べき乗法の反復ごとにブロック Gauss-Seidel を 1 回
+    GaussSeidel {
+        /// [セル] の対角のブロック（群×群）の LU 分解
+        blocks: Vec<Lu>,
+        /// [セル] の隣のセルとの結合: (隣のセル, [群] の係数)
+        neighbors: Vec<Vec<(usize, Vec<f64>)>>,
+    },
+    /// 1 行か 1 列の格子で、ブロック三重対角の直接解法の逆反復
+    Chain(Chain),
 }
 
 /// 代表のセル c の隣が c − 1 と c + 1 だけの結合（1 行か 1 列の格子）。行列はブロック三重対角になる。
@@ -768,16 +776,15 @@ impl Coarse {
     ) -> Result<Self, CmfdError> {
         // 代表が 1 つなら Gauss-Seidel の 1 回が直接解法と同じ。2 次元の格子は、対称性で代表がチェーンになっても
         // Gauss-Seidel のまま（ADR-0158）
-        let (blocks, chain) = if line && cells.len() >= 2 {
-            let chain = Chain::new(groups, &cells, matrices, &neighbors)?;
-            (Vec::new(), Some(chain))
+        let solver = if line && cells.len() >= 2 {
+            Solver::Chain(Chain::new(groups, &cells, matrices, &neighbors)?)
         } else {
             let blocks = matrices
                 .into_iter()
                 .zip(&cells)
                 .map(|(a, &cell)| Lu::new(a, groups).ok_or(CmfdError::Singular(cell)))
                 .collect::<Result<Vec<_>, _>>()?;
-            (blocks, None)
+            Solver::GaussSeidel { blocks, neighbors }
         };
         Ok(Self {
             groups,
@@ -785,9 +792,7 @@ impl Coarse {
             sizes,
             flux,
             fission,
-            blocks,
-            neighbors,
-            chain,
+            solver,
         })
     }
 
@@ -808,9 +813,11 @@ impl Coarse {
     /// 固有値問題を `k` から解き始め、k と [代表のセル][群] の中性子束の比（解 / 均質化した中性子束、
     /// どちらも生成率 1 に規格化）を返す。
     pub fn solve(&self, k: f64, options: &CmfdOptions) -> Result<(f64, Vec<f64>), CmfdError> {
-        match &self.chain {
-            Some(chain) => self.solve_chain(chain, k, options),
-            None => self.solve_gauss_seidel(k, options),
+        match &self.solver {
+            Solver::Chain(chain) => self.solve_chain(chain, k, options),
+            Solver::GaussSeidel { blocks, neighbors } => {
+                self.solve_gauss_seidel(blocks, neighbors, k, options)
+            }
         }
     }
 
@@ -902,11 +909,13 @@ impl Coarse {
     /// Gauss-Seidel でも解が変わらないので、内側の反復を収束させなくても固有値問題の解になる。
     fn solve_gauss_seidel(
         &self,
+        blocks: &[Lu],
+        neighbors: &[Vec<(usize, Vec<f64>)>],
         k: f64,
         options: &CmfdOptions,
     ) -> Result<(f64, Vec<f64>), CmfdError> {
         let ng = self.groups;
-        let cells = self.blocks.len();
+        let cells = blocks.len();
         let start = self.production(&self.flux);
         let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
         let mut k = k;
@@ -924,12 +933,12 @@ impl Coarse {
                         *r += x * rate;
                     }
                 }
-                for (other, coefficients) in &self.neighbors[c] {
+                for (other, coefficients) in &neighbors[c] {
                     for g in 0..ng {
                         rhs[g] -= coefficients[g] * phi[other * ng + g];
                     }
                 }
-                self.blocks[c].solve(&mut rhs);
+                blocks[c].solve(&mut rhs);
                 phi[c * ng..][..ng].copy_from_slice(&rhs);
             }
             let rate = self.production(&phi);
