@@ -363,11 +363,11 @@ pub fn slowing_down_with(
             .map(|row| match &table {
                 None => {
                     let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
-                    cell.tracks(&totals)
+                    cell.tracks(&totals).map_err(UfgError::from)
                 }
                 Some((table, first)) => {
                     let sigma: Vec<f64> = first.iter().map(|&i| total(&entries[i], row)).collect();
-                    Ok(table.tracks(&sigma))
+                    table.tracks(&sigma).map_err(UfgError::from)
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -468,6 +468,11 @@ fn track_table(
             .collect::<Result<Vec<_>, _>>()?;
         for (range, &i) in ranges.iter_mut().zip(&first) {
             let t = total(&entries[i], &row);
+            // 格子点ごとに求めるとき（[`Cylinder::tracks`]）と同じく、有限で負でない全断面積だけを受ける
+            // （min と max は NaN を飛ばすので、ここで止める）
+            if !(t.is_finite() && t >= 0.0) {
+                return Err(CpError::Total(i).into());
+            }
             range[0] = range[0].min(t);
             range[1] = range[1].max(t);
         }
