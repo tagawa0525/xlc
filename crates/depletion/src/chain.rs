@@ -8,7 +8,7 @@
 //!  nuclides: [{name: "U-235", z, a, state (LISO), excitation (eV),
 //!              decay: {half_life (s), energy: {light, electromagnetic, heavy} (eV),
 //!                      modes: [{mode: "beta-,n", ratio, products: [{nuclide (添字), count}]}]}、安定なら nil,
-//!              reactions: [{mt, channels: [{final_state: {mf, lfs}（状態に分けないなら nil）, products}]}],
+//!              reactions: [{mt, channels: [{final_state: {mf, lfs（残りは nil）}（状態に分けないなら nil）, products}]}],
 //!              fission: {yield_source: "U-238", energies: [eV、昇順], yields: [[{nuclide, value}]（エネルギーの順）]}
 //!                       （核分裂しないなら nil）}]}
 //! ```
@@ -133,7 +133,9 @@ pub struct Channel {
 #[serde(deny_unknown_fields)]
 pub struct FinalState {
     pub mf: u32,
-    pub lfs: u32,
+    /// 状態（LFS）。`None` は、MF8 が基底状態を挙げない反応の、挙げた状態を除いた残り（基底状態へ）
+    #[serde(deserialize_with = "nil_or")]
+    pub lfs: Option<u32>,
 }
 
 /// 核分裂の収率。

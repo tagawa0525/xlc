@@ -432,3 +432,81 @@ fn the_matrix_depletes_like_the_entries() {
     let n = crate::deplete(&a, &n0, 1e5, crate::CramOrder::Order48).unwrap();
     assert!(n[I135] > 0.0 && n[XE135] > 0.0, "{n:?}");
 }
+
+#[test]
+fn rejects_names_that_disagree_with_z_a_and_state() {
+    for name in ["U-238", "Np-235", "U-235m", "Xe-136"] {
+        let mut chain = small_chain();
+        chain.nuclides[U235].name = name.into();
+        assert!(invalid(&chain).contains(name), "{name}");
+    }
+}
+
+#[test]
+fn rejects_a_yield_source_outside_the_chain() {
+    let mut chain = small_chain();
+    chain.nuclides[U235].fission.as_mut().unwrap().yield_source = "Pu-239".into();
+    invalid(&chain);
+}
+
+#[test]
+fn rejects_repeated_or_unknown_reactions() {
+    let mut chain = small_chain();
+    let capture = chain.nuclides[U235].reactions[0].clone();
+    chain.nuclides[U235].reactions.push(capture);
+    invalid(&chain);
+    let mut chain = small_chain();
+    chain.nuclides[U235].reactions[0].mt = 18;
+    invalid(&chain);
+}
+
+fn split_capture(states: &[(u32, Option<u32>)]) -> Chain {
+    let mut chain = small_chain();
+    chain.nuclides[U235].reactions[0].channels = states
+        .iter()
+        .map(|&(mf, lfs)| Channel {
+            final_state: Some(FinalState { mf, lfs }),
+            products: vec![product(U236)],
+        })
+        .collect();
+    chain
+}
+
+#[test]
+fn accepts_a_remainder_channel_of_a_split_reaction() {
+    split_capture(&[(9, Some(1)), (9, None)]).check().unwrap();
+}
+
+#[test]
+fn rejects_repeated_final_states_or_other_files() {
+    invalid(&split_capture(&[(9, Some(1)), (9, Some(1))]));
+    invalid(&split_capture(&[(6, Some(0)), (6, Some(1))]));
+}
+
+#[test]
+fn rejects_unknown_decay_modes_and_products_of_spontaneous_fission() {
+    let mut chain = small_chain();
+    chain.nuclides[I135].decay.as_mut().unwrap().modes[0].mode = "beta".into();
+    invalid(&chain);
+    let mut chain = small_chain();
+    chain.nuclides[U235].decay.as_mut().unwrap().modes[0].mode = "sf".into();
+    invalid(&chain);
+}
+
+#[test]
+fn checks_the_chain_before_assembling() {
+    let mut chain = small_chain();
+    chain.nuclides[I135].decay.as_mut().unwrap().modes[0].ratio = 0.9;
+    let rates = chain.zero_rates();
+    assert!(matches!(
+        chain.matrix_entries(&rates),
+        Err(ChainError::Invalid(_))
+    ));
+}
+
+#[test]
+fn leaves_out_zero_rate_terms() {
+    let chain = small_chain();
+    let entries = chain.matrix_entries(&chain.zero_rates()).unwrap();
+    assert!(entries.iter().all(|&(_, _, v)| v != 0.0), "{entries:?}");
+}
