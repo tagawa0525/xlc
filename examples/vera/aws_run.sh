@@ -3,7 +3,7 @@
 # VM は user-data（aws_user_data.sh）で Nix とクロージャ、核データ、入力を S3 から取り、run_remote.sh で流し、S3 の
 # runs/<name>/<ジョブ>/ に同期し、終わると自分を終了する。手元はこのコマンドのあと要らない。
 #
-# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--az AZ] [--on-demand | --spot] <name> [<入力>...]
+# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--az AZ] [--on-demand | --spot] [--job J]... <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。クロージャ、核データ、スクリプトと入力を S3 に置く
@@ -17,12 +17,15 @@
 #              指定がなければ最後の起動の記録の値（固定を外すのは --az any）
 #   --on-demand  スポットでなくオンデマンドで起動する（中断が続くときの逃げ道。価格は約 2.5 倍）。起動し直しでは、
 #              指定がなければ最後の起動の記録の値。スポットに戻すのは --spot
+#   --job      起動し直しで、このジョブだけを対象にする（例 --job openmc-3A。複数回指定できる。無指定は全部）。名前は launch.env の
+#              INPUTS のジョブ名で、なければエラー。新しい実行では指定できない。done のあるジョブと VM が走っているジョブは今までどおり飛ばす。
+#              目的: 監視のスクリプトが、中断されたジョブごとに別の AZ やオンデマンドを選んで起動し直すため
 #   --dry-run  S3 に置かず起動もせず、ジョブごとの起動の引数（aws の --dry-run で検証）と user-data の要約を出す
 # バケットは XLC_BUCKET（既定 xlc-openmc-118645514640）、インスタンスプロファイルは xlc-openmc-vm。
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
@@ -31,12 +34,14 @@ az=
 market=
 name=""
 inputs=()
+jobs=()
 while (($#)); do
   case $1 in
     --help | -h) usage; exit 0 ;;
     --az) az=${2:?--az に値が要ります}; shift ;;
     --on-demand) [[ $market != spot ]] || { echo "--on-demand と --spot は同時に指定できない" >&2; exit 2; }; market=on-demand ;;
     --spot) [[ $market != on-demand ]] || { echo "--on-demand と --spot は同時に指定できない" >&2; exit 2; }; market=spot ;;
+    --job) jobs+=("${2:?--job に値が要ります}"); shift ;;
     --dry-run) dry=1 ;;
     --type) type=$2; shift ;;
     --max-hours) max_hours=$2; shift ;;
@@ -48,6 +53,7 @@ while (($#)); do
 done
 [[ -n $name ]] || { usage; exit 2; }
 [[ $name =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "name は英小文字、数字、- だけ: $name" >&2; exit 2; }
+((${#inputs[@]} == 0 || ${#jobs[@]} == 0)) || { echo "--job は起動し直し（入力を省く形）でだけ指定できる" >&2; exit 2; }
 [[ $max_hours =~ ^([1-9][0-9]*)?$ && $sync_minutes =~ ^([1-9][0-9]*)?$ ]] ||
   { echo "--max-hours と --sync-minutes は正の整数" >&2; exit 2; }
 # shellcheck source=aws_common.sh
@@ -198,8 +204,15 @@ else
   todo=()
   restart_flags=()
   stuck=0
+  all_jobs=()
+  for input in "${RUN_INPUTS[@]}"; do all_jobs+=("$(job_name "$input")"); done
+  for want in "${jobs[@]}"; do
+    [[ " ${all_jobs[*]} " == *" $want "* ]] || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
+  done
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
+    # --job があれば、それ以外のジョブは対象にしない（状態も示さない）
+    ((${#jobs[@]} == 0)) || [[ " ${jobs[*]} " == *" $job "* ]] || continue
     code=$(job_done "$name" "$job")
     if [[ $code == 0 ]]; then
       echo "$job: 完了"
