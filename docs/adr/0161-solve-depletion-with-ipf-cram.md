@@ -122,7 +122,7 @@ CRAM は定番のない数値計算として自前で書く（ADR-0006）。
 
 OpenMC との比較（examples/depletion/compare_openmc.py、入力は examples/depletion/cases.toml）: `openmc.deplete.cram` の
 `CRAM16`、`CRAM48` と xlc に同じ行列を与え、差の絶対値の最大を初期の数密度の最大で割ったものが 1e-13 以下であること
-（同じ有理近似を同じ係数で当てるので、差は線形の解法の丸めだけ）。結果（19e2548d、分岐点は main の 903ba01c、2026-10-14。
+（同じ有理近似を同じ係数で当てるので、差は線形の解法の丸めだけ）。結果（a1ea7afa、分岐点は main の 903ba01c、2026-10-14。
 Slurm のジョブ 309）:
 
 | 行列                                                          | 次数 16 の差 | 次数 48 の差 | OpenMC の 16 と 48 の差 |
