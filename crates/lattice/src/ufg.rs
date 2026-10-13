@@ -67,6 +67,10 @@ pub enum UfgError {
     Cp(#[from] CpError),
     #[error(transparent)]
     Table(#[from] TableError),
+    #[error(
+        "ring {0}: the total cross section is 0 at some lethargy point, so the track table cannot cover it (use `track-table = false`)"
+    )]
+    ZeroTotal(usize),
 }
 
 /// セルの減速計算の結果。
@@ -473,11 +477,23 @@ fn track_table(
             if !(t.is_finite() && t >= 0.0) {
                 return Err(CpError::Total(i).into());
             }
+            // 表は ln Σ の格子なので、全断面積が 0 になる物質は表にできない（格子点ごとに求めれば解ける）
+            if t == 0.0 {
+                return Err(UfgError::ZeroTotal(i));
+            }
             range[0] = range[0].min(t);
             range[1] = range[1].max(t);
         }
     }
-    Ok((TrackTable::new(cell, classes, &ranges, density)?, first))
+    let table = TrackTable::new(cell, classes, &ranges, density)?;
+    if table.nodes() >= points.len() {
+        tracing::warn!(
+            nodes = table.nodes(),
+            points = points.len(),
+            "the track table has as many nodes as the lethargy points; `track-table = false` would be no slower"
+        );
+    }
+    Ok((table, first))
 }
 
 /// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step` より広いところは点を足す。
@@ -695,7 +711,8 @@ impl Sweep<'_> {
         };
         let k: Vec<f64> = (0..n).map(|i| source(i, &known[i])).collect();
         let c: Vec<f64> = (0..n).map(|i| source(i, &own[i])).collect();
-        // W は対称なので W_ij = W_ji
+        // tracks[j][i] は、リング i の線源からリング j の中を飛ぶ長さ W_ij。表から内挿した飛程は対称でないので、
+        // この向きで読む（格子点ごとに求めた W は対称で、向きによらない）
         let matrix: Vec<f64> = tracks
             .iter()
             .zip(self.volumes)
