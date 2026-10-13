@@ -7304,12 +7304,16 @@ stages:
       size: 4498
     - path: openmc_core_2d.py
       hash: md5
-      md5: 704f74e6941731aef6b4020acbd52f02
-      size: 17877
+      md5: 977cdb08db9be659099afbbf20065283
+      size: 18113
     - path: openmc_model.py
       hash: md5
-      md5: ace7409d2ead2656743251ea28a0ecd4
-      size: 26730
+      md5: 643b0c319c1aa3aa9ac539928cb86334
+      size: 28239
+    - path: openmc_tallies.py
+      hash: md5
+      md5: 60cd9040a5e70e11dfb04c0866bc4710
+      size: 12878
     - path: p5/openmc-5A-2D.toml
       hash: md5
       md5: 327a21d95fe0dc0a6ef6fa1c9a5adfd1
