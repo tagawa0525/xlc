@@ -160,3 +160,17 @@ fn table_rejects_points_outside_its_range() {
     assert!(jk_interpolated(1.0e-8, 1.0).is_err());
     assert!(jk_interpolated(1.0, 1.0e-5).is_err());
 }
+
+#[test]
+fn table_covers_resonances_narrower_than_a_thousandth_of_the_doppler_width() {
+    // θ = Γ/Δ が 1e-3 より小さい非分離共鳴（Nd-148、Nd-150、Sm-154、Gd-160 の 565〜1200 K、Au-197 の θ ≈ 2e-9。#0119）でも、
+    // 補間が直接の積分と表の精度で合う
+    for theta in [9.0e-4, 1.0e-4, 1.0e-6, 2.0e-9] {
+        for beta in [1.0e-6, 1.0e-2, 1.0, 1.2e5, 1.9e8] {
+            let (j, k) = jk_interpolated(beta, theta).unwrap();
+            let direct = jk_integrals(&[beta], theta).unwrap()[0];
+            assert_rel(j, direct.0, 1e-6);
+            assert_rel(k, direct.1, 1e-6);
+        }
+    }
+}
