@@ -155,6 +155,18 @@ rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python
 rejects "空白を含む入力" us-east-2 xlc-openmc-test trial openmc-3A 'a b.toml' 0 "${tail_args[@]}"
 rejects "引数が足りない" "${args[@]}" 0 840
 
+# 起動し直しで statepoint の間隔を上書きする（ADR-0168）。実装の前なので、呼ばずに置く（skip）
+interval_tests() {
+  local fresh_50 restart_50 base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli")
+  fresh_50=$(aws_user_data "${args[@]}" 0 "${base[@]}" 50)
+  restart_50=$(aws_user_data "${args[@]}" 1 "${base[@]}" 50)
+  contains "$fresh_50" 'bash examples/vera/run_remote.sh --statepoint-interval 50 trials/aws/openmc-3A.toml' fresh_50
+  contains "$restart_50" 'bash examples/vera/run_remote.sh --restart --statepoint-interval 50 trials/aws/openmc-3A.toml' restart_50
+  bash -n <<< "$fresh_50" || fail "fresh_50: bash の構文"
+  rejects "間隔が 0" "${args[@]}" 0 "${base[@]}" 0
+  rejects "間隔が数でない" "${args[@]}" 0 "${base[@]}" 5x
+}
+
 if ((failures)); then
   echo "$failures 件の失敗" >&2
   exit 1
