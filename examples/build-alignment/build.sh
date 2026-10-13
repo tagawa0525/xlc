@@ -31,6 +31,11 @@ if env | grep -E "$env_flags" >/dev/null; then
   echo "compile or link settings are set in the environment: $(env | grep -oE "$env_flags" | tr '\n' ' ')" >&2
   exit 1
 fi
+# devShell に入ったディレクトリが RUNPATH に入らないよう、scripts/build-binaries.sh と同じく default の devShell の中で実行する
+if [[ "${NIX_NO_SELF_RPATH:-}" != 1 ]]; then
+  echo "NIX_NO_SELF_RPATH is not 1; run this in the default devShell of flake.nix (ADR-0159)" >&2
+  exit 1
+fi
 mkdir -p "$work" "$here/bin"
 for c in "$@"; do
   rm -rf "$work/src-$c"; mkdir -p "$work/src-$c"
@@ -40,6 +45,8 @@ for c in "$@"; do
     cfg=()
     [ -n "$f" ] && cfg=(--config "target.x86_64-unknown-linux-gnu.rustflags=[$f]")
     # コミットごとに target を分ける（同じ target を再利用すると、パッケージの名前が同じなので作り直さないことがある）
+    # cargo はリンクの環境を fingerprint に含めないので、再利用する target でも 3 つのパッケージを消してから作る
+    (cd "$work/src-$c" && cargo clean -q --release --target-dir "$work/target-$c-$v" -p xlc-xs -p xlc-lattice -p xlc-core)
     (cd "$work/src-$c" && cargo build -q --release --locked -p xlc-xs -p xlc-lattice -p xlc-core \
       --target-dir "$work/target-$c-$v" "${cfg[@]}")
     for b in xs lattice core; do cp "$work/target-$c-$v/release/$b" "$here/bin/$b-$c-$v"; done
