@@ -1107,8 +1107,14 @@ def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
 
 
 def layer_files(text: str) -> list[str]:
+    """`layers = ["a", "b"]` の行が並べる、すべての層のファイル"""
     return sorted(
-        {line.split('"')[1] for line in text.splitlines() if line.startswith("layers")}
+        {
+            f
+            for line in text.splitlines()
+            if line.startswith("layers")
+            for f in line.split('"')[1::2]
+        }
     )
 
 
