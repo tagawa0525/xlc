@@ -1,5 +1,5 @@
 use super::*;
-use crate::endf::{BwLValue, BwResonance};
+use crate::endf::{BwLValue, BwResonance, Tab1};
 use crate::physics::wave_number_factor;
 use crate::resonance::reich_moore_tests::{AP, AWRI, single_level_exact};
 use std::f64::consts::PI;
@@ -32,7 +32,7 @@ fn single_s_wave_level_matches_exact_breit_wigner() {
     let xs = MlbwXs::new(&single(OrbitalL::S, 0.0, 0.5, 6.674, widths));
     for e in [1.0e-3, 1.0, 6.674, 6.7, 100.0] {
         let (a, b) = (
-            xs.cross_sections(e),
+            xs.cross_sections(e).unwrap(),
             single_level_exact(e, widths.0, widths.1, widths.2),
         );
         assert_close(a.elastic, b.elastic, &format!("elastic at {e}"));
@@ -52,7 +52,7 @@ fn missing_spin_states_add_hard_sphere_scattering() {
     let rho = k * AP;
     let phi = rho - rho.atan();
     let expected = 4.0 * PI / (k * k) * 3.0 * phi.sin().powi(2);
-    let sigma = xs.cross_sections(e);
+    let sigma = xs.cross_sections(e).unwrap();
     assert!(
         (sigma.elastic - expected).abs() <= 1e-6 * expected,
         "{} vs {expected}",
@@ -69,7 +69,11 @@ fn level_shift_vanishes_at_resonance_energy() {
     let g = 2.0;
     let width = gn + gg;
     let expected = PI * g * gn * gg / (k * k * width * width / 4.0);
-    assert_close(xs.cross_sections(er).capture, expected, "capture peak");
+    assert_close(
+        xs.cross_sections(er).unwrap().capture,
+        expected,
+        "capture peak",
+    );
 }
 
 #[test]
@@ -103,7 +107,7 @@ fn energy_dependent_radius_sets_the_s_wave_phase_shift_at_each_energy() {
         let k = wave_number_factor() * awri / (awri + 1.0) * f64::sqrt(e);
         let expected = 4.0 * PI / (k * k) * (k * radius).sin().powi(2);
         assert_close(
-            xs.cross_sections(e).elastic,
+            xs.cross_sections(e).unwrap().elastic,
             expected,
             &format!("elastic at {e}"),
         );
@@ -142,9 +146,27 @@ fn energy_dependent_radius_keeps_the_awri_channel_radius_near_a_p_wave_resonance
             ap_energy: None,
             ..bw.clone()
         });
-        let (a, b) = (xs.cross_sections(e), constant.cross_sections(e));
+        let (a, b) = (
+            xs.cross_sections(e).unwrap(),
+            constant.cross_sections(e).unwrap(),
+        );
         assert_close(a.elastic, b.elastic, &format!("elastic at {e}"));
         assert_close(a.capture, b.capture, &format!("capture at {e}"));
         assert_close(a.total, b.total, &format!("total at {e}"));
     }
+}
+
+#[test]
+fn energy_outside_the_radius_table_is_error() {
+    // 散乱半径の表は範囲を覆うものだけを MF2 から読むが、表の外のエネルギーを外挿しない
+    let data = Mlbw {
+        ap_energy: Some(Tab1::linear(vec![1.0, 10.0], vec![0.7, 0.6])),
+        ..single(OrbitalL::S, 0.0, 0.5, 6.674, (1.5e-3, 2.3e-2, 0.0))
+    };
+    let xs = MlbwXs::new(&data);
+    assert!(xs.cross_sections(5.0).is_ok());
+    assert!(matches!(
+        xs.cross_sections(20.0),
+        Err(MlbwError::RadiusTable { energy }) if energy == 20.0
+    ));
 }
