@@ -308,3 +308,125 @@ fn rejects_a_range_off_the_group_bounds() {
     // リングの数が合わない
     assert!(slowing_down(&lib, &cell, &[Some(&water); 2], [4.0, 1.0e4]).is_err());
 }
+
+/// 200 eV の強い吸収の共鳴を持つ燃料、真空のギャップ、水のセル（[`resonance_is_shielded_more_inside_the_fuel`] と同じ）
+fn resonant_cell(total_at_peak: f64) -> (Library, MaterialInput, MaterialInput) {
+    let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
+    let mut energies: Vec<f64> = (0..=400).map(|k| 180.0 + 0.1 * k as f64).collect();
+    energies.splice(0..0, [4.0, 100.0]);
+    energies.extend([1.0e3, 2.0e4]);
+    // 共鳴の頂点（180 eV から 200 番目の点）の全断面積だけを `total_at_peak` にする
+    let peak = 2 + 200;
+    let points = energies
+        .iter()
+        .enumerate()
+        .map(|(i, &e)| {
+            let total = if i == peak {
+                total_at_peak
+            } else {
+                11.0 + resonance(e)
+            };
+            [e, total, 11.0, 0.0]
+        })
+        .collect();
+    let lib = library(vec![
+        Spec {
+            name: "U-238",
+            awr: 236.0,
+            top: Some(2.0e4),
+            points,
+        },
+        constant("U-235", 233.0, 10.0, 8.0, 1.0),
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        constant("O-16", 15.86, 3.8, 3.8, 0.0),
+    ]);
+    let fuel = material(&[("U-238", 0.022), ("U-235", 0.0005), ("O-16", 0.045)]);
+    let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
+    (lib, fuel, water)
+}
+
+#[test]
+fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
+    // ADR-0156: 既定の表（10 倍あたり 16 点）で内挿した飛程の群定数は、格子点ごとに求めた飛程の群定数と近い
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let solve =
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+    let (table, exact) = (solve(Collision::default()), solve(Collision::Exact));
+    for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
+        for (k, (t, e)) in t.iter().zip(e).enumerate() {
+            let fields = [
+                (&t.total, &e.total),
+                (&t.elastic, &e.elastic),
+                (&t.fission, &e.fission),
+                (&t.nu_fission, &e.nu_fission),
+            ];
+            for (f, (a, b)) in fields.into_iter().enumerate() {
+                for (g, (a, b)) in a.iter().zip(b).enumerate() {
+                    let d = if *b == 0.0 {
+                        a.abs()
+                    } else {
+                        (a / b - 1.0).abs()
+                    };
+                    assert!(
+                        d < 1e-6,
+                        "ring {ring} nuclide {k} field {f} group {g}: {a} vs {b}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn non_finite_totals_stop_with_the_table_as_without() {
+    // 格子点の全断面積が NaN なら、表を作るときも、格子点ごとに求めるときと同じく止まる
+    let (lib, fuel, water) = resonant_cell(f64::NAN);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    for collision in [Collision::Exact, Collision::default()] {
+        let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision);
+        assert!(
+            matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
+            "{collision:?}: {:?}",
+            result.err()
+        );
+    }
+}
+
+#[test]
+fn zero_totals_stop_the_table_with_their_ring() {
+    // ln Σ の格子は Σ = 0 を覆えないので、表にできないリングを番号で示して止める
+    // 燃料は U-238 だけにして、共鳴の頂点の 1 点で全断面積を 0 にする
+    let (lib, _, water) = resonant_cell(0.0);
+    let fuel = material(&[("U-238", 0.022)]);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], Collision::default());
+    assert!(
+        matches!(result, Err(UfgError::ZeroTotal(0))),
+        "{:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn tables_with_as_many_nodes_as_points_are_refused() {
+    // 格子点ごとに求めるより点の多い表は、作る前に止める（10 倍あたり 10 万点で、燃料の全断面積の 3 桁ほどの範囲に約 27 万点。格子点は U-238 の散乱の窓で決まり、その数より多い）
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let result = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e4],
+        Collision::Table { density: 100_000 },
+    );
+    assert!(
+        matches!(result, Err(UfgError::TableTooLarge { .. })),
+        "{:?}",
+        result.err()
+    );
+}

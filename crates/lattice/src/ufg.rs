@@ -28,6 +28,7 @@ const WINDOW_POINTS: usize = 16;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
+use crate::track_table::{DEFAULT_DENSITY, TableError, TrackTable};
 use xlc_numeric::lu::solve;
 
 /// セルの UFG の範囲の上限の頭打ち (eV)。U-238 の分離共鳴の上端で、これより上は U-238 の非弾性散乱（45 keV から）と
@@ -64,6 +65,16 @@ pub enum UfgError {
     Lookup(#[from] LookupError),
     #[error(transparent)]
     Cp(#[from] CpError),
+    #[error(transparent)]
+    Table(#[from] TableError),
+    #[error(
+        "ring {0}: the total cross section is 0 at some lethargy point, so the track table cannot cover it (use `track-table = false`)"
+    )]
+    ZeroTotal(usize),
+    #[error(
+        "the track table needs {nodes} nodes, not fewer than the {points} lethargy points (use a smaller `track-table` or `track-table = false`)"
+    )]
+    TableTooLarge { nodes: usize, points: usize },
 }
 
 /// セルの減速計算の結果。
@@ -163,13 +174,43 @@ impl Data<'_> {
     }
 }
 
+/// 減速計算の格子点ごとの飛程の求め方。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Collision {
+    /// 格子点ごとに衝突確率法で求める（表の検証の基準）
+    Exact,
+    /// 物質ごとの ln Σ の格子（10 倍あたり `density` 点）で求めた値から内挿する（[`TrackTable`]。ADR-0156）
+    Table { density: usize },
+}
+
+impl Default for Collision {
+    /// ADR-0156 の既定
+    fn default() -> Self {
+        Self::Table {
+            density: DEFAULT_DENSITY,
+        }
+    }
+}
+
 /// セル `cell` の、範囲 `range`（[`cell_range`]）の減速計算。`rings` はリングごとの物質（真空は `None`）。
-#[tracing::instrument(name = "ufg", level = "debug", skip_all)]
+/// 飛程は既定の求め方（[`Collision::default`]）で求める。
 pub fn slowing_down(
     library: &Library,
     cell: &Cylinder,
     rings: &[Option<&MaterialInput>],
     range: [f64; 2],
+) -> Result<CellSpectrum, UfgError> {
+    slowing_down_with(library, cell, rings, range, Collision::default())
+}
+
+/// [`slowing_down`] の、飛程の求め方を `collision` で選ぶもの。
+#[tracing::instrument(name = "ufg", level = "debug", skip_all)]
+pub fn slowing_down_with(
+    library: &Library,
+    cell: &Cylinder,
+    rings: &[Option<&MaterialInput>],
+    range: [f64; 2],
+    collision: Collision,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -301,6 +342,12 @@ pub fn slowing_down(
         slabs: vec![(0.0, Vec::new()); data.len()],
     };
 
+    // 表で内挿するなら、物質（組成と温度が同じリング）ごとの全断面積の範囲を格子点の全体で先に求めて表を作る
+    let table = match collision {
+        Collision::Exact => None,
+        Collision::Table { density } => Some(track_table(cell, &data, &entries, &points, density)?),
+    };
+
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     // 段ごとの壁時計の時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
     // スレッドがほかのピンの仕事を盗むと、その時間も衝突確率に入るので、段の割合は 1 スレッドで測る
@@ -321,12 +368,15 @@ pub fn slowing_down(
         let evaluated = Instant::now();
         let tracks = values
             .par_iter()
-            .map(|row| {
-                let totals: Vec<f64> = entries
-                    .iter()
-                    .map(|ring| ring.iter().map(|&(k, d)| d * row[k][0]).sum())
-                    .collect();
-                cell.tracks(&totals)
+            .map(|row| match &table {
+                None => {
+                    let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
+                    cell.tracks(&totals).map_err(UfgError::from)
+                }
+                Some((table, first)) => {
+                    let sigma: Vec<f64> = first.iter().map(|&i| total(&entries[i], row)).collect();
+                    table.tracks(&sigma).map_err(UfgError::from)
+                }
             })
             .collect::<Result<Vec<_>, _>>()?;
         let collided = Instant::now();
@@ -383,6 +433,71 @@ pub fn slowing_down(
         flux: sweep.group_flux,
         nuclides,
     })
+}
+
+/// リングの全断面積 Σ_k N_k σ_k（`row` は [核種] のポイントワイズの断面積）
+fn total(ring: &[(usize, f64)], row: &[[f64; 4]]) -> f64 {
+    ring.iter().map(|&(k, d)| d * row[k][0]).sum()
+}
+
+/// セルの飛程の表と、[物質] の最初のリングの番号。同じ組成（核種と温度、個数密度）のリングは全断面積が同じなので
+/// 1 つの物質にまとめる。範囲は格子点 `points` の全体の全断面積の最小と最大
+fn track_table(
+    cell: &Cylinder,
+    data: &[Data],
+    entries: &[Vec<(usize, f64)>],
+    points: &[(f64, bool)],
+    density: usize,
+) -> Result<(TrackTable, Vec<usize>), UfgError> {
+    let mut first: Vec<usize> = Vec::new();
+    let classes: Vec<Option<usize>> = entries
+        .iter()
+        .enumerate()
+        .map(|(i, ring)| {
+            if ring.is_empty() {
+                return None;
+            }
+            Some(match first.iter().position(|&r| entries[r] == *ring) {
+                Some(m) => m,
+                None => {
+                    first.push(i);
+                    first.len() - 1
+                }
+            })
+        })
+        .collect();
+    let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; first.len()];
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
+    for &(e, below) in points {
+        let row = data
+            .iter()
+            .zip(cursors.iter_mut())
+            .map(|(d, c)| evaluate(d, c, e, below))
+            .collect::<Result<Vec<_>, _>>()?;
+        for (range, &i) in ranges.iter_mut().zip(&first) {
+            let t = total(&entries[i], &row);
+            // 格子点ごとに求めるとき（[`Cylinder::tracks`]）と同じく、有限で負でない全断面積だけを受ける
+            // （min と max は NaN を飛ばすので、ここで止める）
+            if !(t.is_finite() && t >= 0.0) {
+                return Err(CpError::Total(i).into());
+            }
+            // 表は ln Σ の格子なので、全断面積が 0 になる物質は表にできない（格子点ごとに求めれば解ける）
+            if t == 0.0 {
+                return Err(UfgError::ZeroTotal(i));
+            }
+            range[0] = range[0].min(t);
+            range[1] = range[1].max(t);
+        }
+    }
+    // 格子点ごとに求めるより多くの衝突確率を求める表は、作る意味がなく、メモリも大きいので、作る前に止める
+    let nodes = TrackTable::count(&ranges, density)?;
+    if nodes >= points.len() {
+        return Err(UfgError::TableTooLarge {
+            nodes,
+            points: points.len(),
+        });
+    }
+    Ok((TrackTable::new(cell, classes, &ranges, density)?, first))
 }
 
 /// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step` より広いところは点を足す。
@@ -600,7 +715,8 @@ impl Sweep<'_> {
         };
         let k: Vec<f64> = (0..n).map(|i| source(i, &known[i])).collect();
         let c: Vec<f64> = (0..n).map(|i| source(i, &own[i])).collect();
-        // W は対称なので W_ij = W_ji
+        // tracks[j][i] は、リング i の線源からリング j の中を飛ぶ長さ W_ij。表から内挿した飛程は対称でないので、
+        // この向きで読む（格子点ごとに求めた W は対称で、向きによらない）
         let matrix: Vec<f64> = tracks
             .iter()
             .zip(self.volumes)

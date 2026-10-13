@@ -15,7 +15,7 @@ use serde::Serialize;
 use xlc_format::library::Library;
 use xlc_format::msgpack::to_named;
 use xlc_lattice::input::{CrossSections, LatticeInput};
-use xlc_lattice::shielding::{ShieldingOptions, shield_fuel, shielded_nuclide};
+use xlc_lattice::shielding::{shield_fuel, shielded_nuclide};
 use xlc_lattice::tracking::Tracking;
 
 #[derive(Serialize)]
@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<()> {
         &tracking,
         &input.materials,
         &regions,
-        &ShieldingOptions::default(),
+        &input.shielding_options(),
     )?;
     let material = input
         .materials
