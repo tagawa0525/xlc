@@ -160,13 +160,15 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
 2. 終わり方によらず、作業ディレクトリ、`/var/log/xlc-job.log`（`boot.log`）、`done` の順に `runs/<名前>/<ジョブ>/` に置いてから電源を切る
    （`trap finish EXIT`）。user-data が途中で失敗したら、その終了コードを `done` に書く。SIGTERM（スポットの回収、最長時間の
    shutdown、手元からの終了）と同期の失敗では `done` を置かず、中断として起動し直せる。SIGTERM では `boot.log` も置かれないことがある
-   （確認で、手元から終了したときは置かれなかった）
+   （確認で、手元から終了したときは置かれなかった。原因は確かめていない。候補はシャットダウンでのネットワークの停止と、ログの tee が
+   先に消えたときの SIGPIPE で、後者は finish で無視するようにした）
 3. Nix を入れる（試走と同じ Determinate の installer）。AWS CLI（flake の nixpkgs の `awscli2`）を cache.nixos.org から取る。閉包を
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
 4. 再開なら、S3 の `runs/<名前>/<ジョブ>/` を作業ディレクトリに戻す。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
 5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync --delete` で作業ディレクトリを S3 に写す（作業ディレクトリの statepoint が
-   そのまま写る。走行中の間引きは効いていない。#0106。書いている途中のものが写っても、再開は壊れたものを消して 1 つ前から続ける）。
+   そのまま写る。走行中の間引きは効いていない。#0106。書かれて 60 秒たたない最新の statepoint は、書いている途中でありうるので写さない。
+   写ったものが壊れていても、再開は壊れたものを消して 1 つ前から続ける）。
    `done` とジョブのプロセスは 10 秒ごとに見て、ジョブが `done` を書かずに消えたら失敗で終わる
 6. 完了したら、最後の世代のほかの statepoint を消し、`SHA256SUMS`（ジョブのディレクトリの全ファイル）を書き、2 の順に置く。`done` は
    run と extract の終了コード。S3 に `done` があれば、ほかのファイルはすべて置いてある
@@ -180,12 +182,12 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 
 `done` も `boot.log` もないまま VM が消えるのは、中断のほかに、AWS CLI を入れる前（Nix の installer、cache.nixos.org）の失敗がある。
 起動し直しても同じように消えるなら、終了から約 1 時間のうちに `aws ec2 get-console-output --instance-id <ID> --latest` で cloud-init の
-出力を見る。最初の statepoint が書いている途中で写され、そのあと中断されると、起動し直しの `--restart` は読める statepoint がなく
-失敗する（`done` が 0 でない）。そのジョブは `aws s3 rm --recursive s3://<バケット>/runs/<名前>/<ジョブ>/` で消してから起動し直すと、
-最初から流れる。
+出力を見る。AWS CLI を入れたあとの準備（閉包、核データ、入力の取得）での失敗は、S3 の statepoint に触らずに `done` に終了コードを
+置く。原因を直したあと、そのジョブを続けるには `aws s3 rm s3://<バケット>/runs/<名前>/<ジョブ>/done` で `done` を消して起動し直す。
 
 `aws_fetch.sh` は `references/openmc/aws/<名前>/`（`--dest` で変えられる）に、`src/` と完了したジョブの結果を写し、`SHA256SUMS` で
-検証する。`--verify` は、取り出した statepoint から手元（`.#openmc-python`）で extract し、VM の結果とバイト一致を確かめる。
+検証する。`--verify` は、取り出した statepoint から VM と同じ Python（`launch.env` の store のパス。手元になければそのコミットで
+`nix build .#openmc-python`）で extract し、VM の結果とバイト一致を確かめる。置き場は S3 の写しにする（前の取り出しの残りは消す）。
 `--delete` は `--verify` が通り、すべてのジョブが完了したときだけ S3 の `runs/<名前>/` を消す。消し忘れても 30 日で失効する。
 
 費用（2026-10-13 の公開の単価。us-east-1）:
