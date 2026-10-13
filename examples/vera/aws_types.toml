@@ -1,0 +1,9 @@
+# aws_run.sh --type auto の候補の機種（ADR-0171）。速度は c7a.4xlarge を 1 とした 1 本あたりの走る速さの見積もりで、
+# 測っていない（vCPU 数と世代の見込み。c8a は c7a より約 20% 速いと見ている）。測ったら更新する。
+# 1 本の費用 = スポット価格 ÷ 速度 の安い順に起動を試す。メモリの条件は付けない（OpenMC は 1.4 GB しか使わない。
+# docs/environment.md の「自己完結な実行」）。
+[speed]
+"c8a.4xlarge" = 1.2
+"c8a.8xlarge" = 2.4
+"c7a.8xlarge" = 2.0
+"c7a.4xlarge" = 1.0
