@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-12
+status: accepted
+date: 2026-10-13
 requires: [ADR-0123, ADR-0130]
 supersedes: []
 superseded-by:
@@ -83,11 +83,21 @@ issues: ["#0089"]
 
 ## 確認
 
-- 検査が、本番のファイルの中のテストのコードを見つけて失敗し、移したあとの main で通ること
-- 移す前後で、release の実行ファイルが変わらないこと（変わるなら、`#[cfg(test)]` の項目を消して後ろの本体の行番号が
-  ずれたことによる位置の情報だけであること。2026-10-12 には、テストだけの項目の後ろに本体が続き、行がずれるのは
-  crates/numeric/src/pins/node.rs だけ）と、実行されるテストの集まりが変わらないこと。確認の方法は実装のブランチ
-  （#0089）で決め、結果はこの節に書く
+実装のブランチ（#0089、refactor/0089-move-tests。分岐点は main の 0268e5aa）で確認した（2026-10-13。b873a967 から rebase し直して、数と strip の比較をやり直した）。
+
+- 検査: scripts/check-no-inline-tests.sh を、`.pre-commit-config.yaml` の hook `no-inline-tests` と、
+  crates/docs/tests/consistency.rs の `production_sources_hold_no_test_code`（`cargo test` に含まれるので `run-checks.sh` でも走る。
+  `run-checks.sh` は pre-commit の設定のうち design-records の hook しか実行しない）から呼ぶ。分岐点（64 個のファイルにテストがある）では
+  失敗し、移したあとでは通る。照合は行単位の awk で、`#[test]`、`#[should_panic]`、`mod tests {`、test を含む `cfg` と `cfg_attr`、
+  `cfg!(` を禁じ、決定で残すもの（`#[cfg(test)]` の次の行が `mod tests;`、`pub(crate) mod tests;`、`#[path = "…tests.rs"]` に続く
+  `mod tests;`、パスが `tests` を通る `pub(crate) use`。入口の `#![cfg_attr(test, allow(clippy::disallowed_macros))]`）だけを許す。補助の
+  `pub(crate) use` を `tests.rs` に移して残すものを減らすことは、しなかった（呼び出し側が `crate::endf::mf5_tests` のように引いているため）
+- 実行されるテスト: クレートごとに `cargo test -p xlc-<crate> -- --list` の並べ替えた出力が、移す前後で完全に同じ（core 151、docs 57
+  （単体 52 と統合 5）、format 66、lattice 334、numeric 40、xs 315（単体 305 と main.rs の 10））
+- 実行ファイル: 分岐点と移したあとの `cargo build --release --workspace` の xs、lattice、core を `strip` して比べると、3 つともバイト単位で
+  一致した（`.text` と `.rodata` は strip の前でも一致）。位置の情報の差は strip で消える
+- テストだけの項目 4 個（format の `sample`、`sample_pins`、numeric の `modes_at`、`flux`）は、それぞれ fewgroup/tests.rs（`pub(crate) mod tests;`）と
+  pins/node/tests.rs の `impl` に移した
 
 ## 帰結
 
