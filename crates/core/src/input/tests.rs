@@ -1227,14 +1227,13 @@ fn partial_nodes_facing_a_marshak_or_vacuum_z_end_are_errors() {
     assert!(message.contains("axial reflector layer"), "{message}");
     let vacuum = "\"vacuum\", \"reflective\"";
     assert!(rodded_layout(&rodded_case_with_z(vacuum, "{ D = 0 }"), &plant).is_err());
-    // 最上段のノード [7, 10] の途中で棒が切れる
+    // D = 13 の先端 7.5 cm は最上段のノード [7, 10] の途中
     let top = "\"reflective\", \"marshak\"";
-    let cut = Plant::parse(
-        &edited(&format!("{PLANT}{RODS}"), "top = 10.0", "top = 8.0"),
-        base(),
-    )
-    .unwrap();
-    assert!(rodded_layout(&rodded_case_with_z(top, "{ D = 6 }"), &cut).is_err());
+    let err = rodded_layout(&rodded_case_with_z(top, "{ D = 13 }"), &plant).unwrap_err();
+    let InputError::Invalid(message) = err else {
+        panic!("{err:?}")
+    };
+    assert!(message.contains("upper z end"), "{message}");
 }
 
 #[test]
