@@ -26,6 +26,7 @@ set -euo pipefail
 # 安全装置: 何が起きても最長 $minutes 分で電源を切る（InstanceInitiatedShutdownBehavior=terminate なので終了する）
 shutdown -h +$minutes
 exec > >(tee -a /var/log/xlc-job.log) 2>&1
+TEE=\$!
 echo "xlc: start \$(date -u +%FT%TZ)"
 
 export HOME=/root AWS_DEFAULT_REGION=$region
@@ -71,7 +72,12 @@ finish() {
   set +e
   trap '' PIPE TERM
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
-  if ((READY && code != 0 && code != 143)); then
+  # シグナルでの終わり（128 以上。SIGTERM の 143、シャットダウンでジョブが殺されたときの done の値）は中断として扱い、
+  # done を置かない。ジョブの done も消して、同期が書いている途中の statepoint を除くようにする
+  if ((code >= 128)); then
+    rm -f "\$WORK/\$OUT/done"
+  fi
+  if ((READY && code != 0 && code < 128)); then
     mkdir -p "\$WORK/\$OUT"
     echo "\$code" > "\$WORK/\$OUT/done"
   fi
@@ -80,8 +86,11 @@ finish() {
       sync_out && { synced=1; break; }
       sleep 10
     done
+    # tee が書き終えてからログを置く（最後の行が欠けないように）
+    exec > /dev/null 2>&1
+    wait "\$TEE" 2> /dev/null || sleep 1
     "\$AWS" s3 cp --only-show-errors /var/log/xlc-job.log "\$PREFIX/\$BOOTLOG" || true
-    if ((synced && code != 143)) && [[ -f \$WORK/\$OUT/done ]]; then
+    if ((synced && code < 128)) && [[ -f \$WORK/\$OUT/done ]]; then
       "\$AWS" s3 cp --only-show-errors "\$WORK/\$OUT/done" "\$PREFIX/done" || true
     fi
   fi
