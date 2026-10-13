@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-binaries.sh — DVC の build の段階（リポジトリの直下の dvc.yaml）。xs、lattice、core の release の実行ファイルを
-# ビルドして bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
+# ビルドし、strip して bin/ に置く。examples/*/dvc.yaml の Rust の段階は、この実行ファイルを deps にして呼ぶ（ADR-0159）
 #
 # Usage: scripts/build-binaries.sh（リポジトリの直下で、default の devShell の中から。dvc repro が呼ぶ）
 #
@@ -41,5 +41,7 @@ for name in xs lattice core; do
     echo "ERROR: $built に worktree のパスか outputs/out/lib が埋まっている（ADR-0159）" >&2
     exit 1
   fi
-  cp -- "$built" "bin/$name"
+  # 記号表（.symtab、.strtab）は、計算に使わない内部の記号の名前（`.llvm.<数>` の添字）が、テストのモジュールの有無で
+  # 変わる。計算する節は同じでも md5 が変わるので、strip して bin/ に置く（ADR-0160）
+  strip -o "bin/$name" -- "$built"
 done
