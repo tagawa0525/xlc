@@ -63,11 +63,8 @@ if ((verify)); then
   python=$(nix build .#openmc-python --no-link --print-out-paths)/bin/python3
   for input in "${done_inputs[@]}"; do
     job=$(job_name "$input")
-    case $job in
-      openmc-3?) script=examples/vera/openmc_model_3d.py ;;
-      openmc-5?-2D) script=examples/vera/openmc_core_2d.py ;;
-      *) echo "$job: extract のツールが分かりません" >&2; exit 1 ;;
-    esac
+    script=$(job_script "$job")
+    [[ -n $script ]] || { echo "$job: extract のツールが分かりません" >&2; exit 1; }
     check=$(mktemp -d)
     "$python" "$dest/src/$script" extract "$dest/src/$input" "$dest/$job/run" "$check" > /dev/null
     n=0
