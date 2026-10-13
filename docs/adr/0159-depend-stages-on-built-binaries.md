@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-14
 requires: [ADR-0122, ADR-0126, ADR-0130]
 supersedes: [ADR-0123]
@@ -44,7 +44,7 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
 - 案 B: ソースを deps にしたまま、出力を変えない変更のあとで `dvc commit` して deps だけを取り込む。ADR-0143 が退けた形で、
   出力を変えないかの判断が人に残り、`dvc.lock` が、記録した deps のコードで走らせていない出力を指す（ADR-0130 の案 L と同じ）
 - 案 C: ビルドを DVC の外に置き、計算の段階の deps を `target/release/xs` などにする。ソースが変わっても、人がビルドする
-  まで DVC は古いと分からない。`target/release` は手で試すビルド（ADR-0157 の `cargo build --config` など）とも共有するので、
+  まで DVC は古いと分からない。`target/release` は手で試すビルド（`cargo build --config` でコンパイルの設定を変えたものなど）とも共有するので、
   段階がそのビルドを呼びうる。`target/` は `.dvcignore` で外してある
 - 案 D: 実行ファイルの md5 をテキストに書く段階を置き、それを deps にする。判定は案 A と同じだが、実行ファイルを
   キャッシュしないので、`dvc checkout` で出力を作った実行ファイルを戻せない。間に 1 つファイルが増えるだけで得るものがない
@@ -120,6 +120,7 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
 ## 確認
 
 測ったのは main の 387743fc のソース（ツールチェーン 1.99.0、ホームの設定は sccache、clang、mold）で、2026-10-14。
+`NIX_NO_SELF_RPATH` を足したあとの測定は、387743fc にこのブランチの adf77759 の devShell の変更を当てたもの。
 
 (a) 同じコミットを、パスの違う 2 つの worktree（`xlc-feat-0159-dvc-binary-deps` と、一時の `xlc-tmp-0159-repro`）で、
 それぞれの直下から `nix develop -c cargo build --release` した。xs はバイト 25、lattice と core はバイト 577 から違った。
@@ -162,7 +163,7 @@ examples/reflector の xs）を `dvc commit` した。`dvc.lock` の差分は、
   依存しないクレートの変更）では、`build` だけが走り（数秒〜十数秒）、計算の段階は走らない。#0089 のテストの移動は、
   実行ファイルがバイト一致すれば、`build` の `dvc.lock` を更新するだけで済む
 - 実行ファイルのバイトを変える変更は、出力を変えなくても計算の段階を走らせる。行の位置を変える整理（ADR-0144 の関数の
-  分割など）、ループの整列（ADR-0157）、ツールチェーン、`flake.lock` の glibc、ホームの設定のリンカ（mold の版は
+  分割など）、ループの整列（ブランチ perf/0105-code-alignment の `-align-loops`）、ツールチェーン、`flake.lock` の glibc、ホームの設定のリンカ（mold の版は
   `.comment` に入る）の変更がこれにあたる。行の位置で実行ファイルが変わる件は #0110 で扱う
 - `build` の deps にないもの（ホームの `~/.cargo/config.toml`、環境変数）を変えたときは、`dvc repro -f -s build` で作り
   直す。実行ファイルが変わらなければ、計算の段階は走らない
