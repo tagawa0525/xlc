@@ -8,9 +8,9 @@ ADR-0157（ループの先頭を 64 バイトに揃えてビルドする）を�
 - スクリプトと入力: このディレクトリの `build.sh`、`measure-xs.sh`、`measure-lattice-core.sh`、`measure-2A.sh`、
   `pincell-1B.toml`、`assembly-2A.toml`（examples/vera/p1/pincell-1B.toml と examples/vera/p2/assembly-2A.toml に、少数群定数の
   全桁の出力 `few-group` を足したもの）
-- 実行したコミット d3e3178f、分岐点 67f9c70a（main）、2026-10-14。実行ファイルは d3e3178f の default の devShell
+- 実行したコミット f2a655f1、分岐点 67f9c70a（main）、2026-10-14。実行ファイルは f2a655f1 の default の devShell
   （`nix develop`）の中で `build.sh` で作った。r995 の Slurm の排他のジョブ 313（xs）、317（lattice と core）、319（2A の繰り返し）、
-  323（M0 の炉心と 1B の繰り返し。`measure-repeat.sh`、2fdaa166）
+  323（M0 の炉心と 1B の繰り返し。`measure-repeat.sh`、f4bddda4）
 - 測った実行ファイル: 3 つのコミットのソースを `build.sh` で release でビルドしたもの。6d0f1a5e（main）、1a9da431 と 0c0c67a4
   （ブランチ perf/0088-line-shape-table のコミット。タグ `record/adr-0157-fast-placement` と `record/adr-0157-slow-placement`）。
   0c0c67a4 は 1a9da431 に、xs の依存の `num_cpus`（Cargo.toml と Cargo.lock）と `num_cpus::get_physical()` の呼び出しを足したもの
