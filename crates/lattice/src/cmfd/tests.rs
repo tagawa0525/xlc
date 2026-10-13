@@ -226,6 +226,11 @@ fn a_slab_with_a_positive_coupling_is_solved_without_the_shift() {
     assert!(!rebuilt.z_matrix);
     let options = CmfdOptions::default();
     let (k, ratio) = positive.solve(1.0, &options).unwrap();
+    // シフトなしの逆反復と同じ演算
+    let unshifted = positive
+        .inverse_iteration(rebuilt, 1.0, 0.0, &options)
+        .unwrap();
+    assert_eq!((k, &ratio), (unshifted.0, &unshifted.1));
     let (reference_k, reference) = build(false).solve(1.0, &options).unwrap();
     assert!((k - reference_k).abs() < 1e-9, "{k} vs {reference_k}");
     for (a, b) in ratio.iter().zip(&reference) {
