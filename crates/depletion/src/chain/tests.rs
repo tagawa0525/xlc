@@ -587,3 +587,23 @@ fn leaves_out_zero_rate_terms() {
     let entries = chain.matrix_entries(&chain.zero_rates()).unwrap();
     assert!(entries.iter().all(|&(_, _, v)| v != 0.0), "{entries:?}");
 }
+
+#[test]
+fn rejects_a_product_listed_twice() {
+    let mut chain = small_chain();
+    chain.nuclides[U235].reactions[0].channels[0]
+        .products
+        .push(product(U236));
+    invalid(&chain);
+    let mut chain = small_chain();
+    let first = chain.nuclides[U235].fission.as_ref().unwrap().yields[0][0];
+    chain.nuclides[U235].fission.as_mut().unwrap().yields[0].push(first);
+    invalid(&chain);
+}
+
+#[test]
+fn rejects_an_excited_ground_state() {
+    let mut chain = small_chain();
+    chain.nuclides[U236].excitation = 1e3;
+    invalid(&chain);
+}
