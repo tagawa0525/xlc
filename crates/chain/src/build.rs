@@ -5,16 +5,12 @@ use std::collections::{BTreeMap, HashMap};
 use anyhow::{Result, anyhow, bail};
 use xlc_depletion::chain::{
     Chain, Channel, Decay, DecayEnergy, DecayMode as ChainMode, FinalState, Fission, Nuclide,
-    Product, Reaction, Yield,
+    Product, Reaction, Yield, nuclide_name,
 };
 
-use crate::elements::nuclide_name;
 use crate::endf::{
     DecayEvaluation, FinalStateEntry, Material, NeutronEvaluation, RawYield, Step, YieldEvaluation,
 };
-
-/// 鎖の反応の MT（代表の MT。MF8 の生成物の状態もこの MT で読む）
-pub const REACTION_MTS: [u32; 6] = [16, 17, 37, 102, 103, 107];
 
 /// 組み立てた鎖と、データにないものを規則で補った箇所の警告。
 #[derive(Debug, Clone, PartialEq)]

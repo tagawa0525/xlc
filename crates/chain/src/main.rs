@@ -24,8 +24,10 @@ use serde::Deserialize;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use xlc_chain::build::{REACTION_MTS, build};
+use xlc_chain::build::build;
 use xlc_chain::endf::{read_decay, read_neutron, read_yields};
+// MF8 の生成物の状態も、鎖の反応の MT で読む
+use xlc_depletion::chain::REACTION_MTS;
 
 const USAGE: &str = "usage: chain <input.toml>";
 
