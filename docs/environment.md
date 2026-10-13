@@ -160,8 +160,8 @@ VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init
    S3 から `aws s3 sync` で取り、`nix copy --no-check-sigs --from file://` で入れる。核データと `src/` を取り、`tools.env` を書く
 4. 再開なら、S3 の `runs/<名前>/<ジョブ>/` を作業ディレクトリに戻す。`run_remote.sh [--restart] <入力>` で流す（スレッド数は
    `lscpu` の物理コア数）
-5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync --delete` で作業ディレクトリを S3 にコピーする（statepoint は最新の 2 個が写る。
-   書いている途中のものが写っても、再開は壊れたものを消して 1 つ前から続ける）
+5. `--sync-minutes`（既定 5 分）ごとに `aws s3 sync --delete` で作業ディレクトリを S3 にコピーする（作業ディレクトリの statepoint が
+   そのまま写る。実行中の間引きは効いていない。#0106。書いている途中のものが写っても、再開は壊れたものを消して 1 つ前から続ける）
 6. 完了したら、最後の世代のほかの statepoint を消し、`SHA256SUMS`（ジョブのディレクトリの全ファイル）を書いて同期し、最後に `done`
    （run と extract の終了コード）を置く。S3 に `done` があれば、ほかのファイルはすべて置いてある
 
@@ -184,6 +184,17 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
   数百回で、1 セント未満
 - EC2 と EBS は VM が動いている間だけ（下の「ツールを使う手順」の見積もり）。最長の時間で止まるので、1 台あたりの上限は
   14 時間 × スポット価格
+
+#### 自己完結な実行の確認（2026-10-13）
+
+c7a.large のスポットで、examples/vera/aws-check/openmc-3A.toml（粒子 1 万・200 世代・捨てる 50・間隔 20）を `--type c7a.large --sync-minutes 1`
+で流した（xlc のコミット 6360a566 のスクリプト。結果の詳細は ADR-0155 の「確認」）。手元から ssh はしていない。
+
+- 起動から自己終了（terminated）まで約 9 分 20 秒。user-data の開始から run の開始までの準備は約 1 分 30 秒
+- `aws_fetch.sh --verify --delete` で SHA256SUMS と手元の extract が一致し、S3 の `runs/<名前>/` が消えた
+- statepoint 100 が S3 に写ったあと手元から終了し、`aws_run.sh <名前>` で起動し直すと、statepoint 100 から再開して完了した。k は
+  途中で止めなかった実行と一致した
+- 費用は 4 台、合わせて約 21 分で約 $0.013（c7a.large のスポット $0.0365/時間）
 
 ### ツールを使う手順
 
