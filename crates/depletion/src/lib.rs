@@ -1,11 +1,13 @@
 //! 燃焼のソルバ（ADR-0161、ADR-0162）。
 //!
 //! 燃焼行列 A と初期の数密度 n(0) から、時間 t の後の数密度 n(t) = exp(A t) n(0) を CRAM で求める。lattice の燃焼と
-//! core のミクロ燃焼が使う。時間の進め方（予測子・修正子）と反応率の作り方は、呼ぶ側が持つ。
+//! core のミクロ燃焼が使う。時間の進め方（予測子・修正子）と反応率の作り方は、呼ぶ側が持つ。燃焼チェーンの型と、チェーンと反応率から
+//! 燃焼行列を組み立てるコードも持つ（`chain`。ADR-0166）。
 
 // テストでは assert! 系を使う（本番のコードでは clippy.toml で禁止している）
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
 
+pub mod chain;
 mod cram;
 mod matrix;
 
