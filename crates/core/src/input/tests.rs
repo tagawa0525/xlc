@@ -472,6 +472,19 @@ fn pin_powers_need_at_most_one_state() {
 }
 
 #[test]
+fn axial_pin_powers_need_at_most_one_state() {
+    let layers = "axial-pin-powers = \"layers.msgpack\"\n";
+    assert!(Case::parse(&format!("{CASE}{layers}{STATES}"), base()).is_err());
+    let one = &STATES[..STATES.find("[state.aro]").unwrap()];
+    let c = Case::parse(&format!("{CASE}{layers}{one}"), base()).unwrap();
+    assert_eq!(c.states, vec![named("cold", 1170.0, 560.0)]);
+    assert_eq!(
+        c.axial_pin_powers,
+        Some(PathBuf::from("dir/layers.msgpack"))
+    );
+}
+
+#[test]
 fn split_nodes_wait_for_reflector_constants() {
     // 反射体の定数の分割（ADR-0108 の次の段階）まで、反射体のある炉心は分けられない
     let c = Case::parse(
