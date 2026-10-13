@@ -3,7 +3,7 @@
 # VM は user-data（aws_user_data.sh）で Nix と閉包、核データ、入力を S3 から取り、run_remote.sh で流し、S3 の
 # runs/<name>/<ジョブ>/ に同期し、終わると自分を終了する。手元はこのコマンドのあと要らない。
 #
-# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--az AZ] [--on-demand | --spot] <name> [<入力>...]
+# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--az AZ] [--on-demand | --spot] [--job J]... <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。閉包、核データ、スクリプトと入力を S3 に置く
@@ -14,15 +14,18 @@
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
 #   --az       AZ を固定する（例 us-east-1b）。その AZ の default サブネットで起動する。無指定は AWS が選ぶ。起動し直しでは、
-#              指定がなければ最後の起動の記録の値（固定を外すのは --az any）
+#              指定がなければ最後の起動の記録の値（--job があれば、そのジョブの記録。固定を外すのは --az any）
 #   --on-demand  スポットでなくオンデマンドで起動する（中断が続くときの逃げ道。価格は約 2.5 倍）。起動し直しでは、
 #              指定がなければ最後の起動の記録の値。スポットに戻すのは --spot
+#   --job      起動し直しで、このジョブだけを対象にする（例 --job openmc-3A。複数回指定できる。無指定は全部）。名前は launch.env の
+#              INPUTS のジョブ名で、なければエラー。新しい実行では指定できない。done のあるジョブと VM が走っているジョブは今までどおり飛ばす。
+#              目的: 監視のスクリプトが、中断されたジョブごとに別の AZ やオンデマンドを選んで起動し直すため
 #   --dry-run  S3 に置かず起動もせず、ジョブごとの起動の引数（aws の --dry-run で検証）と user-data の要約を出す
 # バケットは XLC_BUCKET（既定 xlc-openmc-118645514640）、インスタンスプロファイルは xlc-openmc-vm。
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
@@ -31,12 +34,14 @@ az=
 market=
 name=""
 inputs=()
+jobs=()
 while (($#)); do
   case $1 in
     --help | -h) usage; exit 0 ;;
     --az) az=${2:?--az に値が要ります}; shift ;;
     --on-demand) [[ $market != spot ]] || { echo "--on-demand と --spot は同時に指定できない" >&2; exit 2; }; market=on-demand ;;
     --spot) [[ $market != on-demand ]] || { echo "--on-demand と --spot は同時に指定できない" >&2; exit 2; }; market=spot ;;
+    --job) jobs+=("${2:?--job に値が要ります}"); shift ;;
     --dry-run) dry=1 ;;
     --type) type=$2; shift ;;
     --max-hours) max_hours=$2; shift ;;
@@ -48,6 +53,7 @@ while (($#)); do
 done
 [[ -n $name ]] || { usage; exit 2; }
 [[ $name =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "name は英小文字、数字、- だけ: $name" >&2; exit 2; }
+((${#inputs[@]} == 0 || ${#jobs[@]} == 0)) || { echo "--job は起動し直し（入力を省く形）でだけ指定できる" >&2; exit 2; }
 [[ $max_hours =~ ^([1-9][0-9]*)?$ && $sync_minutes =~ ^([1-9][0-9]*)?$ ]] ||
   { echo "--max-hours と --sync-minutes は正の整数" >&2; exit 2; }
 # shellcheck source=aws_common.sh
@@ -181,10 +187,22 @@ else
   read_launch_env "$name"
   openmc=$(launch_env_value OPENMC) python=$(launch_env_value PYTHON) awscli=$(launch_env_value AWSCLI)
   closure=$(launch_env_value CLOSURE) library=$(launch_env_value LIBRARY)
+  all_jobs=()
+  for input in "${RUN_INPUTS[@]}"; do all_jobs+=("$(job_name "$input")"); done
+  for want in "${jobs[@]}"; do
+    grep -Fxq -- "$want" <<< "$(printf '%s\n' "${all_jobs[@]}")" || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
+  done
   require_public_awscli "$awscli"
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   # 指定のない --type、--max-hours、--sync-minutes は、最後の起動の記録の値を使う（起動し直しで黙って設定を変えない）
-  last_key=$(s3_keys "runs/$name/launches/" | sort | tail -1)
+  # --job があれば、そのジョブの記録だけから引き継ぐ（別のジョブの AZ や市場を黙って持ち込まない）。複数なら、その中で最後のもの
+  last_keys=$(s3_keys "runs/$name/launches/" | sort)
+  if ((${#jobs[@]})); then
+    pattern=$(printf '%s\n' "${jobs[@]}" | sed 's/[][\.*^$/]/\\&/g' | paste -sd'|')
+    last_keys=$(grep -E -- "-($pattern)\.env\$" <<< "$last_keys" || true)
+  fi
+  last_key=$(tail -1 <<< "$last_keys")
+  [[ -n $last_key ]] || ((${#jobs[@]} == 0)) || echo "警告: --job のジョブに起動の記録がないので、既定の設定で起動する（--type などで指定する）" >&2
   if [[ -n $last_key ]]; then
     last=$(aws s3 cp "s3://$XLC_BUCKET/$last_key" -)
     type=${type:-$(sed -n 's/^TYPE=//p' <<< "$last")}
@@ -200,6 +218,8 @@ else
   stuck=0
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
+    # --job があれば、それ以外のジョブは対象にしない（状態も示さない）
+    ((${#jobs[@]} == 0)) || grep -Fxq -- "$job" <<< "$(printf '%s\n' "${jobs[@]}")" || continue
     code=$(job_done "$name" "$job")
     if [[ $code == 0 ]]; then
       echo "$job: 完了"
