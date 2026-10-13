@@ -342,7 +342,11 @@ fn s_wave_radius(kind: &RangeKind, top: f64) -> Result<f64, ProcessError> {
             .iter()
             .find(|lv| lv.l == OrbitalL::S && lv.apl != 0.0)
             .map_or(rm.ap, |lv| lv.apl),
-        RangeKind::Mlbw(bw) => bw.ap_energy.as_ref().map_or(bw.ap, |t| t.eval(top)),
+        // 上端で表が段差を持てば、範囲の内側（左）の極限
+        RangeKind::Mlbw(bw) => bw
+            .ap_energy
+            .as_ref()
+            .map_or(bw.ap, |t| left_limit(t.table(), top)),
         RangeKind::RMatrixLimited(rml) => {
             // l=0 の弾性散乱のチャネルはどれも同じ半径であること（違えば、どれを使うかの根拠がない）
             let mut radii: Vec<f64> = rml
