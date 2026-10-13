@@ -2619,6 +2619,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(mixed[0].diffusion, whole[0].diffusion);
+        // 核分裂のない媒質のノードは、媒質の印に依らず ADR-0104 と ADR-0134 の D（Koebke の D を中性子流の重みの D から
+        // 探す）
+        let water_medium = solve_nodes(&[false, false, true]);
+        assert_eq!(water_medium[2].diffusion, without[2].diffusion);
     }
 
     #[test]
