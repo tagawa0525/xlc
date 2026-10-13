@@ -87,7 +87,7 @@ examples/reflector/verification.md）の比 7.1 は 2.8 乗で、同じ伸び方
 - `moc::tests::cmfd_accelerates_a_one_row_slab_with_vacuum_ends`: 両端が真空の 1 行の格子で、CMFD ありの MOC が CMFD なしと
   k で 10⁻⁶、中性子束で相対 10⁻⁵ の内で一致する
 - 2 次元の格子が変わらないこと: VERA 1B のピンセル、2A の集合体、2B の真空の辺のある集合体で、lattice の出力（標準出力、
-  ピン出力、少数群定数）が 5161581b と TBD-commit でバイト単位で同じ（2026-10-13）
+  ピン出力、少数群定数）が 5161581b と aac89fc1 でバイト単位で同じ（2026-10-14）
 - 平板の時間と、k とノード平均の中性子束が変わらないこと（ADR-0128 の閾値 k ±1 pcm、相対 10⁻⁵ より十分小さい）:
   examples/reflector/verification.md の「軸方向の反射体の平板」
 
