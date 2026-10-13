@@ -24,8 +24,8 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use xlc_core::case::{CaseError, check_search, solve_at, solve_states};
 use xlc_core::input::{Case, Cycle, InputError, Inventory, Layout, Plant};
 use xlc_core::nem::{Options, Problem, Solution};
-use xlc_core::pins::{core_rows, reconstruct};
-use xlc_format::pins::PinPowers;
+use xlc_core::pins::{axial_rows, core_rows, reconstruct};
+use xlc_format::pins::{AxialPinPowers, PinPowers};
 use xlc_format::table::Table;
 
 fn main() -> ExitCode {
@@ -202,18 +202,37 @@ fn report(layout: &Layout, problem: &Problem, solution: &Solution) {
     tracing::info!(iterations = solution.iterations, "eigenvalue");
 }
 
-/// 再構成したピン出力（ADR-0096）を、ケースが指定していれば書く。
+/// 再構成したピン出力（ADR-0096）を、ケースが指定していれば書く。全体で積分したものと層ごとのもの
 fn write_pin_powers(case: &Case, problem: &Problem, solution: &Solution) -> anyhow::Result<()> {
-    let Some(file) = &case.pin_powers else {
+    if case.pin_powers.is_none() && case.axial_pin_powers.is_none() {
         return Ok(());
-    };
+    }
     let reconstructed = Instant::now();
     let maps = reconstruct(problem, solution).map_err(|e| anyhow!("pin powers: {e}"))?;
-    let rows = core_rows(problem, &maps).map_err(|e| anyhow!("pin powers: {e}"))?;
-    let bytes = PinPowers { rows }
+    // 両方を作ってから書く（後のものの再構成か直列化が失敗したとき、先のものだけが新しくならないように。書き込みの
+    // 失敗は防がない）
+    let mut outputs = Vec::new();
+    if let Some(file) = &case.pin_powers {
+        let rows = core_rows(problem, &maps).map_err(|e| anyhow!("pin powers: {e}"))?;
+        let bytes = PinPowers { rows }
+            .to_msgpack()
+            .with_context(|| shown(file))?;
+        outputs.push((file, bytes));
+    }
+    if let Some(file) = &case.axial_pin_powers {
+        let layers = axial_rows(problem, &maps).map_err(|e| anyhow!("axial pin powers: {e}"))?;
+        let bytes = AxialPinPowers {
+            bounds: layers.bounds,
+            axial: layers.axial,
+            layers: layers.layers,
+        }
         .to_msgpack()
         .with_context(|| shown(file))?;
-    std::fs::write(file, bytes).with_context(|| shown(file))?;
+        outputs.push((file, bytes));
+    }
+    for (file, bytes) in outputs {
+        std::fs::write(file, bytes).with_context(|| shown(file))?;
+    }
     tracing::info!(
         seconds = reconstructed.elapsed().as_secs_f64(),
         "pin power reconstruction"

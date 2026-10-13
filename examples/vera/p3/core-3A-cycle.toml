@@ -1,0 +1,4 @@
+# このファイルは p3_inputs.py が書く
+plant = "core-3A-plant.toml"
+inventory = "core-3A-assemblies.toml"
+loading = ["3A"]

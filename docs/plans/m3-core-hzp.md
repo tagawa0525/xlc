@@ -93,8 +93,12 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
    （ADR-0127。テーブルの制御棒の軸、炉心の形の `[rods]` と状態の `banks`、1D の細かいメッシュの重みと z の面の不連続因子）は
    済み（#0063。燃料の列でメッシュを先端で分けた参照に k 4.3 pcm 以内。examples/core/verification.md）。格子計算の制御棒の
    分岐は #0093、上の層の制御棒の軸は #0030、Problem 4 と 5 の比較は #0098）
-8. Problem 3〜5 の入力と、炉心の結果のまとめ — 作業中（Problem 5 の計算の仕組み: 臨界ホウ素濃度の探索（ADR-0145）、名前つきの状態を並列に解くケースと、実測値と KENO-VI の値と比べる道具 examples/vera/p5/compare_hzp.py
+8. Problem 3〜5 の入力と、炉心の結果のまとめ — 作業中（Problem 3A と 3B の入力と段階（examples/vera/p3。支持格子の層は
+   [ADR-0140](../adr/0140-place-spacer-grids-as-axial-layers-of-framed-lattices.md)、平板の燃料のノードの D は
+   [ADR-0141](../adr/0141-use-medium-b1-diffusion-in-slab-fuel-nodes.md)）と KENO との比較は済み（examples/vera/verification.md の
+   「Problem 3 の炉心の計算」。k の差は 3A で +84 pcm、3B で +193 pcm）。OpenMC との比較は #0073 の本番の後（#0030）。
+   Problem 5 の計算の仕組み: 臨界ホウ素濃度の探索（ADR-0145）、名前つきの状態を並列に解くケースと、実測値と KENO-VI の値と比べる道具 examples/vera/p5/compare_hzp.py
    （ADR-0146）は済。3D の全炉心の入力（炉心の形、軸方向の層、定数、バンクの位置）は #0092。5-2D の全炉心の入力と段階、
    KENO-VI との比較は 12fe5731（examples/vera/verification.md の「Problem 5-2D の炉心の計算」。k は +235〜+294 pcm、集合体出力の
    RMS 4〜5% で中心が低く外周が高い。原因の切り分けは #0086）。OpenMC の参照解との比較は #0073 の本番のあと。L 型の位置の
-   近似の大きさは #0029）
+   近似の大きさは #0029。Problem 4 は未着手）
