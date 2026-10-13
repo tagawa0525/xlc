@@ -25,9 +25,9 @@ declare -A flags=(
   [v3]='"-C","llvm-args=-align-loops=64"'
 )
 # 環境変数の rustflags は設定ファイルと --config の rustflags を上書きし、設定ごとの差が消えるので止める（scripts/build-binaries.sh と同じ確認）
-flags='^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTFLAGS|CARGO_PROFILE_[A-Z0-9_]+|CARGO_TARGET_[A-Z0-9_]+_(RUSTFLAGS|LINKER))='
-if env | grep -qE "$flags"; then
-  echo "compile or link settings are set in the environment: $(env | grep -oE "$flags" | tr '\n' ' ')" >&2
+env_flags='^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTFLAGS|CARGO_PROFILE_[A-Z0-9_]+|CARGO_TARGET_[A-Z0-9_]+_(RUSTFLAGS|LINKER))='
+if env | grep -qE "$env_flags"; then
+  echo "compile or link settings are set in the environment: $(env | grep -oE "$env_flags" | tr '\n' ' ')" >&2
   exit 1
 fi
 mkdir -p "$work" "$here/bin"
