@@ -13,7 +13,7 @@ dry=0
 ip=""
 while (($#)); do
   case $1 in
-    --help | -h) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help | -h) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --dry-run) dry=1 ;;
     --ip) ip=$2; shift ;;
     *) echo "知らない引数 $1" >&2; exit 2 ;;
@@ -34,11 +34,12 @@ if [[ ${#have[@]} -eq 1 && ${have[0]} == "$want" ]]; then
 fi
 echo "xlc-ssh: 22/tcp ${have[*]:-（規則なし）} -> $want"
 ((dry)) && exit 0
+# 先に新しい規則を足し、成功してから古い規則を消す（途中で失敗しても入れなくならない）
+if ! printf '%s\n' "${have[@]}" | grep -qx "$want"; then
+  aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr "$want" > /dev/null
+fi
 for old in "${have[@]}"; do
   [[ $old == "$want" ]] ||
     aws ec2 revoke-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr "$old" > /dev/null
 done
-if ! printf '%s\n' "${have[@]}" | grep -qx "$want"; then
-  aws ec2 authorize-security-group-ingress --group-id "$SG_ID" --protocol tcp --port 22 --cidr "$want" > /dev/null
-fi
 echo "更新しました"

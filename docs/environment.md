@@ -144,7 +144,7 @@ examples/vera/aws_terminate.sh xlc3                 # 終了（terminated を待
 ADR-0151 の c7a.16xlarge の $0.015〜0.023/物理コア時間 × 16 コア ≒ $0.24〜0.37/時間を目安にする）。EBS は gp3 40 GB × 起動時間（月 $0.08/GB なので 1 日あたり約 $0.1）で、終了で消える。
 本番は 2 台 × 2 回 × 約 6 時間なら約 $6〜9。試走（c7a.large、`aws_launch.sh` から `aws_terminate.sh` まで約 1 分）は 1 セント未満。
 
-#### 道具の確認（2026-10-13）
+#### 道具の確認（2026-10-13、xlc のコミット be40a222 のスクリプト。以降のレビューの修正のあと、同じ往復をもう一度通した）
 
 c7a.large を 1 台、`aws_launch.sh`（約 30 秒。AMI の検索から ssh が通って `lscpu` を出すまで）→ `aws_allow_ip.sh --ip 203.0.113.7`（わざと別の IP にすると ssh は
 タイムアウト）→ `aws_allow_ip.sh`（戻すと ssh が通る）→ `aws_terminate.sh`（約 37 秒、terminated を確認、Host が消えて `~/.ssh/config` が元に戻る）の往復を通した。

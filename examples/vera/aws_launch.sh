@@ -19,7 +19,7 @@ count=1
 type=c7a.4xlarge
 while (($#)); do
   case $1 in
-    --help | -h) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help | -h) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --dry-run) dry=1 ;;
     --count) count=$2; shift ;;
     --type) type=$2; shift ;;
@@ -28,7 +28,7 @@ while (($#)); do
   esac
   shift
 done
-[[ -n $name ]] || { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[[ -n $name ]] || { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 [[ $count =~ ^[1-9][0-9]*$ ]] || { echo "--count は正の整数" >&2; exit 2; }
 
 ami=$(aws ec2 describe-images --owners 099720109477 \
@@ -61,6 +61,14 @@ fi
 
 "$(dirname "$0")/aws_allow_ip.sh"
 ids=()
+# 途中で失敗したら、起動済みの VM を終了する（課金が残らないように）
+cleanup() {
+  if ((${#ids[@]})); then
+    echo "失敗したので起動済みの ${ids[*]} を終了します" >&2
+    aws ec2 terminate-instances --instance-ids "${ids[@]}" > /dev/null || echo "終了に失敗。aws_terminate.sh $name を試してください" >&2
+  fi
+}
+trap cleanup ERR
 for n in "${names[@]}"; do
   ids+=("$(aws ec2 run-instances "${run_args[@]}" --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$n}]")")
   echo "$n: ${ids[-1]} を起動"
@@ -68,6 +76,7 @@ done
 aws ec2 wait instance-running --instance-ids "${ids[@]}"
 for i in "${!names[@]}"; do
   ip=$(aws ec2 describe-instances --instance-ids "${ids[$i]}" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+  [[ $ip =~ ^[0-9.]+$ ]] || { echo "${names[$i]}: public IP がありません（$ip）" >&2; exit 1; }
   ssh_config_set "${names[$i]}" "$ip"
   echo "${names[$i]}: $ip"
   for _ in $(seq 60); do
