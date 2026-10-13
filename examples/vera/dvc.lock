@@ -5179,8 +5179,8 @@ stages:
       size: 29417
     - path: openmc_tallies.py
       hash: md5
-      md5: 60cd9040a5e70e11dfb04c0866bc4710
-      size: 12878
+      md5: 9ba122a21bcfb6e5d337f383f740271b
+      size: 12919
     - path: p1/openmc-1B.toml
       hash: md5
       md5: 20533ee6041b8f5fe1026dfa81acc192
