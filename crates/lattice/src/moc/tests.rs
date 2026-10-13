@@ -720,6 +720,35 @@ fn cmfd_accelerates_a_one_row_slab_with_vacuum_ends() {
 }
 
 #[test]
+fn a_mirrored_one_row_slab_matches_the_full_slab() {
+    // 左右対称な 1 行の平板を鏡映で解くと、粗メッシュの代表の鎖の中央で、奇数の列では中央のセルの両隣が同じ代表に、
+    // 偶数の列では中央の面の隣が自分の像になる（ADR-0158）
+    let (f, m) = (fuel(), moderator());
+    for columns in [7, 8] {
+        let lattice = Lattice::rectilinear(
+            vec![1.0; columns],
+            vec![1.0],
+            vec![Cell::BLOCK],
+            vec![vec![0; columns]],
+        )
+        .unwrap();
+        let boundaries = Boundaries {
+            left: Boundary::Vacuum,
+            right: Boundary::Vacuum,
+            ..Boundaries::REFLECTIVE
+        };
+        let tracking = Tracking::with_boundaries(&lattice, 16, 0.05, boundaries).unwrap();
+        let materials: Vec<&Material> = (0..columns)
+            .map(|c| if c == 0 || c + 1 == columns { &m } else { &f })
+            .collect();
+        let options = Options::default();
+        let full = solve_as(&tracking, &materials, &options, Symmetry::NONE).unwrap();
+        let mirrored = solve_as(&tracking, &materials, &options, Symmetry::QUARTER).unwrap();
+        assert_same_solution(&full, &mirrored, &options);
+    }
+}
+
+#[test]
 fn cmfd_accelerates_a_lattice_with_a_margin() {
     // 集合体の間の水のギャップのように、格子の周りに余白がある。縁のセルの粗メッシュは余白の分だけ広い
     let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
