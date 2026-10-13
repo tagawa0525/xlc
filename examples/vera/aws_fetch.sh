@@ -54,6 +54,9 @@ done
 
 # --delete: 同じ名前の前の取り出しの残りを SHA256SUMS の検証に混ぜない（置き場は S3 の写しにする）
 aws s3 sync --only-show-errors --delete "$run_prefix/src" "$dest/src"
+# 出所の記録（コミット、store のパス、起動ごとの道具のコミットと AMI）も残す。--delete で S3 から消えるため
+aws s3 cp --only-show-errors "$run_prefix/launch.env" "$dest/launch.env"
+aws s3 sync --only-show-errors --delete "$run_prefix/launches" "$dest/launches"
 for input in "${done_inputs[@]}"; do
   job=$(job_name "$input")
   aws s3 sync --only-show-errors --delete "$run_prefix/$job" "$dest/$job"
