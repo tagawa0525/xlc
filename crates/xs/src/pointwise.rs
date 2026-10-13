@@ -692,7 +692,9 @@ fn add_resonances(
                     .iter()
                     .flat_map(|lv| &lv.resonances)
                     .map(|r| (r.er, 0.5 * (r.gn + r.gg + r.gf)));
-                let nodes = resonance_nodes(peaks);
+                // 散乱半径の表の点で位相シフトが折れるので、その点も格子に入れる
+                let breaks = bw.ap_energy.iter().flat_map(|t| t.x.iter().copied());
+                let nodes: Vec<f64> = resonance_nodes(peaks).into_iter().chain(breaks).collect();
                 let xs = MlbwXs::new(bw);
                 let f = |e: f64| xs.cross_sections(e).map(|sigma| sigma.components());
                 // ENDF の読み込みのエラー（行番号つき）にまとめるので、ここでは文にする
