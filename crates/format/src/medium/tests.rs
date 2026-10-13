@@ -183,3 +183,14 @@ fn reading_is_strict() {
     assert!(edit(|f| f.retain(|(k, _)| k.as_str() != Some("chi"))).is_err());
     assert!(edit(|f| f.push(("adf".into(), rmpv::Value::Nil))).is_err());
 }
+
+#[test]
+fn media_have_no_rod_axis() {
+    // 媒質は制御棒の軸を持たない（ADR-0128）
+    let mut medium = sample();
+    medium.axes.push(Axis::Rod {
+        values: vec!["out".into(), "b4c".into()],
+    });
+    medium.states = (1..=8).map(|i| state(f64::from(i))).collect();
+    assert!(medium.validate().is_err());
+}

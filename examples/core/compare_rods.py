@@ -1,0 +1,124 @@
+"""制御棒の部分挿入の例（ADR-0127）の炉心の結果（out/*.out）を比べ、Markdown の表を標準出力に書く。
+
+- 方式の誤差: 棒の位置ごとに、メッシュを先端と AIC/B4C の境で分けた参照（`split-<ステップ>`）に対する、中性子束の重み
+  （`flux-`）と体積の重み（`volume-`）の k の差（pcm）と、16 の粗いノードごとの核分裂率の割合の相対差の最大（%。参照の
+  分けたノードは粗いノードに足す）
+- 微分価値: ノード 8 を先端が横切る位置で、2 ステップごとの k の差を 1 ステップあたりにした値（pcm/ステップ）
+- 細かいメッシュの幅: 幅を変えた `fine-<幅>-<ステップ>` の k の、既定の幅（0.5 cm。`flux-`）との差
+
+使い方: python3 compare_rods.py
+"""
+
+import sys
+from itertools import pairwise
+from pathlib import Path
+
+import rods_cases as rc
+
+HERE = Path(__file__).resolve().parent
+
+
+def read(name):
+    lines = (HERE / "out" / f"{name}.out").read_text().splitlines()
+    k = None
+    axial = []
+    reading = False
+    for line in lines:
+        if line.startswith("k-eff"):
+            k = float(line.split()[1])
+        elif line.startswith("axial fission fractions"):
+            reading = True
+        elif reading:
+            parts = line.split()
+            if len(parts) == 3:
+                try:
+                    axial.append(tuple(float(p) for p in parts))
+                    continue
+                except ValueError:
+                    pass
+            reading = False
+    if k is None or not axial:
+        sys.exit(f"{name}: no k-eff or axial fission fractions")
+    return k, axial
+
+
+def coarse(axial):
+    """粗いノード（高さ / 16）ごとの割合の和"""
+    height = rc.HEIGHT / rc.NODES
+    out = [0.0] * rc.NODES
+    for low, high, fraction in axial:
+        out[min(int(0.5 * (low + high) / height), rc.NODES - 1)] += fraction
+    return out
+
+
+def pcm(a, b):
+    return 1.0e5 * (a - b)
+
+
+def node_position(z):
+    height = rc.HEIGHT / rc.NODES
+    if z >= rc.HEIGHT:
+        return "（炉心の外）"
+    n = int(z // height)
+    return f"{n} の {100.0 * (z - n * height) / height:.0f}%"
+
+
+def main():
+    print("## 方式の誤差（参照: メッシュを先端と AIC/B4C の境で分けた計算）\n")
+    print(
+        "| ステップ | 先端 (cm) | 先端のノード | AIC/B4C の境のノード | 参照の k | Δk 中性子束 (pcm) | Δk 体積 (pcm) | 出力の差の最大 中性子束 (%) | 体積 (%) |"
+    )
+    print(
+        "| -------: | --------: | ------------ | -------------------- | -------: | ----------------: | ------------: | --------------------------: | -------: |"
+    )
+    results = {}
+    for s in sorted(rc.STEPS):
+        tip = s * rc.STEP
+        k_ref, a_ref = read(f"split-{s}")
+        ref = coarse(a_ref)
+        row = [
+            f"{s}",
+            f"{tip:.3f}",
+            node_position(tip),
+            node_position(tip + rc.AIC),
+            f"{k_ref:.6f}",
+        ]
+        diffs = {}
+        for method in ("flux", "volume"):
+            k, axial = read(f"{method}-{s}")
+            p = coarse(axial)
+            power = max(abs(a - b) / b for a, b in zip(p, ref))
+            diffs[method] = (pcm(k, k_ref), 100.0 * power, k)
+        results[s] = (k_ref, diffs)
+        row += [
+            f"{diffs['flux'][0]:+.2f}",
+            f"{diffs['volume'][0]:+.1f}",
+            f"{diffs['flux'][1]:.3f}",
+            f"{diffs['volume'][1]:.2f}",
+        ]
+        print("| " + " | ".join(row) + " |")
+
+    sweep = sorted(s for s in rc.STEPS if 116 <= s <= 128)
+    print(
+        "\n## 微分価値（ノード 8 を先端が横切る位置。2 ステップの k の差 / 2、pcm/ステップ）\n"
+    )
+    print("| ステップ | 参照 | 中性子束 | 体積 |")
+    print("| -------: | ---: | -------: | ---: |")
+    for a, b in pairwise(sweep):
+        ref = pcm(results[b][0], results[a][0]) / (b - a)
+        flux = pcm(results[b][1]["flux"][2], results[a][1]["flux"][2]) / (b - a)
+        volume = pcm(results[b][1]["volume"][2], results[a][1]["volume"][2]) / (b - a)
+        print(f"| {a}〜{b} | {ref:.3f} | {flux:.3f} | {volume:.3f} |")
+
+    print("\n## 細かいメッシュの幅（既定の 0.5 cm との k の差、pcm）\n")
+    labels = list(rc.FINE)
+    print("| ステップ | " + " | ".join(f"{label} cm" for label in labels) + " |")
+    print("| -------: | " + " | ".join("---:" for _ in labels) + " |")
+    for s in rc.FINE_STEPS:
+        k0, _ = read(f"flux-{s}")
+        cells = [f"{pcm(read(f'fine-{label}-{s}')[0], k0):+.4f}" for label in labels]
+        print(f"| {s} | " + " | ".join(cells) + " |")
+
+
+if __name__ == "__main__":
+    main()
