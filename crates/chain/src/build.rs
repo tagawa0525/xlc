@@ -86,8 +86,8 @@ const FISSION_MTS: [u32; 5] = [18, 19, 20, 21, 38];
 /// 超えるずれは、型の抜けなどの評価の誤りとして止める
 const DECAY_SUM_TOLERANCE: f64 = 1e-5;
 
-/// MF8 の生成物の状態の励起エネルギーを、decay の状態の励起エネルギーに合わせるときの相対の許容。同じ評価の値を
-/// コピーしたものは一致し、別の準位とは 1e-3 より大きく離れる
+/// MF8 の生成物の状態と、対応させた decay の準安定状態の励起エネルギーの相対の差が、これを超えれば警告に出す。同じ
+/// 評価の値をコピーしたものは 1e-3 の内で一致する
 const EXCITATION_TOLERANCE: f64 = 1e-3;
 
 type Key = (u32, u32, u32);
@@ -255,32 +255,83 @@ fn decay(
     }))
 }
 
-/// 反応の生成物の状態を、decay の同じ (Z, A) の状態に励起エネルギーで合わせる。decay にない準位は、即発の γ で
-/// 基底状態に落ちるので基底状態にし、`true` を返す（基底状態もなければ `None`）
-fn final_state(
+/// MF8 の生成物の状態（LMF = 9、10）を、decay の状態に対応させる（ADR-0164）。ELFS = 0 は基底状態。励起状態は、評価が
+/// 生成を与えた準安定状態を指すが、励起エネルギーが decay と食い違う評価がある（Am-243 (n,γ) の Am-244m が 72.9 keV と
+/// 86.1 keV）ので、エネルギーの一致では引かず、decay の準安定状態に、相対の差の小さい組から 1 対 1 で対応させる。対応の
+/// ない状態（準安定状態がない、または数が足りない）は、即発の γ で落ちる準位として基底状態にする。返すのは状態ごとの
+/// 生成物の (Z, A, state) と、警告に出す対応の注記
+fn assign_states(
     parent: &str,
     mt: u32,
-    entry: &FinalStateEntry,
-    expected: (u32, u32),
+    entries: &[FinalStateEntry],
+    product: (u32, u32),
     evaluations: &[&DecayEvaluation],
-    index: &Index,
-) -> Result<(Option<usize>, bool)> {
-    if entry.za != 1000 * expected.0 + expected.1 {
+) -> Result<(Vec<Key>, Vec<String>)> {
+    let za = 1000 * product.0 + product.1;
+    if let Some(e) = entries.iter().find(|e| e.za != za) {
         bail!(
-            "{parent}: MF8/MT{mt} names product ZA {}, expected {}",
-            entry.za,
-            1000 * expected.0 + expected.1
+            "{parent}: MF8/MT{mt} names product ZA {}, expected {za}",
+            e.za
         );
     }
-    let matched = evaluations.iter().find(|e| {
-        let m = &e.material;
-        (m.z, m.a) == expected
-            && (m.excitation - entry.excitation).abs() <= EXCITATION_TOLERANCE * entry.excitation
-    });
-    Ok(match matched {
-        Some(e) => (index.get(key(&e.material)), false),
-        None => (index.get((expected.0, expected.1, 0)), true),
-    })
+    let isomers: Vec<&Material> = evaluations
+        .iter()
+        .map(|e| &e.material)
+        .filter(|m| (m.z, m.a) == product && m.state > 0)
+        .collect();
+    let relative = |e: &FinalStateEntry, m: &Material| {
+        (e.excitation - m.excitation).abs() / e.excitation.max(m.excitation)
+    };
+    let mut pairs: Vec<(f64, usize, usize)> = Vec::new();
+    for (i, e) in entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| e.excitation > 0.0)
+    {
+        for (j, m) in isomers.iter().enumerate() {
+            pairs.push((relative(e, m), i, j));
+        }
+    }
+    pairs.sort_by(|x, y| x.0.total_cmp(&y.0).then(x.1.cmp(&y.1)).then(x.2.cmp(&y.2)));
+    let mut assigned: Vec<Option<usize>> = vec![None; entries.len()];
+    let mut used = vec![false; isomers.len()];
+    for (_, i, j) in pairs {
+        if assigned[i].is_none() && !used[j] {
+            assigned[i] = Some(j);
+            used[j] = true;
+        }
+    }
+    let mut keys = Vec::with_capacity(entries.len());
+    let mut notes = Vec::new();
+    for (e, a) in entries.iter().zip(assigned) {
+        let ground = (product.0, product.1, 0);
+        match a {
+            Some(j) => {
+                let m = isomers[j];
+                let k = key(m);
+                if relative(e, m) > EXCITATION_TOLERANCE {
+                    notes.push(format!(
+                        "LFS {} at {} eV to {} at {} eV",
+                        e.lfs,
+                        e.excitation,
+                        name(k)?,
+                        m.excitation
+                    ));
+                }
+                keys.push(k);
+            }
+            None => {
+                if e.excitation > 0.0 {
+                    notes.push(format!(
+                        "LFS {} at {} eV to the ground state (no isomer left)",
+                        e.lfs, e.excitation
+                    ));
+                }
+                keys.push(ground);
+            }
+        }
+    }
+    Ok((keys, notes))
 }
 
 fn reactions(
@@ -321,41 +372,52 @@ fn reactions(
             .map(|(_, entries)| entries);
         let channels = match states {
             Some(entries) => {
-                let mut grounded = Vec::new();
-                let mut channels = Vec::new();
-                for entry in entries {
-                    let (product, to_ground) =
-                        final_state(parent, spec.mt, entry, (z, a), evaluations, index)?;
-                    if to_ground {
-                        grounded.push(format!("LFS {} at {} eV", entry.lfs, entry.excitation));
+                let (keys, notes) = assign_states(parent, spec.mt, entries, (z, a), evaluations)?;
+                if !notes.is_empty() {
+                    warnings.push(format!(
+                        "{parent}: MF8/MT{} final states of {}: {}",
+                        spec.mt,
+                        name((z, a, 0))?,
+                        notes.join(", ")
+                    ));
+                }
+                let mut targets: Vec<(FinalState, Key)> = entries
+                    .iter()
+                    .zip(keys)
+                    .map(|(e, k)| {
+                        (
+                            FinalState {
+                                mf: e.mf,
+                                lfs: Some(e.lfs),
+                            },
+                            k,
+                        )
+                    })
+                    .collect();
+                // 基底状態を挙げない反応は、挙げた状態を除いた残りが基底状態へ行く
+                if entries.iter().all(|e| e.excitation > 0.0) {
+                    let mf = entries[0].mf;
+                    if entries.iter().any(|e| e.mf != mf) {
+                        bail!("{parent}: MF8/MT{} mixes MF9 and MF10", spec.mt);
                     }
-                    let mut products: Vec<Product> = product
-                        .map(|nuclide| Product { nuclide, count: 1 })
-                        .into_iter()
-                        .collect();
-                    if product.is_none() {
-                        warnings.push(format!(
-                            "{parent}: the product {} of MT{} is not in the decay data; the reaction produces no residual",
-                            name((z, a, 0))?,
+                    targets.push((FinalState { mf, lfs: None }, (z, a, 0)));
+                }
+                let mut channels = Vec::new();
+                for (final_state, k) in targets {
+                    let mut products = Vec::new();
+                    match index.get(k) {
+                        Some(i) => products.push(Product { nuclide: i, count: 1 }),
+                        None => warnings.push(format!(
+                            "{parent}: the product {} of MT{} is not in the decay data; the channel produces no residual",
+                            name(k)?,
                             spec.mt
-                        ));
+                        )),
                     }
                     products.extend(light.iter().copied());
                     channels.push(Channel {
-                        final_state: Some(FinalState {
-                            mf: entry.mf,
-                            lfs: Some(entry.lfs),
-                        }),
+                        final_state: Some(final_state),
                         products,
                     });
-                }
-                if !grounded.is_empty() {
-                    warnings.push(format!(
-                        "{parent}: MF8/MT{} final states not in the decay data go to the ground state of {}: {}",
-                        spec.mt,
-                        name((z, a, 0))?,
-                        grounded.join(", ")
-                    ));
                 }
                 channels
             }
