@@ -59,6 +59,8 @@ for name in fresh restart; do
   contains "$text" 'until [[ -f $OUT/done && $(cat "$OUT/done") =~ ^[0-9]+$ ]]; do' "$name"
   contains "$text" '    echo "$code" > "$WORK/$OUT/done"' "$name"
   contains "$text" "trap 'exit 143' TERM" "$name"
+  # finish の中の失敗で止まると、電源が切れない
+  before "$text" 'finish() {' '  set +e' "$name"
   lacks "$text" '"$AWS" s3 cp --only-show-errors "$OUT/done" "$PREFIX/done"' "$name"
   # 終わりは必ず電源を切る（finish が最後に shutdown -h now）
   contains "$text" '  shutdown -h now' "$name"
