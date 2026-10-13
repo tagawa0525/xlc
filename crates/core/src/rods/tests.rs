@@ -279,6 +279,87 @@ fn windows_add_one_uniform_node_on_each_side_and_merge_shared_ones() {
 }
 
 #[test]
+fn windows_reaching_both_core_edges_keep_the_shared_uniform_node_as_their_ends() {
+    // まとめると両端が炉心の端になる 2 つの窓は、共有する一様なノードでそれぞれ拘束する
+    assert_eq!(
+        windows(&[true, false, true]).unwrap(),
+        vec![
+            Window {
+                nodes: 0..2,
+                constrained: [false, true]
+            },
+            Window {
+                nodes: 1..3,
+                constrained: [true, false]
+            }
+        ]
+    );
+}
+
+#[test]
+fn partial_nodes_at_both_ends_around_one_uniform_node_match_the_split_mesh() {
+    // 3 ノードの列の下と上のノードが部分挿入（下は 10 cm、上は 5 cm より上に棒）
+    let problem_of = |dz: Vec<f64>, node_material: Vec<Option<usize>>, materials| Problem {
+        mesh: Mesh {
+            dx: vec![PITCH],
+            dy: vec![PITCH],
+            dz,
+        },
+        materials,
+        reflectors: Vec::new(),
+        node_material,
+        boundaries: [
+            Boundary::Reflective,
+            Boundary::Reflective,
+            Boundary::Reflective,
+            Boundary::Reflective,
+            Boundary::Marshak,
+            Boundary::Marshak,
+        ],
+        outline: None,
+    };
+    let segments = |below: f64| {
+        vec![
+            Segment {
+                constants: fuel(1.0),
+                length: below,
+            },
+            Segment {
+                constants: fuel(1.6),
+                length: NODE - below,
+            },
+        ]
+    };
+    let problem = problem_of(
+        vec![NODE; 3],
+        vec![Some(1), Some(0), Some(2)],
+        vec![fuel(1.0), fuel(1.0), fuel(1.0)],
+    );
+    let partial = vec![
+        PartialNode {
+            site: 0,
+            material: 1,
+            segments: segments(10.0),
+        },
+        PartialNode {
+            site: 2,
+            material: 2,
+            segments: segments(5.0),
+        },
+    ];
+    let reference = problem_of(
+        vec![10.0, 10.0, 20.0, 5.0, 15.0],
+        vec![Some(0), Some(1), Some(0), Some(0), Some(1)],
+        vec![fuel(1.0), fuel(1.6)],
+    );
+    let expected = solve(&reference, &Options::default()).unwrap();
+    let (solution, _) =
+        solve_rodded(&problem, partial, Weighting::Flux, 0.5, &Options::default()).unwrap();
+    let dk = pcm(solution.k, expected.k);
+    assert!(dk.abs() < 10.0, "{dk} pcm");
+}
+
+#[test]
 fn windows_without_a_uniform_node_are_errors() {
     // どちらの側にも一様なノードがなければ、細かいメッシュの解の大きさが決まらない
     assert!(windows(&[true]).is_err());
