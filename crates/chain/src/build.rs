@@ -194,7 +194,19 @@ fn decay_products(
             count: alphas,
         });
     }
-    Ok(products)
+    Ok(merged(products))
+}
+
+/// 同じ核種の生成物を 1 つにまとめ、個数を足す（娘が放出した軽い核種と同じとき。Li-8 の β−α の He-4）
+fn merged(products: Vec<Product>) -> Vec<Product> {
+    let mut out: Vec<Product> = Vec::with_capacity(products.len());
+    for p in products {
+        match out.iter_mut().find(|q| q.nuclide == p.nuclide) {
+            Some(q) => q.count += p.count,
+            None => out.push(p),
+        }
+    }
+    out
 }
 
 fn mode_name(steps: &[Step]) -> String {
@@ -416,7 +428,7 @@ fn reactions(
                     products.extend(light.iter().copied());
                     channels.push(Channel {
                         final_state: Some(final_state),
-                        products,
+                        products: merged(products),
                     });
                 }
                 channels
@@ -434,7 +446,7 @@ fn reactions(
                 products.extend(light.iter().copied());
                 vec![Channel {
                     final_state: None,
-                    products,
+                    products: merged(products),
                 }]
             }
         };
