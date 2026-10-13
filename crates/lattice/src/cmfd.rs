@@ -401,6 +401,11 @@ pub enum CmfdError {
     NotConverged(usize),
 }
 
+/// 1 行か 1 列の格子の粗メッシュの逆反復のシフト k_s = k (1 + WIELANDT) の幅（ADR-0158）。収束の比は
+/// (1/k₀ − 1/k_s) / (1/k₁ − 1/k_s)（k₀ > k₁ は 1 番目と 2 番目の固有値）。k が k₀ を下回る割合がおよそ
+/// WIELANDT + (k₀/k₁ − 1)/2 を超えると、シフトが 1/k₁ に近くなる
+const WIELANDT: f64 = 0.01;
+
 /// 粗メッシュのセルの、同じ核分裂スペクトルの項の和。核分裂源は χ (νΣf · φ)
 #[derive(Debug, Clone)]
 struct Spectrum {
@@ -807,11 +812,32 @@ impl Coarse {
         }
     }
 
-    /// 結合がチェーンのとき、べき乗法の各反復で (A − μ F) φ = F φ_前 をブロック三重対角の直接解法で解く（逆反復）
+    /// 結合がチェーンのとき、`k` の少し上の k_s = k (1 + `WIELANDT`) にシフトした逆反復で解く。シフトが 2 番目以降の
+    /// 固有値に近い（`k` が固有値より大きく下にある）と、解が正にならないか、シフトした行列が特異になるので、
+    /// シフトなしで解き直す（ADR-0158）
     fn solve_chain(
         &self,
         chain: &Chain,
         k: f64,
+        options: &CmfdOptions,
+    ) -> Result<(f64, Vec<f64>), CmfdError> {
+        let shift = 1.0 / (k * (1.0 + WIELANDT));
+        match self.inverse_iteration(chain, k, shift, options) {
+            Err(error @ (CmfdError::NonPositiveSolution { .. } | CmfdError::Singular(_))) => {
+                tracing::debug!(%error, "coarse-mesh shift below the eigenvalue; solving unshifted");
+                self.inverse_iteration(chain, k, 0.0, options)
+            }
+            result => result,
+        }
+    }
+
+    /// べき乗法の各反復で (A − μ F) φ = F φ_前 をブロック三重対角の直接解法で解く（`shift` = μ = 1/k_s の逆反復）。
+    /// 解は φ / (1/k − μ) に近づくので、生成率 p から 1/k = μ + 1/p
+    fn inverse_iteration(
+        &self,
+        chain: &Chain,
+        k: f64,
+        shift: f64,
         options: &CmfdOptions,
     ) -> Result<(f64, Vec<f64>), CmfdError> {
         let ng = self.groups;
@@ -819,7 +845,6 @@ impl Coarse {
         let start = self.production(&self.flux);
         let mut phi: Vec<f64> = self.flux.iter().map(|f| f / start).collect();
         let mut k = k;
-        let shift = 0.0;
         let factors = chain.factor(ng, &self.fission, shift, &self.cells)?;
         let mut k_history = Remaining::default();
         let mut flux_history = Remaining::default();
@@ -836,7 +861,7 @@ impl Coarse {
                 }
             }
             chain.substitute(ng, &factors, &mut next);
-            // next ≈ φ / (1/k − μ)
+            // シフトが固有値より上（μ > 1/k）でも、いちばん近い固有値に収束する。p は負になり、割ると正に戻る
             let rate = self.production(&next);
             let new_k = 1.0 / (shift + 1.0 / rate);
             for f in &mut next {
