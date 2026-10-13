@@ -31,7 +31,7 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
 外からの入力とツールの固定、`references/` への見せ方は [ADR-0124](../adr/0124-pin-reference-assets-with-nix.md) で
 決めた（ADR-0031 を置き換えた）。
 
-関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0123](../adr/0123-drive-stages-with-dvc.md)、[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、[ADR-0126](../adr/0126-share-references-across-worktrees-by-worktreelink.md)、[ADR-0130](../adr/0130-drive-reference-results-with-dvc.md)
+関係する ADR: [ADR-0122](../adr/0122-run-trials-from-committed-inputs.md)、[ADR-0123](../adr/0123-drive-stages-with-dvc.md)、[ADR-0124](../adr/0124-pin-reference-assets-with-nix.md)、[ADR-0126](../adr/0126-share-references-across-worktrees-by-worktreelink.md)、[ADR-0130](../adr/0130-drive-reference-results-with-dvc.md)、[ADR-0136](../adr/0136-split-openmc-stages-at-model-xml.md)
 
 ## 完了の条件
 
@@ -47,9 +47,11 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
     含む）の段階。ADR-0121 の `p2/openmc-<問題>.msgpack` の置き場を、抽出の結果のディレクトリに合わせるかを決める
   - 済（ADR-0152）: 燃料の実効断面積の tally は、標準のタリーの組の WIMS 69 群（モジュールの定数）に入り、xlc のライブラリを
     deps にしない。入力の `effective-xs-groups` はなくした
-  - OpenMC の段階を「入力とスクリプト → model.xml」と「model.xml とライブラリ → statepoint」に分け、スクリプトを作り直しても
-    model.xml が同じなら OpenMC が再実行しないようにする（ライブラリの段階も同じく分ける）。分けたあと 1B を一度走らせ直せば、
-    記録の「実行したコミットと分岐点からの復元」（ADR-0130）は要らなくなる
+  - 済（ADR-0136）: OpenMC の段階を「入力とスクリプト → model.xml」と「model.xml とライブラリ → statepoint」に分ける
+    （1B。ほかの問題は、段階にするときに同じ形で足す）。ライブラリの段階は、NJOY の入力を取り出す API がないので
+    分けず、入力を読む部分を `openmc_input.py` に移して、モデルの部品の変更で再実行しないようにした。1B の実行の段階は、
+    標準のタリー（ADR-0152）で model.xml が変わったため古いまま残る。作り直せば、記録の「実行したコミットと分岐点からの
+    復元」（ADR-0130）は要らなくなる
   - `openmc-library.toml` の H-1 の温度は、冷却材と被覆管の温度と S(α,β) の温度を合わせたものを手でコピーしている（main の
     `openmc_library.py` は和集合を計算していた）。食い違いを止める検査を足す
   - `compare_k.py` は lattice の出力が k.json と同じ問題のものかを確かめない。1C 以降の比較の段階を足すときに、問題を
