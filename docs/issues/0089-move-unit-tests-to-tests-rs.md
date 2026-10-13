@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [refactor]
 opened: 2026-10-12
-closed:
+closed: 2026-10-14
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット e0323140
 ---
 
 # 単体テストを tests.rs に移し、本番のファイルのテストのコードを検査で止める
