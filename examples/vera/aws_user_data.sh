@@ -42,12 +42,12 @@ sync_out() {
   "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude boot.log "\$WORK/\$OUT" "\$PREFIX"
 }
 # どこで終わっても、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
-# この user-data が失敗したとき（終了コードを書く）に置く。SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）
+# この user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も含む）に置く。SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）
 # では書かず、中断として aws_run.sh で起動し直せるようにする。同期に失敗したら、S3 の結果がそろわないので done を置かない
 finish() {
   local code=\$? synced=0
   echo "xlc: exit \$code \$(date -u +%FT%TZ)"
-  if ((code != 143)) && [[ ! -f \$WORK/\$OUT/done ]]; then
+  if ((code != 0 && code != 143)); then
     mkdir -p "\$WORK/\$OUT"
     echo "\$code" > "\$WORK/\$OUT/done"
   fi
@@ -89,7 +89,8 @@ bash examples/vera/run_remote.sh $input
 USERDATA
   fi
   cat <<USERDATA
-while [[ ! -f \$OUT/done ]]; do
+# run_remote.sh は done を 1 回の echo で書くので、空のうちに読まないよう数字になるまで待つ
+until [[ -f \$OUT/done && \$(cat "\$OUT/done") =~ ^[0-9]+\$ ]]; do
   sleep $seconds
   sync_out || echo "xlc: sync failed \$(date -u +%FT%TZ)"
 done

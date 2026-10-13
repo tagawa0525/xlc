@@ -52,7 +52,8 @@ for name in fresh restart; do
     '      "$AWS" s3 cp --only-show-errors "$WORK/$OUT/done" "$PREFIX/done" || true' "$name"
   # 同期に失敗したときと SIGTERM（中断）では done を置かない。失敗の終了では終了コードを done に書く
   contains "$text" '    if ((synced && code != 143)); then' "$name"
-  contains "$text" '  if ((code != 143)) && [[ ! -f $WORK/$OUT/done ]]; then' "$name"
+  contains "$text" '  if ((code != 0 && code != 143)); then' "$name"
+  contains "$text" 'until [[ -f $OUT/done && $(cat "$OUT/done") =~ ^[0-9]+$ ]]; do' "$name"
   contains "$text" '    echo "$code" > "$WORK/$OUT/done"' "$name"
   contains "$text" "trap 'exit 143' TERM" "$name"
   lacks "$text" '"$AWS" s3 cp --only-show-errors "$OUT/done" "$PREFIX/done"' "$name"
