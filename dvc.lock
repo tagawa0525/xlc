@@ -34,22 +34,22 @@ stages:
       size: 98
     - path: scripts/build-binaries.sh
       hash: md5
-      md5: 52e6a278cbf97db4225b3847467f4246
-      size: 2828
+      md5: b884d15c923254031d15dd52a98f2a32
+      size: 3309
       isexec: true
     outs:
     - path: bin/core
       hash: md5
-      md5: 2f2040124f184b8ea932ab68575ab8ef
-      size: 3963672
+      md5: fe2d87618b63502a49f9e4ba1071aba8
+      size: 2893144
       isexec: true
     - path: bin/lattice
       hash: md5
-      md5: bfe45232a2f37616dfd28d3611ec7398
-      size: 5296520
+      md5: 85a3c566006dee835892baa085a2fc55
+      size: 3848568
       isexec: true
     - path: bin/xs
       hash: md5
-      md5: 8376dbece22a0885875abf5d0839adcb
-      size: 3490336
+      md5: e77257b3a0e6a0614cadcac1e3e4a77e
+      size: 2555000
       isexec: true
