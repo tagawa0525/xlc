@@ -146,6 +146,45 @@ fn a_slab_of_thin_cells_converges_within_a_few_hundred_iterations() {
 }
 
 #[test]
+fn a_slab_with_a_close_second_mode_converges_quickly_from_a_nearby_k() {
+    // 400 cm の平板は 2 番目の固有値が近く（優位比 0.97 程度）、シフトのない逆反復は約 700 回かかる。k の近くに
+    // シフトすると、2 つの固有値の差に比べて近いほど速く収束する
+    let coarse = slab(800, 0.5);
+    let unlimited = CmfdOptions {
+        max_iterations: 1_000_000,
+        ..CmfdOptions::default()
+    };
+    let (reference_k, reference) = coarse.solve(0.5, &unlimited).unwrap();
+    let budget = CmfdOptions {
+        max_iterations: 100,
+        ..CmfdOptions::default()
+    };
+    for start in [0.95, 1.0] {
+        let (k, ratio) = coarse.solve(start, &budget).unwrap();
+        assert!(
+            (k - reference_k).abs() < 1e-9,
+            "{start}: {k} vs {reference_k}"
+        );
+        for (a, b) in ratio.iter().zip(&reference) {
+            assert!((a - b).abs() < 1e-6 * b, "{start}: {a} vs {b}");
+        }
+    }
+}
+
+#[test]
+fn a_slab_solves_from_a_k_far_below_the_eigenvalue() {
+    // k が固有値より大きく下にあると、シフトが 2 番目以降の固有値に近くなる。シフトなしで解き直す
+    let coarse = slab(800, 0.5);
+    let unlimited = CmfdOptions {
+        max_iterations: 1_000_000,
+        ..CmfdOptions::default()
+    };
+    let (near, _) = coarse.solve(1.0, &unlimited).unwrap();
+    let (far, _) = coarse.solve(0.5, &unlimited).unwrap();
+    assert!((far - near).abs() < 1e-9, "{far} vs {near}");
+}
+
+#[test]
 fn artificial_diffusion_follows_the_optically_thick_fit() {
     // Zhu ら (2016): 光学的に薄いと 0（従来の CMFD）、厚いと 0.127 に飽和し、Σt h = 4 で約 0.1
     assert_eq!(artificial_diffusion(0.5), 0.0);
