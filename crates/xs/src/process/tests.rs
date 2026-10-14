@@ -464,3 +464,165 @@ fn processes_each_temperature_and_sigma0() {
         assert!(t.chi.iter().all(|&c| c == 0.0));
     }
 }
+
+/// チェーンの反応の経路を確かめるテープ: MF3 の全 11 b、弾性散乱 10 b、捕獲 1 b（一定）、(n,2n) の部分の MT875 と MT876（しきい値 1 MeV の Q
+/// から、0.2 b と 0.1 b）。MF8 は捕獲の状態を MF9 で、MT875 は挙げない。`states` は捕獲の MF8/MF9 の (LFS, 励起エネルギー, 多重度)
+fn reaction_tape(states: &[(u32, &str, &str)]) -> Tape {
+    use crate::endf::rec;
+    let section = |mf: u32, mt: u32, q: &str, x: [&str; 2], y: [&str; 2]| {
+        [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "0", "0"], 1, mf, mt),
+            rec([q, q, "0", "0", "1", "2"], 1, mf, mt),
+            rec(["2", "2", "", "", "", ""], 1, mf, mt),
+            rec([x[0], y[0], x[1], y[1], "", ""], 1, mf, mt),
+            rec(["", "", "", "", "", ""], 1, mf, 0),
+        ]
+        .concat()
+    };
+    let full = ["1.0-5", "2.0+7"];
+    let threshold = ["1.004237+6", "2.0+7"];
+    let mut text = vec![
+        section(3, 1, "0.0", full, ["11.0", "11.0"]),
+        section(3, 2, "0.0", full, ["10.0", "10.0"]),
+        section(3, 102, "0.0", full, ["1.0", "1.0"]),
+        section(3, 875, "-1.0+6", threshold, ["0.2", "0.2"]),
+        section(3, 876, "-1.0+6", threshold, ["0.1", "0.1"]),
+    ];
+    if !states.is_empty() {
+        let ns = states.len().to_string();
+        let mut mf8 = vec![rec(
+            ["9.223800+4", "2.360060+2", "0", "0", &ns, "1"],
+            1,
+            8,
+            102,
+        )];
+        let mut mf9 = vec![rec(
+            ["9.223800+4", "2.360060+2", "0", "0", &ns, "0"],
+            1,
+            9,
+            102,
+        )];
+        for (lfs, excitation, y) in states {
+            let lfs = lfs.to_string();
+            mf8.push(rec(
+                ["9.223900+4", excitation, "9", &lfs, "0", "0"],
+                1,
+                8,
+                102,
+            ));
+            mf9.push(rec(["0.0", "0.0", "92239", &lfs, "1", "2"], 1, 9, 102));
+            mf9.push(rec(["2", "2", "", "", "", ""], 1, 9, 102));
+            mf9.push(rec(["1.0-5", y, "2.0+7", y, "", ""], 1, 9, 102));
+        }
+        mf8.push(rec(["", "", "", "", "", ""], 1, 8, 0));
+        mf9.push(rec(["", "", "", "", "", ""], 1, 9, 0));
+        text.push(mf8.concat());
+        text.push(mf9.concat());
+    }
+    // MF の順に並べる（MF3 → MF8 → MF9）
+    Tape::parse(&text.concat()).unwrap()
+}
+
+fn reaction_settings() -> Settings {
+    Settings {
+        groups: GroupStructure::wims69(),
+        weight: Weight::lwr(),
+        sigma0: vec![1.0e10, 10.0],
+        thermal_cutoff: 4.0,
+        tolerance: 1.0e-3,
+        pointwise_range: Some((4.0, 1.0e4)),
+        scattering_order: 0,
+    }
+}
+
+#[test]
+fn capture_is_kept_per_sigma0_and_pointwise() {
+    let data = process_nuclide(
+        &reaction_tape(&[]),
+        "X",
+        &[293.6],
+        None,
+        &reaction_settings(),
+    )
+    .unwrap();
+    let t = &data.temperatures[0];
+    // 一定の 1 b の捕獲は、熱群を除けば遮蔽によらず 1 b
+    for s in &t.shielded {
+        assert!((s.capture[0] - 1.0).abs() < 1e-9, "{}", s.capture[0]);
+    }
+    assert!(t.pointwise.capture.iter().all(|&c| (c - 1.0).abs() < 1e-12));
+    assert_eq!(t.pointwise.capture.len(), t.pointwise.energy.len());
+}
+
+#[test]
+fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
+    let settings = reaction_settings();
+    let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.1")]);
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let reactions = &data.temperatures[0].reactions;
+    let mts: Vec<u32> = reactions.iter().map(|r| r.mt).collect();
+    assert_eq!(mts, vec![16, 102]);
+    // (n,2n) は部分の MT875 と MT876 の和で、状態に分けない
+    let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
+    let averages =
+        crate::multigroup::reaction_averages(&settings.groups, &settings.weight, &tables, None);
+    let [n2n] = &reactions[0].channels[..] else {
+        panic!("one (n,2n) channel")
+    };
+    assert_eq!(n2n.final_state, None);
+    for g in 0..settings.groups.len() {
+        let expected = averages.sigma[&875][g] + averages.sigma[&876][g];
+        assert!((n2n.cross_section[g] - expected).abs() <= 1e-12 * expected.max(1e-30));
+    }
+    // 捕獲は MF9 の多重度で状態ごとに分ける（テープの順）
+    use xlc_format::library::ChannelState;
+    let states: Vec<_> = reactions[1]
+        .channels
+        .iter()
+        .map(|c| c.final_state)
+        .collect();
+    assert_eq!(
+        states,
+        vec![
+            Some(ChannelState {
+                mf: 9,
+                lfs: Some(0)
+            }),
+            Some(ChannelState {
+                mf: 9,
+                lfs: Some(2)
+            })
+        ]
+    );
+    for (channel, y) in reactions[1].channels.iter().zip([0.9, 0.1]) {
+        for (g, &v) in channel.cross_section.iter().enumerate() {
+            let expected = y * averages.sigma[&102][g];
+            assert!(
+                (v - expected).abs() <= 1e-12 * expected,
+                "group {g}: {v} vs {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn capture_states_without_the_ground_state_leave_the_remainder_to_it() {
+    let settings = reaction_settings();
+    let tape = reaction_tape(&[(2, "5.0+4", "0.1")]);
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let capture = &data.temperatures[0].reactions[1];
+    use xlc_format::library::ChannelState;
+    let states: Vec<_> = capture.channels.iter().map(|c| c.final_state).collect();
+    assert_eq!(
+        states,
+        vec![
+            Some(ChannelState {
+                mf: 9,
+                lfs: Some(2)
+            }),
+            Some(ChannelState { mf: 9, lfs: None })
+        ]
+    );
+    let total = capture.channels[0].cross_section[0] + capture.channels[1].cross_section[0];
+    assert!((capture.channels[1].cross_section[0] - 0.9 * total).abs() < 1e-12 * total);
+}
