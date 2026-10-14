@@ -109,7 +109,7 @@ nix develop ../..#references -c python3 compare_chain_depletion.py chain-cases.t
 - decay にない収率の生成物（U-235 で 112 の状態）は、どちらも準安定状態を基底状態へ、基底状態を β− の向きに移し、値が一致する
 
 核分裂の Q（MF3 MT18 の QI。出力の規格化に使う。ADR-0173）は、核分裂する 88 核種で一致する（相対差 0）。`compare_chain.py` の
-`核分裂の Q` の行で、xlc fa9a2880（分岐点 b2ef7a43。鎖の段階の `bin/chain` は md5 8a32a619）、2026-10-15。
+`核分裂の Q` の行で、xlc 44a8bf91（分岐点 b2ef7a43。鎖の段階の `bin/chain` は md5 8a32a619）、2026-10-15。
 
 ### 同じ反応率での 1 ステップ
 
@@ -170,7 +170,7 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 
 ### 計算
 
-OpenMC は 265c23c3（Slurm の排他のジョブ 379、分岐点 b2ef7a43）、xlc と比較は cb39dd9b（排他のジョブ 383、分岐点 b2ef7a43）、
+OpenMC は cded7c02（Slurm の排他のジョブ 379、分岐点 b2ef7a43）、xlc と比較は 301d0373（排他のジョブ 383、分岐点 b2ef7a43）、
 2026-10-15。xlc は `bin/lattice` md5 2bd07d28、ライブラリ `depletion.msgpack` md5 a4bf0c93（main のライブラリと同じ）、鎖 md5
 1f1de180。
 
