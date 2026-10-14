@@ -192,7 +192,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
             &tracking,
             &region_materials,
             &chosen,
-            &LibraryReactions,
+            &LibraryReactions(library),
         )
         .with_context(|| format!("{}: depletion", shown(path)))?;
         for point in &history.points {
