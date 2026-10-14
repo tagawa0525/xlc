@@ -59,7 +59,7 @@ layers = [
 ]
 
 [design.26-p16]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-26-p16/lower-water.msgpack",
   "axial-26-p16/lower-plate.msgpack",
@@ -67,7 +67,6 @@ layers = [
   "axial-26-p16/lower-gap-plug.msgpack",
   "lattice/26-p16-empty-igrid.msgpack",
   "lattice/26-p16-plug-igrid.msgpack",
-  "lattice/26-p16-poison-igrid.msgpack",
   "lattice/26-p16-poison.msgpack",
   "lattice/26-p16-poison-zgrid.msgpack",
   "lattice/26-p16-poison.msgpack",
@@ -90,7 +89,7 @@ layers = [
 ]
 
 [design.26-p20]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-26-p20/lower-water.msgpack",
   "axial-26-p20/lower-plate.msgpack",
@@ -98,7 +97,6 @@ layers = [
   "axial-26-p20/lower-gap-plug.msgpack",
   "lattice/26-p20-empty-igrid.msgpack",
   "lattice/26-p20-plug-igrid.msgpack",
-  "lattice/26-p20-poison-igrid.msgpack",
   "lattice/26-p20-poison.msgpack",
   "lattice/26-p20-poison-zgrid.msgpack",
   "lattice/26-p20-poison.msgpack",
@@ -121,7 +119,7 @@ layers = [
 ]
 
 [design.26-p24]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-26-p24/lower-water.msgpack",
   "axial-26-p24/lower-plate.msgpack",
@@ -129,7 +127,6 @@ layers = [
   "axial-26-p24/lower-gap-plug.msgpack",
   "lattice/26-p24-empty-igrid.msgpack",
   "lattice/26-p24-plug-igrid.msgpack",
-  "lattice/26-p24-poison-igrid.msgpack",
   "lattice/26-p24-poison.msgpack",
   "lattice/26-p24-poison-zgrid.msgpack",
   "lattice/26-p24-poison.msgpack",
@@ -236,7 +233,7 @@ layers = [
 ]
 
 [design.31-p12]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-31-p12/lower-water.msgpack",
   "axial-31-p12/lower-plate.msgpack",
@@ -244,7 +241,6 @@ layers = [
   "axial-31-p12/lower-gap-plug.msgpack",
   "lattice/31-p12-empty-igrid.msgpack",
   "lattice/31-p12-plug-igrid.msgpack",
-  "lattice/31-p12-poison-igrid.msgpack",
   "lattice/31-p12-poison.msgpack",
   "lattice/31-p12-poison-zgrid.msgpack",
   "lattice/31-p12-poison.msgpack",
@@ -267,7 +263,7 @@ layers = [
 ]
 
 [design.31-p12-I]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-31-p12/lower-water.msgpack",
   "axial-31-p12/lower-plate.msgpack",
@@ -275,7 +271,6 @@ layers = [
   "axial-31-p12/lower-gap-plug.msgpack",
   "lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack",
   "lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack",
-  "lattice/reflector-I-31-p12-poison-igrid-fuel.msgpack",
   "lattice/reflector-I-31-p12-poison-fuel.msgpack",
   "lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack",
   "lattice/reflector-I-31-p12-poison-fuel.msgpack",
@@ -298,7 +293,7 @@ layers = [
 ]
 
 [design.31-p16]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-31-p16/lower-water.msgpack",
   "axial-31-p16/lower-plate.msgpack",
@@ -306,7 +301,6 @@ layers = [
   "axial-31-p16/lower-gap-plug.msgpack",
   "lattice/31-p16-empty-igrid.msgpack",
   "lattice/31-p16-plug-igrid.msgpack",
-  "lattice/31-p16-poison-igrid.msgpack",
   "lattice/31-p16-poison.msgpack",
   "lattice/31-p16-poison-zgrid.msgpack",
   "lattice/31-p16-poison.msgpack",
@@ -329,7 +323,7 @@ layers = [
 ]
 
 [design.31-p24]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-31-p24/lower-water.msgpack",
   "axial-31-p24/lower-plate.msgpack",
@@ -337,7 +331,6 @@ layers = [
   "axial-31-p24/lower-gap-plug.msgpack",
   "lattice/31-p24-empty-igrid.msgpack",
   "lattice/31-p24-plug-igrid.msgpack",
-  "lattice/31-p24-poison-igrid.msgpack",
   "lattice/31-p24-poison.msgpack",
   "lattice/31-p24-poison-zgrid.msgpack",
   "lattice/31-p24-poison.msgpack",
@@ -360,7 +353,7 @@ layers = [
 ]
 
 [design.31-p8-I]
-bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.761, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
 layers = [
   "axial-31-p8/lower-water.msgpack",
   "axial-31-p8/lower-plate.msgpack",
@@ -368,7 +361,6 @@ layers = [
   "axial-31-p8/lower-gap-plug.msgpack",
   "lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack",
   "lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack",
-  "lattice/reflector-I-31-p8-poison-igrid-fuel.msgpack",
   "lattice/reflector-I-31-p8-poison-fuel.msgpack",
   "lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack",
   "lattice/reflector-I-31-p8-poison-fuel.msgpack",
