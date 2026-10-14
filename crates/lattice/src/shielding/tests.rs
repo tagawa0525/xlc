@@ -901,7 +901,8 @@ mod lattice {
                 elastic: vec![elastic; ng],
                 fission: vec![fission * factor; ng],
                 nu_fission: vec![2.4 * fission * factor; ng],
-                capture: vec![0.0; ng],
+                // 捕獲は吸収から核分裂を除いたもの
+                capture: vec![(total - elastic - fission) * factor; ng],
             };
             NuclideData {
                 name: name.into(),
@@ -940,7 +941,9 @@ mod lattice {
                         elastic: column(2),
                         fission: column(3),
                         nu_fission: column(3).iter().map(|f| 2.4 * f).collect(),
-                        capture: column(3),
+                        capture: (0..points.len())
+                            .map(|i| points[i][1] - points[i][2] - points[i][3])
+                            .collect(),
                     },
                 }],
             }
@@ -1259,6 +1262,16 @@ mod lattice {
             assert!(
                 (total - expected).abs() < 1e-9 * expected,
                 "group {g}: {total} vs {expected}"
+            );
+            // 捕獲も同じ中性子束と体積で平均する
+            let expected = (0..2)
+                .map(|j| weights[j] * spectrum.nuclides[j][0].capture[g - 1])
+                .sum::<f64>()
+                / weights.iter().sum::<f64>();
+            let capture = lump.effective[0].capture[g];
+            assert!(
+                (capture - expected).abs() <= 1e-9 * expected.abs(),
+                "group {g}: capture {capture} vs {expected}"
             );
         }
     }
