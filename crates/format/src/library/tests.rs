@@ -772,3 +772,23 @@ fn nuclide_names_follow_the_convention() {
 fn library_nuclide_names_are_checked() {
     assert!(read_modified(|f| f.nuclides[1].name = "H1".into()).is_err());
 }
+
+#[test]
+fn reaction_channels_follow_the_chain_layout() {
+    let bad = |change: fn(&mut Vec<GroupReaction>)| {
+        let mut library = sample();
+        change(&mut library.nuclides[0].temperatures[0].reactions);
+        library.to_msgpack().is_err()
+    };
+    // 状態に分けない経路はただ 1 つ
+    assert!(bad(|r| r[1].channels[0].final_state = None));
+    // 残り（LFS が nil）は最後
+    assert!(bad(|r| r[1].channels.swap(0, 1)));
+    // 割合は MF9 か MF10
+    assert!(bad(|r| r[1].channels[0].final_state = Some(ChannelState {
+        mf: 8,
+        lfs: Some(2)
+    })));
+    // チェーンの反応の MT だけ
+    assert!(bad(|r| r[0].mt = 18));
+}
