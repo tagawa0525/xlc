@@ -228,6 +228,11 @@ output = "unused.msgpack"
 
 /// 入力 `text` を、テストの鎖とライブラリで燃やす
 fn deplete_input(text: &str) -> History {
+    deplete_with(text, &library())
+}
+
+/// 入力 `text` を、テストの鎖とライブラリ `library` で燃やす
+fn deplete_with(text: &str, library: &Library) -> History {
     let input = LatticeInput::parse(text).unwrap();
     let depletion = input.depletion.clone().unwrap();
     let (lattice, region_materials) = input.geometry().unwrap();
@@ -237,16 +242,15 @@ fn deplete_input(text: &str) -> History {
         crate::input::SymmetryChoice::Force(s) => Some(s),
     };
     let chosen = choose(&tracking, &region_materials, forced).unwrap();
-    let library = library();
     run(
         &input,
         &depletion,
-        &library,
+        library,
         &chain(),
         &tracking,
         &region_materials,
         &chosen,
-        &LibraryReactions(&library),
+        &LibraryReactions(library),
     )
     .unwrap()
 }
@@ -670,4 +674,25 @@ fn a_half_life_without_reactions_halves_the_density() {
     };
     let (points, _) = ce_cm(&chain, vec![n0], &[32_904.0], solve).unwrap();
     assert!((points[1].densities[0][XE135] - 0.5).abs() <= 1e-12);
+}
+
+#[test]
+fn nuclides_without_data_at_the_fuel_temperature_only_decay() {
+    // 燃料の温度（600 K）のデータのない核種は輸送せず、崩壊と生成だけを追う（ADR-0173）
+    let mut library = library();
+    let mut ba140 = library
+        .nuclides
+        .iter()
+        .find(|n| n.name == "O-16")
+        .unwrap()
+        .clone();
+    ba140.name = "Ba-140".into();
+    ba140.temperatures[0].temperature = 300.0;
+    library.nuclides.push(ba140);
+    let history = deplete_with(PIN, &library);
+    let last = history.points.last().unwrap();
+    assert!(last.densities[0][BA140] > 0.0);
+    // 輸送しないので、Ba-140 があっても k は同じ
+    let without = deplete_input(PIN);
+    assert_eq!(last.k, without.points.last().unwrap().k);
 }
