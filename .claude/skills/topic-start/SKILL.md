@@ -83,6 +83,16 @@ cargo build --release
 4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
 5. 記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD（`dvc.lock` をコミットする前のコミット）、分岐点は `git merge-base HEAD main`
 
+計算を投げる直前に `git log --oneline <分岐点>..main`（分岐点は `git merge-base HEAD main`）を見て、出力を変える変更
+（lattice、xs、core のコード、ADR で出力が変わると書かれたもの）が入っていれば、rebase してから投げる。実例: 2026-10-14、
+平板の CMFD の修正（ADR-0158）の前に rebase したブランチが古い方法で平板を解き、1 状態 1 分で済むものに 1 時間以上かかった。
+
+計算の前には main の HEAD を確かめる（上の `git log` で足りる）。作業中は、ほかの worktree と main の作業ツリーに触らない。
+`git stash` は使わない。排他のジョブが走っている間は手元で計算しない。
+
+Slurm の投げ方: コマンドは `cd <worktree> && ...` で始める（`&` で切らない）。投げた後に `squeue` のコメントのパスを確かめる。
+main の作業ツリー（~/github/xlc）では dvc も計算も走らせない。見積もりは種類ごとに 1 段階を測ってから本数を掛ける（スキル slurm-run）。
+
 計算の待ち時間が長く、その間に main が進んだら、マージ前の rebase で hash が変わる。計算は測り直さず、付け替えは
 commit-refs remap に任せる（ADR-0122。コード、入力、環境が変わらなければ測り直さない）。長い計算が複数のブランチで
 並ぶときも、流す直前に rebase する。
@@ -106,6 +116,8 @@ echo "rc=$?"
 
 マージの前に、残さない試行を消す（`trials/`。スキル verification-record の「記録に書く試行」）。ADR を実装に合わせて直し
 `status: accepted` にする、issue を閉じる（`status: closed`、`closed`、`resolution`）のも、このブランチの中で行う。
+
+レビューの打ち切りは内容で決める。精度・速度の指摘が出る限り回し、文言・構成だけになったら打ち切って issue にまとめる（スキル git-merge）。
 
 worktree から /git-merge を呼ぶときは、**ブランチ名を引数に渡す**: Skill ツールで `git-merge` を `<branch>` の引数つきで
 呼ぶ。引数なしだと、Bash の cwd が呼び出しごとに main の worktree に戻るので、対象が main になり、
