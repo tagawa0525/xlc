@@ -3,8 +3,11 @@
 # references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps にする（ADR-0130）。
 # チェーンと範囲の段階は ENDF をディレクトリごと deps にする（sha256 で固定した。ADR-0124）。燃焼の検証の多群ライブラリ（ADR-0169）は、
 # examples/vera と同じ核種ごとの段階（範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）で作る
+# 格子計算の燃焼の検証（ADR-0173）の OpenMC のライブラリ（openmc-library.toml、核種ごとの段階は examples/vera と同じ
+# ../vera/openmc_library.py）と、OpenMC と xlc の燃焼、その比較の段階を持つ
 vars:
   - xs.toml
+  - openmc-library.toml
 stages:
   references-shell:
     # ツール（OpenMC とその Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
@@ -69,3 +72,44 @@ stages:
       - ../../bin/xs
     outs:
       - depletion.msgpack
+  openmc-neutron:
+    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ADR-0130）
+    foreach: ${neutron}
+    do:
+      cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
+      deps:
+        - ../vera/openmc_library.py
+        - ../openmc_input.py
+        - references-shell.txt
+        - ${item.endf}
+      params:
+        - openmc-library.toml:
+            - neutron.${key}
+      outs:
+        - openmc-library/neutron/${key}.h5
+  openmc-thermal:
+    foreach: ${thermal}
+    do:
+      cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
+      deps:
+        - ../vera/openmc_library.py
+        - ../openmc_input.py
+        - references-shell.txt
+        - ${item.neutron}
+        - ${item.thermal}
+      params:
+        - openmc-library.toml:
+            - thermal.${key}
+      outs:
+        - openmc-library/thermal/${key}.h5
+  openmc-index:
+    cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py index openmc-library.toml openmc-library
+    deps:
+      - ../vera/openmc_library.py
+      - ../openmc_input.py
+      - references-shell.txt
+      - openmc-library.toml
+      - openmc-library/neutron
+      - openmc-library/thermal
+    outs:
+      - openmc-library/cross_sections.xml
