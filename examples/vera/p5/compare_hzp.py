@@ -33,7 +33,7 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from compare_p3 import axial_report, coarsen
-from compare_p5 import fuel_assemblies, summary, unfold
+from compare_p5 import fuel_assemblies, stat, stat_line, unfold
 
 BANKS = ["A", "B", "C", "D", "SA", "SB", "SC", "SD"]
 # 表 P5-2 の `-`（全引き抜き）のステップ
@@ -283,9 +283,11 @@ def power_report(spec: list[str], core_out: Path) -> None:
         )
     fuel = ~np.isnan(reference)
     rates = rates / rates[fuel].mean()
-    summary(
-        "assembly relative difference vs KENO-VI",
-        (rates[fuel] / reference[fuel] - 1),
+    print(
+        stat_line(
+            "assembly relative difference vs KENO-VI",
+            stat(rates[fuel] / reference[fuel] - 1),
+        )
     )
     print(
         "octant (rows 8-15 from column H): xlc (mean of the 8 symmetric positions), KENO-VI, relative difference"
