@@ -70,7 +70,9 @@ pub enum SelfShieldingError {
     /// 解くと決めたピンの結果がない（内部の不整合）
     #[error("cell {0}: internal error, the pin was not shielded")]
     Unsolved(usize),
-    #[error("cell {0}: more than one fuel material")]
+    #[error(
+        "cell {0}: the fuel rings differ in nuclides, their order or temperature, or a ring mixes materials"
+    )]
     MixedFuel(usize),
     #[error(
         "cell {0}: each ring outside the fuel must be one material, and the outer rings the moderator"
@@ -170,12 +172,17 @@ pub struct PinShielding {
     pub cell: usize,
     /// 群ごとの Dancoff 係数
     pub dancoff: Vec<f64>,
-    /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))
+    /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))。燃料のリングの物質が違うときは、個数密度は
+    /// リングの体積で平均したもの（等価原理はその組成で解く。ADR-0173）
     pub nuclides: Vec<(Nuclide, f64)>,
     /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）。UFG の範囲の群は、燃料のリングの値を中性子束と
     /// 体積で平均したもの。`nuclides` とともに SPH 因子を掛けていない物理的な値（参照解と比べる用）で、MOC の
     /// 中性子束と組み合わせて反応率を求めるには、領域の物質（SPH 因子を掛けたもの）を使う
     pub effective: Vec<Shielded>,
+    /// [燃料のリング（内側から）][核種（`nuclides` の順）] の実効断面積。UFG の範囲の群はそのリングの減速計算の値、範囲の外は
+    /// 等価原理の値。`effective` と同じく SPH 因子を掛けない物理的な値で、物理的な中性子束（`FuelShielding::physical_flux`）と
+    /// 掛けてリングの反応率にする（ADR-0173）
+    pub rings: Vec<Vec<Shielded>>,
     /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。枠のあるセルでは、その外に枠と同じ面積の
     /// 枠のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
@@ -395,14 +402,28 @@ pub fn shield_fuel_with(
             return Err(SelfShieldingError::FuelShape(cell));
         }
         let fuel_regions = range.start..range.start + n_fuel;
-        let index = region_index[range.start];
-        if region_index[fuel_regions.clone()]
-            .iter()
-            .any(|&i| i != index)
+        // 燃料のリングごとの物質。リングの扇形は同じ物質で、リングどうしは別の物質でもよいが、核種の並びと温度は同じ
+        // （等価原理を体積平均の組成で、UFG の範囲をリングごとの組成で解くため。ADR-0173）
+        let sectors = pin.sectors();
+        let ring_materials: Vec<usize> = (0..rings)
+            .map(|j| region_index[range.start + j * sectors])
+            .collect();
+        let first = &materials[ring_materials[0]];
+        let same_nuclides = |m: &MaterialInput| {
+            m.temperature == first.temperature
+                && m.composition
+                    .iter()
+                    .map(|(n, _)| n)
+                    .eq(first.composition.iter().map(|(n, _)| n))
+        };
+        if (0..rings).any(|j| {
+            let ring = range.start + j * sectors..range.start + (j + 1) * sectors;
+            region_index[ring].iter().any(|&i| i != ring_materials[j])
+        }) || !ring_materials.iter().all(|&i| same_nuclides(&materials[i]))
         {
             return Err(SelfShieldingError::MixedFuel(cell));
         }
-        pins.push((cell, fuel_regions, index, rings));
+        pins.push((cell, fuel_regions, ring_materials, rings));
     }
     let factors = tracing::debug_span!("dancoff")
         .in_scope(|| dancoff(tracking, &totals, &fuel, &options.dancoff))?;
@@ -455,17 +476,17 @@ pub fn shield_fuel_with(
     // ピンの間でも並列にしてコアを埋める）。ピンの計算は元の物質（`dilute`。領域の番号はこの範囲）だけを読む。
     // 結果の物質の追加と領域への割り当て、エラーは、下のループでピンの順に逐次に扱うので、逐次に解いたときと同じ
     let dilute_materials: &[Material] = &shielded.materials;
-    let solving: Vec<(usize, usize, usize)> = pins
+    let solving: Vec<(usize, &[usize], usize)> = pins
         .iter()
         .zip(&plan)
         .filter(|(_, p)| p.is_some())
-        .map(|(&(cell, _, index, rings), _)| (cell, index, rings))
+        .map(|((cell, _, ring_materials, rings), _)| (*cell, ring_materials.as_slice(), *rings))
         .collect();
     // ピンの区間の親は自己遮蔽の区間にする（rayon のスレッドの今の区間は、盗んだ仕事の元のピンの区間でありうる）
     let shielding = tracing::Span::current();
     let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> = solving
         .par_iter()
-        .map(|&(cell, index, rings)| {
+        .map(|&(cell, ring_materials, rings)| {
             let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
             let factors = factors[cell]
                 .as_ref()
@@ -482,9 +503,9 @@ pub fn shield_fuel_with(
                     .map(|&c| carlvik(c))
                     .collect::<Result<_, _>>()?,
             };
-            let material = &materials[index];
+            let material = pin_fuel(lattice, cell, materials, ring_materials);
             let carlvik = tracing::debug_span!("carlvik")
-                .in_scope(|| shield_material(library, material, &equivalence, options, cell))?;
+                .in_scope(|| shield_material(library, &material, &equivalence, options, cell))?;
             let pin_cell = PinRings {
                 lattice,
                 cell,
@@ -507,7 +528,7 @@ pub fn shield_fuel_with(
         .map(Some)
         .collect();
     let mut solved: Vec<(usize, Solved)> = Vec::new();
-    for ((cell, fuel_regions, index, _rings), planned) in pins.into_iter().zip(plan) {
+    for ((cell, fuel_regions, ring_materials, rings), planned) in pins.into_iter().zip(plan) {
         let factors = factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
@@ -525,14 +546,14 @@ pub fn shield_fuel_with(
             });
             continue;
         }
-        let material = &materials[index];
+        let material = pin_fuel(lattice, cell, materials, &ring_materials);
         // 先に並列で解いた結果（同じ判定で解くと決めたピン）。エラーはここでピンの順に返す
         let PinSolution { carlvik, ufg } = planned
             .and_then(|k| solutions.get_mut(k).and_then(Option::take))
             .ok_or(SelfShieldingError::Unsolved(cell))??;
-        let effective = match &ufg {
-            Some(c) => c.effective.clone(),
-            None => carlvik,
+        let (effective, ring_effective) = match &ufg {
+            Some(c) => (c.effective.clone(), c.center.clone()),
+            None => (carlvik.clone(), vec![carlvik.clone(); rings]),
         };
         let nuclides = material
             .composition
@@ -545,17 +566,12 @@ pub fn shield_fuel_with(
                 ))
             })
             .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-        let mixed = Material::from_nuclides(&nuclides, library.groups.len()).map_err(|source| {
-            SelfShieldingError::Material {
-                name: material.name.clone(),
-                source,
-            }
-        })?;
         let pin = PinShielding {
             cell,
             dancoff: factors.clone(),
             nuclides,
             effective,
+            rings: ring_effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| Sph {
                 factors: c.sph.clone(),
@@ -578,9 +594,39 @@ pub fn shield_fuel_with(
                     .collect(),
                 start: c.start,
             },
+            // リングの物質ごとに、そのリングの組成と等価原理の値で作る（同じ物質のリングは 1 つを共有する）
             None => {
-                shielded.materials.push(mixed);
-                Assigned::Fuel(shielded.materials.len() - 1)
+                let mut made: Vec<(usize, usize)> = Vec::new();
+                let mut per_ring = Vec::with_capacity(rings);
+                for &index in &ring_materials {
+                    if let Some(&(_, m)) = made.iter().find(|(i, _)| *i == index) {
+                        per_ring.push(m);
+                        continue;
+                    }
+                    let ring = &materials[index];
+                    let nuclides = ring
+                        .composition
+                        .iter()
+                        .zip(&carlvik)
+                        .map(|((name, density), s)| {
+                            Ok((
+                                shielded_nuclide(library, name, ring.temperature, s)?,
+                                *density,
+                            ))
+                        })
+                        .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+                    let mixed = Material::from_nuclides(&nuclides, library.groups.len()).map_err(
+                        |source| SelfShieldingError::Material {
+                            name: ring.name.clone(),
+                            source,
+                        },
+                    )?;
+                    shielded.materials.push(mixed);
+                    let m = shielded.materials.len() - 1;
+                    made.push((index, m));
+                    per_ring.push(m);
+                }
+                Assigned::Fuel(per_ring)
             }
         };
         assign(
@@ -896,6 +942,49 @@ fn shield_lumps(
     Ok(())
 }
 
+/// ピンの燃料の物質。リングがすべて同じ物質ならその物質、違えばリングの体積で個数密度を平均した物質（等価原理に使う。
+/// 核種の並びと温度が同じことは確かめてある。ADR-0173）
+fn pin_fuel<'a>(
+    lattice: &Lattice,
+    cell: usize,
+    materials: &'a [MaterialInput],
+    ring_materials: &[usize],
+) -> std::borrow::Cow<'a, MaterialInput> {
+    let first = &materials[ring_materials[0]];
+    if ring_materials.iter().all(|&i| i == ring_materials[0]) {
+        return std::borrow::Cow::Borrowed(first);
+    }
+    let range = lattice.cell_regions(cell);
+    let volumes = lattice.volumes();
+    // 燃料はピンセルのリングにだけ置ける（呼ぶ前に確かめてある）
+    let sectors = lattice.cell_type(cell).pin().map_or(1, PinCell::sectors);
+    let ring_volume = |j: usize| -> f64 {
+        volumes[range.start + j * sectors..range.start + (j + 1) * sectors]
+            .iter()
+            .sum()
+    };
+    let weights: Vec<f64> = (0..ring_materials.len()).map(ring_volume).collect();
+    let total: f64 = weights.iter().sum();
+    let composition = first
+        .composition
+        .iter()
+        .enumerate()
+        .map(|(k, (name, _))| {
+            let sum: f64 = ring_materials
+                .iter()
+                .zip(&weights)
+                .map(|(&i, w)| w * materials[i].composition[k].1)
+                .sum();
+            (name.clone(), sum / total)
+        })
+        .collect();
+    std::borrow::Cow::Owned(MaterialInput {
+        name: format!("fuel of cell {cell}"),
+        temperature: first.temperature,
+        composition,
+    })
+}
+
 /// 組の代表のピンの結果
 struct Solved {
     pin: PinShielding,
@@ -915,8 +1004,8 @@ enum Assigned {
         materials: Vec<Option<usize>>,
         start: usize,
     },
-    /// 燃料の領域だけ（UFG の範囲がないとき）
-    Fuel(usize),
+    /// 燃料のリングごとの物質（UFG の範囲がないとき。燃料の領域だけ）
+    Fuel(Vec<usize>),
 }
 
 /// ピンのセル `cell` の領域に、`assigned` の物質の番号を割り当てる。
@@ -942,9 +1031,10 @@ fn assign(
                 }
             }
         }
-        Assigned::Fuel(m) => {
-            for region in fuel_regions.clone() {
-                region_material[region] = *m;
+        Assigned::Fuel(rings) => {
+            let sectors = fuel_regions.len() / rings.len().max(1);
+            for (k, region) in fuel_regions.clone().enumerate() {
+                region_material[region] = rings[k / sectors];
             }
         }
     }
@@ -994,6 +1084,8 @@ struct CellShielding {
     start: usize,
     /// 燃料の核種の実効断面積。UFG の範囲の群は燃料のリングの値を中性子束と体積で平均し、範囲の外は等価原理の値
     effective: Vec<Shielded>,
+    /// [中心のリング][核種] の実効断面積（UFG の範囲の群はリングの値、範囲の外は等価原理の値）
+    center: Vec<Vec<Shielded>>,
     /// [リング][UFG の範囲の群] の SPH 因子
     sph: Vec<Vec<f64>>,
     /// `sph` の列の群
@@ -1016,7 +1108,7 @@ struct EquivalentCell<'a> {
     spectrum: CellSpectrum,
 }
 
-/// セル `pin.cell` の内側の `pin.rings` のリング（どれも同じ物質）を中心に、群ごとの Dancoff 係数 `dancoff` を合わせた
+/// セル `pin.cell` の内側の `pin.rings` のリング（燃料は核種の並びの同じ物質、棒は同じ物質）を中心に、群ごとの Dancoff 係数 `dancoff` を合わせた
 /// 円筒の等価なセルを作り、減速計算を解く。範囲は `range_of`（等価なセルのリングごとの物質から決める）で、`None` なら
 /// 解かずに `None`。リングの扇形はどれも同じ物質で、減速材（セルのいちばん外の物質）は真空でないこと。
 fn solve_equivalent_cell<'a>(
@@ -1056,14 +1148,15 @@ fn solve_equivalent_cell<'a>(
         return Err(SelfShieldingError::CellShape(cell));
     }
     let input = |index: usize| (index != pin.void).then(|| &materials[index]);
-    let center = &materials[ring_index[0]];
     // 外周の枠: (物質の番号, 面積)。等価なセルでは減速材のリングの外に同じ面積のリングとして置く（枠の影と、
     // 枠の物質が減速材の中性子束を変える効果を入れるため）
     let frame = geometry
         .frame()
         .map(|(region, area)| (pin.region_index[first + region], area));
-    let inputs: Vec<Option<&MaterialInput>> = (0..pin.rings)
-        .map(|_| Some(center))
+    // 中心のリングは、それぞれのリングの物質（燃料のリングは核種の並びが同じ。ADR-0173）
+    let inputs: Vec<Option<&MaterialInput>> = ring_index[..pin.rings]
+        .iter()
+        .map(|&i| input(i))
         .chain(ring_index[pin.rings..start].iter().map(|&i| input(i)))
         .chain([input(moderator)])
         .chain(frame.map(|(i, _)| input(i)))
@@ -1215,11 +1308,13 @@ fn shield_cell(
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut rings = Vec::with_capacity(inputs.len());
+    let mut center = Vec::with_capacity(pin.rings);
     for (j, input) in inputs.iter().enumerate() {
         let Some(m) = input else {
             rings.push(None);
             continue;
         };
+        let mut fulls = Vec::with_capacity(m.composition.len());
         let nuclides = m
             .composition
             .iter()
@@ -1238,12 +1333,14 @@ fn shield_cell(
                     full.nu_fission[g] = ufg.nu_fission[g - top];
                     full.capture[g] = ufg.capture[g - top];
                 }
-                Ok((
-                    shielded_nuclide(library, name, m.temperature, &full)?,
-                    *density,
-                ))
+                let nuclide = shielded_nuclide(library, name, m.temperature, &full)?;
+                fulls.push(full);
+                Ok((nuclide, *density))
             })
             .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+        if j < pin.rings {
+            center.push(fulls);
+        }
         let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
             SelfShieldingError::Material {
                 name: m.name.clone(),
@@ -1300,6 +1397,7 @@ fn shield_cell(
         rings,
         start: *start,
         effective,
+        center,
         sph,
         groups: top..bottom,
     }))
