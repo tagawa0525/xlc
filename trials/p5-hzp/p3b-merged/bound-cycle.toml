@@ -1,0 +1,3 @@
+plant = "../../../examples/vera/p3/core-3B-plant.toml"
+inventory = "bound-assemblies.toml"
+loading = ["3B"]
