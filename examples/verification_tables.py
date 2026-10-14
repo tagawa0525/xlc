@@ -13,6 +13,7 @@
 import difflib
 import hashlib
 import json
+import math
 import re
 import sys
 import unicodedata
@@ -131,6 +132,164 @@ def p3_openmc_comparison(sources: list[dict]) -> str:
     )
 
 
+def p5_by_problem(sources: list[dict]) -> tuple[dict, dict]:
+    """compare_p5.py の要約を、KENO-VI との比較と OpenMC との比較に分けて問題で引く"""
+    keno: dict[str, dict] = {}
+    openmc: dict[str, dict] = {}
+    for s in sources:
+        if s.get("format") != "xlc-compare-p5":
+            raise TableError(
+                f"problem {s.get('problem')}: not an xlc-compare-p5 summary"
+            )
+        target = {"keno": keno, "openmc": openmc}[s["kind"]]
+        if s["problem"] in target:
+            raise TableError(f"{s['problem']} has two {s['kind']} summaries")
+        target[s["problem"]] = s
+    return keno, openmc
+
+
+def p5_rod_worth(a: tuple[float, float], b: tuple[float, float]) -> tuple[float, float]:
+    """制御棒の価値 (1/k_b − 1/k_a) × 1e5 pcm と、k の標準偏差を伝えた誤差（引数は (k, 標準偏差) の組）"""
+    return (
+        1e5 * (1 / b[0] - 1 / a[0]),
+        1e5 * math.hypot(a[1] / a[0] ** 2, b[1] / b[0] ** 2),
+    )
+
+
+def p5_worth_text(a: tuple[float, float], b: tuple[float, float]) -> str:
+    worth, std = p5_rod_worth(a, b)
+    return f"{worth:.0f} ± {std:.0f} pcm"
+
+
+def p5_assembly(d: dict) -> str:
+    """集合体の相対差の RMS と最大（位置の名前つき）"""
+    r = d["relative"]
+    return f"{100 * r['rms']:.2f}%、{signed(100 * r['max'], 1)}%（{assembly_name(r['at'])}）"
+
+
+def assembly_name(at: list[int]) -> str:
+    """15 × 15 の集合体の位置 [行, 列] の名前（compare_p5.py の assembly_name と同じ）"""
+    if len(at) != 2 or not (0 <= at[0] < 15 and 0 <= at[1] < 15):
+        raise TableError(f"not a position of the 15 x 15 core map: {at}")
+    return f"{'RPNMLKJHGFEDCBA'[at[1]]}{at[0] + 1:02d}"
+
+
+def p5_reference_results(sources: list[dict]) -> str:
+    """Problem 5-2D の参照解: OpenMC と KENO-VI の k と制御棒の価値（OpenMC が無い問題の列は空欄）"""
+    keno, openmc = p5_by_problem(sources)
+    rows = []
+    for problem, s in keno.items():
+        k = s["k"]
+        o = openmc.get(problem)
+        base = (keno.get("5A"), openmc.get("5A"))
+        row = [
+            f"{problem}-2D",
+            f"{o['k']['reference']:.6f} ± {o['k']['reference_std']:.6f}" if o else "",
+            f"{k['reference']:.6f} ± {k['reference_std']:.6f}",
+            f"{signed(1e5 * (o['k']['reference'] / k['reference'] - 1), 0)} pcm"
+            if o
+            else "",
+            "",
+            "",
+        ]
+        if problem != "5A":
+            if base[1] and o:
+                row[4] = p5_worth_text(
+                    (base[1]["k"]["reference"], base[1]["k"]["reference_std"]),
+                    (o["k"]["reference"], o["k"]["reference_std"]),
+                )
+            row[5] = p5_worth_text(
+                (base[0]["k"]["reference"], base[0]["k"]["reference_std"]),
+                (k["reference"], k["reference_std"]),
+            )
+        rows.append(row)
+    return markdown_table(
+        [
+            "問題",
+            "OpenMC（ENDF/B-VIII.0）",
+            "KENO-VI（ENDF/B-VII.0）",
+            "差",
+            "制御棒の価値（OpenMC）",
+            "制御棒の価値（KENO-VI）",
+        ],
+        rows,
+    )
+
+
+def p5_openmc_comparison(sources: list[dict]) -> str:
+    """Problem 5-2D の炉心の計算: xlc と OpenMC の k、集合体出力、ピン出力"""
+    _, openmc = p5_by_problem(sources)
+    rows = []
+    for problem, s in openmc.items():
+        pins = s["pins"]
+        rows.append(
+            [
+                f"{problem}-2D",
+                signed(s["k"]["diff_pcm"], 1),
+                p5_assembly(s["assemblies"]),
+                f"{100 * pins['all']['rms']:.2f}%、{signed(100 * pins['all']['max'], 0)}%",
+                f"{100 * pins['peripheral']['rms']:.2f}%",
+                f"{pins['max_pin']['xlc']:.3f}、{pins['max_pin']['reference']:.3f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "Δk/k (pcm)",
+            "集合体 RMS、最大",
+            "ピン RMS、最大",
+            "外周の集合体のピン RMS",
+            "最大のピン出力（xlc、OpenMC）",
+        ],
+        rows,
+    )
+
+
+def p5_keno_comparison(sources: list[dict]) -> str:
+    """Problem 5-2D の炉心の計算: xlc と KENO-VI の k、制御棒の価値、集合体出力、最大のピン出力"""
+    keno, _ = p5_by_problem(sources)
+    rows = []
+    for problem, s in keno.items():
+        k = s["k"]
+        worth = ""
+        if problem != "5A":
+            a = keno["5A"]["k"]
+            xlc = 1e5 * (1 / k["xlc"] - 1 / a["xlc"])
+            ref, _ = p5_rod_worth(
+                (a["reference"], a["reference_std"]),
+                (k["reference"], k["reference_std"]),
+            )
+            worth = f"{xlc:.0f}、{ref:.0f} pcm"
+        rows.append(
+            [
+                f"{problem}-2D",
+                f"{k['xlc']:.6f}",
+                f"{k['reference']:.6f}",
+                signed(k["diff_pcm"], 1),
+                worth,
+                p5_assembly(s["assemblies"]),
+                f"{s['max_pin']['xlc']:.3f}、{s['max_pin']['reference']:.3f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "xlc の k",
+            "KENO-VI の k",
+            "Δk/k (pcm)",
+            "制御棒の価値（xlc、KENO-VI）",
+            "集合体 RMS、最大の相対差",
+            "最大のピン出力（xlc、KENO-VI）",
+        ],
+        rows,
+    )
+
+
+P5_SOURCES = [
+    *(f"examples/vera/p5/compare-{p}.json" for p in ("5A", "5B", "5C")),
+    "examples/vera/p5/compare-5A-openmc.json",
+]
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -139,6 +298,18 @@ TABLES = {
             "examples/vera/p3/compare-3B-openmc.json",
         ],
         p3_reference_results,
+    ),
+    "p5-reference-results": (
+        P5_SOURCES,
+        p5_reference_results,
+    ),
+    "p5-openmc-comparison": (
+        ["examples/vera/p5/compare-5A-openmc.json"],
+        p5_openmc_comparison,
+    ),
+    "p5-keno-comparison": (
+        [f"examples/vera/p5/compare-{p}.json" for p in ("5A", "5B", "5C")],
+        p5_keno_comparison,
     ),
     "p3-openmc-comparison": (
         [
