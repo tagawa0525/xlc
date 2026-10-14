@@ -15,7 +15,6 @@
 /core-3A-pins.msgpack
 /core-3A-layers.msgpack
 /compare-3A-slab.out
-/compare-3A.out
 /lattice-3B/poison.msgpack
 /lattice-3B-poison.out
 /medium-3B-poison.msgpack
@@ -46,6 +45,3 @@
 /core-3B-pins.msgpack
 /core-3B-layers.msgpack
 /compare-3B-slab.out
-/compare-3B.out
-/compare-3A-openmc.out
-/compare-3B-openmc.out
