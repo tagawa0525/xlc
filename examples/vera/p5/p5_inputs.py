@@ -1464,7 +1464,7 @@ PYREX_KINDS = {
     "plenum": ("pp", None, False),
     "empty-igrid": ("gt", "inconel", False),
     "plug-igrid": ("pl", "inconel", False),
-    # 炉心は CORE_MERGED_BOUNDS で 15.761〜15.817 cm を下の端栓の層に含めるので、今の入力ではこの層を使わない。境界を戻す
+    # 炉心は CORE_MERGED_BOUNDS で 15.761〜15.817 cm を下の端栓の層に含めるので（ADR-0154）、この層の格子は作らない。境界を戻す
     # とき（#0123）のために残す
     "poison-igrid": ("py", "inconel", False),
     "empty": ("gt", None, True),
