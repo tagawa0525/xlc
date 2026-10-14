@@ -92,9 +92,12 @@ nix develop .#references -c sh -c 'OMP_NUM_THREADS=16 python3 examples/vera/open
 `openmc_balance.py` の statepoint は世代ごとに残り（1B で 200 本）大きい。使い終わった作業ディレクトリは、
 `balance.msgpack` を残して statepoint を消してよいか、ユーザーに確かめる。
 
-## AWS の自己完結な実行（Problem 3、5-2D）
+## AWS の自己完結な実行（Problem 3、5-2D、燃焼）
 
-ADR-0155、0168、0171。手順は docs/environment.md の「自己完結な実行」。要点:
+ADR-0155、0168、0171、0174。手順は docs/environment.md の「自己完結な実行」。要点:
+
+- 流すものは入力の親のディレクトリの `aws.toml`（実行の定義）が決める。VERA は `examples/vera/aws.toml`、燃焼は
+  `examples/depletion/aws.toml`（`progress = "steps"`: 区間の境界から再開し、`--statepoint-interval` は使わない）
 
 - `aws_run.sh --type auto`: 候補と速度は `examples/aws/aws_types.toml`。スポットの vCPU のクォータの残りに収める
 - 起動し直しは `--job <ジョブ>`。`--statepoint-interval` は 3A、3B で 50、5B、5C-2D で 25
