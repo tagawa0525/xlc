@@ -82,11 +82,15 @@ class Steps(unittest.TestCase):
         with self.assertRaises(SystemExit):
             resume.first_step(self.work, restart=True)
 
-    def test_steps_must_be_consecutive_from_1(self):
-        make_step(self.work, 1, complete=True)
-        make_step(self.work, 3, complete=True)
-        with self.assertRaises(SystemExit):
-            resume.first_step(self.work, restart=True)
+    def test_a_restart_needs_only_the_last_complete_step(self):
+        """VM は再開で最後の区間だけを S3 から戻すので、前の区間はなくてよい。"""
+        make_step(self.work, 4, complete=True)
+        self.assertEqual(resume.first_step(self.work, restart=True), 5)
+
+    def test_a_step_directory_without_a_number_is_not_a_step(self):
+        (self.work / "step-x").mkdir()
+        (self.work / "step-1.bak").mkdir()
+        self.assertEqual(resume.step_numbers(self.work), [])
 
 
 if __name__ == "__main__":
