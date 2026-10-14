@@ -1578,9 +1578,18 @@ pub fn effective(
             .collect()
     };
     let (sigma0_1, sigma0_2) = (sigma0(0), sigma0(1));
+    // ライブラリの最初の σ0 は無限希釈とみなす値（xlc_format::library）。燃焼でできたばかりの微量の核種はそれより大きな σ0 を
+    // 持つが、σt ≪ σ0 で群定数はもう σ0 によらないので、表は無限希釈の値で引く（ADR-0173）。重みの中性子束は σ0 のまま
+    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
+    // NaN は min で消えるので、比べて置き換える（NaN は表の検査で止める）
+    let table = |s: &[f64]| -> Vec<f64> {
+        s.iter()
+            .map(|&x| if x > infinite { infinite } else { x })
+            .collect()
+    };
     let tables = [
-        library.shielded(name, temperature, &sigma0_1)?,
-        library.shielded(name, temperature, &sigma0_2)?,
+        library.shielded(name, temperature, &table(&sigma0_1))?,
+        library.shielded(name, temperature, &table(&sigma0_2))?,
     ];
     let sigma0 = [sigma0_1, sigma0_2];
     let groups = background.len();
