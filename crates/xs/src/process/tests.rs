@@ -468,6 +468,11 @@ fn processes_each_temperature_and_sigma0() {
 /// 鎖の反応の経路を確かめるテープ: MF3 の全 11 b、弾性散乱 10 b、捕獲 1 b（一定）、(n,p) の部分の MT600 と MT601（Q = −1 MeV の
 /// しきい値から、0.2 b と 0.1 b）。MF8 は捕獲の状態を MF9 で挙げ、(n,p) は挙げない。`states` は捕獲の MF8/MF9 の (LFS, 励起エネルギー, 多重度)
 fn reaction_tape(states: &[(u32, &str, &str)]) -> Tape {
+    reaction_tape_from(states, "1.0-5")
+}
+
+/// `reaction_tape` の、MF9 の表がエネルギー `start` (eV) から始まるもの
+fn reaction_tape_from(states: &[(u32, &str, &str)], start: &str) -> Tape {
     use crate::endf::rec;
     let section = |mf: u32, mt: u32, q: &str, x: [&str; 2], y: [&str; 2]| {
         [
@@ -512,7 +517,7 @@ fn reaction_tape(states: &[(u32, &str, &str)]) -> Tape {
             ));
             mf9.push(rec(["0.0", "0.0", "92239", &lfs, "1", "2"], 1, 9, 102));
             mf9.push(rec(["2", "2", "", "", "", ""], 1, 9, 102));
-            mf9.push(rec(["1.0-5", y, "2.0+7", y, "", ""], 1, 9, 102));
+            mf9.push(rec([start, y, "2.0+7", y, "", ""], 1, 9, 102));
         }
         mf8.push(rec(["", "", "", "", "", ""], 1, 8, 0));
         mf9.push(rec(["", "", "", "", "", ""], 1, 9, 0));
@@ -641,4 +646,21 @@ fn listed_states_beyond_the_reaction_are_an_error() {
         ),
         "{error:?}"
     );
+}
+
+#[test]
+fn multiplicities_count_only_where_the_mf9_table_is_given() {
+    // MF9 の表が反応の範囲より高いエネルギーから始まる評価がある（ENDF/B-VIII.0 の Np-237 の MT16 など）。表の外の多重度は 0
+    // とし（NJOY GROUPR と同じ）、残りの経路がその分を持つ
+    let settings = reaction_settings();
+    let tape = reaction_tape_from(&[(2, "5.0+4", "0.1")], "1.0+3");
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let capture = &data.temperatures[0].reactions[0];
+    let (state, rest) = (&capture.channels[0], &capture.channels[1]);
+    let total = |g: usize| state.cross_section[g] + rest.cross_section[g];
+    // 最も高い群（2 MeV〜10 MeV）は表の中、最も低い群（1e-5 eV〜）は表の外
+    assert!((state.cross_section[0] - 0.1 * total(0)).abs() < 1e-9 * total(0));
+    let last = settings.groups.len() - 1;
+    assert_eq!(state.cross_section[last], 0.0);
+    assert!(rest.cross_section[last] > 0.0);
 }
