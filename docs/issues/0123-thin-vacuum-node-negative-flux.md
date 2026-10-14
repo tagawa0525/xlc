@@ -28,7 +28,7 @@ error: state half: node 150 next to a vacuum face has a flux -0.0000097898329782
   k = 0.996097（state half）
 - Problem 3B（同じメッシュ、同じ 0.056 cm の層）は径方向が鏡面反射で、真空の面に接するノードがないので止まらない
 
-再現: 今の入力は 15.761 cm の境界を除いている（ADR-0154 の `CORE_MERGED_BOUNDS`）ので、境界のある入力を 8ff11f3d から取る。
+再現: ADR-0154 で炉心の 15.761 cm の境界を除いた（`CORE_MERGED_BOUNDS`）ので、境界のある入力を 8ff11f3d から取る。
 格子と平板の出力は main の dvc.lock にある（入力は境界によらない）。リポジトリの直下で:
 
 ```sh
