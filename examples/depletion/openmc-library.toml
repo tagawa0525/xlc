@@ -2,7 +2,8 @@
 # （../vera/openmc_library.py）。核種は xlc の燃焼の検証の多群ライブラリ（docs/plans/m4-depletion.md の「進め方」3）と同じ組で、輸送する核種の組を xlc と
 # 揃える（どちらも、ライブラリにない鎖の核種は崩壊だけ。ADR-0173）。片方を変えたら他方も直す。燃やすのは Problem 1C
 # （燃料 900 K、被覆管と減速材 600 K）なので、燃料にある核種（U、鎖の核種）は 900 K、被覆管と減速材の核種は 600 K、両方に
-# ある O-16 は 600 と 900 K で作り、OpenMC は最も近い温度のモードで解く。
+# ある O-16 と、核分裂生成物でもある Zr と Sn は 600 と 900 K で作り、OpenMC は最も近い温度のモードで解く。燃料では、900 K の
+# データのある核種だけを輸送する（openmc_depletion.py。xlc と同じ規則。ADR-0173）
 # 名前は OpenMC の名前。パスはこのファイルからの相対。
 
 [neutron.U234]
@@ -39,63 +40,63 @@ temperatures = [600]
 
 [neutron.Zr90]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Zr91]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Zr92]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Zr94]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Zr96]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn112]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn114]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn115]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn116]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn117]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn118]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn119]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn120]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn122]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Sn124]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf"
-temperatures = [600]
+temperatures = [600, 900]
 
 [neutron.Fe54]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf"
