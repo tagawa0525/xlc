@@ -1,9 +1,13 @@
+use xlc_depletion::chain::FinalState;
 use xlc_depletion::chain::{
     Chain, Channel, Decay, DecayEnergy, DecayMode, Fission, Nuclide, Product, Reaction, Yield,
 };
 use xlc_depletion::{CramOrder, deplete};
 use xlc_format::group::GroupStructure;
-use xlc_format::library::{Library, NuclideData, Pointwise, Shielded, TemperatureData};
+use xlc_format::library::{
+    ChannelState, GroupChannel, GroupReaction, Library, NuclideData, Pointwise, Shielded,
+    TemperatureData,
+};
 
 use super::*;
 use crate::input::LatticeInput;
@@ -114,6 +118,7 @@ fn library() -> Library {
                 elastic: (0..2).map(|g| scatter[g][0] + scatter[g][1]).collect(),
                 fission: fission.to_vec(),
                 nu_fission: fission.iter().map(|f| 2.43 * f).collect(),
+                capture: capture.to_vec(),
             };
             NuclideData {
                 name: name.into(),
@@ -140,6 +145,14 @@ fn library() -> Library {
                         .collect(),
                     shielded: vec![table.clone(), table.clone(), table],
                     pointwise: Pointwise::default(),
+                    // 捕獲は状態に分けない 1 つの経路
+                    reactions: vec![GroupReaction {
+                        mt: 102,
+                        channels: vec![GroupChannel {
+                            final_state: None,
+                            cross_section: capture.to_vec(),
+                        }],
+                    }],
                 }],
             }
         };
@@ -184,31 +197,6 @@ fn library() -> Library {
                 [0.45, 2.7],
             ),
         ],
-    }
-}
-
-/// 捕獲を、ライブラリの全断面積から散乱と核分裂を引いて与える受け口（テストのライブラリは全断面積がその和）
-struct Captures<'a>(&'a Library);
-
-impl ReactionSource for Captures<'_> {
-    fn cross_sections(
-        &self,
-        nuclide: &str,
-        temperature: f64,
-        reaction: &Reaction,
-        shielded: &Shielded,
-    ) -> Result<Vec<Vec<f64>>, String> {
-        if reaction.mt != 102 {
-            return Err(format!("{nuclide}: no MT{}", reaction.mt));
-        }
-        let data = self
-            .0
-            .nuclide(nuclide, temperature)
-            .map_err(|e| e.to_string())?;
-        let capture = (0..shielded.total.len())
-            .map(|g| shielded.total[g] - data.scatter[g].iter().sum::<f64>() - shielded.fission[g])
-            .collect();
-        Ok(vec![capture])
     }
 }
 
@@ -258,7 +246,7 @@ fn deplete_input(text: &str) -> History {
         &tracking,
         &region_materials,
         &chosen,
-        &Captures(&library),
+        &LibraryReactions(&library),
     )
     .unwrap()
 }
@@ -398,7 +386,7 @@ fn region_rates_average_sigma_phi_over_the_region_volume() {
         T,
         &members,
         library.groups.bounds(),
-        &Captures(&library),
+        &LibraryReactions(&library),
     )
     .unwrap();
     // 体積で平均した中性子束は (1·[2, 1] + 3·[1, 3]) / 4 = [1.25, 2.5]、反応率は σ (cm²) × φ
@@ -417,17 +405,124 @@ fn region_rates_average_sigma_phi_over_the_region_volume() {
     );
 }
 
+/// 2 つの状態（MF9 の LFS 0 と 2）に分ける捕獲と、(n,2n) を持つ U-235 のライブラリと、その反応のチェーンの形
+fn split_capture() -> (Library, Reaction, Reaction) {
+    let mut library = library();
+    let u235 = library
+        .nuclides
+        .iter_mut()
+        .find(|n| n.name == "U-235")
+        .unwrap();
+    let state = |lfs| {
+        Some(ChannelState {
+            mf: 9,
+            lfs: Some(lfs),
+        })
+    };
+    u235.temperatures[0].reactions = vec![
+        GroupReaction {
+            mt: 16,
+            channels: vec![GroupChannel {
+                final_state: None,
+                cross_section: vec![0.1, 0.0],
+            }],
+        },
+        GroupReaction {
+            mt: 102,
+            channels: vec![
+                GroupChannel {
+                    final_state: state(0),
+                    cross_section: vec![1.0, 3.0],
+                },
+                GroupChannel {
+                    final_state: state(2),
+                    cross_section: vec![3.0, 1.0],
+                },
+            ],
+        },
+    ];
+    let channel = |lfs| Channel {
+        final_state: Some(FinalState {
+            mf: 9,
+            lfs: Some(lfs),
+        }),
+        products: vec![Product {
+            nuclide: U236,
+            count: 1,
+        }],
+    };
+    let capture = Reaction {
+        mt: 102,
+        channels: vec![channel(0), channel(2)],
+    };
+    let n2n = Reaction {
+        mt: 16,
+        channels: vec![Channel {
+            final_state: None,
+            products: vec![],
+        }],
+    };
+    (library, capture, n2n)
+}
+
+/// 自己遮蔽した捕獲 [2, 8] の群定数
+fn shielded_capture() -> Shielded {
+    Shielded {
+        total: vec![20.0, 600.0],
+        elastic: vec![10.0, 10.0],
+        fission: vec![1.2, 500.0],
+        nu_fission: vec![2.9, 1215.0],
+        capture: vec![2.0, 8.0],
+    }
+}
+
 #[test]
-fn the_library_has_no_reaction_cross_sections_yet() {
-    let library = library();
-    let shielded = library.shielded("U-235", T, &[1e10, 1e10]).unwrap();
-    let error = LibraryReactions
-        .cross_sections("U-235", T, &capture(U236), &shielded)
-        .unwrap_err();
+fn capture_channels_split_the_shielded_capture_by_the_dilute_ratios() {
+    let (library, capture, _) = split_capture();
+    let channels = LibraryReactions(&library)
+        .cross_sections("U-235", T, &capture, &shielded_capture())
+        .unwrap();
+    // 群 1 は 1:3、群 2 は 3:1 で分ける
+    assert_eq!(channels, vec![vec![0.5, 6.0], vec![1.5, 2.0]]);
+}
+
+#[test]
+fn threshold_reactions_take_the_dilute_cross_sections() {
+    let (library, _, n2n) = split_capture();
+    let channels = LibraryReactions(&library)
+        .cross_sections("U-235", T, &n2n, &shielded_capture())
+        .unwrap();
+    assert_eq!(channels, vec![vec![0.1, 0.0]]);
+}
+
+#[test]
+fn library_channels_must_match_the_chain() {
+    let (library, capture, _) = split_capture();
+    let source = LibraryReactions(&library);
+    let shielded = shielded_capture();
+    // 経路の数が違う
+    let one = Reaction {
+        channels: capture.channels[..1].to_vec(),
+        ..capture.clone()
+    };
+    assert!(source.cross_sections("U-235", T, &one, &shielded).is_err());
+    // 状態が違う
+    let mut other = capture.clone();
+    other.channels[1].final_state = Some(FinalState {
+        mf: 10,
+        lfs: Some(2),
+    });
     assert!(
-        error.contains("U-235") && error.contains("MT102"),
-        "{error}"
+        source
+            .cross_sections("U-235", T, &other, &shielded)
+            .is_err()
     );
+    // ライブラリにない反応
+    let n3n = Reaction { mt: 17, ..capture };
+    let error = source
+        .cross_sections("U-235", T, &n3n, &shielded)
+        .unwrap_err();
+    assert!(error.contains("U-235") && error.contains("MT17"), "{error}");
 }
 
 #[test]
