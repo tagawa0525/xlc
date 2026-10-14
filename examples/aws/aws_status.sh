@@ -40,7 +40,7 @@ for run in "${runs[@]}"; do
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
     code=$(job_done "$run" "$job")
-    last=$(job_latest_statepoint "$run" "$job")
-    echo "$run/$job: done ${code:-なし}、最新の statepoint ${last:-なし}"
+    last=$(job_latest_progress "$run" "$job")
+    echo "$run/$job: done ${code:-なし}、最新の進み具合 ${last:-なし}"
   done
 done

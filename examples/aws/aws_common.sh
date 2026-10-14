@@ -65,11 +65,47 @@ s3_runs() {
   [[ $out == None ]] || tr '\t' '\n' <<< "$out" | sed 's#^runs/##; s#/$##'
 }
 
-# S3 の runs/<name>/<job>/run/ の statepoint のうち最新のファイル名。なければ空
-job_latest_statepoint() {
+# 標準入力の TOML（入力）から、<key> = <値> の行の値を読む。値は <正規表現> の形（と行末のコメント）に限り、それ以外の書き方
+# （2_500、複数行など。TOML として正しくても）は読み違えないよう止まる。読むのは起動の前の確認だけで、VM は tomllib で読む
+input_value() { # <名前（表示用）> <key> <値の正規表現>
+  local line
+  line=$(grep -E "^$2[[:space:]]*=" || true)
+  [[ $(wc -l <<< "$line") == 1 && $line =~ ^$2[[:space:]]*=[[:space:]]*($3)[[:space:]]*(#.*)?$ ]] ||
+    { echo "$1: $2 の行を読めません（$line）" >&2; exit 1; }
+  echo "${BASH_REMATCH[1]}"
+}
+
+# S3 の runs/<name>/<job>/run/ の進み具合のうち最新のもの（定義の progress による。read_launch_env のあとに呼ぶ）。なければ空
+#   statepoint: statepoint.<世代>.h5（ADR-0168）   steps: 完了の印 complete のある区間 step-<k>（ADR-0174）
+job_latest_progress() {
   local keys
-  keys=$(s3_keys "runs/$1/$2/run/statepoint.") || exit 1
-  sed -n 's#.*/\(statepoint\.[0-9]*\.h5\)$#\1#p' <<< "$keys" | sort -t. -k2 -n | tail -1
+  case $DEF_PROGRESS in
+    statepoint)
+      keys=$(s3_keys "runs/$1/$2/run/statepoint.") || exit 1
+      sed -n 's#.*/\(statepoint\.[0-9]*\.h5\)$#\1#p' <<< "$keys" | sort -t. -k2 -n | tail -1
+      ;;
+    steps)
+      keys=$(s3_keys "runs/$1/$2/run/step-") || exit 1
+      sed -n 's#.*/\(step-[0-9]*\)/complete$#\1#p' <<< "$keys" | sort -t- -k2 -n | tail -1
+      ;;
+  esac
+}
+
+# 最新の進み具合 <latest>（job_latest_progress の値）が、ジョブの終わりを指すなら 0。<input> は S3 の src/ の入力で、
+# statepoint は入力の batches と最後の世代、steps は complete の内容 <k>/<全ステップ数> の一致で判る
+job_progress_finished() { # <name> <job> <latest> <input>
+  local batches complete
+  case $DEF_PROGRESS in
+    statepoint)
+      # 条件の中で呼ばれると set -e が効かないので、失敗は明示して止める
+      batches=$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/src/$4" - | input_value "s3://$XLC_BUCKET/runs/$1/src/$4" batches '[1-9][0-9]*') || exit 1
+      [[ $3 == "statepoint.$batches.h5" ]]
+      ;;
+    steps)
+      complete=$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/$2/run/$3/complete" -) || exit 1
+      [[ $complete =~ ^([0-9]+)/([0-9]+)$ && ${BASH_REMATCH[1]} == "${BASH_REMATCH[2]}" ]]
+      ;;
+  esac
 }
 
 # 実行の定義（examples/<問題>/aws.toml。ADR-0174）の本文 <text> を読み、次の変数に入れる。キーの綴りや形が違えば止まる。

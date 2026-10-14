@@ -96,16 +96,6 @@ launch_region=${AWS_REGION:-$AWS_DEFAULT_REGION}
   { echo "バケット $XLC_BUCKET は $bucket_region、起動のリージョンは $launch_region（AWS_REGION か AWS_DEFAULT_REGION を合わせる）" >&2; exit 1; }
 
 # VM は AWS CLI を cache.nixos.org から取る（自前の cache は AWS CLI がないと取れない）。なければ VM は S3 に何も置けずに止まる
-# 標準入力の TOML（入力）から、<key> = <値> の行の値を読む。値は <正規表現> の形（と行末のコメント）に限り、それ以外の書き方
-# （2_500、複数行など。TOML として正しくても）は読み違えないよう止まる。読むのは起動の前の確認だけで、VM は tomllib で読む
-input_value() { # <名前（表示用）> <key> <値の正規表現>
-  local line
-  line=$(grep -E "^$2[[:space:]]*=" || true)
-  [[ $(wc -l <<< "$line") == 1 && $line =~ ^$2[[:space:]]*=[[:space:]]*($3)[[:space:]]*(#.*)?$ ]] ||
-    { echo "$1: $2 の行を読めません（$line）" >&2; exit 1; }
-  echo "${BASH_REMATCH[1]}"
-}
-
 require_public_awscli() {
   nix path-info --store https://cache.nixos.org "$1" > /dev/null 2>&1 ||
     { echo "$1 が cache.nixos.org にありません（VM が AWS CLI を取れない）" >&2; exit 1; }
@@ -229,6 +219,8 @@ else
   for want in "${jobs[@]}"; do
     grep -Fxq -- "$want" <<< "$(printf '%s\n' "${all_jobs[@]}")" || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
   done
+  [[ $DEF_PROGRESS != steps || -z $interval ]] ||
+    { echo "--statepoint-interval は progress = \"steps\" の実行では指定できない（定義 $RUN_DEFINITION）" >&2; exit 2; }
   require_public_awscli "$awscli"
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   # 指定のない --type、--max-hours、--sync-minutes は、最後の起動の記録の値を使う（起動し直しで黙って設定を変えない）
@@ -282,16 +274,11 @@ else
       echo "$job: VM が走っているので飛ばす"
       continue
     fi
-    latest=$(job_latest_statepoint "$name" "$job")
-    # 最後の世代の statepoint があって done がないのは、完了したあと done を置く前に止まったとき。OpenMC はそこから再開
-    # できない（世代が残っていない）ので、起動しない
-    batches=
-    if [[ -n $latest ]]; then
-      src_input=$(aws s3 cp "$run_prefix/src/$input" -)
-      batches=$(input_value "$run_prefix/src/$input" batches '[1-9][0-9]*' <<< "$src_input")
-    fi
-    if [[ -n $batches && $latest == "statepoint.$batches.h5" ]]; then
-      echo "$job: 最後の世代の statepoint があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
+    latest=$(job_latest_progress "$name" "$job")
+    # 最後の進み具合（最後の世代の statepoint、最後の区間）があって done がないのは、完了したあと done を置く前に止まったとき。
+    # そこから再開できない（statepoint は世代が残っていない）ので、起動しない
+    if [[ -n $latest ]] && job_progress_finished "$name" "$job" "$latest" "$input"; then
+      echo "$job: 最後の進み具合（$latest）があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
         "SHA256SUMS と boot-*.log を確かめ、そろっていれば echo 0 | aws s3 cp - $run_prefix/$job/done で完了にする" >&2
       stuck=1
       continue
