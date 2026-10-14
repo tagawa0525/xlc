@@ -2,6 +2,8 @@
 # VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、
 # 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、
 # OpenMC、最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ
+# compare-5B-openmc と compare-5C-openmc の deps（references/openmc/aws/m3/…）は DVC のステージの出力でなく、`aws_fetch.sh --verify m3` で
+# 取り出したもの。取り出していない checkout では、`dvc repro` はそこで止まる
 stages:
   assembly-21:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-21.toml > assembly-21.out

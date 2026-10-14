@@ -56,3 +56,4 @@ examples/vera/verification.md の表のうち、出どころが分かってい�
   `keno` と `openmc`。ブランチ feat/compare-p5-json）。手で打った表と 1 件違った: 5C の KENO-VI に対する集合体出力の最大の差の位置
   D12 が、JSON では M04（180° 回転で重なる位置）。原因は、位置の添字から名前への手作業の転記。名前は JSON を書くときに 1 回だけ付ける
   （集合体の `name`）。ほかの表の数値は 0 件の違い。`moc`、`k`、`symmetry` のモードと `compare_hzp.py` は `.out` のまま
+- 2026-10-15: `record_provenance.py` が dvc.lock の折り返した `- path:` を読む形は dvc の出力に合わせたもので、YAML のクォートされたパスなど、ほかの形は読まない（見つけたら足す。レビューの指摘を打ち切った）

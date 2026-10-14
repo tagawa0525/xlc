@@ -71,6 +71,27 @@ class Parse(unittest.TestCase):
             [("../very/long/path/to/the/file.msgpack", "1" * 32)],
         )
 
+    def test_a_folded_path_without_its_continuation_is_an_error(self):
+        """続きの行が無いのに md5 を読み進めると、その dep を黙って捨てる"""
+        lock = (
+            "schema: '2.0'\nstages:\n  a:\n    cmd: echo a\n    deps:\n"
+            "    - path: \n      hash: md5\n      md5: "
+            + "1" * 32
+            + "\n      size: 1\n"
+        )
+        with self.assertRaises(rp.ProvenanceError):
+            rp.parse_stage(lock, "a")
+
+    def test_a_folded_path_may_be_indented_by_any_amount(self):
+        lock = (
+            "schema: '2.0'\nstages:\n  a:\n    cmd: echo a\n    deps:\n"
+            "    - path: \n          ../x/y.msgpack\n"
+            "      hash: md5\n      md5: " + "2" * 32 + "\n      size: 1\n"
+        )
+        self.assertEqual(
+            rp.parse_stage(lock, "a")["deps"], [("../x/y.msgpack", "2" * 32)]
+        )
+
     def test_unknown_stage_is_an_error(self):
         with self.assertRaises(rp.ProvenanceError):
             rp.parse_stage(lock(), "c")
