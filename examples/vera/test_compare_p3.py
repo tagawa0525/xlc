@@ -4,6 +4,7 @@
 """
 
 import contextlib
+import hashlib
 import io
 import json
 import math
@@ -155,6 +156,14 @@ class Report(unittest.TestCase):
         self.assertIn(f"{data['k']['openmc']:.6f}", report)
         self.assertIn(f"{data['k']['diff_keno_pcm']:+.0f} pcm", report)
         self.assertEqual(len(data["layer_pins"]["levels"]), 49)
+        paths = [i["path"] for i in data["inputs"]]
+        self.assertIn(str(self.OPENMC / "k.json"), paths)
+        self.assertEqual(len(paths), 4 + 4)
+        self.assertEqual(report.splitlines()[0][:8], "inputs: ")
+        for i in data["inputs"]:
+            self.assertEqual(
+                i["md5"], hashlib.md5(Path(i["path"]).read_bytes()).hexdigest()
+            )
         self.assertEqual(report.count("\n  level "), 49 * 2 + 49)
 
     @needs
