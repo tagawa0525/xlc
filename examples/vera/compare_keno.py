@@ -57,12 +57,12 @@ def keno_octant(spec: list[str], caption: str) -> dict[tuple[int, int], float]:
     return octant
 
 
-def main() -> None:
-    spec = Path(sys.argv[1]).read_text().split("\n")
-    problem = sys.argv[2]
+def compare(
+    spec: list[str], problem: str, rows: list[list[float]]
+) -> tuple[int, float, float, tuple[int, int]]:
+    """対称な 8 本の平均を KENO-VI の表と比べる。位置の数、相対差の二乗平均、絶対値が最大の相対差とその位置を返す。"""
     if problem not in CAPTIONS:
         raise SystemExit(f"unknown problem {problem}; expected one of {list(CAPTIONS)}")
-    rows = msgpack.unpackb(Path(sys.argv[3]).read_bytes())["rows"]
     if len(rows) != 17 or any(len(row) != 17 for row in rows):
         raise SystemExit("expected a 17 x 17 map")
     fuel = [x for row in rows for x in row if x > 0]
@@ -86,8 +86,16 @@ def main() -> None:
         differences.append((ours / keno - 1, (i, j)))
     rms = math.sqrt(sum(d * d for d, _ in differences) / len(differences))
     worst, at = max(differences, key=lambda d: abs(d[0]))
+    return len(differences), rms, worst, at
+
+
+def main() -> None:
+    spec = Path(sys.argv[1]).read_text().split("\n")
+    problem = sys.argv[2]
+    rows = msgpack.unpackb(Path(sys.argv[3]).read_bytes())["rows"]
+    n, rms, worst, at = compare(spec, problem, rows)
     print(
-        f"{problem}: {len(differences)} positions, rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}"
+        f"{problem}: {n} positions, rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}"
     )
 
 
