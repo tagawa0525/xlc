@@ -223,3 +223,17 @@ fn table_takes_the_gaussian_limit_below_its_theta_range() {
         }
     }
 }
+
+#[test]
+fn table_rejects_nonpositive_theta() {
+    assert!(jk_interpolated(1.0, 0.0).is_err());
+    assert!(jk_interpolated(1.0, -1.0e-12).is_err());
+}
+
+#[test]
+fn gaussian_limit_stays_finite_for_the_narrowest_lines() {
+    // b = 2β/(√π θ) が倍精度を超えても、J は希釈の極限 π/(2β)、K は π/β に近づく
+    let (j, k) = jk_interpolated(1.0e10, 1.0e-301).unwrap();
+    assert_rel(j, PI / 2.0e10, 1e-12);
+    assert_rel(k, PI / 1.0e10, 1e-12);
+}
