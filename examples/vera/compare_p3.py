@@ -427,6 +427,19 @@ def axial_lines(d: dict) -> list[str]:
     return lines
 
 
+def axial_report(
+    name: str,
+    bounds: list[float],
+    ours: list[float],
+    ref: list[float],
+    subject: str = "xlc",
+    levels: bool = True,
+) -> None:
+    """`axial_summary` の文章を標準出力に出す（compare_hzp.py が使う）"""
+    summary = axial_summary(name, bounds, ours, ref, subject, levels)
+    print("\n".join(axial_lines(summary)))
+
+
 def pins_line(d: dict) -> str:
     return (
         f"{d['subject_name']} vs KENO-VI: {d['positions']} positions, rms {100 * d['rms']:.3f}%, "
