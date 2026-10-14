@@ -21,8 +21,8 @@ pub struct FinalStateEntry {
 /// 受け、半端な値（書き誤り以上のずれ）は止める
 const ZA_TOLERANCE: f64 = 0.05;
 
-/// ZA の実数を 1000 Z + A にする。
-fn za(value: f64, line: usize) -> Result<u32, Error> {
+/// ZA の実数を 1000 Z + A にする（鎖の MF1 と収率の読み込みも使う）。
+pub fn za(value: f64, line: usize) -> Result<u32, Error> {
     let rounded = value.round();
     if !(rounded >= 1.0 && (value - rounded).abs() <= ZA_TOLERANCE && rounded < 1e6) {
         return Err(Error::new(line, format!("ZA {value} is not an integer")));
