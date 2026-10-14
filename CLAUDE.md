@@ -8,7 +8,7 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - 段階の目的・範囲・作業の順序・検証の対象: docs/plans/
 - 未解決の問題とやること: docs/issues/（書き方と運用は docs/issues/README.md。ブランチ名とコミットの `Refs:`、
   ADR との両方向の対応を含む）
-- 検証の記録: examples/*/verification.md（核データの版を変えた検証は、混ぜずに examples/<問題>/verification-<版>.md に分ける。ADR-0175）。今の結果だけを題目ごとに書き、古い測定や誤りは消して書き直す（経緯は git に
+- 検証の記録: examples/*/verification.md（評価済みデータを変えた検証は、混ぜずに examples/<問題>/verification-<略称>.md に分ける。ADR-0175）。今の結果だけを題目ごとに書き、古い測定や誤りは消して書き直す（経緯は git に
   残る。ADR-0117）。結果ごとに、数値を出した xlc のコミットと日付を書く（「計算」の節。新しい測定には必ず書く。コミットが分からない過去の測定だけ日付）
 - 検証の記録の表のうち `<!-- table: <名前> -->` 〜 `<!-- /table -->` の間は、比較の段階の JSON から
   `python3 examples/verification_tables.py <記録>` が描く（手で直さない。ADR-0176）。`--check` は hook と `cargo test`

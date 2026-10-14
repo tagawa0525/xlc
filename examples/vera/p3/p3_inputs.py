@@ -859,7 +859,7 @@ def pipeline() -> str:
 def main() -> None:
     global HERE, UP
     if len(sys.argv) == 3 and sys.argv[1] == "--library-dir":
-        HERE = HERE.parent.parent / sys.argv[2] / "p3"
+        HERE = HERE.parent / sys.argv[2] / "p3"
         HERE.mkdir(parents=True, exist_ok=True)
         UP = "../"
     elif sys.argv[1:]:

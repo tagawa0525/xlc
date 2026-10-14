@@ -246,8 +246,8 @@
         endf-thermal-scatt = endfZips.thermal_scatt;
         endf-decay = endfZips.decay;
         endf-nfy = endfZips.nfy;
-        endf-vii0-neutrons = endfViiZips.neutrons;
-        endf-vii0-thermal-scatt = endfViiZips.thermal_scatt;
+        endfb70-neutrons = endfViiZips.neutrons;
+        endfb70-thermal-scatt = endfViiZips.thermal_scatt;
         inherit endf njoy2016 openmc;
         openmc-python = referencesPython;
       };
