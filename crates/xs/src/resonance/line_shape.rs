@@ -30,6 +30,11 @@ const SCALED_BELOW: f64 = 1.0e-3;
 /// x = s tan φ と置いて [0, π/2] を適応 Gauss-Kronrod 積分する（s は θ ≥ 1e-3 で 1、それより小さい θ で 2/θ）。線形状の裾は
 /// ψ ~ 1/x² なので、ψ/(ψ+β) dx = ψ/(ψ+β) s (1 + tan²φ) dφ は φ → π/2 でも有限。
 pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>, NumericError> {
+    if theta.is_nan() || theta <= 0.0 {
+        return Err(NumericError::Domain(format!(
+            "J, K integrals for θ = {theta}"
+        )));
+    }
     if let Some(beta) = betas.iter().find(|&&b| b <= 0.0 || b.is_nan()) {
         return Err(NumericError::Domain(format!(
             "J, K integrals for β = {beta}"
@@ -155,7 +160,7 @@ fn in_parallel<T: Send, E: Send>(
 /// 線形状の J, K を返す（`gaussian_jk`）。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
     if theta.is_nan() || theta <= 0.0 {
-        return Err(UrrError::JkTable { beta, theta });
+        return Err(NumericError::Domain(format!("J, K for θ = {theta}")).into());
     }
     let (lb, lt) = (beta.log10(), theta.log10());
     if lb > LOG_BETA.1 {
@@ -165,7 +170,7 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
     if lt > LOG_THETA.1 {
         return Ok(natural_jk(beta));
     }
-    if lt < LOG_THETA.0 && lb >= LOG_BETA.0 {
+    if lt < LOG_THETA.0 && 2.0 * beta / (std::f64::consts::PI.sqrt() * theta) >= GAUSSIAN_MIN_B {
         return Ok(gaussian_jk(beta, theta));
     }
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
@@ -190,7 +195,7 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
 /// b = 2β/(√π θ)、g = e^{-u²} として J = (2/θ) ∫₀^∞ g/(g + b) du、K = (2/θ) ∫₀^∞ g(g + 2b)/(g + b)² du を 1/b の冪に展開し、
 /// ∫₀^∞ gⁿ du = √π/(2√n) で項ごとに積分する:
 /// J = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ b⁻ⁿ/√n、K = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ (n + 1) b⁻ⁿ/√n。
-/// 表の下限（θ = 10⁻¹⁰）より下で β ≥ 10⁻⁶ なら b > 10⁴ なので、級数は数項で倍精度に収束する。
+/// b ≥ 10⁴（`GAUSSIAN_MIN_B`）で使い、級数は数項で倍精度に収束する。
 /// Voigt の線形状のローレンツの裾による差は相対で θ の程度（表の下限で 1e-10 以下。`quadrature_approaches_the_gaussian_limit_for_narrow_lines`）
 fn gaussian_jk(beta: f64, theta: f64) -> (f64, f64) {
     // √π/θ と b⁻ⁿ を別に作ると、θ が小さいと b が倍精度を超えて 0·∞ になるので、先頭の項 √π/(θ b) = π/(2β) でくくる:
@@ -209,7 +214,10 @@ fn gaussian_jk(beta: f64, theta: f64) -> (f64, f64) {
     (leading * j, leading * k)
 }
 
-/// `gaussian_jk` の級数の項の数。b > 10⁴ では、6 項目は先頭の項に比べて相対 4e-21（J）、1.4e-20（K）より小さく、交代級数なので打ち切りの誤差はそれ以下
+/// `gaussian_jk` を使う b = 2β/(√π θ) の下限。表の下限 θ = 10⁻¹⁰ と表の β の下限 10⁻⁶ で b ≈ 1.1e4
+const GAUSSIAN_MIN_B: f64 = 1.0e4;
+
+/// `gaussian_jk` の級数の項の数。b ≥ 10⁴ では、6 項目は先頭の項に比べて相対 4e-21（J）、1.4e-20（K）より小さく、交代級数なので打ち切りの誤差はそれ以下
 const SERIES_TERMS: u32 = 5;
 
 /// ドップラー拡がりのない Lorentz の線形状 ψ = 1/(1 + x²) の (J, K)。a² = (1 + β)/β として
