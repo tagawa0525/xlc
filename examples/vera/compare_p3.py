@@ -1,7 +1,11 @@
 """VERA Problem 3A、3B の xlc の炉心の解を、仕様書の KENO-VI の値と、OpenMC の参照解（あれば）と比べる。
 
-使い方: python3 compare_p3.py <問題（3A、3B）> <spec.txt> <core の標準出力> <core の pins.msgpack> <core の layers.msgpack>
-        [<OpenMC の結果のディレクトリ>]
+使い方: python3 compare_p3.py [--json <要約の出力先>] <問題（3A、3B）> <spec.txt> <core の標準出力> <core の pins.msgpack>
+        <core の layers.msgpack> [<OpenMC の結果のディレクトリ>]
+
+- `--json`: 標準出力に出す数を、検証の記録の表を描くツール（examples/verification_tables.py）が読む JSON にも書く（ADR-0176）。
+  項目は表に出す量だけで、割合は小数（0.01 = 1%）、k の差は pcm、位置は [行, 列]、層は 1 始まり。OpenMC があるときは
+  `openmc` の群（`k`、`axial`、`pins`、`layer_pins`）も入る
 
 - k: core の標準出力の `k-eff` と、表 P3-4 の KENO-VI の k（差は (k_xlc − k_ref) × 1e5 pcm）、OpenMC の k.json
 - 軸方向の出力: 付録 D の 49 層の KENO-VI の値（燃料の高さの平均で 1 の線密度）と、OpenMC の layers.msgpack の `axial`。
@@ -178,7 +182,7 @@ def axial_report(
     ref: list[float],
     subject: str = "xlc",
     levels: bool = True,
-) -> None:
+) -> dict:
     if not (len(ours) == len(ref) == len(bounds) - 1):
         raise SystemExit(
             f"{len(ours)} {subject} and {len(ref)} {name} levels for {len(bounds) - 1} layers"
@@ -188,15 +192,24 @@ def axial_report(
     # 層ごとの相対差 (xlc / 参照 − 1) の RMS
     relative = math.sqrt(sum((a / b - 1) ** 2 for a, b in zip(ours, ref)) / len(ref))
     worst = max(range(len(diffs)), key=lambda i: abs(diffs[i]))
+    ao_ours, ao_ref = offset(bounds, ours), offset(bounds, ref)
     print(
         f"axial{'' if subject == 'xlc' else ' ' + subject} vs {name}: rms {rms:.4f} (relative {100 * relative:.2f}%), max {diffs[worst]:+.4f} at level {worst + 1} "
         f"({bounds[worst]:.3f}-{bounds[worst + 1]:.3f} cm above the fuel bottom), "
-        f"AO {subject} {100 * offset(bounds, ours):+.3f}% {name} {100 * offset(bounds, ref):+.3f}%"
+        f"AO {subject} {100 * ao_ours:+.3f}% {name} {100 * ao_ref:+.3f}%"
     )
     for k, (a, b) in enumerate(zip(ours, ref) if levels else ()):
         print(
             f"  level {k + 1:2} {bounds[k]:8.3f}-{bounds[k + 1]:8.3f}: {subject} {a:.5f} {name} {b:.5f} diff {a - b:+.5f}"
         )
+    return {
+        "rms": rms,
+        "relative_rms": relative,
+        "max": diffs[worst],
+        "max_level": worst + 1,
+        "ao_subject": ao_ours,
+        "ao_reference": ao_ref,
+    }
 
 
 def pin_stats(
@@ -222,7 +235,7 @@ def pin_stats(
 
 def keno_pins(
     spec: list[str], problem: str, rows: list[list[float]], subject: str = "pins"
-) -> None:
+) -> dict:
     """compare_keno.py と同じ比べ方（燃料のピンの平均で 1、対称な 8 本の平均）"""
     if len(rows) != 17 or any(len(r) != 17 for r in rows):
         raise SystemExit("expected a 17 x 17 map")
@@ -250,31 +263,57 @@ def keno_pins(
     print(
         f"{subject} vs KENO-VI: {len(diffs)} positions, rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}"
     )
+    return {"positions": len(diffs), "rms": rms, "max": worst, "at": list(at)}
 
 
 def main() -> None:
-    if len(sys.argv) not in (6, 7):
+    args = sys.argv[1:]
+    json_path = None
+    if args[:1] == ["--json"]:
+        if len(args) < 2:
+            raise SystemExit(__doc__)
+        json_path = Path(args[1])
+        args = args[2:]
+    if len(args) not in (5, 6):
         raise SystemExit(__doc__)
-    problem = sys.argv[1]
+    problem = args[0]
     if problem not in CAPTIONS:
         raise SystemExit(f"unknown problem {problem}")
-    spec = Path(sys.argv[2]).read_text().split("\n")
+    spec = Path(args[1]).read_text().split("\n")
     lines = [
-        l for l in Path(sys.argv[3]).read_text().splitlines() if l.startswith("k-eff ")
+        l for l in Path(args[2]).read_text().splitlines() if l.startswith("k-eff ")
     ]
     if len(lines) != 1:
-        raise SystemExit(f"{sys.argv[3]}: expected one k-eff line")
+        raise SystemExit(f"{args[2]}: expected one k-eff line")
     k = float(lines[0].split()[1])
-    pins = msgpack.unpackb(Path(sys.argv[4]).read_bytes())["rows"]
-    layers = read_layers(Path(sys.argv[5]))
-    openmc = Path(sys.argv[6]) if len(sys.argv) == 7 else None
+    pins = msgpack.unpackb(Path(args[3]).read_bytes())["rows"]
+    layers = read_layers(Path(args[4]))
+    openmc = Path(args[5]) if len(args) == 6 else None
 
     k_keno, s_keno = keno_k(spec, problem)
+    summary = {
+        "format": "xlc-compare-p3",
+        "problem": problem,
+        "k": {
+            "xlc": k,
+            "keno": k_keno,
+            "keno_std": s_keno,
+            "diff_keno_pcm": (k - k_keno) * 1e5,
+        },
+    }
     print(
         f"{problem} k xlc {k:.6f} KENO-VI {k_keno:.6f} +- {s_keno:.6f} diff {(k - k_keno) * 1e5:+.0f} pcm"
     )
     if openmc:
         ref = json.loads((openmc / "k.json").read_text())
+        summary["k"].update(
+            {
+                "openmc": ref["k"],
+                "openmc_std": ref["k-std"],
+                "diff_openmc_pcm": (k - ref["k"]) * 1e5,
+                "diff_openmc_std_pcm": ref["k-std"] * 1e5,
+            }
+        )
         print(
             f"{problem} k xlc {k:.6f} OpenMC {ref['k']:.6f} +- {ref['k-std']:.6f} "
             f"diff {(k - ref['k']) * 1e5:+.0f} +- {ref['k-std'] * 1e5:.0f} pcm"
@@ -282,22 +321,37 @@ def main() -> None:
 
     keno_bounds, keno_power = keno_axial(spec, problem)
     ours_axial = coarsen(layers["bounds"], layers["axial"], keno_bounds)
-    axial_report("KENO-VI", keno_bounds, ours_axial, keno_power)
-    keno_pins(spec, problem, pins)
+    summary["axial_vs_keno"] = axial_report(
+        "KENO-VI", keno_bounds, ours_axial, keno_power
+    )
+    summary["pins_vs_keno"] = keno_pins(spec, problem, pins)
 
     if openmc:
         reference = read_layers(openmc / "layers.msgpack")
         ref_bounds = [b - reference["bounds"][0] for b in reference["bounds"]]
         ours_ref_axial = coarsen(layers["bounds"], layers["axial"], ref_bounds)
-        axial_report("OpenMC", ref_bounds, ours_ref_axial, reference["axial"])
+        summary["axial_vs_openmc"] = axial_report(
+            "OpenMC", ref_bounds, ours_ref_axial, reference["axial"]
+        )
         axial_std = reference["axial-std"]
         multiple, at = sigma_multiple(
             [a - b for a, b in zip(ours_ref_axial, reference["axial"])], axial_std
         )
+        beyond = sum(
+            abs(a - b) > 2 * s
+            for a, b, s in zip(ours_ref_axial, reference["axial"], axial_std)
+        )
         print(
             f"axial xlc - OpenMC in sigma (layer errors independent, normalization not included): max {multiple:.1f} at level {at + 1}, "
-            f"{sum(abs(a - b) > 2 * s for a, b, s in zip(ours_ref_axial, reference['axial'], axial_std))} "
-            f"of {len(axial_std)} levels beyond 2 sigma"
+            f"{beyond} of {len(axial_std)} levels beyond 2 sigma"
+        )
+        summary["axial_vs_openmc"].update(
+            {
+                "sigma_max": multiple,
+                "sigma_max_level": at + 1,
+                "levels_beyond_2sigma": beyond,
+                "levels": len(axial_std),
+            }
         )
         ao_diff = offset(ref_bounds, ours_ref_axial) - offset(
             ref_bounds, reference["axial"]
@@ -306,17 +360,28 @@ def main() -> None:
         print(
             f"AO xlc - OpenMC {100 * ao_diff:+.3f} +- {100 * ao_std:.3f}% (layer errors independent; {abs(ao_diff) / ao_std:.1f} sigma)"
         )
+        summary["axial_vs_openmc"].update(
+            {"ao_diff": ao_diff, "ao_std": ao_std, "ao_sigma": abs(ao_diff) / ao_std}
+        )
         ref_pins = msgpack.unpackb((openmc / "pins.msgpack").read_bytes())["rows"]
         ref_pins_std = msgpack.unpackb((openmc / "pins-std.msgpack").read_bytes())[
             "rows"
         ]
         rms, worst, at = pin_stats(pins, ref_pins)
         print(f"pins vs OpenMC: rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}")
-        median, multiple, at = pin_sigma(pins, ref_pins, ref_pins_std)
+        median, multiple, sigma_at = pin_sigma(pins, ref_pins, ref_pins_std)
         print(
             f"pins xlc - OpenMC in sigma: OpenMC relative std median {100 * median:.3f}%, "
-            f"max difference {multiple:.1f} sigma at {at}"
+            f"max difference {multiple:.1f} sigma at {sigma_at}"
         )
+        summary["pins_vs_openmc"] = {
+            "rms": rms,
+            "max": worst,
+            "at": list(at),
+            "openmc_std_median": median,
+            "sigma_max": multiple,
+            "sigma_max_at": list(sigma_at),
+        }
 
         # OpenMC と KENO-VI（xlc を含まない）。層の境界が同じこと
         if len(ref_bounds) != len(keno_bounds) or any(
@@ -329,16 +394,25 @@ def main() -> None:
             f"{problem} k OpenMC {ref['k']:.6f} KENO-VI {k_keno:.6f} "
             f"diff {(ref['k'] - k_keno) * 1e5:+.1f} +- {sigma * 1e5:.1f} pcm"
         )
-        axial_report(
+        summary["k"].update(
+            {
+                "openmc_keno_diff_pcm": (ref["k"] - k_keno) * 1e5,
+                "openmc_keno_std_pcm": sigma * 1e5,
+            }
+        )
+        summary["axial_openmc_vs_keno"] = axial_report(
             "KENO-VI", keno_bounds, reference["axial"], keno_power, "OpenMC", False
         )
-        keno_pins(spec, problem, ref_pins, "pins OpenMC")
+        summary["pins_openmc_vs_keno"] = keno_pins(
+            spec, problem, ref_pins, "pins OpenMC"
+        )
         ours_layers = coarsen(layers["bounds"], layers["layers"], ref_bounds)
         if len(reference["layers"]) != len(ours_layers):
             raise SystemExit(
                 f"{len(reference['layers'])} OpenMC layer maps for {len(ours_layers)} layers"
             )
         overall = None
+        levels = []
         for k_level, (a, b) in enumerate(zip(ours_layers, reference["layers"])):
             rms, worst, at = pin_stats(a, b)
             median, multiple, sigma_at = pin_sigma(
@@ -348,6 +422,17 @@ def main() -> None:
                 f"  level {k_level + 1:2}: pins rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}; "
                 f"OpenMC relative std median {100 * median:.3f}%, max difference {multiple:.1f} sigma at {sigma_at}"
             )
+            levels.append(
+                {
+                    "level": k_level + 1,
+                    "rms": rms,
+                    "max": worst,
+                    "at": list(at),
+                    "openmc_std_median": median,
+                    "sigma_max": multiple,
+                    "sigma_max_at": list(sigma_at),
+                }
+            )
             if overall is None or abs(worst) > abs(overall[0]):
                 overall = (worst, k_level + 1, at)
         if overall is None:
@@ -355,6 +440,15 @@ def main() -> None:
         print(
             f"layer pins vs OpenMC: max {100 * overall[0]:+.3f}% at level {overall[1]} {overall[2]}"
         )
+        summary["layer_pins"] = {
+            "max": overall[0],
+            "max_level": overall[1],
+            "max_at": list(overall[2]),
+            "levels": levels,
+        }
+
+    if json_path:
+        json_path.write_text(json.dumps(summary, indent=1) + "\n")
 
 
 if __name__ == "__main__":
