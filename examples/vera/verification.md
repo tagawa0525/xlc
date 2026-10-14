@@ -204,7 +204,7 @@ KENO-VI の値は仕様書の表 P3-4、径方向のピン出力（1/8）は付�
 3A と 3B（3D の単一集合体、零出力）を xlc の格子計算と炉心の計算（NEM）で解き、仕様書の KENO-VI（ENDF/B-VII.0）の値と
 比べる。入力と段階は `p3/p3_inputs.py` が書き、`dvc repro examples/vera/p3/dvc.yaml` で走らせる（ADR-0123）。数値は
 bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124）、2026-10-14。ライブラリ（`../dvc.yaml` の xs）とともに Slurm で排他で流した（ジョブ 332）。
-ADR-0156 と ADR-0158 の前の値（c9b3acf2、分岐点 60160684）との差は、炉心の k が 3A −0.019 pcm、3B −0.014 pcm（Δk × 10⁵。KENO-VI との比較の表の差と同じ）、全長で積分したピン出力の最大
+前の値（c9b3acf2、分岐点 60160684）との差は、炉心の k が 3A −0.019 pcm、3B −0.014 pcm（Δk × 10⁵。KENO-VI との比較の表の差と同じ）、全長で積分したピン出力の最大
 5.9e-8（3A）と 9.2e-8（3B）、平板の MOC の k が 3A −0.019 pcm、3B −0.014 pcm で、2D の格子の k∞ は 6 桁で同じ。
 前の値もライブラリは同じ md5 55be71c9（d07475d3 の `p3/dvc.lock`）。
 
@@ -444,7 +444,7 @@ Pyrex のある外周の 12 体は単一集合体の定数のまま）。断面�
   2 つを分けることは確かめていない
 - 反射体のノードの定数の燃料の種類への依存: Pyrex のある燃料に面する 12 の反射体の位置に、その燃料の I 型の格子の反射体の
   ノードの定数を置くと（1801d5c4 の trials/p5-0086/pairing.py、2026-10-12、分岐点 4fcc54fc。ADR-0153 の入力の炉心の形だけを替えた）、5A の
-  OpenMC との差は k −9.2 pcm、集合体 RMS 1.73%（代表の定数では −5.7 pcm、1.66%）
+  OpenMC との差は k −9.2 pcm、集合体 RMS 1.73%（代表の定数では −5.8 pcm、1.66%）
 
 ```sh
 # リポジトリの直下で、92345525（pairing.py は 1801d5c4）を checkout して。python3 は references の devShell の中
@@ -501,7 +501,7 @@ L 型の近似の大きさ（5A）: L 型の位置の I 型の定数の f\* の�
 
 ## OpenMC との比較
 
-xlc は bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124、2026-10-14。Slurm の排他のジョブ 332 で、1B の段階と、同じジョブの後の手順で 1C〜2Q の `lattice` を走らせた）。前の値（1f4fcaaf、分岐点 ac8e2f3a。2G は 835c6c0f、分岐点 e888ea78。ライブラリ md5 3d1a8cc2 と 1850d83f で、ADR-0156〜0158 の前）と比べて、16 体系の k は 6 桁ですべて同じ（|Δk| < 1e-6、表の差と同じ Δk × 10⁵ で 0.1 pcm 未満）、ピン出力の差の rms と最大も表の桁で同じ。ライブラリ（vera.msgpack、md5 55be71c9）は前の `dvc.lock` の xs の出力とバイト単位で同じ。1B の `lattice-1B.out` も前の出力と同じで、前の出力は 565 K の構造材と Ti の核種を足す前のライブラリ（md5 3d1a8cc2）で走らせたもの。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`。`compare-1B` は deps（`lattice-1B.out` と古い抽出の出力）が変わらないので走らず、出力も変わらない。#0120）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
+xlc は bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124、2026-10-14。Slurm の排他のジョブ 332 で、1B の段階と、同じジョブの後の手順で 1C〜2Q を `bin/lattice examples/vera/p*/<入力>.toml` で走らせた）。前の値（1f4fcaaf、分岐点 ac8e2f3a。2G は 835c6c0f、分岐点 e888ea78。ライブラリ md5 3d1a8cc2 と 1850d83f で、ADR-0156〜0158 の前）と比べて、16 体系の k は 6 桁ですべて同じ（|Δk| < 1e-6、表の差と同じ Δk × 10⁵ で 0.1 pcm 未満）、ピン出力の差の rms と最大も表の桁で同じ。ライブラリ（vera.msgpack、md5 55be71c9）は前の `dvc.lock` の xs の出力とバイト単位で同じ。1B の `lattice-1B.out` も前の出力と同じで、前の出力は 565 K の構造材と Ti の核種を足す前のライブラリ（md5 3d1a8cc2）で走らせたもの。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`。`compare-1B` は deps（`lattice-1B.out` と古い抽出の出力）が変わらないので走らず、出力も変わらない。#0120）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
 （[ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md)）。燃料 5 リング、扇形 8、散乱は P3（[ADR-0075](../../docs/adr/0075-solve-moc-with-anisotropic-scattering.md)）、自己遮蔽はピンごとの UFG と SPH、弾性散乱と
 準位の角度分布は MF4（[ADR-0081](../../docs/adr/0081-use-mf4-angular-distributions.md)）、H in H2O の S(α,β) は評価済みデータの上限まで、表の外は短時間衝突近似、その上は自由ガス（[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)）、集合体は成り立つ対称操作をすべて使う（[ADR-0112](../../docs/adr/0112-use-verified-symmetry-in-moc-and-shielding.md)。2A〜2K と 2Q は 1/8）。制御棒の吸収体は 5 リング（AIC の棒は ADR-0142 でリングごとの群定数と SPH 因子）、計装管のシンブルの中の真空と SS304 は 1 リング、シンブルと計装管の間の水は 2 リング（燃料の外のリングの数は ADR で決めていない。#0059）。
 ピン出力は `compare_pins.py` で、燃料ピン 264 本の平均で規格化して比べる。
