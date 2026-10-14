@@ -1,7 +1,7 @@
 # このファイルは p3_inputs.py が書く。手で直さない。
 # VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの
 # 少数群定数と、平板の燃料の媒質）→ 軸方向の反射体の平板（axial-<問題>）→ 炉心（平板の定数だけの等価性
-# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI）。走らせるのは `dvc repro`
+# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI、OpenMC）。走らせるのは `dvc repro`
 # （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）
 stages:
   lattice-3A-fuel:
@@ -81,7 +81,7 @@ stages:
     outs:
       - compare-3A-slab.out
   compare-3A:
-    cmd: python3 ../compare_p3.py 3A ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack core-3A-layers.msgpack > compare-3A.out
+    cmd: python3 ../compare_p3.py --json compare-3A.json 3A ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack core-3A-layers.msgpack
     deps:
       - ../compare_p3.py
       - ../compare_keno.py
@@ -90,7 +90,24 @@ stages:
       - core-3A-pins.msgpack
       - core-3A-layers.msgpack
     outs:
-      - compare-3A.out
+      - compare-3A.json:
+          cache: false
+  compare-3A-openmc:
+    cmd: python3 ../compare_p3.py --json compare-3A-openmc.json 3A ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack core-3A-layers.msgpack ../../../references/openmc/aws/m3/openmc-3A
+    deps:
+      - ../compare_p3.py
+      - ../compare_keno.py
+      - ../../../references/vera/spec.txt
+      - ../../../references/openmc/aws/m3/openmc-3A/k.json
+      - ../../../references/openmc/aws/m3/openmc-3A/layers.msgpack
+      - ../../../references/openmc/aws/m3/openmc-3A/pins.msgpack
+      - ../../../references/openmc/aws/m3/openmc-3A/pins-std.msgpack
+      - core-3A.out
+      - core-3A-pins.msgpack
+      - core-3A-layers.msgpack
+    outs:
+      - compare-3A-openmc.json:
+          cache: false
   lattice-3B-poison:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-poison.toml > lattice-3B-poison.out
     deps:
@@ -222,7 +239,7 @@ stages:
     outs:
       - compare-3B-slab.out
   compare-3B:
-    cmd: python3 ../compare_p3.py 3B ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack core-3B-layers.msgpack > compare-3B.out
+    cmd: python3 ../compare_p3.py --json compare-3B.json 3B ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack core-3B-layers.msgpack
     deps:
       - ../compare_p3.py
       - ../compare_keno.py
@@ -231,4 +248,21 @@ stages:
       - core-3B-pins.msgpack
       - core-3B-layers.msgpack
     outs:
-      - compare-3B.out
+      - compare-3B.json:
+          cache: false
+  compare-3B-openmc:
+    cmd: python3 ../compare_p3.py --json compare-3B-openmc.json 3B ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack core-3B-layers.msgpack ../../../references/openmc/aws/m3/openmc-3B
+    deps:
+      - ../compare_p3.py
+      - ../compare_keno.py
+      - ../../../references/vera/spec.txt
+      - ../../../references/openmc/aws/m3/openmc-3B/k.json
+      - ../../../references/openmc/aws/m3/openmc-3B/layers.msgpack
+      - ../../../references/openmc/aws/m3/openmc-3B/pins.msgpack
+      - ../../../references/openmc/aws/m3/openmc-3B/pins-std.msgpack
+      - core-3B.out
+      - core-3B-pins.msgpack
+      - core-3B-layers.msgpack
+    outs:
+      - compare-3B-openmc.json:
+          cache: false

@@ -190,10 +190,14 @@ k は 0.992155 ± 0.001132 で、差は相対で 2e-15（k の標準偏差の 2e
 
 ### 結果
 
+<!-- table: p3-reference-results -->
+
 | 問題 | OpenMC（ENDF/B-VIII.0） | KENO-VI（ENDF/B-VII.0） | 差         | 軸方向のオフセット（OpenMC） | 軸方向のオフセット（KENO-VI） |
 | ---- | ----------------------- | ----------------------- | ---------- | ---------------------------- | ----------------------------- |
 | 3A   | 1.175967 ± 0.000021     | 1.175722 ± 0.000005     | +24.5 pcm  | +0.267%                      | +0.163%                       |
 | 3B   | 1.001389 ± 0.000019     | 1.000154 ± 0.000006     | +123.5 pcm | −0.211%                      | −0.062%                       |
+
+<!-- /table -->
 
 3A と 3B の OpenMC は AWS の VM の実行 m3（入力と道具のコミット 45eeb641、2026-10-13 に起動、2026-10-14 に完了。S3 から 2026-10-14 に
 `aws_fetch.sh --verify m3` で `references/openmc/aws/m3/openmc-3A/` と `openmc-3B/` に取り出し、SHA256SUMS の一致と、手元の extract が VM の結果と
@@ -249,7 +253,7 @@ bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走ら�
 ### KENO-VI との比較
 
 炉心（`core-<問題>`）の k、軸方向の出力（49 層の径方向に積分した出力の線密度。燃料の高さの平均で 1）、全長で積分した
-ピン出力（1/8 の 39 位置、対称な 8 本の平均）を、仕様書の表 P3-4、付録 D と比べる（`compare-<問題>.out`）。KENO-VI は
+ピン出力（1/8 の 39 位置、対称な 8 本の平均）を、仕様書の表 P3-4、付録 D と比べる（`compare-<問題>.json`。文章は `compare_p3.py --report`）。KENO-VI は
 ENDF/B-VII.0 なので、差は核データの違いを含む（同じ問題の OpenMC との比較は下の表）。2D の集合体の OpenMC と KENO-VI の
 k の差は 2B で +6 pcm、2E で +66 pcm、2F で +87 pcm（「参照解」）。
 
@@ -259,7 +263,7 @@ k の差は 2B で +6 pcm、2E で +66 pcm、2F で +87 pcm（「参照解」）
 | 3B   | 1.002084 | 1.000154 ± 0.000006 | +193 pcm | 0.0019（0.63%）                | −0.041%、−0.062%                   | 0.151%、+0.329%          |
 
 軸方向の出力の差の RMS は層ごとの差（xlc − KENO-VI）の RMS で、括弧の相対は層ごとの (xlc / KENO-VI − 1) の RMS
-（`compare-<問題>.out` の層ごとの値から求めた）。
+（`compare-<問題>.json` の層ごとの値から求めた）。
 
 - 軸方向の出力の差は燃料の両端で大きい: 3A は下端の層（Inconel-718 の支持格子の高さ、0〜3.866 cm）で −6.1%、上端の層で
   −3.2%、3B は −4.2% と −0.8%（相対差）。中ほどの層は 3A で 1% 以内。原因の候補は、燃料の層の定数が単一集合体の
@@ -291,10 +295,14 @@ OpenMC の本番（「Problem 3 の参照解」）の 3A と 3B の結果と比�
 xlc と OpenMC の差が OpenMC の統計誤差の何倍かも出す。倍率の分母は、軸方向とそのオフセットは層の誤差を独立とした値（規格化の誤差と層の間の相関を含まない）、
 ピンと層ごとのピンは `pins-std.msgpack` と `layers-std` の標準偏差。
 
+<!-- table: p3-openmc-comparison -->
+
 | 問題 | xlc の k | OpenMC の k | 差          | 軸方向の出力の差の RMS | ピン出力の差の RMS、最大 | 層ごとのピン出力の差の最大 |
 | ---- | -------- | ----------- | ----------- | ---------------------- | ------------------------ | -------------------------- |
 | 3A   | 1.176563 | 1.175967    | +60 ± 2 pcm | 0.0047（1.40%）        | 0.054%、−0.149%          | −9.9%（下端の層）          |
 | 3B   | 1.002084 | 1.001389    | +69 ± 2 pcm | 0.0031（0.96%）        | 0.071%、+0.192%          | −9.8%（下端の層）          |
+
+<!-- /table -->
 
 xlc の k の差は KENO-VI に対して 3A が +84 pcm、3B が +193 pcm、OpenMC に対して +60 pcm と +69 pcm で、OpenMC と KENO-VI の差は +24.5 pcm と +123.5 pcm。
 どれも k の統計誤差（2 pcm）で区別できる。
@@ -321,11 +329,9 @@ xlc の k の差は KENO-VI に対して 3A が +84 pcm、3B が +193 pcm、Open
 
 ```sh
 dvc repro examples/vera/p3/dvc.yaml
-cd examples/vera/p3
-python3 ../compare_p3.py 3A ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack core-3A-layers.msgpack \
-  ../../../references/openmc/aws/m3/openmc-3A
-python3 ../compare_p3.py 3B ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack core-3B-layers.msgpack \
-  ../../../references/openmc/aws/m3/openmc-3B
+python3 examples/vera/compare_p3.py --report examples/vera/p3/compare-3A-openmc.json
+python3 examples/vera/compare_p3.py --report examples/vera/p3/compare-3B-openmc.json
+python3 examples/verification_tables.py examples/vera/verification.md
 ```
 
 ## Problem 5-2D の参照解

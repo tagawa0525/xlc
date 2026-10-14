@@ -715,7 +715,12 @@ def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
         f"  {name}:\n    cmd: {cmd}\n    deps:\n"
         + "".join(f"      - {d}\n" for d in deps)
         + "    outs:\n"
-        + "".join(f"      - {o}\n" for o in outs)
+        + "".join(
+            f"      - {o.removeprefix('git:')}:\n          cache: false\n"
+            if o.startswith("git:")
+            else f"      - {o}\n"
+            for o in outs
+        )
     )
 
 
@@ -788,8 +793,8 @@ def pipeline() -> str:
         stages.append(
             stage(
                 f"compare-{problem}",
-                f"python3 ../compare_p3.py {problem} ../../../references/vera/spec.txt core-{problem}.out "
-                f"core-{problem}-pins.msgpack core-{problem}-layers.msgpack > compare-{problem}.out",
+                f"python3 ../compare_p3.py --json compare-{problem}.json {problem} ../../../references/vera/spec.txt core-{problem}.out "
+                f"core-{problem}-pins.msgpack core-{problem}-layers.msgpack",
                 [
                     "../compare_p3.py",
                     "../compare_keno.py",
@@ -798,14 +803,43 @@ def pipeline() -> str:
                     f"core-{problem}-pins.msgpack",
                     f"core-{problem}-layers.msgpack",
                 ],
-                [f"compare-{problem}.out"],
+                [f"git:compare-{problem}.json"],
+            )
+        )
+        # OpenMC の参照解は DVC の段階の出力でない（AWS の VM の実行 m3 から取り出した references/ のファイル）ので、
+        # 比べる 4 つのファイルを deps に書く。表を描く道具（examples/verification_tables.py）が JSON を読む（ADR-0176）。JSON は数十 KB ほどの要約で、
+        # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印）
+        openmc = f"../../../references/openmc/aws/m3/openmc-{problem}"
+        stages.append(
+            stage(
+                f"compare-{problem}-openmc",
+                f"python3 ../compare_p3.py --json compare-{problem}-openmc.json {problem} ../../../references/vera/spec.txt "
+                f"core-{problem}.out core-{problem}-pins.msgpack core-{problem}-layers.msgpack {openmc}",
+                [
+                    "../compare_p3.py",
+                    "../compare_keno.py",
+                    "../../../references/vera/spec.txt",
+                    *(
+                        f"{openmc}/{f}"
+                        for f in [
+                            "k.json",
+                            "layers.msgpack",
+                            "pins.msgpack",
+                            "pins-std.msgpack",
+                        ]
+                    ),
+                    f"core-{problem}.out",
+                    f"core-{problem}-pins.msgpack",
+                    f"core-{problem}-layers.msgpack",
+                ],
+                [f"git:compare-{problem}-openmc.json"],
             )
         )
     return (
         "# このファイルは p3_inputs.py が書く。手で直さない。\n"
         "# VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
         "# 少数群定数と、平板の燃料の媒質）→ 軸方向の反射体の平板（axial-<問題>）→ 炉心（平板の定数だけの等価性\n"
-        "# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI）。走らせるのは `dvc repro`\n"
+        "# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI、OpenMC）。走らせるのは `dvc repro`\n"
         "# （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）\n"
         "stages:\n" + "".join(stages)
     )
