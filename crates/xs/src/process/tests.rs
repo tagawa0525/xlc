@@ -627,3 +627,18 @@ fn capture_states_without_the_ground_state_leave_the_remainder_to_it() {
     let total = capture.channels[0].cross_section[0] + capture.channels[1].cross_section[0];
     assert!((capture.channels[1].cross_section[0] - 0.9 * total).abs() < 1e-12 * total);
 }
+
+#[test]
+fn listed_states_beyond_the_reaction_are_an_error() {
+    // 挙げた状態の多重度の和が 1 を超えると、基底状態への残りが負になる
+    let tape = reaction_tape(&[(2, "5.0+4", "1.2")]);
+    let error = process_nuclide(&tape, "X", &[293.6], None, &reaction_settings()).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ProcessError::Temperature { ref source, .. }
+                if matches!(**source, ProcessError::NegativeRemainder { mt: 102, .. })
+        ),
+        "{error:?}"
+    );
+}
