@@ -2145,16 +2145,22 @@ def hzp_inventory(sites: dict[tuple[int, int], tuple[str, bool]]) -> str:
 
 
 def hzp_case(
-    cycle_file: str, states: str, comment: str, pins: str | None = None
+    cycle_file: str,
+    states: str,
+    comment: str,
+    pins: str | None = None,
+    outline: bool = True,
 ) -> str:
+    """`outline` は炉心の形に `-` があること（外形の面の条件を書く。ADR-0132）"""
     mesh = ", ".join(hzp_decimal(z) for z in mesh_3d())
     pin_line = f'pin-powers = "{pins}"\n' if pins else ""
+    face = ', outline = "vacuum"' if outline else ""
     return f"""# このファイルは p5_inputs.py が書く。手で直さない。
 {comment}
 cycle = "{cycle_file}"
 axial-mesh = [{mesh}]
 radial-nodes = 1
-{pin_line}boundary = {{ x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"], outline = "vacuum" }}
+{pin_line}boundary = {{ x = ["vacuum", "vacuum"], y = ["vacuum", "vacuum"], z = ["vacuum", "vacuum"]{face} }}
 {states}"""
 
 
@@ -2271,12 +2277,14 @@ def hzp_small_files() -> dict[str, str]:
         + state_text("half", TEMPERATURE, half, 1300)
         + state_text("aro-boron", TEMPERATURE, out, None),
         "# 最小の入力の 3D: 全引き抜き、全挿入、半分（115 ステップ）とホウ素の探索",
+        outline=False,
     )
     files["small-half.toml"] = hzp_case(
         "small-cycle.toml",
         state_text("half", TEMPERATURE, half, 1300),
         "# 最小の入力の 3D の半分の挿入（ピン出力の 90° の回転の対称性を見る）",
         pins="small-half-pins.msgpack",
+        outline=False,
     )
     # 分岐のテーブルの内挿: 3.10% の支持格子のない層のテーブルを 565 K、1300 ppm で内挿した k∞ を、同じ状態を直接解いた
     # 5-2D の単一集合体の格子（../assembly-31.toml。冷却材は表 M3-4 の個数密度、0.743 g/cc）の k と比べる
