@@ -11,6 +11,7 @@ use crate::multigroup::{
     ShieldingError, SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
     fission_spectrum, reaction_averages, scattering_moments, shielded_averages, uses_angular,
 };
+use crate::parallel::in_parallel;
 use crate::physics::BK;
 use crate::pointwise::{
     ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
@@ -209,22 +210,26 @@ pub fn unresolved_shielding(
         })
     };
 
-    let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
-    let mut infinite = Vec::with_capacity(grid.len());
-    // 格子点の番号を種にする（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。ADR-0177）
-    for (seed, &e) in (0u64..).zip(&grid) {
+    // 格子点ごとに独立なので並列に求める。種は格子点の番号（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。
+    // スレッドの数によらない。ADR-0177）
+    let sampled = in_parallel(grid.len(), |i| {
+        let e = grid[i];
         let background = Sigma {
             total: at(&total, e),
             elastic: at(&elastic, e),
             fission: at(&fission, e),
             capture: at(&capture, e),
         };
-        let sampled = xs.shielded(e, temperature, sigma0, background, seed)?;
-        for (row, s) in shielded.iter_mut().zip(&sampled.shielded) {
+        xs.shielded(e, temperature, sigma0, background, i as u64)
+    })?;
+    let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
+    let mut infinite = Vec::with_capacity(grid.len());
+    for b in &sampled {
+        for (row, s) in shielded.iter_mut().zip(&b.shielded) {
             row.push([s.total, s.elastic, s.fission, s.capture]);
         }
         // 無限希釈の欄は同じサンプルの平均にして、補正（LSSF=0 の差、LSSF=1 の比）がサンプルの揺らぎの 1 次を打ち消すようにする
-        let mean = sampled.mean;
+        let mean = b.mean;
         infinite.push([mean.total, mean.elastic, mean.fission, mean.capture]);
     }
     Ok(Some(UnresolvedShielding::new(
