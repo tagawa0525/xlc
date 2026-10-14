@@ -7,7 +7,8 @@
 - 比べた結果は JSON だけに書く（標準出力には何も出さない）。JSON は検証の記録の表を描くツール
   （examples/verification_tables.py）も読む（ADR-0176）。割合は小数（0.01 = 1%）、k の差は pcm、位置は [行, 列]、
   層は 1 始まり。OpenMC があるときは `openmc` の項目と `*_vs_openmc` の群も入る
-- `--report`: JSON から文章の報告を標準出力に描く。層ごとの一覧を含め、JSON が持つ数だけを使う
+- `--report`: JSON から文章の報告を標準出力に描く。1 行目は読んだファイルのパスと md5 の先頭 8 桁（`inputs`）。層ごとの一覧を含め、
+  JSON が持つ数だけを使う
 
 - k: core の標準出力の `k-eff` と、表 P3-4 の KENO-VI の k（差は (k_xlc − k_ref) × 1e5 pcm）、OpenMC の k.json
 - 軸方向の出力: 付録 D の 49 層の KENO-VI の値（燃料の高さの平均で 1 の線密度）と、OpenMC の layers.msgpack の `axial`。
@@ -23,6 +24,7 @@
 - 層ごとのピン出力（OpenMC があるとき）: 参照の層ごとの、燃料のピンの (xlc / OpenMC − 1) の RMS と最大と、全体の最大
 """
 
+import hashlib
 import json
 import math
 import re
@@ -288,9 +290,20 @@ def compare(args: list[str]) -> dict:
     openmc = Path(args[5]) if len(args) == 6 else None
 
     k_keno, s_keno = keno_k(spec, problem)
+    files = [Path(a) for a in args[1:5]]
+    if openmc:
+        files += [
+            openmc / name
+            for name in ["k.json", "layers.msgpack", "pins.msgpack", "pins-std.msgpack"]
+        ]
     summary = {
         "format": "xlc-compare-p3",
         "problem": problem,
+        # 読んだファイルのパス（段階の cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
+        "inputs": [
+            {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
+            for f in files
+        ],
         "k": {
             "xlc": k,
             "keno": k_keno,
@@ -451,7 +464,9 @@ def report(summary: dict) -> list[str]:
     """要約の JSON から文章の報告を描く"""
     p, k = summary["problem"], summary["k"]
     lines = [
-        f"{p} k xlc {k['xlc']:.6f} KENO-VI {k['keno']:.6f} +- {k['keno_std']:.6f} diff {k['diff_keno_pcm']:+.0f} pcm"
+        "inputs: "
+        + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"]),
+        f"{p} k xlc {k['xlc']:.6f} KENO-VI {k['keno']:.6f} +- {k['keno_std']:.6f} diff {k['diff_keno_pcm']:+.0f} pcm",
     ]
     if "openmc" not in k:
         return [
