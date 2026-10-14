@@ -190,6 +190,83 @@ definition_tests() {
 }
 definition_tests
 
+# progress = steps（ADR-0174）: 区間（run/step-<k>/）の完了の印 complete で進み具合を測る
+steps_tests() {
+  local base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli") fresh restart text
+  local steps_def=(examples/depletion/run_remote.sh steps examples/depletion/openmc-library "")
+  local steps_args=(us-east-2 xlc-openmc-test trial openmc-1C-a trials/aws/openmc-1C-a.toml)
+  fresh=$(aws_user_data "${steps_args[@]}" 0 "${base[@]}" "" "${steps_def[@]}")
+  restart=$(aws_user_data "${steps_args[@]}" 1 "${base[@]}" "" "${steps_def[@]}")
+  for text in "$fresh" "$restart"; do
+    bash -n <<< "$text" || fail "steps: bash の構文"
+    lacks "$text" 'statepoint' steps
+    contains "$text" 'complete_steps() {' steps
+    # S3 の区間は、完了の印があるものの最後の 1 つだけを戻す。印のない区間（書いている途中）は戻さない
+    contains "$text" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done --exclude '\''run/step-*'\'' "$PREFIX" "$OUT"' steps
+    contains "$text" 'keys=$("$AWS" s3api list-objects-v2 --bucket "$BUCKET" --prefix "runs/trial/openmc-1C-a/run/step-" --query '\''Contents[].Key'\'' --output text)' steps
+    before "$text" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done --exclude '\''run/step-*'\'' "$PREFIX" "$OUT"' 'READY=1' steps
+  done
+  contains "$fresh" 'bash examples/depletion/run_remote.sh trials/aws/openmc-1C-a.toml' steps
+  contains "$restart" 'bash examples/depletion/run_remote.sh --restart trials/aws/openmc-1C-a.toml' steps
+  rejects "steps に statepoint の間隔" "${steps_args[@]}" 0 "${base[@]}" 50 "${steps_def[@]}"
+
+  # sync_out の振る舞い: 完了した区間だけを写し、完了の印は区間のほかのファイルをコピーしてから
+  local functions
+  functions=$(sed -n '/^complete_steps() {$/,/^}$/p; /^sync_out() {$/,/^}$/p' <<< "$fresh")
+  steps_sync() { # <done の中身（- なら置かない）> <SIGTERM を受けたか 0|1> <完了した区間の番号>... [incomplete=<番号>]: sync_out の aws の呼び出しを 1 行ずつ
+    local done_code=$1 interrupted=$2 dir k
+    shift 2
+    dir=$(mktemp -d)
+    mkdir -p "$dir/results/openmc-1C-a/run"
+    for k in "$@"; do
+      if [[ $k == incomplete=* ]]; then
+        mkdir -p "$dir/results/openmc-1C-a/run/step-${k#incomplete=}"
+      else
+        mkdir -p "$dir/results/openmc-1C-a/run/step-$k"
+        touch "$dir/results/openmc-1C-a/run/step-$k/complete"
+      fi
+    done
+    [[ $done_code == - ]] || echo "$done_code" > "$dir/results/openmc-1C-a/done"
+    (
+      # shellcheck disable=SC2034 # eval した sync_out が使う
+      WORK=$dir OUT=results/openmc-1C-a PREFIX=s3://b/runs/trial/openmc-1C-a READY=1 INTERRUPTED=$interrupted
+      # shellcheck disable=SC2034 # eval した sync_out が使う
+      AWS=aws_stub
+      aws_stub() { echo "CALL $*"; }
+      eval "$functions"
+      sync_out
+    )
+    rm -rf "$dir"
+  }
+  local running first
+  running=$(steps_sync - 0 1 2 incomplete=3 10)
+  first=$(head -1 <<< "$running")
+  [[ $first == *"--exclude run/step-*"* ]] || fail "steps: 走っている間に区間を除いていない: $first"
+  for k in 1 2 10; do
+    [[ $first == *"--include run/step-$k/*"* ]] || fail "steps: 完了した区間 $k を含めていない: $first"
+  done
+  [[ $first != *"run/step-3"* ]] || fail "steps: 完了の印のない区間を含めている: $first"
+  [[ $first == *"--exclude run/step-*/complete"* ]] || fail "steps: 最初の呼び出しが完了の印を除いていない: $first"
+  [[ $running == *"--include run/step-10/complete"* ]] || fail "steps: 完了の印を最後にコピーしていない"
+  [[ $(grep -c . <<< "$running") == 2 ]] || fail "steps: 走っている間は、区間と完了の印の 2 回の同期: $running"
+  ! grep -qF -- '--delete' <<< "$running" || fail "steps: 走っている間に --delete している"
+  # 完了の印は、区間のほかのファイルをコピーした呼び出しより後
+  [[ $(grep -n -- '--include run/step-10/complete' <<< "$running" | head -1 | cut -d: -f1) == 2 ]] || fail "steps: 完了の印が 2 回目の呼び出しにない"
+  local finished
+  finished=$(steps_sync 0 0 1 2 3)
+  ! grep -qF -- '--include run/step-' <<< "$(head -1 <<< "$finished")" || fail "steps: 成功のあとに区間を選んでいる"
+  grep -qF -- '--delete' <<< "$finished" || fail "steps: 成功のあとに --delete していない"
+  [[ $(grep -n -- '--delete' <<< "$finished" | head -1 | cut -d: -f1) == 3 ]] || fail "steps: --delete が完了の印のあとの呼び出しでない"
+  local failed
+  failed=$(steps_sync 137 0 1 incomplete=2)
+  [[ $(head -1 <<< "$failed") == *"--include run/step-1/*"* && $failed != *"run/step-2"* ]] || fail "steps: 失敗のあとに未完了の区間をコピーしている: $failed"
+  ! grep -qF -- '--delete' <<< "$failed" || fail "steps: 失敗のあとに --delete している"
+  local nothing
+  nothing=$(steps_sync - 0)
+  [[ $(grep -c . <<< "$nothing") == 2 ]] || fail "steps: 区間がないときも 2 回呼ぶ: $nothing"
+}
+steps_tests
+
 if ((failures)); then
   echo "$failures 件の失敗" >&2
   exit 1
