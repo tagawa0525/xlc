@@ -1416,16 +1416,6 @@ GRID_FRAMES = {
 }
 
 
-def rotate_quarter(i: int, j: int) -> tuple[int, int]:
-    """全炉心の位置（中心が (0, 0)、行は下、列は東が正）を、1/4（行と列が 0 以上）に入るまで 90° ずつ回したもの。
-    (i, j) → (j, −i) は、1/4 の 8 行（行 0）の列 j を H 列（列 0）の行 j に移す"""
-    for _ in range(4):
-        if i >= 0 and j >= 0:
-            return i, j
-        i, j = j, -i
-    raise AssertionError((i, j))
-
-
 def bank_at(i: int, j: int) -> str | None:
     """全炉心の位置のバンク。1/4 の軸の上の位置（行 0 と列 0）は 2 通りに回るので、どちらも同じことを確かめる"""
     banks = set()
@@ -1563,7 +1553,8 @@ def mesh_3d() -> list[Fraction]:
 
 
 def hzp_materials(names: list[str]) -> str:
-    """物質の TOML。温度は分岐の軸が決める（書く値は 565 K）。冷却材はホウ酸水（ADR-0106）"""
+    """物質の TOML。温度と冷却材の密度とホウ素は分岐の軸が置き換える（どの物質もどれかの軸にある）。書く値は、燃料と構造材が
+    565 K、冷却材がテーブルの最初の点（560 K、1100 ppm）。冷却材はホウ酸水（ADR-0106）"""
     t = TEMPERATURE
     blocks = []
     for name in names:
