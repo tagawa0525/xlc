@@ -239,7 +239,8 @@ struct Sequence<'a> {
 impl Sequence<'_> {
     /// σ0 ごとの [E[J Γf], E[J Γγ], E[J Γn], E[J Γx], E[K Γ]] / D。`sigm` は σ0 を含む背景断面積。
     /// J, K は表から補間する（`jk_interpolated`。β や θ が表より大きいときは希釈の極限か Lorentz の線形状の
-    /// 解析式）。β や θ が表より小さければ、その点を記録してエラーにする。
+    /// 解析式、θ が表より小さいときはガウス形の線形状の級数）。β が表より小さいか θ が正でなければ、その点を記録して
+    /// エラーにする。
     fn integrals(&self, sigm: &[f64]) -> Result<Vec<f64>, UrrError> {
         let n = PARTS * sigm.len();
         // 平均断面積（`fluctuation_integrals`）と同じく、Γn または Γγ が 0 以下なら 0 とする
