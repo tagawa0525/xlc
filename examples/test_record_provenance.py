@@ -59,6 +59,18 @@ class Parse(unittest.TestCase):
         self.assertEqual(stage["outs"], [("b.json", H["3"]), ("dir", H["4"] + ".dir")])
         self.assertEqual(rp.parse_stage(lock(), "a")["deps"], [("in.txt", H["1"])])
 
+    def test_reads_a_path_that_dvc_folded_onto_the_next_line(self):
+        """dvc は長いパスを `- path:` の次の行に折る。折られた dep を読み落とすと、JSON の inputs が dep でないと誤る"""
+        lock = (
+            "schema: '2.0'\nstages:\n  a:\n    cmd: echo a\n    deps:\n"
+            "    - path: \n        ../very/long/path/to/the/file.msgpack\n"
+            "      hash: md5\n      md5: " + "1" * 32 + "\n      size: 1\n"
+        )
+        self.assertEqual(
+            rp.parse_stage(lock, "a")["deps"],
+            [("../very/long/path/to/the/file.msgpack", "1" * 32)],
+        )
+
     def test_unknown_stage_is_an_error(self):
         with self.assertRaises(rp.ProvenanceError):
             rp.parse_stage(lock(), "c")
