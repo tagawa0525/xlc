@@ -14,6 +14,7 @@
 - 標準ライブラリだけ
 """
 
+import hashlib
 import json
 import re
 import subprocess
@@ -88,7 +89,8 @@ def locked_since(lock: Path, stage: str, out: str) -> tuple[str, str]:
         return "unknown", ""
     commits = [line.split() for line in history.strip().splitlines()]
     head = git(lock, "show", f"{commits[0][0]}:./{lock.name}")
-    if head is None or out_md5(head, stage, out) != now:
+    # 出力の md5 だけでなく、段階の deps と outs のすべてが HEAD と同じこと（コミット前の deps を出さない）
+    if head is None or parse_stage(head, stage) != parse_stage(lock.read_text(), stage):
         return "uncommitted", ""
     since = commits[0]
     for commit, date in commits:
@@ -129,11 +131,23 @@ def show(dvc_yaml: Path, stage_name: str) -> int:
     status = 0
     for path, _ in stage["outs"]:
         file = dvc_yaml.parent / path
-        if file.suffix != ".json" or not file.exists():
+        if file.suffix != ".json":
+            continue
+        if not file.exists():
+            print(f"MISSING: {file} (run the stage, or git checkout it)")
+            status = 1
+            continue
+        if hashlib.md5(file.read_bytes()).hexdigest() != dict(stage["outs"])[path]:
+            print(f"MISMATCH: {file} differs from the md5 in dvc.lock")
+            status = 1
             continue
         summary = json.loads(file.read_text())
         tool = REPORTS.get(summary.get("format"))
         if tool is None:
+            continue
+        if "inputs" not in summary:
+            print(f"MISMATCH: {file} has no inputs; rerun the stage")
+            status = 1
             continue
         for problem in input_problems(summary, stage):
             print(f"MISMATCH: {problem}")
