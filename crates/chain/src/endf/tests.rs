@@ -192,9 +192,14 @@ fn reads_a_stable_nuclide_without_modes() {
 }
 
 fn mf3(mat: i32, mt: u32) -> String {
+    mf3_q(mat, mt, "0.0")
+}
+
+/// QI を `qi` とした MF3 の節
+fn mf3_q(mat: i32, mt: u32, qi: &str) -> String {
     [
         rec(["9.524100+4", "2.389860+2", "0", "0", "0", "0"], mat, 3, mt),
-        rec(["0.0", "0.0", "0", "0", "1", "2"], mat, 3, mt),
+        rec(["2.0+8", qi, "0", "0", "1", "2"], mat, 3, mt),
         rec(["2", "2", "", "", "", ""], mat, 3, mt),
         rec(["1.0-5", "1.0", "2.0+7", "1.0", "", ""], mat, 3, mt),
         rec(BLANK, mat, 3, 0),
@@ -209,7 +214,7 @@ fn am241_neutron() -> String {
         header(mat, "9.524100+4", "0.0", "0"),
         mf3(mat, 1),
         mf3(mat, 16),
-        mf3(mat, 18),
+        mf3_q(mat, 18, "1.95+8"),
         mf3(mat, 102),
         rec(BLANK, mat, 0, 0),
         // (n,2n): NO = 1 の形（CONT）
@@ -263,6 +268,8 @@ fn reads_mf3_reactions_and_final_states() {
     let e = read_neutron(&am241_neutron(), &[16, 102, 103]).unwrap();
     assert_eq!((e.material.z, e.material.a, e.material.state), (95, 241, 0));
     assert_eq!(e.mts, vec![1, 16, 18, 102]);
+    // 核分裂の Q は MT18 の QI（QM ではない）
+    assert_eq!(e.fission_q, Some(1.95e8));
     assert_eq!(
         e.final_states,
         vec![
