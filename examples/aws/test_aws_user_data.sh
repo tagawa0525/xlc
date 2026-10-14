@@ -199,7 +199,9 @@ steps_tests() {
   restart=$(aws_user_data "${steps_args[@]}" 1 "${base[@]}" "" "${steps_def[@]}")
   for text in "$fresh" "$restart"; do
     bash -n <<< "$text" || fail "steps: bash の構文"
-    lacks "$text" 'statepoint' steps
+    lacks "$text" 'statepoints()' steps
+    lacks "$text" 'run/statepoint' steps
+    lacks "$text" '--statepoint-interval' steps
     contains "$text" 'complete_steps() {' steps
     # S3 の区間は、完了の印があるものの最後の 1 つだけを戻す。印のない区間（書いている途中）は戻さない
     contains "$text" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done --exclude '\''run/step-*'\'' "$PREFIX" "$OUT"' steps
