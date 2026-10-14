@@ -501,7 +501,7 @@ L 型の近似の大きさ（5A）: L 型の位置の I 型の定数の f\* の�
 
 ## OpenMC との比較
 
-xlc は bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124、2026-10-14。Slurm の排他のジョブ 332 で、1B の段階と、同じジョブの後の手順で 1C〜2Q を `bin/lattice examples/vera/p*/<入力>.toml` で走らせた）。前の値（1f4fcaaf、分岐点 ac8e2f3a。2G は 835c6c0f、分岐点 e888ea78。ライブラリ md5 3d1a8cc2 と 1850d83f で、ADR-0156〜0158 の前）と比べて、16 体系の k は 6 桁ですべて同じ（|Δk| < 1e-6、表の差と同じ Δk × 10⁵ で 0.1 pcm 未満）、ピン出力の差の rms と最大も表の桁で同じ。ライブラリ（vera.msgpack、md5 55be71c9）は前の `dvc.lock` の xs の出力とバイト単位で同じ。1B の `lattice-1B.out` も前の出力と同じで、前の出力は 565 K の構造材と Ti の核種を足す前のライブラリ（md5 3d1a8cc2）で走らせたもの。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`。`compare-1B` は deps（`lattice-1B.out` と古い抽出の出力）が変わらないので走らず、出力も変わらない。#0120）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
+xlc は bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124、2026-10-14。Slurm の排他のジョブ 332 で、1B の段階と、同じジョブの後の手順で 1C〜2Q を `bin/lattice examples/vera/p*/<入力>.toml` で走らせた）。前の値（1f4fcaaf、分岐点 ac8e2f3a。2G は 835c6c0f、分岐点 e888ea78。ライブラリ md5 3d1a8cc2 と 1850d83f で、ADR-0156〜0158 の前）と比べて、16 体系の k は 6 桁ですべて同じ（|Δk| < 1e-6、表の差と同じ Δk × 10⁵ で 0.1 pcm 未満）、ピン出力の差の rms と最大も表の桁で同じ。ライブラリ（vera.msgpack、md5 55be71c9）は d07475d3 の `dvc.lock` の xs の出力とバイト単位で同じで、前の 1C〜2Q の値のライブラリとは違う（k が 6 桁で同じことだけが、その違いが k に効かない根拠）。1B の `lattice-1B.out` も前の出力と同じで、前の出力は 565 K の構造材と Ti の核種を足す前のライブラリ（md5 3d1a8cc2）で走らせたもの。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`。`compare-1B` は deps（`lattice-1B.out` と古い抽出の出力）が変わらないので走らず、出力も変わらない。#0120）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
 （[ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md)）。燃料 5 リング、扇形 8、散乱は P3（[ADR-0075](../../docs/adr/0075-solve-moc-with-anisotropic-scattering.md)）、自己遮蔽はピンごとの UFG と SPH、弾性散乱と
 準位の角度分布は MF4（[ADR-0081](../../docs/adr/0081-use-mf4-angular-distributions.md)）、H in H2O の S(α,β) は評価済みデータの上限まで、表の外は短時間衝突近似、その上は自由ガス（[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)）、集合体は成り立つ対称操作をすべて使う（[ADR-0112](../../docs/adr/0112-use-verified-symmetry-in-moc-and-shielding.md)。2A〜2K と 2Q は 1/8）。制御棒の吸収体は 5 リング（AIC の棒は ADR-0142 でリングごとの群定数と SPH 因子）、計装管のシンブルの中の真空と SS304 は 1 リング、シンブルと計装管の間の水は 2 リング（燃料の外のリングの数は ADR で決めていない。#0059）。
 ピン出力は `compare_pins.py` で、燃料ピン 264 本の平均で規格化して比べる。
@@ -582,7 +582,7 @@ xlc は bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で�
 
 ### 温度と支持格子による差の変化
 
-2A と 2Q（565 K。H in H2O の群定数は 550 K と 573.6 K の内挿。[ADR-0080](../../docs/adr/0080-interpolate-sab-in-temperature.md)）で、2B からの変化を分けると次のとおり（xlc は 1f4fcaaf、2026-10-12。OpenMC は「参照解」のコミット。2B と 2E-empty は「OpenMC との比較」の表のもの）
+2A と 2Q（565 K。H in H2O の群定数は 550 K と 573.6 K の内挿。[ADR-0080](../../docs/adr/0080-interpolate-sab-in-temperature.md)）で、2B からの変化を分けると次のとおり（xlc は 1f4fcaaf、2026-10-12。OpenMC は「参照解」のコミット。2B と 2E-empty は「OpenMC との比較」の表のもので、表の bd6127e0 と k は 6 桁で同じ）
 （k の変化 × 1e5。差の変化は xlc − OpenMC の差の変化）:
 
 | 変化                                      | 比べる問題    | xlc       | OpenMC    | 差の変化 |
@@ -602,7 +602,7 @@ OpenMC の 2 つの計算が独立なら、変化の統計誤差は 7〜8 pcm（
 ### 吸収体による差の変化
 
 2E-empty（減速材 0.743 g/cc で吸収体なし）を基準にした、吸収体と、吸収体でない計装管のシンブル（2I、2J）と燃料の濃縮度の分け方（2K）による OpenMC との差
-（xlc − OpenMC の k）の変化。xlc は 1f4fcaaf（2G は 835c6c0f）、2026-10-12（2G は 2026-10-13）。
+（xlc − OpenMC の k）の変化。xlc は 1f4fcaaf（2G は 835c6c0f）、2026-10-12（2G は 2026-10-13）。k は「OpenMC との比較」の表の bd6127e0 と 6 桁で同じ。
 「方位角 128・間隔 0.01 cm での変化」は、xlc をその設定で解いた k で差を取ったもの（「吸収体を入れた集合体のトラック
 間隔」。その設定の収束は確かめていない。入力は afdae8da の trials/disc/。2G は ADR-0142 の前の値しかなく、未測定）。OpenMC は 2G と 2H が c0662d26、2I が 41394f44、2J が c3979785、2K が a8806555、2E-empty が d60a0f15、2E が aed296fd、2F が 408cf6ef（2026-10-11 以前）:
 

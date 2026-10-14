@@ -18,11 +18,12 @@ resolution:
 
 - examples/vera/dvc.yaml の `xs-range`、`xs-nuclide@*`（60 段階）、`xs`（ジョブ 332 で合わせて約 26 分）
 - examples/core、m0、reflector の `xs`
+- examples/depletion の `chain`（`bin/chain` が main で変わった）
 
 ライブラリが変われば、その下流（`lattice-1B`、examples/vera/p3、p5 のすべての段階、core、m0、reflector の格子と炉心）も走る。
 
 段階でない記録の数値（examples/vera/verification.md の「OpenMC との比較」の 1C〜2Q、examples/mox の k と実効断面積）も、
-同じ分岐点のライブラリのもの。
+同じ分岐点のライブラリのもの。examples/m1 の記録（1f4fcaaf）は、このブランチで測り直していない。
 
 ADR-0167 は NRO=1 の MLBW の評価だけに効き、VERA の核種はそれまでの xs で処理できていたので、ADR-0167 では
 ライブラリは変わらない見込み（確かめていない）。ADR-0170 の影響は見積もっていない。
@@ -34,7 +35,7 @@ ADR-0167 は NRO=1 の MLBW の評価だけに効き、VERA の核種はそれ�
 - `dvc repro -P` を Slurm で排他で流し、`dvc.lock` をコミットする。このコマンドは #0120 の OpenMC の段階も走らせるので、
   #0120 と同じジョブで閉じる
 - ライブラリと出力が変わったかを記録ごとに書き、変わった記録は数値と差の表を書き直す。段階でない 1C〜2Q と MOX も、
-  ライブラリが変わったら走らせ直す
+  ライブラリが変わったら走らせ直す。M1 も今のコードで測り直す
 
 ## 経緯
 

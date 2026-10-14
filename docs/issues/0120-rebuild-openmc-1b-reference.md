@@ -46,4 +46,4 @@ xs の段階も ADR-0167 と ADR-0170 の後で古い（#0124）。`dvc repro -P
 
 ## 経緯
 
-- 2026-10-14: 高速化の後の測り直しで `dvc status` が 2 段階を changed と出し、分けた
+- 2026-10-14: 高速化の後の測り直しで `dvc status` が OpenMC の 3 段階（`openmc-1B`、`openmc-1B-extract`、`openmc-5A-2D-extract`）を changed と出し、分けた
