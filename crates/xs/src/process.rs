@@ -480,11 +480,11 @@ fn chain_reactions(
         for entry in &entries {
             let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
             let state = state_table(&table, entry.mf, sigma, tolerance, spec.mt, entry.lfs)?;
-            let key = next_key(&parts);
+            let key = u32::try_from(parts.len()).unwrap_or(u32::MAX);
             parts.insert(key, state);
             keys.push(key);
         }
-        let key = next_key(&parts);
+        let key = u32::try_from(parts.len()).unwrap_or(u32::MAX);
         parts.insert(key, sigma.clone());
         layout.push((spec.mt, entries, key, keys));
     }
@@ -552,11 +552,6 @@ fn chain_reactions(
         reactions.push(GroupReaction { mt, channels });
     }
     Ok(reactions)
-}
-
-/// 番号でまとめた表 `parts` の、次の番号。
-fn next_key(parts: &BTreeMap<u32, Tab1>) -> u32 {
-    parts.keys().next_back().map_or(0, |k| k + 1)
 }
 
 /// 状態の経路の断面積を、許容誤差 `tolerance` の lin-lin の表にする。MF9 なら多重度 `table` × 反応の断面積 `sigma`、MF10 なら

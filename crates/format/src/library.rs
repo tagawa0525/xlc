@@ -58,8 +58,9 @@ pub struct Shielded {
     pub capture: Vec<f64>,
 }
 
-/// 燃焼チェーンの反応（ADR-0164）の、代表の MT と、それにまとめる MF3 の MT の範囲（両端を含む）。代表の MT が MF3 になければ、
-/// 範囲の部分の MT の和を反応の断面積にする（ADR-0172）。チェーン（xlc-chain）と xs が同じ規則を使う。
+/// 燃焼チェーンの反応（ADR-0164）の、代表の MT と、それにまとめる MF3 の MT の範囲（両端を含む）。チェーンは範囲のどれかが MF3 にあれば
+/// 反応を持つとする。xs は再構成した代表の MT を使う（部分の MT があれば、MF3 の代表の MT を捨てて部分の和で作り直したもの。
+/// NJOY RECONR と同じ。ADR-0172）。チェーン（xlc-chain）と xs が同じ範囲を使う。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChainReaction {
     pub mt: u32,
