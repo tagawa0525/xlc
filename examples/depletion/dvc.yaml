@@ -140,3 +140,28 @@ stages:
         - openmc-1C-${item}.toml
       outs:
         - openmc-1C-${item}.msgpack
+  lattice-1C:
+    # xlc の格子計算の燃焼（ADR-0173）。燃焼点ごとの k∞ は標準出力に出るので、ファイルに受ける。燃焼の時間の内訳はログ（標準エラー）
+    foreach: [rings1, rings4]
+    do:
+      cmd: ../../bin/lattice lattice-1C-${item}.toml > lattice-1C-${item}.out 2> lattice-1C-${item}.log
+      deps:
+        - lattice-1C-${item}.toml
+        - depletion.msgpack
+        - chain.msgpack
+        - ../../bin/lattice
+      outs:
+        - lattice-1C-${item}.out
+        - lattice-1C-${item}.msgpack
+        - lattice-1C-${item}.log
+  compare-1C:
+    # 比べた要約（記録の表は verification_tables.py がここから描く。ADR-0176）
+    foreach: [rings1, rings4]
+    do:
+      cmd: python3 compare_depletion.py --json compare-1C-${item}.json lattice-1C-${item}.msgpack openmc-1C-${item}.msgpack
+      deps:
+        - compare_depletion.py
+        - lattice-1C-${item}.msgpack
+        - openmc-1C-${item}.msgpack
+      outs:
+        - compare-1C-${item}.json
