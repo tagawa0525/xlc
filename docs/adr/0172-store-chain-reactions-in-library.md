@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-14
 requires: [ADR-0011, ADR-0073, ADR-0164]
 supersedes: []
@@ -41,8 +41,9 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
 
 - 案 R1: xs が MF3 にあるすべての MT を書き出し、lattice がチェーンの反応にまとめる: まとめる規則（(n,2n) の 16 と 875〜891 など）が
   チェーンと lattice の 2 か所になる
-- 案 R2: チェーンの反応の MT の範囲（ADR-0164）と、MF8 の状態の読み込みを xlc-xs に置き、チェーン（xlc-chain）と xs の両方がそれを使う
-  （採用）。規則が 1 か所になる
+- 案 R2: チェーンの反応の MT の範囲（ADR-0164）を xlc-format（`CHAIN_REACTIONS`）に、MF8 の状態の読み込みを xlc-xs に置き、チェーン
+  （xlc-chain）と xs の両方がそれを使う（採用）。規則が 1 か所になる。xs は xlc-depletion（faer）に依存しない（ADR-0166）ので、
+  範囲はチェーンの型の置き場でなく、両方が依存する xlc-format に置く
 
 ## 決定と理由
 
@@ -52,17 +53,26 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
   を足す: チェーンの反応（代表の MT。102、16、17、37、103、107）ごとに、経路（`final_state`。MF8 が状態を挙げなければ nil、挙げれば
   MF9 か MF10 と LFS。基底状態を挙げない反応の残りは LFS が nil）ごとの無限希釈の群の断面積 (barn)。経路の並びと `final_state` は
   チェーンの `Channel` と同じ
-- 反応の断面積: 代表の MT が MF3 にあればそれ、なければ部分の MT（875〜891、600〜649、800〜849）の和。経路の断面積は、MF9 なら
-  多重度 × 反応の断面積、MF10 なら状態の生成断面積、残りは反応の断面積から挙げた経路を引いたもの。群の平均は、無限希釈の
-  ほかの群定数と同じ重み関数で取る。MF10 は 0 K の値をそのまま使う（NJOY BROADR も MF10 を広げない）
+- 反応の断面積: 再構成した断面積の代表の MT（部分の MT（875〜891、600〜649、800〜849）があれば、再構成が部分の和で作り直した
+  もの。NJOY RECONR と同じ）。経路の断面積は、MF9 なら多重度 × 反応の断面積、MF10 なら状態の生成断面積、残りは反応の断面積から
+  挙げた経路を引いたもの。残りが丸めの程度（相対 1e-9）より負ならエラー（挙げた状態が反応を超えている）。群の平均は、重み
+  関数だけで取る（無限希釈）。MF10 は 0 K の値をそのまま使う（NJOY BROADR も MF10 を広げない）
 - 反応を持つかは、チェーンと同じく、代表か部分の MT のどれかが MF3 にあること
 
 ## 確認
 
-- 形式の単体テスト（crates/format/src/library/tests.rs）: 新しい項目の読み書きと検査（群の数、経路の並び）
-- xs の単体テスト: 捕獲の群定数と、σ0 ごとの捕獲、ポイントワイズの捕獲、MF9 と MF10 の経路の断面積と残り（実装で書く）
-- チェーンの出力（examples/depletion/chain.msgpack）が、規則を xlc-xs に移したあとも同じ md5 であること
-- 既存のライブラリ（examples/vera ほか）を作り直し、lattice の結果が変わらないこと（ADR-0144 の判定。実装で書く）
+- 形式の単体テスト（crates/format/src/library/tests.rs）: `keeps_the_chain_reactions_and_the_capture`、
+  `reaction_channels_need_one_value_per_group`、`reactions_must_not_repeat_and_need_channels`、
+  `interpolation_mixes_the_capture_and_the_reactions`、`interpolates_shielded_cross_sections_in_ln_sigma0`（捕獲）
+- xs の単体テスト（crates/xs/src/process/tests.rs）: `capture_is_kept_per_sigma0_and_pointwise`、
+  `chain_reactions_sum_the_partial_mts_and_split_the_mf9_states`、`capture_states_without_the_ground_state_leave_the_remainder_to_it`、
+  `listed_states_beyond_the_reaction_are_an_error`
+- lattice の単体テスト: `capture_is_shielded_with_the_same_flux_as_fission`（UFG）、`absorber_rods_are_shielded_by_slowing_down`
+  （棒のリングの平均の捕獲）
+- チェーンの出力（examples/depletion/chain.msgpack）の md5 が変わらない（120d7435…）
+- examples/vera のライブラリを作り直すと、既存の項目は main のライブラリ（キャッシュ）と最大で相対 1.9e-15 違い（ADR-0170 の J, K の
+  表の原点の移動による丸め）、6,026 の配列のうち 4,785 が同じ。VERA 1B の k は 1.182383 のまま（xlc 7c80cfc8、
+  分岐点 4cc1008a、2026-10-14。ADR-0144 の判定）
 
 ## 帰結
 
