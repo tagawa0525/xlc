@@ -22,20 +22,36 @@ pub(super) fn psi(x: f64, theta: f64) -> f64 {
     std::f64::consts::PI.sqrt() * y * faddeeva(Complex64::new(y * x, y)).re
 }
 
+/// これより小さい θ では、積分の変数を線形状の芯の幅 2/θ で伸ばす（`jk_integrals`）
+const SCALED_BELOW: f64 = 1.0e-3;
+
 /// 各 β について (J(β, θ), K(β, θ)) を求める。β は正であること。
 ///
-/// x = tan φ と置いて [0, π/2] を適応 Gauss-Kronrod 積分する。線形状の裾は ψ ~ 1/x² なので
-/// ψ/(ψ+β) dx = ψ/(ψ+β) (1 + x²) dφ は φ → π/2 でも有限（1/β に近づく）。
+/// x = s tan φ と置いて [0, π/2] を適応 Gauss-Kronrod 積分する（s は θ ≥ 1e-3 で 1、それより小さい θ で 2/θ）。線形状の裾は
+/// ψ ~ 1/x² なので、ψ/(ψ+β) dx = ψ/(ψ+β) s (1 + tan²φ) dφ は φ → π/2 でも有限。
 pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>, NumericError> {
+    if theta.is_nan() || theta <= 0.0 {
+        return Err(NumericError::Domain(format!(
+            "J, K integrals for θ = {theta}"
+        )));
+    }
     if let Some(beta) = betas.iter().find(|&&b| b <= 0.0 || b.is_nan()) {
         return Err(NumericError::Domain(format!(
             "J, K integrals for β = {beta}"
         )));
     }
+    // θ が小さいと線形状の芯はドップラー幅の x ≈ 2/θ まで広がり、x = tan φ では φ = π/2 の近くの幅 θ ほどに潰れて
+    // 適応積分が収束しない。そのときは x = (2/θ) tan φ と芯の幅で伸ばす。θ ≥ 1e-3 は x = tan φ で収束する（ADR-0170）
+    let scale = if theta < SCALED_BELOW {
+        2.0 / theta
+    } else {
+        1.0
+    };
     let integrand = |phi: f64, out: &mut [f64]| {
-        let x = phi.tan();
+        let t = phi.tan();
+        let x = scale * t;
         let p = psi(x, theta);
-        let jacobian = 1.0 + x * x;
+        let jacobian = scale * (1.0 + t * t);
         for (i, &beta) in betas.iter().enumerate() {
             let r = p / (p + beta);
             out[2 * i] = r * jacobian;
@@ -53,11 +69,12 @@ pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>,
     Ok(values.chunks(2).map(|c| (c[0], c[1])).collect())
 }
 
-/// J, K の表の範囲（log10 β, log10 θ）。燃料の核種の非分離共鳴で実際に使う範囲
-/// （β ≳ 1e-2、θ ≈ 0.04〜500）を十分含む。構造材は低温で θ が大きくなる（Fe-58 の 550 K で θ ≈ 1.0e4）。
-/// θ の上限は、その上で使う Lorentz の線形状との差（1/θ² の程度）が 1e-12 になる 10⁶ とする（ADR-0107）
+/// J, K の表の範囲（log10 β, log10 θ）。燃料の主な核種の非分離共鳴（β ≳ 1e-2、θ ≈ 0.04〜500）と、自然幅がドップラー幅
+/// より狭い核分裂生成物など（Nd-148 の 900 K で θ ≈ 9.8e-4、Sm-154 の 1200 K で 1.4e-4。#0119）を含む。構造材は低温で θ が
+/// 大きくなる（Fe-58 の 550 K で θ ≈ 1.0e4）。θ の上限は、その上で使う Lorentz の線形状との差（1/θ² の程度）が 1e-12 になる
+/// 10⁶（ADR-0107）、下限は、その下で使うガウス形の線形状との差（θ の程度）が 1e-10 になる 10⁻¹⁰
 const LOG_BETA: (f64, f64) = (-6.0, 10.0);
-const LOG_THETA: (f64, f64) = (-3.0, 6.0);
+const LOG_THETA: (f64, f64) = (-10.0, 6.0);
 
 /// 表の点の間隔（log10）
 const STEP: f64 = 0.025;
@@ -139,8 +156,13 @@ fn in_parallel<T: Send, E: Send>(
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
 /// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
-/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。
+/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。θ が表より小さく b = 2β/(√π θ) ≥ 10⁴ なら、ガウス形の
+/// 線形状の J, K を返す（`gaussian_jk`。β は表より小さくてよい）。表の下限で、表と級数の差は直接の積分に対して 1e-10 より
+/// 小さい（`table_meets_the_gaussian_limit_at_its_lower_theta_edge`）。θ が正でなければエラー。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
+    if theta.is_nan() || theta <= 0.0 {
+        return Err(NumericError::Domain(format!("J, K for θ = {theta}")).into());
+    }
     let (lb, lt) = (beta.log10(), theta.log10());
     if lb > LOG_BETA.1 {
         let j = 0.5 * std::f64::consts::PI / beta;
@@ -148,6 +170,9 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
     }
     if lt > LOG_THETA.1 {
         return Ok(natural_jk(beta));
+    }
+    if lt < LOG_THETA.0 && 2.0 * beta / (std::f64::consts::PI.sqrt() * theta) >= GAUSSIAN_MIN_B {
+        return Ok(gaussian_jk(beta, theta));
     }
     if !(LOG_BETA.0..=LOG_BETA.1).contains(&lb) || !(LOG_THETA.0..=LOG_THETA.1).contains(&lt) {
         return Err(UrrError::JkTable { beta, theta });
@@ -166,6 +191,35 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
     }
     Ok((ln_j.exp(), ln_k.exp()))
 }
+
+/// ドップラー幅に比べて自然幅が無視できる線形状 ψ = (√π θ/2) e^{-u²}（u = θx/2）の (J, K)。θ が表より小さいときに使う。
+/// b = 2β/(√π θ)、g = e^{-u²} として J = (2/θ) ∫₀^∞ g/(g + b) du、K = (2/θ) ∫₀^∞ g(g + 2b)/(g + b)² du を 1/b の冪に展開し、
+/// ∫₀^∞ gⁿ du = √π/(2√n) で項ごとに積分する:
+/// J = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ b⁻ⁿ/√n、K = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ (n + 1) b⁻ⁿ/√n。
+/// b ≥ 10⁴（`GAUSSIAN_MIN_B`）で使い、級数は数項で倍精度に収束する。
+/// Voigt の線形状のローレンツの裾による差は相対で θ の程度（表の下限で 1e-10 以下。`quadrature_approaches_the_gaussian_limit_for_narrow_lines`）
+fn gaussian_jk(beta: f64, theta: f64) -> (f64, f64) {
+    // √π/θ と b⁻ⁿ を別に作ると、θ が小さいと b が倍精度を超えて 0·∞ になるので、先頭の項 √π/(θ b) = π/(2β) でくくる:
+    // J = π/(2β) Σₙ₌₁ (−1)ⁿ⁺¹ b¹⁻ⁿ/√n
+    let inverse_b = std::f64::consts::PI.sqrt() * theta / (2.0 * beta);
+    let (mut j, mut k) = (0.0, 0.0);
+    let mut power = 1.0;
+    for n in 1..=SERIES_TERMS {
+        let nf = f64::from(n);
+        let sign = if n % 2 == 1 { 1.0 } else { -1.0 };
+        j += sign * power / nf.sqrt();
+        k += sign * (nf + 1.0) * power / nf.sqrt();
+        power *= inverse_b;
+    }
+    let leading = 0.5 * std::f64::consts::PI / beta;
+    (leading * j, leading * k)
+}
+
+/// `gaussian_jk` を使う b = 2β/(√π θ) の下限。表の下限 θ = 10⁻¹⁰ と表の β の下限 10⁻⁶ で b ≈ 1.1e4
+const GAUSSIAN_MIN_B: f64 = 1.0e4;
+
+/// `gaussian_jk` の級数の項の数。b ≥ 10⁴ では、6 項目は先頭の項に比べて相対 4e-21（J）、1.4e-20（K）より小さく、交代級数なので打ち切りの誤差はそれ以下
+const SERIES_TERMS: u32 = 5;
 
 /// ドップラー拡がりのない Lorentz の線形状 ψ = 1/(1 + x²) の (J, K)。a² = (1 + β)/β として
 /// J = π/(2aβ)、K = 2J − ∫₀^∞ ψ²/(ψ + β)² dx = 2J − π/(4a³β²)。θ が表より大きいとき（自然幅がドップラー幅より
