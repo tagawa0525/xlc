@@ -13,7 +13,7 @@ use crate::multigroup::{
 };
 use crate::physics::BK;
 use crate::pointwise::{
-    ColdParts, DEFAULT_TOLERANCE, add, left_limit, linearize, resonance_tables, right_limit,
+    ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
 };
 use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
 use xlc_format::group::GroupStructure;
@@ -133,7 +133,7 @@ pub enum ProcessError {
         "the final states listed for MT{mt} exceed the reaction by {excess} b in group {group}"
     )]
     NegativeRemainder { mt: u32, group: usize, excess: f64 },
-    #[error("the linearized product of the MF9 multiplicity and MT{mt} is empty")]
+    #[error("the final state table of MT{mt} has no reaction cross section to follow")]
     EmptyProduct { mt: u32 },
     #[error("{temperature} K")]
     Temperature {
@@ -454,12 +454,12 @@ pub fn process_nuclide(
 }
 
 /// 燃焼鎖の反応（`CHAIN_REACTIONS`。ADR-0164）の、経路ごとの無限希釈の群の断面積（重み関数だけで平均する。ADR-0172）。
-/// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`）で、代表の MT が
-/// なければ部分の MT の和（鎖と同じく `ChainReaction::includes` で決める）。MF8 が状態を MF9（多重度）か MF10（生成断面積）で
+/// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`。部分の MT は鎖の
+/// `ChainReaction` と同じ）。MF8 が状態を MF9（多重度）か MF10（生成断面積）で
 /// 挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路（LFS が nil）にする（鎖と同じ）。
 /// MF9 の表の外の多重度は 0（NJOY GROUPR と同じ。反応がそこにあれば警告する）。挙げた経路の和が、経路の表の線形化の
 /// 許容誤差 `tolerance`（相対）より反応を超える群があればエラー、基底状態を挙げて和が反応に足りなければ警告する。`tables` は
-/// 温度に広げた断面積で、MF10 は 0 K の値をそのまま使う。
+/// 温度に広げた断面積で、MF10 は 0 K の値を、反応の断面積が 0 でないエネルギーでだけ使う（しきい値より下を数えない）。
 fn chain_reactions(
     tape: &Tape,
     mat: i32,
@@ -472,30 +472,20 @@ fn chain_reactions(
     let mut parts: BTreeMap<u32, Tab1> = BTreeMap::new();
     let mut layout = Vec::new();
     for spec in &CHAIN_REACTIONS {
-        let sigma = match tables.get(&spec.mt) {
-            Some(t) => t.clone(),
-            None => {
-                let mut partial = tables.iter().filter(|(mt, _)| spec.includes(**mt));
-                let Some((_, first)) = partial.next() else {
-                    continue;
-                };
-                partial.fold(first.clone(), |sum, (_, t)| add(&sum, t))
-            }
+        let Some(sigma) = tables.get(&spec.mt) else {
+            continue;
         };
         let entries = final_states(tape, mat, spec.mt)?.unwrap_or_default();
         let mut keys = Vec::with_capacity(entries.len());
         for entry in &entries {
             let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
-            let state = if entry.mf == 9 {
-                multiplied(&table, &sigma, tolerance, spec.mt, entry.lfs)?
-            } else {
-                linearize(&table, tolerance)
-            };
-            keys.push(next_key(&parts));
-            parts.insert(next_key(&parts), state);
+            let state = state_table(&table, entry.mf, sigma, tolerance, spec.mt, entry.lfs)?;
+            let key = next_key(&parts);
+            parts.insert(key, state);
+            keys.push(key);
         }
         let key = next_key(&parts);
-        parts.insert(key, sigma);
+        parts.insert(key, sigma.clone());
         layout.push((spec.mt, entries, key, keys));
     }
     let averaged = reaction_averages(groups, weight, &parts, None).sigma;
@@ -569,10 +559,12 @@ fn next_key(parts: &BTreeMap<u32, Tab1>) -> u32 {
     parts.keys().next_back().map_or(0, |k| k + 1)
 }
 
-/// 多重度 `y`（MF9）と反応の断面積 `sigma` の積を、許容誤差 `tolerance` の lin-lin の表にする。`y` の表の外の多重度は 0 とし、
-/// そこで `sigma` が 0 でなければ警告する。
-fn multiplied(
-    y: &Tab1,
+/// 状態の経路の断面積を、許容誤差 `tolerance` の lin-lin の表にする。MF9 なら多重度 `table` × 反応の断面積 `sigma`、MF10 なら
+/// 生成断面積 `table` そのもので、どちらも `sigma` が 0 のエネルギーでは 0（MF3 と同じく運動学のしきい値から数える。ADR-0100）。
+/// 表の外は 0 とし、MF9 の表の外に反応があれば警告する（NJOY GROUPR と同じく、その分は状態に入らない）。
+fn state_table(
+    table: &Tab1,
+    mf: u32,
     sigma: &Tab1,
     tolerance: f64,
     mt: u32,
@@ -584,17 +576,21 @@ fn multiplied(
     let uncovered = std::cell::Cell::new(None::<f64>);
     let value = |e: f64| -> Result<[f64; 1], std::convert::Infallible> {
         let s = sigma.eval(e).unwrap_or(0.0);
-        match y.eval(e) {
-            Some(m) => Ok([m * s]),
+        if s == 0.0 {
+            return Ok([0.0]);
+        }
+        match table.eval(e) {
+            Some(v) if mf == 9 => Ok([v * s]),
+            Some(v) => Ok([v]),
             None => {
-                if s != 0.0 && uncovered.get().is_none() {
+                if mf == 9 && uncovered.get().is_none() {
                     uncovered.set(Some(e));
                 }
                 Ok([0.0])
             }
         }
     };
-    let nodes: Vec<f64> = y.x.iter().chain(&sigma.x).copied().collect();
+    let nodes: Vec<f64> = table.x.iter().chain(&sigma.x).copied().collect();
     let Ok(tables) = resonance_tables(value, &nodes, low, high, tolerance);
     if let Some(energy) = uncovered.get() {
         tracing::warn!(
@@ -605,10 +601,10 @@ fn multiplied(
              gets none of the reaction there (as NJOY GROUPR)"
         );
     }
-    tables
-        .into_iter()
-        .next()
-        .ok_or(ProcessError::EmptyProduct { mt })
+    let [table] = &tables[..] else {
+        return Err(ProcessError::EmptyProduct { mt });
+    };
+    Ok(table.clone())
 }
 
 /// 温度によらない、1核種の評価の読み込み（多群の処理の前に `process_nuclide` が読むもの）。
