@@ -1,0 +1,708 @@
+schema: '2.0'
+stages:
+  lattice-3A-fuel:
+    cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-fuel.toml > 
+      lattice-3A-fuel.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3A-fuel.toml
+      hash: md5
+      md5: c6dc6ba92dabfd1757279cadc14e3ab4
+      size: 3565
+    outs:
+    - path: lattice-3A-fuel.out
+      hash: md5
+      md5: 7bc9fffe3c9e1b8156ed04a3b3c76eec
+      size: 11
+    - path: lattice-3A/fuel.msgpack
+      hash: md5
+      md5: 459a7b053e0cd5b61bb2b14ee5db670f
+      size: 7575
+    - path: medium-3A-fuel.msgpack
+      hash: md5
+      md5: ddbe4a58f82a19dbe72e195aee9dce65
+      size: 175444
+  axial-3A:
+    cmd: mkdir -p axial-3A && RUST_LOG=debug ../../../../bin/lattice 
+      axial-3A.toml > axial-3A.out 2> axial-3A.log
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: axial-3A.toml
+      hash: md5
+      md5: 125d2285e876422c801a1bfbc0720483
+      size: 19820
+    - path: medium-3A-fuel.msgpack
+      hash: md5
+      md5: ddbe4a58f82a19dbe72e195aee9dce65
+      size: 175444
+    outs:
+    - path: axial-3A
+      hash: md5
+      md5: 4a8f32e104ce7f2c15d5c0248eee74c2.dir
+      size: 28108
+      nfiles: 58
+    - path: axial-3A.log
+      hash: md5
+      md5: f37887319a2eace36e2b61df08afcee8
+      size: 192639
+    - path: axial-3A.out
+      hash: md5
+      md5: be0d2322aedb79f5a6d31091c1f1bf48
+      size: 11
+  core-3A-slab:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3A-slab.toml > 
+      core-3A-slab.out 2> core-3A-slab.log
+    deps:
+    - path: ../../../../bin/core
+      hash: md5
+      md5: 8f99606531306839ad572667b817d708
+      size: 3024088
+      isexec: true
+    - path: axial-3A
+      hash: md5
+      md5: 4a8f32e104ce7f2c15d5c0248eee74c2.dir
+      size: 28108
+      nfiles: 58
+    - path: core-3A-slab-assemblies.toml
+      hash: md5
+      md5: 7c8ca1c277de30f12563716429f7b0d4
+      size: 2393
+    - path: core-3A-slab-cycle.toml
+      hash: md5
+      md5: 2f1e50fbb758ee3bb3e3a4506e7d2a39
+      size: 141
+    - path: core-3A-slab-plant.toml
+      hash: md5
+      md5: 34e5b40356c363198608c7504dbed1c4
+      size: 211
+    - path: core-3A-slab.toml
+      hash: md5
+      md5: 5f7c95b93c7d327bc3c15d223c4df473
+      size: 1096
+    outs:
+    - path: core-3A-slab.log
+      hash: md5
+      md5: 860b90687b01667e1d4c4887ed625a44
+      size: 481368
+    - path: core-3A-slab.out
+      hash: md5
+      md5: b3252eadfc7fa4b6315135c49371550e
+      size: 2315
+  lattice-3B-poison:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-poison.toml >
+      lattice-3B-poison.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-poison.toml
+      hash: md5
+      md5: 8b4091552c42bb29154f07cf1a1950e6
+      size: 4815
+    outs:
+    - path: lattice-3B-poison.out
+      hash: md5
+      md5: 1c3c01c192a03c23503a20b1de8112c3
+      size: 11
+    - path: lattice-3B/poison.msgpack
+      hash: md5
+      md5: 21a3c01e7bce2da7d2ab12a97e007b3e
+      size: 7575
+    - path: medium-3B-poison.msgpack
+      hash: md5
+      md5: 00d001068763c49477d7bda387a10172
+      size: 175444
+  lattice-3B-empty:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-empty.toml > 
+      lattice-3B-empty.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-empty.toml
+      hash: md5
+      md5: 673064a93c8bde0edce101b7972c055a
+      size: 3692
+    outs:
+    - path: lattice-3B-empty.out
+      hash: md5
+      md5: dce0412cd430dd8a78410edd08a04721
+      size: 11
+    - path: lattice-3B/empty.msgpack
+      hash: md5
+      md5: 9c6d9cccc0d51171d2ae4a8f6d413c92
+      size: 7575
+    - path: medium-3B-empty.msgpack
+      hash: md5
+      md5: 52f60bb0789428d19e999953647ac835
+      size: 175444
+  lattice-3B-plug:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plug.toml > 
+      lattice-3B-plug.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-plug.toml
+      hash: md5
+      md5: 899a74d924856140fc2632690544999d
+      size: 4418
+    outs:
+    - path: lattice-3B-plug.out
+      hash: md5
+      md5: d03bae34a1887cbe0892932fbbf050ce
+      size: 11
+    - path: lattice-3B/plug.msgpack
+      hash: md5
+      md5: 0100df05e892c47db621a0f476c4b6b8
+      size: 7575
+    - path: medium-3B-plug.msgpack
+      hash: md5
+      md5: 50f2308cfaec44260c611ab01b8a080a
+      size: 175444
+  lattice-3B-plenum:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plenum.toml >
+      lattice-3B-plenum.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-plenum.toml
+      hash: md5
+      md5: f9a852c7697ec74de8998a1c176d831b
+      size: 4438
+    outs:
+    - path: lattice-3B-plenum.out
+      hash: md5
+      md5: 59711fc4fc66c836ac333ee95fec560b
+      size: 11
+    - path: lattice-3B/plenum.msgpack
+      hash: md5
+      md5: 0977bb4e84b70ddf6facc428ebf48d28
+      size: 7575
+    - path: medium-3B-plenum.msgpack
+      hash: md5
+      md5: 7278590c0c62a4f6e522f9fe45cb2dec
+      size: 175444
+  axial-3B:
+    cmd: mkdir -p axial-3B && RUST_LOG=debug ../../../../bin/lattice 
+      axial-3B.toml > axial-3B.out 2> axial-3B.log
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: axial-3B.toml
+      hash: md5
+      md5: 67ab37b75380e28a1d7c06b0a3a30a6d
+      size: 22552
+    - path: medium-3B-empty.msgpack
+      hash: md5
+      md5: 52f60bb0789428d19e999953647ac835
+      size: 175444
+    - path: medium-3B-plenum.msgpack
+      hash: md5
+      md5: 7278590c0c62a4f6e522f9fe45cb2dec
+      size: 175444
+    - path: medium-3B-plug.msgpack
+      hash: md5
+      md5: 50f2308cfaec44260c611ab01b8a080a
+      size: 175444
+    - path: medium-3B-poison.msgpack
+      hash: md5
+      md5: 00d001068763c49477d7bda387a10172
+      size: 175444
+    outs:
+    - path: axial-3B
+      hash: md5
+      md5: 507be3d83de32765c98dee14b408b255.dir
+      size: 29560
+      nfiles: 61
+    - path: axial-3B.log
+      hash: md5
+      md5: 6a6bbdab3ad4bea5506049bc7fc1b3fc
+      size: 198617
+    - path: axial-3B.out
+      hash: md5
+      md5: 1978a6e59dae14cc36e22d51e53c8cf4
+      size: 11
+  lattice-3B-poison-zgrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice 
+      lattice-3B-poison-zgrid.toml > lattice-3B-poison-zgrid.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-poison-zgrid.toml
+      hash: md5
+      md5: de4bf05d433ba98052a53643c8218aa3
+      size: 5223
+    outs:
+    - path: lattice-3B-poison-zgrid.out
+      hash: md5
+      md5: f4bea084310259e16fb466fdf95ca040
+      size: 11
+    - path: lattice-3B/poison-zgrid.msgpack
+      hash: md5
+      md5: 18eeb4c58a7dafb0720313f90f19b866
+      size: 7575
+  lattice-3B-empty-igrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice 
+      lattice-3B-empty-igrid.toml > lattice-3B-empty-igrid.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-empty-igrid.toml
+      hash: md5
+      md5: 548cc013ea68f3f49de37bb6d5fc545a
+      size: 4475
+    outs:
+    - path: lattice-3B-empty-igrid.out
+      hash: md5
+      md5: a42d3413d1376997bc81712f23e0fbc5
+      size: 11
+    - path: lattice-3B/empty-igrid.msgpack
+      hash: md5
+      md5: 3772eef6338baa3bdb46c6f45715090d
+      size: 7575
+  lattice-3B-plug-igrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice 
+      lattice-3B-plug-igrid.toml > lattice-3B-plug-igrid.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-plug-igrid.toml
+      hash: md5
+      md5: 6b15aecc1d4db4020ef58fa5cf8e1504
+      size: 5279
+    outs:
+    - path: lattice-3B-plug-igrid.out
+      hash: md5
+      md5: 51419124c417d4e9b4419b8bfa096165
+      size: 11
+    - path: lattice-3B/plug-igrid.msgpack
+      hash: md5
+      md5: 8af05a6c0cdb162b79161c6d5afbf543
+      size: 7575
+  lattice-3B-poison-igrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice 
+      lattice-3B-poison-igrid.toml > lattice-3B-poison-igrid.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3B-poison-igrid.toml
+      hash: md5
+      md5: 717fd759c4608bd43e062742fb3b1b44
+      size: 5695
+    outs:
+    - path: lattice-3B-poison-igrid.out
+      hash: md5
+      md5: bdcb7a79b77e2801ae1ac5548de95b1a
+      size: 11
+    - path: lattice-3B/poison-igrid.msgpack
+      hash: md5
+      md5: 1b967c736787d023066d9e76d0c32b9c
+      size: 7575
+  core-3B:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3B.toml > core-3B.out 2> 
+      core-3B.log
+    deps:
+    - path: ../../../../bin/core
+      hash: md5
+      md5: 8f99606531306839ad572667b817d708
+      size: 3024088
+      isexec: true
+    - path: axial-3B
+      hash: md5
+      md5: 507be3d83de32765c98dee14b408b255.dir
+      size: 29560
+      nfiles: 61
+    - path: core-3B-assemblies.toml
+      hash: md5
+      md5: 82973b8a35ce8f9b09460213a264b744
+      size: 2611
+    - path: core-3B-cycle.toml
+      hash: md5
+      md5: a3d0b75008c294b9ac776a7966b6b1eb
+      size: 131
+    - path: core-3B-plant.toml
+      hash: md5
+      md5: aa5a37bb083cb3f74a6de6d5b485ff6a
+      size: 212
+    - path: core-3B.toml
+      hash: md5
+      md5: 95878aea540f861bc82386639a973ad0
+      size: 1169
+    - path: lattice-3B/empty-igrid.msgpack
+      hash: md5
+      md5: 3772eef6338baa3bdb46c6f45715090d
+      size: 7575
+    - path: lattice-3B/plenum.msgpack
+      hash: md5
+      md5: 0977bb4e84b70ddf6facc428ebf48d28
+      size: 7575
+    - path: lattice-3B/plug-igrid.msgpack
+      hash: md5
+      md5: 8af05a6c0cdb162b79161c6d5afbf543
+      size: 7575
+    - path: lattice-3B/poison-igrid.msgpack
+      hash: md5
+      md5: 1b967c736787d023066d9e76d0c32b9c
+      size: 7575
+    - path: lattice-3B/poison-zgrid.msgpack
+      hash: md5
+      md5: 18eeb4c58a7dafb0720313f90f19b866
+      size: 7575
+    - path: lattice-3B/poison.msgpack
+      hash: md5
+      md5: 21a3c01e7bce2da7d2ab12a97e007b3e
+      size: 7575
+    outs:
+    - path: core-3B-layers.msgpack
+      hash: md5
+      md5: c42fb7fe4c6af8372b1381c80f0cb292
+      size: 139063
+    - path: core-3B-pins.msgpack
+      hash: md5
+      md5: 8bf8f25866f6d3a74a015717785dd54e
+      size: 2683
+    - path: core-3B.log
+      hash: md5
+      md5: 9ce8a72b5e05d960247fbd82050a2d40
+      size: 480496
+    - path: core-3B.out
+      hash: md5
+      md5: 81ac51b858a7c66c895f65243cf0e168
+      size: 2419
+  lattice-3A-zgrid:
+    cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-zgrid.toml > 
+      lattice-3A-zgrid.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3A-zgrid.toml
+      hash: md5
+      md5: cfd16f39882455fab2d8e19f98b38951
+      size: 3905
+    outs:
+    - path: lattice-3A-zgrid.out
+      hash: md5
+      md5: 0fbfa9b615ede92e477fdcc8cc3104b2
+      size: 11
+    - path: lattice-3A/zgrid.msgpack
+      hash: md5
+      md5: 2a5ba731047448af1b568ebc2bd73f6f
+      size: 7575
+  lattice-3A-igrid:
+    cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-igrid.toml > 
+      lattice-3A-igrid.out
+    deps:
+    - path: ../../../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: 45eed233f7d66bf35ad73cc7c17bc2d0
+      size: 305943995
+    - path: lattice-3A-igrid.toml
+      hash: md5
+      md5: 1ed7a388c74531a752de41a3a46f0808
+      size: 4395
+    outs:
+    - path: lattice-3A-igrid.out
+      hash: md5
+      md5: 42ec8535195c4608f668077ff69d02fe
+      size: 11
+    - path: lattice-3A/igrid.msgpack
+      hash: md5
+      md5: 5d5094c73956aa6e857df69fe3735201
+      size: 7575
+  core-3A:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3A.toml > core-3A.out 2> 
+      core-3A.log
+    deps:
+    - path: ../../../../bin/core
+      hash: md5
+      md5: 8f99606531306839ad572667b817d708
+      size: 3024088
+      isexec: true
+    - path: axial-3A
+      hash: md5
+      md5: 4a8f32e104ce7f2c15d5c0248eee74c2.dir
+      size: 28108
+      nfiles: 58
+    - path: core-3A-assemblies.toml
+      hash: md5
+      md5: 4e9042f14318f0c0f36bbb6cb92dcc6e
+      size: 2351
+    - path: core-3A-cycle.toml
+      hash: md5
+      md5: dd145867ad087dd2cc47d78f920dfc75
+      size: 131
+    - path: core-3A-plant.toml
+      hash: md5
+      md5: aa5a37bb083cb3f74a6de6d5b485ff6a
+      size: 212
+    - path: core-3A.toml
+      hash: md5
+      md5: 752cb605ea5c6d3c9819d9bc120a5fce
+      size: 1144
+    - path: lattice-3A/fuel.msgpack
+      hash: md5
+      md5: 459a7b053e0cd5b61bb2b14ee5db670f
+      size: 7575
+    - path: lattice-3A/igrid.msgpack
+      hash: md5
+      md5: 5d5094c73956aa6e857df69fe3735201
+      size: 7575
+    - path: lattice-3A/zgrid.msgpack
+      hash: md5
+      md5: 2a5ba731047448af1b568ebc2bd73f6f
+      size: 7575
+    outs:
+    - path: core-3A-layers.msgpack
+      hash: md5
+      md5: bc1ac699e7f18d9e48587bb4b6735bf4
+      size: 131044
+    - path: core-3A-pins.msgpack
+      hash: md5
+      md5: 48d9ad8e578d8055b9d46c27b862f7c3
+      size: 2683
+    - path: core-3A.log
+      hash: md5
+      md5: f8a01d7664bcb21fb6c699f7c4f0ecf6
+      size: 485744
+    - path: core-3A.out
+      hash: md5
+      md5: 55daf0b2d0c9e29452a1849d519addd9
+      size: 2315
+  core-3B-slab:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3B-slab.toml > 
+      core-3B-slab.out 2> core-3B-slab.log
+    deps:
+    - path: ../../../../bin/core
+      hash: md5
+      md5: 8f99606531306839ad572667b817d708
+      size: 3024088
+      isexec: true
+    - path: axial-3B
+      hash: md5
+      md5: 507be3d83de32765c98dee14b408b255.dir
+      size: 29560
+      nfiles: 61
+    - path: core-3B-slab-assemblies.toml
+      hash: md5
+      md5: 4ad87babfe9cbc13ecabee8a0e752ace
+      size: 2508
+    - path: core-3B-slab-cycle.toml
+      hash: md5
+      md5: 522445a46b4face11bd999c22555ded7
+      size: 141
+    - path: core-3B-slab-plant.toml
+      hash: md5
+      md5: 34e5b40356c363198608c7504dbed1c4
+      size: 211
+    - path: core-3B-slab.toml
+      hash: md5
+      md5: 9b031e9c87e565eeacbadabdd76461b7
+      size: 1121
+    outs:
+    - path: core-3B-slab.log
+      hash: md5
+      md5: 1a4e890fd3f20e320a317f14e9b8b9b8
+      size: 478508
+    - path: core-3B-slab.out
+      hash: md5
+      md5: 9ae3850a13ed071018839efdf4e2e5f9
+      size: 2419
+  compare-3A:
+    cmd: python3 ../../compare_p3.py --json compare-3A.json 3A 
+      ../../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack 
+      core-3A-layers.msgpack
+    deps:
+    - path: ../../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../../compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: ../../compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: core-3A-layers.msgpack
+      hash: md5
+      md5: bc1ac699e7f18d9e48587bb4b6735bf4
+      size: 131044
+    - path: core-3A-pins.msgpack
+      hash: md5
+      md5: 48d9ad8e578d8055b9d46c27b862f7c3
+      size: 2683
+    - path: core-3A.out
+      hash: md5
+      md5: 55daf0b2d0c9e29452a1849d519addd9
+      size: 2315
+    outs:
+    - path: compare-3A.json
+      hash: md5
+      md5: 055a94e1f383c0caec105b4b30bd5d2f
+      size: 6760
+  compare-3A-slab:
+    cmd: python3 ../../../reflector/compare_axial.py axial-3A.log 
+      core-3A-slab.log > compare-3A-slab.out
+    deps:
+    - path: ../../../reflector/compare_axial.py
+      hash: md5
+      md5: 4f88660ac0c3526724741123ef086009
+      size: 4203
+    - path: axial-3A.log
+      hash: md5
+      md5: f37887319a2eace36e2b61df08afcee8
+      size: 192639
+    - path: core-3A-slab.log
+      hash: md5
+      md5: 860b90687b01667e1d4c4887ed625a44
+      size: 481368
+    outs:
+    - path: compare-3A-slab.out
+      hash: md5
+      md5: 24c60d05fae366e42072b8f558c1a099
+      size: 4809
+  compare-3B:
+    cmd: python3 ../../compare_p3.py --json compare-3B.json 3B 
+      ../../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack 
+      core-3B-layers.msgpack
+    deps:
+    - path: ../../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../../compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: ../../compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: core-3B-layers.msgpack
+      hash: md5
+      md5: c42fb7fe4c6af8372b1381c80f0cb292
+      size: 139063
+    - path: core-3B-pins.msgpack
+      hash: md5
+      md5: 8bf8f25866f6d3a74a015717785dd54e
+      size: 2683
+    - path: core-3B.out
+      hash: md5
+      md5: 81ac51b858a7c66c895f65243cf0e168
+      size: 2419
+    outs:
+    - path: compare-3B.json
+      hash: md5
+      md5: 395168a6e76bf679ea61a953fdd2601b
+      size: 6758
+  compare-3B-slab:
+    cmd: python3 ../../../reflector/compare_axial.py axial-3B.log 
+      core-3B-slab.log > compare-3B-slab.out
+    deps:
+    - path: ../../../reflector/compare_axial.py
+      hash: md5
+      md5: 4f88660ac0c3526724741123ef086009
+      size: 4203
+    - path: axial-3B.log
+      hash: md5
+      md5: 6a6bbdab3ad4bea5506049bc7fc1b3fc
+      size: 198617
+    - path: core-3B-slab.log
+      hash: md5
+      md5: 1a4e890fd3f20e320a317f14e9b8b9b8
+      size: 478508
+    outs:
+    - path: compare-3B-slab.out
+      hash: md5
+      md5: d4796755af37088e043b070fe23f79ff
+      size: 5052
