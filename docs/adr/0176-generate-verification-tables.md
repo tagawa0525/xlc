@@ -74,6 +74,12 @@ issues: ["#0130"]
   検査が走らない。記録が手で崩れても、`dvc repro` を走らせるまで誰も気づかない。採らない
 - 案 C: hook だけ。`cargo test` と二重にならないが、上のとおり /git-merge の道に乗らない
 
+### 文章の `.out` の扱い
+
+- 案 A: 比較の道具が `.out` と JSON の両方を書く（最初の試作）。同じ数が 2 つの出力に二重にあり、出力の種類（msgpack、`.out`、JSON）が
+  段階ごとに増える。捨てた
+- 案 B: JSON だけを書き、文章は `--report` で JSON から描く（採る）。数値の元は 1 か所で、文章は必要なときに描く
+
 ### JSON の置き場
 
 - 案 A: DVC のキャッシュに置く（最初の試作。ほかの出力と同じく git で追跡しない）。チェック（`--check`、`cargo test`）が作業ツリーの
@@ -92,33 +98,41 @@ issues: ["#0130"]
 
 案 A（JSON + 1 本の道具 + 手で書く計算の欄 + hook と `cargo test`）。
 
-1. **比較の道具**: `compare_p3.py --json <出力先>` が、標準出力に出す数と同じ値を JSON にも書く。表に出す量だけを持つ（割合は小数、
-   k の差は pcm、位置は [行, 列]、層は 1 始まり）。形は `{"format": "xlc-compare-p3", "problem", "k": {...}, "axial_vs_keno": {...},
-   "axial_vs_openmc": {...}, "pins_vs_openmc": {...}, "layer_pins": {"levels": [...]}, ...}`（examples/vera/compare_p3.py の docstring）。
-   既存の `compare-3A.out` と `compare-3B.out` は変えない（md5 が同じ）。OpenMC の参照解は DVC の段階の出力でない
-   （AWS の VM の実行 m3 から取り出した `references/` のファイル）ので、それを deps にする段階 `compare-<問題>-openmc` を足し、
-   `.out` と JSON を outs にする（JSON は `cache: false` で git で追跡する。「JSON の置き場」）。今後の比較の道具（compare_p5.py、compare_keno.py など）も、表の元にする量を `--json` で書く
-2. **表を描く道具**: `examples/verification_tables.py <記録>`。記録の `<!-- table: <名前> -->` から `<!-- /table -->` までを、
+1. **形式の役割**（今後も同じ）:
+   - 大きな数値データ（実行ファイルの出力と OpenMC の抽出の出力）は msgpack で、DVC のキャッシュに置く
+   - 比較の要約は JSON で、DVC の出力（`cache: false`）のまま git で追跡する
+   - 実行ファイルの標準出力のログは `.out`（DVC のキャッシュ）
+   - 比較の道具が文章の `.out` を書く形は、今後作らない。数値は 1 か所（JSON）に持ち、文章は JSON から描く
+2. **比較の道具**: `compare_p3.py --json <出力先> ...` は JSON だけを書き（標準出力には何も出さない）、`compare_p3.py --report <JSON>` が
+   同じ JSON から文章の報告を描く。JSON は報告に要るすべての数（層ごとの一覧を含む）を持ち、`--report` の出力は従来の
+   `compare-3A.out` と `compare-3B.out` と 1 バイトも違わない（確認で比べた）。割合は小数、k の差は pcm、位置は [行, 列]、層は 1 始まり。
+   形は `{"format": "xlc-compare-p3", "problem", "k": {...}, "axial_vs_keno": {...}, "axial_vs_openmc": {...}, "pins_vs_openmc": {...},
+   "layer_pins": {"levels": [...]}, ...}`（examples/vera/compare_p3.py の docstring）。OpenMC の参照解は DVC の段階の出力でない
+   （AWS の VM の実行 m3 から取り出した `references/` のファイル）ので、それを deps にする段階 `compare-<問題>-openmc` を足す。
+   従来の `compare-<問題>.out` の段階は `compare-<問題>.json`（KENO-VI だけ）になる。今後の比較の道具（compare_p5.py、compare_keno.py など）も
+   同じ形にする（#0130）
+3. **表を描く道具**: `examples/verification_tables.py <記録>`。記録の `<!-- table: <名前> -->` から `<!-- /table -->` までを、
    その名前の表（空行 + 表 + 空行）で置き換える。名前と JSON と描く関数の対応は道具の `TABLES`。目印の中は丸ごと置き換わるので、
    脚注などの文章は目印の外に書く。未知の名前、閉じていない目印、入れ子、同じ名前の 2 回の使用は
    エラー。列は prettier と同じ幅（全角を 2）でそろえ、負の符号は記録と同じ U+2212。標準ライブラリだけ
-3. **`--check`**: 置き換えず、描いた表と記録が違えば差分を出して 1 で終わる。JSON が無い（段階を走らせていない。`dvc repro` の指示を出す）、JSON の md5 が
+4. **`--check`**: 置き換えず、描いた表と記録が違えば差分を出して 1 で終わる。JSON が無い（段階を走らせていない。`dvc repro` の指示を出す）、JSON の md5 が
    同じ場所の `dvc.lock` の値と違う（走らせ直して relock していない、手で直した）ときも 1 で終わる。黙って読み飛ばさない
-4. **計算の欄は手で書く**。案 A は rebase と相性が悪く、案 B は取れる値が違う（上）。欄は `commit-refs remap` が付け替え、
+5. **計算の欄は手で書く**。案 A は rebase と相性が悪く、案 B は取れる値が違う（上）。欄は `commit-refs remap` が付け替え、
    表の数値は `--check` が検査する。残る穴（表の数値と欄の hash の対応）は、JSON の md5 が `dvc.lock` と一致するかを検査することと、
    記録に書く手順（verification-record）で抑える
-5. **検査**: `.pre-commit-config.yaml` の hook `verification-tables`（`examples/verification_tables.py`、`*/verification.md`、`*/dvc.lock` の変更で走る）と、
+6. **検査**: `.pre-commit-config.yaml` の hook `verification-tables`（`examples/verification_tables.py`、`*/verification.md`、`*/dvc.lock` の変更で走る）と、
    `crates/docs/tests/consistency.rs` の `record_tables_match_the_compare_outputs`（`cargo test` に含まれるので `run-checks.sh` でも走る）
-6. **試作の範囲**: Problem 3 の 2 つの表（`p3-reference-results`、`p3-openmc-comparison`）。残りは #0130
+7. **試作の範囲**: Problem 3 の 2 つの表（`p3-reference-results`、`p3-openmc-comparison`）。残りは #0130
 
 ## 確認
 
 試作（ブランチ feat/verification-tables、分岐点は main の 8057af63、2026-10-15）で確認した。
 
 - 描いた 2 つの表は、既存の手で打った表と文字まで同じ（誤りの修正は 0 件）。段階は 4 つ（compare-3A、compare-3B、compare-3A-openmc、
-  compare-3B-openmc）を `dvc repro -s` で走らせ直した（秒。コード、炉心の出力、OpenMC の参照解は変えていない）。`compare-3A.out` と
-  `compare-3B.out` の md5 は変わらない
-- テスト: `examples/vera/test_compare_p3.py`（`axial_report` が返す値、`--json` の出力が標準出力と同じ k を持つこと）、
+  compare-3B-openmc）を `dvc repro -s` で走らせ直した（秒。コード、炉心の出力、OpenMC の参照解は変えていない）。`--report` の出力は、
+  JSON にする前の `compare-3A.out`、`compare-3B.out`、`compare-3A-openmc.out`、`compare-3B-openmc.out` と 1 バイトも違わない。
+  `compare_hzp.py`（`axial_report` を使う）の `hzp/compare-hzp.out` の md5 も変わらない
+- テスト: `examples/vera/test_compare_p3.py`（`axial_summary` が返す値、`--json` が何も出さず `--report` が JSON の k と層の数を描くこと）、
   `examples/test_verification_tables.py`（表の行、列の幅、置き換えの冪等、目印の誤り、`dvc.lock` との不一致、JSON が無いこと、
   手で直した表が `--check` で落ちること）
 - 本文の数値を JSON と突き合わせた（2σ 以内の層の数 3A 1 と 3B 4、ピンの最大の差の倍率 3A 5.0 と 3B 6.3、軸方向のオフセットの差の倍率 22.9 と 35.9）。
