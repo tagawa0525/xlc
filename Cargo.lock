@@ -1043,6 +1043,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "xlc-depletion",
+ "xlc-format",
  "xlc-xs",
 ]
 

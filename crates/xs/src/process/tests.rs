@@ -464,3 +464,277 @@ fn processes_each_temperature_and_sigma0() {
         assert!(t.chi.iter().all(|&c| c == 0.0));
     }
 }
+
+/// チェーンの反応の経路を確かめるテープ: MF3 の全 11 b、弾性散乱 10 b、捕獲 1 b（一定）、(n,p) の部分の MT600 と MT601（Q = −1 MeV の
+/// しきい値から、0.2 b と 0.1 b）。MF8 は捕獲の状態を MF9 で挙げ、(n,p) は挙げない。`states` は捕獲の MF8/MF9 の (LFS, 励起エネルギー, 多重度)
+fn reaction_tape(states: &[(u32, &str, &str)]) -> Tape {
+    reaction_tape_from(states, "1.0-5")
+}
+
+/// `reaction_tape` の、MF9 の表がエネルギー `start` (eV) から始まるもの
+fn reaction_tape_from(states: &[(u32, &str, &str)], start: &str) -> Tape {
+    use crate::endf::rec;
+    let section = |mf: u32, mt: u32, q: &str, x: [&str; 2], y: [&str; 2]| {
+        [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "0", "0"], 1, mf, mt),
+            rec([q, q, "0", "0", "1", "2"], 1, mf, mt),
+            rec(["2", "2", "", "", "", ""], 1, mf, mt),
+            rec([x[0], y[0], x[1], y[1], "", ""], 1, mf, mt),
+            rec(["", "", "", "", "", ""], 1, mf, 0),
+        ]
+        .concat()
+    };
+    let full = ["1.0-5", "2.0+7"];
+    let threshold = ["1.004237+6", "2.0+7"];
+    let mut text = vec![
+        section(3, 1, "0.0", full, ["11.0", "11.0"]),
+        section(3, 2, "0.0", full, ["10.0", "10.0"]),
+        section(3, 102, "0.0", full, ["1.0", "1.0"]),
+        section(3, 600, "-1.0+6", threshold, ["0.2", "0.2"]),
+        section(3, 601, "-1.0+6", threshold, ["0.1", "0.1"]),
+    ];
+    if !states.is_empty() {
+        let ns = states.len().to_string();
+        let mut mf8 = vec![rec(
+            ["9.223800+4", "2.360060+2", "0", "0", &ns, "1"],
+            1,
+            8,
+            102,
+        )];
+        let mut mf9 = vec![rec(
+            ["9.223800+4", "2.360060+2", "0", "0", &ns, "0"],
+            1,
+            9,
+            102,
+        )];
+        for (lfs, excitation, y) in states {
+            let lfs = lfs.to_string();
+            mf8.push(rec(
+                ["9.223900+4", excitation, "9", &lfs, "0", "0"],
+                1,
+                8,
+                102,
+            ));
+            mf9.push(rec(["0.0", "0.0", "92239", &lfs, "1", "2"], 1, 9, 102));
+            mf9.push(rec(["2", "2", "", "", "", ""], 1, 9, 102));
+            mf9.push(rec([start, y, "2.0+7", y, "", ""], 1, 9, 102));
+        }
+        mf8.push(rec(["", "", "", "", "", ""], 1, 8, 0));
+        mf9.push(rec(["", "", "", "", "", ""], 1, 9, 0));
+        text.push(mf8.concat());
+        text.push(mf9.concat());
+    }
+    // MF の順に並べる（MF3 → MF8 → MF9）
+    Tape::parse(&text.concat()).unwrap()
+}
+
+fn reaction_settings() -> Settings {
+    Settings {
+        groups: GroupStructure::wims69(),
+        weight: Weight::lwr(),
+        sigma0: vec![1.0e10, 10.0],
+        thermal_cutoff: 4.0,
+        tolerance: 1.0e-3,
+        pointwise_range: Some((4.0, 1.0e4)),
+        scattering_order: 0,
+    }
+}
+
+#[test]
+fn capture_is_kept_per_sigma0_and_pointwise() {
+    let data = process_nuclide(
+        &reaction_tape(&[]),
+        "X",
+        &[293.6],
+        None,
+        &reaction_settings(),
+    )
+    .unwrap();
+    let t = &data.temperatures[0];
+    // 一定の 1 b の捕獲は、熱群を除けば遮蔽によらず 1 b
+    for s in &t.shielded {
+        assert!((s.capture[0] - 1.0).abs() < 1e-9, "{}", s.capture[0]);
+    }
+    // ポイントワイズの捕獲は、温度に拡げた MT102 の表そのもの
+    let tables = crate::pointwise::reconstruct_at(&reaction_tape(&[]), 1, 1.0e-3, 293.6).unwrap();
+    for (&e, &c) in t.pointwise.energy.iter().zip(&t.pointwise.capture) {
+        assert_eq!(c, tables[&102].eval(e).unwrap(), "{e} eV");
+    }
+    assert_eq!(t.pointwise.capture.len(), t.pointwise.energy.len());
+}
+
+#[test]
+fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
+    let settings = reaction_settings();
+    let tape = reaction_tape(&[(0, "0.0", "0.9"), (2, "5.0+4", "0.1")]);
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let reactions = &data.temperatures[0].reactions;
+    let mts: Vec<u32> = reactions.iter().map(|r| r.mt).collect();
+    assert_eq!(mts, vec![102, 103]);
+    // (n,p) は部分の MT600 と MT601 の和で、状態に分けない
+    let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
+    let averages =
+        crate::multigroup::reaction_averages(&settings.groups, &settings.weight, &tables, None);
+    let [np] = &reactions[1].channels[..] else {
+        panic!("one (n,p) channel")
+    };
+    assert_eq!(np.final_state, None);
+    for g in 0..settings.groups.len() {
+        let expected = averages.sigma[&600][g] + averages.sigma[&601][g];
+        assert!((np.cross_section[g] - expected).abs() <= 1e-12 * expected.max(1e-30));
+    }
+    // 捕獲は MF9 の多重度で状態ごとに分ける（テープの順）
+    use xlc_format::library::ChannelState;
+    let states: Vec<_> = reactions[0]
+        .channels
+        .iter()
+        .map(|c| c.final_state)
+        .collect();
+    assert_eq!(
+        states,
+        vec![
+            Some(ChannelState {
+                mf: 9,
+                lfs: Some(0)
+            }),
+            Some(ChannelState {
+                mf: 9,
+                lfs: Some(2)
+            })
+        ]
+    );
+    for (channel, y) in reactions[0].channels.iter().zip([0.9, 0.1]) {
+        for (g, &v) in channel.cross_section.iter().enumerate() {
+            let expected = y * averages.sigma[&102][g];
+            assert!(
+                (v - expected).abs() <= 1e-12 * expected,
+                "group {g}: {v} vs {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn capture_states_without_the_ground_state_leave_the_remainder_to_it() {
+    let settings = reaction_settings();
+    let tape = reaction_tape(&[(2, "5.0+4", "0.1")]);
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let capture = &data.temperatures[0].reactions[0];
+    use xlc_format::library::ChannelState;
+    let states: Vec<_> = capture.channels.iter().map(|c| c.final_state).collect();
+    assert_eq!(
+        states,
+        vec![
+            Some(ChannelState {
+                mf: 9,
+                lfs: Some(2)
+            }),
+            Some(ChannelState { mf: 9, lfs: None })
+        ]
+    );
+    let total = capture.channels[0].cross_section[0] + capture.channels[1].cross_section[0];
+    assert!((capture.channels[1].cross_section[0] - 0.9 * total).abs() < 1e-12 * total);
+}
+
+#[test]
+fn listed_states_beyond_the_reaction_are_an_error() {
+    // 挙げた状態の多重度の和が 1 を超えると、基底状態への残りが負になる
+    let tape = reaction_tape(&[(2, "5.0+4", "1.2")]);
+    let error = process_nuclide(&tape, "X", &[293.6], None, &reaction_settings()).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ProcessError::Temperature { ref source, .. }
+                if matches!(**source, ProcessError::NegativeRemainder { mt: 102, .. })
+        ),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn multiplicities_count_only_where_the_mf9_table_is_given() {
+    // MF9 の表が反応の範囲より高いエネルギーから始まる評価がある（ENDF/B-VIII.0 の Np-237 の MT16 など）。表の外の多重度は 0
+    // とし（NJOY GROUPR と同じ）、残りの経路がその分を持つ
+    let settings = reaction_settings();
+    let tape = reaction_tape_from(&[(2, "5.0+4", "0.1")], "1.0+3");
+    let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
+    let capture = &data.temperatures[0].reactions[0];
+    let (state, rest) = (&capture.channels[0], &capture.channels[1]);
+    let total = |g: usize| state.cross_section[g] + rest.cross_section[g];
+    // 最も高い群（2 MeV〜10 MeV）は表の中、最も低い群（1e-5 eV〜）は表の外
+    assert!((state.cross_section[0] - 0.1 * total(0)).abs() < 1e-9 * total(0));
+    let last = settings.groups.len() - 1;
+    assert_eq!(state.cross_section[last], 0.0);
+    assert!(rest.cross_section[last] > 0.0);
+}
+
+/// 全 11 b、弾性散乱 10 b、捕獲 1 b と、1.1 MeV から 0.3 b の (n,p)（MT103）に、励起状態 1 つ（LFS 1）の MF10 の生成断面積
+/// 0.05 b をエネルギー `start` (eV) から足したテープ
+fn reaction_tape_with_mf10(start: &str) -> Tape {
+    use crate::endf::rec;
+    let mut text = String::new();
+    let section = |mf: u32, mt: u32, q: &str, x: [&str; 2], y: [&str; 2]| {
+        [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "0", "0"], 1, mf, mt),
+            rec([q, q, "0", "0", "1", "2"], 1, mf, mt),
+            rec(["2", "2", "", "", "", ""], 1, mf, mt),
+            rec([x[0], y[0], x[1], y[1], "", ""], 1, mf, mt),
+            rec(["", "", "", "", "", ""], 1, mf, 0),
+        ]
+        .concat()
+    };
+    let full = ["1.0-5", "2.0+7"];
+    text.push_str(
+        &[
+            section(3, 1, "0.0", full, ["11.0", "11.0"]),
+            section(3, 2, "0.0", full, ["10.0", "10.0"]),
+            section(3, 102, "0.0", full, ["1.0", "1.0"]),
+            section(3, 103, "-1.0+6", ["1.1+6", "2.0+7"], ["0.3", "0.3"]),
+            [
+                rec(["9.223800+4", "2.360060+2", "0", "0", "1", "1"], 1, 8, 103),
+                rec(["9.123800+4", "1.0+5", "10", "1", "0", "0"], 1, 8, 103),
+                rec(["", "", "", "", "", ""], 1, 8, 0),
+            ]
+            .concat(),
+            [
+                rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 10, 103),
+                rec(["-1.0+6", "-1.1+6", "91238", "1", "1", "2"], 1, 10, 103),
+                rec(["2", "2", "", "", "", ""], 1, 10, 103),
+                rec([start, "0.05", "2.0+7", "0.05", "", ""], 1, 10, 103),
+                rec(["", "", "", "", "", ""], 1, 10, 0),
+            ]
+            .concat(),
+        ]
+        .concat(),
+    );
+    Tape::parse(&text).unwrap()
+}
+
+#[test]
+fn production_cross_sections_start_where_the_reaction_does() {
+    // MF10 の表が反応のしきい値より下から始まっても、反応のない所の生成断面積は数えない（MF3 と同じく、しきい値から）
+    let settings = reaction_settings();
+    let data = process_nuclide(
+        &reaction_tape_with_mf10("5.0+5"),
+        "X",
+        &[293.6],
+        None,
+        &settings,
+    )
+    .unwrap();
+    let np = &data.temperatures[0].reactions[1];
+    assert_eq!(np.mt, 103);
+    let (state, rest) = (&np.channels[0], &np.channels[1]);
+    for g in 0..settings.groups.len() {
+        let total = state.cross_section[g] + rest.cross_section[g];
+        assert!(state.cross_section[g] <= total * (1.0 + 1e-12), "group {g}");
+    }
+    // しきい値（約 1 MeV）を含まない、それより下の群に生成はない
+    let below = settings
+        .groups
+        .bounds()
+        .iter()
+        .position(|&b| b < 5.0e5)
+        .unwrap();
+    assert_eq!(state.cross_section[below], 0.0);
+}

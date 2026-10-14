@@ -245,6 +245,7 @@ fn main() -> anyhow::Result<()> {
                 s.elastic[g] = u.elastic[g - top];
                 s.fission[g] = u.fission[g - top];
                 s.nu_fission[g] = u.nu_fission[g - top];
+                s.capture[g] = u.capture[g - top];
             }
         }
     }

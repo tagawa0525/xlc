@@ -211,6 +211,7 @@ fn part_of(name: &str, temperatures: &[f64]) -> Library {
                     scatter: Vec::new(),
                     shielded: Vec::new(),
                     pointwise: Default::default(),
+                    reactions: Vec::new(),
                 })
                 .collect(),
         }],
