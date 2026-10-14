@@ -25,7 +25,7 @@ examples/vera/verification.md の表のうち、出どころが分かってい�
 
 - Problem 3 の炉心の計算「KENO-VI との比較」: `compare_p3.py`。`compare-<問題>-openmc.json`（試作の JSON）に値がある
 - Problem 3 の炉心の計算「定数を作った体系の等価性」: `examples/reflector/compare_axial.py`（`compare-<問題>-slab.out`。JSON は未対応）
-- Problem 5-2D の炉心の計算「結果」の 2 つ: `compare_p5.py keno` と `openmc`（`p5/compare-5A.out` など。JSON は未対応）
+- Problem 5-2D の炉心の計算「結果」の 2 つ: `compare_p5.py keno` と `openmc`（移し済み。下の経緯）
 - Problem 5-2D の「最小の入力での確認」「外周の燃料の定数の切り分け」: `compare_p5.py moc` / `k` / `symmetry`（`p5/compare-small-*.out`、`compare-lattice-*`）
 - Problem 5 の 3D の炉心「KENO-VI と実測値との比較」: `p5/compare_hzp.py`（`hzp/compare-hzp.out`）
 - 「参照解」の OpenMC と KENO-VI の表、「OpenMC との比較」: `compare_k.py`、`compare_keno.py`、`compare_pins.py` の出力（段階の有無は確認していない）
@@ -52,3 +52,7 @@ examples/vera/verification.md の表のうち、出どころが分かってい�
 - 2026-10-15: JSON の `inputs`（読んだファイルのパスと md5。`--report` の 1 行目。`record_provenance.py` が dvc.lock の deps と照合する）は、
   `compare_p3.py` で済み。ほかの比較の道具も `--json` を足すときに同じ項目を入れる
 - 2026-10-15: ADR-0176 の試作（ブランチ feat/verification-tables）で、Problem 3 の 2 つの表を移した。既存の表との違いは 0 件
+- 2026-10-15: Problem 5-2D の 3 つの表（`p5-reference-results`、`p5-openmc-comparison`、`p5-keno-comparison`）を移した（`compare_p5.py` の
+  `keno` と `openmc`。ブランチ feat/compare-p5-json）。手で打った表と 1 件違った: 5C の KENO-VI に対する集合体出力の最大の差の位置
+  D12 が、JSON では M04（180° 回転で重なる位置）。原因は、位置の添字から名前への手作業の転記。名前は JSON を書くときに 1 回だけ付ける
+  （集合体の `name`）。ほかの表の数値は 0 件の違い。`moc`、`k`、`symmetry` のモードと `compare_hzp.py` は `.out` のまま

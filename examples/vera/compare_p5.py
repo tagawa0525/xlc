@@ -1,12 +1,18 @@
 """VERA Problem 5-2D の xlc の炉心の解を、参照（KENO-VI、OpenMC、最小の入力の MOC）と比べ、炉心の解の対称性を調べる。
 
 使い方:
-  python3 compare_p5.py keno <問題（5A、5B、5C）> <spec.txt> <core の標準出力> <core の pins.msgpack>
-  python3 compare_p5.py openmc <core の標準出力> <core の pins.msgpack> <OpenMC の結果のディレクトリ>
+  python3 compare_p5.py --json <要約の出力先> keno <問題（5A、5B、5C）> <spec.txt> <core の標準出力> <core の pins.msgpack>
+  python3 compare_p5.py --json <要約の出力先> openmc <問題> <spec.txt> <core の標準出力> <core の pins.msgpack> <OpenMC の結果のディレクトリ>
+  python3 compare_p5.py --report <要約の JSON>
   python3 compare_p5.py moc <lattice の標準出力> <lattice の pins.msgpack> <core の標準出力> <core の pins.msgpack>
   python3 compare_p5.py symmetry <core の標準出力> <core の pins.msgpack>
   python3 compare_p5.py k <lattice の標準出力> <core の標準出力>
 
+- `keno` と `openmc` は比べた結果を JSON だけに書く（標準出力には何も出さない）。JSON は検証の記録の表を描く道具
+  （examples/verification_tables.py）も読む（ADR-0176）。割合は小数（0.01 = 1%）、k の差は pcm、位置は [行, 列]（集合体は 15 × 15 の
+  地図の添字で、名前は列を西から R P N M L K J H G F E D C B A、行を北から 01 とする）。`--report` は JSON から文章の報告を標準出力に描く。
+  1 行目は読んだファイルのパスと md5 の先頭 8 桁（`inputs`）で、JSON が持つ数だけを使う。OpenMC との比較では、差が OpenMC の統計誤差
+  （`assemblies-std.msgpack`、`pins-std.msgpack`、`k.json` の `k-std`）の何倍かも書く。集合体とピンは、差の最大の倍率とその位置、2σ を超える数
 - k: core の標準出力の `k-eff`。KENO-VI は付録 J の表（差は (k_xlc / k_ref − 1) × 1e5 pcm）、OpenMC は結果の k.json、
   MOC は lattice の標準出力の `k`（外周が真空の格子では実効増倍率）
 - 集合体の出力: core の標準出力の集合体ごとの核分裂率（集合体の平均で 1）。KENO-VI は付録 J の 1/8 の表（5 桁）を、H 列と
@@ -18,7 +24,9 @@
 - 対称性: 集合体の出力とピン出力を、全炉心の中心のまわりの 90° と 180° の回転と、x、y、対角の鏡映で移したものとの差の最大
 """
 
+import hashlib
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -29,6 +37,9 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import compare_k
 
+FORMAT = "xlc-compare-p5"
+# 全炉心の列の名前（西から。I、O、Q は使わない。p5_inputs.py と同じ）
+COLUMNS = "RPNMLKJHGFEDCBA"
 # 付録 J の見出し（Problem 5-2D ENDF/B-VII.0 Assembly Power Results）
 ASSEMBLY_TABLE = "{problem}-2D Assembly Powers"
 # 表 M3-6 の見出しと、問題の列の順
@@ -154,20 +165,71 @@ def unfold(quarter: np.ndarray) -> np.ndarray:
     return np.concatenate([rows[:, :0:-1], rows], axis=1)
 
 
-def summary(name: str, d: np.ndarray, where: np.ndarray | None = None) -> None:
+def stat(d: np.ndarray, where: np.ndarray | None = None) -> dict:
+    """相対差の数、RMS、絶対値が最大のもの（符号つき）とその位置 [行, 列]"""
     if d.size == 0:
-        print(f"{name}: none")
-        return
-    i = np.abs(d).argmax()
-    at = f" at {tuple(int(x) for x in where[i])}" if where is not None else ""
-    print(
-        f"{name}: {d.size}, rms {100 * np.sqrt((d * d).mean()):.3f}%, max {100 * d[i]:+.3f}%{at}"
+        return {"n": 0, "rms": None, "max": None, "at": None}
+    i = int(np.abs(d).argmax())
+    return {
+        "n": int(d.size),
+        "rms": float(np.sqrt((d * d).mean())),
+        "max": float(d[i]),
+        "at": [int(x) for x in where[i]] if where is not None else None,
+    }
+
+
+def stat_line(name: str, d: dict) -> str:
+    if d["n"] == 0:
+        return f"{name}: none"
+    at = f" at {tuple(d['at'])}" if d["at"] is not None else ""
+    at += f" {d['name']}" if "name" in d else ""
+    return (
+        f"{name}: {d['n']}, rms {100 * d['rms']:.3f}%, max {100 * d['max']:+.3f}%{at}"
     )
 
 
-def compare_assemblies(
+def positive(*arrays: np.ndarray) -> None:
+    """標準偏差と参照の値は正であること（0 や NaN で割った倍率を JSON に書かない）"""
+    for a in arrays:
+        if not (np.asarray(a) > 0).all():
+            raise SystemExit(
+                "a reference value or standard deviation is not positive; cannot give the difference in sigma"
+            )
+
+
+def std_summary(std: np.ndarray, reference: np.ndarray) -> dict:
+    """参照の相対標準偏差（標準偏差 / 参照）の中央値と最大"""
+    positive(std, reference)
+    s = std / reference
+    return {"median": float(np.median(s)), "max": float(s.max())}
+
+
+def sigma_summary(
+    ours: np.ndarray, reference: np.ndarray, std: np.ndarray, where: np.ndarray
+) -> dict:
+    """|xlc − 参照| / 参照の標準偏差 の最大とその位置、2σ を超える数（等しいときは超えない）"""
+    positive(std)
+    ratio = np.abs(ours - reference) / std
+    i = int(ratio.argmax())
+    return {
+        "max": float(ratio[i]),
+        "at": [int(x) for x in where[i]],
+        "beyond_2sigma": int((ratio > 2).sum()),
+        "n": int(ratio.size),
+    }
+
+
+def named(d: dict) -> dict:
+    """位置 `at`（15 × 15 の地図の [行, 列]）の隣に名前を足す。位置からの名前は、ここだけで付ける"""
+    if d.get("at") is not None:
+        d["name"] = assembly_name(d["at"])
+    return d
+
+
+def assembly_summary(
     ours: np.ndarray, reference: np.ndarray, std: np.ndarray | None = None
-) -> None:
+) -> dict:
+    """集合体の出力の差。どちらも燃料の集合体の平均で 1 に規格化する（標準偏差も参照の平均で割る）"""
     ours = fuel_assemblies(ours)
     if ours.shape != reference.shape:
         raise SystemExit(
@@ -184,32 +246,68 @@ def compare_assemblies(
     rel = ours[fuel] / reference[fuel] - 1
     absolute = ours[fuel] - reference[fuel]
     where = np.argwhere(fuel)
-    summary("assemblies (relative)", rel, where)
-    i = np.abs(absolute).argmax()
-    print(
-        f"assemblies (absolute): rms {np.sqrt((absolute**2).mean()):.4f}, max {absolute[i]:+.4f} "
-        f"at {tuple(int(x) for x in where[i])} (reference {reference[fuel][i]:.4f})"
-    )
+    i = int(np.abs(absolute).argmax())
     edge = edge_assemblies(fuel)
-    summary(
-        "peripheral assemblies (relative)", rel[edge[fuel]], np.argwhere(fuel & edge)
-    )
+    n = fuel.shape[0] // 2
+    result = {
+        "relative": named(stat(rel, where)),
+        "absolute": named(
+            {
+                "rms": float(np.sqrt((absolute**2).mean())),
+                "max": float(absolute[i]),
+                "at": [int(x) for x in where[i]],
+                "reference": float(reference[fuel][i]),
+            }
+        ),
+        "peripheral": named(stat(rel[edge[fuel]], np.argwhere(fuel & edge))),
+        # 中心の行と列から右下の 1/4 の [xlc, 参照]（燃料でない位置は null）
+        "quarter": [
+            [
+                [float(ours[r, c]), float(reference[r, c])] if fuel[r, c] else None
+                for c in range(n, fuel.shape[1])
+            ]
+            for r in range(n, fuel.shape[0])
+        ],
+    }
     if std is not None:
-        s = std[fuel] / reference[fuel]
-        print(
-            f"reference relative std: median {100 * np.median(s):.3f}%, max {100 * s.max():.3f}%"
+        result["std"] = std_summary(std[fuel], reference[fuel])
+        result["sigma"] = named(
+            sigma_summary(ours[fuel], reference[fuel], std[fuel], where)
         )
-    print(
+    return result
+
+
+def assembly_lines(d: dict) -> list[str]:
+    a = d["absolute"]
+    lines = [
+        stat_line("assemblies (relative)", d["relative"]),
+        (
+            f"assemblies (absolute): rms {a['rms']:.4f}, max {a['max']:+.4f} "
+            f"at {tuple(a['at'])} {a['name']} (reference {a['reference']:.4f})"
+        ),
+        stat_line("peripheral assemblies (relative)", d["peripheral"]),
+    ]
+    if "std" in d:
+        lines.append(
+            f"reference relative std: median {100 * d['std']['median']:.3f}%, max {100 * d['std']['max']:.3f}%"
+        )
+    lines.append(
         "lower-right quarter from the centre row and column (rows 8-15, columns H-A in 5-2D), xlc / reference:"
     )
-    n = fuel.shape[0] // 2
-    for r in range(n, fuel.shape[0]):
-        print(
-            " ".join(
-                f"{ours[r, c]:.4f}/{reference[r, c]:.4f}" if fuel[r, c] else " " * 13
-                for c in range(n, fuel.shape[1])
-            )
+    for row in d["quarter"]:
+        lines.append(" ".join(f"{c[0]:.4f}/{c[1]:.4f}" if c else " " * 13 for c in row))
+    if "sigma" in d:
+        g = d["sigma"]
+        lines.append(
+            f"assemblies xlc - reference in sigma: max {g['max']:.1f} at {tuple(g['at'])} {g['name']}, "
+            f"{g['beyond_2sigma']} of {g['n']} beyond 2 sigma"
         )
+    return lines
+
+
+def assembly_name(at: list[int]) -> str:
+    """15 × 15 の集合体の位置 [行, 列] の名前（列は西から R P N M L K J H G F E D C B A、行は北から 01）"""
+    return f"{COLUMNS[at[1]]}{at[0] + 1:02d}"
 
 
 def edge_assemblies(fuel: np.ndarray) -> np.ndarray:
@@ -224,9 +322,9 @@ def edge_assemblies(fuel: np.ndarray) -> np.ndarray:
     return out & fuel
 
 
-def compare_pins(
+def pin_summary(
     ours: np.ndarray, reference: np.ndarray, std: np.ndarray | None = None
-) -> None:
+) -> dict:
     if ours.shape != reference.shape:
         raise SystemExit(
             f"pin maps differ in shape: {ours.shape} and {reference.shape}"
@@ -234,65 +332,161 @@ def compare_pins(
     fuel = reference > 0
     if not np.array_equal(fuel, ours > 0):
         raise SystemExit("the two pin maps have different fuel cells")
-    d = ours[fuel] / reference[fuel] - 1
-    where = np.argwhere(fuel)
-    summary("pins", d, where)
     n = 17
     blocks = fuel.reshape(fuel.shape[0] // n, n, fuel.shape[1] // n, n).any(axis=(1, 3))
     edge = np.kron(edge_assemblies(blocks), np.ones((n, n), dtype=bool)) & fuel
-    summary(
-        "pins of peripheral assemblies",
-        ours[edge] / reference[edge] - 1,
-        np.argwhere(edge),
-    )
     low = fuel & (reference < 0.8)
-    summary("pins with power < 0.8", ours[low] / reference[low] - 1, np.argwhere(low))
-    print(f"max pin power: xlc {ours.max():.5f}, reference {reference.max():.5f}")
+
+    def relative(mask: np.ndarray) -> dict:
+        return stat(ours[mask] / reference[mask] - 1, np.argwhere(mask))
+
+    result = {
+        "all": relative(fuel),
+        "peripheral": relative(edge),
+        "low": relative(low),
+        "max_pin": {"xlc": float(ours.max()), "reference": float(reference.max())},
+    }
     if std is not None:
-        s = std[fuel] / reference[fuel]
-        print(
-            f"reference relative std: median {100 * np.median(s):.3f}%, max {100 * s.max():.3f}%"
+        result["std"] = std_summary(std[fuel], reference[fuel])
+        result["sigma"] = sigma_summary(
+            ours[fuel], reference[fuel], std[fuel], np.argwhere(fuel)
         )
+    return result
 
 
-def keno(problem: str, spec_path: str, core_out: str, core_pins: str) -> None:
+def pin_lines(d: dict) -> list[str]:
+    lines = [
+        stat_line("pins", d["all"]),
+        stat_line("pins of peripheral assemblies", d["peripheral"]),
+        stat_line("pins with power < 0.8", d["low"]),
+        f"max pin power: xlc {d['max_pin']['xlc']:.5f}, reference {d['max_pin']['reference']:.5f}",
+    ]
+    if "std" in d:
+        lines.append(
+            f"reference relative std: median {100 * d['std']['median']:.3f}%, max {100 * d['std']['max']:.3f}%"
+        )
+        g = d["sigma"]
+        lines.append(
+            f"pins xlc - reference in sigma: max {g['max']:.1f} at {tuple(g['at'])}, "
+            f"{g['beyond_2sigma']} of {g['n']} beyond 2 sigma"
+        )
+    return lines
+
+
+def md5_inputs(paths: list[Path]) -> list[dict]:
+    """読んだファイルのパス（段階の cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）"""
+    return [
+        {"path": str(p), "md5": hashlib.md5(p.read_bytes()).hexdigest()} for p in paths
+    ]
+
+
+def check_problem(problem: str) -> None:
+    if problem not in PROBLEMS:
+        raise SystemExit(f"unknown problem {problem}; expected one of {PROBLEMS}")
+
+
+def keno(problem: str, spec_path: str, core_out: str, core_pins: str) -> dict:
+    check_problem(problem)
     spec = Path(spec_path).read_text().splitlines()
     k, rates = core_output(core_out)
     k_ref, sigma = keno_k(spec, problem)
-    print(
-        f"k: xlc {k:.6f}, KENO-VI {k_ref:.6f} +- {sigma:.6f}, {1e5 * (k / k_ref - 1):+.1f} pcm"
-    )
-    compare_assemblies(rates, keno_assemblies(spec, problem))
     pins = read_pins(core_pins)
-    print(
-        f"max pin power: xlc {pins.max():.5f}, KENO-VI {keno_max_pin(spec, problem):.5f}"
-    )
+    return {
+        "format": FORMAT,
+        "kind": "keno",
+        "problem": problem,
+        "inputs": md5_inputs([Path(spec_path), Path(core_out), Path(core_pins)]),
+        "k": {
+            "xlc": k,
+            "reference": k_ref,
+            "reference_std": sigma,
+            "diff_pcm": 1e5 * (k / k_ref - 1),
+        },
+        "assemblies": assembly_summary(rates, keno_assemblies(spec, problem)),
+        "max_pin": {"xlc": float(pins.max()), "reference": keno_max_pin(spec, problem)},
+    }
 
 
-def openmc(core_out: str, core_pins: str, results: str) -> None:
+def openmc(
+    problem: str, spec_path: str, core_out: str, core_pins: str, results: str
+) -> dict:
+    check_problem(problem)
     k, rates = core_output(core_out)
-    ref = json.loads((Path(results) / "k.json").read_text())
-    print(
-        f"k: xlc {k:.6f}, OpenMC {ref['k']:.6f} +- {ref['k-std']:.6f}, {1e5 * (k / ref['k'] - 1):+.1f} pcm"
-    )
-    assemblies = np.array(
-        msgpack.unpackb((Path(results) / "assemblies.msgpack").read_bytes())["rows"]
-    )
-    std = np.array(
-        msgpack.unpackb((Path(results) / "assemblies-std.msgpack").read_bytes())["rows"]
-    )
-    compare_assemblies(rates, np.where(assemblies > 0, assemblies, np.nan), std)
-    pins = np.array(
-        msgpack.unpackb((Path(results) / "pins.msgpack").read_bytes())["rows"]
-    )
-    pins_std = np.array(
-        msgpack.unpackb((Path(results) / "pins-std.msgpack").read_bytes())["rows"]
+    k_keno, s_keno = keno_k(Path(spec_path).read_text().splitlines(), problem)
+    directory = Path(results)
+    files = [
+        directory / name
+        for name in [
+            "k.json",
+            "assemblies.msgpack",
+            "assemblies-std.msgpack",
+            "pins.msgpack",
+            "pins-std.msgpack",
+        ]
+    ]
+    ref = json.loads(files[0].read_text())
+    positive(np.array([ref["k"], ref["k-std"]]))
+    assemblies, std, pins, pins_std = (
+        np.array(msgpack.unpackb(f.read_bytes())["rows"]) for f in files[1:]
     )
     # xlc の表と同じく、燃料のない行と列を除いてから規格化する（統計誤差も同じ行と列）
     keep_r, keep_c = pins.any(axis=1), pins.any(axis=0)
     pins, pins_std = (m[keep_r][:, keep_c] for m in (pins, pins_std))
     mean = pins[pins > 0].mean()
-    compare_pins(read_pins(core_pins), pins / mean, pins_std / mean)
+    diff_pcm = 1e5 * (k / ref["k"] - 1)
+    return {
+        "format": FORMAT,
+        "kind": "openmc",
+        "problem": problem,
+        "inputs": md5_inputs(
+            [Path(spec_path), Path(core_out), Path(core_pins), *files]
+        ),
+        "k": {
+            "xlc": k,
+            "reference": ref["k"],
+            "reference_std": ref["k-std"],
+            "diff_pcm": diff_pcm,
+            "diff_std_pcm": 1e5 * ref["k-std"],
+            "sigma": abs(diff_pcm) / (1e5 * ref["k-std"]),
+            # OpenMC − KENO-VI（絶対差 × 1e5 pcm）と、両方の統計誤差の合成
+            "keno": k_keno,
+            "keno_std": s_keno,
+            "diff_keno_pcm": 1e5 * (ref["k"] - k_keno),
+            "diff_keno_std_pcm": 1e5 * math.hypot(ref["k-std"], s_keno),
+        },
+        "assemblies": assembly_summary(
+            rates, np.where(assemblies > 0, assemblies, np.nan), std
+        ),
+        "pins": pin_summary(read_pins(core_pins), pins / mean, pins_std / mean),
+    }
+
+
+def report(summary: dict) -> list[str]:
+    """要約の JSON から文章の報告を描く"""
+    if "inputs" not in summary:
+        raise SystemExit("the JSON has no inputs (an older run); rerun the stage")
+    k = summary["k"]
+    lines = [
+        "inputs: " + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"])
+    ]
+    if summary["kind"] == "keno":
+        lines.append(
+            f"k: xlc {k['xlc']:.6f}, KENO-VI {k['reference']:.6f} +- {k['reference_std']:.6f}, {k['diff_pcm']:+.1f} pcm"
+        )
+        lines += assembly_lines(summary["assemblies"])
+        m = summary["max_pin"]
+        lines.append(f"max pin power: xlc {m['xlc']:.5f}, KENO-VI {m['reference']:.5f}")
+        return lines
+    lines.append(
+        f"k: xlc {k['xlc']:.6f}, OpenMC {k['reference']:.6f} +- {k['reference_std']:.6f}, {k['diff_pcm']:+.1f} pcm"
+    )
+    lines.append(f"k xlc - OpenMC in sigma: {k['sigma']:.1f}")
+    lines.append(
+        f"k OpenMC - KENO-VI: {k['diff_keno_pcm']:+.1f} +- {k['diff_keno_std_pcm']:.1f} pcm (KENO-VI {k['keno']:.6f} +- {k['keno_std']:.6f})"
+    )
+    lines += assembly_lines(summary["assemblies"])
+    lines += pin_lines(summary["pins"])
+    return lines
 
 
 def lattice_k(path: str) -> float:
@@ -308,8 +502,8 @@ def moc(lattice_out: str, lattice_pins: str, core_out: str, core_pins: str) -> N
     blocks = reference.reshape(
         reference.shape[0] // n, n, reference.shape[1] // n, n
     ).sum(axis=(1, 3))
-    compare_assemblies(rates, blocks / blocks.mean())
-    compare_pins(read_pins(core_pins), reference)
+    print("\n".join(assembly_lines(assembly_summary(rates, blocks / blocks.mean()))))
+    print("\n".join(pin_lines(pin_summary(read_pins(core_pins), reference))))
 
 
 def symmetry(core_out: str, core_pins: str) -> None:
@@ -336,11 +530,22 @@ def symmetry(core_out: str, core_pins: str) -> None:
 
 
 def main() -> None:
-    match sys.argv[1:]:
-        case ["keno", problem, spec, out, pins]:
-            keno(problem, spec, out, pins)
-        case ["openmc", out, pins, results]:
-            openmc(out, pins, results)
+    args = sys.argv[1:]
+    match args:
+        case ["--report", path]:
+            summary = json.loads(Path(path).read_text())
+            if summary.get("format") != FORMAT:
+                raise SystemExit(f"{path}: not {FORMAT}")
+            print("\n".join(report(summary)))
+        case ["--json", out, "keno", problem, spec, core_out, pins]:
+            Path(out).write_text(
+                json.dumps(keno(problem, spec, core_out, pins), indent=1) + "\n"
+            )
+        case ["--json", out, "openmc", problem, spec, core_out, pins, results]:
+            Path(out).write_text(
+                json.dumps(openmc(problem, spec, core_out, pins, results), indent=1)
+                + "\n"
+            )
         case ["moc", lattice_out, lattice_pins, out, pins]:
             moc(lattice_out, lattice_pins, out, pins)
         case ["symmetry", out, pins]:

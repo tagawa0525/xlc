@@ -87,6 +87,122 @@ class Draw(unittest.TestCase):
             vt.p3_reference_results([s])
 
 
+def p5_summary(problem: str, kind: str, k: float, ref: float, **extra) -> dict:
+    """compare_p5.py の要約（表に使う項目だけ）"""
+    s = {
+        "format": "xlc-compare-p5",
+        "kind": kind,
+        "problem": problem,
+        "k": {
+            "xlc": k,
+            "reference": ref,
+            "reference_std": 8e-06,
+            "diff_pcm": 1e5 * (k / ref - 1),
+            **extra,
+        },
+        "assemblies": {
+            "relative": {
+                "n": 193,
+                "rms": 0.0166,
+                "max": 0.0463,
+                "at": [1, 11],
+                "name": "D02",
+            },
+            "peripheral": {
+                "n": 56,
+                "rms": 0.0191,
+                "max": 0.0463,
+                "at": [1, 11],
+                "name": "D02",
+            },
+        },
+    }
+    if kind == "openmc":
+        s["pins"] = {
+            "all": {"n": 50952, "rms": 0.0317, "max": 0.5473, "at": [3, 68]},
+            "peripheral": {"n": 14784, "rms": 0.0535, "max": 0.5473, "at": [3, 68]},
+            "max_pin": {"xlc": 1.48451, "reference": 1.43999},
+        }
+    else:
+        s["max_pin"] = {"xlc": 1.48451, "reference": 1.44402}
+    return s
+
+
+class DrawP5(unittest.TestCase):
+    def test_keno_comparison_row_has_rod_worth_from_5a(self):
+        """制御棒の価値は (1/k_5B − 1/k_5A) × 1e5 pcm。5A の行は空欄"""
+        sources = [
+            p5_summary("5A", "keno", 1.00540075, 1.004085),
+            p5_summary("5B", "keno", 0.992924, 0.991496),
+        ]
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in vt.p5_keno_comparison(sources).split("\n")[2:]
+        ]
+        self.assertEqual(
+            rows[0],
+            [
+                "5A-2D",
+                "1.005401",
+                "1.004085",
+                "+131.0",
+                "",
+                "1.66%、+4.6%（D02）",
+                "1.485、1.444",
+            ],
+        )
+        self.assertEqual(rows[1][4], "1250、1265 pcm")
+
+    def test_openmc_comparison_names_the_assembly(self):
+        sources = [
+            p5_summary("5A", "openmc", 1.005401, 1.005459, sigma=2.9),
+        ]
+        row = [
+            c.strip()
+            for c in vt.p5_openmc_comparison(sources)
+            .split("\n")[2]
+            .strip("|")
+            .split("|")
+        ]
+        self.assertEqual(
+            row,
+            [
+                "5A-2D",
+                "\u22125.8",
+                "1.66%、+4.6%（D02）",
+                "3.17%、+55%",
+                "5.35%",
+                "1.485、1.440",
+            ],
+        )
+
+    def test_reference_results_leave_missing_openmc_blank(self):
+        """OpenMC が 5A だけのとき、5B と 5C の OpenMC の列と制御棒の価値（OpenMC）は空欄。k の差は JSON の絶対差 ± σ"""
+        sources = [
+            p5_summary("5A", "keno", 1.005401, 1.004085),
+            p5_summary("5B", "keno", 0.992924, 0.991496),
+            p5_summary(
+                "5A",
+                "openmc",
+                1.005401,
+                1.005459,
+                reference_std=2e-05,
+                diff_keno_pcm=136.84,
+                diff_keno_std_pcm=2.15,
+            ),
+        ]
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in vt.p5_reference_results(sources).split("\n")[2:]
+        ]
+        self.assertEqual(
+            rows[0][:4],
+            ["5A-2D", "1.005459 ± 0.000020", "1.004085 ± 0.000008", "+137 ± 2 pcm"],
+        )
+        self.assertEqual(rows[1][1], "")
+        self.assertEqual(rows[1][5], "1265 ± 1 pcm")
+
+
 class Replace(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

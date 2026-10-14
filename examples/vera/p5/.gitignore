@@ -17,14 +17,12 @@
 /assembly-31-p24.out
 /core-5A-Ly.out
 /core-5A-Ly-pins.msgpack
-/compare-5A-Ly.out
 /core-5A.out
 /core-5A-pins.msgpack
 /core-small-I.out
 /core-small-I-pins.msgpack
 /core-small-step-Lx.out
 /core-small-step-Lx-pins.msgpack
-/compare-5A.out
 /compare-small-step-Lx.out
 /core-small-step-Ly.out
 /core-small-step-Ly-pins.msgpack
@@ -39,9 +37,6 @@
 /core-5C-pins.msgpack
 /core-5A-Inext.out
 /core-5A-Inext-pins.msgpack
-/compare-5A-Inext.out
-/compare-5C.out
-/compare-5B.out
 /core-lattice-I-fstar.out
 /core-lattice-I-fstar-pins.msgpack
 /core-lattice-I-equivalence.out
@@ -57,7 +52,4 @@
 /core-*.log
 /reflector-I-31-p12.out
 /reflector-I-31-p8.out
-/compare-5A-openmc.out
-/compare-5A-Ly-openmc.out
-/compare-5A-Inext-openmc.out
 /openmc-5A-2D-results
