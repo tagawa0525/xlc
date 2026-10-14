@@ -45,7 +45,7 @@ MOX-2 は 1 を 2 に変えて同じように解く。OpenMC は 1 世代 100 �
 ## 結果
 
 xlc は 44128b49（分岐点 d07475d3）、2026-10-14。ライブラリの作り直しと格子計算は Slurm の排他のジョブ 332 で、ほかの例とまとめて流した（時間は書かない）。
-前の値（1f4fcaaf、分岐点 ac8e2f3a）と k は 6 桁で同じ（ADR-0156 の後）。下の燃料の実効断面積の表は、44128b49 の `mox.msgpack` で `fuel_xs` と `compare_capture.py` を b9c48816（分岐点 b23fc2ef）で走らせ直し（手元。lattice の
+前の値（1f4fcaaf、分岐点 ac8e2f3a）と k は 6 桁で同じ。下の燃料の実効断面積の表は、44128b49 の `mox.msgpack` で `fuel_xs` と `compare_capture.py` を b9c48816（分岐点 b23fc2ef）で走らせ直し（手元。lattice の
 コードは 44128b49 と同じ）、表の桁で同じだった。
 
 | 問題  | xlc      | OpenMC              | 差       |
