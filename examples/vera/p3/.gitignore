@@ -47,3 +47,7 @@
 /core-3B-layers.msgpack
 /compare-3B-slab.out
 /compare-3B.out
+/compare-3A-openmc.out
+/compare-3A-openmc.json
+/compare-3B-openmc.out
+/compare-3B-openmc.json

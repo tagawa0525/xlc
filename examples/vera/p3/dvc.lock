@@ -652,8 +652,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 5d01e2aef4cd48ffd4187654fadc1936
-      size: 16187
+      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
+      size: 19327
     - path: core-3B-layers.msgpack
       hash: md5
       md5: 08cf1003570e98a65b894c54869bb754
@@ -685,8 +685,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 5d01e2aef4cd48ffd4187654fadc1936
-      size: 16187
+      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
+      size: 19327
     - path: core-3A-layers.msgpack
       hash: md5
       md5: 51b69b22db4c53e14668670bdf558335
@@ -704,3 +704,113 @@ stages:
       hash: md5
       md5: 76fbbdc28cd0c145aa1a5f150b0d8c7c
       size: 3794
+  compare-3A-openmc:
+    cmd: python3 ../compare_p3.py --json compare-3A-openmc.json 3A 
+      ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack 
+      core-3A-layers.msgpack ../../../references/openmc/aws/m3/openmc-3A > 
+      compare-3A-openmc.out
+    deps:
+    - path: ../../../references/openmc/aws/m3/openmc-3A/k.json
+      hash: md5
+      md5: 67f31788c78a7b084b14a0b7f077cb61
+      size: 75
+    - path: ../../../references/openmc/aws/m3/openmc-3A/layers.msgpack
+      hash: md5
+      md5: fcc219a1ca116f64925fedd303f68430
+      size: 261607
+    - path: ../../../references/openmc/aws/m3/openmc-3A/pins-std.msgpack
+      hash: md5
+      md5: 9cec12be3266d73c21133e33df1cb5d7
+      size: 2683
+    - path: ../../../references/openmc/aws/m3/openmc-3A/pins.msgpack
+      hash: md5
+      md5: 41cd71a07160e7636f835c83d634d343
+      size: 2683
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_keno.py
+      hash: md5
+      md5: fa9fd5eb34c1bad5dbe7ef7a898297a1
+      size: 4292
+    - path: ../compare_p3.py
+      hash: md5
+      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
+      size: 19327
+    - path: core-3A-layers.msgpack
+      hash: md5
+      md5: 51b69b22db4c53e14668670bdf558335
+      size: 131044
+    - path: core-3A-pins.msgpack
+      hash: md5
+      md5: d0050d28b94a6675225055af68602fd3
+      size: 2683
+    - path: core-3A.out
+      hash: md5
+      md5: c9110aca63ada61e91c23e48580adc31
+      size: 2315
+    outs:
+    - path: compare-3A-openmc.json
+      hash: md5
+      md5: 617640f65331ef610121f0b4034d1986
+      size: 14491
+    - path: compare-3A-openmc.out
+      hash: md5
+      md5: 889606ccabcf120ea063504eb245d595
+      size: 14237
+  compare-3B-openmc:
+    cmd: python3 ../compare_p3.py --json compare-3B-openmc.json 3B 
+      ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack 
+      core-3B-layers.msgpack ../../../references/openmc/aws/m3/openmc-3B > 
+      compare-3B-openmc.out
+    deps:
+    - path: ../../../references/openmc/aws/m3/openmc-3B/k.json
+      hash: md5
+      md5: a74d654b2a56c259512e32d30a4501b1
+      size: 74
+    - path: ../../../references/openmc/aws/m3/openmc-3B/layers.msgpack
+      hash: md5
+      md5: 49b428b5a71f1b7358694884c7ae6250
+      size: 261607
+    - path: ../../../references/openmc/aws/m3/openmc-3B/pins-std.msgpack
+      hash: md5
+      md5: a779df250550b08b04533d46d1804d81
+      size: 2683
+    - path: ../../../references/openmc/aws/m3/openmc-3B/pins.msgpack
+      hash: md5
+      md5: f3a82af62d087de4a8f1f7f432f07cbd
+      size: 2683
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_keno.py
+      hash: md5
+      md5: fa9fd5eb34c1bad5dbe7ef7a898297a1
+      size: 4292
+    - path: ../compare_p3.py
+      hash: md5
+      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
+      size: 19327
+    - path: core-3B-layers.msgpack
+      hash: md5
+      md5: 08cf1003570e98a65b894c54869bb754
+      size: 139063
+    - path: core-3B-pins.msgpack
+      hash: md5
+      md5: 2847b5d5a0fe6185d8a444ac553bf977
+      size: 2683
+    - path: core-3B.out
+      hash: md5
+      md5: fafeaefc846b98e1a5a970a764877f85
+      size: 2419
+    outs:
+    - path: compare-3B-openmc.json
+      hash: md5
+      md5: 2e076c0bb98151ffb39c16ed3cc7060e
+      size: 14517
+    - path: compare-3B-openmc.out
+      hash: md5
+      md5: 03715ff53e1827acbdb1d839969805ef
+      size: 14252
