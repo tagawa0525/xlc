@@ -1,0 +1,94 @@
+# 検証用の ENDF/B-VII.0 のライブラリ（xs.toml）で、仕様書に KENO-VI の値がある問題を解き、KENO-VI（ENDF/B-VII.0）と直接
+# 比べる段階（ADR-0175）。ライブラリの段階の形は ../dvc.yaml の xs-range、xs-nuclide、xs と同じ（ADR-0138）。出力は
+# vera.msgpack（この dvc.yaml のあるディレクトリ。格子の入力の `library = "../vera.msgpack"` が、p1、p2、p3 のどれからも
+# ここを指す）。格子の入力は ../p1、../p2 のものを段階の中で p1、p2 に写して使う（写しは git で追跡しない）。
+# 3A、3B は p3/（p3_inputs.py --vii0 が書く）。走らせるのは default の devShell の `dvc repro`（ADR-0159）。
+vars:
+  - xs.toml
+  - pincells:
+      - 1B
+      - 1C
+      - 1D
+  - assemblies:
+      - 2A
+      - 2B
+      - 2C
+      - 2D
+      - 2E
+      - 2F
+      - 2G
+      - 2H
+      - 2I
+      - 2J
+      - 2K
+      - 2Q
+stages:
+  xs-range:
+    cmd: ../../../bin/xs range xs.toml xs-range.toml
+    deps:
+      - xs.toml
+      - ../../../references/endf/ENDF-B-VII.0_neutrons
+      - ../../../bin/xs
+    outs:
+      - xs-range.toml:
+          cache: false
+  xs-nuclide:
+    foreach: ${nuclide}
+    do:
+      cmd: ../../../bin/xs nuclide xs.toml xs-range.toml ${key} xs-nuclides/${key}.msgpack
+      deps:
+        - xs-range.toml
+        - ${endf-directory}/${item.endf}
+        - ${thermal-directory}
+        - ../../../bin/xs
+      params:
+        - xs.toml:
+            - sigma0
+            - scattering-order
+            - nuclide.${key}
+      outs:
+        - xs-nuclides/${key}.msgpack
+  xs:
+    cmd: ../../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
+    deps:
+      - xs.toml
+      - xs-range.toml
+      - xs-nuclides
+      - ../../../bin/xs
+    outs:
+      - vera.msgpack
+  pincell:
+    # ピンセル（k だけ）。結果の k∞ は標準出力に出る
+    foreach: ${pincells}
+    do:
+      cmd: mkdir -p p1 && cp ../p1/pincell-${item}.toml p1/ && ../../../bin/lattice p1/pincell-${item}.toml > p1/lattice-${item}.out && python3 ../compare_keno_lattice.py ../../../references/vera/spec.txt ${item} p1/lattice-${item}.out > p1/compare-${item}.out
+      deps:
+        - ../p1/pincell-${item}.toml
+        - vera.msgpack
+        - ../compare_keno_lattice.py
+        - ../compare_keno.py
+        - ../compare_k.py
+        - ../compare_p3.py
+        - ../../../references/vera/spec.txt
+        - ../../../bin/lattice
+      outs:
+        - p1/lattice-${item}.out
+        - p1/compare-${item}.out
+  assembly:
+    # 集合体（k とピン出力）。ピン出力 pins-<問題>.msgpack は git で追跡しない
+    foreach: ${assemblies}
+    do:
+      cmd: mkdir -p p2 && cp ../p2/assembly-${item}.toml p2/ && ../../../bin/lattice p2/assembly-${item}.toml > p2/lattice-${item}.out && python3 ../compare_keno_lattice.py ../../../references/vera/spec.txt ${item} p2/lattice-${item}.out p2/pins-${item}.msgpack > p2/compare-${item}.out
+      deps:
+        - ../p2/assembly-${item}.toml
+        - vera.msgpack
+        - ../compare_keno_lattice.py
+        - ../compare_keno.py
+        - ../compare_k.py
+        - ../compare_p3.py
+        - ../../../references/vera/spec.txt
+        - ../../../bin/lattice
+      outs:
+        - p2/lattice-${item}.out
+        - p2/pins-${item}.msgpack
+        - p2/compare-${item}.out
