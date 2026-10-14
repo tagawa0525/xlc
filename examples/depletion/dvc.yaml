@@ -154,6 +154,18 @@ stages:
         - lattice-1C-${item}.out
         - lattice-1C-${item}.msgpack
         - lattice-1C-${item}.log
+  lattice-2A:
+    # 集合体の燃焼の時間の内訳（ADR-0173）。1 ステップだけ
+    cmd: ../../bin/lattice lattice-2A.toml > lattice-2A.out 2> lattice-2A.log
+    deps:
+      - lattice-2A.toml
+      - depletion.msgpack
+      - chain.msgpack
+      - ../../bin/lattice
+    outs:
+      - lattice-2A.out
+      - lattice-2A.msgpack
+      - lattice-2A.log
   compare-1C:
     # 比べた要約（記録の表は verification_tables.py がここから描く。ADR-0176）
     foreach: [rings1, rings4]

@@ -1,0 +1,101 @@
+# 格子計算の燃焼（ADR-0173）の時間の内訳を集合体で測る入力: VERA Problem 2A（../vera/p2/assembly-2A.toml と同じ形状、組成、
+# 離散化。燃料、被覆管、減速材 565 K、減速材 0.743 g/cc、ホウ素 1300 ppm）を、ピンごと（1/8 の対称性の組ごと）の燃焼の
+# 領域で、1 ステップ（0.1 MWd/kg、輸送 3 回）だけ燃焼させる。OpenMC との比較はしない。出力密度は lattice-1C-rings1.toml と同じ。
+library = "depletion.msgpack"
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin it  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin gt  pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin gt  pin pin pin pin pin pin pin pin pin gt  pin pin pin",
+  "pin pin pin pin pin gt  pin pin gt  pin pin gt  pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+  "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",
+]
+
+[material.fuel]
+temperature = 565
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 565
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 565
+nuclides = { H-1 = 4.96224e-02, O-16 = 2.48112e-02, B-10 = 1.07070e-05, B-11 = 4.30971e-05 }
+
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[depletion]
+chain = "chain.msgpack"
+power = 38.41
+burnup = [0.1]
+materials = ["fuel"]
+output = "lattice-2A.msgpack"
