@@ -2,6 +2,8 @@
 # VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、
 # 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、
 # OpenMC、最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ
+# compare-5B-openmc と compare-5C-openmc の deps（references/openmc/aws/m3/…）は DVC のステージの出力でなく、`aws_fetch.sh --verify m3` で
+# 取り出したもの。取り出していない checkout では、`dvc repro` はそこで止まる
 stages:
   assembly-21:
     cmd: mkdir -p lattice && ../../../bin/lattice assembly-21.toml > assembly-21.out
@@ -631,6 +633,38 @@ stages:
       - core-5A-Inext-pins.msgpack
     outs:
       - compare-5A-Inext-openmc.json:
+          cache: false
+  compare-5B-openmc:
+    cmd: python3 ../compare_p5.py --json compare-5B-openmc.json openmc 5B ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack ../../../references/openmc/aws/m3/openmc-5B-2D
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - ../../../references/vera/spec.txt
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/k.json
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/assemblies.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/assemblies-std.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/pins.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/pins-std.msgpack
+      - core-5B.out
+      - core-5B-pins.msgpack
+    outs:
+      - compare-5B-openmc.json:
+          cache: false
+  compare-5C-openmc:
+    cmd: python3 ../compare_p5.py --json compare-5C-openmc.json openmc 5C ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack ../../../references/openmc/aws/m3/openmc-5C-2D
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - ../../../references/vera/spec.txt
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/k.json
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/assemblies.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/assemblies-std.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/pins.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/pins-std.msgpack
+      - core-5C.out
+      - core-5C-pins.msgpack
+    outs:
+      - compare-5C-openmc.json:
           cache: false
   hzp-21-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel.toml > 21-fuel.out
