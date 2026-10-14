@@ -2,8 +2,8 @@
 # VERA のピンセル（Problem 1）の物質の核種は examples/vera/xs.toml と同じ評価と温度（燃料の核種と O は 565, 600, 900, 1200 K、
 # 冷却材の H は S(α,β) の 550, 573.6, 600 K、被覆管と冷却材のほかの核種は 565, 600 K）。片方を変えたら他方も直す。
 # 燃焼チェーンの核種は、燃料の核種と同じ 565, 600, 900, 1200 K で作る。組は、NUREG/CR-7108 の燃焼度クレジットの 28 核種（本文は手元で確かめていない）
-# （U-234〜238 のほかのアクチニド 8 と核分裂生成物 16）に、Xe-135 と Sm-149 の経路（I-135、Xe-135、Pm-147、Pm-148、
-# Pm-148m、Pm-149）と、Pu-239 と Cm の経路（Np-239、Am-242m、Cm-242、Cm-244）を足したもの
+# （U-234〜238 のほかのアクチニド 8 と核分裂生成物 16）に、Xe-135 と Sm-149 の経路（I-135、Xe-135、Pm-147、Pm-148m、Pm-149）と、
+# Pu-239 と Cm の経路（Np-239、Am-242m、Cm-242、Cm-244）を足したもの。Pm-148 は非分離共鳴の自己遮蔽が NaN になるので外す（#0127）
 output = "depletion.msgpack"
 endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -230,10 +230,6 @@ temperatures = [565, 600, 900, 1200]
 
 [nuclide.Pm-147]
 endf = "n-061_Pm_147.endf"
-temperatures = [565, 600, 900, 1200]
-
-[nuclide.Pm-148]
-endf = "n-061_Pm_148.endf"
 temperatures = [565, 600, 900, 1200]
 
 [nuclide.Pm-148m]
