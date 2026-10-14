@@ -16,7 +16,8 @@ ssh_sg_id() {
 }
 
 # 自己完結な実行 <name> の S3 の launch.env を LAUNCH_ENV に、入力を RUN_INPUTS（配列）に、定義のパスを RUN_DEFINITION に読み、
-# 定義（S3 の src/ のもの）を def_parse で DEF_* に入れる。なければ止まる
+# 定義（S3 の src/ のもの）を def_parse で DEF_* に入れる。なければ止まる。--allow-no-definition を付けると、DEFINITION のない
+# （定義に対応する前の）実行は RUN_DEFINITION を空にして戻る（一覧を出す aws_status.sh が、古い実行 1 つで止まらないため）
 read_launch_env() {
   LAUNCH_ENV=$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/launch.env" -) ||
     { echo "s3://$XLC_BUCKET/runs/$1/launch.env がありません" >&2; exit 1; }
@@ -24,6 +25,7 @@ read_launch_env() {
   read -r -a RUN_INPUTS <<< "$(launch_env_value INPUTS)"
   # 実行の定義（ADR-0174）は、VM が使った S3 の src/ のもの。なければ（定義の前の実行）読み込みの互換は作らず止まる
   RUN_DEFINITION=$(launch_env_value DEFINITION)
+  if [[ -z $RUN_DEFINITION && ${2:-} == --allow-no-definition ]]; then return 0; fi
   [[ -n $RUN_DEFINITION ]] ||
     { echo "s3://$XLC_BUCKET/runs/$1/launch.env に DEFINITION がありません（実行の定義に対応する前の実行は扱えない。ADR-0174）" >&2; exit 1; }
   def_parse "$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/src/$RUN_DEFINITION" -)"
@@ -91,20 +93,18 @@ job_latest_progress() {
   esac
 }
 
-# 最新の進み具合 <latest>（job_latest_progress の値）が、ジョブの終わりを指すなら 0。<input> は S3 の src/ の入力で、
-# statepoint は入力の batches と最後の世代、steps は complete の内容 <k>/<全ステップ数> の一致で判る
+# 最新の進み具合 <latest>（job_latest_progress の値）が、再開できないジョブの終わりを指すなら 0。<input> は S3 の src/ の入力。
+# statepoint は入力の batches と最後の世代が一致するとき（世代が残っていないので再開できない）。steps は、最後の区間まで
+# 終わっていても再開できる（区間を流さずに extract を流して done を置く）ので、常に 1
 job_progress_finished() { # <name> <job> <latest> <input>
-  local batches complete
+  local batches
   case $DEF_PROGRESS in
     statepoint)
       # 条件の中で呼ばれると set -e が効かないので、失敗は明示して止める
       batches=$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/src/$4" - | input_value "s3://$XLC_BUCKET/runs/$1/src/$4" batches '[1-9][0-9]*') || exit 1
       [[ $3 == "statepoint.$batches.h5" ]]
       ;;
-    steps)
-      complete=$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/$2/run/$3/complete" -) || exit 1
-      [[ $complete =~ ^([0-9]+)/([0-9]+)$ && ${BASH_REMATCH[1]} == "${BASH_REMATCH[2]}" ]]
-      ;;
+    steps) return 1 ;;
   esac
 }
 
