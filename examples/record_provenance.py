@@ -52,6 +52,10 @@ def parse_stage(text: str, stage: str) -> dict:
             section = None
         elif section and (m := re.match(r"    - path: (.+)$", line)):
             path = m.group(1)
+        elif section and re.match(r"    - path:\s*$", line):
+            path = ""  # dvc は長いパスを次の行に折る
+        elif section and path == "" and (m := re.match(r"\s{8}(\S.*)$", line)):
+            path = m.group(1)
         elif (
             section
             and path
