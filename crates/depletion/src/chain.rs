@@ -8,7 +8,7 @@
 //!              decay: {half_life (s), energy: {light, electromagnetic, heavy} (eV),
 //!                      modes: [{mode: "beta-,n", ratio, products: [{nuclide (添字), count}]}]}、安定なら nil,
 //!              reactions: [{mt, channels: [{final_state: {mf, lfs（残りは nil）}（状態に分けないなら nil）, products}]}],
-//!              fission: {yield_source: "U-238", energies: [eV、昇順], yields: [[{nuclide, value}]（エネルギーの順）]}
+//!              fission: {q (eV), yield_source: "U-238", energies: [eV、昇順], yields: [[{nuclide, value}]（エネルギーの順）]}
 //!                       （核分裂しないなら nil）}]}
 //! ```
 //!
@@ -141,6 +141,9 @@ pub struct FinalState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fission {
+    /// 1 回の核分裂の Q 値 (eV)。ENDF の中性子のデータの MF3 MT18 の QI（OpenMC の `Chain.from_endf` と同じ値。出力の
+    /// 規格化に使う。ADR-0173）。収率を借りる核種も自分の値を持つ
+    pub q: f64,
     /// 収率を取った核種（自分の収率がなければ、ADR-0164 の規則で選んだ別の核種）
     pub yield_source: String,
     /// 収率の入射エネルギー (eV)、昇順
@@ -398,6 +401,12 @@ impl Chain {
                 }
             }
             if let Some(fission) = &nuclide.fission {
+                if !(fission.q.is_finite() && fission.q > 0.0) {
+                    return invalid(format!(
+                        "{name}: fission Q must be positive and finite, got {}",
+                        fission.q
+                    ));
+                }
                 // 収率を借りた先は、自分の収率を持つ核分裂する核種
                 let source = self
                     .nuclides
