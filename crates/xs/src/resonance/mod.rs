@@ -2,6 +2,7 @@
 
 mod factors;
 mod fluctuation;
+mod ladder;
 mod line_shape;
 mod linear;
 mod mlbw;
