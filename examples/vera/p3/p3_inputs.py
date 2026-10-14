@@ -807,7 +807,7 @@ def pipeline() -> str:
             )
         )
         # OpenMC の参照解は DVC のステージの出力でない（AWS の VM の実行 m3 から取り出した references/ のファイル）ので、
-        # 比べる 4 つのファイルを deps に書く。表を描くツール（examples/verification_tables.py）が JSON を読む（ADR-0176）。JSON は数 KB の要約で、
+        # 比べる 4 つのファイルを deps に書く。表を描くツール（examples/verification_tables.py）が JSON を読む（ADR-0176）。JSON は数十 KB ほどの要約で、
         # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印）
         openmc = f"../../../references/openmc/aws/m3/openmc-{problem}"
         stages.append(
