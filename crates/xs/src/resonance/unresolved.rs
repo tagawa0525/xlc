@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, width_ratios};
-use super::ladder::{Bondarenko, LadderSequence, bondarenko};
+use super::ladder::{Bondarenko, LadderSequence, Sampling, bondarenko};
 use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof, scattering_radius_at};
 use crate::numeric::NumericError;
 use crate::physics::{BK, wave_number_factor};
@@ -101,13 +101,14 @@ pub struct ShieldedSigma {
 impl UnresolvedXs<'_> {
     /// エネルギー e (eV)、温度 `temperature` (K) での、背景断面積 `sigma0` ごとの実効断面積を、ラダーのサンプリングの
     /// Bondarenko の平均で求める（ADR-0177。`ladder`）。`background` は MF3 の背景断面積（LSSF=1 では MF3 が平均断面積そのもの
-    /// なので 0 を渡す）。乱数は種 `seed` から決まり、同じ種なら温度を変えても同じラダーとエネルギーを使う（温度の間の相関を保つ）。
+    /// なので 0 を渡す）。サンプルの数は `sampling`。乱数は種 `seed` から決まり、同じ種なら温度を変えても同じラダーとエネルギーを使う（温度の間の相関を保つ）。
     pub fn shielded(
         &self,
         e: f64,
         temperature: f64,
         sigma0: &[f64],
         background: Sigma,
+        sampling: Sampling,
         seed: u64,
     ) -> Result<Bondarenko, UrrError> {
         if temperature.is_nan() || temperature <= 0.0 {
@@ -150,7 +151,7 @@ impl UnresolvedXs<'_> {
                 });
             }
         }
-        bondarenko(&sequences, potential, background, sigma0, seed)
+        bondarenko(&sequences, potential, background, sigma0, sampling, seed)
             .map_err(|offset| UrrError::NonPositiveTotal { energy: e, offset })
     }
 
