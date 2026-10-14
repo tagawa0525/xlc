@@ -15,12 +15,20 @@ ssh_sg_id() {
   [[ $SG_ID == sg-* ]] || { echo "セキュリティグループ xlc-ssh が $AWS_DEFAULT_REGION にありません" >&2; exit 1; }
 }
 
-# 自己完結な実行 <name> の S3 の launch.env を LAUNCH_ENV に、入力を RUN_INPUTS（配列）に読む。なければ止まる
+# 自己完結な実行 <name> の S3 の launch.env を LAUNCH_ENV に、入力を RUN_INPUTS（配列）に、定義のパスを RUN_DEFINITION に読み、
+# 定義（S3 の src/ のもの）を def_parse で DEF_* に入れる。なければ止まる。--allow-no-definition を付けると、DEFINITION のない
+# （定義に対応する前の）実行は RUN_DEFINITION を空にして戻る（一覧を出す aws_status.sh が、古い実行 1 つで止まらないため）
 read_launch_env() {
   LAUNCH_ENV=$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/launch.env" -) ||
     { echo "s3://$XLC_BUCKET/runs/$1/launch.env がありません" >&2; exit 1; }
   # shellcheck disable=SC2034 # source した道具が使う
   read -r -a RUN_INPUTS <<< "$(launch_env_value INPUTS)"
+  # 実行の定義（ADR-0174）は、VM が使った S3 の src/ のもの。なければ（定義の前の実行）読み込みの互換は作らず止まる
+  RUN_DEFINITION=$(launch_env_value DEFINITION)
+  if [[ -z $RUN_DEFINITION && ${2:-} == --allow-no-definition ]]; then return 0; fi
+  [[ -n $RUN_DEFINITION ]] ||
+    { echo "s3://$XLC_BUCKET/runs/$1/launch.env に DEFINITION がありません（実行の定義に対応する前の実行は扱えない。ADR-0174）" >&2; exit 1; }
+  def_parse "$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/src/$RUN_DEFINITION" -)"
 }
 
 # LAUNCH_ENV の <key> の値（launch.env は aws_run.sh が KEY=値 の行で書く。INPUTS だけ引用符つき）
@@ -59,20 +67,131 @@ s3_runs() {
   [[ $out == None ]] || tr '\t' '\n' <<< "$out" | sed 's#^runs/##; s#/$##'
 }
 
-# S3 の runs/<name>/<job>/run/ の statepoint のうち最新のファイル名。なければ空
-job_latest_statepoint() {
-  local keys
-  keys=$(s3_keys "runs/$1/$2/run/statepoint.") || exit 1
-  sed -n 's#.*/\(statepoint\.[0-9]*\.h5\)$#\1#p' <<< "$keys" | sort -t. -k2 -n | tail -1
+# 標準入力の TOML（入力）から、<key> = <値> の行の値を読む。値は <正規表現> の形（と行末のコメント）に限り、それ以外の書き方
+# （2_500、複数行など。TOML として正しくても）は読み違えないよう止まる。読むのは起動の前の確認だけで、VM は tomllib で読む
+input_value() { # <名前（表示用）> <key> <値の正規表現>
+  local line
+  line=$(grep -E "^$2[[:space:]]*=" || true)
+  [[ $(wc -l <<< "$line") == 1 && $line =~ ^$2[[:space:]]*=[[:space:]]*($3)[[:space:]]*(#.*)?$ ]] ||
+    { echo "$1: $2 の行を読めません（$line）" >&2; exit 1; }
+  echo "${BASH_REMATCH[1]}"
 }
 
-# ジョブの名前から、run と extract を行うスクリプト（run_remote.sh の case と同じ対応。VM の上では run_remote.sh が選ぶ）。
-# 知らない名前なら空
-job_script() {
-  case $1 in
-    openmc-3?) echo examples/vera/openmc_model_3d.py ;;
-    openmc-5?-2D) echo examples/vera/openmc_core_2d.py ;;
+# S3 の runs/<name>/<job>/run/ の進み具合のうち最新のもの（定義の progress による。read_launch_env のあとに呼ぶ）。なければ空
+#   statepoint: statepoint.<世代>.h5（ADR-0168）   steps: 完了の印 complete のある区間 step-<k>（ADR-0174）
+job_latest_progress() {
+  local keys
+  case $DEF_PROGRESS in
+    statepoint)
+      keys=$(s3_keys "runs/$1/$2/run/statepoint.") || exit 1
+      sed -n 's#.*/\(statepoint\.[0-9]*\.h5\)$#\1#p' <<< "$keys" | sort -t. -k2 -n | tail -1
+      ;;
+    steps)
+      keys=$(s3_keys "runs/$1/$2/run/step-") || exit 1
+      sed -n 's#.*/\(step-[0-9]*\)/complete$#\1#p' <<< "$keys" | sort -t- -k2 -n | tail -1
+      ;;
   esac
+}
+
+# 最新の進み具合 <latest>（job_latest_progress の値）が、再開できないジョブの終わりを指すなら 0。<input> は S3 の src/ の入力。
+# statepoint は入力の batches と最後の世代が一致するとき（世代が残っていないので再開できない）。steps は、最後の区間まで
+# 終わっていても再開できる（区間を流さずに extract を流して done を置く）ので、常に 1
+job_progress_finished() { # <name> <job> <latest> <input>
+  local batches
+  case $DEF_PROGRESS in
+    statepoint)
+      # 条件の中で呼ばれると set -e が効かないので、失敗は明示して止める
+      batches=$(aws s3 cp "s3://$XLC_BUCKET/runs/$1/src/$4" - | input_value "s3://$XLC_BUCKET/runs/$1/src/$4" batches '[1-9][0-9]*') || exit 1
+      [[ $3 == "statepoint.$batches.h5" ]]
+      ;;
+    steps) return 1 ;;
+  esac
+}
+
+# 実行の定義（examples/<問題>/aws.toml。ADR-0174）の本文 <text> を読み、次の変数に入れる。キーの綴りや形が違えば止まる。
+#   DEF_TOOLS（配列）  VM の src/ に置く道具（リポジトリの直下からの相対。入口 DEF_ENTRY と定義自身は含めない）
+#   DEF_ENTRY          VM が流す入口のスクリプト
+#   DEF_PROGRESS       進み具合の種類（statepoint か steps）
+#   DEF_LIBRARY        OpenMC のライブラリのディレクトリ（cross_sections.xml と全 path= のファイルがある）
+#   DEF_DATA（配列）   そのほかの入力ファイル（省略できる）
+#   DEF_JOBS           受け付けるジョブ名（入力の basename から .toml を除いたもの）の正規表現
+# TOML の部分集合だけを読む: 「キー = 値」の行、値は "文字列"（英数字と ._/-。絶対パスと .. は不可）、その配列（複数行にできる）、
+# jobs だけは '正規表現'。# 以降はコメントなので、値に # は使えない。戻りの値でなく exit で止まるので、条件の中で呼ばない
+def_parse() {
+  local text=$1 line buf='' key value inner part seen=' ' re rc
+  # shellcheck disable=SC2034 # source した道具が使う
+  DEF_TOOLS=() DEF_ENTRY='' DEF_PROGRESS='' DEF_LIBRARY='' DEF_DATA=() DEF_JOBS=''
+  while IFS= read -r line; do
+    line=${line%%#*}
+    [[ -n $buf || ! $line =~ ^[[:space:]]*$ ]] || continue
+    buf+="${buf:+ }$line"
+    # 配列は ] で閉じるまで次の行を足す
+    if [[ $buf =~ ^[[:space:]]*[a-z_]+[[:space:]]*=[[:space:]]*\[ && ! $buf =~ \][[:space:]]*$ ]]; then continue; fi
+    [[ $buf =~ ^[[:space:]]*([a-z_]+)[[:space:]]*=[[:space:]]*(.*[^[:space:]])[[:space:]]*$ ]] ||
+      { echo "実行の定義: 読めない行です: $buf" >&2; exit 1; }
+    key=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]} buf=''
+    [[ $seen != *" $key "* ]] || { echo "実行の定義: $key が重複しています" >&2; exit 1; }
+    seen+="$key "
+    case $key in
+      tools | data)
+        [[ $value =~ ^\[[[:space:]]*(.*[^,[:space:]])?[[:space:]]*,?[[:space:]]*\]$ ]] ||
+          { echo "実行の定義: $key は文字列の配列です: $value" >&2; exit 1; }
+        inner=${BASH_REMATCH[1]}
+        local -a items=()
+        if [[ -n $inner ]]; then
+          while IFS= read -r part; do
+            def_path_string "$key" "$part"
+            items+=("$DEF_STR")
+          done < <(tr ',' '\n' <<< "$inner")
+        fi
+        # shellcheck disable=SC2034 # source した道具が使う
+        if [[ $key == tools ]]; then DEF_TOOLS=("${items[@]}"); else DEF_DATA=("${items[@]}"); fi
+        ;;
+      entry) def_path_string entry "$value"; DEF_ENTRY=$DEF_STR ;;
+      library) def_path_string library "$value"; DEF_LIBRARY=$DEF_STR ;;
+      progress)
+        def_path_string progress "$value"
+        [[ $DEF_STR == statepoint || $DEF_STR == steps ]] ||
+          { echo "実行の定義: progress は \"statepoint\" か \"steps\": $value" >&2; exit 1; }
+        DEF_PROGRESS=$DEF_STR
+        ;;
+      jobs)
+        [[ $value =~ ^\'([^\']+)\'$ ]] || { echo "実行の定義: jobs は '正規表現': $value" >&2; exit 1; }
+        re=${BASH_REMATCH[1]} rc=0
+        # [[ =~ ]] は一致しなければ 1、正規表現が不正なら 2
+        # shellcheck disable=SC2319
+        [[ x =~ $re ]] || rc=$?
+        ((rc != 2)) || { echo "実行の定義: jobs が正規表現として読めません: $re" >&2; exit 1; }
+        DEF_JOBS=$re
+        ;;
+      *) echo "実行の定義: 知らないキー $key" >&2; exit 1 ;;
+    esac
+  done <<< "$text"
+  [[ -z $buf ]] || { echo "実行の定義: 配列が閉じていません: $buf" >&2; exit 1; }
+  ((${#DEF_TOOLS[@]})) && [[ -n $DEF_ENTRY && -n $DEF_PROGRESS && -n $DEF_LIBRARY && -n $DEF_JOBS ]] ||
+    { echo "実行の定義: tools（1 つ以上）、entry、progress、library、jobs が要ります" >&2; exit 1; }
+}
+
+# 定義の値 <値> を "文字列" として読み、リポジトリの直下からの相対のパスなら DEF_STR に入れる。<key> はエラーの表示用
+def_path_string() {
+  local value=${2#"${2%%[![:space:]]*}"}
+  value=${value%"${value##*[![:space:]]}"}
+  [[ $value =~ ^\"([A-Za-z0-9._/-]+)\"$ ]] || { echo "実行の定義: $1 の値は \"文字列\"（英数字と ._/-）: $2" >&2; exit 1; }
+  DEF_STR=${BASH_REMATCH[1]}
+  [[ $DEF_STR != /* && /$DEF_STR/ != */../* ]] ||
+    { echo "実行の定義: $1 はリポジトリの直下からの相対のパスにしてください（絶対パスと .. は不可）: $DEF_STR" >&2; exit 1; }
+}
+
+# 入力 <path> から上のディレクトリへたどって、aws.toml のある最初のものを出す（リポジトリの直下から走らせる）。なければ止まる
+def_find() {
+  local d
+  d=$(dirname "$1")
+  while [[ $d != . && $d != / ]]; do
+    if [[ -f $d/aws.toml ]]; then echo "$d/aws.toml"; return 0; fi
+    d=$(dirname "$d")
+  done
+  echo "$1: 実行の定義（入力の親のディレクトリにある aws.toml。ADR-0174）がありません" >&2
+  exit 1
 }
 
 # AZ <az> の default サブネットの ID を SUBNET_ID に入れる（現在のリージョンの AZ でなければ、なければ止まる）。

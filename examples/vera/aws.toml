@@ -1,0 +1,16 @@
+# VERA の OpenMC の参照解（Problem 3 と 5-2D）の AWS の実行の定義（ADR-0174）。examples/aws/aws_run.sh が入力の親のディレクトリから
+# 探す。tools は VM の src/ に置く道具で、入口（entry）と定義自身は含めない。
+tools = [
+  "examples/openmc_common.py",
+  "examples/openmc_input.py",
+  "examples/openmc_run.py",
+  "examples/openmc_resume.py",
+  "examples/vera/openmc_tallies.py",
+  "examples/vera/openmc_model.py",
+  "examples/vera/openmc_model_3d.py",
+  "examples/vera/openmc_core_2d.py",
+]
+entry = "examples/vera/run_remote.sh"
+progress = "statepoint"
+library = "examples/vera/openmc-library"
+jobs = '^openmc-(3.|5.-2D)$'

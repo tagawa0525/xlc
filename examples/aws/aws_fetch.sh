@@ -2,7 +2,7 @@
 # aws_run.sh で流した実行の結果を S3 から取り出し、検証し、S3 から消す（ADR-0155、docs/environment.md の「自己完結な実行」）。
 # リポジトリの直下から走らせる。
 #
-# 使い方: examples/vera/aws_fetch.sh [--dry-run] [--verify] [--delete] [--dest <置き場>] <name>
+# 使い方: examples/aws/aws_fetch.sh [--dry-run] [--verify] [--delete] [--dest <置き場>] <name>
 #   取り出す: S3 の runs/<name>/ の src/（VM が使ったスクリプトと入力）と、完了したジョブの結果（最後の世代の statepoint、
 #            summary.h5、k.json など、log、boot-*.log）を <置き場>/ に写し、ジョブごとの SHA256SUMS で検証する
 #   --verify  さらに、VM と同じ Python（launch.env の PYTHON。手元の store にあること）で取り出した statepoint から extract し、
@@ -33,7 +33,7 @@ while (($#)); do
 done
 [[ -n $name ]] || { usage; exit 2; }
 ((!delete || verify)) || { echo "--delete には --verify が要ります（検証してから消す）" >&2; exit 2; }
-[[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から走らせてください" >&2; exit 1; }
+[[ -f flake.nix && -d examples/aws ]] || { echo "リポジトリの直下から走らせてください" >&2; exit 1; }
 # shellcheck source=aws_common.sh
 source "$(dirname "$0")/aws_common.sh"
 dest=${dest:-references/openmc/aws/$name}
@@ -72,8 +72,8 @@ if ((verify)); then
   trap 'rm -rf "$check"' EXIT
   for input in "${done_inputs[@]}"; do
     job=$(job_name "$input")
-    script=$(job_script "$job")
-    [[ -n $script ]] || { echo "$job: extract の道具が分かりません" >&2; exit 1; }
+    # extract の道具は定義の入口に問い合わせる（入口が選ぶ道具と同じものを使う。ADR-0174）
+    script=$(bash "$dest/src/$DEF_ENTRY" --extract-script "$input") || { echo "$job: extract の道具が分かりません" >&2; exit 1; }
     rm -rf "${check:?}"/*
     "$python" "$dest/src/$script" extract "$dest/src/$input" "$dest/$job/run" "$check" > /dev/null
     n=0

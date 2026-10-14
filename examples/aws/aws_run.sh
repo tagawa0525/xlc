@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # OpenMC の参照解を、1 つの入力に 1 台の EC2 のスポットで自己完結に流す（ADR-0155、docs/environment.md の「自己完結な実行」）。
-# VM は user-data（aws_user_data.sh）で Nix と閉包、核データ、入力を S3 から取り、run_remote.sh で流し、S3 の
+# VM は user-data（aws_user_data.sh）で Nix と閉包、核データ、入力を S3 から取り、定義の入口（entry）で流し、S3 の
 # runs/<name>/<ジョブ>/ に同期し、終わると自分を終了する。手元はこのコマンドのあと要らない。
 #
-# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--statepoint-interval N] [--az AZ] [--on-demand | --spot] [--job J]... [--retry-failed] <name> [<入力>...]
+# 使い方: examples/aws/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--statepoint-interval N] [--az AZ] [--on-demand | --spot] [--job J]... [--retry-failed] <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
+#              入力の親のディレクトリの aws.toml が実行の定義（道具、入口、ライブラリ、データ、受け付けるジョブ名。ADR-0174）。
+#              1 つの実行の入力は同じ定義にする。定義は src/ に置き、launch.env に DEFINITION= で残す
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。閉包、核データ、スクリプトと入力を S3 に置く
-#              入力を省くと起動し直し: S3 の runs/<name>/launch.env と入力を使い、道具（run_remote.sh、openmc_*.py。新しい実行が
+#              入力を省くと起動し直し: S3 の runs/<name>/launch.env と入力、定義を使い、道具（定義の tools と entry。新しい実行が
 #              src/ に置くものと同じ）は手元の作業ツリーの版を src/ に置き直してから、done のないジョブを起動する（入力と
 #              launch.env は書き換えない。道具の版は launches/ の TOOLS_COMMIT）。statepoint があれば --restart で続ける。
 #              VM が走っているジョブは飛ばす。done が 0 でないジョブ（失敗）と、最後の世代の statepoint があって done のない
@@ -37,7 +39,7 @@
 set -euo pipefail
 here=$(dirname "$0")
 
-usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'; }
 dry=0
 type=
 max_hours=
@@ -94,44 +96,36 @@ launch_region=${AWS_REGION:-$AWS_DEFAULT_REGION}
   { echo "バケット $XLC_BUCKET は $bucket_region、起動のリージョンは $launch_region（AWS_REGION か AWS_DEFAULT_REGION を合わせる）" >&2; exit 1; }
 
 # VM は AWS CLI を cache.nixos.org から取る（自前の cache は AWS CLI がないと取れない）。なければ VM は S3 に何も置けずに止まる
-# 標準入力の TOML（入力）から、<key> = <値> の行の値を読む。値は <正規表現> の形（と行末のコメント）に限り、それ以外の書き方
-# （2_500、複数行など。TOML として正しくても）は読み違えないよう止まる。読むのは起動の前の確認だけで、VM は tomllib で読む
-input_value() { # <名前（表示用）> <key> <値の正規表現>
-  local line
-  line=$(grep -E "^$2[[:space:]]*=" || true)
-  [[ $(wc -l <<< "$line") == 1 && $line =~ ^$2[[:space:]]*=[[:space:]]*($3)[[:space:]]*(#.*)?$ ]] ||
-    { echo "$1: $2 の行を読めません（$line）" >&2; exit 1; }
-  echo "${BASH_REMATCH[1]}"
-}
-
 require_public_awscli() {
   nix path-info --store https://cache.nixos.org "$1" > /dev/null 2>&1 ||
     { echo "$1 が cache.nixos.org にありません（VM が AWS CLI を取れない）" >&2; exit 1; }
 }
 
 clear_done=()
-# VM が実行する道具（src/ に置く。新しい実行も起動し直しも同じ集合）
-tool_files=(
-  examples/openmc_common.py
-  examples/openmc_input.py
-  examples/openmc_run.py
-  examples/openmc_resume.py
-  examples/vera/openmc_tallies.py
-  examples/vera/openmc_model.py
-  examples/vera/openmc_model_3d.py
-  examples/vera/openmc_core_2d.py
-  examples/vera/run_remote.sh
-)
 
 if ((${#inputs[@]})); then
   # 新しい実行
-  [[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から走らせてください" >&2; exit 1; }
-  [[ -f examples/vera/openmc-library/cross_sections.xml ]] ||
-    { echo "examples/vera/openmc-library がありません（dvc checkout examples/vera/dvc.yaml）" >&2; exit 1; }
+  [[ -f flake.nix && -d examples/aws ]] || { echo "リポジトリの直下から走らせてください" >&2; exit 1; }
+  # 入力が決める実行の定義（ADR-0174）。1 つの実行の入力は同じ定義のもの
+  def_file=$(def_find "${inputs[0]}")
+  for input in "${inputs[@]}"; do
+    [[ $(def_find "$input") == "$def_file" ]] || { echo "$input: 入力の実行の定義が $def_file と違います（1 つの実行の入力は同じ定義にする）" >&2; exit 1; }
+  done
+  def_parse "$(cat "$def_file")"
+  # VM が実行する道具（src/ に置く。新しい実行も起動し直しも同じ集合。定義の自身は新しい実行だけ）
+  tool_files=("${DEF_TOOLS[@]}" "$DEF_ENTRY")
+  [[ -f $DEF_LIBRARY/cross_sections.xml ]] ||
+    { echo "$DEF_LIBRARY/cross_sections.xml がありません（dvc checkout で戻す）" >&2; exit 1; }
   # 一部だけ checkout されたライブラリを置かない（VM で OpenMC が核データを読むときに初めて失敗する）
   while read -r f; do
-    [[ -f examples/vera/openmc-library/$f ]] || { echo "examples/vera/openmc-library/$f がありません（dvc checkout examples/vera/dvc.yaml）" >&2; exit 1; }
-  done < <(sed -n 's/.* path="\([^"]*\)".*/\1/p' examples/vera/openmc-library/cross_sections.xml)
+    [[ -f $DEF_LIBRARY/$f ]] || { echo "$DEF_LIBRARY/$f がありません（dvc checkout で戻す）" >&2; exit 1; }
+  done < <(sed -n 's/.* path="\([^"]*\)".*/\1/p' "$DEF_LIBRARY/cross_sections.xml")
+  # 定義の data のファイル。鍵は内容のハッシュ（同じファイルは 1 度だけ置く）
+  data_pairs=()
+  for f in "${DEF_DATA[@]}"; do
+    [[ -f $f ]] || { echo "$f がありません（定義 $def_file の data。dvc checkout で戻す）" >&2; exit 1; }
+    data_pairs+=("$f=$(sha256sum "$f" | cut -c1-16)")
+  done
   keys=$(s3_keys "runs/$name/")
   if [[ -n $keys ]]; then
     echo "$run_prefix/ はすでにあります。起動し直すなら入力を省く。やり直すなら別の名前にする（古い実行を消すなら" \
@@ -144,14 +138,14 @@ if ((${#inputs[@]})); then
     [[ $input != /* && /$input/ != */../* ]] || { echo "$input: リポジトリの直下からの相対パスにしてください" >&2; exit 1; }
     [[ $input =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "$input: 使えない文字があります（英数字と ._/-）" >&2; exit 1; }
     [[ -f $input ]] || { echo "$input がありません" >&2; exit 1; }
-    # run_remote.sh が受け付ける名前（VM に上げてから断られないように、置く前に確かめる）
-    [[ -n $(job_script "$(job_name "$input")") ]] ||
-      { echo "$input: Problem 3（openmc-3?）か 5-2D（openmc-5?-2D）の入力ではありません" >&2; exit 1; }
-    # VM に置くのは examples/vera/openmc-library だけなので、入力の cross-sections はそこを指すこと
+    # 定義の jobs に合う名前（VM に上げてから断られないように、置く前に確かめる）
+    [[ $(job_name "$input") =~ $DEF_JOBS ]] ||
+      { echo "$input: ジョブ名 $(job_name "$input") が定義 $def_file の jobs（$DEF_JOBS）に合いません" >&2; exit 1; }
+    # VM に置くのは定義の library だけなので、入力の cross-sections はそこを指すこと
     xs=$(input_value "$input" cross-sections '"[^"\\]*"' < "$input")
     xs=${xs//\"/}
-    [[ $(realpath -m "$(dirname "$input")/$xs") == "$(realpath examples/vera/openmc-library/cross_sections.xml)" ]] ||
-      { echo "$input: cross-sections（$xs）が examples/vera/openmc-library/cross_sections.xml を指しません" >&2; exit 1; }
+    [[ $(realpath -m "$(dirname "$input")/$xs") == "$(realpath "$DEF_LIBRARY/cross_sections.xml")" ]] ||
+      { echo "$input: cross-sections（$xs）が $DEF_LIBRARY/cross_sections.xml を指しません" >&2; exit 1; }
     jobs+=("$(job_name "$input")")
     live=$(live_instance "$name-${jobs[-1]}")
     [[ -z $live ]] || { echo "$name-${jobs[-1]} の VM が走っています" >&2; exit 1; }
@@ -169,7 +163,7 @@ if ((${#inputs[@]})); then
     { echo "閉包の出力が 1 つの store のパスでない: $openmc $python" >&2; exit 1; }
   # 鍵は内容のハッシュ。同じ閉包と核データは 1 度だけ置く
   closure=$(printf '%s\n' "$openmc" "$python" | sha256sum | cut -c1-16)
-  library=$(cd examples/vera/openmc-library && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16)
+  library=$(cd "$DEF_LIBRARY" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16)
   commit=$(git rev-parse HEAD)
   # 追跡していない入力（trials/ など。git status は無視したファイルを出さない）もコミットから再現できないので dirty
   if [[ -n $(git status --porcelain) ]] || ! git ls-files --error-unmatch "${inputs[@]}" > /dev/null 2>&1; then
@@ -179,7 +173,7 @@ if ((${#inputs[@]})); then
   src=$(mktemp -d)
   cache=$(mktemp -d)
   trap 'rm -rf "$src" "$cache"' EXIT
-  files=("${tool_files[@]}" "${inputs[@]}")
+  files=("${tool_files[@]}" "$def_file" "${inputs[@]}")
   for f in "${files[@]}"; do [[ -f $f ]] || { echo "$f がありません" >&2; exit 1; }; done
   cp --parents "${files[@]}" "$src/"
   cat > "$src/launch.env" <<ENV
@@ -190,7 +184,9 @@ AWSCLI=$awscli
 CLOSURE=$closure
 LIBRARY=$library
 INPUTS="${inputs[*]}"
+DEFINITION=$def_file
 ENV
+  ((${#data_pairs[@]} == 0)) || echo "DATA=\"${data_pairs[*]}\"" >> "$src/launch.env"
   echo "== 実行 $name（$commit）"
   cat "$src/launch.env"
 
@@ -199,7 +195,11 @@ ENV
     nix copy --quiet --to "file://$cache?compression=zstd" "$openmc" "$python"
     # ファイル名は内容で決まるので大きさだけで比べる（作り直した cache は mtime が新しく、既定の比較では全部を送り直す）
     aws s3 sync --only-show-errors --size-only "$cache" "s3://$XLC_BUCKET/store/nix/$closure"
-    aws s3 sync --only-show-errors --size-only examples/vera/openmc-library "s3://$XLC_BUCKET/store/openmc-library/$library"
+    aws s3 sync --only-show-errors --size-only "$DEF_LIBRARY" "s3://$XLC_BUCKET/store/openmc-library/$library"
+    for pair in "${data_pairs[@]}"; do
+      f=${pair%=*} key=${pair#*=}
+      [[ -n $(s3_keys "store/data/$key/$(basename "$f")") ]] || aws s3 cp --only-show-errors "$f" "s3://$XLC_BUCKET/store/data/$key/$(basename "$f")"
+    done
     aws s3 sync --only-show-errors --exclude launch.env "$src" "$run_prefix/src"
     # launch.env は最後に置く（あれば src/ と store/ はそろっている）
     aws s3 cp --only-show-errors "$src/launch.env" "$run_prefix/launch.env"
@@ -212,11 +212,15 @@ else
   read_launch_env "$name"
   openmc=$(launch_env_value OPENMC) python=$(launch_env_value PYTHON) awscli=$(launch_env_value AWSCLI)
   closure=$(launch_env_value CLOSURE) library=$(launch_env_value LIBRARY)
+  read -r -a data_pairs <<< "$(launch_env_value DATA)"
+  tool_files=("${DEF_TOOLS[@]}" "$DEF_ENTRY")
   all_jobs=()
   for input in "${RUN_INPUTS[@]}"; do all_jobs+=("$(job_name "$input")"); done
   for want in "${jobs[@]}"; do
     grep -Fxq -- "$want" <<< "$(printf '%s\n' "${all_jobs[@]}")" || { echo "--job $want というジョブはない（${all_jobs[*]}）" >&2; exit 2; }
   done
+  [[ $DEF_PROGRESS != steps || -z $interval ]] ||
+    { echo "--statepoint-interval は progress = \"steps\" の実行では指定できない（定義 $RUN_DEFINITION）" >&2; exit 2; }
   require_public_awscli "$awscli"
   echo "== 起動し直し $name（$(launch_env_value COMMIT)）"
   # 指定のない --type、--max-hours、--sync-minutes は、最後の起動の記録の値を使う（起動し直しで黙って設定を変えない）
@@ -270,16 +274,11 @@ else
       echo "$job: VM が走っているので飛ばす"
       continue
     fi
-    latest=$(job_latest_statepoint "$name" "$job")
-    # 最後の世代の statepoint があって done がないのは、完了したあと done を置く前に止まったとき。OpenMC はそこから再開
-    # できない（世代が残っていない）ので、起動しない
-    batches=
-    if [[ -n $latest ]]; then
-      src_input=$(aws s3 cp "$run_prefix/src/$input" -)
-      batches=$(input_value "$run_prefix/src/$input" batches '[1-9][0-9]*' <<< "$src_input")
-    fi
-    if [[ -n $batches && $latest == "statepoint.$batches.h5" ]]; then
-      echo "$job: 最後の世代の statepoint があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
+    latest=$(job_latest_progress "$name" "$job")
+    # 最後の進み具合（最後の世代の statepoint、最後の区間）があって done がないのは、完了したあと done を置く前に止まったとき。
+    # そこから再開できない（statepoint は世代が残っていない）ので、起動しない
+    if [[ -n $latest ]] && job_progress_finished "$name" "$job" "$latest" "$input"; then
+      echo "$job: 最後の進み具合（$latest）があり done がない（完了のあと done を置く前に止まった）。$run_prefix/$job/ の" \
         "SHA256SUMS と boot-*.log を確かめ、そろっていれば echo 0 | aws s3 cp - $run_prefix/$job/done で完了にする" >&2
       stuck=1
       continue
@@ -359,7 +358,7 @@ fi
 if ((${#inputs[@]} == 0)); then
   # 道具は手元の版に合わせる（S3 の src/ は最初の起動の版で、新しい引数を知らない。入力と launch.env は実行の定義なので書き換えない）
   root=$(cd "$here/../.." && pwd)
-  [[ -f $root/flake.nix && -d $root/examples/vera ]] || { echo "リポジトリの中の aws_run.sh を使ってください（$root）" >&2; exit 1; }
+  [[ -f $root/flake.nix && -d $root/examples/aws ]] || { echo "リポジトリの中の aws_run.sh を使ってください（$root）" >&2; exit 1; }
   for f in "${tool_files[@]}"; do [[ -f $root/$f ]] || { echo "$root/$f がありません" >&2; exit 1; }; done
   if ((dry)); then
     echo "道具 ${#tool_files[@]} 個を $run_prefix/src/ に置き直す（--dry-run なので置かない）"
@@ -377,7 +376,7 @@ for i in "${!todo[@]}"; do
   job=$(job_name "$input")
   host=$name-$job
   user_data=$(aws_user_data "$bucket_region" "$XLC_BUCKET" "$name" "$job" "$input" "${restart_flags[$i]}" $((max_hours * 60)) \
-    $((sync_minutes * 60)) "$library" "$closure" "$openmc" "$python" "$awscli" "$interval")
+    $((sync_minutes * 60)) "$library" "$closure" "$openmc" "$python" "$awscli" "$interval" "$DEF_ENTRY" "$DEF_PROGRESS" "$DEF_LIBRARY" "${data_pairs[*]}")
   launched=0
   for c in "${cands[@]}"; do
     read -r rank cost ctype caz cprice cspeed <<< "$c"
@@ -437,6 +436,6 @@ for i in "${!todo[@]}"; do
     no_capacity=1
   fi
 done
-((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
+((dry)) || echo "進み具合: examples/aws/aws_status.sh、終わったら examples/aws/aws_fetch.sh $name"
 ((!no_capacity)) || exit 1
 exit "${stuck:-0}"
