@@ -377,7 +377,7 @@ def depletion(changes: list[float], rings: int = 1) -> dict:
                 "shielding": 90.1,
                 "moc": 3.52,
                 "rates": 0.018,
-                "matrix": 0.185,
+                "matrix": 0.186,
                 "cram": 0.283,
                 "solves": 13,
             },
