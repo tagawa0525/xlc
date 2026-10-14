@@ -98,7 +98,7 @@ M2 までで、燃料と案内管だけの 17×17 集合体を格子計算で解
    [ADR-0141](../adr/0141-use-medium-b1-diffusion-in-slab-fuel-nodes.md)）と KENO との比較は済み（examples/vera/verification.md の
    「Problem 3 の炉心の計算」。k の差は 3A で +84 pcm、3B で +193 pcm）。OpenMC との比較は #0073 の本番の後（#0030）。
    Problem 5 の計算の仕組み: 臨界ホウ素濃度の探索（ADR-0145）、名前つきの状態を並列に解くケースと、実測値と KENO-VI の値と比べるツール examples/vera/p5/compare_hzp.py
-   （ADR-0146）は済。3D の全炉心の入力（炉心の形、軸方向の層、定数、バンクの位置）は #0092。5-2D の全炉心の入力と段階、
+   （ADR-0146）は済。3D の全炉心の入力と段階（examples/vera/p5/hzp、分岐の 8 状態は [ADR-0154](../adr/0154-tabulate-p5-states-at-boron-and-isothermal-ends.md)）と、KENO-VI と実測値との比較は済み（examples/vera/verification.md の「Problem 5 の 3D の炉心の計算」。k は KENO-VI に +148〜+194 pcm、臨界ホウ素濃度は実測に +15、+19 ppm、ITC は KENO-VI に +0.03 pcm/°F。薄いノードの扱いは #0123、反射体の格子の燃料の温度の軸は #0121）。5-2D の全炉心の入力と段階、
    KENO-VI との比較は 5da6c0fb（examples/vera/verification.md の「Problem 5-2D の炉心の計算」。k は +235〜+294 pcm、集合体出力の
    RMS 4〜5% で中心が低く外周が高い。原因の切り分けは #0086）。OpenMC の参照解との比較は #0073 の本番のあと。L 型の位置の
    近似の大きさは #0029。Problem 4 は未着手）

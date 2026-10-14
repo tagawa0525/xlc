@@ -1,0 +1,46 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 最小の入力の 2D の炉心の形。中央の D バンクは AIC だけの棒で、0 ステップで層全体、1 ステップで層の外
+pitch = 21.5
+height = 21.5
+map = [
+  "C@90  E@90  I@90  N     C",
+  "N@90  *     *     *     E",
+  "I@180 *     *     *     I",
+  "E@180 *     *     *     N@270",
+  "C@180 N@180 I@270 E@270 C@270",
+]
+
+[reflector.C]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-31-fuel.msgpack"]
+
+[reflector.E]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-31-fuel-right.msgpack"]
+
+[reflector.I]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-I-31-fuel.msgpack"]
+
+[reflector.N]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-31-fuel-top.msgpack"]
+
+[rods]
+step = 21.5
+bottom = 0.0
+steps = 1
+top = 21.5
+map = [
+  ". . . . .",
+  ". . . . .",
+  ". . D . .",
+  ". . . . .",
+  ". . . . .",
+]
+
+[rods.bank.D]
+type = "aic"
+
+[rods.type.aic]
+segments = [{ value = "aic", length = 21.5 }]
