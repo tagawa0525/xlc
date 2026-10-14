@@ -203,7 +203,7 @@ KENO-VI の値は仕様書の表 P3-4、径方向のピン出力（1/8）は付�
 
 3A と 3B（3D の単一集合体、零出力）を xlc の格子計算と炉心の計算（NEM）で解き、仕様書の KENO-VI（ENDF/B-VII.0）の値と
 比べる。入力と段階は `p3/p3_inputs.py` が書き、`dvc repro examples/vera/p3/dvc.yaml` で実行する（ADR-0123）。数値は
-44128b49（分岐点 4b644566）、2026-10-14。ライブラリ（`../dvc.yaml` の xs）とともに Slurm で排他で流した（ジョブ 332）。
+60cf97d0（分岐点 4b644566）、2026-10-14。ライブラリ（`../dvc.yaml` の xs）とともに Slurm で排他で流した（ジョブ 332）。
 ADR-0156 と ADR-0158 の前の値（e02585ad、分岐点 5bf22a6e）との差は、炉心の k が 3A −0.016 pcm、3B −0.014 pcm、全長で積分したピン出力の最大
 5.9e-8（3A）と 9.2e-8（3B）、平板の MOC の k が 3A −0.016 pcm、3B −0.014 pcm で、2D の格子の k∞ は 6 桁で同じ。
 
@@ -359,7 +359,7 @@ KENO-VI の値は仕様書の表 M3-5、集合体の出力（1/8）は付録 J �
 dvc repro examples/vera/p5/dvc.yaml
 ```
 
-計算: 格子（単一集合体、反射体、3 × 3 の MOC）、炉心、KENO-VI と OpenMC との比較は 44128b49（2026-10-14、分岐点 4b644566。
+計算: 格子（単一集合体、反射体、3 × 3 の MOC）、炉心、KENO-VI と OpenMC との比較は 60cf97d0（2026-10-14、分岐点 4b644566。
 Slurm の排他のジョブ 332）。前の値（32d6a399（実行したのは rebase の前の ee8195a2）、分岐点 db212cb1 と、b87892c3、分岐点 db184a0c。2026-10-12）との差は、AIC を含まない格子（単一集合体と反射体）の k が
 −0.011〜−0.017 pcm（`lattice/*.msgpack` の全桁の k∞）、3 × 3 の MOC のピン出力の最大 3.8e-7、5A と 5C の炉心の k が 0.1 pcm 以内
 （表示の丸めで 5A の −5.7 → −5.8 pcm、+131.1 → +131.0 pcm、5C の k 0.991665 → 0.991664）、ピン出力の最大 4.7e-7 で、ADR-0156 の目安（0.1 pcm、
@@ -499,7 +499,7 @@ L 型の近似の大きさ（5A）: L 型の位置の I 型の定数の f\* の�
 
 ## OpenMC との比較
 
-xlc は 44128b49（分岐点 4b644566、2026-10-14。Slurm の排他のジョブ 332 で、1B の段階と、同じジョブの後の手順で 1C〜2Q の `lattice` を実行した）。ADR-0156 の前の値（e4dbc0de、2G は 8f7bee76）と比べて、16 体系の k は 6 桁ですべて同じ（|Δk| < 1e-6、k が 0.79〜1.18 なので 0.13 pcm 未満）、ピン出力の差の rms と最大も表の桁で同じ。ライブラリ（vera.msgpack、md5 55be71c9）は前の `dvc.lock` の xs の出力とバイト単位で同じ。1B の `lattice-1B.out` も前の出力と同じで、前の出力は 565 K の構造材と Ti の核種を足す前のライブラリ（md5 3d1a8cc2）で実行したもの。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`。`compare-1B` は上流の `openmc-1B-extract` が古いので実行していない（#0120）。`lattice-1B.out` が前と同じなので、その出力も変わらない）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
+xlc は 60cf97d0（分岐点 4b644566、2026-10-14。Slurm の排他のジョブ 332 で、1B の段階と、同じジョブの後の手順で 1C〜2Q の `lattice` を実行した）。ADR-0156 の前の値（e4dbc0de、2G は 8f7bee76）と比べて、16 体系の k は 6 桁ですべて同じ（|Δk| < 1e-6、k が 0.79〜1.18 なので 0.13 pcm 未満）、ピン出力の差の rms と最大も表の桁で同じ。ライブラリ（vera.msgpack、md5 55be71c9）は前の `dvc.lock` の xs の出力とバイト単位で同じ。1B の `lattice-1B.out` も前の出力と同じで、前の出力は 565 K の構造材と Ti の核種を足す前のライブラリ（md5 3d1a8cc2）で実行したもの。1B は examples/vera/dvc.yaml の段階（`xs`、`lattice-1B`。`compare-1B` は上流の `openmc-1B-extract` が古いので実行していない（#0120）。`lattice-1B.out` が前と同じなので、その出力も変わらない）、ほかは `lattice` の標準出力の k とピン出力（`compare_pins.py`）で、OpenMC は上の「参照解」のコミットのもの。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
 （[ADR-0111](../../docs/adr/0111-use-30-azimuths-for-vera-assemblies.md)）。燃料 5 リング、扇形 8、散乱は P3（[ADR-0075](../../docs/adr/0075-solve-moc-with-anisotropic-scattering.md)）、自己遮蔽はピンごとの UFG と SPH、弾性散乱と
 準位の角度分布は MF4（[ADR-0081](../../docs/adr/0081-use-mf4-angular-distributions.md)）、H in H2O の S(α,β) は評価済みデータの上限まで、表の外は短時間衝突近似、その上は自由ガス（[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md)）、集合体は成り立つ対称操作をすべて使う（[ADR-0112](../../docs/adr/0112-use-verified-symmetry-in-moc-and-shielding.md)。2A〜2K と 2Q は 1/8）。制御棒の吸収体は 5 リング（AIC の棒は ADR-0142 でリングごとの群定数と SPH 因子）、計装管のシンブルの中の真空と SS304 は 1 リング、シンブルと計装管の間の水は 2 リング（燃料の外のリングの数は ADR で決めていない。#0059）。
 ピン出力は `compare_pins.py` で、燃料ピン 264 本の平均で規格化して比べる。
