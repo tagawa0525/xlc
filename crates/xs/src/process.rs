@@ -458,8 +458,9 @@ pub fn process_nuclide(
 /// 燃焼鎖の反応（`CHAIN_REACTIONS`。ADR-0164）の、経路ごとの無限希釈の群の断面積（重み関数だけで平均する。ADR-0172）。
 /// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`）。MF8 が状態を
 /// MF9（多重度）か MF10（生成断面積）で挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路
-/// （LFS が nil）にする（鎖と同じ）。残りが丸めの程度より負になる群があればエラー。`tables` は温度に広げた断面積で、MF10 は
-/// 0 K の値をそのまま使う。
+/// （LFS が nil）にする（鎖と同じ）。MF9 の表の外の多重度は 0（NJOY GROUPR と同じ。反応がそこにあれば警告する）。残りが、
+/// 断面積の表の許容誤差 `tolerance`（相対）より大きく負になる群があればエラー。`tables` は温度に広げた断面積で、MF10 は 0 K の
+/// 値をそのまま使う。
 fn chain_reactions(
     tape: &Tape,
     mat: i32,
@@ -468,101 +469,114 @@ fn chain_reactions(
     tables: &BTreeMap<u32, Tab1>,
     tolerance: f64,
 ) -> Result<Vec<GroupReaction>, ProcessError> {
-    let average = |table: Tab1| -> Vec<f64> {
-        let mut one = BTreeMap::new();
-        one.insert(0, table);
-        reaction_averages(groups, weight, &one, None).sigma[&0].clone()
-    };
-    let mut reactions = Vec::new();
+    // 反応の断面積は、すべての MT を 1 度に平均したものから引く
+    let dilute = reaction_averages(groups, weight, tables, None).sigma;
+    // (反応, 状態の経路) ごとの断面積の表。番号は `CHAIN_REACTIONS` と状態の並びの順で、1 度に平均する
+    let mut states: BTreeMap<u32, Tab1> = BTreeMap::new();
+    let mut layout = Vec::new();
     for spec in &CHAIN_REACTIONS {
-        let Some(sigma) = tables.get(&spec.mt) else {
+        if !tables.contains_key(&spec.mt) {
             continue;
-        };
-        let total = average(sigma.clone());
-        let channels = match final_states(tape, mat, spec.mt)? {
-            None => vec![GroupChannel {
-                final_state: None,
-                cross_section: total,
-            }],
-            Some(entries) => {
-                let mut channels = Vec::with_capacity(entries.len() + 1);
-                for entry in &entries {
-                    let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
-                    let state = if entry.mf == 9 {
-                        multiplied(&table, sigma, tolerance).map_err(|energy| {
-                            ProcessError::Multiplicity {
-                                mt: spec.mt,
-                                lfs: entry.lfs,
-                                energy,
-                            }
-                        })?
-                    } else {
-                        linearize(&table, tolerance)
-                    };
-                    channels.push(GroupChannel {
-                        final_state: Some(ChannelState {
-                            mf: entry.mf,
-                            lfs: Some(entry.lfs),
-                        }),
-                        cross_section: average(state),
-                    });
-                }
-                if entries.iter().all(|e| e.excitation > 0.0) {
-                    let mf = entries[0].mf;
-                    if entries.iter().any(|e| e.mf != mf) {
-                        return Err(ProcessError::MixedFinalStates { mt: spec.mt });
-                    }
-                    let listed: Vec<f64> = (0..groups.len())
-                        .map(|g| channels.iter().map(|c| c.cross_section[g]).sum())
-                        .collect();
-                    let remainder: Vec<f64> =
-                        total.iter().zip(&listed).map(|(t, l)| t - l).collect();
-                    // 丸めの程度（相対 1e-9）より大きく負なら、挙げた状態が反応を超えている
-                    if let Some((group, excess)) = remainder
-                        .iter()
-                        .zip(&total)
-                        .enumerate()
-                        .find(|(_, (r, t))| **r < -1e-9 * t.abs())
-                        .map(|(g, (r, _))| (g, -r))
-                    {
-                        return Err(ProcessError::NegativeRemainder {
-                            mt: spec.mt,
-                            group,
-                            excess,
-                        });
-                    }
-                    channels.push(GroupChannel {
-                        final_state: Some(ChannelState { mf, lfs: None }),
-                        cross_section: remainder.iter().map(|r| r.max(0.0)).collect(),
-                    });
-                }
-                channels
+        }
+        let entries = final_states(tape, mat, spec.mt)?.unwrap_or_default();
+        let mut keys = Vec::with_capacity(entries.len());
+        for entry in &entries {
+            let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
+            let state = if entry.mf == 9 {
+                multiplied(&table, &tables[&spec.mt], tolerance, spec.mt, entry.lfs)
+            } else {
+                linearize(&table, tolerance)
+            };
+            let key = u32::try_from(states.len()).unwrap_or(u32::MAX);
+            states.insert(key, state);
+            keys.push(key);
+        }
+        layout.push((spec.mt, entries, keys));
+    }
+    let averaged = reaction_averages(groups, weight, &states, None).sigma;
+    let mut reactions = Vec::with_capacity(layout.len());
+    for (mt, entries, keys) in layout {
+        let total = dilute[&mt].clone();
+        if entries.is_empty() {
+            reactions.push(GroupReaction {
+                mt,
+                channels: vec![GroupChannel {
+                    final_state: None,
+                    cross_section: total,
+                }],
+            });
+            continue;
+        }
+        let mut channels: Vec<GroupChannel> = entries
+            .iter()
+            .zip(&keys)
+            .map(|(entry, key)| GroupChannel {
+                final_state: Some(ChannelState {
+                    mf: entry.mf,
+                    lfs: Some(entry.lfs),
+                }),
+                cross_section: averaged[key].clone(),
+            })
+            .collect();
+        if entries.iter().all(|e| e.excitation > 0.0) {
+            let mf = entries[0].mf;
+            if entries.iter().any(|e| e.mf != mf) {
+                return Err(ProcessError::MixedFinalStates { mt });
             }
-        };
-        reactions.push(GroupReaction {
-            mt: spec.mt,
-            channels,
-        });
+            let remainder: Vec<f64> = (0..groups.len())
+                .map(|g| total[g] - channels.iter().map(|c| c.cross_section[g]).sum::<f64>())
+                .collect();
+            if let Some((group, excess)) = remainder
+                .iter()
+                .zip(&total)
+                .enumerate()
+                .find(|(_, (r, t))| **r < -tolerance * t.abs())
+                .map(|(g, (r, _))| (g, -r))
+            {
+                return Err(ProcessError::NegativeRemainder { mt, group, excess });
+            }
+            // 許容誤差の内の負は、線形化の誤差なので 0 にする
+            channels.push(GroupChannel {
+                final_state: Some(ChannelState { mf, lfs: None }),
+                cross_section: remainder.iter().map(|r| r.max(0.0)).collect(),
+            });
+        }
+        reactions.push(GroupReaction { mt, channels });
     }
     Ok(reactions)
 }
 
-/// 多重度 `y`（MF9）と反応の断面積 `sigma` の積を、許容誤差 `tolerance` の lin-lin の表にする。`sigma` が 0 でないエネルギーで `y` が
-/// 定義されていなければ、そのエネルギーを返す（外挿しない）。
-fn multiplied(y: &Tab1, sigma: &Tab1, tolerance: f64) -> Result<Tab1, f64> {
+/// 多重度 `y`（MF9）と反応の断面積 `sigma` の積を、許容誤差 `tolerance` の lin-lin の表にする。`y` の表の外の多重度は 0 とし、
+/// そこで `sigma` が 0 でなければ警告する。
+fn multiplied(y: &Tab1, sigma: &Tab1, tolerance: f64, mt: u32, lfs: u32) -> Tab1 {
     let (Some(&low), Some(&high)) = (sigma.x.first(), sigma.x.last()) else {
-        return Ok(sigma.clone());
+        return sigma.clone();
     };
-    let value = |e: f64| -> Result<[f64; 1], f64> {
+    let uncovered = std::cell::Cell::new(None::<f64>);
+    let value = |e: f64| -> Result<[f64; 1], std::convert::Infallible> {
         let s = sigma.eval(e).unwrap_or(0.0);
-        if s == 0.0 {
-            return Ok([0.0]);
+        match y.eval(e) {
+            Some(m) => Ok([m * s]),
+            None => {
+                if s != 0.0 && uncovered.get().is_none() {
+                    uncovered.set(Some(e));
+                }
+                Ok([0.0])
+            }
         }
-        y.eval(e).map(|m| [m * s]).ok_or(e)
     };
     let nodes: Vec<f64> = y.x.iter().chain(&sigma.x).copied().collect();
-    let tables = resonance_tables(value, &nodes, low, high, tolerance)?;
-    Ok(tables.into_iter().next().unwrap_or_else(|| sigma.clone()))
+    let Ok(tables) = resonance_tables(value, &nodes, low, high, tolerance);
+    if let Some(energy) = uncovered.get() {
+        tracing::warn!(
+            mt,
+            lfs,
+            energy,
+            "the MF9 multiplicity does not cover all energies where the reaction is nonzero; the state \
+             gets none of the reaction there (as NJOY GROUPR)"
+        );
+    }
+    tables.into_iter().next().unwrap_or_else(|| sigma.clone())
 }
 
 /// 温度によらない、1核種の評価の読み込み（多群の処理の前に `process_nuclide` が読むもの）。
