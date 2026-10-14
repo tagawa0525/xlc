@@ -48,6 +48,8 @@ import re
 from fractions import Fraction
 from pathlib import Path
 
+import tomllib
+
 HERE = Path(__file__).resolve().parent
 
 TEMPERATURE = 565
@@ -1462,6 +1464,8 @@ PYREX_KINDS = {
     "plenum": ("pp", None, False),
     "empty-igrid": ("gt", "inconel", False),
     "plug-igrid": ("pl", "inconel", False),
+    # 炉心は CORE_MERGED_BOUNDS で 15.761〜15.817 cm を下の端栓の層に含めるので、今の入力ではこの層を使わない。境界を戻す
+    # とき（#0123）のために残す
     "poison-igrid": ("py", "inconel", False),
     "empty": ("gt", None, True),
     "plug": ("pl", None, True),
@@ -2193,9 +2197,11 @@ def state_text(
         else f"search = {{ boron = [{SEARCH_RANGE[0]}, {SEARCH_RANGE[1]}], k = 1.0, tolerance = 1.0e-6, max-solves = 20 }}\n"
     )
     bank_text = ", ".join(f"{b} = {s}" for b, s in banks.items())
+    # 制御棒のない炉心の形（`[rods]` なし）の状態は banks を書かない
+    bank_line = f"banks = {{ {bank_text} }}\n" if banks else ""
     return (
         f"\n{comment}[state.{name}]\n{line}b10 = {B10_FRACTION}\n"
-        f"moderator = {temperature}\nfuel = {temperature}\nbanks = {{ {bank_text} }}\n"
+        f"moderator = {temperature}\nfuel = {temperature}\n{bank_line}"
     )
 
 
@@ -2320,7 +2326,7 @@ def hzp_small_files() -> dict[str, str]:
         "# 分岐のテーブルを 565 K、1300 ppm で内挿した単一集合体の k∞（5-2D の assembly-31 と比べる）\n"
         'cycle = "interp-31-cycle.toml"\naxial-mesh = [0.0, 21.5]\nradial-nodes = 1\n'
         'boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }\n'
-        + state_text("hzp", TEMPERATURE, {}, 1300).replace("banks = {  }\n", "")
+        + state_text("hzp", TEMPERATURE, {}, 1300)
     )
     # 2D: 燃料の支持格子のない層の定数を、高さ 21.5 cm の 1 層に置く。制御棒は 1 ステップで層を抜ける棒
     for rod in ["aic", "b4c"]:
@@ -2514,9 +2520,9 @@ def hzp_pipeline(
         "core-hzp",
     ]:
         text = files[f"{case_name}.toml"]
-        cyc = text.split('cycle = "')[1].split('"')[0]
-        plant_file = files[cyc].split('plant = "')[1].split('"')[0]
-        inv_file = files[cyc].split('inventory = "')[1].split('"')[0]
+        cyc = tomllib.loads(text)["cycle"]
+        cycle_file = tomllib.loads(files[cyc])
+        plant_file, inv_file = cycle_file["plant"], cycle_file["inventory"]
         constants = sorted(hzp_layer_files({0: files[plant_file], 1: files[inv_file]}))
         deps = sorted(
             {
