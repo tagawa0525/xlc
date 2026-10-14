@@ -18,8 +18,8 @@ resolution:
 
 まだ再測定していないもの（ADR-0133 の前のライブラリの値のまま、または未測定と書いたもの）:
 
-- examples/vera/verification.md の、吸収体の集合体のトラック間隔のスイープ（2E-empty、2F、2G、2H、2K の方位角 30、間隔 0.02〜0.05 cm の
-  6 点ずつ計 30 本。表は「未測定」と書いた）と、吸収体のリングの数、SS304 の被覆管と案内管の間の水のリングの数による k の動き
+- examples/vera/verification.md の、Pyrex の環のリングの数と、SS304 の被覆管と案内管の間の水のリングの数による k の動き
+  （吸収体の集合体のトラック間隔のスイープは 2026-10-14 に再測定した。下の経緯）
 - examples/vera/verification.md の、「支持格子の枠と構造材の自己遮蔽」「散乱の次数」「同じ多群定数での OpenMC との比較」「離散化の誤差」
   （2B と 1B の方位角と間隔の表、メッシュ）「B1 の臨界スペクトルの拡散係数」「対称性」の表の xlc の値（それぞれ別の入力と設定で測った
   記録で、数値を出したコミットが書いてある）
@@ -51,3 +51,10 @@ resolution:
   - branches: `branches-xs-table`（xs 13 分と assembly-2B.toml の 27 状態の約 2 時間、`-t 135`）のあとに、direct 6 本と core 7 本
     （`-t 70`、1 ジョブ）。dvc.yaml はないので手で流す（verification.md の手順）
   - 2G/2H の行はスイープの結果が出たあとに、ADR-0142（e6f5ce5c）の後の値に揃える
+- 2026-10-14: feat/0070-remainder で、トラック間隔のスイープ（2E-empty、2F、2G、2H、2K の方位角 30 × 間隔 7 種と方位角 128・間隔 0.01 cm、
+  計 40 状態）を再測定した（2634c86a、分岐点 6ed58abb、排他のジョブ 355〜359、各 4〜9 分）。幅は 2E-empty 7.0、2F 28.9、2G 65.8、
+  2H 33.1、2K 29.3 pcm で、2G と 2H の行も ADR-0142 の後の値に揃えた（examples/vera/verification.md の「吸収体を入れた集合体のトラック間隔」）。
+  branches の測り直しは後回しにした（M4-3 のライブラリ作成と待ち行列で競合する。燃焼の縦の一本を優先する指示）。
+  手順と見積もり: `branches-xs-table`（xs 13 分と assembly-2B.toml の 27 状態。1 状態は 1B〜2K の今の値から 20〜50 秒の見込みで、
+  ADR-0156 の前の 256 秒より短い。見積もりは測ってから決める）のあとに、direct 6 本と core 7 本を、verification.md の手順で流す。
+  xs の排他で 1〜2 時間。dvc.yaml はなく、`bin/xs`、`bin/lattice`、`bin/core` を `examples/branches` で実行する
