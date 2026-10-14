@@ -3,18 +3,24 @@
 use std::collections::BTreeMap;
 
 use crate::endf::{
-    Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
+    Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, final_state_table,
+    final_states, parse_nubar,
 };
 use crate::multigroup::{
     Emission, FreeGas, ReactionAverages, Reactions, SabError, SabOutside, ScatterError,
     ShieldingError, SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
-    fission_spectrum, scattering_moments, shielded_averages, uses_angular,
+    fission_spectrum, reaction_averages, scattering_moments, shielded_averages, uses_angular,
 };
 use crate::physics::BK;
-use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
+use crate::pointwise::{
+    ColdParts, DEFAULT_TOLERANCE, add, left_limit, linearize, resonance_tables, right_limit,
+};
 use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
 use xlc_format::group::GroupStructure;
-use xlc_format::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
+use xlc_format::library::{
+    CHAIN_REACTIONS, ChannelState, GroupChannel, GroupReaction, NuclideData, Pointwise, Resolved,
+    Shielded, TemperatureData,
+};
 
 /// 処理の条件。
 #[derive(Debug, Clone)]
@@ -121,6 +127,12 @@ pub enum ProcessError {
     NoMf3,
     #[error("fission needs MF1 MT452 and MF5 MT18")]
     FissionData,
+    #[error("MF8/MT{mt} mixes MF9 and MF10 in its final states")]
+    MixedFinalStates { mt: u32 },
+    #[error(
+        "the MF9 multiplicity of MT{mt} LFS={lfs} does not cover {energy} eV where the reaction is nonzero"
+    )]
+    Multiplicity { mt: u32, lfs: u32, energy: f64 },
     #[error("{temperature} K")]
     Temperature {
         temperature: f64,
@@ -268,6 +280,7 @@ pub fn pointwise_within(
     let total = tables.get(&1).ok_or(ProcessError::MissingMf3(1))?;
     let elastic = tables.get(&2).ok_or(ProcessError::MissingMf3(2))?;
     let fission = tables.get(&18);
+    let capture = tables.get(&102);
     // (エネルギー, 右の極限か)
     let mut points = vec![(low, true)];
     let inside: Vec<f64> = total
@@ -305,6 +318,7 @@ pub fn pointwise_within(
         elastic: column(elastic),
         fission: fission_values,
         nu_fission,
+        capture: capture.map_or(vec![0.0; points.len()], column),
     })
 }
 
@@ -435,6 +449,113 @@ pub fn process_nuclide(
         thermal_scattering: thermal.is_some(),
         temperatures,
     })
+}
+
+/// 燃焼鎖の反応（`CHAIN_REACTIONS`。ADR-0164）の、経路ごとの無限希釈の群の断面積（重み関数だけで平均する。ADR-0172）。
+/// 反応の断面積は、代表の MT が `tables` にあればそれ、なければ部分の MT の和。MF8 が状態を MF9（多重度）か MF10（生成断面積）で
+/// 挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路（LFS が nil）にする（鎖と同じ）。
+/// `tables` は温度に広げた断面積で、MF10 は 0 K の値をそのまま使う。
+fn chain_reactions(
+    tape: &Tape,
+    mat: i32,
+    groups: &GroupStructure,
+    weight: &Weight,
+    tables: &BTreeMap<u32, Tab1>,
+    tolerance: f64,
+) -> Result<Vec<GroupReaction>, ProcessError> {
+    let average = |table: Tab1| -> Vec<f64> {
+        let mut one = BTreeMap::new();
+        one.insert(0, table);
+        reaction_averages(groups, weight, &one, None).sigma[&0].clone()
+    };
+    let mut reactions = Vec::new();
+    for spec in &CHAIN_REACTIONS {
+        let parts: Vec<&Tab1> = match tables.get(&spec.mt) {
+            Some(t) => vec![t],
+            None => tables
+                .iter()
+                .filter(|(mt, _)| spec.includes(**mt))
+                .map(|(_, t)| t)
+                .collect(),
+        };
+        let Some(sigma) = parts
+            .iter()
+            .skip(1)
+            .fold(parts.first().map(|t| (*t).clone()), |acc, t| {
+                acc.map(|a| add(&a, t))
+            })
+        else {
+            continue;
+        };
+        let total = average(sigma.clone());
+        let channels = match final_states(tape, mat, spec.mt)? {
+            None => vec![GroupChannel {
+                final_state: None,
+                cross_section: total,
+            }],
+            Some(entries) => {
+                let mut channels = Vec::with_capacity(entries.len() + 1);
+                for entry in &entries {
+                    let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
+                    let state = if entry.mf == 9 {
+                        multiplied(&table, &sigma, tolerance).map_err(|energy| {
+                            ProcessError::Multiplicity {
+                                mt: spec.mt,
+                                lfs: entry.lfs,
+                                energy,
+                            }
+                        })?
+                    } else {
+                        linearize(&table, tolerance)
+                    };
+                    channels.push(GroupChannel {
+                        final_state: Some(ChannelState {
+                            mf: entry.mf,
+                            lfs: Some(entry.lfs),
+                        }),
+                        cross_section: average(state),
+                    });
+                }
+                if entries.iter().all(|e| e.excitation > 0.0) {
+                    let mf = entries[0].mf;
+                    if entries.iter().any(|e| e.mf != mf) {
+                        return Err(ProcessError::MixedFinalStates { mt: spec.mt });
+                    }
+                    let listed: Vec<f64> = (0..groups.len())
+                        .map(|g| channels.iter().map(|c| c.cross_section[g]).sum())
+                        .collect();
+                    channels.push(GroupChannel {
+                        final_state: Some(ChannelState { mf, lfs: None }),
+                        cross_section: total.iter().zip(&listed).map(|(t, l)| t - l).collect(),
+                    });
+                }
+                channels
+            }
+        };
+        reactions.push(GroupReaction {
+            mt: spec.mt,
+            channels,
+        });
+    }
+    Ok(reactions)
+}
+
+/// 多重度 `y`（MF9）と反応の断面積 `sigma` の積を、許容誤差 `tolerance` の lin-lin の表にする。`sigma` が 0 でないエネルギーで `y` が
+/// 定義されていなければ、そのエネルギーを返す（外挿しない）。
+fn multiplied(y: &Tab1, sigma: &Tab1, tolerance: f64) -> Result<Tab1, f64> {
+    let (Some(&low), Some(&high)) = (sigma.x.first(), sigma.x.last()) else {
+        return Ok(sigma.clone());
+    };
+    let value = |e: f64| -> Result<[f64; 1], f64> {
+        let s = sigma.eval(e).unwrap_or(0.0);
+        if s == 0.0 {
+            return Ok([0.0]);
+        }
+        y.eval(e).map(|m| [m * s]).ok_or(e)
+    };
+    let nodes: Vec<f64> = y.x.iter().chain(&sigma.x).copied().collect();
+    let tables = resonance_tables(value, &nodes, low, high, tolerance)?;
+    Ok(tables.into_iter().next().unwrap_or_else(|| sigma.clone()))
 }
 
 /// 温度によらない、1核種の評価の読み込み（多群の処理の前に `process_nuclide` が読むもの）。
@@ -635,18 +756,28 @@ impl Common<'_> {
                 elastic: corrected(sigma(avg, 2)),
                 fission: sigma(avg, 18),
                 nu_fission: avg.nu_fission.clone().unwrap_or(zeros.clone()),
+                capture: sigma(avg, 102),
             })
             .collect();
         let pointwise = match settings.pointwise_range {
             Some(range) => pointwise_within(&tables, self.evaluation.nubar.as_ref(), range)?,
             None => Pointwise::default(),
         };
+        let reactions = chain_reactions(
+            self.tape,
+            self.evaluation.mat,
+            groups,
+            weight,
+            &tables,
+            settings.tolerance,
+        )?;
         Ok(TemperatureData {
             temperature,
             chi,
             scatter,
             shielded,
             pointwise,
+            reactions,
         })
     }
 }
