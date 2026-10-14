@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 自己完結な実行（aws_run.sh。ADR-0155）のジョブを一定の間隔で見て、欠けたジョブを 1 回に 1 つ、スポットで起動し直す
 # （docs/environment.md の「自己完結な実行」）。S3 の done の中身が 0 のジョブは完了、VM が起動中・走行中でないジョブは欠けたジョブ。
-# 起動し直しは aws_run.sh --job J --spot --type auto --statepoint-interval N [--retry-failed] <name>
-# （N はジョブ名が openmc-3? なら 50、それ以外は 25。done が 0 以外なら --retry-failed）。
+# 起動し直しは aws_run.sh --job J --spot --type auto [--statepoint-interval N] [--retry-failed] <name>
+# （N は定義の progress が statepoint のときだけ。ジョブ名が openmc-3? なら 50、それ以外は 25。done が 0 以外なら --retry-failed）。
 # 終了コード: 0 全部 done、2 起動し直しの上限、3 想定外の失敗、4 認証切れ（aws login をやり直す。VM は動き続ける）
 #
 # 使い方: examples/aws/aws_watch.sh [--interval 秒] [--limit 回] <name>
@@ -67,9 +67,13 @@ while :; do
       echo "ATTENTION: relaunch limit reached for ${missing[*]}"; echo "$st"; exit 2
     fi
     job=${missing[0]}
-    interval_n=25
-    [[ $job != openmc-3? ]] || interval_n=50
-    args=(--job "$job" --spot --type auto --statepoint-interval "$interval_n")
+    args=(--job "$job" --spot --type auto)
+    # statepoint の実行だけ、失う分を縮める間隔を渡す（steps は区間の境界で再開するので、間隔がない）
+    if [[ $DEF_PROGRESS == statepoint ]]; then
+      interval_n=25
+      [[ $job != openmc-3? ]] || interval_n=50
+      args+=(--statepoint-interval "$interval_n")
+    fi
     for f in "${failed[@]:-}"; do [[ $f != "$job" ]] || args+=(--retry-failed); done
     echo "relaunching $job"
     rc=0

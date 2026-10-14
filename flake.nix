@@ -243,7 +243,7 @@
         aws-definition = pkgs.runCommand "aws-definition" { } ''
           export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin
           bash ${./examples/aws/test_aws_definition.sh} ${./examples/aws/aws_common.sh} \
-            ${./examples/vera/aws.toml} ${./examples/aws/aws-check/aws.toml} > $out
+            ${./examples/vera/aws.toml} ${./examples/depletion/aws.toml} ${./examples/aws/aws-check/aws.toml} > $out
         '';
       };
 

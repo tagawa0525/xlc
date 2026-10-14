@@ -2,6 +2,135 @@
 # aws_run.sh が source する。1 つのジョブを自己完結に流す VM の user-data（cloud-init のシェルスクリプト）を標準出力に書く
 # （ADR-0155）。AWS を呼ばないので、単体の検査（test_aws_user_data.sh）でも source できる。
 #
+# user-data の progress ごとの部分（ADR-0174）。aws_user_data が呼ぶ。statepoint は世代ごとの statepoint を測り（ADR-0168）、
+# steps は区間（run/step-<k>/）の完了の印 complete で測る
+
+# 同期の関数 statepoints() と sync_out() を標準出力に書く
+ud_sync_functions() {
+  case $1 in
+    statepoint)
+      cat <<'USERDATA'
+# <ディレクトリ> の statepoint のファイル名を世代の順に
+statepoints() {
+  ls "$1" 2> /dev/null | grep -E '^statepoint\.[0-9]+\.h5$' | sort -t. -k2 -n || true
+}
+sync_out() {
+  ((READY)) || return 0
+  local filters=() delete=(--delete) f all mtime
+  # ジョブが走っている間は、一覧の後に書き始めたものと、書いている途中でありうるものを写さない。写すのは、一覧の時点で最新で
+  # ないもの（書き終えた）と、最新でも mtime が 120 秒より古いもの（OpenMC は数秒で書き終え、書く間は mtime が進む。ADR-0168）。
+  # ジョブが成功した（done が 0）ときだけ、時刻によらずすべて写す（失敗や中断の直後は、最新の statepoint が書いている途中で
+  # 止まったかもしれず、mtime が新しいので除かれる）。そのあいだは --delete もしない（一覧のあとに statepoint が
+  # 消されると、含めたはずのものを S3 から消すため）
+  if ((INTERRUPTED)) || [[ $(cat "$WORK/$OUT/done" 2> /dev/null) != 0 ]]; then
+    delete=()
+    filters=(--exclude 'run/statepoint.*')
+    all=$(statepoints "$WORK/$OUT/run")
+    for f in $(head -n -1 <<< "$all"); do filters+=(--include "run/$f"); done
+    f=$(tail -n 1 <<< "$all")
+    if [[ -n $f ]] && mtime=$(stat -c %Y "$WORK/$OUT/run/$f" 2> /dev/null) && (($(date +%s) - mtime > 120)); then
+      filters+=(--include "run/$f")
+    fi
+  fi
+  # --delete のときは、先に消さずに写してから消す（途中で失敗しても、S3 から statepoint が消えて最後のものもない、にならない）
+  "$AWS" s3 sync --only-show-errors --exclude done --exclude 'boot-*.log' "${filters[@]}" "$WORK/$OUT" "$PREFIX"
+  if ((${#delete[@]})); then
+    "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude 'boot-*.log' "$WORK/$OUT" "$PREFIX"
+  fi
+}
+USERDATA
+      ;;
+    steps)
+      cat <<'USERDATA'
+# <ディレクトリ> の区間 step-<k> のうち、完了の印 complete があるものを番号の順に
+complete_steps() {
+  local d
+  for d in $(ls "$1" 2> /dev/null | grep -E '^step-[0-9]+$' | sort -t- -k2 -n || true); do
+    if [[ -f $1/$d/complete ]]; then echo "$d"; fi
+  done
+}
+sync_out() {
+  ((READY)) || return 0
+  local filters=() markers=(--include 'run/step-*/complete') delete=(--delete) d
+  # ジョブが走っている間は、完了の印がある区間（書き終えて、以後書き換えない）だけを写す。写す途中で切れても、完了の印だけが
+  # 区間のほかのファイルより先に S3 に着かないよう、印は区間のファイルの同期が終わってから別に写す（印のある S3 の区間を
+  # 再開が読む）。ジョブが成功した（done が 0）ときは、すべて写して --delete もする。走っている間と失敗、中断のあとは --delete
+  # しない（一覧のあとに区間が消されることはないが、S3 の区間を消して最後のものもない、にならないように）
+  if ((INTERRUPTED)) || [[ $(cat "$WORK/$OUT/done" 2> /dev/null) != 0 ]]; then
+    delete=()
+    filters=(--exclude 'run/step-*')
+    markers=(--exclude '*')
+    for d in $(complete_steps "$WORK/$OUT/run"); do
+      filters+=(--include "run/$d/*")
+      markers+=(--include "run/$d/complete")
+    done
+  fi
+  "$AWS" s3 sync --only-show-errors --exclude done --exclude 'boot-*.log' "${filters[@]}" --exclude 'run/step-*/complete' "$WORK/$OUT" "$PREFIX"
+  "$AWS" s3 sync --only-show-errors --exclude '*' "${markers[@]}" "$WORK/$OUT" "$PREFIX"
+  if ((${#delete[@]})); then
+    "$AWS" s3 sync --only-show-errors --delete --exclude done --exclude 'boot-*.log' "$WORK/$OUT" "$PREFIX"
+  fi
+}
+USERDATA
+      ;;
+  esac
+}
+
+# S3 のジョブを作業ディレクトリに戻すコマンドを書く。引数: progress run job（呼び出しの $BUCKET などは user-data の変数）
+ud_restore() {
+  local progress=$1 run=$2 job=$3
+  case $progress in
+    statepoint)
+      cat <<USERDATA
+# S3 のジョブ（前の起動のログなど）を戻してから同期を始める。statepoint は最新の 2 個だけ戻す（再開に要るのは最新の読めるもの。
+# 走っている間の同期は S3 の statepoint を消さないので、全部を戻すと EBS を使う）
+"\$AWS" s3 sync --only-show-errors --exclude 'boot-*.log' --exclude done --exclude 'run/statepoint.*' "\$PREFIX" "\$OUT"
+keys=\$("\$AWS" s3api list-objects-v2 --bucket "\$BUCKET" --prefix "runs/$run/$job/run/statepoint." --query 'Contents[].Key' --output text)
+if [[ \$keys != None ]]; then
+  for key in \$(tr '\t' '\n' <<< "\$keys" | sort -t. -k2 -n | tail -2); do
+    "\$AWS" s3 cp --only-show-errors "s3://\$BUCKET/\$key" "\$OUT/run/\${key##*/}"
+  done
+fi
+USERDATA
+      ;;
+    steps)
+      cat <<USERDATA
+# S3 のジョブ（前の起動のログなど）を戻してから同期を始める。区間は完了の印のある最後の 1 つだけ戻す（再開に要るのは最後の区間。
+# 印のない区間は書いている途中で、同期もしていない）
+"\$AWS" s3 sync --only-show-errors --exclude 'boot-*.log' --exclude done --exclude 'run/step-*' "\$PREFIX" "\$OUT"
+keys=\$("\$AWS" s3api list-objects-v2 --bucket "\$BUCKET" --prefix "runs/$run/$job/run/step-" --query 'Contents[].Key' --output text)
+if [[ \$keys != None ]]; then
+  last=\$(tr '\t' '\n' <<< "\$keys" | sed -n 's#.*/\(step-[0-9][0-9]*\)/complete\$#\1#p' | sort -t- -k2 -n | tail -1)
+  if [[ -n \$last ]]; then
+    "\$AWS" s3 sync --only-show-errors "\$PREFIX/run/\$last" "\$OUT/run/\$last"
+  fi
+fi
+USERDATA
+      ;;
+  esac
+}
+
+# ジョブが成功したとき（done が 0）の後始末を書く
+ud_epilogue() {
+  echo 'if [[ $code == 0 ]]; then'
+  case $1 in
+    statepoint)
+      cat <<'USERDATA'
+  # 完了: 最後の世代のほかの statepoint を消し、manifest を書く
+  last=$(statepoints "$OUT/run" | tail -1)
+  find "$OUT/run" -name 'statepoint.*.h5' ! -name "$last" -delete
+USERDATA
+      ;;
+    steps)
+      echo '  # 完了: manifest を書く（区間はすべて残す。最後の区間の depletion_results.h5 が結果）'
+      ;;
+  esac
+  cat <<'USERDATA'
+  (cd "$OUT" && find . -type f ! -name SHA256SUMS ! -name done -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS)
+fi
+USERDATA
+}
+
 # aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <閉包の鍵> <openmc> <python> <awscli> <間隔> <entry> <progress> <ライブラリの場所> <data>
 #   <job>      results/ の下の名前（入力の basename から .toml を除いたもの。entry と同じ）
 #   <入力>     作業ディレクトリ（S3 の runs/<run>/src/ を写したもの）からの相対
@@ -24,7 +153,8 @@ aws_user_data() {
   for v in "$region" "$bucket" "$run" "$job" "$input" "$library" "$closure" "$entry" "$library_dir"; do
     [[ $v =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "aws_user_data: 使えない文字: $v" >&2; return 2; }
   done
-  [[ $progress == statepoint ]] || { echo "aws_user_data: progress は statepoint（$progress）" >&2; return 2; }
+  [[ $progress == statepoint || $progress == steps ]] || { echo "aws_user_data: progress は statepoint か steps（$progress）" >&2; return 2; }
+  [[ $progress == statepoint || -z $interval ]] || { echo "aws_user_data: steps に statepoint の間隔は指定できない（$interval）" >&2; return 2; }
   for v in "$entry" "$library_dir" "$input"; do
     [[ $v != /* && /$v/ != */../* ]] || { echo "aws_user_data: 作業ディレクトリからの相対のパスではない: $v" >&2; return 2; }
   done
@@ -57,34 +187,9 @@ BOOTLOG=boot-\$(date -u +%Y%m%dT%H%M%SZ).log
 # READY（作業ディレクトリが S3 の内容を含むようになった）までは同期しない。再開で S3 から戻す前に --delete で写すと、
 # S3 の statepoint を消すため
 READY=0
-# <ディレクトリ> の statepoint のファイル名を世代の順に
-statepoints() {
-  ls "\$1" 2> /dev/null | grep -E '^statepoint\.[0-9]+\.h5\$' | sort -t. -k2 -n || true
-}
-sync_out() {
-  ((READY)) || return 0
-  local filters=() delete=(--delete) f all mtime
-  # ジョブが走っている間は、一覧の後に書き始めたものと、書いている途中でありうるものを写さない。写すのは、一覧の時点で最新で
-  # ないもの（書き終えた）と、最新でも mtime が 120 秒より古いもの（OpenMC は数秒で書き終え、書く間は mtime が進む。ADR-0168）。
-  # ジョブが成功した（done が 0）ときだけ、時刻によらずすべて写す（失敗や中断の直後は、最新の statepoint が書いている途中で
-  # 止まったかもしれず、mtime が新しいので除かれる）。そのあいだは --delete もしない（一覧のあとに statepoint が
-  # 消されると、含めたはずのものを S3 から消すため）
-  if ((INTERRUPTED)) || [[ \$(cat "\$WORK/\$OUT/done" 2> /dev/null) != 0 ]]; then
-    delete=()
-    filters=(--exclude 'run/statepoint.*')
-    all=\$(statepoints "\$WORK/\$OUT/run")
-    for f in \$(head -n -1 <<< "\$all"); do filters+=(--include "run/\$f"); done
-    f=\$(tail -n 1 <<< "\$all")
-    if [[ -n \$f ]] && mtime=\$(stat -c %Y "\$WORK/\$OUT/run/\$f" 2> /dev/null) && ((\$(date +%s) - mtime > 120)); then
-      filters+=(--include "run/\$f")
-    fi
-  fi
-  # --delete のときは、先に消さずに写してから消す（途中で失敗しても、S3 から statepoint が消えて最後のものもない、にならない）
-  "\$AWS" s3 sync --only-show-errors --exclude done --exclude 'boot-*.log' "\${filters[@]}" "\$WORK/\$OUT" "\$PREFIX"
-  if ((\${#delete[@]})); then
-    "\$AWS" s3 sync --only-show-errors --delete --exclude done --exclude 'boot-*.log' "\$WORK/\$OUT" "\$PREFIX"
-  fi
-}
+USERDATA
+  ud_sync_functions "$progress"
+  cat <<USERDATA
 # 終わるときに、結果とログを S3 に置いてから電源を切る。done は、ジョブが終わったとき（run_remote.sh が書く）と、
 # READY のあとでこの user-data が失敗したとき（run_remote.sh の done を上書きして終了コードを書く。完了の後の整理の失敗も
 # 含む）に置く。SIGTERM（スポットの回収、最長時間の shutdown、手元からの終了）と READY の前の失敗（準備。S3 のジョブには
@@ -146,15 +251,9 @@ USERDATA
 "\$AWS" s3 sync --only-show-errors "s3://\$BUCKET/runs/$run/src" .
 printf 'OPENMC_BIN=%s\nPYTHON=%s\n' $openmc/bin $python/bin/python3 > tools.env
 
-# S3 のジョブ（前の起動のログなど）を戻してから同期を始める。statepoint は最新の 2 個だけ戻す（再開に要るのは最新の読めるもの。
-# 走っている間の同期は S3 の statepoint を消さないので、全部を戻すと EBS を使う）
-"\$AWS" s3 sync --only-show-errors --exclude 'boot-*.log' --exclude done --exclude 'run/statepoint.*' "\$PREFIX" "\$OUT"
-keys=\$("\$AWS" s3api list-objects-v2 --bucket "\$BUCKET" --prefix "runs/$run/$job/run/statepoint." --query 'Contents[].Key' --output text)
-if [[ \$keys != None ]]; then
-  for key in \$(tr '\t' '\n' <<< "\$keys" | sort -t. -k2 -n | tail -2); do
-    "\$AWS" s3 cp --only-show-errors "s3://\$BUCKET/\$key" "\$OUT/run/\${key##*/}"
-  done
-fi
+USERDATA
+  ud_restore "$progress" "$run" "$job"
+  cat <<USERDATA
 READY=1
 USERDATA
   local flags=
@@ -184,12 +283,9 @@ until [[ -f \$OUT/done && \$(cat "\$OUT/done") =~ ^[0-9]+\$ ]]; do
   fi
 done
 code=\$(cat "\$OUT/done")
-if [[ \$code == 0 ]]; then
-  # 完了: 最後の世代のほかの statepoint を消し、manifest を書く
-  last=\$(statepoints "\$OUT/run" | tail -1)
-  find "\$OUT/run" -name 'statepoint.*.h5' ! -name "\$last" -delete
-  (cd "\$OUT" && find . -type f ! -name SHA256SUMS ! -name done -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS)
-fi
-exit "\$code"
+USERDATA
+  ud_epilogue "$progress"
+  cat <<'USERDATA'
+exit "$code"
 USERDATA
 }
