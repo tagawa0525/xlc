@@ -9,6 +9,7 @@ pub mod balance;
 pub mod branches;
 pub mod cmfd;
 pub mod cp;
+pub mod depletion;
 pub mod equivalent;
 pub mod fewgroup;
 pub mod geometry;
