@@ -81,10 +81,26 @@
         decay = endfZip "decay" "9087395f6d74fe35b47bb4c8b37ef53b44e67569196c933f835a53cdf8d03d5e";
         nfy = endfZip "nfy" "92c5371fdb21eecf4989f48828671b904186abc6386b3d7510c8fcee2ee5ffcf";
       };
-      # zip ごとの ENDF-B-VIII.0_<part>/ を 1 つの木に並べる（references/endf の形。入力の TOML と dvc.yaml が指す）
-      endf = pkgs.runCommand "endf-b-viii.0" { nativeBuildInputs = [ pkgs.unzip ]; } ''
+      # 検証用の ENDF/B-VII.0（仕様書の KENO-VI と核データの版を揃えて比べる。ADR-0175）。NNDC の zip は
+      # ディレクトリを持たない平らな形なので、VIII.0 と同じ ENDF-B-VII.0_<part>/ に展開する
+      endfViiZip =
+        part: sha256:
+        pkgs.fetchurl {
+          url = "https://www.nndc.bnl.gov/endf-b7.0/zips/${part}-ENDF-VII0.endf.zip";
+          inherit sha256;
+        };
+      endfViiZips = {
+        neutrons = endfViiZip "n" "935a1c8156958072df7363239f8c7a6a514e1d20a4053986549b9b4e093f23b9";
+        thermal_scatt = endfViiZip "tsl" "754d4e41280a7339b9c352378c7b16dd659d9dad244dd4c68dafa444e86f160e";
+      };
+      # zip ごとの ENDF-B-VIII.0_<part>/ と ENDF-B-VII.0_<part>/ を 1 つの木に並べる（references/endf の形。入力の
+      # TOML と dvc.yaml が指す）
+      endf = pkgs.runCommand "endf" { nativeBuildInputs = [ pkgs.unzip ]; } ''
         mkdir -p $out
         ${lib.concatMapStrings (zip: "unzip -q ${zip} -d $out\n") (lib.attrValues endfZips)}
+        ${lib.concatStrings (
+          lib.mapAttrsToList (part: zip: "unzip -q ${zip} -d $out/ENDF-B-VII.0_${part}\n") endfViiZips
+        )}
       '';
 
       # NJOY2016 2016.79 に、ACER の LAW=0 の書き出しを直すパッチ（docs/environment.md）を当てる
@@ -230,6 +246,8 @@
         endf-thermal-scatt = endfZips.thermal_scatt;
         endf-decay = endfZips.decay;
         endf-nfy = endfZips.nfy;
+        endf-vii0-neutrons = endfViiZips.neutrons;
+        endf-vii0-thermal-scatt = endfViiZips.thermal_scatt;
         inherit endf njoy2016 openmc;
         openmc-python = referencesPython;
       };
