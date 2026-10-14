@@ -86,18 +86,9 @@ pub struct YieldEvaluation {
     pub tables: Vec<(f64, Vec<RawYield>)>,
 }
 
-/// ZA（と ZAP）の実数を整数にするときの許容。ENDF/B-VIII.0 の Am-241 の MF8 は生成物を 95242.01 と書くので、それを
-/// 受け、半端な値（書き誤り以上のずれ）は止める
-const ZA_TOLERANCE: f64 = 0.05;
-
-/// ZA の実数を (Z, A) にする。
+/// ZA の実数を (Z, A) にする（許容は MF8 の読み込みと同じ。`xlc_xs::endf::za`）。
 fn za(value: f64, line: usize) -> Result<(u32, u32)> {
-    let rounded = value.round();
-    if !(rounded >= 1.0 && (value - rounded).abs() <= ZA_TOLERANCE && rounded < 1e6) {
-        bail!("line {line}: ZA {value} is not an integer");
-    }
-    // 範囲は上で確かめた
-    let za = rounded as u32;
+    let za = xlc_xs::endf::za(value, line)?;
     Ok((za / 1000, za % 1000))
 }
 
