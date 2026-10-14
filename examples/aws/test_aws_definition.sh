@@ -10,7 +10,12 @@ shift || true
 source "$common"
 
 failures=0
-fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
+# subshell の中の失敗は、subshell を失敗で終わらせ、呼び出し側の「|| fail」で数える（failures は subshell の外に出ない）
+fail() {
+  echo "FAIL: $*" >&2
+  failures=$((failures + 1))
+  ((BASH_SUBSHELL == 0)) || exit 1
+}
 
 valid='# 実行の定義
 tools = [
@@ -94,6 +99,19 @@ for file in "$@"; do
     fi
   ) || fail "$file を読めない"
 done
+
+# 確認用の入力の定義（examples/aws/aws-check/aws.toml）は VERA の定義の写し。コメントを除いて同じであること
+vera='' check=''
+for file in "$@"; do
+  case $file in
+    */aws-check/aws.toml) check=$file ;;
+    */vera/aws.toml) vera=$file ;;
+  esac
+done
+if [[ -n $vera && -n $check ]]; then
+  strip() { sed 's/[[:space:]]*#.*//; /^[[:space:]]*$/d' "$1"; }
+  [[ $(strip "$vera") == "$(strip "$check")" ]] || fail "$check が $vera と違います（写しなので同じにする）"
+fi
 
 if ((failures)); then
   echo "$failures 件の失敗" >&2

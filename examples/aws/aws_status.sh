@@ -36,7 +36,8 @@ for run in "${runs[@]}"; do
   # launch.env がない実行（置いている途中か失敗）は、read_launch_env が止めるので、先に確かめる
   keys=$(s3_keys "runs/$run/launch.env")
   [[ -n $keys ]] || { echo "$run: launch.env がありません"; continue; }
-  read_launch_env "$run"
+  read_launch_env "$run" --allow-no-definition
+  [[ -n $RUN_DEFINITION ]] || { echo "$run: launch.env に DEFINITION がありません（ADR-0174 より前の実行。進み具合は出さない）"; continue; }
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
     code=$(job_done "$run" "$job")

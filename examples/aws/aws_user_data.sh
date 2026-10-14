@@ -122,7 +122,7 @@ ud_epilogue() {
 USERDATA
       ;;
     steps)
-      echo '  # 完了: manifest を書く（区間はすべて残す。最後の区間の depletion_results.h5 が結果）'
+      echo '  # 完了: manifest を書く（区間は消さない。結果は最後の区間の depletion_results.h5。再開した VM が戻した区間より前は、--delete の同期で S3 から消える）'
       ;;
   esac
   cat <<'USERDATA'
