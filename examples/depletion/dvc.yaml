@@ -113,3 +113,30 @@ stages:
       - openmc-library/thermal
     outs:
       - openmc-library/cross_sections.xml
+  openmc-1C:
+    # OpenMC の燃焼（ADR-0173）。燃料のリングの数ごと。ライブラリはディレクトリ全体を deps にする（ADR-0130）
+    foreach: [rings1, rings4]
+    do:
+      cmd: nix develop ../..#references -c python3 openmc_depletion.py run openmc-1C-${item}.toml openmc-1C-${item}
+      deps:
+        - openmc_depletion.py
+        - ../vera/openmc_model.py
+        - ../openmc_common.py
+        - ../openmc_input.py
+        - references-shell.txt
+        - openmc-library
+        - openmc-chain.xml
+        - openmc-1C-${item}.toml
+      outs:
+        - openmc-1C-${item}
+  openmc-1C-extract:
+    foreach: [rings1, rings4]
+    do:
+      cmd: nix develop ../..#references -c python3 openmc_depletion.py extract openmc-1C-${item}.toml openmc-1C-${item} openmc-1C-${item}.msgpack
+      deps:
+        - openmc_depletion.py
+        - references-shell.txt
+        - openmc-1C-${item}
+        - openmc-1C-${item}.toml
+      outs:
+        - openmc-1C-${item}.msgpack
