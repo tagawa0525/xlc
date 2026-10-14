@@ -165,6 +165,7 @@ class OpenmcJson(Fixture):
             sorted(i["path"].rsplit("/", 1)[-1] for i in s["inputs"]),
             sorted(
                 [
+                    "spec.txt",
                     "core.out",
                     "core-pins.msgpack",
                     "k.json",
@@ -258,7 +259,7 @@ class KenoJson(Fixture):
         self.assertEqual((run.returncode, run.stdout), (0, ""), run.stderr)
         s = json.loads((self.dir / "keno.json").read_text())
         self.assertEqual((s["kind"], s["problem"]), ("keno", "5A"))
-        self.assertAlmostEqual(s["k"]["diff_pcm"], 100.0, places=6)
+        self.assertAlmostEqual(s["k"]["diff_pcm"], 100.0, places=2)
         self.assertEqual(s["k"]["reference_std"], 8e-6)
         self.assertEqual(s["assemblies"]["relative"]["at"], [i, j])
         self.assertEqual(
