@@ -83,6 +83,20 @@ class AxialSummary(unittest.TestCase):
         self.assertNotIn("levels", stats)
 
 
+class AxialReport(unittest.TestCase):
+    def test_prints_the_header_and_one_line_per_level(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            compare_p3.axial_report("ref", [0.0, 1.0, 2.0], [1.1, 0.8], [1.0, 1.0])
+        lines = out.getvalue().splitlines()
+        self.assertTrue(lines[0].startswith("axial vs ref: rms 0.1581 "))
+        self.assertEqual(
+            lines[2],
+            "  level  2    1.000-   2.000: xlc 0.80000 ref 1.00000 diff -0.20000",
+        )
+        self.assertEqual(len(lines), 3)
+
+
 class Report(unittest.TestCase):
     """--json は JSON だけを書き、--report がその JSON から文章を描く（参照解が手元にあるときだけ）"""
 
