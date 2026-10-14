@@ -668,7 +668,8 @@ fn multiplicities_count_only_where_the_mf9_table_is_given() {
     assert!(rest.cross_section[last] > 0.0);
 }
 
-/// `reaction_tape` に、(n,p) の励起状態 1 つ（LFS 1）の MF10 の生成断面積 0.05 b を、エネルギー `start` (eV) から足したもの
+/// 全 11 b、弾性散乱 10 b、捕獲 1 b と、1.1 MeV から 0.3 b の (n,p)（MT103）に、励起状態 1 つ（LFS 1）の MF10 の生成断面積
+/// 0.05 b をエネルギー `start` (eV) から足したテープ
 fn reaction_tape_with_mf10(start: &str) -> Tape {
     use crate::endf::rec;
     let mut text = String::new();
@@ -683,13 +684,12 @@ fn reaction_tape_with_mf10(start: &str) -> Tape {
         .concat()
     };
     let full = ["1.0-5", "2.0+7"];
-    let threshold = ["1.004237+6", "2.0+7"];
     text.push_str(
         &[
             section(3, 1, "0.0", full, ["11.0", "11.0"]),
             section(3, 2, "0.0", full, ["10.0", "10.0"]),
             section(3, 102, "0.0", full, ["1.0", "1.0"]),
-            section(3, 103, "-1.0+6", threshold, ["0.3", "0.3"]),
+            section(3, 103, "-1.0+6", ["1.1+6", "2.0+7"], ["0.3", "0.3"]),
             [
                 rec(["9.223800+4", "2.360060+2", "0", "0", "1", "1"], 1, 8, 103),
                 rec(["9.123800+4", "1.0+5", "10", "1", "0", "0"], 1, 8, 103),
