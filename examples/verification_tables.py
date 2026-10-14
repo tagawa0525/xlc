@@ -492,6 +492,51 @@ def depletion_rings(sources: list[dict]) -> str:
     return markdown_table(["リング", *DEPLETION_NUCLIDES], rows)
 
 
+def depletion_times(sources: list[dict]) -> str:
+    """格子計算の燃焼: 時間の内訳（秒）。xlc の全体は内訳の和、OpenMC は全体、輸送、CRAM"""
+    rows = []
+    for s, rings in zip(depletion_summaries(sources), ["1 リング", "4 リング"]):
+        x, o = s["seconds"]["xlc"], s["seconds"]["openmc"]
+        parts = [x[k] for k in ("shielding", "moc", "rates", "matrix", "cram")]
+        rows.append(
+            [
+                f"xlc、{rings}",
+                str(x["solves"]),
+                f"{sum(parts):.1f}",
+                f"{x['shielding']:.1f}",
+                f"{x['moc']:.1f}",
+                f"{x['rates']:.2f}",
+                f"{x['matrix']:.2f}",
+                f"{x['cram']:.2f}",
+            ]
+        )
+        rows.append(
+            [
+                f"OpenMC、{rings}",
+                str(o["solves"]),
+                f"{o['total']:,.0f}",
+                f"{o['transport']:,.0f}（1 回 {o['fastest']:.0f}〜{o['slowest']:.0f}）",
+                "",
+                "",
+                "",
+                f"{o['cram']:.2f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "計算",
+            "輸送の回数",
+            "全体",
+            "自己遮蔽（OpenMC は輸送）",
+            "MOC",
+            "反応率と規格化",
+            "燃焼行列",
+            "CRAM48",
+        ],
+        rows,
+    )
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -561,6 +606,13 @@ TABLES = {
     "depletion-1c-rings4-densities": (
         ["examples/depletion/compare-1C-rings4.json"],
         depletion_densities,
+    ),
+    "depletion-1c-times": (
+        [
+            "examples/depletion/compare-1C-rings1.json",
+            "examples/depletion/compare-1C-rings4.json",
+        ],
+        depletion_times,
     ),
     "depletion-1c-rings4-rings": (
         ["examples/depletion/compare-1C-rings4.json"],
