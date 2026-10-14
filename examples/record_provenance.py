@@ -23,7 +23,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 # JSON の `format` → `--report` を持つツール（リポジトリの直下から）
-REPORTS = {"xlc-compare-p3": "examples/vera/compare_p3.py"}
+REPORTS = {
+    "xlc-compare-p3": "examples/vera/compare_p3.py",
+    "xlc-compare-p5": "examples/vera/compare_p5.py",
+}
 
 
 class ProvenanceError(Exception):
