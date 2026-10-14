@@ -243,6 +243,27 @@ fn production_sources_hold_no_test_code() -> Result<()> {
     Ok(())
 }
 
+/// 検証の記録の表が、比較の段階の JSON から描いた表と同じ（ADR-0176）。JSON は DVC の出力なので、無い worktree では
+/// `dvc checkout examples/<問題>/dvc.yaml` で戻す（落ちたときのメッセージに出る）。
+#[test]
+fn record_tables_match_the_compare_outputs() -> Result<()> {
+    let root = repo_root();
+    let output = Command::new("python3")
+        .arg(root.join("examples/verification_tables.py"))
+        .arg("--check")
+        .output()
+        .map_err(|e| {
+            format!("cannot run examples/verification_tables.py (is python3 installed?): {e}")
+        })?;
+    assert!(
+        output.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(())
+}
+
 /// テストで作る一時的なリポジトリ。落ちたときも含めて、片付けで消す。
 struct TempRepo {
     dir: PathBuf,

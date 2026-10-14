@@ -22,3 +22,10 @@ repos:
         files: ^crates/.*\.rs$
         pass_filenames: false # 渡されたファイルでなく、crates/*/src 全体を見る
         verbose: true
+      - id: verification-tables
+        name: record tables match the compare outputs
+        entry: python3 examples/verification_tables.py --check
+        language: system
+        files: ^examples/(verification_tables\.py|.*/(verification\.md|dvc\.lock))$
+        pass_filenames: false # 渡されたファイルでなく、すべての記録を見る（JSON は追跡しない DVC の出力）
+        verbose: true
