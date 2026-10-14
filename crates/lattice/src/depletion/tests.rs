@@ -294,6 +294,10 @@ fn yield_weights_split_groups_at_the_bounds_by_lethargy() {
 }
 
 /// A (Xe-135 の位置) を (n,γ) で B に変える 2 核種のチェーン。反応率は A の数密度に比例し、dA/dt = −c A² の解析解を持つ
+#[allow(
+    clippy::type_complexity,
+    reason = "the closure that counts the calls has no nameable type"
+)]
 fn quadratic() -> (
     Chain,
     impl FnMut(&[Vec<f64>]) -> Result<Evaluation<usize>, ChainError>,
