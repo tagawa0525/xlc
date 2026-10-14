@@ -203,6 +203,7 @@ class DrawP5(unittest.TestCase):
         self.assertEqual(rows[1][1], "")
         self.assertEqual(rows[1][5], "1265 ± 1 pcm")
 
+
 def lattice_summary(problem: str, diff: float, pins: bool = True) -> dict:
     return {
         "format": "xlc-compare-keno-lattice",
