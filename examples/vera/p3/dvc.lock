@@ -653,8 +653,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 662ce4d712f2a1c03f952c326e113789
-      size: 21452
+      md5: 4ac723eb491f9dcbbd726ec20ad8aafd
+      size: 22137
     - path: core-3B-layers.msgpack
       hash: md5
       md5: 08cf1003570e98a65b894c54869bb754
@@ -670,8 +670,8 @@ stages:
     outs:
     - path: compare-3B.json
       hash: md5
-      md5: 79f3aa57717b0d1cc19472f471c5b675
-      size: 6377
+      md5: e54b69770dd94c225de76f823c4f2bee
+      size: 6755
   compare-3A:
     cmd: python3 ../compare_p3.py --json compare-3A.json 3A 
       ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack 
@@ -687,8 +687,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 662ce4d712f2a1c03f952c326e113789
-      size: 21452
+      md5: 4ac723eb491f9dcbbd726ec20ad8aafd
+      size: 22137
     - path: core-3A-layers.msgpack
       hash: md5
       md5: 51b69b22db4c53e14668670bdf558335
@@ -704,8 +704,8 @@ stages:
     outs:
     - path: compare-3A.json
       hash: md5
-      md5: 05b3fc36fbd81cd94617225cf031c32d
-      size: 6381
+      md5: 828b1d4b1a4039adbf97353beab1e4fd
+      size: 6759
   compare-3A-openmc:
     cmd: python3 ../compare_p3.py --json compare-3A-openmc.json 3A 
       ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack 
@@ -737,8 +737,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 662ce4d712f2a1c03f952c326e113789
-      size: 21452
+      md5: 4ac723eb491f9dcbbd726ec20ad8aafd
+      size: 22137
     - path: core-3A-layers.msgpack
       hash: md5
       md5: 51b69b22db4c53e14668670bdf558335
@@ -754,8 +754,8 @@ stages:
     outs:
     - path: compare-3A-openmc.json
       hash: md5
-      md5: a56cac1ba8915f15b6bdb20ffa82a8c2
-      size: 26864
+      md5: e74e5d032dd443531c4ca28e60c36679
+      size: 27742
   compare-3B-openmc:
     cmd: python3 ../compare_p3.py --json compare-3B-openmc.json 3B 
       ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack 
@@ -787,8 +787,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 662ce4d712f2a1c03f952c326e113789
-      size: 21452
+      md5: 4ac723eb491f9dcbbd726ec20ad8aafd
+      size: 22137
     - path: core-3B-layers.msgpack
       hash: md5
       md5: 08cf1003570e98a65b894c54869bb754
@@ -804,5 +804,5 @@ stages:
     outs:
     - path: compare-3B-openmc.json
       hash: md5
-      md5: ca0971c66724acc9e78fc897206371c4
-      size: 26890
+      md5: 280a90bfb7b58b85d57c00db36fe9a2c
+      size: 27768

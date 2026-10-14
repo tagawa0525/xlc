@@ -1,6 +1,40 @@
 {
  "format": "xlc-compare-p3",
  "problem": "3B",
+ "inputs": [
+  {
+   "path": "../../../references/vera/spec.txt",
+   "md5": "de9def92d813fd95954b01ec5512fff4"
+  },
+  {
+   "path": "core-3B.out",
+   "md5": "fafeaefc846b98e1a5a970a764877f85"
+  },
+  {
+   "path": "core-3B-pins.msgpack",
+   "md5": "2847b5d5a0fe6185d8a444ac553bf977"
+  },
+  {
+   "path": "core-3B-layers.msgpack",
+   "md5": "08cf1003570e98a65b894c54869bb754"
+  },
+  {
+   "path": "../../../references/openmc/aws/m3/openmc-3B/k.json",
+   "md5": "a74d654b2a56c259512e32d30a4501b1"
+  },
+  {
+   "path": "../../../references/openmc/aws/m3/openmc-3B/layers.msgpack",
+   "md5": "49b428b5a71f1b7358694884c7ae6250"
+  },
+  {
+   "path": "../../../references/openmc/aws/m3/openmc-3B/pins.msgpack",
+   "md5": "f3a82af62d087de4a8f1f7f432f07cbd"
+  },
+  {
+   "path": "../../../references/openmc/aws/m3/openmc-3B/pins-std.msgpack",
+   "md5": "a779df250550b08b04533d46d1804d81"
+  }
+ ],
  "k": {
   "xlc": 1.00208404,
   "keno": 1.000154,
