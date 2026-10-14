@@ -791,4 +791,17 @@ fn reaction_channels_follow_the_chain_layout() {
     })));
     // 鎖の反応の MT だけ
     assert!(bad(|r| r[0].mt = 18));
+    // 残りだけの経路はない
+    assert!(bad(|r| {
+        r[1].channels.remove(0);
+    }));
+    // 同じ状態を 2 度挙げない
+    assert!(bad(|r| {
+        let first = r[1].channels[0].clone();
+        r[1].channels.insert(0, first);
+    }));
+    // 残りがあるなら、状態は同じファイル（MF9 か MF10）
+    assert!(bad(
+        |r| r[1].channels[1].final_state = Some(ChannelState { mf: 10, lfs: None })
+    ));
 }
