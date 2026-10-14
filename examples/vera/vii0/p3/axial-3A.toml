@@ -1,0 +1,354 @@
+# このファイルは p3_inputs.py が書く。手で直さない。
+# VERA Problem 3A（濃縮度 3.10%、ホウ素 1300 ppm、600 K）の軸方向の反射体の平板（ADR-0128）: 集合体の高さ全体
+# （下の水の外端から上の水の外端まで）を格子の x（左が炉心の −z）に並べた1行の平板。左右は真空、上下は鏡面反射。
+# 燃料は支持格子のない単一集合体の格子（lattice-3A-*.toml）が書いた媒質で、燃料の中の支持格子は入れない（ADR-0128）。
+# 層の物質は、層の断面（ピッチ 21.50 cm の正方形）の中で体積で混ぜる（`s<下端の高さ>` は燃料の外の構造の層。成分は面積から:
+# 案内管と計装管、端栓（被覆管の外半径の Zircaloy の棒）、プレナム（被覆管と真空）、上の端の支持格子（Inconel-718 の
+# 質量 / 密度 / 高さ）、3B の Pyrex の棒のプレナム（SS304 の被覆管と真空）とシンブルプラグ（SS304 の棒））。自己遮蔽は
+# しない（#0008）。物理的な層（仕様書の高さ、cm。下部炉心板の上面から）:
+#   -55.0 〜 -5.0 cm: water
+#   -5.0 〜 0.0 cm: plate
+#   0.0 〜 6.053 cm: bnozzle
+#   6.053 〜 10.281 cm: s6_053
+#   10.281 〜 11.951 cm: s10_281
+#   11.951 〜 15.817 cm: medium-fuel
+#   15.817 〜 24.0281 cm: medium-fuel
+#   24.0281 〜 32.2393 cm: medium-fuel
+#   32.2393 〜 40.4504 cm: medium-fuel
+#   40.4504 〜 48.6616 cm: medium-fuel
+#   48.6616 〜 56.8727 cm: medium-fuel
+#   56.8727 〜 65.0839 cm: medium-fuel
+#   65.0839 〜 73.295 cm: medium-fuel
+#   73.295 〜 77.105 cm: medium-fuel
+#   77.105 〜 85.17 cm: medium-fuel
+#   85.17 〜 93.235 cm: medium-fuel
+#   93.235 〜 101.3 cm: medium-fuel
+#   101.3 〜 109.365 cm: medium-fuel
+#   109.365 〜 117.43 cm: medium-fuel
+#   117.43 〜 125.495 cm: medium-fuel
+#   125.495 〜 129.305 cm: medium-fuel
+#   129.305 〜 137.37 cm: medium-fuel
+#   137.37 〜 145.435 cm: medium-fuel
+#   145.435 〜 153.5 cm: medium-fuel
+#   153.5 〜 161.565 cm: medium-fuel
+#   161.565 〜 169.63 cm: medium-fuel
+#   169.63 〜 177.695 cm: medium-fuel
+#   177.695 〜 181.505 cm: medium-fuel
+#   181.505 〜 189.57 cm: medium-fuel
+#   189.57 〜 197.635 cm: medium-fuel
+#   197.635 〜 205.7 cm: medium-fuel
+#   205.7 〜 213.765 cm: medium-fuel
+#   213.765 〜 221.83 cm: medium-fuel
+#   221.83 〜 229.895 cm: medium-fuel
+#   229.895 〜 233.705 cm: medium-fuel
+#   233.705 〜 241.77 cm: medium-fuel
+#   241.77 〜 249.835 cm: medium-fuel
+#   249.835 〜 257.9 cm: medium-fuel
+#   257.9 〜 265.965 cm: medium-fuel
+#   265.965 〜 274.03 cm: medium-fuel
+#   274.03 〜 282.095 cm: medium-fuel
+#   282.095 〜 285.905 cm: medium-fuel
+#   285.905 〜 293.97 cm: medium-fuel
+#   293.97 〜 302.035 cm: medium-fuel
+#   302.035 〜 310.1 cm: medium-fuel
+#   310.1 〜 318.165 cm: medium-fuel
+#   318.165 〜 326.23 cm: medium-fuel
+#   326.23 〜 334.295 cm: medium-fuel
+#   334.295 〜 338.105 cm: medium-fuel
+#   338.105 〜 346.0262 cm: medium-fuel
+#   346.0262 〜 353.9474 cm: medium-fuel
+#   353.9474 〜 361.8686 cm: medium-fuel
+#   361.8686 〜 369.7898 cm: medium-fuel
+#   369.7898 〜 377.711 cm: medium-fuel
+#   377.711 〜 386.267 cm: s377_711
+#   386.267 〜 390.133 cm: s386_267
+#   390.133 〜 393.711 cm: s390_133
+#   393.711 〜 395.381 cm: s393_711
+#   395.381 〜 397.51 cm: s395_381
+#   397.51 〜 406.337 cm: tnozzle
+#   406.337 〜 413.937 cm: plate
+#   413.937 〜 463.937 cm: water
+library = "../vera.msgpack"
+self-shielding = false
+pitch = 1.0
+azimuthal = 32
+spacing = 0.05
+boundary = { left = "vacuum", right = "vacuum" }
+few-group = { bounds = [1e7, 0.625, 1e-5], axial = true, nodes = [
+  { output = "axial-3A/lower-water.msgpack", columns = [1, 50], rows = [1, 1], reflector = true },
+  { output = "axial-3A/lower-plate.msgpack", columns = [51, 55], rows = [1, 1], reflector = true },
+  { output = "axial-3A/bottom-nozzle.msgpack", columns = [56, 60], rows = [1, 1], reflector = true },
+  { output = "axial-3A/lower-gap-plug.msgpack", columns = [61, 66], rows = [1, 1], reflector = true },
+  { output = "axial-3A/fuel-01.msgpack", columns = [67, 70], rows = [1, 1] },
+  { output = "axial-3A/fuel-02.msgpack", columns = [71, 78], rows = [1, 1] },
+  { output = "axial-3A/fuel-03.msgpack", columns = [79, 86], rows = [1, 1] },
+  { output = "axial-3A/fuel-04.msgpack", columns = [87, 94], rows = [1, 1] },
+  { output = "axial-3A/fuel-05.msgpack", columns = [95, 102], rows = [1, 1] },
+  { output = "axial-3A/fuel-06.msgpack", columns = [103, 110], rows = [1, 1] },
+  { output = "axial-3A/fuel-07.msgpack", columns = [111, 118], rows = [1, 1] },
+  { output = "axial-3A/fuel-08.msgpack", columns = [119, 126], rows = [1, 1] },
+  { output = "axial-3A/fuel-09.msgpack", columns = [127, 130], rows = [1, 1] },
+  { output = "axial-3A/fuel-10.msgpack", columns = [131, 138], rows = [1, 1] },
+  { output = "axial-3A/fuel-11.msgpack", columns = [139, 146], rows = [1, 1] },
+  { output = "axial-3A/fuel-12.msgpack", columns = [147, 154], rows = [1, 1] },
+  { output = "axial-3A/fuel-13.msgpack", columns = [155, 162], rows = [1, 1] },
+  { output = "axial-3A/fuel-14.msgpack", columns = [163, 170], rows = [1, 1] },
+  { output = "axial-3A/fuel-15.msgpack", columns = [171, 178], rows = [1, 1] },
+  { output = "axial-3A/fuel-16.msgpack", columns = [179, 182], rows = [1, 1] },
+  { output = "axial-3A/fuel-17.msgpack", columns = [183, 190], rows = [1, 1] },
+  { output = "axial-3A/fuel-18.msgpack", columns = [191, 198], rows = [1, 1] },
+  { output = "axial-3A/fuel-19.msgpack", columns = [199, 206], rows = [1, 1] },
+  { output = "axial-3A/fuel-20.msgpack", columns = [207, 214], rows = [1, 1] },
+  { output = "axial-3A/fuel-21.msgpack", columns = [215, 222], rows = [1, 1] },
+  { output = "axial-3A/fuel-22.msgpack", columns = [223, 230], rows = [1, 1] },
+  { output = "axial-3A/fuel-23.msgpack", columns = [231, 234], rows = [1, 1] },
+  { output = "axial-3A/fuel-24.msgpack", columns = [235, 242], rows = [1, 1] },
+  { output = "axial-3A/fuel-25.msgpack", columns = [243, 250], rows = [1, 1] },
+  { output = "axial-3A/fuel-26.msgpack", columns = [251, 258], rows = [1, 1] },
+  { output = "axial-3A/fuel-27.msgpack", columns = [259, 266], rows = [1, 1] },
+  { output = "axial-3A/fuel-28.msgpack", columns = [267, 274], rows = [1, 1] },
+  { output = "axial-3A/fuel-29.msgpack", columns = [275, 282], rows = [1, 1] },
+  { output = "axial-3A/fuel-30.msgpack", columns = [283, 286], rows = [1, 1] },
+  { output = "axial-3A/fuel-31.msgpack", columns = [287, 294], rows = [1, 1] },
+  { output = "axial-3A/fuel-32.msgpack", columns = [295, 302], rows = [1, 1] },
+  { output = "axial-3A/fuel-33.msgpack", columns = [303, 310], rows = [1, 1] },
+  { output = "axial-3A/fuel-34.msgpack", columns = [311, 318], rows = [1, 1] },
+  { output = "axial-3A/fuel-35.msgpack", columns = [319, 326], rows = [1, 1] },
+  { output = "axial-3A/fuel-36.msgpack", columns = [327, 334], rows = [1, 1] },
+  { output = "axial-3A/fuel-37.msgpack", columns = [335, 338], rows = [1, 1] },
+  { output = "axial-3A/fuel-38.msgpack", columns = [339, 346], rows = [1, 1] },
+  { output = "axial-3A/fuel-39.msgpack", columns = [347, 354], rows = [1, 1] },
+  { output = "axial-3A/fuel-40.msgpack", columns = [355, 362], rows = [1, 1] },
+  { output = "axial-3A/fuel-41.msgpack", columns = [363, 370], rows = [1, 1] },
+  { output = "axial-3A/fuel-42.msgpack", columns = [371, 378], rows = [1, 1] },
+  { output = "axial-3A/fuel-43.msgpack", columns = [379, 386], rows = [1, 1] },
+  { output = "axial-3A/fuel-44.msgpack", columns = [387, 390], rows = [1, 1] },
+  { output = "axial-3A/fuel-45.msgpack", columns = [391, 398], rows = [1, 1] },
+  { output = "axial-3A/fuel-46.msgpack", columns = [399, 406], rows = [1, 1] },
+  { output = "axial-3A/fuel-47.msgpack", columns = [407, 414], rows = [1, 1] },
+  { output = "axial-3A/fuel-48.msgpack", columns = [415, 422], rows = [1, 1] },
+  { output = "axial-3A/fuel-49.msgpack", columns = [423, 430], rows = [1, 1] },
+  { output = "axial-3A/plenum.msgpack", columns = [431, 448], rows = [1, 1], reflector = true },
+  { output = "axial-3A/upper-plug-gap.msgpack", columns = [449, 452], rows = [1, 1], reflector = true },
+  { output = "axial-3A/top-nozzle.msgpack", columns = [453, 462], rows = [1, 1], reflector = true },
+  { output = "axial-3A/upper-plate.msgpack", columns = [463, 470], rows = [1, 1], reflector = true },
+  { output = "axial-3A/upper-water.msgpack", columns = [471, 520], rows = [1, 1], reflector = true },
+] }
+widths = [
+  { size = 1.0, count = 50 },
+  { size = 1.0, count = 5 },
+  { size = 1.2106, count = 5 },
+  { size = 1.057, count = 4 },
+  { size = 0.835, count = 2 },
+  { size = 0.9665, count = 4 },
+  { size = 1.0263875, count = 8 },
+  { size = 1.0264, count = 8 },
+  { size = 1.0263875, count = 8 },
+  { size = 1.0264, count = 8 },
+  { size = 1.0263875, count = 8 },
+  { size = 1.0264, count = 8 },
+  { size = 1.0263875, count = 8 },
+  { size = 0.9525, count = 4 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 0.9525, count = 4 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 0.9525, count = 4 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 0.9525, count = 4 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 0.9525, count = 4 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 1.008125, count = 8 },
+  { size = 0.9525, count = 4 },
+  { size = 0.99015, count = 8 },
+  { size = 0.99015, count = 8 },
+  { size = 0.99015, count = 8 },
+  { size = 0.99015, count = 8 },
+  { size = 0.99015, count = 8 },
+  { size = 0.8556, count = 10 },
+  { size = 0.9665, count = 4 },
+  { size = 0.8945, count = 4 },
+  { size = 0.835, count = 2 },
+  { size = 1.0645, count = 2 },
+  { size = 0.8827, count = 10 },
+  { size = 0.95, count = 8 },
+  { size = 1.0, count = 50 },
+]
+heights = [{ size = 1.0 }]
+rows = ["water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water plate plate plate plate plate bnozzle bnozzle bnozzle bnozzle bnozzle s6_053 s6_053 s6_053 s6_053 s10_281 s10_281 medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel medium-fuel s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s377_711 s386_267 s386_267 s386_267 s386_267 s390_133 s390_133 s390_133 s390_133 s393_711 s393_711 s395_381 s395_381 tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle tnozzle plate plate plate plate plate plate plate plate water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water water"]
+
+[material.medium-fuel]
+medium = "medium-3A-fuel.msgpack"
+
+[material.water]
+temperature = 600
+nuclides = { H-1 = 4.96224e-02, O-16 = 2.48112e-02, B-10 = 1.07070e-05, B-11 = 4.30971e-05 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.ss304]
+temperature = 600
+
+[material.ss304.nuclides]
+C-12 = 3.17461e-04
+C-13 = 3.43358e-06
+Si-28 = 1.58197e-03
+Si-29 = 8.03653e-05
+Si-30 = 5.30394e-05
+P-31 = 6.99938e-05
+Cr-50 = 7.64915e-04
+Cr-52 = 1.47506e-02
+Cr-53 = 1.67260e-03
+Cr-54 = 4.16346e-04
+Mn-55 = 1.75387e-03
+Fe-54 = 3.44776e-03
+Fe-56 = 5.41225e-02
+Fe-57 = 1.24992e-03
+Fe-58 = 1.66342e-04
+Ni-58 = 5.30854e-03
+Ni-60 = 2.04484e-03
+Ni-61 = 8.88879e-05
+Ni-62 = 2.83413e-04
+Ni-64 = 7.21770e-05
+
+[material.inconel]
+temperature = 600
+
+[material.inconel.nuclides]
+Si-28 = 4.04885e-03
+Si-29 = 2.05685e-04
+Si-30 = 1.35748e-04
+Ti-46 = 2.12518e-04
+Ti-47 = 1.91652e-04
+Ti-48 = 1.89901e-03
+Ti-49 = 1.39360e-04
+Ti-50 = 1.33435e-04
+Cr-50 = 6.18222e-04
+Cr-52 = 1.19218e-02
+Cr-53 = 1.35184e-03
+Cr-54 = 3.36501e-04
+Fe-54 = 3.61353e-04
+Fe-56 = 5.67247e-03
+Fe-57 = 1.31002e-04
+Fe-58 = 1.74340e-05
+Ni-58 = 4.17608e-02
+Ni-60 = 1.60862e-02
+Ni-61 = 6.99255e-04
+Ni-62 = 2.22953e-03
+Ni-64 = 5.67796e-04
+
+[material.plate]
+mix = [{ material = "ss304", volume = 0.5 }, { material = "water", volume = 0.5 }]
+
+[material.bnozzle]
+mix = [{ material = "ss304", volume = 0.27923 }, { material = "water", volume = 0.72077 }]
+
+[material.tnozzle]
+mix = [{ material = "ss304", volume = 0.19147 }, { material = "water", volume = 0.80853 }]
+
+[material.s6_053]
+mix = [{ material = "zircaloy", volume = 0.00814154 }, { material = "water", volume = 0.99185846 }]
+
+[material.s10_281]
+mix = [{ material = "zircaloy", volume = 0.41296353 }, { material = "water", volume = 0.58703647 }]
+
+[material.s377_711]
+mix = [{ material = "zircaloy", volume = 0.09946938 }, { material = "void", volume = 0.31349415 }, { material = "water", volume = 0.58703647 }]
+
+[material.s386_267]
+mix = [{ material = "zircaloy", volume = 0.09946938 }, { material = "void", volume = 0.31349415 }, { material = "inconel", volume = 0.06948616 }, { material = "water", volume = 0.51755031 }]
+
+[material.s390_133]
+mix = [{ material = "zircaloy", volume = 0.09946938 }, { material = "void", volume = 0.31349415 }, { material = "water", volume = 0.58703647 }]
+
+[material.s393_711]
+mix = [{ material = "zircaloy", volume = 0.41296353 }, { material = "water", volume = 0.58703647 }]
+
+[material.s395_381]
+mix = [{ material = "zircaloy", volume = 0.00814154 }, { material = "water", volume = 0.99185846 }]
+
+[cell.water]
+zones = [{ material = "water", rings = 1 }]
+
+[cell.plate]
+zones = [{ material = "plate", rings = 1 }]
+
+[cell.bnozzle]
+zones = [{ material = "bnozzle", rings = 1 }]
+
+[cell.s6_053]
+zones = [{ material = "s6_053", rings = 1 }]
+
+[cell.s10_281]
+zones = [{ material = "s10_281", rings = 1 }]
+
+[cell.medium-fuel]
+zones = [{ material = "medium-fuel", rings = 1 }]
+
+[cell.s377_711]
+zones = [{ material = "s377_711", rings = 1 }]
+
+[cell.s386_267]
+zones = [{ material = "s386_267", rings = 1 }]
+
+[cell.s390_133]
+zones = [{ material = "s390_133", rings = 1 }]
+
+[cell.s393_711]
+zones = [{ material = "s393_711", rings = 1 }]
+
+[cell.s395_381]
+zones = [{ material = "s395_381", rings = 1 }]
+
+[cell.tnozzle]
+zones = [{ material = "tnozzle", rings = 1 }]

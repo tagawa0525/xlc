@@ -1,0 +1,234 @@
+# このファイルは p3_inputs.py が書く。手で直さない。
+# VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの
+# 少数群定数と、平板の燃料の媒質）→ 軸方向の反射体の平板（axial-<問題>）→ 炉心（平板の定数だけの等価性
+# core-<問題>-slab と、f* の方法 core-<問題>）→ 比較（平板の MOC との等価性、KENO-VI）。実行するのは `dvc repro`
+# （ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）
+stages:
+  lattice-3A-fuel:
+    cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-fuel.toml > lattice-3A-fuel.out
+    deps:
+      - lattice-3A-fuel.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3A/fuel.msgpack
+      - lattice-3A-fuel.out
+      - medium-3A-fuel.msgpack
+  lattice-3A-zgrid:
+    cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-zgrid.toml > lattice-3A-zgrid.out
+    deps:
+      - lattice-3A-zgrid.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3A/zgrid.msgpack
+      - lattice-3A-zgrid.out
+  lattice-3A-igrid:
+    cmd: mkdir -p lattice-3A && ../../../../bin/lattice lattice-3A-igrid.toml > lattice-3A-igrid.out
+    deps:
+      - lattice-3A-igrid.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3A/igrid.msgpack
+      - lattice-3A-igrid.out
+  axial-3A:
+    cmd: mkdir -p axial-3A && RUST_LOG=debug ../../../../bin/lattice axial-3A.toml > axial-3A.out 2> axial-3A.log
+    deps:
+      - axial-3A.toml
+      - ../vera.msgpack
+      - medium-3A-fuel.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - axial-3A
+      - axial-3A.out
+      - axial-3A.log
+  core-3A-slab:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3A-slab.toml > core-3A-slab.out 2> core-3A-slab.log
+    deps:
+      - core-3A-slab.toml
+      - core-3A-slab-cycle.toml
+      - core-3A-slab-plant.toml
+      - core-3A-slab-assemblies.toml
+      - axial-3A
+      - ../../../../bin/core
+    outs:
+      - core-3A-slab.out
+      - core-3A-slab.log
+  core-3A:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3A.toml > core-3A.out 2> core-3A.log
+    deps:
+      - core-3A.toml
+      - core-3A-cycle.toml
+      - core-3A-plant.toml
+      - core-3A-assemblies.toml
+      - axial-3A
+      - lattice-3A/fuel.msgpack
+      - lattice-3A/zgrid.msgpack
+      - lattice-3A/igrid.msgpack
+      - ../../../../bin/core
+    outs:
+      - core-3A.out
+      - core-3A.log
+      - core-3A-pins.msgpack
+      - core-3A-layers.msgpack
+  compare-3A-slab:
+    cmd: python3 ../../../reflector/compare_axial.py axial-3A.log core-3A-slab.log > compare-3A-slab.out
+    deps:
+      - ../../../reflector/compare_axial.py
+      - axial-3A.log
+      - core-3A-slab.log
+    outs:
+      - compare-3A-slab.out
+  compare-3A:
+    cmd: python3 ../../compare_p3.py 3A ../../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack core-3A-layers.msgpack > compare-3A.out
+    deps:
+      - ../../compare_p3.py
+      - ../../compare_keno.py
+      - ../../../../references/vera/spec.txt
+      - core-3A.out
+      - core-3A-pins.msgpack
+      - core-3A-layers.msgpack
+    outs:
+      - compare-3A.out
+  lattice-3B-poison:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-poison.toml > lattice-3B-poison.out
+    deps:
+      - lattice-3B-poison.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/poison.msgpack
+      - lattice-3B-poison.out
+      - medium-3B-poison.msgpack
+  lattice-3B-poison-zgrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-poison-zgrid.toml > lattice-3B-poison-zgrid.out
+    deps:
+      - lattice-3B-poison-zgrid.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/poison-zgrid.msgpack
+      - lattice-3B-poison-zgrid.out
+  lattice-3B-empty:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-empty.toml > lattice-3B-empty.out
+    deps:
+      - lattice-3B-empty.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/empty.msgpack
+      - lattice-3B-empty.out
+      - medium-3B-empty.msgpack
+  lattice-3B-plug:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plug.toml > lattice-3B-plug.out
+    deps:
+      - lattice-3B-plug.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/plug.msgpack
+      - lattice-3B-plug.out
+      - medium-3B-plug.msgpack
+  lattice-3B-plenum:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plenum.toml > lattice-3B-plenum.out
+    deps:
+      - lattice-3B-plenum.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/plenum.msgpack
+      - lattice-3B-plenum.out
+      - medium-3B-plenum.msgpack
+  lattice-3B-empty-igrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-empty-igrid.toml > lattice-3B-empty-igrid.out
+    deps:
+      - lattice-3B-empty-igrid.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/empty-igrid.msgpack
+      - lattice-3B-empty-igrid.out
+  lattice-3B-plug-igrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-plug-igrid.toml > lattice-3B-plug-igrid.out
+    deps:
+      - lattice-3B-plug-igrid.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/plug-igrid.msgpack
+      - lattice-3B-plug-igrid.out
+  lattice-3B-poison-igrid:
+    cmd: mkdir -p lattice-3B && ../../../../bin/lattice lattice-3B-poison-igrid.toml > lattice-3B-poison-igrid.out
+    deps:
+      - lattice-3B-poison-igrid.toml
+      - ../vera.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - lattice-3B/poison-igrid.msgpack
+      - lattice-3B-poison-igrid.out
+  axial-3B:
+    cmd: mkdir -p axial-3B && RUST_LOG=debug ../../../../bin/lattice axial-3B.toml > axial-3B.out 2> axial-3B.log
+    deps:
+      - axial-3B.toml
+      - ../vera.msgpack
+      - medium-3B-poison.msgpack
+      - medium-3B-empty.msgpack
+      - medium-3B-plug.msgpack
+      - medium-3B-plenum.msgpack
+      - ../../../../bin/lattice
+    outs:
+      - axial-3B
+      - axial-3B.out
+      - axial-3B.log
+  core-3B-slab:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3B-slab.toml > core-3B-slab.out 2> core-3B-slab.log
+    deps:
+      - core-3B-slab.toml
+      - core-3B-slab-cycle.toml
+      - core-3B-slab-plant.toml
+      - core-3B-slab-assemblies.toml
+      - axial-3B
+      - ../../../../bin/core
+    outs:
+      - core-3B-slab.out
+      - core-3B-slab.log
+  core-3B:
+    cmd: RUST_LOG=debug ../../../../bin/core core-3B.toml > core-3B.out 2> core-3B.log
+    deps:
+      - core-3B.toml
+      - core-3B-cycle.toml
+      - core-3B-plant.toml
+      - core-3B-assemblies.toml
+      - axial-3B
+      - lattice-3B/poison.msgpack
+      - lattice-3B/poison-zgrid.msgpack
+      - lattice-3B/plenum.msgpack
+      - lattice-3B/empty-igrid.msgpack
+      - lattice-3B/plug-igrid.msgpack
+      - lattice-3B/poison-igrid.msgpack
+      - ../../../../bin/core
+    outs:
+      - core-3B.out
+      - core-3B.log
+      - core-3B-pins.msgpack
+      - core-3B-layers.msgpack
+  compare-3B-slab:
+    cmd: python3 ../../../reflector/compare_axial.py axial-3B.log core-3B-slab.log > compare-3B-slab.out
+    deps:
+      - ../../../reflector/compare_axial.py
+      - axial-3B.log
+      - core-3B-slab.log
+    outs:
+      - compare-3B-slab.out
+  compare-3B:
+    cmd: python3 ../../compare_p3.py 3B ../../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack core-3B-layers.msgpack > compare-3B.out
+    deps:
+      - ../../compare_p3.py
+      - ../../compare_keno.py
+      - ../../../../references/vera/spec.txt
+      - core-3B.out
+      - core-3B-pins.msgpack
+      - core-3B-layers.msgpack
+    outs:
+      - compare-3B.out
