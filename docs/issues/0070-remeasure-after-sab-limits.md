@@ -46,7 +46,7 @@ resolution:
 - 2026-10-14: feat/0070-remainder で、トラック間隔のスイープ（2E-empty、2F、2G、2H、2K の方位角 30 × 間隔 7 種と方位角 128・間隔 0.01 cm、
   計 40 状態）を再測定した（7ede9ea5、分岐点 6ed58abb、排他のジョブ 355〜359、各 4〜9 分）。幅は 2E-empty 7.0、2F 28.9、2G 65.8、
   2H 33.1、2K 29.3 pcm で、2G と 2H の行も ADR-0142 の後の値に揃えた（examples/vera/verification.md の「吸収体を入れた集合体のトラック間隔」）。
-  リングの数のうち、2G の AIC と 2H の B4C は ADR-0142 の後に測り終えている（8f7bee76）。残るのは Pyrex の環（2E、2F、2J、2K）。
+  残りは Pyrex の環のリングの数、branches、reflector。リングの数のうち、2G の AIC と 2H の B4C は ADR-0142 の後に測り終えている（8f7bee76）。残るのは Pyrex の環（2E、2F、2J、2K）。
   branches の測り直しは後回しにした（M4-3 のライブラリ作成と待ち行列で競合する。燃焼の縦の一本を優先する指示）。
   手順と見積もり: `branches-xs-table`（xs 13 分と assembly-2B.toml の 27 状態。1 状態は 1B〜2K の今の値から 20〜50 秒の見込みで、
   ADR-0156 の前の 256 秒より短い。見積もりは測ってから決める）のあとに、direct 6 本と core 7 本を、verification.md の手順で流す。
