@@ -22,6 +22,14 @@ def histories(rings: int = 1):
         "regions": [
             {"material": f"fuel-{r}", "volume": v} for r, v in enumerate(volumes)
         ],
+        "seconds": {
+            "shielding": 9.0,
+            "moc": 0.5,
+            "rates": 0.01,
+            "matrix": 0.02,
+            "cram": 0.03,
+        },
+        "solves": 3,
         "points": [
             {
                 "burnup": b,
@@ -38,6 +46,9 @@ def histories(rings: int = 1):
         "k": [1.171, 1.1215],
         "k-std": [0.0002, 0.0002],
         "transportable": ["Am242_m1", "U235"],
+        "transport-seconds": [100.0, 110.0, 120.0],
+        "total-seconds": 331.0,
+        "cram-seconds": [0.5, 0.25],
         "rings": [
             {
                 "name": f"fuel-{r}",
@@ -57,6 +68,16 @@ def histories(rings: int = 1):
 
 
 class Summary(unittest.TestCase):
+    def test_times_of_both_codes(self):
+        s = compare_depletion.summarize(*histories())
+        self.assertEqual(s["seconds"]["xlc"]["shielding"], 9.0)
+        self.assertEqual(s["seconds"]["xlc"]["solves"], 3)
+        o = s["seconds"]["openmc"]
+        self.assertEqual(
+            (o["transport"], o["fastest"], o["slowest"]), (330.0, 100.0, 120.0)
+        )
+        self.assertEqual((o["cram"], o["total"], o["solves"]), (0.75, 331.0, 3))
+
     def test_k_differences_and_their_change_from_the_first_point(self):
         s = compare_depletion.summarize(*histories())
         self.assertEqual(s["burnup"], [0.0, 1.0])
