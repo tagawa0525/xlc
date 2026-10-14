@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-15
 requires: [ADR-0117, ADR-0122, ADR-0130, ADR-0143, ADR-0159]
 supersedes: []
@@ -120,7 +120,7 @@ issues: ["#0130"]
 5. **計算の欄は手で書く**。案 A は rebase と相性が悪く、案 B は取れる値が違う（上）。欄は `commit-refs remap` が付け替え、
    表の数値は `--check` が検査する。残る穴（表の数値と欄の hash の対応）は、JSON の md5 が `dvc.lock` と一致するかを検査することと、
    記録に書く手順（verification-record）で抑える
-6. **検査**: `.pre-commit-config.yaml` の hook `verification-tables`（`examples/verification_tables.py`、`*/verification.md`、`*/dvc.lock` の変更で走る）と、
+6. **検査**: `.pre-commit-config.yaml` の hook `verification-tables`（`examples/verification_tables.py`、`*/verification.md`、`*/dvc.lock`、`compare-*.json` の変更で走る）と、
    `crates/docs/tests/consistency.rs` の `record_tables_match_the_compare_outputs`（`cargo test` に含まれるので `run-checks.sh` でも走る）
 7. **試作の範囲**: Problem 3 の 2 つの表（`p3-reference-results`、`p3-openmc-comparison`）。残りは #0130
 
@@ -145,7 +145,7 @@ issues: ["#0130"]
   なるまで作らない（#0130）
 - JSON は DVC の出力（`cache: false`）のまま git で追跡する。`--check` と `cargo test` は、worktree でも nix の sandbox でも
   `dvc checkout` なしに走る。JSON が手で直されると `dvc.lock` の md5 と合わず落ちる。JSON は数 KB の要約なので、リポジトリは
-  ほとんど増えない（試作の 2 つで 14 KB ずつ）
+  ほとんど増えない（試作の OpenMC ありの 2 つで 27 KB ほどずつ、KENO-VI だけの 2 つで 6 KB ずつ）
 - Python のテストは `run-checks.sh` の pytest が走らない配置（リポジトリの直下に `test_*.py` が無い）なので、手で
   `python3 -m unittest discover -s examples -p 'test_verification_tables.py'` を走らせる（`test_compare_p3.py` と同じ）
 - 比較の道具が `--json` を持つたびに `p3_inputs.py` のような生成元と TABLES を足す。表の形の知識は `verification_tables.py` に集まる
