@@ -632,6 +632,38 @@ stages:
     outs:
       - compare-5A-Inext-openmc.json:
           cache: false
+  compare-5B-openmc:
+    cmd: python3 ../compare_p5.py --json compare-5B-openmc.json openmc 5B ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack ../../../references/openmc/aws/m3/openmc-5B-2D
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - ../../../references/vera/spec.txt
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/k.json
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/assemblies.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/assemblies-std.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/pins.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5B-2D/pins-std.msgpack
+      - core-5B.out
+      - core-5B-pins.msgpack
+    outs:
+      - compare-5B-openmc.json:
+          cache: false
+  compare-5C-openmc:
+    cmd: python3 ../compare_p5.py --json compare-5C-openmc.json openmc 5C ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack ../../../references/openmc/aws/m3/openmc-5C-2D
+    deps:
+      - ../compare_p5.py
+      - ../compare_k.py
+      - ../../../references/vera/spec.txt
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/k.json
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/assemblies.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/assemblies-std.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/pins.msgpack
+      - ../../../references/openmc/aws/m3/openmc-5C-2D/pins-std.msgpack
+      - core-5C.out
+      - core-5C-pins.msgpack
+    outs:
+      - compare-5C-openmc.json:
+          cache: false
   hzp-21-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel.toml > 21-fuel.out
     deps:

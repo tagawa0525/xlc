@@ -182,8 +182,15 @@ BANK_D = {(0, 0), (0, 4), (4, 0), (4, 4)}
 # 制御棒（表 8。吸収体の半径、被覆管は SS304 の 0.386〜0.484 cm、吸収体と被覆管の間は真空。ADR-0120）
 RODS = {"aic": ("AIC", AIC, 0.382), "b4c": ("B4C", B4C, 0.373)}
 CASES = {"5A": None, "5B": "aic", "5C": "b4c"}
-# OpenMC の参照解と比べるケース → 問題（参照解のあるものだけ。5B-2D と 5C-2D は #0073）
-OPENMC = {"5A": "5A", "5A-Ly": "5A", "5A-Inext": "5A"}
+# OpenMC の参照解と比べるケース → (問題, 参照解のディレクトリ)（参照解のあるものだけ）
+OPENMC = {
+    "5A": ("5A", "openmc-5A-2D-results"),
+    "5A-Ly": ("5A", "openmc-5A-2D-results"),
+    "5A-Inext": ("5A", "openmc-5A-2D-results"),
+    # AWS の VM の実行 m3 から取り出した参照解（aws_fetch.sh。DVC の段階の出力でない）
+    "5B": ("5B", "../../../references/openmc/aws/m3/openmc-5B-2D"),
+    "5C": ("5C", "../../../references/openmc/aws/m3/openmc-5C-2D"),
+}
 # 反射体の定数を作る燃料（外周の集合体の代表。ADR-0084）。I 型と角型の格子の反射体のノードの定数を、炉心のすべての
 # 反射体の位置に置く。燃料のノードの定数は、外周のこの種類の位置に置く（ADR-0153）
 REPRESENTATIVE = "31"
@@ -1275,8 +1282,7 @@ def pipeline(
             )
         )
     # OpenMC の参照解（../dvc.yaml の openmc-<問題>-2D-extract の出力。examples/vera/verification.md の「Problem 5-2D の参照解」）
-    for name, problem in OPENMC.items():
-        results = f"openmc-{problem}-2D-results"
+    for name, (problem, results) in OPENMC.items():
         # 比べる 5 つのファイルを deps に書く（JSON の `inputs` が deps の md5 と照合される）。JSON は数十 KB ほどの要約で、
         # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印。ADR-0176）
         stages.append(
