@@ -109,10 +109,10 @@ def p5_summary(problem: str, kind: str, k: float, ref: float, **extra) -> dict:
         s["pins"] = {
             "all": {"n": 50952, "rms": 0.0317, "max": 0.5473, "at": [3, 68]},
             "peripheral": {"n": 14784, "rms": 0.0535, "max": 0.5473, "at": [3, 68]},
-            "max_pin": {"xlc": 1.4845, "reference": 1.43999},
+            "max_pin": {"xlc": 1.48451, "reference": 1.43999},
         }
     else:
-        s["max_pin"] = {"xlc": 1.4845, "reference": 1.44402}
+        s["max_pin"] = {"xlc": 1.48451, "reference": 1.44402}
     return s
 
 
@@ -120,7 +120,7 @@ class DrawP5(unittest.TestCase):
     def test_keno_comparison_row_has_rod_worth_from_5a(self):
         """制御棒の価値は (1/k_5B − 1/k_5A) × 1e5 pcm。5A の行は空欄"""
         sources = [
-            p5_summary("5A", "keno", 1.005401, 1.004085),
+            p5_summary("5A", "keno", 1.00540075, 1.004085),
             p5_summary("5B", "keno", 0.992924, 0.991496),
         ]
         rows = [
@@ -167,7 +167,7 @@ class DrawP5(unittest.TestCase):
     def test_reference_results_leave_missing_openmc_blank(self):
         """OpenMC が 5A だけのとき、5B と 5C の OpenMC の列と制御棒の価値（OpenMC）は空欄"""
         sources = [
-            p5_summary("5A", "keno", 1.005401, 1.004085),
+            p5_summary("5A", "keno", 1.00540075, 1.004085),
             p5_summary("5B", "keno", 0.992924, 0.991496),
             p5_summary("5A", "openmc", 1.005401, 1.005459, reference_std=2e-05),
         ]
