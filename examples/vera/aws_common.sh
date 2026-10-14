@@ -134,11 +134,14 @@ EOT
 # 機種の設定（aws_types.toml）の [speed] の "タイプ" = 速度 を「タイプ 速度」で 1 行ずつ出す。書き方が違う行は止まる
 # （速度は c7a.4xlarge を 1 とした見積もりの値。ADR-0171）
 auto_types_read() {
-  local file=$1 line type speed in_speed=0 n=0 seen=' '
+  local file=$1 line type speed in_speed=0 in_vcpus=0 n=0 seen=' '
   [[ -f $file ]] || { echo "機種の設定 $file がありません" >&2; exit 1; }
   while IFS= read -r line; do
     [[ $line =~ ^[[:space:]]*(#.*)?$ ]] && continue
-    if [[ $line =~ ^\[speed\][[:space:]]*(#.*)?$ ]]; then in_speed=1; continue; fi
+    if [[ $line =~ ^\[speed\][[:space:]]*(#.*)?$ ]]; then in_speed=1; in_vcpus=0; continue; fi
+    if [[ $line =~ ^\[vcpus\][[:space:]]*(#.*)?$ ]]; then in_speed=0; in_vcpus=1; continue; fi
+    # [vcpus] は auto_vcpus_read が読む。ここでは形だけ確かめる
+    if ((in_vcpus)) && [[ $line =~ ^\"[a-z0-9-]+\.[a-z0-9-]+\"[[:space:]]*=[[:space:]]*[1-9][0-9]*[[:space:]]*(#.*)?$ ]]; then continue; fi
     if ((in_speed)) && [[ $line =~ ^\"([a-z0-9-]+\.[a-z0-9-]+)\"[[:space:]]*=[[:space:]]*([0-9]+(\.[0-9]+)?)[[:space:]]*(#.*)?$ ]]; then
       type=${BASH_REMATCH[1]} speed=${BASH_REMATCH[2]}
       # 0 や 0.0 は速度にならない
@@ -150,7 +153,7 @@ auto_types_read() {
         continue
       fi
     fi
-    echo "$file: 読めない行です（[speed] の下に \"タイプ\" = 速度 だけ）: $line" >&2
+    echo "$file: 読めない行です（[speed] の下に \"タイプ\" = 速度、[vcpus] の下に \"タイプ\" = vCPU 数）: $line" >&2
     exit 1
   done < "$file"
   ((n)) || { echo "$file: 候補の機種がありません" >&2; exit 1; }
@@ -173,4 +176,33 @@ auto_candidates() {
     BEGIN { n = split(speeds, l, "\n"); for (i = 1; i <= n; i++) { split(l[i], f, " "); sp[f[1]] = f[2] } }
     !seen[$1 " " $2]++ && (only == "" || $2 == only) && sp[$1] > 0 { printf "%.6f %s %s %s %s\n", $4 / sp[$1], $1, $2, $4, sp[$1] }' |
     LC_ALL=C sort -k1,1g -k2,2 -k3,3
+}
+
+# 機種の設定 <file> の [vcpus]（機種の vCPU 数。クォータに収まる機種の選別に使う）から「タイプ vCPU」を 1 行ずつ出す。
+# 候補の機種（[speed]）に vCPU がなければ止まる
+auto_vcpus_read() {
+  local file=$1 line in_vcpus=0 type vcpus
+  vcpus=$(while IFS= read -r line; do
+    if [[ $line =~ ^\[vcpus\][[:space:]]*(#.*)?$ ]]; then in_vcpus=1; continue; fi
+    if [[ $line =~ ^\[ ]]; then in_vcpus=0; continue; fi
+    if ((in_vcpus)) && [[ $line =~ ^\"([a-z0-9-]+\.[a-z0-9-]+)\"[[:space:]]*=[[:space:]]*([1-9][0-9]*)[[:space:]]*(#.*)?$ ]]; then
+      echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+    fi
+  done < "$file")
+  while read -r type _; do
+    grep -q "^$type " <<< "$vcpus" || { echo "$file: $type の vCPU 数が [vcpus] にありません" >&2; exit 1; }
+  done < <(auto_types_read "$file")
+  echo "$vcpus"
+}
+
+# スポットの vCPU のクォータ（L-34B43A08）から、この account で今走っている（pending/running）スポットのインスタンスの
+# vCPU の合計を引いた残りを出す。タグ XlcRun に限らず全部を数える。取れなければ 1 を返す（呼び出し側が警告する）
+spot_vcpu_remaining() {
+  local quota used
+  quota=$(aws service-quotas get-service-quota --service-code ec2 --quota-code L-34B43A08 --query Quota.Value --output text) || return 1
+  [[ $quota =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 1
+  used=$(aws ec2 describe-instances --filters Name=instance-lifecycle,Values=spot Name=instance-state-name,Values=pending,running \
+    --query 'Reservations[].Instances[].[CpuOptions.CoreCount,CpuOptions.ThreadsPerCore]' --output text |
+    awk '{ s += $1 * $2 } END { print s + 0 }') || return 1
+  echo "$(( ${quota%.*} - used )) ${quota%.*} $used"
 }
