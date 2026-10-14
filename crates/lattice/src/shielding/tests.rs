@@ -111,6 +111,22 @@ fn without_escape_the_background_alone_sets_sigma0() {
 }
 
 #[test]
+fn a_trace_nuclide_beyond_the_table_is_infinitely_dilute() {
+    // 燃焼でできたばかりの核種は、σ0 がライブラリの無限希釈の値を超える。表の最初の値が無限希釈（ADR-0173）
+    let library = library();
+    let equivalence = Equivalence {
+        chord: 0.8192,
+        terms: vec![carlvik(0.3).unwrap(); 2],
+    };
+    let result = effective(&library, "U-238", T, 1.0e-20, &[0.2, 0.2], &equivalence).unwrap();
+    let infinite = library.sigma0[0];
+    let expected = library.shielded("U-238", T, &[infinite, infinite]).unwrap();
+    for (a, b) in result.total.iter().zip(&expected.total) {
+        assert!(close(*a, *b), "{a} vs {b}");
+    }
+}
+
+#[test]
 fn two_terms_are_weighted_by_the_narrow_resonance_flux() {
     // NR 近似の燃料の中性子束 (σp + σ0) / (σt + σ0) は、吸収体自身のポテンシャル散乱 σp を線源に含む
     let potential = 11.0;
