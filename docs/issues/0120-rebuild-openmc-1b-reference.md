@@ -14,7 +14,7 @@ resolution:
 
 examples/vera/dvc.yaml の `openmc-1B` と `openmc-1B-extract` は、2026-10-11 の 2ff665e4（565 K のライブラリで relock）の
 deps で lock されたままで、`dvc status` で changed になる。そのあとの 2026-10-12 の変更が deps を変え、2026-10-14 の
-ADR-0136 の段階の分割（e9af863c）で `openmc-1B` の cmd と deps（`openmc-1B-model` の model.xml、ライブラリ、入力の TOML）も変わった。
+ADR-0136 の段階の分割（e9af863c）で `openmc-1B` の cmd と deps（`openmc-1B-model` の model.xml、ライブラリ、入力の TOML の params の `cross-sections` と `threads`）も変わった。
 2026-10-12 の変更は:
 
 - 319a7948: OpenMC のライブラリ（`openmc-library`）に Ti と 565 K の構造材の核種を足した（#0073）
@@ -46,4 +46,5 @@ xs の段階も ADR-0167 と ADR-0170 の後で古い（#0124）。`dvc repro -P
 
 ## 経緯
 
-- 2026-10-14: 高速化の後の測り直しで `dvc status` が OpenMC の 3 段階（`openmc-1B`、`openmc-1B-extract`、`openmc-5A-2D-extract`）を changed と出し、分けた
+- 2026-10-14: 高速化の後の測り直しで `dvc status` が 2 段階を changed と出し、分けた
+- 2026-10-14: main への rebase の後、main の OpenMC のスクリプトの変更で `openmc-5A-2D-extract` も changed になり、ここに足した
