@@ -156,8 +156,9 @@ fn in_parallel<T: Send, E: Send>(
 
 /// 表から (J(β, θ), K(β, θ)) を補間する（ln J, ln K を両方向に 4 点の Lagrange 補間）。
 /// β が表より大きければ希釈の極限 J = π/(2β)、K = π/β を返す（誤差は ψ の最大値/β ≤ 1e-10）。
-/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。θ が表より小さければ（β は表の範囲）、ガウス形の
-/// 線形状の J, K を返す（`gaussian_jk`）。
+/// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。θ が表より小さく b = 2β/(√π θ) ≥ 10⁴ なら、ガウス形の
+/// 線形状の J, K を返す（`gaussian_jk`。β は表より小さくてよい）。表の下限で、表と級数の差は直接の積分に対して 1e-10 より
+/// 小さい（`table_meets_the_gaussian_limit_at_its_lower_theta_edge`）。θ が正でなければエラー。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
     if theta.is_nan() || theta <= 0.0 {
         return Err(NumericError::Domain(format!("J, K for θ = {theta}")).into());
