@@ -49,4 +49,6 @@ examples/vera/verification.md の表のうち、出どころが分かってい�
 
 ## 経緯
 
+- 2026-10-15: JSON の `inputs`（読んだファイルのパスと md5。`--report` の 1 行目。`record_provenance.py` が dvc.lock の deps と照合する）は、
+  `compare_p3.py` で済み。ほかの比較の道具も `--json` を足すときに同じ項目を入れる
 - 2026-10-15: ADR-0176 の試作（ブランチ feat/verification-tables）で、Problem 3 の 2 つの表を移した。既存の表との違いは 0 件
