@@ -164,14 +164,7 @@ def p5_worth_text(a: tuple[float, float], b: tuple[float, float]) -> str:
 def p5_assembly(d: dict) -> str:
     """集合体の相対差の RMS と最大（位置の名前つき）"""
     r = d["relative"]
-    return f"{100 * r['rms']:.2f}%、{signed(100 * r['max'], 1)}%（{assembly_name(r['at'])}）"
-
-
-def assembly_name(at: list[int]) -> str:
-    """15 × 15 の集合体の位置 [行, 列] の名前（compare_p5.py の assembly_name と同じ）"""
-    if len(at) != 2 or not (0 <= at[0] < 15 and 0 <= at[1] < 15):
-        raise TableError(f"not a position of the 15 x 15 core map: {at}")
-    return f"{'RPNMLKJHGFEDCBA'[at[1]]}{at[0] + 1:02d}"
+    return f"{100 * r['rms']:.2f}%、{signed(100 * r['max'], 1)}%（{r['name']}）"
 
 
 def p5_reference_results(sources: list[dict]) -> str:
@@ -186,7 +179,7 @@ def p5_reference_results(sources: list[dict]) -> str:
             f"{problem}-2D",
             f"{o['k']['reference']:.6f} ± {o['k']['reference_std']:.6f}" if o else "",
             f"{k['reference']:.6f} ± {k['reference_std']:.6f}",
-            f"{signed(1e5 * (o['k']['reference'] / k['reference'] - 1), 0)} pcm"
+            f"{signed(o['k']['diff_keno_pcm'], 0)} ± {o['k']['diff_keno_std_pcm']:.0f} pcm"
             if o
             else "",
             "",
@@ -254,7 +247,7 @@ def p5_keno_comparison(sources: list[dict]) -> str:
         worth = ""
         if problem != "5A":
             a = keno["5A"]["k"]
-            xlc = 1e5 * (1 / k["xlc"] - 1 / a["xlc"])
+            xlc, _ = p5_rod_worth((a["xlc"], 0.0), (k["xlc"], 0.0))
             ref, _ = p5_rod_worth(
                 (a["reference"], a["reference_std"]),
                 (k["reference"], k["reference_std"]),
