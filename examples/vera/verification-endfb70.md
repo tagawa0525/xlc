@@ -3,7 +3,7 @@
 仕様書（CASL-U-2012-0131-004）の参照解は KENO-VI、ENDF/B-VII.0 である。本番のライブラリは ENDF/B-VIII.0（ADR-0020）なので、
 本番での KENO-VI との差には核データの版の差が混じる（verification.md）。この記録は、同じ核種・温度・群で ENDF/B-VII.0 から作った
 検証用のライブラリ（本番ではない）で同じ問題を解き、KENO-VI と核データの版を揃えて比べた結果を書く
-（[ADR-0175](../../docs/adr/0175-compare-keno-with-endf-vii0-library.md)）。本番の結果は verification.md にある。
+（[ADR-0175](../../docs/adr/0175-compare-keno-with-endfb70-library.md)）。本番の結果は verification.md にある。
 同じ評価済みデータでも、KENO-VI の連続エネルギーのライブラリは AMPX で処理したもので、xlc の処理（共鳴の再構成、ドップラー拡がり、
 S(α,β) の温度の内挿。[ADR-0080](../../docs/adr/0080-interpolate-sab-in-temperature.md)）とは違う。残る差は手法と処理の差である。
 
