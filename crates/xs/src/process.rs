@@ -13,7 +13,7 @@ use crate::multigroup::{
 };
 use crate::physics::BK;
 use crate::pointwise::{
-    ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
+    ColdParts, DEFAULT_TOLERANCE, add, left_limit, linearize, resonance_tables, right_limit,
 };
 use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
 use xlc_format::group::GroupStructure;
@@ -130,13 +130,11 @@ pub enum ProcessError {
     #[error("MF8/MT{mt} mixes MF9 and MF10 in its final states")]
     MixedFinalStates { mt: u32 },
     #[error(
-        "the MF9 multiplicity of MT{mt} LFS={lfs} does not cover {energy} eV where the reaction is nonzero"
-    )]
-    Multiplicity { mt: u32, lfs: u32, energy: f64 },
-    #[error(
         "the final states listed for MT{mt} exceed the reaction by {excess} b in group {group}"
     )]
     NegativeRemainder { mt: u32, group: usize, excess: f64 },
+    #[error("the linearized product of the MF9 multiplicity and MT{mt} is empty")]
+    EmptyProduct { mt: u32 },
     #[error("{temperature} K")]
     Temperature {
         temperature: f64,
@@ -456,11 +454,12 @@ pub fn process_nuclide(
 }
 
 /// 燃焼チェーンの反応（`CHAIN_REACTIONS`。ADR-0164）の、経路ごとの無限希釈の群の断面積（重み関数だけで平均する。ADR-0172）。
-/// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`）。MF8 が状態を
-/// MF9（多重度）か MF10（生成断面積）で挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路
-/// （LFS が nil）にする（チェーンと同じ）。MF9 の表の外の多重度は 0（NJOY GROUPR と同じ。反応がそこにあれば警告する）。残りが、
-/// 断面積の表の許容誤差 `tolerance`（相対）より大きく負になる群があればエラー。`tables` は温度に広げた断面積で、MF10 は 0 K の
-/// 値をそのまま使う。
+/// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`）で、代表の MT が
+/// なければ部分の MT の和（チェーンと同じく `ChainReaction::includes` で決める）。MF8 が状態を MF9（多重度）か MF10（生成断面積）で
+/// 挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路（LFS が nil）にする（チェーンと同じ）。
+/// MF9 の表の外の多重度は 0（NJOY GROUPR と同じ。反応がそこにあれば警告する）。挙げた経路の和が、経路の表の線形化の
+/// 許容誤差 `tolerance`（相対）より反応を超える群があればエラー、基底状態を挙げて和が反応に足りなければ警告する。`tables` は
+/// 温度に広げた断面積で、MF10 は 0 K の値をそのまま使う。
 fn chain_reactions(
     tape: &Tape,
     mat: i32,
@@ -469,34 +468,40 @@ fn chain_reactions(
     tables: &BTreeMap<u32, Tab1>,
     tolerance: f64,
 ) -> Result<Vec<GroupReaction>, ProcessError> {
-    // 反応の断面積は、すべての MT を 1 度に平均したものから引く
-    let dilute = reaction_averages(groups, weight, tables, None).sigma;
-    // (反応, 状態の経路) ごとの断面積の表。番号は `CHAIN_REACTIONS` と状態の並びの順で、1 度に平均する
-    let mut states: BTreeMap<u32, Tab1> = BTreeMap::new();
+    // 反応と状態の経路の表を番号で 1 つの表にまとめ、1 度に平均する
+    let mut parts: BTreeMap<u32, Tab1> = BTreeMap::new();
     let mut layout = Vec::new();
     for spec in &CHAIN_REACTIONS {
-        if !tables.contains_key(&spec.mt) {
-            continue;
-        }
+        let sigma = match tables.get(&spec.mt) {
+            Some(t) => t.clone(),
+            None => {
+                let mut partial = tables.iter().filter(|(mt, _)| spec.includes(**mt));
+                let Some((_, first)) = partial.next() else {
+                    continue;
+                };
+                partial.fold(first.clone(), |sum, (_, t)| add(&sum, t))
+            }
+        };
         let entries = final_states(tape, mat, spec.mt)?.unwrap_or_default();
         let mut keys = Vec::with_capacity(entries.len());
         for entry in &entries {
             let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
             let state = if entry.mf == 9 {
-                multiplied(&table, &tables[&spec.mt], tolerance, spec.mt, entry.lfs)
+                multiplied(&table, &sigma, tolerance, spec.mt, entry.lfs)?
             } else {
                 linearize(&table, tolerance)
             };
-            let key = u32::try_from(states.len()).unwrap_or(u32::MAX);
-            states.insert(key, state);
-            keys.push(key);
+            keys.push(next_key(&parts));
+            parts.insert(next_key(&parts), state);
         }
-        layout.push((spec.mt, entries, keys));
+        let key = next_key(&parts);
+        parts.insert(key, sigma);
+        layout.push((spec.mt, entries, key, keys));
     }
-    let averaged = reaction_averages(groups, weight, &states, None).sigma;
+    let averaged = reaction_averages(groups, weight, &parts, None).sigma;
     let mut reactions = Vec::with_capacity(layout.len());
-    for (mt, entries, keys) in layout {
-        let total = dilute[&mt].clone();
+    for (mt, entries, key, keys) in layout {
+        let total = averaged[&key].clone();
         if entries.is_empty() {
             reactions.push(GroupReaction {
                 mt,
@@ -518,39 +523,63 @@ fn chain_reactions(
                 cross_section: averaged[key].clone(),
             })
             .collect();
+        let remainder: Vec<f64> = (0..groups.len())
+            .map(|g| total[g] - channels.iter().map(|c| c.cross_section[g]).sum::<f64>())
+            .collect();
+        if let Some((group, excess)) = remainder
+            .iter()
+            .zip(&total)
+            .enumerate()
+            .find(|(_, (r, t))| **r < -tolerance * t.abs())
+            .map(|(g, (r, _))| (g, -r))
+        {
+            return Err(ProcessError::NegativeRemainder { mt, group, excess });
+        }
         if entries.iter().all(|e| e.excitation > 0.0) {
             let mf = entries[0].mf;
             if entries.iter().any(|e| e.mf != mf) {
                 return Err(ProcessError::MixedFinalStates { mt });
-            }
-            let remainder: Vec<f64> = (0..groups.len())
-                .map(|g| total[g] - channels.iter().map(|c| c.cross_section[g]).sum::<f64>())
-                .collect();
-            if let Some((group, excess)) = remainder
-                .iter()
-                .zip(&total)
-                .enumerate()
-                .find(|(_, (r, t))| **r < -tolerance * t.abs())
-                .map(|(g, (r, _))| (g, -r))
-            {
-                return Err(ProcessError::NegativeRemainder { mt, group, excess });
             }
             // 許容誤差の内の負は、線形化の誤差なので 0 にする
             channels.push(GroupChannel {
                 final_state: Some(ChannelState { mf, lfs: None }),
                 cross_section: remainder.iter().map(|r| r.max(0.0)).collect(),
             });
+        } else if let Some((group, missing)) = remainder
+            .iter()
+            .zip(&total)
+            .enumerate()
+            .find(|(_, (r, t))| **r > tolerance * t.abs())
+            .map(|(g, (r, _))| (g, *r))
+        {
+            tracing::warn!(
+                mt,
+                group,
+                missing,
+                "the final states listed in MF8 leave part of the reaction to no channel (b)"
+            );
         }
         reactions.push(GroupReaction { mt, channels });
     }
     Ok(reactions)
 }
 
+/// 番号でまとめた表 `parts` の、次の番号。
+fn next_key(parts: &BTreeMap<u32, Tab1>) -> u32 {
+    parts.keys().next_back().map_or(0, |k| k + 1)
+}
+
 /// 多重度 `y`（MF9）と反応の断面積 `sigma` の積を、許容誤差 `tolerance` の lin-lin の表にする。`y` の表の外の多重度は 0 とし、
 /// そこで `sigma` が 0 でなければ警告する。
-fn multiplied(y: &Tab1, sigma: &Tab1, tolerance: f64, mt: u32, lfs: u32) -> Tab1 {
+fn multiplied(
+    y: &Tab1,
+    sigma: &Tab1,
+    tolerance: f64,
+    mt: u32,
+    lfs: u32,
+) -> Result<Tab1, ProcessError> {
     let (Some(&low), Some(&high)) = (sigma.x.first(), sigma.x.last()) else {
-        return sigma.clone();
+        return Err(ProcessError::EmptyProduct { mt });
     };
     let uncovered = std::cell::Cell::new(None::<f64>);
     let value = |e: f64| -> Result<[f64; 1], std::convert::Infallible> {
@@ -576,7 +605,10 @@ fn multiplied(y: &Tab1, sigma: &Tab1, tolerance: f64, mt: u32, lfs: u32) -> Tab1
              gets none of the reaction there (as NJOY GROUPR)"
         );
     }
-    tables.into_iter().next().unwrap_or_else(|| sigma.clone())
+    tables
+        .into_iter()
+        .next()
+        .ok_or(ProcessError::EmptyProduct { mt })
 }
 
 /// 温度によらない、1核種の評価の読み込み（多群の処理の前に `process_nuclide` が読むもの）。
