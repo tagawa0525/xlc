@@ -465,8 +465,8 @@ fn processes_each_temperature_and_sigma0() {
     }
 }
 
-/// チェーンの反応の経路を確かめるテープ: MF3 の全 11 b、弾性散乱 10 b、捕獲 1 b（一定）、(n,2n) の部分の MT875 と MT876（しきい値 1 MeV の Q
-/// から、0.2 b と 0.1 b）。MF8 は捕獲の状態を MF9 で、MT875 は挙げない。`states` は捕獲の MF8/MF9 の (LFS, 励起エネルギー, 多重度)
+/// チェーンの反応の経路を確かめるテープ: MF3 の全 11 b、弾性散乱 10 b、捕獲 1 b（一定）、(n,p) の部分の MT600 と MT601（Q = −1 MeV の
+/// しきい値から、0.2 b と 0.1 b）。MF8 は捕獲の状態を MF9 で挙げ、(n,p) は挙げない。`states` は捕獲の MF8/MF9 の (LFS, 励起エネルギー, 多重度)
 fn reaction_tape(states: &[(u32, &str, &str)]) -> Tape {
     use crate::endf::rec;
     let section = |mf: u32, mt: u32, q: &str, x: [&str; 2], y: [&str; 2]| {
@@ -485,8 +485,8 @@ fn reaction_tape(states: &[(u32, &str, &str)]) -> Tape {
         section(3, 1, "0.0", full, ["11.0", "11.0"]),
         section(3, 2, "0.0", full, ["10.0", "10.0"]),
         section(3, 102, "0.0", full, ["1.0", "1.0"]),
-        section(3, 875, "-1.0+6", threshold, ["0.2", "0.2"]),
-        section(3, 876, "-1.0+6", threshold, ["0.1", "0.1"]),
+        section(3, 600, "-1.0+6", threshold, ["0.2", "0.2"]),
+        section(3, 601, "-1.0+6", threshold, ["0.1", "0.1"]),
     ];
     if !states.is_empty() {
         let ns = states.len().to_string();
@@ -550,7 +550,8 @@ fn capture_is_kept_per_sigma0_and_pointwise() {
     for s in &t.shielded {
         assert!((s.capture[0] - 1.0).abs() < 1e-9, "{}", s.capture[0]);
     }
-    assert!(t.pointwise.capture.iter().all(|&c| (c - 1.0).abs() < 1e-12));
+    // 4 eV より上では、熱運動で拡げた一定の断面積は 1 b から kT/(A E) ≈ 3e-5 の程度しか変わらない
+    assert!(t.pointwise.capture.iter().all(|&c| (c - 1.0).abs() < 1e-4));
     assert_eq!(t.pointwise.capture.len(), t.pointwise.energy.len());
 }
 
@@ -561,22 +562,22 @@ fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
     let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
     let reactions = &data.temperatures[0].reactions;
     let mts: Vec<u32> = reactions.iter().map(|r| r.mt).collect();
-    assert_eq!(mts, vec![16, 102]);
-    // (n,2n) は部分の MT875 と MT876 の和で、状態に分けない
+    assert_eq!(mts, vec![102, 103]);
+    // (n,p) は部分の MT600 と MT601 の和で、状態に分けない
     let tables = crate::pointwise::reconstruct_at(&tape, 1, 1.0e-3, 293.6).unwrap();
     let averages =
         crate::multigroup::reaction_averages(&settings.groups, &settings.weight, &tables, None);
-    let [n2n] = &reactions[0].channels[..] else {
-        panic!("one (n,2n) channel")
+    let [np] = &reactions[1].channels[..] else {
+        panic!("one (n,p) channel")
     };
-    assert_eq!(n2n.final_state, None);
+    assert_eq!(np.final_state, None);
     for g in 0..settings.groups.len() {
-        let expected = averages.sigma[&875][g] + averages.sigma[&876][g];
-        assert!((n2n.cross_section[g] - expected).abs() <= 1e-12 * expected.max(1e-30));
+        let expected = averages.sigma[&600][g] + averages.sigma[&601][g];
+        assert!((np.cross_section[g] - expected).abs() <= 1e-12 * expected.max(1e-30));
     }
     // 捕獲は MF9 の多重度で状態ごとに分ける（テープの順）
     use xlc_format::library::ChannelState;
-    let states: Vec<_> = reactions[1]
+    let states: Vec<_> = reactions[0]
         .channels
         .iter()
         .map(|c| c.final_state)
@@ -594,7 +595,7 @@ fn chain_reactions_sum_the_partial_mts_and_split_the_mf9_states() {
             })
         ]
     );
-    for (channel, y) in reactions[1].channels.iter().zip([0.9, 0.1]) {
+    for (channel, y) in reactions[0].channels.iter().zip([0.9, 0.1]) {
         for (g, &v) in channel.cross_section.iter().enumerate() {
             let expected = y * averages.sigma[&102][g];
             assert!(
@@ -610,7 +611,7 @@ fn capture_states_without_the_ground_state_leave_the_remainder_to_it() {
     let settings = reaction_settings();
     let tape = reaction_tape(&[(2, "5.0+4", "0.1")]);
     let data = process_nuclide(&tape, "X", &[293.6], None, &settings).unwrap();
-    let capture = &data.temperatures[0].reactions[1];
+    let capture = &data.temperatures[0].reactions[0];
     use xlc_format::library::ChannelState;
     let states: Vec<_> = capture.channels.iter().map(|c| c.final_state).collect();
     assert_eq!(
