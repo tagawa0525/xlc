@@ -694,3 +694,30 @@ fn mlbw_tables_have_points_at_the_breaks_of_the_radius_table() {
     let tables = reconstruct(&Tape::parse(&text).unwrap(), 1, 1.0e-3).unwrap();
     assert!(tables[&2].x.contains(&25.0), "{:?}", tables[&2].x);
 }
+
+#[test]
+fn rebuilt_sums_follow_the_chain_reaction_ranges() {
+    // 鎖の反応の部分の MT は、再構成が代表の MT に作り直す和の部分と同じ（xs は代表の MT だけを読む。ADR-0172）
+    use xlc_format::library::CHAIN_REACTIONS;
+    for reaction in &CHAIN_REACTIONS {
+        let partials: Vec<u32> = (1..1000)
+            .filter(|&mt| mt != reaction.mt && reaction.includes(mt))
+            .collect();
+        if partials.is_empty() {
+            assert!(
+                SUMS.iter().all(|s| s.mt != reaction.mt),
+                "MT{}",
+                reaction.mt
+            );
+            continue;
+        }
+        let sum = SUMS.iter().find(|s| s.mt == reaction.mt).unwrap();
+        let parts: Vec<u32> = (1..1000).filter(|&mt| (sum.is_part)(mt)).collect();
+        assert_eq!(parts, partials, "MT{}", reaction.mt);
+        assert!(
+            partials.iter().all(|&mt| (sum.trigger)(mt)),
+            "MT{}",
+            reaction.mt
+        );
+    }
+}
