@@ -15,11 +15,14 @@
 炉心の z は下の水の外端から（仕様書の高さ（下部炉心板の上面から）+ 55 cm）。燃料の中の炉心のノードは、仕様書の
 表 P3-5 の 49 層の境界に、挿入物の端（3B の Pyrex の棒の下の端栓、毒物の下端と上端）を足したもの。
 
-使い方: python3 p3_inputs.py
+使い方: python3 p3_inputs.py [--library-dir <評価の略称>]
+`--library-dir endfb70` は、同じ入力と段階を ../endfb70/p3 に書く（ENDF/B-VII.0 の検証用ライブラリ。ADR-0175。ライブラリは
+../endfb70/vera.msgpack。OpenMC との比較の段階は書かない）。
 """
 
 import itertools
 import math
+import sys
 from fractions import Fraction
 from pathlib import Path
 
@@ -705,9 +708,15 @@ def core_files(problem: str) -> dict[str, str]:
     return files
 
 
+# `--library-dir <評価>` で examples/vera/<評価>/p3 に書くとき（検証用の別の評価済みデータ。ADR-0175）は 1 つ深いので、
+# リポジトリや examples/vera のファイルへのパスの前に足す。ライブラリは <評価>/vera.msgpack で、`../vera.msgpack` のまま。
+# OpenMC の参照解は VIII.0 のものなので、その比較の段階は書かない
+UP = ""
+
+
 def code(crate: str) -> list[str]:
     """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
-    return [f"../../../bin/{crate}"]
+    return [f"{UP}../../../bin/{crate}"]
 
 
 def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
@@ -740,7 +749,7 @@ def pipeline() -> str:
             stages.append(
                 stage(
                     stem,
-                    f"mkdir -p lattice-{problem} && ../../../bin/lattice {stem}.toml > {stem}.out",
+                    f"mkdir -p lattice-{problem} && {UP}../../../bin/lattice {stem}.toml > {stem}.out",
                     [f"{stem}.toml", "../vera.msgpack", *code("lattice")],
                     outs,
                 )
@@ -751,7 +760,7 @@ def pipeline() -> str:
         stages.append(
             stage(
                 axial,
-                f"mkdir -p {axial} && RUST_LOG=debug ../../../bin/lattice {axial}.toml > {axial}.out 2> {axial}.log",
+                f"mkdir -p {axial} && RUST_LOG=debug {UP}../../../bin/lattice {axial}.toml > {axial}.out 2> {axial}.log",
                 [f"{axial}.toml", "../vera.msgpack", *media, *code("lattice")],
                 [axial, f"{axial}.out", f"{axial}.log"],
             )
@@ -773,7 +782,7 @@ def pipeline() -> str:
             stages.append(
                 stage(
                     stem,
-                    f"RUST_LOG=debug ../../../bin/core {stem}.toml > {stem}.out 2> {stem}.log",
+                    f"RUST_LOG=debug {UP}../../../bin/core {stem}.toml > {stem}.out 2> {stem}.log",
                     [*inputs, axial, *used, *code("core")],
                     outs,
                 )
@@ -781,9 +790,9 @@ def pipeline() -> str:
         stages.append(
             stage(
                 f"compare-{problem}-slab",
-                f"python3 ../../reflector/compare_axial.py {axial}.log core-{problem}-slab.log > compare-{problem}-slab.out",
+                f"python3 {UP}../../reflector/compare_axial.py {axial}.log core-{problem}-slab.log > compare-{problem}-slab.out",
                 [
-                    "../../reflector/compare_axial.py",
+                    f"{UP}../../reflector/compare_axial.py",
                     f"{axial}.log",
                     f"core-{problem}-slab.log",
                 ],
@@ -793,12 +802,12 @@ def pipeline() -> str:
         stages.append(
             stage(
                 f"compare-{problem}",
-                f"python3 ../compare_p3.py --json compare-{problem}.json {problem} ../../../references/vera/spec.txt core-{problem}.out "
+                f"python3 {UP}../compare_p3.py --json compare-{problem}.json {problem} {UP}../../../references/vera/spec.txt core-{problem}.out "
                 f"core-{problem}-pins.msgpack core-{problem}-layers.msgpack",
                 [
-                    "../compare_p3.py",
-                    "../compare_keno.py",
-                    "../../../references/vera/spec.txt",
+                    f"{UP}../compare_p3.py",
+                    f"{UP}../compare_keno.py",
+                    f"{UP}../../../references/vera/spec.txt",
                     f"core-{problem}.out",
                     f"core-{problem}-pins.msgpack",
                     f"core-{problem}-layers.msgpack",
@@ -809,32 +818,33 @@ def pipeline() -> str:
         # OpenMC の参照解は DVC の段階の出力でない（AWS の VM の実行 m3 から取り出した references/ のファイル）ので、
         # 比べる 4 つのファイルを deps に書く。表を描く道具（examples/verification_tables.py）が JSON を読む（ADR-0176）。JSON は数十 KB ほどの要約で、
         # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印）
-        openmc = f"../../../references/openmc/aws/m3/openmc-{problem}"
-        stages.append(
-            stage(
-                f"compare-{problem}-openmc",
-                f"python3 ../compare_p3.py --json compare-{problem}-openmc.json {problem} ../../../references/vera/spec.txt "
-                f"core-{problem}.out core-{problem}-pins.msgpack core-{problem}-layers.msgpack {openmc}",
-                [
-                    "../compare_p3.py",
-                    "../compare_keno.py",
-                    "../../../references/vera/spec.txt",
-                    *(
-                        f"{openmc}/{f}"
-                        for f in [
-                            "k.json",
-                            "layers.msgpack",
-                            "pins.msgpack",
-                            "pins-std.msgpack",
-                        ]
-                    ),
-                    f"core-{problem}.out",
-                    f"core-{problem}-pins.msgpack",
-                    f"core-{problem}-layers.msgpack",
-                ],
-                [f"git:compare-{problem}-openmc.json"],
+        if not UP:
+            openmc = f"../../../references/openmc/aws/m3/openmc-{problem}"
+            stages.append(
+                stage(
+                    f"compare-{problem}-openmc",
+                    f"python3 ../compare_p3.py --json compare-{problem}-openmc.json {problem} ../../../references/vera/spec.txt "
+                    f"core-{problem}.out core-{problem}-pins.msgpack core-{problem}-layers.msgpack {openmc}",
+                    [
+                        "../compare_p3.py",
+                        "../compare_keno.py",
+                        "../../../references/vera/spec.txt",
+                        *(
+                            f"{openmc}/{f}"
+                            for f in [
+                                "k.json",
+                                "layers.msgpack",
+                                "pins.msgpack",
+                                "pins-std.msgpack",
+                            ]
+                        ),
+                        f"core-{problem}.out",
+                        f"core-{problem}-pins.msgpack",
+                        f"core-{problem}-layers.msgpack",
+                    ],
+                    [f"git:compare-{problem}-openmc.json"],
+                )
             )
-        )
     return (
         "# このファイルは p3_inputs.py が書く。手で直さない。\n"
         "# VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
@@ -846,6 +856,13 @@ def pipeline() -> str:
 
 
 def main() -> None:
+    global HERE, UP
+    if len(sys.argv) == 3 and sys.argv[1] == "--library-dir":
+        HERE = HERE.parent / sys.argv[2] / "p3"
+        HERE.mkdir(parents=True, exist_ok=True)
+        UP = "../"
+    elif sys.argv[1:]:
+        raise SystemExit("usage: python3 p3_inputs.py [--library-dir <評価の略称>]")
     (HERE / "dvc.yaml").write_text(pipeline())
     for problem in PROBLEMS:
         for name, insert, grid, what in LATTICES[problem]:

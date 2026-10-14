@@ -48,6 +48,23 @@ main の checkout の直下で走らせる。worktree から走らせると、GC
 
 入力の TOML と dvc.yaml は `references/endf/ENDF-B-VIII.0_<part>/...` を指す。
 
+### ENDF/B-VII.0（検証用。ADR-0175）
+
+仕様書の KENO-VI（ENDF/B-VII.0）と核データの版を揃えて比べる検証用のライブラリ（`examples/vera/endfb70/`）の入力。VIII.0 と同じ
+形で、NNDC の zip を URL と sha256 で固定し（`.#endfb70-neutrons`、`.#endfb70-thermal-scatt`）、`.#endf` の木に
+`ENDF-B-VII.0_neutrons/`、`ENDF-B-VII.0_thermal_scatt/` として並べる。取得は 2026-10-15。zip はディレクトリを持たない平らな形で
+（VIII.0 の zip と違う）、ファイル名は VIII.0 と同じ形（`n-092_U_235.endf`、`tsl-HinH2O.endf`）。
+
+| zip                                                                     | ファイル数 | sha256                                                           |
+| ----------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------- |
+| https://www.nndc.bnl.gov/endf-b7.0/zips/n-ENDF-VII0.endf.zip (89.6 MB)  | 393        | 935a1c8156958072df7363239f8c7a6a514e1d20a4053986549b9b4e093f23b9 |
+| https://www.nndc.bnl.gov/endf-b7.0/zips/tsl-ENDF-VII0.endf.zip (9.5 MB) | 20         | 754d4e41280a7339b9c352378c7b16dd659d9dad244dd4c68dafa444e86f160e |
+
+VIII.0 との違い（入力 `examples/vera/endfb70/xs.toml` で吸収する）:
+
+- 天然の C は `n-006_C_000.endf` だけで、C-12 と C-13 のファイルはない
+- `tsl-HinH2O.endf` の温度に 573.6 K はない（550 K と 600 K はある）。H-1 は 550 K と 600 K で処理する
+
 ## 仕様書の PDF
 
 VERA、C5G7、MOX の仕様書は再配布できないので、URL と sha256 だけを docs/specs.sha256 に書く。URL から

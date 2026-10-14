@@ -5,6 +5,23 @@
 vars:
   - openmc-library.toml
   - xs.toml
+  - keno-pincells:
+      - 1B
+      - 1C
+      - 1D
+  - keno-assemblies:
+      - 2A
+      - 2B
+      - 2C
+      - 2D
+      - 2E
+      - 2F
+      - 2G
+      - 2H
+      - 2I
+      - 2J
+      - 2K
+      - 2Q
 stages:
   references-shell:
     # 道具（NJOY、OpenMC、その Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
@@ -167,3 +184,40 @@ stages:
       - p1/openmc-1B-results/k.json
     outs:
       - p1/compare-1B.out
+  keno-pincell:
+    # 仕様書の KENO-VI（ENDF/B-VII.0）との比較（本番のライブラリ）。ENDF/B-VII.0 のライブラリで同じ比較をする endfb70/dvc.yaml
+    # の段階と対にして読む（ADR-0175）。要約 compare-keno-<問題>.json は git で追跡する（ADR-0176）
+    foreach: ${keno-pincells}
+    do:
+      cmd: ../../bin/lattice p1/pincell-${item}.toml > p1/keno-lattice-${item}.out && python3 compare_keno_lattice.py --json compare-keno-${item}.json ../../references/vera/spec.txt ${item} p1/keno-lattice-${item}.out
+      deps:
+        - p1/pincell-${item}.toml
+        - vera.msgpack
+        - compare_keno_lattice.py
+        - compare_keno.py
+        - compare_k.py
+        - compare_p3.py
+        - ../../references/vera/spec.txt
+        - ../../bin/lattice
+      outs:
+        - p1/keno-lattice-${item}.out
+        - compare-keno-${item}.json:
+            cache: false
+  keno-assembly:
+    foreach: ${keno-assemblies}
+    do:
+      cmd: ../../bin/lattice p2/assembly-${item}.toml > p2/keno-lattice-${item}.out && python3 compare_keno_lattice.py --json compare-keno-${item}.json ../../references/vera/spec.txt ${item} p2/keno-lattice-${item}.out p2/pins-${item}.msgpack
+      deps:
+        - p2/assembly-${item}.toml
+        - vera.msgpack
+        - compare_keno_lattice.py
+        - compare_keno.py
+        - compare_k.py
+        - compare_p3.py
+        - ../../references/vera/spec.txt
+        - ../../bin/lattice
+      outs:
+        - p2/keno-lattice-${item}.out
+        - p2/pins-${item}.msgpack
+        - compare-keno-${item}.json:
+            cache: false

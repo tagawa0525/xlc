@@ -283,6 +283,145 @@ P5_SOURCES = [
     *(f"examples/vera/p5/compare-{p}-openmc.json" for p in ("5A", "5B", "5C")),
 ]
 
+
+# KENO-VI との比較を、ENDF/B-VII.0 の検証用ライブラリ（examples/vera/endfb70。ADR-0175）と本番の ENDF/B-VIII.0 で並べる表。
+# 描く関数に渡す JSON の前半が ENDF/B-VII.0、後半が ENDF/B-VIII.0（同じ問題の並び）
+LATTICE_PROBLEMS = [
+    "1B",
+    "1C",
+    "1D",
+    "2A",
+    "2B",
+    "2C",
+    "2D",
+    "2E",
+    "2F",
+    "2G",
+    "2H",
+    "2I",
+    "2J",
+    "2K",
+    "2Q",
+]
+
+
+def halves(sources: list[dict], fmt: str) -> list[tuple[dict, dict]]:
+    """前半（ENDF/B-VII.0）と後半（ENDF/B-VIII.0）を、同じ問題ごとの対にする"""
+    if len(sources) % 2:
+        raise TableError("expected the same problems for both libraries")
+    n = len(sources) // 2
+    for s in sources:
+        if s.get("format") != fmt:
+            raise TableError(f"problem {s.get('problem')}: not a {fmt} summary")
+    pairs = list(zip(sources[:n], sources[n:]))
+    for vii, viii in pairs:
+        if vii["problem"] != viii["problem"]:
+            raise TableError(
+                f"problem {vii['problem']} (VII.0) is paired with {viii['problem']} (VIII.0)"
+            )
+    return pairs
+
+
+def pin_cell(pins: dict | None) -> str:
+    return (
+        ""
+        if pins is None
+        else f"{100 * pins['rms']:.3f}%、{signed(100 * pins['max'], 3)}%"
+    )
+
+
+def endfb70_lattices(sources: list[dict]) -> str:
+    """ピンセルと集合体の格子計算: xlc と KENO-VI の k の差とピン出力の差を、ENDF/B-VII.0 と VIII.0 で並べる"""
+    rows = []
+    for vii, viii in halves(sources, "xlc-compare-keno-lattice"):
+        k = vii["k"]
+        rows.append(
+            [
+                vii["problem"],
+                f"{k['xlc']:.6f}",
+                f"{k['keno']:.6f} ± {k['keno_std']:.6f}",
+                f"{signed(k['diff_pcm'], 0)} pcm",
+                f"{signed(viii['k']['diff_pcm'], 0)} pcm",
+                pin_cell(vii["pins"]),
+                pin_cell(viii["pins"]),
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "xlc の k（ENDF/B-VII.0）",
+            "KENO-VI の k",
+            "xlc − KENO-VI（ENDF/B-VII.0）",
+            "xlc − KENO-VI（ENDF/B-VIII.0）",
+            "ピン出力の差の RMS、最大（ENDF/B-VII.0）",
+            "ピン出力の差の RMS、最大（ENDF/B-VIII.0）",
+        ],
+        rows,
+    )
+
+
+def endfb70_p3_k(sources: list[dict]) -> str:
+    """Problem 3 の炉心の k: xlc と KENO-VI の差を ENDF/B-VII.0 と VIII.0 で、VIII.0 の OpenMC との差と並べる"""
+    rows = []
+    for vii, viii in halves(sources, "xlc-compare-p3"):
+        k = viii["k"]
+        rows.append(
+            [
+                vii["problem"],
+                f"{vii['k']['xlc']:.6f}",
+                f"{vii['k']['keno']:.6f} ± {vii['k']['keno_std']:.6f}",
+                f"{signed(vii['k']['diff_keno_pcm'], 0)} pcm",
+                f"{signed(k['diff_keno_pcm'], 0)} pcm",
+                f"{signed(k['diff_openmc_pcm'], 0)} pcm",
+                f"{signed(k['openmc_keno_diff_pcm'], 0)} pcm",
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "xlc の k（ENDF/B-VII.0）",
+            "KENO-VI の k",
+            "xlc − KENO-VI（ENDF/B-VII.0）",
+            "xlc − KENO-VI（ENDF/B-VIII.0）",
+            "xlc − OpenMC（ENDF/B-VIII.0）",
+            "OpenMC − KENO-VI（ENDF/B-VIII.0）",
+        ],
+        rows,
+    )
+
+
+def endfb70_p3_distributions(sources: list[dict]) -> str:
+    """Problem 3 の炉心の軸方向の出力とピン出力: xlc と KENO-VI の差を ENDF/B-VII.0 と VIII.0 で並べる"""
+    rows = []
+    for vii, viii in halves(sources, "xlc-compare-p3"):
+        a7, a8 = vii["axial_vs_keno"], viii["axial_vs_keno"]
+        rows.append(
+            [
+                vii["problem"],
+                f"{a7['rms']:.4f}（{100 * a7['relative_rms']:.2f}%）",
+                f"{a8['rms']:.4f}（{100 * a8['relative_rms']:.2f}%）",
+                f"{signed(100 * a7['ao_subject'], 3)}%",
+                f"{signed(100 * a8['ao_subject'], 3)}%",
+                f"{signed(100 * a7['ao_reference'], 3)}%",
+                pin_cell(vii["pins_vs_keno"]),
+                pin_cell(viii["pins_vs_keno"]),
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "軸方向の出力の差の RMS（ENDF/B-VII.0）",
+            "軸方向の出力の差の RMS（ENDF/B-VIII.0）",
+            "軸方向のオフセット（xlc、ENDF/B-VII.0）",
+            "軸方向のオフセット（xlc、ENDF/B-VIII.0）",
+            "軸方向のオフセット（KENO-VI）",
+            "ピン出力の差の RMS、最大（ENDF/B-VII.0）",
+            "ピン出力の差の RMS、最大（ENDF/B-VIII.0）",
+        ],
+        rows,
+    )
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -310,6 +449,33 @@ TABLES = {
             "examples/vera/p3/compare-3B-openmc.json",
         ],
         p3_openmc_comparison,
+    ),
+    "endfb70-lattices": (
+        [f"examples/vera/endfb70/compare-{p}.json" for p in LATTICE_PROBLEMS]
+        + [f"examples/vera/compare-keno-{p}.json" for p in LATTICE_PROBLEMS],
+        endfb70_lattices,
+    ),
+    "endfb70-p3-k": (
+        [
+            "examples/vera/endfb70/p3/compare-3A.json",
+            "examples/vera/endfb70/p3/compare-3B.json",
+        ]
+        + [
+            "examples/vera/p3/compare-3A-openmc.json",
+            "examples/vera/p3/compare-3B-openmc.json",
+        ],
+        endfb70_p3_k,
+    ),
+    "endfb70-p3-distributions": (
+        [
+            "examples/vera/endfb70/p3/compare-3A.json",
+            "examples/vera/endfb70/p3/compare-3B.json",
+        ]
+        + [
+            "examples/vera/p3/compare-3A-openmc.json",
+            "examples/vera/p3/compare-3B-openmc.json",
+        ],
+        endfb70_p3_distributions,
     ),
 }
 
@@ -390,7 +556,7 @@ def render(text: str, root: Path, verify: bool = True) -> str:
 def main(argv: list[str]) -> int:
     check = "--check" in argv
     files = [Path(a) for a in argv if a != "--check"] or sorted(
-        ROOT.glob("examples/*/verification.md")
+        ROOT.glob("examples/*/verification*.md")
     )
     status = 0
     for file in files:
