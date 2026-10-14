@@ -10,6 +10,7 @@ mod mf4;
 mod mf5;
 mod mf6;
 mod mf7;
+mod mf8;
 mod number;
 mod tab1;
 mod tape;
@@ -27,6 +28,7 @@ pub use mf4::{AngleTables, Angular, Distribution, LegendreTable, Mf4};
 pub use mf5::{EnergyLaw, IncidentLaw, Mf5, OutgoingDistributions, parse_outgoing};
 pub use mf6::{Frame, Mf6, NeutronEmission};
 pub use mf7::Mf7Incoherent;
+pub use mf8::{FinalStateEntry, final_state_table, final_states};
 pub use tab1::{ClampedTab1, Interpolation, Tab1};
 pub use tape::{Cont, List, Reader, Section, Tab1Record, Tab2Record, Tape};
 
