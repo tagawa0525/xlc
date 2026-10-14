@@ -1122,7 +1122,12 @@ def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
         f"  {name}:\n    cmd: {cmd}\n    deps:\n"
         + "".join(f"      - {d}\n" for d in deps)
         + "    outs:\n"
-        + "".join(f"      - {o}\n" for o in outs)
+        + "".join(
+            f"      - {o.removeprefix('git:')}:\n          cache: false\n"
+            if o.startswith("git:")
+            else f"      - {o}\n"
+            for o in outs
+        )
     )
 
 
@@ -1258,7 +1263,7 @@ def pipeline(
         stages.append(
             stage(
                 f"compare-{name}",
-                f"python3 ../compare_p5.py keno {problem} ../../../references/vera/spec.txt core-{name}.out core-{name}-pins.msgpack > compare-{name}.out",
+                f"python3 ../compare_p5.py --json compare-{name}.json keno {problem} ../../../references/vera/spec.txt core-{name}.out core-{name}-pins.msgpack",
                 [
                     "../compare_p5.py",
                     "../compare_k.py",
@@ -1266,24 +1271,35 @@ def pipeline(
                     f"core-{name}.out",
                     f"core-{name}-pins.msgpack",
                 ],
-                [f"compare-{name}.out"],
+                [f"git:compare-{name}.json"],
             )
         )
     # OpenMC の参照解（../dvc.yaml の openmc-<問題>-2D-extract の出力。examples/vera/verification.md の「Problem 5-2D の参照解」）
     for name, problem in OPENMC.items():
         results = f"openmc-{problem}-2D-results"
+        # 比べる 5 つのファイルを deps に書く（JSON の `inputs` が deps の md5 と照合される）。JSON は数十 KB ほどの要約で、
+        # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印。ADR-0176）
         stages.append(
             stage(
                 f"compare-{name}-openmc",
-                f"python3 ../compare_p5.py openmc core-{name}.out core-{name}-pins.msgpack {results} > compare-{name}-openmc.out",
+                f"python3 ../compare_p5.py --json compare-{name}-openmc.json openmc {problem} core-{name}.out core-{name}-pins.msgpack {results}",
                 [
                     "../compare_p5.py",
                     "../compare_k.py",
-                    results,
+                    *(
+                        f"{results}/{f}"
+                        for f in [
+                            "k.json",
+                            "assemblies.msgpack",
+                            "assemblies-std.msgpack",
+                            "pins.msgpack",
+                            "pins-std.msgpack",
+                        ]
+                    ),
                     f"core-{name}.out",
                     f"core-{name}-pins.msgpack",
                 ],
-                [f"compare-{name}-openmc.out"],
+                [f"git:compare-{name}-openmc.json"],
             )
         )
     return (
