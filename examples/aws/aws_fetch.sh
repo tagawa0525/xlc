@@ -33,7 +33,7 @@ while (($#)); do
 done
 [[ -n $name ]] || { usage; exit 2; }
 ((!delete || verify)) || { echo "--delete には --verify が要ります（検証してから消す）" >&2; exit 2; }
-[[ -f flake.nix && -d examples/vera ]] || { echo "リポジトリの直下から実行してください" >&2; exit 1; }
+[[ -f flake.nix && -d examples/aws ]] || { echo "リポジトリの直下から実行してください" >&2; exit 1; }
 # shellcheck source=aws_common.sh
 source "$(dirname "$0")/aws_common.sh"
 dest=${dest:-references/openmc/aws/$name}
@@ -72,8 +72,8 @@ if ((verify)); then
   trap 'rm -rf "$check"' EXIT
   for input in "${done_inputs[@]}"; do
     job=$(job_name "$input")
-    script=$(job_script "$job")
-    [[ -n $script ]] || { echo "$job: extract のツールが分かりません" >&2; exit 1; }
+    # extract のツールは定義の入口に問い合わせる（入口が選ぶツールと同じものを使う。ADR-0174）
+    script=$(bash "$dest/src/$DEF_ENTRY" --extract-script "$input") || { echo "$job: extract のツールが分かりません" >&2; exit 1; }
     rm -rf "${check:?}"/*
     "$python" "$dest/src/$script" extract "$dest/src/$input" "$dest/$job/run" "$check" > /dev/null
     n=0

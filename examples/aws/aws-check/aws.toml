@@ -1,0 +1,16 @@
+# 確認用の小さい入力（ADR-0155）の AWS の実行の定義。examples/vera/aws.toml と同じ（入力の親のディレクトリに置く定義を探すため、コピーを置く）。
+# tools は VM の src/ に置くツールで、入口（entry）と定義自身は含めない。
+tools = [
+  "examples/openmc_common.py",
+  "examples/openmc_input.py",
+  "examples/openmc_run.py",
+  "examples/openmc_resume.py",
+  "examples/vera/openmc_tallies.py",
+  "examples/vera/openmc_model.py",
+  "examples/vera/openmc_model_3d.py",
+  "examples/vera/openmc_core_2d.py",
+]
+entry = "examples/vera/run_remote.sh"
+progress = "statepoint"
+library = "examples/vera/openmc-library"
+jobs = '^openmc-(3.|5.-2D)$'
