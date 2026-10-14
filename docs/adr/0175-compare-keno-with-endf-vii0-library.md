@@ -4,7 +4,7 @@ date: 2026-10-15
 supersedes: []
 superseded-by:
 issues: ["#0131"]
-requires: [ADR-0020, ADR-0031, ADR-0080, ADR-0124]
+requires: [ADR-0020, ADR-0031, ADR-0079, ADR-0080, ADR-0124, ADR-0176]
 ---
 
 # ADR-0175: 仕様書に KENO-VI の値がある問題は、ENDF/B-VII.0 の検証用ライブラリでも xlc を解いて KENO-VI と直接比べる
