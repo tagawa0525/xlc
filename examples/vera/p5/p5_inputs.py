@@ -1281,7 +1281,8 @@ def pipeline(
                 [f"git:compare-{name}.json"],
             )
         )
-    # OpenMC の参照解（../dvc.yaml の openmc-<問題>-2D-extract の出力。examples/vera/verification.md の「Problem 5-2D の参照解」）
+    # OpenMC の参照解（5A は ../dvc.yaml の openmc-5A-2D-extract の出力。5B と 5C は AWS の実行 m3 から `aws_fetch.sh --verify m3` で取り出したファイル。
+    # examples/vera/verification.md の「Problem 5-2D の参照解」）
     for name, (problem, results) in OPENMC.items():
         # 比べる 5 つのファイルを deps に書く（JSON の `inputs` が deps の md5 と照合される）。JSON は数十 KB ほどの要約で、
         # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印。ADR-0176）
@@ -1314,6 +1315,8 @@ def pipeline(
         "# VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、\n"
         "# 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、\n"
         "# OpenMC、最小の入力の MOC、対称性）。走らせるのは `dvc repro`（ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
+        "# compare-5B-openmc と compare-5C-openmc の deps（references/openmc/aws/m3/…）は DVC の段階の出力でなく、`aws_fetch.sh --verify m3` で\n"
+        "# 取り出したもの。取り出していない checkout では、`dvc repro` はそこで止まる\n"
         "stages:\n" + "".join(stages)
     )
 

@@ -54,8 +54,15 @@ def parse_stage(text: str, stage: str) -> dict:
             path = m.group(1)
         elif section and re.match(r"    - path:\s*$", line):
             path = ""  # dvc は長いパスを次の行に折る
-        elif section and path == "" and (m := re.match(r"\s{8}(\S.*)$", line)):
-            path = m.group(1)
+        elif section and path == "" and line.strip():
+            # 続きの行は `- path:` より深く字下げした最初の非空白の行。キーの行なら、パスが無いまま md5 に進むので止める
+            if len(line) - len(line.lstrip()) <= 4 or re.match(
+                r"\s*(hash|md5|size|nfiles):", line
+            ):
+                raise ProvenanceError(
+                    f"dvc.lock stage {stage}: `- path:` has no path on the next line: {line!r}"
+                )
+            path = line.strip()
         elif (
             section
             and path
