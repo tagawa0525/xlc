@@ -200,13 +200,14 @@ fn gaussian_limit(beta: f64, theta: f64) -> (f64, f64) {
 
 #[test]
 fn quadrature_approaches_the_gaussian_limit_for_narrow_lines() {
-    // ローレンツの裾による差は θ の程度。b = 2β/(√π θ) が 1 に近い芯の形まで、積分と級数が θ の数倍の内で合う
-    for theta in [1.0e-6, 1.0e-8, 1.0e-10] {
+    // ローレンツの裾による差は θ の程度（θ = 1e-6〜1e-11 で相対 0.24〜0.46 θ）。b = 2β/(√π θ) が 1 に近い芯の形まで、
+    // 積分と級数が 0.6 θ の内で合う
+    for theta in [1.0e-6, 1.0e-8, 1.0e-10, 1.0e-11] {
         for beta in [2.5 * theta, 10.0 * theta, 1.0e3 * theta, 1.0] {
             let direct = jk_integrals(&[beta], theta).unwrap()[0];
             let (j, k) = gaussian_limit(beta, theta);
-            assert_rel(direct.0, j, 10.0 * theta + 1.0e-11);
-            assert_rel(direct.1, k, 10.0 * theta + 1.0e-11);
+            assert_rel(direct.0, j, 0.6 * theta + 1.0e-12);
+            assert_rel(direct.1, k, 0.6 * theta + 1.0e-12);
         }
     }
 }
