@@ -162,7 +162,8 @@ fn table_uses_natural_line_shape_above_its_theta_range() {
 #[test]
 fn table_rejects_points_outside_its_range() {
     assert!(jk_interpolated(1.0e-8, 1.0).is_err());
-    assert!(jk_interpolated(1.0e-8, 1.0e-13).is_err());
+    // θ が表より小さくても、b = 2β/(√π θ) が小さければ級数を使わない
+    assert!(jk_interpolated(1.0e-12, 1.0e-13).is_err());
 }
 
 #[test]
