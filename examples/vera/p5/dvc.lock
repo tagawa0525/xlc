@@ -1942,3 +1942,3991 @@ stages:
       hash: md5
       md5: 2e8c85e1819050e7ba3c0711b4743742
       size: 1606
+  hzp-core-hzp:
+    cmd: cd hzp && ../../../../bin/core core-hzp.toml > core-hzp.out 2> 
+      core-hzp.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: a8d61ca773e7ecb7508ba14d8fa61b20
+      size: 3026392
+      isexec: true
+    - path: hzp/axial-21
+      hash: md5
+      md5: c30b5e2f63740c49f1dfa5555ac4732e.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-21-rcca
+      hash: md5
+      md5: d2c3cd87b8776c9d8a5dfaf879547a21.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-p16
+      hash: md5
+      md5: 8f93c1eb4b49674a2fab6eccfa4c0b6f.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-p20
+      hash: md5
+      md5: 2a0ed27a47dc9bc643750ee02b8114d9.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-p24
+      hash: md5
+      md5: 49fd98f6916a3149cec7ed2517f830c8.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-rcca
+      hash: md5
+      md5: f05b79ad43ff0bac77e692f2c1f05cc8.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31
+      hash: md5
+      md5: f53ea72d4d5bc479e26caf95dbed2dc9.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p12
+      hash: md5
+      md5: 2eccae036c2e81e836d90ecaba13c0be.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p16
+      hash: md5
+      md5: 35b3a07ab388f7e3e69a37df6ecb5992.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p24
+      hash: md5
+      md5: 9a65403aa904333b15265adfc302310b.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p8
+      hash: md5
+      md5: 3afe157fe16bd83677a4936ebb8eeceb.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-rcca
+      hash: md5
+      md5: f589691cfdf19f93aaac93d2373572c0.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/core-hzp-assemblies.toml
+      hash: md5
+      md5: 46ee912978e672f37f3d776fa10d77fe
+      size: 24030
+    - path: hzp/core-hzp-cycle.toml
+      hash: md5
+      md5: 38f313d3f350c985c5941f2d010dd340
+      size: 2449
+    - path: hzp/core-hzp-plant.toml
+      hash: md5
+      md5: a6b2125964584172e70506f4309e8595
+      size: 6320
+    - path: hzp/core-hzp.toml
+      hash: md5
+      md5: bebefa69a547558baa6858fc58d706b8
+      size: 6838
+    - path: hzp/lattice/21-fuel.msgpack
+      hash: md5
+      md5: 33a12af8b287af3024bb0a442e32ced1
+      size: 60239
+    - path: hzp/lattice/21-igrid.msgpack
+      hash: md5
+      md5: acdfde0f496f657d55cd4bb335f91d1a
+      size: 60239
+    - path: hzp/lattice/21-zgrid.msgpack
+      hash: md5
+      md5: cf9ae0c3dfa7a72909336b5789db059f
+      size: 60239
+    - path: hzp/lattice/26-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+    - path: hzp/lattice/26-p16-empty-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+    - path: hzp/lattice/26-p16-plenum.msgpack
+      hash: md5
+      md5: d50eb537413eeeaa728378be24f55e1e
+      size: 60239
+    - path: hzp/lattice/26-p16-plug-igrid.msgpack
+      hash: md5
+      md5: 83f7a71af1ee2b9aedc309d4361002e9
+      size: 60239
+    - path: hzp/lattice/26-p16-poison-zgrid.msgpack
+      hash: md5
+      md5: eaacd0c2f1ced68337c4aafa75fc48b0
+      size: 60239
+    - path: hzp/lattice/26-p16-poison.msgpack
+      hash: md5
+      md5: fa67143fab8850a23dd6b54b61c472a9
+      size: 60239
+    - path: hzp/lattice/26-p20-empty-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+    - path: hzp/lattice/26-p20-plenum.msgpack
+      hash: md5
+      md5: 40d7de8e4c58a4ca3ad674e735eb05cf
+      size: 60239
+    - path: hzp/lattice/26-p20-plug-igrid.msgpack
+      hash: md5
+      md5: 6972d9bd3709824093b726e8c489b1c5
+      size: 60239
+    - path: hzp/lattice/26-p20-poison-zgrid.msgpack
+      hash: md5
+      md5: d3fa0977acdd46e18d1087af6ff783c1
+      size: 60239
+    - path: hzp/lattice/26-p20-poison.msgpack
+      hash: md5
+      md5: 2243898e5a88fded29050da05ae0f36e
+      size: 60239
+    - path: hzp/lattice/26-p24-empty-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+    - path: hzp/lattice/26-p24-plenum.msgpack
+      hash: md5
+      md5: d12b9e34a197ee59fb48745bc00d4eb0
+      size: 60239
+    - path: hzp/lattice/26-p24-plug-igrid.msgpack
+      hash: md5
+      md5: dd8d7e37706a20a47af58de0be06f6af
+      size: 60239
+    - path: hzp/lattice/26-p24-poison-zgrid.msgpack
+      hash: md5
+      md5: b8a83bf3d79e52315b4179b5d99ce0ea
+      size: 60239
+    - path: hzp/lattice/26-p24-poison.msgpack
+      hash: md5
+      md5: 85298baca80234b71e24ba49f22a977c
+      size: 60239
+    - path: hzp/lattice/31-p12-empty-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+    - path: hzp/lattice/31-p12-plenum.msgpack
+      hash: md5
+      md5: d6f06f1bf9da10772726435bde583485
+      size: 60239
+    - path: hzp/lattice/31-p12-plug-igrid.msgpack
+      hash: md5
+      md5: 7ed3917453430b4bd9d8ef164fbb58f3
+      size: 60239
+    - path: hzp/lattice/31-p12-poison-zgrid.msgpack
+      hash: md5
+      md5: 948b7e9f20bb509a6997fc0a5e717385
+      size: 60239
+    - path: hzp/lattice/31-p12-poison.msgpack
+      hash: md5
+      md5: d64603070d6380173909f0f024fd286b
+      size: 60239
+    - path: hzp/lattice/31-p16-empty-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+    - path: hzp/lattice/31-p16-plenum.msgpack
+      hash: md5
+      md5: 48d9c2ffa2eb1187c56fcac2a9d9e575
+      size: 60239
+    - path: hzp/lattice/31-p16-plug-igrid.msgpack
+      hash: md5
+      md5: 7176c03076491855054658b8d76c84b1
+      size: 60239
+    - path: hzp/lattice/31-p16-poison-zgrid.msgpack
+      hash: md5
+      md5: dcced672dd3f198aad9cbf3a7c169773
+      size: 60239
+    - path: hzp/lattice/31-p16-poison.msgpack
+      hash: md5
+      md5: 5b9f75d91de1972e012674ab4379f82a
+      size: 60239
+    - path: hzp/lattice/31-p24-empty-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+    - path: hzp/lattice/31-p24-plenum.msgpack
+      hash: md5
+      md5: 85454053bc0425e6944164ee56479406
+      size: 60239
+    - path: hzp/lattice/31-p24-plug-igrid.msgpack
+      hash: md5
+      md5: c83e49d1d979b90c1026842ba2e1dcea
+      size: 60239
+    - path: hzp/lattice/31-p24-poison-zgrid.msgpack
+      hash: md5
+      md5: e7b97111d3e61d8bd33ae269a395067d
+      size: 60239
+    - path: hzp/lattice/31-p24-poison.msgpack
+      hash: md5
+      md5: e988de0e39cfe9f5e147046cba40eee4
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 9809e8dd3df24480adf11c17a849f1b5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: 016d2181c5604d2423af6291a13b63d7
+      size: 85655
+    - path: hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-plenum-fuel.msgpack
+      hash: md5
+      md5: da3a8555e01091eaa9b59fb12154f363
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack
+      hash: md5
+      md5: 6dd045e437c3693505ea37b5b89a2fa5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-poison-fuel.msgpack
+      hash: md5
+      md5: f2c1b0b9cd8847064becc1181a9b23c3
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack
+      hash: md5
+      md5: 7b765983683fac80905d1fd04b80e66a
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-plenum-fuel.msgpack
+      hash: md5
+      md5: c812a4429d79589868a14e072b3f0b22
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack
+      hash: md5
+      md5: 98c70b86721ae1be0b464168304a6f79
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-poison-fuel.msgpack
+      hash: md5
+      md5: e91b6899b093c3b19bb69da703271170
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack
+      hash: md5
+      md5: 8912766f98ba27541249a545438fbb16
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 8cebc6f3cb2f36d5a10d42172c082759
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 5f4462e33ee9c82f1b71905bfaefda22
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      hash: md5
+      md5: 6bd4336a3f0a6b7585960a3804cc5177
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      hash: md5
+      md5: 312e525773eab776fdca528fdad79eb5
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-fuel.msgpack
+      hash: md5
+      md5: fd23122ea2ddd597878870436a18bd3f
+      size: 123167
+    - path: hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      hash: md5
+      md5: f7ca3a20b9e139891ad49c7f59d2ba5c
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 7722756549d7978e784eda81dfeb76cf
+      size: 60239
+    - path: hzp/tables/21-fuel-rods.msgpack
+      hash: md5
+      md5: 230db40bf164640ee99c524f0803d290
+      size: 180287
+    - path: hzp/tables/21-zgrid-rods.msgpack
+      hash: md5
+      md5: d819ec0f410e03359ed51b31a750b50b
+      size: 180287
+    - path: hzp/tables/26-fuel-rods.msgpack
+      hash: md5
+      md5: ff4ac971ffcd0702b61ac66570e7cf06
+      size: 180287
+    - path: hzp/tables/26-zgrid-rods.msgpack
+      hash: md5
+      md5: 1515709661f63b3ab84d13db59ce3e6b
+      size: 180287
+    - path: hzp/tables/reflector-I-31-fuel-fuel-rods.msgpack
+      hash: md5
+      md5: d3d9af8fa6978f2c7933c3da21da7b1d
+      size: 180287
+    - path: hzp/tables/reflector-I-31-zgrid-fuel-rods.msgpack
+      hash: md5
+      md5: 92696a2a5ab5c90743c96e2de9149cb4
+      size: 180287
+    outs:
+    - path: hzp/core-hzp.log
+      hash: md5
+      md5: 6c6f76b05bf8dd2bd61e66f693d6be08
+      size: 15130
+    - path: hzp/core-hzp.out
+      hash: md5
+      md5: ae9dce5da7c34e6da070fa6e26a3550d
+      size: 150197
+  hzp-compare:
+    cmd: python3 compare_hzp.py ../../../references/vera/spec.txt 
+      hzp/core-hzp.toml hzp/core-hzp.out > hzp/compare-hzp.out
+    deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_keno.py
+      hash: md5
+      md5: fa9fd5eb34c1bad5dbe7ef7a898297a1
+      size: 4292
+    - path: ../compare_p3.py
+      hash: md5
+      md5: f34ccd9fc86bf3519a879e3a3e3c0a72
+      size: 11673
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: compare_hzp.py
+      hash: md5
+      md5: d18a36ee8977f004a7552c9074ea413f
+      size: 21613
+    - path: hzp/core-hzp.out
+      hash: md5
+      md5: ae9dce5da7c34e6da070fa6e26a3550d
+      size: 150197
+    - path: hzp/core-hzp.toml
+      hash: md5
+      md5: bebefa69a547558baa6858fc58d706b8
+      size: 6838
+    outs:
+    - path: hzp/compare-hzp.out
+      hash: md5
+      md5: 07a26bfda3ebf078e6cdf297923deaef
+      size: 8748
+  hzp-21-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      21-fuel.toml > 21-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/21-fuel.toml
+      hash: md5
+      md5: 3469dee3cd1f61ff27599914048ed43a
+      size: 4426
+    outs:
+    - path: hzp/21-fuel.out
+      hash: md5
+      md5: 1b693ec1c1e98ff6eb43b5c260c7d1bf
+      size: 152
+    - path: hzp/lattice/21-fuel.msgpack
+      hash: md5
+      md5: 33a12af8b287af3024bb0a442e32ced1
+      size: 60239
+    - path: hzp/media/21-fuel.msgpack
+      hash: md5
+      md5: c86e2b23fc28761c8182890f7918f085
+      size: 1398998
+  hzp-21-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      21-fuel-aic.toml > 21-fuel-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/21-fuel-aic.toml
+      hash: md5
+      md5: 08a9d61538b7364b780cdf4df9521bd0
+      size: 5714
+    outs:
+    - path: hzp/21-fuel-aic.out
+      hash: md5
+      md5: a7898552d466fd56ccbe5296f1256286
+      size: 152
+    - path: hzp/lattice/21-fuel-aic.msgpack
+      hash: md5
+      md5: 16e6031afd3e096a2146e8da7d05f837
+      size: 60239
+  hzp-21-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      21-fuel-b4c.toml > 21-fuel-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/21-fuel-b4c.toml
+      hash: md5
+      md5: 3e53e7152c38fda3ba3e3857d865f4e1
+      size: 5538
+    outs:
+    - path: hzp/21-fuel-b4c.out
+      hash: md5
+      md5: 38c0d7930cbfdcffaafc2801fc5bee0d
+      size: 152
+    - path: hzp/lattice/21-fuel-b4c.msgpack
+      hash: md5
+      md5: 20433fed562e3bd00f4762ecc8bf9a72
+      size: 60239
+  hzp-21-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      21-igrid.toml > 21-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/21-igrid.toml
+      hash: md5
+      md5: 6f9be3d385f6c620a57c103cec9af8aa
+      size: 5298
+    outs:
+    - path: hzp/21-igrid.out
+      hash: md5
+      md5: 8242e6a1936697645ec8bd3b0f25aac5
+      size: 152
+    - path: hzp/lattice/21-igrid.msgpack
+      hash: md5
+      md5: acdfde0f496f657d55cd4bb335f91d1a
+      size: 60239
+  hzp-21-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      21-zgrid.toml > 21-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/21-zgrid.toml
+      hash: md5
+      md5: f796964b925b4989e62138613af1f22c
+      size: 4797
+    outs:
+    - path: hzp/21-zgrid.out
+      hash: md5
+      md5: 62498ee2252f26234e6a0e21c977e321
+      size: 152
+    - path: hzp/lattice/21-zgrid.msgpack
+      hash: md5
+      md5: cf9ae0c3dfa7a72909336b5789db059f
+      size: 60239
+  hzp-21-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      21-zgrid-aic.toml > 21-zgrid-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/21-zgrid-aic.toml
+      hash: md5
+      md5: 6fd59ac9d698a1f4adb810cd562ad06b
+      size: 6174
+    outs:
+    - path: hzp/21-zgrid-aic.out
+      hash: md5
+      md5: 0d18a2a9d7b8aaa772c8919ed74fb1ac
+      size: 152
+    - path: hzp/lattice/21-zgrid-aic.msgpack
+      hash: md5
+      md5: cafb8dd0f37712dc5caac53ca146c762
+      size: 60239
+  hzp-21-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      21-zgrid-b4c.toml > 21-zgrid-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/21-zgrid-b4c.toml
+      hash: md5
+      md5: a9d06357c40e0d4499e4f0f21c22d348
+      size: 5998
+    outs:
+    - path: hzp/21-zgrid-b4c.out
+      hash: md5
+      md5: 059783c4bb55ed3b7b2392942252fc34
+      size: 152
+    - path: hzp/lattice/21-zgrid-b4c.msgpack
+      hash: md5
+      md5: a1401b95f8d89fc72ff4132e5b8c0850
+      size: 60239
+  hzp-26-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-fuel.toml > 26-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-fuel.toml
+      hash: md5
+      md5: 9a1e1b1879f18daa9acab1f8d6f26993
+      size: 4427
+    outs:
+    - path: hzp/26-fuel.out
+      hash: md5
+      md5: 5076bf1ec224af51027b547a9393894f
+      size: 152
+    - path: hzp/lattice/26-fuel.msgpack
+      hash: md5
+      md5: 8572948b3e589f8499b472f79aa6b2e4
+      size: 60239
+    - path: hzp/media/26-fuel.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+  hzp-26-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-fuel-aic.toml > 26-fuel-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-fuel-aic.toml
+      hash: md5
+      md5: d10c1c6bcdabcdca647a2756be8a41c2
+      size: 5715
+    outs:
+    - path: hzp/26-fuel-aic.out
+      hash: md5
+      md5: 2c07506c46449c89f70e800aab82b504
+      size: 152
+    - path: hzp/lattice/26-fuel-aic.msgpack
+      hash: md5
+      md5: 8b062cfa69ab4d6449466057eb36e3fb
+      size: 60239
+  hzp-26-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-fuel-b4c.toml > 26-fuel-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-fuel-b4c.toml
+      hash: md5
+      md5: 2ae7f3b00662c45d2d5f50e133e60b5e
+      size: 5539
+    outs:
+    - path: hzp/26-fuel-b4c.out
+      hash: md5
+      md5: 7d990c4fa4ac6f0a50fe7e1d5d859ff6
+      size: 152
+    - path: hzp/lattice/26-fuel-b4c.msgpack
+      hash: md5
+      md5: e31545cc9185d01d227439c5a523ca76
+      size: 60239
+  hzp-26-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-igrid.toml > 26-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-igrid.toml
+      hash: md5
+      md5: e7e2b641619798ab286723aba79ed0c0
+      size: 5299
+    outs:
+    - path: hzp/26-igrid.out
+      hash: md5
+      md5: 886d719a055efdafbd12b0543a4b921b
+      size: 152
+    - path: hzp/lattice/26-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+  hzp-26-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-zgrid.toml > 26-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-zgrid.toml
+      hash: md5
+      md5: 6de8785e3355a27e8cdea310215bdc14
+      size: 4798
+    outs:
+    - path: hzp/26-zgrid.out
+      hash: md5
+      md5: a38e5da678f2f998a1d196bd3a163573
+      size: 152
+    - path: hzp/lattice/26-zgrid.msgpack
+      hash: md5
+      md5: 0c41aa9959c34d1fb42544652b823c28
+      size: 60239
+  hzp-26-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-zgrid-aic.toml > 26-zgrid-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-zgrid-aic.toml
+      hash: md5
+      md5: 678d39c3b6aad7e3a14176e24124d477
+      size: 6175
+    outs:
+    - path: hzp/26-zgrid-aic.out
+      hash: md5
+      md5: b76a23f84a2feb2103424e74aaebbe57
+      size: 152
+    - path: hzp/lattice/26-zgrid-aic.msgpack
+      hash: md5
+      md5: ec7177a3a4f9c65e0f98499e5181e0bb
+      size: 60239
+  hzp-26-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-zgrid-b4c.toml > 26-zgrid-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-zgrid-b4c.toml
+      hash: md5
+      md5: dbcbd1cec0735a796608351c932418a4
+      size: 5999
+    outs:
+    - path: hzp/26-zgrid-b4c.out
+      hash: md5
+      md5: 380fefb4c5e9a817acf0fd7d0059b93d
+      size: 152
+    - path: hzp/lattice/26-zgrid-b4c.msgpack
+      hash: md5
+      md5: 66d44d7d082ddae3bd3c72bc7f7cc777
+      size: 60239
+  hzp-26-p16-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p16-empty.toml > 26-p16-empty.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p16-empty.toml
+      hash: md5
+      md5: 3b01d9dfc0f134a6eb5e6bb6d255845c
+      size: 4573
+    outs:
+    - path: hzp/26-p16-empty.out
+      hash: md5
+      md5: 5076bf1ec224af51027b547a9393894f
+      size: 152
+    - path: hzp/lattice/26-p16-empty.msgpack
+      hash: md5
+      md5: 8572948b3e589f8499b472f79aa6b2e4
+      size: 60239
+    - path: hzp/media/26-p16-empty.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+  hzp-26-p16-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p16-empty-igrid.toml > 26-p16-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p16-empty-igrid.toml
+      hash: md5
+      md5: 9426d58d50e0f635e839d46b018deb60
+      size: 5396
+    outs:
+    - path: hzp/26-p16-empty-igrid.out
+      hash: md5
+      md5: 886d719a055efdafbd12b0543a4b921b
+      size: 152
+    - path: hzp/lattice/26-p16-empty-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+  hzp-26-p16-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p16-plenum.toml > 26-p16-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p16-plenum.toml
+      hash: md5
+      md5: 7043374c47e463ecca8681a46e5f2f70
+      size: 5406
+    outs:
+    - path: hzp/26-p16-plenum.out
+      hash: md5
+      md5: 8513d795c837e18ea417ae37e3c63276
+      size: 152
+    - path: hzp/lattice/26-p16-plenum.msgpack
+      hash: md5
+      md5: d50eb537413eeeaa728378be24f55e1e
+      size: 60239
+    - path: hzp/media/26-p16-plenum.msgpack
+      hash: md5
+      md5: 16b0145966fd3a479f6911b0e8e699e8
+      size: 1398998
+  hzp-26-p16-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p16-plug.toml > 26-p16-plug.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p16-plug.toml
+      hash: md5
+      md5: f1ed5f47e2020b3af16b363c70b582d0
+      size: 5393
+    outs:
+    - path: hzp/26-p16-plug.out
+      hash: md5
+      md5: 97ba368609a54db5fa735168bd4d7273
+      size: 152
+    - path: hzp/lattice/26-p16-plug.msgpack
+      hash: md5
+      md5: a284fc28eb0003434c7030721ac0a06a
+      size: 60239
+    - path: hzp/media/26-p16-plug.msgpack
+      hash: md5
+      md5: 0891e7b295e92aa545ca8388b7477870
+      size: 1398998
+  hzp-26-p16-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p16-plug-igrid.toml > 26-p16-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p16-plug-igrid.toml
+      hash: md5
+      md5: 8053fe9a5220fc509ca4e0273c4682cd
+      size: 6269
+    outs:
+    - path: hzp/26-p16-plug-igrid.out
+      hash: md5
+      md5: 1198ee2bd55ebeff21137cf28f3ee77c
+      size: 152
+    - path: hzp/lattice/26-p16-plug-igrid.msgpack
+      hash: md5
+      md5: 83f7a71af1ee2b9aedc309d4361002e9
+      size: 60239
+  hzp-26-p16-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p16-poison.toml > 26-p16-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p16-poison.toml
+      hash: md5
+      md5: 4a6f8eb6155116e3a9d5bc7708b7a19a
+      size: 5825
+    outs:
+    - path: hzp/26-p16-poison.out
+      hash: md5
+      md5: 23f073d5f13bb6cd28741a03bb391279
+      size: 152
+    - path: hzp/lattice/26-p16-poison.msgpack
+      hash: md5
+      md5: fa67143fab8850a23dd6b54b61c472a9
+      size: 60239
+    - path: hzp/media/26-p16-poison.msgpack
+      hash: md5
+      md5: f9eb36f460907cd97e06f57b477a2d73
+      size: 1398998
+  hzp-26-p16-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p16-poison-zgrid.toml > 26-p16-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p16-poison-zgrid.toml
+      hash: md5
+      md5: 273165f5be4ff6052b9aebd0ce903fdb
+      size: 6226
+    outs:
+    - path: hzp/26-p16-poison-zgrid.out
+      hash: md5
+      md5: 276d584842d1820e8dcd5643d6363c3b
+      size: 152
+    - path: hzp/lattice/26-p16-poison-zgrid.msgpack
+      hash: md5
+      md5: eaacd0c2f1ced68337c4aafa75fc48b0
+      size: 60239
+  hzp-26-p20-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p20-empty.toml > 26-p20-empty.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p20-empty.toml
+      hash: md5
+      md5: da220041b291b33ea906699f1569ad0d
+      size: 4573
+    outs:
+    - path: hzp/26-p20-empty.out
+      hash: md5
+      md5: 5076bf1ec224af51027b547a9393894f
+      size: 152
+    - path: hzp/lattice/26-p20-empty.msgpack
+      hash: md5
+      md5: 8572948b3e589f8499b472f79aa6b2e4
+      size: 60239
+    - path: hzp/media/26-p20-empty.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+  hzp-26-p20-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p20-empty-igrid.toml > 26-p20-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p20-empty-igrid.toml
+      hash: md5
+      md5: 08879930bcf3736a331445b0e268cc4d
+      size: 5396
+    outs:
+    - path: hzp/26-p20-empty-igrid.out
+      hash: md5
+      md5: 886d719a055efdafbd12b0543a4b921b
+      size: 152
+    - path: hzp/lattice/26-p20-empty-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+  hzp-26-p20-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p20-plenum.toml > 26-p20-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p20-plenum.toml
+      hash: md5
+      md5: 7f285d2c47f11daceaa4d487e11c8c20
+      size: 5406
+    outs:
+    - path: hzp/26-p20-plenum.out
+      hash: md5
+      md5: e45f41257c93fd26d5acd22347ea07c1
+      size: 152
+    - path: hzp/lattice/26-p20-plenum.msgpack
+      hash: md5
+      md5: 40d7de8e4c58a4ca3ad674e735eb05cf
+      size: 60239
+    - path: hzp/media/26-p20-plenum.msgpack
+      hash: md5
+      md5: eb3d8cafc2566bb70e571da2ec27ae7c
+      size: 1398998
+  hzp-26-p20-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p20-plug.toml > 26-p20-plug.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p20-plug.toml
+      hash: md5
+      md5: 85c40a3265413ec6757ead89ce23dcf4
+      size: 5393
+    outs:
+    - path: hzp/26-p20-plug.out
+      hash: md5
+      md5: c71d64f19acd72dd7242063fb7bbdcd1
+      size: 152
+    - path: hzp/lattice/26-p20-plug.msgpack
+      hash: md5
+      md5: 1ed7eb49324a2a69e8b0b81cfabdb97a
+      size: 60239
+    - path: hzp/media/26-p20-plug.msgpack
+      hash: md5
+      md5: 42f209e0cbc0e08392e36bb77c8a3731
+      size: 1398998
+  hzp-26-p20-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p20-plug-igrid.toml > 26-p20-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p20-plug-igrid.toml
+      hash: md5
+      md5: 77b17631e192ccedecd4475bfb14f898
+      size: 6269
+    outs:
+    - path: hzp/26-p20-plug-igrid.out
+      hash: md5
+      md5: d81a1d797a5702638bbd3b25822f614f
+      size: 152
+    - path: hzp/lattice/26-p20-plug-igrid.msgpack
+      hash: md5
+      md5: 6972d9bd3709824093b726e8c489b1c5
+      size: 60239
+  hzp-26-p20-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p20-poison.toml > 26-p20-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p20-poison.toml
+      hash: md5
+      md5: 7fefc14ab7aba55be2b39138c9e8ec2c
+      size: 5825
+    outs:
+    - path: hzp/26-p20-poison.out
+      hash: md5
+      md5: b10143982282e41d1776da0c5928fa14
+      size: 152
+    - path: hzp/lattice/26-p20-poison.msgpack
+      hash: md5
+      md5: 2243898e5a88fded29050da05ae0f36e
+      size: 60239
+    - path: hzp/media/26-p20-poison.msgpack
+      hash: md5
+      md5: ead39a70112dc6dad631368e6601b688
+      size: 1398998
+  hzp-26-p20-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p20-poison-zgrid.toml > 26-p20-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p20-poison-zgrid.toml
+      hash: md5
+      md5: 8df3762c3591601ff1b873ad3620008a
+      size: 6226
+    outs:
+    - path: hzp/26-p20-poison-zgrid.out
+      hash: md5
+      md5: cba44534223ef59b70d2e7eea4af6c03
+      size: 152
+    - path: hzp/lattice/26-p20-poison-zgrid.msgpack
+      hash: md5
+      md5: d3fa0977acdd46e18d1087af6ff783c1
+      size: 60239
+  hzp-26-p24-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p24-empty.toml > 26-p24-empty.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p24-empty.toml
+      hash: md5
+      md5: f5507a3d4525da000929cedd25c89e74
+      size: 4573
+    outs:
+    - path: hzp/26-p24-empty.out
+      hash: md5
+      md5: 5076bf1ec224af51027b547a9393894f
+      size: 152
+    - path: hzp/lattice/26-p24-empty.msgpack
+      hash: md5
+      md5: 8572948b3e589f8499b472f79aa6b2e4
+      size: 60239
+    - path: hzp/media/26-p24-empty.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+  hzp-26-p24-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p24-empty-igrid.toml > 26-p24-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p24-empty-igrid.toml
+      hash: md5
+      md5: ad590955dd5e550b24023464e072892a
+      size: 5396
+    outs:
+    - path: hzp/26-p24-empty-igrid.out
+      hash: md5
+      md5: 886d719a055efdafbd12b0543a4b921b
+      size: 152
+    - path: hzp/lattice/26-p24-empty-igrid.msgpack
+      hash: md5
+      md5: 1ca1f2b368e1a1753d3c4895afff2ab2
+      size: 60239
+  hzp-26-p24-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p24-plenum.toml > 26-p24-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p24-plenum.toml
+      hash: md5
+      md5: c0369acdeee328ba87185032da0bc812
+      size: 5406
+    outs:
+    - path: hzp/26-p24-plenum.out
+      hash: md5
+      md5: 3be1688ba436bcb96666b062dd99486a
+      size: 152
+    - path: hzp/lattice/26-p24-plenum.msgpack
+      hash: md5
+      md5: d12b9e34a197ee59fb48745bc00d4eb0
+      size: 60239
+    - path: hzp/media/26-p24-plenum.msgpack
+      hash: md5
+      md5: 4bb3839fcb3e3fb1974bceb8b99979ec
+      size: 1398998
+  hzp-26-p24-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p24-plug.toml > 26-p24-plug.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p24-plug.toml
+      hash: md5
+      md5: ac27e89cd29e645abca795348398ec16
+      size: 5393
+    outs:
+    - path: hzp/26-p24-plug.out
+      hash: md5
+      md5: ba42944839a79af32ed43d0cd57ca2a3
+      size: 152
+    - path: hzp/lattice/26-p24-plug.msgpack
+      hash: md5
+      md5: bc1f44656e4fa4f5972f4bb0d367e338
+      size: 60239
+    - path: hzp/media/26-p24-plug.msgpack
+      hash: md5
+      md5: dd949aa1708a7cb699a2cdfb30f05ef5
+      size: 1398998
+  hzp-26-p24-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p24-plug-igrid.toml > 26-p24-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p24-plug-igrid.toml
+      hash: md5
+      md5: a05d3d036e2d510ac3406b1734c9ddef
+      size: 6269
+    outs:
+    - path: hzp/26-p24-plug-igrid.out
+      hash: md5
+      md5: 5c924ac672c664018b542d4cfe00c848
+      size: 152
+    - path: hzp/lattice/26-p24-plug-igrid.msgpack
+      hash: md5
+      md5: dd8d7e37706a20a47af58de0be06f6af
+      size: 60239
+  hzp-26-p24-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p24-poison.toml > 26-p24-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p24-poison.toml
+      hash: md5
+      md5: 2ce0523d7c3b72cbe673ff37a8ef047c
+      size: 5825
+    outs:
+    - path: hzp/26-p24-poison.out
+      hash: md5
+      md5: 2982e5be282d7e0d30ae317e5807638a
+      size: 152
+    - path: hzp/lattice/26-p24-poison.msgpack
+      hash: md5
+      md5: 85298baca80234b71e24ba49f22a977c
+      size: 60239
+    - path: hzp/media/26-p24-poison.msgpack
+      hash: md5
+      md5: 05d505dd037866ae7815a6ef7c9a461c
+      size: 1398998
+  hzp-26-p24-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      26-p24-poison-zgrid.toml > 26-p24-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/26-p24-poison-zgrid.toml
+      hash: md5
+      md5: b1dfdcd0be8f24794539727e7fbb2bd1
+      size: 6226
+    outs:
+    - path: hzp/26-p24-poison-zgrid.out
+      hash: md5
+      md5: be32790f6854bfef7c63c5653a576daf
+      size: 152
+    - path: hzp/lattice/26-p24-poison-zgrid.msgpack
+      hash: md5
+      md5: b8a83bf3d79e52315b4179b5d99ce0ea
+      size: 60239
+  hzp-31-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-fuel.toml > 31-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-fuel.toml
+      hash: md5
+      md5: 6db79485287c51b0360bcf1b08b05457
+      size: 4426
+    outs:
+    - path: hzp/31-fuel.out
+      hash: md5
+      md5: c3eaafefa9776c5def14de80cde58e2c
+      size: 152
+    - path: hzp/lattice/31-fuel.msgpack
+      hash: md5
+      md5: 3a2eef2a05163fe195a14ddb67042cce
+      size: 60239
+    - path: hzp/media/31-fuel.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+  hzp-31-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-fuel-aic.toml > 31-fuel-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-fuel-aic.toml
+      hash: md5
+      md5: 3ec2185eeb2324270c822046863fa016
+      size: 5714
+    outs:
+    - path: hzp/31-fuel-aic.out
+      hash: md5
+      md5: 9b02e4215e5cf2d50e776bfa51e2c81d
+      size: 152
+    - path: hzp/lattice/31-fuel-aic.msgpack
+      hash: md5
+      md5: bb997b308655aa5cc357a18bbb747f43
+      size: 60239
+  hzp-31-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-fuel-b4c.toml > 31-fuel-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-fuel-b4c.toml
+      hash: md5
+      md5: 086bc46af750edb7b3f4e72f4be2af00
+      size: 5538
+    outs:
+    - path: hzp/31-fuel-b4c.out
+      hash: md5
+      md5: 40631d6933356cc68a57005ecbede504
+      size: 152
+    - path: hzp/lattice/31-fuel-b4c.msgpack
+      hash: md5
+      md5: 2d69da8baaabc132683bac82fee69617
+      size: 60239
+  hzp-31-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-igrid.toml > 31-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-igrid.toml
+      hash: md5
+      md5: b58afb43e20047076e9f14c0dc61bee2
+      size: 5298
+    outs:
+    - path: hzp/31-igrid.out
+      hash: md5
+      md5: 6611fd1bc79a0f6bf54f7f79c18346b9
+      size: 152
+    - path: hzp/lattice/31-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+  hzp-31-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-zgrid.toml > 31-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-zgrid.toml
+      hash: md5
+      md5: 9004d15e4f9508f5e3b84de228f7734a
+      size: 4797
+    outs:
+    - path: hzp/31-zgrid.out
+      hash: md5
+      md5: bc35a03d73cc3827c6fe363d9461500e
+      size: 152
+    - path: hzp/lattice/31-zgrid.msgpack
+      hash: md5
+      md5: 6e06a5e640d62ed05ca358e10c1d1060
+      size: 60239
+  hzp-31-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-zgrid-aic.toml > 31-zgrid-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-zgrid-aic.toml
+      hash: md5
+      md5: faf8250c7266635a4ba1ba20af0e80f2
+      size: 6174
+    outs:
+    - path: hzp/31-zgrid-aic.out
+      hash: md5
+      md5: a3dd91521f73a9e23d6c1e8c145a8936
+      size: 152
+    - path: hzp/lattice/31-zgrid-aic.msgpack
+      hash: md5
+      md5: d55229eacf760c03935fdc6f3da5efa8
+      size: 60239
+  hzp-31-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-zgrid-b4c.toml > 31-zgrid-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-zgrid-b4c.toml
+      hash: md5
+      md5: 1a44eb49a4155a26d3cbbc831fe07387
+      size: 5998
+    outs:
+    - path: hzp/31-zgrid-b4c.out
+      hash: md5
+      md5: ad7737067e531221fcff3c107f2385e5
+      size: 152
+    - path: hzp/lattice/31-zgrid-b4c.msgpack
+      hash: md5
+      md5: 5470bbe29426712d968bfd28aec4fbd4
+      size: 60239
+  hzp-31-p12-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p12-empty.toml > 31-p12-empty.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p12-empty.toml
+      hash: md5
+      md5: 061698246b313d0756bb6bafb3a3abf7
+      size: 4572
+    outs:
+    - path: hzp/31-p12-empty.out
+      hash: md5
+      md5: c3eaafefa9776c5def14de80cde58e2c
+      size: 152
+    - path: hzp/lattice/31-p12-empty.msgpack
+      hash: md5
+      md5: 3a2eef2a05163fe195a14ddb67042cce
+      size: 60239
+    - path: hzp/media/31-p12-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+  hzp-31-p12-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p12-empty-igrid.toml > 31-p12-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p12-empty-igrid.toml
+      hash: md5
+      md5: 5be48df013e2ea74d35b8af61da10cfa
+      size: 5395
+    outs:
+    - path: hzp/31-p12-empty-igrid.out
+      hash: md5
+      md5: 6611fd1bc79a0f6bf54f7f79c18346b9
+      size: 152
+    - path: hzp/lattice/31-p12-empty-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+  hzp-31-p12-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p12-plenum.toml > 31-p12-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p12-plenum.toml
+      hash: md5
+      md5: 380f3a79737ce1f628fe4ec2a059eb9d
+      size: 5405
+    outs:
+    - path: hzp/31-p12-plenum.out
+      hash: md5
+      md5: a48c0b72924a4a021fad975637bb2f8a
+      size: 152
+    - path: hzp/lattice/31-p12-plenum.msgpack
+      hash: md5
+      md5: d6f06f1bf9da10772726435bde583485
+      size: 60239
+    - path: hzp/media/31-p12-plenum.msgpack
+      hash: md5
+      md5: 6c86fb7c9ae1a6ce9c0e8974c9d9e34d
+      size: 1398998
+  hzp-31-p12-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p12-plug.toml > 31-p12-plug.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p12-plug.toml
+      hash: md5
+      md5: a2c93db1cc9dc3497bb19a53e5de3421
+      size: 5392
+    outs:
+    - path: hzp/31-p12-plug.out
+      hash: md5
+      md5: e898a7183d16799c0ba33bb19b783299
+      size: 152
+    - path: hzp/lattice/31-p12-plug.msgpack
+      hash: md5
+      md5: 9d2e841cd03766610d6e0dc0aa3717af
+      size: 60239
+    - path: hzp/media/31-p12-plug.msgpack
+      hash: md5
+      md5: b81e43dfd50df4402424dda08d90a70e
+      size: 1398998
+  hzp-31-p12-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p12-plug-igrid.toml > 31-p12-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p12-plug-igrid.toml
+      hash: md5
+      md5: 90139680ae741f6fd070cbac80e3668a
+      size: 6268
+    outs:
+    - path: hzp/31-p12-plug-igrid.out
+      hash: md5
+      md5: c9f3d129a268d3cbed93978e33c54d38
+      size: 152
+    - path: hzp/lattice/31-p12-plug-igrid.msgpack
+      hash: md5
+      md5: 7ed3917453430b4bd9d8ef164fbb58f3
+      size: 60239
+  hzp-31-p12-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p12-poison.toml > 31-p12-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p12-poison.toml
+      hash: md5
+      md5: 31055fb0c0a023af77feb038d284b13b
+      size: 5824
+    outs:
+    - path: hzp/31-p12-poison.out
+      hash: md5
+      md5: 59483ce1f7cf7ab071e0a20354cd4dd7
+      size: 152
+    - path: hzp/lattice/31-p12-poison.msgpack
+      hash: md5
+      md5: d64603070d6380173909f0f024fd286b
+      size: 60239
+    - path: hzp/media/31-p12-poison.msgpack
+      hash: md5
+      md5: 10e806fda375d3cb8925f083dd37f5c5
+      size: 1398998
+  hzp-31-p12-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p12-poison-zgrid.toml > 31-p12-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p12-poison-zgrid.toml
+      hash: md5
+      md5: 66a0d91d86cd629f751de4cda7fc5757
+      size: 6225
+    outs:
+    - path: hzp/31-p12-poison-zgrid.out
+      hash: md5
+      md5: 6c8718d9ef106123040c214f77f0f966
+      size: 152
+    - path: hzp/lattice/31-p12-poison-zgrid.msgpack
+      hash: md5
+      md5: 948b7e9f20bb509a6997fc0a5e717385
+      size: 60239
+  hzp-31-p16-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p16-empty.toml > 31-p16-empty.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p16-empty.toml
+      hash: md5
+      md5: ab247875adba1129c916b95c8b8f7bd4
+      size: 4572
+    outs:
+    - path: hzp/31-p16-empty.out
+      hash: md5
+      md5: c3eaafefa9776c5def14de80cde58e2c
+      size: 152
+    - path: hzp/lattice/31-p16-empty.msgpack
+      hash: md5
+      md5: 3a2eef2a05163fe195a14ddb67042cce
+      size: 60239
+    - path: hzp/media/31-p16-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+  hzp-31-p16-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p16-empty-igrid.toml > 31-p16-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p16-empty-igrid.toml
+      hash: md5
+      md5: 011c42869fcee4c544b2baf43a24cb39
+      size: 5395
+    outs:
+    - path: hzp/31-p16-empty-igrid.out
+      hash: md5
+      md5: 6611fd1bc79a0f6bf54f7f79c18346b9
+      size: 152
+    - path: hzp/lattice/31-p16-empty-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+  hzp-31-p16-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p16-plenum.toml > 31-p16-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p16-plenum.toml
+      hash: md5
+      md5: d71762c61ce549cd36744b80464b1073
+      size: 5405
+    outs:
+    - path: hzp/31-p16-plenum.out
+      hash: md5
+      md5: 938b3da1756d51922937a4bff6c3310e
+      size: 152
+    - path: hzp/lattice/31-p16-plenum.msgpack
+      hash: md5
+      md5: 48d9c2ffa2eb1187c56fcac2a9d9e575
+      size: 60239
+    - path: hzp/media/31-p16-plenum.msgpack
+      hash: md5
+      md5: e738ea9859280f973044f25ee08a3e6c
+      size: 1398998
+  hzp-31-p16-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p16-plug.toml > 31-p16-plug.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p16-plug.toml
+      hash: md5
+      md5: a6f2f63d290f3fd3c0efe405ce2ca53a
+      size: 5392
+    outs:
+    - path: hzp/31-p16-plug.out
+      hash: md5
+      md5: 1a0577757475b8ff7b9877ba556f8776
+      size: 152
+    - path: hzp/lattice/31-p16-plug.msgpack
+      hash: md5
+      md5: 74d76c3310c6ce713cb8d68fe388d608
+      size: 60239
+    - path: hzp/media/31-p16-plug.msgpack
+      hash: md5
+      md5: 9c22f0c21cfaf69ba30ddb27b401c450
+      size: 1398998
+  hzp-31-p16-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p16-plug-igrid.toml > 31-p16-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p16-plug-igrid.toml
+      hash: md5
+      md5: 0c6dff836a82a3b50479b8d8c4b88177
+      size: 6268
+    outs:
+    - path: hzp/31-p16-plug-igrid.out
+      hash: md5
+      md5: 0b8b29815d15ef4d08f8703d3d5591b6
+      size: 152
+    - path: hzp/lattice/31-p16-plug-igrid.msgpack
+      hash: md5
+      md5: 7176c03076491855054658b8d76c84b1
+      size: 60239
+  hzp-31-p16-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p16-poison.toml > 31-p16-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p16-poison.toml
+      hash: md5
+      md5: fe87e4dcb9cea8a5f727fe0cf4449e92
+      size: 5824
+    outs:
+    - path: hzp/31-p16-poison.out
+      hash: md5
+      md5: 33c32d05cb55ac1aa8b0c4652a4f4b99
+      size: 152
+    - path: hzp/lattice/31-p16-poison.msgpack
+      hash: md5
+      md5: 5b9f75d91de1972e012674ab4379f82a
+      size: 60239
+    - path: hzp/media/31-p16-poison.msgpack
+      hash: md5
+      md5: da9af693a5c9dfaa7b9392b14b0ab418
+      size: 1398998
+  hzp-31-p16-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p16-poison-zgrid.toml > 31-p16-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p16-poison-zgrid.toml
+      hash: md5
+      md5: a44abed007bac83174a71066207f6611
+      size: 6225
+    outs:
+    - path: hzp/31-p16-poison-zgrid.out
+      hash: md5
+      md5: d690ab129559e47099fd3ad9f89f2975
+      size: 152
+    - path: hzp/lattice/31-p16-poison-zgrid.msgpack
+      hash: md5
+      md5: dcced672dd3f198aad9cbf3a7c169773
+      size: 60239
+  hzp-31-p24-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p24-empty.toml > 31-p24-empty.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p24-empty.toml
+      hash: md5
+      md5: ed46770af456e92dee1b41e2e36f2fdc
+      size: 4572
+    outs:
+    - path: hzp/31-p24-empty.out
+      hash: md5
+      md5: c3eaafefa9776c5def14de80cde58e2c
+      size: 152
+    - path: hzp/lattice/31-p24-empty.msgpack
+      hash: md5
+      md5: 3a2eef2a05163fe195a14ddb67042cce
+      size: 60239
+    - path: hzp/media/31-p24-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+  hzp-31-p24-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p24-empty-igrid.toml > 31-p24-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p24-empty-igrid.toml
+      hash: md5
+      md5: 87a467bfcaea847679408a0f423221ee
+      size: 5395
+    outs:
+    - path: hzp/31-p24-empty-igrid.out
+      hash: md5
+      md5: 6611fd1bc79a0f6bf54f7f79c18346b9
+      size: 152
+    - path: hzp/lattice/31-p24-empty-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+  hzp-31-p24-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p24-plenum.toml > 31-p24-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p24-plenum.toml
+      hash: md5
+      md5: 2fffa7c61e74ad591b9ea4885e2c1019
+      size: 5405
+    outs:
+    - path: hzp/31-p24-plenum.out
+      hash: md5
+      md5: a0cea5ba5b843beaf200544a6239ce9d
+      size: 152
+    - path: hzp/lattice/31-p24-plenum.msgpack
+      hash: md5
+      md5: 85454053bc0425e6944164ee56479406
+      size: 60239
+    - path: hzp/media/31-p24-plenum.msgpack
+      hash: md5
+      md5: 4e1a99978ab6e36b1a48f43ad9f602df
+      size: 1398998
+  hzp-31-p24-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p24-plug.toml > 31-p24-plug.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p24-plug.toml
+      hash: md5
+      md5: 7cd0981c1e43664100a5337b65a6b7c7
+      size: 5392
+    outs:
+    - path: hzp/31-p24-plug.out
+      hash: md5
+      md5: d6bc107e710403877b1466baf2940aa9
+      size: 152
+    - path: hzp/lattice/31-p24-plug.msgpack
+      hash: md5
+      md5: 5475c4467f5123ee147d24ca8407a6d2
+      size: 60239
+    - path: hzp/media/31-p24-plug.msgpack
+      hash: md5
+      md5: 8d4607018d43b6734fb2162f8c50d6af
+      size: 1398998
+  hzp-31-p24-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p24-plug-igrid.toml > 31-p24-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p24-plug-igrid.toml
+      hash: md5
+      md5: 401977d9c14190c9de48d4b7f09a5597
+      size: 6268
+    outs:
+    - path: hzp/31-p24-plug-igrid.out
+      hash: md5
+      md5: 12c59cc1fea7fab7b9a4281d819e1bcf
+      size: 152
+    - path: hzp/lattice/31-p24-plug-igrid.msgpack
+      hash: md5
+      md5: c83e49d1d979b90c1026842ba2e1dcea
+      size: 60239
+  hzp-31-p24-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p24-poison.toml > 31-p24-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p24-poison.toml
+      hash: md5
+      md5: 09afbc182e391a81c4529acc204c144e
+      size: 5824
+    outs:
+    - path: hzp/31-p24-poison.out
+      hash: md5
+      md5: 7e4cb96d5807de39b809e6d542a16ee4
+      size: 152
+    - path: hzp/lattice/31-p24-poison.msgpack
+      hash: md5
+      md5: e988de0e39cfe9f5e147046cba40eee4
+      size: 60239
+    - path: hzp/media/31-p24-poison.msgpack
+      hash: md5
+      md5: c7b492312111041b9f6c533a5ad372d9
+      size: 1398998
+  hzp-31-p24-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p24-poison-zgrid.toml > 31-p24-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p24-poison-zgrid.toml
+      hash: md5
+      md5: 1ed61b4779281a575fe078652846af7d
+      size: 6225
+    outs:
+    - path: hzp/31-p24-poison-zgrid.out
+      hash: md5
+      md5: 1466042b98e341d3ecdac4d1847c8e0f
+      size: 152
+    - path: hzp/lattice/31-p24-poison-zgrid.msgpack
+      hash: md5
+      md5: e7b97111d3e61d8bd33ae269a395067d
+      size: 60239
+  hzp-31-p8-empty:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p8-empty.toml > 31-p8-empty.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p8-empty.toml
+      hash: md5
+      md5: 07b092e2cf3d44a0dc4cb04b6956321b
+      size: 4569
+    outs:
+    - path: hzp/31-p8-empty.out
+      hash: md5
+      md5: c3eaafefa9776c5def14de80cde58e2c
+      size: 152
+    - path: hzp/lattice/31-p8-empty.msgpack
+      hash: md5
+      md5: 3a2eef2a05163fe195a14ddb67042cce
+      size: 60239
+    - path: hzp/media/31-p8-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+  hzp-31-p8-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p8-plenum.toml > 31-p8-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p8-plenum.toml
+      hash: md5
+      md5: 1d01d50363347ef1f54db23bb027fa72
+      size: 5402
+    outs:
+    - path: hzp/31-p8-plenum.out
+      hash: md5
+      md5: 4c304fcf90d575b3634fd70af2875a6b
+      size: 152
+    - path: hzp/lattice/31-p8-plenum.msgpack
+      hash: md5
+      md5: 811d9bc03e9e68a241adff078ff25d54
+      size: 60239
+    - path: hzp/media/31-p8-plenum.msgpack
+      hash: md5
+      md5: 4f3c691debd31299ac394b2b17d36ce7
+      size: 1398998
+  hzp-31-p8-plug:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p8-plug.toml > 31-p8-plug.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p8-plug.toml
+      hash: md5
+      md5: abc0944294a3a96909b18e345e40c1d2
+      size: 5389
+    outs:
+    - path: hzp/31-p8-plug.out
+      hash: md5
+      md5: 59aa788db129d78729d17b58380e573e
+      size: 152
+    - path: hzp/lattice/31-p8-plug.msgpack
+      hash: md5
+      md5: 94d519370ccbfcc60cb9e00b3b93eed7
+      size: 60239
+    - path: hzp/media/31-p8-plug.msgpack
+      hash: md5
+      md5: 3326558fbcf357ea519214bf96cb6809
+      size: 1398998
+  hzp-31-p8-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      31-p8-poison.toml > 31-p8-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/31-p8-poison.toml
+      hash: md5
+      md5: b91d4384a9c1385333acd3530f288d3b
+      size: 5821
+    outs:
+    - path: hzp/31-p8-poison.out
+      hash: md5
+      md5: 9bab8ce01e65821642963a63412fe408
+      size: 152
+    - path: hzp/lattice/31-p8-poison.msgpack
+      hash: md5
+      md5: f01aca0b85b365743945e4fab4cf1aef
+      size: 60239
+    - path: hzp/media/31-p8-poison.msgpack
+      hash: md5
+      md5: d925a0957575e689a0c6e7091c81f293
+      size: 1398998
+  hzp-reflector-I-31-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-fuel.toml > reflector-I-31-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-fuel.toml
+      hash: md5
+      md5: e52772745626a14cda5e421ac7d6b5d8
+      size: 9461
+    outs:
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 9809e8dd3df24480adf11c17a849f1b5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: 016d2181c5604d2423af6291a13b63d7
+      size: 85655
+    - path: hzp/reflector-I-31-fuel.out
+      hash: md5
+      md5: f7ba801c9716ed1c6a015b50e61b5777
+      size: 152
+  hzp-reflector-I-31-fuel-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-fuel-aic.toml > reflector-I-31-fuel-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-fuel-aic.toml
+      hash: md5
+      md5: 83408da438daacb01d25c9b7eee26a49
+      size: 10317
+    outs:
+    - path: hzp/lattice/reflector-I-31-fuel-aic-fuel.msgpack
+      hash: md5
+      md5: f93d306aa8f171c69d43ca0ba7597f9b
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel-aic.msgpack
+      hash: md5
+      md5: e7bf6b3d9966d9faaddeb4828eac9651
+      size: 85655
+    - path: hzp/reflector-I-31-fuel-aic.out
+      hash: md5
+      md5: 0ffbff3c88303d2fceb3cc57f539094b
+      size: 152
+  hzp-reflector-I-31-fuel-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-fuel-b4c.toml > reflector-I-31-fuel-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-fuel-b4c.toml
+      hash: md5
+      md5: 1806660f9f0239513cf51f205f393b5e
+      size: 10141
+    outs:
+    - path: hzp/lattice/reflector-I-31-fuel-b4c-fuel.msgpack
+      hash: md5
+      md5: c2c898bc06543993b121ff7698de9201
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel-b4c.msgpack
+      hash: md5
+      md5: 14bf9214ad7ce50cb4d85e23faccbc2f
+      size: 85655
+    - path: hzp/reflector-I-31-fuel-b4c.out
+      hash: md5
+      md5: 44fcc04d35334edf0b81df51cf97cf75
+      size: 152
+  hzp-reflector-I-31-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-igrid.toml > reflector-I-31-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-igrid.toml
+      hash: md5
+      md5: 6d0045ffec727c0b0991ba0f8708b4c3
+      size: 10367
+    outs:
+    - path: hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-igrid.msgpack
+      hash: md5
+      md5: 3b3545817f4a16cb4c6803fddb486d3b
+      size: 85655
+    - path: hzp/reflector-I-31-igrid.out
+      hash: md5
+      md5: 2929f9ab13c0625a4c2b636a994036f5
+      size: 152
+  hzp-reflector-I-31-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-zgrid.toml > reflector-I-31-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-zgrid.toml
+      hash: md5
+      md5: 17f547fa8ee105ddcff45324aa4641c4
+      size: 9866
+    outs:
+    - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 8cebc6f3cb2f36d5a10d42172c082759
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid.msgpack
+      hash: md5
+      md5: d2db27e69913f349b7ffde25983923e0
+      size: 85655
+    - path: hzp/reflector-I-31-zgrid.out
+      hash: md5
+      md5: 538633f47037192db4f4367e07df987c
+      size: 152
+  hzp-reflector-I-31-zgrid-aic:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-zgrid-aic.toml > reflector-I-31-zgrid-aic.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-zgrid-aic.toml
+      hash: md5
+      md5: ab50290f8c669b5d4216035517d933d9
+      size: 10778
+    outs:
+    - path: hzp/lattice/reflector-I-31-zgrid-aic-fuel.msgpack
+      hash: md5
+      md5: 723a9d839d2888608482d56cd8df0085
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid-aic.msgpack
+      hash: md5
+      md5: 350cc68167ccdfb3c06f577db484b9f4
+      size: 85655
+    - path: hzp/reflector-I-31-zgrid-aic.out
+      hash: md5
+      md5: 2bd8b424fd732a672b58a3411080e062
+      size: 152
+  hzp-reflector-I-31-zgrid-b4c:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-zgrid-b4c.toml > reflector-I-31-zgrid-b4c.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-zgrid-b4c.toml
+      hash: md5
+      md5: aa7ab8de8903c760df4271e52ef1a1b6
+      size: 10602
+    outs:
+    - path: hzp/lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
+      hash: md5
+      md5: d4440b4f58a5d9b1910238666c3aeb8b
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid-b4c.msgpack
+      hash: md5
+      md5: 58c001865502db5628966d882933b9af
+      size: 85655
+    - path: hzp/reflector-I-31-zgrid-b4c.out
+      hash: md5
+      md5: 0d7fbfc7b116732864480c3f3c853cba
+      size: 152
+  hzp-reflector-I-31-p12-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p12-empty-igrid.toml > reflector-I-31-p12-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p12-empty-igrid.toml
+      hash: md5
+      md5: 9eeb3bd640c9ab8ff28ca9b93a3adbbe
+      size: 10474
+    outs:
+    - path: hzp/lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-empty-igrid.msgpack
+      hash: md5
+      md5: 3b3545817f4a16cb4c6803fddb486d3b
+      size: 85655
+    - path: hzp/reflector-I-31-p12-empty-igrid.out
+      hash: md5
+      md5: 2929f9ab13c0625a4c2b636a994036f5
+      size: 152
+  hzp-reflector-I-31-p12-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p12-plenum.toml > reflector-I-31-p12-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p12-plenum.toml
+      hash: md5
+      md5: b91d5f06dbc6626f6ca6580c6febb20f
+      size: 9971
+    outs:
+    - path: hzp/lattice/reflector-I-31-p12-plenum-fuel.msgpack
+      hash: md5
+      md5: da3a8555e01091eaa9b59fb12154f363
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-plenum.msgpack
+      hash: md5
+      md5: 001c7d28da6d6f6b99d6be07019ff831
+      size: 85655
+    - path: hzp/reflector-I-31-p12-plenum.out
+      hash: md5
+      md5: 237a98bce801b621941be7072ade129b
+      size: 152
+  hzp-reflector-I-31-p12-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p12-plug-igrid.toml > reflector-I-31-p12-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p12-plug-igrid.toml
+      hash: md5
+      md5: 3a5b0046a637c0f7e8e5b15edc1f009c
+      size: 10877
+    outs:
+    - path: hzp/lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack
+      hash: md5
+      md5: 6dd045e437c3693505ea37b5b89a2fa5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-plug-igrid.msgpack
+      hash: md5
+      md5: 0c9bc000d8a162bdf98bb76937119e5e
+      size: 85655
+    - path: hzp/reflector-I-31-p12-plug-igrid.out
+      hash: md5
+      md5: a985b7f192a72b41e134ac6649cb185a
+      size: 152
+  hzp-reflector-I-31-p12-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p12-poison.toml > reflector-I-31-p12-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p12-poison.toml
+      hash: md5
+      md5: fc824ae4cd5e552f0bde399164be7629
+      size: 10390
+    outs:
+    - path: hzp/lattice/reflector-I-31-p12-poison-fuel.msgpack
+      hash: md5
+      md5: f2c1b0b9cd8847064becc1181a9b23c3
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-poison.msgpack
+      hash: md5
+      md5: e4d1bc91d60fd4028a4e6a827df74a91
+      size: 85655
+    - path: hzp/reflector-I-31-p12-poison.out
+      hash: md5
+      md5: d98d8386f2ade715f1a64975081450cf
+      size: 152
+  hzp-reflector-I-31-p12-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p12-poison-zgrid.toml > reflector-I-31-p12-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p12-poison-zgrid.toml
+      hash: md5
+      md5: 2362b5d7cd45d669e4a2674f545b2818
+      size: 10836
+    outs:
+    - path: hzp/lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack
+      hash: md5
+      md5: 7b765983683fac80905d1fd04b80e66a
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p12-poison-zgrid.msgpack
+      hash: md5
+      md5: cf0919c69ac5c7ec3db64534cd16a023
+      size: 85655
+    - path: hzp/reflector-I-31-p12-poison-zgrid.out
+      hash: md5
+      md5: c57484a76c6917db5738a7867444327f
+      size: 152
+  hzp-reflector-I-31-p8-empty-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p8-empty-igrid.toml > reflector-I-31-p8-empty-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p8-empty-igrid.toml
+      hash: md5
+      md5: b62714608bcda6a8c023d5a8b17b6f16
+      size: 10471
+    outs:
+    - path: hzp/lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-empty-igrid.msgpack
+      hash: md5
+      md5: 3b3545817f4a16cb4c6803fddb486d3b
+      size: 85655
+    - path: hzp/reflector-I-31-p8-empty-igrid.out
+      hash: md5
+      md5: 2929f9ab13c0625a4c2b636a994036f5
+      size: 152
+  hzp-reflector-I-31-p8-plenum:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p8-plenum.toml > reflector-I-31-p8-plenum.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p8-plenum.toml
+      hash: md5
+      md5: 11f6023ac0846dcf17a9fc60c9fd838f
+      size: 9968
+    outs:
+    - path: hzp/lattice/reflector-I-31-p8-plenum-fuel.msgpack
+      hash: md5
+      md5: c812a4429d79589868a14e072b3f0b22
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-plenum.msgpack
+      hash: md5
+      md5: 7e2a1edd4a413a58c9ff6b2bd64763b6
+      size: 85655
+    - path: hzp/reflector-I-31-p8-plenum.out
+      hash: md5
+      md5: 9d0397b375b8ffa5ee8070efc9d70e99
+      size: 152
+  hzp-reflector-I-31-p8-plug-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p8-plug-igrid.toml > reflector-I-31-p8-plug-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p8-plug-igrid.toml
+      hash: md5
+      md5: 1bc463bbe928b4ac29ad97c2a2bd9f5d
+      size: 10874
+    outs:
+    - path: hzp/lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack
+      hash: md5
+      md5: 98c70b86721ae1be0b464168304a6f79
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-plug-igrid.msgpack
+      hash: md5
+      md5: dbe31252a0b7547962ca73c8e3e717e7
+      size: 85655
+    - path: hzp/reflector-I-31-p8-plug-igrid.out
+      hash: md5
+      md5: 31b8f9d775c498385a3a0bc08b987362
+      size: 152
+  hzp-reflector-I-31-p8-poison:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p8-poison.toml > reflector-I-31-p8-poison.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p8-poison.toml
+      hash: md5
+      md5: 19e6a0b224795f571e2237cef38203fc
+      size: 10387
+    outs:
+    - path: hzp/lattice/reflector-I-31-p8-poison-fuel.msgpack
+      hash: md5
+      md5: e91b6899b093c3b19bb69da703271170
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-poison.msgpack
+      hash: md5
+      md5: 390fea376c9a74a1553219d8fd111db3
+      size: 85655
+    - path: hzp/reflector-I-31-p8-poison.out
+      hash: md5
+      md5: 54a5122171478f507cb2ef61cc9d4ec3
+      size: 152
+  hzp-reflector-I-31-p8-poison-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-I-31-p8-poison-zgrid.toml > reflector-I-31-p8-poison-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-I-31-p8-poison-zgrid.toml
+      hash: md5
+      md5: 40a02cbb32b42f8e7670083b034571d0
+      size: 10833
+    outs:
+    - path: hzp/lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack
+      hash: md5
+      md5: 8912766f98ba27541249a545438fbb16
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-p8-poison-zgrid.msgpack
+      hash: md5
+      md5: ffde3c12e75b4ded7a325689f3d25495
+      size: 85655
+    - path: hzp/reflector-I-31-p8-poison-zgrid.out
+      hash: md5
+      md5: 26bbefe16bb5fa3c74d7c8445a2f5060
+      size: 152
+  hzp-reflector-corner-31-fuel:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-corner-31-fuel.toml > reflector-corner-31-fuel.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-corner-31-fuel.toml
+      hash: md5
+      md5: 4c51693c59cef7b2418b4c00c6b45169
+      size: 17793
+    outs:
+    - path: hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 5f4462e33ee9c82f1b71905bfaefda22
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      hash: md5
+      md5: 6bd4336a3f0a6b7585960a3804cc5177
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      hash: md5
+      md5: 312e525773eab776fdca528fdad79eb5
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-fuel.msgpack
+      hash: md5
+      md5: fd23122ea2ddd597878870436a18bd3f
+      size: 123167
+    - path: hzp/reflector-corner-31-fuel.out
+      hash: md5
+      md5: c36b95a9fce681264a07c1b1653ca26e
+      size: 152
+  hzp-reflector-corner-31-igrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-corner-31-igrid.toml > reflector-corner-31-igrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-corner-31-igrid.toml
+      hash: md5
+      md5: 7fd2b41e9a2b3f896760cb08c6dc82e3
+      size: 18701
+    outs:
+    - path: hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      hash: md5
+      md5: f7ca3a20b9e139891ad49c7f59d2ba5c
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-igrid-right.msgpack
+      hash: md5
+      md5: 9615eb821e3af10e78e699fb0fa09342
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-igrid-top.msgpack
+      hash: md5
+      md5: 8f534624cce69a33d2c077b093449c89
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-igrid.msgpack
+      hash: md5
+      md5: 2e022016cb30d8af62326e537776c0fa
+      size: 123167
+    - path: hzp/reflector-corner-31-igrid.out
+      hash: md5
+      md5: 7c64fb94c66403df4c011c03f0f222a6
+      size: 152
+  hzp-reflector-corner-31-zgrid:
+    cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 
+      reflector-corner-31-zgrid.toml > reflector-corner-31-zgrid.out
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/reflector-corner-31-zgrid.toml
+      hash: md5
+      md5: 88024fc4ea4b98e86310c06ec557a4c2
+      size: 18200
+    outs:
+    - path: hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 7722756549d7978e784eda81dfeb76cf
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-zgrid-right.msgpack
+      hash: md5
+      md5: b17b11d5960bb2ba0b02af900994ac12
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-zgrid-top.msgpack
+      hash: md5
+      md5: 84f715bfae99c12ffb4e2d62cd40d474
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-zgrid.msgpack
+      hash: md5
+      md5: b863dbb67bf0e4c39f710d3731947bea
+      size: 123167
+    - path: hzp/reflector-corner-31-zgrid.out
+      hash: md5
+      md5: 37148d6feabc090c15076c31e2f1e2f6
+      size: 152
+  hzp-table-21-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/21-fuel-rods.msgpack out=lattice/21-fuel.msgpack 
+      aic=lattice/21-fuel-aic.msgpack b4c=lattice/21-fuel-b4c.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/21-fuel-aic.msgpack
+      hash: md5
+      md5: 16e6031afd3e096a2146e8da7d05f837
+      size: 60239
+    - path: hzp/lattice/21-fuel-b4c.msgpack
+      hash: md5
+      md5: 20433fed562e3bd00f4762ecc8bf9a72
+      size: 60239
+    - path: hzp/lattice/21-fuel.msgpack
+      hash: md5
+      md5: 33a12af8b287af3024bb0a442e32ced1
+      size: 60239
+    outs:
+    - path: hzp/tables/21-fuel-rods.msgpack
+      hash: md5
+      md5: 230db40bf164640ee99c524f0803d290
+      size: 180287
+  hzp-table-21-zgrid:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/21-zgrid-rods.msgpack out=lattice/21-zgrid.msgpack 
+      aic=lattice/21-zgrid-aic.msgpack b4c=lattice/21-zgrid-b4c.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/21-zgrid-aic.msgpack
+      hash: md5
+      md5: cafb8dd0f37712dc5caac53ca146c762
+      size: 60239
+    - path: hzp/lattice/21-zgrid-b4c.msgpack
+      hash: md5
+      md5: a1401b95f8d89fc72ff4132e5b8c0850
+      size: 60239
+    - path: hzp/lattice/21-zgrid.msgpack
+      hash: md5
+      md5: cf9ae0c3dfa7a72909336b5789db059f
+      size: 60239
+    outs:
+    - path: hzp/tables/21-zgrid-rods.msgpack
+      hash: md5
+      md5: d819ec0f410e03359ed51b31a750b50b
+      size: 180287
+  hzp-table-26-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/26-fuel-rods.msgpack out=lattice/26-fuel.msgpack 
+      aic=lattice/26-fuel-aic.msgpack b4c=lattice/26-fuel-b4c.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/26-fuel-aic.msgpack
+      hash: md5
+      md5: 8b062cfa69ab4d6449466057eb36e3fb
+      size: 60239
+    - path: hzp/lattice/26-fuel-b4c.msgpack
+      hash: md5
+      md5: e31545cc9185d01d227439c5a523ca76
+      size: 60239
+    - path: hzp/lattice/26-fuel.msgpack
+      hash: md5
+      md5: 8572948b3e589f8499b472f79aa6b2e4
+      size: 60239
+    outs:
+    - path: hzp/tables/26-fuel-rods.msgpack
+      hash: md5
+      md5: ff4ac971ffcd0702b61ac66570e7cf06
+      size: 180287
+  hzp-table-26-zgrid:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/26-zgrid-rods.msgpack out=lattice/26-zgrid.msgpack 
+      aic=lattice/26-zgrid-aic.msgpack b4c=lattice/26-zgrid-b4c.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/26-zgrid-aic.msgpack
+      hash: md5
+      md5: ec7177a3a4f9c65e0f98499e5181e0bb
+      size: 60239
+    - path: hzp/lattice/26-zgrid-b4c.msgpack
+      hash: md5
+      md5: 66d44d7d082ddae3bd3c72bc7f7cc777
+      size: 60239
+    - path: hzp/lattice/26-zgrid.msgpack
+      hash: md5
+      md5: 0c41aa9959c34d1fb42544652b823c28
+      size: 60239
+    outs:
+    - path: hzp/tables/26-zgrid-rods.msgpack
+      hash: md5
+      md5: 1515709661f63b3ab84d13db59ce3e6b
+      size: 180287
+  hzp-table-31-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/31-fuel-rods.msgpack out=lattice/31-fuel.msgpack 
+      aic=lattice/31-fuel-aic.msgpack b4c=lattice/31-fuel-b4c.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/31-fuel-aic.msgpack
+      hash: md5
+      md5: bb997b308655aa5cc357a18bbb747f43
+      size: 60239
+    - path: hzp/lattice/31-fuel-b4c.msgpack
+      hash: md5
+      md5: 2d69da8baaabc132683bac82fee69617
+      size: 60239
+    - path: hzp/lattice/31-fuel.msgpack
+      hash: md5
+      md5: 3a2eef2a05163fe195a14ddb67042cce
+      size: 60239
+    outs:
+    - path: hzp/tables/31-fuel-rods.msgpack
+      hash: md5
+      md5: b93c6f240aac25ab70c2c2cc02d7d9e6
+      size: 180287
+  hzp-table-31-zgrid:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/31-zgrid-rods.msgpack out=lattice/31-zgrid.msgpack 
+      aic=lattice/31-zgrid-aic.msgpack b4c=lattice/31-zgrid-b4c.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/31-zgrid-aic.msgpack
+      hash: md5
+      md5: d55229eacf760c03935fdc6f3da5efa8
+      size: 60239
+    - path: hzp/lattice/31-zgrid-b4c.msgpack
+      hash: md5
+      md5: 5470bbe29426712d968bfd28aec4fbd4
+      size: 60239
+    - path: hzp/lattice/31-zgrid.msgpack
+      hash: md5
+      md5: 6e06a5e640d62ed05ca358e10c1d1060
+      size: 60239
+    outs:
+    - path: hzp/tables/31-zgrid-rods.msgpack
+      hash: md5
+      md5: caccea7c4237342573da8db432a77f2a
+      size: 180287
+  hzp-table-reflector-I-31-fuel-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/reflector-I-31-fuel-fuel-rods.msgpack 
+      out=lattice/reflector-I-31-fuel-fuel.msgpack 
+      aic=lattice/reflector-I-31-fuel-aic-fuel.msgpack 
+      b4c=lattice/reflector-I-31-fuel-b4c-fuel.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/reflector-I-31-fuel-aic-fuel.msgpack
+      hash: md5
+      md5: f93d306aa8f171c69d43ca0ba7597f9b
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel-b4c-fuel.msgpack
+      hash: md5
+      md5: c2c898bc06543993b121ff7698de9201
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 9809e8dd3df24480adf11c17a849f1b5
+      size: 60239
+    outs:
+    - path: hzp/tables/reflector-I-31-fuel-fuel-rods.msgpack
+      hash: md5
+      md5: d3d9af8fa6978f2c7933c3da21da7b1d
+      size: 180287
+  hzp-table-reflector-I-31-zgrid-fuel:
+    cmd: cd hzp && mkdir -p tables && python3 ../../../core/rod_table.py 
+      tables/reflector-I-31-zgrid-fuel-rods.msgpack 
+      out=lattice/reflector-I-31-zgrid-fuel.msgpack 
+      aic=lattice/reflector-I-31-zgrid-aic-fuel.msgpack 
+      b4c=lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
+    deps:
+    - path: ../../core/rod_table.py
+      hash: md5
+      md5: ff707ac24e013937531d2054b5c37522
+      size: 2789
+    - path: hzp/lattice/reflector-I-31-zgrid-aic-fuel.msgpack
+      hash: md5
+      md5: 723a9d839d2888608482d56cd8df0085
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid-b4c-fuel.msgpack
+      hash: md5
+      md5: d4440b4f58a5d9b1910238666c3aeb8b
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 8cebc6f3cb2f36d5a10d42172c082759
+      size: 60239
+    outs:
+    - path: hzp/tables/reflector-I-31-zgrid-fuel-rods.msgpack
+      hash: md5
+      md5: 92696a2a5ab5c90743c96e2de9149cb4
+      size: 180287
+  hzp-axial-21:
+    cmd: cd hzp && mkdir -p axial-21 && ../../../../bin/lattice axial-21.toml > 
+      axial-21.out 2> axial-21.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-21.toml
+      hash: md5
+      md5: a2f02a9f630796e50abbce0ed9882e4e
+      size: 21631
+    - path: hzp/media/21-fuel.msgpack
+      hash: md5
+      md5: c86e2b23fc28761c8182890f7918f085
+      size: 1398998
+    outs:
+    - path: hzp/axial-21
+      hash: md5
+      md5: c30b5e2f63740c49f1dfa5555ac4732e.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-21.log
+      hash: md5
+      md5: 779a30fcdc3a5b7ad541c4433eb073a1
+      size: 131038
+    - path: hzp/axial-21.out
+      hash: md5
+      md5: e006b9a17b59b0749cb761d45201cbd4
+      size: 152
+  hzp-axial-21-rcca:
+    cmd: cd hzp && mkdir -p axial-21-rcca && ../../../../bin/lattice 
+      axial-21-rcca.toml > axial-21-rcca.out 2> axial-21-rcca.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-21-rcca.toml
+      hash: md5
+      md5: 1b4da7a3dd4e37d0db77af607792df72
+      size: 21212
+    - path: hzp/media/21-fuel.msgpack
+      hash: md5
+      md5: c86e2b23fc28761c8182890f7918f085
+      size: 1398998
+    outs:
+    - path: hzp/axial-21-rcca
+      hash: md5
+      md5: d2c3cd87b8776c9d8a5dfaf879547a21.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-21-rcca.log
+      hash: md5
+      md5: 30f8e27311dbe89e21d8491e7f54d731
+      size: 131059
+    - path: hzp/axial-21-rcca.out
+      hash: md5
+      md5: f93421c2c9e758b1c5f3d6d994346e07
+      size: 152
+  hzp-axial-26-rcca:
+    cmd: cd hzp && mkdir -p axial-26-rcca && ../../../../bin/lattice 
+      axial-26-rcca.toml > axial-26-rcca.out 2> axial-26-rcca.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-26-rcca.toml
+      hash: md5
+      md5: f30f2edce6ba1d1cb8ff91475e9a285f
+      size: 21213
+    - path: hzp/media/26-fuel.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+    outs:
+    - path: hzp/axial-26-rcca
+      hash: md5
+      md5: f05b79ad43ff0bac77e692f2c1f05cc8.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-rcca.log
+      hash: md5
+      md5: 992a8debbea7c302f843b52ad5d7a7e8
+      size: 130957
+    - path: hzp/axial-26-rcca.out
+      hash: md5
+      md5: 2d0fbaa22707abf6e5c4c5097e918f05
+      size: 152
+  hzp-axial-26-p16:
+    cmd: cd hzp && mkdir -p axial-26-p16 && ../../../../bin/lattice 
+      axial-26-p16.toml > axial-26-p16.out 2> axial-26-p16.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-26-p16.toml
+      hash: md5
+      md5: c12a5a4a61288db1b244884773458c2f
+      size: 23478
+    - path: hzp/media/26-p16-empty.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+    - path: hzp/media/26-p16-plenum.msgpack
+      hash: md5
+      md5: 16b0145966fd3a479f6911b0e8e699e8
+      size: 1398998
+    - path: hzp/media/26-p16-plug.msgpack
+      hash: md5
+      md5: 0891e7b295e92aa545ca8388b7477870
+      size: 1398998
+    - path: hzp/media/26-p16-poison.msgpack
+      hash: md5
+      md5: f9eb36f460907cd97e06f57b477a2d73
+      size: 1398998
+    outs:
+    - path: hzp/axial-26-p16
+      hash: md5
+      md5: 8f93c1eb4b49674a2fab6eccfa4c0b6f.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-p16.log
+      hash: md5
+      md5: 60353ef299dbb12a8c222da1dcdef51f
+      size: 131423
+    - path: hzp/axial-26-p16.out
+      hash: md5
+      md5: c9973d1cf9ab616da677840695f5620f
+      size: 152
+  hzp-axial-26-p20:
+    cmd: cd hzp && mkdir -p axial-26-p20 && ../../../../bin/lattice 
+      axial-26-p20.toml > axial-26-p20.out 2> axial-26-p20.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-26-p20.toml
+      hash: md5
+      md5: 375ed15b8e219323415cb16c6850bb9b
+      size: 23478
+    - path: hzp/media/26-p20-empty.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+    - path: hzp/media/26-p20-plenum.msgpack
+      hash: md5
+      md5: eb3d8cafc2566bb70e571da2ec27ae7c
+      size: 1398998
+    - path: hzp/media/26-p20-plug.msgpack
+      hash: md5
+      md5: 42f209e0cbc0e08392e36bb77c8a3731
+      size: 1398998
+    - path: hzp/media/26-p20-poison.msgpack
+      hash: md5
+      md5: ead39a70112dc6dad631368e6601b688
+      size: 1398998
+    outs:
+    - path: hzp/axial-26-p20
+      hash: md5
+      md5: 2a0ed27a47dc9bc643750ee02b8114d9.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-p20.log
+      hash: md5
+      md5: 3ed056fae12c52dc743a0de076096bd6
+      size: 131865
+    - path: hzp/axial-26-p20.out
+      hash: md5
+      md5: 32b44eb6c636229db08457b899d9f1eb
+      size: 152
+  hzp-axial-26-p24:
+    cmd: cd hzp && mkdir -p axial-26-p24 && ../../../../bin/lattice 
+      axial-26-p24.toml > axial-26-p24.out 2> axial-26-p24.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-26-p24.toml
+      hash: md5
+      md5: b8d33eed511261f0cb155c0882d0dca3
+      size: 22731
+    - path: hzp/media/26-p24-empty.msgpack
+      hash: md5
+      md5: 491045954b19834a051dcd7cae3338ba
+      size: 1398998
+    - path: hzp/media/26-p24-plenum.msgpack
+      hash: md5
+      md5: 4bb3839fcb3e3fb1974bceb8b99979ec
+      size: 1398998
+    - path: hzp/media/26-p24-plug.msgpack
+      hash: md5
+      md5: dd949aa1708a7cb699a2cdfb30f05ef5
+      size: 1398998
+    - path: hzp/media/26-p24-poison.msgpack
+      hash: md5
+      md5: 05d505dd037866ae7815a6ef7c9a461c
+      size: 1398998
+    outs:
+    - path: hzp/axial-26-p24
+      hash: md5
+      md5: 49fd98f6916a3149cec7ed2517f830c8.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-26-p24.log
+      hash: md5
+      md5: 895ef77f257ef7bde1567e62a80de23a
+      size: 131846
+    - path: hzp/axial-26-p24.out
+      hash: md5
+      md5: c2b25227deb679550e8b35f7a11f6c22
+      size: 152
+  hzp-axial-31:
+    cmd: cd hzp && mkdir -p axial-31 && ../../../../bin/lattice axial-31.toml > 
+      axial-31.out 2> axial-31.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-31.toml
+      hash: md5
+      md5: 354337070774f7fb3b6c865624eba5ae
+      size: 21631
+    - path: hzp/media/31-fuel.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+    outs:
+    - path: hzp/axial-31
+      hash: md5
+      md5: f53ea72d4d5bc479e26caf95dbed2dc9.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31.log
+      hash: md5
+      md5: 2f5d706097324af4a2f768149cc853b8
+      size: 131005
+    - path: hzp/axial-31.out
+      hash: md5
+      md5: ee641df7e5a358088815c642fd09d210
+      size: 152
+  hzp-axial-31-rcca:
+    cmd: cd hzp && mkdir -p axial-31-rcca && ../../../../bin/lattice 
+      axial-31-rcca.toml > axial-31-rcca.out 2> axial-31-rcca.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-31-rcca.toml
+      hash: md5
+      md5: 0ce07d0c551da95b25e18d83d8b5cd20
+      size: 21212
+    - path: hzp/media/31-fuel.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+    outs:
+    - path: hzp/axial-31-rcca
+      hash: md5
+      md5: f589691cfdf19f93aaac93d2373572c0.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-rcca.log
+      hash: md5
+      md5: f90e4a8efa7cee60701e1ad6278d7a89
+      size: 131023
+    - path: hzp/axial-31-rcca.out
+      hash: md5
+      md5: c2d8e706f6f859b2fb3f6f9463b78017
+      size: 152
+  hzp-axial-31-p12:
+    cmd: cd hzp && mkdir -p axial-31-p12 && ../../../../bin/lattice 
+      axial-31-p12.toml > axial-31-p12.out 2> axial-31-p12.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-31-p12.toml
+      hash: md5
+      md5: 37c11260aa2c3189457af05d5be8e040
+      size: 23478
+    - path: hzp/media/31-p12-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+    - path: hzp/media/31-p12-plenum.msgpack
+      hash: md5
+      md5: 6c86fb7c9ae1a6ce9c0e8974c9d9e34d
+      size: 1398998
+    - path: hzp/media/31-p12-plug.msgpack
+      hash: md5
+      md5: b81e43dfd50df4402424dda08d90a70e
+      size: 1398998
+    - path: hzp/media/31-p12-poison.msgpack
+      hash: md5
+      md5: 10e806fda375d3cb8925f083dd37f5c5
+      size: 1398998
+    outs:
+    - path: hzp/axial-31-p12
+      hash: md5
+      md5: 2eccae036c2e81e836d90ecaba13c0be.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p12.log
+      hash: md5
+      md5: 8ad486cb99f95516ad418e08b689e73d
+      size: 131065
+    - path: hzp/axial-31-p12.out
+      hash: md5
+      md5: 8f6e38fa1fb723c8e7e37d65361d8cab
+      size: 152
+  hzp-axial-31-p16:
+    cmd: cd hzp && mkdir -p axial-31-p16 && ../../../../bin/lattice 
+      axial-31-p16.toml > axial-31-p16.out 2> axial-31-p16.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-31-p16.toml
+      hash: md5
+      md5: 93d445cca56b502eedc9912952f441bb
+      size: 23477
+    - path: hzp/media/31-p16-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+    - path: hzp/media/31-p16-plenum.msgpack
+      hash: md5
+      md5: e738ea9859280f973044f25ee08a3e6c
+      size: 1398998
+    - path: hzp/media/31-p16-plug.msgpack
+      hash: md5
+      md5: 9c22f0c21cfaf69ba30ddb27b401c450
+      size: 1398998
+    - path: hzp/media/31-p16-poison.msgpack
+      hash: md5
+      md5: da9af693a5c9dfaa7b9392b14b0ab418
+      size: 1398998
+    outs:
+    - path: hzp/axial-31-p16
+      hash: md5
+      md5: 35b3a07ab388f7e3e69a37df6ecb5992.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p16.log
+      hash: md5
+      md5: f1d15d68777c8b8ef51e404cf39e561c
+      size: 131099
+    - path: hzp/axial-31-p16.out
+      hash: md5
+      md5: 91125cbae4604227eaea44ccc918fb51
+      size: 152
+  hzp-axial-31-p24:
+    cmd: cd hzp && mkdir -p axial-31-p24 && ../../../../bin/lattice 
+      axial-31-p24.toml > axial-31-p24.out 2> axial-31-p24.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-31-p24.toml
+      hash: md5
+      md5: c805b487289b403e79dfbc8edd2b42b9
+      size: 22730
+    - path: hzp/media/31-p24-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+    - path: hzp/media/31-p24-plenum.msgpack
+      hash: md5
+      md5: 4e1a99978ab6e36b1a48f43ad9f602df
+      size: 1398998
+    - path: hzp/media/31-p24-plug.msgpack
+      hash: md5
+      md5: 8d4607018d43b6734fb2162f8c50d6af
+      size: 1398998
+    - path: hzp/media/31-p24-poison.msgpack
+      hash: md5
+      md5: c7b492312111041b9f6c533a5ad372d9
+      size: 1398998
+    outs:
+    - path: hzp/axial-31-p24
+      hash: md5
+      md5: 9a65403aa904333b15265adfc302310b.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p24.log
+      hash: md5
+      md5: 32c95e356e534958058cc2fd80cfa910
+      size: 131985
+    - path: hzp/axial-31-p24.out
+      hash: md5
+      md5: f82926c1440c957322d43447ea35ea2b
+      size: 152
+  hzp-axial-31-p8:
+    cmd: cd hzp && mkdir -p axial-31-p8 && ../../../../bin/lattice 
+      axial-31-p8.toml > axial-31-p8.out 2> axial-31-p8.log
+    deps:
+    - path: ../../../bin/lattice
+      hash: md5
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
+    - path: ../vera.msgpack
+      hash: md5
+      md5: d2215543520cbdd851b743eb081cfe98
+      size: 276235024
+    - path: hzp/axial-31-p8.toml
+      hash: md5
+      md5: 6b947bb98116ccb8120d158f9ee09cb7
+      size: 23412
+    - path: hzp/media/31-p8-empty.msgpack
+      hash: md5
+      md5: 0f78bf61bed8e6bfc7c498a906eae54f
+      size: 1398998
+    - path: hzp/media/31-p8-plenum.msgpack
+      hash: md5
+      md5: 4f3c691debd31299ac394b2b17d36ce7
+      size: 1398998
+    - path: hzp/media/31-p8-plug.msgpack
+      hash: md5
+      md5: 3326558fbcf357ea519214bf96cb6809
+      size: 1398998
+    - path: hzp/media/31-p8-poison.msgpack
+      hash: md5
+      md5: d925a0957575e689a0c6e7091c81f293
+      size: 1398998
+    outs:
+    - path: hzp/axial-31-p8
+      hash: md5
+      md5: 3afe157fe16bd83677a4936ebb8eeceb.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-p8.log
+      hash: md5
+      md5: 09efb35a9b4398f8ecc7ec3a2ff895ea
+      size: 131085
+    - path: hzp/axial-31-p8.out
+      hash: md5
+      md5: cecec99fbe2625f3d6f62a661414eb6b
+      size: 152
+  hzp-interp-31:
+    cmd: cd hzp && ../../../../bin/core interp-31.toml > interp-31.out 2> 
+      interp-31.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: a8d61ca773e7ecb7508ba14d8fa61b20
+      size: 3026392
+      isexec: true
+    - path: hzp/interp-31-assemblies.toml
+      hash: md5
+      md5: d212ad8c212378b7c2301dfa6cdfc073
+      size: 169
+    - path: hzp/interp-31-cycle.toml
+      hash: md5
+      md5: ed9dc0f44bbf467b66bb7135f03fd58d
+      size: 163
+    - path: hzp/interp-31-plant.toml
+      hash: md5
+      md5: de746f6c431c765b977b66fea0b4734a
+      size: 155
+    - path: hzp/interp-31.toml
+      hash: md5
+      md5: 28cfbe6d55712e8e92a281ece5229265
+      size: 447
+    - path: hzp/lattice/31-fuel.msgpack
+      hash: md5
+      md5: 3a2eef2a05163fe195a14ddb67042cce
+      size: 60239
+    outs:
+    - path: hzp/interp-31.log
+      hash: md5
+      md5: 6c8829d29283042b0947824ec7e4592e
+      size: 466
+    - path: hzp/interp-31.out
+      hash: md5
+      md5: 5762731d090fc654b4c65b10e6d605f1
+      size: 296
+  hzp-small:
+    cmd: cd hzp && ../../../../bin/core small.toml > small.out 2> small.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: a8d61ca773e7ecb7508ba14d8fa61b20
+      size: 3026392
+      isexec: true
+    - path: hzp/axial-31
+      hash: md5
+      md5: f53ea72d4d5bc479e26caf95dbed2dc9.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-rcca
+      hash: md5
+      md5: f589691cfdf19f93aaac93d2373572c0.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/lattice/31-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 9809e8dd3df24480adf11c17a849f1b5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: 016d2181c5604d2423af6291a13b63d7
+      size: 85655
+    - path: hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 8cebc6f3cb2f36d5a10d42172c082759
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 5f4462e33ee9c82f1b71905bfaefda22
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      hash: md5
+      md5: 6bd4336a3f0a6b7585960a3804cc5177
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      hash: md5
+      md5: 312e525773eab776fdca528fdad79eb5
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-fuel.msgpack
+      hash: md5
+      md5: fd23122ea2ddd597878870436a18bd3f
+      size: 123167
+    - path: hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      hash: md5
+      md5: f7ca3a20b9e139891ad49c7f59d2ba5c
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 7722756549d7978e784eda81dfeb76cf
+      size: 60239
+    - path: hzp/small-assemblies.toml
+      hash: md5
+      md5: cfe93371ec03b4a679ab13f0f72c1d74
+      size: 4231
+    - path: hzp/small-cycle.toml
+      hash: md5
+      md5: 55282ed4b9cafe550a12b25d230654e1
+      size: 343
+    - path: hzp/small-plant.toml
+      hash: md5
+      md5: 7ef410d175271c3826a40c073442dde7
+      size: 3533
+    - path: hzp/small.toml
+      hash: md5
+      md5: 2367dda5e3c47eeb148c9579372b89e6
+      size: 1263
+    - path: hzp/tables/31-fuel-rods.msgpack
+      hash: md5
+      md5: b93c6f240aac25ab70c2c2cc02d7d9e6
+      size: 180287
+    - path: hzp/tables/31-zgrid-rods.msgpack
+      hash: md5
+      md5: caccea7c4237342573da8db432a77f2a
+      size: 180287
+    outs:
+    - path: hzp/small.log
+      hash: md5
+      md5: 051252550a71331456099de0b8cf518e
+      size: 2166
+    - path: hzp/small.out
+      hash: md5
+      md5: 18bc4df282c60a65437cecadf90b9022
+      size: 10302
+  hzp-small-half:
+    cmd: cd hzp && ../../../../bin/core small-half.toml > small-half.out 2> 
+      small-half.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: a8d61ca773e7ecb7508ba14d8fa61b20
+      size: 3026392
+      isexec: true
+    - path: hzp/axial-31
+      hash: md5
+      md5: f53ea72d4d5bc479e26caf95dbed2dc9.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/axial-31-rcca
+      hash: md5
+      md5: f589691cfdf19f93aaac93d2373572c0.dir
+      size: 214459
+      nfiles: 61
+    - path: hzp/lattice/31-igrid.msgpack
+      hash: md5
+      md5: e4144d374010177d25bf3baf9f4beea0
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 9809e8dd3df24480adf11c17a849f1b5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: 016d2181c5604d2423af6291a13b63d7
+      size: 85655
+    - path: hzp/lattice/reflector-I-31-igrid-fuel.msgpack
+      hash: md5
+      md5: a064311ca51c114a6e410b924e42580c
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 8cebc6f3cb2f36d5a10d42172c082759
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 5f4462e33ee9c82f1b71905bfaefda22
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      hash: md5
+      md5: 6bd4336a3f0a6b7585960a3804cc5177
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      hash: md5
+      md5: 312e525773eab776fdca528fdad79eb5
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-fuel.msgpack
+      hash: md5
+      md5: fd23122ea2ddd597878870436a18bd3f
+      size: 123167
+    - path: hzp/lattice/reflector-corner-31-igrid-fuel.msgpack
+      hash: md5
+      md5: f7ca3a20b9e139891ad49c7f59d2ba5c
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-zgrid-fuel.msgpack
+      hash: md5
+      md5: 7722756549d7978e784eda81dfeb76cf
+      size: 60239
+    - path: hzp/small-assemblies.toml
+      hash: md5
+      md5: cfe93371ec03b4a679ab13f0f72c1d74
+      size: 4231
+    - path: hzp/small-cycle.toml
+      hash: md5
+      md5: 55282ed4b9cafe550a12b25d230654e1
+      size: 343
+    - path: hzp/small-half.toml
+      hash: md5
+      md5: fb701acefa0250190ff69fbf15b2451e
+      size: 967
+    - path: hzp/small-plant.toml
+      hash: md5
+      md5: 7ef410d175271c3826a40c073442dde7
+      size: 3533
+    - path: hzp/tables/31-fuel-rods.msgpack
+      hash: md5
+      md5: b93c6f240aac25ab70c2c2cc02d7d9e6
+      size: 180287
+    - path: hzp/tables/31-zgrid-rods.msgpack
+      hash: md5
+      md5: caccea7c4237342573da8db432a77f2a
+      size: 180287
+    outs:
+    - path: hzp/small-half-pins.msgpack
+      hash: md5
+      md5: 54ed6f1d8501fe5fe921f97267f86c17
+      size: 23593
+    - path: hzp/small-half.log
+      hash: md5
+      md5: 5fc901bfcc894a246079619edbfda0dc
+      size: 578
+    - path: hzp/small-half.out
+      hash: md5
+      md5: 5227e47e1e199c80d94b85d3463950ac
+      size: 2564
+  hzp-small-2d-aic:
+    cmd: cd hzp && ../../../../bin/core small-2d-aic.toml > small-2d-aic.out 2> 
+      small-2d-aic.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: a8d61ca773e7ecb7508ba14d8fa61b20
+      size: 3026392
+      isexec: true
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 9809e8dd3df24480adf11c17a849f1b5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: 016d2181c5604d2423af6291a13b63d7
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 5f4462e33ee9c82f1b71905bfaefda22
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      hash: md5
+      md5: 6bd4336a3f0a6b7585960a3804cc5177
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      hash: md5
+      md5: 312e525773eab776fdca528fdad79eb5
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-fuel.msgpack
+      hash: md5
+      md5: fd23122ea2ddd597878870436a18bd3f
+      size: 123167
+    - path: hzp/small-2d-aic-cycle.toml
+      hash: md5
+      md5: afe4a4d16c3bd5997000cf7a73ce9066
+      size: 353
+    - path: hzp/small-2d-aic-plant.toml
+      hash: md5
+      md5: 30e1b13d05308d734f0415e5dd0bbd21
+      size: 1011
+    - path: hzp/small-2d-aic.toml
+      hash: md5
+      md5: 3138d7d935196960688c8f8f857b5f56
+      size: 521
+    - path: hzp/small-2d-assemblies.toml
+      hash: md5
+      md5: 90a44653d471dd05156f39d821bc61ce
+      size: 734
+    - path: hzp/tables/31-fuel-rods.msgpack
+      hash: md5
+      md5: b93c6f240aac25ab70c2c2cc02d7d9e6
+      size: 180287
+    outs:
+    - path: hzp/small-2d-aic.log
+      hash: md5
+      md5: 9942a27f550a9db562979902419fa225
+      size: 869
+    - path: hzp/small-2d-aic.out
+      hash: md5
+      md5: 6d3997f8665637c988b198415c0032ff
+      size: 927
+  hzp-small-2d-b4c:
+    cmd: cd hzp && ../../../../bin/core small-2d-b4c.toml > small-2d-b4c.out 2> 
+      small-2d-b4c.log
+    deps:
+    - path: ../../../bin/core
+      hash: md5
+      md5: a8d61ca773e7ecb7508ba14d8fa61b20
+      size: 3026392
+      isexec: true
+    - path: hzp/lattice/reflector-I-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 9809e8dd3df24480adf11c17a849f1b5
+      size: 60239
+    - path: hzp/lattice/reflector-I-31-fuel.msgpack
+      hash: md5
+      md5: 016d2181c5604d2423af6291a13b63d7
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-fuel.msgpack
+      hash: md5
+      md5: 5f4462e33ee9c82f1b71905bfaefda22
+      size: 60239
+    - path: hzp/lattice/reflector-corner-31-fuel-right.msgpack
+      hash: md5
+      md5: 6bd4336a3f0a6b7585960a3804cc5177
+      size: 85655
+    - path: hzp/lattice/reflector-corner-31-fuel-top.msgpack
+      hash: md5
+      md5: 312e525773eab776fdca528fdad79eb5
+      size: 86087
+    - path: hzp/lattice/reflector-corner-31-fuel.msgpack
+      hash: md5
+      md5: fd23122ea2ddd597878870436a18bd3f
+      size: 123167
+    - path: hzp/small-2d-assemblies.toml
+      hash: md5
+      md5: 90a44653d471dd05156f39d821bc61ce
+      size: 734
+    - path: hzp/small-2d-b4c-cycle.toml
+      hash: md5
+      md5: cb415287a3c7abc06f3ba33891c2077e
+      size: 353
+    - path: hzp/small-2d-b4c-plant.toml
+      hash: md5
+      md5: f0d162067968e6ba995d286c4fcc5cc2
+      size: 1011
+    - path: hzp/small-2d-b4c.toml
+      hash: md5
+      md5: facce14a375013b538aa06ef1ed924b6
+      size: 521
+    - path: hzp/tables/31-fuel-rods.msgpack
+      hash: md5
+      md5: b93c6f240aac25ab70c2c2cc02d7d9e6
+      size: 180287
+    outs:
+    - path: hzp/small-2d-b4c.log
+      hash: md5
+      md5: 9bf20ee8e5ae31cb8adda0af5cd170b7
+      size: 865
+    - path: hzp/small-2d-b4c.out
+      hash: md5
+      md5: 3cbd67413d364912393d8156a85f887f
+      size: 927
+  hzp-compare-interp-31:
+    cmd: python3 ../compare_p5.py k assembly-31.out hzp/interp-31.out > 
+      hzp/compare-interp-31.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: assembly-31.out
+      hash: md5
+      md5: 7009229b9b422883f24bf1fe598928af
+      size: 11
+    - path: hzp/interp-31.out
+      hash: md5
+      md5: 5762731d090fc654b4c65b10e6d605f1
+      size: 296
+    outs:
+    - path: hzp/compare-interp-31.out
+      hash: md5
+      md5: 3947d31e9e4e21c51259f49c4e985d7f
+      size: 41
+  hzp-compare-small-half:
+    cmd: python3 ../compare_p5.py symmetry hzp/small-half.out 
+      hzp/small-half-pins.msgpack > hzp/compare-small-half.out
+    deps:
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: f8ffdae6ca89182b7c78297e7b7cdc33
+      size: 14870
+    - path: hzp/small-half-pins.msgpack
+      hash: md5
+      md5: 54ed6f1d8501fe5fe921f97267f86c17
+      size: 23593
+    - path: hzp/small-half.out
+      hash: md5
+      md5: 5227e47e1e199c80d94b85d3463950ac
+      size: 2564
+    outs:
+    - path: hzp/compare-small-half.out
+      hash: md5
+      md5: d5d42cf894afae2b82720802727a86c6
+      size: 588

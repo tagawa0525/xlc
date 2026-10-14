@@ -1,0 +1,10 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+plant = "small-2d-b4c-plant.toml"
+inventory = "small-2d-assemblies.toml"
+loading = [
+  ".       .       .       .       .",
+  ".       J07@90  H07@90  G07     .",
+  ".       J08@180 H08     G08     .",
+  ".       J09@180 H09@270 G09@270 .",
+  ".       .       .       .       .",
+]

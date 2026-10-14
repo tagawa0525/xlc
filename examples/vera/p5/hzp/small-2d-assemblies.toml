@@ -1,0 +1,41 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 最小の入力の 2D の台帳（燃料の支持格子のない層の定数）
+
+[design.31-I]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-I-31-fuel-fuel.msgpack"]
+
+[design.31-corner]
+bounds = [0.0, 21.5]
+layers = ["lattice/reflector-corner-31-fuel-fuel.msgpack"]
+
+[design.31-rcca]
+bounds = [0.0, 21.5]
+layers = ["tables/31-fuel-rods.msgpack"]
+
+[assembly.J07]
+design = "31-corner"
+
+[assembly.H07]
+design = "31-I"
+
+[assembly.G07]
+design = "31-corner"
+
+[assembly.J08]
+design = "31-I"
+
+[assembly.H08]
+design = "31-rcca"
+
+[assembly.G08]
+design = "31-I"
+
+[assembly.J09]
+design = "31-corner"
+
+[assembly.H09]
+design = "31-I"
+
+[assembly.G09]
+design = "31-corner"

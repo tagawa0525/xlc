@@ -1,0 +1,6 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+plant = "interp-31-plant.toml"
+inventory = "interp-31-assemblies.toml"
+loading = [
+  "A",
+]

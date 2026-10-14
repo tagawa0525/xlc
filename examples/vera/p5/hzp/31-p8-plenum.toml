@@ -1,0 +1,135 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# VERA Problem 5 の集合体（濃縮度 3.10%、Pyrex の棒 8 本（図 5 の配置）、Pyrex の棒のプレナムの高さ）の単一集合体の格子（外周は鏡面反射）の分岐のテーブル（ADR-0097）。少数群定数は形状関数と
+# 角の不連続因子つき（ADR-0096）。組成は 5-2D と同じ（表 M3-4、Problem 3 の表 P3-3）で、冷却材はホウ酸水（ADR-0106）。
+library = "../../vera.msgpack"
+few-group = { output = "lattice/31-p8-plenum.msgpack", bounds = [1e7, 0.625, 1e-5], pins = true }
+medium = "media/31-p8-plenum.msgpack"
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pp    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pp    pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pp    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 gt    pin31 pin31 pp    pin31 pin31 it    pin31 pin31 pp    pin31 pin31 gt    pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pp    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pp    pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pp    pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 gt    pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+  "pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31 pin31",
+]
+
+[material.fuel31]
+temperature = 565
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 565
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 560
+water = { density = 0.75207, boron = 1100, b10 = 0.199 }
+
+[material.ss304]
+temperature = 565
+
+[material.ss304.nuclides]
+C-12 = 3.17461e-04
+C-13 = 3.43358e-06
+Si-28 = 1.58197e-03
+Si-29 = 8.03653e-05
+Si-30 = 5.30394e-05
+P-31 = 6.99938e-05
+Cr-50 = 7.64915e-04
+Cr-52 = 1.47506e-02
+Cr-53 = 1.67260e-03
+Cr-54 = 4.16346e-04
+Mn-55 = 1.75387e-03
+Fe-54 = 3.44776e-03
+Fe-56 = 5.41225e-02
+Fe-57 = 1.24992e-03
+Fe-58 = 1.66342e-04
+Ni-58 = 5.30854e-03
+Ni-60 = 2.04484e-03
+Ni-61 = 8.88879e-05
+Ni-62 = 2.83413e-04
+Ni-64 = 7.21770e-05
+
+[branches]
+boron = { ppm = [1100, 1400], materials = ["water"] }
+moderator = { temperature = [560, 570], density = [0.75207, 0.73294], materials = ["zircaloy", "water", "ss304"] }
+fuel = { temperature = [560, 570], materials = ["fuel31"] }
+
+[cell.pin31]
+zones = [
+  { material = "fuel31", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+# 計装管（中は減速材。シンブルは入れない。仕様書の問題 5-2D）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+# Pyrex の棒のプレナム（被覆管の中は真空。表 6、ADR-0120）
+[cell.pp]
+zones = [
+  { material = "void", radius = 0.437, rings = 1 },
+  { material = "ss304", radius = 0.484, rings = 1 },
+  { material = "water", radius = 0.561, rings = 1 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
