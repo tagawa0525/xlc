@@ -1,0 +1,9 @@
+# VERA Problem 1B を、ENDF/B-VII.0 のライブラリ（openmc-library.toml）で OpenMC の連続エネルギーモードで解く入力（#0131 の診断）。
+# 1 世代 100 万粒子・450 世代、最初の 50 世代を捨てる（k の統計誤差を 5 pcm 以下にするため、本番の VIII.0 の参照解より世代が多い）。
+problem = "1B"
+cross-sections = "openmc-library/cross_sections.xml"
+particles = 1000000
+batches = 450
+inactive = 50
+seed = 1
+threads = 16
