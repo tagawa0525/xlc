@@ -12,7 +12,10 @@
 //!              resolved: {top: 分離共鳴の上端 (eV), potential: ポテンシャル散乱 (barn)}、分離共鳴を持つ核種だけ（なければ nil）,
 //!              temperatures: [{temperature (K), chi: [G 個],
 //!                              scatter: [[[無限希釈の σ_l(g→g')、行が入射の群]]（ルジャンドルの次数 l = 0, 1, … の順）],
-//!                              shielded: [{total, elastic, fission, nu_fission}（σ0 の順）]}]}]}
+//!                              shielded: [{total, elastic, fission, nu_fission, capture}（σ0 の順）],
+//!                              pointwise: {energy, total, elastic, fission, nu_fission, capture},
+//!                              reactions: [{mt: チェーンの反応の代表の MT, channels: [{final_state: nil か {mf, lfs（nil は残り）},
+//!                                           cross_section: [無限希釈の G 個]}]}]}]}]}
 //! ```
 
 use std::borrow::Cow;
@@ -51,6 +54,45 @@ pub struct Shielded {
     pub elastic: Vec<f64>,
     pub fission: Vec<f64>,
     pub nu_fission: Vec<f64>,
+    /// 捕獲（MT102）
+    pub capture: Vec<f64>,
+}
+
+/// 燃焼チェーンの 1 つの反応（ADR-0164 の反応。代表の MT が 102、16、17、37、103、107）の、生成物の状態ごとの経路の無限希釈の群の
+/// 断面積（ADR-0172）。経路の並びと `final_state` は、チェーンの反応の経路と同じ。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GroupReaction {
+    pub mt: u32,
+    pub channels: Vec<GroupChannel>,
+}
+
+/// 反応の 1 つの経路。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GroupChannel {
+    /// 状態ごとの割合を与えるファイルと状態。状態に分けない反応は nil（項目は省けない）
+    #[serde(deserialize_with = "nil_or")]
+    pub final_state: Option<ChannelState>,
+    /// 無限希釈の群の断面積 (barn)
+    pub cross_section: Vec<f64>,
+}
+
+/// 経路の状態（MF8 の LMF と LFS）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChannelState {
+    /// 割合を与える ENDF のファイル（MF9 か MF10）
+    pub mf: u32,
+    /// 状態（LFS）。nil は、MF8 が基底状態を挙げない反応の、挙げた状態を除いた残り（基底状態へ）
+    #[serde(deserialize_with = "nil_or")]
+    pub lfs: Option<u32>,
+}
+
+fn nil_or<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    Option::deserialize(d)
 }
 
 /// 1つの温度での、ドップラー拡がりのポイントワイズの断面積 (barn)。`Library::pointwise_range` の範囲で、エネルギーの昇順
@@ -65,6 +107,7 @@ pub struct Pointwise {
     pub elastic: Vec<f64>,
     pub fission: Vec<f64>,
     pub nu_fission: Vec<f64>,
+    pub capture: Vec<f64>,
 }
 
 /// 1つの温度での群定数。`shielded` は `Library::sigma0` の順。
@@ -79,6 +122,8 @@ pub struct TemperatureData {
     pub shielded: Vec<Shielded>,
     /// 超微細群の減速計算に使うポイントワイズの断面積
     pub pointwise: Pointwise,
+    /// 燃焼チェーンの反応の群の断面積（代表の MT の昇順）
+    pub reactions: Vec<GroupReaction>,
 }
 
 /// 分離共鳴の範囲（分離共鳴を持つ核種だけが持つ）。
@@ -410,6 +455,7 @@ impl Library {
             elastic: Vec::with_capacity(groups),
             fission: Vec::with_capacity(groups),
             nu_fission: Vec::with_capacity(groups),
+            capture: Vec::with_capacity(groups),
         };
         for (g, &s) in sigma0.iter().enumerate() {
             if !(min..=max).contains(&s) {
@@ -436,6 +482,7 @@ impl Library {
             result.elastic.push(value(|x| &x.elastic));
             result.fission.push(value(|x| &x.fission));
             result.nu_fission.push(value(|x| &x.nu_fission));
+            result.capture.push(value(|x| &x.capture));
         }
         Ok(result)
     }
@@ -475,6 +522,41 @@ fn interpolate(
             elastic: mix(&a.elastic, &b.elastic),
             fission: mix(&a.fission, &b.fission),
             nu_fission: mix(&a.nu_fission, &b.nu_fission),
+            capture: mix(&a.capture, &b.capture),
+        })
+        .collect();
+    let same_channels = |a: &GroupReaction, b: &GroupReaction| {
+        a.mt == b.mt
+            && a.channels.len() == b.channels.len()
+            && a.channels
+                .iter()
+                .zip(&b.channels)
+                .all(|(x, y)| x.final_state == y.final_state)
+    };
+    if low.reactions.len() != high.reactions.len()
+        || !low
+            .reactions
+            .iter()
+            .zip(&high.reactions)
+            .all(|(a, b)| same_channels(a, b))
+    {
+        return Err("the two temperatures have different chain reactions".into());
+    }
+    let reactions = low
+        .reactions
+        .iter()
+        .zip(&high.reactions)
+        .map(|(a, b)| GroupReaction {
+            mt: a.mt,
+            channels: a
+                .channels
+                .iter()
+                .zip(&b.channels)
+                .map(|(x, y)| GroupChannel {
+                    final_state: x.final_state,
+                    cross_section: mix(&x.cross_section, &y.cross_section),
+                })
+                .collect(),
         })
         .collect();
     let (p, q) = (&low.pointwise, &high.pointwise);
@@ -503,6 +585,7 @@ fn interpolate(
         elastic: column(&p.elastic, &q.elastic),
         fission: column(&p.fission, &q.fission),
         nu_fission: column(&p.nu_fission, &q.nu_fission),
+        capture: column(&p.capture, &q.capture),
         energy,
     };
     Ok(TemperatureData {
@@ -511,6 +594,7 @@ fn interpolate(
         scatter,
         shielded,
         pointwise,
+        reactions,
     })
 }
 
@@ -548,8 +632,21 @@ fn require_maps(value: &rmpv::Value) -> Result<(), MsgpackError> {
     use msgpack::{array, map};
     for nuclide in array(map(value)?, "nuclides") {
         for temperature in array(map(nuclide)?, "temperatures") {
-            for shielded in array(map(temperature)?, "shielded") {
+            let temperature = map(temperature)?;
+            for shielded in array(temperature, "shielded") {
                 map(shielded)?;
+            }
+            for reaction in array(temperature, "reactions") {
+                for channel in array(map(reaction)?, "channels") {
+                    let channel = map(channel)?;
+                    if let Some((_, state)) = channel
+                        .iter()
+                        .find(|(k, _)| k.as_str() == Some("final_state"))
+                        && !state.is_nil()
+                    {
+                        map(state)?;
+                    }
+                }
             }
         }
     }
@@ -621,15 +718,29 @@ impl NuclideData {
                 )));
             }
             let all_sized = |s: &Shielded| {
-                [&s.total, &s.elastic, &s.fission, &s.nu_fission]
+                [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture]
                     .iter()
                     .all(|v| sized(v))
             };
             if !t.shielded.iter().all(all_sized) {
                 return Err(at(format!("shielded cross sections must have {ng} groups")));
             }
+            if t.reactions.windows(2).any(|w| w[1].mt <= w[0].mt) {
+                return Err(at("chain reactions must be in increasing MT".into()));
+            }
+            for r in &t.reactions {
+                if r.channels.is_empty() {
+                    return Err(at(format!("chain reaction MT{} has no channels", r.mt)));
+                }
+                if !r.channels.iter().all(|c| sized(&c.cross_section)) {
+                    return Err(at(format!(
+                        "chain reaction MT{} channels must have {ng} groups",
+                        r.mt
+                    )));
+                }
+            }
             let p = &t.pointwise;
-            let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission];
+            let columns = [&p.total, &p.elastic, &p.fission, &p.nu_fission, &p.capture];
             if columns.iter().any(|c| c.len() != p.energy.len()) {
                 return Err(at("pointwise columns must match the energies".into()));
             }
@@ -662,8 +773,14 @@ impl NuclideData {
                 .chain(
                     t.shielded
                         .iter()
-                        .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission])
+                        .flat_map(|s| [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture])
                         .flatten(),
+                )
+                .chain(
+                    t.reactions
+                        .iter()
+                        .flat_map(|r| &r.channels)
+                        .flat_map(|c| &c.cross_section),
                 )
                 .chain(p.energy.iter())
                 .chain(columns.into_iter().flatten());
