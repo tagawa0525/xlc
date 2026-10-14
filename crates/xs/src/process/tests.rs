@@ -555,8 +555,11 @@ fn capture_is_kept_per_sigma0_and_pointwise() {
     for s in &t.shielded {
         assert!((s.capture[0] - 1.0).abs() < 1e-9, "{}", s.capture[0]);
     }
-    // 4 eV より上では、熱運動で拡げた一定の断面積は 1 b から kT/(A E) ≈ 3e-5 の程度しか変わらない
-    assert!(t.pointwise.capture.iter().all(|&c| (c - 1.0).abs() < 1e-4));
+    // ポイントワイズの捕獲は、温度に拡げた MT102 の表そのもの
+    let tables = crate::pointwise::reconstruct_at(&reaction_tape(&[]), 1, 1.0e-3, 293.6).unwrap();
+    for (&e, &c) in t.pointwise.energy.iter().zip(&t.pointwise.capture) {
+        assert_eq!(c, tables[&102].eval(e).unwrap(), "{e} eV");
+    }
     assert_eq!(t.pointwise.capture.len(), t.pointwise.energy.len());
 }
 
@@ -663,4 +666,75 @@ fn multiplicities_count_only_where_the_mf9_table_is_given() {
     let last = settings.groups.len() - 1;
     assert_eq!(state.cross_section[last], 0.0);
     assert!(rest.cross_section[last] > 0.0);
+}
+
+/// `reaction_tape` に、(n,p) の励起状態 1 つ（LFS 1）の MF10 の生成断面積 0.05 b を、エネルギー `start` (eV) から足したもの
+fn reaction_tape_with_mf10(start: &str) -> Tape {
+    use crate::endf::rec;
+    let mut text = String::new();
+    let section = |mf: u32, mt: u32, q: &str, x: [&str; 2], y: [&str; 2]| {
+        [
+            rec(["9.223800+4", "2.360060+2", "0", "0", "0", "0"], 1, mf, mt),
+            rec([q, q, "0", "0", "1", "2"], 1, mf, mt),
+            rec(["2", "2", "", "", "", ""], 1, mf, mt),
+            rec([x[0], y[0], x[1], y[1], "", ""], 1, mf, mt),
+            rec(["", "", "", "", "", ""], 1, mf, 0),
+        ]
+        .concat()
+    };
+    let full = ["1.0-5", "2.0+7"];
+    let threshold = ["1.004237+6", "2.0+7"];
+    text.push_str(
+        &[
+            section(3, 1, "0.0", full, ["11.0", "11.0"]),
+            section(3, 2, "0.0", full, ["10.0", "10.0"]),
+            section(3, 102, "0.0", full, ["1.0", "1.0"]),
+            section(3, 103, "-1.0+6", threshold, ["0.3", "0.3"]),
+            [
+                rec(["9.223800+4", "2.360060+2", "0", "0", "1", "1"], 1, 8, 103),
+                rec(["9.123800+4", "1.0+5", "10", "1", "0", "0"], 1, 8, 103),
+                rec(["", "", "", "", "", ""], 1, 8, 0),
+            ]
+            .concat(),
+            [
+                rec(["9.223800+4", "2.360060+2", "0", "0", "1", "0"], 1, 10, 103),
+                rec(["-1.0+6", "-1.1+6", "91238", "1", "1", "2"], 1, 10, 103),
+                rec(["2", "2", "", "", "", ""], 1, 10, 103),
+                rec([start, "0.05", "2.0+7", "0.05", "", ""], 1, 10, 103),
+                rec(["", "", "", "", "", ""], 1, 10, 0),
+            ]
+            .concat(),
+        ]
+        .concat(),
+    );
+    Tape::parse(&text).unwrap()
+}
+
+#[test]
+fn production_cross_sections_start_where_the_reaction_does() {
+    // MF10 の表が反応のしきい値より下から始まっても、反応のない所の生成断面積は数えない（MF3 と同じく、しきい値から）
+    let settings = reaction_settings();
+    let data = process_nuclide(
+        &reaction_tape_with_mf10("5.0+5"),
+        "X",
+        &[293.6],
+        None,
+        &settings,
+    )
+    .unwrap();
+    let np = &data.temperatures[0].reactions[1];
+    assert_eq!(np.mt, 103);
+    let (state, rest) = (&np.channels[0], &np.channels[1]);
+    for g in 0..settings.groups.len() {
+        let total = state.cross_section[g] + rest.cross_section[g];
+        assert!(state.cross_section[g] <= total * (1.0 + 1e-12), "group {g}");
+    }
+    // しきい値（約 1 MeV）を含まない、それより下の群に生成はない
+    let below = settings
+        .groups
+        .bounds()
+        .iter()
+        .position(|&b| b < 5.0e5)
+        .unwrap();
+    assert_eq!(state.cross_section[below], 0.0);
 }
