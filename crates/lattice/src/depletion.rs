@@ -544,11 +544,30 @@ pub fn run(
             Ok(n)
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    // 輸送する核種の候補: 鎖の核種のうち、ライブラリにあるもの（ADR-0173）
+    // 輸送する核種の候補: 鎖の核種のうち、ライブラリがすべての燃焼の領域の温度で持つもの。ライブラリにあっても領域の温度の
+    // データがない核種は、崩壊と生成だけを追い、輸送のたびに warn で示す（ADR-0173）
+    let mut temperatures: Vec<f64> = Vec::new();
+    for d in &regions {
+        let t = base(&d.material)?.temperature;
+        if !temperatures.contains(&t) {
+            temperatures.push(t);
+        }
+    }
     let in_library: Vec<bool> = chain
         .nuclides
         .iter()
         .map(|n| library.nuclides.iter().any(|d| d.name == n.name))
+        .collect();
+    let transportable: Vec<bool> = chain
+        .nuclides
+        .iter()
+        .zip(&in_library)
+        .map(|(n, &known)| {
+            known
+                && temperatures
+                    .iter()
+                    .all(|&t| library.lookup(&n.name, t).is_ok())
+        })
         .collect();
     // 初めの重金属の質量 (g、高さ 1 cm あたり)
     let mut mass = 0.0;
@@ -603,9 +622,41 @@ pub fn run(
             }
         }
         // どの領域でも同じ核種の並び（自己遮蔽は 1 つのセルの燃料のリングに同じ並びを求める）
+        let present = |i: usize| n.iter().any(|n| n[i] > 0.0);
         let composition: Vec<usize> = (0..chain.nuclides.len())
-            .filter(|&i| in_library[i] && n.iter().any(|n| n[i] > 0.0))
+            .filter(|&i| transportable[i] && present(i))
             .collect();
+        // 崩壊だけを追う核種の数密度の和（領域の体積の重み）
+        let total = |i: usize| -> f64 {
+            regions
+                .iter()
+                .zip(n)
+                .map(|(d, n)| d.volume * n[i].max(0.0))
+                .sum::<f64>()
+                / regions.iter().map(|d| d.volume).sum::<f64>()
+        };
+        let lacking: Vec<usize> = (0..chain.nuclides.len())
+            .filter(|&i| in_library[i] && !transportable[i] && present(i))
+            .collect();
+        if !lacking.is_empty() {
+            tracing::warn!(
+                nuclides = lacking
+                    .iter()
+                    .map(|&i| chain.nuclides[i].name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                density = lacking.iter().map(|&i| total(i)).sum::<f64>(),
+                "decay only: no library data at the temperature of the depletion regions"
+            );
+        }
+        let absent: Vec<usize> = (0..chain.nuclides.len())
+            .filter(|&i| !in_library[i] && present(i))
+            .collect();
+        tracing::info!(
+            nuclides = absent.len(),
+            density = absent.iter().map(|&i| total(i)).sum::<f64>(),
+            "decay only: not in the library"
+        );
         let mut materials: Vec<MaterialInput> = input
             .materials
             .iter()
