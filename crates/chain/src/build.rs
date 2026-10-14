@@ -7,7 +7,7 @@ use xlc_depletion::chain::{
     Chain, Channel, Decay, DecayEnergy, DecayMode as ChainMode, FinalState, Fission, Nuclide,
     Product, Reaction, Yield, nuclide_name,
 };
-use xlc_format::library::CHAIN_REACTIONS;
+use xlc_format::library::{CHAIN_REACTIONS, ChainReaction};
 
 use crate::endf::{
     DecayEvaluation, FinalStateEntry, Material, NeutronEvaluation, RawYield, Step, YieldEvaluation,
@@ -20,11 +20,9 @@ pub struct Built {
     pub warnings: Vec<String>,
 }
 
-/// 鎖の反応: 代表の MT、MF3 でその反応とみなす MT、(ΔZ, ΔA)、生まれる軽い核種 (Z, A)
+/// 鎖の反応: 代表の MT と MF3 でその反応とみなす MT（xs と共通。ADR-0172）、(ΔZ, ΔA)、生まれる軽い核種 (Z, A)
 struct ReactionSpec {
-    mt: u32,
-    /// MT の範囲（両端を含む）
-    mts: &'static [(u32, u32)],
+    reaction: ChainReaction,
     dz: i64,
     da: i64,
     light: Option<(u32, u32)>,
@@ -34,43 +32,37 @@ struct ReactionSpec {
 /// 共通（`CHAIN_REACTIONS`。ADR-0172）
 const REACTIONS: [ReactionSpec; 6] = [
     ReactionSpec {
-        mt: CHAIN_REACTIONS[0].mt,
-        mts: CHAIN_REACTIONS[0].mts,
+        reaction: CHAIN_REACTIONS[0],
         dz: 0,
         da: -1,
         light: None,
     },
     ReactionSpec {
-        mt: CHAIN_REACTIONS[1].mt,
-        mts: CHAIN_REACTIONS[1].mts,
+        reaction: CHAIN_REACTIONS[1],
         dz: 0,
         da: -2,
         light: None,
     },
     ReactionSpec {
-        mt: CHAIN_REACTIONS[2].mt,
-        mts: CHAIN_REACTIONS[2].mts,
+        reaction: CHAIN_REACTIONS[2],
         dz: 0,
         da: -3,
         light: None,
     },
     ReactionSpec {
-        mt: CHAIN_REACTIONS[3].mt,
-        mts: CHAIN_REACTIONS[3].mts,
+        reaction: CHAIN_REACTIONS[3],
         dz: 0,
         da: 1,
         light: None,
     },
     ReactionSpec {
-        mt: CHAIN_REACTIONS[4].mt,
-        mts: CHAIN_REACTIONS[4].mts,
+        reaction: CHAIN_REACTIONS[4],
         dz: -1,
         da: 0,
         light: Some((1, 1)),
     },
     ReactionSpec {
-        mt: CHAIN_REACTIONS[5].mt,
-        mts: CHAIN_REACTIONS[5].mts,
+        reaction: CHAIN_REACTIONS[5],
         dz: -2,
         da: -3,
         light: Some((2, 4)),
@@ -370,22 +362,18 @@ fn reactions(
     let m = &evaluation.material;
     let mut reactions = Vec::new();
     for spec in &REACTIONS {
-        if !evaluation
-            .mts
-            .iter()
-            .any(|mt| spec.mts.iter().any(|&(lo, hi)| (lo..=hi).contains(mt)))
-        {
+        if !evaluation.mts.iter().any(|&mt| spec.reaction.includes(mt)) {
             continue;
         }
         let (z, a) = shifted(m.z, m.a, spec.dz, spec.da)
-            .ok_or_else(|| anyhow!("{parent}: MT{} leaves no nucleus", spec.mt))?;
+            .ok_or_else(|| anyhow!("{parent}: MT{} leaves no nucleus", spec.reaction.mt))?;
         let light: Vec<Product> = match spec.light {
             None => Vec::new(),
             Some((lz, la)) => {
                 let nuclide = index.get((lz, la, 0)).ok_or_else(|| {
                     anyhow!(
                         "the light product of MT{} is not in the decay data",
-                        spec.mt
+                        spec.reaction.mt
                     )
                 })?;
                 vec![Product { nuclide, count: 1 }]
@@ -394,15 +382,16 @@ fn reactions(
         let states = evaluation
             .final_states
             .iter()
-            .find(|(mt, _)| *mt == spec.mt)
+            .find(|(mt, _)| *mt == spec.reaction.mt)
             .map(|(_, entries)| entries);
         let channels = match states {
             Some(entries) => {
-                let (keys, notes) = assign_states(parent, spec.mt, entries, (z, a), evaluations)?;
+                let (keys, notes) =
+                    assign_states(parent, spec.reaction.mt, entries, (z, a), evaluations)?;
                 if !notes.is_empty() {
                     warnings.push(format!(
                         "{parent}: MF8/MT{} final states of {}: {}",
-                        spec.mt,
+                        spec.reaction.mt,
                         name((z, a, 0))?,
                         notes.join(", ")
                     ));
@@ -424,7 +413,7 @@ fn reactions(
                 if entries.iter().all(|e| e.excitation > 0.0) {
                     let mf = entries[0].mf;
                     if entries.iter().any(|e| e.mf != mf) {
-                        bail!("{parent}: MF8/MT{} mixes MF9 and MF10", spec.mt);
+                        bail!("{parent}: MF8/MT{} mixes MF9 and MF10", spec.reaction.mt);
                     }
                     targets.push((FinalState { mf, lfs: None }, (z, a, 0)));
                 }
@@ -437,7 +426,7 @@ fn reactions(
                         None => warnings.push(format!(
                             "{parent}: the product {} of MT{} is not in the decay data; the channel produces no residual",
                             name(k)?,
-                            spec.mt
+                            spec.reaction.mt
                         )),
                     }
                     products.extend(light.iter().copied());
@@ -457,7 +446,7 @@ fn reactions(
                     None => warnings.push(format!(
                         "{parent}: the product {} of MT{} is not in the decay data; the reaction produces no residual",
                         name((z, a, 0))?,
-                        spec.mt
+                        spec.reaction.mt
                     )),
                 }
                 products.extend(light.iter().copied());
@@ -468,7 +457,7 @@ fn reactions(
             }
         };
         reactions.push(Reaction {
-            mt: spec.mt,
+            mt: spec.reaction.mt,
             channels,
         });
     }
