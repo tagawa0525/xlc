@@ -43,6 +43,7 @@ fn library(specs: Vec<Spec>) -> Library {
                 }),
                 thermal_scattering: false,
                 temperatures: vec![TemperatureData {
+                    reactions: Vec::new(),
                     temperature: TEMPERATURE,
                     chi: vec![0.0; ng],
                     scatter: vec![vec![vec![0.0; ng]; ng]],
@@ -51,6 +52,7 @@ fn library(specs: Vec<Spec>) -> Library {
                         elastic: group(2),
                         fission: group(3),
                         nu_fission: group(3).iter().map(|f| 2.4 * f).collect(),
+                        capture: group(3),
                     }],
                     pointwise: Pointwise {
                         energy: column(0),
@@ -58,6 +60,7 @@ fn library(specs: Vec<Spec>) -> Library {
                         elastic: column(2),
                         fission: column(3),
                         nu_fission: column(3).iter().map(|f| 2.4 * f).collect(),
+                        capture: column(3),
                     },
                 }],
             }
@@ -429,4 +432,37 @@ fn tables_with_as_many_nodes_as_points_are_refused() {
         "{:?}",
         result.err()
     );
+}
+
+#[test]
+fn capture_is_shielded_with_the_same_flux_as_fission() {
+    // テストのライブラリは捕獲に核分裂と同じポイントワイズの列を持たせる。共鳴を核分裂にも置けば、遮蔽した捕獲は核分裂に一致する
+    let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
+    let mut energies: Vec<f64> = (0..=400).map(|k| 180.0 + 0.1 * k as f64).collect();
+    energies.splice(0..0, [4.0, 100.0]);
+    energies.extend([1.0e3, 2.0e4]);
+    let points = energies
+        .iter()
+        .map(|&e| [e, 11.0 + resonance(e), 11.0, 0.1 * resonance(e)])
+        .collect();
+    let lib = library(vec![
+        Spec {
+            name: "U-238",
+            awr: 236.0,
+            top: Some(2.0e4),
+            points,
+        },
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        constant("O-16", 15.86, 3.8, 3.8, 0.0),
+    ]);
+    let fuel = material(&[("U-238", 0.022), ("O-16", 0.045)]);
+    let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
+    let cell = Cylinder::new(vec![0.2, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), None, Some(&water)];
+    let spectrum = slowing_down(&lib, &cell, &rings, [4.0, 1.0e4]).unwrap();
+    for ring in [0, 1] {
+        let u238 = &spectrum.nuclides[ring][0];
+        assert_eq!(u238.capture, u238.fission);
+        assert!(u238.capture.iter().any(|&c| c > 0.0));
+    }
 }
