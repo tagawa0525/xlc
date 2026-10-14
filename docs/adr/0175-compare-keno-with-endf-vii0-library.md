@@ -67,7 +67,7 @@ OpenMC の参照解を作ってきた（ADR-0031。道具の固定は ADR-0124 �
 ## 確認
 
 xlc の xs は ENDF/B-VII.0 のすべての核種で止まらず、ピンセル 1B〜1D、集合体 2A〜2K、2Q、3A、3B を解けた
-（1e986aaf、2026-10-15。`examples/vera/endfb70/`）。結果は `examples/vera/verification-endfb70.md`。
+（2b1c70cf、2026-10-15。`examples/vera/endfb70/`）。結果は `examples/vera/verification-endfb70.md`。
 
 - k: ENDF/B-VII.0 の xlc − KENO-VI は 15 の格子で +115〜+270 pcm（平均 +165）、3A が +181 pcm、3B が +166 pcm。VIII.0 の
   xlc − OpenMC（平均 +39 pcm）と同程度にはならなかった。核データの版の差だけで残りが説明できる、という見込みは k では
