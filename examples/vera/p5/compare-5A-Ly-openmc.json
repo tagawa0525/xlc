@@ -4,6 +4,10 @@
  "problem": "5A",
  "inputs": [
   {
+   "path": "../../../references/vera/spec.txt",
+   "md5": "de9def92d813fd95954b01ec5512fff4"
+  },
+  {
    "path": "core-5A-Ly.out",
    "md5": "385110e9027e188ec6c9bd9894f71954"
   },
@@ -38,7 +42,11 @@
   "reference_std": 1.984760509261023e-05,
   "diff_pcm": -5.761678981930363,
   "diff_std_pcm": 1.9847605092610228,
-  "sigma": 2.902959301661833
+  "sigma": 2.902959301661833,
+  "keno": 1.004085,
+  "keno_std": 8e-06,
+  "diff_keno_pcm": 137.3681301512608,
+  "diff_keno_std_pcm": 2.139923895637897
  },
  "assemblies": {
   "relative": {
@@ -48,7 +56,8 @@
    "at": [
     1,
     3
-   ]
+   ],
+   "name": "M02"
   },
   "absolute": {
    "rms": 0.016741678925323012,
@@ -57,7 +66,8 @@
     1,
     3
    ],
-   "reference": 0.9355778546652666
+   "reference": 0.9355778546652666,
+   "name": "M02"
   },
   "peripheral": {
    "n": 56,
@@ -66,7 +76,8 @@
    "at": [
     1,
     3
-   ]
+   ],
+   "name": "M02"
   },
   "quarter": [
    [
@@ -329,7 +340,8 @@
     3
    ],
    "beyond_2sigma": 191,
-   "n": 193
+   "n": 193,
+   "name": "M02"
   }
  },
  "pins": {
