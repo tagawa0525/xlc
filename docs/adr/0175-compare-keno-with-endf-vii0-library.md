@@ -1,9 +1,9 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-15
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0131"]
 requires: [ADR-0020, ADR-0031, ADR-0080, ADR-0124]
 ---
 
@@ -66,9 +66,13 @@ OpenMC の参照解を作ってきた（ADR-0031。道具の固定は ADR-0124 �
 
 ## 確認
 
-`examples/vera/verification-endfb70.md` に、問題ごとの k の差、ピン出力、3A・3B は軸方向の出力を、VIII.0 での KENO-VI、OpenMC との
-差と並べる。VII.0 での xlc − KENO-VI が VIII.0 での xlc − OpenMC と同程度なら、VIII.0 での KENO-VI との差の残りは
-核データの版の差だと言える。
+xlc の xs は ENDF/B-VII.0 のすべての核種で止まらず、ピンセル 1B〜1D、集合体 2A〜2K、2Q、3A、3B を解けた
+（1e986aaf、2026-10-15。`examples/vera/endfb70/`）。結果は `examples/vera/verification-endfb70.md`。
+
+- k: ENDF/B-VII.0 の xlc − KENO-VI は 15 の格子で +115〜+270 pcm（平均 +165）、3A が +181 pcm、3B が +166 pcm。VIII.0 の
+  xlc − OpenMC（平均 +39 pcm）と同程度にはならなかった。核データの版の差だけで残りが説明できる、という見込みは k では
+  成り立たない。原因は確かめていない（#0131）
+- ピン出力: 吸収体のある集合体で、xlc − KENO-VI の RMS は VIII.0 の 0.45〜0.61 倍に下がる
 
 ## 帰結
 
@@ -77,3 +81,5 @@ OpenMC の参照解を作ってきた（ADR-0031。道具の固定は ADR-0124 �
   `ENDF-B-VII.0_neutrons/`、`ENDF-B-VII.0_thermal_scatt/` として足す（docs/environment.md）。VIII.0 のディレクトリの中身は変わらない
 - 処理の差（AMPX と xlc）は分けられない。分けるには、同じ処理の参照（NJOY の VII.0 での OpenMC）が要り、2D の小さな
   問題でだけ作る
+- ENDF/B-VII.0 での k の差が VIII.0 の OpenMC との差より大きい原因は未解決（#0131）。NJOY で処理した ENDF/B-VII.0 の OpenMC
+  （2D の小さな問題）が、分ける次の手になる
