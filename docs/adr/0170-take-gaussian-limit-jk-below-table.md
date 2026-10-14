@@ -49,18 +49,19 @@ J と K の積分は x = tan φ と置いて [0, π/2] を適応 Gauss-Kronrod �
 
 - crates/xs/src/resonance/line_shape/tests.rs: `quadrature_approaches_the_gaussian_limit_for_narrow_lines`（θ = 10⁻⁶〜10⁻¹¹ で、
   伸ばした置換の積分が、テストの中で独立に書いた級数と、b ≈ 2.8 の芯の形まで 0.6 θ + 1e-12 の内で合う）、
-  `table_takes_the_gaussian_limit_below_its_theta_range`、`gaussian_limit_stays_finite_for_the_narrowest_lines`、
+  `table_takes_the_gaussian_limit_below_its_theta_range`、`table_meets_the_gaussian_limit_at_its_lower_theta_edge`（表の下限の内と
+  外で、直接の積分と 1e-10 の内で合う）、`gaussian_limit_stays_finite_for_the_narrowest_lines`、
   `table_rejects_nonpositive_theta`、`integrals_need_positive_theta`、`stretched_substitution_matches_simpson_below_a_thousandth`
-  （θ = 3e-4 で、伸ばした置換の J が置換によらない Simpson 則と 1e-6 の内で合う）、`table_covers_resonances_narrower_than_a_thousandth_of_the_doppler_width`、
+  （θ = 3e-4 で、伸ばした置換の J と K が置換によらない Simpson 則と 1e-6 の内で合う）、`table_covers_resonances_narrower_than_a_thousandth_of_the_doppler_width`、
   `table_matches_direct_integration`（θ = 10⁻³〜10⁶ と 10⁻¹⁰〜10⁻³ で別に選んだ点で、補間と直接の積分が 1e-6 の内）
 - 棚卸しの道具（crates/chain/examples/survey_neutrons.rs）で、#0119 の 10 評価が VERA の燃料の温度と σ0 の 9 点で読める
-  （xlc 96b20e9b、分岐点 61f875f6、2026-10-14。そのあとのコードのコミットは、θ ≤ 0 と b < 10⁴ の扱いと、θ < 10⁻¹⁰ の級数の
+  （xlc 96b20e9b、分岐点 b23fc2ef、2026-10-14。そのあとのコードのコミットは、θ ≤ 0 と b < 10⁴ の扱いと、θ < 10⁻¹⁰ の級数の
   計算の順で、10 評価の点の値は丸めの程度でしか変えない）
 
 ## 帰結
 
 - θ の小さい非分離共鳴（核分裂生成物の偶偶核など）を持つ評価を、VERA の燃料の温度で処理できる
 - 表の原点が動き、格子の θ と補間の重みが丸めの程度で変わる。examples/vera の Ag-109 の段階の出力（565、600 K、σ0 9 点）で、
-  群定数の相対差は最大 4.3e-16（xlc b4e72645、分岐点 61f875f6、2026-10-14）
+  群定数の相対差は最大 4.3e-16（xlc b4e72645、分岐点 b23fc2ef、2026-10-14）
 - 表の行は 361 から 641 に増える。構築は、ほかの計算と重なった実行で 1 秒未満で（時間は記録しない）、xs の核種ごとの処理
   （数秒〜数分）に比べて小さい
