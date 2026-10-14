@@ -7,6 +7,7 @@ use xlc_depletion::chain::{
     Chain, Channel, Decay, DecayEnergy, DecayMode as ChainMode, FinalState, Fission, Nuclide,
     Product, Reaction, Yield, nuclide_name,
 };
+use xlc_format::library::CHAIN_REACTIONS;
 
 use crate::endf::{
     DecayEvaluation, FinalStateEntry, Material, NeutronEvaluation, RawYield, Step, YieldEvaluation,
@@ -29,46 +30,47 @@ struct ReactionSpec {
     light: Option<(u32, u32)>,
 }
 
-/// OpenMC の `Chain.from_endf` の既定と同じ反応（ADR-0164）。部分の MT（875〜891 など）だけがある評価も含める
+/// OpenMC の `Chain.from_endf` の既定と同じ反応（ADR-0164）。部分の MT（875〜891 など）だけがある評価も含める。MT の範囲は xs と
+/// 共通（`CHAIN_REACTIONS`。ADR-0172）
 const REACTIONS: [ReactionSpec; 6] = [
     ReactionSpec {
-        mt: 16,
-        mts: &[(16, 16), (875, 891)],
+        mt: CHAIN_REACTIONS[0].mt,
+        mts: CHAIN_REACTIONS[0].mts,
         dz: 0,
         da: -1,
         light: None,
     },
     ReactionSpec {
-        mt: 17,
-        mts: &[(17, 17)],
+        mt: CHAIN_REACTIONS[1].mt,
+        mts: CHAIN_REACTIONS[1].mts,
         dz: 0,
         da: -2,
         light: None,
     },
     ReactionSpec {
-        mt: 37,
-        mts: &[(37, 37)],
+        mt: CHAIN_REACTIONS[2].mt,
+        mts: CHAIN_REACTIONS[2].mts,
         dz: 0,
         da: -3,
         light: None,
     },
     ReactionSpec {
-        mt: 102,
-        mts: &[(102, 102)],
+        mt: CHAIN_REACTIONS[3].mt,
+        mts: CHAIN_REACTIONS[3].mts,
         dz: 0,
         da: 1,
         light: None,
     },
     ReactionSpec {
-        mt: 103,
-        mts: &[(103, 103), (600, 649)],
+        mt: CHAIN_REACTIONS[4].mt,
+        mts: CHAIN_REACTIONS[4].mts,
         dz: -1,
         da: 0,
         light: Some((1, 1)),
     },
     ReactionSpec {
-        mt: 107,
-        mts: &[(107, 107), (800, 849)],
+        mt: CHAIN_REACTIONS[5].mt,
+        mts: CHAIN_REACTIONS[5].mts,
         dz: -2,
         da: -3,
         light: Some((2, 4)),

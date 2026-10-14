@@ -9,6 +9,7 @@ workspace = true
 # xs の段階の一部（ADR-0166）。ENDF の読み口は xlc-xs のライブラリを使い、鎖の型は xlc-depletion に置く
 [dependencies]
 xlc-xs = { path = "../xs" }
+xlc-format = { path = "../format" }
 xlc-depletion = { path = "../depletion" }
 anyhow.workspace = true
 rayon.workspace = true
