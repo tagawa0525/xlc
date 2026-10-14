@@ -190,10 +190,10 @@ const RATIO_SUM_TOLERANCE: f64 = 1e-12;
 const WEIGHT_SUM_TOLERANCE: f64 = 1e-12;
 
 /// 鎖の反応の代表の MT（核分裂を除く。`CHAIN_REACTIONS` の順）
-pub const REACTION_MTS: [u32; 6] = {
-    let mut mts = [0; 6];
+pub const REACTION_MTS: [u32; CHAIN_REACTIONS.len()] = {
+    let mut mts = [0; CHAIN_REACTIONS.len()];
     let mut i = 0;
-    while i < 6 {
+    while i < CHAIN_REACTIONS.len() {
         mts[i] = CHAIN_REACTIONS[i].mt;
         i += 1;
     }
