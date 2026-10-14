@@ -48,3 +48,8 @@ examples/vera/verification.md に書く。
   （lattice/31-fuel.msgpack の md5 3a2eef2a、lattice/reflector-I-31-fuel.msgpack 016d2181、
   lattice/reflector-I-31-fuel-fuel.msgpack 9809e8dd）。19 段階は流し直さず、dvc.lock に記録する。平板（`axial-31`、
   `axial-31-rcca`）は ADR-0158 で解き方が変わるので、新しい実行ファイルで解き直した
+- 2026-10-14: 最小の入力の 3D の炉心（small、small-half）が、角の反射体の列の厚さ 0.056 cm のノード（Pyrex の毒物の下端
+  15.761 cm と KENO の層の境界 15.817 cm の間）で core の NEM の反復を止めた（#0123）。炉心のメッシュと設計の層から
+  15.761 cm を除き、その 0.056 cm を下の端栓の層に含めて進める（ADR-0154。Problem 3B で測った効きは k +0.03 pcm、軸方向の
+  出力は層 1 で +0.172%、層 2 で +0.117%、層 3 で +0.060%、AO −0.0409% → −0.0478%）。#0123 が入ったら、炉心の段階だけを
+  元の層で再実行する（格子と平板は境界に依らない）

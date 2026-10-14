@@ -1531,9 +1531,34 @@ def slab_nodes() -> list[tuple[str, Fraction, Fraction, bool]]:
     return out
 
 
+# 炉心のメッシュと設計の層から除く燃料のノードの境界（仕様書の高さ）。毒物の下端 15.761 cm と KENO の層の境界 15.817 cm
+# の間の 0.056 cm のノードは、真空の面に接する反射体の列で NEM の反復を止める（#0123）ので、炉心では下の端栓の層に
+# 含める（ADR-0154）。平板と格子は除かない（平板の燃料の端のノードは変わらない）
+CORE_MERGED_BOUNDS = {POISON_BOTTOM}
+
+
+def core_nodes() -> list[tuple[str, Fraction, Fraction, bool]]:
+    """炉心のノード (名前, 下端, 上端, 反射体か)（仕様書の高さ、下から）: 平板のノードの、`CORE_MERGED_BOUNDS` を挟む燃料の
+    ノードをつないだもの"""
+    out = []
+    for node in slab_nodes():
+        _, lo, hi, reflector = node
+        if lo in CORE_MERGED_BOUNDS:
+            if reflector or not out or out[-1][3] or out[-1][2] != lo:
+                raise SystemExit(f"the merged bound {lo} cm is not between fuel nodes")
+            out[-1] = (out[-1][0], out[-1][1], hi, False)
+        else:
+            out.append(node)
+    if len(out) != len(slab_nodes()) - len(CORE_MERGED_BOUNDS):
+        raise SystemExit(
+            f"merged bounds {sorted(CORE_MERGED_BOUNDS)} are not all node bounds"
+        )
+    return out
+
+
 def mesh_3d() -> list[Fraction]:
     """炉心の軸方向のメッシュ（炉心の z）"""
-    nodes = slab_nodes()
+    nodes = core_nodes()
     return [lo + HZP_OFFSET for _, lo, _, _ in nodes] + [nodes[-1][2] + HZP_OFFSET]
 
 
@@ -2013,7 +2038,7 @@ def design_layers(
     pyrex = assembly_types()[design][1]
     slab = slab_name(design, rodded)
     out = []
-    for node, lo, hi, reflector in slab_nodes():
+    for node, lo, hi, reflector in core_nodes():
         if reflector:
             f = f"{slab}/{node}.msgpack"
         else:
