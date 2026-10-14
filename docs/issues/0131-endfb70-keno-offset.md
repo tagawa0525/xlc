@@ -35,4 +35,4 @@ ADR-0175 の検証用ライブラリ（ENDF/B-VII.0。examples/vera/endfb70/xs.t
 NJOY で処理した ENDF/B-VII.0 で OpenMC を解き（2D の小さな問題、1B と 2B など。ADR-0175 が許す診断）、OpenMC（VII.0）− KENO-VI が
 小さければ原因は xlc の VII.0 の処理、大きければ KENO-VI との処理の差かモデルの解釈、と分けられる。分けた結果を ADR と記録に書く。
 
-関係する ADR: ADR-0175、ADR-0031、ADR-0124
+関係する ADR: ADR-0175
