@@ -1,0 +1,12 @@
+# ADR-0174 の確認用の小さい入力（openmc-1C-rings1.toml を粒子と世代と燃焼度の点だけ小さくしたもの）。手元で 1 コアで数分。
+problem = "1C"
+rings = 1
+cross-sections = "../openmc-library/cross_sections.xml"
+chain = "../openmc-chain.xml"
+power = 38.41
+burnup = [0.1, 0.5]
+particles = 20000
+batches = 40
+inactive = 20
+seed = 1  # 種を変えた分けない実行は 2
+threads = 1
