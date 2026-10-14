@@ -415,6 +415,8 @@ pub struct History {
     /// 鎖の核種の名前（数密度の列の順）
     pub nuclides: Vec<String>,
     pub regions: Vec<DepletionRegion>,
+    /// 輸送できる鎖の核種（ライブラリがすべての燃焼の領域の温度で持つもの。鎖の順。ADR-0173）
+    pub transportable: Vec<String>,
     pub points: Vec<HistoryPoint>,
     pub transport: TransportTimes,
     pub depletion: DepletionTimes,
@@ -429,6 +431,7 @@ struct HistoryFile<'a> {
     format: &'static str,
     nuclides: &'a [String],
     regions: &'a [DepletionRegion],
+    transportable: &'a [String],
     points: Vec<PointFile<'a>>,
 }
 
@@ -444,7 +447,7 @@ struct PointFile<'a> {
 
 impl History {
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
-    /// regions, volume}], points: [{time, burnup, k_inf, densities, few_group}]}`
+    /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, few_group}]}`
     pub fn to_msgpack(&self) -> anyhow::Result<Vec<u8>> {
         let points = self
             .points
@@ -471,6 +474,7 @@ impl History {
             format: FORMAT,
             nuclides: &self.nuclides,
             regions: &self.regions,
+            transportable: &self.transportable,
             points,
         })?)
     }
@@ -797,6 +801,13 @@ pub fn run(
     };
     let steps = step_times(depletion.power, &depletion.burnup);
     let (points, depletion_times) = ce_cm(chain, initial, &steps, solve)?;
+    let transportable = chain
+        .nuclides
+        .iter()
+        .zip(&transportable)
+        .filter(|(_, t)| **t)
+        .map(|(n, _)| n.name.clone())
+        .collect();
     let burnup = std::iter::once(0.0).chain(depletion.burnup.iter().copied());
     let points = points
         .into_iter()
@@ -812,6 +823,7 @@ pub fn run(
     Ok(History {
         nuclides: chain.nuclides.iter().map(|n| n.name.clone()).collect(),
         regions,
+        transportable,
         points,
         transport,
         depletion: depletion_times,
