@@ -116,7 +116,7 @@ pub fn yield_weights(group_bounds: &[f64], fission: &[f64], yield_bounds: &[f64]
     weights
 }
 
-/// 反応ごとの群の断面積の出どころ。多群ライブラリの形式（計画の「進め方」3 の ADR）が決まるまでの受け口（ADR-0173）
+/// 反応ごとの群の断面積の出どころ（ADR-0173）
 pub trait ReactionSource: Sync {
     /// 核種 `nuclide` の温度 `temperature` (K) の鎖の反応 `reaction` の、経路（`reaction.channels`）ごとの群の微視的断面積
     /// (barn)。`shielded` はその領域で自己遮蔽した核種の群定数（SPH 因子を掛けない値）
@@ -129,22 +129,69 @@ pub trait ReactionSource: Sync {
     ) -> Result<Vec<Vec<f64>>, String>;
 }
 
-/// 多群ライブラリから引く受け口。いまのライブラリは反応ごとの断面積を持たないので、反応を持つ核種を輸送すると止める
-pub struct LibraryReactions;
+/// 多群ライブラリの鎖の反応（ADR-0172）から引く。捕獲（MT102）は自己遮蔽した捕獲を、経路の無限希釈の断面積の比で群ごとに
+/// 分ける（ADR-0172 の案 T2）。しきい値の反応は無限希釈の値のまま
+pub struct LibraryReactions<'a>(pub &'a Library);
 
-impl ReactionSource for LibraryReactions {
+/// 捕獲の MT
+const CAPTURE: u32 = 102;
+
+impl ReactionSource for LibraryReactions<'_> {
     fn cross_sections(
         &self,
         nuclide: &str,
-        _temperature: f64,
+        temperature: f64,
         reaction: &Reaction,
-        _shielded: &Shielded,
+        shielded: &Shielded,
     ) -> Result<Vec<Vec<f64>>, String> {
-        Err(format!(
-            "{nuclide}: the multigroup library has no cross sections of MT{} (the chain reactions are not in the \
-             library format yet; ADR-0173)",
-            reaction.mt
-        ))
+        let (_, data) = self
+            .0
+            .lookup(nuclide, temperature)
+            .map_err(|e| e.to_string())?;
+        let mt = reaction.mt;
+        let group = data
+            .reactions
+            .iter()
+            .find(|r| r.mt == mt)
+            .ok_or_else(|| format!("{nuclide}: the library has no chain reaction MT{mt}"))?;
+        // 経路の並びと状態は鎖と同じ（ADR-0172）
+        let same = group.channels.len() == reaction.channels.len()
+            && group.channels.iter().zip(&reaction.channels).all(|(g, c)| {
+                match (g.final_state, c.final_state) {
+                    (None, None) => true,
+                    (Some(g), Some(c)) => g.mf == c.mf && g.lfs == c.lfs,
+                    _ => false,
+                }
+            });
+        if !same {
+            return Err(format!(
+                "{nuclide}: the channels of MT{mt} in the library differ from the chain"
+            ));
+        }
+        let dilute: Vec<Vec<f64>> = group
+            .channels
+            .iter()
+            .map(|c| c.cross_section.clone())
+            .collect();
+        if mt != CAPTURE {
+            return Ok(dilute);
+        }
+        let groups = shielded.capture.len();
+        let mut channels = vec![vec![0.0; groups]; dilute.len()];
+        for g in 0..groups {
+            let sum: f64 = dilute.iter().map(|c| c[g]).sum();
+            if sum > 0.0 {
+                for (out, c) in channels.iter_mut().zip(&dilute) {
+                    out[g] = shielded.capture[g] * c[g] / sum;
+                }
+            } else if shielded.capture[g] != 0.0 {
+                return Err(format!(
+                    "{nuclide}: shielded capture {} in group {g} without dilute channels",
+                    shielded.capture[g]
+                ));
+            }
+        }
+        Ok(channels)
     }
 }
 
