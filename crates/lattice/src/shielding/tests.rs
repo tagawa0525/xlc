@@ -1174,8 +1174,9 @@ mod lattice {
         assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
     }
 
-    /// 3 つの燃料のリングの物質を `fuel` から順に置いた、UFG で遮蔽するピンセル。物質は `rings` の名前と U-235 の数密度
-    /// の組（核種の並びは U-238、U-235、O-16）と、被覆管と水
+    /// 3 つの燃料のリングの物質を内側から順に置いた、UFG で遮蔽するピンセル。物質は `rings` の名前と U-235 の数密度
+    /// の組（核種の並びは U-238、U-235、O-16）と、被覆管と水。飛程は格子点ごとに求める（飛程の表は物質ごとの軸の
+    /// 直積なので、燃料のリングの物質が 3 つあると大きすぎる）
     fn ring_fuel(rings: [(&str, f64); 3]) -> (Library, FuelShielding, Vec<MaterialInput>) {
         let library = resonant_library();
         let fuel = |name: &str, u235: f64| MaterialInput {
@@ -1215,14 +1216,11 @@ mod lattice {
         ]
         .map(String::from)
         .to_vec();
-        let shielded = shield_fuel(
-            &library,
-            &tracking,
-            &materials,
-            &regions,
-            &ShieldingOptions::default(),
-        )
-        .unwrap();
+        let options = ShieldingOptions {
+            collision: crate::ufg::Collision::Exact,
+            ..ShieldingOptions::default()
+        };
+        let shielded = shield_fuel(&library, &tracking, &materials, &regions, &options).unwrap();
         (library, shielded, materials)
     }
 
@@ -1301,7 +1299,7 @@ mod lattice {
         };
         let materials = vec![
             material("a", &[("U-238", 0.022), ("U-235", 5.0e-4), ("O-16", 0.045)]),
-            material("b", &[("U-238", 0.022), ("O-16", 0.045)]),
+            material("b", &[("U-235", 5.0e-4), ("U-238", 0.022), ("O-16", 0.045)]),
             material("water", &[("H-1", 0.05), ("O-16", 0.025)]),
         ];
         let pin = PinCell::new(1.26, vec![0.2, 0.4096]).unwrap();
