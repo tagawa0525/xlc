@@ -74,6 +74,13 @@ issues: ["#0130"]
   検査が走らない。記録が手で崩れても、`dvc repro` を走らせるまで誰も気づかない。採らない
 - 案 C: hook だけ。`cargo test` と二重にならないが、上のとおり /git-merge の道に乗らない
 
+### JSON の置き場
+
+- 案 A: DVC のキャッシュに置く（最初の試作。ほかの出力と同じく git で追跡しない）。チェック（`--check`、`cargo test`）が作業ツリーの
+  DVC の出力に依存し、`dvc checkout` していない worktree と、nix の sandbox（CI）で落ちる。落ちる前提を守る手順が要り、
+  チェックが目的（記録が崩れたときの検出）より環境の準備を求める。捨てた
+- 案 B: `cache: false` で git で追跡する（採る）。`dvc.lock` は md5 を持ったままなので、手で直した JSON は照合で落ちる
+
 ### 置き場
 
 - 案 A: `examples/verification_tables.py`（採る）。記録は examples/<問題>/ にあり、`examples/openmc_*.py` のように、複数の例が使う
@@ -90,12 +97,12 @@ issues: ["#0130"]
    "axial_vs_openmc": {...}, "pins_vs_openmc": {...}, "layer_pins": {"levels": [...]}, ...}`（examples/vera/compare_p3.py の docstring）。
    既存の `compare-3A.out` と `compare-3B.out` は変えない（md5 が同じ）。OpenMC の参照解は DVC の段階の出力でない
    （AWS の VM の実行 m3 から取り出した `references/` のファイル）ので、それを deps にする段階 `compare-<問題>-openmc` を足し、
-   `.out` と JSON を outs にする。今後の比較の道具（compare_p5.py、compare_keno.py など）も、表の元にする量を `--json` で書く
+   `.out` と JSON を outs にする（JSON は `cache: false` で git で追跡する。「JSON の置き場」）。今後の比較の道具（compare_p5.py、compare_keno.py など）も、表の元にする量を `--json` で書く
 2. **表を描く道具**: `examples/verification_tables.py <記録>`。記録の `<!-- table: <名前> -->` から `<!-- /table -->` までを、
    その名前の表（空行 + 表 + 空行）で置き換える。名前と JSON と描く関数の対応は道具の `TABLES`。目印の中は丸ごと置き換わるので、
    脚注などの文章は目印の外に書く。未知の名前、閉じていない目印、入れ子、同じ名前の 2 回の使用は
    エラー。列は prettier と同じ幅（全角を 2）でそろえ、負の符号は記録と同じ U+2212。標準ライブラリだけ
-3. **`--check`**: 置き換えず、描いた表と記録が違えば差分を出して 1 で終わる。JSON が無い（`dvc checkout` の指示を出す）、JSON の md5 が
+3. **`--check`**: 置き換えず、描いた表と記録が違えば差分を出して 1 で終わる。JSON が無い（段階を走らせていない。`dvc repro` の指示を出す）、JSON の md5 が
    同じ場所の `dvc.lock` の値と違う（走らせ直して relock していない、手で直した）ときも 1 で終わる。黙って読み飛ばさない
 4. **計算の欄は手で書く**。案 A は rebase と相性が悪く、案 B は取れる値が違う（上）。欄は `commit-refs remap` が付け替え、
    表の数値は `--check` が検査する。残る穴（表の数値と欄の hash の対応）は、JSON の md5 が `dvc.lock` と一致するかを検査することと、
@@ -122,8 +129,9 @@ issues: ["#0130"]
 - 表の数値の転記の誤りは、描く側では起きない。手で直した表は `--check` で落ちる
 - 表の外の文章（本文の中の数値）は、手で書くまま。同じ量を 2 か所に書くと食い違いうる。本文の数値を JSON から埋める方式は、必要に
   なるまで作らない（#0130）
-- `--check` は JSON（DVC の出力で、git で追跡しない）を読むので、worktree では `dvc checkout examples/<問題>/dvc.yaml` が先に要る。
-  `cargo test` が JSON の無い worktree で落ちるのは、この道具のために必要な前提（失敗のメッセージが指示を出す）
+- JSON は DVC の出力（`cache: false`）のまま git で追跡する。`--check` と `cargo test` は、worktree でも nix の sandbox でも
+  `dvc checkout` なしに走る。JSON が手で直されると `dvc.lock` の md5 と合わず落ちる。JSON は数 KB の要約なので、リポジトリは
+  ほとんど増えない（試作の 2 つで 14 KB ずつ）
 - Python のテストは `run-checks.sh` の pytest が走らない配置（リポジトリの直下に `test_*.py` が無い）なので、手で
   `python3 -m unittest discover -s examples -p 'test_verification_tables.py'` を走らせる（`test_compare_p3.py` と同じ）
 - 比較の道具が `--json` を持つたびに `p3_inputs.py` のような生成元と TABLES を足す。表の形の知識は `verification_tables.py` に集まる

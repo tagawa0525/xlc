@@ -130,9 +130,9 @@ class Replace(unittest.TestCase):
         with self.assertRaises(vt.TableError):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
-    def test_missing_json_is_an_error_naming_dvc_checkout(self):
+    def test_missing_json_is_an_error_naming_dvc_repro(self):
         (self.root / "t/a.json").unlink()
-        with self.assertRaisesRegex(vt.TableError, "dvc checkout"):
+        with self.assertRaisesRegex(vt.TableError, "dvc repro"):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
 
     def test_check_fails_on_a_hand_edited_table(self):
