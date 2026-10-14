@@ -37,7 +37,7 @@ dvc repro examples/m0/dvc.yaml
 ## 結果
 
 44128b49（分岐点 4b644566）、2026-10-14。`dvc repro examples/m0/dvc.yaml` を Slurm の排他のジョブ 332 で、ほかの例とまとめて流した（時間は書かない）。
-`wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out` は前（e4dbc0de）の出力とバイト単位で同じで、`core.out` は k を 8 桁で書く形（0.72315041）に
+`wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out` は前（e4dbc0de、分岐点 cde7206f）の出力とバイト単位で同じで、`core.out` は k を 8 桁で書く形（0.72315041）に
 なり、6 桁の k と漏れは同じ。
 
 | 段階      | 結果                                                       |

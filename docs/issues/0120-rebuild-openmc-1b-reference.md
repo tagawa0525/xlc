@@ -30,16 +30,17 @@ ADR-0136）。ADR-0136 は OpenMC の段階を `openmc-1B-model`（model.xml）�
 関係する ADR: なし
 
 main の ADR-0167（MLBW のエネルギーに依存する散乱半径）で `bin/xs` が変わり、`xs` の段階も古い。完了の条件のコマンドは
-`xs`（約 26 分）と `lattice-1B` も実行し、xlc の 1B の k もライブラリの変更で動く。参照解の変化と xlc の変化を分けて書く。
+`xs`（約 26 分）と `lattice-1B` も実行する。ADR-0167 は NRO=1 の MLBW の評価だけに効き、VERA の核種はそれまでの xs で処理
+できていたので、vera.msgpack と 1B の xlc の k は変わらない見込み（確かめていない）。変わったら、参照解の変化と分けて書く。
 同じく main の OpenMC のスクリプトの変更（openmc_core_2d.py、openmc_model.py など）で、`openmc-5A-2D-extract` の deps も古い。
 抽出だけの段階（statepoint は `references/openmc/vera-5A-2D/`）なので、同じ機会に走らせ直し、5-2D の OpenMC との比較の値が
 変わらないことを確かめる。
 
 ## 完了の条件
 
-- `dvc repro examples/vera/dvc.yaml:compare-1B` で `openmc-1B`、`openmc-1B-extract`、`compare-1B`（と、古ければ `xs`、
-  `lattice-1B`）を実行し、`dvc.lock` をコミットする（Slurm で排他、スキル openmc-reference）
-- `openmc-5A-2D-extract` を走らせ直し、5-2D の OpenMC との比較の値を確かめる
+- `dvc repro examples/vera/dvc.yaml` で古い段階（`openmc-1B`、`openmc-1B-extract`、`compare-1B`、`openmc-5A-2D-extract`、
+  古ければ `xs` と `lattice-1B`）を実行し、`dvc.lock` をコミットする（Slurm で排他、スキル openmc-reference）
+- 5-2D の OpenMC との比較の値が変わらないことを確かめる
 - examples/vera/verification.md の「参照解」の 1B の行と、「OpenMC との比較」の 1B の差を、新しい参照解で書き直す。
   2026-10-11 の参照解（1.181783 ± 0.000063）との差が統計誤差の中かを書く
 
