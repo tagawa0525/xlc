@@ -15,7 +15,7 @@
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）。auto なら、aws_types.toml の候補の機種と直近 1 時間のスポット価格から、
 #              1 本の費用（価格 ÷ 速度）の安い (機種, AZ) の順に起動を試す（ADR-0171。空き、クォータ、価格で失敗したら次へ。
 #              全部失敗なら 1 で終わり、起動し直しで再試行できる）。--az と併用すると AZ を固定して機種だけ選ぶ。--on-demand とは
-#              併用できない。起動し直しでは、最後の起動が auto の選択なら --type 省略も auto になり、auto のとき記録の AZ を引き継がない
+#              併用できない。スポットの vCPU の残り（クォータ − 走行中）に収まらない機種は外す（欠けたジョブが複数なら残りを数で割る）。起動し直しでは、最後の起動が auto の選択なら --type 省略も auto になり、auto のとき記録の AZ を引き継がない
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
 #   --statepoint-interval  起動し直しで、その起動の OpenMC の走行だけ、入力の statepoint-interval を N 世代に上書きする（中断が続くとき、
@@ -315,9 +315,29 @@ if [[ $type == auto ]]; then
   [[ -z $az ]] || az_subnet_id "$az"
   # 先に変数へ取る（< <(...) の中の失敗は止まらず、設定や認証の誤りが「空きがない」に化ける）
   cand_text=$(auto_candidates "$types_file" "$az" | awk '{print NR, $0}')
+  [[ -n $cand_text ]] || { echo "候補のスポット価格がありません（$types_file の機種が ${az:-どの AZ}にない）。空きがない" >&2; exit 1; }
+  cand_total=$(wc -l <<< "$cand_text") # 順位は価格順のまま（外した候補の分も欠番にして記録する）
+  # スポットの vCPU の残り（クォータ − この account の走行中）に収まらない機種を外す。起動し直しで欠けたジョブが複数あるときは、
+  # 1 本が使い切って他が入らなくならないよう、残りをジョブの数で割った値を 1 本の上限にする（--job 1 本の指定ならしない）
+  if remaining=$(spot_vcpu_remaining); then
+    read -r remaining quota used <<< "$remaining"
+    share=$remaining
+    ((${#inputs[@]} || ${#jobs[@]} == 1 || ${#todo[@]} < 2)) || share=$((remaining / ${#todo[@]}))
+    vcpus=$(auto_vcpus_read "$types_file")
+    # 割った値が最小の機種に満たなくても、残りが最小の機種に収まるなら最小の機種までは許す（全部を落として止まらない。
+    # 入りきらないジョブは VcpuLimitExceeded で次の候補、全部だめなら「空きがない」になり、起動し直しで再試行できる）
+    smallest=$(awk '{print $2}' <<< "$vcpus" | sort -n | head -1)
+    ((share >= smallest || remaining < smallest)) || share=$smallest
+    dropped=$(awk -v lim="$share" -v v="$vcpus" 'BEGIN { n = split(v, l, "\n"); for (i = 1; i <= n; i++) { split(l[i], f, " "); vc[f[1]] = f[2] } }
+      vc[$3] > lim && !d[$3]++ { printf "%s%s(%s)", s, $3, vc[$3]; s = " " }' <<< "$cand_text")
+    cand_text=$(awk -v lim="$share" -v v="$vcpus" 'BEGIN { n = split(v, l, "\n"); for (i = 1; i <= n; i++) { split(l[i], f, " "); vc[f[1]] = f[2] } }
+      vc[$3] <= lim' <<< "$cand_text")
+    echo "== スポットの vCPU: クォータ $quota、走行中 $used、残り $remaining、このジョブの上限 $share。外した候補: ${dropped:-なし}"
+    [[ -n $cand_text ]] || { echo "上限 $share vCPU に収まる候補がない（クォータの増量か、走行中の VM の終了を待つ。起動し直しで再試行: aws_run.sh --type auto $name）" >&2; exit 1; }
+  else
+    echo "警告: スポットの vCPU のクォータか走行中の vCPU を取れないので、候補を絞らない（権限: servicequotas:GetServiceQuota、ec2:DescribeInstances）" >&2
+  fi
   mapfile -t cands <<< "$cand_text"
-  [[ -n $cand_text ]] || cands=()
-  ((${#cands[@]})) || { echo "候補のスポット価格がありません（$types_file の機種が ${az:-どの AZ}にない）。空きがない" >&2; exit 1; }
   echo "== 候補（1 本の費用 = 価格 ÷ 速度の昇順。速度は $types_file の見積もりで測っていない）"
   printf '%-4s %12s  %-14s %-12s %10s %6s\n' 順位 '費用$/時間' タイプ AZ '価格$/時間' 速度
   for c in "${cands[@]}"; do
@@ -390,7 +410,7 @@ for i in "${!todo[@]}"; do
       echo "$host: $id を起動（$ctype ${caz:-AZ 指定なし}、再開 ${restart_flags[$i]}）"
       auto_record=
       if [[ $type == auto ]]; then
-        auto_record=$(printf 'SELECTION=auto\nSELECTION_RANK=%s/%s\nSPOT_PRICE=%s\nSPEED=%s\nCOST_PER_SPEED=%s\n' "$rank" "${#cands[@]}" "$cprice" "$cspeed" "$cost")
+        auto_record=$(printf 'SELECTION=auto\nSELECTION_RANK=%s/%s\nSPOT_PRICE=%s\nSPEED=%s\nCOST_PER_SPEED=%s\n' "$rank" "$cand_total" "$cprice" "$cspeed" "$cost")
       fi
       # 起動ごとの記録（user-data を作る道具と、起動し直しで src/ に置き直す道具は TOOLS_COMMIT のもの。AMI、機種もこの起動のもの）。起動できたものだけ書く。
       # auto は選んだ機種と AZ、その価格と順位を残す（ADR-0171）
