@@ -4,8 +4,8 @@
 
 - 記録の `<!-- table: <名前> -->` から `<!-- /table -->` までを、名前の表で置き換える。目印の中は丸ごと置き換わる
   （文章は目印の外に書く）。目印の外は触らない。名前と JSON の対応（TABLES）はこのファイルにある
-- `--check`: 置き換えず、描いた表と記録の中身が違えば差分を出して 1 で終わる。JSON が無い、dvc.lock の md5 と
-  違う（段階を再実行したのに relock していない、手で直した）、目印が壊れているときも 1 で終わる
+- `--check`: 置き換えず、描いた表と記録の中身が違えば差分を出して 1 で終わる。JSON が無い（段階を実行していない）、dvc.lock の md5 と
+  違う（JSON を手で直した、段階を再実行したのに relock していない）、目印が壊れているときも 1 で終わる
 - ファイルを渡さないと examples/*/verification.md のすべて
 - 標準ライブラリだけで動く（hook と `cargo test` から呼ぶ）
 """
@@ -168,7 +168,7 @@ def load(root: Path, source: str, verify: bool) -> dict:
     path = root / source
     if not path.exists():
         raise TableError(
-            f"{source} does not exist; restore it with dvc checkout {path.parent.relative_to(root)}/dvc.yaml"
+            f"{source} does not exist (the stage has not run); run dvc repro {path.parent.relative_to(root)}/dvc.yaml"
         )
     if verify and hashlib.md5(path.read_bytes()).hexdigest() != locked_md5(
         root, source
