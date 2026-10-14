@@ -58,6 +58,51 @@ pub struct Shielded {
     pub capture: Vec<f64>,
 }
 
+/// 燃焼チェーンの反応（ADR-0164）の、代表の MT と、それにまとめる MF3 の MT の範囲（両端を含む）。代表の MT が MF3 になければ、
+/// 範囲の部分の MT の和を反応の断面積にする（ADR-0172）。チェーン（xlc-chain）と xs が同じ規則を使う。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChainReaction {
+    pub mt: u32,
+    pub mts: &'static [(u32, u32)],
+}
+
+impl ChainReaction {
+    /// MF3 の `mt` がこの反応のものか。
+    pub fn includes(&self, mt: u32) -> bool {
+        self.mts
+            .iter()
+            .any(|&(low, high)| (low..=high).contains(&mt))
+    }
+}
+
+/// 燃焼チェーンの反応（核分裂を除く）。OpenMC の `Chain.from_endf` の既定と同じ反応（ADR-0164）
+pub const CHAIN_REACTIONS: [ChainReaction; 6] = [
+    ChainReaction {
+        mt: 16,
+        mts: &[(16, 16), (875, 891)],
+    },
+    ChainReaction {
+        mt: 17,
+        mts: &[(17, 17)],
+    },
+    ChainReaction {
+        mt: 37,
+        mts: &[(37, 37)],
+    },
+    ChainReaction {
+        mt: 102,
+        mts: &[(102, 102)],
+    },
+    ChainReaction {
+        mt: 103,
+        mts: &[(103, 103), (600, 649)],
+    },
+    ChainReaction {
+        mt: 107,
+        mts: &[(107, 107), (800, 849)],
+    },
+];
+
 /// 燃焼チェーンの 1 つの反応（ADR-0164 の反応。代表の MT が 102、16、17、37、103、107）の、生成物の状態ごとの経路の無限希釈の群の
 /// 断面積（ADR-0172）。経路の並びと `final_state` は、チェーンの反応の経路と同じ。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

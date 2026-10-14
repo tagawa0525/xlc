@@ -3,7 +3,7 @@
 //! 行とレコードは xlc-xs の `endf::Tape` で読む（ADR-0166）。
 
 use anyhow::{Result, anyhow, bail};
-use xlc_xs::endf::Tape;
+use xlc_xs::endf::{Tape, final_states};
 
 /// 評価の対象（MF1/MT451）。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -57,17 +57,7 @@ pub struct DecayEvaluation {
     pub decay: DecayData,
 }
 
-/// 中性子の反応の生成物の 1 状態（MF8 の MT = 反応の、LMF = 9 か 10 の項目）。
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FinalStateEntry {
-    /// 生成物の ZA（1000 Z + A）
-    pub za: u32,
-    /// 励起エネルギー (eV)（ELFS）
-    pub excitation: f64,
-    /// 割合を与えるファイル（LMF）
-    pub mf: u32,
-    pub lfs: u32,
-}
+pub use xlc_xs::endf::FinalStateEntry;
 
 /// 中性子のサブライブラリの 1 評価のうち、チェーンに使うもの。
 #[derive(Debug, Clone, PartialEq)]
@@ -241,52 +231,18 @@ pub fn read_neutron(text: &str, reaction_mts: &[u32]) -> Result<NeutronEvaluatio
     let mat = material.mat;
     let mut mts = tape.mts(mat, 3);
     mts.sort_unstable();
-    let mut final_states = Vec::new();
+    let mut final_states_of = Vec::new();
     let mut wanted = reaction_mts.to_vec();
     wanted.sort_unstable();
     for mt in wanted {
-        let Some(section) = tape.section(mat, 8, mt) else {
-            continue;
-        };
-        let mut r = section.reader();
-        let head = r.cont()?;
-        let ns = count(head.n1, "NS", r.line())?;
-        let mut entries = Vec::new();
-        for _ in 0..ns {
-            let (c1, c2, l1, l2) = match head.n2 {
-                0 => {
-                    let list = r.list()?;
-                    (list.c1, list.c2, list.l1, list.l2)
-                }
-                1 => {
-                    let cont = r.cont()?;
-                    (cont.c1, cont.c2, cont.l1, cont.l2)
-                }
-                no => bail!("line {}: invalid NO {no}", r.line()),
-            };
-            let line = r.line();
-            let lmf = count(l1, "LMF", line)?;
-            if lmf == 9 || lmf == 10 {
-                let (z, a) = za(c1, line)?;
-                entries.push(FinalStateEntry {
-                    za: 1000 * z + a,
-                    excitation: c2,
-                    mf: lmf,
-                    lfs: count(l2, "LFS", line)?,
-                });
-            }
-        }
-        if !entries.is_empty() {
-            if entries.len() != ns as usize {
-                bail!("MAT {mat} MF8/MT{mt}: only some final states give MF9 or MF10");
-            }
-            final_states.push((mt, entries));
+        if let Some(entries) = final_states(&tape, mat, mt)? {
+            final_states_of.push((mt, entries));
         }
     }
     Ok(NeutronEvaluation {
         material,
         mts,
-        final_states,
+        final_states: final_states_of,
     })
 }
 
