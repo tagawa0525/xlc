@@ -15,7 +15,37 @@ fn shielded(scale: f64, fissile: bool) -> Shielded {
         } else {
             vec![0.0, 0.0]
         },
+        capture: vec![0.7 * scale, 98.3],
     }
+}
+
+/// チェーンの反応（代表の MT の昇順）: (n,2n) は分けず、捕獲を準安定状態（MF9 の LFS 2）と残り（LFS nil）に分ける
+fn reactions() -> Vec<GroupReaction> {
+    vec![
+        GroupReaction {
+            mt: 16,
+            channels: vec![GroupChannel {
+                final_state: None,
+                cross_section: vec![0.002, 0.0],
+            }],
+        },
+        GroupReaction {
+            mt: 102,
+            channels: vec![
+                GroupChannel {
+                    final_state: Some(ChannelState {
+                        mf: 9,
+                        lfs: Some(2),
+                    }),
+                    cross_section: vec![0.1, 10.0],
+                },
+                GroupChannel {
+                    final_state: Some(ChannelState { mf: 9, lfs: None }),
+                    cross_section: vec![0.6, 88.3],
+                },
+            ],
+        },
+    ]
 }
 
 fn temperature(t: f64, fissile: bool) -> TemperatureData {
@@ -27,6 +57,7 @@ fn temperature(t: f64, fissile: bool) -> TemperatureData {
             elastic: vec![9.0, 9.0],
             fission: vec![0.0, 0.0],
             nu_fission: vec![0.0, 0.0],
+            capture: vec![0.5, 0.4],
         },
         temperature: t,
         chi: if fissile {
@@ -36,6 +67,7 @@ fn temperature(t: f64, fissile: bool) -> TemperatureData {
         },
         scatter: vec![vec![vec![4.0, 0.01], vec![1.0e-7, 15.0]]],
         shielded: vec![shielded(1.0, fissile), shielded(0.5, fissile)],
+        reactions: reactions(),
     }
 }
 
@@ -273,6 +305,7 @@ fn pointwise_data_must_cover_the_range() {
         elastic: vec![9.0, 10.0],
         fission: vec![0.5, 0.4],
         nu_fission: vec![1.2, 1.0],
+        capture: vec![0.3, 0.2],
     };
     assert!(matches!(
         library.to_msgpack(),
@@ -295,6 +328,7 @@ fn keeps_the_pointwise_data() {
         elastic: vec![9.0, 10.0],
         fission: vec![0.5, 0.4],
         nu_fission: vec![1.2, 1.0],
+        capture: vec![0.3, 0.2],
     };
     let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
     assert_eq!(read, library);
@@ -375,6 +409,56 @@ fn interpolates_shielded_cross_sections_in_ln_sigma0() {
     assert!((between.total[0] - 0.75 * 11.5).abs() < 1e-12);
     assert!((between.elastic[0] - 0.75 * 4.0).abs() < 1e-12);
     assert!((between.nu_fission[0] - 0.75 * 3.0).abs() < 1e-12);
+    assert!((between.capture[0] - 0.75 * 0.7).abs() < 1e-12);
+}
+
+#[test]
+fn keeps_the_chain_reactions_and_the_capture() {
+    let library = sample();
+    let read = Library::from_msgpack(&library.to_msgpack().unwrap()).unwrap();
+    let t = &read.nuclides[0].temperatures[0];
+    assert_eq!(t.reactions, reactions());
+    assert_eq!(t.shielded[1].capture, vec![0.35, 98.3]);
+    assert_eq!(t.pointwise.capture, vec![0.5, 0.4]);
+}
+
+#[test]
+fn reaction_channels_need_one_value_per_group() {
+    let mut library = sample();
+    library.nuclides[0].temperatures[0].reactions[0].channels[0]
+        .cross_section
+        .push(1.0);
+    assert!(library.to_msgpack().is_err());
+}
+
+#[test]
+fn reactions_must_not_repeat_and_need_channels() {
+    let mut repeated = sample();
+    let first = repeated.nuclides[0].temperatures[0].reactions[0].clone();
+    repeated.nuclides[0].temperatures[0].reactions.push(first);
+    assert!(repeated.to_msgpack().is_err());
+    let mut empty = sample();
+    empty.nuclides[0].temperatures[0].reactions[1]
+        .channels
+        .clear();
+    assert!(empty.to_msgpack().is_err());
+}
+
+#[test]
+fn interpolation_mixes_the_capture_and_the_reactions() {
+    let mut library = two_temperatures(true);
+    let h1 = library.nuclides.last_mut().unwrap();
+    h1.temperatures[1].shielded[0].capture[0] *= 2.0;
+    h1.temperatures[1].pointwise.capture = vec![1.0, 0.8];
+    h1.temperatures[1].reactions[1].channels[0].cross_section[0] *= 2.0;
+    let (_, low) = library.lookup("H-1", 550.0).unwrap();
+    let low = low.into_owned();
+    let (_, t) = library.lookup("H-1", 565.0).unwrap();
+    let f = 1.0 + (565.0 - 550.0) / (573.6 - 550.0);
+    assert!((t.shielded[0].capture[0] - f * low.shielded[0].capture[0]).abs() < 1e-12);
+    assert!((t.pointwise.capture[0] - f * low.pointwise.capture[0]).abs() < 1e-12);
+    let r = |d: &TemperatureData| d.reactions[1].channels[0].cross_section[0];
+    assert!((r(&t) - f * r(&low)).abs() < 1e-15);
 }
 
 #[test]
@@ -687,4 +771,43 @@ fn nuclide_names_follow_the_convention() {
 #[test]
 fn library_nuclide_names_are_checked() {
     assert!(read_modified(|f| f.nuclides[1].name = "H1".into()).is_err());
+}
+
+#[test]
+fn reaction_channels_follow_the_chain_layout() {
+    let bad = |change: fn(&mut Vec<GroupReaction>)| {
+        let mut library = sample();
+        change(&mut library.nuclides[0].temperatures[0].reactions);
+        library.to_msgpack().is_err()
+    };
+    // 状態に分けない経路はただ 1 つ
+    assert!(bad(|r| r[1].channels[0].final_state = None));
+    // 残り（LFS が nil）は最後
+    assert!(bad(|r| r[1].channels.swap(0, 1)));
+    // 割合は MF9 か MF10
+    assert!(bad(|r| r[1].channels[0].final_state = Some(ChannelState {
+        mf: 8,
+        lfs: Some(2)
+    })));
+    // チェーンの反応の MT だけ
+    assert!(bad(|r| r[0].mt = 18));
+    // 残りだけの経路はない
+    assert!(bad(|r| {
+        r[1].channels.remove(0);
+    }));
+    // 同じ状態を 2 度挙げない
+    assert!(bad(|r| {
+        let first = r[1].channels[0].clone();
+        r[1].channels.insert(0, first);
+    }));
+    // 残りがあるなら、状態は同じファイル（MF9 か MF10）
+    assert!(bad(
+        |r| r[1].channels[1].final_state = Some(ChannelState { mf: 10, lfs: None })
+    ));
+}
+
+#[test]
+fn chain_reactions_are_in_increasing_mt() {
+    // ライブラリの `reactions` は代表の MT の昇順で、xs は `CHAIN_REACTIONS` の並びで書く
+    assert!(CHAIN_REACTIONS.windows(2).all(|w| w[0].mt < w[1].mt));
 }

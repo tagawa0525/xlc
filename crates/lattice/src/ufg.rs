@@ -31,6 +31,10 @@ use crate::input::MaterialInput;
 use crate::track_table::{DEFAULT_DENSITY, TableError, TrackTable};
 use xlc_numeric::lu::solve;
 
+/// ポイントワイズの断面積の列の数: [全, 弾性散乱, 核分裂, νσf, 捕獲]
+const COLUMNS: usize = 5;
+type Row = [f64; COLUMNS];
+
 /// セルの UFG の範囲の上限の頭打ち (eV)。U-238 の分離共鳴の上端で、これより上は U-238 の非弾性散乱（45 keV から）と
 /// 核分裂の線源が効き、弾性散乱だけの減速計算が成り立たない（ADR-0069）
 pub const MAX_TOP: f64 = 2.0e4;
@@ -335,7 +339,7 @@ pub fn slowing_down_with(
         group_flux: vec![vec![0.0; ng]; n],
         rates: entries
             .iter()
-            .map(|ring| vec![vec![[0.0; 4]; ng]; ring.len()])
+            .map(|ring| vec![vec![[0.0; COLUMNS]; ng]; ring.len()])
             .collect(),
         known: Vec::new(),
         own: entries.iter().map(|ring| vec![0.0; ring.len()]).collect(),
@@ -355,8 +359,8 @@ pub fn slowing_down_with(
     for start in (0..u.len()).step_by(CHUNK) {
         let clock = Instant::now();
         let chunk = start..(start + CHUNK).min(u.len());
-        // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf]
-        let mut values: Vec<Vec<[f64; 4]>> = Vec::with_capacity(chunk.len());
+        // [点][核種] のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲]
+        let mut values: Vec<Vec<Row>> = Vec::with_capacity(chunk.len());
         for &(e, below) in &points[chunk.clone()] {
             let row = data
                 .iter()
@@ -408,6 +412,7 @@ pub fn slowing_down_with(
                 elastic: column(1),
                 fission: column(2),
                 nu_fission: column(3),
+                capture: column(4),
             };
             let finite = |v: &Vec<f64>| v.iter().position(|x| !x.is_finite());
             let bad = [
@@ -415,6 +420,7 @@ pub fn slowing_down_with(
                 &shielded.elastic,
                 &shielded.fission,
                 &shielded.nu_fission,
+                &shielded.capture,
             ]
             .into_iter()
             .find_map(finite);
@@ -436,7 +442,7 @@ pub fn slowing_down_with(
 }
 
 /// リングの全断面積 Σ_k N_k σ_k（`row` は [核種] のポイントワイズの断面積）
-fn total(ring: &[(usize, f64)], row: &[[f64; 4]]) -> f64 {
+fn total(ring: &[(usize, f64)], row: &[Row]) -> f64 {
     ring.iter().map(|&(k, d)| d * row[k][0]).sum()
 }
 
@@ -537,9 +543,9 @@ fn lethargy_grid(
     (u, points)
 }
 
-/// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
+/// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
 /// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
-fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<[f64; 4], UfgError> {
+fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, UfgError> {
     let x = &d.pointwise().energy;
     let defined =
         x.len() >= 2 && x.first().is_some_and(|&a| a <= e) && x.last().is_some_and(|&b| e <= b);
@@ -573,6 +579,7 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<[f64; 4
         lerp(&p.elastic),
         lerp(&p.fission),
         lerp(&p.nu_fission),
+        lerp(&p.capture),
     ])
 }
 
@@ -634,12 +641,12 @@ struct Sweep<'a> {
     /// [リング][項] の窓の積分 ∫ σs F e^{−(u−u')} du'
     windows: Vec<Vec<f64>>,
     /// 1つ前の格子点のポイントワイズの断面積
-    previous: Vec<[f64; 4]>,
+    previous: Vec<Row>,
     /// 今の区間の群（`groups` の中の番号）
     group: usize,
     group_flux: Vec<Vec<f64>>,
-    /// [リング][項][群] の反応率 ∫ F σ du [全, 弾性散乱, 核分裂, νσf]
-    rates: Vec<Vec<Vec<[f64; 4]>>>,
+    /// [リング][項][群] の反応率 ∫ F σ du [全, 弾性散乱, 核分裂, νσf, 捕獲]
+    rates: Vec<Vec<Vec<Row>>>,
     /// 格子点ごとに再利用する作業用の配列: [リング][項] の窓の積分の既知の部分
     known: Vec<Vec<f64>>,
     /// 格子点ごとに再利用する作業用の配列: [リング][項] のその点の F_i の係数
@@ -653,7 +660,7 @@ impl Sweep<'_> {
     fn point(
         &mut self,
         m: usize,
-        values: Vec<[f64; 4]>,
+        values: Vec<Row>,
         tracks: &[Vec<f64>],
         energy: f64,
     ) -> Result<(), UfgError> {
@@ -748,7 +755,7 @@ impl Sweep<'_> {
                 self.group_flux[i][g] += 0.5 * du * (f0 + f1);
                 for (e, &(k, _)) in ring.iter().enumerate() {
                     let (v0, v1) = (self.previous[k], values[k]);
-                    for x in 0..4 {
+                    for x in 0..COLUMNS {
                         self.rates[i][e][g][x] += 0.5 * du * (f0 * v0[x] + f1 * v1[x]);
                     }
                 }
