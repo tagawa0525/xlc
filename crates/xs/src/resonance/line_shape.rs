@@ -36,8 +36,7 @@ pub(super) fn jk_integrals(betas: &[f64], theta: f64) -> Result<Vec<(f64, f64)>,
         )));
     }
     // θ が小さいと線形状の芯はドップラー幅の x ≈ 2/θ まで広がり、x = tan φ では φ = π/2 の近くの幅 θ ほどに潰れて
-    // 適応積分が収束しない。そのときは x = (2/θ) tan φ と芯の幅で伸ばす。θ ≥ 1e-3 は x = tan φ のままで収束し、すべての θ を
-    // 伸ばさないのは、θ ≥ 1e-3 の行（燃料の主な核種が使う）の値を変えないため
+    // 適応積分が収束しない。そのときは x = (2/θ) tan φ と芯の幅で伸ばす。θ ≥ 1e-3 は x = tan φ で収束する（ADR-0170）
     let scale = if theta < SCALED_BELOW {
         2.0 / theta
     } else {
@@ -155,6 +154,9 @@ fn in_parallel<T: Send, E: Send>(
 /// θ が表より大きければ Lorentz の線形状の J, K を返す（`natural_jk`）。θ が表より小さければ（β は表の範囲）、ガウス形の
 /// 線形状の J, K を返す（`gaussian_jk`）。
 pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrError> {
+    if theta.is_nan() || theta <= 0.0 {
+        return Err(UrrError::JkTable { beta, theta });
+    }
     let (lb, lt) = (beta.log10(), theta.log10());
     if lb > LOG_BETA.1 {
         let j = 0.5 * std::f64::consts::PI / beta;
@@ -191,21 +193,23 @@ pub(super) fn jk_interpolated(beta: f64, theta: f64) -> Result<(f64, f64), UrrEr
 /// 表の下限（θ = 10⁻¹⁰）より下で β ≥ 10⁻⁶ なら b > 10⁴ なので、級数は数項で倍精度に収束する。
 /// Voigt の線形状のローレンツの裾による差は相対で θ の程度（表の下限で 1e-10 以下。`quadrature_approaches_the_gaussian_limit_for_narrow_lines`）
 fn gaussian_jk(beta: f64, theta: f64) -> (f64, f64) {
-    let b = 2.0 * beta / (std::f64::consts::PI.sqrt() * theta);
+    // √π/θ と b⁻ⁿ を別に作ると、θ が小さいと b が倍精度を超えて 0·∞ になるので、先頭の項 √π/(θ b) = π/(2β) でくくる:
+    // J = π/(2β) Σₙ₌₁ (−1)ⁿ⁺¹ b¹⁻ⁿ/√n
+    let inverse_b = std::f64::consts::PI.sqrt() * theta / (2.0 * beta);
     let (mut j, mut k) = (0.0, 0.0);
     let mut power = 1.0;
     for n in 1..=SERIES_TERMS {
         let nf = f64::from(n);
-        power /= b;
         let sign = if n % 2 == 1 { 1.0 } else { -1.0 };
         j += sign * power / nf.sqrt();
         k += sign * (nf + 1.0) * power / nf.sqrt();
+        power *= inverse_b;
     }
-    let scale = std::f64::consts::PI.sqrt() / theta;
-    (scale * j, scale * k)
+    let leading = 0.5 * std::f64::consts::PI / beta;
+    (leading * j, leading * k)
 }
 
-/// `gaussian_jk` の級数の項の数。b > 10⁴ では 5 項目が 1e-20 より小さい
+/// `gaussian_jk` の級数の項の数。b > 10⁴ では、6 項目は先頭の項に比べて相対 4e-21（J）、1.4e-20（K）より小さく、交代級数なので打ち切りの誤差はそれ以下
 const SERIES_TERMS: u32 = 5;
 
 /// ドップラー拡がりのない Lorentz の線形状 ψ = 1/(1 + x²) の (J, K)。a² = (1 + β)/β として
