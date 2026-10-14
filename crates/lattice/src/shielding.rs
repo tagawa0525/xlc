@@ -1516,6 +1516,7 @@ pub fn effective(
         elastic: combine(|x| &x.elastic),
         fission: combine(|x| &x.fission),
         nu_fission: combine(|x| &x.nu_fission),
+        capture: combine(|x| &x.capture),
     })
 }
 
