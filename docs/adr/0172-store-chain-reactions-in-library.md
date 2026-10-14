@@ -73,7 +73,7 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
   `reaction_channels_follow_the_chain_layout`；鎖の `reaction_kinematics_belong_to_their_mt`
 - lattice の単体テスト: `capture_is_shielded_with_the_same_flux_as_fission`（UFG）、`absorber_rods_are_shielded_by_slowing_down`
   （棒のリングの平均の捕獲）
-- ADR-0144 の判定（xlc 7b52c3e9、分岐点 39e501e3、2026-10-14。Slurm の排他でないジョブ）: 鎖の出力（examples/depletion/chain.msgpack）の
+- ADR-0144 の判定（xlc edcf5863、分岐点 39e501e3、2026-10-14。Slurm の排他でないジョブ）: 鎖の出力（examples/depletion/chain.msgpack）の
   md5 は 120d7435… のまま。examples/vera のライブラリを作り直すと、既存の項目（11,454 の配列）は main の dvc.lock のライブラリと
   9,122 が同じで、ほかも最大で相対 1.9e-15（U-235 の 600 K、σ0 の 8 番目の全断面積）。main のライブラリは ADR-0170 の前の xs で
   作ったもので、差は J, K の表の原点の移動による丸め（ADR-0170 の「帰結」）。VERA 1B の k は 1.182383 のまま
