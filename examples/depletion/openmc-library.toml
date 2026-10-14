@@ -1,5 +1,5 @@
 # 燃焼の検証のピンセル（VERA Problem 1C。openmc_depletion.py）の OpenMC の連続エネルギーのライブラリの入力
-# （../vera/openmc_library.py）。核種は xlc の燃焼のライブラリ（xs.toml、ADR-0169）と同じ組で、輸送する核種の組を xlc と
+# （../vera/openmc_library.py）。核種は xlc の燃焼の検証の多群ライブラリ（docs/plans/m4-depletion.md の「進め方」3）と同じ組で、輸送する核種の組を xlc と
 # 揃える（どちらも、ライブラリにないチェーンの核種は崩壊だけ。ADR-0173）。片方を変えたら他方も直す。燃焼させるのは Problem 1C
 # （燃料 900 K、被覆管と減速材 600 K）なので、燃料にある核種（U、チェーンの核種）は 900 K、被覆管と減速材の核種は 600 K、両方に
 # ある O-16 は 600 と 900 K で作り、OpenMC は最も近い温度のモードで解く。
