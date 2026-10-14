@@ -202,7 +202,7 @@ OpenMC の再開は完了した実行の延長に向くので（調査の結果 
 
 実装の前に確かめるとした項目を、次のとおり確かめた（2026-10-15。数値を出した xlc のコミットは、この枝の `feat(depletion)` のコミット。
 手元、`nice 19`、8 スレッド（`OMP_NUM_THREADS=8`）。重い計算ではない（Slurm は使っていない）。比較は `openmc_depletion_resume.py` の
-コミット 3224c9b0 の版で、`examples/depletion/aws-check/split_check.sh` が流し、`compare_split.py` が比べる）:
+コミット be411dc1 の版で、`examples/depletion/aws-check/split_check.sh` が流し、`compare_split.py` が比べる）:
 
 1. 小さい入力で、区間に分けた実行が分けない実行と同じ k と数密度を出すこと。
    - 粒子 2 万・世代 40・捨てる 20、burnup 0.1、0.5 MWd/kg、1 リング（`aws-check/medium.toml`）を、乱数のシード 1〜8 のそれぞれで、
