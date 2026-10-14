@@ -783,7 +783,7 @@ fn sends_a_missing_isomeric_daughter_to_the_ground_state() {
 
 #[test]
 fn reads_the_reactions_the_chain_type_accepts() {
-    let mut mts: Vec<u32> = REACTIONS.iter().map(|r| r.mt).collect();
+    let mut mts: Vec<u32> = REACTIONS.iter().map(|r| r.reaction.mt).collect();
     mts.sort_unstable();
     assert_eq!(mts, xlc_depletion::chain::REACTION_MTS);
 }
