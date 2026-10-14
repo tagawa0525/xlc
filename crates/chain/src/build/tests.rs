@@ -45,11 +45,13 @@ fn mode(steps: &[Step], final_state: u32, ratio: f64) -> DecayMode {
     }
 }
 
+/// MT18 があれば、その QI を 1.9e8 eV + Z とする（核種ごとに違う値にして、写し間違いを見つけるため）
 fn neutron(z: u32, a: u32, state: u32, mts: &[u32]) -> NeutronEvaluation {
     NeutronEvaluation {
         material: material(z, a, state, 0.0),
         mts: mts.to_vec(),
         final_states: vec![],
+        fission_q: mts.contains(&18).then_some(1.9e8 + f64::from(z)),
     }
 }
 
@@ -670,7 +672,7 @@ fn borrows_from_the_nearest_element_when_the_element_has_no_yields() {
         material: material(92, 235, 0, 0.0),
         tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
     };
-    let neutrons = [neutron(91, 233, 0, &[19]), neutron(92, 235, 0, &[18])];
+    let neutrons = [neutron(91, 233, 0, &[18, 19]), neutron(92, 235, 0, &[18])];
     let built = build(&decays, &neutrons, &[yields]).unwrap();
     assert_eq!(
         find(&built, "Pa-233")
@@ -679,6 +681,43 @@ fn borrows_from_the_nearest_element_when_the_element_has_no_yields() {
             .unwrap()
             .yield_source,
         "U-235"
+    );
+}
+
+#[test]
+fn takes_each_nuclides_own_fission_q_even_when_it_borrows_yields() {
+    let neutrons = [neutron(92, 235, 0, &[18]), neutron(92, 239, 0, &[18])];
+    let built = build(&fp_decays(), &neutrons, &[u235_yields()]).unwrap();
+    let q = |name| find(&built, name).fission.as_ref().unwrap().q;
+    assert_eq!(q("U-235"), 1.9e8 + 92.0);
+    assert_eq!(q("U-239"), 1.9e8 + 92.0);
+    let neutrons = [neutron(92, 235, 0, &[18]), neutron(93, 239, 0, &[18])];
+    let decays = with_light(vec![stable(92, 235), stable(93, 239), stable(53, 135)]);
+    let yields = YieldEvaluation {
+        material: material(92, 235, 0, 0.0),
+        tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
+    };
+    let built = build(&decays, &neutrons, &[yields]).unwrap();
+    assert_eq!(
+        find(&built, "Np-239").fission.as_ref().unwrap().q,
+        1.9e8 + 93.0
+    );
+}
+
+#[test]
+fn rejects_fission_without_the_q_value_of_mt18() {
+    let decays = with_light(vec![stable(91, 233), stable(92, 235), stable(53, 135)]);
+    let yields = YieldEvaluation {
+        material: material(92, 235, 0, 0.0),
+        tables: vec![(0.0253, vec![raw(53135, 0, 0.06)])],
+    };
+    let neutrons = [neutron(91, 233, 0, &[19]), neutron(92, 235, 0, &[18])];
+    let error = build(&decays, &neutrons, &[yields])
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("Pa-233") && error.contains("MT18"),
+        "{error}"
     );
 }
 
