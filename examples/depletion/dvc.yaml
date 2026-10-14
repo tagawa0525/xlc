@@ -1,7 +1,7 @@
 # 燃焼チェーンの段階: ENDF/B-VIII.0 の decay、nfy、neutrons → xlc の全核種のチェーン（ADR-0164。bin/chain、ADR-0166）と、比べる
 # OpenMC のチェーン（Chain.from_endf）。実行するのは default の devShell の `dvc repro`（ADR-0159）。OpenMC を使う段階は cmd を
 # references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps にする（ADR-0130）。
-# ENDF はディレクトリごと deps にする（sha256 で固定した。ADR-0124）。燃焼の検証の多群ライブラリ（ADR-0169）は、
+# チェーンと範囲の段階は ENDF をディレクトリごと deps にする（sha256 で固定した。ADR-0124）。燃焼の検証の多群ライブラリ（ADR-0169）は、
 # examples/vera と同じ核種ごとの段階（範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）で作る
 vars:
   - xs.toml
