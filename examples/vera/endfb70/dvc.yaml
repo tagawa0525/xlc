@@ -2,7 +2,7 @@
 # 比べる段階（ADR-0175）。ライブラリの段階の形は ../dvc.yaml の xs-range、xs-nuclide、xs と同じ（ADR-0138）。出力は
 # vera.msgpack（この dvc.yaml のあるディレクトリ。格子の入力の `library = "../vera.msgpack"` が、p1、p2、p3 のどれからも
 # ここを指す）。格子の入力は ../p1、../p2 のものを段階の中で p1、p2 に写して使う（写しは git で追跡しない）。
-# 3A、3B は p3/（p3_inputs.py --vii0 が書く）。走らせるのは default の devShell の `dvc repro`（ADR-0159）。
+# 3A、3B は p3/（p3_inputs.py --library-dir endfb70 が書く）。走らせるのは default の devShell の `dvc repro`（ADR-0159）。
 vars:
   - xs.toml
   - pincells:
@@ -58,10 +58,10 @@ stages:
     outs:
       - vera.msgpack
   pincell:
-    # ピンセル（k だけ）。結果の k∞ は標準出力に出る
+    # ピンセル（k だけ）。結果の k∞ は標準出力に出る。要約 compare-<問題>.json は git で追跡する（ADR-0176）
     foreach: ${pincells}
     do:
-      cmd: mkdir -p p1 && cp ../p1/pincell-${item}.toml p1/ && ../../../bin/lattice p1/pincell-${item}.toml > p1/lattice-${item}.out && python3 ../compare_keno_lattice.py ../../../references/vera/spec.txt ${item} p1/lattice-${item}.out > p1/compare-${item}.out
+      cmd: mkdir -p p1 && cp ../p1/pincell-${item}.toml p1/ && ../../../bin/lattice p1/pincell-${item}.toml > p1/lattice-${item}.out && python3 ../compare_keno_lattice.py --json compare-${item}.json ../../../references/vera/spec.txt ${item} p1/lattice-${item}.out
       deps:
         - ../p1/pincell-${item}.toml
         - vera.msgpack
@@ -73,12 +73,13 @@ stages:
         - ../../../bin/lattice
       outs:
         - p1/lattice-${item}.out
-        - p1/compare-${item}.out
+        - compare-${item}.json:
+            cache: false
   assembly:
-    # 集合体（k とピン出力）。ピン出力 pins-<問題>.msgpack は git で追跡しない
+    # 集合体（k とピン出力）。ピン出力 p2/pins-<問題>.msgpack は git で追跡しない
     foreach: ${assemblies}
     do:
-      cmd: mkdir -p p2 && cp ../p2/assembly-${item}.toml p2/ && ../../../bin/lattice p2/assembly-${item}.toml > p2/lattice-${item}.out && python3 ../compare_keno_lattice.py ../../../references/vera/spec.txt ${item} p2/lattice-${item}.out p2/pins-${item}.msgpack > p2/compare-${item}.out
+      cmd: mkdir -p p2 && cp ../p2/assembly-${item}.toml p2/ && ../../../bin/lattice p2/assembly-${item}.toml > p2/lattice-${item}.out && python3 ../compare_keno_lattice.py --json compare-${item}.json ../../../references/vera/spec.txt ${item} p2/lattice-${item}.out p2/pins-${item}.msgpack
       deps:
         - ../p2/assembly-${item}.toml
         - vera.msgpack
@@ -91,4 +92,5 @@ stages:
       outs:
         - p2/lattice-${item}.out
         - p2/pins-${item}.msgpack
-        - p2/compare-${item}.out
+        - compare-${item}.json:
+            cache: false

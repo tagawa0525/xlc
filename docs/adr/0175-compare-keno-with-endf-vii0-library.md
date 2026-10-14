@@ -38,8 +38,8 @@ OpenMC の参照解を作ってきた（ADR-0031。道具の固定は ADR-0124 �
 案 C にする（ユーザーの決定、2026-10-15）。
 
 - 検証用ライブラリは、本番の `examples/vera/xs.toml` と同じ核種・温度・群で、ENDF だけ VII.0 にしたもの
-  （`xs-vii0.toml`）。本番のライブラリ（VIII.0）と、その結果は変えない。コードも変えない。段階は `examples/vera/vii0/dvc.yaml`（入力は `vii0/xs.toml`、
-  3A・3B の入力は `p3_inputs.py --vii0` が `vii0/p3` に書く）
+  （`endfb70/xs.toml`）。本番のライブラリ（VIII.0）と、その結果は変えない。コードも変えない。段階は `examples/vera/endfb70/dvc.yaml`（入力は `endfb70/xs.toml`、
+  3A・3B の入力は `p3_inputs.py --library-dir endfb70` が `endfb70/p3` に書く）
 - 仕様書に KENO-VI の値がある問題（1B〜1D、2A〜2K、2Q、3A、3B）を VII.0 のライブラリで解き、KENO-VI と比べる
 - OpenMC の参照解は、仕様書に参照がない問題（燃焼、分岐、HFP）と、原因の診断に反応率が要るときの 2D の小さな問題だけ作る。
   3D の全炉心と Problem 4 の OpenMC は作らない（ADR-0031 の帰結を維持する）
@@ -47,8 +47,9 @@ OpenMC の参照解を作ってきた（ADR-0031。道具の固定は ADR-0124 �
   ADR-0031 から引き継いだ。この ADR は、その引き継いだ「参照解の作り方」のうち、KENO-VI の値がある問題の比べ方だけを
   足す。ADR-0124 の決定（固定の手段）は変えないので、置き換えず `requires` にする。VIII.0 の OpenMC との比較の
   位置づけ（コード同士の検証）も変えない
-- 核データの版を変えた検証の記録は、版ごとに別のファイルにする（`examples/<問題>/verification-<版>.md`）。今回は
-  `examples/vera/verification-vii0.md`。版の違う結果を 1 つの記録に混ぜない
+- 命名の規則: 評価済みデータごとに `examples/vera/<略称>/` と `verification-<略称>.md` を置く（ENDF/B-VII.0 は `endfb70`。
+  将来の JENDL-5、JEFF-3.3 は `jendl5`、`jeff33`）。本番（ENDF/B-VIII.0）は `examples/vera/` の直下のまま。版の違う結果を
+  1 つの記録に混ぜない
 
 比べるときの注意:
 
@@ -61,11 +62,11 @@ OpenMC の参照解を作ってきた（ADR-0031。道具の固定は ADR-0124 �
   差が内挿の違いに当たるかは確かめていない
 - ENDF/B-VII.0 には C-12 と C-13 のファイルがなく、天然の C（`n-006_C_000.endf`）だけがある。ADR-0079 は VIII.0 に
   天然の C がないために分けたので、VII.0 のライブラリでは C-12 と C-13 の両方にこの天然の C のファイルを指す
-  （入力 `xs-vii0.toml` で吸収する。コードは変えない）。KENO-VI も天然の C の評価を使うと見込むが、確かめていない
+  （入力 `endfb70/xs.toml` で吸収する。コードは変えない）。KENO-VI も天然の C の評価を使うと見込むが、確かめていない
 
 ## 確認
 
-`examples/vera/verification-vii0.md` に、問題ごとの k の差、ピン出力、3A・3B は軸方向の出力を、VIII.0 での KENO-VI、OpenMC との
+`examples/vera/verification-endfb70.md` に、問題ごとの k の差、ピン出力、3A・3B は軸方向の出力を、VIII.0 での KENO-VI、OpenMC との
 差と並べる。VII.0 での xlc − KENO-VI が VIII.0 での xlc − OpenMC と同程度なら、VIII.0 での KENO-VI との差の残りは
 核データの版の差だと言える。
 
