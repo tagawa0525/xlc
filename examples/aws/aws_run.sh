@@ -3,7 +3,7 @@
 # VM は user-data（aws_user_data.sh）で Nix とクロージャ、核データ、入力を S3 から取り、run_remote.sh で流し、S3 の
 # runs/<name>/<ジョブ>/ に同期し、終わると自分を終了する。手元はこのコマンドのあと要らない。
 #
-# 使い方: examples/vera/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--statepoint-interval N] [--az AZ] [--on-demand | --spot] [--job J]... [--retry-failed] <name> [<入力>...]
+# 使い方: examples/aws/aws_run.sh [--dry-run] [--type T] [--max-hours H] [--sync-minutes M] [--statepoint-interval N] [--az AZ] [--on-demand | --spot] [--job J]... [--retry-failed] <name> [<入力>...]
 #   <name>     実行の名前（S3 の runs/<name>/、タグ XlcRun、インスタンスの Name は <name>-<ジョブ>）
 #   <入力>     examples/vera/p3/openmc-3A.toml など（リポジトリの直下からの相対。.. を含まない）。1 つにつき 1 台。
 #              入力を渡すと新しい実行（runs/<name>/ がすでにあれば止まる）。クロージャ、核データ、スクリプトと入力を S3 に置く
@@ -437,6 +437,6 @@ for i in "${!todo[@]}"; do
     no_capacity=1
   fi
 done
-((dry)) || echo "進み具合: examples/vera/aws_status.sh、終わったら examples/vera/aws_fetch.sh $name"
+((dry)) || echo "進み具合: examples/aws/aws_status.sh、終わったら examples/aws/aws_fetch.sh $name"
 ((!no_capacity)) || exit 1
 exit "${stuck:-0}"

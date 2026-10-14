@@ -27,7 +27,7 @@ remote=$2
 [[ -f examples/vera/openmc-library/cross_sections.xml ]] ||
   { echo "examples/vera/openmc-library がありません（dvc checkout examples/vera/dvc.yaml）" >&2; exit 1; }
 
-if ((allow && !dry)); then "$(dirname "$0")/aws_allow_ip.sh"; fi
+if ((allow && !dry)); then "$(dirname "$0")/../aws/aws_allow_ip.sh"; fi
 
 mapfile -t outs < <(nix build .#openmc .#openmc-python --no-link --print-out-paths)
 openmc=${outs[0]}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # aws_user_data.sh（ADR-0155）が作る user-data の検査。flake の check（aws-user-data）が実行する。
 #
-# 使い方: examples/vera/test_aws_user_data.sh [<aws_user_data.sh のパス>]
+# 使い方: examples/aws/test_aws_user_data.sh [<aws_user_data.sh のパス>]
 set -euo pipefail
 # shellcheck source=aws_user_data.sh
 source "${1:-$(dirname "$0")/aws_user_data.sh}"

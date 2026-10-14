@@ -143,20 +143,20 @@ VM の上で調べたいときに使う。
 できなくてもよい）。結果は S3 に残り、VM は自分で終了する（EBS も消える）。
 
 ```sh
-examples/vera/aws_run.sh --dry-run m3 examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml   # 起動の引数の検証だけ
-examples/vera/aws_run.sh m3 examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml             # 起動（c7a.4xlarge を 2 台）
-examples/vera/aws_status.sh            # 走っている VM と、S3 の runs/ のジョブごとの done と最新の statepoint
-examples/vera/aws_run.sh m3            # 中断のあと: done のないジョブを起動し直す（statepoint があれば --restart）
-examples/vera/aws_fetch.sh --verify --delete m3   # 取り出し、manifest と手元の extract で検証し、S3 の runs/m3/ を消す
-examples/vera/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m3 の VM。S3 の statepoint から aws_run.sh m3 で続けられる）
+examples/aws/aws_run.sh --dry-run m3 examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml   # 起動の引数の検証だけ
+examples/aws/aws_run.sh m3 examples/vera/p3/openmc-3A.toml examples/vera/p3/openmc-3B.toml             # 起動（c7a.4xlarge を 2 台）
+examples/aws/aws_status.sh            # 走っている VM と、S3 の runs/ のジョブごとの done と最新の statepoint
+examples/aws/aws_run.sh m3            # 中断のあと: done のないジョブを起動し直す（statepoint があれば --restart）
+examples/aws/aws_fetch.sh --verify --delete m3   # 取り出し、manifest と手元の extract で検証し、S3 の runs/m3/ を消す
+examples/aws/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m3 の VM。S3 の statepoint から aws_run.sh m3 で続けられる）
 ```
 
-長く走る実行は `examples/vera/aws_watch.sh [--interval 秒] [--limit 回] <name>` で見張れる。<interval>（既定 300 秒）ごとに
+長く走る実行は `examples/aws/aws_watch.sh [--interval 秒] [--limit 回] <name>` で見張れる。<interval>（既定 300 秒）ごとに
 `aws_status.sh` と S3 の done を見て、done が 0 のジョブを完了、VM が走っていないジョブを欠けたジョブとし、1 回に 1 つ
 `aws_run.sh --job J --spot --type auto --statepoint-interval N [--retry-failed] <name>` で起動し直す（N はジョブ名が
 `openmc-3?` なら 50、それ以外は 25。done が 0 以外なら `--retry-failed`）。空きや候補がなければ次の回に回し、起動し直しの
 回数は実際に起動した回だけを数えて上限（既定 60）で終了コード 2、認証切れ（`aws login` の期限は約 12 時間。VM は動き続ける）は
-4、そのほかの失敗は 3、全部 done なら `ALL DONE` で 0。起動は `nohup examples/vera/aws_watch.sh m3 > ~/aws-watch-m3.log 2>&1 &`
+4、そのほかの失敗は 3、全部 done なら `ALL DONE` で 0。起動は `nohup examples/aws/aws_watch.sh m3 > ~/aws-watch-m3.log 2>&1 &`
 のような形で、1 回ごとに 1 行（時刻、done の数、欠けたジョブ、失敗、回数）を書く。
 
 用意するもの（2026-10-13 に作成済み。バケットは管理者が作った）:
@@ -183,7 +183,7 @@ S3 の置き場:
 （`..` を含まない）で、VM の作業ディレクトリにも同じ相対パスで置く。VM はバケットと同じリージョン（`AWS_DEFAULT_REGION` がバケットと違えば止まる）で起動する。名前は `run_remote.sh` が受け付ける `openmc-3?` か
 `openmc-5?-2D` に限り、S3 に置く前に確かめる。VM が取る AWS CLI が cache.nixos.org にあることも先に確かめる。
 
-VM の流れ（`examples/vera/aws_user_data.sh` が作る user-data。cloud-init が root で実行する）:
+VM の流れ（`examples/aws/aws_user_data.sh` が作る user-data。cloud-init が root で実行する）:
 
 1. `shutdown -h +<--max-hours × 60>`（既定 14 時間）を予約する。起動は `--instance-initiated-shutdown-behavior terminate` なので、
    電源が切れると終了する。時間切れでも statepoint は S3 にあるので、`aws_run.sh <名前>` で続けられる
@@ -239,7 +239,7 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 - EC2 と EBS は VM が動いている間だけ（下の「ツールを使う手順」の見積もり）。最長の時間で止まるので、1 台あたりの上限は
   14 時間 × スポット価格
 
-起動の前にどのリージョンと AZ が安いかは、`examples/vera/aws_spot_prices.sh [--type T] [--hours H] [--regions R1,R2] [--running]` で見る。
+起動の前にどのリージョンと AZ が安いかは、`examples/aws/aws_spot_prices.sh [--type T] [--hours H] [--regions R1,R2] [--running]` で見る。
 直近 H 時間（既定 1）の `DescribeSpotPriceHistory` を引き、AZ ごとの最新のスポット価格を昇順に、最安に対する比とオンデマンド価格
 （pricing API。取れなければ省く）に対する比とともに出す。`--running` は、タグ XlcRun の走っているインスタンスの AZ に印を付ける。組織の SCP が
 拒むリージョン（2026-10-13 の時点で許されるのは us-east-1 と us-west-2 だけ）は表の後に 1 行にまとめ、それ以外のエラーは止まる。
@@ -252,7 +252,7 @@ VM にはキーペアを付けず、VPC の既定のセキュリティグルー�
 
 #### 機種と AZ の自動選択（`--type auto`、ADR-0171）
 
-`aws_run.sh --type auto`（新しい実行と起動し直しの両方）は、`examples/vera/aws_types.toml` の候補の機種（c8a.4xlarge、c8a.8xlarge、
+`aws_run.sh --type auto`（新しい実行と起動し直しの両方）は、`examples/aws/aws_types.toml` の候補の機種（c8a.4xlarge、c8a.8xlarge、
 c7a.8xlarge、c7a.4xlarge）の直近 1 時間のスポット価格を AZ ごとに引き、1 本の費用 = 価格 ÷ 速度の安い (機種, AZ) から順に
 `run-instances` を試す。空き、クォータ（8xlarge は 64 vCPU で同時 2 台）、価格の失敗は次の候補へ回り、全部失敗なら終了コード 1 で
 「空きがない」と出す（監視のスクリプトが起動し直しで再試行する）。`--az` と併用すると AZ を固定して機種だけ選ぶ。`--type <機種>` や `--az` の明示は、候補より優先する。
@@ -264,7 +264,7 @@ c7a.8xlarge、c7a.4xlarge）の直近 1 時間のスポット価格を AZ ごと
 
 #### 自己完結な実行の確認（2026-10-13）
 
-c7a.large のスポットで、examples/vera/aws-check/openmc-3A.toml（粒子 1 万・200 世代・捨てる 50・間隔 20）を `--type c7a.large --sync-minutes 1`
+c7a.large のスポットで、examples/aws/aws-check/openmc-3A.toml（粒子 1 万・200 世代・捨てる 50・間隔 20）を `--type c7a.large --sync-minutes 1`
 で流した（xlc のコミット 4f5d2aa8 のスクリプト。結果の詳細は ADR-0155 の「確認」）。手元から ssh はしていない。
 
 - 起動から自己終了（terminated）まで約 9 分 20 秒。user-data の開始から run の開始までの準備は約 1 分 30 秒
@@ -282,11 +282,11 @@ c7a.large のスポットで、examples/vera/aws-check/openmc-3A.toml（粒子 1
 キーペア `xlc-aws`（`~/.ssh/xlc-aws.pem`）とセキュリティグループ `xlc-ssh`（22/tcp を手元の IP の /32 だけ）は作成済みで、残してある。
 
 ```sh
-examples/vera/aws_launch.sh xlc3 --count 2          # 起動。c7a.4xlarge のスポット（one-time、gp3 40 GB）を xlc3-1、xlc3-2 の名前で
+examples/aws/aws_launch.sh xlc3 --count 2          # 起動。c7a.4xlarge のスポット（one-time、gp3 40 GB）を xlc3-1、xlc3-2 の名前で
 examples/vera/remote_send.sh --allow-ip xlc3-1 /home/ubuntu/xlc   # 送る（各 VM に。下の「VM に Nix を入れる」を先に）
-examples/vera/aws_status.sh                         # 走っている VM、起動からの時間、スポット価格
+examples/aws/aws_status.sh                         # 走っている VM、起動からの時間、スポット価格
 examples/vera/remote_fetch.sh --allow-ip xlc3-1 /home/ubuntu/xlc references/openmc/remote/xlc3-1   # 戻す
-examples/vera/aws_terminate.sh xlc3                 # 終了（terminated を待ち、~/.ssh/config の Host を消す）
+examples/aws/aws_terminate.sh xlc3                 # 終了（terminated を待ち、~/.ssh/config の Host を消す）
 ```
 
 - `aws_launch.sh` は、AMI（Ubuntu 24.04 の最新。SCP で SSM の公開パラメータが引けないので `describe-images --owners 099720109477`）を引き、
