@@ -818,34 +818,33 @@ def pipeline() -> str:
         # OpenMC の参照解は DVC の段階の出力でない（AWS の VM の実行 m3 から取り出した references/ のファイル）ので、
         # 比べる 4 つのファイルを deps に書く。表を描く道具（examples/verification_tables.py）が JSON を読む（ADR-0176）。JSON は数十 KB ほどの要約で、
         # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印）
-        if UP:
-            continue
-        openmc = f"../../../references/openmc/aws/m3/openmc-{problem}"
-        stages.append(
-            stage(
-                f"compare-{problem}-openmc",
-                f"python3 ../compare_p3.py --json compare-{problem}-openmc.json {problem} ../../../references/vera/spec.txt "
-                f"core-{problem}.out core-{problem}-pins.msgpack core-{problem}-layers.msgpack {openmc}",
-                [
-                    "../compare_p3.py",
-                    "../compare_keno.py",
-                    "../../../references/vera/spec.txt",
-                    *(
-                        f"{openmc}/{f}"
-                        for f in [
-                            "k.json",
-                            "layers.msgpack",
-                            "pins.msgpack",
-                            "pins-std.msgpack",
-                        ]
-                    ),
-                    f"core-{problem}.out",
-                    f"core-{problem}-pins.msgpack",
-                    f"core-{problem}-layers.msgpack",
-                ],
-                [f"git:compare-{problem}-openmc.json"],
+        if not UP:
+            openmc = f"../../../references/openmc/aws/m3/openmc-{problem}"
+            stages.append(
+                stage(
+                    f"compare-{problem}-openmc",
+                    f"python3 ../compare_p3.py --json compare-{problem}-openmc.json {problem} ../../../references/vera/spec.txt "
+                    f"core-{problem}.out core-{problem}-pins.msgpack core-{problem}-layers.msgpack {openmc}",
+                    [
+                        "../compare_p3.py",
+                        "../compare_keno.py",
+                        "../../../references/vera/spec.txt",
+                        *(
+                            f"{openmc}/{f}"
+                            for f in [
+                                "k.json",
+                                "layers.msgpack",
+                                "pins.msgpack",
+                                "pins-std.msgpack",
+                            ]
+                        ),
+                        f"core-{problem}.out",
+                        f"core-{problem}-pins.msgpack",
+                        f"core-{problem}-layers.msgpack",
+                    ],
+                    [f"git:compare-{problem}-openmc.json"],
+                )
             )
-        )
     return (
         "# このファイルは p3_inputs.py が書く。手で直さない。\n"
         "# VERA Problem 3A、3B を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 燃料の高さの 2D の格子（層ごとの\n"
