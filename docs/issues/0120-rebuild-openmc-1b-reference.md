@@ -4,7 +4,7 @@ labels: [vera, openmc]
 opened: 2026-10-14
 closed:
 milestone: M3
-blocked-by: []
+blocked-by: ["#0124"]
 resolution:
 ---
 
@@ -20,7 +20,7 @@ deps で lock されたままで、`dvc status` で changed になる。その�
 - 06434194: 参照解に標準のタリーの組（ADR-0152）を仕込んだ（`openmc_model.py`、`openmc_tallies.py`）
 - e905948a、45e8c77f、ac3fc088、7340855b: run の補助（`examples/openmc_run.py`）と model の整理
 
-`dvc repro -P` は、この 2 段階（と下の古い段階）を走らせ、1B の参照解を今のライブラリとスクリプトで作り直す（`openmc-1B` は 16 スレッドで約 18 分。
+`dvc repro -P` は、この 2 段階を走らせ、1B の参照解を今のライブラリとスクリプトで作り直す（`openmc-1B` は 16 スレッドで約 18 分。
 ADR-0136）。ADR-0136 は OpenMC の段階を `openmc-1B-model`（model.xml）と `openmc-1B` に分け、標準のタリーで model.xml が
 変わったため走行の段階は古いまま残し、作り直しは別に行うとした（#0018 の残りの項目にも同じ記述がある）。この issue はその作り直しを受け持つ。
 高速化の後の記録の測り直し（ブランチ docs/remeasure-after-speedups）は、参照解を替えないためにこの 2 段階を走らせず、
@@ -30,20 +30,17 @@ ADR-0136）。ADR-0136 は OpenMC の段階を `openmc-1B-model`（model.xml）�
 
 関係する ADR: なし
 
-main の ADR-0167（MLBW のエネルギーに依存する散乱半径）と ADR-0170（J・K の表の θ の下限）で `bin/xs` が変わり、`xs` の段階も古い（測り直しのジョブは ADR-0167 の
-マージの前の分岐点 d07475d3 で走った。examples/core、m0、reflector の `xs` とその下流も同じく古い）。完了の条件のコマンドは
-`xs-range`、核種ごとの `xs-nuclide@*`（60 段階）、`xs`（合わせて約 26 分）と `lattice-1B` も走らせる。ADR-0167 は NRO=1 の MLBW の評価だけに効き、VERA の核種はそれまでの xs で処理
-できていたので、ADR-0167 では vera.msgpack と 1B の xlc の k は変わらない見込み（確かめていない）。ADR-0170 の影響は見積もっていない。変わったら、参照解の変化と分けて書く。
+xs の段階とその下流（`lattice-1B` を含む）も ADR-0167 と ADR-0170 の後で古く、#0124 で走らせ直す。#0124 を先に閉じれば、
+ここで走るのは OpenMC の段階と `compare-1B` だけになる。
 同じく main の OpenMC のスクリプトの変更（openmc_core_2d.py、openmc_model.py など）で、`openmc-5A-2D-extract` の deps も古い。
 抽出だけの段階（statepoint は `references/openmc/vera-5A-2D/`）なので、同じ機会に走らせ直し、5-2D の OpenMC との比較の値が
 変わらないことを確かめる。
 
 ## 完了の条件
 
-- `dvc repro examples/vera/dvc.yaml` で古い段階（`openmc-1B`、`openmc-1B-extract`、`compare-1B`、`openmc-5A-2D-extract`、
-  古ければ `xs` と `lattice-1B`）を走らせ、`dvc.lock` をコミットする（Slurm で排他、スキル openmc-reference）
+- `dvc repro examples/vera/dvc.yaml` で古い段階（`openmc-1B`、`openmc-1B-extract`、`compare-1B`、`openmc-5A-2D-extract`）を
+  走らせ、`dvc.lock` をコミットする（Slurm で排他、スキル openmc-reference）
 - 5-2D の OpenMC との比較の値が変わらないことを確かめる
-- examples/core、m0、reflector の古い `xs` とその下流も `dvc repro` で揃え、出力が変わるかを記録に書く
 - examples/vera/verification.md の「参照解」の 1B の行と、「OpenMC との比較」の 1B の差を、新しい参照解で書き直す。
   2026-10-11 の参照解（examples/vera/verification.md の「参照解」の 1B、2ff665e4、1.181783 ± 0.000063）との差が統計誤差の中かを書く
 
