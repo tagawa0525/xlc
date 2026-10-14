@@ -32,6 +32,8 @@ examples/vera/verification.md の表のうち、出どころが分かってい�
 - 「温度と支持格子による差の変化」「吸収体による差の変化」: ほかの表の差の引き算（派生の表。元の表の JSON から描けるかは確認していない）
 - 「k の差の内訳」の各表: `compare_balance.py`、`compare_groups.py`（Slurm で流す重い計算の出力。段階にしていない）
 
+関係する ADR: ADR-0176
+
 ## 完了の条件
 
 - 比較の道具ごとに `--json` を足し（TDD）、`p<N>/dvc.yaml` の生成元（`p3_inputs.py` のような）に JSON を outs とする段階を足して relock する。
