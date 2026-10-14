@@ -5990,3 +5990,105 @@ stages:
       hash: md5
       md5: d5d42cf894afae2b82720802727a86c6
       size: 588
+  compare-5B-openmc:
+    cmd: python3 ../compare_p5.py --json compare-5B-openmc.json openmc 5B 
+      ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack 
+      ../../../references/openmc/aws/m3/openmc-5B-2D
+    deps:
+    - path: 
+        ../../../references/openmc/aws/m3/openmc-5B-2D/assemblies-std.msgpack
+      hash: md5
+      md5: ba91756fb5b6fa40eef85da5124bdcff
+      size: 2069
+    - path: ../../../references/openmc/aws/m3/openmc-5B-2D/assemblies.msgpack
+      hash: md5
+      md5: 464b40cdf04f04d7e2e07c039d396a95
+      size: 2069
+    - path: ../../../references/openmc/aws/m3/openmc-5B-2D/k.json
+      hash: md5
+      md5: d2a9de1a44279b2213594905c5e7ae66
+      size: 78
+    - path: ../../../references/openmc/aws/m3/openmc-5B-2D/pins-std.msgpack
+      hash: md5
+      md5: 5f877e016b0f0126ecab341243e8ee10
+      size: 586021
+    - path: ../../../references/openmc/aws/m3/openmc-5B-2D/pins.msgpack
+      hash: md5
+      md5: a4cecfe9f33a192b0caa1ca526465137
+      size: 586021
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
+    - path: core-5B-pins.msgpack
+      hash: md5
+      md5: 0b65a36af3f524abf11b14a2f2d8a939
+      size: 586021
+    - path: core-5B.out
+      hash: md5
+      md5: 310ef0d23e8b3ab85728789e695905bf
+      size: 2302
+    outs:
+    - path: compare-5B-openmc.json
+      hash: md5
+      md5: 1ca7f4831d880cea966f324fa6ef302b
+      size: 6348
+  compare-5C-openmc:
+    cmd: python3 ../compare_p5.py --json compare-5C-openmc.json openmc 5C 
+      ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack 
+      ../../../references/openmc/aws/m3/openmc-5C-2D
+    deps:
+    - path: 
+        ../../../references/openmc/aws/m3/openmc-5C-2D/assemblies-std.msgpack
+      hash: md5
+      md5: 87f24534884d022858decbf9cb436be0
+      size: 2069
+    - path: ../../../references/openmc/aws/m3/openmc-5C-2D/assemblies.msgpack
+      hash: md5
+      md5: 7b6b4a0a0571d87d447802ba94fd0306
+      size: 2069
+    - path: ../../../references/openmc/aws/m3/openmc-5C-2D/k.json
+      hash: md5
+      md5: 3e2f95e4221eac1b2c0601d57b1490f5
+      size: 79
+    - path: ../../../references/openmc/aws/m3/openmc-5C-2D/pins-std.msgpack
+      hash: md5
+      md5: 23ed7a506e3295d15acc4c3e29fbc5c3
+      size: 586021
+    - path: ../../../references/openmc/aws/m3/openmc-5C-2D/pins.msgpack
+      hash: md5
+      md5: f50ef95250846a9a8e4326fb4af6721d
+      size: 586021
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: ../compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: ../compare_p5.py
+      hash: md5
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
+    - path: core-5C-pins.msgpack
+      hash: md5
+      md5: 1556619025e20c6b879b88065e2e6aa6
+      size: 586021
+    - path: core-5C.out
+      hash: md5
+      md5: fc62f617cbb22b04e5fadac35798baf1
+      size: 2302
+    outs:
+    - path: compare-5C-openmc.json
+      hash: md5
+      md5: b3627d1dc721ea576407adab1dbf5a43
+      size: 6351
