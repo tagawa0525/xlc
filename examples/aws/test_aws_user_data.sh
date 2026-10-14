@@ -22,7 +22,9 @@ openmc=/nix/store/00000000000000000000000000000000-openmc-0.15.2
 python=/nix/store/11111111111111111111111111111111-python3-env
 awscli=/nix/store/22222222222222222222222222222222-awscli2-2.35.11
 args=(us-east-2 xlc-openmc-test trial openmc-3A trials/aws/openmc-3A.toml)
-tail_args=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli" "")
+# 最後の 4 つは定義（ADR-0174）の entry、progress、library、data（path=鍵 の空白区切り）
+def_args=(examples/vera/run_remote.sh statepoint examples/vera/openmc-library "")
+tail_args=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli" "" "${def_args[@]}")
 
 fresh=$(aws_user_data "${args[@]}" 0 "${tail_args[@]}")
 restart=$(aws_user_data "${args[@]}" 1 "${tail_args[@]}")
@@ -150,24 +152,43 @@ rejects() { # <名前> <引数>...
   if aws_user_data "$@" > /dev/null 2>&1; then fail "$name: 受け付けた"; fi
 }
 rejects "再開が 2" "${args[@]}" 2 "${tail_args[@]}"
-rejects "最長の分が 0" "${args[@]}" 0 0 300 lib nix "$openmc" "$python" "$awscli" ""
-rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python" "$awscli" ""
+rejects "最長の分が 0" "${args[@]}" 0 0 300 lib nix "$openmc" "$python" "$awscli" "" "${def_args[@]}"
+rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python" "$awscli" "" "${def_args[@]}"
 rejects "空白を含む入力" us-east-2 xlc-openmc-test trial openmc-3A 'a b.toml' 0 "${tail_args[@]}"
 rejects "引数が足りない" "${args[@]}" 0 840
 
 # 起動し直しで statepoint の間隔を上書きする（ADR-0168）
 interval_tests() {
   local fresh_50 restart_50 base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli")
-  fresh_50=$(aws_user_data "${args[@]}" 0 "${base[@]}" 50)
-  restart_50=$(aws_user_data "${args[@]}" 1 "${base[@]}" 50)
+  fresh_50=$(aws_user_data "${args[@]}" 0 "${base[@]}" 50 "${def_args[@]}")
+  restart_50=$(aws_user_data "${args[@]}" 1 "${base[@]}" 50 "${def_args[@]}")
   contains "$fresh_50" 'bash examples/vera/run_remote.sh --statepoint-interval 50 trials/aws/openmc-3A.toml' fresh_50
   contains "$restart_50" 'bash examples/vera/run_remote.sh --restart --statepoint-interval 50 trials/aws/openmc-3A.toml' restart_50
   bash -n <<< "$fresh_50" || fail "fresh_50: bash の構文"
-  rejects "間隔が 0" "${args[@]}" 0 "${base[@]}" 0
-  rejects "間隔が数でない" "${args[@]}" 0 "${base[@]}" 5x
+  rejects "間隔が 0" "${args[@]}" 0 "${base[@]}" 0 "${def_args[@]}"
+  rejects "間隔が数でない" "${args[@]}" 0 "${base[@]}" 5x "${def_args[@]}"
 }
 
 interval_tests
+
+# 定義（ADR-0174）の entry、library、data が user-data に入る
+definition_tests() {
+  local base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli" "") text
+  text=$(aws_user_data us-east-2 xlc-openmc-test trial openmc-1C-a trials/aws/openmc-1C-a.toml 0 "${base[@]}" \
+    examples/depletion/run_remote.sh statepoint examples/depletion/openmc-library \
+    "examples/depletion/openmc-chain.xml=0123456789abcdef")
+  bash -n <<< "$text" || fail "definition: bash の構文"
+  contains "$text" '"$AWS" s3 sync --only-show-errors "s3://$BUCKET/store/openmc-library/lib0123456789abcd" examples/depletion/openmc-library' definition
+  contains "$text" 'bash examples/depletion/run_remote.sh trials/aws/openmc-1C-a.toml' definition
+  lacks "$text" 'examples/vera' definition
+  contains "$text" 'mkdir -p examples/depletion' definition
+  contains "$text" '"$AWS" s3 cp --only-show-errors "s3://$BUCKET/store/data/0123456789abcdef/openmc-chain.xml" examples/depletion/openmc-chain.xml' definition
+  before "$text" '"$AWS" s3 cp --only-show-errors "s3://$BUCKET/store/data/0123456789abcdef/openmc-chain.xml" examples/depletion/openmc-chain.xml' 'READY=1' definition
+  rejects "data の鍵が不正" us-east-2 xlc-openmc-test trial j trials/a.toml 0 "${base[@]}" e statepoint examples/l "examples/c.xml=zz"
+  rejects "progress が不明" us-east-2 xlc-openmc-test trial j trials/a.toml 0 "${base[@]}" e other examples/l ""
+  rejects "entry に .." us-east-2 xlc-openmc-test trial j trials/a.toml 0 "${base[@]}" ../e statepoint examples/l ""
+}
+definition_tests
 
 if ((failures)); then
   echo "$failures 件の失敗" >&2
