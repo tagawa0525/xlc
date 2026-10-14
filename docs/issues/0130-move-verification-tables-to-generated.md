@@ -36,6 +36,8 @@ examples/vera/verification.md の表のうち、出どころが分かってい�
 
 ## 完了の条件
 
+- 比較のツールの `.out` は、移すときに ADR-0176 の形式の役割に合わせて JSON だけにし、文章は `--report` で JSON から描く
+  （`compare_p3.py` と同じ。`compare_p5.py`、`compare_hzp.py`、`compare_k.py` などの `.out` は、この issue で移すまで触らない）
 - 比較のツールごとに `--json` を足し（TDD）、`p<N>/dvc.yaml` の生成元（`p3_inputs.py` のような）に JSON を outs とする段階を足して relock する。
   ツールの出力の表への対応は `examples/verification_tables.py` の `TABLES` に足す。`compare_p5.py`（最も多い）、`compare_keno.py`、
   `compare_k.py`、`compare_pins.py` の順が目安
