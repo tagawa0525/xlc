@@ -125,6 +125,36 @@ class Replace(unittest.TestCase):
             with self.assertRaises(vt.TableError, msg=text):
                 vt.render(text, self.root)
 
+    def test_malformed_and_stray_marks_are_errors(self):
+        """目印の書き損じを文章として読み飛ばすと、手で直した表が検査を通る"""
+        self.lock()
+        for text in [
+            "<!-- table: demo  -->\n<!-- /table -->\n",
+            "<!--table: demo-->\n<!-- /table -->\n",
+            " <!-- table: demo -->\n<!-- /table -->\n",
+            "<!-- /table -->\n",
+            "<!-- table: demo -->\n<!-- /table  -->\n",
+        ]:
+            with self.assertRaises(vt.TableError, msg=text):
+                vt.render(text, self.root)
+
+    def test_an_invalid_or_old_json_is_an_error_not_a_traceback(self):
+        (self.root / "t/a.json").write_text('{"format": "xlc-compare-p3"')
+        self.lock()
+        with self.assertRaisesRegex(vt.TableError, "not valid JSON"):
+            vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
+        (self.root / "t/a.json").write_text(
+            '{"format": "xlc-compare-p3", "k": {"openmc": 1}}'
+        )
+        self.lock()
+        with self.assertRaisesRegex(vt.TableError, "lacks"):
+            vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
+
+    def test_a_value_rounding_to_zero_has_no_sign(self):
+        self.assertEqual(vt.signed(-0.3, 0), "0")
+        self.assertEqual(vt.signed(-0.0004, 3), "0.000")
+        self.assertEqual(vt.signed(-1.5, 1), "\u22121.5")
+
     def test_json_differing_from_dvc_lock_is_an_error(self):
         self.lock("0" * 32)
         with self.assertRaises(vt.TableError):

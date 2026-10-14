@@ -29,7 +29,10 @@ class TableError(Exception):
 
 def signed(x: float, digits: int) -> str:
     """符号つきの小数（記録の書き方に合わせ、負の符号は U+2212）"""
-    return f"{x:+.{digits}f}".replace("-", "−")
+    text = f"{x:+.{digits}f}"
+    if float(text) == 0:  # 丸めて 0 になる負の値に符号を付けない
+        text = f"{0:.{digits}f}"
+    return text.replace("-", "−")
 
 
 def width(text: str) -> int:
@@ -168,15 +171,18 @@ def load(root: Path, source: str, verify: bool) -> dict:
     path = root / source
     if not path.exists():
         raise TableError(
-            f"{source} does not exist (the stage has not run); run dvc repro {path.parent.relative_to(root)}/dvc.yaml"
+            f"{source} does not exist (the stage has not run, or it is not committed); run dvc repro {path.parent.relative_to(root)}/dvc.yaml and commit it"
         )
     if verify and hashlib.md5(path.read_bytes()).hexdigest() != locked_md5(
         root, source
     ):
         raise TableError(
-            f"{source} differs from the md5 in dvc.lock; run dvc checkout (or relock the stage)"
+            f"{source} differs from the md5 in dvc.lock; restore it with git checkout {source}, or run the stage and commit dvc.lock"
         )
-    return json.loads(path.read_text())
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise TableError(f"{source} is not valid JSON: {e}") from e
 
 
 def render(text: str, root: Path, verify: bool = True) -> str:
@@ -186,7 +192,11 @@ def render(text: str, root: Path, verify: bool = True) -> str:
     seen: set[str] = set()
     for number, line in enumerate(text.split("\n"), 1):
         m = OPEN.match(line)
+        if not m and line != CLOSE and re.search(r"<!--\s*/?table\b", line):
+            raise TableError(f"line {number}: malformed table mark: {line!r}")
         if name is None:
+            if line == CLOSE:
+                raise TableError(f"line {number}: {CLOSE} without an open mark")
             out.append(line)
             if m:
                 name = m.group(1)
@@ -196,7 +206,13 @@ def render(text: str, root: Path, verify: bool = True) -> str:
                     raise TableError(f"line {number}: table {name} appears twice")
                 seen.add(name)
                 sources, draw = TABLES[name]
-                out.extend(["", draw([load(root, s, verify) for s in sources]), ""])
+                try:
+                    table = draw([load(root, s, verify) for s in sources])
+                except (KeyError, TypeError, IndexError) as e:
+                    raise TableError(
+                        f"line {number}: table {name}: the JSON lacks {e!r}; rerun the stage that writes it"
+                    ) from e
+                out.extend(["", table, ""])
         elif line == CLOSE:
             out.append(line)
             name = None

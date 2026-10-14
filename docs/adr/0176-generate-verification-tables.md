@@ -144,7 +144,7 @@ issues: ["#0130"]
 - 表の外の文章（本文の中の数値）は、手で書くまま。同じ量を 2 か所に書くと食い違いうる。本文の数値を JSON から埋める方式は、必要に
   なるまで作らない（#0130）
 - JSON は DVC の出力（`cache: false`）のまま git で追跡する。`--check` と `cargo test` は、worktree でも nix の sandbox でも
-  `dvc checkout` なしに走る。JSON が手で直されると `dvc.lock` の md5 と合わず落ちる。JSON は数 KB の要約なので、リポジトリは
+  `dvc checkout` なしに走る。JSON が手で直されると `dvc.lock` の md5 と合わず落ちる。JSON は数十 KB ほどの要約なので、リポジトリは
   ほとんど増えない（試作の OpenMC ありの 2 つで 27 KB ほどずつ、KENO-VI だけの 2 つで 6 KB ずつ）
 - Python のテストは `run-checks.sh` の pytest が走らない配置（リポジトリの直下に `test_*.py` が無い）なので、手で
   `python3 -m unittest discover -s examples -p 'test_verification_tables.py'` を走らせる（`test_compare_p3.py` と同じ）
