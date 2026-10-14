@@ -234,10 +234,16 @@
           dvc repro
           cp out.txt $out
         '';
-        # 自己完結な実行の VM の user-data（examples/vera/aws_user_data.sh。ADR-0155）
+        # 自己完結な実行の VM の user-data（examples/aws/aws_user_data.sh。ADR-0155）
         aws-user-data = pkgs.runCommand "aws-user-data" { } ''
           export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin
-          bash ${./examples/vera/test_aws_user_data.sh} ${./examples/vera/aws_user_data.sh} > $out
+          bash ${./examples/aws/test_aws_user_data.sh} ${./examples/aws/aws_user_data.sh} > $out
+        '';
+        # 実行の定義（examples/<問題>/aws.toml。ADR-0174）を読む部品と、リポジトリの定義
+        aws-definition = pkgs.runCommand "aws-definition" { } ''
+          export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin
+          bash ${./examples/aws/test_aws_definition.sh} ${./examples/aws/aws_common.sh} \
+            ${./examples/vera/aws.toml} ${./examples/depletion/aws.toml} ${./examples/aws/aws-check/aws.toml} > $out
         '';
       };
 

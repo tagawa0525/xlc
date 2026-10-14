@@ -2,7 +2,7 @@
 # リージョンと AZ ごとのスポット価格（直近の履歴の最新）を価格の昇順に出す。起動の前にどこが安いかを見る参考の情報
 # （aws_run.sh は AZ を選べない。docs/environment.md の「外部の計算機（AWS）」）。
 #
-# 使い方: examples/vera/aws_spot_prices.sh [--type T] [--hours H] [--regions R1,R2] [--running]
+# 使い方: examples/aws/aws_spot_prices.sh [--type T] [--hours H] [--regions R1,R2] [--running]
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）
 #   --hours    履歴を引く範囲（直近 H 時間。既定 1。AZ ごとに最新の価格を使う）
 #   --regions  引くリージョン（カンマ区切り。既定は describe-regions で有効なものすべて）

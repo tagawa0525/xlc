@@ -2,7 +2,7 @@
 # 捨てる 50・statepoint の間隔 20。世代を多くするのは、走っている途中で終了して再開を確かめる時間を取るため
 # （docs/environment.md の「自己完結な実行」の「確認」）。k は参照解に使わない
 problem = "3A"
-cross-sections = "../openmc-library/cross_sections.xml"
+cross-sections = "../../vera/openmc-library/cross_sections.xml"
 particles = 10000
 batches = 200
 inactive = 50

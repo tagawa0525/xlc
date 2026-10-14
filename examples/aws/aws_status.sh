@@ -2,7 +2,7 @@
 # 走っている（終了前の）インスタンスと起動からの時間、スポット価格の目安を出す（docs/environment.md の「外部の計算機（AWS）」）。
 # 続けて、S3 の runs/ にある自己完結な実行（aws_run.sh。ADR-0155）のジョブごとの done と最新の statepoint を出す。
 #
-# 使い方: examples/vera/aws_status.sh
+# 使い方: examples/aws/aws_status.sh
 set -euo pipefail
 # shellcheck source=aws_common.sh
 source "$(dirname "$0")/aws_common.sh"
@@ -36,11 +36,12 @@ for run in "${runs[@]}"; do
   # launch.env がない実行（置いている途中か失敗）は、read_launch_env が止めるので、先に確かめる
   keys=$(s3_keys "runs/$run/launch.env")
   [[ -n $keys ]] || { echo "$run: launch.env がありません"; continue; }
-  read_launch_env "$run"
+  read_launch_env "$run" --allow-no-definition
+  [[ -n $RUN_DEFINITION ]] || { echo "$run: launch.env に DEFINITION がありません（ADR-0174 より前の実行。進み具合は出さない）"; continue; }
   for input in "${RUN_INPUTS[@]}"; do
     job=$(job_name "$input")
     code=$(job_done "$run" "$job")
-    last=$(job_latest_statepoint "$run" "$job")
-    echo "$run/$job: done ${code:-なし}、最新の statepoint ${last:-なし}"
+    last=$(job_latest_progress "$run" "$job")
+    echo "$run/$job: done ${code:-なし}、最新の進み具合 ${last:-なし}"
   done
 done

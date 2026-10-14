@@ -2,7 +2,7 @@
 # セキュリティグループ xlc-ssh の 22/tcp を、手元の今のグローバル IP の /32 だけにする（docs/environment.md の「外部の計算機（AWS）」）。
 # 古い規則は消す。すでに一致なら何もしない。
 #
-# 使い方: examples/vera/aws_allow_ip.sh [--dry-run] [--ip <IPv4>]
+# 使い方: examples/aws/aws_allow_ip.sh [--dry-run] [--ip <IPv4>]
 #   --dry-run  変更せず、何をするかだけ出す
 #   --ip       checkip.amazonaws.com の代わりにこの IP を使う（IP の変更の確認用）
 set -euo pipefail
