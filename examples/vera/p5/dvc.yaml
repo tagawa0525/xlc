@@ -530,7 +530,7 @@ stages:
     outs:
       - compare-lattice-corner-fstar.out
   compare-5A:
-    cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack > compare-5A.out
+    cmd: python3 ../compare_p5.py --json compare-5A.json keno 5A ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack
     deps:
       - ../compare_p5.py
       - ../compare_k.py
@@ -538,9 +538,10 @@ stages:
       - core-5A.out
       - core-5A-pins.msgpack
     outs:
-      - compare-5A.out
+      - compare-5A.json:
+          cache: false
   compare-5A-Ly:
-    cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt core-5A-Ly.out core-5A-Ly-pins.msgpack > compare-5A-Ly.out
+    cmd: python3 ../compare_p5.py --json compare-5A-Ly.json keno 5A ../../../references/vera/spec.txt core-5A-Ly.out core-5A-Ly-pins.msgpack
     deps:
       - ../compare_p5.py
       - ../compare_k.py
@@ -548,9 +549,10 @@ stages:
       - core-5A-Ly.out
       - core-5A-Ly-pins.msgpack
     outs:
-      - compare-5A-Ly.out
+      - compare-5A-Ly.json:
+          cache: false
   compare-5A-Inext:
-    cmd: python3 ../compare_p5.py keno 5A ../../../references/vera/spec.txt core-5A-Inext.out core-5A-Inext-pins.msgpack > compare-5A-Inext.out
+    cmd: python3 ../compare_p5.py --json compare-5A-Inext.json keno 5A ../../../references/vera/spec.txt core-5A-Inext.out core-5A-Inext-pins.msgpack
     deps:
       - ../compare_p5.py
       - ../compare_k.py
@@ -558,9 +560,10 @@ stages:
       - core-5A-Inext.out
       - core-5A-Inext-pins.msgpack
     outs:
-      - compare-5A-Inext.out
+      - compare-5A-Inext.json:
+          cache: false
   compare-5B:
-    cmd: python3 ../compare_p5.py keno 5B ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack > compare-5B.out
+    cmd: python3 ../compare_p5.py --json compare-5B.json keno 5B ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack
     deps:
       - ../compare_p5.py
       - ../compare_k.py
@@ -568,9 +571,10 @@ stages:
       - core-5B.out
       - core-5B-pins.msgpack
     outs:
-      - compare-5B.out
+      - compare-5B.json:
+          cache: false
   compare-5C:
-    cmd: python3 ../compare_p5.py keno 5C ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack > compare-5C.out
+    cmd: python3 ../compare_p5.py --json compare-5C.json keno 5C ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack
     deps:
       - ../compare_p5.py
       - ../compare_k.py
@@ -578,37 +582,56 @@ stages:
       - core-5C.out
       - core-5C-pins.msgpack
     outs:
-      - compare-5C.out
+      - compare-5C.json:
+          cache: false
   compare-5A-openmc:
-    cmd: python3 ../compare_p5.py openmc core-5A.out core-5A-pins.msgpack openmc-5A-2D-results > compare-5A-openmc.out
+    cmd: python3 ../compare_p5.py --json compare-5A-openmc.json openmc 5A ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack openmc-5A-2D-results
     deps:
       - ../compare_p5.py
       - ../compare_k.py
-      - openmc-5A-2D-results
+      - ../../../references/vera/spec.txt
+      - openmc-5A-2D-results/k.json
+      - openmc-5A-2D-results/assemblies.msgpack
+      - openmc-5A-2D-results/assemblies-std.msgpack
+      - openmc-5A-2D-results/pins.msgpack
+      - openmc-5A-2D-results/pins-std.msgpack
       - core-5A.out
       - core-5A-pins.msgpack
     outs:
-      - compare-5A-openmc.out
+      - compare-5A-openmc.json:
+          cache: false
   compare-5A-Ly-openmc:
-    cmd: python3 ../compare_p5.py openmc core-5A-Ly.out core-5A-Ly-pins.msgpack openmc-5A-2D-results > compare-5A-Ly-openmc.out
+    cmd: python3 ../compare_p5.py --json compare-5A-Ly-openmc.json openmc 5A ../../../references/vera/spec.txt core-5A-Ly.out core-5A-Ly-pins.msgpack openmc-5A-2D-results
     deps:
       - ../compare_p5.py
       - ../compare_k.py
-      - openmc-5A-2D-results
+      - ../../../references/vera/spec.txt
+      - openmc-5A-2D-results/k.json
+      - openmc-5A-2D-results/assemblies.msgpack
+      - openmc-5A-2D-results/assemblies-std.msgpack
+      - openmc-5A-2D-results/pins.msgpack
+      - openmc-5A-2D-results/pins-std.msgpack
       - core-5A-Ly.out
       - core-5A-Ly-pins.msgpack
     outs:
-      - compare-5A-Ly-openmc.out
+      - compare-5A-Ly-openmc.json:
+          cache: false
   compare-5A-Inext-openmc:
-    cmd: python3 ../compare_p5.py openmc core-5A-Inext.out core-5A-Inext-pins.msgpack openmc-5A-2D-results > compare-5A-Inext-openmc.out
+    cmd: python3 ../compare_p5.py --json compare-5A-Inext-openmc.json openmc 5A ../../../references/vera/spec.txt core-5A-Inext.out core-5A-Inext-pins.msgpack openmc-5A-2D-results
     deps:
       - ../compare_p5.py
       - ../compare_k.py
-      - openmc-5A-2D-results
+      - ../../../references/vera/spec.txt
+      - openmc-5A-2D-results/k.json
+      - openmc-5A-2D-results/assemblies.msgpack
+      - openmc-5A-2D-results/assemblies-std.msgpack
+      - openmc-5A-2D-results/pins.msgpack
+      - openmc-5A-2D-results/pins-std.msgpack
       - core-5A-Inext.out
       - core-5A-Inext-pins.msgpack
     outs:
-      - compare-5A-Inext-openmc.out
+      - compare-5A-Inext-openmc.json:
+          cache: false
   hzp-21-fuel:
     cmd: cd hzp && mkdir -p lattice media && ../../../../bin/lattice 21-fuel.toml > 21-fuel.out
     deps:
