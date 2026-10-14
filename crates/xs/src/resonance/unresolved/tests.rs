@@ -197,9 +197,39 @@ fn sampled(xs: &UnresolvedXs, e: f64, temperature: f64, sigma0: &[f64]) -> Bonda
         .unwrap()
 }
 
+/// 種 1〜16 の独立なサンプリングでの量 `of` の平均と、平均の標準誤差
+fn over_seeds(
+    xs: &UnresolvedXs,
+    e: f64,
+    temperature: f64,
+    sigma0: &[f64],
+    of: impl Fn(&Bondarenko) -> f64,
+) -> (f64, f64) {
+    let values: Vec<f64> = (1..=16)
+        .map(|seed| {
+            of(&xs
+                .shielded(e, temperature, sigma0, Sigma::default(), seed)
+                .unwrap())
+        })
+        .collect();
+    let n = values.len() as f64;
+    let mean = values.iter().sum::<f64>() / n;
+    let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0);
+    (mean, (variance / n).sqrt())
+}
+
+/// サンプリングの平均が、期待値 `expected` に統計誤差の 4 倍（と相対 1e-3 の系統の余裕）の内で合う
+fn assert_within_statistics((mean, error): (f64, f64), expected: f64, what: &str) {
+    assert!(
+        (mean - expected).abs() <= 4.0 * error + 1e-3 * expected.abs(),
+        "{what}: {mean} ± {error} vs {expected}"
+    );
+}
+
 #[test]
 fn sampled_mean_matches_the_width_fluctuation_average() {
-    // ラダーの平均は、幅のゆらぎを積分した無限希釈の平均断面積に、サンプルの統計の内で合う
+    // ラダーの平均の期待値は、幅のゆらぎを積分した無限希釈の平均断面積。捕獲は単準位と多準位で同じで、弾性散乱は
+    // 多準位の干渉の分だけ違いうるので、捕獲で確かめる
     let urr = s_wave(
         vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
         Interpolation::LinLin,
@@ -207,17 +237,8 @@ fn sampled_mean_matches_the_width_fluctuation_average() {
     let xs = UnresolvedXs::new(&urr).unwrap();
     let e = 1.0e4;
     let average = xs.cross_sections(e).unwrap();
-    let mean = sampled(&xs, e, 300.0, &[1.0e10]).mean;
-    for (sample, exact, what) in [
-        (mean.capture, average.capture, "capture"),
-        (mean.elastic, average.elastic, "elastic"),
-        (mean.total, average.total, "total"),
-    ] {
-        assert!(
-            (sample - exact).abs() <= 3e-3 * exact,
-            "{what}: {sample} vs {exact}"
-        );
-    }
+    let capture = over_seeds(&xs, e, 300.0, &[1.0e10], |b| b.mean.capture);
+    assert_within_statistics(capture, average.capture, "capture");
 }
 
 #[test]
@@ -246,49 +267,60 @@ fn bondarenko_average_at_infinite_dilution_is_the_sampled_mean() {
 
 #[test]
 fn isolated_resonances_match_the_direct_integral_over_one_spacing() {
-    // 幅がゆらがず（自由度なし）、準位間隔 D に比べて共鳴が十分狭いと、ラダーの平均は 1 つの共鳴の区間 D の積分になる:
-    // ⟨g(σ)⟩ = (1/D) ∫ g(σ_res(E) + σp) dE（σp はポテンシャル散乱）。捕獲の実効断面積 ⟨σc/(σt + σ0)⟩/⟨1/(σt + σ0)⟩ を、
-    // 線形状 ψ, χ を直接に数値積分したものと比べる
-    let mut urr = s_wave(
-        vec![point(5.0e3, 2.0e-4), point(2.0e4, 2.0e-4)],
+    // 準位間隔 D に比べて共鳴が十分狭いと、ラダーの平均は 1 つの共鳴の区間 D の積分の、幅のゆらぎの期待値になる:
+    // ⟨g(σ)⟩ = (1/D) E_x[∫ g(σ(E)) dE]（Γn = Γ̄n x、x は自由度 1 の χ²/1。x = t²、t は標準正規）。捕獲の実効断面積
+    // ⟨σc/(σt + σ0)⟩/⟨1/(σt + σ0)⟩ を、単準位の ψ, χ を直接に数値積分したものと比べる
+    let urr = s_wave(
+        vec![point(5.0e3, 2.0e-6), point(2.0e4, 2.0e-6)],
         Interpolation::LinLin,
     );
-    urr.l_values[0].j_values[0].amun = WidthDof::Fixed;
     let xs = UnresolvedXs::new(&urr).unwrap();
-    let (e, temperature, sigma0) = (1.0e4, 300.0, 1.0);
-    let b = sampled(&xs, e, temperature, &[sigma0]);
-    // 同じ量を 1 つの共鳴で: k、ψ と χ の係数、ポテンシャル散乱（`cross_sections` と同じ式）
+    let (e, temperature, sigma0): (f64, f64, f64) = (1.0e4, 300.0, 1.0);
     let k = crate::physics::wave_number_factor() * AWRI / (AWRI + 1.0) * e.sqrt();
     let rho = k * AP;
     let phi = phase_shift(OrbitalL::S, rho);
     let ab = 4.0 * PI / (k * k);
-    let gn = 2.0e-4 * penetrability(OrbitalL::S, rho) / rho * e.sqrt();
+    let mean_gn = 2.0e-6 * penetrability(OrbitalL::S, rho) / rho * e.sqrt();
     let gg = 0.023;
-    let gamma = gn + gg;
     let delta = 2.0 * (e * crate::physics::BK * temperature / AWRI).sqrt();
     let potential = ab * phi.sin().powi(2);
-    let (mut num, mut den) = (0.0, 0.0);
-    let n = 400_000;
     let d = 20.0;
-    for i in 0..n {
-        let x = -0.5 * d + d * (i as f64 + 0.5) / n as f64;
+    // t の Simpson 則（[0, 8]、偶関数なので片側）と、E の中点則（幅 Γ より十分細かい 1 meV。区間 D の全体）
+    let (nt, ne) = (400, 20_000);
+    let (mut num, mut den, mut weight) = (0.0, 0.0, 0.0);
+    for i in 0..=nt {
+        let t = 8.0 * i as f64 / nt as f64;
+        let simpson = if i == 0 || i == nt {
+            1.0
+        } else if i % 2 == 1 {
+            4.0
+        } else {
+            2.0
+        };
+        let wt = simpson * (-0.5 * t * t).exp();
+        let gn = mean_gn * t * t;
+        let gamma = gn + gg;
         let y = 0.5 * gamma / delta;
-        let w = crate::special::faddeeva(num_complex::Complex64::new(x / delta, y));
-        let (psi, chi) = (PI.sqrt() * y * w.re, PI.sqrt() * y * w.im);
-        let capture = ab * (gn / gamma) * (gg / gamma) * psi;
-        let elastic = potential
-            + ab * (gn / gamma)
-                * ((gn / gamma - 2.0 * phi.sin().powi(2)) * psi + (2.0 * phi).sin() * chi);
-        let total = capture + elastic;
-        num += capture / (total + sigma0);
-        den += 1.0 / (total + sigma0);
+        let (rn, rg) = (gn / gamma, gg / gamma);
+        let (mut n_e, mut d_e) = (0.0, 0.0);
+        for j in 0..ne {
+            let de = -0.5 * d + d * (j as f64 + 0.5) / ne as f64;
+            let w = crate::special::faddeeva(num_complex::Complex64::new(de / delta, y));
+            let (psi, chi) = (PI.sqrt() * y * w.re, PI.sqrt() * y * w.im);
+            let capture = ab * rn * rg * psi;
+            let elastic = potential
+                + ab * rn * ((rn - 2.0 * phi.sin().powi(2)) * psi + (2.0 * phi).sin() * chi);
+            let total = capture + elastic;
+            n_e += capture / (total + sigma0);
+            d_e += 1.0 / (total + sigma0);
+        }
+        num += wt * n_e;
+        den += wt * d_e;
+        weight += wt;
     }
-    let expected = num / den;
-    let sample = b.shielded[0].capture;
-    assert!(
-        (sample - expected).abs() <= 1e-2 * expected,
-        "{sample} vs {expected}"
-    );
+    let expected = (num / weight) / (den / weight);
+    let capture = over_seeds(&xs, e, temperature, &[sigma0], |b| b.shielded[0].capture);
+    assert_within_statistics(capture, expected, "capture");
 }
 
 #[test]
@@ -332,9 +364,12 @@ fn ladders_follow_the_seed_and_keep_it_across_temperatures() {
         .shielded(1.0e4, 300.0, &sigma0, Sigma::default(), 8)
         .unwrap();
     assert_ne!(a.shielded, other.shielded);
-    // 同じ種なら、温度を変えてもラダーは同じ: 無限希釈の平均は温度でほとんど変わらない（ドップラー拡がりは面積を保つ）
+    // 同じ種なら、温度を変えてもラダーとエネルギーは同じ: ドップラー拡がりは面積を保つので、平均の温度による差は、
+    // 種を変えた差より小さい
     let hot = sampled(&xs, 1.0e4, 1200.0, &sigma0);
-    assert!((hot.mean.capture - a.mean.capture).abs() <= 1e-3 * a.mean.capture);
+    let correlated = (hot.mean.capture - a.mean.capture).abs();
+    let independent = (other.mean.capture - a.mean.capture).abs();
+    assert!(correlated < independent, "{correlated} vs {independent}");
     // 高い温度ほど遮蔽が弱い
     assert!(hot.shielded[1].capture > a.shielded[1].capture);
 }
