@@ -29,6 +29,7 @@ import sys
 import time
 from pathlib import Path
 
+import h5py
 import msgpack
 import numpy as np
 import openmc
@@ -138,7 +139,34 @@ def build(run: dict) -> tuple[openmc.Model, list[openmc.Material]]:
 
 
 class TimedOperator(openmc.deplete.CoupledOperator):
-    """輸送の 1 回ごとの時間を測る `CoupledOperator`。"""
+    """輸送の 1 回ごとの時間を測り、燃料の温度 `fuel_temperature` (K) のデータのある核種だけを燃料で輸送する
+    `CoupledOperator`。
+
+    xlc は、ライブラリが燃焼の領域の温度で持たないチェーンの核種を輸送しない（崩壊だけ。ADR-0173）。OpenMC は最も近い温度の
+    モードでは別の温度のデータを使うので、`nuclides_with_data`（燃焼する物質に入れる核種と反応率の tally の核種）を、
+    燃料の温度のデータのある核種に絞って xlc と揃える。
+    """
+
+    fuel_temperature: float
+    # 燃料で輸送する核種（記録に、xlc と同じ集合であることを書く）
+    transportable: list[str]
+
+    def _get_nuclides_with_data(self, cross_sections):
+        kept = set()
+        for library in openmc.data.DataLibrary.from_xml(cross_sections).libraries:
+            if library["type"] != "neutron":
+                continue
+            with h5py.File(library["path"], "r") as f:
+                for name in library["materials"]:
+                    temperatures = [float(k.rstrip("K")) for k in f[name]["kTs"]]
+                    # OpenMC は温度を kT で持ち、K に直すと丸めでずれるので 1 K の幅を許す（openmc_model.py と同じ）
+                    if any(abs(t - self.fuel_temperature) <= 1.0 for t in temperatures):
+                        kept.add(name)
+        dropped = super()._get_nuclides_with_data(cross_sections) - kept
+        print(
+            f"decay only in the fuel (no data at {self.fuel_temperature} K): {sorted(dropped)}"
+        )
+        return kept
 
     def __call__(self, vec, source_rate):
         start = time.perf_counter()
@@ -154,6 +182,7 @@ def solve(source: Path, work: Path) -> None:
     os.environ["OMP_NUM_THREADS"] = str(run["threads"])
     openmc.config["cross_sections"] = run["cross-sections"]
     model, _ = build(run)
+    TimedOperator.fuel_temperature = FUEL_TEMPERATURE[run["problem"]]
     operator = TimedOperator(
         model,
         chain_file=run["chain"],
@@ -175,7 +204,14 @@ def solve(source: Path, work: Path) -> None:
     integrator.integrate(final_step=True)
     total = time.perf_counter() - start
     (work / "transport-seconds.json").write_text(
-        json.dumps({"transport": TRANSPORT_SECONDS, "total": total}) + "\n"
+        json.dumps(
+            {
+                "transport": TRANSPORT_SECONDS,
+                "total": total,
+                "transportable": TimedOperator.transportable,
+            }
+        )
+        + "\n"
     )
     print(
         f"transport {sum(TRANSPORT_SECONDS):.1f} s in {len(TRANSPORT_SECONDS)} solves, "
@@ -210,6 +246,7 @@ def extract(source: Path, work: Path, output: Path) -> None:
                 "transport-seconds": seconds["transport"],
                 "total-seconds": seconds["total"],
                 "cram-seconds": [float(r.proc_time) for r in results],
+                "transportable": seconds["transportable"],
             }
         )
     )
