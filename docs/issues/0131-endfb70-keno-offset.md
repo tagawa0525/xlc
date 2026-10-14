@@ -36,3 +36,11 @@ NJOY で処理した ENDF/B-VII.0 で OpenMC を解き（2D の小さな問題�
 小さければ原因は xlc の VII.0 の処理、大きければ KENO-VI との処理の差かモデルの解釈、と分けられる。分けた結果を ADR と記録に書く。
 
 関係する ADR: ADR-0175
+
+## 経緯
+
+- 2026-10-15: 診断は保留（使用量のため）。ブランチ feat/0131-openmc-endfb70-diagnosis（worktree 残し、未マージ）に、`examples/vera/endfb70/openmc/` の段階
+  （ライブラリ 600 K の 33 核種 + H in H2O、1B 450 世代・2B 500 世代の OpenMC、比較 `compare_openmc_keno.py` と表 `endfb70-openmc`）を用意した。
+- 実行したのは `openmc-neutron`、`openmc-thermal`、`openmc-index` までで、`openmc-run@1B` の途中でジョブ 380 を止めた。未実行は 1B と 2B の OpenMC、`compare-1B`、`compare-2B`。
+- 再開は、worktree で main に rebase し、`dvc checkout examples/vera/endfb70/dvc.yaml`、`dvc checkout dvc.yaml` のあと、`slurm-run.sh -t 100 openmc-endfb70-1B-2B 'nix develop -c dvc repro examples/vera/endfb70/openmc/dvc.yaml'`（約 80 分、排他）。
+- そのあと `verification-endfb70.md` に `<!-- table: endfb70-openmc -->` の節を足し、`dvc.lock` をコミットする（`endfb70/openmc/dvc.lock` は未コミット）。
