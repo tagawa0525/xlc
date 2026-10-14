@@ -80,8 +80,8 @@ issues: ["#0045"]
 
 ## 確認
 
-- 段階の定義（examples/depletion/dvc.yaml の xs-range、xs-nuclide、xs）と、燃焼の検証の最初の核種の組（実装で書く）を作り、
-  時間を記録する（examples/depletion/verification.md）
+- 段階（examples/depletion/dvc.yaml の xs-range、xs-nuclide、xs）で、最初の組の 60 核種のライブラリを作れる。時間は核種ごとの
+  段階の和で 42 分（examples/depletion/verification.md の「燃焼の多群ライブラリ」、2026-10-15）
 - 縮約が読めない核種を止めることは、#0116 の実装のテストで確かめる（#0116 の完了の条件に足した）
 
 ## 帰結
