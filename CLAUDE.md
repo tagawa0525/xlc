@@ -10,6 +10,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   ADR との両方向の対応を含む）
 - 検証の記録: examples/*/verification.md。今の結果だけを題目ごとに書き、古い測定や誤りは消して書き直す（経緯は git に
   残る。ADR-0117）。結果ごとに、数値を出した xlc のコミットと日付を書く（「計算」の節。新しい測定には必ず書く。コミットが分からない過去の測定だけ日付）
+- 検証の記録の表のうち `<!-- table: <名前> -->` 〜 `<!-- /table -->` の間は、比較の段階の JSON から
+  `python3 examples/verification_tables.py <記録>` が描く（手で直さない。ADR-0176）。`--check` は hook と `cargo test`
+  が実行する。JSON は DVC の出力なので、無い worktree では `dvc checkout examples/<問題>/dvc.yaml` で戻す
 - コードには How（今の挙動だけ。以前の挙動や変わった経緯は書かず、git、ADR、閉じた issue に任せる）、テストには What、コミットログには Why（決定の理由と採らなかった案は ADR）、コード
   コメントには Why not（その場の、自明に見える別の書き方をしない理由と制約、式の出典と導出の要点。比べた代わりの案は
   ADR か issue に書いて参照する）を書く（ADR-0117）
