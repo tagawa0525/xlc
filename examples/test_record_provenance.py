@@ -92,7 +92,17 @@ class Git(unittest.TestCase):
         self.git("add", "dvc.lock")
         env_date = f"{date}T12:00:00"
         subprocess.run(
-            ["git", "-C", str(self.dir), "commit", "-q", "-m", "m"],
+            [
+                "git",
+                "-c",
+                "core.hooksPath=/dev/null",  # 利用者の commit-msg hook を持ち込まない
+                "-C",
+                str(self.dir),
+                "commit",
+                "-q",
+                "-m",
+                "chore: m",
+            ],
             check=True,
             capture_output=True,
             env={
@@ -109,9 +119,9 @@ class Git(unittest.TestCase):
 
     def test_names_the_commit_that_first_locked_the_current_md5(self):
         first = self.commit(lock(), "2026-10-01")
-        # b だけが走り直した relock（a の出力は同じ md5）と、a の deps の変更なしの再書き込み
+        # b だけが走り直した relock（a の出力は同じ md5）と、a の入力だけが変わった relock（出力の md5 は同じ）
         self.commit(lock(b_out="5"), "2026-10-02")
-        third = self.commit(lock(b_out="5"), "2026-10-03")
+        third = self.commit(lock(a_in="8", b_out="5"), "2026-10-03")
         lock_path = self.dir / "dvc.lock"
         a = rp.locked_since(lock_path, "a", "a.out")
         self.assertEqual(a, (first, "2026-10-01"))
