@@ -782,8 +782,27 @@ fn sends_a_missing_isomeric_daughter_to_the_ground_state() {
 }
 
 #[test]
+fn reaction_kinematics_belong_to_their_mt() {
+    // (ΔZ, ΔA) と軽い核種は、位置でなく MT ごとに決まる
+    let expected = [
+        (16, 0, -1, None),
+        (17, 0, -2, None),
+        (37, 0, -3, None),
+        (102, 0, 1, None),
+        (103, -1, 0, Some((1, 1))),
+        (107, -2, -3, Some((2, 4))),
+    ];
+    for (spec, (mt, dz, da, light)) in REACTIONS.iter().zip(expected) {
+        assert_eq!(
+            (spec.reaction.mt, spec.dz, spec.da, spec.light),
+            (mt, dz, da, light)
+        );
+    }
+}
+
+#[test]
 fn reads_the_reactions_the_chain_type_accepts() {
-    let mut mts: Vec<u32> = REACTIONS.iter().map(|r| r.mt).collect();
+    let mut mts: Vec<u32> = REACTIONS.iter().map(|r| r.reaction.mt).collect();
     mts.sort_unstable();
     assert_eq!(mts, xlc_depletion::chain::REACTION_MTS);
 }

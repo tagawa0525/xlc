@@ -1151,6 +1151,7 @@ fn center_average(base: &[Shielded], equivalent: &EquivalentCell, rings: usize) 
                 s.elastic[g] = average(|v| &v.elastic);
                 s.fission[g] = average(|v| &v.fission);
                 s.nu_fission[g] = average(|v| &v.nu_fission);
+                s.capture[g] = average(|v| &v.capture);
             }
             s
         })
@@ -1235,6 +1236,7 @@ fn shield_cell(
                     full.elastic[g] = ufg.elastic[g - top];
                     full.fission[g] = ufg.fission[g - top];
                     full.nu_fission[g] = ufg.nu_fission[g - top];
+                    full.capture[g] = ufg.capture[g - top];
                 }
                 Ok((
                     shielded_nuclide(library, name, m.temperature, &full)?,
@@ -1343,7 +1345,7 @@ fn shield_material(
             })
             .collect::<Result<Vec<_>, ShieldingError>>()?;
         let finite = |s: &Shielded| {
-            [&s.total, &s.elastic, &s.fission, &s.nu_fission]
+            [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture]
                 .iter()
                 .all(|v| v.iter().all(|x| x.is_finite()))
         };
@@ -1516,6 +1518,7 @@ pub fn effective(
         elastic: combine(|x| &x.elastic),
         fission: combine(|x| &x.fission),
         nu_fission: combine(|x| &x.nu_fission),
+        capture: combine(|x| &x.capture),
     })
 }
 

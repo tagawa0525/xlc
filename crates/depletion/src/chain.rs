@@ -15,6 +15,7 @@
 //! 核種は (z, a, state) の昇順に並び、生成物は核種の添字で指す。
 
 use serde::{Deserialize, Serialize};
+use xlc_format::library::CHAIN_REACTIONS;
 use xlc_format::msgpack::{self, MsgpackError};
 
 use crate::{DepletionError, DepletionMatrix};
@@ -188,8 +189,16 @@ const RATIO_SUM_TOLERANCE: f64 = 1e-12;
 /// 程度。点は 4 個まで）ので、それより十分大きく、割り忘れ（ずれは 1 の桁）を止める大きさ
 const WEIGHT_SUM_TOLERANCE: f64 = 1e-12;
 
-/// 鎖の反応の MT（核分裂を除く）
-pub const REACTION_MTS: [u32; 6] = [16, 17, 37, 102, 103, 107];
+/// 鎖の反応の代表の MT（核分裂を除く。`CHAIN_REACTIONS` の順）
+pub const REACTION_MTS: [u32; CHAIN_REACTIONS.len()] = {
+    let mut mts = [0; CHAIN_REACTIONS.len()];
+    let mut i = 0;
+    while i < CHAIN_REACTIONS.len() {
+        mts[i] = CHAIN_REACTIONS[i].mt;
+        i += 1;
+    }
+    mts
+};
 
 /// 崩壊の型の段の名前
 const DECAY_STEPS: [&str; 7] = ["beta-", "ec/beta+", "IT", "alpha", "n", "sf", "p"];

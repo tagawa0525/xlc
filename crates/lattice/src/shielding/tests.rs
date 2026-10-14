@@ -11,6 +11,7 @@ fn library() -> Library {
         elastic: vec![elastic, 15.0],
         fission: vec![0.0, 0.0],
         nu_fission: vec![0.0, 0.0],
+        capture: vec![0.0, 0.0],
     };
     Library {
         pointwise_range: Some([4.0, 1.0e4]),
@@ -23,6 +24,7 @@ fn library() -> Library {
             resolved: None,
             thermal_scattering: false,
             temperatures: vec![TemperatureData {
+                reactions: Vec::new(),
                 pointwise: Default::default(),
                 temperature: T,
                 chi: vec![0.0, 0.0],
@@ -166,6 +168,7 @@ mod lattice {
             resolved: None,
             thermal_scattering: false,
             temperatures: vec![TemperatureData {
+                reactions: Vec::new(),
                 pointwise: Default::default(),
                 temperature: T,
                 chi: if fissile {
@@ -182,6 +185,7 @@ mod lattice {
             elastic: elastic.to_vec(),
             fission: fission.to_vec(),
             nu_fission: fission.iter().map(|f| 2.4 * f).collect(),
+            capture: fission.to_vec(),
         };
         let u238 = |t: f64, e: f64| table([t, 10.0], [e, 4.0], [0.0, 0.0]);
         let constant = |total, fission| vec![table(total, [6.0, 4.0], fission); 3];
@@ -348,6 +352,7 @@ mod lattice {
                 elastic: vec![6.0, 4.0],
                 fission: vec![0.0, 0.0],
                 nu_fission: vec![0.0, 0.0],
+                capture: vec![0.0, 0.0],
             })
             .collect();
         library.nuclides.push(zr);
@@ -896,6 +901,8 @@ mod lattice {
                 elastic: vec![elastic; ng],
                 fission: vec![fission * factor; ng],
                 nu_fission: vec![2.4 * fission * factor; ng],
+                // 捕獲は吸収から核分裂を除いたもの
+                capture: vec![(total - elastic - fission) * factor; ng],
             };
             NuclideData {
                 name: name.into(),
@@ -907,6 +914,7 @@ mod lattice {
                 }),
                 thermal_scattering: false,
                 temperatures: vec![TemperatureData {
+                    reactions: Vec::new(),
                     temperature: T,
                     chi: (0..ng)
                         .map(|g| if fission > 0.0 && g == 0 { 1.0 } else { 0.0 })
@@ -933,6 +941,9 @@ mod lattice {
                         elastic: column(2),
                         fission: column(3),
                         nu_fission: column(3).iter().map(|f| 2.4 * f).collect(),
+                        capture: (0..points.len())
+                            .map(|i| points[i][1] - points[i][2] - points[i][3])
+                            .collect(),
                     },
                 }],
             }
@@ -1251,6 +1262,16 @@ mod lattice {
             assert!(
                 (total - expected).abs() < 1e-9 * expected,
                 "group {g}: {total} vs {expected}"
+            );
+            // 捕獲も同じ中性子束と体積で平均する
+            let expected = (0..2)
+                .map(|j| weights[j] * spectrum.nuclides[j][0].capture[g - 1])
+                .sum::<f64>()
+                / weights.iter().sum::<f64>();
+            let capture = lump.effective[0].capture[g];
+            assert!(
+                (capture - expected).abs() <= 1e-9 * expected.abs(),
+                "group {g}: capture {capture} vs {expected}"
             );
         }
     }

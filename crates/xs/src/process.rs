@@ -3,18 +3,24 @@
 use std::collections::BTreeMap;
 
 use crate::endf::{
-    Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, parse_nubar,
+    Mf2, Mf3, Mf4, Mf5, Mf6, Mf7Incoherent, OrbitalL, RangeKind, Tab1, Tape, final_state_table,
+    final_states, parse_nubar,
 };
 use crate::multigroup::{
     Emission, FreeGas, ReactionAverages, Reactions, SabError, SabOutside, ScatterError,
     ShieldingError, SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
-    fission_spectrum, scattering_moments, shielded_averages, uses_angular,
+    fission_spectrum, reaction_averages, scattering_moments, shielded_averages, uses_angular,
 };
 use crate::physics::BK;
-use crate::pointwise::{ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, right_limit};
+use crate::pointwise::{
+    ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
+};
 use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
 use xlc_format::group::GroupStructure;
-use xlc_format::library::{NuclideData, Pointwise, Resolved, Shielded, TemperatureData};
+use xlc_format::library::{
+    CHAIN_REACTIONS, ChannelState, GroupChannel, GroupReaction, NuclideData, Pointwise, Resolved,
+    Shielded, TemperatureData,
+};
 
 /// 処理の条件。
 #[derive(Debug, Clone)]
@@ -121,6 +127,14 @@ pub enum ProcessError {
     NoMf3,
     #[error("fission needs MF1 MT452 and MF5 MT18")]
     FissionData,
+    #[error("MF8/MT{mt} mixes MF9 and MF10 in its final states")]
+    MixedFinalStates { mt: u32 },
+    #[error(
+        "the final states listed for MT{mt} exceed the reaction by {excess} b in group {group}"
+    )]
+    NegativeRemainder { mt: u32, group: usize, excess: f64 },
+    #[error("the final state table of MT{mt} has no reaction cross section to follow")]
+    EmptyProduct { mt: u32 },
     #[error("{temperature} K")]
     Temperature {
         temperature: f64,
@@ -268,6 +282,7 @@ pub fn pointwise_within(
     let total = tables.get(&1).ok_or(ProcessError::MissingMf3(1))?;
     let elastic = tables.get(&2).ok_or(ProcessError::MissingMf3(2))?;
     let fission = tables.get(&18);
+    let capture = tables.get(&102);
     // (エネルギー, 右の極限か)
     let mut points = vec![(low, true)];
     let inside: Vec<f64> = total
@@ -305,6 +320,7 @@ pub fn pointwise_within(
         elastic: column(elastic),
         fission: fission_values,
         nu_fission,
+        capture: capture.map_or(vec![0.0; points.len()], column),
     })
 }
 
@@ -435,6 +451,155 @@ pub fn process_nuclide(
         thermal_scattering: thermal.is_some(),
         temperatures,
     })
+}
+
+/// 燃焼鎖の反応（`CHAIN_REACTIONS`。ADR-0164）の、経路ごとの無限希釈の群の断面積（重み関数だけで平均する。ADR-0172）。
+/// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`。部分の MT は鎖の
+/// `ChainReaction` と同じ）。MF8 が状態を MF9（多重度）か MF10（生成断面積）で
+/// 挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路（LFS が nil）にする（鎖と同じ）。
+/// MF9 の表の外の多重度は 0（NJOY GROUPR と同じ。反応がそこにあれば警告する）。挙げた経路の和が、経路の表の線形化の
+/// 許容誤差 `tolerance`（相対）より反応を超える群があればエラー、基底状態を挙げて和が反応に足りなければ警告する。`tables` は
+/// 温度に広げた断面積で、MF10 は 0 K の値を、反応の断面積が 0 でないエネルギーでだけ使う（しきい値より下を数えない）。
+fn chain_reactions(
+    tape: &Tape,
+    mat: i32,
+    groups: &GroupStructure,
+    weight: &Weight,
+    tables: &BTreeMap<u32, Tab1>,
+    tolerance: f64,
+) -> Result<Vec<GroupReaction>, ProcessError> {
+    // 反応と状態の経路の表を番号で 1 つの表にまとめ、1 度に平均する
+    let mut parts: BTreeMap<u32, Tab1> = BTreeMap::new();
+    let mut layout = Vec::new();
+    for spec in &CHAIN_REACTIONS {
+        let Some(sigma) = tables.get(&spec.mt) else {
+            continue;
+        };
+        let entries = final_states(tape, mat, spec.mt)?.unwrap_or_default();
+        let mut keys = Vec::with_capacity(entries.len());
+        for entry in &entries {
+            let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
+            let state = state_table(&table, entry.mf, sigma, tolerance, spec.mt, entry.lfs)?;
+            let key = u32::try_from(parts.len()).unwrap_or(u32::MAX);
+            parts.insert(key, state);
+            keys.push(key);
+        }
+        let key = u32::try_from(parts.len()).unwrap_or(u32::MAX);
+        parts.insert(key, sigma.clone());
+        layout.push((spec.mt, entries, key, keys));
+    }
+    let averaged = reaction_averages(groups, weight, &parts, None).sigma;
+    let mut reactions = Vec::with_capacity(layout.len());
+    for (mt, entries, key, keys) in layout {
+        let total = averaged[&key].clone();
+        if entries.is_empty() {
+            reactions.push(GroupReaction {
+                mt,
+                channels: vec![GroupChannel {
+                    final_state: None,
+                    cross_section: total,
+                }],
+            });
+            continue;
+        }
+        let mut channels: Vec<GroupChannel> = entries
+            .iter()
+            .zip(&keys)
+            .map(|(entry, key)| GroupChannel {
+                final_state: Some(ChannelState {
+                    mf: entry.mf,
+                    lfs: Some(entry.lfs),
+                }),
+                cross_section: averaged[key].clone(),
+            })
+            .collect();
+        let remainder: Vec<f64> = (0..groups.len())
+            .map(|g| total[g] - channels.iter().map(|c| c.cross_section[g]).sum::<f64>())
+            .collect();
+        if let Some((group, excess)) = remainder
+            .iter()
+            .zip(&total)
+            .enumerate()
+            .find(|(_, (r, t))| **r < -tolerance * t.abs())
+            .map(|(g, (r, _))| (g, -r))
+        {
+            return Err(ProcessError::NegativeRemainder { mt, group, excess });
+        }
+        if entries.iter().all(|e| e.excitation > 0.0) {
+            let mf = entries[0].mf;
+            if entries.iter().any(|e| e.mf != mf) {
+                return Err(ProcessError::MixedFinalStates { mt });
+            }
+            // 許容誤差の内の負は、線形化の誤差なので 0 にする
+            channels.push(GroupChannel {
+                final_state: Some(ChannelState { mf, lfs: None }),
+                cross_section: remainder.iter().map(|r| r.max(0.0)).collect(),
+            });
+        } else if let Some((group, missing)) = remainder
+            .iter()
+            .zip(&total)
+            .enumerate()
+            .find(|(_, (r, t))| **r > tolerance * t.abs())
+            .map(|(g, (r, _))| (g, *r))
+        {
+            tracing::warn!(
+                mt,
+                group,
+                missing,
+                "the final states listed in MF8 leave part of the reaction to no channel (b)"
+            );
+        }
+        reactions.push(GroupReaction { mt, channels });
+    }
+    Ok(reactions)
+}
+
+/// 状態の経路の断面積を、許容誤差 `tolerance` の lin-lin の表にする。MF9 なら多重度 `table` × 反応の断面積 `sigma`、MF10 なら
+/// 生成断面積 `table` そのもので、どちらも `sigma` が 0 のエネルギーでは 0（MF3 と同じく運動学のしきい値から数える。ADR-0100）。
+/// 表の外は 0 とし、MF9 の表の外に反応があれば警告する（NJOY GROUPR と同じく、その分は状態に入らない）。
+fn state_table(
+    table: &Tab1,
+    mf: u32,
+    sigma: &Tab1,
+    tolerance: f64,
+    mt: u32,
+    lfs: u32,
+) -> Result<Tab1, ProcessError> {
+    let (Some(&low), Some(&high)) = (sigma.x.first(), sigma.x.last()) else {
+        return Err(ProcessError::EmptyProduct { mt });
+    };
+    let uncovered = std::cell::Cell::new(None::<f64>);
+    let value = |e: f64| -> Result<[f64; 1], std::convert::Infallible> {
+        let s = sigma.eval(e).unwrap_or(0.0);
+        if s == 0.0 {
+            return Ok([0.0]);
+        }
+        match table.eval(e) {
+            Some(v) if mf == 9 => Ok([v * s]),
+            Some(v) => Ok([v]),
+            None => {
+                if mf == 9 && uncovered.get().is_none() {
+                    uncovered.set(Some(e));
+                }
+                Ok([0.0])
+            }
+        }
+    };
+    let nodes: Vec<f64> = table.x.iter().chain(&sigma.x).copied().collect();
+    let Ok(tables) = resonance_tables(value, &nodes, low, high, tolerance);
+    if let Some(energy) = uncovered.get() {
+        tracing::warn!(
+            mt,
+            lfs,
+            energy,
+            "the MF9 multiplicity does not cover all energies where the reaction is nonzero; the state \
+             gets none of the reaction there (as NJOY GROUPR)"
+        );
+    }
+    let [table] = &tables[..] else {
+        return Err(ProcessError::EmptyProduct { mt });
+    };
+    Ok(table.clone())
 }
 
 /// 温度によらない、1核種の評価の読み込み（多群の処理の前に `process_nuclide` が読むもの）。
@@ -635,18 +800,28 @@ impl Common<'_> {
                 elastic: corrected(sigma(avg, 2)),
                 fission: sigma(avg, 18),
                 nu_fission: avg.nu_fission.clone().unwrap_or(zeros.clone()),
+                capture: sigma(avg, 102),
             })
             .collect();
         let pointwise = match settings.pointwise_range {
             Some(range) => pointwise_within(&tables, self.evaluation.nubar.as_ref(), range)?,
             None => Pointwise::default(),
         };
+        let reactions = chain_reactions(
+            self.tape,
+            self.evaluation.mat,
+            groups,
+            weight,
+            &tables,
+            settings.tolerance,
+        )?;
         Ok(TemperatureData {
             temperature,
             chi,
             scatter,
             shielded,
             pointwise,
+            reactions,
         })
     }
 }
