@@ -20,7 +20,7 @@ deps で lock されたままで、`dvc status` で changed になる。その�
 - 3343ca05: 参照解に標準のタリーの組（ADR-0152）を仕込んだ（`openmc_model.py`、`openmc_tallies.py`）
 - f86b2f2a、5b90a5d7、1fd290c3、2982b580: run の補助（`examples/openmc_run.py`）と model の整理
 
-`dvc repro -P` は、この 2 段階を実行し、1B の参照解を今のライブラリとスクリプトで作り直す（`openmc-1B` は 16 スレッドで約 18 分。
+`dvc repro -P` は、この 2 段階（と下の古い段階）を実行し、1B の参照解を今のライブラリとスクリプトで作り直す（`openmc-1B` は 16 スレッドで約 18 分。
 ADR-0136）。ADR-0136 は OpenMC の段階を `openmc-1B-model`（model.xml）と `openmc-1B` に分け、標準のタリーで model.xml が
 変わったため実行の段階は古いまま残し、作り直しは別に行うとした（#0018 の残りの項目にも同じ記述がある）。この issue はその作り直しを受け持つ。
 高速化の後の記録の測り直し（ブランチ docs/remeasure-after-speedups）は、参照解を替えないためにこの 2 段階を実行せず、
@@ -32,7 +32,7 @@ ADR-0136）。ADR-0136 は OpenMC の段階を `openmc-1B-model`（model.xml）�
 
 main の ADR-0167（MLBW のエネルギーに依存する散乱半径）で `bin/xs` が変わり、`xs` の段階も古い（再測定のジョブは ADR-0167 の
 マージの前の分岐点 4b644566 で走った。examples/core、m0、reflector の `xs` とその下流も同じく古い）。完了の条件のコマンドは
-`xs`（約 26 分）と `lattice-1B` も実行する。ADR-0167 は NRO=1 の MLBW の評価だけに効き、VERA の核種はそれまでの xs で処理
+`xs-range`、核種ごとの `xs-nuclide@*`（62 段階）、`xs`（合わせて約 26 分）と `lattice-1B` も実行する。ADR-0167 は NRO=1 の MLBW の評価だけに効き、VERA の核種はそれまでの xs で処理
 できていたので、vera.msgpack と 1B の xlc の k は変わらない見込み（確かめていない）。変わったら、参照解の変化と分けて書く。
 同じく main の OpenMC のスクリプトの変更（openmc_core_2d.py、openmc_model.py など）で、`openmc-5A-2D-extract` の deps も古い。
 抽出だけの段階（statepoint は `references/openmc/vera-5A-2D/`）なので、同じ機会に走らせ直し、5-2D の OpenMC との比較の値が
