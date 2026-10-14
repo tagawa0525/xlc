@@ -1,6 +1,24 @@
 {
  "format": "xlc-compare-p3",
  "problem": "3B",
+ "inputs": [
+  {
+   "path": "../../../references/vera/spec.txt",
+   "md5": "de9def92d813fd95954b01ec5512fff4"
+  },
+  {
+   "path": "core-3B.out",
+   "md5": "fafeaefc846b98e1a5a970a764877f85"
+  },
+  {
+   "path": "core-3B-pins.msgpack",
+   "md5": "2847b5d5a0fe6185d8a444ac553bf977"
+  },
+  {
+   "path": "core-3B-layers.msgpack",
+   "md5": "08cf1003570e98a65b894c54869bb754"
+  }
+ ],
  "k": {
   "xlc": 1.00208404,
   "keno": 1.000154,
