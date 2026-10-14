@@ -1282,10 +1282,11 @@ def pipeline(
         stages.append(
             stage(
                 f"compare-{name}-openmc",
-                f"python3 ../compare_p5.py --json compare-{name}-openmc.json openmc {problem} core-{name}.out core-{name}-pins.msgpack {results}",
+                f"python3 ../compare_p5.py --json compare-{name}-openmc.json openmc {problem} ../../../references/vera/spec.txt core-{name}.out core-{name}-pins.msgpack {results}",
                 [
                     "../compare_p5.py",
                     "../compare_k.py",
+                    "../../../references/vera/spec.txt",
                     *(
                         f"{results}/{f}"
                         for f in [

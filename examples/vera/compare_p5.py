@@ -2,7 +2,7 @@
 
 使い方:
   python3 compare_p5.py --json <要約の出力先> keno <問題（5A、5B、5C）> <spec.txt> <core の標準出力> <core の pins.msgpack>
-  python3 compare_p5.py --json <要約の出力先> openmc <問題> <core の標準出力> <core の pins.msgpack> <OpenMC の結果のディレクトリ>
+  python3 compare_p5.py --json <要約の出力先> openmc <問題> <spec.txt> <core の標準出力> <core の pins.msgpack> <OpenMC の結果のディレクトリ>
   python3 compare_p5.py --report <要約の JSON>
   python3 compare_p5.py moc <lattice の標準出力> <lattice の pins.msgpack> <core の標準出力> <core の pins.msgpack>
   python3 compare_p5.py symmetry <core の標準出力> <core の pins.msgpack>
@@ -26,6 +26,7 @@
 
 import hashlib
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -181,13 +182,24 @@ def stat_line(name: str, d: dict) -> str:
     if d["n"] == 0:
         return f"{name}: none"
     at = f" at {tuple(d['at'])}" if d["at"] is not None else ""
+    at += f" {d['name']}" if "name" in d else ""
     return (
         f"{name}: {d['n']}, rms {100 * d['rms']:.3f}%, max {100 * d['max']:+.3f}%{at}"
     )
 
 
+def positive(*arrays: np.ndarray) -> None:
+    """標準偏差と参照の値は正であること（0 や NaN で割った倍率を JSON に書かない）"""
+    for a in arrays:
+        if not (np.asarray(a) > 0).all():
+            raise SystemExit(
+                "a reference value or standard deviation is not positive; cannot give the difference in sigma"
+            )
+
+
 def std_summary(std: np.ndarray, reference: np.ndarray) -> dict:
     """参照の相対標準偏差（標準偏差 / 参照）の中央値と最大"""
+    positive(std, reference)
     s = std / reference
     return {"median": float(np.median(s)), "max": float(s.max())}
 
@@ -196,6 +208,7 @@ def sigma_summary(
     ours: np.ndarray, reference: np.ndarray, std: np.ndarray, where: np.ndarray
 ) -> dict:
     """|xlc − 参照| / 参照の標準偏差 の最大とその位置、2σ を超える数（等しいときは超えない）"""
+    positive(std)
     ratio = np.abs(ours - reference) / std
     i = int(ratio.argmax())
     return {
@@ -204,6 +217,13 @@ def sigma_summary(
         "beyond_2sigma": int((ratio > 2).sum()),
         "n": int(ratio.size),
     }
+
+
+def named(d: dict) -> dict:
+    """位置 `at`（15 × 15 の地図の [行, 列]）の隣に名前を足す。位置からの名前は、ここだけで付ける"""
+    if d.get("at") is not None:
+        d["name"] = assembly_name(d["at"])
+    return d
 
 
 def assembly_summary(
@@ -230,14 +250,16 @@ def assembly_summary(
     edge = edge_assemblies(fuel)
     n = fuel.shape[0] // 2
     result = {
-        "relative": stat(rel, where),
-        "absolute": {
-            "rms": float(np.sqrt((absolute**2).mean())),
-            "max": float(absolute[i]),
-            "at": [int(x) for x in where[i]],
-            "reference": float(reference[fuel][i]),
-        },
-        "peripheral": stat(rel[edge[fuel]], np.argwhere(fuel & edge)),
+        "relative": named(stat(rel, where)),
+        "absolute": named(
+            {
+                "rms": float(np.sqrt((absolute**2).mean())),
+                "max": float(absolute[i]),
+                "at": [int(x) for x in where[i]],
+                "reference": float(reference[fuel][i]),
+            }
+        ),
+        "peripheral": named(stat(rel[edge[fuel]], np.argwhere(fuel & edge))),
         # 中心の行と列から右下の 1/4 の [xlc, 参照]（燃料でない位置は null）
         "quarter": [
             [
@@ -249,7 +271,9 @@ def assembly_summary(
     }
     if std is not None:
         result["std"] = std_summary(std[fuel], reference[fuel])
-        result["sigma"] = sigma_summary(ours[fuel], reference[fuel], std[fuel], where)
+        result["sigma"] = named(
+            sigma_summary(ours[fuel], reference[fuel], std[fuel], where)
+        )
     return result
 
 
@@ -259,7 +283,7 @@ def assembly_lines(d: dict) -> list[str]:
         stat_line("assemblies (relative)", d["relative"]),
         (
             f"assemblies (absolute): rms {a['rms']:.4f}, max {a['max']:+.4f} "
-            f"at {tuple(a['at'])} (reference {a['reference']:.4f})"
+            f"at {tuple(a['at'])} {a['name']} (reference {a['reference']:.4f})"
         ),
         stat_line("peripheral assemblies (relative)", d["peripheral"]),
     ]
@@ -275,7 +299,7 @@ def assembly_lines(d: dict) -> list[str]:
     if "sigma" in d:
         g = d["sigma"]
         lines.append(
-            f"assemblies xlc - reference in sigma: max {g['max']:.1f} at {tuple(g['at'])}, "
+            f"assemblies xlc - reference in sigma: max {g['max']:.1f} at {tuple(g['at'])} {g['name']}, "
             f"{g['beyond_2sigma']} of {g['n']} beyond 2 sigma"
         )
     return lines
@@ -356,7 +380,13 @@ def md5_inputs(paths: list[Path]) -> list[dict]:
     ]
 
 
+def check_problem(problem: str) -> None:
+    if problem not in PROBLEMS:
+        raise SystemExit(f"unknown problem {problem}; expected one of {PROBLEMS}")
+
+
 def keno(problem: str, spec_path: str, core_out: str, core_pins: str) -> dict:
+    check_problem(problem)
     spec = Path(spec_path).read_text().splitlines()
     k, rates = core_output(core_out)
     k_ref, sigma = keno_k(spec, problem)
@@ -377,8 +407,12 @@ def keno(problem: str, spec_path: str, core_out: str, core_pins: str) -> dict:
     }
 
 
-def openmc(problem: str, core_out: str, core_pins: str, results: str) -> dict:
+def openmc(
+    problem: str, spec_path: str, core_out: str, core_pins: str, results: str
+) -> dict:
+    check_problem(problem)
     k, rates = core_output(core_out)
+    k_keno, s_keno = keno_k(Path(spec_path).read_text().splitlines(), problem)
     directory = Path(results)
     files = [
         directory / name
@@ -391,6 +425,7 @@ def openmc(problem: str, core_out: str, core_pins: str, results: str) -> dict:
         ]
     ]
     ref = json.loads(files[0].read_text())
+    positive(np.array([ref["k"], ref["k-std"]]))
     assemblies, std, pins, pins_std = (
         np.array(msgpack.unpackb(f.read_bytes())["rows"]) for f in files[1:]
     )
@@ -403,7 +438,9 @@ def openmc(problem: str, core_out: str, core_pins: str, results: str) -> dict:
         "format": FORMAT,
         "kind": "openmc",
         "problem": problem,
-        "inputs": md5_inputs([Path(core_out), Path(core_pins), *files]),
+        "inputs": md5_inputs(
+            [Path(spec_path), Path(core_out), Path(core_pins), *files]
+        ),
         "k": {
             "xlc": k,
             "reference": ref["k"],
@@ -411,6 +448,11 @@ def openmc(problem: str, core_out: str, core_pins: str, results: str) -> dict:
             "diff_pcm": diff_pcm,
             "diff_std_pcm": 1e5 * ref["k-std"],
             "sigma": abs(diff_pcm) / (1e5 * ref["k-std"]),
+            # OpenMC − KENO-VI（絶対差 × 1e5 pcm）と、両方の統計誤差の合成
+            "keno": k_keno,
+            "keno_std": s_keno,
+            "diff_keno_pcm": 1e5 * (ref["k"] - k_keno),
+            "diff_keno_std_pcm": 1e5 * math.hypot(ref["k-std"], s_keno),
         },
         "assemblies": assembly_summary(
             rates, np.where(assemblies > 0, assemblies, np.nan), std
@@ -439,6 +481,9 @@ def report(summary: dict) -> list[str]:
         f"k: xlc {k['xlc']:.6f}, OpenMC {k['reference']:.6f} +- {k['reference_std']:.6f}, {k['diff_pcm']:+.1f} pcm"
     )
     lines.append(f"k xlc - OpenMC in sigma: {k['sigma']:.1f}")
+    lines.append(
+        f"k OpenMC - KENO-VI: {k['diff_keno_pcm']:+.1f} +- {k['diff_keno_std_pcm']:.1f} pcm (KENO-VI {k['keno']:.6f} +- {k['keno_std']:.6f})"
+    )
     lines += assembly_lines(summary["assemblies"])
     lines += pin_lines(summary["pins"])
     return lines
@@ -496,9 +541,10 @@ def main() -> None:
             Path(out).write_text(
                 json.dumps(keno(problem, spec, core_out, pins), indent=1) + "\n"
             )
-        case ["--json", out, "openmc", problem, core_out, pins, results]:
+        case ["--json", out, "openmc", problem, spec, core_out, pins, results]:
             Path(out).write_text(
-                json.dumps(openmc(problem, core_out, pins, results), indent=1) + "\n"
+                json.dumps(openmc(problem, spec, core_out, pins, results), indent=1)
+                + "\n"
             )
         case ["moc", lattice_out, lattice_pins, out, pins]:
             moc(lattice_out, lattice_pins, out, pins)
