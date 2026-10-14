@@ -1,12 +1,12 @@
-"""VERA Problem 1B のピンセルを OpenMC の燃焼（openmc.deplete）で燃焼させ、xlc の格子計算の燃焼（ADR-0173）と比べる参照解を作る。
+"""VERA Problem 1 のピンセル（1B〜1D）を OpenMC の燃焼（openmc.deplete）で燃焼させ、xlc の格子計算の燃焼（ADR-0173）と比べる参照解を作る。
 
 使い方（references の devShell で）:
 
     python3 openmc_depletion.py run <入力> <作業ディレクトリ>
     python3 openmc_depletion.py extract <入力> <作業ディレクトリ> <結果（msgpack）>
 
-<入力> は openmc-1B-rings1.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`、いまは
-1B だけ）、燃料のリングの数（`rings`、等しい面積に分け、リングごとに 1 つの燃焼する物質にする）、openmc_library.py で作った
+<入力> は openmc-1C-rings1.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`、1B〜1D）、
+燃料のリングの数（`rings`、等しい面積に分け、リングごとに 1 つの燃焼する物質にする）、openmc_library.py で作った
 `cross-sections`、燃焼チェーン（`chain`。`Chain.from_endf` の XML）、初めの重金属の出力密度（`power`、W/g）、燃焼度の点（`burnup`、
 MWd/kg、0 より大きく増える列）、1 世代の粒子数（`particles`）、世代数（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード
 （`seed`）、スレッド数（`threads`）。パスは入力のファイルからの相対。
@@ -65,7 +65,7 @@ KEYS = {
     "seed",
     "threads",
 }
-PROBLEMS = ["1B"]
+PROBLEMS = ["1B", "1C", "1D"]
 # 収率の熱と速の境界 (eV): ADR-0164 の区間の境界（0.0253 eV と 500 keV の幾何平均）
 YIELD_CUTOFF = math.sqrt(0.0253 * 5.0e5)
 # 輸送の時間（CoupledOperator.__call__ の 1 回ごと、s）
