@@ -1,0 +1,7 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+[design.31]
+bounds = [0.0, 21.5]
+layers = ["lattice/31-fuel.msgpack"]
+
+[assembly.A]
+design = "31"

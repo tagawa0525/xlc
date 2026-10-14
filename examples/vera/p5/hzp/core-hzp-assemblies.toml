@@ -1,0 +1,990 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# 集合体の台帳。設計は集合体の種類、制御棒の入る位置（-rcca）、反射体に 1 面で面する位置（-I）と 2 面で面する位置
+# （-corner。燃料の層は反射体の格子の燃料のノードの定数。ADR-0153）。燃料の上と下は種類ごとの平板（ADR-0128）
+
+[design.21]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-21/lower-water.msgpack",
+  "axial-21/lower-plate.msgpack",
+  "axial-21/bottom-nozzle.msgpack",
+  "axial-21/lower-gap-plug.msgpack",
+  "lattice/21-igrid.msgpack",
+  "lattice/21-fuel.msgpack",
+  "lattice/21-zgrid.msgpack",
+  "lattice/21-fuel.msgpack",
+  "lattice/21-zgrid.msgpack",
+  "lattice/21-fuel.msgpack",
+  "lattice/21-zgrid.msgpack",
+  "lattice/21-fuel.msgpack",
+  "lattice/21-zgrid.msgpack",
+  "lattice/21-fuel.msgpack",
+  "lattice/21-zgrid.msgpack",
+  "lattice/21-fuel.msgpack",
+  "lattice/21-zgrid.msgpack",
+  "lattice/21-fuel.msgpack",
+  "axial-21/plenum.msgpack",
+  "axial-21/upper-plug-gap.msgpack",
+  "axial-21/top-nozzle.msgpack",
+  "axial-21/upper-plate.msgpack",
+  "axial-21/upper-water.msgpack",
+]
+
+[design.21-rcca]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-21-rcca/lower-water.msgpack",
+  "axial-21-rcca/lower-plate.msgpack",
+  "axial-21-rcca/bottom-nozzle.msgpack",
+  "axial-21-rcca/lower-gap-plug.msgpack",
+  "lattice/21-igrid.msgpack",
+  "tables/21-fuel-rods.msgpack",
+  "tables/21-zgrid-rods.msgpack",
+  "tables/21-fuel-rods.msgpack",
+  "tables/21-zgrid-rods.msgpack",
+  "tables/21-fuel-rods.msgpack",
+  "tables/21-zgrid-rods.msgpack",
+  "tables/21-fuel-rods.msgpack",
+  "tables/21-zgrid-rods.msgpack",
+  "tables/21-fuel-rods.msgpack",
+  "tables/21-zgrid-rods.msgpack",
+  "tables/21-fuel-rods.msgpack",
+  "tables/21-zgrid-rods.msgpack",
+  "tables/21-fuel-rods.msgpack",
+  "axial-21-rcca/plenum.msgpack",
+  "axial-21-rcca/upper-plug-gap.msgpack",
+  "axial-21-rcca/top-nozzle.msgpack",
+  "axial-21-rcca/upper-plate.msgpack",
+  "axial-21-rcca/upper-water.msgpack",
+]
+
+[design.26-p16]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-26-p16/lower-water.msgpack",
+  "axial-26-p16/lower-plate.msgpack",
+  "axial-26-p16/bottom-nozzle.msgpack",
+  "axial-26-p16/lower-gap-plug.msgpack",
+  "lattice/26-p16-empty-igrid.msgpack",
+  "lattice/26-p16-plug-igrid.msgpack",
+  "lattice/26-p16-poison.msgpack",
+  "lattice/26-p16-poison-zgrid.msgpack",
+  "lattice/26-p16-poison.msgpack",
+  "lattice/26-p16-poison-zgrid.msgpack",
+  "lattice/26-p16-poison.msgpack",
+  "lattice/26-p16-poison-zgrid.msgpack",
+  "lattice/26-p16-poison.msgpack",
+  "lattice/26-p16-poison-zgrid.msgpack",
+  "lattice/26-p16-poison.msgpack",
+  "lattice/26-p16-poison-zgrid.msgpack",
+  "lattice/26-p16-poison.msgpack",
+  "lattice/26-p16-poison-zgrid.msgpack",
+  "lattice/26-p16-poison.msgpack",
+  "lattice/26-p16-plenum.msgpack",
+  "axial-26-p16/plenum.msgpack",
+  "axial-26-p16/upper-plug-gap.msgpack",
+  "axial-26-p16/top-nozzle.msgpack",
+  "axial-26-p16/upper-plate.msgpack",
+  "axial-26-p16/upper-water.msgpack",
+]
+
+[design.26-p20]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-26-p20/lower-water.msgpack",
+  "axial-26-p20/lower-plate.msgpack",
+  "axial-26-p20/bottom-nozzle.msgpack",
+  "axial-26-p20/lower-gap-plug.msgpack",
+  "lattice/26-p20-empty-igrid.msgpack",
+  "lattice/26-p20-plug-igrid.msgpack",
+  "lattice/26-p20-poison.msgpack",
+  "lattice/26-p20-poison-zgrid.msgpack",
+  "lattice/26-p20-poison.msgpack",
+  "lattice/26-p20-poison-zgrid.msgpack",
+  "lattice/26-p20-poison.msgpack",
+  "lattice/26-p20-poison-zgrid.msgpack",
+  "lattice/26-p20-poison.msgpack",
+  "lattice/26-p20-poison-zgrid.msgpack",
+  "lattice/26-p20-poison.msgpack",
+  "lattice/26-p20-poison-zgrid.msgpack",
+  "lattice/26-p20-poison.msgpack",
+  "lattice/26-p20-poison-zgrid.msgpack",
+  "lattice/26-p20-poison.msgpack",
+  "lattice/26-p20-plenum.msgpack",
+  "axial-26-p20/plenum.msgpack",
+  "axial-26-p20/upper-plug-gap.msgpack",
+  "axial-26-p20/top-nozzle.msgpack",
+  "axial-26-p20/upper-plate.msgpack",
+  "axial-26-p20/upper-water.msgpack",
+]
+
+[design.26-p24]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-26-p24/lower-water.msgpack",
+  "axial-26-p24/lower-plate.msgpack",
+  "axial-26-p24/bottom-nozzle.msgpack",
+  "axial-26-p24/lower-gap-plug.msgpack",
+  "lattice/26-p24-empty-igrid.msgpack",
+  "lattice/26-p24-plug-igrid.msgpack",
+  "lattice/26-p24-poison.msgpack",
+  "lattice/26-p24-poison-zgrid.msgpack",
+  "lattice/26-p24-poison.msgpack",
+  "lattice/26-p24-poison-zgrid.msgpack",
+  "lattice/26-p24-poison.msgpack",
+  "lattice/26-p24-poison-zgrid.msgpack",
+  "lattice/26-p24-poison.msgpack",
+  "lattice/26-p24-poison-zgrid.msgpack",
+  "lattice/26-p24-poison.msgpack",
+  "lattice/26-p24-poison-zgrid.msgpack",
+  "lattice/26-p24-poison.msgpack",
+  "lattice/26-p24-poison-zgrid.msgpack",
+  "lattice/26-p24-poison.msgpack",
+  "lattice/26-p24-plenum.msgpack",
+  "axial-26-p24/plenum.msgpack",
+  "axial-26-p24/upper-plug-gap.msgpack",
+  "axial-26-p24/top-nozzle.msgpack",
+  "axial-26-p24/upper-plate.msgpack",
+  "axial-26-p24/upper-water.msgpack",
+]
+
+[design.26-rcca]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-26-rcca/lower-water.msgpack",
+  "axial-26-rcca/lower-plate.msgpack",
+  "axial-26-rcca/bottom-nozzle.msgpack",
+  "axial-26-rcca/lower-gap-plug.msgpack",
+  "lattice/26-igrid.msgpack",
+  "tables/26-fuel-rods.msgpack",
+  "tables/26-zgrid-rods.msgpack",
+  "tables/26-fuel-rods.msgpack",
+  "tables/26-zgrid-rods.msgpack",
+  "tables/26-fuel-rods.msgpack",
+  "tables/26-zgrid-rods.msgpack",
+  "tables/26-fuel-rods.msgpack",
+  "tables/26-zgrid-rods.msgpack",
+  "tables/26-fuel-rods.msgpack",
+  "tables/26-zgrid-rods.msgpack",
+  "tables/26-fuel-rods.msgpack",
+  "tables/26-zgrid-rods.msgpack",
+  "tables/26-fuel-rods.msgpack",
+  "axial-26-rcca/plenum.msgpack",
+  "axial-26-rcca/upper-plug-gap.msgpack",
+  "axial-26-rcca/top-nozzle.msgpack",
+  "axial-26-rcca/upper-plate.msgpack",
+  "axial-26-rcca/upper-water.msgpack",
+]
+
+[design.31-I]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31/lower-water.msgpack",
+  "axial-31/lower-plate.msgpack",
+  "axial-31/bottom-nozzle.msgpack",
+  "axial-31/lower-gap-plug.msgpack",
+  "lattice/reflector-I-31-igrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "lattice/reflector-I-31-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-fuel-fuel.msgpack",
+  "axial-31/plenum.msgpack",
+  "axial-31/upper-plug-gap.msgpack",
+  "axial-31/top-nozzle.msgpack",
+  "axial-31/upper-plate.msgpack",
+  "axial-31/upper-water.msgpack",
+]
+
+[design.31-corner]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31/lower-water.msgpack",
+  "axial-31/lower-plate.msgpack",
+  "axial-31/bottom-nozzle.msgpack",
+  "axial-31/lower-gap-plug.msgpack",
+  "lattice/reflector-corner-31-igrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "lattice/reflector-corner-31-zgrid-fuel.msgpack",
+  "lattice/reflector-corner-31-fuel-fuel.msgpack",
+  "axial-31/plenum.msgpack",
+  "axial-31/upper-plug-gap.msgpack",
+  "axial-31/top-nozzle.msgpack",
+  "axial-31/upper-plate.msgpack",
+  "axial-31/upper-water.msgpack",
+]
+
+[design.31-p12]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31-p12/lower-water.msgpack",
+  "axial-31-p12/lower-plate.msgpack",
+  "axial-31-p12/bottom-nozzle.msgpack",
+  "axial-31-p12/lower-gap-plug.msgpack",
+  "lattice/31-p12-empty-igrid.msgpack",
+  "lattice/31-p12-plug-igrid.msgpack",
+  "lattice/31-p12-poison.msgpack",
+  "lattice/31-p12-poison-zgrid.msgpack",
+  "lattice/31-p12-poison.msgpack",
+  "lattice/31-p12-poison-zgrid.msgpack",
+  "lattice/31-p12-poison.msgpack",
+  "lattice/31-p12-poison-zgrid.msgpack",
+  "lattice/31-p12-poison.msgpack",
+  "lattice/31-p12-poison-zgrid.msgpack",
+  "lattice/31-p12-poison.msgpack",
+  "lattice/31-p12-poison-zgrid.msgpack",
+  "lattice/31-p12-poison.msgpack",
+  "lattice/31-p12-poison-zgrid.msgpack",
+  "lattice/31-p12-poison.msgpack",
+  "lattice/31-p12-plenum.msgpack",
+  "axial-31-p12/plenum.msgpack",
+  "axial-31-p12/upper-plug-gap.msgpack",
+  "axial-31-p12/top-nozzle.msgpack",
+  "axial-31-p12/upper-plate.msgpack",
+  "axial-31-p12/upper-water.msgpack",
+]
+
+[design.31-p12-I]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31-p12/lower-water.msgpack",
+  "axial-31-p12/lower-plate.msgpack",
+  "axial-31-p12/bottom-nozzle.msgpack",
+  "axial-31-p12/lower-gap-plug.msgpack",
+  "lattice/reflector-I-31-p12-empty-igrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-plug-igrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p12-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p12-plenum-fuel.msgpack",
+  "axial-31-p12/plenum.msgpack",
+  "axial-31-p12/upper-plug-gap.msgpack",
+  "axial-31-p12/top-nozzle.msgpack",
+  "axial-31-p12/upper-plate.msgpack",
+  "axial-31-p12/upper-water.msgpack",
+]
+
+[design.31-p16]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31-p16/lower-water.msgpack",
+  "axial-31-p16/lower-plate.msgpack",
+  "axial-31-p16/bottom-nozzle.msgpack",
+  "axial-31-p16/lower-gap-plug.msgpack",
+  "lattice/31-p16-empty-igrid.msgpack",
+  "lattice/31-p16-plug-igrid.msgpack",
+  "lattice/31-p16-poison.msgpack",
+  "lattice/31-p16-poison-zgrid.msgpack",
+  "lattice/31-p16-poison.msgpack",
+  "lattice/31-p16-poison-zgrid.msgpack",
+  "lattice/31-p16-poison.msgpack",
+  "lattice/31-p16-poison-zgrid.msgpack",
+  "lattice/31-p16-poison.msgpack",
+  "lattice/31-p16-poison-zgrid.msgpack",
+  "lattice/31-p16-poison.msgpack",
+  "lattice/31-p16-poison-zgrid.msgpack",
+  "lattice/31-p16-poison.msgpack",
+  "lattice/31-p16-poison-zgrid.msgpack",
+  "lattice/31-p16-poison.msgpack",
+  "lattice/31-p16-plenum.msgpack",
+  "axial-31-p16/plenum.msgpack",
+  "axial-31-p16/upper-plug-gap.msgpack",
+  "axial-31-p16/top-nozzle.msgpack",
+  "axial-31-p16/upper-plate.msgpack",
+  "axial-31-p16/upper-water.msgpack",
+]
+
+[design.31-p24]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31-p24/lower-water.msgpack",
+  "axial-31-p24/lower-plate.msgpack",
+  "axial-31-p24/bottom-nozzle.msgpack",
+  "axial-31-p24/lower-gap-plug.msgpack",
+  "lattice/31-p24-empty-igrid.msgpack",
+  "lattice/31-p24-plug-igrid.msgpack",
+  "lattice/31-p24-poison.msgpack",
+  "lattice/31-p24-poison-zgrid.msgpack",
+  "lattice/31-p24-poison.msgpack",
+  "lattice/31-p24-poison-zgrid.msgpack",
+  "lattice/31-p24-poison.msgpack",
+  "lattice/31-p24-poison-zgrid.msgpack",
+  "lattice/31-p24-poison.msgpack",
+  "lattice/31-p24-poison-zgrid.msgpack",
+  "lattice/31-p24-poison.msgpack",
+  "lattice/31-p24-poison-zgrid.msgpack",
+  "lattice/31-p24-poison.msgpack",
+  "lattice/31-p24-poison-zgrid.msgpack",
+  "lattice/31-p24-poison.msgpack",
+  "lattice/31-p24-plenum.msgpack",
+  "axial-31-p24/plenum.msgpack",
+  "axial-31-p24/upper-plug-gap.msgpack",
+  "axial-31-p24/top-nozzle.msgpack",
+  "axial-31-p24/upper-plate.msgpack",
+  "axial-31-p24/upper-water.msgpack",
+]
+
+[design.31-p8-I]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 68.221, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 431.441, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31-p8/lower-water.msgpack",
+  "axial-31-p8/lower-plate.msgpack",
+  "axial-31-p8/bottom-nozzle.msgpack",
+  "axial-31-p8/lower-gap-plug.msgpack",
+  "lattice/reflector-I-31-p8-empty-igrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-plug-igrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-zgrid-fuel.msgpack",
+  "lattice/reflector-I-31-p8-poison-fuel.msgpack",
+  "lattice/reflector-I-31-p8-plenum-fuel.msgpack",
+  "axial-31-p8/plenum.msgpack",
+  "axial-31-p8/upper-plug-gap.msgpack",
+  "axial-31-p8/top-nozzle.msgpack",
+  "axial-31-p8/upper-plate.msgpack",
+  "axial-31-p8/upper-water.msgpack",
+]
+
+[design.31-rcca-I]
+bounds = [0.0, 50.0, 55.0, 61.053, 66.951, 70.817, 128.295, 132.105, 180.495, 184.305, 232.695, 236.505, 284.895, 288.705, 337.095, 340.905, 389.295, 393.105, 432.711, 448.711, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  "axial-31-rcca/lower-water.msgpack",
+  "axial-31-rcca/lower-plate.msgpack",
+  "axial-31-rcca/bottom-nozzle.msgpack",
+  "axial-31-rcca/lower-gap-plug.msgpack",
+  "lattice/reflector-I-31-igrid-fuel.msgpack",
+  "tables/reflector-I-31-fuel-fuel-rods.msgpack",
+  "tables/reflector-I-31-zgrid-fuel-rods.msgpack",
+  "tables/reflector-I-31-fuel-fuel-rods.msgpack",
+  "tables/reflector-I-31-zgrid-fuel-rods.msgpack",
+  "tables/reflector-I-31-fuel-fuel-rods.msgpack",
+  "tables/reflector-I-31-zgrid-fuel-rods.msgpack",
+  "tables/reflector-I-31-fuel-fuel-rods.msgpack",
+  "tables/reflector-I-31-zgrid-fuel-rods.msgpack",
+  "tables/reflector-I-31-fuel-fuel-rods.msgpack",
+  "tables/reflector-I-31-zgrid-fuel-rods.msgpack",
+  "tables/reflector-I-31-fuel-fuel-rods.msgpack",
+  "tables/reflector-I-31-zgrid-fuel-rods.msgpack",
+  "tables/reflector-I-31-fuel-fuel-rods.msgpack",
+  "axial-31-rcca/plenum.msgpack",
+  "axial-31-rcca/upper-plug-gap.msgpack",
+  "axial-31-rcca/top-nozzle.msgpack",
+  "axial-31-rcca/upper-plate.msgpack",
+  "axial-31-rcca/upper-water.msgpack",
+]
+
+[assembly.A05]
+design = "31-corner"
+
+[assembly.A06]
+design = "31-p8-I"
+
+[assembly.A07]
+design = "31-I"
+
+[assembly.A08]
+design = "31-p12-I"
+
+[assembly.A09]
+design = "31-I"
+
+[assembly.A10]
+design = "31-p8-I"
+
+[assembly.A11]
+design = "31-corner"
+
+[assembly.B03]
+design = "31-corner"
+
+[assembly.B04]
+design = "31-rcca-I"
+
+[assembly.B05]
+design = "31-p16"
+
+[assembly.B06]
+design = "21-rcca"
+
+[assembly.B07]
+design = "31-p24"
+
+[assembly.B08]
+design = "21-rcca"
+
+[assembly.B09]
+design = "31-p24"
+
+[assembly.B10]
+design = "21-rcca"
+
+[assembly.B11]
+design = "31-p16"
+
+[assembly.B12]
+design = "31-rcca-I"
+
+[assembly.B13]
+design = "31-corner"
+
+[assembly.C02]
+design = "31-corner"
+
+[assembly.C03]
+design = "31-p12"
+
+[assembly.C04]
+design = "26-p24"
+
+[assembly.C05]
+design = "21-rcca"
+
+[assembly.C06]
+design = "26-p16"
+
+[assembly.C07]
+design = "21-rcca"
+
+[assembly.C08]
+design = "26-p20"
+
+[assembly.C09]
+design = "21-rcca"
+
+[assembly.C10]
+design = "26-p16"
+
+[assembly.C11]
+design = "21-rcca"
+
+[assembly.C12]
+design = "26-p24"
+
+[assembly.C13]
+design = "31-p12"
+
+[assembly.C14]
+design = "31-corner"
+
+[assembly.D02]
+design = "31-rcca-I"
+
+[assembly.D03]
+design = "26-p24"
+
+[assembly.D04]
+design = "26-rcca"
+
+[assembly.D05]
+design = "26-p20"
+
+[assembly.D06]
+design = "21"
+
+[assembly.D07]
+design = "26-p20"
+
+[assembly.D08]
+design = "21-rcca"
+
+[assembly.D09]
+design = "26-p20"
+
+[assembly.D10]
+design = "21"
+
+[assembly.D11]
+design = "26-p20"
+
+[assembly.D12]
+design = "26-rcca"
+
+[assembly.D13]
+design = "26-p24"
+
+[assembly.D14]
+design = "31-rcca-I"
+
+[assembly.E01]
+design = "31-corner"
+
+[assembly.E02]
+design = "31-p16"
+
+[assembly.E03]
+design = "21-rcca"
+
+[assembly.E04]
+design = "26-p20"
+
+[assembly.E05]
+design = "21-rcca"
+
+[assembly.E06]
+design = "26-p20"
+
+[assembly.E07]
+design = "21"
+
+[assembly.E08]
+design = "26-p20"
+
+[assembly.E09]
+design = "21"
+
+[assembly.E10]
+design = "26-p20"
+
+[assembly.E11]
+design = "21-rcca"
+
+[assembly.E12]
+design = "26-p20"
+
+[assembly.E13]
+design = "21-rcca"
+
+[assembly.E14]
+design = "31-p16"
+
+[assembly.E15]
+design = "31-corner"
+
+[assembly.F01]
+design = "31-p8-I"
+
+[assembly.F02]
+design = "21-rcca"
+
+[assembly.F03]
+design = "26-p16"
+
+[assembly.F04]
+design = "21"
+
+[assembly.F05]
+design = "26-p20"
+
+[assembly.F06]
+design = "21-rcca"
+
+[assembly.F07]
+design = "26-p24"
+
+[assembly.F08]
+design = "21-rcca"
+
+[assembly.F09]
+design = "26-p24"
+
+[assembly.F10]
+design = "21-rcca"
+
+[assembly.F11]
+design = "26-p20"
+
+[assembly.F12]
+design = "21"
+
+[assembly.F13]
+design = "26-p16"
+
+[assembly.F14]
+design = "21-rcca"
+
+[assembly.F15]
+design = "31-p8-I"
+
+[assembly.G01]
+design = "31-I"
+
+[assembly.G02]
+design = "31-p24"
+
+[assembly.G03]
+design = "21-rcca"
+
+[assembly.G04]
+design = "26-p20"
+
+[assembly.G05]
+design = "21"
+
+[assembly.G06]
+design = "26-p24"
+
+[assembly.G07]
+design = "21"
+
+[assembly.G08]
+design = "26-p20"
+
+[assembly.G09]
+design = "21"
+
+[assembly.G10]
+design = "26-p24"
+
+[assembly.G11]
+design = "21"
+
+[assembly.G12]
+design = "26-p20"
+
+[assembly.G13]
+design = "21-rcca"
+
+[assembly.G14]
+design = "31-p24"
+
+[assembly.G15]
+design = "31-I"
+
+[assembly.H01]
+design = "31-p12-I"
+
+[assembly.H02]
+design = "21-rcca"
+
+[assembly.H03]
+design = "26-p20"
+
+[assembly.H04]
+design = "21-rcca"
+
+[assembly.H05]
+design = "26-p20"
+
+[assembly.H06]
+design = "21-rcca"
+
+[assembly.H07]
+design = "26-p20"
+
+[assembly.H08]
+design = "21-rcca"
+
+[assembly.H09]
+design = "26-p20"
+
+[assembly.H10]
+design = "21-rcca"
+
+[assembly.H11]
+design = "26-p20"
+
+[assembly.H12]
+design = "21-rcca"
+
+[assembly.H13]
+design = "26-p20"
+
+[assembly.H14]
+design = "21-rcca"
+
+[assembly.H15]
+design = "31-p12-I"
+
+[assembly.J01]
+design = "31-I"
+
+[assembly.J02]
+design = "31-p24"
+
+[assembly.J03]
+design = "21-rcca"
+
+[assembly.J04]
+design = "26-p20"
+
+[assembly.J05]
+design = "21"
+
+[assembly.J06]
+design = "26-p24"
+
+[assembly.J07]
+design = "21"
+
+[assembly.J08]
+design = "26-p20"
+
+[assembly.J09]
+design = "21"
+
+[assembly.J10]
+design = "26-p24"
+
+[assembly.J11]
+design = "21"
+
+[assembly.J12]
+design = "26-p20"
+
+[assembly.J13]
+design = "21-rcca"
+
+[assembly.J14]
+design = "31-p24"
+
+[assembly.J15]
+design = "31-I"
+
+[assembly.K01]
+design = "31-p8-I"
+
+[assembly.K02]
+design = "21-rcca"
+
+[assembly.K03]
+design = "26-p16"
+
+[assembly.K04]
+design = "21"
+
+[assembly.K05]
+design = "26-p20"
+
+[assembly.K06]
+design = "21-rcca"
+
+[assembly.K07]
+design = "26-p24"
+
+[assembly.K08]
+design = "21-rcca"
+
+[assembly.K09]
+design = "26-p24"
+
+[assembly.K10]
+design = "21-rcca"
+
+[assembly.K11]
+design = "26-p20"
+
+[assembly.K12]
+design = "21"
+
+[assembly.K13]
+design = "26-p16"
+
+[assembly.K14]
+design = "21-rcca"
+
+[assembly.K15]
+design = "31-p8-I"
+
+[assembly.L01]
+design = "31-corner"
+
+[assembly.L02]
+design = "31-p16"
+
+[assembly.L03]
+design = "21-rcca"
+
+[assembly.L04]
+design = "26-p20"
+
+[assembly.L05]
+design = "21-rcca"
+
+[assembly.L06]
+design = "26-p20"
+
+[assembly.L07]
+design = "21"
+
+[assembly.L08]
+design = "26-p20"
+
+[assembly.L09]
+design = "21"
+
+[assembly.L10]
+design = "26-p20"
+
+[assembly.L11]
+design = "21-rcca"
+
+[assembly.L12]
+design = "26-p20"
+
+[assembly.L13]
+design = "21-rcca"
+
+[assembly.L14]
+design = "31-p16"
+
+[assembly.L15]
+design = "31-corner"
+
+[assembly.M02]
+design = "31-rcca-I"
+
+[assembly.M03]
+design = "26-p24"
+
+[assembly.M04]
+design = "26-rcca"
+
+[assembly.M05]
+design = "26-p20"
+
+[assembly.M06]
+design = "21"
+
+[assembly.M07]
+design = "26-p20"
+
+[assembly.M08]
+design = "21-rcca"
+
+[assembly.M09]
+design = "26-p20"
+
+[assembly.M10]
+design = "21"
+
+[assembly.M11]
+design = "26-p20"
+
+[assembly.M12]
+design = "26-rcca"
+
+[assembly.M13]
+design = "26-p24"
+
+[assembly.M14]
+design = "31-rcca-I"
+
+[assembly.N02]
+design = "31-corner"
+
+[assembly.N03]
+design = "31-p12"
+
+[assembly.N04]
+design = "26-p24"
+
+[assembly.N05]
+design = "21-rcca"
+
+[assembly.N06]
+design = "26-p16"
+
+[assembly.N07]
+design = "21-rcca"
+
+[assembly.N08]
+design = "26-p20"
+
+[assembly.N09]
+design = "21-rcca"
+
+[assembly.N10]
+design = "26-p16"
+
+[assembly.N11]
+design = "21-rcca"
+
+[assembly.N12]
+design = "26-p24"
+
+[assembly.N13]
+design = "31-p12"
+
+[assembly.N14]
+design = "31-corner"
+
+[assembly.P03]
+design = "31-corner"
+
+[assembly.P04]
+design = "31-rcca-I"
+
+[assembly.P05]
+design = "31-p16"
+
+[assembly.P06]
+design = "21-rcca"
+
+[assembly.P07]
+design = "31-p24"
+
+[assembly.P08]
+design = "21-rcca"
+
+[assembly.P09]
+design = "31-p24"
+
+[assembly.P10]
+design = "21-rcca"
+
+[assembly.P11]
+design = "31-p16"
+
+[assembly.P12]
+design = "31-rcca-I"
+
+[assembly.P13]
+design = "31-corner"
+
+[assembly.R05]
+design = "31-corner"
+
+[assembly.R06]
+design = "31-p8-I"
+
+[assembly.R07]
+design = "31-I"
+
+[assembly.R08]
+design = "31-p12-I"
+
+[assembly.R09]
+design = "31-I"
+
+[assembly.R10]
+design = "31-p8-I"
+
+[assembly.R11]
+design = "31-corner"

@@ -1,0 +1,131 @@
+# このファイルは p5_inputs.py が書く。手で直さない。
+# VERA Problem 5 の 3D の全炉心の形（ADR-0105、ADR-0132）。径方向は 5-2D と同じ（core-plant.toml）。z は下の水の外端
+# から（仕様書の高さ + 55 cm）。制御棒のバンクは図 10 の 1/4 を中心のまわりに 90° ずつ回して広げる
+pitch = 21.5
+height = 518.937
+map = [
+  "-     -     -     -     C@90  E@90  I@90  I@90  I@90  I@90  I@90  N     C     -     -     -     -",
+  "-     -     C@90  E@90  I@90  *     *     *     *     *     *     *     I     N     C     -     -",
+  "-     C@90  I@90  *     *     *     *     *     *     *     *     *     *     *     I     C     -",
+  "-     N@90  *     *     *     *     *     *     *     *     *     *     *     *     *     E     -",
+  "C@90  I@90  *     *     *     *     *     *     *     *     *     *     *     *     *     I     C",
+  "N@90  *     *     *     *     *     *     *     *     *     *     *     *     *     *     *     E",
+  "I@180 *     *     *     *     *     *     *     *     *     *     *     *     *     *     *     I",
+  "I@180 *     *     *     *     *     *     *     *     *     *     *     *     *     *     *     I",
+  "I@180 *     *     *     *     *     *     *     *     *     *     *     *     *     *     *     I",
+  "I@180 *     *     *     *     *     *     *     *     *     *     *     *     *     *     *     I",
+  "I@180 *     *     *     *     *     *     *     *     *     *     *     *     *     *     *     I",
+  "E@180 *     *     *     *     *     *     *     *     *     *     *     *     *     *     *     N@270",
+  "C@180 I@180 *     *     *     *     *     *     *     *     *     *     *     *     *     I@270 C@270",
+  "-     E@180 *     *     *     *     *     *     *     *     *     *     *     *     *     N@270 -",
+  "-     C@180 I@180 *     *     *     *     *     *     *     *     *     *     *     I@270 C@270 -",
+  "-     -     C@180 N@180 I@180 *     *     *     *     *     *     *     I@270 E@270 C@270 -     -",
+  "-     -     -     -     C@180 N@180 I@270 I@270 I@270 I@270 I@270 E@270 C@270 -     -     -     -",
+]
+
+# 角型の格子の右上の反射体（燃料が −x −y の対角）。上下は平板の層（ADR-0132 の (A1)）
+[reflector.C]
+bounds = [0.0, 50.0, 55.0, 61.053, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  { file = "axial-31/lower-water.msgpack", vacuum = "marshak" },
+  { file = "axial-31/lower-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/bottom-nozzle.msgpack", vacuum = "marshak" },
+  "lattice/reflector-corner-31-fuel.msgpack",
+  { file = "axial-31/top-nozzle.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-water.msgpack", vacuum = "marshak" },
+]
+
+# 角型の格子の右の反射体（燃料が −x、角型が +y）。上下は平板の層（ADR-0132 の (A1)）
+[reflector.E]
+bounds = [0.0, 50.0, 55.0, 61.053, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  { file = "axial-31/lower-water.msgpack", vacuum = "marshak" },
+  { file = "axial-31/lower-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/bottom-nozzle.msgpack", vacuum = "marshak" },
+  "lattice/reflector-corner-31-fuel-right.msgpack",
+  { file = "axial-31/top-nozzle.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-water.msgpack", vacuum = "marshak" },
+]
+
+# I 型の格子の反射体（燃料が −x）。上下は平板の層（ADR-0132 の (A1)）
+[reflector.I]
+bounds = [0.0, 50.0, 55.0, 61.053, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  { file = "axial-31/lower-water.msgpack", vacuum = "marshak" },
+  { file = "axial-31/lower-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/bottom-nozzle.msgpack", vacuum = "marshak" },
+  "lattice/reflector-I-31-fuel.msgpack",
+  { file = "axial-31/top-nozzle.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-water.msgpack", vacuum = "marshak" },
+]
+
+# 角型の格子の上の反射体（燃料が −y、角型が +x）。上下は平板の層（ADR-0132 の (A1)）
+[reflector.N]
+bounds = [0.0, 50.0, 55.0, 61.053, 452.51, 461.337, 468.937, 518.937]
+layers = [
+  { file = "axial-31/lower-water.msgpack", vacuum = "marshak" },
+  { file = "axial-31/lower-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/bottom-nozzle.msgpack", vacuum = "marshak" },
+  "lattice/reflector-corner-31-fuel-top.msgpack",
+  { file = "axial-31/top-nozzle.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-plate.msgpack", vacuum = "marshak" },
+  { file = "axial-31/upper-water.msgpack", vacuum = "marshak" },
+]
+
+# 制御棒（表 8、表 P5-2 の式。ADR-0127）。先端は bottom + ステップ × step。燃料の上端で切る（燃料の上の層の制御棒の
+# 軸は #0030）
+[rods]
+step = 1.5875
+bottom = 72.031
+steps = 230
+top = 432.711
+map = [
+  ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .",
+  ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .",
+  ".  .  .  .  SA .  B  .  C  .  B  .  SA .  .  .  .",
+  ".  .  .  .  .  SD .  SB .  SB .  SC .  .  .  .  .",
+  ".  .  SA .  D  .  .  .  D  .  .  .  D  .  SA .  .",
+  ".  .  .  SC .  A  .  .  .  .  .  A  .  SD .  .  .",
+  ".  .  B  .  .  .  C  .  A  .  C  .  .  .  B  .  .",
+  ".  .  .  SB .  .  .  .  .  .  .  .  .  SB .  .  .",
+  ".  .  C  .  D  .  A  .  D  .  A  .  D  .  C  .  .",
+  ".  .  .  SB .  .  .  .  .  .  .  .  .  SB .  .  .",
+  ".  .  B  .  .  .  C  .  A  .  C  .  .  .  B  .  .",
+  ".  .  .  SD .  A  .  .  .  .  .  A  .  SC .  .  .",
+  ".  .  SA .  D  .  .  .  D  .  .  .  D  .  SA .  .",
+  ".  .  .  .  .  SC .  SB .  SB .  SD .  .  .  .  .",
+  ".  .  .  .  SA .  B  .  C  .  B  .  SA .  .  .  .",
+  ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .",
+  ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .",
+]
+
+[rods.bank.A]
+type = "rcca"
+
+[rods.bank.B]
+type = "rcca"
+
+[rods.bank.C]
+type = "rcca"
+
+[rods.bank.D]
+type = "rcca"
+
+[rods.bank.SA]
+type = "rcca"
+
+[rods.bank.SB]
+type = "rcca"
+
+[rods.bank.SC]
+type = "rcca"
+
+[rods.bank.SD]
+type = "rcca"
+
+# 先端から AIC、その上に B4C（表 8）
+[rods.type.rcca]
+segments = [{ value = "aic", length = 101.6 }, { value = "b4c", length = 259.08 }]
