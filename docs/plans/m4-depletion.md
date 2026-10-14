@@ -87,7 +87,7 @@ M4 の前に決めてあるもの:
   MF1 MT452、MF3〜6）、分離共鳴の上端、VERA の燃料の温度 565〜1200 K と σ0 の 9 点の非分離共鳴の自己遮蔽まで。散乱行列と群定数は
   作らない。32b15cd8、2026-10-14）、541 が読め、16 が読めなかった。
   最初の範囲の形式は MLBW 399、Reich-Moore 49、R-matrix limited 10、非分離共鳴だけ 31、共鳴のデータなし 68。分離共鳴の
-  MLBW で散乱半径がエネルギーの表で与えられる 52 評価（NRO = 1。I-133、Nd-149 など）は、[ADR-0167](../adr/0167-evaluate-mlbw-energy-dependent-radius.md) で読めるようにした。非分離共鳴の θ が J, K の表の下限（10^-3）より小さい 10 評価（Nd-148、Nd-150、Sm-154、Au-197 など）は [ADR-0170](../adr/0170-take-gaussian-limit-jk-below-table.md) で読めるようにし、その 10 評価だけを再測定した（1d16ba74、分岐点 a66351f2、2026-10-14）。読めないのは表の 6 評価。
+  MLBW で散乱半径がエネルギーの表で与えられる 52 評価（NRO = 1。I-133、Nd-149 など）は、[ADR-0167](../adr/0167-evaluate-mlbw-energy-dependent-radius.md) で読めるようにした。非分離共鳴の θ が J, K の表の下限（10^-3）より小さい 10 評価（Nd-148、Nd-150、Sm-154、Au-197 など）は [ADR-0170](../adr/0170-take-gaussian-limit-jk-below-table.md) で読めるようにし、その 10 評価だけを再測定した（1d16ba74、分岐点 bf5f08ef、2026-10-14）。読めないのは表の 6 評価。
   読めない理由は下の表。MF6 の角度のデータは入れない（[ADR-0082](../adr/0082-leave-out-mf6-angular-data.md)）、運動学のしきい値から反応を始める（[ADR-0100](../adr/0100-move-tables-to-kinematic-thresholds.md)）。
   ADR で決める: 読めない形式が残る核種の扱い（実装か、多群だけか、チェーンの輸送から外すか。基準は吸収への寄与）
 
