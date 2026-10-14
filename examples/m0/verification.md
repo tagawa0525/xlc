@@ -36,7 +36,9 @@ dvc repro examples/m0/dvc.yaml
 
 ## 結果
 
-1f4fcaaf（分岐点 ac8e2f3a）、2026-10-12。`dvc repro examples/m0/dvc.yaml` を Slurm の共有モード（`-c 8`）で流した。共有モードなので計算時間は書かない。
+bd6127e0（分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124）、2026-10-14。`dvc repro examples/m0/dvc.yaml` を Slurm の排他のジョブ 332 で、ほかの例とまとめて流した（時間は書かない）。
+`wims69.msgpack`、`pincell-fg.msgpack`、`lattice.out` は前（1f4fcaaf、分岐点 ac8e2f3a）の出力とバイト単位で同じで、`core.out` は k を 8 桁で書く形（0.72315041）に
+なり、軸方向の核分裂の割合の表が加わった。6 桁の k と漏れは同じ。
 
 | 段階      | 結果                                                       |
 | --------- | ---------------------------------------------------------- |
