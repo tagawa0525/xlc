@@ -1098,11 +1098,13 @@ dependencies = [
  "num_cpus",
  "rayon",
  "rmp-serde",
+ "rmpv",
  "serde",
  "thiserror 2.0.21",
  "toml",
  "tracing",
  "tracing-subscriber",
+ "xlc-depletion",
  "xlc-format",
  "xlc-numeric",
 ]
