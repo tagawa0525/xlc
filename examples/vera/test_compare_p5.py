@@ -44,6 +44,24 @@ def write_rows(path: Path, rows: np.ndarray) -> None:
     path.write_bytes(msgpack.packb({"format": "x", "rows": rows.tolist()}))
 
 
+# 付録 J の 1/8 の表の行ごとの集合体の数（compare_p5.OCTANT_ROWS）
+def spec_text() -> str:
+    """5A-2D の k、1/8 の集合体出力の表（値は行と列から決めた 5 桁）、表 M3-6 の最大のピン出力だけの仕様書"""
+    lines = ["5A-2D 1.004085 0.000008", "", "5A-2D Assembly Powers (ENDF/B-VII.0)", ""]
+    for row, count in enumerate(compare_p5.OCTANT_ROWS):
+        lines.append(
+            " ".join(f"{0.8 + 0.01 * row + 0.02 * c:.5f}" for c in range(count))
+        )
+    lines += [
+        "",
+        compare_p5.POWER_TABLE,
+        "Maximum 1.2 1.3 1.4",
+        "Maximum Uncertainty 0.1 0.1 0.1",
+        "Maximum 1.5 1.6 1.7",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 class Fixture(unittest.TestCase):
     """3 × 3 の集合体の炉心。xlc は OpenMC より、中心を除いて 2% 高い"""
 
@@ -64,6 +82,7 @@ class Fixture(unittest.TestCase):
         pins = pins_map(reference, 0.0)
         write_rows(results / "pins.msgpack", pins)
         write_rows(results / "pins-std.msgpack", pins * 0.002)
+        (self.dir / "spec.txt").write_text(spec_text())
 
     def run_tool(self, *args):
         return subprocess.run(
@@ -98,6 +117,17 @@ class AssemblySummary(unittest.TestCase):
         self.assertEqual(d["sigma"]["beyond_2sigma"], 1)
         self.assertEqual(d["sigma"]["n"], 2)
 
+    def test_names_the_position_of_the_largest_difference(self):
+        d = compare_p5.assembly_summary(np.array([[1.1, 0.9]]), np.array([[1.0, 1.0]]))
+        self.assertEqual(d["relative"]["name"], "R01")
+        self.assertEqual(d["absolute"]["name"], "R01")
+
+    def test_a_zero_standard_deviation_stops_instead_of_writing_inf(self):
+        with self.assertRaises(SystemExit):
+            compare_p5.assembly_summary(
+                np.array([[1.1, 0.9]]), np.array([[1.0, 1.0]]), np.array([[0.0, 0.1]])
+            )
+
 
 class Names(unittest.TestCase):
     def test_assembly_names_use_the_columns_of_the_core_map(self):
@@ -113,6 +143,7 @@ class OpenmcJson(Fixture):
             self.dir / "out.json",
             "openmc",
             "5A",
+            self.dir / "spec.txt",
             self.dir / "core.out",
             self.dir / "core-pins.msgpack",
             self.dir / "results",
@@ -124,6 +155,12 @@ class OpenmcJson(Fixture):
         k = s["k"]
         self.assertAlmostEqual(k["diff_pcm"], 1e5 * (1.0010 / 1.0 - 1), places=6)
         self.assertAlmostEqual(k["diff_std_pcm"], 2.0, places=9)
+        # OpenMC − KENO-VI（絶対差 × 1e5）と、両方の統計誤差の合成
+        self.assertAlmostEqual(k["keno"], 1.004085, places=12)
+        self.assertAlmostEqual(k["diff_keno_pcm"], 1e5 * (1.0 - 1.004085), places=6)
+        self.assertAlmostEqual(
+            k["diff_keno_std_pcm"], 1e5 * math.hypot(2e-5, 8e-6), places=9
+        )
         self.assertEqual(
             sorted(i["path"].rsplit("/", 1)[-1] for i in s["inputs"]),
             sorted(
@@ -143,15 +180,17 @@ class OpenmcJson(Fixture):
         self.assertEqual(s["pins"]["all"]["n"], 9 * N * N)
 
     def test_report_draws_the_k_line_from_the_json(self):
-        self.run_tool(
+        first = self.run_tool(
             "--json",
             self.dir / "out.json",
             "openmc",
             "5A",
+            self.dir / "spec.txt",
             self.dir / "core.out",
             self.dir / "core-pins.msgpack",
             self.dir / "results",
         )
+        self.assertEqual(first.returncode, 0, first.stderr)
         run = self.run_tool("--report", self.dir / "out.json")
         lines = run.stdout.splitlines()
         self.assertEqual(run.returncode, 0, run.stderr)
@@ -168,6 +207,64 @@ class OpenmcJson(Fixture):
                 json.loads((self.dir / "out.json").read_text())["k"]["diff_pcm"]
             )
         )
+
+    def openmc_args(self, problem="5A"):
+        return [
+            "--json",
+            self.dir / "out.json",
+            "openmc",
+            problem,
+            self.dir / "spec.txt",
+            self.dir / "core.out",
+            self.dir / "core-pins.msgpack",
+            self.dir / "results",
+        ]
+
+    def test_an_unknown_problem_name_is_not_written(self):
+        run = self.run_tool(*self.openmc_args("9Z"))
+        self.assertNotEqual(run.returncode, 0)
+        self.assertFalse((self.dir / "out.json").exists())
+
+    def test_a_zero_openmc_k_std_is_not_written_as_inf(self):
+        (self.dir / "results" / "k.json").write_text(
+            json.dumps({"k": 1.0, "k-std": 0.0})
+        )
+        run = self.run_tool(*self.openmc_args())
+        self.assertNotEqual(run.returncode, 0)
+        self.assertFalse((self.dir / "out.json").exists())
+
+
+class KenoJson(Fixture):
+    """KENO-VI との比較。参照の集合体出力は仕様書の 1/8 の表から広げたもの、xlc はそれを 1% 高くして 1 つだけ 3% 高くしたもの"""
+
+    def test_json_has_the_k_difference_and_the_largest_assembly(self):
+        spec = spec_text().splitlines()
+        reference = compare_p5.keno_assemblies(spec, "5A")
+        ours = reference * 1.01
+        i, j = (int(x) for x in np.argwhere(~np.isnan(reference))[40])
+        ours[i, j] = reference[i, j] * 1.03
+        ours = np.where(np.isnan(reference), np.nan, ours)
+        core_out(self.dir / "core.out", 1.004085 * 1.001, ours)
+        write_rows(self.dir / "core-pins.msgpack", np.ones((17, 17)))
+        run = self.run_tool(
+            "--json",
+            self.dir / "keno.json",
+            "keno",
+            "5A",
+            self.dir / "spec.txt",
+            self.dir / "core.out",
+            self.dir / "core-pins.msgpack",
+        )
+        self.assertEqual((run.returncode, run.stdout), (0, ""), run.stderr)
+        s = json.loads((self.dir / "keno.json").read_text())
+        self.assertEqual((s["kind"], s["problem"]), ("keno", "5A"))
+        self.assertAlmostEqual(s["k"]["diff_pcm"], 100.0, places=6)
+        self.assertEqual(s["k"]["reference_std"], 8e-6)
+        self.assertEqual(s["assemblies"]["relative"]["at"], [i, j])
+        self.assertEqual(
+            s["assemblies"]["relative"]["name"], f"{'RPNMLKJHGFEDCBA'[j]}{i + 1:02d}"
+        )
+        self.assertEqual(s["max_pin"]["reference"], 1.5)
 
 
 if __name__ == "__main__":

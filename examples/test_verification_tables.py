@@ -101,8 +101,20 @@ def p5_summary(problem: str, kind: str, k: float, ref: float, **extra) -> dict:
             **extra,
         },
         "assemblies": {
-            "relative": {"n": 193, "rms": 0.0166, "max": 0.0463, "at": [1, 11]},
-            "peripheral": {"n": 56, "rms": 0.0191, "max": 0.0463, "at": [1, 11]},
+            "relative": {
+                "n": 193,
+                "rms": 0.0166,
+                "max": 0.0463,
+                "at": [1, 11],
+                "name": "D02",
+            },
+            "peripheral": {
+                "n": 56,
+                "rms": 0.0191,
+                "max": 0.0463,
+                "at": [1, 11],
+                "name": "D02",
+            },
         },
     }
     if kind == "openmc":
@@ -165,11 +177,19 @@ class DrawP5(unittest.TestCase):
         )
 
     def test_reference_results_leave_missing_openmc_blank(self):
-        """OpenMC が 5A だけのとき、5B と 5C の OpenMC の列と制御棒の価値（OpenMC）は空欄"""
+        """OpenMC が 5A だけのとき、5B と 5C の OpenMC の列と制御棒の価値（OpenMC）は空欄。k の差は JSON の絶対差 ± σ"""
         sources = [
-            p5_summary("5A", "keno", 1.00540075, 1.004085),
+            p5_summary("5A", "keno", 1.005401, 1.004085),
             p5_summary("5B", "keno", 0.992924, 0.991496),
-            p5_summary("5A", "openmc", 1.005401, 1.005459, reference_std=2e-05),
+            p5_summary(
+                "5A",
+                "openmc",
+                1.005401,
+                1.005459,
+                reference_std=2e-05,
+                diff_keno_pcm=136.84,
+                diff_keno_std_pcm=2.15,
+            ),
         ]
         rows = [
             [c.strip() for c in line.strip("|").split("|")]
@@ -177,7 +197,7 @@ class DrawP5(unittest.TestCase):
         ]
         self.assertEqual(
             rows[0][:4],
-            ["5A-2D", "1.005459 ± 0.000020", "1.004085 ± 0.000008", "+137 pcm"],
+            ["5A-2D", "1.005459 ± 0.000020", "1.004085 ± 0.000008", "+137 ± 2 pcm"],
         )
         self.assertEqual(rows[1][1], "")
         self.assertEqual(rows[1][5], "1265 ± 1 pcm")
