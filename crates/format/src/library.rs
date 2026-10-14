@@ -780,17 +780,34 @@ impl NuclideData {
                 if !CHAIN_REACTIONS.iter().any(|c| c.mt == r.mt) {
                     return Err(at(format!("MT{} is not a chain reaction", r.mt)));
                 }
-                // チェーンの経路と同じ並び: 状態に分けないならただ 1 つの経路、分けるなら MF9 か MF10 の状態で、残り（LFS が nil）は最後に 1 つ
+                // チェーンの経路と同じ並び: 状態に分けないならただ 1 つの経路、分けるなら MF9 か MF10 の別々の状態で、残り（LFS が nil）は
+                // ほかの状態のあとに 1 つ（そのときは状態はみな同じファイル）
                 let states: Vec<Option<ChannelState>> =
                     r.channels.iter().map(|c| c.final_state).collect();
                 let layout = match states[..] {
                     [None] => true,
                     _ => {
                         let last = states.len() - 1;
-                        states.iter().enumerate().all(|(i, s)| match s {
-                            Some(ChannelState { mf: 9 | 10, lfs }) => lfs.is_some() || i == last,
-                            _ => false,
-                        })
+                        let listed: Vec<ChannelState> = states.iter().flatten().copied().collect();
+                        let in_files = listed.len() == states.len()
+                            && listed.iter().all(|s| matches!(s.mf, 9 | 10));
+                        if !in_files {
+                            return Err(at(format!(
+                                "chain reaction MT{} channels must all be MF9 or MF10 states",
+                                r.mt
+                            )));
+                        }
+                        // 残り（LFS が nil）は最後だけで、ほかの状態がある。残りがあれば状態は同じファイル
+                        let remainder_last = listed
+                            .iter()
+                            .enumerate()
+                            .all(|(i, s)| s.lfs.is_some() || (i == last && last > 0));
+                        let one_file = listed[last].lfs.is_some()
+                            || listed.iter().all(|s| s.mf == listed[0].mf);
+                        let mut lfs: Vec<u32> = listed.iter().filter_map(|s| s.lfs).collect();
+                        lfs.sort_unstable();
+                        let distinct = lfs.windows(2).all(|w| w[0] != w[1]);
+                        remainder_last && one_file && distinct
                     }
                 };
                 if !layout {
