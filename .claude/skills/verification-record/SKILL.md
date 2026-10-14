@@ -34,6 +34,11 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 
 - 書き換える節は、古い測定、誤りの注記、置き換えた設定での結果を消して、今の結果だけにする。ほかの節の数値を
   打ち消す注記は書かない。経緯は git に任せる（`git show <コミット>:<ファイル>` で辿れる）
+- 数値の表は、`<!-- table: <名前> -->` 〜 `<!-- /table -->` の間なら手で直さない。比較の段階（`--json` を持つ道具）を走らせて
+  relock し、`python3 examples/verification_tables.py examples/<問題>/verification.md` で描き直す（ADR-0176）。表の脚注の
+  コミットと日付は手で書く（`commit-refs remap` が付け替える）。新しい表を足すときは、道具に `--json` を足し、
+  `examples/verification_tables.py` の `TABLES` に名前を足す。`--check` が落ちたら、記録の表を手で直さず、JSON の元（`.out`）と
+  突き合わせて原因を調べる
 - 再現のコマンドは、リポジトリの直下から走らせる形でコードブロックに書く（「k の差の内訳」の節の形）。python3 は
   `nix develop .#references -c` の中、cargo と dvc は `default` の devShell の中
 - 確かめていない原因は「候補」「確かめていない」と書く（CLAUDE.md）。保存則（k と 1/A など）が閉じていることを、
