@@ -639,8 +639,9 @@ stages:
       md5: fafeaefc846b98e1a5a970a764877f85
       size: 2419
   compare-3B:
-    cmd: python3 ../compare_p3.py 3B ../../../references/vera/spec.txt 
-      core-3B.out core-3B-pins.msgpack core-3B-layers.msgpack > compare-3B.out
+    cmd: python3 ../compare_p3.py --json compare-3B.json 3B 
+      ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack 
+      core-3B-layers.msgpack
     deps:
     - path: ../../../references/vera/spec.txt
       hash: md5
@@ -652,8 +653,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
-      size: 19327
+      md5: 662ce4d712f2a1c03f952c326e113789
+      size: 21452
     - path: core-3B-layers.msgpack
       hash: md5
       md5: 08cf1003570e98a65b894c54869bb754
@@ -667,13 +668,14 @@ stages:
       md5: fafeaefc846b98e1a5a970a764877f85
       size: 2419
     outs:
-    - path: compare-3B.out
+    - path: compare-3B.json
       hash: md5
-      md5: 3935e18fe46122911db1dc174d23dfa8
-      size: 3795
+      md5: 79f3aa57717b0d1cc19472f471c5b675
+      size: 6377
   compare-3A:
-    cmd: python3 ../compare_p3.py 3A ../../../references/vera/spec.txt 
-      core-3A.out core-3A-pins.msgpack core-3A-layers.msgpack > compare-3A.out
+    cmd: python3 ../compare_p3.py --json compare-3A.json 3A 
+      ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack 
+      core-3A-layers.msgpack
     deps:
     - path: ../../../references/vera/spec.txt
       hash: md5
@@ -685,8 +687,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
-      size: 19327
+      md5: 662ce4d712f2a1c03f952c326e113789
+      size: 21452
     - path: core-3A-layers.msgpack
       hash: md5
       md5: 51b69b22db4c53e14668670bdf558335
@@ -700,15 +702,14 @@ stages:
       md5: c9110aca63ada61e91c23e48580adc31
       size: 2315
     outs:
-    - path: compare-3A.out
+    - path: compare-3A.json
       hash: md5
-      md5: 76fbbdc28cd0c145aa1a5f150b0d8c7c
-      size: 3794
+      md5: 05b3fc36fbd81cd94617225cf031c32d
+      size: 6381
   compare-3A-openmc:
     cmd: python3 ../compare_p3.py --json compare-3A-openmc.json 3A 
       ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack 
-      core-3A-layers.msgpack ../../../references/openmc/aws/m3/openmc-3A > 
-      compare-3A-openmc.out
+      core-3A-layers.msgpack ../../../references/openmc/aws/m3/openmc-3A
     deps:
     - path: ../../../references/openmc/aws/m3/openmc-3A/k.json
       hash: md5
@@ -736,8 +737,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
-      size: 19327
+      md5: 662ce4d712f2a1c03f952c326e113789
+      size: 21452
     - path: core-3A-layers.msgpack
       hash: md5
       md5: 51b69b22db4c53e14668670bdf558335
@@ -753,17 +754,12 @@ stages:
     outs:
     - path: compare-3A-openmc.json
       hash: md5
-      md5: 617640f65331ef610121f0b4034d1986
-      size: 14491
-    - path: compare-3A-openmc.out
-      hash: md5
-      md5: 889606ccabcf120ea063504eb245d595
-      size: 14237
+      md5: a56cac1ba8915f15b6bdb20ffa82a8c2
+      size: 26864
   compare-3B-openmc:
     cmd: python3 ../compare_p3.py --json compare-3B-openmc.json 3B 
       ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack 
-      core-3B-layers.msgpack ../../../references/openmc/aws/m3/openmc-3B > 
-      compare-3B-openmc.out
+      core-3B-layers.msgpack ../../../references/openmc/aws/m3/openmc-3B
     deps:
     - path: ../../../references/openmc/aws/m3/openmc-3B/k.json
       hash: md5
@@ -791,8 +787,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 0ddfb5fdd257dcbb722d89ec58a0641d
-      size: 19327
+      md5: 662ce4d712f2a1c03f952c326e113789
+      size: 21452
     - path: core-3B-layers.msgpack
       hash: md5
       md5: 08cf1003570e98a65b894c54869bb754
@@ -808,9 +804,5 @@ stages:
     outs:
     - path: compare-3B-openmc.json
       hash: md5
-      md5: 2e076c0bb98151ffb39c16ed3cc7060e
-      size: 14517
-    - path: compare-3B-openmc.out
-      hash: md5
-      md5: 03715ff53e1827acbdb1d839969805ef
-      size: 14252
+      md5: ca0971c66724acc9e78fc897206371c4
+      size: 26890
