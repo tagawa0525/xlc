@@ -27,8 +27,8 @@ OpenMC のデータは examples/vera/openmc_library.py で作る（Pu-238〜242 
 ## 実行
 
 ```sh
-target/release/xs examples/mox/xs.toml                    # mox.msgpack
-target/release/lattice examples/mox/pincell-mox1.toml
+bin/xs examples/mox/xs.toml                               # mox.msgpack
+bin/lattice examples/mox/pincell-mox1.toml
 cargo run --release -p xlc-lattice --example fuel_xs -- examples/mox/pincell-mox1.toml examples/mox/xlc-mox1.msgpack
 # リポジトリの根で（nix develop .#references の中）。ライブラリは examples/vera/dvc.yaml の openmc-index の段階の出力
 python3 examples/mox/openmc_model.py examples/vera/openmc-library/cross_sections.xml MOX-1 references/openmc/mox-1 \
@@ -44,7 +44,9 @@ MOX-2 は 1 を 2 に変えて同じように解く。OpenMC は 1 世代 100 �
 
 ## 結果
 
-xlc は 8879202c（分岐点 f19dd5ec）、2026-10-12。ライブラリの作り直しと格子計算は Slurm の共有モード（`-c 8`）で流したので、計算時間は書かない。
+xlc は 6a88a865（分岐点 c59097f0。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124）、2026-10-14。ライブラリの作り直しと格子計算は Slurm の排他のジョブ 332 で、ほかの例とまとめて流した（時間は書かない）。
+前の値（8879202c、分岐点 f19dd5ec）と k は 6 桁で同じ。下の燃料の実効断面積の表は、6a88a865 の `mox.msgpack` で `fuel_xs` と `compare_capture.py` を 8c7c62ed（分岐点 f2cd615d）で走らせ直し（手元。lattice の
+コードは 6a88a865 と同じ）、表の桁で同じだった。
 
 | 問題  | xlc      | OpenMC              | 差       |
 | ----- | -------- | ------------------- | -------- |
