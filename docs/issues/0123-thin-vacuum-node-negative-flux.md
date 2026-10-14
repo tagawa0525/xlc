@@ -34,7 +34,7 @@ error: state half: node 150 next to a vacuum face has a flux -0.0000097898329782
 Problem 5 は、Pyrex の棒のある集合体の層に合わせて全炉心のメッシュに 15.761 cm を入れるので、全炉心（core-hzp）も同じ形の
 ノード（角と辺の反射体の列）を持つ。
 
-関係する ADR: ADR-0099
+関係する ADR: ADR-0154
 
 ## 完了の条件
 
