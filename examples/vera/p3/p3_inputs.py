@@ -793,8 +793,8 @@ def pipeline() -> str:
         stages.append(
             stage(
                 f"compare-{problem}",
-                f"python3 ../compare_p3.py {problem} ../../../references/vera/spec.txt core-{problem}.out "
-                f"core-{problem}-pins.msgpack core-{problem}-layers.msgpack > compare-{problem}.out",
+                f"python3 ../compare_p3.py --json compare-{problem}.json {problem} ../../../references/vera/spec.txt core-{problem}.out "
+                f"core-{problem}-pins.msgpack core-{problem}-layers.msgpack",
                 [
                     "../compare_p3.py",
                     "../compare_keno.py",
@@ -803,7 +803,7 @@ def pipeline() -> str:
                     f"core-{problem}-pins.msgpack",
                     f"core-{problem}-layers.msgpack",
                 ],
-                [f"compare-{problem}.out"],
+                [f"git:compare-{problem}.json"],
             )
         )
         # OpenMC の参照解は DVC の段階の出力でない（AWS の VM の実行 m3 から取り出した references/ のファイル）ので、
@@ -814,7 +814,7 @@ def pipeline() -> str:
             stage(
                 f"compare-{problem}-openmc",
                 f"python3 ../compare_p3.py --json compare-{problem}-openmc.json {problem} ../../../references/vera/spec.txt "
-                f"core-{problem}.out core-{problem}-pins.msgpack core-{problem}-layers.msgpack {openmc} > compare-{problem}-openmc.out",
+                f"core-{problem}.out core-{problem}-pins.msgpack core-{problem}-layers.msgpack {openmc}",
                 [
                     "../compare_p3.py",
                     "../compare_keno.py",
@@ -832,7 +832,7 @@ def pipeline() -> str:
                     f"core-{problem}-pins.msgpack",
                     f"core-{problem}-layers.msgpack",
                 ],
-                [f"compare-{problem}-openmc.out", f"git:compare-{problem}-openmc.json"],
+                [f"git:compare-{problem}-openmc.json"],
             )
         )
     return (
