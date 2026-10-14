@@ -13,7 +13,7 @@ use crate::multigroup::{
 };
 use crate::physics::BK;
 use crate::pointwise::{
-    ColdParts, DEFAULT_TOLERANCE, add, left_limit, linearize, resonance_tables, right_limit,
+    ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
 };
 use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
 use xlc_format::group::GroupStructure;
@@ -133,6 +133,10 @@ pub enum ProcessError {
         "the MF9 multiplicity of MT{mt} LFS={lfs} does not cover {energy} eV where the reaction is nonzero"
     )]
     Multiplicity { mt: u32, lfs: u32, energy: f64 },
+    #[error(
+        "the final states listed for MT{mt} exceed the reaction by {excess} b in group {group}"
+    )]
+    NegativeRemainder { mt: u32, group: usize, excess: f64 },
     #[error("{temperature} K")]
     Temperature {
         temperature: f64,
@@ -452,9 +456,10 @@ pub fn process_nuclide(
 }
 
 /// 燃焼チェーンの反応（`CHAIN_REACTIONS`。ADR-0164）の、経路ごとの無限希釈の群の断面積（重み関数だけで平均する。ADR-0172）。
-/// 反応の断面積は、代表の MT が `tables` にあればそれ、なければ部分の MT の和。MF8 が状態を MF9（多重度）か MF10（生成断面積）で
-/// 挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路（LFS が nil）にする（チェーンと同じ）。
-/// `tables` は温度に広げた断面積で、MF10 は 0 K の値をそのまま使う。
+/// 反応の断面積は `tables` の代表の MT（部分の MT があれば、再構成が部分の和で作り直したもの。`ColdParts`）。MF8 が状態を
+/// MF9（多重度）か MF10（生成断面積）で挙げれば状態ごとに分け（テープの順）、基底状態を挙げなければ、残りを基底状態への経路
+/// （LFS が nil）にする（チェーンと同じ）。残りが丸めの程度より負になる群があればエラー。`tables` は温度に広げた断面積で、MF10 は
+/// 0 K の値をそのまま使う。
 fn chain_reactions(
     tape: &Tape,
     mat: i32,
@@ -470,21 +475,7 @@ fn chain_reactions(
     };
     let mut reactions = Vec::new();
     for spec in &CHAIN_REACTIONS {
-        let parts: Vec<&Tab1> = match tables.get(&spec.mt) {
-            Some(t) => vec![t],
-            None => tables
-                .iter()
-                .filter(|(mt, _)| spec.includes(**mt))
-                .map(|(_, t)| t)
-                .collect(),
-        };
-        let Some(sigma) = parts
-            .iter()
-            .skip(1)
-            .fold(parts.first().map(|t| (*t).clone()), |acc, t| {
-                acc.map(|a| add(&a, t))
-            })
-        else {
+        let Some(sigma) = tables.get(&spec.mt) else {
             continue;
         };
         let total = average(sigma.clone());
@@ -498,7 +489,7 @@ fn chain_reactions(
                 for entry in &entries {
                     let table = final_state_table(tape, mat, entry.mf, spec.mt, entry.lfs)?;
                     let state = if entry.mf == 9 {
-                        multiplied(&table, &sigma, tolerance).map_err(|energy| {
+                        multiplied(&table, sigma, tolerance).map_err(|energy| {
                             ProcessError::Multiplicity {
                                 mt: spec.mt,
                                 lfs: entry.lfs,
@@ -524,9 +515,25 @@ fn chain_reactions(
                     let listed: Vec<f64> = (0..groups.len())
                         .map(|g| channels.iter().map(|c| c.cross_section[g]).sum())
                         .collect();
+                    let remainder: Vec<f64> =
+                        total.iter().zip(&listed).map(|(t, l)| t - l).collect();
+                    // 丸めの程度（相対 1e-9）より大きく負なら、挙げた状態が反応を超えている
+                    if let Some((group, excess)) = remainder
+                        .iter()
+                        .zip(&total)
+                        .enumerate()
+                        .find(|(_, (r, t))| **r < -1e-9 * t.abs())
+                        .map(|(g, (r, _))| (g, -r))
+                    {
+                        return Err(ProcessError::NegativeRemainder {
+                            mt: spec.mt,
+                            group,
+                            excess,
+                        });
+                    }
                     channels.push(GroupChannel {
                         final_state: Some(ChannelState { mf, lfs: None }),
-                        cross_section: total.iter().zip(&listed).map(|(t, l)| t - l).collect(),
+                        cross_section: remainder.iter().map(|r| r.max(0.0)).collect(),
                     });
                 }
                 channels
