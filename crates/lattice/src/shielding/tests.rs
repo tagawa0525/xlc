@@ -1174,6 +1174,152 @@ mod lattice {
         assert!(sph[0].iter().any(|mu| (mu - 1.0).abs() > 1e-6), "{sph:?}");
     }
 
+    /// 3 つの燃料のリングの物質を `fuel` から順に置いた、UFG で遮蔽するピンセル。物質は `rings` の名前と U-235 の数密度
+    /// の組（核種の並びは U-238、U-235、O-16）と、被覆管と水
+    fn ring_fuel(rings: [(&str, f64); 3]) -> (Library, FuelShielding, Vec<MaterialInput>) {
+        let library = resonant_library();
+        let fuel = |name: &str, u235: f64| MaterialInput {
+            name: name.into(),
+            temperature: T,
+            composition: vec![
+                ("U-238".into(), 0.022),
+                ("U-235".into(), u235),
+                ("O-16".into(), 0.045),
+            ],
+        };
+        let mut materials: Vec<MaterialInput> = Vec::new();
+        for (name, u235) in rings {
+            if !materials.iter().any(|m| m.name == name) {
+                materials.push(fuel(name, u235));
+            }
+        }
+        materials.push(MaterialInput {
+            name: "clad".into(),
+            temperature: T,
+            composition: vec![("Zr-90".into(), 0.043)],
+        });
+        materials.push(MaterialInput {
+            name: "water".into(),
+            temperature: T,
+            composition: vec![("H-1".into(), 0.05), ("O-16".into(), 0.025)],
+        });
+        let pin = PinCell::new(1.26, vec![0.2, 0.35, 0.4096, 0.418, 0.475]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+        let regions: Vec<String> = [
+            rings[0].0,
+            rings[1].0,
+            rings[2].0,
+            crate::input::VOID,
+            "clad",
+            "water",
+        ]
+        .map(String::from)
+        .to_vec();
+        let shielded = shield_fuel(
+            &library,
+            &tracking,
+            &materials,
+            &regions,
+            &ShieldingOptions::default(),
+        )
+        .unwrap();
+        (library, shielded, materials)
+    }
+
+    #[test]
+    fn fuel_rings_of_equal_composition_shield_like_one_material() {
+        let (_, one, _) = ring_fuel([("fuel", 5.0e-4), ("fuel", 5.0e-4), ("fuel", 5.0e-4)]);
+        let (_, split, _) = ring_fuel([("a", 5.0e-4), ("b", 5.0e-4), ("c", 5.0e-4)]);
+        for region in 0..6 {
+            let (x, y) = (
+                &one.materials[one.region_material[region]],
+                &split.materials[split.region_material[region]],
+            );
+            for (a, b) in x.total.iter().zip(&y.total) {
+                assert!(
+                    (a - b).abs() <= 1e-12 * a.abs(),
+                    "region {region}: {a} vs {b}"
+                );
+            }
+        }
+        assert_eq!(one.pins[0].rings, split.pins[0].rings);
+    }
+
+    #[test]
+    fn fuel_rings_take_their_own_compositions() {
+        let (_, shielded, materials) = ring_fuel([("a", 2.0e-4), ("b", 5.0e-4), ("c", 9.0e-4)]);
+        let pin = &shielded.pins[0];
+        assert_eq!(pin.rings.len(), 3);
+        // リングの物質の巨視的断面積は、そのリングの数密度とそのリングの微視的断面積の積の和（SPH 因子のない範囲の外の群）
+        for (ring, material) in materials.iter().take(3).enumerate() {
+            let total = shielded.materials[shielded.region_material[ring]].total[0];
+            let expected: f64 = material
+                .composition
+                .iter()
+                .zip(&pin.rings[ring])
+                .map(|((_, n), s)| n * s.total[0])
+                .sum();
+            assert!(
+                (total - expected).abs() <= 1e-12 * expected,
+                "ring {ring}: {total} vs {expected}"
+            );
+        }
+        // 等価原理（範囲の外）は体積平均の組成で解くので、どのリングも同じ微視的断面積
+        assert_eq!(pin.rings[0][0].total[0], pin.rings[2][0].total[0]);
+        // ピンの核種の数密度は、リングの体積の重みの平均（体積は 0.2²、0.35² − 0.2²、0.4096² − 0.35² に比例）
+        let volumes = [
+            0.04,
+            0.35f64.powi(2) - 0.04,
+            0.4096f64.powi(2) - 0.35f64.powi(2),
+        ];
+        let average = (volumes[0] * 2.0e-4 + volumes[1] * 5.0e-4 + volumes[2] * 9.0e-4)
+            / volumes.iter().sum::<f64>();
+        let u235 = pin.nuclides[1].1;
+        assert!(
+            (u235 - average).abs() <= 1e-9 * average,
+            "{u235} vs {average}"
+        );
+    }
+
+    #[test]
+    fn ring_cross_sections_resolve_the_rim_in_the_ufg_range() {
+        let (_, shielded, _) = ring_fuel([("fuel", 5.0e-4), ("fuel", 5.0e-4), ("fuel", 5.0e-4)]);
+        let rings = &shielded.pins[0].rings;
+        // U-238 の 200 eV の共鳴（群 2）は内側ほど遮蔽され、範囲の外の群はリングによらない
+        assert!(rings[0][0].total[1] < rings[1][0].total[1]);
+        assert!(rings[1][0].total[1] < rings[2][0].total[1]);
+        assert_eq!(rings[0][0].total[0], rings[2][0].total[0]);
+    }
+
+    #[test]
+    fn rejects_fuel_rings_of_different_nuclides() {
+        let library = resonant_library();
+        let material = |name: &str, composition: &[(&str, f64)]| MaterialInput {
+            name: name.into(),
+            temperature: T,
+            composition: composition.iter().map(|&(n, d)| (n.into(), d)).collect(),
+        };
+        let materials = vec![
+            material("a", &[("U-238", 0.022), ("U-235", 5.0e-4), ("O-16", 0.045)]),
+            material("b", &[("U-238", 0.022), ("O-16", 0.045)]),
+            material("water", &[("H-1", 0.05), ("O-16", 0.025)]),
+        ];
+        let pin = PinCell::new(1.26, vec![0.2, 0.4096]).unwrap();
+        let tracking = Tracking::new(&Lattice::pin_cell(pin), 16, 0.02).unwrap();
+        let regions: Vec<String> = ["a", "b", "water"].map(String::from).to_vec();
+        let result = shield_fuel(
+            &library,
+            &tracking,
+            &materials,
+            &regions,
+            &ShieldingOptions::default(),
+        );
+        assert!(
+            matches!(result, Err(SelfShieldingError::MixedFuel(0))),
+            "{result:?}"
+        );
+    }
+
     /// 燃料のピンに囲まれた、分離共鳴を持つ U-238 だけの（核分裂しない）棒（中央のセル 4 の内側の 2 リング）の
     /// 3 × 3 の格子を遮蔽する
     fn rod_lattice() -> (Library, Vec<MaterialInput>, FuelShielding) {
