@@ -7,6 +7,7 @@
   (k_xlc − k_OpenMC) × 1e5 pcm（OpenMC の標準偏差つき）とその 0 の点からの変化、主要な核種の数密度の相対差
   (N_xlc − N_OpenMC) / N_OpenMC を、燃料のピン全体（リングの体積の重みの平均）と、最後の点のリングごとに書く。xlc の燃焼の
   領域と OpenMC のリングは、内側から順に対応させる。`inputs` は読んだファイルのパス（段階の cwd から）と md5
+  時間の内訳（xlc の履歴の `seconds`、OpenMC の輸送ごとの時間と CRAM の時間）もコピーする
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
 
@@ -105,9 +106,22 @@ def summarize(xlc: dict, omc: dict) -> dict:
         }
         for r, ring in enumerate(rings)
     ]
+    transport = omc["transport-seconds"]
+    seconds = {
+        "xlc": {**xlc["seconds"], "solves": xlc["solves"]},
+        "openmc": {
+            "transport": sum(transport),
+            "fastest": min(transport),
+            "slowest": max(transport),
+            "solves": len(transport),
+            "cram": sum(omc["cram-seconds"]),
+            "total": omc["total-seconds"],
+        },
+    }
     return {
         "burnup": burnup,
         "transported": len(ours),
+        "seconds": seconds,
         "k": k,
         "pin": density,
         "rings": by_ring,
@@ -137,6 +151,15 @@ def report(summary: dict) -> list[str]:
         lines.append(
             f"{b:g} | " + " | ".join(percent(summary["pin"][n][i]) for n in NUCLIDES)
         )
+    x, o = summary["seconds"]["xlc"], summary["seconds"]["openmc"]
+    lines.append(
+        f"時間 xlc（輸送 {x['solves']} 回）: 自己遮蔽 {x['shielding']:.1f} 秒、MOC {x['moc']:.1f} 秒、"
+        f"反応率 {x['rates']:.2f} 秒、燃焼行列 {x['matrix']:.2f} 秒、CRAM {x['cram']:.2f} 秒"
+    )
+    lines.append(
+        f"時間 OpenMC（輸送 {o['solves']} 回）: 全体 {o['total']:.0f} 秒、輸送 {o['transport']:.0f} 秒"
+        f"（1 回 {o['fastest']:.0f}〜{o['slowest']:.0f} 秒）、CRAM {o['cram']:.1f} 秒"
+    )
     if len(summary["rings"]) > 1:
         lines.append(
             "最後の点のリングごとの相対差 (%): リング | " + " | ".join(NUCLIDES)
