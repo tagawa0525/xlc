@@ -5270,3 +5270,768 @@ stages:
       md5: 43eb50a6d51d943bd79cb1f8e3391163.dir
       size: 23109
       nfiles: 1
+  keno-assembly@2G:
+    cmd: ../../bin/lattice p2/assembly-2G.toml > p2/keno-lattice-2G.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2G.json 
+      ../../references/vera/spec.txt 2G p2/keno-lattice-2G.out 
+      p2/pins-2G.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2G.toml
+      hash: md5
+      md5: 5e1d8fe5706fcb206e870b40a3ff1911
+      size: 4707
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2G.json
+      hash: md5
+      md5: 50d31c79c1a4b64e5aaac2fa34ec3e8d
+      size: 289
+    - path: p2/keno-lattice-2G.out
+      hash: md5
+      md5: 02cf9752b09a384171e2ef5c87cd05da
+      size: 11
+    - path: p2/pins-2G.msgpack
+      hash: md5
+      md5: ce0b49961bbd7742e6394a580390dc36
+      size: 2683
+  keno-assembly@2I:
+    cmd: ../../bin/lattice p2/assembly-2I.toml > p2/keno-lattice-2I.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2I.json 
+      ../../references/vera/spec.txt 2I p2/keno-lattice-2I.out 
+      p2/pins-2I.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2I.toml
+      hash: md5
+      md5: 8f8f4e149300ca3a984a38c6b2145f1b
+      size: 4372
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2I.json
+      hash: md5
+      md5: 40f59ad4043734b46502c642df2318af
+      size: 289
+    - path: p2/keno-lattice-2I.out
+      hash: md5
+      md5: 002241bec51574d55b6da0ae12142765
+      size: 11
+    - path: p2/pins-2I.msgpack
+      hash: md5
+      md5: c50a8735f6893b1ec4e0e4d280e4e4d9
+      size: 2683
+  keno-assembly@2B:
+    cmd: ../../bin/lattice p2/assembly-2B.toml > p2/keno-lattice-2B.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2B.json 
+      ../../references/vera/spec.txt 2B p2/keno-lattice-2B.out 
+      p2/pins-2B.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2B.toml
+      hash: md5
+      md5: 34cce12cc99fcc0959e71def63c1aad3
+      size: 3485
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2B.json
+      hash: md5
+      md5: 60aed31c79b81ff41a1a7105c67d8c79
+      size: 288
+    - path: p2/keno-lattice-2B.out
+      hash: md5
+      md5: 2ab18fb50a1e3bf04ae0066b709d312b
+      size: 11
+    - path: p2/pins-2B.msgpack
+      hash: md5
+      md5: e0e284dc2cbef71385e133f65ae8dd6e
+      size: 2683
+  keno-assembly@2D:
+    cmd: ../../bin/lattice p2/assembly-2D.toml > p2/keno-lattice-2D.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2D.json 
+      ../../references/vera/spec.txt 2D p2/keno-lattice-2D.out 
+      p2/pins-2D.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2D.toml
+      hash: md5
+      md5: 1c4385fc805b5912de6be3dbc92e0c89
+      size: 3487
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2D.json
+      hash: md5
+      md5: 4273f57c1cc610226ab72e6f33c0768f
+      size: 289
+    - path: p2/keno-lattice-2D.out
+      hash: md5
+      md5: da0a67c99ae6d571bf7b35d09c5cc2c6
+      size: 11
+    - path: p2/pins-2D.msgpack
+      hash: md5
+      md5: 5b227a1c6e4e6155357539fdc211537b
+      size: 2683
+  keno-assembly@2E:
+    cmd: ../../bin/lattice p2/assembly-2E.toml > p2/keno-lattice-2E.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2E.json 
+      ../../references/vera/spec.txt 2E p2/keno-lattice-2E.out 
+      p2/pins-2E.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2E.toml
+      hash: md5
+      md5: 3dc45e435e84c020e40bc288027953f5
+      size: 4987
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2E.json
+      hash: md5
+      md5: 8c1cbb082cd5014911d32ad104bbef62
+      size: 289
+    - path: p2/keno-lattice-2E.out
+      hash: md5
+      md5: 3c84dabe9ebf6394cdbe3a6e72b1fc1c
+      size: 11
+    - path: p2/pins-2E.msgpack
+      hash: md5
+      md5: 67257682884576a61fc8dd3ea705814a
+      size: 2683
+  keno-pincell@1D:
+    cmd: ../../bin/lattice p1/pincell-1D.toml > p1/keno-lattice-1D.out && 
+      python3 compare_keno_lattice.py --json compare-keno-1D.json 
+      ../../references/vera/spec.txt 1D p1/keno-lattice-1D.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p1/pincell-1D.toml
+      hash: md5
+      md5: 7e55baeae8e91f275f61b49927ec1640
+      size: 1513
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-1D.json
+      hash: md5
+      md5: 1bb08f24d5d0cd0e9750559d39eed008
+      size: 182
+    - path: p1/keno-lattice-1D.out
+      hash: md5
+      md5: 6232267cfeec296705f0cda6d0e7e643
+      size: 11
+  keno-assembly@2J:
+    cmd: ../../bin/lattice p2/assembly-2J.toml > p2/keno-lattice-2J.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2J.json 
+      ../../references/vera/spec.txt 2J p2/keno-lattice-2J.out 
+      p2/pins-2J.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2J.toml
+      hash: md5
+      md5: d934a859b0903687f6d88544f2fffecb
+      size: 5017
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2J.json
+      hash: md5
+      md5: 39b96e689648f1c05e9a7d4c0d1d3344
+      size: 286
+    - path: p2/keno-lattice-2J.out
+      hash: md5
+      md5: 7e1b1967f81213b0b164bfe2ca8e79d3
+      size: 11
+    - path: p2/pins-2J.msgpack
+      hash: md5
+      md5: 4712c28aa99ad9e6952b3f9597fa4f2b
+      size: 2683
+  keno-pincell@1C:
+    cmd: ../../bin/lattice p1/pincell-1C.toml > p1/keno-lattice-1C.out && 
+      python3 compare_keno_lattice.py --json compare-keno-1C.json 
+      ../../references/vera/spec.txt 1C p1/keno-lattice-1C.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p1/pincell-1C.toml
+      hash: md5
+      md5: 4bd70824b7981a01853cd9b80abc613d
+      size: 1511
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-1C.json
+      hash: md5
+      md5: 045192598d4f571371438127acf52072
+      size: 182
+    - path: p1/keno-lattice-1C.out
+      hash: md5
+      md5: 6e0bf7f019d996dc7aee3f83b29bb642
+      size: 11
+  keno-assembly@2C:
+    cmd: ../../bin/lattice p2/assembly-2C.toml > p2/keno-lattice-2C.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2C.json 
+      ../../references/vera/spec.txt 2C p2/keno-lattice-2C.out 
+      p2/pins-2C.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2C.toml
+      hash: md5
+      md5: cd1d2c349a05b8110e762a77d55452e7
+      size: 3485
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2C.json
+      hash: md5
+      md5: d6d8b092aa9f70241eab0615f672c81e
+      size: 290
+    - path: p2/keno-lattice-2C.out
+      hash: md5
+      md5: c11b8294415e379afa1d069398ccc4ac
+      size: 11
+    - path: p2/pins-2C.msgpack
+      hash: md5
+      md5: af9f1be2b51762f28dcf11a0e3bc3316
+      size: 2683
+  keno-assembly@2F:
+    cmd: ../../bin/lattice p2/assembly-2F.toml > p2/keno-lattice-2F.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2F.json 
+      ../../references/vera/spec.txt 2F p2/keno-lattice-2F.out 
+      p2/pins-2F.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2F.toml
+      hash: md5
+      md5: 935e8726d4029825d4f651018d18f1aa
+      size: 4730
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2F.json
+      hash: md5
+      md5: c756464cdfa3b6028800158573e55ef3
+      size: 290
+    - path: p2/keno-lattice-2F.out
+      hash: md5
+      md5: c43db3ffa3676ea0a8e4901024fb1102
+      size: 11
+    - path: p2/pins-2F.msgpack
+      hash: md5
+      md5: 4a00dd7c3918f1885f6cadda3a980ffb
+      size: 2683
+  keno-assembly@2A:
+    cmd: ../../bin/lattice p2/assembly-2A.toml > p2/keno-lattice-2A.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2A.json 
+      ../../references/vera/spec.txt 2A p2/keno-lattice-2A.out 
+      p2/pins-2A.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2A.toml
+      hash: md5
+      md5: 4aad98ab3d3590d1fe13eb67cb6ec7aa
+      size: 3528
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2A.json
+      hash: md5
+      md5: da57c7b5af1c77bad5486256ef3cce89
+      size: 291
+    - path: p2/keno-lattice-2A.out
+      hash: md5
+      md5: 7009229b9b422883f24bf1fe598928af
+      size: 11
+    - path: p2/pins-2A.msgpack
+      hash: md5
+      md5: a4f1bafba268ab635df61c8c7e4432cf
+      size: 2683
+  keno-assembly@2H:
+    cmd: ../../bin/lattice p2/assembly-2H.toml > p2/keno-lattice-2H.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2H.json 
+      ../../references/vera/spec.txt 2H p2/keno-lattice-2H.out 
+      p2/pins-2H.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2H.toml
+      hash: md5
+      md5: f791eeaca60c21269f90553937c309d9
+      size: 4531
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2H.json
+      hash: md5
+      md5: 885e1e70dd01fd75b5b082f10f44a057
+      size: 286
+    - path: p2/keno-lattice-2H.out
+      hash: md5
+      md5: fe101a577ff197738de5ea52bc5a37ec
+      size: 11
+    - path: p2/pins-2H.msgpack
+      hash: md5
+      md5: 5f6f09beec6f7141856d4bf2fed5bd0e
+      size: 2683
+  keno-assembly@2K:
+    cmd: ../../bin/lattice p2/assembly-2K.toml > p2/keno-lattice-2K.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2K.json 
+      ../../references/vera/spec.txt 2K p2/keno-lattice-2K.out 
+      p2/pins-2K.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2K.toml
+      hash: md5
+      md5: a903d799557355b415e276c011af5206
+      size: 6195
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2K.json
+      hash: md5
+      md5: 89b518f3b12744cf9821de0bb88e6263
+      size: 287
+    - path: p2/keno-lattice-2K.out
+      hash: md5
+      md5: f923829e9047a962aea6bf28df5f4fca
+      size: 11
+    - path: p2/pins-2K.msgpack
+      hash: md5
+      md5: add516269532e39360bab2c709d1d0d9
+      size: 2683
+  keno-assembly@2Q:
+    cmd: ../../bin/lattice p2/assembly-2Q.toml > p2/keno-lattice-2Q.out && 
+      python3 compare_keno_lattice.py --json compare-keno-2Q.json 
+      ../../references/vera/spec.txt 2Q p2/keno-lattice-2Q.out 
+      p2/pins-2Q.msgpack
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p2/assembly-2Q.toml
+      hash: md5
+      md5: 8845ce7c8d89f8d28261f4a64ced9f37
+      size: 4078
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-2Q.json
+      hash: md5
+      md5: 4001c400944948230f7b113e281a5b1f
+      size: 288
+    - path: p2/keno-lattice-2Q.out
+      hash: md5
+      md5: 6b7ac445e6735cb71feeb146afa4d1c3
+      size: 11
+    - path: p2/pins-2Q.msgpack
+      hash: md5
+      md5: 9e2ed70df587dd9eafae0eddb203e038
+      size: 2683
+  keno-pincell@1B:
+    cmd: ../../bin/lattice p1/pincell-1B.toml > p1/keno-lattice-1B.out && 
+      python3 compare_keno_lattice.py --json compare-keno-1B.json 
+      ../../references/vera/spec.txt 1B p1/keno-lattice-1B.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: 82b471dfb374c828536b20197ff8e24f
+      size: 4175928
+      isexec: true
+    - path: ../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
+    - path: compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: compare_keno.py
+      hash: md5
+      md5: cf98aec448a1a85321477ab7f86a2503
+      size: 4663
+    - path: compare_keno_lattice.py
+      hash: md5
+      md5: 4b36b73f33ed4137bad2fe9404e9430b
+      size: 2144
+    - path: compare_p3.py
+      hash: md5
+      md5: a37cee375ff2262ac64cb107fe988b0e
+      size: 22252
+    - path: p1/pincell-1B.toml
+      hash: md5
+      md5: 607599ffb9282261120b82ce84c10a6b
+      size: 1511
+    - path: vera.msgpack
+      hash: md5
+      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      size: 323900899
+    outs:
+    - path: compare-keno-1B.json
+      hash: md5
+      md5: 865c3a44ae1bd8619f75b7694bccc843
+      size: 181
+    - path: p1/keno-lattice-1B.out
+      hash: md5
+      md5: 132bd937833521336f97e91864c8b494
+      size: 11

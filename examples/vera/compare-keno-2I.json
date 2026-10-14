@@ -1,0 +1,19 @@
+{
+ "format": "xlc-compare-keno-lattice",
+ "problem": "2I",
+ "k": {
+  "xlc": 1.180611,
+  "keno": 1.179916,
+  "keno_std": 2.4e-05,
+  "diff_pcm": 69.50000000001123
+ },
+ "pins": {
+  "positions": 39,
+  "rms": 0.0005312976721927693,
+  "max": -0.001279647302980358,
+  "at": [
+   6,
+   5
+  ]
+ }
+}
