@@ -87,7 +87,7 @@ stages:
       nfiles: 561
     - path: xs.toml
       hash: md5
-      md5: 71993de9f37109dbae7ffcecf399f9be
+      md5: 8ec2de50058c7c01bf6c443d04ee2f14
       size: 6543
     outs:
     - path: xs-range.toml
@@ -2906,8 +2906,8 @@ stages:
       isexec: true
     - path: xs-nuclides
       hash: md5
-      md5: 0434999c937de9883e519f41b80e6e9c.dir
-      size: 291597805
+      md5: 0ec844dbdba377acf9d70157109d2cba.dir
+      size: 291598688
       nfiles: 61
     - path: xs-range.toml
       hash: md5
@@ -2915,7 +2915,7 @@ stages:
       size: 35
     - path: xs.toml
       hash: md5
-      md5: 71993de9f37109dbae7ffcecf399f9be
+      md5: 8ec2de50058c7c01bf6c443d04ee2f14
       size: 6543
     outs:
     - path: depletion.msgpack
