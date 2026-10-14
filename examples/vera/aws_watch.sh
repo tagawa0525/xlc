@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 自己完結な実行（aws_run.sh。ADR-0155）のジョブを一定の間隔で見て、欠けたジョブを 1 回に 1 つ、スポットで起動し直す
-# （docs/environment.md の「自己完結な実行」）。S3 の done の中身が 0 のジョブは完了、VM が走っていないジョブは欠けたジョブ。
+# （docs/environment.md の「自己完結な実行」）。S3 の done の中身が 0 のジョブは完了、VM が起動中・走行中でないジョブは欠けたジョブ。
 # 起動し直しは aws_run.sh --job J --spot --type auto --statepoint-interval N [--retry-failed] <name>
 # （N はジョブ名が openmc-3? なら 50、それ以外は 25。done が 0 以外なら --retry-failed）。
 # 終了コード: 0 全部 done、2 起動し直しの上限、3 想定外の失敗、4 認証切れ（aws login をやり直す。VM は動き続ける）
@@ -53,7 +53,7 @@ while :; do
     code=${code//[[:space:]]/}
     if [[ $code == 0 ]]; then
       done_n=$((done_n + 1))
-    elif grep -q "$name-$j .* running " <<< "$st"; then
+    elif grep -qE "^$name-$j [^ ]+ [^ ]+ (pending|running) " <<< "$st"; then
       :
     else
       missing+=("$j")
@@ -76,7 +76,8 @@ while :; do
     out=$("$here/aws_run.sh" "${args[@]}" "$name" 2>&1) || rc=$?
     tail -6 <<< "$out"
     if ((rc == 0)); then
-      relaunches=$((relaunches + 1))
+      # 起動するジョブがなかった回（VM が終了中など）は数えない
+      if grep -q '起動するジョブはありません' <<< "$out"; then echo "nothing launched for $job"; else relaunches=$((relaunches + 1)); fi
     else
       check_expired "$out"
       if ((rc == 1)) && grep -qE '空きがない|候補がない' <<< "$out"; then
