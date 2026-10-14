@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [core, vera]
 opened: 2026-10-12
-closed:
+closed: 2026-10-14
 milestone: M3
 blocked-by: ["#0063"]
-resolution:
+resolution: ADR-0154
 ---
 
 # Problem 5 の 3D の全炉心の入力（定数、層、バンクの位置）
@@ -53,3 +53,7 @@ examples/vera/verification.md に書く。
   15.761 cm を除き、その 0.056 cm を下の端栓の層に含めて進める（ADR-0154。Problem 3B で測った効きは k +0.03 pcm、軸方向の
   出力は層 1 で +0.172%、層 2 で +0.117%、層 3 で +0.060%、AO −0.0409% → −0.0478%）。#0123 が入ったら、炉心の段階だけを
   元の層で流し直す（格子と平板は境界に依らない）
+- 2026-10-14: 全 32 の場合と場合 1、2 の臨界ホウ素濃度の探索を解き、KENO-VI と実測値と比べて examples/vera/verification.md の
+  「Problem 5 の 3D の炉心の計算」に書いた（k は KENO-VI に +148〜+194 pcm、臨界ホウ素濃度は実測に +15、+19 ppm、バンクの価値の
+  合計は実測に +0.3%、KENO-VI に −2.5%、ITC は KENO-VI に +0.03 pcm/°F、集合体の出力の RMS 1.70%）。反射体の格子の燃料の温度の
+  軸は #0121、薄いノードの core の扱いは #0123 に残した
