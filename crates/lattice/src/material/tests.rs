@@ -17,6 +17,7 @@ fn library() -> Library {
                 .map(|(temperature, c)| {
                     let v = |values: Vec<f64>| values.iter().map(|x| c * x).collect();
                     TemperatureData {
+                        reactions: Vec::new(),
                         pointwise: Default::default(),
                         temperature,
                         chi: fission(vec![1.0, 0.0]),
@@ -29,6 +30,7 @@ fn library() -> Library {
                             elastic: v(vec![8.0, 15.5]),
                             fission: fission(v(vec![1.0, 2.0])),
                             nu_fission: fission(v(vec![2.5, 5.0])),
+                            capture: v(vec![0.5, 1.0]),
                         }],
                     }
                 })
