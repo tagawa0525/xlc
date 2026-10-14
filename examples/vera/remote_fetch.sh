@@ -19,7 +19,7 @@ if [[ $# -ne 3 || $1 == --help || $1 == -h ]]; then
   sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 fi
-if ((allow && !dry)); then "$(dirname "$0")/aws_allow_ip.sh"; fi
+if ((allow && !dry)); then "$(dirname "$0")/../aws/aws_allow_ip.sh"; fi
 # 完了（done が 0）した結果だけ、最後の世代の statepoint（最大の番号）と summary.h5 を戻す。失敗または途中の結果は、
 # 途中の statepoint を戻さず、done の値を示して止める
 rsync "${flags[@]}" --exclude='run/statepoint.*.h5' "$1:$2/results/" "$3/"
