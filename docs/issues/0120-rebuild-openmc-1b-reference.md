@@ -38,7 +38,7 @@ xs の段階も ADR-0167 と ADR-0170 の後で古い（#0124）。`dvc repro -P
 
 ## 完了の条件
 
-- `dvc repro examples/vera/dvc.yaml` で古い段階（`openmc-1B`、`openmc-1B-extract`、`openmc-5A-2D-extract`。続けて `compare-1B`）を
+- #0124 と同じ `dvc repro -P` で古い段階（ここでは `openmc-1B`、`openmc-1B-extract`、`openmc-5A-2D-extract`。続けて `compare-1B`）を
   走らせ、`dvc.lock` をコミットする（Slurm で排他、スキル openmc-reference）
 - 5-2D の OpenMC との比較の値が変わらないことを確かめる
 - examples/vera/verification.md の「参照解」の 1B の行と、「OpenMC との比較」の 1B の差を、新しい参照解で書き直す。
