@@ -2,7 +2,7 @@
 # 走っている（終了前の）インスタンスと起動からの時間、スポット価格の目安を出す（docs/environment.md の「外部の計算機（AWS）」）。
 # 続けて、S3 の runs/ にある自己完結な実行（aws_run.sh。ADR-0155）のジョブごとの done と最新の statepoint を出す。
 #
-# 使い方: examples/vera/aws_status.sh
+# 使い方: examples/aws/aws_status.sh
 set -euo pipefail
 # shellcheck source=aws_common.sh
 source "$(dirname "$0")/aws_common.sh"

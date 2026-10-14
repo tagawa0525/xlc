@@ -2,7 +2,7 @@
 # AWS EC2 のスポットで Ubuntu 24.04 の VM を起動し、~/.ssh/config に Host を書く（docs/environment.md の「外部の計算機（AWS）」）。
 # 起動の前に aws_allow_ip.sh を呼ぶ（新しい VM に入れなければ意味がないため）。
 #
-# 使い方: examples/vera/aws_launch.sh [--dry-run] <name> [--count N] [--type c7a.4xlarge] [--az AZ] [--on-demand]
+# 使い方: examples/aws/aws_launch.sh [--dry-run] <name> [--count N] [--type c7a.4xlarge] [--az AZ] [--on-demand]
 #   <name>   タグ Name と ssh の Host。--count が 2 以上なら <name>-1 ... <name>-N
 #   --count  台数（既定 1）
 #   --type   インスタンスタイプ（既定 c7a.4xlarge。16 物理コア、SMT なし、32 GB）

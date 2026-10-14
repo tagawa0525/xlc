@@ -96,12 +96,12 @@ nix develop .#references -c sh -c 'OMP_NUM_THREADS=16 python3 examples/vera/open
 
 ADR-0155、0168、0171。手順は docs/environment.md の「自己完結な実行」。要点:
 
-- `aws_run.sh --type auto`: 候補と速度は `examples/vera/aws_types.toml`。スポットの vCPU のクォータの残りに収める
+- `aws_run.sh --type auto`: 候補と速度は `examples/aws/aws_types.toml`。スポットの vCPU のクォータの残りに収める
 - 起動し直しは `--job <ジョブ>`。`--statepoint-interval` は 3A、3B で 50、5B、5C-2D で 25
 - `--retry-failed` は、S3 の `runs/<name>/<ジョブ>/log` で原因を見て、直ってから使う
 - S3 には最新の statepoint が 120 秒後に写る（それより前の中断では失う）
 - `aws login` の期限は約 12 時間。切れると手元の監視と起動し直しが止まる（VM は動き続ける）。切れたらユーザーに `aws login` を頼む
-- 監視と起動し直しは `examples/vera/aws_watch.sh <name>`（docs/environment.md に使い方）
+- 監視と起動し直しは `examples/aws/aws_watch.sh <name>`（docs/environment.md に使い方）
 
 ## Slurm の名前と見積もり
 

@@ -5,7 +5,7 @@
 # （N はジョブ名が openmc-3? なら 50、それ以外は 25。done が 0 以外なら --retry-failed）。
 # 終了コード: 0 全部 done、2 起動し直しの上限、3 想定外の失敗、4 認証切れ（aws login をやり直す。VM は動き続ける）
 #
-# 使い方: examples/vera/aws_watch.sh [--interval 秒] [--limit 回] <name>
+# 使い方: examples/aws/aws_watch.sh [--interval 秒] [--limit 回] <name>
 #   --interval  見る間隔（既定 300 秒）
 #   --limit     起動し直しの回数の上限（既定 60。実際に起動した回だけ数える）
 set -euo pipefail
