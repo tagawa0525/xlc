@@ -3,7 +3,10 @@
 実行: python3 -m unittest discover -s examples/vera -p 'test_compare_keno_lattice.py'
 """
 
+import json
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -49,6 +52,32 @@ class KenoValues(unittest.TestCase):
             rms, 1e-3
         )  # 表の値の平均で 1 に規格化し直すので、表の平均が 1 からずれた分だけ残る
         self.assertLess(abs(worst), 1e-3)
+
+    def test_json_has_k_difference_and_no_stdout(self):
+        """k 1.18 の 2B は、KENO-VI の 1.183360 に対して −336 pcm。要約は JSON だけに書き、標準出力には何も出さない。"""
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "lattice.out"
+            out.write_text("k 1.18\n")
+            summary = Path(d) / "compare.json"
+            run = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).resolve().parent / "compare_keno_lattice.py"),
+                    "--json",
+                    str(summary),
+                    str(SPEC),
+                    "2B",
+                    str(out),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertEqual(run.stdout, "")
+            data = json.loads(summary.read_text())
+        self.assertEqual(data["format"], "xlc-compare-keno-lattice")
+        self.assertAlmostEqual(data["k"]["diff_pcm"], -336.0, places=6)
+        self.assertIsNone(data["pins"])
 
 
 if __name__ == "__main__":
