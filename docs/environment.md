@@ -134,6 +134,14 @@ examples/vera/aws_fetch.sh --verify --delete m3   # 取り出し、manifest と�
 examples/vera/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m3 の VM。S3 の statepoint から aws_run.sh m3 で続けられる）
 ```
 
+長く走る実行は `examples/vera/aws_watch.sh [--interval 秒] [--limit 回] <name>` で見張れる。<interval>（既定 300 秒）ごとに
+`aws_status.sh` と S3 の done を見て、done が 0 のジョブを完了、VM が走っていないジョブを欠けたジョブとし、1 回に 1 つ
+`aws_run.sh --job J --spot --type auto --statepoint-interval N [--retry-failed] <name>` で起動し直す（N はジョブ名が
+`openmc-3?` なら 50、それ以外は 25。done が 0 以外なら `--retry-failed`）。空きや候補がなければ次の回に回し、起動し直しの
+回数は実際に起動した回だけを数えて上限（既定 60）で終了コード 2、認証切れ（`aws login` の期限は約 12 時間。VM は動き続ける）は
+4、そのほかの失敗は 3、全部 done なら `ALL DONE` で 0。起動は `nohup examples/vera/aws_watch.sh m3 > ~/aws-watch-m3.log 2>&1 &`
+のような形で、1 回ごとに 1 行（時刻、done の数、欠けたジョブ、失敗、回数）を書く。
+
 用意するもの（2026-10-13 に作成済み。バケットは管理者が作った）:
 
 - S3 のバケット `xlc-openmc-118645514640`（us-east-1。ツールの変数 `XLC_BUCKET` で変えられる）。パブリックアクセスなし、バージョニング
