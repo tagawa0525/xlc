@@ -8,5 +8,5 @@ burnup = [0.1, 0.5]
 particles = 20000
 batches = 40
 inactive = 20
-seed = 1  # 種を変えた分けない走行は 2
+seed = 1  # split_check.sh が 1〜8 に置き換える
 threads = 1
