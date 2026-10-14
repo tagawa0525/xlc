@@ -211,26 +211,21 @@ pub fn unresolved_shielding(
 
     let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
     let mut infinite = Vec::with_capacity(grid.len());
-    for &e in &grid {
+    // 格子点の番号を種にする（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。ADR-0177）
+    for (seed, &e) in (0u64..).zip(&grid) {
         let background = Sigma {
             total: at(&total, e),
             elastic: at(&elastic, e),
             fission: at(&fission, e),
             capture: at(&capture, e),
         };
-        for (row, s) in shielded
-            .iter_mut()
-            .zip(xs.shielded(e, temperature, sigma0, background)?)
-        {
+        let sampled = xs.shielded(e, temperature, sigma0, background, seed)?;
+        for (row, s) in shielded.iter_mut().zip(&sampled.shielded) {
             row.push([s.total, s.elastic, s.fission, s.capture]);
         }
-        let average = xs.cross_sections(e)?;
-        infinite.push([
-            average.total + background.total,
-            average.elastic + background.elastic,
-            average.fission + background.fission,
-            average.capture + background.capture,
-        ]);
+        // 無限希釈の欄は同じサンプルの平均にして、補正（LSSF=0 の差、LSSF=1 の比）がサンプルの揺らぎの 1 次を打ち消すようにする
+        let mean = sampled.mean;
+        infinite.push([mean.total, mean.elastic, mean.fission, mean.capture]);
     }
     Ok(Some(UnresolvedShielding::new(
         range.el, range.eh, urr.lssf, grid, law, shielded, infinite,
