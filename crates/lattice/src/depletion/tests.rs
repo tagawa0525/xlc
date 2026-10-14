@@ -6,7 +6,6 @@ use xlc_format::group::GroupStructure;
 use xlc_format::library::{Library, NuclideData, Pointwise, Shielded, TemperatureData};
 
 use super::*;
-use crate::geometry::{Lattice, PinCell};
 use crate::input::LatticeInput;
 use crate::symmetry::choose;
 use crate::tracking::Tracking;
@@ -102,7 +101,7 @@ fn chain() -> Chain {
     }
 }
 
-/// 2 群（0.625 eV で分ける）の、分離共鳴のないライブラリ。全断面積は散乱、核分裂、捕獲の和
+/// 2 群（0.625 eV で分ける）の、分離共鳴のないライブラリ。全断面積は散乱、核分裂、捕獲の和。散乱は P1 まで
 fn library() -> Library {
     // (名前, awr, 散乱 [[g→g']], 核分裂, 捕獲)
     let nuclide =
@@ -129,7 +128,16 @@ fn library() -> Library {
                     } else {
                         vec![0.0, 0.0]
                     },
-                    scatter: vec![scatter.iter().map(|row| row.to_vec()).collect()],
+                    // P1 は P0 の 1 割（拡散係数の重みに要る）
+                    scatter: [1.0, 0.1]
+                        .iter()
+                        .map(|f| {
+                            scatter
+                                .iter()
+                                .map(|row| row.iter().map(|s| f * s).collect())
+                                .collect()
+                        })
+                        .collect(),
                     shielded: vec![table.clone(), table.clone(), table],
                     pointwise: Pointwise::default(),
                 }],
@@ -172,8 +180,8 @@ fn library() -> Library {
                 "U-238",
                 236.006,
                 [[9.5, 0.0], [0.0, 9.0]],
-                [0.05, 0.0],
-                [0.4, 2.7],
+                [0.0; 2],
+                [0.45, 2.7],
             ),
         ],
     }
