@@ -32,7 +32,7 @@ Pm-148 の 565 K では、`unresolved_shielding` の σ0 = 10 b と 1 b の全�
 σ = σm yy/(1 − yj) を、1 − yj を確かめずに使う。(2) 全断面積が有限で部分の反応だけが NaN になる Am-242m は、遮蔽した値が 0 以下の
 格子点で、非分離共鳴のパラメータの補間則（ln をとる則）を `UnresolvedShielding::adjust` が当てる
 
-関係する ADR: なし
+関係する ADR: ADR-0177
 
 ## 完了の条件
 
