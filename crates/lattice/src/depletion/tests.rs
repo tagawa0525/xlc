@@ -692,6 +692,11 @@ fn nuclides_without_data_at_the_fuel_temperature_only_decay() {
     let history = deplete_with(PIN, &library);
     let last = history.points.last().unwrap();
     assert!(last.densities[0][BA140] > 0.0);
+    // 輸送できる核種の集合（記録で OpenMC と比べる）
+    assert_eq!(
+        history.transportable,
+        ["H-1", "O-16", "Xe-135", "U-235", "U-238"].map(String::from)
+    );
     // 輸送しないので、Ba-140 があっても k は同じ
     let without = deplete_input(PIN);
     assert_eq!(last.k, without.points.last().unwrap().k);
