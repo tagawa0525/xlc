@@ -53,6 +53,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - `dvc.yaml` のある例を含むブランチは、/git-merge の rebase のあとに /dvc-relock、マージのあとに同スキルの後半
 - チェックは `~/.claude/skills/language-checks/scripts/run-checks.sh` で、終了コードで判定する。`checks | tail && git merge`
   のようにつなぐと、失敗してもマージに進む
+- Python のテスト（追跡している `test_*.py` と `*_test.py`）は `scripts/run-python-tests.sh` が references の devShell で実行し、run-checks.sh が
+  それを呼ぶ（nixfiles の ADR-0036）。run-checks.sh は Python のステージを .py の変更があるときだけ実行するので、
+  手元では `scripts/run-python-tests.sh` で全部を実行できる
 - ADR は `design-records check`（`.pre-commit-config.yaml` の hook で、run-checks.sh も `id: design-records` のあるリポジトリで実行する）でも確かめる
 - ADR と issue の番号は `design-records new [--kind issue]` で振る（タグで予約。docs/adr/README.md）。手で最大の番号 + 1 を振らない
 - worktree は `~/.claude/scripts/worktree-add.sh <branch>` で作る（/tmp に作ると gitleaks の hook が失敗する）
