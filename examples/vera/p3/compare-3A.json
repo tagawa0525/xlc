@@ -1,6 +1,24 @@
 {
  "format": "xlc-compare-p3",
  "problem": "3A",
+ "inputs": [
+  {
+   "path": "../../../references/vera/spec.txt",
+   "md5": "de9def92d813fd95954b01ec5512fff4"
+  },
+  {
+   "path": "core-3A.out",
+   "md5": "c9110aca63ada61e91c23e48580adc31"
+  },
+  {
+   "path": "core-3A-pins.msgpack",
+   "md5": "d0050d28b94a6675225055af68602fd3"
+  },
+  {
+   "path": "core-3A-layers.msgpack",
+   "md5": "51b69b22db4c53e14668670bdf558335"
+  }
+ ],
  "k": {
   "xlc": 1.17656326,
   "keno": 1.175722,
