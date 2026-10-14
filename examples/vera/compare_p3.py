@@ -11,12 +11,16 @@
   AO = (P_上半分 − P_下半分) / (P_上半分 + P_下半分)（燃料の高さの中央で分ける）
 - 全長で積分したピン出力: KENO-VI の 1/8 の表（compare_keno.py と同じ読み方、対称な 8 本の平均）と、OpenMC の
   pins.msgpack（ピンごと）。差は燃料のピンの相対差の RMS と最大
+- OpenMC があるとき、OpenMC と KENO-VI も同じ量で比べ（k の差は両方の統計誤差の合成）、xlc と OpenMC の差が OpenMC の統計誤差
+  （`layers.msgpack` の `axial-std`、`pins-std.msgpack`）の何倍かを書く。軸方向のオフセットの誤差は層の誤差が独立として伝える
+  （層の間の相関は含めない）。ピンの誤差は相対標準偏差の中央値と、差の最大の倍率
 - 層ごとのピン出力（OpenMC があるとき）: 参照の層ごとの、燃料のピンの (xlc / OpenMC − 1) の RMS と最大と、全体の最大
 """
 
 import json
 import math
 import re
+import statistics
 import sys
 from pathlib import Path
 
@@ -126,12 +130,58 @@ def offset(bounds: list[float], axial: list[float]) -> float:
     return (upper - lower) / (upper + lower)
 
 
+def offset_std(bounds: list[float], axial: list[float], std: list[float]) -> float:
+    """軸方向のオフセットの標準偏差。層の誤差は独立とし、AO = (U − L) / (U + L) の層ごとの偏微分で伝える"""
+    middle = (bounds[0] + bounds[-1]) / 2
+    lower = upper = 0.0
+    weights = []
+    for lo, hi, p in zip(bounds, bounds[1:], axial):
+        w_lower = max(0.0, min(hi, middle) - lo)
+        w_upper = max(0.0, hi - max(lo, middle))
+        lower += p * w_lower
+        upper += p * w_upper
+        weights.append((w_lower, w_upper))
+    total = (upper + lower) ** 2
+    return math.sqrt(
+        sum(
+            (2 * (w_upper * lower - w_lower * upper) / total * s) ** 2
+            for (w_lower, w_upper), s in zip(weights, std)
+        )
+    )
+
+
+def sigma_multiple(diffs: list[float], stds: list[float]) -> tuple[float, int]:
+    """|差| / 標準偏差 の最大と、その添字"""
+    ratios = [abs(d) / s for d, s in zip(diffs, stds)]
+    at = max(range(len(ratios)), key=ratios.__getitem__)
+    return ratios[at], at
+
+
+def pin_sigma(
+    ours: list[list[float]], ref: list[list[float]], ref_std: list[list[float]]
+) -> tuple[float, float, tuple]:
+    """参照が正のセルの、参照の相対標準偏差の中央値と、|xlc − 参照| / 標準偏差 の最大とその位置（行, 列）"""
+    cells = [
+        (i, j) for i, row in enumerate(ref) for j, value in enumerate(row) if value > 0
+    ]
+    median = statistics.median(ref_std[i][j] / ref[i][j] for i, j in cells)
+    multiple, k = sigma_multiple(
+        [ours[i][j] - ref[i][j] for i, j in cells], [ref_std[i][j] for i, j in cells]
+    )
+    return median, multiple, cells[k]
+
+
 def axial_report(
-    name: str, bounds: list[float], ours: list[float], ref: list[float]
+    name: str,
+    bounds: list[float],
+    ours: list[float],
+    ref: list[float],
+    subject: str = "xlc",
+    levels: bool = True,
 ) -> None:
     if not (len(ours) == len(ref) == len(bounds) - 1):
         raise SystemExit(
-            f"{len(ours)} xlc and {len(ref)} {name} levels for {len(bounds) - 1} layers"
+            f"{len(ours)} {subject} and {len(ref)} {name} levels for {len(bounds) - 1} layers"
         )
     diffs = [a - b for a, b in zip(ours, ref)]
     rms = math.sqrt(sum(d * d for d in diffs) / len(diffs))
@@ -139,13 +189,13 @@ def axial_report(
     relative = math.sqrt(sum((a / b - 1) ** 2 for a, b in zip(ours, ref)) / len(ref))
     worst = max(range(len(diffs)), key=lambda i: abs(diffs[i]))
     print(
-        f"axial vs {name}: rms {rms:.4f} (relative {100 * relative:.2f}%), max {diffs[worst]:+.4f} at level {worst + 1} "
+        f"axial{'' if subject == 'xlc' else ' ' + subject} vs {name}: rms {rms:.4f} (relative {100 * relative:.2f}%), max {diffs[worst]:+.4f} at level {worst + 1} "
         f"({bounds[worst]:.3f}-{bounds[worst + 1]:.3f} cm above the fuel bottom), "
-        f"AO xlc {100 * offset(bounds, ours):+.3f}% {name} {100 * offset(bounds, ref):+.3f}%"
+        f"AO {subject} {100 * offset(bounds, ours):+.3f}% {name} {100 * offset(bounds, ref):+.3f}%"
     )
-    for k, (a, b) in enumerate(zip(ours, ref)):
+    for k, (a, b) in enumerate(zip(ours, ref) if levels else ()):
         print(
-            f"  level {k + 1:2} {bounds[k]:8.3f}-{bounds[k + 1]:8.3f}: xlc {a:.5f} {name} {b:.5f} diff {a - b:+.5f}"
+            f"  level {k + 1:2} {bounds[k]:8.3f}-{bounds[k + 1]:8.3f}: {subject} {a:.5f} {name} {b:.5f} diff {a - b:+.5f}"
         )
 
 
@@ -170,7 +220,9 @@ def pin_stats(
     return rms, worst[0], worst[1]
 
 
-def keno_pins(spec: list[str], problem: str, rows: list[list[float]]) -> None:
+def keno_pins(
+    spec: list[str], problem: str, rows: list[list[float]], subject: str = "pins"
+) -> None:
     """compare_keno.py と同じ比べ方（燃料のピンの平均で 1、対称な 8 本の平均）"""
     if len(rows) != 17 or any(len(r) != 17 for r in rows):
         raise SystemExit("expected a 17 x 17 map")
@@ -196,7 +248,7 @@ def keno_pins(spec: list[str], problem: str, rows: list[list[float]]) -> None:
     rms = math.sqrt(sum(d * d for d, _ in diffs) / len(diffs))
     worst, at = max(diffs, key=lambda d: abs(d[0]))
     print(
-        f"pins vs KENO-VI: {len(diffs)} positions, rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}"
+        f"{subject} vs KENO-VI: {len(diffs)} positions, rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}"
     )
 
 
@@ -236,15 +288,51 @@ def main() -> None:
     if openmc:
         reference = read_layers(openmc / "layers.msgpack")
         ref_bounds = [b - reference["bounds"][0] for b in reference["bounds"]]
-        axial_report(
-            "OpenMC",
-            ref_bounds,
-            coarsen(layers["bounds"], layers["axial"], ref_bounds),
-            reference["axial"],
+        ours_ref_axial = coarsen(layers["bounds"], layers["axial"], ref_bounds)
+        axial_report("OpenMC", ref_bounds, ours_ref_axial, reference["axial"])
+        axial_std = reference["axial-std"]
+        multiple, at = sigma_multiple(
+            [a - b for a, b in zip(ours_ref_axial, reference["axial"])], axial_std
+        )
+        print(
+            f"axial xlc - OpenMC in sigma (layer errors independent, normalization not included): max {multiple:.1f} at level {at + 1}, "
+            f"{sum(abs(a - b) > 2 * s for a, b, s in zip(ours_ref_axial, reference['axial'], axial_std))} "
+            f"of {len(axial_std)} levels beyond 2 sigma"
+        )
+        ao_diff = offset(ref_bounds, ours_ref_axial) - offset(
+            ref_bounds, reference["axial"]
+        )
+        ao_std = offset_std(ref_bounds, reference["axial"], axial_std)
+        print(
+            f"AO xlc - OpenMC {100 * ao_diff:+.3f} +- {100 * ao_std:.3f}% (layer errors independent; {abs(ao_diff) / ao_std:.1f} sigma)"
         )
         ref_pins = msgpack.unpackb((openmc / "pins.msgpack").read_bytes())["rows"]
+        ref_pins_std = msgpack.unpackb((openmc / "pins-std.msgpack").read_bytes())[
+            "rows"
+        ]
         rms, worst, at = pin_stats(pins, ref_pins)
         print(f"pins vs OpenMC: rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}")
+        median, multiple, at = pin_sigma(pins, ref_pins, ref_pins_std)
+        print(
+            f"pins xlc - OpenMC in sigma: OpenMC relative std median {100 * median:.3f}%, "
+            f"max difference {multiple:.1f} sigma at {at}"
+        )
+
+        # OpenMC と KENO-VI（xlc を含まない）。層の境界が同じこと
+        if len(ref_bounds) != len(keno_bounds) or any(
+            abs(a - b) > TOLERANCE * max(1.0, keno_bounds[-1])
+            for a, b in zip(ref_bounds, keno_bounds)
+        ):
+            raise SystemExit("the OpenMC layers differ from the KENO-VI layers")
+        sigma = math.hypot(ref["k-std"], s_keno)
+        print(
+            f"{problem} k OpenMC {ref['k']:.6f} KENO-VI {k_keno:.6f} "
+            f"diff {(ref['k'] - k_keno) * 1e5:+.1f} +- {sigma * 1e5:.1f} pcm"
+        )
+        axial_report(
+            "KENO-VI", keno_bounds, reference["axial"], keno_power, "OpenMC", False
+        )
+        keno_pins(spec, problem, ref_pins, "pins OpenMC")
         ours_layers = coarsen(layers["bounds"], layers["layers"], ref_bounds)
         if len(reference["layers"]) != len(ours_layers):
             raise SystemExit(
@@ -253,8 +341,12 @@ def main() -> None:
         overall = None
         for k_level, (a, b) in enumerate(zip(ours_layers, reference["layers"])):
             rms, worst, at = pin_stats(a, b)
+            median, multiple, sigma_at = pin_sigma(
+                a, b, reference["layers-std"][k_level]
+            )
             print(
-                f"  level {k_level + 1:2}: pins rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}"
+                f"  level {k_level + 1:2}: pins rms {100 * rms:.3f}%, max {100 * worst:+.3f}% at {at}; "
+                f"OpenMC relative std median {100 * median:.3f}%, max difference {multiple:.1f} sigma at {sigma_at}"
             )
             if overall is None or abs(worst) > abs(overall[0]):
                 overall = (worst, k_level + 1, at)
