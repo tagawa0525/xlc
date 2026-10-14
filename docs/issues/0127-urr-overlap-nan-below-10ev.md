@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 燃焼鎖の核種のライブラリ（ADR-0169、examples/depletion）を作ると、非分離共鳴の自己遮蔽した群定数が小さい σ0 で NaN になり、
-次の核種の段階が `<核種> at <温度> K: non-finite value NaN` で止まる（xlc 2441757c と、そのあとの燃焼のライブラリの段階。Slurm の
+次の核種の段階が `<核種> at <温度> K: non-finite value NaN` で止まる（xlc 01970abd と、そのあとの燃焼のライブラリの段階。Slurm の
 排他のジョブ。2026-10-14〜15）:
 
 | 核種    | 止まる温度 | NaN になる量                                               | 非分離共鳴の下端 |
