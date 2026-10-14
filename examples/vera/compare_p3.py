@@ -181,7 +181,7 @@ def axial_report(
 ) -> None:
     if not (len(ours) == len(ref) == len(bounds) - 1):
         raise SystemExit(
-            f"{len(ours)} xlc and {len(ref)} {name} levels for {len(bounds) - 1} layers"
+            f"{len(ours)} {subject} and {len(ref)} {name} levels for {len(bounds) - 1} layers"
         )
     diffs = [a - b for a, b in zip(ours, ref)]
     rms = math.sqrt(sum(d * d for d in diffs) / len(diffs))
@@ -295,7 +295,7 @@ def main() -> None:
             [a - b for a, b in zip(ours_ref_axial, reference["axial"])], axial_std
         )
         print(
-            f"axial xlc - OpenMC in sigma: max {multiple:.1f} at level {at + 1}, "
+            f"axial xlc - OpenMC in sigma (layer errors independent, normalization not included): max {multiple:.1f} at level {at + 1}, "
             f"{sum(abs(a - b) > 2 * s for a, b, s in zip(ours_ref_axial, reference['axial'], axial_std))} "
             f"of {len(axial_std)} levels beyond 2 sigma"
         )
@@ -304,7 +304,7 @@ def main() -> None:
         )
         ao_std = offset_std(ref_bounds, reference["axial"], axial_std)
         print(
-            f"AO xlc - OpenMC {100 * ao_diff:+.3f} +- {100 * ao_std:.3f}% ({abs(ao_diff) / ao_std:.1f} sigma)"
+            f"AO xlc - OpenMC {100 * ao_diff:+.3f} +- {100 * ao_std:.3f}% (layer errors independent; {abs(ao_diff) / ao_std:.1f} sigma)"
         )
         ref_pins = msgpack.unpackb((openmc / "pins.msgpack").read_bytes())["rows"]
         ref_pins_std = msgpack.unpackb((openmc / "pins-std.msgpack").read_bytes())[
@@ -318,11 +318,12 @@ def main() -> None:
             f"max difference {multiple:.1f} sigma at {at}"
         )
 
-        # OpenMC と KENO-VI（xlc を含まない）
-        if len(reference["axial"]) != len(keno_power):
-            raise SystemExit(
-                f"{len(reference['axial'])} OpenMC and {len(keno_power)} KENO-VI axial levels"
-            )
+        # OpenMC と KENO-VI（xlc を含まない）。層の境界が同じこと
+        if len(ref_bounds) != len(keno_bounds) or any(
+            abs(a - b) > TOLERANCE * max(1.0, keno_bounds[-1])
+            for a, b in zip(ref_bounds, keno_bounds)
+        ):
+            raise SystemExit("the OpenMC layers differ from the KENO-VI layers")
         sigma = math.hypot(ref["k-std"], s_keno)
         print(
             f"{problem} k OpenMC {ref['k']:.6f} KENO-VI {k_keno:.6f} "
