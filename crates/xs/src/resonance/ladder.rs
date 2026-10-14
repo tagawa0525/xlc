@@ -14,11 +14,22 @@ use super::{ShieldedSigma, Sigma};
 use crate::endf::WidthDof;
 use crate::special::faddeeva;
 
-/// ラダーの組の数。統計誤差の測定（ADR-0177）で決める
-pub(super) const LADDERS: usize = 64;
+/// サンプルの数。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Sampling {
+    /// ラダーの組の数
+    pub ladders: usize,
+    /// ラダーごとの、断面積を求めるエネルギーの数
+    pub samples: usize,
+}
 
-/// ラダーごとの、断面積を求めるエネルギーの数
-pub(super) const SAMPLES: usize = 1000;
+impl Sampling {
+    /// ライブラリを作るときの数。統計誤差の測定（ADR-0177）で決める
+    pub const LIBRARY: Self = Self {
+        ladders: 64,
+        samples: 1000,
+    };
+}
 
 /// エネルギーを引く窓の幅（系列の最大の準位間隔の倍数）
 const SAMPLE_SPACINGS: f64 = 50.0;
@@ -63,13 +74,14 @@ pub struct Bondarenko {
 }
 
 /// 系列 `sequences` のラダーで、σ0 ごとの実効断面積を求める。`potential` はポテンシャル散乱 (barn)、`background` は
-/// MF3 の背景断面積。乱数は種 `seed` から決まる。全断面積が 0 以下になる点があれば `Err` でそのエネルギーの位置
+/// MF3 の背景断面積。サンプルの数は `sampling`、乱数は種 `seed` から決まる。全断面積が 0 以下になる点があれば `Err` でそのエネルギーの位置
 /// （窓の中心からの eV）を返す。
 pub(super) fn bondarenko(
     sequences: &[LadderSequence],
     potential: f64,
     background: Sigma,
     sigma0: &[f64],
+    sampling: Sampling,
     seed: u64,
 ) -> Result<Bondarenko, f64> {
     let mut rng = Rng::new(seed);
@@ -79,9 +91,9 @@ pub(super) fn bondarenko(
     let mut sums = vec![[0.0; 7]; sigma0.len()];
     let mut mean = [0.0; 4];
     let mut count = 0usize;
-    let mut energies = vec![0.0; SAMPLES];
-    let mut parts = vec![[0.0; 3]; SAMPLES];
-    for _ in 0..LADDERS {
+    let mut energies = vec![0.0; sampling.samples];
+    let mut parts = vec![[0.0; 3]; sampling.samples];
+    for _ in 0..sampling.ladders {
         for x in energies.iter_mut() {
             *x = -half + 2.0 * half * rng.uniform();
         }
