@@ -253,7 +253,7 @@ KENO-VI の値は仕様書の表 P3-4、径方向のピン出力（1/8）は付�
 ### KENO-VI との比較
 
 炉心（`core-<問題>`）の k、軸方向の出力（49 層の径方向に積分した出力の線密度。燃料の高さの平均で 1）、全長で積分した
-ピン出力（1/8 の 39 位置、対称な 8 本の平均）を、仕様書の表 P3-4、付録 D と比べる（`compare-<問題>.out`）。KENO-VI は
+ピン出力（1/8 の 39 位置、対称な 8 本の平均）を、仕様書の表 P3-4、付録 D と比べる（`compare-<問題>.json`。文章は `compare_p3.py --report`）。KENO-VI は
 ENDF/B-VII.0 なので、差は核データの違いを含む（同じ問題の OpenMC との比較は下の表）。2D の集合体の OpenMC と KENO-VI の
 k の差は 2B で +6 pcm、2E で +66 pcm、2F で +87 pcm（「参照解」）。
 
@@ -263,7 +263,7 @@ k の差は 2B で +6 pcm、2E で +66 pcm、2F で +87 pcm（「参照解」）
 | 3B   | 1.002084 | 1.000154 ± 0.000006 | +193 pcm | 0.0019（0.63%）                | −0.041%、−0.062%                   | 0.151%、+0.329%          |
 
 軸方向の出力の差の RMS は層ごとの差（xlc − KENO-VI）の RMS で、括弧の相対は層ごとの (xlc / KENO-VI − 1) の RMS
-（`compare-<問題>.out` の層ごとの値から求めた）。
+（`compare-<問題>.json` の層ごとの値から求めた）。
 
 - 軸方向の出力の差は燃料の両端で大きい: 3A は下端の層（Inconel-718 の支持格子の高さ、0〜3.866 cm）で −6.1%、上端の層で
   −3.2%、3B は −4.2% と −0.8%（相対差）。中ほどの層は 3A で 1% 以内。原因の候補は、燃料の層の定数が単一集合体の
@@ -329,11 +329,9 @@ xlc の k の差は KENO-VI に対して 3A が +84 pcm、3B が +193 pcm、Open
 
 ```sh
 dvc repro examples/vera/p3/dvc.yaml
-cd examples/vera/p3
-python3 ../compare_p3.py 3A ../../../references/vera/spec.txt core-3A.out core-3A-pins.msgpack core-3A-layers.msgpack \
-  ../../../references/openmc/aws/m3/openmc-3A
-python3 ../compare_p3.py 3B ../../../references/vera/spec.txt core-3B.out core-3B-pins.msgpack core-3B-layers.msgpack \
-  ../../../references/openmc/aws/m3/openmc-3B
+python3 examples/vera/compare_p3.py --report examples/vera/p3/compare-3A-openmc.json
+python3 examples/vera/compare_p3.py --report examples/vera/p3/compare-3B-openmc.json
+python3 examples/verification_tables.py examples/vera/verification.md
 ```
 
 ## Problem 5-2D の参照解
