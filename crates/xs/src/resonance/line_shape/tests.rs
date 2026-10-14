@@ -80,6 +80,22 @@ fn dilute_limit() {
 }
 
 /// J を x について Simpson 則で直接積分した値（x ≤ X、X より先は ψ ≈ 1/x² で足す）。
+/// K(β, θ) を Simpson 則で求める（`j_by_simpson` と同じ格子。範囲の外は ψ ≈ 1/x² で ψ(ψ + 2β)/(ψ + β)² ≈ 2/(β x²)）
+fn k_by_simpson(beta: f64, theta: f64) -> f64 {
+    let x_max = f64::max(1.0e4, 12.0 / theta);
+    let n = 2_000_000;
+    let h = x_max / n as f64;
+    let f = |x: f64| {
+        let p = psi(x, theta);
+        p * (p + 2.0 * beta) / ((p + beta) * (p + beta))
+    };
+    let mut sum = f(0.0) + f(x_max);
+    for i in 1..n {
+        sum += if i % 2 == 1 { 4.0 } else { 2.0 } * f(h * i as f64);
+    }
+    sum * h / 3.0 + 2.0 / (beta * x_max)
+}
+
 fn j_by_simpson(beta: f64, theta: f64) -> f64 {
     // ガウス形の芯（x ≈ 2/θ の幅）の外まで取る
     let x_max = f64::max(1.0e4, 12.0 / theta);
@@ -246,8 +262,23 @@ fn stretched_substitution_matches_simpson_below_a_thousandth() {
     // θ < 1e-3 で積分の変数を芯の幅で伸ばした J が、置換によらない Simpson 則と合う（#0119 の Sm-154、Gd-160 の θ ≈ 2〜3e-4）
     let theta = 3.0e-4;
     let betas = [1.0e-4, 1.0e-2];
-    for (&beta, (j, _)) in betas.iter().zip(jk_integrals(&betas, theta).unwrap()) {
+    for (&beta, (j, k)) in betas.iter().zip(jk_integrals(&betas, theta).unwrap()) {
         assert_rel(j, j_by_simpson(beta, theta), 1e-6);
+        assert_rel(k, k_by_simpson(beta, theta), 1e-6);
+    }
+}
+
+#[test]
+fn table_meets_the_gaussian_limit_at_its_lower_theta_edge() {
+    // 表の下限（θ = 10⁻¹⁰）の内と外で、直接の積分との差が 1e-10 より小さい（幅のゆらぎの積分の許容誤差。上の端と同じ。ADR-0107）
+    let bottom = 10f64.powf(LOG_THETA.0);
+    for theta in [1.001 * bottom, 0.999 * bottom] {
+        for beta in [1.0e-6, 1.0e-2, 1.0, 1.0e5, 1.0e10] {
+            let (j, k) = jk_interpolated(beta, theta).unwrap();
+            let direct = jk_integrals(&[beta], theta).unwrap()[0];
+            assert_rel(j, direct.0, 1e-10);
+            assert_rel(k, direct.1, 1e-10);
+        }
     }
 }
 
