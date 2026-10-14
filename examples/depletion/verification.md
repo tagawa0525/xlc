@@ -72,7 +72,7 @@ nix develop ../..#references -c python3 compare_chain_depletion.py chain-cases.t
 ### 計算
 
 25dec52f（分岐点は main の 76d70be8）、2026-10-14。鎖の段階は `bin/chain`（md5 71f0fbbc）と OpenMC 0.15.2 の
-`Chain.from_endf`（ENDF/B-VIII.0 の decay 3,821、nfy 31、neutrons 557）。ビルドの変更（ADR-0159、ADR-0160、ADR-0163）の後の d66d8af3（分岐点 d07475d3、2026-10-14）で鎖の段階を
+`Chain.from_endf`（ENDF/B-VIII.0 の decay 3,821、nfy 31、neutrons 557）。ビルドの変更（ADR-0159、ADR-0160、ADR-0163）の後の 44128b49（分岐点 d07475d3、2026-10-14）で鎖の段階を
 流し直し、`chain.msgpack` の md5 は前の `dvc.lock` の値と同じだった。
 
 ### 鎖の比較
