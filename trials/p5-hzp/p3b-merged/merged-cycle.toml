@@ -1,3 +1,0 @@
-plant = "../../../examples/vera/p3/core-3B-plant.toml"
-inventory = "merged-assemblies.toml"
-loading = ["3B"]
