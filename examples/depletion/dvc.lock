@@ -72,3 +72,2853 @@ stages:
       hash: md5
       md5: 120d74352f99e1a78b5d9df77d992378
       size: 4612727
+  xs-range:
+    cmd: ../../bin/xs range xs.toml xs-range.toml
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons
+      hash: md5
+      md5: dde810c1fe3594b1ab0b8236de7b51dc.dir
+      size: 1212542189
+      nfiles: 561
+    - path: xs.toml
+      hash: md5
+      md5: 71993de9f37109dbae7ffcecf399f9be
+      size: 6543
+    outs:
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+  xs-nuclide@Zr-90:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-90 
+      xs-nuclides/Zr-90.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      hash: md5
+      md5: 845fe13188e04ddaa8957922ca4425e9
+      size: 1370128
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-90:
+          endf: n-040_Zr_090.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-90.msgpack
+      hash: md5
+      md5: 57d195ce16715e95510310b7152aa735
+      size: 3761182
+  xs-nuclide@Rh-103:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Rh-103 
+      xs-nuclides/Rh-103.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-045_Rh_103.endf
+      hash: md5
+      md5: 21cfe777ec57463e654f52bb4e5a0693
+      size: 1681652
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Rh-103:
+          endf: n-045_Rh_103.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Rh-103.msgpack
+      hash: md5
+      md5: 29626044e0cb20c340b7a9e7d50bbb8f
+      size: 7214687
+  xs-nuclide@U-236:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-236 
+      xs-nuclides/U-236.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+      hash: md5
+      md5: 2d3b0b0d3606816b27c03c9b2ce92cc0
+      size: 1359412
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-236:
+          endf: n-092_U_236.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-236.msgpack
+      hash: md5
+      md5: 0fe687b45306a88421e812196d62d8fe
+      size: 5542554
+  xs-nuclide@Sm-147:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-147 
+      xs-nuclides/Sm-147.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_147.endf
+      hash: md5
+      md5: fc84ba06b48ccafc2a5ad780501c85f7
+      size: 1767912
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sm-147:
+          endf: n-062_Sm_147.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sm-147.msgpack
+      hash: md5
+      md5: e5cb3a79f02d6d896ebe03e9b484847c
+      size: 7781039
+  xs-nuclide@H-1:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml H-1 xs-nuclides/H-1.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      hash: md5
+      md5: a8a7d4b0bc9b9627affeaa0e74716c82
+      size: 671232
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.H-1:
+          endf: n-001_H_001.endf
+          temperatures:
+          - 550
+          - 573.6
+          - 600
+          thermal: tsl-HinH2O.endf
+          sab-upper: evaluated
+          sab-outside: sct
+          free-gas-upper: 9118
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/H-1.msgpack
+      hash: md5
+      md5: 13bb7f38619f73d24e4dfdb7dc8c2988
+      size: 635586
+  xs-nuclide@Sn-122:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-122 
+      xs-nuclides/Sn-122.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
+      hash: md5
+      md5: 83e39a2dda8feb62d76efdcb48de77c8
+      size: 136724
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-122:
+          endf: n-050_Sn_122.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-122.msgpack
+      hash: md5
+      md5: 755699a679f72f640e2fb20e7f00f4ce
+      size: 9406331
+  xs-nuclide@Nd-143:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Nd-143 
+      xs-nuclides/Nd-143.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_143.endf
+      hash: md5
+      md5: a072d604b98dae47b889dd6db8281912
+      size: 1699360
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Nd-143:
+          endf: n-060_Nd_143.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Nd-143.msgpack
+      hash: md5
+      md5: ea6854fa6ca1364baffb7473d74da1ba
+      size: 5824025
+  xs-nuclide@B-11:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml B-11 
+      xs-nuclides/B-11.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+      hash: md5
+      md5: ededbd01d87d3297c377e105f60d59d3
+      size: 659224
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.B-11:
+          endf: n-005_B_011.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/B-11.msgpack
+      hash: md5
+      md5: 3b3fe1637f97a196498f976aee9948c6
+      size: 451727
+  xs-nuclide@Pu-238:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-238 
+      xs-nuclides/Pu-238.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      hash: md5
+      md5: b870d3049c559377f6115f7ffbd1d0c4
+      size: 1813208
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Pu-238:
+          endf: n-094_Pu_238.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Pu-238.msgpack
+      hash: md5
+      md5: 74cc3d8775d8dc98409e74d4c9e9f6f2
+      size: 3456751
+  xs-nuclide@Cr-50:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-50 
+      xs-nuclides/Cr-50.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
+      hash: md5
+      md5: 1d54ef6c80fa4e8a01776f2d77a4e51d
+      size: 10644408
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-50:
+          endf: n-024_Cr_050.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-50.msgpack
+      hash: md5
+      md5: aeeb60345716612874d26315a3bb3af4
+      size: 3968078
+  xs-nuclide@Zr-94:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-94 
+      xs-nuclides/Zr-94.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      hash: md5
+      md5: 81602f01efb0df40c5d34ded3000a975
+      size: 1805000
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-94:
+          endf: n-040_Zr_094.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-94.msgpack
+      hash: md5
+      md5: 51e488955ece43ee268f0ed3072c7c3d
+      size: 3207616
+  xs-nuclide@Am-241:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Am-241 
+      xs-nuclides/Am-241.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      hash: md5
+      md5: 93b74d0b81ef08f5588a4767920fef9c
+      size: 2069860
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Am-241:
+          endf: n-095_Am_241.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Am-241.msgpack
+      hash: md5
+      md5: 0e918514d011534776620eba0b295058
+      size: 3597617
+  xs-nuclide@Nd-145:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Nd-145 
+      xs-nuclides/Nd-145.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_145.endf
+      hash: md5
+      md5: 8de64380d4ca6e38feac0aa74112e756
+      size: 1649960
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Nd-145:
+          endf: n-060_Nd_145.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Nd-145.msgpack
+      hash: md5
+      md5: 189609bd29d56fa0071a5a9cc83338ce
+      size: 6542765
+  xs-nuclide@Am-243:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Am-243 
+      xs-nuclides/Am-243.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_243.endf
+      hash: md5
+      md5: e9fd763e6eda9a4db99f1075ea2af14c
+      size: 898928
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Am-243:
+          endf: n-095_Am_243.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Am-243.msgpack
+      hash: md5
+      md5: b3af9d58b35a10b671698aa3dd3381eb
+      size: 2124153
+  xs-nuclide@Sn-115:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-115 
+      xs-nuclides/Sn-115.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
+      hash: md5
+      md5: 9d8f748af4ac334ed786dbd774bb7d3f
+      size: 159828
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-115:
+          endf: n-050_Sn_115.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-115.msgpack
+      hash: md5
+      md5: 4dc6cc521a3dcc68440c49e198095f46
+      size: 1212047
+  xs-nuclide@U-235:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-235 
+      xs-nuclides/U-235.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      hash: md5
+      md5: e72aa70c44180ba3b03342a4a4c37997
+      size: 36883940
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-235:
+          endf: n-092_U_235.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-235.msgpack
+      hash: md5
+      md5: 265500210b9cfe8af8a86829b0d4e642
+      size: 14062924
+  xs-nuclide@Fe-56:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-56 
+      xs-nuclides/Fe-56.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
+      hash: md5
+      md5: 63a54468ec41309d24d849bc95d91450
+      size: 24237844
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-56:
+          endf: n-026_Fe_056.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-56.msgpack
+      hash: md5
+      md5: 251cdecd762471f4b802aa87d7c51e00
+      size: 3904412
+  xs-nuclide@Cs-133:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cs-133 
+      xs-nuclides/Cs-133.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-055_Cs_133.endf
+      hash: md5
+      md5: a1d960c4639886a348b99d2c4064874a
+      size: 1555872
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cs-133:
+          endf: n-055_Cs_133.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cs-133.msgpack
+      hash: md5
+      md5: 72ca847889cae06aaadb9aec2b3e00b1
+      size: 6812657
+  xs-nuclide@Sm-150:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-150 
+      xs-nuclides/Sm-150.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_150.endf
+      hash: md5
+      md5: 497bed1aee2b8a8f3f351999c2ad9287
+      size: 1712508
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sm-150:
+          endf: n-062_Sm_150.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sm-150.msgpack
+      hash: md5
+      md5: 3e0c2819b9b7d65e7360755b0840be94
+      size: 2523329
+  xs-nuclide@Pu-239:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-239 
+      xs-nuclides/Pu-239.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      hash: md5
+      md5: 24c63293f959312e25f4f3aa48527b29
+      size: 23724464
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Pu-239:
+          endf: n-094_Pu_239.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Pu-239.msgpack
+      hash: md5
+      md5: 649c39cdb01ecd896f7dc67eaf51c46e
+      size: 13288585
+  xs-nuclide@Sm-149:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-149 
+      xs-nuclides/Sm-149.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_149.endf
+      hash: md5
+      md5: f3a8a4cd7fca5db1dcc90139db02f5f0
+      size: 1681956
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sm-149:
+          endf: n-062_Sm_149.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sm-149.msgpack
+      hash: md5
+      md5: 37ce17ba55f5f384119e60634de04cdf
+      size: 5040161
+  xs-nuclide@U-234:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-234 
+      xs-nuclides/U-234.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+      hash: md5
+      md5: 02d5c7d15b6c3838b4a2439873d6fa25
+      size: 1980104
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-234:
+          endf: n-092_U_234.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-234.msgpack
+      hash: md5
+      md5: 658c399f4d007c380c929970e23e8f48
+      size: 5768868
+  xs-nuclide@Sn-116:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-116 
+      xs-nuclides/Sn-116.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
+      hash: md5
+      md5: 5d2de1ba6ffd79f575fcc6faed2714f3
+      size: 138700
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-116:
+          endf: n-050_Sn_116.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-116.msgpack
+      hash: md5
+      md5: 1a4725f93f74fca61c95ecc61065a4b3
+      size: 6930485
+  xs-nuclide@Sn-112:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-112 
+      xs-nuclides/Sn-112.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
+      hash: md5
+      md5: 595f36f9195db944c4cf3482eb369e92
+      size: 175864
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-112:
+          endf: n-050_Sn_112.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-112.msgpack
+      hash: md5
+      md5: 4a08bac47bcd7f2a893a18f2a4dc572c
+      size: 1677635
+  xs-nuclide@Fe-58:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-58 
+      xs-nuclides/Fe-58.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
+      hash: md5
+      md5: 371938e3ea66338454e6396d6f898049
+      size: 9280132
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-58:
+          endf: n-026_Fe_058.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-58.msgpack
+      hash: md5
+      md5: e418cf0b8c699daae1cc3c7212f81b3c
+      size: 2810578
+  xs-nuclide@Cr-54:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-54 
+      xs-nuclides/Cr-54.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
+      hash: md5
+      md5: 6b447452b7c17a43341ec8416bd7d32e
+      size: 2459512
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-54:
+          endf: n-024_Cr_054.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-54.msgpack
+      hash: md5
+      md5: 5d521c45b193bec1b89f1b85bf0a8fde
+      size: 1884650
+  xs-nuclide@B-10:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml B-10 
+      xs-nuclides/B-10.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+      hash: md5
+      md5: de4713deb591bde04f4c7ef2446bdc2e
+      size: 873392
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.B-10:
+          endf: n-005_B_010.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/B-10.msgpack
+      hash: md5
+      md5: 95afedb807c39e62fb1c411b3a6ef50e
+      size: 456171
+  xs-nuclide@U-238:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml U-238 
+      xs-nuclides/U-238.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      hash: md5
+      md5: 6d52fe1a299934af828599b40b0122e7
+      size: 14939396
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.U-238:
+          endf: n-092_U_238.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/U-238.msgpack
+      hash: md5
+      md5: 098e17e3113e132d6c05712c15b07691
+      size: 38360962
+  xs-nuclide@O-16:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml O-16 
+      xs-nuclides/O-16.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      hash: md5
+      md5: 88f659e2ff0ed092bf2ec6a6672fc25e
+      size: 41873568
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.O-16:
+          endf: n-008_O_016.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/O-16.msgpack
+      hash: md5
+      md5: 9ed3cc16fead9ba7fdf473f1da9a9a19
+      size: 856023
+  xs-nuclide@Zr-91:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-91 
+      xs-nuclides/Zr-91.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      hash: md5
+      md5: 05504d0c3dc22b27907d13b2427670bc
+      size: 3334576
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-91:
+          endf: n-040_Zr_091.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-91.msgpack
+      hash: md5
+      md5: c10a551671e33079cfb1a3ada215a6b6
+      size: 4677582
+  xs-nuclide@Zr-92:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-92 
+      xs-nuclides/Zr-92.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      hash: md5
+      md5: 08f21535331cdfa3e35e6959735519c5
+      size: 2054584
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-92:
+          endf: n-040_Zr_092.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-92.msgpack
+      hash: md5
+      md5: cfb1579025349745cbb12b09810aba0c
+      size: 3862690
+  xs-nuclide@Zr-96:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Zr-96 
+      xs-nuclides/Zr-96.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      hash: md5
+      md5: ea8fcd356c8333dd48792e88063ee4b4
+      size: 1403112
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Zr-96:
+          endf: n-040_Zr_096.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Zr-96.msgpack
+      hash: md5
+      md5: 8d8053791b09d410b4e45c4ad207f0a7
+      size: 2042944
+  xs-nuclide@Sn-114:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-114 
+      xs-nuclides/Sn-114.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
+      hash: md5
+      md5: 8b944d53fcc7d5f89063f053a0e8f53f
+      size: 181640
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-114:
+          endf: n-050_Sn_114.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-114.msgpack
+      hash: md5
+      md5: 81313436b4e30a948b0cd80420a10562
+      size: 1606139
+  xs-nuclide@Sn-117:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-117 
+      xs-nuclides/Sn-117.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
+      hash: md5
+      md5: 957998ec497ad3d52903e12a1bec5020
+      size: 152456
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-117:
+          endf: n-050_Sn_117.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-117.msgpack
+      hash: md5
+      md5: cd0774f17324fe5e4036b8c7bd545567
+      size: 2985839
+  xs-nuclide@Sn-118:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-118 
+      xs-nuclides/Sn-118.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
+      hash: md5
+      md5: 9586a6ff74a5b7af5e106020163f27f1
+      size: 115292
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-118:
+          endf: n-050_Sn_118.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-118.msgpack
+      hash: md5
+      md5: 5a512b6ad53212a94c1a0891aa7bacb1
+      size: 1375127
+  xs-nuclide@Sn-119:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-119 
+      xs-nuclides/Sn-119.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
+      hash: md5
+      md5: 8dad9918e3854c87b437bbbf3c471852
+      size: 174040
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-119:
+          endf: n-050_Sn_119.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-119.msgpack
+      hash: md5
+      md5: b0de351306bd9d36c183f783e1294660
+      size: 1873385
+  xs-nuclide@Sn-120:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-120 
+      xs-nuclides/Sn-120.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
+      hash: md5
+      md5: 3f89239ea480a4d42c789210d76a0ad5
+      size: 1506016
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-120:
+          endf: n-050_Sn_120.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-120.msgpack
+      hash: md5
+      md5: b44c28747cee47773fcb44b173240159
+      size: 5936215
+  xs-nuclide@Sn-124:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sn-124 
+      xs-nuclides/Sn-124.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
+      hash: md5
+      md5: 8f4ee39c13872485d867ed145ff14476
+      size: 164540
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sn-124:
+          endf: n-050_Sn_124.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sn-124.msgpack
+      hash: md5
+      md5: db7fd137c8c6960733d45729f932b7cf
+      size: 5886449
+  xs-nuclide@Fe-54:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-54 
+      xs-nuclides/Fe-54.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
+      hash: md5
+      md5: 6cc65e9140f60c97daded32a60ba7e0b
+      size: 15451864
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-54:
+          endf: n-026_Fe_054.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-54.msgpack
+      hash: md5
+      md5: 4625f9313d7a21db6b8752434846d773
+      size: 4262648
+  xs-nuclide@Fe-57:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Fe-57 
+      xs-nuclides/Fe-57.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
+      hash: md5
+      md5: 781dfc0da22c68b6ab910ba4828f1dbe
+      size: 13578160
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Fe-57:
+          endf: n-026_Fe_057.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Fe-57.msgpack
+      hash: md5
+      md5: cb38b5634b6d5ebf7dff799712140c3d
+      size: 1698620
+  xs-nuclide@Cr-52:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-52 
+      xs-nuclides/Cr-52.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
+      hash: md5
+      md5: 19629202c6af02350e7597e4b91f6992
+      size: 10647220
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-52:
+          endf: n-024_Cr_052.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-52.msgpack
+      hash: md5
+      md5: 67a79df9811d12222ca735ad62b6d0fc
+      size: 3419546
+  xs-nuclide@Cr-53:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cr-53 
+      xs-nuclides/Cr-53.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
+      hash: md5
+      md5: 8484eb4f0ce055c5139234b3ea855e3e
+      size: 8880068
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cr-53:
+          endf: n-024_Cr_053.endf
+          temperatures:
+          - 565
+          - 600
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cr-53.msgpack
+      hash: md5
+      md5: 9a241e743150815f394cf5eb84a1d9e0
+      size: 2860484
+  xs-nuclide@Np-237:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Np-237 
+      xs-nuclides/Np-237.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_237.endf
+      hash: md5
+      md5: 6df4eefe33f81cf37f602fdf7e5baf3c
+      size: 1367088
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Np-237:
+          endf: n-093_Np_237.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Np-237.msgpack
+      hash: md5
+      md5: 9889584f656d6405cc904b5105bbae8c
+      size: 6781457
+  xs-nuclide@Np-239:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Np-239 
+      xs-nuclides/Np-239.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_239.endf
+      hash: md5
+      md5: 002074dea749b4dc195b58501981e928
+      size: 2187964
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Np-239:
+          endf: n-093_Np_239.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Np-239.msgpack
+      hash: md5
+      md5: e384454a2e357e204d08df9192ea9a0a
+      size: 885617
+  xs-nuclide@Pu-240:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-240 
+      xs-nuclides/Pu-240.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      hash: md5
+      md5: 34845959fef842988cc9c88998ec244e
+      size: 34801768
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Pu-240:
+          endf: n-094_Pu_240.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Pu-240.msgpack
+      hash: md5
+      md5: 7e53cfde8c521dc03ab650b9accac49f
+      size: 15429289
+  xs-nuclide@Pu-241:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-241 
+      xs-nuclides/Pu-241.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      hash: md5
+      md5: 9b4bdb3861cb0e063f9b3e466ac315de
+      size: 324292
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Pu-241:
+          endf: n-094_Pu_241.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Pu-241.msgpack
+      hash: md5
+      md5: 9b7a77431e222f8ee9b4c779cf2e0b3a
+      size: 3811293
+  xs-nuclide@Pu-242:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pu-242 
+      xs-nuclides/Pu-242.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      hash: md5
+      md5: a7d749550507a3f6e6eef82ddb368102
+      size: 2219352
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Pu-242:
+          endf: n-094_Pu_242.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Pu-242.msgpack
+      hash: md5
+      md5: 523e915e280d48eb69df22df4885cda7
+      size: 3769303
+  xs-nuclide@Eu-153:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Eu-153 
+      xs-nuclides/Eu-153.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_153.endf
+      hash: md5
+      md5: 3f66b90cc2b6024d0959109cf496b390
+      size: 1776120
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Eu-153:
+          endf: n-063_Eu_153.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Eu-153.msgpack
+      hash: md5
+      md5: baa17fd820c324619ff31e204806f0c8
+      size: 2254463
+  xs-nuclide@Tc-99:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Tc-99 
+      xs-nuclides/Tc-99.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-043_Tc_099.endf
+      hash: md5
+      md5: d1039925364043ad189d7cc22d557dbc
+      size: 3387700
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Tc-99:
+          endf: n-043_Tc_099.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Tc-99.msgpack
+      hash: md5
+      md5: 17a0a9e0c3257e263534cd79290112a6
+      size: 10478662
+  xs-nuclide@Gd-155:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Gd-155 
+      xs-nuclides/Gd-155.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-064_Gd_155.endf
+      hash: md5
+      md5: 324f31dee44ba5bde39722547d97744f
+      size: 2551396
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Gd-155:
+          endf: n-064_Gd_155.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Gd-155.msgpack
+      hash: md5
+      md5: 6bf4d46d2725ca263c40a4009ec1ca72
+      size: 2795759
+  xs-nuclide@Sm-151:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-151 
+      xs-nuclides/Sm-151.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_151.endf
+      hash: md5
+      md5: c88fb5498f98a72a9870e34e5bf00924
+      size: 1838972
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sm-151:
+          endf: n-062_Sm_151.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sm-151.msgpack
+      hash: md5
+      md5: bce6e4ecfb06c7b0cdf557effbbb6141
+      size: 3661811
+  xs-nuclide@Mo-95:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Mo-95 
+      xs-nuclides/Mo-95.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-042_Mo_095.endf
+      hash: md5
+      md5: ec32523eccc09b8a361535d69c03e2ee
+      size: 1552148
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Mo-95:
+          endf: n-042_Mo_095.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Mo-95.msgpack
+      hash: md5
+      md5: aa96fbd821fbeaba3cf8b4f3c0fd8b11
+      size: 3019966
+  xs-nuclide@Sm-152:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Sm-152 
+      xs-nuclides/Sm-152.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_152.endf
+      hash: md5
+      md5: ec36072e63956a77b54011d14753b022
+      size: 1647528
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Sm-152:
+          endf: n-062_Sm_152.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Sm-152.msgpack
+      hash: md5
+      md5: 2162bbcfdb7a32f826e11826a4d55ff9
+      size: 5128559
+  xs-nuclide@I-135:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml I-135 
+      xs-nuclides/I-135.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-053_I_135.endf
+      hash: md5
+      md5: daeacd6519e943b47078cbeb08863955
+      size: 161272
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.I-135:
+          endf: n-053_I_135.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/I-135.msgpack
+      hash: md5
+      md5: 0dd56e336409b268f8ebdcdc0f96f74f
+      size: 860636
+  xs-nuclide@Cm-242:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cm-242 
+      xs-nuclides/Cm-242.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_242.endf
+      hash: md5
+      md5: 9300b7dcbc27a8ebebc7a1f57bb824e7
+      size: 2119260
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cm-242:
+          endf: n-096_Cm_242.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cm-242.msgpack
+      hash: md5
+      md5: fc36b224079ed0d0ee5328a156cec81f
+      size: 1783755
+  xs-nuclide@Cm-244:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Cm-244 
+      xs-nuclides/Cm-244.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_244.endf
+      hash: md5
+      md5: 0a69b256265b71f24801458ee6340af2
+      size: 2240708
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Cm-244:
+          endf: n-096_Cm_244.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Cm-244.msgpack
+      hash: md5
+      md5: 3e6d291135476e9250a8f355fc9cda5b
+      size: 4433913
+  xs-nuclide@Xe-135:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Xe-135 
+      xs-nuclides/Xe-135.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-054_Xe_135.endf
+      hash: md5
+      md5: a5ba07d18bb6290ee0b3e06df548a349
+      size: 160512
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Xe-135:
+          endf: n-054_Xe_135.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Xe-135.msgpack
+      hash: md5
+      md5: 7763385cf0e3aa67514a889c7997f2ae
+      size: 925037
+  xs-nuclide@Ag-109:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ag-109 
+      xs-nuclides/Ag-109.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
+      hash: md5
+      md5: 5cce54b6221074a9f151b8b7fd554e1f
+      size: 1744124
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ag-109:
+          endf: n-047_Ag_109.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ag-109.msgpack
+      hash: md5
+      md5: 77591a67368c24a621534fd74067b710
+      size: 10286855
+  xs-nuclide@Pm-148m:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Pm-148m 
+      xs-nuclides/Pm-148m.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148m1.endf
+      hash: md5
+      md5: d7a77b9302c886b5526b889c63176b7d
+      size: 204820
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Pm-148m:
+          endf: n-061_Pm_148m1.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Pm-148m.msgpack
+      hash: md5
+      md5: 30a181f5d6d495c43bb576cf4a28f2e2
+      size: 828918
+  xs-nuclide@Ru-101:
+    cmd: ../../bin/xs nuclide xs.toml xs-range.toml Ru-101 
+      xs-nuclides/Ru-101.msgpack
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-044_Ru_101.endf
+      hash: md5
+      md5: 5888fddc6dd2fe8bc328ac24a764585a
+      size: 2110520
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt
+      hash: md5
+      md5: dbf65c78ca90c9c9266163dc97d2cbe4.dir
+      size: 225043459
+      nfiles: 91
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    params:
+      xs.toml:
+        nuclide.Ru-101:
+          endf: n-044_Ru_101.endf
+          temperatures:
+          - 565
+          - 600
+          - 900
+          - 1200
+        scattering-order: 3
+        sigma0:
+        - 10000000000.0
+        - 100000.0
+        - 10000.0
+        - 1000.0
+        - 300
+        - 100
+        - 30
+        - 10
+        - 1
+    outs:
+    - path: xs-nuclides/Ru-101.msgpack
+      hash: md5
+      md5: f8fa5f186aa3f01eca8761d045125f05
+      size: 2871197
+  xs:
+    cmd: ../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: 219fd66caa15c7ad34f1e576cdf89e91
+      size: 2851272
+      isexec: true
+    - path: xs-nuclides
+      hash: md5
+      md5: 0434999c937de9883e519f41b80e6e9c.dir
+      size: 291597805
+      nfiles: 61
+    - path: xs-range.toml
+      hash: md5
+      md5: 74fbedef2186ca159d4e33c92bd3d4ff
+      size: 35
+    - path: xs.toml
+      hash: md5
+      md5: 71993de9f37109dbae7ffcecf399f9be
+      size: 6543
+    outs:
+    - path: depletion.msgpack
+      hash: md5
+      md5: a4bf0c938d1b2295b08a9be7121a0410
+      size: 291550381
