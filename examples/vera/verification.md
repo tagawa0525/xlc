@@ -426,7 +426,7 @@ dvc repro examples/vera/p5/dvc.yaml
 ```
 
 計算: 格子（単一集合体、反射体、3 × 3 の MOC）、炉心は bd6127e0（2026-10-14、分岐点 d07475d3。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124。
-Slurm の排他のジョブ 332）。KENO-VI と OpenMC との比較（段階 `compare-5A`、`compare-5B`、`compare-5C`、`compare-5A-openmc` など）は、その炉心の出力を e8ac55fc（分岐点 d7fb3483、2026-10-15）で比べ直して JSON にしたもの（数秒の段階。前の `compare-*.out` の行は、`--report` の出力と同じ）。5B-2D と 5C-2D の OpenMC との比較（`compare-5B-openmc`、`compare-5C-openmc`）は f6c8df6f（分岐点 cef0fdc1、2026-10-15）で、取り出した OpenMC の結果と bd6127e0 の炉心の出力を比べた。前の値（ce2192d9（走らせたのは rebase の前の ee8195a2）、分岐点 4fcc54fc と、47fdc3aa、分岐点 c70e1364。2026-10-12）との差は、AIC を含まない格子（単一集合体と反射体）の k が
+Slurm の排他のジョブ 332）。KENO-VI と OpenMC との比較（段階 `compare-5A`、`compare-5B`、`compare-5C`、`compare-5A-openmc` など）は、その炉心の出力を e8ac55fc（分岐点 d7fb3483、2026-10-15）で比べ直して JSON にしたもの（数秒の段階。前の `compare-*.out` の行は、`--report` の出力と同じ）。5B-2D と 5C-2D の OpenMC との比較（`compare-5B-openmc`、`compare-5C-openmc`）は 07a90ec9（分岐点 cef0fdc1、2026-10-15）で、取り出した OpenMC の結果と bd6127e0 の炉心の出力を比べた。前の値（ce2192d9（走らせたのは rebase の前の ee8195a2）、分岐点 4fcc54fc と、47fdc3aa、分岐点 c70e1364。2026-10-12）との差は、AIC を含まない格子（単一集合体と反射体）の k が
 −0.011〜−0.017 pcm（`lattice/*.msgpack` の全桁の k∞）、3 × 3 の MOC のピン出力の最大 3.8e-7、5A と 5C の炉心の k が 0.1 pcm 以内
 （表示の丸めで 5A の −5.7 → −5.8 pcm、+131.1 → +131.0 pcm、5C の k 0.991665 → 0.991664）、ピン出力の最大 4.7e-7 で、どれも ADR-0156 の目安（0.1 pcm、
 ピン出力 1e-6）より小さい（差は ADR-0156〜0158 とライブラリの作り直しを含み、分けていない）。AIC の格子（21-aic、26-aic）の k は +325、+324 pcm 動き、5B の値が変わった。前の値は ADR-0142（AIC の棒の
