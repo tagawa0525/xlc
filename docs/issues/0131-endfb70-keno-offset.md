@@ -14,7 +14,7 @@ resolution:
 
 ADR-0175 の検証用ライブラリ（ENDF/B-VII.0。examples/vera/endfb70/xs.toml）で xlc が止まった核種はなく、1B〜1D、2A〜2K、2Q、
 3A、3B を解けた。ただし xlc − KENO-VI の k の差は、ENDF/B-VIII.0 で xlc − OpenMC が示す手法の差より大きい
-（examples/vera/verification-endfb70.md、数値は 2b1c70cf、2026-10-15）。
+（examples/vera/verification-endfb70.md、数値は 43661306、2026-10-15）。
 
 - 15 の格子（ピンセルと集合体）で、VII.0 の xlc − KENO-VI は平均 +165 pcm（+115〜+270）。VIII.0 の xlc − OpenMC は平均 +39 pcm
   （−69〜+108）。核データの版を揃えれば、差は VIII.0 の OpenMC との差と同程度になると見込んでいたが、そうならなかった

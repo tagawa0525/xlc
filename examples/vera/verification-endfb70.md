@@ -96,7 +96,7 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 
 ## 計算
 
-xlc は 2b1c70cf（分岐点 c630a66e）、2026-10-15。ライブラリと格子、本番の `keno-*` の段階は Slurm の排他のジョブ 377
+xlc は 43661306（分岐点 c630a66e）、2026-10-15。ライブラリと格子、本番の `keno-*` の段階は Slurm の排他のジョブ 377
 （`endfb70-keno-lattices`）、3A と 3B は排他のジョブ 378（`endfb70-keno-p3`、9 分）で、`dvc repro` を実行した。段階の入力と出力の md5 は
 `endfb70/dvc.lock`、`endfb70/p3/dvc.lock`、`dvc.lock`。VIII.0 の 3A、3B の JSON は verification.md の「Problem 3 の炉心の計算」
 のコミットのもの。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
