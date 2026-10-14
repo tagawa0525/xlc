@@ -19,9 +19,16 @@ fn shielded(scale: f64, fissile: bool) -> Shielded {
     }
 }
 
-/// チェーンの反応: 捕獲を基底状態と準安定状態（MF9 の LFS 2）と残り（LFS nil）に分け、(n,2n) は分けない
+/// チェーンの反応（代表の MT の昇順）: (n,2n) は分けず、捕獲を準安定状態（MF9 の LFS 2）と残り（LFS nil）に分ける
 fn reactions() -> Vec<GroupReaction> {
     vec![
+        GroupReaction {
+            mt: 16,
+            channels: vec![GroupChannel {
+                final_state: None,
+                cross_section: vec![0.002, 0.0],
+            }],
+        },
         GroupReaction {
             mt: 102,
             channels: vec![
@@ -37,13 +44,6 @@ fn reactions() -> Vec<GroupReaction> {
                     cross_section: vec![0.6, 88.3],
                 },
             ],
-        },
-        GroupReaction {
-            mt: 16,
-            channels: vec![GroupChannel {
-                final_state: None,
-                cross_section: vec![0.002, 0.0],
-            }],
         },
     ]
 }
