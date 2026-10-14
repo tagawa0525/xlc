@@ -193,8 +193,15 @@ fn three_fluctuating_widths_converge() {
 
 /// 種 7 の、σ0 ごとのサンプリングした実効断面積
 fn sampled(xs: &UnresolvedXs, e: f64, temperature: f64, sigma0: &[f64]) -> Bondarenko {
-    xs.shielded(e, temperature, sigma0, Sigma::default(), 7)
-        .unwrap()
+    xs.shielded(
+        e,
+        temperature,
+        sigma0,
+        Sigma::default(),
+        Sampling::LIBRARY,
+        7,
+    )
+    .unwrap()
 }
 
 /// 種 1〜16 の独立なサンプリングでの量 `of` の平均と、平均の標準誤差
@@ -208,7 +215,14 @@ fn over_seeds(
     let values: Vec<f64> = (1..=16)
         .map(|seed| {
             of(&xs
-                .shielded(e, temperature, sigma0, Sigma::default(), seed)
+                .shielded(
+                    e,
+                    temperature,
+                    sigma0,
+                    Sigma::default(),
+                    Sampling::LIBRARY,
+                    seed,
+                )
                 .unwrap())
         })
         .collect();
@@ -336,7 +350,14 @@ fn black_limit_stays_positive_below_the_mean() {
     urr.l_values[0].awri = 147.0;
     let xs = UnresolvedXs::new(&urr).unwrap();
     let b = xs
-        .shielded(2.6, 565.0, &[1.0e10, 10.0, 1.0], Sigma::default(), 7)
+        .shielded(
+            2.6,
+            565.0,
+            &[1.0e10, 10.0, 1.0],
+            Sigma::default(),
+            Sampling::LIBRARY,
+            7,
+        )
         .unwrap();
     for s in &b.shielded[1..] {
         assert!(
@@ -361,7 +382,14 @@ fn ladders_follow_the_seed_and_keep_it_across_temperatures() {
     let a = sampled(&xs, 1.0e4, 300.0, &sigma0);
     assert_eq!(a.shielded, sampled(&xs, 1.0e4, 300.0, &sigma0).shielded);
     let other = xs
-        .shielded(1.0e4, 300.0, &sigma0, Sigma::default(), 8)
+        .shielded(
+            1.0e4,
+            300.0,
+            &sigma0,
+            Sigma::default(),
+            Sampling::LIBRARY,
+            8,
+        )
         .unwrap();
     assert_ne!(a.shielded, other.shielded);
     // 同じ種なら、温度を変えてもラダーとエネルギーは同じ: ドップラー拡がりは面積を保つので、平均の温度による差は、

@@ -16,7 +16,9 @@ use crate::physics::BK;
 use crate::pointwise::{
     ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
 };
-use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
+use crate::resonance::{
+    Sampling, Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation,
+};
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
     CHAIN_REACTIONS, ChannelState, GroupChannel, GroupReaction, NuclideData, Pointwise, Resolved,
@@ -220,7 +222,14 @@ pub fn unresolved_shielding(
             fission: at(&fission, e),
             capture: at(&capture, e),
         };
-        xs.shielded(e, temperature, sigma0, background, i as u64)
+        xs.shielded(
+            e,
+            temperature,
+            sigma0,
+            background,
+            Sampling::LIBRARY,
+            i as u64,
+        )
     })?;
     let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
     let mut infinite = Vec::with_capacity(grid.len());
