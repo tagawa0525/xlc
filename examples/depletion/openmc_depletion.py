@@ -143,8 +143,9 @@ class TimedOperator(openmc.deplete.CoupledOperator):
     `CoupledOperator`。
 
     xlc は、ライブラリが燃焼の領域の温度で持たない鎖の核種を輸送しない（崩壊だけ。ADR-0173）。OpenMC は最も近い温度の
-    モードでは別の温度のデータを使うので、`nuclides_with_data`（燃焼する物質に入れる核種と反応率の tally の核種）を、
-    燃料の温度のデータのある核種に絞って xlc と揃える。
+    モードでは別の温度のデータを使うので、燃焼する物質の組成を OpenMC に渡すとき（`_update_materials`）と反応率の tally の
+    核種（`_get_reaction_nuclides`）に限って、`nuclides_with_data` を燃料の温度のデータのある核種に絞り、xlc と揃える。
+    `nuclides_with_data` そのものを絞ると、燃焼しない物質（減速材の H-1 など）からも核種が落ちる。
     """
 
     fuel_temperature: float
@@ -152,6 +153,7 @@ class TimedOperator(openmc.deplete.CoupledOperator):
     transportable: list[str]
 
     def _get_nuclides_with_data(self, cross_sections):
+        everything = super()._get_nuclides_with_data(cross_sections)
         kept = set()
         for library in openmc.data.DataLibrary.from_xml(cross_sections).libraries:
             if library["type"] != "neutron":
@@ -162,11 +164,27 @@ class TimedOperator(openmc.deplete.CoupledOperator):
                     # OpenMC は温度を kT で持ち、K に直すと丸めでずれるので 1 K の幅を許す（openmc_model.py と同じ）
                     if any(abs(t - self.fuel_temperature) <= 1.0 for t in temperatures):
                         kept.add(name)
-        dropped = super()._get_nuclides_with_data(cross_sections) - kept
         print(
-            f"decay only in the fuel (no data at {self.fuel_temperature} K): {sorted(dropped)}"
+            f"decay only in the fuel (no data at {self.fuel_temperature} K): "
+            f"{sorted(everything - kept)}"
         )
-        return kept
+        TimedOperator.transportable = sorted(kept)
+        return everything
+
+    def _in_fuel(self, method):
+        """`nuclides_with_data` を燃料の温度のある核種に替えて `method` を呼ぶ。"""
+        everything = self.nuclides_with_data
+        self.nuclides_with_data = set(TimedOperator.transportable)
+        try:
+            return method()
+        finally:
+            self.nuclides_with_data = everything
+
+    def _update_materials(self):
+        return self._in_fuel(super()._update_materials)
+
+    def _get_reaction_nuclides(self):
+        return self._in_fuel(super()._get_reaction_nuclides)
 
     def __call__(self, vec, source_rate):
         start = time.perf_counter()
