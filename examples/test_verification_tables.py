@@ -372,6 +372,24 @@ def depletion(changes: list[float], rings: int = 1) -> dict:
             "Xe-135": [None, -0.005],
             "Sm-149": [None, 0.0],
         },
+        "seconds": {
+            "xlc": {
+                "shielding": 90.1,
+                "moc": 3.52,
+                "rates": 0.018,
+                "matrix": 0.185,
+                "cram": 0.283,
+                "solves": 13,
+            },
+            "openmc": {
+                "transport": 5041.6,
+                "fastest": 383.8,
+                "slowest": 394.7,
+                "solves": 13,
+                "cram": 5.18,
+                "total": 5047.0,
+            },
+        },
         "rings": [
             {
                 "U-235": 0.01,
@@ -419,6 +437,34 @@ class DrawDepletion(unittest.TestCase):
         self.assertEqual(
             rows[1], ["2（外）", "+1.00", "0.00", "+3.00", "–", "\u22120.10"]
         )
+
+    def test_time_rows_put_xlc_and_openmc_of_each_case(self):
+        table = vt.depletion_times(
+            [depletion([0.0, 0.0]), depletion([0.0, 0.0], rings=4)]
+        )
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(
+            rows[0],
+            ["xlc、1 リング", "13", "94.1", "90.1", "3.5", "0.02", "0.19", "0.28"],
+        )
+        self.assertEqual(
+            rows[1],
+            [
+                "OpenMC、1 リング",
+                "13",
+                "5,047",
+                "5,042（1 回 384〜395）",
+                "",
+                "",
+                "",
+                "5.18",
+            ],
+        )
+        self.assertEqual(rows[2][0], "xlc、4 リング")
 
     def test_a_summary_of_another_format_is_an_error(self):
         with self.assertRaises(vt.TableError):
