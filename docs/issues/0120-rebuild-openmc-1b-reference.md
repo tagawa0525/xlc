@@ -23,7 +23,9 @@ deps で lock されたままで、`dvc status` で changed になる。その�
 高速化の後の記録の測り直し（ブランチ docs/remeasure-after-speedups）は、参照解を替えないためにこの 2 段階を実行せず、
 古い lock のまま残した。下流の `compare-1B` も、上流が changed なので実行していない（xlc の側の `lattice-1B` は実行した）。
 
-ADR-0152 のフロントマターの `issues` にはこの issue を挙げていない（ADR-0152 の決定の範囲でなく、その帰結の走らせ直し）。
+標準のタリーの組の決定の範囲でなく、その帰結の再実行で、関係する issue は #0073。
+
+関係する ADR: なし
 
 ## 完了の条件
 
