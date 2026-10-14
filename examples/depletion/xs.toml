@@ -1,0 +1,259 @@
+# 燃焼の検証（docs/plans/m4-depletion.md の「進め方」5）の最初の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群。ADR-0169）。
+# VERA のピンセル（Problem 1）の物質の核種は examples/vera/xs.toml と同じ評価で、温度は VERA の温度から等温温度係数の 560, 570 K
+# （ADR-0154）を除いたもの（燃料の核種と O は 565, 600, 900, 1200 K、冷却材の H は S(α,β) の 550, 573.6, 600 K、被覆管と冷却材の
+# ほかの核種は 565, 600 K）。評価を変えたら両方を直す。Zr と Sn は核分裂生成物として燃料の中にもできるので、燃料の温度
+# 565, 600, 900, 1200 K でも作る
+# 燃焼鎖の核種は、燃料の核種と同じ 565, 600, 900, 1200 K で作る。組は、NUREG/CR-7108 の燃焼度クレジットの 28 核種（本文は手元で
+# 確かめていない）のうち U と Eu-151 を除く 23 に、I-135、Xe-135、Pm-148m、Np-239、Cm-242、Cm-244 を足した 29。Eu-151 と、
+# Sm-149 と Am-242m の経路の Pm-147、Pm-148、Pm-149、Am-242m は、非分離共鳴の自己遮蔽が小さい σ0 で NaN になるので外す（#0127）
+output = "depletion.msgpack"
+endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
+thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+# 省略すると 3（ADR-0076）。核種ごとの段階の params にするため、書いておく（ADR-0138）
+scattering-order = 3
+
+[nuclide.U-234]
+endf = "n-092_U_234.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.U-235]
+endf = "n-092_U_235.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.U-236]
+endf = "n-092_U_236.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.U-238]
+endf = "n-092_U_238.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.O-16]
+endf = "n-008_O_016.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.H-1]
+endf = "n-001_H_001.endf"
+temperatures = [550, 573.6, 600]
+thermal = "tsl-HinH2O.endf"
+# S(α,β) は評価済みデータの上限まで、表の外は THERMR と同じ短時間衝突近似、その上 9118 eV まで自由ガス（ADR-0133）
+sab-upper = "evaluated"
+sab-outside = "sct"
+free-gas-upper = 9118
+
+[nuclide.B-10]
+endf = "n-005_B_010.endf"
+temperatures = [565, 600]
+
+[nuclide.B-11]
+endf = "n-005_B_011.endf"
+temperatures = [565, 600]
+
+[nuclide.Zr-90]
+endf = "n-040_Zr_090.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Zr-91]
+endf = "n-040_Zr_091.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Zr-92]
+endf = "n-040_Zr_092.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Zr-94]
+endf = "n-040_Zr_094.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Zr-96]
+endf = "n-040_Zr_096.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-112]
+endf = "n-050_Sn_112.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-114]
+endf = "n-050_Sn_114.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-115]
+endf = "n-050_Sn_115.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-116]
+endf = "n-050_Sn_116.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-117]
+endf = "n-050_Sn_117.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-118]
+endf = "n-050_Sn_118.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-119]
+endf = "n-050_Sn_119.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-120]
+endf = "n-050_Sn_120.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-122]
+endf = "n-050_Sn_122.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sn-124]
+endf = "n-050_Sn_124.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Fe-54]
+endf = "n-026_Fe_054.endf"
+temperatures = [565, 600]
+
+[nuclide.Fe-56]
+endf = "n-026_Fe_056.endf"
+temperatures = [565, 600]
+
+[nuclide.Fe-57]
+endf = "n-026_Fe_057.endf"
+temperatures = [565, 600]
+
+[nuclide.Fe-58]
+endf = "n-026_Fe_058.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-50]
+endf = "n-024_Cr_050.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-52]
+endf = "n-024_Cr_052.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-53]
+endf = "n-024_Cr_053.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-54]
+endf = "n-024_Cr_054.endf"
+temperatures = [565, 600]
+
+[nuclide.Np-237]
+endf = "n-093_Np_237.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Np-239]
+endf = "n-093_Np_239.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pu-238]
+endf = "n-094_Pu_238.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pu-239]
+endf = "n-094_Pu_239.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pu-240]
+endf = "n-094_Pu_240.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pu-241]
+endf = "n-094_Pu_241.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pu-242]
+endf = "n-094_Pu_242.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Am-241]
+endf = "n-095_Am_241.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Am-243]
+endf = "n-095_Am_243.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Cm-242]
+endf = "n-096_Cm_242.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Cm-244]
+endf = "n-096_Cm_244.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Mo-95]
+endf = "n-042_Mo_095.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Tc-99]
+endf = "n-043_Tc_099.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Ru-101]
+endf = "n-044_Ru_101.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Rh-103]
+endf = "n-045_Rh_103.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Ag-109]
+endf = "n-047_Ag_109.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.I-135]
+endf = "n-053_I_135.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Xe-135]
+endf = "n-054_Xe_135.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Cs-133]
+endf = "n-055_Cs_133.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Nd-143]
+endf = "n-060_Nd_143.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Nd-145]
+endf = "n-060_Nd_145.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pm-148m]
+endf = "n-061_Pm_148m1.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sm-147]
+endf = "n-062_Sm_147.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sm-149]
+endf = "n-062_Sm_149.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sm-150]
+endf = "n-062_Sm_150.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sm-151]
+endf = "n-062_Sm_151.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Sm-152]
+endf = "n-062_Sm_152.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Eu-153]
+endf = "n-063_Eu_153.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Gd-155]
+endf = "n-064_Gd_155.endf"
+temperatures = [565, 600, 900, 1200]
