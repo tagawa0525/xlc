@@ -81,7 +81,8 @@ fn dilute_limit() {
 
 /// J を x について Simpson 則で直接積分した値（x ≤ X、X より先は ψ ≈ 1/x² で足す）。
 fn j_by_simpson(beta: f64, theta: f64) -> f64 {
-    let x_max = 1.0e4;
+    // ガウス形の芯（x ≈ 2/θ の幅）の外まで取る
+    let x_max = f64::max(1.0e4, 12.0 / theta);
     let n = 2_000_000;
     let h = x_max / n as f64;
     let f = |x: f64| {
@@ -237,4 +238,21 @@ fn gaussian_limit_stays_finite_for_the_narrowest_lines() {
     let (j, k) = jk_interpolated(1.0e10, 1.0e-301).unwrap();
     assert_rel(j, PI / 2.0e10, 1e-12);
     assert_rel(k, PI / 1.0e10, 1e-12);
+}
+
+#[test]
+fn stretched_substitution_matches_simpson_below_a_thousandth() {
+    // θ < 1e-3 で積分の変数を芯の幅で伸ばした J が、置換によらない Simpson 則と合う（#0119 の Sm-154、Gd-160 の θ ≈ 2〜3e-4）
+    let theta = 3.0e-4;
+    let betas = [1.0e-4, 1.0e-2];
+    for (&beta, (j, _)) in betas.iter().zip(jk_integrals(&betas, theta).unwrap()) {
+        assert_rel(j, j_by_simpson(beta, theta), 1e-6);
+    }
+}
+
+#[test]
+fn integrals_need_positive_theta() {
+    assert!(jk_integrals(&[1.0], 0.0).is_err());
+    assert!(jk_integrals(&[1.0], -1.0e-4).is_err());
+    assert!(jk_integrals(&[1.0], f64::NAN).is_err());
 }
