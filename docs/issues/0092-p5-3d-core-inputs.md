@@ -40,10 +40,10 @@ examples/vera/verification.md に書く。
 ## 経緯
 
 - 2026-10-12: 計算の仕組みと比較のツールを入れたブランチ feat/p5-hzp-tests で起こした
-- 2026-10-13: 最小の入力の試行（445da315、feat/p3-xlc の xs.toml に 560、570 K を足したライブラリ）で、3.10% の燃料の層の格子 `31-fuel` と `31-fuel-aic` が分岐の 8 状態を通った（k∞ は 1100 ppm、560 K で 1.206516 と 0.866747、1400 ppm、570 K で 1.171749 と 0.845511）。残りの格子と炉心は、格子の自己遮蔽の高速化（perf/0039-shielding-time）のあとに再実行する
+- 2026-10-13: 最小の入力の試行（f7b10bc8、feat/p3-xlc の xs.toml に 560、570 K を足したライブラリ）で、3.10% の燃料の層の格子 `31-fuel` と `31-fuel-aic` が分岐の 8 状態を通った（k∞ は 1100 ppm、560 K で 1.206516 と 0.866747、1400 ppm、570 K で 1.171749 と 0.845511）。残りの格子と炉心は、格子の自己遮蔽の高速化（perf/0039-shielding-time）のあとに再実行する
 - 2026-10-14: 3.10% の最小の入力の格子 19 段階（単一集合体 7、反射体 6、制御棒のテーブル 2、内挿と 2D の小さな炉心 4）を
-  7abbc031（分岐点 704b59e5）の実行ファイルで解いた。main（a66351f2）へ rebase して実行ファイルが変わった（ADR-0157、
-  ADR-0158。bin/lattice の md5 bd5af095）ので、8cbedf55 の trials/p5-hzp/same_state.py で、`31-fuel` と `reflector-I-31-fuel`
+  93f0b407（分岐点 704b59e5）の実行ファイルで解いた。main（a66351f2）へ rebase して実行ファイルが変わった（ADR-0157、
+  ADR-0158。bin/lattice の md5 bd5af095）ので、f19b6917 の trials/p5-hzp/same_state.py で、`31-fuel` と `reflector-I-31-fuel`
   の最初の状態（1100 ppm、560 K、560 K）を新しい実行ファイルで解き直し、前の出力の同じ状態とビット単位で同じことを確かめた
   （lattice/31-fuel.msgpack の md5 3a2eef2a、lattice/reflector-I-31-fuel.msgpack 016d2181、
   lattice/reflector-I-31-fuel-fuel.msgpack 9809e8dd）。19 段階は流し直さず、dvc.lock に記録する。平板（`axial-31`、

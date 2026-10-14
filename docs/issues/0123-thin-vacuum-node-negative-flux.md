@@ -13,7 +13,7 @@ resolution:
 ## 問題
 
 Problem 5 の 3D の最小の入力（examples/vera/p5/hzp/small.toml、small-half.toml。3.10% の 3 × 3 と反射体の輪、径方向の
-外周は真空）を core で解くと、NEM の 4 回目の外側の反復で止まる（9b3ae7f0 の bin/core、md5 a8d61ca7、2026-10-14）:
+外周は真空）を core で解くと、NEM の 4 回目の外側の反復で止まる（8ff11f3d の bin/core、md5 a8d61ca7、2026-10-14）:
 
 ```text
 error: state half: node 150 next to a vacuum face has a flux -0.000009789832978246111; it must be positive
