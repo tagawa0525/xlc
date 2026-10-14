@@ -22,6 +22,7 @@ def summary(problem: str, **k) -> dict:
             "xlc": 1.0020840,
             "keno": 1.000154,
             "keno_std": 6e-06,
+            "diff_keno_pcm": 193.0,
             "openmc": 1.0013894,
             "openmc_std": 1.9e-05,
             "diff_openmc_pcm": 69.46,
@@ -201,6 +202,60 @@ class DrawP5(unittest.TestCase):
         )
         self.assertEqual(rows[1][1], "")
         self.assertEqual(rows[1][5], "1265 ± 1 pcm")
+
+def lattice_summary(problem: str, diff: float, pins: bool = True) -> dict:
+    return {
+        "format": "xlc-compare-keno-lattice",
+        "problem": problem,
+        "k": {
+            "xlc": 1.18,
+            "keno": 1.18336,
+            "keno_std": 2.4e-05,
+            "diff_pcm": diff,
+        },
+        "pins": {"positions": 39, "rms": 0.0005, "max": -0.00123, "at": [1, 0]}
+        if pins
+        else None,
+    }
+
+
+class Endfb70(unittest.TestCase):
+    def test_lattice_row_puts_the_two_libraries_side_by_side(self):
+        table = vt.endfb70_lattices(
+            [lattice_summary("2B", -336.0), lattice_summary("2B", 45.4)]
+        ).split("\n")
+        row = [c.strip() for c in table[2].strip("|").split("|")]
+        self.assertEqual(
+            row,
+            [
+                "2B",
+                "1.180000",
+                "1.183360 ± 0.000024",
+                "\u2212336 pcm",
+                "+45 pcm",
+                "0.050%、\u22120.123%",
+                "0.050%、\u22120.123%",
+            ],
+        )
+
+    def test_a_pin_cell_has_no_pin_columns(self):
+        table = vt.endfb70_lattices(
+            [lattice_summary("1B", 1.0, False), lattice_summary("1B", 2.0, False)]
+        ).split("\n")
+        row = [c.strip() for c in table[2].strip("|").split("|")]
+        self.assertEqual(row[5:], ["", ""])
+
+    def test_the_two_libraries_must_list_the_same_problems(self):
+        with self.assertRaises(vt.TableError):
+            vt.endfb70_lattices(
+                [lattice_summary("2B", 1.0), lattice_summary("2C", 1.0)]
+            )
+
+    def test_p3_k_row(self):
+        table = vt.endfb70_p3_k([summary("3B"), summary("3B")]).split("\n")
+        row = [c.strip() for c in table[2].strip("|").split("|")]
+        self.assertEqual(row[0], "3B")
+        self.assertEqual(len(row), 7)
 
 
 class Replace(unittest.TestCase):
