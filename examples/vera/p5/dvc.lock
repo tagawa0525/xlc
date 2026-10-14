@@ -2294,8 +2294,8 @@ stages:
       size: 4292
     - path: ../compare_p3.py
       hash: md5
-      md5: 662ce4d712f2a1c03f952c326e113789
-      size: 21452
+      md5: 4ac723eb491f9dcbbd726ec20ad8aafd
+      size: 22137
     - path: ../compare_p5.py
       hash: md5
       md5: f8ffdae6ca89182b7c78297e7b7cdc33
