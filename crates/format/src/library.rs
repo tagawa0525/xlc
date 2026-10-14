@@ -777,6 +777,29 @@ impl NuclideData {
                 if r.channels.is_empty() {
                     return Err(at(format!("chain reaction MT{} has no channels", r.mt)));
                 }
+                if !CHAIN_REACTIONS.iter().any(|c| c.mt == r.mt) {
+                    return Err(at(format!("MT{} is not a chain reaction", r.mt)));
+                }
+                // チェーンの経路と同じ並び: 状態に分けないならただ 1 つの経路、分けるなら MF9 か MF10 の状態で、残り（LFS が nil）は最後に 1 つ
+                let states: Vec<Option<ChannelState>> =
+                    r.channels.iter().map(|c| c.final_state).collect();
+                let layout = match states[..] {
+                    [None] => true,
+                    _ => {
+                        let last = states.len() - 1;
+                        states.iter().enumerate().all(|(i, s)| match s {
+                            Some(ChannelState { mf: 9 | 10, lfs }) => lfs.is_some() || i == last,
+                            _ => false,
+                        })
+                    }
+                };
+                if !layout {
+                    return Err(at(format!(
+                        "chain reaction MT{} channels must be one unsplit channel or MF9/MF10 states \
+                         with the remainder last",
+                        r.mt
+                    )));
+                }
                 if !r.channels.iter().all(|c| sized(&c.cross_section)) {
                     return Err(at(format!(
                         "chain reaction MT{} channels must have {ng} groups",
