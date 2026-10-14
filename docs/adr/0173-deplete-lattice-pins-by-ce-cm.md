@@ -1,10 +1,10 @@
 ---
-status: proposed
-date: 2026-10-14
+status: accepted
+date: 2026-10-15
 requires: [ADR-0025, ADR-0112, ADR-0161, ADR-0164, ADR-0172]
 supersedes: []
 superseded-by:
-issues: []
+issues: ["#0129", "#0133", "#0134"]
 ---
 
 # ADR-0173: 格子計算の燃焼を、ピンの組と燃料の物質ごとの領域で、CE/CM の予測子・修正子と一定の出力で進める
@@ -97,7 +97,12 @@ CE/CM にするのは、OpenMC の `CECMIntegrator` と同じ式で、比べる�
 
 核分裂の収率のエネルギーの重み（[ADR-0164](0164-build-full-chain-from-endf.md) の区間）は、群の核分裂率を区間に分けた割合とする。区間の境界が群の中に
 あるときは、群の核分裂率をレサジーの幅の比で分ける。2 点（0.0253 eV と 500 keV）の核種では、境界の幾何平均 112.5 eV で
-熱と速に分けるので、OpenMC の `FissionYieldCutoffHelper`（`cutoff` を 112.5 eV にしたもの）と同じ考え方になる。
+熱と速に分けるので、OpenMC の `FissionYieldCutoffHelper`（`cutoff` を 112.5 eV にしたもの）と同じになる。500 keV と 14 MeV の収率を
+持つ核種（U-235 の 3 点、U-238 の 2 点など）では、xlc は 2.65 MeV（幾何平均）より上に 14 MeV の収率を使い、OpenMC の `cutoff` は
+112.5 eV より上をすべて 500 keV の収率にするので、扱いが違う（差は #0133）。
+
+微量の核種の自己遮蔽: 燃焼でできたばかりの核種は、背景断面積 σ0 がライブラリの無限希釈の値（σ0 の表の最初の値）を超える。
+σt ≪ σ0 で群定数は σ0 によらないので、表は無限希釈の値で引く（範囲の外をエラーにすると、燃焼の 2 回目の輸送で止まる）。
 
 輸送する核種:
 
@@ -148,19 +153,29 @@ OpenMC との対応（参照解を同じ方式で解く設定）:
 
 ## 確認
 
-- 単体のテスト（実装で書く）: CE/CM の 1 ステップが、反応率が組成によらないとき行列指数の 1 回と一致すること、組成に
-  よる反応率で 2 次で収束すること、輸送の回数がステップあたり 2 回と最後の 1 回であること。規格化の後の出力が出力密度 × 質量に
-  一致すること。収率の重みが区間の境界を群の中で分けること。リングの物質が同じ組成なら、リングごとに別の物質にしても
-  自己遮蔽と k が変わらないこと
-- 参照解との比較: VERA 1B 相当のピンセル（燃料 1 リングと数リング）を OpenMC の燃焼と同じ燃焼度の点で比べ、k∞ の差と
-  U-235、U-238、Pu-239、Xe-135、Sm-149 の数密度の相対差を examples/depletion/verification.md に書く。k∞ の差の燃焼による変化
-  （0 での差からのずれ）が ADR-0032 の ±100 pcm に収まるか
+- 単体のテスト（crates/lattice/src/depletion/tests.rs）: `ce_cm_with_constant_rates_is_one_matrix_exponential`、
+  `ce_cm_converges_at_second_order`（dA/dt = −c A² の解析解で、ステップを半分にした誤差の比から次数 1.8〜2.2）、
+  `ce_cm_solves_the_transport_twice_per_step_and_at_the_end`、`fission_products_count_the_energy_released`（核分裂生成物の原子の数から
+  求めたエネルギーが出力密度 × 重金属の質量 × 時間と 1e-3 で一致）、`yield_weights_split_groups_at_the_bounds_by_lethargy`、
+  `region_rates_average_sigma_phi_over_the_region_volume`、`pins_of_one_symmetry_orbit_deplete_as_one_region`、
+  `fuel_rings_deplete_as_their_own_regions`、`nuclides_without_data_at_the_fuel_temperature_only_decay`、
+  `capture_channels_split_the_shielded_capture_by_the_dilute_ratios`、`library_channels_must_match_the_chain`。自己遮蔽
+  （crates/lattice/src/shielding/tests.rs）: `fuel_rings_of_equal_composition_shield_like_one_material`、
+  `fuel_rings_take_their_own_compositions`、`ring_cross_sections_resolve_the_rim_in_the_ufg_range`、
+  `a_trace_nuclide_beyond_the_table_is_infinitely_dilute`。チェーンの Q（crates/chain）: `takes_each_nuclides_own_fission_q_even_when_it_borrows_yields`、
+  `rejects_fission_without_the_q_value_of_mt18`。チェーンの Q は OpenMC の `Chain.from_endf` と 88 核種で一致
+- 参照解との比較（examples/depletion/verification.md の「格子計算の燃焼」）: VERA 1C のピンセル（燃料 900 K）を 5 MWd/kg まで
+  OpenMC の燃焼と同じ方式で燃焼させ、輸送する核種（49）が同じことを確かめて比べた。k∞ の差の 0 の点からの変化は、燃料 1 リングで
+  −58〜+70 pcm（ADR-0032 の ±100 pcm の内）、4 リングで −35〜+122 pcm（2 MWd/kg の点だけ外れる。OpenMC の組成の揺らぎが候補、#0133）。
+  U-235 と U-238 は 0.05% 以内、Pu-239 は 2 ステップ目から +0.3〜+1.3%、Xe-135 は −0.1%、Sm-149 は +0.2〜+0.9%
 
 ## 帰結
 
 - 捕獲の経路の比を群の中で一定とする近似（ADR-0172 の帰結）は、反応率にもそのまま入る
 - リングごとに燃焼させると、飛程の表（ADR-0156）が燃料のリングの物質の数とともに大きくなり、格子点ごとの計算が要る（#0129）
-- 自己遮蔽を中点で解き直さない案（F2）の誤差と時間は、集合体の燃焼で測って決める
+- 自己遮蔽を中点で解き直さない案（F2）の誤差と時間は、集合体の燃焼で測って決める（#0134）。時間の大部分は自己遮蔽で（1C の
+  ピンセルで 95%、2A の 1 ステップで 73%）、燃焼行列と CRAM48 は全核種のチェーンのままでも 1 回の輸送あたり 0.04 秒以下（1 領域）
+- 1C の比較に残る数密度の差（最初のステップ、収率の重み、Sm-149、Pm-148m）の切り分けは #0133
 - 燃焼した組成では UFG の点が核種とともに増える（#0045）
 - 全核種のチェーンを領域ごとに CRAM48 で解く時間は、縮約（#0116）の前の上限として測る（#0111）
 - 燃焼度の軸を持つテーブルと、燃焼点からの分岐は「進め方」6 の ADR で決める
