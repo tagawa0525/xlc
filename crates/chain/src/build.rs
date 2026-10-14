@@ -481,8 +481,9 @@ fn yield_product(za: u32, state: u32, index: &Index) -> Result<(usize, bool)> {
     }
 }
 
-/// nfy の評価を、チェーンの収率にする
+/// nfy の評価を、Q 値 `q` の核種のチェーンの収率にする
 fn fission_yields(
+    q: f64,
     source: &str,
     evaluation: &YieldEvaluation,
     index: &Index,
@@ -535,6 +536,7 @@ fn fission_yields(
         ));
     }
     Ok(Fission {
+        q,
         yield_source: source.to_string(),
         energies,
         yields,
@@ -646,14 +648,20 @@ pub fn build(
         nuclides[i].reactions =
             reactions(&parent, evaluation, &evaluations, &index, &mut warnings)?;
         if evaluation.mts.iter().any(|mt| FISSION_MTS.contains(mt)) {
-            fissionable.push(i);
+            let q = evaluation.fission_q.ok_or_else(|| {
+                anyhow!(
+                    "{}: fission without the Q value of MF3 MT18 (the fission Q of ADR-0173)",
+                    nuclides[i].name
+                )
+            })?;
+            fissionable.push((i, q));
         }
     }
-    fissionable.sort_unstable();
+    fissionable.sort_unstable_by_key(|&(i, _)| i);
     // nfy の評価は核分裂する核種のもの（自分の収率になり、借りる先にもなる）
     for y in &yield_evaluations {
         let k = key(&y.material);
-        if !fissionable.iter().any(|&i| index.get(k) == Some(i)) {
+        if !fissionable.iter().any(|&(i, _)| index.get(k) == Some(i)) {
             bail!(
                 "fission yields for {}, which has no fission in the neutron data",
                 name(k)?
@@ -662,7 +670,7 @@ pub fn build(
     }
     // 収率の表は評価ごとに 1 度だけ作り（警告も 1 度）、借りる核種にはコピーする
     let mut tables: HashMap<usize, Fission> = HashMap::new();
-    for i in fissionable {
+    for (i, q) in fissionable {
         let k = (nuclides[i].z, nuclides[i].a, nuclides[i].state);
         let source = nearest_yields(k, &yield_evaluations)
             .ok_or_else(|| anyhow!("no fission yields for {}", nuclides[i].name))?;
@@ -677,12 +685,19 @@ pub fn build(
         let fission = match tables.get(&source) {
             Some(f) => f.clone(),
             None => {
-                let f = fission_yields(&source_name, evaluation, &index, &nuclides, &mut warnings)?;
+                let f = fission_yields(
+                    q,
+                    &source_name,
+                    evaluation,
+                    &index,
+                    &nuclides,
+                    &mut warnings,
+                )?;
                 tables.insert(source, f.clone());
                 f
             }
         };
-        nuclides[i].fission = Some(fission);
+        nuclides[i].fission = Some(Fission { q, ..fission });
     }
 
     let chain = Chain { nuclides };
