@@ -1,6 +1,6 @@
 ---
 name: verification-record
-description: examples/*/verification.md に測定の結果を書く・直す手順。数値を出したコミットの取り方、rebase 後の付け替え、k の差の内訳の道具、記録に書く試行の扱い、Slurm の時間の注意。
+description: examples/*/verification.md に測定の結果を書く・直す手順。表と出どころを道具（verification_tables.py、record_provenance.py）で出す、数値を出したコミットの取り方、rebase 後の付け替え、k の差の内訳の道具、記録に書く試行の扱い、Slurm の時間の注意。
 ---
 
 # 検証の記録を書く
@@ -30,17 +30,35 @@ description: examples/*/verification.md に測定の結果を書く・直す手�
 - `-c` で排他にせず流したジョブの時間は書かない。ログの `TIME:` 行に `shared (-c N): 時間は当てにならない` が付いている。
   数値（k など）は書いてよい
 
+## 結果を記録に書く（道具で。ADR-0176）
+
+結果の表と出どころは、dvc.lock と出力を読み直して手で打たず、道具に出させる。リポジトリの直下で、python3 は
+default の devShell の中（標準ライブラリだけの道具だが、`--report` が呼ぶ道具は msgpack を使う）。
+
+1. **出どころを取る**: `python3 examples/record_provenance.py examples/<問題>/dvc.yaml <段階>...`。段階ごとに、deps と outs の
+   md5（先頭 8 桁）、outs の md5 を dvc.lock に入れたコミットと日付、比較の段階なら `--report` の文章が出る。
+   - `unknown` / `uncommitted` と出たら、書かずに原因を直す（dvc.lock をコミットしていない、など）。`MISMATCH` は、JSON の
+     `inputs` が dvc.lock の deps と違う（古い JSON）ので、段階を走らせ直して relock する
+   - 出るコミットは dvc.lock のコミット（走らせたコミットの次）。記録の「計算」の欄に書くのは走らせたコミット（下）
+2. **表**: 手で打たない。比較の道具に `--json` があれば、`<!-- table: <名前> -->` 〜 `<!-- /table -->` の目印をつけ、
+   `examples/verification_tables.py` の `TABLES` に名前と描く関数を足して、`python3 examples/verification_tables.py
+   examples/<問題>/verification.md` で描く。目印の中は丸ごと置き換わるので、脚注は目印の外に書く。`--check` は hook と
+   `cargo test` が走らせ、落ちたら表を手で直さず、`--report` と突き合わせて原因を調べる。比較の道具に `--json` が無い表は、
+   まず道具に足す（TDD。issue #0130 の順）
+3. **本文の数値**: 表の外の数値（RMS、倍率、層の数など）は、`--report` の出力から写す。自分で数え直したり丸め直したりしない。
+   `--report` に無い量は、JSON に足してから写す
+4. **計算の欄（コミットと日付）**: 手で書く。自動で出さないのは、走らせたコミットは dvc.lock のコミットでなく、1 つの表の
+   数値を複数の段階（core、OpenMC、比較）が出すため。書くのは、各段階を走らせたときの HEAD（`git rev-parse --short=8 HEAD`）、日付、
+   ブランチの上なら分岐点（上の「数値を出す前」）。`record_provenance.py` の出力で、どの段階のどの md5 の結果かを確かめてから書く
+   （例: xlc の炉心は core の段階の md5 と dvc.lock のコミット、OpenMC は参照解の実行、比べたのは compare の段階）
+5. 再現のコマンドは、リポジトリの直下から走らせる形でコードブロックに書く（「k の差の内訳」の節の形）。python3 は
+   `nix develop .#references -c` の中、cargo と dvc は `default` の devShell の中。比較の文章は
+   `python3 examples/vera/compare_p3.py --report <JSON>`
+
 ## 書き方
 
 - 書き換える節は、古い測定、誤りの注記、置き換えた設定での結果を消して、今の結果だけにする。ほかの節の数値を
   打ち消す注記は書かない。経緯は git に任せる（`git show <コミット>:<ファイル>` で辿れる）
-- 数値の表は、`<!-- table: <名前> -->` 〜 `<!-- /table -->` の間なら手で直さない。比較の段階（`--json` を持つ道具）を走らせて
-  relock し、`python3 examples/verification_tables.py examples/<問題>/verification.md` で描き直す（ADR-0176）。表の脚注の
-  コミットと日付は手で書く（`commit-refs remap` が付け替える）。新しい表を足すときは、道具に `--json` を足し、
-  `examples/verification_tables.py` の `TABLES` に名前を足す。`--check` が落ちたら、記録の表を手で直さず、JSON の元（`.out`）と
-  突き合わせて原因を調べる
-- 再現のコマンドは、リポジトリの直下から走らせる形でコードブロックに書く（「k の差の内訳」の節の形）。python3 は
-  `nix develop .#references -c` の中、cargo と dvc は `default` の devShell の中
 - 確かめていない原因は「候補」「確かめていない」と書く（CLAUDE.md）。保存則（k と 1/A など）が閉じていることを、
   比べる前に書いておく
 
