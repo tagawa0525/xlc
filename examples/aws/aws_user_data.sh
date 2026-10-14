@@ -2,15 +2,18 @@
 # aws_run.sh が source する。1 つのジョブを自己完結に流す VM の user-data（cloud-init のシェルスクリプト）を標準出力に書く
 # （ADR-0155）。AWS を呼ばないので、単体の検査（test_aws_user_data.sh）でも source できる。
 #
-# aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <クロージャの鍵> <openmc> <python> <awscli> <間隔>
-#   <job>      results/ の下の名前（入力の basename から .toml を除いたもの。run_remote.sh と同じ）
+# aws_user_data <region> <bucket> <run> <job> <入力> <再開 0|1> <最長の分> <同期の秒> <ライブラリの鍵> <クロージャの鍵> <openmc> <python> <awscli> <間隔> <entry> <progress> <ライブラリの場所> <data>
+#   <job>      results/ の下の名前（入力の basename から .toml を除いたもの。entry と同じ）
 #   <入力>     作業ディレクトリ（S3 の runs/<run>/src/ をコピーしたもの）からの相対
 #   <ライブラリの鍵>、<クロージャの鍵>  S3 の store/openmc-library/<鍵>/、store/nix/<鍵>/
 #   <間隔>     入力の statepoint-interval を上書きする世代数（正の整数。空なら上書きしない。ADR-0168）
+#   <entry>、<progress>  実行の定義（ADR-0174）の entry（VM が流す入口のスクリプト。作業ディレクトリからの相対）と progress
+#   <ライブラリの場所>  VM でライブラリを置く、作業ディレクトリからの相対のディレクトリ（定義の library）
+#   <data>     定義の data のファイルを「パス=鍵」の空白区切りで（S3 の store/data/<鍵>/<basename> から、同じパスに置く）。なければ空
 aws_user_data() {
-  (($# == 14)) || { echo "aws_user_data: 引数は 14 個（$# 個）" >&2; return 2; }
+  (($# == 18)) || { echo "aws_user_data: 引数は 18 個（$# 個）" >&2; return 2; }
   local region=$1 bucket=$2 run=$3 job=$4 input=$5 restart=$6 minutes=$7 seconds=$8 library=$9
-  local closure=${10} openmc=${11} python=${12} awscli=${13} interval=${14} v
+  local closure=${10} openmc=${11} python=${12} awscli=${13} interval=${14} entry=${15} progress=${16} library_dir=${17} data=${18} v pair
   [[ $restart == 0 || $restart == 1 ]] || { echo "aws_user_data: 再開は 0 か 1（$restart）" >&2; return 2; }
   [[ $minutes =~ ^[1-9][0-9]*$ && $seconds =~ ^[1-9][0-9]*$ ]] ||
     { echo "aws_user_data: 最長の分と同期の秒は正の整数（$minutes、$seconds）" >&2; return 2; }
@@ -18,8 +21,17 @@ aws_user_data() {
   for v in "$openmc" "$python" "$awscli"; do
     [[ $v =~ ^/nix/store/[a-z0-9]{32}-[^/[:space:]]+$ ]] || { echo "aws_user_data: store のパスではない: $v" >&2; return 2; }
   done
-  for v in "$region" "$bucket" "$run" "$job" "$input" "$library" "$closure"; do
+  for v in "$region" "$bucket" "$run" "$job" "$input" "$library" "$closure" "$entry" "$library_dir"; do
     [[ $v =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "aws_user_data: 使えない文字: $v" >&2; return 2; }
+  done
+  [[ $progress == statepoint ]] || { echo "aws_user_data: progress は statepoint（$progress）" >&2; return 2; }
+  for v in "$entry" "$library_dir" "$input"; do
+    [[ $v != /* && /$v/ != */../* ]] || { echo "aws_user_data: 作業ディレクトリからの相対のパスではない: $v" >&2; return 2; }
+  done
+  for pair in $data; do
+    [[ $pair =~ ^([A-Za-z0-9._/-]+)=[0-9a-f]{16}$ ]] || { echo "aws_user_data: data は パス=鍵（16 桁の 16 進）: $pair" >&2; return 2; }
+    v=${BASH_REMATCH[1]}
+    [[ $v != /* && /$v/ != */../* ]] || { echo "aws_user_data: 作業ディレクトリからの相対のパスではない: $v" >&2; return 2; }
   done
   cat <<USERDATA
 #!/bin/bash
@@ -124,7 +136,13 @@ cd "\$WORK"
 "\$AWS" s3 sync --only-show-errors "s3://\$BUCKET/store/nix/$closure" cache
 "\$NIX/nix" copy --no-check-sigs --from "file://\$WORK/cache" $openmc $python
 rm -rf cache
-"\$AWS" s3 sync --only-show-errors "s3://\$BUCKET/store/openmc-library/$library" examples/vera/openmc-library
+"\$AWS" s3 sync --only-show-errors "s3://\$BUCKET/store/openmc-library/$library" $library_dir
+USERDATA
+  for pair in $data; do
+    printf 'mkdir -p %s\n' "$(dirname "${pair%=*}")"
+    printf '"$AWS" s3 cp --only-show-errors "s3://$BUCKET/store/data/%s/%s" %s\n' "${pair#*=}" "$(basename "${pair%=*}")" "${pair%=*}"
+  done
+  cat <<USERDATA
 "\$AWS" s3 sync --only-show-errors "s3://\$BUCKET/runs/$run/src" .
 printf 'OPENMC_BIN=%s\nPYTHON=%s\n' $openmc/bin $python/bin/python3 > tools.env
 
@@ -142,7 +160,7 @@ USERDATA
   local flags=
   ((restart)) && flags=" --restart"
   [[ -z $interval ]] || flags="$flags --statepoint-interval $interval"
-  echo "bash examples/vera/run_remote.sh$flags $input"
+  echo "bash $entry$flags $input"
 
   cat <<USERDATA
 # run_remote.sh は done を 1 回の echo で書くので、空のうちに読まないよう数字になるまで待つ

@@ -33,8 +33,8 @@ jobs = '"'"'^openmc-1C-[a-z0-9]+$'"'"'
   [[ $DEF_LIBRARY == examples/b/openmc-library ]] || fail "library: $DEF_LIBRARY"
   [[ ${#DEF_DATA[@]} == 1 && ${DEF_DATA[0]} == examples/b/chain.xml ]] || fail "data: ${DEF_DATA[*]}"
   [[ $DEF_JOBS == '^openmc-1C-[a-z0-9]+$' ]] || fail "jobs: $DEF_JOBS"
-  [[ ! openmc-1C-rings1 =~ $DEF_JOBS ]] || fail "jobs が 1C-rings1 を受け付けた"
-  [[ openmc-1C-rings1x =~ $DEF_JOBS ]] || fail "jobs が openmc-1C-rings1x を受け付けない"
+  [[ ! openmc-1C-Rings =~ $DEF_JOBS ]] || fail "jobs が openmc-1C-Rings を受け付けた"
+  [[ openmc-1C-rings1 =~ $DEF_JOBS ]] || fail "jobs が openmc-1C-rings1 を受け付けない"
 ) || fail "有効な定義を読めない"
 
 # data は省略できる（空の配列）
@@ -63,10 +63,10 @@ rejects "progress が不明" "${valid//progress = \"steps\"/progress = \"batches
 rejects "絶対パス" "${valid//examples\/b\/run_remote.sh//tmp/run_remote.sh}"
 rejects ".. を含む" "${valid//examples\/b\/run_remote.sh/examples\/..\/run_remote.sh}"
 rejects "使えない文字" "${valid//examples\/b\/chain.xml/examples\/b\/chain xml}"
-rejects "配列が閉じない" "${valid//\"examples\/b\/c.py\",/\"examples\/b\/c.py\"}"
+rejects "配列が閉じない" "$(sed '/^]/d' <<< "$valid")"
 rejects "tools が空" "$(sed '/^tools/,/^]/c\tools = []' <<< "$valid")"
 rejects "文字列でない" "${valid//entry = \"examples\/b\/run_remote.sh\"/entry = 3}"
-rejects "jobs が正規表現として読めない" "${valid//\'^openmc-1C-[a-z0-9]+\$\'/\'^openmc-[\'}"
+rejects "jobs が正規表現として読めない" "$(sed "s/^jobs = .*/jobs = '^openmc-['/" <<< "$valid")"
 rejects "行を読めない" "${valid}これは定義ではない"
 
 # def_find: 入力から上へ、aws.toml のある最初のディレクトリ（リポジトリの直下から相対）
