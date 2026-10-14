@@ -89,13 +89,14 @@ class AssemblySummary(unittest.TestCase):
         self.assertEqual(d["relative"]["n"], 2)
 
     def test_counts_the_differences_in_sigma_of_the_reference(self):
-        """差 +0.1 を標準偏差 0.05 で割って 2 倍、−0.1 を 0.2 で割って 0.5 倍。2σ を超えるのは 0 個（等しいときは超えない）"""
+        """差 +0.1 を標準偏差 0.06 で割って約 1.7 倍、−0.1 を 0.04 で割って約 2.5 倍（2σ を超えるのは 1 個）"""
         d = compare_p5.assembly_summary(
-            np.array([[1.1, 0.9]]), np.array([[1.0, 1.0]]), np.array([[0.05, 0.2]])
+            np.array([[1.1, 0.9]]), np.array([[1.0, 1.0]]), np.array([[0.06, 0.04]])
         )
-        self.assertAlmostEqual(d["sigma"]["max"], 2.0, places=12)
-        self.assertEqual(d["sigma"]["at"], [0, 0])
-        self.assertEqual(d["sigma"]["beyond_2sigma"], 0)
+        self.assertAlmostEqual(d["sigma"]["max"], 2.5, places=12)
+        self.assertEqual(d["sigma"]["at"], [0, 1])
+        self.assertEqual(d["sigma"]["beyond_2sigma"], 1)
+        self.assertEqual(d["sigma"]["n"], 2)
 
 
 class Names(unittest.TestCase):
@@ -111,6 +112,7 @@ class OpenmcJson(Fixture):
             "--json",
             self.dir / "out.json",
             "openmc",
+            "5A",
             self.dir / "core.out",
             self.dir / "core-pins.msgpack",
             self.dir / "results",
@@ -145,6 +147,7 @@ class OpenmcJson(Fixture):
             "--json",
             self.dir / "out.json",
             "openmc",
+            "5A",
             self.dir / "core.out",
             self.dir / "core-pins.msgpack",
             self.dir / "results",
