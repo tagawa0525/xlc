@@ -106,7 +106,8 @@ stages:
       - core-3A-layers.msgpack
     outs:
       - compare-3A-openmc.out
-      - compare-3A-openmc.json
+      - compare-3A-openmc.json:
+          cache: false
   lattice-3B-poison:
     cmd: mkdir -p lattice-3B && ../../../bin/lattice lattice-3B-poison.toml > lattice-3B-poison.out
     deps:
@@ -263,4 +264,5 @@ stages:
       - core-3B-layers.msgpack
     outs:
       - compare-3B-openmc.out
-      - compare-3B-openmc.json
+      - compare-3B-openmc.json:
+          cache: false

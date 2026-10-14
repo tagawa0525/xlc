@@ -715,7 +715,12 @@ def stage(name: str, cmd: str, deps: list[str], outs: list[str]) -> str:
         f"  {name}:\n    cmd: {cmd}\n    deps:\n"
         + "".join(f"      - {d}\n" for d in deps)
         + "    outs:\n"
-        + "".join(f"      - {o}\n" for o in outs)
+        + "".join(
+            f"      - {o.removeprefix('git:')}:\n          cache: false\n"
+            if o.startswith("git:")
+            else f"      - {o}\n"
+            for o in outs
+        )
     )
 
 
@@ -802,7 +807,8 @@ def pipeline() -> str:
             )
         )
         # OpenMC の参照解は DVC のステージの出力でない（AWS の VM の実行 m3 から取り出した references/ のファイル）ので、
-        # 比べる 4 つのファイルを deps に書く。表を描くツール（examples/verification_tables.py）が JSON を読む（ADR-0176）
+        # 比べる 4 つのファイルを deps に書く。表を描くツール（examples/verification_tables.py）が JSON を読む（ADR-0176）。JSON は数 KB の要約で、
+        # チェックが DVC の出力に頼らないよう、キャッシュに置かず git で追跡する（outs の `cache: false`。`git:` はそれを示す印）
         openmc = f"../../../references/openmc/aws/m3/openmc-{problem}"
         stages.append(
             stage(
@@ -826,7 +832,7 @@ def pipeline() -> str:
                     f"core-{problem}-pins.msgpack",
                     f"core-{problem}-layers.msgpack",
                 ],
-                [f"compare-{problem}-openmc.out", f"compare-{problem}-openmc.json"],
+                [f"compare-{problem}-openmc.out", f"git:compare-{problem}-openmc.json"],
             )
         )
     return (
