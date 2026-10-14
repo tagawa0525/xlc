@@ -280,7 +280,7 @@ def p5_keno_comparison(sources: list[dict]) -> str:
 
 P5_SOURCES = [
     *(f"examples/vera/p5/compare-{p}.json" for p in ("5A", "5B", "5C")),
-    "examples/vera/p5/compare-5A-openmc.json",
+    *(f"examples/vera/p5/compare-{p}-openmc.json" for p in ("5A", "5B", "5C")),
 ]
 
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
@@ -297,7 +297,7 @@ TABLES = {
         p5_reference_results,
     ),
     "p5-openmc-comparison": (
-        ["examples/vera/p5/compare-5A-openmc.json"],
+        [f"examples/vera/p5/compare-{p}-openmc.json" for p in ("5A", "5B", "5C")],
         p5_openmc_comparison,
     ),
     "p5-keno-comparison": (
