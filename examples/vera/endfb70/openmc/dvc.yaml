@@ -96,3 +96,29 @@ stages:
         - openmc-${item}
       outs:
         - openmc-${item}-results
+  compare-1B:
+    # ENDF/B-VII.0 の OpenMC を基準にした、xlc（../dvc.yaml の pincell@1B）と KENO-VI の k の差。要約は git で追跡する（ADR-0176）
+    cmd: python3 ../../compare_openmc_keno.py --json compare-1B.json ../../../../references/vera/spec.txt 1B ../compare-1B.json openmc-1B-results
+    deps:
+      - ../../compare_openmc_keno.py
+      - ../../compare_keno.py
+      - ../../compare_p3.py
+      - ../../../../references/vera/spec.txt
+      - ../compare-1B.json
+      - openmc-1B-results
+    outs:
+      - compare-1B.json:
+          cache: false
+  compare-2B:
+    cmd: python3 ../../compare_openmc_keno.py --json compare-2B.json ../../../../references/vera/spec.txt 2B ../compare-2B.json openmc-2B-results ../p2/pins-2B.msgpack
+    deps:
+      - ../../compare_openmc_keno.py
+      - ../../compare_keno.py
+      - ../../compare_p3.py
+      - ../../../../references/vera/spec.txt
+      - ../compare-2B.json
+      - openmc-2B-results
+      - ../p2/pins-2B.msgpack
+    outs:
+      - compare-2B.json:
+          cache: false
