@@ -205,7 +205,7 @@ def keno_radial(spec: list[str]) -> np.ndarray:
         raise SystemExit(f"{RADIAL_ROWS} not found after {RADIAL_TABLE}")
     quarter = np.full((8, 8), np.nan)
     for r, line in enumerate(spec[start + 2 : start + 10]):
-        values = [float(x) for x in re.findall(r"\d\.\d{5}", line)]
+        values = [float(x) for x in re.findall(r"(?<![\d.])(\d\.\d{5})(?![\d%])", line)]
         if len(values) != OCTANT_ROWS[r]:
             raise SystemExit(
                 f"{RADIAL_ROWS}: row {8 + r} has {len(values)} values, expected {OCTANT_ROWS[r]}"
@@ -230,12 +230,14 @@ def state_power(path: Path, name: str) -> tuple[list[float], list[float], np.nda
         len(lines),
     )
     block = lines[start:end]
-    a = next(
-        i for i, line in enumerate(block) if line.startswith("axial fission fractions")
-    )
-    b = next(
-        i for i, line in enumerate(block) if line.startswith("assembly fission rates")
-    )
+    heads = {}
+    for head in ("axial fission fractions", "assembly fission rates"):
+        heads[head] = next(
+            (i for i, line in enumerate(block) if line.startswith(head)), None
+        )
+        if heads[head] is None:
+            raise SystemExit(f"{path}: state {name} has no `{head}` table")
+    a, b = heads.values()
     nodes = [tuple(float(x) for x in line.split()) for line in block[a + 1 : b]]
     bottom, top = FUEL_BOTTOM - CORE_ORIGIN, FUEL_TOP - CORE_ORIGIN
     tolerance = 1e-4
@@ -246,7 +248,8 @@ def state_power(path: Path, name: str) -> tuple[list[float], list[float], np.nda
     ]
     outside = sum(f for z0, z1, f in nodes) - sum(f for *_, f in fuel)
     if (
-        abs(fuel[0][0] - bottom) > tolerance
+        not fuel
+        or abs(fuel[0][0] - bottom) > tolerance
         or abs(fuel[-1][1] - top) > tolerance
         or abs(outside) > 1e-12
     ):

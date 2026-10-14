@@ -2302,8 +2302,8 @@ stages:
       size: 14870
     - path: compare_hzp.py
       hash: md5
-      md5: 70a499caad0ab1f3a5e1526867039325
-      size: 21450
+      md5: d18a36ee8977f004a7552c9074ea413f
+      size: 21613
     - path: hzp/core-hzp.out
       hash: md5
       md5: ae9dce5da7c34e6da070fa6e26a3550d
