@@ -8,6 +8,8 @@ CASL の VERA Core Physics Benchmark Problems（CASL-U-2012-0131-004）のうち
 xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC を動かして作る（核データの違いを比較から除くため。
 [ADR-0031](../../docs/adr/0031-verify-against-openmc-with-same-data.md)）。手順は docs/environment.md の「VERA の参照解」で、1B は examples/vera/dvc.yaml の段階（[ADR-0130](../../docs/adr/0130-drive-reference-results-with-dvc.md)）。
 
+ENDF/B-VII.0 のライブラリでの KENO-VI との比較（核データの版を揃えた比較）は [verification-endfb70.md](verification-endfb70.md)。
+
 | ファイル                        | 内容                                                                                                                                                            |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `xs.toml`                       | xlc の多群ライブラリ（`vera.msgpack`。git で追跡しない）の入力。参照解と同じ核種と温度                                                                          |
