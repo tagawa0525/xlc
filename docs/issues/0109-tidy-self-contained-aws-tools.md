@@ -13,11 +13,11 @@ resolution:
 ## 問題
 
 ADR-0155 のブランチのレビュー（13 回）で出た指摘のうち、課金が止まらない、結果が失われる、中断から再開できない、のどれにも当たらない
-ものを、まとめて残す。どれも今の動作（examples/vera/aws_*.sh）を誤らせるものではない。
+ものを、まとめて残す。どれも今の動作（examples/aws/aws_*.sh）を誤らせるものではない。
 
 関係する ADR: ADR-0155
 
-- テストの書き方: examples/vera/test_aws_user_data.sh の多くは、生成した user-data の行の有無と順を見ている（How）。振る舞い（What）を
+- テストの書き方: examples/aws/test_aws_user_data.sh の多くは、生成した user-data の行の有無と順を見ている（How）。振る舞い（What）を
   見ているのは sync_out だけで、finish（done、INTERRUPTED、READY）と待ちのループは行の照合だけ。sync_out と同じく、スタブで実行する形にする
 - TDD の履歴: user-data の変更は、テストと実装を同じコミットに入れた（このブランチの依頼で TDD は対象外としたが、flake の check の
   対象になったので、以後は RED と GREEN を分ける）

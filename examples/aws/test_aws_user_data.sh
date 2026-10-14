@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # aws_user_data.sh（ADR-0155）が作る user-data の検査。flake の check（aws-user-data）が実行する。
 #
-# 使い方: examples/vera/test_aws_user_data.sh [<aws_user_data.sh のパス>]
+# 使い方: examples/aws/test_aws_user_data.sh [<aws_user_data.sh のパス>]
 set -euo pipefail
 # shellcheck source=aws_user_data.sh
 source "${1:-$(dirname "$0")/aws_user_data.sh}"
@@ -22,7 +22,9 @@ openmc=/nix/store/00000000000000000000000000000000-openmc-0.15.2
 python=/nix/store/11111111111111111111111111111111-python3-env
 awscli=/nix/store/22222222222222222222222222222222-awscli2-2.35.11
 args=(us-east-2 xlc-openmc-test trial openmc-3A trials/aws/openmc-3A.toml)
-tail_args=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli" "")
+# 最後の 4 つは定義（ADR-0174）の entry、progress、library、data（path=鍵 の空白区切り）
+def_args=(examples/vera/run_remote.sh statepoint examples/vera/openmc-library "")
+tail_args=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli" "" "${def_args[@]}")
 
 fresh=$(aws_user_data "${args[@]}" 0 "${tail_args[@]}")
 restart=$(aws_user_data "${args[@]}" 1 "${tail_args[@]}")
@@ -150,24 +152,122 @@ rejects() { # <名前> <引数>...
   if aws_user_data "$@" > /dev/null 2>&1; then fail "$name: 受け付けた"; fi
 }
 rejects "再開が 2" "${args[@]}" 2 "${tail_args[@]}"
-rejects "最長の分が 0" "${args[@]}" 0 0 300 lib nix "$openmc" "$python" "$awscli" ""
-rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python" "$awscli" ""
+rejects "最長の分が 0" "${args[@]}" 0 0 300 lib nix "$openmc" "$python" "$awscli" "" "${def_args[@]}"
+rejects "store でないパス" "${args[@]}" 0 840 300 lib nix /usr/bin "$python" "$awscli" "" "${def_args[@]}"
 rejects "空白を含む入力" us-east-2 xlc-openmc-test trial openmc-3A 'a b.toml' 0 "${tail_args[@]}"
 rejects "引数が足りない" "${args[@]}" 0 840
 
 # 起動し直しで statepoint の間隔を上書きする（ADR-0168）
 interval_tests() {
   local fresh_50 restart_50 base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli")
-  fresh_50=$(aws_user_data "${args[@]}" 0 "${base[@]}" 50)
-  restart_50=$(aws_user_data "${args[@]}" 1 "${base[@]}" 50)
+  fresh_50=$(aws_user_data "${args[@]}" 0 "${base[@]}" 50 "${def_args[@]}")
+  restart_50=$(aws_user_data "${args[@]}" 1 "${base[@]}" 50 "${def_args[@]}")
   contains "$fresh_50" 'bash examples/vera/run_remote.sh --statepoint-interval 50 trials/aws/openmc-3A.toml' fresh_50
   contains "$restart_50" 'bash examples/vera/run_remote.sh --restart --statepoint-interval 50 trials/aws/openmc-3A.toml' restart_50
   bash -n <<< "$fresh_50" || fail "fresh_50: bash の構文"
-  rejects "間隔が 0" "${args[@]}" 0 "${base[@]}" 0
-  rejects "間隔が数でない" "${args[@]}" 0 "${base[@]}" 5x
+  rejects "間隔が 0" "${args[@]}" 0 "${base[@]}" 0 "${def_args[@]}"
+  rejects "間隔が数でない" "${args[@]}" 0 "${base[@]}" 5x "${def_args[@]}"
 }
 
 interval_tests
+
+# 定義（ADR-0174）の entry、library、data が user-data に入る
+definition_tests() {
+  local base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli" "") text
+  text=$(aws_user_data us-east-2 xlc-openmc-test trial openmc-1C-a trials/aws/openmc-1C-a.toml 0 "${base[@]}" \
+    examples/depletion/run_remote.sh statepoint examples/depletion/openmc-library \
+    "examples/depletion/openmc-chain.xml=0123456789abcdef")
+  bash -n <<< "$text" || fail "definition: bash の構文"
+  contains "$text" '"$AWS" s3 sync --only-show-errors "s3://$BUCKET/store/openmc-library/lib0123456789abcd" examples/depletion/openmc-library' definition
+  contains "$text" 'bash examples/depletion/run_remote.sh trials/aws/openmc-1C-a.toml' definition
+  lacks "$text" 'examples/vera' definition
+  contains "$text" 'mkdir -p examples/depletion' definition
+  contains "$text" '"$AWS" s3 cp --only-show-errors "s3://$BUCKET/store/data/0123456789abcdef/openmc-chain.xml" examples/depletion/openmc-chain.xml' definition
+  before "$text" '"$AWS" s3 cp --only-show-errors "s3://$BUCKET/store/data/0123456789abcdef/openmc-chain.xml" examples/depletion/openmc-chain.xml' 'READY=1' definition
+  rejects "data の鍵が不正" us-east-2 xlc-openmc-test trial j trials/a.toml 0 "${base[@]}" e statepoint examples/l "examples/c.xml=zz"
+  rejects "progress が不明" us-east-2 xlc-openmc-test trial j trials/a.toml 0 "${base[@]}" e other examples/l ""
+  rejects "entry に .." us-east-2 xlc-openmc-test trial j trials/a.toml 0 "${base[@]}" ../e statepoint examples/l ""
+}
+definition_tests
+
+# progress = steps（ADR-0174）: 区間（run/step-<k>/）の完了の印 complete で進み具合を測る
+steps_tests() {
+  local base=(840 300 lib0123456789abcd nix0123456789abcd "$openmc" "$python" "$awscli") fresh restart text
+  local steps_def=(examples/depletion/run_remote.sh steps examples/depletion/openmc-library "")
+  local steps_args=(us-east-2 xlc-openmc-test trial openmc-1C-a trials/aws/openmc-1C-a.toml)
+  fresh=$(aws_user_data "${steps_args[@]}" 0 "${base[@]}" "" "${steps_def[@]}")
+  restart=$(aws_user_data "${steps_args[@]}" 1 "${base[@]}" "" "${steps_def[@]}")
+  for text in "$fresh" "$restart"; do
+    bash -n <<< "$text" || fail "steps: bash の構文"
+    lacks "$text" 'statepoints()' steps
+    lacks "$text" 'run/statepoint' steps
+    lacks "$text" '--statepoint-interval' steps
+    contains "$text" 'complete_steps() {' steps
+    # S3 の区間は、完了の印があるものの最後の 1 つだけを戻す。印のない区間（書いている途中）は戻さない
+    contains "$text" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done --exclude '\''run/step-*'\'' "$PREFIX" "$OUT"' steps
+    contains "$text" 'keys=$("$AWS" s3api list-objects-v2 --bucket "$BUCKET" --prefix "runs/trial/openmc-1C-a/run/step-" --query '\''Contents[].Key'\'' --output text)' steps
+    before "$text" '"$AWS" s3 sync --only-show-errors --exclude '\''boot-*.log'\'' --exclude done --exclude '\''run/step-*'\'' "$PREFIX" "$OUT"' 'READY=1' steps
+  done
+  contains "$fresh" 'bash examples/depletion/run_remote.sh trials/aws/openmc-1C-a.toml' steps
+  contains "$restart" 'bash examples/depletion/run_remote.sh --restart trials/aws/openmc-1C-a.toml' steps
+  rejects "steps に statepoint の間隔" "${steps_args[@]}" 0 "${base[@]}" 50 "${steps_def[@]}"
+
+  # sync_out の振る舞い: 完了した区間だけを写し、完了の印は区間のほかのファイルをコピーしてから
+  local functions
+  functions=$(sed -n '/^complete_steps() {$/,/^}$/p; /^sync_out() {$/,/^}$/p' <<< "$fresh")
+  steps_sync() { # <done の中身（- なら置かない）> <SIGTERM を受けたか 0|1> <完了した区間の番号>... [incomplete=<番号>]: sync_out の aws の呼び出しを 1 行ずつ
+    local done_code=$1 interrupted=$2 dir k
+    shift 2
+    dir=$(mktemp -d)
+    mkdir -p "$dir/results/openmc-1C-a/run"
+    for k in "$@"; do
+      if [[ $k == incomplete=* ]]; then
+        mkdir -p "$dir/results/openmc-1C-a/run/step-${k#incomplete=}"
+      else
+        mkdir -p "$dir/results/openmc-1C-a/run/step-$k"
+        touch "$dir/results/openmc-1C-a/run/step-$k/complete"
+      fi
+    done
+    [[ $done_code == - ]] || echo "$done_code" > "$dir/results/openmc-1C-a/done"
+    (
+      # shellcheck disable=SC2034 # eval した sync_out が使う
+      WORK=$dir OUT=results/openmc-1C-a PREFIX=s3://b/runs/trial/openmc-1C-a READY=1 INTERRUPTED=$interrupted
+      # shellcheck disable=SC2034 # eval した sync_out が使う
+      AWS=aws_stub
+      aws_stub() { echo "CALL $*"; }
+      eval "$functions"
+      sync_out
+    )
+    rm -rf "$dir"
+  }
+  local running first
+  running=$(steps_sync - 0 1 2 incomplete=3 10)
+  first=$(head -1 <<< "$running")
+  [[ $first == *"--exclude run/step-*"* ]] || fail "steps: 走っている間に区間を除いていない: $first"
+  for k in 1 2 10; do
+    [[ $first == *"--include run/step-$k/*"* ]] || fail "steps: 完了した区間 $k を含めていない: $first"
+  done
+  [[ $first != *"run/step-3"* ]] || fail "steps: 完了の印のない区間を含めている: $first"
+  [[ $first == *"--exclude run/step-*/complete"* ]] || fail "steps: 最初の呼び出しが完了の印を除いていない: $first"
+  [[ $running == *"--include run/step-10/complete"* ]] || fail "steps: 完了の印を最後にコピーしていない"
+  [[ $(grep -c . <<< "$running") == 2 ]] || fail "steps: 走っている間は、区間と完了の印の 2 回の同期: $running"
+  ! grep -qF -- '--delete' <<< "$running" || fail "steps: 走っている間に --delete している"
+  # 完了の印は、区間のほかのファイルをコピーした呼び出しより後
+  [[ $(grep -n -- '--include run/step-10/complete' <<< "$running" | head -1 | cut -d: -f1) == 2 ]] || fail "steps: 完了の印が 2 回目の呼び出しにない"
+  local finished
+  finished=$(steps_sync 0 0 1 2 3)
+  ! grep -qF -- '--include run/step-' <<< "$(head -1 <<< "$finished")" || fail "steps: 成功のあとに区間を選んでいる"
+  grep -qF -- '--delete' <<< "$finished" || fail "steps: 成功のあとに --delete していない"
+  [[ $(grep -n -- '--delete' <<< "$finished" | head -1 | cut -d: -f1) == 3 ]] || fail "steps: --delete が完了の印のあとの呼び出しでない"
+  local failed
+  failed=$(steps_sync 137 0 1 incomplete=2)
+  [[ $(head -1 <<< "$failed") == *"--include run/step-1/*"* && $failed != *"run/step-2"* ]] || fail "steps: 失敗のあとに未完了の区間をコピーしている: $failed"
+  ! grep -qF -- '--delete' <<< "$failed" || fail "steps: 失敗のあとに --delete している"
+  local nothing
+  nothing=$(steps_sync - 0)
+  [[ $(grep -c . <<< "$nothing") == 2 ]] || fail "steps: 区間がないときも 2 回呼ぶ: $nothing"
+}
+steps_tests
 
 if ((failures)); then
   echo "$failures 件の失敗" >&2

@@ -2,7 +2,7 @@
 # タグ Name が <name>（または <name>-N）のインスタンスと、aws_run.sh の実行 <name> のインスタンス（タグ XlcRun が <name>）を終了し、terminated を待って ~/.ssh/config の Host を消す
 # （docs/environment.md の「外部の計算機（AWS）」）。EBS は DeleteOnTermination で消える。
 #
-# 使い方: examples/vera/aws_terminate.sh [--dry-run] <name>
+# 使い方: examples/aws/aws_terminate.sh [--dry-run] <name>
 set -euo pipefail
 # shellcheck source=aws_common.sh
 source "$(dirname "$0")/aws_common.sh"

@@ -10,6 +10,8 @@
 #   --statepoint-interval  入力の `statepoint-interval` を上書きする（openmc_resume.py の `run --statepoint-interval`。入力のファイルは
 #            変えない。全ジョブに同じ値。ADR-0168）
 #   --restart  作業ディレクトリ（results/<入力の名前>/run）の最新の statepoint から再開する（スポットの中断のあと）
+#   --extract-script  流さずに、<入力>の run と extract を行うスクリプト（リポジトリの直下からの相対）を出す（aws_fetch.sh --verify が
+#            手元で extract をやり直すために問い合わせる。AWS の実行の定義の入口の契約。ADR-0174）
 #
 # 各ジョブは setsid と nohup で切り離し、接続が切れても続く。ログは results/<名前>/log、完了すると results/<名前>/done
 # （成功なら 0、失敗なら終了コード）を書く。run が終わると続けて extract も実行し、k.json などは results/<名前>/ に書く。
@@ -17,14 +19,16 @@
 set -euo pipefail
 
 restart=()
+query=0
 interval=()
 cores=""
 threads=""
 inputs=()
 while (($#)); do
   case $1 in
-    --help | -h) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help | -h) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --restart) restart=(--restart) ;;
+    --extract-script) query=1 ;;
     --statepoint-interval) interval=(--statepoint-interval "${2:?--statepoint-interval に値が要ります}"); shift ;;
     --cores) cores=$2; shift ;;
     --threads) threads=$2; shift ;;
@@ -34,6 +38,19 @@ while (($#)); do
   shift
 done
 ((${#inputs[@]})) || { echo "入力を 1 つ以上渡してください（--help）" >&2; exit 2; }
+
+# ジョブの名前（入力の basename から .toml を除いたもの）から、run と extract を行うスクリプト。知らない名前なら止まる
+script_of() {
+  case $1 in
+    openmc-3?) echo examples/vera/openmc_model_3d.py ;;
+    openmc-5?-2D) echo examples/vera/openmc_core_2d.py ;;
+    *) echo "$2 は Problem 3 か 5-2D の入力ではありません" >&2; return 1 ;;
+  esac
+}
+if ((query)); then
+  for input in "${inputs[@]}"; do script_of "$(basename "$input" .toml)" "$input" || exit 1; done
+  exit 0
+fi
 
 source ./tools.env
 export PATH="$OPENMC_BIN:$PATH"
@@ -61,11 +78,7 @@ export PYTHON
 for input in "${inputs[@]}"; do
   [[ -f $input ]] || { echo "$input がありません" >&2; exit 1; }
   name=$(basename "$input" .toml)
-  case $name in
-    openmc-3?) script=examples/vera/openmc_model_3d.py ;;
-    openmc-5?-2D) script=examples/vera/openmc_core_2d.py ;;
-    *) echo "$input は Problem 3 か 5-2D の入力ではありません" >&2; exit 1 ;;
-  esac
+  script=$(script_of "$name" "$input") || exit 1
   out=results/$name
   mkdir -p "$out"
   rm -f "$out/done"
