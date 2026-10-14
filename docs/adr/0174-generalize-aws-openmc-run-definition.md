@@ -126,7 +126,7 @@ jobs = '^openmc-1C-[a-z0-9]+$'                      # 受け付けるジョブ�
 ### 燃焼の進み具合（`progress = "steps"`）
 
 OpenMC の再開は完了した走行の延長に向くので（調査の結果 2）、**1 ステップを 1 区間として、区間の終わりごとに完了の印を置く**。
-`run/step-<k>/depletion_results.h5` と、区間の最後の空でない印 `run/step-<k>/complete`（内容は `<k>/<全ステップ数>`。k は終わった
+`run/step-<k>/depletion_results.h5` と、区間の最後に置く印 `run/step-<k>/complete`（内容は `<k>/<全ステップ数>`。k は終わった
 ステップの数）。
 
 - 区間 k は別のプロセスで、`step-<k-1>/depletion_results.h5` を `step-<k>/` に写して `prev_results` に渡し、残りの 1 ステップだけを
@@ -139,8 +139,9 @@ OpenMC の再開は完了した走行の延長に向くので（調査の結果 
 - S3 への同期は、`complete` のある `step-<k>/` だけ。区間のファイルを写し終えてから、`complete` を別の呼び出しで写す（印だけが先に
   着いて、欠けた区間を再開が読まないように）。VM の再開は、S3 から `complete` のある最後の区間だけを戻す。statepoint の mtime の
   規則（ADR-0168）は使わない。
-- 完了の判定は、最後の区間の `complete` の内容が `<n>/<n>`。`aws_run.sh` の起動し直しの「最後の世代の statepoint があって done が
-  ない」は、`progress` ごとの関数（`job_latest_progress`、`job_progress_finished`）に分けた。`--statepoint-interval` は `steps` では
+- 最後の区間まで終わって `done` がないジョブ（extract の前の中断）は、`steps` では再開できる（区間を流さずに extract を流す）。
+  `aws_run.sh` の起動し直しの「最後の世代の statepoint があって done がない」（statepoint は世代が残っておらず再開できない）は、
+  `progress` ごとの関数（`job_latest_progress`、`job_progress_finished`）に分けた。`--statepoint-interval` は `steps` では
   受け付けず 2 で止まる。`aws_watch.sh` は `steps` で渡さない。
 - 古い区間は消さない。完了のときに消す案は、同期が一覧を取ったあとに区間が消えると、含めたはずの区間の同期が失敗する（statepoint の
   ADR-0168 と同じ競合）ので採らなかった。ただし再開した VM は最後の区間だけを戻すので、成功のときの `--delete` の同期で、前の VM が
