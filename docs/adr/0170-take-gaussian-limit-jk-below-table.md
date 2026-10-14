@@ -30,28 +30,33 @@ J と K の積分は x = tan φ と置いて [0, π/2] を適応 Gauss-Kronrod �
 - 案 C: θ が小さい行は積分の変数を芯の幅で伸ばし（x = (2/θ) tan φ）、表を 10⁻¹⁰ まで延ばす。その下は、ドップラー幅に比べて
   自然幅が無視できる線形状 ψ = (√π θ/2) e^{−u²}（u = θx/2）で、b = 2β/(√π θ) とした J = (2/θ) ∫ g/(g + b) du、
   K = (2/θ) ∫ g(g + 2b)/(g + b)² du（g = e^{−u²}）を 1/b の冪に展開して項ごとに積分した級数で求める（採用）。Voigt の
-  線形状との差はローレンツの裾による相対 θ の程度で、10⁻¹⁰ より下では 1e-10 より小さい。θ の下限がなくなる
+  線形状との差はローレンツの裾による相対 θ の程度（伸ばした積分と比べて 0.24〜0.46 θ。θ = 10⁻⁶〜10⁻¹¹、b ≥ 2.8）で、10⁻¹⁰ より
+  下では 1e-10 より小さい。θ の下限がなくなる
 
 ## 決定と理由
 
 案 C にする。
 
-- 積分: θ < 10⁻³ では x = (2/θ) tan φ と置く。θ ≥ 10⁻³ は x = tan φ のままで収束するので、燃料の主な核種が使う θ ≥ 10⁻³ の
-  行の値を変えないよう、置換を分ける
+- 積分: θ < 10⁻³ では x = (2/θ) tan φ と置き、θ ≥ 10⁻³ は x = tan φ のままにする（収束する。すべての θ を伸ばすことも
+  できるが、燃料の主な核種が使う行の積分を変えない）
 - 表: θ = 10⁻¹⁰〜10⁶（間隔は log10 で 0.025 のまま。行は 361 から 641）
 - θ < 10⁻¹⁰（β は表の範囲）: J = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ b⁻ⁿ/√n、K = (√π/θ) Σₙ₌₁ (−1)ⁿ⁺¹ (n + 1) b⁻ⁿ/√n（∫ gⁿ du = √π/(2√n)）。
-  β ≥ 10⁻⁶ では b > 10⁴ なので 5 項で倍精度に収束する
+  β ≥ 10⁻⁶ では b > 10⁴ なので 5 項で倍精度に収束する。b が倍精度を超えないよう、先頭の項 π/(2β) でくくって計算する。θ ≤ 0 は
+  エラー
 
 ## 確認
 
-- crates/xs/src/resonance/line_shape/tests.rs: `quadrature_approaches_the_gaussian_limit_for_narrow_lines`（θ = 10⁻⁶、10⁻⁸、10⁻¹⁰ で、
-  伸ばした置換の積分が、テストの中で独立に書いた級数と、b ≈ 2.8 の芯の形まで 10θ + 1e-11 の内で合う）、
-  `table_takes_the_gaussian_limit_below_its_theta_range`、`table_covers_resonances_narrower_than_a_thousandth_of_the_doppler_width`、
+- crates/xs/src/resonance/line_shape/tests.rs: `quadrature_approaches_the_gaussian_limit_for_narrow_lines`（θ = 10⁻⁶〜10⁻¹¹ で、
+  伸ばした置換の積分が、テストの中で独立に書いた級数と、b ≈ 2.8 の芯の形まで 0.6 θ + 1e-12 の内で合う）、
+  `table_takes_the_gaussian_limit_below_its_theta_range`、`gaussian_limit_stays_finite_for_the_narrowest_lines`、
+  `table_rejects_nonpositive_theta`、`table_covers_resonances_narrower_than_a_thousandth_of_the_doppler_width`、
   `table_matches_direct_integration`（θ = 10⁻³〜10⁶ と 10⁻¹⁰〜10⁻³ で別に選んだ点で、補間と直接の積分が 1e-6 の内）
-- 棚卸しのツール（crates/chain/examples/survey_neutrons.rs）で、#0119 の 10 評価が読める（実装で測ってここに書く）
+- 棚卸しのツール（crates/chain/examples/survey_neutrons.rs）で、#0119 の 10 評価が VERA の燃料の温度と σ0 の 9 点で読める
+  （xlc 74278e2a、分岐点 a66351f2、2026-10-14。そのあとのコミットは、θ が倍精度の下限に近い点と θ ≤ 0 の扱いと、文書とテスト）
 
 ## 帰結
 
 - θ の小さい非分離共鳴（核分裂生成物の偶偶核など）を持つ評価を、VERA の燃料の温度で処理できる
-- 表の原点が動くので、θ ≥ 10⁻³ の点の補間の値は丸めの程度で変わる（ライブラリの群定数で相対 1e-16 の程度）
-- 表を作る時間は行の数に比例して増える（361 から 641 行）
+- 表の原点が動き、格子の θ と補間の重みが丸めの程度で変わる。examples/vera の Ag-109 の段階の出力（565、600 K、σ0 9 点）で、
+  群定数の相対差は最大 4.3e-16（xlc daf14c49、2026-10-14）
+- 表を作る時間は行の数に比例して増える見込み（361 から 641 行。構築は #0088 の測定で 0.03〜0.04 秒の程度。再測定していない）
