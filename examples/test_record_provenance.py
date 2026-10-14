@@ -150,6 +150,57 @@ class Git(unittest.TestCase):
         self.assertEqual(rp.locked_since(lone / "dvc.lock", "a", "a.out")[0], "unknown")
 
 
+class Show(Git):
+    """JSON を持つ段階の出力の検査（JSON が無い、md5 が違う、inputs が無い）"""
+
+    def stage_with_json(self, body: str | None, md5: str) -> None:
+        (self.dir / "dvc.yaml").write_text("stages: {}\n")
+        lock = (
+            "schema: '2.0'\nstages:\n  c:\n    cmd: x\n    deps:\n    - path: in\n"
+            f"      hash: md5\n      md5: {H['1']}\n      size: 1\n    outs:\n"
+            f"    - path: c.json\n      hash: md5\n      md5: {md5}\n      size: 1\n"
+        )
+        self.commit(lock, "2026-10-01")
+        if body is not None:
+            (self.dir / "c.json").write_text(body)
+
+    def run_show(self) -> tuple[int, str]:
+        import contextlib
+        import io
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status = rp.show(self.dir / "dvc.yaml", "c")
+        return status, out.getvalue()
+
+    def test_missing_json_is_reported(self):
+        self.stage_with_json(None, H["3"])
+        status, out = self.run_show()
+        self.assertEqual(status, 1)
+        self.assertIn("MISSING", out)
+
+    def test_json_differing_from_the_lock_is_reported(self):
+        self.stage_with_json("{}", H["3"])
+        status, out = self.run_show()
+        self.assertEqual(status, 1)
+        self.assertIn("MISMATCH", out)
+
+    def test_json_without_inputs_is_reported(self):
+        import hashlib
+
+        body = '{"format": "xlc-compare-p3"}'
+        self.stage_with_json(body, hashlib.md5(body.encode()).hexdigest())
+        status, out = self.run_show()
+        self.assertEqual(status, 1)
+        self.assertIn("has no inputs", out)
+
+    def test_a_changed_dep_makes_the_stage_uncommitted(self):
+        self.stage_with_json(None, H["3"])
+        lock = self.dir / "dvc.lock"
+        lock.write_text(lock.read_text().replace(H["1"], H["8"]))
+        self.assertEqual(rp.locked_since(lock, "c", "c.json")[0], "uncommitted")
+
+
 class Inputs(unittest.TestCase):
     def test_json_inputs_must_match_the_locked_deps(self):
         stage = rp.parse_stage(lock(), "b")

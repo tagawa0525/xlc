@@ -462,6 +462,8 @@ def pins_line(d: dict) -> str:
 
 def report(summary: dict) -> list[str]:
     """要約の JSON から文章の報告を描く"""
+    if "inputs" not in summary:
+        raise SystemExit("the JSON has no inputs (an older run); rerun the stage")
     p, k = summary["problem"], summary["k"]
     lines = [
         "inputs: "
