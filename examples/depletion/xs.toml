@@ -250,10 +250,6 @@ temperatures = [565, 600, 900, 1200]
 endf = "n-062_Sm_152.endf"
 temperatures = [565, 600, 900, 1200]
 
-[nuclide.Eu-151]
-endf = "n-063_Eu_151.endf"
-temperatures = [565, 600, 900, 1200]
-
 [nuclide.Eu-153]
 endf = "n-063_Eu_153.endf"
 temperatures = [565, 600, 900, 1200]
