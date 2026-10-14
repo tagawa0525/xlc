@@ -547,8 +547,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5A-Ly-pins.msgpack
       hash: md5
       md5: 41cc787c456a46d34dc47f614393b24b
@@ -560,8 +560,8 @@ stages:
     outs:
     - path: compare-5A-Ly.json
       hash: md5
-      md5: 41d5611ec6ea03074afe00648d8c100a
-      size: 3931
+      md5: 399585118749506fbd718d4e2a796f6b
+      size: 3985
   core-5A:
     cmd: RUST_LOG=debug ../../../bin/core core-5A.toml > core-5A.out 2> 
       core-5A.log
@@ -802,8 +802,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5A-pins.msgpack
       hash: md5
       md5: 6c42410065a7ff1d0f17b03be38d9d00
@@ -815,8 +815,8 @@ stages:
     outs:
     - path: compare-5A.json
       hash: md5
-      md5: e86d5219c05586d48b28a814d36d9267
-      size: 3927
+      md5: b748cc9da4afe4db4ef21a992c1b99e6
+      size: 3981
   compare-small-step-Lx:
     cmd: python3 ../compare_p5.py symmetry core-small-step-Lx.out 
       core-small-step-Lx-pins.msgpack > compare-small-step-Lx.out
@@ -827,8 +827,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-small-step-Lx-pins.msgpack
       hash: md5
       md5: 87bdc0b1a919eb8a3676d8fff8e60e9a
@@ -918,8 +918,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-small-I-pins.msgpack
       hash: md5
       md5: 480c82ded2bb40fa8f417ad32deb33af
@@ -939,8 +939,8 @@ stages:
     outs:
     - path: compare-small-I.out
       hash: md5
-      md5: ae282c96ba3fa83736163572a000ca8f
-      size: 638
+      md5: d8d39a55cd849a325b73a004b9b44807
+      size: 650
   compare-small-step-Ly:
     cmd: python3 ../compare_p5.py symmetry core-small-step-Ly.out 
       core-small-step-Ly-pins.msgpack > compare-small-step-Ly.out
@@ -951,8 +951,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-small-step-Ly-pins.msgpack
       hash: md5
       md5: d93579a659ae75fc0696b56de33f0939
@@ -1042,8 +1042,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-small-E-pins.msgpack
       hash: md5
       md5: a5f57526040471467a3b86937e50b761
@@ -1063,8 +1063,8 @@ stages:
     outs:
     - path: compare-small-E.out
       hash: md5
-      md5: 525be2486c5fad050af38e6d736d3e36
-      size: 636
+      md5: a7cdbe94e50f9095aa3376bfe8bd70c2
+      size: 648
   core-5B:
     cmd: RUST_LOG=debug ../../../bin/core core-5B.toml > core-5B.out 2> 
       core-5B.log
@@ -1386,8 +1386,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5A-Inext-pins.msgpack
       hash: md5
       md5: bfcceab65b9a7cdfaa6949bb654a5b7f
@@ -1399,8 +1399,8 @@ stages:
     outs:
     - path: compare-5A-Inext.json
       hash: md5
-      md5: c54e0f1695aef4f99378ccf6b1f0e2dd
-      size: 3934
+      md5: 45ab4a58a4aede78db9b1cef4cbd691a
+      size: 3988
   compare-5C:
     cmd: python3 ../compare_p5.py --json compare-5C.json keno 5C 
       ../../../references/vera/spec.txt core-5C.out core-5C-pins.msgpack
@@ -1415,8 +1415,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5C-pins.msgpack
       hash: md5
       md5: 1556619025e20c6b879b88065e2e6aa6
@@ -1428,8 +1428,8 @@ stages:
     outs:
     - path: compare-5C.json
       hash: md5
-      md5: 62a222a0860190d5bc9e8d64240412e4
-      size: 4587
+      md5: 7481e8c3be8d5ec9016b3163fd43cf85
+      size: 4641
   compare-5B:
     cmd: python3 ../compare_p5.py --json compare-5B.json keno 5B 
       ../../../references/vera/spec.txt core-5B.out core-5B-pins.msgpack
@@ -1444,8 +1444,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5B-pins.msgpack
       hash: md5
       md5: 0b65a36af3f524abf11b14a2f2d8a939
@@ -1457,8 +1457,8 @@ stages:
     outs:
     - path: compare-5B.json
       hash: md5
-      md5: e0db4e68bb2fba7a7ca20552626bfecb
-      size: 4596
+      md5: 41ed2d546067b59fda3bd0ea61f1739e
+      size: 4650
   core-lattice-I-fstar:
     cmd: RUST_LOG=debug ../../../bin/core core-lattice-I-fstar.toml > 
       core-lattice-I-fstar.out 2> core-lattice-I-fstar.log
@@ -1577,8 +1577,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-lattice-I-equivalence.out
       hash: md5
       md5: d45cef3c41f9221d38ad59708792586d
@@ -1664,8 +1664,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-lattice-corner-fstar.out
       hash: md5
       md5: 614bf7a63900e4369014e881b58809f8
@@ -1752,8 +1752,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-lattice-corner-equivalence.out
       hash: md5
       md5: 828c287a76cf862007adc5bd0e4b83c7
@@ -1777,8 +1777,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-lattice-I-fstar.out
       hash: md5
       md5: 13564c6cabb99455486bcde20e333d61
@@ -1854,16 +1854,21 @@ stages:
       size: 11
   compare-5A-openmc:
     cmd: python3 ../compare_p5.py --json compare-5A-openmc.json openmc 5A 
-      core-5A.out core-5A-pins.msgpack openmc-5A-2D-results
+      ../../../references/vera/spec.txt core-5A.out core-5A-pins.msgpack 
+      openmc-5A-2D-results
     deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
     - path: ../compare_k.py
       hash: md5
       md5: f2197502bb8efebcf8748fac405e9638
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5A-pins.msgpack
       hash: md5
       md5: 6c42410065a7ff1d0f17b03be38d9d00
@@ -1895,20 +1900,25 @@ stages:
     outs:
     - path: compare-5A-openmc.json
       hash: md5
-      md5: c949655c393a37b0a056869929726688
-      size: 5241
+      md5: 867d361083024de1623af6108ee67b92
+      size: 5536
   compare-5A-Ly-openmc:
     cmd: python3 ../compare_p5.py --json compare-5A-Ly-openmc.json openmc 5A 
-      core-5A-Ly.out core-5A-Ly-pins.msgpack openmc-5A-2D-results
+      ../../../references/vera/spec.txt core-5A-Ly.out core-5A-Ly-pins.msgpack 
+      openmc-5A-2D-results
     deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
     - path: ../compare_k.py
       hash: md5
       md5: f2197502bb8efebcf8748fac405e9638
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5A-Ly-pins.msgpack
       hash: md5
       md5: 41cc787c456a46d34dc47f614393b24b
@@ -1940,20 +1950,25 @@ stages:
     outs:
     - path: compare-5A-Ly-openmc.json
       hash: md5
-      md5: 9b90ca777388d262958c710e6ce48d6e
-      size: 5250
+      md5: 744e6759269c6a8a3fddb1f215ce4c51
+      size: 5545
   compare-5A-Inext-openmc:
     cmd: python3 ../compare_p5.py --json compare-5A-Inext-openmc.json openmc 5A 
-      core-5A-Inext.out core-5A-Inext-pins.msgpack openmc-5A-2D-results
+      ../../../references/vera/spec.txt core-5A-Inext.out 
+      core-5A-Inext-pins.msgpack openmc-5A-2D-results
     deps:
+    - path: ../../../references/vera/spec.txt
+      hash: md5
+      md5: de9def92d813fd95954b01ec5512fff4
+      size: 551223
     - path: ../compare_k.py
       hash: md5
       md5: f2197502bb8efebcf8748fac405e9638
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: core-5A-Inext-pins.msgpack
       hash: md5
       md5: bfcceab65b9a7cdfaa6949bb654a5b7f
@@ -1985,8 +2000,8 @@ stages:
     outs:
     - path: compare-5A-Inext-openmc.json
       hash: md5
-      md5: f62229317f59b47e733d05a6f9fe0f00
-      size: 5265
+      md5: a424059e34769e7723c141e3f5e1f9d0
+      size: 5560
   hzp-core-hzp:
     cmd: cd hzp && ../../../../bin/core core-hzp.toml > core-hzp.out 2> 
       core-hzp.log
@@ -2343,8 +2358,8 @@ stages:
       size: 22252
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: compare_hzp.py
       hash: md5
       md5: c155baf46af470f9e66f3038574601b4
@@ -5935,8 +5950,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: assembly-31.out
       hash: md5
       md5: 7009229b9b422883f24bf1fe598928af
@@ -5960,8 +5975,8 @@ stages:
       size: 1269
     - path: ../compare_p5.py
       hash: md5
-      md5: 05c6aef452d96be905c30350daa610b6
-      size: 21650
+      md5: b2160748d543cdc82e8ef57ad99dcd58
+      size: 23400
     - path: hzp/small-half-pins.msgpack
       hash: md5
       md5: 54ed6f1d8501fe5fe921f97267f86c17
