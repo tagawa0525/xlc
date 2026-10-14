@@ -805,3 +805,9 @@ fn reaction_channels_follow_the_chain_layout() {
         |r| r[1].channels[1].final_state = Some(ChannelState { mf: 10, lfs: None })
     ));
 }
+
+#[test]
+fn chain_reactions_are_in_increasing_mt() {
+    // ライブラリの `reactions` は代表の MT の昇順で、xs は `CHAIN_REACTIONS` の並びで書く
+    assert!(CHAIN_REACTIONS.windows(2).all(|w| w[0].mt < w[1].mt));
+}
