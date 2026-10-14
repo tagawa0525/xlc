@@ -2107,8 +2107,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: xs-nuclides
       hash: md5
@@ -2133,8 +2133,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons
       hash: md5
@@ -2156,8 +2156,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
       hash: md5
@@ -2201,8 +2201,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
       hash: md5
@@ -2248,8 +2248,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
       hash: md5
@@ -2293,8 +2293,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
       hash: md5
@@ -2338,8 +2338,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
       hash: md5
@@ -2383,8 +2383,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
       hash: md5
@@ -2428,8 +2428,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
       hash: md5
@@ -2473,8 +2473,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
       hash: md5
@@ -2520,8 +2520,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
       hash: md5
@@ -2565,8 +2565,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
       hash: md5
@@ -2610,8 +2610,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
       hash: md5
@@ -2655,8 +2655,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
       hash: md5
@@ -2700,8 +2700,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
       hash: md5
@@ -2745,8 +2745,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
       hash: md5
@@ -2790,8 +2790,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
       hash: md5
@@ -2835,8 +2835,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
       hash: md5
@@ -2880,8 +2880,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
       hash: md5
@@ -2925,8 +2925,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
       hash: md5
@@ -2970,8 +2970,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
       hash: md5
@@ -3015,8 +3015,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
       hash: md5
@@ -3060,8 +3060,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
       hash: md5
@@ -3105,8 +3105,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
       hash: md5
@@ -3150,8 +3150,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
       hash: md5
@@ -3195,8 +3195,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
       hash: md5
@@ -3240,8 +3240,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
       hash: md5
@@ -3285,8 +3285,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
       hash: md5
@@ -3330,8 +3330,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
       hash: md5
@@ -3375,8 +3375,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
       hash: md5
@@ -3420,8 +3420,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
       hash: md5
@@ -3465,8 +3465,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
       hash: md5
@@ -3510,8 +3510,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
       hash: md5
@@ -3555,8 +3555,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
       hash: md5
@@ -3600,8 +3600,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
       hash: md5
@@ -3645,8 +3645,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
       hash: md5
@@ -3690,8 +3690,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
       hash: md5
@@ -3735,8 +3735,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
       hash: md5
@@ -3780,8 +3780,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
       hash: md5
@@ -3825,8 +3825,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
       hash: md5
@@ -3872,8 +3872,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
       hash: md5
@@ -3917,8 +3917,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
       hash: md5
@@ -3962,8 +3962,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
       hash: md5
@@ -4007,8 +4007,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
       hash: md5
@@ -4052,8 +4052,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
       hash: md5
@@ -4097,8 +4097,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
       hash: md5
@@ -4143,8 +4143,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
       hash: md5
@@ -4193,8 +4193,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
       hash: md5
@@ -4238,8 +4238,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
       hash: md5
@@ -4283,8 +4283,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
       hash: md5
@@ -4328,8 +4328,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
       hash: md5
@@ -4373,8 +4373,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
       hash: md5
@@ -4420,8 +4420,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
       hash: md5
@@ -4465,8 +4465,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
       hash: md5
@@ -4510,8 +4510,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
       hash: md5
@@ -4555,8 +4555,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
       hash: md5
@@ -4600,8 +4600,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
       hash: md5
@@ -4640,64 +4640,21 @@ stages:
       md5: 8cdcb7aae43709b27b9f2ec207adb991
       size: 2846429
   lattice-1B:
-    cmd: cargo run --release -p xlc-lattice -- p1/pincell-1B.toml > 
-      p1/lattice-1B.out
+    cmd: ../../bin/lattice p1/pincell-1B.toml > p1/lattice-1B.out
     deps:
-    - path: ../../.cargo/config.toml
+    - path: ../../bin/lattice
       hash: md5
-      md5: ac2b3155530983cb9f0391811a6dc2b3
-      size: 483
-    - path: ../../Cargo.lock
-      hash: md5
-      md5: 81a924772f0d22894952209bc7eaad7e
-      size: 14136
-    - path: ../../Cargo.toml
-      hash: md5
-      md5: b7d2e13457a53c1f163a27769d18fb26
-      size: 917
-    - path: ../../crates/format/Cargo.toml
-      hash: md5
-      md5: 27e5dbce41ebc5a30c5ed0c9861db610
-      size: 221
-    - path: ../../crates/format/src
-      hash: md5
-      md5: 8c4bb2405c6ed255c7cbc4cec2f81b45.dir
-      size: 114997
-      nfiles: 10
-    - path: ../../crates/lattice/Cargo.toml
-      hash: md5
-      md5: 0d52be204d05bbc657bd40ea03831341
-      size: 568
-    - path: ../../crates/lattice/src
-      hash: md5
-      md5: de6476b8993a3467f4fcd83d09bd2f67.dir
-      size: 986615
-      nfiles: 30
-    - path: ../../crates/numeric/Cargo.toml
-      hash: md5
-      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
-      size: 150
-    - path: ../../crates/numeric/src
-      hash: md5
-      md5: 15ad8736167522c5ff73f47dfe324551.dir
-      size: 166212
-      nfiles: 13
-    - path: ../../flake.lock
-      hash: md5
-      md5: 83437230048eadb7a5c2f626d4ea10aa
-      size: 1108
-    - path: ../../rust-toolchain.toml
-      hash: md5
-      md5: 87a81bbb3d955b97621800bbd7d234b7
-      size: 98
+      md5: bd5af095c59d41754c783538a0189202
+      size: 4120976
+      isexec: true
     - path: p1/pincell-1B.toml
       hash: md5
       md5: 607599ffb9282261120b82ce84c10a6b
       size: 1511
     - path: vera.msgpack
       hash: md5
-      md5: 3d1a8cc29b76d93cd46fa5e058ff615e
-      size: 123378257
+      md5: 55be71c9f6c2f2f5bdeba172d59665b2
+      size: 151299936
     outs:
     - path: p1/lattice-1B.out
       hash: md5
@@ -4938,8 +4895,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_049.endf
       hash: md5
@@ -4983,8 +4940,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_046.endf
       hash: md5
@@ -5028,8 +4985,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_047.endf
       hash: md5
@@ -5073,8 +5030,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_048.endf
       hash: md5
@@ -5118,8 +5075,8 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: e77257b3a0e6a0614cadcac1e3e4a77e
-      size: 2555000
+      md5: d6fdf60dd3f2f88e7105c0906b3db322
+      size: 2738928
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_050.endf
       hash: md5
