@@ -8,29 +8,38 @@ blocked-by: []
 resolution:
 ---
 
-# 非分離共鳴の自己遮蔽が、低いエネルギーの小さい σ0 で NaN になる（Pm-147、Pm-148、Pm-149、Am-242m）
+# 非分離共鳴の自己遮蔽が、低いエネルギーの小さい σ0 で NaN になる（Pm-147、Pm-148、Pm-149、Am-242m、Eu-151）
 
 ## 問題
 
-燃焼鎖の核種のライブラリ（ADR-0169、examples/depletion）を作ると、Pm-148 の段階が `Pm-148 at 565 K: non-finite value NaN` で
-止まる（xlc 2441757c、2026-10-14、Slurm の排他のジョブ）。Pm-148 は分離共鳴を持たず、非分離共鳴（LRF = 2、LSSF = 0）が 1.1 eV〜100 keV
-にあり、1.1 eV での平均の準位間隔 D は 3.36 eV。
+燃焼鎖の核種のライブラリ（ADR-0169、examples/depletion）を作ると、非分離共鳴の自己遮蔽した群定数が小さい σ0 で NaN になり、
+次の核種の段階が `<核種> at <温度> K: non-finite value NaN` で止まる（xlc 2441757c と、そのあとの燃焼のライブラリの段階。Slurm の
+排他のジョブ。2026-10-14〜15）:
 
-565 K で、`unresolved_shielding` の σ0 = 10 b と 1 b の自己遮蔽した全断面積が、10 eV より下の格子点で NaN になる（1.2、2、4、5、8 eV で
-NaN、10 eV で 13.5 b（σ0 = 10 b）。手元の確認、2441757c）。無限希釈と σ0 ≥ 30 b は有限。そのため WIMS の 25〜34 群の σ0 = 10 b、1 b の
-群定数が NaN になる。`unresolved_shielding` はエラーを返さないので、棚卸しの道具（crates/chain/examples/survey_neutrons.rs）は読めると
-数えた。
+| 核種    | 止まる温度 | NaN になる量                                               | 非分離共鳴の下端 |
+| ------- | ---------- | ---------------------------------------------------------- | ---------------- |
+| Pm-148  | 565 K      | σ0 = 10 b、1 b の全断面積ほか（WIMS の 25〜34 群）         | 1.1 eV           |
+| Pm-147  | 565 K      | σ0 = 1 b の捕獲                                            | 102 eV           |
+| Pm-149  | 565 K      | σ0 = 1 b の捕獲                                            | 2.6 eV           |
+| Am-242m | 565 K      | σ0 = 10 b、1 b の核分裂と捕獲（21〜23 群）。全断面積は有限 | 43 eV            |
+| Eu-151  | 900 K      | （565 K は有限）                                           | —                |
 
-原因の候補（確かめていない）: 系列どうしの重なりの補正（NJOY unresl と同じ式。crates/xs/src/resonance/unresolved.rs の `shielded`）の
-1 − yj が、準位間隔に比べて幅の大きい低いエネルギーで 0 以下になる。NJOY UNRESR が同じ点でどうなるかは確かめていない。
+Pm-148 の 565 K では、`unresolved_shielding` の σ0 = 10 b と 1 b の全断面積が 10 eV より下の格子点で NaN（1.2〜8 eV。10 eV で
+13.5 b）で、`unresolved_shielding` はエラーを返さないので、棚卸しの道具（crates/chain/examples/survey_neutrons.rs）は読めると数えた。
+
+原因の候補（確かめていない）: (1) 系列どうしの重なりの補正（NJOY unresl と同じ式。crates/xs/src/resonance/unresolved.rs の
+`shielded`）の 1 − yj が、準位間隔に比べて幅の大きい低いエネルギーで 0 以下になる。NJOY UNRESR（unresr.f90 の 1181 行）も同じ式
+σ = σm yy/(1 − yj) を、1 − yj を確かめずに使う。(2) 全断面積が有限で部分の反応だけが NaN になる Am-242m は、遮蔽した値が 0 以下の
+格子点で、非分離共鳴のパラメータの補間則（ln をとる則）を `UnresolvedShielding::adjust` が当てる
 
 関係する ADR: なし
 
 ## 完了の条件
 
-NaN の出どころを確かめ、NJOY UNRESR の同じ点の値と比べて扱いを決める（式の適用の範囲の外をエラーにするか、正しい式にするか）。
-`unresolved_shielding` が NaN を返さない（値にするかエラーにする）ことを単体テストで確かめる。そのあとで、Pm-148 をライブラリの
-最初の組（examples/depletion/xs.toml）に戻す。
+NaN の出どころを（1）（2）の候補ごとに確かめ、NJOY UNRESR の同じ点の値と比べて扱いを決める（式の適用の範囲の外をエラーにするか、
+正しい式にするか）。`unresolved_shielding` と群定数が NaN を返さない（値にするかエラーにする）ことを単体テストで確かめる。そのあとで、
+表の 5 核種を燃焼のライブラリの最初の組（examples/depletion/xs.toml）に戻す。Pm-149 は Sm-149 の経路の先行核なので、燃焼の検証
+（「進め方」5）の前に直す
 
 ## 経緯
 
