@@ -55,8 +55,11 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
   鎖の `Channel` と同じ
 - 反応の断面積: 再構成した断面積の代表の MT（部分の MT（875〜891、600〜649、800〜849）があれば、再構成が部分の和で作り直した
   もの。NJOY RECONR と同じ）。経路の断面積は、MF9 なら多重度 × 反応の断面積、MF10 なら状態の生成断面積、残りは反応の断面積から
-  挙げた経路を引いたもの。残りが丸めの程度（相対 1e-9）より負ならエラー（挙げた状態が反応を超えている）。群の平均は、重み
-  関数だけで取る（無限希釈）。MF10 は 0 K の値をそのまま使う（NJOY BROADR も MF10 を広げない）
+  挙げた経路を引いたもの。MF9 の表の外の多重度は 0 とし（NJOY GROUPR と同じ）、そこに反応があれば警告する（ENDF/B-VIII.0 の
+  Np-237 の MT16、Al-27、I-127 などは MF9 が反応のしきい値より上から始まる）。残りが、経路の表の線形化の許容誤差（相対）より
+  負ならエラー（挙げた状態が反応を超えている）。群の平均は、重み関数だけで取る（無限希釈）。MF10 は 0 K の値をそのまま使う
+  （NJOY BROADR も MF10 を広げない）
+- ライブラリの検査: 反応は鎖の反応の MT だけで、経路は、状態に分けないただ 1 つの経路か、MF9 か MF10 の状態で残りが最後
 - 反応を持つかは、鎖と同じく、代表か部分の MT のどれかが MF3 にあること
 
 ## 確認
@@ -66,7 +69,8 @@ xs は σ0 ごとの捕獲（MT102）を群定数を作る途中で求めてい�
   `interpolation_mixes_the_capture_and_the_reactions`、`interpolates_shielded_cross_sections_in_ln_sigma0`（捕獲）
 - xs の単体テスト（crates/xs/src/process/tests.rs）: `capture_is_kept_per_sigma0_and_pointwise`、
   `chain_reactions_sum_the_partial_mts_and_split_the_mf9_states`、`capture_states_without_the_ground_state_leave_the_remainder_to_it`、
-  `listed_states_beyond_the_reaction_are_an_error`
+  `listed_states_beyond_the_reaction_are_an_error`、`multiplicities_count_only_where_the_mf9_table_is_given`；形式の
+  `reaction_channels_follow_the_chain_layout`；鎖の `reaction_kinematics_belong_to_their_mt`
 - lattice の単体テスト: `capture_is_shielded_with_the_same_flux_as_fission`（UFG）、`absorber_rods_are_shielded_by_slowing_down`
   （棒のリングの平均の捕獲）
 - 鎖の出力（examples/depletion/chain.msgpack）の md5 が変わらない（120d7435…）
