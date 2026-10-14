@@ -658,6 +658,11 @@ fn history_is_written_as_a_map_with_the_format_name() {
         get("points").and_then(|v| v.as_array()).map(Vec::len),
         Some(4)
     );
+    // 時間の内訳（秒）と輸送の回数（記録の時間の表に使う）
+    let seconds = get("seconds").and_then(|v| v.as_map()).unwrap();
+    let keys: Vec<&str> = seconds.iter().filter_map(|(k, _)| k.as_str()).collect();
+    assert_eq!(keys, ["shielding", "moc", "rates", "matrix", "cram"]);
+    assert_eq!(get("solves").and_then(rmpv::Value::as_u64), Some(7));
 }
 
 #[test]
