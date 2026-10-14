@@ -433,6 +433,18 @@ struct HistoryFile<'a> {
     regions: &'a [DepletionRegion],
     transportable: &'a [String],
     points: Vec<PointFile<'a>>,
+    seconds: SecondsFile,
+    solves: usize,
+}
+
+/// 時間の内訳 (s)
+#[derive(Serialize)]
+struct SecondsFile {
+    shielding: f64,
+    moc: f64,
+    rates: f64,
+    matrix: f64,
+    cram: f64,
 }
 
 #[derive(Serialize)]
@@ -447,7 +459,8 @@ struct PointFile<'a> {
 
 impl History {
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
-    /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, few_group}]}`
+    /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, few_group}], seconds: {shielding, moc, rates,
+    /// matrix, cram}（時間の内訳 (s)）, solves}`
     pub fn to_msgpack(&self) -> anyhow::Result<Vec<u8>> {
         let points = self
             .points
@@ -476,6 +489,14 @@ impl History {
             regions: &self.regions,
             transportable: &self.transportable,
             points,
+            seconds: SecondsFile {
+                shielding: self.transport.shielding.as_secs_f64(),
+                moc: self.transport.moc.as_secs_f64(),
+                rates: self.transport.rates.as_secs_f64(),
+                matrix: self.depletion.matrix.as_secs_f64(),
+                cram: self.depletion.cram.as_secs_f64(),
+            },
+            solves: self.solves,
         })?)
     }
 }
