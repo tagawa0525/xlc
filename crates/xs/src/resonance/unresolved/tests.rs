@@ -6,6 +6,13 @@ use crate::special::erfc;
 const AWRI: f64 = 236.0;
 const AP: f64 = 0.948;
 
+/// テストのサンプルの数。ライブラリの数（`Sampling::LIBRARY`）は黒い極限のテストだけで使う
+const TEST: Sampling = Sampling {
+    ladders: 64,
+    samples: 250,
+    margin: 1.0,
+};
+
 fn point(e: f64, gno: f64) -> UrrPoint {
     UrrPoint {
         e,
@@ -193,15 +200,8 @@ fn three_fluctuating_widths_converge() {
 
 /// 種 7 の、σ0 ごとのサンプリングした実効断面積
 fn sampled(xs: &UnresolvedXs, e: f64, temperature: f64, sigma0: &[f64]) -> Bondarenko {
-    xs.shielded(
-        e,
-        temperature,
-        sigma0,
-        Sigma::default(),
-        Sampling::LIBRARY,
-        7,
-    )
-    .unwrap()
+    xs.shielded(e, temperature, sigma0, Sigma::default(), TEST, 7)
+        .unwrap()
 }
 
 /// 種 1〜16 の独立なサンプリングでの量 `of` の平均と、平均の標準誤差
@@ -215,14 +215,7 @@ fn over_seeds(
     let values: Vec<f64> = (1..=16)
         .map(|seed| {
             of(&xs
-                .shielded(
-                    e,
-                    temperature,
-                    sigma0,
-                    Sigma::default(),
-                    Sampling::LIBRARY,
-                    seed,
-                )
+                .shielded(e, temperature, sigma0, Sigma::default(), TEST, seed)
                 .unwrap())
         })
         .collect();
@@ -382,14 +375,7 @@ fn ladders_follow_the_seed_and_keep_it_across_temperatures() {
     let a = sampled(&xs, 1.0e4, 300.0, &sigma0);
     assert_eq!(a.shielded, sampled(&xs, 1.0e4, 300.0, &sigma0).shielded);
     let other = xs
-        .shielded(
-            1.0e4,
-            300.0,
-            &sigma0,
-            Sigma::default(),
-            Sampling::LIBRARY,
-            8,
-        )
+        .shielded(1.0e4, 300.0, &sigma0, Sigma::default(), TEST, 8)
         .unwrap();
     assert_ne!(a.shielded, other.shielded);
     // 同じ種なら、温度を変えてもラダーとエネルギーは同じ: 実効断面積は温度の滑らかな関数になり、1 K ずつの差がほぼ等しい。
@@ -442,9 +428,9 @@ fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
         capture: 0.0,
     };
     let b = xs
-        .shielded(1.0e4, 300.0, &sigma0, background, Sampling::LIBRARY, 7)
+        .shielded(1.0e4, 300.0, &sigma0, background, TEST, 7)
         .unwrap();
-    let samples = Sampling::LIBRARY.ladders * Sampling::LIBRARY.samples;
+    let samples = TEST.ladders * TEST.samples;
     assert_eq!(b.floored, samples);
     assert!(
         (b.mean.elastic - 1.0e-6).abs() < 1.0e-15,
@@ -461,7 +447,6 @@ fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
 }
 
 #[test]
-#[ignore = "RED: an empty sampling is not rejected yet"]
 fn empty_sampling_is_an_error() {
     // ラダーかエネルギーの数が 0 なら、平均が 0/0 になるので、値を返さずに止める
     let urr = s_wave(
@@ -470,14 +455,8 @@ fn empty_sampling_is_an_error() {
     );
     let xs = UnresolvedXs::new(&urr).unwrap();
     for sampling in [
-        Sampling {
-            ladders: 0,
-            ..Sampling::LIBRARY
-        },
-        Sampling {
-            samples: 0,
-            ..Sampling::LIBRARY
-        },
+        Sampling { ladders: 0, ..TEST },
+        Sampling { samples: 0, ..TEST },
     ] {
         let result = xs.shielded(1.0e4, 300.0, &[1.0e10], Sigma::default(), sampling, 7);
         assert!(
