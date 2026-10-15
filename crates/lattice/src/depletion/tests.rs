@@ -9,6 +9,8 @@ use xlc_format::library::{
     TemperatureData,
 };
 
+use std::f64::consts::LN_2;
+
 use super::*;
 use crate::input::LatticeInput;
 use crate::symmetry::choose;
@@ -777,4 +779,39 @@ fn channel_cross_sections_need_every_group() {
         &ShortChannels,
     );
     assert!(result.is_err());
+}
+
+#[test]
+fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
+    // 燃料のピンの中の薄い被覆（IFBA の型）と、別のセルの吸収体の棒（Pyrex の型）を燃やす。どちらも Xe-135 で、崩壊だけのときより
+    // 速く減る（捕獲の反応率を持つ）。燃焼の領域は、対称操作の組と物質の対（ADR-0173）
+    let text = PIN
+        .replace("rows = [\"pin\"]", "rows = [\"pin rod\"]")
+        .replace(
+            "zones = [{ material = \"fuel\", radius = 0.4096, rings = 1 }",
+            "zones = [{ material = \"fuel\", radius = 0.4, rings = 1 }, { material = \"coat\", radius = 0.4096, rings = 1 }",
+        )
+        .replace(
+            "[material.water]",
+            "[material.coat]\ntemperature = 600\nnuclides = { Xe-135 = 1.0e-4, O-16 = 4.6e-2 }\n\n\
+             [material.poison]\ntemperature = 600\nnuclides = { Xe-135 = 1.0e-4, O-16 = 4.6e-2 }\n\n[material.water]",
+        )
+        .replace(
+            "[depletion]",
+            "[cell.rod]\nzones = [{ material = \"poison\", radius = 0.4, rings = 1 }, { material = \"water\", rings = 1 }]\n\n[depletion]",
+        )
+        .replace("materials = [\"fuel\"]", "materials = [\"fuel\", \"coat\", \"poison\"]");
+    let history = deplete_input(&text);
+    let names: Vec<&str> = history
+        .regions
+        .iter()
+        .map(|r| r.material.as_str())
+        .collect();
+    assert_eq!(names, vec!["fuel", "coat", "poison"]);
+    let last = history.points.last().unwrap();
+    let decay_only = 1.0e-4 * (-LN_2 * last.time / 32_904.0).exp();
+    for r in 1..3 {
+        let xe = last.densities[r][XE135];
+        assert!(xe < 0.5 * decay_only, "{}: {xe} vs {decay_only}", names[r]);
+    }
 }
