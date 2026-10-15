@@ -12,6 +12,7 @@ tools = [
   "examples/depletion/openmc_depletion.py",
   "examples/depletion/openmc_depletion_resume.py",
   "examples/depletion/openmc_depletion_assembly.py",
+  "examples/depletion/compare_depletion_assembly.py",
 ]
 entry = "examples/depletion/run_remote.sh"
 progress = "steps"
