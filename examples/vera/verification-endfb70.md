@@ -35,10 +35,10 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 
 | 問題 | xlc の k（ENDF/B-VII.0） | KENO-VI の k        | xlc − KENO-VI（ENDF/B-VII.0） | xlc − KENO-VI（ENDF/B-VIII.0） | ピン出力の差の RMS、最大（ENDF/B-VII.0） | ピン出力の差の RMS、最大（ENDF/B-VIII.0） |
 | ---- | ------------------------ | ------------------- | ----------------------------- | ------------------------------ | ---------------------------------------- | ----------------------------------------- |
-| 1B   | 1.184112                 | 1.182149 ± 0.000068 | +196 pcm                      | +23 pcm                        |                                          |                                           |
+| 1B   | 1.184112                 | 1.182149 ± 0.000068 | +196 pcm                      | +32 pcm                        |                                          |                                           |
 | 1C   | 1.173329                 | 1.171722 ± 0.000072 | +161 pcm                      | −6 pcm                         |                                          |                                           |
 | 1D   | 1.164127                 | 1.162603 ± 0.000071 | +152 pcm                      | −9 pcm                         |                                          |                                           |
-| 2A   | 1.183884                 | 1.182175 ± 0.000017 | +171 pcm                      | +61 pcm                        | 0.075%、−0.148%                          | 0.076%、−0.161%                           |
+| 2A   | 1.183884                 | 1.182175 ± 0.000017 | +171 pcm                      | +66 pcm                        | 0.075%、−0.148%                          | 0.076%、−0.161%                           |
 | 2B   | 1.185167                 | 1.183360 ± 0.000024 | +181 pcm                      | +52 pcm                        | 0.053%、+0.122%                          | 0.053%、−0.113%                           |
 | 2C   | 1.175369                 | 1.173751 ± 0.000023 | +162 pcm                      | +39 pcm                        | 0.056%、+0.137%                          | 0.057%、+0.132%                           |
 | 2D   | 1.166969                 | 1.165591 ± 0.000023 | +138 pcm                      | +19 pcm                        | 0.053%、+0.114%                          | 0.052%、+0.104%                           |
@@ -99,5 +99,7 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 xlc は 43661306（分岐点 c630a66e）、2026-10-15。ライブラリと格子、本番の `keno-*` の段階は Slurm の排他のジョブ 377
 （`endfb70-keno-lattices`）、3A と 3B は排他のジョブ 378（`endfb70-keno-p3`、9 分）で、`dvc repro` を実行した。段階の入力と出力の md5 は
 `endfb70/dvc.lock`、`endfb70/p3/dvc.lock`、`dvc.lock`。VIII.0 の 3A、3B の JSON は verification.md の「Problem 3 の炉心の計算」
-のコミットのもの。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
+のコミットのもの。VIII.0 の 1B と 2A は、非分離共鳴をラダーのサンプリングで遮蔽したライブラリ（[ADR-0177](../../docs/adr/0177-shield-unresolved-range-by-probability-tables.md)）で
+解き直したもの（xlc f47f4187、分岐点 bcc6d4cb、2026-10-15。排他のジョブ 397 の `keno-pincell@1B`、`keno-assembly@2A`）で、ほかの VIII.0 の
+格子は ADR-0177 の前のライブラリ。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
 （[ADR-0176](../../docs/adr/0176-generate-verification-tables.md)）。
