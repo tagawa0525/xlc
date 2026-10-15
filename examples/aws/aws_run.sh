@@ -17,7 +17,7 @@
 #   --type     インスタンスタイプ（既定 c7a.4xlarge）。auto なら、aws_types.toml の候補の機種と直近 1 時間のスポット価格から、
 #              1 本の費用（価格 ÷ 速度）の安い (機種, AZ) の順に起動を試す（ADR-0171。空き、クォータ、価格で失敗したら次へ。
 #              全部失敗なら 1 で終わり、起動し直しで再試行できる）。--az と併用すると AZ を固定して機種だけ選ぶ。--on-demand とは
-#              併用できない。スポットの vCPU の残り（クォータ − 実行中）に収まらない機種は外す（欠けたジョブが複数なら残りを数で割る）。起動し直しでは、最後の起動が auto の選択なら --type 省略も auto になり、auto のとき記録の AZ を引き継がない
+#              併用できない。スポットの vCPU の残り（クォータ − 実行中）に収まらない機種は外す（起動するジョブが複数なら残りを数で割る。新しい実行は入力の数）。起動し直しでは、最後の起動が auto の選択なら --type 省略も auto になり、auto のとき記録の AZ を引き継がない
 #   --max-hours  最長の稼働時間（既定 14。過ぎると VM は電源を切る。statepoint は S3 にあるので起動し直せば続く）
 #   --sync-minutes  S3 に同期する間隔（既定 5）。起動し直しで 3 つの指定がなければ、最後の起動の記録の値を使う
 #   --statepoint-interval  起動し直しで、その起動の OpenMC の実行だけ、入力の statepoint-interval を N 世代に上書きする（中断が続くとき、
@@ -316,17 +316,13 @@ if [[ $type == auto ]]; then
   cand_text=$(auto_candidates "$types_file" "$az" | awk '{print NR, $0}')
   [[ -n $cand_text ]] || { echo "候補のスポット価格がありません（$types_file の機種が ${az:-どの AZ}にない）。空きがない" >&2; exit 1; }
   cand_total=$(wc -l <<< "$cand_text") # 順位は価格順のまま（外した候補の分も欠番にして記録する）
-  # スポットの vCPU の残り（クォータ − この account の実行中）に収まらない機種を外す。起動し直しで欠けたジョブが複数あるときは、
-  # 1 本が使い切って他が入らなくならないよう、残りをジョブの数で割った値を 1 本の上限にする（--job 1 本の指定ならしない）
+  # スポットの vCPU の残り（クォータ − この account の実行中）に収まらない機種を外す。起動するジョブが複数あるときは、
+  # 1 本が使い切って他が入らなくならないよう、残りを起動するジョブの数（新しい実行は入力の数）で割った値を 1 本の上限にする
   if remaining=$(spot_vcpu_remaining); then
     read -r remaining quota used <<< "$remaining"
-    share=$remaining
-    ((${#inputs[@]} || ${#jobs[@]} == 1 || ${#todo[@]} < 2)) || share=$((remaining / ${#todo[@]}))
     vcpus=$(auto_vcpus_read "$types_file")
-    # 割った値が最小の機種に満たなくても、残りが最小の機種に収まるなら最小の機種までは許す（全部を落として止まらない。
-    # 入りきらないジョブは VcpuLimitExceeded で次の候補、全部だめなら「空きがない」になり、起動し直しで再試行できる）
     smallest=$(awk '{print $2}' <<< "$vcpus" | sort -n | head -1)
-    ((share >= smallest || remaining < smallest)) || share=$smallest
+    share=$(vcpu_share "$remaining" "${#todo[@]}" "$smallest")
     dropped=$(awk -v lim="$share" -v v="$vcpus" 'BEGIN { n = split(v, l, "\n"); for (i = 1; i <= n; i++) { split(l[i], f, " "); vc[f[1]] = f[2] } }
       vc[$3] > lim && !d[$3]++ { printf "%s%s(%s)", s, $3, vc[$3]; s = " " }' <<< "$cand_text")
     cand_text=$(awk -v lim="$share" -v v="$vcpus" 'BEGIN { n = split(v, l, "\n"); for (i = 1; i <= n; i++) { split(l[i], f, " "); vc[f[1]] = f[2] } }
