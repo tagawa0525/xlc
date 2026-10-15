@@ -27,7 +27,7 @@ pub enum UrrError {
     Temperature(f64),
     #[error(
         "the sampled total cross section is not positive {offset} eV from {energy} eV \
-         (single-level interference in the ladder)"
+         (with the elastic floored at 1 microbarn)"
     )]
     NonPositiveTotal { energy: f64, offset: f64 },
     #[error("unresolved range has no (l, J) sequences")]

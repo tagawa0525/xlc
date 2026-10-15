@@ -426,7 +426,6 @@ fn interpolation_must_agree_across_sequences() {
 }
 
 #[test]
-#[ignore = "RED: the floor of ADR-0177 is not implemented yet"]
 fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
     // MF3 の弾性散乱の背景が負で、ラダーの谷で弾性散乱 + 背景が負になる点は、NJOY PURR と同じく 1 μb にする（ADR-0177）。
     // 背景が −10⁴ b なら、すべての点が 1 μb になる
