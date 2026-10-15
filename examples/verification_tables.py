@@ -543,6 +543,58 @@ def depletion_times(sources: list[dict]) -> str:
     )
 
 
+def aws_summaries(sources: list[dict]) -> dict:
+    (s,) = sources
+    if s.get("format") != "xlc-compare-aws-depletion":
+        raise TableError("not an xlc-compare-aws-depletion summary")
+    return s
+
+
+def aws_depletion_k(sources: list[dict]) -> str:
+    """区間に分けた AWS の燃焼と手元の燃焼の、燃焼点ごとの k と差（AWS − 手元）。倍率は合成した σ に対するもの"""
+    s = aws_summaries(sources)
+    rows = [
+        [
+            burnup_label(b),
+            f"{k['local']:.6f} ± {k['local_std_pcm'] / 1e5:.6f}",
+            f"{k['aws']:.6f} ± {k['aws_std_pcm'] / 1e5:.6f}",
+            signed(k["diff_pcm"], 1),
+            f"{k['sigma_pcm']:.1f}",
+            signed(k["ratio"], 2),
+        ]
+        for b, k in zip(s["burnup"], s["k"], strict=True)
+    ]
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "k 手元 ± σ",
+            "k AWS ± σ",
+            "差 (pcm)",
+            "合成 σ (pcm)",
+            "倍率",
+        ],
+        rows,
+    )
+
+
+def aws_depletion_densities(sources: list[dict]) -> str:
+    """区間に分けた AWS の燃焼と手元の燃焼の、燃料の数密度の相対差（%。AWS − 手元）"""
+    s = aws_summaries(sources)
+    rows = [
+        [burnup_label(b)]
+        + [
+            "–" if s["density"][n][i] is None else signed(100 * s["density"][n][i], 3)
+            for n in DEPLETION_NUCLIDES
+        ]
+        for i, b in enumerate(s["burnup"])
+    ]
+    return markdown_table(["燃焼度 (MWd/kg)", *DEPLETION_NUCLIDES], rows)
+
+
+# dvc.yaml の段階の出力でなく、git が追跡する JSON（dvc.lock の md5 の照合をしない）。AWS の結果は references/ にあり、DVC のステージにしない（ADR-0174）
+GIT_TRACKED = {"examples/depletion/aws-check/compare-aws-1C-rings1.json"}
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -620,6 +672,14 @@ TABLES = {
         ],
         depletion_times,
     ),
+    "aws-depletion-1c-k": (
+        ["examples/depletion/aws-check/compare-aws-1C-rings1.json"],
+        aws_depletion_k,
+    ),
+    "aws-depletion-1c-densities": (
+        ["examples/depletion/aws-check/compare-aws-1C-rings1.json"],
+        aws_depletion_densities,
+    ),
     "depletion-1c-rings4-rings": (
         ["examples/depletion/compare-1C-rings4.json"],
         depletion_rings,
@@ -650,8 +710,10 @@ def load(root: Path, source: str, verify: bool) -> dict:
         raise TableError(
             f"{source} does not exist (the stage has not run, or it is not committed); run dvc repro {path.parent.relative_to(root)}/dvc.yaml and commit it"
         )
-    if verify and hashlib.md5(path.read_bytes()).hexdigest() != locked_md5(
-        root, source
+    if (
+        verify
+        and source not in GIT_TRACKED
+        and hashlib.md5(path.read_bytes()).hexdigest() != locked_md5(root, source)
     ):
         raise TableError(
             f"{source} differs from the md5 in dvc.lock; restore it with git checkout {source}, or run the stage and commit dvc.lock"
