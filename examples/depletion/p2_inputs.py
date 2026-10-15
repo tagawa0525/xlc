@@ -17,10 +17,11 @@ P2 = Path(__file__).resolve().parent / "p2"
 
 # 燃焼の出力密度 (W/g)。VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。ピンセルの検証（openmc-1C-rings1.toml）と同じ
 POWER = 38.41
-# 1 世代の粒子数、世代数、捨てる世代数。ピン出力の統計誤差が ADR-0032 の目標（rms 0.2%）の 1/3 以下（約 0.07%）になる数
-# （docs/plans/m4-depletion.md の「OpenMC の燃焼の参照解」、ADR-0178）
+# 1 世代の粒子数、世代数、捨てる世代数。数える 60 世代 × 100 万 = 6×10⁷ 粒子で、対称操作の組で平均したピン出力の統計誤差が約 0.065%
+# （ADR-0032 の目標 rms 0.2% の約 1/3）。2A の 2 万粒子・数える 20 世代（4×10⁵）の短い走行で 0.80%（組で平均した rms。新しい燃料と
+# 燃焼した燃料で 0.80% と 0.84%）で、誤差は粒子数の平方根に反比例する（ADR-0178）
 PARTICLES = 1_000_000
-BATCHES = 140
+BATCHES = 100
 INACTIVE = 40
 SEED = 1
 THREADS = 16
@@ -208,7 +209,7 @@ def openmc_input(job: str) -> str:
         + ".toml。\n"
         "# 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均。粒子は 1 世代 "
         f"{PARTICLES:,}・{BATCHES} 世代（最初の {INACTIVE} 世代を捨てる）: ピン出力の\n"
-        "# 統計誤差を ADR-0032 の目標（rms 0.2%）の 1/3 以下（約 0.07%）にする数（ADR-0178）。p2_inputs.py が書く。手で直さない。\n"
+        "# 統計誤差を ADR-0032 の目標（rms 0.2%）の約 1/3（約 0.065%）にする数（ADR-0178）。p2_inputs.py が書く。手で直さない。\n"
         f'problem = "{problem}"\n'
         'cross-sections = "openmc-library/cross_sections.xml"\n'
         'chain = "../openmc-chain.xml"\n'
