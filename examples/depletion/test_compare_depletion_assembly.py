@@ -34,6 +34,14 @@ REGIONS = [
 ]
 
 
+PINS = [[1.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 1.0]]
+
+
+def std(edge: float, corner: float) -> list[list[float]]:
+    """3×3 の配置の統計誤差（辺の中央 `edge`、角 `corner`）。"""
+    return [[corner, edge, corner], [edge, 0.0, edge], [corner, edge, corner]]
+
+
 def histories():
     """2 点（燃焼度 0、1）の、燃料 2 領域（体積 1 と 3）、IFBA 1 領域、Gd のリング 2 つの履歴。"""
     xlc = {
@@ -74,8 +82,9 @@ def histories():
         "transport-seconds": [100.0, 110.0, 120.0],
         "total-seconds": 331.0,
         "cram-seconds": [0.5, 0.25],
-        "pins": [[[1.0, 1.0], [1.0, 0.0]], [[1.0, 1.0], [1.0, 0.0]]],
-        "pins-std": [[[0.001, 0.001], [0.001, 0.0]], [[0.002, 0.002], [0.002, 0.0]]],
+        # 3×3 の簡単な配置: 中央は燃料のないセル、辺の中央 4 つと角 4 つがそれぞれ 1 つの組
+        "pins": [PINS, PINS],
+        "pins-std": [std(0.002, 0.004), std(0.004, 0.008)],
         "regions": [
             {
                 "material": kind,
@@ -138,12 +147,17 @@ class Summary(unittest.TestCase):
         self.assertAlmostEqual(s["spread"]["gd1"]["Gd-155"]["max_abs"], 1.0)
         self.assertAlmostEqual(s["spread"]["gd1"]["Gd-155"]["rms"], 1.0)
 
-    def test_the_statistical_error_of_the_openmc_pin_powers_is_the_rms_over_the_fuel_pins(
-        self,
-    ):
+    def test_the_pin_power_error_is_that_of_the_mean_over_each_symmetry_orbit(self):
+        """xlc は対称な格子を 1/8 で解くので、OpenMC のピン出力は対称操作の組で平均して比べる。組の平均の誤差は
+        sqrt(Σ σ²) / 個数、平均が正の組の二乗平均平方根。"""
         s = compare.summarize(*histories())
-        self.assertAlmostEqual(s["pin_std_rms"][0], 0.001)
-        self.assertAlmostEqual(s["pin_std_rms"][1], 0.002)
+        # 辺の組: sqrt(4 × 0.002²) / 4 = 0.002 / 2、角の組: 0.004 / 2
+        self.assertAlmostEqual(
+            s["pin_std_rms"][0], math.sqrt((0.001**2 + 0.002**2) / 2)
+        )
+        self.assertAlmostEqual(
+            s["pin_std_rms"][1], math.sqrt((0.002**2 + 0.004**2) / 2)
+        )
 
     def test_times_of_both_codes(self):
         s = compare.summarize(*histories())

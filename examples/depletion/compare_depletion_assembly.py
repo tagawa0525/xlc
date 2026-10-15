@@ -7,7 +7,8 @@
 - `--json`: 輸送する核種の集合、燃焼度の点、燃焼する物質（種類と体積）の並びが同じことを確かめてから、燃焼点ごとの k∞ の差
   (k_xlc − k_OpenMC) × 1e5 pcm（OpenMC の標準偏差つき）とその 0 の点からの変化、物質の種類ごとの主要な核種の数密度の相対差
   (N_xlc − N_OpenMC) / N_OpenMC（種類の領域の体積の重みの平均）、最後の点の種類ごとの領域の間のばらつき、OpenMC のピン出力の
-  統計誤差の rms（ピンごとの標準偏差 / 平均の二乗平均平方根。ADR-0032 の目標との比較に使う）を書く。xlc の燃焼の領域と OpenMC の物質は、
+  統計誤差の rms（対称操作の組で平均したピン出力の、標準偏差 / 平均の二乗平均平方根。xlc は対称な格子を 1/8 で解くので組で平均して比べる。
+  ADR-0032 の目標との比較に使う）を書く。xlc の燃焼の領域と OpenMC の物質は、
   並びの順に対応させる（種類と体積で確かめる）。xlc の燃焼の履歴はピン出力を持たない（ADR-0173）ので、ピン出力の比較はまだない。
   `inputs` は読んだファイルのパス（段階の cwd から）と md5。時間の内訳（xlc の履歴の `seconds`、OpenMC の輸送ごとの時間と CRAM の
   時間）もコピーする。AWS の機種はまちまちなので、OpenMC の時間は xlc との時間の比較に使わない（ADR-0174）
@@ -91,6 +92,26 @@ def check_same_run(xlc: dict, omc: dict) -> None:
             )
 
 
+def orbit_std_rms(mean: list[list[float]], std: list[list[float]]) -> float:
+    """ピン出力（[行][列]）を対称操作の組（中央からの距離の対）で平均したときの統計誤差の rms。組の平均は Σ 平均 / 個数、その誤差は
+    sqrt(Σ σ²) / 個数（組のピンの誤差を独立とする）で、平均が正の組の（誤差 / 平均）の二乗平均平方根。"""
+    n = len(mean)
+    centre = (n - 1) / 2
+    orbits: dict[tuple[float, float], list[tuple[float, float]]] = {}
+    for i in range(n):
+        for j in range(n):
+            key = tuple(sorted((abs(i - centre), abs(j - centre)), reverse=True))
+            orbits.setdefault(key, []).append((mean[i][j], std[i][j]))
+    relative_errors = []
+    for members in orbits.values():
+        count = len(members)
+        average = sum(m for m, _ in members) / count
+        if average > 0:
+            error = math.sqrt(sum(s * s for _, s in members)) / count
+            relative_errors.append(error / average)
+    return math.sqrt(sum(e * e for e in relative_errors) / len(relative_errors))
+
+
 def summarize(xlc: dict, omc: dict) -> dict:
     """2 つの履歴を比べた要約（モジュールの説明の `--json`）。"""
     check_same_run(xlc, omc)
@@ -148,15 +169,9 @@ def summarize(xlc: dict, omc: dict) -> dict:
                 if diffs
                 else None,
             }
-    pin_std_rms = []
-    for mean, std in zip(omc["pins"], omc["pins-std"]):
-        pairs = [
-            (m, s)
-            for row_m, row_s in zip(mean, std)
-            for m, s in zip(row_m, row_s)
-            if m > 0
-        ]
-        pin_std_rms.append(math.sqrt(sum((s / m) ** 2 for m, s in pairs) / len(pairs)))
+    pin_std_rms = [
+        orbit_std_rms(mean, std) for mean, std in zip(omc["pins"], omc["pins-std"])
+    ]
     transport = omc["transport-seconds"]
     seconds = {
         "xlc": {**xlc["seconds"], "solves": xlc["solves"]},
