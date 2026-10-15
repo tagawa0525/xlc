@@ -82,7 +82,13 @@ def histories():
                 "orbit": [r, 0],
                 "count": 1,
                 "volume": volume,
-                "densities": values,
+                "densities": {
+                    **{
+                        compare.openmc_name(n): [0.0, 0.0]
+                        for n in compare.nuclides_of(kind)
+                    },
+                    **values,
+                },
             }
             for r, (kind, volume, _, values) in enumerate(REGIONS)
         ],
