@@ -19,8 +19,8 @@ expect() { # <名前> <期待> <実際>
 # 偽の aws。クォータは 128、走行中のスポットは「コア数 スレッド数」の行で返す
 fake=$(mktemp -d)
 trap 'rm -rf "$fake"' EXIT
-cat > "$fake/aws" <<'AWS'
-#!/usr/bin/env bash
+# nix の sandbox に /usr/bin/env はないので、shebang は実行中の bash を指す
+{ echo "#!$BASH"; cat; } > "$fake/aws" <<'AWS'
 case "$*" in
   *get-service-quota*) echo "${FAKE_QUOTA:-128.0}" ;;
   *describe-instances*) printf '%s' "${FAKE_RUNNING:-}" ;;
