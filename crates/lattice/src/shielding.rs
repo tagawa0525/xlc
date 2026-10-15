@@ -182,7 +182,8 @@ pub struct PinShielding {
     /// [燃料のリング（内側から）][核種（`nuclides` の順）] の実効断面積。UFG の範囲の群はそのリングの減速計算の値、範囲の外は
     /// 等価原理の値。`effective` と同じく SPH 因子を掛けない物理的な値で、物理的な中性子束（`FuelShielding::physical_flux`）と
     /// 掛けてリングの反応率にする（ADR-0173）
-    pub rings: Vec<Vec<Shielded>>,
+    /// 対称性で移り合うピンは代表と同じ値を共有する（集合体ではピンと核種と群の数の積で大きいので、複製しない）
+    pub rings: std::sync::Arc<Vec<Vec<Shielded>>>,
     /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。支持格子のあるセルでは、その外に枠と同じ面積の
     /// 支持格子のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
@@ -571,7 +572,7 @@ pub fn shield_fuel_with(
             dancoff: factors.clone(),
             nuclides,
             effective,
-            rings: ring_effective,
+            rings: std::sync::Arc::new(ring_effective),
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| Sph {
                 factors: c.sph.clone(),
