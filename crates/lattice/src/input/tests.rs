@@ -1128,19 +1128,28 @@ fn depleted_materials_are_defined_nuclide_materials() {
 }
 
 #[test]
-fn depletion_excludes_branches_pin_powers_media_and_split_constants() {
+fn depletion_excludes_branches_pin_powers_media_and_file_constants() {
+    let base = without_few_group();
     let branches = format!(
-        "{PIN_CELL}\n[branches]\nfuel = {{ temperature = [600, 900], materials = [\"fuel\"] }}\n[depletion]\n{DEPLETION}"
+        "{base}\n[branches]\nfuel = {{ temperature = [600, 900], materials = [\"fuel\"] }}\n[depletion]\n{DEPLETION}"
     );
     assert!(LatticeInput::parse(&branches).is_err());
-    let pins = format!("pin-powers = \"pins.msgpack\"\n{PIN_CELL}\n[depletion]\n{DEPLETION}");
+    let pins = format!("pin-powers = \"pins.msgpack\"\n{base}\n[depletion]\n{DEPLETION}");
     assert!(LatticeInput::parse(&pins).is_err());
-    let medium = format!("medium = \"fuel.medium\"\n{PIN_CELL}\n[depletion]\n{DEPLETION}");
+    let medium = format!("medium = \"fuel.medium\"\n{base}\n[depletion]\n{DEPLETION}");
     assert!(LatticeInput::parse(&medium).is_err());
     // 少数群定数のファイルは書かない（燃焼点ごとの定数は燃焼の履歴に入る。`[depletion]` の `few-group`）
     assert!(LatticeInput::parse(&format!("{PIN_CELL}\n[depletion]\n{DEPLETION}")).is_err());
-    let unshielded = format!("self-shielding = false\n{PIN_CELL}\n[depletion]\n{DEPLETION}");
+    let unshielded = format!("self-shielding = false\n{base}\n[depletion]\n{DEPLETION}");
     assert!(LatticeInput::parse(&unshielded).is_err());
+    // 燃焼点ごとの形状関数は、外周がすべて鏡面反射の格子でだけ
+    let vacuum = base.replace(
+        "spacing = 0.05",
+        "spacing = 0.05\nboundary = { right = \"vacuum\" }",
+    );
+    let pins = format!("{DEPLETION}few-group = {{ bounds = [1e7, 0.625, 1e-5], pins = true }}\n");
+    assert!(LatticeInput::parse(&format!("{vacuum}\n[depletion]\n{pins}")).is_err());
+    assert!(LatticeInput::parse(&format!("{base}\n[depletion]\n{pins}")).is_ok());
 }
 
 #[test]
