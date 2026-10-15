@@ -251,22 +251,23 @@ fn advance(
 }
 
 /// CE/CM（ADR-0173）で、初めの組成 `initial`（[領域][チェーンの核種]）からステップ `steps` (s) を進める。`solve` は組成から
-/// 規格化した反応率を求める輸送で、ステップごとに始まりと中点の 2 回、最後の点で 1 回呼ぶ。点は始まりと各ステップの
-/// 終わりで、点の値はその点の組成で解いた輸送のもの
+/// 規格化した反応率を求める輸送で、ステップごとに始まりと中点の 2 回、最後の点で 1 回呼ぶ。2 つ目の引数は、その輸送の値
+/// （`Evaluation::extra`）を点に残すか（中点の輸送は残さない）。点は始まりと各ステップの終わりで、点の値はその点の組成で解いた
+/// 輸送のもの
 pub fn ce_cm<T, E: From<ChainError>>(
     chain: &Chain,
     initial: Vec<Vec<f64>>,
     steps: &[f64],
-    mut solve: impl FnMut(&[Vec<f64>]) -> Result<Evaluation<T>, E>,
+    mut solve: impl FnMut(&[Vec<f64>], bool) -> Result<Evaluation<T>, E>,
 ) -> Result<(Vec<Point<T>>, DepletionTimes), E> {
     let mut times = DepletionTimes::default();
     let mut points = Vec::with_capacity(steps.len() + 1);
     let mut n = initial;
     let mut time = 0.0;
     for &h in steps {
-        let start = solve(&n)?;
+        let start = solve(&n, true)?;
         let middle = advance(chain, &start.rates, &n, 0.5 * h, &mut times)?;
-        let corrector = solve(&middle)?;
+        let corrector = solve(&middle, false)?;
         let next = advance(chain, &corrector.rates, &n, h, &mut times)?;
         points.push(Point {
             time,
@@ -275,7 +276,7 @@ pub fn ce_cm<T, E: From<ChainError>>(
         });
         time += h;
     }
-    let last = solve(&n)?;
+    let last = solve(&n, true)?;
     points.push(Point {
         time,
         densities: n,
@@ -659,7 +660,7 @@ pub fn run(
     let groups = &library.groups;
     let mut transport = TransportTimes::default();
     let mut solves = 0;
-    let solve = |n: &[Vec<f64>]| -> anyhow::Result<Evaluation<State>> {
+    let solve = |n: &[Vec<f64>], kept: bool| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
         let start = Instant::now();
         // 負の数密度は近似の誤差の水準だけを許し、輸送には入れない（ADR-0173）
@@ -814,8 +815,9 @@ pub fn run(
                 }
             }
         }
+        // 中点の輸送の少数群定数は点に残らないので作らない
         let few_group = match &depletion.few_group {
-            Some(DepletionFewGroup { bounds, pins }) => {
+            Some(DepletionFewGroup { bounds, pins }) if kept => {
                 let boundaries = tracking.boundaries();
                 let mut few =
                     homogenize(&solution, &region_materials, groups, bounds, &boundaries)?;
@@ -831,7 +833,7 @@ pub fn run(
                 }
                 Some(few)
             }
-            None => None,
+            _ => None,
         };
         transport.rates += start.elapsed();
         tracing::info!(
