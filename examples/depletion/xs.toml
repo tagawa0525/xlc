@@ -4,8 +4,8 @@
 # ほかの核種は 565, 600 K）。評価を変えたら両方を直す。Zr と Sn は核分裂生成物として燃料の中にもできるので、燃料の温度
 # 565, 600, 900, 1200 K でも作る
 # 燃焼チェーンの核種は、燃料の核種と同じ 565, 600, 900, 1200 K で作る。組は、NUREG/CR-7108 の燃焼度クレジットの 28 核種（本文は手元で
-# 確かめていない）のうち U と Eu-151 を除く 23 に、I-135、Xe-135、Pm-148m、Np-239、Cm-242、Cm-244 を足した 29。Eu-151 と、
-# Sm-149 と Am-242m の経路の Pm-147、Pm-148、Pm-149、Am-242m は、非分離共鳴の自己遮蔽が小さい σ0 で NaN になるので外す（#0127）
+# 確かめていない）のうち U を除く 24 に、I-135、Xe-135、Pm-147、Pm-148、Pm-148m、Pm-149、Np-239、Am-242m、Cm-242、Cm-244 を
+# 足した 34
 output = "depletion.msgpack"
 endf-directory = "../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../references/endf/ENDF-B-VIII.0_thermal_scatt"
@@ -174,6 +174,10 @@ temperatures = [565, 600, 900, 1200]
 endf = "n-095_Am_241.endf"
 temperatures = [565, 600, 900, 1200]
 
+[nuclide.Am-242m]
+endf = "n-095_Am_242m1.endf"
+temperatures = [565, 600, 900, 1200]
+
 [nuclide.Am-243]
 endf = "n-095_Am_243.endf"
 temperatures = [565, 600, 900, 1200]
@@ -226,8 +230,20 @@ temperatures = [565, 600, 900, 1200]
 endf = "n-060_Nd_145.endf"
 temperatures = [565, 600, 900, 1200]
 
+[nuclide.Pm-147]
+endf = "n-061_Pm_147.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pm-148]
+endf = "n-061_Pm_148.endf"
+temperatures = [565, 600, 900, 1200]
+
 [nuclide.Pm-148m]
 endf = "n-061_Pm_148m1.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Pm-149]
+endf = "n-061_Pm_149.endf"
 temperatures = [565, 600, 900, 1200]
 
 [nuclide.Sm-147]
@@ -248,6 +264,10 @@ temperatures = [565, 600, 900, 1200]
 
 [nuclide.Sm-152]
 endf = "n-062_Sm_152.endf"
+temperatures = [565, 600, 900, 1200]
+
+[nuclide.Eu-151]
+endf = "n-063_Eu_151.endf"
 temperatures = [565, 600, 900, 1200]
 
 [nuclide.Eu-153]
