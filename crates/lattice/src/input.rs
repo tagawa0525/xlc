@@ -822,7 +822,7 @@ impl LatticeInput {
                     !matches!(o.files, FewGroupFiles::Lattice(_)) || o.split > 1 || o.axial
                 }) {
                     return Err(
-                        "depletion writes few-group constants of the whole lattice only (no nodes,                          split or axial)"
+                        "depletion writes few-group constants of the whole lattice only (no nodes, split or axial)"
                             .into(),
                     );
                 }
