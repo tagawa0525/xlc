@@ -329,6 +329,14 @@ pub fn region_rates(
                     );
                 }
                 for (c, sigma) in channels.iter().enumerate() {
+                    if sigma.len() != groups {
+                        bail!(
+                            "{}: {} groups in a channel of MT{} for {groups} groups",
+                            nuclide.name,
+                            sigma.len(),
+                            reaction.mt
+                        );
+                    }
                     rates[i].reactions[r][c] += m.volume * collapse(sigma, m.flux) * BARN / volume;
                 }
             }
