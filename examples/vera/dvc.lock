@@ -5307,20 +5307,20 @@ stages:
       size: 4707
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2G.json
       hash: md5
-      md5: 50d31c79c1a4b64e5aaac2fa34ec3e8d
+      md5: 5b1a6373545266b5b9016f5132f614b6
       size: 289
     - path: p2/keno-lattice-2G.out
       hash: md5
-      md5: 02cf9752b09a384171e2ef5c87cd05da
+      md5: 1ca90958db74037bf95cc1f219dc8561
       size: 11
     - path: p2/pins-2G.msgpack
       hash: md5
-      md5: ce0b49961bbd7742e6394a580390dc36
+      md5: 184119634c39253a54401e4aece11515
       size: 2683
   keno-assembly@2I:
     cmd: ../../bin/lattice p2/assembly-2I.toml > p2/keno-lattice-2I.out && 
@@ -5359,20 +5359,20 @@ stages:
       size: 4372
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2I.json
       hash: md5
-      md5: 40f59ad4043734b46502c642df2318af
-      size: 289
+      md5: ef2f75819dc0a9ebc882d366e767e776
+      size: 290
     - path: p2/keno-lattice-2I.out
       hash: md5
-      md5: 002241bec51574d55b6da0ae12142765
+      md5: fe509d11ff38fb353a27afffd92d20d1
       size: 11
     - path: p2/pins-2I.msgpack
       hash: md5
-      md5: c50a8735f6893b1ec4e0e4d280e4e4d9
+      md5: c19bf7034dfe22292bf0c70ca5dc27f9
       size: 2683
   keno-assembly@2B:
     cmd: ../../bin/lattice p2/assembly-2B.toml > p2/keno-lattice-2B.out && 
@@ -5411,20 +5411,20 @@ stages:
       size: 3485
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2B.json
       hash: md5
-      md5: 60aed31c79b81ff41a1a7105c67d8c79
-      size: 288
+      md5: 99329ae41427ae78fd9e8ae7670b9099
+      size: 290
     - path: p2/keno-lattice-2B.out
       hash: md5
-      md5: 2ab18fb50a1e3bf04ae0066b709d312b
+      md5: 6049e3ec835d343106f8b0bafd58067b
       size: 11
     - path: p2/pins-2B.msgpack
       hash: md5
-      md5: e0e284dc2cbef71385e133f65ae8dd6e
+      md5: 6c58475c21fe5354e54e181c8d87509e
       size: 2683
   keno-assembly@2D:
     cmd: ../../bin/lattice p2/assembly-2D.toml > p2/keno-lattice-2D.out && 
@@ -5463,20 +5463,20 @@ stages:
       size: 3487
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2D.json
       hash: md5
-      md5: 4273f57c1cc610226ab72e6f33c0768f
-      size: 289
+      md5: eebd07dd3a81b8854b1ef01bf40df314
+      size: 290
     - path: p2/keno-lattice-2D.out
       hash: md5
-      md5: da0a67c99ae6d571bf7b35d09c5cc2c6
+      md5: 643df50e1904d8cf22056641d5e0521d
       size: 11
     - path: p2/pins-2D.msgpack
       hash: md5
-      md5: 5b227a1c6e4e6155357539fdc211537b
+      md5: 8b3c589375c3e1d14234b8407ab7a80a
       size: 2683
   keno-assembly@2E:
     cmd: ../../bin/lattice p2/assembly-2E.toml > p2/keno-lattice-2E.out && 
@@ -5515,20 +5515,20 @@ stages:
       size: 4987
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2E.json
       hash: md5
-      md5: 8c1cbb082cd5014911d32ad104bbef62
-      size: 289
+      md5: 57f7a1370031806a124e0280a0d08c96
+      size: 288
     - path: p2/keno-lattice-2E.out
       hash: md5
-      md5: 3c84dabe9ebf6394cdbe3a6e72b1fc1c
+      md5: bb1b267f1b59b34722728e76a7823040
       size: 11
     - path: p2/pins-2E.msgpack
       hash: md5
-      md5: 67257682884576a61fc8dd3ea705814a
+      md5: 30fc704e28ba36b6719c801498b8aaae
       size: 2683
   keno-pincell@1D:
     cmd: ../../bin/lattice p1/pincell-1D.toml > p1/keno-lattice-1D.out && 
@@ -5566,16 +5566,16 @@ stages:
       size: 1513
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-1D.json
       hash: md5
-      md5: 1bb08f24d5d0cd0e9750559d39eed008
+      md5: aedb7c68aa4ea3574ad91317efa53dd0
       size: 182
     - path: p1/keno-lattice-1D.out
       hash: md5
-      md5: 6232267cfeec296705f0cda6d0e7e643
+      md5: 7515e9311e01c154ed22d67d12937e76
       size: 11
   keno-assembly@2J:
     cmd: ../../bin/lattice p2/assembly-2J.toml > p2/keno-lattice-2J.out && 
@@ -5614,20 +5614,20 @@ stages:
       size: 5017
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2J.json
       hash: md5
-      md5: 39b96e689648f1c05e9a7d4c0d1d3344
-      size: 286
+      md5: c37199e2f74017b42095e7969dc6e5bc
+      size: 289
     - path: p2/keno-lattice-2J.out
       hash: md5
-      md5: 7e1b1967f81213b0b164bfe2ca8e79d3
+      md5: 0aefb766c8ad16de1fb82a06dffb7fe1
       size: 11
     - path: p2/pins-2J.msgpack
       hash: md5
-      md5: 4712c28aa99ad9e6952b3f9597fa4f2b
+      md5: 3361a5f7e1f2fa912a4568e3f7f42513
       size: 2683
   keno-pincell@1C:
     cmd: ../../bin/lattice p1/pincell-1C.toml > p1/keno-lattice-1C.out && 
@@ -5665,16 +5665,16 @@ stages:
       size: 1511
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-1C.json
       hash: md5
-      md5: 045192598d4f571371438127acf52072
-      size: 182
+      md5: cabb11cdcd5d0ad3f057320cf65f617b
+      size: 178
     - path: p1/keno-lattice-1C.out
       hash: md5
-      md5: 6e0bf7f019d996dc7aee3f83b29bb642
+      md5: afbe0595e990c4fe2701bba5f853fe4e
       size: 11
   keno-assembly@2C:
     cmd: ../../bin/lattice p2/assembly-2C.toml > p2/keno-lattice-2C.out && 
@@ -5713,20 +5713,20 @@ stages:
       size: 3485
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2C.json
       hash: md5
-      md5: d6d8b092aa9f70241eab0615f672c81e
-      size: 290
+      md5: e2d02e8755b672a2a94228ab63e070eb
+      size: 287
     - path: p2/keno-lattice-2C.out
       hash: md5
-      md5: c11b8294415e379afa1d069398ccc4ac
+      md5: e38f130e57a9bb038b4389986cb3e613
       size: 11
     - path: p2/pins-2C.msgpack
       hash: md5
-      md5: af9f1be2b51762f28dcf11a0e3bc3316
+      md5: f36eef3677c2e50c6f91ec95b877cccb
       size: 2683
   keno-assembly@2F:
     cmd: ../../bin/lattice p2/assembly-2F.toml > p2/keno-lattice-2F.out && 
@@ -5765,20 +5765,20 @@ stages:
       size: 4730
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2F.json
       hash: md5
-      md5: c756464cdfa3b6028800158573e55ef3
-      size: 290
+      md5: 737ae8a46b85aff9375b998805604a73
+      size: 289
     - path: p2/keno-lattice-2F.out
       hash: md5
-      md5: c43db3ffa3676ea0a8e4901024fb1102
+      md5: 9ae7b2265d91f37c83afd2dec7a52857
       size: 11
     - path: p2/pins-2F.msgpack
       hash: md5
-      md5: 4a00dd7c3918f1885f6cadda3a980ffb
+      md5: bb4ec87289a3a99152258d4afbb3fbf9
       size: 2683
   keno-assembly@2A:
     cmd: ../../bin/lattice p2/assembly-2A.toml > p2/keno-lattice-2A.out && 
@@ -5869,20 +5869,20 @@ stages:
       size: 4531
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2H.json
       hash: md5
-      md5: 885e1e70dd01fd75b5b082f10f44a057
-      size: 286
+      md5: f4c83a46e0f4e5ef7e95cb588403d61a
+      size: 289
     - path: p2/keno-lattice-2H.out
       hash: md5
-      md5: fe101a577ff197738de5ea52bc5a37ec
+      md5: 98b937b2aeee121dc4de53a435396b5d
       size: 11
     - path: p2/pins-2H.msgpack
       hash: md5
-      md5: 5f6f09beec6f7141856d4bf2fed5bd0e
+      md5: c63d8b98264015ffbe15c77f3cd37cdb
       size: 2683
   keno-assembly@2K:
     cmd: ../../bin/lattice p2/assembly-2K.toml > p2/keno-lattice-2K.out && 
@@ -5921,20 +5921,20 @@ stages:
       size: 6195
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2K.json
       hash: md5
-      md5: 89b518f3b12744cf9821de0bb88e6263
-      size: 287
+      md5: df2003a0391bed60f0254aeef54b3ea7
+      size: 288
     - path: p2/keno-lattice-2K.out
       hash: md5
-      md5: f923829e9047a962aea6bf28df5f4fca
+      md5: 9d6c97fb6eb7f543bb74f30496f3f45e
       size: 11
     - path: p2/pins-2K.msgpack
       hash: md5
-      md5: add516269532e39360bab2c709d1d0d9
+      md5: bac37ce9221f304d0518ca463b04b70e
       size: 2683
   keno-assembly@2Q:
     cmd: ../../bin/lattice p2/assembly-2Q.toml > p2/keno-lattice-2Q.out && 
@@ -5973,20 +5973,20 @@ stages:
       size: 4078
     - path: vera.msgpack
       hash: md5
-      md5: 0fd3f30c6baf0dd658305e657e2f1b89
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
       size: 323900899
     outs:
     - path: compare-keno-2Q.json
       hash: md5
-      md5: 4001c400944948230f7b113e281a5b1f
+      md5: 889b030fe31eba354ae678768c410ad2
       size: 288
     - path: p2/keno-lattice-2Q.out
       hash: md5
-      md5: 6b7ac445e6735cb71feeb146afa4d1c3
+      md5: c48e084ba678aff44e6762fa8e36236d
       size: 11
     - path: p2/pins-2Q.msgpack
       hash: md5
-      md5: 9e2ed70df587dd9eafae0eddb203e038
+      md5: c47a366d586c2042136d37245afc54e5
       size: 2683
   keno-pincell@1B:
     cmd: ../../bin/lattice p1/pincell-1B.toml > p1/keno-lattice-1B.out && 
