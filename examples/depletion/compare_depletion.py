@@ -59,6 +59,13 @@ def summarize(xlc: dict, omc: dict) -> dict:
     regions, rings = xlc["regions"], omc["rings"]
     if len(regions) != len(rings):
         raise SystemExit(f"{len(regions)} xlc regions for {len(rings)} OpenMC rings")
+    # 等しい面積のリングは体積で区別できないので、リングが複数なら物質の名前でも対応を確かめる（1 リングは xlc が `fuel`）
+    if len(rings) > 1 and [r["material"] for r in regions] != [
+        r["name"] for r in rings
+    ]:
+        raise SystemExit(
+            f"rings differ: xlc {[r['material'] for r in regions]}, OpenMC {[r['name'] for r in rings]}"
+        )
     for r, ring in zip(regions, rings):
         if abs(r["volume"] - ring["volume"]) > VOLUME_TOLERANCE * ring["volume"]:
             raise SystemExit(
