@@ -1,7 +1,7 @@
 # 格子計算の燃焼の検証（ADR-0178）の参照解: VERA Problem 2 の 履歴を変えた燃焼 1: 2A の減速材の密度を 0.661 g/cc に（仕様書の 2B〜2D の密度。温度は 565 K のまま）を、40 点（最後は 60 MWd/kg）
 # まで OpenMC の燃焼で燃焼させる（openmc_depletion_assembly.py。AWS で流す。aws.toml）。xlc は lattice-2A-density.toml。
-# 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均。粒子は 1 世代 1,000,000・140 世代（最初の 40 世代を捨てる）: ピン出力の
-# 統計誤差を ADR-0032 の目標（rms 0.2%）の 1/3 以下（約 0.07%）にする数（ADR-0178）。p2_inputs.py が書く。手で直さない。
+# 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均。粒子は 1 世代 1,000,000・100 世代（最初の 40 世代を捨てる）: ピン出力の
+# 統計誤差を ADR-0032 の目標（rms 0.2%）の約 1/3（約 0.065%）にする数（ADR-0178）。p2_inputs.py が書く。手で直さない。
 problem = "2A-density"
 cross-sections = "openmc-library/cross_sections.xml"
 chain = "../openmc-chain.xml"
@@ -13,7 +13,7 @@ burnup = [
   32, 34, 36, 38, 40, 44, 48, 52, 56, 60,
 ]
 particles = 1000000
-batches = 140
+batches = 100
 inactive = 40
 seed = 1
 threads = 16
