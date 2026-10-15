@@ -7,6 +7,8 @@
 vars:
   - xs.toml
   - openmc-library.toml
+  # 集合体の燃焼の入力（p2_inputs.py の JOBS）。OpenMC の実行の名前（aws_run.sh の <name>）は m4-assembly
+  - jobs: [2A, 2F, 2M, 2N, 2O, 2P, 2A-density, 2A-rods]
 stages:
   references-shell:
     # ツール（OpenMC とその Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
@@ -92,3 +94,30 @@ stages:
       - openmc-library/thermal
     outs:
       - openmc-library/cross_sections.xml
+  lattice:
+    # xlc の格子計算の燃焼（ADR-0173）。燃焼点ごとの k∞ は標準出力に出るので、ファイルに受ける。燃焼の時間の内訳はログ（標準エラー）。
+    # 重い（輸送 81 回か 141 回。docs/plans/m4-depletion.md の「進め方」）ので、Slurm で 1 本ずつ流す
+    foreach: ${jobs}
+    do:
+      cmd: ../../../bin/lattice lattice-${item}.toml > lattice-${item}.out 2> lattice-${item}.log
+      deps:
+        - lattice-${item}.toml
+        - depletion.msgpack
+        - ../chain.msgpack
+        - ../../../bin/lattice
+      outs:
+        - lattice-${item}.out
+        - lattice-${item}.msgpack
+        - lattice-${item}.log
+  compare:
+    # 比べた要約（記録の表は verification_tables.py がここから描く。ADR-0176）。OpenMC の結果は AWS から取り出したもの
+    # （aws_fetch.sh --verify。examples/aws）
+    foreach: ${jobs}
+    do:
+      cmd: python3 ../compare_depletion_assembly.py --json compare-${item}.json lattice-${item}.msgpack ../../../references/openmc/aws/m4-assembly/openmc-${item}/openmc-${item}.msgpack
+      deps:
+        - ../compare_depletion_assembly.py
+        - lattice-${item}.msgpack
+        - ../../../references/openmc/aws/m4-assembly/openmc-${item}/openmc-${item}.msgpack
+      outs:
+        - compare-${item}.json
