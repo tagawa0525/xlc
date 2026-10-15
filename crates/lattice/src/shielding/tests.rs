@@ -127,6 +127,22 @@ fn a_trace_nuclide_beyond_the_table_is_infinitely_dilute() {
 }
 
 #[test]
+fn a_subnormal_density_is_still_infinitely_dilute() {
+    // σ0 が無限大になる数密度でも、重みの中性子束は無限希釈の値で求め、NaN にしない
+    let library = library();
+    let equivalence = Equivalence {
+        chord: 0.8192,
+        terms: vec![carlvik(0.3).unwrap(); 2],
+    };
+    let result = effective(&library, "U-238", T, 1.0e-310, &[0.2, 0.2], &equivalence).unwrap();
+    let infinite = library.sigma0[0];
+    let expected = library.shielded("U-238", T, &[infinite, infinite]).unwrap();
+    for (a, b) in result.total.iter().zip(&expected.total) {
+        assert!(close(*a, *b), "{a} vs {b}");
+    }
+}
+
+#[test]
 fn two_terms_are_weighted_by_the_narrow_resonance_flux() {
     // NR 近似の燃料の中性子束 (σp + σ0) / (σt + σ0) は、吸収体自身のポテンシャル散乱 σp を線源に含む
     let potential = 11.0;

@@ -553,6 +553,38 @@ fn reports_each_burnup_point_from_the_initial_composition() {
 }
 
 #[test]
+fn every_transportable_nuclide_gets_rates_from_the_first_transport() {
+    // OpenMC は数密度が 0 の核種にも 1 原子あたりの反応率を与える（燃焼の tally は数密度を掛けない）。始まりに 0 の Xe-135 も
+    // 最初の輸送から反応率を持ち、予測子で燃え尽きる（ADR-0173）
+    let history = deplete_input(PIN);
+    assert!(history.points.iter().all(|p| p.transported == 5));
+}
+
+#[test]
+fn transport_needs_data_at_exactly_the_region_temperature() {
+    // 温度の内挿ができる核種（熱中性子散乱）でも、領域の温度のデータがなければ輸送しない（OpenMC の参照解と同じ集合）
+    let mut library = library();
+    let mut h1 = library
+        .nuclides
+        .iter()
+        .find(|n| n.name == "H-1")
+        .unwrap()
+        .clone();
+    h1.name = "H-2".into();
+    h1.thermal_scattering = true;
+    let mut other = h1.temperatures[0].clone();
+    h1.temperatures[0].temperature = 550.0;
+    other.temperature = 650.0;
+    h1.temperatures.push(other);
+    library.nuclides.push(h1);
+    assert!(library.lookup("H-2", T).is_ok());
+    assert!(!has_data_at(&library, "H-2", T));
+    assert!(has_data_at(&library, "H-2", 650.0));
+    assert!(has_data_at(&library, "U-235", T));
+    assert!(!has_data_at(&library, "Ba-140", T));
+}
+
+#[test]
 fn fission_products_count_the_energy_released() {
     // 核分裂生成物の原子は核分裂の 2 倍。核分裂の数 × Q が、出力密度 × 重金属の質量 × 時間に等しい
     let history = deplete_input(PIN);
