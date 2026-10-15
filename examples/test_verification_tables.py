@@ -466,6 +466,20 @@ class DrawDepletion(unittest.TestCase):
         )
         self.assertEqual(rows[2][0], "xlc、4 リング")
 
+    def test_cases_with_other_burnup_points_are_an_error(self):
+        other = depletion([0.0, 0.0], rings=4)
+        other["burnup"] = [0.0, 2.0]
+        with self.assertRaises(vt.TableError):
+            vt.depletion_k([depletion([0.0, 0.0]), other])
+
+    def test_a_single_ring_has_no_inner_or_outer_label(self):
+        table = vt.depletion_rings([depletion([0.0, 0.0], rings=1)])
+        rows = [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+        self.assertEqual(rows[0][0], "1")
+
     def test_a_summary_of_another_format_is_an_error(self):
         with self.assertRaises(vt.TableError):
             vt.depletion_k([{"format": "xlc-compare-p3"}])
