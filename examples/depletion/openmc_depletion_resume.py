@@ -24,6 +24,9 @@ AWS の機種はまちまちなので、この時間は xlc の時間との比�
 
 `solve` の設定の組み立て（TimedOperator と CECMIntegrator の引数）は openmc_depletion.py の `solve` と同じ。そちらを変えると
 `openmc-1C` の重い段階が古くなるので、変えずにここへ写している（#0132）。
+
+入力の問題で道具を選ぶ（`backend_of`）: 1B〜1D のピンセルは openmc_depletion.py、2 で始まる集合体は
+openmc_depletion_assembly.py（ADR-0178）。集合体は区間ごとにピン出力（pins.json）を前の区間までに続けて書き、extract に渡す。
 """
 
 import itertools
@@ -35,7 +38,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import NamedTuple
+
+import tomllib
 
 STEP = re.compile(r"step-(\d+)$")
 COMPLETE = re.compile(r"(\d+)/(\d+)\n$")
@@ -94,6 +101,62 @@ def first_step(work: Path, *, restart: bool) -> int:
     return done[-1] + 1
 
 
+class Backend(NamedTuple):
+    """問題の種類ごとの道具。`read`（入力を読む）、`build`（モデルと燃焼する物質）、`operator`（`run`、モデル、前の結果から
+    演算子）、`extract`（`<入力> <作業ディレクトリ> <結果>`）、extract に渡す区間のファイル、区間の終わりに追加のファイルを書く
+    `collect`（`<区間> <k> <前の区間 | None>`。なければ None）。"""
+
+    read: Callable
+    build: Callable
+    operator: Callable
+    extract: Callable
+    result_files: tuple[str, ...]
+    collect: Callable | None
+
+
+def backend_of(source: Path) -> Backend:
+    """入力の `problem` が 1 で始まればピンセル（openmc_depletion.py）、2 で始まれば集合体（openmc_depletion_assembly.py）。"""
+    problem = tomllib.loads(source.read_text()).get("problem")
+    if not isinstance(problem, str):
+        raise SystemExit(f"{source}: no problem")
+    if problem.startswith("1"):
+        import openmc_depletion as pin
+        from openmc_model import FUEL_TEMPERATURE
+
+        def operator(run, model, prev):
+            pin.TimedOperator.fuel_temperature = FUEL_TEMPERATURE[run["problem"]]
+            return pin.TimedOperator(
+                model,
+                chain_file=run["chain"],
+                prev_results=prev,
+                normalization_mode="fission-q",
+                fission_yield_mode="cutoff",
+                fission_yield_opts={"cutoff": pin.YIELD_CUTOFF},
+                reaction_rate_mode="direct",
+            )
+
+        return Backend(
+            pin.read,
+            lambda run: pin.build(run),
+            operator,
+            pin.extract,
+            ("depletion_results.h5", "transport-seconds.json"),
+            None,
+        )
+    if problem.startswith("2"):
+        import openmc_depletion_assembly as asm
+
+        return Backend(
+            asm.read,
+            asm.build,
+            asm.operator,
+            asm.extract,
+            asm.RESULT_FILES,
+            asm.collect_interval,
+        )
+    raise SystemExit(f"{source}: unknown problem {problem}")
+
+
 def bos_transport_integrator():
     """先頭の輸送を再開でもやり直す `CECMIntegrator`（`openmc` の import を遅らせるため関数にしてある）。"""
     import openmc.deplete
@@ -109,16 +172,10 @@ def bos_transport_integrator():
 def solve_step(source: Path, work: Path, k: int, threads: int | None) -> None:
     """区間 k を流す（別のプロセスで呼ばれる。`openmc.lib` を区間ごとに初期化し直さないため）。"""
     import openmc.deplete
-    from openmc_depletion import (
-        TRANSPORT_SECONDS,
-        YIELD_CUTOFF,
-        TimedOperator,
-        build,
-        read,
-    )
-    from openmc_model import FUEL_TEMPERATURE
+    from openmc_depletion import TRANSPORT_SECONDS, TimedOperator
 
-    run = read(source)
+    backend = backend_of(source)
+    run = backend.read(source)
     if threads is not None:
         run["threads"] = threads
     total = len(run["burnup"])
@@ -133,17 +190,8 @@ def solve_step(source: Path, work: Path, k: int, threads: int | None) -> None:
     os.chdir(step)
     os.environ["OMP_NUM_THREADS"] = str(run["threads"])
     openmc.config["cross_sections"] = run["cross-sections"]
-    model, _ = build(run)
-    TimedOperator.fuel_temperature = FUEL_TEMPERATURE[run["problem"]]
-    operator = TimedOperator(
-        model,
-        chain_file=run["chain"],
-        prev_results=prev,
-        normalization_mode="fission-q",
-        fission_yield_mode="cutoff",
-        fission_yield_opts={"cutoff": YIELD_CUTOFF},
-        reaction_rate_mode="direct",
-    )
+    model, _ = backend.build(run)
+    operator = backend.operator(run, model, prev)
     burnup = run["burnup"]
     steps = [b - a for a, b in itertools.pairwise([0.0, *burnup])]
     integrator = bos_transport_integrator()(
@@ -175,6 +223,8 @@ def solve_step(source: Path, work: Path, k: int, threads: int | None) -> None:
         )
         + "\n"
     )
+    if backend.collect is not None:
+        backend.collect(step, k, work / f"step-{k - 1}" if k > 1 else None)
     # 再開にも extract にも使わない（結果は depletion_results.h5）。区間ごとに 20 MB を S3 に置かない
     for statepoint in step.glob("statepoint.*.h5"):
         statepoint.unlink()
@@ -182,9 +232,7 @@ def solve_step(source: Path, work: Path, k: int, threads: int | None) -> None:
 
 
 def solve(source: Path, work: Path, *, restart: bool, threads: int | None) -> None:
-    from openmc_depletion import read
-
-    run = read(source)
+    run = backend_of(source).read(source)
     total = len(run["burnup"])
     threads = run["threads"] if threads is None else threads
     work.mkdir(parents=True, exist_ok=True)
@@ -204,8 +252,7 @@ def solve(source: Path, work: Path, *, restart: bool, threads: int | None) -> No
 
 
 def extract(source: Path, work: Path, output: Path) -> None:
-    from openmc_depletion import extract as extract_one
-
+    backend = backend_of(source)
     done = complete_steps(work)
     if not done:
         raise SystemExit(f"{work} has no complete step")
@@ -216,9 +263,9 @@ def extract(source: Path, work: Path, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         merged = Path(tmp)
-        for name in ("depletion_results.h5", "transport-seconds.json"):
+        for name in backend.result_files:
             (merged / name).symlink_to(last / name)
-        extract_one(source, merged, output / f"{source.stem}.msgpack")
+        backend.extract(source, merged, output / f"{source.stem}.msgpack")
 
 
 def main(argv: list[str]) -> None:

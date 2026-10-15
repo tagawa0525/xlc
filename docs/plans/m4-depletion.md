@@ -184,8 +184,16 @@ examples/vera/verification.md の Problem 3）。
 
 これは新しい燃料（燃料の核種 5: U-234、U-235、U-236、U-238、O-16）の時間である。燃焼した燃料は数百の核種を持ち、燃料の中の衝突ごとの巨視的断面積の
 計算がそれに比例して重くなるので、1 回の輸送は遅くなる。また openmc.deplete は、燃焼する材料（ピンかリング）ごとに鎖の核種の反応率を tally するので、材料の数 × 核種の数に
-比例する時間も加わる。これらを合わせた倍率 s は測っていない。2〜4 倍と見込む（見積もり）。最初に、
-燃焼した組成と燃焼の tally を入れたピンごとの材料の短い走行で s と、核種を足したライブラリの記憶量を測る（「進め方」1）。
+比例する時間も加わる。これらを合わせた倍率 s は、2A の短い走行（examples/depletion/p2/s-2A-fresh.toml と s-2A-burned.toml。粒子 2 万・40 世代、8 スレッド、
+手元の Slurm の `-c 8`。時間は記録に書かない見積もり。2026-10-15。コミット 9221aba5 の入力と `openmc_depletion_assembly.py` の `run` と `transport`。ブランチ feat/depletion-assembly-inputs）で測った。
+`openmc_depletion_assembly.py` の `transport`（燃焼せずに 1 回解く。新しい燃料）で 1 世代 0.155 と 0.203 秒（2 回）、燃焼した燃料（ピンセルの
+5 MWd/kg の組成、輸送する 90 核種）で 0.323 と 0.328 秒（2 回、組成だけで 1.6〜2.1 倍）。燃焼（`run`、1 ステップ、輸送 3 回）の 1 回の輸送
+（燃焼の tally と組成の更新を含む）は、新しい燃料から始めたもので 8.2〜9.3 秒、燃焼した燃料から始めたもので 7.9〜9.4 秒（1 世代
+0.20〜0.24 秒）で、新しい燃料の `transport` に対して s = 1.1〜1.5 だった。燃焼した組成の `transport` だけが遅い（1.6〜2.1 倍）理由は
+確かめていない（OpenMC の燃焼は輸送の前に物質の組成を更新するので、微量の核種の扱いが違う可能性。候補）。計画の見積もりには、安全側に
+s = 1.5（測った 1.1〜1.5 の上）と 2.1（組成だけの上限）を使う。この s は、ライブラリの輸送する核種が 90 のときの値で、縮約した鎖（#0116。
+300 核種見込み）では増える（測っていない）。ライブラリの記憶量は、OpenMC が 742 MB（90 核種、565 と 600 K）、xlc の多群ライブラリが
+226 MB、核種ごとの msgpack が 216 MB。集合体用のライブラリの作成は、xlc が 181 段階で 1 時間 22 分（`-c 8`、NJOY と xs を合わせて。時間は記録に書かない）。
 
 1 本の集合体を 60 GWd/t まで燃やす（1 ステップの輸送の回数は、予測子・修正子の多くの方式で 2。最後の点を足す）:
 
@@ -201,6 +209,21 @@ s = 2〜4 で約 19,000〜39,000 物理コア時間（見積もり。分岐の 1
 「参照解」）を減らせば比例して減る。燃焼の途中の点で、ピン出力の統計誤差が ADR-0032 の目標（rms 0.2%）に比べて十分小さい数は、
 ADR で決める。外部の計算機（クラウド。別に選ぶ）のコアは 9950X（Zen 5）と速さが違うので、選んだ計算機で短い走行を測って
 見積もり直す。CRAM の時間（材料の数 × 鎖の大きさ）は、輸送に比べて小さいと見込む（測っていない）。
+
+集合体の入力（examples/depletion/p2。ADR-0178）の条件は、1 世代 100 万粒子・100 世代（最初の 40 世代を捨てる）で、対称操作の組で平均した
+ピン出力の統計誤差は約 0.065%（2A の短い走行の 0.80%（粒子 2 万・数える 20 世代）から、粒子数の平方根で換算）。1 回の輸送は、上の
+1 世代 5.1 秒（16 物理コア、9950X）× 100 世代 = 2.27 物理コア時間（s = 1）。点は 40 点（2A、2F、2N、履歴 2 本。輸送 81 回）と 70 点（2M、2O、2P。
+輸送 141 回）で、2N を 70 点にする計画の表の数え方と違う（ユーザーの決定で 40 点）:
+
+| 一式（8 本。分岐の 180 回を含まない） | 輸送の回数 | s = 1 | s = 1.5 | s = 2.1 |
+| ------------------------------------- | ---------- | ----- | ------- | ------- |
+| 40 点 5 本                            | 405        | 920   | 1,380   | 1,930   |
+| 70 点 3 本                            | 423        | 960   | 1,440   | 2,020   |
+| 合計（物理コア時間）                  | 828        | 1,880 | 2,820   | 3,950   |
+
+AWS（c7a のスポット。$0.015〜0.023/物理コア時間。ADR-0151）の費用は、s = 1.5 で約 $42〜65、s = 2.1 で約 $59〜91（EBS を除く。c7a の速さは 9950X と
+違い、測っていない）。1 本の時間は、c7a.4xlarge（16 物理コア）で 40 点が s = 1.5 で約 17 時間、70 点が約 30 時間（s = 2.1 で 24 と 42 時間）。
+`--type auto` は大きい機種（c8a.8xlarge は 32 vCPU、aws_types.toml の速さの見込みは c7a.4xlarge の 2.4 倍）も選ぶので、短くなりうる。
 
 参照のライブラリ（NJOY で燃焼鎖の核種を燃料の温度などで処理し、HDF5 にする）は、M2、M3 の参照解のライブラリ（examples/vera/openmc-library.toml。ADR-0130 の段階）に
 ない核種が数百あり、作るのに Slurm の重い計算が要る。時間は測っていない（「進め方」1 で作って測る）。
@@ -258,7 +281,7 @@ ADR で決める。外部の計算機（クラウド。別に選ぶ）のコア�
 
 1. OpenMC の燃焼の時間を測る: 燃焼鎖の核種の参照のライブラリを NJOY で作り（その時間も測る）、燃焼した組成（OpenMC が
    ENDF から作る鎖で短く燃やしたもの）の短い走行で、1 世代の時間の
-   倍率 s とライブラリの記憶量を測り、参照解の物理コア時間を見積もり直す。外部の計算機を選ぶ検討の入力にする — 未着手
+   倍率 s とライブラリの記憶量を測り、参照解の物理コア時間を見積もり直す。外部の計算機を選ぶ検討の入力にする — 済（2A の短い走行で s = 1.1〜1.5、組成だけ 1.6〜2.1 を測り、集合体の一式の見積もりを上の表に書いた。ブランチ feat/depletion-assembly-inputs、ADR-0178。c7a の速さは未測定）
 2. 燃焼鎖: xs が decay と nfy から全核種の鎖を作り（ADR-0034）、OpenMC の鎖と比べる。縮約した鎖の方式を ADR で決める
    — 全核種の鎖は済（feat/depletion-chain-type と feat/depletion-chain のマージ。ADR-0164、ADR-0166。記録は
    examples/depletion/verification.md の「燃焼鎖」）。縮約の方式は ADR-0165（proposed）で決め、実装と閾値は #0116
@@ -282,6 +305,47 @@ ADR で決める。外部の計算機（クラウド。別に選ぶ）のコア�
 8. 熱水力（M4 で入れると ADR で決めたら）と Problem 6、7 — 未着手
 9. Problem 9 の燃焼と臨界ホウ素濃度の比較（その前に、BOC の B-10 19.78 at% を扱えるようにする。#0036 の換算か、その値で
    テーブルを作る）、Problem 10 の装荷替え — 未着手
+
+### 流すだけの手順（集合体 8 本の燃焼の参照解と xlc。ADR-0178）
+
+入力は examples/depletion/p2/（`p2_inputs.py` が OpenMC の `openmc-<ジョブ>.toml` と xlc の `lattice-<ジョブ>.toml` を同じ表から書く）。ジョブは
+`2A`、`2F`、`2M`、`2N`、`2O`、`2P`、`2A-density`、`2A-rods`。ライブラリは作ってある（`dvc checkout examples/depletion/p2/dvc.yaml` で戻す）。
+OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに独立なので同時に進めてよい。
+
+1. 前提: `aws login`（約 12 時間で切れる）。worktree で `dvc checkout dvc.yaml examples/depletion/dvc.yaml examples/depletion/p2/dvc.yaml`（`bin/`、鎖、ライブラリ）
+2. OpenMC を AWS に流す（リポジトリの直下から。名前 `m4-assembly` は比較の段階の deps が決める）。最初に `--dry-run`:
+
+   ```sh
+   jobs=$(printf 'examples/depletion/p2/openmc-%s.toml ' 2A 2O 2P 2M 2F 2N 2A-density 2A-rods)
+   examples/aws/aws_run.sh --dry-run --type auto m4-assembly $jobs
+   examples/aws/aws_run.sh --type auto --max-hours 24 m4-assembly $jobs     # 8 台。流す順（スポットのクォータに収まらなければ前から）
+   nohup examples/aws/aws_watch.sh m4-assembly > ~/aws-watch-m4-assembly.log 2>&1 &   # 中断の起動し直し（ステップの境界から）
+   examples/aws/aws_status.sh                                                # 進み具合
+   examples/aws/aws_fetch.sh --verify --delete m4-assembly                   # 全部 done のあと。references/openmc/aws/m4-assembly/ に取り出す
+   ```
+
+   見込み（このブランチの s の測定から。c7a の速さは未測定）: 1 本の時間は 40 点で約 17〜24 時間、70 点で約 30〜42 時間（c7a.4xlarge。
+   `--type auto` が大きい機種を選べば短い）、費用は 8 本で約 $42〜91。`--max-hours` を超えると VM が止まるので、`aws_watch.sh` が
+   起動し直す（失うのは多くて 1 ステップ、約 30 分）。`aws login` が切れたら起動し直しが止まる（VM は動き続ける）。
+3. xlc を手元の Slurm に流す（排他、1 本ずつ。時間は記録に書く。`dvc.lock` をコミットする）。いま走るのは 5 本（2A、2A-density、2A-rods、2O、2P）。
+   2F、2M、2N は lattice が吸収体（Pyrex、IFBA の被覆、WABA）を燃やせず止まる（#0139）ので、その機能のあとに流す。2O と 2P の入力は
+   `track-table = false`（#0129）:
+
+   ```sh
+   cd <worktree> && ~/.claude/scripts/slurm-run.sh -t 130 xlc-2A 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A' \
+     && ~/.claude/scripts/slurm-run.sh -t 140 xlc-2A-density 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-density' \
+     && ~/.claude/scripts/slurm-run.sh -t 160 xlc-2A-rods 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-rods' \
+     && ~/.claude/scripts/slurm-run.sh -t 1400 xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O' \
+     && ~/.claude/scripts/slurm-run.sh -t 1500 xlc-2P 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2P'
+   ```
+
+   `-t`（分）は、1 点の試行（燃焼度 0.1 だけ、輸送 3 回、16 スレッド、排他。2026-10-15、trials のコミット前の入力で記録に書かない）の 1 回の輸送の時間
+   2A 72 秒、2A-density 76 秒、2A-rods 91 秒、2O 455 秒、2P 480 秒（核種 89〜90。2O と 2P は自己遮蔽が 98%）に、輸送の回数（81 と 141）を掛け、約 1.3 倍した
+   見積もり（1.6、1.7、2.0、17.8、18.8 時間の 1.3 倍。燃焼が進んで UFG の点が増えるとさらに長い見込みで、測っていない）。
+   `dvc repro examples/depletion/p2/dvc.yaml` 全体は、比較の段階が OpenMC の結果を要るので、AWS の取り出しの前は失敗する。
+4. 比較: AWS の結果を取り出したあと `dvc repro examples/depletion/p2/dvc.yaml:compare@2A`（ほかも同じ）。`compare-<ジョブ>.json` は git で追跡する
+   （ピンセルの compare-1C と同じ）。記録（examples/depletion/verification.md）は、スキル verification-record の手順で書く。ピン出力の比較は、
+   xlc の燃焼がピン出力を出すまで（#0135）できない（OpenMC の結果にはピン出力とその統計誤差がある）。
 
 M3 の残り（Problem 4、5 の 3D の炉心、制御棒の部分挿入、2G の AIC の差、UFG の残る偏り #0005、4 eV より下の共鳴 #0001）との関係:
 
