@@ -71,6 +71,15 @@ JOBS = {
     ),
 }
 
+# 時間の倍率 s を測る短い実行（2A。粒子 2 万・世代 40、手元の Slurm の `-c 8`）。初めの組成は新しい燃料と、ピンセルの燃焼
+# （../openmc-1C-rings1.msgpack。燃焼度の点 [0, 0.1, 0.5, 1, 2, 3, 5] の 5 MWd/kg、番号 6）の燃料の組成
+S_PARTICLES = 20_000
+S_BATCHES = 40
+S_INACTIVE = 20
+S_THREADS = 8
+S_BURNUP = [0.1]
+S_RUNS = {"s-2A-fresh": None, "s-2A-burned": ("../openmc-1C-rings1.msgpack", 6)}
+
 # セルの種類 → lattice の入力のセルの名前
 CELL_NAMES = {
     "fuel": "pin",
@@ -213,8 +222,38 @@ def openmc_input(job: str) -> str:
     )
 
 
+def s_input(name: str) -> str:
+    start = S_RUNS[name]
+    source = (
+        "燃料の初めの組成は新しい燃料"
+        if start is None
+        else f"燃料の初めの組成はピンセルの燃焼（{start[0]}）の点 {start[1]}（5 MWd/kg）"
+    )
+    extra = (
+        ""
+        if start is None
+        else f'start-from = "{start[0]}"\nstart-point = {start[1]}\n'
+    )
+    return (
+        "# 時間の倍率 s（燃焼した燃料と燃焼の tally による輸送の時間の倍率。docs/plans/m4-depletion.md の「OpenMC の燃焼の参照解の\n"
+        f"# 物理コア時間」）を測る短い実行（ADR-0178）: 2A の 1 ステップ（{S_BURNUP[0]:g} MWd/kg、輸送 3 回）、粒子 {S_PARTICLES:,}・{S_BATCHES} 世代\n"
+        f"# （最初の {S_INACTIVE} 世代を捨てる）、{S_THREADS} スレッド。{source}。openmc_depletion_assembly.py の run と transport で解く\n"
+        "# （手元の Slurm で `-c 8`。時間は記録に書かない）。p2_inputs.py が書く。手で直さない。\n"
+        'problem = "2A"\n'
+        'cross-sections = "openmc-library/cross_sections.xml"\n'
+        'chain = "../openmc-chain.xml"\n'
+        f"power = {POWER:g}\n"
+        f"burnup = {burnup_lines(S_BURNUP)}\n"
+        f"particles = {S_PARTICLES}\n"
+        f"batches = {S_BATCHES}\n"
+        f"inactive = {S_INACTIVE}\n"
+        f"seed = {SEED}\n"
+        f"threads = {S_THREADS}\n" + extra
+    )
+
+
 def files() -> dict[Path, str]:
-    out = {}
+    out = {P2 / f"{name}.toml": s_input(name) for name in S_RUNS}
     for job in JOBS:
         out[P2 / f"openmc-{job}.toml"] = openmc_input(job)
         out[P2 / f"lattice-{job}.toml"] = lattice_input(job)
