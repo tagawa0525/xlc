@@ -83,7 +83,7 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 - k: 15 の格子で、ENDF/B-VII.0 の xlc − KENO-VI は +115〜+270 pcm（平均 +165）、3A は +181 pcm、3B は +166 pcm。ENDF/B-VIII.0 では
   格子が +4〜+197 pcm（平均 +98）、3A が +84 pcm、3B が +193 pcm。VII.0 のほうが小さいのは 2F、2G、2J、3B だけで、1B〜1D、2A〜2D、2I、2Q と 3A では VII.0 のほうが +91〜+164 pcm 大きく、
   2E、2H、2K は +8〜+23 pcm 大きい。
-- VIII.0 の xlc − OpenMC（同じ核データの手法の差。verification.md の「OpenMC との比較」の f47f4187）は格子で平均 +46 pcm
+- VIII.0 の xlc − OpenMC（同じ核データの手法の差。verification.md の「OpenMC との比較」の dab3bca8）は格子で平均 +46 pcm
   （−56〜+112）、3A が +60 pcm、3B が +69 pcm（3A と 3B は ADR-0177 の前のライブラリ）。核データの版が揃えば xlc − KENO-VI もこの大きさになると見込んだが、VII.0 の
   xlc − KENO-VI は平均で約 +119 pcm 大きい。VIII.0 では xlc − KENO-VI（平均 +98）が xlc − OpenMC（+46）と OpenMC − KENO-VI（+52）の
   和（+98）に等しいので、この食い違いは VII.0 のライブラリでの xlc の動きにある。原因は確かめていない
@@ -100,6 +100,6 @@ xlc は bc0e5824（分岐点 b64320e9）、2026-10-15。ライブラリと格子
 （`endfb70-keno-lattices`）、3A と 3B は排他のジョブ 378（`endfb70-keno-p3`、9 分）で、`dvc repro` を走らせた。段階の入力と出力の md5 は
 `endfb70/dvc.lock`、`endfb70/p3/dvc.lock`、`dvc.lock`。VIII.0 の 3A、3B の JSON は verification.md の「Problem 3 の炉心の計算」
 のコミットのもの。VIII.0 の格子は、非分離共鳴をラダーのサンプリングで遮蔽したライブラリ（[ADR-0177](../../docs/adr/0177-shield-unresolved-range-by-probability-tables.md)）で
-解き直したもの（xlc f47f4187、分岐点 2f7b7649、2026-10-15。1B と 2A は排他のジョブ 397、ほかは排他でないジョブ 399 の `keno-*` の段階。
+解き直したもの（xlc dab3bca8、分岐点 2f7b7649、2026-10-15。1B と 2A は排他のジョブ 397、ほかは排他でないジョブ 399 の `keno-*` の段階。
 verification.md の「OpenMC との比較」）。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
 （[ADR-0176](../../docs/adr/0176-generate-verification-tables.md)）。
