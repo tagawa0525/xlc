@@ -11,11 +11,14 @@ use crate::multigroup::{
     ShieldingError, SlowingDown, Thermal, ThermalSab, UnresolvedShielding, Weight, emits_neutrons,
     fission_spectrum, reaction_averages, scattering_moments, shielded_averages, uses_angular,
 };
+use crate::parallel::in_parallel;
 use crate::physics::BK;
 use crate::pointwise::{
     ColdParts, DEFAULT_TOLERANCE, left_limit, linearize, resonance_tables, right_limit,
 };
-use crate::resonance::{Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation};
+use crate::resonance::{
+    Sampling, Sigma, UnresolvedXs, UrrError, unresolved_grid, unresolved_interpolation,
+};
 use xlc_format::group::GroupStructure;
 use xlc_format::library::{
     CHAIN_REACTIONS, ChannelState, GroupChannel, GroupReaction, NuclideData, Pointwise, Resolved,
@@ -209,28 +212,42 @@ pub fn unresolved_shielding(
         })
     };
 
-    let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
-    let mut infinite = Vec::with_capacity(grid.len());
-    for &e in &grid {
+    // 格子点ごとに独立なので並列に求める。種は格子点の番号（温度と σ0 によらず同じラダーを使い、温度の間の相関を保つ。
+    // スレッドの数によらない。ADR-0177）
+    let sampled = in_parallel(grid.len(), |i| {
+        let e = grid[i];
         let background = Sigma {
             total: at(&total, e),
             elastic: at(&elastic, e),
             fission: at(&fission, e),
             capture: at(&capture, e),
         };
-        for (row, s) in shielded
-            .iter_mut()
-            .zip(xs.shielded(e, temperature, sigma0, background)?)
-        {
+        xs.shielded(
+            e,
+            temperature,
+            sigma0,
+            background,
+            Sampling::LIBRARY,
+            i as u64,
+        )
+    })?;
+    let floored: usize = sampled.iter().map(|b| b.floored).sum();
+    if floored > 0 {
+        let samples = Sampling::LIBRARY.ladders * Sampling::LIBRARY.samples * grid.len();
+        tracing::warn!(
+            "{temperature} K: the sampled elastic (with the MF3 background) is negative at {floored} of \
+             {samples} sampled energies in the unresolved range and is raised to 1 microbarn, as NJOY PURR does"
+        );
+    }
+    let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
+    let mut infinite = Vec::with_capacity(grid.len());
+    for b in &sampled {
+        for (row, s) in shielded.iter_mut().zip(&b.shielded) {
             row.push([s.total, s.elastic, s.fission, s.capture]);
         }
-        let average = xs.cross_sections(e)?;
-        infinite.push([
-            average.total + background.total,
-            average.elastic + background.elastic,
-            average.fission + background.fission,
-            average.capture + background.capture,
-        ]);
+        // 無限希釈の欄は同じサンプルの平均にして、補正（LSSF=0 の差、LSSF=1 の比）がサンプルの揺らぎの 1 次を打ち消すようにする
+        let mean = b.mean;
+        infinite.push([mean.total, mean.elastic, mean.fission, mean.capture]);
     }
     Ok(Some(UnresolvedShielding::new(
         range.el, range.eh, urr.lssf, grid, law, shielded, infinite,
