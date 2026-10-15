@@ -185,7 +185,7 @@ examples/vera/verification.md の Problem 3）。
 これは新しい燃料（燃料の核種 5: U-234、U-235、U-236、U-238、O-16）の時間である。燃焼した燃料は数百の核種を持ち、燃料の中の衝突ごとの巨視的断面積の
 計算がそれに比例して重くなるので、1 回の輸送は遅くなる。また openmc.deplete は、燃焼する材料（ピンかリング）ごとにチェーンの核種の反応率を tally するので、材料の数 × 核種の数に
 比例する時間も加わる。これらを合わせた倍率 s は、2A の短い実行（examples/depletion/p2/s-2A-fresh.toml と s-2A-burned.toml。粒子 2 万・40 世代、8 スレッド、
-手元の Slurm の `-c 8`。時間は記録に書かない見積もり。2026-10-15。コミット 178e3b64 の入力と `openmc_depletion_assembly.py` の `run` と `transport`。ブランチ feat/depletion-assembly-inputs）で測った。
+手元の Slurm の `-c 8`。時間は記録に書かない見積もり。2026-10-15。コミット 0710621f の入力と `openmc_depletion_assembly.py` の `run` と `transport`。ブランチ feat/depletion-assembly-inputs）で測った。
 `openmc_depletion_assembly.py` の `transport`（燃焼せずに 1 回解く。新しい燃料）で 1 世代 0.155 と 0.203 秒（2 回）、燃焼した燃料（ピンセルの
 5 MWd/kg の組成、輸送する 90 核種）で 0.323 と 0.328 秒（2 回、組成だけで 1.6〜2.1 倍）。燃焼（`run`、1 ステップ、輸送 3 回）の 1 回の輸送
 （燃焼の tally と組成の更新を含む）は、新しい燃料から始めたもので 8.2〜9.3 秒、燃焼した燃料から始めたもので 7.9〜9.4 秒（1 世代
