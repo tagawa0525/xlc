@@ -1,7 +1,7 @@
 # 燃焼の検証のピンセル（VERA Problem 1C。openmc_depletion.py）の OpenMC の連続エネルギーのライブラリの入力
 # （../vera/openmc_library.py）。核種は xlc の燃焼の検証の多群ライブラリ（xs.toml、ADR-0169）と同じ組で、輸送する核種の組を xlc と
-# 揃える（どちらも、ライブラリにない鎖の核種は崩壊だけ。ADR-0173。xlc のライブラリが外した Pm-147、Pm-149、Am-242m、Eu-151
-# （#0127）は、ここにも入れない）。片方を変えたら他方も直す。燃やすのは Problem 1C
+# 揃える（どちらも、ライブラリにない鎖の核種は崩壊だけ。ADR-0173。Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 は ADR-0177 で
+# xlc のライブラリに戻したので、ここにも入れる）。片方を変えたら他方も直す。燃やすのは Problem 1C
 # （燃料 900 K、被覆管と減速材 600 K）なので、燃料にある核種（U、鎖の核種）は 900 K、被覆管と減速材の核種は 600 K、両方に
 # ある O-16 と、核分裂生成物でもある Zr と Sn は 600 と 900 K で作り、OpenMC は最も近い温度のモードで解く。燃料では、900 K の
 # データのある核種だけを輸送する（openmc_depletion.py。xlc と同じ規則。ADR-0173）
@@ -167,6 +167,10 @@ temperatures = [900]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_243.endf"
 temperatures = [900]
 
+[neutron.Am242_m1]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_242m1.endf"
+temperatures = [900]
+
 [neutron.Cm242]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_242.endf"
 temperatures = [900]
@@ -215,8 +219,20 @@ temperatures = [900]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_145.endf"
 temperatures = [900]
 
+[neutron.Pm147]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_147.endf"
+temperatures = [900]
+
+[neutron.Pm148]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148.endf"
+temperatures = [900]
+
 [neutron.Pm148_m1]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148m1.endf"
+temperatures = [900]
+
+[neutron.Pm149]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_149.endf"
 temperatures = [900]
 
 [neutron.Sm147]
@@ -237,6 +253,10 @@ temperatures = [900]
 
 [neutron.Sm152]
 endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_152.endf"
+temperatures = [900]
+
+[neutron.Eu151]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_151.endf"
 temperatures = [900]
 
 [neutron.Eu153]
