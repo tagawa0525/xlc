@@ -120,4 +120,5 @@ stages:
         - lattice-${item}.msgpack
         - ../../../references/openmc/aws/m4-assembly/openmc-${item}/openmc-${item}.msgpack
       outs:
-        - compare-${item}.json
+        - compare-${item}.json:
+            cache: false
