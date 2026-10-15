@@ -327,15 +327,22 @@ OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに�
    見込み（このブランチの s の測定から。c7a の速さは未測定）: 1 本の時間は 40 点で約 17〜24 時間、70 点で約 30〜42 時間（c7a.4xlarge。
    `--type auto` が大きい機種を選べば短い）、費用は 8 本で約 $42〜91。`--max-hours` を超えると VM が止まるので、`aws_watch.sh` が
    起動し直す（失うのは多くて 1 ステップ、約 30 分）。`aws login` が切れたら起動し直しが止まる（VM は動き続ける）。
-3. xlc を手元の Slurm に流す（排他、1 本ずつ。時間は記録に書く。`dvc.lock` をコミットする）:
+3. xlc を手元の Slurm に流す（排他、1 本ずつ。時間は記録に書く。`dvc.lock` をコミットする）。いま走るのは 5 本（2A、2A-density、2A-rods、2O、2P）。
+   2F、2M、2N は lattice が吸収体（Pyrex、IFBA の被覆、WABA）を燃やせず止まる（#0139）ので、その機能のあとに流す。2O と 2P の入力は
+   `track-table = false`（#0129）:
 
    ```sh
-   cd <worktree> && ~/.claude/scripts/slurm-run.sh -t <見積もり> xlc-2A 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A' \
-     && ~/.claude/scripts/slurm-run.sh -t <見積もり> xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O'   # 以下 2P 2M 2F 2N 2A-density 2A-rods
+   cd <worktree> && ~/.claude/scripts/slurm-run.sh -t 130 xlc-2A 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A' \
+     && ~/.claude/scripts/slurm-run.sh -t 140 xlc-2A-density 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-density' \
+     && ~/.claude/scripts/slurm-run.sh -t 160 xlc-2A-rods 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-rods' \
+     && ~/.claude/scripts/slurm-run.sh -t 1400 xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O' \
+     && ~/.claude/scripts/slurm-run.sh -t 1500 xlc-2P 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2P'
    ```
 
-   `dvc repro examples/depletion/p2/dvc.yaml` 全体は、比較の段階が OpenMC の結果を要るので、AWS の取り出しの前は失敗する。見積もりは
-   XLC_TIME_PLACEHOLDER
+   `-t`（分）は、1 点の試行（燃焼度 0.1 だけ、輸送 3 回、16 スレッド、排他。2026-10-15、trials のコミット前の入力で記録に書かない）の 1 回の輸送の時間
+   2A 72 秒、2A-density 76 秒、2A-rods 91 秒、2O 455 秒、2P 480 秒（核種 89〜90。2O と 2P は自己遮蔽が 98%）に、輸送の回数（81 と 141）を掛け、約 1.3 倍した
+   見積もり（約 2.0、2.1、2.5、18、19 時間 × 1.3 の程度。燃焼が進んで UFG の点が増えるとさらに長い見込みで、測っていない）。
+   `dvc repro examples/depletion/p2/dvc.yaml` 全体は、比較の段階が OpenMC の結果を要るので、AWS の取り出しの前は失敗する。
 4. 比較: AWS の結果を取り出したあと `dvc repro examples/depletion/p2/dvc.yaml:compare@2A`（ほかも同じ）。`compare-<ジョブ>.json` は git で追跡する
    （ピンセルの compare-1C と同じ）。記録（examples/depletion/verification.md）は、スキル verification-record の手順で書く。ピン出力の比較は、
    xlc の燃焼がピン出力を出すまで（#0135）できない（OpenMC の結果にはピン出力とその統計誤差がある）。
