@@ -67,6 +67,8 @@ pub struct NeutronEvaluation {
     pub mts: Vec<u32>,
     /// MF8 が生成物の状態を MF9 か MF10 で挙げる反応の MT と、その状態（MT の昇順）
     pub final_states: Vec<(u32, Vec<FinalStateEntry>)>,
+    /// MF3 MT18 の QI (eV)。MT18 がなければ `None`
+    pub fission_q: Option<f64>,
 }
 
 /// 核分裂の 1 つの生成物の独立収率。
@@ -222,6 +224,15 @@ pub fn read_neutron(text: &str, reaction_mts: &[u32]) -> Result<NeutronEvaluatio
     let mat = material.mat;
     let mut mts = tape.mts(mat, 3);
     mts.sort_unstable();
+    // MF3 の 2 つ目のレコード（CONT）の C2 が QI
+    let fission_q = match tape.section(mat, 3, 18) {
+        Some(section) => {
+            let mut r = section.reader();
+            r.cont()?;
+            Some(r.cont()?.c2)
+        }
+        None => None,
+    };
     let mut final_states_of = Vec::new();
     let mut wanted = reaction_mts.to_vec();
     wanted.sort_unstable();
@@ -234,6 +245,7 @@ pub fn read_neutron(text: &str, reaction_mts: &[u32]) -> Result<NeutronEvaluatio
         material,
         mts,
         final_states: final_states_of,
+        fission_q,
     })
 }
 

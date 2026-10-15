@@ -1,5 +1,6 @@
 //! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
 //! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
+//! 入力に燃焼（`[depletion]`）があれば、燃焼点ごとの k∞、数密度、少数群定数を燃焼の履歴のファイルに書く（ADR-0173）。
 //!
 //! 使い方: lattice <入力ファイル>
 //!
@@ -27,11 +28,13 @@ use anyhow::{Context, anyhow};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+use xlc_depletion::chain::Chain;
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::Medium;
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::tables;
+use xlc_lattice::depletion::LibraryReactions;
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
@@ -174,6 +177,45 @@ fn run(path: &Path) -> anyhow::Result<()> {
             Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?)
         }
     };
+    if let Some(depletion) = &input.depletion {
+        let Source::Library(library) = &source else {
+            return Err(anyhow!("{}: depletion needs a library", shown(path)));
+        };
+        let file = base.join(&depletion.chain);
+        let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+        let chain = Chain::from_msgpack(&bytes).with_context(|| shown(&file))?;
+        let history = xlc_lattice::depletion::run(
+            &input,
+            depletion,
+            library,
+            &chain,
+            &tracking,
+            &region_materials,
+            &chosen,
+            &LibraryReactions(library),
+        )
+        .with_context(|| format!("{}: depletion", shown(path)))?;
+        for point in &history.points {
+            println!("burnup {} k {:.6}", point.burnup, point.k);
+        }
+        // 時間の内訳（ADR-0173 の「全体像」を測るため）
+        let (t, d) = (history.transport, history.depletion);
+        tracing::info!(
+            solves = history.solves,
+            regions = history.regions.len(),
+            shielding = t.shielding.as_secs_f64(),
+            moc = t.moc.as_secs_f64(),
+            rates = t.rates.as_secs_f64(),
+            matrix = d.matrix.as_secs_f64(),
+            cram = d.cram.as_secs_f64(),
+            total_seconds = start.elapsed().as_secs_f64(),
+            "depletion"
+        );
+        let output = base.join(&depletion.output);
+        let bytes = history.to_msgpack().with_context(|| shown(&output))?;
+        std::fs::write(&output, bytes).with_context(|| shown(&output))?;
+        return Ok(());
+    }
     let groups = match &source {
         Source::Library(library) => Some(library.groups.clone()),
         Source::Macroscopic(_) => None,

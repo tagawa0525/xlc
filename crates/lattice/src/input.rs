@@ -62,6 +62,14 @@
 //! [cell.box]
 //! zones = [{ material = "water", rings = 1 }]
 //! grid = 4                        # 均質なセルを 4 × 4 の正方形に分ける（省略すると 1）
+//!
+//! [depletion]                     # 燃焼（ADR-0173。分岐、ピン出力、媒質、ファイルの few-group とは使えない）
+//! chain = "chain.msgpack"         # 燃焼チェーン
+//! power = 38.41                   # 初めの重金属の出力密度 (W/g)
+//! burnup = [0.1, 0.5, 1.0]        # 燃焼度の点 (MWd/kg)
+//! materials = ["fuel"]            # 燃焼させる物質（核種で書いたもの）
+//! output = "history.msgpack"      # 燃焼の履歴
+//! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -78,6 +86,7 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
+use crate::depletion::{DepletionFewGroup, DepletionInput};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::shielding::ShieldingOptions;
@@ -200,6 +209,8 @@ pub struct LatticeInput {
     pub gap: Option<Gap>,
     /// 分岐（ADR-0097）。`None` なら物質は書いたままの1つの状態
     pub branches: Option<Branches>,
+    /// 燃焼（ADR-0173）。`None` なら燃焼させない
+    pub depletion: Option<DepletionInput>,
 }
 
 /// 少数群定数の出力。
@@ -299,6 +310,30 @@ struct InputFile {
     cell: BTreeMap<String, CellEntry>,
     /// 省略すると分岐なし
     branches: Option<BranchesEntry>,
+    /// 省略すると燃焼させない
+    depletion: Option<DepletionEntry>,
+}
+
+/// 燃焼の条件（ADR-0173）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct DepletionEntry {
+    chain: PathBuf,
+    power: f64,
+    burnup: Vec<f64>,
+    materials: Vec<String>,
+    output: PathBuf,
+    /// 省略すると少数群定数を作らない
+    few_group: Option<DepletionFewGroupEntry>,
+}
+
+/// 燃焼点ごとの格子全体の少数群定数（燃焼の履歴に書く）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DepletionFewGroupEntry {
+    bounds: Vec<f64>,
+    /// 省略すると false
+    pins: Option<bool>,
 }
 
 /// 解くときに使う格子の対称性
@@ -789,6 +824,84 @@ impl LatticeInput {
             width: g.width,
             material: g.material,
         });
+        let depletion = file
+            .depletion
+            .map(|d| {
+                // 燃焼度の軸を持つテーブル、燃焼点ごとのピン出力と媒質は決めていない（ADR-0173）
+                if macroscopic || branches.is_some() {
+                    return Err("depletion needs a library and no branches (ADR-0173)".to_string());
+                }
+                if !self_shielding {
+                    return Err("depletion needs the self-shielding (ADR-0173)".into());
+                }
+                if file.pin_powers.is_some() || file.medium.is_some() {
+                    return Err("depletion writes neither `pin-powers` nor `medium`".into());
+                }
+                // 燃焼点ごとの定数は燃焼の履歴に入る（`[depletion]` の `few-group`）。ファイルの `few-group` は書かれないので受けない
+                if output.is_some() {
+                    return Err(
+                        "with [depletion], give the few-group bounds in [depletion] (`few-group = { bounds = [...] }`); \
+                         the constants of each point go into the depletion history"
+                            .into(),
+                    );
+                }
+                let few_group = match d.few_group {
+                    Some(f) => {
+                        if f.bounds.len() < 2 {
+                            return Err("the depletion few-group bounds need at least two energies".into());
+                        }
+                        let pins = f.pins.unwrap_or(false);
+                        // 格子全体の形状関数は外周がすべて鏡面反射の格子でだけ作る（ADR-0096）
+                        if pins && boundaries != Boundaries::REFLECTIVE {
+                            return Err("depletion `pins` need a lattice with every side reflective".into());
+                        }
+                        Some(DepletionFewGroup {
+                            bounds: f.bounds,
+                            pins,
+                        })
+                    }
+                    None => None,
+                };
+                if !positive(d.power) {
+                    return Err(format!("the depletion power must be positive, got {}", d.power));
+                }
+                if d.burnup.is_empty()
+                    || !d.burnup.iter().all(|&b| positive(b))
+                    || !d.burnup.windows(2).all(|w| w[0] < w[1])
+                {
+                    return Err(format!(
+                        "the burnup points must be positive and increasing, got {:?}",
+                        d.burnup
+                    ));
+                }
+                if d.materials.is_empty() {
+                    return Err("depletion needs the materials to deplete".into());
+                }
+                for (k, name) in d.materials.iter().enumerate() {
+                    if d.materials[..k].contains(name) {
+                        return Err(format!("depleted material `{name}` is listed twice"));
+                    }
+                    if !materials.iter().any(|m| &m.name == name) {
+                        return Err(format!(
+                            "depleted material `{name}` is not a material written with nuclides or water"
+                        ));
+                    }
+                    // 燃焼の領域の物質は `<物質>@<セル>` の名前で解く
+                    if name.contains('@') {
+                        return Err(format!("depleted material `{name}` must not contain `@`"));
+                    }
+                }
+                Ok(DepletionInput {
+                    chain: d.chain,
+                    power: d.power,
+                    burnup: d.burnup,
+                    materials: d.materials,
+                    output: d.output,
+                    few_group,
+                })
+            })
+            .transpose()
+            .map_err(invalid)?;
         Ok(Self {
             self_shielding,
             collision,
@@ -797,6 +910,7 @@ impl LatticeInput {
             pin_powers: file.pin_powers,
             medium: file.medium,
             branches,
+            depletion,
             pitch: file.pitch,
             azimuthal: file.azimuthal,
             spacing: file.spacing,

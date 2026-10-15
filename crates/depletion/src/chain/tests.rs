@@ -81,6 +81,7 @@ fn small_chain() -> Chain {
     );
     u235.reactions.push(capture(U236));
     u235.fission = Some(Fission {
+        q: 1.93e8,
         yield_source: "U-235".into(),
         energies: vec![0.0253, 5e5],
         yields: vec![
@@ -273,6 +274,15 @@ fn rejects_yields_that_do_not_match_the_energies() {
     let mut chain = small_chain();
     chain.nuclides[U235].fission.as_mut().unwrap().energies = vec![5e5, 0.0253];
     invalid(&chain);
+}
+
+#[test]
+fn rejects_non_positive_or_non_finite_fission_q() {
+    for q in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        let mut chain = small_chain();
+        chain.nuclides[U235].fission.as_mut().unwrap().q = q;
+        invalid(&chain);
+    }
 }
 
 #[test]

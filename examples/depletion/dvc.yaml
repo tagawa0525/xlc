@@ -3,8 +3,11 @@
 # references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps にする（ADR-0130）。
 # チェーンと範囲の段階は ENDF をディレクトリごと deps にする（sha256 で固定した。ADR-0124）。燃焼の検証の多群ライブラリ（ADR-0169）は、
 # examples/vera と同じ核種ごとの段階（範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）で作る
+# 格子計算の燃焼の検証（ADR-0173）の OpenMC のライブラリ（openmc-library.toml、核種ごとの段階は examples/vera と同じ
+# ../vera/openmc_library.py）と、OpenMC と xlc の燃焼、その比較の段階を持つ
 vars:
   - xs.toml
+  - openmc-library.toml
 stages:
   references-shell:
     # ツール（OpenMC とその Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
@@ -69,3 +72,109 @@ stages:
       - ../../bin/xs
     outs:
       - depletion.msgpack
+  openmc-neutron:
+    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ADR-0130）
+    foreach: ${neutron}
+    do:
+      cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
+      deps:
+        - ../vera/openmc_library.py
+        - ../openmc_input.py
+        - references-shell.txt
+        - ${item.endf}
+      params:
+        - openmc-library.toml:
+            - neutron.${key}
+      outs:
+        - openmc-library/neutron/${key}.h5
+  openmc-thermal:
+    foreach: ${thermal}
+    do:
+      cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
+      deps:
+        - ../vera/openmc_library.py
+        - ../openmc_input.py
+        - references-shell.txt
+        - ${item.neutron}
+        - ${item.thermal}
+      params:
+        - openmc-library.toml:
+            - thermal.${key}
+      outs:
+        - openmc-library/thermal/${key}.h5
+  openmc-index:
+    cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py index openmc-library.toml openmc-library
+    deps:
+      - ../vera/openmc_library.py
+      - ../openmc_input.py
+      - references-shell.txt
+      - openmc-library.toml
+      - openmc-library/neutron
+      - openmc-library/thermal
+    outs:
+      - openmc-library/cross_sections.xml
+  openmc-1C:
+    # OpenMC の燃焼（ADR-0173）。燃料のリングの数ごと。ライブラリはディレクトリ全体を deps にする（ADR-0130）
+    foreach: [rings1, rings4]
+    do:
+      cmd: nix develop ../..#references -c python3 openmc_depletion.py run openmc-1C-${item}.toml openmc-1C-${item}
+      deps:
+        - openmc_depletion.py
+        - ../vera/openmc_model.py
+        - ../openmc_common.py
+        - ../openmc_input.py
+        - references-shell.txt
+        - openmc-library
+        - openmc-chain.xml
+        - openmc-1C-${item}.toml
+      outs:
+        - openmc-1C-${item}
+  openmc-1C-extract:
+    foreach: [rings1, rings4]
+    do:
+      cmd: nix develop ../..#references -c python3 openmc_depletion.py extract openmc-1C-${item}.toml openmc-1C-${item} openmc-1C-${item}.msgpack
+      deps:
+        - openmc_depletion.py
+        - references-shell.txt
+        - openmc-1C-${item}
+        - openmc-1C-${item}.toml
+      outs:
+        - openmc-1C-${item}.msgpack
+  lattice-1C:
+    # xlc の格子計算の燃焼（ADR-0173）。燃焼点ごとの k∞ は標準出力に出るので、ファイルに受ける。燃焼の時間の内訳はログ（標準エラー）
+    foreach: [rings1, rings4]
+    do:
+      cmd: ../../bin/lattice lattice-1C-${item}.toml > lattice-1C-${item}.out 2> lattice-1C-${item}.log
+      deps:
+        - lattice-1C-${item}.toml
+        - depletion.msgpack
+        - chain.msgpack
+        - ../../bin/lattice
+      outs:
+        - lattice-1C-${item}.out
+        - lattice-1C-${item}.msgpack
+        - lattice-1C-${item}.log
+  lattice-2A:
+    # 集合体の燃焼の時間の内訳（ADR-0173）。1 ステップだけ
+    cmd: ../../bin/lattice lattice-2A.toml > lattice-2A.out 2> lattice-2A.log
+    deps:
+      - lattice-2A.toml
+      - depletion.msgpack
+      - chain.msgpack
+      - ../../bin/lattice
+    outs:
+      - lattice-2A.out
+      - lattice-2A.msgpack
+      - lattice-2A.log
+  compare-1C:
+    # 比べた要約（記録の表は verification_tables.py がここから描く。ADR-0176）
+    foreach: [rings1, rings4]
+    do:
+      cmd: python3 compare_depletion.py --json compare-1C-${item}.json lattice-1C-${item}.msgpack openmc-1C-${item}.msgpack
+      deps:
+        - compare_depletion.py
+        - lattice-1C-${item}.msgpack
+        - openmc-1C-${item}.msgpack
+      outs:
+        - compare-1C-${item}.json:
+            cache: false

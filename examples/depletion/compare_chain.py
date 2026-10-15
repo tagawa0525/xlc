@@ -202,6 +202,18 @@ def main():
             kinds["核分裂の有無"] += 1
             examples["核分裂の有無"].append(name)
     print(f"生成物が同じ反応 {same}")
+    # 核分裂の Q（ADR-0173）: どちらも MF3 MT18 の QI
+    q_diff = []
+    for name in sorted(set(xlc) & omc_names):
+        f = xlc[name]["fission"]
+        oq = [r.Q for r in omc[name].reactions if r.type == "fission"]
+        if f is not None and oq:
+            q_diff.append((abs(f["q"] - oq[0]) / oq[0], name))
+    if q_diff:
+        worst = max(q_diff)
+        print(
+            f"核分裂の Q: {len(q_diff)} 核種で相対差の最大 {worst[0]:.1e}（{worst[1]}）"
+        )
     for kind, n in kinds.most_common():
         print(f"{kind}: {n}（例: {'; '.join(examples[kind][:6])}）")
 
