@@ -63,8 +63,8 @@ stages:
     deps:
     - path: ../../bin/core
       hash: md5
-      md5: a8d61ca773e7ecb7508ba14d8fa61b20
-      size: 3026392
+      md5: d96dad3a9317e0bce17bcbb7cca81f80
+      size: 3023896
       isexec: true
     - path: assemblies.toml
       hash: md5
