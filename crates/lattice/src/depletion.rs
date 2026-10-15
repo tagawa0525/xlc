@@ -28,7 +28,7 @@ use xlc_format::table::Table;
 
 use crate::fewgroup::{homogenize, pin_shapes};
 use crate::geometry::Lattice;
-use crate::input::{FewGroupFiles, FewGroupOutput, LatticeInput, MaterialInput};
+use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
 use crate::moc::{Options, available_order, solve_symmetric};
 use crate::shielding::shield_fuel_with;
@@ -48,6 +48,17 @@ pub struct DepletionInput {
     pub materials: Vec<String>,
     /// 燃焼の履歴のファイル（入力のファイルのあるディレクトリから）
     pub output: PathBuf,
+    /// 燃焼点ごとに格子全体の少数群定数を作るなら、その条件
+    pub few_group: Option<DepletionFewGroup>,
+}
+
+/// 燃焼点ごとの格子全体の少数群定数の条件
+#[derive(Debug, Clone, PartialEq)]
+pub struct DepletionFewGroup {
+    /// 群境界 (eV)
+    pub bounds: Vec<f64>,
+    /// ピン出力の再構成の形状関数と角の不連続因子も作る（ADR-0096）
+    pub pins: bool,
 }
 
 /// 行列指数の次数（OpenMC の既定の CRAM48 と同じ。ADR-0173）
@@ -406,7 +417,7 @@ pub struct HistoryPoint {
     pub k: f64,
     /// [燃焼の領域][鎖の核種] の数密度 (1/(barn cm))
     pub densities: Vec<Vec<f64>>,
-    /// 入力の `few-group` の `output` があるときの、格子全体の少数群定数
+    /// `[depletion]` の `few-group` があるときの、格子全体の少数群定数
     pub few_group: Option<FewGroup>,
     /// この点の組成で解いた輸送の核種の数
     pub transported: usize,
@@ -795,13 +806,8 @@ pub fn run(
                 }
             }
         }
-        let few_group = match &input.output {
-            Some(FewGroupOutput {
-                bounds,
-                files: FewGroupFiles::Lattice(_),
-                pins,
-                ..
-            }) => {
+        let few_group = match &depletion.few_group {
+            Some(DepletionFewGroup { bounds, pins }) => {
                 let boundaries = tracking.boundaries();
                 let mut few =
                     homogenize(&solution, &region_materials, groups, bounds, &boundaries)?;
@@ -817,7 +823,6 @@ pub fn run(
                 }
                 Some(few)
             }
-            Some(_) => bail!("depletion writes few-group constants of the whole lattice only"),
             None => None,
         };
         transport.rates += start.elapsed();
