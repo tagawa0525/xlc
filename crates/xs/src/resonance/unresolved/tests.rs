@@ -392,13 +392,15 @@ fn ladders_follow_the_seed_and_keep_it_across_temperatures() {
         )
         .unwrap();
     assert_ne!(a.shielded, other.shielded);
-    // 同じ種なら、温度を変えてもラダーとエネルギーは同じ: ドップラー拡がりは面積を保つので、平均の温度による差は、
-    // 種を変えた差より小さい
-    let hot = sampled(&xs, 1.0e4, 1200.0, &sigma0);
-    let correlated = (hot.mean.capture - a.mean.capture).abs();
-    let independent = (other.mean.capture - a.mean.capture).abs();
-    assert!(correlated < independent, "{correlated} vs {independent}");
+    // 同じ種なら、温度を変えてもラダーとエネルギーは同じ: 実効断面積は温度の滑らかな関数になり、1 K ずつの差がほぼ等しい。
+    // 温度ごとに別のラダーなら、差は種を変えた揺らぎで乱れる
+    let at = |t: f64| sampled(&xs, 1.0e4, t, &sigma0).shielded[1].capture;
+    let (d1, d2) = (at(301.0) - at(300.0), at(302.0) - at(301.0));
+    let independent = (other.shielded[1].capture - a.shielded[1].capture).abs();
+    assert!(0.05 * d1.abs() < independent, "{d1} vs {independent}");
+    assert!((d2 - d1).abs() < 0.05 * d1.abs(), "{d1} vs {d2}");
     // 高い温度ほど遮蔽が弱い
+    let hot = sampled(&xs, 1.0e4, 1200.0, &sigma0);
     assert!(hot.shielded[1].capture > a.shielded[1].capture);
 }
 
