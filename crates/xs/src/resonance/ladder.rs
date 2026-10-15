@@ -1,7 +1,7 @@
 //! 非分離共鳴のラダーのサンプリングによる自己遮蔽（ADR-0177）。
 //!
 //! 系列（l, J）ごとに、平均のパラメータから共鳴の並び（ラダー）を乱数で作り、その上の単準位 Breit-Wigner の断面積を
-//! 一様な乱数のエネルギーで求め、σ0 ごとの Bondarenko の平均 ⟨σx/(σt + σ0)⟩/⟨1/(σt + σ0)⟩ を直接に求める。
+//! 等間隔の点を乱数でずらしたエネルギーで求め、σ0 ごとの Bondarenko の平均 ⟨σx/(σt + σ0)⟩/⟨1/(σt + σ0)⟩ を直接に求める。
 //! NJOY PURR（purr.f90 の unrest と ladr2）の「bondarenko cross sections by direct sampling」と同じ量。PURR と違い、弾性散乱は
 //! 同じ系列の共鳴の干渉を多準位で入れ（`add_ladder`）、幅は χ² の分位点の表でなく正規乱数の 2 乗の和で引き、遠い共鳴の寄与も
 //! 切らずに足す（窓の外の寄与は、窓の幅で誤差を抑える）。
@@ -94,8 +94,12 @@ pub(super) fn bondarenko(
     let mut energies = vec![0.0; sampling.samples];
     let mut parts = vec![[0.0; 3]; sampling.samples];
     for _ in 0..sampling.ladders {
-        for x in energies.iter_mut() {
-            *x = -half + 2.0 * half * rng.uniform();
+        // 等間隔の点を一様な乱数でずらす（系統抽出）。どの点も窓の中で一様なので偏りがなく、共鳴の間の谷を独立な一様の点より
+        // 漏れなく拾う
+        let offset = rng.uniform();
+        let step = 2.0 * half / sampling.samples as f64;
+        for (i, x) in energies.iter_mut().enumerate() {
+            *x = -half + step * (i as f64 + offset);
         }
         parts.iter_mut().for_each(|p| *p = [0.0; 3]);
         for q in sequences {
