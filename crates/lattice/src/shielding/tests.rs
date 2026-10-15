@@ -1360,6 +1360,28 @@ mod lattice {
     }
 
     #[test]
+    fn unshielded_regions_name_their_dilute_cross_sections() {
+        // 燃料のピンの外の、遮蔽しない物質の領域（水だけのセル）は、MOC と同じ無限希釈の値を持つ
+        let library = library();
+        let (tracking, regions) = geometry(vec![vec![0, 1], vec![1, 0]]);
+        let shielded = shield_fuel(
+            &library,
+            &tracking,
+            &materials(),
+            &regions,
+            &ShieldingOptions::default(),
+        )
+        .unwrap();
+        let water_cell = tracking.lattice.cell_regions(1).start;
+        assert_eq!(regions[water_cell], "water");
+        let dilute = library.lookup("H-1", T).unwrap().1.shielded[0].clone();
+        assert_eq!(
+            shielded.region_cross_sections(water_cell).unwrap(),
+            &[dilute][..]
+        );
+    }
+
+    #[test]
     fn lump_regions_name_the_lump_cross_sections() {
         let library = library_with_zirconium();
         let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
