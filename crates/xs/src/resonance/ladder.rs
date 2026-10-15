@@ -45,7 +45,7 @@ const MAX_MARGIN_SPACINGS: f64 = 1000.0;
 /// ローレンツの裾の寄与は平均の Γ/(π L) 倍なので、L = Γ/(π D TAIL) 個の準位間隔まで並べる
 const TAIL: f64 = 1.0e-4;
 
-/// 弾性散乱 + 負の背景が負になる点の弾性散乱 (barn)。NJOY PURR と同じ値
+/// 弾性散乱（背景を含む）が負になる点の弾性散乱 (barn)。NJOY PURR と同じ値
 const ELASTIC_FLOOR: f64 = 1.0e-6;
 
 /// |x| か y がこれより大きいと、w(z) を漸近形 i/(√π z) で求める（相対誤差 1/(2|z|²) ≈ 5e-5）
@@ -72,18 +72,34 @@ pub(super) struct LadderSequence {
     pub(super) sin2p: f64,
 }
 
+impl LadderSequence {
+    /// 平均断面積と同じく、Γn か Γγ が 0 以下の系列は共鳴を持たない
+    fn has_resonances(&self) -> bool {
+        self.gn > 0.0 && self.gg > 0.0
+    }
+}
+
 /// σ0 ごとの実効断面積と、同じサンプルの平均（σ0 → ∞）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bondarenko {
     pub shielded: Vec<ShieldedSigma>,
     pub mean: Sigma,
-    /// 弾性散乱 + 負の背景が負になり、1 μb にした点の数
+    /// 弾性散乱（背景を含む）が負になり、1 μb にした点の数
     pub floored: usize,
 }
 
+/// `bondarenko` が止まる理由。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) enum LadderError {
+    /// ラダーかエネルギーの数が 0
+    EmptySampling,
+    /// 全断面積が 0 以下になる点。`offset` は窓の中心からの位置 (eV)、`floored` はその点の弾性散乱を 1 μb にしたか
+    NonPositiveTotal { offset: f64, floored: bool },
+}
+
 /// 系列 `sequences` のラダーで、σ0 ごとの実効断面積を求める。`potential` はポテンシャル散乱 (barn)、`background` は
-/// MF3 の背景断面積。サンプルの数は `sampling`、乱数は種 `seed` から決まる。弾性散乱 + 負の背景が負の点は弾性散乱を 1 μb にし（数を `floored` に数える）、それでも全断面積が 0 以下になる点があれば `Err` でそのエネルギーの位置
-/// （窓の中心からの eV）を返す。
+/// MF3 の背景断面積。サンプルの数は `sampling`、乱数は種 `seed` から決まる。弾性散乱（背景を含む）が負の点は弾性散乱を
+/// 1 μb にし（数を `floored` に数える）、それでも全断面積が 0 以下になる点があれば止める。
 pub(super) fn bondarenko(
     sequences: &[LadderSequence],
     potential: f64,
@@ -91,9 +107,17 @@ pub(super) fn bondarenko(
     sigma0: &[f64],
     sampling: Sampling,
     seed: u64,
-) -> Result<Bondarenko, f64> {
+) -> Result<Bondarenko, LadderError> {
+    if sampling.ladders == 0 || sampling.samples == 0 {
+        return Err(LadderError::EmptySampling);
+    }
     let mut rng = Rng::new(seed);
-    let d_max = sequences.iter().map(|q| q.d).fold(0.0, f64::max);
+    // 共鳴を持つ系列（`add_ladder` が飛ばさない系列）の最大の準位間隔
+    let d_max = sequences
+        .iter()
+        .filter(|q| q.has_resonances())
+        .map(|q| q.d)
+        .fold(0.0, f64::max);
     let half = 0.5 * SAMPLE_SPACINGS * d_max;
     // σ0 ごとの Σ w σt, Σ w σel, Σ w σf, Σ w σc, Σ w, Σ w² σt, Σ w²（w = 1/(σt + σ0)）
     let mut sums = vec![[0.0; 7]; sigma0.len()];
@@ -118,9 +142,10 @@ pub(super) fn bondarenko(
         }
         for (p, &x) in parts.iter().zip(&energies) {
             let mut elastic = background.elastic + potential + p[0];
-            // |1 − U|² は負にならないので、負になるのは MF3 の負の背景を足したときだけ。NJOY PURR（purr.f90 の unrest）と同じく
-            // 1 μb にして、参照解の確率表と扱いを揃える（ADR-0177）
-            if elastic < 0.0 && background.elastic < 0.0 {
+            // MF3 の負の背景を足したとき、遠い極を漸近形で求めた |1 − U|² の誤差、窓の外の共鳴を落とした分で負になりうる。
+            // NJOY PURR（purr.f90 の unrest）と同じく 1 μb にして、参照解の確率表と扱いを揃える（ADR-0177）
+            let floor = elastic < 0.0;
+            if floor {
                 elastic = ELASTIC_FLOOR;
                 floored += 1;
             }
@@ -128,7 +153,10 @@ pub(super) fn bondarenko(
             let capture = background.capture + p[2];
             let total = elastic + fission + capture + other;
             if total.is_nan() || total <= 0.0 {
-                return Err(x);
+                return Err(LadderError::NonPositiveTotal {
+                    offset: x,
+                    floored: floor,
+                });
             }
             for (sum, &s0) in sums.iter_mut().zip(sigma0) {
                 let w = 1.0 / (total + s0);
@@ -174,7 +202,8 @@ pub(super) fn bondarenko(
 ///
 /// 捕獲と核分裂は単準位 Breit-Wigner で、ψ = √π y Re w（PURR の unrest と同じ）。弾性散乱は、同じ系列（同じ J）の共鳴どうしの
 /// 干渉を多準位 Breit-Wigner の |1 − U|² で入れる。単準位の和（PURR）は干渉を共鳴ごとに数えるので、強い s 波の共鳴の干渉の谷で
-/// 全断面積が負になる（ADR-0177）。|1 − U|² は 0 K で負にならず、ガウスの核で広げても負にならない。
+/// 全断面積が負になる（ADR-0177）。|1 − U|² は 0 K で負にならず、ガウスの核で広げても負にならないが、ここでは遠い極を漸近形で
+/// 求めるので、谷では負になりうる（`bondarenko` が 1 μb にする）。
 ///
 /// 1 − U = A + B S、A = 1 − e^{−2iφ}、B = −i e^{−2iφ}、S = Σ_r Γn_r f_r、f_r = 1/(p_r − E)、p_r = E_r − iΓ_r/2 として、
 /// |1 − U|² = |A|² + Σ_r 2 Re[a_r f_r]、a_r = Γn_r (C_r + i A)、C_r = Σ_s Γn_s/(p̄_s − p_r)（f_r f̄_s を部分分数に分けた）。
@@ -188,7 +217,7 @@ fn add_ladder(
     energies: &[f64],
     parts: &mut [[f64; 3]],
 ) {
-    if q.gn <= 0.0 || q.gg <= 0.0 {
+    if !q.has_resonances() {
         return;
     }
     let mean_width = q.gn + q.gf + q.gg + q.gx;
