@@ -1,0 +1,16 @@
+# 格子計算の燃焼の検証（ADR-0173）の参照解: VERA Problem 1C のピンセルを、燃料 1 リング（等しい面積）の燃焼する物質で、
+# 分岐なしの 1 つの状態で燃焼させる（openmc_depletion.py）。xlc は lattice-1C-rings1.toml。出力密度 38.41 W/g は VERA Problem 9 の
+# サイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。粒子は 1 世代 20 万・130 世代（最初の 30 世代を捨てる）: 燃焼の tally を入れた
+# 1 回の輸送は、アクティブバッチが非アクティブバッチの約 3.3 倍遅く（試行で 40,167 と 132,929 粒子/s、16 スレッド）、1C の参照解と同じ
+# 100 万・250 世代では 1 回 約 90 分 × 13 回になるため。k の統計誤差は約 20〜30 pcm の見込み
+problem = "1C"
+rings = 1
+cross-sections = "openmc-library/cross_sections.xml"
+chain = "openmc-chain.xml"
+power = 38.41
+burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
+particles = 200000
+batches = 130
+inactive = 30
+seed = 1
+threads = 16

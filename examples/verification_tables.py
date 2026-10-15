@@ -422,6 +422,127 @@ def endfb70_p3_distributions(sources: list[dict]) -> str:
     )
 
 
+DEPLETION_NUCLIDES = ["U-235", "U-238", "Pu-239", "Xe-135", "Sm-149"]
+
+
+def depletion_summaries(sources: list[dict]) -> list[dict]:
+    for s in sources:
+        if s.get("format") != "xlc-compare-depletion":
+            raise TableError("not an xlc-compare-depletion summary")
+    return sources
+
+
+def percent_or_dash(x) -> str:
+    return "–" if x is None else signed(100 * x, 2)
+
+
+def burnup_label(b: float) -> str:
+    return f"{b:g}"
+
+
+def depletion_k(sources: list[dict]) -> str:
+    """格子計算の燃焼: 燃焼点ごとの k∞ の差（xlc − OpenMC）とその 0 の点からの変化を、燃料 1 リングと 4 リングで"""
+    one, four = depletion_summaries(sources)
+    if one["burnup"] != four["burnup"]:
+        raise TableError(
+            f"the cases have other burnup points: {one['burnup']} and {four['burnup']}"
+        )
+    rows = []
+    for b, a, c in zip(one["burnup"], one["k"], four["k"]):
+        rows.append(
+            [
+                burnup_label(b),
+                f"{signed(a['diff_pcm'], 0)} ± {a['openmc_std_pcm']:.0f}",
+                signed(a["change_pcm"], 0),
+                f"{signed(c['diff_pcm'], 0)} ± {c['openmc_std_pcm']:.0f}",
+                signed(c["change_pcm"], 0),
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "1 リング: 差 (pcm)",
+            "変化 (pcm)",
+            "4 リング: 差 (pcm)",
+            "変化 (pcm)",
+        ],
+        rows,
+    )
+
+
+def depletion_densities(sources: list[dict]) -> str:
+    """格子計算の燃焼: 燃料のピン全体の数密度の相対差（%）"""
+    (s,) = depletion_summaries(sources)
+    rows = [
+        [burnup_label(b)]
+        + [percent_or_dash(s["pin"][n][i]) for n in DEPLETION_NUCLIDES]
+        for i, b in enumerate(s["burnup"])
+    ]
+    return markdown_table(["燃焼度 (MWd/kg)", *DEPLETION_NUCLIDES], rows)
+
+
+def depletion_rings(sources: list[dict]) -> str:
+    """格子計算の燃焼: 最後の燃焼点のリングごとの数密度の相対差（%）。リングは内側から"""
+    (s,) = depletion_summaries(sources)
+    last = len(s["rings"])
+
+    def label(r: int) -> str:
+        if last == 1:
+            return "1"
+        return {1: "1（内）", last: f"{last}（外）"}.get(r, str(r))
+
+    rows = [
+        [label(r + 1)] + [percent_or_dash(ring[n]) for n in DEPLETION_NUCLIDES]
+        for r, ring in enumerate(s["rings"])
+    ]
+    return markdown_table(["リング", *DEPLETION_NUCLIDES], rows)
+
+
+def depletion_times(sources: list[dict]) -> str:
+    """格子計算の燃焼: 時間の内訳（秒）。xlc の全体は内訳の和、OpenMC は全体、輸送、CRAM"""
+    rows = []
+    for s, rings in zip(depletion_summaries(sources), ["1 リング", "4 リング"]):
+        x, o = s["seconds"]["xlc"], s["seconds"]["openmc"]
+        parts = [x[k] for k in ("shielding", "moc", "rates", "matrix", "cram")]
+        rows.append(
+            [
+                f"xlc、{rings}",
+                str(x["solves"]),
+                f"{sum(parts):.1f}",
+                f"{x['shielding']:.1f}",
+                f"{x['moc']:.1f}",
+                f"{x['rates']:.2f}",
+                f"{x['matrix']:.2f}",
+                f"{x['cram']:.2f}",
+            ]
+        )
+        rows.append(
+            [
+                f"OpenMC、{rings}",
+                str(o["solves"]),
+                f"{o['total']:,.0f}",
+                f"{o['transport']:,.0f}（1 回 {o['fastest']:.0f}〜{o['slowest']:.0f}）",
+                "",
+                "",
+                "",
+                f"{o['cram']:.2f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "計算",
+            "輸送の回数",
+            "全体",
+            "自己遮蔽（OpenMC は輸送）",
+            "MOC",
+            "反応率と規格化",
+            "燃焼行列",
+            "CRAM48",
+        ],
+        rows,
+    )
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -476,6 +597,32 @@ TABLES = {
             "examples/vera/p3/compare-3B-openmc.json",
         ],
         endfb70_p3_distributions,
+    ),
+    "depletion-1c-k": (
+        [
+            "examples/depletion/compare-1C-rings1.json",
+            "examples/depletion/compare-1C-rings4.json",
+        ],
+        depletion_k,
+    ),
+    "depletion-1c-rings1-densities": (
+        ["examples/depletion/compare-1C-rings1.json"],
+        depletion_densities,
+    ),
+    "depletion-1c-rings4-densities": (
+        ["examples/depletion/compare-1C-rings4.json"],
+        depletion_densities,
+    ),
+    "depletion-1c-times": (
+        [
+            "examples/depletion/compare-1C-rings1.json",
+            "examples/depletion/compare-1C-rings4.json",
+        ],
+        depletion_times,
+    ),
+    "depletion-1c-rings4-rings": (
+        ["examples/depletion/compare-1C-rings4.json"],
+        depletion_rings,
     ),
 }
 

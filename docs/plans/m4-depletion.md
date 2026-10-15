@@ -272,7 +272,10 @@ ADR で決める。外部の計算機（クラウド。別に選ぶ）のコア�
 4. CRAM と燃焼のソルバ（共通のクレート）と、解析解・OpenMC のソルバとの比較 — 済（feat/cram-depletion-solver のマージ。ADR-0161、
    ADR-0162。記録は examples/depletion/verification.md）
 5. 格子計算の燃焼: ピンセル、毒物のない集合体、Pyrex、IFBA と WABA、Gd の順に、OpenMC の燃焼と比べる。#0045（UFG の点）と
-   #0044（Gd の求積）をここで測る。1E、2L〜2P の HZP もここ — 未着手
+   #0044（Gd の求積）をここで測る。1E、2L〜2P の HZP もここ — 作業中。方式は [ADR-0173](../adr/0173-deplete-lattice-pins-by-ce-cm.md)（CE/CM、一定の出力、ピンの組と物質ごとの
+   燃焼の領域、公称の 1 状態）。VERA 1C のピンセル（燃料 1 リングと 4 リング）を 5 MWd/kg まで OpenMC と比べ、2A の 1 ステップの時間を
+   測った（ブランチ feat/lattice-depletion-rates。記録は examples/depletion/verification.md の「格子計算の燃焼」）。残りは #0129（リングごとの
+   燃焼の飛程の表）、#0133（1C の数密度の差）、#0134（中点の自己遮蔽）と、集合体の OpenMC との比較
 6. 燃焼度の軸を持つ分岐のテーブル（構造と形式の ADR）と、履歴の分岐。軸の範囲は熱水力の ADR（HFP の燃料の温度と減速材の
    密度）で決まるので、本番のテーブルはその後に作る — 未着手
 7. core の燃焼: ミクロ燃焼、サイクルの入力、崩壊のステップ、restart、臨界ホウ素の探索の繰り返し — 未着手
