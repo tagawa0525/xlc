@@ -670,6 +670,10 @@ def extract(source: Path, work: Path, output: Path) -> None:
     keep = set(seconds["transportable"]) | COMPARED
     first = results[0]
     nuclides = [n for n in first.index_nuc if n in keep]
+    if missing := COMPARED - set(nuclides):
+        raise SystemExit(
+            f"the chain results lack the compared nuclides {sorted(missing)}"
+        )
     regions_out = []
     for r, mat_id in region_list:
         densities = {name: [] for name in nuclides}
