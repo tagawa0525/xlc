@@ -610,10 +610,7 @@ fn fission_products_count_the_energy_released() {
 
 #[test]
 fn few_group_constants_are_reported_at_each_point() {
-    let text = PIN.replace(
-        "rows = [\"pin\"]",
-        "rows = [\"pin\"]\nfew-group = { output = \"unused.msgpack\", bounds = [1e7, 0.625, 1e-5] }",
-    );
+    let text = format!("{PIN}few-group = {{ bounds = [1e7, 0.625, 1e-5] }}\n");
     let history = deplete_input(&text);
     for point in &history.points {
         let few = point.few_group.as_ref().unwrap();
