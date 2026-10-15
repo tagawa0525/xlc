@@ -154,6 +154,14 @@ class Lattice(unittest.TestCase):
             for got, want in zip(radii, asm.gd_radii(p2_inputs.GD_RINGS)):
                 self.assertAlmostEqual(got, want, places=9)
 
+    def test_gadolinium_rings_solve_the_track_table_point_by_point(self):
+        """リングごとの物質は飛程の表を大きくして止まる（#0129）ので、Gd の入力は表を使わない。ほかは既定。"""
+        for job, (problem, _, _) in p2_inputs.JOBS.items():
+            has_gd = bool(asm.CASES[problem].gd)
+            self.assertEqual(
+                lattice(job).get("track-table"), False if has_gd else None, job
+            )
+
     def test_every_material_has_the_temperature_of_the_case(self):
         for job, (problem, _, _) in p2_inputs.JOBS.items():
             for name, m in lattice(job)["material"].items():
