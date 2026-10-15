@@ -15,12 +15,14 @@ use crate::endf::WidthDof;
 use crate::special::faddeeva;
 
 /// サンプルの数。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sampling {
     /// ラダーの組の数
     pub ladders: usize,
     /// ラダーごとの、断面積を求めるエネルギーの数
     pub samples: usize,
+    /// 窓の外に並べる共鳴の範囲（`MIN_MARGIN_SPACINGS` などで決めた範囲）に掛ける倍率
+    pub margin: f64,
 }
 
 impl Sampling {
@@ -28,6 +30,7 @@ impl Sampling {
     pub const LIBRARY: Self = Self {
         ladders: 512,
         samples: 250,
+        margin: 1.0,
     };
 }
 
@@ -111,7 +114,7 @@ pub(super) fn bondarenko(
         }
         parts.iter_mut().for_each(|p| *p = [0.0; 3]);
         for q in sequences {
-            add_ladder(q, half, &mut rng, &energies, &mut parts);
+            add_ladder(q, half, sampling.margin, &mut rng, &energies, &mut parts);
         }
         for (p, &x) in parts.iter().zip(&energies) {
             let mut elastic = background.elastic + potential + p[0];
@@ -180,6 +183,7 @@ pub(super) fn bondarenko(
 fn add_ladder(
     q: &LadderSequence,
     half: f64,
+    margin_scale: f64,
     rng: &mut Rng,
     energies: &[f64],
     parts: &mut [[f64; 3]],
@@ -188,8 +192,9 @@ fn add_ladder(
         return;
     }
     let mean_width = q.gn + q.gf + q.gg + q.gx;
-    let margin =
-        (mean_width / (PI * q.d * TAIL)).clamp(MIN_MARGIN_SPACINGS, MAX_MARGIN_SPACINGS) * q.d;
+    let margin = (mean_width / (PI * q.d * TAIL)).clamp(MIN_MARGIN_SPACINGS, MAX_MARGIN_SPACINGS)
+        * q.d
+        * margin_scale;
     let (low, high) = (-half - margin, half + margin);
     // 共鳴: (E_r, Γn, Γf, Γ)。最初の共鳴の位置は、最初の間隔の幅の中で一様（PURR の ladr2 と同じ）
     let mut resonances = Vec::new();
