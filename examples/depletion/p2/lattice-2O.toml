@@ -7,6 +7,8 @@ library = "depletion.msgpack"
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
+# リングごとの物質は飛程の表を大きくして止まる（#0129）ので、格子点ごとに衝突確率を求める
+track-table = false
 gap = { width = 0.04, material = "water" }
 rows = [
   "pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin",

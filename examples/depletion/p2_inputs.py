@@ -183,7 +183,13 @@ def lattice_input(job: str) -> str:
         "pitch = 1.26\n"
         "azimuthal = 30\n"
         "spacing = 0.03\n"
-        'gap = { width = 0.04, material = "water" }\n'
+        + (
+            "# リングごとの物質は飛程の表を大きくして止まる（#0129）ので、格子点ごとに衝突確率を求める\n"
+            "track-table = false\n"
+            if c.gd
+            else ""
+        )
+        + 'gap = { width = 0.04, material = "water" }\n'
         f"rows = [\n{rows},\n]\n\n"
         + "\n".join(blocks)
         + "\n"
