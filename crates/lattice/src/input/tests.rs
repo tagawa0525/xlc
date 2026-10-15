@@ -1056,3 +1056,130 @@ fn invalid_water_is_an_error() {
     )));
     assert!(bad(""));
 }
+
+/// 燃焼（ADR-0173）の節を足したピンセル
+fn depleting(depletion: &str) -> Result<LatticeInput, InputError> {
+    LatticeInput::parse(&format!(
+        "{}\n[depletion]\n{depletion}",
+        without_few_group()
+    ))
+}
+
+/// 格子全体の少数群定数を書かないピンセル（燃焼は少数群定数を燃焼の履歴に書く）
+fn without_few_group() -> String {
+    PIN_CELL.replace(
+        "few-group = { output = \"pincell.fg.msgpack\", bounds = [1e7, 0.625, 1e-5] }\n",
+        "",
+    )
+}
+
+const DEPLETION: &str = r#"chain = "chain.msgpack"
+power = 40.0
+burnup = [0.1, 0.5, 2]
+materials = ["fuel"]
+output = "history.msgpack"
+"#;
+
+#[test]
+fn reads_the_depletion_steps_and_materials() {
+    let input = depleting(DEPLETION).unwrap();
+    let depletion = input.depletion.unwrap();
+    assert_eq!(depletion.chain, PathBuf::from("chain.msgpack"));
+    assert_eq!(depletion.power, 40.0);
+    assert_eq!(depletion.burnup, vec![0.1, 0.5, 2.0]);
+    assert_eq!(depletion.materials, vec!["fuel".to_string()]);
+    assert_eq!(depletion.output, PathBuf::from("history.msgpack"));
+    assert!(LatticeInput::parse(PIN_CELL).unwrap().depletion.is_none());
+}
+
+#[test]
+fn rejects_burnup_points_that_do_not_increase_from_zero() {
+    for burnup in ["[]", "[0, 1]", "[1, 1]", "[2, 1]", "[-1]"] {
+        let text = DEPLETION.replace("[0.1, 0.5, 2]", burnup);
+        assert!(depleting(&text).is_err(), "{burnup}");
+    }
+}
+
+#[test]
+fn rejects_a_non_positive_power() {
+    for power in ["0.0", "-40.0", "nan"] {
+        let text = DEPLETION.replace("40.0", power);
+        assert!(depleting(&text).is_err(), "{power}");
+    }
+}
+
+#[test]
+fn depleted_materials_are_defined_nuclide_materials() {
+    for materials in [r#"[]"#, r#"["clad"]"#, r#"["fuel", "fuel"]"#] {
+        let text = DEPLETION.replace(r#"["fuel"]"#, materials);
+        assert!(depleting(&text).is_err(), "{materials}");
+    }
+    // ホウ酸水で書いた物質は燃やさない（核分裂する核種がない）ので、名前を挙げてもよいかは燃焼の領域で決まる。ここでは
+    // 核種で書いた物質であることだけを見る
+    let text = without_few_group().replace(
+        "nuclides = { H-1 = 4.9e-2, O-16 = 2.5e-2 }",
+        "water = { density = 0.7, boron = 1000, b10 = 0.2 }",
+    );
+    let text = format!(
+        "{text}\n[depletion]\n{}",
+        DEPLETION.replace(r#"["fuel"]"#, r#"["fuel", "water"]"#)
+    );
+    assert!(LatticeInput::parse(&text).is_ok());
+}
+
+#[test]
+fn depletion_excludes_branches_pin_powers_media_and_file_constants() {
+    let base = without_few_group();
+    let branches = format!(
+        "{base}\n[branches]\nfuel = {{ temperature = [600, 900], materials = [\"fuel\"] }}\n[depletion]\n{DEPLETION}"
+    );
+    assert!(LatticeInput::parse(&branches).is_err());
+    let pins = format!("pin-powers = \"pins.msgpack\"\n{base}\n[depletion]\n{DEPLETION}");
+    assert!(LatticeInput::parse(&pins).is_err());
+    let medium = format!("medium = \"fuel.medium\"\n{base}\n[depletion]\n{DEPLETION}");
+    assert!(LatticeInput::parse(&medium).is_err());
+    // 少数群定数のファイルは書かない（燃焼点ごとの定数は燃焼の履歴に入る。`[depletion]` の `few-group`）
+    assert!(LatticeInput::parse(&format!("{PIN_CELL}\n[depletion]\n{DEPLETION}")).is_err());
+    let unshielded = format!("self-shielding = false\n{base}\n[depletion]\n{DEPLETION}");
+    assert!(LatticeInput::parse(&unshielded).is_err());
+    // 燃焼点ごとの形状関数は、外周がすべて鏡面反射の格子でだけ
+    let vacuum = base.replace(
+        "spacing = 0.05",
+        "spacing = 0.05\nboundary = { right = \"vacuum\" }",
+    );
+    let pins = format!("{DEPLETION}few-group = {{ bounds = [1e7, 0.625, 1e-5], pins = true }}\n");
+    assert!(LatticeInput::parse(&format!("{vacuum}\n[depletion]\n{pins}")).is_err());
+    assert!(LatticeInput::parse(&format!("{base}\n[depletion]\n{pins}")).is_ok());
+}
+
+#[test]
+fn depletion_takes_the_few_group_bounds_in_its_own_table() {
+    let text = format!("{DEPLETION}few-group = {{ bounds = [1e7, 0.625, 1e-5], pins = true }}\n");
+    let depletion = depleting(&text).unwrap().depletion.unwrap();
+    let few = depletion.few_group.unwrap();
+    assert_eq!(few.bounds, vec![1e7, 0.625, 1e-5]);
+    assert!(few.pins);
+    assert!(
+        depleting(DEPLETION)
+            .unwrap()
+            .depletion
+            .unwrap()
+            .few_group
+            .is_none()
+    );
+    let bad = format!("{DEPLETION}few-group = {{ bounds = [1e7] }}\n");
+    assert!(depleting(&bad).is_err());
+}
+
+#[test]
+fn depleted_material_names_leave_room_for_the_region_names() {
+    // 燃焼の領域の物質は `<物質>@<セル>` の名前で解く（ADR-0173）ので、`@` を含む名前の物質は燃やせない
+    let text = without_few_group()
+        .replace("[material.fuel]", "[material.\"fuel@0\"]")
+        .replace("material = \"fuel\"", "material = \"fuel@0\"");
+    let text = format!(
+        "{text}\n[depletion]\n{}",
+        DEPLETION.replace(r#"["fuel"]"#, r#"["fuel@0"]"#)
+    );
+    assert!(LatticeInput::parse(&text).is_err());
+}

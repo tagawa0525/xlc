@@ -1,0 +1,253 @@
+# 燃焼の検証のピンセル（VERA Problem 1C。openmc_depletion.py）の OpenMC の連続エネルギーのライブラリの入力
+# （../vera/openmc_library.py）。核種は xlc の燃焼の検証の多群ライブラリ（xs.toml、ADR-0169）と同じ組で、輸送する核種の組を xlc と
+# 揃える（どちらも、ライブラリにない鎖の核種は崩壊だけ。ADR-0173。xlc のライブラリが外した Pm-147、Pm-149、Am-242m、Eu-151
+# （#0127）は、ここにも入れない）。片方を変えたら他方も直す。燃やすのは Problem 1C
+# （燃料 900 K、被覆管と減速材 600 K）なので、燃料にある核種（U、鎖の核種）は 900 K、被覆管と減速材の核種は 600 K、両方に
+# ある O-16 と、核分裂生成物でもある Zr と Sn は 600 と 900 K で作り、OpenMC は最も近い温度のモードで解く。燃料では、900 K の
+# データのある核種だけを輸送する（openmc_depletion.py。xlc と同じ規則。ADR-0173）
+# 名前は OpenMC の名前。パスはこのファイルからの相対。
+
+[neutron.U234]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf"
+temperatures = [900]
+
+[neutron.U235]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf"
+temperatures = [900]
+
+[neutron.U236]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf"
+temperatures = [900]
+
+[neutron.U238]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf"
+temperatures = [900]
+
+[neutron.O16]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf"
+temperatures = [600, 900]
+
+[neutron.H1]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf"
+temperatures = [600]
+
+[neutron.B10]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf"
+temperatures = [600]
+
+[neutron.B11]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf"
+temperatures = [600]
+
+[neutron.Zr90]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf"
+temperatures = [600, 900]
+
+[neutron.Zr91]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf"
+temperatures = [600, 900]
+
+[neutron.Zr92]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf"
+temperatures = [600, 900]
+
+[neutron.Zr94]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf"
+temperatures = [600, 900]
+
+[neutron.Zr96]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf"
+temperatures = [600, 900]
+
+[neutron.Sn112]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf"
+temperatures = [600, 900]
+
+[neutron.Sn114]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf"
+temperatures = [600, 900]
+
+[neutron.Sn115]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf"
+temperatures = [600, 900]
+
+[neutron.Sn116]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf"
+temperatures = [600, 900]
+
+[neutron.Sn117]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf"
+temperatures = [600, 900]
+
+[neutron.Sn118]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf"
+temperatures = [600, 900]
+
+[neutron.Sn119]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf"
+temperatures = [600, 900]
+
+[neutron.Sn120]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf"
+temperatures = [600, 900]
+
+[neutron.Sn122]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf"
+temperatures = [600, 900]
+
+[neutron.Sn124]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf"
+temperatures = [600, 900]
+
+[neutron.Fe54]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf"
+temperatures = [600]
+
+[neutron.Fe56]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf"
+temperatures = [600]
+
+[neutron.Fe57]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf"
+temperatures = [600]
+
+[neutron.Fe58]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf"
+temperatures = [600]
+
+[neutron.Cr50]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf"
+temperatures = [600]
+
+[neutron.Cr52]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf"
+temperatures = [600]
+
+[neutron.Cr53]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf"
+temperatures = [600]
+
+[neutron.Cr54]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf"
+temperatures = [600]
+
+[neutron.Np237]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_237.endf"
+temperatures = [900]
+
+[neutron.Np239]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_239.endf"
+temperatures = [900]
+
+[neutron.Pu238]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf"
+temperatures = [900]
+
+[neutron.Pu239]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf"
+temperatures = [900]
+
+[neutron.Pu240]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf"
+temperatures = [900]
+
+[neutron.Pu241]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf"
+temperatures = [900]
+
+[neutron.Pu242]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf"
+temperatures = [900]
+
+[neutron.Am241]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf"
+temperatures = [900]
+
+[neutron.Am243]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_243.endf"
+temperatures = [900]
+
+[neutron.Cm242]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_242.endf"
+temperatures = [900]
+
+[neutron.Cm244]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_244.endf"
+temperatures = [900]
+
+[neutron.Mo95]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-042_Mo_095.endf"
+temperatures = [900]
+
+[neutron.Tc99]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-043_Tc_099.endf"
+temperatures = [900]
+
+[neutron.Ru101]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-044_Ru_101.endf"
+temperatures = [900]
+
+[neutron.Rh103]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-045_Rh_103.endf"
+temperatures = [900]
+
+[neutron.Ag109]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf"
+temperatures = [900]
+
+[neutron.I135]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-053_I_135.endf"
+temperatures = [900]
+
+[neutron.Xe135]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-054_Xe_135.endf"
+temperatures = [900]
+
+[neutron.Cs133]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-055_Cs_133.endf"
+temperatures = [900]
+
+[neutron.Nd143]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_143.endf"
+temperatures = [900]
+
+[neutron.Nd145]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_145.endf"
+temperatures = [900]
+
+[neutron.Pm148_m1]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148m1.endf"
+temperatures = [900]
+
+[neutron.Sm147]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_147.endf"
+temperatures = [900]
+
+[neutron.Sm149]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_149.endf"
+temperatures = [900]
+
+[neutron.Sm150]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_150.endf"
+temperatures = [900]
+
+[neutron.Sm151]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_151.endf"
+temperatures = [900]
+
+[neutron.Sm152]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_152.endf"
+temperatures = [900]
+
+[neutron.Eu153]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_153.endf"
+temperatures = [900]
+
+[neutron.Gd155]
+endf = "../../references/endf/ENDF-B-VIII.0_neutrons/n-064_Gd_155.endf"
+temperatures = [900]
+
+[thermal.c_H_in_H2O]
+neutron = "../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf"
+thermal = "../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf"
+temperatures = [600]
