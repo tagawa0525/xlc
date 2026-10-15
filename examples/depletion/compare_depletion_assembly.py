@@ -34,6 +34,11 @@ BURNUP_TOLERANCE = 1e-9
 VOLUME_TOLERANCE = 1e-6
 
 
+def compared_openmc_names() -> set[str]:
+    """比べる核種の OpenMC の名前（OpenMC の結果が数密度を書く核種）。"""
+    return {openmc_name(n) for n in FUEL_NUCLIDES + GD_NUCLIDES + ABSORBER_NUCLIDES}
+
+
 def nuclides_of(kind: str) -> list[str]:
     """物質の種類（xlc の入力の物質の名前）の比べる核種。"""
     if kind == "fuel":

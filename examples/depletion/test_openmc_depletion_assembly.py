@@ -238,6 +238,13 @@ threads = 2
         with self.assertRaises(SystemExit):
             asm.read(self.write(self.BASE.format(problem="1C")))
 
+    def test_start_from_needs_a_non_negative_start_point(self):
+        base = self.BASE.format(problem="2A") + 'start-from = "x.msgpack"\n'
+        with self.assertRaises(SystemExit):
+            asm.read(self.write(base))
+        with self.assertRaises(SystemExit):
+            asm.read(self.write(base + "start-point = -1\n"))
+
     def test_the_burnup_points_must_increase_from_a_positive_value(self):
         for burnup in ("[0.0, 1.0]", "[1.0, 0.5]", "[]"):
             text = self.BASE.format(problem="2A").replace("[0.1, 0.5]", burnup)

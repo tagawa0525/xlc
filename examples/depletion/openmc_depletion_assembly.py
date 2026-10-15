@@ -45,7 +45,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "vera"))
 sys.path.insert(0, str(HERE))
-from compare_depletion_assembly import orbit_std_rms
+from compare_depletion_assembly import compared_openmc_names, orbit_std_rms
 from openmc_common import eigenvalue_settings, material
 from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
 from openmc_input import input_path, read_input
@@ -437,6 +437,10 @@ def burned_fuel(run: dict, c: Case) -> dict[str, float]:
     result = msgpack.unpackb(run["start-from"].read_bytes())
     rings = result["rings"]
     point = run["start-point"]
+    if not 0 <= point < len(result["burnup"]):
+        raise SystemExit(
+            f"start-point {point} is outside the {len(result['burnup'])} burnup points of {run['start-from']}"
+        )
     total = sum(r["volume"] for r in rings)
     mean: dict[str, float] = {}
     for ring in rings:
@@ -445,7 +449,12 @@ def burned_fuel(run: dict, c: Case) -> dict[str, float]:
                 mean.get(nuclide, 0.0) + values[point] * ring["volume"] / total
             )
     kept = library_nuclides_at(run["cross-sections"], c.temperature)
-    return {n: d for n, d in mean.items() if d > 0 and n in kept}
+    burned = {n: d for n, d in mean.items() if d > 0 and n in kept}
+    if not burned:
+        raise SystemExit(
+            f"{run['start-from']} point {point} has no nuclide at {c.temperature} K"
+        )
+    return burned
 
 
 def build(run: dict) -> tuple[openmc.Model, list[Region]]:
@@ -469,8 +478,10 @@ def build(run: dict) -> tuple[openmc.Model, list[Region]]:
     region_list = regions(run)
     burn: dict[tuple[str, tuple[int, int]], openmc.Material] = {}
     for r in region_list:
-        densities = start if start is not None and r.kind == "fuel" else None
-        m = material(r.name, densities or composition(r.kind, c), temperature)
+        densities = (
+            start if start is not None and r.kind == "fuel" else composition(r.kind, c)
+        )
+        m = material(r.name, densities, temperature)
         m.depletable = True
         m.volume = r.volume
         burn[(r.kind, r.orbit)] = m
@@ -540,6 +551,12 @@ def read(source: Path) -> dict:
         raise SystemExit(f"gd-rings must be a positive integer, got {run['gd-rings']}")
     if ("start-from" in run) != ("start-point" in run):
         raise SystemExit("start-from and start-point go together")
+    if "start-point" in run and not (
+        isinstance(run["start-point"], int) and run["start-point"] >= 0
+    ):
+        raise SystemExit(
+            f"start-point must be a non-negative integer, got {run['start-point']}"
+        )
     burnup = run["burnup"]
     if (
         not burnup
@@ -719,8 +736,8 @@ def extract(source: Path, work: Path, output: Path) -> None:
         print(f"burnup {b} k {kk[0]:.6f} +- {kk[1]:.6f}")
 
 
-# 輸送する核種でなくても、比べる核種（xlc の比べる道具が名前を引く）
-COMPARED = {"U235", "U238", "Pu239", "Xe135", "Sm149", "B10", "Gd155", "Gd157"}
+# 輸送する核種でなくても、比べる核種（compare_depletion_assembly.py が名前を引く）
+COMPARED = compared_openmc_names()
 
 
 def build_for_ids(run: dict) -> tuple[openmc.Model, list[tuple[Region, int]]]:
