@@ -14,8 +14,7 @@ pub(crate) fn in_parallel<T: Send, E: Send>(
     n: usize,
     f: impl Fn(usize) -> Result<T, E> + Sync,
 ) -> Result<Vec<T>, E> {
-    let allowed = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
-    let threads = num_cpus::get_physical().min(allowed).min(n);
+    let threads = cores().min(n);
     let next = AtomicUsize::new(0);
     let failed = AtomicBool::new(false);
     let mut done: Vec<(usize, Result<T, E>)> = std::thread::scope(|scope| {
@@ -46,3 +45,12 @@ pub(crate) fn in_parallel<T: Send, E: Send>(
     done.sort_unstable_by_key(|&(i, _)| i);
     done.into_iter().map(|(_, value)| value).collect()
 }
+
+/// 物理コアの数（ADR-0067）を、このプロセスに許された CPU の数で抑えたもの
+fn cores() -> usize {
+    let allowed = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+    num_cpus::get_physical().min(allowed)
+}
+
+#[cfg(test)]
+mod tests;
