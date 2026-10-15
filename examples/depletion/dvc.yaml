@@ -176,4 +176,5 @@ stages:
         - lattice-1C-${item}.msgpack
         - openmc-1C-${item}.msgpack
       outs:
-        - compare-1C-${item}.json
+        - compare-1C-${item}.json:
+            cache: false
