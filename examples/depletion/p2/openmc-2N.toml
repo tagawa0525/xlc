@@ -1,0 +1,19 @@
+# 格子計算の燃焼の検証（ADR-0178）の参照解: VERA Problem 2 の IFBA 104 本と WABA 20 本（図 P2-2。どちらも燃焼する。600 K、0.743 g/cc）を、40 点（最後は 60 MWd/kg）
+# まで OpenMC の燃焼で燃やす（openmc_depletion_assembly.py。AWS で流す。aws.toml）。xlc は lattice-2N.toml。
+# 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均。粒子は 1 世代 1,000,000・140 世代（最初の 40 世代を捨てる）: ピン出力の
+# 統計誤差を ADR-0032 の目標（rms 0.2%）の 1/3 以下（約 0.07%）にする数（ADR-0178）。p2_inputs.py が書く。手で直さない。
+problem = "2N"
+cross-sections = "openmc-library/cross_sections.xml"
+chain = "../openmc-chain.xml"
+power = 38.41
+burnup = [
+  0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5,
+  4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+  14, 15, 16, 18, 20, 22, 24, 26, 28, 30,
+  32, 34, 36, 38, 40, 44, 48, 52, 56, 60,
+]
+particles = 1000000
+batches = 140
+inactive = 40
+seed = 1
+threads = 16
