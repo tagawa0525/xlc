@@ -762,29 +762,49 @@ pub fn run(
         let mut rates = Vec::with_capacity(regions.len());
         let mut fission_power = 0.0;
         for (d, n) in regions.iter().zip(n) {
+            let temperature = base(&d.material)?.temperature;
+            // 遮蔽しない物質（燃料のピンの外の、分離共鳴を持つ核種のない吸収体など）は、MOC と同じく無限希釈の値
+            let infinite = *library
+                .sigma0
+                .first()
+                .ok_or_else(|| anyhow!("the library has no sigma0"))?;
+            let mut dilute: Option<Vec<Shielded>> = None;
+            for &r in &d.regions {
+                if shielded.region_cross_sections(r).is_none() && dilute.is_none() {
+                    dilute = Some(
+                        composition
+                            .iter()
+                            .map(|&i| {
+                                library.shielded(
+                                    &chain.nuclides[i].name,
+                                    temperature,
+                                    &vec![infinite; groups.len()],
+                                )
+                            })
+                            .collect::<Result<_, _>>()?,
+                    );
+                }
+            }
             let mut members = Vec::with_capacity(d.regions.len());
             for &r in &d.regions {
-                let cell = lattice.region_cell(r);
-                let pin = shielded
-                    .pins
-                    .iter()
-                    .find(|p| p.cell == cell)
-                    .ok_or_else(|| {
-                        anyhow!("cell {cell}: the depleted material is not shielded fuel")
-                    })?;
-                let sectors = lattice.cell_type(cell).pin().map_or(1, |p| p.sectors());
-                let ring = (r - lattice.cell_regions(cell).start) / sectors;
-                let cross_sections = pin
-                    .rings
-                    .get(ring)
-                    .ok_or_else(|| anyhow!("cell {cell}: region {r} is outside the fuel rings"))?;
+                let cross_sections = match shielded.region_cross_sections(r) {
+                    Some(nuclides) => nuclides,
+                    None => dilute.as_deref().unwrap_or_default(),
+                };
+                if cross_sections.len() != composition.len() {
+                    bail!(
+                        "region {r} of material `{}`: {} shielded nuclides for {} transported",
+                        d.material,
+                        cross_sections.len(),
+                        composition.len()
+                    );
+                }
                 members.push(Member {
                     volume: volumes[r],
                     flux: &flux[r],
                     cross_sections,
                 });
             }
-            let temperature = base(&d.material)?.temperature;
             let region = region_rates(
                 chain,
                 &composition,
