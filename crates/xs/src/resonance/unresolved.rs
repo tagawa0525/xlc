@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
 use super::fluctuation::{expectation, width_ratios};
-use super::ladder::{Bondarenko, LadderSequence, Sampling, bondarenko};
+use super::ladder::{Bondarenko, LadderError, LadderSequence, Sampling, bondarenko};
 use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof, scattering_radius_at};
 use crate::numeric::NumericError;
 use crate::physics::{BK, wave_number_factor};
@@ -26,10 +26,14 @@ pub enum UrrError {
     #[error("self-shielding needs a positive temperature, got {0}")]
     Temperature(f64),
     #[error(
-        "the sampled total cross section is not positive {offset} eV from {energy} eV \
-         (with the elastic floored at 1 microbarn)"
+        "the sampled total cross section is not positive {offset} eV from {energy} eV{}",
+        if *floored { " (with the elastic floored at 1 microbarn)" } else { "" }
     )]
-    NonPositiveTotal { energy: f64, offset: f64 },
+    NonPositiveTotal {
+        energy: f64,
+        offset: f64,
+        floored: bool,
+    },
     #[error(
         "the ladder sampling needs at least one ladder and one energy, got {ladders} and {samples}"
     )]
@@ -155,8 +159,19 @@ impl UnresolvedXs<'_> {
                 });
             }
         }
-        bondarenko(&sequences, potential, background, sigma0, sampling, seed)
-            .map_err(|offset| UrrError::NonPositiveTotal { energy: e, offset })
+        bondarenko(&sequences, potential, background, sigma0, sampling, seed).map_err(|error| {
+            match error {
+                LadderError::EmptySampling => UrrError::EmptySampling {
+                    ladders: sampling.ladders,
+                    samples: sampling.samples,
+                },
+                LadderError::NonPositiveTotal { offset, floored } => UrrError::NonPositiveTotal {
+                    energy: e,
+                    offset,
+                    floored,
+                },
+            }
+        })
     }
 
     /// 位相シフトに使う散乱半径（NRO=1 なら表から補間する）。
