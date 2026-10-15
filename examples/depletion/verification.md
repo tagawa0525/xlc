@@ -140,8 +140,8 @@ dvc repro examples/depletion/dvc.yaml          # xs-range、xs-nuclide@<核種>�
 
 ### 計算
 
-xlc dab3bca8（分岐点 2f7b7649、2026-10-15）。Slurm の排他のジョブ 397 で、VERA のライブラリと同じジョブの後の手順として
-`dvc repro examples/depletion/dvc.yaml:xs` を走らせた。H-1 の段階だけは、同じ xs のコードの前のジョブ 391（xlc a8337d5c。弾性散乱の
+xlc e01d9551（分岐点 2f7b7649、2026-10-15）。Slurm の排他のジョブ 397 で、VERA のライブラリと同じジョブの後の手順として
+`dvc repro examples/depletion/dvc.yaml:xs` を走らせた。H-1 の段階だけは、同じ xs のコードの前のジョブ 391（xlc a5f2b98d。弾性散乱の
 下限（ADR-0177）の前で、H-1 は非分離共鳴を持たない）で作ったものを引き継いだ。
 
 ### 結果

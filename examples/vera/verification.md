@@ -665,9 +665,9 @@ dvc repro examples/vera/p5/dvc.yaml:hzp-compare
 
 ## OpenMC との比較
 
-xlc は dab3bca8（分岐点 2f7b7649、2026-10-15。非分離共鳴をラダーのサンプリングで遮蔽したライブラリ（[ADR-0177](../../docs/adr/0177-shield-unresolved-range-by-probability-tables.md)、
+xlc は e01d9551（分岐点 2f7b7649、2026-10-15。非分離共鳴をラダーのサンプリングで遮蔽したライブラリ（[ADR-0177](../../docs/adr/0177-shield-unresolved-range-by-probability-tables.md)、
 vera.msgpack の md5 6396b4e4）。Slurm の排他のジョブ 397 で `xs`、`lattice-1B`、`compare-1B`、`keno-pincell@1B`、`keno-assembly@2A`、
-排他でないジョブ 399（-c 16、xlc c94fbebf で、コードは dab3bca8 と同じ）で 1C、1D、2B〜2Q の `keno-*` の段階と 2E-empty の `bin/lattice examples/vera/p2/assembly-2E-empty.toml` を
+排他でないジョブ 399（-c 16、xlc 63ce0de4 で、コードは e01d9551 と同じ）で 1C、1D、2B〜2Q の `keno-*` の段階と 2E-empty の `bin/lattice examples/vera/p2/assembly-2E-empty.toml` を
 走らせた）。k は `lattice` の出力、ピン出力は `compare_pins.py`（OpenMC は上の「参照解」のコミットのもの）。ADR-0177 の前の ETOX のライブラリ
 （xlc bd6127e0、分岐点 d07475d3、ライブラリ md5 55be71c9）から、k は 16 体系で +4.1〜+12.2 pcm 動き（1C +10.7、1D +12.2、2C +9.0、
 2D +10.3 pcm で、燃料の温度が高いほど大きい）、ピン出力の差の rms と最大は表の桁で変わらない。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm
