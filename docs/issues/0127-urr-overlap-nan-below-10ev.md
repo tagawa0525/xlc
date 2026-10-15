@@ -62,3 +62,5 @@ NaN の出どころを（1）（2）の候補ごとに確かめ、NJOY UNRESR �
   残りは 1.5〜3 日
   NJOY PURR の投げ方（U-238、Pu-240、Pm-149 の 565 K、σ0 5 点、256 ラダー。ジョブ 381 は始まってすぐ止めた）:
   `~/.claude/scripts/slurm-run.sh -c 3 -t 30 njoy-purr-urr 'cd /home/tagawa/github/xlc/references/njoy-runs/purr && (cd U238 && nix develop /home/tagawa/github/xlc-fix-0127-urr-shielding-nan#references -c njoy < input > output 2>&1) & (cd Pu240 && nix develop /home/tagawa/github/xlc-fix-0127-urr-shielding-nan#references -c njoy < input > output 2>&1) & (cd Pm149 && nix develop /home/tagawa/github/xlc-fix-0127-urr-shielding-nan#references -c njoy < input > output 2>&1) & wait'`
+- 2026-10-15（再開）: 機能の不足なので確率表を最後まで仕上げてからマージする（ユーザーの判断）。サンプルの数を 512 ラダー × 250 点
+  （系統抽出）に決め、NJOY PURR と比べた（ADR-0177 の「確認」、examples/urr-purr/）。5 核種を燃焼のライブラリの入力に戻した
