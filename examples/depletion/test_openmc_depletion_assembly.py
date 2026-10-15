@@ -326,5 +326,63 @@ class Compositions(unittest.TestCase):
         self.assertEqual(asm.WABA_RADII, (0.286, 0.339, 0.353, 0.404, 0.418, 0.484))
 
 
+class IntervalPins(unittest.TestCase):
+    """区間に分けた実行は、区間ごとに前の区間までのピン出力に続けて pins.json を書く（再開した VM に前の区間はない）。"""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.work = Path(tmp.name)
+        saved = asm.bos_points
+        self.addCleanup(setattr, asm, "bos_points", saved)
+
+    def point(self, value: float) -> dict:
+        return {
+            "mean": [[value]],
+            "std": [[0.0]],
+            "k": value,
+            "k-std": 0.0,
+            "runtime": {},
+        }
+
+    def interval(self, k: int) -> Path:
+        step = self.work / f"step-{k}"
+        step.mkdir()
+        return step
+
+    def test_the_first_interval_writes_its_own_points(self):
+        asm.bos_points = lambda directory: [self.point(0.0)]
+        step = self.interval(1)
+        asm.collect_interval(step, 1, None)
+        self.assertEqual([p["k"] for p in asm.read_pins(step)], [0.0])
+
+    def test_an_interval_continues_the_previous_points(self):
+        asm.bos_points = lambda directory: [self.point(0.0)]
+        first = self.interval(1)
+        asm.collect_interval(first, 1, None)
+        asm.bos_points = lambda directory: [self.point(1.0)]
+        second = self.interval(2)
+        asm.collect_interval(second, 2, first)
+        self.assertEqual([p["k"] for p in asm.read_pins(second)], [0.0, 1.0])
+
+    def test_the_last_interval_adds_the_final_point_too(self):
+        asm.bos_points = lambda directory: [self.point(0.0)]
+        first = self.interval(1)
+        asm.collect_interval(first, 1, None)
+        asm.bos_points = lambda directory: [self.point(1.0), self.point(2.0)]
+        second = self.interval(2)
+        asm.collect_interval(second, 2, first)
+        self.assertEqual([p["k"] for p in asm.read_pins(second)], [0.0, 1.0, 2.0])
+
+    def test_a_rerun_interval_replaces_the_points_it_made_before(self):
+        """前の区間の pins.json が後の点まで持っていても（再開で区間を再実行する）、区間 k の分で置き換える。"""
+        first = self.interval(1)
+        asm.write_pins(first, [self.point(0.0), self.point(9.0)])
+        asm.bos_points = lambda directory: [self.point(1.0)]
+        second = self.interval(2)
+        asm.collect_interval(second, 2, first)
+        self.assertEqual([p["k"] for p in asm.read_pins(second)], [0.0, 1.0])
+
+
 if __name__ == "__main__":
     unittest.main()
