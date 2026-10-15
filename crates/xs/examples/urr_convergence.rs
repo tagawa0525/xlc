@@ -1,6 +1,6 @@
 //! 非分離共鳴のサンプリングした自己遮蔽（ADR-0177）の統計誤差を測る。
 //!
-//! 使い方: urr_convergence <ENDF> <温度 (K)> <ラダーの数> <ラダーごとのエネルギーの数> <エネルギー (eV)>...
+//! 使い方: urr_convergence <ENDF> <温度 (K)> <ラダーの数> <ラダーごとのエネルギーの数> <窓の外の範囲の倍率> <エネルギー (eV)>...
 //!
 //! エネルギーごとに、種 1〜16 の独立なサンプリングで、σ0 ごとの遮蔽の比（捕獲と全断面積の、実効断面積 / 同じサンプルの平均）の
 //! 平均と、1 回のサンプリング（1 つの種）の相対標準偏差を書く。エネルギーごとに、捕獲と全断面積のサンプルの平均（種で平均）も書く。ライブラリは無限希釈の値にこの比（LSSF=1）か差（LSSF=0）を当てるので、比の誤差が
@@ -11,15 +11,25 @@ use xlc_xs::resonance::{Sampling, Sigma, UnresolvedXs};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
-    let [_, endf, temperature, ladders, samples, energies @ ..] = args.as_slice() else {
+    let [
+        _,
+        endf,
+        temperature,
+        ladders,
+        samples,
+        margin,
+        energies @ ..,
+    ] = args.as_slice()
+    else {
         return Err(
-            "usage: urr_convergence <ENDF> <temperature K> <ladders> <samples> <energy eV>..."
+            "usage: urr_convergence <ENDF> <temperature K> <ladders> <samples> <margin> <energy eV>..."
                 .into(),
         );
     };
     let sampling = Sampling {
         ladders: ladders.parse()?,
         samples: samples.parse()?,
+        margin: margin.parse()?,
     };
     let temperature: f64 = temperature.parse()?;
     let tape = Tape::parse(&std::fs::read_to_string(endf)?)?;
