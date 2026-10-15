@@ -30,6 +30,10 @@ pub enum UrrError {
          (with the elastic floored at 1 microbarn)"
     )]
     NonPositiveTotal { energy: f64, offset: f64 },
+    #[error(
+        "the ladder sampling needs at least one ladder and one energy, got {ladders} and {samples}"
+    )]
+    EmptySampling { ladders: usize, samples: usize },
     #[error("unresolved range has no (l, J) sequences")]
     NoSequences,
     #[error("the scattering radius table does not cover {energy} eV")]
