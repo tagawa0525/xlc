@@ -102,6 +102,14 @@ class Summary(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare_depletion.summarize(xlc, omc)
 
+    def test_several_rings_pair_by_name(self):
+        xlc, omc = histories(rings=2)
+        xlc["regions"].reverse()
+        for r, v in zip(xlc["regions"], [1.0, 3.0]):
+            r["volume"] = v
+        with self.assertRaises(SystemExit):
+            compare_depletion.summarize(xlc, omc)
+
     def test_the_rings_must_have_the_same_volumes(self):
         xlc, omc = histories(rings=2)
         omc["rings"][1]["volume"] = 3.1
