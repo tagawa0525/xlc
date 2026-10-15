@@ -99,3 +99,4 @@ power = 38.41
 burnup = [0.1]
 materials = ["fuel"]
 output = "lattice-2A.msgpack"
+few-group = { bounds = [1e7, 0.625, 1e-5] }
