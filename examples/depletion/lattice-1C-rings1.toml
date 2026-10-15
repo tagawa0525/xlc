@@ -60,3 +60,4 @@ power = 38.41
 burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
 materials = ["fuel"]
 output = "lattice-1C-rings1.msgpack"
+few-group = { bounds = [1e7, 0.625, 1e-5] }
