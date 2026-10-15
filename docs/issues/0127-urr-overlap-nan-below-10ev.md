@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [xs]
 opened: 2026-10-14
-closed:
+closed: 2026-10-15
 milestone: M4
 blocked-by: []
-resolution:
+resolution: ADR-0177
 ---
 
 # 非分離共鳴の自己遮蔽が、低いエネルギーの小さい σ0 で NaN になる（Pm-147、Pm-148、Pm-149、Am-242m、Eu-151）
@@ -64,3 +64,5 @@ NaN の出どころを（1）（2）の候補ごとに確かめ、NJOY UNRESR �
   `~/.claude/scripts/slurm-run.sh -c 3 -t 30 njoy-purr-urr 'cd /home/tagawa/github/xlc/references/njoy-runs/purr && (cd U238 && nix develop /home/tagawa/github/xlc-fix-0127-urr-shielding-nan#references -c njoy < input > output 2>&1) & (cd Pu240 && nix develop /home/tagawa/github/xlc-fix-0127-urr-shielding-nan#references -c njoy < input > output 2>&1) & (cd Pm149 && nix develop /home/tagawa/github/xlc-fix-0127-urr-shielding-nan#references -c njoy < input > output 2>&1) & wait'`
 - 2026-10-15（再開）: 機能の不足なので確率テーブルを最後まで仕上げてからマージする（ユーザーの判断）。サンプルの数を 512 ラダー × 250 点
   （系統抽出）に決め、NJOY PURR と比べた（ADR-0177 の「確認」、examples/urr-purr/）。5 核種を燃焼のライブラリの入力に戻した
+- 2026-10-15（閉じる）: ADR-0177 を accepted にした。5 核種を含む燃焼のライブラリと、VERA の 16 の格子を ADR-0177 のライブラリで
+  作り直した（xlc f47f4187）。Mo-95 の負の弾性散乱の背景は、PURR と同じく弾性散乱を 1 μb にする（ADR-0177）
