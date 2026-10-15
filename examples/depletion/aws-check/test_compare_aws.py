@@ -50,13 +50,13 @@ class Summary(unittest.TestCase):
         local = result([1.17, 1.12], [3e-4, 4e-4], [1.0, 2.0])
         aws = result([1.17, 1.12], [3e-4, 4e-4], [1.0, 2.002])
         s = compare_aws.summarize(local, aws)
-        self.assertTrue(math.isclose(s["density"]["U235"][1], 1e-3, rel_tol=1e-9))
-        self.assertEqual(s["density"]["U235"][0], 0.0)
+        self.assertTrue(math.isclose(s["density"]["U-235"][1], 1e-3, rel_tol=1e-9))
+        self.assertEqual(s["density"]["U-235"][0], 0.0)
 
     def test_density_is_none_when_the_local_run_has_zero(self):
         local = result([1.17, 1.12], [3e-4, 4e-4], [0.0, 2.0])
         s = compare_aws.summarize(local, local)
-        self.assertIsNone(s["density"]["U235"][0])
+        self.assertIsNone(s["density"]["U-235"][0])
 
     def test_different_burnup_points_stop(self):
         local = result([1.17, 1.12], [3e-4, 4e-4], [1.0, 2.0])
