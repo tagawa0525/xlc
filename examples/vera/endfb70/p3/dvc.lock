@@ -6,8 +6,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -36,8 +36,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -71,8 +71,8 @@ stages:
     deps:
     - path: ../../../../bin/core
       hash: md5
-      md5: 8f99606531306839ad572667b817d708
-      size: 3024088
+      md5: d96dad3a9317e0bce17bcbb7cca81f80
+      size: 3023896
       isexec: true
     - path: axial-3A
       hash: md5
@@ -98,7 +98,7 @@ stages:
     outs:
     - path: core-3A-slab.log
       hash: md5
-      md5: 860b90687b01667e1d4c4887ed625a44
+      md5: 66c288cc9eaf1d2ed1b4f000ece74558
       size: 481368
     - path: core-3A-slab.out
       hash: md5
@@ -110,8 +110,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -140,8 +140,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -170,8 +170,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -200,8 +200,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -230,8 +230,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -277,8 +277,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -303,8 +303,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -329,8 +329,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -355,8 +355,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -381,8 +381,8 @@ stages:
     deps:
     - path: ../../../../bin/core
       hash: md5
-      md5: 8f99606531306839ad572667b817d708
-      size: 3024088
+      md5: d96dad3a9317e0bce17bcbb7cca81f80
+      size: 3023896
       isexec: true
     - path: axial-3B
       hash: md5
@@ -452,8 +452,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -478,8 +478,8 @@ stages:
     deps:
     - path: ../../../../bin/lattice
       hash: md5
-      md5: 82b471dfb374c828536b20197ff8e24f
-      size: 4175928
+      md5: f18cdbbec6f3c783cbe616a971292472
+      size: 7124432
       isexec: true
     - path: ../vera.msgpack
       hash: md5
@@ -504,8 +504,8 @@ stages:
     deps:
     - path: ../../../../bin/core
       hash: md5
-      md5: 8f99606531306839ad572667b817d708
-      size: 3024088
+      md5: d96dad3a9317e0bce17bcbb7cca81f80
+      size: 3023896
       isexec: true
     - path: axial-3A
       hash: md5
@@ -563,8 +563,8 @@ stages:
     deps:
     - path: ../../../../bin/core
       hash: md5
-      md5: 8f99606531306839ad572667b817d708
-      size: 3024088
+      md5: d96dad3a9317e0bce17bcbb7cca81f80
+      size: 3023896
       isexec: true
     - path: axial-3B
       hash: md5
@@ -644,7 +644,7 @@ stages:
       size: 192639
     - path: core-3A-slab.log
       hash: md5
-      md5: 860b90687b01667e1d4c4887ed625a44
+      md5: 66c288cc9eaf1d2ed1b4f000ece74558
       size: 481368
     outs:
     - path: compare-3A-slab.out
