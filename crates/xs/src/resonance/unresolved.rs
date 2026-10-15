@@ -1,4 +1,5 @@
-//! 非分離共鳴の無限希釈の平均断面積（NJOY RECONR csunr2 と同じ単準位 Breit-Wigner の式）。
+//! 非分離共鳴の無限希釈の平均断面積（NJOY RECONR csunr2 と同じ単準位 Breit-Wigner の式）と、ラダーのサンプリングによる
+//! 自己遮蔽（ADR-0177。`ladder`）。
 //!
 //! 幅のゆらぎの期待値は、NJOY の求積表ではなく適応積分で求める（`fluctuation`）。
 
@@ -6,8 +7,8 @@ use std::f64::consts::PI;
 
 use super::Sigma;
 use super::factors::{channel_radius, penetrability, phase_shift};
-use super::fluctuation::{expectation, expectation_vec, width_ratios};
-use super::line_shape::jk_interpolated;
+use super::fluctuation::{expectation, width_ratios};
+use super::ladder::{Bondarenko, LadderError, LadderSequence, Sampling, bondarenko};
 use crate::endf::{Interpolation, Unresolved, UrrJValue, UrrPoint, WidthDof, scattering_radius_at};
 use crate::numeric::NumericError;
 use crate::physics::{BK, wave_number_factor};
@@ -25,16 +26,18 @@ pub enum UrrError {
     #[error("self-shielding needs a positive temperature, got {0}")]
     Temperature(f64),
     #[error(
-        "background {background} b at {energy} eV is not positive \
-         (potential and interference terms {terms})"
+        "the sampled total cross section is not positive {offset} eV from {energy} eV{}",
+        if *floored { " (with the elastic floored at 1 microbarn)" } else { "" }
     )]
-    Background {
-        background: f64,
+    NonPositiveTotal {
         energy: f64,
-        terms: f64,
+        offset: f64,
+        floored: bool,
     },
-    #[error("β={beta:e}, θ={theta:e} is outside the J, K table")]
-    JkTable { beta: f64, theta: f64 },
+    #[error(
+        "the ladder sampling needs at least one ladder and one energy, got {ladders} and {samples}"
+    )]
+    EmptySampling { ladders: usize, samples: usize },
     #[error("unresolved range has no (l, J) sequences")]
     NoSequences,
     #[error("the scattering radius table does not cover {energy} eV")]
@@ -104,97 +107,71 @@ pub struct ShieldedSigma {
 }
 
 impl UnresolvedXs<'_> {
-    /// エネルギー e (eV)、温度 `temperature` (K) での、背景断面積 `sigma0` ごとの実効断面積
-    /// （NJOY UNRESR unresl と同じ ETOX 法）。`background` は MF3 の背景断面積
-    /// （LSSF=1 では MF3 が平均断面積そのものなので 0 を渡す）。
+    /// エネルギー e (eV)、温度 `temperature` (K) での、背景断面積 `sigma0` ごとの実効断面積を、ラダーのサンプリングの
+    /// Bondarenko の平均で求める（ADR-0177。`ladder`）。`background` は MF3 の背景断面積（LSSF=1 では MF3 が平均断面積そのもの
+    /// なので 0 を渡す）。サンプルの数は `sampling`。乱数は種 `seed` から決まり、同じ種なら温度を変えても同じラダーとエネルギーを使う（温度の間の相関を保つ）。
     pub fn shielded(
         &self,
         e: f64,
         temperature: f64,
         sigma0: &[f64],
         background: Sigma,
-    ) -> Result<Vec<ShieldedSigma>, UrrError> {
+        sampling: Sampling,
+        seed: u64,
+    ) -> Result<Bondarenko, UrrError> {
         if temperature.is_nan() || temperature <= 0.0 {
             return Err(UrrError::Temperature(temperature));
         }
         let urr = self.urr;
         let ay = self.scattering_radius(e)?;
-        // ポテンシャル散乱と干渉の補正、系列ごとの平均の幅
-        let (mut spot, mut sint) = (0.0, 0.0);
+        let mut potential = 0.0;
         let mut sequences = Vec::new();
         for lv in &urr.l_values {
             let aa = self.channel_radius(lv.awri, ay);
             let k = wave_number_factor() * lv.awri / (lv.awri + 1.0) * e.sqrt();
             let (rho, rhoc) = (k * aa, k * ay);
-            let sin2 = phase_shift(lv.l, rhoc).sin().powi(2);
+            let phi = phase_shift(lv.l, rhoc);
             let ab = 4.0 * PI / (k * k);
             if !lv.j_values.is_empty() {
-                spot += ab * f64::from(2 * lv.l.number() + 1) * sin2;
+                potential += ab * f64::from(2 * lv.l.number() + 1) * phi.sin().powi(2);
             }
             // ドップラー幅 Δ = 2 √(E kT / A)
             let delta = 2.0 * (e * BK * temperature / lv.awri).sqrt();
             for jv in &lv.j_values {
                 let p = parameters(&jv.points, e);
                 let gj = (2.0 * jv.aj + 1.0) / (4.0 * urr.spi + 2.0);
+                // 平均中性子幅（換算幅 × 自由度 × 透過因子/ρ × √E。`cross_sections` と同じ）
                 let gn =
                     p.gno * f64::from(jv.amun.number()) * penetrability(lv.l, rho) / rho * e.sqrt();
-                sint -= ab * PI * gj * gn * sin2 / p.d;
-                sequences.push(Sequence {
-                    gj,
-                    ab,
+                sequences.push(LadderSequence {
+                    scale: ab * gj,
                     gn,
                     gf: p.gf,
                     gg: p.gg,
                     gx: p.gx,
+                    dof_n: jv.amun,
+                    dof_f: if p.gf > 0.0 { jv.amuf } else { WidthDof::Fixed },
+                    dof_x: if p.gx > 0.0 { jv.amux } else { WidthDof::Fixed },
                     d: p.d,
                     delta,
-                    jv,
+                    cos2: (2.0 * phi).cos(),
+                    sin2p: (2.0 * phi).sin(),
                 });
             }
         }
-        let sigbt = background.total + spot + sint;
-        let sigm: Vec<f64> = sigma0.iter().map(|s0| sigbt + s0).collect();
-        if let Some(bad) = sigm.iter().find(|s| s.is_nan() || **s <= 0.0) {
-            return Err(UrrError::Background {
-                background: *bad,
-                energy: e,
-                terms: spot + sint,
-            });
-        }
-        let integrals = sequences
-            .iter()
-            .map(|q| q.integrals(&sigm))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        // 系列どうしの重なりを補正して足し合わせる（NJOY unresl と同じ式）
-        Ok((0..sigma0.len())
-            .map(|s| {
-                let t = |q: usize, kx: usize| integrals[q][PARTS * s + kx];
-                let tj = |q: usize| (0..4).map(|kx| t(q, kx)).sum::<f64>();
-                let all_j: f64 = (0..integrals.len()).map(tj).sum();
-                let all_k: f64 = (0..integrals.len()).map(|q| t(q, 4)).sum();
-                let (mut yy, mut yj, mut yk) = ([0.0; 3], 0.0, 0.0);
-                for q in 0..integrals.len() {
-                    let others_j = all_j - tj(q);
-                    let others_k = all_k - t(q, 4);
-                    for (kx, y) in yy.iter_mut().enumerate() {
-                        *y += t(q, kx) * (1.0 - others_j);
-                    }
-                    let own = tj(q) * (1.0 - others_j);
-                    yj += own;
-                    yk += (t(q, 4) - tj(q)) * (1.0 - others_k) + own;
-                }
-                let [fission, capture, elastic] = yy.map(|y| sigm[s] * y / (1.0 - yj));
-                ShieldedSigma {
-                    total: fission + capture + elastic + sigbt,
-                    elastic: elastic + background.elastic + spot + sint,
-                    fission: fission + background.fission,
-                    capture: capture + background.capture,
-                    current_total: sigbt * (1.0 - yj) / (1.0 - yk)
-                        + sigma0[s] * (yk - yj) / (1.0 - yk),
-                }
-            })
-            .collect())
+        bondarenko(&sequences, potential, background, sigma0, sampling, seed).map_err(|error| {
+            match error {
+                LadderError::EmptySampling => UrrError::EmptySampling {
+                    ladders: sampling.ladders,
+                    samples: sampling.samples,
+                },
+                LadderError::NonPositiveTotal { offset, floored } => UrrError::NonPositiveTotal {
+                    energy: e,
+                    offset,
+                    floored,
+                },
+            }
+        })
     }
 
     /// 位相シフトに使う散乱半径（NRO=1 なら表から補間する）。
@@ -211,82 +188,6 @@ impl UnresolvedXs<'_> {
             // NAPS=2（散乱半径の表があることは `new` で確かめてある）
             _ => self.urr.ap,
         }
-    }
-}
-
-/// 自己遮蔽の積分で、σ0 ごとに求める量の数: J Γf, J Γγ, J Γn, J Γx, K Γ
-const PARTS: usize = 5;
-
-/// 幅のゆらぎの期待値の相対許容誤差（中性子幅、核分裂幅、競合幅の順）。外側は内側の 100 倍にする
-/// （`expectation` を参照）。J, K の表の補間は連続で、表の端で切り替える解析式と級数との差は 1e-10 より小さい（ADR-0107、
-/// ADR-0170）ので、最も内側を緩める必要はない
-const SHIELDING_TOLERANCE: [f64; 3] = [1.0e-10, 1.0e-8, 1.0e-6];
-
-/// 1つの (l, J) 系列の、エネルギー e での平均の幅など。
-struct Sequence<'a> {
-    gj: f64,
-    /// 4π/k²
-    ab: f64,
-    gn: f64,
-    gf: f64,
-    gg: f64,
-    gx: f64,
-    d: f64,
-    /// ドップラー幅
-    delta: f64,
-    jv: &'a UrrJValue,
-}
-
-impl Sequence<'_> {
-    /// σ0 ごとの [E[J Γf], E[J Γγ], E[J Γn], E[J Γx], E[K Γ]] / D。`sigm` は σ0 を含む背景断面積。
-    /// J, K は表から補間する（`jk_interpolated`。β や θ が表より大きいときは希釈の極限か Lorentz の線形状の
-    /// 解析式、θ が表より小さいときはガウス形の線形状の級数）。どれでも求められない点（θ が表より小さく b = 2β/(√π θ) が
-    /// 10⁴ より小さい、θ が表の中で β が表より小さい）はその点を記録してエラーに、θ が正でなければ値の範囲のエラーにする。
-    fn integrals(&self, sigm: &[f64]) -> Result<Vec<f64>, UrrError> {
-        let n = PARTS * sigm.len();
-        // 平均断面積（`fluctuation_integrals`）と同じく、Γn または Γγ が 0 以下なら 0 とする
-        if self.gn <= 0.0 || self.gg <= 0.0 {
-            return Ok(vec![0.0; n]);
-        }
-        let dof_f = if self.gf > 0.0 {
-            self.jv.amuf
-        } else {
-            WidthDof::Fixed
-        };
-        let dof_x = if self.gx > 0.0 {
-            self.jv.amux
-        } else {
-            WidthDof::Fixed
-        };
-        let node = |x: f64, y: f64, z: f64, out: &mut [f64]| -> Result<(), UrrError> {
-            let (gn, gf, gx) = (self.gn * x, self.gf * y, self.gx * z);
-            let gamma = gn + gf + self.gg + gx;
-            // 共鳴のピークの断面積と、θ = Γ/Δ
-            let peak = self.ab * self.gj * gn / gamma;
-            let theta = gamma / self.delta;
-            for (i, s) in sigm.iter().enumerate() {
-                let (j, k) = jk_interpolated(s / peak, theta)?;
-                out[PARTS * i..PARTS * (i + 1)].copy_from_slice(&[
-                    j * gf,
-                    j * self.gg,
-                    j * gn,
-                    j * gx,
-                    k * gamma,
-                ]);
-            }
-            Ok(())
-        };
-        let [tol_n, tol_f, tol_x] = SHIELDING_TOLERANCE;
-        let values = expectation_vec::<UrrError>(dof_x, tol_x, n, |z, out| {
-            let inner = expectation_vec::<UrrError>(dof_f, tol_f, n, |y, out| {
-                let inner = expectation_vec(self.jv.amun, tol_n, n, |x, out| node(x, y, z, out))?;
-                out.copy_from_slice(&inner);
-                Ok(())
-            })?;
-            out.copy_from_slice(&inner);
-            Ok(())
-        })?;
-        Ok(values.into_iter().map(|v| v / self.d).collect())
     }
 }
 

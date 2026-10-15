@@ -2,7 +2,7 @@
 
 mod factors;
 mod fluctuation;
-mod line_shape;
+mod ladder;
 mod linear;
 mod mlbw;
 mod quadrature;
@@ -10,6 +10,7 @@ mod r_matrix_limited;
 mod reich_moore;
 mod unresolved;
 
+pub use ladder::{Bondarenko, Sampling};
 pub use mlbw::{MlbwError, MlbwXs};
 pub use r_matrix_limited::{RMatrixLimitedXs, RmlError};
 pub use reich_moore::{ReichMooreError, ReichMooreXs};
