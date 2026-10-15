@@ -1419,15 +1419,25 @@ fn shield_material(
         .iter()
         .map(|(name, _)| Ok(library.nuclide(name, t)?.total))
         .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+    // 個数密度が 0 の核種は何にも寄与しないので、無限希釈のまま（反復で変わらないので 1 度だけ引く。燃焼では輸送できる核種の
+    // 多くが 0 で入る）
+    let dilute = material
+        .composition
+        .iter()
+        .map(|(name, density)| {
+            (*density == 0.0)
+                .then(|| library.shielded(name, t, &vec![infinite; ng]))
+                .transpose()
+        })
+        .collect::<Result<Vec<_>, _>>()?;
     for _ in 0..options.max_iterations {
         let tables = material
             .composition
             .iter()
             .enumerate()
             .map(|(k, (name, density))| {
-                // 個数密度が 0 の核種は何にも寄与しないので、無限希釈のままにする
-                if *density == 0.0 {
-                    return Ok(library.shielded(name, t, &vec![infinite; ng])?);
+                if let Some(table) = &dilute[k] {
+                    return Ok(table.clone());
                 }
                 // 同じ燃料の他の核種の全断面積の和 (1/cm)
                 let background: Vec<f64> = (0..ng)
