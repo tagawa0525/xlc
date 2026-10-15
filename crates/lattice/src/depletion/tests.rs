@@ -815,3 +815,37 @@ fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
         assert!(xe < 0.5 * decay_only, "{name}: {xe} vs {decay_only}");
     }
 }
+
+#[test]
+fn depleted_materials_share_one_temperature() {
+    // 輸送できる核種は燃焼の領域の温度で決まる。吸収体を燃料と違う温度で燃やすときの集合は決めていないので止める
+    let text = PIN
+        .replace(
+            "zones = [{ material = \"fuel\", radius = 0.4096, rings = 1 }",
+            "zones = [{ material = \"fuel\", radius = 0.4, rings = 1 }, { material = \"coat\", radius = 0.4096, rings = 1 }",
+        )
+        .replace(
+            "[material.water]",
+            "[material.coat]\ntemperature = 300\nnuclides = { O-16 = 4.6e-2 }\n\n[material.water]",
+        )
+        .replace("materials = [\"fuel\"]", "materials = [\"fuel\", \"coat\"]");
+    let input = LatticeInput::parse(&text).unwrap();
+    let depletion = input.depletion.clone().unwrap();
+    let (lattice, region_materials) = input.geometry().unwrap();
+    let tracking = Tracking::new(&lattice, input.azimuthal, input.spacing).unwrap();
+    let chosen = choose(&tracking, &region_materials, None).unwrap();
+    let library = library();
+    let error = run(
+        &input,
+        &depletion,
+        &library,
+        &chain(),
+        &tracking,
+        &region_materials,
+        &chosen,
+        &LibraryReactions(&library),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("temperature"), "{error}");
+}
