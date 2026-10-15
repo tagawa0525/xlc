@@ -231,6 +231,14 @@ pub fn unresolved_shielding(
             i as u64,
         )
     })?;
+    let floored: usize = sampled.iter().map(|b| b.floored).sum();
+    if floored > 0 {
+        let samples = Sampling::LIBRARY.ladders * Sampling::LIBRARY.samples * grid.len();
+        tracing::warn!(
+            "{temperature} K: the elastic plus the negative MF3 background is negative at {floored} of \
+             {samples} sampled energies in the unresolved range and is raised to 1 microbarn, as NJOY PURR does"
+        );
+    }
     let mut shielded = vec![Vec::with_capacity(grid.len()); sigma0.len()];
     let mut infinite = Vec::with_capacity(grid.len());
     for b in &sampled {
