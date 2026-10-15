@@ -64,6 +64,12 @@ def relative(ours: float, theirs: float) -> float | None:
     return None if theirs == 0.0 else ours / theirs - 1.0
 
 
+def orbit_of(i: int, j: int, n: int) -> tuple[int, int]:
+    """n × n のセル（行 i、列 j）の対称操作の組。中央からの距離の対を大きい順に並べ、整数にする（n が偶数なら半分の距離を 2 倍にする）。"""
+    a, b = sorted((abs(2 * i - (n - 1)), abs(2 * j - (n - 1))), reverse=True)
+    return (a, b)
+
+
 def check_same_run(xlc: dict, omc: dict) -> None:
     if (
         xlc["format"] != "xlc-depletion-history"
@@ -91,6 +97,14 @@ def check_same_run(xlc: dict, omc: dict) -> None:
     for i, (r, m) in enumerate(zip(regions, materials)):
         if r["material"] != m["material"]:
             raise SystemExit(f"region {i}: {r['material']} vs {m['material']}")
+        # xlc のセルの番号は水のギャップの 1 周を含む（n + 2 列）。代表のセルの組が、OpenMC の物質の組と同じこと（体積が同じ別の組を
+        # 取り違えない。軸上と対角線上の組は同じセル数）
+        n = len(omc["pins"][0])
+        row, column = divmod(r["cell"], n + 2)
+        if orbit_of(row - 1, column - 1, n) != tuple(2 * x for x in m["orbit"]):
+            raise SystemExit(
+                f"region {i}: cell {r['cell']} is not in the orbit {m['orbit']}"
+            )
         if abs(r["volume"] - m["volume"]) > VOLUME_TOLERANCE * m["volume"]:
             raise SystemExit(
                 f"region {i} ({r['material']}): volume {r['volume']} vs {m['volume']}"
