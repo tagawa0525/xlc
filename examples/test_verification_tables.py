@@ -485,5 +485,54 @@ class DrawDepletion(unittest.TestCase):
             vt.depletion_k([{"format": "xlc-compare-p3"}])
 
 
+class DrawAwsDepletion(unittest.TestCase):
+    def summary(self) -> dict:
+        k = {
+            "local": 1.134038,
+            "local_std_pcm": 17.7,
+            "aws": 1.1335,
+            "aws_std_pcm": 21.8,
+            "diff_pcm": -53.8,
+            "sigma_pcm": 28.0,
+            "ratio": -1.92,
+        }
+        return {
+            "format": "xlc-compare-aws-depletion",
+            "burnup": [0.1],
+            "k": [k],
+            "density": {n: [None] for n in vt.DEPLETION_NUCLIDES}
+            | {"Pu-239": [-0.0007]},
+        }
+
+    def test_k_row_has_the_difference_and_the_ratio_to_the_combined_sigma(self):
+        row = [
+            c.strip()
+            for c in vt.aws_depletion_k([self.summary()])
+            .split("\n")[2]
+            .strip("|")
+            .split("|")
+        ]
+        self.assertEqual(row[0], "0.1")
+        self.assertEqual(row[3:], ["\u221253.8", "28.0", "\u22121.92"])
+
+    def test_density_row_is_in_percent_and_dashes_a_zero_base(self):
+        row = [
+            c.strip()
+            for c in vt.aws_depletion_densities([self.summary()])
+            .split("\n")[2]
+            .strip("|")
+            .split("|")
+        ]
+        self.assertEqual(row, ["0.1", "–", "–", "\u22120.070", "–", "–"])
+
+    def test_the_git_tracked_json_is_not_checked_against_a_dvc_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = "examples/depletion/aws-check/compare-aws-1C-rings1.json"
+            (root / source).parent.mkdir(parents=True)
+            (root / source).write_text(json.dumps(self.summary()))
+            self.assertEqual(vt.load(root, source, True)["burnup"], [0.1])
+
+
 if __name__ == "__main__":
     unittest.main()
