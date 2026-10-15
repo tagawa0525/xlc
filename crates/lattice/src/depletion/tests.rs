@@ -810,8 +810,8 @@ fn absorbers_outside_the_fuel_deplete_by_their_own_rates() {
     assert_eq!(names, vec!["fuel", "coat", "poison"]);
     let last = history.points.last().unwrap();
     let decay_only = 1.0e-4 * (-LN_2 * last.time / 32_904.0).exp();
-    for r in 1..3 {
-        let xe = last.densities[r][XE135];
-        assert!(xe < 0.5 * decay_only, "{}: {xe} vs {decay_only}", names[r]);
+    for (name, densities) in names.iter().zip(&last.densities).skip(1) {
+        let xe = densities[XE135];
+        assert!(xe < 0.5 * decay_only, "{name}: {xe} vs {decay_only}");
     }
 }
