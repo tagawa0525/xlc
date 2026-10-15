@@ -6,7 +6,7 @@ ADR-0177 の「確認」の表の作り方（565 K、ENDF/B-VIII.0。<核種> �
 
 - PURR: <核種>/input を、ENDF を tape20 にした作業ディレクトリで references の devShell の njoy に与え、出力を
   `python3 purr_table.py output > purr-<核種>.tsv`
-- xlc: `target/release/examples/urr_convergence <ENDF> 565 512 250 <エネルギー>... > xlc-<核種>.tsv`（エネルギーは各 tsv の値）
+- xlc: `target/release/examples/urr_convergence <ENDF> 565 512 250 1 <エネルギー>... > xlc-<核種>.tsv`（エネルギーは各 tsv の値）
 出力: 核種のエネルギー、σ0、捕獲の比（xlc、種 1 つあたりの相対標準偏差、PURR、差）、全断面積の比の差と相対標準偏差
 """
 
