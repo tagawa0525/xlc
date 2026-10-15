@@ -21,7 +21,7 @@ resolution:
 共通の関数（例: オペレーターと積分器を作る `make_operator`）を `openmc_depletion.py` に置き、両方が呼ぶ形が構造的な解決で、
 段階を 1 回再実行する費用が要る。
 
-関係する ADR: ADR-0174
+関係する ADR: ADR-0174、ADR-0178
 
 ## 完了の条件
 
