@@ -1364,12 +1364,21 @@ mod lattice {
         let library = library_with_zirconium();
         let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
         let grid = PinCell::grid(1.26, 3).unwrap();
-        let layout = vec![vec![0, 1]];
-        let regions: Vec<String> = ["fuel", "water"]
-            .into_iter()
-            .chain([
-                "water", "zirc", "water", "water", "zirc", "water", "water", "zirc", "water",
-            ])
+        // 格子は正方形（ピンと、Zr の縦の列のある正方形のセルを互い違いに）
+        let layout = vec![vec![0, 1], vec![1, 0]];
+        let names = |t: usize| -> Vec<&str> {
+            if t == 0 {
+                vec!["fuel", "water"]
+            } else {
+                vec![
+                    "water", "zirc", "water", "water", "zirc", "water", "water", "zirc", "water",
+                ]
+            }
+        };
+        let regions: Vec<String> = layout
+            .iter()
+            .flatten()
+            .flat_map(|&t| names(t))
             .map(String::from)
             .collect();
         let lattice = Lattice::new(vec![pin, grid], layout).unwrap();
