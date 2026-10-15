@@ -1,0 +1,154 @@
+# 格子計算の燃焼の検証（ADR-0178）: VERA Problem 2 の IFBA 104 本と WABA 20 本（図 P2-2。どちらも燃焼する。600 K、0.743 g/cc）を、分岐なしの 1 つの状態で、
+# 40 点（最後は 60 MWd/kg）まで燃焼させる。OpenMC の参照解は openmc-2N.toml。
+# 出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。形状、組成と燃焼度の点は
+# OpenMC の入力と同じ表（openmc_depletion_assembly.py）から p2_inputs.py が書く。手で直さない。集合体の周りに水のギャップ 0.04 cm。
+# 燃焼させる物質は fuel, ifba, waba（対称操作の組ごとに 1 つの領域。ADR-0173）。
+library = "depletion.msgpack"
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+gap = { width = 0.04, material = "water" }
+rows = [
+  "ib  pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin ib ",
+  "pin pin pin pin pin ib  pin pin ib  pin pin ib  pin pin pin pin pin",
+  "pin pin pin ib  ib  wb  ib  ib  wb  ib  ib  wb  ib  ib  pin pin pin",
+  "pin pin ib  wb  ib  ib  pin pin ib  pin pin ib  ib  wb  ib  pin pin",
+  "pin pin ib  ib  pin ib  pin pin ib  pin pin ib  pin ib  ib  pin pin",
+  "pin ib  wb  ib  ib  gt  ib  ib  wb  ib  ib  gt  ib  ib  wb  ib  pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin ib  wb  ib  ib  wb  ib  ib  it  ib  ib  wb  ib  ib  wb  ib  pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin ib  pin pin",
+  "pin ib  wb  ib  ib  gt  ib  ib  wb  ib  ib  gt  ib  ib  wb  ib  pin",
+  "pin pin ib  ib  pin ib  pin pin ib  pin pin ib  pin ib  ib  pin pin",
+  "pin pin ib  wb  ib  ib  pin pin ib  pin pin ib  ib  wb  ib  pin pin",
+  "pin pin pin ib  ib  wb  ib  ib  wb  ib  ib  wb  ib  ib  pin pin pin",
+  "pin pin pin pin pin ib  pin pin ib  pin pin ib  pin pin pin pin pin",
+  "ib  pin pin pin pin pin pin pin pin pin pin pin pin pin pin pin ib ",
+]
+
+[material.fuel]
+temperature = 600
+nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.30121e-06
+Cr-52 = 6.36606e-05
+Cr-53 = 7.21860e-06
+Cr-54 = 1.79686e-06
+Fe-54 = 8.68307e-06
+Fe-56 = 1.36306e-04
+Fe-57 = 3.14789e-06
+Fe-58 = 4.18926e-07
+Zr-90 = 2.18865e-02
+Zr-91 = 4.77292e-03
+Zr-92 = 7.29551e-03
+Zr-94 = 7.39335e-03
+Zr-96 = 1.19110e-03
+Sn-112 = 4.68066e-06
+Sn-114 = 3.18478e-06
+Sn-115 = 1.64064e-06
+Sn-116 = 7.01616e-05
+Sn-117 = 3.70592e-05
+Sn-118 = 1.16872e-04
+Sn-119 = 4.14504e-05
+Sn-120 = 1.57212e-04
+Sn-122 = 2.23417e-05
+Sn-124 = 2.79392e-05
+
+[material.water]
+temperature = 600
+nuclides = { O-16 = 2.48112e-02, H-1 = 4.96224e-02, B-10 = 1.07070e-05, B-11 = 4.30971e-05 }
+
+[material.waba]
+temperature = 600
+nuclides = { B-10 = 2.98553e-03, B-11 = 1.21192e-02, C-12 = 3.72967e-03, C-13 = 4.03391e-05, O-16 = 5.85563e-02, Al-27 = 3.90223e-02 }
+
+[material.ifba]
+temperature = 600
+
+[material.ifba.nuclides]
+B-10 = 2.16410e-02
+B-11 = 1.96824e-02
+Zr-90 = 1.06304e-02
+Zr-91 = 2.31824e-03
+Zr-92 = 3.54348e-03
+Zr-94 = 3.59100e-03
+Zr-96 = 5.78528e-04
+
+# 燃料のピン（3.1%）
+[cell.pin]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# IFBA の燃料のピン（ペレットの外側に ZrB2 の被覆 10 μm。ペレットと被覆管の間は真空）
+[cell.ib]
+zones = [
+  { material = "fuel", radius = 0.4096, rings = 5 },
+  { material = "ifba", radius = 0.4106, rings = 1 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 案内管（中は減速材）
+[cell.gt]
+zones = [
+  { material = "water", radius = 0.561, rings = 3 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# 計装管（中は減速材）
+[cell.it]
+zones = [
+  { material = "water", radius = 0.559, rings = 3 },
+  { material = "zircaloy", radius = 0.605, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+# WABA の棒を入れた案内管（内管の中は減速材、内管と吸収体の間、吸収体と被覆管の間は真空）
+[cell.wb]
+zones = [
+  { material = "water", radius = 0.286, rings = 2 },
+  { material = "zircaloy", radius = 0.339, rings = 1 },
+  { material = "void", radius = 0.353, rings = 1 },
+  { material = "waba", radius = 0.404, rings = 2 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.484, rings = 1 },
+  { material = "water", radius = 0.561, rings = 1 },
+  { material = "zircaloy", radius = 0.602, rings = 1 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
+[depletion]
+chain = "../chain.msgpack"
+power = 38.41
+burnup = [
+  0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5,
+  4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+  14, 15, 16, 18, 20, 22, 24, 26, 28, 30,
+  32, 34, 36, 38, 40, 44, 48, 52, 56, 60,
+]
+materials = ["fuel", "ifba", "waba"]
+output = "lattice-2N.msgpack"

@@ -93,5 +93,39 @@ class Steps(unittest.TestCase):
         self.assertEqual(resume.step_numbers(self.work), [])
 
 
+class Backends(unittest.TestCase):
+    """区間に分けた実行は、入力の問題で、ピンセル（1B〜1D）と集合体（2 で始まる）のツールを選ぶ（ADR-0178）。"""
+
+    def write(self, problem: str) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "input.toml"
+        path.write_text(f'problem = "{problem}"\n')
+        return path
+
+    def test_a_pin_cell_problem_uses_the_pin_cell_tools(self):
+        backend = resume.backend_of(self.write("1C"))
+        self.assertEqual(
+            backend.result_files, ("depletion_results.h5", "transport-seconds.json")
+        )
+        self.assertIsNone(backend.collect)
+
+    def test_an_assembly_problem_also_carries_the_pin_powers(self):
+        backend = resume.backend_of(self.write("2A"))
+        self.assertEqual(
+            backend.result_files,
+            ("depletion_results.h5", "transport-seconds.json", "pins.json"),
+        )
+        self.assertIsNotNone(backend.collect)
+
+    def test_a_missing_problem_is_an_error(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "input.toml"
+        path.write_text("particles = 1\n")
+        with self.assertRaises(SystemExit):
+            resume.backend_of(path)
+
+
 if __name__ == "__main__":
     unittest.main()
