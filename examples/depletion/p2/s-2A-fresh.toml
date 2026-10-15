@@ -1,0 +1,16 @@
+# 時間の倍率 s（燃焼した燃料と燃焼の tally による輸送の時間の倍率。docs/plans/m4-depletion.md の「OpenMC の燃焼の参照解の
+# 物理コア時間」）を測る短い走行（ADR-0178）: 2A の 1 ステップ（0.1 MWd/kg、輸送 3 回）、粒子 20,000・40 世代
+# （最初の 20 世代を捨てる）、8 スレッド。燃料の初めの組成は新しい燃料。openmc_depletion_assembly.py の run と transport で解く
+# （手元の Slurm で `-c 8`。時間は記録に書かない）。p2_inputs.py が書く。手で直さない。
+problem = "2A"
+cross-sections = "openmc-library/cross_sections.xml"
+chain = "../openmc-chain.xml"
+power = 38.41
+burnup = [
+  0.1,
+]
+particles = 20000
+batches = 40
+inactive = 20
+seed = 1
+threads = 8
