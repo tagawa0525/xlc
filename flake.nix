@@ -239,6 +239,11 @@
           export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin
           bash ${./examples/aws/test_aws_user_data.sh} ${./examples/aws/aws_user_data.sh} > $out
         '';
+        # スポットの vCPU の残りの読み取りと、1 本の上限（偽の aws。ADR-0171）
+        aws-vcpu = pkgs.runCommand "aws-vcpu" { } ''
+          export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin:${pkgs.gawk}/bin
+          bash ${./examples/aws/test_aws_vcpu.sh} ${./examples/aws/aws_common.sh} > $out
+        '';
         # 実行の定義（examples/<問題>/aws.toml。ADR-0174）を読む部品と、リポジトリの定義
         aws-definition = pkgs.runCommand "aws-definition" { } ''
           export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin

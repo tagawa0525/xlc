@@ -325,3 +325,14 @@ spot_vcpu_remaining() {
     awk '{ s += $1 * $2 } END { print s + 0 }') || return 1
   echo "$(( ${quota%.*} - used )) ${quota%.*} $used"
 }
+
+# 1 本のジョブが使えるスポットの vCPU の上限: <残り> <起動するジョブの数> <最小の機種の vCPU>。
+# 残りをジョブの数で割る（1 本が使い切って他が入らなくならないように。ADR-0171）。割った値が最小の機種に満たなくても、残りが
+# 最小の機種に収まるなら最小の機種までは許す（全部を落として止まらない。入りきらないジョブは VcpuLimitExceeded で次の候補になる）
+vcpu_share() {
+  local remaining=$1 n=$2 smallest=$3 share
+  share=$remaining
+  ((n < 2)) || share=$((remaining / n))
+  ((share >= smallest || remaining < smallest)) || share=$smallest
+  echo "$share"
+}
