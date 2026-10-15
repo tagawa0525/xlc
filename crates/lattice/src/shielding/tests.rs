@@ -1286,7 +1286,7 @@ mod lattice {
             let expected: f64 = material
                 .composition
                 .iter()
-                .zip(&pin.rings[ring])
+                .zip(pin.rings[ring].iter())
                 .map(|((_, n), s)| n * s.total[0])
                 .sum();
             assert!(
