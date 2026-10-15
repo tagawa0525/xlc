@@ -459,3 +459,30 @@ fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
     let plain = sampled(&xs, 1.0e4, 300.0, &sigma0);
     assert_eq!(plain.floored, 0);
 }
+
+#[test]
+#[ignore = "RED: an empty sampling is not rejected yet"]
+fn empty_sampling_is_an_error() {
+    // ラダーかエネルギーの数が 0 なら、平均が 0/0 になるので、値を返さずに止める
+    let urr = s_wave(
+        vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
+        Interpolation::LinLin,
+    );
+    let xs = UnresolvedXs::new(&urr).unwrap();
+    for sampling in [
+        Sampling {
+            ladders: 0,
+            ..Sampling::LIBRARY
+        },
+        Sampling {
+            samples: 0,
+            ..Sampling::LIBRARY
+        },
+    ] {
+        let result = xs.shielded(1.0e4, 300.0, &[1.0e10], Sigma::default(), sampling, 7);
+        assert!(
+            matches!(result, Err(UrrError::EmptySampling { .. })),
+            "{result:?}"
+        );
+    }
+}
