@@ -77,6 +77,33 @@ class WrittenInputs(unittest.TestCase):
             self.assertRegex(f"openmc-{job}", pattern)
 
 
+class TimeFactorInputs(unittest.TestCase):
+    """時間の倍率 s を測る短い実行の入力（2A、粒子 2 万・世代 40、手元の Slurm で `-c 8`）。"""
+
+    def test_the_two_inputs_differ_only_in_the_starting_composition(self):
+        fresh = load(P2 / "s-2A-fresh.toml")
+        burned = load(P2 / "s-2A-burned.toml")
+        self.assertNotIn("start-from", fresh)
+        self.assertEqual(burned["start-point"], 6)
+        rest = {
+            k: v for k, v in burned.items() if k not in ("start-from", "start-point")
+        }
+        self.assertEqual(rest, fresh)
+
+    def test_they_run_one_short_step_of_2a_with_20000_particles_and_40_batches(self):
+        run = asm.read(P2 / "s-2A-burned.toml")
+        self.assertEqual(run["problem"], "2A")
+        self.assertEqual((run["particles"], run["batches"]), (20000, 40))
+        self.assertEqual(run["burnup"], [0.1])
+        self.assertEqual(run["threads"], 8)
+
+    def test_the_composition_is_the_5_mwd_per_kg_point_of_the_1c_burn(self):
+        run = asm.read(P2 / "s-2A-burned.toml")
+        self.assertEqual(run["start-from"].name, "openmc-1C-rings1.msgpack")
+        burnup = [0.0, 0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
+        self.assertEqual(burnup[load(P2 / "s-2A-burned.toml")["start-point"]], 5.0)
+
+
 class Lattice(unittest.TestCase):
     def test_rows_are_17_by_17_cells_that_are_defined(self):
         for job in p2_inputs.JOBS:
