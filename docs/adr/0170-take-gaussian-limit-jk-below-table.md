@@ -1,9 +1,9 @@
 ---
-status: accepted
+status: superseded
 date: 2026-10-14
 requires: [ADR-0107]
 supersedes: []
-superseded-by:
+superseded-by: ADR-0177
 issues: ["#0119"]
 ---
 
