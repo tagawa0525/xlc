@@ -32,7 +32,6 @@ fn results_follow_the_index_order() {
 }
 
 #[test]
-#[ignore = "RED: nested calls do not share the cores yet"]
 fn nested_calls_share_the_cores() {
     // 外の並列の中で呼んでも、内の計算が同時に走る数はコアの数を超えない（核種ごとの並列の中の格子点の並列）
     let cores = cores();
