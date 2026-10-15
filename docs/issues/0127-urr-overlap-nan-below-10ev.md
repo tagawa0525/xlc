@@ -55,7 +55,7 @@ NaN の出どころを（1）（2）の候補ごとに確かめ、NJOY UNRESR �
 - 2026-10-15（一時停止）: 決定は案 A（ラダーをサンプリングした確率テーブルの Bondarenko 平均。ADR-0177、proposed）。済んだこと: 原因の特定
   （ETOX の J Γ/D の和 > 1 で 1 − yj が負、log-log の補間で NaN）、ラダーのサンプリング（弾性散乱は系列の中の多準位で負にならない）、
   ETOX の削除、テスト、格子点の並列化、統計の測定（`crates/xs/examples/urr_convergence.rs`。1 回の相対標準偏差は σ0 = 1 b の捕獲で
-  U-238 0.09〜0.18%、Pu-240 0.08〜0.33%、Pm-149 1.3〜2.1%、ladders 64 × samples 1000。xlc eefea9ed）。次にやること: サンプルの数を
+  U-238 0.09〜0.18%、Pu-240 0.08〜0.33%、Pm-149 1.3〜2.1%、ladders 64 × samples 1000。xlc 6783bc34）。次にやること: サンプルの数を
   決める（目標 0.1% なら約 4〜400 倍。Pm-149 の多さは見直す）、NJOY PURR との比較（入力は references/njoy-runs/purr/<核種>/input。投げ方は下）、
   ADR-0177 の確認、VERA と燃焼のライブラリの作り直し（5 核種を戻す）、1B と 2A の k の測り直し。再開: worktree
   /home/tagawa/github/xlc-fix-0127-urr-shielding-nan（ブランチ fix/0127-urr-shielding-nan）で main に rebase して続ける。見積もりの
@@ -65,4 +65,4 @@ NaN の出どころを（1）（2）の候補ごとに確かめ、NJOY UNRESR �
 - 2026-10-15（再開）: 機能の不足なので確率テーブルを最後まで仕上げてからマージする（ユーザーの判断）。サンプルの数を 512 ラダー × 250 点
   （系統抽出）に決め、NJOY PURR と比べた（ADR-0177 の「確認」、examples/urr-purr/）。5 核種を燃焼のライブラリの入力に戻した
 - 2026-10-15（閉じる）: ADR-0177 を accepted にした。5 核種を含む燃焼のライブラリと、VERA の 16 の格子を ADR-0177 のライブラリで
-  作り直した（xlc dab3bca8）。Mo-95 の負の弾性散乱の背景は、PURR と同じく弾性散乱を 1 μb にする（ADR-0177）
+  作り直した（xlc a030052d）。Mo-95 の負の弾性散乱の背景は、PURR と同じく弾性散乱を 1 μb にする（ADR-0177）
