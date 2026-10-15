@@ -1,0 +1,20 @@
+# VERA Problem 2 の集合体の OpenMC の燃焼の参照解（openmc_depletion_assembly.py。ADR-0178）の AWS の実行の定義（ADR-0174）。
+# 燃焼はステップごとの区間に分けて流し（openmc_depletion_resume.py）、区間の境界から再開する（progress = "steps"）。tools は VM の
+# src/ に置くツールで、入口（entry）と定義自身は含めない。入口は ../run_remote.sh（ピンセルと同じ。問題でツールを選ぶ）。chain と
+# ライブラリは DVC の出力で、手元で作って S3 に置く（ライブラリは p2/dvc.yaml の openmc-neutron、openmc-thermal、openmc-index、
+# chain は ../dvc.yaml の openmc-chain）。ピンセルの定義（../aws.toml）と別にするのは、ライブラリが別のため。
+tools = [
+  "examples/openmc_common.py",
+  "examples/openmc_input.py",
+  "examples/openmc_run.py",
+  "examples/vera/openmc_tallies.py",
+  "examples/vera/openmc_model.py",
+  "examples/depletion/openmc_depletion.py",
+  "examples/depletion/openmc_depletion_resume.py",
+  "examples/depletion/openmc_depletion_assembly.py",
+]
+entry = "examples/depletion/run_remote.sh"
+progress = "steps"
+library = "examples/depletion/p2/openmc-library"
+data = ["examples/depletion/openmc-chain.xml"]
+jobs = '^openmc-2[A-Z](-[a-z]+)?$'
