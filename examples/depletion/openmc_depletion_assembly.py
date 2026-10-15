@@ -45,6 +45,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "vera"))
 sys.path.insert(0, str(HERE))
+from compare_depletion_assembly import orbit_std_rms
 from openmc_common import eigenvalue_settings, material
 from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
 from openmc_input import input_path, read_input
@@ -750,6 +751,7 @@ def transport(source: Path, work: Path) -> None:
             "k": sp.keff.nominal_value,
             "k-std": sp.keff.std_dev,
             "pin-rms-std": float(np.sqrt(np.mean(relative**2))),
+            "orbit-rms-std": orbit_std_rms(mean.tolist(), std.tolist()),
             "runtime": runtime,
         }
     (work / "transport.json").write_text(json.dumps(summary, indent=1) + "\n")
@@ -759,7 +761,8 @@ def transport(source: Path, work: Path) -> None:
         f"{run['problem']}: simulation {seconds:.1f} s for {run['batches']} batches "
         f"({seconds / run['batches']:.3f} s per batch), "
         f"k {summary['k']:.6f} +- {summary['k-std']:.6f}, "
-        f"pin rms std {summary['pin-rms-std'] * 100:.3f}%"
+        f"pin rms std {summary['pin-rms-std'] * 100:.3f}%, "
+        f"orbit-mean rms std {summary['orbit-rms-std'] * 100:.3f}%"
     )
 
 
