@@ -611,6 +611,13 @@ pub fn run(
             temperatures.push(t);
         }
     }
+    // 輸送できる核種は領域の温度で決まる。燃やす物質の温度が違うときの集合（燃料と吸収体で別の集合にするか）は決めていない
+    if temperatures.len() > 1 {
+        bail!(
+            "the depleted materials have several temperatures {temperatures:?}; the transported nuclides of several \
+             depletion temperatures are not decided (#0139)"
+        );
+    }
     let in_library: Vec<bool> = chain
         .nuclides
         .iter()
@@ -763,34 +770,14 @@ pub fn run(
         let mut fission_power = 0.0;
         for (d, n) in regions.iter().zip(n) {
             let temperature = base(&d.material)?.temperature;
-            // 遮蔽しない物質（燃料のピンの外の、分離共鳴を持つ核種のない吸収体など）は、MOC と同じく無限希釈の値
-            let infinite = *library
-                .sigma0
-                .first()
-                .ok_or_else(|| anyhow!("the library has no sigma0"))?;
-            let mut dilute: Option<Vec<Shielded>> = None;
-            for &r in &d.regions {
-                if shielded.region_cross_sections(r).is_none() && dilute.is_none() {
-                    dilute = Some(
-                        composition
-                            .iter()
-                            .map(|&i| {
-                                library.shielded(
-                                    &chain.nuclides[i].name,
-                                    temperature,
-                                    &vec![infinite; groups.len()],
-                                )
-                            })
-                            .collect::<Result<_, _>>()?,
-                    );
-                }
-            }
             let mut members = Vec::with_capacity(d.regions.len());
             for &r in &d.regions {
-                let cross_sections = match shielded.region_cross_sections(r) {
-                    Some(nuclides) => nuclides,
-                    None => dilute.as_deref().unwrap_or_default(),
-                };
+                let cross_sections = shielded.region_cross_sections(r).ok_or_else(|| {
+                    anyhow!(
+                        "region {r} of material `{}` has no cross sections",
+                        d.material
+                    )
+                })?;
                 if cross_sections.len() != composition.len() {
                     bail!(
                         "region {r} of material `{}`: {} shielded nuclides for {} transported",
