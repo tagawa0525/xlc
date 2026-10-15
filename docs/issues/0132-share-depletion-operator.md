@@ -30,3 +30,4 @@ resolution:
 ## 経緯
 
 - 2026-10-15: ADR-0174 の実装のレビューから
+- 2026-10-15: 集合体の燃焼（ADR-0178）の `openmc_depletion_assembly.py` の `operator` が同じ引数の 3 つ目のコピーになった（`openmc_depletion.py` の `TimedOperator` と `YIELD_CUTOFF` は import している）。共通の関数にするときは 3 つとも置き換える
