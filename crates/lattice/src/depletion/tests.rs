@@ -735,3 +735,39 @@ fn nuclides_without_data_at_the_fuel_temperature_only_decay() {
     let without = deplete_input(PIN);
     assert_eq!(last.k, without.points.last().unwrap().k);
 }
+
+/// 経路の断面積を 1 群だけ返す受け口（群の数の誤り）
+struct ShortChannels;
+
+impl ReactionSource for ShortChannels {
+    fn cross_sections(
+        &self,
+        _nuclide: &str,
+        _temperature: f64,
+        reaction: &Reaction,
+        _shielded: &Shielded,
+    ) -> Result<Vec<Vec<f64>>, String> {
+        Ok(vec![vec![1.0]; reaction.channels.len()])
+    }
+}
+
+#[test]
+fn channel_cross_sections_need_every_group() {
+    let chain = chain();
+    let library = library();
+    let u = library.shielded("U-235", T, &[1e10, 1e10]).unwrap();
+    let members = [Member {
+        volume: 1.0,
+        flux: &[1.0, 1.0],
+        cross_sections: &[u][..],
+    }];
+    let result = region_rates(
+        &chain,
+        &[U235],
+        T,
+        &members,
+        library.groups.bounds(),
+        &ShortChannels,
+    );
+    assert!(result.is_err());
+}
