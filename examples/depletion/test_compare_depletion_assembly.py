@@ -34,6 +34,9 @@ REGIONS = [
 ]
 
 
+# xlc のセルの番号は水のギャップの 1 周を含む（3×3 の配置は 5 列）: 角 (0, 0) は 6、辺 (0, 1) は 7
+CELLS = [6, 7, 6, 7, 6]
+ORBITS = [[1, 1], [1, 0], [1, 1], [1, 0], [1, 1]]
 PINS = [[1.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 1.0]]
 
 
@@ -49,7 +52,7 @@ def histories():
         "nuclides": NAMES,
         "transportable": ["U-235", "B-10"],
         "regions": [
-            {"material": kind, "cell": 7 * r, "regions": [r], "volume": volume}
+            {"material": kind, "cell": CELLS[r], "regions": [r], "volume": volume}
             for r, (kind, volume, _, _) in enumerate(REGIONS)
         ],
         "seconds": {
@@ -88,7 +91,7 @@ def histories():
         "regions": [
             {
                 "material": kind,
-                "orbit": [r, 0],
+                "orbit": ORBITS[r],
                 "count": 1,
                 "volume": volume,
                 "densities": {
@@ -176,6 +179,13 @@ class Summary(unittest.TestCase):
     def test_different_burnup_points_stop_the_comparison(self):
         xlc, omc = histories()
         omc["burnup"] = [0.0, 2.0]
+        with self.assertRaises(SystemExit):
+            compare.summarize(xlc, omc)
+
+    def test_a_region_in_another_orbit_stops_the_comparison(self):
+        """体積と種類が同じでも、組が違う領域（軸上と対角線上は同じセル数）を取り違えない。"""
+        xlc, omc = histories()
+        omc["regions"][0]["orbit"] = [1, 0]
         with self.assertRaises(SystemExit):
             compare.summarize(xlc, omc)
 
