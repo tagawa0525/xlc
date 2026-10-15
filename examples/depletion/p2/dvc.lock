@@ -2401,14 +2401,13 @@ stages:
           endf: ../../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
           temperatures:
           - 550
-          - 565
           - 573.6
           - 600
     outs:
     - path: openmc-library/neutron/H1.h5
       hash: md5
-      md5: dabc5210b8df99e4c86636f55cf3052c
-      size: 238432
+      md5: cafdb0fd0ae8e0c0f67ee4765ba63597
+      size: 196032
   xs-nuclide@Sn-116:
     cmd: ../../../bin/xs nuclide xs.toml xs-range.toml Sn-116 
       xs-nuclides/Sn-116.msgpack
@@ -7055,12 +7054,12 @@ stages:
       size: 5182
     - path: openmc-library.toml
       hash: md5
-      md5: c984be12e0c680c6ccc41266c7bcd6a7
-      size: 12175
+      md5: 8076c02b48eb06d1b2c781a709c37689
+      size: 12374
     - path: openmc-library/neutron
       hash: md5
-      md5: badf4b09f1e2b45c1ba9d1031fd4d6f6.dir
-      size: 693739954
+      md5: dbea17f5cb0528c464d3618da2dfec4c.dir
+      size: 693697554
       nfiles: 91
     - path: openmc-library/thermal
       hash: md5
