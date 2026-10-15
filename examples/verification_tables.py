@@ -443,6 +443,10 @@ def burnup_label(b: float) -> str:
 def depletion_k(sources: list[dict]) -> str:
     """格子計算の燃焼: 燃焼点ごとの k∞ の差（xlc − OpenMC）とその 0 の点からの変化を、燃料 1 リングと 4 リングで"""
     one, four = depletion_summaries(sources)
+    if one["burnup"] != four["burnup"]:
+        raise TableError(
+            f"the cases have other burnup points: {one['burnup']} and {four['burnup']}"
+        )
     rows = []
     for b, a, c in zip(one["burnup"], one["k"], four["k"]):
         rows.append(
@@ -483,6 +487,8 @@ def depletion_rings(sources: list[dict]) -> str:
     last = len(s["rings"])
 
     def label(r: int) -> str:
+        if last == 1:
+            return "1"
         return {1: "1（内）", last: f"{last}（外）"}.get(r, str(r))
 
     rows = [
