@@ -26,8 +26,8 @@ pub struct Sampling {
 impl Sampling {
     /// ライブラリを作るときの数。統計誤差の測定（ADR-0177）で決める
     pub const LIBRARY: Self = Self {
-        ladders: 64,
-        samples: 1000,
+        ladders: 512,
+        samples: 250,
     };
 }
 
