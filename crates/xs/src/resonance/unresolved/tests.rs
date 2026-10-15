@@ -424,3 +424,39 @@ fn interpolation_must_agree_across_sequences() {
     urr.l_values[0].j_values.push(other);
     assert!(interpolation(&urr).is_err());
 }
+
+#[test]
+#[ignore = "RED: the floor of ADR-0177 is not implemented yet"]
+fn negative_elastic_background_floors_the_elastic_at_one_microbarn() {
+    // MF3 の弾性散乱の背景が負で、ラダーの谷で弾性散乱 + 背景が負になる点は、NJOY PURR と同じく 1 μb にする（ADR-0177）。
+    // 背景が −10⁴ b なら、すべての点が 1 μb になる
+    let urr = s_wave(
+        vec![point(5.0e3, 1.0e-3), point(2.0e4, 4.0e-3)],
+        Interpolation::LinLin,
+    );
+    let xs = UnresolvedXs::new(&urr).unwrap();
+    let sigma0 = [1.0e10, 10.0];
+    let background = Sigma {
+        total: -1.0e4,
+        elastic: -1.0e4,
+        fission: 0.0,
+        capture: 0.0,
+    };
+    let b = xs
+        .shielded(1.0e4, 300.0, &sigma0, background, Sampling::LIBRARY, 7)
+        .unwrap();
+    let samples = Sampling::LIBRARY.ladders * Sampling::LIBRARY.samples;
+    assert_eq!(b.floored, samples);
+    assert!(
+        (b.mean.elastic - 1.0e-6).abs() < 1.0e-15,
+        "{}",
+        b.mean.elastic
+    );
+    for s in &b.shielded {
+        assert!((s.elastic - 1.0e-6).abs() < 1.0e-15, "{}", s.elastic);
+        assert!((s.total - s.elastic - s.capture).abs() < 1.0e-9 * s.total);
+    }
+    // 背景がなければ、弾性散乱は |1 − U|² で負にならず、どの点も変えない
+    let plain = sampled(&xs, 1.0e4, 300.0, &sigma0);
+    assert_eq!(plain.floored, 0);
+}
