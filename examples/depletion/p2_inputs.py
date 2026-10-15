@@ -168,8 +168,6 @@ def lattice_input(job: str) -> str:
         (n for n in fixed if n.startswith("gd") and n[2:].isdigit()),
         key=lambda n: int(n[2:]),
     )
-    if "fuel" not in fixed:
-        names.remove("fuel")
     blocks = [
         material_block(n, asm.composition(n, c), c.temperature)
         for n in dict.fromkeys(names)
