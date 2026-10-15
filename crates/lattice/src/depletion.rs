@@ -339,6 +339,16 @@ pub fn region_rates(
     Ok(rates)
 }
 
+/// ライブラリが核種 `name` を温度 `temperature` (K) そのもので持つか。熱中性子散乱の核種は温度を内挿して引けるが、輸送する
+/// 核種は参照解（OpenMC の燃料の温度のデータのある核種）と揃えるので、内挿は数えない（ADR-0173）
+pub fn has_data_at(library: &Library, name: &str, temperature: f64) -> bool {
+    library
+        .nuclides
+        .iter()
+        .find(|n| n.name == name)
+        .is_some_and(|n| n.temperatures.iter().any(|t| t.temperature == temperature))
+}
+
 /// 燃焼の領域: 物質と、組の代表のセル、MOC の領域（組のすべてのセルの分）と、その体積の和 (cm²)
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DepletionRegion {
@@ -398,6 +408,8 @@ pub struct HistoryPoint {
     pub densities: Vec<Vec<f64>>,
     /// 入力の `few-group` の `output` があるときの、格子全体の少数群定数
     pub few_group: Option<FewGroup>,
+    /// この点の組成で解いた輸送の核種の数
+    pub transported: usize,
 }
 
 /// 輸送の各段の時間の和
@@ -505,6 +517,7 @@ impl History {
 struct State {
     k: f64,
     few_group: Option<FewGroup>,
+    transported: usize,
 }
 
 /// 格子を `[depletion]` の条件で燃焼させる（ADR-0173）。`region_materials` は入力の領域ごとの物質の名前、`chosen` はその
@@ -591,7 +604,7 @@ pub fn run(
             known
                 && temperatures
                     .iter()
-                    .all(|&t| library.lookup(&n.name, t).is_ok())
+                    .all(|&t| has_data_at(library, &n.name, t))
         })
         .collect();
     // 初めの重金属の質量 (g、高さ 1 cm あたり)
@@ -646,10 +659,12 @@ pub fn run(
                 );
             }
         }
-        // どの領域でも同じ核種の並び（自己遮蔽は 1 つのセルの燃料のリングに同じ並びを求める）
+        // 輸送できる核種はすべて、数密度が 0 でも輸送して反応率を求める（OpenMC も数密度を掛けない tally で、0 の核種に 1 原子
+        // あたりの反応率を与える。始まりに 0 の Xe-135 も予測子で燃え尽きる）。どの領域でも同じ核種の並び（自己遮蔽は 1 つの
+        // セルの燃料のリングに同じ並びを求める）
         let present = |i: usize| n.iter().any(|n| n[i] > 0.0);
         let composition: Vec<usize> = (0..chain.nuclides.len())
-            .filter(|&i| transportable[i] && present(i))
+            .filter(|&i| transportable[i])
             .collect();
         // 崩壊だけを追う核種の数密度の和（領域の体積の重み）
         let total = |i: usize| -> f64 {
@@ -817,6 +832,7 @@ pub fn run(
             extra: State {
                 k: solution.k,
                 few_group,
+                transported: composition.len(),
             },
         })
     };
@@ -839,6 +855,7 @@ pub fn run(
             k: p.extra.k,
             densities: p.densities,
             few_group: p.extra.few_group,
+            transported: p.extra.transported,
         })
         .collect();
     Ok(History {
