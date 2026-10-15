@@ -1,0 +1,379 @@
+# 格子計算の燃焼の検証（VERA Problem 2 の集合体。docs/plans/m4-depletion.md の「進め方」5、ADR-0178）の多群ライブラリ
+# （ENDF/B-VIII.0、WIMS 69群。ADR-0169）。ピンセルの検証のライブラリ（../xs.toml）と別にするのは、核種を足すと
+# ピンセルの輸送する核種（チェーンの核種のうちライブラリにあるもの。ADR-0173）が変わり、ピンセルの比較が古くなるため。
+# 核種と評価は ../xs.toml と同じで、次を足し、温度を変えた: 燃料の核種、チェーンの核種、O-16、Zr、Sn は 565, 600 K（集合体の問題の温度。
+# 900, 1200 K は ピンセルだけ）。足した核種は、Pyrex と SS304 の Si, P, Mn, Ni, C（天然の C は C-12 と C-13 に分ける。ADR-0079）、
+# WABA の C と Al、Gd 燃料の Gd（Gd-155 はチェーンの核種として既にある）、AIC の Ag-107, Cd, In。評価と温度は examples/vera/xs.toml
+# と同じ（560, 570 K は足さない。分岐のテーブルを作らない）。冷却材の H は S(α,β) の 550, 573.6, 600 K（565 K は lattice が内挿する。ADR-0080）。
+# Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 は非分離共鳴の自己遮蔽が小さい σ0 で NaN になるので外す（#0127。../xs.toml と同じ）
+output = "depletion.msgpack"
+endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
+thermal-directory = "../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
+sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]
+# 省略すると 3（ADR-0076）。核種ごとの段階の params にするため、書いておく（ADR-0138）
+scattering-order = 3
+
+[nuclide.U-234]
+endf = "n-092_U_234.endf"
+temperatures = [565, 600]
+
+[nuclide.U-235]
+endf = "n-092_U_235.endf"
+temperatures = [565, 600]
+
+[nuclide.U-236]
+endf = "n-092_U_236.endf"
+temperatures = [565, 600]
+
+[nuclide.U-238]
+endf = "n-092_U_238.endf"
+temperatures = [565, 600]
+
+[nuclide.O-16]
+endf = "n-008_O_016.endf"
+temperatures = [565, 600]
+
+[nuclide.H-1]
+endf = "n-001_H_001.endf"
+temperatures = [550, 573.6, 600]
+thermal = "tsl-HinH2O.endf"
+# S(α,β) は評価済みデータの上限まで、表の外は THERMR と同じ短時間衝突近似、その上 9118 eV まで自由ガス（ADR-0133）
+sab-upper = "evaluated"
+sab-outside = "sct"
+free-gas-upper = 9118
+
+[nuclide.B-10]
+endf = "n-005_B_010.endf"
+temperatures = [565, 600]
+
+[nuclide.B-11]
+endf = "n-005_B_011.endf"
+temperatures = [565, 600]
+
+[nuclide.Zr-90]
+endf = "n-040_Zr_090.endf"
+temperatures = [565, 600]
+
+[nuclide.Zr-91]
+endf = "n-040_Zr_091.endf"
+temperatures = [565, 600]
+
+[nuclide.Zr-92]
+endf = "n-040_Zr_092.endf"
+temperatures = [565, 600]
+
+[nuclide.Zr-94]
+endf = "n-040_Zr_094.endf"
+temperatures = [565, 600]
+
+[nuclide.Zr-96]
+endf = "n-040_Zr_096.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-112]
+endf = "n-050_Sn_112.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-114]
+endf = "n-050_Sn_114.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-115]
+endf = "n-050_Sn_115.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-116]
+endf = "n-050_Sn_116.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-117]
+endf = "n-050_Sn_117.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-118]
+endf = "n-050_Sn_118.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-119]
+endf = "n-050_Sn_119.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-120]
+endf = "n-050_Sn_120.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-122]
+endf = "n-050_Sn_122.endf"
+temperatures = [565, 600]
+
+[nuclide.Sn-124]
+endf = "n-050_Sn_124.endf"
+temperatures = [565, 600]
+
+[nuclide.Fe-54]
+endf = "n-026_Fe_054.endf"
+temperatures = [565, 600]
+
+[nuclide.Fe-56]
+endf = "n-026_Fe_056.endf"
+temperatures = [565, 600]
+
+[nuclide.Fe-57]
+endf = "n-026_Fe_057.endf"
+temperatures = [565, 600]
+
+[nuclide.Fe-58]
+endf = "n-026_Fe_058.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-50]
+endf = "n-024_Cr_050.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-52]
+endf = "n-024_Cr_052.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-53]
+endf = "n-024_Cr_053.endf"
+temperatures = [565, 600]
+
+[nuclide.Cr-54]
+endf = "n-024_Cr_054.endf"
+temperatures = [565, 600]
+
+[nuclide.Np-237]
+endf = "n-093_Np_237.endf"
+temperatures = [565, 600]
+
+[nuclide.Np-239]
+endf = "n-093_Np_239.endf"
+temperatures = [565, 600]
+
+[nuclide.Pu-238]
+endf = "n-094_Pu_238.endf"
+temperatures = [565, 600]
+
+[nuclide.Pu-239]
+endf = "n-094_Pu_239.endf"
+temperatures = [565, 600]
+
+[nuclide.Pu-240]
+endf = "n-094_Pu_240.endf"
+temperatures = [565, 600]
+
+[nuclide.Pu-241]
+endf = "n-094_Pu_241.endf"
+temperatures = [565, 600]
+
+[nuclide.Pu-242]
+endf = "n-094_Pu_242.endf"
+temperatures = [565, 600]
+
+[nuclide.Am-241]
+endf = "n-095_Am_241.endf"
+temperatures = [565, 600]
+
+[nuclide.Am-243]
+endf = "n-095_Am_243.endf"
+temperatures = [565, 600]
+
+[nuclide.Cm-242]
+endf = "n-096_Cm_242.endf"
+temperatures = [565, 600]
+
+[nuclide.Cm-244]
+endf = "n-096_Cm_244.endf"
+temperatures = [565, 600]
+
+[nuclide.Mo-95]
+endf = "n-042_Mo_095.endf"
+temperatures = [565, 600]
+
+[nuclide.Tc-99]
+endf = "n-043_Tc_099.endf"
+temperatures = [565, 600]
+
+[nuclide.Ru-101]
+endf = "n-044_Ru_101.endf"
+temperatures = [565, 600]
+
+[nuclide.Rh-103]
+endf = "n-045_Rh_103.endf"
+temperatures = [565, 600]
+
+[nuclide.Ag-109]
+endf = "n-047_Ag_109.endf"
+temperatures = [565, 600]
+
+[nuclide.I-135]
+endf = "n-053_I_135.endf"
+temperatures = [565, 600]
+
+[nuclide.Xe-135]
+endf = "n-054_Xe_135.endf"
+temperatures = [565, 600]
+
+[nuclide.Cs-133]
+endf = "n-055_Cs_133.endf"
+temperatures = [565, 600]
+
+[nuclide.Nd-143]
+endf = "n-060_Nd_143.endf"
+temperatures = [565, 600]
+
+[nuclide.Nd-145]
+endf = "n-060_Nd_145.endf"
+temperatures = [565, 600]
+
+[nuclide.Pm-148m]
+endf = "n-061_Pm_148m1.endf"
+temperatures = [565, 600]
+
+[nuclide.Sm-147]
+endf = "n-062_Sm_147.endf"
+temperatures = [565, 600]
+
+[nuclide.Sm-149]
+endf = "n-062_Sm_149.endf"
+temperatures = [565, 600]
+
+[nuclide.Sm-150]
+endf = "n-062_Sm_150.endf"
+temperatures = [565, 600]
+
+[nuclide.Sm-151]
+endf = "n-062_Sm_151.endf"
+temperatures = [565, 600]
+
+[nuclide.Sm-152]
+endf = "n-062_Sm_152.endf"
+temperatures = [565, 600]
+
+[nuclide.Eu-153]
+endf = "n-063_Eu_153.endf"
+temperatures = [565, 600]
+
+[nuclide.Gd-155]
+endf = "n-064_Gd_155.endf"
+temperatures = [565, 600]
+
+[nuclide.Si-28]
+endf = "n-014_Si_028.endf"
+temperatures = [565, 600]
+
+[nuclide.Si-29]
+endf = "n-014_Si_029.endf"
+temperatures = [565, 600]
+
+[nuclide.Si-30]
+endf = "n-014_Si_030.endf"
+temperatures = [565, 600]
+
+[nuclide.P-31]
+endf = "n-015_P_031.endf"
+temperatures = [565, 600]
+
+[nuclide.Mn-55]
+endf = "n-025_Mn_055.endf"
+temperatures = [565, 600]
+
+[nuclide.Ni-58]
+endf = "n-028_Ni_058.endf"
+temperatures = [565, 600]
+
+[nuclide.Ni-60]
+endf = "n-028_Ni_060.endf"
+temperatures = [565, 600]
+
+[nuclide.Ni-61]
+endf = "n-028_Ni_061.endf"
+temperatures = [565, 600]
+
+[nuclide.Ni-62]
+endf = "n-028_Ni_062.endf"
+temperatures = [565, 600]
+
+[nuclide.Ni-64]
+endf = "n-028_Ni_064.endf"
+temperatures = [565, 600]
+
+[nuclide.C-12]
+endf = "n-006_C_012.endf"
+temperatures = [565, 600]
+
+[nuclide.C-13]
+endf = "n-006_C_013.endf"
+temperatures = [565, 600]
+
+[nuclide.Al-27]
+endf = "n-013_Al_027.endf"
+temperatures = [565, 600]
+
+[nuclide.Gd-152]
+endf = "n-064_Gd_152.endf"
+temperatures = [565, 600]
+
+[nuclide.Gd-154]
+endf = "n-064_Gd_154.endf"
+temperatures = [565, 600]
+
+[nuclide.Gd-156]
+endf = "n-064_Gd_156.endf"
+temperatures = [565, 600]
+
+[nuclide.Gd-157]
+endf = "n-064_Gd_157.endf"
+temperatures = [565, 600]
+
+[nuclide.Gd-158]
+endf = "n-064_Gd_158.endf"
+temperatures = [565, 600]
+
+[nuclide.Ag-107]
+endf = "n-047_Ag_107.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-106]
+endf = "n-048_Cd_106.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-108]
+endf = "n-048_Cd_108.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-110]
+endf = "n-048_Cd_110.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-111]
+endf = "n-048_Cd_111.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-112]
+endf = "n-048_Cd_112.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-113]
+endf = "n-048_Cd_113.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-114]
+endf = "n-048_Cd_114.endf"
+temperatures = [565, 600]
+
+[nuclide.Cd-116]
+endf = "n-048_Cd_116.endf"
+temperatures = [565, 600]
+
+[nuclide.In-113]
+endf = "n-049_In_113.endf"
+temperatures = [565, 600]
+
+[nuclide.In-115]
+endf = "n-049_In_115.endf"
+temperatures = [565, 600]
+
+[nuclide.Gd-160]
+endf = "n-064_Gd_160.endf"
+temperatures = [565, 600]

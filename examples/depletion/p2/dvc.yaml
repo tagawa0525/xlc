@@ -1,0 +1,94 @@
+# 格子計算の燃焼の検証（VERA Problem 2 の集合体。ADR-0178）: 多群ライブラリと OpenMC のライブラリ（ピンセルの検証の
+# ../dvc.yaml と別。理由は xs.toml の説明）→ xlc の格子計算の燃焼 → OpenMC の燃焼の参照解との比較。燃焼チェーン（../chain.msgpack、
+# ../openmc-chain.xml）は ../dvc.yaml の出力。実行するのは default の devShell の `dvc repro`（ADR-0159）。OpenMC を使う段階は
+# cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps にする（ADR-0130）。
+# OpenMC の燃焼の参照解は AWS で流す（aws.toml、ADR-0174）ので段階にしない。結果は references/openmc/aws/<実行の名前>/ に
+# 取り出し（aws_fetch.sh）、比較の段階の deps にする（examples/vera/p3/dvc.yaml の compare-3A-openmc と同じ）
+vars:
+  - xs.toml
+  - openmc-library.toml
+stages:
+  references-shell:
+    # ツール（OpenMC とその Python API）の版、パッチ、依存のどれが変わっても store のパスが変わる。評価だけでビルドしない
+    cmd: nix eval --raw ../../..#devShells.x86_64-linux.references.outPath > references-shell.txt
+    always_changed: true
+    outs:
+      - references-shell.txt:
+          cache: false
+  xs-range:
+    # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとの段階の入力にするため、先に求める（ADR-0138）
+    cmd: ../../../bin/xs range xs.toml xs-range.toml
+    deps:
+      - xs.toml
+      - ../../../references/endf/ENDF-B-VIII.0_neutrons
+      - ../../../bin/xs
+    outs:
+      - xs-range.toml:
+          cache: false
+  xs-nuclide:
+    # 入力のうちその核種の項目と、全核種に共通の項目だけを params で deps にする（ADR-0138）
+    foreach: ${nuclide}
+    do:
+      cmd: ../../../bin/xs nuclide xs.toml xs-range.toml ${key} xs-nuclides/${key}.msgpack
+      deps:
+        - xs-range.toml
+        - ${endf-directory}/${item.endf}
+        - ${thermal-directory}
+        - ../../../bin/xs
+      params:
+        - xs.toml:
+            - sigma0
+            - scattering-order
+            - nuclide.${key}
+      outs:
+        - xs-nuclides/${key}.msgpack
+  xs:
+    cmd: ../../../bin/xs assemble xs.toml xs-range.toml xs-nuclides
+    deps:
+      - xs.toml
+      - xs-range.toml
+      - xs-nuclides
+      - ../../../bin/xs
+    outs:
+      - depletion.msgpack
+  openmc-neutron:
+    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ADR-0130）
+    foreach: ${neutron}
+    do:
+      cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
+      deps:
+        - ../../vera/openmc_library.py
+        - ../../openmc_input.py
+        - references-shell.txt
+        - ${item.endf}
+      params:
+        - openmc-library.toml:
+            - neutron.${key}
+      outs:
+        - openmc-library/neutron/${key}.h5
+  openmc-thermal:
+    foreach: ${thermal}
+    do:
+      cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
+      deps:
+        - ../../vera/openmc_library.py
+        - ../../openmc_input.py
+        - references-shell.txt
+        - ${item.neutron}
+        - ${item.thermal}
+      params:
+        - openmc-library.toml:
+            - thermal.${key}
+      outs:
+        - openmc-library/thermal/${key}.h5
+  openmc-index:
+    cmd: nix develop ../../..#references -c python3 ../../vera/openmc_library.py index openmc-library.toml openmc-library
+    deps:
+      - ../../vera/openmc_library.py
+      - ../../openmc_input.py
+      - references-shell.txt
+      - openmc-library.toml
+      - openmc-library/neutron
+      - openmc-library/thermal
+    outs:
+      - openmc-library/cross_sections.xml
