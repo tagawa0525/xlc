@@ -71,6 +71,8 @@ pub(super) struct LadderSequence {
 pub struct Bondarenko {
     pub shielded: Vec<ShieldedSigma>,
     pub mean: Sigma,
+    /// 弾性散乱 + 負の背景が負になり、1 μb にした点の数
+    pub floored: usize,
 }
 
 /// 系列 `sequences` のラダーで、σ0 ごとの実効断面積を求める。`potential` はポテンシャル散乱 (barn)、`background` は
@@ -148,6 +150,7 @@ pub(super) fn bondarenko(
             fission: m[2],
             capture: m[3],
         },
+        floored: 0,
     })
 }
 
