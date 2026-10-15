@@ -4,7 +4,8 @@
 # 別にするのは、核種と温度を足すとピンセルの OpenMC の燃焼（openmc-1C。重い段階）の deps が変わるため。燃料の核種、鎖の核種、
 # O-16、Zr、Sn と、そのほかの核種（被覆管、構造材、吸収体）はすべて集合体の問題の温度 565, 600 K（OpenMC の温度の内挿のモードは、
 # 温度を 1 つしか持たない核種が 1 つでもあると全体を最も近い温度のモードに戻すので、内挿のモードで解く 2A とその履歴の問題には
-# すべての核種に 2 つ以上の温度を書く。examples/vera/openmc-library.toml と同じ）、H-1 は S(α,β) の温度 550, 573.6 K も足す。
+# すべての核種に 2 つ以上の温度を書く。examples/vera/openmc-library.toml と同じ）、H-1 は S(α,β) の温度 550, 573.6, 600 K（565 K では内挿。
+# xlc の H-1 と同じ。565 K でも作る examples/vera/openmc-library.toml と違い、燃料の中の H-1 を輸送する核種に含めない。xlc の規則と揃えるため）。
 # 輸送する核種は、燃料の温度のデータのある核種（openmc_depletion.py の TimedOperator）。
 # 名前は OpenMC の名前。パスはこのファイルからの相対。
 
@@ -30,7 +31,7 @@ temperatures = [565, 600]
 
 [neutron.H1]
 endf = "../../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf"
-temperatures = [550, 565, 573.6, 600]
+temperatures = [550, 573.6, 600]
 
 [neutron.B10]
 endf = "../../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf"
