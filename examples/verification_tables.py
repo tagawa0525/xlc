@@ -4,7 +4,7 @@
 
 - 記録の `<!-- table: <名前> -->` から `<!-- /table -->` までを、名前の表で置き換える。目印の中は丸ごと置き換わる
   （文章は目印の外に書く）。目印の外は触らない。名前と JSON の対応（TABLES）はこのファイルにある
-- `--check`: 置き換えず、描いた表と記録の中身が違えば差分を出して 1 で終わる。JSON が無い、git で追跡されていない（`cache: false` にして `git add` する）（段階を実行していない）、dvc.lock の md5 と
+- `--check`: 置き換えず、描いた表と記録の中身が違えば差分を出して 1 で終わる。JSON が無い（段階を実行していない）、git で追跡されていない（`cache: false` にして `git add` する）、dvc.lock の md5 と
   違う（JSON を手で直した、段階を再実行したのに relock していない）、目印が壊れているときも 1 で終わる
 - ファイルを渡さないと examples/*/verification.md のすべて
 - 標準ライブラリだけで動く（hook と `cargo test` から呼ぶ）
@@ -712,15 +712,24 @@ def require_tracked(root: Path, source: str) -> None:
     """
     if not (root / ".git").exists():
         return
-    found = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "--error-unmatch", "--", source],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        found = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--error-unmatch", "--", source],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as e:
+        raise TableError(
+            f"cannot run git to check that {source} is tracked: {e}"
+        ) from e
+    if found.returncode == 1 and "did not match" in found.stderr:
+        raise TableError(
+            f"{source} is not tracked by git (ADR-0176); set cache: false on its outs in the dvc.yaml and git add it"
+        )
     if found.returncode != 0:
         raise TableError(
-            f"{source} is not tracked by git (ADR-0176); set cache: false on its outs in the dvc.yaml and git add it ({found.stderr.strip()})"
+            f"git ls-files failed for {source} (exit {found.returncode}): {found.stderr.strip()}"
         )
 
 
