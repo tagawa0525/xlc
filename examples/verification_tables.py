@@ -596,6 +596,49 @@ def aws_depletion_densities(sources: list[dict]) -> str:
 GIT_TRACKED = {"examples/depletion/aws-check/compare-aws-1C-rings1.json"}
 
 
+def counted_pin_cell(pins: dict | None) -> str:
+    """比べた点の数を添える。OpenMC − KENO-VI は 1/8 の表、xlc − OpenMC は燃料ピンすべてなので、点の数が違う"""
+    return "" if pins is None else f"{pin_cell(pins)}（{pins['positions']} 点）"
+
+
+def endfb70_openmc(sources: list[dict]) -> str:
+    """ENDF/B-VII.0 の OpenMC（NJOY）を基準に、xlc と KENO-VI の k の差とピン出力の差を分ける（#0131）"""
+    rows = []
+    for s in sources:
+        if s.get("format") != "xlc-compare-openmc-keno":
+            raise TableError(
+                f"problem {s.get('problem')}: not an xlc-compare-openmc-keno summary"
+            )
+        k = s["k"]
+        rows.append(
+            [
+                s["problem"],
+                f"{k['xlc']:.6f}",
+                f"{k['openmc']:.6f} ± {k['openmc_std']:.6f}",
+                f"{k['keno']:.6f} ± {k['keno_std']:.6f}",
+                f"{signed(k['diff_xlc_openmc_pcm'], 0)} ± {k['diff_xlc_openmc_std_pcm']:.0f} pcm",
+                f"{signed(k['diff_openmc_keno_pcm'], 0)} ± {k['diff_openmc_keno_std_pcm']:.0f} pcm",
+                f"{signed(k['diff_xlc_keno_pcm'], 0)} pcm",
+                counted_pin_cell(s["pins_openmc_vs_keno"]),
+                counted_pin_cell(s["pins_xlc_vs_openmc"]),
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "xlc の k",
+            "OpenMC の k",
+            "KENO-VI の k",
+            "xlc − OpenMC",
+            "OpenMC − KENO-VI",
+            "xlc − KENO-VI",
+            "ピン出力の差の RMS、最大（OpenMC − KENO-VI）",
+            "ピン出力の差の RMS、最大（xlc − OpenMC）",
+        ],
+        rows,
+    )
+
+
 # 表の名前 → (JSON（リポジトリの直下から）, 描く関数)。JSON は dvc.yaml の段階の outs で、同じ場所の dvc.lock が md5 を持つ
 TABLES = {
     "p3-reference-results": (
@@ -650,6 +693,13 @@ TABLES = {
             "examples/vera/p3/compare-3B-openmc.json",
         ],
         endfb70_p3_distributions,
+    ),
+    "endfb70-openmc": (
+        [
+            "examples/vera/endfb70/openmc/compare-1B.json",
+            "examples/vera/endfb70/openmc/compare-2B.json",
+        ],
+        endfb70_openmc,
     ),
     "depletion-1c-k": (
         [
