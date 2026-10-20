@@ -847,5 +847,5 @@ fn depleted_materials_share_one_temperature() {
     )
     .unwrap_err()
     .to_string();
-    assert!(error.contains("temperature"), "{error}");
+    assert!(error.contains("several temperatures"), "{error}");
 }
