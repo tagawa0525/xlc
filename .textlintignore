@@ -1,0 +1,2 @@
+# 崩れた日本語の語の検査（nixfiles の ADR-0014）から外すファイル。語の調査の表は、直す対象の語をわざと含む
+docs/issues/0142-fix-context-dependent-terms.md
