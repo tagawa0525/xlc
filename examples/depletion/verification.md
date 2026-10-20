@@ -175,7 +175,8 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 ### 計算
 
 OpenMC（Slurm の排他のジョブ 409。ライブラリは Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を含む）、xlc、比較は a5981e7f、
-分岐点は main の 15deefcb。日付は dvc.lock のコミットの日付（`record_provenance.py` で確認）。
+分岐点は main の 15deefcb。OpenMC は 2026-10-16、xlc の格子の段階は e47ebaf2 の時点で 2026-10-15（排他のジョブの番号は記録していない。
+時間の表の xlc の行はこの実行の値）。比較の段階は 2026-10-21 に relock した。
 比較の入力は `lattice-1C-rings1.msgpack` md5 75c1b700、`openmc-1C-rings1.msgpack` md5 2c7d0331、
 `lattice-1C-rings4.msgpack` md5 c7eb0d29、`openmc-1C-rings4.msgpack` md5 011dfabb（JSON の `inputs`）。
 
