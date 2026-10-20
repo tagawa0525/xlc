@@ -130,6 +130,15 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
 
 この後は /git-merge の「チェック」に進む。
 
+### マージの前に: main の作業ツリーに残る古い出力
+
+ブランチが DVC の outs を `.gitignore` から外したとき（`cache: false` に変えて git で追跡するようにしたときなど）、main の作業ツリーには
+以前の `dvc checkout` / `dvc repro` が置いた古い出力が、まだ無視されたファイルとして残っている。マージでブランチ側の追跡されたファイルが
+同じ場所に入ると、main では未追跡のファイルが上書きされる形になり、pre-merge の hook（未追跡の衝突）が止まる（2026-10-15 に
+p5 と p3 の `compare-*.out` で 2 回起きた）。マージの前に、ブランチで `.gitignore` から外れた出力（`git diff main...HEAD -- '*.gitignore'`）が
+main の作業ツリーに残っていないかを `git -C <main の worktree> status --short <パス>` と `ls` で見て、あれば main 側で消す。消すのは
+DVC のキャッシュから戻せる古い出力だけで、マージのあとに後半の `dvc checkout` が置き直す。追跡されている版に差があるファイルは消さず、原因を調べる。
+
 ## 後半: マージのあと（main の worktree で）
 
 ブランチの worktree ではなく、main の worktree の直下で行う（出力を置き換える先が main）。
