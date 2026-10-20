@@ -4850,13 +4850,13 @@ stages:
       size: 5182
     - path: openmc-library.toml
       hash: md5
-      md5: 3705a22c5e55a7d0a68f4e7e309c0515
-      size: 7949
+      md5: b78927cee4a2bf4e355fa68e75f200cd
+      size: 8518
     - path: openmc-library/neutron
       hash: md5
-      md5: be4ace4fba6530035f4b69afe952709f.dir
-      size: 417458950
-      nfiles: 61
+      md5: e9ad673c90ba5c8545f1d7ee2d23a55c.dir
+      size: 423830691
+      nfiles: 66
     - path: openmc-library/thermal
       hash: md5
       md5: 7fcc8089463c57fac3d28e6875e5a429.dir
@@ -4869,8 +4869,8 @@ stages:
     outs:
     - path: openmc-library/cross_sections.xml
       hash: md5
-      md5: e815e9f3b612fc6fa561323b1aba5134
-      size: 4362
+      md5: 92c99fc3c15aef46778aaa21e38938a0
+      size: 4723
   openmc-1C@rings4:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py run 
       openmc-1C-rings4.toml openmc-1C-rings4
@@ -4897,9 +4897,9 @@ stages:
       size: 27513870
     - path: openmc-library
       hash: md5
-      md5: c4c070d5866d7c44a94b21c15a19b4ee.dir
-      size: 445300515
-      nfiles: 65
+      md5: 09fa81bf0a6c05bc58967e223c9e53a7.dir
+      size: 451672617
+      nfiles: 70
     - path: openmc_depletion.py
       hash: md5
       md5: 3da6120d40eb0a6f7a6362f9febaeae0
@@ -4911,8 +4911,8 @@ stages:
     outs:
     - path: openmc-1C-rings4
       hash: md5
-      md5: c2d01b7b3d6fd79507c38a19244d26ca.dir
-      size: 26241479
+      md5: bff325a2a1eaf97796dc5f2c3017e759.dir
+      size: 26256443
       nfiles: 13
   openmc-1C-extract@rings4:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py extract 
@@ -4920,8 +4920,8 @@ stages:
     deps:
     - path: openmc-1C-rings4
       hash: md5
-      md5: c2d01b7b3d6fd79507c38a19244d26ca.dir
-      size: 26241479
+      md5: bff325a2a1eaf97796dc5f2c3017e759.dir
+      size: 26256443
       nfiles: 13
     - path: openmc-1C-rings4.toml
       hash: md5
@@ -4938,8 +4938,8 @@ stages:
     outs:
     - path: openmc-1C-rings4.msgpack
       hash: md5
-      md5: 82c5698eba430e1caad7941700a90a4c
-      size: 1073244
+      md5: 011dfabbb6da7747e8168f8d84c389b2
+      size: 1073277
   openmc-1C@rings1:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py run 
       openmc-1C-rings1.toml openmc-1C-rings1
@@ -4966,9 +4966,9 @@ stages:
       size: 27513870
     - path: openmc-library
       hash: md5
-      md5: c4c070d5866d7c44a94b21c15a19b4ee.dir
-      size: 445300515
-      nfiles: 65
+      md5: 09fa81bf0a6c05bc58967e223c9e53a7.dir
+      size: 451672617
+      nfiles: 70
     - path: openmc_depletion.py
       hash: md5
       md5: 3da6120d40eb0a6f7a6362f9febaeae0
@@ -4980,8 +4980,8 @@ stages:
     outs:
     - path: openmc-1C-rings1
       hash: md5
-      md5: 56d2ee79739617bc9ea06b8a1cefa6bd.dir
-      size: 24914599
+      md5: ced0348b13b2b42ca65868460e0a9af5.dir
+      size: 24918651
       nfiles: 13
   lattice-2A:
     cmd: ../../bin/lattice lattice-2A.toml > lattice-2A.out 2> lattice-2A.log
@@ -5056,8 +5056,8 @@ stages:
     deps:
     - path: openmc-1C-rings1
       hash: md5
-      md5: 56d2ee79739617bc9ea06b8a1cefa6bd.dir
-      size: 24914599
+      md5: ced0348b13b2b42ca65868460e0a9af5.dir
+      size: 24918651
       nfiles: 13
     - path: openmc-1C-rings1.toml
       hash: md5
@@ -5074,8 +5074,8 @@ stages:
     outs:
     - path: openmc-1C-rings1.msgpack
       hash: md5
-      md5: 79e5fcc5f574cf826015e2611ed0ed57
-      size: 268944
+      md5: 2c7d0331dc501952109992e17b2c856a
+      size: 268977
   compare-1C@rings1:
     cmd: python3 compare_depletion.py --json compare-1C-rings1.json 
       lattice-1C-rings1.msgpack openmc-1C-rings1.msgpack
@@ -5086,17 +5086,17 @@ stages:
       size: 8761
     - path: lattice-1C-rings1.msgpack
       hash: md5
-      md5: 0c5be02948b3e7e71428535eacec9433
-      size: 271059
+      md5: 75c1b700841671e3c26f6a5ed32a6c02
+      size: 271095
     - path: openmc-1C-rings1.msgpack
       hash: md5
-      md5: 79e5fcc5f574cf826015e2611ed0ed57
-      size: 268944
+      md5: 2c7d0331dc501952109992e17b2c856a
+      size: 268977
     outs:
     - path: compare-1C-rings1.json
       hash: md5
-      md5: 173d6904adc06e28a7583895a7530199
-      size: 3135
+      md5: 9b31099319c3b8d60ff123bdb3ee9a59
+      size: 3139
   lattice-1C@rings4:
     cmd: ../../bin/lattice lattice-1C-rings4.toml > lattice-1C-rings4.out 2> 
       lattice-1C-rings4.log
@@ -5141,17 +5141,17 @@ stages:
       size: 8761
     - path: lattice-1C-rings4.msgpack
       hash: md5
-      md5: 66711b741ba114a2e762f985c0a68a8c
-      size: 993278
+      md5: c7eb0d29fbd286dd26b5e54f1304c9c1
+      size: 993314
     - path: openmc-1C-rings4.msgpack
       hash: md5
-      md5: 82c5698eba430e1caad7941700a90a4c
-      size: 1073244
+      md5: 011dfabbb6da7747e8168f8d84c389b2
+      size: 1073277
     outs:
     - path: compare-1C-rings4.json
       hash: md5
-      md5: c146c2943581f4f113756b1f5511db85
-      size: 3706
+      md5: 312c6946923b0cbfe423ff136c11ea74
+      size: 3708
   xs-nuclide@Eu-151:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Eu-151 
       xs-nuclides/Eu-151.msgpack
@@ -5387,3 +5387,158 @@ stages:
       hash: md5
       md5: dd9d86a05b8918dae2b94b358ab358fe
       size: 902973
+  openmc-neutron@Pm147:
+    cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
+      neutron openmc-library.toml Pm147 openmc-library/neutron/Pm147.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_147.endf
+      hash: md5
+      md5: d14be7177ddf43ed3ba9f3febcb97526
+      size: 194788
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../vera/openmc_library.py
+      hash: md5
+      md5: bf252127f01d5b9f1e0c45c802b5102b
+      size: 5182
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pm147:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_147.endf
+          temperatures:
+          - 900
+    outs:
+    - path: openmc-library/neutron/Pm147.h5
+      hash: md5
+      md5: 6ab776536b47686649c5acd23b7baadd
+      size: 1080984
+  openmc-neutron@Am242_m1:
+    cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
+      neutron openmc-library.toml Am242_m1 openmc-library/neutron/Am242_m1.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_242m1.endf
+      hash: md5
+      md5: 960aec7ff8b35e57d6136f85ce76910c
+      size: 1084140
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../vera/openmc_library.py
+      hash: md5
+      md5: bf252127f01d5b9f1e0c45c802b5102b
+      size: 5182
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Am242_m1:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_242m1.endf
+          temperatures:
+          - 900
+    outs:
+    - path: openmc-library/neutron/Am242_m1.h5
+      hash: md5
+      md5: c5094e84534fc0047a53cd356cb44413
+      size: 2196880
+  openmc-neutron@Pm148:
+    cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
+      neutron openmc-library.toml Pm148 openmc-library/neutron/Pm148.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148.endf
+      hash: md5
+      md5: a237d08af4c2401b23043b6ccfa911a9
+      size: 146984
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../vera/openmc_library.py
+      hash: md5
+      md5: bf252127f01d5b9f1e0c45c802b5102b
+      size: 5182
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pm148:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148.endf
+          temperatures:
+          - 900
+    outs:
+    - path: openmc-library/neutron/Pm148.h5
+      hash: md5
+      md5: 45d4445a9645e94c30b26b687848b1b6
+      size: 711824
+  openmc-neutron@Pm149:
+    cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
+      neutron openmc-library.toml Pm149 openmc-library/neutron/Pm149.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_149.endf
+      hash: md5
+      md5: f72d8e6a1de7845992394a14f1d66a81
+      size: 195700
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../vera/openmc_library.py
+      hash: md5
+      md5: bf252127f01d5b9f1e0c45c802b5102b
+      size: 5182
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Pm149:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_149.endf
+          temperatures:
+          - 900
+    outs:
+    - path: openmc-library/neutron/Pm149.h5
+      hash: md5
+      md5: e0610c833bb465a878cf8359041e7eac
+      size: 979408
+  openmc-neutron@Eu151:
+    cmd: nix develop ../..#references -c python3 ../vera/openmc_library.py 
+      neutron openmc-library.toml Eu151 openmc-library/neutron/Eu151.h5
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_151.endf
+      hash: md5
+      md5: f49b14583f7b3235d6a9f186744b0600
+      size: 251864
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../vera/openmc_library.py
+      hash: md5
+      md5: bf252127f01d5b9f1e0c45c802b5102b
+      size: 5182
+    - path: references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    params:
+      openmc-library.toml:
+        neutron.Eu151:
+          endf: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_151.endf
+          temperatures:
+          - 900
+    outs:
+    - path: openmc-library/neutron/Eu151.h5
+      hash: md5
+      md5: d82fb471b3a8b53e4de00872ba10856b
+      size: 1402592
