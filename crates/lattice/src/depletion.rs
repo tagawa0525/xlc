@@ -611,6 +611,13 @@ pub fn run(
             temperatures.push(t);
         }
     }
+    // 輸送できる核種は領域の温度で決まる。燃焼させる物質の温度が違うときの集合（燃料と吸収体で別の集合にするか）は決めていない
+    if temperatures.len() > 1 {
+        bail!(
+            "the depleted materials have several temperatures {temperatures:?}; the transported nuclides of several \
+             depletion temperatures are not decided (#0139)"
+        );
+    }
     let in_library: Vec<bool> = chain
         .nuclides
         .iter()
@@ -762,29 +769,29 @@ pub fn run(
         let mut rates = Vec::with_capacity(regions.len());
         let mut fission_power = 0.0;
         for (d, n) in regions.iter().zip(n) {
+            let temperature = base(&d.material)?.temperature;
             let mut members = Vec::with_capacity(d.regions.len());
             for &r in &d.regions {
-                let cell = lattice.region_cell(r);
-                let pin = shielded
-                    .pins
-                    .iter()
-                    .find(|p| p.cell == cell)
-                    .ok_or_else(|| {
-                        anyhow!("cell {cell}: the depleted material is not shielded fuel")
-                    })?;
-                let sectors = lattice.cell_type(cell).pin().map_or(1, |p| p.sectors());
-                let ring = (r - lattice.cell_regions(cell).start) / sectors;
-                let cross_sections = pin
-                    .rings
-                    .get(ring)
-                    .ok_or_else(|| anyhow!("cell {cell}: region {r} is outside the fuel rings"))?;
+                let cross_sections = shielded.region_cross_sections(r).ok_or_else(|| {
+                    anyhow!(
+                        "region {r} of material `{}` has no cross sections",
+                        d.material
+                    )
+                })?;
+                if cross_sections.len() != composition.len() {
+                    bail!(
+                        "region {r} of material `{}`: {} shielded nuclides for {} transported",
+                        d.material,
+                        cross_sections.len(),
+                        composition.len()
+                    );
+                }
                 members.push(Member {
                     volume: volumes[r],
                     flux: &flux[r],
                     cross_sections,
                 });
             }
-            let temperature = base(&d.material)?.temperature;
             let region = region_rates(
                 chain,
                 &composition,

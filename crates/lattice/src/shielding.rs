@@ -20,6 +20,7 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
@@ -133,6 +134,8 @@ pub struct FuelShielding {
     pub lumps: Vec<LumpShielding>,
     /// 自己遮蔽した格子（リングと領域の対応を、同じ格子でだけ使う）
     lattice: Lattice,
+    /// [領域] の、物質の核種ごとの物理的な実効断面積（[`FuelShielding::region_cross_sections`]）
+    region_effective: Vec<Option<Arc<Vec<Shielded>>>>,
 }
 
 /// 構造材の1つの塊（[`shield_lumps`]）の自己遮蔽の結果。
@@ -181,9 +184,9 @@ pub struct PinShielding {
     pub effective: Vec<Shielded>,
     /// [燃料のリング（内側から）][核種（`nuclides` の順）] の実効断面積。UFG の範囲の群はそのリングの減速計算の値、範囲の外は
     /// 等価原理の値。`effective` と同じく SPH 因子を掛けない物理的な値で、物理的な中性子束（`FuelShielding::physical_flux`）と
-    /// 掛けてリングの反応率にする（ADR-0173）
-    /// 対称性で移り合うピンは代表と同じ値を共有する（燃焼が輸送のたびに読むので、ピンごとに複製しない。ほかの項目は複製する。#0137）
-    pub rings: std::sync::Arc<Vec<Vec<Shielded>>>,
+    /// 掛けてリングの反応率にする（ADR-0173）。領域の値（[`FuelShielding::region_cross_sections`]）と同じものを共有し、対称性で
+    /// 移り合うピンも代表と共有する（集合体の燃焼では輸送のたびに作るので、複製しない。ほかの項目は複製する。#0137）
+    pub rings: Vec<Arc<Vec<Shielded>>>,
     /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。支持格子のあるセルでは、その外に枠と同じ面積の
     /// 支持格子のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
     pub equivalent: Option<f64>,
@@ -203,6 +206,16 @@ pub struct Sph {
 }
 
 impl FuelShielding {
+    /// 領域 `region` の物質を遮蔽した、核種ごとの実効断面積（物質の組成の順。SPH 因子を掛けない物理的な値で、物理的な中性子束
+    /// [`FuelShielding::physical_flux`] と掛けて反応率にする）。燃料のピンの等価なセルのリング（燃料、IFBA の被覆などの燃料と減速材の
+    /// 間のリング、減速材）と遮蔽した塊の領域は遮蔽した値、ほかの物質の領域は MOC と同じ無限希釈の値。真空は `None`
+    pub fn region_cross_sections(&self, region: usize) -> Option<&[Shielded]> {
+        self.region_effective
+            .get(region)?
+            .as_deref()
+            .map(Vec::as_slice)
+    }
+
     /// MOC の中性子束 `flux`（[領域][群]）を物理的な中性子束にする。SPH 因子 μ を掛けた領域と群では、MOC の中性子束は
     /// 物理的な中性子束の 1/μ になる（反応率は μσ × φ/μ で物理的な値のまま）ので、μ を掛けて戻す（燃料のピンの等価なセルのリングと、棒の塊のリング）
     pub fn physical_flux(
@@ -435,6 +448,7 @@ pub fn shield_fuel_with(
         pins: Vec::new(),
         lumps: Vec::new(),
         lattice: lattice.clone(),
+        region_effective: vec![None; regions],
     };
     // 格子の対称性で移り合うピンは同じ結果になるので、組の代表（最も小さいセル番号。セルの順で最初に現れる）
     // だけを解き、ほかは代表の物質を共有する。使う操作は、MOC と同じ確かめ方（トラックの像まで）で、領域ごとの入力の
@@ -540,6 +554,7 @@ pub fn shield_fuel_with(
                 &s.assigned,
                 &fuel_regions,
                 &mut shielded.region_material,
+                &mut shielded.region_effective,
             )?;
             shielded.pins.push(PinShielding {
                 cell,
@@ -552,9 +567,17 @@ pub fn shield_fuel_with(
         let PinSolution { carlvik, ufg } = planned
             .and_then(|k| solutions.get_mut(k).and_then(Option::take))
             .ok_or(SelfShieldingError::Unsolved(cell))??;
+        // 範囲の外の燃料のリングは、どれも等価原理の同じ微視的断面積（組成の並びはリングで同じ）
+        let micro = Arc::new(carlvik.clone());
         let (effective, ring_effective) = match &ufg {
-            Some(c) => (c.effective.clone(), c.center.clone()),
-            None => (carlvik.clone(), vec![carlvik.clone(); rings]),
+            Some(c) => (
+                c.effective.clone(),
+                c.ring_nuclides[..rings]
+                    .iter()
+                    .map(|n| n.clone().ok_or(SelfShieldingError::CellShape(cell)))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+            None => (carlvik.clone(), vec![micro.clone(); rings]),
         };
         let nuclides = material
             .composition
@@ -572,7 +595,7 @@ pub fn shield_fuel_with(
             dancoff: factors.clone(),
             nuclides,
             effective,
-            rings: std::sync::Arc::new(ring_effective),
+            rings: ring_effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| Sph {
                 factors: c.sph.clone(),
@@ -586,10 +609,11 @@ pub fn shield_fuel_with(
                 materials: c
                     .rings
                     .into_iter()
-                    .map(|m| {
-                        m.map(|m| {
+                    .zip(c.ring_nuclides)
+                    .map(|(m, nuclides)| {
+                        m.zip(nuclides).map(|(m, nuclides)| {
                             shielded.materials.push(m);
-                            shielded.materials.len() - 1
+                            (shielded.materials.len() - 1, nuclides)
                         })
                     })
                     .collect(),
@@ -601,7 +625,7 @@ pub fn shield_fuel_with(
                 let mut per_ring = Vec::with_capacity(rings);
                 for &index in &ring_materials {
                     if let Some(&(_, m)) = made.iter().find(|(i, _)| *i == index) {
-                        per_ring.push(m);
+                        per_ring.push((m, micro.clone()));
                         continue;
                     }
                     let ring = &materials[index];
@@ -625,7 +649,7 @@ pub fn shield_fuel_with(
                     shielded.materials.push(mixed);
                     let m = shielded.materials.len() - 1;
                     made.push((index, m));
-                    per_ring.push(m);
+                    per_ring.push((m, micro.clone()));
                 }
                 Assigned::Fuel(per_ring)
             }
@@ -636,6 +660,7 @@ pub fn shield_fuel_with(
             &assigned,
             &fuel_regions,
             &mut shielded.region_material,
+            &mut shielded.region_effective,
         )?;
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
@@ -651,6 +676,23 @@ pub fn shield_fuel_with(
             &mut shielded,
         )
     })?;
+    // 遮蔽しなかった物質の領域は、MOC の物質（`Material::mix`）と同じ無限希釈の値（σ0 の表の最初）。物質ごとに 1 度だけ作る
+    let mut dilute_nuclides: Vec<Option<Arc<Vec<Shielded>>>> = vec![None; materials.len()];
+    for (region, &index) in region_index.iter().enumerate() {
+        if index == void || shielded.region_effective[region].is_some() {
+            continue;
+        }
+        if dilute_nuclides[index].is_none() {
+            let m = &materials[index];
+            let tables = m
+                .composition
+                .iter()
+                .map(|(name, _)| Ok(library.lookup(name, m.temperature)?.1.shielded[0].clone()))
+                .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+            dilute_nuclides[index] = Some(Arc::new(tables));
+        }
+        shielded.region_effective[region] = dilute_nuclides[index].clone();
+    }
     tracing::info!(
         pins = shielded.pins.len(),
         solved = solved.len(),
@@ -889,16 +931,18 @@ fn shield_lumps(
             Some((c, rings)) => {
                 // 棒のリングの物質。塊の領域のリングは、その領域のセル（対称操作の像）の中の番号から求める
                 let mut ring_material = Vec::with_capacity(rings);
-                for m in c.rings.into_iter().take(rings) {
-                    let m = m.ok_or(SelfShieldingError::CellShape(cell))?;
+                for (m, nuclides) in c.rings.into_iter().zip(c.ring_nuclides).take(rings) {
+                    let shape = || SelfShieldingError::CellShape(cell);
+                    let (m, nuclides) = (m.ok_or_else(shape)?, nuclides.ok_or_else(shape)?);
                     shielded.materials.push(m);
-                    ring_material.push(shielded.materials.len() - 1);
+                    ring_material.push((shielded.materials.len() - 1, nuclides));
                 }
                 for &region in &lump_regions {
                     let shape = || SelfShieldingError::CellShape(lattice.region_cell(region));
                     let ring = LumpShielding::ring_of(lattice, region).ok_or_else(shape)?;
-                    shielded.region_material[region] =
-                        *ring_material.get(ring).ok_or_else(shape)?;
+                    let (m, nuclides) = ring_material.get(ring).ok_or_else(shape)?;
+                    shielded.region_material[region] = *m;
+                    shielded.region_effective[region] = Some(nuclides.clone());
                 }
                 let factors = c.sph.into_iter().take(rings).collect();
                 (c.effective, Some(c.radius), Some((factors, c.groups)))
@@ -923,8 +967,10 @@ fn shield_lumps(
                 })?;
                 shielded.materials.push(mixed);
                 let m = shielded.materials.len() - 1;
+                let nuclides = Arc::new(tables.clone());
                 for &region in &lump_regions {
                     shielded.region_material[region] = m;
+                    shielded.region_effective[region] = Some(nuclides.clone());
                 }
                 (tables, None, None)
             }
@@ -998,15 +1044,15 @@ struct PinSolution {
     ufg: Option<CellShielding>,
 }
 
-/// ピンのセルの領域に割り当てる物質の番号
+/// ピンのセルの領域に割り当てる物質の番号と、その物質の核種ごとの実効断面積
 enum Assigned {
     /// 等価なセルのリングごとの物質（真空は `None`）と、減速材のリングの始まり
     Rings {
-        materials: Vec<Option<usize>>,
+        materials: Vec<Option<(usize, Arc<Vec<Shielded>>)>>,
         start: usize,
     },
     /// 燃料のリングごとの物質（UFG の範囲がないとき。燃料の領域だけ）
-    Fuel(Vec<usize>),
+    Fuel(Vec<(usize, Arc<Vec<Shielded>>)>),
 }
 
 /// ピンのセル `cell` の領域に、`assigned` の物質の番号を割り当てる。
@@ -1016,6 +1062,7 @@ fn assign(
     assigned: &Assigned,
     fuel_regions: &std::ops::Range<usize>,
     region_material: &mut [usize],
+    region_effective: &mut [Option<Arc<Vec<Shielded>>>],
 ) -> Result<(), SelfShieldingError> {
     match assigned {
         Assigned::Rings { materials, start } => {
@@ -1025,9 +1072,10 @@ fn assign(
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
             let first = lattice.cell_regions(cell).start;
             for (targets, material) in ring_targets(pin, first, *start).iter().zip(materials) {
-                if let Some(m) = material {
+                if let Some((m, nuclides)) = material {
                     for &region in targets {
                         region_material[region] = *m;
+                        region_effective[region] = Some(nuclides.clone());
                     }
                 }
             }
@@ -1035,7 +1083,9 @@ fn assign(
         Assigned::Fuel(rings) => {
             let sectors = fuel_regions.len() / rings.len().max(1);
             for (k, region) in fuel_regions.clone().enumerate() {
-                region_material[region] = rings[k / sectors];
+                let (m, nuclides) = &rings[k / sectors];
+                region_material[region] = *m;
+                region_effective[region] = Some(nuclides.clone());
             }
         }
     }
@@ -1085,8 +1135,9 @@ struct CellShielding {
     start: usize,
     /// 燃料の核種の実効断面積。UFG の範囲の群は燃料のリングの値を中性子束と体積で平均し、範囲の外は等価原理の値
     effective: Vec<Shielded>,
-    /// [中心のリング][核種] の実効断面積（UFG の範囲の群はリングの値、範囲の外は等価原理の値）
-    center: Vec<Vec<Shielded>>,
+    /// [リング][核種] の実効断面積（`rings` と同じリング。真空は `None`）。中心のリングは UFG の範囲の群がリングの値、範囲の外が
+    /// 等価原理の値で、ほかのリングは範囲の外が無限希釈
+    ring_nuclides: Vec<Option<Arc<Vec<Shielded>>>>,
     /// [リング][UFG の範囲の群] の SPH 因子
     sph: Vec<Vec<f64>>,
     /// `sph` の列の群
@@ -1309,10 +1360,11 @@ fn shield_cell(
     let ng = library.groups.len();
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut rings = Vec::with_capacity(inputs.len());
-    let mut center = Vec::with_capacity(pin.rings);
+    let mut ring_nuclides = Vec::with_capacity(inputs.len());
     for (j, input) in inputs.iter().enumerate() {
         let Some(m) = input else {
             rings.push(None);
+            ring_nuclides.push(None);
             continue;
         };
         let mut fulls = Vec::with_capacity(m.composition.len());
@@ -1339,9 +1391,7 @@ fn shield_cell(
                 Ok((nuclide, *density))
             })
             .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-        if j < pin.rings {
-            center.push(fulls);
-        }
+        ring_nuclides.push(Some(Arc::new(fulls)));
         let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
             SelfShieldingError::Material {
                 name: m.name.clone(),
@@ -1389,6 +1439,7 @@ fn shield_cell(
     // 支持格子のリングの物質は格子に使わない（枠は塊として遮蔽する）
     if *frame {
         rings.pop();
+        ring_nuclides.pop();
     }
 
     // 中心の物質（燃料か棒）の平均: そのリングの中性子束と体積の重み
@@ -1398,7 +1449,7 @@ fn shield_cell(
         rings,
         start: *start,
         effective,
-        center,
+        ring_nuclides,
         sph,
         groups: top..bottom,
     }))
