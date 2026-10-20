@@ -1286,7 +1286,7 @@ mod lattice {
             let expected: f64 = material
                 .composition
                 .iter()
-                .zip(&pin.rings[ring])
+                .zip(pin.rings[ring].iter())
                 .map(|((_, n), s)| n * s.total[0])
                 .sum();
             assert!(
@@ -1319,6 +1319,108 @@ mod lattice {
         assert!(rings[0][0].total[1] < rings[1][0].total[1]);
         assert!(rings[1][0].total[1] < rings[2][0].total[1]);
         assert_eq!(rings[0][0].total[0], rings[2][0].total[0]);
+    }
+
+    #[test]
+    fn each_region_names_the_cross_sections_its_material_was_shielded_with() {
+        let (_, shielded, materials) = ring_fuel([("a", 2.0e-4), ("b", 5.0e-4), ("c", 9.0e-4)]);
+        let pin = &shielded.pins[0];
+        // 燃料のリング（領域 0〜2）は、そのリングの微視的断面積
+        for ring in 0..3 {
+            assert_eq!(
+                shielded.region_cross_sections(ring).unwrap(),
+                &pin.rings[ring][..]
+            );
+        }
+        // 真空のギャップ（領域 3）は物質がない
+        assert!(shielded.region_cross_sections(3).is_none());
+        // 被覆管（領域 4）と減速材（領域 5）は、等価なセルのそのリングの値で、物質の組成の順
+        for (region, name) in [(4, "clad"), (5, "water")] {
+            let nuclides = shielded.region_cross_sections(region).unwrap();
+            let material = materials.iter().find(|m| m.name == name).unwrap();
+            assert_eq!(nuclides.len(), material.composition.len());
+        }
+        // 被覆管の物質の巨視的な全断面積は、そのリングの微視的断面積と数密度の積の和（SPH 因子のない範囲の外の群）
+        let clad = &materials
+            .iter()
+            .find(|m| m.name == "clad")
+            .unwrap()
+            .composition;
+        let micro = shielded.region_cross_sections(4).unwrap();
+        let total: f64 = clad
+            .iter()
+            .zip(micro)
+            .map(|((_, n), s)| n * s.total[0])
+            .sum();
+        let macroscopic = shielded.materials[shielded.region_material[4]].total[0];
+        assert!(
+            (total - macroscopic).abs() <= 1e-12 * macroscopic,
+            "{total} vs {macroscopic}"
+        );
+    }
+
+    #[test]
+    fn unshielded_regions_name_their_dilute_cross_sections() {
+        // 燃料のピンの外の、遮蔽しない物質の領域（水だけのセル）は、MOC と同じ無限希釈の値を持つ
+        let library = library();
+        let (tracking, regions) = geometry(vec![vec![0, 1], vec![1, 0]]);
+        let shielded = shield_fuel(
+            &library,
+            &tracking,
+            &materials(),
+            &regions,
+            &ShieldingOptions::default(),
+        )
+        .unwrap();
+        let water_cell = tracking.lattice.cell_regions(1).start;
+        assert_eq!(regions[water_cell], "water");
+        let dilute = library.lookup("H-1", T).unwrap().1.shielded[0].clone();
+        assert_eq!(
+            shielded.region_cross_sections(water_cell).unwrap(),
+            &[dilute][..]
+        );
+    }
+
+    #[test]
+    fn lump_regions_name_the_lump_cross_sections() {
+        let library = library_with_zirconium();
+        let pin = PinCell::new(1.26, vec![0.4096]).unwrap();
+        let grid = PinCell::grid(1.26, 3).unwrap();
+        // 格子は正方形（ピンと、Zr の縦の列のある正方形のセルを互い違いに）
+        let layout = vec![vec![0, 1], vec![1, 0]];
+        let names = |t: usize| -> Vec<&str> {
+            if t == 0 {
+                vec!["fuel", "water"]
+            } else {
+                vec![
+                    "water", "zirc", "water", "water", "zirc", "water", "water", "zirc", "water",
+                ]
+            }
+        };
+        let regions: Vec<String> = layout
+            .iter()
+            .flatten()
+            .flat_map(|&t| names(t))
+            .map(String::from)
+            .collect();
+        let lattice = Lattice::new(vec![pin, grid], layout).unwrap();
+        let tracking = Tracking::new(&lattice, 16, 0.02).unwrap();
+        let shielded = shield_fuel(
+            &library,
+            &tracking,
+            &with_material("unused", "H-1"),
+            &regions,
+            &ShieldingOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(shielded.lumps.len(), 1, "{:?}", shielded.lumps);
+        let lump = &shielded.lumps[0];
+        for &region in &lump.regions {
+            assert_eq!(
+                shielded.region_cross_sections(region).unwrap(),
+                &lump.effective[..]
+            );
+        }
     }
 
     #[test]
