@@ -244,6 +244,11 @@
           export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin:${pkgs.gawk}/bin
           bash ${./examples/aws/test_aws_vcpu.sh} ${./examples/aws/aws_common.sh} > $out
         '';
+        # 監視 aws_watch.sh の二重起動の防止（flock）と、欠けたジョブをまとめた起動し直し（偽の aws_run.sh。ADR-0171）
+        aws-watch = pkgs.runCommand "aws-watch" { } ''
+          export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin:${pkgs.util-linux}/bin
+          bash ${./examples/aws/test_aws_watch.sh} ${./examples/aws/aws_watch.sh} > $out
+        '';
         # 実行の定義（examples/<問題>/aws.toml。ADR-0174）を読む部品と、リポジトリの定義
         aws-definition = pkgs.runCommand "aws-definition" { } ''
           export PATH=${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin
