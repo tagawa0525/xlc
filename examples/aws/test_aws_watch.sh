@@ -30,7 +30,10 @@ read_launch_env() { RUN_INPUTS=(a/openmc-3A.toml a/openmc-3B.toml a/openmc-5B.to
 job_name() { basename "$1" .toml; }
 job_done() { if [[ -f $STATE/done-$2 ]]; then echo 0; fi; }
 COMMON
-echo 'echo "no VMs"' > "$tmp/bin/aws_status.sh"
+# 偽の aws_status.sh: t3 のジョブは実行中（欠けないので、監視は待ち続ける）、ほかは VM なし
+cat > "$tmp/bin/aws_status.sh" <<'STATUS'
+for j in openmc-3A openmc-3B openmc-5B openmc-5C; do echo "t3-$j i-0 c8a.4xlarge running 0"; done
+STATUS
 # 偽の aws_run.sh: 引数を記録し、--job のジョブを done にして、ジョブごとに起動の行を出す
 cat > "$tmp/bin/aws_run.sh" <<'RUN'
 echo "$*" >> "$STATE/calls"
@@ -64,8 +67,9 @@ grep -q 'relaunches=4$' <<< "$out" || fail "起動した台数 4 が relaunches 
 
 # 二重起動: 走っている間は同じ実行の 2 つ目が 1 で終わり、--status は走っていると答える
 rm -f "$STATE/calls"
-bash "$tmp/bin/aws_watch.sh" --interval 30 --limit 0 t3 > /dev/null &
-for _ in {1..50}; do timeout 20 bash "$tmp/bin/aws_watch.sh" --status t3 > /dev/null && break; sleep 0.1; done
+bash "$tmp/bin/aws_watch.sh" --interval 30 --limit 0 t3 > "$tmp/t3.log" &
+# 最初の回の行が出れば、ロックは取れている（--status の確認とロックの取得が重なって取り損ねるのを避ける）
+for _ in {1..100}; do grep -q 'done=' "$tmp/t3.log" && break; sleep 0.1; done
 rc=0
 out=$(timeout 20 bash "$tmp/bin/aws_watch.sh" t3 2>&1) || rc=$?
 expect "二重起動は 1" 1 "$rc"
