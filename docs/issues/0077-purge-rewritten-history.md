@@ -16,7 +16,7 @@ resolution:
 オブジェクトは reflog から参照されていて、リポジトリに残っている。元の履歴は GitHub の private リポジトリ
 tagawa0525/xlc-history-backup にある。そのときの書き換えのツール（規則、filter-repo の callback、hash の付け直しを繰り返す
 iterate3.sh、全コミットの検証 verify2.py）は references/history-rewrite/ にある（git で追跡しない）。次の書き換え（#0141）は
-nixfiles の history-rewrite（nixfiles の ADR-0045）で行い、references/history-rewrite/ はそのときに消す。
+nixfiles の history-rewrite（nixfiles の ADR-0045。その PR がマージされてから）で行い、references/history-rewrite/ はそのときに消す。
 
 関係する ADR: なし
 
