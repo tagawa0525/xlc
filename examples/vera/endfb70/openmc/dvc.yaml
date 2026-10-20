@@ -1,0 +1,124 @@
+# 診断用（#0131）: ENDF/B-VII.0 から NJOY で作った OpenMC のライブラリで VERA の 1B と 2B を解く段階。xlc の VII.0 のライブラリ
+# （../dvc.yaml）の処理の問題か、KENO-VI（AMPX）との処理の差かを分ける（ADR-0175）。段階の形は ../../dvc.yaml の openmc-* と同じ
+# （ADR-0130、ADR-0136）。実行するのは default の devShell の `dvc repro`（ADR-0159）。
+vars:
+  - openmc-library.toml
+  - problems:
+      - 1B
+      - 2B
+stages:
+  references-shell:
+    cmd: nix eval --raw ../../../..#devShells.x86_64-linux.references.outPath > references-shell.txt
+    always_changed: true
+    outs:
+      - references-shell.txt:
+          cache: false
+  openmc-neutron:
+    foreach: ${neutron}
+    do:
+      cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
+      deps:
+        - ../../openmc_library.py
+        - ../../../openmc_input.py
+        - references-shell.txt
+        - ${item.endf}
+      params:
+        - openmc-library.toml:
+            - neutron.${key}
+      outs:
+        - openmc-library/neutron/${key}.h5
+  openmc-thermal:
+    foreach: ${thermal}
+    do:
+      cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py thermal openmc-library.toml ${key} openmc-library/thermal/${key}.h5
+      deps:
+        - ../../openmc_library.py
+        - ../../../openmc_input.py
+        - references-shell.txt
+        - ${item.neutron}
+        - ${item.thermal}
+      params:
+        - openmc-library.toml:
+            - thermal.${key}
+      outs:
+        - openmc-library/thermal/${key}.h5
+  openmc-index:
+    cmd: nix develop ../../../..#references -c python3 ../../openmc_library.py index openmc-library.toml openmc-library
+    deps:
+      - ../../openmc_library.py
+      - ../../../openmc_input.py
+      - references-shell.txt
+      - openmc-library.toml
+      - openmc-library/neutron
+      - openmc-library/thermal
+    outs:
+      - openmc-library/cross_sections.xml
+  openmc-model:
+    foreach: ${problems}
+    do:
+      cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py model openmc-${item}.toml openmc-${item}-model
+      deps:
+        - ../../openmc_model.py
+        - ../../openmc_tallies.py
+        - ../../../openmc_common.py
+        - ../../../openmc_run.py
+        - ../../../openmc_input.py
+        - references-shell.txt
+        - openmc-${item}.toml
+      outs:
+        - openmc-${item}-model
+  openmc-run:
+    foreach: ${problems}
+    do:
+      cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py run openmc-${item}.toml openmc-${item}-model openmc-${item}
+      deps:
+        - references-shell.txt
+        - openmc-${item}-model/model.xml
+        - openmc-library
+      params:
+        - openmc-${item}.toml:
+            - cross-sections
+            - threads
+      outs:
+        - openmc-${item}
+  openmc-extract:
+    foreach: ${problems}
+    do:
+      cmd: nix develop ../../../..#references -c python3 ../../openmc_model.py extract openmc-${item}.toml openmc-${item} openmc-${item}-results
+      deps:
+        - ../../openmc_model.py
+        - ../../openmc_tallies.py
+        - ../../../openmc_common.py
+        - ../../../openmc_run.py
+        - ../../../openmc_input.py
+        - references-shell.txt
+        - openmc-${item}.toml
+        - openmc-${item}
+      outs:
+        - openmc-${item}-results
+  compare-1B:
+    # ENDF/B-VII.0 の OpenMC を基準にした、xlc（../dvc.yaml の pincell@1B）と KENO-VI の k の差。要約は git で追跡する（ADR-0176）
+    cmd: python3 ../../compare_openmc_keno.py --json compare-1B.json ../../../../references/vera/spec.txt 1B ../compare-1B.json openmc-1B-results
+    deps:
+      - ../../compare_openmc_keno.py
+      - ../../compare_keno.py
+      - ../../compare_p3.py
+      - ../../../../references/vera/spec.txt
+      - ../compare-1B.json
+      - openmc-1B-results
+    outs:
+      - compare-1B.json:
+          cache: false
+  compare-2B:
+    cmd: python3 ../../compare_openmc_keno.py --json compare-2B.json ../../../../references/vera/spec.txt 2B ../compare-2B.json openmc-2B-results ../p2/pins-2B.msgpack
+    deps:
+      - ../../compare_openmc_keno.py
+      - ../../compare_keno.py
+      - ../../compare_p3.py
+      - ../../../../references/vera/spec.txt
+      - ../compare-2B.json
+      - openmc-2B-results
+      - ../p2/pins-2B.msgpack
+    outs:
+      - compare-2B.json:
+          cache: false

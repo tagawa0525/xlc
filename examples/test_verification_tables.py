@@ -260,6 +260,56 @@ class Endfb70(unittest.TestCase):
         self.assertEqual(len(row), 7)
 
 
+def openmc_summary(problem: str, pins: bool) -> dict:
+    pin = {"positions": 39, "rms": 0.0006, "max": 0.0015, "at": [1, 0]}
+    return {
+        "format": "xlc-compare-openmc-keno",
+        "problem": problem,
+        "k": {
+            "xlc": 1.184112,
+            "openmc": 1.18300,
+            "openmc_std": 4e-05,
+            "keno": 1.182149,
+            "keno_std": 6.8e-05,
+            "diff_xlc_openmc_pcm": 111.2,
+            "diff_xlc_openmc_std_pcm": 4.0,
+            "diff_openmc_keno_pcm": 85.1,
+            "diff_openmc_keno_std_pcm": 7.9,
+            "diff_xlc_keno_pcm": 196.3,
+        },
+        "pins_openmc_vs_keno": pin if pins else None,
+        "pins_xlc_vs_openmc": {**pin, "positions": 264} if pins else None,
+    }
+
+
+class OpenmcEndfb70(unittest.TestCase):
+    def test_row_has_the_three_k_differences_with_errors(self):
+        table = vt.endfb70_openmc([openmc_summary("1B", False)]).split("\n")
+        row = [c.strip() for c in table[2].strip("|").split("|")]
+        self.assertEqual(
+            row,
+            [
+                "1B",
+                "1.184112",
+                "1.183000 ± 0.000040",
+                "1.182149 ± 0.000068",
+                "+111 ± 4 pcm",
+                "+85 ± 8 pcm",
+                "+196 pcm",
+                "",
+                "",
+            ],
+        )
+
+    def test_assembly_row_has_pin_columns(self):
+        table = vt.endfb70_openmc([openmc_summary("2B", True)]).split("\n")
+        row = [c.strip() for c in table[2].strip("|").split("|")]
+        # 比べる点の数が違う（KENO-VI の 1/8 の表と、燃料ピンすべて）ので、数を添える
+        self.assertEqual(
+            row[7:], ["0.060%、+0.150%（39 点）", "0.060%、+0.150%（264 点）"]
+        )
+
+
 class Replace(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
