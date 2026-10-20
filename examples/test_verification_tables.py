@@ -278,7 +278,7 @@ def openmc_summary(problem: str, pins: bool) -> dict:
             "diff_xlc_keno_pcm": 196.3,
         },
         "pins_openmc_vs_keno": pin if pins else None,
-        "pins_xlc_vs_openmc": pin if pins else None,
+        "pins_xlc_vs_openmc": {**pin, "positions": 264} if pins else None,
     }
 
 
@@ -304,7 +304,10 @@ class OpenmcEndfb70(unittest.TestCase):
     def test_assembly_row_has_pin_columns(self):
         table = vt.endfb70_openmc([openmc_summary("2B", True)]).split("\n")
         row = [c.strip() for c in table[2].strip("|").split("|")]
-        self.assertEqual(row[7:], ["0.060%、+0.150%", "0.060%、+0.150%"])
+        # 比べる点の数が違う（KENO-VI の 1/8 の表と、燃料ピンすべて）ので、数を添える
+        self.assertEqual(
+            row[7:], ["0.060%、+0.150%（39 点）", "0.060%、+0.150%（264 点）"]
+        )
 
 
 class Replace(unittest.TestCase):
