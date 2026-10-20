@@ -174,8 +174,8 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 
 ### 計算
 
-OpenMC（Slurm の排他のジョブ 409。ライブラリは Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を含む）、xlc、比較は a5981e7f、
-分岐点は main の 15deefcb。OpenMC は 2026-10-16、xlc の格子の段階は e47ebaf2 の時点で 2026-10-15（排他のジョブの番号は記録していない。
+OpenMC（Slurm の排他のジョブ 409。ライブラリは Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を含む）、xlc、比較は 8dcacf81、
+分岐点は main の 64a04368（これと現在の main の 15deefcb の間に、計算の入力を変える変更はない）。OpenMC は 2026-10-16、xlc の格子の段階は f3474fae の時点で 2026-10-15（排他のジョブの番号は記録していない。
 時間の表の xlc の行はこの実行の値）。比較の段階は 2026-10-21 に relock した。
 比較の入力は `lattice-1C-rings1.msgpack` md5 75c1b700、`openmc-1C-rings1.msgpack` md5 2c7d0331、
 `lattice-1C-rings4.msgpack` md5 c7eb0d29、`openmc-1C-rings4.msgpack` md5 011dfabb（JSON の `inputs`）。
@@ -287,7 +287,7 @@ xlc は履歴の `seconds`（全体は内訳の和）、OpenMC は `transport-se
 <!-- /table -->
 
 2A の 1 ステップ（輸送 3 回、燃焼の領域 39）は、`lattice-2A.log` の `depletion` の行で、全体 141.0 秒: 自己遮蔽 114.1 秒、MOC 22.5 秒、
-反応率と規格化 1.54 秒、燃焼行列 0.09 秒、CRAM48 0.19 秒（e47ebaf2 で実行した段階を d960d753 で relock、2026-10-15）。
+反応率と規格化 1.54 秒、燃焼行列 0.09 秒、CRAM48 0.19 秒（f3474fae で実行した段階を 8b9941b5 で relock、2026-10-15）。
 
 - xlc の時間の 96〜98% はピンセルで自己遮蔽、2A で 80%。燃焼行列と CRAM48（全核種の 3,820 核種）は 1 回の輸送あたり 0.04 秒以下
   （1 領域）で、2A の 39 領域でも 1 ステップ 0.28 秒。全核種のチェーンのままでも CRAM はネックでない
