@@ -1,6 +1,7 @@
 ---
 status: proposed
 date: 2026-10-10
+requires: [ADR-0028, ADR-0101, ADR-0108]
 supersedes: []
 superseded-by:
 issues: []
