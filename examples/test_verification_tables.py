@@ -5,6 +5,7 @@
 
 import hashlib
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -336,6 +337,31 @@ class Replace(unittest.TestCase):
         (self.root / "t/a.json").unlink()
         with self.assertRaisesRegex(vt.TableError, "dvc repro"):
             vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
+
+    def git(self, *args: str):
+        subprocess.run(
+            ["git", "-C", str(self.root), *args], check=True, capture_output=True
+        )
+
+    def test_an_untracked_json_is_an_error_naming_cache_false(self):
+        self.lock()
+        self.git("init", "-q", "-b", "main")
+        with self.assertRaisesRegex(vt.TableError, "cache: false"):
+            vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
+
+    def test_a_tracked_json_passes_in_a_git_repository(self):
+        self.lock()
+        self.git("init", "-q", "-b", "main")
+        self.git("add", "t/a.json")
+        vt.render("<!-- table: demo -->\n<!-- /table -->\n", self.root)
+
+    def test_the_git_tracked_json_must_be_tracked_too(self):
+        source = "examples/depletion/aws-check/compare-aws-1C-rings1.json"
+        (self.root / source).parent.mkdir(parents=True)
+        (self.root / source).write_text(json.dumps(summary("3A")))
+        self.git("init", "-q", "-b", "main")
+        with self.assertRaisesRegex(vt.TableError, "cache: false"):
+            vt.load(self.root, source, True)
 
     def test_check_fails_on_a_hand_edited_table(self):
         self.lock()
