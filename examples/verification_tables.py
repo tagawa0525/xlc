@@ -596,6 +596,11 @@ def aws_depletion_densities(sources: list[dict]) -> str:
 GIT_TRACKED = {"examples/depletion/aws-check/compare-aws-1C-rings1.json"}
 
 
+def counted_pin_cell(pins: dict | None) -> str:
+    """比べた点の数を添える。OpenMC − KENO-VI は 1/8 の表、xlc − OpenMC は燃料ピンすべてなので、点の数が違う"""
+    return "" if pins is None else f"{pin_cell(pins)}（{pins['positions']} 点）"
+
+
 def endfb70_openmc(sources: list[dict]) -> str:
     """ENDF/B-VII.0 の OpenMC（NJOY）を基準に、xlc と KENO-VI の k の差とピン出力の差を分ける（#0131）"""
     rows = []
@@ -614,8 +619,8 @@ def endfb70_openmc(sources: list[dict]) -> str:
                 f"{signed(k['diff_xlc_openmc_pcm'], 0)} ± {k['diff_xlc_openmc_std_pcm']:.0f} pcm",
                 f"{signed(k['diff_openmc_keno_pcm'], 0)} ± {k['diff_openmc_keno_std_pcm']:.0f} pcm",
                 f"{signed(k['diff_xlc_keno_pcm'], 0)} pcm",
-                pin_cell(s["pins_openmc_vs_keno"]),
-                pin_cell(s["pins_xlc_vs_openmc"]),
+                counted_pin_cell(s["pins_openmc_vs_keno"]),
+                counted_pin_cell(s["pins_xlc_vs_openmc"]),
             ]
         )
     return markdown_table(
