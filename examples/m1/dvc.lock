@@ -1,0 +1,180 @@
+schema: '2.0'
+stages:
+  xs:
+    cmd: ../../bin/xs xs.toml
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: a316fea4a04ca212bca9ebc66ca32b46
+      size: 2817712
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      hash: md5
+      md5: a8a7d4b0bc9b9627affeaa0e74716c82
+      size: 671232
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+      hash: md5
+      md5: de4713deb591bde04f4c7ef2446bdc2e
+      size: 873392
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+      hash: md5
+      md5: ededbd01d87d3297c377e105f60d59d3
+      size: 659224
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      hash: md5
+      md5: 88f659e2ff0ed092bf2ec6a6672fc25e
+      size: 41873568
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_017.endf
+      hash: md5
+      md5: bfbf04a4c4d9be916dc487813489f357
+      size: 81548
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      hash: md5
+      md5: 845fe13188e04ddaa8957922ca4425e9
+      size: 1370128
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      hash: md5
+      md5: 05504d0c3dc22b27907d13b2427670bc
+      size: 3334576
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      hash: md5
+      md5: 08f21535331cdfa3e35e6959735519c5
+      size: 2054584
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      hash: md5
+      md5: 81602f01efb0df40c5d34ded3000a975
+      size: 1805000
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      hash: md5
+      md5: ea8fcd356c8333dd48792e88063ee4b4
+      size: 1403112
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+      hash: md5
+      md5: 02d5c7d15b6c3838b4a2439873d6fa25
+      size: 1980104
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      hash: md5
+      md5: e72aa70c44180ba3b03342a4a4c37997
+      size: 36883940
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+      hash: md5
+      md5: 2d3b0b0d3606816b27c03c9b2ce92cc0
+      size: 1359412
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      hash: md5
+      md5: 6d52fe1a299934af828599b40b0122e7
+      size: 14939396
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+      hash: md5
+      md5: ff8fb554e0893e672e95bf060817f087
+      size: 17400580
+    - path: xs.toml
+      hash: md5
+      md5: 4daba60628dc3d46672933f2f0e31714
+      size: 1692
+    outs:
+    - path: m1.msgpack
+      hash: md5
+      md5: e91c9dbbbaeadc8a8cf90f7907f18898
+      size: 85947487
+  lattice-temperatures@f293.6-m293.6:
+    cmd: ../../bin/lattice pincell-f293.6-m293.6.toml > 
+      lattice-f293.6-m293.6.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: m1.msgpack
+      hash: md5
+      md5: e91c9dbbbaeadc8a8cf90f7907f18898
+      size: 85947487
+    - path: pincell-f293.6-m293.6.toml
+      hash: md5
+      md5: 843a58b5708b6ef0cf49c71650853900
+      size: 724
+    outs:
+    - path: lattice-f293.6-m293.6.out
+      hash: md5
+      md5: e31bc82900edf32098bbf1c58ee5d321
+      size: 11
+    - path: pincell-fg-f293.6-m293.6.msgpack
+      hash: md5
+      md5: 379445733ba44807f050859b0413989d
+      size: 476
+  lattice-temperatures@f293.6-m600:
+    cmd: ../../bin/lattice pincell-f293.6-m600.toml > lattice-f293.6-m600.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: m1.msgpack
+      hash: md5
+      md5: e91c9dbbbaeadc8a8cf90f7907f18898
+      size: 85947487
+    - path: pincell-f293.6-m600.toml
+      hash: md5
+      md5: 66b9c234427516e64ecd01c6102553dc
+      size: 718
+    outs:
+    - path: lattice-f293.6-m600.out
+      hash: md5
+      md5: 77aee2d9808ba0b943c5964418d8b215
+      size: 11
+    - path: pincell-fg-f293.6-m600.msgpack
+      hash: md5
+      md5: d4f8b3861c5aa26969d30d0b2b21c882
+      size: 476
+  lattice-temperatures@f900-m293.6:
+    cmd: ../../bin/lattice pincell-f900-m293.6.toml > lattice-f900-m293.6.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: m1.msgpack
+      hash: md5
+      md5: e91c9dbbbaeadc8a8cf90f7907f18898
+      size: 85947487
+    - path: pincell-f900-m293.6.toml
+      hash: md5
+      md5: 511c28c4235a6a49635d2dbd9f7de4fd
+      size: 718
+    outs:
+    - path: lattice-f900-m293.6.out
+      hash: md5
+      md5: 5903c70c308c68fbaeb2bbc254ea2806
+      size: 11
+    - path: pincell-fg-f900-m293.6.msgpack
+      hash: md5
+      md5: be7886406c48029ab4835ff70ca3b3a2
+      size: 476
+  lattice:
+    cmd: ../../bin/lattice pincell.toml > lattice.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: m1.msgpack
+      hash: md5
+      md5: e91c9dbbbaeadc8a8cf90f7907f18898
+      size: 85947487
+    - path: pincell.toml
+      hash: md5
+      md5: 5103ff250af838c7eec685ea10efaab4
+      size: 702
+    outs:
+    - path: lattice.out
+      hash: md5
+      md5: 0109b0fc100f473e47a8d521d3f00c21
+      size: 11
+    - path: pincell-fg.msgpack
+      hash: md5
+      md5: d1b9b7ac61ea14eb6a33d04f8fd5fd70
+      size: 476

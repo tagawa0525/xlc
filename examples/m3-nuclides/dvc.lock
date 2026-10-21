@@ -1,0 +1,135 @@
+schema: '2.0'
+stages:
+  xs:
+    cmd: ../../bin/xs xs.toml
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: a316fea4a04ca212bca9ebc66ca32b46
+      size: 2817712
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
+      hash: md5
+      md5: 562de9bfd12d8f51b15be9e22517b4dc
+      size: 3805168
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_013.endf
+      hash: md5
+      md5: 55ce34f21e246a66e8b690147f5073f8
+      size: 3464536
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_028.endf
+      hash: md5
+      md5: bdb40166d13e29a5b39b3cc56346a686
+      size: 1795196
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_029.endf
+      hash: md5
+      md5: db4bc1d0a95f6dcfcfa333dfad76cf19
+      size: 1766012
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-014_Si_030.endf
+      hash: md5
+      md5: a7cf81f5f6390f2f42ece06b5f87b9d3
+      size: 1496972
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-015_P_031.endf
+      hash: md5
+      md5: 0a02e5ce323c5a86f2cdf44b8a285a3e
+      size: 1048192
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_046.endf
+      hash: md5
+      md5: 810ca8757a22f1f664fe872ff090ec34
+      size: 1582472
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_047.endf
+      hash: md5
+      md5: 3bb87a33b59f7b853dd57b2fbeabdde0
+      size: 1129588
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_048.endf
+      hash: md5
+      md5: 14095c767eea46637b6af758cfac3683
+      size: 1687428
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_049.endf
+      hash: md5
+      md5: 82a69c41d3f0a045aded83495c5f991b
+      size: 1160748
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-022_Ti_050.endf
+      hash: md5
+      md5: 2e3e0a532daaca1fdf4a15f2c1972c99
+      size: 752628
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-025_Mn_055.endf
+      hash: md5
+      md5: ea6f74ca887e7fb1baa40c041030eb56
+      size: 5894712
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_058.endf
+      hash: md5
+      md5: 78b36ef50a8af7b2e89b8ec47bc5b4e3
+      size: 17997484
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_060.endf
+      hash: md5
+      md5: bf9a7698fb617f3f60131d5f0dcbc86f
+      size: 17266744
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_061.endf
+      hash: md5
+      md5: ed122f2d8580455fb785f7a4243a9ad4
+      size: 3914684
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_062.endf
+      hash: md5
+      md5: 19ccf0123fa42491f38c39d5dff15dfa
+      size: 3081952
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-028_Ni_064.endf
+      hash: md5
+      md5: 75438fa6a077cd29010cf433bf45c6a5
+      size: 2878804
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_107.endf
+      hash: md5
+      md5: ea7a263aa2627adac725f2828384cc8c
+      size: 522880
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
+      hash: md5
+      md5: 5cce54b6221074a9f151b8b7fd554e1f
+      size: 1744124
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_106.endf
+      hash: md5
+      md5: 9fa0aa5948b3d3e7deff78e114e376b6
+      size: 353932
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_108.endf
+      hash: md5
+      md5: 1f50f32f1ca7897e0f774c6152a18979
+      size: 93708
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_110.endf
+      hash: md5
+      md5: 92e61230a383f47f0333bae18ec70fdb
+      size: 105412
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_111.endf
+      hash: md5
+      md5: 76fe5ec00a380bfcba4794ee7099dd80
+      size: 362672
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_112.endf
+      hash: md5
+      md5: 5f584c8cb53a2f7cccdcc83321255c17
+      size: 99560
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_113.endf
+      hash: md5
+      md5: 90e18c567e20606313e299053bf07698
+      size: 691676
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_114.endf
+      hash: md5
+      md5: b0906eb984b262d7a947f742390f4f7e
+      size: 96900
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
+      hash: md5
+      md5: 10f26f09ddd855c8a73720fe186ca01a
+      size: 89072
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
+      hash: md5
+      md5: cf81758f1d4e1a9b6c8a8bcba582b97e
+      size: 207252
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
+      hash: md5
+      md5: 87091f7ae230f821493b49030bc4681b
+      size: 185972
+    - path: xs.toml
+      hash: md5
+      md5: 5f7d7bb74411f516b883439c2bc38f00
+      size: 3019
+    outs:
+    - path: m3-nuclides.msgpack
+      hash: md5
+      md5: 74489d64cd0fc71836118de89526ef8d
+      size: 115987187
