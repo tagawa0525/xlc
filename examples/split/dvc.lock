@@ -1,0 +1,130 @@
+schema: '2.0'
+stages:
+  lattice-2:
+    cmd: ../../bin/lattice assembly-2.toml > lattice-2.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: ../vera/vera.msgpack
+      hash: md5
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      size: 323900899
+    - path: assembly-2.toml
+      hash: md5
+      md5: 5efe18970d588e0ebc79c3c311744342
+      size: 3674
+    outs:
+    - path: fg-2.msgpack
+      hash: md5
+      md5: 0f6380d07a0307d782d77b78e6e064e4
+      size: 10230
+    - path: lattice-2.out
+      hash: md5
+      md5: 53f62cedc726d79514a0384dfb04e686
+      size: 11
+  core-2:
+    cmd: ../../bin/core case-2.toml > core-2.out
+    deps:
+    - path: ../../bin/core
+      hash: md5
+      md5: 8c87cf70e4e26ea329e1ad4c6088d0d6
+      size: 3023896
+      isexec: true
+    - path: assemblies-2.toml
+      hash: md5
+      md5: 676fad7df2674a343f8316894021eb3c
+      size: 183
+    - path: case-2.toml
+      hash: md5
+      md5: 401c519f6fda960069b5bddf6ec4c973
+      size: 275
+    - path: cycle-2.toml
+      hash: md5
+      md5: 768732fb6f3d000836f5a9196bc62604
+      size: 178
+    - path: fg-2.msgpack
+      hash: md5
+      md5: 0f6380d07a0307d782d77b78e6e064e4
+      size: 10230
+    - path: plant.toml
+      hash: md5
+      md5: 32c065f73aedf804b6403d089208298e
+      size: 118
+    outs:
+    - path: core-2.out
+      hash: md5
+      md5: 1a6aabbdd328d2d0a0719cbdfa1861ea
+      size: 293
+    - path: core-pins-2.msgpack
+      hash: md5
+      md5: 437e95d36d2da42d649d19c3c0063f24
+      size: 5284
+  lattice-1:
+    cmd: ../../bin/lattice assembly-1.toml > lattice-1.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: ../vera/vera.msgpack
+      hash: md5
+      md5: 6396b4e4b33e5f9fb8fa0ff055073f90
+      size: 323900899
+    - path: assembly-1.toml
+      hash: md5
+      md5: 2d7ff24c6ceb4fc4760c7f0736fff7d9
+      size: 3733
+    outs:
+    - path: fg-1.msgpack
+      hash: md5
+      md5: 2d733e4ea1689277822e471bcd268e0b
+      size: 7575
+    - path: lattice-1.out
+      hash: md5
+      md5: 53f62cedc726d79514a0384dfb04e686
+      size: 11
+    - path: lattice-pins.msgpack
+      hash: md5
+      md5: 296103bb6a1f27b55a70986a061c21f2
+      size: 2683
+  core-1:
+    cmd: ../../bin/core case-1.toml > core-1.out
+    deps:
+    - path: ../../bin/core
+      hash: md5
+      md5: 8c87cf70e4e26ea329e1ad4c6088d0d6
+      size: 3023896
+      isexec: true
+    - path: assemblies-1.toml
+      hash: md5
+      md5: f6dfdfd9609ce9f8aee55fce35fbb057
+      size: 183
+    - path: case-1.toml
+      hash: md5
+      md5: c2b77616a7f00f744e26de1ab2f6ef22
+      size: 275
+    - path: cycle-1.toml
+      hash: md5
+      md5: cbfcc01b4e52fafcaa4e68f101e58e48
+      size: 178
+    - path: fg-1.msgpack
+      hash: md5
+      md5: 2d733e4ea1689277822e471bcd268e0b
+      size: 7575
+    - path: plant.toml
+      hash: md5
+      md5: 32c065f73aedf804b6403d089208298e
+      size: 118
+    outs:
+    - path: core-1.out
+      hash: md5
+      md5: 1a6aabbdd328d2d0a0719cbdfa1861ea
+      size: 293
+    - path: core-pins-1.msgpack
+      hash: md5
+      md5: 931b49c5c98dca2367c55fe1b8784e81
+      size: 5284
