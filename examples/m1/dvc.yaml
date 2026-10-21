@@ -1,0 +1,50 @@
+# M1 の段階: ENDF → 温度と σ0 に依存する多群ライブラリ（xs）→ ピンセルの2群定数（lattice）と、燃料と減速材の温度を
+# 変えたピンセル（lattice-temperatures）。実行するのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ。
+stages:
+  xs:
+    cmd: ../../bin/xs xs.toml
+    deps:
+      - xs.toml
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_017.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
+      - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
+      - ../../bin/xs
+    outs:
+      - m1.msgpack
+  lattice:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/lattice pincell.toml > lattice.out
+    deps:
+      - pincell.toml
+      - m1.msgpack
+      - ../../bin/lattice
+    outs:
+      - pincell-fg.msgpack
+      - lattice.out
+  lattice-temperatures:
+    # 燃料と減速材の温度だけを変えた入力（f が燃料、m が減速材の温度）
+    foreach:
+      - f293.6-m293.6
+      - f900-m293.6
+      - f293.6-m600
+    do:
+      cmd: ../../bin/lattice pincell-${item}.toml > lattice-${item}.out
+      deps:
+        - pincell-${item}.toml
+        - m1.msgpack
+        - ../../bin/lattice
+      outs:
+        - pincell-fg-${item}.msgpack
+        - lattice-${item}.out

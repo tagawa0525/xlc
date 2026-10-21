@@ -47,3 +47,12 @@ DVC（ADR-0123）は、段階の出力を md5、つまりバイトの一致で�
 
 - 2026-10-11: ADR-0123 で段階を DVC で駆動し、出力をバイトの一致で記録することにしたので起こした。M0 の lattice は、
   同じスレッド数で 2 回実行して `pincell-fg.msgpack` の md5 が一致した（ADR-0123 の確認）
+- 2026-10-14: feat/0060-dvc-examples に m1、mox、c5g7、colorset、split、m3-nuclides の dvc.yaml と OpenMC の
+  model/run/extract の書き換えをコミットした
+- 2026-10-21: mox と c5g7 を Slurm で 1 度実行して dvc.lock を作った（OpenMC の出力が手元になかったため。mox の OpenMC の k は
+  前の測定と 6 桁で同じ）。m1、colorset、split、m3-nuclides は dvc.lock が未作成（OpenMC を使わない。再開は
+  `slurm-run.sh dvc-<例> 'nix develop -c dvc repro examples/<例>/dvc.yaml'` で流し、dvc.lock をコミットする。colorset は
+  16 分ほどで 17 GB を使う）
+- 2026-10-21: docs/environment.md の C5G7 の OpenMC の手順（`openmc_model.py <work> ...`）は、model/run/extract の段階の前の形のまま。
+  このファイルは辞書の違反が 68 か所あり、触るとコミットの検査が止まるので、#0141 の履歴の書き換えのあとに
+  `dvc repro examples/c5g7/dvc.yaml` の呼び出しへ直す

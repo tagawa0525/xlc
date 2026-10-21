@@ -1,0 +1,669 @@
+schema: '2.0'
+stages:
+  xs:
+    cmd: ../../bin/xs xs.toml
+    deps:
+    - path: ../../bin/xs
+      hash: md5
+      md5: a316fea4a04ca212bca9ebc66ca32b46
+      size: 2817712
+      isexec: true
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
+      hash: md5
+      md5: a8a7d4b0bc9b9627affeaa0e74716c82
+      size: 671232
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      hash: md5
+      md5: 88f659e2ff0ed092bf2ec6a6672fc25e
+      size: 41873568
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
+      hash: md5
+      md5: 845fe13188e04ddaa8957922ca4425e9
+      size: 1370128
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
+      hash: md5
+      md5: 05504d0c3dc22b27907d13b2427670bc
+      size: 3334576
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
+      hash: md5
+      md5: 08f21535331cdfa3e35e6959735519c5
+      size: 2054584
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
+      hash: md5
+      md5: 81602f01efb0df40c5d34ded3000a975
+      size: 1805000
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
+      hash: md5
+      md5: ea8fcd356c8333dd48792e88063ee4b4
+      size: 1403112
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      hash: md5
+      md5: e72aa70c44180ba3b03342a4a4c37997
+      size: 36883940
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      hash: md5
+      md5: 6d52fe1a299934af828599b40b0122e7
+      size: 14939396
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      hash: md5
+      md5: b870d3049c559377f6115f7ffbd1d0c4
+      size: 1813208
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      hash: md5
+      md5: 24c63293f959312e25f4f3aa48527b29
+      size: 23724464
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      hash: md5
+      md5: 34845959fef842988cc9c88998ec244e
+      size: 34801768
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      hash: md5
+      md5: 9b4bdb3861cb0e063f9b3e466ac315de
+      size: 324292
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      hash: md5
+      md5: a7d749550507a3f6e6eef82ddb368102
+      size: 2219352
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      hash: md5
+      md5: 93b74d0b81ef08f5588a4767920fef9c
+      size: 2069860
+    - path: ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
+      hash: md5
+      md5: ff8fb554e0893e672e95bf060817f087
+      size: 17400580
+    - path: xs.toml
+      hash: md5
+      md5: 0ceb6174c2af05e5b411cc8c5c996841
+      size: 1374
+    outs:
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+  openmc-mox2-model:
+    cmd: nix develop ../..#references -c python3 openmc_model.py model 
+      openmc-mox2.toml openmc-mox2-model
+    deps:
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 097f582ede68566ed6b45a679ef2fad0
+      size: 3469
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../openmc_run.py
+      hash: md5
+      md5: a0c19487fa6ebe2eb991c7208582f748
+      size: 4447
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: openmc-mox2.toml
+      hash: md5
+      md5: bac2c855b41890c16e172cbc4ce0a3fb
+      size: 594
+    - path: openmc_model.py
+      hash: md5
+      md5: 314248895335e418c06879644c0e1890
+      size: 8944
+    outs:
+    - path: openmc-mox2-model
+      hash: md5
+      md5: 5fc7c866e8b0302f8096d6d34d596701.dir
+      size: 3394
+      nfiles: 1
+  openmc-mox2:
+    cmd: nix develop ../..#references -c python3 openmc_model.py run 
+      openmc-mox2.toml openmc-mox2-model openmc-mox2
+    deps:
+    - path: ../vera/openmc-library
+      hash: md5
+      md5: 2a94b1440e03358d4165f093c55c6423.dir
+      size: 660677613
+      nfiles: 71
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: openmc-mox2-model/model.xml
+      hash: md5
+      md5: 94646bc7fb543c962c716c35997330c6
+      size: 3394
+    params:
+      openmc-mox2.toml:
+        cross-sections: ../vera/openmc-library/cross_sections.xml
+        threads: 16
+    outs:
+    - path: openmc-mox2
+      hash: md5
+      md5: 690f55f985c1a822bb32ed9b86a92ce9.dir
+      size: 104317769
+      nfiles: 3
+  openmc-mox2-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract 
+      openmc-mox2.toml openmc-mox2 openmc-mox2-results
+    deps:
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 097f582ede68566ed6b45a679ef2fad0
+      size: 3469
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../openmc_run.py
+      hash: md5
+      md5: a0c19487fa6ebe2eb991c7208582f748
+      size: 4447
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: openmc-mox2
+      hash: md5
+      md5: 690f55f985c1a822bb32ed9b86a92ce9.dir
+      size: 104317769
+      nfiles: 3
+    - path: openmc-mox2.toml
+      hash: md5
+      md5: bac2c855b41890c16e172cbc4ce0a3fb
+      size: 594
+    - path: openmc_model.py
+      hash: md5
+      md5: 314248895335e418c06879644c0e1890
+      size: 8944
+    outs:
+    - path: openmc-mox2-results
+      hash: md5
+      md5: 3fbd45def3125b27a2ebb111afee03fe.dir
+      size: 47247
+      nfiles: 2
+  fuel-xs-mox2:
+    cmd: cargo run --release -p xlc-lattice --example fuel_xs -- 
+      pincell-mox2.toml xlc-mox2.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: dd35e0d8e730a58e8362dfbc16785c72
+      size: 653
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 00868314193f98457d647d5b5301db04
+      size: 27754
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: f15cf8265090957016ed03d37ab1e3c2
+      size: 1153
+    - path: ../../crates/depletion/Cargo.toml
+      hash: md5
+      md5: e04ff5ed3c0ab6ae60a8810b70eb17d7
+      size: 355
+    - path: ../../crates/depletion/src
+      hash: md5
+      md5: 7cd642074aacc32c3cdd4ba5fb3942be.dir
+      size: 74514
+      nfiles: 8
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 44c8f5040c737309d380965607aee247.dir
+      size: 135173
+      nfiles: 14
+    - path: ../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 10684e5e8a5a2d8f876421ab1828abe1
+      size: 632
+    - path: ../../crates/lattice/examples/fuel_xs.rs
+      hash: md5
+      md5: 15a7c25a6962823c5c145c16994fdeca
+      size: 2812
+    - path: ../../crates/lattice/src
+      hash: md5
+      md5: 711b913365d5215f2232dd36b1713bc4.dir
+      size: 1127881
+      nfiles: 54
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: d6e4c00773c91ae96f3c715a1b506400.dir
+      size: 161410
+      nfiles: 18
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: pincell-mox2.toml
+      hash: md5
+      md5: 21750e97093c2feec9e94393a4d44526
+      size: 1229
+    outs:
+    - path: xlc-mox2.msgpack
+      hash: md5
+      md5: 71cda9079863819ed2bceb6f04e42693
+      size: 17135
+  lattice-mox2:
+    cmd: ../../bin/lattice pincell-mox2.toml > lattice-mox2.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: pincell-mox2.toml
+      hash: md5
+      md5: 21750e97093c2feec9e94393a4d44526
+      size: 1229
+    outs:
+    - path: lattice-mox2.out
+      hash: md5
+      md5: b3ae01c45e950bcfa3acc201063d2685
+      size: 11
+  compare-capture-mox2:
+    cmd: python3 compare_capture.py xs.toml xlc-mox2.msgpack 
+      openmc-mox2-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 
+      Pu238 Am241 O16 > compare-capture-mox2.out
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      hash: md5
+      md5: 88f659e2ff0ed092bf2ec6a6672fc25e
+      size: 41873568
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      hash: md5
+      md5: e72aa70c44180ba3b03342a4a4c37997
+      size: 36883940
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      hash: md5
+      md5: 6d52fe1a299934af828599b40b0122e7
+      size: 14939396
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      hash: md5
+      md5: b870d3049c559377f6115f7ffbd1d0c4
+      size: 1813208
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      hash: md5
+      md5: 24c63293f959312e25f4f3aa48527b29
+      size: 23724464
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      hash: md5
+      md5: 34845959fef842988cc9c88998ec244e
+      size: 34801768
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      hash: md5
+      md5: 9b4bdb3861cb0e063f9b3e466ac315de
+      size: 324292
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      hash: md5
+      md5: a7d749550507a3f6e6eef82ddb368102
+      size: 2219352
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      hash: md5
+      md5: 93b74d0b81ef08f5588a4767920fef9c
+      size: 2069860
+    - path: compare_capture.py
+      hash: md5
+      md5: e9482f7b599360f0401a356bbc2cdea2
+      size: 10537
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: openmc-mox2-results/fuel-xs.msgpack
+      hash: md5
+      md5: 9cfbc0d8b1249270732e4893f83d4b08
+      size: 47169
+    - path: xlc-mox2.msgpack
+      hash: md5
+      md5: 71cda9079863819ed2bceb6f04e42693
+      size: 17135
+    - path: xs.toml
+      hash: md5
+      md5: 0ceb6174c2af05e5b411cc8c5c996841
+      size: 1374
+    outs:
+    - path: compare-capture-mox2.out
+      hash: md5
+      md5: 2fa0610e2490e428e5a2aaff48e321e9
+      size: 17319
+  openmc-mox1-model:
+    cmd: nix develop ../..#references -c python3 openmc_model.py model 
+      openmc-mox1.toml openmc-mox1-model
+    deps:
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 097f582ede68566ed6b45a679ef2fad0
+      size: 3469
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../openmc_run.py
+      hash: md5
+      md5: a0c19487fa6ebe2eb991c7208582f748
+      size: 4447
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: openmc-mox1.toml
+      hash: md5
+      md5: a29810cec4a76914ae82305a47ca2a1e
+      size: 594
+    - path: openmc_model.py
+      hash: md5
+      md5: 314248895335e418c06879644c0e1890
+      size: 8944
+    outs:
+    - path: openmc-mox1-model
+      hash: md5
+      md5: 1dc65cf9bafbd06b7872d256015d24ed.dir
+      size: 3394
+      nfiles: 1
+  openmc-mox1:
+    cmd: nix develop ../..#references -c python3 openmc_model.py run 
+      openmc-mox1.toml openmc-mox1-model openmc-mox1
+    deps:
+    - path: ../vera/openmc-library
+      hash: md5
+      md5: 2a94b1440e03358d4165f093c55c6423.dir
+      size: 660677613
+      nfiles: 71
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: openmc-mox1-model/model.xml
+      hash: md5
+      md5: b2671bfd9df3b4826e377e1e9a06c495
+      size: 3394
+    params:
+      openmc-mox1.toml:
+        cross-sections: ../vera/openmc-library/cross_sections.xml
+        threads: 16
+    outs:
+    - path: openmc-mox1
+      hash: md5
+      md5: 5ed91458491892a4f9c668f75614ca5f.dir
+      size: 104317721
+      nfiles: 3
+  openmc-mox1-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract 
+      openmc-mox1.toml openmc-mox1 openmc-mox1-results
+    deps:
+    - path: ../openmc_common.py
+      hash: md5
+      md5: 097f582ede68566ed6b45a679ef2fad0
+      size: 3469
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../openmc_run.py
+      hash: md5
+      md5: a0c19487fa6ebe2eb991c7208582f748
+      size: 4447
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: openmc-mox1
+      hash: md5
+      md5: 5ed91458491892a4f9c668f75614ca5f.dir
+      size: 104317721
+      nfiles: 3
+    - path: openmc-mox1.toml
+      hash: md5
+      md5: a29810cec4a76914ae82305a47ca2a1e
+      size: 594
+    - path: openmc_model.py
+      hash: md5
+      md5: 314248895335e418c06879644c0e1890
+      size: 8944
+    outs:
+    - path: openmc-mox1-results
+      hash: md5
+      md5: fd5fc254e843312cec322350db80a2d6.dir
+      size: 47247
+      nfiles: 2
+  lattice-mox1:
+    cmd: ../../bin/lattice pincell-mox1.toml > lattice-mox1.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: pincell-mox1.toml
+      hash: md5
+      md5: 466aa5af13bc5772cd8f8a0df9995faa
+      size: 1229
+    outs:
+    - path: lattice-mox1.out
+      hash: md5
+      md5: a5dd341f266277512ac01a1ad15c12e4
+      size: 11
+  compare-k-mox1:
+    cmd: python3 ../vera/compare_k.py lattice-mox1.out 
+      openmc-mox1-results/k.json > compare-k-mox1.out
+    deps:
+    - path: ../vera/compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: lattice-mox1.out
+      hash: md5
+      md5: a5dd341f266277512ac01a1ad15c12e4
+      size: 11
+    - path: openmc-mox1-results/k.json
+      hash: md5
+      md5: f4031965873bc364443222c415700833
+      size: 78
+    outs:
+    - path: compare-k-mox1.out
+      hash: md5
+      md5: 52981d9df734ec6a3ece634bf93730f0
+      size: 66
+  fuel-xs-mox1:
+    cmd: cargo run --release -p xlc-lattice --example fuel_xs -- 
+      pincell-mox1.toml xlc-mox1.msgpack
+    deps:
+    - path: ../../.cargo/config.toml
+      hash: md5
+      md5: dd35e0d8e730a58e8362dfbc16785c72
+      size: 653
+    - path: ../../Cargo.lock
+      hash: md5
+      md5: 00868314193f98457d647d5b5301db04
+      size: 27754
+    - path: ../../Cargo.toml
+      hash: md5
+      md5: f15cf8265090957016ed03d37ab1e3c2
+      size: 1153
+    - path: ../../crates/depletion/Cargo.toml
+      hash: md5
+      md5: e04ff5ed3c0ab6ae60a8810b70eb17d7
+      size: 355
+    - path: ../../crates/depletion/src
+      hash: md5
+      md5: 7cd642074aacc32c3cdd4ba5fb3942be.dir
+      size: 74514
+      nfiles: 8
+    - path: ../../crates/format/Cargo.toml
+      hash: md5
+      md5: 27e5dbce41ebc5a30c5ed0c9861db610
+      size: 221
+    - path: ../../crates/format/src
+      hash: md5
+      md5: 44c8f5040c737309d380965607aee247.dir
+      size: 135173
+      nfiles: 14
+    - path: ../../crates/lattice/Cargo.toml
+      hash: md5
+      md5: 10684e5e8a5a2d8f876421ab1828abe1
+      size: 632
+    - path: ../../crates/lattice/examples/fuel_xs.rs
+      hash: md5
+      md5: 15a7c25a6962823c5c145c16994fdeca
+      size: 2812
+    - path: ../../crates/lattice/src
+      hash: md5
+      md5: 711b913365d5215f2232dd36b1713bc4.dir
+      size: 1127881
+      nfiles: 54
+    - path: ../../crates/numeric/Cargo.toml
+      hash: md5
+      md5: 6880ff4d8d2bb2e463e5dd18e5fbddd5
+      size: 150
+    - path: ../../crates/numeric/src
+      hash: md5
+      md5: d6e4c00773c91ae96f3c715a1b506400.dir
+      size: 161410
+      nfiles: 18
+    - path: ../../flake.lock
+      hash: md5
+      md5: 83437230048eadb7a5c2f626d4ea10aa
+      size: 1108
+    - path: ../../rust-toolchain.toml
+      hash: md5
+      md5: 87a81bbb3d955b97621800bbd7d234b7
+      size: 98
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: pincell-mox1.toml
+      hash: md5
+      md5: 466aa5af13bc5772cd8f8a0df9995faa
+      size: 1229
+    outs:
+    - path: xlc-mox1.msgpack
+      hash: md5
+      md5: 6fc8a03159b6201b0f82130cfc9b905b
+      size: 17135
+  compare-capture-mox1:
+    cmd: python3 compare_capture.py xs.toml xlc-mox1.msgpack 
+      openmc-mox1-results/fuel-xs.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 
+      Pu238 Am241 O16 > compare-capture-mox1.out
+    deps:
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
+      hash: md5
+      md5: 88f659e2ff0ed092bf2ec6a6672fc25e
+      size: 41873568
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
+      hash: md5
+      md5: e72aa70c44180ba3b03342a4a4c37997
+      size: 36883940
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
+      hash: md5
+      md5: 6d52fe1a299934af828599b40b0122e7
+      size: 14939396
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
+      hash: md5
+      md5: b870d3049c559377f6115f7ffbd1d0c4
+      size: 1813208
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
+      hash: md5
+      md5: 24c63293f959312e25f4f3aa48527b29
+      size: 23724464
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
+      hash: md5
+      md5: 34845959fef842988cc9c88998ec244e
+      size: 34801768
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
+      hash: md5
+      md5: 9b4bdb3861cb0e063f9b3e466ac315de
+      size: 324292
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
+      hash: md5
+      md5: a7d749550507a3f6e6eef82ddb368102
+      size: 2219352
+    - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
+      hash: md5
+      md5: 93b74d0b81ef08f5588a4767920fef9c
+      size: 2069860
+    - path: compare_capture.py
+      hash: md5
+      md5: e9482f7b599360f0401a356bbc2cdea2
+      size: 10537
+    - path: mox.msgpack
+      hash: md5
+      md5: df682763e02f7e29cebe2a53d61d97ae
+      size: 29728159
+    - path: openmc-mox1-results/fuel-xs.msgpack
+      hash: md5
+      md5: 26567a5cd6c019aea3f39d6ccd2e70e9
+      size: 47169
+    - path: xlc-mox1.msgpack
+      hash: md5
+      md5: 6fc8a03159b6201b0f82130cfc9b905b
+      size: 17135
+    - path: xs.toml
+      hash: md5
+      md5: 0ceb6174c2af05e5b411cc8c5c996841
+      size: 1374
+    outs:
+    - path: compare-capture-mox1.out
+      hash: md5
+      md5: cbf3db3a56e30e746484cefa0bc6358a
+      size: 17319
+  compare-k-mox2:
+    cmd: python3 ../vera/compare_k.py lattice-mox2.out 
+      openmc-mox2-results/k.json > compare-k-mox2.out
+    deps:
+    - path: ../vera/compare_k.py
+      hash: md5
+      md5: f2197502bb8efebcf8748fac405e9638
+      size: 1269
+    - path: lattice-mox2.out
+      hash: md5
+      md5: b3ae01c45e950bcfa3acc201063d2685
+      size: 11
+    - path: openmc-mox2-results/k.json
+      hash: md5
+      md5: 4841045a9c16fcebbfbf29bf6dfd1905
+      size: 78
+    outs:
+    - path: compare-k-mox2.out
+      hash: md5
+      md5: 51bc6c515c5d30893547a1bda2f10f68
+      size: 66

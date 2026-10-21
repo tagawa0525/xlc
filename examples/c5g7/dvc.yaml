@@ -1,0 +1,79 @@
+# C5G7（2D）の段階: 格子計算（lattice-coarse、lattice-fine）、OpenMC の多群モードの参照解（openmc、openmc-extract）、
+# MCNP の参照解と OpenMC との比較（compare-coarse、compare-fine）。断面積は c5g7-xs.toml で、xs の段階はない。
+# OpenMC のツールは examples/vera/dvc.yaml の references-shell の出力なので、先に `dvc checkout examples/vera/dvc.yaml` で戻す。
+stages:
+  lattice-coarse:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/lattice c5g7.toml > lattice-coarse.out
+    deps:
+      - c5g7.toml
+      - c5g7-xs.toml
+      - ../../bin/lattice
+    outs:
+      - pins.msgpack
+      - lattice-coarse.out
+  lattice-fine:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/lattice c5g7-fine.toml > lattice-fine.out
+    deps:
+      - c5g7-fine.toml
+      - c5g7-xs.toml
+      - ../../bin/lattice
+    outs:
+      - fine-pins.msgpack
+      - lattice-fine.out
+  openmc-model:
+    # 物質、形状、設定を model.xml に、多群の断面積を mgxs.h5 に書く。model.xml は mgxs.h5 のパスもスレッド数も含まないので、
+    # スクリプトを直してもモデルが同じなら変わらず、下の openmc は再実行しない（ADR-0136）
+    cmd: nix develop ../..#references -c python3 openmc_model.py model openmc-c5g7.toml openmc-model
+    deps:
+      - openmc_model.py
+      - ../openmc_input.py
+      - ../openmc_run.py
+      - ../vera/references-shell.txt
+      - openmc-c5g7.toml
+      - c5g7-xs.toml
+    outs:
+      - openmc-model
+  openmc:
+    # 多群モードなので cross_sections.xml は要らない。スクリプトを deps にしない（モデルを変えない直しで再実行しないため。
+    # ADR-0136）。入力は、このスクリプトが読むスレッド数だけを params にする
+    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-c5g7.toml openmc-model openmc
+    deps:
+      - ../vera/references-shell.txt
+      - openmc-model/model.xml
+      - openmc-model/mgxs.h5
+    params:
+      - openmc-c5g7.toml:
+          - threads
+    outs:
+      - openmc
+  openmc-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract openmc-c5g7.toml openmc openmc-results
+    deps:
+      - openmc_model.py
+      - ../openmc_input.py
+      - ../openmc_run.py
+      - ../vera/references-shell.txt
+      - openmc-c5g7.toml
+      - openmc
+    outs:
+      - openmc-results
+  compare-coarse:
+    cmd: python3 compare.py lattice-coarse.out pins.msgpack openmc-results/pins.msgpack > compare-coarse.out
+    deps:
+      - compare.py
+      - lattice-coarse.out
+      - pins.msgpack
+      - openmc-results/pins.msgpack
+    outs:
+      - compare-coarse.out
+  compare-fine:
+    cmd: python3 compare.py lattice-fine.out fine-pins.msgpack openmc-results/pins.msgpack > compare-fine.out
+    deps:
+      - compare.py
+      - lattice-fine.out
+      - fine-pins.msgpack
+      - openmc-results/pins.msgpack
+    outs:
+      - compare-fine.out

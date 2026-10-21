@@ -1,0 +1,196 @@
+schema: '2.0'
+stages:
+  lattice-coarse:
+    cmd: ../../bin/lattice c5g7.toml > lattice-coarse.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: c5g7-xs.toml
+      hash: md5
+      md5: 200d7330ab619bb5dcba40f541670b18
+      size: 7422
+    - path: c5g7.toml
+      hash: md5
+      md5: be04ccef82ac074ca5e09371f62cb440
+      size: 11709
+    outs:
+    - path: lattice-coarse.out
+      hash: md5
+      md5: b030eb68b427c245b1d1820b558aefae
+      size: 11
+    - path: pins.msgpack
+      hash: md5
+      md5: 6fe9c2a9fb13d461908832d91aff9047
+      size: 23593
+  openmc-model:
+    cmd: nix develop ../..#references -c python3 openmc_model.py model 
+      openmc-c5g7.toml openmc-model
+    deps:
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../openmc_run.py
+      hash: md5
+      md5: a0c19487fa6ebe2eb991c7208582f748
+      size: 4447
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: c5g7-xs.toml
+      hash: md5
+      md5: 200d7330ab619bb5dcba40f541670b18
+      size: 7422
+    - path: openmc-c5g7.toml
+      hash: md5
+      md5: 63dc07795ab19c681e312e34cb8f1a72
+      size: 327
+    - path: openmc_model.py
+      hash: md5
+      md5: fe356ee489d73d5e5ba13c425ade4ee3
+      size: 9052
+    outs:
+    - path: openmc-model
+      hash: md5
+      md5: ca8210a0d6ae4ec626d88ad336c8c38e.dir
+      size: 61395
+      nfiles: 2
+  openmc:
+    cmd: nix develop ../..#references -c python3 openmc_model.py run 
+      openmc-c5g7.toml openmc-model openmc
+    deps:
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: openmc-model/mgxs.h5
+      hash: md5
+      md5: 345e3ffb5932d1d2bb67bdc07aae69d9
+      size: 53000
+    - path: openmc-model/model.xml
+      hash: md5
+      md5: c780bf02d91d7fa8e7ec88d9bfcb667d
+      size: 8395
+    params:
+      openmc-c5g7.toml:
+        threads: 16
+    outs:
+    - path: openmc
+      hash: md5
+      md5: 799550f6a7f8d56ef91cc2911e5b0adf.dir
+      size: 104427438
+      nfiles: 3
+  openmc-extract:
+    cmd: nix develop ../..#references -c python3 openmc_model.py extract 
+      openmc-c5g7.toml openmc openmc-results
+    deps:
+    - path: ../openmc_input.py
+      hash: md5
+      md5: 18f702bf7d3913f9b9cce68d568e269e
+      size: 1507
+    - path: ../openmc_run.py
+      hash: md5
+      md5: a0c19487fa6ebe2eb991c7208582f748
+      size: 4447
+    - path: ../vera/references-shell.txt
+      hash: md5
+      md5: 6f3743e9ed5fb7fd270240d9cb03409e
+      size: 53
+    - path: openmc
+      hash: md5
+      md5: 799550f6a7f8d56ef91cc2911e5b0adf.dir
+      size: 104427438
+      nfiles: 3
+    - path: openmc-c5g7.toml
+      hash: md5
+      md5: 63dc07795ab19c681e312e34cb8f1a72
+      size: 327
+    - path: openmc_model.py
+      hash: md5
+      md5: fe356ee489d73d5e5ba13c425ade4ee3
+      size: 9052
+    outs:
+    - path: openmc-results
+      hash: md5
+      md5: ed9e33ff506df7d189acd51e31cd0f06.dir
+      size: 23670
+      nfiles: 2
+  compare-coarse:
+    cmd: python3 compare.py lattice-coarse.out pins.msgpack 
+      openmc-results/pins.msgpack > compare-coarse.out
+    deps:
+    - path: compare.py
+      hash: md5
+      md5: c95c62783d39b92fd80ad758122793b6
+      size: 4622
+    - path: lattice-coarse.out
+      hash: md5
+      md5: b030eb68b427c245b1d1820b558aefae
+      size: 11
+    - path: openmc-results/pins.msgpack
+      hash: md5
+      md5: 311cea3c2ba4fa8963b05ee23897782b
+      size: 23593
+    - path: pins.msgpack
+      hash: md5
+      md5: 6fe9c2a9fb13d461908832d91aff9047
+      size: 23593
+    outs:
+    - path: compare-coarse.out
+      hash: md5
+      md5: 66efe2a6c35e469898787e2a51920405
+      size: 380
+  lattice-fine:
+    cmd: ../../bin/lattice c5g7-fine.toml > lattice-fine.out
+    deps:
+    - path: ../../bin/lattice
+      hash: md5
+      md5: ef447401a6cd36d404303db5c128554d
+      size: 7140456
+      isexec: true
+    - path: c5g7-fine.toml
+      hash: md5
+      md5: c22f658bdacc092fb332cc84988269bf
+      size: 12979
+    - path: c5g7-xs.toml
+      hash: md5
+      md5: 200d7330ab619bb5dcba40f541670b18
+      size: 7422
+    outs:
+    - path: fine-pins.msgpack
+      hash: md5
+      md5: 84f022aab7150bb7b784e434e2f96186
+      size: 23593
+    - path: lattice-fine.out
+      hash: md5
+      md5: be598e8063a13cb112997342b2f2c09b
+      size: 11
+  compare-fine:
+    cmd: python3 compare.py lattice-fine.out fine-pins.msgpack 
+      openmc-results/pins.msgpack > compare-fine.out
+    deps:
+    - path: compare.py
+      hash: md5
+      md5: c95c62783d39b92fd80ad758122793b6
+      size: 4622
+    - path: fine-pins.msgpack
+      hash: md5
+      md5: 84f022aab7150bb7b784e434e2f96186
+      size: 23593
+    - path: lattice-fine.out
+      hash: md5
+      md5: be598e8063a13cb112997342b2f2c09b
+      size: 11
+    - path: openmc-results/pins.msgpack
+      hash: md5
+      md5: 311cea3c2ba4fa8963b05ee23897782b
+      size: 23593
+    outs:
+    - path: compare-fine.out
+      hash: md5
+      md5: 429f064d8208684908e89331498bdb13
+      size: 376

@@ -1,0 +1,12 @@
+/openmc-mox2-model
+/openmc-mox2
+/openmc-mox2-results
+/lattice-mox2.out
+/compare-capture-mox2.out
+/openmc-mox1-model
+/openmc-mox1
+/openmc-mox1-results
+/lattice-mox1.out
+/compare-k-mox1.out
+/compare-capture-mox1.out
+/compare-k-mox2.out
