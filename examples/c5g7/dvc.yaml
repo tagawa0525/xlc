@@ -4,65 +4,58 @@
 stages:
   lattice-coarse:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- c5g7.toml > lattice-coarse.out
+    cmd: ../../bin/lattice c5g7.toml > lattice-coarse.out
     deps:
       - c5g7.toml
       - c5g7-xs.toml
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - pins.msgpack
       - lattice-coarse.out
   lattice-fine:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- c5g7-fine.toml > lattice-fine.out
+    cmd: ../../bin/lattice c5g7-fine.toml > lattice-fine.out
     deps:
       - c5g7-fine.toml
       - c5g7-xs.toml
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - fine-pins.msgpack
       - lattice-fine.out
-  openmc:
-    # 多群モードなので cross_sections.xml は要らない。断面積は lattice と同じ c5g7-xs.toml
-    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-c5g7.toml openmc
+  openmc-model:
+    # 物質、形状、設定を model.xml に、多群の断面積を mgxs.h5 に書く。model.xml は mgxs.h5 のパスもスレッド数も含まないので、
+    # スクリプトを直してもモデルが同じなら変わらず、下の openmc は再実行しない（ADR-0136）
+    cmd: nix develop ../..#references -c python3 openmc_model.py model openmc-c5g7.toml openmc-model
     deps:
       - openmc_model.py
-      - ../openmc_common.py
+      - ../openmc_input.py
       - ../openmc_run.py
       - ../vera/references-shell.txt
       - openmc-c5g7.toml
       - c5g7-xs.toml
+    outs:
+      - openmc-model
+  openmc:
+    # 多群モードなので cross_sections.xml は要らない。スクリプトを deps にしない（モデルを変えない直しで再実行しないため。
+    # ADR-0136）。入力は、このスクリプトが読むスレッド数だけを params にする
+    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-c5g7.toml openmc-model openmc
+    deps:
+      - ../vera/references-shell.txt
+      - openmc-model/model.xml
+      - openmc-model/mgxs.h5
+    params:
+      - openmc-c5g7.toml:
+          - threads
     outs:
       - openmc
   openmc-extract:
     cmd: nix develop ../..#references -c python3 openmc_model.py extract openmc-c5g7.toml openmc openmc-results
     deps:
       - openmc_model.py
-      - ../openmc_common.py
+      - ../openmc_input.py
       - ../openmc_run.py
       - ../vera/references-shell.txt
       - openmc-c5g7.toml
-      - c5g7-xs.toml
       - openmc
     outs:
       - openmc-results

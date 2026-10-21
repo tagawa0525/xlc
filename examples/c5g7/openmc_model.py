@@ -1,17 +1,21 @@
 """C5G7 の 2D の問題を OpenMC の多群モードで解き、lattice と同じ形式のピンごとの核分裂率を書く。
 
-使い方: python3 openmc_model.py run <入力> <作業ディレクトリ>
+使い方: python3 openmc_model.py model <入力> <モデルのディレクトリ>
+        python3 openmc_model.py run <入力> <モデルのディレクトリ> <作業ディレクトリ>
         python3 openmc_model.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
 <入力> は openmc-c5g7.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 1 世代の粒子数
 （`particles`）、世代数（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）。
-run は OpenMC を解いて作業ディレクトリに statepoint を残し、extract は statepoint から k を k.json に、
-ピンごとの核分裂率を pins.msgpack に結果のディレクトリへ書く（ADR-0123）。
+model は物質、形状、設定、tally を <モデルのディレクトリ>/model.xml に、多群の断面積を mgxs.h5 に書く（model.xml は
+mgxs.h5 のパスもスレッド数も含まない。このスクリプトを直しても、モデルが同じなら model.xml はバイト単位で変わらず、
+OpenMC を解き直さずに済む。ADR-0136）。run はそのモデルを解いて作業ディレクトリに statepoint を残し、extract は
+statepoint から k を k.json に、ピンごとの核分裂率を pins.msgpack に結果のディレクトリへ書く（ADR-0123）。
 
 断面積は c5g7-xs.toml（lattice と同じファイル）を読んで OpenMC の多群データに変換する。
 形状は c5g7.toml と同じく、左上と右下が UO2、右上と左下が MOX の集合体、右と下が水の反射体。
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -20,8 +24,14 @@ import openmc
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from openmc_common import read_input
-from openmc_run import RUN_KEYS, fuel_mean, run_or_extract, write_k, write_pin_powers
+from openmc_input import read_input
+from openmc_run import (
+    RUN_KEYS,
+    fuel_mean,
+    model_run_extract,
+    write_k,
+    write_pin_powers,
+)
 
 HERE = Path(__file__).resolve().parent
 PITCH = 1.26
@@ -43,12 +53,13 @@ def read_xs(path: Path) -> tuple[int, dict[str, dict[str, np.ndarray]]]:
 KEYS = RUN_KEYS - {"problem", "cross-sections"}
 
 
-def solve(source: Path, work: Path) -> None:
+def model(source: Path, directory: Path) -> None:
+    """問題の model.xml と多群の断面積 mgxs.h5 を `directory` に書く。"""
     run = read_input(source, KEYS, set())
     particles, batches, inactive, seed = (
         run[key] for key in ("particles", "batches", "inactive", "seed")
     )
-    work.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(parents=True, exist_ok=True)
 
     groups, data = read_xs(HERE / "c5g7-xs.toml")
     # 群境界は使わないが、OpenMC は昇順の境界を求める（群 1 が最も高いエネルギー）
@@ -71,9 +82,8 @@ def solve(source: Path, work: Path) -> None:
         m.set_density("macro", 1.0)
         m.add_macroscopic(name)
         materials[name] = m
-    library.export_to_hdf5(str(work / "mgxs.h5"))
+    library.export_to_hdf5(str(directory / "mgxs.h5"))
     material_list = openmc.Materials(materials.values())
-    material_list.cross_sections = str(work / "mgxs.h5")
 
     circle = openmc.ZCylinder(r=RADIUS)
 
@@ -154,8 +164,23 @@ def solve(source: Path, work: Path) -> None:
     tally.filters = [openmc.MeshFilter(mesh)]
     tally.scores = ["fission"]
 
-    model = openmc.Model(geometry, material_list, settings, openmc.Tallies([tally]))
-    model.run(cwd=work, threads=run["threads"], output=False)
+    openmc.Model(
+        geometry, material_list, settings, openmc.Tallies([tally])
+    ).export_to_model_xml(directory / "model.xml")
+
+
+def solve(source: Path, directory: Path, work: Path) -> None:
+    """`directory` の model.xml を、同じ `directory` の mgxs.h5 と入力のスレッド数で解く。"""
+    run = read_input(source, KEYS, set())
+    work.mkdir(parents=True, exist_ok=True)
+    # model.xml に mgxs.h5 のパスを書かないので、環境変数で渡す（OpenMC は多群モードでこれを読む）
+    os.environ["OPENMC_MG_CROSS_SECTIONS"] = str((directory / "mgxs.h5").resolve())
+    openmc.run(
+        threads=run["threads"],
+        output=False,
+        cwd=work,
+        path_input=str((directory / "model.xml").resolve()),
+    )
 
 
 def extract(source: Path, work: Path, results: Path) -> None:
@@ -171,4 +196,4 @@ def extract(source: Path, work: Path, results: Path) -> None:
 
 
 if __name__ == "__main__":
-    run_or_extract(solve, extract, __doc__)
+    model_run_extract(model, solve, extract, __doc__)

@@ -22,7 +22,7 @@ dvc checkout examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 50 dvc-c5g7 'nix develop -c dvc repro examples/c5g7/dvc.yaml'
 ```
 
-段階は `lattice-coarse`（`c5g7.toml`）、`lattice-fine`（`c5g7-fine.toml`）、`openmc`、`openmc-extract`（入力は `openmc-c5g7.toml`）、
+段階は `lattice-coarse`（`c5g7.toml`）、`lattice-fine`（`c5g7-fine.toml`）、`openmc-model`（OpenMC のモデル model.xml と mgxs.h5）、`openmc`、`openmc-extract`（入力は `openmc-c5g7.toml`）、
 `compare-coarse`、`compare-fine`（参照解の MCNP と OpenMC との比較）。
 
 なお、1 世代 20 万粒子（同じ世代数、種 1）の結果とはピン出力が二乗平均で 0.50% 違い、そのピンの相対標準偏差

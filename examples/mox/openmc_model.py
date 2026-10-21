@@ -1,14 +1,17 @@
 """LWR MOX ピンセル（MOX-1, MOX-2）を OpenMC の連続エネルギーモードで解く。
 
-使い方: python3 openmc_model.py run <入力> <作業ディレクトリ>
+使い方: python3 openmc_model.py model <入力> <モデルのディレクトリ>
+        python3 openmc_model.py run <入力> <モデルのディレクトリ> <作業ディレクトリ>
         python3 openmc_model.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
 
 <入力> は openmc-mox1.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 問題（`problem`。MOX-1 か
 MOX-2）、examples/vera/openmc_library.py で作った `cross-sections`（cross_sections.xml）、1 世代の粒子数（`particles`）、
 世代数（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）、群構造を読む xlc の
 ライブラリ（`effective-xs-groups`）。パスは入力のファイルからの相対。
-run は OpenMC を解いて作業ディレクトリに statepoint を残し、extract は statepoint から k を k.json に、
-燃料の実効断面積を fuel-xs.msgpack に結果のディレクトリへ書く（ADR-0123）。
+model は物質、形状、設定、tally を <モデルのディレクトリ>/model.xml に書く（model.xml は断面積のライブラリのパスも
+スレッド数も含まない。このスクリプトを直しても、モデルが同じなら model.xml はバイト単位で変わらず、OpenMC を解き直さずに
+済む。ADR-0136）。run はそのモデルを `cross-sections` のライブラリとスレッド数で解いて作業ディレクトリに statepoint を残し、
+extract は statepoint から k を k.json に、燃料の実効断面積を fuel-xs.msgpack に結果のディレクトリへ書く（ADR-0123）。
 組成は pin_cell.pdf の付録 2 の個数密度で、セルは同じ面積の正方形（ピッチ 1.26 cm、外周は鏡面反射）、
 温度はすべて 600 K にする（verification.md）。xlc のライブラリ（msgpack）の群構造で、燃料の核種ごとの実効断面積
 （燃料の領域の反応率 / (個数密度 × 中性子束)）を fuel-xs.msgpack に書く（examples/vera/openmc_model.py と
@@ -17,6 +20,7 @@ run は OpenMC を解いて作業ディレクトリに statepoint を残し、ex
 ν × 核分裂率 `nu-fission` も書く。
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -31,11 +35,10 @@ from openmc_common import (
     eigenvalue_settings,
     fuel_tallies,
     group_filter,
-    input_path,
     material,
-    read_input,
 )
-from openmc_run import RUN_KEYS, run_or_extract, write_k
+from openmc_input import input_path, read_input
+from openmc_run import RUN_KEYS, model_run_extract, write_k
 
 SCORES = ["total", "elastic", "fission", "capture"]
 
@@ -128,17 +131,17 @@ def read_run(source: Path) -> dict:
     return run
 
 
-def solve(source: Path, work: Path) -> None:
+def model(source: Path, directory: Path) -> None:
+    """問題の model.xml を `directory` に書く。"""
     run = read_run(source)
     densities = FUEL[run["problem"]]
-    work.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(parents=True, exist_ok=True)
 
     fuel = material("fuel", densities, TEMPERATURE)
     clad = material("zirconium", ZIRCONIUM, TEMPERATURE)
     water = material("water", WATER, TEMPERATURE)
     water.add_s_alpha_beta("c_H_in_H2O")
     materials = openmc.Materials([fuel, clad, water])
-    materials.cross_sections = str(run["cross-sections"])
 
     pellet, outer = openmc.ZCylinder(r=PELLET), openmc.ZCylinder(r=CLAD_OUTER)
     box = openmc.model.RectangularPrism(PITCH, PITCH, boundary_type="reflective")
@@ -168,8 +171,23 @@ def solve(source: Path, work: Path) -> None:
     balance.scores = ["absorption", "nu-fission"]
     tallies.append(balance)
 
-    model = openmc.Model(geometry, materials, settings, openmc.Tallies(tallies))
-    model.run(cwd=work, threads=run["threads"], output=False)
+    openmc.Model(
+        geometry, materials, settings, openmc.Tallies(tallies)
+    ).export_to_model_xml(directory / "model.xml")
+
+
+def solve(source: Path, directory: Path, work: Path) -> None:
+    """`directory` の model.xml を、入力の `cross-sections` のライブラリとスレッド数で解く。"""
+    run = read_run(source)
+    work.mkdir(parents=True, exist_ok=True)
+    # model.xml にライブラリのパスを書かないので、環境変数で渡す（OpenMC は materials の cross_sections がなければ読む）
+    os.environ["OPENMC_CROSS_SECTIONS"] = str(run["cross-sections"])
+    openmc.run(
+        threads=run["threads"],
+        output=False,
+        cwd=work,
+        path_input=str((directory / "model.xml").resolve()),
+    )
 
 
 def extract(source: Path, work: Path, results: Path) -> None:
@@ -182,4 +200,4 @@ def extract(source: Path, work: Path, results: Path) -> None:
 
 
 if __name__ == "__main__":
-    run_or_extract(solve, extract, __doc__)
+    model_run_extract(model, solve, extract, __doc__)
