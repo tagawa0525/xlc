@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [docs]
 opened: 2026-10-21
-closed:
+closed: 2026-10-21
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット 38975abfc
 ---
 
 # 履歴の語を辞書で書き換える（nixfiles の history-rewrite）
@@ -42,3 +42,9 @@ references/history-rewrite/（git で追跡しない）は、これで置き換�
 ## 経緯
 
 - 2026-10-21: 辞書に規則が入り、既存の文書が直せなくなった。ツールは nixfiles の ADR-0045 で作成中
+- 2026-10-21: 書き換えた（3478 コミットのうち、メッセージかツリーの変わったものが 2780、親の番号だけが変わったものを含めると 3459。
+  28006 か所の番号を付け直した）。除くパスは
+  docs/issues/0142-fix-context-dependent-terms.md だけ。書き換えた後の main（0f118e06）で、追跡している .md、.rs、.py、.sh、.toml、.yaml、.nix の
+  1194 ファイル（#0142 を除く）が辞書を通る。feat/core-cmfd の未コミットの変更は、退避したパッチと同じ中身に戻った。コメントと文書を直した deps のある DVC の
+  ステージ（build、OpenMC のライブラリなど）は changed になるが、実行せずにそのままにする（ADR-0130）。辞書の調整は
+  要らなかった（文脈で変わる語は #0142）。references/history-rewrite/ を消した
