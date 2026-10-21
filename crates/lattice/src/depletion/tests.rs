@@ -287,6 +287,71 @@ fn yield_weights_split_groups_at_the_bounds_by_lethargy() {
     );
 }
 
+/// 収率の点だけを持つ核分裂（重みの計算は Q と生成物を見ない）
+fn yield_points(energies: &[f64]) -> Fission {
+    Fission {
+        q: Q,
+        yield_source: "U-235".into(),
+        energies: energies.to_vec(),
+        yields: vec![vec![]; energies.len()],
+    }
+}
+
+fn assert_weights(weights: &[f64], expected: &[f64]) {
+    assert_eq!(weights.len(), expected.len(), "{weights:?} vs {expected:?}");
+    for (w, e) in weights.iter().zip(expected) {
+        assert!((w - e).abs() <= 1e-14, "{weights:?} vs {expected:?}");
+    }
+}
+
+#[test]
+fn interval_yield_weights_follow_the_bounds_between_the_points() {
+    // 群は 1e7〜1e3、1e3〜1、1〜1e-5 eV。3 点の区間の境界は 112.5 eV と 2.65 MeV（どちらも幾何平均）
+    let weights = YieldWeighting::Intervals.weights(
+        &[1e7, 1e3, 1.0, 1e-5],
+        &[1.0, 2.0, 3.0],
+        &yield_points(&[0.0253, 5e5, 1.4e7]),
+    );
+    let bounds = yield_points(&[0.0253, 5e5, 1.4e7]).yield_bounds();
+    assert_weights(
+        &weights,
+        &yield_weights(&[1e7, 1e3, 1.0, 1e-5], &[1.0, 2.0, 3.0], &bounds),
+    );
+    assert!(weights[2] > 0.0, "{weights:?}");
+}
+
+#[test]
+fn cutoff_yield_weights_put_the_fissions_below_and_above_on_the_thermal_and_fast_points() {
+    // OpenMC の FissionYieldCutoffHelper（cutoff 112.5 eV、熱 0.0253 eV、速 500 keV）と同じ点の選び方
+    let cutoff = YieldWeighting::Cutoff(YieldCutoff {
+        energy: 112.5,
+        thermal: 0.0253,
+        fast: 5e5,
+    });
+    let groups = [1e7, 1e3, 1.0, 1e-5];
+    let fission = [1.0, 2.0, 3.0];
+    let below = (3.0 + 2.0 * 112.5f64.ln() / 1e3f64.ln()) / 6.0;
+    let weights = |energies: &[f64]| cutoff.weights(&groups, &fission, &yield_points(energies));
+    // U-235 の 3 点、Pu-239 の 4 点: 熱と 500 keV の点だけ。14 MeV と 2 MeV の点は使わない
+    assert_weights(&weights(&[0.0253, 5e5, 1.4e7]), &[below, 1.0 - below, 0.0]);
+    assert_weights(
+        &weights(&[0.0253, 5e5, 2e6, 1.4e7]),
+        &[below, 1.0 - below, 0.0, 0.0],
+    );
+    // U-238 の 2 点（熱の点がなく、cutoff が最初の点より下）: すべての核分裂に最初の点
+    assert_weights(&weights(&[5e5, 1.4e7]), &[1.0, 0.0]);
+    // 1 点（cutoff が最後の点より上）: その点
+    assert_weights(&weights(&[0.0253]), &[1.0]);
+    // 熱の点がなければ cutoff より下で熱に最も近い点、速の点がなければ cutoff より上で速に最も近い点
+    assert_weights(&weights(&[0.01, 0.1, 5e5]), &[0.0, below, 1.0 - below]);
+    assert_weights(&weights(&[0.0253, 1e6, 1.4e7]), &[below, 1.0 - below, 0.0]);
+    // 核分裂のない領域は熱の点に 1
+    assert_weights(
+        &cutoff.weights(&groups, &[0.0; 3], &yield_points(&[0.0253, 5e5, 1.4e7])),
+        &[1.0, 0.0, 0.0],
+    );
+}
+
 /// A (Xe-135 の位置) を (n,γ) で B に変える 2 核種のチェーン。反応率は A の数密度に比例し、dA/dt = −c A² の解析解を持つ
 #[allow(
     clippy::type_complexity,
@@ -400,6 +465,7 @@ fn region_rates_average_sigma_phi_over_the_region_volume() {
         &members,
         library.groups.bounds(),
         &LibraryReactions(&library),
+        YieldWeighting::Intervals,
     )
     .unwrap();
     // 体積で平均した中性子束は (1·[2, 1] + 3·[1, 3]) / 4 = [1.25, 2.5]、反応率は σ (cm²) × φ
@@ -852,6 +918,7 @@ fn channel_cross_sections_need_every_group() {
         &members,
         library.groups.bounds(),
         &ShortChannels,
+        YieldWeighting::Intervals,
     );
     assert!(result.is_err());
 }

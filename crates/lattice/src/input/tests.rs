@@ -1172,6 +1172,33 @@ fn depletion_takes_the_few_group_bounds_in_its_own_table() {
 }
 
 #[test]
+fn depletion_weights_the_fission_yields_by_intervals_unless_a_cutoff_is_given() {
+    let depletion = depleting(DEPLETION).unwrap().depletion.unwrap();
+    assert_eq!(depletion.fission_yields, YieldWeighting::Intervals);
+    let text =
+        format!("{DEPLETION}yield-cutoff = {{ energy = 112.5, thermal = 0.0253, fast = 5e5 }}\n");
+    let depletion = depleting(&text).unwrap().depletion.unwrap();
+    assert_eq!(
+        depletion.fission_yields,
+        YieldWeighting::Cutoff(YieldCutoff {
+            energy: 112.5,
+            thermal: 0.0253,
+            fast: 5e5
+        })
+    );
+    // 熱 < cutoff < 速（OpenMC の FissionYieldCutoffHelper と同じ条件）。熱は 0 以上
+    for entry in [
+        "{ energy = 0.01, thermal = 0.0253, fast = 5e5 }",
+        "{ energy = 112.5, thermal = 0.0253, fast = 100.0 }",
+        "{ energy = 112.5, thermal = -1.0, fast = 5e5 }",
+        "{ energy = 112.5, thermal = 0.0253 }",
+    ] {
+        let text = format!("{DEPLETION}yield-cutoff = {entry}\n");
+        assert!(depleting(&text).is_err(), "{entry}");
+    }
+}
+
+#[test]
 fn depleted_material_names_leave_room_for_the_region_names() {
     // 燃焼の領域の物質は `<物質>@<セル>` の名前で解く（ADR-0173）ので、`@` を含む名前の物質は燃焼させられない
     let text = without_few_group()
