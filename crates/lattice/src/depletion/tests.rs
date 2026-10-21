@@ -343,7 +343,7 @@ fn cutoff_yield_weights_put_the_fissions_below_and_above_on_the_thermal_and_fast
     // 1 点（cutoff が最後の点より上）: その点
     assert_weights(&weights(&[0.0253]), &[1.0]);
     // 熱の点がなければ cutoff より下で熱に最も近い点、速の点がなければ cutoff より上で速に最も近い点
-    assert_weights(&weights(&[0.01, 0.1, 5e5]), &[0.0, below, 1.0 - below]);
+    assert_weights(&weights(&[0.001, 0.03, 5e5]), &[0.0, below, 1.0 - below]);
     assert_weights(&weights(&[0.0253, 1e6, 1.4e7]), &[below, 1.0 - below, 0.0]);
     // 核分裂のない領域は熱の点に 1
     assert_weights(
