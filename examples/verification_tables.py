@@ -544,6 +544,45 @@ def depletion_times(sources: list[dict]) -> str:
     )
 
 
+def depletion_assembly_pins(sources: list[dict]) -> str:
+    """集合体の燃焼: 燃焼点ごとのピン出力の相対差（xlc / OpenMC − 1。対称操作の組で平均した値の比、%。ADR-0181）。最大は OpenMC の
+    その組の統計誤差を添え、位置は上と左から 1 で数える"""
+    (s,) = sources
+    if s.get("format") != "xlc-compare-depletion-assembly":
+        raise TableError("not an xlc-compare-depletion-assembly summary")
+    if not len(s["burnup"]) == len(s["pins"]) == len(s["pin_std_rms"]):
+        raise TableError(
+            f"{len(s['burnup'])} burnup points with {len(s['pins'])} pin comparisons and "
+            f"{len(s['pin_std_rms'])} errors; rerun the stage"
+        )
+    rows = []
+    for b, p, std in zip(s["burnup"], s["pins"], s["pin_std_rms"]):
+        row, column = p["at"]
+        rows.append(
+            [
+                burnup_label(b),
+                f"{100 * p['rms']:.3f}",
+                f"{signed(100 * p['max'], 3)} ± {100 * p['max_std']:.3f}",
+                f"({row + 1}, {column + 1})",
+                f"{100 * std:.3f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "燃焼度 (MWd/kg)",
+            "rms (%)",
+            "最大 (%)",
+            "最大の位置（行, 列。1 から）",
+            "OpenMC の統計誤差 rms (%)",
+        ],
+        rows,
+    )
+
+
+# 集合体の燃焼の問題（examples/depletion/p2/dvc.yaml の jobs）
+ASSEMBLY_DEPLETION_JOBS = ["2A", "2F", "2M", "2N", "2O", "2P", "2A-density", "2A-rods"]
+
+
 def aws_summaries(sources: list[dict]) -> dict:
     (s,) = sources
     if s.get("format") != "xlc-compare-aws-depletion":
@@ -735,6 +774,13 @@ TABLES = {
         ["examples/depletion/compare-1C-rings4.json"],
         depletion_rings,
     ),
+    **{
+        f"depletion-{job.lower()}-pins": (
+            [f"examples/depletion/p2/compare-{job}.json"],
+            depletion_assembly_pins,
+        )
+        for job in ASSEMBLY_DEPLETION_JOBS
+    },
 }
 
 
