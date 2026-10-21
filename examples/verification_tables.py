@@ -545,13 +545,18 @@ def depletion_times(sources: list[dict]) -> str:
 
 
 def depletion_assembly_pins(sources: list[dict]) -> str:
-    """集合体の燃焼: 燃焼点ごとのピン出力の差（xlc − OpenMC、対称操作の組で平均した相対差、%。ADR-0181）。最大は OpenMC の
+    """集合体の燃焼: 燃焼点ごとのピン出力の相対差（xlc / OpenMC − 1。対称操作の組で平均した値の比、%。ADR-0181）。最大は OpenMC の
     その組の統計誤差を添え、位置は上と左から 1 で数える"""
     (s,) = sources
     if s.get("format") != "xlc-compare-depletion-assembly":
         raise TableError("not an xlc-compare-depletion-assembly summary")
+    if not len(s["burnup"]) == len(s["pins"]) == len(s["pin_std_rms"]):
+        raise TableError(
+            f"{len(s['burnup'])} burnup points with {len(s['pins'])} pin comparisons and "
+            f"{len(s['pin_std_rms'])} errors; rerun the stage"
+        )
     rows = []
-    for b, p, std in zip(s["burnup"], s["pins"], s["pin_std_rms"], strict=True):
+    for b, p, std in zip(s["burnup"], s["pins"], s["pin_std_rms"]):
         row, column = p["at"]
         rows.append(
             [
