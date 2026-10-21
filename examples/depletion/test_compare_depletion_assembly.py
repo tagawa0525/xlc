@@ -1,4 +1,5 @@
-"""compare_depletion_assembly.py の要約（集合体の燃焼の、燃焼点ごとの k の差と、物質の種類ごとの核種の数密度の相対差。ADR-0178）。
+"""compare_depletion_assembly.py の要約（集合体の燃焼の、燃焼点ごとの k の差、物質の種類ごとの核種の数密度の相対差、ピン出力の差。
+ADR-0178、ADR-0181）。
 
 実行: python3 -m unittest discover -s examples/depletion -p 'test_compare_depletion_assembly.py'
 """
@@ -40,6 +41,16 @@ ORBITS = [[1, 1], [1, 0], [1, 1], [1, 0], [1, 1]]
 PINS = [[1.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 1.0]]
 
 
+def pins(edge: float, corner: float) -> list[list[float]]:
+    """3×3 の配置のピン出力（辺の中央 `edge`、角 `corner`、中央は燃料のないセル）。"""
+    return [[corner, edge, corner], [edge, 0.0, edge], [corner, edge, corner]]
+
+
+# 最後の点のピン出力: xlc は辺 1.03、角 0.97。OpenMC は組の平均が辺 1.01、角 0.99（辺の組の中に揺らぎ）
+XLC_PINS = [PINS, pins(1.03, 0.97)]
+OPENMC_LAST = [[0.99, 1.02, 0.99], [1.00, 0.0, 1.01], [0.99, 1.01, 0.99]]
+
+
 def std(edge: float, corner: float) -> list[list[float]]:
     """3×3 の配置の統計誤差（辺の中央 `edge`、角 `corner`）。"""
     return [[corner, edge, corner], [edge, 0.0, edge], [corner, edge, corner]]
@@ -67,6 +78,7 @@ def histories():
             {
                 "burnup": burnup,
                 "k_inf": k,
+                "pin_powers": XLC_PINS[p],
                 "densities": [
                     [values.get(n, [0.0, 0.0])[p] for n in NAMES]
                     for _, _, values, _ in REGIONS
@@ -86,7 +98,7 @@ def histories():
         "total-seconds": 331.0,
         "cram-seconds": [0.5, 0.25],
         # 3×3 の簡単な配置: 中央は燃料のないセル、辺の中央 4 つと角 4 つがそれぞれ 1 つの組
-        "pins": [PINS, PINS],
+        "pins": [PINS, OPENMC_LAST],
         "pins-std": [std(0.002, 0.004), std(0.004, 0.008)],
         "regions": [
             {
@@ -159,7 +171,58 @@ class Summary(unittest.TestCase):
             s["pin_std_rms"][0], math.sqrt((0.001**2 + 0.002**2) / 2)
         )
         self.assertAlmostEqual(
-            s["pin_std_rms"][1], math.sqrt((0.002**2 + 0.004**2) / 2)
+            s["pin_std_rms"][1],
+            # 最後の点の組の平均は辺 1.01、角 0.99
+            math.sqrt(((0.002 / 1.01) ** 2 + (0.004 / 0.99) ** 2) / 2),
+        )
+
+    def test_pin_powers_are_compared_as_means_over_each_symmetry_orbit(self):
+        """xlc の 1/8 の解と、OpenMC の組の平均を比べる。組の相対差の、核分裂のある組の二乗平均平方根と、絶対値が最大の組（位置は
+        組のうち上の行から最初のセル）とその組の統計誤差。"""
+        s = compare.summarize(*histories())
+        first, last = s["pins"]
+        self.assertEqual(first["orbits"], 2)
+        self.assertAlmostEqual(first["rms"], 0.0)
+        edge, corner = 1.03 / 1.01 - 1.0, 0.97 / 0.99 - 1.0
+        self.assertAlmostEqual(last["rms"], math.sqrt((edge**2 + corner**2) / 2))
+        self.assertAlmostEqual(last["max"], corner)
+        self.assertEqual(last["at"], [0, 0])
+        # 角の組の統計誤差: sqrt(4 × 0.008²) / 4 を組の平均 0.99 で割る
+        self.assertAlmostEqual(last["max_std"], 0.004 / 0.99)
+
+    def test_pins_with_fission_in_other_cells_stop_the_comparison(self):
+        xlc, omc = histories()
+        xlc["points"][1]["pin_powers"] = [
+            [0.97, 1.03, 0.97],
+            [1.03, 0.1, 1.03],
+            [0.97, 1.03, 0.97],
+        ]
+        with self.assertRaises(SystemExit):
+            compare.summarize(xlc, omc)
+
+    def test_a_history_without_pin_powers_stops_the_comparison(self):
+        xlc, omc = histories()
+        del xlc["points"][0]["pin_powers"]
+        with self.assertRaises(SystemExit):
+            compare.summarize(xlc, omc)
+
+    def test_pin_maps_of_other_shapes_stop_the_comparison(self):
+        xlc, omc = histories()
+        xlc["points"][0]["pin_powers"] = [[1.0, 1.0], [1.0, 1.0]]
+        with self.assertRaises(SystemExit):
+            compare.summarize(xlc, omc)
+
+    def test_the_report_has_the_pin_power_differences(self):
+        summary = {"inputs": [], **compare.summarize(*histories())}
+        lines = compare.report(summary)
+        header = lines.index(
+            "ピン出力の差（対称操作の組、%）: 燃焼度 | 組 | rms | 最大 ± OpenMC の統計誤差 | 位置（行, 列） | OpenMC の統計誤差 rms"
+        )
+        self.assertEqual(
+            lines[header + 2],
+            f"1 | 2 | {100 * math.sqrt(((1.03 / 1.01 - 1) ** 2 + (0.97 / 0.99 - 1) ** 2) / 2):.3f} | "
+            f"{100 * (0.97 / 0.99 - 1):+.3f} ± {100 * 0.004 / 0.99:.3f} | (1, 1) | "
+            f"{100 * math.sqrt(((0.002 / 1.01) ** 2 + (0.004 / 0.99) ** 2) / 2):.3f}",
         )
 
     def test_times_of_both_codes(self):
