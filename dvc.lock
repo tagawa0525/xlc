@@ -13,8 +13,8 @@ stages:
       size: 27754
     - path: Cargo.toml
       hash: md5
-      md5: f15cf8265090957016ed03d37ab1e3c2
-      size: 1153
+      md5: 783598a96d26a02456de68a1ce27ad73
+      size: 1356
     - path: crates
       hash: md5
       md5: f74e9ff7ea1d10458acd3069d770ee65.dir
