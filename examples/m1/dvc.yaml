@@ -2,7 +2,7 @@
 # 変えたピンセル（lattice-temperatures）。実行するのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ。
 stages:
   xs:
-    cmd: cargo run --release -p xlc-xs -- xs.toml
+    cmd: ../../bin/xs xs.toml
     deps:
       - xs.toml
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
@@ -20,36 +20,16 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_thermal_scatt/tsl-HinH2O.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
-      - ../../crates/xs/src
-      - ../../crates/xs/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/xs
     outs:
       - m1.msgpack
   lattice:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- pincell.toml > lattice.out
+    cmd: ../../bin/lattice pincell.toml > lattice.out
     deps:
       - pincell.toml
       - m1.msgpack
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - pincell-fg.msgpack
       - lattice.out
@@ -60,21 +40,11 @@ stages:
       - f900-m293.6
       - f293.6-m600
     do:
-      cmd: cargo run --release -p xlc-lattice -- pincell-${item}.toml > lattice-${item}.out
+      cmd: ../../bin/lattice pincell-${item}.toml > lattice-${item}.out
       deps:
         - pincell-${item}.toml
         - m1.msgpack
-        - ../../crates/lattice/src
-        - ../../crates/lattice/Cargo.toml
-        - ../../crates/numeric/src
-        - ../../crates/numeric/Cargo.toml
-        - ../../crates/format/src
-        - ../../crates/format/Cargo.toml
-        - ../../Cargo.toml
-        - ../../Cargo.lock
-        - ../../rust-toolchain.toml
-        - ../../.cargo/config.toml
-        - ../../flake.lock
+        - ../../bin/lattice
       outs:
         - pincell-fg-${item}.msgpack
         - lattice-${item}.out

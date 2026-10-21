@@ -2,7 +2,7 @@
 # 段階にしない（NJOY の出力は references/njoy-runs にある）。実行するのは `dvc repro`（ADR-0123）。
 stages:
   xs:
-    cmd: cargo run --release -p xlc-xs -- xs.toml
+    cmd: ../../bin/xs xs.toml
     deps:
       - xs.toml
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-006_C_012.endf
@@ -34,16 +34,6 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-048_Cd_116.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_113.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-049_In_115.endf
-      - ../../crates/xs/src
-      - ../../crates/xs/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/xs
     outs:
       - m3-nuclides.msgpack
