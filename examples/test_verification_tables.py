@@ -5,6 +5,7 @@
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -664,6 +665,19 @@ class DrawAssemblyPins(unittest.TestCase):
     def test_a_summary_of_another_format_is_an_error(self):
         with self.assertRaises(vt.TableError):
             vt.depletion_assembly_pins([{"format": "xlc-compare-depletion"}])
+
+    def test_points_without_pins_are_a_table_error(self):
+        s = self.summary()
+        s["pins"].pop()
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_pins([s])
+
+    def test_the_problems_are_the_jobs_of_the_assembly_stages(self):
+        dvc = (vt.ROOT / "examples/depletion/p2/dvc.yaml").read_text()
+        (jobs,) = re.findall(r"^  - jobs: \[(.*)\]$", dvc, re.MULTILINE)
+        self.assertEqual(
+            vt.ASSEMBLY_DEPLETION_JOBS, [j.strip() for j in jobs.split(",")]
+        )
 
 
 if __name__ == "__main__":
