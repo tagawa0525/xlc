@@ -306,18 +306,23 @@ fn assert_weights(weights: &[f64], expected: &[f64]) {
 
 #[test]
 fn interval_yield_weights_follow_the_bounds_between_the_points() {
-    // 群は 1e7〜1e3、1e3〜1、1〜1e-5 eV。3 点の区間の境界は 112.5 eV と 2.65 MeV（どちらも幾何平均）
+    // 群は 1e7〜1e3、1e3〜1、1〜1e-5 eV。3 点の区間の境界は √(0.0253 · 5e5) ≈ 112.5 eV と √(5e5 · 1.4e7) ≈ 2.65 MeV
     let weights = YieldWeighting::Intervals.weights(
         &[1e7, 1e3, 1.0, 1e-5],
         &[1.0, 2.0, 3.0],
         &yield_points(&[0.0253, 5e5, 1.4e7]),
     );
-    let bounds = yield_points(&[0.0253, 5e5, 1.4e7]).yield_bounds();
+    let (low, high) = ((0.0253f64 * 5e5).sqrt(), (5e5f64 * 1.4e7).sqrt());
+    let thermal = 3.0 + 2.0 * low.ln() / 1e3f64.ln();
+    let fourteen = (1e7 / high).ln() / 1e4f64.ln();
     assert_weights(
         &weights,
-        &yield_weights(&[1e7, 1e3, 1.0, 1e-5], &[1.0, 2.0, 3.0], &bounds),
+        &[
+            thermal / 6.0,
+            (6.0 - thermal - fourteen) / 6.0,
+            fourteen / 6.0,
+        ],
     );
-    assert!(weights[2] > 0.0, "{weights:?}");
 }
 
 #[test]
@@ -345,9 +350,9 @@ fn cutoff_yield_weights_put_the_fissions_below_and_above_on_the_thermal_and_fast
     // 熱の点がなければ cutoff より下で熱に最も近い点、速の点がなければ cutoff より上で速に最も近い点
     assert_weights(&weights(&[0.001, 0.03, 5e5]), &[0.0, below, 1.0 - below]);
     assert_weights(&weights(&[0.0253, 1e6, 1.4e7]), &[below, 1.0 - below, 0.0]);
-    // 核分裂のない領域は熱の点に 1
+    // 核分裂のない領域は最初の点に 1（Chain::zero_rates と同じ）
     assert_weights(
-        &cutoff.weights(&groups, &[0.0; 3], &yield_points(&[0.0253, 5e5, 1.4e7])),
+        &cutoff.weights(&groups, &[0.0; 3], &yield_points(&[0.001, 0.03, 5e5])),
         &[1.0, 0.0, 0.0],
     );
 }
