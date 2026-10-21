@@ -543,7 +543,8 @@ impl History {
 /// 1 回の輸送で点に残す値
 struct State {
     k: f64,
-    pin_powers: Vec<Vec<f64>>,
+    /// 点に残す輸送だけ（中点の輸送は `None`）
+    pin_powers: Option<Vec<Vec<f64>>>,
     few_group: Option<FewGroup>,
     transported: usize,
 }
@@ -830,11 +831,15 @@ pub fn run(
                 }
             }
         }
-        let pin_powers = pin_rows(
-            &cell_fission_rates(&solution, lattice, &region_materials)?,
-            lattice,
-        );
-        // 中点の輸送の少数群定数は点に残らないので作らない
+        // 中点の輸送のピン出力と少数群定数は点に残らないので作らない
+        let pin_powers = if kept {
+            Some(pin_rows(
+                &cell_fission_rates(&solution, lattice, &region_materials)?,
+                lattice,
+            ))
+        } else {
+            None
+        };
         let few_group = match &depletion.few_group {
             Some(DepletionFewGroup { bounds, pins }) if kept => {
                 let boundaries = tracking.boundaries();
@@ -884,16 +889,20 @@ pub fn run(
     let points = points
         .into_iter()
         .zip(burnup)
-        .map(|(p, burnup)| HistoryPoint {
-            time: p.time,
-            burnup,
-            k: p.extra.k,
-            densities: p.densities,
-            pin_powers: p.extra.pin_powers,
-            few_group: p.extra.few_group,
-            transported: p.extra.transported,
+        .map(|(p, burnup)| {
+            Ok(HistoryPoint {
+                time: p.time,
+                burnup,
+                k: p.extra.k,
+                densities: p.densities,
+                pin_powers: p.extra.pin_powers.ok_or_else(|| {
+                    anyhow!("the transport of the point at {burnup} MWd/kg has no pin powers")
+                })?,
+                few_group: p.extra.few_group,
+                transported: p.extra.transported,
+            })
         })
-        .collect();
+        .collect::<anyhow::Result<_>>()?;
     Ok(History {
         nuclides: chain.nuclides.iter().map(|n| n.name.clone()).collect(),
         regions,
