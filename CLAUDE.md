@@ -1,16 +1,16 @@
 # xlc
 
-PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格子計算）→ core（3次元の NEM）の段階からなる。
+PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格子計算）→ core（3次元の NEM）のステージからなる。
 
 ## 文書
 
 - 決定と理由: docs/adr/（書き方と運用は docs/adr/README.md）
-- 段階の目的・範囲・作業の順序・検証の対象: docs/plans/
+- ステージの目的・範囲・作業の順序・検証の対象: docs/plans/
 - 未解決の問題とやること: docs/issues/（書き方と運用は docs/issues/README.md。ブランチ名とコミットの `Refs:`、
   ADR との両方向の対応を含む）
 - 検証の記録: examples/*/verification.md（評価済みデータを変えた検証は、混ぜずに examples/<問題>/verification-<略称>.md に分ける。ADR-0175）。今の結果だけを題目ごとに書き、古い測定や誤りは消して書き直す（経緯は git に
   残る。ADR-0117）。結果ごとに、数値を出した xlc のコミットと日付を書く（「計算」の節。新しい測定には必ず書く。コミットが分からない過去の測定だけ日付）
-- 検証の記録の表のうち `<!-- table: <名前> -->` 〜 `<!-- /table -->` の間は、比較の段階の JSON から
+- 検証の記録の表のうち `<!-- table: <名前> -->` 〜 `<!-- /table -->` の間は、比較のステージの JSON から
   `python3 examples/verification_tables.py <記録>` が描く（手で直さない。ADR-0176）。`--check` は hook と `cargo test`
   が実行する。JSON は数十 KB ほどの要約で、DVC の出力（`cache: false`）を git で追跡する（`dvc checkout` なしで走る）
 - コードには How（今の挙動だけ。以前の挙動や変わった経緯は書かず、git、ADR、閉じた issue に任せる）、テストには What、コミットログには Why（決定の理由と採らなかった案は ADR）、コード
@@ -30,19 +30,19 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - 重い計算（OpenMC、NJOY、ライブラリの作り直し、xlc の集合体以上、時間を記録する測定）は、Slurm で 1 本ずつ流す:
   `~/.claude/scripts/slurm-run.sh -t <見積もり> <名前> '<コマンド>'`（排他で、終わるまで待つ）。直接の `sbatch` は hook が止める。直接実行せず、`pgrep` で他の計算を監視しない。時間を記録しない長い計算は `-c <CPU 数>`（ハードウェアスレッドで数える）を付けて排他なしに流せるが、その時間は記録に書かない。
 - OpenMC のスレッド数は docs/environment.md の値を使う
-- `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）で段階を
-  実行し、手で段階を選ばない（rebase のあとに数秒の段階だけ `-s` で再実行する /dvc-relock は例外）。重いときは `dvc repro`
+- `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
+  実行し、手でステージを選ばない（rebase のあとに数秒のステージだけ `-s` で再実行する /dvc-relock は例外）。重いときは `dvc repro`
   全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（上流の `build` が書き換えたリポジトリの直下の `dvc.lock` も。ADR-0159）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
-- `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml の段階の
-  出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0130）。段階が呼ぶ
+- `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml のステージの
+  出力で、git で追跡しない。worktree では `dvc checkout examples/vera/dvc.yaml` でキャッシュから戻す（ADR-0130）。ステージが呼ぶ
   `bin/` の実行ファイルは、リポジトリの直下の `dvc.yaml` の `build` の出力で、`dvc checkout dvc.yaml` で戻す（ADR-0159）。
-  NJOY と OpenMC を使う段階は cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
+  NJOY と OpenMC を使うステージは cmd が `nix develop ../..#references -c` で包んであるので、`dvc repro` は default の
   devShell で実行する
 - 記録の数値には、それを出したコミットと日付を添える（checkout すれば再現できるため）。ブランチの上で実行した計算は、実行した
-  コミットと分岐点（main のコミット）を書く。rebase で deps が変わっても走らせ直さず、分岐点から復元する。数秒で終わる
-  段階だけは再実行してよい（ADR-0130）。rebase で hash が変わっても
+  コミットと分岐点（main のコミット）を書く。rebase で deps が変わっても再実行せず、分岐点から復元する。数秒で終わる
+  ステージだけは再実行してよい（ADR-0130）。rebase で hash が変わっても
   測り直さず、ツール（`commit-refs remap`。rebase と amend では、`remap.commitRefs` が true なら post-rewrite hook が自動で呼ぶ（失敗したときだけ手で呼ぶ）。付け替えはコミットされないので、自分でコミットする）で付け替える。文書やテストの変更で hash が最新でなくなっても測り直さない。
   再測定するのは計算（コード、入力、環境）を変えたときだけ（ADR-0122）
 
