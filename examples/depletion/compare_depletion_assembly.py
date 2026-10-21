@@ -146,9 +146,14 @@ def pin_differences(
     """xlc のピン出力 `ours` と OpenMC の `mean`（統計誤差 `std`）を、それぞれ対称操作の組で平均して比べる（ADR-0181）。核分裂の
     ある組（OpenMC の組の平均が正）の相対差の rms と、絶対値が最大の組の差、位置、統計誤差。核分裂のあるセルが食い違えば止める。"""
     n = len(mean)
-    if len(ours) != n or any(len(row) != n for row in [*ours, *mean]):
+    if (
+        len(ours) != n
+        or len(std) != n
+        or any(len(row) != n for row in [*ours, *mean, *std])
+    ):
         raise SystemExit(
-            f"pin maps of other shapes: xlc {[len(r) for r in ours]}, OpenMC {[len(r) for r in mean]}"
+            f"pin maps of other shapes: xlc {[len(r) for r in ours]}, OpenMC {[len(r) for r in mean]}, "
+            f"OpenMC errors {[len(r) for r in std]}"
         )
     for i in range(n):
         for j in range(n):
@@ -234,18 +239,22 @@ def summarize(xlc: dict, omc: dict) -> dict:
                 if diffs
                 else None,
             }
-    pin_std_rms = [
-        orbit_std_rms(mean, std) for mean, std in zip(omc["pins"], omc["pins-std"])
-    ]
     if any("pin_powers" not in p for p in xlc["points"]):
         raise SystemExit(
             "the xlc history has no pin powers (ADR-0181); rerun the lattice stage"
         )
+    if not len(xlc["points"]) == len(omc["pins"]) == len(omc["pins-std"]):
+        raise SystemExit(
+            f"{len(xlc['points'])} points with {len(omc['pins'])} OpenMC pin maps and "
+            f"{len(omc['pins-std'])} error maps"
+        )
     pins = [
         pin_differences(p["pin_powers"], mean, std)
-        for p, mean, std in zip(
-            xlc["points"], omc["pins"], omc["pins-std"], strict=True
-        )
+        for p, mean, std in zip(xlc["points"], omc["pins"], omc["pins-std"])
+    ]
+    # 形はピン出力の比較で確かめてある
+    pin_std_rms = [
+        orbit_std_rms(mean, std) for mean, std in zip(omc["pins"], omc["pins-std"])
     ]
     transport = omc["transport-seconds"]
     seconds = {
@@ -280,6 +289,10 @@ def percent(x: float | None) -> str:
 def report(summary: dict) -> list[str]:
     if "inputs" not in summary:
         raise SystemExit("the JSON has no inputs; rerun the stage")
+    if "pins" not in summary:
+        raise SystemExit(
+            "the JSON has no pin power differences (ADR-0181); rerun the stage"
+        )
     lines = [
         "inputs: "
         + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"]),
