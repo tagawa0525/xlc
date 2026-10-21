@@ -34,16 +34,18 @@ ln -s "$(git rev-parse --path-format=absolute --git-common-dir)/../references" r
 symlink がないと、DVC は worktree の中に別のキャッシュを黙って作る。`cargo test` の
 `linked_worktrees_share_references` も落ちる。
 
-## 生成物を main から持ってくる
+## 生成物を戻す
 
-git で追跡しない生成物は worktree に無い。使うものを main からコピーする（btrfs なので reflink で容量を食わない）:
+git で追跡しない出力（`bin/` の実行ファイル、`examples/vera/vera.msgpack`、各例の出力、参照解のピン出力）は worktree に無い。
+キャッシュ（main と共有。reflink）から `dvc.lock` の hash に合わせて戻し、DVC の出力でない
+`examples/vera/p2/openmc-2K.msgpack`（ADR-0121）は main からコピーする。約 10 秒で、使用量は十数 MB:
 
 ```sh
-cp --reflink=auto ~/github/xlc/examples/vera/vera.msgpack examples/vera/
-cp --reflink=auto ~/github/xlc/examples/vera/p2/openmc-2K.msgpack examples/vera/p2/    # 比べるツールが読む参照解のピン出力（ADR-0121）
-dvc checkout dvc.yaml                                                                 # 段階が呼ぶ bin/ の実行ファイル（ADR-0159）
-dvc checkout examples/vera/dvc.yaml                                                   # DVC のステージの出力が要るとき（openmc-library/ など）
+scripts/worktree-restore-outputs.sh
 ```
+
+終了コード 255 で終わることがある。`dvc.lock` に hash がまだ無いステージと、キャッシュに無い出力（OpenMC の結果など）は
+戻らないためで、戻らなかった出力は一覧に出る。作業に要るものが入っていなければ `dvc repro` で作る。
 
 そのあと、worktree でビルドする。`target/` は worktree ごとにあり、最初は全体を作るので数分かかる（手元でよい。ADR-0026）。
 DVC のステージが呼ぶ実行ファイルは、これとは別に `dvc repro` の `build` が `target/dvc` に作る（ADR-0159）:
