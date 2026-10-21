@@ -5,6 +5,7 @@
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -608,6 +609,75 @@ class DrawAwsDepletion(unittest.TestCase):
             (root / source).parent.mkdir(parents=True)
             (root / source).write_text(json.dumps(self.summary()))
             self.assertEqual(vt.load(root, source, True)["burnup"], [0.1])
+
+
+class DrawAssemblyPins(unittest.TestCase):
+    def summary(self) -> dict:
+        """compare_depletion_assembly.py の要約（2 点）"""
+        return {
+            "format": "xlc-compare-depletion-assembly",
+            "problem": "2A",
+            "burnup": [0.0, 0.1],
+            "pin_std_rms": [0.00062, 0.00065],
+            "pins": [
+                {
+                    "orbits": 39,
+                    "rms": 0.0012,
+                    "max": 0.0031,
+                    "at": [8, 2],
+                    "max_std": 0.0007,
+                },
+                {
+                    "orbits": 39,
+                    "rms": 0.0015,
+                    "max": -0.0042,
+                    "at": [0, 0],
+                    "max_std": 0.0009,
+                },
+            ],
+        }
+
+    def rows(self) -> list[list[str]]:
+        table = vt.depletion_assembly_pins([self.summary()])
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+
+    def test_rows_have_the_rms_the_largest_difference_and_the_openmc_error_in_percent(
+        self,
+    ):
+        # 位置は上と左から 1 で数える
+        self.assertEqual(
+            self.rows(),
+            [
+                ["0", "0.120", "+0.310 ± 0.070", "(9, 3)", "0.062"],
+                ["0.1", "0.150", "\u22120.420 ± 0.090", "(1, 1)", "0.065"],
+            ],
+        )
+
+    def test_each_problem_has_its_own_table(self):
+        sources, draw = vt.TABLES["depletion-2a-pins"]
+        self.assertEqual(sources, ["examples/depletion/p2/compare-2A.json"])
+        self.assertIs(draw, vt.depletion_assembly_pins)
+        self.assertIn("depletion-2a-rods-pins", vt.TABLES)
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_pins([{"format": "xlc-compare-depletion"}])
+
+    def test_points_without_pins_are_a_table_error(self):
+        s = self.summary()
+        s["pins"].pop()
+        with self.assertRaises(vt.TableError):
+            vt.depletion_assembly_pins([s])
+
+    def test_the_problems_are_the_jobs_of_the_assembly_stages(self):
+        dvc = (vt.ROOT / "examples/depletion/p2/dvc.yaml").read_text()
+        (jobs,) = re.findall(r"^  - jobs: \[(.*)\]$", dvc, re.MULTILINE)
+        self.assertEqual(
+            vt.ASSEMBLY_DEPLETION_JOBS, [j.strip() for j in jobs.split(",")]
+        )
 
 
 if __name__ == "__main__":

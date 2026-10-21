@@ -63,12 +63,12 @@
 //! zones = [{ material = "water", rings = 1 }]
 //! grid = 4                        # 均質なセルを 4 × 4 の正方形に分ける（省略すると 1）
 //!
-//! [depletion]                     # 燃焼（ADR-0173。分岐、ピン出力、媒質、ファイルの few-group とは使えない）
+//! [depletion]                     # 燃焼（ADR-0173。分岐、pin-powers、媒質、ファイルの few-group とは使えない）
 //! chain = "chain.msgpack"         # 燃焼チェーン
 //! power = 38.41                   # 初めの重金属の出力密度 (W/g)
 //! burnup = [0.1, 0.5, 1.0]        # 燃焼度の点 (MWd/kg)
 //! materials = ["fuel"]            # 燃焼させる物質（核種で書いたもの）
-//! output = "history.msgpack"      # 燃焼の履歴
+//! output = "history.msgpack"      # 燃焼の履歴（燃焼点ごとの k∞、数密度、ピン出力。ADR-0181）
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
 //! ```
 //!
@@ -827,7 +827,7 @@ impl LatticeInput {
         let depletion = file
             .depletion
             .map(|d| {
-                // 燃焼度の軸を持つテーブル、燃焼点ごとのピン出力と媒質は決めていない（ADR-0173）
+                // 燃焼度の軸を持つテーブルと媒質は決めていない（ADR-0173）。燃焼点ごとのピン出力は燃焼の履歴に入る（ADR-0181）
                 if macroscopic || branches.is_some() {
                     return Err("depletion needs a library and no branches (ADR-0173)".to_string());
                 }
@@ -835,7 +835,11 @@ impl LatticeInput {
                     return Err("depletion needs the self-shielding (ADR-0173)".into());
                 }
                 if file.pin_powers.is_some() || file.medium.is_some() {
-                    return Err("depletion writes neither `pin-powers` nor `medium`".into());
+                    return Err(
+                        "depletion writes neither `pin-powers` (the pin powers of each point go into the depletion \
+                         history) nor `medium`"
+                            .into(),
+                    );
                 }
                 // 燃焼点ごとの定数は燃焼の履歴に入る（`[depletion]` の `few-group`）。ファイルの `few-group` は書かれないので受けない
                 if output.is_some() {

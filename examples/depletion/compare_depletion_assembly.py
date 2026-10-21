@@ -8,8 +8,9 @@
   (k_xlc − k_OpenMC) × 1e5 pcm（OpenMC の標準偏差つき）とその 0 の点からの変化、物質の種類ごとの主要な核種の数密度の相対差
   (N_xlc − N_OpenMC) / N_OpenMC（種類の領域の体積の重みの平均）、最後の点の種類ごとの領域の間のばらつき、OpenMC のピン出力の
   統計誤差の rms（対称操作の組で平均したピン出力の、標準偏差 / 平均の二乗平均平方根。xlc は対称な格子を 1/8 で解くので組で平均して比べる。
-  ADR-0032 の目標との比較に使う）を書く。xlc の燃焼の領域と OpenMC の物質は、
-  並びの順に対応させる（種類と体積で確かめる）。xlc の燃焼の履歴はピン出力を持たない（ADR-0173）ので、ピン出力の比較はまだない。
+  ADR-0032 の目標との比較に使う）、燃焼点ごとのピン出力の差（`pins`。xlc と OpenMC のピン出力をそれぞれ組で平均した相対差
+  (xlc / OpenMC − 1) の、核分裂のある組の rms と、絶対値が最大の組の差、位置（組のうち上の行から最初のセルの [行, 列]、0 から）、
+  その組の OpenMC の統計誤差。ADR-0181）を書く。xlc の燃焼の領域と OpenMC の物質は、並びの順に対応させる（種類と体積で確かめる）。
   `inputs` は読んだファイルのパス（段階の cwd から）と md5。時間の内訳（xlc の履歴の `seconds`、OpenMC の輸送ごとの時間と CRAM の
   時間）もコピーする。AWS の機種はまちまちなので、OpenMC の時間は xlc との時間の比較に使わない（ADR-0174）
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -111,24 +112,81 @@ def check_same_run(xlc: dict, omc: dict) -> None:
             )
 
 
-def orbit_std_rms(mean: list[list[float]], std: list[list[float]]) -> float:
-    """ピン出力（[行][列]）を対称操作の組（中央からの距離の対）で平均したときの統計誤差の rms。組の平均は Σ 平均 / 個数、その誤差は
-    sqrt(Σ σ²) / 個数（組のピンの誤差を独立とする）で、平均が正の組の（誤差 / 平均）の二乗平均平方根。"""
-    n = len(mean)
-    centre = (n - 1) / 2
-    orbits: dict[tuple[float, float], list[tuple[float, float]]] = {}
+def orbits(n: int) -> list[list[tuple[int, int]]]:
+    """n × n のセルの対称操作の組（中央からの距離の対が同じセル）。組の中のセルは上の行から、各行は左から。"""
+    found: dict[tuple[int, int], list[tuple[int, int]]] = {}
     for i in range(n):
         for j in range(n):
-            key = tuple(sorted((abs(i - centre), abs(j - centre)), reverse=True))
-            orbits.setdefault(key, []).append((mean[i][j], std[i][j]))
-    relative_errors = []
-    for members in orbits.values():
-        count = len(members)
-        average = sum(m for m, _ in members) / count
-        if average > 0:
-            error = math.sqrt(sum(s * s for _, s in members)) / count
-            relative_errors.append(error / average)
+            found.setdefault(orbit_of(i, j, n), []).append((i, j))
+    return list(found.values())
+
+
+def orbit_mean(values: list[list[float]], members: list[tuple[int, int]]) -> float:
+    return sum(values[i][j] for i, j in members) / len(members)
+
+
+def orbit_error(std: list[list[float]], members: list[tuple[int, int]]) -> float:
+    """組の平均の統計誤差 sqrt(Σ σ²) / 個数（組のピンの誤差を独立とする）。"""
+    return math.sqrt(sum(std[i][j] ** 2 for i, j in members)) / len(members)
+
+
+def orbit_std_rms(mean: list[list[float]], std: list[list[float]]) -> float:
+    """ピン出力（[行][列]）を対称操作の組で平均したときの、平均が正の組の（統計誤差 / 平均）の二乗平均平方根。"""
+    relative_errors = [
+        orbit_error(std, members) / average
+        for members in orbits(len(mean))
+        if (average := orbit_mean(mean, members)) > 0
+    ]
     return math.sqrt(sum(e * e for e in relative_errors) / len(relative_errors))
+
+
+def pin_differences(
+    ours: list[list[float]], mean: list[list[float]], std: list[list[float]]
+) -> dict:
+    """xlc のピン出力 `ours` と OpenMC の `mean`（統計誤差 `std`）を、それぞれ対称操作の組で平均して比べる（ADR-0181）。核分裂の
+    ある組（OpenMC の組の平均が正）の相対差の rms と、絶対値が最大の組の差、位置、統計誤差。核分裂のあるセルが食い違えば止める。"""
+    n = len(mean)
+    if (
+        len(ours) != n
+        or len(std) != n
+        or any(len(row) != n for row in [*ours, *mean, *std])
+    ):
+        raise SystemExit(
+            f"pin maps of other shapes: xlc {[len(r) for r in ours]}, OpenMC {[len(r) for r in mean]}, "
+            f"OpenMC errors {[len(r) for r in std]}"
+        )
+    for i in range(n):
+        for j in range(n):
+            if (ours[i][j] > 0) != (mean[i][j] > 0):
+                raise SystemExit(
+                    f"pin ({i}, {j}): fission in one code only (xlc {ours[i][j]}, OpenMC {mean[i][j]})"
+                )
+    diffs = []
+    for members in orbits(n):
+        theirs = orbit_mean(mean, members)
+        values = [ours[i][j] for i, j in members]
+        # xlc は対称操作で 1/8 を解いて展開するので、組の中の値は同じ（丸めは 1e-9 よりずっと小さい）。違えば格子が対称でないか入力の誤りで、
+        # 平均で隠さない
+        if max(values) - min(values) > 1e-9 * max(abs(v) for v in values):
+            raise SystemExit(
+                f"xlc pin powers differ within the symmetry orbit of {members[0]}: {values}"
+            )
+        if theirs > 0:
+            diffs.append(
+                (
+                    orbit_mean(ours, members) / theirs - 1.0,
+                    list(members[0]),
+                    orbit_error(std, members) / theirs,
+                )
+            )
+    worst, at, error = max(diffs, key=lambda d: abs(d[0]))
+    return {
+        "orbits": len(diffs),
+        "rms": math.sqrt(sum(d * d for d, _, _ in diffs) / len(diffs)),
+        "max": worst,
+        "at": at,
+        "max_std": error,
+    }
 
 
 def summarize(xlc: dict, omc: dict) -> dict:
@@ -188,6 +246,20 @@ def summarize(xlc: dict, omc: dict) -> dict:
                 if diffs
                 else None,
             }
+    if any("pin_powers" not in p for p in xlc["points"]):
+        raise SystemExit(
+            "the xlc history has no pin powers (ADR-0181); rerun the lattice stage"
+        )
+    if not len(xlc["points"]) == len(omc["pins"]) == len(omc["pins-std"]):
+        raise SystemExit(
+            f"{len(xlc['points'])} points with {len(omc['pins'])} OpenMC pin maps and "
+            f"{len(omc['pins-std'])} error maps"
+        )
+    pins = [
+        pin_differences(p["pin_powers"], mean, std)
+        for p, mean, std in zip(xlc["points"], omc["pins"], omc["pins-std"])
+    ]
+    # 形はピン出力の比較で確かめてある
     pin_std_rms = [
         orbit_std_rms(mean, std) for mean, std in zip(omc["pins"], omc["pins-std"])
     ]
@@ -213,6 +285,7 @@ def summarize(xlc: dict, omc: dict) -> dict:
         "kinds": by_kind,
         "spread": spread,
         "pin_std_rms": pin_std_rms,
+        "pins": pins,
     }
 
 
@@ -223,6 +296,10 @@ def percent(x: float | None) -> str:
 def report(summary: dict) -> list[str]:
     if "inputs" not in summary:
         raise SystemExit("the JSON has no inputs; rerun the stage")
+    if "pins" not in summary:
+        raise SystemExit(
+            "the JSON has no pin power differences (ADR-0181); rerun the stage"
+        )
     lines = [
         "inputs: "
         + ", ".join(f"{i['path']} {i['md5'][:8]}" for i in summary["inputs"]),
@@ -236,6 +313,24 @@ def report(summary: dict) -> list[str]:
         lines.append(
             f"{b:g} | {k['xlc']:.6f} | {k['openmc']:.6f} ± {k['openmc_std_pcm'] / 1e5:.6f} | "
             f"{k['diff_pcm']:+.0f} ± {k['openmc_std_pcm']:.0f} | {k['change_pcm']:+.0f} | {s * 100:.3f}"
+        )
+    if (
+        not len(summary["burnup"])
+        == len(summary["pins"])
+        == len(summary["pin_std_rms"])
+    ):
+        raise SystemExit(
+            f"{len(summary['burnup'])} burnup points with {len(summary['pins'])} pin rows and "
+            f"{len(summary['pin_std_rms'])} error rows; rerun the stage"
+        )
+    lines.append(
+        "ピン出力の差（対称操作の組、%）: 燃焼度 | 組 | rms | 最大 ± OpenMC の統計誤差 | 位置（行, 列。1 から） | OpenMC の統計誤差 rms"
+    )
+    for b, p, s in zip(summary["burnup"], summary["pins"], summary["pin_std_rms"]):
+        row, column = p["at"]
+        lines.append(
+            f"{b:g} | {p['orbits']} | {p['rms'] * 100:.3f} | {p['max'] * 100:+.3f} ± {p['max_std'] * 100:.3f} | "
+            f"({row + 1}, {column + 1}) | {s * 100:.3f}"
         )
     for kind, table in summary["kinds"].items():
         names = list(table)
