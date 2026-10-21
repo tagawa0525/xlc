@@ -703,6 +703,78 @@ fn history_is_written_as_a_map_with_the_format_name() {
     assert_eq!(get("solves").and_then(rmpv::Value::as_u64), Some(7));
 }
 
+/// 履歴のファイルの、各点の `pin_powers`（[点][行][列]）
+fn written_pin_powers(history: &History) -> Vec<Vec<Vec<f64>>> {
+    let bytes = history.to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    let field = |map: &rmpv::Value, key: &str| -> rmpv::Value {
+        map.as_map()
+            .unwrap()
+            .iter()
+            .find(|(k, _)| k.as_str() == Some(key))
+            .map(|(_, v)| v.clone())
+            .unwrap_or_else(|| panic!("no `{key}`"))
+    };
+    field(&value, "points")
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            field(p, "pin_powers")
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|row| {
+                    row.as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|x| x.as_f64().unwrap())
+                        .collect()
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// 2×2 の格子の右下を水のセルにした入力（対角線の鏡映で、右上と左下のピンが移り合う）
+fn with_water_cell(text: &str) -> String {
+    format!(
+        "{}\n[cell.box]\nzones = [{{ material = \"water\", rings = 1 }}]\n",
+        text.replace("rows = [\"pin\"]", "rows = [\"pin pin\", \"pin box\"]")
+    )
+}
+
+#[test]
+fn pin_powers_are_reported_at_each_point() {
+    // ピン出力は lattice の `pin-powers` と同じ: セルごとの核分裂率を、核分裂のあるセルの平均で 1 にしたもの（ADR-0181）
+    let history = deplete_input(&with_water_cell(PIN));
+    let powers = written_pin_powers(&history);
+    assert_eq!(powers.len(), history.points.len());
+    for rows in &powers {
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|r| r.len() == 2));
+        assert_eq!(rows[1][1], 0.0);
+        let mean = (rows[0][0] + rows[0][1] + rows[1][0]) / 3.0;
+        assert!((mean - 1.0).abs() <= 1e-12, "{rows:?}");
+        assert!((rows[0][1] - rows[1][0]).abs() <= 1e-9, "{rows:?}");
+        // 水に面したピンは熱中性子束が高く、出力が高い
+        assert!(rows[0][1] > rows[0][0], "{rows:?}");
+    }
+}
+
+#[test]
+fn the_pin_powers_of_a_point_come_from_its_own_composition() {
+    // 点の値は、その点の組成で解いた輸送のもの（予測子の始まり）。中点の輸送の値なら、初めの点の値が最初のステップの長さで変わる
+    let short = deplete_input(&with_water_cell(PIN));
+    let long = deplete_input(&with_water_cell(
+        &PIN.replace("burnup = [0.05, 0.5, 2.0]", "burnup = [5.0]"),
+    ));
+    let (short, long) = (written_pin_powers(&short), written_pin_powers(&long));
+    assert_eq!(short[0], long[0]);
+    // 燃焼で組成が変われば、ピン出力も変わる
+    assert_ne!(short[0], short[3]);
+}
+
 #[test]
 fn a_half_life_without_reactions_halves_the_density() {
     let chain = chain();
