@@ -21,6 +21,10 @@ toml = "1.1.6"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
+# テストは数値計算が中心で、最適化なしだと遅い。opt-level 1 で足りる。dev を使う cargo build と clippy も同じ設定になる（ADR-0180）
+[profile.dev]
+opt-level = 1
+
 # 本番のコードでは panic させない（エラーとして返す）。テストでは clippy.toml と各クレートの
 # 入口の cfg_attr(test, ...) で許す
 [workspace.lints.clippy]
