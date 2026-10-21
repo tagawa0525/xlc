@@ -70,8 +70,8 @@
 //! materials = ["fuel"]            # 燃焼させる物質（核種で書いたもの）
 //! output = "history.msgpack"      # 燃焼の履歴（燃焼点ごとの k∞、数密度、ピン出力。ADR-0181）
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
-//! # yield-cutoff = { energy = 112.5, thermal = 0.0253, fast = 5e5 }   # 収率の重みを OpenMC の cutoff と同じにする
-//! #                               # （#0133 の試行。省略すると ADR-0164 の区間）
+//! # yield-cutoff = { energy = 112.47, thermal = 0.0253, fast = 5e5 }   # 収率の重みを 1 つの境界で熱と速の点に分ける
+//! #                               # （OpenMC の FissionYieldCutoffHelper の点の選び方。省略すると ADR-0164 の区間）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の

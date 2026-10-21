@@ -62,8 +62,7 @@ pub struct DepletionInput {
 pub enum YieldWeighting {
     /// 点ごとの区間（隣の点との幾何平均で区切る）の核分裂率の割合（ADR-0164、ADR-0173）
     Intervals,
-    /// 1 つの境界の下を熱の点、上を速の点に置く（OpenMC の `FissionYieldCutoffHelper`）。参照解と同じ重みで比べる試行のため
-    /// （#0133）
+    /// 1 つの境界の下を熱の点、上を速の点に置く（OpenMC の `FissionYieldCutoffHelper` と同じ点の選び方）
     Cutoff(YieldCutoff),
 }
 
@@ -88,7 +87,7 @@ impl YieldWeighting {
 impl YieldCutoff {
     /// 点の選び方は OpenMC 0.15.2 の `FissionYieldCutoffHelper.__init__` と同じ: 熱と速の点がちょうどあればそれを使う。どちらかが
     /// なければ、境界が最初の点以下なら最初の点、最後の点以上なら最後の点だけを使い、そうでなければ境界より下で熱に、境界以上で
-    /// 速に最も近い点を使う
+    /// 速に最も近い点を使う。核分裂のない領域は最初の点に 1（`Chain::zero_rates` と同じ）
     fn weights(&self, group_bounds: &[f64], rates: &[f64], energies: &[f64]) -> Vec<f64> {
         let mut weights = vec![0.0; energies.len()];
         let exact = |e: f64| energies.iter().position(|&p| p == e);
@@ -121,6 +120,10 @@ impl YieldCutoff {
                 )
             }
         };
+        if rates.iter().sum::<f64>() <= 0.0 {
+            weights[0] = 1.0;
+            return weights;
+        }
         let split = yield_weights(group_bounds, rates, &[self.energy]);
         weights[thermal] += split[0];
         weights[fast] += split[1];
