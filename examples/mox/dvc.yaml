@@ -4,7 +4,7 @@
 # `dvc checkout examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは default の devShell の `dvc repro`（ADR-0123）。
 stages:
   xs:
-    cmd: cargo run --release -p xlc-xs -- xs.toml
+    cmd: ../../bin/xs xs.toml
     deps:
       - xs.toml
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
@@ -23,40 +23,21 @@ stages:
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
       - ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
-      - ../../crates/xs/src
-      - ../../crates/xs/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/xs
     outs:
       - mox.msgpack
   lattice-mox1:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- pincell-mox1.toml > lattice-mox1.out
+    cmd: ../../bin/lattice pincell-mox1.toml > lattice-mox1.out
     deps:
       - pincell-mox1.toml
       - mox.msgpack
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - lattice-mox1.out
   fuel-xs-mox1:
-    # OpenMC と比べる、xlc の自己遮蔽した燃料の核種ごとの実効断面積
+    # OpenMC と比べる、xlc の自己遮蔽した燃料の核種ごとの実効断面積。fuel_xs は build が作る実行ファイル（xs、lattice、core）に
+    # ないので cargo で実行し、deps は xlc-lattice が依存するクレートすべて（ADR-0159 の形にする場合は build に足す）
     cmd: cargo run --release -p xlc-lattice --example fuel_xs -- pincell-mox1.toml xlc-mox1.msgpack
     deps:
       - pincell-mox1.toml
@@ -73,19 +54,37 @@ stages:
       - ../../rust-toolchain.toml
       - ../../.cargo/config.toml
       - ../../flake.lock
+      - ../../crates/depletion/src
+      - ../../crates/depletion/Cargo.toml
     outs:
       - xlc-mox1.msgpack
-  openmc-mox1:
-    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml の段階の出力（ADR-0130）
-    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox1.toml openmc-mox1
+  openmc-mox1-model:
+    # 問題の物質、形状、設定を model.xml に書く。model.xml はライブラリのパスもスレッド数も含まないので、スクリプトを直しても
+    # モデルが同じなら変わらず、下の openmc-mox1 は再実行しない（ADR-0136）
+    cmd: nix develop ../..#references -c python3 openmc_model.py model openmc-mox1.toml openmc-mox1-model
     deps:
       - openmc_model.py
       - ../openmc_common.py
+      - ../openmc_input.py
       - ../openmc_run.py
       - ../vera/references-shell.txt
       - openmc-mox1.toml
       - mox.msgpack
+    outs:
+      - openmc-mox1-model
+  openmc-mox1:
+    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml の段階の出力
+    # （ADR-0130）。ライブラリはディレクトリ全体を deps にする。スクリプトを deps にしない（ADR-0136）。入力は、このスクリプトが
+    # 読むライブラリのパスとスレッド数だけを params にする
+    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox1.toml openmc-mox1-model openmc-mox1
+    deps:
+      - ../vera/references-shell.txt
+      - openmc-mox1-model/model.xml
       - ../vera/openmc-library
+    params:
+      - openmc-mox1.toml:
+          - cross-sections
+          - threads
     outs:
       - openmc-mox1
   openmc-mox1-extract:
@@ -93,6 +92,7 @@ stages:
     deps:
       - openmc_model.py
       - ../openmc_common.py
+      - ../openmc_input.py
       - ../openmc_run.py
       - ../vera/references-shell.txt
       - openmc-mox1.toml
@@ -130,25 +130,16 @@ stages:
       - compare-capture-mox1.out
   lattice-mox2:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- pincell-mox2.toml > lattice-mox2.out
+    cmd: ../../bin/lattice pincell-mox2.toml > lattice-mox2.out
     deps:
       - pincell-mox2.toml
       - mox.msgpack
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - lattice-mox2.out
   fuel-xs-mox2:
-    # OpenMC と比べる、xlc の自己遮蔽した燃料の核種ごとの実効断面積
+    # OpenMC と比べる、xlc の自己遮蔽した燃料の核種ごとの実効断面積。fuel_xs は build が作る実行ファイル（xs、lattice、core）に
+    # ないので cargo で実行し、deps は xlc-lattice が依存するクレートすべて（ADR-0159 の形にする場合は build に足す）
     cmd: cargo run --release -p xlc-lattice --example fuel_xs -- pincell-mox2.toml xlc-mox2.msgpack
     deps:
       - pincell-mox2.toml
@@ -165,18 +156,37 @@ stages:
       - ../../rust-toolchain.toml
       - ../../.cargo/config.toml
       - ../../flake.lock
+      - ../../crates/depletion/src
+      - ../../crates/depletion/Cargo.toml
     outs:
       - xlc-mox2.msgpack
-  openmc-mox2:
-    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox2.toml openmc-mox2
+  openmc-mox2-model:
+    # 問題の物質、形状、設定を model.xml に書く。model.xml はライブラリのパスもスレッド数も含まないので、スクリプトを直しても
+    # モデルが同じなら変わらず、下の openmc-mox2 は再実行しない（ADR-0136）
+    cmd: nix develop ../..#references -c python3 openmc_model.py model openmc-mox2.toml openmc-mox2-model
     deps:
       - openmc_model.py
       - ../openmc_common.py
+      - ../openmc_input.py
       - ../openmc_run.py
       - ../vera/references-shell.txt
       - openmc-mox2.toml
       - mox.msgpack
+    outs:
+      - openmc-mox2-model
+  openmc-mox2:
+    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml の段階の出力
+    # （ADR-0130）。ライブラリはディレクトリ全体を deps にする。スクリプトを deps にしない（ADR-0136）。入力は、このスクリプトが
+    # 読むライブラリのパスとスレッド数だけを params にする
+    cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox2.toml openmc-mox2-model openmc-mox2
+    deps:
+      - ../vera/references-shell.txt
+      - openmc-mox2-model/model.xml
       - ../vera/openmc-library
+    params:
+      - openmc-mox2.toml:
+          - cross-sections
+          - threads
     outs:
       - openmc-mox2
   openmc-mox2-extract:
@@ -184,6 +194,7 @@ stages:
     deps:
       - openmc_model.py
       - ../openmc_common.py
+      - ../openmc_input.py
       - ../openmc_run.py
       - ../vera/references-shell.txt
       - openmc-mox2.toml

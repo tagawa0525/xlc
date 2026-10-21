@@ -34,7 +34,7 @@ dvc checkout examples/vera/dvc.yaml
 ```
 
 段階は `xs`（`mox.msgpack`）、`lattice-mox<N>`（格子計算の k∞）、`fuel-xs-mox<N>`（xlc の燃料の核種ごとの実効断面積、
-`xlc-mox<N>.msgpack`）、`openmc-mox<N>`（OpenMC。入力は `openmc-mox<N>.toml`）、`openmc-mox<N>-extract`（k と
+`xlc-mox<N>.msgpack`）、`openmc-mox<N>-model`（OpenMC のモデル model.xml）、`openmc-mox<N>`（OpenMC。入力は `openmc-mox<N>.toml`）、`openmc-mox<N>-extract`（k と
 `openmc-mox<N>-results/fuel-xs.msgpack`）、`compare-k-mox<N>`（k の差）、`compare-capture-mox<N>`（下の表）。
 OpenMC は 1 世代 100 万粒子・250 世代（最初の 50 世代を捨てる）、乱数のシード 1、16 スレッドで 1 問題 16 分ほど。
 
