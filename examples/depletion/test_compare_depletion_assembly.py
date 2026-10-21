@@ -200,6 +200,17 @@ class Summary(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare.summarize(xlc, omc)
 
+    def test_xlc_pins_that_differ_within_an_orbit_stop_the_comparison(self):
+        """xlc は対称操作の組の中で同じ値を持つはずで、違えば（対称でない格子や入力の誤り）平均で隠さず止める。"""
+        xlc, omc = histories()
+        xlc["points"][1]["pin_powers"] = [
+            [0.97, 1.03, 0.97],
+            [1.03, 0.0, 1.031],
+            [0.97, 1.03, 0.97],
+        ]
+        with self.assertRaisesRegex(SystemExit, "orbit"):
+            compare.summarize(xlc, omc)
+
     def test_a_history_without_pin_powers_stops_the_comparison(self):
         xlc, omc = histories()
         del xlc["points"][0]["pin_powers"]
@@ -224,11 +235,17 @@ class Summary(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "rerun"):
             compare.report(summary)
 
+    def test_the_report_of_fewer_pin_rows_than_points_stops(self):
+        summary = {"inputs": [], **compare.summarize(*histories())}
+        summary["pins"] = summary["pins"][:1]
+        with self.assertRaisesRegex(SystemExit, "pin"):
+            compare.report(summary)
+
     def test_the_report_has_the_pin_power_differences(self):
         summary = {"inputs": [], **compare.summarize(*histories())}
         lines = compare.report(summary)
         header = lines.index(
-            "ピン出力の差（対称操作の組、%）: 燃焼度 | 組 | rms | 最大 ± OpenMC の統計誤差 | 位置（行, 列） | OpenMC の統計誤差 rms"
+            "ピン出力の差（対称操作の組、%）: 燃焼度 | 組 | rms | 最大 ± OpenMC の統計誤差 | 位置（行, 列。1 から） | OpenMC の統計誤差 rms"
         )
         self.assertEqual(
             lines[header + 2],
