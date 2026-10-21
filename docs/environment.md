@@ -97,11 +97,10 @@ Python。どちらも `references` の devShell に入る。スクリプトは `
 
 コマンドはリポジトリ（worktree）の直下で実行し、作業のディレクトリを引数で渡す。worktree の `references` は main の
 `references/` への symlink なので、`references/openmc` に `cd` してから `../..` で flake やスクリプトを指すと、
-worktree でなく main の flake とスクリプトが使われる。たとえば C5G7 の参照解は:
+worktree でなく main の flake とスクリプトが使われる。たとえば C5G7 の参照解は、DVC のステージ（`openmc-model`、`openmc`、`openmc-extract`）で作る:
 
 ```sh
-nix develop .#references -c sh -c \
-  'OMP_NUM_THREADS=16 python3 examples/c5g7/openmc_model.py references/openmc/work 1000000 400 100 2'
+~/.claude/scripts/slurm-run.sh -t 50 dvc-c5g7 'nix develop -c dvc repro examples/c5g7/dvc.yaml'
 ```
 
 ## 外部の計算機（AWS）
