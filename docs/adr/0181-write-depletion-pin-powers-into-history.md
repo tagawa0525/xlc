@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-22
 requires: [ADR-0096, ADR-0173, ADR-0176, ADR-0178]
 supersedes: []
@@ -74,10 +74,13 @@ issues: ["#0135"]
   格子で、各点のピン出力が 2×2、核分裂のあるセルの平均が 1、水のセルが 0、対称操作で移り合うピンが同じ値、水に面したピンが高い）、
   `the_pin_powers_of_a_point_come_from_its_own_composition`（初めの点のピン出力が、最初のステップの長さによらない。中点の輸送の値なら
   ステップの長さで変わる）
-- 比較のツール（examples/depletion/test_compare_depletion_assembly.py）: 組の平均の相対差の rms と最大、位置、最大の組の統計誤差、
-  核分裂のあるセルが食い違えば止まること、ピン出力のない履歴で止まること。表（examples/test_verification_tables.py）: 燃焼度ごとの行
-- 動作: 2A の 1 ステップ（examples/depletion/lattice-2A.toml と同じ入力を trials/ に置いたもの）を流し、履歴の 2 点に 17×17 のピン出力が
-  入ることと、比較のツールが読むことを確かめる（結果は #0135 の経緯）
+- 比較のツール（examples/depletion/test_compare_depletion_assembly.py）: `test_pin_powers_are_compared_as_means_over_each_symmetry_orbit`
+  （組の平均の相対差の rms と最大、位置、最大の組の統計誤差）、`test_pins_with_fission_in_other_cells_stop_the_comparison`、
+  `test_a_history_without_pin_powers_stops_the_comparison`、`test_pin_maps_of_other_shapes_stop_the_comparison`、
+  `test_the_report_has_the_pin_power_differences`。表（examples/test_verification_tables.py の `DrawAssemblyPins`）: 燃焼度ごとの行と、問題ごとの表の名前
+- 動作: 2A の 1 ステップ（examples/depletion/lattice-2A.toml と同じ入力。コミット 1746edc5、2026-10-22）で、履歴の 2 点に 17×17 のピン出力が
+  入り（核分裂のある 264 ピンの平均が 1、案内管と計装管が 0、対角線と上下の鏡映で 3e-15 以内の対称）、k∞ は main の履歴と同じ。比較のツールは、
+  この履歴と OpenMC の結果の形をした合成のファイルを読んだ（OpenMC の集合体の燃焼の結果はまだない。詳細は #0135 の経緯）
 
 ## 帰結
 
