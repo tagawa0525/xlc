@@ -212,6 +212,18 @@ class Summary(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare.summarize(xlc, omc)
 
+    def test_pin_errors_of_another_shape_stop_the_comparison(self):
+        xlc, omc = histories()
+        omc["pins-std"][1] = [[0.01, 0.01], [0.01, 0.01]]
+        with self.assertRaises(SystemExit):
+            compare.summarize(xlc, omc)
+
+    def test_the_report_of_a_summary_without_pins_asks_to_rerun_the_stage(self):
+        summary = {"inputs": [], **compare.summarize(*histories())}
+        del summary["pins"]
+        with self.assertRaisesRegex(SystemExit, "rerun"):
+            compare.report(summary)
+
     def test_the_report_has_the_pin_power_differences(self):
         summary = {"inputs": [], **compare.summarize(*histories())}
         lines = compare.report(summary)
