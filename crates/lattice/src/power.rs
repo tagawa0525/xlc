@@ -53,8 +53,8 @@ pub fn to_msgpack(rates: &[f64], lattice: &Lattice) -> Result<Vec<u8>, MsgpackEr
     .to_msgpack()
 }
 
-/// ピンセルのある行と列だけを取り出した、行ごとの値
-fn pin_rows(rates: &[f64], lattice: &Lattice) -> Vec<Vec<f64>> {
+/// セルごとの値 `rates`（`Lattice` の順）の、ピンセルのある行と列だけを取り出した、行ごとの値
+pub fn pin_rows(rates: &[f64], lattice: &Lattice) -> Vec<Vec<f64>> {
     let columns = lattice.columns();
     let (rows, kept) = lattice.pin_rows_and_columns();
     rows.iter()

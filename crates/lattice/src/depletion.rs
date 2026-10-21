@@ -11,6 +11,8 @@
 //! 反応率は、領域ごと・核種ごとに、自己遮蔽した微視的断面積（SPH 因子を掛けない値）と物理的な中性子束の積を群で足し、
 //! 領域の体積で平均したもの。出力は Σ V N σf φ Q（Q はチェーンの MF3 MT18 の QI）が、初めの重金属の質量 × 出力密度に
 //! 等しくなるよう規格化する。2 次元の格子なので、体積と質量は高さ 1 cm あたり。
+//!
+//! 燃焼の履歴は、燃焼点ごとに、その点の組成で解いた輸送の k∞、ピン出力（`pin-powers` と同じ定義。ADR-0181）、少数群定数を持つ。
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -31,6 +33,7 @@ use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
 use crate::moc::{Options, available_order, solve_symmetric};
+use crate::power::{cell_fission_rates, pin_rows};
 use crate::shielding::shield_fuel_with;
 use crate::symmetry::Chosen;
 use crate::tracking::Tracking;
@@ -426,6 +429,8 @@ pub struct HistoryPoint {
     pub k: f64,
     /// [燃焼の領域][チェーンの核種] の数密度 (1/(barn cm))
     pub densities: Vec<Vec<f64>>,
+    /// ピン出力（`pin-powers` と同じ。[行（上から）][列（左から）]、核分裂のあるセルの平均が 1。ADR-0181）
+    pub pin_powers: Vec<Vec<f64>>,
     /// `[depletion]` の `few-group` があるときの、格子全体の少数群定数
     pub few_group: Option<FewGroup>,
     /// この点の組成で解いた輸送の核種の数
@@ -485,13 +490,14 @@ struct PointFile<'a> {
     burnup: f64,
     k_inf: f64,
     densities: &'a [Vec<f64>],
+    pin_powers: &'a [Vec<f64>],
     /// `xlc-table` の状態が 1 つのテーブル（ADR-0097）の map か nil
     few_group: Option<rmpv::Value>,
 }
 
 impl History {
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
-    /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, few_group}], seconds: {shielding, moc, rates,
+    /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
     /// matrix, cram}（時間の内訳 (s)）, solves}`
     pub fn to_msgpack(&self) -> anyhow::Result<Vec<u8>> {
         let points = self
@@ -511,6 +517,7 @@ impl History {
                     burnup: p.burnup,
                     k_inf: p.k,
                     densities: &p.densities,
+                    pin_powers: &p.pin_powers,
                     few_group,
                 })
             })
@@ -536,6 +543,7 @@ impl History {
 /// 1 回の輸送で点に残す値
 struct State {
     k: f64,
+    pin_powers: Vec<Vec<f64>>,
     few_group: Option<FewGroup>,
     transported: usize,
 }
@@ -822,6 +830,10 @@ pub fn run(
                 }
             }
         }
+        let pin_powers = pin_rows(
+            &cell_fission_rates(&solution, lattice, &region_materials)?,
+            lattice,
+        );
         // 中点の輸送の少数群定数は点に残らないので作らない
         let few_group = match &depletion.few_group {
             Some(DepletionFewGroup { bounds, pins }) if kept => {
@@ -853,6 +865,7 @@ pub fn run(
             rates,
             extra: State {
                 k: solution.k,
+                pin_powers,
                 few_group,
                 transported: composition.len(),
             },
@@ -876,6 +889,7 @@ pub fn run(
             burnup,
             k: p.extra.k,
             densities: p.densities,
+            pin_powers: p.extra.pin_powers,
             few_group: p.extra.few_group,
             transported: p.extra.transported,
         })
