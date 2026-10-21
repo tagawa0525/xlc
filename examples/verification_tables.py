@@ -572,7 +572,7 @@ def depletion_assembly_pins(sources: list[dict]) -> str:
             "燃焼度 (MWd/kg)",
             "rms (%)",
             "最大 (%)",
-            "最大の位置（行, 列）",
+            "最大の位置（行, 列。1 から）",
             "OpenMC の統計誤差 rms (%)",
         ],
         rows,

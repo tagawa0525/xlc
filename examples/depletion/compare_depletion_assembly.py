@@ -164,6 +164,13 @@ def pin_differences(
     diffs = []
     for members in orbits(n):
         theirs = orbit_mean(mean, members)
+        values = [ours[i][j] for i, j in members]
+        # xlc は対称操作で 1/8 を解いて展開するので、組の中の値は同じ（丸めは 1e-9 よりずっと小さい）。違えば格子が対称でないか入力の誤りで、
+        # 平均で隠さない
+        if max(values) - min(values) > 1e-9 * max(abs(v) for v in values):
+            raise SystemExit(
+                f"xlc pin powers differ within the symmetry orbit of {members[0]}: {values}"
+            )
         if theirs > 0:
             diffs.append(
                 (
@@ -307,8 +314,17 @@ def report(summary: dict) -> list[str]:
             f"{b:g} | {k['xlc']:.6f} | {k['openmc']:.6f} ± {k['openmc_std_pcm'] / 1e5:.6f} | "
             f"{k['diff_pcm']:+.0f} ± {k['openmc_std_pcm']:.0f} | {k['change_pcm']:+.0f} | {s * 100:.3f}"
         )
+    if (
+        not len(summary["burnup"])
+        == len(summary["pins"])
+        == len(summary["pin_std_rms"])
+    ):
+        raise SystemExit(
+            f"{len(summary['burnup'])} burnup points with {len(summary['pins'])} pin rows and "
+            f"{len(summary['pin_std_rms'])} error rows; rerun the stage"
+        )
     lines.append(
-        "ピン出力の差（対称操作の組、%）: 燃焼度 | 組 | rms | 最大 ± OpenMC の統計誤差 | 位置（行, 列） | OpenMC の統計誤差 rms"
+        "ピン出力の差（対称操作の組、%）: 燃焼度 | 組 | rms | 最大 ± OpenMC の統計誤差 | 位置（行, 列。1 から） | OpenMC の統計誤差 rms"
     )
     for b, p, s in zip(summary["burnup"], summary["pins"], summary["pin_std_rms"]):
         row, column = p["at"]
