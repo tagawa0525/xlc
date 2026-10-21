@@ -91,3 +91,4 @@ examples/ にコミットしていて、対比のために表の最後に並べ�
   するまで残す。消すのは派生物（build、install、venv）だけにし、git clone（src）は原本なので残すかをユーザーに確かめる。
   `references/openmc/endfb80-565`（565 K を含む endfb80 の上位集合）で `endfb80` を置き換えるかは決めていない。
   `references/history-rewrite/` は #0077 が閉じるまで消さない
+- 2026-10-21: `references/history-rewrite/`（1 度目の書き換えのツール）は、#0141 で nixfiles の history-rewrite に置き換えて消した
