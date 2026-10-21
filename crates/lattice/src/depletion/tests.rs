@@ -770,7 +770,10 @@ fn the_pin_powers_of_a_point_come_from_its_own_composition() {
         &PIN.replace("burnup = [0.05, 0.5, 2.0]", "burnup = [5.0]"),
     ));
     let (short, long) = (written_pin_powers(&short), written_pin_powers(&long));
-    assert_eq!(short[0], long[0]);
+    // MOC は並列に解くので、ビットの一致でなく丸めの水準で比べる
+    for (a, b) in short[0].iter().flatten().zip(long[0].iter().flatten()) {
+        assert!((a - b).abs() <= 1e-12, "{a} vs {b}");
+    }
     // 燃焼で組成が変われば、ピン出力も変わる
     assert_ne!(short[0], short[3]);
 }
