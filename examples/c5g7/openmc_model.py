@@ -1,18 +1,37 @@
 """C5G7 の 2D の問題を OpenMC の多群モードで解き、lattice と同じ形式のピンごとの核分裂率を書く。
 
-使い方: python3 openmc_model.py <作業ディレクトリ> [粒子数/世代] [世代数] [非アクティブバッチ数] [乱数のシード]
+使い方: python3 openmc_model.py model <入力> <モデルのディレクトリ>
+        python3 openmc_model.py run <入力> <モデルのディレクトリ> <作業ディレクトリ>
+        python3 openmc_model.py extract <入力> <作業ディレクトリ> <結果のディレクトリ>
+
+<入力> は openmc-c5g7.toml の形の TOML で、計算の条件をすべて書く（既定値はない。ADR-0130）: 1 世代の粒子数
+（`particles`）、世代数（`batches`）、非アクティブバッチ数（`inactive`）、乱数のシード（`seed`）、スレッド数（`threads`）。
+model は物質、形状、設定、tally を <モデルのディレクトリ>/model.xml に、多群の断面積を mgxs.h5 に書く（model.xml は
+mgxs.h5 のパスもスレッド数も含まない。このスクリプトを直しても、モデルが同じなら model.xml はバイト単位で変わらず、
+OpenMC を解き直さずに済む。ADR-0136）。run はそのモデルを解いて作業ディレクトリに statepoint を残し、extract は
+statepoint から k を k.json に、ピンごとの核分裂率を pins.msgpack に結果のディレクトリへ書く（ADR-0123）。
 
 断面積は c5g7-xs.toml（lattice と同じファイル）を読んで OpenMC の多群データに変換する。
 形状は c5g7.toml と同じく、左上と右下が UO2、右上と左下が MOX の集合体、右と下が水の反射体。
 """
 
+import os
 import sys
 from pathlib import Path
 
-import msgpack
 import numpy as np
 import openmc
 import tomllib
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from openmc_input import read_input
+from openmc_run import (
+    RUN_KEYS,
+    fuel_mean,
+    model_run_extract,
+    write_k,
+    write_pin_powers,
+)
 
 HERE = Path(__file__).resolve().parent
 PITCH = 1.26
@@ -30,14 +49,17 @@ def read_xs(path: Path) -> tuple[int, dict[str, dict[str, np.ndarray]]]:
     return data["groups"], materials
 
 
-def main() -> None:
-    work = Path(sys.argv[1]).resolve()
-    particles = int(sys.argv[2]) if len(sys.argv) > 2 else 100_000
-    batches = int(sys.argv[3]) if len(sys.argv) > 3 else 300
-    inactive = int(sys.argv[4]) if len(sys.argv) > 4 else 50
-    # 統計誤差の見積もりを確かめるには、種を変えて解き直す（同じ種では同じ結果になる）
-    seed = int(sys.argv[5]) if len(sys.argv) > 5 else 1
-    work.mkdir(parents=True, exist_ok=True)
+# 入力のキー。この問題は断面積が c5g7-xs.toml にあるので、問題と cross_sections.xml は要らない
+KEYS = RUN_KEYS - {"problem", "cross-sections"}
+
+
+def model(source: Path, directory: Path) -> None:
+    """問題の model.xml と多群の断面積 mgxs.h5 を `directory` に書く。"""
+    run = read_input(source, KEYS, set())
+    particles, batches, inactive, seed = (
+        run[key] for key in ("particles", "batches", "inactive", "seed")
+    )
+    directory.mkdir(parents=True, exist_ok=True)
 
     groups, data = read_xs(HERE / "c5g7-xs.toml")
     # 群境界は使わないが、OpenMC は昇順の境界を求める（群 1 が最も高いエネルギー）
@@ -60,9 +82,8 @@ def main() -> None:
         m.set_density("macro", 1.0)
         m.add_macroscopic(name)
         materials[name] = m
-    library.export_to_hdf5(str(work / "mgxs.h5"))
+    library.export_to_hdf5(str(directory / "mgxs.h5"))
     material_list = openmc.Materials(materials.values())
-    material_list.cross_sections = str(work / "mgxs.h5")
 
     circle = openmc.ZCylinder(r=RADIUS)
 
@@ -143,20 +164,36 @@ def main() -> None:
     tally.filters = [openmc.MeshFilter(mesh)]
     tally.scores = ["fission"]
 
-    model = openmc.Model(geometry, material_list, settings, openmc.Tallies([tally]))
-    statepoint = model.run(cwd=work, output=False)
-    with openmc.StatePoint(statepoint) as sp:
+    openmc.Model(
+        geometry, material_list, settings, openmc.Tallies([tally])
+    ).export_to_model_xml(directory / "model.xml")
+
+
+def solve(source: Path, directory: Path, work: Path) -> None:
+    """`directory` の model.xml を、同じ `directory` の mgxs.h5 と入力のスレッド数で解く。"""
+    run = read_input(source, KEYS, set())
+    work.mkdir(parents=True, exist_ok=True)
+    # model.xml に mgxs.h5 のパスを書かないので、環境変数で渡す（OpenMC は多群モードでこれを読む）
+    os.environ["OPENMC_MG_CROSS_SECTIONS"] = str((directory / "mgxs.h5").resolve())
+    openmc.run(
+        threads=run["threads"],
+        output=False,
+        cwd=work,
+        path_input=str((directory / "model.xml").resolve()),
+    )
+
+
+def extract(source: Path, work: Path, results: Path) -> None:
+    run = read_input(source, KEYS, set())
+    results.mkdir(parents=True, exist_ok=True)
+    with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         k = sp.keff
         values = sp.get_tally(name="fission").get_values(scores=["fission"]).ravel()
     # メッシュは x が速く変わり、y は下から上。lattice と同じく上の行から並べる
     rates = values.reshape(3 * N, 3 * N)[::-1, :]
-    positive = rates[rates > 0]
-    rates = rates / positive.mean()
-    (work / "pins.msgpack").write_bytes(
-        msgpack.packb({"format": "xlc-pin-powers", "rows": rates.tolist()})
-    )
-    print(f"k {k.nominal_value:.6f} +- {k.std_dev:.6f}")
+    write_pin_powers(results / "pins.msgpack", rates / fuel_mean(rates))
+    write_k(results / "k.json", "C5G7", k)
 
 
 if __name__ == "__main__":
-    main()
+    model_run_extract(model, solve, extract, __doc__)

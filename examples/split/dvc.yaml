@@ -1,0 +1,51 @@
+# 集合体を分けたノード（VERA 2B）の段階: 格子計算（lattice-1、lattice-2。ライブラリは examples/vera/dvc.yaml の xs の出力）→
+# 分けない（1 × 1）ケースと 2 × 2 のケースの core。実行するのは `dvc repro`（ADR-0123）。先に
+# `dvc checkout examples/vera/dvc.yaml` で vera.msgpack を戻す（ADR-0130）。
+stages:
+  lattice-1:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/lattice assembly-1.toml > lattice-1.out
+    deps:
+      - assembly-1.toml
+      - ../vera/vera.msgpack
+      - ../../bin/lattice
+    outs:
+      - fg-1.msgpack
+      - lattice-pins.msgpack
+      - lattice-1.out
+  lattice-2:
+    # 結果の k∞ は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/lattice assembly-2.toml > lattice-2.out
+    deps:
+      - assembly-2.toml
+      - ../vera/vera.msgpack
+      - ../../bin/lattice
+    outs:
+      - fg-2.msgpack
+      - lattice-2.out
+  core-1:
+    # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/core case-1.toml > core-1.out
+    deps:
+      - case-1.toml
+      - cycle-1.toml
+      - plant.toml
+      - assemblies-1.toml
+      - fg-1.msgpack
+      - ../../bin/core
+    outs:
+      - core-pins-1.msgpack
+      - core-1.out
+  core-2:
+    # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
+    cmd: ../../bin/core case-2.toml > core-2.out
+    deps:
+      - case-2.toml
+      - cycle-2.toml
+      - plant.toml
+      - assemblies-2.toml
+      - fg-2.msgpack
+      - ../../bin/core
+    outs:
+      - core-pins-2.msgpack
+      - core-2.out

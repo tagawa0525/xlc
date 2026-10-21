@@ -26,34 +26,30 @@ OpenMC のデータは examples/vera/openmc_library.py で作る（Pu-238〜242 
 
 ## 実行
 
+段階は DVC で実行する（ADR-0123）。OpenMC のライブラリとツールは examples/vera/dvc.yaml の段階の出力なので、先に戻す（ADR-0130）:
+
 ```sh
-bin/xs examples/mox/xs.toml                               # mox.msgpack
-bin/lattice examples/mox/pincell-mox1.toml
-cargo run --release -p xlc-lattice --example fuel_xs -- examples/mox/pincell-mox1.toml examples/mox/xlc-mox1.msgpack
-# リポジトリの根で（nix develop .#references の中）。ライブラリは examples/vera/dvc.yaml の openmc-index の段階の出力
-python3 examples/mox/openmc_model.py examples/vera/openmc-library/cross_sections.xml MOX-1 references/openmc/mox-1 \
-  examples/mox/mox.msgpack 1000000 250 50 1
-cp references/openmc/mox-1/fuel-xs.msgpack examples/mox/openmc-mox1.msgpack
-# リポジトリの根で（下の表はこの出力から）
-python3 examples/mox/compare_capture.py examples/mox/xs.toml examples/mox/xlc-mox1.msgpack \
-  examples/mox/openmc-mox1.msgpack Pu240 Pu239 Pu241 Pu242 U238 U235 Pu238 Am241 O16
+dvc checkout examples/vera/dvc.yaml
+~/.claude/scripts/slurm-run.sh -t 70 dvc-mox 'nix develop -c dvc repro examples/mox/dvc.yaml'
 ```
 
-MOX-2 は 1 を 2 に変えて同じように解く。OpenMC は 1 世代 100 万粒子・250 世代（最初の 50 世代を捨てる）、
-乱数のシード 1 で、16 スレッドで 1 問題 16 分。
+段階は `xs`（`mox.msgpack`）、`lattice-mox<N>`（格子計算の k∞）、`fuel-xs-mox<N>`（xlc の燃料の核種ごとの実効断面積、
+`xlc-mox<N>.msgpack`）、`openmc-mox<N>-model`（OpenMC のモデル model.xml）、`openmc-mox<N>`（OpenMC。入力は `openmc-mox<N>.toml`）、`openmc-mox<N>-extract`（k と
+`openmc-mox<N>-results/fuel-xs.msgpack`）、`compare-k-mox<N>`（k の差）、`compare-capture-mox<N>`（下の表）。
+OpenMC は 1 世代 100 万粒子・250 世代（最初の 50 世代を捨てる）、乱数のシード 1、16 スレッドで 1 問題 16 分ほど。
 
 ## 結果
 
-xlc は 60cf97d0（分岐点 4b644566。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124）、2026-10-14。ライブラリの作り直しと格子計算は Slurm の排他のジョブ 332 で、ほかの例とまとめて流した（時間は書かない）。
-前の値（e4dbc0de、分岐点 cde7206f）と k は 6 桁で同じ。下の燃料の実効断面積の表は、60cf97d0 の `mox.msgpack` で `fuel_xs` と `compare_capture.py` を 92f84aa6（分岐点 bf5f08ef）で走らせ直し（手元。lattice の
-コードは 60cf97d0 と同じ）、表の桁で同じだった。
+xlc と OpenMC は 90b83b28（分岐点 fea4948a）、2026-10-21。Slurm の排他のジョブで、ライブラリ、格子計算、OpenMC を続けて流した（`dvc.lock` は 2e3a4d26）。
+OpenMC の k は前の測定（60cf97d0、2026-10-14）と 6 桁で同じ。xlc の k は xs に ADR-0167 と ADR-0170 が入った分だけ動いた（前の値は MOX-1 1.208694、MOX-2 1.255920）。下の燃料の実効断面積の表は、この実行の
+`compare-capture-mox<N>.out` と表の桁で同じだった。
 
 | 問題  | xlc      | OpenMC              | 差       |
 | ----- | -------- | ------------------- | -------- |
-| MOX-1 | 1.208694 | 1.210946 ± 0.000062 | −225 pcm |
-| MOX-2 | 1.255920 | 1.257050 ± 0.000062 | −113 pcm |
+| MOX-1 | 1.208759 | 1.210946 ± 0.000062 | −219 pcm |
+| MOX-2 | 1.255987 | 1.257050 ± 0.000062 | −106 pcm |
 
-[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) のライブラリで、k の差は +79、+178 pcm から −225、−113 pcm に動いた（燃料の実効断面積の差は変わらない）。
+[ADR-0133](../../docs/adr/0133-scatter-h-in-h2o-up-to-the-evaluated-sab-limit.md) のライブラリで、k の差は +79、+178 pcm から −219、−106 pcm に動いた（ADR-0167 と ADR-0170 の分を含む）（燃料の実効断面積の差は変わらない）。
 
 燃料の核種ごとの実効捕獲断面積の差（xlc / OpenMC − 1）。xlc の出力には捕獲がないので全 − 弾性 − 核分裂を
 OpenMC の (n,γ) と比べ、非弾性散乱などのほかの反応がない群だけを比べる（`compare_capture.py`）。ENDF の MF3 の
