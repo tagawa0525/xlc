@@ -5,63 +5,33 @@
 stages:
   lattice-31:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- assembly-31.toml > lattice-31.out
+    cmd: ../../bin/lattice assembly-31.toml > lattice-31.out
     deps:
       - assembly-31.toml
       - ../vera/vera.msgpack
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - fg-31.msgpack
       - lattice-pins-31.msgpack
       - lattice-31.out
   lattice-21:
     # 結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- assembly-21.toml > lattice-21.out
+    cmd: ../../bin/lattice assembly-21.toml > lattice-21.out
     deps:
       - assembly-21.toml
       - ../vera/vera.msgpack
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - fg-21.msgpack
       - lattice-pins-21.msgpack
       - lattice-21.out
   colorset:
     # カラーセット全体の MOC。結果の k∞ は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-lattice -- colorset.toml > colorset.out
+    cmd: ../../bin/lattice colorset.toml > colorset.out
     deps:
       - colorset.toml
       - ../vera/vera.msgpack
-      - ../../crates/lattice/src
-      - ../../crates/lattice/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/lattice
     outs:
       - moc-pins.msgpack
       - fg-node-31a.msgpack
@@ -85,7 +55,7 @@ stages:
       - fg-21-nodf.msgpack
   core:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-core -- case.toml > core.out
+    cmd: ../../bin/core case.toml > core.out
     deps:
       - case.toml
       - cycle.toml
@@ -93,23 +63,13 @@ stages:
       - fg-31.msgpack
       - fg-21.msgpack
       - plant.toml
-      - ../../crates/core/src
-      - ../../crates/core/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/core
     outs:
       - core-pins.msgpack
       - core.out
   core-node:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-core -- case-node.toml > core-node.out
+    cmd: ../../bin/core case-node.toml > core-node.out
     deps:
       - case-node.toml
       - cycle-node.toml
@@ -119,22 +79,12 @@ stages:
       - fg-node-21b.msgpack
       - fg-node-31b.msgpack
       - plant.toml
-      - ../../crates/core/src
-      - ../../crates/core/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/core
     outs:
       - core-node.out
   core-nodf:
     # 結果（k_eff、漏れ、集合体ごとの核分裂率）は標準出力に出るので、ファイルに受ける
-    cmd: cargo run --release -p xlc-core -- case-nodf.toml > core-nodf.out
+    cmd: ../../bin/core case-nodf.toml > core-nodf.out
     deps:
       - case-nodf.toml
       - cycle-nodf.toml
@@ -142,17 +92,7 @@ stages:
       - fg-31-nodf.msgpack
       - fg-21-nodf.msgpack
       - plant.toml
-      - ../../crates/core/src
-      - ../../crates/core/Cargo.toml
-      - ../../crates/numeric/src
-      - ../../crates/numeric/Cargo.toml
-      - ../../crates/format/src
-      - ../../crates/format/Cargo.toml
-      - ../../Cargo.toml
-      - ../../Cargo.lock
-      - ../../rust-toolchain.toml
-      - ../../.cargo/config.toml
-      - ../../flake.lock
+      - ../../bin/core
     outs:
       - core-pins-nodf.msgpack
       - core-nodf.out
