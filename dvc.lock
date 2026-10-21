@@ -17,8 +17,8 @@ stages:
       size: 1153
     - path: crates
       hash: md5
-      md5: 6a0be93785a1957a42260b2acf792eeb.dir
-      size: 2883519
+      md5: f74e9ff7ea1d10458acd3069d770ee65.dir
+      size: 2885164
       nfiles: 220
     - path: flake.lock
       hash: md5
@@ -26,16 +26,16 @@ stages:
       size: 1108
     - path: flake.nix
       hash: md5
-      md5: 2cb69e7c1225396d09ab219911b1d2a2
-      size: 13902
+      md5: 76084faabc895d0497215369e71cb8b0
+      size: 13944
     - path: rust-toolchain.toml
       hash: md5
       md5: 87a81bbb3d955b97621800bbd7d234b7
       size: 98
     - path: scripts/build-binaries.sh
       hash: md5
-      md5: aa097eb927d8bbdb0ac867395003ce8e
-      size: 4622
+      md5: 91c95f93de4411739daf8a2740e4e694
+      size: 4643
       isexec: true
     outs:
     - path: bin/chain
