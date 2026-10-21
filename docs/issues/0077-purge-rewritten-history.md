@@ -14,9 +14,11 @@ resolution:
 
 2026-10-11 に履歴を書き換えた（openmc-*.msgpack を履歴から消し、語を直し、記録の中の hash を付け直した）。書き換える前の
 オブジェクトは reflog から参照されていて、リポジトリに残っている。元の履歴は GitHub の private リポジトリ
-tagawa0525/xlc-history-backup にある。2026-10-21 に 2 度目の書き換え（#0141。nixfiles の history-rewrite で、ja-terms の
+tagawa0525/xlc-history-backup にある。そのときのツール（規則、filter-repo の callback、hash の付け直しを繰り返す iterate3.sh、
+全コミットの検証 verify2.py。git で追跡しない references/history-rewrite/）は、#0141 で nixfiles の history-rewrite に
+置き換えて消した。2026-10-21 に 2 度目の書き換え（#0141。nixfiles の history-rewrite で、ja-terms の
 辞書で語を直した）をした。その作業ディレクトリ ~/.local/share/history-rewrite/xlc-2026-10-21/ に、書き換える前のミラー
-（original.git、889 MB）、元の番号から新しい番号への対応表（commit-map）、worktree の控えのパッチがある。
+（original.git、889 MB）、元の番号から新しい番号への対応表（commit-map）、worktree の未コミットの変更の控えのパッチがある。
 
 関係する ADR: なし
 
@@ -24,7 +26,8 @@ tagawa0525/xlc-history-backup にある。2026-10-21 に 2 度目の書き換え
 
 ユーザーが、書き換えた後の履歴で困ることがないと判断したら
 `git reflog expire --expire=now --all && git gc --prune=now` を行い、上の作業ディレクトリを消す（どちらも取り消せないので、
-行う前にユーザーに確かめる）。
+行う前にユーザーに確かめる）。作業ディレクトリを消す前に、控えのパッチの変更（feat/core-cmfd）が
+コミットされたかを確かめる。
 
 ## 経緯
 
