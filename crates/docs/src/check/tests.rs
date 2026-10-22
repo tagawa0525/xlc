@@ -900,3 +900,81 @@ fn checks_links() {
         ],
     );
 }
+
+/// ADR-2 が ADR-1 の一部を置き換えた形にする（`amends` と `amended-by` は書いたときだけ検査する）。
+fn with_amendment(files: &mut BTreeMap<String, String>, amends: &str, amended_by: &str) {
+    if !amends.is_empty() {
+        edit(
+            files,
+            ADR2,
+            "issues:",
+            &format!("amends: [{amends}]\nissues:"),
+        );
+    }
+    if !amended_by.is_empty() {
+        edit(
+            files,
+            ADR1,
+            "issues:",
+            &format!("amended-by: [{amended_by}]\nissues:"),
+        );
+    }
+}
+
+#[test]
+fn accepts_amends_linked_both_ways() {
+    let mut files = base();
+    with_amendment(&mut files, &adr(1), &adr(2));
+    assert_violations(files, &[]);
+}
+
+#[test]
+fn requires_amended_by_for_amends() {
+    let mut files = base();
+    with_amendment(&mut files, &adr(1), "");
+    assert_violations(
+        files,
+        &[format!(
+            "{ADR2}: amends {}, but {} is not amended-by {}",
+            adr(1),
+            adr(1),
+            adr(2)
+        )],
+    );
+}
+
+#[test]
+fn requires_amends_for_amended_by() {
+    let mut files = base();
+    with_amendment(&mut files, "", &adr(2));
+    assert_violations(
+        files,
+        &[format!(
+            "{ADR1}: amended-by {}, but {} does not amend {}",
+            adr(2),
+            adr(2),
+            adr(1)
+        )],
+    );
+}
+
+#[test]
+fn checks_amendment_targets() {
+    let mut files = base();
+    with_amendment(&mut files, &adr(99), "");
+    assert_violations(
+        files,
+        &[
+            format!("{ADR2}: `amends` names {}, which does not exist", adr(99)),
+            format!("{ADR2}:6: {} does not exist", adr(99)),
+        ],
+    );
+}
+
+#[test]
+fn proposed_amends_leaves_the_old_adr_whole() {
+    let mut files = base();
+    with_amendment(&mut files, &adr(1), "");
+    edit(&mut files, ADR2, "status: accepted", "status: proposed");
+    assert_violations(files, &[]);
+}
