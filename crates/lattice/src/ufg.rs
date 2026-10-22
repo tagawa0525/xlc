@@ -28,7 +28,7 @@ const WINDOW_POINTS: usize = 16;
 
 use crate::cp::{CpError, Cylinder};
 use crate::input::MaterialInput;
-use crate::track_table::{DEFAULT_DENSITY, TableError, TrackTable};
+use crate::track_table::{DEFAULT_DENSITY, Layout, MAX_DEVIATION, TableError, TrackTable};
 use xlc_numeric::lu::solve;
 
 /// ポイントワイズの断面積の列の数: [全, 弾性散乱, 核分裂, νσf, 捕獲]
@@ -75,10 +75,6 @@ pub enum UfgError {
         "ring {0}: the total cross section is 0 at some lethargy point, so the track table cannot cover it (use `track-table = false`)"
     )]
     ZeroTotal(usize),
-    #[error(
-        "the track table needs {nodes} nodes, not fewer than the {points} lethargy points (use a smaller `track-table` or `track-table = false`)"
-    )]
-    TableTooLarge { nodes: usize, points: usize },
 }
 
 /// セルの減速計算の結果。
@@ -183,7 +179,9 @@ impl Data<'_> {
 pub enum Collision {
     /// 格子点ごとに衝突確率法で求める（表の検証の基準）
     Exact,
-    /// 物質ごとの ln Σ の格子（10 倍あたり `density` 点）で求めた値から内挿する（[`TrackTable`]。ADR-0156）
+    /// 軸ごとの ln Σ の格子（10 倍あたり `density` 点）で求めた値から内挿する（[`TrackTable`]。ADR-0156）。核種の並びが同じ
+    /// 物質は 1 つの軸を共有して 1 次の展開で内挿し、展開の外の格子点と、表で衝突確率が減らないセルは格子点ごとに求める
+    /// （ADR-0182）
     Table { density: usize },
 }
 
@@ -346,10 +344,10 @@ pub fn slowing_down_with(
         slabs: vec![(0.0, Vec::new()); data.len()],
     };
 
-    // 表で内挿するなら、物質（組成と温度が同じリング）ごとの全断面積の範囲を格子点の全体で先に求めて表を作る
+    // 表で内挿するなら、軸ごとの全断面積の範囲を格子点の全体で先に求めて表を作る（表で衝突確率が減らないセルは作らない）
     let table = match collision {
         Collision::Exact => None,
-        Collision::Table { density } => Some(track_table(cell, &data, &entries, &points, density)?),
+        Collision::Table { density } => track_table(cell, &data, &entries, &points, density)?,
     };
 
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
@@ -370,16 +368,21 @@ pub fn slowing_down_with(
             values.push(row);
         }
         let evaluated = Instant::now();
+        let exact = |row: &[Row]| {
+            let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
+            cell.tracks(&totals).map_err(UfgError::from)
+        };
         let tracks = values
             .par_iter()
             .map(|row| match &table {
-                None => {
-                    let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
-                    cell.tracks(&totals).map_err(UfgError::from)
-                }
+                None => exact(row),
                 Some((table, first)) => {
                     let sigma: Vec<f64> = first.iter().map(|&i| total(&entries[i], row)).collect();
-                    table.tracks(&sigma).map_err(UfgError::from)
+                    match table.tracks(&sigma)? {
+                        Some(tracks) => Ok(tracks),
+                        // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
+                        None => exact(row),
+                    }
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -447,14 +450,15 @@ fn total(ring: &[(usize, f64)], row: &[Row]) -> f64 {
 }
 
 /// セルの飛程の表と、[物質] の最初のリングの番号。同じ組成（核種と温度、個数密度）のリングは全断面積が同じなので
-/// 1 つの物質にまとめる。範囲は格子点 `points` の全体の全断面積の最小と最大
+/// 1 つの物質にまとめ、核種の並び（核種と温度）が同じ物質は 1 つの軸を共有する（ADR-0182）。範囲は格子点 `points` の
+/// 全体での軸の値（中心）の最小と最大。表で求める衝突確率の数が格子点の数以上なら、表を作らずに `None`（格子点ごとに求める）
 fn track_table(
     cell: &Cylinder,
     data: &[Data],
     entries: &[Vec<(usize, f64)>],
     points: &[(f64, bool)],
     density: usize,
-) -> Result<(TrackTable, Vec<usize>), UfgError> {
+) -> Result<Option<(TrackTable, Vec<usize>)>, UfgError> {
     let mut first: Vec<usize> = Vec::new();
     let classes: Vec<Option<usize>> = entries
         .iter()
@@ -472,15 +476,34 @@ fn track_table(
             })
         })
         .collect();
-    let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; first.len()];
+    // 物質ごとの軸: 核種の並びが同じ物質の最初のものの軸
+    let nuclides = |i: usize| entries[i].iter().map(|&(k, _)| k);
+    let mut leaders: Vec<usize> = Vec::new();
+    let axes: Vec<usize> = first
+        .iter()
+        .map(
+            |&i| match leaders.iter().position(|&r| nuclides(r).eq(nuclides(i))) {
+                Some(a) => a,
+                None => {
+                    leaders.push(i);
+                    leaders.len() - 1
+                }
+            },
+        )
+        .collect();
+    let layout = Layout::new(cell, classes, axes)?;
+    let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; leaders.len()];
+    // 展開の上限を超えて格子点ごとに求める格子点の数
+    let mut outside = 0usize;
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
+    let mut sigma = vec![0.0; first.len()];
     for &(e, below) in points {
         let row = data
             .iter()
             .zip(cursors.iter_mut())
             .map(|(d, c)| evaluate(d, c, e, below))
             .collect::<Result<Vec<_>, _>>()?;
-        for (range, &i) in ranges.iter_mut().zip(&first) {
+        for (s, &i) in sigma.iter_mut().zip(&first) {
             let t = total(&entries[i], &row);
             // 格子点ごとに求めるとき（[`Cylinder::tracks`]）と同じく、有限で負でない全断面積だけを受ける
             // （min と max は NaN を飛ばすので、ここで止める）
@@ -491,19 +514,64 @@ fn track_table(
             if t == 0.0 {
                 return Err(UfgError::ZeroTotal(i));
             }
-            range[0] = range[0].min(t);
-            range[1] = range[1].max(t);
+            *s = t;
+        }
+        if !widen_ranges(&layout, &sigma, &mut ranges) {
+            outside += 1;
         }
     }
-    // 格子点ごとに求めるより多くの衝突確率を求める表は、作る意味がなく、メモリも大きいので、作る前に止める
-    let nodes = TrackTable::count(&ranges, density)?;
-    if nodes >= points.len() {
-        return Err(UfgError::TableTooLarge {
-            nodes,
-            points: points.len(),
-        });
+    // どの格子点も展開の外なら、表を読む格子点がない
+    if outside == points.len() {
+        tracing::info!(
+            points = points.len(),
+            "UFG tracks point by point: every point is beyond the ring expansion"
+        );
+        return Ok(None);
     }
-    Ok((TrackTable::new(cell, classes, &ranges, density)?, first))
+    // 表で求める衝突確率（格子点の組ごとの表の値と微分、展開の外の格子点）が格子点ごとより多いなら、表は速くならず、メモリも
+    // 大きいので作らない。組の数が usize に収まらない表も同じ
+    let evaluations = match TrackTable::count(&ranges, density) {
+        Ok(nodes) => nodes
+            .checked_mul(layout.evaluations())
+            .and_then(|n| n.checked_add(outside)),
+        Err(TableError::Size) => None,
+        Err(e) => return Err(e.into()),
+    };
+    if evaluations.is_none_or(|n| n >= points.len()) {
+        tracing::info!(
+            points = points.len(),
+            table = evaluations,
+            "UFG tracks point by point: the track table needs as many collision probabilities"
+        );
+        return Ok(None);
+    }
+    // 軸を共有する物質のあるセル（リングごとの燃料）は、展開の外の格子点の数を残す（ADR-0182 の確認に使う）
+    if layout.evaluations() > 1 {
+        tracing::info!(
+            points = points.len(),
+            outside,
+            evaluations,
+            "UFG track table with ring expansion"
+        );
+    }
+    Ok(Some((
+        TrackTable::new(cell, layout, &ranges, density)?,
+        first,
+    )))
+}
+
+/// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`MAX_DEVIATION`] 以下）なら、軸の範囲 `ranges` をその中心まで広げて
+/// true。展開の外の格子点は表を読まない（格子点ごとに求める）ので、範囲を広げずに false
+fn widen_ranges(layout: &Layout, sigma: &[f64], ranges: &mut [[f64; 2]]) -> bool {
+    let (centers, deviation) = layout.centers(sigma);
+    if deviation > MAX_DEVIATION {
+        return false;
+    }
+    for (range, c) in ranges.iter_mut().zip(centers) {
+        range[0] = range[0].min(c);
+        range[1] = range[1].max(c);
+    }
+    true
 }
 
 /// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step` より広いところは点を足す。

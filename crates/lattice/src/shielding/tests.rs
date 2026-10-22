@@ -1207,8 +1207,8 @@ mod lattice {
     }
 
     /// 3 つの燃料のリングの物質を内側から順に置いた、UFG で遮蔽するピンセル。物質は `rings` の名前と U-235 の数密度
-    /// の組（核種の並びは U-238、U-235、O-16）と、被覆管と水。飛程は格子点ごとに求める（飛程の表は物質ごとの軸の
-    /// 直積なので、燃料のリングの物質が 3 つあると大きすぎる）
+    /// の組（核種の並びは U-238、U-235、O-16）と、被覆管と水。飛程は既定の求め方（燃料のリングの物質は飛程の表の 1 つの軸を
+    /// 共有する。ADR-0182）
     fn ring_fuel(rings: [(&str, f64); 3]) -> (Library, FuelShielding, Vec<MaterialInput>) {
         let library = resonant_library();
         let fuel = |name: &str, u235: f64| MaterialInput {
@@ -1248,11 +1248,14 @@ mod lattice {
         ]
         .map(String::from)
         .to_vec();
-        let options = ShieldingOptions {
-            collision: crate::ufg::Collision::Exact,
-            ..ShieldingOptions::default()
-        };
-        let shielded = shield_fuel(&library, &tracking, &materials, &regions, &options).unwrap();
+        let shielded = shield_fuel(
+            &library,
+            &tracking,
+            &materials,
+            &regions,
+            &ShieldingOptions::default(),
+        )
+        .unwrap();
         (library, shielded, materials)
     }
 

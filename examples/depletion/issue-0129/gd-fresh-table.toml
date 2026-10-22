@@ -1,0 +1,200 @@
+# #0129 の試行: 2O の Gd のピンのピンセル（make_inputs.py が書く）
+library = "../p2/depletion.msgpack"
+medium = "gd-fresh-table.medium.msgpack"
+pitch = 1.26
+azimuthal = 30
+spacing = 0.03
+rows = ["gd"]
+
+[material.zircaloy]
+temperature = 600
+
+[material.zircaloy.nuclides]
+Cr-50 = 3.301210e-06
+Cr-52 = 6.366060e-05
+Cr-53 = 7.218600e-06
+Cr-54 = 1.796860e-06
+Fe-54 = 8.683070e-06
+Fe-56 = 1.363060e-04
+Fe-57 = 3.147890e-06
+Fe-58 = 4.189260e-07
+Zr-90 = 2.188650e-02
+Zr-91 = 4.772920e-03
+Zr-92 = 7.295510e-03
+Zr-94 = 7.393350e-03
+Zr-96 = 1.191100e-03
+Sn-112 = 4.680660e-06
+Sn-114 = 3.184780e-06
+Sn-115 = 1.640640e-06
+Sn-116 = 7.016160e-05
+Sn-117 = 3.705920e-05
+Sn-118 = 1.168720e-04
+Sn-119 = 4.145040e-05
+Sn-120 = 1.572120e-04
+Sn-122 = 2.234170e-05
+Sn-124 = 2.793920e-05
+
+[material.water]
+temperature = 600
+
+[material.water.nuclides]
+O-16 = 2.481120e-02
+H-1 = 4.962240e-02
+B-10 = 1.070700e-05
+B-11 = 4.309710e-05
+
+[material.gd0]
+temperature = 600
+
+[material.gd0.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+[material.gd1]
+temperature = 600
+
+[material.gd1.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+[material.gd2]
+temperature = 600
+
+[material.gd2.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+[material.gd3]
+temperature = 600
+
+[material.gd3.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+[material.gd4]
+temperature = 600
+
+[material.gd4.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+[material.gd5]
+temperature = 600
+
+[material.gd5.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+[material.gd6]
+temperature = 600
+
+[material.gd6.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+[material.gd7]
+temperature = 600
+
+[material.gd7.nuclides]
+U-234 = 3.180960e-06
+U-235 = 3.905000e-04
+U-236 = 1.793000e-06
+U-238 = 2.102990e-02
+Gd-152 = 3.359600e-06
+Gd-154 = 3.661900e-05
+Gd-155 = 2.486060e-04
+Gd-156 = 3.438490e-04
+Gd-157 = 2.628840e-04
+Gd-158 = 4.172550e-04
+Gd-160 = 3.671980e-04
+O-16 = 4.537050e-02
+
+# Gd 燃料のピン（リングごとに別の物質。ギャップは真空）
+[cell.gd]
+zones = [
+  { material = "gd0", radius = 0.1448154688, rings = 1 },
+  { material = "gd1", radius = 0.2048, rings = 1 },
+  { material = "gd2", radius = 0.2508277497, rings = 1 },
+  { material = "gd3", radius = 0.2896309376, rings = 1 },
+  { material = "gd4", radius = 0.3238172324, rings = 1 },
+  { material = "gd5", radius = 0.3547240054, rings = 1 },
+  { material = "gd6", radius = 0.3831457164, rings = 1 },
+  { material = "gd7", radius = 0.4096, rings = 1 },
+  { material = "void", radius = 0.418, rings = 1 },
+  { material = "zircaloy", radius = 0.475, rings = 1 },
+  { material = "water", radius = 0.63, rings = 3 },
+  { material = "water", radius = 0.75, rings = 2 },
+  { material = "water", rings = 1 },
+]
+sectors = 8
+
