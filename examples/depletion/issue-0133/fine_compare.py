@@ -28,6 +28,8 @@ def xlc_integral(a, c):
     return np.trapezoid(np.interp(grid, u, F), grid)
 
 
+if not (e.min() <= lo * 1.0001 and hi <= e.max() * 1.0001):
+    raise SystemExit(f"{lo}-{hi} eV is outside the UFG range {e.min()}-{e.max()} eV")
 inside = (b[:-1] >= lo * 0.9999) & (b[1:] <= hi * 1.0001)
 idx = np.where(inside)[0]
 px = np.array([xlc_integral(b[i], b[i + 1]) for i in idx])
