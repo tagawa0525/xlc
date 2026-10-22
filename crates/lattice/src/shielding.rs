@@ -505,7 +505,7 @@ pub fn shield_fuel_with(
     let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> = solving
         .par_iter()
         .map(|&(cell, ring_materials, rings)| {
-            let _pin = tracing::info_span!(parent: &shielding, "pin", cell).entered();
+            let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
             let factors = factors[cell]
                 .as_ref()
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
@@ -522,7 +522,7 @@ pub fn shield_fuel_with(
                     .collect::<Result<_, _>>()?,
             };
             let material = pin_fuel(lattice, cell, materials, ring_materials);
-            let carlvik = tracing::info_span!("carlvik")
+            let carlvik = tracing::debug_span!("carlvik")
                 .in_scope(|| shield_material(library, &material, &equivalence, options, cell))?;
             let pin_cell = PinRings {
                 lattice,
@@ -1253,7 +1253,7 @@ fn solve_equivalent_cell<'a>(
         .into_iter()
         .chain(radii[pin.rings..start].iter().copied())
         .collect();
-    let sum = tracing::info_span!("equivalent-radius").in_scope(
+    let sum = tracing::debug_span!("equivalent-radius").in_scope(
         || -> Result<f64, SelfShieldingError> {
             let mut sum = 0.0;
             for (g, &c) in dancoff.iter().enumerate().take(bottom).skip(top) {
@@ -1389,7 +1389,7 @@ fn shield_cell(
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut rings = Vec::with_capacity(inputs.len());
     let mut ring_nuclides = Vec::with_capacity(inputs.len());
-    tracing::info_span!("ring-materials").in_scope(|| -> Result<(), SelfShieldingError> {
+    tracing::debug_span!("ring-materials").in_scope(|| -> Result<(), SelfShieldingError> {
         for (j, input) in inputs.iter().enumerate() {
             let Some(m) = input else {
                 rings.push(None);
@@ -1444,7 +1444,7 @@ fn shield_cell(
     if *frame && let Some(last) = fixed.last_mut() {
         *last = true;
     }
-    let sph = tracing::info_span!("sph").in_scope(|| {
+    let sph = tracing::debug_span!("sph").in_scope(|| {
         sph_factors(
             cylinder,
             &multigroup,

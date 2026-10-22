@@ -209,7 +209,7 @@ pub fn slowing_down(
 }
 
 /// [`slowing_down`] の、飛程の求め方を `collision` で選ぶもの。
-#[tracing::instrument(name = "ufg", skip_all)]
+#[tracing::instrument(name = "ufg", level = "debug", skip_all)]
 pub fn slowing_down_with(
     library: &Library,
     cell: &Cylinder,
@@ -413,7 +413,7 @@ pub fn slowing_down_with(
     }
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
     // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成
-    tracing::info!(
+    tracing::debug!(
         points = u.len(),
         union,
         jumps = jumps.len(),
