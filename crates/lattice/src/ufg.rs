@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
 
-use xlc_format::library::{Library, LookupError, Shielded, TemperatureData};
+use xlc_format::library::{Library, LookupError, Pointwise, Shielded, TemperatureData};
 
 /// 1つの窓（散乱で届くレサジーの幅 Δ）に入れる格子点の最少の数。xs のライブラリの重みの減速計算の同名の定数とは
 /// 独立に選べる、この計算の格子の細かさの設定である。同じ減速の式を同じ格子の作り方で解くので、xs で収束を確かめた
@@ -66,10 +66,6 @@ pub enum UfgError {
     Singular(f64),
     #[error("ring {ring}: non-finite group constants in group {group}")]
     NonFinite { ring: usize, group: usize },
-    #[error(
-        "ring {0}: the background must give, for each ring, one entry per nuclide of its material (none for a void ring) with every group"
-    )]
-    Background(usize),
     #[error(transparent)]
     Lookup(#[from] LookupError),
     #[error(transparent)]
@@ -159,48 +155,25 @@ fn range_below(library: &Library, top: f64) -> Result<[f64; 2], UfgError> {
     Ok([low, high])
 }
 
-/// 1つの核種（名前と温度の組）か、1つのリングの背景の減速計算のデータ
+/// 1つの核種（名前と温度の組）の減速計算のデータ
 struct Data<'a> {
     name: &'a str,
     /// 1/(1 − α)
     gain: f64,
     /// 窓の幅 Δ = ln(1/α)（α = 0 なら無限）
     width: f64,
-    source: Source<'a>,
-}
-
-/// 減速計算の断面積の出どころ
-enum Source<'a> {
     /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの）
-    Pointwise(Box<Cow<'a, TemperatureData>>),
-    /// リングの背景の核種をまとめた、群の中で一定の巨視的な断面積 (1/cm)。[ライブラリの群] の [全, 弾性散乱, 0, 0, 0]
-    /// （背景の核種の群定数は減速計算の入力のまま出すので、反応率の列は使わない）
-    Groups { bounds: &'a [f64], rows: Vec<Row> },
+    table: Cow<'a, TemperatureData>,
 }
 
 impl Data<'_> {
-    /// ポイントワイズの断面積のエネルギーの格子（昇順。背景は空）
-    fn energies(&self) -> &[f64] {
-        match &self.source {
-            Source::Pointwise(t) => &t.pointwise.energy,
-            Source::Groups { .. } => &[],
-        }
+    fn pointwise(&self) -> &Pointwise {
+        &self.table.pointwise
     }
 
-    /// 範囲の上での弾性散乱の群 `g` の値（核種は無限希釈の群定数、背景は巨視的な断面積）
-    fn elastic(&self, g: usize) -> f64 {
-        match &self.source {
-            Source::Pointwise(t) => t.shielded[0].elastic[g],
-            Source::Groups { rows, .. } => rows[g][1],
-        }
-    }
-
-    /// 降順に引くときの `evaluate` の位置の初めの値
-    fn first_cursor(&self) -> usize {
-        match &self.source {
-            Source::Pointwise(t) => t.pointwise.energy.len(),
-            Source::Groups { .. } => 0,
-        }
+    /// 範囲の上で使う無限希釈の弾性散乱の群定数
+    fn elastic(&self) -> &[f64] {
+        &self.table.shielded[0].elastic
     }
 }
 
@@ -225,41 +198,23 @@ impl Default for Collision {
 }
 
 /// セル `cell` の、範囲 `range`（[`cell_range`]）の減速計算。`rings` はリングごとの物質（真空は `None`）。
-/// すべての核種をポイントワイズの断面積で解き、飛程は既定の求め方（[`Collision::default`]）で求める。
+/// 飛程は既定の求め方（[`Collision::default`]）で求める。
 pub fn slowing_down(
     library: &Library,
     cell: &Cylinder,
     rings: &[Option<&MaterialInput>],
     range: [f64; 2],
 ) -> Result<CellSpectrum, UfgError> {
-    slowing_down_with(
-        library,
-        cell,
-        rings,
-        &no_background(rings),
-        range,
-        Collision::default(),
-        None,
-    )
+    slowing_down_with(library, cell, rings, range, Collision::default(), None)
 }
 
-/// [`slowing_down_with`] の、背景の核種のない（すべての核種をポイントワイズの断面積で解く）`background`
-pub fn no_background(rings: &[Option<&MaterialInput>]) -> Vec<Vec<Option<Shielded>>> {
-    rings
-        .iter()
-        .map(|m| vec![None; m.map_or(0, |m| m.composition.len())])
-        .collect()
-}
-
-/// [`slowing_down`] の、背景の核種と飛程の求め方を選ぶもの。`background` は [リング][核種（物質の組成の順）] の、群の中で
-/// 一定とする群定数（ライブラリのすべての群）で、`None` の核種はポイントワイズの断面積で解く。リングの背景の核種は、減速計算では
-/// 1 つの項にまとめ（[`lump`]）、群定数は核種のポイントワイズの断面積をリングの中性子束で縮約して返す（[`collapse`]。ADR-0185）。
+/// [`slowing_down`] の、飛程の求め方を `collision` で選び、`thinning` が `Some(許容差)` なら格子を間引くもの（[`thin`]。
+/// 核種の群定数は、核種自身のポイントワイズの断面積の格子でリングの中性子束を内挿して縮約する（[`collapse`]。ADR-0185））。
 #[tracing::instrument(name = "ufg", level = "debug", skip_all)]
 pub fn slowing_down_with(
     library: &Library,
     cell: &Cylinder,
     rings: &[Option<&MaterialInput>],
-    background: &[Vec<Option<Shielded>>],
     range: [f64; 2],
     collision: Collision,
     thinning: Option<f64>,
@@ -284,44 +239,16 @@ pub fn slowing_down_with(
     if !(low < high && low >= pointwise[0] && high <= pointwise[1]) {
         return Err(bad());
     }
-    if background.len() != n {
-        return Err(UfgError::Background(background.len().min(n)));
-    }
-    let ng_all = library.groups.len();
-    for (i, (m, b)) in rings.iter().zip(background).enumerate() {
-        let shaped = b.len() == m.map_or(0, |m| m.composition.len())
-            && b.iter().flatten().all(|s| {
-                [&s.total, &s.elastic, &s.fission, &s.nu_fission, &s.capture]
-                    .iter()
-                    .all(|v| v.len() == ng_all)
-            });
-        if !shaped {
-            return Err(UfgError::Background(i));
-        }
-    }
 
     let started = Instant::now();
-    // 核種（名前と温度の組）とリングの背景ごとのデータと、リングごとの（データの番号、個数密度）。背景の項の個数密度は 1
-    // （断面積が巨視的）
+    // 核種（名前と温度の組）ごとのデータと、リングごとの（核種の番号、個数密度）
     let mut data: Vec<Data> = Vec::new();
     let mut keys: Vec<(&str, f64)> = Vec::new();
     let mut entries: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
-    // [リング][組成の核種] の群定数の出どころ
-    let mut slots: Vec<Vec<Slot>> = Vec::with_capacity(n);
-    // 背景の項を持つリングと、その項のデータの番号
-    let mut lumps: Vec<(usize, usize)> = Vec::new();
-    for (i, m) in rings.iter().enumerate() {
+    for m in rings {
         let mut ring = Vec::new();
-        let mut slot = Vec::new();
-        let mut members: Vec<(&str, f64, &Shielded)> = Vec::new();
-        for ((name, density), constant) in m.iter().flat_map(|m| &m.composition).zip(&background[i])
-        {
+        for (name, density) in m.iter().flat_map(|m| &m.composition) {
             let temperature = m.map_or(f64::NAN, |m| m.temperature);
-            if let Some(s) = constant {
-                members.push((name, *density, s));
-                slot.push(Slot::Background { name, temperature });
-                continue;
-            }
             let found = keys
                 .iter()
                 .position(|&(k, t)| k == name && t == temperature);
@@ -329,39 +256,26 @@ pub fn slowing_down_with(
                 Some(k) => k,
                 None => {
                     let (d, t) = library.lookup(name, temperature)?;
-                    let alpha = scattering_alpha(name, d.awr)?;
+                    if !(d.awr > 0.0 && d.awr.is_finite()) {
+                        return Err(UfgError::Mass {
+                            name: name.clone(),
+                            awr: d.awr,
+                        });
+                    }
+                    let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
                     data.push(Data {
                         name: &d.name,
                         gain: 1.0 / (1.0 - alpha),
                         width: -alpha.ln(),
-                        source: Source::Pointwise(Box::new(t)),
+                        table: t,
                     });
                     keys.push((name, temperature));
                     data.len() - 1
                 }
             };
-            slot.push(Slot::Entry(ring.len()));
             ring.push((k, *density));
         }
-        if let (Some(m), false) = (m, members.is_empty()) {
-            // 組成と背景が同じリングは、同じ項を共有する（同じ全断面積のリングを飛程の表で 1 つの物質にまとめるため）
-            let same = |r: usize| {
-                rings[r].is_some_and(|o| {
-                    o.temperature == m.temperature && o.composition == m.composition
-                }) && background[r] == background[i]
-            };
-            let k = match lumps.iter().find(|&&(r, _)| same(r)) {
-                Some(&(_, k)) => k,
-                None => {
-                    data.push(lump(library, &members, bounds, top..bottom)?);
-                    data.len() - 1
-                }
-            };
-            lumps.push((i, k));
-            ring.push((k, 1.0));
-        }
         entries.push(ring);
-        slots.push(slot);
     }
 
     let looked_up = Instant::now();
@@ -370,7 +284,7 @@ pub fn slowing_down_with(
     let inside = |e: f64| e > low && e < high;
     let mut energies: Vec<f64> = data
         .iter()
-        .flat_map(|d| d.energies().iter().copied())
+        .flat_map(|d| d.pointwise().energy.iter().copied())
         .filter(|&e| inside(e))
         .chain(group_bounds.iter().copied())
         .collect();
@@ -383,22 +297,16 @@ pub fn slowing_down_with(
     }
     // ポイントワイズの断面積の不連続点（同じエネルギーの2点）では、高い側と低い側の極限の2つの格子点を同じレサジーに置く。
     // 範囲の上端では低い側、下端では高い側の極限だけを使う
-    // 背景の断面積は群の境界で跳ぶので、範囲の中の群の境界も不連続点にする
     let mut jumps: Vec<f64> = data
         .iter()
-        .flat_map(|d| d.energies().windows(2))
+        .flat_map(|d| d.pointwise().energy.windows(2))
         .filter(|w| w[0] == w[1] && w[0] > low && w[0] < high)
         .map(|w| w[0])
-        .chain(
-            group_bounds
-                .iter()
-                .copied()
-                .filter(|&e| !lumps.is_empty() && inside(e)),
-        )
         .collect();
     jumps.sort_by(f64::total_cmp);
     jumps.dedup();
-    // 間引くなら、群の境界と不連続点を残し、リングの物質ごとの巨視的な全断面積と散乱断面積を許容差で再現できる点だけを残す（ADR-0185）
+    // 間引くなら、群の境界と不連続点を残し、リングの物質ごとの巨視的な全断面積と弾性散乱断面積を許容差で再現できる点だけを
+    // 残す（ADR-0185）
     let energies = match thinning {
         None => energies,
         Some(tolerance) => thin(&energies, &data, &entries, high, tolerance, |e| {
@@ -464,7 +372,7 @@ pub fn slowing_down_with(
     };
     let table_done = Instant::now();
 
-    let mut cursors: Vec<usize> = data.iter().map(Data::first_cursor).collect();
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     // 段ごとの壁時計の時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
     // スレッドがほかのピンの仕事を盗むと、その時間も衝突確率に入るので、段の割合は 1 スレッドで測る
     let mut times = [Duration::ZERO; 3];
@@ -530,63 +438,32 @@ pub fn slowing_down_with(
         "UFG slowing down"
     );
 
-    // 群定数。背景の核種は、核種（名前と温度の組）ごとにポイントワイズの断面積を 1 度だけ引く
-    let mut tables: Vec<((&str, f64), Cow<TemperatureData>)> = Vec::new();
+    // 群定数
     let mut nuclides = Vec::with_capacity(n);
-    for (i, ring) in slots.iter().enumerate() {
+    for (i, ring) in sweep.rates.iter().enumerate() {
         let flux = &sweep.group_flux[i];
         let mut list = Vec::with_capacity(ring.len());
-        for slot in ring {
-            let shielded = match *slot {
-                Slot::Entry(e) if thinning.is_some() => {
-                    // 間引いた格子では核種自身の共鳴の点が落ちうるので、核種の格子で縮約する
-                    let Source::Pointwise(table) = &data[entries[i][e].0].source else {
-                        return Err(UfgError::Background(i));
-                    };
-                    collapse(
-                        data[entries[i][e].0].name,
-                        table,
-                        &u,
-                        &points,
-                        &sweep.flux[i],
-                        high,
-                        group_bounds,
-                        flux,
-                    )?
-                }
-                Slot::Entry(e) => {
-                    let rate = &sweep.rates[i][e];
-                    let column = |x: usize| -> Vec<f64> {
-                        rate.iter().zip(flux).map(|(r, f)| r[x] / f).collect()
-                    };
-                    Shielded {
-                        total: column(0),
-                        elastic: column(1),
-                        fission: column(2),
-                        nu_fission: column(3),
-                        capture: column(4),
-                    }
-                }
-                Slot::Background { name, temperature } => {
-                    let found = tables.iter().position(|(k, _)| *k == (name, temperature));
-                    let k = match found {
-                        Some(k) => k,
-                        None => {
-                            tables
-                                .push(((name, temperature), library.lookup(name, temperature)?.1));
-                            tables.len() - 1
-                        }
-                    };
-                    collapse(
-                        name,
-                        &tables[k].1,
-                        &u,
-                        &points,
-                        &sweep.flux[i],
-                        high,
-                        group_bounds,
-                        flux,
-                    )?
+        for (rate, &(k, _)) in ring.iter().zip(&entries[i]) {
+            let column =
+                |x: usize| -> Vec<f64> { rate.iter().zip(flux).map(|(r, f)| r[x] / f).collect() };
+            let shielded = if thinning.is_some() {
+                // 間引いた格子では核種自身の共鳴の点が落ちうるので、核種の格子で縮約する
+                collapse(
+                    &data[k],
+                    &u,
+                    &points,
+                    &sweep.flux[i],
+                    high,
+                    group_bounds,
+                    flux,
+                )?
+            } else {
+                Shielded {
+                    total: column(0),
+                    elastic: column(1),
+                    fission: column(2),
+                    nu_fission: column(3),
+                    capture: column(4),
                 }
             };
             let finite = |v: &Vec<f64>| v.iter().position(|x| !x.is_finite());
@@ -635,7 +512,7 @@ fn thin(
         }
     }
     let quantities = 2 * materials.len();
-    let mut cursors: Vec<usize> = data.iter().map(Data::first_cursor).collect();
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     // [点][量] の値
     let mut values: Vec<Vec<f64>> = Vec::with_capacity(energies.len());
     for &e in energies {
@@ -705,22 +582,12 @@ fn thin(
     Ok(kept)
 }
 
-/// リングの組成の核種の群定数の出どころ
-enum Slot<'a> {
-    /// ポイントワイズで解いた、リングの項の番号
-    Entry(usize),
-    /// 背景の核種（名前と温度）
-    Background { name: &'a str, temperature: f64 },
-}
-
-/// 背景の核種の群定数: ポイントワイズの断面積を、リングの中性子束 `flux`（減速計算の格子点の値。点の間で u について線形）で
+/// 核種 `d` の群定数: ポイントワイズの断面積を、リングの中性子束 `flux`（減速計算の格子点の値。点の間で u について線形）で
 /// 縮約する。ポイントワイズで解いた核種と同じく σF をレサジーの台形則で積分し、点は減速計算の格子点と核種自身の格子の点の和
-/// （格子点の間の核種の点では中性子束を内挿する）にする。中性子束は背景の核種を群の中で一定の断面積で入れて解いたもので、
-/// 核種自身の共鳴によるへこみを持たない（ほかの核種の共鳴の影は入る。ADR-0185）。`group_flux` は群ごとの ∫F du
-#[allow(clippy::too_many_arguments)]
+/// （格子点の間の核種の点では中性子束を内挿する）にする。間引かない格子は核種の点を含むので、減速計算の中の積分と同じ値になる
+/// （ADR-0185）。`group_flux` は群ごとの ∫F du
 fn collapse(
-    name: &str,
-    table: &TemperatureData,
+    d: &Data,
     u: &[f64],
     points: &[(f64, bool)],
     flux: &[f64],
@@ -728,16 +595,10 @@ fn collapse(
     group_bounds: &[f64],
     group_flux: &[f64],
 ) -> Result<Shielded, UfgError> {
-    let p = &table.pointwise;
-    let d = Data {
-        name,
-        gain: 1.0,
-        width: 0.0,
-        source: Source::Pointwise(Box::new(Cow::Borrowed(table))),
-    };
+    let p = d.pointwise();
     let ng = group_flux.len();
     let mut rates = vec![[0.0; COLUMNS]; ng];
-    let mut cursor = d.first_cursor();
+    let mut cursor = p.energy.len();
     // 核種の格子の、まだ使っていない最も高いエネルギーの点の次（昇順の配列を降順に進める）
     let mut next = p.energy.len();
     let mut group = 0;
@@ -750,7 +611,7 @@ fn collapse(
         }
     };
     for (m, &(e, below)) in points.iter().enumerate() {
-        let here = (u[m], flux[m], evaluate(&d, &mut cursor, e, below)?);
+        let here = (u[m], flux[m], evaluate(d, &mut cursor, e, below)?);
         if let Some(mut last) = previous {
             let upper = points[m - 1].0;
             while next > 0 && p.energy[next - 1] >= upper {
@@ -798,99 +659,14 @@ fn collapse(
     })
 }
 
-/// 弾性散乱の α = ((A − 1)/(A + 1))²
-fn scattering_alpha(name: &str, awr: f64) -> Result<f64, UfgError> {
-    if !(awr > 0.0 && awr.is_finite()) {
-        return Err(UfgError::Mass {
-            name: name.to_string(),
-            awr,
-        });
-    }
-    Ok(((awr - 1.0) / (awr + 1.0)).powi(2))
-}
-
-/// 散乱 1 回あたりのレサジーの増加の平均 ξ = 1 + α ln α / (1 − α)（α = 0 で 1）
-fn mean_lethargy_gain(alpha: f64) -> f64 {
-    if alpha == 0.0 {
-        1.0
-    } else {
-        1.0 + alpha * alpha.ln() / (1.0 - alpha)
-    }
-}
-
-/// リングの背景の核種 `members`（名前、個数密度、群定数）を 1 つの項にまとめる。断面積は群ごとの巨視的な値 Σ N σ（群の中で一定）。
-/// 散乱の α は、範囲 `groups` の減速能 Σ ξ_k N_k σs,k を保つ値（ξ は核種の α の ξ を、範囲の群の σs をレサジーの幅で平均した
-/// N σs で重みづけした平均）。まとめた核種の散乱は窓の幅が 1 つになり、同じ α の核種だけなら厳密（ADR-0185）
-fn lump<'a>(
-    library: &Library,
-    members: &[(&str, f64, &Shielded)],
-    bounds: &'a [f64],
-    groups: Range<usize>,
-) -> Result<Data<'a>, UfgError> {
-    let mut alphas = Vec::with_capacity(members.len());
-    let (mut power, mut scattering) = (0.0, 0.0);
-    for &(name, density, s) in members {
-        let awr = library
-            .nuclides
-            .iter()
-            .find(|n| n.name == name)
-            .ok_or_else(|| LookupError::Nuclide(name.into()))?
-            .awr;
-        let alpha = scattering_alpha(name, awr)?;
-        let (mut sum, mut width) = (0.0, 0.0);
-        for g in groups.clone() {
-            let du = (bounds[g] / bounds[g + 1]).ln();
-            sum += s.elastic[g] * du;
-            width += du;
-        }
-        let weight = density * sum / width;
-        power += weight * mean_lethargy_gain(alpha);
-        scattering += weight;
-        alphas.push(alpha);
-    }
-    let lightest = alphas.iter().copied().fold(f64::INFINITY, f64::min);
-    let heaviest = alphas.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    // 散乱のない背景（個数密度がすべて 0 など）は散乱の線源に効かないので、α は最も重い核種のものでよい
-    let alpha = if scattering > 0.0 {
-        let xi = power / scattering;
-        // ξ は α について単調に減るので、まとめた核種の α の間で二分法で解く
-        let (mut a, mut b) = (lightest, heaviest);
-        for _ in 0..200 {
-            let mid = 0.5 * (a + b);
-            if mean_lethargy_gain(mid) > xi {
-                a = mid;
-            } else {
-                b = mid;
-            }
-        }
-        0.5 * (a + b)
-    } else {
-        heaviest
-    };
-    let ng = bounds.len() - 1;
-    let rows = (0..ng)
-        .map(|g| {
-            let sum = |of: fn(&Shielded) -> &Vec<f64>| -> f64 {
-                members.iter().map(|&(_, n, s)| n * of(s)[g]).sum()
-            };
-            [sum(|s| &s.total), sum(|s| &s.elastic), 0.0, 0.0, 0.0]
-        })
-        .collect();
-    Ok(Data {
-        name: "background",
-        gain: 1.0 / (1.0 - alpha),
-        width: -alpha.ln(),
-        source: Source::Groups { bounds, rows },
-    })
-}
-
 /// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
 /// 加わる（それまでの核種と群の境界にない）エネルギーの数
 fn log_nuclide_points(data: &[Data], group_bounds: &[f64], inside: impl Fn(f64) -> bool) {
     let mut seen: HashSet<u64> = group_bounds.iter().map(|e| e.to_bits()).collect();
     for d in data {
         let own: Vec<f64> = d
-            .energies()
+            .pointwise()
+            .energy
             .iter()
             .copied()
             .filter(|&e| inside(e))
@@ -932,14 +708,8 @@ fn track_table(
             })
         })
         .collect();
-    // 物質ごとの軸: 核種の並びが同じ物質の最初のものの軸。リングの背景の項は、どのリングのものも同じ核種とみなす（燃焼で
-    // リングの組成が違っても、背景はリングごとの項になるため）
-    let nuclides = |i: usize| {
-        entries[i].iter().map(|&(k, _)| match data[k].source {
-            Source::Pointwise(_) => Some(k),
-            Source::Groups { .. } => None,
-        })
-    };
+    // 物質ごとの軸: 核種の並びが同じ物質の最初のものの軸
+    let nuclides = |i: usize| entries[i].iter().map(|&(k, _)| k);
     let mut leaders: Vec<usize> = Vec::new();
     let axes: Vec<usize> = first
         .iter()
@@ -957,7 +727,7 @@ fn track_table(
     let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; leaders.len()];
     // 展開の上限を超えて格子点ごとに求める格子点の数
     let mut outside = 0usize;
-    let mut cursors: Vec<usize> = data.iter().map(Data::first_cursor).collect();
+    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     let mut sigma = vec![0.0; first.len()];
     for &(e, below) in points {
         let row = data
@@ -1073,23 +843,10 @@ fn lethargy_grid(
     (u, points)
 }
 
-/// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する（背景は `e` を含む群の値）。
-/// `cursor` はエネルギーの降順に引くための位置（[`Data::first_cursor`] から始める）。不連続点（背景では群の境界）では、`below` なら
-/// 低い側、そうでなければ高い側の極限の値になる。
+/// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
+/// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
 fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, UfgError> {
-    let table = match &d.source {
-        Source::Pointwise(t) => t,
-        Source::Groups { bounds, rows } => {
-            // 群 g は (bounds[g + 1], bounds[g])。下端ちょうどの点は、低い側の極限なら次の群
-            while *cursor + 1 < rows.len()
-                && (e < bounds[*cursor + 1] || (below && e == bounds[*cursor + 1]))
-            {
-                *cursor += 1;
-            }
-            return Ok(rows[*cursor]);
-        }
-    };
-    let x = &table.pointwise.energy;
+    let x = &d.pointwise().energy;
     let defined =
         x.len() >= 2 && x.first().is_some_and(|&a| a <= e) && x.last().is_some_and(|&b| e <= b);
     if !defined {
@@ -1115,7 +872,7 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, Uf
         let width = x[j + 1] - x[j];
         (j, if width > 0.0 { (e - x[j]) / width } else { 0.0 })
     };
-    let p = &table.pointwise;
+    let p = d.pointwise();
     let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
     Ok([
         lerp(&p.total),
@@ -1145,7 +902,7 @@ impl Above<'_> {
                 let gb = (self.high / self.bounds[g + 1]).ln();
                 let (x, y) = (a.max(ga), b.min(gb));
                 if x < y {
-                    d.elastic(g) * ((-(big_u - y)).exp() - (-(big_u - x)).exp())
+                    d.elastic()[g] * ((-(big_u - y)).exp() - (-(big_u - x)).exp())
                 } else {
                     0.0
                 }

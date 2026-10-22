@@ -39,7 +39,7 @@ use crate::ufg::{
 };
 
 /// 格子の燃料の自己遮蔽の反復の条件。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ShieldingOptions {
     /// 燃料の各核種の全断面積の相対変化の上限
     pub tolerance: f64,
@@ -47,9 +47,8 @@ pub struct ShieldingOptions {
     pub dancoff: DancoffOptions,
     /// 燃料のピンと棒の UFG の減速計算の飛程の求め方
     pub collision: Collision,
-    /// 燃料のピンと棒の UFG の減速計算でポイントワイズの断面積で解く核種
-    pub pointwise: PointwiseNuclides,
-    /// UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は間引かない）
+    /// 燃料のピンと棒の UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は
+    /// 間引かない。ADR-0185）
     pub thinning: Option<f64>,
 }
 
@@ -60,28 +59,7 @@ impl Default for ShieldingOptions {
             max_iterations: 100,
             dancoff: DancoffOptions::default(),
             collision: Collision::default(),
-            pointwise: PointwiseNuclides::All,
             thinning: None,
-        }
-    }
-}
-
-/// UFG の減速計算でポイントワイズの断面積で解く核種（ADR-0185）。ほかの核種は、群の中で一定の断面積（中心の物質は等価原理の値、
-/// ほかのリングは無限希釈の値）の背景として減速計算に入れ、UFG の範囲の群定数は、そのポイントワイズの断面積をリングの中性子束で
-/// 縮約したものにする（核種自身の共鳴による中性子束のへこみは入らない）。
-#[derive(Debug, Clone, PartialEq)]
-pub enum PointwiseNuclides {
-    /// すべての核種
-    All,
-    /// 名前を挙げた核種（どのリングでも）
-    Only(Vec<String>),
-}
-
-impl PointwiseNuclides {
-    fn contains(&self, name: &str) -> bool {
-        match self {
-            Self::All => true,
-            Self::Only(names) => names.iter().any(|n| n == name),
         }
     }
 }
@@ -557,7 +535,6 @@ pub fn shield_fuel_with(
                 region_index: &region_index,
                 void,
                 collision: options.collision,
-                pointwise: &options.pointwise,
                 thinning: options.thinning,
             };
             let ufg = shield_cell(
@@ -954,7 +931,6 @@ fn shield_lumps(
                         region_index,
                         void: materials.len(),
                         collision: options.collision,
-                        pointwise: &options.pointwise,
                         thinning: options.thinning,
                     };
                     shield_cell(
@@ -1167,8 +1143,6 @@ struct PinRings<'a> {
     void: usize,
     /// 減速計算の飛程の求め方
     collision: Collision,
-    /// 減速計算でポイントワイズの断面積で解く核種
-    pointwise: &'a PointwiseNuclides,
     /// 減速計算の格子の間引きの許容差
     thinning: Option<f64>,
 }
@@ -1219,15 +1193,13 @@ struct EquivalentCell<'a> {
 
 /// セル `pin.cell` の内側の `pin.rings` のリング（燃料は核種の並びの同じ物質、棒は同じ物質）を中心に、群ごとの Dancoff 係数 `dancoff` を合わせた
 /// 円筒の等価なセルを作り、減速計算を解く。範囲は `range_of`（等価なセルのリングごとの物質から決める）で、`None` なら
-/// 解かずに `None`。リングの扇形はどれも同じ物質で、減速材（セルのいちばん外の物質）は真空でないこと。`pin.pointwise` にない核種は
-/// 背景にし、中心のリングでは `center`（中心の物質の組成の順の等価原理の値）、ほかのリングでは無限希釈の値を使う。
+/// 解かずに `None`。リングの扇形はどれも同じ物質で、減速材（セルのいちばん外の物質）は真空でないこと。
 fn solve_equivalent_cell<'a>(
     library: &Library,
     pin: &PinRings,
     materials: &'a [MaterialInput],
     dilute: &[Material],
     dancoff: &[f64],
-    center: &[Shielded],
     range_of: impl FnOnce(&[Option<&MaterialInput>]) -> Result<Option<[f64; 2]>, UfgError>,
 ) -> Result<Option<EquivalentCell<'a>>, SelfShieldingError> {
     let cell = pin.cell;
@@ -1321,36 +1293,10 @@ fn solve_equivalent_cell<'a>(
             .chain(frame.map(|(_, area)| outer_radius(radius, area)))
             .collect(),
     )?;
-    let ng = library.groups.len();
-    let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
-    let background = inputs
-        .iter()
-        .enumerate()
-        .map(|(j, m)| {
-            m.iter()
-                .flat_map(|m| m.composition.iter().map(move |(name, _)| (m, name)))
-                .enumerate()
-                .map(|(k, (m, name))| {
-                    if pin.pointwise.contains(name) {
-                        Ok(None)
-                    } else if j < pin.rings {
-                        Ok(Some(center[k].clone()))
-                    } else {
-                        Ok(Some(library.shielded(
-                            name,
-                            m.temperature,
-                            &vec![infinite; ng],
-                        )?))
-                    }
-                })
-                .collect::<Result<Vec<_>, SelfShieldingError>>()
-        })
-        .collect::<Result<Vec<_>, _>>()?;
     let spectrum = slowing_down_with(
         library,
         &cylinder,
         &inputs,
-        &background,
         range,
         pin.collision,
         pin.thinning,
@@ -1438,7 +1384,7 @@ fn shield_cell(
 ) -> Result<Option<CellShielding>, SelfShieldingError> {
     let cell = pin.cell;
     let Some(equivalent) =
-        solve_equivalent_cell(library, pin, materials, dilute, dancoff, carlvik, range_of)?
+        solve_equivalent_cell(library, pin, materials, dilute, dancoff, range_of)?
     else {
         return Ok(None);
     };
