@@ -26,6 +26,8 @@ import openmc_depletion
 from openmc_common import group_filter
 
 SCORES = ["(n,gamma)", "fission", "total", "(n,elastic)", "absorption", "nu-fission"]
+# 群構造の上端（10 MeV）より上の中性子束と反応は、群 1 に数える（openmc_pin_rates.py の ABOVE と同じ）
+ABOVE = 1.0e9
 
 
 def xlc_name(name):
@@ -79,7 +81,9 @@ def main():
     for name, n in densities.items():
         fuel.add_nuclide(name, n)
     fuel.set_density("sum")
-    groups = group_filter(Path(library).resolve())
+    # 群 1 の上端を広げ、10 MeV より上の中性子束と反応を群 1 に数える（openmc_pin_rates.py と同じ）
+    bounds = list(group_filter(Path(library).resolve()).values)
+    groups = openmc.EnergyFilter(bounds[:-1] + [ABOVE])
     mfilter = openmc.MaterialFilter([fuel])
     flux = openmc.Tally(name="flux")
     flux.filters = [mfilter, groups]
@@ -115,7 +119,7 @@ def main():
             "k_std": k.std_dev,
             "flux": phi[::-1].tolist(),
             "flux_std": phi_std[::-1].tolist(),
-            "bounds": sorted(groups.values, reverse=True),
+            "bounds": sorted(bounds, reverse=True),
             "densities": {xlc_name(n): v for n, v in densities.items()},
             "rates": {},
             "one_group": {},
