@@ -1,7 +1,6 @@
 """#0133 の試行: ポイントワイズの形の比較。NR の重み 1/(σt + σ0)/E の捕獲の群平均を xlc のライブラリと OpenMC の HDF5 で比べる。
 使い方: python3 shape.py <xlc のライブラリ> <cross_sections.xml> <温度> <σ0> <下端> <上端> <核種 ...>"""
 
-import re
 import sys
 from pathlib import Path
 
@@ -9,12 +8,8 @@ import msgpack
 import numpy as np
 import openmc.data
 
-
-def openmc_name(name):
-    """xlc の核種の名前（Pm-148m）を OpenMC の名前（Pm148_m1）にする"""
-    symbol, mass, isomer = re.fullmatch(r"([A-Z][a-z]?)-(\d+)(m)?", name).groups()
-    return f"{symbol}{mass}" + ("_m1" if isomer else "")
-
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from compare_chain import openmc_name
 
 lib = msgpack.unpackb(Path(sys.argv[1]).read_bytes(), strict_map_key=False)
 libs = openmc.data.DataLibrary.from_xml(Path(sys.argv[2]))

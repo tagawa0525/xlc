@@ -1,7 +1,6 @@
 """#0133 の試行: 核種の 1/E の重みの群の捕獲断面積を、xlc のライブラリのポイントワイズと OpenMC の HDF5 で比べる。
 使い方: python3 dilute.py <xlc のライブラリ> <OpenMC の cross_sections.xml> <温度> <下端 eV> <上端 eV> <核種 ...>"""
 
-import re
 import sys
 from pathlib import Path
 
@@ -9,12 +8,8 @@ import msgpack
 import numpy as np
 import openmc.data
 
-
-def openmc_name(name):
-    """xlc の核種の名前（Pm-148m）を OpenMC の名前（Pm148_m1）にする"""
-    symbol, mass, isomer = re.fullmatch(r"([A-Z][a-z]?)-(\d+)(m)?", name).groups()
-    return f"{symbol}{mass}" + ("_m1" if isomer else "")
-
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from compare_chain import openmc_name
 
 lib = msgpack.unpackb(Path(sys.argv[1]).read_bytes(), strict_map_key=False)
 xml = Path(sys.argv[2])

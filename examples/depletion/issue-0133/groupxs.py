@@ -1,4 +1,4 @@
-"""#0133 の試行: 燃料の核種の群ごとの吸収断面積（全 − 弾性）を xlc と OpenMC（absorption / 中性子束）で比べる。
+"""#0133 の試行: 燃料の核種の群ごとの吸収断面積（捕獲（MT102）+ 核分裂）を xlc と OpenMC（(n,gamma) + fission / 中性子束）で比べる。
 使い方: python3 groupxs.py <作業ディレクトリ> <核種> [群の下限 (eV)] [群の上限 (eV)]"""
 
 import sys
@@ -20,10 +20,10 @@ P = sum(np.sum(m["nu-fission"]) for m in omc["materials"].values())
 phi = np.array(omc["flux"])
 n = omc["densities"][name]
 r = omc["rates"][name]
-ao = np.array(r["absorption"]["mean"])
-ae = np.array(r["absorption"]["std"])
-co = np.array(r["(n,gamma)"]["mean"])
-sx = np.array(xs["total"]) - np.array(xs["elastic"])
+ao = np.array(r["(n,gamma)"]["mean"]) + np.array(r["fission"]["mean"])
+# 2 つの tally の統計誤差は独立とみて合わせる
+ae = np.hypot(np.array(r["(n,gamma)"]["std"]), np.array(r["fission"]["std"]))
+sx = np.array(xs["capture"]) + np.array(xs["fission"])
 print("群 | 上端 eV | 下端 eV | OpenMC σa (b) | ± % | xlc σa | 差 % | 吸収/生成 ×1e5")
 for g in range(len(b) - 1):
     if b[g + 1] < lo or b[g] > hi or ao[g] <= 0:
