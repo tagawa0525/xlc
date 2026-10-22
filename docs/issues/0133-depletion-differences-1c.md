@@ -180,7 +180,7 @@ Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を入れて両方が 54 核種を�
 - 2026-10-23: 上の (6) を、1C のピンセルに 2A の 40 MWd/kg の組成を置いた 1 状態（以下 2A-40）で切り分けた（ブランチ
   feat/0133-burnt-composition-transport、分岐点は main の 43a0af25d（ADR-0186 の遅発中性子の χ のライブラリ）。xlc の自己遮蔽と輸送は
   分岐点のまま、例の `swap_absorption`（入力は `issue-0133/swaps-1C-0.txt`、`swaps-1C-5.txt`、`swaps-2A-40.txt`）と `fine_flux` は
-  このブランチのもの。OpenMC は `issue-0133/openmc_pin_rates_2a.py` に燃料の細かいエネルギーの tally を足した版で、30 万粒子 ×
+  このブランチの d13b6e262（数値は rebase の後の 0a740f374 で出し、d13b6e262 で同じ値を確かめた。2026-10-23）。OpenMC は `issue-0133/openmc_pin_rates_2a.py` に燃料の細かいエネルギーの tally を足した版で、30 万粒子 ×
   100 アクティブ世代。2A-40 はシード 1、2、3 の 3 本（Slurm 456、458、459）、2A の 0 MWd/kg の組成（1C の新しい燃料と同じ組成）は 1 本
   （Slurm 458）。456 と 458 は群 1 の tally が 10 MeV より上を数えない前の版で、群 1 の値は 459 だけを使う。1C の 0 と 5 MWd/kg は
   feat/0133-fission-spectrum の Slurm 448 の結果（`references/openmc/pin-rates-1C/`）。xlc の値はどれも分岐点のライブラリで出し直した）
