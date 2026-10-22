@@ -29,14 +29,14 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
 ### 参照解の deps の .py を文書だけ直しても changed になる（2026-10-23）
 
 ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が examples/depletion/openmc_depletion.py の docstring とコメントだけを直した（112.5 → 112.47 eV と
-引く ADR の番号）。このファイルは `openmc-1C` と `openmc-1C-extract` の deps（examples/depletion/dvc.yaml）なので、OpenMC の燃焼（3517e4666 は 1.5 時間 × 2、ae44d4efd の本文は 5 時間と書く。どちらも確かめていない）と
-その extract が changed になった。χ の担当が compare-1C を目標に `dvc repro` を流すと OpenMC が始まり、止めた（Slurm 454。ae44d4efd の本文による。12 分で止めたというのは担当の報告で、確かめていない）。
-`dvc commit` で付け直した（ブランチ feat/0133-fission-spectrum の ae44d4efd。lock の古い md5 は 3baba57c0 の直前のファイルで、出力は同じコードから
+引く ADR の番号）。このファイルは `openmc-1C` と `openmc-1C-extract` の deps（examples/depletion/dvc.yaml）なので、OpenMC の燃焼（3517e4666 は 1.5 時間 × 2、acfe57b01 の本文は 5 時間と書く。どちらも確かめていない）と
+その extract が changed になった。χ の担当が compare-1C を目標に `dvc repro` を流すと OpenMC が始まり、止めた（Slurm 454。acfe57b01 の本文による。sacct では 11 分 55 秒で止めている）。
+`dvc commit` で付け直した（main の acfe57b01（f804cba1c でマージ）。lock の古い md5 は 3baba57c0 の直前のファイルで、出力は同じコードから
 できている。3517e4666 が上の書き換えのあとに行ったのと同じ手段）。
 
 - /dvc-relock、/git-merge、CLAUDE.md に、`dvc commit` で付け直す手順はない。/dvc-relock が拠る ADR-0130 は、走らせなかったステージの
   changed を「そのままでよい」とする
-- 3517e4666 と ae44d4efd の `dvc commit` は、ADR-0159 の案 B（ADR-0143 の帰結と ADR-0130 の案 L も同じ理由で退けた形。出力を変えないかの
+- 3517e4666 と acfe57b01 の `dvc commit` は、ADR-0159 の案 B（ADR-0143 の帰結と ADR-0130 の案 L も同じ理由で退けた形。出力を変えないかの
   判断が人に残り、lock が記録した deps のコードで実行していない出力を指す）を、その場の判断で使っている。ADR-0159 の移行は同じ手段を
   1 回だけ、変更の直前に changed でなかったステージに限って使った。この 2 回は、その限り方を ADR で決めずに使った
 - Rust は ADR-0159 の `build`（ADR-0160 で strip）が実行ファイルを deps にするので、実行ファイルのバイトが変わらない変更（tests.rs だけの
@@ -105,4 +105,4 @@ ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が
   52102d9e から a316fea4 への変化で、p2 の再実行で出力が変わらなかったものと同じ。付け直しで出力の md5 は変わらない（変わったのは deps の
   md5 と size だけ）。lattice-1C と compare-1C は同じブランチで再実行した。lattice-2A は付け直さず、changed のまま残す
 - 2026-10-23: 3baba57c0（ADR-0183 の docstring の変更）で openmc-1C とその extract が changed になり、compare-1C の `dvc repro` が OpenMC を始めた
-  （Slurm 454）。ae44d4efd で `dvc commit` により付け直した。「問題」の節と「案」の節に追記した
+  （Slurm 454）。acfe57b01 で `dvc commit` により付け直した。「問題」の節と「案」の節に追記した
