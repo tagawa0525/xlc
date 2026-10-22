@@ -1,10 +1,11 @@
 //! 格子（ピンセル）の燃料の核種の吸収と核分裂の断面積を、指定した群で OpenMC の実効断面積に置き換えて解き、k の変化を測る
 //! （同じ組成の OpenMC との k の差を、核種とエネルギーの範囲ごとの断面積の差に分ける。#0133）。
 //!
-//! 使い方: swap_absorption <格子の入力 (TOML)> <OpenMC の openmc-rates.msgpack> <置き換え> [<置き換え> ...]
+//! 使い方: swap_absorption <格子の入力 (TOML)> <OpenMC の openmc-rates.msgpack> <置き換えの一覧（テキスト）>
 //!
-//! 置き換えは `<核種>:<最初の群>-<最後の群>` を `,` でつないだもの（群は 1 始まりで、高いエネルギーから数える）。核種を `*` に
-//! すると、OpenMC の反応率のある燃料の全核種。置き換えごとに別に解き、置き換えない k との差を書く。
+//! 一覧は 1 行に 1 つの置き換え（空行と `#` からの行は読まない）。置き換えは `<核種>:<最初の群>-<最後の群>` を `,` でつないだもの
+//! （群は 1 始まりで、高いエネルギーから数える）。核種を `*` にすると、OpenMC の反応率のある燃料の全核種。置き換えごとに別に解き、
+//! 置き換えない k との差を書く。
 //!
 //! OpenMC の実効断面積は、燃料の群ごとの反応率（`absorption`、`fission`）/ 燃料の中性子束 / 数密度（openmc_pin_rates.py などの
 //! 出力。ピンの燃料の平均）。xlc の側は、最初の燃料のピンの、ピンの燃料で平均した物理的な実効断面積（吸収は捕獲 + 核分裂）。
@@ -12,6 +13,9 @@
 //! 核分裂、νΣf（νσf は OpenMC の `nu-fission` との比）と、その核種の核分裂の項を、SPH 因子（物質の全断面積 / 核種の全断面積の和）を掛けて動かす。散乱は変えない
 //! （吸収の差だけを測る）。OpenMC の `absorption` は非弾性散乱と (n,2n) を含まないので、置き換える群はそれらのしきいより下にする。
 //! 外周が鏡面反射の格子だけを受け付ける（ピンセルの比較のため）。燃料のピンが複数あれば、どのピンの燃料にも同じ比を掛ける。
+//!
+//! SPH 因子は置き換える前のものをそのまま使い、置き換えた断面積で求め直さない（`swap_transfer` の (A) と同じ）。UFG の範囲の
+//! 群では、置き換えでリングの間の中性子束の形が変わる分を SPH 因子が追わないので、その分は k の変化に入らない。
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -95,6 +99,9 @@ fn ratio(
         }
         r.absorption[g] = absorption[g] / phi / a_x;
         if xlc.fission[g] > 0.0 {
+            if !xlc.nu_fission[g].is_finite() || xlc.nu_fission[g] <= 0.0 {
+                return Err(anyhow!("{name} group {}: fission without ν", g + 1));
+            }
             r.fission[g] = fission[g] / phi / xlc.fission[g];
             r.nu_fission[g] = nu_fission[g] / phi / xlc.nu_fission[g];
         } else if fission[g] > 0.0 {
@@ -210,13 +217,20 @@ fn swapped(
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    let [_, input, reference, specs @ ..] = args.as_slice() else {
+    let [_, input, reference, list] = args.as_slice() else {
         return Err(anyhow!(
-            "usage: swap_absorption <lattice input> <openmc-rates.msgpack> <nuclide>:<first>-<last>[,...] ..."
+            "usage: swap_absorption <lattice input> <openmc-rates.msgpack> <list of swaps>"
         ));
     };
+    let specs: Vec<String> = std::fs::read_to_string(list)
+        .with_context(|| list.clone())?
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(String::from)
+        .collect();
     if specs.is_empty() {
-        return Err(anyhow!("give at least one swap"));
+        return Err(anyhow!("{list}: no swaps"));
     }
     let path = Path::new(input);
     let input = LatticeInput::parse(&std::fs::read_to_string(path)?).context("input")?;
@@ -264,7 +278,7 @@ fn main() -> anyhow::Result<()> {
     };
     let k0 = solve_k(&shielded.materials)?;
     println!("k {k0:.6}");
-    for spec in specs {
+    for spec in &specs {
         let mut ratios: BTreeMap<String, Ratio> = BTreeMap::new();
         for (name, groups) in parse(spec, &fuel, &reference, ng)? {
             let k = fuel
