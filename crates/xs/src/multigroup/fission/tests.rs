@@ -24,8 +24,8 @@ fn spectrum_follows_incident_interpolation() {
         &weight,
         &constant,
         &[FissionNeutrons {
-            nubar: &constant,
-            spectrum: &mf5,
+            nubar: constant.clone(),
+            spectrum: mf5,
         }],
     );
 
@@ -61,12 +61,12 @@ fn each_part_of_the_neutrons_enters_chi_by_its_nubar() {
         &fission,
         &[
             FissionNeutrons {
-                nubar: &prompt,
-                spectrum: &high,
+                nubar: prompt,
+                spectrum: high,
             },
             FissionNeutrons {
-                nubar: &delayed,
-                spectrum: &low,
+                nubar: delayed,
+                spectrum: low,
             },
         ],
     );

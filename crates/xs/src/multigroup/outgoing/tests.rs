@@ -244,7 +244,7 @@ fn interpolates_between_incident_energies() {
 }
 
 /// g(x) がヒストグラムで、x の 0〜1e5、1e5〜1e6、1e6〜2e6 に 0.1、0.45、0.45 の一般の蒸発スペクトル（LF=5）。
-fn general_evaporation(restriction: f64, theta: Tab1) -> EnergyLaw {
+fn general_evaporation(restriction: f64, theta: f64) -> EnergyLaw {
     let shape = Tab1 {
         breaks: vec![4],
         laws: vec![crate::endf::Interpolation::Histogram],
@@ -253,7 +253,7 @@ fn general_evaporation(restriction: f64, theta: Tab1) -> EnergyLaw {
     };
     EnergyLaw::GeneralEvaporation {
         restriction,
-        theta: ClampedTab1::new(theta).unwrap(),
+        theta,
         shape,
     }
 }
@@ -261,8 +261,7 @@ fn general_evaporation(restriction: f64, theta: Tab1) -> EnergyLaw {
 #[test]
 fn general_evaporation_splits_the_tabulated_shape_by_group() {
     let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]).unwrap();
-    let constant = Tab1::linear(vec![1.0e-5, 3.0e7], vec![1.0, 1.0]);
-    let grouped = GroupedLaw::new(&groups, &general_evaporation(-3.0e7, constant));
+    let grouped = GroupedLaw::new(&groups, &general_evaporation(-3.0e7, 1.0));
     let mut out = vec![0.0; 3];
     grouped.accumulate(2.0e6, 2.0, &mut out);
     assert_close(&out, &[0.9, 0.9, 0.2]);
@@ -270,23 +269,25 @@ fn general_evaporation_splits_the_tabulated_shape_by_group() {
 
 #[test]
 fn general_evaporation_scales_the_outgoing_energy_by_theta() {
-    // θ(2 MeV) = 2 なので E' = 2x。群の境界 1e5、1e6 eV は x の 5e4、5e5
+    // θ = 2 なので E' = 2x。群の境界 1e5、1e6 eV は x の 5e4、5e5
     let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]).unwrap();
-    let theta = Tab1::linear(vec![1.0e6, 3.0e6], vec![1.0, 3.0]);
-    let grouped = GroupedLaw::new(&groups, &general_evaporation(-3.0e7, theta));
+    let grouped = GroupedLaw::new(&groups, &general_evaporation(-3.0e7, 2.0));
     let mut out = vec![0.0; 3];
     grouped.accumulate(2.0e6, 1.0, &mut out);
     assert_close(&out, &[0.7, 0.25, 0.05]);
-    assert!(grouped.breakpoints().contains(&3.0e6));
 }
 
 #[test]
 fn general_evaporation_is_cut_at_e_minus_u() {
     // E - U = 1 MeV で切り、残りの 0.55 で割り直す
     let groups = GroupStructure::new(vec![2.0e7, 1.0e6, 1.0e5, 1.0e-5]).unwrap();
-    let constant = Tab1::linear(vec![1.0e-5, 3.0e7], vec![1.0, 1.0]);
-    let grouped = GroupedLaw::new(&groups, &general_evaporation(5.0e5, constant));
+    let grouped = GroupedLaw::new(&groups, &general_evaporation(5.0e5, 1.0));
     let mut out = vec![0.0; 3];
     grouped.accumulate(1.5e6, 1.0, &mut out);
     assert_close(&out, &[0.0, 0.45 / 0.55, 0.1 / 0.55]);
+    // E - U が g の表の点（θ 倍）を横切る点でも、群の割合の傾きが変わる
+    let breakpoints = grouped.breakpoints();
+    for e in [5.0e5, 6.0e5, 1.5e6, 2.5e6] {
+        assert!(breakpoints.contains(&e), "{e}: {breakpoints:?}");
+    }
 }
