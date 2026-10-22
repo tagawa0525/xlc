@@ -517,14 +517,17 @@ fn track_table(
             }
             *s = t;
         }
-        let (centers, deviation) = layout.centers(&sigma);
-        if deviation > MAX_DEVIATION {
+        if !widen_ranges(&layout, &sigma, &mut ranges) {
             outside += 1;
         }
-        for (range, c) in ranges.iter_mut().zip(centers) {
-            range[0] = range[0].min(c);
-            range[1] = range[1].max(c);
-        }
+    }
+    // どの格子点も展開の外なら、表を読む格子点がない
+    if outside == points.len() {
+        tracing::info!(
+            points = points.len(),
+            "UFG tracks point by point: every point is beyond the ring expansion"
+        );
+        return Ok(None);
     }
     // 表で求める衝突確率（格子点の組ごとの表の値と微分、展開の外の格子点）が格子点ごとより多いなら、表は速くならず、メモリも
     // 大きいので作らない。組の数が usize に収まらない表も同じ
@@ -543,16 +546,33 @@ fn track_table(
         );
         return Ok(None);
     }
-    tracing::debug!(
-        points = points.len(),
-        outside,
-        evaluations,
-        "UFG track table"
-    );
+    // 軸を共有する物質のあるセル（リングごとの燃料）は、展開の外の格子点の数を残す（ADR-0182 の確認に使う）
+    if layout.evaluations() > 1 {
+        tracing::info!(
+            points = points.len(),
+            outside,
+            evaluations,
+            "UFG track table with ring expansion"
+        );
+    }
     Ok(Some((
         TrackTable::new(cell, layout, &ranges, density)?,
         first,
     )))
+}
+
+/// 物質ごとの全断面積 `sigma` の格子点が展開の中（[`MAX_DEVIATION`] 以下）なら、軸の範囲 `ranges` をその中心まで広げて
+/// true。展開の外の格子点は表を読まない（格子点ごとに求める）ので、範囲を広げずに false
+fn widen_ranges(layout: &Layout, sigma: &[f64], ranges: &mut [[f64; 2]]) -> bool {
+    let (centers, deviation) = layout.centers(sigma);
+    if deviation > MAX_DEVIATION {
+        return false;
+    }
+    for (range, c) in ranges.iter_mut().zip(centers) {
+        range[0] = range[0].min(c);
+        range[1] = range[1].max(c);
+    }
+    true
 }
 
 /// 降順のエネルギー `energies` のレサジーの格子と、その点のエネルギー。間隔が `step` より広いところは点を足す。
