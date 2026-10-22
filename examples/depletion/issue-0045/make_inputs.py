@@ -3,7 +3,7 @@
 格子の間引きの許容差（`ufg-tolerance`）ごとに書く。`full` は `ufg-tolerance` を書かない（間引かない）。
 
 - 2A-step: examples/depletion/p2/lattice-2A.toml の燃焼度の点を 0.1 MWd/kg だけにしたもの（輸送 3 回）
-- 2A-60: 2A の燃焼の履歴（examples/depletion/p2/lattice-2A.msgpack。Slurm 421、lock のコミット c2713a8c6）の 60 MWd/kg の
+- 2A-60: 2A の燃焼の履歴（examples/depletion/p2/lattice-2A.msgpack。Slurm 434、lock のコミット 25ae2d40b）の 60 MWd/kg の
   組成（輸送する核種で 0 でないもの）を、燃焼の領域（対称操作の組）ごとの燃料の物質にした 1 状態。2 群の少数群定数を書く
 - 1C-rings1、1C-rings4: examples/depletion/lattice-1C-rings{1,4}.toml の燃焼（5 MWd/kg まで）
 - 2A-depletion: examples/depletion/p2/lattice-2A.toml の燃焼（40 点、60 MWd/kg まで）を間引いた格子で（間引かない履歴は
