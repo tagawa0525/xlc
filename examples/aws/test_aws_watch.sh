@@ -28,10 +28,21 @@ cat > "$tmp/bin/aws_common.sh" <<'COMMON'
 DEF_PROGRESS=statepoint
 read_launch_env() { RUN_INPUTS=(a/openmc-3A.toml a/openmc-3B.toml a/openmc-5B.toml a/openmc-5C.toml); }
 job_name() { basename "$1" .toml; }
-job_done() { if [[ -f $STATE/done-$2 ]]; then cat "$STATE/done-$2"; fi; }
+# fail-done があれば、最初の FAIL_ROUNDS 回の呼び出しでその中身を出して失敗する
+job_done() {
+  if [[ -f $STATE/fail-done ]]; then
+    echo x >> "$STATE/done-reads"
+    if (($(wc -l < "$STATE/done-reads") <= ${FAIL_ROUNDS:-0})); then cat "$STATE/fail-done"; exit 1; fi
+  fi
+  if [[ -f $STATE/done-$2 ]]; then cat "$STATE/done-$2"; fi
+}
 COMMON
 # 偽の aws_status.sh: t3 のジョブは実行中（欠けないので、監視は待ち続ける）、ほかは VM なし
 cat > "$tmp/bin/aws_status.sh" <<'STATUS'
+if [[ -n ${STATUS_FAIL_ROUNDS:-} ]]; then
+  echo x >> "$STATE/status-fails"
+  if (($(wc -l < "$STATE/status-fails") <= STATUS_FAIL_ROUNDS)); then echo "An error occurred (ExpiredToken) when calling the ListObjectsV2 operation"; exit 255; fi
+fi
 for j in openmc-3A openmc-3B openmc-5B openmc-5C; do echo "t3-$j i-0 c8a.4xlarge running 0"; done
 STATUS
 # 偽の aws_run.sh: 引数を記録し、--job のジョブを done にして（NO_DONE があれば done にしない）、ジョブごとに起動の行を出す
@@ -80,6 +91,29 @@ out=$(NO_DONE=1 timeout 20 bash "$tmp/bin/aws_watch.sh" --interval 1 --limit 2 t
 expect "残り 2 本までのジョブ" \
   "--job openmc-3A --job openmc-3B --spot --type auto --statepoint-interval 50 t5" "$(cat "$STATE/calls")"
 expect "上限で終了コード 2" 2 "$rc"
+
+# 読み取りの失敗（認証切れの疑いを含む）では終了せず、ATTENTION を出して読み直す。読めない間は起動し直さない
+rm -f "$STATE"/done-* "$STATE/calls" "$STATE/fail-"*
+echo 'download failed: s3://b/runs/t6/openmc-3A/done to - An error occurred (400) when calling the HeadObject operation: Bad Request' > "$STATE/fail-done"
+rc=0
+# 偽の job_done: fail-done があれば失敗。2 回目の回までは読めず、そのあと読める
+out=$(FAIL_ROUNDS=2 timeout 20 bash "$tmp/bin/aws_watch.sh" --interval 1 --limit 60 t6) || rc=$?
+expect "done の 400 のあとも読み直して終わる" 0 "$rc"
+expect "読めない間は起動し直さない（読めてから 1 回）" 1 "$(wc -l < "$STATE/calls")"
+grep -q 'ATTENTION: .*認証切れの疑い.*aws login' <<< "$out" || fail "認証切れの疑いの ATTENTION が出ない: $out"
+grep -q 'ALL DONE' <<< "$out" || fail "復帰して ALL DONE にならない: $out"
+rm -f "$STATE/fail-done"
+
+# aws_status.sh の失敗（ExpiredToken）でも終了せず、読み直す
+rm -f "$STATE"/done-* "$STATE/calls" "$STATE/status-fails"
+rc=0
+out=$(STATUS_FAIL_ROUNDS=2 timeout 20 bash "$tmp/bin/aws_watch.sh" --interval 1 --limit 60 t7) || rc=$?
+expect "status の ExpiredToken のあとも読み直して終わる" 0 "$rc"
+expect "status が読めない間は起動し直さない" 1 "$(wc -l < "$STATE/calls")"
+grep -q 'ATTENTION: .*認証切れの疑い.*aws login' <<< "$out" || fail "status の認証切れの ATTENTION が出ない: $out"
+grep -q 'ALL DONE' <<< "$out" || fail "status 復帰後に ALL DONE にならない: $out"
+
+rm -f "$STATE"/done-*
 
 # 二重起動: 走っている間は同じ実行の 2 つ目が 1 で終わり、--status は走っていると答える
 rm -f "$STATE/calls"
