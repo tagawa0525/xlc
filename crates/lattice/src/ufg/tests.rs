@@ -537,5 +537,9 @@ fn points_beyond_the_expansion_do_not_widen_the_axes() {
         &[10.0, 100.0, 1000.0, 1.5],
         &mut ranges
     ));
-    assert_eq!(ranges, vec![[0.5, 0.5], [1.4, 1.4]]);
+    // 燃料の軸は ln の重みの平均を exp で戻すので丸めの範囲で 0.5、水の軸はその Σ そのもの
+    for x in ranges[0] {
+        assert!((x - 0.5).abs() <= 1e-15, "{ranges:?}");
+    }
+    assert_eq!(ranges[1], [1.4, 1.4]);
 }

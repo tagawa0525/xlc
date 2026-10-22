@@ -38,15 +38,17 @@ pub enum TableError {
     Range { material: usize, range: [f64; 2] },
     #[error("{given} ring materials for {rings} rings")]
     Rings { given: usize, rings: usize },
-    #[error("every material needs an axis, and every axis a material")]
+    #[error("every material needs an axis and a ring, and every axis a material")]
     Axes,
     #[error("the number of table nodes overflows")]
     Size,
     #[error("{given} total cross sections for {materials} materials")]
     Materials { given: usize, materials: usize },
-    #[error("material {material}: total cross section {sigma} is outside the table {range:?}")]
+    #[error("{given} ranges for {axes} axes")]
+    Ranges { given: usize, axes: usize },
+    #[error("axis {axis}: total cross section {sigma} is outside the table {range:?}")]
     Outside {
-        material: usize,
+        axis: usize,
         sigma: f64,
         range: [f64; 2],
     },
@@ -163,6 +165,10 @@ impl Layout {
                 material_volume[*m] += v;
             }
         }
+        // リングのない物質は、中心の重みが 0/0 になる
+        if material_volume.contains(&0.0) {
+            return Err(TableError::Axes);
+        }
         let mut axis_volume = vec![0.0; count];
         for (&a, v) in axes.iter().zip(&material_volume) {
             axis_volume[a] += v;
@@ -269,9 +275,9 @@ impl TrackTable {
             });
         }
         if ranges.len() != layout.members.len() {
-            return Err(TableError::Materials {
+            return Err(TableError::Ranges {
                 given: ranges.len(),
-                materials: layout.members.len(),
+                axes: layout.members.len(),
             });
         }
         let axes = axes(ranges, density)?;
@@ -346,10 +352,10 @@ impl TrackTable {
         if deviation > MAX_DEVIATION {
             return Ok(None);
         }
-        for (material, (axis, &s)) in self.axes.iter().zip(&centers).enumerate() {
+        for (index, (axis, &s)) in self.axes.iter().zip(&centers).enumerate() {
             if !(axis.range[0] <= s && s <= axis.range[1]) {
                 return Err(TableError::Outside {
-                    material,
+                    axis: index,
                     sigma: s,
                     range: axis.range,
                 });
