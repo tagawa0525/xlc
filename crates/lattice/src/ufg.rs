@@ -87,7 +87,7 @@ pub struct CellSpectrum {
     pub flux: Vec<Vec<f64>>,
     /// [リング][核種（物質の組成の順）] の、リングの中性子束で縮約した群定数 (barn)。真空のリングは空
     pub nuclides: Vec<Vec<Shielded>>,
-    /// エネルギーの格子点の数（不連続点の2点を別々に数える）
+    /// エネルギーの格子点の数（ポイントワイズの断面積の不連続点は、高い側と低い側の2点を数える）
     pub points: usize,
 }
 
@@ -279,10 +279,11 @@ pub fn slowing_down_with(
     let looked_up = Instant::now();
     // 格子（エネルギーの降順）: ポイントワイズの断面積の格子と群の境界に、どの核種の窓にも WINDOW_POINTS 点が入るよう点を足す
     let group_bounds = &bounds[top..=bottom];
+    let inside = |e: f64| e > low && e < high;
     let mut energies: Vec<f64> = data
         .iter()
         .flat_map(|d| d.pointwise().energy.iter().copied())
-        .filter(|&e| e > low && e < high)
+        .filter(|&e| inside(e))
         .chain(group_bounds.iter().copied())
         .collect();
     energies.sort_by(|a, b| b.total_cmp(a));
@@ -290,7 +291,7 @@ pub fn slowing_down_with(
     // 核種の格子の和（群の境界を含む）の点の数。ここから窓の点を足したものが格子
     let union = energies.len();
     if tracing::enabled!(tracing::Level::DEBUG) {
-        log_nuclide_points(&data, group_bounds, [low, high]);
+        log_nuclide_points(&data, group_bounds, inside);
     }
     let step = data
         .iter()
@@ -415,6 +416,7 @@ pub fn slowing_down_with(
     tracing::info!(
         points = u.len(),
         union,
+        jumps = jumps.len(),
         nuclides = data.len(),
         rings = n,
         lookup = (looked_up - started).as_secs_f64(),
@@ -471,23 +473,18 @@ pub fn slowing_down_with(
 
 /// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
 /// 加わる（それまでの核種と群の境界にない）エネルギーの数
-fn log_nuclide_points(data: &[Data], group_bounds: &[f64], [low, high]: [f64; 2]) {
+fn log_nuclide_points(data: &[Data], group_bounds: &[f64], inside: impl Fn(f64) -> bool) {
     let mut seen: HashSet<u64> = group_bounds.iter().map(|e| e.to_bits()).collect();
     for d in data {
-        let inside: Vec<f64> = d
+        let own: Vec<f64> = d
             .pointwise()
             .energy
             .iter()
             .copied()
-            .filter(|&e| e > low && e < high)
+            .filter(|&e| inside(e))
             .collect();
-        let added = inside.iter().filter(|e| seen.insert(e.to_bits())).count();
-        tracing::debug!(
-            name = d.name,
-            own = inside.len(),
-            added,
-            "UFG nuclide points"
-        );
+        let added = own.iter().filter(|e| seen.insert(e.to_bits())).count();
+        tracing::debug!(name = d.name, own = own.len(), added, "UFG nuclide points");
     }
 }
 
