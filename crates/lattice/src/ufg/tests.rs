@@ -449,7 +449,8 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
 #[test]
 fn close_ring_materials_give_the_group_constants_of_the_exact_tracks() {
     // ADR-0182: 核種の並びが同じで数密度の少し違うリングの物質は、燃料の 1 つの軸と 1 次の展開で解け、群定数は格子点ごとに
-    // 求めたものと近い（燃焼で外側の U-238 が減ったリング）
+    // 求めたものと近い（燃焼で外側の U-238 が減ったリング）。このセルで表だけの差（3 リングを同じ組成にしたとき）は 8e-7 で、
+    // 展開の差（上限で衝突確率に 1e-5 の水準）がそれと同じ程度に加わる
     let (table, exact) = ring_cells([0.0221, 0.0220, 0.0218]);
     for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
         for (k, (t, e)) in t.iter().zip(e).enumerate() {
@@ -467,7 +468,7 @@ fn close_ring_materials_give_the_group_constants_of_the_exact_tracks() {
                         (a / b - 1.0).abs()
                     };
                     assert!(
-                        d < 1e-6,
+                        d < 3e-6,
                         "ring {ring} nuclide {k} field {f} group {g}: {a} vs {b}"
                     );
                 }
