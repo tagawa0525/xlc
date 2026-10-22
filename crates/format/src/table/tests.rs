@@ -406,3 +406,44 @@ fn reading_rejects_points_on_rod_axes_and_values_on_continuous_axes() {
     );
     assert!(edit(|v| axis_fields(v, 2).retain(|(k, _)| k.as_str() != Some("points"))).is_err());
 }
+
+/// 燃焼度 2 点 × ホウ素 2 点 × 減速材 2 点 × 燃料 1 点（燃焼度がいちばん遅く変わる。ADR-0187）
+fn burnup_sample() -> Table {
+    let mut table = sample();
+    table.axes.insert(
+        0,
+        Axis::Burnup {
+            points: vec![0.0, 10.0],
+        },
+    );
+    table.states = (0..8).map(|i| state(3.0 + f64::from(i))).collect();
+    table
+}
+
+#[test]
+fn burnup_axes_round_trip_bit_exactly() {
+    let table = burnup_sample();
+    assert_eq!(table.axes[0].name(), "burnup");
+    assert_eq!(table.axes[0].points(), &[0.0, 10.0]);
+    assert_eq!(
+        Table::from_msgpack(&table.to_msgpack().unwrap()).unwrap(),
+        table
+    );
+}
+
+#[test]
+fn burnup_points_must_be_nonnegative_and_increasing() {
+    let bad = |points: Vec<f64>| {
+        let mut table = burnup_sample();
+        table.axes[0] = Axis::Burnup { points };
+        assert!(table.validate().is_err());
+    };
+    bad(vec![-1.0, 10.0]);
+    bad(vec![10.0, 0.0]);
+    bad(vec![0.0, f64::NAN]);
+    bad(vec![0.0, f64::INFINITY]);
+    // 状態の数は燃焼度の点も数える
+    let mut table = burnup_sample();
+    table.states.truncate(4);
+    assert!(table.validate().is_err());
+}
