@@ -1,8 +1,8 @@
 //! 少数群定数の分岐のテーブル（`lattice` から `core` に渡すファイル。ADR-0097）。
 //!
 //! フィールド名付きの map 形式の MessagePack（ADR-0011、ADR-0013）:
-//! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`boron`、`moderator`、`fuel`、`rod`）。
-//! 連続の軸は `points`（昇順。ppm か K）を持ち、`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の
+//! `format` ("xlc-table"), `bounds`（群境界 (eV)、降順）, `axes`（軸ごとに `name`（`burnup`、`boron`、`moderator`、`fuel`、`rod`）。
+//! 連続の軸は `points`（昇順。燃焼度は MWd/kg（ADR-0187）、ほかは ppm か K）を持ち、`moderator` は格子点ごとの `density` (g/cm³)、`boron` は `b10`（B-10 の
 //! 原子分率）も持つ。離散の軸の `rod` は `points` の代わりに `values`（制御棒の値の名前の列。`out` は棒のない状態）を持つ）,
 //! `split`（集合体を各方向に分けたノードの数。ADR-0108）,
 //! `states`（軸の直積の順で、最初の軸がいちばん遅く変わる。状態ごとに split² の部分ノードの定数が続く（部分ノードは
@@ -18,6 +18,8 @@ use crate::msgpack::{self, MsgpackError};
 /// テーブルの軸。点は昇順。
 #[derive(Debug, Clone, PartialEq)]
 pub enum Axis {
+    /// 燃焼度 (MWd/kg、初めの重金属)。燃焼の履歴の燃焼点から作る（ADR-0187）
+    Burnup { points: Vec<f64> },
     /// ホウ素濃度 (ppm) と、ホウ素の中の B-10 の原子分率
     Boron { ppm: Vec<f64>, b10: f64 },
     /// 減速材の温度 (K) と、格子点ごとの密度 (g/cm³)
@@ -38,6 +40,7 @@ pub const ROD_OUT: &str = "out";
 impl Axis {
     pub fn name(&self) -> &'static str {
         match self {
+            Self::Burnup { .. } => "burnup",
             Self::Boron { .. } => "boron",
             Self::Moderator { .. } => "moderator",
             Self::Fuel { .. } => "fuel",
@@ -48,6 +51,7 @@ impl Axis {
     /// 連続の軸の格子点。離散の軸（`Rod`）は空で、値の数は `len`
     pub fn points(&self) -> &[f64] {
         match self {
+            Self::Burnup { points } => points,
             Self::Boron { ppm, .. } => ppm,
             Self::Moderator { temperature, .. } | Self::Fuel { temperature } => temperature,
             Self::Rod { .. } => &[],
@@ -96,9 +100,9 @@ pub fn validate_axes(axes: &[Axis]) -> Result<(), String> {
             continue;
         }
         let points = axis.points();
-        // ホウ素濃度は 0 を含み、温度は正
+        // 燃焼度とホウ素濃度は 0 を含み、温度は正
         let valid = |p: f64| match axis {
-            Axis::Boron { .. } => p >= 0.0 && p.is_finite(),
+            Axis::Burnup { .. } | Axis::Boron { .. } => p >= 0.0 && p.is_finite(),
             Axis::Moderator { .. } | Axis::Fuel { .. } => p > 0.0 && p.is_finite(),
             // 制御棒の軸は点を持たない（上で値の名前を確かめて次の軸に進む）
             Axis::Rod { .. } => false,
@@ -216,6 +220,7 @@ impl TryFrom<AxisFile> for Axis {
 
     fn try_from(a: AxisFile) -> Result<Self, String> {
         match (a.name.as_str(), a.points, a.values, a.density, a.b10) {
+            ("burnup", Some(points), None, None, None) => Ok(Axis::Burnup { points }),
             ("boron", Some(ppm), None, None, Some(b10)) => Ok(Axis::Boron { ppm, b10 }),
             ("moderator", Some(temperature), None, Some(density), None) => Ok(Axis::Moderator {
                 temperature,
@@ -224,7 +229,7 @@ impl TryFrom<AxisFile> for Axis {
             ("fuel", Some(temperature), None, None, None) => Ok(Axis::Fuel { temperature }),
             ("rod", None, Some(values), None, None) => Ok(Axis::Rod { values }),
             (name, ..) => Err(format!(
-                "axis {name}: unknown name or wrong fields (boron, moderator and fuel have points, \
+                "axis {name}: unknown name or wrong fields (burnup, boron, moderator and fuel have points, \
                  boron has b10, moderator has density, rod has values instead of points)"
             )),
         }
