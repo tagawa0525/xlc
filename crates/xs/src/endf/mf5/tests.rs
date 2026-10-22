@@ -7,7 +7,17 @@ pub(crate) fn two_point_mf5(
     first: (&str, &str, &str),
     second: (&str, &str, &str),
 ) -> String {
-    let r = |f: [&str; 6]| rec(f, 1, 5, 18);
+    two_point_mf5_for(18, lf, first, second)
+}
+
+/// `two_point_mf5` の分布を、MF5 の反応 `mt` として書く。
+pub(crate) fn two_point_mf5_for(
+    mt: u32,
+    lf: &str,
+    first: (&str, &str, &str),
+    second: (&str, &str, &str),
+) -> String {
+    let r = |f: [&str; 6]| rec(f, 1, 5, mt);
     [
         r(["9.223500+4", "2.330248+2", "0", "0", "1", "0"]),
         r(["0.0", "0.0", "0", lf, "1", "2"]),
@@ -104,4 +114,78 @@ fn other_lf_is_error() {
     let tape = Tape::parse(&text).unwrap();
     let err = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap_err();
     assert_eq!(err.line, 2);
+}
+
+/// p(E) = 1、θ(E) = 1 の一般の蒸発スペクトル（LF=5）。g(x) はヒストグラムの表（ENDF/B-VIII.0 の遅発中性子の形）。
+pub(crate) fn general_evaporation_mf5(restriction: &str) -> String {
+    general_evaporation_mf5_with(restriction, "1.0", ("0.0", "1.0-6"))
+}
+
+/// θ(E) が 1e-5 eV で 1、3e7 eV で `theta_top` で、g(x) の最初の点が `first` の LF=5。
+fn general_evaporation_mf5_with(restriction: &str, theta_top: &str, first: (&str, &str)) -> String {
+    let r = |f: [&str; 6]| rec(f, 1, 5, 455);
+    [
+        r(["9.223500+4", "2.330248+2", "0", "0", "1", "0"]),
+        r([restriction, "0.0", "0", "5", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", "1.0", "3.0+7", "1.0", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", "1.0", "3.0+7", theta_top, "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "4"]),
+        r(["4", "1", "", "", "", ""]),
+        r([first.0, first.1, "1.0+5", "5.0-7", "1.0+6", "4.5-7"]),
+        r(["2.0+6", "0.0", "", "", "", ""]),
+    ]
+    .concat()
+}
+
+#[test]
+fn reads_general_evaporation() {
+    let tape = Tape::parse(&general_evaporation_mf5("-3.0+7")).unwrap();
+    let mf5 = Mf5::parse(&tape.section(1, 5, 455).unwrap()).unwrap();
+    let [(p, law)] = &mf5.subsections[..] else {
+        panic!("{:?}", mf5.subsections);
+    };
+    assert_eq!(p.eval(1.0), Some(1.0));
+    let EnergyLaw::GeneralEvaporation {
+        restriction,
+        theta,
+        shape,
+    } = law
+    else {
+        panic!("{law:?}");
+    };
+    assert_eq!(*restriction, -3.0e7);
+    assert_eq!(*theta, 1.0);
+    assert_eq!(shape.x, vec![0.0, 1.0e5, 1.0e6, 2.0e6]);
+    assert_eq!(shape.eval(5.0e5), Some(5.0e-7));
+}
+
+#[test]
+fn general_evaporation_shape_must_not_be_negative() {
+    let text = general_evaporation_mf5("-3.0+7").replace("5.0-7", "-5.0-7");
+    let tape = Tape::parse(&text).unwrap();
+    assert!(Mf5::parse(&tape.section(1, 5, 455).unwrap()).is_err());
+}
+
+#[test]
+fn general_evaporation_needs_a_constant_theta() {
+    // θ がエネルギーで変わると、群の割合の折れ目の入射エネルギーが θ の逆関数で決まる。必要になるまで扱わない
+    let text = general_evaporation_mf5_with("-3.0+7", "2.0", ("0.0", "1.0-6"));
+    let tape = Tape::parse(&text).unwrap();
+    assert!(Mf5::parse(&tape.section(1, 5, 455).unwrap()).is_err());
+}
+
+#[test]
+fn general_evaporation_shape_must_start_with_mass_at_zero() {
+    // E - U > 0 のどの入射エネルギーでも、E'/θ までの g の積分（割合の分母）が正であるため
+    for first in [("0.0", "0.0"), ("1.0+4", "1.0-6")] {
+        let text = general_evaporation_mf5_with("-3.0+7", "1.0", first);
+        let tape = Tape::parse(&text).unwrap();
+        assert!(
+            Mf5::parse(&tape.section(1, 5, 455).unwrap()).is_err(),
+            "{first:?}"
+        );
+    }
 }
