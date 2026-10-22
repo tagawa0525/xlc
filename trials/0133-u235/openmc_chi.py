@@ -41,7 +41,9 @@ def main():
     model.tallies = openmc.Tallies([tally])
     os.environ["OMP_NUM_THREADS"] = str(threads)
     openmc.config["cross_sections"] = run["cross-sections"]
-    sp_path = model.run(cwd=work, output=False)
+    # 解いた statepoint があれば解き直さず読む
+    done = sorted(work.glob("statepoint.*.h5"))
+    sp_path = done[-1] if done else model.run(cwd=work, output=False)
     lib = msgpack.unpackb(Path(library).read_bytes(), strict_map_key=False)
     bounds = lib["group_bounds"]
     with openmc.StatePoint(sp_path) as sp:
@@ -57,7 +59,9 @@ def main():
             rows[name] = v / v.sum()
         chis = {}
         for name in NUCLIDES:
-            entry = next(n for n in lib["nuclides"] if n["name"] == name)
+            entry = next(
+                n for n in lib["nuclides"] if n["name"] == f"{name[:1]}-{name[1:]}"
+            )
             temps = entry["temperatures"]
             chis[name] = np.array(
                 min(temps, key=lambda x: abs(x["temperature"] - 900.0))["chi"]
