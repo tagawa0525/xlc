@@ -227,7 +227,7 @@ class Summary(unittest.TestCase):
         self,
     ):
         """燃焼する吸収体（Pyrex、WABA）だけのセルは核分裂のないセルで、比べる組に入れない。OpenMC の燃焼はチェーンの全核種を
-        CRAM で解くので、吸収体にも丸めの誤差の大きさのアクチニドができ、核分裂の tally が 1e-24 ほどの値を持つ。その最大は要約に残す。"""
+        CRAM で解くので、吸収体にも丸めの誤差の大きさのアクチニドができ、核分裂の tally が 1e-24〜5e-16 ほどの値を持つ。その最大は要約に残す。"""
         xlc, omc = with_pyrex_in_the_center(histories(), 7e-24)
         s = compare.summarize(xlc, omc)
         expected = compare.summarize(*histories())
@@ -260,6 +260,21 @@ class Summary(unittest.TestCase):
         omc["pins"][1] = [[0.99, 1.02, 0.99], [1.00, 7e-24, 1.01], [0.99, 1.01, 0.99]]
         with self.assertRaisesRegex(SystemExit, "fission"):
             compare.summarize(xlc, omc)
+
+    def test_fuel_sized_fission_in_a_burnt_absorber_stops_the_comparison(self):
+        """丸めの誤差の桁でない吸収体の核分裂は、配置の取り違えとして止める。"""
+        xlc, omc = with_pyrex_in_the_center(histories(), 0.5)
+        with self.assertRaisesRegex(SystemExit, "round-off"):
+            compare.summarize(xlc, omc)
+
+    def test_negative_round_off_fission_of_a_burnt_absorber_counts_by_its_size(self):
+        xlc, omc = with_pyrex_in_the_center(histories(), -3e-15)
+        s = compare.summarize(xlc, omc)
+        self.assertAlmostEqual(s["pins"][1]["absorber_max"] / 3e-15, 1.0)
+
+    def test_burnable_materials_without_fuel_stop_the_comparison(self):
+        with self.assertRaisesRegex(SystemExit, "no fuel"):
+            compare.cell_kinds([{"material": "pyrex", "orbit": [0, 0]}])
 
     def test_xlc_fission_in_a_burnt_absorber_stops_the_comparison(self):
         xlc, omc = with_pyrex_in_the_center(histories(), 0.0)
