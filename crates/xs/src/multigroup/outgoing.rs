@@ -287,15 +287,56 @@ pub enum GroupedLaw {
     Analytic(AnalyticSpectrum),
 }
 
-/// 解析式の出射分布（LF=7, 9）。入射エネルギーごとに、群ごとの割合を不完全ガンマ関数の差で
-/// 厳密に求める（NJOY GROUPR の anased と同じ）。
+/// θ(E) で決まる出射分布（LF=5, 7, 9）。入射エネルギーごとに、群ごとの割合を x = E'/θ までの累積の差で
+/// 厳密に求める（LF=7, 9 は不完全ガンマ関数。NJOY GROUPR の anased と同じ）。
 #[derive(Debug, Clone)]
 pub struct AnalyticSpectrum {
-    /// x = E'/θ 未満の出射の割合（正則化した下側不完全ガンマ関数）
-    fraction: fn(f64) -> f64,
+    /// x = E'/θ 未満の出射の割合
+    fraction: Cumulative,
     restriction: f64,
     theta: ClampedTab1,
     bounds: Vec<f64>,
+}
+
+/// x = E'/θ 未満の出射の（正規化していない）累積。
+#[derive(Debug, Clone)]
+enum Cumulative {
+    /// 正則化した下側不完全ガンマ関数（LF=7, 9）
+    Gamma(fn(f64) -> f64),
+    /// 表の g(x)（LF=5）を線形化した区分線形の密度の積分。`integral[k]` は x[k] までの積分
+    Table { shape: Tab1, integral: Vec<f64> },
+}
+
+impl Cumulative {
+    fn table(shape: &Tab1) -> Self {
+        let shape = linearize(shape, DENSITY_TOLERANCE);
+        let mut integral = vec![0.0; shape.x.len()];
+        for k in 1..shape.x.len() {
+            integral[k] = integral[k - 1]
+                + 0.5 * (shape.x[k] - shape.x[k - 1]) * (shape.y[k] + shape.y[k - 1]);
+        }
+        Self::Table { shape, integral }
+    }
+
+    fn at(&self, x: f64) -> f64 {
+        match self {
+            Self::Gamma(p) => p(x),
+            Self::Table { shape, integral } => {
+                let (xs, ys) = (&shape.x, &shape.y);
+                let k = xs.partition_point(|&xk| xk <= x);
+                if k == 0 {
+                    return 0.0;
+                }
+                if k == xs.len() {
+                    return integral[k - 1];
+                }
+                // xs[k - 1] ≤ x < xs[k]（段差の重複点は partition_point が越える）
+                let (x0, x1, y0, y1) = (xs[k - 1], xs[k], ys[k - 1], ys[k]);
+                let y = y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+                integral[k - 1] + 0.5 * (x - x0) * (y0 + y)
+            }
+        }
+    }
 }
 
 impl AnalyticSpectrum {
@@ -306,12 +347,12 @@ impl AnalyticSpectrum {
         }
         // 入射エネルギーの範囲外では、端の θ を使う（表形式の分布と同じ）
         let theta = self.theta.eval(e);
-        let total = (self.fraction)(top / theta);
+        let total = self.fraction.at(top / theta);
         // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
         let mut below = 0.0;
         for g in (0..out.len()).rev() {
             let upper = if g == 0 { top } else { self.bounds[g].min(top) };
-            let cumulative = (self.fraction)(upper / theta);
+            let cumulative = self.fraction.at(upper / theta);
             out[g] += scale * (cumulative - below) / total;
             below = cumulative;
             if upper >= top {
@@ -323,7 +364,7 @@ impl AnalyticSpectrum {
 
 impl GroupedLaw {
     pub fn new(groups: &GroupStructure, law: &EnergyLaw) -> Self {
-        let analytic = |fraction: fn(f64) -> f64, restriction: f64, theta: &ClampedTab1| {
+        let analytic = |fraction: Cumulative, restriction: f64, theta: &ClampedTab1| {
             Self::Analytic(AnalyticSpectrum {
                 fraction,
                 restriction,
@@ -335,11 +376,16 @@ impl GroupedLaw {
             EnergyLaw::Tabulated(distributions) => {
                 Self::Table(GroupedOutgoing::new(groups, distributions))
             }
+            EnergyLaw::GeneralEvaporation {
+                restriction,
+                theta,
+                shape,
+            } => analytic(Cumulative::table(shape), *restriction, theta),
             EnergyLaw::Maxwellian { restriction, theta } => {
-                analytic(gamma_p_3_2, *restriction, theta)
+                analytic(Cumulative::Gamma(gamma_p_3_2), *restriction, theta)
             }
             EnergyLaw::Evaporation { restriction, theta } => {
-                analytic(gamma_p_2, *restriction, theta)
+                analytic(Cumulative::Gamma(gamma_p_2), *restriction, theta)
             }
         }
     }
