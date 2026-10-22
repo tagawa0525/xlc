@@ -310,6 +310,14 @@ class Summary(unittest.TestCase):
             f"{100 * math.sqrt(((0.002 / 1.01) ** 2 + (0.004 / 0.99) ** 2) / 2):.3f}",
         )
 
+    def test_the_report_has_the_largest_fission_of_burnt_absorbers(self):
+        xlc, omc = with_pyrex_in_the_center(histories(), 7e-24)
+        summary = {"inputs": [], **compare.summarize(xlc, omc)}
+        self.assertIn(
+            "燃焼する吸収体だけのセルの OpenMC の核分裂（ピン出力。比べない）の最大: 7.0e-24",
+            compare.report(summary),
+        )
+
     def test_times_of_both_codes(self):
         s = compare.summarize(*histories())
         self.assertEqual(s["seconds"]["xlc"]["solves"], 3)
