@@ -399,6 +399,10 @@ fn fissile_tables_without_a_burnup_axis_reject_burnups() {
     let err =
         interpolate(&table(), Some(&at_burnup(10.0, 1300.0, 565.0, 900.0)), None).unwrap_err();
     assert!(err.contains("burnup"), "{err}");
+    // 燃焼度 0 は新しい燃料のテーブルの状態そのもの
+    let fresh = interpolate(&table(), Some(&state(1300.0, 565.0, 900.0)), None).unwrap();
+    let zero = interpolate(&table(), Some(&at_burnup(0.0, 1300.0, 565.0, 900.0)), None).unwrap();
+    assert_eq!(fresh, zero);
     // 核分裂のないテーブル（反射体）は燃焼しないので、どの燃焼度でも同じ値
     let mut reflector = table();
     for s in &mut reflector.states {
