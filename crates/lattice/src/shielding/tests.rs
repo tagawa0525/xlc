@@ -1210,6 +1210,14 @@ mod lattice {
     /// の組（核種の並びは U-238、U-235、O-16）と、被覆管と水。飛程は既定の求め方（燃料のリングの物質は飛程の表の 1 つの軸を
     /// 共有する。ADR-0182）
     fn ring_fuel(rings: [(&str, f64); 3]) -> (Library, FuelShielding, Vec<MaterialInput>) {
+        ring_fuel_with(rings, &ShieldingOptions::default())
+    }
+
+    /// [`ring_fuel`] の、自己遮蔽の条件を `options` にしたもの
+    fn ring_fuel_with(
+        rings: [(&str, f64); 3],
+        options: &ShieldingOptions,
+    ) -> (Library, FuelShielding, Vec<MaterialInput>) {
         let library = resonant_library();
         let fuel = |name: &str, u235: f64| MaterialInput {
             name: name.into(),
@@ -1248,15 +1256,37 @@ mod lattice {
         ]
         .map(String::from)
         .to_vec();
-        let shielded = shield_fuel(
-            &library,
-            &tracking,
-            &materials,
-            &regions,
-            &ShieldingOptions::default(),
-        )
-        .unwrap();
+        let shielded = shield_fuel(&library, &tracking, &materials, &regions, options).unwrap();
         (library, shielded, materials)
+    }
+
+    #[test]
+    fn a_thinned_ufg_grid_gives_the_ring_cross_sections_of_the_full_grid() {
+        // ADR-0185: 格子を許容差 1e-4 で間引いても、リングの物質の核種ごとの実効断面積は間引かない格子のものと許容差の程度で一致する
+        let rings = [("fuel", 5.0e-4), ("fuel", 5.0e-4), ("fuel", 5.0e-4)];
+        let (_, full, _) = ring_fuel(rings);
+        let thinned_options = ShieldingOptions {
+            thinning: Some(1.0e-4),
+            ..ShieldingOptions::default()
+        };
+        let (_, thinned, _) = ring_fuel_with(rings, &thinned_options);
+        for (a, b) in thinned.pins[0].rings.iter().zip(&full.pins[0].rings) {
+            for (x, y) in a.iter().zip(b.iter()) {
+                for (p, q) in x
+                    .total
+                    .iter()
+                    .zip(&y.total)
+                    .chain(x.capture.iter().zip(&y.capture))
+                {
+                    let d = if *q == 0.0 {
+                        p.abs()
+                    } else {
+                        (p / q - 1.0).abs()
+                    };
+                    assert!(d < 1e-4, "{p} vs {q}");
+                }
+            }
+        }
     }
 
     #[test]

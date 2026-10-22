@@ -372,7 +372,7 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
     let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
     let (table, exact) = (solve(Collision::default()), solve(Collision::Exact));
     for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
         for (k, (t, e)) in t.iter().zip(e).enumerate() {
@@ -406,7 +406,7 @@ fn non_finite_totals_stop_with_the_table_as_without() {
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
     for collision in [Collision::Exact, Collision::default()] {
-        let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision);
+        let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None);
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
             "{collision:?}: {:?}",
@@ -423,7 +423,14 @@ fn zero_totals_stop_the_table_with_their_ring() {
     let fuel = material(&[("U-238", 0.022)]);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], Collision::default());
+    let result = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        [4.0, 1.0e4],
+        Collision::default(),
+        None,
+    );
     assert!(
         matches!(result, Err(UfgError::ZeroTotal(0))),
         "{:?}",
@@ -439,7 +446,7 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
     let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
     assert_eq!(
         solve(Collision::Table { density: 100_000 }),
         solve(Collision::Exact)
@@ -459,7 +466,7 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
         Some(&water),
     ];
     let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
     (solve(Collision::default()), solve(Collision::Exact))
 }
 
@@ -559,4 +566,249 @@ fn points_beyond_the_expansion_do_not_widen_the_axes() {
         assert!((x - 0.5).abs() <= 1e-15, "{ranges:?}");
     }
     assert_eq!(ranges[1], [1.4, 1.4]);
+}
+
+#[test]
+fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
+    // ADR-0185: 残した点の間の線形な補間（レサジーについて）が、間引く前のどの点でもリングの物質の巨視的な断面積を許容差以内に
+    // 再現し、群の境界と不連続点は残る
+    let (lib, _, _) = resonant_cell(11.0 + 1.0e4);
+    let materials: Vec<Vec<(usize, f64)>> = vec![vec![(0, 0.022), (1, 0.0005), (2, 0.045)]];
+    let data: Vec<Data> = ["U-238", "U-235", "O-16"]
+        .iter()
+        .map(|name| {
+            let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
+            let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
+            Data {
+                name: &d.name,
+                gain: 1.0 / (1.0 - alpha),
+                width: -alpha.ln(),
+                table: t,
+            }
+        })
+        .collect();
+    let high = 1.0e4;
+    let mut energies: Vec<f64> = data[0]
+        .pointwise()
+        .energy
+        .iter()
+        .copied()
+        .filter(|&e| e > 4.0 && e < high)
+        .chain([high, 1.0e3, 1.0e2, 4.0])
+        .collect();
+    energies.sort_by(|a, b| b.total_cmp(a));
+    energies.dedup();
+    let tolerance = 1.0e-3;
+    let kept = thin(&energies, &data, &materials, high, tolerance, |e| {
+        e == 1.0e2
+    })
+    .unwrap();
+    assert!(
+        kept.len() < energies.len() / 2,
+        "{} of {}",
+        kept.len(),
+        energies.len()
+    );
+    for e in [high, 1.0e3, 1.0e2, 4.0] {
+        assert!(kept.contains(&e), "{e}");
+    }
+    let sigma = |e: f64| -> [f64; 2] {
+        let row: Vec<Row> = data
+            .iter()
+            .map(|d| evaluate(d, &mut d.pointwise().energy.len(), e, false).unwrap())
+            .collect();
+        let sum = |x: usize| {
+            materials[0]
+                .iter()
+                .map(|&(k, n)| n * row[k][x])
+                .sum::<f64>()
+        };
+        [sum(0), sum(1)]
+    };
+    let u = |e: f64| (high / e).ln();
+    for &e in &energies {
+        let b = kept.iter().position(|&k| k <= e).unwrap();
+        let (hi, lo) = (kept[b.saturating_sub(1)], kept[b]);
+        let exact = sigma(e);
+        if lo == e {
+            continue;
+        }
+        let t = (u(e) - u(hi)) / (u(lo) - u(hi));
+        let (a, c) = (sigma(hi), sigma(lo));
+        for q in 0..2 {
+            let interpolated = a[q] + t * (c[q] - a[q]);
+            assert!(
+                (interpolated - exact[q]).abs() <= tolerance * exact[q].abs() * (1.0 + 1e-9),
+                "{e} eV quantity {q}: {interpolated} vs {}",
+                exact[q]
+            );
+        }
+    }
+}
+
+#[test]
+fn thinned_grids_give_the_group_constants_of_the_full_grid() {
+    // ADR-0185: 間引いた格子の中性子束で核種の格子の断面積を縮約した群定数は、間引かない格子の群定数と許容差の程度で一致し、
+    // 格子の点は減る
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let solve = |thinning| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        )
+        .unwrap()
+    };
+    let (full, thinned) = (solve(None), solve(Some(1.0e-4)));
+    assert!(
+        thinned.points < full.points,
+        "{} vs {}",
+        thinned.points,
+        full.points
+    );
+    for (ring, (a, b)) in thinned.nuclides.iter().zip(&full.nuclides).enumerate() {
+        for (k, (a, b)) in a.iter().zip(b).enumerate() {
+            for (x, y) in a
+                .total
+                .iter()
+                .zip(&b.total)
+                .chain(a.capture.iter().zip(&b.capture))
+            {
+                let d = if *y == 0.0 {
+                    x.abs()
+                } else {
+                    (x / y - 1.0).abs()
+                };
+                assert!(d < 1e-4, "ring {ring} nuclide {k}: {x} vs {y}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_vanishing_tolerance_gives_the_group_constants_tallied_in_the_sweep() {
+    // ADR-0185: 核種の格子での縮約は、間引かない格子では減速計算の中の積分と同じ値になる（許容差を丸めの程度にすると格子は
+    // 間引かないものとほぼ同じ）
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let solve = |thinning| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        )
+        .unwrap()
+    };
+    let (full, collapsed) = (solve(None), solve(Some(1.0e-14)));
+    for (a, b) in collapsed.nuclides.iter().zip(&full.nuclides) {
+        for (x, y) in a.iter().zip(b) {
+            for (p, q) in x
+                .total
+                .iter()
+                .zip(&y.total)
+                .chain(x.capture.iter().zip(&y.capture))
+            {
+                let d = if *q == 0.0 {
+                    p.abs()
+                } else {
+                    (p / q - 1.0).abs()
+                };
+                assert!(d < 1e-9, "{p} vs {q}");
+            }
+        }
+    }
+}
+
+#[test]
+fn thinned_grids_keep_both_limits_of_discontinuities() {
+    // [`discontinuities_keep_both_limits`] と同じ段差を、間引いた格子でも両側の値で縮約する
+    let step = Spec {
+        name: "Pu-239",
+        awr: 236.999,
+        top: None,
+        points: vec![
+            [4.0, 10.0, 0.0, 0.0],
+            [500.0, 10.0, 0.0, 0.0],
+            [500.0, 20.0, 0.0, 0.0],
+            [2.0e4, 20.0, 0.0, 0.0],
+        ],
+    };
+    let lib = library(vec![
+        constant("U-238", 236.0, 11.0, 11.0, 0.0),
+        constant("H-2", 1.9968, 3.4, 3.4, 0.0),
+        step,
+    ]);
+    let fuel = material(&[("U-238", 0.022), ("Pu-239", 0.002)]);
+    let water = material(&[("H-2", 0.05)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let rings = [Some(&fuel), Some(&water)];
+    let solve = |thinning| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        )
+        .unwrap()
+    };
+    let (full, thinned) = (solve(None), solve(Some(1.0e-4)));
+    let k = 3 - full.groups.start;
+    let (a, b) = (
+        thinned.nuclides[0][1].total[k],
+        full.nuclides[0][1].total[k],
+    );
+    assert!((a / b - 1.0).abs() < 1e-4, "{a} vs {b}");
+}
+
+#[test]
+fn void_cells_stop_with_an_error_when_thinned() {
+    // 物質のないセルは、間引くときも間引かないときと同じくエラーで止まる（パニックしない）
+    let lib = library(vec![constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let rings = [None, None];
+    for thinning in [None, Some(1.0e-4)] {
+        let result = slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        );
+        assert!(result.is_err(), "{thinning:?}");
+    }
+}
+
+#[test]
+fn non_finite_totals_stop_the_thinning_as_without() {
+    // 格子点の全断面積が NaN なら、間引くときも、間引かないときと同じく止まる（間引きが止まらずに点を足し続けない）
+    let (lib, fuel, water) = resonant_cell(f64::NAN);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    for thinning in [None, Some(1.0e-4)] {
+        let result = slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        );
+        assert!(
+            matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
+            "{thinning:?}: {:?}",
+            result.err()
+        );
+    }
 }

@@ -47,6 +47,9 @@ pub struct ShieldingOptions {
     pub dancoff: DancoffOptions,
     /// 燃料のピンと棒の UFG の減速計算の飛程の求め方
     pub collision: Collision,
+    /// 燃料のピンと棒の UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は
+    /// 間引かない。ADR-0185）
+    pub thinning: Option<f64>,
 }
 
 impl Default for ShieldingOptions {
@@ -56,6 +59,7 @@ impl Default for ShieldingOptions {
             max_iterations: 100,
             dancoff: DancoffOptions::default(),
             collision: Collision::default(),
+            thinning: None,
         }
     }
 }
@@ -531,6 +535,7 @@ pub fn shield_fuel_with(
                 region_index: &region_index,
                 void,
                 collision: options.collision,
+                thinning: options.thinning,
             };
             let ufg = shield_cell(
                 library,
@@ -926,6 +931,7 @@ fn shield_lumps(
                         region_index,
                         void: materials.len(),
                         collision: options.collision,
+                        thinning: options.thinning,
                     };
                     shield_cell(
                         library,
@@ -1137,6 +1143,8 @@ struct PinRings<'a> {
     void: usize,
     /// 減速計算の飛程の求め方
     collision: Collision,
+    /// 減速計算の格子の間引きの許容差
+    thinning: Option<f64>,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1285,7 +1293,14 @@ fn solve_equivalent_cell<'a>(
             .chain(frame.map(|(_, area)| outer_radius(radius, area)))
             .collect(),
     )?;
-    let spectrum = slowing_down_with(library, &cylinder, &inputs, range, pin.collision)?;
+    let spectrum = slowing_down_with(
+        library,
+        &cylinder,
+        &inputs,
+        range,
+        pin.collision,
+        pin.thinning,
+    )?;
     Ok(Some(EquivalentCell {
         radius,
         cylinder,

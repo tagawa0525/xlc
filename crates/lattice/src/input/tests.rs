@@ -364,6 +364,37 @@ fn track_table_needs_self_shielding() {
 }
 
 #[test]
+fn ufg_tolerance_thins_only_when_given() {
+    // ADR-0185: 省略すると間引かず、0 と 1 の間の値で間引く
+    let thinning = |line: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{line}"),
+        )
+        .map(|input| input.shielding_options().thinning)
+    };
+    assert_eq!(LatticeInput::parse(PIN_CELL).unwrap().thinning, None);
+    assert_eq!(thinning("ufg-tolerance = 1e-4").unwrap(), Some(1.0e-4));
+    for bad in [
+        "ufg-tolerance = 0",
+        "ufg-tolerance = 1.5",
+        "ufg-tolerance = -1e-4",
+    ] {
+        assert!(
+            matches!(thinning(bad), Err(InputError::Invalid(_))),
+            "{bad}"
+        );
+    }
+    let off = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\nufg-tolerance = 1e-4",
+    );
+    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+}
+
+#[test]
 fn self_shielding_needs_a_library() {
     let result = replaced(
         LATTICE,
