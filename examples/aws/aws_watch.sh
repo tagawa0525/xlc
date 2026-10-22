@@ -6,8 +6,11 @@
 # （N は定義の progress が statepoint のときだけで、1 回の呼び出しに 1 つ。欠けたジョブがすべて openmc-3? なら 50、ほかが混じれば 25。
 # 欠けたジョブに done が 0 以外のものがあれば --retry-failed。起動の上限を超える分は次の回に回す）。
 # 実行名ごとに flock のロックを取る（同じ <name> の監視は 1 つだけ）。取れなければ「すでに走っている」と出して 1 で終わる。
-# 終了コード: 0 全部 done、1 すでに走っている（--status では走っていない）、2 起動し直しの上限、3 想定外の失敗、
-#            4 認証切れ（aws login をやり直す。VM は動き続ける）
+# 読み取り（aws_status.sh と done）の失敗では終了せず、ATTENTION の行を出して次の間隔で読み直す（読めない間は起動し直さない。
+# 欠けたジョブの判定が信用できないため）。認証切れの疑い（ExpiredToken など、S3 の 400 Bad Request）は aws login のやり直しを
+# 求める。aws login をやり直せば、次の間隔で通常に戻る。aws_run.sh が認証切れで失敗したときも同じ。
+# 終了コード: 0 全部 done、1 すでに走っている（--status では走っていない）、2 起動し直しの上限、3 想定外の失敗
+#            （起動時の実行の読み込みと、aws_run.sh の認証切れ以外の失敗）、4 起動時に認証切れ（aws login をやり直す）
 #
 # 使い方: examples/aws/aws_watch.sh [--interval 秒] [--limit 回] [--status] <name>
 #   --interval  見る間隔（既定 300 秒）
@@ -18,7 +21,7 @@ here=$(dirname "$0")
 # shellcheck source=aws_common.sh
 source "$here/aws_common.sh"
 
-usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
 interval=300 limit=60 name='' status=0
 while (($#)); do
   case $1 in
@@ -49,9 +52,21 @@ fi
 flock -w 2 9 || { echo "$name の監視はすでに走っている（確認は aws_watch.sh --status $name）" >&2; exit 1; }
 
 expired='ExpiredToken|RequestExpired|session has expired'
-# 失敗の出力を $1 に見て、認証切れなら 4 で終わる
+# S3 の HeadObject は切れた認証にも 400 Bad Request を返すので、認証切れの疑いに含める（400 がそれだけとは限らない）
+suspect="$expired|An error occurred \(400\)|Bad Request"
+# 起動時の失敗の出力を $1 に見て、認証切れなら 4 で終わる
 check_expired() {
   if grep -qE "$expired" <<< "$1"; then echo "ATTENTION: aws login expired"; exit 4; fi
+}
+# 読み取りの失敗を表示する（$1 何を、$2 終了コード、$3 出力）。ここでは終了しない: 監視が止まると、ユーザーが気づくまで
+# 起動し直しが止まる（2026-10-21 に 3 本が約 20 時間止まった）。読み直し続ければ、aws login のやり直しだけで復帰する
+read_failed() {
+  if grep -qE "$suspect" <<< "$3"; then
+    echo "ATTENTION: $1 failed (rc=$2): 認証切れの疑い。aws login をやり直す（次の間隔で読み直す）"
+  else
+    echo "ATTENTION: $1 failed (rc=$2); retry next round"
+  fi
+  echo "$3"
 }
 
 read_out=$(read_launch_env "$name" 2>&1) || { check_expired "$read_out"; echo "$read_out" >&2; exit 3; }
@@ -64,12 +79,12 @@ relaunches=0
 while :; do
   rc=0
   st=$("$here/aws_status.sh" 2>&1 9>&-) || rc=$?
-  if ((rc)); then check_expired "$st"; echo "ATTENTION: aws_status.sh failed (rc=$rc)"; echo "$st"; exit 3; fi
-  done_n=0 missing=() failed=()
+  if ((rc)); then read_failed aws_status.sh "$rc" "$st"; sleep "$interval" 9>&-; continue; fi
+  done_n=0 missing=() failed=() unreadable=0
   for j in "${jobs[@]}"; do
     rc=0
     code=$(job_done "$name" "$j" 2>&1) || rc=$?
-    if ((rc)); then check_expired "$code"; echo "ATTENTION: reading done failed (rc=$rc)"; echo "$code"; exit 3; fi
+    if ((rc)); then read_failed "reading done" "$rc" "$code"; unreadable=1; break; fi
     code=${code//[[:space:]]/}
     if [[ $code == 0 ]]; then
       done_n=$((done_n + 1))
@@ -80,6 +95,7 @@ while :; do
       [[ -z $code ]] || failed+=("$j")
     fi
   done
+  if ((unreadable)); then sleep "$interval" 9>&-; continue; fi
   echo "$(date '+%m-%d %H:%M') done=$done_n/$total missing=[${missing[*]:-}] failed=[${failed[*]:-}] relaunches=$relaunches"
   if ((done_n == total)); then echo "ALL DONE"; exit 0; fi
   if ((${#missing[@]})); then
@@ -114,9 +130,10 @@ while :; do
     if ((rc == 0)); then
       ((launched > 0)) || echo "nothing launched for ${missing[*]}"
     else
-      check_expired "$out"
       if ((rc == 1)) && grep -qE '空きがない|候補がない' <<< "$out"; then
         echo "no capacity for ${missing[*]}; retry next round"
+      elif grep -qE "$expired" <<< "$out"; then
+        echo "ATTENTION: aws login expired; aws login をやり直す（次の間隔で読み直す）"
       else
         echo "ATTENTION: aws_run.sh failed (rc=$rc)"; echo "$st"; exit 3
       fi
