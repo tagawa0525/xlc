@@ -21,6 +21,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use xlc_format::library::{Library, LookupError, Nuclide, Shielded};
 
@@ -348,17 +349,19 @@ pub fn shield_fuel_with(
             regions,
         });
     }
-    let dilute = materials
-        .iter()
-        .map(|m| {
-            Material::mix(library, &m.composition, m.temperature).map_err(|source| {
-                SelfShieldingError::Material {
-                    name: m.name.clone(),
-                    source,
-                }
+    let dilute = tracing::info_span!("mix").in_scope(|| {
+        materials
+            .iter()
+            .map(|m| {
+                Material::mix(library, &m.composition, m.temperature).map_err(|source| {
+                    SelfShieldingError::Material {
+                        name: m.name.clone(),
+                        source,
+                    }
+                })
             })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()
+    })?;
     // 真空の帯は、物質の一覧の最後に置く真空の物質にする
     let void = dilute.len();
     let mut dilute = dilute;
@@ -439,7 +442,7 @@ pub fn shield_fuel_with(
         }
         pins.push((cell, fuel_regions, ring_materials, rings));
     }
-    let factors = tracing::debug_span!("dancoff")
+    let factors = tracing::info_span!("dancoff")
         .in_scope(|| dancoff(tracking, &totals, &fuel, &options.dancoff))?;
 
     let mut shielded = FuelShielding {
@@ -502,7 +505,7 @@ pub fn shield_fuel_with(
     let mut solutions: Vec<Option<Result<PinSolution, SelfShieldingError>>> = solving
         .par_iter()
         .map(|&(cell, ring_materials, rings)| {
-            let _pin = tracing::debug_span!(parent: &shielding, "pin", cell).entered();
+            let _pin = tracing::info_span!(parent: &shielding, "pin", cell).entered();
             let factors = factors[cell]
                 .as_ref()
                 .ok_or(SelfShieldingError::FuelShape(cell))?;
@@ -519,7 +522,7 @@ pub fn shield_fuel_with(
                     .collect::<Result<_, _>>()?,
             };
             let material = pin_fuel(lattice, cell, materials, ring_materials);
-            let carlvik = tracing::debug_span!("carlvik")
+            let carlvik = tracing::info_span!("carlvik")
                 .in_scope(|| shield_material(library, &material, &equivalence, options, cell))?;
             let pin_cell = PinRings {
                 lattice,
@@ -543,10 +546,15 @@ pub fn shield_fuel_with(
         .map(Some)
         .collect();
     let mut solved: Vec<(usize, Solved)> = Vec::new();
+    // 代表のピンのエネルギーの格子点の数（解いた順）と、移り合うピンへの複製の時間
+    let mut points: Vec<usize> = Vec::new();
+    let mut replicate = Duration::ZERO;
+    let assembly = Instant::now();
     for ((cell, fuel_regions, ring_materials, rings), planned) in pins.into_iter().zip(plan) {
         let factors = factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
+        let copying = Instant::now();
         if let Some((_, s)) = solved.iter().find(|(c, _)| *c == orbits[cell]) {
             assign(
                 lattice,
@@ -560,6 +568,7 @@ pub fn shield_fuel_with(
                 cell,
                 ..s.pin.clone()
             });
+            replicate += copying.elapsed();
             continue;
         }
         let material = pin_fuel(lattice, cell, materials, &ring_materials);
@@ -567,6 +576,7 @@ pub fn shield_fuel_with(
         let PinSolution { carlvik, ufg } = planned
             .and_then(|k| solutions.get_mut(k).and_then(Option::take))
             .ok_or(SelfShieldingError::Unsolved(cell))??;
+        points.extend(ufg.as_ref().map(|c| c.points));
         // 範囲の外の燃料のリングは、どれも等価原理の同じ微視的断面積（組成の並びはリングで同じ）
         let micro = Arc::new(carlvik.clone());
         let (effective, ring_effective) = match &ufg {
@@ -665,7 +675,13 @@ pub fn shield_fuel_with(
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
     }
-    tracing::debug_span!("lumps").in_scope(|| {
+    let assembly = assembly.elapsed().as_secs_f64();
+    tracing::info!(
+        replicate = replicate.as_secs_f64(),
+        build = assembly - replicate.as_secs_f64(),
+        "pin results (s): replicate = copies for the symmetric pins, build = materials of the solved pins"
+    );
+    tracing::info_span!("lumps").in_scope(|| {
         shield_lumps(
             library,
             tracking,
@@ -677,6 +693,7 @@ pub fn shield_fuel_with(
         )
     })?;
     // 遮蔽しなかった物質の領域は、MOC の物質（`Material::mix`）と同じ無限希釈の値（σ0 の表の最初）。物質ごとに 1 度だけ作る
+    let dilute_span = tracing::info_span!("dilute").entered();
     let mut dilute_nuclides: Vec<Option<Arc<Vec<Shielded>>>> = vec![None; materials.len()];
     for (region, &index) in region_index.iter().enumerate() {
         if index == void || shielded.region_effective[region].is_some() {
@@ -693,9 +710,13 @@ pub fn shield_fuel_with(
         }
         shielded.region_effective[region] = dilute_nuclides[index].clone();
     }
+    drop(dilute_span);
     tracing::info!(
         pins = shielded.pins.len(),
         solved = solved.len(),
+        points_min = points.iter().min().copied().unwrap_or(0),
+        points_max = points.iter().max().copied().unwrap_or(0),
+        points_sum = points.iter().sum::<usize>(),
         "fuel pins and their symmetry representatives"
     );
     Ok(shielded)
@@ -1142,6 +1163,8 @@ struct CellShielding {
     sph: Vec<Vec<f64>>,
     /// `sph` の列の群
     groups: std::ops::Range<usize>,
+    /// 減速計算のエネルギーの格子点の数
+    points: usize,
 }
 
 /// 等価なセルの減速計算（[`solve_equivalent_cell`]）
@@ -1231,6 +1254,7 @@ fn solve_equivalent_cell<'a>(
         .chain(radii[pin.rings..start].iter().copied())
         .collect();
     let mut sum = 0.0;
+    let radius_span = tracing::info_span!("equivalent-radius").entered();
     for (g, &c) in dancoff.iter().enumerate().take(bottom).skip(top) {
         let totals: Vec<f64> = [0.0]
             .into_iter()
@@ -1248,6 +1272,7 @@ fn solve_equivalent_cell<'a>(
         });
         sum += equivalent_radius(&inner, &totals, outer, c.max(MIN_DANCOFF))?;
     }
+    drop(radius_span);
     let radius = sum / (bottom - top) as f64;
     let cylinder = Cylinder::new(
         radii[..start]
@@ -1361,6 +1386,7 @@ fn shield_cell(
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut rings = Vec::with_capacity(inputs.len());
     let mut ring_nuclides = Vec::with_capacity(inputs.len());
+    let ring_span = tracing::info_span!("ring-materials").entered();
     for (j, input) in inputs.iter().enumerate() {
         let Some(m) = input else {
             rings.push(None);
@@ -1401,6 +1427,8 @@ fn shield_cell(
         rings.push(Some(material));
     }
 
+    drop(ring_span);
+
     // SPH 因子: 同じセルを多群で解いた中性子束のリング間の形が UFG と一致するよう、リングの物質に掛ける。
     // 範囲の上の群の中性子束は UFG と同じく F = 1（群のレサジー幅）
     let multigroup: Vec<Material> = rings
@@ -1413,7 +1441,7 @@ fn shield_cell(
     if *frame && let Some(last) = fixed.last_mut() {
         *last = true;
     }
-    let sph = tracing::debug_span!("sph").in_scope(|| {
+    let sph = tracing::info_span!("sph").in_scope(|| {
         sph_factors(
             cylinder,
             &multigroup,
@@ -1452,6 +1480,7 @@ fn shield_cell(
         ring_nuclides,
         sph,
         groups: top..bottom,
+        points: spectrum.points,
     }))
 }
 
@@ -1482,7 +1511,7 @@ fn shield_material(
                 .transpose()
         })
         .collect::<Result<Vec<_>, _>>()?;
-    for _ in 0..options.max_iterations {
+    for iteration in 1..=options.max_iterations {
         let tables = material
             .composition
             .iter()
@@ -1519,6 +1548,12 @@ fn shield_material(
             .fold(0.0, f64::max);
         totals = tables.iter().map(|s| s.total.clone()).collect();
         if change <= options.tolerance {
+            tracing::info!(
+                iterations = iteration,
+                nuclides = tables.len(),
+                dilute = dilute.iter().flatten().count(),
+                "equivalence iterations"
+            );
             return Ok(tables);
         }
     }
