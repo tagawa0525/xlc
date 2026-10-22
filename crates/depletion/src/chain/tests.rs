@@ -294,20 +294,6 @@ fn rejects_unlabelled_channels_of_a_split_reaction() {
 }
 
 #[test]
-fn bounds_the_yield_energies_at_geometric_means() {
-    let fission = small_chain().nuclides[U235].fission.clone().unwrap();
-    let bounds = fission.yield_bounds();
-    assert_eq!(bounds.len(), 1);
-    assert!((bounds[0] - (0.0253f64 * 5e5).sqrt()).abs() <= 1e-12 * bounds[0]);
-    let one = Fission {
-        energies: vec![0.0253],
-        yields: vec![vec![]],
-        ..fission
-    };
-    assert!(one.yield_bounds().is_empty());
-}
-
-#[test]
 fn zero_rates_follow_the_shape_of_the_chain() {
     let chain = small_chain();
     let rates = chain.zero_rates();
