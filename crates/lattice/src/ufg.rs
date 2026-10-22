@@ -628,8 +628,81 @@ fn thin(
     tolerance: f64,
     keep: impl Fn(f64) -> bool,
 ) -> Result<Vec<f64>, UfgError> {
-    let _ = (data, entries, high, tolerance, keep);
-    Ok(energies.to_vec())
+    let mut materials: Vec<&Vec<(usize, f64)>> = Vec::new();
+    for ring in entries.iter().filter(|r| !r.is_empty()) {
+        if !materials.contains(&ring) {
+            materials.push(ring);
+        }
+    }
+    let quantities = 2 * materials.len();
+    let mut cursors: Vec<usize> = data.iter().map(Data::first_cursor).collect();
+    // [点][量] の値
+    let mut values: Vec<Vec<f64>> = Vec::with_capacity(energies.len());
+    for &e in energies {
+        let row = data
+            .iter()
+            .zip(cursors.iter_mut())
+            .map(|(d, c)| evaluate(d, c, e, false))
+            .collect::<Result<Vec<_>, _>>()?;
+        values.push(
+            materials
+                .iter()
+                .flat_map(|m| {
+                    let sum = |x: usize| m.iter().map(|&(k, n)| n * row[k][x]).sum::<f64>();
+                    [sum(0), sum(1)]
+                })
+                .collect(),
+        );
+    }
+    let x: Vec<f64> = energies.iter().map(|&e| (high / e).ln()).collect();
+    let last = energies.len().saturating_sub(1);
+    let mut kept = Vec::with_capacity(energies.len() / 4);
+    if energies.is_empty() {
+        return Ok(kept);
+    }
+    kept.push(energies[0]);
+    let mut a = 0;
+    let fresh = vec![[f64::NEG_INFINITY, f64::INFINITY]; quantities];
+    let mut bounds = fresh.clone();
+    let mut i = 1;
+    while i <= last {
+        let dx = x[i] - x[a];
+        if dx <= 0.0 && !(i == last || keep(energies[i])) {
+            // 丸めで同じレサジーの点（格子の作り方と同じく 1 つにまとめる）
+            i += 1;
+            continue;
+        }
+        let fits = dx > 0.0
+            && (0..quantities).all(|q| {
+                let slope = (values[i][q] - values[a][q]) / dx;
+                bounds[q][0] <= slope && slope <= bounds[q][1]
+            });
+        if i == last || keep(energies[i]) {
+            if !fits && i - 1 > a {
+                kept.push(energies[i - 1]);
+            }
+            kept.push(energies[i]);
+            a = i;
+            bounds.clone_from(&fresh);
+            i += 1;
+            continue;
+        }
+        if !fits {
+            // 1 つ前の点まで補間でき、そこを残して始め直す
+            kept.push(energies[i - 1]);
+            a = i - 1;
+            bounds.clone_from(&fresh);
+            continue;
+        }
+        for (q, b) in bounds.iter_mut().enumerate() {
+            let v = values[i][q];
+            let band = tolerance * v.abs();
+            b[0] = b[0].max((v - band - values[a][q]) / dx);
+            b[1] = b[1].min((v + band - values[a][q]) / dx);
+        }
+        i += 1;
+    }
+    Ok(kept)
 }
 
 /// リングの組成の核種の群定数の出どころ

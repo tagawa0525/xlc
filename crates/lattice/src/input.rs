@@ -962,8 +962,7 @@ impl LatticeInput {
                 "`pointwise`: `{name}` is in no material written with nuclides or water"
             )));
         }
-        let thinning: Option<f64> = None;
-        let _ = file.ufg_tolerance;
+        let thinning = file.ufg_tolerance;
         if !self_shielding && thinning.is_some() {
             return Err(invalid(
                 "`ufg-tolerance` is used only by the self-shielding (a library without `self-shielding = false`)"
