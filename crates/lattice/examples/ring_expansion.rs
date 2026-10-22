@@ -15,6 +15,7 @@
 //! 最大の値との比。δ の形は、Gd の割合 g の燃料で Gd の数密度が内側から 0.95〜0.08 倍（外側から燃えた形）のときの
 //! ln(1 − g + g p_i / 0.66)（0.66 は割合の平均の目安）を中心に合わせたもの。
 
+use anyhow::Context;
 use xlc_lattice::cp::Cylinder;
 
 /// 燃料のリングの数
@@ -34,12 +35,12 @@ impl Cell {
     }
 
     /// 燃料のリングの ln Σ の中心からの差 `d`、中心 `center`、被覆管 `clad` での R（[リング × リング]）
-    fn collisions(&self, center: f64, d: &[f64], clad: f64) -> Vec<f64> {
+    fn collisions(&self, center: f64, d: &[f64], clad: f64) -> anyhow::Result<Vec<f64>> {
         let mut totals: Vec<f64> = d.iter().map(|x| center * x.exp()).collect();
         totals.push(0.0);
         totals.push(clad);
         totals.resize(self.rings(), WATER);
-        let w = self.cylinder.tracks(&totals).expect("finite totals");
+        let w = self.cylinder.tracks(&totals)?;
         let n = self.rings();
         let mut r = vec![0.0; n * n];
         for i in 0..n {
@@ -51,7 +52,7 @@ impl Cell {
                 };
             }
         }
-        r
+        Ok(r)
     }
 
     /// `got` と `exact` の差（モジュールの説明の測り方）
@@ -74,7 +75,7 @@ impl Cell {
     }
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let mut radii = vec![
         0.1448154688,
         0.2048,
@@ -86,7 +87,7 @@ fn main() {
         0.4096,
     ];
     radii.extend([0.418, 0.475, 0.5317, 0.5822, 0.63, 0.6916, 0.75, 0.80]);
-    let cylinder = Cylinder::new(radii).expect("increasing radii");
+    let cylinder = Cylinder::new(radii).context("cell radii")?;
     let volumes = cylinder.volumes();
     let cell = Cell { cylinder, volumes };
     let n = cell.rings();
@@ -96,7 +97,7 @@ fn main() {
     println!("center gd amplitude clad zero first second");
     for center in [0.4, 3.0, 30.0, 300.0] {
         let zero = vec![0.0; FUEL];
-        let r0 = cell.collisions(center, &zero, clad0);
+        let r0 = cell.collisions(center, &zero, clad0)?;
         let shifted = |pairs: &[(usize, f64)]| {
             let mut d = zero.clone();
             for &(k, x) in pairs {
@@ -107,16 +108,20 @@ fn main() {
         let mut gradient = vec![vec![0.0; n * n]; FUEL];
         let mut hessian = vec![vec![vec![0.0; n * n]; FUEL]; FUEL];
         for a in 0..FUEL {
-            let (p, q) = (shifted(&[(a, STEP)]), shifted(&[(a, -STEP)]));
+            let (p, q) = (shifted(&[(a, STEP)])?, shifted(&[(a, -STEP)])?);
             for x in 0..n * n {
                 gradient[a][x] = (p[x] - q[x]) / (2.0 * STEP);
                 hessian[a][a][x] = (p[x] - 2.0 * r0[x] + q[x]) / (STEP * STEP);
             }
+            #[expect(
+                clippy::needless_range_loop,
+                reason = "対称な混合の微分を [a][b] と [b][a] の両方に書く"
+            )]
             for b in 0..a {
-                let pp = shifted(&[(a, STEP), (b, STEP)]);
-                let pm = shifted(&[(a, STEP), (b, -STEP)]);
-                let mp = shifted(&[(a, -STEP), (b, STEP)]);
-                let mm = shifted(&[(a, -STEP), (b, -STEP)]);
+                let pp = shifted(&[(a, STEP), (b, STEP)])?;
+                let pm = shifted(&[(a, STEP), (b, -STEP)])?;
+                let mp = shifted(&[(a, -STEP), (b, STEP)])?;
+                let mm = shifted(&[(a, -STEP), (b, -STEP)])?;
                 for x in 0..n * n {
                     let v = (pp[x] - pm[x] - mp[x] + mm[x]) / (4.0 * STEP * STEP);
                     hessian[a][b][x] = v;
@@ -138,8 +143,8 @@ fn main() {
             let d: Vec<f64> = raw.iter().map(|x| x - mean).collect();
             let amplitude = d.iter().fold(0.0f64, |a, b| a.max(b.abs()));
             for clad in [clad0, 0.25, 2.0] {
-                let exact = cell.collisions(center, &d, clad);
-                let base = cell.collisions(center, &zero, clad);
+                let exact = cell.collisions(center, &d, clad)?;
+                let base = cell.collisions(center, &zero, clad)?;
                 let first: Vec<f64> = (0..n * n)
                     .map(|x| base[x] + (0..FUEL).map(|a| d[a] * gradient[a][x]).sum::<f64>())
                     .collect();
@@ -162,4 +167,5 @@ fn main() {
             }
         }
     }
+    Ok(())
 }
