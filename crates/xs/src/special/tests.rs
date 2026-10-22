@@ -147,3 +147,23 @@ fn faddeeva_far_from_origin_is_asymptotic() {
     assert_rel(re, y / (sqrt_pi * r2) * (1.0 + 3.0 / (2.0 * x * x)), 1e-6);
     assert_rel(im, x / (sqrt_pi * r2) * (1.0 + 1.0 / (2.0 * x * x)), 1e-9);
 }
+
+#[test]
+fn faddeeva_over_many_x_gives_the_bits_of_each_point() {
+    // まとめた計算は、点ごとの `faddeeva` と同じ演算なので、ビットまで同じ。内部の区切りをまたぐ長さと、空の列も確かめる
+    for y in [0.0, 1.0e-3, 0.07, 2.0, 99.0] {
+        for n in [0, 1, 7, 64, 65, 250] {
+            let x: Vec<f64> = (0..n).map(|i| -120.0 + 240.0 * i as f64 / 249.0).collect();
+            let mut w = vec![Complex64::ZERO; n];
+            faddeeva_upper(y, &x, &mut w);
+            for (&x, w) in x.iter().zip(&w) {
+                let expected = faddeeva(Complex64::new(x, y));
+                assert_eq!(
+                    (w.re.to_bits(), w.im.to_bits()),
+                    (expected.re.to_bits(), expected.im.to_bits()),
+                    "x={x}, y={y}"
+                );
+            }
+        }
+    }
+}
