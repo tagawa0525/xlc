@@ -152,6 +152,11 @@ fn rejects_bad_ranges_and_densities() {
         new(&reversed, 16),
         Err(TableError::Range { material: 2, .. })
     ));
+    // 範囲は軸ごとに 1 つ
+    assert!(matches!(
+        new(&RANGES[..2], 16),
+        Err(TableError::Ranges { given: 2, axes: 3 })
+    ));
     let short = Layout::new(&cell, CLASSES[..5].to_vec(), vec![0, 1, 2]);
     assert!(matches!(
         short,
@@ -162,6 +167,9 @@ fn rejects_bad_ranges_and_densities() {
     assert!(matches!(unknown, Err(TableError::Axes)));
     let gap = Layout::new(&cell, CLASSES.to_vec(), vec![0, 2, 2]);
     assert!(matches!(gap, Err(TableError::Axes)));
+    // リングのない物質は、軸の中心の重みを持てない
+    let empty = Layout::new(&cell, CLASSES.to_vec(), vec![0, 1, 2, 2]);
+    assert!(matches!(empty, Err(TableError::Axes)));
 }
 
 #[test]
@@ -177,7 +185,7 @@ fn tracks_reject_sigmas_off_the_table() {
     ));
     assert!(matches!(
         table.tracks(&[3001.0, 1.0, 1.4]),
-        Err(TableError::Outside { material: 0, .. })
+        Err(TableError::Outside { axis: 0, .. })
     ));
 }
 
@@ -320,4 +328,16 @@ fn shared_axes_cost_two_evaluations_per_material() {
     // 格子点の組ごとの衝突確率の数: 表の値 1 つと、軸を共有する物質ごとの中心差分の 2 つ
     assert_eq!(layout().evaluations(), 1);
     assert_eq!(ring_layout().evaluations(), 1 + 2 * 3);
+}
+
+#[test]
+fn off_range_totals_name_their_axis() {
+    // 範囲の外の全断面積は、物質ではなく軸の番号で示す（水は物質 4、軸 2）
+    let ranges = [[0.3, 3000.0], [0.25, 2.0], [1.2, 1.6]];
+    let table = TrackTable::new(&cell(), ring_layout(), &ranges, DEFAULT_DENSITY).unwrap();
+    let sigma = ring_sigma(3.3, 0.0, 0.9, 1.7);
+    assert!(matches!(
+        table.tracks(&sigma),
+        Err(TableError::Outside { axis: 2, .. })
+    ));
 }
