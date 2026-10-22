@@ -70,6 +70,8 @@
 //! materials = ["fuel"]            # 燃焼させる物質（核種で書いたもの）
 //! output = "history.msgpack"      # 燃焼の履歴（燃焼点ごとの k∞、数密度、ピン出力。ADR-0181）
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
+//! # yield-cutoff = { energy = 112.47, thermal = 0.0253, fast = 5e5 }   # 収率の重みを 1 つの境界で熱と速の点に分ける
+//! #                               # （OpenMC の FissionYieldCutoffHelper の点の選び方。省略すると ADR-0164 の区間）
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -86,7 +88,7 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
-use crate::depletion::{DepletionFewGroup, DepletionInput};
+use crate::depletion::{DepletionFewGroup, DepletionInput, YieldCutoff, YieldWeighting};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::shielding::ShieldingOptions;
@@ -325,6 +327,17 @@ struct DepletionEntry {
     output: PathBuf,
     /// 省略すると少数群定数を作らない
     few_group: Option<DepletionFewGroupEntry>,
+    /// 省略すると収率の点ごとの区間の重み（ADR-0164）
+    yield_cutoff: Option<YieldCutoffEntry>,
+}
+
+/// 収率の重みの境界と、その下と上で使う点 (eV)
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct YieldCutoffEntry {
+    energy: f64,
+    thermal: f64,
+    fast: f64,
 }
 
 /// 燃焼点ごとの格子全体の少数群定数（燃焼の履歴に書く）
@@ -866,6 +879,23 @@ impl LatticeInput {
                     }
                     None => None,
                 };
+                let fission_yields = match d.yield_cutoff {
+                    Some(c) => {
+                        // OpenMC の FissionYieldCutoffHelper と同じ条件
+                        if !(c.thermal >= 0.0 && c.thermal < c.energy && c.energy < c.fast) {
+                            return Err(format!(
+                                "the yield cutoff needs 0 <= thermal < energy < fast, got {}, {}, {}",
+                                c.thermal, c.energy, c.fast
+                            ));
+                        }
+                        YieldWeighting::Cutoff(YieldCutoff {
+                            energy: c.energy,
+                            thermal: c.thermal,
+                            fast: c.fast,
+                        })
+                    }
+                    None => YieldWeighting::Intervals,
+                };
                 if !positive(d.power) {
                     return Err(format!("the depletion power must be positive, got {}", d.power));
                 }
@@ -902,6 +932,7 @@ impl LatticeInput {
                     materials: d.materials,
                     output: d.output,
                     few_group,
+                    fission_yields,
                 })
             })
             .transpose()

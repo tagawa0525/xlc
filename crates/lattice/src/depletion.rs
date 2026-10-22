@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, anyhow, bail};
 use rayon::prelude::*;
 use serde::Serialize;
-use xlc_depletion::chain::{Chain, ChainError, NuclideRates, Reaction};
+use xlc_depletion::chain::{Chain, ChainError, Fission, NuclideRates, Reaction};
 use xlc_depletion::{CramOrder, deplete};
 use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::{Library, Shielded};
@@ -53,6 +53,83 @@ pub struct DepletionInput {
     pub output: PathBuf,
     /// 燃焼点ごとに格子全体の少数群定数を作るなら、その条件
     pub few_group: Option<DepletionFewGroup>,
+    /// 核分裂の収率のエネルギーの点の重みの付け方
+    pub fission_yields: YieldWeighting,
+}
+
+/// 核分裂の収率のエネルギーの点の重みの付け方
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum YieldWeighting {
+    /// 点ごとの区間（隣の点との幾何平均で区切る）の核分裂率の割合（ADR-0164、ADR-0173）
+    Intervals,
+    /// 1 つの境界の下を熱の点、上を速の点に置く（点の選び方は OpenMC の `FissionYieldCutoffHelper` と同じ）。境界を含む群の
+    /// 核分裂率は、`Intervals` と同じくレサジーの幅の比で分ける（OpenMC は連続エネルギーで数える）
+    Cutoff(YieldCutoff),
+}
+
+/// `YieldWeighting::Cutoff` の境界と点 (eV)。熱 < 境界 < 速
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct YieldCutoff {
+    pub energy: f64,
+    pub thermal: f64,
+    pub fast: f64,
+}
+
+impl YieldWeighting {
+    /// 核分裂 `fission` の収率の点ごとの重み（和は 1）。群の核分裂率 `rates`（群境界 `group_bounds` は降順の eV）から求める
+    pub fn weights(&self, group_bounds: &[f64], rates: &[f64], fission: &Fission) -> Vec<f64> {
+        match self {
+            Self::Intervals => yield_weights(group_bounds, rates, &fission.yield_bounds()),
+            Self::Cutoff(c) => c.weights(group_bounds, rates, &fission.energies),
+        }
+    }
+}
+
+impl YieldCutoff {
+    /// 点の選び方は OpenMC 0.15.2 の `FissionYieldCutoffHelper.__init__` と同じ: 熱と速の点がちょうどあればそれを使う。どちらかが
+    /// なければ、境界が最初の点以下なら最初の点、最後の点以上なら最後の点だけを使い、そうでなければ境界より下で熱に、境界以上で
+    /// 速に最も近い点を使う。核分裂のない領域は最初の点に 1（`Chain::zero_rates` と同じ）
+    fn weights(&self, group_bounds: &[f64], rates: &[f64], energies: &[f64]) -> Vec<f64> {
+        let mut weights = vec![0.0; energies.len()];
+        let exact = |e: f64| energies.iter().position(|&p| p == e);
+        let (thermal, fast) = match (exact(self.thermal), exact(self.fast)) {
+            (Some(t), Some(f)) => (t, f),
+            (thermal, fast) => {
+                if self.energy <= energies[0] {
+                    weights[0] = 1.0;
+                    return weights;
+                }
+                let last = energies.len() - 1;
+                if self.energy >= energies[last] {
+                    weights[last] = 1.0;
+                    return weights;
+                }
+                let split = energies.partition_point(|&e| e < self.energy);
+                // 境界は最初と最後の点の間にあるので、どちらの範囲も空でない。同じ近さなら前の点（Python の min と同じ）
+                let nearest = |from: usize, to: usize, target: f64| {
+                    (from..to).fold(from, |best, k| {
+                        if (energies[k] - target).abs() < (energies[best] - target).abs() {
+                            k
+                        } else {
+                            best
+                        }
+                    })
+                };
+                (
+                    thermal.unwrap_or_else(|| nearest(0, split, self.thermal)),
+                    fast.unwrap_or_else(|| nearest(split, energies.len(), self.fast)),
+                )
+            }
+        };
+        if rates.iter().sum::<f64>() <= 0.0 {
+            weights[0] = 1.0;
+            return weights;
+        }
+        let split = yield_weights(group_bounds, rates, &[self.energy]);
+        weights[thermal] += split[0];
+        weights[fast] += split[1];
+        weights
+    }
 }
 
 /// 燃焼点ごとの格子全体の少数群定数の条件
@@ -304,6 +381,7 @@ pub fn region_rates(
     members: &[Member],
     group_bounds: &[f64],
     reactions: &dyn ReactionSource,
+    fission_yields: YieldWeighting,
 ) -> anyhow::Result<Vec<NuclideRates>> {
     let mut rates = chain.zero_rates();
     let volume: f64 = members.iter().map(|m| m.volume).sum();
@@ -349,8 +427,7 @@ pub fn region_rates(
         match &nuclide.fission {
             Some(f) => {
                 rates[i].fission = fission * BARN / volume;
-                rates[i].yield_weights =
-                    yield_weights(group_bounds, &group_fission, &f.yield_bounds());
+                rates[i].yield_weights = fission_yields.weights(group_bounds, &group_fission, f);
             }
             None if fission > 0.0 => bail!(
                 "{} fissions in the library but has no fission in the chain",
@@ -808,6 +885,7 @@ pub fn run(
                 &members,
                 groups.bounds(),
                 reactions,
+                depletion.fission_yields,
             )?;
             for (i, r) in region.iter().enumerate() {
                 if let Some(f) = &chain.nuclides[i].fission {
