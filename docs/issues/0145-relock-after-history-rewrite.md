@@ -35,7 +35,7 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
 
 - リポジトリの直下（`build`）: 作り直して relock する（数十秒）
 - examples/depletion/p2: ライブラリ（xs の 90 核種、NJOY の openmc-neutron/thermal/index）と `chain`（examples/depletion/dvc.yaml）を
-  再実行し、集合体の燃焼の lattice@2A と compare@2A を流して relock する（このブランチ）。ほかのジョブは #0135 の後の lattice で流す
+  再実行し、集合体の燃焼の lattice@2A と compare@2A を流して relock する（このブランチ）。2F 以降のジョブは、別の作業として流す（2026-10-22 の作業の分け方。このブランチでは流さない）
 - examples/depletion の `openmc-1C`（1.5 時間 × 2）、examples/vera の OpenMC: 再実行しない。結果が要るときに再実行する
 - ほかの例: 再実行しない。結果が要るときに再実行する
 
@@ -51,7 +51,7 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
 
 ## 完了の条件
 
-- p2 のライブラリと集合体の燃焼のステージが relock され、比較が OpenMC の参照解のそろったものについて流れている
+- p2 のライブラリと lattice@2A、compare@2A が relock されている（2F 以降のジョブは別の作業で、この issue の条件に含めない）
 - 再発を防ぐ仕組みを決める（採るなら ADR に書き、history-rewrite に入れる）か、採らないと決める
 
 ## 経緯
@@ -59,5 +59,7 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
 - 2026-10-22: #0141 の書き換えのあと、p2 の集合体の燃焼を流す前に `dvc status` で分かった
 - 2026-10-22: p2 のライブラリ（xs、NJOY の openmc-neutron/thermal/index）と `chain` を再実行した（Slurm のジョブ 417、排他、1:44:15）。
   p2 の 185 個の出力と `chain` の出力の md5 はすべて以前の lock と同じで、コメントの変更と作り直した実行ファイルはライブラリを変えない。
-  続けて #0135 のマージ（main 7790c871）に rebase し、lattice@2A（ジョブ 421、排他、1:40:36）と compare@2A を流した。2F 以降は
-  #0135 の後の lattice で流す
+  続けて #0135 のマージ（main 7790c871。crates/lattice を変える）に rebase して `build` を作り直し（変わった実行ファイルは
+  `bin/lattice` だけ。xs、chain、core は同じバイトで、ライブラリの lock はそのまま有効）、lattice@2A（ジョブ 421、排他、1:40:36）と
+  compare@2A を流した。直下の `dvc.lock` の crates と `bin/lattice` の md5 の変化は、この rebase によるもので、書き換えと opt-level の
+  変更によるものではない
