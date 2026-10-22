@@ -21,7 +21,7 @@ const XE135: usize = 2;
 const XE136: usize = 3;
 const CS135: usize = 4;
 const BA140: usize = 5;
-const U235: usize = 6;
+pub(crate) const U235: usize = 6;
 const U236: usize = 7;
 const U238: usize = 8;
 /// U-235 の核分裂の Q (eV)
@@ -1012,4 +1012,50 @@ fn reading_a_history_checks_the_format_name() {
         .unwrap();
     bytes[at + 4] = b'D';
     assert!(History::from_msgpack(&bytes).is_err());
+}
+
+#[test]
+fn histories_without_depletion_regions_are_errors() {
+    let bytes = deplete_input(PIN).to_msgpack().unwrap();
+    let value: rmpv::Value = rmp_serde::from_slice(&bytes).unwrap();
+    // 燃焼の領域と、各点の数密度（[領域][核種]）を空にする
+    let emptied = |v: rmpv::Value, key: &str| match v {
+        rmpv::Value::Map(entries) => rmpv::Value::Map(
+            entries
+                .into_iter()
+                .map(|(k, v)| {
+                    if k.as_str() == Some(key) {
+                        (k, rmpv::Value::Array(Vec::new()))
+                    } else {
+                        (k, v)
+                    }
+                })
+                .collect(),
+        ),
+        other => other,
+    };
+    let value = match emptied(value, "regions") {
+        rmpv::Value::Map(entries) => rmpv::Value::Map(
+            entries
+                .into_iter()
+                .map(|(k, v)| match (k.as_str(), v) {
+                    (Some("points"), rmpv::Value::Array(points)) => (
+                        k,
+                        rmpv::Value::Array(
+                            points
+                                .into_iter()
+                                .map(|p| emptied(p, "densities"))
+                                .collect(),
+                        ),
+                    ),
+                    (_, v) => (k, v),
+                })
+                .collect(),
+        ),
+        other => other,
+    };
+    let mut empty = Vec::new();
+    rmpv::encode::write_value(&mut empty, &value).unwrap();
+    let err = History::from_msgpack(&empty).unwrap_err();
+    assert!(format!("{err:#}").contains("regions"), "{err:#}");
 }

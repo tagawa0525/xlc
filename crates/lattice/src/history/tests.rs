@@ -2,7 +2,7 @@ use xlc_format::library::Library;
 use xlc_format::table::Axis;
 
 use super::*;
-use crate::depletion::tests::{PIN, deplete_with, library};
+use crate::depletion::tests::{PIN, U235, deplete_with, library};
 use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
 use crate::material::Material;
@@ -222,4 +222,26 @@ fn branch_temperatures_need_data_for_every_transported_nuclide() {
     let (history, library) = history();
     let err = branches_of(&branch_input("[0.5]", "[600, 900]"), &history, &library).unwrap_err();
     assert!(format!("{err:#}").contains("900"), "{err:#}");
+}
+
+#[test]
+fn input_materials_named_like_depletion_regions_are_errors() {
+    let (history, library) = history();
+    let cell = history.regions[0].cell;
+    let text = branch_input("[0.5]", "[600]").replace(
+        "[material.water]",
+        &format!(
+            "[material.\"fuel@{cell}\"]\ntemperature = 600\nnuclides = {{ O-16 = 2.5e-2 }}\n\n[material.water]"
+        ),
+    );
+    let err = branches_of(&text, &history, &library).unwrap_err();
+    assert!(format!("{err:#}").contains("clashes"), "{err:#}");
+}
+
+#[test]
+fn negative_history_densities_beyond_the_cram_error_are_errors() {
+    let (mut history, library) = history();
+    history.points[2].densities[0][U235] = -1.0e-3;
+    let err = branches_of(&branch_input("[0.5]", "[600]"), &history, &library).unwrap_err();
+    assert!(format!("{err:#}").contains("CRAM"), "{err:#}");
 }
