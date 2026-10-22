@@ -62,7 +62,8 @@ pub struct DepletionInput {
 pub enum YieldWeighting {
     /// 点ごとの区間（隣の点との幾何平均で区切る）の核分裂率の割合（ADR-0164、ADR-0173）
     Intervals,
-    /// 1 つの境界の下を熱の点、上を速の点に置く（OpenMC の `FissionYieldCutoffHelper` と同じ点の選び方）
+    /// 1 つの境界の下を熱の点、上を速の点に置く（点の選び方は OpenMC の `FissionYieldCutoffHelper` と同じ）。境界を含む群の
+    /// 核分裂率は、`Intervals` と同じくレサジーの幅の比で分ける（OpenMC は連続エネルギーで数える）
     Cutoff(YieldCutoff),
 }
 
