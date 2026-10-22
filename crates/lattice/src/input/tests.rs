@@ -364,6 +364,45 @@ fn track_table_needs_self_shielding() {
 }
 
 #[test]
+fn pointwise_nuclides_default_to_all() {
+    // ADR-0185: 省略するとすべての核種、挙げると挙げた核種だけをポイントワイズで解く
+    let pointwise = |line: &str| {
+        replaced(
+            PIN_CELL,
+            "library = \"m1.msgpack\"",
+            &format!("library = \"m1.msgpack\"\n{line}"),
+        )
+        .map(|input| input.shielding_options().pointwise)
+    };
+    assert_eq!(
+        LatticeInput::parse(PIN_CELL).unwrap().pointwise,
+        PointwiseNuclides::All
+    );
+    assert_eq!(
+        pointwise(r#"pointwise = ["U-238", "H-1"]"#).unwrap(),
+        PointwiseNuclides::Only(vec!["U-238".into(), "H-1".into()])
+    );
+    // 空の一覧、名前の形でないもの、重複、どの物質にもない核種は止める
+    for bad in [
+        "pointwise = []",
+        r#"pointwise = ["U238"]"#,
+        r#"pointwise = ["U-238", "U-238"]"#,
+        r#"pointwise = ["Pu-239"]"#,
+    ] {
+        assert!(
+            matches!(pointwise(bad), Err(InputError::Invalid(_))),
+            "{bad}"
+        );
+    }
+    let off = replaced(
+        PIN_CELL,
+        "library = \"m1.msgpack\"",
+        "library = \"m1.msgpack\"\nself-shielding = false\npointwise = [\"U-238\"]",
+    );
+    assert!(matches!(off, Err(InputError::Invalid(_))), "{off:?}");
+}
+
+#[test]
 fn self_shielding_needs_a_library() {
     let result = replaced(
         LATTICE,
