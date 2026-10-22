@@ -15,7 +15,7 @@ use xlc_format::group::GroupStructure;
 
 use crate::endf::{Interpolation, Tab1};
 
-pub use fission::fission_spectrum;
+pub use fission::{FissionNeutrons, fission_spectrum};
 pub use free_gas::{FreeGas, free_gas_group_integrals, free_gas_kernel};
 pub use integrate::{group_integrals, group_integrals_multi};
 pub use outgoing::{AnalyticSpectrum, GroupedLaw, GroupedOutgoing, outgoing_group_integrals};
