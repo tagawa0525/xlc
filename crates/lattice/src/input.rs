@@ -699,7 +699,28 @@ impl LatticeInput {
                     .into(),
             ));
         }
-        let pointwise = PointwiseNuclides::All;
+        let pointwise = match file.pointwise {
+            None => PointwiseNuclides::All,
+            Some(names) => {
+                if names.is_empty() {
+                    return Err(invalid(
+                        "`pointwise` needs at least one nuclide; leave it out to solve every nuclide pointwise"
+                            .into(),
+                    ));
+                }
+                for (k, name) in names.iter().enumerate() {
+                    if !is_nuclide_name(name) {
+                        return Err(invalid(format!(
+                            "`pointwise`: nuclide name `{name}` is not of the form U-235, Am-242m"
+                        )));
+                    }
+                    if names[..k].contains(name) {
+                        return Err(invalid(format!("`pointwise`: `{name}` is listed twice")));
+                    }
+                }
+                PointwiseNuclides::Only(names)
+            }
+        };
         let collision = match file.track_table {
             None => Collision::default(),
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
@@ -921,6 +942,19 @@ impl LatticeInput {
             })
             .transpose()
             .map_err(invalid)?;
+        // 燃焼では、燃焼させる物質にチェーンの核種が加わるので、そこで確かめる（depletion）
+        if let PointwiseNuclides::Only(names) = &pointwise
+            && depletion.is_none()
+            && let Some(name) = names.iter().find(|n| {
+                !materials
+                    .iter()
+                    .any(|m| m.composition.iter().any(|(c, _)| c == *n))
+            })
+        {
+            return Err(invalid(format!(
+                "`pointwise`: `{name}` is in no material written with nuclides or water"
+            )));
+        }
         Ok(Self {
             self_shielding,
             collision,

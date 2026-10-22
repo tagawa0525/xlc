@@ -34,7 +34,7 @@ use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
 use crate::moc::{Options, available_order, solve_symmetric};
 use crate::power::{cell_fission_rates, pin_rows};
-use crate::shielding::shield_fuel_with;
+use crate::shielding::{PointwiseNuclides, shield_fuel_with};
 use crate::symmetry::Chosen;
 use crate::tracking::Tracking;
 
@@ -688,6 +688,26 @@ pub fn run(
                     .all(|&t| has_data_at(library, &n.name, t))
         })
         .collect();
+    // ポイントワイズで解くと挙げた核種は、輸送する核種か燃焼させない物質の核種であること（綴りの誤りを止める。ADR-0185）
+    if let PointwiseNuclides::Only(names) = &input.pointwise
+        && let Some(name) = names.iter().find(|&name| {
+            let transported = chain
+                .nuclides
+                .iter()
+                .zip(&transportable)
+                .any(|(n, &t)| t && &n.name == name);
+            let fixed = input
+                .materials
+                .iter()
+                .filter(|m| !depletion.materials.contains(&m.name))
+                .any(|m| m.composition.iter().any(|(c, _)| c == name));
+            !(transported || fixed)
+        })
+    {
+        bail!(
+            "`pointwise`: `{name}` is neither a transported nuclide of the chain nor in a material that is not depleted"
+        );
+    }
     // 初めの重金属の質量 (g、高さ 1 cm あたり)
     let mut mass = 0.0;
     for (d, n) in regions.iter().zip(&initial) {
