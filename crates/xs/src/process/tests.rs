@@ -738,3 +738,86 @@ fn production_cross_sections_start_where_the_reaction_does() {
         .unwrap();
     assert_eq!(state.cross_section[below], 0.0);
 }
+
+/// MF1 の ν(E) の節（一定値 `nu`）。MT455 には、2 族の崩壊定数の LIST を先に書く。
+fn nubar_section(mt: u32, nu: &str) -> String {
+    use crate::endf::rec;
+    let r = |f: [&str; 6]| rec(f, 1, 1, mt);
+    let mut lines = vec![r(["9.223500+4", "2.330250+2", "0", "2", "0", "0"])];
+    if mt == 455 {
+        lines.push(r(["0.0", "0.0", "0", "0", "2", "0"]));
+        lines.push(r(["1.3336-2", "3.2739-2", "", "", "", ""]));
+    }
+    lines.push(r(["0.0", "0.0", "0", "0", "1", "2"]));
+    lines.push(r(["2", "2", "", "", "", ""]));
+    lines.push(r(["1.0-5", nu, "2.0+7", nu, "", ""]));
+    lines.concat()
+}
+
+/// MF1 の `nubar` の MT と、MF5 の `spectra` の MT（高い群に生まれる分布）だけのテープ。
+fn fission_tape(nubar: &[(u32, &str)], spectra: &[u32]) -> Tape {
+    use crate::endf::mf5_tests::two_point_mf5_for;
+    let mut text: String = nubar
+        .iter()
+        .map(|&(mt, nu)| nubar_section(mt, nu))
+        .collect();
+    for &mt in spectra {
+        text += &two_point_mf5_for(
+            mt,
+            "1",
+            ("1.0+6", "2.0+7", "5.263158-8"),
+            ("1.0+6", "2.0+7", "5.263158-8"),
+        );
+    }
+    Tape::parse(&text).unwrap()
+}
+
+fn nubar_values(parts: &[FissionPart]) -> Vec<f64> {
+    parts.iter().map(|p| p.nubar.y[0]).collect()
+}
+
+#[test]
+fn evaluation_without_delayed_data_gives_all_neutrons_the_mt18_spectrum() {
+    let tape = fission_tape(&[(452, "2.43")], &[18]);
+    let parts = fission_parts(&tape, 1).unwrap();
+    assert_eq!(nubar_values(&parts), vec![2.43]);
+}
+
+#[test]
+fn delayed_neutrons_take_their_own_spectrum_beside_the_prompt_ones() {
+    let tape = fission_tape(&[(452, "2.43"), (455, "1.6-2"), (456, "2.414")], &[18, 455]);
+    let parts = fission_parts(&tape, 1).unwrap();
+    assert_eq!(nubar_values(&parts), vec![2.414, 1.6e-2]);
+}
+
+#[test]
+fn delayed_nubar_without_its_spectrum_leaves_all_neutrons_to_mt18() {
+    // ENDF/B-VIII.0 の Np-239、Am-242m、Cm-244 の形
+    let tape = fission_tape(&[(452, "2.72"), (455, "8.0-3"), (456, "2.71")], &[18]);
+    let parts = fission_parts(&tape, 1).unwrap();
+    assert_eq!(nubar_values(&parts), vec![2.72]);
+}
+
+#[test]
+fn delayed_spectrum_without_prompt_nubar_is_an_error() {
+    let tape = fission_tape(&[(452, "2.43"), (455, "1.6-2")], &[18, 455]);
+    assert!(matches!(
+        fission_parts(&tape, 1),
+        Err(ProcessError::DelayedFission { .. })
+    ));
+}
+
+#[test]
+fn delayed_spectrum_without_delayed_nubar_is_an_error() {
+    let tape = fission_tape(&[(452, "2.43"), (456, "2.414")], &[18, 455]);
+    assert!(matches!(
+        fission_parts(&tape, 1),
+        Err(ProcessError::DelayedFission { .. })
+    ));
+}
+
+#[test]
+fn no_fission_spectrum_gives_no_parts() {
+    let tape = fission_tape(&[(452, "2.43")], &[]);
+    assert!(fission_parts(&tape, 1).unwrap().is_empty());
+}
