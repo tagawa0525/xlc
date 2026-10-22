@@ -415,23 +415,73 @@ fn zero_totals_stop_the_table_with_their_ring() {
 }
 
 #[test]
-fn tables_with_as_many_nodes_as_points_are_refused() {
-    // 格子点ごとに求めるより点の多い表は、作る前に止める（10 倍あたり 10 万点で、燃料の全断面積の 3 桁ほどの範囲に約 27 万点。格子点は U-238 の散乱の窓で決まり、その数より多い）
+fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
+    // ADR-0182: 格子点ごとに求めるより点の多い表は作らず、そのセルは格子点ごとに求める（10 倍あたり 10 万点で、燃料の全断面積の
+    // 3 桁ほどの範囲に約 27 万点。格子点は U-238 の散乱の窓で決まり、その数より多い）
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let result = slowing_down_with(
-        &lib,
-        &cell,
-        &rings,
-        [4.0, 1.0e4],
-        Collision::Table { density: 100_000 },
+    let solve =
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+    assert_eq!(
+        solve(Collision::Table { density: 100_000 }),
+        solve(Collision::Exact)
     );
-    assert!(
-        matches!(result, Err(UfgError::TableTooLarge { .. })),
-        "{:?}",
-        result.err()
-    );
+}
+
+/// [`resonant_cell`] の燃料の U-238 の数密度を、内側から `u238` の 3 つのリングの物質にしたセルを、既定の表と格子点ごとに解く
+fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
+    let (lib, _, water) = resonant_cell(11.0 + 1.0e4);
+    let fuel = u238.map(|n| material(&[("U-238", n), ("U-235", 0.0005), ("O-16", 0.045)]));
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [
+        Some(&fuel[0]),
+        Some(&fuel[1]),
+        Some(&fuel[2]),
+        None,
+        Some(&water),
+    ];
+    let solve =
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+    (solve(Collision::default()), solve(Collision::Exact))
+}
+
+#[test]
+fn close_ring_materials_give_the_group_constants_of_the_exact_tracks() {
+    // ADR-0182: 核種の並びが同じで数密度の少し違うリングの物質は、燃料の 1 つの軸と 1 次の展開で解け、群定数は格子点ごとに
+    // 求めたものと近い（燃焼で外側の U-238 が減ったリング）
+    let (table, exact) = ring_cells([0.0221, 0.0220, 0.0218]);
+    for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
+        for (k, (t, e)) in t.iter().zip(e).enumerate() {
+            let fields = [
+                (&t.total, &e.total),
+                (&t.elastic, &e.elastic),
+                (&t.fission, &e.fission),
+                (&t.nu_fission, &e.nu_fission),
+            ];
+            for (f, (a, b)) in fields.into_iter().enumerate() {
+                for (g, (a, b)) in a.iter().zip(b).enumerate() {
+                    let d = if *b == 0.0 {
+                        a.abs()
+                    } else {
+                        (a / b - 1.0).abs()
+                    };
+                    assert!(
+                        d < 1e-6,
+                        "ring {ring} nuclide {k} field {f} group {g}: {a} vs {b}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn distant_ring_materials_are_solved_point_by_point() {
+    // ADR-0182: どの格子点でもリングの全断面積の差が展開の上限を超えるセルは、表を作っても衝突確率の数が減らないので、
+    // 格子点ごとに求める
+    let (table, exact) = ring_cells([0.044, 0.022, 0.011]);
+    assert_eq!(table, exact);
 }
 
 #[test]
