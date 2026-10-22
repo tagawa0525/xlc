@@ -147,13 +147,13 @@ fn nominal_branches_reproduce_the_history_points() {
         }
     );
     assert_eq!(branches.axes.len(), 4);
-    assert_eq!(branches.states.len(), 3 * 2);
+    assert_eq!(branches.len(), 3 * 2);
     for (i, point) in [0, 2, 3].into_iter().enumerate() {
         // 公称（1000 ppm）は輸送の組成も状態も履歴の点と同じ
         let nominal = k_of(
             &text,
             &library,
-            &branches.states[2 * i + 1],
+            &branches.state(2 * i + 1),
             &branches.region_materials,
         );
         let want = history.points[point].k;
@@ -166,7 +166,7 @@ fn nominal_branches_reproduce_the_history_points() {
         let diluted = k_of(
             &text,
             &library,
-            &branches.states[2 * i],
+            &branches.state(2 * i),
             &branches.region_materials,
         );
         assert!(diluted > nominal, "{diluted} vs {nominal}");
@@ -182,7 +182,7 @@ fn branch_regions_take_the_history_densities() {
     let name = transport_name(&region.material, region.cell);
     assert!(branches.region_materials.contains(&name));
     assert!(!branches.region_materials.contains(&"fuel".to_string()));
-    for state in &branches.states {
+    for state in (0..branches.len()).map(|i| branches.state(i)) {
         let fuel = state.iter().find(|m| m.name == name).unwrap();
         assert_eq!(fuel.temperature, 600.0);
         // 輸送できる核種だけを、履歴の最後の点の数密度で（負は 0）
