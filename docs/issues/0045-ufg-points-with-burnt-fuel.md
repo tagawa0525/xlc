@@ -55,7 +55,7 @@ SCALE の CENTRM や Polaris の ESSM が燃焼燃料をどう扱うかは確か
 
 ## 測定（2026-10-22）
 
-燃焼した燃料の UFG の点の数と、核種ごとの寄与、核種ごとの自己遮蔽の必要性の目安を測った。コミットは 435edd257（分岐点は main の
+燃焼した燃料の UFG の点の数と、核種ごとの寄与、核種ごとの自己遮蔽の必要性の目安を測った。コミットは 74acf3755（分岐点は main の
 b5066b8f2）、日付は 2026-10-22。入力は examples/depletion/p2/lattice-2A.toml の `burnup` を `[0.1]` にしたもの（VERA 2A、燃焼の
 領域 39、輸送 3 回、輸送する核種 89）と、その `[depletion]` を外した新しい燃料（5 核種）。ログは `RAYON_NUM_THREADS=1`、
 `RUST_LOG=info,xlc_lattice::shielding=debug,xlc_lattice::ufg=debug`（点の数は時間によらない。時間は排他でない測定なので割合だけを使う）。
