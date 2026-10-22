@@ -63,10 +63,25 @@ impl Docs {
 
         check_unique(&adrs, &mut out);
         check_unique(&issues, &mut out);
-        check_front(&adrs, &ADR_KEYS, &ADR_STATUSES, "date", &mut out);
-        check_front(&issues, &ISSUE_KEYS, &ISSUE_STATUSES, "opened", &mut out);
+        check_front(
+            &adrs,
+            &ADR_KEYS,
+            &ADR_OPTIONAL_KEYS,
+            &ADR_STATUSES,
+            "date",
+            &mut out,
+        );
+        check_front(
+            &issues,
+            &ISSUE_KEYS,
+            &[],
+            &ISSUE_STATUSES,
+            "opened",
+            &mut out,
+        );
         check_headings(&adrs, &mut out);
         check_supersession(&adrs, &adr_numbers, &mut out);
+        check_amendment(&adrs, &adr_numbers, &mut out);
         for adr in &adrs {
             front_refs(adr, "requires", adr_refs, "ADR-", &adr_numbers, &mut out);
         }
@@ -180,6 +195,8 @@ const ADR_KEYS: [&str; 6] = [
     "issues",
     "requires",
 ];
+/// 書いたときだけ検査するキー。一部の置き換えは両方向に結ぶ（`check_amendment`）。
+const ADR_OPTIONAL_KEYS: [&str; 2] = ["amends", "amended-by"];
 const ADR_STATUSES: [&str; 5] = [
     "proposed",
     "accepted",
@@ -364,6 +381,7 @@ fn check_unique(docs: &[Doc], out: &mut Violations) {
 fn check_front(
     docs: &[Doc],
     keys: &[&str],
+    optional_keys: &[&str],
     statuses: &[&str],
     date_key: &str,
     out: &mut Violations,
@@ -375,7 +393,7 @@ fn check_front(
             }
         }
         for key in doc.front.keys() {
-            if !keys.contains(&key) {
+            if !keys.contains(&key) && !optional_keys.contains(&key) {
                 out.file(doc.path, format!("unexpected front matter key `{key}`"));
             }
         }
@@ -505,6 +523,49 @@ fn check_supersession(adrs: &[Doc], existing: &BTreeSet<u32>, out: &mut Violatio
                 out.file(
                     path,
                     format!("superseded-by ADR-{new:04}, but ADR-{new:04} does not supersede ADR-{old:04}"),
+                );
+            }
+        }
+    }
+}
+
+/// 一部の置き換えの両方向のリンク。`amends` に挙げた ADR は `amended-by` にその ADR を挙げ、逆も同じ。
+fn check_amendment(adrs: &[Doc], existing: &BTreeSet<u32>, out: &mut Violations) {
+    let mut amends: BTreeMap<u32, (&str, BTreeSet<u32>)> = BTreeMap::new();
+    let mut amended_by: BTreeMap<u32, (&str, BTreeSet<u32>)> = BTreeMap::new();
+    for adr in adrs {
+        let by = front_refs(adr, "amended-by", adr_refs, "ADR-", existing, out);
+        amended_by.insert(adr.number, (adr.path, by));
+        let old = front_refs(adr, "amends", adr_refs, "ADR-", existing, out);
+        amends.insert(adr.number, (adr.path, old));
+    }
+    // proposed の ADR が挙げた ADR の決定は、まだ全体が効いているので、古い方に何も求めない
+    let proposed: BTreeSet<u32> = adrs
+        .iter()
+        .filter(|a| a.status() == "proposed")
+        .map(|a| a.number)
+        .collect();
+    for (new, (path, olds)) in &amends {
+        if proposed.contains(new) {
+            continue;
+        }
+        for old in olds {
+            if !amended_by.get(old).is_some_and(|(_, s)| s.contains(new)) {
+                out.file(
+                    path,
+                    format!("amends ADR-{old:04}, but ADR-{old:04} is not amended-by ADR-{new:04}"),
+                );
+            }
+        }
+    }
+    for (old, (path, news)) in &amended_by {
+        for new in news {
+            if !amends.get(new).is_some_and(|(_, s)| s.contains(old)) {
+                out.file(
+                    path,
+                    format!(
+                        "amended-by ADR-{new:04}, but ADR-{new:04} does not amend ADR-{old:04}"
+                    ),
                 );
             }
         }
