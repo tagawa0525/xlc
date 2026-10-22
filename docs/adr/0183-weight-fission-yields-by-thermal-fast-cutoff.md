@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-22
 requires: [ADR-0164, ADR-0173]
 supersedes: []
@@ -90,11 +90,16 @@ ADR-0173 の「核分裂の収率のエネルギーの重み」の段落と、Op
 
 ## 確認
 
-- 単体のテスト（crates/lattice/src/depletion/tests.rs）: 境界が熱と高速の点の幾何平均であること、境界を含む群をレサジーの幅の比で
-  分けること、OpenMC と同じ点の選び方（3 点と 4 点の核種で 14 MeV と 2 MeV に重みを置かない、熱の点のない U-238 の型、1 点、熱か高速の
-  点がちょうどない場合）、核分裂のない領域。入力のテスト（crates/lattice/src/input/tests.rs）: `yield-cutoff` を知らない項目として拒む
-- 1C の比較（examples/depletion/verification.md の「格子計算の燃焼」）: 収率で決まる核種（I-135、Cs-133、Pm-147、Pm-148m など）の
-  OpenMC との差
+- 単体のテスト（crates/lattice/src/depletion/tests.rs）: `yield_cutoff_is_the_geometric_mean_of_the_thermal_and_fast_points`、
+  `yield_weights_split_the_group_at_the_cutoff_by_lethargy`、`yield_weights_take_the_thermal_and_fast_points_like_openmc`（3 点と 4 点の
+  核種で 14 MeV と 2 MeV に重みを置かない、熱の点のない U-238 の型、1 点、熱か高速の点がちょうどない場合）、
+  `fissionless_regions_put_the_yield_weight_on_the_first_point`。入力（crates/lattice/src/input/tests.rs）:
+  `depletion_rejects_a_yield_cutoff_entry`
+- 1C の比較（examples/depletion/verification.md の「格子計算の燃焼」。xlc は 0587676e、分岐点は main の a6c577d4、2026-10-22）:
+  収率で決まる核種の OpenMC との差は、1 リングのすべての燃焼点で I-135 +0.02%、Cs-133 0.00%、Rh-103 +0.19〜+0.20%、Nd-149 +0.10%、
+  Pm-149 +0.01〜+0.12%、Pm-147 +0.03〜+0.13%、Pm-148m −0.12〜+0.93%（4 リングも 1% 以内）。k∞ の差の 0 の点からの変化は 1 リングで
+  −17〜+116 pcm、4 リングで −15〜+43 pcm。1 リングの 5 MWd/kg の超過は収率の重みでなく、OpenMC の燃焼の最後の点の k の外れ（#0133）が
+  最も大きい
 
 ## 帰結
 
