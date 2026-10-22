@@ -68,12 +68,24 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
 
 ## 帰結
 
-- 核分裂性の核種の χ が軟らかくなり、ライブラリ（examples/depletion/depletion.msgpack、examples/vera/vera.msgpack）を作り直す
+- 核分裂性の核種の χ が軟らかくなり、ライブラリを作り直す。examples/depletion/depletion.msgpack は作り直した（1C の k が −34〜−36 pcm
+  動く）。examples/vera/vera.msgpack と examples/depletion/p2 のライブラリ、それを使う VERA と 2A の記録は、まだ作り直していない
 - Np-239、Am-242m、Cm-244 は、ν が OpenMC と遅発中性子の分（Np-239 で 0.8%）だけ違う
 - NJOY GROUPR との比較（`compare_njoy_gendf` の例）は、GROUPR の MF6 MT18 が MF5 MT18 の分布なので、即発の分布だけで比較する
+- ENDF/B-VIII.0 の MF5 MT455 は族ごとに LF=5（一般の蒸発スペクトル。θ = 1 で g(x) がヒストグラムの表）なので、MF5 の読み込みと
+  群への振り分けに LF=5 を足した
+- 1C のピンセルの U-238 の高速の核分裂の差は、χ を直しても +2.08% 残る。高速の群の群定数の群の中の重みによる（#0148）
 
 ## 確認
 
+- 1C のピンセルの χ（`examples/depletion/issue-0133/openmc_chi.py`。OpenMC は 10 MeV より上を群 1 に数えた tally、Slurm 448）: 1.353 MeV
+  より上の割合は U-235 で 0.57280（OpenMC 0.57268）、U-238 で 0.56840（0.56887）。ライブラリは examples/depletion/depletion.msgpack
+  （2711cbf0、Slurm 452、2026-10-22）
+- 1C のピンセルの新しい燃料で、U-238 の核分裂（生成 1 あたり）の OpenMC との差が +2.74% から +2.08%、U-235 の核分裂が −0.23% から −0.17%、
+  k の差が +2 から −34 pcm（OpenMC の σ 18 pcm）。1C の燃焼で U-235 の消えた量の差が −0.22〜−0.24% から −0.17〜−0.19%（1 リング）。
+  数値の出どころは #0133 の経緯と examples/depletion/verification.md の「格子計算の燃焼」
 - `each_part_of_the_neutrons_enters_chi_by_its_nubar`、`delayed_neutrons_take_their_own_spectrum_beside_the_prompt_ones`、
   `delayed_nubar_without_its_spectrum_leaves_all_neutrons_to_mt18`、`delayed_spectrum_without_prompt_nubar_is_an_error`、
-  `delayed_spectrum_without_delayed_nubar_is_an_error`、`reads_delayed_nubar_after_the_decay_constants`
+  `delayed_spectrum_without_delayed_nubar_is_an_error`、`reads_delayed_nubar_after_the_decay_constants`、
+  `reads_general_evaporation`、`general_evaporation_splits_the_tabulated_shape_by_group`、
+  `general_evaporation_scales_the_outgoing_energy_by_theta`、`general_evaporation_is_cut_at_e_minus_u`
