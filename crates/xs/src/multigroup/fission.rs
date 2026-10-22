@@ -5,10 +5,10 @@ use crate::endf::{Mf5, Tab1};
 
 /// 核分裂で生まれる中性子の 1 つの成分（即発、遅発の全族、または区別しない全数）の、1 核分裂あたりの数 ν(E) と
 /// 出射エネルギーの分布。
-#[derive(Debug, Clone, Copy)]
-pub struct FissionNeutrons<'a> {
-    pub nubar: &'a Tab1,
-    pub spectrum: &'a Mf5,
+#[derive(Debug, Clone)]
+pub struct FissionNeutrons {
+    pub nubar: Tab1,
+    pub spectrum: Mf5,
 }
 
 /// 核分裂源で重み付けした核分裂スペクトル χ_g（和は 1）。成分 c の中性子は ν_c(E)σf(E)w(E) の重みで、その成分の
@@ -17,7 +17,7 @@ pub fn fission_spectrum(
     groups: &GroupStructure,
     weight: &Weight,
     fission: &Tab1,
-    parts: &[FissionNeutrons<'_>],
+    parts: &[FissionNeutrons],
 ) -> Vec<f64> {
     let parts: Vec<(&Tab1, Vec<(&Tab1, GroupedLaw)>)> = parts
         .iter()
@@ -28,7 +28,7 @@ pub fn fission_spectrum(
                 .iter()
                 .map(|(p, law)| (p, GroupedLaw::new(groups, law)))
                 .collect();
-            (part.nubar, laws)
+            (&part.nubar, laws)
         })
         .collect();
     let mut breakpoints: Vec<f64> = fission.x.clone();

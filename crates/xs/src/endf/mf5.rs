@@ -24,10 +24,11 @@ pub struct OutgoingDistributions {
 pub enum EnergyLaw {
     /// LF=1: 入射エネルギーごとの表
     Tabulated(OutgoingDistributions),
-    /// LF=5: 一般の蒸発スペクトル f(E') ∝ g(E'/θ(E))。g(x) は表（`shape`）
+    /// LF=5: 一般の蒸発スペクトル f(E') ∝ g(E'/θ)。g(x) は表（`shape`）。θ はエネルギーによらない値だけを扱う
+    /// （ENDF/B-VIII.0 の遅発中性子は θ = 1）
     GeneralEvaporation {
         restriction: f64,
-        theta: ClampedTab1,
+        theta: f64,
         shape: Tab1,
     },
     /// LF=7: 単純な核分裂スペクトル f(E') ∝ √E' exp(-E'/θ(E))
@@ -64,8 +65,8 @@ impl Mf5 {
                 1 => EnergyLaw::Tabulated(parse_outgoing(&mut r)?),
                 5 => EnergyLaw::GeneralEvaporation {
                     restriction,
-                    theta: positive_theta(&mut r)?,
-                    shape: non_negative_shape(&mut r)?,
+                    theta: constant_theta(&mut r)?,
+                    shape: general_evaporation_shape(&mut r)?,
                 },
                 7 => EnergyLaw::Maxwellian {
                     restriction,
@@ -95,13 +96,34 @@ fn positive_theta(r: &mut Reader<'_>) -> Result<ClampedTab1, Error> {
     ClampedTab1::new(theta).ok_or_else(|| Error::new(r.line(), "theta table is empty"))
 }
 
-/// 一般の蒸発スペクトルの g(x) を読む。g は確率密度の形なので負であってはならない。
-fn non_negative_shape(r: &mut Reader<'_>) -> Result<Tab1, Error> {
+/// 一般の蒸発スペクトルの θ(E) を読む。エネルギーによる θ は、群の割合の折れ目の入射エネルギーが θ の逆関数で決まる
+/// （積分の区間の切れ目に要る）ので、必要になるまで扱わない。
+fn constant_theta(r: &mut Reader<'_>) -> Result<f64, Error> {
+    let theta = positive_theta(r)?;
+    let values = &theta.table().y;
+    if values.iter().any(|&t| t != values[0]) {
+        return Err(Error::new(
+            r.line(),
+            "LF=5 with an energy-dependent theta is not supported",
+        ));
+    }
+    Ok(values[0])
+}
+
+/// 一般の蒸発スペクトルの g(x) を読む。g は確率密度の形なので負であってはならない。x = 0 で正の値から始めるのは、
+/// E - U > 0 のどの入射エネルギーでも、群の割合の分母（E'/θ までの g の積分）が正であるため。
+fn general_evaporation_shape(r: &mut Reader<'_>) -> Result<Tab1, Error> {
     let shape = r.tab1()?.table;
     if let Some(bad) = shape.y.iter().find(|&&g| g < 0.0 || g.is_nan()) {
         return Err(Error::new(
             r.line(),
             format!("g(x) must not be negative, got {bad}"),
+        ));
+    }
+    if shape.x.first() != Some(&0.0) || shape.y[0] <= 0.0 {
+        return Err(Error::new(
+            r.line(),
+            "g(x) must start at x = 0 with a positive value",
         ));
     }
     Ok(shape)
