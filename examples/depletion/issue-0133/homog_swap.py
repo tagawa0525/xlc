@@ -51,20 +51,28 @@ def main():
         else:
             transfer.append((head, lo, hi))
 
+    for name, _, _ in transfer + cross:
+        if name not in xlc or name not in omc:
+            raise SystemExit(f"{name}: not in both balances")
+
     def operator(swap):
         total, scatter, nu_fission = np.zeros(ng), np.zeros((ng, ng)), {}
         for name in names:
-            r, o = xlc[name], omc.get(name)
+            r = xlc[name]
             t = np.array(r["transfer"]) / phi[:, None]
             a = np.array(r["absorption"]) / phi
             nf = np.array(r["production"]) / phi
-            for n, lo, hi in transfer if swap else []:
-                for g in range(lo - 1, hi) if n == name else []:
-                    t[g] = np.array(o["transfer"][g]) / o["flux"][g]
-            for n, lo, hi in cross if swap else []:
-                for g in range(lo - 1, hi) if n == name else []:
-                    a[g] = o["absorption"][g] / o["flux"][g]
-                    nf[g] = o["production"][g] / o["flux"][g]
+            if swap:
+                o = omc.get(name)
+                for n, lo, hi in transfer:
+                    if n == name:
+                        for g in range(lo - 1, hi):
+                            t[g] = np.array(o["transfer"][g]) / o["flux"][g]
+                for n, lo, hi in cross:
+                    if n == name:
+                        for g in range(lo - 1, hi):
+                            a[g] = o["absorption"][g] / o["flux"][g]
+                            nf[g] = o["production"][g] / o["flux"][g]
             total += a + t.sum(axis=1)
             scatter += t
             nu_fission[name] = nf
