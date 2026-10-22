@@ -115,3 +115,51 @@ fn other_lf_is_error() {
     let err = Mf5::parse(&tape.section(1, 5, 18).unwrap()).unwrap_err();
     assert_eq!(err.line, 2);
 }
+
+/// p(E) = 1、θ(E) = 1 の一般の蒸発スペクトル（LF=5）。g(x) はヒストグラムの表（ENDF/B-VIII.0 の遅発中性子の形）。
+pub(crate) fn general_evaporation_mf5(restriction: &str) -> String {
+    let r = |f: [&str; 6]| rec(f, 1, 5, 455);
+    [
+        r(["9.223500+4", "2.330248+2", "0", "0", "1", "0"]),
+        r([restriction, "0.0", "0", "5", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", "1.0", "3.0+7", "1.0", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "2"]),
+        r(["2", "2", "", "", "", ""]),
+        r(["1.0-5", "1.0", "3.0+7", "1.0", "", ""]),
+        r(["0.0", "0.0", "0", "0", "1", "4"]),
+        r(["4", "1", "", "", "", ""]),
+        r(["0.0", "1.0-6", "1.0+5", "5.0-7", "1.0+6", "4.5-7"]),
+        r(["2.0+6", "0.0", "", "", "", ""]),
+    ]
+    .concat()
+}
+
+#[test]
+fn reads_general_evaporation() {
+    let tape = Tape::parse(&general_evaporation_mf5("-3.0+7")).unwrap();
+    let mf5 = Mf5::parse(&tape.section(1, 5, 455).unwrap()).unwrap();
+    let [(p, law)] = &mf5.subsections[..] else {
+        panic!("{:?}", mf5.subsections);
+    };
+    assert_eq!(p.eval(1.0), Some(1.0));
+    let EnergyLaw::GeneralEvaporation {
+        restriction,
+        theta,
+        shape,
+    } = law
+    else {
+        panic!("{law:?}");
+    };
+    assert_eq!(*restriction, -3.0e7);
+    assert_eq!(theta.eval(2.0e6), 1.0);
+    assert_eq!(shape.x, vec![0.0, 1.0e5, 1.0e6, 2.0e6]);
+    assert_eq!(shape.eval(5.0e5), Some(5.0e-7));
+}
+
+#[test]
+fn general_evaporation_shape_must_not_be_negative() {
+    let text = general_evaporation_mf5("-3.0+7").replace("5.0-7", "-5.0-7");
+    let tape = Tape::parse(&text).unwrap();
+    assert!(Mf5::parse(&tape.section(1, 5, 455).unwrap()).is_err());
+}
