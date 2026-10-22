@@ -922,7 +922,6 @@ fn with_amendment(files: &mut BTreeMap<String, String>, amends: &str, amended_by
 }
 
 #[test]
-#[ignore = "red: amends and amended-by are not accepted yet"]
 fn accepts_amends_linked_both_ways() {
     let mut files = base();
     with_amendment(&mut files, &adr(1), &adr(2));
@@ -930,7 +929,6 @@ fn accepts_amends_linked_both_ways() {
 }
 
 #[test]
-#[ignore = "red: amends and amended-by are not accepted yet"]
 fn requires_amended_by_for_amends() {
     let mut files = base();
     with_amendment(&mut files, &adr(1), "");
@@ -946,7 +944,6 @@ fn requires_amended_by_for_amends() {
 }
 
 #[test]
-#[ignore = "red: amends and amended-by are not accepted yet"]
 fn requires_amends_for_amended_by() {
     let mut files = base();
     with_amendment(&mut files, "", &adr(2));
@@ -962,15 +959,14 @@ fn requires_amends_for_amended_by() {
 }
 
 #[test]
-#[ignore = "red: amends and amended-by are not accepted yet"]
 fn checks_amendment_targets() {
     let mut files = base();
     with_amendment(&mut files, &adr(99), "");
     assert_violations(
         files,
-        &[format!(
-            "{ADR2}: `amends` names {}, which does not exist",
-            adr(99)
-        )],
+        &[
+            format!("{ADR2}: `amends` names {}, which does not exist", adr(99)),
+            format!("{ADR2}:6: {} does not exist", adr(99)),
+        ],
     );
 }
