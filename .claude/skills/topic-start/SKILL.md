@@ -12,17 +12,25 @@ argument-hint: <branch>
 ## 始める
 
 ```sh
-# 1. 記録の番号。ADR か issue が要るときだけ（スキル adr。docs/issues/README.md）。
-#    手で最大 + 1 を振らない。タグで予約するので、ほかの worktree と番号が重ならない
-design-records new <slug> "<決めたことの 1 文>"            # ADR（proposed で始まる）
-design-records new --kind issue <slug> "<題名>"           # issue（題名の行だけ。フロントマターと節は手で埋める）
-
-# 2. worktree。main から上流なしで作る。ブランチ名に issue の番号を入れる（例 fix/0004-frame-gap）
+# 1. worktree。main から上流なしで作る
 ~/.claude/scripts/worktree-add.sh <branch>
+
+# 2. 記録の番号。ADR か issue が要るときだけ（スキル adr。docs/issues/README.md）。worktree の中で実行する
+#    （実行した場所にファイルができる）。手で最大 + 1 を振らない。タグで予約するので、ほかの worktree と番号が重ならない
+cd <worktree> && design-records new <slug> "<決めたことの 1 文>"            # ADR（proposed で始まる）
+cd <worktree> && design-records new --kind issue <slug> "<題名>"           # issue（題名の行だけ。フロントマターと節は手で埋める）
 ```
 
-`design-records new` は、書きたい worktree の中で実行する（実行した場所にファイルができる）。先に worktree を作って、そこで
-実行する。
+ブランチ名には issue の番号を入れる（例 fix/0004-frame-gap。docs/issues/README.md）。新しい issue の番号は 2 の後でしか
+分からないので、1 では番号なしの名前（fix/frame-gap）で作り、2 の後に名前と worktree の場所を付け直す。worktree の
+`references` は main への絶対パスの symlink なので、場所を移しても切れない:
+
+```sh
+git -C <worktree> branch -m fix/frame-gap fix/0004-frame-gap
+git worktree move <worktree> <リポジトリの親>/xlc-fix-0004-frame-gap   # worktree-add.sh の名前の付け方（/ を - に）に合わせる
+```
+
+既にある issue の番号で始めるなら、1 から番号の入った名前で作る。
 
 worktree の出力に `SHARED: references` が出ていることを確かめる。出ていなければ、`ls -l references` で main への
 symlink かを見て、なければ worktree の直下で手で張る（ADR-0126）:
