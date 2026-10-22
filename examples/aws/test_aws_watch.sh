@@ -113,6 +113,8 @@ expect "status が読めない間は起動し直さない" 1 "$(wc -l < "$STATE/
 grep -q 'ATTENTION: .*認証切れの疑い.*aws login' <<< "$out" || fail "status の認証切れの ATTENTION が出ない: $out"
 grep -q 'ALL DONE' <<< "$out" || fail "status 復帰後に ALL DONE にならない: $out"
 
+rm -f "$STATE"/done-*
+
 # 二重起動: 走っている間は同じ実行の 2 つ目が 1 で終わり、--status は走っていると答える
 rm -f "$STATE/calls"
 bash "$tmp/bin/aws_watch.sh" --interval 30 --limit 0 t3 > "$tmp/t3.log" &
