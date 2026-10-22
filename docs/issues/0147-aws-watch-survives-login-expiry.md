@@ -1,11 +1,11 @@
 ---
-status: open
+status: closed
 labels: [aws]
 opened: 2026-10-22
-closed:
+closed: 2026-10-22
 milestone:
 blocked-by: []
-resolution:
+resolution: コミット a464c1633
 ---
 
 # aws_watch.sh が認証切れで止まり、起動し直しが止まった
@@ -28,6 +28,8 @@ download failed: s3://.../openmc-2O/done to - An error occurred (400) when calli
 3 本が VM の 24 時間の上限で止まったまま約 20 時間起動し直されなかった（2026-10-22 07:15 に手で監視を再開した）。
 止まったことはユーザーが気づかない限り分からない。
 
+関係する ADR: なし
+
 ## 完了の条件
 
 - 読み取り（aws_status.sh と done）の失敗で監視が終了せず、`ATTENTION:` の行を出して次の間隔で読み直す
@@ -38,3 +40,7 @@ download failed: s3://.../openmc-2O/done to - An error occurred (400) when calli
 ## 経緯
 
 - 2026-10-22: 起こした
+- 2026-10-22: 直した。aws_status.sh と done の読み取りの失敗で終了せず、`ATTENTION:` の行（認証切れの疑いは aws login の
+  やり直しを求める文言。HeadObject の 400 Bad Request を含む）を出して次の間隔で読み直す。読めない間は起動し直さない。
+  aws_run.sh が認証切れで失敗したときも同じ。起動時の実行の読み込みの認証切れだけは、利用者がその場で見るので 4 で終わる。
+  実機での認証切れの再現はしていない（偽の aws_common.sh などによるテスト）
