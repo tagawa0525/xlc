@@ -1,4 +1,4 @@
-"""#0133 の試行: 核種の 1/E の重みの群の捕獲断面積を、xlc のライブラリのポイントワイズと σ0 の表の無限希釈、OpenMC の HDF5 で比べる。
+"""#0133 の試行: 核種の 1/E の重みの群の捕獲断面積を、xlc のライブラリのポイントワイズと OpenMC の HDF5 で比べる。
 使い方: python3 dilute.py <xlc のライブラリ> <OpenMC の cross_sections.xml> <温度> <下端 eV> <上端 eV> <核種 ...>"""
 
 import sys
@@ -26,7 +26,7 @@ def avg(e, s):
 
 for name in sys.argv[6:]:
     nd = next(n for n in lib["nuclides"] if n["name"] == name)
-    td = min(nd["temperatures"], key=lambda t: abs(t["temperature"] - T))
+    td = next(t for t in nd["temperatures"] if t["temperature"] == T)
     pw = td["pointwise"]
     e = np.array(pw["energy"])
     c = np.array(pw["capture"])
