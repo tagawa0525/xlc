@@ -680,5 +680,102 @@ class DrawAssemblyPins(unittest.TestCase):
         )
 
 
+class DrawAssemblyDepletion(unittest.TestCase):
+    def summary(self) -> dict:
+        """compare_depletion_assembly.py の要約（2 点、燃料と B-10 の吸収体 2 種）"""
+        return {
+            "format": "xlc-compare-depletion-assembly",
+            "problem": "2N",
+            "burnup": [0.0, 0.1],
+            "k": [
+                {
+                    "xlc": 1.1,
+                    "openmc": 1.0991,
+                    "openmc_std_pcm": 11.6,
+                    "diff_pcm": 39.3,
+                    "change_pcm": 0.0,
+                },
+                {
+                    "xlc": 1.05,
+                    "openmc": 1.0495,
+                    "openmc_std_pcm": 12.4,
+                    "diff_pcm": -59.6,
+                    "change_pcm": -98.9,
+                },
+            ],
+            "kinds": {
+                "fuel": {
+                    "U-235": [0.0, 0.0001],
+                    "Pu-239": [None, 0.0012],
+                },
+                "ifba": {"B-10": [0.0, -0.0213]},
+                "waba": {"B-10": [0.0, -0.0139]},
+            },
+            "seconds": {
+                "xlc": {
+                    "shielding": 100.04,
+                    "moc": 10.0,
+                    "rates": 1.0,
+                    "matrix": 0.5,
+                    "cram": 0.25,
+                    "solves": 3,
+                },
+                "openmc": {},
+            },
+        }
+
+    def cells(self, table: str) -> list[list[str]]:
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")
+        ]
+
+    def test_k_rows_have_the_difference_with_its_error_and_the_change(self):
+        rows = self.cells(vt.depletion_assembly_k([self.summary()]))
+        self.assertEqual(rows[0], ["燃焼度 (MWd/kg)", "差 (pcm)", "変化 (pcm)"])
+        self.assertEqual(rows[2], ["0", "+39 \u00b1 12", "0"])
+        self.assertEqual(rows[3], ["0.1", "\u221260 \u00b1 12", "\u221299"])
+
+    def test_fuel_densities_are_in_percent_with_a_dash_for_zero_in_openmc(self):
+        rows = self.cells(vt.depletion_assembly_fuel_densities([self.summary()]))
+        self.assertEqual(rows[0], ["燃焼度 (MWd/kg)", "U-235", "Pu-239"])
+        self.assertEqual(rows[2], ["0", "0.00", "\u2013"])
+        self.assertEqual(rows[3], ["0.1", "+0.01", "+0.12"])
+
+    def test_absorber_densities_have_a_column_per_kind_and_nuclide(self):
+        rows = self.cells(vt.depletion_assembly_absorber_densities([self.summary()]))
+        self.assertEqual(rows[0], ["燃焼度 (MWd/kg)", "ifba B-10", "waba B-10"])
+        self.assertEqual(rows[3], ["0.1", "\u22122.13", "\u22121.39"])
+
+    def test_times_have_a_row_per_problem_with_the_sum_as_the_total(self):
+        rows = self.cells(vt.depletion_assembly_times([self.summary()]))
+        self.assertEqual(
+            rows[2], ["2N", "3", "111.8", "100.0", "10.0", "1.00", "0.50", "0.25"]
+        )
+
+    def test_each_problem_has_its_k_and_density_tables(self):
+        sources, draw = vt.TABLES["depletion-2f-k"]
+        self.assertEqual(sources, ["examples/depletion/p2/compare-2F.json"])
+        self.assertIs(draw, vt.depletion_assembly_k)
+        self.assertIs(
+            vt.TABLES["depletion-2n-densities"][1],
+            vt.depletion_assembly_fuel_densities,
+        )
+        self.assertIs(
+            vt.TABLES["depletion-2n-absorbers"][1],
+            vt.depletion_assembly_absorber_densities,
+        )
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (
+            vt.depletion_assembly_k,
+            vt.depletion_assembly_fuel_densities,
+            vt.depletion_assembly_absorber_densities,
+            vt.depletion_assembly_times,
+        ):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-depletion"}])
+
+
 if __name__ == "__main__":
     unittest.main()
