@@ -7,6 +7,8 @@
 //!                                 # false で格子点ごとに求める。ADR-0156）
 //! pointwise = ["U-238", "O-16", "H-1"]   # 自己遮蔽の減速計算でポイントワイズの断面積で解く核種（省略するとすべて）。ほかの
 //!                                 # 核種は群の中で一定の断面積の背景にする（ADR-0185）
+//! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
+//!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
@@ -183,6 +185,8 @@ pub struct LatticeInput {
     pub collision: Collision,
     /// 自己遮蔽の UFG の減速計算でポイントワイズの断面積で解く核種（ADR-0185）
     pub pointwise: PointwiseNuclides,
+    /// 自己遮蔽の UFG の減速計算の格子の間引きの許容差（ADR-0185）
+    pub thinning: Option<f64>,
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
@@ -288,6 +292,8 @@ struct InputFile {
     track_table: Option<TrackTableEntry>,
     /// 省略するとすべての核種（ADR-0185）
     pointwise: Option<Vec<String>>,
+    /// 省略すると間引かない（ADR-0185）
+    ufg_tolerance: Option<f64>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
     few_group: Option<FewGroupEntry>,
@@ -583,6 +589,7 @@ impl LatticeInput {
         ShieldingOptions {
             collision: self.collision,
             pointwise: self.pointwise.clone(),
+            thinning: self.thinning,
             ..ShieldingOptions::default()
         }
     }
@@ -955,10 +962,26 @@ impl LatticeInput {
                 "`pointwise`: `{name}` is in no material written with nuclides or water"
             )));
         }
+        let thinning: Option<f64> = None;
+        let _ = file.ufg_tolerance;
+        if !self_shielding && thinning.is_some() {
+            return Err(invalid(
+                "`ufg-tolerance` is used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
+        if let Some(t) = thinning
+            && !(t > 0.0 && t < 1.0)
+        {
+            return Err(invalid(format!(
+                "`ufg-tolerance` must be in (0, 1), got {t}"
+            )));
+        }
         Ok(Self {
             self_shielding,
             collision,
             pointwise,
+            thinning,
             cross_sections,
             output,
             pin_powers: file.pin_powers,

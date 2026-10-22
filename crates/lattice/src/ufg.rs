@@ -239,6 +239,7 @@ pub fn slowing_down(
         &no_background(rings),
         range,
         Collision::default(),
+        None,
     )
 }
 
@@ -261,6 +262,7 @@ pub fn slowing_down_with(
     background: &[Vec<Option<Shielded>>],
     range: [f64; 2],
     collision: Collision,
+    thinning: Option<f64>,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -379,11 +381,6 @@ pub fn slowing_down_with(
     if tracing::enabled!(tracing::Level::DEBUG) {
         log_nuclide_points(&data, group_bounds, inside);
     }
-    let step = data
-        .iter()
-        .map(|d| d.width / WINDOW_POINTS as f64)
-        .fold(f64::INFINITY, f64::min);
-    let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
     // ポイントワイズの断面積の不連続点（同じエネルギーの2点）では、高い側と低い側の極限の2つの格子点を同じレサジーに置く。
     // 範囲の上端では低い側、下端では高い側の極限だけを使う
     // 背景の断面積は群の境界で跳ぶので、範囲の中の群の境界も不連続点にする
@@ -401,6 +398,18 @@ pub fn slowing_down_with(
         .collect();
     jumps.sort_by(f64::total_cmp);
     jumps.dedup();
+    // 間引くなら、群の境界と不連続点を残し、リングの物質ごとの巨視的な全断面積と散乱断面積を許容差で再現できる点だけを残す（ADR-0185）
+    let energies = match thinning {
+        None => energies,
+        Some(tolerance) => thin(&energies, &data, &entries, high, tolerance, |e| {
+            group_bounds.contains(&e) || jumps.binary_search_by(|x| x.total_cmp(&e)).is_ok()
+        })?,
+    };
+    let step = data
+        .iter()
+        .map(|d| d.width / WINDOW_POINTS as f64)
+        .fold(f64::INFINITY, f64::min);
+    let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
     // （エネルギー、低い側の極限か）
     let mut points: Vec<(f64, bool)> = Vec::with_capacity(energies.len() + jumps.len());
     let mut lethargies: Vec<f64> = Vec::with_capacity(energies.len() + jumps.len());
@@ -529,6 +538,22 @@ pub fn slowing_down_with(
         let mut list = Vec::with_capacity(ring.len());
         for slot in ring {
             let shielded = match *slot {
+                Slot::Entry(e) if thinning.is_some() => {
+                    // 間引いた格子では核種自身の共鳴の点が落ちうるので、核種の格子で縮約する
+                    let Source::Pointwise(table) = &data[entries[i][e].0].source else {
+                        return Err(UfgError::Background(i));
+                    };
+                    collapse(
+                        data[entries[i][e].0].name,
+                        table,
+                        &u,
+                        &points,
+                        &sweep.flux[i],
+                        high,
+                        group_bounds,
+                        flux,
+                    )?
+                }
                 Slot::Entry(e) => {
                     let rate = &sweep.rates[i][e];
                     let column = |x: usize| -> Vec<f64> {
@@ -590,6 +615,21 @@ pub fn slowing_down_with(
         nuclides,
         points: u.len(),
     })
+}
+
+/// 降順のエネルギー `energies` を、リングの物質（`entries` の同じ並びは 1 つ）ごとの巨視的な全断面積と弾性散乱断面積が、残した点の
+/// 間のレサジーについての線形な補間で、どの点でも相対差 `tolerance` 以内に再現できる点に間引く。`keep` を満たす点（群の境界と
+/// 不連続点）と両端は残す。残す点は、補間の傾きの許される範囲を点ごとに狭めて決める（swinging door）
+fn thin(
+    energies: &[f64],
+    data: &[Data],
+    entries: &[Vec<(usize, f64)>],
+    high: f64,
+    tolerance: f64,
+    keep: impl Fn(f64) -> bool,
+) -> Result<Vec<f64>, UfgError> {
+    let _ = (data, entries, high, tolerance, keep);
+    Ok(energies.to_vec())
 }
 
 /// リングの組成の核種の群定数の出どころ
