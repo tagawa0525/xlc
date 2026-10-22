@@ -7,11 +7,13 @@
 //! （群は 1 始まりで、高いエネルギーから数える）。核種を `*` にすると、OpenMC の反応率のある燃料の全核種。置き換えごとに別に解き、
 //! 置き換えない k との差を書く。
 //!
-//! OpenMC の実効断面積は、燃料の群ごとの反応率（`absorption`、`fission`）/ 燃料の中性子束 / 数密度（openmc_pin_rates.py などの
-//! 出力。ピンの燃料の平均）。xlc の側は、最初の燃料のピンの、ピンの燃料で平均した物理的な実効断面積（吸収は捕獲 + 核分裂）。
+//! OpenMC の実効断面積は、燃料の群ごとの反応率（`(n,gamma)`、`fission`、`nu-fission`）/ 燃料の中性子束 / 数密度（openmc_pin_rates.py
+//! などの出力。ピンの燃料の平均）。xlc の側は、最初の燃料のピンの、ピンの燃料で平均した物理的な実効断面積。置き換えるのは捕獲
+//! （MT102）+ 核分裂と、核分裂と νσf で、両方の側で同じ反応にそろえる（OpenMC の `absorption` は (n,p)、(n,α) などを含み、xlc の
+//! 捕獲は含まないので使わない）。非弾性散乱、(n,2n)、(n,p)、(n,α) などは置き換えず、高速の群でもそのまま残る。
 //! 置き換えは比 R = OpenMC / xlc を、燃料のリングごとの核種の値に掛ける形にし（リングの間の違いを残す）、リングの物質の全断面積、
-//! 核分裂、νΣf（νσf は OpenMC の `nu-fission` との比）と、その核種の核分裂の項を、SPH 因子（物質の全断面積 / 核種の全断面積の和）を掛けて動かす。散乱は変えない
-//! （吸収の差だけを測る）。OpenMC の `absorption` は非弾性散乱と (n,2n) を含まないので、置き換える群はそれらのしきいより下にする。
+//! 核分裂、νΣf と、その核種の核分裂の項を、SPH 因子（物質の全断面積 / 核種の全断面積の和。SPH 因子を掛けた物質の全断面積は核種の
+//! 和の μ 倍）を掛けて動かす。散乱は変えない（吸収の差だけを測る）。
 //! 外周が鏡面反射の格子だけを受け付ける（ピンセルの比較のため）。燃料のピンが複数あれば、どのピンの燃料にも同じ比を掛ける。
 //!
 //! SPH 因子は置き換える前のものをそのまま使い、置き換えた断面積で求め直さない（`swap_transfer` の (A) と同じ）。UFG の範囲の
@@ -66,16 +68,13 @@ fn ratio(
             .map(|v| &v.mean)
             .ok_or_else(|| anyhow!("{name} has no OpenMC `{s}`"))
     };
-    let (absorption, fission, nu_fission) = (
-        score("absorption")?,
-        score("fission")?,
-        score("nu-fission")?,
-    );
+    let (capture, fission, nu_fission) =
+        (score("(n,gamma)")?, score("fission")?, score("nu-fission")?);
     let density = *reference
         .densities
         .get(name)
         .ok_or_else(|| anyhow!("{name} has no OpenMC density"))?;
-    if [absorption, fission, nu_fission, &reference.flux]
+    if [capture, fission, nu_fission, &reference.flux]
         .iter()
         .any(|v| v.len() != ng)
     {
@@ -97,7 +96,7 @@ fn ratio(
                 g + 1
             ));
         }
-        r.absorption[g] = absorption[g] / phi / a_x;
+        r.absorption[g] = (capture[g] + fission[g]) / phi / a_x;
         if xlc.fission[g] > 0.0 {
             if !xlc.nu_fission[g].is_finite() || xlc.nu_fission[g] <= 0.0 {
                 return Err(anyhow!("{name} group {}: fission without ν", g + 1));
