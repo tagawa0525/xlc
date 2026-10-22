@@ -1,0 +1,13 @@
+# #0133 の試行: 今の参照解 openmc-1C-rings1.toml（seed = 1）と乱数のシードだけが違う。燃焼点ごとの k の揺らぎを測る
+# （5 MWd/kg の k が同じ組成の単独の実行より 90 ± 24 pcm 小さいのが、統計の揺らぎかを分ける）。パスは ../ の入力と同じものを指す
+problem = "1C"
+rings = 1
+cross-sections = "../openmc-library/cross_sections.xml"
+chain = "../openmc-chain.xml"
+power = 38.41
+burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
+particles = 200000
+batches = 130
+inactive = 30
+seed = 2
+threads = 16
