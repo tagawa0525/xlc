@@ -31,7 +31,8 @@ from openmc_common import group_filter
 SCORES = ["(n,gamma)", "fission", "total", "(n,elastic)", "absorption", "nu-fission"]
 # 群構造の上端（10 MeV）より上の中性子束と反応は、群 1 に数える（openmc_pin_rates.py の ABOVE と同じ）
 ABOVE = 1.0e9
-# 群の中の重みを見る細かいエネルギーの tally（1e-3 eV〜20 keV をレサジーで等分、1 桁に 500 区間）の、捕獲を数える核種
+# 群の中の重みを見る細かいエネルギーの tally（1e-3 eV からレサジーで等分、1 桁に 500 区間で、上端は 20 keV を含む 20.05 keV）の、
+# 捕獲を数える核種
 FINE_NUCLIDES = [
     "U236",
     "U238",
@@ -134,6 +135,9 @@ def main():
     fine_capture.filters = [mfilter, fine_filter]
     fine_capture.nuclides = [n for n in FINE_NUCLIDES if n in densities]
     fine_capture.scores = ["(n,gamma)"]
+    # 核種の一覧が空の tally は OpenMC が全体（total）を数えるので、組成にどれもなければ止める
+    if not fine_capture.nuclides:
+        raise SystemExit("none of FINE_NUCLIDES is in the composition")
     model.tallies = openmc.Tallies([flux, rates, total, materials, fine, fine_capture])
     os.environ["OMP_NUM_THREADS"] = str(threads)
     openmc.config["cross_sections"] = run["cross-sections"]
