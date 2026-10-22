@@ -1,0 +1,4 @@
+# 燃焼度の軸を持つテーブルの集合体 1 体を置くサイクル。
+plant = "core-plant.toml"
+inventory = "core-assemblies.toml"
+loading = ["A01"]
