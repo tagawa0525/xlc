@@ -22,7 +22,7 @@ def avg(e, c, t):
 
 for name in sys.argv[7:]:
     nd = next(n for n in lib["nuclides"] if n["name"] == name)
-    pw = min(nd["temperatures"], key=lambda t: abs(t["temperature"] - T))["pointwise"]
+    pw = next(t for t in nd["temperatures"] if t["temperature"] == T)["pointwise"]
     x = avg(np.array(pw["energy"]), np.array(pw["capture"]), np.array(pw["total"]))
     o = openmc.data.IncidentNeutron.from_hdf5(
         libs.get_by_material(name.replace("-", ""))["path"]
