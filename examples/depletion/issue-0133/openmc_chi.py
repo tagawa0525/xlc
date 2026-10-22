@@ -36,8 +36,9 @@ def main():
     model, fuels = openmc_depletion.build(run)
     groups = group_filter(Path(library).resolve())
     # 群構造の上端（10 MeV）より上に生まれた中性子は、xlc の χ と同じく群 1 に数える（ライブラリの χ は群構造の外に出る分を
-    # 端の群に入れる。outgoing_group_integrals）。上端の外の 1 区間は、評価済みデータの上限より上に置く
-    out_filter = openmc.EnergyoutFilter(list(groups.values) + [ABOVE])
+    # 端の群に入れる。outgoing_group_integrals）。群 1 の上端を、評価済みデータの上限より上に広げる
+    out_bounds = list(groups.values)[:-1] + [ABOVE]
+    out_filter = openmc.EnergyoutFilter(out_bounds)
     tally = openmc.Tally(name="chi")
     tally.filters = [openmc.MaterialFilter([fuels[0]]), out_filter]
     tally.nuclides = NUCLIDES
@@ -58,7 +59,7 @@ def main():
             )
         t = sp.get_tally(name="chi")
         out_bins = t.find_filter(openmc.EnergyoutFilter).values
-        if not np.allclose(out_bins, list(groups.values) + [ABOVE], rtol=1e-12):
+        if not np.allclose(out_bins, out_bounds, rtol=1e-12):
             raise SystemExit(f"{sp_path}: the chi tally has other group bounds")
         print(f"k {sp.keff}")
         print(
@@ -68,7 +69,6 @@ def main():
         rows = {}
         for name in NUCLIDES:
             v = t.get_values(nuclides=[name]).ravel()[::-1]
-            v = np.concatenate([[v[0] + v[1]], v[2:]])
             rows[name] = v / v.sum()
         chis = {}
         for name in NUCLIDES:
