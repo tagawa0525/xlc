@@ -4,7 +4,7 @@ date: 2026-10-22
 requires: [ADR-0039]
 supersedes: [ADR-0042]
 superseded-by:
-issues: ["#0133"]
+issues: ["#0133", "#0148"]
 ---
 
 # ADR-0186: χ に遅発中性子を含め、即発と遅発の分布を ν_p と ν_d で重み付けして 1 本にする
