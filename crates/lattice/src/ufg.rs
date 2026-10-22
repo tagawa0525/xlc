@@ -172,7 +172,7 @@ struct Data<'a> {
 /// 減速計算の断面積の出どころ
 enum Source<'a> {
     /// その温度の群定数とポイントワイズの断面積（S(α, β) の核種は内挿したもの）
-    Pointwise(Cow<'a, TemperatureData>),
+    Pointwise(Box<Cow<'a, TemperatureData>>),
     /// リングの背景の核種をまとめた、群の中で一定の巨視的な断面積 (1/cm)。[ライブラリの群] の [全, 弾性散乱, 0, 0, 0]
     /// （背景の核種の群定数は減速計算の入力のまま出すので、反応率の列は使わない）
     Groups { bounds: &'a [f64], rows: Vec<Row> },
@@ -332,7 +332,7 @@ pub fn slowing_down_with(
                         name: &d.name,
                         gain: 1.0 / (1.0 - alpha),
                         width: -alpha.ln(),
-                        source: Source::Pointwise(t),
+                        source: Source::Pointwise(Box::new(t)),
                     });
                     keys.push((name, temperature));
                     data.len() - 1
