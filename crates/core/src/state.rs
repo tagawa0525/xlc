@@ -217,6 +217,9 @@ pub fn interpolate(
     let mut brackets = Vec::with_capacity(table.axes.len());
     for axis in &table.axes {
         brackets.push(match axis {
+            Axis::Burnup { .. } => {
+                return Err("the table has a burnup axis, which core does not read yet".into());
+            }
             Axis::Boron { ppm, b10 } => {
                 if *b10 != state.b10 {
                     return Err(format!(
