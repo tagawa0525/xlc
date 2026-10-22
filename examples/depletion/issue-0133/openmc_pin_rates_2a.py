@@ -1,6 +1,7 @@
-"""#0133 の試行（issue-0133/openmc_pin_rates.py の組成の出どころだけを変えた版）: OpenMC の 2A の燃焼の結果の燃焼点の燃料の組成
+"""#0133 の試行（issue-0133/openmc_pin_rates.py の組成の出どころを変え、細かいエネルギーの tally を足した版）: OpenMC の 2A の燃焼の結果の燃焼点の燃料の組成
 （39 の組の体積の重みの平均、1C の燃焼で輸送する核種だけ）で、1C のピンセルを OpenMC で解き、燃料の
-群ごとの中性子束と、核種ごとの群ごとの反応率を書く。xlc 側は同じ組成の格子の入力（lattice.toml、このスクリプトが書く）を
+群ごとの中性子束と、核種ごとの群ごとの反応率を書く。群の中の重みを見るため、燃料の細かいエネルギーの中性子束と
+`FINE_NUCLIDES` の捕獲も書く（`fine`）。xlc 側は同じ組成の格子の入力（lattice.toml、このスクリプトが書く）を
 `balance` と `fuel_xs` の例で解く。
 
 使い方（references の devShell で）: python3 openmc_pin_rates_2a.py <openmc-1C-rings1.toml> <燃焼の作業ディレクトリ> <燃焼点の番号>
@@ -8,12 +9,14 @@
 """
 
 import json
+import math
 import os
 import re
 import sys
 from pathlib import Path
 
 import msgpack
+import numpy as np
 import openmc
 import openmc.deplete
 
@@ -28,6 +31,25 @@ from openmc_common import group_filter
 SCORES = ["(n,gamma)", "fission", "total", "(n,elastic)", "absorption", "nu-fission"]
 # 群構造の上端（10 MeV）より上の中性子束と反応は、群 1 に数える（openmc_pin_rates.py の ABOVE と同じ）
 ABOVE = 1.0e9
+# 群の中の重みを見る細かいエネルギーの tally（1e-3 eV からレサジーで等分、1 桁に 500 区間で、上端は 20 keV を含む 20.05 keV）の、
+# 捕獲を数える核種
+FINE_NUCLIDES = [
+    "U236",
+    "U238",
+    "Pu239",
+    "Pu240",
+    "Pu241",
+    "Pu242",
+    "Am241",
+    "Am243",
+    "Tc99",
+    "Ag109",
+    "Nd145",
+    "Sm149",
+    "Sm152",
+    "Xe135",
+]
+FINE_BOUNDS = (1e-3, 2e4, 500)
 
 
 def xlc_name(name):
@@ -101,7 +123,22 @@ def main():
     materials = openmc.Tally(name="materials")
     materials.filters = [openmc.MaterialFilter(list(model.materials)), groups]
     materials.scores = ["flux", "absorption", "nu-fission"]
-    model.tallies = openmc.Tallies([flux, rates, total, materials])
+    low, high, per_decade = FINE_BOUNDS
+    decades = math.log10(high / low)
+    fine_filter = openmc.EnergyFilter(
+        low * 10 ** (np.arange(round(decades * per_decade) + 1) / per_decade)
+    )
+    fine = openmc.Tally(name="fine")
+    fine.filters = [mfilter, fine_filter]
+    fine.scores = ["flux"]
+    fine_capture = openmc.Tally(name="fine-capture")
+    fine_capture.filters = [mfilter, fine_filter]
+    fine_capture.nuclides = [n for n in FINE_NUCLIDES if n in densities]
+    fine_capture.scores = ["(n,gamma)"]
+    # 核種の一覧が空の tally は OpenMC が全体（total）を数えるので、組成にどれもなければ止める
+    if not fine_capture.nuclides:
+        raise SystemExit("none of FINE_NUCLIDES is in the composition")
+    model.tallies = openmc.Tallies([flux, rates, total, materials, fine, fine_capture])
     os.environ["OMP_NUM_THREADS"] = str(threads)
     openmc.config["cross_sections"] = run["cross-sections"]
     sp_path = model.run(cwd=work, output=False)
@@ -161,6 +198,19 @@ def main():
                 .tolist()
                 for s in ["flux", "absorption", "nu-fission"]
             }
+        f = sp.get_tally(name="fine")
+        fc = sp.get_tally(name="fine-capture")
+        # 細かい tally はエネルギーの昇順のまま書く
+        out["fine"] = {
+            "bounds": fine_filter.values.tolist(),
+            "flux": f.get_values(scores=["flux"]).ravel().tolist(),
+            "capture": {
+                xlc_name(n): fc.get_values(scores=["(n,gamma)"], nuclides=[n])
+                .ravel()
+                .tolist()
+                for n in fc.nuclides
+            },
+        }
     (work / "openmc-rates.msgpack").write_bytes(msgpack.packb(out))
     # xlc の格子の入力: テンプレートの燃料の組成を、この組成（xlc の名前）に置き換える
     text = Path(template).read_text()

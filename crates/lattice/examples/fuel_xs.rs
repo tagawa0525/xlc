@@ -2,8 +2,8 @@
 //!
 //! 使い方: fuel_xs <格子の入力 (TOML)> <出力 (msgpack)>
 //!
-//! 出力は examples/vera/openmc_model.py の fuel-xs.msgpack と同じ形式で、核種ごとに群ごとの
-//! 全断面積・弾性散乱・核分裂 (barn) を、高いエネルギーの群から並べる（散乱行列の行は放出される
+//! 出力は examples/vera/openmc_model.py の fuel-xs.msgpack と同じ形式に捕獲を足したもので、核種ごとに群ごとの
+//! 全断面積・弾性散乱・核分裂・捕獲（MT102）(barn) を、高いエネルギーの群から並べる（散乱行列の行は放出される
 //! 中性子の数を数えるので、吸収は行の和から求めずに、全断面積と弾性散乱で比べる）。核種の名前は OpenMC と同じ
 //! （U-238 は U238）にする。
 
@@ -23,6 +23,7 @@ struct Rates {
     total: Vec<f64>,
     elastic: Vec<f64>,
     fission: Vec<f64>,
+    capture: Vec<f64>,
 }
 
 #[derive(Serialize)]
@@ -68,6 +69,7 @@ fn main() -> anyhow::Result<()> {
                     total: s.total.clone(),
                     elastic: s.elastic.clone(),
                     fission: s.fission.clone(),
+                    capture: s.capture.clone(),
                 },
             )
         })
