@@ -81,7 +81,7 @@ MF5 MT455 のない評価（Np-239、Am-242m、Cm-244）の扱い:
 
 - 1C のピンセルの χ（`examples/depletion/issue-0133/openmc_chi.py`。OpenMC は 10 MeV より上を群 1 に数えた tally、Slurm 448）: 1.353 MeV
   より上の割合は U-235 で 0.57280（OpenMC 0.57268）、U-238 で 0.56840（0.56887）。ライブラリは examples/depletion/depletion.msgpack
-  （2711cbf0、Slurm 452、2026-10-22）
+  （6a0f62a2、Slurm 452、2026-10-22）
 - 1C のピンセルの新しい燃料で、U-238 の核分裂（生成 1 あたり）の OpenMC との差が +2.74% から +2.08%、U-235 の核分裂が −0.23% から −0.17%、
   k の差が +2 から −34 pcm（OpenMC の σ 18 pcm）。1C の燃焼で U-235 の消えた量の差が −0.22〜−0.24% から −0.17〜−0.19%（1 リング）。
   数値の出どころは #0133 の経緯と examples/depletion/verification.md の「格子計算の燃焼」
