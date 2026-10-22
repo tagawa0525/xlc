@@ -96,14 +96,14 @@ pub fn step_times(power: f64, burnup: &[f64]) -> Vec<f64> {
         .collect()
 }
 
-/// 核分裂の収率の熱の点 (eV)。境界 `yield_cutoff` より下の核分裂に使う（ADR-0183）
-pub const YIELD_THERMAL: f64 = 0.0253;
-/// 核分裂の収率の高速の点 (eV)。境界 `yield_cutoff` より上の核分裂に使う（ADR-0183）
-pub const YIELD_FAST: f64 = 5.0e5;
+/// 核分裂の収率の熱の点 (eV)。境界 `yield_cutoff` より下の核分裂に、この点か、なければ境界より下で最も近い点を使う（ADR-0183）
+const YIELD_THERMAL: f64 = 0.0253;
+/// 核分裂の収率の高速の点 (eV)。境界 `yield_cutoff` より上の核分裂に、この点か、なければ境界以上で最も近い点を使う（ADR-0183）
+const YIELD_FAST: f64 = 5.0e5;
 
 /// 収率の熱と高速の点を分ける境界 (eV)。2 点の幾何平均 √(0.0253 · 5e5) ≈ 112.47 eV で、参照解の OpenMC に与える
 /// `cutoff` と同じ（OpenMC 0.15.2 の既定の 112.0 eV ではない。ADR-0183）
-pub fn yield_cutoff() -> f64 {
+fn yield_cutoff() -> f64 {
     (YIELD_THERMAL * YIELD_FAST).sqrt()
 }
 
@@ -111,7 +111,7 @@ pub fn yield_cutoff() -> f64 {
 /// 降順の eV）を `yield_cutoff` の下と上に分け、境界を含む群はレサジーの幅の比で分ける（OpenMC は連続エネルギーで数える）。
 /// 下を熱の点、上を高速の点に置く。点の選び方は OpenMC 0.15.2 の `FissionYieldCutoffHelper.__init__` と同じ: 熱と高速の点が
 /// ちょうどあればそれを使う。どちらかがなければ、境界が最初の点以下なら最初の点、最後の点以上なら最後の点だけを使い、そうで
-/// なければ境界より下で熱に、境界以上で高速に最も近い点を使う。核分裂率がすべて 0 なら最初の点に 1（`Chain::zero_rates` と同じ）
+/// なければ境界より下で熱に、境界以上で高速に最も近い点を使う。熱と高速の 2 点を使う核種で核分裂率がすべて 0 なら、最初の点に 1（`Chain::zero_rates` と同じ）
 pub fn yield_weights(group_bounds: &[f64], rates: &[f64], fission: &Fission) -> Vec<f64> {
     let energies = &fission.energies;
     let cutoff = yield_cutoff();
