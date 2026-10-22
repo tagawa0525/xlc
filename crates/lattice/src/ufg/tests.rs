@@ -660,8 +660,9 @@ fn a_background_of_the_constant_cross_sections_gives_the_pointwise_solution() {
 }
 
 #[test]
-fn background_nuclides_keep_the_given_group_constants() {
-    // ADR-0185: 背景の核種の群定数は、群の中で一定の断面積を中性子束で縮約したものなので、与えた値のまま
+fn background_nuclides_are_collapsed_from_their_pointwise_data() {
+    // ADR-0185: 背景の核種の群定数は、与えた群定数（減速計算の背景の項にだけ使う）でなく、ポイントワイズの断面積をリングの中性子束で
+    // 縮約したもの。U-235 の断面積はどのエネルギーでも一定なので、その値になる
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
@@ -684,12 +685,88 @@ fn background_nuclides_keep_the_given_group_constants() {
         Collision::default(),
     )
     .unwrap();
-    let groups = spectrum.groups.clone();
     for ring in 0..3 {
         let u235 = &spectrum.nuclides[ring][1];
-        assert_eq!(u235.total, given.total[groups.clone()]);
-        assert_eq!(u235.capture, given.capture[groups.clone()]);
-        assert_eq!(u235.nu_fission, given.nu_fission[groups.clone()]);
+        for (values, expected) in [
+            (&u235.total, 10.0),
+            (&u235.elastic, 8.0),
+            (&u235.fission, 1.0),
+            (&u235.nu_fission, 2.4),
+        ] {
+            for v in values {
+                assert!((v - expected).abs() < 1e-12 * expected, "{v} vs {expected}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_trace_background_nuclide_takes_the_shadow_of_the_fuel() {
+    // ADR-0185: 微量の核種は自身の共鳴で中性子束をへこませないので、背景にしてリングの中性子束で縮約した群定数は、ポイントワイズで
+    // 解いたものと一致する。共鳴が U-238 の共鳴（200 eV）と重なるので、どちらも 1/E の重みの平均より小さい（燃料の影）
+    let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
+    let mut energies: Vec<f64> = (0..=400).map(|k| 180.0 + 0.1 * k as f64).collect();
+    energies.splice(0..0, [4.0, 100.0]);
+    energies.extend([1.0e3, 2.0e4]);
+    let spec = |name: &'static str, awr: f64, base: f64, scale: f64| Spec {
+        name,
+        awr,
+        top: Some(2.0e4),
+        points: energies
+            .iter()
+            .map(|&e| [e, base + scale * resonance(e), base, 0.0])
+            .collect(),
+    };
+    let mut lib = library(vec![
+        spec("U-238", 236.0, 11.0, 1.0),
+        spec("Pu-240", 238.0, 5.0, 0.1),
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        constant("O-16", 15.86, 3.8, 3.8, 0.0),
+    ]);
+    // 範囲の上の減速源に使う群定数（ポイントワイズの両端の値）は、どちらの解き方でも同じ
+    lib.nuclides[1].temperatures[0].shielded[0].elastic = vec![5.0; BOUNDS.len() - 1];
+    let fuel = material(&[("U-238", 0.022), ("Pu-240", 1.0e-10), ("O-16", 0.045)]);
+    let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let dilute = lib.lookup("Pu-240", TEMPERATURE).unwrap().1.shielded[0].clone();
+    let mut background = no_background(&rings);
+    for ring in background.iter_mut().take(3) {
+        ring[1] = Some(dilute.clone());
+    }
+    let solve = |background: &[Vec<Option<Shielded>>]| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            background,
+            [4.0, 1.0e4],
+            Collision::Exact,
+        )
+        .unwrap()
+    };
+    let (pointwise, lumped) = (solve(&no_background(&rings)), solve(&background));
+    // 100 eV〜1 keV の群の 1/E の重みの平均
+    let k = 3 - pointwise.groups.start;
+    let mean = {
+        let (mut rate, mut flux) = (0.0, 0.0);
+        for w in energies
+            .windows(2)
+            .filter(|w| w[0] >= 100.0 && w[1] <= 1.0e3)
+        {
+            let du = (w[1] / w[0]).ln();
+            rate += 0.5 * du * (resonance(w[0]) + resonance(w[1]));
+            flux += du;
+        }
+        5.0 + 0.1 * rate / flux
+    };
+    for ring in 0..3 {
+        let (a, b) = (
+            lumped.nuclides[ring][1].total[k],
+            pointwise.nuclides[ring][1].total[k],
+        );
+        assert!((a / b - 1.0).abs() < 1e-6, "ring {ring}: {a} vs {b}");
+        assert!(b < 0.99 * mean, "ring {ring}: {b} vs {mean}");
     }
 }
 
