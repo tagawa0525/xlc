@@ -163,24 +163,26 @@ fn swapped(
         }
         done[index] = true;
         let m = &mut materials[index];
-        let ng = m.total.len();
-        // SPH 因子: 物質の全断面積 / 核種の全断面積の和
-        let sum: Vec<f64> = (0..ng)
-            .map(|g| {
-                input_material
-                    .composition
-                    .iter()
-                    .zip(nuclides)
-                    .map(|((_, n), s)| n * s.total[g])
-                    .sum::<f64>()
+        // SPH 因子: 置き換える前の物質の全断面積 / 核種の全断面積の和
+        let sph: Vec<f64> = m
+            .total
+            .iter()
+            .enumerate()
+            .map(|(g, total)| {
+                total
+                    / input_material
+                        .composition
+                        .iter()
+                        .zip(nuclides)
+                        .map(|((_, n), s)| n * s.total[g])
+                        .sum::<f64>()
             })
             .collect();
         let mut term = 0;
         for ((name, density), s) in input_material.composition.iter().zip(nuclides) {
             let has_term = s.nu_fission.iter().any(|&v| v > 0.0);
             if let Some(r) = ratios.get(name) {
-                for g in 0..ng {
-                    let mu = m.total[g] / sum[g];
+                for (g, &mu) in sph.iter().enumerate() {
                     let da = mu * density * (r.absorption[g] - 1.0) * (s.capture[g] + s.fission[g]);
                     let df = mu * density * (r.fission[g] - 1.0) * s.fission[g];
                     let dnf = mu * density * (r.nu_fission[g] - 1.0) * s.nu_fission[g];
