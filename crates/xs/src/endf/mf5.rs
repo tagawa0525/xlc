@@ -1,6 +1,6 @@
-//! MF5（出射中性子のエネルギー分布）。表形式（LF=1）と、θ(E) で決まる解析式のうち
-//! 単純な核分裂スペクトル（LF=7）と蒸発スペクトル（LF=9）を扱う。それ以外の形式は、
-//! 対象核種で必要になるまで追加しない。
+//! MF5（出射中性子のエネルギー分布）。表形式（LF=1）と、θ(E) で決まる形のうち
+//! 一般の蒸発スペクトル（LF=5）、単純な核分裂スペクトル（LF=7）、蒸発スペクトル（LF=9）を扱う。
+//! それ以外の形式は、対象核種で必要になるまで追加しない。
 
 use super::Error;
 use super::tab1::{ClampedTab1, Interpolation, Tab1};
@@ -24,6 +24,12 @@ pub struct OutgoingDistributions {
 pub enum EnergyLaw {
     /// LF=1: 入射エネルギーごとの表
     Tabulated(OutgoingDistributions),
+    /// LF=5: 一般の蒸発スペクトル f(E') ∝ g(E'/θ(E))。g(x) は表（`shape`）
+    GeneralEvaporation {
+        restriction: f64,
+        theta: ClampedTab1,
+        shape: Tab1,
+    },
     /// LF=7: 単純な核分裂スペクトル f(E') ∝ √E' exp(-E'/θ(E))
     Maxwellian {
         restriction: f64,
@@ -52,10 +58,15 @@ impl Mf5 {
         for _ in 0..nk {
             let start = r.line() + 1;
             let probability = r.tab1()?;
-            // 解析式の分布では、p(E) の TAB1 の C1 が U で、θ(E) の TAB1 が続く
+            // θ(E) で決まる分布では、p(E) の TAB1 の C1 が U で、θ(E) の TAB1 が続く（LF=5 はさらに g(x) の TAB1）
             let restriction = probability.c1;
             let law = match probability.l2 {
                 1 => EnergyLaw::Tabulated(parse_outgoing(&mut r)?),
+                5 => EnergyLaw::GeneralEvaporation {
+                    restriction,
+                    theta: positive_theta(&mut r)?,
+                    shape: non_negative_shape(&mut r)?,
+                },
                 7 => EnergyLaw::Maxwellian {
                     restriction,
                     theta: positive_theta(&mut r)?,
@@ -82,6 +93,18 @@ fn positive_theta(r: &mut Reader<'_>) -> Result<ClampedTab1, Error> {
         ));
     }
     ClampedTab1::new(theta).ok_or_else(|| Error::new(r.line(), "theta table is empty"))
+}
+
+/// 一般の蒸発スペクトルの g(x) を読む。g は確率密度の形なので負であってはならない。
+fn non_negative_shape(r: &mut Reader<'_>) -> Result<Tab1, Error> {
+    let shape = r.tab1()?.table;
+    if let Some(bad) = shape.y.iter().find(|&&g| g < 0.0 || g.is_nan()) {
+        return Err(Error::new(
+            r.line(),
+            format!("g(x) must not be negative, got {bad}"),
+        ));
+    }
+    Ok(shape)
 }
 
 /// TAB2 と、それに続く NE 個の TAB1（C2 が入射エネルギー）を読む。
