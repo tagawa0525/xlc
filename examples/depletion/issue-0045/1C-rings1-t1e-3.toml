@@ -1,6 +1,6 @@
-# #0045 の試行（make_inputs.py が書く。手で直さない）: 1C の燃焼（rings1）、1C-rings1-u238
+# #0045 の試行（make_inputs.py が書く。手で直さない）: 1C の燃焼（rings1）、1C-rings1-t1e-3
 library = "../depletion.msgpack"
-pointwise = ["U-238", "O-16", "H-1"]
+ufg-tolerance = 0.001
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
@@ -58,5 +58,5 @@ chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
 materials = ["fuel"]
-output = "1C-rings1-u238.msgpack"
+output = "1C-rings1-t1e-3.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5] }

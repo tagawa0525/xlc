@@ -1,6 +1,6 @@
-# #0045 の試行（make_inputs.py が書く。手で直さない）: 1C の燃焼（rings4）、1C-rings4-u238
+# #0045 の試行（make_inputs.py が書く。手で直さない）: 1C の燃焼（rings4）、1C-rings4-t1e-4
 library = "../depletion.msgpack"
-pointwise = ["U-238", "O-16", "H-1"]
+ufg-tolerance = 0.0001
 # 燃料のリングの物質が 4 つあると、飛程の表（ADR-0156）は物質ごとの軸の直積で格子点より大きくなるので、格子点ごとに求める
 track-table = false
 pitch = 1.26
@@ -75,5 +75,5 @@ chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
 materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3"]
-output = "1C-rings4-u238.msgpack"
+output = "1C-rings4-t1e-4.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5] }

@@ -1,26 +1,11 @@
-# #0045 の試行（make_inputs.py が書く。手で直さない）: 1C の燃焼（rings4）、1C-rings4-u238-zr
+# #0045 の試行（make_inputs.py が書く。手で直さない）: 1C の燃焼（rings1）、1C-rings1-full
 library = "../depletion.msgpack"
-pointwise = ["U-238", "O-16", "H-1", "Zr-90", "Zr-91", "Zr-92", "Zr-94", "Zr-96"]
-# 燃料のリングの物質が 4 つあると、飛程の表（ADR-0156）は物質ごとの軸の直積で格子点より大きくなるので、格子点ごとに求める
-track-table = false
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
 rows = ["pin"]
 
-[material.fuel-0]
-temperature = 900
-nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
-
-[material.fuel-1]
-temperature = 900
-nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
-
-[material.fuel-2]
-temperature = 900
-nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
-
-[material.fuel-3]
+[material.fuel]
 temperature = 900
 nuclides = { U-234 = 6.11864e-06, U-235 = 7.18132e-04, U-236 = 3.29861e-06, U-238 = 2.21546e-02, O-16 = 4.57642e-02 }
 
@@ -58,10 +43,7 @@ nuclides = { H-1 = 4.41459e-02, O-16 = 2.20729e-02, B-10 = 9.52537e-06, B-11 = 3
 
 [cell.pin]
 zones = [
-  { material = "fuel-0", radius = 0.2048, rings = 2 },
-  { material = "fuel-1", radius = 0.2896309375740099, rings = 2 },
-  { material = "fuel-2", radius = 0.35472400539010607, rings = 2 },
-  { material = "fuel-3", radius = 0.4096, rings = 2 },
+  { material = "fuel", radius = 0.4096, rings = 5 },
   { material = "void", radius = 0.418, rings = 1 },
   { material = "zircaloy", radius = 0.475, rings = 1 },
   { material = "water", radius = 0.63, rings = 3 },
@@ -74,6 +56,6 @@ sectors = 8
 chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
-materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3"]
-output = "1C-rings4-u238-zr.msgpack"
+materials = ["fuel"]
+output = "1C-rings1-full.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5] }

@@ -1,6 +1,6 @@
-# #0045 の試行（make_inputs.py が書く。手で直さない）: 2A の燃焼の 1 ステップ（0.1 MWd/kg）、2A-step-u238
+# #0045 の試行（make_inputs.py が書く。手で直さない）: 2A の燃焼の 1 ステップ（0.1 MWd/kg）、2A-step-t1e-3
 library = "../p2/depletion.msgpack"
-pointwise = ["U-238", "O-16", "H-1"]
+ufg-tolerance = 0.001
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
@@ -98,4 +98,4 @@ chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1]
 materials = ["fuel"]
-output = "2A-step-u238.msgpack"
+output = "2A-step-t1e-3.msgpack"
