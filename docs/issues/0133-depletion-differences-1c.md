@@ -179,7 +179,7 @@ Pm-147、Pm-148、Pm-149、Am-242m、Eu-151 を入れて両方が 54 核種を�
     推定で、確かめていない）
 - 2026-10-23: 上の (6) を、1C のピンセルに 2A の 40 MWd/kg の組成を置いた 1 状態（以下 2A-40）で切り分けた（ブランチ
   feat/0133-burnt-composition-transport、分岐点は main の e0b8dc18c。xlc の自己遮蔽と輸送は e0b8dc18c のまま、例の `swap_absorption`
-  は 94ec7aacc（入力は `issue-0133/swaps-1C-0.txt`、`swaps-1C-5.txt`、`swaps-2A-40.txt`）、`fine_flux` は f2405489c。OpenMC は `issue-0133/openmc_pin_rates_2a.py` に燃料の細かいエネルギーの tally を足した
+  は 214b50752（入力は `issue-0133/swaps-1C-0.txt`、`swaps-1C-5.txt`、`swaps-2A-40.txt`）、`fine_flux` は 28e1ca3db。OpenMC は `issue-0133/openmc_pin_rates_2a.py` に燃料の細かいエネルギーの tally を足した
   e96f1484b の版で、30 万粒子 × 100 アクティブ世代、Slurm 456。新しい燃料（1C の 0 MWd/kg）と 1C の 5 MWd/kg は 2026-10-22 の
   ジョブ 438 の OpenMC の結果）
   - k: 2A-40 の OpenMC は 0.82479 ± 0.00016 で、xlc（0.82587）− OpenMC は +108 ± 16 pcm（2026-10-22 のジョブ 438 は 0.82453 ± 0.00019 で
