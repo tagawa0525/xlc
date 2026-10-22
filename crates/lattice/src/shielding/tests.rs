@@ -1261,9 +1261,10 @@ mod lattice {
     }
 
     #[test]
-    fn nuclides_left_out_of_the_pointwise_list_keep_their_multigroup_values() {
-        // ADR-0185: ポイントワイズで解く核種に挙げない燃料の U-235 は、UFG の範囲でも等価原理の値、被覆管の Zr-90 は
-        // 無限希釈の値。挙げた U-238 は、UFG の範囲でリングごとに遮蔽される
+    fn nuclides_left_out_of_the_pointwise_list_are_collapsed_in_the_ufg_range() {
+        // ADR-0185: ポイントワイズで解く核種に挙げない燃料の U-235 と被覆管の Zr-90 は、UFG の範囲（群 1、2）ではポイントワイズの
+        // 断面積（どちらもエネルギーによらず一定）をリングの中性子束で縮約した値、範囲の外は U-235 が等価原理の値、Zr-90 が無限希釈の
+        // 値。挙げた U-238 は、UFG の範囲でリングごとに遮蔽される
         let options = ShieldingOptions {
             pointwise: PointwiseNuclides::Only(vec!["U-238".into(), "O-16".into(), "H-1".into()]),
             ..ShieldingOptions::default()
@@ -1278,17 +1279,28 @@ mod lattice {
             terms: pin.dancoff.iter().map(|&c| carlvik(c).unwrap()).collect(),
         };
         let carlvik = shield_material(&library, &materials[0], &equivalence, &options, 0).unwrap();
+        let inside = |g: usize| g == 1 || g == 2;
         for ring in &pin.rings {
-            assert_eq!(ring[1], carlvik[1]);
-        }
-        for (a, b) in pin.effective[1].total.iter().zip(&carlvik[1].total) {
-            assert!((a - b).abs() <= 1e-12 * b, "{a} vs {b}");
+            for (g, (&a, &b)) in ring[1].total.iter().zip(&carlvik[1].total).enumerate() {
+                let expected = if inside(g) { 10.0 } else { b };
+                assert!(
+                    (a - expected).abs() <= 1e-12 * expected,
+                    "group {g}: {a} vs {expected}"
+                );
+            }
         }
         assert!(pin.rings[0][0].total[1] < pin.rings[2][0].total[1]);
         let dilute = library
             .shielded("Zr-90", T, &vec![1.0e10; library.groups.len()])
             .unwrap();
-        assert_eq!(shielded.region_cross_sections(4).unwrap()[0], dilute);
+        let clad = &shielded.region_cross_sections(4).unwrap()[0];
+        for (g, (&a, &b)) in clad.total.iter().zip(&dilute.total).enumerate() {
+            let expected = if inside(g) { 6.5 } else { b };
+            assert!(
+                (a - expected).abs() <= 1e-12 * expected,
+                "group {g}: {a} vs {expected}"
+            );
+        }
     }
 
     #[test]
