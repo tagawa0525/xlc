@@ -38,7 +38,9 @@ use xlc_lattice::branches::tables;
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
-use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
+use xlc_lattice::input::{
+    CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, MaterialInput, VOID,
+};
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
@@ -284,14 +286,21 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
 
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
-    let states = match &history_branches {
-        Some(h) => std::borrow::Cow::Borrowed(&h.states[..]),
-        None => input.branch_states(),
-    };
-    let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(states.len());
+    let plain = input.branch_states();
+    let count = history_branches.as_ref().map_or(plain.len(), |h| h.len());
+    let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(count);
     // 状態ごとの細かい群の媒質の出力（ADR-0128）
     let mut written = Vec::new();
-    for (state, state_materials) in states.iter().enumerate() {
+    for state in 0..count {
+        // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
+        let built;
+        let state_materials: &[MaterialInput] = match &history_branches {
+            Some(h) => {
+                built = h.state(state);
+                &built
+            }
+            None => &plain[state],
+        };
         let state_start = Instant::now();
         let context = || format!("{}: state {state} ({})", shown(path), values(state));
         let (unique, region_index) = match &source {

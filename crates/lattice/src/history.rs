@@ -19,8 +19,8 @@ use xlc_format::library::Library;
 use xlc_format::table::Axis;
 
 use crate::depletion::{
-    History, check_negative, check_region_names, depletion_regions, has_data_at, region_material,
-    solved_names,
+    DepletionRegion, History, check_negative, check_region_names, depletion_regions, has_data_at,
+    region_material, solved_names,
 };
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
@@ -35,15 +35,23 @@ pub struct HistoryInput {
     pub burnup: Vec<f64>,
 }
 
-/// 履歴の燃焼点からの分岐の状態。
+/// 履歴の燃焼点からの分岐の状態。状態ごとの物質は `state` で作る。
 #[derive(Debug, Clone, PartialEq)]
 pub struct HistoryBranches {
     /// テーブルの軸（燃焼度、続いて分岐の軸）
     pub axes: Vec<Axis>,
-    /// 軸の直積の順（燃焼度がいちばん遅く変わる）の、解く物質の組
-    pub states: Vec<Vec<MaterialInput>>,
     /// 領域ごとの解く物質の名前（燃焼の領域は `<物質>@<セル>`）
     pub region_materials: Vec<String>,
+    /// 履歴の燃焼の領域
+    regions: Vec<DepletionRegion>,
+    /// 選んだ燃焼度の点ごとの、燃焼の領域の数密度（[点][領域][履歴の核種]）
+    densities: Vec<Vec<Vec<f64>>>,
+    /// 履歴の核種の名前
+    nuclides: Vec<String>,
+    /// 輸送する核種（履歴の核種の番号）
+    transported: Vec<usize>,
+    /// 分岐の状態ごとの、燃焼させない物質と、燃焼の領域ごとの温度 (K)
+    branch: Vec<(Vec<MaterialInput>, Vec<f64>)>,
 }
 
 /// 入力 `input` の `[history]` と `[branches]` から、履歴 `history` の燃焼点ごとの分岐の状態を作る。`region_materials` は
@@ -158,61 +166,89 @@ pub fn history_branches(
             history.nuclides[i].clone()
         })?;
     }
-    // 燃焼の領域の物質の、分岐の状態ごとの温度。輸送する核種がその温度のデータを持つこと（近い温度で代用しない。ADR-0173 の案 N2）
-    let temperatures = branches
-        .states()
-        .iter()
-        .map(|state| {
+    // 輸送しない核種（崩壊と生成だけを追った核種）。燃焼の輸送と同じく輸送に入れず、燃焼点ごとに示す（ADR-0173）
+    let in_library = |i: usize| {
+        library
+            .nuclides
+            .iter()
+            .any(|n| n.name == history.nuclides[i])
+    };
+    let total_volume: f64 = history.regions.iter().map(|d| d.volume).sum();
+    for &p in &points {
+        let densities = &history.points[p].densities;
+        let present = |i: usize| densities.iter().any(|n| n[i] > 0.0);
+        let total = |i: usize| -> f64 {
             history
                 .regions
                 .iter()
-                .map(|d| {
-                    let temperature = state
-                        .iter()
-                        .find(|m| m.name == d.material)
-                        .ok_or_else(|| {
-                            anyhow!("depleted material `{}` is not in the state", d.material)
-                        })?
-                        .temperature;
-                    if let Some(&i) = transported
-                        .iter()
-                        .find(|&&i| !has_data_at(library, &history.nuclides[i], temperature))
-                    {
-                        bail!(
-                            "{} (transported in the history) has no library data at {temperature} K of material `{}`",
-                            history.nuclides[i],
-                            d.material
-                        );
-                    }
-                    Ok(temperature)
-                })
-                .collect::<anyhow::Result<Vec<_>>>()
-        })
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    let mut states = Vec::with_capacity(points.len() * branches.states().len());
-    for &p in &points {
-        for (state, temperatures) in branches.states().iter().zip(&temperatures) {
-            let mut materials: Vec<MaterialInput> = state
-                .iter()
-                .filter(|m| !depleted.contains(&m.name))
-                .cloned()
-                .collect();
-            for ((d, densities), &temperature) in history
-                .regions
-                .iter()
-                .zip(&history.points[p].densities)
-                .zip(temperatures)
-            {
-                materials.push(region_material(
-                    d,
-                    temperature,
-                    densities,
-                    &transported,
-                    |i| history.nuclides[i].clone(),
-                ));
-            }
-            states.push(materials);
+                .zip(densities)
+                .map(|(d, n)| d.volume * n[i].max(0.0))
+                .sum::<f64>()
+                / total_volume
+        };
+        let left: Vec<usize> = (0..history.nuclides.len())
+            .filter(|i| !transported.contains(i) && present(*i))
+            .collect();
+        let (lacking, absent): (Vec<usize>, Vec<usize>) =
+            left.into_iter().partition(|&i| in_library(i));
+        if !lacking.is_empty() {
+            tracing::warn!(
+                burnup = history.points[p].burnup,
+                nuclides = lacking
+                    .iter()
+                    .map(|&i| history.nuclides[i].as_str())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                density = lacking.iter().map(|&i| total(i)).sum::<f64>(),
+                "not transported: no library data at the temperature of the depletion"
+            );
         }
+        tracing::info!(
+            burnup = history.points[p].burnup,
+            nuclides = absent.len(),
+            density = absent.iter().map(|&i| total(i)).sum::<f64>(),
+            "not transported: not in the library"
+        );
+    }
+    // 分岐の状態ごとの、燃焼させない物質と、燃焼の領域の温度。輸送する核種がその温度のデータを持つこと（近い温度で代用
+    // しない。ADR-0173 の案 N2）。温度は物質ごとなので、物質ごとに確かめる
+    let mut branch = Vec::with_capacity(branches.states().len());
+    for state in branches.states() {
+        let mut by_material: Vec<(&str, f64)> = Vec::with_capacity(depleted.len());
+        for name in &depleted {
+            let temperature = state
+                .iter()
+                .find(|m| &m.name == name)
+                .ok_or_else(|| anyhow!("depleted material `{name}` is not in the state"))?
+                .temperature;
+            if let Some(&i) = transported
+                .iter()
+                .find(|&&i| !has_data_at(library, &history.nuclides[i], temperature))
+            {
+                bail!(
+                    "{} (transported in the history) has no library data at {temperature} K of material `{name}`",
+                    history.nuclides[i]
+                );
+            }
+            by_material.push((name, temperature));
+        }
+        let temperatures = history
+            .regions
+            .iter()
+            .map(|d| {
+                by_material
+                    .iter()
+                    .find(|(name, _)| *name == d.material)
+                    .map(|&(_, t)| t)
+                    .ok_or_else(|| anyhow!("depleted material `{}` has no temperature", d.material))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let kept: Vec<MaterialInput> = state
+            .iter()
+            .filter(|m| !depleted.contains(&m.name))
+            .cloned()
+            .collect();
+        branch.push((kept, temperatures));
     }
     let mut axes = vec![Axis::Burnup {
         points: selection.burnup.clone(),
@@ -220,9 +256,51 @@ pub fn history_branches(
     axes.extend(branches.axes().iter().cloned());
     Ok(HistoryBranches {
         axes,
-        states,
         region_materials: renamed,
+        regions: history.regions.clone(),
+        densities: points
+            .iter()
+            .map(|&p| history.points[p].densities.clone())
+            .collect(),
+        nuclides: history.nuclides.clone(),
+        transported,
+        branch,
     })
+}
+
+impl HistoryBranches {
+    /// 状態の数（燃焼度の点の数 × 分岐の状態の数）
+    pub fn len(&self) -> usize {
+        self.densities.len() * self.branch.len()
+    }
+
+    /// 状態がないか（`history_branches` は作らない）
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// 状態 `index`（軸の直積の順。燃焼度がいちばん遅く変わる）の解く物質。状態ごとに作り、すべての状態の物質を同時に
+    /// 持たない（本番の大きさで、核種の名前の複製が状態の数 × 領域 × 核種に増えるため）
+    pub fn state(&self, index: usize) -> Vec<MaterialInput> {
+        let (point, b) = (index / self.branch.len(), index % self.branch.len());
+        let (kept, temperatures) = &self.branch[b];
+        let mut materials = kept.clone();
+        for ((d, densities), &temperature) in self
+            .regions
+            .iter()
+            .zip(&self.densities[point])
+            .zip(temperatures)
+        {
+            materials.push(region_material(
+                d,
+                temperature,
+                densities,
+                &self.transported,
+                |i| self.nuclides[i].clone(),
+            ));
+        }
+        materials
+    }
 }
 
 #[cfg(test)]
