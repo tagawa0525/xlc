@@ -144,6 +144,16 @@ def cell_kinds(materials: list[dict]) -> tuple[set, set]:
     return fissile, absorbers
 
 
+def fuel_pin_mean(rows: list[list[float]], fissile: set) -> float:
+    """核分裂する物質のあるセルのピン出力の平均。OpenMC の抽出（openmc_run.py の fuel_mean）は値が正のセルの平均で割るので、燃焼する
+    吸収体のセルに丸めの誤差の核分裂（`pin_differences`）があると、そのセルも数えた平均で割られている。比べる前にこれで割り直す"""
+    n = len(rows)
+    values = [
+        rows[i][j] for i in range(n) for j in range(n) if orbit_of(i, j, n) in fissile
+    ]
+    return sum(values) / len(values)
+
+
 def orbit_std_rms(
     mean: list[list[float]], std: list[list[float]], fissile: set
 ) -> float:
@@ -292,15 +302,21 @@ def summarize(xlc: dict, omc: dict) -> dict:
             f"{len(omc['pins-std'])} error maps"
         )
     fissile, absorbers = cell_kinds(materials)
+    openmc_pins = []
+    for mean, std in zip(omc["pins"], omc["pins-std"]):
+        scale = fuel_pin_mean(mean, fissile)
+        openmc_pins.append(
+            (
+                [[v / scale for v in row] for row in mean],
+                [[v / scale for v in row] for row in std],
+            )
+        )
     pins = [
         pin_differences(p["pin_powers"], mean, std, fissile, absorbers)
-        for p, mean, std in zip(xlc["points"], omc["pins"], omc["pins-std"])
+        for p, (mean, std) in zip(xlc["points"], openmc_pins)
     ]
     # 形はピン出力の比較で確かめてある
-    pin_std_rms = [
-        orbit_std_rms(mean, std, fissile)
-        for mean, std in zip(omc["pins"], omc["pins-std"])
-    ]
+    pin_std_rms = [orbit_std_rms(mean, std, fissile) for mean, std in openmc_pins]
     transport = omc["transport-seconds"]
     seconds = {
         "xlc": {**xlc["seconds"], "solves": xlc["solves"]},
