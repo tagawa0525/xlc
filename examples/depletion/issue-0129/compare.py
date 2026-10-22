@@ -76,7 +76,7 @@ def static(stem):
         for line in (HERE / f"{stem}-{kind}.out").read_text().splitlines():
             if line.startswith("k "):
                 return float(line.split()[1])
-        return None
+        raise SystemExit(f"{stem}-{kind}.out: no k line")
 
     kt, ke = k("table"), k("exact")
     mt, me = (load(HERE / f"{stem}-{x}.medium.msgpack") for x in ("table", "exact"))

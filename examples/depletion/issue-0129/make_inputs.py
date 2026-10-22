@@ -156,7 +156,7 @@ def depletion():
         'library = "depletion.msgpack"',
         'library = "../p2/depletion.msgpack"',
     )
-    two = two.replace('chain = "../chain.msgpack"', 'chain = "../chain.msgpack"')
+    # p2 の chain = "../chain.msgpack" は、このディレクトリからも同じチェーンを指す
     two = re.sub(r"burnup = \[[^\]]*\]", "burnup = [0.1]", two, flags=re.DOTALL)
     two = two.replace(
         'materials = ["fuel"',
