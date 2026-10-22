@@ -1,5 +1,5 @@
 # #0129 の試行: 2O の Gd のピンのピンセル（make_inputs.py が書く）
-library = "../../examples/depletion/p2/depletion.msgpack"
+library = "../p2/depletion.msgpack"
 medium = "gd-mid-exact.medium.msgpack"
 pitch = 1.26
 azimuthal = 30

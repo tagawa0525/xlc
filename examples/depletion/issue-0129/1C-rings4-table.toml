@@ -2,8 +2,7 @@
 # 格子計算の燃焼の検証（ADR-0173）: VERA Problem 1C のピンセル（燃料 900 K、被覆管と減速材 600 K、ホウ素 1300 ppm。
 # ../vera/p1/pincell-1C.toml と同じ形状と組成）を、燃料 4 リング（等しい面積、各 2 つの MOC のリング）の燃焼の領域で、
 # 分岐なしの 1 つの状態で燃焼させる。OpenMC の参照解は openmc-1C-rings4.toml。出力密度は lattice-1C-rings1.toml と同じ。
-track-table = false
-library = "../../examples/depletion/depletion.msgpack"
+library = "../depletion.msgpack"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
@@ -72,9 +71,9 @@ zones = [
 sectors = 8
 
 [depletion]
-chain = "../../examples/depletion/chain.msgpack"
+chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
 materials = ["fuel-0", "fuel-1", "fuel-2", "fuel-3"]
-output = "1C-rings4-exact.msgpack"
+output = "1C-rings4-table.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5] }
