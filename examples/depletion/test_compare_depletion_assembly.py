@@ -237,6 +237,21 @@ class Summary(unittest.TestCase):
         self.assertEqual(s["pins"][0]["absorber_max"], 0.0)
         self.assertEqual(s["pins"][1]["absorber_max"], 7e-24)
 
+    def test_pin_powers_are_compared_relative_to_the_mean_over_the_fuel_pins(self):
+        """OpenMC の抽出は核分裂の値が正のセルの平均で割るので、吸収体のセルに丸めの誤差の核分裂があると、燃料のピンの平均でなく
+        吸収体のセルも数えた平均で割られる（3×3 では 9/8 倍）。比べる前に、燃料のピンの平均で割り直す。"""
+        xlc, omc = with_pyrex_in_the_center(histories(), 7e-24)
+        omc["pins"][1] = [[v * 9 / 8 for v in row] for row in omc["pins"][1]]
+        omc["pins-std"][1] = [[v * 9 / 8 for v in row] for row in omc["pins-std"][1]]
+        s = compare.summarize(xlc, omc)
+        expected = compare.summarize(*histories())
+        self.assertAlmostEqual(s["pins"][1]["rms"], expected["pins"][1]["rms"])
+        self.assertAlmostEqual(s["pins"][1]["max"], expected["pins"][1]["max"])
+        self.assertAlmostEqual(s["pins"][1]["max_std"], expected["pins"][1]["max_std"])
+        self.assertAlmostEqual(s["pin_std_rms"][1], expected["pin_std_rms"][1])
+        # 燃料のピンの平均（9/8）で割り直した値
+        self.assertAlmostEqual(s["pins"][1]["absorber_max"] / 7e-24, 1.0)
+
     def test_openmc_fission_in_a_cell_without_burnable_material_stops_the_comparison(
         self,
     ):
