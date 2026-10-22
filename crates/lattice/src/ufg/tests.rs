@@ -371,8 +371,17 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+    let solve = |collision| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            &no_background(&rings),
+            [4.0, 1.0e4],
+            collision,
+        )
+        .unwrap()
+    };
     let (table, exact) = (solve(Collision::default()), solve(Collision::Exact));
     for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
         for (k, (t, e)) in t.iter().zip(e).enumerate() {
@@ -406,7 +415,14 @@ fn non_finite_totals_stop_with_the_table_as_without() {
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
     for collision in [Collision::Exact, Collision::default()] {
-        let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision);
+        let result = slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            &no_background(&rings),
+            [4.0, 1.0e4],
+            collision,
+        );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
             "{collision:?}: {:?}",
@@ -423,7 +439,14 @@ fn zero_totals_stop_the_table_with_their_ring() {
     let fuel = material(&[("U-238", 0.022)]);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], Collision::default());
+    let result = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        &no_background(&rings),
+        [4.0, 1.0e4],
+        Collision::default(),
+    );
     assert!(
         matches!(result, Err(UfgError::ZeroTotal(0))),
         "{:?}",
@@ -438,8 +461,17 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+    let solve = |collision| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            &no_background(&rings),
+            [4.0, 1.0e4],
+            collision,
+        )
+        .unwrap()
+    };
     assert_eq!(
         solve(Collision::Table { density: 100_000 }),
         solve(Collision::Exact)
@@ -458,8 +490,17 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
         None,
         Some(&water),
     ];
-    let solve =
-        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision).unwrap();
+    let solve = |collision| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            &no_background(&rings),
+            [4.0, 1.0e4],
+            collision,
+        )
+        .unwrap()
+    };
     (solve(Collision::default()), solve(Collision::Exact))
 }
 
@@ -559,4 +600,180 @@ fn points_beyond_the_expansion_do_not_widen_the_axes() {
         assert!((x - 0.5).abs() <= 1e-15, "{ranges:?}");
     }
     assert_eq!(ranges[1], [1.4, 1.4]);
+}
+
+/// [`resonant_cell`] の燃料のリングで、U-235（組成の 2 番目）だけを背景にして群定数 `u235` を与えた `background`
+fn u235_background(
+    rings: &[Option<&MaterialInput>],
+    u235: &Shielded,
+) -> Vec<Vec<Option<Shielded>>> {
+    let mut background = no_background(rings);
+    for (ring, m) in background.iter_mut().zip(rings) {
+        if m.is_some_and(|m| m.composition[1].0 == "U-235") {
+            ring[1] = Some(u235.clone());
+        }
+    }
+    background
+}
+
+#[test]
+fn a_background_of_the_constant_cross_sections_gives_the_pointwise_solution() {
+    // ADR-0185: 断面積が一定の U-235 を、同じ値の群定数の背景にしても、中性子束とほかの核種の群定数はポイントワイズで解いたものと
+    // 同じ（背景の項は U-235 だけなので、まとめた α も U-235 のもの）
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let dilute = lib.lookup("U-235", TEMPERATURE).unwrap().1.shielded[0].clone();
+    let range = [4.0, 1.0e4];
+    let pointwise = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        &no_background(&rings),
+        range,
+        Collision::Exact,
+    )
+    .unwrap();
+    let background = u235_background(&rings, &dilute);
+    let lumped =
+        slowing_down_with(&lib, &cell, &rings, &background, range, Collision::Exact).unwrap();
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * b.abs();
+    for (ring, (a, b)) in lumped.flux.iter().zip(&pointwise.flux).enumerate() {
+        for (g, (a, b)) in a.iter().zip(b).enumerate() {
+            assert!(close(*a, *b), "ring {ring} group {g}: {a} vs {b}");
+        }
+    }
+    for ring in 0..3 {
+        // U-238 は共鳴で遮蔽した値が、U-235 は与えた値がそのまま一致する
+        for k in 0..3 {
+            let (a, b) = (&lumped.nuclides[ring][k], &pointwise.nuclides[ring][k]);
+            for (x, y) in a
+                .total
+                .iter()
+                .zip(&b.total)
+                .chain(a.fission.iter().zip(&b.fission))
+            {
+                assert!(close(*x, *y), "ring {ring} nuclide {k}: {x} vs {y}");
+            }
+        }
+    }
+}
+
+#[test]
+fn background_nuclides_keep_the_given_group_constants() {
+    // ADR-0185: 背景の核種の群定数は、群の中で一定の断面積を中性子束で縮約したものなので、与えた値のまま
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let ng = BOUNDS.len() - 1;
+    let by_group = |base: f64| (0..ng).map(|g| base + g as f64).collect::<Vec<_>>();
+    let given = Shielded {
+        total: by_group(10.0),
+        elastic: by_group(8.0),
+        fission: by_group(1.0),
+        nu_fission: by_group(2.4),
+        capture: by_group(1.0),
+    };
+    let background = u235_background(&rings, &given);
+    let spectrum = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        &background,
+        [4.0, 1.0e4],
+        Collision::default(),
+    )
+    .unwrap();
+    let groups = spectrum.groups.clone();
+    for ring in 0..3 {
+        let u235 = &spectrum.nuclides[ring][1];
+        assert_eq!(u235.total, given.total[groups.clone()]);
+        assert_eq!(u235.capture, given.capture[groups.clone()]);
+        assert_eq!(u235.nu_fission, given.nu_fission[groups.clone()]);
+    }
+}
+
+#[test]
+fn the_background_follows_the_rings_and_their_nuclides() {
+    // 背景は、リングごとに物質の核種の数だけ、ライブラリのすべての群の値を持つ
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let solve = |background: &[Vec<Option<Shielded>>]| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            background,
+            [4.0, 1.0e4],
+            Collision::default(),
+        )
+    };
+    let mut short = no_background(&rings);
+    short.pop();
+    assert!(matches!(solve(&short), Err(UfgError::Background(4))));
+    let mut extra = no_background(&rings);
+    extra[1].push(None);
+    assert!(matches!(solve(&extra), Err(UfgError::Background(1))));
+    let mut coarse = no_background(&rings);
+    let mut one = lib.lookup("U-235", TEMPERATURE).unwrap().1.shielded[0].clone();
+    one.capture.pop();
+    coarse[2][1] = Some(one);
+    assert!(matches!(solve(&coarse), Err(UfgError::Background(2))));
+}
+
+#[test]
+fn lumped_background_keeps_the_slowing_down_power() {
+    // ADR-0185: まとめた項は、群ごとの巨視的な断面積の和と、核種の減速能の和 Σ ξ N σs を保つ α を持つ
+    let lib = library(vec![
+        constant("O-16", 15.86, 3.8, 3.8, 0.0),
+        constant("U-238", 236.0, 11.0, 9.0, 0.0),
+    ]);
+    let ng = BOUNDS.len() - 1;
+    let flat = |v: f64| vec![v; ng];
+    let shielded = |t: f64, s: f64| Shielded {
+        total: flat(t),
+        elastic: flat(s),
+        fission: flat(0.0),
+        nu_fission: flat(0.0),
+        capture: flat(t - s),
+    };
+    let (oxygen, uranium) = (shielded(3.8, 3.8), shielded(11.0, 9.0));
+    let members = [("O-16", 0.045, &oxygen), ("U-238", 0.022, &uranium)];
+    let data = lump(&lib, &members, &BOUNDS, 1..5).unwrap();
+    let xi = |awr: f64| mean_lethargy_gain(scattering_alpha("x", awr).unwrap());
+    let (so, su) = (0.045 * 3.8, 0.022 * 9.0);
+    let expected = (so * xi(15.86) + su * xi(236.0)) / (so + su);
+    let alpha = 1.0 - 1.0 / data.gain;
+    assert!((mean_lethargy_gain(alpha) - expected).abs() < 1e-12);
+    assert!((data.width + alpha.ln()).abs() < 1e-12);
+    let mut cursor = 0;
+    let row = evaluate(&data, &mut cursor, 500.0, false).unwrap();
+    assert!((row[0] - (0.045 * 3.8 + 0.022 * 11.0)).abs() < 1e-15);
+    assert!((row[1] - (so + su)).abs() < 1e-15);
+}
+
+#[test]
+fn group_backgrounds_jump_at_the_group_bounds() {
+    // 背景の断面積は群の境界で跳び、境界の格子点の高い側は上の群、低い側は下の群の値になる
+    let lib = library(vec![constant("U-238", 236.0, 11.0, 9.0, 0.0)]);
+    let ng = BOUNDS.len() - 1;
+    let by_group = (0..ng).map(|g| g as f64).collect::<Vec<_>>();
+    let s = Shielded {
+        total: by_group.clone(),
+        elastic: by_group.clone(),
+        fission: vec![0.0; ng],
+        nu_fission: vec![0.0; ng],
+        capture: vec![0.0; ng],
+    };
+    let data = lump(&lib, &[("U-238", 1.0, &s)], &BOUNDS, 1..5).unwrap();
+    let mut cursor = data.first_cursor();
+    let at =
+        |cursor: &mut usize, e: f64, below: bool| evaluate(&data, cursor, e, below).unwrap()[0];
+    // 群 1 は 2e4〜1e4 eV、群 2 は 1e4〜1e3 eV
+    assert_eq!(at(&mut cursor, 2.0e4, true), 1.0);
+    assert_eq!(at(&mut cursor, 1.5e4, false), 1.0);
+    assert_eq!(at(&mut cursor, 1.0e4, false), 1.0);
+    assert_eq!(at(&mut cursor, 1.0e4, true), 2.0);
+    assert_eq!(at(&mut cursor, 5.0, false), 4.0);
 }
