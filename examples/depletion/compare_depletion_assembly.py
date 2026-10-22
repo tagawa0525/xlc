@@ -33,6 +33,9 @@ ABSORBER_NUCLIDES = ["B-10"]
 # 燃焼度と体積の一致の許容（燃焼度は入力の同じ値、体積は xlc の格子の円の面積と OpenMC の面積）
 BURNUP_TOLERANCE = 1e-9
 VOLUME_TOLERANCE = 1e-6
+# 燃焼する吸収体のセルの OpenMC の核分裂（燃料のピンの平均 1 に対する値）の上限。CRAM の丸めの誤差でできるアクチニドの核分裂は
+# 2F と 2N で 5e-16 以下で、燃料の取り違えなら 1 の桁になる。その間の、どちらからも桁の離れた値（`pin_differences`）
+ABSORBER_FISSION_LIMIT = 1e-6
 
 
 def compared_openmc_names() -> set[str]:
@@ -140,6 +143,10 @@ def cell_kinds(materials: list[dict]) -> tuple[set, set]:
     fissile = {
         tuple(2 * x for x in m["orbit"]) for m in materials if is_fissile(m["material"])
     }
+    if not fissile:
+        raise SystemExit(
+            f"no fuel among the burnable materials {sorted({m['material'] for m in materials})}"
+        )
     absorbers = {tuple(2 * x for x in m["orbit"]) for m in materials} - fissile
     return fissile, absorbers
 
@@ -179,8 +186,9 @@ def pin_differences(
 
     燃焼する吸収体だけの組（`absorbers`）の OpenMC の核分裂は比べずに、その最大を `absorber_max` に残す。OpenMC の燃焼はチェーンの
     全核種を CRAM で解くので、アクチニドのない吸収体にも、物質の原子の数に対して丸めの誤差の大きさのアクチニド（負の値も含む）が
-    でき、核分裂の tally が値を持つ（2F の Pyrex で、平均 1 のピン出力に対して 1e-24 ほど）。大きさで 0 とみなすしきい値を置かず、
-    物質の配置で決める"""
+    でき、核分裂の tally が値を持つ（2F の Pyrex で、平均 1 のピン出力に対して 1e-24〜5e-16。負の値もありうる）。どのセルを比べるかは
+    大きさで 0 とみなすしきい値でなく、物質の配置で決める。ただし吸収体のセルの値が `ABSORBER_FISSION_LIMIT` を超えれば、丸めの
+    誤差でなく配置の取り違え（吸収体の位置に燃料がある、など）として止める"""
     n = len(mean)
     if (
         len(ours) != n
@@ -204,8 +212,12 @@ def pin_differences(
                 raise SystemExit(
                     f"pin ({i}, {j}): fission in a cell without fuel (xlc {ours[i][j]}, OpenMC {mean[i][j]})"
                 )
+            elif abs(mean[i][j]) > ABSORBER_FISSION_LIMIT:
+                raise SystemExit(
+                    f"pin ({i}, {j}): OpenMC fission {mean[i][j]} in a burnt absorber is not a round-off"
+                )
             else:
-                absorber_max = max(absorber_max, mean[i][j])
+                absorber_max = max(absorber_max, abs(mean[i][j]))
     diffs = []
     for members in orbits(n):
         theirs = orbit_mean(mean, members)
