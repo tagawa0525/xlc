@@ -334,15 +334,16 @@ OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに�
    `--type auto` が大きい機種を選べば短い）、費用は 8 本で約 $42〜91。`--max-hours` を超えると VM が止まるので、`aws_watch.sh` が
    起動し直す（失うのは多くて 1 ステップ、約 30 分）。`aws login` が切れると監視は読み直しを続け、`aws login` をやり直せば起動し直しも戻る（#0147。VM は動き続ける）。
 3. xlc を手元の Slurm に流す（排他、1 本ずつ。目標のステージを指定する形は ADR-0184。時間は記録に書く。`dvc.lock` をコミットする）。8 本とも走る（吸収体の燃焼は
-   ADR-0179）。2A は済み（Slurm のジョブ 421、1 時間 41 分、2026-10-22。ブランチ chore/0145-relock-after-history-rewrite）。2O と 2P の入力は
-   `track-table = false`（#0129）:
+   ADR-0179）。2A は済み（Slurm のジョブ 421、1 時間 41 分、2026-10-22。ブランチ chore/0145-relock-after-history-rewrite）。2O と 2P は Gd の
+   リングの物質が飛程の表の 1 つの軸を共有して解け（ADR-0182）、1 回の輸送は 2O の 1 ステップの試行で約 86 秒（輸送 141 回で約
+   3.4 時間。Gd が外側から燃えると展開の外の格子点が増えて遅くなるので、見積もりは多めにとる）:
 
    ```sh
    cd <worktree> && ~/.claude/scripts/slurm-run.sh -t 130 xlc-2A 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A' \
      && ~/.claude/scripts/slurm-run.sh -t 140 xlc-2A-density 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-density' \
      && ~/.claude/scripts/slurm-run.sh -t 160 xlc-2A-rods 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2A-rods' \
-     && ~/.claude/scripts/slurm-run.sh -t 1400 xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O' \
-     && ~/.claude/scripts/slurm-run.sh -t 1500 xlc-2P 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2P'
+     && ~/.claude/scripts/slurm-run.sh -t 300 xlc-2O 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2O' \
+     && ~/.claude/scripts/slurm-run.sh -t 300 xlc-2P 'dvc repro examples/depletion/p2/dvc.yaml:lattice@2P'
    ```
 
    `-t`（分）は、1 点の試行（燃焼度 0.1 だけ、輸送 3 回、16 スレッド、排他。2026-10-15、trials のコミット前の入力で記録に書かない）の 1 回の輸送の時間

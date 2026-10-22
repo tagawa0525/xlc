@@ -20,7 +20,7 @@ resolution:
 - 2M、2N: `cell 20: region 60 is outside the fuel rings`（IFBA の被覆は燃料のリングの外の領域）
 
 OpenMC の参照解はこれらの吸収体も燃焼させる（openmc_depletion_assembly.py）ので、xlc の領域に吸収体を足すか、決めて比べる範囲を絞るまで、2F、2M、2N の
-xlc と OpenMC の比較ができない。2A、2A-density、2A-rods（燃料だけ）と、2O、2P（Gd 燃料のリング。`track-table = false`。#0129）は走る。
+xlc と OpenMC の比較ができない。2A、2A-density、2A-rods（燃料だけ）と、2O、2P（Gd 燃料のリング。ADR-0182）は走る。
 
 関係する ADR: ADR-0178、ADR-0179
 
