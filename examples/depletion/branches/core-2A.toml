@@ -1,0 +1,48 @@
+# 燃焼度の軸を持つテーブル（table-2A.msgpack。ADR-0187）を公称の状態（1300 ppm、565 K）と燃焼度で内挿し、集合体 1 体（反射境界）の
+# k∞ を求めるケース。0、10、20、40 MWd/kg はテーブルの燃焼度の点、15 と 30 MWd/kg は点の間（履歴の燃焼点なので、内挿の誤差を履歴の k∞ と比べる）。
+cycle = "core-cycle.toml"
+axial-mesh = [0.0, 21.5]
+radial-nodes = 1
+boundary = { x = ["reflective", "reflective"], y = ["reflective", "reflective"], z = ["reflective", "reflective"] }
+
+[state.b00]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 0
+
+[state.b10]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 10
+
+[state.b15]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 15
+
+[state.b20]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 20
+
+[state.b30]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 30
+
+[state.b40]
+boron = 1300
+b10 = 0.199
+moderator = 565
+fuel = 565
+burnup = 40

@@ -1,0 +1,7 @@
+# 2A の燃焼度の軸を持つテーブル。
+[design.2A]
+bounds = [0.0, 21.5]
+layers = ["table-2A.msgpack"]
+
+[assembly.A01]
+design = "2A"
