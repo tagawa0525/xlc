@@ -68,6 +68,7 @@
 //! b10 = 0.199         # ホウ素の中の B-10 の原子分率（テーブルと同じ値）
 //! moderator = 565     # 減速材の温度 (K)
 //! fuel = 565          # 燃料の温度 (K)
+//! # burnup = 10.0     # 燃焼度 (MWd/kg)。炉心のすべての集合体に同じ値。燃焼度の軸を持つテーブルで要る（ADR-0187）
 //! [state.critical]    # boron の代わりに、k が目標になるホウ素濃度を探す（ADR-0145）
 //! b10 = 0.199
 //! moderator = 565
@@ -732,6 +733,7 @@ struct StateEntry {
     b10: f64,
     moderator: f64,
     fuel: f64,
+    burnup: Option<f64>,
     search: Option<SearchEntry>,
     /// バンク → 位置（ステップ）。棒のない炉心は書かない（`Layout::new` が確かめる）
     #[serde(default)]
@@ -822,12 +824,18 @@ impl CaseState {
             (Some(_), Some(_)) => return what("give boron or search, not both".into()),
             (None, None) => return what("give boron or search".into()),
         };
+        if let Some(b) = entry.burnup
+            && !(b >= 0.0 && b.is_finite())
+        {
+            return what(format!("burnup must be non-negative, got {b}"));
+        }
         Ok(Self {
             name,
             boron,
             b10: entry.b10,
             moderator: entry.moderator,
             fuel: entry.fuel,
+            burnup: entry.burnup,
             banks: entry.banks,
         })
     }
@@ -960,6 +968,8 @@ pub struct CaseState {
     pub moderator: f64,
     /// 燃料の温度 (K)
     pub fuel: f64,
+    /// 燃焼度 (MWd/kg)。炉心のすべての集合体に同じ値（ADR-0187）。燃焼していない炉心は `None`
+    pub burnup: Option<f64>,
     /// バンク → 位置（ステップ）。炉心の形に制御棒があれば、そのバンクをすべて書く（ADR-0127）
     pub banks: BTreeMap<String, u32>,
 }
@@ -993,6 +1003,7 @@ impl CaseState {
             b10: self.b10,
             moderator: self.moderator,
             fuel: self.fuel,
+            burnup: self.burnup,
         }
     }
 }
