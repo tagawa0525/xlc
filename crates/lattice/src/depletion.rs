@@ -53,83 +53,6 @@ pub struct DepletionInput {
     pub output: PathBuf,
     /// 燃焼点ごとに格子全体の少数群定数を作るなら、その条件
     pub few_group: Option<DepletionFewGroup>,
-    /// 核分裂の収率のエネルギーの点の重みの付け方
-    pub fission_yields: YieldWeighting,
-}
-
-/// 核分裂の収率のエネルギーの点の重みの付け方
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum YieldWeighting {
-    /// 点ごとの区間（隣の点との幾何平均で区切る）の核分裂率の割合（ADR-0164、ADR-0173）
-    Intervals,
-    /// 1 つの境界の下を熱の点、上を速の点に置く（点の選び方は OpenMC の `FissionYieldCutoffHelper` と同じ）。境界を含む群の
-    /// 核分裂率は、`Intervals` と同じくレサジーの幅の比で分ける（OpenMC は連続エネルギーで数える）
-    Cutoff(YieldCutoff),
-}
-
-/// `YieldWeighting::Cutoff` の境界と点 (eV)。熱 < 境界 < 速
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct YieldCutoff {
-    pub energy: f64,
-    pub thermal: f64,
-    pub fast: f64,
-}
-
-impl YieldWeighting {
-    /// 核分裂 `fission` の収率の点ごとの重み（和は 1）。群の核分裂率 `rates`（群境界 `group_bounds` は降順の eV）から求める
-    pub fn weights(&self, group_bounds: &[f64], rates: &[f64], fission: &Fission) -> Vec<f64> {
-        match self {
-            Self::Intervals => yield_weights(group_bounds, rates, &fission.yield_bounds()),
-            Self::Cutoff(c) => c.weights(group_bounds, rates, &fission.energies),
-        }
-    }
-}
-
-impl YieldCutoff {
-    /// 点の選び方は OpenMC 0.15.2 の `FissionYieldCutoffHelper.__init__` と同じ: 熱と速の点がちょうどあればそれを使う。どちらかが
-    /// なければ、境界が最初の点以下なら最初の点、最後の点以上なら最後の点だけを使い、そうでなければ境界より下で熱に、境界以上で
-    /// 速に最も近い点を使う。核分裂のない領域は最初の点に 1（`Chain::zero_rates` と同じ）
-    fn weights(&self, group_bounds: &[f64], rates: &[f64], energies: &[f64]) -> Vec<f64> {
-        let mut weights = vec![0.0; energies.len()];
-        let exact = |e: f64| energies.iter().position(|&p| p == e);
-        let (thermal, fast) = match (exact(self.thermal), exact(self.fast)) {
-            (Some(t), Some(f)) => (t, f),
-            (thermal, fast) => {
-                if self.energy <= energies[0] {
-                    weights[0] = 1.0;
-                    return weights;
-                }
-                let last = energies.len() - 1;
-                if self.energy >= energies[last] {
-                    weights[last] = 1.0;
-                    return weights;
-                }
-                let split = energies.partition_point(|&e| e < self.energy);
-                // 境界は最初と最後の点の間にあるので、どちらの範囲も空でない。同じ近さなら前の点（Python の min と同じ）
-                let nearest = |from: usize, to: usize, target: f64| {
-                    (from..to).fold(from, |best, k| {
-                        if (energies[k] - target).abs() < (energies[best] - target).abs() {
-                            k
-                        } else {
-                            best
-                        }
-                    })
-                };
-                (
-                    thermal.unwrap_or_else(|| nearest(0, split, self.thermal)),
-                    fast.unwrap_or_else(|| nearest(split, energies.len(), self.fast)),
-                )
-            }
-        };
-        if rates.iter().sum::<f64>() <= 0.0 {
-            weights[0] = 1.0;
-            return weights;
-        }
-        let split = yield_weights(group_bounds, rates, &[self.energy]);
-        weights[thermal] += split[0];
-        weights[fast] += split[1];
-        weights
-    }
 }
 
 /// 燃焼点ごとの格子全体の少数群定数の条件
@@ -173,38 +96,84 @@ pub fn step_times(power: f64, burnup: &[f64]) -> Vec<f64> {
         .collect()
 }
 
-/// 核分裂の収率のエネルギーの点ごとの重み（和は 1）。群の核分裂率 `fission`（群境界 `group_bounds` は降順の eV）を、
-/// 収率の区間（`yield_bounds`、昇順の内側の境界。`Fission::yield_bounds`）に分け、境界を含む群はレサジーの幅の比で
-/// 分ける（ADR-0173）。核分裂率がすべて 0 なら最初の点に 1 を置く（`Chain::zero_rates` と同じ）
-pub fn yield_weights(group_bounds: &[f64], fission: &[f64], yield_bounds: &[f64]) -> Vec<f64> {
-    let mut weights = vec![0.0; yield_bounds.len() + 1];
-    for (g, &rate) in fission.iter().enumerate() {
-        let (upper, lower) = (group_bounds[g], group_bounds[g + 1]);
-        let width = (upper / lower).ln();
-        // 区間 i は [yield_bounds[i − 1], yield_bounds[i]]（両端は 0 と無限大）
-        for (i, w) in weights.iter_mut().enumerate() {
-            let from = if i == 0 {
-                lower
-            } else {
-                yield_bounds[i - 1].max(lower)
-            };
-            let to = yield_bounds.get(i).map_or(upper, |&b| b.min(upper));
-            if to > from {
-                *w += rate * (to / from).ln() / width;
+/// 核分裂の収率の熱の点 (eV)。境界 `yield_cutoff` より下の核分裂に、この点か、なければ境界より下で最も近い点を使う（ADR-0183）
+const YIELD_THERMAL: f64 = 0.0253;
+/// 核分裂の収率の高速の点 (eV)。境界 `yield_cutoff` より上の核分裂に、この点か、なければ境界以上で最も近い点を使う（ADR-0183）
+const YIELD_FAST: f64 = 5.0e5;
+
+/// 収率の熱と高速の点を分ける境界 (eV)。2 点の幾何平均 √(0.0253 · 5e5) ≈ 112.47 eV で、参照解の OpenMC に与える
+/// `cutoff` と同じ（OpenMC 0.15.2 の既定の 112.0 eV ではない。ADR-0183）
+fn yield_cutoff() -> f64 {
+    (YIELD_THERMAL * YIELD_FAST).sqrt()
+}
+
+/// 核分裂 `fission` の収率のエネルギーの点ごとの重み（和は 1。ADR-0183）。群の核分裂率 `rates`（群境界 `group_bounds` は
+/// 降順の eV）を `yield_cutoff` の下と上に分け、境界を含む群はレサジーの幅の比で分ける（OpenMC は連続エネルギーで数える）。
+/// 下を熱の点、上を高速の点に置く。点の選び方は OpenMC 0.15.2 の `FissionYieldCutoffHelper.__init__` と同じ: 熱と高速の点が
+/// ちょうどあればそれを使う。どちらかがなければ、境界が最初の点以下なら最初の点、最後の点以上なら最後の点だけを使い、そうで
+/// なければ境界より下で熱に、境界以上で高速に最も近い点を使う。熱と高速の 2 点を使う核種で核分裂率がすべて 0 なら、最初の点に 1（`Chain::zero_rates` と同じ）
+pub fn yield_weights(group_bounds: &[f64], rates: &[f64], fission: &Fission) -> Vec<f64> {
+    let energies = &fission.energies;
+    let cutoff = yield_cutoff();
+    let mut weights = vec![0.0; energies.len()];
+    let exact = |e: f64| energies.iter().position(|&p| p == e);
+    let (thermal, fast) = match (exact(YIELD_THERMAL), exact(YIELD_FAST)) {
+        (Some(t), Some(f)) => (t, f),
+        (thermal, fast) => {
+            if cutoff <= energies[0] {
+                weights[0] = 1.0;
+                return weights;
             }
+            let last = energies.len() - 1;
+            if cutoff >= energies[last] {
+                weights[last] = 1.0;
+                return weights;
+            }
+            let split = energies.partition_point(|&e| e < cutoff);
+            // 境界は最初と最後の点の間にあるので、どちらの範囲も空でない。同じ近さなら前の点（Python の min と同じ）
+            let nearest = |from: usize, to: usize, target: f64| {
+                (from..to).fold(from, |best, k| {
+                    if (energies[k] - target).abs() < (energies[best] - target).abs() {
+                        k
+                    } else {
+                        best
+                    }
+                })
+            };
+            (
+                thermal.unwrap_or_else(|| nearest(0, split, YIELD_THERMAL)),
+                fast.unwrap_or_else(|| nearest(split, energies.len(), YIELD_FAST)),
+            )
         }
+    };
+    let (below, above) = split_at(group_bounds, rates, cutoff);
+    let total = below + above;
+    if total <= 0.0 {
+        weights[0] = 1.0;
+        return weights;
     }
-    let total: f64 = weights.iter().sum();
-    if total > 0.0 {
-        for w in &mut weights {
-            *w /= total;
-        }
-    } else {
-        for (i, w) in weights.iter_mut().enumerate() {
-            *w = if i == 0 { 1.0 } else { 0.0 };
-        }
-    }
+    weights[thermal] += below / total;
+    weights[fast] += above / total;
     weights
+}
+
+/// 群の核分裂率 `rates`（群境界 `group_bounds` は降順の eV）の、`energy` より下と上の和。`energy` を含む群は
+/// レサジーの幅の比で分ける
+fn split_at(group_bounds: &[f64], rates: &[f64], energy: f64) -> (f64, f64) {
+    let (mut below, mut above) = (0.0, 0.0);
+    for (g, &rate) in rates.iter().enumerate() {
+        let (upper, lower) = (group_bounds[g], group_bounds[g + 1]);
+        if energy >= upper {
+            below += rate;
+        } else if energy <= lower {
+            above += rate;
+        } else {
+            let part = (energy / lower).ln() / (upper / lower).ln();
+            below += rate * part;
+            above += rate * (1.0 - part);
+        }
+    }
+    (below, above)
 }
 
 /// 反応ごとの群の断面積の出どころ（ADR-0173）
@@ -381,7 +350,6 @@ pub fn region_rates(
     members: &[Member],
     group_bounds: &[f64],
     reactions: &dyn ReactionSource,
-    fission_yields: YieldWeighting,
 ) -> anyhow::Result<Vec<NuclideRates>> {
     let mut rates = chain.zero_rates();
     let volume: f64 = members.iter().map(|m| m.volume).sum();
@@ -427,7 +395,7 @@ pub fn region_rates(
         match &nuclide.fission {
             Some(f) => {
                 rates[i].fission = fission * BARN / volume;
-                rates[i].yield_weights = fission_yields.weights(group_bounds, &group_fission, f);
+                rates[i].yield_weights = yield_weights(group_bounds, &group_fission, f);
             }
             None if fission > 0.0 => bail!(
                 "{} fissions in the library but has no fission in the chain",
@@ -885,7 +853,6 @@ pub fn run(
                 &members,
                 groups.bounds(),
                 reactions,
-                depletion.fission_yields,
             )?;
             for (i, r) in region.iter().enumerate() {
                 if let Some(f) = &chain.nuclides[i].fission {

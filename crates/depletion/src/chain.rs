@@ -166,7 +166,8 @@ pub struct NuclideRates {
     /// [反応][経路]
     pub reactions: Vec<Vec<f64>>,
     pub fission: f64,
-    /// 収率のエネルギーの点ごとの重み（和は 1。`Fission::yield_bounds` の区間の核分裂率の割合）。核分裂しない核種は空
+    /// 収率のエネルギーの点ごとの重み（和は 1。核分裂率をどの点に割り当てるかは呼ぶ側が決める。格子計算の燃焼は ADR-0183）。
+    /// 核分裂しない核種は空
     pub yield_weights: Vec<f64>,
 }
 
@@ -188,7 +189,7 @@ const FORMAT: &str = "xlc-chain";
 /// 割り直しを忘れたチェーン（ずれは ENDF/B-VIII.0 の decay で最大 9e-7。Ba-114）を止める大きさ
 const RATIO_SUM_TOLERANCE: f64 = 1e-12;
 
-/// 収率の重みの和の、1 からのずれの許容。重みは呼ぶ側が区間の核分裂率を和で割って作る（k 個の点で丸めは (k + 1) ε
+/// 収率の重みの和の、1 からのずれの許容。重みは呼ぶ側が核分裂率を和で割って作る（k 個の点で丸めは (k + 1) ε
 /// 程度。点は 4 個まで）ので、それより十分大きく、割り忘れ（ずれは 1 の桁）を止める大きさ
 const WEIGHT_SUM_TOLERANCE: f64 = 1e-12;
 
@@ -591,16 +592,6 @@ impl Chain {
             self.nuclides.len(),
             &self.matrix_entries(rates)?,
         )?)
-    }
-}
-
-impl Fission {
-    /// 収率のエネルギーの点ごとの区間の、内側の境界 (eV)。隣の点の幾何平均で区切る（ADR-0164）。点が k 個なら k − 1 個
-    pub fn yield_bounds(&self) -> Vec<f64> {
-        self.energies
-            .windows(2)
-            .map(|w| (w[0] * w[1]).sqrt())
-            .collect()
     }
 }
 

@@ -29,8 +29,8 @@ stages:
       nfiles: 35
     - path: openmc_chain.py
       hash: md5
-      md5: e51a6d5c7cbdb1749493b4bd07e2da04
-      size: 1080
+      md5: 3f3dde02a73c629578b9000598e2e07d
+      size: 1107
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -45,8 +45,8 @@ stages:
     deps:
     - path: ../../bin/chain
       hash: md5
-      md5: 917047172cc928018f61ea5e51273e11
-      size: 1953088
+      md5: ef4c832d9aa4571569e2d882324c2711
+      size: 1953152
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
@@ -77,7 +77,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons
@@ -87,8 +87,8 @@ stages:
       nfiles: 561
     - path: xs.toml
       hash: md5
-      md5: 83642cef171ff4f045e2c72ea7ded84f
-      size: 6806
+      md5: 78116ec26e1d02a3d8ea207206257c0c
+      size: 6815
     outs:
     - path: xs-range.toml
       hash: md5
@@ -100,7 +100,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_090.endf
@@ -147,7 +147,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-045_Rh_103.endf
@@ -194,7 +194,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_236.endf
@@ -241,7 +241,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_147.endf
@@ -287,7 +287,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-001_H_001.endf
@@ -337,7 +337,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_122.endf
@@ -384,7 +384,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_143.endf
@@ -431,7 +431,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_011.endf
@@ -476,7 +476,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_238.endf
@@ -523,7 +523,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_050.endf
@@ -568,7 +568,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_094.endf
@@ -615,7 +615,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_241.endf
@@ -662,7 +662,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-060_Nd_145.endf
@@ -709,7 +709,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_243.endf
@@ -756,7 +756,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_115.endf
@@ -803,7 +803,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_235.endf
@@ -850,7 +850,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_056.endf
@@ -895,7 +895,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-055_Cs_133.endf
@@ -942,7 +942,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_150.endf
@@ -989,7 +989,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_239.endf
@@ -1036,7 +1036,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_149.endf
@@ -1083,7 +1083,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_234.endf
@@ -1130,7 +1130,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_116.endf
@@ -1177,7 +1177,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_112.endf
@@ -1224,7 +1224,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_058.endf
@@ -1269,7 +1269,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_054.endf
@@ -1314,7 +1314,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-005_B_010.endf
@@ -1359,7 +1359,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-092_U_238.endf
@@ -1406,7 +1406,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-008_O_016.endf
@@ -1453,7 +1453,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_091.endf
@@ -1500,7 +1500,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_092.endf
@@ -1547,7 +1547,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-040_Zr_096.endf
@@ -1594,7 +1594,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_114.endf
@@ -1641,7 +1641,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_117.endf
@@ -1688,7 +1688,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_118.endf
@@ -1735,7 +1735,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_119.endf
@@ -1782,7 +1782,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_120.endf
@@ -1829,7 +1829,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-050_Sn_124.endf
@@ -1876,7 +1876,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_054.endf
@@ -1921,7 +1921,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-026_Fe_057.endf
@@ -1966,7 +1966,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_052.endf
@@ -2011,7 +2011,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-024_Cr_053.endf
@@ -2056,7 +2056,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_237.endf
@@ -2103,7 +2103,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-093_Np_239.endf
@@ -2150,7 +2150,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_240.endf
@@ -2197,7 +2197,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_241.endf
@@ -2244,7 +2244,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-094_Pu_242.endf
@@ -2291,7 +2291,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_153.endf
@@ -2338,7 +2338,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-043_Tc_099.endf
@@ -2385,7 +2385,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-064_Gd_155.endf
@@ -2432,7 +2432,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_151.endf
@@ -2479,7 +2479,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-042_Mo_095.endf
@@ -2526,7 +2526,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-062_Sm_152.endf
@@ -2573,7 +2573,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-053_I_135.endf
@@ -2620,7 +2620,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_242.endf
@@ -2667,7 +2667,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-096_Cm_244.endf
@@ -2714,7 +2714,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-054_Xe_135.endf
@@ -2761,7 +2761,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-047_Ag_109.endf
@@ -2808,7 +2808,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148m1.endf
@@ -2855,7 +2855,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-044_Ru_101.endf
@@ -2901,7 +2901,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: xs-nuclides
@@ -2915,8 +2915,8 @@ stages:
       size: 35
     - path: xs.toml
       hash: md5
-      md5: 83642cef171ff4f045e2c72ea7ded84f
-      size: 6806
+      md5: 78116ec26e1d02a3d8ea207206257c0c
+      size: 6815
     outs:
     - path: depletion.msgpack
       hash: md5
@@ -2932,12 +2932,12 @@ stages:
       size: 1767912
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -2963,12 +2963,12 @@ stages:
       size: 1805000
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -2995,12 +2995,12 @@ stages:
       size: 1359412
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3026,12 +3026,12 @@ stages:
       size: 1552148
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3057,12 +3057,12 @@ stages:
       size: 14939396
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3088,12 +3088,12 @@ stages:
       size: 1838972
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3119,12 +3119,12 @@ stages:
       size: 175864
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3151,12 +3151,12 @@ stages:
       size: 1980104
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3182,12 +3182,12 @@ stages:
       size: 36883940
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3213,12 +3213,12 @@ stages:
       size: 41873568
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3245,12 +3245,12 @@ stages:
       size: 671232
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3276,12 +3276,12 @@ stages:
       size: 873392
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3307,12 +3307,12 @@ stages:
       size: 659224
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3338,12 +3338,12 @@ stages:
       size: 1370128
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3370,12 +3370,12 @@ stages:
       size: 3334576
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3402,12 +3402,12 @@ stages:
       size: 2054584
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3434,12 +3434,12 @@ stages:
       size: 1403112
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3466,12 +3466,12 @@ stages:
       size: 181640
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3498,12 +3498,12 @@ stages:
       size: 159828
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3530,12 +3530,12 @@ stages:
       size: 138700
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3562,12 +3562,12 @@ stages:
       size: 152456
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3594,12 +3594,12 @@ stages:
       size: 115292
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3626,12 +3626,12 @@ stages:
       size: 174040
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3658,12 +3658,12 @@ stages:
       size: 1506016
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3690,12 +3690,12 @@ stages:
       size: 136724
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3722,12 +3722,12 @@ stages:
       size: 164540
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3754,12 +3754,12 @@ stages:
       size: 15451864
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3785,12 +3785,12 @@ stages:
       size: 24237844
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3816,12 +3816,12 @@ stages:
       size: 13578160
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3847,12 +3847,12 @@ stages:
       size: 9280132
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3878,12 +3878,12 @@ stages:
       size: 10644408
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3909,12 +3909,12 @@ stages:
       size: 10647220
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3940,12 +3940,12 @@ stages:
       size: 8880068
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -3971,12 +3971,12 @@ stages:
       size: 2459512
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4002,12 +4002,12 @@ stages:
       size: 1367088
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4033,12 +4033,12 @@ stages:
       size: 2187964
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4064,12 +4064,12 @@ stages:
       size: 1813208
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4095,12 +4095,12 @@ stages:
       size: 23724464
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4126,12 +4126,12 @@ stages:
       size: 34801768
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4157,12 +4157,12 @@ stages:
       size: 324292
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4188,12 +4188,12 @@ stages:
       size: 2219352
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4219,12 +4219,12 @@ stages:
       size: 2069860
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4250,12 +4250,12 @@ stages:
       size: 898928
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4281,12 +4281,12 @@ stages:
       size: 2119260
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4312,12 +4312,12 @@ stages:
       size: 2240708
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4343,12 +4343,12 @@ stages:
       size: 3387700
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4374,12 +4374,12 @@ stages:
       size: 2110520
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4405,12 +4405,12 @@ stages:
       size: 1681652
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4436,12 +4436,12 @@ stages:
       size: 1744124
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4467,12 +4467,12 @@ stages:
       size: 161272
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4498,12 +4498,12 @@ stages:
       size: 160512
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4529,12 +4529,12 @@ stages:
       size: 1555872
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4560,12 +4560,12 @@ stages:
       size: 1699360
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4591,12 +4591,12 @@ stages:
       size: 1649960
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4622,12 +4622,12 @@ stages:
       size: 204820
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4653,12 +4653,12 @@ stages:
       size: 1681956
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4684,12 +4684,12 @@ stages:
       size: 1712508
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4715,12 +4715,12 @@ stages:
       size: 1647528
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4746,12 +4746,12 @@ stages:
       size: 1776120
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4777,12 +4777,12 @@ stages:
       size: 2551396
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4813,12 +4813,12 @@ stages:
       size: 17400580
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4842,16 +4842,16 @@ stages:
     deps:
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: openmc-library.toml
       hash: md5
-      md5: b78927cee4a2bf4e355fa68e75f200cd
-      size: 8518
+      md5: 8ae58a2ee53f9c656467c71fac658061
+      size: 8542
     - path: openmc-library/neutron
       hash: md5
       md5: e9ad673c90ba5c8545f1d7ee2d23a55c.dir
@@ -4877,20 +4877,20 @@ stages:
     deps:
     - path: ../openmc_common.py
       hash: md5
-      md5: 097f582ede68566ed6b45a679ef2fad0
-      size: 3469
+      md5: d63903c807752b2c16e811ae5c96f66e
+      size: 3475
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_model.py
       hash: md5
-      md5: 3827e060255244ca28a97b6a2236d213
-      size: 29417
+      md5: 7277012541e79afaa65d62370de1fc43
+      size: 29444
     - path: openmc-1C-rings4.toml
       hash: md5
-      md5: dd2cb09aacfe748a07da9421188a34fa
-      size: 994
+      md5: 33a36d153be9ecffff4605d0926ca97e
+      size: 1021
     - path: openmc-chain.xml
       hash: md5
       md5: 2a2bc167be1a6ba81a132ab5c25204bf
@@ -4902,8 +4902,8 @@ stages:
       nfiles: 70
     - path: openmc_depletion.py
       hash: md5
-      md5: 3da6120d40eb0a6f7a6362f9febaeae0
-      size: 11780
+      md5: 791c99f95888bc36a2cf9cc2eb6cb39b
+      size: 11828
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4925,12 +4925,12 @@ stages:
       nfiles: 13
     - path: openmc-1C-rings4.toml
       hash: md5
-      md5: dd2cb09aacfe748a07da9421188a34fa
-      size: 994
+      md5: 33a36d153be9ecffff4605d0926ca97e
+      size: 1021
     - path: openmc_depletion.py
       hash: md5
-      md5: 3da6120d40eb0a6f7a6362f9febaeae0
-      size: 11780
+      md5: 791c99f95888bc36a2cf9cc2eb6cb39b
+      size: 11828
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -4946,20 +4946,20 @@ stages:
     deps:
     - path: ../openmc_common.py
       hash: md5
-      md5: 097f582ede68566ed6b45a679ef2fad0
-      size: 3469
+      md5: d63903c807752b2c16e811ae5c96f66e
+      size: 3475
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_model.py
       hash: md5
-      md5: 3827e060255244ca28a97b6a2236d213
-      size: 29417
+      md5: 7277012541e79afaa65d62370de1fc43
+      size: 29444
     - path: openmc-1C-rings1.toml
       hash: md5
-      md5: ccb76c9b950599fe38011477e25de8cb
-      size: 994
+      md5: 80d2d2af66544959a4e782c399b8ccb3
+      size: 1021
     - path: openmc-chain.xml
       hash: md5
       md5: 2a2bc167be1a6ba81a132ab5c25204bf
@@ -4971,8 +4971,8 @@ stages:
       nfiles: 70
     - path: openmc_depletion.py
       hash: md5
-      md5: 3da6120d40eb0a6f7a6362f9febaeae0
-      size: 11780
+      md5: 791c99f95888bc36a2cf9cc2eb6cb39b
+      size: 11828
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5022,8 +5022,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 22ce58f58723c5d4eaf038f3544f16b4
+      size: 7155448
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5035,20 +5035,20 @@ stages:
       size: 298727210
     - path: lattice-1C-rings1.toml
       hash: md5
-      md5: c07d2acf66ed7ff8cc46fe3369b1adde
-      size: 1903
+      md5: 3001059b51b4f2f7720f4dd0b8be7dbc
+      size: 1909
     outs:
     - path: lattice-1C-rings1.log
       hash: md5
-      md5: 97844f94babf1e79f5becb21f9c4edb2
-      size: 13892
+      md5: 63e7e3c4a50de3b74c3c0b9483a44566
+      size: 13893
     - path: lattice-1C-rings1.msgpack
       hash: md5
-      md5: 75c1b700841671e3c26f6a5ed32a6c02
-      size: 271095
+      md5: c16632e5a16714738239cc9b35b9324d
+      size: 271249
     - path: lattice-1C-rings1.out
       hash: md5
-      md5: 6ec4a9119ff22a21b5a868e63f16aedc
+      md5: 1cee11d966f22c79727738327c27e14c
       size: 144
   openmc-1C-extract@rings1:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py extract 
@@ -5061,12 +5061,12 @@ stages:
       nfiles: 13
     - path: openmc-1C-rings1.toml
       hash: md5
-      md5: ccb76c9b950599fe38011477e25de8cb
-      size: 994
+      md5: 80d2d2af66544959a4e782c399b8ccb3
+      size: 1021
     - path: openmc_depletion.py
       hash: md5
-      md5: 3da6120d40eb0a6f7a6362f9febaeae0
-      size: 11780
+      md5: 791c99f95888bc36a2cf9cc2eb6cb39b
+      size: 11828
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5082,12 +5082,12 @@ stages:
     deps:
     - path: compare_depletion.py
       hash: md5
-      md5: b564e27c41d132d366d537da0ab90c7d
-      size: 8761
+      md5: 0e804e76102088061aec6da3d63645c9
+      size: 8779
     - path: lattice-1C-rings1.msgpack
       hash: md5
-      md5: 75c1b700841671e3c26f6a5ed32a6c02
-      size: 271095
+      md5: c16632e5a16714738239cc9b35b9324d
+      size: 271249
     - path: openmc-1C-rings1.msgpack
       hash: md5
       md5: 2c7d0331dc501952109992e17b2c856a
@@ -5095,16 +5095,16 @@ stages:
     outs:
     - path: compare-1C-rings1.json
       hash: md5
-      md5: 9b31099319c3b8d60ff123bdb3ee9a59
-      size: 3139
+      md5: 0f5417893f7cdab51479844242bfcf52
+      size: 3125
   lattice-1C@rings4:
     cmd: ../../bin/lattice lattice-1C-rings4.toml > lattice-1C-rings4.out 2> 
       lattice-1C-rings4.log
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 22ce58f58723c5d4eaf038f3544f16b4
+      size: 7155448
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5116,20 +5116,20 @@ stages:
       size: 298727210
     - path: lattice-1C-rings4.toml
       hash: md5
-      md5: 59c13cceda59980556017f66f50d0e33
-      size: 2780
+      md5: cab71052332b1b7c10e5aeed590ebea5
+      size: 2786
     outs:
     - path: lattice-1C-rings4.log
       hash: md5
-      md5: 0e7770dd33e129473ee8ece743bdfefb
-      size: 13899
+      md5: 5cfde7263a9f656621c5a25e841b1f4b
+      size: 13901
     - path: lattice-1C-rings4.msgpack
       hash: md5
-      md5: c7eb0d29fbd286dd26b5e54f1304c9c1
-      size: 993314
+      md5: e9fd47d7b5805bd78c8a660b054c17aa
+      size: 993468
     - path: lattice-1C-rings4.out
       hash: md5
-      md5: 54be2e38c7b4d655e6350b0585e3624e
+      md5: 8faf228a81677402bb1c772449d34bbc
       size: 144
   compare-1C@rings4:
     cmd: python3 compare_depletion.py --json compare-1C-rings4.json 
@@ -5137,12 +5137,12 @@ stages:
     deps:
     - path: compare_depletion.py
       hash: md5
-      md5: b564e27c41d132d366d537da0ab90c7d
-      size: 8761
+      md5: 0e804e76102088061aec6da3d63645c9
+      size: 8779
     - path: lattice-1C-rings4.msgpack
       hash: md5
-      md5: c7eb0d29fbd286dd26b5e54f1304c9c1
-      size: 993314
+      md5: e9fd47d7b5805bd78c8a660b054c17aa
+      size: 993468
     - path: openmc-1C-rings4.msgpack
       hash: md5
       md5: 011dfabbb6da7747e8168f8d84c389b2
@@ -5150,15 +5150,15 @@ stages:
     outs:
     - path: compare-1C-rings4.json
       hash: md5
-      md5: 312c6946923b0cbfe423ff136c11ea74
-      size: 3708
+      md5: 8b3a9f50c5fea258a0e0829b154204e0
+      size: 3693
   xs-nuclide@Eu-151:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Eu-151 
       xs-nuclides/Eu-151.msgpack
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-063_Eu_151.endf
@@ -5205,7 +5205,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_147.endf
@@ -5252,7 +5252,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-095_Am_242m1.endf
@@ -5299,7 +5299,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_148.endf
@@ -5346,7 +5346,7 @@ stages:
     deps:
     - path: ../../bin/xs
       hash: md5
-      md5: 52102d9e01ed5d75dd83f86e6e429b5b
+      md5: a316fea4a04ca212bca9ebc66ca32b46
       size: 2817712
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_neutrons/n-061_Pm_149.endf
@@ -5397,12 +5397,12 @@ stages:
       size: 194788
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5428,12 +5428,12 @@ stages:
       size: 1084140
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5459,12 +5459,12 @@ stages:
       size: 146984
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5490,12 +5490,12 @@ stages:
       size: 195700
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
@@ -5521,12 +5521,12 @@ stages:
       size: 251864
     - path: ../openmc_input.py
       hash: md5
-      md5: 18f702bf7d3913f9b9cce68d568e269e
+      md5: 05f4884e00c89e6d62c6b0e62b847fd0
       size: 1507
     - path: ../vera/openmc_library.py
       hash: md5
-      md5: bf252127f01d5b9f1e0c45c802b5102b
-      size: 5182
+      md5: e4669790daf4049f7048ffc781c148f2
+      size: 5188
     - path: references-shell.txt
       hash: md5
       md5: 6f3743e9ed5fb7fd270240d9cb03409e
