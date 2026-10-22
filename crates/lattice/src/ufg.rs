@@ -14,6 +14,7 @@
 //! 中性子はない。範囲の下限（熱中性子散乱の打ち切り）より下は計算しない。
 
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::ops::Range;
 use std::time::{Duration, Instant};
 
@@ -86,6 +87,8 @@ pub struct CellSpectrum {
     pub flux: Vec<Vec<f64>>,
     /// [リング][核種（物質の組成の順）] の、リングの中性子束で縮約した群定数 (barn)。真空のリングは空
     pub nuclides: Vec<Vec<Shielded>>,
+    /// エネルギーの格子点の数（不連続点の2点を別々に数える）
+    pub points: usize,
 }
 
 /// セルの UFG の範囲 [下限, 上限] (eV)。下限はライブラリのポイントワイズの断面積の下限（熱中性子散乱の打ち切り以上の群の境界）、
@@ -206,7 +209,7 @@ pub fn slowing_down(
 }
 
 /// [`slowing_down`] の、飛程の求め方を `collision` で選ぶもの。
-#[tracing::instrument(name = "ufg", level = "debug", skip_all)]
+#[tracing::instrument(name = "ufg", skip_all)]
 pub fn slowing_down_with(
     library: &Library,
     cell: &Cylinder,
@@ -235,6 +238,7 @@ pub fn slowing_down_with(
         return Err(bad());
     }
 
+    let started = Instant::now();
     // 核種（名前と温度の組）ごとのデータと、リングごとの（核種の番号、個数密度）
     let mut data: Vec<Data> = Vec::new();
     let mut keys: Vec<(&str, f64)> = Vec::new();
@@ -272,6 +276,7 @@ pub fn slowing_down_with(
         entries.push(ring);
     }
 
+    let looked_up = Instant::now();
     // 格子（エネルギーの降順）: ポイントワイズの断面積の格子と群の境界に、どの核種の窓にも WINDOW_POINTS 点が入るよう点を足す
     let group_bounds = &bounds[top..=bottom];
     let mut energies: Vec<f64> = data
@@ -282,6 +287,11 @@ pub fn slowing_down_with(
         .collect();
     energies.sort_by(|a, b| b.total_cmp(a));
     energies.dedup();
+    // 核種の格子の和（群の境界を含む）の点の数。ここから窓の点を足したものが格子
+    let union = energies.len();
+    if tracing::enabled!(tracing::Level::DEBUG) {
+        log_nuclide_points(&data, group_bounds, [low, high]);
+    }
     let step = data
         .iter()
         .map(|d| d.width / WINDOW_POINTS as f64)
@@ -310,7 +320,6 @@ pub fn slowing_down_with(
         }
     }
     let u = lethargies;
-    tracing::debug!(points = u.len(), rings = entries.len(), "UFG slowing down");
 
     let ng = bottom - top;
     let above = Above { bounds, top, high };
@@ -345,10 +354,12 @@ pub fn slowing_down_with(
     };
 
     // 表で内挿するなら、軸ごとの全断面積の範囲を格子点の全体で先に求めて表を作る（表で衝突確率が減らないセルは作らない）
+    let grid_done = Instant::now();
     let table = match collision {
         Collision::Exact => None,
         Collision::Table { density } => track_table(cell, &data, &entries, &points, density)?,
     };
+    let table_done = Instant::now();
 
     let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
     // 段ごとの壁時計の時間（ログの内訳。衝突確率は格子点の間で並列に求める）。ピンの間も並列のとき、衝突確率を待つ
@@ -400,7 +411,20 @@ pub fn slowing_down_with(
         times[2] += collided.elapsed();
     }
     let [evaluate, collision, slowing] = times.map(|t| t.as_secs_f64());
-    tracing::debug!(evaluate, collision, slowing, "UFG time (s)");
+    // 点の数と、段ごとの時間 (s): lookup = 核種のデータの引き、grid = 格子点とスイープの用意、table = 飛程の表の作成
+    tracing::info!(
+        points = u.len(),
+        union,
+        nuclides = data.len(),
+        rings = n,
+        lookup = (looked_up - started).as_secs_f64(),
+        grid = (grid_done - looked_up).as_secs_f64(),
+        table = (table_done - grid_done).as_secs_f64(),
+        evaluate,
+        collision,
+        slowing,
+        "UFG slowing down"
+    );
 
     // 群定数
     let mut nuclides = Vec::with_capacity(n);
@@ -441,7 +465,30 @@ pub fn slowing_down_with(
         groups: top..bottom,
         flux: sweep.group_flux,
         nuclides,
+        points: u.len(),
     })
+}
+
+/// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
+/// 加わる（それまでの核種と群の境界にない）エネルギーの数
+fn log_nuclide_points(data: &[Data], group_bounds: &[f64], [low, high]: [f64; 2]) {
+    let mut seen: HashSet<u64> = group_bounds.iter().map(|e| e.to_bits()).collect();
+    for d in data {
+        let inside: Vec<f64> = d
+            .pointwise()
+            .energy
+            .iter()
+            .copied()
+            .filter(|&e| e > low && e < high)
+            .collect();
+        let added = inside.iter().filter(|e| seen.insert(e.to_bits())).count();
+        tracing::debug!(
+            name = d.name,
+            own = inside.len(),
+            added,
+            "UFG nuclide points"
+        );
+    }
 }
 
 /// リングの全断面積 Σ_k N_k σ_k（`row` は [核種] のポイントワイズの断面積）
