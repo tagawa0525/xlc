@@ -294,8 +294,25 @@ pub struct AnalyticSpectrum {
     /// x = E'/θ 未満の出射の割合
     fraction: Cumulative,
     restriction: f64,
-    theta: ClampedTab1,
+    theta: Theta,
     bounds: Vec<f64>,
+}
+
+/// 分布の温度 θ。LF=5 はエネルギーによらない値（`EnergyLaw::GeneralEvaporation`）。
+#[derive(Debug, Clone)]
+enum Theta {
+    Constant(f64),
+    /// 入射エネルギーの範囲外では端の θ を使う（表形式の分布と同じ）
+    Table(ClampedTab1),
+}
+
+impl Theta {
+    fn eval(&self, e: f64) -> f64 {
+        match self {
+            Self::Constant(theta) => *theta,
+            Self::Table(theta) => theta.eval(e),
+        }
+    }
 }
 
 /// x = E'/θ 未満の出射の（正規化していない）累積。
@@ -345,7 +362,6 @@ impl AnalyticSpectrum {
         if top <= 0.0 {
             return;
         }
-        // 入射エネルギーの範囲外では、端の θ を使う（表形式の分布と同じ）
         let theta = self.theta.eval(e);
         let total = self.fraction.at(top / theta);
         // 最下位の群から積み上げる。群構造の外に出る分は端の群に入れる
@@ -364,11 +380,11 @@ impl AnalyticSpectrum {
 
 impl GroupedLaw {
     pub fn new(groups: &GroupStructure, law: &EnergyLaw) -> Self {
-        let analytic = |fraction: Cumulative, restriction: f64, theta: &ClampedTab1| {
+        let analytic = |fraction: Cumulative, restriction: f64, theta: Theta| {
             Self::Analytic(AnalyticSpectrum {
                 fraction,
                 restriction,
-                theta: theta.clone(),
+                theta,
                 bounds: groups.bounds().to_vec(),
             })
         };
@@ -380,13 +396,21 @@ impl GroupedLaw {
                 restriction,
                 theta,
                 shape,
-            } => analytic(Cumulative::table(shape), *restriction, theta),
-            EnergyLaw::Maxwellian { restriction, theta } => {
-                analytic(Cumulative::Gamma(gamma_p_3_2), *restriction, theta)
-            }
-            EnergyLaw::Evaporation { restriction, theta } => {
-                analytic(Cumulative::Gamma(gamma_p_2), *restriction, theta)
-            }
+            } => analytic(
+                Cumulative::table(shape),
+                *restriction,
+                Theta::Constant(*theta),
+            ),
+            EnergyLaw::Maxwellian { restriction, theta } => analytic(
+                Cumulative::Gamma(gamma_p_3_2),
+                *restriction,
+                Theta::Table(theta.clone()),
+            ),
+            EnergyLaw::Evaporation { restriction, theta } => analytic(
+                Cumulative::Gamma(gamma_p_2),
+                *restriction,
+                Theta::Table(theta.clone()),
+            ),
         }
     }
 
@@ -394,17 +418,23 @@ impl GroupedLaw {
     pub fn breakpoints(&self) -> Vec<f64> {
         match self {
             Self::Table(grouped) => grouped.incident().to_vec(),
-            // θ の表の点と、E - U が 0 や群境界を横切る点（群ごとの割合の傾きが変わる）
-            Self::Analytic(spectrum) => spectrum
-                .theta
-                .table()
-                .x
-                .iter()
-                .copied()
-                .chain(std::iter::once(spectrum.restriction))
-                .chain(spectrum.bounds.iter().map(|b| b + spectrum.restriction))
-                .filter(|&e| e > 0.0)
-                .collect(),
+            // θ の表の点と、E - U が 0 や群境界を横切る点（群ごとの割合の傾きが変わる）。表の g(x)（θ は一定）では、
+            // E - U が g の表の点の θ 倍を横切る点でも傾きが変わる
+            Self::Analytic(spectrum) => {
+                let mut points: Vec<f64> = std::iter::once(spectrum.restriction)
+                    .chain(spectrum.bounds.iter().map(|b| b + spectrum.restriction))
+                    .collect();
+                if let Theta::Table(theta) = &spectrum.theta {
+                    points.extend(&theta.table().x);
+                }
+                if let (Cumulative::Table { shape, .. }, Theta::Constant(theta)) =
+                    (&spectrum.fraction, &spectrum.theta)
+                {
+                    points.extend(shape.x.iter().map(|x| spectrum.restriction + theta * x));
+                }
+                points.retain(|&e| e > 0.0);
+                points
+            }
         }
     }
 

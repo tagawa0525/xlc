@@ -633,7 +633,7 @@ pub struct Evaluation {
     /// 0 K の部分反応（許容誤差 `tolerance` で再構成したもの）
     pub cold: ColdParts,
     /// 核分裂で生まれる中性子の成分（χ の材料。`fission_parts`）
-    pub fission_parts: Vec<FissionPart>,
+    pub fission_parts: Vec<FissionNeutrons>,
     /// 離散準位の非弾性散乱（MT51〜90）の Q 値
     pub q_values: BTreeMap<u32, f64>,
     /// 中性子を放出する反応（弾性散乱と核分裂を除く）の出射の分布
@@ -661,7 +661,7 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
         None => None,
     };
     let cold = ColdParts::read(tape, mat, tolerance)?;
-    let fission_parts = fission_parts(tape, mat)?;
+    let fission_parts = fission_parts(tape, mat, nubar.as_ref())?;
     let mut q_values = BTreeMap::new();
     for mt in tape
         .mts(mat, 3)
@@ -702,68 +702,51 @@ pub fn read_evaluation(tape: &Tape, tolerance: f64) -> Result<Evaluation, Proces
     })
 }
 
-/// 核分裂で生まれる中性子の 1 つの成分の、1 核分裂あたりの数 ν(E) と出射エネルギーの分布（MF5）。
-#[derive(Debug, Clone)]
-pub struct FissionPart {
-    pub nubar: Tab1,
-    pub spectrum: Mf5,
-}
-
-/// χ を作る中性子の成分を、物質 `mat` の MF1 と MF5 から選ぶ。MF5 MT18 がなければ空。
+/// χ を作る中性子の成分を、物質 `mat` の MF1 と MF5 から選ぶ。`nubar` は MF1 MT452。MF5 MT18 がなければ空。
 ///
 /// - 遅発中性子の分布（MF5 MT455）があれば、即発（MF1 MT456 の ν_p と MF5 MT18）と遅発（MF1 MT455 の ν_d と
 ///   MF5 MT455。p_k(E) は族の割合）の 2 つ。k の固有値の計算では遅発中性子も核分裂源に入るので、その分布で生まれる
-/// - 遅発中性子のデータがなければ、全数（MT452）が MF5 MT18 の分布で生まれる
-/// - ν_d（MF1 MT455）はあるが分布（MF5 MT455）がない評価は、遅発中性子にも MF5 MT18 の分布を使い、warn を出す。
-///   ほかに分布の出どころがない（ENDF/B-VIII.0 の Np-239、Am-242m、Cm-244）
-pub fn fission_parts(tape: &Tape, mat: i32) -> Result<Vec<FissionPart>, ProcessError> {
+/// - 遅発中性子の分布がなければ、全数（MT452）が MF5 MT18 の分布で生まれる。MF1 MT455 があれば warn を出す（ENDF/B-VIII.0 の
+///   Np-239、Am-242m、Cm-244。ほかに分布の出どころがない）。この場合 ν_d は使わないので MT455 は読まない
+pub fn fission_parts(
+    tape: &Tape,
+    mat: i32,
+    nubar: Option<&Tab1>,
+) -> Result<Vec<FissionNeutrons>, ProcessError> {
     let Some(section) = tape.section(mat, 5, 18) else {
         return Ok(Vec::new());
     };
     let prompt_spectrum = Mf5::parse(&section)?;
-    let nubar = |mt: u32| -> Result<Option<Tab1>, ProcessError> {
-        Ok(match tape.section(mat, 1, mt) {
-            Some(section) if mt == 455 => Some(parse_delayed_nubar(&section)?),
-            Some(section) => Some(parse_nubar(&section)?),
-            None => None,
-        })
-    };
-    let delayed_spectrum = match tape.section(mat, 5, 455) {
-        Some(section) => Some(Mf5::parse(&section)?),
-        None => None,
-    };
-    let delayed = nubar(455)?;
-    match (delayed, delayed_spectrum) {
-        (Some(delayed), Some(delayed_spectrum)) => {
-            let prompt = nubar(456)?.ok_or(ProcessError::DelayedFission { missing: "MT456" })?;
-            Ok(vec![
-                FissionPart {
-                    nubar: prompt,
-                    spectrum: prompt_spectrum,
-                },
-                FissionPart {
-                    nubar: delayed,
-                    spectrum: delayed_spectrum,
-                },
-            ])
+    let delayed = tape.section(mat, 1, 455);
+    let Some(delayed_spectrum) = tape.section(mat, 5, 455) else {
+        if delayed.is_some() {
+            tracing::warn!(
+                mat,
+                "MF1 MT455 has no spectrum in MF5 MT455; the delayed neutrons get the MF5 MT18 spectrum"
+            );
         }
-        (None, Some(_)) => Err(ProcessError::DelayedFission { missing: "MT455" }),
-        (delayed, None) => {
-            if delayed.is_some() {
-                tracing::warn!(
-                    mat,
-                    "MF1 MT455 has no spectrum in MF5 MT455; the delayed neutrons get the MF5 MT18 spectrum"
-                );
-            }
-            Ok(nubar(452)?
-                .map(|total| FissionPart {
-                    nubar: total,
-                    spectrum: prompt_spectrum,
-                })
-                .into_iter()
-                .collect())
-        }
-    }
+        return Ok(nubar
+            .map(|total| FissionNeutrons {
+                nubar: total.clone(),
+                spectrum: prompt_spectrum,
+            })
+            .into_iter()
+            .collect());
+    };
+    let delayed = delayed.ok_or(ProcessError::DelayedFission { missing: "MT455" })?;
+    let prompt = tape
+        .section(mat, 1, 456)
+        .ok_or(ProcessError::DelayedFission { missing: "MT456" })?;
+    Ok(vec![
+        FissionNeutrons {
+            nubar: parse_nubar(&prompt)?,
+            spectrum: prompt_spectrum,
+        },
+        FissionNeutrons {
+            nubar: parse_delayed_nubar(&delayed)?,
+            spectrum: Mf5::parse(&delayed_spectrum)?,
+        },
+    ])
 }
 
 /// 温度によらない、1核種の処理の材料。
@@ -797,19 +780,11 @@ impl Common<'_> {
             shielding.as_ref(),
             slowing.as_ref(),
         )?;
-        let parts: Vec<FissionNeutrons<'_>> = self
-            .evaluation
-            .fission_parts
-            .iter()
-            .map(|p| FissionNeutrons {
-                nubar: &p.nubar,
-                spectrum: &p.spectrum,
-            })
-            .collect();
+        let parts = &self.evaluation.fission_parts;
         let chi = match (tables.get(&18), self.evaluation.nubar.as_ref()) {
             (None, _) => vec![0.0; ng],
             (Some(fission), Some(_)) if !parts.is_empty() => {
-                fission_spectrum(groups, weight, fission, &parts)
+                fission_spectrum(groups, weight, fission, parts)
             }
             (Some(_), _) => return Err(ProcessError::FissionData),
         };

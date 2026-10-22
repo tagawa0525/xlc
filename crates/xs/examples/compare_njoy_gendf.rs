@@ -102,14 +102,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         reference.section(mat, 6, 18),
     ) {
         // GROUPR の MF6 MT18 は MF5 MT18 の分布だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない
-        let spectrum = Mf5::parse(&section)?;
         let ours = fission_spectrum(
             &groups,
             &Weight::lwr(),
             fission,
             &[FissionNeutrons {
-                nubar: nu,
-                spectrum: &spectrum,
+                nubar: nu.clone(),
+                spectrum: Mf5::parse(&section)?,
             }],
         );
         let njoy = read_gendf_chi(&gendf, ng)?;
