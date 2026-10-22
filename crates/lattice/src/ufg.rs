@@ -359,6 +359,7 @@ pub fn slowing_down_with(
             .iter()
             .map(|ring| vec![vec![[0.0; COLUMNS]; ng]; ring.len()])
             .collect(),
+        tally: thinning.is_none(),
         known: Vec::new(),
         own: entries.iter().map(|ring| vec![0.0; ring.len()]).collect(),
         slabs: vec![(0.0, Vec::new()); data.len()],
@@ -512,25 +513,27 @@ fn thin(
         }
     }
     let quantities = 2 * materials.len();
-    let mut cursors: Vec<usize> = data.iter().map(|d| d.pointwise().energy.len()).collect();
-    // [点][量] の値
-    let mut values: Vec<Vec<f64>> = Vec::with_capacity(energies.len());
-    for &e in energies {
-        let row = data
+    // [点 × 量] の値。核種ごとに、その核種の格子を降順に進めながら足す（個数密度がどの物質でも 0 の核種は足さない）
+    let mut values = vec![0.0; energies.len() * quantities];
+    for (k, d) in data.iter().enumerate() {
+        let densities: Vec<f64> = materials
             .iter()
-            .zip(cursors.iter_mut())
-            .map(|(d, c)| evaluate(d, c, e, false))
-            .collect::<Result<Vec<_>, _>>()?;
-        values.push(
-            materials
-                .iter()
-                .flat_map(|m| {
-                    let sum = |x: usize| m.iter().map(|&(k, n)| n * row[k][x]).sum::<f64>();
-                    [sum(0), sum(1)]
-                })
-                .collect(),
-        );
+            .map(|m| m.iter().filter(|&&(j, _)| j == k).map(|&(_, n)| n).sum())
+            .collect();
+        if densities.iter().all(|&n| n == 0.0) {
+            continue;
+        }
+        let p = d.pointwise();
+        let mut cursor = p.energy.len();
+        for (row, &e) in values.chunks_exact_mut(quantities).zip(energies) {
+            let [total, elastic] = evaluate_total_elastic(d, &mut cursor, e)?;
+            for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(&densities) {
+                pair[0] += n * total;
+                pair[1] += n * elastic;
+            }
+        }
     }
+    let values: Vec<&[f64]> = values.chunks_exact(quantities).collect();
     let x: Vec<f64> = energies.iter().map(|&e| (high / e).ln()).collect();
     let last = energies.len().saturating_sub(1);
     let mut kept = Vec::with_capacity(energies.len() / 4);
@@ -846,6 +849,28 @@ fn lethargy_grid(
 /// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
 /// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
 fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, UfgError> {
+    let (j, t) = bracket(d, cursor, e, below)?;
+    let p = d.pointwise();
+    let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
+    Ok([
+        lerp(&p.total),
+        lerp(&p.elastic),
+        lerp(&p.fission),
+        lerp(&p.nu_fission),
+        lerp(&p.capture),
+    ])
+}
+
+/// 核種 `d` の全断面積と弾性散乱断面積の、エネルギー `e` での lin-lin の補間（[`evaluate`] の高い側の極限と同じ値）
+fn evaluate_total_elastic(d: &Data, cursor: &mut usize, e: f64) -> Result<[f64; 2], UfgError> {
+    let (j, t) = bracket(d, cursor, e, false)?;
+    let p = d.pointwise();
+    let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
+    Ok([lerp(&p.total), lerp(&p.elastic)])
+}
+
+/// [`evaluate`] の補間の区間の始まりの点と、区間の中の位置
+fn bracket(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<(usize, f64), UfgError> {
     let x = &d.pointwise().energy;
     let defined =
         x.len() >= 2 && x.first().is_some_and(|&a| a <= e) && x.last().is_some_and(|&b| e <= b);
@@ -872,15 +897,7 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, Uf
         let width = x[j + 1] - x[j];
         (j, if width > 0.0 { (e - x[j]) / width } else { 0.0 })
     };
-    let p = d.pointwise();
-    let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
-    Ok([
-        lerp(&p.total),
-        lerp(&p.elastic),
-        lerp(&p.fission),
-        lerp(&p.nu_fission),
-        lerp(&p.capture),
-    ])
+    Ok((j, t))
 }
 
 /// 範囲の上（u < 0）の群
@@ -947,6 +964,8 @@ struct Sweep<'a> {
     group_flux: Vec<Vec<f64>>,
     /// [リング][項][群] の反応率 ∫ F σ du [全, 弾性散乱, 核分裂, νσf, 捕獲]
     rates: Vec<Vec<Vec<Row>>>,
+    /// 反応率を格子点で積分する（間引いた格子では核種の格子で縮約するので積分しない）
+    tally: bool,
     /// 格子点ごとに再利用する作業用の配列: [リング][項] の窓の積分の既知の部分
     known: Vec<Vec<f64>>,
     /// 格子点ごとに再利用する作業用の配列: [リング][項] のその点の F_i の係数
@@ -1053,6 +1072,9 @@ impl Sweep<'_> {
             for (i, ring) in self.entries.iter().enumerate() {
                 let (f0, f1) = (self.flux[i][m - 1], f[i]);
                 self.group_flux[i][g] += 0.5 * du * (f0 + f1);
+                if !self.tally {
+                    continue;
+                }
                 for (e, &(k, _)) in ring.iter().enumerate() {
                     let (v0, v1) = (self.previous[k], values[k]);
                     for x in 0..COLUMNS {
