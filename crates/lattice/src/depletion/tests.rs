@@ -469,12 +469,11 @@ fn region_rates_average_sigma_phi_over_the_region_volume() {
     assert!((rates[XE135].reactions[0][0] - capture).abs() <= 1e-12 * capture);
     // 輸送しない核種は 0
     assert_eq!(rates[U236], chain.zero_rates()[U236]);
-    // 収率の重みは、熱の群（0.625 eV 以下）と、cutoff より下の速い群の部分
-    let weights = &rates[U235].yield_weights;
-    assert!(
-        (weights.iter().sum::<f64>() - 1.0).abs() <= 1e-14,
-        "{weights:?}"
-    );
+    // 収率の重みは、熱の点に熱の群（0.625 eV 以下）と速い群の cutoff より下の部分、500 keV の点に残り。群の核分裂率
+    // （体積 × σf × φ）は速い群 1·1.2·2 + 3·1.2·1 = 6、熱の群 1·500·1 + 3·500·3 = 5000
+    let below = (yield_cutoff() / 0.625).ln() / (1.0e7f64 / 0.625).ln();
+    let thermal = (5000.0 + 6.0 * below) / 5006.0;
+    assert_weights(&rates[U235].yield_weights, &[thermal, 1.0 - thermal]);
 }
 
 /// 2 つの状態（MF9 の LFS 0 と 2）に分ける捕獲と、(n,2n) を持つ U-235 のライブラリと、その反応のチェーンの形
