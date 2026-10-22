@@ -53,7 +53,14 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    ```
 
    `dvc status` と `dvc repro` の前に必ず行う。しないと、古い上流の出力から再実行して、誤った md5 を `dvc.lock` に
-   書く。失敗したら（キャッシュにない出力、`references` の symlink がない、など）そこで止まり、原因を調べる。
+   書く。
+
+   引数なしの `dvc checkout` は、main の上でも終了コード 255 で終わる。`dvc.lock` に hash がまだ無い段階の出力（まだ
+   流していない examples/depletion/p2 の本番と examples/vera/endfb70/openmc の OpenMC。`No file hash info found`）が
+   戻らないためで、戻らなかった出力は `Checkout failed for following targets:` の後に並ぶ（2026-10-23、43a0af25d で
+   p2 の 21 件と endfb70 の 5 件）。並んだ出力ごとに、その段階の `dvc.lock`（`examples/depletion/p2/dvc.lock`、
+   `examples/vera/endfb70/openmc/dvc.lock` など）を `git diff main -- <その dvc.lock>` で見る。差が無ければ main でも戻らない
+   既知の出力なので、続ける。ブランチで変えた `dvc.lock` の出力が並んだら、そこで止まり、原因を調べる。`references` の symlink が無いときも止まる。
    `references` が main の `references/` を指すかは `realpath references` と main の `references/` の `realpath`
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
    上流の段階を所有するブランチか main の記録を確かめてから、ユーザーに聞く。
