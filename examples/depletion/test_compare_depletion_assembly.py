@@ -120,6 +120,29 @@ def histories():
     return xlc, omc
 
 
+def with_pyrex_in_the_center(pair, center: float):
+    """3×3 の配置の中央のセル（xlc の番号 12、組 [0, 0]）に、燃焼する Pyrex の領域を足す。OpenMC の最後の点の中央のピン出力は `center`。"""
+    xlc, omc = pair
+    xlc["regions"].append(
+        {"material": "pyrex", "cell": 12, "regions": [len(REGIONS)], "volume": 0.5}
+    )
+    for point in xlc["points"]:
+        point["densities"].append([2.0 if n == "B-10" else 0.0 for n in NAMES])
+    omc["regions"].append(
+        {
+            "material": "pyrex",
+            "orbit": [0, 0],
+            "count": 1,
+            "volume": 0.5,
+            "densities": {"B10": [2.0, 1.0]},
+        }
+    )
+    omc["pins"][1] = [row[:] for row in omc["pins"][1]]
+    omc["pins"][1][1][1] = center
+    omc["pins-std"][1][1][1] = center * 1e-3
+    return xlc, omc
+
+
 class Summary(unittest.TestCase):
     def test_k_differences_and_their_change_from_the_first_point(self):
         s = compare.summarize(*histories())
@@ -198,6 +221,39 @@ class Summary(unittest.TestCase):
             [0.97, 1.03, 0.97],
         ]
         with self.assertRaises(SystemExit):
+            compare.summarize(xlc, omc)
+
+    def test_fission_of_a_burnt_absorber_in_openmc_is_left_out_of_the_pin_comparison(
+        self,
+    ):
+        """燃焼する吸収体（Pyrex、WABA）だけのセルは核分裂のないセルで、比べる組に入れない。OpenMC の燃焼はチェーンの全核種を
+        CRAM で解くので、吸収体にも丸めの誤差の大きさのアクチニドができ、核分裂の tally が 1e-24 ほどの値を持つ。その最大は要約に残す。"""
+        xlc, omc = with_pyrex_in_the_center(histories(), 7e-24)
+        s = compare.summarize(xlc, omc)
+        expected = compare.summarize(*histories())
+        self.assertEqual(s["pins"][1]["orbits"], 2)
+        self.assertAlmostEqual(s["pins"][1]["rms"], expected["pins"][1]["rms"])
+        self.assertAlmostEqual(s["pin_std_rms"][1], expected["pin_std_rms"][1])
+        self.assertEqual(s["pins"][0]["absorber_max"], 0.0)
+        self.assertEqual(s["pins"][1]["absorber_max"], 7e-24)
+
+    def test_openmc_fission_in_a_cell_without_burnable_material_stops_the_comparison(
+        self,
+    ):
+        """燃焼する物質のない（燃焼しない水や構造材だけの）セルに核分裂があれば、配置の取り違えなので止める。"""
+        xlc, omc = histories()
+        omc["pins"][1] = [[0.99, 1.02, 0.99], [1.00, 7e-24, 1.01], [0.99, 1.01, 0.99]]
+        with self.assertRaisesRegex(SystemExit, "fission"):
+            compare.summarize(xlc, omc)
+
+    def test_xlc_fission_in_a_burnt_absorber_stops_the_comparison(self):
+        xlc, omc = with_pyrex_in_the_center(histories(), 0.0)
+        xlc["points"][1]["pin_powers"] = [
+            [0.97, 1.03, 0.97],
+            [1.03, 0.1, 1.03],
+            [0.97, 1.03, 0.97],
+        ]
+        with self.assertRaisesRegex(SystemExit, "fission"):
             compare.summarize(xlc, omc)
 
     def test_xlc_pins_that_differ_within_an_orbit_stop_the_comparison(self):
