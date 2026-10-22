@@ -579,6 +579,92 @@ def depletion_assembly_pins(sources: list[dict]) -> str:
     )
 
 
+def assembly_summary(sources: list[dict]) -> dict:
+    (s,) = sources
+    return assembly_checked(s)
+
+
+def assembly_checked(s: dict) -> dict:
+    if s.get("format") != "xlc-compare-depletion-assembly":
+        raise TableError("not an xlc-compare-depletion-assembly summary")
+    return s
+
+
+def depletion_assembly_k(sources: list[dict]) -> str:
+    """集合体の燃焼: 燃焼点ごとの k∞ の差（xlc − OpenMC。± は OpenMC の標準偏差）と 0 の点からの変化"""
+    s = assembly_summary(sources)
+    rows = [
+        [
+            burnup_label(b),
+            f"{signed(k['diff_pcm'], 0)} ± {k['openmc_std_pcm']:.0f}",
+            signed(k["change_pcm"], 0),
+        ]
+        for b, k in zip(s["burnup"], s["k"], strict=True)
+    ]
+    return markdown_table(["燃焼度 (MWd/kg)", "差 (pcm)", "変化 (pcm)"], rows)
+
+
+def assembly_density_table(s: dict, columns: list[tuple[str, list]]) -> str:
+    rows = [
+        [burnup_label(b)] + [percent_or_dash(series[i]) for _, series in columns]
+        for i, b in enumerate(s["burnup"])
+    ]
+    return markdown_table(["燃焼度 (MWd/kg)", *[name for name, _ in columns]], rows)
+
+
+def depletion_assembly_fuel_densities(sources: list[dict]) -> str:
+    """集合体の燃焼: 燃料の数密度の相対差（%。燃料の領域の体積の重みの平均。xlc / OpenMC − 1）"""
+    s = assembly_summary(sources)
+    return assembly_density_table(s, list(s["kinds"]["fuel"].items()))
+
+
+def depletion_assembly_absorber_densities(sources: list[dict]) -> str:
+    """集合体の燃焼: 燃料以外の物質（被覆、Pyrex、WABA の B-10、Gd 燃料のリングの Gd）の数密度の相対差（%）。列は「物質 核種」"""
+    s = assembly_summary(sources)
+    columns = [
+        (f"{kind} {name}", series)
+        for kind, table in s["kinds"].items()
+        if kind != "fuel"
+        for name, series in table.items()
+    ]
+    if not columns:
+        raise TableError(f"problem {s['problem']} has no material except the fuel")
+    return assembly_density_table(s, columns)
+
+
+def depletion_assembly_times(sources: list[dict]) -> str:
+    """集合体の燃焼: xlc の時間の内訳（秒）。全体は内訳の和。OpenMC の時間は AWS の機種によるので載せない"""
+    rows = []
+    for s in sources:
+        x = assembly_checked(s)["seconds"]["xlc"]
+        parts = [x[k] for k in ("shielding", "moc", "rates", "matrix", "cram")]
+        rows.append(
+            [
+                s["problem"],
+                str(x["solves"]),
+                f"{sum(parts):.1f}",
+                f"{x['shielding']:.1f}",
+                f"{x['moc']:.1f}",
+                f"{x['rates']:.2f}",
+                f"{x['matrix']:.2f}",
+                f"{x['cram']:.2f}",
+            ]
+        )
+    return markdown_table(
+        [
+            "問題",
+            "輸送の回数",
+            "全体",
+            "自己遮蔽",
+            "MOC",
+            "反応率と規格化",
+            "燃焼行列",
+            "CRAM48",
+        ],
+        rows,
+    )
+
+
 # 集合体の燃焼の問題（examples/depletion/p2/dvc.yaml の jobs）
 ASSEMBLY_DEPLETION_JOBS = ["2A", "2F", "2M", "2N", "2O", "2P", "2A-density", "2A-rods"]
 
@@ -781,6 +867,22 @@ TABLES = {
         )
         for job in ASSEMBLY_DEPLETION_JOBS
     },
+    **{
+        f"depletion-{job.lower()}-{name}": (
+            [f"examples/depletion/p2/compare-{job}.json"],
+            draw,
+        )
+        for job in ASSEMBLY_DEPLETION_JOBS
+        for name, draw in [
+            ("k", depletion_assembly_k),
+            ("densities", depletion_assembly_fuel_densities),
+            ("absorbers", depletion_assembly_absorber_densities),
+        ]
+    },
+    "depletion-assembly-times": (
+        [f"examples/depletion/p2/compare-{job}.json" for job in ["2A", "2F", "2N"]],
+        depletion_assembly_times,
+    ),
 }
 
 
