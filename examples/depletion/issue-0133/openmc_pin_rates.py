@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import msgpack
+import numpy as np
 import openmc
 import openmc.deplete
 
@@ -25,6 +26,20 @@ import openmc_depletion
 from openmc_common import group_filter
 
 SCORES = ["(n,gamma)", "fission", "total", "(n,elastic)", "absorption", "nu-fission"]
+# 群構造の上端（10 MeV）より上の中性子束と反応は、群 1 に数える（xlc は 10 MeV より上に生まれた中性子を群 1 に入れる。
+# outgoing_group_integrals）。上端の外の 1 区間は、評価済みデータの上限より上に置く
+ABOVE = 1.0e9
+
+
+def high_first(values):
+    """昇順の区間（最後が 10 MeV より上）の値を、高いエネルギーからの群の順にし、10 MeV より上を群 1 に足す。"""
+    v = np.asarray(values).ravel()[::-1]
+    return np.concatenate([[v[0] + v[1]], v[2:]]).tolist()
+
+
+def high_first_std(values):
+    v = np.asarray(values).ravel()[::-1]
+    return np.concatenate([[np.hypot(v[0], v[1])], v[2:]]).tolist()
 
 
 def xlc_name(name):
@@ -58,7 +73,8 @@ def main():
     for name, n in densities.items():
         fuel.add_nuclide(name, n)
     fuel.set_density("sum")
-    groups = group_filter(Path(library).resolve())
+    bounds = group_filter(Path(library).resolve()).values
+    groups = openmc.EnergyFilter(list(bounds) + [ABOVE])
     mfilter = openmc.MaterialFilter([fuel])
     flux = openmc.Tally(name="flux")
     flux.filters = [mfilter, groups]
@@ -92,9 +108,9 @@ def main():
         out = {
             "k": k.nominal_value,
             "k_std": k.std_dev,
-            "flux": phi[::-1].tolist(),
-            "flux_std": phi_std[::-1].tolist(),
-            "bounds": sorted(groups.values, reverse=True),
+            "flux": high_first(phi),
+            "flux_std": high_first_std(phi_std),
+            "bounds": sorted(bounds, reverse=True),
             "densities": {xlc_name(n): v for n, v in densities.items()},
             "rates": {},
             "one_group": {},
@@ -103,12 +119,10 @@ def main():
         for name in NUCLIDES:
             out["rates"][xlc_name(name)] = {
                 s: {
-                    "mean": t.get_values(scores=[s], nuclides=[name])
-                    .ravel()[::-1]
-                    .tolist(),
-                    "std": t.get_values(scores=[s], nuclides=[name], value="std_dev")
-                    .ravel()[::-1]
-                    .tolist(),
+                    "mean": high_first(t.get_values(scores=[s], nuclides=[name])),
+                    "std": high_first_std(
+                        t.get_values(scores=[s], nuclides=[name], value="std_dev")
+                    ),
                 }
                 for s in SCORES
             }
@@ -127,13 +141,13 @@ def main():
         out["materials"] = {}
         for material in model.materials:
             out["materials"][material.name] = {
-                s: m.get_values(
-                    scores=[s],
-                    filters=[openmc.MaterialFilter],
-                    filter_bins=[(material.id,)],
+                s: high_first(
+                    m.get_values(
+                        scores=[s],
+                        filters=[openmc.MaterialFilter],
+                        filter_bins=[(material.id,)],
+                    )
                 )
-                .ravel()[::-1]
-                .tolist()
                 for s in ["flux", "absorption", "nu-fission"]
             }
     (work / "openmc-rates.msgpack").write_bytes(msgpack.packb(out))
