@@ -34,8 +34,8 @@ const STEP: f64 = 1e-3;
 pub enum TableError {
     #[error("the track table needs at least one point per decade")]
     Density,
-    #[error("material {material}: total cross sections {range:?} must be positive and finite")]
-    Range { material: usize, range: [f64; 2] },
+    #[error("axis {axis}: total cross sections {range:?} must be positive and finite")]
+    Range { axis: usize, range: [f64; 2] },
     #[error("{given} ring materials for {rings} rings")]
     Rings { given: usize, rings: usize },
     #[error("every material needs an axis and a ring, and every axis a material")]
@@ -434,7 +434,7 @@ fn collisions(cell: &Cylinder, totals: &[f64], out: &mut [f64]) -> Result<(), Cp
     Ok(())
 }
 
-/// 物質ごとの ln Σ の格子
+/// 軸ごとの ln Σ の格子
 fn axes(ranges: &[[f64; 2]], density: usize) -> Result<Vec<Axis>, TableError> {
     if density == 0 {
         return Err(TableError::Density);
@@ -442,10 +442,10 @@ fn axes(ranges: &[[f64; 2]], density: usize) -> Result<Vec<Axis>, TableError> {
     ranges
         .iter()
         .enumerate()
-        .map(|(material, &[min, max])| {
+        .map(|(axis, &[min, max])| {
             if !(min > 0.0 && min <= max && max.is_finite()) {
                 return Err(TableError::Range {
-                    material,
+                    axis,
                     range: [min, max],
                 });
             }
