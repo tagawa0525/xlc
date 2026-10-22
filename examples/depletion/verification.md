@@ -140,7 +140,7 @@ dvc repro examples/depletion/dvc.yaml          # xs-range、xs-nuclide@<核種>�
 
 ### 計算
 
-xlc da2224ff（分岐点 6822de4c、2026-10-23）。Slurm の排他のジョブ 457 で `dvc repro examples/depletion/dvc.yaml:xs` を実行した（下の「格子計算の燃焼」の
+xlc adacf8b4（分岐点 6822de4c、2026-10-23）。Slurm の排他のジョブ 457 で `dvc repro examples/depletion/dvc.yaml:xs` を実行した（下の「格子計算の燃焼」の
 xlc と同じジョブ）。
 
 ### 結果
@@ -179,7 +179,7 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 OpenMC は 4e9cc7f7、分岐点は main の 2ce95c95、2026-10-16（Slurm の排他のジョブ 409。ライブラリは Pm-147、Pm-148、Pm-149、
 Am-242m、Eu-151 を含む）。履歴の書き換え（#0141）のあと、OpenMC とライブラリのステージは再実行せずに `dvc commit` で付け直した
 （db574cfb。deps の差はコメントだけ。#0145）。その後の `openmc_depletion.py` の docstring の変更（01f33be9）も、再実行せずに
-`dvc commit` で付け直した（ae44d4ef）。xlc の格子と比較は da2224ff、分岐点は main の 6822de4c、2026-10-23（Slurm の排他のジョブ 457。
+`dvc commit` で付け直した（92a332fd）。xlc の格子と比較は adacf8b4、分岐点は main の 6822de4c、2026-10-23（Slurm の排他のジョブ 457。
 ライブラリは ADR-0186 のもの（「燃焼の多群ライブラリ」）を同じジョブで作り直した。時間の表の xlc の行はこの実行の値）。
 比較の入力は `lattice-1C-rings1.msgpack` md5 a4835df6、`openmc-1C-rings1.msgpack` md5 2c7d0331、
 `lattice-1C-rings4.msgpack` md5 f551578e、`openmc-1C-rings4.msgpack` md5 011dfabb（JSON の `inputs`）。
