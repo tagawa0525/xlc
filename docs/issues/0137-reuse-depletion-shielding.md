@@ -42,7 +42,7 @@ resolution:
 
 ## 測定（2026-10-22）
 
-自己遮蔽の時間の内訳を、VERA 2A の燃焼 1 ステップで測った（#0045 の核種ごとの点の数と、核種ごとの自己遮蔽の必要性の目安は #0045 の経緯）。コミットは f521ca442（計測の span は ff94cd6bf から。1 スレッドの測定は ff94cd6bf、16 スレッドは f521ca442。分岐点は main の b5066b8f2）、日付は 2026-10-22。入力は examples/depletion/p2/lattice-2A.toml の `burnup` を `[0.1]` にしたもの（輸送 3 回、輸送する核種 89、燃焼の領域 39）で、ログは既定の info。区間の時間は、ログの `close time.busy`（その区間に入っていたスレッドの時間の合計）。1 スレッド（`RAYON_NUM_THREADS=1`。排他でない測定なので割合だけを使う）と、排他の Slurm の 16 スレッド（ジョブ 428）で測った
+自己遮蔽の時間の内訳を、VERA 2A の燃焼 1 ステップで測った（#0045 の核種ごとの点の数と、核種ごとの自己遮蔽の必要性の目安は #0045 の経緯）。コミットは f521ca442（計測の span は ff94cd6bf から。1 スレッドの測定は ff94cd6bf、16 スレッドは f521ca442。分岐点は main の b5066b8f2）、日付は 2026-10-22。入力は examples/depletion/p2/lattice-2A.toml の `burnup` を `[0.1]` にしたもの（輸送 3 回、輸送する核種 89、燃焼の領域 39）で、ログは ff94cd6bf〜f521ca442 では既定の info でピンごとの区間も出た（その後ピンごとの区間は debug にした。ピンごとの時間は `RUST_LOG=info,xlc_lattice::shielding=debug,xlc_lattice::ufg=debug` で出る）。区間の時間は、ログの `close time.busy`（その区間に入っていたスレッドの時間の合計）。1 スレッド（`RAYON_NUM_THREADS=1`。排他でない測定なので割合だけを使う）と、排他の Slurm の 16 スレッド（ジョブ 428）で測った
 
 輸送 1 回の自己遮蔽（1 スレッドは 3 回の平均）。16 スレッドの壁時計は 63.2、63.2、77.8 秒（`shielding` 区間の経過時間）
 
@@ -77,6 +77,6 @@ resolution:
   最大で 1.06 倍にしかならないので、効くのは #0045（点の数と核種の数を減らす）と #0046（点の間引き）。この issue を閉じるかは、
   ユーザーの判断に残す
 - 計測のコードは自己遮蔽の span と、UFG の `UFG slowing down` の行（点の数、段ごとの時間）、自己遮蔽の `fuel pins and their
-  symmetry representatives` の行（解いたピンの点の数の最小、最大、合計）。ログの `RUST_LOG=info,xlc_lattice::ufg=debug` で
+  symmetry representatives` の行（解いたピンの点の数の最小、最大、合計）。ログの `RUST_LOG=info,xlc_lattice::shielding=debug,xlc_lattice::ufg=debug` で
   核種ごとの点の数も出る。結果は変更前（b5066b8f2 のビルド）とビットで同じ: 履歴 `lattice-2A.msgpack` が実行時間 `seconds` を除いて
   同じ（1 スレッド、16 スレッドの両方）
