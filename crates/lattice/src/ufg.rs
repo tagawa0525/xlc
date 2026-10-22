@@ -251,8 +251,8 @@ pub fn no_background(rings: &[Option<&MaterialInput>]) -> Vec<Vec<Option<Shielde
 }
 
 /// [`slowing_down`] の、背景の核種と飛程の求め方を選ぶもの。`background` は [リング][核種（物質の組成の順）] の、群の中で
-/// 一定とする群定数（ライブラリのすべての群）で、`None` の核種はポイントワイズの断面積で解く。リングの背景の核種は 1 つの項に
-/// まとめ（[`lump`]）、群定数は与えた値のまま返す（群の中で一定の断面積を中性子束で縮約しても変わらない。ADR-0185）。
+/// 一定とする群定数（ライブラリのすべての群）で、`None` の核種はポイントワイズの断面積で解く。リングの背景の核種は、減速計算では
+/// 1 つの項にまとめ（[`lump`]）、群定数は核種のポイントワイズの断面積をリングの中性子束で縮約して返す（[`collapse`]。ADR-0185）。
 #[tracing::instrument(name = "ufg", level = "debug", skip_all)]
 pub fn slowing_down_with(
     library: &Library,
@@ -314,12 +314,12 @@ pub fn slowing_down_with(
         let mut members: Vec<(&str, f64, &Shielded)> = Vec::new();
         for ((name, density), constant) in m.iter().flat_map(|m| &m.composition).zip(&background[i])
         {
+            let temperature = m.map_or(f64::NAN, |m| m.temperature);
             if let Some(s) = constant {
                 members.push((name, *density, s));
-                slot.push(Slot::Background(s));
+                slot.push(Slot::Background { name, temperature });
                 continue;
             }
-            let temperature = m.map_or(f64::NAN, |m| m.temperature);
             let found = keys
                 .iter()
                 .position(|&(k, t)| k == name && t == temperature);
@@ -521,7 +521,8 @@ pub fn slowing_down_with(
         "UFG slowing down"
     );
 
-    // 群定数
+    // 群定数。背景の核種は、核種（名前と温度の組）ごとにポイントワイズの断面積を 1 度だけ引く
+    let mut tables: Vec<((&str, f64), Cow<TemperatureData>)> = Vec::new();
     let mut nuclides = Vec::with_capacity(n);
     for (i, ring) in slots.iter().enumerate() {
         let flux = &sweep.group_flux[i];
@@ -541,15 +542,26 @@ pub fn slowing_down_with(
                         capture: column(4),
                     }
                 }
-                Slot::Background(s) => {
-                    let part = |v: &Vec<f64>| v[top..bottom].to_vec();
-                    Shielded {
-                        total: part(&s.total),
-                        elastic: part(&s.elastic),
-                        fission: part(&s.fission),
-                        nu_fission: part(&s.nu_fission),
-                        capture: part(&s.capture),
-                    }
+                Slot::Background { name, temperature } => {
+                    let found = tables.iter().position(|(k, _)| *k == (name, temperature));
+                    let k = match found {
+                        Some(k) => k,
+                        None => {
+                            tables
+                                .push(((name, temperature), library.lookup(name, temperature)?.1));
+                            tables.len() - 1
+                        }
+                    };
+                    collapse(
+                        name,
+                        &tables[k].1,
+                        &u,
+                        &points,
+                        &sweep.flux[i],
+                        high,
+                        group_bounds,
+                        flux,
+                    )?
                 }
             };
             let finite = |v: &Vec<f64>| v.iter().position(|x| !x.is_finite());
@@ -584,8 +596,93 @@ pub fn slowing_down_with(
 enum Slot<'a> {
     /// ポイントワイズで解いた、リングの項の番号
     Entry(usize),
-    /// 背景の核種の、与えた群定数
-    Background(&'a Shielded),
+    /// 背景の核種（名前と温度）
+    Background { name: &'a str, temperature: f64 },
+}
+
+/// 背景の核種の群定数: ポイントワイズの断面積を、リングの中性子束 `flux`（減速計算の格子点の値。点の間で u について線形）で
+/// 縮約する。ポイントワイズで解いた核種と同じく σF をレサジーの台形則で積分し、点は減速計算の格子点と核種自身の格子の点の和
+/// （格子点の間の核種の点では中性子束を内挿する）にする。中性子束は背景の核種を群の中で一定の断面積で入れて解いたもので、
+/// 核種自身の共鳴によるへこみを持たない（ほかの核種の共鳴の影は入る。ADR-0185）。`group_flux` は群ごとの ∫F du
+#[allow(clippy::too_many_arguments)]
+fn collapse(
+    name: &str,
+    table: &TemperatureData,
+    u: &[f64],
+    points: &[(f64, bool)],
+    flux: &[f64],
+    high: f64,
+    group_bounds: &[f64],
+    group_flux: &[f64],
+) -> Result<Shielded, UfgError> {
+    let p = &table.pointwise;
+    let d = Data {
+        name,
+        gain: 1.0,
+        width: 0.0,
+        source: Source::Pointwise(Box::new(Cow::Borrowed(table))),
+    };
+    let ng = group_flux.len();
+    let mut rates = vec![[0.0; COLUMNS]; ng];
+    let mut cursor = d.first_cursor();
+    // 核種の格子の、まだ使っていない最も高いエネルギーの点の次（昇順の配列を降順に進める）
+    let mut next = p.energy.len();
+    let mut group = 0;
+    // 1 つ前の点の (u, F, 断面積)
+    let mut previous: Option<(f64, f64, Row)> = None;
+    let mut add = |group: usize, a: &(f64, f64, Row), b: &(f64, f64, Row)| {
+        let du = b.0 - a.0;
+        for (r, (va, vb)) in rates[group].iter_mut().zip(a.2.iter().zip(&b.2)) {
+            *r += 0.5 * du * (a.1 * va + b.1 * vb);
+        }
+    };
+    for (m, &(e, below)) in points.iter().enumerate() {
+        let here = (u[m], flux[m], evaluate(&d, &mut cursor, e, below)?);
+        if let Some(mut last) = previous {
+            let upper = points[m - 1].0;
+            while next > 0 && p.energy[next - 1] >= upper {
+                next -= 1;
+            }
+            while next > 0 && p.energy[next - 1] > e {
+                next -= 1;
+                let x = (high / p.energy[next]).ln();
+                let f = last.1 + (here.1 - last.1) * (x - last.0) / (here.0 - last.0);
+                let node = (
+                    x,
+                    f,
+                    [
+                        p.total[next],
+                        p.elastic[next],
+                        p.fission[next],
+                        p.nu_fission[next],
+                        p.capture[next],
+                    ],
+                );
+                add(group, &last, &node);
+                last = node;
+            }
+            add(group, &last, &here);
+        }
+        previous = Some(here);
+        // 群の境界では、高い側の格子点で次の群に移る（減速計算と同じ）
+        if group < ng && !below && e == group_bounds[group + 1] {
+            group += 1;
+        }
+    }
+    let column = |x: usize| -> Vec<f64> {
+        rates
+            .iter()
+            .zip(group_flux)
+            .map(|(r, f)| r[x] / f)
+            .collect()
+    };
+    Ok(Shielded {
+        total: column(0),
+        elastic: column(1),
+        fission: column(2),
+        nu_fission: column(3),
+        capture: column(4),
+    })
 }
 
 /// 弾性散乱の α = ((A − 1)/(A + 1))²
