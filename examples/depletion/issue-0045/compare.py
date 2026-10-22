@@ -7,8 +7,12 @@
   相対差の最大、時間の内訳（履歴の `seconds`）
 - 1 状態（2A-60）: k∞ の差と 2 群の少数群定数の相対差の最大、自己遮蔽と全体の時間（ログ）
 - 2A の燃焼（40 点）: 間引いた格子の履歴と examples/depletion/p2/lattice-2A.msgpack（間引かない格子）の差
+- ピンごとの実効断面積（`pin_xs` の出力 `<入力>.pinxs.msgpack`。2A-60、2A-step）: 核種ごとの UFG の範囲（4 eV〜20 keV）の捕獲
+  （全 − 弾性散乱 − 核分裂）と核分裂の、群のレサジー幅の重み（1/E）の和の相対差の、ピンの中の最大
 """
 
+import itertools
+import math
 import pathlib
 import re
 
@@ -91,6 +95,55 @@ def depletion(stem, base_path=None, variants=VARIANTS):
             )
 
 
+def resonance_weights(library):
+    """ライブラリの群のうち UFG の範囲（4 eV〜20 keV）の群のレサジー幅（ほかの群は 0）"""
+    bounds = load(library)["group_bounds"]
+    return [
+        math.log(hi / lo) if lo >= 4.0 and hi <= 2.0e4 else 0.0
+        for hi, lo in itertools.pairwise(bounds)
+    ]
+
+
+def pin_rates(path, weights):
+    """{核種: [(捕獲, 核分裂)]}（燃料のあるピンごとの、UFG の範囲の 1/E の重みの和）"""
+    out = {}
+    for name, x in load(path)["nuclides"].items():
+        pins = []
+        for t_row, e_row, f_row in zip(
+            x["total"], x["elastic"], x["fission"], strict=True
+        ):
+            for t, e, f in zip(t_row, e_row, f_row, strict=True):
+                if any(t):
+                    capture = sum(
+                        w * (a - b - c)
+                        for w, a, b, c in zip(weights, t, e, f, strict=True)
+                    )
+                    fission = sum(w * c for w, c in zip(weights, f, strict=True))
+                    pins.append((capture, fission))
+        out[name] = pins
+    return out
+
+
+def captures(directory, base, others, library, top=12):
+    weights = resonance_weights(library)
+    b = pin_rates(directory / f"{base}.pinxs.msgpack", weights)
+    for other in others:
+        o = pin_rates(directory / f"{other}.pinxs.msgpack", weights)
+        rows = []
+        for name, pins in b.items():
+            worst = [0.0, 0.0]
+            for (cb, fb), (co, fo) in zip(pins, o[name], strict=True):
+                for q, (x, y) in enumerate(((co, cb), (fo, fb))):
+                    if y != 0:
+                        worst[q] = max(worst[q], abs(x / y - 1))
+            rows.append((worst[0], worst[1], name))
+        rows.sort(reverse=True)
+        print(
+            f"-- {other} / {base}: UFG の範囲の捕獲と核分裂の相対差の、ピンの中の最大（大きい順）"
+        )
+        print("   " + "、".join(f"{n} {c:.1e}/{f:.1e}" for c, f, n in rows[:top]))
+
+
 def fmt(seconds):
     return {k: round(v, 1) for k, v in seconds.items()}
 
@@ -119,6 +172,10 @@ if __name__ == "__main__":
     for stem in ("2A-step", "1C-rings1", "1C-rings4"):
         depletion(stem)
     static("2A-60")
+    library = HERE.parent / "p2" / "depletion.msgpack"
+    for stem in ("2A-60", "2A-step"):
+        if (HERE / f"{stem}-full.pinxs.msgpack").exists():
+            captures(HERE, f"{stem}-full", [f"{stem}-{v}" for v in VARIANTS], library)
     depletion(
         "2A-depletion",
         HERE.parent / "p2" / "lattice-2A.msgpack",
