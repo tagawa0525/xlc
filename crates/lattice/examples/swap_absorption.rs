@@ -39,6 +39,8 @@ struct Score {
 
 #[derive(Deserialize)]
 struct Reference {
+    /// 群の境界 (eV)、降順
+    bounds: Vec<f64>,
     flux: Vec<f64>,
     densities: BTreeMap<String, f64>,
     rates: BTreeMap<String, BTreeMap<String, Score>>,
@@ -243,6 +245,21 @@ fn main() -> anyhow::Result<()> {
     let library = Library::from_msgpack(&std::fs::read(base.join(file))?)?;
     let reference: Reference = from_value(read_value(&std::fs::read(reference)?)?)?;
     let ng = library.groups.len();
+    // 群の境界がライブラリと同じこと。いちばん上の境界は、OpenMC の tally が群 1 に上の中性子を数えるために高くしてよい
+    let bounds = library.groups.bounds();
+    let same = |a: f64, b: f64| (a - b).abs() <= 1e-9 * b.abs();
+    if reference.bounds.len() != bounds.len()
+        || reference.bounds[0] < bounds[0]
+        || !reference.bounds[1..]
+            .iter()
+            .zip(&bounds[1..])
+            .all(|(&a, &b)| same(a, b))
+    {
+        return Err(anyhow!(
+            "the OpenMC groups {:?} are not those of the library",
+            reference.bounds
+        ));
+    }
     let (lattice, names) = input.geometry()?;
     let tracking =
         Tracking::with_boundaries(&lattice, input.azimuthal, input.spacing, input.boundaries)?;

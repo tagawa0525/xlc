@@ -101,6 +101,13 @@ fn main() -> anyhow::Result<()> {
     // 等価なセルの形を自己遮蔽の `solve_equivalent_cell` からコピーしているので、燃料のリングの UFG の範囲の群定数が自己遮蔽の結果と
     // 同じことを確かめる（自己遮蔽の側の作り方が変わって、ここが別のセルを解くようになれば止まる）
     for (ring, shielded) in pin.rings.iter().enumerate() {
+        if shielded.len() != spectrum.nuclides[ring].len() {
+            return Err(anyhow!(
+                "ring {ring}: the shielding has {} nuclides, this cell {}",
+                shielded.len(),
+                spectrum.nuclides[ring].len()
+            ));
+        }
         for (k, (s, f)) in shielded.iter().zip(&spectrum.nuclides[ring]).enumerate() {
             for g in spectrum.groups.clone() {
                 let (a, b) = (s.total[g], f.total[g - spectrum.groups.start]);
