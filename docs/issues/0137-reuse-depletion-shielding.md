@@ -41,7 +41,7 @@ resolution:
   UFG の減速計算だった。数値は「測定（2026-10-22）」
 - 2026-10-22: UFG の格子を間引いた（ADR-0185。許容差 1e-4）2A の 1 ステップでは、自己遮蔽の 1 回が約 17 秒になり、組成によらない
   前処理（Dancoff 係数 2.0〜2.7 秒、塊 2.0〜2.9 秒、移り合うピンへの複製 0.3〜0.7 秒。1 回の輸送あたり）が、その約 3 割になった
-  （examples/depletion/issue-0045 の 2A-step。ブランチ feat/0045-ufg-background-nuclides のコミット 6effbb462（分岐点は main の
+  （examples/depletion/issue-0045 の 2A-step。ブランチ feat/0045-ufg-background-nuclides のコミット 047d9379c（分岐点は main の
   682dead38）、Slurm 441）。この issue の再利用の効きは 1.06 倍でなく、それに見合う大きさになる
 
 ## 測定（2026-10-22）
