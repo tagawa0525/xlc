@@ -93,6 +93,12 @@ cargo build --release
 4. `git status --short` が空であることを確かめてから、`~/.claude/skills/language-checks/scripts/run-checks.sh -C <worktree> --base main` を通す（マージ時と同じ、main との分岐点からの差分の検査）
 5. 記録用の計算を流す（スキル verification-record の「数値を出す前」）。記録に書く hash は、計算を流したときの HEAD（`dvc.lock` をコミットする前のコミット）、分岐点は `git merge-base HEAD main`
 
+1 時間を超える記録用の計算（xs のライブラリの作り直し、集合体の燃焼など）は、コードのレビュー（/code-review）を打ち切りまで
+回してから 1 度だけ流す。流した後にコードを変える指摘に対応すると、ADR-0122 のとおり再実行が要る。流した後のレビューは記録と
+文書の指摘に絞り、出力を変えるコードの指摘は issue に残すか、まとめて 1 度だけ再実行する（2026-10-22 の feat/0133-fission-spectrum
+では、レビューの 1 周目の xs の修正で 65 核種のライブラリ（約 2 時間）を作り直し、2 周目の指摘は #0149 に残した。構造の側の
+案は #0150）
+
 計算を投げる直前に `git log --oneline <分岐点>..main`（分岐点は `git merge-base HEAD main`）を見て、出力を変える変更
 （lattice、xs、core のコード、ADR で出力が変わると書かれたもの）が入っていれば、rebase してから投げる。実例: 2026-10-14、
 平板の CMFD の修正（ADR-0158）の前に rebase したブランチが古い方法で平板を解き、1 状態 1 分で済むものに 1 時間以上かかった。
