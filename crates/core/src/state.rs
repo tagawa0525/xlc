@@ -4,7 +4,8 @@
 //! 外挿しない。点が1つの軸は、状態がその値に等しいときだけ使える。状態を与えるときはテーブルが3つの軸をすべて
 //! 持ち、与えないときは軸のないテーブルだけを使う。制御棒の離散の軸は内挿せず、値の名前で選ぶ（棒がなければ
 //! `out`。ADR-0127）。燃焼度は、ほかの連続の軸と同じく線形に内挿する。燃焼度を与える状態では、核分裂のあるテーブルは
-//! 燃焼度の軸を持つこと。核分裂のないテーブル（反射体）は燃焼しないので、軸なしにどの燃焼度でも使う（ADR-0187）。
+//! 燃焼度の軸を持つこと（燃焼度 0 は軸のない新しい燃料のテーブルでもよい）。核分裂のないテーブル（反射体）は燃焼しないので、軸なしに
+//! どの燃焼度でも使う（ADR-0187）。
 
 use xlc_format::fewgroup::{FewGroup, Pins};
 use xlc_format::table::{Axis, ROD_OUT, Table};
@@ -217,7 +218,9 @@ pub fn interpolate(
         }
     }
     let has_burnup = table.axes.iter().any(|a| matches!(a, Axis::Burnup { .. }));
+    // 燃焼度 0 は新しい燃料のテーブルの状態そのもの
     if let Some(burnup) = state.burnup
+        && burnup != 0.0
         && !has_burnup
         && table
             .states
