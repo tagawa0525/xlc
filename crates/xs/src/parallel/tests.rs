@@ -51,7 +51,6 @@ fn nested_calls_stay_within_the_budget() {
 }
 
 #[test]
-#[ignore = "in_parallel takes its threads only when it starts"]
 fn a_running_call_takes_threads_freed_later() {
     // 予算が空のときに始めた呼び出しも、途中で空いたスレッドを使う（ほかの核種や温度が先に終わったとき）
     let budget = Budget::new(3);
@@ -73,7 +72,6 @@ fn a_running_call_takes_threads_freed_later() {
 }
 
 #[test]
-#[ignore = "in_parallel keeps its threads until every index is done"]
 fn threads_out_of_indices_return_to_the_budget() {
     // 取る i がなくなったスレッドは予算に返り、まだ走っている重い i の中の並列が使える（最後に残った重い核種）
     let budget = Budget::new(2);
