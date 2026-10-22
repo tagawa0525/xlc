@@ -1172,30 +1172,12 @@ fn depletion_takes_the_few_group_bounds_in_its_own_table() {
 }
 
 #[test]
-fn depletion_weights_the_fission_yields_by_intervals_unless_a_cutoff_is_given() {
-    let depletion = depleting(DEPLETION).unwrap().depletion.unwrap();
-    assert_eq!(depletion.fission_yields, YieldWeighting::Intervals);
+fn depletion_rejects_a_yield_cutoff_entry() {
+    // 収率の重みの境界と点は ADR-0183 で固定し、入力では選ばない
     let text =
         format!("{DEPLETION}yield-cutoff = {{ energy = 112.5, thermal = 0.0253, fast = 5e5 }}\n");
-    let depletion = depleting(&text).unwrap().depletion.unwrap();
-    assert_eq!(
-        depletion.fission_yields,
-        YieldWeighting::Cutoff(YieldCutoff {
-            energy: 112.5,
-            thermal: 0.0253,
-            fast: 5e5
-        })
-    );
-    // 熱 < cutoff < 速（OpenMC の FissionYieldCutoffHelper と同じ条件）。熱は 0 以上
-    for entry in [
-        "{ energy = 0.01, thermal = 0.0253, fast = 5e5 }",
-        "{ energy = 112.5, thermal = 0.0253, fast = 100.0 }",
-        "{ energy = 112.5, thermal = -1.0, fast = 5e5 }",
-        "{ energy = 112.5, thermal = 0.0253 }",
-    ] {
-        let text = format!("{DEPLETION}yield-cutoff = {entry}\n");
-        assert!(depleting(&text).is_err(), "{entry}");
-    }
+    let err = depleting(&text).unwrap_err().to_string();
+    assert!(err.contains("yield-cutoff"), "{err}");
 }
 
 #[test]

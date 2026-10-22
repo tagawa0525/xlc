@@ -72,3 +72,8 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
   `bin/lattice` だけ。xs、chain、core は同じバイトで、ライブラリの lock はそのまま有効）、lattice@2A（ジョブ 421、排他、1:40:36）と
   compare@2A を流した。直下の `dvc.lock` の crates と `bin/lattice` の md5 の変化は、この rebase によるもので、書き換えと opt-level の
   変更によるものではない
+- 2026-10-22: examples/depletion の xs（xs-range、xs-nuclide、xs）、NJOY（openmc-neutron、openmc-thermal、openmc-index）、openmc-chain、
+  openmc-1C、openmc-1C-extract は、再実行せずに `dvc commit` で付け直した（ブランチ feat/yield-cutoff-default、3517e4666）。changed の deps は
+  どれも、書き換えの前の控え（original.git の HEAD）の md5 が lock と同じで、差はコメントの語だけだった。`bin/xs` は p2 と同じ
+  52102d9e から a316fea4 への変化で、p2 の再実行で出力が変わらなかったものと同じ。付け直しで出力の md5 は変わらない（変わったのは deps の
+  md5 と size だけ）。lattice-1C と compare-1C は同じブランチで再実行した。lattice-2A は付け直さず、changed のまま残す
