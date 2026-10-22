@@ -267,24 +267,12 @@ fn steps_last_the_burnup_over_the_power() {
 }
 
 #[test]
-fn yield_weights_split_groups_at_the_bounds_by_lethargy() {
-    // 群は 1e7〜1e3、1e3〜1、1〜1e-5 eV。境界 112.5 eV は 2 つ目の群をレサジーで分ける
-    let weights = yield_weights(&[1e7, 1e3, 1.0, 1e-5], &[1.0, 2.0, 3.0], &[112.5]);
-    let below = 2.0 * 112.5f64.ln() / 1e3f64.ln();
-    let expected = [(3.0 + below) / 6.0, (1.0 + 2.0 - below) / 6.0];
-    assert_eq!(weights.len(), 2);
-    for (w, e) in weights.iter().zip(expected) {
-        assert!((w - e).abs() <= 1e-14, "{weights:?} vs {expected:?}");
-    }
-    // 1 点の収率は重み 1。核分裂のない領域は最初の点に 1 を置く（Chain::zero_rates と同じ）
-    assert_eq!(
-        yield_weights(&[1e7, 1e3, 1e-5], &[1.0, 2.0], &[]),
-        vec![1.0]
-    );
-    assert_eq!(
-        yield_weights(&[1e7, 1e3, 1e-5], &[0.0, 0.0], &[112.5]),
-        vec![1.0, 0.0]
-    );
+fn yield_cutoff_is_the_geometric_mean_of_the_thermal_and_fast_points() {
+    // ADR-0183: √(0.0253 · 5e5) ≈ 112.47 eV（参照解の OpenMC に与える cutoff と同じ）
+    assert_eq!(YIELD_THERMAL, 0.0253);
+    assert_eq!(YIELD_FAST, 5e5);
+    let expected = (0.0253f64 * 5e5).sqrt();
+    assert!((yield_cutoff() - expected).abs() <= 1e-15 * expected);
 }
 
 /// 収率の点だけを持つ核分裂（重みの計算は Q と生成物を見ない）
@@ -304,39 +292,28 @@ fn assert_weights(weights: &[f64], expected: &[f64]) {
     }
 }
 
-#[test]
-fn interval_yield_weights_follow_the_bounds_between_the_points() {
-    // 群は 1e7〜1e3、1e3〜1、1〜1e-5 eV。3 点の区間の境界は √(0.0253 · 5e5) ≈ 112.5 eV と √(5e5 · 1.4e7) ≈ 2.65 MeV
-    let weights = YieldWeighting::Intervals.weights(
-        &[1e7, 1e3, 1.0, 1e-5],
-        &[1.0, 2.0, 3.0],
-        &yield_points(&[0.0253, 5e5, 1.4e7]),
-    );
-    let (low, high) = ((0.0253f64 * 5e5).sqrt(), (5e5f64 * 1.4e7).sqrt());
-    let thermal = 3.0 + 2.0 * low.ln() / 1e3f64.ln();
-    let fourteen = (1e7 / high).ln() / 1e4f64.ln();
-    assert_weights(
-        &weights,
-        &[
-            thermal / 6.0,
-            (6.0 - thermal - fourteen) / 6.0,
-            fourteen / 6.0,
-        ],
-    );
+/// 群は 1e7〜1e3、1e3〜1、1〜1e-5 eV、核分裂率は 1、2、3
+const YIELD_GROUPS: [f64; 4] = [1e7, 1e3, 1.0, 1e-5];
+const YIELD_FISSION: [f64; 3] = [1.0, 2.0, 3.0];
+
+/// cutoff より下の核分裂の割合。cutoff は 2 つ目の群をレサジーの幅の比で分ける
+fn below_cutoff() -> f64 {
+    (3.0 + 2.0 * yield_cutoff().ln() / 1e3f64.ln()) / 6.0
 }
 
 #[test]
-fn cutoff_yield_weights_put_the_fissions_below_and_above_on_the_thermal_and_fast_points() {
-    // OpenMC の FissionYieldCutoffHelper（cutoff 112.5 eV、熱 0.0253 eV、速 500 keV）と同じ点の選び方
-    let cutoff = YieldWeighting::Cutoff(YieldCutoff {
-        energy: 112.5,
-        thermal: 0.0253,
-        fast: 5e5,
-    });
-    let groups = [1e7, 1e3, 1.0, 1e-5];
-    let fission = [1.0, 2.0, 3.0];
-    let below = (3.0 + 2.0 * 112.5f64.ln() / 1e3f64.ln()) / 6.0;
-    let weights = |energies: &[f64]| cutoff.weights(&groups, &fission, &yield_points(energies));
+fn yield_weights_split_the_group_at_the_cutoff_by_lethargy() {
+    let weights = yield_weights(&YIELD_GROUPS, &YIELD_FISSION, &yield_points(&[0.0253, 5e5]));
+    let below = below_cutoff();
+    assert_weights(&weights, &[below, 1.0 - below]);
+}
+
+#[test]
+fn yield_weights_take_the_thermal_and_fast_points_like_openmc() {
+    // OpenMC 0.15.2 の FissionYieldCutoffHelper と同じ点の選び方（ADR-0183）
+    let below = below_cutoff();
+    let weights =
+        |energies: &[f64]| yield_weights(&YIELD_GROUPS, &YIELD_FISSION, &yield_points(energies));
     // U-235 の 3 点、Pu-239 の 4 点: 熱と 500 keV の点だけ。14 MeV と 2 MeV の点は使わない
     assert_weights(&weights(&[0.0253, 5e5, 1.4e7]), &[below, 1.0 - below, 0.0]);
     assert_weights(
@@ -350,9 +327,21 @@ fn cutoff_yield_weights_put_the_fissions_below_and_above_on_the_thermal_and_fast
     // 熱の点がなければ cutoff より下で熱に最も近い点、速の点がなければ cutoff より上で速に最も近い点
     assert_weights(&weights(&[0.001, 0.03, 5e5]), &[0.0, below, 1.0 - below]);
     assert_weights(&weights(&[0.0253, 1e6, 1.4e7]), &[below, 1.0 - below, 0.0]);
-    // 核分裂のない領域は最初の点に 1（Chain::zero_rates と同じ）
+}
+
+#[test]
+fn fissionless_regions_put_the_yield_weight_on_the_first_point() {
+    // Chain::zero_rates と同じ（核分裂率が 0 なら燃焼行列に効かない）
     assert_weights(
-        &cutoff.weights(&groups, &[0.0; 3], &yield_points(&[0.001, 0.03, 5e5])),
+        &yield_weights(&YIELD_GROUPS, &[0.0; 3], &yield_points(&[0.001, 0.03, 5e5])),
+        &[1.0, 0.0, 0.0],
+    );
+    assert_weights(
+        &yield_weights(
+            &YIELD_GROUPS,
+            &[0.0; 3],
+            &yield_points(&[0.0253, 5e5, 1.4e7]),
+        ),
         &[1.0, 0.0, 0.0],
     );
 }
@@ -470,7 +459,6 @@ fn region_rates_average_sigma_phi_over_the_region_volume() {
         &members,
         library.groups.bounds(),
         &LibraryReactions(&library),
-        YieldWeighting::Intervals,
     )
     .unwrap();
     // 体積で平均した中性子束は (1·[2, 1] + 3·[1, 3]) / 4 = [1.25, 2.5]、反応率は σ (cm²) × φ
@@ -481,7 +469,7 @@ fn region_rates_average_sigma_phi_over_the_region_volume() {
     assert!((rates[XE135].reactions[0][0] - capture).abs() <= 1e-12 * capture);
     // 輸送しない核種は 0
     assert_eq!(rates[U236], chain.zero_rates()[U236]);
-    // 収率の重みは、熱の群（0.625 eV 以下）と、境界 112.5 eV より下の速い群の部分
+    // 収率の重みは、熱の群（0.625 eV 以下）と、cutoff より下の速い群の部分
     let weights = &rates[U235].yield_weights;
     assert!(
         (weights.iter().sum::<f64>() - 1.0).abs() <= 1e-14,
@@ -923,7 +911,6 @@ fn channel_cross_sections_need_every_group() {
         &members,
         library.groups.bounds(),
         &ShortChannels,
-        YieldWeighting::Intervals,
     );
     assert!(result.is_err());
 }
