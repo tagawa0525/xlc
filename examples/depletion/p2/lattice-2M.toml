@@ -4,6 +4,7 @@
 # OpenMC の入力と同じ表（openmc_depletion_assembly.py）から p2_inputs.py が書く。手で直さない。集合体の周りに水のギャップ 0.04 cm。
 # 燃焼させる物質は fuel, ifba（対称操作の組ごとに 1 つの領域。ADR-0173）。
 library = "depletion.msgpack"
+ufg-tolerance = 1e-4
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
