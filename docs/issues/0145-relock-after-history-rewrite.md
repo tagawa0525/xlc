@@ -26,6 +26,23 @@ changed のステージは c5g7、core、depletion、depletion/p2、m0、mox、r
 vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書き換えより前に計算を実行せずにマージしたコードの変更（ADR-0130 の
 「帰結」のとおり）が混ざっており、すべてが書き換えによるものではない。lock と再実行の扱いは ADR-0130 と ADR-0159 に従い、この issue はそれらを変えない。
 
+### 参照解の deps の .py を文書だけ直しても changed になる（2026-10-23）
+
+ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が examples/depletion/openmc_depletion.py の docstring とコメントだけを直した（112.5 → 112.47 eV と
+引く ADR の番号）。このファイルは `openmc-1C` と `openmc-1C-extract` の deps（examples/depletion/dvc.yaml）なので、OpenMC の燃焼（3517e4666 は 1.5 時間 × 2、acfe57b01 の本文は 5 時間と書く。どちらも確かめていない）と
+その extract が changed になった。χ の担当が compare-1C を目標に `dvc repro` を流すと OpenMC が始まり、止めた（Slurm 454。acfe57b01 の本文による。sacct では 11 分 55 秒で止めている）。
+`dvc commit` で付け直した（main の acfe57b01（f804cba1c でマージ）。lock の古い md5 は 3baba57c0 の直前のファイルで、出力は同じコードから
+できている。3517e4666 が上の書き換えのあとに行ったのと同じ手段）。
+
+- /dvc-relock、/git-merge、CLAUDE.md に、`dvc commit` で付け直す手順はない。/dvc-relock が拠る ADR-0130 は、走らせなかったステージの
+  changed を「そのままでよい」とする
+- 3517e4666 と acfe57b01 の `dvc commit` は、ADR-0159 の案 B（ADR-0143 の帰結と ADR-0130 の案 L も同じ理由で退けた形。出力を変えないかの
+  判断が人に残り、lock が記録した deps のコードで実行していない出力を指す）を、その場の判断で使っている。ADR-0159 の移行は同じ手段を
+  1 回だけ、変更の直前に changed でなかったステージに限って使った。この 2 回は、その限り方を ADR で決めずに使った
+- Rust は ADR-0159 の `build`（ADR-0160 で strip）が実行ファイルを deps にするので、実行ファイルのバイトが変わらない変更（tests.rs だけの
+  変更など）は計算のステージを動かさない。ただしコードの行をずらすコメントは、実行ファイルを変えうる（ADR-0159 が測った）。
+  deps がソースそのものである .py には、バイトの同一で止める仕組みがなく、文書だけの変更が出力の再計算の候補になる
+
 関係する ADR: なし
 
 ## 例ごとの扱い
@@ -55,6 +72,16 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
   deps を正規形のファイルに替える前処理が要る
 - 何もしない（ADR-0130 のとおり、結果が要るときに再実行する）。書き換えは稀で、再実行の費用はそのときに払う
 
+### 参照解の deps の .py の文書だけの変更への案（決めていない。決めるときは ADR）
+
+- (a) 参照解の deps の .py を文書だけ直すマージの前に、`dvc commit` で付け直す手順を /dvc-relock に足す。ADR-0130 の案 L、ADR-0143 の帰結、ADR-0159 の案 B が
+  退けた形との整合（コメントと docstring だけの差を「同じコード」とみなす条件と、その確かめ方）を ADR で決める要がある
+- (b) ADR-0159 と ADR-0160 の延長で、.py の deps を、docstring とコメントを除いた AST の正規形を出す段の出力に替える。構造で防ぐ案で、
+  正規形を作る段（数秒）と、deps を替える dvc.yaml の変更が要る
+- (c) 当面は CLAUDE.md の「`dvc repro` を投げる前に走るステージを数える」規則（docs/0150-estimate-dvc-repro-stages。
+  main に入っている）で防ぐ。走るステージに参照解が入っていれば、投げずに原因を調べる。事故の費用は防ぐが、changed のままの
+  ステージは残る
+
 ## 完了の条件
 
 - p2 のライブラリと lattice@2A、compare@2A が relock されている（2F 以降のジョブは別の作業で、この issue の条件に含めない）
@@ -77,3 +104,5 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
   どれも、書き換えの前の控え（original.git の HEAD）の md5 が lock と同じで、差はコメントの語だけだった。`bin/xs` は p2 と同じ
   52102d9e から a316fea4 への変化で、p2 の再実行で出力が変わらなかったものと同じ。付け直しで出力の md5 は変わらない（変わったのは deps の
   md5 と size だけ）。lattice-1C と compare-1C は同じブランチで再実行した。lattice-2A は付け直さず、changed のまま残す
+- 2026-10-23: 3baba57c0（ADR-0183 の docstring の変更）で openmc-1C とその extract が changed になり、compare-1C の `dvc repro` が OpenMC を始めた
+  （Slurm 454）。acfe57b01 で `dvc commit` により付け直した。「問題」の節と「案」の節に追記した
