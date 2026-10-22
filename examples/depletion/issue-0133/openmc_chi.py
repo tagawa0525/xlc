@@ -22,6 +22,7 @@ import openmc_depletion
 from openmc_common import group_filter
 
 NUCLIDES = ["U235", "U238"]
+FUEL_TEMPERATURE = 900.0
 
 
 def main():
@@ -41,12 +42,17 @@ def main():
     model.tallies = openmc.Tallies([tally])
     os.environ["OMP_NUM_THREADS"] = str(threads)
     openmc.config["cross_sections"] = run["cross-sections"]
-    # 解いた statepoint があれば解き直さず読む
-    done = sorted(work.glob("statepoint.*.h5"))
-    sp_path = done[-1] if done else model.run(cwd=work, output=False)
+    # 同じ粒子数と世代数で解いた statepoint があれば、解き直さずに読む（集計の名前 chi は読むときに確かめる）
+    done = work / f"statepoint.{batches}.h5"
+    sp_path = done if done.exists() else model.run(cwd=work, output=False)
     lib = msgpack.unpackb(Path(library).read_bytes(), strict_map_key=False)
     bounds = lib["group_bounds"]
     with openmc.StatePoint(sp_path) as sp:
+        if sp.n_particles != particles or sp.n_batches != batches:
+            raise SystemExit(
+                f"{sp_path}: {sp.n_particles} particles x {sp.n_batches} batches, "
+                f"not {particles} x {batches}"
+            )
         t = sp.get_tally(name="chi")
         print(f"k {sp.keff}")
         print(
@@ -63,8 +69,9 @@ def main():
                 n for n in lib["nuclides"] if n["name"] == f"{name[:1]}-{name[1:]}"
             )
             temps = entry["temperatures"]
+            # 1C の燃料の温度（900 K）そのものの χ。無ければ止める
             chis[name] = np.array(
-                min(temps, key=lambda x: abs(x["temperature"] - 900.0))["chi"]
+                next(x for x in temps if x["temperature"] == FUEL_TEMPERATURE)["chi"]
             )
         for g in range(len(bounds) - 1):
             if bounds[g] < 5e4:
@@ -74,10 +81,11 @@ def main():
                 o, x = rows[name][g], chis[name][g]
                 cells.append(f"{o:.5f} | {x:.5f} | {(x / o - 1) * 100:+.2f}")
             print(f"{g + 1} | {bounds[g]:.4g} | " + " | ".join(cells))
+        fast = [g for g in range(len(bounds) - 1) if bounds[g + 1] >= 1.35e6]
         for name in NUCLIDES:
             e = np.sqrt(np.array(bounds[:-1]) * np.maximum(np.array(bounds[1:]), 1e-5))
             print(
-                f"{name}: 1.35 MeV より上の割合 OpenMC {rows[name][:5].sum():.5f}, xlc {chis[name][:5].sum():.5f}; "
+                f"{name}: 1.353 MeV より上（群 1〜4）の割合 OpenMC {rows[name][fast].sum():.5f}, xlc {chis[name][fast].sum():.5f}; "
                 f"平均の対数エネルギー OpenMC {np.exp((rows[name] * np.log(e)).sum()):.4g}, xlc {np.exp((chis[name] * np.log(e)).sum()):.4g} eV"
             )
 

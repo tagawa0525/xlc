@@ -9,14 +9,19 @@ from pathlib import Path
 import msgpack
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from compare_depletion_assembly import check_same_run, openmc_name
+
 x = msgpack.unpackb(Path(sys.argv[1]).read_bytes(), strict_map_key=False)
 o = msgpack.unpackb(Path(sys.argv[2]).read_bytes(), strict_map_key=False)
+# 形式、輸送する核種、燃焼点、領域の順（対称操作の組と体積）が同じこと
+check_same_run(x, o)
 points = [int(a) for a in sys.argv[3:]]
 idx = {n: i for i, n in enumerate(x["nuclides"])}
 
 
 def consumed(n, r, i):
-    k = n.replace("-", "")
+    k = openmc_name(n)
     nx = [p["densities"][r][idx[n]] for p in x["points"]]
     no = o["regions"][r]["densities"][k]
     return ((nx[0] - nx[i]) / (no[0] - no[i]) - 1) * 100
