@@ -812,3 +812,38 @@ fn non_finite_totals_stop_the_thinning_as_without() {
         );
     }
 }
+
+#[test]
+fn fine_flux_integrates_to_the_group_flux() {
+    // 格子点ごとの中性子束（レサジーあたり、点の間で線形）を群ごとに台形で積分すると、同じ減速計算の群の中性子束になり、
+    // 群定数は細かい中性子束を返さない減速計算と同じ
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let range = [4.0, 1.0e4];
+    let plain = slowing_down_with(&lib, &cell, &rings, range, Collision::default(), None).unwrap();
+    let (spectrum, fine) =
+        slowing_down_fine(&lib, &cell, &rings, range, Collision::default(), None).unwrap();
+    assert_eq!(spectrum, plain);
+    assert_eq!(fine.flux.len(), rings.len());
+    assert!(fine.energies.windows(2).all(|w| w[0] >= w[1]));
+    let bounds = lib.groups.bounds();
+    let top = bounds.iter().position(|&b| b == range[1]).unwrap();
+    for (ring, f) in fine.flux.iter().enumerate() {
+        assert_eq!(f.len(), fine.energies.len());
+        for (g, &expected) in spectrum.flux[ring].iter().enumerate() {
+            let (high, low) = (bounds[top + g], bounds[top + g + 1]);
+            let integral: f64 = fine
+                .energies
+                .windows(2)
+                .zip(f.windows(2))
+                .filter(|(e, _)| e[0] <= high && e[1] >= low)
+                .map(|(e, f)| 0.5 * (e[0] / e[1]).ln() * (f[0] + f[1]))
+                .sum();
+            assert!(
+                (integral / expected - 1.0).abs() < 1e-9,
+                "ring {ring} group {g}: {integral} vs {expected}"
+            );
+        }
+    }
+}
