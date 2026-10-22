@@ -45,8 +45,8 @@ stages:
     deps:
     - path: ../../bin/chain
       hash: md5
-      md5: 917047172cc928018f61ea5e51273e11
-      size: 1953088
+      md5: ef4c832d9aa4571569e2d882324c2711
+      size: 1953152
       isexec: true
     - path: ../../references/endf/ENDF-B-VIII.0_decay
       hash: md5
@@ -5022,8 +5022,8 @@ stages:
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 22ce58f58723c5d4eaf038f3544f16b4
+      size: 7155448
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5035,20 +5035,20 @@ stages:
       size: 298727210
     - path: lattice-1C-rings1.toml
       hash: md5
-      md5: c07d2acf66ed7ff8cc46fe3369b1adde
-      size: 1903
+      md5: 3001059b51b4f2f7720f4dd0b8be7dbc
+      size: 1909
     outs:
     - path: lattice-1C-rings1.log
       hash: md5
-      md5: 97844f94babf1e79f5becb21f9c4edb2
-      size: 13892
+      md5: 63e7e3c4a50de3b74c3c0b9483a44566
+      size: 13893
     - path: lattice-1C-rings1.msgpack
       hash: md5
-      md5: 75c1b700841671e3c26f6a5ed32a6c02
-      size: 271095
+      md5: c16632e5a16714738239cc9b35b9324d
+      size: 271249
     - path: lattice-1C-rings1.out
       hash: md5
-      md5: 6ec4a9119ff22a21b5a868e63f16aedc
+      md5: 1cee11d966f22c79727738327c27e14c
       size: 144
   openmc-1C-extract@rings1:
     cmd: nix develop ../..#references -c python3 openmc_depletion.py extract 
@@ -5082,12 +5082,12 @@ stages:
     deps:
     - path: compare_depletion.py
       hash: md5
-      md5: b564e27c41d132d366d537da0ab90c7d
-      size: 8761
+      md5: 0e804e76102088061aec6da3d63645c9
+      size: 8779
     - path: lattice-1C-rings1.msgpack
       hash: md5
-      md5: 75c1b700841671e3c26f6a5ed32a6c02
-      size: 271095
+      md5: c16632e5a16714738239cc9b35b9324d
+      size: 271249
     - path: openmc-1C-rings1.msgpack
       hash: md5
       md5: 2c7d0331dc501952109992e17b2c856a
@@ -5095,16 +5095,16 @@ stages:
     outs:
     - path: compare-1C-rings1.json
       hash: md5
-      md5: 9b31099319c3b8d60ff123bdb3ee9a59
-      size: 3139
+      md5: 0f5417893f7cdab51479844242bfcf52
+      size: 3125
   lattice-1C@rings4:
     cmd: ../../bin/lattice lattice-1C-rings4.toml > lattice-1C-rings4.out 2> 
       lattice-1C-rings4.log
     deps:
     - path: ../../bin/lattice
       hash: md5
-      md5: f18cdbbec6f3c783cbe616a971292472
-      size: 7124432
+      md5: 22ce58f58723c5d4eaf038f3544f16b4
+      size: 7155448
       isexec: true
     - path: chain.msgpack
       hash: md5
@@ -5116,20 +5116,20 @@ stages:
       size: 298727210
     - path: lattice-1C-rings4.toml
       hash: md5
-      md5: 59c13cceda59980556017f66f50d0e33
-      size: 2780
+      md5: cab71052332b1b7c10e5aeed590ebea5
+      size: 2786
     outs:
     - path: lattice-1C-rings4.log
       hash: md5
-      md5: 0e7770dd33e129473ee8ece743bdfefb
-      size: 13899
+      md5: 5cfde7263a9f656621c5a25e841b1f4b
+      size: 13901
     - path: lattice-1C-rings4.msgpack
       hash: md5
-      md5: c7eb0d29fbd286dd26b5e54f1304c9c1
-      size: 993314
+      md5: e9fd47d7b5805bd78c8a660b054c17aa
+      size: 993468
     - path: lattice-1C-rings4.out
       hash: md5
-      md5: 54be2e38c7b4d655e6350b0585e3624e
+      md5: 8faf228a81677402bb1c772449d34bbc
       size: 144
   compare-1C@rings4:
     cmd: python3 compare_depletion.py --json compare-1C-rings4.json 
@@ -5137,12 +5137,12 @@ stages:
     deps:
     - path: compare_depletion.py
       hash: md5
-      md5: b564e27c41d132d366d537da0ab90c7d
-      size: 8761
+      md5: 0e804e76102088061aec6da3d63645c9
+      size: 8779
     - path: lattice-1C-rings4.msgpack
       hash: md5
-      md5: c7eb0d29fbd286dd26b5e54f1304c9c1
-      size: 993314
+      md5: e9fd47d7b5805bd78c8a660b054c17aa
+      size: 993468
     - path: openmc-1C-rings4.msgpack
       hash: md5
       md5: 011dfabbb6da7747e8168f8d84c389b2
@@ -5150,8 +5150,8 @@ stages:
     outs:
     - path: compare-1C-rings4.json
       hash: md5
-      md5: 312c6946923b0cbfe423ff136c11ea74
-      size: 3708
+      md5: 8b3a9f50c5fea258a0e0829b154204e0
+      size: 3693
   xs-nuclide@Eu-151:
     cmd: ../../bin/xs nuclide xs.toml xs-range.toml Eu-151 
       xs-nuclides/Eu-151.msgpack
