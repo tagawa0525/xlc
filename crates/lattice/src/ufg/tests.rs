@@ -452,6 +452,8 @@ fn close_ring_materials_give_the_group_constants_of_the_exact_tracks() {
     // 求めたものと近い（燃焼で外側の U-238 が減ったリング）。このセルで表だけの差（3 リングを同じ組成にしたとき）は 8e-7 で、
     // 展開の差（上限で衝突確率に 1e-5 の水準）がそれと同じ程度に加わる
     let (table, exact) = ring_cells([0.0221, 0.0220, 0.0218]);
+    // 表と展開を通っている（格子点ごとに求めたものと丸めで一致しない）
+    assert_ne!(table, exact);
     for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
         for (k, (t, e)) in t.iter().zip(e).enumerate() {
             let fields = [
@@ -516,4 +518,24 @@ fn capture_is_shielded_with_the_same_flux_as_fission() {
         assert_eq!(u238.capture, u238.fission);
         assert!(u238.capture.iter().any(|&c| c > 0.0));
     }
+}
+
+#[test]
+fn points_beyond_the_expansion_do_not_widen_the_axes() {
+    // 展開の上限を超える格子点は表を読まないので、軸の範囲を広げない（Gd の共鳴の頂点で燃料の軸が伸びて表が大きくならない）
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let layout = Layout::new(
+        &cell,
+        vec![Some(0), Some(1), Some(2), None, Some(3)],
+        vec![0, 0, 0, 1],
+    )
+    .unwrap();
+    let mut ranges = vec![[f64::INFINITY, f64::NEG_INFINITY]; 2];
+    assert!(widen_ranges(&layout, &[0.5, 0.5, 0.5, 1.4], &mut ranges));
+    assert!(!widen_ranges(
+        &layout,
+        &[10.0, 100.0, 1000.0, 1.5],
+        &mut ranges
+    ));
+    assert_eq!(ranges, vec![[0.5, 0.5], [1.4, 1.4]]);
 }
