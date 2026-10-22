@@ -1,5 +1,5 @@
 """#0133 の試行: 新しい燃料の 1C のピンセルを OpenMC で解き、燃料の U-235 と U-238 の核分裂で生まれる中性子の群ごとの割合
-（放出のスペクトル χ）を、xlc の多群ライブラリの χ（ADR-0042 の 1 本のベクトル）と比べる。
+（放出のスペクトル χ）を、xlc の多群ライブラリの χ（ADR-0186 の 1 本のベクトル）と比べる。
 
 使い方（references の devShell で）: python3 openmc_chi.py <openmc-1C-rings1.toml> <xlc のライブラリ> <作業ディレクトリ>
     <粒子数> <世代数> <非アクティブ> <スレッド数>
@@ -23,6 +23,7 @@ from openmc_common import group_filter
 
 NUCLIDES = ["U235", "U238"]
 FUEL_TEMPERATURE = 900.0
+ABOVE = 1.0e9
 
 
 def main():
@@ -34,7 +35,10 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     model, fuels = openmc_depletion.build(run)
     groups = group_filter(Path(library).resolve())
-    out_filter = openmc.EnergyoutFilter(groups.values)
+    # 群構造の上端（10 MeV）より上に生まれた中性子は、xlc の χ と同じく群 1 に数える（ライブラリの χ は群構造の外に出る分を
+    # 端の群に入れる。outgoing_group_integrals）。群 1 の上端を、評価済みデータの上限より上に広げる
+    out_bounds = list(groups.values)[:-1] + [ABOVE]
+    out_filter = openmc.EnergyoutFilter(out_bounds)
     tally = openmc.Tally(name="chi")
     tally.filters = [openmc.MaterialFilter([fuels[0]]), out_filter]
     tally.nuclides = NUCLIDES
@@ -55,7 +59,7 @@ def main():
             )
         t = sp.get_tally(name="chi")
         out_bins = t.find_filter(openmc.EnergyoutFilter).values
-        if not np.allclose(out_bins, groups.values, rtol=1e-12):
+        if not np.allclose(out_bins, out_bounds, rtol=1e-12):
             raise SystemExit(f"{sp_path}: the chi tally has other group bounds")
         print(f"k {sp.keff}")
         print(
