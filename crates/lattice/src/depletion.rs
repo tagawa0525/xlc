@@ -432,6 +432,84 @@ pub fn transport_name(material: &str, cell: usize) -> String {
     format!("{material}@{cell}")
 }
 
+/// 解く物質の名前（`<物質>@<セル>`）が、入力の物質 `materials` の名前と重ならないこと
+pub fn check_region_names(
+    materials: &[MaterialInput],
+    regions: &[DepletionRegion],
+) -> anyhow::Result<()> {
+    for d in regions {
+        let name = transport_name(&d.material, d.cell);
+        if materials.iter().any(|m| m.name == name) {
+            bail!("material `{name}` clashes with the name of a depletion region");
+        }
+    }
+    Ok(())
+}
+
+/// 領域ごとの解く物質の名前。燃焼させる物質 `depleted` の領域は、組の代表のセル `representatives`（[セル]）で
+/// `<物質>@<セル>` にする
+pub fn solved_names(
+    lattice: &Lattice,
+    region_materials: &[String],
+    representatives: &[usize],
+    depleted: &[String],
+) -> Vec<String> {
+    region_materials
+        .iter()
+        .enumerate()
+        .map(|(r, name)| {
+            if depleted.contains(name) {
+                transport_name(name, representatives[lattice.region_cell(r)])
+            } else {
+                name.clone()
+            }
+        })
+        .collect()
+}
+
+/// 燃焼の領域ごとの数密度 `n`（[領域][核種]）の負の値が、近似の誤差の水準であること（ADR-0173）。`name` は核種の名前
+pub fn check_negative(
+    regions: &[DepletionRegion],
+    n: &[Vec<f64>],
+    name: impl Fn(usize) -> String,
+) -> anyhow::Result<()> {
+    for (d, n) in regions.iter().zip(n) {
+        let largest = n.iter().fold(0.0_f64, |a, &b| a.max(b));
+        if let Some((i, v)) = n
+            .iter()
+            .enumerate()
+            .find(|&(_, &v)| v < -NEGATIVE_TOLERANCE * largest)
+        {
+            bail!(
+                "{} in material `{}` of cell {} is {v}, below the CRAM error",
+                name(i),
+                d.material,
+                d.cell
+            );
+        }
+    }
+    Ok(())
+}
+
+/// 燃焼の領域 `d` を解く物質: 温度 `temperature`、輸送する核種 `transported`（番号）の数密度 `n`（負の値は 0。燃焼の
+/// 輸送と履歴からの分岐で同じ。ADR-0173、ADR-0187）。`name` は核種の名前
+pub fn region_material(
+    d: &DepletionRegion,
+    temperature: f64,
+    n: &[f64],
+    transported: &[usize],
+    name: impl Fn(usize) -> String,
+) -> MaterialInput {
+    MaterialInput {
+        name: transport_name(&d.material, d.cell),
+        temperature,
+        composition: transported
+            .iter()
+            .map(|&i| (name(i), n[i].max(0.0)))
+            .collect(),
+    }
+}
+
 /// 燃焼させる物質 `depleted` の領域を、セルの組の代表 `representatives`（[セル]）と物質ごとにまとめる（現れる順）
 pub fn depletion_regions(
     lattice: &Lattice,
@@ -598,6 +676,10 @@ impl History {
             bail!("expected format {FORMAT}, found {}", file.format);
         }
         let (nuclides, regions, transportable) = (file.nuclides, file.regions, file.transportable);
+        // 燃焼の輸送は燃焼の領域のない格子で止まる（`run`）ので、領域のない履歴は書かれない
+        if regions.is_empty() {
+            bail!("the history has no depletion regions");
+        }
         if let Some(name) = transportable.iter().find(|n| !nuclides.contains(n)) {
             bail!("the transportable {name} is not a nuclide of the history");
         }
@@ -755,13 +837,7 @@ pub fn run(
             .find(|m| m.name == name)
             .ok_or_else(|| anyhow!("depleted material `{name}` is not written with nuclides"))
     };
-    // 解く物質の名前が、入力の物質の名前と重ならないこと
-    for d in &regions {
-        let name = transport_name(&d.material, d.cell);
-        if input.materials.iter().any(|m| m.name == name) {
-            bail!("material `{name}` clashes with the name of a depletion region");
-        }
-    }
+    check_region_names(&input.materials, &regions)?;
     // 初めの数密度（チェーンの順）
     let initial = regions
         .iter()
@@ -827,17 +903,12 @@ pub fn run(
         bail!("the depleted materials have no heavy metal (Z >= {HEAVY_METAL_Z})");
     }
     let power = depletion.power * mass;
-    let renamed: Vec<String> = region_materials
-        .iter()
-        .enumerate()
-        .map(|(r, name)| {
-            if depletion.materials.contains(name) {
-                transport_name(name, representatives[lattice.region_cell(r)])
-            } else {
-                name.clone()
-            }
-        })
-        .collect();
+    let renamed = solved_names(
+        lattice,
+        region_materials,
+        &representatives,
+        &depletion.materials,
+    );
     let groups = &library.groups;
     let mut transport = TransportTimes::default();
     let mut solves = 0;
@@ -845,21 +916,7 @@ pub fn run(
         solves += 1;
         let start = Instant::now();
         // 負の数密度は近似の誤差の水準だけを許し、輸送には入れない（ADR-0173）
-        for (d, n) in regions.iter().zip(n) {
-            let largest = n.iter().fold(0.0_f64, |a, &b| a.max(b));
-            if let Some((i, v)) = n
-                .iter()
-                .enumerate()
-                .find(|&(_, &v)| v < -NEGATIVE_TOLERANCE * largest)
-            {
-                bail!(
-                    "{} in material `{}` of cell {} is {v}, below the CRAM error",
-                    chain.nuclides[i].name,
-                    d.material,
-                    d.cell
-                );
-            }
-        }
+        check_negative(&regions, n, |i| chain.nuclides[i].name.clone())?;
         // 輸送できる核種はすべて、数密度が 0 でも輸送して反応率を求める（OpenMC も数密度を掛けない tally で、0 の核種に 1 原子
         // あたりの反応率を与える。始まりに 0 の Xe-135 も予測子で燃え尽きる）。どの領域でも同じ核種の並び（自己遮蔽は 1 つの
         // セルの燃料のリングに同じ並びを求める）
@@ -905,14 +962,13 @@ pub fn run(
             .cloned()
             .collect();
         for (d, n) in regions.iter().zip(n) {
-            materials.push(MaterialInput {
-                name: transport_name(&d.material, d.cell),
-                temperature: base(&d.material)?.temperature,
-                composition: composition
-                    .iter()
-                    .map(|&i| (chain.nuclides[i].name.clone(), n[i].max(0.0)))
-                    .collect(),
-            });
+            materials.push(region_material(
+                d,
+                base(&d.material)?.temperature,
+                n,
+                &composition,
+                |i| chain.nuclides[i].name.clone(),
+            ));
         }
         let shielded = shield_fuel_with(
             library,
