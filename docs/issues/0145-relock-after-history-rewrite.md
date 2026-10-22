@@ -24,9 +24,9 @@ lock の `a657fbde` に対して今は `63cb0331`（書き換えの前の版 `~/
 このため、下流のステージを `dvc repro` で流すと、上流（NJOY、xs、チェーン）も再実行される。2026-10-22 の `dvc status` で deps が
 changed のステージは c5g7、core、depletion、depletion/p2、m0、mox、reflector、vera、vera/endfb70、vera/endfb70/openmc、vera/endfb70/p3、
 vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書き換えより前に計算を実行せずにマージしたコードの変更（ADR-0130 の
-「帰結」のとおり）が混ざっており、すべてが書き換えによるものではない。
+「帰結」のとおり）が混ざっており、すべてが書き換えによるものではない。lock と再実行の扱いは ADR-0130 と ADR-0159 に従い、この issue はそれらを変えない。
 
-関係する ADR: ADR-0130、ADR-0159
+関係する ADR: なし
 
 ## 例ごとの扱い
 
