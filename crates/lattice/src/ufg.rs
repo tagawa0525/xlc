@@ -298,9 +298,6 @@ pub fn slowing_down_with(
         }
     }
 
-    if background.iter().flatten().any(Option::is_some) {
-        return Err(UfgError::Background(0));
-    }
     let started = Instant::now();
     // 核種（名前と温度の組）とリングの背景ごとのデータと、リングごとの（データの番号、個数密度）。背景の項の個数密度は 1
     // （断面積が巨視的）
@@ -620,8 +617,61 @@ fn lump<'a>(
     bounds: &'a [f64],
     groups: Range<usize>,
 ) -> Result<Data<'a>, UfgError> {
-    let _ = (library, members, bounds, groups);
-    Err(UfgError::Background(0))
+    let mut alphas = Vec::with_capacity(members.len());
+    let (mut power, mut scattering) = (0.0, 0.0);
+    for &(name, density, s) in members {
+        let awr = library
+            .nuclides
+            .iter()
+            .find(|n| n.name == name)
+            .ok_or_else(|| LookupError::Nuclide(name.into()))?
+            .awr;
+        let alpha = scattering_alpha(name, awr)?;
+        let (mut sum, mut width) = (0.0, 0.0);
+        for g in groups.clone() {
+            let du = (bounds[g] / bounds[g + 1]).ln();
+            sum += s.elastic[g] * du;
+            width += du;
+        }
+        let weight = density * sum / width;
+        power += weight * mean_lethargy_gain(alpha);
+        scattering += weight;
+        alphas.push(alpha);
+    }
+    let lightest = alphas.iter().copied().fold(f64::INFINITY, f64::min);
+    let heaviest = alphas.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    // 散乱のない背景（個数密度がすべて 0 など）は散乱の線源に効かないので、α は最も重い核種のものでよい
+    let alpha = if scattering > 0.0 {
+        let xi = power / scattering;
+        // ξ は α について単調に減るので、まとめた核種の α の間で二分法で解く
+        let (mut a, mut b) = (lightest, heaviest);
+        for _ in 0..200 {
+            let mid = 0.5 * (a + b);
+            if mean_lethargy_gain(mid) > xi {
+                a = mid;
+            } else {
+                b = mid;
+            }
+        }
+        0.5 * (a + b)
+    } else {
+        heaviest
+    };
+    let ng = bounds.len() - 1;
+    let rows = (0..ng)
+        .map(|g| {
+            let sum = |of: fn(&Shielded) -> &Vec<f64>| -> f64 {
+                members.iter().map(|&(_, n, s)| n * of(s)[g]).sum()
+            };
+            [sum(|s| &s.total), sum(|s| &s.elastic), 0.0, 0.0, 0.0]
+        })
+        .collect();
+    Ok(Data {
+        name: "background",
+        gain: 1.0 / (1.0 - alpha),
+        width: -alpha.ln(),
+        source: Source::Groups { bounds, rows },
+    })
 }
 
 /// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
@@ -821,7 +871,11 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, Uf
         Source::Pointwise(t) => t,
         Source::Groups { bounds, rows } => {
             // 群 g は (bounds[g + 1], bounds[g])。下端ちょうどの点は、低い側の極限なら次の群
-            let _ = (bounds, e, below);
+            while *cursor + 1 < rows.len()
+                && (e < bounds[*cursor + 1] || (below && e == bounds[*cursor + 1]))
+            {
+                *cursor += 1;
+            }
             return Ok(rows[*cursor]);
         }
     };
