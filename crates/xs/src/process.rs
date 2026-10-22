@@ -452,17 +452,17 @@ pub fn process_nuclide(
         thermal,
         settings,
     };
-    let temperatures = temperatures
-        .iter()
-        .map(|&t| {
-            common
-                .at_temperature(t)
-                .map_err(|source| ProcessError::Temperature {
-                    temperature: t,
-                    source: Box::new(source),
-                })
-        })
-        .collect::<Result<_, _>>()?;
+    // 温度ごとに独立なので並列に求める。温度の処理のうち格子点の並列（`unresolved_shielding`）の外の部分を、ほかの温度と
+    // 重ねる。結果は温度の順で、エラーは最初の温度のもの（順に求めたときと同じ）
+    let temperatures = in_parallel(temperatures.len(), |k| {
+        let t = temperatures[k];
+        common
+            .at_temperature(t)
+            .map_err(|source| ProcessError::Temperature {
+                temperature: t,
+                source: Box::new(source),
+            })
+    })?;
     Ok(NuclideData {
         name: name.to_string(),
         za: evaluation.za,
