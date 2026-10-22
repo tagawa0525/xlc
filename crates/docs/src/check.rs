@@ -539,7 +539,16 @@ fn check_amendment(adrs: &[Doc], existing: &BTreeSet<u32>, out: &mut Violations)
         let old = front_refs(adr, "amends", adr_refs, "ADR-", existing, out);
         amends.insert(adr.number, (adr.path, old));
     }
+    // proposed の ADR が挙げた ADR の決定は、まだ全体が効いているので、古い方に何も求めない
+    let proposed: BTreeSet<u32> = adrs
+        .iter()
+        .filter(|a| a.status() == "proposed")
+        .map(|a| a.number)
+        .collect();
     for (new, (path, olds)) in &amends {
+        if proposed.contains(new) {
+            continue;
+        }
         for old in olds {
             if !amended_by.get(old).is_some_and(|(_, s)| s.contains(new)) {
                 out.file(

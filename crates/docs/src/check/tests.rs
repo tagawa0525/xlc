@@ -970,3 +970,11 @@ fn checks_amendment_targets() {
         ],
     );
 }
+
+#[test]
+fn proposed_amends_leaves_the_old_adr_whole() {
+    let mut files = base();
+    with_amendment(&mut files, &adr(1), "");
+    edit(&mut files, ADR2, "status: accepted", "status: proposed");
+    assert_violations(files, &[]);
+}
