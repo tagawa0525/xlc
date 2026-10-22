@@ -13,7 +13,7 @@ MWd/kg、0 より大きく増える列）、1 世代の粒子数（`particles`�
 
 方式は ADR-0173 の表のとおり xlc と揃える: CE/CM（`CECMIntegrator`、CRAM48）、一定の出力密度（`timestep_units="MWd/kg"`）、
 チェーンの核分裂の Q で規格化（`normalization_mode="fission-q"`）、連続エネルギーの反応率（`reaction_rate_mode="direct"`）、
-収率は 112.5 eV（0.0253 eV と 500 keV の幾何平均。ADR-0164 の区間の境界）で熱と速に分ける（`fission_yield_mode="cutoff"`）。
+収率は 112.47 eV（0.0253 eV と 500 keV の幾何平均。ADR-0183）で熱と速に分ける（`fission_yield_mode="cutoff"`）。
 2 次元のピンセルなので、物質の体積は高さ 1 cm あたりの面積 (cm²) にする（出力と重金属の質量はどちらも 1 cm あたり）。
 
 run は作業ディレクトリに depletion_results.h5 を書き、輸送（`CoupledOperator.__call__`）と CRAM の時間を表示する。extract は
@@ -67,7 +67,7 @@ KEYS = {
     "threads",
 }
 PROBLEMS = ["1B", "1C", "1D"]
-# 収率の熱と速の境界 (eV): ADR-0164 の区間の境界（0.0253 eV と 500 keV の幾何平均）
+# 収率の熱と速の境界 (eV): 0.0253 eV と 500 keV の幾何平均（ADR-0183）
 YIELD_CUTOFF = math.sqrt(0.0253 * 5.0e5)
 # 輸送の時間（CoupledOperator.__call__ の 1 回ごと、s）
 TRANSPORT_SECONDS: list[float] = []
