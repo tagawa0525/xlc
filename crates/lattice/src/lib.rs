@@ -13,6 +13,7 @@ pub mod depletion;
 pub mod equivalent;
 pub mod fewgroup;
 pub mod geometry;
+pub mod history;
 pub mod input;
 pub mod macroscopic;
 pub mod material;
