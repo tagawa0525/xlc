@@ -4,7 +4,7 @@
 `balance` と `fuel_xs` の例で解く。
 
 使い方（references の devShell で）: python3 openmc_pin_rates_2a.py <openmc-1C-rings1.toml> <燃焼の作業ディレクトリ> <燃焼点の番号>
-    <xlc のライブラリ> <xlc の格子の入力のテンプレート> <作業ディレクトリ> <粒子数> <世代数> <非アクティブ> <スレッド数> <シード> <openmc-2A.msgpack>
+    <xlc のライブラリ> <xlc の格子の入力のテンプレート> <作業ディレクトリ> <粒子数> <世代数> <非アクティブ> <スレッド数> <シード> <openmc-2A.msgpack>（すべて要る）
 """
 
 import json
@@ -36,7 +36,9 @@ def xlc_name(name):
 def main():
     source, work_dep, index, library, template, work = sys.argv[1:7]
     particles, batches, inactive, threads = map(int, sys.argv[7:11])
-    seed = int(sys.argv[11]) if len(sys.argv) > 11 else 1
+    if len(sys.argv) != 13:
+        raise SystemExit(__doc__)
+    seed = int(sys.argv[11])
     index = int(index)
     run = openmc_depletion.read(Path(source).resolve())
     run.update(particles=particles, batches=batches, inactive=inactive, seed=seed)
@@ -47,13 +49,21 @@ def main():
     ]
     # 組成は 2A の結果（引数 12）から取る。work_dep は輸送する核種の一覧にだけ使う
     assembly = msgpack.unpackb(Path(sys.argv[12]).read_bytes())
+    if assembly["format"] != "openmc-depletion-assembly":
+        raise SystemExit(f"{sys.argv[12]}: not an OpenMC assembly depletion result")
+    if not 0 <= index < len(assembly["burnup"]):
+        raise SystemExit(f"point {index} is not in {len(assembly['burnup'])} points")
+    print(f"burnup {assembly['burnup'][index]} MWd/kg")
     weights = [r["volume"] for r in assembly["regions"]]
     total_volume = sum(weights)
     model, fuels = openmc_depletion.build(run)
     fuel = fuels[0]
     densities = {}
+    # 2A の結果に無い核種（1C だけで輸送する核種）は、両方の組成から外す。外した核種を出す
+    missing = [n for n in transportable if n not in assembly["regions"][0]["densities"]]
+    print(f"not in the 2A result: {missing}")
     for name in transportable:
-        if name not in assembly["regions"][0]["densities"]:
+        if name in missing:
             continue
         n = (
             sum(
@@ -151,11 +161,13 @@ def main():
     # xlc の格子の入力: テンプレートの燃料の組成を、この組成（xlc の名前）に置き換える
     text = Path(template).read_text()
     composition = ", ".join(f'"{xlc_name(n)}" = {v:.8e}' for n, v in densities.items())
-    text = re.sub(
+    text, count = re.subn(
         r"(\[material\.fuel\]\ntemperature = \d+\n)nuclides = \{[^}]*\}",
         lambda m: m.group(1) + f"nuclides = {{ {composition} }}",
         text,
     )
+    if count != 1:
+        raise SystemExit(f"{template}: no fuel composition to replace")
     (work / "lattice.toml").write_text(text)
     print(f"k {k}")
 

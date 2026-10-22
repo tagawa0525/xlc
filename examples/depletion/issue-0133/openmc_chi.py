@@ -54,6 +54,9 @@ def main():
                 f"not {particles} x {batches}"
             )
         t = sp.get_tally(name="chi")
+        out_bins = t.find_filter(openmc.EnergyoutFilter).values
+        if not np.allclose(out_bins, groups.values, rtol=1e-12):
+            raise SystemExit(f"{sp_path}: the chi tally has other group bounds")
         print(f"k {sp.keff}")
         print(
             "群 | 上端 (eV) | "
