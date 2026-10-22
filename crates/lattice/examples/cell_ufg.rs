@@ -18,7 +18,7 @@ use xlc_format::library::Library;
 use xlc_format::msgpack::to_named;
 use xlc_lattice::cp::Cylinder;
 use xlc_lattice::input::{CrossSections, LatticeInput, MaterialInput, VOID};
-use xlc_lattice::ufg::{MAX_TOP, slowing_down_with};
+use xlc_lattice::ufg::{MAX_TOP, no_background, slowing_down_with};
 
 #[derive(Serialize)]
 struct Rates {
@@ -128,7 +128,14 @@ fn main() -> anyhow::Result<()> {
         .position(|&b| b == high)
         .ok_or_else(|| anyhow!("no group bound at {high} eV"))?;
     let cylinder = Cylinder::new(radii.clone())?;
-    let spectrum = slowing_down_with(&library, &cylinder, &rings, range, input.collision)?;
+    let spectrum = slowing_down_with(
+        &library,
+        &cylinder,
+        &rings,
+        &no_background(&rings),
+        range,
+        input.collision,
+    )?;
     let volumes = cylinder.volumes();
     let mine: Vec<usize> = (0..rings.len())
         .filter(|&j| rings[j].is_some_and(|m| &m.name == name))

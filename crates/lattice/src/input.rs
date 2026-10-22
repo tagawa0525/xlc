@@ -5,6 +5,8 @@
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! track-table = 16               # 自己遮蔽の減速計算の飛程の表の、ln Σ の 10 倍あたりの格子点の数（省略すると 16。
 //!                                 # false で格子点ごとに求める。ADR-0156）
+//! pointwise = ["U-238", "O-16", "H-1"]   # 自己遮蔽の減速計算でポイントワイズの断面積で解く核種（省略するとすべて）。ほかの
+//!                                 # 核種は群の中で一定の断面積の背景にする（ADR-0185）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
 //! few-group = { output = "pincell.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }   # 少数群定数（library のとき）
 //! # pins = true を足すと、ピン出力の再構成の形状関数と角の不連続因子も書く（output では外周がすべて鏡面反射で、
@@ -89,7 +91,7 @@ use crate::branches::{Branches, BranchesEntry, Water};
 use crate::depletion::{DepletionFewGroup, DepletionInput};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
-use crate::shielding::ShieldingOptions;
+use crate::shielding::{PointwiseNuclides, ShieldingOptions};
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
 use crate::ufg::Collision;
@@ -179,6 +181,8 @@ pub struct LatticeInput {
     pub self_shielding: bool,
     /// 自己遮蔽の UFG の減速計算の飛程の求め方（ADR-0156）
     pub collision: Collision,
+    /// 自己遮蔽の UFG の減速計算でポイントワイズの断面積で解く核種（ADR-0185）
+    pub pointwise: PointwiseNuclides,
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
     pub pin_powers: Option<PathBuf>,
@@ -282,6 +286,8 @@ struct InputFile {
     self_shielding: Option<bool>,
     /// 省略すると ADR-0156 の既定の細かさ
     track_table: Option<TrackTableEntry>,
+    /// 省略するとすべての核種（ADR-0185）
+    pointwise: Option<Vec<String>>,
     cross_sections: Option<PathBuf>,
     /// 省略すると少数群定数を出さない
     few_group: Option<FewGroupEntry>,
@@ -571,10 +577,12 @@ fn positive(v: f64) -> bool {
 }
 
 impl LatticeInput {
-    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）だけで、ほかは既定の値
+    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）とポイントワイズで解く核種（`pointwise`）だけで、ほかは
+    /// 既定の値
     pub fn shielding_options(&self) -> ShieldingOptions {
         ShieldingOptions {
             collision: self.collision,
+            pointwise: self.pointwise.clone(),
             ..ShieldingOptions::default()
         }
     }
@@ -685,6 +693,13 @@ impl LatticeInput {
                     .into(),
             ));
         }
+        if !self_shielding && file.pointwise.is_some() {
+            return Err(invalid(
+                "`pointwise` is used only by the self-shielding (a library without `self-shielding = false`)"
+                    .into(),
+            ));
+        }
+        let pointwise = PointwiseNuclides::All;
         let collision = match file.track_table {
             None => Collision::default(),
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
@@ -909,6 +924,7 @@ impl LatticeInput {
         Ok(Self {
             self_shielding,
             collision,
+            pointwise,
             cross_sections,
             output,
             pin_powers: file.pin_powers,

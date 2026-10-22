@@ -1210,6 +1210,14 @@ mod lattice {
     /// の組（核種の並びは U-238、U-235、O-16）と、被覆管と水。飛程は既定の求め方（燃料のリングの物質は飛程の表の 1 つの軸を
     /// 共有する。ADR-0182）
     fn ring_fuel(rings: [(&str, f64); 3]) -> (Library, FuelShielding, Vec<MaterialInput>) {
+        ring_fuel_with(rings, &ShieldingOptions::default())
+    }
+
+    /// [`ring_fuel`] の、自己遮蔽の条件を `options` にしたもの
+    fn ring_fuel_with(
+        rings: [(&str, f64); 3],
+        options: &ShieldingOptions,
+    ) -> (Library, FuelShielding, Vec<MaterialInput>) {
         let library = resonant_library();
         let fuel = |name: &str, u235: f64| MaterialInput {
             name: name.into(),
@@ -1248,15 +1256,39 @@ mod lattice {
         ]
         .map(String::from)
         .to_vec();
-        let shielded = shield_fuel(
-            &library,
-            &tracking,
-            &materials,
-            &regions,
-            &ShieldingOptions::default(),
-        )
-        .unwrap();
+        let shielded = shield_fuel(&library, &tracking, &materials, &regions, options).unwrap();
         (library, shielded, materials)
+    }
+
+    #[test]
+    fn nuclides_left_out_of_the_pointwise_list_keep_their_multigroup_values() {
+        // ADR-0185: ポイントワイズで解く核種に挙げない燃料の U-235 は、UFG の範囲でも等価原理の値、被覆管の Zr-90 は
+        // 無限希釈の値。挙げた U-238 は、UFG の範囲でリングごとに遮蔽される
+        let options = ShieldingOptions {
+            pointwise: PointwiseNuclides::Only(vec!["U-238".into(), "O-16".into(), "H-1".into()]),
+            ..ShieldingOptions::default()
+        };
+        let (library, shielded, materials) = ring_fuel_with(
+            [("fuel", 5.0e-4), ("fuel", 5.0e-4), ("fuel", 5.0e-4)],
+            &options,
+        );
+        let pin = &shielded.pins[0];
+        let equivalence = Equivalence {
+            chord: 2.0 * 0.4096,
+            terms: pin.dancoff.iter().map(|&c| carlvik(c).unwrap()).collect(),
+        };
+        let carlvik = shield_material(&library, &materials[0], &equivalence, &options, 0).unwrap();
+        for ring in &pin.rings {
+            assert_eq!(ring[1], carlvik[1]);
+        }
+        for (a, b) in pin.effective[1].total.iter().zip(&carlvik[1].total) {
+            assert!((a - b).abs() <= 1e-12 * b, "{a} vs {b}");
+        }
+        assert!(pin.rings[0][0].total[1] < pin.rings[2][0].total[1]);
+        let dilute = library
+            .shielded("Zr-90", T, &vec![1.0e10; library.groups.len()])
+            .unwrap();
+        assert_eq!(shielded.region_cross_sections(4).unwrap()[0], dilute);
     }
 
     #[test]
