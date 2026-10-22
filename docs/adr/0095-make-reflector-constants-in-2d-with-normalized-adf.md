@@ -3,6 +3,7 @@ status: accepted
 date: 2026-10-09
 supersedes: []
 superseded-by:
+amended-by: [ADR-0132, ADR-0153]
 issues: []
 requires: []
 ---
