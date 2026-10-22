@@ -45,7 +45,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parent / "vera"))
 sys.path.insert(0, str(HERE))
-from compare_depletion_assembly import compared_openmc_names, orbit_std_rms
+from compare_depletion_assembly import cell_kinds, compared_openmc_names, orbit_std_rms
 from openmc_common import eigenvalue_settings, material
 from openmc_depletion import TRANSPORT_SECONDS, YIELD_CUTOFF, TimedOperator
 from openmc_input import input_path, read_input
@@ -753,7 +753,10 @@ def transport(source: Path, work: Path) -> None:
     work.mkdir(parents=True, exist_ok=True)
     os.environ["OMP_NUM_THREADS"] = str(run["threads"])
     openmc.config["cross_sections"] = run["cross-sections"]
-    model, _ = build(run)
+    model, region_list = build(run)
+    fissile, _ = cell_kinds(
+        [{"material": r.kind, "orbit": list(r.orbit)} for r in region_list]
+    )
     model.run(cwd=work, threads=run["threads"], output=False)
     with openmc.StatePoint(work / f"statepoint.{run['batches']}.h5") as sp:
         mean, std = pin_rows(sp, "mean"), pin_rows(sp, "std_dev")
@@ -768,7 +771,7 @@ def transport(source: Path, work: Path) -> None:
             "k": sp.keff.nominal_value,
             "k-std": sp.keff.std_dev,
             "pin-rms-std": float(np.sqrt(np.mean(relative**2))),
-            "orbit-rms-std": orbit_std_rms(mean.tolist(), std.tolist()),
+            "orbit-rms-std": orbit_std_rms(mean.tolist(), std.tolist(), fissile),
             "runtime": runtime,
         }
     (work / "transport.json").write_text(json.dumps(summary, indent=1) + "\n")
