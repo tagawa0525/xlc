@@ -66,6 +66,9 @@ pub enum UfgError {
     Singular(f64),
     #[error("ring {ring}: non-finite group constants in group {group}")]
     NonFinite { ring: usize, group: usize },
+    /// 核種を含むリングの縮約の結果がない（内部の不整合）
+    #[error("ring {ring}: internal error, nuclide {nuclide} was not collapsed")]
+    Uncollapsed { ring: usize, nuclide: usize },
     #[error(transparent)]
     Lookup(#[from] LookupError),
     #[error(transparent)]
@@ -480,9 +483,9 @@ pub fn slowing_down_with(
                     .iter()
                     .find(|(r, _)| *r == i)
                     .map(|(_, s)| s.clone())
-                    .ok_or(UfgError::NonFinite {
+                    .ok_or(UfgError::Uncollapsed {
                         ring: i,
-                        group: top,
+                        nuclide: k,
                     })?
             } else {
                 Shielded {
@@ -546,36 +549,48 @@ fn thin(
     let quantities = 2 * materials.len();
     // [点 × 量] の値。核種ごとに、その核種の格子を降順に進めながら足す（個数密度がどの物質でも 0 の核種は足さない）
     let mut values = vec![0.0; energies.len() * quantities];
+    // [核種][物質] の個数密度
+    let densities: Vec<Vec<f64>> = (0..data.len())
+        .map(|k| {
+            materials
+                .iter()
+                .map(|m| m.iter().filter(|&&(j, _)| j == k).map(|&(_, n)| n).sum())
+                .collect()
+        })
+        .collect();
+    let present = |k: usize| densities[k].iter().any(|&n| n != 0.0);
     for (k, d) in data.iter().enumerate() {
-        let densities: Vec<f64> = materials
-            .iter()
-            .map(|m| m.iter().filter(|&&(j, _)| j == k).map(|&(_, n)| n).sum())
-            .collect();
-        if densities.iter().all(|&n| n == 0.0) {
+        if !present(k) {
             continue;
         }
+        let densities = &densities[k];
         let p = d.pointwise();
         let mut cursor = p.energy.len();
         for (row, &e) in values.chunks_exact_mut(quantities).zip(energies) {
             let [total, elastic] = evaluate_total_elastic(d, &mut cursor, e)?;
-            for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(&densities) {
+            for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(densities) {
                 pair[0] += n * total;
                 pair[1] += n * elastic;
             }
         }
     }
+    // 減速計算と同じく、有限で負でない全断面積だけを受ける（NaN では傾きの範囲が決まらない）
+    if let Some(q) = values.iter().position(|v| !(v.is_finite() && *v >= 0.0)) {
+        let m = (q % quantities) / 2;
+        let ring = entries.iter().position(|r| r == materials[m]).unwrap_or(0);
+        return Err(CpError::Total(ring).into());
+    }
     let values: Vec<&[f64]> = values.chunks_exact(quantities).collect();
     // 補間の起点（範囲の上端と、残した不連続点）の値は、減速計算と同じく低い側の極限
     let lower = |e: f64| -> Result<Vec<f64>, UfgError> {
         let mut sums = vec![0.0; quantities];
-        for (k, d) in data.iter().enumerate() {
+        for (k, d) in data.iter().enumerate().filter(|&(k, _)| present(k)) {
             let x = &d.pointwise().energy;
             let mut cursor = x
                 .partition_point(|&v| v <= e)
                 .min(x.len().saturating_sub(1));
             let row = evaluate(d, &mut cursor, e, true)?;
-            for (pair, m) in sums.as_chunks_mut::<2>().0.iter_mut().zip(&materials) {
-                let n: f64 = m.iter().filter(|&&(j, _)| j == k).map(|&(_, n)| n).sum();
+            for (pair, &n) in sums.as_chunks_mut::<2>().0.iter_mut().zip(&densities[k]) {
                 pair[0] += n * row[0];
                 pair[1] += n * row[1];
             }
@@ -662,6 +677,7 @@ fn collapse(
     let mut previous: Option<(f64, Row)> = None;
     let mut last_flux = vec![0.0; rings];
     let mut node_flux = vec![0.0; rings];
+    let mut here_flux = vec![0.0; rings];
     let mut add =
         |group: usize, (ua, va): (f64, &Row), fa: &[f64], (ub, vb): (f64, &Row), fb: &[f64]| {
             let du = ub - ua;
@@ -673,7 +689,9 @@ fn collapse(
         };
     for (m, &(e, below)) in points.iter().enumerate() {
         let here = (u[m], evaluate(d, &mut cursor, e, below)?);
-        let here_flux: Vec<f64> = fluxes.iter().map(|f| f[m]).collect();
+        for (f, flux) in here_flux.iter_mut().zip(fluxes) {
+            *f = flux[m];
+        }
         if let Some(mut last) = previous {
             let upper = points[m - 1].0;
             while next > 0 && p.energy[next - 1] >= upper {
@@ -706,7 +724,7 @@ fn collapse(
             );
         }
         previous = Some(here);
-        last_flux = here_flux;
+        last_flux.clone_from(&here_flux);
         // 群の境界では、高い側の格子点で次の群に移る（減速計算と同じ）
         if group < ng && !below && e == group_bounds[group + 1] {
             group += 1;
