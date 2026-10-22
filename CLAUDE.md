@@ -31,8 +31,9 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
   `~/.claude/scripts/slurm-run.sh -t <見積もり> <名前> '<コマンド>'`（排他で、終わるまで待つ）。直接の `sbatch` は hook が止める。直接実行せず、`pgrep` で他の計算を監視しない。時間を記録しない長い計算は `-c <CPU 数>`（ハードウェアスレッドで数える）を付けて排他なしに流せるが、その時間は記録に書かない。
 - OpenMC のスレッド数は docs/environment.md の値を使う
 - `examples/<問題>/dvc.yaml` のある例は、`dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）でステージを
-  実行し、手でステージを選ばない（rebase のあとに数秒のステージだけ `-s` で再実行する /dvc-relock は例外）。重いときは `dvc repro`
-  全体を上の形で Slurm に流す。実行したら `dvc.lock` をコミットする（上流の `build` が書き換えたリポジトリの直下の `dvc.lock` も。ADR-0159）
+  実行する。重いときは全体を上の形で Slurm に流す。重いステージを 1 本ずつ流す、または参照解の待ちで全体が失敗するときは、
+  目標を指定する `dvc repro <yaml>:<ステージ>`（上流の changed は実行される。ADR-0184）。`-s` は上流を飛ばすので、rebase のあとに
+  数秒のステージを再実行する /dvc-relock だけに使う。実行したら `dvc.lock` をコミットする（上流の `build` が書き換えたリポジトリの直下の `dvc.lock` も。ADR-0159）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
   キャッシュと核データを共有する（ADR-0126）
 - `examples/vera/vera.msgpack` と VERA の参照解（OpenMC のライブラリ、statepoint、k）は examples/vera/dvc.yaml のステージの

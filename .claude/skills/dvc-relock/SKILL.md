@@ -91,7 +91,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    nix develop -c dvc repro -s <段階>
    ```
 
-   CLAUDE.md の「計算」は手で段階を選ばないと定めるが、rebase のあとの relock は ADR-0130 の「数秒で終わる段階だけ再実行してよい」の手段として、重い段階を
+   CLAUDE.md の「計算」は `-s` を /dvc-relock だけに限る（ADR-0184）。rebase のあとの relock は ADR-0130 の「数秒で終わる段階だけ再実行してよい」の手段として、重い段階を
    巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed の段階には使わない
    （古い出力から作ることになる）。lattice-1B の上流の xs が changed のときは、xs を実行しないので lattice-1B も
    実行しない（xs を含む約 9 分は、数秒の段階にならない）。実行した段階の出力を deps にする下流の段階（lattice-1B なら `compare-1B`）も
