@@ -221,11 +221,11 @@ pub fn slowing_down_with(
     collision: Collision,
     thinning: Option<f64>,
 ) -> Result<CellSpectrum, UfgError> {
-    solve_cell(library, cell, rings, range, collision, thinning, false).map(|(s, _)| s)
+    solve_cell(library, cell, rings, range, collision, thinning, None)
 }
 
-/// 減速計算の格子点ごとのリングの中性子束（[`slowing_down_fine`]。[`slowing_down_with`] の内部では空）。
-#[derive(Debug, Clone, PartialEq)]
+/// 減速計算の格子点ごとのリングの中性子束（[`slowing_down_fine`]）。
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct FineFlux {
     /// 格子点のエネルギー (eV)、降順（不連続点は同じエネルギーの 2 点）
     pub energies: Vec<f64>,
@@ -243,7 +243,17 @@ pub fn slowing_down_fine(
     collision: Collision,
     thinning: Option<f64>,
 ) -> Result<(CellSpectrum, FineFlux), UfgError> {
-    solve_cell(library, cell, rings, range, collision, thinning, true)
+    let mut fine = FineFlux::default();
+    let spectrum = solve_cell(
+        library,
+        cell,
+        rings,
+        range,
+        collision,
+        thinning,
+        Some(&mut fine),
+    )?;
+    Ok((spectrum, fine))
 }
 
 #[tracing::instrument(name = "ufg", level = "debug", skip_all)]
@@ -254,8 +264,8 @@ fn solve_cell(
     range: [f64; 2],
     collision: Collision,
     thinning: Option<f64>,
-    keep_fine: bool,
-) -> Result<(CellSpectrum, FineFlux), UfgError> {
+    fine: Option<&mut FineFlux>,
+) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
     if rings.len() != n {
@@ -550,27 +560,17 @@ fn solve_cell(
         }
         nuclides.push(list);
     }
-    // 細かい中性子束を返さないときは空（格子点の数 × リングの数の中性子束をここで捨てる）
-    let fine = if keep_fine {
-        FineFlux {
-            energies: points.iter().map(|&(e, _)| e).collect(),
-            flux: std::mem::take(&mut sweep.flux),
-        }
-    } else {
-        FineFlux {
-            energies: Vec::new(),
-            flux: Vec::new(),
-        }
-    };
-    Ok((
-        CellSpectrum {
-            groups: top..bottom,
-            flux: sweep.group_flux,
-            nuclides,
-            points: u.len(),
-        },
-        fine,
-    ))
+    // 頼まれたときだけ格子点ごとの中性子束を渡す（頼まれなければ、格子点の数 × リングの数の中性子束はここで捨てる）
+    if let Some(fine) = fine {
+        fine.energies = points.iter().map(|&(e, _)| e).collect();
+        fine.flux = std::mem::take(&mut sweep.flux);
+    }
+    Ok(CellSpectrum {
+        groups: top..bottom,
+        flux: sweep.group_flux,
+        nuclides,
+        points: u.len(),
+    })
 }
 
 /// 降順のエネルギー `energies` を、リングの物質（`entries` の同じ並びは 1 つ）ごとの巨視的な全断面積と弾性散乱断面積が、残した点の
