@@ -37,8 +37,8 @@ PWR の解析コード。xs（ENDF から多群定数）→ lattice（MOC の格
 - `dvc repro` を投げる前に、走りうるステージを数えて見積もる（出力を戻した、ジョブを実行する worktree で）。
   `dvc status --with-deps <yaml>:<ステージ>` の changed と、目標の上流（`dvc dag --dot <yaml>:<ステージ>`）のうちその下流に
   あるもの（`dvc status` と `dvc repro --dry` は、上流が出力を書き換えた後に走る下流を出さない。上流が同じ出力を書けば下流は
-  飛ぶので上限）。上流に参照解（数時間の OpenMC）が入っていれば、投げずに原因（deps の文書だけの変更など）を調べる。
-  時間は、過去のログで同じステージを同じ数だけ実行したジョブから取る（`grep -o "Running stage '[^'@]*" <ログ> | sort | uniq -c`）。
+  飛ぶので上限）。走るステージに参照解（数時間の OpenMC）が入っていれば、投げずに原因（deps の文書だけの変更など）を調べる。
+  時間は、過去のログで実行したステージの数の一覧（`grep -o "Running stage '[^'@]*" <ログ> | sort | uniq -c`）の全体が同じジョブから取る。
   2026-10-22 に、65 核種の作り直しを多群の作成のないジョブから 45 分と見積もって 2 時間 5 分かかり（Slurm 452）、文書だけを
   直した deps で changed になった 5 時間の OpenMC を目標の上流に入れて投げ、12 分で止めた（Slurm 454）
 - worktree の `references` は main の `references/` への symlink（`.worktreelink`。worktree-add.sh が作る）で、DVC の
