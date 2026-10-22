@@ -98,7 +98,7 @@ ADR-0173 の「核分裂の収率のエネルギーの重み」の段落と、Op
   核種で 14 MeV と 2 MeV に重みを置かない、熱の点のない U-238 の型、1 点、熱か高速の点がちょうどない場合）、
   `fissionless_regions_put_the_yield_weight_on_the_first_point`。入力（crates/lattice/src/input/tests.rs）:
   `depletion_rejects_a_yield_cutoff_entry`
-- 1C の比較（examples/depletion/verification.md の「格子計算の燃焼」。xlc は 0587676e、分岐点は main の a6c577d4、2026-10-22）:
+- 1C の比較（examples/depletion/verification.md の「格子計算の燃焼」。xlc は 7405f61e、分岐点は main の a6c577d4、2026-10-22）:
   収率で決まる核種の OpenMC との差は、1 リングのすべての燃焼点で I-135 +0.02%、Cs-133 0.00%、Rh-103 +0.19〜+0.20%、Nd-149 +0.10%、
   Pm-149 +0.01〜+0.12%、Pm-147 +0.03〜+0.13%、Pm-148m −0.12〜+0.93%（4 リングも 1% 以内）。k∞ の差の 0 の点からの変化は 1 リングで
   −17〜+116 pcm、4 リングで −15〜+43 pcm。1 リングの 5 MWd/kg の超過は収率の重みでなく、OpenMC の燃焼の最後の点の k の外れ（#0133）が

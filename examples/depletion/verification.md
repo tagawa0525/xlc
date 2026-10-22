@@ -176,7 +176,7 @@ python3 examples/depletion/compare_depletion.py --report examples/depletion/comp
 
 OpenMC は 8dcacf81、分岐点は main の 64a04368、2026-10-16（Slurm の排他のジョブ 409。ライブラリは Pm-147、Pm-148、Pm-149、
 Am-242m、Eu-151 を含む）。履歴の書き換え（#0141）のあと、OpenMC とライブラリのステージは再実行せずに `dvc commit` で付け直した
-（2402e350。deps の差はコメントだけ。#0145）。xlc の格子と比較は 0587676e、分岐点は main の a6c577d4、2026-10-22（Slurm の
+（3517e466。deps の差はコメントだけ。#0145）。xlc の格子と比較は 7405f61e、分岐点は main の a6c577d4、2026-10-22（Slurm の
 排他のジョブ 430。時間の表の xlc の行はこの実行の値）。
 比較の入力は `lattice-1C-rings1.msgpack` md5 c16632e5、`openmc-1C-rings1.msgpack` md5 2c7d0331、
 `lattice-1C-rings4.msgpack` md5 e9fd47d7、`openmc-1C-rings4.msgpack` md5 011dfabb（JSON の `inputs`）。
