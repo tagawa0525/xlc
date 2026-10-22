@@ -1,7 +1,7 @@
 # 格子計算の燃焼の検証（ADR-0173）: VERA Problem 1C のピンセル（燃料 900 K、被覆管と減速材 600 K、ホウ素 1300 ppm。
 # ../vera/p1/pincell-1C.toml と同じ形状、組成、離散化）を、燃料 1 リングの燃焼の領域で、分岐なしの 1 つの状態で燃焼させる。
 # OpenMC の参照解は openmc-1C-rings1.toml。出力密度 38.41 W/g は VERA Problem 9 のサイクル 1 の平均（16.939 GWd/MT / 441 EFPD）。
-library = "../../examples/depletion/depletion.msgpack"
+library = "../depletion.msgpack"
 pitch = 1.26
 azimuthal = 64
 spacing = 0.02
@@ -55,10 +55,9 @@ zones = [
 sectors = 8
 
 [depletion]
-chain = "../../examples/depletion/chain.msgpack"
+chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
 materials = ["fuel"]
-output = "rings1-cutoff.msgpack"
+output = "rings1-base.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5] }
-yield-cutoff = { energy = 112.5, thermal = 0.0253, fast = 5e5 }
