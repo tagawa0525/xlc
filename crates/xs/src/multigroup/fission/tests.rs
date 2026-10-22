@@ -40,11 +40,11 @@ fn spectrum_follows_incident_interpolation() {
 
 #[test]
 fn each_part_of_the_neutrons_enters_chi_by_its_nubar() {
-    // 即発は ν = 2 ですべて高い群に、遅発は ν = 0.5 ですべて低い群に生まれる
+    // 即発は ν = 2 ですべて高い群に、遅発は ν = 0.5 ですべて低い群に生まれる（どちらの密度も積分がちょうど 1）
     let high = parse_mf5(&two_point_mf5(
         "1",
-        ("1.0+6", "2.0+7", "5.263158-8"),
-        ("1.0+6", "2.0+7", "5.263158-8"),
+        ("1.0+6", "2.0+6", "1.0-6"),
+        ("1.0+6", "2.0+6", "1.0-6"),
     ));
     let low = parse_mf5(&two_point_mf5(
         "1",

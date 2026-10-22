@@ -17,7 +17,7 @@ mod tape;
 
 use std::fmt;
 
-pub use mf1::parse_nubar;
+pub use mf1::{parse_delayed_nubar, parse_nubar};
 pub use mf2::{
     BwLValue, BwResonance, Mf2, Mlbw, OrbitalL, ParticlePair, RMatrixLimited, RangeKind,
     ReichMoore, ResonanceRange, RmLValue, RmResonance, RmlChannel, RmlResonance, SpinGroup,

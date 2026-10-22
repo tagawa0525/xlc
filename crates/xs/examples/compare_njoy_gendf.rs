@@ -18,8 +18,8 @@ use std::collections::BTreeMap;
 use xlc_format::group::GroupStructure;
 use xlc_xs::endf::{Mf3, Mf4, Mf5, Mf6, Tape, parse_nubar};
 use xlc_xs::multigroup::{
-    Emission, Reactions, Weight, fission_spectrum, reaction_averages, scattering_moments,
-    uses_angular,
+    Emission, FissionNeutrons, Reactions, Weight, fission_spectrum, reaction_averages,
+    scattering_moments, uses_angular,
 };
 use xlc_xs::pointwise::{DEFAULT_TOLERANCE, reconstruct};
 
@@ -101,7 +101,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tape.section(mat, 5, 18),
         reference.section(mat, 6, 18),
     ) {
-        let ours = fission_spectrum(&groups, &Weight::lwr(), fission, nu, &Mf5::parse(&section)?);
+        // GROUPR の MF6 MT18 は MF5 MT18 の分布だけを使うので、遅発中性子の分布（MF5 MT455）は混ぜない
+        let spectrum = Mf5::parse(&section)?;
+        let ours = fission_spectrum(
+            &groups,
+            &Weight::lwr(),
+            fission,
+            &[FissionNeutrons {
+                nubar: nu,
+                spectrum: &spectrum,
+            }],
+        );
         let njoy = read_gendf_chi(&gendf, ng)?;
         let mut worst = (0.0_f64, 0);
         for (g, (&expected, &actual)) in njoy.iter().zip(&ours).enumerate() {
