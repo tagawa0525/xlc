@@ -135,7 +135,7 @@ while :; do
       elif grep -qE "$expired" <<< "$out"; then
         echo "ATTENTION: aws login expired; aws login をやり直す（次の間隔で読み直す）"
       else
-        echo "ATTENTION: aws_run.sh failed (rc=$rc)"; echo "$st"; exit 3
+        echo "ATTENTION: aws_run.sh failed (rc=$rc)"; echo "$out"; exit 3
       fi
     fi
   fi
