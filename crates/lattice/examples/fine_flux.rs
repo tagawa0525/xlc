@@ -4,9 +4,9 @@
 //! 使い方: fine_flux <格子の入力 (TOML)> <出力 (msgpack)>
 //!
 //! 等価なセルは、ピンのリングを減速材の始まりまでそのまま使い、外半径を自己遮蔽で求めた等価なセルの外半径にする（自己遮蔽の
-//! `solve_equivalent_cell` と同じ形。支持格子のあるセルは受け付けない）。範囲、飛程の求め方、格子の間引きも自己遮蔽と同じ。出力は
-//! 格子点のエネルギー（降順）と、燃料のリングと減速材のリングの体積で平均したレサジーあたりの中性子束（規格化は範囲の上端で 1/E の
-//! 中性子束が 1）。
+//! `solve_equivalent_cell` と同じ形。支持格子のあるセルは受け付けない）。範囲、飛程の求め方、格子の間引きも自己遮蔽と同じ。
+//! 燃料のリングの UFG の範囲の全断面積が自己遮蔽の結果と合わなければ止まる。出力は格子点のエネルギー（降順）と、燃料のリングと
+//! 減速材のリングの体積で平均したレサジーあたりの中性子束（規格化は範囲の上端で 1/E の中性子束が 1）。
 
 use std::path::Path;
 
@@ -90,7 +90,7 @@ fn main() -> anyhow::Result<()> {
         .collect::<Result<_, _>>()?;
     let range = cell_range(&library, &inputs)?.ok_or_else(|| anyhow!("no UFG range"))?;
     let cylinder = Cylinder::new(radii[..start].iter().copied().chain([radius]).collect())?;
-    let (_, fine) = slowing_down_fine(
+    let (spectrum, fine) = slowing_down_fine(
         &library,
         &cylinder,
         &inputs,
@@ -98,6 +98,21 @@ fn main() -> anyhow::Result<()> {
         options.collision,
         options.thinning,
     )?;
+    // 等価なセルの形を自己遮蔽の `solve_equivalent_cell` からコピーしているので、燃料のリングの UFG の範囲の群定数が自己遮蔽の結果と
+    // 同じことを確かめる（自己遮蔽の側の作り方が変わって、ここが別のセルを解くようになれば止まる）
+    for (ring, shielded) in pin.rings.iter().enumerate() {
+        for (k, (s, f)) in shielded.iter().zip(&spectrum.nuclides[ring]).enumerate() {
+            for g in spectrum.groups.clone() {
+                let (a, b) = (s.total[g], f.total[g - spectrum.groups.start]);
+                if (a - b).abs() > 1e-12 * a.abs().max(b.abs()) {
+                    return Err(anyhow!(
+                        "ring {ring} nuclide {k} group {}: the shielding gave {a}, this cell {b}",
+                        g + 1
+                    ));
+                }
+            }
+        }
+    }
     let volumes = cylinder.volumes();
     let average = |ring_set: std::ops::Range<usize>| -> Vec<f64> {
         let v: f64 = volumes[ring_set.clone()].iter().sum();
