@@ -7,7 +7,17 @@ pub(crate) fn two_point_mf5(
     first: (&str, &str, &str),
     second: (&str, &str, &str),
 ) -> String {
-    let r = |f: [&str; 6]| rec(f, 1, 5, 18);
+    two_point_mf5_for(18, lf, first, second)
+}
+
+/// `two_point_mf5` の分布を、MF5 の反応 `mt` として書く。
+pub(crate) fn two_point_mf5_for(
+    mt: u32,
+    lf: &str,
+    first: (&str, &str, &str),
+    second: (&str, &str, &str),
+) -> String {
+    let r = |f: [&str; 6]| rec(f, 1, 5, mt);
     [
         r(["9.223500+4", "2.330248+2", "0", "0", "1", "0"]),
         r(["0.0", "0.0", "0", lf, "1", "2"]),
