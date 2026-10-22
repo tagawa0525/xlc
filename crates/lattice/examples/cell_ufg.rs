@@ -128,7 +128,14 @@ fn main() -> anyhow::Result<()> {
         .position(|&b| b == high)
         .ok_or_else(|| anyhow!("no group bound at {high} eV"))?;
     let cylinder = Cylinder::new(radii.clone())?;
-    let spectrum = slowing_down_with(&library, &cylinder, &rings, range, input.collision, None)?;
+    let spectrum = slowing_down_with(
+        &library,
+        &cylinder,
+        &rings,
+        range,
+        input.collision,
+        input.thinning,
+    )?;
     let volumes = cylinder.volumes();
     let mine: Vec<usize> = (0..rings.len())
         .filter(|&j| rings[j].is_some_and(|m| &m.name == name))
