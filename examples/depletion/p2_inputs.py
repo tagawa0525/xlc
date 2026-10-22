@@ -180,6 +180,8 @@ def lattice_input(job: str) -> str:
         "# OpenMC の入力と同じ表（openmc_depletion_assembly.py）から p2_inputs.py が書く。手で直さない。集合体の周りに水のギャップ 0.04 cm。\n"
         f"# 燃焼させる物質は {', '.join(region_kinds)}（対称操作の組ごとに 1 つの領域。ADR-0173）。\n"
         'library = "depletion.msgpack"\n'
+        # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積の相対差 1e-4 で間引く。燃焼の入力に書く値（ADR-0185）
+        "ufg-tolerance = 1e-4\n"
         "pitch = 1.26\n"
         "azimuthal = 30\n"
         "spacing = 0.03\n"
