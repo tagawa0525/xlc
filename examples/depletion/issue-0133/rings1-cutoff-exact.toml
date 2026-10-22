@@ -61,4 +61,3 @@ burnup = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
 materials = ["fuel"]
 output = "rings1-cutoff-exact.msgpack"
 few-group = { bounds = [1e7, 0.625, 1e-5] }
-yield-cutoff = { energy = 112.47221879201995, thermal = 0.0253, fast = 5e5 }
