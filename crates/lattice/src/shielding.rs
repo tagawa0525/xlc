@@ -549,13 +549,13 @@ pub fn shield_fuel_with(
     // 代表のピンのエネルギーの格子点の数（解いた順）と、移り合うピンへの複製の時間
     let mut points: Vec<usize> = Vec::new();
     let mut replicate = Duration::ZERO;
-    let assembly = Instant::now();
+    let serial = Instant::now();
     for ((cell, fuel_regions, ring_materials, rings), planned) in pins.into_iter().zip(plan) {
         let factors = factors[cell]
             .as_ref()
             .ok_or(SelfShieldingError::FuelShape(cell))?;
-        let copying = Instant::now();
         if let Some((_, s)) = solved.iter().find(|(c, _)| *c == orbits[cell]) {
+            let copying = Instant::now();
             assign(
                 lattice,
                 cell,
@@ -675,11 +675,11 @@ pub fn shield_fuel_with(
         shielded.pins.push(pin.clone());
         solved.push((cell, Solved { pin, assigned }));
     }
-    let assembly = assembly.elapsed().as_secs_f64();
+    let serial = serial.elapsed().as_secs_f64();
     tracing::info!(
         replicate = replicate.as_secs_f64(),
-        build = assembly - replicate.as_secs_f64(),
-        "pin results (s): replicate = copies for the symmetric pins, build = materials of the solved pins"
+        solved = serial - replicate.as_secs_f64(),
+        "serial loop over the pins (s): replicate = the copies to the symmetric pins, solved = the rest (the materials of the solved pins)"
     );
     tracing::info_span!("lumps").in_scope(|| {
         shield_lumps(
@@ -714,8 +714,8 @@ pub fn shield_fuel_with(
     tracing::info!(
         pins = shielded.pins.len(),
         solved = solved.len(),
-        points_min = points.iter().min().copied().unwrap_or(0),
-        points_max = points.iter().max().copied().unwrap_or(0),
+        points_min = ?points.iter().min(),
+        points_max = ?points.iter().max(),
         points_sum = points.iter().sum::<usize>(),
         "fuel pins and their symmetry representatives"
     );
@@ -1253,26 +1253,29 @@ fn solve_equivalent_cell<'a>(
         .into_iter()
         .chain(radii[pin.rings..start].iter().copied())
         .collect();
-    let mut sum = 0.0;
-    let radius_span = tracing::info_span!("equivalent-radius").entered();
-    for (g, &c) in dancoff.iter().enumerate().take(bottom).skip(top) {
-        let totals: Vec<f64> = [0.0]
-            .into_iter()
-            .chain(
-                ring_index[pin.rings..start]
-                    .iter()
-                    .map(|&i| dilute[i].total[g]),
-            )
-            .chain([dilute[moderator].total[g]])
-            .collect();
-        // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
-        let outer = frame.map(|(i, area)| OuterRing {
-            area,
-            total: dilute[i].total[g],
-        });
-        sum += equivalent_radius(&inner, &totals, outer, c.max(MIN_DANCOFF))?;
-    }
-    drop(radius_span);
+    let sum = tracing::info_span!("equivalent-radius").in_scope(
+        || -> Result<f64, SelfShieldingError> {
+            let mut sum = 0.0;
+            for (g, &c) in dancoff.iter().enumerate().take(bottom).skip(top) {
+                let totals: Vec<f64> = [0.0]
+                    .into_iter()
+                    .chain(
+                        ring_index[pin.rings..start]
+                            .iter()
+                            .map(|&i| dilute[i].total[g]),
+                    )
+                    .chain([dilute[moderator].total[g]])
+                    .collect();
+                // Dancoff 係数がセルの数値誤差より小さいピンは、孤立したピンと区別できない（C の違いは MIN_DANCOFF 以下）
+                let outer = frame.map(|(i, area)| OuterRing {
+                    area,
+                    total: dilute[i].total[g],
+                });
+                sum += equivalent_radius(&inner, &totals, outer, c.max(MIN_DANCOFF))?;
+            }
+            Ok(sum)
+        },
+    )?;
     let radius = sum / (bottom - top) as f64;
     let cylinder = Cylinder::new(
         radii[..start]
@@ -1386,48 +1389,48 @@ fn shield_cell(
     let infinite = *library.sigma0.first().ok_or(LookupError::NoSigma0)?;
     let mut rings = Vec::with_capacity(inputs.len());
     let mut ring_nuclides = Vec::with_capacity(inputs.len());
-    let ring_span = tracing::info_span!("ring-materials").entered();
-    for (j, input) in inputs.iter().enumerate() {
-        let Some(m) = input else {
-            rings.push(None);
-            ring_nuclides.push(None);
-            continue;
-        };
-        let mut fulls = Vec::with_capacity(m.composition.len());
-        let nuclides = m
-            .composition
-            .iter()
-            .enumerate()
-            .map(|(k, (name, density))| {
-                let mut full = if j < pin.rings {
-                    carlvik[k].clone()
-                } else {
-                    library.shielded(name, m.temperature, &vec![infinite; ng])?
-                };
-                let ufg = &spectrum.nuclides[j][k];
-                for g in top..bottom {
-                    full.total[g] = ufg.total[g - top];
-                    full.elastic[g] = ufg.elastic[g - top];
-                    full.fission[g] = ufg.fission[g - top];
-                    full.nu_fission[g] = ufg.nu_fission[g - top];
-                    full.capture[g] = ufg.capture[g - top];
+    tracing::info_span!("ring-materials").in_scope(|| -> Result<(), SelfShieldingError> {
+        for (j, input) in inputs.iter().enumerate() {
+            let Some(m) = input else {
+                rings.push(None);
+                ring_nuclides.push(None);
+                continue;
+            };
+            let mut fulls = Vec::with_capacity(m.composition.len());
+            let nuclides = m
+                .composition
+                .iter()
+                .enumerate()
+                .map(|(k, (name, density))| {
+                    let mut full = if j < pin.rings {
+                        carlvik[k].clone()
+                    } else {
+                        library.shielded(name, m.temperature, &vec![infinite; ng])?
+                    };
+                    let ufg = &spectrum.nuclides[j][k];
+                    for g in top..bottom {
+                        full.total[g] = ufg.total[g - top];
+                        full.elastic[g] = ufg.elastic[g - top];
+                        full.fission[g] = ufg.fission[g - top];
+                        full.nu_fission[g] = ufg.nu_fission[g - top];
+                        full.capture[g] = ufg.capture[g - top];
+                    }
+                    let nuclide = shielded_nuclide(library, name, m.temperature, &full)?;
+                    fulls.push(full);
+                    Ok((nuclide, *density))
+                })
+                .collect::<Result<Vec<_>, SelfShieldingError>>()?;
+            ring_nuclides.push(Some(Arc::new(fulls)));
+            let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
+                SelfShieldingError::Material {
+                    name: m.name.clone(),
+                    source,
                 }
-                let nuclide = shielded_nuclide(library, name, m.temperature, &full)?;
-                fulls.push(full);
-                Ok((nuclide, *density))
-            })
-            .collect::<Result<Vec<_>, SelfShieldingError>>()?;
-        ring_nuclides.push(Some(Arc::new(fulls)));
-        let material = Material::from_nuclides(&nuclides, ng).map_err(|source| {
-            SelfShieldingError::Material {
-                name: m.name.clone(),
-                source,
-            }
-        })?;
-        rings.push(Some(material));
-    }
-
-    drop(ring_span);
+            })?;
+            rings.push(Some(material));
+        }
+        Ok(())
+    })?;
 
     // SPH 因子: 同じセルを多群で解いた中性子束のリング間の形が UFG と一致するよう、リングの物質に掛ける。
     // 範囲の上の群の中性子束は UFG と同じく F = 1（群のレサジー幅）
@@ -1548,7 +1551,7 @@ fn shield_material(
             .fold(0.0, f64::max);
         totals = tables.iter().map(|s| s.total.clone()).collect();
         if change <= options.tolerance {
-            tracing::info!(
+            tracing::debug!(
                 iterations = iteration,
                 nuclides = tables.len(),
                 dilute = dilute.iter().flatten().count(),
