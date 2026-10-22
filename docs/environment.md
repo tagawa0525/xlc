@@ -155,11 +155,13 @@ examples/aws/aws_terminate.sh m3     # 途中で止める（タグ XlcRun が m3
 `aws_run.sh --job J1 --job J2 ... --spot --type auto [--statepoint-interval N] [--retry-failed] <name>` で起動し直す（aws_run.sh が
 1 本の vCPU の上限を残り ÷ 起動するジョブの数で割る。ADR-0171。N は定義の progress が `statepoint` のときだけで、欠けたジョブが
 すべて `openmc-3?` なら 50、ほかが混じれば 25。欠けたジョブに done が 0 以外のものがあれば `--retry-failed`）。空きや候補がなければ次の回に回し、起動し直しの
-回数は実際に起動した台数を数えて上限（既定 60）で終了コード 2、認証切れ（`aws login` の期限は約 12 時間。VM は動き続ける）は
-4、そのほかの失敗は 3、全部 done なら `ALL DONE` で 0。起動は `nohup examples/aws/aws_watch.sh m3 > ~/aws-watch-m3.log 2>&1 &`
+回数は実際に起動した台数を数えて上限（既定 60）で終了コード 2、起動時の認証切れ（`aws login` の期限は約 12 時間。VM は動き続ける）は
+4、そのほかの起動時の失敗は 3、全部 done なら `ALL DONE` で 0。起動は `nohup examples/aws/aws_watch.sh m3 > ~/aws-watch-m3.log 2>&1 &`
 のような形で、1 回ごとに 1 行（時刻、done の数、欠けたジョブ、失敗、回数）を書く。同じ `<name>` の監視は 1 つだけで、
 `flock` のロック（`~/.cache/xlc/aws-watch-<name>.lock`）が 2 秒待っても取れなければ「すでに走っている」と出して 1 で終わる。
 欠けたジョブが残りの起動の回数（`--limit`）より多いときは、残りの数までを起動する。
+動き出したあとの読み取り（`aws_status.sh` と done）の失敗は終了せず、`ATTENTION:` の行を出して次の間隔で読み直し、読めない間は起動し直さない
+（認証切れの疑いは `aws login` のやり直しを求める。終了コードでは分からないので、ログの `ATTENTION:` を見る）。
 走っているかは `aws_watch.sh --status <name>`（走っていれば 0、いなければ 1）で確かめる。`pgrep -f` や `pkill -f` は使わない
 （コマンド文字列が別の待ちループや自分のシェルに当たり、2026-10-14 に監視が 2 時間止まった）。
 
