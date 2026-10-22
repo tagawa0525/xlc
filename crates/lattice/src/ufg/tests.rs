@@ -689,3 +689,103 @@ fn thinned_grids_give_the_group_constants_of_the_full_grid() {
         }
     }
 }
+
+#[test]
+fn a_vanishing_tolerance_gives_the_group_constants_tallied_in_the_sweep() {
+    // ADR-0185: 核種の格子での縮約は、間引かない格子では減速計算の中の積分と同じ値になる（許容差を丸めの程度にすると格子は
+    // 間引かないものとほぼ同じ）
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let solve = |thinning| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        )
+        .unwrap()
+    };
+    let (full, collapsed) = (solve(None), solve(Some(1.0e-14)));
+    for (a, b) in collapsed.nuclides.iter().zip(&full.nuclides) {
+        for (x, y) in a.iter().zip(b) {
+            for (p, q) in x
+                .total
+                .iter()
+                .zip(&y.total)
+                .chain(x.capture.iter().zip(&y.capture))
+            {
+                let d = if *q == 0.0 {
+                    p.abs()
+                } else {
+                    (p / q - 1.0).abs()
+                };
+                assert!(d < 1e-9, "{p} vs {q}");
+            }
+        }
+    }
+}
+
+#[test]
+fn thinned_grids_keep_both_limits_of_discontinuities() {
+    // [`discontinuities_keep_both_limits`] と同じ段差を、間引いた格子でも両側の値で縮約する
+    let step = Spec {
+        name: "Pu-239",
+        awr: 236.999,
+        top: None,
+        points: vec![
+            [4.0, 10.0, 0.0, 0.0],
+            [500.0, 10.0, 0.0, 0.0],
+            [500.0, 20.0, 0.0, 0.0],
+            [2.0e4, 20.0, 0.0, 0.0],
+        ],
+    };
+    let lib = library(vec![
+        constant("U-238", 236.0, 11.0, 11.0, 0.0),
+        constant("H-2", 1.9968, 3.4, 3.4, 0.0),
+        step,
+    ]);
+    let fuel = material(&[("U-238", 0.022), ("Pu-239", 0.002)]);
+    let water = material(&[("H-2", 0.05)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let rings = [Some(&fuel), Some(&water)];
+    let solve = |thinning| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        )
+        .unwrap()
+    };
+    let (full, thinned) = (solve(None), solve(Some(1.0e-4)));
+    let k = 3 - full.groups.start;
+    let (a, b) = (
+        thinned.nuclides[0][1].total[k],
+        full.nuclides[0][1].total[k],
+    );
+    assert!((a / b - 1.0).abs() < 1e-4, "{a} vs {b}");
+}
+
+#[test]
+fn void_cells_stop_with_an_error_when_thinned() {
+    // 物質のないセルは、間引くときも間引かないときと同じくエラーで止まる（パニックしない）
+    let lib = library(vec![constant("H-1", 0.99917, 20.0, 20.0, 0.0)]);
+    let cell = Cylinder::new(vec![0.4, 0.7]).unwrap();
+    let rings = [None, None];
+    for thinning in [None, Some(1.0e-4)] {
+        let result = slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        );
+        assert!(result.is_err(), "{thinning:?}");
+    }
+}
