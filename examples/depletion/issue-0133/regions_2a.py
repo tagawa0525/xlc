@@ -17,6 +17,8 @@ o = msgpack.unpackb(Path(sys.argv[2]).read_bytes(), strict_map_key=False)
 # 形式、輸送する核種、燃焼点、領域の順（対称操作の組と体積）が同じこと
 check_same_run(x, o)
 points = [int(a) for a in sys.argv[3:]]
+if not all(0 < i < len(x["points"]) for i in points):
+    raise SystemExit(f"points must be in 1..{len(x['points']) - 1}, got {points}")
 idx = {n: i for i, n in enumerate(x["nuclides"])}
 
 

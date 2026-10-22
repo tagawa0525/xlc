@@ -33,9 +33,11 @@ def orbit(i, j):
     return tuple(sorted((abs(i - c), abs(j - c)), reverse=True))
 
 
-assert abs(x["points"][point]["burnup"] - o["burnup"][point]) < 1e-6
+if not 0 <= point < len(x["points"]):
+    raise SystemExit(f"point {point} is not in {len(x['points'])} points")
 for name in swap:
-    assert name in x["transportable"], name
+    if name not in x["transportable"]:
+        raise SystemExit(f"{name} is not a transported nuclide")
 orbits = [tuple(r["orbit"]) for r in o["regions"]]
 text = Path(template).read_text()
 text = text[: text.index("[depletion]")].rstrip() + "\n"
@@ -50,6 +52,9 @@ text = re.sub(
     flags=re.MULTILINE,
 )
 head, rest = text.split("[material.fuel]", 1)
+temperature = re.match(r"\ntemperature = (\S+)\n", rest)
+if temperature is None:
+    raise SystemExit(f"{template}: no fuel temperature")
 rest = rest.split("\n", 3)[3]  # temperature と nuclides の行を除く
 cell_start = rest.index("# 燃料のピン")
 cell_end = rest.index("# 案内管")
@@ -67,7 +72,7 @@ for r, orb in enumerate(orbits):
             dens[n] = v
     comp = ", ".join(f'"{n}" = {v:.10e}' for n, v in dens.items())
     materials.append(
-        f"[material.fuel-{r}]\ntemperature = 565\nnuclides = {{ {comp} }}\n"
+        f"[material.fuel-{r}]\ntemperature = {temperature.group(1)}\nnuclides = {{ {comp} }}\n"
     )
 cells = "".join(
     pin_cell.replace("[cell.pin]", f"[cell.pin-{r}]").replace(
@@ -90,5 +95,6 @@ for line in lines:
         line = '  "' + " ".join(new) + '",'
         row += 1
     out_lines.append(line)
-assert row == N
+if row != N:
+    raise SystemExit(f"{template}: {row} rows, not {N}")
 Path(out).write_text("\n".join(out_lines) + "".join(materials) + "\n" + rest)

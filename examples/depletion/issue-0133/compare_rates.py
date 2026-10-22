@@ -56,7 +56,7 @@ for name in names:
     key = name.replace("-", "")
     r = omc["rates"].get(name)
     if r is None or key not in xs:
-        continue
+        raise SystemExit(f"{name}: not in the OpenMC rates or the xlc cross sections")
     n = omc["densities"][name]
     x = xs[key]
     tot, el, fi = (np.array(x[s]) for s in ("total", "elastic", "fission"))

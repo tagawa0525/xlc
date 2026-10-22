@@ -1,5 +1,5 @@
-"""#0133 の試行: 2A の xlc と OpenMC の燃焼の履歴の数密度から、ステップごとの 1 原子あたりの消滅率 ln(N_i/N_{i+1})/Δt を
-核種ごとに出し、xlc/OpenMC − 1 を比べる（生成の項は無視するので、U-235、U-238 のように生成の小さい核種で読む）。
+"""#0133 の試行: 2A の xlc と OpenMC の燃焼の履歴の数密度から、ステップごとの 1 原子あたりの消滅の積分 ln(N_i/N_{i+1}) を
+核種ごとに出し（両方のステップは同じ。check_same_run が確かめる）、xlc/OpenMC − 1 を比べる（生成の項は無視するので、U-235、U-238 のように生成の小さい核種で読む）。
 
 使い方: python3 rates_2a.py <lattice-2A.msgpack> <openmc-2A.msgpack> [核種 ...]
 """
@@ -31,7 +31,6 @@ names = sys.argv[3:] or [
 idx = {n: i for i, n in enumerate(x["nuclides"])}
 w = np.array([r["volume"] for r in x["regions"]])
 w = w / w.sum()
-t = np.array([p["time"] for p in x["points"]])
 bu = np.array([p["burnup"] for p in x["points"]])
 
 
@@ -51,7 +50,7 @@ for n in names:
     ax, ao = nx @ w, no @ w
     res[n] = (ax, ao)
 print("燃焼度 | " + " | ".join(f"{n} N差% / 率差%" for n in names))
-for i in range(len(t) - 1):
+for i in range(len(bu) - 1):
     row = [f"{bu[i]:g}-{bu[i + 1]:g}"]
     for n in names:
         ax, ao = res[n]
