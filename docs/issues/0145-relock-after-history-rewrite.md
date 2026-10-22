@@ -28,18 +28,20 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
 
 ### 参照解の deps の .py を文書だけ直しても changed になる（2026-10-23）
 
-ADR-0183 のマージ（3baba57c0）が examples/depletion/openmc_depletion.py の docstring とコメントだけを直した（112.5 → 112.47 eV と
-引く ADR の番号）。このファイルは `openmc-1C` と `openmc-1C-extract` の deps（examples/depletion/dvc.yaml）なので、5 時間の OpenMC の燃焼と
-その extract が changed になった。χ の担当が compare-1C を目標に `dvc repro` を流すと OpenMC が始まり、12 分で止めた（Slurm 454）。
-`dvc commit` で付け直した（ブランチ feat/0133-fission-spectrum の dc0b47ff8。lock の古い md5 は 3baba57c0 の直前のファイルで、出力は同じコードから
+ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が examples/depletion/openmc_depletion.py の docstring とコメントだけを直した（112.5 → 112.47 eV と
+引く ADR の番号）。このファイルは `openmc-1C` と `openmc-1C-extract` の deps（examples/depletion/dvc.yaml）なので、OpenMC の燃焼（3517e4666 は 1.5 時間 × 2、ae44d4efd の本文は 5 時間と書く。どちらも確かめていない）と
+その extract が changed になった。χ の担当が compare-1C を目標に `dvc repro` を流すと OpenMC が始まり、止めた（Slurm 454。ae44d4efd の本文による。12 分で止めたというのは担当の報告で、確かめていない）。
+`dvc commit` で付け直した（ブランチ feat/0133-fission-spectrum の ae44d4efd。lock の古い md5 は 3baba57c0 の直前のファイルで、出力は同じコードから
 できている。3517e4666 が上の書き換えのあとに行ったのと同じ手段）。
 
 - /dvc-relock、/git-merge、CLAUDE.md に、`dvc commit` で付け直す手順はない。/dvc-relock が拠る ADR-0130 は、走らせなかったステージの
   changed を「そのままでよい」とする
-- 3517e4666 と dc0b47ff8 の `dvc commit` は、ADR-0143 と ADR-0159 の案 B が退けた形（出力を変えないかの判断が人に残り、lock が
-  記録した deps のコードで実行していない出力を指す）を、その場の判断で使っている
-- Rust は ADR-0159 の `build`（ADR-0160 で strip）が実行ファイルを deps にするので、コメントだけの変更は計算のステージを動かさない。
-  deps が実行ファイルでなくソースそのものである .py にはその仕組みがなく、文書だけの変更が出力の再計算の候補になる
+- 3517e4666 と ae44d4efd の `dvc commit` は、ADR-0159 の案 B（ADR-0143 の帰結と ADR-0130 の案 L も同じ理由で退けた形。出力を変えないかの
+  判断が人に残り、lock が記録した deps のコードで実行していない出力を指す）を、その場の判断で使っている。ADR-0159 の移行は同じ手段を
+  1 回だけ、変更の直前に changed でなかったステージに限って使った。この 2 回は、その限り方を ADR で決めずに使った
+- Rust は ADR-0159 の `build`（ADR-0160 で strip）が実行ファイルを deps にするので、実行ファイルのバイトが変わらない変更（tests.rs だけの
+  変更など）は計算のステージを動かさない。ただしコードの行をずらすコメントは、実行ファイルを変えうる（ADR-0159 が測った）。
+  deps がソースそのものである .py には、バイトの同一で止める仕組みがなく、文書だけの変更が出力の再計算の候補になる
 
 関係する ADR: なし
 
@@ -72,12 +74,12 @@ ADR-0183 のマージ（3baba57c0）が examples/depletion/openmc_depletion.py �
 
 ### 参照解の deps の .py の文書だけの変更への案（決めていない。決めるときは ADR）
 
-- (a) 参照解の deps の .py を文書だけ直すマージの前に、`dvc commit` で付け直す手順を /dvc-relock に足す。ADR-0143 と ADR-0159 の案 B が
+- (a) 参照解の deps の .py を文書だけ直すマージの前に、`dvc commit` で付け直す手順を /dvc-relock に足す。ADR-0130 の案 L、ADR-0143 の帰結、ADR-0159 の案 B が
   退けた形との整合（コメントと docstring だけの差を「同じコード」とみなす条件と、その確かめ方）を ADR で決める要がある
 - (b) ADR-0159 と ADR-0160 の延長で、.py の deps を、docstring とコメントを除いた AST の正規形を出す段の出力に替える。構造で防ぐ案で、
   正規形を作る段（数秒）と、deps を替える dvc.yaml の変更が要る
-- (c) 当面は CLAUDE.md の「`dvc repro` を投げる前に走るステージを数える」規則（ブランチ docs/0150-estimate-dvc-repro-stages。
-  マージは親が行う）で防ぐ。走るステージに参照解が入っていれば、投げずに原因を調べる。事故の費用（12 分）は防ぐが、changed のままの
+- (c) 当面は CLAUDE.md の「`dvc repro` を投げる前に走るステージを数える」規則（docs/0150-estimate-dvc-repro-stages。
+  main に入っている）で防ぐ。走るステージに参照解が入っていれば、投げずに原因を調べる。事故の費用は防ぐが、changed のままの
   ステージは残る
 
 ## 完了の条件
@@ -103,4 +105,4 @@ ADR-0183 のマージ（3baba57c0）が examples/depletion/openmc_depletion.py �
   52102d9e から a316fea4 への変化で、p2 の再実行で出力が変わらなかったものと同じ。付け直しで出力の md5 は変わらない（変わったのは deps の
   md5 と size だけ）。lattice-1C と compare-1C は同じブランチで再実行した。lattice-2A は付け直さず、changed のまま残す
 - 2026-10-23: 3baba57c0（ADR-0183 の docstring の変更）で openmc-1C とその extract が changed になり、compare-1C の `dvc repro` が OpenMC を始めた
-  （Slurm 454、12 分で止めた）。dc0b47ff8 で `dvc commit` により付け直した。「問題」の節と「案」の節に追記した
+  （Slurm 454）。ae44d4efd で `dvc commit` により付け直した。「問題」の節と「案」の節に追記した
