@@ -21,8 +21,7 @@ import msgpack
 import tomllib
 
 HERE = pathlib.Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
-DEPLETION = ROOT / "examples" / "depletion"
+DEPLETION = HERE.parent
 
 
 def materials_toml(materials):
@@ -72,7 +71,7 @@ def one_c():
     cells = src[src.index("[cell.pin]") : src.index("[depletion]")]
     header = (
         "# #0129 の試行: 1C の 4 リングの 5 MWd/kg の組成（make_inputs.py が書く）\n"
-        'library = "../../examples/depletion/depletion.msgpack"\n'
+        'library = "../depletion.msgpack"\n'
         'medium = "@STEM@.medium.msgpack"\n'
         "pitch = 1.26\nazimuthal = 64\nspacing = 0.02\n"
     )
@@ -85,7 +84,7 @@ def gadolinium():
     cells = src[src.index("# Gd 燃料のピン") : src.index("# 案内管")]
     header = (
         "# #0129 の試行: 2O の Gd のピンのピンセル（make_inputs.py が書く）\n"
-        'library = "../../examples/depletion/p2/depletion.msgpack"\n'
+        'library = "../p2/depletion.msgpack"\n'
         'medium = "@STEM@.medium.msgpack"\n'
         "pitch = 1.26\nazimuthal = 30\nspacing = 0.03\n"
     )
@@ -148,20 +147,16 @@ def depletion():
     one = (DEPLETION / "lattice-1C-rings4.toml").read_text()
     one = one.replace(
         'library = "depletion.msgpack"',
-        'library = "../../examples/depletion/depletion.msgpack"',
+        'library = "../depletion.msgpack"',
     )
-    one = one.replace(
-        'chain = "chain.msgpack"', 'chain = "../../examples/depletion/chain.msgpack"'
-    )
+    one = one.replace('chain = "chain.msgpack"', 'chain = "../chain.msgpack"')
     depletion_pair("1C-rings4", one)
     two = (DEPLETION / "p2" / "lattice-2O.toml").read_text()
     two = two.replace(
         'library = "depletion.msgpack"',
-        'library = "../../examples/depletion/p2/depletion.msgpack"',
+        'library = "../p2/depletion.msgpack"',
     )
-    two = two.replace(
-        'chain = "../chain.msgpack"', 'chain = "../../examples/depletion/chain.msgpack"'
-    )
+    two = two.replace('chain = "../chain.msgpack"', 'chain = "../chain.msgpack"')
     two = re.sub(r"burnup = \[[^\]]*\]", "burnup = [0.1]", two, flags=re.DOTALL)
     two = two.replace(
         'materials = ["fuel"',

@@ -1,9 +1,10 @@
 # #0129 の試行: 2O の Gd のピンのピンセル（make_inputs.py が書く）
-library = "../../examples/depletion/p2/depletion.msgpack"
-medium = "gd-fresh-table.medium.msgpack"
+library = "../p2/depletion.msgpack"
+medium = "gd-fresh-exact.medium.msgpack"
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
+track-table = false
 rows = ["gd"]
 
 [material.zircaloy]

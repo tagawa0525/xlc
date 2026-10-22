@@ -1,5 +1,5 @@
 # #0129 の試行: 1C の 4 リングの 5 MWd/kg の組成（make_inputs.py が書く）
-library = "../../examples/depletion/depletion.msgpack"
+library = "../depletion.msgpack"
 medium = "1C-5-exact.medium.msgpack"
 pitch = 1.26
 azimuthal = 64

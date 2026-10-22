@@ -5,7 +5,7 @@
 # OpenMC の入力と同じ表（openmc_depletion_assembly.py）から p2_inputs.py が書く。手で直さない。集合体の周りに水のギャップ 0.04 cm。
 # 燃焼させる物質は fuel, gd0, gd1, gd2, gd3, gd4, gd5, gd6, gd7（対称操作の組ごとに 1 つの領域。ADR-0173）。
 track-table = false
-library = "../../examples/depletion/p2/depletion.msgpack"
+library = "../p2/depletion.msgpack"
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
@@ -254,7 +254,7 @@ zones = [
 sectors = 8
 
 [depletion]
-chain = "../../examples/depletion/chain.msgpack"
+chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1]
 few-group = { bounds = [1e7, 0.625, 1e-5] }
