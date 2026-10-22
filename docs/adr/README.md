@@ -17,6 +17,8 @@ status: accepted      # proposed | accepted | rejected | superseded | deprecated
 date: 2026-10-08      # 最後に status が変わった日（accepted なら決めた日）
 supersedes: []        # この ADR が置き換えた ADR（例: [ADR-0002]）
 superseded-by:        # この ADR を置き換えた ADR（例: ADR-0007。複数なら [ADR-0068, ADR-0074]）
+amends: []            # この ADR が一部を置き換えた ADR（例: [ADR-0013]）。なければ書かなくてよい
+amended-by: []        # この ADR の一部を置き換えた ADR（例: [ADR-0129]）。なければ書かなくてよい
 issues: []            # きっかけになった、またはこの ADR で解決した issue（例: ["#0001"]）
 requires: []          # 前提にしている ADR（例: [ADR-0068]）。なければ空。design-records check が求める
 ---
@@ -77,15 +79,15 @@ requires: []          # 前提にしている ADR（例: [ADR-0068]）。なけ�
 - 実装をマージするブランチで、proposed の ADR の本文（「確認」に実際のテストと結果、「帰結」）を実装に合わせて直し、
   同じ変更で `status: accepted` にして `date` をその日にする。採らないと決めたら `status: rejected` にし、理由を「帰結」に
   短く書き、`date` をその日にする
-- accepted、rejected、superseded になった ADR は変えられなくなる。直してよいのは、誤字、リンクの直し、`status` と
-  `superseded-by` の変更だけである。決定の全体を変えるときは新しい ADR を作り、新しい方の `supersedes` と古い方の
+- accepted、rejected、superseded になった ADR は変えられなくなる。直してよいのは、誤字、リンクの直し、`status`、
+  `superseded-by`、`amends`、`amended-by` の変更だけである。決定の全体を変えるときは新しい ADR を作り、新しい方の `supersedes` と古い方の
   `superseded-by` で両方向に結び、古い方を `status: superseded` にする
 - main にマージする前は、ブランチの上の ADR を status によらず自由に直してよい
 - 置き換える ADR は、古い決定のうちまだ有効な部分を書き直して含む（採用中の ADR だけで、いまの状態が分かるようにする）
 - 古い決定の一部だけを変える ADR は、古い ADR を `requires` に入れ、「決定と理由」か「帰結」に「これは ADR-NNNN の
   「…」の部分を置き換える。ほかの部分は変わらない」と、置き換える部分を古い ADR の語で書く。ADR 全体の置き換えではない
-  ので、どちらのフロントマターも `supersedes` / `superseded-by` を使わず、古い方の status も変えない（例: ADR-0129、
-  ADR-0132、ADR-0183）
+  ので、`supersedes` / `superseded-by` は使わず、新しい方の `amends` と古い方の `amended-by` で両方向に結び
+  （`design-records check` が一致を確かめる）、古い方の status は変えない（例: ADR-0129、ADR-0132、ADR-0183）
 - 採用中の ADR は、決定を正しく書いていればよい。実装が決定に追いついていないときは、その差を「帰結」に書き、
   issue に結ぶ（例: ADR-0013 と #0012、ADR-0076 と #0014）
 - フロントマターの `issues` には、その ADR のきっかけになった issue と、その ADR で解決する issue だけを書く。issue の側は
