@@ -361,6 +361,7 @@ fn named(name: &str, boron: f64, temperature: f64) -> CaseState {
         b10: 0.199,
         moderator: temperature,
         fuel: temperature,
+        burnup: None,
         banks: Default::default(),
     }
 }
@@ -389,6 +390,7 @@ fn parses_boron_searches() {
             b10: 0.199,
             moderator: 565.0,
             fuel: 565.0,
+            burnup: None,
             banks: Default::default(),
         }]
     );
@@ -399,6 +401,7 @@ fn parses_boron_searches() {
             b10: 0.199,
             moderator: 565.0,
             fuel: 565.0,
+            burnup: None,
         }
     );
 }
@@ -1285,4 +1288,28 @@ fn case_may_write_axial_pin_powers() {
         Some(PathBuf::from("dir/layers.msgpack"))
     );
     assert_eq!(case().axial_pin_powers, None);
+}
+
+#[test]
+fn states_give_one_burnup_to_every_assembly() {
+    // ケースの状態の燃焼度は炉心のすべての集合体に同じ値（ADR-0187）
+    let text = edited(
+        &format!("{CASE}{SEARCH}"),
+        "fuel = 565\n",
+        "fuel = 565\nburnup = 10.5\n",
+    );
+    let c = Case::parse(&text, base()).unwrap();
+    assert_eq!(c.states[0].burnup, Some(10.5));
+    assert_eq!(c.states[0].at(1200.0).burnup, Some(10.5));
+    let bad = |value: &str| {
+        let text = edited(
+            &format!("{CASE}{SEARCH}"),
+            "fuel = 565\n",
+            &format!("fuel = 565\nburnup = {value}\n"),
+        );
+        Case::parse(&text, base()).is_err()
+    };
+    assert!(bad("-1.0"));
+    assert!(bad("nan"));
+    assert!(bad("inf"));
 }
