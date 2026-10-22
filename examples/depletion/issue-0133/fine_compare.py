@@ -21,11 +21,13 @@ phi = np.array(o["flux"])
 
 
 def xlc_integral(a, c):
-    # レサジーについて台形で ∫F du（点の間は線形）
-    grid = np.concatenate(
-        [[np.log(a)], u[(u > np.log(a)) & (u < np.log(c))], [np.log(c)]]
-    )
-    return np.trapezoid(np.interp(grid, u, F), grid)
+    # レサジーについて台形で ∫F du（点の間は線形）。区間の中の格子点はその値のまま使う（不連続点の同じエネルギーの 2 点は、
+    # 補間せずに両側の極限の値を持つ）。区間の端だけを補間する
+    ua, uc = np.log(a), np.log(c)
+    inner = (u > ua) & (u < uc)
+    grid = np.concatenate([[ua], u[inner], [uc]])
+    values = np.concatenate([[np.interp(ua, u, F)], F[inner], [np.interp(uc, u, F)]])
+    return np.trapezoid(values, grid)
 
 
 if not (e.min() <= lo * 1.0001 and hi <= e.max() * 1.0001):

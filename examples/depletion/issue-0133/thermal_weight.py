@@ -3,7 +3,6 @@
 OpenMC の群の捕獲断面積の比と並べる。
 使い方: python3 thermal_weight.py <作業ディレクトリ> <cross_sections.xml> <温度 K> <核種 ...>"""
 
-import re
 import sys
 from pathlib import Path
 
@@ -11,12 +10,8 @@ import msgpack
 import numpy as np
 import openmc.data
 
-
-def openmc_name(name):
-    """xlc の核種の名前（Pm-148m）を OpenMC の名前（Pm148_m1）にする"""
-    symbol, mass, isomer = re.fullmatch(r"([A-Z][a-z]?)-(\d+)(m)?", name).groups()
-    return f"{symbol}{mass}" + ("_m1" if isomer else "")
-
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from compare_chain import openmc_name
 
 w = Path(sys.argv[1])
 libs = openmc.data.DataLibrary.from_xml(sys.argv[2])
@@ -43,11 +38,8 @@ for name in sys.argv[4:]:
     r = o["rates"][name]
     n = o["densities"][name]
     phi = np.array(o["flux"])
-    sx = (
-        np.array(xs[name.replace("-", "")]["total"])
-        - np.array(xs[name.replace("-", "")]["elastic"])
-        - np.array(xs[name.replace("-", "")]["fission"])
-    )
+    # 捕獲（MT102）どうしを比べる（全 − 弾性 − 核分裂は (n,p) や (n,α) を含む）
+    sx = np.array(xs[name.replace("-", "")]["capture"])
     so = np.array(r["(n,gamma)"]["mean"]) / phi / n
     print(
         f"{name}: 群 | 下端 eV | xlc/OpenMC − 1 (%) | 重み関数/細かい中性子束 − 1 (%)"
