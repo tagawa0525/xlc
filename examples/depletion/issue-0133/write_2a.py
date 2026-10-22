@@ -13,17 +13,19 @@ from pathlib import Path
 
 import msgpack
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from compare_depletion_assembly import check_same_run, openmc_name
+
 template, xpath, opath, point, base, out, *swap = sys.argv[1:]
 point = int(point)
 x = msgpack.unpackb(Path(xpath).read_bytes(), strict_map_key=False)
 o = msgpack.unpackb(Path(opath).read_bytes(), strict_map_key=False)
+# 形式、輸送する核種、燃焼点、領域の順（対称操作の組と体積）が同じこと
+check_same_run(x, o)
+if base not in ("xlc", "openmc"):
+    raise SystemExit(f"base must be xlc or openmc, got {base!r}")
 idx = {n: i for i, n in enumerate(x["nuclides"])}
 N = 17
-
-
-def okey(n):
-    symbol, mass, m = re.fullmatch(r"([A-Z][a-z]?)-(\d+)(m?)", n).groups()
-    return f"{symbol}{mass}" + ("_m1" if m else "")
 
 
 def orbit(i, j):
@@ -59,7 +61,7 @@ for r, orb in enumerate(orbits):
     dens = {}
     for n in x["transportable"]:
         vx = xd[idx[n]]
-        vo = od[okey(n)][point]
+        vo = od[openmc_name(n)][point]
         v = vo if (base == "openmc") != (n in swap) else vx
         if v > 0.0:
             dens[n] = v

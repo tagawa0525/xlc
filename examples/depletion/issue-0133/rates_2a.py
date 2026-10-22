@@ -10,8 +10,13 @@ from pathlib import Path
 import msgpack
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from compare_depletion_assembly import check_same_run, openmc_name
+
 x = msgpack.unpackb(Path(sys.argv[1]).read_bytes(), strict_map_key=False)
 o = msgpack.unpackb(Path(sys.argv[2]).read_bytes(), strict_map_key=False)
+# 形式、輸送する核種、燃焼点、領域の順（対称操作の組と体積）が同じこと
+check_same_run(x, o)
 names = sys.argv[3:] or [
     "U-235",
     "U-238",
@@ -24,34 +29,22 @@ names = sys.argv[3:] or [
     "Np-237",
 ]
 idx = {n: i for i, n in enumerate(x["nuclides"])}
-vol = np.array([r["volume"] for r in x["regions"]])
-ovol = np.array([r["volume"] * r["count"] for r in o["regions"]])
-# xlc の領域の順と OpenMC の領域の順が同じかを体積で確かめる
-xv = np.array([r["volume"] for r in x["regions"]])
-assert np.allclose(np.array([r["volume"] for r in o["regions"]]), xv), "region order"
+w = np.array([r["volume"] for r in x["regions"]])
+w = w / w.sum()
 t = np.array([p["time"] for p in x["points"]])
 bu = np.array([p["burnup"] for p in x["points"]])
-assert np.allclose(t, o["time"], rtol=1e-9)
-
-
-def okey(n):
-    s, a = n.split("-")
-    m = a.endswith("m")
-    return f"{s}{a.rstrip('m')}" + ("_m1" if m else "")
 
 
 def dens(n):
     nx = np.array(
-        [[p["densities"][r][idx[n]] for r in range(len(vol))] for p in x["points"]]
+        [[p["densities"][r][idx[n]] for r in range(len(w))] for p in x["points"]]
     )
-    no = np.array([o["regions"][r]["densities"][okey(n)] for r in range(len(vol))]).T
+    no = np.array(
+        [o["regions"][r]["densities"][openmc_name(n)] for r in range(len(w))]
+    ).T
     return nx, no
 
 
-w = np.array([r["volume"] for r in x["regions"]])
-w = w / w.sum()
-# xlc の体積は対称操作の組の全体か 1 つか: OpenMC の count と比べる
-print("count:", [r["count"] for r in o["regions"]][:10])
 res = {}
 for n in names:
     nx, no = dens(n)
