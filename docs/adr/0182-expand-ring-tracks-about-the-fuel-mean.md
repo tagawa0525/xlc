@@ -45,7 +45,7 @@ UFG の減速計算の飛程の表（[ADR-0156](0156-interpolate-ufg-tracks-from
 examples/depletion/issue-0129/make_inputs.py）で、燃焼の計算の結果ではない。Gd の共鳴の格子点では比が群の中で大きく変わる。
 
 0 次の近似の衝突確率の差は、燃料 8 リング（2O の Gd のピンの半径）、真空、被覆管、水のセルで、δ の最大 0.009 で 3e-4〜2e-3、
-0.091 で 3e-3〜2e-2（crates/lattice/examples/ring_expansion.rs、3b9b06f5。`Cylinder::tracks` との差を ADR-0156 の測り方で）で、
+0.091 で 3e-3〜2e-2（crates/lattice/examples/ring_expansion.rs、2c8ef62b。`Cylinder::tracks` との差を ADR-0156 の測り方で）で、
 表の内挿の差（1e-5）より 1〜3 桁大きい。採らない。
 
 ### 案 A1: 案 A に 1 次の展開を足し、展開の外は格子点ごとに求める（採用）
@@ -144,7 +144,7 @@ ring_expansion.rs）。採らない。
   （`distant_ring_materials_are_solved_point_by_point`、`tables_with_as_many_nodes_as_points_give_the_exact_tracks`）。展開の外の
   格子点は軸の範囲を広げない（`points_beyond_the_expansion_do_not_widen_the_axes`）
 - 試行（examples/depletion/issue-0129 の入力と `compare.py`。分岐点は main の b5066b8f、2026-10-22。16 スレッド、排他のジョブ）:
-  表は 1d9ae3f2（ジョブ 431）、格子点ごと（`track-table = false`）は f2edb126（ジョブ 427。格子点ごとの経路はその後に変えていない）。
+  表は 9e7ba7a6（ジョブ 431）、格子点ごと（`track-table = false`）は f8c82226（ジョブ 427。格子点ごとの経路はその後に変えていない）。
   時間は実行全体の壁時計、燃焼は履歴の `seconds` の自己遮蔽の和
 
 | 試行                                        | 輸送 | k∞ の差（pcm） | 2 群の定数の相対差の最大 | 数密度の差 | 格子点ごと                    | 表                        |
