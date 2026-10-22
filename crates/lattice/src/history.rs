@@ -18,7 +18,10 @@ use anyhow::{anyhow, bail};
 use xlc_format::library::Library;
 use xlc_format::table::Axis;
 
-use crate::depletion::{History, depletion_regions, has_data_at, transport_name};
+use crate::depletion::{
+    History, check_negative, check_region_names, depletion_regions, has_data_at, region_material,
+    solved_names,
+};
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
 use crate::symmetry::Chosen;
@@ -148,52 +151,65 @@ pub fn history_branches(
                 .ok_or_else(|| anyhow!("the transportable {name} is not a nuclide of the history"))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let renamed: Vec<String> = region_materials
+    check_region_names(&input.materials, &history.regions)?;
+    let renamed = solved_names(lattice, region_materials, &representatives, &depleted);
+    for &p in &points {
+        check_negative(&history.regions, &history.points[p].densities, |i| {
+            history.nuclides[i].clone()
+        })?;
+    }
+    // 燃焼の領域の物質の、分岐の状態ごとの温度。輸送する核種がその温度のデータを持つこと（近い温度で代用しない。ADR-0173 の案 N2）
+    let temperatures = branches
+        .states()
         .iter()
-        .enumerate()
-        .map(|(r, name)| {
-            if depleted.contains(name) {
-                transport_name(name, representatives[lattice.region_cell(r)])
-            } else {
-                name.clone()
-            }
+        .map(|state| {
+            history
+                .regions
+                .iter()
+                .map(|d| {
+                    let temperature = state
+                        .iter()
+                        .find(|m| m.name == d.material)
+                        .ok_or_else(|| {
+                            anyhow!("depleted material `{}` is not in the state", d.material)
+                        })?
+                        .temperature;
+                    if let Some(&i) = transported
+                        .iter()
+                        .find(|&&i| !has_data_at(library, &history.nuclides[i], temperature))
+                    {
+                        bail!(
+                            "{} (transported in the history) has no library data at {temperature} K of material `{}`",
+                            history.nuclides[i],
+                            d.material
+                        );
+                    }
+                    Ok(temperature)
+                })
+                .collect::<anyhow::Result<Vec<_>>>()
         })
-        .collect();
+        .collect::<anyhow::Result<Vec<_>>>()?;
     let mut states = Vec::with_capacity(points.len() * branches.states().len());
     for &p in &points {
-        for state in branches.states() {
+        for (state, temperatures) in branches.states().iter().zip(&temperatures) {
             let mut materials: Vec<MaterialInput> = state
                 .iter()
                 .filter(|m| !depleted.contains(&m.name))
                 .cloned()
                 .collect();
-            for (d, densities) in history.regions.iter().zip(&history.points[p].densities) {
-                let temperature = state
-                    .iter()
-                    .find(|m| m.name == d.material)
-                    .ok_or_else(|| {
-                        anyhow!("depleted material `{}` is not in the state", d.material)
-                    })?
-                    .temperature;
-                // 近い温度で代用しない（ADR-0173 の案 N2）
-                if let Some(&i) = transported
-                    .iter()
-                    .find(|&&i| !has_data_at(library, &history.nuclides[i], temperature))
-                {
-                    bail!(
-                        "{} (transported in the history) has no library data at {temperature} K of material `{}`",
-                        history.nuclides[i],
-                        d.material
-                    );
-                }
-                materials.push(MaterialInput {
-                    name: transport_name(&d.material, d.cell),
+            for ((d, densities), &temperature) in history
+                .regions
+                .iter()
+                .zip(&history.points[p].densities)
+                .zip(temperatures)
+            {
+                materials.push(region_material(
+                    d,
                     temperature,
-                    composition: transported
-                        .iter()
-                        .map(|&i| (history.nuclides[i].clone(), densities[i].max(0.0)))
-                        .collect(),
-                });
+                    densities,
+                    &transported,
+                    |i| history.nuclides[i].clone(),
+                ));
             }
             states.push(materials);
         }
