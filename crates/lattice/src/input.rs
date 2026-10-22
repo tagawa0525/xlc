@@ -5,8 +5,6 @@
 //! self-shielding = false          # 燃料の自己遮蔽（library のとき。省略すると true）
 //! track-table = 16               # 自己遮蔽の減速計算の飛程の表の、ln Σ の 10 倍あたりの格子点の数（省略すると 16。
 //!                                 # false で格子点ごとに求める。ADR-0156）
-//! pointwise = ["U-238", "O-16", "H-1"]   # 自己遮蔽の減速計算でポイントワイズの断面積で解く核種（省略するとすべて）。ほかの
-//!                                 # 核種は群の中で一定の断面積の背景にする（ADR-0185）
 //! ufg-tolerance = 1e-4            # 自己遮蔽の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に
 //!                                 # 間引く（省略すると間引かない。ADR-0185）
 //! # cross-sections = "c5g7.toml"  # 巨視的断面積のファイル（このときは material を書かない）
@@ -93,7 +91,7 @@ use crate::branches::{Branches, BranchesEntry, Water};
 use crate::depletion::{DepletionFewGroup, DepletionInput};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
-use crate::shielding::{PointwiseNuclides, ShieldingOptions};
+use crate::shielding::ShieldingOptions;
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
 use crate::ufg::Collision;
@@ -183,9 +181,7 @@ pub struct LatticeInput {
     pub self_shielding: bool,
     /// 自己遮蔽の UFG の減速計算の飛程の求め方（ADR-0156）
     pub collision: Collision,
-    /// 自己遮蔽の UFG の減速計算でポイントワイズの断面積で解く核種（ADR-0185）
-    pub pointwise: PointwiseNuclides,
-    /// 自己遮蔽の UFG の減速計算の格子の間引きの許容差（ADR-0185）
+    /// 自己遮蔽の UFG の減速計算の格子の間引きの許容差（ADR-0185。`None` は間引かない）
     pub thinning: Option<f64>,
     /// 少数群定数の出力
     pub output: Option<FewGroupOutput>,
@@ -290,8 +286,6 @@ struct InputFile {
     self_shielding: Option<bool>,
     /// 省略すると ADR-0156 の既定の細かさ
     track_table: Option<TrackTableEntry>,
-    /// 省略するとすべての核種（ADR-0185）
-    pointwise: Option<Vec<String>>,
     /// 省略すると間引かない（ADR-0185）
     ufg_tolerance: Option<f64>,
     cross_sections: Option<PathBuf>,
@@ -583,12 +577,10 @@ fn positive(v: f64) -> bool {
 }
 
 impl LatticeInput {
-    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）とポイントワイズで解く核種（`pointwise`）だけで、ほかは
-    /// 既定の値
+    /// 自己遮蔽の条件。入力で選べるのは飛程の求め方（`track-table`）と格子の間引き（`ufg-tolerance`）だけで、ほかは既定の値
     pub fn shielding_options(&self) -> ShieldingOptions {
         ShieldingOptions {
             collision: self.collision,
-            pointwise: self.pointwise.clone(),
             thinning: self.thinning,
             ..ShieldingOptions::default()
         }
@@ -700,34 +692,20 @@ impl LatticeInput {
                     .into(),
             ));
         }
-        if !self_shielding && file.pointwise.is_some() {
+        if !self_shielding && file.ufg_tolerance.is_some() {
             return Err(invalid(
-                "`pointwise` is used only by the self-shielding (a library without `self-shielding = false`)"
+                "`ufg-tolerance` is used only by the self-shielding (a library without `self-shielding = false`)"
                     .into(),
             ));
         }
-        let pointwise = match file.pointwise {
-            None => PointwiseNuclides::All,
-            Some(names) => {
-                if names.is_empty() {
-                    return Err(invalid(
-                        "`pointwise` needs at least one nuclide; leave it out to solve every nuclide pointwise"
-                            .into(),
-                    ));
-                }
-                for (k, name) in names.iter().enumerate() {
-                    if !is_nuclide_name(name) {
-                        return Err(invalid(format!(
-                            "`pointwise`: nuclide name `{name}` is not of the form U-235, Am-242m"
-                        )));
-                    }
-                    if names[..k].contains(name) {
-                        return Err(invalid(format!("`pointwise`: `{name}` is listed twice")));
-                    }
-                }
-                PointwiseNuclides::Only(names)
-            }
-        };
+        let thinning = file.ufg_tolerance;
+        if let Some(t) = thinning
+            && !(t > 0.0 && t < 1.0)
+        {
+            return Err(invalid(format!(
+                "`ufg-tolerance` must be between 0 and 1, got {t}"
+            )));
+        }
         let collision = match file.track_table {
             None => Collision::default(),
             Some(TrackTableEntry::Exact(false)) => Collision::Exact,
@@ -949,37 +927,9 @@ impl LatticeInput {
             })
             .transpose()
             .map_err(invalid)?;
-        // 燃焼では、燃焼させる物質にチェーンの核種が加わるので、そこで確かめる（depletion）
-        if let PointwiseNuclides::Only(names) = &pointwise
-            && depletion.is_none()
-            && let Some(name) = names.iter().find(|n| {
-                !materials
-                    .iter()
-                    .any(|m| m.composition.iter().any(|(c, _)| c == *n))
-            })
-        {
-            return Err(invalid(format!(
-                "`pointwise`: `{name}` is in no material written with nuclides or water"
-            )));
-        }
-        let thinning = file.ufg_tolerance;
-        if !self_shielding && thinning.is_some() {
-            return Err(invalid(
-                "`ufg-tolerance` is used only by the self-shielding (a library without `self-shielding = false`)"
-                    .into(),
-            ));
-        }
-        if let Some(t) = thinning
-            && !(t > 0.0 && t < 1.0)
-        {
-            return Err(invalid(format!(
-                "`ufg-tolerance` must be in (0, 1), got {t}"
-            )));
-        }
         Ok(Self {
             self_shielding,
             collision,
-            pointwise,
             thinning,
             cross_sections,
             output,

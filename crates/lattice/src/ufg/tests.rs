@@ -371,18 +371,8 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let solve = |collision| {
-        slowing_down_with(
-            &lib,
-            &cell,
-            &rings,
-            &no_background(&rings),
-            [4.0, 1.0e4],
-            collision,
-            None,
-        )
-        .unwrap()
-    };
+    let solve =
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
     let (table, exact) = (solve(Collision::default()), solve(Collision::Exact));
     for (ring, (t, e)) in table.nuclides.iter().zip(&exact.nuclides).enumerate() {
         for (k, (t, e)) in t.iter().zip(e).enumerate() {
@@ -416,15 +406,7 @@ fn non_finite_totals_stop_with_the_table_as_without() {
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
     for collision in [Collision::Exact, Collision::default()] {
-        let result = slowing_down_with(
-            &lib,
-            &cell,
-            &rings,
-            &no_background(&rings),
-            [4.0, 1.0e4],
-            collision,
-            None,
-        );
+        let result = slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None);
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
             "{collision:?}: {:?}",
@@ -445,7 +427,6 @@ fn zero_totals_stop_the_table_with_their_ring() {
         &lib,
         &cell,
         &rings,
-        &no_background(&rings),
         [4.0, 1.0e4],
         Collision::default(),
         None,
@@ -464,18 +445,8 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
     let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
     let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
     let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let solve = |collision| {
-        slowing_down_with(
-            &lib,
-            &cell,
-            &rings,
-            &no_background(&rings),
-            [4.0, 1.0e4],
-            collision,
-            None,
-        )
-        .unwrap()
-    };
+    let solve =
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
     assert_eq!(
         solve(Collision::Table { density: 100_000 }),
         solve(Collision::Exact)
@@ -494,18 +465,8 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
         None,
         Some(&water),
     ];
-    let solve = |collision| {
-        slowing_down_with(
-            &lib,
-            &cell,
-            &rings,
-            &no_background(&rings),
-            [4.0, 1.0e4],
-            collision,
-            None,
-        )
-        .unwrap()
-    };
+    let solve =
+        |collision| slowing_down_with(&lib, &cell, &rings, [4.0, 1.0e4], collision, None).unwrap();
     (solve(Collision::default()), solve(Collision::Exact))
 }
 
@@ -607,271 +568,6 @@ fn points_beyond_the_expansion_do_not_widen_the_axes() {
     assert_eq!(ranges[1], [1.4, 1.4]);
 }
 
-/// [`resonant_cell`] の燃料のリングで、U-235（組成の 2 番目）だけを背景にして群定数 `u235` を与えた `background`
-fn u235_background(
-    rings: &[Option<&MaterialInput>],
-    u235: &Shielded,
-) -> Vec<Vec<Option<Shielded>>> {
-    let mut background = no_background(rings);
-    for (ring, m) in background.iter_mut().zip(rings) {
-        if m.is_some_and(|m| m.composition[1].0 == "U-235") {
-            ring[1] = Some(u235.clone());
-        }
-    }
-    background
-}
-
-#[test]
-fn a_background_of_the_constant_cross_sections_gives_the_pointwise_solution() {
-    // ADR-0185: 断面積が一定の U-235 を、同じ値の群定数の背景にしても、中性子束とほかの核種の群定数はポイントワイズで解いたものと
-    // 同じ（背景の項は U-235 だけなので、まとめた α も U-235 のもの）
-    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
-    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
-    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let dilute = lib.lookup("U-235", TEMPERATURE).unwrap().1.shielded[0].clone();
-    let range = [4.0, 1.0e4];
-    let pointwise = slowing_down_with(
-        &lib,
-        &cell,
-        &rings,
-        &no_background(&rings),
-        range,
-        Collision::Exact,
-        None,
-    )
-    .unwrap();
-    let background = u235_background(&rings, &dilute);
-    let lumped = slowing_down_with(
-        &lib,
-        &cell,
-        &rings,
-        &background,
-        range,
-        Collision::Exact,
-        None,
-    )
-    .unwrap();
-    let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * b.abs();
-    for (ring, (a, b)) in lumped.flux.iter().zip(&pointwise.flux).enumerate() {
-        for (g, (a, b)) in a.iter().zip(b).enumerate() {
-            assert!(close(*a, *b), "ring {ring} group {g}: {a} vs {b}");
-        }
-    }
-    for ring in 0..3 {
-        // U-238 は共鳴で遮蔽した値が、U-235 は与えた値がそのまま一致する
-        for k in 0..3 {
-            let (a, b) = (&lumped.nuclides[ring][k], &pointwise.nuclides[ring][k]);
-            for (x, y) in a
-                .total
-                .iter()
-                .zip(&b.total)
-                .chain(a.fission.iter().zip(&b.fission))
-            {
-                assert!(close(*x, *y), "ring {ring} nuclide {k}: {x} vs {y}");
-            }
-        }
-    }
-}
-
-#[test]
-fn background_nuclides_are_collapsed_from_their_pointwise_data() {
-    // ADR-0185: 背景の核種の群定数は、与えた群定数（減速計算の背景の項にだけ使う）でなく、ポイントワイズの断面積をリングの中性子束で
-    // 縮約したもの。U-235 の断面積はどのエネルギーでも一定なので、その値になる
-    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
-    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
-    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let ng = BOUNDS.len() - 1;
-    let by_group = |base: f64| (0..ng).map(|g| base + g as f64).collect::<Vec<_>>();
-    let given = Shielded {
-        total: by_group(10.0),
-        elastic: by_group(8.0),
-        fission: by_group(1.0),
-        nu_fission: by_group(2.4),
-        capture: by_group(1.0),
-    };
-    let background = u235_background(&rings, &given);
-    let spectrum = slowing_down_with(
-        &lib,
-        &cell,
-        &rings,
-        &background,
-        [4.0, 1.0e4],
-        Collision::default(),
-        None,
-    )
-    .unwrap();
-    for ring in 0..3 {
-        let u235 = &spectrum.nuclides[ring][1];
-        for (values, expected) in [
-            (&u235.total, 10.0),
-            (&u235.elastic, 8.0),
-            (&u235.fission, 1.0),
-            (&u235.nu_fission, 2.4),
-        ] {
-            for v in values {
-                assert!((v - expected).abs() < 1e-12 * expected, "{v} vs {expected}");
-            }
-        }
-    }
-}
-
-#[test]
-fn a_trace_background_nuclide_takes_the_shadow_of_the_fuel() {
-    // ADR-0185: 微量の核種は自身の共鳴で中性子束をへこませないので、背景にしてリングの中性子束で縮約した群定数は、ポイントワイズで
-    // 解いたものと一致する。共鳴が U-238 の共鳴（200 eV）と重なるので、どちらも 1/E の重みの平均より小さい（燃料の影）
-    let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
-    let mut energies: Vec<f64> = (0..=400).map(|k| 180.0 + 0.1 * k as f64).collect();
-    energies.splice(0..0, [4.0, 100.0]);
-    energies.extend([1.0e3, 2.0e4]);
-    let spec = |name: &'static str, awr: f64, base: f64, scale: f64| Spec {
-        name,
-        awr,
-        top: Some(2.0e4),
-        points: energies
-            .iter()
-            .map(|&e| [e, base + scale * resonance(e), base, 0.0])
-            .collect(),
-    };
-    let mut lib = library(vec![
-        spec("U-238", 236.0, 11.0, 1.0),
-        spec("Pu-240", 238.0, 5.0, 0.1),
-        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
-        constant("O-16", 15.86, 3.8, 3.8, 0.0),
-    ]);
-    // 範囲の上の減速源に使う群定数（ポイントワイズの両端の値）は、どちらの解き方でも同じ
-    lib.nuclides[1].temperatures[0].shielded[0].elastic = vec![5.0; BOUNDS.len() - 1];
-    let fuel = material(&[("U-238", 0.022), ("Pu-240", 1.0e-10), ("O-16", 0.045)]);
-    let water = material(&[("H-1", 0.05), ("O-16", 0.025)]);
-    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
-    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let dilute = lib.lookup("Pu-240", TEMPERATURE).unwrap().1.shielded[0].clone();
-    let mut background = no_background(&rings);
-    for ring in background.iter_mut().take(3) {
-        ring[1] = Some(dilute.clone());
-    }
-    let solve = |background: &[Vec<Option<Shielded>>]| {
-        slowing_down_with(
-            &lib,
-            &cell,
-            &rings,
-            background,
-            [4.0, 1.0e4],
-            Collision::Exact,
-            None,
-        )
-        .unwrap()
-    };
-    let (pointwise, lumped) = (solve(&no_background(&rings)), solve(&background));
-    // 100 eV〜1 keV の群の 1/E の重みの平均
-    let k = 3 - pointwise.groups.start;
-    let mean = {
-        let (mut rate, mut flux) = (0.0, 0.0);
-        for w in energies
-            .windows(2)
-            .filter(|w| w[0] >= 100.0 && w[1] <= 1.0e3)
-        {
-            let du = (w[1] / w[0]).ln();
-            rate += 0.5 * du * (resonance(w[0]) + resonance(w[1]));
-            flux += du;
-        }
-        5.0 + 0.1 * rate / flux
-    };
-    for ring in 0..3 {
-        let (a, b) = (
-            lumped.nuclides[ring][1].total[k],
-            pointwise.nuclides[ring][1].total[k],
-        );
-        assert!((a / b - 1.0).abs() < 1e-6, "ring {ring}: {a} vs {b}");
-        assert!(b < 0.99 * mean, "ring {ring}: {b} vs {mean}");
-    }
-}
-
-#[test]
-fn the_background_follows_the_rings_and_their_nuclides() {
-    // 背景は、リングごとに物質の核種の数だけ、ライブラリのすべての群の値を持つ
-    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
-    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
-    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
-    let solve = |background: &[Vec<Option<Shielded>>]| {
-        slowing_down_with(
-            &lib,
-            &cell,
-            &rings,
-            background,
-            [4.0, 1.0e4],
-            Collision::default(),
-            None,
-        )
-    };
-    let mut short = no_background(&rings);
-    short.pop();
-    assert!(matches!(solve(&short), Err(UfgError::Background(4))));
-    let mut extra = no_background(&rings);
-    extra[1].push(None);
-    assert!(matches!(solve(&extra), Err(UfgError::Background(1))));
-    let mut coarse = no_background(&rings);
-    let mut one = lib.lookup("U-235", TEMPERATURE).unwrap().1.shielded[0].clone();
-    one.capture.pop();
-    coarse[2][1] = Some(one);
-    assert!(matches!(solve(&coarse), Err(UfgError::Background(2))));
-}
-
-#[test]
-fn lumped_background_keeps_the_slowing_down_power() {
-    // ADR-0185: まとめた項は、群ごとの巨視的な断面積の和と、核種の減速能の和 Σ ξ N σs を保つ α を持つ
-    let lib = library(vec![
-        constant("O-16", 15.86, 3.8, 3.8, 0.0),
-        constant("U-238", 236.0, 11.0, 9.0, 0.0),
-    ]);
-    let ng = BOUNDS.len() - 1;
-    let flat = |v: f64| vec![v; ng];
-    let shielded = |t: f64, s: f64| Shielded {
-        total: flat(t),
-        elastic: flat(s),
-        fission: flat(0.0),
-        nu_fission: flat(0.0),
-        capture: flat(t - s),
-    };
-    let (oxygen, uranium) = (shielded(3.8, 3.8), shielded(11.0, 9.0));
-    let members = [("O-16", 0.045, &oxygen), ("U-238", 0.022, &uranium)];
-    let data = lump(&lib, &members, &BOUNDS, 1..5).unwrap();
-    let xi = |awr: f64| mean_lethargy_gain(scattering_alpha("x", awr).unwrap());
-    let (so, su) = (0.045 * 3.8, 0.022 * 9.0);
-    let expected = (so * xi(15.86) + su * xi(236.0)) / (so + su);
-    let alpha = 1.0 - 1.0 / data.gain;
-    assert!((mean_lethargy_gain(alpha) - expected).abs() < 1e-12);
-    assert!((data.width + alpha.ln()).abs() < 1e-12);
-    let mut cursor = 0;
-    let row = evaluate(&data, &mut cursor, 500.0, false).unwrap();
-    assert!((row[0] - (0.045 * 3.8 + 0.022 * 11.0)).abs() < 1e-15);
-    assert!((row[1] - (so + su)).abs() < 1e-15);
-}
-
-#[test]
-fn group_backgrounds_jump_at_the_group_bounds() {
-    // 背景の断面積は群の境界で跳び、境界の格子点の高い側は上の群、低い側は下の群の値になる
-    let lib = library(vec![constant("U-238", 236.0, 11.0, 9.0, 0.0)]);
-    let ng = BOUNDS.len() - 1;
-    let by_group = (0..ng).map(|g| g as f64).collect::<Vec<_>>();
-    let s = Shielded {
-        total: by_group.clone(),
-        elastic: by_group.clone(),
-        fission: vec![0.0; ng],
-        nu_fission: vec![0.0; ng],
-        capture: vec![0.0; ng],
-    };
-    let data = lump(&lib, &[("U-238", 1.0, &s)], &BOUNDS, 1..5).unwrap();
-    let mut cursor = data.first_cursor();
-    let at =
-        |cursor: &mut usize, e: f64, below: bool| evaluate(&data, cursor, e, below).unwrap()[0];
-    // 群 1 は 2e4〜1e4 eV、群 2 は 1e4〜1e3 eV
-    assert_eq!(at(&mut cursor, 2.0e4, true), 1.0);
-    assert_eq!(at(&mut cursor, 1.5e4, false), 1.0);
-    assert_eq!(at(&mut cursor, 1.0e4, false), 1.0);
-    assert_eq!(at(&mut cursor, 1.0e4, true), 2.0);
-    assert_eq!(at(&mut cursor, 5.0, false), 4.0);
-}
-
 #[test]
 fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
     // ADR-0185: 残した点の間の線形な補間（レサジーについて）が、間引く前のどの点でもリングの物質の巨視的な断面積を許容差以内に
@@ -882,18 +578,19 @@ fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
         .iter()
         .map(|name| {
             let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
-            let alpha = scattering_alpha(name, d.awr).unwrap();
+            let alpha = ((d.awr - 1.0) / (d.awr + 1.0)).powi(2);
             Data {
                 name: &d.name,
                 gain: 1.0 / (1.0 - alpha),
                 width: -alpha.ln(),
-                source: Source::Pointwise(Box::new(t)),
+                table: t,
             }
         })
         .collect();
     let high = 1.0e4;
     let mut energies: Vec<f64> = data[0]
-        .energies()
+        .pointwise()
+        .energy
         .iter()
         .copied()
         .filter(|&e| e > 4.0 && e < high)
@@ -918,7 +615,7 @@ fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
     let sigma = |e: f64| -> [f64; 2] {
         let row: Vec<Row> = data
             .iter()
-            .map(|d| evaluate(d, &mut d.first_cursor(), e, false).unwrap())
+            .map(|d| evaluate(d, &mut d.pointwise().energy.len(), e, false).unwrap())
             .collect();
         let sum = |x: usize| {
             materials[0]
@@ -961,7 +658,6 @@ fn thinned_grids_give_the_group_constants_of_the_full_grid() {
             &lib,
             &cell,
             &rings,
-            &no_background(&rings),
             [4.0, 1.0e4],
             Collision::Exact,
             thinning,

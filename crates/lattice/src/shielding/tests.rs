@@ -1261,45 +1261,31 @@ mod lattice {
     }
 
     #[test]
-    fn nuclides_left_out_of_the_pointwise_list_are_collapsed_in_the_ufg_range() {
-        // ADR-0185: ポイントワイズで解く核種に挙げない燃料の U-235 と被覆管の Zr-90 は、UFG の範囲（群 1、2）ではポイントワイズの
-        // 断面積（どちらもエネルギーによらず一定）をリングの中性子束で縮約した値、範囲の外は U-235 が等価原理の値、Zr-90 が無限希釈の
-        // 値。挙げた U-238 は、UFG の範囲でリングごとに遮蔽される
-        let options = ShieldingOptions {
-            pointwise: PointwiseNuclides::Only(vec!["U-238".into(), "O-16".into(), "H-1".into()]),
+    fn a_thinned_ufg_grid_gives_the_ring_cross_sections_of_the_full_grid() {
+        // ADR-0185: 格子を許容差 1e-4 で間引いても、リングの物質の核種ごとの実効断面積は間引かない格子のものと許容差の程度で一致する
+        let rings = [("fuel", 5.0e-4), ("fuel", 5.0e-4), ("fuel", 5.0e-4)];
+        let (_, full, _) = ring_fuel(rings);
+        let thinned_options = ShieldingOptions {
+            thinning: Some(1.0e-4),
             ..ShieldingOptions::default()
         };
-        let (library, shielded, materials) = ring_fuel_with(
-            [("fuel", 5.0e-4), ("fuel", 5.0e-4), ("fuel", 5.0e-4)],
-            &options,
-        );
-        let pin = &shielded.pins[0];
-        let equivalence = Equivalence {
-            chord: 2.0 * 0.4096,
-            terms: pin.dancoff.iter().map(|&c| carlvik(c).unwrap()).collect(),
-        };
-        let carlvik = shield_material(&library, &materials[0], &equivalence, &options, 0).unwrap();
-        let inside = |g: usize| g == 1 || g == 2;
-        for ring in &pin.rings {
-            for (g, (&a, &b)) in ring[1].total.iter().zip(&carlvik[1].total).enumerate() {
-                let expected = if inside(g) { 10.0 } else { b };
-                assert!(
-                    (a - expected).abs() <= 1e-12 * expected,
-                    "group {g}: {a} vs {expected}"
-                );
+        let (_, thinned, _) = ring_fuel_with(rings, &thinned_options);
+        for (a, b) in thinned.pins[0].rings.iter().zip(&full.pins[0].rings) {
+            for (x, y) in a.iter().zip(b.iter()) {
+                for (p, q) in x
+                    .total
+                    .iter()
+                    .zip(&y.total)
+                    .chain(x.capture.iter().zip(&y.capture))
+                {
+                    let d = if *q == 0.0 {
+                        p.abs()
+                    } else {
+                        (p / q - 1.0).abs()
+                    };
+                    assert!(d < 1e-4, "{p} vs {q}");
+                }
             }
-        }
-        assert!(pin.rings[0][0].total[1] < pin.rings[2][0].total[1]);
-        let dilute = library
-            .shielded("Zr-90", T, &vec![1.0e10; library.groups.len()])
-            .unwrap();
-        let clad = &shielded.region_cross_sections(4).unwrap()[0];
-        for (g, (&a, &b)) in clad.total.iter().zip(&dilute.total).enumerate() {
-            let expected = if inside(g) { 6.5 } else { b };
-            assert!(
-                (a - expected).abs() <= 1e-12 * expected,
-                "group {g}: {a} vs {expected}"
-            );
         }
     }
 
