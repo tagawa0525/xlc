@@ -18,7 +18,7 @@ import openmc
 import openmc.deplete
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
+ROOT = HERE.parents[2]
 sys.path.insert(0, str(ROOT / "examples"))
 sys.path.insert(0, str(ROOT / "examples" / "depletion"))
 sys.path.insert(0, str(ROOT / "examples" / "vera"))
