@@ -64,7 +64,7 @@ OpenMC のスクリプト（`openmc_library.py`、`openmc_model.py`、`openmc_ho
 - 案 G（採用）: 核種ごと（中性子の核種と熱中性子散乱則のそれぞれ）を 1 段階にし（`foreach`）、`cross_sections.xml` を
   書く段階を別に置く。核種と温度はライブラリの入力（`openmc-library.toml`）に書き、各段階はその核種の項目だけを
   `params` で deps にする。核種を足すと足した段階だけが走る（これまでスクリプトが HDF5 を再利用していたことを、DVC の
-  判定に置き換える）。DVC は段階を逐次に実行するので、`ProcessPoolExecutor` で 8 並列にしていたより壁時計は長い
+  判定に置き換える）。DVC は段階を逐次に実行するので、`ProcessPoolExecutor` で 8 並列にしていたより経過時間は長い
 - 案 H: ライブラリ全体を 1 段階にする。並列に作れるが、核種を 1 つ足しても全部を作り直すか、スクリプトが DVC の外で
   出力を再利用することになる。DVC は段階の前に outs を消すので、使い回しは効かない
 
