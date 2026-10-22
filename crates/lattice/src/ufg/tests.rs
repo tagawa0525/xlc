@@ -247,6 +247,23 @@ fn hydrogen_slowing_down_matches_the_analytic_solution() {
 }
 
 #[test]
+fn reports_the_lethargy_points_of_the_grid() {
+    // 核種の点は範囲の端（4 eV、2e4 eV）にしかないので、格子は群の境界（1e4、1e3、1e2、4 eV）と、その間を最も重い核種
+    // （Pu-240）の窓の幅の 1/WINDOW_POINTS 以下の間隔で埋めた点
+    let lib = library(vec![
+        constant("H-1", 0.99917, 20.0, 20.0, 0.0),
+        constant("Pu-240", 238.0, 2.0, 0.0, 0.0),
+    ]);
+    let mix = material(&[("H-1", 0.05), ("Pu-240", 0.01)]);
+    let cell = Cylinder::new(RADII.to_vec()).unwrap();
+    let spectrum = slowing_down(&lib, &cell, &[Some(&mix); 4], [4.0, 1.0e4]).unwrap();
+    let step = -(237.0f64 / 239.0).powi(2).ln() / WINDOW_POINTS as f64;
+    let between = |ratio: f64| (ratio.ln() / step).ceil() as usize - 1;
+    let expected = 4 + 2 * between(10.0) + between(25.0);
+    assert_eq!(spectrum.points, expected);
+}
+
+#[test]
 fn resonance_is_shielded_more_inside_the_fuel() {
     // 200 eV の強い吸収の共鳴: 燃料の内側ほど中性子束がへこみ、実効断面積が小さい
     let resonance = |e: f64| 1.0e4 / (1.0 + ((e - 200.0) / 0.5).powi(2));
