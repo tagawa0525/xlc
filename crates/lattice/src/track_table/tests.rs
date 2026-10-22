@@ -140,17 +140,17 @@ fn rejects_bad_ranges_and_densities() {
     let zero = [[0.0, 3000.0], [0.25, 2.0], [1.2, 1.6]];
     assert!(matches!(
         new(&zero, 16),
-        Err(TableError::Range { material: 0, .. })
+        Err(TableError::Range { axis: 0, .. })
     ));
     let infinite = [[0.3, 3000.0], [0.25, f64::INFINITY], [1.2, 1.6]];
     assert!(matches!(
         new(&infinite, 16),
-        Err(TableError::Range { material: 1, .. })
+        Err(TableError::Range { axis: 1, .. })
     ));
     let reversed = [[0.3, 3000.0], [0.25, 2.0], [1.6, 1.2]];
     assert!(matches!(
         new(&reversed, 16),
-        Err(TableError::Range { material: 2, .. })
+        Err(TableError::Range { axis: 2, .. })
     ));
     // 範囲は軸ごとに 1 つ
     assert!(matches!(

@@ -179,7 +179,9 @@ impl Data<'_> {
 pub enum Collision {
     /// 格子点ごとに衝突確率法で求める（表の検証の基準）
     Exact,
-    /// 物質ごとの ln Σ の格子（10 倍あたり `density` 点）で求めた値から内挿する（[`TrackTable`]。ADR-0156）
+    /// 軸ごとの ln Σ の格子（10 倍あたり `density` 点）で求めた値から内挿する（[`TrackTable`]。ADR-0156）。核種の並びが同じ
+    /// 物質は 1 つの軸を共有して 1 次の展開で内挿し、展開の外の格子点と、表で衝突確率が減らないセルは格子点ごとに求める
+    /// （ADR-0182）
     Table { density: usize },
 }
 
@@ -366,23 +368,20 @@ pub fn slowing_down_with(
             values.push(row);
         }
         let evaluated = Instant::now();
+        let exact = |row: &[Row]| {
+            let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
+            cell.tracks(&totals).map_err(UfgError::from)
+        };
         let tracks = values
             .par_iter()
             .map(|row| match &table {
-                None => {
-                    let totals: Vec<f64> = entries.iter().map(|ring| total(ring, row)).collect();
-                    cell.tracks(&totals).map_err(UfgError::from)
-                }
+                None => exact(row),
                 Some((table, first)) => {
                     let sigma: Vec<f64> = first.iter().map(|&i| total(&entries[i], row)).collect();
                     match table.tracks(&sigma)? {
                         Some(tracks) => Ok(tracks),
                         // 軸を共有する物質の差が展開の上限を超える格子点（ADR-0182）
-                        None => {
-                            let totals: Vec<f64> =
-                                entries.iter().map(|ring| total(ring, row)).collect();
-                            cell.tracks(&totals).map_err(UfgError::from)
-                        }
+                        None => exact(row),
                     }
                 }
             })
