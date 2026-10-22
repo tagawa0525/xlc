@@ -332,9 +332,9 @@ OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに�
 
    見込み（このブランチの s の測定から。c7a の速さは未測定）: 1 本の時間は 40 点で約 17〜24 時間、70 点で約 30〜42 時間（c7a.4xlarge。
    `--type auto` が大きい機種を選べば短い）、費用は 8 本で約 $42〜91。`--max-hours` を超えると VM が止まるので、`aws_watch.sh` が
-   起動し直す（失うのは多くて 1 ステップ、約 30 分）。`aws login` が切れたら起動し直しが止まる（VM は動き続ける）。
-3. xlc を手元の Slurm に流す（排他、1 本ずつ。時間は記録に書く。`dvc.lock` をコミットする）。いま走るのは 5 本（2A、2A-density、2A-rods、2O、2P）。
-   2F、2M、2N は lattice が吸収体（Pyrex、IFBA の被覆、WABA）を燃やせず止まる（#0139）ので、その機能のあとに流す。2O と 2P の入力は
+   起動し直す（失うのは多くて 1 ステップ、約 30 分）。`aws login` が切れると監視は読み直しを続け、`aws login` をやり直せば起動し直しも戻る（#0147。VM は動き続ける）。
+3. xlc を手元の Slurm に流す（排他、1 本ずつ。時間は記録に書く。`dvc.lock` をコミットする）。8 本とも走る（吸収体の燃焼は
+   ADR-0179）。2A は済み（Slurm のジョブ 421、1 時間 41 分、2026-10-22。ブランチ chore/0145-relock-after-history-rewrite）。2O と 2P の入力は
    `track-table = false`（#0129）:
 
    ```sh
@@ -351,7 +351,7 @@ OpenMC の参照解は AWS、xlc は手元の Slurm（排他）で、互いに�
    `dvc repro examples/depletion/p2/dvc.yaml` 全体は、比較の段階が OpenMC の結果を要るので、AWS の取り出しの前は失敗する。
 4. 比較: AWS の結果を取り出したあと `dvc repro examples/depletion/p2/dvc.yaml:compare@2A`（ほかも同じ）。`compare-<ジョブ>.json` は git で追跡する
    （ピンセルの compare-1C と同じ）。記録（examples/depletion/verification.md）は、スキル verification-record の手順で書く。ピン出力の比較は、
-   xlc の燃焼がピン出力を出すまで（#0135）できない（OpenMC の結果にはピン出力とその統計誤差がある）。
+   燃焼の履歴の各点のピン出力（ADR-0181）を対称操作の組で平均して行う。
 
 M3 の残り（Problem 4、5 の 3D の炉心、制御棒の部分挿入、2G の AIC の差、UFG の残る偏り #0005、4 eV より下の共鳴 #0001）との関係:
 
