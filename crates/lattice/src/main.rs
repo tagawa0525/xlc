@@ -1,6 +1,7 @@
 //! 格子計算を行い、少数群定数のテーブル、セルごとの核分裂率、細かい群の媒質（ADR-0128）を書き出すコマンド。
 //! 入力に分岐（`[branches]`）があれば、状態ごとに格子計算を解き、軸の直積の順の状態をテーブルにする（ADR-0097）。
 //! 入力に燃焼（`[depletion]`）があれば、燃焼点ごとの k∞、数密度、ピン出力、少数群定数を燃焼の履歴のファイルに書く（ADR-0173、ADR-0181）。
+//! 入力に燃焼の履歴（`[history]`）があれば、選んだ燃焼点の組成で分岐を解き、燃焼度の軸を持つテーブルにする（ADR-0187）。
 //!
 //! 使い方: lattice <入力ファイル>
 //!
@@ -34,7 +35,7 @@ use xlc_format::library::Library;
 use xlc_format::medium::Medium;
 use xlc_lattice::axial::{axial, check_nodes};
 use xlc_lattice::branches::tables;
-use xlc_lattice::depletion::LibraryReactions;
+use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
 use xlc_lattice::input::{CrossSections, FewGroupFiles, FewGroupOutput, LatticeInput, VOID};
@@ -220,8 +221,38 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Source::Library(library) => Some(library.groups.clone()),
         Source::Macroscopic(_) => None,
     };
+    // 燃焼の履歴の燃焼点からの分岐（ADR-0187）: 解く状態、燃焼の領域の物質の名前、燃焼度の軸を足した軸
+    let history_branches = match (&input.history, &source) {
+        (Some(history), Source::Library(library)) => {
+            let file = base.join(&history.file);
+            let bytes = std::fs::read(&file).with_context(|| shown(&file))?;
+            let read = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
+            Some(
+                xlc_lattice::history::history_branches(
+                    &input,
+                    &read,
+                    library,
+                    &lattice,
+                    &region_materials,
+                    &chosen,
+                )
+                .with_context(|| format!("{}: history", shown(path)))?,
+            )
+        }
+        (Some(_), Source::Macroscopic(_)) => {
+            return Err(anyhow!("{}: [history] needs a library", shown(path)));
+        }
+        (None, _) => None,
+    };
     // 状態の軸の値（エラーとログに付ける）
-    let axes = input.branches.as_ref().map_or(&[][..], |b| b.axes());
+    let axes = match &history_branches {
+        Some(h) => &h.axes[..],
+        None => input.branches.as_ref().map_or(&[][..], |b| b.axes()),
+    };
+    // 自己遮蔽と MOC に渡す領域ごとの物質の名前（燃焼の領域は `<物質>@<セル>`）
+    let solved_materials = history_branches
+        .as_ref()
+        .map_or(&region_materials[..], |h| &h.region_materials[..]);
     // 平板の物質の媒質（ADR-0128）。ライブラリの群境界と分岐の軸に合うことを解く前に確かめる
     let media = input
         .media
@@ -253,7 +284,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
     };
 
     // 分岐の状態ごとに格子計算を解き、出力ごとの少数群定数を状態の順に集める（ADR-0097）
-    let states = input.branch_states();
+    let states = match &history_branches {
+        Some(h) => std::borrow::Cow::Borrowed(&h.states[..]),
+        None => input.branch_states(),
+    };
     let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(states.len());
     // 状態ごとの細かい群の媒質の出力（ADR-0128）
     let mut written = Vec::new();
@@ -267,7 +301,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                         library,
                         &tracking,
                         state_materials,
-                        &region_materials,
+                        solved_materials,
                         chosen.shielding(),
                         &input.shielding_options(),
                     )

@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, anyhow, bail};
 use rayon::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use xlc_depletion::chain::{Chain, ChainError, Fission, NuclideRates, Reaction};
 use xlc_depletion::{CramOrder, deplete};
 use xlc_format::fewgroup::FewGroup;
@@ -418,7 +418,8 @@ pub fn has_data_at(library: &Library, name: &str, temperature: f64) -> bool {
 }
 
 /// 燃焼の領域: 物質と、組の代表のセル、MOC の領域（組のすべてのセルの分）と、その体積の和 (cm²)
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DepletionRegion {
     pub material: String,
     pub cell: usize,
@@ -540,7 +541,126 @@ struct PointFile<'a> {
     few_group: Option<rmpv::Value>,
 }
 
+/// 読む燃焼の履歴のファイル（書く形 `HistoryFile` と同じ項目）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HistoryFileIn {
+    format: String,
+    nuclides: Vec<String>,
+    regions: Vec<DepletionRegion>,
+    transportable: Vec<String>,
+    points: Vec<PointFileIn>,
+    seconds: SecondsFileIn,
+    solves: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SecondsFileIn {
+    shielding: f64,
+    moc: f64,
+    rates: f64,
+    matrix: f64,
+    cram: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PointFileIn {
+    time: f64,
+    burnup: f64,
+    k_inf: f64,
+    densities: Vec<Vec<f64>>,
+    pin_powers: Vec<Vec<f64>>,
+    /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
+    #[serde(deserialize_with = "nil_or")]
+    few_group: Option<rmpv::Value>,
+}
+
+/// nil を `None` に読み、キーの欠けはエラーにする
+fn nil_or<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    Option::deserialize(d)
+}
+
+/// 時間の内訳 (s) を `Duration` にする（負や有限でない値はエラー）
+fn seconds(name: &str, s: f64) -> anyhow::Result<Duration> {
+    Duration::try_from_secs_f64(s).map_err(|e| anyhow!("seconds.{name} {s}: {e}"))
+}
+
 impl History {
+    /// `to_msgpack` の形を読む（ADR-0187）。核種の名前、燃焼度が 0 から増えること、各点の数密度が [燃焼の領域][核種] で
+    /// あること、輸送できる核種がチェーンの核種であること、少数群定数が状態 1 つのテーブルであることを確かめる
+    pub fn from_msgpack(bytes: &[u8]) -> anyhow::Result<Self> {
+        let file: HistoryFileIn = msgpack::from_value(msgpack::read_value(bytes)?)?;
+        if file.format != FORMAT {
+            bail!("expected format {FORMAT}, found {}", file.format);
+        }
+        let (nuclides, regions, transportable) = (file.nuclides, file.regions, file.transportable);
+        if let Some(name) = transportable.iter().find(|n| !nuclides.contains(n)) {
+            bail!("the transportable {name} is not a nuclide of the history");
+        }
+        let burnups: Vec<f64> = file.points.iter().map(|p| p.burnup).collect();
+        if burnups.first() != Some(&0.0) || !burnups.windows(2).all(|w| w[0] < w[1]) {
+            bail!("the history burnups must increase from 0, got {burnups:?}");
+        }
+        let points = file
+            .points
+            .into_iter()
+            .map(|p| {
+                if p.densities.len() != regions.len()
+                    || p.densities.iter().any(|n| n.len() != nuclides.len())
+                {
+                    bail!(
+                        "point at {} MWd/kg: the densities need {} regions of {} nuclides",
+                        p.burnup,
+                        regions.len(),
+                        nuclides.len()
+                    );
+                }
+                let few_group = p
+                    .few_group
+                    .map(|value| -> anyhow::Result<FewGroup> {
+                        let mut bytes = Vec::new();
+                        rmpv::encode::write_value(&mut bytes, &value)?;
+                        let table = Table::from_msgpack(&bytes)?;
+                        match (table.axes.is_empty(), table.states.as_slice()) {
+                            (true, [one]) => Ok(one.clone()),
+                            _ => bail!("the few-group constants of a point must be one state"),
+                        }
+                    })
+                    .transpose()
+                    .with_context(|| format!("point at {} MWd/kg", p.burnup))?;
+                Ok(HistoryPoint {
+                    time: p.time,
+                    burnup: p.burnup,
+                    k: p.k_inf,
+                    densities: p.densities,
+                    pin_powers: p.pin_powers,
+                    few_group,
+                    transported: transportable.len(),
+                })
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let s = &file.seconds;
+        Ok(Self {
+            nuclides,
+            regions,
+            transportable,
+            points,
+            transport: TransportTimes {
+                shielding: seconds("shielding", s.shielding)?,
+                moc: seconds("moc", s.moc)?,
+                rates: seconds("rates", s.rates)?,
+            },
+            depletion: DepletionTimes {
+                matrix: seconds("matrix", s.matrix)?,
+                cram: seconds("cram", s.cram)?,
+            },
+            solves: file.solves,
+        })
+    }
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
     /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
     /// matrix, cram}（時間の内訳 (s)）, solves}`
