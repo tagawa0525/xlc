@@ -1,6 +1,5 @@
-# #0045 の試行（make_inputs.py が書く。手で直さない）: 2A の燃焼の 1 ステップ（0.1 MWd/kg）、2A-step-actinides
+# #0045 の試行（make_inputs.py が書く。手で直さない）: 2A の燃焼の 1 ステップ（0.1 MWd/kg）、2A-step-full
 library = "../p2/depletion.msgpack"
-pointwise = ["U-238", "O-16", "H-1", "Zr-90", "Zr-91", "Zr-92", "Zr-94", "Zr-96", "U-235", "U-236", "Pu-239", "Pu-240", "Pu-241", "Pu-242"]
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
@@ -98,4 +97,4 @@ chain = "../chain.msgpack"
 power = 38.41
 burnup = [0.1]
 materials = ["fuel"]
-output = "2A-step-actinides.msgpack"
+output = "2A-step-full.msgpack"

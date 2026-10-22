@@ -1,11 +1,11 @@
-# #0045 の試行（make_inputs.py が書く。手で直さない）: 2A の 60 MWd/kg の組成の 1 状態、2A-60-actinides
+# #0045 の試行（make_inputs.py が書く。手で直さない）: 2A の 60 MWd/kg の組成の 1 状態、2A-60-t1e-3
 library = "../p2/depletion.msgpack"
-pointwise = ["U-238", "O-16", "H-1", "Zr-90", "Zr-91", "Zr-92", "Zr-94", "Zr-96", "U-235", "U-236", "Pu-239", "Pu-240", "Pu-241", "Pu-242"]
+ufg-tolerance = 0.001
 pitch = 1.26
 azimuthal = 30
 spacing = 0.03
 gap = { width = 0.04, material = "water" }
-few-group = { output = "2A-60-actinides.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }
+few-group = { output = "2A-60-t1e-3.fg.msgpack", bounds = [1e7, 0.625, 1e-5] }
 rows = [
   "p0 p1 p2 p3 p4 p5 p6 p7 p8 p7 p6 p5 p4 p3 p2 p1 p0",
   "p1 p9 p10 p11 p12 p13 p14 p15 p16 p15 p14 p13 p12 p11 p10 p9 p1",
