@@ -66,6 +66,9 @@ pub enum UfgError {
     Singular(f64),
     #[error("ring {ring}: non-finite group constants in group {group}")]
     NonFinite { ring: usize, group: usize },
+    /// 核種を含むリングの縮約の結果がない（内部の不整合）
+    #[error("ring {ring}: internal error, nuclide {nuclide} was not collapsed")]
+    Uncollapsed { ring: usize, nuclide: usize },
     #[error(transparent)]
     Lookup(#[from] LookupError),
     #[error(transparent)]
@@ -205,10 +208,11 @@ pub fn slowing_down(
     rings: &[Option<&MaterialInput>],
     range: [f64; 2],
 ) -> Result<CellSpectrum, UfgError> {
-    slowing_down_with(library, cell, rings, range, Collision::default())
+    slowing_down_with(library, cell, rings, range, Collision::default(), None)
 }
 
-/// [`slowing_down`] の、飛程の求め方を `collision` で選ぶもの。
+/// [`slowing_down`] の、飛程の求め方を `collision` で選び、`thinning` が `Some(許容差)` なら格子を間引くもの（[`thin`]。
+/// 核種の群定数は、核種自身のポイントワイズの断面積の格子でリングの中性子束を内挿して縮約する（[`collapse`]。ADR-0185））。
 #[tracing::instrument(name = "ufg", level = "debug", skip_all)]
 pub fn slowing_down_with(
     library: &Library,
@@ -216,6 +220,7 @@ pub fn slowing_down_with(
     rings: &[Option<&MaterialInput>],
     range: [f64; 2],
     collision: Collision,
+    thinning: Option<f64>,
 ) -> Result<CellSpectrum, UfgError> {
     let volumes = cell.volumes();
     let n = volumes.len();
@@ -293,11 +298,6 @@ pub fn slowing_down_with(
     if tracing::enabled!(tracing::Level::DEBUG) {
         log_nuclide_points(&data, group_bounds, inside);
     }
-    let step = data
-        .iter()
-        .map(|d| d.width / WINDOW_POINTS as f64)
-        .fold(f64::INFINITY, f64::min);
-    let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
     // ポイントワイズの断面積の不連続点（同じエネルギーの2点）では、高い側と低い側の極限の2つの格子点を同じレサジーに置く。
     // 範囲の上端では低い側、下端では高い側の極限だけを使う
     let mut jumps: Vec<f64> = data
@@ -308,6 +308,19 @@ pub fn slowing_down_with(
         .collect();
     jumps.sort_by(f64::total_cmp);
     jumps.dedup();
+    // 間引くなら、群の境界と不連続点を残し、リングの物質ごとの巨視的な全断面積と弾性散乱断面積を許容差で再現できる点だけを
+    // 残す（ADR-0185）
+    let energies = match thinning {
+        None => energies,
+        Some(tolerance) => thin(&energies, &data, &entries, high, tolerance, |e| {
+            group_bounds.contains(&e) || jumps.binary_search_by(|x| x.total_cmp(&e)).is_ok()
+        })?,
+    };
+    let step = data
+        .iter()
+        .map(|d| d.width / WINDOW_POINTS as f64)
+        .fold(f64::INFINITY, f64::min);
+    let (u, energies) = lethargy_grid(&energies, high, step, |e| group_bounds.contains(&e));
     // （エネルギー、低い側の極限か）
     let mut points: Vec<(f64, bool)> = Vec::with_capacity(energies.len() + jumps.len());
     let mut lethargies: Vec<f64> = Vec::with_capacity(energies.len() + jumps.len());
@@ -349,6 +362,7 @@ pub fn slowing_down_with(
             .iter()
             .map(|ring| vec![vec![[0.0; COLUMNS]; ng]; ring.len()])
             .collect(),
+        tally: thinning.is_none(),
         known: Vec::new(),
         own: entries.iter().map(|ring| vec![0.0; ring.len()]).collect(),
         slabs: vec![(0.0, Vec::new()); data.len()],
@@ -428,20 +442,59 @@ pub fn slowing_down_with(
         "UFG slowing down"
     );
 
+    // 間引いた格子では核種自身の共鳴の点が落ちうるので、核種の格子で縮約する。核種ごとに、それを含むリングをまとめて 1 度に
+    // 縮約する（[データ] の [(リング, 群定数)]）
+    let mut collapsed: Vec<Vec<(usize, Shielded)>> = vec![Vec::new(); data.len()];
+    if thinning.is_some() {
+        collapsed = (0..data.len())
+            .into_par_iter()
+            .map(|k| {
+                let rings: Vec<usize> = (0..n)
+                    .filter(|&i| entries[i].iter().any(|&(j, _)| j == k))
+                    .collect();
+                let fluxes: Vec<&[f64]> = rings.iter().map(|&i| sweep.flux[i].as_slice()).collect();
+                let group_fluxes: Vec<&[f64]> = rings
+                    .iter()
+                    .map(|&i| sweep.group_flux[i].as_slice())
+                    .collect();
+                let values = collapse(
+                    &data[k],
+                    &u,
+                    &points,
+                    &fluxes,
+                    high,
+                    group_bounds,
+                    &group_fluxes,
+                )?;
+                Ok(rings.into_iter().zip(values).collect())
+            })
+            .collect::<Result<_, UfgError>>()?;
+    }
     // 群定数
     let mut nuclides = Vec::with_capacity(n);
     for (i, ring) in sweep.rates.iter().enumerate() {
         let flux = &sweep.group_flux[i];
         let mut list = Vec::with_capacity(ring.len());
-        for rate in ring {
+        for (rate, &(k, _)) in ring.iter().zip(&entries[i]) {
             let column =
                 |x: usize| -> Vec<f64> { rate.iter().zip(flux).map(|(r, f)| r[x] / f).collect() };
-            let shielded = Shielded {
-                total: column(0),
-                elastic: column(1),
-                fission: column(2),
-                nu_fission: column(3),
-                capture: column(4),
+            let shielded = if thinning.is_some() {
+                collapsed[k]
+                    .iter()
+                    .find(|(r, _)| *r == i)
+                    .map(|(_, s)| s.clone())
+                    .ok_or(UfgError::Uncollapsed {
+                        ring: i,
+                        nuclide: k,
+                    })?
+            } else {
+                Shielded {
+                    total: column(0),
+                    elastic: column(1),
+                    fission: column(2),
+                    nu_fission: column(3),
+                    capture: column(4),
+                }
             };
             let finite = |v: &Vec<f64>| v.iter().position(|x| !x.is_finite());
             let bad = [
@@ -469,6 +522,229 @@ pub fn slowing_down_with(
         nuclides,
         points: u.len(),
     })
+}
+
+/// 降順のエネルギー `energies` を、リングの物質（`entries` の同じ並びは 1 つ）ごとの巨視的な全断面積と弾性散乱断面積が、残した点の
+/// 間のレサジーについての線形な補間で、どの点でも相対差 `tolerance` 以内に再現できる点に間引く。`keep` を満たす点（群の境界と
+/// 不連続点）と両端は残す。残す点は、補間の傾きの許される範囲を点ごとに狭めて決める（swinging door）。補間の起点の値は、範囲の
+/// 上端と残した不連続点では減速計算と同じく低い側の極限、ほかの点ではその点の値
+fn thin(
+    energies: &[f64],
+    data: &[Data],
+    entries: &[Vec<(usize, f64)>],
+    high: f64,
+    tolerance: f64,
+    keep: impl Fn(f64) -> bool,
+) -> Result<Vec<f64>, UfgError> {
+    let mut materials: Vec<&Vec<(usize, f64)>> = Vec::new();
+    for ring in entries.iter().filter(|r| !r.is_empty()) {
+        if !materials.contains(&ring) {
+            materials.push(ring);
+        }
+    }
+    // 物質のないセル（真空だけ）は減速計算そのものが止まるので、間引かずに返す
+    if materials.is_empty() {
+        return Ok(energies.to_vec());
+    }
+    let quantities = 2 * materials.len();
+    // [点 × 量] の値。核種ごとに、その核種の格子を降順に進めながら足す（個数密度がどの物質でも 0 の核種は足さない）
+    let mut values = vec![0.0; energies.len() * quantities];
+    // [核種][物質] の個数密度
+    let densities: Vec<Vec<f64>> = (0..data.len())
+        .map(|k| {
+            materials
+                .iter()
+                .map(|m| m.iter().filter(|&&(j, _)| j == k).map(|&(_, n)| n).sum())
+                .collect()
+        })
+        .collect();
+    let present = |k: usize| densities[k].iter().any(|&n| n != 0.0);
+    for (k, d) in data.iter().enumerate() {
+        if !present(k) {
+            continue;
+        }
+        let densities = &densities[k];
+        let p = d.pointwise();
+        let mut cursor = p.energy.len();
+        for (row, &e) in values.chunks_exact_mut(quantities).zip(energies) {
+            let [total, elastic] = evaluate_total_elastic(d, &mut cursor, e)?;
+            for (pair, &n) in row.as_chunks_mut::<2>().0.iter_mut().zip(densities) {
+                pair[0] += n * total;
+                pair[1] += n * elastic;
+            }
+        }
+    }
+    // 減速計算と同じく、有限で負でない全断面積だけを受ける（NaN では傾きの範囲が決まらない）
+    if let Some(q) = values.iter().position(|v| !(v.is_finite() && *v >= 0.0)) {
+        let m = (q % quantities) / 2;
+        let ring = entries.iter().position(|r| r == materials[m]).unwrap_or(0);
+        return Err(CpError::Total(ring).into());
+    }
+    let values: Vec<&[f64]> = values.chunks_exact(quantities).collect();
+    // 補間の起点（範囲の上端と、残した不連続点）の値は、減速計算と同じく低い側の極限
+    let lower = |e: f64| -> Result<Vec<f64>, UfgError> {
+        let mut sums = vec![0.0; quantities];
+        for (k, d) in data.iter().enumerate().filter(|&(k, _)| present(k)) {
+            let x = &d.pointwise().energy;
+            let mut cursor = x
+                .partition_point(|&v| v <= e)
+                .min(x.len().saturating_sub(1));
+            let row = evaluate(d, &mut cursor, e, true)?;
+            for (pair, &n) in sums.as_chunks_mut::<2>().0.iter_mut().zip(&densities[k]) {
+                pair[0] += n * row[0];
+                pair[1] += n * row[1];
+            }
+        }
+        Ok(sums)
+    };
+    let x: Vec<f64> = energies.iter().map(|&e| (high / e).ln()).collect();
+    let last = energies.len().saturating_sub(1);
+    let mut kept = Vec::with_capacity(energies.len() / 4);
+    if energies.is_empty() {
+        return Ok(kept);
+    }
+    kept.push(energies[0]);
+    let mut a = 0;
+    let mut origin = lower(energies[0])?;
+    let fresh = vec![[f64::NEG_INFINITY, f64::INFINITY]; quantities];
+    let mut bounds = fresh.clone();
+    let mut i = 1;
+    while i <= last {
+        let dx = x[i] - x[a];
+        if dx <= 0.0 && !(i == last || keep(energies[i])) {
+            // 丸めで同じレサジーの点（格子の作り方と同じく 1 つにまとめる）
+            i += 1;
+            continue;
+        }
+        let fits = dx > 0.0
+            && (0..quantities).all(|q| {
+                let slope = (values[i][q] - origin[q]) / dx;
+                bounds[q][0] <= slope && slope <= bounds[q][1]
+            });
+        if i == last || keep(energies[i]) {
+            if !fits && i - 1 > a {
+                kept.push(energies[i - 1]);
+            }
+            kept.push(energies[i]);
+            a = i;
+            origin = lower(energies[i])?;
+            bounds.clone_from(&fresh);
+            i += 1;
+            continue;
+        }
+        if !fits {
+            // 1 つ前の点まで補間でき、そこを残して始め直す
+            kept.push(energies[i - 1]);
+            a = i - 1;
+            origin = values[a].to_vec();
+            bounds.clone_from(&fresh);
+            continue;
+        }
+        for (q, b) in bounds.iter_mut().enumerate() {
+            let v = values[i][q];
+            let band = tolerance * v.abs();
+            b[0] = b[0].max((v - band - origin[q]) / dx);
+            b[1] = b[1].min((v + band - origin[q]) / dx);
+        }
+        i += 1;
+    }
+    Ok(kept)
+}
+
+/// 核種 `d` の群定数: ポイントワイズの断面積を、リングの中性子束 `flux`（減速計算の格子点の値。点の間で u について線形）で
+/// 縮約する。ポイントワイズで解いた核種と同じく σF をレサジーの台形則で積分し、点は減速計算の格子点と核種自身の格子の点の和
+/// （格子点の間の核種の点では中性子束を内挿する）にする。間引かない格子は核種の点を含むので、減速計算の中の積分と同じ値になる
+/// （ADR-0185）。`fluxes` と `group_fluxes` は核種を含むリングごとの格子点の F と群ごとの ∫F du で、群定数はその順に返す
+fn collapse(
+    d: &Data,
+    u: &[f64],
+    points: &[(f64, bool)],
+    fluxes: &[&[f64]],
+    high: f64,
+    group_bounds: &[f64],
+    group_fluxes: &[&[f64]],
+) -> Result<Vec<Shielded>, UfgError> {
+    let p = d.pointwise();
+    let ng = group_bounds.len() - 1;
+    let rings = fluxes.len();
+    // [リング][群] の反応率
+    let mut rates = vec![vec![[0.0; COLUMNS]; ng]; rings];
+    let mut cursor = p.energy.len();
+    // 核種の格子の、まだ使っていない最も高いエネルギーの点の次（昇順の配列を降順に進める）
+    let mut next = p.energy.len();
+    let mut group = 0;
+    // 1 つ前の点の (u, 断面積) と、リングごとの F
+    let mut previous: Option<(f64, Row)> = None;
+    let mut last_flux = vec![0.0; rings];
+    let mut node_flux = vec![0.0; rings];
+    let mut here_flux = vec![0.0; rings];
+    let mut add =
+        |group: usize, (ua, va): (f64, &Row), fa: &[f64], (ub, vb): (f64, &Row), fb: &[f64]| {
+            let du = ub - ua;
+            for (rate, (fa, fb)) in rates.iter_mut().zip(fa.iter().zip(fb)) {
+                for (r, (a, b)) in rate[group].iter_mut().zip(va.iter().zip(vb)) {
+                    *r += 0.5 * du * (fa * a + fb * b);
+                }
+            }
+        };
+    for (m, &(e, below)) in points.iter().enumerate() {
+        let here = (u[m], evaluate(d, &mut cursor, e, below)?);
+        for (f, flux) in here_flux.iter_mut().zip(fluxes) {
+            *f = flux[m];
+        }
+        if let Some(mut last) = previous {
+            let upper = points[m - 1].0;
+            while next > 0 && p.energy[next - 1] >= upper {
+                next -= 1;
+            }
+            while next > 0 && p.energy[next - 1] > e {
+                next -= 1;
+                let x = (high / p.energy[next]).ln();
+                let t = (x - u[m - 1]) / (here.0 - u[m - 1]);
+                for (f, flux) in node_flux.iter_mut().zip(fluxes) {
+                    *f = flux[m - 1] + (flux[m] - flux[m - 1]) * t;
+                }
+                let row = [
+                    p.total[next],
+                    p.elastic[next],
+                    p.fission[next],
+                    p.nu_fission[next],
+                    p.capture[next],
+                ];
+                add(group, (last.0, &last.1), &last_flux, (x, &row), &node_flux);
+                last = (x, row);
+                last_flux.clone_from(&node_flux);
+            }
+            add(
+                group,
+                (last.0, &last.1),
+                &last_flux,
+                (here.0, &here.1),
+                &here_flux,
+            );
+        }
+        previous = Some(here);
+        last_flux.clone_from(&here_flux);
+        // 群の境界では、高い側の格子点で次の群に移る（減速計算と同じ）
+        if group < ng && !below && e == group_bounds[group + 1] {
+            group += 1;
+        }
+    }
+    Ok(rates
+        .iter()
+        .zip(group_fluxes)
+        .map(|(rate, flux)| {
+            let column =
+                |x: usize| -> Vec<f64> { rate.iter().zip(*flux).map(|(r, f)| r[x] / f).collect() };
+            Shielded {
+                total: column(0),
+                elastic: column(1),
+                fission: column(2),
+                nu_fission: column(3),
+                capture: column(4),
+            }
+        })
+        .collect())
 }
 
 /// 核種ごとの格子の点の数を debug で出す。`own` は範囲の中の自分の点の数、`added` は、データの順に足したときに格子の和に
@@ -658,6 +934,28 @@ fn lethargy_grid(
 /// 核種 `d` のポイントワイズの断面積 [全, 弾性散乱, 核分裂, νσf, 捕獲] をエネルギー `e` で lin-lin に補間する。`cursor` はエネルギーの
 /// 降順に引くための位置。不連続点では、`below` なら低い側、そうでなければ高い側の極限の値になる。
 fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, UfgError> {
+    let (j, t) = bracket(d, cursor, e, below)?;
+    let p = d.pointwise();
+    let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
+    Ok([
+        lerp(&p.total),
+        lerp(&p.elastic),
+        lerp(&p.fission),
+        lerp(&p.nu_fission),
+        lerp(&p.capture),
+    ])
+}
+
+/// 核種 `d` の全断面積と弾性散乱断面積の、エネルギー `e` での lin-lin の補間（[`evaluate`] の高い側の極限と同じ値）
+fn evaluate_total_elastic(d: &Data, cursor: &mut usize, e: f64) -> Result<[f64; 2], UfgError> {
+    let (j, t) = bracket(d, cursor, e, false)?;
+    let p = d.pointwise();
+    let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
+    Ok([lerp(&p.total), lerp(&p.elastic)])
+}
+
+/// [`evaluate`] の補間の区間の始まりの点と、区間の中の位置
+fn bracket(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<(usize, f64), UfgError> {
     let x = &d.pointwise().energy;
     let defined =
         x.len() >= 2 && x.first().is_some_and(|&a| a <= e) && x.last().is_some_and(|&b| e <= b);
@@ -684,15 +982,7 @@ fn evaluate(d: &Data, cursor: &mut usize, e: f64, below: bool) -> Result<Row, Uf
         let width = x[j + 1] - x[j];
         (j, if width > 0.0 { (e - x[j]) / width } else { 0.0 })
     };
-    let p = d.pointwise();
-    let lerp = |y: &[f64]| y[j] + t * (y[j + 1] - y[j]);
-    Ok([
-        lerp(&p.total),
-        lerp(&p.elastic),
-        lerp(&p.fission),
-        lerp(&p.nu_fission),
-        lerp(&p.capture),
-    ])
+    Ok((j, t))
 }
 
 /// 範囲の上（u < 0）の群
@@ -759,6 +1049,8 @@ struct Sweep<'a> {
     group_flux: Vec<Vec<f64>>,
     /// [リング][項][群] の反応率 ∫ F σ du [全, 弾性散乱, 核分裂, νσf, 捕獲]
     rates: Vec<Vec<Vec<Row>>>,
+    /// 反応率を格子点で積分する（間引いた格子では核種の格子で縮約するので積分しない）
+    tally: bool,
     /// 格子点ごとに再利用する作業用の配列: [リング][項] の窓の積分の既知の部分
     known: Vec<Vec<f64>>,
     /// 格子点ごとに再利用する作業用の配列: [リング][項] のその点の F_i の係数
@@ -865,6 +1157,9 @@ impl Sweep<'_> {
             for (i, ring) in self.entries.iter().enumerate() {
                 let (f0, f1) = (self.flux[i][m - 1], f[i]);
                 self.group_flux[i][g] += 0.5 * du * (f0 + f1);
+                if !self.tally {
+                    continue;
+                }
                 for (e, &(k, _)) in ring.iter().enumerate() {
                     let (v0, v1) = (self.previous[k], values[k]);
                     for x in 0..COLUMNS {
