@@ -789,3 +789,26 @@ fn void_cells_stop_with_an_error_when_thinned() {
         assert!(result.is_err(), "{thinning:?}");
     }
 }
+
+#[test]
+fn non_finite_totals_stop_the_thinning_as_without() {
+    // 格子点の全断面積が NaN なら、間引くときも、間引かないときと同じく止まる（間引きが止まらずに点を足し続けない）
+    let (lib, fuel, water) = resonant_cell(f64::NAN);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    for thinning in [None, Some(1.0e-4)] {
+        let result = slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        );
+        assert!(
+            matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
+            "{thinning:?}: {:?}",
+            result.err()
+        );
+    }
+}
