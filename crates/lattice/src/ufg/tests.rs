@@ -379,6 +379,7 @@ fn table_tracks_give_the_group_constants_of_the_exact_tracks() {
             &no_background(&rings),
             [4.0, 1.0e4],
             collision,
+            None,
         )
         .unwrap()
     };
@@ -422,6 +423,7 @@ fn non_finite_totals_stop_with_the_table_as_without() {
             &no_background(&rings),
             [4.0, 1.0e4],
             collision,
+            None,
         );
         assert!(
             matches!(result, Err(UfgError::Cp(CpError::Total(0)))),
@@ -446,6 +448,7 @@ fn zero_totals_stop_the_table_with_their_ring() {
         &no_background(&rings),
         [4.0, 1.0e4],
         Collision::default(),
+        None,
     );
     assert!(
         matches!(result, Err(UfgError::ZeroTotal(0))),
@@ -469,6 +472,7 @@ fn tables_with_as_many_nodes_as_points_give_the_exact_tracks() {
             &no_background(&rings),
             [4.0, 1.0e4],
             collision,
+            None,
         )
         .unwrap()
     };
@@ -498,6 +502,7 @@ fn ring_cells(u238: [f64; 3]) -> (CellSpectrum, CellSpectrum) {
             &no_background(&rings),
             [4.0, 1.0e4],
             collision,
+            None,
         )
         .unwrap()
     };
@@ -632,11 +637,20 @@ fn a_background_of_the_constant_cross_sections_gives_the_pointwise_solution() {
         &no_background(&rings),
         range,
         Collision::Exact,
+        None,
     )
     .unwrap();
     let background = u235_background(&rings, &dilute);
-    let lumped =
-        slowing_down_with(&lib, &cell, &rings, &background, range, Collision::Exact).unwrap();
+    let lumped = slowing_down_with(
+        &lib,
+        &cell,
+        &rings,
+        &background,
+        range,
+        Collision::Exact,
+        None,
+    )
+    .unwrap();
     let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * b.abs();
     for (ring, (a, b)) in lumped.flux.iter().zip(&pointwise.flux).enumerate() {
         for (g, (a, b)) in a.iter().zip(b).enumerate() {
@@ -683,6 +697,7 @@ fn background_nuclides_are_collapsed_from_their_pointwise_data() {
         &background,
         [4.0, 1.0e4],
         Collision::default(),
+        None,
     )
     .unwrap();
     for ring in 0..3 {
@@ -742,6 +757,7 @@ fn a_trace_background_nuclide_takes_the_shadow_of_the_fuel() {
             background,
             [4.0, 1.0e4],
             Collision::Exact,
+            None,
         )
         .unwrap()
     };
@@ -784,6 +800,7 @@ fn the_background_follows_the_rings_and_their_nuclides() {
             background,
             [4.0, 1.0e4],
             Collision::default(),
+            None,
         )
     };
     let mut short = no_background(&rings);
@@ -853,4 +870,126 @@ fn group_backgrounds_jump_at_the_group_bounds() {
     assert_eq!(at(&mut cursor, 1.0e4, false), 1.0);
     assert_eq!(at(&mut cursor, 1.0e4, true), 2.0);
     assert_eq!(at(&mut cursor, 5.0, false), 4.0);
+}
+
+#[test]
+fn thinned_grids_keep_the_macroscopic_cross_sections_within_the_tolerance() {
+    // ADR-0185: 残した点の間の線形な補間（レサジーについて）が、間引く前のどの点でもリングの物質の巨視的な断面積を許容差以内に
+    // 再現し、群の境界と不連続点は残る
+    let (lib, _, _) = resonant_cell(11.0 + 1.0e4);
+    let materials: Vec<Vec<(usize, f64)>> = vec![vec![(0, 0.022), (1, 0.0005), (2, 0.045)]];
+    let data: Vec<Data> = ["U-238", "U-235", "O-16"]
+        .iter()
+        .map(|name| {
+            let (d, t) = lib.lookup(name, TEMPERATURE).unwrap();
+            let alpha = scattering_alpha(name, d.awr).unwrap();
+            Data {
+                name: &d.name,
+                gain: 1.0 / (1.0 - alpha),
+                width: -alpha.ln(),
+                source: Source::Pointwise(Box::new(t)),
+            }
+        })
+        .collect();
+    let high = 1.0e4;
+    let mut energies: Vec<f64> = data[0]
+        .energies()
+        .iter()
+        .copied()
+        .filter(|&e| e > 4.0 && e < high)
+        .chain([high, 1.0e3, 1.0e2, 4.0])
+        .collect();
+    energies.sort_by(|a, b| b.total_cmp(a));
+    energies.dedup();
+    let tolerance = 1.0e-3;
+    let kept = thin(&energies, &data, &materials, high, tolerance, |e| {
+        e == 1.0e2
+    })
+    .unwrap();
+    assert!(
+        kept.len() < energies.len() / 2,
+        "{} of {}",
+        kept.len(),
+        energies.len()
+    );
+    for e in [high, 1.0e3, 1.0e2, 4.0] {
+        assert!(kept.contains(&e), "{e}");
+    }
+    let sigma = |e: f64| -> [f64; 2] {
+        let row: Vec<Row> = data
+            .iter()
+            .map(|d| evaluate(d, &mut d.first_cursor(), e, false).unwrap())
+            .collect();
+        let sum = |x: usize| {
+            materials[0]
+                .iter()
+                .map(|&(k, n)| n * row[k][x])
+                .sum::<f64>()
+        };
+        [sum(0), sum(1)]
+    };
+    let u = |e: f64| (high / e).ln();
+    for &e in &energies {
+        let b = kept.iter().position(|&k| k <= e).unwrap();
+        let (hi, lo) = (kept[b.saturating_sub(1)], kept[b]);
+        let exact = sigma(e);
+        if lo == e {
+            continue;
+        }
+        let t = (u(e) - u(hi)) / (u(lo) - u(hi));
+        let (a, c) = (sigma(hi), sigma(lo));
+        for q in 0..2 {
+            let interpolated = a[q] + t * (c[q] - a[q]);
+            assert!(
+                (interpolated - exact[q]).abs() <= tolerance * exact[q].abs() * (1.0 + 1e-9),
+                "{e} eV quantity {q}: {interpolated} vs {}",
+                exact[q]
+            );
+        }
+    }
+}
+
+#[test]
+fn thinned_grids_give_the_group_constants_of_the_full_grid() {
+    // ADR-0185: 間引いた格子の中性子束で核種の格子の断面積を縮約した群定数は、間引かない格子の群定数と許容差の程度で一致し、
+    // 格子の点は減る
+    let (lib, fuel, water) = resonant_cell(11.0 + 1.0e4);
+    let cell = Cylinder::new(vec![0.2, 0.35, 0.4096, 0.418, 0.711]).unwrap();
+    let rings = [Some(&fuel), Some(&fuel), Some(&fuel), None, Some(&water)];
+    let solve = |thinning| {
+        slowing_down_with(
+            &lib,
+            &cell,
+            &rings,
+            &no_background(&rings),
+            [4.0, 1.0e4],
+            Collision::Exact,
+            thinning,
+        )
+        .unwrap()
+    };
+    let (full, thinned) = (solve(None), solve(Some(1.0e-4)));
+    assert!(
+        thinned.points < full.points,
+        "{} vs {}",
+        thinned.points,
+        full.points
+    );
+    for (ring, (a, b)) in thinned.nuclides.iter().zip(&full.nuclides).enumerate() {
+        for (k, (a, b)) in a.iter().zip(b).enumerate() {
+            for (x, y) in a
+                .total
+                .iter()
+                .zip(&b.total)
+                .chain(a.capture.iter().zip(&b.capture))
+            {
+                let d = if *y == 0.0 {
+                    x.abs()
+                } else {
+                    (x / y - 1.0).abs()
+                };
+                assert!(d < 1e-4, "ring {ring} nuclide {k}: {x} vs {y}");
+            }
+        }
+    }
 }

@@ -49,6 +49,8 @@ pub struct ShieldingOptions {
     pub collision: Collision,
     /// 燃料のピンと棒の UFG の減速計算でポイントワイズの断面積で解く核種
     pub pointwise: PointwiseNuclides,
+    /// UFG の減速計算の格子を、リングの物質の巨視的な断面積をこの相対差で再現できる点に間引く（`None` は間引かない）
+    pub thinning: Option<f64>,
 }
 
 impl Default for ShieldingOptions {
@@ -59,6 +61,7 @@ impl Default for ShieldingOptions {
             dancoff: DancoffOptions::default(),
             collision: Collision::default(),
             pointwise: PointwiseNuclides::All,
+            thinning: None,
         }
     }
 }
@@ -555,6 +558,7 @@ pub fn shield_fuel_with(
                 void,
                 collision: options.collision,
                 pointwise: &options.pointwise,
+                thinning: options.thinning,
             };
             let ufg = shield_cell(
                 library,
@@ -951,6 +955,7 @@ fn shield_lumps(
                         void: materials.len(),
                         collision: options.collision,
                         pointwise: &options.pointwise,
+                        thinning: options.thinning,
                     };
                     shield_cell(
                         library,
@@ -1164,6 +1169,8 @@ struct PinRings<'a> {
     collision: Collision,
     /// 減速計算でポイントワイズの断面積で解く核種
     pointwise: &'a PointwiseNuclides,
+    /// 減速計算の格子の間引きの許容差
+    thinning: Option<f64>,
 }
 
 /// 塊の遮蔽の結果: 等価原理の実効断面積と、棒なら等価なセルの減速計算の結果と棒のリングの数
@@ -1346,6 +1353,7 @@ fn solve_equivalent_cell<'a>(
         &background,
         range,
         pin.collision,
+        pin.thinning,
     )?;
     Ok(Some(EquivalentCell {
         radius,
