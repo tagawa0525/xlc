@@ -266,3 +266,37 @@ fn a_nuclide_result_must_share_the_conditions_of_the_input() {
     }
     assert!(check_shared(&input, None, &part).is_err());
 }
+
+fn strings(args: &[&str]) -> Vec<String> {
+    args.iter().map(|a| (*a).to_string()).collect()
+}
+
+#[test]
+#[ignore = "--threads is not read yet"]
+fn reads_the_number_of_threads_before_the_command() {
+    let args = strings(&["--threads", "4", "range", "xs.toml", "xs-range.toml"]);
+    let (threads, rest) = thread_option(&args).unwrap();
+    assert_eq!(threads, NonZeroUsize::new(4));
+    assert_eq!(rest, &args[2..]);
+}
+
+#[test]
+fn leaves_the_number_of_threads_to_the_default_without_the_option() {
+    let args = strings(&["xs.toml"]);
+    let (threads, rest) = thread_option(&args).unwrap();
+    assert_eq!(threads, None);
+    assert_eq!(rest, &args[..]);
+}
+
+#[test]
+#[ignore = "--threads is not read yet"]
+fn rejects_a_bad_number_of_threads() {
+    for args in [
+        &["--threads"][..],
+        &["--threads", "0", "xs.toml"],
+        &["--threads", "-1", "xs.toml"],
+        &["--threads", "four", "xs.toml"],
+    ] {
+        assert!(thread_option(&strings(args)).is_err(), "{args:?}");
+    }
+}

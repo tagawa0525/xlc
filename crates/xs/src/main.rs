@@ -45,6 +45,7 @@
 use std::collections::BTreeMap;
 use std::env::VarError;
 use std::io::IsTerminal;
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -236,6 +237,11 @@ const USAGE: &str = "usage: xs <input file>
        xs range <input file> <range file>
        xs nuclide <input file> <range file> <nuclide> <output>
        xs assemble <input file> <range file> <nuclide directory>";
+
+/// 引数の先頭の `--threads <数>` を読み、残りの引数と分ける。
+fn thread_option(args: &[String]) -> anyhow::Result<(Option<NonZeroUsize>, &[String])> {
+    Ok((None, args))
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
