@@ -72,6 +72,10 @@
 //! materials = ["fuel"]            # 燃焼させる物質（核種で書いたもの）
 //! output = "history.msgpack"      # 燃焼の履歴（燃焼点ごとの k∞、数密度、ピン出力。ADR-0181）
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
+//!
+//! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む。書き方は
+//! file = "history.msgpack"        # lattice::history）
+//! burnup = [0, 10, 20]
 //! ```
 //!
 //! セルの帯は外半径の内側を分割数の領域に分ける。外半径のある帯は等体積に（切り取る前の円の
@@ -91,6 +95,7 @@ use crate::branches::{Branches, BranchesEntry, Water};
 use crate::depletion::{DepletionFewGroup, DepletionInput};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
+use crate::history::HistoryInput;
 use crate::shielding::ShieldingOptions;
 use crate::symmetry::Symmetry;
 use crate::tracking::{Boundaries, Boundary};
@@ -215,6 +220,8 @@ pub struct LatticeInput {
     pub branches: Option<Branches>,
     /// 燃焼（ADR-0173）。`None` なら燃焼させない
     pub depletion: Option<DepletionInput>,
+    /// 燃焼の履歴の燃焼点からの分岐（ADR-0187）。`None` なら物質は入力のまま
+    pub history: Option<HistoryInput>,
 }
 
 /// 少数群定数の出力。
@@ -318,6 +325,16 @@ struct InputFile {
     branches: Option<BranchesEntry>,
     /// 省略すると燃焼させない
     depletion: Option<DepletionEntry>,
+    /// 省略すると燃焼の履歴を読まない
+    history: Option<HistoryEntry>,
+}
+
+/// 燃焼の履歴の燃焼点からの分岐（ADR-0187）
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HistoryEntry {
+    file: PathBuf,
+    burnup: Vec<f64>,
 }
 
 /// 燃焼の条件（ADR-0173）
@@ -927,6 +944,50 @@ impl LatticeInput {
             })
             .transpose()
             .map_err(invalid)?;
+        let history = file
+            .history
+            .map(|h| {
+                // core は 3 つの分岐の軸と燃焼度で引く。燃焼の輸送と同じく自己遮蔽で解き、格子全体の 1 つのテーブルを書く
+                if branches.is_none() {
+                    return Err("[history] needs [branches] (ADR-0187)".to_string());
+                }
+                if !self_shielding {
+                    return Err("[history] needs the self-shielding (ADR-0187)".into());
+                }
+                if depletion.is_some() || file.medium.is_some() || !media.is_empty() || !mixtures.is_empty() {
+                    return Err(
+                        "[history] excludes [depletion], `medium`, media and mixtures (ADR-0187)".into(),
+                    );
+                }
+                if !matches!(
+                    &output,
+                    Some(FewGroupOutput {
+                        files: FewGroupFiles::Lattice(_),
+                        axial: false,
+                        ..
+                    })
+                ) {
+                    return Err(
+                        "[history] writes one table of the lattice: give `few-group = { output = ..., bounds = [...] }`"
+                            .into(),
+                    );
+                }
+                if h.burnup.is_empty()
+                    || !h.burnup.iter().all(|&b| b >= 0.0 && b.is_finite())
+                    || !h.burnup.windows(2).all(|w| w[0] < w[1])
+                {
+                    return Err(format!(
+                        "the history burnup points must be non-negative and increasing, got {:?}",
+                        h.burnup
+                    ));
+                }
+                Ok(HistoryInput {
+                    file: h.file,
+                    burnup: h.burnup,
+                })
+            })
+            .transpose()
+            .map_err(invalid)?;
         Ok(Self {
             self_shielding,
             collision,
@@ -937,6 +998,7 @@ impl LatticeInput {
             medium: file.medium,
             branches,
             depletion,
+            history,
             pitch: file.pitch,
             azimuthal: file.azimuthal,
             spacing: file.spacing,

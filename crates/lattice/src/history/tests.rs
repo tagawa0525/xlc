@@ -121,7 +121,7 @@ fn k_of(
         .map(|&i| &shielded.materials[i])
         .collect();
     let options = Options {
-        scattering_order: Some(available_order(&regions)),
+        scattering_order: available_order(&regions),
         ..Options::default()
     };
     solve_symmetric(&s.tracking, &regions, &options, s.chosen.moc())
