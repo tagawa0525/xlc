@@ -35,7 +35,7 @@ vera/p3、vera/p5 にある。ただし、そのうち `bin/` の差には、書
 
 - リポジトリの直下（`build`）: 作り直して relock する（数十秒）
 - examples/depletion/p2: ライブラリ（xs の 90 核種、NJOY の openmc-neutron/thermal/index）と `chain`（examples/depletion/dvc.yaml）を
-  再実行し、集合体の燃焼（lattice@2A、2F、2N）と、OpenMC の参照解がそろったものの比較を流して relock する（このブランチ）
+  再実行し、集合体の燃焼の lattice@2A と compare@2A を流して relock する（このブランチ）。ほかのジョブは #0135 の後の lattice で流す
 - examples/depletion の `openmc-1C`（1.5 時間 × 2）、examples/vera の OpenMC: 再実行しない。結果が要るときに再実行する
 - ほかの例: 再実行しない。結果が要るときに再実行する
 
