@@ -26,24 +26,24 @@ dvc checkout examples/vera/dvc.yaml
 ## ライブラリ
 
 `examples/vera/openmc-library/cross_sections.xml` と、`neutron/`、`thermal/` の HDF5 は、`examples/vera/dvc.yaml` の
-`openmc-neutron@<核種>`、`openmc-thermal@<散乱則>`、`openmc-index` の段階が作る。温度は引数でなく
+`openmc-neutron@<核種>`、`openmc-thermal@<散乱則>`、`openmc-index` のステージが作る。温度は引数でなく
 `examples/vera/openmc-library.toml` の `temperatures` に書く。核種や温度を足したら、その項目だけ `dvc repro` が作る。
 
 - 565 K（2A、2Q）は、燃料、冷却材、被覆管の核種を 565 K でも作り、H in H2O の S(α,β) は 550 K と 573.6 K の内挿にする
   （ADR-0080）。OpenMC の温度の内挿のモードは、温度を 1 つしか持たない核種が 1 つでもあると全体を最も近い温度の
   モードに戻すので、内挿で解く問題の核種には 2 つ以上の温度を書く
-- `references/openmc/endfb80`（600 K だけ）と `endfb80-565` は、段階にする前に手で作ったもので、段階が作る HDF5 と
+- `references/openmc/endfb80`（600 K だけ）と `endfb80-565` は、ステージにする前に手で作ったもので、ステージが作る HDF5 と
   バイト単位で一致した（ADR-0130）。新しい計算は `examples/vera/openmc-library/` を使う
 
-## 段階にしてある問題（1B）
+## ステージにしてある問題（1B）
 
-段階は `openmc-1B-model`（スクリプトと入力 → model.xml。数秒）と `openmc-1B`（model.xml とライブラリ → statepoint）に分かれる
+ステージは `openmc-1B-model`（スクリプトと入力 → model.xml。数秒）と `openmc-1B`（model.xml とライブラリ → statepoint）に分かれる
 （ADR-0136）。スクリプトを直してモデルが変わらなければ model.xml の md5 が同じで、`openmc-1B` は再実行しない。model.xml が変わる
 直し（タリーを足すなど）は、`openmc-1B` を再実行する。`model.xml` の生成だけを確かめるときは、
 `dvc repro -s examples/vera/dvc.yaml:openmc-1B-model`（上流は `references-shell` だけで、数秒。手元でよい）。
 
 `dvc repro` は `default` の devShell で実行する（`references` の devShell の中では cargo と dvc がない）。ライブラリの
-63 段階を含み、全体で 40〜60 分かかるので、全体を Slurm で流す:
+63 ステージを含み、全体で 40〜60 分かかるので、全体を Slurm で流す:
 
 ```sh
 ~/.claude/scripts/slurm-run.sh -t 90 vera-reference-stages 'dvc repro examples/vera/dvc.yaml'
@@ -51,7 +51,7 @@ dvc checkout examples/vera/dvc.yaml
 
 終わったら `dvc.lock` をコミットする。
 
-## 段階にしていない問題（1C〜2K、2Q）
+## ステージにしていない問題（1C〜2K、2Q）
 
 `examples/vera/p1/openmc-1B.toml` と同じ形の入力を作る（置き場は `p2/openmc-<問題>.toml`）。キーは `problem`、
 `cross-sections`（入力のファイルからの相対）、`particles`、`batches`、`inactive`、`seed`、`threads`。既存の参照解の条件:

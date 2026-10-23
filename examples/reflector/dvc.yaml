@@ -1,7 +1,7 @@
-# 軸方向の反射体の平板（ADR-0128）の段階: ENDF → 多群ライブラリ（xs）→ VERA 3A の単一集合体の媒質と少数群定数
+# 軸方向の反射体の平板（ADR-0128）のステージ: ENDF → 多群ライブラリ（xs）→ VERA 3A の単一集合体の媒質と少数群定数
 # （assembly-3A）→ 集合体の高さ全体の平板の格子計算（axial-<版>）→ 平板の定数で解く炉心（core-axial-<種類>-<版>）→
 # MOC との比較（compare-axial-<種類>-<版>）と z の辺の ADF（fstar-<版>）。実行するのは `dvc repro`（ADR-0159）。deps の
-# 書き方は examples/m0/dvc.yaml と同じ（段階の入力と、段階が呼ぶ実行ファイル）。平板と炉心の入力は axial_slab.py が書いて
+# 書き方は examples/m0/dvc.yaml と同じ（ステージの入力と、ステージが呼ぶ実行ファイル）。平板と炉心の入力は axial_slab.py が書いて
 # コミットしたもの。径方向の反射体の格子（lattice-I、lattice-corner）→ その定数で解く炉心（core-corner-<種類>）→ MOC との
 # 比較（compare-corner-<種類>。ADR-0132）。
 stages:
@@ -74,7 +74,7 @@ stages:
       - fg-3A.msgpack
       - assembly-3A.out
   axial-16:
-    # 少数群定数はディレクトリに書く（DVC は段階の前に出力を消すので、作ってから実行する）。MOC の k とノード平均の
+    # 少数群定数はディレクトリに書く（DVC はステージの前に出力を消すので、作ってから実行する）。MOC の k とノード平均の
     # 中性子束を比べるため、ログを debug で受ける
     cmd: mkdir -p axial-16 && RUST_LOG=debug ../../bin/lattice axial-3A-16.toml > axial-3A-16.out 2> axial-3A-16.log
     deps:
@@ -87,7 +87,7 @@ stages:
       - axial-3A-16.out
       - axial-3A-16.log
   axial-32:
-    # 少数群定数はディレクトリに書く（DVC は段階の前に出力を消すので、作ってから実行する）。MOC の k とノード平均の
+    # 少数群定数はディレクトリに書く（DVC はステージの前に出力を消すので、作ってから実行する）。MOC の k とノード平均の
     # 中性子束を比べるため、ログを debug で受ける
     cmd: mkdir -p axial-32 && RUST_LOG=debug ../../bin/lattice axial-3A-32.toml > axial-3A-32.out 2> axial-3A-32.log
     deps:
@@ -100,7 +100,7 @@ stages:
       - axial-3A-32.out
       - axial-3A-32.log
   axial-fine:
-    # 少数群定数はディレクトリに書く（DVC は段階の前に出力を消すので、作ってから実行する）。MOC の k とノード平均の
+    # 少数群定数はディレクトリに書く（DVC はステージの前に出力を消すので、作ってから実行する）。MOC の k とノード平均の
     # 中性子束を比べるため、ログを debug で受ける
     cmd: mkdir -p axial-fine && RUST_LOG=debug ../../bin/lattice axial-3A-fine.toml > axial-3A-fine.out 2> axial-3A-fine.log
     deps:

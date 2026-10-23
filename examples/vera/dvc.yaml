@@ -1,7 +1,7 @@
-# VERA の段階: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ
+# VERA のステージ: ENDF → OpenMC のライブラリ（核種ごと）→ OpenMC → statepoint からの抽出、ENDF → xlc の多群ライブラリ
 # （範囲 xs-range → 核種ごと xs-nuclide → 組み立て xs。ADR-0138）→ 格子計算（lattice）、両者の k の比較。実行するのは default の devShell の `dvc repro`（ADR-0159）。NJOY と OpenMC を
-# 使う段階は cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps に
-# する（ADR-0130）。Rust の段階の deps は、段階の入力と、段階が呼ぶ実行ファイル（ADR-0159。examples/m0/dvc.yaml と同じ並び）。
+# 使うステージは cmd を references の devShell でラッパー、その devShell の store のパス（references-shell.txt）をツールの deps に
+# する（ADR-0130）。Rust のステージの deps は、ステージの入力と、ステージが呼ぶ実行ファイル（ADR-0159。examples/m0/dvc.yaml と同じ並び）。
 vars:
   - openmc-library.toml
   - xs.toml
@@ -31,7 +31,7 @@ stages:
       - references-shell.txt:
           cache: false
   openmc-neutron:
-    # 核種ごとの段階は、入力のうちその核種の項目だけを params で deps にする（ほかの核種の変更で実行しない。ADR-0130）
+    # 核種ごとのステージは、入力のうちその核種の項目だけを params で deps にする（ほかの核種の変更で実行しない。ADR-0130）
     foreach: ${neutron}
     do:
       cmd: nix develop ../..#references -c python3 openmc_library.py neutron openmc-library.toml ${key} openmc-library/neutron/${key}.h5
@@ -114,7 +114,7 @@ stages:
     outs:
       - p1/openmc-1B-results
   openmc-5A-2D-extract:
-    # run は段階にしない（本番は手で Slurm に流した。verification.md の「Problem 5-2D の参照解」）。その statepoint を deps にして結果を抜く
+    # run はステージにしない（本番は手で Slurm に流した。verification.md の「Problem 5-2D の参照解」）。その statepoint を deps にして結果を抜く
     cmd: nix develop ../..#references -c python3 openmc_core_2d.py extract p5/openmc-5A-2D.toml ../../references/openmc/vera-5A-2D p5/openmc-5A-2D-results
     deps:
       - openmc_core_2d.py
@@ -130,7 +130,7 @@ stages:
     outs:
       - p5/openmc-5A-2D-results
   xs-range:
-    # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとの段階の入力にするため、先に求める
+    # ポイントワイズの範囲は、すべての核種の分離共鳴の上端で決まる。核種ごとのステージの入力にするため、先に求める
     # （ADR-0138）。ENDF はディレクトリごと deps にする。sha256 で固定した（ADR-0124）ので変わらない
     cmd: ../../bin/xs range xs.toml xs-range.toml
     deps:
@@ -141,7 +141,7 @@ stages:
       - xs-range.toml:
           cache: false
   xs-nuclide:
-    # 核種ごとの段階は、入力のうちその核種の項目と、全核種に共通の項目だけを params で deps にする（ほかの核種の変更で
+    # 核種ごとのステージは、入力のうちその核種の項目と、全核種に共通の項目だけを params で deps にする（ほかの核種の変更で
     # 実行しない。ADR-0138）。熱中性子散乱の ENDF は、固定した（ADR-0124）ディレクトリごと deps にする
     foreach: ${nuclide}
     do:
@@ -186,7 +186,7 @@ stages:
       - p1/compare-1B.out
   keno-pincell:
     # 仕様書の KENO-VI（ENDF/B-VII.0）との比較（本番のライブラリ）。ENDF/B-VII.0 のライブラリで同じ比較をする endfb70/dvc.yaml
-    # の段階と対にして読む（ADR-0175）。要約 compare-keno-<問題>.json は git で追跡する（ADR-0176）
+    # のステージと対にして読む（ADR-0175）。要約 compare-keno-<問題>.json は git で追跡する（ADR-0176）
     foreach: ${keno-pincells}
     do:
       cmd: ../../bin/lattice p1/pincell-${item}.toml > p1/keno-lattice-${item}.out && python3 compare_keno_lattice.py --json compare-keno-${item}.json ../../references/vera/spec.txt ${item} p1/keno-lattice-${item}.out

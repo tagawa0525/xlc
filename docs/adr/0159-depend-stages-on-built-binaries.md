@@ -12,46 +12,46 @@ issues: ["#0080", "#0110"]
 
 ## 背景
 
-ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に、その段階のバイナリを作るコード（段階のクレートと、パスで
+ADR-0123 は、計算のステージを DVC で駆動し、Rust のステージの deps に、そのステージのバイナリを作るコード（ステージのクレートと、パスで
 依存するクレートの `src` と `Cargo.toml`、ワークスペースの `Cargo.toml` と `Cargo.lock`、`rust-toolchain.toml`、
 `.cargo/config.toml`、`flake.lock`）を並べた（ADR-0123 の案 H）。ビルドしたバイナリを deps にする案（ADR-0123 の案 I）は、
 バイナリに worktree の絶対パスが埋まり、同じコードでも worktree ごとに md5 が変わるとして退けた。
 
-ソースを deps にすると、計算の出力を変えない変更でも段階が古くなる:
+ソースを deps にすると、計算の出力を変えない変更でもステージが古くなる:
 
-- テストの移動（#0089、ADR-0143）は `crates/*/src` の md5 を変え、xs、lattice、core の段階をほぼすべて古くする。#0089 は
-  移動の前後で strip した release の実行ファイルがバイト一致することを確かめたが、ADR-0143 の文面では、190 段階の
+- テストの移動（#0089、ADR-0143）は `crates/*/src` の md5 を変え、xs、lattice、core のステージをほぼすべて古くする。#0089 は
+  移動の前後で strip した release の実行ファイルがバイト一致することを確かめたが、ADR-0143 の文面では、190 ステージの
   `dvc repro -P`（5〜8 時間）を再実行することになる
 - `flake.nix` の default の devShell の変更（環境変数、ツールチェーンの override）は、ビルドを変えても deps に表れない
-  （#0080）。逆に `flake.nix` を deps にすると、開発のツールを足すだけで段階が古くなる（ADR-0135）
+  （#0080）。逆に `flake.nix` を deps にすると、開発のツールを足すだけでステージが古くなる（ADR-0135）
 - リポジトリの外の設定（ホームの `~/.cargo/config.toml` のリンカ、`RUSTC_WRAPPER`）は deps にできない
 
 判断の軸:
 
-- 段階が走るかどうかを、段階が実際に呼ぶプログラムで決めること（コードの変更が実行ファイルを変えなければ走らない）
+- ステージが走るかどうかを、ステージが実際に呼ぶプログラムで決めること（コードの変更が実行ファイルを変えなければ走らない）
 - `dvc.lock` が、出力を作ったプログラムを正しく指すこと（ADR-0122 の「hash から出し直せる」）
 - 依存のクレートの並びのような、手でコピーする一覧を持たないこと（ADR-0123 の「帰結」が挙げたコピーの危うさ）
 - worktree、Slurm、`nix develop` の今の運用で、同じソースから同じ実行ファイルができること
 
 ## 検討した案
 
-段階の deps に何を書くか:
+ステージの deps に何を書くか:
 
-- 案 A（採用）: ビルドの段階 `build` をリポジトリの直下の `dvc.yaml` に置き、xs、lattice、core の release の実行ファイルを
-  `bin/` に作る（outs。キャッシュする）。計算の段階は deps にその実行ファイルを書き、cmd は `cargo run` でなくその
+- 案 A（採用）: ビルドのステージ `build` をリポジトリの直下の `dvc.yaml` に置き、xs、lattice、core の release の実行ファイルを
+  `bin/` に作る（outs。キャッシュする）。計算のステージは deps にその実行ファイルを書き、cmd は `cargo run` でなくその
   実行ファイルを呼ぶ。`build` の deps は実行ファイルを作りうるもの全体（`crates`、`Cargo.toml`、`Cargo.lock`、
   `rust-toolchain.toml`、`.cargo/config.toml`、`flake.nix`、`flake.lock`、ビルドのスクリプト）にする。どれかが変わると
-  `build` だけが走り、実行ファイルのバイトが変わらなければ、計算の段階は走らない
+  `build` だけが走り、実行ファイルのバイトが変わらなければ、計算のステージは走らない
 - 案 B: ソースを deps にしたまま、出力を変えない変更のあとで `dvc commit` して deps だけを取り込む。ADR-0143 が退けた形で、
   出力を変えないかの判断が人に残り、`dvc.lock` が、記録した deps のコードで実行していない出力を指す（ADR-0130 の案 L と同じ）
-- 案 C: ビルドを DVC の外に置き、計算の段階の deps を `target/release/xs` などにする。ソースが変わっても、人がビルドする
+- 案 C: ビルドを DVC の外に置き、計算のステージの deps を `target/release/xs` などにする。ソースが変わっても、人がビルドする
   まで DVC は古いと分からない。`target/release` は手で試すビルド（`cargo build --config` でコンパイルの設定を変えたものなど）とも共有するので、
-  段階がそのビルドを呼びうる。`target/` は `.dvcignore` で外してある
-- 案 D: 実行ファイルの md5 をテキストに書く段階を置き、それを deps にする。判定は案 A と同じだが、実行ファイルを
+  ステージがそのビルドを呼びうる。`target/` は `.dvcignore` で外してある
+- 案 D: 実行ファイルの md5 をテキストに書くステージを置き、それを deps にする。判定は案 A と同じだが、実行ファイルを
   キャッシュしないので、`dvc checkout` で出力を作った実行ファイルを戻せない。間に 1 つファイルが増えるだけで得るものがない
 - 案 E: 実行ファイルごとに `build` を分け（xs、lattice、core）、それぞれの deps に依存のクレートだけを並べる。lattice を
   変えても xs を作り直さずに済むが、クレートの並びのコピーが残る。案 A でも、lattice だけを変えたビルドで xs と core の
-  実行ファイルはバイト一致する（「確認」の (c)）ので、xs と core の段階は走らない。分けて得るのはビルドの数秒だけである
+  実行ファイルはバイト一致する（「確認」の (c)）ので、xs と core のステージは走らない。分けて得るのはビルドの数秒だけである
 - 案 F: `build` を `always_changed` にする。リポジトリの外の設定の変更も毎回の再ビルドで拾うが、ビルドするまで `dvc status`
   がソースの変更を示さない。リポジトリの外の設定を変えたときは、`dvc repro -f -s build` で作り直せば足りる
 
@@ -76,7 +76,7 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
   でコンパイルの設定を変えたものなど）も拾わない。ワークスペース全体をビルドするのは、`-p` で選ぶと機能の統合が変わりうる
   ので、手で `cargo build --release` したものと同じ実行ファイルにするため
 - 案 T2: `target/release` をそのまま使う。ビルドは 1 つで済むが、上の理由で、別の環境でリンクした実行ファイルや、手で
-  試したビルドが段階に入りうる
+  試したビルドがステージに入りうる
 - 案 T3: 毎回空のターゲットのディレクトリから全体をビルドする。依存のクレートも今の環境でコンパイルし直すが、ビルドが
   毎回 12 秒（CPU 100 秒。sccache なし）になる。依存のクレートの rlib はリンクの環境を使わない
 
@@ -85,35 +85,35 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
 案 A、P1、T1 にする。ADR-0123 の案 H（deps にコードのソースを並べる）を置き換え、ADR-0123 のほかの決定は次のとおり
 引き継ぐ。
 
-- 計算の段階は DVC で駆動する。段階は `examples/<問題>/dvc.yaml` に書き（問題ごとの置き場所は ADR-0116）、cmd は
-  作業ディレクトリをそのディレクトリにした素のコマンドにする。結果を標準出力に出す段階は、標準出力をファイルに受けて outs に
+- 計算のステージは DVC で駆動する。ステージは `examples/<問題>/dvc.yaml` に書き（問題ごとの置き場所は ADR-0116）、cmd は
+  作業ディレクトリをそのディレクトリにした素のコマンドにする。結果を標準出力に出すステージは、標準出力をファイルに受けて outs に
   する。実行するのは `dvc repro examples/<問題>/dvc.yaml`（すべては `dvc repro -P`）で、Slurm で流すときは `dvc repro`
-  全体を流す。段階は逐次に実行する（ADR-0123 の案 A。ツールの比較は ADR-0123 の「検討した案」）
-- deps には、段階の入力（入力の TOML はファイル全体と、そこから読むファイル）と、段階が呼ぶ実行ファイル
+  全体を流す。ステージは逐次に実行する（ADR-0123 の案 A。ツールの比較は ADR-0123 の「検討した案」）
+- deps には、ステージの入力（入力の TOML はファイル全体と、そこから読むファイル）と、ステージが呼ぶ実行ファイル
   （`<リポジトリの直下>/bin/<xs|lattice|core>`）を並べる
 - `dvc.yaml` と `dvc.lock` をコミットする。キャッシュは `references/dvc-cache` に置き、reflink でコピーする（copy に黙って戻らない。
   ADR-0123 の案 J）。worktree では `references` を main の `references/` への symlink にして共有する（ADR-0126）
-- OpenMC の statepoint は outs にしてキャッシュし、比べる小さな結果は別の段階で抽出する（ADR-0123 の案 M）
+- OpenMC の statepoint は outs にしてキャッシュし、比べる小さな結果は別のステージで抽出する（ADR-0123 の案 M）
 - DVC の `core.analytics` と `core.check_update` は切る
 
-`build` の段階（リポジトリの直下の `dvc.yaml`）は `scripts/build-binaries.sh` を呼ぶ。スクリプトは、default の devShell の
+`build` のステージ（リポジトリの直下の `dvc.yaml`）は `scripts/build-binaries.sh` を呼ぶ。スクリプトは、default の devShell の
 中で走っていること（`NIX_NO_SELF_RPATH` が 1）を確かめ、`target/dvc` に案 T1 のとおり release でビルドし、worktree のパスが埋まって
 いないことを確かめてから `bin/` にコピーする。どちらかが成り立たなければエラーで止まる（黙って md5 の違う実行ファイルを
 作らない）。`bin/` の実行ファイルは DVC の outs で、git では追跡しない（DVC が `bin/.gitignore` を書く）。
 
-案 A にするのは、段階が呼ぶプログラムそのものの md5 で判定するので、出力を変えない変更（テストの移動、`src` の外の
-変更、開発のツールの追加）では計算の段階が走らず、`dvc.lock` が出力を作った実行ファイルを指すからである。リポジトリの外の
-設定やツールチェーンが変わったときも、実行ファイルが変われば段階が走る（#0080 の、ビルドの環境が deps に表れない問題が
+案 A にするのは、ステージが呼ぶプログラムそのものの md5 で判定するので、出力を変えない変更（テストの移動、`src` の外の
+変更、開発のツールの追加）では計算のステージが走らず、`dvc.lock` が出力を作った実行ファイルを指すからである。リポジトリの外の
+設定やツールチェーンが変わったときも、実行ファイルが変わればステージが走る（#0080 の、ビルドの環境が deps に表れない問題が
 なくなる）。依存のクレートの並びの写しもなくなる。案 A を取れるのは、案 P1 で同じソースから worktree によらず同じ
 実行ファイルができる（「確認」の (a)、(b)）からで、ADR-0123 が案 I を退けた理由（worktree ごとに md5 が変わる）は、
 その原因が stdenv の `-rpath` だったと分かって取り除けた。
 
 ### 移行
 
-この変更で、すべての Rust の段階の deps と cmd が変わるので、`dvc status` はすべてを changed として示す。流し直さずに
+この変更で、すべての Rust のステージの deps と cmd が変わるので、`dvc status` はすべてを changed として示す。流し直さずに
 `dvc.lock` を揃える。この 1 回だけ、`dvc commit` で deps を取り込む:
 
-- 対象は、この変更の直前の main（0268e5aa）で `dvc status` が changed を示さなかった Rust の段階だけである。その段階の
+- 対象は、この変更の直前の main（0268e5aa）で `dvc status` が changed を示さなかった Rust のステージだけである。そのステージの
   `dvc.lock` は、今のコードの md5 を deps に記録している。つまり出力は今のコードから作られたもので、`build` が今のコードから
   作る実行ファイル（「確認」の (a)、(b) で、ソースとビルドの環境が同じなら、パスとビルドの仕方によらずバイト一致する）は、
   その出力を作ったプログラムと同じ計算をする。ADR-0130 の案 L と ADR-0143 が `dvc commit` を退けたのは、記録した deps の
@@ -121,9 +121,9 @@ ADR-0123 は、計算の段階を DVC で駆動し、Rust の段階の deps に�
 - この根拠は、ADR-0123 の deps が実行ファイルを決めていたという前提に乗る。古い deps には `flake.nix` とリポジトリの外の
   設定（ホームの `~/.cargo/config.toml` など）がなかったので（#0080）、出力を作ったときからそれらが変わっていないことは
   確かめていない。ADR-0123 の `dvc.lock` が持っていた限界を、そのまま引き継ぐ
-- 変更の前から changed だった段階は、`dvc.lock` を変えない。古いソースの deps を記録したまま残るので、changed のままで、
+- 変更の前から changed だったステージは、`dvc.lock` を変えない。古いソースの deps を記録したまま残るので、changed のままで、
   ふだんの規則（ADR-0130）で必要なときに実行する
-- Rust でない段階で、この変更が deps を変えたもの（`dvc.yaml` を書くツールを deps にする段階）は、数秒で終わるなら再実行する
+- Rust でないステージで、この変更が deps を変えたもの（`dvc.yaml` を書くツールを deps にするステージ）は、数秒で終わるなら再実行する
 
 ## 確認
 
@@ -154,41 +154,41 @@ strip した版も同じ場所から違った。違いは RUNPATH の先頭の `
 - default の devShell の `packages` に `pkgs.libxml2`（`NIX_LDFLAGS` に `-L` が増える）と `pkgs.hello` を足し、`dvc repro -f -s build`
   で作り直す: 3 つとも変わらない（5747d4fa の上で。下の (f)）
 
-(d) DVC の振る舞い（DVC 3.67.1。一時のリポジトリで、ルートの `build` とサブディレクトリの計算の段階の組）:
+(d) DVC の振る舞い（DVC 3.67.1。一時のリポジトリで、ルートの `build` とサブディレクトリの計算のステージの組）:
 `dvc repro <サブディレクトリ>/dvc.yaml` は、上流のルートの `build` も実行した。`build` のソースを、出力を変えないように
-変えると、`build` は走り、計算の段階は「didn't change」で走らなかった。`dvc status <サブディレクトリ>/dvc.yaml` は
+変えると、`build` は走り、計算のステージは「didn't change」で走らなかった。`dvc status <サブディレクトリ>/dvc.yaml` は
 上流の `build` の changed を示さず、`dvc status`（引数なし）と `--with-deps` は示した。`bin/` の実行ファイルは
 `dvc.lock` に `isexec: true` で記録され、消して `dvc checkout` すると実行できる形で戻った。
 
 (e) 移行（「決定と理由」の「移行」）: 0268e5aa で `dvc status` が changed を示したのは 127 項目（`references-shell` の
-`always changed` と、126 の段階: examples/core 55、vera/p5 31、vera/p3 19、reflector 15、m0 3、vera 3）だった。切り替えの
-あとに新たに changed になった 64 の段階のうち、63 の Rust の段階（examples/vera の xs-range、xs-nuclide、xs など 62 と、
-examples/reflector の xs）を `dvc commit` した。`dvc.lock` の差分は、その 63 の段階の cmd と、deps のコードの項目が
+`always changed` と、126 のステージ: examples/core 55、vera/p5 31、vera/p3 19、reflector 15、m0 3、vera 3）だった。切り替えの
+あとに新たに changed になった 64 のステージのうち、63 の Rust のステージ（examples/vera の xs-range、xs-nuclide、xs など 62 と、
+examples/reflector の xs）を `dvc commit` した。`dvc.lock` の差分は、その 63 のステージの cmd と、deps のコードの項目が
 実行ファイルの 1 項目に替わったことだけで、outs と params とほかの deps は変わらなかった（両方の `dvc.lock` を YAML として
 比べた）。残る 1 つの examples/core の `compare`（deps の rods_cases.py が変わった。数秒）は `dvc repro -s` で走らせ直し、
 `compare.out` の md5 は変わらなかった（`a4a1c8e6…`）。そのあとの `dvc status` は、切り替えの前と同じ 127 項目を示した。
 
 (f) マージの前に main の 5747d4fa（#0039 の自己遮蔽の高速化で crates/lattice が変わった）に rebase し、`build` を再実行した。
-lattice は `bfe45232…` に変わり、xs と core は (a) と同じだった。lattice の段階はすべて切り替えの前から changed だったので、
-changed の段階は増えなかった（127 項目のまま）。移行の `dvc commit` は 0268e5aa の上で行ったもので、その段階は xs の
-段階と reflector の xs だけである。
+lattice は `bfe45232…` に変わり、xs と core は (a) と同じだった。lattice のステージはすべて切り替えの前から changed だったので、
+changed のステージは増えなかった（127 項目のまま）。移行の `dvc commit` は 0268e5aa の上で行ったもので、そのステージは xs の
+ステージと reflector の xs だけである。
 
 ## 帰結
 
 - 出力を変えない変更のうち、実行ファイルのバイトを変えないもの（テストの変更、`src` の外の変更、開発のツールの追加、
-  依存しないクレートの変更）では、`build` だけが走り（数秒〜十数秒）、計算の段階は走らない。#0089 のテストの移動は、
+  依存しないクレートの変更）では、`build` だけが走り（数秒〜十数秒）、計算のステージは走らない。#0089 のテストの移動は、
   実行ファイルがバイト一致すれば、`build` の `dvc.lock` を更新するだけで済む
-- 実行ファイルのバイトを変える変更は、出力を変えなくても計算の段階を実行する。行の位置を変える整理（ADR-0144 の関数の
+- 実行ファイルのバイトを変える変更は、出力を変えなくても計算のステージを実行する。行の位置を変える整理（ADR-0144 の関数の
   分割など）、ループの整列（ブランチ perf/0105-code-alignment の `-align-loops`）、ツールチェーン、`flake.lock` の glibc、ホームの設定のリンカ（mold の版は
   `.comment` に入る）の変更がこれにあたる。行の位置で実行ファイルが変わる件は #0110 で扱う
 - `build` の deps にないもの（ホームの `~/.cargo/config.toml`、環境変数）を変えたときは、`dvc repro -f -s build` で作り
-  直す。実行ファイルが変わらなければ、計算の段階は走らない
+  直す。実行ファイルが変わらなければ、計算のステージは走らない
 - `dvc status examples/<問題>/dvc.yaml` は上流の `build` を示さない。ソースの変更で古くなったかは、`dvc status`（引数なし）か
-  `--with-deps` で見る。どの計算の段階が古くなったかは、`build` を実行するまで分からない（実行ファイルが変わったかで
+  `--with-deps` で見る。どの計算のステージが古くなったかは、`build` を実行するまで分からない（実行ファイルが変わったかで
   決まる）。rebase のあとの手順（/dvc-relock）は、先に `build` を実行する
-- リポジトリの直下の `dvc.lock` は、最後に `build` を実行したときの実行ファイルを記録する。計算の段階を実行したら、
+- リポジトリの直下の `dvc.lock` は、最後に `build` を実行したときの実行ファイルを記録する。計算のステージを実行したら、
   例の `dvc.lock` と一緒にコミットする（例の `dvc.lock` が記録する実行ファイルの md5 と揃えるため）。コードだけを変える
-  ブランチは、ほかの段階と同じく（ADR-0130）`build` を古いまま残してよい。その main で `dvc checkout dvc.yaml` が戻すのは
+  ブランチは、ほかのステージと同じく（ADR-0130）`build` を古いまま残してよい。その main で `dvc checkout dvc.yaml` が戻すのは
   古いソースの実行ファイルで、`dvc repro` すれば `build` が作り直す
 - `bin/` の実行ファイルは worktree ごとにあり、`dvc checkout` でキャッシュから戻る。ある commit の `dvc.lock` が指す実行ファイルが
   キャッシュにあれば、出力を作った実行ファイルそのものを戻せる。実行ファイルは動的にリンクしていて、RUNPATH と ELF の
@@ -197,11 +197,11 @@ changed の段階は増えなかった（127 項目のまま）。移行の `dvc
   （3 つの合計）ずつ増える。消し方は ADR-0123 の帰結のとおり `dvc gc --all-commits`
 - 実行ファイルのバイトは、リポジトリの外の設定（ホームの `~/.cargo/config.toml` の clang と mold、sccache）とホストにも
   よる。手元と Slurm のジョブはどちらも r995 で同じホームの設定を使う。別のホストでビルドすると md5 が変わり、計算の
-  段階が走り直しうる
+  ステージが走り直しうる
 - Slurm で流すときは、`nix develop -c dvc repro …` のジョブの中で `build` が走る（ビルドの時間がジョブに入る）。`build` は
   default の devShell の中でしか走らない。`NIX_NO_SELF_RPATH` は devShell に入ったときに決まるので、この変更より前に入った
   shell（direnv を含む）は入り直す
-- examples に dvc.yaml を足すブランチは、Rust の段階を同じ形（cmd で `bin/` の実行ファイルを呼び、deps にその実行ファイルを
+- examples に dvc.yaml を足すブランチは、Rust のステージを同じ形（cmd で `bin/` の実行ファイルを呼び、deps にその実行ファイルを
   書く）にする。`dvc.yaml` を書くツール（rods_cases.py、p3_inputs.py、p5_inputs.py）は、この形を書く
 - `build` は `crates` 全体を deps にするので、`crates/docs`（文書の検査）の変更でも走る。ビルドが数秒なので、並びを
   絞らない

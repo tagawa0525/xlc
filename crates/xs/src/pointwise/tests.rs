@@ -440,7 +440,7 @@ fn unresolved_averages_replace_background_with_lssf0() {
     };
     let xs = UnresolvedXs::new(urr).unwrap();
     let at = |mt: u32, e: f64| tables[&mt].eval(e).unwrap();
-    // 格子点（2 keV は補助格子の点）では、平均断面積と MF3 の背景断面積の和
+    // 格子点（2 keV は補助格子の点）では、平均断面積と MF3 のバックグラウンド断面積の和
     let average = xs.cross_sections(2.0e3).unwrap();
     for (mt, expected) in [(2, average.elastic + 10.0), (102, average.capture + 0.5)] {
         assert!(
@@ -455,8 +455,8 @@ fn unresolved_averages_replace_background_with_lssf0() {
 
 #[test]
 fn unresolved_background_at_top_comes_from_inside() {
-    // MF3 は非分離共鳴の範囲の中では背景だけで、上端 1e5 eV で範囲の外の値に段差で変わる。
-    // 上端の格子点の背景は、範囲の内側の値を使う
+    // MF3 は非分離共鳴の範囲の中ではバックグラウンドだけで、上端 1e5 eV で範囲の外の値に段差で変わる。
+    // 上端の格子点のバックグラウンドは、範囲の内側の値を使う
     use crate::endf::rec;
     let capture = [
         rec(["1.001000+3", "1.0", "0", "0", "0", "0"], 1, 3, 102),

@@ -1,4 +1,4 @@
-"""VERA Problem 5-2D（炉心の高さの中央の 2D の炉心、零出力）と Problem 5（3D の全炉心）を xlc で解く入力と段階を書く。
+"""VERA Problem 5-2D（炉心の高さの中央の 2D の炉心、零出力）と Problem 5（3D の全炉心）を xlc で解く入力とステージを書く。
 
 このファイルのある場所に次を書く。寸法と組成の出典は下の定数のコメントにあり、書いた入力のコメントにもコピーする。
 
@@ -33,7 +33,7 @@
   - `axial-<種類>[-rcca].toml`: 集合体の種類（と制御棒の入る位置）ごとの軸方向の反射体の平板（ADR-0128）
   - `core-hzp*.toml`: 全炉心のケース（表 P5-2 の 32 の場合と、場合 1、2 の臨界ホウ素濃度の探索。ADR-0145、ADR-0146）
   - `small*.toml`: 最小の入力（3.10% の 3 × 3 と反射体の輪、中央に D バンク）の 3D と、同じ定数の 2D
-- `dvc.yaml`: 段階（ADR-0159）
+- `dvc.yaml`: ステージ（ADR-0159）
 
 炉心の図（`map`、`loading`）は上の行が北（1 行）、左の列が西（R 列）。全炉心の装荷は、図 M3-1 の 1/4（H〜A 列、8〜15 行）を
 H 列と 8 行の中心を通る 2 つの対称面で鏡映して広げる（openmc_core_2d.py と同じ解釈）。xlc は対称面がピンの中心を
@@ -1120,7 +1120,7 @@ def core_files() -> dict[str, str]:
 
 
 def code(crate: str) -> list[str]:
-    """Rust の段階の deps のうち、段階が呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
+    """Rust のステージの deps のうち、ステージが呼ぶ実行ファイル（../../../dvc.yaml の build が作る。ADR-0159）"""
     return [f"../../../bin/{crate}"]
 
 
@@ -1312,7 +1312,7 @@ def pipeline(
         )
     return (
         "# このファイルは p5_inputs.py が書く。手で直さない。\n"
-        "# VERA Problem 5-2D を xlc で解く段階: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、\n"
+        "# VERA Problem 5-2D を xlc で解くステージ: 多群ライブラリ（../dvc.yaml の xs）→ 単一集合体の格子（集合体の種類ごと）、\n"
         "# 反射体の I 型と角型の格子、最小の入力の MOC → 炉心（5A、5B、5C と、近似の見積もりと最小の入力の版）→ 比較（KENO-VI、\n"
         "# OpenMC、最小の入力の MOC、対称性）。実行するのは `dvc repro`（ADR-0159）。deps の書き方は examples/m0/dvc.yaml と同じ\n"
         "# compare-5B-openmc と compare-5C-openmc の deps（references/openmc/aws/m3/…）は DVC のステージの出力でなく、`aws_fetch.sh --verify m3` で\n"
@@ -2484,8 +2484,8 @@ def hzp_pipeline(
     tables: list[tuple],
     slabs: list[tuple],
 ) -> str:
-    """Problem 5 の 3D の段階: 2D の格子（層の種類ごと、分岐のテーブル）→ 制御棒の値のテーブルの結合 → 平板 → 炉心 →
-    比較。入力と出力は hzp/ の中で、段階は hzp/ に移って実行する"""
+    """Problem 5 の 3D のステージ: 2D の格子（層の種類ごと、分岐のテーブル）→ 制御棒の値のテーブルの結合 → 平板 → 炉心 →
+    比較。入力と出力は hzp/ の中で、ステージは hzp/ に移って実行する"""
     stages = []
     media = {}
     for shape, design, kind, rod in lattices:
@@ -2619,7 +2619,7 @@ def hzp_pipeline(
 
 
 def hzp_files() -> tuple[dict[str, str], str]:
-    """hzp/ の入力（名前 → 中身）と、dvc.yaml に足す段階"""
+    """hzp/ の入力（名前 → 中身）と、dvc.yaml に足すステージ"""
     files = {**hzp_core_files(), **hzp_small_files()}
     used = hzp_layer_files(files)
     lattices, tables, slabs = hzp_lattices(used)

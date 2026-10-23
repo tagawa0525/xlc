@@ -1,5 +1,5 @@
-# 診断用（#0131）: ENDF/B-VII.0 から NJOY で作った OpenMC のライブラリで VERA の 1B と 2B を解く段階。xlc の VII.0 のライブラリ
-# （../dvc.yaml）の処理の問題か、KENO-VI（AMPX）との処理の差かを分ける（ADR-0175）。段階の形は ../../dvc.yaml の openmc-* と同じ
+# 診断用（#0131）: ENDF/B-VII.0 から NJOY で作った OpenMC のライブラリで VERA の 1B と 2B を解くステージ。xlc の VII.0 のライブラリ
+# （../dvc.yaml）の処理の問題か、KENO-VI（AMPX）との処理の差かを分ける（ADR-0175）。ステージの形は ../../dvc.yaml の openmc-* と同じ
 # （ADR-0130、ADR-0136）。実行するのは default の devShell の `dvc repro`（ADR-0159）。
 vars:
   - openmc-library.toml

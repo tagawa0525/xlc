@@ -12,7 +12,7 @@ resolution:
 
 ## 問題
 
-履歴の書き換え（#0141。辞書で語を直す。「段階」→「ステージ」など）が、DVC のステージの deps になっている toml と py の
+履歴の書き換え（#0141。辞書で語を直す。「ステージ」→「ステージ」など）が、DVC のステージの deps になっている toml と py の
 コメントを変えたので、書き換えの前に作った `dvc.lock` が、どの例でも deps と合わない。例: `examples/depletion/p2/xs.toml` の md5 は
 lock の `a657fbde` に対して今は `63cb0331`（書き換えの前の版 `~/.local/share/history-rewrite/xlc-2026-10-21/original.git` の HEAD は
 `a657fbde`。差はコメントだけ）。出力（depletion.msgpack など）は lock と一致している。

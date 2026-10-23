@@ -3,27 +3,27 @@
 xlc の計算は、NJOY（核データ処理）と OpenMC（モンテカルロ計算）の結果と比べて検証する。ツール（NJOY、OpenMC と
 その Python API）と評価済み核データは、`flake.nix` の packages で版とハッシュごと固定する（ADR-0124）。
 計算の置き場 `references/` は git で追跡しない。そのうち外から取る入力とツールは、消しても下の手順で作り直せる
-（取る先の分からない仕様書の PDF を除く）。ツールで作る参照の結果は DVC のステージで作り直す（「VERA の参照解」。段階に
+（取る先の分からない仕様書の PDF を除く）。ツールで作る参照の結果は DVC のステージで作り直す（「VERA の参照解」。ステージに
 していない問題が残る。#0018）。
 direnv を使う場合は、リポジトリの直下に `use flake` と書いた `.envrc` を置き（手元の設定として git では追跡しない）、
 一度 `direnv allow` すると、`default` の devShell に自動で入る。Claude Code の LSP のサーバー（rust-analyzer）は Claude Code の
 起動時の PATH を引き継ぐので、Claude Code は devShell の中で起動する（`.envrc` のない worktree では
 `nix develop -c claude`）。devShell が変わったら起動し直す（ADR-0135）。
 
-| devShell     | 用途                                                                                                         |
-| ------------ | ------------------------------------------------------------------------------------------------------------ |
-| `default`    | 開発（Rust と rust-analyzer。ADR-0135）、段階の駆動（DVC）と、検証用の Python スクリプト（numpy, h5py など） |
-| `references` | 参照の計算: `njoy`、`openmc` と、OpenMC の Python API（openmc、endf）の入った `python3`                      |
+| devShell     | 用途                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `default`    | 開発（Rust と rust-analyzer。ADR-0135）、ステージの駆動（DVC）と、検証用の Python スクリプト（numpy, h5py など） |
+| `references` | 参照の計算: `njoy`、`openmc` と、OpenMC の Python API（openmc、endf）の入った `python3`                          |
 
-## 段階の駆動（DVC）
+## ステージの駆動（DVC）
 
-入力から出力を作る段階は DVC（`default` の devShell に入っている）で実行する（ADR-0159）。段階は
-`examples/<問題>/dvc.yaml` に書き、`dvc repro examples/<問題>/dvc.yaml` で、入力か、段階が呼ぶ実行ファイルが変わった段階だけを
+入力から出力を作るステージは DVC（`default` の devShell に入っている）で実行する（ADR-0159）。ステージは
+`examples/<問題>/dvc.yaml` に書き、`dvc repro examples/<問題>/dvc.yaml` で、入力か、ステージが呼ぶ実行ファイルが変わったステージだけを
 実行する。実行ファイル（`bin/xs`、`bin/lattice`、`bin/core`）は、リポジトリの直下の `dvc.yaml` の `build` が
-`scripts/build-binaries.sh` で作る。コードを変えると `build` が走り、実行ファイルのバイトが変わったときだけ計算の段階が走る。
+`scripts/build-binaries.sh` で作る。コードを変えると `build` が走り、実行ファイルのバイトが変わったときだけ計算のステージが走る。
 `dvc status examples/<問題>/dvc.yaml` は上流の `build` を示さないので、`dvc status`（引数なし）か `--with-deps` で見る。
 `build` は xs、lattice、core の 3 つのパッケージだけを 1 回の cargo でビルドする（ADR-0163）。`bin/` の実行ファイルは strip してあり記号がないので、perf などで関数の名前が要るときは `cargo build --release -p xlc-xs -p xlc-lattice -p xlc-core` の `target/release` を使う（ADR-0160。ワークスペースの全体をビルドすると feature の統合が `bin/` と違いうる。ADR-0163）。
-各段階の入力と出力（Rust の段階は実行ファイルを含む）の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
+各ステージの入力と出力（Rust のステージは実行ファイルを含む）の md5 は同じディレクトリの `dvc.lock` に書かれ、コミットする。出力は
 `references/dvc-cache`（`.dvc/config`）にキャッシュし、`dvc checkout` で戻せる。worktree では `references` を main の
 `references/` への symlink にして、キャッシュと核データを共有する。`~/.claude/scripts/worktree-add.sh` が、チェックアウトした
 ブランチの `.worktreelink` を読んで作る（出力の `SHARED: references`）。`.worktreelink` のないブランチ（main に rebase する前の
@@ -105,7 +105,7 @@ worktree でなく main の flake とスクリプトが使われる。たとえ�
 
 ## 外部の計算機（AWS）
 
-r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討段階）。c7a は vCPU が物理コアで、
+r995 で待ち時間が長くなる OpenMC の参照解は、AWS EC2 の c7a のスポットで流す（ADR-0151。検討ステージ）。c7a は vCPU が物理コアで、
 x86_64 の nix のクロージャをそのまま送れる。本番は次の節の「自己完結な実行」（ADR-0155）で流す。手元から ssh で起動、終了、送る、実行、回収するツールも次の節にある。
 
 ユーザーが用意するもの:
@@ -405,18 +405,18 @@ c7a.large のスポット（2 vCPU = 2 物理コア）で、上の 1〜5 を通�
 
 VERA Problem 1B〜1D, 2A〜2K, 2Q の参照解は、ENDF/B-VIII.0 から手元の NJOY で作った連続エネルギーの
 データで OpenMC を動かして作る（温度は examples/vera/openmc-library.toml。565 K は燃料、冷却材、被覆管の核種を 565 K でも
-作り、H in H2O の S(α,β) は 550 K と 573.6 K の内挿。ADR-0080）。段階は examples/vera/dvc.yaml にあり（ADR-0130）、`default` の devShell で、
+作り、H in H2O の S(α,β) は 550 K と 573.6 K の内挿。ADR-0080）。ステージは examples/vera/dvc.yaml にあり（ADR-0130）、`default` の devShell で、
 リポジトリ（worktree）の直下から実行する:
 
 ```sh
 dvc repro examples/vera/dvc.yaml
 ```
 
-NJOY と OpenMC を使う段階は、cmd が `nix develop ../..#references -c` で `references` の devShell に入るので、
+NJOY と OpenMC を使うステージは、cmd が `nix develop ../..#references -c` で `references` の devShell に入るので、
 `dvc repro` を `references` の devShell の中で実行しない（cargo と dvc がない）。1 分を超えるので、`dvc repro` 全体を
 Slurm で流す（CLAUDE.md の「計算」）。
 
-| 段階                                               | 入力                    | 出力（examples/vera/ の下）                                              |
+| ステージ                                           | 入力                    | 出力（examples/vera/ の下）                                              |
 | -------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------ |
 | `references-shell`                                 | flake                   | `references-shell.txt`（`references` の devShell の store のパス）       |
 | `openmc-neutron@<核種>`、`openmc-thermal@<散乱則>` | `openmc-library.toml`   | `openmc-library/neutron/<核種>.h5`、`openmc-library/thermal/<散乱則>.h5` |
@@ -434,11 +434,11 @@ examples/vera/dvc.yaml` で戻せる。`dvc.lock` は、記録した実行の de
 あとのコミットで deps が変わると `dvc status` は changed を示す。記録の結果を出し直すときは、記録に書いたコミットを
 checkout して `dvc repro` する（ADR-0130）。
 
-実行の段階 `openmc-1B` は、スクリプトでなく `model.xml` とライブラリ（と入力の `cross-sections`、`threads`）を deps にする
+実行のステージ `openmc-1B` は、スクリプトでなく `model.xml` とライブラリ（と入力の `cross-sections`、`threads`）を deps にする
 （ADR-0136）。スクリプトを直しても、`openmc-1B-model` が書く model.xml の md5 が同じなら、OpenMC は再実行しない。
-モデルを変える直し（物質、形状、タリー、設定）は model.xml を変えるので、実行の段階も古くなる。ほかの問題（1C〜2K、
+モデルを変える直し（物質、形状、タリー、設定）は model.xml を変えるので、実行のステージも古くなる。ほかの問題（1C〜2K、
 2E-empty、2Q）は、`p1/openmc-1B.toml` と同じ形の入力と、`openmc-1B-model`、`openmc-1B`、`openmc-1B-extract` と同じ形の
-段階を足して実行する（#0018）。段階にするまでは、同じ入力を作って
+ステージを足して実行する（#0018）。ステージにするまでは、同じ入力を作って
 `python3 examples/vera/openmc_model.py model <入力> <モデルのディレクトリ>`、`run <入力> <モデルのディレクトリ> <作業ディレクトリ>`、
 `extract <入力> <作業ディレクトリ> <結果のディレクトリ>` を `references` の devShell で実行する。
 

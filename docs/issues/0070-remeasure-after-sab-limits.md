@@ -24,7 +24,7 @@ resolution:
   （2B と 1B の方位角と間隔の表、メッシュ）「B1 の臨界スペクトルの拡散係数」「対称性」の表の xlc の値（それぞれ別の入力と設定で測った
   記録で、数値を出したコミットが書いてある）
 - examples/branches/verification.md（分岐のテーブルの 27 状態で約 2 時間、直接の格子計算 6 本。共有モードでは約 10 時間）
-- examples/reflector/verification.md（dvc.yaml の全段階、排他で約 3 時間。#0034 のマージ後に `dvc repro examples/reflector/dvc.yaml`
+- examples/reflector/verification.md（dvc.yaml の全ステージ、排他で約 3 時間。#0034 のマージ後に `dvc repro examples/reflector/dvc.yaml`
   を流し、lattice-I、lattice-corner、core-corner* の比較を今の姿に書き直す。main の `dvc checkout` は `--force` が要る）
 
 関係する ADR: なし

@@ -40,7 +40,7 @@ xlc と OpenMC の比較ができない。2A、2A-density、2A-rods（燃料だ�
   記録に書かない動作確認。Slurm のジョブ 412、2F と 2M で合わせて 12 分）。2N も同じく流し、IFBA の被覆（16 領域）の B-10 が
   −1.78〜−2.28%、WABA（4 領域）の B-10 が −1.39〜−1.40% 減る（ジョブ 413）
 - 残り（この issue を閉じる条件）: IFBA の 10 μm の被覆の中の中性子束の取り方を、OpenMC の燃焼の B-10 の数密度で確かめる。比べるのは
-  p2 の比較の段階（examples/depletion/p2/dvc.yaml の `compare@2M`、`compare@2N`。compare_depletion_assembly.py）で、AWS の
+  p2 の比較のステージ（examples/depletion/p2/dvc.yaml の `compare@2M`、`compare@2N`。compare_depletion_assembly.py）で、AWS の
   m4-assembly の OpenMC の参照解（openmc-2M、openmc-2N）がそろってから流す。2026-10-21 の時点で、8 本のうち完了は 1 本
 - 残り（決めること）: 燃焼させる物質の温度が複数のときの輸送する核種の集合（ADR-0179 では決めず、温度が複数なら止める）。決めるときに
   調べること: p2 のライブラリがどの核種をどの温度で持つか。OpenMC の参照解が物質ごとの温度で何を輸送しているか（`nuclides_with_data`

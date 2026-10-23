@@ -27,7 +27,7 @@ U-234, U-235, U-236, U-238, O-16, O-17, H-1（H in H2O）, B-10, B-11, Zr-90, Zr
 
 ## 検証
 
-各段階を NJOY（BROADR, UNRESR, THERMR, GROUPR）の同じ条件の出力と比べる。M0 と同じく、
+各ステージを NJOY（BROADR, UNRESR, THERMR, GROUPR）の同じ条件の出力と比べる。M0 と同じく、
 `references/` の NJOY で参照解を作り、`crates/xs/examples/` の比較プログラムで比べる。
 
 ## 進め方

@@ -23,17 +23,17 @@ DVC のステージは default の devShell で実行する（[ADR-0130](0130-dr
 ## 検討した案
 
 - 案 A: `rust-toolchain.toml` の components に `rust-analyzer` を足す。1 行で済み、rustup でも同じものが入る。
-  ただしファイルが変わるので、計算に関係しない変更で Rust の段階がすべて changed になり、再実行するか、実行せずに
+  ただしファイルが変わるので、計算に関係しない変更で Rust のステージがすべて changed になり、再実行するか、実行せずに
   `dvc.lock` を書き換えるかを迫られる。xlc の利用者は Nix の devShell だけで、rustup の利点は使わない
 - 案 B: flake でツールチェーンを override し、components に `rust-analyzer` を足す。ブランチで 2 つの形を試して捨てた。
   `rust-toolchain.toml` を `lib.importTOML` で読み直して components に足す形は、rust-overlay が解いた一覧を二重に読む。
-  `override (old: …)` で `old.extensions` に足す形はそれを避けるが、どちらも段階をビルドするツールチェーンの derivation を
+  `override (old: …)` で `old.extensions` に足す形はそれを避けるが、どちらもステージをビルドするツールチェーンの derivation を
   変える（版は同じでも store パスが変わる）。その変更は `flake.nix` にあって deps に表れないので、同じ override に後から
   targets などを足すとコンパイラが黙って変わる。override を書くこと自体が、その変更の入り口を作る
-- 案 C: ビルド用と開発用の devShell を分け、DVC のステージと Slurm のジョブはビルド用で実行する。段階のビルドが開発のツールから
-  切り離されるが、すべての段階の cmd を `nix develop ..#build -c` で包み直し、direnv の shell と段階の shell を
+- 案 C: ビルド用と開発用の devShell を分け、DVC のステージと Slurm のジョブはビルド用で実行する。ステージのビルドが開発のツールから
+  切り離されるが、すべてのステージの cmd を `nix develop ..#build -c` で包み直し、direnv の shell とステージの shell を
   使い分ける手間が増える。開発のツールがコンパイラを変えないなら、ビルドする rustc は案 E と同じ。shell の設定の
-  変更から段階を切り離せる利点はある（帰結の 2 つ目）が、それはこの決定の前からある別の問題で、言語サーバーを
+  変更からステージを切り離せる利点はある（帰結の 2 つ目）が、それはこの決定の前からある別の問題で、言語サーバーを
   足すことには要らない
 - 案 D: nixpkgs の rust-analyzer を入れる。手続き型マクロの展開はツールチェーンの sysroot の proc-macro-srv を使うので
   動くが、rust-analyzer の版が nixpkgs の更新で動き、ツールチェーンの版と別に変わる
@@ -45,10 +45,10 @@ DVC のステージは default の devShell で実行する（[ADR-0130](0130-dr
 `rust-toolchain.toml` には、ビルドとチェック（run-checks.sh の rustfmt、clippy）に要る components と、sysroot に
 置く必要のあるもの（rust-src。rust-analyzer が std のソースを sysroot の lib/rustlib/src から読む）だけを書く。
 言語サーバーのような開発のツールは、ツールチェーンを変えずに、同じ版の component として default の devShell に足す。
-案 C より案 E を採るのは、開発のツールがコンパイラを変えないなら、shell を分けても段階のビルドは同じで、言語サーバーを
+案 C より案 E を採るのは、開発のツールがコンパイラを変えないなら、shell を分けてもステージのビルドは同じで、言語サーバーを
 足すためには cmd の包み直しと shell の使い分けが増えるだけのため。
 
-DVC の deps はビルドの入力を表すので、計算に関係しないツールの変更で段階を changed にしない。段階をビルドする
+DVC の deps はビルドの入力を表すので、計算に関係しないツールの変更でステージを changed にしない。ステージをビルドする
 コンパイラの derivation は、今と同じく `rust-toolchain.toml` と `flake.lock` だけで決まる形を保ち、override の入り口を
 作らない。後から `flake.nix` でツールチェーンを変えることを機械で止める仕組みはない（帰結）。
 rust-analyzer は `rustc --print sysroot` でツールチェーンの sysroot と proc-macro-srv を見つけるので、同じ devShell の
@@ -76,8 +76,8 @@ rustc に対しては、component を分けても版はそろう（devShell の�
 
 - 開発のツールを足しても `rust-toolchain.toml`、`flake.lock`、コンパイラの store パスは変わらず、DVC のステージは
   changed にならず、コンパイラが変わったことによる cargo の作り直しもない
-- 段階は default の devShell で走るので、`flake.nix` の shell の設定（shellHook の環境変数、別の C コンパイラなど）を
-  変えると、deps に表れずに段階のビルドが変わりうる。これはこの決定の前からある限界で、この決定はツールチェーンの
+- ステージは default の devShell で走るので、`flake.nix` の shell の設定（shellHook の環境変数、別の C コンパイラなど）を
+  変えると、deps に表れずにステージのビルドが変わりうる。これはこの決定の前からある限界で、この決定はツールチェーンの
   derivation だけを `rust-toolchain.toml` と `flake.lock` で決まる形に保つ
 - rust-analyzer は開いたワークスペースで `cargo check` を実行し、`target/debug` を run-checks.sh のテストや clippy と
   共有する（worktree の target/flycheck0/stdout の成果物のパスで確かめた）。ロックの取り合いや作り直しが起きるかは

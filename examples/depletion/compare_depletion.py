@@ -6,7 +6,7 @@
 - `--json`: 燃料で輸送する核種の集合が同じこと、燃焼度の点とリングの体積が同じことを確かめてから、燃焼点ごとの k∞ の差
   (k_xlc − k_OpenMC) × 1e5 pcm（OpenMC の標準偏差つき）とその 0 の点からの変化、主要な核種の数密度の相対差
   (N_xlc − N_OpenMC) / N_OpenMC を、燃料のピン全体（リングの体積の重みの平均）と、最後の点のリングごとに書く。ピンセルだけを
-  比べる: xlc の燃焼の領域と OpenMC のリングは内側から順に対応させ、リングが複数なら物質の名前（`fuel-0` …）も同じであること。`inputs` は読んだファイルのパス（段階の cwd から）と md5
+  比べる: xlc の燃焼の領域と OpenMC のリングは内側から順に対応させ、リングが複数なら物質の名前（`fuel-0` …）も同じであること。`inputs` は読んだファイルのパス（ステージの cwd から）と md5
   時間の内訳（xlc の履歴の `seconds`、OpenMC の輸送ごとの時間と CRAM の時間）もコピーする
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
@@ -185,7 +185,7 @@ def main() -> None:
         xlc, omc = (msgpack.unpackb(f.read_bytes()) for f in files)
         summary = {
             "format": "xlc-compare-depletion",
-            # 読んだファイルのパス（段階の cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
+            # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
             "inputs": [
                 {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
                 for f in files

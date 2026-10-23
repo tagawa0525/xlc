@@ -9,7 +9,7 @@
 //! （ADR-0067）。結果はスレッドの数によらない。
 //!
 //! 引数が入力ファイルだけのときは、すべての核種を処理して入力の `output` にライブラリを書く。ほかの 3 つは、同じ結果を
-//! 段階に分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
+//! ステージに分けて作る（ADR-0138）。`range` は、すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く。
 //! `nuclide` は、その範囲で核種 1 つだけを処理し、1 核種のライブラリを書く。`assemble` は、ディレクトリの
 //! `<核種>.msgpack` を入力の核種の順に、入力と範囲のファイルと同じ条件で作られたことを確かめて、1 つのライブラリにして、
 //! 入力の `output` に書く。
@@ -20,7 +20,7 @@
 //! output = "m1.msgpack"                       # 出力するライブラリ
 //! endf-directory = "../endf/neutrons"         # 核種の ENDF ファイルのディレクトリ
 //! thermal-directory = "../endf/thermal_scatt" # 熱中性子散乱のファイルのディレクトリ（thermal を使うとき）
-//! sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]   # 背景断面積 (barn)、降順（最初が無限希釈）
+//! sigma0 = [1e10, 1e5, 1e4, 1e3, 300, 100, 30, 10, 1]   # バックグラウンド断面積 (barn)、降順（最初が無限希釈）
 //! scattering-order = 3                        # 散乱行列の Legendre の次数 L（省略すると 3。ADR-0076）
 //!
 //! [nuclide.H-1]
@@ -349,7 +349,7 @@ fn library_of(settings: Settings, nuclides: Vec<NuclideData>) -> Library {
     }
 }
 
-/// ファイルを書く。DVC は段階の前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
+/// ファイルを書く。DVC はステージの前に出力を消すとき、空になったディレクトリも消すので、ディレクトリを作る。
 fn write_file(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
     let context = || format!("{}", path.display());
     if let Some(directory) = path.parent() {
@@ -374,7 +374,7 @@ fn run(input: &Input) -> anyhow::Result<()> {
     write_library(&library_of(settings, nuclides), &input.output)
 }
 
-/// すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く（`nuclide` の段階の入力になる）。
+/// すべての核種の分離共鳴の上端から、ポイントワイズの範囲を求めて書く（`nuclide` のステージの入力になる）。
 fn run_range(input: &Input, out: &Path) -> anyhow::Result<()> {
     let tapes = read_tapes(&input.nuclides)?;
     let range = pointwise_range(&input.nuclides, &tapes, &GroupStructure::wims69())?;

@@ -14,14 +14,14 @@
 
 ライブラリは examples/vera の `vera.msgpack`。生成物（少数群定数、ピン出力、ログ）は git で追跡しない。
 
-段階は DVC で実行する（ADR-0123）。ライブラリは examples/vera/dvc.yaml の `xs` の出力なので、先に戻す（ADR-0130）:
+ステージは DVC で実行する（ADR-0123）。ライブラリは examples/vera/dvc.yaml の `xs` の出力なので、先に戻す（ADR-0130）:
 
 ```sh
 dvc checkout examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 25 dvc-split 'nix develop -c dvc repro examples/split/dvc.yaml'
 ```
 
-段階は `lattice-1`、`lattice-2`（集合体の格子計算）、`core-1`、`core-2`（炉心。ピン出力 `core-pins-<n>.msgpack`）。
+ステージは `lattice-1`、`lattice-2`（集合体の格子計算）、`core-1`、`core-2`（炉心。ピン出力 `core-pins-<n>.msgpack`）。
 
 ## 分けないときとの一致（ee9e1b8、2026-10-09）
 

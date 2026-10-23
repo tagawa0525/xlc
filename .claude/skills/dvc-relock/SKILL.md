@@ -32,8 +32,8 @@ allowed-tools:
 ADR-0130 の「帰結」、規則は CLAUDE.md の「計算」にある。
 
 - 記録（verification.md、ADR）の数値には、実行したコミットと分岐点（main のコミット）を書く
-- rebase で deps が変わっても、重い段階は再実行しない。分岐点にそこまでのブランチのコミットを当て直して復元する
-- 数秒で終わる段階だけは再実行してよい
+- rebase で deps が変わっても、重いステージは再実行しない。分岐点にそこまでのブランチのコミットを当て直して復元する
+- 数秒で終わるステージだけは再実行してよい
 
 手順は前半（rebase のあと。ブランチの worktree）と後半（マージのあと。main の worktree）に分かれる。呼ばれたときの
 worktree と、マージ済みかどうかで、どちらかを選ぶ。
@@ -55,17 +55,17 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    `dvc status` と `dvc repro` の前に必ず行う。しないと、古い上流の出力から再実行して、誤った md5 を `dvc.lock` に
    書く。
 
-   引数なしの `dvc checkout` は、main の上でも終了コード 255 で終わる。`dvc.lock` に hash がまだ無い段階の出力（まだ
+   引数なしの `dvc checkout` は、main の上でも終了コード 255 で終わる。`dvc.lock` に hash がまだ無いステージの出力（まだ
    流していない examples/depletion/p2 の本番と examples/vera/endfb70/openmc の OpenMC。`No file hash info found`）が
    戻らないためで、戻らなかった出力は `Checkout failed for following targets:` の後に並ぶ（2026-10-23、43a0af25d で
-   p2 の 21 件と endfb70 の 5 件）。並んだ出力ごとに、その段階の `dvc.lock`（`examples/depletion/p2/dvc.lock`、
+   p2 の 21 件と endfb70 の 5 件）。並んだ出力ごとに、そのステージの `dvc.lock`（`examples/depletion/p2/dvc.lock`、
    `examples/vera/endfb70/openmc/dvc.lock` など）を `git diff main -- <その dvc.lock>` で見る。差が無ければ main でも戻らない
    既知の出力なので、続ける。ブランチで変えた `dvc.lock` の出力が並んだら、そこで止まり、原因を調べる。`references` の symlink が無いときも止まる。
    `references` が main の `references/` を指すかは `realpath references` と main の `references/` の `realpath`
    を比べる（symlink なので文字列の比較は合わない）。出力がキャッシュにないときは、手で `dvc repro` で埋めない。
-   上流の段階を所有するブランチか main の記録を確かめてから、ユーザーに聞く。
+   上流のステージを所有するブランチか main の記録を確かめてから、ユーザーに聞く。
 
-2. 実行ファイルを作り直してから、deps の変わった段階を挙げる（rebase でリポジトリの直下の `dvc.lock` が衝突したら、
+2. 実行ファイルを作り直してから、deps の変わったステージを挙げる（rebase でリポジトリの直下の `dvc.lock` が衝突したら、
    main の版を取って rebase を終え、ここで `build` を実行して書き直す。手で行を選んで混ぜない）:
 
    ```bash
@@ -73,36 +73,36 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    nix develop -c dvc status
    ```
 
-   計算の段階の deps は `bin/` の実行ファイルで（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
+   計算のステージの deps は `bin/` の実行ファイルで（ADR-0159）、1 の `dvc checkout` は `dvc.lock` が指す古い実行ファイルを
    戻す。先に `build`（リポジトリの直下の `dvc.yaml`。ビルドは数秒〜十数秒で、手元でよい）を実行しないと、ソースが変わった
-   段階も changed に出ず、3 の `-s` が古い実行ファイルで走る。`build` が「didn't change」なら、ソースは変わっていない。
-   作り直した実行ファイルが `dvc.lock` と同じバイトなら、計算の段階は changed にならない。`build` を実行したら、
+   ステージも changed に出ず、3 の `-s` が古い実行ファイルで走る。`build` が「didn't change」なら、ソースは変わっていない。
+   作り直した実行ファイルが `dvc.lock` と同じバイトなら、計算のステージは changed にならない。`build` を実行したら、
    リポジトリの直下の `dvc.lock` も 4 でコミットする
 
-   対象は `changed deps` の段階だけ。`changed outs` や `.dvc` ファイルの変更が混ざるので、`--json` のキーを
-   そのまま段階の一覧にしない（`deps` の項目を持つ段階を読む）。`changed outs` だけの段階は、出力が手元で変わっている
+   対象は `changed deps` のステージだけ。`changed outs` や `.dvc` ファイルの変更が混ざるので、`--json` のキーを
+   そのままステージの一覧にしない（`deps` の項目を持つステージを読む）。`changed outs` だけのステージは、出力が手元で変わっている
    ので実行せず、原因を調べる。ブランチが触れた例だけを見るなら、`dvc status --with-deps examples/<問題>/dvc.yaml`（`--with-deps` がないと、上流の `build` を示さない）。
    `dvc status` が失敗したら（`dvc.lock` が読めない、キャッシュの参照が切れた、など）止める。
 
-3. 段階ごとに、再実行するかを決める。目安（所要時間は ADR-0130 の「確認」の値）:
+3. ステージごとに、再実行するかを決める。目安（所要時間は ADR-0130 の「確認」の値）:
 
-   - 再実行してよい: 数秒で終わる lattice の問題（lattice-1B）と、その出力だけを入力にする小さな段階（`compare-*`）
+   - 再実行してよい: 数秒で終わる lattice の問題（lattice-1B）と、その出力だけを入力にする小さなステージ（`compare-*`）
    - 実行しない: xs（約 9 分）、OpenMC（40〜60 分）、ライブラリ（核種ごと、逐次で約 30 分）、数分かかる lattice の問題
      （Slurm で流す重さ。CLAUDE.md の「計算」）
      ライブラリの核種ごとのステージを作り直すときは、relock の中でなく、Slurm で `examples/stage_runner.py` を流す（ADR-0193）
    - `references-shell` は `always_changed` なので `dvc status` に常に出る。対象から外す
    - `build` は 2 で走らせ終えている
 
-   数秒で終わると分かっている段階だけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、段階を指定する:
+   数秒で終わると分かっているステージだけ実行する。迷えば実行しない。実行するときは Slurm を通さず直接、ステージを指定する:
 
    ```bash
-   nix develop -c dvc repro -s <段階>
+   nix develop -c dvc repro -s <ステージ>
    ```
 
-   CLAUDE.md の「計算」は `-s` を /dvc-relock だけに限る（ADR-0184）。rebase のあとの relock は ADR-0130 の「数秒で終わる段階だけ再実行してよい」の手段として、重い段階を
-   巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed の段階には使わない
+   CLAUDE.md の「計算」は `-s` を /dvc-relock だけに限る（ADR-0184）。rebase のあとの relock は ADR-0130 の「数秒で終わるステージだけ再実行してよい」の手段として、重いステージを
+   巻き込まないために `-s` を使う。`-s` は上流を実行しない。上流が `dvc status` で changed のステージには使わない
    （古い出力から作ることになる）。lattice-1B の上流の xs が changed のときは、xs を実行しないので lattice-1B も
-   実行しない（xs を含む約 9 分は、数秒の段階にならない）。実行した段階の出力を deps にする下流の段階（lattice-1B なら `compare-1B`）も
+   実行しない（xs を含む約 9 分は、数秒のステージにならない）。実行したステージの出力を deps にする下流のステージ（lattice-1B なら `compare-1B`）も
    changed になるので、同じように数秒なら続けて実行し、重いなら実行しない。
 
 4. 実行したら、`dvc.lock` の差分だけをコミットする（出力の追跡ファイルが変わっていればそれも含める）:
@@ -112,15 +112,15 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    git commit -F <メッセージのファイル>
    ```
 
-   件名は `chore: relock <段階> after the rebase`。本文に、なぜ再実行したか（deps の何が変わったか）、分岐点
+   件名は `chore: relock <ステージ> after the rebase`。本文に、なぜ再実行したか（deps の何が変わったか）、分岐点
    （`git merge-base HEAD main`）を書き、`Refs: ADR-0130` と、/git-commit の規則の末尾（Co-Authored-By など）を
    添える。実行したコミットはこのコミット自身なので、記録には、このコミットか、その結果を出したコード（ツールを含む）を
    含む最初のコミットを書く。
 
-5. 記録（verification.md、ADR）の hash と分岐点を直す。段階で分ける:
+5. 記録（verification.md、ADR）の hash と分岐点を直す。ステージで分ける:
 
-   - 再実行した段階: 実行したコミットを 4 のコミット（またはその結果を出したコードを含む最初のコミット）に、分岐点を今の `git merge-base HEAD main` にする
-   - 走らせなかった段階: 分岐点は、結果を出したときの main のコミットのまま変えない（今の merge-base に変えると、
+   - 再実行したステージ: 実行したコミットを 4 のコミット（またはその結果を出したコードを含む最初のコミット）に、分岐点を今の `git merge-base HEAD main` にする
+   - 走らせなかったステージ: 分岐点は、結果を出したときの main のコミットのまま変えない（今の merge-base に変えると、
      復元が合わなくなる）。実行したコミットが rebase で付け替わっていたら、hash だけを付け替える。記録に実行した
      コミットと分岐点が書かれていなければ、書く（ADR-0130 の「確認」の形）
 
@@ -129,7 +129,7 @@ worktree と、マージ済みかどうかで、どちらかを選ぶ。
    `$(git rev-parse --absolute-git-dir)/commit-refs-remap.input` の対応表で `commit-refs remap <そのファイル>` を呼び直す
    （詳細は verification-record の「rebase のあと」の節）。手で対応表を作るのは、この対応表が無いときだけ。rebase の前の tip
    （`git reflog` の `ORIG_HEAD` など）と今の HEAD を `git range-diff` で対応させ、中身を確かめてから渡す（全ファイルを
-   書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。再実行した段階の新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
+   書き換えるので、推測した対応を渡さない）。測り直しはしない（記録の hash は再現のため）。再実行したステージの新しいコミットと分岐点の値は、rebase の対応表に載らないので、手で書く（書いた hash は `git rev-parse` で確かめる）。付け替えのコミットは `docs:` で分ける。
 
 6. 作り直した `dvc.lock` を確かめる（`build` を実行したら、リポジトリの直下の `dvc.lock` も同じように）。`head -1 examples/<問題>/dvc.lock` が `schema: '2.0'` を出すこと（dvc は、この行の無い lock を
    読めず、書くこともない。欠けたら、手で書き換えた箇所を探し、dvc が書いた版に戻す。戻したら、4 のコミットを `git commit --fixup` で直して `git rebase -i --autosquash` でまとめ、5 の付け替えのコミットは rebase のあとに積み直す）。続けて
@@ -161,10 +161,10 @@ nix develop -c dvc status --with-deps examples/<問題>/dvc.yaml
 ```
 
 `-P` ではなく、ブランチが `dvc.yaml` を足した、または変えた例ごとに行う。`dvc status` の changed が、前半で走らせ
-なかった段階（deps が `dvc.lock` と合わない段階）と、その下流の段階だけであることを確かめる。`references-shell`
+なかったステージ（deps が `dvc.lock` と合わないステージ）と、その下流のステージだけであることを確かめる。`references-shell`
 （`always_changed`）は常に出るので数えない。ブランチが `build` を実行せずにコードを変えたなら、`build` とその下流も出る
-（ADR-0159 の帰結。`dvc repro` で作り直すまで、そのままでよい）。ほかの段階が changed なら、
+（ADR-0159 の帰結。`dvc repro` で作り直すまで、そのままでよい）。ほかのステージが changed なら、
 出力が足りない、またはキャッシュにない。`dvc checkout` が失敗したら止めて、原因を調べる（推測で `dvc repro` を実行しない）。
 
-走らせなかった段階の changed は、そのままでよい。`dvc.lock` は、どの deps から出力を作ったかの記録であり、結果が
+走らせなかったステージの changed は、そのままでよい。`dvc.lock` は、どの deps から出力を作ったかの記録であり、結果が
 要るときに HEAD で `dvc repro` すれば再実行する（ADR-0130）。

@@ -46,7 +46,7 @@ AWS のツール（`aws_run.sh`、`aws_user_data.sh`、`aws_common.sh`、`aws_fe
 `examples/openmc_{common,input,run,resume}.py` は problem 1〜5 と c5g7、mox が共有するので、vera の外の statepoint を使う実行
 （`openmc_run.py` と `openmc_resume.py`）は、入力とツールの置き場の一般化だけで載る見込み（c5g7 と mox は確かめていない）。
 
-結果の使われ方: vera の m3 は `aws_fetch.sh` で `references/openmc/aws/m3/<ジョブ>/` に取り出し、DVC のステージの出力にはせず、比較の段階が
+結果の使われ方: vera の m3 は `aws_fetch.sh` で `references/openmc/aws/m3/<ジョブ>/` に取り出し、DVC のステージの出力にはせず、比較のステージが
 そのパスを deps にする（`examples/vera/verification.md` の 3A）。
 
 ### 2. 燃焼の参照解に固有の要件
@@ -66,17 +66,17 @@ AWS のツール（`aws_run.sh`、`aws_user_data.sh`、`aws_common.sh`、`aws_fe
 - **失うのは多くて 1 ステップ**: 1C の 1 リング（粒子 20 万・130 世代、16 スレッド）は全体で 5473 秒、1 ステップ（輸送 2 回）は約 14 分
   （`openmc_simulation_n<k>.h5` の mtime の間隔）。ステップの途中の輸送を再開する必要はなく、ステップ単位で十分。
 - **chain とライブラリ**: `openmc-chain.xml` は 27 MB（DVC の出力。`.gitignore` 済み）、`openmc-library/` は 431 MB（vera は 631 MB）で、
-  どちらも DVC の出力。ライブラリは NJOY で作る段階（`openmc-neutron@核種` など 90 余り）で、VM には NJOY と ENDF（数 GB）がない。
+  どちらも DVC の出力。ライブラリは NJOY で作るステージ（`openmc-neutron@核種` など 90 余り）で、VM には NJOY と ENDF（数 GB）がない。
   vera と同じく手元で作って S3 に置く（`store/` に置いたままで月 $0.02 以下）。VM のクロージャ（`.#openmc`、`.#openmc-python`）は
   `msgpack`、`h5py`、`numpy` を含み、`openmc_depletion.py` の import は満たす見込み（`referencesPython` の依存。実行して確かめていない）。
 - **時間の測定が混ざる**: 燃焼の参照解は輸送と CRAM の時間（`transport-seconds`、`cram-seconds`）を記録し、xlc の時間との比較に使う。
   AWS の機種はまちまちで、中断で別の機種に変わるので、この時間は比べる値として使えない（CLAUDE.md の「時間を記録する測定」は
   Slurm）。AWS で流した結果は時間を記録に使わないと決める必要がある。
-- **`openmc_depletion.py` を変えると重い段階が古くなる**: `openmc-1C` の deps に入っているので、ここに再開を足すと `dvc.lock` が古くなり、
+- **`openmc_depletion.py` を変えると重いステージが古くなる**: `openmc-1C` の deps に入っているので、ここに再開を足すと `dvc.lock` が古くなり、
   再び 1.5 時間以上の計算が要る。vera が `openmc_resume.py` を別に置いた（`openmc_run.py` を変えず problem 1、2 を古くしないため）のと同じく、
   再開は別のファイルに置き、`openmc_depletion.py` の `build`、`TimedOperator`、`read` を import する。
 - **DVC との接続は vera と同じく切る**: `openmc-1C@rings1` の `outs` は AWS で流した結果の置き場にならない。結果は
-  `references/openmc/aws/<名前>/<ジョブ>/` に取り出し、比較の段階がそのパスを deps にする。
+  `references/openmc/aws/<名前>/<ジョブ>/` に取り出し、比較のステージがそのパスを deps にする。
 
 ## 検討した案
 
@@ -193,7 +193,7 @@ OpenMC の再開は完了した実行の延長に向くので（調査の結果 
 - 今の `aws_run.sh m3 ...` の呼び出しは変わらない（入力から定義が決まる）。`launch.env` に `DEFINITION=` が増えるので、この ADR より前の実行
   （m3）の起動し直しは、`DEFINITION` がなければ止まる。m3 は完了後に取り出して S3 から消した。読み込みの互換は作らない。
 - 時間の測定を含む燃焼の記録（`transport-seconds`、`cram-seconds`）は AWS の結果から使わない。比べる時間は手元の Slurm の値。
-- 未決: AWS の結果を `examples/depletion` の比較の段階の入力にするときの dvc.yaml の形（vera の 3A と同じく
+- 未決: AWS の結果を `examples/depletion` の比較のステージの入力にするときの dvc.yaml の形（vera の 3A と同じく
   `references/openmc/aws/` のパスを deps にする案）。区間の分割でステップごとに `Operator` を作り直す費用は、小さい入力
   （1 コア、粒子 1000）で全体 25〜40 秒のうち初期化が数秒の見込みだが、1C の大きさでは測っていない。再開は 1 区間が約 14 分かかるので、
   中断が続くと進まないことがある（`aws_watch.sh` が起動し直すが、`steps` に区間内の保存はない）。

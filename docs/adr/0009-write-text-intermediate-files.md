@@ -7,11 +7,11 @@ issues: []
 requires: []
 ---
 
-# ADR-0009: 段階間の中間ファイルは自前のテキスト形式とする
+# ADR-0009: ステージ間の中間ファイルは自前のテキスト形式とする
 
 ## 背景
 
-段階間はファイルで受け渡す（[ADR-0001](0001-split-into-three-stage-crates.md)）。M0 の縦切りで、その形式を決める必要があった。
+ステージ間はファイルで受け渡す（[ADR-0001](0001-split-into-three-stage-crates.md)）。M0 の縦切りで、その形式を決める必要があった。
 
 ## 検討した案
 
@@ -27,9 +27,9 @@ requires: []
 
 ## 確認
 
-M0 の例（examples/m0/verification.md）で3段階をつないで確かめた。
+M0 の例（examples/m0/verification.md）で3ステージをつないで確かめた。
 
 ## 帰結
 
-M2 で、段階間のデータファイルを MessagePack に改め（[ADR-0011](0011-write-data-files-in-messagepack.md)）、自前のテキスト形式は M2 の中で移行した。人が書く入力
+M2 で、ステージ間のデータファイルを MessagePack に改め（[ADR-0011](0011-write-data-files-in-messagepack.md)）、自前のテキスト形式は M2 の中で移行した。人が書く入力
 ファイルの形式は、別の決定として TOML にした（[ADR-0010](0010-write-inputs-in-toml.md)）。

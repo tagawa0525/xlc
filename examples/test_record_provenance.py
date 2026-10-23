@@ -184,7 +184,7 @@ class Git(unittest.TestCase):
 
 
 class Show(Git):
-    """JSON を持つ段階の出力の検査（JSON が無い、md5 が違う、inputs が無い）"""
+    """JSON を持つステージの出力の検査（JSON が無い、md5 が違う、inputs が無い）"""
 
     def stage_with_json(self, body: str | None, md5: str) -> None:
         (self.dir / "dvc.yaml").write_text("stages: {}\n")

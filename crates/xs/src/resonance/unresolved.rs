@@ -107,8 +107,8 @@ pub struct ShieldedSigma {
 }
 
 impl UnresolvedXs<'_> {
-    /// エネルギー e (eV)、温度 `temperature` (K) での、背景断面積 `sigma0` ごとの実効断面積を、ラダーのサンプリングの
-    /// Bondarenko の平均で求める（ADR-0177。`ladder`）。`background` は MF3 の背景断面積（LSSF=1 では MF3 が平均断面積そのもの
+    /// エネルギー e (eV)、温度 `temperature` (K) での、バックグラウンド断面積 `sigma0` ごとの実効断面積を、ラダーのサンプリングの
+    /// Bondarenko の平均で求める（ADR-0177。`ladder`）。`background` は MF3 のバックグラウンド断面積（LSSF=1 では MF3 が平均断面積そのもの
     /// なので 0 を渡す）。サンプルの数は `sampling`。乱数は種 `seed` から決まり、同じ種なら温度を変えても同じラダーとエネルギーを使う（温度の間の相関を保つ）。
     pub fn shielded(
         &self,

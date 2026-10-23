@@ -1,4 +1,4 @@
-//! 背景断面積 σ0 ごとの群平均断面積を、NJOY (GROUPR) の GENDF と比べる。
+//! バックグラウンド断面積 σ0 ごとの群平均断面積を、NJOY (GROUPR) の GENDF と比べる。
 //!
 //! 使い方: compare_njoy_shielding [--urr-only] [--slowing-down] <ENDF> <GENDF> <MAT> <温度 K> [MT...]
 //!

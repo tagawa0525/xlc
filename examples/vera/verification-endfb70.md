@@ -9,7 +9,7 @@ S(α,β) の温度の内挿。[ADR-0080](../../docs/adr/0080-interpolate-sab-in-
 
 対象は、仕様書に KENO-VI の値がある ピンセル 1B〜1D、集合体 2A〜2K、2Q、3D の 1 集合体の炉心 3A、3B。
 
-## ライブラリの入力と段階
+## ライブラリの入力とステージ
 
 - 入力は `endfb70/xs.toml`。`xs.toml` と同じ核種と温度で、ENDF のディレクトリだけ `references/endf/ENDF-B-VII.0_neutrons`、
   `ENDF-B-VII.0_thermal_scatt`（取得は docs/environment.md）。xlc の xs はすべての核種で止まらなかった（コードは変えていない）。
@@ -20,14 +20,14 @@ S(α,β) の温度の内挿。[ADR-0080](../../docs/adr/0080-interpolate-sab-in-
     群定数を温度について線形に内挿する（ADR-0080）。KENO-VI の 3B も 550 K と 600 K の 2 つの計算から手で内挿している（k を内挿するか、
     群定数を内挿するかが違う）
   - xs の警告は VIII.0 と同じ種類（MF4 の補間則の違うグリッド、運動学の閾値）で、止まらない
-- 段階は `endfb70/dvc.yaml`（ライブラリ `xs`、格子 `pincell`、`assembly`）と `endfb70/p3/dvc.yaml`（3A、3B。`p3_inputs.py
+- ステージは `endfb70/dvc.yaml`（ライブラリ `xs`、格子 `pincell`、`assembly`）と `endfb70/p3/dvc.yaml`（3A、3B。`p3_inputs.py
   --library-dir endfb70` が書く）。本番の側の同じ比較は `dvc.yaml` の `keno-pincell`、`keno-assembly`（本番のライブラリで同じツール）。
   格子の入力は `p1/`、`p2/` のものをコピーして使う。比較のツールは `compare_keno_lattice.py`（格子）と `compare_p3.py`（3A、3B）。
 
 ## 結果
 
 xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は、本番のライブラリを同じツールで解いたもの（コミットは「計算」）
-（格子。`keno-*` の段階）と、verification.md の 3A、3B の比較の JSON（`p3/compare-3?-openmc.json`）。
+（格子。`keno-*` のステージ）と、verification.md の 3A、3B の比較の JSON（`p3/compare-3?-openmc.json`）。
 
 ### 格子
 
@@ -96,10 +96,10 @@ xlc − KENO-VI は (k_xlc − k_KENO-VI) × 1e5 pcm。ENDF/B-VIII.0 の側は�
 
 ## 計算
 
-xlc は 43661306（分岐点 c630a66e）、2026-10-15。ライブラリと格子、本番の `keno-*` の段階は Slurm の排他のジョブ 377
-（`endfb70-keno-lattices`）、3A と 3B は排他のジョブ 378（`endfb70-keno-p3`、9 分）で、`dvc repro` を実行した。段階の入力と出力の md5 は
+xlc は 43661306（分岐点 c630a66e）、2026-10-15。ライブラリと格子、本番の `keno-*` のステージは Slurm の排他のジョブ 377
+（`endfb70-keno-lattices`）、3A と 3B は排他のジョブ 378（`endfb70-keno-p3`、9 分）で、`dvc repro` を実行した。ステージの入力と出力の md5 は
 `endfb70/dvc.lock`、`endfb70/p3/dvc.lock`、`dvc.lock`。VIII.0 の 3A、3B の JSON は verification.md の「Problem 3 の炉心の計算」
 のコミットのもの。VIII.0 の格子は、非分離共鳴をラダーのサンプリングで遮蔽したライブラリ（[ADR-0177](../../docs/adr/0177-shield-unresolved-range-by-probability-tables.md)）で
-解き直したもの（xlc a030052d、分岐点 bcc6d4cb、2026-10-15。1B と 2A は排他のジョブ 397、ほかは排他でないジョブ 399 の `keno-*` の段階。
+解き直したもの（xlc a030052d、分岐点 bcc6d4cb、2026-10-15。1B と 2A は排他のジョブ 397、ほかは排他でないジョブ 399 の `keno-*` のステージ。
 verification.md の「OpenMC との比較」）。表の数値は `python3 examples/verification_tables.py examples/vera/verification-endfb70.md` が JSON から描く
 （[ADR-0176](../../docs/adr/0176-generate-verification-tables.md)）。

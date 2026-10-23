@@ -45,7 +45,7 @@ const MAX_MARGIN_SPACINGS: f64 = 1000.0;
 /// ローレンツの裾の寄与は平均の Γ/(π L) 倍なので、L = Γ/(π D TAIL) 個の準位間隔まで並べる
 const TAIL: f64 = 1.0e-4;
 
-/// 弾性散乱（背景を含む）が負になる点の弾性散乱 (barn)。NJOY PURR と同じ値
+/// 弾性散乱（バックグラウンドを含む）が負になる点の弾性散乱 (barn)。NJOY PURR と同じ値
 const ELASTIC_FLOOR: f64 = 1.0e-6;
 
 /// |x| か y がこれより大きいと、w(z) を漸近形 i/(√π z) で求める（相対誤差 1/(2|z|²) ≈ 5e-5）
@@ -84,7 +84,7 @@ impl LadderSequence {
 pub struct Bondarenko {
     pub shielded: Vec<ShieldedSigma>,
     pub mean: Sigma,
-    /// 弾性散乱（背景を含む）が負になり、1 μb にした点の数
+    /// 弾性散乱（バックグラウンドを含む）が負になり、1 μb にした点の数
     pub floored: usize,
 }
 
@@ -98,7 +98,7 @@ pub(super) enum LadderError {
 }
 
 /// 系列 `sequences` のラダーで、σ0 ごとの実効断面積を求める。`potential` はポテンシャル散乱 (barn)、`background` は
-/// MF3 の背景断面積。サンプルの数は `sampling`、乱数は種 `seed` から決まる。弾性散乱（背景を含む）が負の点は弾性散乱を
+/// MF3 のバックグラウンド断面積。サンプルの数は `sampling`、乱数は種 `seed` から決まる。弾性散乱（バックグラウンドを含む）が負の点は弾性散乱を
 /// 1 μb にし（数を `floored` に数える）、それでも全断面積が 0 以下になる点があれば止める。
 pub(super) fn bondarenko(
     sequences: &[LadderSequence],
@@ -124,7 +124,7 @@ pub(super) fn bondarenko(
     let mut mean = [0.0; 4];
     let mut count = 0usize;
     let mut floored = 0usize;
-    // 弾性散乱、核分裂、捕獲の外の反応の背景（MF3 の全断面積との差）
+    // 弾性散乱、核分裂、捕獲の外の反応のバックグラウンド（MF3 の全断面積との差）
     let other = background.total - background.elastic - background.fission - background.capture;
     let mut energies = vec![0.0; sampling.samples];
     let mut parts = Parts::zeroed(sampling.samples);
@@ -143,7 +143,7 @@ pub(super) fn bondarenko(
         }
         for (j, &x) in energies.iter().enumerate() {
             let mut elastic = background.elastic + potential + parts.elastic[j];
-            // MF3 の負の背景を足したとき、遠い極を漸近形で求めた |1 − U|² の誤差、窓の外の共鳴を落とした分で負になりうる。
+            // MF3 の負のバックグラウンドを足したとき、遠い極を漸近形で求めた |1 − U|² の誤差、窓の外の共鳴を落とした分で負になりうる。
             // NJOY PURR（purr.f90 の unrest）と同じく 1 μb にして、参照解の確率テーブルと扱いを揃える（ADR-0177）
             let floor = elastic < 0.0;
             if floor {

@@ -46,9 +46,9 @@ issues: ["#0089"]
   ファイルの中に置いたときと同じ。clippy の `allow-unwrap-in-tests` などの設定（clippy.toml）も、`#[cfg(test)]` の付いた
   モジュールとして効く（既存の 11 個の tests.rs で効いている）
 - 案 D: 案 C のテストのファイルを `src` の外に置き（例: crates/x/src/foo.rs に `#[cfg(test)] #[path = "../unit/foo.rs"] mod tests;` と書き、crates/x/unit/foo.rs に置く）、
-  DVC の deps（`crates/*/src`）から外す。テストを変えても段階が古くならない（ADR-0123 が「`src` の外に出すのは別の
+  DVC の deps（`crates/*/src`）から外す。テストを変えてもステージが古くならない（ADR-0123 が「`src` の外に出すのは別の
   決定」として残した点）。代わりに、すべてのモジュールに `#[path]` が要り、Rust のモジュールの規則（ファイルの場所が
-  モジュールの階層を表す）から外れる。テストの変更で段階が古くなることは、ADR-0123 が許している（案 H）
+  モジュールの階層を表す）から外れる。テストの変更でステージが古くなることは、ADR-0123 が許している（案 H）
 
 ## 決定と理由
 
@@ -74,7 +74,7 @@ issues: ["#0089"]
   `cfg_attr`、`cfg!`）を持たないことを、`run-checks.sh` で走る検査で確かめる。検査の置き場所、照合の方法、残すものを
   減らせるか（補助の `use` を `tests.rs` に移すなど）は、実装のブランチ（#0089）で検査のテストとともに決める
 
-案 D を採らないのは、古くなった段階を再実行する費用（テストを変えたときだけ）のために、モジュールの規則から外れた
+案 D を採らないのは、古くなったステージを再実行する費用（テストを変えたときだけ）のために、モジュールの規則から外れた
 `#[path]` をすべてのモジュールに求めるのは釣り合わないからである。案 C で `#[path]` を使うのは、`lib.rs` とぶつかる
 `main.rs` の 1 か所だけである。
 
@@ -95,9 +95,9 @@ issues: ["#0089"]
 - 実行されるテスト: クレートごとに `cargo test -p xlc-<crate> -- --list` の並べ替えた出力が、移す前後で完全に同じ（core 151、docs 57
   （単体 52 と統合 5）、format 66、lattice 334、numeric 40、xs 315（単体 305 と main.rs の 10））
 - 実行ファイル: 分岐点と移したあとの `cargo build --release --workspace` の xs、lattice、core を `strip` して比べると、3 つともバイト単位で
-  一致した（`.text` と `.rodata` は strip の前でも一致）。位置の情報の差は strip で消える。ADR-0159 の build の段階（strip なし）の実行ファイルは、
+  一致した（`.text` と `.rodata` は strip の前でも一致）。位置の情報の差は strip で消える。ADR-0159 の build のステージ（strip なし）の実行ファイルは、
   main の 06706725 と一致しなかった。節ごとに比べると、`.text` などの割り当てられる節は一致し、`.symtab` と `.strtab` の
-  シンボル名の `.llvm.<数字>` の添字だけが違った。この差を ADR-0160 が strip で取り除き、3278ea89 の build の段階が作る実行ファイルの md5
+  シンボル名の `.llvm.<数字>` の添字だけが違った。この差を ADR-0160 が strip で取り除き、3278ea89 の build のステージが作る実行ファイルの md5
   （xs `e77257b3…`、lattice `85a3c566…`、core `fe2d8761…`）が、移したあとでも main の `dvc.lock` と一致した（2026-10-14）
 - テストだけの項目 4 個（format の `sample`、`sample_pins`、numeric の `modes_at`、`flux`）は、それぞれ fewgroup/tests.rs（`pub(crate) mod tests;`）と
   pins/node/tests.rs の `impl` に移した
@@ -110,10 +110,10 @@ issues: ["#0089"]
 - ADR と issue には、テストの場所をファイルのパスで書いたものがある（例: ADR-0132 の crates/core/src/nem.rs）。
   採用済みの ADR は直せない（docs/adr/README.md の「運用」で、直せるのは誤字、リンク、`status` と `superseded-by` だけ）ので、決めた時点の
   場所の記録として残る。proposed の ADR と開いた issue のパスは、移すブランチで `tests.rs` に直す
-- DVC の計算の段階は、deps に `crates/*/src` でなく、build の段階（直下の dvc.yaml）がビルドして `bin/` に置く実行ファイルを持つ
+- DVC の計算のステージは、deps に `crates/*/src` でなく、build のステージ（直下の dvc.yaml）がビルドして `bin/` に置く実行ファイルを持つ
   （ADR-0159）。テストを移しても、strip した実行ファイルがバイト単位で変わらなければ（ADR-0160。「確認」のとおり一致した）、
-  計算の段階は古くならない。移すブランチで `dvc repro -P` は流さない。直下の dvc.lock は、build の段階の deps（`crates`）の md5 だけが
+  計算のステージは古くならない。移すブランチで `dvc repro -P` は流さない。直下の dvc.lock は、build のステージの deps（`crates`）の md5 だけが
   変わり、outs（`bin/` の md5）は main のまま変わらない
 - 実行ファイルが一致しなければ、移動でなく、実行ファイルを変えた別の原因（並列の和の順序（#0060）、ビルドの設定など）を調べる。
-  古い段階を `dvc commit` で deps だけ取り込むこともしない。`dvc.lock` が、記録した deps のコードで実行していない出力を指すことに
+  古いステージを `dvc commit` で deps だけ取り込むこともしない。`dvc.lock` が、記録した deps のコードで実行していない出力を指すことに
   なる（ADR-0130 の案 L と同じ形）

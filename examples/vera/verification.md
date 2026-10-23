@@ -6,7 +6,7 @@ CASL の VERA Core Physics Benchmark Problems（CASL-U-2012-0131-004）のうち
 毒物のない 565 K の集合体（2A）と、2A の各セルに Zircaloy-4 の支持格子を入れた集合体（2Q）。減速材と被覆管は 600 K（ホウ素 1300 ppm。2B〜2D は 0.661 g/cc、2E〜2K は 0.743 g/cc）、燃料は 600、900、1200 K
 （2E〜2K は 600 K）。2A と 2Q は燃料、被覆管、減速材が 565 K、減速材 0.743 g/cc。参照解は、
 xs と同じ ENDF/B-VIII.0 から手元の NJOY で作ったデータで OpenMC を動かして作る（核データの違いを比較から除くため。
-[ADR-0031](../../docs/adr/0031-verify-against-openmc-with-same-data.md)）。手順は docs/environment.md の「VERA の参照解」で、1B は examples/vera/dvc.yaml の段階（[ADR-0130](../../docs/adr/0130-drive-reference-results-with-dvc.md)）。
+[ADR-0031](../../docs/adr/0031-verify-against-openmc-with-same-data.md)）。手順は docs/environment.md の「VERA の参照解」で、1B は examples/vera/dvc.yaml のステージ（[ADR-0130](../../docs/adr/0130-drive-reference-results-with-dvc.md)）。
 
 ENDF/B-VII.0 のライブラリでの KENO-VI との比較（核データの版を揃えた比較）は [verification-endfb70.md](verification-endfb70.md)。
 
@@ -18,14 +18,14 @@ ENDF/B-VII.0 のライブラリでの KENO-VI との比較（核データの版�
 | `p2/assembly-2E-empty.toml`     | 2E の Pyrex の棒を抜いたもの（仕様書にない。減速材の密度と吸収体の効果を分けるため）                                                                            |
 | `p2/openmc-2B.msgpack` など     | 参照解のピン出力（行は上から、核分裂のあるピンの平均で 1 に規格化。git で追跡しない。ADR-0121）                                                                 |
 | `p2/lattice-9x9-vacuum.toml` 他 | 2B の燃料ピンの、右の辺が真空の格子と core の 1 ノードの比較（「真空の辺のある格子の ADF」の節）                                                                |
-| `dvc.yaml`、`dvc.lock`          | 参照解のライブラリ、OpenMC、xlc、比較の段階（ADR-0130。いまは 1B）                                                                                              |
-| `p3/p3_inputs.py`               | 3A、3B を xlc で解く入力（2D の格子、軸方向の反射体の平板、炉心）と段階（`p3/dvc.yaml`）を書く（「Problem 3 の炉心の計算」）                                    |
+| `dvc.yaml`、`dvc.lock`          | 参照解のライブラリ、OpenMC、xlc、比較のステージ（ADR-0130。いまは 1B）                                                                                          |
+| `p3/p3_inputs.py`               | 3A、3B を xlc で解く入力（2D の格子、軸方向の反射体の平板、炉心）とステージ（`p3/dvc.yaml`）を書く（「Problem 3 の炉心の計算」）                                |
 | `compare_p3.py`                 | 3A、3B の炉心の解の k、軸方向の出力、ピン出力を、KENO-VI の値と OpenMC の参照解と比べる                                                                         |
 | `openmc_library.py`             | ENDF/B-VIII.0 から OpenMC の連続エネルギーのデータを作る。入力は `openmc-library.toml`                                                                          |
 | `openmc_model.py`               | 1B〜1D、2A〜2K、2Q を OpenMC で解き（run）、statepoint から k、ピン出力、燃料の核種ごとの実効断面積を抜く（extract）。入力は `p1/openmc-1B.toml` の形           |
 | `openmc_model_3d.py`            | 3A、3B（3D の集合体）を OpenMC で解き、k、軸方向の出力、ピン出力（全長で積分したものと層ごと）を抜く。入力は `p3/openmc-3A.toml` の形（「Problem 3 の参照解」） |
 | `openmc_core_2d.py`             | 5A-2D〜5C-2D（2D の 1/4 炉心）を OpenMC で解き、k、集合体とピンの出力を抜く。入力は `p5/openmc-5A-2D.toml` の形（「Problem 5-2D の参照解」）                    |
-| `p5/p5_inputs.py`               | 5-2D の xlc の入力（集合体の種類ごとの格子、反射体の格子、全炉心の炉心の計算、最小の入力）と段階（`p5/dvc.yaml`）を書く（「Problem 5-2D の炉心の計算」）        |
+| `p5/p5_inputs.py`               | 5-2D の xlc の入力（集合体の種類ごとの格子、反射体の格子、全炉心の炉心の計算、最小の入力）とステージ（`p5/dvc.yaml`）を書く（「Problem 5-2D の炉心の計算」）    |
 | `compare_p5.py`                 | 5-2D の炉心の解を KENO-VI、OpenMC、最小の入力の MOC と比べ、炉心の解の対称性を調べる                                                                            |
 | `compare_k.py`                  | xlc の格子計算と OpenMC の k を比べる                                                                                                                           |
 | `compare_h1_temperatures.py`    | 565 K で処理した H-1 と、550 K と 573.6 K の内挿を比べる（「参照解の側の近似」）                                                                                |
@@ -48,11 +48,11 @@ Zircaloy-4 875 g を 289 のセルに等しく分け、セルの外周の厚さ 
 
 ## 参照解
 
-1B は examples/vera/dvc.yaml の段階（2026-10-11。実行したコミット 9c121906（rebase の remap で付け替わる）、分岐点 fbe00a60。`dvc.lock` の openmc-* の deps はその状態の md5 で、復元は分岐点にそこまでのブランチのコミットを当て直し、`dvc status` で md5 が合うことを確かめる。dba00ffe（2026-10-07）に手で実行した値と、k の推定が相対 4e-14 で一致した。ADR-0130）、1C〜2D は dba00ffe（2026-10-07）、2E は 2d838c80、2E-empty（2E の Pyrex の棒を抜いたもの）は 6de9fe5a、2F は d6593b9f（2026-10-10）、
+1B は examples/vera/dvc.yaml のステージ（2026-10-11。実行したコミット 9c121906（rebase の remap で付け替わる）、分岐点 fbe00a60。`dvc.lock` の openmc-* の deps はその状態の md5 で、復元は分岐点にそこまでのブランチのコミットを当て直し、`dvc status` で md5 が合うことを確かめる。dba00ffe（2026-10-07）に手で実行した値と、k の推定が相対 4e-14 で一致した。ADR-0130）、1C〜2D は dba00ffe（2026-10-07）、2E は 2d838c80、2E-empty（2E の Pyrex の棒を抜いたもの）は 6de9fe5a、2F は d6593b9f（2026-10-10）、
 2G と 2H は 83f37240、2I は f930a397、2J は 194e82df、2K は cfe969f3、2A と 2Q は 4888a4cd（2026-10-11）。1B〜1D は 1 世代 100 万粒子・250 世代（最初の 50 世代を
 捨てる）、2A〜2K と 2Q は 1 世代 100 万粒子・400 世代（最初の 100 世代を捨てる）、乱数のシード 1。16 スレッドで、OpenMC が statepoint に書く計算時間（total）は 1B 17.8 分、2E 33.5 分、2E-empty 30.9 分、
 2F 34.2 分、2G 33.0 分、2H 32.4 分、2I 32.8 分、2J 37.0 分、2K 36.2 分、2A 38.5 分、2Q 50.4 分。2A と 2Q は 565 K の核種を足したデータ
-（openmc_library.py に温度を引数で渡して references/openmc/endfb80-565 に作ったもの。いまの examples/vera/openmc-library.toml と同じ温度で、その openmc-neutron と openmc-thermal の段階が作る 62 の HDF5 とバイト単位で一致する。ADR-0130）を温度の内挿のモードで解く（「参照解の側の近似」）。VERA の公開値は KENO-VI（ENDF/B-VII.0）で、核データの版が違うので
+（openmc_library.py に温度を引数で渡して references/openmc/endfb80-565 に作ったもの。いまの examples/vera/openmc-library.toml と同じ温度で、その openmc-neutron と openmc-thermal のステージが作る 62 の HDF5 とバイト単位で一致する。ADR-0130）を温度の内挿のモードで解く（「参照解の側の近似」）。VERA の公開値は KENO-VI（ENDF/B-VII.0）で、核データの版が違うので
 参考とする。
 
 | 問題     | 燃料の温度 | OpenMC（ENDF/B-VIII.0） | KENO-VI（ENDF/B-VII.0） | 差       |
@@ -218,7 +218,7 @@ KENO-VI の値は仕様書の表 P3-4、径方向のピン出力（1/8）は付�
 ## Problem 3 の炉心の計算
 
 3A と 3B（3D の単一集合体、零出力）を xlc の格子計算と炉心の計算（NEM）で解き、仕様書の KENO-VI（ENDF/B-VII.0）の値と
-比べる。入力と段階は `p3/p3_inputs.py` が書き、`dvc repro examples/vera/p3/dvc.yaml` で実行する（ADR-0123）。数値は
+比べる。入力とステージは `p3/p3_inputs.py` が書き、`dvc repro examples/vera/p3/dvc.yaml` で実行する（ADR-0123）。数値は
 60cf97d0（分岐点 4b644566。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124）、2026-10-14。ライブラリ（`../dvc.yaml` の xs）とともに Slurm で排他で流した（ジョブ 332）。
 前の値（e02585ad、分岐点 5bf22a6e の記録。出力は 84e8d460 の relock で再実行したもの）との差は、炉心の k が 3A −0.019 pcm、3B −0.014 pcm（Δk × 10⁵。KENO-VI との比較の表の差と同じ）、全長で積分したピン出力の最大
 5.9e-8（3A）と 9.2e-8（3B）、平板の MOC の k が 3A −0.019 pcm、3B −0.014 pcm で、2D の格子の k∞ は 6 桁で同じ。
@@ -401,7 +401,7 @@ KENO-VI の値は仕様書の表 M3-5、集合体の出力（1/8）は付録 J �
 核データの違いが入る。統計誤差（`pins-std.msgpack`、`assemblies-std.msgpack` の標準偏差を値で割ったもの。ピン 50952 本、
 集合体 193 体。世代の間の相関を含む）: ピン出力は中央値 0.19%、最大 0.51%、集合体の出力は中央値 0.031%、最大 0.057%、
 軸方向の出力はない（2D）。短い実行からの見積もり（上）と同じ程度。statepoint（100 MB）は `references/openmc/vera-5A-2D/` に
-置き、k、ピン出力（255 × 255）、集合体の出力（15 × 15）とその統計誤差は、段階 `openmc-5A-2D-extract`（`dvc.yaml`）が
+置き、k、ピン出力（255 × 255）、集合体の出力（15 × 15）とその統計誤差は、ステージ `openmc-5A-2D-extract`（`dvc.yaml`）が
 `p5/openmc-5A-2D-results/` に抜く（git で追跡しない。ADR-0130）。
 
 5B-2D と 5C-2D の OpenMC は AWS の VM の実行 m3（Problem 3 の参照解の節と同じ。入力とツールのコミット eb667f66。2026-10-13 に起動、
@@ -416,11 +416,11 @@ KENO-VI の値は仕様書の表 M3-5、集合体の出力（1/8）は付録 J �
 
 ## Problem 5-2D の炉心の計算
 
-5A-2D、5B-2D、5C-2D を xlc で解き、OpenMC（5A-2D。同じ ENDF/B-VIII.0）と KENO-VI（ENDF/B-VII.0）と比べた。段階は
+5A-2D、5B-2D、5C-2D を xlc で解き、OpenMC（5A-2D。同じ ENDF/B-VIII.0）と KENO-VI（ENDF/B-VII.0）と比べた。ステージは
 `p5/dvc.yaml`（`p5/p5_inputs.py` が書く）で、xs から比較まで `dvc repro examples/vera/p5/dvc.yaml` で実行する。OpenMC との
-比較は、参照解の statepoint から段階 `openmc-5A-2D-extract` が抜いた `p5/openmc-5A-2D-results/` を読む。OpenMC の実行は段階
+比較は、参照解の statepoint からステージ `openmc-5A-2D-extract` が抜いた `p5/openmc-5A-2D-results/` を読む。OpenMC の実行はステージ
 でない（手で Slurm に流した。「Problem 5-2D の参照解」）ので、`references/openmc/vera-5A-2D/` が無い環境では、`dvc repro` は
-この段階の deps の欠けで止まる（ほかの段階は `--keep-going` で実行する）。
+このステージの deps の欠けで止まる（ほかのステージは `--keep-going` で実行する）。
 
 ```sh
 # リポジトリの直下で、default の devShell の中。格子は Slurm で流す（自己遮蔽ありの 3 × 3 の MOC は 37 GB）
@@ -428,13 +428,13 @@ dvc repro examples/vera/p5/dvc.yaml
 ```
 
 計算: 格子（単一集合体、反射体、3 × 3 の MOC）、炉心は 60cf97d0（2026-10-14、分岐点 4b644566。xs は ADR-0167 と ADR-0170 の前で、走らせ直しは #0124。
-Slurm の排他のジョブ 332）。KENO-VI と OpenMC との比較（段階 `compare-5A`、`compare-5B`、`compare-5C`、`compare-5A-openmc` など）は、その炉心の出力を 2671e791（分岐点 5b23dd30、2026-10-15）で比べ直して JSON にしたもの（数秒の段階。前の `compare-*.out` の行は、`--report` の出力と同じ）。5B-2D と 5C-2D の OpenMC との比較（`compare-5B-openmc`、`compare-5C-openmc`）は d421346d（分岐点 66d2d266、2026-10-15）で、取り出した OpenMC の結果と 60cf97d0 の炉心の出力を比べた。前の値（32d6a399（実行したのは rebase の前の ee8195a2）、分岐点 db212cb1 と、b87892c3、分岐点 db184a0c。2026-10-12）との差は、AIC を含まない格子（単一集合体と反射体）の k が
+Slurm の排他のジョブ 332）。KENO-VI と OpenMC との比較（ステージ `compare-5A`、`compare-5B`、`compare-5C`、`compare-5A-openmc` など）は、その炉心の出力を 2671e791（分岐点 5b23dd30、2026-10-15）で比べ直して JSON にしたもの（数秒のステージ。前の `compare-*.out` の行は、`--report` の出力と同じ）。5B-2D と 5C-2D の OpenMC との比較（`compare-5B-openmc`、`compare-5C-openmc`）は d421346d（分岐点 66d2d266、2026-10-15）で、取り出した OpenMC の結果と 60cf97d0 の炉心の出力を比べた。前の値（32d6a399（実行したのは rebase の前の ee8195a2）、分岐点 db212cb1 と、b87892c3、分岐点 db184a0c。2026-10-12）との差は、AIC を含まない格子（単一集合体と反射体）の k が
 −0.011〜−0.017 pcm（`lattice/*.msgpack` の全桁の k∞）、3 × 3 の MOC のピン出力の最大 3.8e-7、5A と 5C の炉心の k が 0.1 pcm 以内
 （表示の丸めで 5A の −5.7 → −5.8 pcm、+131.1 → +131.0 pcm、5C の k 0.991665 → 0.991664）、ピン出力の最大 4.7e-7 で、どれも ADR-0156 の目安（0.1 pcm、
 ピン出力 1e-6）より小さい（差は ADR-0156〜0158 とライブラリの作り直しを含み、分けていない）。AIC の格子（21-aic、26-aic）の k は +325、+324 pcm 動き、5B の値が変わった。前の値は ADR-0142（AIC の棒の
 遮蔽）の前のコードと、Ti の核種を足す前のライブラリ（md5 1850d83f）のもので、差は両方を含み、分けていない。2G の k の
 ADR-0142 の前後の変化（e4dbc0de（分岐点 cde7206f）の 0.846870 → 8f7bee76（分岐点 bda15d7f）の 0.849616、+324 pcm。#0082。ライブラリも 114c87f9 から
-1850d83f に変わり、分けていない）と同じ向きと大きさで、ADR-0142 が主な原因の候補（確かめていない）。ライブラリは main の核種ごとの xs の段階（ADR-0138）の
+1850d83f に変わり、分けていない）と同じ向きと大きさで、ADR-0142 が主な原因の候補（確かめていない）。ライブラリは main の核種ごとの xs のステージ（ADR-0138）の
 もので、md5 は 55be71c9。k の差はどれも Δk/k（(k / k_参照 − 1) × 10⁵ pcm）。
 
 ### 入力の構成
@@ -515,7 +515,7 @@ Pyrex のある外周の 12 体は単一集合体の定数のまま）。断面�
 
 ```sh
 # リポジトリの直下で、433f89ff（pairing.py は 20bad649）を checkout して。python3 は references の devShell の中
-# references/openmc/vera-5A-2D-results は、段階 openmc-5A-2D-extract の出力 examples/vera/p5/openmc-5A-2D-results と
+# references/openmc/vera-5A-2D-results は、ステージ openmc-5A-2D-extract の出力 examples/vera/p5/openmc-5A-2D-results と
 # バイト単位で同じ（手で extract を実行して書いたもの）
 python3 trials/p5-0086/trial_inputs.py      # tables/ と、置き換えた入力を書く
 cargo run --release -p xlc-core -- trials/p5-0086/5A-IC-xs.toml > trials/p5-0086/5A-IC-xs.out
@@ -583,8 +583,8 @@ L 型の近似の大きさ（5A）: L 型の位置の I 型の定数の f\* の�
 ## Problem 5 の 3D の炉心の計算
 
 Problem 5（WBN1 の初装荷の零出力の物理試験。表 P5-2 の 32 の場合と、場合 1、2 の臨界ホウ素濃度の探索）を、3D の全炉心の
-NEM（core）で解き、仕様書の実測値（表 P5-7）と KENO-VI（ENDF/B-VII.0。表 P5-6、P5-7、付録 F）と比べた。入力と段階は
-`p5/p5_inputs.py` が書く `p5/hzp/` と `p5/dvc.yaml` の `hzp-*` の段階。
+NEM（core）で解き、仕様書の実測値（表 P5-7）と KENO-VI（ENDF/B-VII.0。表 P5-6、P5-7、付録 F）と比べた。入力とステージは
+`p5/p5_inputs.py` が書く `p5/hzp/` と `p5/dvc.yaml` の `hzp-*` のステージ。
 
 ```sh
 # リポジトリの直下で、default の devShell の中。格子と平板は Slurm で流す（下の「計算」）
@@ -592,7 +592,7 @@ dvc repro examples/vera/p5/dvc.yaml:hzp-compare
 ```
 
 計算: ライブラリ（`../dvc.yaml` の xs、H-1 を除く全核種に 560 K と 570 K を足したもの。md5 d2215543）は 5b2f4a0e（分岐点
-704b59e5）。3.10% の格子 19 段階（単一集合体 7、反射体 6、制御棒のテーブル 2、内挿と 2D の小さな炉心 4）は 93f0b407
+704b59e5）。3.10% の格子 19 ステージ（単一集合体 7、反射体 6、制御棒のテーブル 2、内挿と 2D の小さな炉心 4）は 93f0b407
 （分岐点 704b59e5）で解き、新しい実行ファイル（bin/lattice の md5 bd5af095）で最初の状態がビット単位で同じことを
 確かめて残した（#0092）。残りの格子と平板は 2cd6dfae と eeaa8ae6（分岐点 a66351f2）、最小の入力の 3D の炉心は eeaa8ae6、
 全炉心と比較は 438a041d（分岐点 4cc1008a）、2026-10-14。全炉心（34 状態を並列に解く）は排他のジョブで 18 分 16 秒
@@ -667,7 +667,7 @@ dvc repro examples/vera/p5/dvc.yaml:hzp-compare
 
 xlc は a030052d（分岐点 bcc6d4cb、2026-10-15。非分離共鳴をラダーのサンプリングで遮蔽したライブラリ（[ADR-0177](../../docs/adr/0177-shield-unresolved-range-by-probability-tables.md)、
 vera.msgpack の md5 6396b4e4）。Slurm の排他のジョブ 397 で `xs`、`lattice-1B`、`compare-1B`、`keno-pincell@1B`、`keno-assembly@2A`、
-排他でないジョブ 399（-c 16、xlc cd26f4ff で、コードは a030052d と同じ）で 1C、1D、2B〜2Q の `keno-*` の段階と 2E-empty の `bin/lattice examples/vera/p2/assembly-2E-empty.toml` を
+排他でないジョブ 399（-c 16、xlc cd26f4ff で、コードは a030052d と同じ）で 1C、1D、2B〜2Q の `keno-*` のステージと 2E-empty の `bin/lattice examples/vera/p2/assembly-2E-empty.toml` を
 実行した）。k は `lattice` の出力、ピン出力は `compare_pins.py`（OpenMC は上の「参照解」のコミットのもの）。ADR-0177 の前の ETOX のライブラリ
 （xlc 60cf97d0、分岐点 4b644566、ライブラリ md5 55be71c9）から、k は 16 体系で +4.1〜+12.2 pcm 動き（1C +10.7、1D +12.2、2C +9.0、
 2D +10.3 pcm で、燃料の温度が高いほど大きい）、ピン出力の差の rms と最大は表の桁で変わらない。スレッド 16。ピンセルは方位角 64・間隔 0.02 cm、集合体は方位角 30・間隔 0.03 cm

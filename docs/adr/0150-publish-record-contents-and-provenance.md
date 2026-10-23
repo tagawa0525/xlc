@@ -88,7 +88,7 @@ xlc のコードのライセンスは、このリポジトリに LICENSE がな�
 
 データカード（`README.md` と `provenance.json`）の項目:
 
-- xlc のコミット（checkout すれば再現できるもの。ADR-0122）と、`dvc.lock` の md5（その段階の deps と outs）
+- xlc のコミット（checkout すれば再現できるもの。ADR-0122）と、`dvc.lock` の md5（そのステージの deps と outs）
 - OpenMC の版（0.15.2）と NJOY の版（2016.79）とパッチ（docs/patches/）、`flake.lock` の rev、ENDF/B の版と各ファイルの sha256
 - 入力: model.xml と入力の TOML、粒子数、世代数、非アクティブバッチ、乱数のシード、スレッド数、標準のタリーの組の版（ADR-0152）
 - 結果: k と統計誤差、ファイルの一覧と各ファイルの sha256、一次（statepoint、summary.h5、model.xml）と派生（抽出した結果と、

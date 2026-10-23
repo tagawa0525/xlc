@@ -299,7 +299,7 @@ def compare(args: list[str]) -> dict:
     summary = {
         "format": "xlc-compare-p3",
         "problem": problem,
-        # 読んだファイルのパス（段階の cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
+        # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
         "inputs": [
             {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
             for f in files

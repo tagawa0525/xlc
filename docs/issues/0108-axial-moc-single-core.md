@@ -12,7 +12,7 @@ resolution: ADR-0158
 
 ## 問題
 
-examples/reflector/dvc.yaml の段階 `axial-fine`（入力 examples/reflector/axial-3A-fine.toml。軸方向の平板を 1080 の列に
+examples/reflector/dvc.yaml のステージ `axial-fine`（入力 examples/reflector/axial-3A-fine.toml。軸方向の平板を 1080 の列に
 刻んだ 1 次元の格子）の `lattice` のプロセスが、排他の 32 スレッドのノードで 1 コアしか使っていない。
 
 観察（2026-10-13、Slurm のジョブ 261）:
@@ -22,7 +22,7 @@ examples/reflector/dvc.yaml の段階 `axial-fine`（入力 examples/reflector/a
   示さない（`top -H` などで確認していない）
 - ログ（axial-3A-fine.log 相当）は `moc{regions=1080 tracks=211956}`。対称操作は「mirror across the horizontal axis (1/2)」
   だけで、representative_tracks=105978、representative_regions=1080
-- examples/reflector/verification.md の「軸方向の反射体の平板」の表（2026-10-13 時点）で、この段階は 3316 秒。列 540 の
+- examples/reflector/verification.md の「軸方向の反射体の平板」の表（2026-10-13 時点）で、このステージは 3316 秒。列 540 の
   `16` と `32` は 465 秒
 - 入力は `azimuthal = 32`、`spacing = 0.05`（examples/reflector/axial-3A-fine.toml）
 - 比較: 集合体の MOC（2A、領域は約 3 万）は 32 スレッドで 7 秒。ただし main.rs の `use_physical_cores` は

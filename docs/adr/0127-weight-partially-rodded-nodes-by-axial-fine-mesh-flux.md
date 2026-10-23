@@ -38,7 +38,7 @@ VERA の制御棒（仕様書の 1.6 節、表 8）は、下に AIC（101.6 cm�
 - 制御棒の価値（積分と微分）と軸方向の出力分布の誤差。先端の位置に対して k が滑らかに動くこと（カスプが出ないこと）
 - 原理で決まり、手で合わせる係数を持たないこと。参照の計算に合わせた関数を使わない
 - xlc の core（4 次の NEM と核分裂のないノードの ANM。[ADR-0102](0102-solve-non-fissile-nodes-with-anm.md)。径方向の面の ADF、z の面は 1）と、離散の軸のテーブル
-  （ADR-0097）に収まること。段階のクレートの独立（[ADR-0002](0002-keep-stage-crates-independent.md)）
+  （ADR-0097）に収まること。ステージのクレートの独立（[ADR-0002](0002-keep-stage-crates-independent.md)）
 - M4 の燃焼で、ノードごとに履歴を追えること（[ADR-0035](0035-track-history-by-micro-depletion.md)）
 
 ## 検討した案

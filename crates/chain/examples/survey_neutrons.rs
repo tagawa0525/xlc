@@ -226,7 +226,7 @@ fn skip_range(r: &mut Reader<'_>, h: &RangeHead, lfw: i64) -> Result<(), String>
             for _ in 0..cont.n1 {
                 let channels = r.list().map_err(e)?;
                 r.list().map_err(e)?;
-                // KBK、KPS（背景の R 行列、位相シフト）は読み飛ばし方を書いていない
+                // KBK、KPS（バックグラウンドの R 行列、位相シフト）は読み飛ばし方を書いていない
                 if channels.l1 != 0 || channels.l2 != 0 {
                     return Err(format!(
                         "RML spin group with KBK={} KPS={}",

@@ -100,7 +100,7 @@ Problem 5 の 3D の炉心では、反射体の列の燃料より上と下の層
 ### 反射体のノードどうしの面の ADF
 
 - ADR-0095 のとおり両側とも 1 にする: 根拠は「差が小さいと見込む」だけである。この ADR の前の core の規則（main
-  bbe3ccee の core。2026-10-12）で、examples/reflector の段階の定数（04db6a2c の `dvc repro`）を角型の格子の MOC と
+  bbe3ccee の core。2026-10-12）で、examples/reflector のステージの定数（04db6a2c の `dvc repro`）を角型の格子の MOC と
   比べた（各側の ADF の値は examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」）:
 
 | 炉心                        | 規則       | Δk/k (pcm) | 集合体（高速、熱） | 右と上の反射体 | 右上の反射体   | ピン RMS | 右上のピン |
@@ -306,7 +306,7 @@ M3 では作らない。Problem 5 の実測の値（表 P5-7）は臨界ホウ�
 - `normalized_adfs_toward_assembly_layers_take_unit_adfs`: 反射体の位置の f*の辺が集合体の位置の核分裂のない層に
   向く x と y の面は両側 1、反射体の位置に向くか、f* の側が反射体の位置でなければエラー
 
-比較（examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」、17bec182、2026-10-12。段階
+比較（examples/reflector/verification.md の「外形の面と、反射体どうしの面の ADF」、17bec182、2026-10-12。ステージ
 `core-corner`、`core-corner-outline`、`core-corner-I`）:
 
 - 角型の格子のノードだけの炉心は、反射体どうしの面に各側の ADF を使って、角型の格子の MOC の k を +0.0013 pcm、

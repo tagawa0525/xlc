@@ -20,7 +20,7 @@ NEM → ピン出力の再構成）の誤差を、全体を xlc の MOC で解�
 VERA の仕様書の表 P5-4）。方位角と間隔は ADR-0111（方位角 30・間隔 0.03 cm）、自己遮蔽あり。ライブラリは examples/vera の
 `vera.msgpack`。生成物（少数群定数、ピン出力、ログ）は git で追跡しない。
 
-段階は DVC で実行する（ADR-0123）。ライブラリは examples/vera/dvc.yaml の `xs` の出力なので、先に戻す（ADR-0130）。
+ステージは DVC で実行する（ADR-0123）。ライブラリは examples/vera/dvc.yaml の `xs` の出力なので、先に戻す（ADR-0130）。
 カラーセット全体の MOC は約 16 分、最大 17 GB なので、`dvc repro` 全体を Slurm に流す:
 
 ```sh
@@ -28,7 +28,7 @@ dvc checkout examples/vera/dvc.yaml
 ~/.claude/scripts/slurm-run.sh -t 60 dvc-colorset 'nix develop -c dvc repro examples/colorset/dvc.yaml'
 ```
 
-段階は `lattice-31`、`lattice-21`、`colorset`（MOC）、`without-df-31`、`without-df-21`、`core`、`core-node`、`core-nodf`、
+ステージは `lattice-31`、`lattice-21`、`colorset`（MOC）、`without-df-31`、`without-df-21`、`core`、`core-node`、`core-nodf`、
 `diffusion-4`、`diffusion-8`、`diffusion-nodf-8`、`compare`（下の「ピン出力の差」の元の出力 `compare.out`）。
 
 ## 測った値（b848596d、2026-10-10）
