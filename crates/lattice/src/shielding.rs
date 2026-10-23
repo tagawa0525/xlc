@@ -174,7 +174,7 @@ impl LumpShielding {
 }
 
 /// 1本のピンの燃料の自己遮蔽の結果。格子の対称性で移り合うピンは、組の代表（最も小さいセル番号）の結果を
-/// 共有する（`cell` 以外は代表の値）。
+/// 共有する（`cell` 以外は代表の値。核種ごとの値は複製せず、代表と同じものを指す）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct PinShielding {
     pub cell: usize,
@@ -182,15 +182,14 @@ pub struct PinShielding {
     pub dancoff: Vec<f64>,
     /// 燃料の核種の自己遮蔽した群定数 (barn) と個数密度 (1/(barn cm))。燃料のリングの物質が違うときは、個数密度は
     /// リングの体積で平均したもの（等価原理はその組成で解く。ADR-0173）
-    pub nuclides: Vec<(Nuclide, f64)>,
+    pub nuclides: Arc<Vec<(Nuclide, f64)>>,
     /// 核種ごとの実効断面積（`nuclides` の順。弾性散乱を含む）。UFG の範囲の群は、燃料のリングの値を中性子束と
     /// 体積で平均したもの。`nuclides` とともに SPH 因子を掛けていない物理的な値（参照解と比べる用）で、MOC の
     /// 中性子束と組み合わせて反応率を求めるには、領域の物質（SPH 因子を掛けたもの）を使う
-    pub effective: Vec<Shielded>,
+    pub effective: Arc<Vec<Shielded>>,
     /// [燃料のリング（内側から）][核種（`nuclides` の順）] の実効断面積。UFG の範囲の群はそのリングの減速計算の値、範囲の外は
     /// 等価原理の値。`effective` と同じく SPH 因子を掛けない物理的な値で、物理的な中性子束（`FuelShielding::physical_flux`）と
-    /// 掛けてリングの反応率にする（ADR-0173）。領域の値（[`FuelShielding::region_cross_sections`]）と同じものを共有し、対称性で
-    /// 移り合うピンも代表と共有する（集合体の燃焼では輸送のたびに作るので、複製しない。ほかの項目は複製する。#0137）
+    /// 掛けてリングの反応率にする（ADR-0173）。領域の値（[`FuelShielding::region_cross_sections`]）と同じものを共有する
     pub rings: Vec<Arc<Vec<Shielded>>>,
     /// UFG の減速計算に使った等価なセルの減速材のリングの外半径 (cm)。支持格子のあるセルでは、その外に枠と同じ面積の
     /// 支持格子のリングがある。燃料に分離共鳴を持つ核種がなければ `None`
@@ -336,7 +335,6 @@ pub fn shield_fuel(
 
 /// `shield_fuel` と同じ。移り合うピンと塊の組は、確かめた対称操作 `symmetry`（同じトラッキングと領域ごとの物質の名前で
 /// `symmetry::detect` が求めたもの）で作る（ADR-0112）。`symmetry` の操作で領域ごとの物質が移り合わなければエラー
-#[tracing::instrument(name = "shielding", skip_all)]
 pub fn shield_fuel_with(
     library: &Library,
     tracking: &Tracking,
@@ -345,6 +343,104 @@ pub fn shield_fuel_with(
     symmetry: &Detected,
     options: &ShieldingOptions,
 ) -> Result<FuelShielding, SelfShieldingError> {
+    shield_fuel_reusing(
+        library,
+        &mut ShieldingReuse::new(tracking),
+        materials,
+        region_materials,
+        symmetry,
+        options,
+    )
+}
+
+/// 1 つのトラッキングで自己遮蔽を繰り返して解くとき（燃焼の輸送ごと、分岐の状態ごと）に持ち越す、燃料の組成によらない前処理。
+/// 燃料のピンの Dancoff 係数は、燃料を黒体にし、燃料でない物質の全断面積だけから求めるので、直前に解いたときと入力（領域ごとの
+/// 物質、燃料でない物質の全断面積、`DancoffOptions`）が同じなら、その結果を使う（ADR-0194）
+#[derive(Debug)]
+pub struct ShieldingReuse<'a> {
+    tracking: &'a Tracking,
+    dancoff: Option<DancoffInputs>,
+    /// 燃料のピンの Dancoff 係数を解いた回数
+    dancoff_solves: usize,
+}
+
+/// 燃料のピンの Dancoff 係数を求めた入力と結果
+#[derive(Debug)]
+struct DancoffInputs {
+    /// [領域] の物質の番号
+    region_index: Vec<usize>,
+    /// [物質] の全断面積（領域に置いた燃料でない物質だけ。ほかは `None`）
+    totals: Vec<Option<Vec<f64>>>,
+    options: DancoffOptions,
+    /// [セル] の群ごとの Dancoff 係数
+    factors: Arc<Vec<Option<Vec<f64>>>>,
+}
+
+impl<'a> ShieldingReuse<'a> {
+    /// トラッキング `tracking` で解く自己遮蔽の前処理（まだ何も持たない）
+    pub fn new(tracking: &'a Tracking) -> Self {
+        Self {
+            tracking,
+            dancoff: None,
+            dancoff_solves: 0,
+        }
+    }
+
+    /// 物質 `dilute`（無限希釈）を領域に `region_index` で置いた格子の、燃料のピンの Dancoff 係数（[セル]）。`fuel` は
+    /// [領域] の燃料か
+    fn pin_dancoff(
+        &mut self,
+        dilute: &[Material],
+        region_index: &[usize],
+        fuel: &[bool],
+        options: &DancoffOptions,
+    ) -> Result<Arc<Vec<Option<Vec<f64>>>>, SelfShieldingError> {
+        // 領域に置いた燃料でない物質の全断面積だけを比べる（燃料は黒体で、どの領域にも置かない物質とともに値を読まない）
+        let mut totals: Vec<Option<Vec<f64>>> = vec![None; dilute.len()];
+        for (&i, &f) in region_index.iter().zip(fuel) {
+            if !f && totals[i].is_none() {
+                totals[i] = Some(dilute[i].total.clone());
+            }
+        }
+        if let Some(d) = &self.dancoff
+            && d.region_index == region_index
+            && d.totals == totals
+            && d.options == *options
+        {
+            tracing::debug!("pin Dancoff factors reused");
+            return Ok(d.factors.clone());
+        }
+        let region_totals: Vec<Vec<f64>> = region_index
+            .iter()
+            .map(|&i| totals[i].clone().unwrap_or_default())
+            .collect();
+        let factors = Arc::new(
+            tracing::info_span!("dancoff")
+                .in_scope(|| dancoff(self.tracking, &region_totals, fuel, options))?,
+        );
+        self.dancoff_solves += 1;
+        self.dancoff = Some(DancoffInputs {
+            region_index: region_index.to_vec(),
+            totals,
+            options: *options,
+            factors: factors.clone(),
+        });
+        Ok(factors)
+    }
+}
+
+/// `shield_fuel_with` と同じ。トラッキングは `reuse` のもので、燃料の組成によらない前処理を `reuse` から持ち越し、`reuse` に
+/// 残す（[`ShieldingReuse`]）。結果は `shield_fuel_with` とビットで同じ
+#[tracing::instrument(name = "shielding", skip_all)]
+pub fn shield_fuel_reusing(
+    library: &Library,
+    reuse: &mut ShieldingReuse,
+    materials: &[MaterialInput],
+    region_materials: &[String],
+    symmetry: &Detected,
+    options: &ShieldingOptions,
+) -> Result<FuelShielding, SelfShieldingError> {
+    let tracking = reuse.tracking;
     let lattice = &tracking.lattice;
     let regions = lattice.volumes().len();
     if region_materials.len() != regions {
@@ -385,18 +481,6 @@ pub fn shield_fuel_with(
     let fuel: Vec<bool> = region_index
         .iter()
         .map(|&i| dilute[i].nu_fission.iter().any(|&v| v > 0.0))
-        .collect();
-    // 燃料の行は使わない
-    let totals: Vec<Vec<f64>> = region_index
-        .iter()
-        .zip(&fuel)
-        .map(|(&i, &f)| {
-            if f {
-                Vec::new()
-            } else {
-                dilute[i].total.clone()
-            }
-        })
         .collect();
     // 燃料のあるセルごとに、燃料の物質と、燃料が埋める内側のリングの外半径。Dancoff 係数を
     // 求める前に確かめる（燃料が外側にあると、Dancoff 係数のほうが先に失敗して原因が分かりにくい）
@@ -446,8 +530,7 @@ pub fn shield_fuel_with(
         }
         pins.push((cell, fuel_regions, ring_materials, rings));
     }
-    let factors = tracing::info_span!("dancoff")
-        .in_scope(|| dancoff(tracking, &totals, &fuel, &options.dancoff))?;
+    let factors = reuse.pin_dancoff(&dilute, &region_index, &fuel, &options.dancoff)?;
 
     let mut shielded = FuelShielding {
         materials: dilute,
@@ -578,26 +661,26 @@ pub fn shield_fuel_with(
         }
         let material = pin_fuel(lattice, cell, materials, &ring_materials);
         // 先に並列で解いた結果（同じ判定で解くと決めたピン）。エラーはここでピンの順に返す
-        let PinSolution { carlvik, ufg } = planned
+        let PinSolution { carlvik, mut ufg } = planned
             .and_then(|k| solutions.get_mut(k).and_then(Option::take))
             .ok_or(SelfShieldingError::Unsolved(cell))??;
         points.extend(ufg.as_ref().map(|c| c.points));
         // 範囲の外の燃料のリングは、どれも等価原理の同じ微視的断面積（組成の並びはリングで同じ）
-        let micro = Arc::new(carlvik.clone());
-        let (effective, ring_effective) = match &ufg {
+        let micro = Arc::new(carlvik);
+        let (effective, ring_effective) = match &mut ufg {
             Some(c) => (
-                c.effective.clone(),
+                Arc::new(std::mem::take(&mut c.effective)),
                 c.ring_nuclides[..rings]
                     .iter()
                     .map(|n| n.clone().ok_or(SelfShieldingError::CellShape(cell)))
                     .collect::<Result<Vec<_>, _>>()?,
             ),
-            None => (carlvik.clone(), vec![micro.clone(); rings]),
+            None => (micro.clone(), vec![micro.clone(); rings]),
         };
         let nuclides = material
             .composition
             .iter()
-            .zip(&effective)
+            .zip(effective.iter())
             .map(|((name, density), s)| {
                 Ok((
                     shielded_nuclide(library, name, material.temperature, s)?,
@@ -608,7 +691,7 @@ pub fn shield_fuel_with(
         let pin = PinShielding {
             cell,
             dancoff: factors.clone(),
-            nuclides,
+            nuclides: Arc::new(nuclides),
             effective,
             rings: ring_effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
@@ -647,7 +730,7 @@ pub fn shield_fuel_with(
                     let nuclides = ring
                         .composition
                         .iter()
-                        .zip(&carlvik)
+                        .zip(micro.iter())
                         .map(|((name, density), s)| {
                             Ok((
                                 shielded_nuclide(library, name, ring.temperature, s)?,

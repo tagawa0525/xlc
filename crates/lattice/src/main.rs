@@ -46,7 +46,7 @@ use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
 use xlc_lattice::moc::{Options, available_order, solve_symmetric};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
-use xlc_lattice::shielding::shield_fuel_with;
+use xlc_lattice::shielding::{ShieldingReuse, shield_fuel_reusing};
 use xlc_lattice::symmetry::choose;
 use xlc_lattice::tracking::Tracking;
 
@@ -291,6 +291,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut per_state: Vec<Vec<Vec<FewGroup>>> = Vec::with_capacity(count);
     // 状態ごとの細かい群の媒質の出力（ADR-0128）
     let mut written = Vec::new();
+    // 燃料でない物質が直前の状態と同じなら、燃料のピンの Dancoff 係数を持ち越す（ADR-0194）
+    let mut reuse = ShieldingReuse::new(&tracking);
     for state in 0..count {
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
@@ -306,9 +308,9 @@ fn run(path: &Path) -> anyhow::Result<()> {
         let (unique, region_index) = match &source {
             Source::Library(library) => {
                 if input.self_shielding {
-                    let shielded = shield_fuel_with(
+                    let shielded = shield_fuel_reusing(
                         library,
-                        &tracking,
+                        &mut reuse,
                         state_materials,
                         solved_materials,
                         chosen.shielding(),
