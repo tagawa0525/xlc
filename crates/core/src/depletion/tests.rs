@@ -171,6 +171,7 @@ fn run(case: &str, cycle: &str) -> Result<CoreHistory, CaseError> {
         &case.states[0],
         case.depletion.as_ref().unwrap(),
         &tight(),
+        |_| {},
     )
 }
 
@@ -304,6 +305,7 @@ fn fissile_tables_without_heavy_metal_cannot_deplete() {
         &case.states[0],
         case.depletion.as_ref().unwrap(),
         &Options::default(),
+        |_| {},
     );
     assert!(result.is_err());
 }
@@ -386,6 +388,7 @@ fn core_average_burnups_do_not_drift_over_many_steps() {
         &case.states[0],
         case.depletion.as_ref().unwrap(),
         &Options::default(),
+        |_| {},
     )
     .unwrap();
     for (point, e) in history.points.iter().skip(1).zip(efpd) {
@@ -396,4 +399,35 @@ fn core_average_burnups_do_not_drift_over_many_steps() {
             point.burnup
         );
     }
+}
+
+#[test]
+fn points_are_reported_as_they_are_solved() {
+    // 最後のステップ（24 MWd/kg）はテーブルを越えて止まるが、それまでの点は解いた順に渡してある
+    let case = CASE.replace("{ efpd = 250.0 }", "{ efpd = 600.0 }");
+    let (layout, tables, case) = core(&case, UNIFORM, Some(400.0));
+    let mut seen = Vec::new();
+    let result = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        &tight(),
+        |p| seen.push(p.efpd),
+    );
+    assert!(result.is_err());
+    assert_eq!(seen, [0.0, 50.0, 125.0]);
+    // 解き終えたケースの点は、返す履歴の点と同じ
+    let (layout, tables, case) = core(CASE, UNIFORM, Some(400.0));
+    let mut points = Vec::new();
+    let history = deplete(
+        &layout,
+        &tables,
+        &case.states[0],
+        case.depletion.as_ref().unwrap(),
+        &tight(),
+        |p| points.push(p.clone()),
+    )
+    .unwrap();
+    assert_eq!(points, history.points);
 }
