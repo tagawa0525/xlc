@@ -175,8 +175,10 @@ class FingerprintTest(unittest.TestCase):
             self.assertEqual(sr.fingerprints(paths, d), before)
             self.assertIsNone(before["missing"])
 
-            time.sleep(0.01)
+            # 同じ大きさで書き直す。mtime の刻みが粗いファイルシステムでも違うように、mtime を 1 秒進める
+            mtime = (d / "file").stat().st_mtime_ns
             (d / "file").write_text("2")
+            os.utime(d / "file", ns=(mtime + 10**9, mtime + 10**9))
             self.assertEqual(sr.changed_paths(before, d), ["file"])
 
             (d / "dir" / "g").write_text("1")
