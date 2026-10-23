@@ -72,6 +72,7 @@
 //! materials = ["fuel"]            # 燃焼させる物質（核種で書いたもの）
 //! output = "history.msgpack"      # 燃焼の履歴（燃焼点ごとの k∞、数密度、ピン出力。ADR-0181）
 //! few-group = { bounds = [1e7, 0.625, 1e-5] }   # 燃焼点ごとの少数群定数（履歴に入る。省略すると作らない）
+//! shielding = "every-transport"  # 自己遮蔽を解く輸送（"every-transport" か "step-start"。省略すると every-transport。ADR-0197）
 //!
 //! [history]                       # 燃焼の履歴の燃焼点からの分岐（ADR-0187。[branches] とファイルの few-group と組む）
 //! file = "history.msgpack"        # 燃焼の履歴（`[depletion]` の output）
@@ -92,7 +93,7 @@ use serde::Deserialize;
 use xlc_format::library::is_nuclide_name;
 
 use crate::branches::{Branches, BranchesEntry, Water};
-use crate::depletion::{DepletionFewGroup, DepletionInput};
+use crate::depletion::{DepletionFewGroup, DepletionInput, ShieldingFrequency};
 use crate::fewgroup::{Node, node_grid};
 use crate::geometry::{Cell, GeometryError, Lattice, PinCell};
 use crate::history::HistoryInput;
@@ -348,6 +349,16 @@ struct DepletionEntry {
     output: PathBuf,
     /// 省略すると少数群定数を作らない
     few_group: Option<DepletionFewGroupEntry>,
+    /// 省略すると輸送のたびに解く（ADR-0197）
+    shielding: Option<ShieldingEntry>,
+}
+
+/// 燃焼の自己遮蔽を解く輸送（ADR-0197）
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum ShieldingEntry {
+    EveryTransport,
+    StepStart,
 }
 
 /// 燃焼点ごとの格子全体の少数群定数（燃焼の履歴に書く）
@@ -941,6 +952,12 @@ impl LatticeInput {
                     materials: d.materials,
                     output: d.output,
                     few_group,
+                    shielding: match d.shielding {
+                        None | Some(ShieldingEntry::EveryTransport) => {
+                            ShieldingFrequency::EveryTransport
+                        }
+                        Some(ShieldingEntry::StepStart) => ShieldingFrequency::StepStart,
+                    },
                 })
             })
             .transpose()

@@ -34,7 +34,7 @@ use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
 use crate::moc::{Options, Start, available_order, solve_symmetric_from};
 use crate::power::{cell_fission_rates, pin_rows};
-use crate::shielding::{ShieldingReuse, shield_fuel_reusing};
+use crate::shielding::{FuelShielding, ShieldingReuse, shield_fuel_reusing, shielded_nuclide};
 use crate::symmetry::Chosen;
 use crate::tracking::Tracking;
 
@@ -53,6 +53,18 @@ pub struct DepletionInput {
     pub output: PathBuf,
     /// 燃焼点ごとに格子全体の少数群定数を作るなら、その条件
     pub few_group: Option<DepletionFewGroup>,
+    /// 自己遮蔽を解く輸送（ADR-0197）
+    pub shielding: ShieldingFrequency,
+}
+
+/// 燃焼の自己遮蔽を解く輸送（ADR-0197）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShieldingFrequency {
+    /// ステップの始まりと中点の輸送のどちらでも、その組成で解き直す（ADR-0173 の案 F1）
+    EveryTransport,
+    /// ステップの始まり（と最後の点）の輸送でだけ解く。中点の輸送は、始まりの自己遮蔽の微視的断面積と SPH 因子のまま、
+    /// 燃焼の領域の物質を中点の数密度で作り直す（ADR-0173 の案 F2）
+    StepStart,
 }
 
 /// 燃焼点ごとの格子全体の少数群定数の条件
@@ -607,6 +619,8 @@ pub struct History {
     pub depletion: DepletionTimes,
     /// 輸送を解いた回数
     pub solves: usize,
+    /// 自己遮蔽を解いた回数（ADR-0197）
+    pub shieldings: usize,
 }
 
 const FORMAT: &str = "xlc-depletion-history";
@@ -620,6 +634,7 @@ struct HistoryFile<'a> {
     points: Vec<PointFile<'a>>,
     seconds: SecondsFile,
     solves: usize,
+    shieldings: usize,
 }
 
 /// 時間の内訳 (s)
@@ -654,6 +669,7 @@ struct HistoryFileIn {
     points: Vec<PointFileIn>,
     seconds: SecondsFileIn,
     solves: usize,
+    shieldings: usize,
 }
 
 #[derive(Deserialize)]
@@ -764,11 +780,12 @@ impl History {
                 cram: seconds("cram", s.cram)?,
             },
             solves: file.solves,
+            shieldings: file.shieldings,
         })
     }
     /// フィールド名付きの map 形式の MessagePack: `{format: "xlc-depletion-history", nuclides, regions: [{material, cell,
     /// regions, volume}], transportable, points: [{time, burnup, k_inf, densities, pin_powers, few_group}], seconds: {shielding, moc, rates,
-    /// matrix, cram}（時間の内訳 (s)）, solves}`
+    /// matrix, cram}（時間の内訳 (s)）, solves, shieldings}`
     pub fn to_msgpack(&self) -> anyhow::Result<Vec<u8>> {
         let points = self
             .points
@@ -806,6 +823,7 @@ impl History {
                 cram: self.depletion.cram.as_secs_f64(),
             },
             solves: self.solves,
+            shieldings: self.shieldings,
         })?)
     }
 }
@@ -817,6 +835,95 @@ struct State {
     pin_powers: Option<Vec<Vec<f64>>>,
     few_group: Option<FewGroup>,
     transported: usize,
+}
+
+/// 自己遮蔽の結果 `start` の微視的断面積と SPH 因子のまま、燃焼の領域 `regions` の物質を組成 `materials`（[燃焼の領域]。
+/// 核種の並びは `start` を解いたときと同じ）で作り直す（ADR-0197）。物質は、自己遮蔽と同じく、領域の核種の実効断面積
+/// （`region_cross_sections`）から作った群定数を数密度で混ぜ、SPH 因子を掛ける。ほかの領域の物質はそのまま
+pub(crate) fn remix_depleted(
+    library: &Library,
+    start: &FuelShielding,
+    lattice: &Lattice,
+    regions: &[DepletionRegion],
+    materials: &[MaterialInput],
+) -> anyhow::Result<FuelShielding> {
+    if materials.len() != regions.len() {
+        bail!(
+            "{} materials for {} depletion regions",
+            materials.len(),
+            regions.len()
+        );
+    }
+    // 領域ごとの SPH 因子 μ（[領域][群]）。物理的な中性子束は MOC の中性子束に μ を掛けたものなので、1 の中性子束から引く
+    let ones = vec![vec![1.0; library.groups.len()]; lattice.regions()];
+    let sph = start.physical_flux(lattice, &ones)?;
+    // 物質の番号ごとの燃焼の領域。1 つの物質を、別の燃焼の領域か燃焼させない領域と共有していれば、作り直せない
+    let mut depleted: Vec<Option<usize>> = vec![None; lattice.regions()];
+    for (k, d) in regions.iter().enumerate() {
+        for &r in &d.regions {
+            depleted[r] = Some(k);
+        }
+    }
+    let mut owner: Vec<Option<Option<usize>>> = vec![None; start.materials.len()];
+    let mut first: Vec<Option<usize>> = vec![None; start.materials.len()];
+    for (r, &k) in depleted.iter().enumerate() {
+        let m = start.region_material[r];
+        match owner[m] {
+            None => {
+                owner[m] = Some(k);
+                first[m] = Some(r);
+            }
+            Some(o) if o == k => {
+                let f = first[m].ok_or_else(|| anyhow!("material {m} has no first region"))?;
+                if k.is_some() && sph[r] != sph[f] {
+                    bail!("regions {f} and {r} share material {m} with different SPH factors");
+                }
+            }
+            Some(_) => bail!(
+                "material {m} of region {r} is shared across depletion regions or with a region not depleted"
+            ),
+        }
+    }
+    let rebuilt = (0..start.materials.len())
+        .into_par_iter()
+        .filter_map(|m| match (owner[m], first[m]) {
+            (Some(Some(k)), Some(r)) => Some((m, k, r)),
+            _ => None,
+        })
+        .map(|(m, k, r)| -> anyhow::Result<(usize, Material)> {
+            let material = &materials[k];
+            let cross_sections = start
+                .region_cross_sections(r)
+                .ok_or_else(|| anyhow!("region {r} has no shielded cross sections"))?;
+            if cross_sections.len() != material.composition.len() {
+                bail!(
+                    "region {r}: {} shielded nuclides for the {} nuclides of `{}`",
+                    cross_sections.len(),
+                    material.composition.len(),
+                    material.name
+                );
+            }
+            let nuclides = material
+                .composition
+                .iter()
+                .zip(cross_sections)
+                .map(|((name, density), s)| {
+                    Ok((
+                        shielded_nuclide(library, name, material.temperature, s)?,
+                        *density,
+                    ))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            let mixed =
+                Material::from_nuclides(&nuclides, library.groups.len())?.scaled(&sph[r])?;
+            Ok((m, mixed))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let mut remixed = start.clone();
+    for (m, material) in rebuilt {
+        remixed.materials[m] = material;
+    }
+    Ok(remixed)
 }
 
 /// 格子を `[depletion]` の条件で燃焼させる（ADR-0173）。`region_materials` は入力の領域ごとの物質の名前、`chosen` はその
@@ -961,6 +1068,9 @@ pub(crate) fn run_with_moc(
     let mut reuse = ShieldingReuse::new(tracking);
     // 直前の輸送の収束した MOC の状態。次の輸送の反復をここから始める（ADR-0195）
     let mut previous: Option<Start> = None;
+    let mut shieldings = 0;
+    // `StepStart` の、ステップの始まりの輸送の自己遮蔽。次の中点の輸送で使う（ADR-0197）
+    let mut held: Option<FuelShielding> = None;
     let solve = |n: &[Vec<f64>], kept: bool| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
         let start = Instant::now();
@@ -1019,15 +1129,44 @@ pub(crate) fn run_with_moc(
                 |i| chain.nuclides[i].name.clone(),
             ));
         }
-        let shielded = shield_fuel_reusing(
-            library,
-            &mut reuse,
-            &materials,
-            &renamed,
-            chosen.shielding(),
-            &input.shielding_options(),
-        )
-        .context("self-shielding")?;
+        // ce_cm が点に残さない輸送（`kept` でないもの）は、ステップの中点の輸送
+        let shielded = match (depletion.shielding, kept) {
+            (ShieldingFrequency::StepStart, false) => {
+                let at_start = held.take().ok_or_else(|| {
+                    anyhow!("the midpoint transport has no shielding from the step start")
+                })?;
+                let depleted = &materials[materials.len() - regions.len()..];
+                remix_depleted(library, &at_start, lattice, &regions, depleted)
+                    .context("remixing the depleted materials at the midpoint")?
+            }
+            _ => {
+                shieldings += 1;
+                let shielded = shield_fuel_reusing(
+                    library,
+                    &mut reuse,
+                    &materials,
+                    &renamed,
+                    chosen.shielding(),
+                    &input.shielding_options(),
+                )
+                .context("self-shielding")?;
+                // 作り直しの前提（自己遮蔽の物質が、領域の実効断面積と数密度から作った群定数に SPH 因子を掛けたもの）を、
+                // 最初の輸送で自己遮蔽の結果そのものと比べて確かめる。前提が崩れれば、中点の物質が始まりと食い違う
+                if depletion.shielding == ShieldingFrequency::StepStart && solves == 1 {
+                    let depleted = &materials[materials.len() - regions.len()..];
+                    let remixed =
+                        remix_depleted(library, &shielded, lattice, &regions, depleted)
+                            .context("remixing the depleted materials at the first transport")?;
+                    if remixed.materials != shielded.materials {
+                        bail!(
+                            "the depleted materials remixed from their shielded cross sections differ from the \
+                             self-shielding"
+                        );
+                    }
+                }
+                shielded
+            }
+        };
         transport.shielding += start.elapsed();
         let start = Instant::now();
         let region_materials: Vec<&Material> = shielded
@@ -1137,6 +1276,9 @@ pub(crate) fn run_with_moc(
             _ => None,
         };
         transport.rates += start.elapsed();
+        if depletion.shielding == ShieldingFrequency::StepStart && kept {
+            held = Some(shielded);
+        }
         tracing::info!(
             solve = solves,
             k = solution.k,
@@ -1189,6 +1331,7 @@ pub(crate) fn run_with_moc(
         transport,
         depletion: depletion_times,
         solves,
+        shieldings,
     })
 }
 
