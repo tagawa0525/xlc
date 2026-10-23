@@ -197,6 +197,7 @@ pub fn tables(
             axes: axes.to_vec(),
             split,
             states: Vec::with_capacity(expected * split * split),
+            heavy_metal: None,
         })
         .collect();
     for (state, fews) in per_state.into_iter().enumerate() {

@@ -1,0 +1,103 @@
+{
+ "format": "xlc-compare-core-depletion",
+ "inputs": [
+  {
+   "path": "examples/depletion/p2/lattice-2A.msgpack",
+   "md5": "6272e93776ffcdd173fde6d91b1c6bb7"
+  },
+  {
+   "path": "examples/depletion/branches/table-2A-fine.msgpack",
+   "md5": "e0f6632629bfebba6c85ab56482ad65c"
+  },
+  {
+   "path": "examples/depletion/branches/core-2A-coarse.msgpack",
+   "md5": "deb8646bec76b2535175353fd8b67be4"
+  }
+ ],
+ "specific_power": 38.41,
+ "table_burnups": [
+  0.0,
+  0.1,
+  0.5,
+  1.0,
+  2.0,
+  4.0,
+  6.0,
+  8.0,
+  10.0,
+  14.0,
+  20.0,
+  26.0,
+  32.0,
+  40.0,
+  48.0,
+  56.0,
+  60.0
+ ],
+ "points": [
+  {
+   "efpd": 0.0,
+   "burnup": 0.0,
+   "core_burnup": 0.0,
+   "burnup_relative": 0.0,
+   "on_table": true,
+   "history_k": 1.1828360413473682,
+   "k": 1.1828354786832862,
+   "rho_pcm": -0.0402161322909933,
+   "branch_k": 1.1828354878212617,
+   "branch_rho_pcm": -0.0006531325036363
+  },
+  {
+   "efpd": 130.17443374121325,
+   "burnup": 5.0,
+   "core_burnup": 5.000000000000001,
+   "burnup_relative": 2.220446049250313e-16,
+   "on_table": false,
+   "history_k": 1.1005733419653057,
+   "k": 1.1005010455261952,
+   "rho_pcm": -5.969080809886673,
+   "branch_k": null,
+   "branch_rho_pcm": null
+  },
+  {
+   "efpd": 390.5233012236397,
+   "burnup": 15.0,
+   "core_burnup": 15.0,
+   "burnup_relative": 0.0,
+   "on_table": false,
+   "history_k": 1.0132714856036265,
+   "k": 1.0135312087126733,
+   "rho_pcm": 25.289931066396765,
+   "branch_k": null,
+   "branch_rho_pcm": null
+  },
+  {
+   "efpd": 781.0466024472794,
+   "burnup": 30.0,
+   "core_burnup": 30.0,
+   "burnup_relative": 0.0,
+   "on_table": false,
+   "history_k": 0.9037253326491733,
+   "k": 0.9042140009041207,
+   "rho_pcm": 59.800724201508615,
+   "branch_k": null,
+   "branch_rho_pcm": null
+  },
+  {
+   "efpd": 1353.8141109086175,
+   "burnup": 52.0,
+   "core_burnup": 51.99999999999999,
+   "burnup_relative": -1.1102230246251565e-16,
+   "on_table": false,
+   "history_k": 0.7912200931492063,
+   "k": 0.792346424979846,
+   "rho_pcm": 179.66105565534463,
+   "branch_k": null,
+   "branch_rho_pcm": null
+  }
+ ],
+ "on_table_max_abs_pcm": 0.0402161322909933,
+ "between_max_abs_pcm": 179.66105565534463,
+ "on_table_branch_max_abs_pcm": 0.0006531325036363,
+ "burnup_max_relative": 2.220446049250313e-16
+}
