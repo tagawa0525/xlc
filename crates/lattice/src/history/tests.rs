@@ -2,11 +2,12 @@ use xlc_format::library::Library;
 use xlc_format::table::Axis;
 
 use super::*;
-use crate::depletion::tests::{PIN, U235, deplete_with, library};
+use crate::cmfd::CmfdOptions;
+use crate::depletion::tests::{PIN, U235, deplete_with, deplete_with_moc, library};
 use crate::depletion::{History, transport_name};
 use crate::input::{LatticeInput, MaterialInput, SymmetryChoice};
 use crate::material::Material;
-use crate::moc::{Options, available_order, solve_symmetric};
+use crate::moc::{Acceleration, Options, available_order, solve_symmetric};
 use crate::shielding::shield_fuel_with;
 use crate::symmetry::{Chosen, choose};
 use crate::tracking::Tracking;
@@ -99,12 +100,13 @@ fn branches_of(
     )
 }
 
-/// 分岐の状態の物質を、自己遮蔽と MOC で解いた k
+/// 分岐の状態の物質を、自己遮蔽と MOC（`moc` の打ち切り条件と加速）で解いた k
 fn k_of(
     text: &str,
     library: &Library,
     materials: &[MaterialInput],
     region_materials: &[String],
+    moc: &Options,
 ) -> f64 {
     let s = setup(text);
     let shielded = shield_fuel_with(
@@ -123,7 +125,7 @@ fn k_of(
         .collect();
     let options = Options {
         scattering_order: available_order(&regions),
-        ..Options::default()
+        ..*moc
     };
     solve_symmetric(&s.tracking, &regions, &options, s.chosen.moc())
         .unwrap()
@@ -135,9 +137,28 @@ fn history() -> (History, Library) {
     (deplete_with(&borated(PIN), &library), library)
 }
 
+/// MOC の判定を既定（k 1e-7、中性子束 1e-6）より 4 桁細かくした条件。CMFD は既定と同じ比で MOC より細かく解く（ADR-0110）
+fn tight() -> Options {
+    Options {
+        k_tolerance: 1e-11,
+        flux_tolerance: 1e-10,
+        acceleration: Acceleration::Cmfd(CmfdOptions {
+            k_tolerance: 1e-14,
+            flux_tolerance: 1e-12,
+            ..CmfdOptions::default()
+        }),
+        ..Options::default()
+    }
+}
+
 #[test]
 fn nominal_branches_reproduce_the_history_points() {
-    let (history, library) = history();
+    // 履歴の燃焼度 0 より後の輸送は前の輸送の解から、分岐は平らな初期値から反復を始める（ADR-0195）ので、k は収束の誤差の
+    // 程度で違う。このピンセル（k 0.08 程度）は止めた解の誤差が判定より大きく（#0160）、燃焼度 0.5 と 2.0 の点の k の相対差は
+    // 判定の k の約 100〜300 倍で、判定に比例して縮む（判定 1e-8 で 1.2e-6、1e-9 で 2.1e-7、1e-11 で 1.5e-9。2026-10-23 の手元の
+    // 測定）。履歴も分岐も判定を 1e-11 にして解き、相対 1e-8（測った差の約 7 倍）で比べる
+    let library = library_with_boron();
+    let history = deplete_with_moc(&borated(PIN), &library, &tight());
     // 履歴の燃焼度は 0、0.05、0.5、2.0。分岐はそのうち 3 点で、燃焼度がいちばん遅く変わる
     let text = branch_input("[0, 0.5, 2.0]", "[600]");
     let branches = branches_of(&text, &history, &library).unwrap();
@@ -150,16 +171,17 @@ fn nominal_branches_reproduce_the_history_points() {
     assert_eq!(branches.axes.len(), 4);
     assert_eq!(branches.len(), 3 * 2);
     for (i, point) in [0, 2, 3].into_iter().enumerate() {
-        // 公称（1000 ppm）は輸送の組成も状態も履歴の点と同じ
+        // 公称（1000 ppm）は輸送の組成も状態も履歴の点と同じ。燃焼度 0 の点はどちらも平らな初期値から解くので同じ反復をたどる
         let nominal = k_of(
             &text,
             &library,
             &branches.state(2 * i + 1),
             &branches.region_materials,
+            &tight(),
         );
         let want = history.points[point].k;
         assert!(
-            (nominal - want).abs() <= 1e-12 * want,
+            (nominal - want).abs() <= if point == 0 { 1e-12 } else { 1e-8 } * want,
             "burnup {}: {nominal} vs {want}",
             history.points[point].burnup
         );
@@ -169,6 +191,7 @@ fn nominal_branches_reproduce_the_history_points() {
             &library,
             &branches.state(2 * i),
             &branches.region_materials,
+            &tight(),
         );
         assert!(diluted > nominal, "{diluted} vs {nominal}");
     }

@@ -34,7 +34,7 @@ use xlc_format::fewgroup::FewGroup;
 use xlc_format::library::Library;
 use xlc_format::medium::Medium;
 use xlc_lattice::axial::{axial, check_nodes};
-use xlc_lattice::branches::tables;
+use xlc_lattice::branches::{Starts, state_indices, tables};
 use xlc_lattice::depletion::{History, LibraryReactions};
 use xlc_lattice::fewgroup::{Node, homogenize, homogenize_nodes, pin_shapes, split_constants};
 use xlc_lattice::input::SymmetryChoice;
@@ -44,7 +44,7 @@ use xlc_lattice::input::{
 use xlc_lattice::macroscopic;
 use xlc_lattice::material::Material;
 use xlc_lattice::medium::{check_medium, check_orders, homogenize_medium};
-use xlc_lattice::moc::{Options, available_order, solve_symmetric};
+use xlc_lattice::moc::{Options, available_order, solve_symmetric_from};
 use xlc_lattice::power::{cell_fission_rates, to_msgpack};
 use xlc_lattice::shielding::{ShieldingReuse, shield_fuel_reusing};
 use xlc_lattice::symmetry::choose;
@@ -270,16 +270,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     let medium_names: Vec<String> = input.media.iter().map(|m| m.name.clone()).collect();
+    let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
     let values = |state: usize| -> String {
-        let counts: Vec<usize> = axes.iter().map(|a| a.points().len()).collect();
-        let mut rest = state;
-        let mut at = vec![0; counts.len()];
-        for (k, &n) in counts.iter().enumerate().rev() {
-            at[k] = rest % n;
-            rest /= n;
-        }
         axes.iter()
-            .zip(at)
+            .zip(state_indices(&counts, state))
             .filter_map(|(a, i)| a.points().get(i).map(|p| format!("{} {p}", a.name())))
             .collect::<Vec<_>>()
             .join(", ")
@@ -293,6 +287,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     let mut written = Vec::new();
     // 燃料でない物質が直前の状態と同じなら、燃料のピンの Dancoff 係数を持ち越す（ADR-0194）
     let mut reuse = ShieldingReuse::new(&tracking);
+    // 状態ごとに、前に解いた近い状態の MOC の収束した状態から反復を始める（ADR-0195）
+    let mut starts = Starts::new(&counts);
     for state in 0..count {
         // 履歴からの分岐の物質は状態ごとに作る（ADR-0187）
         let built;
@@ -390,8 +386,15 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 .unwrap_or_else(|| available_order(&materials)),
             ..Options::default()
         };
-        let solution =
-            solve_symmetric(&tracking, &materials, &options, chosen.moc()).with_context(context)?;
+        let (solution, converged) = solve_symmetric_from(
+            &tracking,
+            &materials,
+            &options,
+            chosen.moc(),
+            starts.start(),
+        )
+        .with_context(context)?;
+        starts.solved(converged);
         if let Some(FewGroupOutput {
             bounds,
             files,
