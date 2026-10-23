@@ -91,6 +91,10 @@ pub struct Solution {
 /// （`solve_symmetric_from`）。
 #[derive(Debug, Clone, PartialEq)]
 pub struct Start {
+    /// 解いたトラッキングの領域とトラックの数
+    sizes: [usize; 2],
+    /// 代表の領域と代表のトラックの番号（解いたトラッキングと対称操作の目印）
+    representatives: [Vec<usize>; 2],
     k: f64,
     /// [代表の領域][群] のスカラー中性子束
     flux: Vec<Vec<f64>>,
@@ -152,7 +156,8 @@ pub enum MocError {
         image: usize,
     },
     #[error(
-        "the start was saved from another tracking, symmetry or scattering order (its sizes differ)"
+        "the start was saved from another tracking, symmetry or scattering order (its regions, \
+         tracks or sizes differ)"
     )]
     ForeignStart,
     #[error("not converged in {iterations} iterations (k = {k})")]
@@ -190,7 +195,8 @@ pub fn solve_symmetric(
 }
 
 /// `solve_symmetric` と同じく解き、反復を `start`（同じトラッキング、対称操作、散乱の次数で解いた前の問題の収束した状態）から
-/// 始める（ADR-0195）。`None` なら平らな初期値から。収束した状態を解と一緒に返す。`start` の大きさが今の問題と違えばエラー
+/// 始める（ADR-0195）。`None` なら平らな初期値から。収束した状態を解と一緒に返す。`start` の領域とトラックの数、代表の領域と
+/// トラックの番号、配列の大きさのどれかが今の問題と違えばエラー
 pub fn solve_symmetric_from(
     tracking: &Tracking,
     materials: &[&Material],
@@ -353,10 +359,14 @@ fn solve_with(
     };
 
     let width = (pairs.len() - 1) * ng;
+    let sizes = [regions, tracking.tracks.len()];
     // 前の解の中性子束、[代表][モーメント (1 番目から)][群] の高次のモーメント、k。なければ平らな中性子束と k = 1
     let (mut flux, mut higher, mut k) = match start {
         Some(s) => {
-            if s.flux.len() != states
+            if s.sizes != sizes
+                || s.representatives[0] != *kept
+                || s.representatives[1] != reduced.tracks
+                || s.flux.len() != states
                 || s.flux.iter().any(|f| f.len() != ng)
                 || s.higher.len() != states
                 || s.higher.iter().any(|h| h.len() != width)
@@ -622,6 +632,8 @@ fn solve_with(
                 iterations: iteration,
             };
             let start = Start {
+                sizes,
+                representatives: [kept.clone(), reduced.tracks.clone()],
                 k,
                 flux,
                 higher,
