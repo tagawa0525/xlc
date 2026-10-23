@@ -3,7 +3,7 @@
  "inputs": [
   {
    "path": "examples/depletion/branches/burnup-interpolation.toml",
-   "md5": "0909d3b27b2cc20fd759079a5627030f"
+   "md5": "e0b8cfeea4d8b7e1ac0fde8b827b060a"
   },
   {
    "path": "examples/depletion/branches/table-2O-all.msgpack",
