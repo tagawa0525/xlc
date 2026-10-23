@@ -142,7 +142,7 @@ dvc repro examples/depletion/dvc.yaml          # xs-range、xs-nuclide@<核種>�
 ### 計算
 
 xlc adacf8b4（分岐点 6822de4c、2026-10-23）。Slurm の排他のジョブ 457 で `dvc repro examples/depletion/dvc.yaml:xs` を実行した（下の「格子計算の燃焼」の
-xlc と同じジョブ）。時間は、ラダーの和をベクトル化した（ADR-0188）xlc 41b0dd3c（分岐点 05714cea、2026-10-23）の Slurm の排他のジョブ 473 で
+xlc と同じジョブ）。時間は、ラダーの和をベクトル化した（ADR-0188）xlc ea2941ce（分岐点 05714cea、2026-10-23）の Slurm の排他のジョブ 473 で
 同じ段階を実行し直したもの（65 核種の段階の出力と `depletion.msgpack` の md5 は 457 と同じ）。
 
 ### 結果
