@@ -6,8 +6,9 @@
 //! 出す（`RUST_LOG=debug` で反復ごとの k と変化）。ケースに名前つきの状態があれば、状態を並列に解き、名前の順に
 //! `state <名前>` の行に続けて状態ごとに出す（探索した状態は求めたホウ素濃度も。ADR-0145、ADR-0146）。
 //!
-//! 燃焼のケース（`[depletion]`。ADR-0190）は、燃焼点ごとに `point <EFPD> <炉心の平均の燃焼度 (MWd/kg)> <k>` の行を出し、
-//! 燃焼の履歴をケースの `history` のファイルに書く。
+//! 燃焼のケース（`[depletion]`。ADR-0190）は、燃焼点ごとに `point <EFPD> <炉心の平均の燃焼度 (MWd/kg)> <k> <ホウ素濃度 (ppm)>
+//! <固有値計算の回数>` の行を出し（探索の状態は、点で求めたホウ素濃度と探索の回数。ADR-0191）、燃焼の履歴をケースの `history` の
+//! ファイルに書く。
 //!
 //! 入力のパスは、それを書いたファイルのあるディレクトリからの相対パス。
 
@@ -106,9 +107,12 @@ fn run(path: &Path) -> anyhow::Result<()> {
             .states
             .first()
             .ok_or_else(|| anyhow!("depletion needs one state"))?;
-        // 点は解くたびに出す（後のステップで止まっても、それまでの点が残る）。k は状態の出力と同じ桁で
+        // 点は解くたびに出す（後のステップで止まっても、それまでの点が残る）。k とホウ素濃度は状態の出力と同じ桁で
         let history = deplete(&layout, &tables, state, depletion, &options, |point| {
-            println!("point {} {:.8} {:.8}", point.efpd, point.burnup, point.k);
+            println!(
+                "point {} {:.8} {:.8} {:.4} {}",
+                point.efpd, point.burnup, point.k, point.boron, point.solves
+            );
         })
         .map_err(|e| in_inputs(e, inputs()))?;
         let file = &depletion.history;
