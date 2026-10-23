@@ -1930,7 +1930,11 @@ fn quarter_symmetry_rejects_an_asymmetric_boundary() {
 }
 
 /// 1/8 対称な 3 × 3 のピンの格子（P1。真ん中のピンは別の燃料）を、外側の 8 本の燃料を `fuel` にして、`start` から解く
-fn octant_from(fuel: &Material, start: Option<&Start>) -> Result<(Solution, Start), MocError> {
+fn octant_from(
+    fuel: &Material,
+    options: &Options,
+    start: Option<&Start>,
+) -> Result<(Solution, Start), MocError> {
     let (w, g, void) = (
         with_moments(&moderator(), &[0.4]),
         with_moments(&fuel_with([0.5, 1.2], [0.008, 0.27]), &[0.2]),
@@ -1941,7 +1945,7 @@ fn octant_from(fuel: &Material, start: Option<&Start>) -> Result<(Solution, Star
     let materials: Vec<&Material> = index.iter().map(|&i| library[i]).collect();
     let tracking = Tracking::new(&lattice, 10, 0.05).unwrap();
     let verified = require(&tracking, Symmetry::OCTANT)?;
-    solve_symmetric_from(&tracking, &materials, &order_options(1), &verified, start)
+    solve_symmetric_from(&tracking, &materials, options, &verified, start)
 }
 
 /// `fuel()` の全断面積と νΣf を変えた燃料（散乱は同じ）
@@ -1949,50 +1953,86 @@ fn fuel_with(total: [f64; 2], nu_fission: [f64; 2]) -> Material {
     two_group(total, [[0.45, 0.02], [0.0, 0.9]], nu_fission)
 }
 
+/// 熱群の全断面積を 1 + `d` 倍、νΣf を 1 − `d` 倍にした燃料（燃焼の 1 ステップの代わり。P1）
+fn burned(d: f64) -> Material {
+    with_moments(
+        &fuel_with([0.5, 1.2 * (1.0 + d)], [0.008, 0.25 * (1.0 - d)]),
+        &[0.3],
+    )
+}
+
+/// `fuel` の格子を、`options` の判定より 4 桁細かく解いた解（判定の誤差を測る基準）
+fn octant_reference(fuel: &Material, options: &Options) -> Solution {
+    let tight = Options {
+        k_tolerance: options.k_tolerance * 1e-4,
+        flux_tolerance: options.flux_tolerance * 1e-4,
+        acceleration: Acceleration::Cmfd(CmfdOptions {
+            k_tolerance: options.k_tolerance * 1e-6,
+            flux_tolerance: options.flux_tolerance * 1e-6,
+            ..CmfdOptions::default()
+        }),
+        ..*options
+    };
+    octant_from(fuel, &tight, None).unwrap().0
+}
+
+/// 解 `solution` の k と中性子束が、基準 `reference` から `options` の判定の範囲にあること
+fn assert_within_tolerance(solution: &Solution, reference: &Solution, options: &Options) {
+    assert!(
+        (solution.k - reference.k).abs() < options.k_tolerance,
+        "k {} vs {}",
+        solution.k,
+        reference.k
+    );
+    for (r, (a, b)) in solution.flux.iter().zip(&reference.flux).enumerate() {
+        for (g, (a, b)) in a.iter().zip(b).enumerate() {
+            assert!(
+                relative_change(*a, *b) < options.flux_tolerance,
+                "region {r} group {g}: {a} vs {b}"
+            );
+        }
+    }
+}
+
 #[test]
 fn a_warm_start_from_a_nearby_problem_takes_fewer_sweeps_to_the_same_solution() {
     // 燃焼の 1 ステップのように、熱群の吸収と νΣf を少し変えた問題を、変える前の解から始める（ADR-0195）
-    let fresh = with_moments(&fuel(), &[0.3]);
-    let burned = with_moments(&fuel_with([0.5, 1.21], [0.008, 0.245]), &[0.3]);
-    let (_, start) = octant_from(&fresh, None).unwrap();
-    let (cold, _) = octant_from(&burned, None).unwrap();
-    let (warm, _) = octant_from(&burned, Some(&start)).unwrap();
-    assert!(
-        warm.iterations < cold.iterations,
-        "{} sweeps from the previous solution, {} from the flat start",
-        warm.iterations,
-        cold.iterations
-    );
-    assert_same_solution(&cold, &warm, &order_options(1));
+    let options = order_options(1);
+    let (_, start) = octant_from(&burned(0.0), &options, None).unwrap();
+    for d in [1e-4, 1e-3, 1e-2] {
+        let fuel = burned(d);
+        let (cold, _) = octant_from(&fuel, &options, None).unwrap();
+        let (warm, _) = octant_from(&fuel, &options, Some(&start)).unwrap();
+        assert!(
+            warm.iterations < cold.iterations,
+            "{d}: {} sweeps from the previous solution, {} from the flat start",
+            warm.iterations,
+            cold.iterations
+        );
+        assert_within_tolerance(&warm, &octant_reference(&fuel, &options), &options);
+    }
 }
 
 #[test]
 fn a_warm_start_at_the_solution_still_sweeps_twice() {
     // 解そのものから始めても、1 回目のスイープの変化だけでは残りの誤差を見積もれないので、2 回目で判定する（ADR-0195）
-    let burned = with_moments(&fuel_with([0.5, 1.21], [0.008, 0.245]), &[0.3]);
-    let (cold, start) = octant_from(&burned, None).unwrap();
-    let (warm, _) = octant_from(&burned, Some(&start)).unwrap();
+    let options = order_options(1);
+    let fuel = burned(1e-3);
+    let (_, start) = octant_from(&fuel, &options, None).unwrap();
+    let (warm, _) = octant_from(&fuel, &options, Some(&start)).unwrap();
     assert_eq!(warm.iterations, 2);
-    assert_same_solution(&cold, &warm, &order_options(1));
+    assert_within_tolerance(&warm, &octant_reference(&fuel, &options), &options);
 }
 
 #[test]
 fn rejects_a_start_from_another_tracking() {
     let cell = PinCell::new(1.26, vec![0.25, 0.4096, 0.55]).unwrap();
     let tracking = Tracking::new(&Lattice::pin_cell(cell), 16, 0.05).unwrap();
-    let (f, m) = (
-        with_moments(&fuel(), &[0.3]),
-        with_moments(&moderator(), &[0.4]),
-    );
+    let (f, m) = (burned(0.0), with_moments(&moderator(), &[0.4]));
+    let options = order_options(1);
     let verified = require(&tracking, Symmetry::NONE).unwrap();
-    let (_, start) = solve_symmetric_from(
-        &tracking,
-        &[&f, &f, &m, &m],
-        &order_options(1),
-        &verified,
-        None,
-    )
-    .unwrap();
-    let result = octant_from(&f, Some(&start));
+    let (_, start) =
+        solve_symmetric_from(&tracking, &[&f, &f, &m, &m], &options, &verified, None).unwrap();
+    let result = octant_from(&f, &options, Some(&start));
     assert!(matches!(result, Err(MocError::ForeignStart)), "{result:?}");
 }
