@@ -661,26 +661,26 @@ pub fn shield_fuel_reusing(
         }
         let material = pin_fuel(lattice, cell, materials, &ring_materials);
         // 先に並列で解いた結果（同じ判定で解くと決めたピン）。エラーはここでピンの順に返す
-        let PinSolution { carlvik, ufg } = planned
+        let PinSolution { carlvik, mut ufg } = planned
             .and_then(|k| solutions.get_mut(k).and_then(Option::take))
             .ok_or(SelfShieldingError::Unsolved(cell))??;
         points.extend(ufg.as_ref().map(|c| c.points));
         // 範囲の外の燃料のリングは、どれも等価原理の同じ微視的断面積（組成の並びはリングで同じ）
         let micro = Arc::new(carlvik.clone());
-        let (effective, ring_effective) = match &ufg {
+        let (effective, ring_effective) = match &mut ufg {
             Some(c) => (
-                c.effective.clone(),
+                Arc::new(std::mem::take(&mut c.effective)),
                 c.ring_nuclides[..rings]
                     .iter()
                     .map(|n| n.clone().ok_or(SelfShieldingError::CellShape(cell)))
                     .collect::<Result<Vec<_>, _>>()?,
             ),
-            None => (carlvik.clone(), vec![micro.clone(); rings]),
+            None => (micro.clone(), vec![micro.clone(); rings]),
         };
         let nuclides = material
             .composition
             .iter()
-            .zip(&effective)
+            .zip(effective.iter())
             .map(|((name, density), s)| {
                 Ok((
                     shielded_nuclide(library, name, material.temperature, s)?,
@@ -692,7 +692,7 @@ pub fn shield_fuel_reusing(
             cell,
             dancoff: factors.clone(),
             nuclides: Arc::new(nuclides),
-            effective: Arc::new(effective),
+            effective,
             rings: ring_effective,
             equivalent: ufg.as_ref().map(|c| c.radius),
             sph: ufg.as_ref().map(|c| Sph {
