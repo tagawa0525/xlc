@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-23
 requires: [ADR-0097, ADR-0122, ADR-0130, ADR-0159, ADR-0173, ADR-0181, ADR-0184, ADR-0187, ADR-0193]
 supersedes: []
@@ -14,9 +14,12 @@ issues: ["#0165"]
 格子計算の燃焼（[ADR-0173](0173-deplete-lattice-pins-by-ce-cm.md)）は 40〜70 点で 35 分〜3 時間（examples/depletion/verification.md の
 「時間」。2A 34 分 33 秒、2M 2 時間 58 分 12 秒）、燃焼度の軸を持つ分岐のテーブル（[ADR-0187](0187-tabulate-burnup-branches-from-history.md)）は数十〜数百の
 状態で 1 状態 25〜78 秒かかる。履歴（[ADR-0181](0181-write-depletion-pin-powers-into-history.md)）もテーブル（[ADR-0097](0097-tabulate-branches-on-a-full-grid.md)）も計算の終わりに 1 度だけ
-書くので、途中で止めると全部を失う。r995 の Slurm は排他のジョブを 1 本ずつ流し、割り込みの requeue がない（PreemptMode は OFF）。
-急ぐ短い計算を前に出すには、走っているジョブを `scancel` で止めて投げ直すしかない。ユーザーの要望（2026-10-23）: 「リスタート計算
-機能がほしい。長い計算を途中でぶった切って、急ぐ計算の優先度を上げられるため」。
+書くので、途中で止めると全部を失う。r995 の Slurm は排他のジョブを 1 本ずつ流し、この決定を始めた時点では割り込みがなく
+（PreemptMode は OFF）、急ぐ短い計算を前に出すには、走っているジョブを `scancel` で止めて投げ直すしかなかった。ユーザーの要望
+（2026-10-23）: 「リスタート計算機能がほしい。長い計算を途中でぶった切って、急ぐ計算の優先度を上げられるため」。同じ日のうちに、
+`urgent` のパーティションが走っているジョブを止めて（SUSPEND。`scontrol show config` の PreemptMode は GANG,SUSPEND）先に走る
+ようになり（nixfiles の slurm-run の `--urgent`）、急ぐ計算を前に出すのに `scancel` は要らなくなった。チェックポイントは、ジョブを
+取り消したとき、ノードやプロセスが止まったとき（停電、OOM killer、時間切れ）に、書き終えた点から続けるために残る。
 
 `dvc repro` はステージを実行する前に outs を消す。燃焼と分岐のステージ（examples/depletion/p2/dvc.yaml の `lattice` など）は
 `bin/lattice <入力>` を実行し、出力と標準出力、ログを outs にする（[ADR-0130](0130-drive-reference-results-with-dvc.md)、[ADR-0159](0159-depend-stages-on-built-binaries.md)）。
@@ -83,10 +86,36 @@ W1、P1、L1、R3、F1 にする。
   `history`（`xlc-depletion-history` のバイト列）と `next`、分岐なら `states` を持つ
 - 履歴の `seconds` と `solves` は、再開の前後の実行の和にする。ログの `total_seconds` は最後の実行だけの値
 
+- 燃焼の履歴の各点は、`[depletion]` の `few-group`（ADR-0173）を書けば、その点の輸送で均質化した少数群定数（`pins = true` なら
+  形状関数と角の不連続因子も）を、分岐のテーブルの状態と同じ型（`xlc-table` の状態 1 つ）で持つ。チェックポイントの履歴もそれを持つ。
+  書く費用はこれを含めて測った（「確認」）
+
 ## 確認
 
-（実装の後に書く）
+- `depletion::tests::each_finished_step_saves_the_points_so_far_and_the_next_composition`: ステップごとに、それまでの点、輸送の回数、
+  次の点の組成を書く
+- `depletion::tests::a_run_resumed_from_a_checkpoint_matches_the_straight_run_bit_for_bit`: 1C のピンセルの 3 ステップを、1〜3 回目の
+  書き込みの後で止め、チェックポイントのファイルから再開した履歴が、時間の内訳を除いて一気に流したものとバイトで一致する
+  （少数群定数を含む）
+- `depletion::tests::a_finished_history_cannot_be_resumed`
+- `checkpoint::tests::states_resume_after_the_saved_ones_and_match_the_straight_run`、
+  `more_saved_states_than_the_run_has_are_an_error`、`saved_states_read_back_bit_for_bit`、
+  `a_checkpoint_of_another_fingerprint_is_an_error`、`a_checkpoint_of_the_other_kind_is_an_error`、
+  `without_a_checkpoint_the_run_starts_from_the_beginning`、`fingerprints_tell_apart_where_the_bytes_belong`
+- 2A の燃焼度の点を最初の 10 点に切った入力（各点の少数群定数と形状関数も書く）を、5 点目のステップの後で `scancel` して投げ直した
+  履歴が、一気に流した履歴と `seconds` を除いてバイトで一致し、11 点の k∞ と数密度、ピン出力が本番の 2A の履歴の最初の 11 点と
+  ビットで一致した。書く費用はステップごとに 5.7〜30 ミリ秒（2.75〜14.9 MB）で、1 ステップは約 56 秒。履歴の 1 点は約 1.35 MB で、
+  少数群定数と形状関数は 7.6 KB（examples/depletion/verification.md の「時間」、xlc 6ba9ca28、2026-10-23、Slurm 495、496、497）
+- 分岐の状態のループは、本物の格子計算で止めて再開する試行をしていない（状態の結果の読み書きと、続きから解く順は上のテスト）
 
 ## 帰結
 
-（実装の後に書く）
+- 履歴のファイルの md5 は、一気に流しても実行ごとに違う（`seconds` が時間の内訳）。再開した出力と一気に流した出力の一致は、
+  `seconds` を除いて比べる。dvc.lock の出力の md5 も、再開の有無によらず実行ごとに変わる（今までと同じ）
+- 再開したジョブの経過時間とログの `total_seconds` は最後の実行の分だけで、時間の記録に使わない。始めから測るときはチェック
+  ポイントを消す（.claude/skills/verification-record）
+- MOC の反復を前の輸送の解から始める変更（ブランチ perf/moc-warm-start）が入ると、チェックポイントがその解を持たない限り、再開の
+  結果はビットで一致しなくなる。後からマージする側が持たせる（#0165）。上の再開のテストがそれを検出する
+- 燃焼の履歴の `few-group` を本番の入力（examples/depletion/p2）に書くかと、公称の状態のテーブルを履歴から輸送なしで作るかは、
+  この ADR で決めない（入力を変えると DVC のステージが changed になる）
+- 急ぐ計算を前に出すのは `--urgent`（SUSPEND）で、`scancel` しない（nixfiles の slurm-run のスキル）。チェックポイントは取り消しと停止のため
