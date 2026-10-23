@@ -38,6 +38,12 @@ class PlanTest(unittest.TestCase):
             [("g@a", 3), ("g@n", 3), ("g@b", 1)],
         )
 
+    def test_stages_recorded_as_zero_share_the_budget_equally(self):
+        self.assertEqual(
+            sr.plan(["g@a", "g@b"], {"g@a": 0.0, "g@b": 0.0}, 4),
+            [("g@a", 2), ("g@b", 2)],
+        )
+
     def test_without_records_the_budget_is_shared_equally(self):
         self.assertEqual(
             sr.plan(["g@b", "g@a", "g@c"], {}, 6),
@@ -212,10 +218,10 @@ class PhysicalCoresTest(unittest.TestCase):
 
 
 class RecordTest(unittest.TestCase):
-    def test_rejects_times_that_are_not_positive_numbers(self):
+    def test_rejects_times_that_are_not_non_negative_numbers(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "stage-cpu-seconds.json"
-            for bad in ["0", "-1.5", "true", '"3"']:
+            for bad in ["-1.5", "true", '"3"', "null"]:
                 path.write_text(f'{{"g@a": 2.0, "g@b": {bad}}}')
                 with self.assertRaises(sr.RunnerError, msg=bad):
                     sr.read_record(path)
