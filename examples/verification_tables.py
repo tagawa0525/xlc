@@ -811,7 +811,7 @@ def burnup_interpolation_points(sources: list[dict]) -> str:
             "点の選び方",
             "点の数",
             "比べた点の数",
-            "|Δρ| の最大 (pcm)（燃焼度）",
+            "最大の Δρ (pcm)（燃焼度）",
             "rms (pcm)",
             "範囲 (pcm)",
         ],
