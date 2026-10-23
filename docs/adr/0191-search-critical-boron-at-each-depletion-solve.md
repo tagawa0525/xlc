@@ -147,8 +147,9 @@ ADR でステップの項目を足すまで扱わない。ケースのステッ�
   炉心で、点の k が目標から 1e-9 以内、ホウ素が範囲の中で燃焼で下がり、履歴の `state` が `search` だけを持つ）、
   `searched_points_match_the_state_search_at_the_same_uniform_burnup`（集合体 1 体で、点のホウ素、回数、k が、ノードの燃焼度を状態に
   与えた ADR-0145 の探索とビットで一致）、`searched_midpoints_keep_second_order`（B のホウ素の係数を A の 4 倍にした炉心で、ステップを
-  半分にした燃焼度の差の比が 3.5〜4.5。4.15 になった。中点を初めの点のホウ素で解く案 S1 に一時的に変えると 2.03 で、8 ステップの
-  燃焼度は S2 の収束値と 0.049 MWd/kg 違った。いずれも 2026-10-23）、`searches_that_do_not_bracket_stop_at_the_step`（中点で範囲が
+  半分にした燃焼度の差の比が 3.5〜4.5。4.15 になった）、`midpoints_at_the_starting_boron_fall_to_first_order`（同じ炉心で、中点を初めの点で
+  探したホウ素で解く案 S1 を crate の関数で組み立てると比が 1.5〜2.5。2.03 になり、8 ステップの集合体 A1 の燃焼度は 7.5235 MWd/kg で、
+  S2 の 7.4742 と 0.049 MWd/kg（0.66%）違った。いずれも 2026-10-24）、`searches_that_do_not_bracket_stop_at_the_step`（中点で範囲が
   解を挟まず、ステップと中点を示して止まり、それまでの点は渡してある）、`solve_errors_name_the_point_or_midpoint`、
   `search_tolerances_within_the_eigenvalue_tolerance_are_errors_before_solving`、`history_states_hold_either_the_boron_or_the_search`。
   入力（crates/core/src/input/tests.rs）: `depletion_states_may_search_the_boron`
