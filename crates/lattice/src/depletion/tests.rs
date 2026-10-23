@@ -243,6 +243,11 @@ fn deplete_input(text: &str) -> History {
 
 /// 入力 `text` を、テストのチェーンとライブラリ `library` で燃焼させる
 pub(crate) fn deplete_with(text: &str, library: &Library) -> History {
+    deplete_with_moc(text, library, &Options::default())
+}
+
+/// `deplete_with` の MOC を `moc` の打ち切り条件と加速で解く
+pub(crate) fn deplete_with_moc(text: &str, library: &Library, moc: &Options) -> History {
     let input = LatticeInput::parse(text).unwrap();
     let depletion = input.depletion.clone().unwrap();
     let (lattice, region_materials) = input.geometry().unwrap();
@@ -252,7 +257,7 @@ pub(crate) fn deplete_with(text: &str, library: &Library) -> History {
         crate::input::SymmetryChoice::Force(s) => Some(s),
     };
     let chosen = choose(&tracking, &region_materials, forced).unwrap();
-    run(
+    run_with_moc(
         &input,
         &depletion,
         library,
@@ -261,6 +266,7 @@ pub(crate) fn deplete_with(text: &str, library: &Library) -> History {
         &region_materials,
         &chosen,
         &LibraryReactions(library),
+        moc,
     )
     .unwrap()
 }

@@ -832,6 +832,32 @@ pub fn run(
     chosen: &Chosen,
     reactions: &dyn ReactionSource,
 ) -> anyhow::Result<History> {
+    run_with_moc(
+        input,
+        depletion,
+        library,
+        chain,
+        tracking,
+        region_materials,
+        chosen,
+        reactions,
+        &Options::default(),
+    )
+}
+
+/// `run` と同じく燃焼させ、MOC を `moc` の打ち切り条件と加速で解く（散乱の次数は `run` と同じく入力か物質から）
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_with_moc(
+    input: &LatticeInput,
+    depletion: &DepletionInput,
+    library: &Library,
+    chain: &Chain,
+    tracking: &Tracking,
+    region_materials: &[String],
+    chosen: &Chosen,
+    reactions: &dyn ReactionSource,
+    moc: &Options,
+) -> anyhow::Result<History> {
     chain.check()?;
     let lattice = &tracking.lattice;
     let volumes = lattice.volumes();
@@ -1013,7 +1039,7 @@ pub fn run(
             scattering_order: input
                 .scattering_order
                 .unwrap_or_else(|| available_order(&region_materials)),
-            ..Options::default()
+            ..*moc
         };
         let (solution, converged) = solve_symmetric_from(
             tracking,
