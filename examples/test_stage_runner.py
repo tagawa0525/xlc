@@ -330,6 +330,22 @@ class ExecuteTest(unittest.TestCase):
         self.assertLess(time.monotonic() - start, 10)
         self.assertFalse((self.dir / "b.out").exists())
 
+    def test_removes_outputs_just_before_launching_each_stage(self):
+        # a は失敗し、b は投入されない。b の出力は消さない
+        (self.dir / "a-old").write_text("old")
+        (self.dir / "b-old").write_text("old")
+        failures = sr.execute(
+            [("a", 1), ("b", 1)],
+            {"a": "./xs a 3", "b": "./xs b 0"},
+            self.dir,
+            1,
+            lambda done: None,
+            outputs={"a": [str(self.dir / "a-old")], "b": [str(self.dir / "b-old")]},
+        )
+        self.assertEqual(failures, ["a"])
+        self.assertFalse((self.dir / "a-old").exists())
+        self.assertTrue((self.dir / "b-old").exists())
+
     def test_stage_ignoring_sigterm_is_killed_after_the_grace(self):
         (self.dir / "stubborn").write_text("#!/bin/sh\ntrap '' TERM\nsleep 30\n")
         (self.dir / "stubborn").chmod(0o755)
@@ -580,6 +596,11 @@ class OutputsTest(unittest.TestCase):
 
 
 class PruneTest(unittest.TestCase):
+    def test_reads_stage_names_without_the_dvc_yaml_prefix(self):
+        # dvc stage list --name-only の出力の形（DVC 3.67.1）
+        text = f"{YAML}:range\n{YAML}:g@a\n{YAML}:g@b\n"
+        self.assertEqual(sr.stage_names(text, YAML), {"range", "g@a", "g@b"})
+
     def test_drops_records_of_stages_no_longer_in_the_group(self):
         record = {"g@a": 1.0, "g@gone": 2278.0, "h@x": 3.0}
         self.assertEqual(
