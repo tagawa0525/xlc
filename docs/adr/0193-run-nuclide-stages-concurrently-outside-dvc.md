@@ -68,7 +68,8 @@ runner が cmd と deps を知る方法:
   確かめる（commit が hash を取った間も deps が始めのままだったことの確認）。dvc.lock の cmd が実行した cmd と同じことも確かめる（dvc.yaml の
   vars のファイルは指紋で見ないので、cmd はこちらで見る）。成り立たなければ dvc.lock を commit の前に戻し、`dvc commit` が足した run-cache の
   項目（DVC 3.67.1 の `Stage.save` が保存する。新しい deps を、それで作っていない出力に結ぶ）を消して止まる。消すのは commit の間に増えた
-  項目のうち commit した出力の md5 を持つものだけ（キャッシュは worktree で共有し、ほかのセッションの項目を消さない）
+  項目のうち commit した出力の md5 を持つものだけ（キャッシュは worktree で共有する。同じ間にほかのセッションが同じ出力の項目を足したときは、
+  それも消す）
 - 案 D2: commit の前後で md5 を計算して比べる。ステージごとに熱中性子散乱のディレクトリ（225 MB）などを読み直す。DVC 自身も、
   hash を計算し直すかを大きさ、mtime、inode で決めている（state）ので、指紋で足りる
 - 案 D3: 確かめない。runner の外で同じ worktree の deps を変えたとき（ビルドし直した、xs.toml を直した）、`dvc.lock` が実行していない deps を指す
@@ -115,7 +116,8 @@ python3 examples/stage_runner.py examples/<問題>/dvc.yaml xs-nuclide [--thread
   ステージの出力は残す）。xs が出力を書かずに
   0 で終わったとき、古い出力を新しい deps で commit しない（commit が出力の無さで失敗し、そのステージの失敗になる）
 - 記録のうち、今の組（`dvc stage list`）に無いステージの値は消す（記録の無いステージの見積もりに、消した核種の値を使わない）
-- 後始末で、SIGTERM の後 10 秒で終わらないステージはセッションごと SIGKILL する。commit、確認、dvc.lock の戻し、記録の書き込みの間は SIGTERM と SIGINT を保留する
+- 後始末で、SIGTERM の後 10 秒で終わらないステージはセッションごと SIGKILL する。commit、確認、dvc.lock の戻し、記録の書き込みの間は SIGTERM と SIGINT を保留し、commit の dvc にも保留させる（DVC 3.67.1 は
+  SIGTERM で後始末をせずに終わり、dvc.lock をその場で書き換える）。確認が終わらないまま抜けるときも dvc.lock と run-cache を戻す
 
 ADR-0159 の案 B（出力を変えないとみなした変更のあとに `dvc commit` で deps だけを取り込む）は、記録する deps で実行していない出力を
 lock が指すので退けた。runner は、今の deps（今の `bin/xs`、入力、ENDF）で、dvc.yaml の cmd と同じ計算（`--threads` だけが違い、出力は
@@ -148,5 +150,7 @@ lock が指すので退けた。runner は、今の deps（今の `bin/xs`、入
 - `dvc commit` は投入と同じループで順に実行する。commit の間に終わったステージの回収と次の投入は commit の後になる。65 核種で commit は 38 回、
   1 回 2〜4 秒（最後の 15 核種で 20 秒）で、回収の遅れは 1 スレッドのステージの経過時間 − CPU 時間の和で 172 秒（16 で割って 11 秒）以下
   （Slurm 485）。commit を別のスレッドに分けて縮むのはこの分と最後の commit だけなので、分けない
+- dvc.lock の cmd は、引用符で囲まない 1 行（DVC が空白で折り返したもの）として読む。引用符で囲まれた cmd（`:` や `#` を含むもの）は
+  読み違えて commit を戻して止まる（誤って止まる側。xs の cmd は当たらない）
 - `dvc.lock` は、record_provenance.py の `parse_stage`（DVC が書く形を前提にした、標準ライブラリだけの読み手）で読む。DVC の lock の形が
   変われば、読めずに止まる。params のファイルの読み取りは runner が持つ（同じ形の読み手が 2 つ。3 つ目が要るときに parse_stage へまとめる）
