@@ -6,7 +6,8 @@
 - `--json`: core の履歴が集合体 1 体・軸方向のノード 1 つで、状態がホウ素を探す（`search`）ことを確かめ、燃焼点ごとに、点の k と
   目標の差、求めたホウ素濃度と固有値計算の回数を書く。ホウ素濃度が燃焼点の順に下がるか（`boron_falls`）と、|k − 目標| がすべて
   探索の許容の中か（`within_tolerance`）も書く。一様な状態の探索のケースは、点の燃焼度を状態の `burnup` に与え、履歴と同じ
-  探索の設定と状態で ADR-0145 の探索をするもので、点と同じ燃焼度の状態の、標準出力のホウ素濃度（4 桁）、回数、k（8 桁）を並べる。
+  探索の設定と状態（バンクを含む）で ADR-0145 の探索をするもので、点のノードの燃焼度（解いた値。点の `burnup` は質量の重みの
+  平均で、ビットで同じとは限らない）とビットで同じ燃焼度の状態の、標準出力のホウ素濃度（4 桁）、回数、k（8 桁）を並べる。
   点のホウ素濃度を同じ桁に丸めた差（`boron_rounded_difference`）と、回数と k も一致するか（`uniform_agrees`）を書く。
   集合体 1 体では燃焼度が一様なので、点の探索は一様な状態の探索と同じ計算になる。`inputs` は読んだファイルのパスと md5
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
@@ -48,6 +49,8 @@ def uniform_searches(case: dict, out: str) -> dict:
     for n, s in found.items():
         if set(s) != {"boron", "solves", "k"}:
             raise SystemExit(f"state {n}: the output has no searched boron or k")
+        if "burnup" not in states[n]:
+            raise SystemExit(f"state {n} gives no burnup")
         s["burnup"] = states[n]["burnup"]
     return found
 
@@ -70,23 +73,27 @@ def summarize(core: dict, case_text: str, out: str) -> dict:
             "tolerance": s["search"]["tolerance"],
             "max_solves": s["search"]["max-solves"],
         }
-        if given != search or any(
-            s[k] != state[k] for k in ("b10", "moderator", "fuel")
+        if (
+            given != search
+            or any(s[k] != state[k] for k in ("b10", "moderator", "fuel"))
+            or s.get("banks", {}) != state["banks"]
         ):
             raise SystemExit(f"state {name} does not search as the history does")
     uniform = uniform_searches(case, out)
     target = search["k"]
     points = []
     for p in core["points"]:
-        matched = [n for n, s in uniform.items() if s["burnup"] == p["burnup"]]
+        # 解いたのはノードの燃焼度（点の `burnup` は質量の重みの平均で、ビットで同じとは限らない）
+        (burnup,) = p["burnups"][0]
+        matched = [n for n, s in uniform.items() if s["burnup"] == burnup]
         if len(matched) != 1:
-            raise SystemExit(f"no one uniform state has the burnup {p['burnup']!r}")
+            raise SystemExit(f"no one uniform state has the burnup {burnup!r}")
         (name,) = matched
         u = uniform[name]
         points.append(
             {
                 "efpd": p["efpd"],
-                "burnup": p["burnup"],
+                "burnup": burnup,
                 "boron": p["boron"],
                 "solves": p["solves"],
                 "k": p["k"],
