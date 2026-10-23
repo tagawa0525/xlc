@@ -5,6 +5,7 @@ use std::f64::consts::PI;
 use std::sync::{Mutex, PoisonError};
 
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 pub mod dancoff;
 pub mod fixed_source;
@@ -89,8 +90,10 @@ pub struct Solution {
 }
 
 /// 収束した反復の状態（ADR-0195）。同じトラッキングと対称操作で解く次の問題の反復を、ここから始める
-/// （`solve_symmetric_from`）。端の角度中性子束の全体を持つので、複製しない（`Clone` を持たない）
-#[derive(Debug)]
+/// （`solve_symmetric_from`）。端の角度中性子束の全体を持つので、複製しない（`Clone` を持たない）。格子計算のチェックポイントは
+/// フィールド名付きの map で書いて読み戻す（ADR-0196）
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Start {
     /// 解いたトラッキングの領域とトラックの数
     sizes: [usize; 2],

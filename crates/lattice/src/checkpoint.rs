@@ -1,14 +1,16 @@
 //! 長い計算（燃焼の点、分岐の状態）を途中で止めても、書き終えた点と状態から再開するためのチェックポイント（ADR-0196）。
 //!
 //! フィールド名付きの map 形式の MessagePack: `format` ("xlc-lattice-checkpoint"), `fingerprint`（`Fingerprint`）と、燃焼なら
-//! `depletion: {history（`xlc-depletion-history` のバイト列）, next（次の点の組成 [燃焼の領域][チェーンの核種]）}`、分岐なら
-//! `states: [{k, outputs（[出力][部分ノード] の `xlc-table` の状態 1 つのバイト列）, medium（細かい群の媒質か nil）}]`。
+//! `depletion: {history（`xlc-depletion-history` のバイト列）, next（次の点の組成 [燃焼の領域][チェーンの核種]）, start（直前の
+//! 輸送の MOC の収束した解。ADR-0195）}`、分岐なら `states: {states: [{k, outputs（[出力][部分ノード] の `xlc-table` の状態 1 つの
+//! バイト列）, medium（細かい群の媒質か nil）}], starts: {state（次に解く状態）, saved（[軸] の MOC の解か nil）}}`。
 
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow, bail};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use xlc_format::fewgroup::FewGroup;
@@ -16,7 +18,9 @@ use xlc_format::medium::MediumState;
 use xlc_format::msgpack;
 use xlc_format::table::Table;
 
+use crate::branches::Starts;
 use crate::depletion::{History, Partial};
+use crate::moc::Start;
 
 const FORMAT: &str = "xlc-lattice-checkpoint";
 
@@ -72,7 +76,7 @@ struct CheckpointFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     depletion: Option<DepletionFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    states: Option<Vec<StateFile>>,
+    states: Option<StatesFile>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -80,6 +84,23 @@ struct CheckpointFile {
 struct DepletionFile {
     history: rmpv::Value,
     next: Vec<Vec<f64>>,
+    start: Start,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StatesFile {
+    states: Vec<StateFile>,
+    starts: StartsFile,
+}
+
+/// 分岐の MOC の反復を始める解（`branches::Starts`）
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StartsFile {
+    state: usize,
+    /// [軸] の解か nil
+    saved: Vec<rmpv::Value>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -142,7 +163,7 @@ impl Checkpoint {
     }
 
     /// 一時ファイルに書いて `fsync` し、rename で置き換える（殺されても、ノードが止まっても、前の版か新しい版が残る）
-    fn write(&self, file: &CheckpointFile) -> anyhow::Result<()> {
+    fn write(&self, file: &impl Serialize) -> anyhow::Result<()> {
         let start = std::time::Instant::now();
         let bytes = msgpack::to_named(file)?;
         let temporary = self.temporary();
@@ -183,36 +204,88 @@ impl Checkpoint {
         let Some(file) = self.read()? else {
             return Ok(None);
         };
-        let Some(DepletionFile { history, next }) = file.depletion else {
+        let Some(DepletionFile {
+            history,
+            next,
+            start,
+        }) = file.depletion
+        else {
             bail!("{}: holds branch states, not a depletion", self.shown());
         };
         let rmpv::Value::Binary(bytes) = history else {
             bail!("{}: the history must be binary", self.shown());
         };
         let history = History::from_msgpack(&bytes).with_context(|| self.shown())?;
-        Ok(Some(Partial { history, next }))
+        Ok(Some(Partial {
+            history,
+            next,
+            start,
+        }))
     }
 
-    /// 燃焼の解き終えた点の履歴 `history` と、次の点の組成 `next` を書く
-    pub fn save_depletion(&self, history: &History, next: &[Vec<f64>]) -> anyhow::Result<()> {
-        self.write(&CheckpointFile {
-            depletion: Some(DepletionFile {
+    /// 燃焼の解き終えた点の履歴 `history`、次の点の組成 `next`、直前の輸送の MOC の解 `start` を書く
+    pub fn save_depletion(
+        &self,
+        history: &History,
+        next: &[Vec<f64>],
+        start: &Start,
+    ) -> anyhow::Result<()> {
+        // `Start` は大きいので複製せず、参照のまま書く
+        #[derive(Serialize)]
+        struct DepletionOut<'a> {
+            history: rmpv::Value,
+            next: &'a [Vec<f64>],
+            start: &'a Start,
+        }
+        #[derive(Serialize)]
+        struct FileOut<'a> {
+            format: &'static str,
+            fingerprint: &'a str,
+            depletion: DepletionOut<'a>,
+        }
+        self.write(&FileOut {
+            format: FORMAT,
+            fingerprint: &self.fingerprint,
+            depletion: DepletionOut {
                 history: rmpv::Value::Binary(history.to_msgpack()?),
-                next: next.to_vec(),
-            }),
-            ..self.file()
+                next,
+                start,
+            },
         })
     }
 
-    /// 分岐の解き終えた状態（状態の順）。なければ空
-    pub fn states(&self) -> anyhow::Result<Vec<SavedState>> {
+    /// 分岐の解き終えた状態（状態の順）と、次に解く状態の MOC の反復を始める解（`counts` は [軸] の格子点の数）。なければ空と
+    /// 状態 0 から
+    pub fn states<T: DeserializeOwned>(
+        &self,
+        counts: &[usize],
+    ) -> anyhow::Result<(Vec<SavedState>, Starts<T>)> {
         let Some(file) = self.read()? else {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Starts::new(counts)));
         };
-        let Some(states) = file.states else {
+        let Some(StatesFile { states, starts }) = file.states else {
             bail!("{}: holds a depletion, not branch states", self.shown());
         };
-        states
+        if starts.state != states.len() {
+            bail!(
+                "{}: {} states with the starts of state {}",
+                self.shown(),
+                states.len(),
+                starts.state
+            );
+        }
+        let saved = starts
+            .saved
+            .into_iter()
+            .map(|v| match v {
+                rmpv::Value::Nil => Ok(None),
+                v => rmpv::ext::from_value(v).map(Some),
+            })
+            .collect::<Result<Vec<Option<T>>, _>>()
+            .map_err(|e| anyhow!("{}: starts: {e}", self.shown()))?;
+        let starts = Starts::restored(counts, starts.state, saved)
+            .map_err(|e| anyhow!("{}: {e}", self.shown()))?;
+        let states = states
             .into_iter()
             .enumerate()
             .map(|(i, s)| -> anyhow::Result<SavedState> {
@@ -228,11 +301,16 @@ impl Checkpoint {
                     medium: s.medium,
                 })
             })
-            .collect()
+            .collect::<anyhow::Result<_>>()?;
+        Ok((states, starts))
     }
 
-    /// 分岐の解き終えた状態 `states`（状態 0 から）を書く
-    pub fn save_states(&self, states: &[SavedState]) -> anyhow::Result<()> {
+    /// 分岐の解き終えた状態 `states`（状態 0 から）と、次に解く状態の MOC の反復を始める解 `starts` を書く
+    pub fn save_states<T: Serialize>(
+        &self,
+        states: &[SavedState],
+        starts: &Starts<T>,
+    ) -> anyhow::Result<()> {
         let states = states
             .iter()
             .map(|s| -> anyhow::Result<StateFile> {
@@ -256,8 +334,17 @@ impl Checkpoint {
                 })
             })
             .collect::<anyhow::Result<_>>()?;
+        let (state, saved) = starts.saved();
+        let saved = saved
+            .into_iter()
+            .map(|v| v.map_or(Ok(rmpv::Value::Nil), rmpv::ext::to_value))
+            .collect::<Result<_, _>>()
+            .map_err(|e| anyhow!("starts: {e}"))?;
         self.write(&CheckpointFile {
-            states: Some(states),
+            states: Some(StatesFile {
+                states,
+                starts: StartsFile { state, saved },
+            }),
             ..self.file()
         })
     }
@@ -290,18 +377,20 @@ fn few_group(value: rmpv::Value) -> anyhow::Result<FewGroup> {
     }
 }
 
-/// 分岐の `count` 個の状態を順に解く。`checkpoint` があれば、書いてある状態を `restored` に渡して（今の実行の出力に合わなければ
-/// `restored` がエラーを返し、残りの状態を解く前に止まる）使い、続きの状態から `solve`
-/// で解いて、状態を解き終えるたびに書く
-pub fn solve_states(
+/// 分岐の `count` 個の状態（[軸] の格子点の数 `counts` の直積の順）を順に解く。`solve` は状態を、MOC の反復を始める解
+/// （`branches::Starts`。ADR-0195）から解き、結果と収束した解を返す。`checkpoint` があれば、書いてある状態を `restored` に渡して
+/// （今の実行の出力に合わなければ `restored` がエラーを返し、残りの状態を解く前に止まる）使い、書いてある始める解から続きの
+/// 状態を解いて、状態を解き終えるたびに書く
+pub fn solve_states<T: Serialize + DeserializeOwned>(
     count: usize,
+    counts: &[usize],
     checkpoint: Option<&Checkpoint>,
     mut restored: impl FnMut(usize, &SavedState) -> anyhow::Result<()>,
-    mut solve: impl FnMut(usize) -> anyhow::Result<SavedState>,
+    mut solve: impl FnMut(usize, Option<&T>) -> anyhow::Result<(SavedState, T)>,
 ) -> anyhow::Result<Vec<SavedState>> {
-    let mut states = match checkpoint {
-        Some(c) => c.states()?,
-        None => Vec::new(),
+    let (mut states, mut starts) = match checkpoint {
+        Some(c) => c.states(counts)?,
+        None => (Vec::new(), Starts::new(counts)),
     };
     if states.len() > count {
         bail!(
@@ -326,10 +415,12 @@ pub fn solve_states(
         })?;
     }
     for state in states.len()..count {
-        states.push(solve(state)?);
+        let (saved, converged) = solve(state, starts.start())?;
+        states.push(saved);
+        starts.solved(converged);
         // 最後の状態の後は、呼ぶ側が出力を書いてチェックポイントを消す
         if let (Some(c), true) = (checkpoint, state + 1 < count) {
-            c.save_states(&states)?;
+            c.save_states(&states, &starts)?;
         }
     }
     Ok(states)
