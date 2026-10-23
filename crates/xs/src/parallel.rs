@@ -32,8 +32,9 @@ pub struct ThreadsAlreadySet;
 /// 返す。
 /// 1 つの i の重さは違いうるので、各スレッドは次の i を共有のカウンタから取る。i を取るたびに、残りの i があり予算に空きが
 /// あれば、スレッドを 1 つ足す。取る i がなくなったスレッドは、すぐに予算に返す。こうして、入れ子の呼び出し（核種、
-/// 温度、格子点）のどれかが空いたスレッドを、ほかの呼び出しが途中から使う。始めるときに空きがなくても、呼んだスレッドで
-/// 順に求めながら、空いたスレッドを足す。
+/// 温度、格子点）のどれかが空いたスレッドを、ほかの呼び出しが次に i を取るときに使う。始めるときに空きがなくても、
+/// 呼んだスレッドで順に求めながら、空いたスレッドを足す（f(i) を求めている間に空いたスレッドは、その i が終わるまで
+/// この呼び出しには足さない）。
 /// rayon を使わないのは、xs に依存を足さないため。
 ///
 /// エラーが出たら、各スレッドは次に i を取る前にそれを見て止まる（見たあとに取った i は、スレッドごとに多くとも 1 つ
@@ -61,7 +62,7 @@ fn in_parallel_in<T: Send, E: Send, F: Fn(usize) -> Result<T, E> + Sync>(
         done: Mutex::new(Vec::new()),
         panic: Mutex::new(None),
     };
-    std::thread::scope(|scope| call.work(scope));
+    std::thread::scope(|scope| call.help(scope));
     if let Some(payload) = call
         .panic
         .into_inner()
@@ -87,7 +88,7 @@ struct Call<'b, T, E, F> {
     failed: AtomicBool,
     /// 求めた (i, f(i))
     done: Mutex<Vec<(usize, Result<T, E>)>>,
-    /// 足したスレッドのパニックの最初のもの（呼んだスレッドで投げ直す）
+    /// パニックの最初のもの（呼んだスレッドで投げ直す）
     panic: Mutex<Option<Box<dyn Any + Send>>>,
 }
 
@@ -122,8 +123,8 @@ impl<T: Send, E: Send, F: Fn(usize) -> Result<T, E> + Sync> Call<'_, T, E, F> {
             .extend(done);
     }
 
-    /// 足したスレッドで `work` を実行する。パニックは、元の値のまま呼んだスレッドで投げ直すために取っておく
-    /// （`std::thread::scope` に任せると、値が「スレッドがパニックした」に置き換わる）
+    /// `work` を実行し、パニックしたらほかのスレッドを止める（呼んだスレッドも足したスレッドも同じ）。パニックは、元の値のまま
+    /// 呼んだスレッドで投げ直すために取っておく（`std::thread::scope` に任せると、値が「スレッドがパニックした」に置き換わる）
     fn help<'scope>(&'scope self, scope: &'scope Scope<'scope, '_>) {
         if let Err(payload) = std::panic::catch_unwind(AssertUnwindSafe(|| self.work(scope))) {
             self.failed.store(true, Ordering::Relaxed);
