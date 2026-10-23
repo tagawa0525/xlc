@@ -3,7 +3,7 @@
 use rayon::prelude::*;
 use xlc_format::table::{Axis, Table};
 
-use crate::input::{Boron, CaseState, InputError, Layout};
+use crate::input::{Boron, CaseState, InputError, Layout, TableUse};
 use crate::nem::{NemError, Options, Problem, Solution, solve};
 use crate::rods::solve_rodded;
 use crate::search::{SearchError, find};
@@ -37,6 +37,9 @@ pub enum CaseError {
     Nem(#[from] NemError),
     #[error("boron search: {0}")]
     Search(String),
+    /// 燃焼のステップのエラー（ADR-0190）
+    #[error("depletion: {0}")]
+    Depletion(String),
 }
 
 /// テーブル（`layout.files` の順）を状態 `state`（`None` なら軸のないテーブル）で、テーブルの使い方（`layout.tables`。
@@ -46,6 +49,45 @@ pub fn solve_at(
     layout: &Layout,
     tables: &[Table],
     state: Option<&State>,
+    options: &Options,
+) -> Result<Solved, CaseError> {
+    solve_with(layout, tables, |_| state.copied(), options)
+}
+
+/// `solve_at` と同じく解くが、燃焼のケースのノード（テーブルの使い方が `node` を持つもの）は、直方体の位置ごとの燃焼度
+/// `burnups` で引く（ADR-0190）。ほかのテーブルの使い方（反射体の位置）は `state` の燃焼度で引く
+pub fn solve_burnups(
+    layout: &Layout,
+    tables: &[Table],
+    state: &State,
+    burnups: &[f64],
+    options: &Options,
+) -> Result<Solved, CaseError> {
+    if burnups.len() != layout.node_material.len() {
+        return Err(CaseError::Depletion(format!(
+            "{} burnups for {} positions",
+            burnups.len(),
+            layout.node_material.len()
+        )));
+    }
+    solve_with(
+        layout,
+        tables,
+        |t| {
+            Some(State {
+                burnup: t.node.map(|n| burnups[n]).or(state.burnup),
+                ..*state
+            })
+        },
+        options,
+    )
+}
+
+/// テーブルの使い方ごとに、`state_of` の状態でテーブルを内挿して解く
+fn solve_with(
+    layout: &Layout,
+    tables: &[Table],
+    state_of: impl Fn(&TableUse) -> Option<State>,
     options: &Options,
 ) -> Result<Solved, CaseError> {
     if tables.len() != layout.files.len() {
@@ -67,7 +109,7 @@ pub fn solve_at(
                      only where the layer tables have none (ADR-0128)"
                 )));
             }
-            interpolate(table, state, t.rod.as_deref())
+            interpolate(table, state_of(t).as_ref(), t.rod.as_deref())
                 .map_err(|e| CaseError::State(format!("{file}: {e}")))
         })
         .collect::<Result<Vec<_>, _>>()?;
