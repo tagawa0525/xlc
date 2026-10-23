@@ -111,4 +111,6 @@ ADR-0183 に合わせたコミット（3baba57c0。main に入っている）が
   `bin/xs` の md5 の変化（d3dc3807 → c6bdf397。ADR-0188 のビットを保つベクトル化とスレッドの変更）で changed で、`compare@<job>` を目標に
   `dvc repro` を流すとライブラリの作り直しが走る。高速化の後の p2 の再実行（ブランチ chore/p2-rerun-after-speedups）で、投げる前の
   `dvc status --with-deps` で見つけ、ライブラリと `chain` を再実行して出力の md5 を lock と比べた（結果は examples/depletion/verification.md の
-  「集合体の燃焼」の「計算」）
+  「集合体の燃焼」の「計算」）。同じ時点で、p2 の NJOY のステージ（openmc-neutron、openmc-thermal、openmc-index）と、
+  examples/depletion の xs-range、xs、NJOY のステージ、openmc-chain も changed のまま残る（このブランチでは再実行していない。p2 の集合体の
+  燃焼の目標の上流には入らない）
