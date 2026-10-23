@@ -764,7 +764,7 @@ def burnup_interpolation_methods(sources: list[dict]) -> str:
     rows = []
     for method, label in s["methods"].items():
         results = [sel["results"][method] for _, sel in selections]
-        overshoot = max(r["overshoot"] for r in results)
+        overshoot = max((r["overshoot"] for r in results), default=0.0)
         rows.append(
             [
                 label,

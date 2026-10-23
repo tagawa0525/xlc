@@ -129,7 +129,9 @@ def linear(x: np.ndarray, y: np.ndarray, q: np.ndarray) -> np.ndarray:
 
 
 def lagrange3(x: np.ndarray, y: np.ndarray, q: np.ndarray) -> np.ndarray:
-    """区間の 2 点と、q に近い側の隣の点の 3 点のラグランジュの 2 次（端の区間は内側の隣）"""
+    """区間の 2 点と、q に近い側の隣の点の 3 点のラグランジュの 2 次（端の区間は内側の隣）。点が 2 つなら線形"""
+    if len(x) == 2:
+        return linear(x, y, q)
     out = np.empty((len(q), y.shape[1]))
     for n, v in enumerate(q):
         i = min(max(int(np.searchsorted(x, v, side="right")) - 1, 0), len(x) - 2)
@@ -198,7 +200,8 @@ def summarize_table(table: dict, selections: list[dict]) -> dict:
     axes = table["axes"]
     if axes[0]["name"] != "burnup":
         raise SystemExit("the first axis of the table must be the burnup")
-    others = [a for a in axes[1:] if len(a["points"]) != 1]
+    # 制御棒の軸は `points` でなく `values` を持つ
+    others = [a for a in axes[1:] if len(a.get("points", a.get("values", []))) != 1]
     if others:
         raise SystemExit(
             f"the axes {[a['name'] for a in others]} have more than one point; give a table of one state per burnup"
