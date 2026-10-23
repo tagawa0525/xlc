@@ -56,6 +56,7 @@ fn table() -> Table {
     }
     Table {
         split: 1,
+        heavy_metal: None,
         axes: vec![
             Axis::Boron {
                 ppm: PPM.to_vec(),

@@ -25,6 +25,7 @@ fn sample() -> Table {
         ],
         split: 1,
         states: (0..4).map(|i| state(3.0 + f64::from(i))).collect(),
+        heavy_metal: None,
     }
 }
 
