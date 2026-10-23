@@ -282,22 +282,37 @@ pub(super) fn add_ladder(
     energies: &[f64],
     parts: &mut Parts,
 ) {
-    let pole = |r: &Resonance| Complex64::new(r.energy, -0.5 * r.gamma);
-    let poles: Vec<Complex64> = ladder.iter().map(pole).collect();
-    let mut sums = vec![Complex64::ZERO; ladder.len()];
+    // 極 p_r = E_r − iΓ_r/2 の実部と虚部を別の配列に置き、num_complex の Γn_s/(p̄_s − p_r) と和と同じ式を成分で書く
+    let pole_re: Vec<f64> = ladder.iter().map(|r| r.energy).collect();
+    let pole_im: Vec<f64> = ladder.iter().map(|r| -0.5 * r.gamma).collect();
+    let mut sum_re = vec![0.0; ladder.len()];
+    let mut sum_im = vec![0.0; ladder.len()];
     for s in ladder {
-        let conjugate = pole(s).conj();
-        for (c, &p) in sums.iter_mut().zip(&poles) {
-            *c = *c + s.gn / (conjugate - p);
+        // p̄_s
+        let (conjugate_re, conjugate_im) = (s.energy, -(-0.5 * s.gamma));
+        for (((sum_re, sum_im), &p_re), &p_im) in sum_re
+            .iter_mut()
+            .zip(sum_im.iter_mut())
+            .zip(&pole_re)
+            .zip(&pole_im)
+        {
+            let (d_re, d_im) = (conjugate_re - p_re, conjugate_im - p_im);
+            let norm = d_re * d_re + d_im * d_im;
+            *sum_re += s.gn * d_re / norm;
+            *sum_im += 0.0 - s.gn * d_im / norm;
         }
     }
+    let sums = sum_re
+        .iter()
+        .zip(&sum_im)
+        .map(|(&re, &im)| Complex64::new(re, im));
     let a = Complex64::new(1.0 - q.cos2, q.sin2p);
     let root_pi = PI.sqrt();
     // 弾性散乱 (π/k²) g 2 Re[a_r (i√π/Δ) w] = scale/2 · √π/Δ · Re[i a_r w]
     let elastic_scale = 0.5 * q.scale * root_pi / q.delta;
     let mut x = vec![0.0; energies.len()];
     let mut w = vec![Complex64::ZERO; energies.len()];
-    for (r, &c) in ladder.iter().zip(&sums) {
+    for (r, c) in ladder.iter().zip(sums) {
         let ar = r.gn * (c + Complex64::i() * a);
         let y = 0.5 * r.gamma / q.delta;
         // 捕獲 scale (Γn Γγ/Γ²) ψ、核分裂 scale (Γn Γf/Γ²) ψ
