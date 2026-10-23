@@ -2,16 +2,16 @@
  "format": "xlc-compare-core-depletion",
  "inputs": [
   {
-   "path": "examples/depletion/p2/lattice-2O.msgpack",
+   "path": "examples/depletion/branches/lattice-2O-3d006d36.msgpack",
    "md5": "3d006d362e02d97ea4e4eba86e1cc46d"
   },
   {
    "path": "examples/depletion/branches/table-2O-guide.msgpack",
-   "md5": "71cdf1e35e28533948249011c25bfe43"
+   "md5": "7f323f0eb541ff6b453a15b379ffd48f"
   },
   {
    "path": "examples/depletion/branches/core-2O-guide-steps.msgpack",
-   "md5": "b2716f3691477a53dea7c43346681702"
+   "md5": "65cd84df494d62d371291ae8eec30488"
   }
  ],
  "specific_power": 38.41,
@@ -32,6 +32,7 @@
   10.0,
   11.0,
   12.0,
+  14.0,
   16.0,
   20.0,
   24.0,
@@ -471,8 +472,8 @@
    "burnup_relative": -3.3306690738754696e-16,
    "on_table": false,
    "history_k": 1.0349915954468527,
-   "k": 1.0349981681871216,
-   "rho_pcm": 0.61357840559495,
+   "k": 1.0349991359910522,
+   "rho_pcm": 0.7039241734174695,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -483,10 +484,10 @@
    "burnup_relative": 2.220446049250313e-16,
    "on_table": true,
    "history_k": 1.030825768901222,
-   "k": 1.0308253109075096,
-   "rho_pcm": -0.04310118150163689,
+   "k": 1.0308253109075152,
+   "rho_pcm": -0.043101180979832066,
    "branch_k": 1.030825320161027,
-   "branch_rho_pcm": -0.0008708366250331778
+   "branch_rho_pcm": -0.0008708361032283563
   },
   {
    "efpd": 325.43608435303304,
@@ -495,8 +496,8 @@
    "burnup_relative": -1.1102230246251565e-16,
    "on_table": false,
    "history_k": 1.0266829076332844,
-   "k": 1.0266979830730785,
-   "rho_pcm": 1.4301808213379452,
+   "k": 1.026690797038,
+   "rho_pcm": 0.7484593779083504,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -507,8 +508,8 @@
    "burnup_relative": -1.1102230246251565e-16,
    "on_table": false,
    "history_k": 1.0225701878130113,
-   "k": 1.0225950679648173,
-   "rho_pcm": 2.379338352420657,
+   "k": 1.0225776762873666,
+   "rho_pcm": 0.7161498615460005,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -519,8 +520,8 @@
    "burnup_relative": -2.220446049250313e-16,
    "on_table": false,
    "history_k": 1.0184898587665054,
-   "k": 1.0185176698091734,
-   "rho_pcm": 2.680970248714054,
+   "k": 1.0184924307984629,
+   "rho_pcm": 0.24794870568944916,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -529,12 +530,12 @@
    "burnup": 14.0,
    "core_burnup": 13.999999999999998,
    "burnup_relative": -1.1102230246251565e-16,
-   "on_table": false,
+   "on_table": true,
    "history_k": 1.014442014050059,
-   "k": 1.0144669472058094,
-   "rho_pcm": 2.4227696279965905,
-   "branch_k": null,
-   "branch_rho_pcm": null
+   "k": 1.0144415608094526,
+   "rho_pcm": -0.04404276241487537,
+   "branch_k": 1.014441569838079,
+   "branch_rho_pcm": -0.0008773393678218611
   },
   {
    "efpd": 377.50585784951835,
@@ -543,8 +544,8 @@
    "burnup_relative": -1.1102230246251565e-16,
    "on_table": false,
    "history_k": 1.0104258873677643,
-   "k": 1.0104441248810105,
-   "rho_pcm": 1.786277191351271,
+   "k": 1.0104257445147122,
+   "rho_pcm": -0.01399202769203356,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -555,8 +556,8 @@
    "burnup_relative": -1.1102230246251565e-16,
    "on_table": false,
    "history_k": 1.006440406738975,
-   "k": 1.0064505039684148,
-   "rho_pcm": 0.9968314663377775,
+   "k": 1.0064404076239493,
+   "rho_pcm": 8.736843470913414e-05,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -567,8 +568,8 @@
    "burnup_relative": 2.220446049250313e-16,
    "on_table": false,
    "history_k": 1.0024844529544776,
-   "k": 1.0024874708124845,
-   "rho_pcm": 0.3002909213178917,
+   "k": 1.0024843352061004,
+   "rho_pcm": -0.011716548353746248,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -579,7 +580,7 @@
    "burnup_relative": -1.1102230246251565e-16,
    "on_table": true,
    "history_k": 0.9985569531491039,
-   "k": 0.9985565042802725,
+   "k": 0.9985565042802724,
    "rho_pcm": -0.045016732075353616,
    "branch_k": 0.9985565130639513,
    "branch_rho_pcm": -0.0008809092122419315
@@ -591,8 +592,8 @@
    "burnup_relative": -2.220446049250313e-16,
    "on_table": false,
    "history_k": 0.9907938696109064,
-   "k": 0.9907837221225901,
-   "rho_pcm": -1.03370445110329,
+   "k": 0.9907840311065403,
+   "rho_pcm": -1.0022285581223755,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -603,8 +604,8 @@
    "burnup_relative": 0.0,
    "on_table": false,
    "history_k": 0.9831266043253999,
-   "k": 0.9831176598956378,
-   "rho_pcm": -0.9254175084461025,
+   "k": 0.9831177889438393,
+   "rho_pcm": -0.9120656750516432,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -615,8 +616,8 @@
    "burnup_relative": 0.0,
    "on_table": false,
    "history_k": 0.9755570424373867,
-   "k": 0.9755516645571881,
-   "rho_pcm": -0.5650777154420084,
+   "k": 0.9755516567419238,
+   "rho_pcm": -0.5658989044476925,
    "branch_k": null,
    "branch_rho_pcm": null
   },
