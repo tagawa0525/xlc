@@ -199,10 +199,12 @@ ADR-0187 の、変える範囲を lattice の外に出さない方針との関�
   一様な炉心で、燃焼度が出力密度 × EFPD、k が同じ燃焼度の一様な状態の k）、`nodes_burn_by_their_own_power`（燃焼度の違う集合体の
   炉心で、Σ Mₙ ΔBₙ が出力密度 × 炉心の質量 × EFPD）、`core_average_burnups_do_not_drift_over_many_steps`（2A の履歴の EFPD で
   20 MWd/kg のテーブルの最後の点に止まる）、`fissile_tables_without_heavy_metal_cannot_deplete`、`burnups_past_the_table_are_errors`、
-  `histories_round_trip_through_their_file`、`points_are_reported_as_they_are_solved`。入力（crates/core/src/input/tests.rs）:
+  `histories_round_trip_through_their_file`、`points_are_reported_as_they_are_solved`、
+  `solving_by_node_burnups_rejects_a_state_burnup`、`reflector_sites_take_no_burnup`。入力（crates/core/src/input/tests.rs）:
   `depletion_reads_the_specific_power_steps_and_history`、`invalid_depletions_are_errors`
 - テーブルの質量（crates/format/src/table/tests.rs）: `heavy_metal_round_trips_and_is_written_only_when_held`、
-  `heavy_metal_must_be_positive`。lattice（crates/lattice/src/history/tests.rs）: `history_branches_carry_the_initial_heavy_metal_mass`
+  `heavy_metal_must_be_positive`。lattice（crates/lattice/src/history/tests.rs）: `history_branches_carry_the_initial_heavy_metal_mass`。制御棒のテーブルの結合（examples/core/test_rod_table.py）:
+  `test_tables_with_other_heavy_metal_masses_are_errors`
 - 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼（2A の集合体 1 体）」、分岐は bc69167a、core は a19d6eca、
   2026-10-23）: 履歴の 40 点をステップにして、燃焼度は履歴と相対 2.2e-16 以内、テーブルの 17 点で分岐の格子計算の k∞ を 0.0008 pcm
   以内（履歴とは 0.0639 pcm 以内）で再現した。点の間の内挿の誤差は −32.8〜+179.7 pcm。テーブルの質量 1258.0981395709794 g/cm は、
