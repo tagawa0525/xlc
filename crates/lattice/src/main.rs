@@ -597,7 +597,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
             medium,
         })
     };
-    // 書いてある状態は、今の実行の出力（出力のファイルの数、部分ノードの数、媒質の有無）と合うものだけ使う
+    // 書いてある状態は、今の実行の出力（出力のファイルの数、部分ノードの数、媒質の有無）と合うものだけ使う。指紋が同じなら
+    // 合う。合わなければ壊れたか置き換えたチェックポイントで、残りの状態を何時間も解いた後でなく、解く前に止める
     let shape: Vec<usize> = match &input.output {
         Some(FewGroupOutput {
             files: FewGroupFiles::Lattice(_),

@@ -1411,15 +1411,17 @@ pub(crate) fn run_with_moc(
                 || next.len() != regions.len()
                 || next.iter().any(|n| n.len() != nuclides.len())
             {
-                bail!("the resumed history does not match the regions and nuclides of this run");
+                bail!(
+                    "the resumed history does not match the regions and nuclides of this run; remove the checkpoint to start over"
+                );
             }
             let done = history.points.len();
             let Some(last) = done.checked_sub(1) else {
-                bail!("the resumed history has no points");
+                bail!("the resumed history has no points; remove the checkpoint to start over");
             };
             let Some(&h) = steps.get(last) else {
                 bail!(
-                    "the resumed history has {done} points and no step left of {}",
+                    "the resumed history has {done} points and no step left of {}; remove the checkpoint to start over",
                     steps.len()
                 );
             };
@@ -1429,7 +1431,9 @@ pub(crate) fn run_with_moc(
                 .zip(&burnups)
                 .any(|(p, &b)| p.burnup != b)
             {
-                bail!("the resumed history has other burnups than this run");
+                bail!(
+                    "the resumed history has other burnups than this run; remove the checkpoint to start over"
+                );
             }
             let time = history.points[last].time + h;
             tracing::info!(points = done, "resuming after the saved points");
