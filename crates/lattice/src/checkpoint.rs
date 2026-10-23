@@ -195,6 +195,7 @@ impl Checkpoint {
         out.write_all(&bytes).with_context(shown)?;
         out.sync_all().with_context(shown)?;
         std::fs::rename(&temporary, &self.path).with_context(|| self.shown())?;
+        sync_directory(&self.path)?;
         tracing::info!(
             bytes = bytes.len(),
             seconds = start.elapsed().as_secs_f64(),
@@ -372,6 +373,27 @@ impl Checkpoint {
         }
         Ok(())
     }
+}
+
+/// `path` のあるディレクトリを `fsync` する（rename や unlink を、ノードが止まっても残す）
+fn sync_directory(path: &Path) -> anyhow::Result<()> {
+    let directory = match path.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p,
+        _ => Path::new("."),
+    };
+    File::open(directory)
+        .and_then(|d| d.sync_all())
+        .with_context(|| directory.display().to_string())
+}
+
+/// 出力を書いて `fsync` する。チェックポイントを消す前に書く出力は、ノードが止まっても残す（消した後に中身のない出力が残ると、
+/// 計算をすべて失う）
+pub fn write_synced(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
+    let shown = || path.display().to_string();
+    let mut out = File::create(path).with_context(shown)?;
+    out.write_all(bytes).with_context(shown)?;
+    out.sync_all().with_context(shown)?;
+    sync_directory(path)
 }
 
 /// 状態 1 つの `xlc-table` のバイト列の少数群定数
