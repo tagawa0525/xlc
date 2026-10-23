@@ -1,5 +1,6 @@
 //! 平坦線源の特性曲線法（MOC）による固有値計算。
 
+use std::collections::HashSet;
 use std::f64::consts::PI;
 use std::sync::{Mutex, PoisonError};
 
@@ -1407,6 +1408,13 @@ fn add_current(
 /// どの物質でも核分裂のスペクトルが 0 で、中性子の届く群からの散乱もない群（最初の1つ）。
 /// その群の中性子束は常に 0 になり、断面積の誤りを疑うべき状態なので、解く前に止める。
 fn group_without_source(materials: &[&Material], ng: usize) -> Option<usize> {
+    // 領域の多くは同じ物質を指すので、物質（参照）ごとに一度だけ見る。届く群の集合は見る順によらない
+    let mut seen = HashSet::new();
+    let materials: Vec<&Material> = materials
+        .iter()
+        .copied()
+        .filter(|&m| seen.insert(std::ptr::from_ref(m)))
+        .collect();
     let mut reached = vec![false; ng];
     for term in materials.iter().flat_map(|m| &m.fission_terms) {
         for (r, chi) in reached.iter_mut().zip(&term.chi) {
@@ -1417,7 +1425,7 @@ fn group_without_source(materials: &[&Material], ng: usize) -> Option<usize> {
     let mut changed = true;
     while changed {
         changed = false;
-        for m in materials {
+        for m in &materials {
             for (from, row) in m.scatter.iter().enumerate() {
                 if !reached[from] {
                     continue;
