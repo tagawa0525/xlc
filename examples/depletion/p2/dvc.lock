@@ -7436,3 +7436,26 @@ stages:
       hash: md5
       md5: 8748d0809f76f1c5245c5ddc2b7e8ad5
       size: 1521
+  compare@2P:
+    cmd: python3 ../compare_depletion_assembly.py --json compare-2P.json 
+      lattice-2P.msgpack 
+      ../../../references/openmc/aws/m4-assembly/openmc-2P/openmc-2P.msgpack
+    deps:
+    - path: 
+        ../../../references/openmc/aws/m4-assembly/openmc-2P/openmc-2P.msgpack
+      hash: md5
+      md5: 09d5b5b86b5aa4926e186ecab8dba079
+      size: 4721879
+    - path: ../compare_depletion_assembly.py
+      hash: md5
+      md5: 78a5f80d2a0bfb5d653634533c21998c
+      size: 22228
+    - path: lattice-2P.msgpack
+      hash: md5
+      md5: b21d412c4b247c524dcf32cdc015a92e
+      size: 180906068
+    outs:
+    - path: compare-2P.json
+      hash: md5
+      md5: fd0b8c2db0002e779419f96a307516df
+      size: 71486
