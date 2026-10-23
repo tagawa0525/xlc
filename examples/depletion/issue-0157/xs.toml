@@ -1,13 +1,5 @@
 # ADR-0189 の測定（measure.sh）の入力。../xs.toml のコピーで、パスをこのディレクトリから引き、全核種を 1 プロセスで作る形の出力を
-# ../depletion.msgpack（DVC のステージの出力）と分けるために output を変えた
-# 燃焼の検証（docs/plans/m4-depletion.md の「進め方」5）の最初の多群ライブラリ（ENDF/B-VIII.0、WIMS 69群。ADR-0169）。
-# VERA のピンセル（Problem 1）の物質の核種は examples/vera/xs.toml と同じ評価で、温度は VERA の温度から等温温度係数の 560, 570 K
-# （ADR-0154）を除いたもの（燃料の核種と O は 565, 600, 900, 1200 K、冷却材の H は S(α,β) の 550, 573.6, 600 K、被覆管と冷却材の
-# ほかの核種は 565, 600 K）。評価を変えたら両方を直す。Zr と Sn は核分裂生成物として燃料の中にもできるので、燃料の温度
-# 565, 600, 900, 1200 K でも作る
-# 燃焼チェーンの核種は、燃料の核種と同じ 565, 600, 900, 1200 K で作る。組は、NUREG/CR-7108 の燃焼度クレジットの 28 核種（本文は手元で
-# 確かめていない）のうち U を除く 24 に、I-135、Xe-135、Pm-147、Pm-148、Pm-148m、Pm-149、Np-239、Am-242m、Cm-242、Cm-244 を
-# 足した 34
+# ../depletion.msgpack（DVC のステージの出力）と分けるために output を変えた。../xs.toml を変えたら、ここも同じに直してから測る
 output = "all.msgpack"
 endf-directory = "../../../references/endf/ENDF-B-VIII.0_neutrons"
 thermal-directory = "../../../references/endf/ENDF-B-VIII.0_thermal_scatt"
