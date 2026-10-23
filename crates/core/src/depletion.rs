@@ -13,7 +13,7 @@ use xlc_format::table::Table;
 
 use crate::case::{CaseError, Solved, solve_burnups};
 use crate::input::{Boron, CaseState, DepletionInput, Layout};
-use crate::nem::Options;
+use crate::nem::{Options, fission_rates};
 
 const FORMAT: &str = "xlc-core-history";
 
@@ -153,30 +153,6 @@ fn weighted(b: &[f64], m: &[f64]) -> f64 {
     b.iter().zip(m).map(|(b, m)| b * m).sum::<f64>() / m.iter().sum::<f64>()
 }
 
-/// 位置ごとの核分裂率 Σ_g Σf,g φ_g V（ノードのない位置は 0）
-fn fission_rates(solved: &Solved) -> Vec<f64> {
-    let (problem, solution) = (&solved.problem, &solved.solution);
-    problem
-        .node_material
-        .iter()
-        .enumerate()
-        .map(|(site, material)| {
-            let Some(m) = material.map(|m| &problem.materials[m]) else {
-                return 0.0;
-            };
-            let [x, y, z] = problem.mesh.position(site);
-            let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
-            let flux = &solution.flux[site];
-            m.fission
-                .iter()
-                .zip(flux)
-                .map(|(f, phi)| f * phi)
-                .sum::<f64>()
-                * volume
-        })
-        .collect()
-}
-
 /// ケースの燃焼（ADR-0190）: 状態 `state` で、ノードの燃焼度を 0 から `depletion` のステップに沿って進め、燃焼点ごとの値を
 /// 返す。`layout` は燃焼のケースから作った並び（`radial-nodes` = 1）
 pub fn deplete(
@@ -248,7 +224,7 @@ pub fn deplete(
     }
     let solve = |burnups: &[f64]| -> Result<(Solved, Vec<f64>), CaseError> {
         let solved = solve_burnups(layout, tables, &point_state, burnups, options)?;
-        let rates = fission_rates(&solved);
+        let rates = fission_rates(&solved.problem, &solved.solution);
         Ok((solved, rates))
     };
     let record = |efpd: f64, burnups: &[f64], solved: &Solved, rates: &[f64]| {

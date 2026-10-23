@@ -106,6 +106,29 @@ impl Problem {
     }
 }
 
+/// 直方体の位置ごとの核分裂率 Σ_g Σf,g φ_g V（`solution` の規格化。ノードのない位置は 0）。物質の番号は NEM の解で確かめてある
+pub fn fission_rates(problem: &Problem, solution: &Solution) -> Vec<f64> {
+    problem
+        .node_material
+        .iter()
+        .zip(&solution.flux)
+        .enumerate()
+        .map(|(site, (material, flux))| {
+            let Some(m) = material.map(|m| &problem.materials[m]) else {
+                return 0.0;
+            };
+            let [x, y, z] = problem.mesh.position(site);
+            let volume = problem.mesh.dx[x] * problem.mesh.dy[y] * problem.mesh.dz[z];
+            m.fission
+                .iter()
+                .zip(flux)
+                .map(|(f, phi)| f * phi)
+                .sum::<f64>()
+                * volume
+        })
+        .collect()
+}
+
 /// 反復の打ち切り条件。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Options {
