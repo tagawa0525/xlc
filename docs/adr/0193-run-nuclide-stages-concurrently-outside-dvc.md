@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-23
 requires: [ADR-0067, ADR-0130, ADR-0138, ADR-0159, ADR-0184, ADR-0189]
 supersedes: []
@@ -124,7 +124,16 @@ lock が指すので退けた。runner は、今の deps（今の `bin/xs`、入
 
 ## 確認
 
-（実装の後に書く）
+- examples/depletion の 65 核種（examples/depletion/verification.md の「燃焼の多群ライブラリ」。xlc c92e8cac、分岐点 2b6e1201、2026-10-23、Slurm の
+  排他のジョブ 485）: main の lock で bin/xs が変わって changed だった xs-range と 65 核種を runner が実行して commit し、続けて
+  `dvc repro examples/depletion/dvc.yaml:xs` を実行した。67 のステージの出力の md5 は main の dvc.lock（Slurm 473）と同じで、lock の差は
+  deps の bin/xs だけ。runner の始めから最後の `dvc commit` まで 827 秒（上流 54 秒、核種の最初の投入から最後の回収まで 753 秒、最後の commit 20 秒）。
+  CPU 時間の和の 1/16 は 735 秒で、ADR-0189 の案 D（核種のプロセスの和 1,154 秒と、DVC のステージの間）より短い
+- 単体テスト（examples/test_stage_runner.py。scripts/run-python-tests.sh が実行する）: スレッドの割り当てと順序、記録の無いステージの扱い、空きへの
+  投入と待ち、`dvc status`、`dvc repro --dry`、dvc.lock（折り返した cmd、deps、params、outs）の読み方、指紋（書き直し、追加、symlink の先、読めない
+  ディレクトリ）、commit の前後の確認と dvc.lock と run-cache の戻し、commit できないステージ、上流の繰り返し、失敗と SIGTERM の扱い、偽の xs と dvc での実行
+- 一時の DVC のリポジトリ（偽の xs）で、上流の実行、commit、実行の途中で deps を変えたときに止まること、出力だけが違うステージで止まることを確かめた
+  （手元、2026-10-23）
 
 ## 帰結
 
@@ -136,6 +145,8 @@ lock が指すので退けた。runner は、今の deps（今の `bin/xs`、入
   予算を超えうるので、ステージが少ない組では、収まらないステージを待つ間コアが遊ぶ（同じ長さの 3 本を 16 スレッドで 6、6、6 にすると、
   3 本目は 1 本が終わるまで待つ）。スレッドを多く取るステージは CPU 時間の長いもので、並びの先頭にあり、始めにすべての予算が空いている
   ときに投入される（examples/depletion の記録で、Am-242m 4、Eu-151 2、Pu-239 2 と 1 スレッドの 8 本が始めに入る）
-- `dvc commit` は投入と同じループで順に実行する。commit の間（数秒）に終わったステージの回収と次の投入は commit の後になる
+- `dvc commit` は投入と同じループで順に実行する。commit の間に終わったステージの回収と次の投入は commit の後になる。65 核種で commit は 38 回、
+  1 回 2〜4 秒（最後の 15 核種で 20 秒）で、回収の遅れは 1 スレッドのステージの経過時間 − CPU 時間の和で 172 秒（16 で割って 11 秒）以下
+  （Slurm 485）。commit を別のスレッドに分けて縮むのはこの分と最後の commit だけなので、分けない
 - `dvc.lock` は、record_provenance.py の `parse_stage`（DVC が書く形を前提にした、標準ライブラリだけの読み手）で読む。DVC の lock の形が
   変われば、読めずに止まる。params のファイルの読み取りは runner が持つ（同じ形の読み手が 2 つ。3 つ目が要るときに parse_stage へまとめる）
