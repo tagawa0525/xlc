@@ -52,6 +52,12 @@ class Thin(unittest.TestCase):
             with self.assertRaises(SystemExit, msg=str(burnup)):
                 thin_burnup_table.thin(table(), burnup)
 
+    def test_state_counts_that_do_not_fill_the_burnups_are_errors(self):
+        t = table()
+        t["states"] = t["states"][:-1]
+        with self.assertRaises(SystemExit):
+            thin_burnup_table.thin(t, [0.0])
+
     def test_tables_without_a_leading_burnup_axis_are_errors(self):
         t = table()
         t["axes"].reverse()
