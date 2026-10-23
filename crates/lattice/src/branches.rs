@@ -16,6 +16,7 @@
 //! 状態ごとの成分から作る）。細かい群の媒質は燃料の温度の軸にだけ挙げ、分岐の状態ごとに媒質の同じ状態を使う。
 
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 use serde::Deserialize;
 use xlc_format::fewgroup::FewGroup;
@@ -322,13 +323,7 @@ impl BranchesEntry {
         let total: usize = counts.iter().product();
         let mut states = Vec::with_capacity(total);
         for index in 0..total {
-            // 最初の軸がいちばん遅く変わる
-            let mut at = vec![0; counts.len()];
-            let mut rest = index;
-            for (k, &n) in counts.iter().enumerate().rev() {
-                at[k] = rest % n;
-                rest /= n;
-            }
+            let at = state_indices(&counts, index);
             let mut state = materials.to_vec();
             let mut state_waters = waters.clone();
             for (change, &i) in changes.iter().zip(&at) {
@@ -366,6 +361,64 @@ impl BranchesEntry {
         }
         Ok(Branches { axes, states })
     }
+}
+
+/// 状態を軸の直積の順（最初の軸がいちばん遅く変わる）に解くときの、各状態の反復を始める解（ADR-0195）。状態 0 は始める解が
+/// なく、ほかの状態は、添字が 0 でない最後の軸を 1 つ戻し、それより後の軸を 0 にした状態（その 1 つの軸だけが違う、前に解いた
+/// 状態）の解から始める。直前に解いた状態は、その軸に加えて後の軸もすべて違う。
+pub struct Starts<T> {
+    /// [軸] の格子点の数
+    counts: Vec<usize>,
+    /// 次に解く状態
+    state: usize,
+    /// [軸] の、その軸より後の軸の添字がすべて 0 の状態のうち、最後に解いたものの解
+    saved: Vec<Option<Rc<T>>>,
+}
+
+impl<T> Starts<T> {
+    /// `counts` は [軸] の格子点の数。状態 0 から順に解く
+    pub fn new(counts: &[usize]) -> Self {
+        Self {
+            counts: counts.to_vec(),
+            state: 0,
+            saved: vec![None; counts.len()],
+        }
+    }
+
+    /// 次に解く状態の反復を始める解
+    pub fn start(&self) -> Option<&T> {
+        self.moved(self.state)
+            .and_then(|axis| self.saved[axis].as_deref())
+    }
+
+    /// 次に解く状態の解 `value` を残し、その次の状態に進む
+    pub fn solved(&mut self, value: T) {
+        let value = Rc::new(value);
+        // 添字が 0 でない最後の軸より後の軸はすべて 0 なので、その軸と後の軸の解になる
+        let first = self.moved(self.state).unwrap_or(0);
+        for slot in &mut self.saved[first..] {
+            *slot = Some(Rc::clone(&value));
+        }
+        self.state += 1;
+    }
+
+    /// 状態 `state` の、添字が 0 でない最後の軸
+    fn moved(&self, state: usize) -> Option<usize> {
+        state_indices(&self.counts, state)
+            .iter()
+            .rposition(|&i| i > 0)
+    }
+}
+
+/// 軸の直積の順（最初の軸がいちばん遅く変わる）の状態 `state` の、[軸] の格子点の添字。`counts` は [軸] の格子点の数
+pub fn state_indices(counts: &[usize], state: usize) -> Vec<usize> {
+    let mut at = vec![0; counts.len()];
+    let mut rest = state;
+    for (k, &n) in counts.iter().enumerate().rev() {
+        at[k] = rest % n;
+        rest /= n;
+    }
+    at
 }
 
 #[cfg(test)]

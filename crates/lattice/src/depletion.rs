@@ -32,7 +32,7 @@ use crate::fewgroup::{homogenize, pin_shapes};
 use crate::geometry::Lattice;
 use crate::input::{LatticeInput, MaterialInput};
 use crate::material::Material;
-use crate::moc::{Options, available_order, solve_symmetric};
+use crate::moc::{Options, Start, available_order, solve_symmetric_from};
 use crate::power::{cell_fission_rates, pin_rows};
 use crate::shielding::{ShieldingReuse, shield_fuel_reusing};
 use crate::symmetry::Chosen;
@@ -832,6 +832,32 @@ pub fn run(
     chosen: &Chosen,
     reactions: &dyn ReactionSource,
 ) -> anyhow::Result<History> {
+    run_with_moc(
+        input,
+        depletion,
+        library,
+        chain,
+        tracking,
+        region_materials,
+        chosen,
+        reactions,
+        &Options::default(),
+    )
+}
+
+/// `run` と同じく燃焼させ、MOC を `moc` の打ち切り条件と加速で解く（散乱の次数は `run` と同じく入力か物質から）
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn run_with_moc(
+    input: &LatticeInput,
+    depletion: &DepletionInput,
+    library: &Library,
+    chain: &Chain,
+    tracking: &Tracking,
+    region_materials: &[String],
+    chosen: &Chosen,
+    reactions: &dyn ReactionSource,
+    moc: &Options,
+) -> anyhow::Result<History> {
     chain.check()?;
     let lattice = &tracking.lattice;
     let volumes = lattice.volumes();
@@ -933,6 +959,8 @@ pub fn run(
     // 燃料のピンの Dancoff 係数は、燃料でない物質の全断面積が直前の輸送と同じ間だけ持ち越す。燃焼させる物質が燃料だけなら
     // 初めの輸送で 1 度だけ解き、燃料でない物質（吸収体）を燃焼させれば輸送ごとに解く（ADR-0194）
     let mut reuse = ShieldingReuse::new(tracking);
+    // 直前の輸送の収束した MOC の状態。次の輸送の反復をここから始める（ADR-0195）
+    let mut previous: Option<Start> = None;
     let solve = |n: &[Vec<f64>], kept: bool| -> anyhow::Result<Evaluation<State>> {
         solves += 1;
         let start = Instant::now();
@@ -1011,9 +1039,16 @@ pub fn run(
             scattering_order: input
                 .scattering_order
                 .unwrap_or_else(|| available_order(&region_materials)),
-            ..Options::default()
+            ..*moc
         };
-        let solution = solve_symmetric(tracking, &region_materials, &options, chosen.moc())?;
+        let (solution, converged) = solve_symmetric_from(
+            tracking,
+            &region_materials,
+            &options,
+            chosen.moc(),
+            previous.as_ref(),
+        )?;
+        previous = Some(converged);
         transport.moc += start.elapsed();
         let start = Instant::now();
         let flux = shielded.physical_flux(lattice, &solution.flux)?;
@@ -1105,6 +1140,7 @@ pub fn run(
         tracing::info!(
             solve = solves,
             k = solution.k,
+            iterations = solution.iterations,
             nuclides = composition.len(),
             "depletion transport"
         );

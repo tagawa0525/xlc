@@ -19,6 +19,7 @@
 | `openmc-library.toml`、`openmc_depletion.py`       | OpenMC のライブラリ（輸送する核種を xlc と揃える）と、OpenMC の燃焼（`openmc-1C-rings*.toml`）                         |
 | `compare_depletion.py`                             | 2 つの燃焼の履歴を比べた要約（`compare-1C-rings*.json`）。記録の表は `../verification_tables.py` が描く                |
 | `branches/`                                        | 2A の燃焼の履歴の燃焼点からの分岐のテーブル（`branch-2A.toml`）と、それを内挿する core の集合体 1 体（`core-2A.toml`） |
+| `warm-start/`                                      | MOC を前の輸送の解から始めた（ADR-0195）2A の燃焼の最初の 10 点と分岐の 12 状態、平らな初期値からの出力との比較        |
 
 誤差と差は、絶対値の最大を初期の数密度の最大で割ったもの（ADR-0161 の「確認」）。
 
@@ -387,6 +388,32 @@ xlc の時間の内訳（秒。履歴の `seconds`、全体は内訳の和）。
 外の MOC も 157.4 秒 → 163.8 秒（4%）長くなったので、ジョブごとの機械の速さのゆらぎ（自己遮蔽の残りの約 310 秒の 4% は約 13 秒）が
 候補で、確かめていない。ジョブの経過時間は 10 分 2 秒（ビルドの 1 分 33 秒を含む。lattice の実行は 8 分 28 秒）。測った後に、解いたピンの
 等価原理と UFG の実効断面積の複製をなくした（bff730b9。値を移すだけで計算は変えない）が、その後は測っていない。
+
+MOC の反復を前の輸送の解から始めると（[ADR-0195](../../docs/adr/0195-start-moc-from-the-previous-transport.md)。xlc 008a9e03、分岐点は main の 8453e542、
+2026-10-23、Slurm の排他のジョブ 494。入力は `warm-start/` で、下のコマンド）、2A の最初の 10 点（輸送 21 回）の
+MOC の反復は、最初の輸送が 25 回、2 回目 17 回、3 回目 13 回、4 回目からは 11 回（和 253 回）で、MOC の時間の和は 83.8 秒（2 回目からは
+1 回 3.8 秒）。上の 2A の実行（Slurm 461、平らな初期値から）の同じ 21 回の MOC は 157.4 秒（1 回 7.5 秒）。1 回の反復の時間は 0.30 秒から
+0.35 秒に増え、粗メッシュの固有値の反復は 1 回の MOC の反復あたり平均 316 回（最初の輸送）と 326 回（2 回目から）だった。輸送 21 回の
+自己遮蔽は 383.7 秒、全体は 486.5 秒。上の 2A の履歴（`lattice-2A.msgpack` md5 c2591c9f）の同じ 11 点との差は、k∞ が最大 1.3e-7
+（0.013 pcm。1.5 MWd/kg）、数密度が最大の数密度の 1e-6 倍を超える核種で相対 7.7e-7（Pu-241、2 MWd/kg）、1e-8 倍を超える核種で
+1.0e-6（Pu-242）、ピン出力が相対 3.4e-7 だった（燃焼度 0 の点は平らな初期値から解くので、ビットで一致）。
+
+同じ実行で、燃焼度の軸を持つ分岐（`branches/branch-2A-fine.toml` を 1300 ppm と燃焼度の 6 点 0、2、10、20、40、60 MWd/kg に絞り、燃料の
+温度 565、600 K の 12 状態。ライブラリと履歴は `table-2A-fine.msgpack` を作ったもの: `depletion.msgpack` md5 4ada8d75、履歴 md5 6272e937）
+の MOC の反復は、燃料の温度の軸の隣から始めた 600 K の状態が 10 回（MOC 3.2〜3.5 秒）、燃焼度の軸の隣から始めた 565 K の状態が
+17〜18 回（5.7〜6.2 秒）、平らな初期値からの最初の状態が 25 回（8.3 秒）。`table-2A-fine.msgpack`（md5 e0f66326、平らな初期値から、
+Slurm 477）の同じ状態は 24〜25 回、7.1〜7.4 秒。k∞ の差は最大 5.4e-8（40 MWd/kg、565 K）、状態の少数群定数の相対差は最大 1.4e-7（ADF）。
+1 状態の時間は自己遮蔽が大半で 75〜96 秒（Slurm 477 の同じ状態は 71〜91 秒）。
+
+```sh
+cargo build --release -p xlc-lattice
+cd examples/depletion/warm-start
+RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice lattice-2A-10.toml > lattice-2A-10.out 2> lattice-2A-10.log
+python3 compare_warm_start.py history ../p2/lattice-2A.msgpack lattice-2A-10.msgpack
+# table-2A-fine.msgpack を作ったライブラリと履歴を DVC のキャッシュからコピーしてから（branch-2A-6.toml の冒頭）
+RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice branch-2A-6.toml > branch-2A-6.out 2> branch-2A-6.log
+python3 compare_warm_start.py table ../branches/table-2A-fine.msgpack table-2A-6.msgpack
+```
 
 70 点（輸送 141 回）の 2O、2P、2M の経過時間は 2O 1 時間 8 分 55 秒（Slurm 468、ee9d2fdd）、2P 1 時間 17 分 7 秒（Slurm 474）、
 2M 2 時間 58 分 12 秒（Slurm 480。2P と 2M は 2ff103e1、分岐点は main の 1f650c35、2026-10-23）。xlc の履歴の `seconds` の和は 2O 4,081 秒、
