@@ -148,6 +148,11 @@ pub fn midpoint(
     advance(burnups, masses, increment, &middle)
 }
 
+/// 質量 `m` の重みの平均の燃焼度
+fn weighted(b: &[f64], m: &[f64]) -> f64 {
+    b.iter().zip(m).map(|(b, m)| b * m).sum::<f64>() / m.iter().sum::<f64>()
+}
+
 /// 位置ごとの核分裂率 Σ_g Σf,g φ_g V（ノードのない位置は 0）
 fn fission_rates(solved: &Solved) -> Vec<f64> {
     let (problem, solution) = (&solved.problem, &solved.solution);
@@ -247,9 +252,6 @@ pub fn deplete(
         Ok((solved, rates))
     };
     let record = |efpd: f64, burnups: &[f64], solved: &Solved, rates: &[f64]| {
-        let weighted = |b: &[f64], m: &[f64]| {
-            b.iter().zip(m).map(|(b, m)| b * m).sum::<f64>() / m.iter().sum::<f64>()
-        };
         let burnup_rows = by_assembly(burnups);
         let total: f64 = rates.iter().sum();
         let shares: Vec<f64> = rates.iter().map(|r| r / total).collect();
@@ -274,8 +276,11 @@ pub fn deplete(
     tracing::info!(efpd, k = solved.solution.k, "depletion point");
     for step in &depletion.steps {
         let _span = tracing::info_span!("depletion step", efpd = step.efpd).entered();
-        // 炉心の平均の燃焼度の増分 (MWd/kg): W/g × d = 1e-3 MWd/kg
-        let increment = depletion.specific_power * (step.efpd - efpd) * 1.0e-3;
+        // 炉心の平均の燃焼度の増分 (MWd/kg。W/g × d = 1e-3 MWd/kg)。ステップの EFPD の差を足し合わせず、終わりの累積の EFPD の
+        // 燃焼度と今の炉心の平均の差にする（ステップの丸めの誤差を積み上げない。積み上げると、テーブルの最後の点で終わるケースが
+        // その点を越えて止まる）
+        let target = depletion.specific_power * step.efpd * 1.0e-3;
+        let increment = target - weighted(&burnups, &masses);
         burnups = midpoint(&burnups, &masses, increment, &rates, |b| {
             solve(b).map(|(_, r)| r)
         })?;
