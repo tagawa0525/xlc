@@ -39,7 +39,7 @@ pub struct ThreadsAlreadySet;
 /// エラーが出たら、各スレッドは次に i を取る前にそれを見て止まる（見たあとに取った i は、スレッドごとに多くとも 1 つ
 /// 余分に求める）。返すのは i の最も小さいエラーで、カウンタは増える一方なので、エラーの i より小さい i はすべて
 /// 取られて最後まで求められており、返すエラーはスレッドの進み方によらない。
-pub(crate) fn in_parallel<T: Send, E: Send>(
+pub fn in_parallel<T: Send, E: Send>(
     n: usize,
     f: impl Fn(usize) -> Result<T, E> + Sync,
 ) -> Result<Vec<T>, E> {
