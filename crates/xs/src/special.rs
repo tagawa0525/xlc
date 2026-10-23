@@ -175,37 +175,53 @@ pub fn faddeeva_upper(y: f64, x: &[f64], w: &mut [Complex64]) {
     assert_eq!(x.len(), w.len());
     let a = faddeeva_coefficients();
     let l = faddeeva_scale();
-    let mut den = [Complex64::ZERO; FADDEEVA_CHUNK];
-    let mut ratio = [Complex64::ZERO; FADDEEVA_CHUNK];
-    let mut p = [Complex64::ZERO; FADDEEVA_CHUNK];
+    let inverse_root_pi = 1.0 / std::f64::consts::PI.sqrt();
+    // 複素数の実部と虚部を別の配列に置き（num_complex の積と商と同じ式を成分で書く）、点ごとに独立な Horner 法のチェーンを
+    // FADDEEVA_CHUNK 本並べて、前の項を待つ間に別の点を進める
     for (x, w) in x.chunks(FADDEEVA_CHUNK).zip(w.chunks_mut(FADDEEVA_CHUNK)) {
         let n = x.len();
-        let (den, ratio, p) = (&mut den[..n], &mut ratio[..n], &mut p[..n]);
-        for (((&x, den), ratio), p) in x
-            .iter()
-            .zip(den.iter_mut())
-            .zip(ratio.iter_mut())
-            .zip(p.iter_mut())
-        {
-            *den = Complex64::new(l + y, -x);
-            *ratio = Complex64::new(l - y, x) / *den;
-            *p = Complex64::ZERO;
+        let mut xs = [0.0; FADDEEVA_CHUNK];
+        xs[..n].copy_from_slice(x);
+        // L − iz = (L + y) − ix、L + iz = (L − y) + ix
+        let (den_re, den_im) = (l + y, xs.map(|x| -x));
+        let mut ratio_re = [0.0; FADDEEVA_CHUNK];
+        let mut ratio_im = [0.0; FADDEEVA_CHUNK];
+        for i in 0..FADDEEVA_CHUNK {
+            let (a_re, a_im) = (l - y, xs[i]);
+            let norm = den_re * den_re + den_im[i] * den_im[i];
+            ratio_re[i] = (a_re * den_re + a_im * den_im[i]) / norm;
+            ratio_im[i] = (a_im * den_re - a_re * den_im[i]) / norm;
         }
+        // Horner 法で p(Z) = Σ a_m Z^(m-1)
+        let mut p_re = [0.0; FADDEEVA_CHUNK];
+        let mut p_im = [0.0; FADDEEVA_CHUNK];
         for &coefficient in a.iter().rev() {
-            for (p, &ratio) in p.iter_mut().zip(ratio.iter()) {
-                *p = *p * ratio + coefficient;
+            for i in 0..FADDEEVA_CHUNK {
+                let re = p_re[i] * ratio_re[i] - p_im[i] * ratio_im[i];
+                let im = p_re[i] * ratio_im[i] + p_im[i] * ratio_re[i];
+                p_re[i] = re + coefficient;
+                p_im[i] = im;
             }
         }
-        for ((w, &p), &den) in w.iter_mut().zip(p.iter()).zip(den.iter()) {
-            let first = p * 2.0 / (den * den);
-            let second = Complex64::new(1.0 / std::f64::consts::PI.sqrt(), 0.0) / den;
-            *w = first + second;
+        for (i, w) in w.iter_mut().enumerate() {
+            // first = p * 2 / (den den)
+            let (twice_re, twice_im) = (p_re[i] * 2.0, p_im[i] * 2.0);
+            let square_re = den_re * den_re - den_im[i] * den_im[i];
+            let square_im = den_re * den_im[i] + den_im[i] * den_re;
+            let norm = square_re * square_re + square_im * square_im;
+            let first_re = (twice_re * square_re + twice_im * square_im) / norm;
+            let first_im = (twice_im * square_re - twice_re * square_im) / norm;
+            // second = (1/√π + 0i) / den
+            let norm = den_re * den_re + den_im[i] * den_im[i];
+            let second_re = (inverse_root_pi * den_re + 0.0 * den_im[i]) / norm;
+            let second_im = (0.0 * den_re - inverse_root_pi * den_im[i]) / norm;
+            *w = Complex64::new(first_re + second_re, first_im + second_im);
         }
     }
 }
 
-/// `faddeeva_upper` が一度に並べる点の数（スタックの作業配列の大きさ）
-const FADDEEVA_CHUNK: usize = 64;
+/// `faddeeva_upper` が一度に並べる点の数（AVX-512 の 8 つの f64 の 4 本。Horner 法の 1 項の遅延を隠せる数）
+const FADDEEVA_CHUNK: usize = 32;
 
 /// Weideman の近似の項数 N。N = 32 で、定義の数値積分と相対 1e-10、w(iy) = erfcx(y) と 1e-12、
 /// 実軸上の e^(-x²) と絶対 1e-13 で一致する（テストを参照）
