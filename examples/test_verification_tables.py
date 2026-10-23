@@ -830,5 +830,116 @@ class DrawCoreDepletion(unittest.TestCase):
         self.assertTrue(set(sources) <= vt.GIT_TRACKED)
 
 
+class DrawBurnupInterpolation(unittest.TestCase):
+    @staticmethod
+    def summary():
+        """compare_burnup_interpolation.py の要約（テーブル 1 つ、選び方 2 つ、方式 2 つ）"""
+
+        def result(rho, overshoot):
+            return {
+                "rho_pcm": rho,
+                "max_abs_pcm": max(abs(r) for r in rho),
+                "rms_pcm": (sum(r * r for r in rho) / len(rho)) ** 0.5,
+                "overshoot": overshoot,
+            }
+
+        return {
+            "format": "xlc-compare-burnup-interpolation",
+            "methods": {"linear": "線形", "hermite": "Hermite"},
+            "tables": [
+                {
+                    "name": "2A",
+                    "burnup": [0.0, 1.0, 2.0, 3.0, 4.0],
+                    "table_k_max_abs_pcm": 1e-5,
+                    "selections": [
+                        {
+                            "name": "1 つおき",
+                            "burnup": [0.0, 2.0, 4.0],
+                            "removed": [1.0, 3.0],
+                            "results": {
+                                "linear": result([-30.0, 40.0], 0.0),
+                                "hermite": result([-3.0, 4.0], 3.2e-4),
+                            },
+                        },
+                        {
+                            "name": "全点の 3 点",
+                            "burnup": [0.0, 1.0, 4.0],
+                            "removed": [2.0, 3.0],
+                            "results": {
+                                "linear": result([60.0, 50.0], 0.0),
+                                "hermite": result([-6.0, -5.0], 0.0),
+                            },
+                        },
+                    ],
+                }
+            ],
+        }
+
+    @staticmethod
+    def rows(table):
+        return [
+            [c.strip() for c in line.strip("|").split("|")]
+            for line in table.split("\n")[2:]
+        ]
+
+    def test_method_rows_have_the_largest_and_rms_errors_of_each_selection(self):
+        table = vt.burnup_interpolation_methods([self.summary()])
+        header = [c.strip() for c in table.split("\n")[0].strip("|").split("|")]
+        self.assertEqual(
+            header,
+            [
+                "方式",
+                "2A 1 つおき（3 点）",
+                "2A 全点の 3 点（3 点）",
+                "オーバーシュートの最大",
+            ],
+        )
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["線形", "40.0 / 35.4", "60.0 / 55.2", "0"],
+                ["Hermite", "4.0 / 3.5", "6.0 / 5.5", "3.2e-04"],
+            ],
+        )
+
+    def test_point_rows_are_the_cubic_hermite_of_each_selection(self):
+        table = vt.burnup_interpolation_points([self.summary()])
+        self.assertEqual(
+            self.rows(table),
+            [
+                ["2A", "1 つおき", "3", "2", "+4.0（3）", "3.5", "−3.0〜+4.0"],
+                ["2A", "全点の 3 点", "3", "2", "−6.0（2）", "5.5", "−6.0〜−5.0"],
+            ],
+        )
+
+    def test_a_selection_of_every_point_has_no_worst_point(self):
+        s = self.summary()
+        sel = s["tables"][0]["selections"][0]
+        sel["removed"] = []
+        for r in sel["results"].values():
+            r.update(rho_pcm=[], max_abs_pcm=0.0, rms_pcm=0.0)
+        rows = self.rows(vt.burnup_interpolation_points([s]))
+        self.assertEqual(rows[0], ["2A", "1 つおき", "3", "0", "", "0.0", ""])
+
+    def test_a_summary_without_selections_draws_the_methods_only(self):
+        s = self.summary()
+        s["tables"][0]["selections"] = []
+        rows = self.rows(vt.burnup_interpolation_methods([s]))
+        self.assertEqual(rows, [["線形", "0"], ["Hermite", "0"]])
+
+    def test_a_summary_of_another_format_is_an_error(self):
+        for draw in (vt.burnup_interpolation_methods, vt.burnup_interpolation_points):
+            with self.assertRaises(vt.TableError):
+                draw([{"format": "xlc-compare-core-depletion"}])
+
+    def test_the_comparison_is_a_git_tracked_json(self):
+        for name in (
+            "depletion-burnup-interpolation-methods",
+            "depletion-burnup-interpolation-points",
+        ):
+            (sources, _) = vt.TABLES[name]
+            self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
 if __name__ == "__main__":
     unittest.main()

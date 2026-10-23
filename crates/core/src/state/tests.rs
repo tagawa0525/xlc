@@ -419,3 +419,210 @@ fn fissile_tables_without_a_burnup_axis_reject_burnups() {
     .unwrap();
     assert_eq!(fresh, burnt);
 }
+
+/// table() の各量を `g(燃焼度)` 倍した状態を、燃焼度の点 `points` で並べたテーブル（chi は倍にしない）
+fn burnup_table_of(points: &[f64], g: impl Fn(f64) -> f64) -> Table {
+    let mut states = Vec::new();
+    for &bu in points {
+        for ppm in PPM {
+            for tm in TM {
+                for tf in TF {
+                    states.push(curved(g(bu), ppm, tm, tf));
+                }
+            }
+        }
+    }
+    let mut t = table();
+    t.axes.insert(
+        0,
+        Axis::Burnup {
+            points: points.to_vec(),
+        },
+    );
+    t.states = states;
+    t
+}
+
+/// table() の状態を `g` 倍したもの（chi は和が 1 なので倍にしない）
+fn curved(g: f64, ppm: f64, tm: f64, tf: f64) -> FewGroup {
+    let f = few(ppm, tm, tf);
+    let mut out = scaled(&f, g);
+    out.chi = f.chi;
+    out
+}
+
+/// 間隔の揃わない燃焼度の点。0 から最初の点の間は、Xe と Sm の平衡までの急な変化を模す
+const CURVED: [f64; 6] = [0.0, 0.5, 2.0, 5.0, 10.0, 18.0];
+
+/// 燃焼度について 2 次の倍率。燃焼度 0 の点だけ曲線の外（Xe と Sm のない新しい燃料）
+fn curve(bu: f64) -> f64 {
+    if bu == 0.0 {
+        1.3
+    } else {
+        1.0 + 0.03 * bu - 8.0e-4 * bu * bu
+    }
+}
+
+#[test]
+fn curved_burnup_grid_points_return_the_lattice_states() {
+    let t = burnup_table_of(&CURVED, curve);
+    for bu in CURVED {
+        let got = interpolate(&t, Some(&at_burnup(bu, 1300.0, 580.0, 900.0)), None)
+            .unwrap()
+            .remove(0);
+        assert_eq!(got, curved(curve(bu), 1300.0, 580.0, 900.0), "burnup {bu}");
+    }
+}
+
+#[test]
+fn burnups_past_the_first_point_reproduce_quadratics_with_the_other_axes() {
+    let t = burnup_table_of(&CURVED, curve);
+    for bu in [0.5, 0.7, 1.3, 3.1, 7.5, 12.0, 17.9] {
+        for (ppm, tm, tf) in [(1300.0, 565.0, 900.0), (1000.0, 560.0, 700.0)] {
+            let got = interpolate(&t, Some(&at_burnup(bu, ppm, tm, tf)), None)
+                .unwrap()
+                .remove(0);
+            let want = curved(curve(bu), ppm, tm, tf);
+            assert!(
+                close(got.k_inf, want.k_inf),
+                "burnup {bu}: {} vs {}",
+                got.k_inf,
+                want.k_inf
+            );
+            assert!(close(got.absorption[1], want.absorption[1]));
+            assert!(close(got.scatter[0][1], want.scatter[0][1]));
+            let form = |f: &FewGroup| f.pins.as_ref().unwrap().form[1][0][0];
+            assert!(close(form(&got), form(&want)));
+            assert!(close(got.chi[0], 1.0));
+        }
+    }
+}
+
+#[test]
+fn burnups_below_the_first_point_are_linear_from_zero_and_zero_does_not_shape_the_rest() {
+    let t = burnup_table_of(&CURVED, curve);
+    let at = |t: &Table, bu: f64| {
+        interpolate(t, Some(&at_burnup(bu, 1300.0, 565.0, 900.0)), None)
+            .unwrap()
+            .remove(0)
+    };
+    let fresh = few(1300.0, 565.0, 900.0).k_inf;
+    let w = 0.2 / 0.5;
+    let want = ((1.0 - w) * curve(0.0) + w * curve(0.5)) * fresh;
+    assert!(close(at(&t, 0.2).k_inf, want));
+    // 燃焼度 0 の値を変えても、最初の点から先は変わらない
+    let other = burnup_table_of(&CURVED, |bu| if bu == 0.0 { 2.0 } else { curve(bu) });
+    for bu in [0.5, 0.6, 1.0, 2.0, 4.0, 18.0] {
+        assert_eq!(at(&t, bu), at(&other, bu), "burnup {bu}");
+    }
+}
+
+#[test]
+fn two_point_burnup_spans_are_linear() {
+    // 0 のない 2 点の軸と、0 のあとに 2 点の軸（最初の点から先が 2 点）
+    for points in [vec![5.0, 15.0], vec![0.0, 10.0, 20.0]] {
+        let t = burnup_table_of(&points, |bu| 1.0 + 0.02 * bu + 1.0e-3 * bu * bu);
+        let last = points.len() - 1;
+        let (a, b) = (points[last - 1], points[last]);
+        let g = |bu: f64| 1.0 + 0.02 * bu + 1.0e-3 * bu * bu;
+        for bu in [a + 0.25 * (b - a), a + 0.5 * (b - a)] {
+            let got = interpolate(&t, Some(&at_burnup(bu, 1300.0, 565.0, 900.0)), None)
+                .unwrap()
+                .remove(0);
+            let w = (bu - a) / (b - a);
+            let want = ((1.0 - w) * g(a) + w * g(b)) * few(1300.0, 565.0, 900.0).k_inf;
+            assert!(close(got.k_inf, want), "{points:?} at {bu}");
+        }
+    }
+}
+
+#[test]
+fn knees_overshoot_only_next_to_them_by_two_27ths_of_the_slope_change() {
+    // 10 MWd/kg で傾きが 0 から 0.05 に変わる折れ線（Gd の燃え尽きの折れ曲がりを模す）。間隔 h = 2
+    let points: Vec<f64> = (1..=10).map(|i| 2.0 * f64::from(i)).collect();
+    let g = |bu: f64| 1.0 + 0.05 * (bu - 10.0).max(0.0);
+    let t = burnup_table_of(&points, g);
+    let fresh = few(1300.0, 565.0, 900.0).k_inf;
+    let ratio = |bu: f64| {
+        interpolate(&t, Some(&at_burnup(bu, 1300.0, 565.0, 900.0)), None)
+            .unwrap()
+            .remove(0)
+            .k_inf
+            / fresh
+    };
+    let samples = |a: f64, b: f64| (0..=200).map(move |i| a + (b - a) * f64::from(i) / 200.0);
+    // 折れ曲がりから 2 区間より離れたところは、折れ線そのもの（両側の 3 点が同じ直線に乗る）
+    for bu in samples(2.0, 8.0).chain(samples(12.0, 20.0)) {
+        assert!((ratio(bu) - g(bu)).abs() < 1e-13, "{bu}: {}", ratio(bu));
+    }
+    // 折れ曲がりの手前の区間で、データの範囲（1）を 2/27 × h × 傾きの変化（3 次 Hermite の t = 2/3 の値）だけ下回る
+    let lowest = samples(8.0, 10.0).map(ratio).fold(f64::INFINITY, f64::min);
+    let bound = 2.0 / 27.0 * 2.0 * 0.05;
+    assert!(
+        (1.0 - lowest - bound).abs() < 1e-6,
+        "lowest {lowest}, bound {bound}"
+    );
+    // 折れ曲がりの後の区間は、データの範囲の中
+    for bu in samples(10.0, 12.0) {
+        let r = ratio(bu);
+        assert!((g(10.0)..=g(12.0)).contains(&r), "{bu}: {r}");
+    }
+}
+
+#[test]
+fn burnup_weights_match_the_python_comparison() {
+    // examples/depletion/test_compare_burnup_interpolation.py の同じ点と値（ADR-0192 の比較の Python と同じ重み）
+    let values = [
+        1.3,
+        1.069710678118655,
+        1.1374213562373094,
+        1.213606797749979,
+        1.296227766016838,
+        1.3882640687119285,
+    ];
+    let g = |bu: f64| values[CURVED.iter().position(|&p| p == bu).unwrap()];
+    let t = burnup_table_of(&CURVED, g);
+    let fresh = few(1300.0, 565.0, 900.0).k_inf;
+    for (bu, want) in [
+        (0.3, 1.161826406871193),
+        (1.2, 1.103766188073716),
+        (3.3, 1.1769920198453223),
+        (7.7, 1.2626845558655815),
+        (15.0, 1.3595423657587526),
+    ] {
+        let got = interpolate(&t, Some(&at_burnup(bu, 1300.0, 565.0, 900.0)), None)
+            .unwrap()
+            .remove(0)
+            .k_inf
+            / fresh;
+        assert!(close(got, want), "burnup {bu}: {got} vs {want}");
+    }
+}
+
+#[test]
+fn negative_interpolated_cross_sections_are_errors() {
+    // 熱群の吸収が 10 MWd/kg まで 0 で、そこから増える折れ線。折れ曲がりの手前の区間で Hermite は 0 を下回る
+    let points: Vec<f64> = (1..=10).map(|i| 2.0 * f64::from(i)).collect();
+    let mut t = burnup_table_of(&points, |_| 1.0);
+    let per_burnup = t.states.len() / points.len();
+    for (i, s) in t.states.iter_mut().enumerate() {
+        s.absorption[1] = 0.01 * (points[i / per_burnup] - 10.0).max(0.0);
+    }
+    let err = interpolate(&t, Some(&at_burnup(9.0, 1300.0, 565.0, 900.0)), None).unwrap_err();
+    assert!(err.contains("negative"), "{err}");
+    // データの範囲の中なら通る
+    assert!(interpolate(&t, Some(&at_burnup(12.0, 1300.0, 565.0, 900.0)), None).is_ok());
+}
+
+#[test]
+fn negative_interpolated_form_functions_name_the_burnup_points() {
+    // 形状関数の 1 つが 10 MWd/kg まで 0 で、そこから増える折れ線
+    let points: Vec<f64> = (1..=10).map(|i| 2.0 * f64::from(i)).collect();
+    let mut t = burnup_table_of(&points, |_| 1.0);
+    let per_burnup = t.states.len() / points.len();
+    for (i, s) in t.states.iter_mut().enumerate() {
+        s.pins.as_mut().unwrap().form[1][0][1] = 0.01 * (points[i / per_burnup] - 10.0).max(0.0);
+    }
+    let err = interpolate(&t, Some(&at_burnup(9.0, 1300.0, 565.0, 900.0)), None).unwrap_err();
+    assert!(err.contains("form") && err.contains("ADR-0192"), "{err}");
+}

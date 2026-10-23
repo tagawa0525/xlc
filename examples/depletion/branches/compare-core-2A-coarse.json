@@ -2,7 +2,7 @@
  "format": "xlc-compare-core-depletion",
  "inputs": [
   {
-   "path": "examples/depletion/p2/lattice-2A.msgpack",
+   "path": "examples/depletion/branches/lattice-2A-6272e937.msgpack",
    "md5": "6272e93776ffcdd173fde6d91b1c6bb7"
   },
   {
@@ -11,7 +11,7 @@
   },
   {
    "path": "examples/depletion/branches/core-2A-coarse.msgpack",
-   "md5": "deb8646bec76b2535175353fd8b67be4"
+   "md5": "341b53aecce15aa9d2765dc101962592"
   }
  ],
  "specific_power": 38.41,
@@ -54,8 +54,8 @@
    "burnup_relative": 2.220446049250313e-16,
    "on_table": false,
    "history_k": 1.1005733419653057,
-   "k": 1.1005010455261952,
-   "rho_pcm": -5.969080809886673,
+   "k": 1.100610611460958,
+   "rho_pcm": 3.0768110801271398,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -66,8 +66,8 @@
    "burnup_relative": 0.0,
    "on_table": false,
    "history_k": 1.0132714856036265,
-   "k": 1.0135312087126733,
-   "rho_pcm": 25.289931066396765,
+   "k": 1.0132666305862468,
+   "rho_pcm": -0.47286941730062537,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -78,8 +78,8 @@
    "burnup_relative": 0.0,
    "on_table": false,
    "history_k": 0.9037253326491733,
-   "k": 0.9042140009041207,
-   "rho_pcm": 59.800724201508615,
+   "k": 0.9037045407053653,
+   "rho_pcm": -2.545846250345818,
    "branch_k": null,
    "branch_rho_pcm": null
   },
@@ -90,14 +90,14 @@
    "burnup_relative": -1.1102230246251565e-16,
    "on_table": false,
    "history_k": 0.7912200931492063,
-   "k": 0.792346424979846,
-   "rho_pcm": 179.66105565534463,
+   "k": 0.7912237810361852,
+   "rho_pcm": 0.5890890678594829,
    "branch_k": null,
    "branch_rho_pcm": null
   }
  ],
  "on_table_max_abs_pcm": 0.0402161322909933,
- "between_max_abs_pcm": 179.66105565534463,
+ "between_max_abs_pcm": 3.0768110801271398,
  "on_table_branch_max_abs_pcm": 0.0006531325036363,
  "burnup_max_relative": 2.220446049250313e-16
 }
