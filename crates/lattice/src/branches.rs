@@ -403,28 +403,70 @@ impl<T> Starts<T> {
         self.state += 1;
     }
 
-    /// 次に解く状態と、[軸] の残した解（チェックポイントに書く。ADR-0196）
-    pub fn saved(&self) -> (usize, Vec<Option<&T>>) {
+    /// 次に解く状態と、残した解（同じ解は 1 つ）と、[軸] の残した解の番号（チェックポイントに書く。ADR-0196）
+    pub fn saved(&self) -> (usize, Vec<&T>, Vec<Option<usize>>) {
+        let mut solutions: Vec<&Rc<T>> = Vec::new();
+        let slots = self
+            .saved
+            .iter()
+            .map(|slot| {
+                slot.as_ref().map(|value| {
+                    solutions
+                        .iter()
+                        .position(|s| Rc::ptr_eq(s, value))
+                        .unwrap_or_else(|| {
+                            solutions.push(value);
+                            solutions.len() - 1
+                        })
+                })
+            })
+            .collect();
         (
             self.state,
-            self.saved.iter().map(Option::as_deref).collect(),
+            solutions.into_iter().map(|s| &**s).collect(),
+            slots,
         )
     }
 
-    /// `saved` で書いた、次に解く状態 `state` と [軸] の解 `saved` から作り直す。`counts` は [軸] の格子点の数
-    pub fn restored(counts: &[usize], state: usize, saved: Vec<Option<T>>) -> Result<Self, String> {
-        if saved.len() != counts.len() {
+    /// `saved` で書いた、次に解く状態 `state`、解 `solutions`、[軸] の解の番号 `slots` から作り直す。`counts` は [軸] の格子点の
+    /// 数。次に解く状態の始める解がなければ（壊れたチェックポイント）、平らな初期値から黙って始めずにエラー
+    pub fn restored(
+        counts: &[usize],
+        state: usize,
+        solutions: Vec<T>,
+        slots: &[Option<usize>],
+    ) -> Result<Self, String> {
+        if slots.len() != counts.len() {
             return Err(format!(
                 "the saved starts have {} axes, the run has {}",
-                saved.len(),
+                slots.len(),
                 counts.len()
             ));
         }
-        Ok(Self {
+        let solutions: Vec<Rc<T>> = solutions.into_iter().map(Rc::new).collect();
+        let saved = slots
+            .iter()
+            .map(|slot| {
+                slot.map(|i| {
+                    solutions
+                        .get(i)
+                        .cloned()
+                        .ok_or_else(|| format!("start {i} of {} solutions", solutions.len()))
+                })
+                .transpose()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let starts = Self {
             counts: counts.to_vec(),
             state,
-            saved: saved.into_iter().map(|v| v.map(Rc::new)).collect(),
-        })
+            saved,
+        };
+        if let Some(axis) = starts.moved(state)
+            && starts.saved[axis].is_none()
+        {
+            return Err(format!("no start for state {state} on axis {axis}"));
+        }
+        Ok(starts)
     }
 
     /// 状態 `state` の、添字が 0 でない最後の軸
