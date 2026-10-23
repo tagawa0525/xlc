@@ -173,8 +173,10 @@ fn run(path: &Path) -> anyhow::Result<()> {
         Library(Library),
         Macroscopic(Vec<(String, Material)>),
     }
-    // 読んだファイルの SHA-256 も返す（チェックポイントの指紋に足す。ADR-0196）。読むスレッドで求め、トラッキングに重ねる
-    let load = || -> anyhow::Result<(Source, &'static str, Vec<u8>)> {
+    // チェックポイントを書く実行では、読んだファイルの SHA-256 も返す（指紋に足す。ADR-0196）。読むスレッドで求め、トラッキングに
+    // 重ねる。書かない実行は求めない
+    let fingerprinting = fingerprint.is_some();
+    let load = || -> anyhow::Result<(Source, &'static str, Option<Vec<u8>>)> {
         Ok(match &input.cross_sections {
             CrossSections::Library(file) => {
                 let file = base.join(file);
@@ -182,7 +184,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 (
                     Source::Library(Library::from_msgpack(&bytes).with_context(|| shown(&file))?),
                     "library",
-                    digest(&bytes),
+                    fingerprinting.then(|| digest(&bytes)),
                 )
             }
             CrossSections::Macroscopic(file) => {
@@ -191,7 +193,7 @@ fn run(path: &Path) -> anyhow::Result<()> {
                 (
                     Source::Macroscopic(macroscopic::parse(&text).with_context(|| shown(&file))?),
                     "macroscopic",
-                    digest(text.as_bytes()),
+                    fingerprinting.then(|| digest(text.as_bytes())),
                 )
             }
         })
@@ -208,8 +210,8 @@ fn run(path: &Path) -> anyhow::Result<()> {
     });
     let (tracking, chosen) = geometry?;
     let (source, label, source_digest) = source?;
-    if let Some(f) = &mut fingerprint {
-        f.add(label, &source_digest);
+    if let (Some(f), Some(d)) = (&mut fingerprint, source_digest) {
+        f.add(label, &d);
     }
     // ほかに入力が指すファイルはすべてここで読み、指紋に足す（足し忘れたファイルを変えても、古い途中の結果から続いてしまう）
     let mut read = |label: &str, file: &Path| -> anyhow::Result<Vec<u8>> {
@@ -301,11 +303,11 @@ fn run(path: &Path) -> anyhow::Result<()> {
         (Some(history), Source::Library(library)) => {
             let file = base.join(&history.file);
             let bytes = read("history", &file)?;
-            let read = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
+            let history_file = History::from_msgpack(&bytes).with_context(|| shown(&file))?;
             Some(
                 xlc_lattice::history::history_branches(
                     &input,
-                    &read,
+                    &history_file,
                     library,
                     &lattice,
                     &region_materials,
