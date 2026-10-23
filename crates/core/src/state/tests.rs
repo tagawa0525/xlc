@@ -613,3 +613,16 @@ fn negative_interpolated_cross_sections_are_errors() {
     // データの範囲の中なら通る
     assert!(interpolate(&t, Some(&at_burnup(12.0, 1300.0, 565.0, 900.0)), None).is_ok());
 }
+
+#[test]
+fn negative_interpolated_form_functions_name_the_burnup_points() {
+    // 形状関数の 1 つが 10 MWd/kg まで 0 で、そこから増える折れ線
+    let points: Vec<f64> = (1..=10).map(|i| 2.0 * f64::from(i)).collect();
+    let mut t = burnup_table_of(&points, |_| 1.0);
+    let per_burnup = t.states.len() / points.len();
+    for (i, s) in t.states.iter_mut().enumerate() {
+        s.pins.as_mut().unwrap().form[1][0][1] = 0.01 * (points[i / per_burnup] - 10.0).max(0.0);
+    }
+    let err = interpolate(&t, Some(&at_burnup(9.0, 1300.0, 565.0, 900.0)), None).unwrap_err();
+    assert!(err.contains("form") && err.contains("ADR-0192"), "{err}");
+}
