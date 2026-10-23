@@ -57,8 +57,12 @@ class LaunchableTest(unittest.TestCase):
         # 空き 5: a（4）を入れて残り 1、b（3）と d（2）は飛ばし、c（1）を入れる
         self.assertEqual(sr.launchable(queue, 5), [("a", 4), ("c", 1)])
 
-    def test_nothing_fits(self):
-        self.assertEqual(sr.launchable([("a", 4)], 3), [])
+    def test_when_nothing_fits_the_first_takes_the_free_threads(self):
+        # 空きを遊ばせない: 収まるものが無ければ、先頭を空きのスレッドの数で投入する
+        self.assertEqual(sr.launchable([("a", 4), ("b", 5)], 3), [("a", 3)])
+
+    def test_nothing_is_free(self):
+        self.assertEqual(sr.launchable([("a", 4)], 0), [])
 
 
 class DryRunTest(unittest.TestCase):
@@ -105,7 +109,7 @@ STATUS = {
         {"changed outs": {"examples/p/xs-nuclides/b.msgpack": "deleted"}},
     ],
     f"{YAML}:range": [{"changed deps": {"bin/xs": "modified"}}],
-    "dvc.yaml:build": [{"changed deps": {"crates": "modified"}}],
+    "build": [{"changed deps": {"crates": "modified"}}],
 }
 
 
@@ -113,7 +117,7 @@ class StatusTest(unittest.TestCase):
     def test_separates_the_group_from_upstream(self):
         group, others = sr.split_status(STATUS, YAML, "g")
         self.assertEqual(sorted(group), [f"{YAML}:g@a", f"{YAML}:g@b"])
-        self.assertEqual(sorted(others), ["dvc.yaml:build", f"{YAML}:range"])
+        self.assertEqual(sorted(others), ["build", f"{YAML}:range"])
 
     def test_collects_changed_dependency_paths(self):
         self.assertEqual(
@@ -347,9 +351,21 @@ class ExecuteTest(unittest.TestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(xs_pid, 0)
 
-    def test_stage_that_never_fits_is_an_error(self):
-        with self.assertRaises(sr.RunnerError):
-            sr.execute([("a", 3)], {"a": "./xs a 0"}, self.dir, 2, lambda done: None)
+    def test_stage_asking_more_than_the_budget_runs_with_the_budget(self):
+        failures = sr.execute(
+            [("a", 3)], {"a": "./xs a 0"}, self.dir, 2, lambda done: None
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual((self.dir / "a.out").read_text(), "2\n")
+
+    def test_stages_the_finish_handler_rejects_are_failures(self):
+        # finish が返したステージ（commit できなかったもの）は失敗として数え、新しいステージは投入しない
+        cmds = {"a": "./xs a 0", "b": "./xs b 0"}
+        failures = sr.execute(
+            [("a", 1), ("b", 1)], cmds, self.dir, 1, lambda done: [f.name for f in done]
+        )
+        self.assertEqual(failures, ["a"])
+        self.assertFalse((self.dir / "b.out").exists())
 
 
 # 偽の dvc: 自分の pid を書き、SIGTERM を受けたら got-term を書いて終わる。引数 fail なら 3 で終わる
@@ -403,7 +419,7 @@ class UpstreamTest(unittest.TestCase):
     def test_runs_upstream_until_only_the_group_is_changed(self):
         # build を実行すると xs-range が changed になる（dvc status は上流が出力を書き換えた後の下流を示さない）
         statuses = [
-            {"dvc.yaml:build": [], f"{YAML}:g@a": []},
+            {"build": [], f"{YAML}:g@a": []},
             {f"{YAML}:range": [], f"{YAML}:g@a": []},
             {f"{YAML}:g@a": [{"changed deps": {"bin/xs": "modified"}}]},
         ]
@@ -411,7 +427,7 @@ class UpstreamTest(unittest.TestCase):
         status = sr.settle_upstream(
             lambda: statuses.pop(0), repros.append, YAML, "g", lambda m: None
         )
-        self.assertEqual(repros, [["dvc.yaml:build"], [f"{YAML}:range"]])
+        self.assertEqual(repros, [["build"], [f"{YAML}:range"]])
         self.assertEqual(list(status), [f"{YAML}:g@a"])
 
     def test_upstream_that_stays_changed_is_an_error(self):
@@ -440,7 +456,73 @@ class StagesToRunTest(unittest.TestCase):
             sr.stages_to_run(group)
 
 
+class CommitTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "p").mkdir()
+        (self.root / "p" / "in.txt").write_text("1")
+        self.lock = self.root / "p" / "dvc.lock"
+        self.lock.write_text("schema: '2.0'\nstages:\n")
+        self.snapshot = sr.fingerprints(["p/in.txt"], self.root)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def fake_commit(self, dep="in.txt", fail=(), touch=False):
+        def commit(names):
+            if any(n in fail for n in names):
+                raise sr.RunnerError("commit failed")
+            with self.lock.open("a") as f:
+                for n in names:
+                    f.write(f"  {n}:\n    deps:\n    - path: {dep}\n      hash: md5\n")
+                    f.write(f"      md5: {'0' * 32}\n")
+            if touch:
+                mtime = (self.root / "p" / "in.txt").stat().st_mtime_ns + 10**9
+                os.utime(self.root / "p" / "in.txt", ns=(mtime, mtime))
+
+        return commit
+
+    def commit(self, names, commit):
+        return sr.commit_stages(
+            names, commit, self.lock, Path("p"), self.snapshot, self.root
+        )
+
+    def test_stage_that_cannot_be_committed_is_a_failure_and_the_rest_are_committed(
+        self,
+    ):
+        failed = self.commit(["a", "x", "b"], self.fake_commit(fail={"x"}))
+        self.assertEqual(failed, ["x"])
+        text = self.lock.read_text()
+        self.assertIn("  a:", text)
+        self.assertIn("  b:", text)
+        self.assertNotIn("  x:", text)
+
+    def test_deps_changed_while_committing_restores_the_lock(self):
+        before = self.lock.read_text()
+        with self.assertRaises(sr.RunnerError):
+            self.commit(["a"], self.fake_commit(touch=True))
+        self.assertEqual(self.lock.read_text(), before)
+
+    def test_unwatched_deps_in_the_lock_restore_the_lock(self):
+        before = self.lock.read_text()
+        with self.assertRaises(sr.RunnerError):
+            self.commit(["a"], self.fake_commit(dep="other.txt"))
+        self.assertEqual(self.lock.read_text(), before)
+
+    def test_deps_changed_before_committing_commits_nothing(self):
+        mtime = (self.root / "p" / "in.txt").stat().st_mtime_ns + 10**9
+        os.utime(self.root / "p" / "in.txt", ns=(mtime, mtime))
+        calls = []
+        with self.assertRaises(sr.RunnerError):
+            self.commit(["a"], calls.append)
+        self.assertEqual(calls, [])
+
+
 class ArgumentsTest(unittest.TestCase):
+    def test_dvc_yaml_outside_the_repository_is_an_error_not_a_traceback(self):
+        self.assertEqual(sr.main(["/nonexistent/dvc.yaml", "g", "--threads", "1"]), 1)
+
     def test_threads_must_be_positive(self):
         with self.assertRaises(SystemExit):
             sr.main(["examples/p/dvc.yaml", "g", "--threads", "0"])
