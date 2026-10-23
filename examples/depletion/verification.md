@@ -6,18 +6,19 @@
 格子計算の燃焼（[ADR-0173](../../docs/adr/0173-deplete-lattice-pins-by-ce-cm.md)）を、VERA 1C のピンセルで OpenMC の燃焼（`openmc.deplete`）と比べ、時間の内訳を測る
 （進め方の 5。「格子計算の燃焼」）。
 
-| ファイル                                           | 内容                                                                                                    |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `cases.toml`                                       | OpenMC と比べる燃焼行列（例示の PWR の燃料のチェーン、複素の固有値の環、硬いチェーン、300 核種の乱数）  |
-| `compare_openmc.py`                                | 同じ行列を OpenMC の `CRAM16`、`CRAM48` と xlc に与えて差を出す（references の devShell）               |
-| `../../crates/depletion/examples/deplete_text.rs`  | 行列を文字で受け取って `deplete` を呼ぶ（`compare_openmc.py` が呼ぶ）                                   |
-| `chain.toml`、`dvc.yaml`                           | 全核種のチェーン `chain.msgpack`（`bin/chain`）と OpenMC のチェーン `openmc-chain.xml` を作る段階       |
-| `compare_chain.py`                                 | 2 つのチェーンの核種、半減期、崩壊の分岐、反応、収率を比べる                                            |
-| `chain-cases.toml`、`compare_chain_depletion.py`   | 2 つのチェーンに同じ 1 群の反応率を与え、1 ステップを CRAM48 で解いて比べる                             |
-| `../../crates/depletion/examples/deplete_chain.rs` | チェーンと反応率から燃焼行列を組み立てて `deplete` を呼ぶ（`compare_chain_depletion.py` が呼ぶ）        |
-| `lattice-1C-rings1.toml`、`lattice-1C-rings4.toml` | xlc の格子計算の燃焼（VERA 1C、燃料 1 リングと 4 リング）。`lattice-2A.toml` は 2A の 1 ステップの時間  |
-| `openmc-library.toml`、`openmc_depletion.py`       | OpenMC のライブラリ（輸送する核種を xlc と揃える）と、OpenMC の燃焼（`openmc-1C-rings*.toml`）          |
-| `compare_depletion.py`                             | 2 つの燃焼の履歴を比べた要約（`compare-1C-rings*.json`）。記録の表は `../verification_tables.py` が描く |
+| ファイル                                           | 内容                                                                                                                   |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `cases.toml`                                       | OpenMC と比べる燃焼行列（例示の PWR の燃料のチェーン、複素の固有値の環、硬いチェーン、300 核種の乱数）                 |
+| `compare_openmc.py`                                | 同じ行列を OpenMC の `CRAM16`、`CRAM48` と xlc に与えて差を出す（references の devShell）                              |
+| `../../crates/depletion/examples/deplete_text.rs`  | 行列を文字で受け取って `deplete` を呼ぶ（`compare_openmc.py` が呼ぶ）                                                  |
+| `chain.toml`、`dvc.yaml`                           | 全核種のチェーン `chain.msgpack`（`bin/chain`）と OpenMC のチェーン `openmc-chain.xml` を作る段階                      |
+| `compare_chain.py`                                 | 2 つのチェーンの核種、半減期、崩壊の分岐、反応、収率を比べる                                                           |
+| `chain-cases.toml`、`compare_chain_depletion.py`   | 2 つのチェーンに同じ 1 群の反応率を与え、1 ステップを CRAM48 で解いて比べる                                            |
+| `../../crates/depletion/examples/deplete_chain.rs` | チェーンと反応率から燃焼行列を組み立てて `deplete` を呼ぶ（`compare_chain_depletion.py` が呼ぶ）                       |
+| `lattice-1C-rings1.toml`、`lattice-1C-rings4.toml` | xlc の格子計算の燃焼（VERA 1C、燃料 1 リングと 4 リング）。`lattice-2A.toml` は 2A の 1 ステップの時間                 |
+| `openmc-library.toml`、`openmc_depletion.py`       | OpenMC のライブラリ（輸送する核種を xlc と揃える）と、OpenMC の燃焼（`openmc-1C-rings*.toml`）                         |
+| `compare_depletion.py`                             | 2 つの燃焼の履歴を比べた要約（`compare-1C-rings*.json`）。記録の表は `../verification_tables.py` が描く                |
+| `branches/`                                        | 2A の燃焼の履歴の燃焼点からの分岐のテーブル（`branch-2A.toml`）と、それを内挿する core の集合体 1 体（`core-2A.toml`） |
 
 誤差と差は、絶対値の最大を初期の数密度の最大で割ったもの（ADR-0161 の「確認」）。
 
@@ -590,3 +591,49 @@ U-235 と U-238 の差は 0.0011% と 0.0002% 以下。Pu-239、Xe-135、Sm-149 
 
 区間に分けた AWS の実行（6 区間、再開なし）は、手元の分けない実行と、k が 0 の点を除く 6 点で 2σ 以内（合成 σ は 26〜30 pcm）に、
 数密度が 0.07% 以内にある。確認したのは再開 0 回の実行で、中断からの再開（`complete` のある最後の区間からの再開）は実機で確認していない。
+
+## 燃焼度の軸を持つテーブル（2A）
+
+燃焼度の軸を持つ分岐のテーブル（[ADR-0187](../../docs/adr/0187-tabulate-burnup-branches-from-history.md)）を、2A の燃焼の履歴（`p2/lattice-2A.msgpack`。「集合体の燃焼」の 2A の
+xlc、c4ad4583、md5 6272e937）から作り、集合体 1 体（反射境界）の core の k∞ が、各燃焼度の点で履歴の k∞ を再現するかを見る（計画の
+「進め方」7 の最初の確認の燃焼度版）。分岐は `branches/branch-2A.toml` の燃焼度 0、10、20、40 MWd/kg × ホウ素 1000、1300 ppm ×
+減速材 565 K（0.743 g/cc）× 燃料 565、600 K の 16 状態。core は公称の状態（1300 ppm、565 K）で、テーブルの燃焼度の点と、点の間の
+15、30 MWd/kg（どちらも履歴の燃焼点）を解く。反応度は ρ = 1 − 1/k。
+
+```sh
+cargo build --release -p xlc-lattice -p xlc-core
+cd examples/depletion/branches
+../../../target/release/lattice branch-2A.toml > branch-2A.out 2> branch-2A.log
+../../../target/release/core core-2A.toml > core-2A.out 2> core-2A.log
+```
+
+段階（`dvc.yaml`）にしていないのは、履歴（p2 の `lattice@2A`）を deps にすると、このブランチで lattice の実行ファイルが変わった
+ために履歴の段階（約 1 時間 41 分）が changed になり、目標を指定した `dvc repro` がそれを再実行するため（ADR-0184）。本番のテーブルの
+段階は ADR-0187 の形で作る。
+
+### 計算
+
+xlc の分岐と core は 7f3c9909（分岐点は main の 1f650c35）、2026-10-23（Slurm の排他のジョブ 469。`TIME:` の elapsed は 24 分 0 秒で、
+ビルドの 41 秒を含む）。分岐の 16 状態は 1 状態 78〜99 秒。テーブル `table-2A.msgpack` は md5 3ac7a83e（追跡しない生成物）。
+
+### 結果
+
+| 燃焼度 (MWd/kg) | 履歴の k∞  | 分岐の格子計算の k∞ | core の k∞ | 分岐 − 履歴 (pcm) | core − 分岐 (pcm) | core − 履歴 (pcm) |
+| --------------- | ---------- | ------------------- | ---------- | ----------------- | ----------------- | ----------------- |
+| 0               | 1.18283604 | 1.18283549          | 1.18283548 | −0.040            | −0.0006           | −0.040            |
+| 10              | 1.05502350 | 1.05502304          | 1.05502303 | −0.041            | −0.0010           | −0.042            |
+| 15              | 1.01327149 | （点の間）          | 1.01459370 |                   |                   | +128.6            |
+| 20              | 0.97447106 | 0.97447062          | 0.97447061 | −0.046            | −0.0012           | −0.047            |
+| 30              | 0.90372533 | （点の間）          | 0.91000265 |                   |                   | +763.3            |
+| 40              | 0.84397500 | 0.84397460          | 0.84397460 | −0.057            | +0.0001           | −0.056            |
+
+- テーブルの燃焼度の点では、core は分岐の格子計算の k∞ を 0.0012 pcm 以内で再現する（M3 の集合体 1 体の確認と同じ水準。
+  examples/branches/verification.md の格子点で 6 桁一致）。テーブルの内挿と燃焼度の軸の読み書きは k∞ を変えない
+- 公称の分岐と履歴の差は −0.040〜−0.057 pcm。候補は 2 つで、分けていない: 減速材の組成（分岐はホウ素を変えるため減速材を
+  ホウ酸水で書き、履歴の入力の 6 桁の数密度と相対で約 1e-6 違う。`branch-2A.toml` の説明）と、履歴（c4ad4583）の後の main の
+  lattice の変更（確かめていない）
+- 点の間の線形の内挿の誤差は、10 と 20 の中点の 15 MWd/kg で +129 pcm、20 と 40 の中点の 30 MWd/kg で +763 pcm。履歴の k∞ 自身を
+  同じ 2 点で線形に結んだ値との差は、30 MWd/kg で +669 pcm（k∞ の燃焼度に対する曲がり）。本番の燃焼度の点の間隔は、この誤差を
+  見て決める（ADR-0187）
+- 分岐の係数（core の燃焼度の点。テーブルの状態から）: 燃料 565 → 600 K は −84.6、−100.1、−117.5、−135.3 pcm（0、10、20、40 MWd/kg）、
+  ホウ素 1000 → 1300 ppm は −2504、−2487、−2712、−3317 pcm
