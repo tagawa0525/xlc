@@ -1,4 +1,4 @@
-# M1 の段階: ENDF → 温度と σ0 に依存する多群ライブラリ（xs）→ ピンセルの2群定数（lattice）と、燃料と減速材の温度を
+# M1 のステージ: ENDF → 温度と σ0 に依存する多群ライブラリ（xs）→ ピンセルの2群定数（lattice）と、燃料と減速材の温度を
 # 変えたピンセル（lattice-temperatures）。実行するのは `dvc repro`（ADR-0123）。deps の書き方は examples/m0/dvc.yaml と同じ。
 stages:
   xs:

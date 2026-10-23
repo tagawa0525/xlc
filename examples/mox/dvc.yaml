@@ -1,6 +1,6 @@
-# LWR MOX ピンセル（NEA）の段階: ENDF → 多群ライブラリ（xs）→ 格子計算（lattice-mox<N>）と燃料の実効断面積（fuel-xs-mox<N>）、
+# LWR MOX ピンセル（NEA）のステージ: ENDF → 多群ライブラリ（xs）→ 格子計算（lattice-mox<N>）と燃料の実効断面積（fuel-xs-mox<N>）、
 # OpenMC の参照解（openmc-mox<N>、openmc-mox<N>-extract）→ k の比較（compare-k-mox<N>）と捕獲・核分裂断面積の比較
-# （compare-capture-mox<N>）。OpenMC のライブラリとツールは examples/vera/dvc.yaml の段階の出力なので、先に
+# （compare-capture-mox<N>）。OpenMC のライブラリとツールは examples/vera/dvc.yaml のステージの出力なので、先に
 # `dvc checkout examples/vera/dvc.yaml` で戻す（ADR-0130）。実行するのは default の devShell の `dvc repro`（ADR-0123）。
 stages:
   xs:
@@ -73,7 +73,7 @@ stages:
     outs:
       - openmc-mox1-model
   openmc-mox1:
-    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml の段階の出力
+    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml のステージの出力
     # （ADR-0130）。ライブラリはディレクトリ全体を deps にする。スクリプトを deps にしない（ADR-0136）。入力は、このスクリプトが
     # 読むライブラリのパスとスレッド数だけを params にする
     cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox1.toml openmc-mox1-model openmc-mox1
@@ -175,7 +175,7 @@ stages:
     outs:
       - openmc-mox2-model
   openmc-mox2:
-    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml の段階の出力
+    # ライブラリ（examples/vera/openmc-library）とツール（references-shell.txt）は examples/vera/dvc.yaml のステージの出力
     # （ADR-0130）。ライブラリはディレクトリ全体を deps にする。スクリプトを deps にしない（ADR-0136）。入力は、このスクリプトが
     # 読むライブラリのパスとスレッド数だけを params にする
     cmd: nix develop ../..#references -c python3 openmc_model.py run openmc-mox2.toml openmc-mox2-model openmc-mox2

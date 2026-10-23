@@ -12,7 +12,7 @@
   (xlc / OpenMC − 1) の、核分裂する物質（燃料と Gd 燃料のリング）のある組の rms と、絶対値が最大の組の差、位置（組のうち上の行から
   最初のセルの [行, 列]、0 から）、その組の OpenMC の統計誤差、燃焼する吸収体だけのセルの OpenMC の核分裂の絶対値の最大
   `absorber_max`。ADR-0181）を書く。OpenMC のピン出力は、核分裂する物質のあるセルの平均で 1 に割り直してから比べる。xlc の燃焼の領域と OpenMC の物質は、並びの順に対応させる（種類と体積で確かめる）。
-  `inputs` は読んだファイルのパス（段階の cwd から）と md5。時間の内訳（xlc の履歴の `seconds`、OpenMC の輸送ごとの時間と CRAM の
+  `inputs` は読んだファイルのパス（ステージの cwd から）と md5。時間の内訳（xlc の履歴の `seconds`、OpenMC の輸送ごとの時間と CRAM の
   時間）もコピーする。AWS の機種はまちまちなので、OpenMC の時間は xlc との時間の比較に使わない（ADR-0174）
 - `--report`: 要約の JSON を文章で描く（記録の本文の数値はここからコピーする。ADR-0176）
 """
@@ -440,7 +440,7 @@ def main() -> None:
         xlc, omc = (msgpack.unpackb(f.read_bytes()) for f in files)
         summary = {
             "format": "xlc-compare-depletion-assembly",
-            # 読んだファイルのパス（段階の cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
+            # 読んだファイルのパス（ステージの cwd から）と md5。dvc.lock の deps と一致する（record_provenance.py が照合する）
             "inputs": [
                 {"path": str(f), "md5": hashlib.md5(f.read_bytes()).hexdigest()}
                 for f in files

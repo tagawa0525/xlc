@@ -1,7 +1,7 @@
 """Problem 3 と 5-2D の参照解（vera の openmc_model_3d.py、openmc_core_2d.py）の、途中の statepoint と再開。
 
-長い実行を、中断されうる計算機（スポットの VM）で流すための部品。openmc_run.py と分けるのは、段階（DVC）の deps に
-入る openmc_run.py を変えず、problem 1、2 の段階を古くしないため。
+長い実行を、中断されうる計算機（スポットの VM）で流すための部品。openmc_run.py と分けるのは、ステージ（DVC）の deps に
+入る openmc_run.py を変えず、problem 1、2 のステージを古くしないため。
 
 - 入力の `statepoint-interval`（世代数）を書くと、その間隔と最後の世代で statepoint を書く。書かなければ最後の世代だけ
   （OpenMC の動作）。古い statepoint は、最新の `KEEP` 個を残して消す

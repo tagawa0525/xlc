@@ -1,6 +1,6 @@
 """OpenMC の `Chain.from_endf` で、xlc の全核種のチェーン（ADR-0164）と同じ ENDF/B-VIII.0 の decay、nfy、neutrons からチェーンを作る。
 
-使い方（references の devShell で。dvc.yaml の openmc-chain の段階が呼ぶ）:
+使い方（references の devShell で。dvc.yaml の openmc-chain のステージが呼ぶ）:
 
     python3 openmc_chain.py <ENDF の根（ENDF-B-VIII.0_* の親）> <出力の XML>
 

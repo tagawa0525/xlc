@@ -1,6 +1,6 @@
 """OpenMC の参照解のスクリプトが入力の TOML を読む部品。
 
-核種ごとのライブラリの段階（openmc_library.py）が、モデルの部品（openmc_common.py）の変更で再実行しないよう、
+核種ごとのライブラリのステージ（openmc_library.py）が、モデルの部品（openmc_common.py）の変更で再実行しないよう、
 入力を読む部分だけを分ける（ADR-0136）。
 """
 
