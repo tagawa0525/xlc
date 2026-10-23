@@ -718,7 +718,8 @@ def aws_depletion_densities(sources: list[dict]) -> str:
 
 
 def core_depletion_k(sources: list[dict]) -> str:
-    """core の燃焼（集合体 1 体）: 燃焼点ごとの格子計算の履歴と core の k∞ と反応度の差（core − 履歴。ADR-0190）"""
+    """core の燃焼（集合体 1 体）: 燃焼点ごとの格子計算の履歴と core の k∞ と反応度の差（core − 履歴。ADR-0190）と、テーブルの点の
+    分岐の格子計算との反応度の差（core − 分岐）"""
     (s,) = sources
     if s.get("format") != "xlc-compare-core-depletion":
         raise TableError("not an xlc-compare-core-depletion summary")
@@ -730,6 +731,7 @@ def core_depletion_k(sources: list[dict]) -> str:
             f"{p['history_k']:.8f}",
             f"{p['k']:.8f}",
             signed(p["rho_pcm"], 3),
+            "" if p["branch_rho_pcm"] is None else signed(p["branch_rho_pcm"], 4),
         ]
         for p in s["points"]
     ]
@@ -741,6 +743,7 @@ def core_depletion_k(sources: list[dict]) -> str:
             "履歴の k∞",
             "core の k∞",
             "core − 履歴 (pcm)",
+            "core − 分岐 (pcm)",
         ],
         rows,
     )
