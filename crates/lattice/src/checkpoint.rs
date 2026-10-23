@@ -129,7 +129,16 @@ impl Checkpoint {
                 self.shown()
             );
         }
-        Ok(Some(file))
+        match (&file.depletion, &file.states) {
+            (Some(_), Some(_)) => {
+                bail!("{}: holds both a depletion and branch states", self.shown())
+            }
+            (None, None) => bail!(
+                "{}: holds neither a depletion nor branch states",
+                self.shown()
+            ),
+            _ => Ok(Some(file)),
+        }
     }
 
     /// 一時ファイルに書いて `fsync` し、rename で置き換える（殺されても、ノードが止まっても、前の版か新しい版が残る）
@@ -281,12 +290,13 @@ fn few_group(value: rmpv::Value) -> anyhow::Result<FewGroup> {
     }
 }
 
-/// 分岐の `count` 個の状態を順に解く。`checkpoint` があれば、書いてある状態を `restored` に渡して使い、続きの状態から `solve`
+/// 分岐の `count` 個の状態を順に解く。`checkpoint` があれば、書いてある状態を `restored` に渡して（今の実行の出力に合わなければ
+/// `restored` がエラーを返し、残りの状態を解く前に止まる）使い、続きの状態から `solve`
 /// で解いて、状態を解き終えるたびに書く
 pub fn solve_states(
     count: usize,
     checkpoint: Option<&Checkpoint>,
-    mut restored: impl FnMut(usize, &SavedState),
+    mut restored: impl FnMut(usize, &SavedState) -> anyhow::Result<()>,
     mut solve: impl FnMut(usize) -> anyhow::Result<SavedState>,
 ) -> anyhow::Result<Vec<SavedState>> {
     let mut states = match checkpoint {
@@ -308,7 +318,12 @@ pub fn solve_states(
         );
     }
     for (state, saved) in states.iter().enumerate() {
-        restored(state, saved);
+        restored(state, saved).with_context(|| {
+            format!(
+                "{}: state {state}",
+                checkpoint.map_or_else(String::new, Checkpoint::shown)
+            )
+        })?;
     }
     for state in states.len()..count {
         states.push(solve(state)?);

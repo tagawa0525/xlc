@@ -1414,7 +1414,10 @@ pub(crate) fn run_with_moc(
                 bail!("the resumed history does not match the regions and nuclides of this run");
             }
             let done = history.points.len();
-            let Some(&h) = steps.get(done.wrapping_sub(1)) else {
+            let Some(last) = done.checked_sub(1) else {
+                bail!("the resumed history has no points");
+            };
+            let Some(&h) = steps.get(last) else {
                 bail!(
                     "the resumed history has {done} points and no step left of {}",
                     steps.len()
@@ -1428,7 +1431,7 @@ pub(crate) fn run_with_moc(
             {
                 bail!("the resumed history has other burnups than this run");
             }
-            let time = history.points[done - 1].time + h;
+            let time = history.points[last].time + h;
             tracing::info!(points = done, "resuming after the saved points");
             (
                 history,

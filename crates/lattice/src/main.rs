@@ -595,12 +595,32 @@ fn run(path: &Path) -> anyhow::Result<()> {
             medium,
         })
     };
-    let states = solve_states(
-        count,
-        checkpoint.as_ref(),
-        |state, saved| report(state, saved.k),
-        solve,
-    )?;
+    // 書いてある状態は、今の実行の出力（出力のファイルの数、部分ノードの数、媒質の有無）と合うものだけ使う
+    let shape: Vec<usize> = match &input.output {
+        Some(FewGroupOutput {
+            files: FewGroupFiles::Lattice(_),
+            split,
+            ..
+        }) => vec![split * split],
+        Some(FewGroupOutput {
+            files: FewGroupFiles::Nodes(entries),
+            ..
+        }) => vec![1; entries.len()],
+        None => Vec::new(),
+    };
+    let fits = |state: usize, saved: &SavedState| -> anyhow::Result<()> {
+        let saved_shape: Vec<usize> = saved.outputs.iter().map(Vec::len).collect();
+        if saved_shape != shape || saved.medium.is_some() != input.medium.is_some() {
+            return Err(anyhow!(
+                "the saved outputs {saved_shape:?} (medium {}) do not fit this run's {shape:?} (medium {})",
+                saved.medium.is_some(),
+                input.medium.is_some()
+            ));
+        }
+        report(state, saved.k);
+        Ok(())
+    };
+    let states = solve_states(count, checkpoint.as_ref(), fits, solve)?;
     let (per_state, written): (Vec<Vec<Vec<FewGroup>>>, Vec<_>) =
         states.into_iter().map(|s| (s.outputs, s.medium)).unzip();
     let written: Vec<MediumState> = written.into_iter().flatten().collect();
