@@ -777,10 +777,6 @@ class DrawAssemblyDepletion(unittest.TestCase):
                 draw([{"format": "xlc-compare-depletion"}])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class DrawCoreDepletion(unittest.TestCase):
     def summary(self) -> dict:
         """compare_core_depletion.py の要約（テーブルの点 1 つと点の間 1 つ）"""
@@ -830,3 +826,7 @@ class DrawCoreDepletion(unittest.TestCase):
         (sources, draw) = vt.TABLES["depletion-2a-core-k"]
         self.assertIs(draw, vt.core_depletion_k)
         self.assertTrue(set(sources) <= vt.GIT_TRACKED)
+
+
+if __name__ == "__main__":
+    unittest.main()
