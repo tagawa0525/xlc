@@ -205,7 +205,7 @@ ADR-0187 の、変える範囲を lattice の外に出さない方針との関�
 - テーブルの質量（crates/format/src/table/tests.rs）: `heavy_metal_round_trips_and_is_written_only_when_held`、
   `heavy_metal_must_be_positive`。lattice（crates/lattice/src/history/tests.rs）: `history_branches_carry_the_initial_heavy_metal_mass`。制御棒のテーブルの結合（examples/core/test_rod_table.py）:
   `test_tables_with_other_heavy_metal_masses_are_errors`
-- 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼（2A の集合体 1 体）」、分岐は bc69167a、core は a19d6eca、
+- 2A の集合体 1 体（examples/depletion/verification.md の「core の燃焼（2A の集合体 1 体）」、分岐は a8f03866、core は 7098586a、
   2026-10-23）: 履歴の 40 点をステップにして、燃焼度は履歴と相対 2.2e-16 以内、テーブルの 17 点で分岐の格子計算の k∞ を 0.0008 pcm
   以内（履歴とは 0.0639 pcm 以内）で再現した。点の間の内挿の誤差は −32.8〜+179.7 pcm。テーブルの質量 1258.0981395709794 g/cm は、
   チェーンの Z で選んだ重金属の質量（格子計算の燃焼と同じ式）とビットで一致した

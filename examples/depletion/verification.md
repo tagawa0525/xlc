@@ -670,9 +670,9 @@ python3 examples/depletion/compare_core_depletion.py --json examples/depletion/b
 
 ### 計算
 
-分岐の格子計算は bc69167a（lattice、format、depletion のクレートは 2e7e43fd から変えていない。分岐点は main の 437a5e51）、2026-10-23
+分岐の格子計算は a8f03866（lattice、format、depletion のクレートは bf8448db から変えていない。分岐点は main の 437a5e51）、2026-10-23
 （Slurm の排他のジョブ 477。`TIME:` の elapsed は 1 時間 26 分 17 秒で、ビルドの 31 秒を含む）。68 状態は 1 状態 78 秒程度（ログの最後の
-状態で 77.8 秒）。テーブル `table-2A-fine.msgpack` は md5 e0f66326（追跡しない生成物）。core と比較は a19d6eca（分岐点は同じ）、2026-10-23
+状態で 77.8 秒）。テーブル `table-2A-fine.msgpack` は md5 e0f66326（追跡しない生成物）。core と比較は 7098586a（分岐点は同じ）、2026-10-23
 （手元。core の 2 ケースは 1 秒未満）。
 
 テーブルの初めの重金属の質量は 1258.0981395709794 g/cm。履歴の燃焼度 0 の数密度と燃焼の領域の体積から、チェーンの Z（≥ 90）と
