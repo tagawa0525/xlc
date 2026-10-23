@@ -251,18 +251,11 @@ struct StateFile {
     vacuum_ratio: Vec<Option<Vec<f64>>>,
     normalized_adf: Vec<bool>,
     /// nil を書いても、キーは省けない（ADR-0129）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
     height: Option<f64>,
     /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
-    #[serde(deserialize_with = "nil_or")]
+    #[serde(deserialize_with = "crate::msgpack::nil_or")]
     pins: Option<PinsFile>,
-}
-
-/// nil を `None` に読み、キーの欠けはエラーにする（ADR-0129）
-fn nil_or<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
-    d: D,
-) -> Result<Option<T>, D::Error> {
-    Option::deserialize(d)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
