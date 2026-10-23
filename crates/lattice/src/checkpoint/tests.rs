@@ -316,7 +316,8 @@ fn a_checkpoint_needs_exactly_one_kind() {
             states: Vec::new(),
             starts: StartsFile {
                 state: 0,
-                saved: Vec::new(),
+                solutions: Vec::new(),
+                slots: Vec::new(),
             },
         }),
         ..checkpoint.file()
@@ -347,5 +348,49 @@ fn the_last_state_is_not_saved() {
     .unwrap();
     assert_eq!(saved_before, vec![0, 1, 2]);
     assert_eq!(checkpoint.states::<f64>(&[3]).unwrap().0.len(), 2);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_solution_shared_by_axes_is_written_once() {
+    // 状態 0 の解は、すべての軸の次の状態が始める解になる。軸の数だけ書かない
+    let dir = scratch("shared");
+    let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
+    let counts = [2, 2, 2];
+    checkpoint
+        .save_states(&states(1), &starts_after(&counts, 1))
+        .unwrap();
+    let bytes = std::fs::read(checkpoint.path()).unwrap();
+    let file: CheckpointFile = msgpack::from_value(msgpack::read_value(&bytes).unwrap()).unwrap();
+    let starts = file.states.unwrap().starts;
+    assert_eq!(starts.solutions.len(), 1);
+    assert_eq!(starts.slots, vec![Some(0), Some(0), Some(0)]);
+    let (_, mut read) = checkpoint.states::<f64>(&counts).unwrap();
+    let mut straight = starts_after(&counts, 1);
+    for state in 1..8 {
+        assert_eq!(read.start(), straight.start(), "state {state}");
+        read.solved(state as f64 + 0.5);
+        straight.solved(state as f64 + 0.5);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_missing_start_of_the_next_state_is_an_error() {
+    // 状態 1 は状態 0 の解から始める。書いた解がなければ、平らな初期値から黙って始めずに止める
+    let dir = scratch("missing-start");
+    let checkpoint = Checkpoint::new(dir.join("a.checkpoint"), "f".into());
+    checkpoint
+        .save_states(&states(1), &starts_after(&[2], 1))
+        .unwrap();
+    let bytes = std::fs::read(checkpoint.path()).unwrap();
+    let mut file: CheckpointFile =
+        msgpack::from_value(msgpack::read_value(&bytes).unwrap()).unwrap();
+    let starts = &mut file.states.as_mut().unwrap().starts;
+    starts.slots = vec![None];
+    starts.solutions.clear();
+    checkpoint.write(&file).unwrap();
+    let error = format!("{:#}", checkpoint.states::<f64>(&[2]).unwrap_err());
+    assert!(error.contains("no start"), "{error}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
