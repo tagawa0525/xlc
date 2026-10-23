@@ -73,7 +73,7 @@ S1、M1 にする。
   群定数の散乱行列の補正が丸めで 1 にならないライブラリでも、F1 と相対 1e-12 で同じ）、
   `step_start_shielding_keeps_the_start_cross_sections_at_the_midpoint`（U-238 の捕獲が σ0 に依るライブラリで、F1 と最初の点だけが
   ビットで同じで、進めた点は違う）
-- 集合体（examples/depletion/verification.md の「集合体の燃焼」の「自己遮蔽の頻度（#0134）」。abc594b0、2026-10-24、Slurm 509、
+- 集合体（examples/depletion/verification.md の「集合体の燃焼」の「自己遮蔽の頻度（#0134）」。86da0230、2026-10-24、Slurm 509、
   512、515）: 2A と 2O の 0〜60 MWd/kg で、F2 の F1 からの k∞ の差は、最初のステップ（0.1 MWd/kg）で +8.5 pcm（2A）、+7.2 pcm（2O）、
   2 点目から 16 MWd/kg までは −2.2〜+0.3 pcm、長いステップで広がり 60 MWd/kg で −17.9 pcm（2A。4 MWd/kg のステップ）、−10.4 pcm
   （2O。2 MWd/kg のステップ）。最初のステップの差は、同じコミットの F1（2A の最初の 10 点）と比べても +8.5 pcm。3.5 MWd/kg より先の
