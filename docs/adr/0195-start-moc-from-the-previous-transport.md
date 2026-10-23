@@ -93,7 +93,7 @@ Q2、D1、B2、C2、I2 にする。
 - `moc::tests::a_warm_start_at_the_solution_still_sweeps_twice`: 解そのものから始めても 2 回の反復で判定する（C2）
 - `moc::tests::rejects_a_start_from_another_tracking`: 別のトラッキングの `Start` は `ForeignStart`
 - `branches::tests::each_state_starts_from_one_step_back_on_its_last_moved_axis`: B2 の状態の選び方
-- 2A（examples/depletion/verification.md の「集合体の燃焼」の「時間」。496611d8、2026-10-23、Slurm 494）: 最初の 10 点（輸送 21 回）の
+- 2A（examples/depletion/verification.md の「集合体の燃焼」の「時間」。008a9e03、2026-10-23、Slurm 494）: 最初の 10 点（輸送 21 回）の
   MOC の反復は 2 回目の輸送から 17、13、11 回…（和 253 回）、MOC の時間の和は 157.4 秒（平らな初期値から）から 83.8 秒。k∞ の差は
   最大 1.3e-7、数密度の差は相対 1e-6 以下。分岐（燃焼度 6 点 × 燃料の温度 2）の MOC の反復は、燃料の温度の隣から 10 回、燃焼度の
   隣（2〜20 MWd/kg の間隔）から 17〜18 回（平らな初期値から 24〜25 回）、k∞ の差は最大 5.4e-8
