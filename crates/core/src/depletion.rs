@@ -193,7 +193,7 @@ fn locate(error: CaseError, at: &dyn Fn() -> String) -> CaseError {
         CaseError::Input(_) | CaseError::At { .. } => error,
         e => CaseError::At {
             at: at(),
-            source: Box::new(e),
+            cause: Box::new(e),
         },
     }
 }
@@ -381,17 +381,15 @@ pub fn deplete(
         );
         points.push(point);
     }
+    let (boron, search) = match state.boron {
+        Boron::Given(ppm) => (Some(ppm), None),
+        Boron::Search(search) => (None, Some(search)),
+    };
     Ok(CoreHistory {
         specific_power: depletion.specific_power,
         state: CoreState {
-            boron: match state.boron {
-                Boron::Given(ppm) => Some(ppm),
-                Boron::Search(_) => None,
-            },
-            search: match state.boron {
-                Boron::Given(_) => None,
-                Boron::Search(search) => Some(search),
-            },
+            boron,
+            search,
             b10: state.b10,
             moderator: state.moderator,
             fuel: state.fuel,
