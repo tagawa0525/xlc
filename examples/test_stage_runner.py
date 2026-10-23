@@ -359,13 +359,18 @@ class ExecuteTest(unittest.TestCase):
         self.assertEqual((self.dir / "a.out").read_text(), "2\n")
 
     def test_stages_the_finish_handler_rejects_are_failures(self):
-        # finish が返したステージ（commit できなかったもの）は失敗として数え、新しいステージは投入しない
-        cmds = {"a": "./xs a 0", "b": "./xs b 0"}
+        # finish が返したステージ（commit できなかったもの）は失敗として数え、その後は投入しない。b は a の commit の前に
+        # 空いたスレッドへ投入済み
+        cmds = {"a": "./xs a 0", "b": "./xs b 0", "c": "./xs c 0"}
         failures = sr.execute(
-            [("a", 1), ("b", 1)], cmds, self.dir, 1, lambda done: [f.name for f in done]
+            [("a", 1), ("b", 1), ("c", 1)],
+            cmds,
+            self.dir,
+            1,
+            lambda done: [f.name for f in done],
         )
-        self.assertEqual(failures, ["a"])
-        self.assertFalse((self.dir / "b.out").exists())
+        self.assertEqual(failures, ["a", "b"])
+        self.assertFalse((self.dir / "c.out").exists())
 
 
 # 偽の dvc: 自分の pid を書き、SIGTERM を受けたら got-term を書いて終わる。引数 fail なら 3 で終わる
