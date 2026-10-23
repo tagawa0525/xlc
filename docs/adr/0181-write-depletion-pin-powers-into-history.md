@@ -4,7 +4,7 @@ date: 2026-10-22
 requires: [ADR-0096, ADR-0173, ADR-0176, ADR-0178]
 supersedes: []
 superseded-by:
-issues: ["#0135", "#0146"]
+issues: ["#0135", "#0146", "#0159"]
 ---
 
 # ADR-0181: 格子計算の燃焼の燃焼点ごとのピン出力を、燃焼の履歴の各点に書く
