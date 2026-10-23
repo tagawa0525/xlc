@@ -169,17 +169,17 @@ fn run(path: &Path) -> anyhow::Result<()> {
         })
     };
     // ライブラリの復号は 1 つのスレッドで進むので、別のスレッドで読み、トラッキングと対称操作の判定に重ねる。どちらも
-    // 失敗したときは、トラッキングと対称操作のエラーを先に返す（重ねないときと同じ順）
+    // 失敗したときは、トラッキングと対称操作のエラーを先に返す。読むスレッドの panic は、そのまま呼び出し側で続ける
     let (geometry, source) = std::thread::scope(|scope| {
         let reader = scope.spawn(|| tracing::debug_span!("library").in_scope(load));
         let geometry = track_and_choose();
         let source = reader
             .join()
-            .map_err(|_| anyhow!("reading the cross sections panicked"));
+            .unwrap_or_else(|payload| std::panic::resume_unwind(payload));
         (geometry, source)
     });
     let (tracking, chosen) = geometry?;
-    let source = source??;
+    let source = source?;
     // 物質の一覧と、領域ごとのその番号
     let by_name = |mut named: Vec<(String, Material)>,
                    groups: usize|
