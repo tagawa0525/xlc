@@ -415,7 +415,7 @@ RUST_LOG=info,xlc_lattice::cmfd=debug ../../../target/release/lattice branch-2A-
 python3 compare_warm_start.py table ../branches/table-2A-fine.msgpack table-2A-6.msgpack
 ```
 
-70 点（輸送 141 回）の 2O、2P、2M の経過時間は 2O 1 時間 8 分 55 秒（Slurm 468、ee9d2fdd）、2P 1 時間 17 分 7 秒（Slurm 474）、
+71 点（輸送 141 回）の 2O、2P、2M の経過時間は 2O 1 時間 8 分 55 秒（Slurm 468、ee9d2fdd）、2P 1 時間 17 分 7 秒（Slurm 474）、
 2M 2 時間 58 分 12 秒（Slurm 480。2P と 2M は 2ff103e1、分岐点は main の 1f650c35、2026-10-23）。xlc の履歴の `seconds` の和は 2O 4,081 秒、
 2P 4,575 秒、2M 10,638 秒で、1 回の輸送の自己遮蔽は 2O 20.4 秒、2P 24.1 秒、2M 67.0 秒、MOC は 7.6〜7.9 秒。2M は 2N と同じく IFBA の
 ピンで格子点ごとに衝突確率を求め（輸送 1 回あたり 19 本ほど）、自己遮蔽が長い。2M は OpenMC の参照解の完了待ち（AWS のジョブが
@@ -1379,7 +1379,7 @@ rms は 0.065〜0.184%（OpenMC の統計誤差の rms 0.066〜0.069%）で、20
 
 Gd 燃料（1.8% 濃縮、5% Gd2O3）24 本の集合体（仕様書の表 P2-1、図 P2-2）。燃焼のさせ方は 2O と同じで、Gd 燃料のピンは等しい面積の
 8 リングで燃焼させ、燃焼度は 0〜60 MWd/kg の 71 点（輸送 141 回）。xlc の格子は 2ff103e1（分岐点は main の 1f650c35）、2026-10-23
-（Slurm の排他のジョブ 474。`TIME:` の elapsed は 1 時間 17 分 7 秒）、比較は cf6a678a、2026-10-23。比較の入力は `lattice-2P.msgpack`
+（Slurm の排他のジョブ 474。`TIME:` の elapsed は 1 時間 17 分 7 秒）、比較は 2ff103e1（分岐点は同じ。`dvc.lock` は cf6a678a）、2026-10-23。比較の入力は `lattice-2P.msgpack`
 md5 b21d412c、`openmc-2P.msgpack` md5 09d5b5b8。両方で同じ 90 核種を輸送する。xlc の時間（輸送 141 回）は自己遮蔽 3,401.2 秒
 （1 回 24.1 秒）、MOC 1,066.1 秒、反応率と規格化 76.00 秒、燃焼行列 10.99 秒、CRAM48 20.39 秒（`--report`）。
 
