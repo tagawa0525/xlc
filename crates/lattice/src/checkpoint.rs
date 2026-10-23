@@ -89,18 +89,7 @@ struct StateFile {
     outputs: Vec<Vec<rmpv::Value>>,
     /// nil を書いても、キーは省けない（`deserialize_with` を付けると、serde は省いた `Option` を `None` にしない）
     #[serde(deserialize_with = "xlc_format::msgpack::nil_or")]
-    medium: Option<MediumFile>,
-}
-
-/// 媒質の 1 つの状態（`xlc-medium` の状態と同じ項目）
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MediumFile {
-    total: Vec<f64>,
-    scatter: Vec<Vec<Vec<f64>>>,
-    fission: Vec<f64>,
-    nu_fission: Vec<f64>,
-    chi: Vec<f64>,
+    medium: Option<MediumState>,
 }
 
 impl Checkpoint {
@@ -223,18 +212,11 @@ impl Checkpoint {
                     .into_iter()
                     .map(|subs| subs.into_iter().map(few_group).collect())
                     .collect::<anyhow::Result<Vec<Vec<FewGroup>>>>();
-                let medium = s.medium.map(|m| MediumState {
-                    total: m.total,
-                    scatter: m.scatter,
-                    fission: m.fission,
-                    nu_fission: m.nu_fission,
-                    chi: m.chi,
-                });
                 let outputs = outputs.with_context(|| format!("{}: state {i}", self.shown()))?;
                 Ok(SavedState {
                     k: s.k,
                     outputs,
-                    medium,
+                    medium: s.medium,
                 })
             })
             .collect()
@@ -258,17 +240,10 @@ impl Checkpoint {
                             .collect::<anyhow::Result<_>>()
                     })
                     .collect::<anyhow::Result<_>>()?;
-                let medium = s.medium.as_ref().map(|m| MediumFile {
-                    total: m.total.clone(),
-                    scatter: m.scatter.clone(),
-                    fission: m.fission.clone(),
-                    nu_fission: m.nu_fission.clone(),
-                    chi: m.chi.clone(),
-                });
                 Ok(StateFile {
                     k: s.k,
                     outputs,
-                    medium,
+                    medium: s.medium.clone(),
                 })
             })
             .collect::<anyhow::Result<_>>()?;
