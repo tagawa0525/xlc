@@ -1104,7 +1104,8 @@ pub enum Boron {
     Search(BoronSearch),
 }
 
-/// k が目標になるホウ素濃度の探索（ADR-0145）。燃焼の履歴には入力と同じ名前で書く（ADR-0191）
+/// k が目標になるホウ素濃度の探索（ADR-0145）。燃焼の履歴には `{boron, k, tolerance, max_solves}` で書く（ADR-0191。
+/// 履歴のほかの項目と同じく snake_case）
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BoronSearch {
